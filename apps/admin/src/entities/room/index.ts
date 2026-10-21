@@ -65,6 +65,16 @@ export {
   roomMaxPeopleOf,
   totalLimitOf,
 } from './model/roomConfig';
+export { getBannedWords, saveBannedWords, useBannedWords, useRefreshBannedWords } from './api/bannedWords';
+export {
+  BANNED_WORD_MAX_LEN,
+  BANNED_WORDS_MAX,
+  BANNED_WORDS_PATH,
+  bannedWordsDetail,
+  parseBannedInput,
+  parseBannedWords,
+  type BannedWordsInput,
+} from './model/bannedWords';
 export { getChatKeep, saveChatKeep, useChatKeep, useRefreshChatKeep } from './api/chatKeep';
 export {
   CHAT_KEEP_DEFAULT,

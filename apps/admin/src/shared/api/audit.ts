@@ -44,6 +44,7 @@ export const AUDIT_ACTIONS = [
   'roomServer.default',
   'settings.minAppVer',
   'settings.bugDailyMax',
+  'settings.bannedWords',
   'settings.chatKeepDays',
   'settings.roomLimits',
   'settings.roomMaxPeople',
