@@ -580,7 +580,8 @@ function _srFmtDate(ms){
   const p = n => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
-/* 🔒 F1 «멀티모드» 탭의 시크릿룸 칸 — 내 시크릿룸이 있으면 펼치고 코드를 채워 둔다(입장 한 번).
+/* 🔒 F1 «멀티모드» 탭의 시크릿룸 칸 — 내 시크릿룸이 있으면 펼치고 코드를 채워 둔다(입장 한 번 · 손님 수는 안 읽는다).
+   자주 불리지만(refreshInviteUI) 판정은 세션에 한 번 기억된 값이라 읽기가 늘지 않는다.
    «내 시크릿룸» 판정(pub.owner 가 나 · 만료 전)은 로비와 같은 한 곳(room-lobby-provider.js mySecretRoom)을 쓴다.
    코드를 공유받은 친구는 칸이 안 보여도 된다 — COZY 칸에 «1234*» 로 넣으면 시크릿룸으로 간다. */
 function _refreshSecretRoomUI(){

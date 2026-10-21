@@ -27,7 +27,7 @@ async function listRooms(channel){
   return api().getRoomLobby(channel);
 }
 
-/* 내 시크릿룸 «누구 것인가» 는 세션에 한 번만 읽는다(계정이 바뀌면 다시) — 손님 수만 열 때마다 읽는다.
+/* 내 시크릿룸 «누구 것인가» 는 세션에 한 번만 읽는다(계정이 바뀌면 다시) — 손님 수는 따로(secretGuests · 로비 줄만 부른다).
    발급 칸(users/{나}/secretRoom)은 «마지막으로 받은 코드» 라 소유의 증거가 아니다 — pub.owner 가 나일 때만 내 것. */
 let owned = null;   // { uid, p: Promise<{ code, pub }|null> }
 async function readOwned(uid){
@@ -38,7 +38,7 @@ async function readOwned(uid){
   return (pub && pub.owner === uid) ? { code: full, pub } : null;
 }
 
-/** 내 시크릿룸 — { code, name, guests } 또는 null(없음 · 남의 코드 · 만료). guests 는 방장(나)을 뺀 손님 수 · 못 읽으면 null. */
+/** 내 시크릿룸 — { code, name } 또는 null(없음 · 남의 코드 · 만료). 첫 번 뒤로는 읽기 없음. */
 async function mySecretRoom(){
   const uid = myUserId();
   if(!uid) return null;
@@ -50,12 +50,18 @@ async function mySecretRoom(){
   const o = await owned.p;
   if(!o) return null;
   if(typeof o.pub.exp === 'number' && o.pub.exp <= now()) return null;
-  const e = await api().checkSecretRoomEntry(o.code, uid);
-  const guests = (e && typeof e.count === 'number') ? Math.max(0, e.count - (e.ownerIn ? 1 : 0)) : null;
-  return { code: o.code, name: (typeof o.pub.name === 'string' && o.pub.name) ? o.pub.name : '내 시크릿룸', guests };
+  return { code: o.code, name: (typeof o.pub.name === 'string' && o.pub.name) ? o.pub.name : '내 시크릿룸' };
 }
 
-return { listRooms, mySecretRoom };
+/** 내 시크릿룸 손님 수 — 방장(나)을 뺀다(입장 검사와 같은 셈) · 못 읽으면 null. 방 멤버를 읽으니 로비 줄을 그릴 때만 부른다. */
+async function secretGuests(code){
+  const uid = myUserId();
+  if(!uid || !code) return null;
+  const e = await api().checkSecretRoomEntry(code, uid);
+  return (e && typeof e.count === 'number') ? Math.max(0, e.count - (e.ownerIn ? 1 : 0)) : null;
+}
+
+return { listRooms, mySecretRoom, secretGuests };
 }
 
 window.TwRoomLobbyProvider = { createRoomLobbyProvider };

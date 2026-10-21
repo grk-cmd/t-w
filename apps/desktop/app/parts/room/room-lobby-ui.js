@@ -21,7 +21,7 @@ const TEXT = Object.freeze({
 /**
  * @param {{
  *   model: typeof window.TwRoomLobbyModel,
- *   provider: { listRooms(channel: string): Promise<{ at: number|null, rooms: object }|null>, mySecretRoom(): Promise<{ code: string, name: string, guests: number|null }|null> },
+ *   provider: { listRooms(channel: string): Promise<{ at: number|null, rooms: object }|null>, mySecretRoom(): Promise<{ code: string, name: string }|null>, secretGuests(code: string): Promise<number|null> },
  *   inRoom: () => boolean,
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
@@ -150,8 +150,11 @@ async function paintSecret(){
   row.hidden = !s;
   if(!s) return;
   $('lobbySecretName').textContent = s.name;
-  $('lobbySecretCount').textContent = (s.guests == null) ? '' : '손님 ' + s.guests + '/' + Math.max(0, maxPeople() - 1);
+  $('lobbySecretCount').textContent = '';
   $('lobbySecretJoin').onclick = () => join(s.code);
+  let g = null;
+  try{ g = await provider.secretGuests(s.code); }catch(_){ g = null; }
+  if(g != null) $('lobbySecretCount').textContent = '손님 ' + g + '/' + Math.max(0, maxPeople() - 1);
 }
 
 async function join(code){
@@ -199,7 +202,8 @@ $('lobbyCreate').onclick = () => {
   openCreate(st.channel);
 };
 $('lobbyQuick').onclick = () => {
-  if(st.state === 'failed' || st.state === 'missing'){ toast(TEXT.quickFailed); return; }
+  if(st.state === 'failed'){ toast(TEXT.quickFailed); return; }
+  if(st.state === 'missing'){ toast(TEXT.missing); return; }
   const code = model.pickQuick(st.cards || [], random());
   if(!code){ toast(TEXT.noQuick); return; }
   join(code);
