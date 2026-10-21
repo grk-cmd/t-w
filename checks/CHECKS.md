@@ -176,7 +176,7 @@
 | **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
 | **sim-pk-fit.js** | 170 | **354391f1f290** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
-| **sim-pl-loop.js** | 475 | **2fc84aaa0172** |
+| **sim-pl-loop.js** | 508 | **131a502c88a2** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
 | **sim-premium-desk.js** | 96 | **9911af6ac156** |

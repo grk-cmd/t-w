@@ -130,8 +130,14 @@ function makePage(dur){
   return page;
 }
 
-/* main 쪽 무대 — bgmForcePlay 와 setBgmLoop IPC 를 실물로 싣는다. */
+/* `const 이름 = '…' + '…';` 한 문장(주입 조각 상수)을 오린다 — 문자열이 이어진 끝(; 줄바꿈)까지 */
+function cutConst(src, name){
+  const m = new RegExp('const\\s+' + name + '\\s*=[\\s\\S]*?;\\n').exec(src);
+  return m ? m[0] : null;
+}
+/* main 쪽 무대 — bgmForcePlay 와 setBgmLoop IPC 를 실물로 싣는다. 감시 루프가 부르는 공용 조각(광고 판정 · 신호 주인 · 반복 여부)도 같이. */
 const FORCE = cutFn(MAIN, 'bgmForcePlay');
+const SHARED = [cutConst(MAIN, 'BGM_IS_AD_JS'), cutFn(MAIN, 'bgmSignalChannel'), cutFn(MAIN, 'bgmLoopOn')];
 const IPC_LOOP = cutIpc(MAIN, 'companion:setBgmLoop');
 function makeMain(page, { mode = 'playlist', loop = false } = {}){
   const handlers = {};
@@ -142,13 +148,13 @@ function makeMain(page, { mode = 'playlist', loop = false } = {}){
     ipcMain: { on: (ch, fn) => { handlers[ch] = fn; }, handle(){} },
   };
   vm.createContext(st);
-  vm.runInContext(FORCE + '\n' + (IPC_LOOP || ''), st, { filename: 'main.js:bgm' });
+  vm.runInContext([...SHARED, FORCE, IPC_LOOP].filter(Boolean).join('\n'), st, { filename: 'main.js:bgm' });
   st.handlers = handlers;
   return st;
 }
 
 /* 🎧 같이 듣기 무대 — 모드 판정 · 주소 · 위치 맞추기 IPC 를 실물로 싣는다. bgmOpen 은 부른 값만 적는다. */
-const L_FNS = ['bgmPanelMode', 'bgmSignalChannel', 'bgmListenUrl'].map(n => cutFn(MAIN, n));
+const L_FNS = ['bgmPanelMode', 'bgmListenUrl'].map(n => cutFn(MAIN, n));
 const IPC_OPEN_L = cutIpc(MAIN, 'companion:openListenTrack');
 const IPC_SEEK = cutIpc(MAIN, 'companion:bgmSeek');
 function makeListenMain(page, { mode = 'listen', loop = false } = {}){
@@ -160,14 +166,14 @@ function makeListenMain(page, { mode = 'listen', loop = false } = {}){
     ipcMain: { on: (ch, fn) => { handlers[ch] = fn; }, handle(){} },
   };
   vm.createContext(st);
-  vm.runInContext([FORCE, IPC_LOOP, ...L_FNS, IPC_OPEN_L, IPC_SEEK].filter(Boolean).join('\n'), st, { filename: 'main.js:listen' });
+  vm.runInContext([...SHARED, FORCE, IPC_LOOP, ...L_FNS, IPC_OPEN_L, IPC_SEEK].filter(Boolean).join('\n'), st, { filename: 'main.js:listen' });
   st.handlers = handlers; st.opened = opened;
   return st;
 }
 
 say('\n🔁 한 곡 반복 — <video>.loop\n');
 say('── 1. 주입 스크립트 (가짜 유튜브 페이지에서 실제로 돈다)');
-if(!FORCE) huh('main.js 에서 bgmForcePlay 를 못 오려냈다 — §1 을 건너뛴다');
+if(!FORCE || SHARED.some(x => !x)) huh('main.js 에서 bgmForcePlay · 공용 조각(BGM_IS_AD_JS · bgmSignalChannel · bgmLoopOn)을 못 오려냈다 — §1 을 건너뛴다');
 else {
   /* 1-1. 한 곡 반복 — 끝나도 신호 없이 처음부터. 길이가 0.5초 박자에 맞는 곡/안 맞는 곡 둘 다
      (안 맞으면 끝 0.4초 안전장치가 먼저 되감고, 맞으면 브라우저 loop 가 되감는다 — 두 길이 다르다). */
@@ -287,7 +293,7 @@ say('\n── 2. preload ↔ main 채널');
       const k = sent[sent.length - 1];
       api.onListenSignal(() => {});
       const l = sent[sent.length - 1];
-      chk(o && typeof L.handlers[o[1] === undefined ? '' : o[0]] === 'function' && o[3] === 83 && k && typeof L.handlers[k[0]] === 'function' && k[1] === 42,
+      chk(o && typeof L.handlers[o[0]] === 'function' && o[3] === 83 && k && typeof L.handlers[k[0]] === 'function' && k[1] === 42,
           '🎧 preload 의 openListenTrack · bgmSeek 채널을 main 이 실제로 받는다 · 위치는 숫자로 보낸다');
       chk(l && l[0] === 'on' && l[1] === 'companion:listenSignal' && /'companion:listenSignal'/.test(MAIN), '  ↳ onListenSignal 은 main 이 보내는 companion:listenSignal 을 듣는다');
     }else bad('preload 가 openListenTrack · bgmSeek · onListenSignal 을 노출하지 않는다');
@@ -387,7 +393,7 @@ else {
 }
 
 say('\n── 4. 🎧 같이 듣기(listen) — docs/LISTEN_TOGETHER.md 4장');
-if(!FORCE || L_FNS.some(x => !x) || !IPC_OPEN_L || !IPC_SEEK) huh('main.js 에서 같이 듣기 부품(bgmPanelMode · bgmSignalChannel · bgmListenUrl · openListenTrack · bgmSeek)을 못 오려냈다 — §4 를 건너뛴다');
+if(!FORCE || SHARED.some(x => !x) || L_FNS.some(x => !x) || !IPC_OPEN_L || !IPC_SEEK) huh('main.js 에서 같이 듣기 부품(bgmPanelMode · bgmSignalChannel · bgmListenUrl · openListenTrack · bgmSeek)을 못 오려냈다 — §4 를 건너뛴다');
 else {
   /* 4-1. 반복 없음 — 플레이리스트 «한 곡 반복» 이 켜져 있어도. 곡 끝에서 신호 한 번 */
   {
@@ -445,6 +451,28 @@ else {
     chk(M.bgmPanelMode('listen') && M.bgmPanelMode('playlist') && !M.bgmPanelMode('home'), '  ↳ 같이 듣기도 플레이리스트처럼 패널 뒤에 숨는다(마이홈을 따라가지 않음)');
     chk(/const ch = bgmSignalChannel\(bgmMode\);\s*if\(!ch\) return;/.test(MAIN) && /webContents\.send\(ch, msg\.slice\(5\)\)/.test(MAIN), '  ↳ 재생 창 콘솔 신호는 그 통로로만 넘긴다');
   }
+  /* 4-4b. 배치 — 같이 듣기는 마이홈 좌표를 무시하고 플레이리스트 패널 뒤에 숨는다(처리기를 오려 가짜 배치 함수로 센다) */
+  {
+    const IPC_BB = cutIpc(MAIN, 'companion:setBgmBounds'), IPC_PB = cutIpc(MAIN, 'companion:setPlBounds'), APPLY = cutFn(MAIN, 'bgmApplyMode');
+    if(!IPC_BB || !IPC_PB || !APPLY) huh('배치 처리기(setBgmBounds · setPlBounds · bgmApplyMode)를 못 오려냈다');
+    else {
+      const run = (mode) => {
+        const calls = []; const handlers = {};
+        const st = { bgmMode: mode, bgmRenderRect: null, bgmPlRect: null, calls,
+          bgmWin: { isDestroyed: () => false, setMinimumSize(){} },
+          bgmPositionRelativeToMain: () => calls.push('main'), bgmPositionBehindPlaylist: () => calls.push('panel'), bgmLayoutView(){},
+          ipcMain: { on: (ch, fn) => { handlers[ch] = fn; } } };
+        vm.createContext(st);
+        vm.runInContext([L_FNS[0], IPC_BB, IPC_PB, APPLY].join('\n'), st);
+        handlers['companion:setBgmBounds']({}, { x: 1, y: 1, w: 10, h: 10 });
+        handlers['companion:setPlBounds']({}, { x: 1, y: 1, w: 10, h: 10 });
+        st.bgmApplyMode();
+        return calls.join();
+      };
+      chk(run('listen') === 'panel,panel' && run('playlist') === 'panel,panel' && run('home') === 'main,main',
+          '★ 배치: 같이 듣기 · 플레이리스트는 마이홈 좌표를 무시하고 패널 뒤로 · 마이홈은 예전처럼 마이홈을 따라간다 (' + run('listen') + ' / ' + run('home') + ')');
+    }
+  }
   /* 4-5. 플레이리스트 하트비트 해석은 넷째 칸이 붙어도 그대로 */
   if(rMissing.length || !KIND) huh('플레이리스트 함수를 못 찾아 4-5 를 건너뛴다');
   else {
@@ -454,17 +482,22 @@ else {
   }
   /* 4-6. 깨 보기 — 하나라도 못 잡으면 빨강 */
   {
-    const brokeLoop = MAIN.replace("const LOOP_ON = bgmPlLoop && bgmMode === 'playlist';", 'const LOOP_ON = bgmPlLoop;');
+    const brokeLoop = MAIN.replace("function bgmLoopOn(){ return bgmPlLoop && bgmMode === 'playlist'; }", 'function bgmLoopOn(){ return bgmPlLoop; }');
     const st = { bgmMode: 'listen', bgmVolume: 0.5, bgmPlLoop: true, console: { log(){} }, bgmView: null, ipcMain: { on(){} } };
     const P = makePage(20.3); st.bgmView = { webContents: { isDestroyed: () => false, executeJavaScript: c => { P.run(c); return Promise.resolve(); } } };
-    vm.createContext(st); vm.runInContext(cutFn(brokeLoop, 'bgmForcePlay'), st); st.bgmForcePlay(); P.steps(60);
+    vm.createContext(st);
+    vm.runInContext([cutConst(brokeLoop, 'BGM_IS_AD_JS'), cutFn(brokeLoop, 'bgmSignalChannel'), cutFn(brokeLoop, 'bgmLoopOn'), cutFn(brokeLoop, 'bgmForcePlay')].join('\n'), st);
+    st.bgmForcePlay(); P.steps(60);
     chk(brokeLoop !== MAIN && P.count(/^TWPL:ended$/) === 0, '깨 보기: 같이 듣기에서 반복을 안 끄면 곡 끝 신호가 사라진다 (4-1 이 잡는다)');
-    const brokeAd = cutIpc(MAIN.replace(' if(ad) return; var v=', ' var v='), 'companion:bgmSeek');
+    const brokeSrc = MAIN.replace(" if(__twIsAd()) return; var v=", ' var v=');
+    const brokeAd = cutConst(brokeSrc, 'BGM_IS_AD_JS') + '\n' + cutIpc(brokeSrc, 'companion:bgmSeek');
     const st2 = { bgmMode: 'listen', Math, Number, isFinite, ipcMain: { on: (c, f) => { st2.h = f; } } };
     const P2 = makePage(300); const ad = makeVideo(15); P2.ad = true; P2.video = ad; ad.currentTime = 3;
     st2.bgmView = { webContents: { isDestroyed: () => false, executeJavaScript: c => { P2.run(c); return Promise.resolve(); } } };
     vm.createContext(st2); vm.runInContext(brokeAd, st2); st2.h({}, 100);
-    chk(ad.currentTime === 100, '깨 보기: 광고 확인을 빼면 광고 위치를 감는다 (4-3 이 잡는다)');
+    chk(brokeSrc !== MAIN && ad.currentTime === 100, '깨 보기: 광고 확인을 빼면 광고 위치를 감는다 (4-3 이 잡는다)');
+    chk((MAIN.match(/ad-showing/g) || []).length === 1 && (MAIN.match(/__twIsAd\(\)/g) || []).length >= 3,
+        '★ 광고 판정은 한 벌(BGM_IS_AD_JS) — 광고 게이트 · 감시 루프 · 위치 맞추기가 같은 것을 부른다');
   }
 }
 

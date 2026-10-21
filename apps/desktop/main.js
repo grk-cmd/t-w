@@ -2528,6 +2528,8 @@ function createWindow() {
      ⚠️ 기본값 false. 구버전 app.js 는 이 값을 안 보내므로 옛 동작(끝나면 TWPL:ended) 그대로다.
      ⚠️ 1곡짜리 목록의 «목록 반복·셔플»은 여기 안 들어온다 — 렌더러가 한 곡 반복일 때만 켠다. */
   let bgmPlLoop = false;
+  // 지금 페이지에 반복을 거는가 — «한 곡 반복» 은 플레이리스트 것이라 🎧 같이 듣기 · 마이홈에는 걸지 않는다(마이홈은 주입이 따로 늘 loop)
+  function bgmLoopOn(){ return bgmPlLoop && bgmMode === 'playlist'; }
   // 🎵 renderer가 알려준 플레이리스트 패널(#myPlaylistBox)의 DOM 사각형 — 그 뒤에 창을 숨긴다.
   //   null이면 패널이 닫힌 것 = 숨을 곳이 없다.
   let bgmPlRect = null;
@@ -2696,6 +2698,10 @@ function createWindow() {
      [그래서] ① dom-ready 에서 `yt-player-volume` 을 우리 값으로 먼저 써 둔다 — 플레이어가 초기화 때 읽는 값이
        곧 우리 값이 되어 밀어 넣을 것이 없다. ② 플레이어 API(setVolume)가 생기면 그쪽으로도 맞춘다 —
        <video> 만 고치면 플레이어 내부 상태는 여전히 100 이라 다음 기회에 또 밀어 넣는다. */
+  /* 광고 판정 한 벌 — 광고 게이트 · 감시 루프 · 같이 듣기 위치 맞추기가 같은 식을 쓴다(유튜브가 클래스를 바꾸면 한 곳만 고친다). */
+  const BGM_IS_AD_JS =
+    'function __twIsAd(){ var p=document.querySelector("#movie_player, .html5-video-player");'+
+    ' return !!((p&&p.classList&&p.classList.contains("ad-showing"))||document.querySelector(".ytp-ad-player-overlay, .ytp-ad-preview-container, .ytp-ad-text")); }';
   const BGM_SET_VOL_JS =
     'function __twSetVol(want){'+
     '  var v=document.querySelector("video");'+
@@ -2723,9 +2729,7 @@ function createWindow() {
     bgmAdPoll = setInterval(()=>{
       if(!bgmView || bgmView.webContents.isDestroyed()){ clearInterval(bgmAdPoll); bgmAdPoll=null; return; }
       bgmView.webContents.executeJavaScript(
-        '(function(){var p=document.querySelector("#movie_player,.html5-video-player");'+
-        'var isAd=!!((p&&p.classList&&p.classList.contains("ad-showing"))||'+
-        'document.querySelector(".ytp-ad-player-overlay,.ytp-ad-preview-container,.ytp-ad-text"));'+
+        '(function(){'+BGM_IS_AD_JS+'var isAd=__twIsAd();'+
         'var want=(typeof window.__bgmVol==="number")?window.__bgmVol:'+bgmVolume+';'+
         BGM_SET_VOL_JS+
         'var v=document.querySelector("video"); var volOk=false;'+
@@ -2827,14 +2831,13 @@ function createWindow() {
   }
   function bgmForcePlay(){
     if(!bgmView) return;
-    // 🎧 같이 듣기(listen)도 PL — 곡 끝에서 신호를 보내고 끝난 영상을 되살리지 않는다. «한 곡 반복» 은 플레이리스트 것이라 listen 에선 늘 끈다.
-    const PL = (bgmMode === 'playlist' || bgmMode === 'listen');
-    const LOOP_ON = bgmPlLoop && bgmMode === 'playlist';
+    // PL = 곡 끝 신호를 쓰는 주인(플레이리스트 · 🎧 같이 듣기) — 끝난 영상을 되살리지 않고 신호를 보낸다
+    const PL = bgmSignalChannel(bgmMode) !== null;
     bgmView.webContents.executeJavaScript(
       /* 🔁 loop 여부는 **무장 검사보다 먼저** 심는다 — 이미 감시가 붙은 페이지에 다시 주입해도 값은 갱신돼야 한다.
          ★ 감시 루프는 이 값을 매 tick **읽는다**(주입 때 박지 않는다). 재생 중에 반복 종류를 바꾸면
            setBgmLoop IPC 가 이 전역만 바꾸고, 다음 tick 부터 따른다. */
-      '(function(){ window.__twplLoop='+(LOOP_ON?'true':'false')+';'+
+      '(function(){ '+BGM_IS_AD_JS+' window.__twplLoop='+(bgmLoopOn()?'true':'false')+';'+
       '  var n=0; var boundV=null; var TWPL_MAX=28800; var PL='+(PL?'true':'false')+'; var lastT=-1;'+
       /* 🐕 [제보] "간혹 노래가 끝나도 다음 곡으로 안 넘어간다" — 이 감시가 **아예 안 붙는** 경우가
          있었다. 붙이는 곳이 did-finish-load 하나뿐인데, 그건 유튜브 watch 페이지의 하위 리소스를
@@ -2864,9 +2867,7 @@ function createWindow() {
       '  var v=document.querySelector("video");'+
       '  if(!v){ if(++n>TWPL_MAX) clearInterval(t); return; }'+
       // 광고 감지 먼저 — 광고 판정을 앞으로 옮겨 아래 loop 바인딩이 광고 video에 걸리지 않게.
-      '  var player = document.querySelector("#movie_player, .html5-video-player");'+
-      '  var isAd = !!(player && player.classList && player.classList.contains("ad-showing"))'+
-      '           || !!document.querySelector(".ytp-ad-player-overlay, .ytp-ad-preview-container, .ytp-ad-text");'+
+      '  var isAd = __twIsAd();'+
       // ★ 마이홈5-1: 광고가 아닐 때만 loop 재바인딩 — 광고용 video 요소를 우리가 새로 잡고 loop을 걸어
       //   같은 광고를 무한 재생시키던 버그 방지. ended 리스너도 같은 조건에서 한 번만.
       '  if(!isAd && boundV !== v){'+
@@ -2967,9 +2968,7 @@ function createWindow() {
     if(bgmMode !== 'listen' || !isFinite(n) || n < 0) return;
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
     bgmView.webContents.executeJavaScript(
-      '(function(){ var p=document.querySelector("#movie_player, .html5-video-player");'+
-      ' var ad=!!(p && p.classList && p.classList.contains("ad-showing")) || !!document.querySelector(".ytp-ad-player-overlay, .ytp-ad-preview-container, .ytp-ad-text");'+
-      ' if(ad) return; var v=document.querySelector("video"); if(v){ try{ v.currentTime=' + n + '; }catch(_){} } })()'
+      '(function(){ '+BGM_IS_AD_JS+' if(__twIsAd()) return; var v=document.querySelector("video"); if(v){ try{ v.currentTime=' + n + '; }catch(_){} } })()'
     ).catch(()=>{});
   });
   /* 🔒 BGM 창에 띄울 수 있는 곳 — 유튜브 임베드뿐이다.
@@ -3177,8 +3176,7 @@ function createWindow() {
   ipcMain.on('companion:setBgmLoop', (e, on) => {
     bgmPlLoop = !!on;
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    const loopNow = bgmPlLoop && bgmMode === 'playlist';   // 🎧 같이 듣기 중에는 반복을 걸지 않는다
-    bgmView.webContents.executeJavaScript('window.__twplLoop=' + (loopNow ? 'true' : 'false') + ';').catch(()=>{});
+    bgmView.webContents.executeJavaScript('window.__twplLoop=' + (bgmLoopOn() ? 'true' : 'false') + ';').catch(()=>{});
   });
   // ✕ (BGM 창 닫힘) 또는 마이홈 종료: 실제로 창을 파괴
   ipcMain.on('companion:closeBgm', () => {
