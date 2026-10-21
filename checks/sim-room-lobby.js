@@ -96,8 +96,10 @@ function fakeDb(init){
 
     const L = RL.lobbyFrom({ 'WORK-AA11': meta, 'PLAY-BB22': { channel: 'togetherroom', open: true, title: '수다' }, 'WORK-CC33': null },
       { 'WORK-AA11': { m1: now }, 'PLAY-BB22': { m1: now, m2: now } }, [], now);
-    chk(L.at === now && Object.keys(L.workingroom).join() === 'WORK-AA11' && Object.keys(L.togetherroom).join() === 'PLAY-BB22' && L.togetherroom['PLAY-BB22'].n === 2,
-      '사본: 채널별로 나눠 담고 at 을 적는다');
+    chk(L.workingroom.at === now && L.togetherroom.at === now && Object.keys(L.workingroom.rooms).join() === 'WORK-AA11' && Object.keys(L.togetherroom.rooms).join() === 'PLAY-BB22' && L.togetherroom.rooms['PLAY-BB22'].n === 2,
+      '사본: 채널별 { at, rooms } — 채널마다 만든 시각을 적는다');
+    const E = RL.lobbyFrom({}, {}, [], now);
+    chk(E.workingroom.at === now && E.togetherroom.at === now && !Object.keys(E.workingroom.rooms).length, '★ 방이 없는 채널도 at 이 남는다 — 앱이 «빈 목록» 과 «못 불러옴 · 낡음» 을 가른다');
   }
 
   say('── 3. buildRoomLobby — 가짜 DB');
@@ -113,18 +115,26 @@ function fakeDb(init){
     const idx = { 'WORK-AA11': { lastSeen: now, open: true }, 'PLAY-BB22': { lastSeen: now, open: true }, 'WORK-CC33': { lastSeen: now, open: false } };
     const tree = { 'WORK-AA11': { m1: now }, 'PLAY-BB22': { m1: now, m2: now, m3: now - STALE } };
     const sum = await RL.buildRoomLobby(db, idx, tree, now);
-    const L = db.data.roomLobby;
-    chk(L && L.workingroom['WORK-AA11'].t === '' && L.workingroom['WORK-AA11'].max === 4, '★ 서버가 금칙어 제목을 비워서 쓴다(config/bannedWords)');
-    chk(L.togetherroom['PLAY-BB22'].n === 2 && !L.workingroom['WORK-CC33'], '  인원은 살아 있는 도장 수 · 비공개 방은 없음');
+    const W = db.data.roomLobby.workingroom.rooms, T = db.data.roomLobby.togetherroom.rooms;
+    chk(W['WORK-AA11'].t === '' && W['WORK-AA11'].max === 4, '★ 서버가 금칙어 제목을 비워서 쓴다(config/bannedWords)');
+    chk(T['PLAY-BB22'].n === 2 && !W['WORK-CC33'], '  인원은 살아 있는 도장 수 · 비공개 방은 없음');
     chk(sum.candidates === 2 && sum.working === 1 && sum.together === 1 && sum.failed === 0, '  요약(후보 · 채널별 수 · 실패)');
     chk(db.reads.every(p => p === 'config/bannedWords' || /^rooms\/[A-Z]{4}-[A-Z0-9]{4}\/_meta$/.test(p)), '★ 읽는 것은 금칙어와 후보 방의 _meta 뿐 — 멤버 노드(def)를 읽지 않는다');
     chk(!db.reads.includes('rooms/WORK-CC33/_meta'), '  roomIndex 에서 비공개인 방은 _meta 도 안 읽는다');
-    db.data.roomLobby = { at: now + 5000 };
+    db.data.roomLobby = { workingroom: { at: now + 5000 } };
     await RL.buildRoomLobby(db, idx, tree, now);
-    chk(db.data.roomLobby.at === now + 5000 && !db.data.roomLobby.workingroom, '★ 더 늦게 만든 사본이 있으면 덮지 않는다(겹친 실행)');
+    chk(db.data.roomLobby.workingroom.at === now + 5000 && !db.data.roomLobby.workingroom.rooms, '★ 더 늦게 만든 사본이 있으면 덮지 않는다(겹친 실행)');
+    const many = {}, mIdx = {}, mTree = {};
+    for (let i = 0; i < 45; i++){ const c = 'WORK-' + String(i).padStart(4, '0'); many[c] = { _meta: { channel: 'workingroom', open: true } }; mIdx[c] = { lastSeen: now, open: true }; mTree[c] = { m1: now }; }
+    const db3 = fakeDb({ rooms: many });
+    let inFlight = 0, peak = 0;
+    const realRef = db3.ref;
+    db3.ref = (p) => { const r = realRef(p); if (!/_meta$/.test(p)) return r; return { ...r, get: async () => { inFlight++; peak = Math.max(peak, inFlight); await new Promise(res => setTimeout(res, 1)); inFlight--; return r.get(); } }; };
+    const s3 = await RL.buildRoomLobby(db3, mIdx, mTree, now);
+    chk(s3.working === 45 && peak > 1 && peak <= RL.LOBBY_READ_BATCH, '★ _meta 는 LOBBY_READ_BATCH 씩 동시에 읽는다(하나씩 기다리지 않음 · 한꺼번에 다 쏘지도 않음)');
     const db2 = fakeDb({ rooms: { 'WORK-AA11': { _meta: { channel: 'workingroom', open: true, title: '나쁜말' } } } });
     await RL.buildRoomLobby(db2, { 'WORK-AA11': { lastSeen: now, open: true } }, { 'WORK-AA11': { m1: now } }, now);
-    chk(db2.data.roomLobby.workingroom['WORK-AA11'].t === '나쁜말', '  금칙어 목록이 없으면(처음) 거르지 않는다 — 판정은 목록에 있는 말만');
+    chk(db2.data.roomLobby.workingroom.rooms['WORK-AA11'].t === '나쁜말', '  금칙어 목록이 없으면(처음) 거르지 않는다 — 판정은 목록에 있는 말만');
   }
 
   say('── 4. room-stats 1분 실행이 사본을 만든다');
@@ -136,7 +146,7 @@ function fakeDb(init){
     });
     const shallow = async () => ({});
     const sum = await RS.runRoomStats(db, now, { shallow });
-    chk(db.data.roomLobby && db.data.roomLobby.workingroom && db.data.roomLobby.workingroom['WORK-AA11'].n === 1, '★ 주기 실행이 roomLobby 를 쓴다(같은 roomAlive 트리로 센다)');
+    chk(db.data.roomLobby && db.data.roomLobby.workingroom && db.data.roomLobby.workingroom.rooms['WORK-AA11'].n === 1, '★ 주기 실행이 roomLobby 를 쓴다(같은 roomAlive 트리로 센다)');
     chk(sum.lobby && sum.lobby.working === 1, '  요약에 lobby 가 실린다');
     const reads = db.reads.filter(p => p === 'roomAlive').length;
     chk(reads === 1, '  roomAlive 트리는 한 번만 읽는다(로비가 다시 읽지 않는다)');
@@ -154,6 +164,7 @@ function fakeDb(init){
     chk(RL.TITLE_MAX === 20 && RL.ROOM_MAX_MIN === 2 && RL.ROOM_MAX_MAX === 50 && RL.HOST_NAME_MAX === 20, '  함수 상수도 같다');
     const B = RULES.config.bannedWords;
     chk(B && /admins/.test(B['.write']) && B['.read'] === true && /<= 20/.test(B.$i['.validate']), 'config/bannedWords — 관리자만 쓰고 누구나 읽는다 · 낱말 20자');
+    chk(B['.validate'] === 'newData.hasChildren()', '  목록(자식 있음)만 받는다 — 글 하나를 통째로 넣지 못하게');
     chk(RL.BANNED_PATH === 'config/bannedWords' && RL.LOBBY_PATH === 'roomLobby', '  함수가 쓰는 경로가 규칙과 같다');
   }
 
@@ -165,6 +176,8 @@ function fakeDb(init){
     chk(noBan.lobbyRow({ channel: 'workingroom', open: true, title: '나쁜말' }, 1, ['나쁜말']).t === '나쁜말', '금칙어 거르기를 빼면 2절 «비운다» 가 빨강이 된다');
     const noOpen = load(src.replace("if (!meta || meta.open !== true || ", 'if (!meta || '));
     chk(noOpen.lobbyRow({ channel: 'workingroom', open: false }, 3, []) !== null, '공개 확인을 빼면 2절 «비공개면 뺀다» 가 빨강이 된다');
+    const noAt = load(src.replace('[C.WORKING]: { at: now, rooms: {} }', '[C.WORKING]: { rooms: {} }'));
+    chk(!noAt.lobbyFrom({}, {}, [], now).workingroom.at, '채널 at 을 빼면 2절 «방이 없는 채널도 at» 이 빨강이 된다');
     const noSecret = load(src.replace('if (code.indexOf(SECRET_ROOM_PREFIX) === 0) continue;', ''));
     chk(noSecret.lobbyCandidates({ 'SCRT-EE55': { lastSeen: now, open: true } }, now).length === 1, '시크릿룸 거르기를 빼면 2절 «후보» 가 빨강이 된다');
   }

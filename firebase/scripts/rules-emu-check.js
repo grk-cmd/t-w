@@ -92,14 +92,16 @@ const LIMIT_CASES = [
   ['_meta — 최대 인원 소수', 'PATCH', `rooms/${ROOM}/_meta`, { max: 2.5 }, false],
   ['_meta — 방장 닉네임 21자', 'PATCH', `rooms/${ROOM}/_meta`, { hostName: '가'.repeat(21) }, false],
   ['_meta — 같이 듣기가 불이 아님', 'PATCH', `rooms/${ROOM}/_meta`, { music: 'y' }, false],
-  ['방 목록 로비 사본 — 사용자는 못 씀(서버 함수만)', 'PUT', `roomLobby/workingroom/${ROOM}`, { t: 'x', n: 1 }, false],
-  ['방 목록 로비 사본 — 관리자도 못 씀', 'PUT', `roomLobby/workingroom/${ROOM}`, { t: 'x', n: 1 }, false, ADMIN_A],
+  ['방 목록 로비 사본 — 사용자는 못 씀(서버 함수만)', 'PUT', `roomLobby/workingroom/rooms/${ROOM}`, { t: 'x', n: 1 }, false],
+  ['방 목록 로비 사본 — 관리자도 못 씀', 'PUT', `roomLobby/workingroom/rooms/${ROOM}`, { t: 'x', n: 1 }, false, ADMIN_A],
   ['방 목록 로비 사본 — 읽기', 'GET', 'roomLobby/workingroom', null, true],
   ['금칙어 — 관리자가 목록 저장', 'PUT', 'config/bannedWords', ['나쁜말', '욕'], true, ADMIN_A],
   ['금칙어 — 사용자가 읽기(방 만들기 판정)', 'GET', 'config/bannedWords', null, true],
   ['금칙어 — 사용자는 못 씀', 'PUT', 'config/bannedWords', ['x'], false],
   ['금칙어 — 21자 낱말', 'PUT', 'config/bannedWords', ['가'.repeat(21)], false, ADMIN_A],
   ['금칙어 — 문자열 아닌 값', 'PUT', 'config/bannedWords', [1], false, ADMIN_A],
+  ['금칙어 — 목록이 아닌 글 하나', 'PUT', 'config/bannedWords', '욕', false, ADMIN_A],
+  ['금칙어 — 관리자가 목록 비우기(지우기)', 'DELETE', 'config/bannedWords', null, true, ADMIN_A],
 
   /* 대화 기록 */
   ['채팅 기록 — 1200자 · uid', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg1`, { uid: GOOD_U, name: '민수', text: 'a'.repeat(1200), ts: TS }, true],

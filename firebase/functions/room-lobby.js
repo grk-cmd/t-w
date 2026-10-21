@@ -1,5 +1,6 @@
 /*
- * 방 목록 로비의 목록 사본 roomLobby = { at, workingroom: { 코드: 줄 }, togetherroom: { … } } 를 만든다.
+ * 방 목록 로비의 목록 사본 roomLobby/{채널} = { at, rooms: { 코드: 줄 } } 를 만든다.
+ * 채널마다 at 을 두는 까닭: 방이 하나도 없는 채널도 칸이 남아, 앱이 «빈 목록» 과 «못 불러옴 · 낡음» 을 가른다.
  * 앱은 지금 탭의 roomLobby/{채널} 하나만 읽는다 — 멤버 노드(캐릭터 def 포함 · 큼)나 방마다 _meta 를 읽지 않게.
  * room-stats.js 1분 주기 실행이 이미 읽은 roomIndex · roomAlive 트리로 부른다 — 새로 읽는 것은 공개 방의 _meta 와 금칙어뿐.
  *
@@ -17,6 +18,7 @@ const rs = () => require('./room-stats');
 const LOBBY_PATH = 'roomLobby';
 const BANNED_PATH = 'config/bannedWords';
 const LOBBY_META_MAX = 300;   // 한 번에 읽을 _meta 수 — 채널 상한(roomLimits) 언저리
+const LOBBY_READ_BATCH = 20;  // _meta 를 이만큼씩 동시에 읽는다(하나씩 기다리면 방이 많을 때 1분 실행이 늘어진다)
 // 규칙(rooms/$room/_meta)과 같은 범위
 const TITLE_MAX = 20, HOST_NAME_MAX = 20, ROOM_MAX_MIN = 2, ROOM_MAX_MAX = 50;
 
@@ -75,11 +77,11 @@ function lobbyRow(meta, n, banned){
 // metas = { 코드: _meta }, tree = roomAlive 트리
 function lobbyFrom(metas, tree, banned, now){
   const C = rs().CHANNEL;
-  const out = { at: now, [C.WORKING]: {}, [C.TOGETHER]: {} };
+  const out = { [C.WORKING]: { at: now, rooms: {} }, [C.TOGETHER]: { at: now, rooms: {} } };
   for (const code in (metas || {})){
     const meta = metas[code];
     const row = lobbyRow(meta, liveCount(tree && tree[code], now), banned);
-    if (row) out[meta.channel][code] = row;
+    if (row) out[meta.channel].rooms[code] = row;
   }
   return out;
 }
@@ -90,16 +92,18 @@ async function buildRoomLobby(db, idx, tree, now){
   try{ banned = cleanBannedList((await db.ref(BANNED_PATH).get()).val()); }catch(_){}
   const metas = {};
   let failed = 0;
-  for (const code of codes){
-    try{ metas[code] = (await db.ref('rooms/' + code + '/_meta').get()).val(); }catch(_){ failed++; }
+  for (let i = 0; i < codes.length; i += LOBBY_READ_BATCH){
+    await Promise.all(codes.slice(i, i + LOBBY_READ_BATCH).map(async (code) => {
+      try{ metas[code] = (await db.ref('rooms/' + code + '/_meta').get()).val(); }catch(_){ failed++; }
+    }));
   }
   const lobby = lobbyFrom(metas, tree, banned, now);
-  // 여러 실행이 겹치면 먼저 읽은 쪽이 늦게 써서 새 값을 덮을 수 있다(roomStats 와 같은 막기)
-  await db.ref(LOBBY_PATH).transaction(cur => ((cur && Number(cur.at) > lobby.at) ? undefined : lobby), undefined, false);
   const C = rs().CHANNEL;
-  return { candidates: codes.length, working: Object.keys(lobby[C.WORKING]).length,
-           together: Object.keys(lobby[C.TOGETHER]).length, failed };
+  // 여러 실행이 겹치면 먼저 읽은 쪽이 늦게 써서 새 값을 덮을 수 있다(roomStats 와 같은 막기)
+  await db.ref(LOBBY_PATH).transaction(cur => ((cur && cur[C.WORKING] && Number(cur[C.WORKING].at) > now) ? undefined : lobby), undefined, false);
+  return { candidates: codes.length, working: Object.keys(lobby[C.WORKING].rooms).length,
+           together: Object.keys(lobby[C.TOGETHER].rooms).length, failed };
 }
 
 module.exports = { lobbyCandidates, liveCount, lobbyRow, lobbyFrom, buildRoomLobby,
-  LOBBY_PATH, BANNED_PATH, LOBBY_META_MAX, TITLE_MAX, HOST_NAME_MAX, ROOM_MAX_MIN, ROOM_MAX_MAX };
+  LOBBY_PATH, BANNED_PATH, LOBBY_META_MAX, LOBBY_READ_BATCH, TITLE_MAX, HOST_NAME_MAX, ROOM_MAX_MIN, ROOM_MAX_MAX };
