@@ -28,9 +28,18 @@ describe('홈페이지 Hosting 칸', () => {
     expect(home?.public).toBe('web-dist');
     expect(home?.predeploy).toEqual([
       'npm --prefix .. ci --ignore-scripts',
-      'npm --prefix .. -w @tw/web run build',
+      'npm --prefix .. run web:build',
       'node scripts/copy-web-dist.js',
     ]);
+  });
+
+  it('predeploy 에 «@이름/패키지» 를 쓰지 않는다 — Windows 에서 firebase-tools 가 명령 전체를 경로처럼 normalize 해 «@tw\\web» 이 된다', () => {
+    for (const h of hosting)
+      for (const c of h.predeploy ?? []) {
+        expect(c, h.target).not.toMatch(/@[\w-]+\//);
+        // 경로 몫은 «\» 로 바뀌어도 같은 명령이어야 한다
+        expect(path.win32.normalize(c).replaceAll('\\', '/'), h.target).toBe(c);
+      }
   });
 
   it('올리는 폴더는 firebase/ 안 — firebase-tools 가 밖(..)이면 배포를 멈춘다(config.path 규칙 그대로)', () => {
