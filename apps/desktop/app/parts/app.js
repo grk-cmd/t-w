@@ -3203,6 +3203,7 @@ const chatLockMod = TwChatLock.createChatLock({
   chatPrefsMod: chatPrefsMod,
   chatUiMod: chatUiMod,
   getMyUserId: (...a)=>getMyUserId(...a),
+  roomState: TwRoomState,
 });
 /* ═══ 🗑 대화 기록 삭제 (방장) ══════════════════════════════════════════════
    `rooms/{코드}/chatLog` 를 통째로 지운다. 방 전원이 같은 노드를 구독하므로 **모두의 화면이
@@ -6835,10 +6836,11 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
   roomSettings: TwRoomSettings,
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
-  myUserId: ()=>getMyUserId(),
+  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, getMyUserId()),   // 판정은 채팅 잠금과 같은 한 곳(room-state.js)
+  isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
-  isServerRoom: ()=>!!(Presence.serverProvider && Presence.serverProvider()),
+  isServerRoom: ()=>!!Presence.serverProvider(),
   saveInfo: (room, info)=>window.firebaseAPI.setRoomInfo(room, info),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });

@@ -2818,7 +2818,7 @@
     },
     async setRoomInfo(room, info){   // 제목 · 공개 두 칸만 — 빈 제목은 칸을 지운다(«○○ 님의 방» 으로 그림) · open 은 불일 때만
       if(!room || !info) return { ok:false };
-      try{ await update(ref(db, `rooms/${room}/_meta`), Object.assign({ title: info.title || null }, typeof info.open === 'boolean' ? { open: info.open } : {})); return { ok:true }; }
+      try{ await update(ref(db, `rooms/${room}/_meta`), Object.assign({ title: info.title || null }, typeof info.open === 'boolean' ? { open: info.open } : {})); _touchRoomIndex(room); return { ok:true }; }
       catch(e){ return { ok:false }; }
     },
     /* 🗑 대화 기록 통째 삭제 — 방장이 부른다(권한 판정은 렌더러가 한다).

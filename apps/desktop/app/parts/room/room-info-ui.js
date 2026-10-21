@@ -12,7 +12,8 @@
  *   roomSettings: typeof window.TwRoomSettings,
  *   bannedWords: typeof window.TwBannedWords,
  *   rcStore: () => { bannedWords(): string[] },
- *   myUserId: () => string|null,
+ *   isHost: () => boolean,
+ *   isSecretRoom: () => boolean,
  *   roomCode: () => string|null,
  *   meta: () => { host?: string, title?: string, hostName?: string, open?: boolean }|null,
  *   isServerRoom: () => boolean,
@@ -24,7 +25,8 @@ function createRoomInfoUi(deps){
 const roomSettings = deps.roomSettings;
 const bannedWords = deps.bannedWords;
 const rcStore = deps.rcStore;
-const myUserId = deps.myUserId;
+const isHost = deps.isHost;               // 방장 · 시크릿룸 판정은 채팅 잠금과 같은 한 곳(room-state.js TwRoomState)
+const isSecretRoom = deps.isSecretRoom;
 const roomCode = deps.roomCode;
 const meta = deps.meta;
 const isServerRoom = deps.isServerRoom;
@@ -35,7 +37,6 @@ const $ = (id) => document.getElementById(id);
 let saving = false;
 
 function banned(){ return bannedWords.cleanBannedList(rcStore().bannedWords()); }
-function isHost(m){ const me = myUserId(); return !!(m && me && m.host === me); }
 
 function showError(text){ $('riTitleErr').textContent = text || ''; }
 function paintForm(){
@@ -58,17 +59,17 @@ function paint(){
   t.textContent = dt.text;
   t.title = dt.text;
   t.classList.toggle('dim', dt.isDefault);
-  const host = isHost(m);
+  const host = isHost();
   $('riEdit').hidden = !host;
   if(!host) close();   // 그새 방장이 넘어갔으면 열린 칸을 닫는다
 }
 
 function open(){
   const code = roomCode(), m = meta();
-  if(!code || !isHost(m) || isServerRoom()) return;
+  if(!code || !m || !isHost() || isServerRoom()) return;
   $('riTitleIn').value = (typeof m.title === 'string') ? m.title : '';
   $('riOpen').checked = m.open === true;
-  $('riOpenRow').hidden = roomSettings.isSecretCode(code);
+  $('riOpenRow').hidden = isSecretRoom();
   showError('');
   $('riPanel').hidden = false;
   paintForm();
@@ -77,12 +78,12 @@ function open(){
 
 async function save(){
   if(saving) return;
-  const code = roomCode(), m = meta();
-  if(!code || !isHost(m) || isServerRoom()){ close(); paint(); return; }
+  const code = roomCode();
+  if(!code || !meta() || !isHost() || isServerRoom()){ close(); paint(); return; }
   const r = roomSettings.checkTitle($('riTitleIn').value, banned(), bannedWords);
   if(!r.ok){ showError(roomSettings.TITLE_ERROR_TEXT[r.reason]); $('riTitleIn').focus(); return; }
   const info = { title: r.title };
-  if(!roomSettings.isSecretCode(code)) info.open = $('riOpen').checked;
+  if(!isSecretRoom()) info.open = $('riOpen').checked;
   saving = true;
   $('riSave').disabled = true;
   let res = null;

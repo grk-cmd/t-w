@@ -8,7 +8,6 @@ const TITLE_MAX = 20;
 const HOST_NAME_MAX = 20;
 const ROOM_MAX_MIN = 2;
 const ROOM_MAX_MAX = 50;
-const SECRET_PREFIX = 'SCRT-';   // 시크릿룸 코드 — 방 목록에 안 나오니 «공개» 칸이 없다
 /** «방 목록에 공개» 칸 아래 안내 — 방 만들기 창 · 방 안 [방 설정] 이 같은 글 */
 const OPEN_HINT = Object.freeze({
   on: '누구나 방 목록에서 보고 들어올 수 있어요',
@@ -29,9 +28,6 @@ const TITLE_ERROR_TEXT = Object.freeze({
   long: '방 제목은 ' + TITLE_MAX + '자까지예요',
   banned: '방 제목에 쓸 수 없는 말이 있어요',
 });
-
-/** 시크릿룸 코드인가 */
-function isSecretCode(code){ return typeof code === 'string' && code.indexOf(SECRET_PREFIX) === 0; }
 
 /** 화면에 보일 방 제목 — { text, isDefault }. 제목이 있고 금칙어에 안 걸리면 그 제목 · 아니면 «닉네임 님의 방» · 닉네임도 없으면 «이름 없는 방».
  *  banned · bw 를 주면 금칙어를 거른다(로비 목록 사본은 서버 함수가 이미 걸렀다 — 방 안은 _meta 를 그대로 받으니 여기서 거른다).
@@ -65,6 +61,6 @@ function hostNameOf(name){
 }
 
 window.TwRoomSettings = { TITLE_MAX, HOST_NAME_MAX, ROOM_MAX_MIN, ROOM_MAX_MAX, TITLE_ERROR_TEXT, OPEN_HINT,
-  checkTitle, displayTitle, isSecretCode, clampMax, roomCap, hostNameOf };
+  checkTitle, displayTitle, clampMax, roomCap, hostNameOf };
 
 })();

@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — chat-lock.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["getMyUserId"];
-const VAL_DEPS = ["chatPrefsMod","chatUiMod"];
+const VAL_DEPS = ["chatPrefsMod","chatUiMod","roomState"];
 const GET_DEPS = ["Presence"];
 const SET_DEPS = [];
 const EXPORTS = ["_chatIsHost","_chatIsSecretRoom","_chatOffOn","_chatOffRefreshUI","_chatRoomCode"];
 const MOVED = ["_chatRoomCode","_chatIsSecretRoom","_chatIsHost","_chatOffOn","_chatOffRefreshUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  Presence: ()=>Presence,","  chatPrefsMod: chatPrefsMod,","  chatUiMod: chatUiMod,","  getMyUserId: (...a)=>getMyUserId(...a),"];
+const GLUE = ["  Presence: ()=>Presence,","  chatPrefsMod: chatPrefsMod,","  chatUiMod: chatUiMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  roomState: TwRoomState,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

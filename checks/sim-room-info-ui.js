@@ -1,6 +1,6 @@
 /*
  * 방 안 정보 칸 — 제목 줄 · [방 설정](방장만 · 제목 · 공개 바꾸기) 검사 — 모듈을 그대로 불러 돌린다(가짜 DOM).
- * 1. room-settings.js 의 보일 제목(displayTitle) · 시크릿룸 판정 · 공개 안내  2. room-info-ui.js 그리기(방 밖 · 방 서버 · 방장 / 손님 · 금칙어 · 글로만)
+ * 1. room-settings.js 의 보일 제목(displayTitle) · 공개 안내  2. room-info-ui.js 그리기(방 밖 · 방 서버 · 방장 / 손님 · 금칙어 · 글로만)
  * 3. 바꾸기(열기 · 저장 · 금칙어 · 길이 · 시크릿룸 · 실패 · 연타 · 그새 방장이 바뀜)  4. 배선(html · app.js · room-entry · firebase-init · 로비 카드)  5. 깨 보기
  * 설계: docs/ROOM_LOBBY.md 5.1 · 5.2
  */
@@ -46,7 +46,8 @@ function mkUi(o, src){
   const UI = classic(src || UI_SRC, 'TwRoomInfoUi');
   const ui = UI.createRoomInfoUi({
     roomSettings: RS, bannedWords: BW, rcStore: () => ({ bannedWords: () => st.banned }),
-    myUserId: () => st.me, roomCode: () => st.code, meta: () => st.meta, isServerRoom: () => st.server,
+    // 방장 · 시크릿룸 판정은 app.js 가 채팅 잠금(chat-lock.js _chatIsHost · _chatIsSecretRoom)을 넘긴다 — 여기선 같은 모양으로
+    isHost: () => !!(st.meta && st.me && st.meta.host === st.me), isSecretRoom: () => /^SCRT-/.test(st.code || ''), roomCode: () => st.code, meta: () => st.meta, isServerRoom: () => st.server,
     saveInfo: async (room, info) => { log.saves.push([room, info]); return st.save(room, info); },
     notifyError: (c) => log.errors.push(c),
   });
@@ -54,7 +55,7 @@ function mkUi(o, src){
 }
 
 (async () => {
-  say('── 1. room-settings.js — 보일 제목 · 시크릿룸 · 공개 안내');
+  say('── 1. room-settings.js — 보일 제목 · 공개 안내');
   {
     const d = (t, hn, b) => RS.displayTitle(t, hn, b, b ? BW : undefined);
     chk(d('마감방', '도토리').text === '마감방' && !d('마감방', '도토리').isDefault, '제목이 있으면 그 제목');
@@ -62,7 +63,6 @@ function mkUi(o, src){
     chk(d(undefined, '').text === '이름 없는 방' && d(null, null).isDefault, '  닉네임도 없으면 «이름 없는 방»');
     chk(d('바보방', '도토리', ['바보']).text === '도토리 님의 방' && d('바보방', '도토리', ['바보']).isDefault, '★ 금칙어에 걸린 제목은 기본값으로(방 안은 _meta 를 그대로 받으니 여기서 거른다)');
     chk(d('바보방', '도토리').text === '바보방', '  목록을 안 주면 거르지 않는다(로비 사본은 서버 함수가 이미 거름)');
-    chk(RS.isSecretCode('SCRT-AB12') && !RS.isSecretCode('COZY-AB12') && !RS.isSecretCode(null) && !RS.isSecretCode('xSCRT-1'), '시크릿룸 코드 판정');
     chk(typeof RS.OPEN_HINT.on === 'string' && typeof RS.OPEN_HINT.off === 'string' && Object.isFrozen(RS.OPEN_HINT), '«방 목록에 공개» 안내 한 벌');
   }
 
@@ -141,20 +141,32 @@ function mkUi(o, src){
   chk(['riBox', 'riTitle', 'riEdit', 'riPanel', 'riTitleIn', 'riTitleCount', 'riTitleErr', 'riOpenRow', 'riOpen', 'riOpenHint', 'riCancel', 'riSave'].every((id) => HTML.includes('id="' + id + '"'))
     && HTML.indexOf('id="riBox"') > HTML.indexOf('id="inviteActive"'), '  방 안 정보 칸(#inviteActive) 안에 칸이 다 있다');
   const iUi = APP.indexOf('const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({'), iRe = APP.indexOf('const roomEntryMod = TwRoomEntry.createRoomEntry({');
+  {
+    const RSt = classic(need('room-state.js'), 'TwRoomState');
+    chk(RSt.isHost({ host: 'u1' }, 'u1') && !RSt.isHost({ host: 'u1' }, 'u2') && !RSt.isHost({ host: 'u1' }, null) && !RSt.isHost(null, 'u1') && !RSt.isHost({}, undefined),
+      'room-state.js 방장 판정 — 내 코드를 모르거나 meta 가 없으면 아니다');
+    chk(RSt.isSecretCode('SCRT-AB12') && !RSt.isSecretCode('COZY-AB12') && !RSt.isSecretCode(null) && !RSt.isSecretCode('xSCRT-1'), '  시크릿룸 코드 판정');
+    const CL = need('chat-lock.js');
+    chk(/isHost: \(\)=>TwRoomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(APP) && /isSecretRoom: \(\)=>TwRoomState\.isSecretCode\(/.test(APP)
+      && /roomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(CL) && /roomState\.isSecretCode\(_chatRoomCode\(\)\)/.test(CL) && /roomState: TwRoomState,/.test(APP) && !/isSecretCode/.test(RS_SRC),
+      '★ 방장 · 시크릿룸 판정은 채팅 잠금과 같은 한 곳(room-state.js)을 부른다 — 다시 쓰지 않음 · 서로 부르지 않아 순환 없음');
+  }
   chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>window\.firebaseAPI\.setRoomInfo\(room, info\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 firebaseAPI.setRoomInfo');
   const paintCalls = (RE.match(/\bpaintRoomInfo\(\);/g) || []).length;
   chk(paintCalls === 3 && /function refreshInviteUI\(\)\{[\s\S]*?paintRoomInfo\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · Firebase meta · 방 서버 meta 세 곳에서 다시 그린다 (' + paintCalls + ')');
   {
     const fn = takeFn(FI, 'async setRoomInfo(room, info){');
-    const writes = [];
-    const set = fn && new Function('update', 'ref', 'db', 'return { ' + fn + ' };')((r, v) => { writes.push([r, v]); return Promise.resolve(); }, (d, p) => p, null);
+    const writes = [], touched = [];
+    const set = fn && new Function('update', 'ref', 'db', '_touchRoomIndex', 'return { ' + fn + ' };')((r, v) => { writes.push([r, v]); return Promise.resolve(); }, (d, p) => p, null, (r) => touched.push(r));
     const a = set && await set.setRoomInfo('COZY-AB12', { title: '새 제목', open: false });
     const b = set && await set.setRoomInfo('COZY-AB12', { title: '' });
     const c = set && await set.setRoomInfo('', { title: 'x' });
     chk(a && a.ok && writes[0][0] === 'rooms/COZY-AB12/_meta' && JSON.stringify(writes[0][1]) === '{"title":"새 제목","open":false}', '★ firebase-init setRoomInfo — _meta 에 update · 제목 · 공개 두 칸만');
     chk(b && b.ok && JSON.stringify(writes[1][1]) === '{"title":null}' && c && !c.ok && writes.length === 2, '  빈 제목은 칸 지움(null) · open 이 없으면 안 씀 · 방 코드가 없으면 안 씀');
-    const failing = fn && new Function('update', 'ref', 'db', 'return { ' + fn + ' };')(() => Promise.reject(new Error('denied')), (d, p) => p, null);
-    chk(failing && !(await failing.setRoomInfo('COZY-AB12', { title: 'x' })).ok, '  쓰기가 거부되면 { ok:false }');
+    chk(touched.join() === 'COZY-AB12,COZY-AB12', '★ 저장하면 방 요약(roomIndex)을 바로 갱신 — 공개를 켜면 로비 · 랜덤 참여가 다음 하트비트를 안 기다린다');
+    const ft = [];
+    const failing = fn && new Function('update', 'ref', 'db', '_touchRoomIndex', 'return { ' + fn + ' };')(() => Promise.reject(new Error('denied')), (d, p) => p, null, (r) => ft.push(r));
+    chk(failing && !(await failing.setRoomInfo('COZY-AB12', { title: 'x' })).ok && ft.length === 0, '  쓰기가 거부되면 { ok:false } · 요약도 안 건드림');
   }
   {
     const M = classic(M_SRC, 'TwRoomLobbyModel', { TwRoomSettings: RS });
@@ -169,7 +181,7 @@ function mkUi(o, src){
     chk(noHost !== UI_SRC && !b1.el('riEdit').hidden, '방장 확인을 빼면 2절 «손님은 버튼이 숨는다» 가 빨강');
     const noBan = classic(RS_SRC.replace('if(title && !(bw && banned && bw.hasBannedWord(title, banned)))', 'if(title)'), 'TwRoomSettings');
     chk(noBan.displayTitle('바보방', '도토리', ['바보'], BW).text === '바보방', '금칙어 거르기를 빼면 1절 «금칙어 제목은 기본값» 이 빨강');
-    const noSecret = UI_SRC.replace("if(!roomSettings.isSecretCode(code)) info.open = $('riOpen').checked;", "info.open = $('riOpen').checked;");
+    const noSecret = UI_SRC.replace("if(!isSecretRoom()) info.open = $('riOpen').checked;", "info.open = $('riOpen').checked;");
     const b3 = mkUi({ code: 'SCRT-AB12' }, noSecret); b3.ui.paint(); b3.el('riEdit').onclick();
     await b3.el('riSave').onclick();
     chk(noSecret !== UI_SRC && ('open' in b3.log.saves[0][1]), '시크릿룸 거르기를 빼면 3절 «공개는 쓰지 않는다» 가 빨강');

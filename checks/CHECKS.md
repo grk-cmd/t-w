@@ -130,7 +130,7 @@
 | **sim-room-stats.js** | 223 | **fa8901c9875b** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
 | **sim-room-lobby-ui.js** | 259 | **5f247fff3558** |
-| **sim-room-info-ui.js** | 185 | **a5ad49d27999** |
+| **sim-room-info-ui.js** | 197 | **3df1ba914eb2** |
 | **sim-room-settings.js** | 212 | **fc04455bec5c** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
@@ -343,7 +343,7 @@
 | **sim-focus-total.js** | 96 | **8cffe6294bd4** |
 | **sim-focus-share.js** | 96 | **18932a701a4c** |
 | **sim-demoji-palette.js** | 95 | **24cf9fe4f0b6** |
-| **sim-chat-lock.js** | 96 | **b5b76292b3b8** |
+| **sim-chat-lock.js** | 96 | **75b069f43f16** |
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
