@@ -144,10 +144,11 @@ say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다'
   chk(r.win._pendingRoomChannel === 'togetherroom' && r.win._pendingRoomOpen === true && r.log.started[0] === 'PLAY-AB12', '★ 투게더룸도 공개(open)를 싣는다 — 예전엔 워킹룸만');
   chk(JSON.stringify(r.extra) === '{"max":4,"title":"수다","hostName":"말랑콩떡"}', '★ 고른 값 { 최대 인원 · 제목 · 방장 닉네임 }');
   r = await run({ ch: 'workingroom', settings: { title: '', max: 99, open: false }, cap: 6, name: '' });
-  chk(JSON.stringify(r.extra) === '{"max":6}' && r.win._pendingRoomOpen === false, '  빈 제목 · 빈 닉네임은 칸을 안 싣고 · 최대 인원은 정원 안으로');
+  chk(JSON.stringify(r.extra) === '{"max":6,"title":null,"hostName":null}' && r.win._pendingRoomOpen === false, '★ 빈 제목 · 빈 닉네임은 null(지움)로 — 같은 코드의 지난 방 제목이 update 병합으로 남지 않게 · 최대 인원은 정원 안으로');
   chk(/setRoomChannel\(code, _channel, getMyUserId\(\), !!window\._pendingRoomOpen, _pendingExtra\);\s*_pendingExtra = null;/.test(RE_SRC), '  만들기 갈래가 고른 값을 _meta 에 한 번 쓰고 비운다');
-  chk(/const _cap {2}= _isSecret \? \(maxPeople\(\) - 1\) : roomSettings\.roomCap\(_capMeta, maxPeople\(\)\);/.test(RE_SRC)
-    && /const _cap2 {2}= _isSecret \? \(maxPeople\(\) - 1\) : roomSettings\.roomCap\(window\._roomMetaCache, maxPeople\(\)\);/.test(RE_SRC), '★ 입장 검사 · 재확인이 방 최대 인원으로 막는다(시크릿룸은 예전 그대로)');
+  chk(/const _cap2 {2}= _isSecret \? \(maxPeople\(\) - 1\) : roomSettings\.roomCap\(window\._roomMetaCache, maxPeople\(\)\);/.test(RE_SRC)
+    && /'이 방은 이미 가득 찼어요\(최대 '\+_cap2\+'명\)'/.test(RE_SRC), '★ 재확인이 이미 읽은 _meta 로 방 최대 인원을 막는다 · 문구도 그 값(시크릿룸은 예전 그대로)');
+  chk(/const _cap {2}= _isSecret \? \(maxPeople\(\) - 1\) : maxPeople\(\);/.test(RE_SRC) && !/_capMeta/.test(RE_SRC), '  사전 검사는 _meta 를 또 읽지 않는다(같은 노드를 이미 두 번 읽는다)');
   chk(!/chRandOpen/.test(RE_SRC), '  옛 «랜덤 참여 허용» 토글을 읽지 않는다(창의 «방 목록에 공개» 로)');
 }
 
@@ -163,6 +164,8 @@ say('── 6. firebase-init — 쓰기');
   chk(JSON.stringify(writes[0]) === '{"channel":"workingroom","ts":"TS","host":"u1","open":true,"title":"방","max":4,"hostName":"나"}', '★ setRoomChannel 이 고른 값을 _meta 에 같이 쓴다');
   await set.setRoomChannel('WORK-AB12', 'workingroom', 'u1');
   chk(!('title' in writes[1]) && !('open' in writes[1]), '  안 넘기면 안 쓴다(다른 길 — 시크릿룸 · 하트비트)');
+  await set.setRoomChannel('WORK-AB12', 'workingroom', 'u1', false, { max: 3, title: null, hostName: null });
+  chk(writes[2].title === null && writes[2].hostName === null, '  비운 칸은 null 로 실어 update 가 지운다');
   // claimHostIfVacant
   const claim = (cur, hn) => mkApi(method('async claimHostIfVacant('))((p) => p, {}, tx(cur), null, null, null, () => 1).claimHostIfVacant('R', 'u2', ['u2'], null, hn);
   let c = await claim({ host: 'gone', hostName: '나간 사람' }, '새방장');

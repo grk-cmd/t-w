@@ -247,7 +247,7 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
 ```js
 TwRoomCreateUi.createRoomCreateUi({
   roomSettings: TwRoomSettings, bannedWords: TwBannedWords, rcStore: ()=>acctStateMod._rcStore(),
-  maxPeople: ()=>maxPeople(), isLicensed: ()=>!!(isPremium || isAdmin),
+  maxPeople: ()=>maxPeople(), isLicensed: ()=>roomEntryMod._myRoomLicensed(),   // 보유자 판정은 방 입장 모듈 한 곳
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
 });
 ```

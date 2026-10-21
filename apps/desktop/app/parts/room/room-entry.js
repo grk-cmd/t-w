@@ -731,19 +731,18 @@ async function startRoom(code){
         if(_sr){ _roomCount = _sr.count; _ownerIn = !!_sr.ownerIn; }
       }
       if(_roomCount === null) _roomCount = await window.firebaseAPI.checkRoomCapacity(code);
-      // 방 최대 인원(_meta.max)은 사람이 있는 방에서만 본다 — 빈 방 · 만들기는 새로 연다
-      const _capMeta = (!_isSecret && _roomCount > 0 && window.firebaseAPI.getRoomMeta) ? await window.firebaseAPI.getRoomMeta(code) : null;
       // ★ count는 "나를 제외한 현재 인원"이므로, 내가 들어가서 총 인원이 maxPeople()을 넘을 때만 막아야 함.
       //   maxPeople()-1로 비교하고 있어서 마지막 한 자리(예: 이미 4명 있을 때 5번째)가 못 들어가던 버그였음.
       // ★ 방장은 예약석이 있으므로 여기를 통과한다 — 값만 채우고 지나간다.
       if(!_iAmSrOwner){
         //   _ownerIn 을 못 구했으면(구버전 API 등) false 로 남아 예약석 한 자리를 늘 비워두는 쪽으로 기운다.
         //   손님 하나가 덜 들어가는 것이, 방장이 못 들어가는 것보다 낫다.
-        const _cap  = _isSecret ? (maxPeople() - 1) : roomSettings.roomCap(_capMeta, maxPeople());
+        // 방 최대 인원(_meta.max)은 아래 재확인이 이미 읽어 둔 _meta 로 본다 — 여기서 또 읽지 않는다
+        const _cap  = _isSecret ? (maxPeople() - 1) : maxPeople();
         const _here = _isSecret ? (_roomCount - (_ownerIn ? 1 : 0)) : _roomCount;
         if(_here >= _cap){
           toast(_isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
-                          : ('이 방은 이미 가득 찼어요(최대 '+_cap+'명)'));
+                          : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)'));
           return;
         }
       }
@@ -814,7 +813,7 @@ async function startRoom(code){
         if(_openCount != null && _openCount >= _openLimit){
           toast(_channelFullMsg(_openCh));
           window._pendingRoomChannel = null;
-          window._pendingRoomOpen = false;   // 🎲 만들기 취소 — 토글 값이 다음 입장에 따라붙지 않게
+          window._pendingRoomOpen = false;   // 만들기 취소 — 공개 값이 다음 입장에 따라붙지 않게
           return;
         }
         let _claim = null;
@@ -1044,10 +1043,9 @@ async function doCreateRoomInChannel(channel, settings){
   window._pendingRoomChannel = channel;   // startRoom이 이 값으로 _meta.channel을 기록
   // 공개는 두 채널 모두 — 랜덤 참여 후보는 findRandomRooms 가 워킹룸만 고른다(투게더룸 공개는 방 목록에만 보인다)
   window._pendingRoomOpen = !!(settings && settings.open);
-  _pendingExtra = { max: roomSettings.clampMax(settings && settings.max, maxPeople()) };
-  if(settings && settings.title) _pendingExtra.title = settings.title;
-  const _hn = roomSettings.hostNameOf(getDisplayName());
-  if(_hn) _pendingExtra.hostName = _hn;
+  // 비운 칸은 null(지움)로 싣는다 — 같은 코드에 서버 함수가 아직 걷지 않은 지난 방 _meta 가 있으면 그 제목이 남지 않게(update 병합)
+  _pendingExtra = { max: roomSettings.clampMax(settings && settings.max, maxPeople()),
+    title: (settings && settings.title) || null, hostName: roomSettings.hostNameOf(getDisplayName()) };
   const c=genRoomCode(channel);   // 🏷️ #9 — 채널대로 WORK-/PLAY-
   startRoom(c);
 }
@@ -1463,6 +1461,7 @@ _setupSecretCodeInput(document.getElementById('fsInviteSecretCode'));
 twNav.on(twNav.NAV.LEAVE_ROOM, doLeaveRoom);   // 🧭 다른 기기에 밀려남 · 자리비움 자동 퇴장이 이 통로로 나간다
 return {
   doCreateRoomInChannel,
+  _myRoomLicensed,
   CHANNEL_NAMES,
   NET_READY_WAIT_MS,
   ROOM_PREFIX,

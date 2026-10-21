@@ -6884,7 +6884,7 @@ TwRoomCreateUi.createRoomCreateUi({
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
   maxPeople: ()=>maxPeople(),
-  isLicensed: ()=>!!(isPremium || isAdmin),
+  isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
 });
 const USER_NAME_KEY = 'tw.userName';
