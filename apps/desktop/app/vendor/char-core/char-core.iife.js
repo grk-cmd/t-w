@@ -1,4 +1,4 @@
-/* @tw/char-core 0.4.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
+/* @tw/char-core 0.4.1 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
 "use strict";
 var TwCharCore = (() => {
   var __defProp = Object.defineProperty;
@@ -937,10 +937,11 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
   function fixMatLighting(m, log) {
     if (!m) return;
     const found = [];
-    if (m.isMeshStandardMaterial && !m.metalnessMap && m.metalness > 0.6) {
-      found.push("metalness " + m.metalness.toFixed(2) + "→0.1");
+    const metal = m.metalness ?? 0;
+    if (m.isMeshStandardMaterial && !m.metalnessMap && metal > 0.6) {
+      found.push("metalness " + metal.toFixed(2) + "→0.1");
       m.metalness = 0.1;
-      if (m.roughness < 0.2) m.roughness = 0.6;
+      if ((m.roughness ?? 1) < 0.2) m.roughness = 0.6;
     }
     if (m.aoMap) {
       found.push("aoMap 제거(앰비언트를 깎고 있었음)");
@@ -959,7 +960,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
       m.needsUpdate = true;
       log?.("[재질 정규화] " + name + " — " + found.join(" · "));
     }
-    if (m.isMeshStandardMaterial && m.metalnessMap && m.metalness > 0.6) {
+    if (m.isMeshStandardMaterial && m.metalnessMap && metal > 0.6) {
       log?.(
         "[재질 주의] " + name + " — metalnessMap 이 있어 금속도를 안 건드렸습니다. 이 파츠가 어둡게 나오면 제작 툴에서 Metallic 을 0 으로 두고 다시 내보내 주세요"
       );
@@ -1413,7 +1414,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
 
   // src/index.ts
   var THREE_REVISION = "128";
-  var VERSION = "0.4.0";
+  var VERSION = "0.4.1";
   function createCharCore(deps) {
     const THREE = deps?.THREE;
     if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");
