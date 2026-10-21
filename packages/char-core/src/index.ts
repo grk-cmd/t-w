@@ -38,7 +38,7 @@ export {
   fixMatLighting,
 } from './lighting';
 export type { LitMaterialLike } from './lighting';
-export { frontMap, paintFront, affineFor, FRONT_PAD_PX } from './front-paint';
+export { frontMap, paintFront, affineFor, padTriangle, FRONT_PAD_PX } from './front-paint';
 export type { FrontMap, FrontTri, FrontFrame, FrontOptions, FrontCtxLike, FrontGeometryLike } from './front-paint';
 export { createParts } from './parts';
 export type { Parts, PartsDeps, PrepareHooks, RigOptions, DefaultOffsets, PartXf, XfOptions } from './parts';

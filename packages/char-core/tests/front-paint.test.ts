@@ -3,7 +3,7 @@ import * as THREE_NS from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { affineFor, createBody, frontMap, paintFront, type FrontCtxLike, type FrontMap } from '../src/index';
+import { FRONT_PAD_PX, affineFor, createBody, frontMap, padTriangle, paintFront, type FrontCtxLike, type FrontMap } from '../src/index';
 
 /* 진짜 three r128 + 앱에 든 진짜 기본 몸 GLB — 얼굴 메쉬의 정면 조각이 앞모습 판과 UV 사이를 제대로 잇는지 본다. */
 const THREE = { ...THREE_NS, SkeletonUtils };
@@ -186,5 +186,48 @@ describe('paintFront', () => {
     expect(paintFront(ctx, map, {}, 0, 512)).toBe(0);
     expect(paintFront(ctx, map, {}, 512, 0)).toBe(0);
     expect(log).toEqual([]);
+  });
+});
+
+/* 모서리마다 바깥으로 민 거리 — 꼭짓점이 상한(MITER_MAX)에 잘리지 않은 모서리는 정확히 px */
+function edgeOffsets(t: number[], p: number[]) {
+  const out: number[] = [];
+  for (let e = 0; e < 3; e++) {
+    const a = e * 2, b = ((e + 1) % 3) * 2;
+    const ex = t[b]! - t[a]!, ey = t[b + 1]! - t[a + 1]!, L = Math.hypot(ex, ey);
+    const dist = (x: number, y: number) => Math.abs((x - t[a]!) * ey - (y - t[a + 1]!) * ex) / L;
+    out.push(Math.min(dist(p[a]!, p[a + 1]!), dist(p[b]!, p[b + 1]!)));
+  }
+  return out;
+}
+
+describe('padTriangle — 모서리마다 바깥으로 민다', () => {
+  it('정삼각형은 세 모서리 모두 정확히 px 만큼(돌림 방향과 상관없이)', () => {
+    const t = [0, 0, 100, 0, 50, 86.6025403784];
+    for (const tri of [t, [t[0]!, t[1]!, t[4]!, t[5]!, t[2]!, t[3]!]]) {
+      const offs = edgeOffsets(tri, padTriangle(tri, 1.5));
+      for (const o of offs) expect(o).toBeCloseTo(1.5, 6);
+    }
+  });
+
+  it('밀린 삼각형이 원래 삼각형을 품는다(넓이가 늘고 꼭짓점은 바깥)', () => {
+    const t = [10, 10, 60, 12, 30, 40];
+    const area = (q: number[]) => Math.abs((q[2]! - q[0]!) * (q[5]! - q[1]!) - (q[4]! - q[0]!) * (q[3]! - q[1]!)) / 2;
+    expect(area(padTriangle(t, 1))).toBeGreaterThan(area(t));
+  });
+
+  it('진짜 얼굴 메쉬(512 텍스처) — 가는 조각도 모서리마다 FRONT_PAD_PX 만큼 밀린다(가운데에서 키우던 옛 방식은 0.19)', () => {
+    let min = Infinity;
+    for (const tr of map.tris) {
+      const d = tr.dst.map((v) => v * 512);
+      for (const o of edgeOffsets(d, padTriangle(d, FRONT_PAD_PX))) min = Math.min(min, o);
+    }
+    expect(FRONT_PAD_PX).toBeGreaterThanOrEqual(1);
+    expect(min).toBeGreaterThanOrEqual(FRONT_PAD_PX - 1e-6);
+  });
+
+  it('넓이 0 · px 0 이면 그대로', () => {
+    expect(padTriangle([0, 0, 1, 1, 2, 2], 1)).toEqual([0, 0, 1, 1, 2, 2]);
+    expect(padTriangle([0, 0, 5, 0, 0, 5], 0)).toEqual([0, 0, 5, 0, 0, 5]);
   });
 });

@@ -148,16 +148,32 @@ export interface FrontCtxLike {
   drawImage(img: unknown, x: number, y: number, w: number, h: number): void;
 }
 
-/* 조각 가장자리를 이만큼(텍스처 픽셀) 넓혀 자른다 — 딱 맞게 자르면 이웃 조각 사이에 머리카락 같은 틈이 남는다. */
-export const FRONT_PAD_PX = 0.8;
+/* 조각 모서리마다 이만큼(텍스처 픽셀) 바깥으로 밀어 자른다 — 딱 맞게 자르면 이웃 조각 사이 반쯤 칠한 가장자리가 머리카락 같은 줄로 남는다.
+   ⚠️ 가운데에서 키우는 방식으로 되돌리지 말 것 — 가는 조각은 모서리가 거의 안 밀려 줄이 다시 보인다. */
+export const FRONT_PAD_PX = 1;
+/* 뾰족한 꼭짓점은 밀린 두 모서리가 멀리서 만난다 — 꼭짓점이 이 배수보다 멀리 가지 않게 자른다 */
+const MITER_MAX = 4;
 
-function padded(t: number[], px: number): number[] {
-  const cx = ((t[0] as number) + (t[2] as number) + (t[4] as number)) / 3;
-  const cy = ((t[1] as number) + (t[3] as number) + (t[5] as number)) / 3;
+/** 삼각형 모서리 셋을 각각 px 만큼 바깥으로 민 삼각형(꼭짓점 = 밀린 모서리끼리 만나는 곳). 넓이 0 이면 그대로. */
+export function padTriangle(t: number[], px: number): number[] {
+  const P = [0, 2, 4].map((i) => [t[i] as number, t[i + 1] as number] as const);
+  const area2 = (P[1]![0] - P[0]![0]) * (P[2]![1] - P[0]![1]) - (P[2]![0] - P[0]![0]) * (P[1]![1] - P[0]![1]);
+  if (!(Math.abs(area2) > 1e-12) || !(px > 0)) return t.slice(0, 6);
+  const sign = area2 > 0 ? 1 : -1;
+  // 모서리 i(P[i] → P[i+1])의 바깥 법선
+  const normal = (i: number) => {
+    const a = P[i]!, b = P[(i + 1) % 3]!;
+    const ex = b[0] - a[0], ey = b[1] - a[1], l = Math.hypot(ex, ey) || 1;
+    return [(ey / l) * sign, (-ex / l) * sign] as const;
+  };
   const out: number[] = [];
-  for (let i = 0; i < 6; i += 2) {
-    const dx = (t[i] as number) - cx, dy = (t[i + 1] as number) - cy, l = Math.hypot(dx, dy) || 1;
-    out.push((t[i] as number) + (dx / l) * px, (t[i + 1] as number) + (dy / l) * px);
+  for (let i = 0; i < 3; i++) {
+    // 꼭짓점 i = 모서리 i−1 과 모서리 i 를 px 씩 민 두 선이 만나는 곳 — 두 법선 합 방향으로 2·px / |n1 + n2|
+    const n1 = normal((i + 2) % 3), n2 = normal(i);
+    const bx = n1[0] + n2[0], by = n1[1] + n2[1], bl = Math.hypot(bx, by);
+    const len = bl > 1e-6 ? Math.min((2 * px) / bl, px * MITER_MAX) : px * MITER_MAX;
+    const ux = bl > 1e-6 ? bx / bl : n2[0], uy = bl > 1e-6 ? by / bl : n2[1];
+    out.push(P[i]![0] + ux * len, P[i]![1] + uy * len);
   }
   return out;
 }
@@ -172,7 +188,7 @@ export function paintFront(ctx: FrontCtxLike, map: FrontMap, src: unknown, srcSi
     const d = t.dst.map((v) => v * texSize);
     const m = affineFor(s, d);
     if (!m) continue;
-    const clip = padded(d, FRONT_PAD_PX);
+    const clip = padTriangle(d, FRONT_PAD_PX);
     ctx.save();
     ctx.beginPath();
     ctx.moveTo(clip[0] as number, clip[1] as number);
