@@ -162,7 +162,8 @@ function padded(t: number[], px: number): number[] {
   return out;
 }
 
-/** 앞모습 판(src — 정사각형 그림 · 한 변 srcSize 픽셀)을 텍스처 캔버스(한 변 texSize)에 옮겨 그린다. 그린 조각 수. */
+/** 앞모습 판(src — 정사각형 그림 · 한 변 srcSize 픽셀)을 텍스처 캔버스(한 변 texSize)에 옮겨 그린다. 그린 조각 수.
+    ⚠️ ctx 는 단위 변환이어야 한다 — 조각마다 setTransform 으로 덮어쓰므로 미리 건 배율(dpr 등)은 자르기 경로에만 걸려 그림과 어긋난다. */
 export function paintFront(ctx: FrontCtxLike, map: FrontMap, src: unknown, srcSize: number, texSize: number): number {
   if (!map || !src || !(srcSize > 0) || !(texSize > 0)) return 0;
   let drawn = 0;
