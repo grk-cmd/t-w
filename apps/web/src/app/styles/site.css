@@ -282,9 +282,29 @@ h3 {
   padding-block: 36px 40px;
   overflow: hidden;
 }
+/* 왼쪽 소개 글 · 오른쪽 📰 소식 창 — 좁으면 위아래 */
+.hero .wrap {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 28px;
+  align-items: center;
+}
 .hero-copy {
   color: var(--on-desk);
   max-width: 560px;
+}
+.news .body {
+  padding: 6px;
+}
+.news-empty {
+  min-height: 132px;
+  display: grid;
+  place-items: center;
+  font-size: 13px;
+  color: var(--ink-soft);
+}
+.news-empty p {
+  margin: 0;
 }
 .hero-copy .logo {
   display: block;
@@ -879,6 +899,7 @@ h3 {
 }
 
 @media (max-width: 900px) {
+  .hero .wrap,
   .maker-body,
   .feat .body,
   .end {

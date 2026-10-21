@@ -106,6 +106,8 @@ export interface Messages {
   landLocked: string;
   landSound: string;
   landOk: string;
+  newsTitle: string;
+  newsEmpty: string;
   makerTitle: string;
   makerLead: string;
   makerWinTitle: string;
@@ -156,6 +158,8 @@ export const ko: Messages = {
   landLocked: '이 문은 아직 잠겨 있어요.',
   landSound: '어딘가에서 새로운 땅을 짓는 소리가 들려요…',
   landOk: '확인',
+  newsTitle: '📰 소식 · 업데이트',
+  newsEmpty: '소식을 준비하고 있어요.',
   makerTitle: '캐릭터 만들기',
   makerLead:
     '얼굴 레이어를 골라 쌓고 옷 색을 고르면 기본 · 감은눈 얼굴이 함께 만들어져요. 로그인 없이 해 볼 수 있어요.',
@@ -319,6 +323,8 @@ export const en: Messages = {
   landLocked: 'This door is still locked.',
   landSound: 'You can hear something new being built somewhere…',
   landOk: 'OK',
+  newsTitle: '📰 News · Updates',
+  newsEmpty: 'News is on its way.',
   makerTitle: 'Character Maker',
   makerLead:
     'Stack face layers and pick clothing colors — the default and eyes-closed faces are made together. No login needed.',
@@ -485,6 +491,8 @@ export const ja: Messages = {
   landLocked: 'この扉はまだ閉ざされています。',
   landSound: 'どこかで新しい土地をつくる音が聞こえる…',
   landOk: 'OK',
+  newsTitle: '📰 お知らせ・アップデート',
+  newsEmpty: 'お知らせを準備しています。',
   makerTitle: 'キャラクターメーカー',
   makerLead:
     '顔のレイヤーを重ねて服の色を選ぶと、通常と目閉じの顔が一緒に作られます。ログインなしで試せます。',

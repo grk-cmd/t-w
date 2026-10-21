@@ -18,7 +18,7 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | 자리 | 내용 |
 |---|---|
 | `src/app/` | `App`(언어 공급 + 페이지) · `entry-client.tsx`(미리 그린 HTML 에 이어 붙이기 — 언어는 `<html lang>`) · `entry-server.tsx`(빌드 때 언어마다 그리기) · `styles/` |
-| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로(🔒 투게더랜드 잠긴 아이콘 · 경고창) · 캐릭터 만들기(생성기를 브라우저에서만 따로 싣는다) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
+| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로(🔒 투게더랜드 잠긴 아이콘 · 경고창 · 📰 소식 창 자리) · 캐릭터 만들기(생성기를 브라우저에서만 따로 싣는다) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
 | `src/widgets/creator/` | 🎨 웹 생성기(#440) — 3D 미리보기 · 고르기 판 · 되돌리기 · 앱으로 가져가기를 묶는다. three 와 몸 모델이 무거워 첫 화면 묶음과 따로 받는다 |
 | `src/features/character-maker/` | 얼굴 레이어(프로토타입 시안 그림을 도형 자료로 — `model/catalog.ts`): 👁 눈 폴더(아이라인 · 동공 · 흰자 — 폴더를 옮기면 셋이 같이, 층은 폴더 안에서 따로 · 동공은 흰자 모양으로 잘림) · 눈썹 · 입 · 볼 · 액세서리(최대 5개) · 상태 규칙(`reduce` — 모르는 그림 · 색 모양은 안 받음 · 대칭: 폴더 · 레이어는 거울, 폴더 안 층은 같은 값 · 오드아이) · 되돌리기 40번 · 자리 계산 한 벌(`model/geometry.ts` — 그리기와 끌기가 같은 행렬) · 얼굴 판 그리기(`drawFace`) · 앞모습 판(`drawFront`) · 얼굴 텍스처 한 벌(코어 `paintFront`) · 평면 얼굴 텍스처 칸(`ui/FaceTexturePanel.tsx` — 고른 것을 끌어 옮김 · 계산은 `model/drag.ts`) |
 | `src/features/clone-code/` | 앱으로 가져가기 — 코어 `encodeCloneCode`(앱 «코드 입력하기» 가 읽는 DCC1). 싣는 칸은 앱 생성기와 같다(피부 · 얼굴 · 감은눈 · 상의 · 하의 색 — 파츠 · 책상 없음). 비밀번호 · 코드는 화면에만 |
