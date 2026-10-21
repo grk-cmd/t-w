@@ -2,8 +2,15 @@ import { useEffect, useId, useRef, useState, type FormEvent } from 'react';
 import { useI18n } from '@/shared/i18n';
 import { Win } from '@/shared/ui';
 import { makeCloneCode, type WebCharacter } from '../lib/make-code';
+import { saveText } from '../lib/save-text';
 
-type Phase = { t: 'form'; error?: string } | { t: 'making' } | { t: 'done'; code: string; copied: boolean };
+/** 내려받는 파일 이름 — 영문만(한글 이름은 일부 브라우저가 «download» 로 바꿔 받는다) */
+const CODE_FILE = 'together-working-character.txt';
+
+type Phase =
+  | { t: 'form'; error?: string }
+  | { t: 'making' }
+  | { t: 'done'; code: string; copied: boolean; saved: boolean };
 
 /** «앱으로 가져가기» — 비밀번호 두 번 → 코드 → 복사. 비밀번호 · 코드는 화면에만(어디에도 저장 · 전송하지 않는다). */
 export function ExportDialog({
@@ -32,7 +39,7 @@ export function ExportDialog({
     if (p1 !== p2) return setPhase({ t: 'form', error: c.exportPassMismatch });
     setPhase({ t: 'making' });
     try {
-      setPhase({ t: 'done', code: await makeCloneCode(getCharacter(), p1), copied: false });
+      setPhase({ t: 'done', code: await makeCloneCode(getCharacter(), p1), copied: false, saved: false });
     } catch {
       setPhase({ t: 'form', error: c.exportFailed });
     }
@@ -41,7 +48,7 @@ export function ExportDialog({
   async function copy(code: string) {
     try {
       await navigator.clipboard.writeText(code);
-      setPhase({ t: 'done', code, copied: true });
+      setPhase((p) => (p.t === 'done' ? { ...p, copied: true } : p));
     } catch {
       // 복사가 막힌 브라우저 — 글 칸이 선택돼 있으니 직접 복사하면 된다
     }
@@ -65,6 +72,16 @@ export function ExportDialog({
             <div className="row end-row">
               <button className="btn default" type="button" onClick={() => copy(phase.code)}>
                 {phase.copied ? c.exportCopied : c.exportCopy}
+              </button>
+              <button
+                className="btn"
+                type="button"
+                onClick={() => {
+                  saveText(CODE_FILE, phase.code);
+                  setPhase({ ...phase, saved: true });
+                }}
+              >
+                {phase.saved ? c.exportSaved : c.exportSave}
               </button>
               <button className="btn" type="button" onClick={() => dlg.current?.close()}>
                 {c.close}
