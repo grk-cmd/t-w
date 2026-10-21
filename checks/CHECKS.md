@@ -126,7 +126,7 @@
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
-| **sim-room-meta-cleanup.js** | 320 | **90868b878de9** |
+| **sim-room-meta-cleanup.js** | 326 | **47d0e4f36e15** |
 | **sim-room-stats.js** | 226 | **3ca0e9bad691** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
