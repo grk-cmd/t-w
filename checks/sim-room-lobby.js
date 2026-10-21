@@ -171,6 +171,8 @@ function fakeDb(init){
     const B = RULES.config.bannedWords;
     chk(B && /admins/.test(B['.write']) && B['.read'] === true && /<= 20/.test(B.$i['.validate']), 'config/bannedWords — 관리자만 쓰고 누구나 읽는다 · 낱말 20자');
     chk(B['.validate'] === 'newData.hasChildren()', '  목록(자식 있음)만 받는다 — 글 하나를 통째로 넣지 못하게');
+    const keyRe = new RegExp(B.$i['.validate'].match(/\$i\.matches\(\/(.+?)\/\)/)[1]);
+    chk(keyRe.test(String(BW.BANNED_MAX - 1)) && !keyRe.test(String(BW.BANNED_MAX)) && keyRe.test('0') && !keyRe.test('00'), '★ 칸 번호 0 ~ BANNED_MAX-1 만 — 규칙 상한이 판정 상한(' + BW.BANNED_MAX + ')과 같다(넘는 낱말이 저장만 되고 안 걸리지 않게)');
     chk(RL.BANNED_PATH === 'config/bannedWords' && RL.LOBBY_PATH === 'roomLobby', '  함수가 쓰는 경로가 규칙과 같다');
   }
 

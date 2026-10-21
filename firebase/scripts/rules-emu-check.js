@@ -101,6 +101,8 @@ const LIMIT_CASES = [
   ['금칙어 — 21자 낱말', 'PUT', 'config/bannedWords', ['가'.repeat(21)], false, ADMIN_A],
   ['금칙어 — 문자열 아닌 값', 'PUT', 'config/bannedWords', [1], false, ADMIN_A],
   ['금칙어 — 목록이 아닌 글 하나', 'PUT', 'config/bannedWords', '욕', false, ADMIN_A],
+  ['금칙어 — 500번째(0~499) 칸까지', 'PUT', 'config/bannedWords/499', '욕', true, ADMIN_A],
+  ['금칙어 — 501번째(500) 칸은 거절(판정 상한 500 과 같게)', 'PUT', 'config/bannedWords/500', '욕', false, ADMIN_A],
   ['금칙어 — 관리자가 목록 비우기(지우기)', 'DELETE', 'config/bannedWords', null, true, ADMIN_A],
 
   /* 대화 기록 */

@@ -4,7 +4,7 @@
  * 공백 · 기호 · 숫자를 끼워 피해 가는 것을 잡으려고 글자만 남기고 소문자로 맞춘 뒤 부분 일치로 본다.
  */
 'use strict';
-const BANNED_MAX = 500;   // 목록 상한 — 넘는 줄은 버린다(제목마다 이만큼 훑는다)
+const BANNED_MAX = 500;   // 목록 상한 — 규칙 config/bannedWords/$i(0~499) · 웹 관리자 칸과 같은 값
 
 function normalizeWord(s){
   return String(s == null ? '' : s).normalize('NFKC').toLowerCase().replace(/[^\p{L}]/gu, '');
