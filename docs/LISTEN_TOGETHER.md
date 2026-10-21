@@ -50,13 +50,13 @@ rooms/{방}/_music = {
 
 ### 2.4 방을 열 때 · 비울 때 — 지난 곡이 남지 않게
 - `rooms/{방}` 은 통째로 지워지지 않는다(앱은 멤버 칸만 · 서버 함수는 빈 공용 방의 `_meta` · `_chatTab` 만 · 시크릿룸은 비어도 남김). 그래서:
-  - **방을 여는 길**(만들기 `setRoomChannel` · 빈 방 선점 `claimEmptyRoom` · 시크릿룸 열기 · 되살리기)이 `_meta.music` 을 쓰면서 `_music` 을 **한 묶음으로**(`update` 다중 경로) 지운다. 같이 듣기 방이면 DJ 가 첫 곡을 새로 쓴다.
+  - **방을 여는 길**(만들기 `setRoomChannel` · 빈 방 선점 `claimEmptyRoom` · 시크릿룸 열기 · 되살리기)이 `_meta.music` 을 쓰면서 `_music` 을 **한 묶음으로**(`update` 다중 경로) 지우거나(일반 방) 첫 곡으로 새로 쓴다(같이 듣기 방).
   - **빈 방 청소**(`firebase/functions/room-stats.js` `sweepEmptyRooms`)가 빈 공용 방의 `_music` 도 걷는다 — 구현 PR 1.
 
 ## 3. 규칙 (`firebase/firebase-database-rules.json` — 구현 PR 1)
 - `rooms/$room/_music`:
-  - `.write`: 지우기는 늘 · 쓰기는 `_meta.music === true` 인 방에서만(일반 방 낙서를 막는다). 방장인지는 서버가 확인하지 못한다 — 화면에서 DJ 만 쓰게 막고, «DJ 만» 은 방 서버가 지킨다(`_meta` 와 같은 수준).
-  - `.validate`: 필수 칸 `hasChildren(['id','title','by','at','paused','pos','seq'])` · `seq` 는 지금 값보다 커야 · `id` `^[A-Za-z0-9_-]{11}$` · `title` 1~100 · `by` 1~64 · `at` 숫자이고 서버 지금 + 60초 이하 · `paused` 불 · `pos` 0 이상 · `seq` 0 이상 정수 · `dur`(있으면) 0 이상 · `$other` 거절.
+  - `.write`: 지우기는 늘 · 쓰기는 **쓰고 난 뒤** `_meta.music === true` 인 방에서만(일반 방 낙서를 막는다 · `newData.parent()` 로 보니 방을 열며 «켜기 + 첫 곡» 을 한 묶음으로 쓸 수 있고 «끄기 + 곡 쓰기» 묶음은 막힌다). 방장인지는 서버가 확인하지 못한다 — 화면에서 DJ 만 쓰게 막고, «DJ 만» 은 방 서버가 지킨다(`_meta` 와 같은 수준).
+  - `.validate`: 필수 칸 `hasChildren(['id','title','by','at','paused','pos','seq'])` · `seq` 는 지금 값보다 커야 · `id` `^[A-Za-z0-9_-]{11}$` · `title` 1~100 · `by` 1~64 · `at` 숫자이고 서버 지금 + 60초 이하 · `paused` 불 · `pos` 0 이상 · `seq` 0 이상 10억 이하 정수(아주 큰 값으로 다음 쓰기를 막아 두지 못하게) · `dur`(있으면) 0 이상 · `$other` 거절.
 - `.read`: `rooms/$room` 의 읽기를 그대로 받는다.
 - 에뮬레이터 검사(`firebase/scripts/rules-emu-check.js`)에 모양 · 거절 경우(거절 이유가 차례 번호가 아니게 큰 번호로).
 
