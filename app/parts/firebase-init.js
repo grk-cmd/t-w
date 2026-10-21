@@ -38,6 +38,7 @@
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor } from "./room/room-channel.js";
   import { createRoomStats } from "./room/room-stats.js";
+  import { createGachaTx } from "./character/gacha-tx.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
@@ -192,9 +193,6 @@
   /* 소유권이 걸린 쓰기(users/{코드}/…)는 전부 이 줄을 먼저 지나야 한다.
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
   const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
-  const GACHA_CONNECT_WAIT_MS = 3000;   // 🎰 뽑기 전 소켓 확인 — 끊긴 채 트랜잭션을 걸면 SDK 가 다시 붙을 때까지 기다려 화면이 멈춘다
-  const GACHA_TX_TIMEOUT_MS = 10000;    // 🎰 가챠 트랜잭션 응답 상한 — 넘기면 «확인 못 함» 으로 답한다(늦게 붙으면 onLate)
-  const _gachaFailReason = e => /permission[_ ]denied/i.test(String((e && (e.code || e.message)) || e)) ? 'denied' : 'error';
 
   /* 구글 로그인을 묶지 않고 물릴 때 — 이번 로그인으로 막 생긴 계정이면 지운다.
      로그아웃만 하면 빈 계정이 그 구글을 붙잡아, 나중에 진짜 계정에 구글을 연결할 때 credential-already-in-use 가 난다.
@@ -424,6 +422,7 @@
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
   const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
+  const _gachaTx = createGachaTx({ db, ref, get, runTransaction, waitConnected: ms => window.firebaseAPI.waitConnected(ms), whenAuthReady: _whenAuthReady });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
@@ -907,8 +906,7 @@
          users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
          users/{uid}/gacha/ts             = 172…   // 마지막으로 바꾼 시각(ms)
        내 것만 1회 get 한다 — 목록을 실시간 구독하면 비용이 터진다(audit 검사 9).
-       ★ 쓰기는 트랜잭션 한 길(updateGacha)뿐이다 — 새 값은 부르는 쪽(gacha.js)이 지금 서버 값을 받아 만든다.
-         통째 set 은 걷었다: 다른 PC 의 뽑기를 지웠다(B-1021-13).
+       ★ 쓰기는 트랜잭션 한 길(updateGacha → character/gacha-tx.js)뿐이다 — 통째 set 은 다른 PC 의 뽑기를 지운다.
        ⚠️ 규칙 파일의 users/$userId 안에 gacha 블록이 없으면 여기 쓰기가 **조용히 전부 거부**된다.
          audit 검사 7은 최상위 경로만 보므로 users 하위 키는 잡아주지 않는다. */
     async loadGachaOwned(uid){
@@ -919,35 +917,7 @@
       }
       catch(e){ console.warn('[가챠] 소유 목록 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
     },
-    /* 🎰 가챠 노드를 트랜잭션으로 고친다 — 뽑기 · 합치기가 쓰는 한 길. apply(지금 서버 값) 가 새 값 또는 null(쓰지 않음)을 준다.
-       ★ 사전 get 은 첫 시도의 cur=null 오해를 막는다(chalBonus 와 같은 이유) — SDK 는 «빈 노드» 와 «아직 모름» 을 가르지 않는다.
-       ★ 시간 안에 안 끝나면 «timeout» 으로 답하고 남은 재시도는 그만둔다. 이미 서버로 간 시도가 늦게 붙으면
-         opt.onLate(값) 로 알린다 — 부르는 쪽이 사본에 합쳐 뽑기가 사라지지 않는다.
-       @return { ok:true, committed, value:{owned, ts} } | { ok:false, reason:'offline'|'timeout'|'denied'|'error' } */
-    async updateGacha(uid, apply, opt){
-      await _whenAuthReady();
-      if(!(await this.waitConnected(GACHA_CONNECT_WAIT_MS))) return { ok:false, reason:'offline' };
-      const r = ref(db, `users/${uid}/gacha`);
-      let pre = null;
-      try{ pre = (await get(r)).val(); }
-      catch(e){ console.warn('[가챠] 읽기 실패', e); return { ok:false, reason:_gachaFailReason(e) }; }
-      let gaveUp = false;
-      const tx = runTransaction(r, cur => {
-        if(gaveUp) return;                                   // undefined = 그만둠
-        const next = apply(cur == null ? pre : cur);
-        return next == null ? undefined : next;
-      }).then(res => ({ ok:true, committed: !!res.committed, value: res.snapshot.val() || {} }),
-              e => { console.warn('[가챠] 저장 실패', e); return { ok:false, reason:_gachaFailReason(e) }; });
-      let timer = null;
-      const late = new Promise(res => { timer = setTimeout(() => res({ ok:false, reason:'timeout' }), GACHA_TX_TIMEOUT_MS); });
-      const out = await Promise.race([tx, late]);
-      clearTimeout(timer);
-      if(!out.ok && out.reason === 'timeout'){
-        gaveUp = true;
-        tx.then(v => { if(v.ok && v.committed && opt && opt.onLate){ try{ opt.onLate(v.value); }catch(_){} } });
-      }
-      return out;
-    },
+    updateGacha(uid, apply, opt){ return _gachaTx.updateGacha(uid, apply, opt); },
     /* ===== 🧍 캐릭터 슬롯 (기기 간 동기화 · 2026-09-16 제보 6-b) =====
          users/{uid}/slots/ts      = 172…   // 마지막으로 바꾼 시각(ms · 서버 시계)
          users/{uid}/slots/v       = 1
@@ -1163,7 +1133,7 @@
       }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
     },
     /* 🏅 👑달성표 주간 보상 — 추가 뽑기 횟수. users/{uid}/chalBonus (숫자 하나)
-       ★ **gacha 노드 안에 두지 않는다.** 바로 위 saveGachaOwned 가 그 노드를 통째로 set 하는데,
+       ★ **gacha 노드 안에 두지 않는다.** 옛 판(0.11 이하)이 그 노드를 통째로 set 하는데,
          보상을 모르는 **옛 버전 클라이언트**는 {owned, ts} 만 실어 보낸다 — 그 한 번의 쓰기로
          보상이 증발한다. 기기 두 대 중 하나만 업데이트한 사람에게 실제로 일어나는 일이다.
          노드를 갈라 두면 옛 버전이 건드릴 수 있는 경로 자체가 없다.

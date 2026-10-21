@@ -144,6 +144,7 @@
 | **sim-gift-star.js** | 127 | **09dec0581403** |
 | **sim-gacha-prune.js** | 166 | **d9e85bab60ff** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
+| **sim-gacha-tx.js** | 168 | **bee2d5e4c04c** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 279 | **085f9b967aed** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
