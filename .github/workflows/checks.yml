@@ -55,8 +55,8 @@ jobs:
           if grep -qE '^(apps/admin/|firebase/firebase-database-rules\.json$)' <<< "$files"; then echo admin=true >> "$GITHUB_OUTPUT"; else echo admin=false >> "$GITHUB_OUTPUT"; fi
           # 캐릭터 코어 — 자기 폴더 · 앱에 둔 빌드 사본 · 루트 의존성(lock)
           if grep -qE '^(packages/char-core/|apps/desktop/app/vendor/char-core/|package(-lock)?\.json$)' <<< "$files"; then echo core=true >> "$GITHUB_OUTPUT"; else echo core=false >> "$GITHUB_OUTPUT"; fi
-          # 메인 홈페이지 — 자기 폴더 · 루트 의존성(lock) · 빌드 때 색을 만드는 디자인 토큰 원본 · 변환기
-          if grep -qE '^(apps/web/|package(-lock)?\.json$|docs/design-system/project/tokens\.json$|scripts/build-design-tokens\.js$)' <<< "$files"; then echo web=true >> "$GITHUB_OUTPUT"; else echo web=false >> "$GITHUB_OUTPUT"; fi
+          # 메인 홈페이지 — 자기 폴더 · 쓰는 캐릭터 코어 · 빌드 때 꺼내 쓰는 앱 몸 · 피부 원본 · 루트 의존성(lock) · 디자인 토큰 원본 · 변환기
+          if grep -qE '^(apps/web/|packages/char-core/|apps/desktop/app/parts/(base-glb|skin-data)\.js$|package(-lock)?\.json$|docs/design-system/project/tokens\.json$|scripts/build-design-tokens\.js$)' <<< "$files"; then echo web=true >> "$GITHUB_OUTPUT"; else echo web=false >> "$GITHUB_OUTPUT"; fi
           # 앱 검사 — 아래 «건너뛰어도 되는 파일» 만 바뀌었으면 false.
           #   apps/admin/ · apps/web/ (run.js 가 스테이징에서 뺀다) · 문서(.md) 중 검사가 읽지 않는 것.
           #   검사가 읽는 문서: checks/ 안(CHECKS.md 정본) · docs/design-system/ · 검사 코드에 따옴표로 이름이 나오는 것(예: 'docs/ERROR_CODES.md')
@@ -145,7 +145,7 @@ jobs:
       - run: npm -w @tw/web run lint          # oxlint + steiger(FSD 층 규칙)
       - run: npm -w @tw/web run format:check
       - run: npm -w @tw/web test
-      - run: npm -w @tw/web run build         # tsc(strict) · 화면 · 언어마다 미리 그리기
+      - run: npm -w @tw/web run build         # 코어 빌드(prebuild) · tsc(strict) · 화면 · 언어마다 미리 그리기
 
   char-core:
     name: 캐릭터 코어 시험 · 빌드

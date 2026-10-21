@@ -18,7 +18,11 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | 자리 | 내용 |
 |---|---|
 | `src/app/` | `App`(언어 공급 + 페이지) · `entry-client.tsx`(미리 그린 HTML 에 이어 붙이기 — 언어는 `<html lang>`) · `entry-server.tsx`(빌드 때 언어마다 그리기) · `styles/` |
-| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로 · 캐릭터 만들기 자리 · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
+| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로 · 캐릭터 만들기(생성기를 브라우저에서만 따로 싣는다) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
+| `src/widgets/creator/` | 🎨 웹 생성기(#440) — 3D 미리보기 · 고르기 판 · 되돌리기 · 앱으로 가져가기를 묶는다. three 와 몸 모델이 무거워 첫 화면 묶음과 따로 받는다 |
+| `src/features/character-maker/` | 얼굴 레이어(프로토타입 시안 그림을 도형 자료로 — `model/catalog.ts`) · 상태 규칙(`reduce` — 모르는 그림 · 색 모양은 안 받음 · 대칭 거울) · 되돌리기 40번 · 앞모습 판 그리기(`drawFront`) · 얼굴 텍스처 한 벌(앞모습 판 → 코어 `paintFront` 로 얼굴 UV 에) |
+| `src/features/clone-code/` | 앱으로 가져가기 — 코어 `encodeCloneCode`(앱 «코드 입력하기» 가 읽는 DCC1). 싣는 칸은 앱 생성기와 같다(피부 · 얼굴 · 감은눈 · 상의 · 하의 색 — 파츠 · 책상 없음). 비밀번호 · 코드는 화면에만 |
+| `src/entities/character/` | 코어 한 벌(몸 · 얼굴 · 톤 · 앞모습 지도)을 만드는 `loadCharKit` · 3D 미리보기. 빛 · 재질 고치기는 앱 생성기와 같은 값(`lib/lighting.ts` — 앱 값이 바뀌면 같이) |
 | `src/shared/i18n/` | 언어(`ko` 기본 · `en` · `ja`) · 주소(`/` · `/en/` · `/ja/`) · 화면 글(`messages.ts` — 언어마다 같은 모양, 빠지면 타입 검사가 잡는다) |
 | `src/shared/config/` | 바깥 주소 한 곳(우리 도메인만) |
 | `src/shared/lib/html-template/` | 빌드한 `index.html` 틀의 자리표 셋(`%TW_LANG%` · `<!--tw-head-->` · `<!--tw-body-->`)을 채운다 — 하나라도 빠지면 던진다 |
@@ -26,6 +30,8 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | `public/` | 아이콘(앱 것을 복사 — `apps/desktop/app/assets/icon/tw-mini.png` · `apps/desktop/build/icon.iconset/icon_256x256.png`) · 글꼴 라이선스 |
 
 - **색**은 디자인 시스템 원본(`docs/design-system/project/tokens.json`)에서 빌드 때 만든다(`vite.config.ts` 의 `virtual:tw-tokens.css` — 도움말 사이트와 같은 변환기 `scripts/build-design-tokens.js`). 사본을 커밋하지 않는다. 페이지는 `<html data-theme="classic">`.
+- **몸 모델 · 피부 그림**은 앱 원본(`apps/desktop/app/parts/base-glb.js` · `skin-data.js`)에서 빌드 때 꺼내 파일로 낸다(`virtual:tw-char-assets` — 사본 커밋 없음). 설치 파일에도 든 공개 자산이라 웹에 둬도 된다(#430 4절).
+- **캐릭터 코어**는 `@tw/char-core` 빌드(`packages/char-core/dist`)를 쓴다 — `dev` · `build` · `test` 앞에 코어 빌드가 먼저 돈다(`pre*` 스크립트).
 - **글꼴**: 제목은 갈무리11 굵게(`galmuri` · SIL OFL 1.1), 일본어 가나는 DotGothic16(`@fontsource/dotgothic16` 일본어 묶음 · SIL OFL 1.1). 우리 사이트에 같이 올리고 라이선스는 `/licenses/`.
 
 ## 지킬 것
@@ -36,5 +42,5 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 
 ## 아직 아닌 것
 - **Hosting 연결**: 새 Firebase Hosting 사이트 · `firebase.json` 칸 · 맞춤 도메인 `together-working.com` 은 사이트를 만든 뒤 따로(`firebase/hosting/README.md` «새 사이트 만들기»). 그때 `build` 결과(`dist/`)를 올릴 자리 · 머리(CSP 등)를 정한다.
-- **캐릭터 만들기**: 3D 생성기는 #440(코어 `@tw/char-core` ESM). 지금은 안내 자리만.
+- **캐릭터 만들기**: 파츠 · 동물은 넣지 않는다(사용자 결정 — 꾸미기 파츠는 라이선스 전용 · 웹은 사람만). 얼굴 레이어 그림은 시안 수준이라 디자이너 그림이 오면 `catalog.ts` 표만 바꾼다. 내 계정에 저장은 #441.
 - **내려받기 · 로그인 · 라이브러리 · 소식**: 서버 API 가 있어야 한다(#439 · #441). 내려받기 단추는 그때까지 눌리지 않는다.
