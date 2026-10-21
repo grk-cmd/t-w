@@ -9328,6 +9328,7 @@ const gachaMod = TwGacha.createGacha({
   tsKey: GACHA_TS_KEY,
   bonusKey: GACHA_BONUS_KEY,
   isGachaPart: (...a)=>premiumMod.isGachaPart(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({

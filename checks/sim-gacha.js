@@ -4,9 +4,11 @@
    ・1절: 만들 때 — 싣기만 하면 window.TwGacha 뿐 · 만들면 로컬 보유분 · 보너스 읽기 · 시각 부트스트랩 · 부팅 4.2초 · 10분 tick ·
            창 버튼 · ESC · 바깥 클릭 · blur 연결 · window 고리 셋 · 창 위치 초기화 목록 · DOM 없으면 조용히
    ・2절: 셈 — 보유 · 색상 해금(관리자 통과 · 색 없는 파츠 1개) · 풀(다 모은 것 · 다른 시즌 빠짐) · 남은 뽑기(레벨/5 + 👑 보너스) · 보너스 저장
-   ・3절: 뽑기 — 결과(NEW · 색상 해금) · 티켓이 모자라면 멈춤 · 시각은 서버 시계 · 저장 · 동기화 부름
-   ・4절: 서버 동기화 — 서버가 새것(받음) · 내 것이 새것(올림) · 같고 서버 빔(올림) · pull · 미래 ts(합침) · 읽기 실패(아무것도 안 함 ·
-           회수 안 함) · 쓰기 거부(안내) · 진행 중 요청은 끝나고 한 번 더 · 미보유 파츠 회수 · 로그아웃 메모리 지우기
+   ・3절: 뽑기 — 서버 트랜잭션이 저장해야 결과(NEW · 색상 해금) · 티켓이 모자라면 멈춤 · 실패하면 이 PC 그대로(횟수 원복) ·
+           다른 PC 가 먼저 뽑으면 서버 값으로 다시 셈(횟수 넘김 없음) · 이 PC 에만 있던 뽑기도 같이 올림 · 늦게 붙은 저장 · 겹친 누름
+   ・4절: 서버 동기화 — 서버가 원본(받음 · 쓰기 0) · 이 PC 에만 있는 뽑기는 합쳐 올림(덮어쓰기 없음) · pull · 시계 틀어진 ts 상관없이 합침 ·
+           읽기 실패(아무것도 안 함 · 회수 안 함) · 쓰기 거부(안내) · 진행 중 요청은 끝나고 한 번 더 · 미보유 파츠 회수 · 로그아웃 메모리 지우기 ·
+           로그아웃 검문의 «서버에 없는 뽑기 수»
    ・5절: 보관함 — 정보줄(👑 보너스) · 탭 · 카테고리 · 시즌 · 8칸 페이지 · 잠긴 칸 · 누르면 착용 · 관리자 삭제(confirm 뒤 focus) · 열기 · 닫기
    ・6절: 뽑기 창 — 연출(잠금 → 결과 → 풀림) · 남은 뽑기 없음 · 뽑기 실패(오류) 안내
    ・7절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · 저장 키 세 줄은 app.js · 부르는 곳은 gachaMod.이름 ·
@@ -72,7 +74,7 @@ function mkEnv(opt){
     level: opt.level || 1, uid: opt.uid === null ? null : 'u1', admin: !!opt.admin,
     saved: opt.saved || [], cats: opt.cats || [{ cat:'hat', label:'모자', icon:'🎩' }, { cat:'glasses', label:'안경', icon:'👓' }],
     draft: null, adj: null, equips: [], commits: 0, denied: [], deleted: [], regs: [], prunedDef: [], saves: 0, colorRefresh: 0,
-    seats: [], slots: [], srv: opt.srv === undefined ? { owned: {}, ts: 0 } : opt.srv, srvDelay: 0, pushes: [], pushOk: true,
+    seats: [], slots: [], srv: opt.srv === undefined ? { owned: {}, ts: 0 } : opt.srv, srvDelay: 0, pushes: [], txCalls: 0, txFail: null, txRace: null, txLate: false, errs: [],
     rand: [0], randI: 0,
   };
   const els = {};
@@ -102,7 +104,19 @@ function mkEnv(opt){
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
   ctx.firebaseAPI = opt.noApi ? undefined : {
     loadGachaOwned: async () => { env.loads = (env.loads || 0) + 1; if(env.srvDelay) await new Promise(r => setTimeout(r, env.srvDelay)); return env.srv === null ? null : JSON.parse(JSON.stringify(env.srv)); },
-    saveGachaOwned: async (uid, owned, ts) => { env.pushes.push({ uid, owned: JSON.parse(JSON.stringify(owned)), ts }); if(env.pushOk) env.srv = { owned: JSON.parse(JSON.stringify(owned)), ts }; return env.pushOk; },
+    /* 트랜잭션 흉내 — apply(지금 서버 값) 가 null 이면 안 쓴다. txRace 는 첫 시도 뒤 다른 PC 가 먼저 쓴 경우(새 값으로 다시 돈다) */
+    updateGacha: async (uid, apply, opt) => {
+      const clone = v => JSON.parse(JSON.stringify(v));
+      env.txCalls++;
+      if(env.txFail) return { ok:false, reason: env.txFail };
+      let cur = clone(env.srv || { owned: {}, ts: 0 });
+      let next = apply(cur);
+      if(env.txRace){ const race = env.txRace; env.txRace = null; race(env); cur = clone(env.srv); next = apply(cur); }
+      if(next == null) return { ok:true, committed:false, value: cur };
+      env.srv = clone(next); env.pushes.push(clone(next));
+      if(env.txLate){ env.lateOpt = opt; return { ok:false, reason:'timeout' }; }
+      return { ok:true, committed:true, value: clone(next) };
+    },
   };
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'gacha.js' });
@@ -144,6 +158,7 @@ function mkEnv(opt){
     presence: { active: () => false, updateDef(){} },
     ownedKey: 'tw.gachaOwned', tsKey: 'tw.gachaOwnedTs', bonusKey: 'tw.gachaBonus',
     isGachaPart: (rec) => !!(rec && rec.gacha),   // 정의는 카탈로그(premium-assets.js) — 같은 한 줄
+    notifyError: (code, err) => env.errs.push(code),
   });
   /* 🛠 관리자 등록 · 삭제 — app.js 가 만든 뒤 setPartEditor 로 건다 */
   m.setPartEditor({
@@ -167,7 +182,7 @@ await sec('── 1. 만들 때', () => {
   chk(!e.timers.length && !e.intervals.length && !e.docL.keydown && !e.ctx.openGachaInv, '  싣기만 해서는 타이머 · 이벤트 · 고리가 없다');
   const M = e.mk();
   chk(M.gachaCount('a') === 2 && M.bonus() === 3, '로컬 보유분 · 👑 보너스를 읽는다');
-  chk(M.state.ts() === e.now && e.ls.get('tw.gachaOwnedTs') === String(e.now), '시각이 없는데 뽑은 게 있으면 지금(서버 시계)으로 찍는다 — 옛 로컬 기록이 서버로 올라가게');
+  chk(M.state.ts() === 0 && !e.ls.has('tw.gachaOwnedTs'), '시각을 새로 찍지 않는다 — 서버가 원본이라 판정에 안 쓴다(이 PC 에만 있는 뽑기는 합치기로 올라간다)');
   chk(e.timers.some(t => t.ms === 4200) && e.intervals.some(t => t.ms === 10 * 60 * 1000), '부팅 4.2초 동기화 · 10분 tick');
   chk(typeof e.els.gachaInvClose.onclick === 'function' && typeof e.els.gachaGoDraw.onclick === 'function' && typeof e.els.gachaDraw1.onclick === 'function'
       && typeof e.els.gachaDraw5.onclick === 'function' && typeof e.els.gachaBackInv.onclick === 'function' && typeof e.els.gachaDrawClose.onclick === 'function', '창 버튼 연결(✕ 둘 · 뽑으러 가기 · 1회 · 5연속 · 보관함으로)');
@@ -175,7 +190,7 @@ await sec('── 1. 만들 때', () => {
   chk(typeof e.ctx.openGachaInv === 'function' && typeof e.ctx.closeGachaInv === 'function' && typeof e.ctx._gachaRestorePos === 'function', 'window 고리 셋(openGachaInv · closeGachaInv · _gachaRestorePos) 그대로');
   chk(Array.isArray(e.ctx.__winPosResetters) && e.ctx.__winPosResetters.length === 1, '🪟 창 위치 초기화 목록에 한 자리');
   const e2 = mkEnv(); e2.mk();
-  chk(!e2.ls.has('tw.gachaOwnedTs'), '새 기기(보유 0 · 시각 없음)는 시각을 안 찍는다 — 서버가 이긴다');
+  chk(!e2.ls.has('tw.gachaOwnedTs'), '새 기기(보유 0 · 시각 없음)도 시각을 안 찍는다');
   const e3 = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '77' } }); const M3 = e3.mk();
   chk(M3.state.ts() === 77, '저장된 시각이 있으면 그대로');
   const e4 = mkEnv({ noDom: true }); let ok = true; try{ e4.mk(); }catch(_){ ok = false; }
@@ -204,40 +219,79 @@ await sec('── 2. 셈 — 보유 · 색상 해금 · 풀 · 남은 뽑기', (
 });
 
 await sec('── 3. 뽑기', async () => {
-  const e = mkEnv({ level: 10, saved: [G('a'), G('b', { noColor: true })], srvNow: SPRING + 5000 });
-  const M = e.mk(); e.rand = [0.0, 0.0, 0.0];
-  const r = M.draw(5);
-  chk(r.length === 2, '티켓 2장 — 5회 요청해도 2회에서 멈춘다 (' + r.length + ')');
-  chk(r[0].id === 'a' && r[0].isNew && r[0].count === 1 && r[1].id === 'a' && !r[1].isNew && r[1].count === 2, '결과 — 첫 개는 NEW · 둘째는 개수만');
-  chk(M.state.ts() === SPRING + 5000 && JSON.parse(e.ls.get('tw.gachaOwned')).a === 2, '시각은 서버 시계로 찍고 로컬에 저장');
-  await flush(); await flush();
-  chk(e.loads === 1, '뽑으면 서버와 맞춘다(draw)');
+  let e = mkEnv({ level: 10, saved: [G('a'), G('b', { noColor: true })], srvNow: SPRING + 5000 });
+  let M = e.mk(); e.rand = [0.0, 0.0, 0.0];
+  let r = await M.draw(5);
+  chk(r.ok && r.out.length === 2, '티켓 2장 — 5회 요청해도 2회에서 멈춘다 (' + (r.out ? r.out.length : r.reason) + ')');
+  chk(r.out[0].id === 'a' && r.out[0].isNew && r.out[0].count === 1 && r.out[1].id === 'a' && !r.out[1].isNew && r.out[1].count === 2, '결과 — 첫 개는 NEW · 둘째는 개수만');
+  chk(e.txCalls === 1 && e.srv.owned.a === 2 && e.srv.ts === SPRING + 5000, '서버 트랜잭션 한 번에 저장 — 시각은 서버 시계');
+  chk(M.owned().a === 2 && JSON.parse(e.ls.get('tw.gachaOwned')).a === 2 && M.state.srvSeen() === true, '  저장된 뒤에야 이 PC 사본 · 로컬에 적는다');
   M.setBonusLocal(10); e.rand = [0.99];
-  const r2 = M.draw(1); chk(r2.length === 1 && r2[0].id === 'b' && r2[0].isNew && !r2[0].unlockedColor, '색 없는 파츠는 «색상 해금» 표식이 안 선다');
-  M.state.setOwned({ a: 3 }); e.rand = [0];
-  const r3 = M.draw(1); chk(r3.length === 1 && r3[0].unlockedColor === true, '4번째로 막 열리면 unlockedColor');
-  M.state.setOwned({ a: 4, b: 1 }); chk(M.draw(3).length === 0, '풀이 비면 빈 결과');
+  r = await M.draw(1); chk(r.ok && r.out.length === 1 && r.out[0].id === 'b' && r.out[0].isNew && !r.out[0].unlockedColor, '색 없는 파츠는 «색상 해금» 표식이 안 선다');
+  e.srv = { owned: { a: 3 }, ts: 1 }; M.state.setOwned({ a: 3 }); e.rand = [0];
+  r = await M.draw(1); chk(r.ok && r.out.length === 1 && r.out[0].unlockedColor === true, '4번째로 막 열리면 unlockedColor');
+  e.srv = { owned: { a: 4, b: 1 }, ts: 1 }; M.state.setOwned({ a: 4, b: 1 }); const n0 = e.txCalls, p0 = e.pushes.length;
+  r = await M.draw(3); chk(r.ok && r.out.length === 0 && e.txCalls === n0 + 1 && e.pushes.length === p0, '풀이 비면 빈 결과 · 서버에 쓰지 않는다');
+
+  /* 실패 — 이 PC 는 아무것도 안 바뀐다(횟수 원복) */
+  for(const why of ['denied', 'offline', 'timeout', 'error']){
+    e = mkEnv({ level: 10, saved: [G('a')], srv: { owned: {}, ts: 0 } }); M = e.mk(); e.txFail = why;
+    const left = M.ticketsLeft();
+    r = await M.draw(1);
+    chk(!r.ok && r.reason === why && JSON.stringify(M.owned()) === '{}' && M.ticketsLeft() === left && !e.ls.has('tw.gachaOwned') && JSON.stringify(e.srv.owned) === '{}',
+        '서버 저장 실패(' + why + ') — 결과 없음 · 보유 · 횟수 · 로컬 그대로');
+  }
+  e = mkEnv({ uid: null, level: 10, saved: [G('a')] }); M = e.mk();
+  r = await M.draw(1); chk(!r.ok && r.reason === 'nouser' && e.txCalls === 0, '내 코드가 없으면 서버에 가지도 않는다');
+
+  /* 동시성 — 다른 PC 가 먼저 뽑으면 서버 값으로 다시 센다 */
+  e = mkEnv({ level: 5, saved: [G('a'), G('b')], srv: { owned: {}, ts: 0 } }); M = e.mk(); e.rand = [0];
+  e.txRace = (env) => { env.srv = { owned: { b: 1 }, ts: 9 }; };   // 1장뿐인 티켓을 다른 PC 가 먼저 씀
+  r = await M.draw(1);
+  chk(r.ok && r.out.length === 0 && JSON.stringify(e.srv.owned) === '{"b":1}' && JSON.stringify(M.owned()) === '{"b":1}',
+      '다른 PC 가 먼저 마지막 티켓을 쓰면 다시 센 결과 «남은 뽑기 없음» — 횟수를 넘겨 뽑지 못한다 · 사본은 서버 값');
+  e = mkEnv({ level: 10, saved: [G('a'), G('b')], srv: { owned: {}, ts: 0 } }); M = e.mk(); e.rand = [0];
+  e.txRace = (env) => { env.srv = { owned: { b: 1 }, ts: 9 }; };
+  r = await M.draw(1);
+  chk(r.ok && r.out.length === 1 && JSON.stringify(e.srv.owned) === '{"b":1,"a":1}', '  티켓이 남으면 다른 PC 뽑기를 지우지 않고 그 위에 더한다');
+  /* 겹친 누름 — 한 번에 하나 */
+  e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk();
+  const p1 = M.draw(1), p2 = M.draw(1);
+  const [r1, r2] = await Promise.all([p1, p2]);
+  chk(r1.ok && !r2.ok && r2.reason === 'busy' && e.txCalls === 1, '뽑는 중에 또 누르면 «busy» — 서버에 두 번 가지 않는다');
+  /* 이 PC 에만 있던 뽑기(옛 판 · 로그인 풀림) — 뽑을 때 같이 올라간다 */
+  e = mkEnv({ ls: { 'tw.gachaOwned': '{"c":1}' }, level: 15, saved: [G('a'), G('c')], srv: { owned: { a: 1 }, ts: 1 } }); M = e.mk(); e.rand = [0];
+  r = await M.draw(1);
+  chk(r.ok && r.out.length === 1 && e.srv.owned.c === 1 && e.srv.owned.a === 2,
+      'B-1021-13 — 서버에 없던 이 PC 의 뽑기(c)가 뽑을 때 서버에 같이 오른다 (' + JSON.stringify(e.srv.owned) + ')');
+  chk(M.ticketsLeft() === 0, '  남은 횟수는 서버 + 이 PC 를 합친 보유로 센다(3 − 3 = 0)');
+  /* 늦게 붙은 저장 — 시간 초과 뒤 서버에 들어가면 사본에 합친다 */
+  e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk(); e.txLate = true;
+  r = await M.draw(1);
+  chk(!r.ok && r.reason === 'timeout' && JSON.stringify(M.owned()) === '{}', '시간 초과 — 결과는 «확인 못 함» · 사본은 그대로');
+  e.lateOpt.onLate(e.srv);
+  chk(M.owned().a === 1 && JSON.parse(e.ls.get('tw.gachaOwned')).a === 1, '  늦게 붙으면 onLate 로 사본에 합친다 — 뽑기가 사라지지 않는다');
 });
 
 await sec('── 4. 서버 동기화', async () => {
-  let e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '100' }, srv: { owned: { b: 2 }, ts: 200 } });
+  let e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '100' }, srv: { owned: { a: 2, b: 1 }, ts: 50 } });
   let M = e.mk(); await M.syncGachaToServer('boot');
-  chk(JSON.stringify(M.owned()) === '{"b":2}' && M.state.ts() === 200 && !e.pushes.length, '서버가 새것 — 통째로 받고 시각을 물려받는다(핑퐁 없음)');
+  chk(JSON.stringify(M.owned()) === '{"a":2,"b":1}' && M.state.ts() === 50 && !e.pushes.length, '서버가 원본 — 이 PC 에만 있는 뽑기가 없으면 받기만 한다(ts 가 작아도 · 쓰기 0)');
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '300' }, srv: { owned: { b: 2 }, ts: 200 } });
   M = e.mk(); await M.syncGachaToServer('tick');
-  chk(e.pushes.length === 1 && JSON.stringify(e.pushes[0].owned) === '{"a":1}' && e.pushes[0].ts === 300, '내 것이 새것 — 통째로 올린다');
-  e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '300' }, srv: { owned: {}, ts: 300 } });
+  chk(e.pushes.length === 1 && JSON.stringify(e.srv.owned) === '{"b":2,"a":1}' && JSON.stringify(M.owned()) === '{"b":2,"a":1}', '이 PC 에만 있는 뽑기 — 덮어쓰지 않고 합쳐 올린다(서버의 b 가 남는다)');
+  e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '100' }, srv: { owned: { b: 2 }, ts: 200 } });
   M = e.mk(); await M.syncGachaToServer('tick');
-  chk(e.pushes.length === 1, '시각이 같고 서버가 비었으면 한 번 올린다');
+  chk(JSON.stringify(e.srv.owned) === '{"b":2,"a":1}', '  ts 가 작아도 합친다 — 예전엔 «서버가 새것» 이라 이 PC 의 a 를 지웠다');
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '900' }, srv: { owned: { b: 1 }, ts: 5 } });
   M = e.mk(); await M.syncGachaToServer('transfer', 'pull');
-  chk(JSON.stringify(M.owned()) === '{"b":1}' && !e.pushes.length, 'pull(계정 연동) — 내 것이 더 최신이어도 저쪽 것을 받는다');
+  chk(JSON.stringify(M.owned()) === '{"b":1}' && !e.pushes.length, 'pull(계정 연동) — 합치지 않고 저쪽 것을 받는다(이 PC 사본은 다른 계정 것일 수 있다)');
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '900' }, srv: { owned: {}, ts: 0 } });
   M = e.mk(); await M.syncGachaToServer('transfer', 'pull');
-  chk(e.pushes.length === 1 && M.owned().a === 1, '  저쪽이 비었으면 로컬을 지우지 않고 올린다');
+  chk(e.pushes.length === 1 && M.owned().a === 1 && e.srv.owned.a === 1, '  저쪽이 비었으면 로컬을 지우지 않고 올린다');
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":2,"c":1}', 'tw.gachaOwnedTs': '100' }, srv: { owned: { a: 1, b: 3 }, ts: SPRING + 60 * 60 * 1000 } });
   M = e.mk(); await M.syncGachaToServer('boot');
-  chk(JSON.stringify(M.owned()) === '{"a":2,"b":3,"c":1}' && e.pushes.length === 1 && e.pushes[0].ts === SPRING, '서버 ts 가 미래 — 파츠별 max 로 합치고 지금 시각으로 바로잡아 올린다');
+  chk(JSON.stringify(M.owned()) === '{"a":2,"b":3,"c":1}' && e.pushes.length === 1 && e.pushes[0].ts === SPRING, '시계가 틀어진(미래) ts 와 상관없이 파츠마다 큰 쪽 · 쓸 때 지금 시각');
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '100' }, srv: null, saved: [G('a')] });
   M = e.mk(); await M.syncGachaToServer('boot');
   chk(M.owned().a === 1 && !e.pushes.length && M.state.srvSeen() === false, '읽기 실패(null) — 아무것도 안 하고 «서버를 읽었다» 도 안 선다');
@@ -246,8 +300,12 @@ await sec('── 4. 서버 동기화', async () => {
   e = mkEnv({ noApi: true }); M = e.mk(); let ok = true; try{ await M.syncGachaToServer('boot'); }catch(_){ ok = false; }
   chk(ok, 'firebaseAPI 가 없으면 조용히 돌아간다');
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '300' }, srv: { owned: {}, ts: 1 } });
-  e.pushOk = false; M = e.mk(); await M.syncGachaToServer('tick');
-  chk(e.denied.join() === '가챠', '쓰기가 거부되면(false) 🔑 안내를 부른다(_warnServerWriteDenied)');
+  e.txFail = 'denied'; M = e.mk(); await M.syncGachaToServer('tick');
+  chk(e.denied.join() === '가챠' && M.owned().a === 1, '쓰기가 거부되면 🔑 안내(_warnServerWriteDenied) · 이 PC 뽑기는 지우지 않는다');
+  /* 로그아웃 검문 — 서버에 없는 이 PC 의 뽑기 수 */
+  e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":2,"c":1}' } }); M = e.mk();
+  chk(M.unsynced({ a: 1 }) === 2 && M.unsynced({ a: 2, c: 1, z: 9 }) === 0 && M.unsynced(null) === 3 && M.unsynced({ a: 5 }) === 1,
+      '로그아웃 검문 — 서버에 없는 뽑기 수(파츠마다 개수 차 · 서버가 더 많으면 0 · 서버 빔이면 전부)');
   /* 진행 중에 들어온 요청 — 버리지 않고 끝난 뒤 한 번 더 */
   e = mkEnv({ srv: { owned: {}, ts: 0 } }); M = e.mk();
   let release; e.ctx.firebaseAPI.loadGachaOwned = () => { e.loads = (e.loads || 0) + 1; return new Promise(r => { release = () => r({ owned: {}, ts: 0 }); }); };
@@ -334,8 +392,9 @@ await sec('── 6. 뽑기 창', async () => {
   chk(/남은 뽑기 <b>2회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && e.els.gachaDraw5.textContent === '2연속 뽑기' && !e.els.gachaDraw5.disabled, '정보줄 · 5연속은 남은 수만큼(죽이지 않는다)');
   e.rand = [0.0, 0.6];
   e.timers.length = 0;
-  e.els.gachaDraw5.onclick();
-  chk(e.els.gachaDraw1.disabled === true && /rumble/.test(e.els.gachaDrawStage.innerHTML), '연출 중 — 뽑기 버튼 잠금 · 캡슐 떨림');
+  const pDraw = e.els.gachaDraw5.onclick();
+  chk(e.els.gachaDraw1.disabled === true && /rumble/.test(e.els.gachaDrawStage.innerHTML) && !e.els.gachaDrawStage.querySelector('.gc-reveal'), '서버 저장을 기다리는 동안 — 뽑기 버튼 잠금 · 캡슐 떨림 · 아직 결과 없음');
+  await pDraw;
   chk(e.els.gachaDrawClose.style.pointerEvents !== 'none', '  닫기(✕)는 잠그지 않는다');
   e.runTimers();
   const wrap = e.els.gachaDrawStage.querySelector('.gc-cap-wrap');
@@ -345,15 +404,24 @@ await sec('── 6. 뽑기 창', async () => {
   e.els.gachaBackInv.onclick();
   chk(M.isInvOpen() && !M.isDrawOpen(), '보관함으로 — 방금 뽑은 파츠가 있는 페이지');
   e.els.gachaGoDraw.onclick(); e.toasts.length = 0;
-  e.els.gachaDraw1.onclick();
+  await e.els.gachaDraw1.onclick();
   chk(e.toasts.join() === '남은 뽑기가 없어요' && /남은 뽑기가 없어요/.test(e.els.gachaDrawStage.children[0] ? e.els.gachaDrawStage.children[0].textContent : ''), '남은 뽑기가 없으면 안내 · 무대에 문구');
-  /* 오류 — 뽑기 안에서 던지면(여기서는 서버 시계) 안내하고 잠금을 푼다 */
+  /* 오류 — 뽑기 안에서 던지면(여기서는 서버 시계) 에러코드로 알리고 잠금을 푼다 */
   e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk();
   M.openGachaInv(); e.els.gachaGoDraw.onclick();
-  e.srvThrows = true; e.toasts.length = 0;
-  e.els.gachaDraw1.onclick();
-  chk(e.toasts.join() === '뽑기에 실패했어요 — 잠시 후 다시 시도해 주세요' && e.els.gachaBackInv.disabled === false, '뽑기 실패 — 안내 · 잠금 풀림');
+  e.srvThrows = true;
+  await e.els.gachaDraw1.onclick();
+  chk(e.errs.join() === 'E-CHAR-12' && e.els.gachaBackInv.disabled === false && /gc-cap-wrap idle/.test(e.els.gachaDrawStage.innerHTML), '뽑기 오류 — E-CHAR-12 · 잠금 풀림 · 대기 캡슐로');
   e.srvThrows = false;
+  /* 서버 저장 실패 — 이유별 번호 · 횟수 그대로 */
+  const want = { denied: 'E-CHAR-09', offline: 'E-CHAR-10', timeout: 'E-CHAR-11', error: 'E-CHAR-12' };
+  for(const why of Object.keys(want)){
+    e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk();
+    M.openGachaInv(); e.els.gachaGoDraw.onclick(); e.txFail = why;
+    await e.els.gachaDraw1.onclick();
+    chk(e.errs.join() === want[why] && /남은 뽑기 <b>2회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && e.els.gachaDraw1.disabled === false,
+        '  ' + why + ' → ' + want[why] + ' · 남은 뽑기 그대로(2회) · 다시 누를 수 있다');
+  }
 });
 
 await sec('── 7. app.js 배선', () => {
@@ -374,8 +442,8 @@ await sec('── 7. app.js 배선', () => {
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // 파츠 등록 창 셋은 adminPartReg.이름
   const getters = ['isAdmin: ()=>isAdmin,', 'savedParts: ()=>savedParts,', 'partCats: ()=>PART_CATS,', 'wdDraftDef: ()=>wdDraftDef,', 'activeWdAdj: ()=>activeWdAdj,', 'setActiveWdAdj: (v)=>{ activeWdAdj = v; },'];
   const vals = ['seats: seats,', 'slots: slots,', 'presence: Presence,', 'ownedKey: GACHA_OWNED_KEY,', 'tsKey: GACHA_TS_KEY,', 'bonusKey: GACHA_BONUS_KEY,'];
-  chk(deps.length === 38 && fnDeps.length === 26 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
-      'deps 38개 — 함수 26은 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 39 && fnDeps.length === 27 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
+      'deps 39개 — 함수 27은 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');

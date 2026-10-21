@@ -192,6 +192,9 @@
   /* 소유권이 걸린 쓰기(users/{코드}/…)는 전부 이 줄을 먼저 지나야 한다.
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
   const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
+  const GACHA_CONNECT_WAIT_MS = 3000;   // 🎰 뽑기 전 소켓 확인 — 끊긴 채 트랜잭션을 걸면 SDK 가 다시 붙을 때까지 기다려 화면이 멈춘다
+  const GACHA_TX_TIMEOUT_MS = 10000;    // 🎰 가챠 트랜잭션 응답 상한 — 넘기면 «확인 못 함» 으로 답한다(늦게 붙으면 onLate)
+  const _gachaFailReason = e => /permission[_ ]denied/i.test(String((e && (e.code || e.message)) || e)) ? 'denied' : 'error';
 
   /* 구글 로그인을 묶지 않고 물릴 때 — 이번 로그인으로 막 생긴 계정이면 지운다.
      로그아웃만 하면 빈 계정이 그 구글을 붙잡아, 나중에 진짜 계정에 구글을 연결할 때 credential-already-in-use 가 난다.
@@ -904,10 +907,8 @@
          users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
          users/{uid}/gacha/ts             = 172…   // 마지막으로 바꾼 시각(ms)
        내 것만 1회 get 한다 — 목록을 실시간 구독하면 비용이 터진다(audit 검사 9).
-       ★ 반영은 '최신 기기 통째로 덮어쓰기(set)'다. ts 비교와 판정은 전부 app.js
-         syncGachaToServer 가 하고, 여기는 읽기/쓰기만 한다.
-         set 을 쓰는 것이 중요하다 — update 면 진 기기에만 있던 파츠가 서버에 그대로 남아
-         "덮어썼는데 옛것이 섞여 있다"가 된다.
+       ★ 쓰기는 트랜잭션 한 길(updateGacha)뿐이다 — 새 값은 부르는 쪽(gacha.js)이 지금 서버 값을 받아 만든다.
+         통째 set 은 걷었다: 다른 PC 의 뽑기를 지웠다(B-1021-13).
        ⚠️ 규칙 파일의 users/$userId 안에 gacha 블록이 없으면 여기 쓰기가 **조용히 전부 거부**된다.
          audit 검사 7은 최상위 경로만 보므로 users 하위 키는 잡아주지 않는다. */
     async loadGachaOwned(uid){
@@ -918,16 +919,34 @@
       }
       catch(e){ console.warn('[가챠] 소유 목록 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
     },
-    async saveGachaOwned(uid, owned, ts){
-      try{
-        const clean = {};
-        for(const k in (owned || {})){
-          const n = Math.max(0, Math.floor(Number(owned[k]) || 0));
-          if(n > 0) clean[k] = n;
-        }
-        await set(ref(db, `users/${uid}/gacha`), { owned: clean, ts: Math.max(0, Math.floor(Number(ts) || 0)) });
-        return true;
-      }catch(e){ console.warn('[가챠] 소유 반영 실패', e); return false; }
+    /* 🎰 가챠 노드를 트랜잭션으로 고친다 — 뽑기 · 합치기가 쓰는 한 길. apply(지금 서버 값) 가 새 값 또는 null(쓰지 않음)을 준다.
+       ★ 사전 get 은 첫 시도의 cur=null 오해를 막는다(chalBonus 와 같은 이유) — SDK 는 «빈 노드» 와 «아직 모름» 을 가르지 않는다.
+       ★ 시간 안에 안 끝나면 «timeout» 으로 답하고 남은 재시도는 그만둔다. 이미 서버로 간 시도가 늦게 붙으면
+         opt.onLate(값) 로 알린다 — 부르는 쪽이 사본에 합쳐 뽑기가 사라지지 않는다.
+       @return { ok:true, committed, value:{owned, ts} } | { ok:false, reason:'offline'|'timeout'|'denied'|'error' } */
+    async updateGacha(uid, apply, opt){
+      await _whenAuthReady();
+      if(!(await this.waitConnected(GACHA_CONNECT_WAIT_MS))) return { ok:false, reason:'offline' };
+      const r = ref(db, `users/${uid}/gacha`);
+      let pre = null;
+      try{ pre = (await get(r)).val(); }
+      catch(e){ console.warn('[가챠] 읽기 실패', e); return { ok:false, reason:_gachaFailReason(e) }; }
+      let gaveUp = false;
+      const tx = runTransaction(r, cur => {
+        if(gaveUp) return;                                   // undefined = 그만둠
+        const next = apply(cur == null ? pre : cur);
+        return next == null ? undefined : next;
+      }).then(res => ({ ok:true, committed: !!res.committed, value: res.snapshot.val() || {} }),
+              e => { console.warn('[가챠] 저장 실패', e); return { ok:false, reason:_gachaFailReason(e) }; });
+      let timer = null;
+      const late = new Promise(res => { timer = setTimeout(() => res({ ok:false, reason:'timeout' }), GACHA_TX_TIMEOUT_MS); });
+      const out = await Promise.race([tx, late]);
+      clearTimeout(timer);
+      if(!out.ok && out.reason === 'timeout'){
+        gaveUp = true;
+        tx.then(v => { if(v.ok && v.committed && opt && opt.onLate){ try{ opt.onLate(v.value); }catch(_){} } });
+      }
+      return out;
     },
     /* ===== 🧍 캐릭터 슬롯 (기기 간 동기화 · 2026-09-16 제보 6-b) =====
          users/{uid}/slots/ts      = 172…   // 마지막으로 바꾼 시각(ms · 서버 시계)
