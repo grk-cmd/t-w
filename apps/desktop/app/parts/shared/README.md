@@ -287,3 +287,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **함정** — 페이지가 보내는 모양은 `hosting/help/embed.js` 와 짝이다 — 한쪽만 바꾸면 목차가 안 뜬다(`sim-help-tab` 이 embed.js 를 돌려 이 함수로 읽어 본다).
 사이트 주소를 바꾸면 앱 CSP `frame-src` 도 같이. 검사: `checks/sim-help-tab.js`.
+
+## banned-words.js — 방 제목 금칙어 판정(한 벌)
+
+**책임** — 금칙어 목록 맞추기(`cleanBannedList`)와 판정(`hasBannedWord` — 글자만 남기고 소문자로 맞춘 뒤 부분 일치). 앱(방 만들기 · 방 설정)과 서버 함수(목록 사본 `roomLobby`)가 같은 판정을 쓴다.
+
+**만드는 법** — 이 파일은 서버 함수 `firebase/functions/banned-words.js` 와 **글자까지 같은 사본**이다. 원본은 서버 함수 쪽 — 고칠 땐 두 파일을 같이(`sim-room-settings` 가 견준다). 앱에서는 classic script(`window.TwBannedWords`), 서버 함수에서는 `require`.
+
+**내놓는 것** — `BANNED_MAX` · `normalizeWord` · `cleanBannedList` · `hasBannedWord`.
+
+**함정** — 숫자 · 기호만 된 낱말은 맞추면 비어서 걸 수 없다. 부분 일치라 한 글자 낱말은 그 글자가 든 제목을 다 막는다(웹 관리자 금칙어 칸에 안내). 검사: `checks/sim-room-settings.js`.

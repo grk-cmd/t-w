@@ -1,0 +1,92 @@
+/* room-create-ui.js — 🏷️ 방 만들기 창(제목 · 방 종류 · 최대 인원 · 방 목록 공개).
+   방 만들기 / 참여하기 모달(#inviteModal) 안의 #roomCreatePanel 을 쓴다 — 채널 카드를 누르면 카드 · 코드 칸 대신 보이고,
+   [방 만들기] 를 누르면 제목을 확인해(금칙어 · 길이) onCreate(채널, 설정) 를 부른다. 모달 안이라 클릭 통과 목록을 따로 늘리지 않는다.
+   채널 카드(#chCardWorking · #chCardTogether)를 누르면 연다 — 투게더룸 카드는 보유자만(아니면 카드의 «라이선스가 필요해요» 그대로).
+   classic script(window.TwRoomCreateUi) — app.js 가 방 입장 모듈 뒤에서 createRoomCreateUi(deps) · 밖에서 부르는 이름 없음.
+   검사: checks/sim-room-settings.js */
+(function(){
+
+/**
+ * @param {{
+ *   roomSettings: typeof window.TwRoomSettings,
+ *   bannedWords: typeof window.TwBannedWords,
+ *   rcStore: () => { bannedWords(): string[] },
+ *   maxPeople: () => number,
+ *   isLicensed: () => boolean,
+ *   onCreate: (channel: string, settings: { title: string, max: number, open: boolean }) => void,
+ * }} deps
+ */
+function createRoomCreateUi(deps){
+const roomSettings = deps.roomSettings;
+const bannedWords = deps.bannedWords;
+const rcStore = deps.rcStore;
+const maxPeople = deps.maxPeople;
+const isLicensed = deps.isLicensed;
+const onCreate = deps.onCreate;
+
+const $ = (id) => document.getElementById(id);
+const OPEN_HINT = Object.freeze({
+  on: '누구나 방 목록에서 보고 들어올 수 있어요',
+  off: '방 목록에 안 보여요 · 방 코드를 아는 사람만 들어와요',
+});
+let channel = 'workingroom';
+let max = 0;
+
+function paint(){
+  $('rcChWorking').classList.toggle('on', channel === 'workingroom');
+  $('rcChTogether').classList.toggle('on', channel === 'togetherroom');
+  $('rcChTogether').disabled = !isLicensed();
+  const cap = maxPeople();
+  $('rcMax').textContent = max + '명';
+  $('rcMaxDown').disabled = max <= roomSettings.ROOM_MAX_MIN;
+  $('rcMaxUp').disabled = max >= cap;
+  $('rcMaxHint').textContent = roomSettings.ROOM_MAX_MIN + '명부터 ' + cap + '명까지';
+  $('rcOpenHint').textContent = $('rcOpen').checked ? OPEN_HINT.on : OPEN_HINT.off;
+  $('rcTitleCount').textContent = $('rcTitle').value.trim().length + '/' + roomSettings.TITLE_MAX;
+}
+function showError(text){ $('rcTitleErr').textContent = text || ''; }
+function setShown(on){
+  $('roomCreatePanel').hidden = !on;
+  $('inviteChannelPick').hidden = on;
+  $('inviteJoinPanel').hidden = on;
+}
+
+/** @param {string} ch 'workingroom' | 'togetherroom' */
+function open(ch){
+  channel = (ch === 'togetherroom' && isLicensed()) ? 'togetherroom' : 'workingroom';
+  max = maxPeople();
+  $('rcTitle').value = '';
+  $('rcOpen').checked = true;
+  showError('');
+  setShown(true);
+  paint();
+  $('rcTitle').focus();
+}
+function close(){ setShown(false); }
+
+function submit(){
+  const r = roomSettings.checkTitle($('rcTitle').value, bannedWords.cleanBannedList(rcStore().bannedWords()), bannedWords);
+  if(!r.ok){ showError(roomSettings.TITLE_ERROR_TEXT[r.reason]); $('rcTitle').focus(); return; }
+  close();
+  onCreate(channel, { title: r.title, max: roomSettings.clampMax(max, maxPeople()), open: $('rcOpen').checked });
+}
+
+$('rcChWorking').onclick = () => { channel = 'workingroom'; paint(); };
+$('rcChTogether').onclick = () => { if(isLicensed()){ channel = 'togetherroom'; paint(); } };
+$('rcMaxDown').onclick = () => { max = roomSettings.clampMax(max - 1, maxPeople()); paint(); };
+$('rcMaxUp').onclick = () => { max = roomSettings.clampMax(max + 1, maxPeople()); paint(); };
+$('rcOpen').onchange = paint;
+$('rcTitle').oninput = () => { showError(''); paint(); };
+$('rcTitle').onkeydown = (e) => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } };
+$('rcCreate').onclick = submit;
+$('rcCancel').onclick = close;
+$('inviteClose').addEventListener('click', close);   // 모달을 닫으면 다음에 열 때 카드부터 보이게
+$('chCardWorking').onclick = () => open('workingroom');
+$('chCardTogether').onclick = () => { if(isLicensed()) open('togetherroom'); };
+
+return { open, close };
+}
+
+window.TwRoomCreateUi = { createRoomCreateUi };
+
+})();

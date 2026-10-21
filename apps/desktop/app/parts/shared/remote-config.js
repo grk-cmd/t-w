@@ -44,14 +44,16 @@ const FALLBACK_PATHS = Object.freeze({
   rsOn: 'config/roomServer/on', rsDefault: 'config/roomServer/default', rsPercent: 'config/roomServer/defaultPercent',
   rsJoinWait: 'config/roomServer/timing/joinWaitMs', rsGiveUp: 'config/roomServer/timing/clientGiveUpMs',
   srcFriends: 'config/sources/friends', srcRooms: 'config/sources/rooms', srcCatalog: 'config/sources/catalog',
-  dataRoutes: 'config/dataRoutes',
+  dataRoutes: 'config/dataRoutes', bannedWords: 'config/bannedWords',
 });
 const FB_ALLOW = 'config/roomServer/allow/', FB_SERVERS = 'config/roomServer/servers/';
-const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'sources', 'dataRoutes'];
+const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'sources', 'dataRoutes', 'bannedWords'];
 /* 기능별 받는 곳(source-switch.js FEATURES 와 같은 이름) — 칸 값은 'server' | 'firebase', 없으면 null(옛 스위치 · 기본값) */
 const SOURCE_FEATURES = Object.freeze(['friends', 'rooms', 'catalog']);
 const DATA_ROUTES_MAX = 200;      // 범용 통로 표 줄 수 상한(data-gateway.js ROUTE_MAX 와 같은 값)
 const DATA_ROUTE_LEN_MAX = 200;   // 한 줄 길이 상한(규칙 config/dataRoutes/$i 와 같은 값)
+const BANNED_WORDS_MAX = 1000;    // 금칙어 줄 수 상한(규칙 config/bannedWords/$i 0~999 와 같은 값)
+const BANNED_WORD_LEN_MAX = 20;   // 한 낱말 길이 상한(규칙과 같은 값)
 const DEFAULTS = Object.freeze({
   roomLimits: Object.freeze({ workingroom: 300, togetherroom: 300 }),
   roomMaxPeople: 10,
@@ -64,6 +66,7 @@ const DEFAULTS = Object.freeze({
   bugDailyMax: 5,
   sources: Object.freeze({ friends: null, rooms: null, catalog: null }),
   dataRoutes: Object.freeze([]),   // 범용 통로(data-gateway.js)가 서버로 보낼 경로 앞부분 — 비면 모든 동작이 Firebase(지금 길)
+  bannedWords: Object.freeze([]),  // 방 제목 금칙어 원문(웹 관리자) — 맞추기 · 판정은 shared/banned-words.js 한 곳
 });
 
 const isInt = (v) => typeof v === 'number' && isFinite(v) && v % 1 === 0;
@@ -125,7 +128,13 @@ function cleanDataRoutes(raw){
   const list = Array.isArray(raw) ? raw : (isObj(raw) ? Object.values(raw) : []);
   return list.filter((v) => typeof v === 'string' && v.length > 0 && v.length <= DATA_ROUTE_LEN_MAX).slice(0, DATA_ROUTES_MAX);
 }
+/* 금칙어 원문 — 글자 칸만 · 길이 상한(규칙 config/bannedWords/$i 와 같은 20자). 맞추기는 판정 쪽(banned-words.js)이 한다. */
+function cleanBannedWords(raw){
+  const list = Array.isArray(raw) ? raw : (isObj(raw) ? Object.values(raw) : []);
+  return list.filter((v) => typeof v === 'string' && v.length > 0 && v.length <= BANNED_WORD_LEN_MAX).slice(0, BANNED_WORDS_MAX);
+}
 function clean(key, raw){
+  if(key === 'bannedWords') return cleanBannedWords(raw);
   if(key === 'dataRoutes') return cleanDataRoutes(raw);
   if(key === 'sources') return cleanSources(raw);
   if(key === 'roomLimits') return cleanRoomLimits(raw);
@@ -141,7 +150,7 @@ function fieldsOf(data){
   const d = isObj(data) ? data : {};
   const f = isObj(d.flags) ? d.flags : {};
   return { roomLimits: d.roomLimits, roomMaxPeople: d.roomMaxPeople, inviteGate: f.inviteGate, existingSignup: f.existingSignup, friendsApi: f.friendsApi,
-    roomServer: d.roomServer, roomServerTiming: d.roomServerTiming, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax, sources: d.sources, dataRoutes: d.dataRoutes };
+    roomServer: d.roomServer, roomServerTiming: d.roomServerTiming, minVersion: d.minVersion, bugDailyMax: d.bugDailyMax, sources: d.sources, dataRoutes: d.dataRoutes, bannedWords: d.bannedWords };
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
@@ -212,7 +221,7 @@ function createRemoteConfig(){
       minVersion: { app: v.minAppVer, room: v.minRoomVer },
       roomServer: { on: v.rsOn, default: v.rsDefault, defaultPercent: v.rsPercent, servers: {} },
       roomServerTiming: { joinWaitMs: v.rsJoinWait, clientGiveUpMs: v.rsGiveUp },
-      sources: { friends: v.srcFriends, rooms: v.srcRooms, catalog: v.srcCatalog }, dataRoutes: v.dataRoutes };
+      sources: { friends: v.srcFriends, rooms: v.srcRooms, catalog: v.srcCatalog }, dataRoutes: v.dataRoutes, bannedWords: v.bannedWords };
     src = 'firebase';
     apply(data, false); saveCache(data);
     return true;
@@ -322,12 +331,13 @@ function createRemoteConfig(){
     bugDailyMax: () => cur.bugDailyMax,
     sources: () => cur.sources,   // 기능별 받는 곳 — 고르기는 source-switch.js pickSource 한 곳
     dataRoutes: () => cur.dataRoutes,   // 범용 통로 표 — 경로 고르기는 data-gateway.js matchRoute 한 곳
+    bannedWords: () => cur.bannedWords,   // 방 제목 금칙어 원문 — 판정은 banned-words.js
   };
 }
 
 const api = { FALLBACK_PATHS, FB_ALLOW, FB_SERVERS, CONFIG_PATH, ALLOW_PATH, CACHE_KEY, REFRESH_MS, STALE_MS, FETCH_TIMEOUT_MS,
   KEYS, SOURCE_FEATURES, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
-  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, cleanTiming, cleanSources, cleanDataRoutes, DATA_ROUTES_MAX, DATA_ROUTE_LEN_MAX, fieldsOf,
+  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanMinVersion, cleanRoomServer, cleanTiming, cleanSources, cleanDataRoutes, DATA_ROUTES_MAX, DATA_ROUTE_LEN_MAX, cleanBannedWords, BANNED_WORDS_MAX, BANNED_WORD_LEN_MAX, fieldsOf,
   createRemoteConfig, store: createRemoteConfig() };
 if(typeof window !== 'undefined') window.TwRemoteConfig = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

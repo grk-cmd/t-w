@@ -6876,6 +6876,16 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
   twNav: twNav,
+  roomSettings: TwRoomSettings,
+});
+// 🏷️ 방 만들기 창 — 채널 카드가 열고, [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
+TwRoomCreateUi.createRoomCreateUi({
+  roomSettings: TwRoomSettings,
+  bannedWords: TwBannedWords,
+  rcStore: ()=>acctStateMod._rcStore(),
+  maxPeople: ()=>maxPeople(),
+  isLicensed: ()=>!!(isPremium || isAdmin),
+  onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
 });
 const USER_NAME_KEY = 'tw.userName';
 

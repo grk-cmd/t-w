@@ -399,7 +399,7 @@
     if(!myUserId) return;
     try{
       if(window.firebaseAPI && window.firebaseAPI.claimHostIfVacant){
-        const r = await window.firebaseAPI.claimHostIfVacant(room, myUserId, aliveUserIds, null);
+        const r = await window.firebaseAPI.claimHostIfVacant(room, myUserId, aliveUserIds, null, window.TwRoomSettings.hostNameOf(friends[myMemberId].name));
         if(r && r.ok && r.meta){
           _roomHooks.onHostSucceeded(r.meta);
         }
@@ -2480,7 +2480,7 @@
              그게 이 '각자 알아서 나간다' 방식의 전제다.
              _meta.host 폴백은 규칙이 바뀌었을 때의 안전망일 뿐 1순위로 쓰면 안 된다 — _meta 리스너는
              멤버 스냅샷보다 늦게 올 수 있고, 그 찰나에 나가는 사람이 0명이거나 2명이 된다. */
-        const _cap = (window.TwRemoteConfig && window.TwRemoteConfig.store) ? window.TwRemoteConfig.store.maxPeople() : 10;   // 원격 설정 roomMaxPeople — app.js maxPeople() 와 같은 값
+        const _cap = window.TwRoomSettings.roomCap(_capturedMeta, (window.TwRemoteConfig && window.TwRemoteConfig.store) ? window.TwRemoteConfig.store.maxPeople() : 10);   // 방 최대 인원 · 원격 정원 중 작은 쪽 — 입장 검사(room-entry)와 같은 판정
         const _srOwner = (String(room||'').indexOf('SCRT-') === 0)
           ? (_roomHooks.secretOwner() || (_capturedMeta && _capturedMeta.host) || null) : null;
         const _aliveIds = Object.keys(friends);
@@ -2766,16 +2766,16 @@
     },
     // ★ 채널 개편: 방 생성 시 _meta.channel 기록 / 참여 시 방의 채널 조회.
     //   별도 roomsMeta 노드 대신 기존 _meta를 재사용 — 유령방 정리 로직이 이미 _meta를 함께 지운다.
-    /* 🎲 open — '랜덤 참여 허용' 여부. findRandomRooms 가 roomIndex 에서 이 값만 보고 후보를 고른다.
-       ⚠️ **명시적 boolean 일 때만** 인덱스에 싣는다. 안 넘겼는데 false 를 써버리면 방장이 켠 방이
-          하트비트 한 번에 꺼지고, 반대로 늘 실어 보내면 같은 코드로 예전에 열었던 랜덤 방의
-          open:true 가 update() 병합 때문에 그대로 남는다(빈 방 승계·재입장 경로가 전부 그렇다). */
-    async setRoomChannel(room, channel, hostUserId, open){
+    /* open — 방 목록 공개 · 랜덤 참여 허용. ⚠️ 명시적 boolean 일 때만 싣는다 — 안 넘겼는데 false 를 쓰면 방장이 켠 방이
+       하트비트 한 번에 꺼지고, 늘 실으면 같은 코드로 예전에 열었던 방의 open:true 가 update() 병합으로 남는다.
+       fields — 방 만들기의 { title, max, hostName }(room-settings.js 로 거른 값 · 없는 칸은 안 실음). */
+    async setRoomChannel(room, channel, hostUserId, open, fields){
       try{
         const meta = { channel: channel||'workingroom', ts: serverTimestamp() };
         if(hostUserId) meta.host = hostUserId;   // ★ 방장 = 방을 만든 사람의 userId(사람 고정값 — 재접속해도 동일)
         // open 도 _meta 에 둔다. 방 사람들의 하트비트가 roomIndex 줄을 되살릴 때 여기서 꺼내 싣는다(room-index.js).
         if(open === true || open === false) meta.open = open;
+        if(fields) Object.assign(meta, fields);
         await update(ref(db, `rooms/${room}/_meta`), meta);
         const extra = { channel: channel||'workingroom' };
         if(open === true || open === false) extra.open = open;
@@ -2890,7 +2890,7 @@
          그걸 기준으로 삼으면, 승계 직후 방이 빈 경우에 '방금 누가 선점했다'로 오판한다.
        [FRESH] 경합 창은 실제로 1~2초다. 그보다 오래된 openTs 는 이 방이 예전에 열렸다는 뜻이므로
          무시하고 새로 연다 — 강제종료로 _meta 만 살아남은 방을 그대로 물려받지 않기 위한 것. */
-    async claimEmptyRoom(room, myUserId, licensed){
+    async claimEmptyRoom(room, myUserId, licensed, hostName){
       const FRESH = 20*1000;
       try{
         const res = await runTransaction(ref(db, `rooms/${room}/_meta`), cur => {
@@ -2907,6 +2907,7 @@
              채팅 잠금 · 되살림 표시(restoredTs)가 남아 있다. channel · host 만 덮으면 그것들을 물려받는다. */
           const out = justOpened ? meta : {};
           out.host = myUserId;
+          if(hostName) out.hostName = hostName; else delete out.hostName;
           out.channel = licensed ? 'togetherroom' : 'workingroom';
           out.openLic = !!licensed;
           out.openTs = _svNow();          // serverTimestamp는 트랜잭션 함수 안에서 못 쓴다
@@ -3136,7 +3137,7 @@
        방을 해산한다(_maybeSucceedHost 참고) — newChannel은 그래서 지금은 항상 null이다.
        (파라미터는 남겨둔다: 나중에 다른 채널로 옮기는 승계가 생기면 그대로 쓰면 된다)
        트랜잭션은 '유효한 host가 이미 있으면 손대지 않는다' 한 겹만 — 순간적인 동시 판단으로 두 번 쓰는 것 방지. */
-    async claimHostIfVacant(room, myUserId, aliveUserIds, newChannel){
+    async claimHostIfVacant(room, myUserId, aliveUserIds, newChannel, hostName){
       // aliveUserIds: 지금 살아있는 멤버 userId 목록(호출부가 이미 계산). newChannel: 무료 전환 시 'workingroom'.
       try{
         const metaRef = ref(db, `rooms/${room}/_meta`);
@@ -3148,6 +3149,7 @@
           if(hostAlive) return;              // 유효한 방장이 이미 있음 → 아무것도 안 함(undefined 반환 = 트랜잭션 취소)
           // 방장 자리가 비었다 — 내가 차지(또는 무료 전환)
           meta.host = myUserId;
+          if(hostName) meta.hostName = hostName; else delete meta.hostName;   // 목록의 «현재 방장» — 나간 사람 이름이 남지 않게
           if(newChannel) meta.channel = newChannel;
           meta.ts = Date.now();              // serverTimestamp는 트랜잭션 함수 안에서 못 씀 — 클라 시각으로 대체
           return meta;

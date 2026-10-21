@@ -1695,12 +1695,26 @@
   .ch-card .ch-name{font-family:var(--tw-font-legacy);font-weight:bold;font-size:14px;color:var(--ink);margin-top:8px;}
   .ch-card .ch-meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
   .ch-card .ch-count{font-size:11px;color:var(--win-ok,#087f23);margin-top:5px;}
-  /* 🎲 랜덤 참여 토글 — 베젤(win-hi/win-lo)을 쓰지 않으므로 audit 검사 12 대상이 아니다.
-     색은 잉크 토큰만 쓴다(--ink-soft / --win-select). */
-  .ch-card .ch-rand{display:flex;align-items:center;justify-content:center;gap:4px;
-    margin-top:7px;font-size:10px;color:var(--ink-soft);cursor:pointer;user-select:none;}
-  .ch-card .ch-rand input{margin:0;cursor:pointer;}
-  .ch-card .ch-rand:hover{color:var(--win-select);}
+  /* 방 만들기 창(room-create-ui.js) — 입력칸 · 버튼은 .code-pass · .code-btns 를 쓰고, 여기는 배치와 글자만(베젤 없음 · audit 검사 12 대상 아님). */
+  #roomCreatePanel .rc-row{margin-bottom:10px;}
+  #roomCreatePanel .rc-lbl{display:block;font-size:12px;font-weight:bold;color:var(--ink);margin-bottom:5px;}
+  #roomCreatePanel .rc-line{display:flex;align-items:center;gap:8px;}
+  #roomCreatePanel .rc-line .code-pass{margin-bottom:0;flex:1;min-width:0;}
+  #roomCreatePanel .rc-count,#roomCreatePanel .rc-hint{font-size:11px;color:var(--ink-soft);}
+  #roomCreatePanel .rc-err{font-size:11px;color:var(--ink-danger, #B04A38);min-height:14px;margin-top:3px;}
+  #roomCreatePanel .rc-chs{display:flex;gap:8px;}
+  #roomCreatePanel .rc-ch{flex:1;display:flex;flex-direction:column;align-items:flex-start;gap:2px;padding:8px 10px;cursor:pointer;
+    font-family:var(--tw-font-legacy);font-size:12px;color:var(--ink);background:var(--win-face-2);border:1px solid var(--ink-soft);border-radius:var(--win-radius-el);}
+  #roomCreatePanel .rc-ch small{font-size:11px;color:var(--ink-soft);font-weight:normal;}
+  #roomCreatePanel .rc-ch.on{outline:2px solid var(--win-select);outline-offset:-1px;}
+  #roomCreatePanel .rc-ch:disabled{opacity:.5;cursor:not-allowed;}
+  #roomCreatePanel .rc-max{display:flex;align-items:center;gap:8px;}
+  #roomCreatePanel .rc-max button{width:30px;height:28px;cursor:pointer;font-size:14px;font-weight:bold;color:var(--ink);background:var(--win-face-2);border:1px solid var(--ink-soft);border-radius:var(--win-radius-el);}
+  #roomCreatePanel .rc-max button:disabled{opacity:.4;cursor:not-allowed;}
+  #roomCreatePanel .rc-max output{min-width:40px;text-align:center;font-size:13px;font-weight:bold;color:var(--ink);}
+  #roomCreatePanel .rc-pub{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:bold;color:var(--ink);cursor:pointer;}
+  #roomCreatePanel .rc-pub input{margin:0;cursor:pointer;}
+  #roomCreatePanel .rc-pub-hint{margin:3px 0 0 20px;}
   .ch-card .ch-badge{position:absolute;top:5px;right:5px;font-size:10px;font-weight:bold;
     background:#8b6914;color:#fff;padding:1px 6px;}
   /* 라이선스 없음 — 눌리지 않고 회색 처리(동물 카드 disabled와 동일 컨셉) */
@@ -8041,12 +8055,6 @@
             <div class="ch-name">워킹룸</div>
             <div class="ch-meta">무료 · 최대 <span data-tw-max-people>10</span>명</div>
             <div class="ch-count" id="chCountWorking">— / 300</div>
-            <!-- 🎲 랜덤 참여 허용 — 워킹룸 카드에만 둔다. 투게더룸 카드에는 아예 그리지 않는다:
-                 라이선스 방에 모르는 사람이 들어오면 안 되고, findRandomRooms 의 채널 필터와 함께 두 겹이 된다.
-                 ⚠️ 카드 자체가 '누르면 방 만들기'라, 이 줄의 클릭은 app.js에서 stopPropagation 한다. -->
-            <label class="ch-rand" id="chRandWrap" title="켜면 코드를 모르는 사람도 랜덤으로 들어올 수 있어요">
-              <input type="checkbox" id="chRandOpen"><span>🎲 랜덤 참여 허용</span>
-            </label>
           </div>
           <div class="ch-card" id="chCardTogether" title="투게더룸에 방 만들기">
             <div class="ch-badge">👑 프리미엄</div>
@@ -8062,6 +8070,37 @@
         <div style="text-align:center;margin-top:10px;">
           <a id="donateLink" href="https://litt.ly/togetherworking" title="후원 페이지로 이동해요"><span class="donate-shine">후원하러 가기 ››</span></a>
         </div>
+      </div>
+
+      <!-- 방 만들기 창 — 채널 카드를 누르면 카드 · 코드 칸 대신 보인다(room/room-create-ui.js) -->
+      <div id="roomCreatePanel" hidden>
+        <div class="rc-row">
+          <label class="rc-lbl" for="rcTitle">방 제목</label>
+          <div class="rc-line">
+            <input id="rcTitle" class="code-pass" type="text" maxlength="20" autocomplete="off" spellcheck="false" placeholder="비우면 «내 닉네임 님의 방»">
+            <span id="rcTitleCount" class="rc-count">0/20</span>
+          </div>
+          <div id="rcTitleErr" class="rc-err" role="alert"></div>
+        </div>
+        <div class="rc-row">
+          <span class="rc-lbl">어떤 방인가요</span>
+          <div class="rc-chs">
+            <button type="button" class="rc-ch" id="rcChWorking"><b>워킹룸</b><small>채팅 없이 · 집중</small></button>
+            <button type="button" class="rc-ch" id="rcChTogether"><b>투게더룸</b><small>대화하며 · 함께 · 라이선스</small></button>
+          </div>
+        </div>
+        <div class="rc-row">
+          <span class="rc-lbl">최대 인원</span>
+          <div class="rc-max">
+            <button type="button" id="rcMaxDown" aria-label="한 명 줄이기">−</button>
+            <output id="rcMax">10명</output>
+            <button type="button" id="rcMaxUp" aria-label="한 명 늘리기">+</button>
+            <span id="rcMaxHint" class="rc-hint"></span>
+          </div>
+        </div>
+        <label class="rc-pub"><input type="checkbox" id="rcOpen" checked><span>방 목록에 공개</span></label>
+        <div id="rcOpenHint" class="rc-hint rc-pub-hint"></div>
+        <div class="code-btns"><button type="button" id="rcCancel">취소</button><button type="button" id="rcCreate">방 만들기</button></div>
       </div>
 
       <!-- 참여 코드 입력 (항상 카드 아래 인라인 표시) -->
@@ -8333,6 +8372,9 @@
 <script src="parts/launcher/settings-panel.js"></script>   <!-- ⚙ 설정 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSettingsPanel.createSettingsPanel 로 만든다) -->
 <script src="parts/launcher/click-through-policy.js"></script>   <!-- 🖱 클릭 통과 판단 규칙(순수 함수 · main.js 도 require) — desktop-run.js 보다 먼저 -->
 <script src="parts/launcher/desktop-run.js"></script>   <!-- 🖥️ 데스크탑 실행 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDesktopRun.createDesktopRun 로 만든다) -->
+<script src="parts/shared/banned-words.js"></script>   <!-- 🏷️ 방 제목 금칙어 판정(window.TwBannedWords) — 서버 함수 firebase/functions/banned-words.js 와 글자까지 같다 -->
+<script src="parts/room/room-settings.js"></script>   <!-- 🏷️ 방 설정 규칙(제목 · 최대 인원 · 방장 닉네임 — window.TwRoomSettings) — app.js · firebase-init.js 보다 먼저 -->
+<script src="parts/room/room-create-ui.js"></script>   <!-- 🏷️ 방 만들기 창(window.TwRoomCreateUi) — app.js 가 방 입장 모듈 뒤에서 만든다 -->
 <script src="parts/room/room-entry.js"></script>   <!-- 🛰 방 서버 · 입장 · 방 개수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomEntry.createRoomEntry 로 만든다) -->
 <script src="parts/room/seat-label-drag.js"></script>   <!-- 🏷️ 이름표 · 경험치 바 끌어 자리 바꾸기(window.TwSeatLabelDrag) — app.js 보다 먼저 -->
 <script src="parts/room/label-measure.js"></script>   <!-- 📐 라벨 잰 값 기억 — overhead.js 보다 먼저(만들 때 TwLabelMeasure 를 부른다) -->
