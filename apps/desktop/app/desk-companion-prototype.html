@@ -1703,11 +1703,16 @@
   #lobbyMain .lb-panel{border:1px solid var(--ink-soft);border-radius:0 var(--win-radius-el) var(--win-radius-el) var(--win-radius-el);background:var(--win-face-2);padding:8px;}
   #lobbyMain .lb-info{display:flex;gap:8px;font-size:11px;color:var(--ink-soft);margin-bottom:6px;min-height:14px;}
   #lobbyMain .lb-note{color:var(--tw-ink-danger);}
-  #lobbyMain .lb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:54px;gap:6px;min-height:240px;}
-  #lobbyMain .lb-card{display:flex;align-items:center;gap:8px;padding:6px 8px;min-width:0;text-align:left;font-family:var(--tw-font-legacy);color:var(--ink);background:var(--win-face);border:1px solid var(--ink-soft);border-radius:var(--win-radius-el);cursor:pointer;}
-  #lobbyMain .lb-card:hover:not(:disabled){outline:2px solid var(--win-select);outline-offset:-1px;}
-  #lobbyMain .lb-card.full{opacity:.6;cursor:not-allowed;}
-  #lobbyMain .lb-no{flex:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:var(--win-select);background:var(--win-face-2);border-radius:var(--win-radius-el);}
+  #lobbyMain .lb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:70px;gap:6px;min-height:298px;}
+  /* 카드 위 띠 — 입장 가능은 타이틀바 색 · 가득 참은 위험 색. 늘 낱말과 같이(색만으로 가르지 않는다) */
+  #lobbyMain .lb-card{display:flex;flex-direction:column;padding:0;overflow:hidden;min-width:0;text-align:left;font-family:var(--tw-font-legacy);color:var(--tw-ink);background:var(--tw-bg-face);border:1px solid var(--tw-accent);border-radius:var(--win-radius-el);cursor:pointer;}
+  #lobbyMain .lb-card:hover:not(:disabled){outline:2px solid var(--tw-accent);outline-offset:-1px;}
+  #lobbyMain .lb-card.full{border-color:var(--tw-line);cursor:not-allowed;}
+  #lobbyMain .lb-band{flex:none;display:flex;justify-content:flex-end;align-items:center;height:20px;padding:0 6px;background:var(--tw-title-a);}
+  #lobbyMain .lb-card.full .lb-band{background:var(--tw-fill-danger);}
+  #lobbyMain .lb-body{flex:1;display:flex;align-items:center;gap:8px;padding:4px 8px;min-width:0;}
+  #lobbyMain .lb-card.full .lb-body{opacity:.55;}
+  #lobbyMain .lb-no{flex:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:var(--tw-ink-accent);background:var(--tw-bg-select);border-radius:var(--win-radius-el);}
   #lobbyMain .lb-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
   #lobbyMain .lb-top{display:flex;align-items:center;gap:4px;min-width:0;}
   #lobbyMain .lb-tag{flex:none;font-size:10px;font-weight:bold;padding:0 5px;border-radius:999px;background:var(--tw-pop);color:var(--tw-on-pop);}
@@ -1718,10 +1723,9 @@
   @keyframes lb-flow{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--lb-d))}100%{transform:translateX(0)}}
   @media (prefers-reduced-motion: reduce){#lobbyMain .lb-card:hover .lb-title.long{animation:none;overflow:hidden;text-overflow:ellipsis;width:auto;}}
   #lobbyMain .lb-host{font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
-  #lobbyMain .lb-right{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
-  #lobbyMain .lb-count{font-size:12px;font-weight:bold;}
+  #lobbyMain .lb-count{flex:none;font-size:12px;font-weight:bold;}
   #lobbyMain .lb-card.full .lb-count{color:var(--tw-ink-danger);}
-  #lobbyMain .lb-state{font-size:10px;padding:0 5px;border-radius:999px;border:1px solid var(--tw-accent);color:var(--tw-accent);}
+  #lobbyMain .lb-state{font-size:10px;font-weight:bold;line-height:14px;padding:0 7px;border-radius:999px;background:var(--tw-bg-face-2);border:1px solid var(--tw-ink-accent);color:var(--tw-ink-accent);}
   #lobbyMain .lb-card.full .lb-state{border-color:var(--tw-ink-danger);color:var(--tw-ink-danger);}
   #lobbyMain .lb-state-box{grid-column:1/-1;align-self:center;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);text-align:center;}
   #lobbyMain .lb-state-box .lc-btn{width:auto;padding:6px 12px;}

@@ -56,12 +56,17 @@ function el(tag, cls, text){
   return e;
 }
 
+// 카드 = 위 띠(입장 가능 / 가득 참 — 색 + 낱말) + 몸(번호 · 제목 · 방장 · 인원)
 function cardEl(c){
   const b = el('button', 'lb-card' + (c.full ? ' full' : ''));
   b.type = 'button';
   b.disabled = c.full;
   b.title = c.full ? '가득 찼어요' : c.title;
-  b.appendChild(el('span', 'lb-no', c.no));
+  const band = el('span', 'lb-band');
+  band.appendChild(el('span', 'lb-state', c.full ? '가득 참' : '입장 가능'));
+  b.appendChild(band);
+  const body = el('span', 'lb-body');
+  body.appendChild(el('span', 'lb-no', c.no));
   const mid = el('span', 'lb-mid');
   const top = el('span', 'lb-top');
   if(c.music) top.appendChild(el('span', 'lb-tag', '같이 듣기'));
@@ -70,11 +75,9 @@ function cardEl(c){
   top.appendChild(box);
   mid.appendChild(top);
   mid.appendChild(el('span', 'lb-host', c.host ? c.hostLabel + ' ' + c.host : c.hostLabel + ' —'));
-  b.appendChild(mid);
-  const right = el('span', 'lb-right');
-  right.appendChild(el('span', 'lb-count', c.n + '/' + c.max));
-  right.appendChild(el('span', 'lb-state', c.full ? '가득 참' : '입장 가능'));
-  b.appendChild(right);
+  body.appendChild(mid);
+  body.appendChild(el('span', 'lb-count', c.n + '/' + c.max));
+  b.appendChild(body);
   if(!c.full) b.onclick = () => join(c.code);
   return b;
 }

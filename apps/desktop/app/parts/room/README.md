@@ -266,7 +266,7 @@ TwRoomCreateUi.createRoomCreateUi({
 **책임**
 - `room-lobby-model.js`(순수 · 정원은 `TwRoomSettings.roomCap` — room-settings.js 뒤에 싣는다) — 채널 사본(`roomLobby/{채널}` = `{ at, rooms }`) → 카드 · 상태(`failed` 못 읽음 · `missing` 칸 없음 · `stale` 3분 넘게 그대로 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
 - `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(지금은 Firebase 옛 길 · 방 서버 API 가 생기면 여기만 바꾼다) · `mySecretRoom()`(발급 칸 + `secretRooms/{코드}/pub.owner` 가 나일 때 · 만료 전만 — «누구 것인가» 는 세션에 한 번 · 손님 수는 방장을 빼고 열 때마다). F1 «멀티모드» 탭의 시크릿룸 칸(room-entry `_refreshSecretRoomUI`)도 deps `mySecretRoom` 으로 같은 판정을 쓴다.
-- `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드 · 쪽 · [방 만들기] · [빠른시작] · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 열려 있는 동안 60초마다만 읽는다 — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
+- `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드(위 띠 «입장 가능» / «가득 참») · 쪽 · [방 만들기] · [빠른시작] · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 열려 있는 동안 60초마다만 읽는다 — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
 
 **만드는 법** — provider 는 방 입장 모듈보다 먼저(F1 시크릿룸 칸이 같이 쓴다) · 화면은 방 만들기 창 바로 뒤:
 

@@ -1,7 +1,7 @@
 /*
  * 방 목록 로비 검사 — 모듈을 그대로 불러 돌린다(가짜 DOM · 가짜 provider).
  * 1. room-lobby-model.js(카드 · 상태 · 정렬 · 거르기 · 번호 · 쪽 · 빠른시작)  2. room-lobby-provider.js(목록 · 내 시크릿룸 소유 확인 · 세션 기억 · 손님 수)
- * 3. room-lobby-ui.js(열기 · 그리기 · 못 불러옴 · 탭 · 빠른시작 · 들어가기 · 만들기 · 시크릿룸 줄 · 글로만 그림 · 방 안 · 60초 갱신)  4. 배선(html · app.js · firebase-init)  5. 깨 보기
+ * 3. room-lobby-ui.js(열기 · 그리기 · 위 띠 · 못 불러옴 · 탭 · 빠른시작 · 들어가기 · 만들기 · 시크릿룸 줄 · 글로만 그림 · 방 안 · 60초 갱신)  4. 배선(html · app.js · firebase-init)  5. 깨 보기
  * 설계: docs/ROOM_LOBBY.md 1 · 2.2 · 3
  */
 'use strict';
@@ -143,6 +143,8 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   chk(cards.length === 5 && cards[0].className === 'lb-card' && t.log.lists.join() === 'workingroom', '모달을 열면 워킹룸 목록을 읽어 카드 5장');
   chk(t.$('lobbyInfo').textContent === '워킹룸 공개 방 5개 · 빈자리 있는 방 4개' && t.$('lobbyPage').textContent === '1 / 1', '  위 줄 · 쪽 표시');
   chk(cards[4].disabled && cards[4].className.includes('full') && cards[4].textContent.includes('가득 참'), '  가득 찬 방은 눌리지 않는다');
+  chk(cards[0].children[0].className === 'lb-band' && cards[0].children[0].textContent === '입장 가능' && cards[4].children[0].textContent === '가득 참'
+    && cards.every((c) => (c.textContent.match(/입장 가능|가득 참/g) || []).length === 1), '★ 카드 위 띠에 «입장 가능» · «가득 참» — 한 카드에 한 번만');
   chk(!t.$('lobbySecret').hidden && t.$('lobbySecretName').textContent === '<b>우리</b>' && t.$('lobbySecretCount').textContent === '손님 2/9', '★ 내 시크릿룸 줄 — 이름은 글로만(HTML 로 안 읽힘) · 손님 수/손님 정원');
   cards[0].onclick(); cards[0].onclick();
   await tick(); await tick();
