@@ -1,4 +1,5 @@
 import { useI18n } from '@/shared/i18n';
+import { NewsSlot } from './NewsSlot';
 import { TogetherLand } from './TogetherLand';
 
 export function Hero() {
@@ -32,6 +33,7 @@ export function Hero() {
           </div>
           <p className="ver">{m.heroNote}</p>
         </div>
+        <NewsSlot />
       </div>
     </section>
   );
