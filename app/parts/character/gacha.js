@@ -973,9 +973,9 @@ async function _gachaRunDraw(n){
   try{ r = await gachaDraw(n); }
   catch(e){ console.warn('[가챠] 뽑기 실패', e); r = { ok:false, reason:'error' }; }
   if(!r.ok){
-    renderGachaDraw(null);
-    _gachaNotifyFail(r.reason);
-    finish(); return;
+    try{ renderGachaDraw(null); _gachaNotifyFail(r.reason); }
+    finally{ finish(); }   // 안내가 던져도 버튼이 잠긴 채 남지 않게
+    return;
   }
   const res = r.out;
 

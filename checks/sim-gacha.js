@@ -158,7 +158,7 @@ function mkEnv(opt){
     presence: { active: () => false, updateDef(){} },
     ownedKey: 'tw.gachaOwned', tsKey: 'tw.gachaOwnedTs', bonusKey: 'tw.gachaBonus',
     isGachaPart: (rec) => !!(rec && rec.gacha),   // 정의는 카탈로그(premium-assets.js) — 같은 한 줄
-    notifyError: (code, err) => env.errs.push(code),
+    notifyError: (code, err) => { env.errs.push(code); if(env.errThrows) throw new Error('알림 깨짐'); },
   });
   /* 🛠 관리자 등록 · 삭제 — app.js 가 만든 뒤 setPartEditor 로 건다 */
   m.setPartEditor({
@@ -306,6 +306,28 @@ await sec('── 4. 서버 동기화', async () => {
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"c":1}' }, srv: { owned: { 'null': 1, ' a': 2, 'b ': 1, b: 1 }, ts: 1 } });
   M = e.mk(); await M.syncGachaToServer('tick');
   chk(e.pushes.length === 1 && JSON.stringify(e.pushes[0].owned) === '{"b":1,"c":1}', '규칙이 거부하는 키(null · 앞뒤 공백)는 걸러서 쓴다 (' + JSON.stringify(e.pushes[0] && e.pushes[0].owned) + ')');
+  /* 규칙 파일과 대조 — 앱이 쓰는 (키, 값)은 규칙 owned/$partId .validate 를 늘 통과하고, 규칙이 받는 값은 버리지 않는다 */
+  {
+    const RULES = read('firebase-database-rules.json');
+    const rule = RULES && (((((JSON.parse(RULES).rules || {}).users || {})['$userId'] || {}).gacha || {}).owned || {})['$partId'];
+    const src = rule && rule['.validate'];
+    chk(typeof src === 'string', '규칙 파일에 users/$userId/gacha/owned/$partId .validate 가 있다');
+    const expr = String(src || 'false')
+      .replace(/\$partId\.matches\(/g, 'RX(k, ').replace(/\$partId\.beginsWith\(/g, 'k.startsWith(').replace(/\$partId\.endsWith\(/g, 'k.endsWith(')
+      .replace(/newData\.isNumber\(\)/g, "(typeof v === 'number')").replace(/newData\.val\(\)/g, 'v');
+    const evalRule = new Function('RX', 'k', 'v', 'return (' + expr + ');');
+    const rulePass = (k, v) => { try{ return !!evalRule((x, re) => re.test(x), k, v); }catch(_){ return false; } };
+    const sample = { 'null': 1, 'undefined': 2, 'NaN': 3, ' lead': 1, 'trail ': 1, 'ok1': 1, 'big': 10000, 'neg': -2, 'zero': 0, 'frac': 2.7, 'str': '3', 'max': 9999 };
+    e = mkEnv({ ls: { 'tw.gachaOwned': '{"mine":1}' }, srv: { owned: sample, ts: 1 } });
+    M = e.mk(); await M.syncGachaToServer('tick');
+    const out = (e.pushes[0] || {}).owned || {};
+    const bad = Object.keys(out).filter(k => !rulePass(k, out[k]));
+    chk(e.pushes.length === 1 && !bad.length, '  앱이 쓰는 값은 전부 규칙을 통과한다' + (bad.length ? ' — 걸림: ' + bad.join(',') : ''));
+    const lost = Object.keys(sample).filter(k => rulePass(k, sample[k]) && sample[k] > 0 && !(k in out));
+    chk(!lost.length && out.big === 9999 && out.max === 9999 && out.frac === 2 && out.str === 3 && out.mine === 1,
+        '  규칙이 받는 키는 버리지 않는다 · 상한 9999 로 자름 · 소수 · 글자 숫자는 정수로 (' + JSON.stringify(out) + ')');
+    chk(rulePass('a', 1) && !rulePass('null', 1) && !rulePass(' a', 1) && !rulePass('a', 10000), '  (대조기 자체 확인 — 규칙 해석이 맞다)');
+  }
   /* 로그아웃 검문 — 서버에 없는 이 PC 의 뽑기 수 */
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":2,"c":1}' } }); M = e.mk();
   chk(M.unsynced({ a: 1 }) === 2 && M.unsynced({ a: 2, c: 1, z: 9 }) === 0 && M.unsynced(null) === 3 && M.unsynced({ a: 5 }) === 1,
@@ -417,6 +439,11 @@ await sec('── 6. 뽑기 창', async () => {
   await e.els.gachaDraw1.onclick();
   chk(e.errs.join() === 'E-CHAR-12' && e.els.gachaBackInv.disabled === false && /gc-cap-wrap idle/.test(e.els.gachaDrawStage.innerHTML), '뽑기 오류 — E-CHAR-12 · 잠금 풀림 · 대기 캡슐로');
   e.srvThrows = false;
+  /* 안내가 던져도 잠금은 풀린다(finally) */
+  e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk();
+  M.openGachaInv(); e.els.gachaGoDraw.onclick(); e.txFail = 'denied'; e.errThrows = true;
+  try{ await e.els.gachaDraw1.onclick(); }catch(_){}
+  chk(e.els.gachaDraw1.disabled === false && e.els.gachaBackInv.disabled === false, '실패 안내가 던져도 뽑기 버튼 잠금이 풀린다');
   /* 서버 저장 실패 — 이유별 번호 · 횟수 그대로 */
   const want = { denied: 'E-CHAR-09', offline: 'E-CHAR-10', timeout: 'E-CHAR-11', error: 'E-CHAR-12' };
   for(const why of Object.keys(want)){

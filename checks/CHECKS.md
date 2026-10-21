@@ -249,7 +249,7 @@
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 404 | **fa81a0910b31** |
-| **sim-gacha.js** | 483 | **a416ce4d43ca** |
+| **sim-gacha.js** | 510 | **9491aa00bd7b** |
 | **sim-myhome-edit.js** | 568 | **8e0409db75b0** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
