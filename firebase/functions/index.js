@@ -2,7 +2,7 @@
    [회원가입 설계 §4 (가) · §7-C2 · 개정 14] 비밀번호 바꾸기 함수.
    [설계 결정 10 · 개정 18 · CHECKS 개정 50] 휴지통 청소 예약 함수 — 아래 cleanTrash.
    [설계 §5-N+1 · 개정 26 · CHECKS 개정 58] 이관 창 재기 **읽기만 · 일회용** 함수 — 아래 countSlotsWindow(N+1 배포 뒤 걷는다).
-   roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js.
+   roomStats · roomStatsOnOpen · roomStatsOnClose — 열린 방 개수 요약(1분마다 · 방이 열리고 닫힐 때). 로직은 room-stats.js. 1분 실행이 방 목록 로비 사본(roomLobby — room-lobby.js)도 만든다.
    dailyActive — 일일 접속 집계(DAU · 방문 수). accountSnap 쓰기마다 metrics/daily/{서울 날짜} 에 적는다. 로직은 daily-active.js.
    bugNo — 버그 제보 고정 번호. bugBoard/list/{id} 가 생기면 no = «B-MMDD-n»(서울 날짜 · 그날 순번 · bugBoard/seq 트랜잭션). 로직은 bug-no.js.
    bugCleanup — 버그 제보 정리(매일 서울 04:40). 해결(수정 완료 · 재현 안 됨)된 뒤 30일 지난 제보를 통째로 지운다(처리방침 5항) · 해결 시각 doneTs 는 처음 본 날 적는다. 로직은 bug-cleanup.js.

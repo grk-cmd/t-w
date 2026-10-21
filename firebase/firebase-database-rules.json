@@ -42,6 +42,10 @@
           "chatOff": { ".validate": "newData.isBoolean()" },
           "openLic": { ".validate": "newData.isBoolean()" },
           "openTs": { ".validate": "newData.isNumber()" },
+          "title": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+          "max": { ".validate": "newData.isNumber() && newData.val() >= 2 && newData.val() <= 50 && newData.val() % 1 === 0" },
+          "hostName": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" },
+          "music": { ".validate": "newData.isBoolean()" },
           "$other": { ".validate": false }
         },
         "chatLog": {
@@ -278,6 +282,9 @@
       }
     },
     "roomStats": {
+      ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)"
+    },
+    "roomLobby": {
       ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)"
     },
     "licenses": {
@@ -905,6 +912,11 @@
     },
     "config": {
       ".read": "(auth != null && root.child('admins').child(auth.uid).val() === true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
+      "bannedWords": {
+        ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        "$i": { ".validate": "$i.matches(/^[0-9]{1,3}$/) && newData.isString() && newData.val().length >= 1 && newData.val().length <= 20" }
+      },
       "minRoomVer": {
         ".read": true,
         ".write": "root.child('admins').child(auth.uid).val() === true",
