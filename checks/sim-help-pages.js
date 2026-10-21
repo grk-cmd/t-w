@@ -1,7 +1,7 @@
 /* sim-help-pages.js — 📘 도움말 웹 페이지(hosting/help/)가 깨지지 않았는가
    앱 📘 도움말 칸이 이 페이지를 그대로 보여 주므로, 링크 하나 · 그림 하나가 비어도 사용자가 빈 칸을 본다.
    ・1절: 목차 · 편마다 — / 링크가 가리키는 편 · 그림 파일이 실제로 있다 · 이전 / 다음이 목차 순서와 같다
-   ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다
+   ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/)
    ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
           ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
    ・4절: 깨 보기
@@ -47,6 +47,7 @@ function judge({ pages, files, fontCss, toc }){
     const scripts = [...s.matchAll(/<script\b([^>]*)>/g)].map(m => m[1]);
     if (scripts.join('|') !== ' src="/theme.js"| src="/embed.js" defer') errs.push(f + ' — 스크립트가 /theme.js · /embed.js(defer) 두 줄이 아니다');
     if (/data:image|원본 그림|점선 테두리|\[원본/.test(s)) errs.push(f + ' — 시안용 글 · 박아 넣은 그림이 남았다');
+    if (/<img\b[^>]*\ssrc="(?!\/)/.test(s)) errs.push(f + ' — 바깥 주소 그림이 있다(사이트 안 /img/ 로 옮긴다 — 원본이 지워지면 깨지고 볼 때마다 남의 사이트로 간다)');
     if (!/<link rel="stylesheet" href="\/tokens\.css">/.test(s) || !files.has('tokens.css')) errs.push(f + ' — 디자인 토큰(/tokens.css · design:build 가 만듦)을 안 싣는다');
     if (!/<link rel="stylesheet" href="\/fonts\/nanum-gothic\.css">/.test(s)) errs.push(f + ' — 나눔고딕을 안 싣는다');
   }
@@ -112,6 +113,7 @@ const breaks = [
   ['toc.json 편 이름이 목차와 다름', (w) => { w.toc[2].pages[0].title = '실행'; }],
   ['toc.json 에 편 하나가 빠짐', (w) => { w.toc[3].pages.pop(); }],
   ['embed.js 를 안 싣는 편', (w) => { w.pages['2.html'] = w.pages['2.html'].replace('<script src="/embed.js" defer></script>', ''); }],
+  ['바깥 주소 그림', (w) => { w.pages['5.html'] += '<figure><img src="https://image.aladin.co.kr/Tobe/Note/x.png" alt=""></figure>'; }],
   ['박아 넣은 그림', (w) => { w.pages['4.html'] += '<img src="data:image/png;base64,AA">'; }],
 ];
 for (const [name, f] of breaks){ const w = clone(); f(w); chk(judge(w).length > 0, name); }
