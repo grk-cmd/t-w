@@ -26,7 +26,7 @@ describe('내 그림 — 가운데 정사각형 자르기', () => {
 describe('fileToFaceImage — 고른 파일을 잘라 그린다', () => {
   afterEach(() => vi.unstubAllGlobals());
 
-  function rig(w: number, h: number, opts: { drawThrows?: boolean } = {}) {
+  function rig(w: number, h: number, opts: { drawThrows?: boolean; noCtx?: boolean } = {}) {
     const bmp = { width: w, height: h, close: vi.fn() };
     const drawImage = vi.fn(() => {
       if (opts.drawThrows) throw new Error('깨 봄');
@@ -34,7 +34,7 @@ describe('fileToFaceImage — 고른 파일을 잘라 그린다', () => {
     const canvas = {
       width: 0,
       height: 0,
-      getContext: () => ({ drawImage }),
+      getContext: () => (opts.noCtx ? null : { drawImage }),
       toDataURL: () => 'data:image/png;base64,AA',
     };
     vi.stubGlobal(
@@ -67,9 +67,16 @@ describe('fileToFaceImage — 고른 파일을 잘라 그린다', () => {
     expect(bmp.close).toHaveBeenCalledTimes(1);
   });
 
+  it('2D 그리기를 못 얻으면 null(빈 그림을 성공으로 내보내지 않는다) · 비트맵은 닫는다', async () => {
+    const { bmp } = rig(300, 300, { noCtx: true });
+    expect(await fileToFaceImage(png())).toBeNull();
+    expect(bmp.close).toHaveBeenCalledTimes(1);
+  });
+
   it('그림이 아닌 파일 · 못 여는 파일 → null', async () => {
     rig(10, 10);
     expect(await fileToFaceImage(new File(['x'], 'a.txt', { type: 'text/plain' }))).toBeNull();
+    expect(createImageBitmap).not.toHaveBeenCalled();
     vi.stubGlobal(
       'createImageBitmap',
       vi.fn(async () => Promise.reject(new Error('못 엶'))),

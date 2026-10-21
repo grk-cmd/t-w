@@ -8234,7 +8234,7 @@
 <!-- Bloom 후처리(UnrealBloomPass)는 이 앱의 투명 배경 구조와 안 맞아서 제거함(app.js 상단 주석 참고).
      파일은 vendor/three/ 에 남아있어도 무방하지만 더 이상 로드하지 않음. -->
 <script src="vendor/jszip.min.js"></script>
-<script src="vendor/char-core/char-core.iife.js"></script>   <!-- 🧬 캐릭터 코어(window.TwCharCore — packages/char-core 빌드 사본 · 손으로 고치지 않음). 지금은 싣기만 한다(#432) -->
+<script src="vendor/char-core/char-core.iife.js"></script>   <!-- 🧬 캐릭터 코어(window.TwCharCore — packages/char-core 빌드 사본 · 손으로 고치지 않음). app.js 맨 위가 조명 숫자를 읽으니 app.js 보다 먼저 -->
 <script src="parts/base-glb.js"></script>
 <script src="parts/skin-data.js"></script>
 <!-- 투게더룸(Firebase Realtime Database) — 이 기능은 인터넷 연결이 필요해서 공식 CDN(gstatic) ESM을 사용.

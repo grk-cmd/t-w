@@ -23,7 +23,9 @@ export async function fileToFaceImage(file: File): Promise<string | null> {
     if (!sq) return null;
     const c = document.createElement('canvas');
     c.width = c.height = FACE_IMAGE_SIZE;
-    c.getContext('2d')?.drawImage(bmp, sq[0], sq[1], sq[2], sq[2], 0, 0, FACE_IMAGE_SIZE, FACE_IMAGE_SIZE);
+    const ctx = c.getContext('2d');
+    if (!ctx) return null; // 그리지 못한 빈 그림을 성공으로 내보내지 않는다
+    ctx.drawImage(bmp, sq[0], sq[1], sq[2], sq[2], 0, 0, FACE_IMAGE_SIZE, FACE_IMAGE_SIZE);
     return c.toDataURL('image/png');
   } catch {
     return null;
