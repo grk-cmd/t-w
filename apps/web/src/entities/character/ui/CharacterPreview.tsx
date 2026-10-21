@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
 import type { CharKit } from '../lib/char-kit';
-import { FILL_LIGHT_MUL, KEY_LIGHT_MUL, LIGHT_HSL, MAIN_LIGHT_INT } from '../lib/lighting';
+import { CREATOR_LIGHT_SL, FILL_LIGHT_MUL, KEY_LIGHT_MUL, LIGHT_PRESET, MAIN_LIGHT_INT } from '@tw/char-core';
 
 export interface PreviewLook {
   /** 피부 위에 그림을 얹은 얼굴 텍스처(512) — 장면이 이 캔버스를 텍스처로 쓴다 */
@@ -54,7 +54,8 @@ function buildScene(kit: CharKit, cv: HTMLCanvasElement, faceCanvas: HTMLCanvasE
   renderer.setSize(W, H, false);
 
   const scene = new THREE.Scene();
-  const col = new THREE.Color().setHSL(...LIGHT_HSL);
+  // 앱 생성기 미리보기와 같은 빛 — 숫자는 코어 한 벌
+  const col = new THREE.Color().setHSL(LIGHT_PRESET.h, CREATOR_LIGHT_SL.s, CREATOR_LIGHT_SL.l);
   scene.add(new THREE.AmbientLight(col, 0.95 * MAIN_LIGHT_INT));
   const key = new THREE.DirectionalLight(col, MAIN_LIGHT_INT * KEY_LIGHT_MUL);
   key.position.set(0, 4, 0);

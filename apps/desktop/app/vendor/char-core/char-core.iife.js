@@ -1,4 +1,4 @@
-/* @tw/char-core 0.3.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
+/* @tw/char-core 0.4.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
 "use strict";
 var TwCharCore = (() => {
   var __defProp = Object.defineProperty;
@@ -26,11 +26,18 @@ var TwCharCore = (() => {
     CANVAS_SZ: () => CANVAS_SZ,
     CLONE_CODE_PREFIX: () => CLONE_CODE_PREFIX,
     CLONE_TEX_SIZE: () => CLONE_TEX_SIZE,
+    CREATOR_LIGHT_SL: () => CREATOR_LIGHT_SL,
     FACE_SYM_SUM: () => FACE_SYM_SUM,
+    FILL_LIGHT_MUL: () => FILL_LIGHT_MUL,
+    FLAT_EMISSIVE: () => FLAT_EMISSIVE,
     FRONT_PAD_PX: () => FRONT_PAD_PX,
     HUE_GLSL: () => HUE_GLSL,
+    KEY_LIGHT_MUL: () => KEY_LIGHT_MUL,
+    LIGHT_PRESET: () => LIGHT_PRESET,
+    MAIN_LIGHT_INT: () => MAIN_LIGHT_INT,
     SKIN_COLORS: () => SKIN_COLORS,
     THREE_REVISION: () => THREE_REVISION,
+    TONE_FRONT_TOTAL: () => TONE_FRONT_TOTAL,
     VERSION: () => VERSION,
     affineFor: () => affineFor,
     b64: () => b64,
@@ -46,6 +53,8 @@ var TwCharCore = (() => {
     deriveKey: () => deriveKey,
     encodeCloneCode: () => encodeCloneCode,
     encryptPayload: () => encryptPayload,
+    fixMatLighting: () => fixMatLighting,
+    flatEmissive: () => flatEmissive,
     frontMap: () => frontMap,
     paintFront: () => paintFront,
     unb64: () => unb64,
@@ -914,6 +923,49 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
     };
   }
 
+  // src/lighting.ts
+  var LIGHT_PRESET = Object.freeze({ b: 1.2, h: 0.09, e: 0.46 });
+  var MAIN_LIGHT_INT = LIGHT_PRESET.b * LIGHT_PRESET.e;
+  var KEY_LIGHT_MUL = 0.29;
+  var FILL_LIGHT_MUL = 0.29;
+  var TONE_FRONT_TOTAL = 1.05;
+  function flatEmissive(mainLightInt, fillLightMul, total = TONE_FRONT_TOTAL) {
+    return Math.max(0, total - 0.95 * mainLightInt - mainLightInt * fillLightMul);
+  }
+  var FLAT_EMISSIVE = flatEmissive(MAIN_LIGHT_INT, FILL_LIGHT_MUL);
+  var CREATOR_LIGHT_SL = Object.freeze({ s: 0.45, l: 0.85 });
+  function fixMatLighting(m, log) {
+    if (!m) return;
+    const found = [];
+    if (m.isMeshStandardMaterial && !m.metalnessMap && m.metalness > 0.6) {
+      found.push("metalness " + m.metalness.toFixed(2) + "→0.1");
+      m.metalness = 0.1;
+      if (m.roughness < 0.2) m.roughness = 0.6;
+    }
+    if (m.aoMap) {
+      found.push("aoMap 제거(앰비언트를 깎고 있었음)");
+      m.aoMap = null;
+    }
+    if (m.lightMap) {
+      found.push("lightMap 제거");
+      m.lightMap = null;
+    }
+    if (m.vertexColors) {
+      found.push("vertexColors 끔(확산광만 깎여 톤이 어긋남)");
+      m.vertexColors = false;
+    }
+    const name = m.name || "(이름 없음)";
+    if (found.length) {
+      m.needsUpdate = true;
+      log?.("[재질 정규화] " + name + " — " + found.join(" · "));
+    }
+    if (m.isMeshStandardMaterial && m.metalnessMap && m.metalness > 0.6) {
+      log?.(
+        "[재질 주의] " + name + " — metalnessMap 이 있어 금속도를 안 건드렸습니다. 이 파츠가 어둡게 나오면 제작 툴에서 Metallic 을 0 으로 두고 다시 내보내 주세요"
+      );
+    }
+  }
+
   // src/front-paint.ts
   var DEF_MIN_FACING = 0.25;
   var DEF_HEAD_SHARE = 0.45;
@@ -1361,7 +1413,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
 
   // src/index.ts
   var THREE_REVISION = "128";
-  var VERSION = "0.3.0";
+  var VERSION = "0.4.0";
   function createCharCore(deps) {
     const THREE = deps?.THREE;
     if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");

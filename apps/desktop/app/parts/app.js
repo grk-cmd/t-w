@@ -85,113 +85,23 @@ function applyGlowEffect(obj){
   return addGlowSprite(obj);
 }
 
-// 생성기 미리보기와 톤 일치 — LIGHT_PRESET(b=0.8, h=0.09, e=0.4) 적용
-// ★ 조명 색 — 예전 채도 0.45(진한 주황빛)는 빨간 파츠가 주황으로 보일 만큼 색을 왜곡했음(요청사항).
-//   따뜻한 톤은 아주 살짝만 남기고(0.06) 거의 백색광으로 바꿔서 선택한 색이 그대로 보이게 함.
-//   ⚠️ emissive(플랫 조명) 몫에는 이 색이 안 걸린다 — 조명 색을 진하게 하면 조명 몫과 emissive 몫의
-//     색이 갈라져서, 제작 툴의 중립광 렌더와 나란히 놓으면 그 차이가 바로 보인다(0.10 → 0.06).
+/* 💡 조명 — 밝기 예산 숫자 · 재질 고치기는 캐릭터 코어 한 벌(packages/char-core/src/lighting.ts · 웹 생성기와 같이 쓴다).
+   화면을 더 밝게 · 어둡게 하려면 코어 TONE_FRONT_TOTAL 하나만 옮긴다. */
+// 빛 색은 거의 백색 — 채도를 올리면 조명 몫과 emissive(플랫) 몫의 색이 갈라져 고른 색이 다르게 보인다.
 const _MAIN_LIGHT_COL = new THREE.Color().setHSL(0.09, 0.06, 0.88);
-/* 💡 전체 광량. b × e (LIGHT_PRESET 과 동기화 — 저기 숫자를 바꾸면 여기도 같이 바꿀 것).
-   ★★ 이 앱의 화면 밝기 예산은 네 항목이고 흰 면(알베도 1.0) 기준으로 이렇게 더해진다:
-        앰비언트(0.95 × 이 값)
-        + 정수리 키(이 값 × _KEY_LIGHT_MUL)     ← 하늘을 보는 면만
-        + 정면 필(이 값 × _FILL_LIGHT_MUL)      ← 카메라를 보는 면만
-        + FLAT_EMISSIVE                          ← 모든 면
-      어느 면이든 그 면이 받는 합이 1.0 을 넘으면, **알베도 × 합** 이 1.0 을 넘는 지점부터
-      전부 255 로 잘린다 — 텍스처의 밝은 쪽 계조가 통째로 사라진다는 뜻이다.
-      ★ 넷의 합(정면 기준)은 **TONE_FRONT_TOTAL 이 정한다** — FLAT_EMISSIVE 가 남는 몫을
-        받아가므로, 이 값을 만져도 정면 밝기는 안 바뀌고 '어디에 얼마를 주는가'만 바뀐다.
-        화면을 더 밝게/어둡게 하려면 여기가 아니라 TONE_FRONT_TOTAL 을 만질 것.
-   [지금 값] 앰비언트 0.524 · 키 0.160 · 필 0.160 · FLAT 0.476(계산됨)
-        정면(옷 앞면·얼굴·욕조 앞면)  0.524+0.160+0.476 = 1.160 → 255
-        윗면(머리띠 위·거품)          0.524+0.160+0.476 = 1.160 → 255 (알베도 0.86 부터 잘림)
-        측면(어느 쪽도 안 봄)         0.524      +0.476 = 1.000 → 255 ← 지금은 여기도 안 어둡다
-        ⚠️ 측면이 1.0 에 닿았다는 뜻은 **입체감이 방향광 몫에서만 나온다**는 것이다.
-           TONE_FRONT_TOTAL 을 여기서 더 올리면 측면부터 잘리기 시작한다(그 표를 볼 것).
-   [값 이력] 0.60(1.2×0.5) → 0.66 → 0.576 → 0.444 → **0.552(1.2×0.46)**.
-      숫자가 오르내린 것은 방향광 구성이 바뀌었기 때문이고, 실제 화면 밝기는 이제
-      TONE_FRONT_TOTAL 이 정한다. 그래서 이 값만 봐서는 밝기를 알 수 없다. */
-const _MAIN_LIGHT_INT = 1.2 * 0.46;
-/* 💡 정수리 키 조명 배율 — **위를 보는 면**에만 걸린다(거품·머리띠 위·책상 윗면).
-   [경위] 예전 값(배율 1.0)에서 위를 보는 흰 면은 0.57+0.60+0.40 = 1.57 이었다 — 알베도 0.64 이상이
-     전부 255 로 잘려 거품 텍스처의 음영이 통째로 사라졌다(제보: "거품이 너무 쨍하다").
-   [값 이력] 1.0 → 0.55 → 0.12 → 0.48 → **0.29**.
-     이 값은 '밝기'가 아니라 **정면 대비 윗면이 얼마나 더 받는가**다. 올리면 위아래 입체감이
-     붙지만 흰 윗면이 먼저 잘리고, 내리면 납작해진다. 지금은 정면과 같은 몫을 준다(=윗면도 1.03).
-   ⚠️ 바닥 그림자는 쓰지 않는다(확인받음). 그래서 이 값을 낮춰도 잃는 것은 입체감뿐이다. */
-const _KEY_LIGHT_MUL = 0.29;
-/* 💡 정면 필 조명 배율 — **카메라를 보는 면**에 걸린다. 이번 판의 핵심이다.
-   [경위] 기존 필 조명은 (-3,2,-1), 즉 **물체 뒤쪽**에 있었다(카메라는 +z 에서 본다). 그래서
-     카메라를 정면으로 보는 면 — 캐릭터 옷 앞면, 욕조 앞면, 얼굴 — 은 직접광을 **하나도**
-     못 받고 앰비언트 + emissive 만으로 서 있었다. 반면 하늘을 보는 면(거품·머리띠 위)은 키를
-     통째로 받는다. 화면에서 제일 잘 보이는 면이 제일 어두운 배치였던 것이다.
-     → "머리띠와 거품은 하얗게 잘 나오는데 옷만 어둡다"가 정확히 이 구도다. 재질 문제가 아니라
-       그 옷이 서 있는 면이라서 받을 빛이 없었다.
-     → 3ds Max 쪽 렌더는 정면이 가장 밝은 균일한 스튜디오 배치다. 그래서 같은 파츠를 나란히
-       놓으면 앞면 밝기부터 갈라져 보인다.
-   ★ 위치는 카메라 쪽(0.5, 1.0, 3) — 살짝 위·오른쪽에서 넣어 완전히 납작해지지는 않게 했다.
-   ⚠️ 이 값을 올리면 FLAT_EMISSIVE 가 그만큼 줄어든다(TONE_FRONT_TOTAL 이 총합을 고정하므로).
-      정면 밝기는 그대로고, 방향광 몫이 커져 측면과의 대비만 세진다. */
-const _FILL_LIGHT_MUL = 0.29;
-/* 정면 필 조명 하나를 만든다 — 씬마다 같은 배치를 쓰라고 함수로 둔다(생성기·런처·꾸미기·썸네일 전부).
-   ⚠️ 씬마다 따로 적어 두면 반드시 한 곳이 빠지고, 그 화면만 톤이 달라진다(예전 파츠 톤이 그랬다). */
+const _MAIN_LIGHT_INT = TwCharCore.MAIN_LIGHT_INT;
+const _KEY_LIGHT_MUL = TwCharCore.KEY_LIGHT_MUL;     // 위를 보는 면만(거품 · 머리띠 위 · 책상 윗면)
+const _FILL_LIGHT_MUL = TwCharCore.FILL_LIGHT_MUL;   // 카메라를 보는 면(옷 앞면 · 얼굴)
+/* 정면 필 조명 하나를 만든다 — 씬마다 따로 적으면 한 곳이 빠져 그 화면만 톤이 달라진다(생성기 · 런처 · 꾸미기 · 썸네일 전부 여기). */
 function _mkFrontFill(intensity){
   const l = new THREE.DirectionalLight(_MAIN_LIGHT_COL, intensity);
   l.position.set(0.5, 1.0, 3);
   return l;
 }
-/* 💡 GLB 재질을 이 앱의 '플랫 조명' 규약에 맞게 정규화한다 — 캐릭터·파츠·아이템·책상이 전부 이 함수를 지난다.
-   이 앱의 화면 밝기는 사실상 **앰비언트 + emissive** 두 개다(키 조명은 정수리 악센트뿐).
-   그래서 그 둘 중 하나를 갉아먹는 재질 설정이 하나만 있어도 그 메쉬만 통째로 어두워진다.
-   여기서 눕히는 것은 셋이다.
-
-   (1) metalness — glTF 스펙상 metallicFactor 기본값이 **1.0** 이라, 블렌더에서 재질을 따로
-       안 만지고 내보내면 metalness=1(완전 금속)로 들어온다. 금속은 확산광을 반사하지 않는데
-       이 앱에는 환경맵(env map)이 아예 없어서, 그 재질은 씬 조명을 **하나도** 못 받는다.
-       화면에 남는 것은 emissive 뿐 → 흰 옷이 0.55+0.38(=249)로 서야 하는데 0.38(=175)만 남는다.
-       "emissive 를 내린 뒤부터 캐릭터가 어두워졌다"의 정체가 이것이다 — emissive 를 줄인 만큼
-       그대로 어두워지는 재질이었던 것(정상 재질이라면 그만큼 조명 몫이 채운다).
-   (2) aoMap — 앰비언트 오클루전은 **간접광(=앰비언트)에만** 곱해진다. 이 앱은 보이는 빛의
-       거의 전부가 앰비언트라, 블렌더에서 AO 를 구워 넣은 파츠는 그 그림자가 화면 밝기를
-       통째로 깎는다. 다른 파츠는 멀쩡한데 **한 파츠만** 회색으로 앉는 대표적인 원인이다.
-       (표면에 그림자를 그리고 싶으면 baseColor 텍스처에 그리는 것이 이 앱의 방식이다)
-   (3) lightMap — 구워 넣은 조명. 씬 조명과 이중으로 얹히거나 어둡게 덮어쓴다. 같은 이유로 뗀다.
-
-   ⚠️ metalnessMap 이 있으면 metalness 는 손대지 않는다 — 그건 제작자가 칠한 금속이다.
-      맨 metalness 만 1 인 것은 '설정 안 함'과 구별할 방법이 없고, 환경맵 없는 이 씬에서
-      그대로 두면 무조건 새까맣게 나오므로 눕히는 쪽이 언제나 옳다.
-   🩺 눕힐 것이 실제로 있었으면 한 줄 남긴다 — "이 파츠만 어둡다"가 다시 오면 콘솔에서
-      어느 필드였는지 바로 보인다. 정상 재질에서는 아무것도 안 찍힌다. */
+/* GLB 재질을 이 장면의 플랫 조명 규약에 맞게 눕힌다(캐릭터 · 파츠 · 아이템 · 책상 모두) — 규칙은 코어.
+   고친 것이 있으면 콘솔에 한 줄 — «이 파츠만 어둡다» 가 오면 어느 칸이었는지 바로 보인다. */
 function _fixGlbMatLighting(m){
-  if(!m) return;
-  const found = [];
-  if(m.isMeshStandardMaterial && !m.metalnessMap && m.metalness > 0.6){
-    found.push('metalness ' + m.metalness.toFixed(2) + '→0.1');
-    m.metalness = 0.1;
-    if(m.roughness < 0.2) m.roughness = 0.6;   // 완전 매끈(0)이면 하이라이트만 튀어서 같이 완화
-  }
-  if(m.aoMap){ found.push('aoMap 제거(앰비언트를 깎고 있었음)'); m.aoMap = null; }
-  if(m.lightMap){ found.push('lightMap 제거'); m.lightMap = null; }
-  /* (4) vertexColors — 정점 색은 **확산광에만** 곱해진다. emissive 몫에는 안 곱해지므로,
-     이 앱처럼 밝기의 3분의 1이 emissive 인 구조에서는 켜져 있는 것만으로 톤이 어긋난다:
-       그 메쉬 = 알베도×정점색×조명 + 알베도×FLAT   ← 앞항만 깎인다
-       옆 메쉬 = 알베도×조명        + 알베도×FLAT
-     정점색이 0.8 만 돼도 그 메쉬만 조명 몫이 20% 깎여 회색으로 앉는다. 게다가 이 앱은
-     옷 색을 코드가 정하는데(upMat.color.set) 그 위에 정점색이 또 곱해지면 고른 색이 안 나온다.
-     ⚠️ 되살리려면 이 두 줄만 지우면 된다 — 다만 그러면 그 메쉬만 다시 톤이 어긋난다.
-        표면에 음영을 넣고 싶으면 baseColor 텍스처에 그리는 것이 이 앱의 방식이다.
-     [경위] 실제로 기본 캐릭터의 `upper` 재질이 이 상태였다(제보 로그에서 확인). */
-  if(m.vertexColors){ found.push('vertexColors 끔(확산광만 깎여 톤이 어긋남)'); m.vertexColors = false; }
-  if(found.length){
-    m.needsUpdate = true;
-    try{ console.log('[재질 정규화] ' + (m.name || '(이름 없음)') + ' — ' + found.join(' · ')); }catch(_){}
-  }
-  /* 🩺 여기서 못 눕히는데도 어두워지는 경로가 하나 남는다. 고치지 않고 알리기만 한다 —
-     제작자가 의도했을 수 있고, 지우면 멀쩡한 파츠의 모양이 바뀐다. */
-  try{
-    if(m.isMeshStandardMaterial && m.metalnessMap && m.metalness > 0.6)
-      console.log('[재질 주의] ' + (m.name||'(이름 없음)') + ' — metalnessMap 이 있어 금속도를 안 건드렸습니다. 이 파츠가 어둡게 나오면 제작 툴에서 Metallic 을 0 으로 두고 다시 내보내 주세요');
-  }catch(_){}
+  TwCharCore.fixMatLighting(m, (msg)=>{ try{ console.log(msg); }catch(_){} });
 }
 scene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
 const key=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
@@ -5989,6 +5899,7 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   BASE_SCENE: ()=>bodyCore.baseScene(),
   CHAR_Z: CHAR_Z,
   COMMISSION_SCALE_CORRECTION: COMMISSION_SCALE_CORRECTION,
+  CREATOR_LIGHT_SL: TwCharCore.CREATOR_LIGHT_SL,
   FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
   FOCUS_ARM_LIFT: ()=>FOCUS_ARM_LIFT,
   HAND_REST: ()=>HAND_REST,

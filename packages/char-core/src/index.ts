@@ -26,6 +26,18 @@ export { createBody, BASE_HEIGHT } from './body';
 export { createFace, CANVAS_SZ, FACE_SYM_SUM, SKIN_COLORS } from './face';
 export { createTone, HUE_GLSL } from './tone';
 export type { Tone, ToneDeps, HueUniforms, Hsv } from './tone';
+export {
+  LIGHT_PRESET,
+  MAIN_LIGHT_INT,
+  KEY_LIGHT_MUL,
+  FILL_LIGHT_MUL,
+  TONE_FRONT_TOTAL,
+  FLAT_EMISSIVE,
+  CREATOR_LIGHT_SL,
+  flatEmissive,
+  fixMatLighting,
+} from './lighting';
+export type { LitMaterialLike } from './lighting';
 export { frontMap, paintFront, affineFor, FRONT_PAD_PX } from './front-paint';
 export type { FrontMap, FrontTri, FrontFrame, FrontOptions, FrontCtxLike, FrontGeometryLike } from './front-paint';
 export { createParts } from './parts';

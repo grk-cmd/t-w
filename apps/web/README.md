@@ -22,7 +22,7 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | `src/widgets/creator/` | 🎨 웹 생성기(#440) — 3D 미리보기 · 고르기 판 · 되돌리기 · 앱으로 가져가기를 묶는다. three 와 몸 모델이 무거워 첫 화면 묶음과 따로 받는다 |
 | `src/features/character-maker/` | 얼굴 레이어(프로토타입 시안 그림을 도형 자료로 — `model/catalog.ts`) · 상태 규칙(`reduce` — 모르는 그림 · 색 모양은 안 받음 · 대칭 거울) · 되돌리기 40번 · 앞모습 판 그리기(`drawFront`) · 얼굴 텍스처 한 벌(앞모습 판 → 코어 `paintFront` 로 얼굴 UV 에) |
 | `src/features/clone-code/` | 앱으로 가져가기 — 코어 `encodeCloneCode`(앱 «코드 입력하기» 가 읽는 DCC1). 싣는 칸은 앱 생성기와 같다(피부 · 얼굴 · 감은눈 · 상의 · 하의 색 — 파츠 · 책상 없음). 비밀번호 · 코드는 화면에만 |
-| `src/entities/character/` | 코어 한 벌(몸 · 얼굴 · 톤 · 앞모습 지도)을 만드는 `loadCharKit` · 3D 미리보기. 빛 · 재질 고치기는 앱 생성기와 같은 값(`lib/lighting.ts` — 앱 값이 바뀌면 같이) |
+| `src/entities/character/` | 코어 한 벌(몸 · 얼굴 · 톤 · 앞모습 지도)을 만드는 `loadCharKit` · 3D 미리보기. 빛 · 재질 고치기는 코어 한 벌(`@tw/char-core` 의 `lighting.ts` — 앱 생성기 · 실행 화면과 같은 숫자) |
 | `src/shared/i18n/` | 언어(`ko` 기본 · `en` · `ja`) · 주소(`/` · `/en/` · `/ja/`) · 화면 글(`messages.ts` — 언어마다 같은 모양, 빠지면 타입 검사가 잡는다) |
 | `src/shared/config/` | 바깥 주소 한 곳(우리 도메인만) |
 | `src/shared/lib/html-template/` | 빌드한 `index.html` 틀의 자리표 셋(`%TW_LANG%` · `<!--tw-head-->` · `<!--tw-body-->`)을 채운다 — 하나라도 빠지면 던진다 |
