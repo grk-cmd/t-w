@@ -88,6 +88,7 @@ describe('drawFront', () => {
     const closed = draw(DEFAULT_STATE, 'closed').join('\n');
     expect(open).toContain('e 0 0 11 13'); // 흰자
     expect(closed).not.toContain('e 0 0 11 13');
+    expect(open).not.toContain('path(M-11 -1q11 9 22 0)'); // 뜬눈엔 감은 줄을 겹쳐 그리지 않는다
     expect(closed).toContain('path(M-11 -1q11 9 22 0)');
     const noLine = draw(reduce(DEFAULT_STATE, { t: 'item', kind: 'eyeline', id: 'none' }), 'closed').join(
       '\n',
@@ -100,6 +101,7 @@ describe('drawFront', () => {
     s = reduce(s, { t: 'move', target: 'eyeline', side: 'L', x: -40, y: 0 });
     let log = draw(s, 'closed');
     expect(log).toContain('m 1 0 0 1 66 112');
+    expect(log).toContain('m -1 0 0 1 134 112'); // 오른쪽은 뒤집힌 폴더 자리
     expect(log).not.toContain('m 1 0 0 1 26 112');
     // 보이는 아이라인이면 감은 줄도 그 층 자리로
     log = draw(reduce(s, { t: 'item', kind: 'eyeline', id: 'thin' }), 'closed');
