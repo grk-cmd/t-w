@@ -78,6 +78,8 @@ export interface CreatorMessages {
   exportCode: string;
   exportCopy: string;
   exportCopied: string;
+  exportSave: string;
+  exportSaved: string;
   exportHow: string;
   close: string;
 }
@@ -238,7 +240,10 @@ export const ko: Messages = {
     exportCode: '캐릭터 코드',
     exportCopy: '복사',
     exportCopied: '복사했어요',
-    exportHow: '앱 › 캐릭터 › «코드 입력하기» 에 붙여 넣고 비밀번호를 넣으면 이 캐릭터가 새 칸에 들어와요.',
+    exportSave: 'txt 파일로 저장',
+    exportSaved: '저장했어요',
+    exportHow:
+      '앱 › 캐릭터 › «코드 입력하기» 에 붙여 넣거나 «📂 파일 불러오기» 로 txt 파일을 고른 뒤 비밀번호를 넣으면 이 캐릭터가 새 칸에 들어와요.',
     close: '닫기',
   },
   aboutTitle: '책상 위에서 하는 일',
@@ -405,8 +410,10 @@ export const en: Messages = {
     exportCode: 'Character code',
     exportCopy: 'Copy',
     exportCopied: 'Copied',
+    exportSave: 'Save as .txt',
+    exportSaved: 'Saved',
     exportHow:
-      'In the app, go to Character › “Enter code”, paste it and type the password — the character arrives in a new slot.',
+      'In the app, go to Character › “Enter code”, paste it or pick the .txt file with “📂 Load file”, then type the password — the character arrives in a new slot.',
     close: 'Close',
   },
   aboutTitle: 'What it does on your desk',
@@ -572,8 +579,10 @@ export const ja: Messages = {
     exportCode: 'キャラクターコード',
     exportCopy: 'コピー',
     exportCopied: 'コピーしました',
+    exportSave: 'txtファイルで保存',
+    exportSaved: '保存しました',
     exportHow:
-      'アプリの キャラクター ›「コード入力」に貼り付けてパスワードを入れると、このキャラクターが新しい枠に入ります。',
+      'アプリの キャラクター ›「コード入力」に貼り付けるか「📂 ファイルを読み込む」でtxtファイルを選び、パスワードを入れると、このキャラクターが新しい枠に入ります。',
     close: '閉じる',
   },
   aboutTitle: 'デスクの上でできること',
