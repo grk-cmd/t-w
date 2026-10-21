@@ -7,7 +7,7 @@ import {
   type LayerKind,
   type Shape,
 } from '../model/catalog';
-import { accMatrix, invert, layerMatrix, mul, type Mat } from '../model/geometry';
+import { accMatrix, layerMatrix, type Mat } from '../model/geometry';
 import type { CreatorState, Side } from '../model/state';
 
 /** 그리기에 쓰는 2D 컨텍스트 몫(시험은 가짜로) */
@@ -17,7 +17,6 @@ export interface DrawCtx {
   translate(x: number, y: number): void;
   scale(x: number, y: number): void;
   transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
-  clip(path?: Path2D): void;
   beginPath(): void;
   ellipse(x: number, y: number, rx: number, ry: number, rot: number, a0: number, a1: number): void;
   fill(path?: Path2D): void;
@@ -76,19 +75,7 @@ function drawAt(ctx: DrawCtx, m: Mat, shapes: Shape[], makePath: (d: string) => 
   ctx.restore();
 }
 
-/** 흰자 모양(첫 칠한 도형)으로 자른다 — 동공이 흰자 밖으로 삐져나오지 않게 */
-function clipTo(ctx: DrawCtx, shapes: Shape[], makePath: (d: string) => Path2D): boolean {
-  const sh = shapes.find((x) => x.fill);
-  if (!sh) return false;
-  if (sh.k === 'ellipse') {
-    ctx.beginPath();
-    ctx.ellipse(sh.cx ?? 0, sh.cy ?? 0, sh.rx, sh.ry, 0, 0, Math.PI * 2);
-    ctx.clip();
-  } else ctx.clip(makePath(sh.d));
-  return true;
-}
-
-/** 눈 한 짝 — 흰자 · 동공(흰자로 잘림) · 아이라인. 감은눈이면 아이라인의 감은 모양만. */
+/** 눈 한 짝 — 흰자 · 동공 · 아이라인을 차례로 쌓는다. 감은눈이면 아이라인의 감은 모양만. */
 function drawEye(
   ctx: DrawCtx,
   s: CreatorState,
@@ -97,30 +84,21 @@ function drawEye(
   color: string,
   makePath: (d: string) => Path2D,
 ) {
-  const shapesOf = (k: LayerKind) => findItem(k, s[k]);
-  const m = (k: LayerKind) => layerMatrix(s, k, side);
+  const put = (k: LayerKind, shapes: Shape[]) => {
+    const m = layerMatrix(s, k, side);
+    if (m && shapes.length) drawAt(ctx, m, shapes, makePath);
+  };
   if (expr === 'open') {
-    const scl = shapesOf('sclera').open(color),
-      mS = m('sclera');
-    const pup = shapesOf('pupil').open(color),
-      mP = m('pupil');
-    if (mS && scl.length) drawAt(ctx, mS, scl, makePath);
-    if (mP && pup.length) {
-      ctx.save();
-      // 흰자 행렬에서 자른 뒤, 그 위에서 동공 행렬로 넘어간다(자르기는 save/restore 안에서만 산다)
-      if (mS && scl.length) {
-        ctx.transform(...mS);
-        clipTo(ctx, scl, makePath);
-        ctx.transform(...mul(invert(mS), mP));
-      } else ctx.transform(...mP);
-      for (const sh of pup) drawShape(ctx, sh, makePath);
-      ctx.restore();
-    }
+    put('sclera', findItem('sclera', s.sclera).open(color));
+    put('pupil', findItem('pupil', s.pupil).open(color));
+    put('eyeline', findItem('eyeline', s.eyeline).open(color));
+    return;
   }
-  const line = shapesOf('eyeline');
-  const ls = expr === 'closed' ? (line.closed ?? line.open(color)) : line.open(color);
-  const mL = m('eyeline');
-  if (mL && ls.length) drawAt(ctx, mL, ls, makePath);
+  const line = findItem('eyeline', s.eyeline);
+  const closed = line.closed ?? line.open(color);
+  // 아이라인 «없음» 은 뜬눈에서 안 보여 그 층 자리를 볼 수 없다 — 감은 줄은 폴더 자리에 둔다
+  const m = layerMatrix(s, s.eyeline === 'none' ? 'eyes' : 'eyeline', side);
+  if (m && closed.length) drawAt(ctx, m, closed, makePath);
 }
 
 /** 얼굴 판(200 단위 좌표)에 레이어를 쌓는다 — 3D 텍스처(앞모습 판)와 평면 텍스처 칸이 같은 그림을 쓴다. 지우기 · 배경은 부르는 쪽 몫. */

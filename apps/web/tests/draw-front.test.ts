@@ -11,7 +11,6 @@ function fake() {
     translate: (x: number, y: number) => log.push(`t ${x} ${y}`),
     scale: (x: number, y: number) => log.push(`s ${x} ${y}`),
     transform: (...m: number[]) => log.push(`m ${m.map((v) => +v.toFixed(3)).join(' ')}`),
-    clip: (p?: unknown) => log.push(`clip${p ? ' ' + String(p) : ''}`),
     beginPath: () => {},
     ellipse: (x: number, y: number, rx: number, ry: number) => log.push(`e ${x} ${y} ${rx} ${ry}`),
     fill(p?: unknown) {
@@ -66,19 +65,22 @@ describe('drawFront', () => {
     s = reduce(s, { t: 'move', target: 'pupil', side: 'L', x: 4, y: 0 });
     log = draw(s);
     expect(log).toContain('m 1 0 0 1 76 112'); // 흰자는 그대로
-    expect(log).toContain('m 1 0 0 1 4 0'); // 동공은 흰자 위에서 +4(흰자로 자른 뒤 상대 이동)
-    // 흰자가 없으면 동공 자리가 그대로 보인다 — 왼 +4, 오른쪽은 뒤집힌 폴더 안이라 바깥으로
-    log = draw(reduce(s, { t: 'item', kind: 'sclera', id: 'none' }));
+    // 동공만 +4 — 오른쪽은 뒤집힌 폴더 안이라 바깥으로
     expect(log).toContain('m 1 0 0 1 80 112');
     expect(log).toContain('m -1 0 0 1 120 112');
   });
 
-  it('동공은 흰자 모양으로 잘라 그린다 — 흰자가 없으면 자르지 않는다', () => {
-    expect(draw(only(DEFAULT_STATE, ['sclera', 'pupil'])).some((l) => l === 'clip')).toBe(true);
-    expect(draw(only(DEFAULT_STATE, ['pupil'])).some((l) => l.startsWith('clip'))).toBe(false);
-    expect(
-      draw(reduce(only(DEFAULT_STATE, ['sclera', 'pupil']), { t: 'item', kind: 'sclera', id: 'sleepy' })),
-    ).toContain('clip path(M-12 -4h24v4a12 10 0 0 1-24 0z)');
+  it('흰자 → 동공 → 아이라인 차례로 쌓는다 — 동공을 흰자 밖으로 옮겨도 잘리지 않는다', () => {
+    let s = reduce(DEFAULT_STATE, { t: 'move', target: 'pupil', side: 'L', x: 30, y: 0 });
+    s = only(s, ['sclera', 'pupil', 'eyeline']);
+    const log = draw(s);
+    const white = log.indexOf('fill #fff');
+    const pupil = log.indexOf(`fill ${s.pupilColor.L}`);
+    const line = log.findIndex((l, i) => i > pupil && l.startsWith('stroke path('));
+    expect(white).toBeGreaterThanOrEqual(0);
+    expect(pupil).toBeGreaterThan(white);
+    expect(line).toBeGreaterThan(pupil);
+    expect(log).toContain('m 1 0 0 1 96 112'); // 흰자 밖(66 + 30)에도 그대로 그린다
   });
 
   it('감은눈은 흰자 · 동공을 그리지 않고 아이라인의 감은 모양만 — 아이라인 «없음» 도 감은 줄은 보인다', () => {
@@ -86,12 +88,22 @@ describe('drawFront', () => {
     const closed = draw(DEFAULT_STATE, 'closed').join('\n');
     expect(open).toContain('e 0 0 11 13'); // 흰자
     expect(closed).not.toContain('e 0 0 11 13');
-    expect(closed).not.toContain('clip');
     expect(closed).toContain('path(M-11 -1q11 9 22 0)');
     const noLine = draw(reduce(DEFAULT_STATE, { t: 'item', kind: 'eyeline', id: 'none' }), 'closed').join(
       '\n',
     );
     expect(noLine).toContain('path(M-11 -1q11 9 22 0)');
+  });
+
+  it('아이라인 «없음» 의 감은 줄은 폴더 자리에 — 안 보이는 아이라인 층을 옮겨 둬도 따라가지 않는다', () => {
+    let s = reduce(DEFAULT_STATE, { t: 'item', kind: 'eyeline', id: 'none' });
+    s = reduce(s, { t: 'move', target: 'eyeline', side: 'L', x: -40, y: 0 });
+    let log = draw(s, 'closed');
+    expect(log).toContain('m 1 0 0 1 66 112');
+    expect(log).not.toContain('m 1 0 0 1 26 112');
+    // 보이는 아이라인이면 감은 줄도 그 층 자리로
+    log = draw(reduce(s, { t: 'item', kind: 'eyeline', id: 'thin' }), 'closed');
+    expect(log).toContain('m 1 0 0 1 26 112');
   });
 
   it('오드아이 — 왼 동공과 오른 동공을 다른 색으로', () => {
