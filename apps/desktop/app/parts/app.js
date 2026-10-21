@@ -6878,14 +6878,27 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   twNav: twNav,
   roomSettings: TwRoomSettings,
 });
-// 🏷️ 방 만들기 창 — 채널 카드가 열고, [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
-TwRoomCreateUi.createRoomCreateUi({
+// 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
+const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   roomSettings: TwRoomSettings,
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
+});
+// 🗂️ 방 목록 로비 — 목록 사본 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
+TwRoomLobbyUi.createRoomLobbyUi({
+  model: TwRoomLobbyModel,
+  provider: TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() }),
+  maxPeople: ()=>maxPeople(),
+  isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  joinRoom: (code)=>roomEntryMod.startRoom(code),
+  openCreate: (ch)=>roomCreateUi.open(ch),
+  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  now: ()=>Date.now(),
+  random: ()=>Math.random(),
 });
 const USER_NAME_KEY = 'tw.userName';
 
