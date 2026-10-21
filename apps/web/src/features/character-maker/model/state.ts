@@ -38,8 +38,8 @@ export interface Acc {
 /** 웹 생성기 한 벌 — 코드로 앱에 가져가는 칸(skin · top · bot · 얼굴 그림)의 원본 */
 export interface CreatorState {
   skin: number;
-  sclera: string;
   pupil: string;
+  highlight: string;
   eyeline: string;
   brows: string;
   mouth: string;
@@ -71,8 +71,8 @@ export function freshAdjust(): Record<AdjTarget, AdjustSet> {
 
 export const DEFAULT_STATE: CreatorState = {
   skin: 1,
-  sclera: 'round',
   pupil: 'round',
+  highlight: 'dot',
   eyeline: 'thin',
   brows: 'arc',
   mouth: 'smile',
@@ -228,9 +228,9 @@ export function randomState(s: CreatorState, rnd: () => number = Math.random): C
     pupilColor: { L: color, R: color },
     oddEye: false,
   };
-  // 흰자 · 동공은 «없음» 을 빼고 고른다 — 무작위로 눈이 사라지지 않게
+  // 동공은 «없음» 을 빼고 고른다 — 무작위로 눈이 사라지지 않게
   for (const k of KINDS) {
-    const items = k === 'sclera' || k === 'pupil' ? LAYERS[k].filter((it) => it.id !== 'none') : LAYERS[k];
+    const items = k === 'pupil' ? LAYERS[k].filter((it) => it.id !== 'none') : LAYERS[k];
     out[k] = pick(items).id;
   }
   return out;

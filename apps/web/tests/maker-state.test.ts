@@ -144,9 +144,8 @@ describe('reduce — 눈 폴더 · 오드아이 · 액세서리', () => {
     expect(new Set(xs).size).toBe(3);
   });
 
-  it('무작위는 흰자 · 동공을 «없음» 으로 고르지 않는다 · 오드아이를 끈다', () => {
+  it('무작위는 동공을 «없음» 으로 고르지 않는다 · 오드아이를 끈다', () => {
     const r = randomState(reduce(S, { t: 'oddEye', on: true }), () => 0);
-    expect(r.sclera).not.toBe('none');
     expect(r.pupil).not.toBe('none');
     expect(r.oddEye).toBe(false);
     expect(r.pupilColor.L).toBe(r.pupilColor.R);

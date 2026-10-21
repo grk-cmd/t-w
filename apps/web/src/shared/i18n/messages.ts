@@ -22,7 +22,7 @@ export interface CreatorMessages {
   eyeFolderHint: string;
   eyeline: string;
   pupil: string;
-  sclera: string;
+  highlight: string;
   oddEye: string;
   accAdd: string;
   accList: string;
@@ -177,10 +177,11 @@ export const ko: Messages = {
     texIdle: '눈 · 눈썹 · 입 · 볼 · 액세서리 탭에서 끌어 옮길 수 있어요',
     tabAcc: '액세서리',
     eyeFolder: '눈 (전체)',
-    eyeFolderHint: '폴더를 옮기면 아이라인 · 동공 · 흰자가 함께 움직여요. 층을 고르면 그 층만 따로 옮겨요.',
+    eyeFolderHint:
+      '폴더를 옮기면 아이라인 · 하이라이트 · 동공이 함께 움직여요. 층을 고르면 그 층만 따로 옮겨요.',
     eyeline: '아이라인',
     pupil: '동공',
-    sclera: '흰자',
+    highlight: '하이라이트',
     oddEye: '오드아이 (양쪽 다르게)',
     accAdd: '붙이기',
     accList: '붙인 것',
@@ -343,10 +344,10 @@ export const en: Messages = {
     tabAcc: 'Accessories',
     eyeFolder: 'Eyes (all)',
     eyeFolderHint:
-      'Moving the folder moves the eyeline, pupil and white together. Pick a layer to move just that layer.',
+      'Moving the folder moves the eyeline, highlight and pupil together. Pick a layer to move just that layer.',
     eyeline: 'Eyeline',
     pupil: 'Pupil',
-    sclera: 'Eye white',
+    highlight: 'Highlight',
     oddEye: 'Odd eyes (different colors)',
     accAdd: 'Add',
     accList: 'Added',
@@ -511,10 +512,10 @@ export const ja: Messages = {
     tabAcc: 'アクセサリー',
     eyeFolder: '目(ぜんぶ)',
     eyeFolderHint:
-      'フォルダを動かすとアイライン・瞳・白目がいっしょに動きます。レイヤーを選ぶとそのレイヤーだけ動かせます。',
+      'フォルダを動かすとアイライン・ハイライト・瞳がいっしょに動きます。レイヤーを選ぶとそのレイヤーだけ動かせます。',
     eyeline: 'アイライン',
     pupil: '瞳',
-    sclera: '白目',
+    highlight: 'ハイライト',
     oddEye: 'オッドアイ(左右ちがう色)',
     accAdd: 'つける',
     accList: 'つけたもの',
