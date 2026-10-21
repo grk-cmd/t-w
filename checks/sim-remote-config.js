@@ -306,7 +306,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(create && /const limit = roomLimitOf\(channel\);/.test(create) && /toast\(_channelFullMsg\(channel\)\)/.test(create), '방 만들기 — 설정 상한');
     chk(/const _openLimit = roomLimitOf\(_openCh\);/.test(a) && /toast\(_channelFullMsg\(_openCh\)\)/.test(a), 'Firebase 빈 방 열기 — 설정 상한');
     const counts = a.match(/\$\{roomLimitOf\('(workingroom|togetherroom)'\)\}/g) || [];
-    chk(counts.length === 6, '방 개수 표시 «n / 상한» 세 곳(구독 · 채널 화면 · 옛 API) × 2 = 6 — 설정 상한 (' + counts.length + ')');
+    chk(counts.length === 0, '방 개수 «n / 상한» 표시는 없다 — 채널 카드는 방 목록 로비로 바뀌었다(상한은 만들기 · 빈 방 열기 검사만) (' + counts.length + ')');
     const jm = takeFn(a, 'function _roomServerJoinMessage(');
     chk(jm && /const ch = openCh \|\| /.test(jm) && /return _channelFullMsg\(ch\);/.test(jm), '방 서버 channelFull 문구 — 설정 상한 · 서버가 연 빈 방이면 그 채널');
     chk((a.match(/maxPeople\(\)/g) || []).length >= 15, '정원 사용처 전부 maxPeople() (' + (a.match(/maxPeople\(\)/g) || []).length + ')');
@@ -315,22 +315,16 @@ const RCM = require(path.resolve(where('remote-config.js')));
       '부팅 스위치 — 첫 답을 최대 3초 기다린 뒤 초대 게이트(못 받으면 기본값 true)');
     chk(/if\(!inviteGateOn\(\)\)\{/.test(a) && /if\(!existingSignupOn\(\)\) return null;/.test(a), '  ↳ 게이트 · 가입 강제가 스위치 함수를 본다');
 
-    // 화면 숫자 다시 그리기 — 가짜 DOM
-    const els = {
-      chCountWorking: { textContent: '12 / 300' }, chCountTogether: { textContent: '— / 300' },
-      chMetaTogether: { textContent: '라이선스 · 최대 10명', querySelector: () => null },
-    };
+    // 화면 숫자 다시 그리기 — 가짜 DOM(«최대 N명» 자리)
     const spans = [{ textContent: '10' }, { textContent: '10' }];
-    const doc = { getElementById: (id) => els[id] || null, querySelectorAll: (q) => (q === '[data-tw-max-people]' ? spans : []) };
+    const doc = { getElementById: () => null, querySelectorAll: (q) => (q === '[data-tw-max-people]' ? spans : []) };
     const st = RCM.createRemoteConfig();
-    const src = [takeFn(a, 'function roomLimitOf('), takeFn(a, 'function maxPeople('), takeFn(a, 'function _paintRoomLimits('), takeFn(a, 'function _paintMaxPeople('),
-      'return { _paintRoomLimits, _paintMaxPeople };'].join('\n');
+    const src = [takeFn(a, 'function maxPeople('), takeFn(a, 'function _paintMaxPeople('), 'return { _paintMaxPeople };'].join('\n');
     const U = Function('document', '_rcStore', src)(doc, () => st);
-    st.set('roomLimits', { workingroom: 450, togetherroom: 1000 }); st.set('roomMaxPeople', 12);
-    U._paintRoomLimits(); U._paintMaxPeople();
-    chk(els.chCountWorking.textContent === '12 / 450' && els.chCountTogether.textContent === '— / 1000', '설정이 바뀌면 «n / 상한» 의 상한만 바뀐다(읽기 없음)');
-    chk(spans.every((x) => x.textContent === '12') && els.chMetaTogether.textContent === '라이선스 · 최대 12명', '  ↳ «최대 N명» 자리 · 투게더룸 카드 문구');
-    chk(/s\.onChange\(\(c, key\)=>\{ if\(key === 'roomLimits'\) _paintRoomLimits\(\); else if\(key === 'roomMaxPeople'\) _paintMaxPeople\(\); \}\);/.test(a), '  ↳ onChange 에 묶여 있다');
+    st.set('roomMaxPeople', 12);
+    U._paintMaxPeople();
+    chk(spans.every((x) => x.textContent === '12'), '설정이 바뀌면 «최대 N명» 자리만 바뀐다(읽기 없음)');
+    chk(/s\.onChange\(\(c, key\)=>\{ if\(key === 'roomMaxPeople'\) _paintMaxPeople\(\); \}\);/.test(a), '  ↳ onChange 에 묶여 있다');
   }
 
   say('── 5. 방 서버 길 빈 방 열기 — 상한');

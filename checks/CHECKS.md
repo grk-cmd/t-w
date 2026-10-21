@@ -127,9 +127,9 @@
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
 | **sim-room-meta-cleanup.js** | 320 | **ebafe187a9ad** |
-| **sim-room-stats.js** | 226 | **4a6196ea1d08** |
+| **sim-room-stats.js** | 223 | **fa8901c9875b** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
-| **sim-room-lobby-ui.js** | 201 | **38f6154db0da** |
+| **sim-room-lobby-ui.js** | 245 | **a32478eac035** |
 | **sim-room-settings.js** | 212 | **fc04455bec5c** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
@@ -139,7 +139,7 @@
 | **sim-account-delete.js** | 477 | **15ca3fb1d26e** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
-| **sim-room-server-net.js** | 839 | **e08524a72f92** |
+| **sim-room-server-net.js** | 838 | **9cd5dbe99496** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-server-gate.js** | 298 | **2646f32ca2ab** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
@@ -266,7 +266,7 @@
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
 | **sim-api-public-reads.js** | 196 | **f5a6835717fb** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 442 | **3a0a3df79733** |
+| **sim-remote-config.js** | 436 | **3efe3c0c6962** |
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
 | **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
@@ -310,9 +310,9 @@
 | **sim-license-gate.js** | 120 | **7c79148a1d4b** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
-| **sim-settings-panel.js** | 95 | **5753dcf76a9a** |
+| **sim-settings-panel.js** | 95 | **9e6d39720b41** |
 | **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** |
-| **sim-room-entry.js** | 124 | **013ea46d249d** |
+| **sim-room-entry.js** | 127 | **b4638adae292** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
 | **sim-status-chip.js** | 102 | **ce8e2cb3e006** |

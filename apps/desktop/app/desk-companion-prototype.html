@@ -260,6 +260,7 @@
     --tw-on-premium:var(--win-title-premium-ink);
     /* 테마를 타지 않는 색 */
     --tw-pop:var(--win-pop);
+    --tw-on-pop:#FFFFFF;   /* 클래식 pop 은 남색 — 버블은 아래에서 노랑 위 어두운 글자 */
     --tw-star:var(--win-star);
     --tw-bg-star:var(--win-star-bg);
     --tw-ink-private:var(--win-private);
@@ -289,7 +290,7 @@
     --tw-font-num:var(--win-font-num);
     --tw-font-legacy:Tahoma,'Malgun Gothic',sans-serif;
   }
-  html[data-theme="bubble"]{ --tw-title-a:var(--acc-l, #D8EE9E); }
+  html[data-theme="bubble"]{ --tw-title-a:var(--acc-l, #D8EE9E); --tw-on-pop:#3A2A00; }
 
   /* ══════════════════════════════════════════════════════════════════════════
      🫧 버블 테마 — 2000년대 메신저
@@ -1682,20 +1683,6 @@
   .race-card.disabled:hover{background:var(--win-face);}
   .race-card.disabled .race-preview{filter:grayscale(1) opacity(.65);}
 
-  /* ★ 채널 선택 카드 — raceOverlay의 race-card 질감을 그대로 본떠 통일 */
-  .ch-grid{display:flex;gap:12px;}
-  .ch-card{position:relative;flex:1;background:var(--win-face);
-    border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
-    padding:12px 10px 10px; text-align:center; cursor:pointer;border-radius:var(--win-radius-el) !important;}
-  .ch-card:hover{background:var(--win-face-2);}
-  .ch-card:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
-    box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
-  .ch-card .ch-emoji{font-size:44px;line-height:1;margin:4px 0 6px;}
-  .ch-card .ch-sub{font-size:11px;color:var(--ink-soft);}
-  .ch-card .ch-name{font-family:var(--tw-font-legacy);font-weight:bold;font-size:14px;color:var(--ink);margin-top:8px;}
-  .ch-card .ch-meta{font-size:11px;color:var(--ink-soft);margin-top:2px;}
-  .ch-card .ch-count{font-size:11px;color:var(--win-ok,#087f23);margin-top:5px;}
   /* 방 목록 로비(room-lobby-ui.js) — 모달을 넓혀 카드 3 × 4. 베젤 없음(audit 검사 12 대상 아님) · 색은 토큰만. */
   #inviteModal{width:720px;}
   #lobbyMain .lb-secret{display:flex;align-items:center;gap:10px;padding:7px 10px;margin-bottom:10px;border:1px solid var(--win-select);border-radius:var(--win-radius-el);background:var(--win-face-2);font-size:12px;color:var(--ink);}
@@ -1710,7 +1697,7 @@
   #lobbyMain .lb-tab.on{background:var(--win-face-2);font-weight:bold;}
   #lobbyMain .lb-seg{display:flex;margin-bottom:4px;border:1px solid var(--ink-soft);border-radius:999px;overflow:hidden;}
   #lobbyMain .lb-seg button{padding:4px 10px;font-family:var(--tw-font-legacy);font-size:11px;color:var(--ink);background:var(--win-face-2);border:none;cursor:pointer;}
-  #lobbyMain .lb-seg button.on{background:var(--win-select);color:#fff;font-weight:bold;}
+  #lobbyMain .lb-seg button.on{background:var(--tw-bg-select);color:var(--tw-ink);font-weight:bold;}
   #lobbyMain .lb-icon{min-width:26px;height:24px;margin-bottom:4px;font-size:13px;color:var(--ink);background:var(--win-face-2);border:1px solid var(--ink-soft);border-radius:var(--win-radius-el);cursor:pointer;}
   #lobbyMain .lb-icon:disabled{opacity:.4;cursor:not-allowed;}
   #lobbyMain .lb-panel{border:1px solid var(--ink-soft);border-radius:0 var(--win-radius-el) var(--win-radius-el) var(--win-radius-el);background:var(--win-face-2);padding:8px;}
@@ -1723,7 +1710,7 @@
   #lobbyMain .lb-no{flex:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:var(--win-select);background:var(--win-face-2);border-radius:var(--win-radius-el);}
   #lobbyMain .lb-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
   #lobbyMain .lb-top{display:flex;align-items:center;gap:4px;min-width:0;}
-  #lobbyMain .lb-tag{flex:none;font-size:10px;font-weight:bold;padding:0 5px;border-radius:999px;background:#FFC24B;color:#3A2A00;}
+  #lobbyMain .lb-tag{flex:none;font-size:10px;font-weight:bold;padding:0 5px;border-radius:999px;background:var(--tw-pop);color:var(--tw-on-pop);}
   #lobbyMain .lb-title-box{flex:1;min-width:0;overflow:hidden;}
   #lobbyMain .lb-title{display:block;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lobbyMain .lb-title.dim{color:var(--ink-soft);font-weight:normal;}
@@ -1734,7 +1721,7 @@
   #lobbyMain .lb-right{flex:none;display:flex;flex-direction:column;align-items:flex-end;gap:3px;}
   #lobbyMain .lb-count{font-size:12px;font-weight:bold;}
   #lobbyMain .lb-card.full .lb-count{color:var(--tw-ink-danger);}
-  #lobbyMain .lb-state{font-size:10px;padding:0 5px;border-radius:999px;border:1px solid var(--win-select);color:var(--win-select);}
+  #lobbyMain .lb-state{font-size:10px;padding:0 5px;border-radius:999px;border:1px solid var(--tw-accent);color:var(--tw-accent);}
   #lobbyMain .lb-card.full .lb-state{border-color:var(--tw-ink-danger);color:var(--tw-ink-danger);}
   #lobbyMain .lb-state-box{grid-column:1/-1;align-self:center;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);text-align:center;}
   #lobbyMain .lb-state-box .lc-btn{width:auto;padding:6px 12px;}
@@ -1764,14 +1751,6 @@
   #roomCreatePanel .rc-pub{display:flex;align-items:center;gap:6px;font-size:12px;font-weight:bold;color:var(--ink);cursor:pointer;}
   #roomCreatePanel .rc-pub input{margin:0;cursor:pointer;}
   #roomCreatePanel .rc-pub-hint{margin:3px 0 0 20px;}
-  .ch-card .ch-badge{position:absolute;top:5px;right:5px;font-size:10px;font-weight:bold;
-    background:#8b6914;color:#fff;padding:1px 6px;}
-  /* 라이선스 없음 — 눌리지 않고 회색 처리(동물 카드 disabled와 동일 컨셉) */
-  .ch-card.locked{cursor:not-allowed;}
-  .ch-card.locked:hover{background:var(--win-face);}
-  .ch-card.locked:active{border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
-  .ch-card.locked .ch-name,.ch-card.locked .ch-meta,.ch-card.locked .ch-count{color:#909090;}
 
     .race-card .race-underwork{position:absolute;left:-14%;right:-14%;top:46%;transform:rotate(-11deg);
     background:var(--win-error);color:#fff;font-family:var(--tw-font-legacy);font-weight:bold;font-size:13px;text-align:center;padding:5px 0;letter-spacing:1px;}
@@ -5333,7 +5312,6 @@
     </div>
     <div id="fsInviteIdle">
       <button class="lc-btn" id="fsInviteCreate" style="margin-bottom:4px;">방 만들기 (코드 생성)</button>
-      <div id="fsInviteRoomCount" style="font-size:11px;color:var(--ink-soft);text-align:center;margin-bottom:8px;">방 개수 확인 중...</div>
       <div style="display:flex;gap:6px;">
         <div class="room-code-group" style="margin-bottom:0;flex:1;">
           <span class="room-code-prefix">COZY-</span>
@@ -8163,7 +8141,7 @@
         <div class="code-btns"><button type="button" id="rcCancel">취소</button><button type="button" id="rcCreate">방 만들기</button></div>
       </div>
 
-      <!-- 참여 코드 입력 (항상 카드 아래 인라인 표시) -->
+      <!-- 참여 코드 입력 (늘 로비 아래에 보인다 — 시크릿룸은 «1234*» 로 넣거나 로비 맨 위 «내 시크릿룸» 줄로) -->
       <div id="inviteJoinPanel" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--win-lo-2);">
         <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 8px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 랜덤 참여를 허용한 방에 들어가요 🎲</div>
         <div style="display:flex;gap:8px;align-items:center;">
@@ -8173,16 +8151,6 @@
           </div>
           <button class="lc-btn ghost" id="inviteJoin" style="width:auto;padding:10px 14px;">참여</button>
         </div>
-        <!-- 🔒 시크릿룸 — 후원자 본인에게만 보인다(refreshInviteUI가 코드를 확인하고 펼침).
-             코드를 공유받은 친구는 이 줄이 보이지 않아도 된다 — 위 COZY 칸에 4자리를 넣으면 입장된다. -->
-        <div id="inviteSecretWrap" style="display:none;gap:8px;align-items:center;margin-top:8px;">
-          <div class="room-code-group" style="margin-bottom:0;flex:1;">
-            <span class="room-code-prefix">SCRT-</span>
-            <input id="inviteSecretCode" class="room-code-in" type="text" placeholder="예: A1B2" maxlength="5" autocomplete="off" spellcheck="false">
-          </div>
-          <button class="lc-btn ghost" id="inviteSecretJoin" style="width:auto;padding:10px 14px;">입장</button>
-        </div>
-        <div id="inviteRoomCount" style="font-size:11px;color:var(--ink-soft);text-align:center;margin-top:8px;">방 개수 확인 중...</div>
       </div>
     </div>
     <div id="inviteActive" style="display:none;">

@@ -669,7 +669,7 @@ async function _lxWriteXlsx(rows, sheetName){
             + '친구에게 코드를 알려주면 같이 쓸 수 있고, 내가 나가도 방은 그대로 유지돼요.'
             + (expMs ? '\n\n이용 기간은 ' + _srFmtDate(expMs)
                         + ' 까지예요. 그 뒤로는 이 코드로 입장할 수 없어요. 만료 7일 전부터는 입장할 때 안내가 떠요.' : '')
-            /* 받는 앱은 _mySecretRoomCode 를 세션당 1회만 조회해 캐시한다(_refreshSecretRoomUI) —
+            /* 받는 앱은 내 시크릿룸을 세션당 1회만 조회해 캐시한다(room-lobby-provider.js mySecretRoom) —
                앱을 다시 켜야 참여 화면 자동 채움이 새 코드로 바뀐다. 무효화할 경로가 없어 문구로 안내한다. */
             + (_expiredOld ? '\n\n예전 코드 ' + _expiredOld + ' 로는 이제 입장할 수 없어요.'
                              + ' 앱을 다시 켜면 참여 화면에 새 코드가 자동으로 떠요.' : '');

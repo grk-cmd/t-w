@@ -1,17 +1,19 @@
 /* room-lobby-model.js — 🗂️ 방 목록 로비 규칙(목록 사본 → 카드 · 거르기 · 정렬 · 쪽 · 빠른시작) — 순수 함수 · DOM · firebase 없음.
    사본 모양은 서버 함수 firebase/functions/room-lobby.js 의 roomLobby/{채널} = { at, rooms: { 코드: { t, n, max, hn, mu, since } } }.
    정렬은 설계(docs/ROOM_LOBBY.md 1장)대로 입장 가능 먼저 → 인원 많은 순 → 오래 열린 순. 방 번호는 이 순서의 번호다(방 코드 아님).
-   classic script(window.TwRoomLobbyModel) — room-lobby-ui.js · app.js 보다 먼저. 검사: checks/sim-room-lobby-ui.js */
+   classic script(window.TwRoomLobbyModel) — room-settings.js 뒤 · room-lobby-ui.js · app.js 보다 먼저. 검사: checks/sim-room-lobby-ui.js */
 (function(){
+
+const roomCap = window.TwRoomSettings.roomCap;   // 방 정원 규칙은 입장 재확인과 같은 한 곳
 
 const PER_PAGE = 12;                 // 한 쪽 3 × 4
 const STALE_MS = 3 * 60 * 1000;      // 사본은 1분마다 — 3분 넘게 그대로면 서버 함수가 멈춘 것으로 본다
 
-/** 방 한 줄 → 카드. cap = 원격 정원(방 최대 인원이 더 크면 정원으로 줄인다 — 입장 검사 roomCap 과 같은 뜻). */
+/** 방 한 줄 → 카드. cap = 원격 정원(방 최대 인원이 더 크면 정원으로 줄인다 — roomCap). */
 function cardOf(code, row, cap){
   const r = row || {};
   const n = (Number.isInteger(r.n) && r.n > 0) ? r.n : 0;
-  const max = (Number.isInteger(r.max) && r.max >= 2) ? Math.min(r.max, cap) : cap;
+  const max = roomCap({ max: r.max }, cap);
   const hn = (typeof r.hn === 'string') ? r.hn : '';
   const t = (typeof r.t === 'string') ? r.t : '';
   return {

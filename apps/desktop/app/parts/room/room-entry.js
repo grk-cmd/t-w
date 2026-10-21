@@ -5,7 +5,7 @@
      EXP_CELLS · awayPicMod · curSlot · focusLevelMod · isAdmin · isPremium · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 25개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: CHANNEL_NAMES · NET_READY_WAIT_MS · ROOM_PREFIX · _mockRoomAllowed · _srFmtDate · _updateRoomCountUI · _waitFirebaseApi · doLeaveRoom · makeMockProvider · refreshInviteUI · startRoom · startRoomCountWatch · syncFriendSeats — app.js 는 roomEntryMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: CHANNEL_NAMES · NET_READY_WAIT_MS · ROOM_PREFIX · _mockRoomAllowed · _srFmtDate · _waitFirebaseApi · doLeaveRoom · makeMockProvider · refreshInviteUI · startRoom · syncFriendSeats — app.js 는 roomEntryMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwRoomEntry — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-room-entry.js */
@@ -53,8 +53,8 @@ const spawnFloater = deps.spawnFloater;
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const triggerPet = deps.triggerPet;
-const uiIconEl = deps.uiIconEl;
 const updateMyStatusChipPosition = deps.updateMyStatusChipPosition;
+const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 function _roomServerNet(){
   try{ return (window.firebaseAPI && typeof firebaseAPI.roomServerNet === 'function') ? firebaseAPI.roomServerNet() : null; }
@@ -227,26 +227,6 @@ async function _startRoomOnServer(code, ctx){
   window._pendingRoomOpen = false;
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();
   return 'done';
-}
-/* 방 개수 — 서버 방 몫을 더한다(켜져 있을 때만). 서버 답은 20초 기억한다(방 창이 30초마다 다시 묻는다).
-   inclServer — 방 서버가 자기 방을 roomIndex 에 올려 Firebase 합계에 이미 들어 있으면 더하지 않는다(두 번 세기). */
-let _srvRoomStats = null, _srvRoomStatsAt = 0;
-function _addServerRoomCounts(c){
-  const s = _srvRoomStats;
-  if(!c || c.inclServer || !s || !_roomServerOn()) return c;
-  const add = (a, b)=> (a == null) ? a : a + (b | 0);
-  return Object.assign({}, c, { total: add(c.total, s.total), workingroom: add(c.workingroom, s.workingroom), togetherroom: add(c.togetherroom, s.togetherroom) });
-}
-async function _withServerRoomCounts(c){
-  if(!_roomServerOn()) return c;
-  if(Date.now() - _srvRoomStatsAt > 20000){
-    try{ await firebaseAPI.roomServerMine(false); }catch(_){}   // 주소를 «내 서버» 로(읽기 없음)
-    const net = _roomServerNet();
-    let s = null;
-    try{ s = net ? await net.stats() : null; }catch(_){ s = null; }
-    if(s){ _srvRoomStats = s; _srvRoomStatsAt = Date.now(); }
-  }
-  return _addServerRoomCounts(c);
 }
 /* 랜덤 입장 후보 — 서버 방을 먼저 본다. 서버가 이미 «열린 워킹룸 · 1~9명» 만 준다. 꺼져 있거나 못 받으면 []. */
 async function _serverRandomRooms(limit){
@@ -600,36 +580,20 @@ function _srFmtDate(ms){
   const p = n => String(n).padStart(2, '0');
   return d.getFullYear() + '-' + p(d.getMonth() + 1) + '-' + p(d.getDate());
 }
-/* 🔒 시크릿룸 칸 노출 규칙 —
-     · 기본 숨김. 후원 안 한 사람 화면엔 "코드가 있어요" 링크 한 줄만 보인다.
-     · 후원자(users/{uid}/secretRoom 보유)는 자동으로 펼치고 코드를 채워둔다 → 입장 한 번.
-     · 코드를 공유받은 '친구'는 이 필드가 없어 줄 자체가 안 보인다. 대신 일반 COZY 칸에
-       4자리를 넣으면 doJoinRoom이 시크릿룸을 먼저 조회해 그쪽으로 보낸다 — 그래서 막히지 않는다.
-   조회는 세션당 1회만 (null=아직 조회 전, ''=조회했으나 없음). */
-let _mySecretRoomCode = null;
+/* 🔒 F1 «멀티모드» 탭의 시크릿룸 칸 — 내 시크릿룸이 있으면 펼치고 코드를 채워 둔다(입장 한 번).
+   «내 시크릿룸» 판정(pub.owner 가 나 · 만료 전)은 로비와 같은 한 곳(room-lobby-provider.js mySecretRoom)을 쓴다.
+   코드를 공유받은 친구는 칸이 안 보여도 된다 — COZY 칸에 «1234*» 로 넣으면 시크릿룸으로 간다. */
 function _refreshSecretRoomUI(){
-  const apply = code => {
-    [['inviteSecretWrap','inviteSecretCode'],['fsInviteSecretWrap','fsInviteSecretCode']].forEach(([wid,iid])=>{
-      const w=document.getElementById(wid); const inp=document.getElementById(iid);
-      if(!w) return;
-      if(code){ w.style.display='flex'; if(inp && !inp.value) inp.value=String(code).replace(/^SCRT-/,''); }
-    });
-  };
-  if(_mySecretRoomCode !== null){ apply(_mySecretRoomCode); return; }
-  try{
-    if(!(window.firebaseAPI && firebaseAPI.getMySecretRoom)) return;
-    if(!getMyUserId()) return;   // 내 코드가 없으면 시크릿룸을 안 읽는다(읽어도 거부 → 칸은 안 보임 · 같은 화면)
-    Promise.resolve(firebaseAPI.getMySecretRoom(getMyUserId())).then(c=>{
-      _mySecretRoomCode = c || '';
-      apply(_mySecretRoomCode);
-    }).catch(()=>{ _mySecretRoomCode = ''; });
-  }catch(_){}
+  const w=document.getElementById('fsInviteSecretWrap'); const inp=document.getElementById('fsInviteSecretCode');
+  if(!w) return;
+  Promise.resolve(mySecretRoom()).then(s=>{
+    w.style.display = s ? 'flex' : 'none';
+    if(s && inp && !inp.value) inp.value=s.code.replace(/^SCRT-/,'');
+  }).catch(()=>{});
 }
 function refreshInviteUI(){ const on=Presence.active();
   _refreshSecretRoomUI();
   document.getElementById('inviteIdle').style.display=on?'none':'';
-  // ★ 방 만들기 화면(채널 카드 + 참여 코드)은 상시 표시 — 열릴 때 잠금/카운트만 갱신
-  if(!on) _refreshChannelPickUI();
   document.getElementById('inviteActive').style.display=on?'':'none';
   if(on) document.getElementById('inviteRoomLbl').textContent=Presence.roomCode();
   // ★ 설정 패널 "멀티모드" 탭 안에 인라인으로 넣어둔 동일한 UI도 같이 갱신 — 모달(inviteOverlay)이든
@@ -898,7 +862,7 @@ async function startRoom(code){
   window._pendingRoomOpen = false;   // 🎲 소비 완료 — 다음 '참여'가 이 값을 물려받지 않게
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();   // 멀티모드 진입 — 자리추가 좌석은 자동으로 뺌
 }
-document.getElementById('lcInvite').onclick=()=>{ refreshInviteUI(); startRoomCountWatch(); document.getElementById('inviteOverlay').classList.add('on'); };
+document.getElementById('lcInvite').onclick=()=>{ refreshInviteUI(); document.getElementById('inviteOverlay').classList.add('on'); };
 document.getElementById('inviteClose').onclick=()=>{
   document.getElementById('inviteOverlay').classList.remove('on');
   refreshInviteUI();   // 다음에 열 때 기본 화면부터
@@ -940,7 +904,7 @@ document.getElementById('lcNameBtn').onclick=()=>{
       "!newData.exists()"(빈 자리에만 생성)만 보고 개수를 세지 않는다. 서버가 셀 수 없는 구조라서다
       (규칙에서 형제 노드 개수를 세려면 rooms 전체를 읽어야 하는데, 그게 바로 예전에 비용 폭탄을
       냈던 접근이다). 그래서 상한을 늘릴 때 규칙 파일은 손댈 게 없다.
-   ※ html 기본 표시(#chCountWorking/#chCountTogether «— / 300»)는 기본값과 같게 — 설정을 받으면 _paintRoomLimits 가 고친다. */
+*/
 const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };
 function roomLimitOf(channel){ const s = _rcStore(); return s ? s.roomLimitOf(channel) : 300; }
 /* 꽉 찼을 때 문구 — 방 만들기 · 빈 방 열기(Firebase · 방 서버) · 방 서버 channelFull 이 같은 것을 쓴다. */
@@ -948,82 +912,16 @@ function _channelFullMsg(channel){
   const limit = roomLimitOf(channel), name = CHANNEL_NAMES[channel] || '방';
   return `${name}이 지금 꽉 찼어요(${limit}/${limit}) — 잠시 후 다시 시도해 주세요`;
 }
-/* 설정이 바뀌면 화면 숫자만 고친다(읽기 없음) — «n / 상한» 의 상한 · «최대 N명». */
-function _paintRoomLimits(){
-  [['chCountWorking','workingroom'],['chCountTogether','togetherroom']].forEach(([id, ch])=>{
-    const el = document.getElementById(id); if(!el) return;
-    el.textContent = String(el.textContent || '').replace(/\/\s*\d*\s*$/, '/ ' + roomLimitOf(ch));
-  });
-}
+/* 설정이 바뀌면 «최대 N명» 자리만 고친다(읽기 없음). */
 function _paintMaxPeople(){
   const n = String(maxPeople());
   document.querySelectorAll('[data-tw-max-people]').forEach(el=>{ el.textContent = n; });
-  const meta = document.getElementById('chMetaTogether');
-  if(meta && !meta.querySelector('[data-tw-max-people]')) meta.textContent = String(meta.textContent || '').replace(/최대 \d+명/, '최대 ' + n + '명');
 }
 (function _watchRemoteRoomConfig(){
   const s = _rcStore(); if(!s) return;
-  s.onChange((c, key)=>{ if(key === 'roomLimits') _paintRoomLimits(); else if(key === 'roomMaxPeople') _paintMaxPeople(); });
-  _paintRoomLimits(); _paintMaxPeople();
+  s.onChange((c, key)=>{ if(key === 'roomMaxPeople') _paintMaxPeople(); });
+  _paintMaxPeople();
 })();
-let _liveRoomCount = null;   // 실시간 구독으로 계속 갱신되는 현재 방 개수(모르면 null)
-function _updateRoomCountUI(){
-  // ⏸️ 요청: [방 만들기 / 참여하기] 아래 "현재 n개 방이 열려 있어요" 문구 숨김.
-  //   내부 카운트(_liveRoomCount)와 정원 검사는 그대로 동작 — 화면 문구만 비운다.
-  ['inviteRoomCount','fsInviteRoomCount'].forEach(id=>{
-    const el=document.getElementById(id); if(!el) return;
-    el.textContent=''; el.style.display='none';
-  });
-}
-/* 💰 방 개수 표시 — 예전엔 앱을 켜는 모든 사용자가 rooms 노드 "전체"를 실시간 구독했음.
-   그 안엔 모든 방의 모든 멤버 데이터(얼굴 PNG 포함)가 들어 있어서, 누군가 방에 들어오거나
-   하트비트를 보낼 때마다 전 사용자에게 대량 전송 → RTDB 다운로드 폭증의 주원인이었음.
-   이제는 "방 창을 열어둔 동안에만" 필요할 때 한 번씩 조회한다(평소 트래픽 0). */
-let _roomCountTimer = null;
-async function refreshRoomCountOnce(){
-  try{
-    if(!window.firebaseAPI) return;
-    // 💰 getRoomCounts = roomIndex(방당 수십 바이트) 1회 조회. 구버전 API만 있으면 폴백.
-    // 표시용이라 서버가 세어 둔 값(quick)이면 충분하다.
-    if(firebaseAPI.getRoomCounts){
-      const c = await _withServerRoomCounts(await firebaseAPI.getRoomCounts({ quick: true }));
-      if(c && c.total != null) _liveRoomCount = c.total;
-    } else if(firebaseAPI.getRoomCount){
-      _liveRoomCount = await firebaseAPI.getRoomCount();
-    } else return;
-    _updateRoomCountUI();
-  }catch(_){}
-}
-// 구독으로 받은 숫자를 그린다. null(낡음 · 없음)이면 그대로 두고 아래 30초 확인이 직접 센다.
-let _roomCountUnsub = null;
-function _paintRoomCounts(c){
-  if(!c) return;
-  c = _addServerRoomCounts(c);   // 🛰 서버 방 몫(켜져 있을 때 · 마지막으로 받은 값)
-  const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${roomLimitOf('workingroom')}`;
-  const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${roomLimitOf('togetherroom')}`;
-  if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }
-}
-function startRoomCountWatch(){
-  refreshRoomCountOnce();
-  if(!_roomCountUnsub && window.firebaseAPI && firebaseAPI.watchRoomCounts) _roomCountUnsub = firebaseAPI.watchRoomCounts(_paintRoomCounts);
-  if(_roomCountTimer) return;
-  _roomCountTimer = setInterval(()=>{
-    // 방 창(모달 또는 F1 멀티모드 탭)이 열려 있을 때만 갱신 — 닫히면 스스로 멈춤
-    const ov = document.getElementById('inviteOverlay');
-    const fsOpen = document.getElementById('fsInviteRoomCount')?.offsetParent != null;
-    if((ov && ov.classList.contains('on')) || fsOpen){
-      // 채널 선택 화면이 떠 있으면 _refreshChannelPickUI가 전체+채널별 카운트를 한 번에 갱신하므로
-      // refreshRoomCountOnce를 따로 부르지 않음(💰 같은 인덱스를 두 번 읽지 않게).
-      const pick=document.getElementById('inviteChannelPick');
-      if(pick && pick.style.display!=='none') _refreshChannelPickUI();
-      else refreshRoomCountOnce();
-    }
-    else {
-      clearInterval(_roomCountTimer); _roomCountTimer = null;
-      if(_roomCountUnsub){ try{ _roomCountUnsub(); }catch(_){} _roomCountUnsub = null; }
-    }
-  }, 30000);
-}
 
 /* 방 만들기 창이 고른 _meta 칸 { title, max, hostName } — startRoom 의 만들기 갈래(Firebase)가 한 번 쓰고 비운다.
    만들기가 중간에 막히면 남지만, 그 값을 읽는 곳은 _pendingRoomChannel 이 있는 만들기 갈래뿐이고 다음 만들기가 덮는다. */
@@ -1138,57 +1036,6 @@ async function doHopRandomRoom(){
   }
 }
 
-/* 채널 선택 화면 표시/복귀 + 라이선스 잠금 반영 */
-/* 방 만들기 화면(채널 카드 + 참여 코드)이 상시 표시되므로, 여는 시점에 이 함수로 잠금·카운트만 갱신한다. */
-/* 프리미엄(투게더룸) 잠금 상태 + 채널별 카운트 갱신 */
-async function _refreshChannelPickUI(){
-  const premium = !!(typeof isPremium()!=='undefined' && isPremium()) || !!(typeof isAdmin()!=='undefined' && isAdmin());
-  const card=document.getElementById('chCardTogether');
-  if(card){
-    card.classList.toggle('locked', !premium);
-    const emo=document.getElementById('chEmojiTogether');
-    const sub=document.getElementById('chSubTogether');
-    const meta=document.getElementById('chMetaTogether');
-    if(premium){
-      /* 💬 .ch-emoji 는 font-size:44px 짜리 큰 자리다 — 그림도 그만큼 키운다.
-         ⚠️ 잠금 갈래의 emo.textContent='🚫' 가 이 <img> 를 알아서 걷어낸다(textContent 대입은
-           자식 노드를 통째로 비운다). 그래서 되돌리는 코드를 따로 두지 않는다.
-         ⚠️ <img> 를 .ch-emoji 에 **직접** 붙이면 안 된다 — .ui-ic-img 가 display:block 이라
-           text-align:center 가 먹지 않아 말풍선이 카드 왼쪽 끝에 붙는다(워킹룸 💼 는 글자라
-           가운데 있는데 이쪽만 쏠려 보였던 원인). HTML 원본과 똑같이 .ui-ic 스팬(inline-flex)으로
-           한 겹 감싸서 _applyUiIcons 가 만들어 두는 모양과 일치시킨다. */
-      if(emo){
-        emo.textContent='';
-        const wrap=document.createElement('span'); wrap.className='ui-ic';
-        wrap.appendChild(uiIconEl('chat', 40, '대화하기'));
-        emo.appendChild(wrap);
-      }
-      if(sub){ sub.textContent='대화하며 · 함께'; sub.style.color=''; }
-      if(meta) meta.textContent='라이선스 · 최대 '+maxPeople()+'명';
-    }else{
-      if(emo) emo.textContent='🚫';
-      if(sub){ sub.textContent='라이선스가 필요해요'; sub.style.color='#a00'; }
-      if(meta) meta.textContent='라이선스 · 최대 '+maxPeople()+'명';
-    }
-  }
-  // 채널별 카운트(가벼운 조회, 실패해도 무시)
-  try{
-    if(window.firebaseAPI && firebaseAPI.getRoomCounts){
-      // 💰 예전엔 getRoomCount(채널)×2 = rooms "전체 트리" 다운로드 2회(회당 ~1MB+)였음 —
-      //    이 화면이 떠 있는 동안 30초마다 반복돼 RTDB 다운로드 폭증의 주범이었다.
-      //    이제 roomIndex 1회 조회(수 KB 미만)로 전체+채널별 카운트를 한 번에 얻는다.
-      // 표시용이라 서버가 세어 둔 값(quick)이면 충분하다.
-      const c = await _withServerRoomCounts(await firebaseAPI.getRoomCounts({ quick: true }));
-      const wl=document.getElementById('chCountWorking'); if(wl && c.workingroom!=null) wl.textContent = `${c.workingroom} / ${roomLimitOf('workingroom')}`;
-      const tl=document.getElementById('chCountTogether'); if(tl && c.togetherroom!=null) tl.textContent = `${c.togetherroom} / ${roomLimitOf('togetherroom')}`;
-      if(c.total!=null){ _liveRoomCount = c.total; _updateRoomCountUI(); }   // 전체 문구도 같은 조회로 함께 갱신
-    } else if(window.firebaseAPI && firebaseAPI.getRoomCount){
-      const [w,t] = await Promise.all([firebaseAPI.getRoomCount('workingroom'), firebaseAPI.getRoomCount('togetherroom')]);
-      const wl=document.getElementById('chCountWorking'); if(wl && w!=null) wl.textContent = `${w} / ${roomLimitOf('workingroom')}`;
-      const tl=document.getElementById('chCountTogether'); if(tl && t!=null) tl.textContent = `${t} / ${roomLimitOf('togetherroom')}`;
-    }
-  }catch(_){}
-}
 /* 🔒 별표(*) 한 글자로 코드 공간을 가른다 — "1234"는 COZY, "1234*"는 SCRT.
    COZY와 SCRT가 둘 다 4자리라 숫자만 보고는 구분할 수 없었고, 조회로 추측하면
    같은 4자리를 쓰는 두 방이 공존할 때 한쪽이 가려진다. 별표는 입력에 명시적으로 담기므로
@@ -1345,16 +1192,15 @@ async function doCopyRoomCode(){
 }
 // 채널 카드 클릭은 방 만들기 창(room-create-ui.js)이 받는다 — 창의 [방 만들기] 가 doCreateRoomInChannel 로 넘긴다.
 document.getElementById('inviteJoin').onclick=()=>doJoinRoom(document.getElementById('inviteCode'));
-{ const b=document.getElementById('inviteSecretJoin'); if(b) b.onclick=()=>doJoinSecretRoom(document.getElementById('inviteSecretCode')); }
 document.getElementById('inviteLeave').onclick=()=>doLeaveRoom({ wipeChat: true });
 { const b=document.getElementById('inviteHopRandom'); if(b) b.onclick=doHopRandomRoom; }
 document.getElementById('inviteRoomCopy').addEventListener('click', e=>{ e.preventDefault(); doCopyRoomCode(); });
 // ★ 설정 패널 "멀티모드" 탭 — 모달(inviteOverlay)과 완전히 동일한 동작을 하는 버튼들. 로직은 위 공용
 //   함수를 그대로 재사용해서 어느 쪽에서 조작해도 동일하게 동작하고 항상 같은 상태를 보여줌.
-// ★ F1 탭의 방 만들기 — 채널 선택이 필요하므로 모달을 열어 채널 카드를 보여준다(모달과 로직 일원화).
+// ★ F1 탭의 방 만들기 — 모달을 열어 방 목록 로비를 보여 준다(로비 읽기는 room-lobby-ui.js 가 같은 버튼에 건다).
 const fsInviteCreate=document.getElementById('fsInviteCreate'); if(fsInviteCreate) fsInviteCreate.onclick=()=>{
-  const ov=document.getElementById('inviteOverlay'); if(ov){ ov.classList.add('on'); startRoomCountWatch(); }
-  refreshInviteUI();   // 카드가 상시 표시 — 잠금/카운트 갱신 포함
+  const ov=document.getElementById('inviteOverlay'); if(ov) ov.classList.add('on');
+  refreshInviteUI();
 };
 const fsInviteJoinBtn=document.getElementById('fsInviteJoin'); if(fsInviteJoinBtn) fsInviteJoinBtn.onclick=()=>doJoinRoom(document.getElementById('fsInviteCode'));
 { const b=document.getElementById('fsInviteSecretJoin'); if(b) b.onclick=()=>doJoinSecretRoom(document.getElementById('fsInviteSecretCode')); }
@@ -1455,7 +1301,6 @@ function _setupSecretCodeInput(inputEl){
     if(e.key === 'Enter'){ e.preventDefault(); doJoinSecretRoom(inputEl); }
   });
 }
-_setupSecretCodeInput(document.getElementById('inviteSecretCode'));
 _setupSecretCodeInput(document.getElementById('fsInviteSecretCode'));
 
 twNav.on(twNav.NAV.LEAVE_ROOM, doLeaveRoom);   // 🧭 다른 기기에 밀려남 · 자리비움 자동 퇴장이 이 통로로 나간다
@@ -1467,13 +1312,11 @@ return {
   ROOM_PREFIX,
   _mockRoomAllowed,
   _srFmtDate,
-  _updateRoomCountUI,
   _waitFirebaseApi,
   doLeaveRoom,
   makeMockProvider,
   refreshInviteUI,
   startRoom,
-  startRoomCountWatch,
   syncFriendSeats,
 };
 }

@@ -80,7 +80,7 @@ $('rcTitle').oninput = () => { showError(''); paint(); };
 $('rcTitle').onkeydown = (e) => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } };
 $('rcCreate').onclick = submit;
 $('rcCancel').onclick = close;
-$('inviteClose').addEventListener('click', close);   // 모달을 닫으면 다음에 열 때 카드부터 보이게
+$('inviteClose').addEventListener('click', close);   // 모달을 닫으면 다음에 열 때 로비부터 보이게
 
 return { open, close };
 }

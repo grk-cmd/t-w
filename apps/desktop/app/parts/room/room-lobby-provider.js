@@ -27,19 +27,32 @@ async function listRooms(channel){
   return api().getRoomLobby(channel);
 }
 
-/** 내 시크릿룸 — { code, name, guests } 또는 null. 발급 칸(users/{나}/secretRoom)은 «마지막으로 받은 코드» 라
- *  소유의 증거가 아니다 — pub.owner 가 나일 때만 · 만료 전만 보인다. 인원은 손님 수(방장인 나는 밖에 있다). */
-async function mySecretRoom(){
-  const uid = myUserId();
-  if(!uid) return null;
+/* 내 시크릿룸 «누구 것인가» 는 세션에 한 번만 읽는다(계정이 바뀌면 다시) — 손님 수만 열 때마다 읽는다.
+   발급 칸(users/{나}/secretRoom)은 «마지막으로 받은 코드» 라 소유의 증거가 아니다 — pub.owner 가 나일 때만 내 것. */
+let owned = null;   // { uid, p: Promise<{ code, pub }|null> }
+async function readOwned(uid){
   const code = await api().getMySecretRoom(uid);
   if(!code) return null;
   const full = 'SCRT-' + String(code).replace(/^SCRT-/, '');
   const pub = await api().getSecretRoomPub(full);
-  if(!pub || pub.owner !== uid) return null;
-  if(typeof pub.exp === 'number' && pub.exp <= now()) return null;
-  const e = await api().checkSecretRoomEntry(full, uid);
-  return { code: full, name: (typeof pub.name === 'string' && pub.name) ? pub.name : '내 시크릿룸', guests: (e && typeof e.count === 'number') ? e.count : null };
+  return (pub && pub.owner === uid) ? { code: full, pub } : null;
+}
+
+/** 내 시크릿룸 — { code, name, guests } 또는 null(없음 · 남의 코드 · 만료). guests 는 방장(나)을 뺀 손님 수 · 못 읽으면 null. */
+async function mySecretRoom(){
+  const uid = myUserId();
+  if(!uid) return null;
+  if(!owned || owned.uid !== uid){
+    const p = readOwned(uid);
+    owned = { uid, p };
+    p.catch(() => { if(owned && owned.p === p) owned = null; });   // 못 읽었으면 다음에 다시
+  }
+  const o = await owned.p;
+  if(!o) return null;
+  if(typeof o.pub.exp === 'number' && o.pub.exp <= now()) return null;
+  const e = await api().checkSecretRoomEntry(o.code, uid);
+  const guests = (e && typeof e.count === 'number') ? Math.max(0, e.count - (e.ownerIn ? 1 : 0)) : null;
+  return { code: o.code, name: (typeof o.pub.name === 'string' && o.pub.name) ? o.pub.name : '내 시크릿룸', guests };
 }
 
 return { listRooms, mySecretRoom };

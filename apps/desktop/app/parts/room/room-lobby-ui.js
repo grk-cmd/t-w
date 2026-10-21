@@ -15,12 +15,14 @@ const TEXT = Object.freeze({
   stale: '목록이 늦게 갱신되고 있어요 — 인원은 조금 다를 수 있어요',
   noQuick: '지금 들어갈 수 있는 공개 방이 없어요 — 방을 만들어 보세요',
   togetherLocked: '투게더룸은 라이선스가 있어야 만들 수 있어요',
+  quickFailed: '방 목록을 못 불러왔어요 — 다시 불러온 뒤 눌러 주세요',
 });
 
 /**
  * @param {{
  *   model: typeof window.TwRoomLobbyModel,
  *   provider: { listRooms(channel: string): Promise<{ at: number|null, rooms: object }|null>, mySecretRoom(): Promise<{ code: string, name: string, guests: number|null }|null> },
+ *   inRoom: () => boolean,
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
  *   joinRoom: (code: string) => Promise<void>,
@@ -34,6 +36,7 @@ const TEXT = Object.freeze({
 function createRoomLobbyUi(deps){
 const model = deps.model;
 const provider = deps.provider;
+const inRoom = deps.inRoom;   // 방 안이면 모달은 «연결된 방» 화면이라 로비가 안 보인다 — 읽지 않는다
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
 const joinRoom = deps.joinRoom;
@@ -44,7 +47,7 @@ const now = deps.now;
 const random = deps.random;
 
 const $ = (id) => document.getElementById(id);
-const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, loading: false, joining: false, timer: null, seq: 0 };
+const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, state: null, loading: false, joining: false, timer: null, seq: 0 };
 
 function el(tag, cls, text){
   const e = document.createElement(tag);
@@ -119,6 +122,7 @@ function paint(){
   $('lobbyNext').disabled = pg.page >= pg.pages - 1;
   $('lobbyCreate').title = (st.channel === 'togetherroom' && !isLicensed()) ? TEXT.togetherLocked : '';
   st.cards = r.list;
+  st.state = st.loading ? null : r.state;
   measureTitles();
 }
 
@@ -153,14 +157,19 @@ async function join(code){
   try{ await joinRoom(code); }finally{ st.joining = false; }
 }
 
+// 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 스스로 멈춘다 · 만들기 창이 덮었거나 방 안이면 이번 차례만 건너뛴다
 function startTimer(){
   stopTimer();
-  st.timer = setInterval(() => { if($('inviteOverlay').classList.contains('on') && !$('lobbyMain').hidden) refresh(true); }, REFRESH_MS);
+  st.timer = setInterval(() => {
+    if(!$('inviteOverlay').classList.contains('on')){ stopTimer(); return; }
+    if(!$('lobbyMain').hidden && !inRoom()) refresh(true);
+  }, REFRESH_MS);
 }
 function stopTimer(){ if(st.timer){ clearInterval(st.timer); st.timer = null; } }
 
 /** 모달이 열릴 때 — 목록 · 내 시크릿룸을 읽고 60초 갱신을 건다. */
 function onOpen(){
+  if(inRoom()){ stopTimer(); return; }
   st.page = 0;
   refresh();
   paintSecret();
@@ -187,11 +196,12 @@ $('lobbyCreate').onclick = () => {
   openCreate(st.channel);
 };
 $('lobbyQuick').onclick = () => {
+  if(st.state === 'failed' || st.state === 'missing'){ toast(TEXT.quickFailed); return; }
   const code = model.pickQuick(st.cards || [], random());
   if(!code){ toast(TEXT.noQuick); return; }
   join(code);
 };
-for(const id of ['lcInvite', 'fsInviteCreate']){ const b = $(id); if(b) b.addEventListener('click', onOpen); }
+for(const id of ['lcInvite', 'fsInviteCreate']) $(id).addEventListener('click', onOpen);
 $('inviteClose').addEventListener('click', stopTimer);
 
 }

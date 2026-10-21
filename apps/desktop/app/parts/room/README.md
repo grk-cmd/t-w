@@ -252,11 +252,11 @@ TwRoomCreateUi.createRoomCreateUi({
 });
 ```
 
-**내놓는 것** — 없음(채널 카드 · 모달 닫기에 스스로 건다).
+**내놓는 것** — `open(채널)` · `close()`(로비의 [방 만들기] 가 연다 · 모달 닫기에 스스로 건다).
 
 **함정**
 - 모달(#inviteOverlay) 안이라 클릭 통과 목록(`UI_HIT_SEL`)을 늘리지 않는다 — 창을 모달 밖으로 빼면 거기에 더해야 눌린다.
-- 카드 클릭을 room-entry 에 두면 room-entry ↔ 이 모듈이 서로를 부르는 순환이 된다(`sim-dep-cycles`) — 카드는 이 모듈이 받는다.
+- 만들기를 room-entry 가 부르면 room-entry ↔ 이 모듈이 서로를 부르는 순환이 된다(`sim-dep-cycles`) — 창은 로비가 deps `openCreate` 로 연다.
 - 금칙어는 원격 설정 `bannedWords`(API 를 못 받으면 Firebase `config/bannedWords`) — API 가 이 칸을 아직 안 주면 앱은 거르지 못하고, 목록에는 서버 함수가 한 번 더 거른다.
 
 검사: `checks/sim-room-settings.js`.
@@ -264,16 +264,17 @@ TwRoomCreateUi.createRoomCreateUi({
 ## room-lobby-model.js · room-lobby-provider.js · room-lobby-ui.js — 방 목록 로비
 
 **책임**
-- `room-lobby-model.js`(순수) — 채널 사본(`roomLobby/{채널}` = `{ at, rooms }`) → 카드 · 상태(`failed` 못 읽음 · `missing` 칸 없음 · `stale` 3분 넘게 그대로 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
-- `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(지금은 Firebase 옛 길 · 방 서버 API 가 생기면 여기만 바꾼다) · `mySecretRoom()`(발급 칸 + `secretRooms/{코드}/pub.owner` 가 나일 때 · 만료 전만).
-- `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드 · 쪽 · [방 만들기] · [빠른시작] · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 열려 있는 동안 60초마다만 읽는다.
+- `room-lobby-model.js`(순수 · 정원은 `TwRoomSettings.roomCap` — room-settings.js 뒤에 싣는다) — 채널 사본(`roomLobby/{채널}` = `{ at, rooms }`) → 카드 · 상태(`failed` 못 읽음 · `missing` 칸 없음 · `stale` 3분 넘게 그대로 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
+- `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(지금은 Firebase 옛 길 · 방 서버 API 가 생기면 여기만 바꾼다) · `mySecretRoom()`(발급 칸 + `secretRooms/{코드}/pub.owner` 가 나일 때 · 만료 전만 — «누구 것인가» 는 세션에 한 번 · 손님 수는 방장을 빼고 열 때마다). F1 «멀티모드» 탭의 시크릿룸 칸(room-entry `_refreshSecretRoomUI`)도 deps `mySecretRoom` 으로 같은 판정을 쓴다.
+- `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드 · 쪽 · [방 만들기] · [빠른시작] · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 열려 있는 동안 60초마다만 읽는다 — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
 
-**만드는 법** — app.js 의 방 만들기 창 바로 뒤:
+**만드는 법** — provider 는 방 입장 모듈보다 먼저(F1 시크릿룸 칸이 같이 쓴다) · 화면은 방 만들기 창 바로 뒤:
 
 ```js
+const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
+// … createRoomEntry({ …, mySecretRoom: ()=>roomLobbyProvider.mySecretRoom() })
 TwRoomLobbyUi.createRoomLobbyUi({
-  model: TwRoomLobbyModel,
-  provider: TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() }),
+  model: TwRoomLobbyModel, provider: roomLobbyProvider, inRoom: ()=>Presence.active(),
   maxPeople: ()=>maxPeople(), isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   joinRoom: (code)=>roomEntryMod.startRoom(code), openCreate: (ch)=>roomCreateUi.open(ch),
   toast, notifyError: (...a)=>TwErrorCodes.notify(...a), now: ()=>Date.now(), random: ()=>Math.random(),
@@ -287,5 +288,6 @@ TwRoomLobbyUi.createRoomLobbyUi({
 - 못 읽음(null)과 빈 목록을 가른다 — 못 읽으면 «못 불러왔어요» + `E-ROOM-03`(사람이 누른 불러오기만 · 60초 갱신은 조용히).
 - 탭을 빨리 바꾸면 늦게 온 답을 버린다(`seq`) — 지우면 투게더룸 탭에 워킹룸 목록이 그려진다.
 - 목록 숫자는 최대 1분 늦다 — 들어갈 때는 입장 검사가 정원을 다시 본다(목록으로 막지 않는다).
+- 60초 타이머는 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 다음 차례에 스스로 멈춘다 — 닫기 버튼에만 기대지 않는다.
 
 검사: `checks/sim-room-lobby-ui.js`.
