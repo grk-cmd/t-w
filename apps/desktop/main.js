@@ -2495,9 +2495,15 @@ function createWindow() {
   /* 🎵 BGM 창 모드 — 마이홈 BGM과 상태칩 플레이리스트가 이 창 **하나를 공유**한다.
        'home'     : 마이홈 위젯. #myHomeWin 뒤에 숨고 마이홈을 따라 움직인다(기존 동작 그대로).
        'playlist' : 상태칩 플레이리스트. 마이홈과 무관하게 화면 우하단 작은 창으로 뜬다.
+       'listen'   : 🎧 같이 듣기(방 DJ 의 곡을 같은 위치로). 배치는 playlist 와 같고, 반복은 늘 끄며,
+                    곡 끝 · 하트비트 신호는 따로 companion:listenSignal 로만 보낸다(docs/LISTEN_TOGETHER.md 4장).
      규칙은 **나중에 튼 쪽이 이긴다.** 모드가 바뀌면 renderer에 알려서 진 쪽이 자기 표시를 내린다.
      ⚠️ 창을 둘로 나누면 소리가 겹쳐 나온다 — 그래서 하나로 유지하고 소유권만 넘긴다. */
   let bgmMode = 'home';
+  // 패널 뒤에 숨는(마이홈을 따라가지 않는) 모드 — 플레이리스트 · 같이 듣기
+  function bgmPanelMode(m){ return m === 'playlist' || m === 'listen'; }
+  // 주입 스크립트의 TWPL 신호를 renderer 로 넘길 채널 — 받는 쪽이 한 곳이게 모드마다 나눈다. 마이홈은 신호를 안 쓴다.
+  function bgmSignalChannel(m){ return m === 'playlist' ? 'companion:bgmTrackEnd' : m === 'listen' ? 'companion:listenSignal' : null; }
   /* 🔊 음량 0~1 — 플레이리스트 슬라이더가 정한다.
      ⚠️ 감시 루프(bgmForcePlay)가 매 tick마다 v.volume 을 강제로 되돌리기 때문에, 여기서 한 번
        set 하는 것만으로는 1초 안에 지워진다. 그래서 페이지 전역 __bgmVol 을 두고 루프가 그 값을
@@ -2570,7 +2576,7 @@ function createWindow() {
   // 모드에 맞는 창 속성·위치를 적용. 소유권이 넘어갈 때마다 부른다.
   function bgmApplyMode(){
     if(!bgmWin || bgmWin.isDestroyed()) return;
-    if(bgmMode === 'playlist'){
+    if(bgmPanelMode(bgmMode)){
       // 생성 시 최소 크기(180x30)가 패널의 80%보다 크면 창이 안 줄어들어 가장자리가 비어져 나온다.
       try{ bgmWin.setMinimumSize(80, 20); }catch(_){}
       bgmPositionBehindPlaylist();
@@ -2585,16 +2591,16 @@ function createWindow() {
   /* 🩹 #10 — 줌이 바뀌면 지금 모드대로 다시 놓는다(applyUiZoom 이 부른다). 렌더러도 새 사각형을 다시 보낸다. */
   _onUiZoomChanged = () => {
     if(!bgmWin || bgmWin.isDestroyed()) return;
-    if(bgmMode === 'playlist') bgmPositionBehindPlaylist(); else bgmPositionRelativeToMain();
+    if(bgmPanelMode(bgmMode)) bgmPositionBehindPlaylist(); else bgmPositionRelativeToMain();
     bgmLayoutView();
   };
   // renderer → main: 플레이리스트 패널 위치/크기 알림 (닫히면 null)
   ipcMain.on('companion:setPlBounds', (e, rect)=>{
     bgmPlRect = (rect && typeof rect.x === 'number') ? rect : null;
-    if(bgmMode === 'playlist'){ bgmPositionBehindPlaylist(); bgmLayoutView(); }
+    if(bgmPanelMode(bgmMode)){ bgmPositionBehindPlaylist(); bgmLayoutView(); }
   });
   function bgmPositionRelativeToMain(){
-    if(bgmMode === 'playlist') return;   // 🎵 플레이리스트 창은 마이홈을 따라가지 않는다
+    if(bgmPanelMode(bgmMode)) return;   // 🎵 플레이리스트 · 같이 듣기 창은 마이홈을 따라가지 않는다
     if(!bgmWin || bgmWin.isDestroyed() || !mainWindow || mainWindow.isDestroyed()) return;
     const mb = mainWindow.getBounds();
     // ★ renderer가 마이홈의 DOM 사각형을 알려줬으면(=마이홈 창이 열려있고 위치를 알 수 있으면) 그 뒤에
@@ -2649,7 +2655,7 @@ function createWindow() {
   }
   // renderer → main: 마이홈 창 위치/크기 알림
   ipcMain.on('companion:setBgmBounds', (e, rect)=>{
-    if(bgmMode === 'playlist') return;   // 🎵 플레이리스트가 창을 쓰는 동안은 마이홈 좌표를 무시
+    if(bgmPanelMode(bgmMode)) return;   // 🎵 플레이리스트 · 같이 듣기가 창을 쓰는 동안은 마이홈 좌표를 무시
     if(rect && typeof rect.x==='number'){ bgmRenderRect = rect; bgmPositionRelativeToMain(); bgmLayoutView(); }
     else { bgmRenderRect = null; }
   });
@@ -2821,12 +2827,14 @@ function createWindow() {
   }
   function bgmForcePlay(){
     if(!bgmView) return;
-    const PL = (bgmMode === 'playlist');
+    // 🎧 같이 듣기(listen)도 PL — 곡 끝에서 신호를 보내고 끝난 영상을 되살리지 않는다. «한 곡 반복» 은 플레이리스트 것이라 listen 에선 늘 끈다.
+    const PL = (bgmMode === 'playlist' || bgmMode === 'listen');
+    const LOOP_ON = bgmPlLoop && bgmMode === 'playlist';
     bgmView.webContents.executeJavaScript(
       /* 🔁 loop 여부는 **무장 검사보다 먼저** 심는다 — 이미 감시가 붙은 페이지에 다시 주입해도 값은 갱신돼야 한다.
          ★ 감시 루프는 이 값을 매 tick **읽는다**(주입 때 박지 않는다). 재생 중에 반복 종류를 바꾸면
            setBgmLoop IPC 가 이 전역만 바꾸고, 다음 tick 부터 따른다. */
-      '(function(){ window.__twplLoop='+(bgmPlLoop?'true':'false')+';'+
+      '(function(){ window.__twplLoop='+(LOOP_ON?'true':'false')+';'+
       '  var n=0; var boundV=null; var TWPL_MAX=28800; var PL='+(PL?'true':'false')+'; var lastT=-1;'+
       /* 🐕 [제보] "간혹 노래가 끝나도 다음 곡으로 안 넘어간다" — 이 감시가 **아예 안 붙는** 경우가
          있었다. 붙이는 곳이 did-finish-load 하나뿐인데, 그건 유튜브 watch 페이지의 하위 리소스를
@@ -2841,8 +2849,9 @@ function createWindow() {
          ★ 5초에 한 번만 보낸다. 매 tick(0.5초) 보내면 유튜브 자신의 콘솔 로그에 섞여 채널이 시끄러워진다.
          ★ 시각이 아니라 **재생 위치**를 보낸다 — 렌더러는 «시간이 얼마나 흘렀나»가 아니라
            «앞으로 나아가고 있나»로 판정해야 한다. 시간으로 자르면 40분짜리 믹스가 중간에 끊긴다. */
-      '  function twplBeat(v, paused){ try{ console.log("TWPL:hb:" + Math.floor(v.currentTime||0)'+
-      '    + "|" + (isFinite(v.duration) ? Math.floor(v.duration) : -1) + "|" + (paused?1:0)); }catch(_){} }'+
+      /* 🎧 넷째 칸은 광고 중(1) — 같이 듣기가 광고 위치를 노래 위치로 읽어 감아 버리지 않게. 플레이리스트는 앞 세 칸만 읽는다. */
+      '  function twplBeat(v, paused, ad){ try{ console.log("TWPL:hb:" + Math.floor(v.currentTime||0)'+
+      '    + "|" + (isFinite(v.duration) ? Math.floor(v.duration) : -1) + "|" + (paused?1:0) + "|" + (ad?1:0)); }catch(_){} }'+
       /* ⚠️ 첫 tick 을 500ms 기다리지 않는다 — 그 0.5초가 곡이 바뀔 때 "소리가 잠깐 커지는" 구간에
          그대로 얹혔다. 아래에서 tick() 을 한 번 먼저 부르고 그 다음 setInterval 로 넘긴다.
          (그때 t 는 아직 null 이지만 clearInterval(null) 은 아무 일도 하지 않는다 —
@@ -2897,7 +2906,7 @@ function createWindow() {
          실제로는 라이브에서 **안전장치가 통째로 죽어 있었다.** */
       '  var atEnd = !isAd && isFinite(v.duration) && v.duration > 0 && v.currentTime >= v.duration - 0.4;'+
       // 💓 5초에 한 번. 광고 중에도 보낸다 — 광고가 길어도 «멈춘 것»으로 오해받지 않게.
-      '  if(n % 10 === 0) twplBeat(v, !!window.__bgmPaused);'+
+      '  if(n % 10 === 0) twplBeat(v, !!window.__bgmPaused, isAd);'+
       /* 🔁 한 바퀴 돌았다 — 재생 위치가 **뒤로 크게 뛰었다**.
          ① TWPL_MAX 를 되감는다. loop 는 **한 페이지가 무한히 이어진다** — 곡마다 페이지가 새로 뜨던 옛 방식과 달리
             4시간 뒤 감시가 꺼지고, 렌더러 감시견이 그걸 실패로 세서 1곡 목록이면 바로 멈춘다(공부용 한 곡 반복이
@@ -2938,6 +2947,31 @@ function createWindow() {
   ipcMain.on('companion:openBgm', (e, url, title) => { bgmOpen(url, title, 'home'); });
   // 🎵 상태칩 플레이리스트 — 같은 창을 쓰지만 마이홈에 종속되지 않는 배치로 한 곡을 재생한다.
   ipcMain.on('companion:openPlaylistTrack', (e, url, title) => { bgmOpen(url, title, 'playlist'); });
+  /* 🎧 같이 듣기 — DJ 의 곡을 그 위치(초)부터 연다. 위치는 유튜브 주소의 t 로 싣는다(앞광고만큼 늦는 건 렌더러의 어긋남 맞추기가 덮는다). */
+  function bgmListenUrl(url, start){
+    try{
+      const u = new URL(String(url));
+      if(u.protocol !== 'https:' && u.protocol !== 'http:') return null;
+      const s = Math.floor(Number(start));
+      if(isFinite(s) && s > 0) u.searchParams.set('t', s + 's'); else u.searchParams.delete('t');
+      return u.toString();
+    }catch(_){ return null; }
+  }
+  ipcMain.on('companion:openListenTrack', (e, url, title, start) => {
+    const u = bgmListenUrl(url, start);
+    if(u) bgmOpen(u, title, 'listen');
+  });
+  /* 🎧 같이 듣기 위치 맞추기 — DJ 위치와 5초 넘게 어긋났을 때 렌더러가 부른다. listen 모드 · 광고가 아닐 때만 옮긴다. */
+  ipcMain.on('companion:bgmSeek', (e, sec) => {
+    const n = Math.floor(Number(sec));
+    if(bgmMode !== 'listen' || !isFinite(n) || n < 0) return;
+    if(!bgmView || bgmView.webContents.isDestroyed()) return;
+    bgmView.webContents.executeJavaScript(
+      '(function(){ var p=document.querySelector("#movie_player, .html5-video-player");'+
+      ' var ad=!!(p && p.classList && p.classList.contains("ad-showing")) || !!document.querySelector(".ytp-ad-player-overlay, .ytp-ad-preview-container, .ytp-ad-text");'+
+      ' if(ad) return; var v=document.querySelector("video"); if(v){ try{ v.currentTime=' + n + '; }catch(_){} } })()'
+    ).catch(()=>{});
+  });
   /* 🔒 BGM 창에 띄울 수 있는 곳 — 유튜브 임베드뿐이다.
      [왜] 이 창은 남이 정한 주소로도 열린다(남의 마이홈을 구경하면 그 사람의 BGM 이 내 앱 안에서
        열린다). 스킴만 보면 원격 유저가 내 화면에 임의 사이트를 띄울 수 있다 — 광고·피싱 화면을
@@ -3060,7 +3094,8 @@ function createWindow() {
     /* 🎵 곡 종료·재생불가 신호 수신 — 주입 스크립트의 console.log('TWPL:…')를 renderer로 넘긴다.
        유튜브 자신도 콘솔에 로그를 잔뜩 찍으므로 접두어로 걸러낸다. */
     bgmView.webContents.on('console-message', (ev, level, message)=>{
-      if(bgmMode !== 'playlist') return;
+      const ch = bgmSignalChannel(bgmMode);
+      if(!ch) return;
       // Electron 31은 (event, level, message, …) 인자를 주지만 상위 버전은 event.message 로 옮겼다 — 둘 다 받는다.
       const msg = (typeof message === 'string') ? message
                 : (ev && typeof ev.message === 'string' ? ev.message : '');
@@ -3068,7 +3103,7 @@ function createWindow() {
       _twplHeard = true;   // 🐕 신호가 오고 있다 — 아래 재주입 타이머의 근거
       try{
         if(mainWindow && !mainWindow.isDestroyed() && !mainWindow.webContents.isDestroyed())
-          mainWindow.webContents.send('companion:bgmTrackEnd', msg.slice(5));
+          mainWindow.webContents.send(ch, msg.slice(5));
       }catch(_){}
     });
     bgmWin.on('resize', bgmLayoutView);
@@ -3084,7 +3119,7 @@ function createWindow() {
     // 마이홈이 움직이면 BGM 창도 같이 따라 움직임 + 그 뒤에 계속 깔린 상태 유지
     bgmMainMoveHandler = ()=>{
       // 두 모드 모두 메인창 기준 좌표라 메인창이 움직이면 같이 옮겨야 한다.
-      if(bgmMode === 'playlist') bgmPositionBehindPlaylist(); else bgmPositionRelativeToMain();
+      if(bgmPanelMode(bgmMode)) bgmPositionBehindPlaylist(); else bgmPositionRelativeToMain();
       // 마이홈이 움직인 뒤 z-order가 흐트러질 수 있어서 매번 마이홈에 포커스 반환.
       if(mainWindow && !mainWindow.isDestroyed()) mainWindow.focus();
     };
@@ -3142,7 +3177,8 @@ function createWindow() {
   ipcMain.on('companion:setBgmLoop', (e, on) => {
     bgmPlLoop = !!on;
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript('window.__twplLoop=' + (bgmPlLoop ? 'true' : 'false') + ';').catch(()=>{});
+    const loopNow = bgmPlLoop && bgmMode === 'playlist';   // 🎧 같이 듣기 중에는 반복을 걸지 않는다
+    bgmView.webContents.executeJavaScript('window.__twplLoop=' + (loopNow ? 'true' : 'false') + ';').catch(()=>{});
   });
   // ✕ (BGM 창 닫힘) 또는 마이홈 종료: 실제로 창을 파괴
   ipcMain.on('companion:closeBgm', () => {
