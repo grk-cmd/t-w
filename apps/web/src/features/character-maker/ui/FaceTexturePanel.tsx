@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { useI18n } from '@/shared/i18n';
-import { FACE_UNITS, type LayerKind } from '../model/catalog';
-import { dragTo, pickSide, sideCenter, type Lock, type Pt } from '../model/drag';
+import { FACE_UNITS, type AdjTarget } from '../model/catalog';
+import { dragAccTo, dragTo, pickAcc, pickSide, type Lock, type Pt } from '../model/drag';
+import { accCenter, centerOf } from '../model/geometry';
 import type { Adjust, CreatorState, Side } from '../model/state';
+import type { DragTarget } from '../model/tabs';
 import { drawFace, type Expr } from '../lib/draw-front';
 import type { MakerActions } from './MakerPanel';
 
@@ -10,28 +12,39 @@ import type { MakerActions } from './MakerPanel';
 const VIEW = 146;
 const GUIDE = '#C2185B';
 
+/** 누를 때 잡은 것 — 끄는 중에 탭 · 고른 것이 바뀌어도 잡은 것을 옮긴다 */
+type Grab = { t: 'adj'; target: AdjTarget; side: Side } | { t: 'acc'; uid: number };
+
 interface Drag {
-  /** 누를 때의 레이어 — 끄는 중에 탭이 바뀌어도 잡은 레이어를 옮긴다 */
-  kind: LayerKind;
-  side: Side;
+  grab: Grab;
   from: Pt;
   start: Adjust;
   lock: Lock;
 }
 
+export type PanelTarget = DragTarget | null;
+
+function grabCenter(s: CreatorState, g: Grab): Pt | null {
+  if (g.t === 'adj') return centerOf(s, g.target, g.side);
+  const a = s.acc.find((x) => x.uid === g.uid);
+  return a ? accCenter(a) : null;
+}
+
 function FaceCanvas({
   s,
   expr,
-  kind,
+  target,
   ops,
+  onGrabAcc,
   skinColor,
   image,
   label,
 }: {
   s: CreatorState;
   expr: Expr;
-  kind: LayerKind | null;
+  target: PanelTarget;
   ops: MakerActions;
+  onGrabAcc: (uid: number) => void;
   skinColor: string;
   image: CanvasImageSource | null;
   label: string;
@@ -53,7 +66,7 @@ function FaceCanvas({
     drawFace(ctx, s, expr, { image });
     // Shift 로 곧게 끌 때 — 움직이는 줄을 보여 준다
     if (drag?.lock) {
-      const p = sideCenter(s, drag.kind, drag.side);
+      const p = grabCenter(s, drag.grab);
       if (p) {
         ctx.strokeStyle = GUIDE;
         ctx.lineWidth = 1.2;
@@ -80,59 +93,79 @@ function FaceCanvas({
     };
   };
 
+  /** 누른 곳 → 잡을 것과 그 시작 자리 */
+  function grabAt(p: Pt): { grab: Grab; start: Adjust } | null {
+    if (!target) return null;
+    if (target.t === 'adj') {
+      const side = pickSide(s, target.target, p);
+      const start = s.adj[target.target][side];
+      return start ? { grab: { t: 'adj', target: target.target, side }, start } : null;
+    }
+    const uid = pickAcc(s, p);
+    const a = s.acc.find((x) => x.uid === uid);
+    return a ? { grab: { t: 'acc', uid: a.uid }, start: a.a } : null;
+  }
+
+  const canDrag = !!target && (target.t === 'adj' || s.acc.length > 0);
+  const end = () => {
+    if (!drag) return;
+    setDrag(null);
+    ops.commit();
+  };
+
   return (
     <figure className="tex-face">
       <canvas
         ref={ref}
         width={VIEW}
         height={VIEW}
-        className={kind ? 'can-drag' : undefined}
+        className={canDrag ? 'can-drag' : undefined}
         aria-label={label}
         role="img"
         onPointerDown={(e) => {
-          if (!kind || e.button !== 0) return;
+          if (e.button !== 0) return;
           const from = toUnits(e);
-          const side = pickSide(s, kind, from);
-          const start = s.adj[kind][side];
-          if (!start) return;
+          const g = grabAt(from);
+          if (!g) return;
           e.currentTarget.setPointerCapture(e.pointerId);
           e.preventDefault();
-          setDrag({ kind, side, from, start, lock: null });
+          if (g.grab.t === 'acc') onGrabAcc(g.grab.uid);
+          setDrag({ grab: g.grab, from, start: g.start, lock: null });
         }}
         onPointerMove={(e) => {
           if (!drag) return;
-          const to = dragTo(drag.start, drag.from, toUnits(e), e.shiftKey);
+          const g = drag.grab;
+          const to =
+            g.t === 'adj'
+              ? dragTo(s, g.target, g.side, drag.start, drag.from, toUnits(e), e.shiftKey)
+              : dragAccTo(drag.start, drag.from, toUnits(e), e.shiftKey);
           if (to.lock !== drag.lock) setDrag({ ...drag, lock: to.lock });
-          ops.live({ t: 'move', kind: drag.kind, side: drag.side, x: to.x, y: to.y });
+          if (g.t === 'adj') ops.live({ t: 'move', target: g.target, side: g.side, x: to.x, y: to.y });
+          else ops.live({ t: 'accMove', uid: g.uid, x: to.x, y: to.y });
         }}
-        onPointerUp={() => {
-          if (!drag) return;
-          setDrag(null);
-          ops.commit();
-        }}
-        onPointerCancel={() => {
-          if (!drag) return;
-          setDrag(null);
-          ops.commit();
-        }}
+        onPointerUp={end}
+        onPointerCancel={end}
       />
       <figcaption>{label}</figcaption>
     </figure>
   );
 }
 
-/** 평면 얼굴 텍스처 두 장(기본 · 감은눈) — 고른 탭의 레이어를 끌어 옮긴다(Shift: 가로 · 세로만). 손을 떼면 되돌리기 한 칸. */
+/** 평면 얼굴 텍스처 두 장(기본 · 감은눈) — 고른 것(눈 폴더 · 층 · 레이어 · 액세서리)을 끌어 옮긴다(Shift: 가로 · 세로만). 손을 떼면 되돌리기 한 칸. */
 export function FaceTexturePanel({
   s,
-  kind,
+  target,
   ops,
+  onGrabAcc,
   skinColor,
   image,
 }: {
   s: CreatorState;
-  /** 끌어 옮길 레이어 — 눈 · 눈썹 · 입 · 볼 탭일 때만, 그 밖이면 null(보기만) */
-  kind: LayerKind | null;
+  /** 끌 대상 — 피부 · 내 그림 · 옷 탭이면 null(보기만) */
+  target: PanelTarget;
   ops: MakerActions;
+  /** 액세서리를 잡으면 그것을 고른 것으로 */
+  onGrabAcc: (uid: number) => void;
   skinColor: string;
   image: CanvasImageSource | null;
 }) {
@@ -147,15 +180,16 @@ export function FaceTexturePanel({
             key={e}
             s={s}
             expr={e}
-            kind={kind}
+            target={target}
             ops={ops}
+            onGrabAcc={onGrabAcc}
             skinColor={skinColor}
             image={image}
             label={e === 'open' ? c.exprOpen : c.exprClosed}
           />
         ))}
       </div>
-      <p className="hint">{kind ? c.texHint : c.texIdle}</p>
+      <p className="hint">{target ? c.texHint : c.texIdle}</p>
     </div>
   );
 }

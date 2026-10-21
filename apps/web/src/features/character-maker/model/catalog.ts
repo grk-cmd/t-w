@@ -24,54 +24,116 @@ type Names = Record<Lang, string>;
 export interface LayerItem {
   id: string;
   name: Names;
-  /** 뜬 눈(또는 눈이 아닌 레이어) — color 는 고른 색(눈동자) */
+  /** 뜬 눈 얼굴에 그릴 것 — color 는 고른 색(동공만 쓴다) */
   open: (color: string) => Shape[];
-  /** 감은눈 얼굴에 그릴 것 — 없으면 open 과 같다 */
+  /** 감은눈 얼굴에 그릴 것 — 없으면 open 과 같다(흰자 · 동공은 감은눈에 그리지 않는다 — drawFace) */
   closed?: Shape[];
 }
 
-export type LayerKind = 'eyes' | 'brows' | 'mouth' | 'cheek';
+/** 눈 폴더 안 층(아래 → 위) — 폴더를 옮기면 셋이 같이, 층을 고르면 그 층만 폴더 안에서 움직인다 */
+export const EYE_PARTS = ['sclera', 'pupil', 'eyeline'] as const;
+export type EyePart = (typeof EYE_PARTS)[number];
+
+/** 그림을 고르는 레이어 */
+export type LayerKind = EyePart | 'brows' | 'mouth' | 'cheek';
+/** 자리 · 크기 · 회전을 고치는 대상 — 레이어 + 눈 폴더 */
+export type AdjTarget = LayerKind | 'eyes';
 
 const line = (d: string, w: number, stroke = INK): Shape => ({ k: 'path', d, stroke, w });
 
 export const LAYERS: Record<LayerKind, readonly LayerItem[]> = {
-  eyes: [
+  sclera: [
+    { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
+    {
+      id: 'round',
+      name: { ko: '동그랑', en: 'Round', ja: 'まる' },
+      open: () => [{ k: 'ellipse', rx: 11, ry: 13, fill: '#fff', stroke: INK, w: 2.5 }],
+    },
+    {
+      id: 'big',
+      name: { ko: '큰', en: 'Big', ja: 'おおきい' },
+      open: () => [{ k: 'ellipse', rx: 14, ry: 16, fill: '#fff', stroke: INK, w: 2.5 }],
+    },
+    {
+      id: 'tall',
+      name: { ko: '세로', en: 'Tall', ja: 'たて' },
+      open: () => [{ k: 'ellipse', rx: 9, ry: 14, fill: '#fff', stroke: INK, w: 2.5 }],
+    },
+    {
+      id: 'sleepy',
+      name: { ko: '졸린', en: 'Sleepy', ja: 'ねむい' },
+      open: () => [{ k: 'path', d: 'M-12 -4h24v4a12 10 0 0 1-24 0z', fill: '#fff', stroke: INK, w: 2.5 }],
+    },
+  ],
+  pupil: [
+    { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
     {
       id: 'dot',
       name: { ko: '콩', en: 'Dot', ja: 'てん' },
-      open: () => [{ k: 'ellipse', rx: 7, ry: 7, fill: INK }],
-      closed: [line('M-8 0h16', 4)],
+      open: (c) => [{ k: 'ellipse', rx: 5, ry: 5.5, fill: c }],
     },
     {
       id: 'round',
       name: { ko: '동그랑', en: 'Round', ja: 'まる' },
       open: (c) => [
-        { k: 'ellipse', rx: 10, ry: 12, fill: c, stroke: INK, w: 3 },
-        { k: 'ellipse', cx: 3, cy: -5, rx: 3.5, ry: 3.5, fill: '#fff' },
+        { k: 'ellipse', rx: 8, ry: 9.5, fill: c },
+        { k: 'ellipse', cx: 3, cy: -4, rx: 3, ry: 3, fill: '#fff' },
       ],
-      closed: [line('M-11 -2q11 10 22 0', 4)],
     },
     {
       id: 'sparkle',
       name: { ko: '반짝', en: 'Sparkle', ja: 'キラキラ' },
       open: (c) => [
-        { k: 'ellipse', rx: 13, ry: 15, fill: c, stroke: INK, w: 3 },
-        { k: 'ellipse', cx: 4, cy: -6, rx: 4.5, ry: 4.5, fill: '#fff' },
-        { k: 'ellipse', cx: -5, cy: 6, rx: 2, ry: 2, fill: '#fff' },
-        line('M-14 -12q14-8 28 0', 4),
+        { k: 'ellipse', rx: 9.5, ry: 11, fill: c },
+        { k: 'ellipse', cx: 3.5, cy: -5, rx: 4, ry: 4, fill: '#fff' },
+        { k: 'ellipse', cx: -4, cy: 5, rx: 1.8, ry: 1.8, fill: '#fff' },
       ],
-      closed: [line('M-14 -4q14 14 28 0M-14 -4l-5 -4', 4)],
+    },
+    {
+      id: 'cat',
+      name: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
+      open: (c) => [
+        { k: 'ellipse', rx: 9, ry: 10.5, fill: c },
+        { k: 'ellipse', rx: 2.2, ry: 8, fill: INK },
+      ],
+    },
+  ],
+  eyeline: [
+    {
+      id: 'none',
+      name: { ko: '없음', en: 'None', ja: 'なし' },
+      open: () => [],
+      // 아이라인이 없어도 감은눈은 보여야 한다
+      closed: [line('M-11 -1q11 9 22 0', 3.5)],
+    },
+    {
+      id: 'thin',
+      name: { ko: '얇은', en: 'Thin', ja: 'ほそい' },
+      open: () => [line('M-13 -9q13-10 26 0', 3)],
+      closed: [line('M-11 -1q11 9 22 0', 3.5)],
+    },
+    {
+      id: 'thick',
+      name: { ko: '굵은', en: 'Thick', ja: 'ふとい' },
+      open: () => [line('M-14 -8q14-12 28 0', 5)],
+      closed: [line('M-12 -1q12 10 24 0', 5)],
+    },
+    {
+      id: 'lash',
+      name: { ko: '속눈썹', en: 'Lashes', ja: 'まつげ' },
+      open: () => [line('M-14 -8q14-12 28 0M14 -8l5-5M10 -12l3-6', 3.5)],
+      closed: [line('M-12 -1q12 10 24 0M12 -1l5 3', 3.5)],
     },
     {
       id: 'smile',
       name: { ko: '웃는', en: 'Smiling', ja: 'にっこり' },
-      open: () => [line('M-10 4q10-12 20 0', 4.5)],
+      open: () => [line('M-11 4q11-13 22 0', 4.5)],
     },
     {
       id: 'sleepy',
       name: { ko: '졸린', en: 'Sleepy', ja: 'ねむい' },
-      open: (c) => [{ k: 'path', d: 'M-11 -4h22v4a11 9 0 0 1-22 0z', fill: c, stroke: INK, w: 3 }],
-      closed: [line('M-11 0h22', 4)],
+      open: () => [line('M-13 -4h26', 3.5)],
+      closed: [line('M-12 0h24', 3.5)],
     },
   ],
   brows: [
@@ -139,21 +201,30 @@ export const LAYERS: Record<LayerKind, readonly LayerItem[]> = {
   ],
 };
 
-/** 쌓는 차례(아래 → 위) */
-export const LAYER_ORDER: readonly LayerKind[] = ['cheek', 'eyes', 'brows', 'mouth'];
-/** 짝으로 나오는 것 — 왼쪽 짝을 놓고 오른쪽은 좌우를 뒤집어 놓는다 */
-export const PAIRED: Record<LayerKind, boolean> = { eyes: true, brows: true, cheek: true, mouth: false };
+/** 쌓는 차례(아래 → 위) — 'eyes' 는 눈 폴더(그 안은 EYE_PARTS 차례) */
+export const DRAW_ORDER = ['cheek', 'eyes', 'brows', 'mouth'] as const;
+/** 짝으로 나오는 것 — 왼쪽 짝을 놓고 오른쪽은 좌우를 뒤집어 놓는다(눈 폴더 안 층도 폴더를 따라 짝) */
+export const PAIRED: Record<AdjTarget, boolean> = {
+  eyes: true,
+  sclera: true,
+  pupil: true,
+  eyeline: true,
+  brows: true,
+  cheek: true,
+  mouth: false,
+};
+export const isEyePart = (t: AdjTarget): t is EyePart => (EYE_PARTS as readonly string[]).includes(t);
 /** 얼굴 판 한 변(단위) — 자리(SLOT) · 조정 값 · 그리기가 모두 이 좌표. 오른쪽 짝은 FACE_UNITS − 왼쪽 자리 */
 export const FACE_UNITS = 200;
 
-/** 200×200 얼굴 판에서의 기본 자리 — 짝은 왼쪽 짝 x(오른쪽은 200 − x), 하나짜리는 가운데 */
-export const SLOT: Record<LayerKind, { x: number; y: number }> = {
+/** 200×200 얼굴 판에서의 기본 자리 — 짝은 왼쪽 짝 x(오른쪽은 200 − x), 하나짜리는 가운데. 눈 폴더 안 층은 폴더 가운데(0,0)가 기본 */
+export const SLOT: Record<'eyes' | 'brows' | 'mouth' | 'cheek', { x: number; y: number }> = {
   eyes: { x: 66, y: 112 },
   brows: { x: 66, y: 88 },
   cheek: { x: 48, y: 134 },
   mouth: { x: 100, y: 142 },
 };
-/** 눈동자 색 고르기 */
+/** 동공 색 고르기 */
 export const EYE_COLORS = ['#3B2A22', '#2E5E9C', '#3E8A5A', '#8A4FB5', '#C2593A'] as const;
 /** 옷 색 바로 고르기(그 밖은 색 고르개) — 앱 기본값이 맨 앞 */
 export const TOP_COLORS = [
@@ -179,3 +250,84 @@ export const LIMITS = { x: [-80, 80], y: [-80, 80], s: [0.3, 2.5], r: [-45, 45] 
 
 export const findItem = (kind: LayerKind, id: string): LayerItem =>
   LAYERS[kind].find((it) => it.id === id) ?? (LAYERS[kind][0] as LayerItem);
+
+/* 액세서리 — 얼굴 어디든 여러 개(최대 ACC_MAX) 붙여 하나씩 옮긴다. 자리는 얼굴 판 가운데 기준. */
+export interface AccItem {
+  id: string;
+  name: Names;
+  shapes: Shape[];
+}
+export const ACC_MAX = 5;
+export const ACC_SLOT = { x: 100, y: 120 } as const;
+/** 액세서리 자리 범위 — 얼굴 판 어디로든 */
+export const ACC_LIMITS = { x: [-100, 100], y: [-120, 80], s: [0.3, 2.5], r: [-180, 180] } as const;
+export const ACCS: readonly AccItem[] = [
+  {
+    id: 'bandage',
+    name: { ko: '반창고', en: 'Bandage', ja: 'ばんそうこう' },
+    shapes: [
+      {
+        k: 'path',
+        d: 'M-16 -6h32a6 6 0 0 1 0 12h-32a6 6 0 0 1 0-12z',
+        fill: '#F3C9A4',
+        stroke: '#B98A63',
+        w: 1.5,
+      },
+      { k: 'path', d: 'M-6 -6h12v12h-12z', fill: '#FBE3CC' },
+      { k: 'ellipse', cx: -2, cy: -2, rx: 0.8, ry: 0.8, fill: '#B98A63' },
+      { k: 'ellipse', cx: 2, cy: 2, rx: 0.8, ry: 0.8, fill: '#B98A63' },
+    ],
+  },
+  {
+    id: 'scar',
+    name: { ko: '상처', en: 'Scar', ja: 'きず' },
+    shapes: [line('M-10 -10l20 20M10 -10l-20 20', 3, '#C0504D')],
+  },
+  {
+    id: 'scarline',
+    name: { ko: '흉터', en: 'Stitches', ja: 'ぬいあと' },
+    shapes: [line('M-16 0h32M-10 -5v10M-2 -5v10M6 -5v10M14 -5v10', 2.2, '#8E3B3B')],
+  },
+  {
+    id: 'mole',
+    name: { ko: '점', en: 'Mole', ja: 'ほくろ' },
+    shapes: [{ k: 'ellipse', rx: 2.6, ry: 2.6, fill: '#4A3328' }],
+  },
+  {
+    id: 'tear',
+    name: { ko: '눈물', en: 'Tear', ja: 'なみだ' },
+    shapes: [{ k: 'path', d: 'M0 -9q7 9 0 14q-7-5 0-14z', fill: '#8FD3FF', stroke: '#4A9BD1', w: 1.5 }],
+  },
+  {
+    id: 'star',
+    name: { ko: '별', en: 'Star', ja: 'ほし' },
+    shapes: [
+      {
+        k: 'path',
+        d: 'M0 -10l3 6.5 7 .8-5.2 4.8 1.4 7L0 5.6l-6.2 3.5 1.4-7L-10 -2.7l7-.8z',
+        fill: '#FFD34D',
+        stroke: '#C99A1C',
+        w: 1.2,
+      },
+    ],
+  },
+  {
+    id: 'heart',
+    name: { ko: '하트', en: 'Heart', ja: 'ハート' },
+    shapes: [
+      {
+        k: 'path',
+        d: 'M0 8q-11-7-9-13q3-6 9 0q6-6 9 0q2 6-9 13z',
+        fill: '#FF6F91',
+        stroke: '#C94767',
+        w: 1.2,
+      },
+    ],
+  },
+  {
+    id: 'sweat',
+    name: { ko: '땀', en: 'Sweat', ja: 'あせ' },
+    shapes: [{ k: 'path', d: 'M0 -10q8 10 0 15q-8-5 0-15z', fill: '#BFE8FF', stroke: '#6FB6E0', w: 1.5 }],
+  },
+];
+export const findAcc = (id: string): AccItem | null => ACCS.find((a) => a.id === id) ?? null;

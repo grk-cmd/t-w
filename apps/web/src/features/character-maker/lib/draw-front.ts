@@ -1,13 +1,23 @@
-import { FACE_UNITS, LAYER_ORDER, PAIRED, SLOT, findItem, type Shape } from '../model/catalog';
-import type { Adjust, CreatorState } from '../model/state';
+import {
+  DRAW_ORDER,
+  FACE_UNITS,
+  PAIRED,
+  findAcc,
+  findItem,
+  type LayerKind,
+  type Shape,
+} from '../model/catalog';
+import { accMatrix, invert, layerMatrix, mul, type Mat } from '../model/geometry';
+import type { CreatorState, Side } from '../model/state';
 
 /** 그리기에 쓰는 2D 컨텍스트 몫(시험은 가짜로) */
 export interface DrawCtx {
   save(): void;
   restore(): void;
   translate(x: number, y: number): void;
-  rotate(a: number): void;
   scale(x: number, y: number): void;
+  transform(a: number, b: number, c: number, d: number, e: number, f: number): void;
+  clip(path?: Path2D): void;
   beginPath(): void;
   ellipse(x: number, y: number, rx: number, ry: number, rot: number, a0: number, a1: number): void;
   fill(path?: Path2D): void;
@@ -59,21 +69,58 @@ function drawShape(ctx: DrawCtx, sh: Shape, makePath: (d: string) => Path2D) {
   ctx.restore();
 }
 
-function placed(
-  ctx: DrawCtx,
-  x: number,
-  y: number,
-  a: Adjust,
-  flip: boolean,
-  shapes: Shape[],
-  makePath: (d: string) => Path2D,
-) {
+function drawAt(ctx: DrawCtx, m: Mat, shapes: Shape[], makePath: (d: string) => Path2D) {
   ctx.save();
-  ctx.translate(x + a.x, y + a.y);
-  ctx.rotate((a.r * Math.PI) / 180);
-  ctx.scale(flip ? -a.s : a.s, a.s);
+  ctx.transform(...m);
   for (const sh of shapes) drawShape(ctx, sh, makePath);
   ctx.restore();
+}
+
+/** 흰자 모양(첫 칠한 도형)으로 자른다 — 동공이 흰자 밖으로 삐져나오지 않게 */
+function clipTo(ctx: DrawCtx, shapes: Shape[], makePath: (d: string) => Path2D): boolean {
+  const sh = shapes.find((x) => x.fill);
+  if (!sh) return false;
+  if (sh.k === 'ellipse') {
+    ctx.beginPath();
+    ctx.ellipse(sh.cx ?? 0, sh.cy ?? 0, sh.rx, sh.ry, 0, 0, Math.PI * 2);
+    ctx.clip();
+  } else ctx.clip(makePath(sh.d));
+  return true;
+}
+
+/** 눈 한 짝 — 흰자 · 동공(흰자로 잘림) · 아이라인. 감은눈이면 아이라인의 감은 모양만. */
+function drawEye(
+  ctx: DrawCtx,
+  s: CreatorState,
+  side: Side,
+  expr: Expr,
+  color: string,
+  makePath: (d: string) => Path2D,
+) {
+  const shapesOf = (k: LayerKind) => findItem(k, s[k]);
+  const m = (k: LayerKind) => layerMatrix(s, k, side);
+  if (expr === 'open') {
+    const scl = shapesOf('sclera').open(color),
+      mS = m('sclera');
+    const pup = shapesOf('pupil').open(color),
+      mP = m('pupil');
+    if (mS && scl.length) drawAt(ctx, mS, scl, makePath);
+    if (mP && pup.length) {
+      ctx.save();
+      // 흰자 행렬에서 자른 뒤, 그 위에서 동공 행렬로 넘어간다(자르기는 save/restore 안에서만 산다)
+      if (mS && scl.length) {
+        ctx.transform(...mS);
+        clipTo(ctx, scl, makePath);
+        ctx.transform(...mul(invert(mS), mP));
+      } else ctx.transform(...mP);
+      for (const sh of pup) drawShape(ctx, sh, makePath);
+      ctx.restore();
+    }
+  }
+  const line = shapesOf('eyeline');
+  const ls = expr === 'closed' ? (line.closed ?? line.open(color)) : line.open(color);
+  const mL = m('eyeline');
+  if (mL && ls.length) drawAt(ctx, mL, ls, makePath);
 }
 
 /** 얼굴 판(200 단위 좌표)에 레이어를 쌓는다 — 3D 텍스처(앞모습 판)와 평면 텍스처 칸이 같은 그림을 쓴다. 지우기 · 배경은 부르는 쪽 몫. */
@@ -86,17 +133,21 @@ export function drawFace(
   const makePath = opts.makePath ?? ((d: string) => new Path2D(d));
   const img = s.img && opts.image && (s.img.on === 'both' || s.img.on === expr) ? opts.image : null;
   if (img && s.img?.pos === 'under') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
-  for (const kind of LAYER_ORDER) {
-    const item = findItem(kind, s[kind]);
-    const shapes =
-      kind === 'eyes' && expr === 'closed' ? (item.closed ?? item.open(s.eyeColor)) : item.open(s.eyeColor);
-    if (!shapes.length) continue;
-    const at = SLOT[kind];
-    const adj = s.adj[kind];
-    if (PAIRED[kind]) {
-      if (adj.L) placed(ctx, at.x, at.y, adj.L, false, shapes, makePath);
-      if (adj.R) placed(ctx, FACE_UNITS - at.x, at.y, adj.R, true, shapes, makePath);
-    } else if (adj.C) placed(ctx, at.x, at.y, adj.C, false, shapes, makePath);
+  for (const kind of DRAW_ORDER) {
+    const sides: Side[] = PAIRED[kind] ? ['L', 'R'] : ['C'];
+    for (const side of sides) {
+      if (kind === 'eyes') {
+        drawEye(ctx, s, side, expr, side === 'R' ? s.pupilColor.R : s.pupilColor.L, makePath);
+        continue;
+      }
+      const shapes = findItem(kind, s[kind]).open(s.pupilColor.L);
+      const mx = layerMatrix(s, kind, side);
+      if (mx && shapes.length) drawAt(ctx, mx, shapes, makePath);
+    }
+  }
+  for (const a of s.acc) {
+    const item = findAcc(a.id);
+    if (item) drawAt(ctx, accMatrix(a), item.shapes, makePath);
   }
   if (img && s.img?.pos === 'top') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
 }

@@ -17,6 +17,18 @@ export interface CreatorMessages {
   texLabel: string;
   texHint: string;
   texIdle: string;
+  tabAcc: string;
+  eyeFolder: string;
+  eyeFolderHint: string;
+  eyeline: string;
+  pupil: string;
+  sclera: string;
+  oddEye: string;
+  accAdd: string;
+  accList: string;
+  accEmpty: string;
+  accFull: string;
+  accRemove: string;
   tabSkin: string;
   tabEyes: string;
   tabBrows: string;
@@ -148,7 +160,19 @@ export const ko: Messages = {
     exprClosed: '감은눈',
     texLabel: '얼굴 텍스처',
     texHint: '고른 레이어를 끌어서 옮겨요 (Shift: 가로 · 세로만)',
-    texIdle: '눈 · 눈썹 · 입 · 볼 탭에서 끌어 옮길 수 있어요',
+    texIdle: '눈 · 눈썹 · 입 · 볼 · 액세서리 탭에서 끌어 옮길 수 있어요',
+    tabAcc: '액세서리',
+    eyeFolder: '눈 (전체)',
+    eyeFolderHint: '폴더를 옮기면 아이라인 · 동공 · 흰자가 함께 움직여요. 층을 고르면 그 층만 따로 옮겨요.',
+    eyeline: '아이라인',
+    pupil: '동공',
+    sclera: '흰자',
+    oddEye: '오드아이 (양쪽 다르게)',
+    accAdd: '붙이기',
+    accList: '붙인 것',
+    accEmpty: '아직 붙인 액세서리가 없어요.',
+    accFull: '최대 5개까지 붙일 수 있어요.',
+    accRemove: '떼기',
     tabSkin: '피부',
     tabEyes: '눈',
     tabBrows: '눈썹',
@@ -294,7 +318,20 @@ export const en: Messages = {
     exprClosed: 'Eyes closed',
     texLabel: 'Face texture',
     texHint: 'Drag the selected layer to move it (Shift: straight lines only)',
-    texIdle: 'Open the Eyes, Brows, Mouth or Cheeks tab to drag layers',
+    texIdle: 'Open the Eyes, Brows, Mouth, Cheeks or Accessories tab to drag',
+    tabAcc: 'Accessories',
+    eyeFolder: 'Eyes (all)',
+    eyeFolderHint:
+      'Moving the folder moves the eyeline, pupil and white together. Pick a layer to move just that layer.',
+    eyeline: 'Eyeline',
+    pupil: 'Pupil',
+    sclera: 'Eye white',
+    oddEye: 'Odd eyes (different colors)',
+    accAdd: 'Add',
+    accList: 'Added',
+    accEmpty: 'No accessories yet.',
+    accFull: 'You can add up to 5.',
+    accRemove: 'Remove',
     tabSkin: 'Skin',
     tabEyes: 'Eyes',
     tabBrows: 'Brows',
@@ -442,7 +479,20 @@ export const ja: Messages = {
     exprClosed: '目閉じ',
     texLabel: '顔テクスチャ',
     texHint: '選んだレイヤーをドラッグで移動(Shift:縦・横のみ)',
-    texIdle: '目・眉・口・頬のタブでドラッグして動かせます',
+    texIdle: '目・眉・口・頬・アクセサリーのタブでドラッグして動かせます',
+    tabAcc: 'アクセサリー',
+    eyeFolder: '目(ぜんぶ)',
+    eyeFolderHint:
+      'フォルダを動かすとアイライン・瞳・白目がいっしょに動きます。レイヤーを選ぶとそのレイヤーだけ動かせます。',
+    eyeline: 'アイライン',
+    pupil: '瞳',
+    sclera: '白目',
+    oddEye: 'オッドアイ(左右ちがう色)',
+    accAdd: 'つける',
+    accList: 'つけたもの',
+    accEmpty: 'まだアクセサリーがありません。',
+    accFull: '5個までつけられます。',
+    accRemove: 'はずす',
     tabSkin: '肌',
     tabEyes: '目',
     tabBrows: 'まゆ',
