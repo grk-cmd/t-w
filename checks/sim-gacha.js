@@ -302,6 +302,10 @@ await sec('── 4. 서버 동기화', async () => {
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '300' }, srv: { owned: {}, ts: 1 } });
   e.txFail = 'denied'; M = e.mk(); await M.syncGachaToServer('tick');
   chk(e.denied.join() === '가챠' && M.owned().a === 1, '쓰기가 거부되면 🔑 안내(_warnServerWriteDenied) · 이 PC 뽑기는 지우지 않는다');
+  /* 규칙이 거부하는 옛 키(null · 앞뒤 공백)는 다시 쓰지 않는다 — 하나라도 실으면 트랜잭션 전체가 거부된다 */
+  e = mkEnv({ ls: { 'tw.gachaOwned': '{"c":1}' }, srv: { owned: { 'null': 1, ' a': 2, 'b ': 1, b: 1 }, ts: 1 } });
+  M = e.mk(); await M.syncGachaToServer('tick');
+  chk(e.pushes.length === 1 && JSON.stringify(e.pushes[0].owned) === '{"b":1,"c":1}', '규칙이 거부하는 키(null · 앞뒤 공백)는 걸러서 쓴다 (' + JSON.stringify(e.pushes[0] && e.pushes[0].owned) + ')');
   /* 로그아웃 검문 — 서버에 없는 이 PC 의 뽑기 수 */
   e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":2,"c":1}' } }); M = e.mk();
   chk(M.unsynced({ a: 1 }) === 2 && M.unsynced({ a: 2, c: 1, z: 9 }) === 0 && M.unsynced(null) === 3 && M.unsynced({ a: 5 }) === 1,

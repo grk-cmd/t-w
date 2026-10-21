@@ -368,8 +368,8 @@ async function _acctPreflight(uid, opt){
       else if(!(typeof ts === 'number' && ts > 0)) push(lblSlots, '캐릭터를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
     }
   }catch(_){ push(lblSlots, '캐릭터 저장 상태를 확인하지 못했어요', 'unknown'); }
-  /* 🎰 가챠 — 이 PC 의 뽑기가 서버에 다 있어야 한다(파츠마다 개수까지). «서버에 하나라도 있나» 만 보면
-     서버에 못 올라간 뽑기가 있어도 통과해서 로그아웃이 지웠다(B-1021-13). */
+  /* 🎰 가챠 — 이 PC 의 뽑기가 서버에 다 있어야 한다(파츠마다 개수까지). ⚠️ «서버에 하나라도 있나» 로 줄이지 말 것 —
+     서버에 못 올라간 뽑기가 있어도 통과해 로그아웃이 지운다. */
   try{
     if(nGacha && api.loadGachaOwned){
       const srv = await api.loadGachaOwned(uid);

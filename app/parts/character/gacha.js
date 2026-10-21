@@ -142,7 +142,7 @@ let _gachaSyncPending = null;
    '보유분을 모르는 채로' 벗기는 것이 되어, 오프라인 부팅에서 멀쩡한 파츠가 사라진다. */
 let _gachaSrvSeen = false;
 /* 👑 달성표 보상분(추가 뽑기 횟수). 서버에서는 **users/{uid}/chalBonus** 에 따로 산다 —
-   gacha 노드 안에 두면 saveGachaOwned 의 통째 set 이 지운다(옛 버전 클라이언트가 특히 그렇다).
+   gacha 노드 안에 두면 옛 판(0.11 이하)의 통째 set 이 지운다.
    여기 값은 서버 합계를 받아 적는 사본이다.
    ⚠️ 서버를 못 읽었을 때는 절대 손대지 않는다(로컬 값 유지) — 0 으로 내려가면 이미 준 보상이
      사라진 것처럼 보인다. 그래서 loadChalBonus 는 실패를 null 로 돌려주고 0 과 구분한다. */
@@ -222,17 +222,20 @@ function gachaUsedTotal(){ return _usedIn(gachaOwned); }
 function gachaTicketsEarned(){ return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0); }
 function gachaTicketsLeft(){ return Math.max(0, gachaTicketsEarned() - gachaUsedTotal()); }
 
-/* 보유분 씻기 — 0 이하 · 숫자 아님은 빼고 상한에서 자른다(규칙 owned/$partId 와 같은 모양). */
+/* 보유분 씻기 — 0 이하 · 숫자 아님 · 규칙이 거부하는 키는 빼고 상한에서 자른다(규칙 owned/$partId 와 같은 모양).
+   ⚠️ 규칙에 안 맞는 옛 키를 하나라도 다시 쓰면 트랜잭션 전체가 거부된다. */
+const GACHA_BAD_KEY_RE = /^(null|undefined|NaN)$|^ | $/;
 function _cleanOwned(o){
   const out = {};
   for(const k in (o || {})){
+    if(GACHA_BAD_KEY_RE.test(k)) continue;
     const n = Math.max(0, Math.min(GACHA_OWNED_MAX, Math.floor(Number(o[k]) || 0)));
     if(n > 0) out[k] = n;
   }
   return out;
 }
 /* 두 벌을 파츠마다 큰 쪽으로 합친다. 보유 수는 늘기만 한다(줄이는 길이 없다) — 그래서 합쳐도 잃는 것이 없고,
-   서버에 못 올라간 이 PC 의 뽑기(옛 판 · 로그인이 풀린 채 뽑은 것)가 살아남는다(B-1021-13). */
+   서버에 못 올라간 이 PC 의 뽑기(옛 판 · 로그인이 풀린 채 뽑은 것)가 살아남는다. */
 function _mergeOwned(a, b){
   const out = _cleanOwned(a), add = _cleanOwned(b);
   for(const k in add) if(add[k] > (out[k] | 0)) out[k] = add[k];
@@ -283,8 +286,7 @@ function _planDraw(owned, n){
 /* 뽑기 — 서버가 원본이다. 남은 횟수 확인 · 굴리기 · 저장을 서버 트랜잭션 하나에서 하고, 저장이 끝나야 결과를 돌려준다.
    ★ 횟수와 풀은 트랜잭션 안에서 **서버 보유분**으로 센다 — 다른 PC 가 동시에 뽑으면 트랜잭션이 새 값으로 다시 돌아,
      남은 횟수를 넘겨 뽑지 못한다.
-   ★ 실패하면 이 PC 는 아무것도 바꾸지 않는다(횟수 그대로). 예전엔 이 PC 에 먼저 적고 서버는 나중이라,
-     로그인이 풀린 PC 에서 뽑은 것이 그 PC 에만 남았다(B-1021-13).
+   ★ 실패하면 이 PC 는 아무것도 바꾸지 않는다(횟수 그대로). ⚠️ 이 PC 에 먼저 적지 말 것 — 로그인이 풀린 PC 에서 뽑은 것이 그 PC 에만 남는다.
    ★ 늦게 붙은 저장(시간 초과 뒤 서버에 들어감)은 onLate 로 사본에 합친다 — 뽑기가 사라지지 않는다.
    @return { ok:true, out } | { ok:false, reason:'busy'|'nouser'|'offline'|'timeout'|'denied'|'error' } */
 let _gachaDrawing = false;
@@ -312,13 +314,13 @@ async function gachaDraw(n){
    ★ 서버가 원본이고 이 PC 는 사본이다. 맞출 때는 **파츠마다 큰 쪽으로 합친다**(_mergeOwned) — 덮어쓰지 않는다.
        · 이 PC 에만 있는 뽑기가 없으면 → 서버 값을 받는다(쓰기 0)
        · 있으면(옛 판 · 로그인이 풀린 채 뽑은 것) → 서버 트랜잭션 안에서 합쳐 올린다
-     [왜 바꿨나] 예전 «ts 가 큰 기기가 통째로 이긴다» 는 진 기기의 뽑기를 지웠다(B-1021-13).
+     ⚠️ «ts 가 큰 기기가 통째로 이긴다» 로 되돌리지 말 것 — 진 기기의 뽑기가 지워진다.
 
    mode='pull' — 계정 연동 전용. 이 PC 사본은 다른 계정 것일 수 있어 합치지 않고 **서버 것을 받는다**.
      서버가 비어 있으면(한 번도 동기화 안 된 계정) 로컬을 지우지 않고 올린다. */
 /* 🎰 보유하지 않은 가챠 파츠를 착용 목록에서 걷어낸다 — **보유분이 바뀔 수 있는 자리마다 부른다.**
 
-   [경위] 동기화(ts 승패)나 계정 연동(pull)은 gachaOwned 를 통째로 갈아끼우는데, 착용 정보
+   [경위] 계정 연동(pull)은 gachaOwned 를 통째로 갈아끼우는데, 착용 정보
      (def.equippedParts)는 예전부터 **아무도 손대지 않았다.** 그래서 "보관함에는 없는데 실행
      화면에는 그대로 붙어 있는" 파츠가 남는다(제보: 초기화된 욕조가 계속 보임).
      게다가 renderGachaInv 는 보유 0 인 칸을 locked 로 그리며 **onclick 을 아예 안 붙이고**,
