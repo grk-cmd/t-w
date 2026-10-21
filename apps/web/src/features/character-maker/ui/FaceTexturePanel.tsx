@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, type PointerEvent } from 'react';
 import { useI18n } from '@/shared/i18n';
-import { FACE_UNITS } from '../model/catalog';
+import { FACE_UNITS, type AdjTarget } from '../model/catalog';
 import { dragAccTo, dragTo, pickAcc, pickSide, type Lock, type Pt } from '../model/drag';
 import { accCenter, centerOf } from '../model/geometry';
 import type { Adjust, CreatorState, Side } from '../model/state';
@@ -13,8 +13,7 @@ const VIEW = 146;
 const GUIDE = '#C2185B';
 
 /** 누를 때 잡은 것 — 끄는 중에 탭 · 고른 것이 바뀌어도 잡은 것을 옮긴다 */
-type Grab =
-  { t: 'adj'; target: Extract<DragTarget, { t: 'adj' }>['target']; side: Side } | { t: 'acc'; uid: number };
+type Grab = { t: 'adj'; target: AdjTarget; side: Side } | { t: 'acc'; uid: number };
 
 interface Drag {
   grab: Grab;
@@ -23,8 +22,7 @@ interface Drag {
   lock: Lock;
 }
 
-/** 끌 대상 — 액세서리 탭은 누른 곳에서 가까운 것(acc-any) */
-export type PanelTarget = DragTarget | { t: 'acc-any' } | null;
+export type PanelTarget = DragTarget | null;
 
 function grabCenter(s: CreatorState, g: Grab): Pt | null {
   if (g.t === 'adj') return centerOf(s, g.target, g.side);
@@ -103,7 +101,7 @@ function FaceCanvas({
       const start = s.adj[target.target][side];
       return start ? { grab: { t: 'adj', target: target.target, side }, start } : null;
     }
-    const uid = target.t === 'acc' ? target.uid : pickAcc(s, p);
+    const uid = pickAcc(s, p);
     const a = s.acc.find((x) => x.uid === uid);
     return a ? { grab: { t: 'acc', uid: a.uid }, start: a.a } : null;
   }

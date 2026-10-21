@@ -88,13 +88,16 @@ export const DEFAULT_STATE: CreatorState = {
   bot: '#d98e73',
 };
 
-type Range = readonly [number, number];
+export type Range = readonly [number, number];
 const clamp = (v: number, [lo, hi]: Range) => Math.min(hi, Math.max(lo, v));
 // 0 − 값: 0 을 뒤집어도 −0 이 아닌 0 으로(같은 자리 판정이 −0 · 0 으로 갈리지 않게)
 export const mirrorAdjust = (a: Adjust): Adjust => ({ x: 0 - a.x, y: a.y, s: a.s, r: 0 - a.r });
 /** 대칭일 때 반대 짝 — 눈 폴더 안 층은 폴더가 이미 오른쪽을 뒤집어 그리므로 같은 값(또 뒤집으면 어긋난다) */
 export const pairOf = (target: AdjTarget, a: Adjust): Adjust =>
   isEyePart(target) ? { ...a } : mirrorAdjust(a);
+
+/** 다음 accAdd 가 붙일 번호 — 붙인 것을 바로 고르려고 화면도 같은 규칙을 쓴다 */
+export const nextAccUid = (s: CreatorState): number => s.accSeq + 1;
 
 export type Action =
   | { t: 'item'; kind: LayerKind; id: string }
@@ -162,7 +165,7 @@ export function reduce(s: CreatorState, a: Action): CreatorState {
     }
     case 'accAdd': {
       if (s.acc.length >= ACC_MAX || !findAcc(a.id)) return s;
-      const uid = s.accSeq + 1;
+      const uid = nextAccUid(s);
       // 새것은 붙어 있는 수만큼 옆으로 비켜 붙인다 — 모두 한 자리에 겹치면 고르기 어렵다
       const at: Adjust = { ...one(), x: ACC_STEP * s.acc.length - ACC_STEP * 2 };
       return { ...s, acc: [...s.acc, { uid, id: a.id, a: at }], accSeq: uid };

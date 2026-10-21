@@ -1,4 +1,4 @@
-import { EYE_PARTS, type AdjTarget, type EyePart } from './catalog';
+import type { AdjTarget, EyePart } from './catalog';
 
 /** 고르기 판 탭 — 생성기가 들고 있어서 텍스처 칸도 지금 무엇을 고르고 있는지 안다 */
 export type MakerTab = 'skin' | 'eyes' | 'brows' | 'mouth' | 'cheek' | 'acc' | 'image' | 'cloth';
@@ -16,11 +16,11 @@ export interface Selection {
 
 export const DEFAULT_SELECTION: Selection = { tab: 'skin', eyeNode: 'eyes', acc: null };
 
-/** 텍스처 칸에서 끌어 옮길 대상 */
-export type DragTarget = { t: 'adj'; target: AdjTarget } | { t: 'acc'; uid: number };
+/** 텍스처 칸에서 끌어 옮길 대상 — 액세서리는 누른 곳에서 가까운 것(acc-any) */
+export type DragTarget = { t: 'adj'; target: AdjTarget } | { t: 'acc-any' };
 
-/** 고른 것 → 끌 대상(피부 · 내 그림 · 옷 탭이나 고른 액세서리가 없으면 null — 액세서리 탭은 누른 곳에서 가까운 것을 잡는다) */
-export function dragTargetOf(sel: Selection): DragTarget | { t: 'acc-any' } | null {
+/** 고른 것 → 끌 대상(피부 · 내 그림 · 옷 탭은 null) */
+export function dragTargetOf(sel: Selection): DragTarget | null {
   switch (sel.tab) {
     case 'eyes':
       return { t: 'adj', target: sel.eyeNode };
@@ -34,6 +34,3 @@ export function dragTargetOf(sel: Selection): DragTarget | { t: 'acc-any' } | nu
       return null;
   }
 }
-
-export const isEyeNode = (v: string): v is EyeNode =>
-  v === 'eyes' || (EYE_PARTS as readonly string[]).includes(v);

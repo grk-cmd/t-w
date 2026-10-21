@@ -1,4 +1,4 @@
-import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useI18n } from '@/shared/i18n';
 import {
   ACCS,
@@ -15,13 +15,21 @@ import {
   type LayerKind,
   type Shape,
 } from '../model/catalog';
-import { SKIN_COUNT, type Acc, type Action, type Adjust, type CreatorState, type Side } from '../model/state';
+import {
+  SKIN_COUNT,
+  nextAccUid,
+  type Acc,
+  type Action,
+  type Adjust,
+  type CreatorState,
+  type Range,
+  type Side,
+} from '../model/state';
 import { drawItemThumb } from '../lib/draw-front';
 import type { EyeNode, MakerTab, Selection } from '../model/tabs';
 import { fileToFaceImage } from '../lib/load-image';
 
 type Tab = MakerTab;
-type Range = readonly [number, number];
 
 /** 고르기 판이 상태를 바꾸는 길 — act 는 한 번에 한 기록, live 는 끄는 동안(놓을 때 commit 이 한 기록으로 쌓는다) */
 export interface MakerActions {
@@ -46,11 +54,14 @@ function Thumb({ shapes }: { shapes: Shape[] }) {
 function ItemGrid({ s, kind, act }: { s: CreatorState; kind: LayerKind; act: (a: Action) => void }) {
   const { lang, m } = useI18n();
   const c = m.creator;
+  // 미리보기 그림은 색이 바뀔 때만 새로 — 그릴 때마다 새 배열이면 끄는 동안 칸마다 다시 그린다
+  const color = s.pupilColor.L;
+  const thumbs = useMemo(() => LAYERS[kind].map((it) => it.open(color)), [kind, color]);
   return (
     <>
       <p className="group-l">{c.shapeLabel}</p>
       <div className="items" role="group" aria-label={c.shapeLabel}>
-        {LAYERS[kind].map((it) => (
+        {LAYERS[kind].map((it, i) => (
           <button
             key={it.id}
             type="button"
@@ -58,7 +69,7 @@ function ItemGrid({ s, kind, act }: { s: CreatorState; kind: LayerKind; act: (a:
             aria-pressed={s[kind] === it.id}
             onClick={() => act({ t: 'item', kind, id: it.id })}
           >
-            <Thumb shapes={it.open(s.pupilColor.L)} />
+            <Thumb shapes={thumbs[i] ?? []} />
             <span>{it.name[lang]}</span>
           </button>
         ))}
@@ -340,7 +351,7 @@ function AccBox({
             disabled={full}
             onClick={() => {
               ops.act({ t: 'accAdd', id: it.id });
-              onSelect(s.accSeq + 1);
+              onSelect(nextAccUid(s));
             }}
           >
             <Thumb shapes={it.shapes} />

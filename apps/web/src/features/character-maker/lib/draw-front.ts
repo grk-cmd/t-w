@@ -1,4 +1,12 @@
-import { ACCS, DRAW_ORDER, FACE_UNITS, PAIRED, findItem, type LayerKind, type Shape } from '../model/catalog';
+import {
+  DRAW_ORDER,
+  FACE_UNITS,
+  PAIRED,
+  findAcc,
+  findItem,
+  type LayerKind,
+  type Shape,
+} from '../model/catalog';
 import { accMatrix, invert, layerMatrix, mul, type Mat } from '../model/geometry';
 import type { CreatorState, Side } from '../model/state';
 
@@ -138,7 +146,7 @@ export function drawFace(
     }
   }
   for (const a of s.acc) {
-    const item = ACCS.find((x) => x.id === a.id);
+    const item = findAcc(a.id);
     if (item) drawAt(ctx, accMatrix(a), item.shapes, makePath);
   }
   if (img && s.img?.pos === 'top') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
