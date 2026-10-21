@@ -1,4 +1,4 @@
-/* @tw/char-core 0.2.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
+/* @tw/char-core 0.3.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
 "use strict";
 var TwCharCore = (() => {
   var __defProp = Object.defineProperty;
@@ -27,10 +27,12 @@ var TwCharCore = (() => {
     CLONE_CODE_PREFIX: () => CLONE_CODE_PREFIX,
     CLONE_TEX_SIZE: () => CLONE_TEX_SIZE,
     FACE_SYM_SUM: () => FACE_SYM_SUM,
+    FRONT_PAD_PX: () => FRONT_PAD_PX,
     HUE_GLSL: () => HUE_GLSL,
     SKIN_COLORS: () => SKIN_COLORS,
     THREE_REVISION: () => THREE_REVISION,
     VERSION: () => VERSION,
+    affineFor: () => affineFor,
     b64: () => b64,
     clonePayload: () => clonePayload,
     createBody: () => createBody,
@@ -44,6 +46,8 @@ var TwCharCore = (() => {
     deriveKey: () => deriveKey,
     encodeCloneCode: () => encodeCloneCode,
     encryptPayload: () => encryptPayload,
+    frontMap: () => frontMap,
+    paintFront: () => paintFront,
     unb64: () => unb64,
     uvFill: () => uv_fill_exports
   });
@@ -910,6 +914,121 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
     };
   }
 
+  // src/front-paint.ts
+  var DEF_MIN_FACING = 0.25;
+  var DEF_HEAD_SHARE = 0.45;
+  function frontMap(geometry, opts) {
+    const g = geometry, pos = g && g.attributes.position, uv = g && g.attributes.uv;
+    if (!g || !pos || !uv || !pos.count || !uv.count) return null;
+    const ids = islandIds(g);
+    if (!ids) return null;
+    const minFacing = opts?.minFacing ?? DEF_MIN_FACING;
+    const headShare = opts?.headShare ?? DEF_HEAD_SHARE;
+    const vi = (i) => g.index ? g.index.getX(i) : i;
+    const n = ids.length;
+    let yMin = Infinity, yMax = -Infinity;
+    for (let i = 0; i < pos.count; i++) {
+      const y = pos.getY(i);
+      if (y < yMin) yMin = y;
+      if (y > yMax) yMax = y;
+    }
+    const headY = yMax - (yMax - yMin) * headShare;
+    const corners = (t) => [vi(t * 3), vi(t * 3 + 1), vi(t * 3 + 2)];
+    const facing = (t) => {
+      const [a, b, c] = corners(t);
+      const ux = pos.getX(b) - pos.getX(a), uy = pos.getY(b) - pos.getY(a), uz = pos.getZ(b) - pos.getZ(a);
+      const wx = pos.getX(c) - pos.getX(a), wy = pos.getY(c) - pos.getY(a), wz = pos.getZ(c) - pos.getZ(a);
+      const nx = uy * wz - uz * wy, ny = uz * wx - ux * wz, nz = ux * wy - uy * wx;
+      const len = Math.hypot(nx, ny, nz);
+      return len > 0 ? nz / len : -1;
+    };
+    let best = -1, bestZ = -Infinity;
+    for (let t = 0; t < n; t++) {
+      const [a, b, c] = corners(t);
+      const cy = (pos.getY(a) + pos.getY(b) + pos.getY(c)) / 3;
+      if (cy < headY) continue;
+      const cz = (pos.getZ(a) + pos.getZ(b) + pos.getZ(c)) / 3;
+      if (cz > bestZ && facing(t) > minFacing) {
+        bestZ = cz;
+        best = t;
+      }
+    }
+    if (best < 0) return null;
+    const island = ids[best];
+    const picked = [];
+    let x0 = Infinity, x1 = -Infinity, y0 = Infinity, y1 = -Infinity;
+    for (let t = 0; t < n; t++) {
+      if (ids[t] !== island || facing(t) <= minFacing) continue;
+      picked.push(t);
+      for (const v of corners(t)) {
+        const x = pos.getX(v), y = pos.getY(v);
+        if (x < x0) x0 = x;
+        if (x > x1) x1 = x;
+        if (y < y0) y0 = y;
+        if (y > y1) y1 = y;
+      }
+    }
+    const size = Math.max(x1 - x0, y1 - y0);
+    if (!picked.length || !(size > 0)) return null;
+    const frame = { cx: (x0 + x1) / 2, cy: (y0 + y1) / 2, size };
+    const sx = (x) => (x - frame.cx) / size + 0.5;
+    const sy = (y) => 0.5 - (y - frame.cy) / size;
+    const tris = picked.map((t) => {
+      const src = [], dst = [];
+      for (const v of corners(t)) {
+        src.push(sx(pos.getX(v)), sy(pos.getY(v)));
+        dst.push(uv.getX(v), uv.getY(v));
+      }
+      return { src, dst };
+    });
+    return { frame, tris };
+  }
+  function affineFor(src, dst) {
+    const [x0, y0, x1, y1, x2, y2] = src;
+    const [u0, v0, u1, v1, u2, v2] = dst;
+    const det = (x1 - x0) * (y2 - y0) - (x2 - x0) * (y1 - y0);
+    if (!(Math.abs(det) > 1e-12)) return null;
+    const a = ((u1 - u0) * (y2 - y0) - (u2 - u0) * (y1 - y0)) / det;
+    const c = ((u2 - u0) * (x1 - x0) - (u1 - u0) * (x2 - x0)) / det;
+    const b = ((v1 - v0) * (y2 - y0) - (v2 - v0) * (y1 - y0)) / det;
+    const d = ((v2 - v0) * (x1 - x0) - (v1 - v0) * (x2 - x0)) / det;
+    return [a, b, c, d, u0 - a * x0 - c * y0, v0 - b * x0 - d * y0];
+  }
+  var FRONT_PAD_PX = 0.8;
+  function padded(t, px) {
+    const cx = (t[0] + t[2] + t[4]) / 3;
+    const cy = (t[1] + t[3] + t[5]) / 3;
+    const out = [];
+    for (let i = 0; i < 6; i += 2) {
+      const dx = t[i] - cx, dy = t[i + 1] - cy, l = Math.hypot(dx, dy) || 1;
+      out.push(t[i] + dx / l * px, t[i + 1] + dy / l * px);
+    }
+    return out;
+  }
+  function paintFront(ctx, map, src, srcSize, texSize) {
+    if (!map || !src || !(srcSize > 0) || !(texSize > 0)) return 0;
+    let drawn = 0;
+    for (const t of map.tris) {
+      const s = t.src.map((v) => v * srcSize);
+      const d = t.dst.map((v) => v * texSize);
+      const m = affineFor(s, d);
+      if (!m) continue;
+      const clip = padded(d, FRONT_PAD_PX);
+      ctx.save();
+      ctx.beginPath();
+      ctx.moveTo(clip[0], clip[1]);
+      ctx.lineTo(clip[2], clip[3]);
+      ctx.lineTo(clip[4], clip[5]);
+      ctx.closePath();
+      ctx.clip();
+      ctx.setTransform(...m);
+      ctx.drawImage(src, 0, 0, srcSize, srcSize);
+      ctx.restore();
+      drawn++;
+    }
+    return drawn;
+  }
+
   // src/parts.ts
   var COL_RE = /_col(\d*)/i;
   function createParts(deps) {
@@ -1242,7 +1361,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
 
   // src/index.ts
   var THREE_REVISION = "128";
-  var VERSION = "0.2.0";
+  var VERSION = "0.3.0";
   function createCharCore(deps) {
     const THREE = deps?.THREE;
     if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");
