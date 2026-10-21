@@ -64,7 +64,7 @@
   }, {
     "target": "home",
     "public": "web-dist",
-    "predeploy": ["npm --prefix .. ci --ignore-scripts", "npm --prefix .. -w @tw/web run build", "node scripts/copy-web-dist.js"],
+    "predeploy": ["npm --prefix .. ci --ignore-scripts", "npm --prefix .. run web:build", "node scripts/copy-web-dist.js"],
     "ignore": ["**/.*", "**/node_modules/**"],
     "cleanUrls": true,
     "headers": [
