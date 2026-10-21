@@ -20,7 +20,7 @@
   creatorPrevMod.clearHolderDeskItems(seat);   // 실행 좌석 · 런처에도 쓴다
   ```
 - **확장할 때**: 새 베이스 종류는 `swapCreatorBaseTo*` 와 같은 모양(옛 group 갈기 → 메쉬 참조 · 본 다시 뽑기 → 얼굴 기하 캐시 → normalize → applyCreatorXform).
-  조명 세기는 `LIGHT_PRESET` · `_KEY_LIGHT_MUL` · `_FILL_LIGHT_MUL`(실행 화면과 같은 몫), 빛 색은 `LIGHT_PRESET.h` + `CREATOR_LIGHT_SL`(채도 · 명도) — 숫자는 모두 캐릭터 코어 `lighting.ts`(웹 생성기와 같다).
+  조명 세기는 `LIGHT_PRESET` · `_KEY_LIGHT_MUL` · `_FILL_LIGHT_MUL`(실행 화면과 같은 몫), 빛 색은 `LIGHT_PRESET.h` + `CREATOR_LIGHT_SL`(채도 · 명도) — 숫자는 모두 캐릭터 코어 `lighting.ts`(웹 생성기와 같다)이고, 앱에서는 둘 다 `lightToneMod` 한 길로 받는다.
 - **함정**: `fitCreator` 의 앞뒤(z) · 바닥 맞춤은 실행 화면 `fitModel` 과 짝이다 — 한쪽만 바꾸면 생성기와 실행 화면이 어긋난다.
   베이스를 갈면 메쉬 참조 · 본 · 얼굴 기하(대칭 붓의 축)를 반드시 다시 채운다. 파츠 걷기는 등록부를 먼저 비우고, `_equipSeq` 는 지우지 않는다.
 - **검사**: `checks/sim-creator-preview.js` — 모양 · 연결 · 깨 보기 + 조명 세기 · 색 · 궤도 위치 · 단계별 각도 기억 · 팔 각도(사람 · 동물 · 타이핑) · 아이템 · 파츠 걷기.

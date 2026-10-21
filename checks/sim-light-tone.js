@@ -2,7 +2,7 @@
    실행:  node sim-light-tone.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 화면 밝기는 «TONE_FRONT_TOTAL 하나에서 플랫 몫을 계산해 모든 재질이 같은 규칙으로 받는다» 에 걸려 있다.
      app.js 에서 모듈로 옮겼으니(C 구역 떼기 w4) 계산식 · 경계(0 아래로 안 내려감) · 재질마다 emissive · baseFlat 을 입력 → 출력으로 고정한다.
-   ・1절: 만들 때 · 상수 — 내놓는 이름 여덟 · LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE 식(조명 상수가 크면 0)
+   ・1절: 만들 때 · 상수 — 내놓는 이름 아홉 · LIGHT_PRESET · CREATOR_LIGHT_SL · TONE_FRONT_TOTAL · FLAT_EMISSIVE 식(조명 상수가 크면 0)
    ・2절: _applyPartMatTone — 텍스처 / 색 없음 / null · 3절: _applyItemMatTone — 텍스처 · solid · emissiveIntensity
    ・4절: _setDeskMatColor — 색 · baseFlat 처음 심기 / 지키기 · 색 없는 재질
    ・5절: app.js 연결 · 6절: 일부러 깨 보기(코어 빌드 사본을 깨 보는 것 포함 — 파츠 톤 · baseFlatOf 는 코어 tone.ts) */
@@ -37,11 +37,11 @@ function behave(src, core = CORE) {
   const t = (ok, msg) => r.push([!!ok, msg]);
   let w = null, err = null;
   try { w = make(src, undefined, undefined, core); } catch (e) { err = e; }
-  const NAMES = ['FLAT_EMISSIVE', 'LIGHT_PRESET', 'TONE_FRONT_TOTAL', '_applyItemMatTone', '_applyPartMatTone', '_setDeskMatColor', 'baseFlatOf', 'toneCore'];
-  t(!err && w && Object.keys(w.out).sort().join() === NAMES.join() && w.out.toneCore.FLAT_EMISSIVE === w.out.FLAT_EMISSIVE, '만들 때 던지지 않고 내놓는 이름 여덟 · 코어 톤은 같은 FLAT_EMISSIVE' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
+  const NAMES = ['CREATOR_LIGHT_SL', 'FLAT_EMISSIVE', 'LIGHT_PRESET', 'TONE_FRONT_TOTAL', '_applyItemMatTone', '_applyPartMatTone', '_setDeskMatColor', 'baseFlatOf', 'toneCore'];
+  t(!err && w && Object.keys(w.out).sort().join() === NAMES.join() && w.out.toneCore.FLAT_EMISSIVE === w.out.FLAT_EMISSIVE, '만들 때 던지지 않고 내놓는 이름 아홉 · 코어 톤은 같은 FLAT_EMISSIVE' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
   const { out } = w;
-  t(out.LIGHT_PRESET.b === 1.2 && out.LIGHT_PRESET.h === 0.09 && out.LIGHT_PRESET.e === 0.46 && out.TONE_FRONT_TOTAL === 1.05, 'LIGHT_PRESET {b 1.2 · h 0.09 · e 0.46} · TONE_FRONT_TOTAL 1.05(코어 값)');
+  t(out.LIGHT_PRESET.b === 1.2 && out.LIGHT_PRESET.h === 0.09 && out.LIGHT_PRESET.e === 0.46 && out.CREATOR_LIGHT_SL.s === 0.45 && out.CREATOR_LIGHT_SL.l === 0.85 && out.TONE_FRONT_TOTAL === 1.05, 'LIGHT_PRESET {b 1.2 · h 0.09 · e 0.46} · CREATOR_LIGHT_SL {s 0.45 · l 0.85} · TONE_FRONT_TOTAL 1.05(코어 값)');
   const F0 = 1.05 - 0.95 * 0.552 - 0.552 * 0.3;
   t(near(out.FLAT_EMISSIVE, F0), 'FLAT_EMISSIVE = 총합 − 0.95×주광 − 주광×채움(' + F0.toFixed(4) + ')');
   t(make(src, 2, 1, core).out.FLAT_EMISSIVE === 0, '조명 상수가 예산을 넘으면 0(음수로 안 내려감)');
@@ -92,6 +92,7 @@ function wire(app, html) {
   t(/^const LIGHT_PRESET = lightToneMod\.LIGHT_PRESET;\s+\/\/ 옛 전역 이름/m.test(app), '옛 전역 이름 LIGHT_PRESET 한 줄(animal.js 가 읽는다)');
   t(['MAIN_LIGHT_INT', 'KEY_LIGHT_MUL', 'FILL_LIGHT_MUL'].every((n) => new RegExp('^const _' + n + ' = TwCharCore\\.' + n + ';', 'm').test(app)), 'app.js 조명 상수 셋은 코어 값(숫자를 다시 적지 않는다 — 웹 생성기와 한 벌)');
   t(/^function _fixGlbMatLighting\(m\)\{\n  TwCharCore\.fixMatLighting\(m, /m.test(app), 'app.js 재질 고치기는 코어 fixMatLighting(콘솔 한 줄만 앱 몫)');
+  t(/^  CREATOR_LIGHT_SL: lightToneMod\.CREATOR_LIGHT_SL,$/m.test(app) && /^  LIGHT_PRESET: lightToneMod\.LIGHT_PRESET,$/m.test(app) && !/TwCharCore\.(CREATOR_LIGHT_SL|LIGHT_PRESET)\b/.test(app), '생성기 미리보기 빛 숫자 둘은 lightToneMod 한 길로(코어를 따로 바로 받지 않는다)');
   t(!/(^|[^.\w$])(FLAT_EMISSIVE|TONE_FRONT_TOTAL|_applyPartMatTone|_applyItemMatTone|_setDeskMatColor)\b(?!\s*:)/.test(A.replace(/const lightToneMod = [\s\S]*?\n\}\);/, '')), '부르는 곳은 lightToneMod.이름');
   t(!REPEAT_RE.test(A), 'app.js 는 baseFlat 판단을 다시 쓰지 않는다(lightToneMod.baseFlatOf 로)');
   const iM = html.indexOf('<script src="parts/shared/light-tone.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
@@ -111,6 +112,8 @@ const breaks = [
   ['코어 대신 숫자로 다시 적음', (m) => m.replace('const TONE_FRONT_TOTAL = charCore.TONE_FRONT_TOTAL;', 'const TONE_FRONT_TOTAL = 1.10;'), null, null],
   ['app.js 조명 상수를 숫자로 다시 적음', null, (a) => a.replace('const _FILL_LIGHT_MUL = TwCharCore.FILL_LIGHT_MUL;', 'const _FILL_LIGHT_MUL = 0.29;'), null],
   ['app.js 재질 고치기를 코어 대신 직접', null, (a) => a.replace('TwCharCore.fixMatLighting(m, ', 'myFix(m, '), null],
+  ['생성기 빛 채도를 코어에서 바로 받음', null, (a) => a.replace('  CREATOR_LIGHT_SL: lightToneMod.CREATOR_LIGHT_SL,', '  CREATOR_LIGHT_SL: TwCharCore.CREATOR_LIGHT_SL,'), null],
+  ['light-tone 이 생성기 빛 채도를 안 내놓음', (m) => m.replace('  CREATOR_LIGHT_SL,\n', ''), null, null],
   ['코어 baseFlatOf 대체값을 숫자 0.4 로', null, null, null, (c) => c.replace('mat.userData.baseFlat != null ? mat.userData.baseFlat : FLAT;', 'mat.userData.baseFlat != null ? mat.userData.baseFlat : 0.4;')],
   ['코어 baseFlatOf 가 0 을 없음으로 봄', null, null, null, (c) => c.replace('mat.userData.baseFlat != null ? mat.userData.baseFlat', 'mat.userData.baseFlat ? mat.userData.baseFlat')],
   ['코어에 넘기는 FLAT 을 0 으로', (m) => m.replace('flatEmissive: FLAT_EMISSIVE,', 'flatEmissive: 0,'), null, null],
