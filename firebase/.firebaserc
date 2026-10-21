@@ -10,6 +10,9 @@
         ],
         "help": [
           "together-working-help"
+        ],
+        "home": [
+          "tw-site"
         ]
       }
     }

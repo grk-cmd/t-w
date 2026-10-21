@@ -8,8 +8,11 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 |---|---|---|---|---|---|
 | `main` | `together-working` | `together-working.web.app` | `firebase/hosting/`(`help/` 는 빼고 올림) | `/admin/` 웹 관리자(`apps/admin` 빌드 — 커밋 안 함) | 관리자 |
 | `help` | `together-working-help` | **`help.together-working.com`** | `firebase/hosting/help/` | 튜토리얼(`/` 목차 · `/1` …) · `/privacy` 개인정보 처리방침 · `/link` 폰 연결 안내 | 사용자 |
+| `home` | `tw-site` | **`together-working.com`**(도메인 붙이기 전엔 `tw-site.web.app` 에서 확인만) | `apps/web/dist`(빌드 결과 — 커밋 안 함 · 올리기 전에 `predeploy` 가 빌드) | 메인 홈페이지(`/` · `/en/` · `/ja/` — 안내 `apps/web/README.md`) | 사용자 |
 
 - 옛 앱이 여는 `together-working.web.app/privacy` · `/link` 는 `main` 의 `redirects` 가 `help.together-working.com` 으로 넘긴다(`#` 뒤 연결 정보는 브라우저가 그대로 들고 간다). 옛 앱이 다 사라질 때까지 지우지 않는다.
+- 홈페이지 머리(CSP)는 우리 주소만 · 인라인 코드 없음 — `apps/web/tests/hosting-config.test.ts` 가 지킨다. 바깥 주소를 넣어야 하면 먼저 사용자에게 묻는다.
+- Firebase 사이트 이름(`tw-site` 등)은 바꿀 수 없다 — 바꾸려면 새 사이트를 만들고 `.firebaserc` 한 줄을 고친 뒤 도메인을 옮긴다(DNS 다시). 사용자에게는 도메인만 보인다.
 - 도움말 페이지의 색은 디자인 시스템 토큰 — `npm run design:build` 가 `firebase/hosting/help/tokens.css` 를 만든다(손으로 고치지 않는다).
 
 ## 배포
@@ -18,6 +21,7 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 firebase deploy --only hosting --project together-working          # 사이트 전부
 firebase deploy --only hosting:help --project together-working     # 도움말 사이트만(웹 관리자 빌드 없음 · 빠름)
 firebase deploy --only hosting:main --project together-working     # 관리자 사이트만
+firebase deploy --only hosting:home --project together-working     # 메인 홈페이지만(루트 npm ci --ignore-scripts → 웹 빌드 뒤 올림)
 ```
 배포는 그 사이트 **폴더 전체**를 올린다 — 올리는 폴더의 다른 파일도 그 판으로 바뀐다. 운영 배포는 사람이 직접 한다.
 

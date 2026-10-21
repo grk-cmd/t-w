@@ -41,6 +41,6 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 - 화면 글을 고치면 세 언어 모두. 영어 · 일본어는 원어민 검수 전이다.
 
 ## 아직 아닌 것
-- **Hosting 연결**: 새 Firebase Hosting 사이트 · `firebase.json` 칸 · 맞춤 도메인 `together-working.com` 은 사이트를 만든 뒤 따로(`firebase/hosting/README.md` «새 사이트 만들기»). 그때 `build` 결과(`dist/`)를 올릴 자리 · 머리(CSP 등)를 정한다.
+- **Hosting 연결**: `firebase.json` 의 `home` 칸(사이트 `tw-site` · `dist/` 를 올림 · CSP 는 우리 주소만)은 있다. 사이트 만들기 · 첫 배포 · 맞춤 도메인 `together-working.com` 연결은 사람이 한다(`firebase/hosting/README.md` «새 사이트 만들기» 1 · 3 ~ 6).
 - **캐릭터 만들기**: 파츠 · 동물은 넣지 않는다(사용자 결정 — 꾸미기 파츠는 라이선스 전용 · 웹은 사람만). 얼굴 레이어 그림은 시안 수준이라 디자이너 그림이 오면 `catalog.ts` 표만 바꾼다. 내 계정에 저장은 #441.
 - **내려받기 · 로그인 · 라이브러리 · 소식**: 서버 API 가 있어야 한다(#439 · #441). 내려받기 단추는 그때까지 눌리지 않는다.
