@@ -169,7 +169,7 @@ export const ko: Messages = {
     undo: '↶ 되돌리기',
     startOver: '처음부터',
     imageHint:
-      '그림을 얼굴에 붙여요. 투명 배경 PNG 면 아래 얼굴이 비쳐 보여요. 그림은 이 브라우저 안에서만 쓰여요.',
+      '그림을 얼굴에 붙여요. 투명 배경 PNG 면 아래 얼굴이 비쳐 보여요. 네모가 아닌 그림은 가운데를 정사각형으로 잘라 써요. 그림은 이 브라우저 안에서만 쓰여요.',
     imagePick: '📂 그림 불러오기',
     imageRemove: '지우기',
     imageBad: '이 그림은 열 수 없어요(PNG · JPG · WebP).',
@@ -312,7 +312,7 @@ export const en: Messages = {
     undo: '↶ Undo',
     startOver: 'Start over',
     imageHint:
-      'Put an image on the face. With a transparent PNG, the face shows through. The image stays in this browser.',
+      'Put an image on the face. With a transparent PNG, the face shows through. Non-square images are cropped to a centered square. The image stays in this browser.',
     imagePick: '📂 Load image',
     imageRemove: 'Remove',
     imageBad: "This image can't be opened (PNG · JPG · WebP).",
@@ -457,7 +457,7 @@ export const ja: Messages = {
     undo: '↶ 元に戻す',
     startOver: '最初から',
     imageHint:
-      '画像を顔に貼り付けます。背景が透明な PNG なら下の顔が透けて見えます。画像はこのブラウザの中だけで使います。',
+      '画像を顔に貼り付けます。背景が透明な PNG なら下の顔が透けて見えます。正方形でない画像は中央を正方形に切り取って使います。画像はこのブラウザの中だけで使います。',
     imagePick: '📂 画像を読み込む',
     imageRemove: '削除',
     imageBad: 'この画像は開けません(PNG・JPG・WebP)。',

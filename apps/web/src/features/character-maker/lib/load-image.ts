@@ -2,14 +2,26 @@
 export const FACE_IMAGE_SIZE = 256;
 const TYPES = ['image/png', 'image/jpeg', 'image/webp'];
 
-/** 고른 파일 → 256×256 PNG dataURL. 그림이 아니거나 못 열면 null(화면은 «열 수 없어요»). */
+/** 원본에서 잘라 올 가운데 정사각형 [x, y, 한 변] — 짧은 변에 맞추고 긴 쪽 양 끝을 같이 자른다(늘리지 않는다). 크기가 없으면 null. */
+export function centerSquare(w: number, h: number): [number, number, number] | null {
+  if (!(w > 0) || !(h > 0)) return null;
+  const s = Math.min(w, h);
+  return [(w - s) / 2, (h - s) / 2, s];
+}
+
+/** 고른 파일 → 256×256 PNG dataURL(가운데 정사각형). 그림이 아니거나 못 열면 null(화면은 «열 수 없어요»). */
 export async function fileToFaceImage(file: File): Promise<string | null> {
   if (!TYPES.includes(file.type)) return null;
   try {
     const bmp = await createImageBitmap(file);
+    const sq = centerSquare(bmp.width, bmp.height);
+    if (!sq) {
+      bmp.close();
+      return null;
+    }
     const c = document.createElement('canvas');
     c.width = c.height = FACE_IMAGE_SIZE;
-    c.getContext('2d')?.drawImage(bmp, 0, 0, FACE_IMAGE_SIZE, FACE_IMAGE_SIZE);
+    c.getContext('2d')?.drawImage(bmp, sq[0], sq[1], sq[2], sq[2], 0, 0, FACE_IMAGE_SIZE, FACE_IMAGE_SIZE);
     bmp.close();
     return c.toDataURL('image/png');
   } catch {
