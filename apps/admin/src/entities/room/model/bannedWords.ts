@@ -1,9 +1,17 @@
 // 방 제목 금칙어 — 앱(방 만들기 · 방 설정)과 서버 함수(방 목록 사본)가 config/bannedWords 를 읽어 거른다.
-// 판정(글자만 남기고 소문자 · 부분 일치)은 firebase/functions/banned-words.js 한 벌 — 여기는 목록 고치기만 한다.
-// 범위는 규칙 config/bannedWords($i 0~999 · 1~20자 · 목록만)와 같다.
+// 판정(NFKC · 소문자 · 글자만 남기고 부분 일치)은 firebase/functions/banned-words.js 한 벌 — 여기는 목록 고치기와 안내만 한다.
+// 상한은 규칙 config/bannedWords($i 0~499 · 1~20자 · 목록만) · 판정 BANNED_MAX(500)와 같다.
 export const BANNED_WORDS_PATH = 'config/bannedWords';
 export const BANNED_WORD_MAX_LEN = 20;
-export const BANNED_WORDS_MAX = 1000;
+export const BANNED_WORDS_MAX = 500;
+
+// 판정이 비교하는 모양 — 안내(글자 없음 · 한 글자)를 판정과 같은 뜻으로 내려고 같은 단계를 밟는다.
+const lettersOf = (w: string): string[] => [
+  ...w
+    .normalize('NFKC')
+    .toLowerCase()
+    .replace(/[^\p{L}]/gu, ''),
+];
 
 /** 서버 값 → 낱말 배열. 배열이 {0:…} 로 와도 받는다 · 문자열 아닌 칸은 버린다. */
 export function parseBannedWords(v: unknown): string[] {
@@ -35,8 +43,8 @@ export function parseBannedInput(text: string): BannedWordsInput {
       continue;
     }
     words.push(w);
-    const letters = w.replace(/[^\p{L}]/gu, '');
-    if (!letters) noLetter.push(w);
+    const letters = lettersOf(w);
+    if (!letters.length) noLetter.push(w);
     else if (letters.length === 1) oneLetter.push(w);
   }
   return { words, tooLong, noLetter, oneLetter };

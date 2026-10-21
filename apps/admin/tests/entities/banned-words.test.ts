@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   BANNED_WORD_MAX_LEN,
+  BANNED_WORDS_MAX,
   BANNED_WORDS_PATH,
   bannedWordsDetail,
   parseBannedInput,
@@ -34,6 +35,16 @@ describe('방 제목 금칙어(config/bannedWords)', () => {
     expect(r.noLetter).toEqual(['18', '!!']);
     expect(r.oneLetter).toEqual(['욕', '욕 1']);
     expect(r.words).toEqual(['18', '!!', '욕', '욕 1', '나쁜말']);
+  });
+
+  it('알림은 서버 판정과 같은 뜻 — NFKC · 소문자 · 글자 단위로 센다', () => {
+    const r = parseBannedInput('Ⓐ\n㈜\nﬀ\n𠀀');
+    expect(r.noLetter).toEqual([]);
+    expect(r.oneLetter).toEqual(['Ⓐ', '㈜', '𠀀']);
+  });
+
+  it('상한 — 판정 BANNED_MAX · 규칙 칸 번호(0~499)와 같은 500', () => {
+    expect(BANNED_WORDS_MAX).toBe(500);
   });
 
   it('기록 글 — 더함 · 뺌', () => {
