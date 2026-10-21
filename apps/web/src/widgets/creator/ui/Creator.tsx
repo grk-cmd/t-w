@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CharacterPreview, loadCharKit, type CharKit } from '@/entities/character';
-import { createFaceTextures, decodeImage, MakerPanel, useMaker } from '@/features/character-maker';
+import { createFaceTextures, MakerPanel, useMaker } from '@/features/character-maker';
 import { ExportDialog, type WebCharacter } from '@/features/clone-code';
 import { useI18n } from '@/shared/i18n';
+import { loadImage } from '@/shared/lib/image';
 
 type Load = { t: 'loading' } | { t: 'failed' } | { t: 'ready'; kit: CharKit };
 type Expr = 'open' | 'closed';
@@ -69,7 +70,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   useEffect(() => {
     if (!imgUrl) return;
     let alive = true;
-    decodeImage(imgUrl).then(
+    loadImage(imgUrl).then(
       (img) => alive && setDecoded({ url: imgUrl, img }),
       () => {},
     );

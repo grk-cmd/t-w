@@ -1,4 +1,5 @@
-/* 화면 밝기 — 앱 생성기 미리보기와 같은 예산(apps/desktop app.js 조명 상수 · shared/light-tone.js). 앱 값이 바뀌면 같이 바꾼다. */
+/* 화면 밝기 — 앱 생성기 미리보기와 같은 예산(apps/desktop app.js 조명 상수 · shared/light-tone.js · creator-preview.js 빛 색).
+   ⚠️ 앱 값이 바뀌면 같이 — 시험(tests/app-parity.test.ts)이 앱 원본을 읽어 견준다. 한 벌로 묶는 일은 코어로 올릴 때(따로). */
 export const MAIN_LIGHT_INT = 1.2 * 0.46;
 export const FILL_LIGHT_MUL = 0.29;
 export const KEY_LIGHT_MUL = 0.29;

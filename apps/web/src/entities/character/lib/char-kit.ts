@@ -3,36 +3,16 @@ import * as THREE_NS from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { bodyGlbUrl, skinUrls } from 'virtual:tw-char-assets';
+import { loadImage } from '@/shared/lib/image';
 import { FLAT_EMISSIVE } from './lighting';
+import { fixMatLighting } from './mat-fix';
 
 /* 앱처럼 SkeletonUtils 를 THREE 에 붙인 모양 — 코어가 몸을 복제할 때 이 이름으로 찾는다 */
 const THREE = { ...THREE_NS, SkeletonUtils };
 
-/** GLB 재질 조명 고치기 — 앱 `_fixGlbMatLighting` 과 같은 규칙(환경맵 없는 장면에서 금속 · AO · 구운 빛이 화면을 깎는다) */
-function fixMatLighting(m: THREE_NS.MeshStandardMaterial | null | undefined) {
-  if (!m) return;
-  if (m.isMeshStandardMaterial && !m.metalnessMap && m.metalness > 0.6) {
-    m.metalness = 0.1;
-    if (m.roughness < 0.2) m.roughness = 0.6;
-  }
-  if (m.aoMap) m.aoMap = null;
-  if (m.lightMap) m.lightMap = null;
-  if (m.vertexColors) m.vertexColors = false;
-  m.needsUpdate = true;
-}
-
 const makeCanvas = () => document.createElement('canvas');
 const isDrawable = (v: unknown) =>
   v instanceof HTMLCanvasElement || v instanceof HTMLImageElement || v instanceof ImageBitmap;
-
-function loadImage(url: string): Promise<HTMLImageElement> {
-  return new Promise((ok, fail) => {
-    const img = new Image();
-    img.onload = () => ok(img);
-    img.onerror = () => fail(new Error(`그림을 못 불러왔다: ${url}`));
-    img.src = url;
-  });
-}
 
 /** 피부 고르기 단추 색 — 피부 그림의 얼굴 자리 평균(그림과 단추 색이 어긋나지 않게 그림에서 바로 뽑는다) */
 function skinSwatches(face: ReturnType<typeof createFace>, map: FrontMap): string[] {
