@@ -1,5 +1,5 @@
 /* light-tone.js — 💡 재질 톤: 화면 밝기 예산(TONE_FRONT_TOTAL)에서 플랫 조명 몫을 계산하고, 파츠 · 아이템 · 책상 재질에 emissive 를 얹는 단 한 곳
-   ・책임: 상수 LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE(파생) · ITEM_SOLID_FLAT 와 재질 함수 셋(파츠 톤은 코어를 부른다).
+   ・책임: 상수 LIGHT_PRESET · TONE_FRONT_TOTAL(값은 코어 lighting.ts) · FLAT_EMISSIVE(파생) · ITEM_SOLID_FLAT 와 재질 함수 셋(파츠 톤은 코어를 부른다).
    ・받는 deps 4 — 값 _MAIN_LIGHT_INT · _FILL_LIGHT_MUL(app.js 조명 상수 — FLAT_EMISSIVE 계산) · 함수 _fixGlbMatLighting(metalness 1 재질 눕히기) · charCore(TwCharCore).
    ・캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조 셰이더)은 캐릭터 코어(createTone · #437) — 여기서 FLAT_EMISSIVE 로 만들어 toneCore 로 내놓는다.
      책상 · 아이템 재질 톤은 여기 그대로(앱 몫).
@@ -14,18 +14,11 @@ const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
 const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
 const _fixGlbMatLighting = deps._fixGlbMatLighting;
 const charCore = deps.charCore;
-/* 전역 조명 프리셋 (생성기·메인·기타 미리보기 통일). 더 이상 UI 슬라이더 없음 — 코드 한 곳에서 관리
-   ⚠️ e 를 바꾸면 파일 위쪽 _MAIN_LIGHT_INT(=b×e) 도 같이 바꿀 것. 저기는 이 상수보다 먼저 필요해서
-      숫자를 직접 적어 두었다 — 한쪽만 고치면 생성기와 실행 화면의 밝기가 갈라진다. */
-const LIGHT_PRESET = {b:1.2, h:0.09, e:0.46};
-/* 💡 '플랫 조명' emissive 배율(FLAT_EMISSIVE) — 캐릭터 · 책상 · 파츠가 다 쓴다. **직접 정하지 않고** 조명 예산에서 남는 몫으로 받는다
-   (이 값과 조명 상수가 한 예산을 나눠 쓴다 — 한쪽만 고치면 흰 면이 잘리거나 통째로 어두워진다). */
-/* 🎚️ 화면 톤의 **단 하나의 손잡이** — 카메라를 보는 흰 면(알베도 1.0)이 받는 빛의 총합. 1.0 = 텍스처 값 그대로.
-   ★ 밝기 제보는 이 숫자 하나만 옮긴다(조명 상수 · emissive 를 따로 만지면 예산이 갈라진다). 값 이력 · 잘림 표는 커밋 기록에.
-   ⚠️ 1.16 에서 측면 몫이 1.0 이 된다 — 더 올리면 밝아지지 않고 계조만 사라진다. 흰 면은 1.2 를 넘기면 실루엣만 남는다. */
-const TONE_FRONT_TOTAL = 1.05;
-const FLAT_EMISSIVE = Math.max(0,
-  TONE_FRONT_TOTAL - (0.95 * _MAIN_LIGHT_INT) - (_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));
+/* 조명 프리셋 · 밝기 손잡이(TONE_FRONT_TOTAL) · 플랫 몫 계산식은 캐릭터 코어 한 벌(lighting.ts — 웹 생성기와 같다).
+   플랫 몫은 받은 조명 상수(deps)로 계산한다 — 조명 상수와 한 예산을 나눠 쓴다. */
+const LIGHT_PRESET = charCore.LIGHT_PRESET;
+const TONE_FRONT_TOTAL = charCore.TONE_FRONT_TOTAL;
+const FLAT_EMISSIVE = charCore.flatEmissive(_MAIN_LIGHT_INT, _FILL_LIGHT_MUL, TONE_FRONT_TOTAL);
 /* 캐릭터 · 파츠 재질 톤 — 같은 예산(FLAT_EMISSIVE)으로 코어가 칠한다(파츠 톤을 바꿀 일이 있으면 코어 tone.ts 한 곳). */
 const toneCore = charCore.createTone({ THREE, flatEmissive: FLAT_EMISSIVE, fixMatLighting: _fixGlbMatLighting });
 /* 💡 텍스처가 없는(solid) 아이템 · 책상 메쉬의 flat 몫 — 파츠와 같은 규칙(0 이면 같은 GLB · 같은 색이 아이템만 칙칙하다).

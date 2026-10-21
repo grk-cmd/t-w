@@ -41,7 +41,7 @@ function behave(src, core = CORE) {
   t(!err && w && Object.keys(w.out).sort().join() === NAMES.join() && w.out.toneCore.FLAT_EMISSIVE === w.out.FLAT_EMISSIVE, '만들 때 던지지 않고 내놓는 이름 여덟 · 코어 톤은 같은 FLAT_EMISSIVE' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
   const { out } = w;
-  t(out.LIGHT_PRESET.b === 1.2 && out.LIGHT_PRESET.h === 0.09 && out.LIGHT_PRESET.e === 0.46 && out.TONE_FRONT_TOTAL === 1.05, 'LIGHT_PRESET {b 1.2 · h 0.09 · e 0.46} · TONE_FRONT_TOTAL 1.05');
+  t(out.LIGHT_PRESET.b === 1.2 && out.LIGHT_PRESET.h === 0.09 && out.LIGHT_PRESET.e === 0.46 && out.TONE_FRONT_TOTAL === 1.05, 'LIGHT_PRESET {b 1.2 · h 0.09 · e 0.46} · TONE_FRONT_TOTAL 1.05(코어 값)');
   const F0 = 1.05 - 0.95 * 0.552 - 0.552 * 0.3;
   t(near(out.FLAT_EMISSIVE, F0), 'FLAT_EMISSIVE = 총합 − 0.95×주광 − 주광×채움(' + F0.toFixed(4) + ')');
   t(make(src, 2, 1, core).out.FLAT_EMISSIVE === 0, '조명 상수가 예산을 넘으면 0(음수로 안 내려감)');
@@ -90,6 +90,8 @@ function wire(app, html) {
   const mk = (app.match(/const lightToneMod = TwLightTone\.createLightTone\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   t(mk.split('\n').map((l) => l.trim()).join('|') === '_FILL_LIGHT_MUL: _FILL_LIGHT_MUL,|_MAIN_LIGHT_INT: _MAIN_LIGHT_INT,|_fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),|charCore: TwCharCore,', '만드는 줄(가드 없이) · deps 4');
   t(/^const LIGHT_PRESET = lightToneMod\.LIGHT_PRESET;\s+\/\/ 옛 전역 이름/m.test(app), '옛 전역 이름 LIGHT_PRESET 한 줄(animal.js 가 읽는다)');
+  t(['MAIN_LIGHT_INT', 'KEY_LIGHT_MUL', 'FILL_LIGHT_MUL'].every((n) => new RegExp('^const _' + n + ' = TwCharCore\\.' + n + ';', 'm').test(app)), 'app.js 조명 상수 셋은 코어 값(숫자를 다시 적지 않는다 — 웹 생성기와 한 벌)');
+  t(/^function _fixGlbMatLighting\(m\)\{\n  TwCharCore\.fixMatLighting\(m, /m.test(app), 'app.js 재질 고치기는 코어 fixMatLighting(콘솔 한 줄만 앱 몫)');
   t(!/(^|[^.\w$])(FLAT_EMISSIVE|TONE_FRONT_TOTAL|_applyPartMatTone|_applyItemMatTone|_setDeskMatColor)\b(?!\s*:)/.test(A.replace(/const lightToneMod = [\s\S]*?\n\}\);/, '')), '부르는 곳은 lightToneMod.이름');
   t(!REPEAT_RE.test(A), 'app.js 는 baseFlat 판단을 다시 쓰지 않는다(lightToneMod.baseFlatOf 로)');
   const iM = html.indexOf('<script src="parts/shared/light-tone.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
@@ -104,8 +106,11 @@ wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
 for (const f of ['character/wardrobe.js', 'creator/creator-xform.js']) { const x = read(f); chk(x && !REPEAT_RE.test(strip(x)), f + ' 도 baseFlat 판단은 baseFlatOf 로(다시 쓰지 않는다)'); }
 say('── 6. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
-  ['총합 1.05 → 1.10', (m) => m.replace('const TONE_FRONT_TOTAL = 1.05;', 'const TONE_FRONT_TOTAL = 1.10;'), null, null],
-  ['0 아래 막기 없앰', (m) => m.replace('const FLAT_EMISSIVE = Math.max(0,', 'const FLAT_EMISSIVE = (0,'), null, null],
+  ['코어 총합 1.05 → 1.10', null, null, null, (c) => c.replace('var TONE_FRONT_TOTAL = 1.05;', 'var TONE_FRONT_TOTAL = 1.10;')],
+  ['코어 0 아래 막기 없앰', null, null, null, (c) => c.replace('return Math.max(0, total -', 'return (0, total -')],
+  ['코어 대신 숫자로 다시 적음', (m) => m.replace('const TONE_FRONT_TOTAL = charCore.TONE_FRONT_TOTAL;', 'const TONE_FRONT_TOTAL = 1.10;'), null, null],
+  ['app.js 조명 상수를 숫자로 다시 적음', null, (a) => a.replace('const _FILL_LIGHT_MUL = TwCharCore.FILL_LIGHT_MUL;', 'const _FILL_LIGHT_MUL = 0.29;'), null],
+  ['app.js 재질 고치기를 코어 대신 직접', null, (a) => a.replace('TwCharCore.fixMatLighting(m, ', 'myFix(m, '), null],
   ['코어 baseFlatOf 대체값을 숫자 0.4 로', null, null, null, (c) => c.replace('mat.userData.baseFlat != null ? mat.userData.baseFlat : FLAT;', 'mat.userData.baseFlat != null ? mat.userData.baseFlat : 0.4;')],
   ['코어 baseFlatOf 가 0 을 없음으로 봄', null, null, null, (c) => c.replace('mat.userData.baseFlat != null ? mat.userData.baseFlat', 'mat.userData.baseFlat ? mat.userData.baseFlat')],
   ['코어에 넘기는 FLAT 을 0 으로', (m) => m.replace('flatEmissive: FLAT_EMISSIVE,', 'flatEmissive: 0,'), null, null],

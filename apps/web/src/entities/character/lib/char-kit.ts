@@ -1,11 +1,17 @@
-import { createBody, createFace, createTone, frontMap, type FrontMap } from '@tw/char-core';
+import {
+  FLAT_EMISSIVE,
+  createBody,
+  createFace,
+  createTone,
+  fixMatLighting,
+  frontMap,
+  type FrontMap,
+} from '@tw/char-core';
 import * as THREE_NS from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { bodyGlbUrl, skinUrls } from 'virtual:tw-char-assets';
 import { loadImage } from '@/shared/lib/image';
-import { FLAT_EMISSIVE } from './lighting';
-import { fixMatLighting } from './mat-fix';
 
 /* 앱처럼 SkeletonUtils 를 THREE 에 붙인 모양 — 코어가 몸을 복제할 때 이 이름으로 찾는다 */
 const THREE = { ...THREE_NS, SkeletonUtils };

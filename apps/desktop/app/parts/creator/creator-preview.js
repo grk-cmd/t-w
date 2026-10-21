@@ -17,6 +17,7 @@ const ANIMAL_HAND_REST = deps.ANIMAL_HAND_REST;
 const BASE_SCENE = deps.BASE_SCENE;   // 읽는 함수
 const CHAR_Z = deps.CHAR_Z;
 const COMMISSION_SCALE_CORRECTION = deps.COMMISSION_SCALE_CORRECTION;
+const CREATOR_LIGHT_SL = deps.CREATOR_LIGHT_SL;   // 생성기 빛 채도 · 명도(코어 — 웹 생성기와 같다)
 const FLAT_EMISSIVE = deps.FLAT_EMISSIVE;
 const FOCUS_ARM_LIFT = deps.FOCUS_ARM_LIFT;   // 읽는 함수
 const HAND_REST = deps.HAND_REST;   // 읽는 함수
@@ -104,7 +105,7 @@ function updateCreatorLights(){ if(!cAmb()||!cKey())return;
   const b=LIGHT_PRESET.b, h=LIGHT_PRESET.h, e=LIGHT_PRESET.e;
   cAmb().intensity=0.95*b*e; cKey().intensity=1.0*b*e*_KEY_LIGHT_MUL;   // 밝기(strength) × 노출(조명 페이드) · 키는 정수리 배율까지
   if(cFill()) cFill().intensity=1.0*b*e*_FILL_LIGHT_MUL;                // 정면 필 — 실행 화면과 같은 몫
-  const col=new THREE.Color().setHSL(h,0.45,0.85);           // 색상(color)
+  const col=new THREE.Color().setHSL(h,CREATOR_LIGHT_SL.s,CREATOR_LIGHT_SL.l);   // 색상(color)
   cKey().color.copy(col); cAmb().color.copy(col); if(cFill()) cFill().color.copy(col);
   /* 💡 원색 보기 — 방향광을 끄고 흰빛 앰비언트 + emissive 합을 1 로. 칠한 색이 그대로 보인다(creator-flat-view.js). */
   if(crFlatView && crFlatView.isOn()){
