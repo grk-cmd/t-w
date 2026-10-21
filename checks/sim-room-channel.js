@@ -123,7 +123,7 @@ chk(RC.recoverChannelFor('COZY-AB12', true) === 'togetherroom' && RC.recoverChan
 chk(/import \{ recoverChannelFor, hostSuccession \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-channel\.js";/.test(FI), 'firebase-init 이 room-channel.js 에서 가져다 쓴다(되살릴 채널 · 방장 승계)');
 
 /* ── 6. 방장 칸이 빈 투게더룸 ── */
-say('── 6. _maybeSucceedHost — 승계 · 해산은 예전 그대로(빈 방장 칸은 대상 아님)');
+say('── 6. _maybeSucceedHost — 투게더룸 승계 · 해산(빈 방장 칸은 대상 아님)');
 const msh = grabFn(FI, '_maybeSucceedHost', 'async function ');
 if(!msh){ huh('_maybeSucceedHost 를 못 떼어 옴'); }
 else{

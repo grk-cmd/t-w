@@ -193,7 +193,7 @@
 | **sim-report-away.js** | 116 | **2e7056e83b60** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
-| **sim-room-channel.js** | 201 | **12d2603865f9** |
+| **sim-room-channel.js** | 201 | **feba7ab6dd46** |
 | sim-room-clock.js | 135 | 421b90c3df47 |
 | **sim-seat-eq.js** | 101 | **abfda97458b5** |
 | **sim-seat-hide.js** | 84 | **4e8d2348e282** |
@@ -1573,7 +1573,7 @@ node sim-keysof-twin.js --selftest    변이 9종 주입 → 전부 잡힘 · �
 | 3 | 입장 분기 — 표지 있음 → 그대로 · 없음 → 복구 · **읽기 실패 → 아무것도 안 함** |
 | 4 | 퇴장 정리(`_finalCleanup`)는 그대로. 복구가 그것을 대신하지 않는다 |
 | 5 | (개정 125) `room-channel.js` — `PLAY-`·`SCRT-` → 투게더룸, `WORK-` → 워킹룸, 옛 `COZY-` 만 라이선스로. 2절 뒷부분이 `PLAY-` + 무료 사용자 → 투게더룸 · 방장 비움을 실제로 돌려 본다 |
-| 6 | (개정 125) `_maybeSucceedHost` — 승계 · 해산은 예전 그대로. 방장 칸이 빈 투게더룸(무료 사용자가 되살린 방)은 승계 · 해산 대상이 아니다. 방장이 나갔고 보유자가 없으면 해산, 있으면 그 보유자가 이어받는다 |
+| 6 | `_maybeSucceedHost` — 승계 · 해산 규칙은 `room-channel.js` `hostSuccession` 한 곳. 방장 칸이 빈 방은 대상이 아니다. 투게더룸은 방장이 나갔고 보유자가 없으면 해산 · 있으면 그 보유자가 이어받는다. 워킹룸은 입장순 첫 사람이 이어받고 해산하지 않는다(6-2 · 6-3절). 표지 없는 채널 · 시크릿룸은 안 한다 |
 | 7 | (개정 125) app.js `_onRoomMeta` — Firebase 방도 `_meta.channel` 이 바뀌면 `_activeChannel` 이 따라간다. null · channel 없음은 그대로 둔다 |
 
 **2026-10-10 제보** 「업데이트 후 플레이룸에서 몇 명만 채팅 대신 이모티콘 버튼 · 튕김 · 다시 들어와도 그대로」.
