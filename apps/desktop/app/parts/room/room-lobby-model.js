@@ -5,6 +5,7 @@
 (function(){
 
 const roomCap = window.TwRoomSettings.roomCap;   // 방 정원 규칙은 입장 재확인과 같은 한 곳
+const displayTitle = window.TwRoomSettings.displayTitle;   // 제목 기본값(«○○ 님의 방») 은 방 안 제목과 같은 한 곳
 
 const PER_PAGE = 12;                 // 한 쪽 3 × 4
 const STALE_MS = 3 * 60 * 1000;      // 사본은 1분마다 — 3분 넘게 그대로면 서버 함수가 멈춘 것으로 본다
@@ -15,11 +16,11 @@ function cardOf(code, row, cap){
   const n = (Number.isInteger(r.n) && r.n > 0) ? r.n : 0;
   const max = roomCap({ max: r.max }, cap);
   const hn = (typeof r.hn === 'string') ? r.hn : '';
-  const t = (typeof r.t === 'string') ? r.t : '';
+  const dt = displayTitle(r.t, hn);
   return {
     code,
-    title: t || (hn ? hn + ' 님의 방' : '이름 없는 방'),
-    titleIsDefault: !t,
+    title: dt.text,
+    titleIsDefault: dt.isDefault,
     host: hn,
     hostLabel: r.mu === true ? '현재 DJ' : '현재 방장',
     music: r.mu === true,

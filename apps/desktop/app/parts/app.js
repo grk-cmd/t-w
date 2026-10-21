@@ -6830,6 +6830,18 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다�
    ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
 /* 본문은 room-entry.js 로 옮겼다(앱 FSD 33번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+// 🏷️ 방 안 정보 칸 제목 · [방 설정](방장만) — 방 입장 모듈이 들어감 · 나감 · meta 때 paint 를 부른다(room/room-info-ui.js)
+const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
+  roomSettings: TwRoomSettings,
+  bannedWords: TwBannedWords,
+  rcStore: ()=>acctStateMod._rcStore(),
+  myUserId: ()=>getMyUserId(),
+  roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
+  meta: ()=>window._roomMetaCache,
+  isServerRoom: ()=>!!(Presence.serverProvider && Presence.serverProvider()),
+  saveInfo: (room, info)=>window.firebaseAPI.setRoomInfo(room, info),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
 // 🗂️ 방 목록 로비 · F1 시크릿룸 칸이 같이 읽는 provider — 방 입장 모듈보다 먼저(room/room-lobby-provider.js)
 const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
@@ -6876,6 +6888,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
   twNav: twNav,
   mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
+  paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
 });
 // 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)

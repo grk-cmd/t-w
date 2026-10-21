@@ -25,10 +25,6 @@ const isLicensed = deps.isLicensed;
 const onCreate = deps.onCreate;
 
 const $ = (id) => document.getElementById(id);
-const OPEN_HINT = Object.freeze({
-  on: '누구나 방 목록에서 보고 들어올 수 있어요',
-  off: '방 목록에 안 보여요 · 방 코드를 아는 사람만 들어와요',
-});
 let channel = 'workingroom';
 let max = 0;
 
@@ -41,7 +37,7 @@ function paint(){
   $('rcMaxDown').disabled = max <= roomSettings.ROOM_MAX_MIN;
   $('rcMaxUp').disabled = max >= cap;
   $('rcMaxHint').textContent = roomSettings.ROOM_MAX_MIN + '명부터 ' + cap + '명까지';
-  $('rcOpenHint').textContent = $('rcOpen').checked ? OPEN_HINT.on : OPEN_HINT.off;
+  $('rcOpenHint').textContent = $('rcOpen').checked ? roomSettings.OPEN_HINT.on : roomSettings.OPEN_HINT.off;
   $('rcTitleCount').textContent = $('rcTitle').value.trim().length + '/' + roomSettings.TITLE_MAX;
 }
 function showError(text){ $('rcTitleErr').textContent = text || ''; }
