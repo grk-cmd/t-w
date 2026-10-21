@@ -2,11 +2,12 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CharacterPreview, loadCharKit, type CharKit } from '@/entities/character';
 import {
   createFaceTextures,
+  DEFAULT_SELECTION,
+  dragTargetOf,
   FaceTexturePanel,
-  layerOfTab,
   MakerPanel,
   useMaker,
-  type MakerTab,
+  type Selection,
 } from '@/features/character-maker';
 import { ExportDialog, type WebCharacter } from '@/features/clone-code';
 import { useI18n } from '@/shared/i18n';
@@ -70,7 +71,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   const { state, canUndo, act, live, commit, undo, random, reset } = useMaker();
   const ops = useMemo(() => ({ act, live, commit }), [act, live, commit]);
   const [expr, setExpr] = useState<Expr>('open');
-  const [tab, setTab] = useState<MakerTab>('skin');
+  const [sel, setSel] = useState<Selection>(DEFAULT_SELECTION);
   const [exporting, setExporting] = useState(false);
   const tex = useMemo(() => createFaceTextures(kit), [kit]);
   // 붙인 그림은 dataURL → 그림으로 풀어 둔다 — 지금 dataURL 과 짝이 맞을 때만 쓴다(바뀐 직후 옛 그림이 남지 않게)
@@ -131,7 +132,8 @@ function CreatorReady({ kit }: { kit: CharKit }) {
         </div>
         <FaceTexturePanel
           s={state}
-          kind={layerOfTab(tab)}
+          target={dragTargetOf(sel)}
+          onGrabAcc={(uid) => setSel((v) => ({ ...v, acc: uid }))}
           ops={ops}
           skinColor={kit.skinSwatches[state.skin] ?? '#f2d2bd'}
           image={image}
@@ -149,7 +151,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
         </div>
       </div>
       <div className="side">
-        <MakerPanel s={state} ops={ops} skinSwatches={kit.skinSwatches} tab={tab} onTab={setTab} />
+        <MakerPanel s={state} ops={ops} skinSwatches={kit.skinSwatches} sel={sel} onSel={setSel} />
         <button className="btn default export" type="button" onClick={() => setExporting(true)}>
           <b>{c.exportBtn}</b>
           <small>{c.exportSub}</small>

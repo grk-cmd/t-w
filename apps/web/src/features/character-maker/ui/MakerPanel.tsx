@@ -1,21 +1,27 @@
 import { useEffect, useId, useRef, useState, type ChangeEvent } from 'react';
-import { useI18n, type Lang } from '@/shared/i18n';
+import { useI18n } from '@/shared/i18n';
 import {
+  ACCS,
+  ACC_LIMITS,
+  ACC_MAX,
   BOT_COLORS,
   EYE_COLORS,
   LAYERS,
   LIMITS,
   PAIRED,
   TOP_COLORS,
-  findItem,
+  findAcc,
+  type AdjTarget,
   type LayerKind,
+  type Shape,
 } from '../model/catalog';
-import { SKIN_COUNT, type Action, type Adjust, type CreatorState, type Side } from '../model/state';
+import { SKIN_COUNT, type Acc, type Action, type Adjust, type CreatorState, type Side } from '../model/state';
 import { drawItemThumb } from '../lib/draw-front';
-import type { MakerTab } from '../model/tabs';
+import type { EyeNode, MakerTab, Selection } from '../model/tabs';
 import { fileToFaceImage } from '../lib/load-image';
 
 type Tab = MakerTab;
+type Range = readonly [number, number];
 
 /** 고르기 판이 상태를 바꾸는 길 — act 는 한 번에 한 기록, live 는 끄는 동안(놓을 때 commit 이 한 기록으로 쌓는다) */
 export interface MakerActions {
@@ -23,15 +29,86 @@ export interface MakerActions {
   live: (a: Action) => void;
   commit: () => void;
 }
-const TABS: readonly Tab[] = ['skin', 'eyes', 'brows', 'mouth', 'cheek', 'image', 'cloth'];
+const TABS: readonly Tab[] = ['skin', 'eyes', 'brows', 'mouth', 'cheek', 'acc', 'image', 'cloth'];
+/** 눈 폴더 안 층 — 위에 그리는 것부터(레이어 판처럼) */
+const EYE_TREE = ['eyeline', 'pupil', 'sclera'] as const;
 
-function ItemThumb({ kind, id, color }: { kind: LayerKind; id: string; color: string }) {
+function Thumb({ shapes }: { shapes: Shape[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
-    if (ctx) drawItemThumb(ctx, findItem(kind, id).open(color), 44);
-  }, [kind, id, color]);
+    if (ctx) drawItemThumb(ctx, shapes, 44);
+  }, [shapes]);
   return <canvas ref={ref} width={44} height={44} aria-hidden="true" />;
+}
+
+/** 그림 고르기 — 레이어 하나의 목록 */
+function ItemGrid({ s, kind, act }: { s: CreatorState; kind: LayerKind; act: (a: Action) => void }) {
+  const { lang, m } = useI18n();
+  const c = m.creator;
+  return (
+    <>
+      <p className="group-l">{c.shapeLabel}</p>
+      <div className="items" role="group" aria-label={c.shapeLabel}>
+        {LAYERS[kind].map((it) => (
+          <button
+            key={it.id}
+            type="button"
+            className="item"
+            aria-pressed={s[kind] === it.id}
+            onClick={() => act({ t: 'item', kind, id: it.id })}
+          >
+            <Thumb shapes={it.open(s.pupilColor.L)} />
+            <span>{it.name[lang]}</span>
+          </button>
+        ))}
+      </div>
+    </>
+  );
+}
+
+/** 자리 · 크기 · 회전 슬라이더 넷 — 끄는 동안 live, 손을 떼거나 칸을 벗어나면 commit */
+function SliderRows({
+  value,
+  limits,
+  onLive,
+  commit,
+}: {
+  value: Adjust;
+  limits: Record<keyof Adjust, Range>;
+  onLive: (key: keyof Adjust, v: number) => void;
+  commit: () => void;
+}) {
+  const { m } = useI18n();
+  const c = m.creator;
+  const base = useId();
+  const rows: [keyof Adjust, string, number][] = [
+    ['x', c.adjX, 1],
+    ['y', c.adjY, 1],
+    ['s', c.adjS, 0.01],
+    ['r', c.adjR, 1],
+  ];
+  return (
+    <>
+      {rows.map(([key, label, step]) => (
+        <div className="sl" key={key}>
+          <label htmlFor={`${base}-${key}`}>{label}</label>
+          <input
+            id={`${base}-${key}`}
+            type="range"
+            min={limits[key][0]}
+            max={limits[key][1]}
+            step={step}
+            value={value[key]}
+            onChange={(e) => onLive(key, Number(e.currentTarget.value))}
+            onPointerUp={commit}
+            onBlur={commit}
+          />
+          <output>{key === 's' ? value[key].toFixed(2) : Math.round(value[key])}</output>
+        </div>
+      ))}
+    </>
+  );
 }
 
 function Swatches({
@@ -76,22 +153,15 @@ function Swatches({
   );
 }
 
-function AdjustBox({ kind, s, ops }: { kind: LayerKind; s: CreatorState; ops: MakerActions }) {
+function AdjustBox({ target, s, ops }: { target: AdjTarget; s: CreatorState; ops: MakerActions }) {
   const { m } = useI18n();
   const c = m.creator;
-  const base = useId();
-  const paired = PAIRED[kind];
+  const paired = PAIRED[target];
   const [side, setSide] = useState<Side>(paired ? 'L' : 'C');
-  // 대칭이면 왼쪽 짝을 보고 고친다(오른쪽은 거울로 따라간다) — 보는 짝과 고치는 짝이 늘 같아야 한다
+  // 대칭이면 왼쪽 짝을 보고 고친다(오른쪽은 대칭으로 따라간다) — 보는 짝과 고치는 짝이 늘 같아야 한다
   const shown: Side = paired ? (s.sym ? 'L' : side) : 'C';
-  const cur = s.adj[kind][shown];
+  const cur = s.adj[target][shown];
   if (!cur) return null;
-  const rows: [keyof Adjust, string, number][] = [
-    ['x', c.adjX, 1],
-    ['y', c.adjY, 1],
-    ['s', c.adjS, 0.01],
-    ['r', c.adjR, 1],
-  ];
   return (
     <div className="adj">
       <div className="adj-head">
@@ -128,30 +198,201 @@ function AdjustBox({ kind, s, ops }: { kind: LayerKind; s: CreatorState; ops: Ma
             )}
           </>
         )}
-        <button className="btn" type="button" onClick={() => ops.act({ t: 'resetAdjust', kind })}>
+        <button className="btn" type="button" onClick={() => ops.act({ t: 'resetAdjust', target })}>
           {c.reset}
         </button>
       </div>
-      {rows.map(([key, label, step]) => (
-        <div className="sl" key={key}>
-          <label htmlFor={`${base}-${key}`}>{label}</label>
-          <input
-            id={`${base}-${key}`}
-            type="range"
-            min={LIMITS[key][0]}
-            max={LIMITS[key][1]}
-            step={step}
-            value={cur[key]}
-            onChange={(e) =>
-              ops.live({ t: 'adjust', kind, side: shown, key, value: Number(e.currentTarget.value) })
-            }
-            onPointerUp={ops.commit}
-            onBlur={ops.commit}
-          />
-          <output>{key === 's' ? cur[key].toFixed(2) : Math.round(cur[key])}</output>
-        </div>
-      ))}
+      <SliderRows
+        value={cur}
+        limits={LIMITS}
+        onLive={(key, value) => ops.live({ t: 'adjust', target, side: shown, key, value })}
+        commit={ops.commit}
+      />
     </div>
+  );
+}
+
+/** 👁 눈 탭 — 눈 폴더(전체) 아래 아이라인 · 동공 · 흰자. 폴더를 고르면 셋이 함께, 층을 고르면 그 층만 폴더 안에서 */
+function EyesBox({
+  s,
+  ops,
+  node,
+  onNode,
+}: {
+  s: CreatorState;
+  ops: MakerActions;
+  node: EyeNode;
+  onNode: (n: EyeNode) => void;
+}) {
+  const { m } = useI18n();
+  const c = m.creator;
+  const partName: Record<(typeof EYE_TREE)[number], string> = {
+    eyeline: c.eyeline,
+    pupil: c.pupil,
+    sclera: c.sclera,
+  };
+  return (
+    <>
+      <div className="eye-tree" role="tree" aria-label={c.tabEyes}>
+        <button
+          type="button"
+          role="treeitem"
+          className="node folder"
+          aria-selected={node === 'eyes'}
+          aria-expanded="true"
+          onClick={() => onNode('eyes')}
+        >
+          <span aria-hidden="true">📁</span> {c.eyeFolder}
+        </button>
+        <div role="group">
+          {EYE_TREE.map((p) => (
+            <button
+              key={p}
+              type="button"
+              role="treeitem"
+              className="node child"
+              aria-selected={node === p}
+              onClick={() => onNode(p)}
+            >
+              {partName[p]}
+            </button>
+          ))}
+        </div>
+      </div>
+      {node === 'eyes' ? (
+        <p className="hint">{c.eyeFolderHint}</p>
+      ) : (
+        <ItemGrid s={s} kind={node} act={ops.act} />
+      )}
+      {node === 'pupil' && <PupilColors s={s} act={ops.act} />}
+      <AdjustBox key={node} target={node} s={s} ops={ops} />
+    </>
+  );
+}
+
+/** 동공 색 — 오드아이를 켜면 왼쪽 · 오른쪽을 따로 */
+function PupilColors({ s, act }: { s: CreatorState; act: (a: Action) => void }) {
+  const { m } = useI18n();
+  const c = m.creator;
+  return (
+    <>
+      <div className="adj-head">
+        <span className="group-l">{c.colorLabel}</span>
+        <button
+          className="btn"
+          type="button"
+          aria-pressed={s.oddEye}
+          onClick={() => act({ t: 'oddEye', on: !s.oddEye })}
+        >
+          {c.oddEye}
+        </button>
+      </div>
+      {s.oddEye ? (
+        (['L', 'R'] as const).map((side) => (
+          <div key={side}>
+            <p className="sub-l">{side === 'L' ? c.left : c.right}</p>
+            <Swatches
+              label={`${c.colorLabel} — ${side === 'L' ? c.left : c.right}`}
+              colors={EYE_COLORS}
+              value={s.pupilColor[side]}
+              onPick={(col) => act({ t: 'pupilColor', side, color: col })}
+            />
+          </div>
+        ))
+      ) : (
+        <Swatches
+          label={c.colorLabel}
+          colors={EYE_COLORS}
+          value={s.pupilColor.L}
+          onPick={(col) => act({ t: 'pupilColor', side: 'L', color: col })}
+        />
+      )}
+    </>
+  );
+}
+
+/** ✨ 액세서리 — 최대 ACC_MAX 개 붙이고, 고른 것을 옮기거나 뗀다 */
+function AccBox({
+  s,
+  ops,
+  selected,
+  onSelect,
+}: {
+  s: CreatorState;
+  ops: MakerActions;
+  selected: Acc | null;
+  onSelect: (uid: number | null) => void;
+}) {
+  const { lang, m } = useI18n();
+  const c = m.creator;
+  const full = s.acc.length >= ACC_MAX;
+  return (
+    <>
+      <p className="group-l">
+        {c.accAdd} ({s.acc.length}/{ACC_MAX})
+      </p>
+      <div className="items" role="group" aria-label={c.accAdd}>
+        {ACCS.map((it) => (
+          <button
+            key={it.id}
+            type="button"
+            className="item"
+            disabled={full}
+            onClick={() => {
+              ops.act({ t: 'accAdd', id: it.id });
+              onSelect(s.accSeq + 1);
+            }}
+          >
+            <Thumb shapes={it.shapes} />
+            <span>{it.name[lang]}</span>
+          </button>
+        ))}
+      </div>
+      {full && <p className="hint">{c.accFull}</p>}
+      <p className="group-l">{c.accList}</p>
+      {s.acc.length === 0 ? (
+        <p className="hint">{c.accEmpty}</p>
+      ) : (
+        <ul className="acc-list">
+          {s.acc.map((a) => (
+            <li key={a.uid}>
+              <button
+                type="button"
+                className="btn"
+                aria-pressed={selected?.uid === a.uid}
+                onClick={() => onSelect(a.uid)}
+              >
+                {findAcc(a.id)?.name[lang] ?? a.id}
+              </button>
+              <button
+                type="button"
+                className="btn"
+                aria-label={`${c.accRemove} — ${findAcc(a.id)?.name[lang] ?? a.id}`}
+                onClick={() => {
+                  ops.act({ t: 'accRemove', uid: a.uid });
+                  if (selected?.uid === a.uid) onSelect(null);
+                }}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {selected && (
+        <div className="adj">
+          <div className="adj-head">
+            <span className="group-l">{c.adjustLabel}</span>
+          </div>
+          <SliderRows
+            value={selected.a}
+            limits={ACC_LIMITS}
+            onLive={(key, value) => ops.live({ t: 'accAdjust', uid: selected.uid, key, value })}
+            commit={ops.commit}
+          />
+        </div>
+      )}
+    </>
   );
 }
 
@@ -230,26 +471,26 @@ function ImageBox({ s, act }: { s: CreatorState; act: (a: Action) => void }) {
   );
 }
 
-const itemName = (lang: Lang, n: Record<Lang, string>) => n[lang];
-
-/** 고르기 판 — 탭(피부 · 눈 · 눈썹 · 입 · 볼 · 내 그림 · 옷 색) */
+/** 고르기 판 — 탭(피부 · 눈 · 눈썹 · 입 · 볼 · 액세서리 · 내 그림 · 옷 색) */
 export function MakerPanel({
   s,
   ops,
   skinSwatches,
-  tab,
-  onTab,
+  sel,
+  onSel,
 }: {
   s: CreatorState;
   ops: MakerActions;
   /** 피부 번호 차례의 단추 색 */
   skinSwatches: readonly string[];
-  /** 지금 탭 — 생성기가 들고 있다(텍스처 칸이 어느 레이어를 끌지 안다) */
-  tab: MakerTab;
-  onTab: (t: MakerTab) => void;
+  /** 지금 고른 것(탭 · 눈 마디 · 액세서리) — 생성기가 들고 있다(텍스처 칸이 무엇을 끌지 안다) */
+  sel: Selection;
+  onSel: (sel: Selection) => void;
 }) {
+  const tab = sel.tab;
+  const onTab = (t: MakerTab) => onSel({ ...sel, tab: t });
   const act = ops.act;
-  const { lang, m } = useI18n();
+  const { m } = useI18n();
   const c = m.creator;
   const base = useId();
   const label: Record<Tab, string> = {
@@ -258,6 +499,7 @@ export function MakerPanel({
     brows: c.tabBrows,
     mouth: c.tabMouth,
     cheek: c.tabCheek,
+    acc: c.tabAcc,
     image: c.tabImage,
     cloth: c.tabCloth,
   };
@@ -294,36 +536,22 @@ export function MakerPanel({
             ))}
           </div>
         )}
-        {(tab === 'eyes' || tab === 'brows' || tab === 'mouth' || tab === 'cheek') && (
+        {tab === 'eyes' && (
+          <EyesBox s={s} ops={ops} node={sel.eyeNode} onNode={(n) => onSel({ ...sel, eyeNode: n })} />
+        )}
+        {(tab === 'brows' || tab === 'mouth' || tab === 'cheek') && (
           <>
-            <p className="group-l">{c.shapeLabel}</p>
-            <div className="items" role="group" aria-label={c.shapeLabel}>
-              {LAYERS[tab].map((it) => (
-                <button
-                  key={it.id}
-                  type="button"
-                  className="item"
-                  aria-pressed={s[tab] === it.id}
-                  onClick={() => act({ t: 'item', kind: tab, id: it.id })}
-                >
-                  <ItemThumb kind={tab} id={it.id} color={s.eyeColor} />
-                  <span>{itemName(lang, it.name)}</span>
-                </button>
-              ))}
-            </div>
-            {tab === 'eyes' && (
-              <>
-                <p className="group-l">{c.colorLabel}</p>
-                <Swatches
-                  label={c.colorLabel}
-                  colors={EYE_COLORS}
-                  value={s.eyeColor}
-                  onPick={(col) => act({ t: 'eyeColor', color: col })}
-                />
-              </>
-            )}
-            <AdjustBox key={tab} kind={tab} s={s} ops={ops} />
+            <ItemGrid s={s} kind={tab} act={act} />
+            <AdjustBox key={tab} target={tab} s={s} ops={ops} />
           </>
+        )}
+        {tab === 'acc' && (
+          <AccBox
+            s={s}
+            ops={ops}
+            selected={s.acc.find((a) => a.uid === sel.acc) ?? null}
+            onSelect={(uid) => onSel({ ...sel, acc: uid })}
+          />
         )}
         {tab === 'image' && <ImageBox s={s} act={act} />}
         {tab === 'cloth' && (
