@@ -6,7 +6,7 @@
  */
 (function (root) {
   'use strict';
-  const BANNED_MAX = 500;   // 목록 상한 — 넘는 줄은 버린다(제목마다 이만큼 훑는다)
+  const BANNED_MAX = 500;   // 목록 상한 — 규칙 config/bannedWords/$i(0~499) · 웹 관리자 칸과 같은 값
 
   function normalizeWord(s) {
     return String(s == null ? '' : s).normalize('NFKC').toLowerCase().replace(/[^\p{L}]/gu, '');
