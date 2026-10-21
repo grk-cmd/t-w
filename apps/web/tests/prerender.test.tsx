@@ -49,6 +49,10 @@ describe('미리 그린 페이지', () => {
     expect(body).toContain(first?.text);
   });
 
+  it('캐릭터 만들기 자리는 «불러오는 중» 으로 나간다(3D 는 브라우저에서)', () => {
+    for (const lang of LANGS) expect(renderPage(lang).body).toContain(messagesFor(lang).creator.loading);
+  });
+
   it('내려받기 단추는 주소가 생기기 전까지 눌리지 않는다', () => {
     const { body } = renderPage('ko');
     const m = messagesFor('ko');

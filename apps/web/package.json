@@ -5,9 +5,12 @@
   "description": "메인 홈페이지(together-working.com) — React + Vite + TS · 소개 · 내려받기 화면은 미리 그린 HTML(한 · 영 · 일)",
   "type": "module",
   "scripts": {
+    "predev": "npm -w @tw/char-core run build",
     "dev": "vite",
+    "prebuild": "npm -w @tw/char-core run build",
     "build": "tsc -b && vite build && vite build --ssr src/app/entry-server.tsx --outDir dist-ssr && node scripts/prerender.mjs",
     "preview": "vite preview",
+    "pretest": "npm -w @tw/char-core run build",
     "test": "vitest run",
     "lint": "oxlint && steiger ./src",
     "format": "prettier --write src tests scripts vite.config.ts",
@@ -15,15 +18,18 @@
   },
   "dependencies": {
     "@fontsource/dotgothic16": "5.3.1",
+    "@tw/char-core": "*",
     "galmuri": "2.40.3",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "three": "0.128.0"
   },
   "devDependencies": {
     "@feature-sliced/steiger-plugin": "^0.8.0",
     "@types/node": "^22.20.5",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.7",
+    "@types/three": "0.128.0",
     "@vitejs/plugin-react": "^6.1.1",
     "oxlint": "^1.81.0",
     "prettier": "^3.9.9",

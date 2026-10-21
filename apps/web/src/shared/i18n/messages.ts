@@ -6,6 +6,67 @@ export interface Feature {
   text: string;
 }
 
+export interface CreatorMessages {
+  loading: string;
+  loadFailed: string;
+  retry: string;
+  noWebgl: string;
+  previewLabel: string;
+  exprOpen: string;
+  exprClosed: string;
+  tabSkin: string;
+  tabEyes: string;
+  tabBrows: string;
+  tabMouth: string;
+  tabCheek: string;
+  tabImage: string;
+  tabCloth: string;
+  shapeLabel: string;
+  colorLabel: string;
+  skinLabel: string;
+  topLabel: string;
+  botLabel: string;
+  customColor: string;
+  adjustLabel: string;
+  sym: string;
+  left: string;
+  right: string;
+  reset: string;
+  adjX: string;
+  adjY: string;
+  adjS: string;
+  adjR: string;
+  random: string;
+  undo: string;
+  startOver: string;
+  imageHint: string;
+  imagePick: string;
+  imageRemove: string;
+  imageBad: string;
+  imagePos: string;
+  imageUnder: string;
+  imageTop: string;
+  imageOn: string;
+  imageBoth: string;
+  imageOpenOnly: string;
+  imageClosedOnly: string;
+  exportBtn: string;
+  exportSub: string;
+  exportTitle: string;
+  exportPass: string;
+  exportPass2: string;
+  exportPassHint: string;
+  exportPassMismatch: string;
+  exportMake: string;
+  exportMaking: string;
+  exportFailed: string;
+  exportCode: string;
+  exportCopy: string;
+  exportCopied: string;
+  exportHow: string;
+  close: string;
+}
+
 export interface Messages {
   siteName: string;
   metaTitle: string;
@@ -28,8 +89,7 @@ export interface Messages {
   makerTitle: string;
   makerLead: string;
   makerWinTitle: string;
-  makerSoon: string;
-  makerSoonSub: string;
+  creator: CreatorMessages;
   aboutTitle: string;
   aboutLead: string;
   aboutWinTitle: string;
@@ -72,10 +132,70 @@ export const ko: Messages = {
   heroCtaMaker: '캐릭터 만들어 보기 →',
   heroNote: '초대 코드가 있어야 가입할 수 있어요',
   makerTitle: '캐릭터 만들기',
-  makerLead: '얼굴 · 머리 · 옷을 골라 나만의 캐릭터를 만들어요. 로그인 없이 해 볼 수 있어요.',
+  makerLead:
+    '얼굴 레이어를 골라 쌓고 옷 색을 고르면 기본 · 감은눈 얼굴이 함께 만들어져요. 로그인 없이 해 볼 수 있어요.',
   makerWinTitle: '🎨 캐릭터 만들기',
-  makerSoon: '웹에서 3D 로 캐릭터를 만드는 창을 준비하고 있어요.',
-  makerSoonSub: '만든 캐릭터는 코드로 앱에 가져갈 수 있게 돼요.',
+  creator: {
+    loading: '캐릭터를 불러오는 중…',
+    loadFailed: '캐릭터를 불러오지 못했어요. 잠시 뒤 다시 해 주세요.',
+    retry: '다시 시도',
+    noWebgl: '이 브라우저에서는 3D 미리보기를 열 수 없어요.',
+    previewLabel: '만든 캐릭터 3D 미리보기 — 끌어서 돌려 보세요',
+    exprOpen: '기본',
+    exprClosed: '감은눈',
+    tabSkin: '피부',
+    tabEyes: '눈',
+    tabBrows: '눈썹',
+    tabMouth: '입',
+    tabCheek: '볼',
+    tabImage: '내 그림',
+    tabCloth: '옷 색',
+    shapeLabel: '모양',
+    colorLabel: '색',
+    skinLabel: '피부',
+    topLabel: '상의',
+    botLabel: '하의',
+    customColor: '다른 색',
+    adjustLabel: '위치 · 크기 조정',
+    sym: '⇔ 대칭',
+    left: '왼쪽',
+    right: '오른쪽',
+    reset: '초기화',
+    adjX: '좌우',
+    adjY: '위아래',
+    adjS: '크기',
+    adjR: '회전',
+    random: '🎲 랜덤',
+    undo: '↶ 되돌리기',
+    startOver: '처음부터',
+    imageHint:
+      '그림을 얼굴에 붙여요. 투명 배경 PNG 면 아래 얼굴이 비쳐 보여요. 그림은 이 브라우저 안에서만 쓰여요.',
+    imagePick: '📂 그림 불러오기',
+    imageRemove: '지우기',
+    imageBad: '이 그림은 열 수 없어요(PNG · JPG · WebP).',
+    imagePos: '쌓는 자리',
+    imageUnder: '눈코입 아래',
+    imageTop: '맨 위',
+    imageOn: '붙일 얼굴',
+    imageBoth: '둘 다',
+    imageOpenOnly: '기본만',
+    imageClosedOnly: '감은눈만',
+    exportBtn: '앱으로 가져가기',
+    exportSub: '코드 만들기',
+    exportTitle: '앱으로 가져가기',
+    exportPass: '비밀번호',
+    exportPass2: '비밀번호 한 번 더',
+    exportPassHint: '앱에서 코드를 넣을 때 이 비밀번호가 필요해요. 어디에도 저장하지 않아요.',
+    exportPassMismatch: '두 비밀번호가 달라요.',
+    exportMake: '코드 만들기',
+    exportMaking: '만드는 중…',
+    exportFailed: '코드를 만들지 못했어요. 다시 해 주세요.',
+    exportCode: '캐릭터 코드',
+    exportCopy: '복사',
+    exportCopied: '복사했어요',
+    exportHow: '앱 › 캐릭터 › «코드 입력하기» 에 붙여 넣고 비밀번호를 넣으면 이 캐릭터가 새 칸에 들어와요.',
+    close: '닫기',
+  },
   aboutTitle: '책상 위에서 하는 일',
   aboutLead: '다른 프로그램 위에 켜 두어도 방해되지 않게 작고 조용하게.',
   aboutWinTitle: 'ℹ️ 소개',
@@ -155,10 +275,72 @@ export const en: Messages = {
   heroCtaMaker: 'Make a character →',
   heroNote: 'An invite code is required to sign up',
   makerTitle: 'Character Maker',
-  makerLead: 'Pick a face, hair and clothes to make your own character. No login needed.',
+  makerLead:
+    'Stack face layers and pick clothing colors — the default and eyes-closed faces are made together. No login needed.',
   makerWinTitle: '🎨 Character Maker',
-  makerSoon: 'We are preparing a window to build your character in 3D on the web.',
-  makerSoonSub: 'You will be able to bring it into the app with a code.',
+  creator: {
+    loading: 'Loading the character…',
+    loadFailed: "Couldn't load the character. Please try again in a moment.",
+    retry: 'Try again',
+    noWebgl: "This browser can't show the 3D preview.",
+    previewLabel: 'Your character in 3D — drag to turn it',
+    exprOpen: 'Default',
+    exprClosed: 'Eyes closed',
+    tabSkin: 'Skin',
+    tabEyes: 'Eyes',
+    tabBrows: 'Brows',
+    tabMouth: 'Mouth',
+    tabCheek: 'Cheeks',
+    tabImage: 'My image',
+    tabCloth: 'Clothes',
+    shapeLabel: 'Shape',
+    colorLabel: 'Color',
+    skinLabel: 'Skin',
+    topLabel: 'Top',
+    botLabel: 'Bottom',
+    customColor: 'Other color',
+    adjustLabel: 'Position · Size',
+    sym: '⇔ Mirror',
+    left: 'Left',
+    right: 'Right',
+    reset: 'Reset',
+    adjX: 'X',
+    adjY: 'Y',
+    adjS: 'Size',
+    adjR: 'Rotate',
+    random: '🎲 Random',
+    undo: '↶ Undo',
+    startOver: 'Start over',
+    imageHint:
+      'Put an image on the face. With a transparent PNG, the face shows through. The image stays in this browser.',
+    imagePick: '📂 Load image',
+    imageRemove: 'Remove',
+    imageBad: "This image can't be opened (PNG · JPG · WebP).",
+    imagePos: 'Layer position',
+    imageUnder: 'Under the features',
+    imageTop: 'On top',
+    imageOn: 'Apply to',
+    imageBoth: 'Both',
+    imageOpenOnly: 'Default only',
+    imageClosedOnly: 'Eyes closed only',
+    exportBtn: 'Bring it to the app',
+    exportSub: 'Make a code',
+    exportTitle: 'Bring it to the app',
+    exportPass: 'Password',
+    exportPass2: 'Password again',
+    exportPassHint:
+      'You will need this password when you enter the code in the app. It is not stored anywhere.',
+    exportPassMismatch: "The passwords don't match.",
+    exportMake: 'Make code',
+    exportMaking: 'Making…',
+    exportFailed: "Couldn't make the code. Please try again.",
+    exportCode: 'Character code',
+    exportCopy: 'Copy',
+    exportCopied: 'Copied',
+    exportHow:
+      'In the app, go to Character › “Enter code”, paste it and type the password — the character arrives in a new slot.',
+    close: 'Close',
+  },
   aboutTitle: 'What it does on your desk',
   aboutLead: 'Small and quiet, so it never gets in the way of your other apps.',
   aboutWinTitle: 'ℹ️ About',
@@ -238,10 +420,71 @@ export const ja: Messages = {
   heroCtaMaker: 'キャラを作ってみる →',
   heroNote: '登録には招待コードが必要です',
   makerTitle: 'キャラクターメーカー',
-  makerLead: '顔・髪・服を選んで、自分だけのキャラクターを作ろう。ログインなしで試せます。',
+  makerLead:
+    '顔のレイヤーを重ねて服の色を選ぶと、通常と目閉じの顔が一緒に作られます。ログインなしで試せます。',
   makerWinTitle: '🎨 キャラクターメーカー',
-  makerSoon: 'ウェブで 3D のキャラクターを作れるウィンドウを準備中です。',
-  makerSoonSub: '作ったキャラクターはコードでアプリに持っていけるようになります。',
+  creator: {
+    loading: 'キャラクターを読み込み中…',
+    loadFailed: 'キャラクターを読み込めませんでした。少ししてからもう一度お試しください。',
+    retry: 'もう一度',
+    noWebgl: 'このブラウザでは 3D プレビューを表示できません。',
+    previewLabel: '作ったキャラクターの 3D プレビュー — ドラッグで回せます',
+    exprOpen: '通常',
+    exprClosed: '目閉じ',
+    tabSkin: '肌',
+    tabEyes: '目',
+    tabBrows: 'まゆ',
+    tabMouth: '口',
+    tabCheek: 'ほお',
+    tabImage: '自分の画像',
+    tabCloth: '服の色',
+    shapeLabel: '形',
+    colorLabel: '色',
+    skinLabel: '肌',
+    topLabel: 'トップス',
+    botLabel: 'ボトムス',
+    customColor: 'ほかの色',
+    adjustLabel: '位置・サイズ調整',
+    sym: '⇔ 左右対称',
+    left: '左',
+    right: '右',
+    reset: 'リセット',
+    adjX: '左右',
+    adjY: '上下',
+    adjS: 'サイズ',
+    adjR: '回転',
+    random: '🎲 ランダム',
+    undo: '↶ 元に戻す',
+    startOver: '最初から',
+    imageHint:
+      '画像を顔に貼り付けます。背景が透明な PNG なら下の顔が透けて見えます。画像はこのブラウザの中だけで使います。',
+    imagePick: '📂 画像を読み込む',
+    imageRemove: '削除',
+    imageBad: 'この画像は開けません(PNG・JPG・WebP)。',
+    imagePos: '重ねる位置',
+    imageUnder: '目鼻口の下',
+    imageTop: 'いちばん上',
+    imageOn: '貼り付ける顔',
+    imageBoth: '両方',
+    imageOpenOnly: '通常のみ',
+    imageClosedOnly: '目閉じのみ',
+    exportBtn: 'アプリに持っていく',
+    exportSub: 'コードを作る',
+    exportTitle: 'アプリに持っていく',
+    exportPass: 'パスワード',
+    exportPass2: 'パスワード(もう一度)',
+    exportPassHint: 'アプリでコードを入れるときにこのパスワードが必要です。どこにも保存しません。',
+    exportPassMismatch: 'パスワードが一致しません。',
+    exportMake: 'コードを作る',
+    exportMaking: '作成中…',
+    exportFailed: 'コードを作れませんでした。もう一度お試しください。',
+    exportCode: 'キャラクターコード',
+    exportCopy: 'コピー',
+    exportCopied: 'コピーしました',
+    exportHow:
+      'アプリの キャラクター ›「コード入力」に貼り付けてパスワードを入れると、このキャラクターが新しい枠に入ります。',
+    close: '閉じる',
+  },
   aboutTitle: 'デスクの上でできること',
   aboutLead: 'ほかのアプリの上に置いても邪魔にならない、小さくて静かな存在。',
   aboutWinTitle: 'ℹ️ 紹介',
