@@ -81,7 +81,7 @@
           }
         },
         "_music": {
-          ".write": "!newData.exists() || root.child('rooms').child($room).child('_meta').child('music').val() === true",
+          ".write": "!newData.exists() || newData.parent().child('_meta').child('music').val() === true",
           ".validate": "newData.hasChildren(['id','title','by','at','paused','pos','seq']) && (!data.exists() || newData.child('seq').val() > data.child('seq').val())",
           "id": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9_-]{11}$/)" },
           "title": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 100" },
@@ -89,7 +89,7 @@
           "at": { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
           "paused": { ".validate": "newData.isBoolean()" },
           "pos": { ".validate": "newData.isNumber() && newData.val() >= 0" },
-          "seq": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() % 1 === 0" },
+          "seq": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000 && newData.val() % 1 === 0" },
           "dur": { ".validate": "newData.isNumber() && newData.val() >= 0" },
           "$other": { ".validate": false }
         },
