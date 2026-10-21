@@ -129,7 +129,7 @@
 | **sim-room-meta-cleanup.js** | 320 | **ebafe187a9ad** |
 | **sim-room-stats.js** | 223 | **fa8901c9875b** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
-| **sim-room-lobby-ui.js** | 256 | **623b4e493f6d** |
+| **sim-room-lobby-ui.js** | 259 | **5f247fff3558** |
 | **sim-room-settings.js** | 212 | **fc04455bec5c** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
@@ -312,7 +312,7 @@
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **9e6d39720b41** |
 | **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** |
-| **sim-room-entry.js** | 127 | **b4638adae292** |
+| **sim-room-entry.js** | 151 | **1f7de49d386f** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
 | **sim-status-chip.js** | 102 | **ce8e2cb3e006** |
@@ -376,7 +376,7 @@
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 94 | **d9d3c39a82ed** |
-| **sim-nav.js** | 85 | **c2cf2cc50405** |
+| **sim-nav.js** | 85 | **7bb5e77ec7f6** |
 | **sim-net-ready.js** | 145 | **0a54ffa6283c** |
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |

@@ -274,7 +274,7 @@ TwRoomCreateUi.createRoomCreateUi({
 const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 // … createRoomEntry({ …, mySecretRoom: ()=>roomLobbyProvider.mySecretRoom() })
 TwRoomLobbyUi.createRoomLobbyUi({
-  model: TwRoomLobbyModel, provider: roomLobbyProvider, inRoom: ()=>Presence.active(),
+  model: TwRoomLobbyModel, provider: roomLobbyProvider, inRoom: ()=>Presence.active(), twNav,
   maxPeople: ()=>maxPeople(), isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   joinRoom: (code)=>roomEntryMod.startRoom(code), openCreate: (ch)=>roomCreateUi.open(ch),
   toast, notifyError: (...a)=>TwErrorCodes.notify(...a), now: ()=>Date.now(), random: ()=>Math.random(),
@@ -289,5 +289,6 @@ TwRoomLobbyUi.createRoomLobbyUi({
 - 탭을 빨리 바꾸면 늦게 온 답을 버린다(`seq`) — 지우면 투게더룸 탭에 워킹룸 목록이 그려진다.
 - 목록 숫자는 최대 1분 늦다 — 들어갈 때는 입장 검사가 정원을 다시 본다(목록으로 막지 않는다).
 - 60초 타이머는 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 다음 차례에 스스로 멈춘다 — 닫기 버튼에만 기대지 않는다.
+- 방 안에서 모달을 열면 로비는 안 읽는다. 모달이 열린 채 방을 나오면(나가기 · 해산 · 정원 초과) room-entry `refreshInviteUI` 가 «방 안 → 밖» 순간에 `twNav.go(NAV.ROOM_LOBBY)` 로 알리고, 로비가 그때 읽는다 — 서로의 모듈을 부르지 않게 창 열기 통로를 쓴다.
 
 검사: `checks/sim-room-lobby-ui.js`.

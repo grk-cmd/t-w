@@ -96,16 +96,40 @@ function callsWith(src, uid){
   return { calls, asked };
 }
 /* 내 시크릿룸은 provider(room-lobby-provider.js — 내 코드 없음 · 소유 · 만료 판정) 한 곳에 묻는다 — 방 창이 따로 읽지 않는다 */
+/* 모달이 열린 채 방을 나오면 로비에 한 번 알린다(NAV.ROOM_LOBBY) — 방 안 → 밖으로 바뀐 순간만 */
+function leaveSignals(src){
+  const any = anything(), went = [];
+  let inRoom = true;
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  deps.mySecretRoom = () => Promise.resolve(null);
+  deps.Presence = new Proxy({}, { get: (t, k) => k === 'active' ? () => inRoom : any });
+  deps.twNav = { NAV: { ROOM_LOBBY: 'roomLobby', LEAVE_ROOM: 'leaveRoom' }, on: () => {}, go: (n) => { went.push(n); } };
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
+    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const m = api.createRoomEntry(deps);
+  const seq = [];
+  for(const v of [false, true, true, false, false]){ inRoom = v; m.refreshInviteUI(); seq.push(went.filter(n => n === 'roomLobby').length); }
+  return seq.join();
+}
+const judgeLeave = (src) => { try{ return leaveSignals(src) === '0,0,0,1,1'; }catch(_){ return false; } };
 const judgeSecret = (src) => { const r = callsWith(src, 'ME'); return !r.calls.includes('getMySecretRoom') && !r.calls.includes('getSecretRoomPub') && r.asked === 1; };
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 시크릿룸 — 판정 한 곳');
 chk(judgeSecret(MOD), 'F1 시크릿룸 칸은 provider 의 mySecretRoom 에 한 번 묻는다 · firebaseAPI 를 직접 읽지 않는다');
+chk(judgeLeave(MOD), '★ 방 안 → 밖으로 바뀐 순간에만 로비에 알린다(NAV.ROOM_LOBBY) — 처음 · 계속 밖 · 계속 안은 안 알림');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace('Promise.resolve(mySecretRoom()).then(', "firebaseAPI.getMySecretRoom(getMyUserId()); Promise.resolve(mySecretRoom()).then(");
   chk(m2 !== MOD && !judgeSecret(m2), '방 창이 시크릿룸을 따로 읽으면 — 판정 한 곳이 빨강');
+  const m3 = MOD.replace('const left = _wasInRoom && !on;', 'const left = !on;');
+  chk(m3 !== MOD && !judgeLeave(m3), '나온 순간이 아니라 밖일 때마다 알리면 — 로비 알림 판정이 빨강');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-entry.js"></script>', '')],

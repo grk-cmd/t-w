@@ -592,7 +592,10 @@ function _refreshSecretRoomUI(){
     if(s && inp && !inp.value) inp.value=s.code.replace(/^SCRT-/,'');
   }).catch(()=>{});
 }
+let _wasInRoom = false;   // 방 안 → 밖으로 바뀐 순간을 잡는다(모달이 열린 채 나가면 로비가 다시 읽어야 한다)
 function refreshInviteUI(){ const on=Presence.active();
+  const left = _wasInRoom && !on;
+  _wasInRoom = on;
   _refreshSecretRoomUI();
   document.getElementById('inviteIdle').style.display=on?'none':'';
   document.getElementById('inviteActive').style.display=on?'':'none';
@@ -610,6 +613,8 @@ function refreshInviteUI(){ const on=Presence.active();
   ['inviteHopRandom','fsInviteHopRandom'].forEach(id=>{
     const b=document.getElementById(id); if(b) b.style.display = _hopOn ? '' : 'none';
   });
+  // 모달이 열린 채 방을 나왔으면 로비가 이제 보인다 — 방 안에서 열었을 땐 안 읽었으니 지금 읽게 알린다
+  if(left && document.getElementById('inviteOverlay').classList.contains('on')) twNav.go(twNav.NAV.ROOM_LOBBY);
 }
 // 🚪 버전 게이트 — semver "a" < "b" 이면 true. (숫자 3파트 비교, 누락은 0)
 function _verLt(a,b){

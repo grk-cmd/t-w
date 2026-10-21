@@ -121,6 +121,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     const { doc, byId } = mkDom();
     global.document = doc;
     const log = { joins: [], creates: [], toasts: [], errors: [], lists: [] };
+    const nav = { NAV: { ROOM_LOBBY: 'roomLobby' }, fns: {}, on(n, f){ this.fns[n] = f; }, go(n){ return this.fns[n] && this.fns[n](); } };
     const timers = new Map(); let tid = 0;
     global.setInterval = (f) => { timers.set(++tid, f); return tid; };
     global.clearInterval = (id) => { timers.delete(id); };
@@ -130,14 +131,14 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
       provider: { listRooms: async (ch) => { log.lists.push(ch); return typeof o.list === 'function' ? o.list(ch) : (o.list === undefined ? node : o.list); },
         mySecretRoom: async () => o.secret ? { code: o.secret.code, name: o.secret.name } : null,
         secretGuests: async () => (o.secret ? o.secret.guests : null) },
-      inRoom: () => !!o.inRoom, maxPeople: () => 10, isLicensed: () => !!o.licensed,
+      inRoom: () => !!o.inRoom, twNav: nav, maxPeople: () => 10, isLicensed: () => !!o.licensed,
       joinRoom: async (c) => { log.joins.push(c); await tick(); },
       openCreate: (ch) => log.creates.push(ch), toast: (m) => log.toasts.push(m), notifyError: (c) => log.errors.push(c),
       now: () => now, random: () => 0,
     });
     const $ = (id) => byId[id];
     const fire = async () => { for(const f of [...timers.values()]) f(); await tick(); await tick(); };
-    return { $, log, U, o, timers, fire, open: async () => { $('lcInvite').listeners.click(); await tick(); await tick(); } };
+    return { $, log, U, o, timers, fire, nav, open: async () => { $('lcInvite').listeners.click(); await tick(); await tick(); } };
   }
   let t = await mkUi({ secret: { code: 'SCRT-ABCD', name: '<b>우리</b>', guests: 2 } });
   await t.open();
@@ -185,10 +186,12 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   t = await mkUi({ inRoom: true, secret: { code: 'SCRT-ABCD', name: 'x', guests: 0 } });
   await t.open();
   chk(t.log.lists.length === 0 && t.timers.size === 0 && !t.$('lobbySecretName'), '★ 방 안에서 모달을 열면 목록 · 시크릿룸을 읽지 않는다');
+  t.o.inRoom = false; t.nav.go('roomLobby'); await tick(); await tick();
+  chk(t.log.lists.length === 1 && t.timers.size === 1 && t.$('lobbySecretName').textContent === 'x', '★ 모달이 열린 채 방을 나오면(NAV.ROOM_LOBBY) 그때 읽고 60초 갱신을 건다');
   t.$('inviteOverlay').className = 'on';
-  t.o.inRoom = false; await t.open();
+  await t.open();
   t.$('inviteClose').listeners.click();
-  chk(t.log.lists.length === 1 && t.timers.size === 0, '  닫기 버튼은 타이머를 멈춘다');
+  chk(t.log.lists.length === 2 && t.timers.size === 0, '  닫기 버튼은 타이머를 멈춘다');
   t = await mkUi({ list: { at: null, rooms: {} } });
   await t.open();
   chk(t.$('lobbyGrid').children[0].textContent.includes('준비되지 않았어요') && t.log.errors.length === 0, '  칸이 없음(서버 함수 전) — 안내만 · 오류 번호 없음');

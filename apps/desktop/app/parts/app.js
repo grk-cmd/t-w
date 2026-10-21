@@ -6892,6 +6892,7 @@ TwRoomLobbyUi.createRoomLobbyUi({
   model: TwRoomLobbyModel,
   provider: roomLobbyProvider,
   inRoom: ()=>Presence.active(),
+  twNav: twNav,
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   joinRoom: (code)=>roomEntryMod.startRoom(code),

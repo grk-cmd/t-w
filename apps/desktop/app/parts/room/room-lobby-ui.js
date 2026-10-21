@@ -23,6 +23,7 @@ const TEXT = Object.freeze({
  *   model: typeof window.TwRoomLobbyModel,
  *   provider: { listRooms(channel: string): Promise<{ at: number|null, rooms: object }|null>, mySecretRoom(): Promise<{ code: string, name: string }|null>, secretGuests(code: string): Promise<number|null> },
  *   inRoom: () => boolean,
+ *   twNav: typeof window.TwNav,
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
  *   joinRoom: (code: string) => Promise<void>,
@@ -37,6 +38,7 @@ function createRoomLobbyUi(deps){
 const model = deps.model;
 const provider = deps.provider;
 const inRoom = deps.inRoom;   // 방 안이면 모달은 «연결된 방» 화면이라 로비가 안 보인다 — 읽지 않는다
+const twNav = deps.twNav;     // 방을 나와 로비가 다시 보이면 room-entry 가 NAV.ROOM_LOBBY 로 알린다(서로를 모르게)
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
 const joinRoom = deps.joinRoom;
@@ -47,7 +49,7 @@ const now = deps.now;
 const random = deps.random;
 
 const $ = (id) => document.getElementById(id);
-const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, state: null, loading: false, joining: false, timer: null, seq: 0 };
+const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, state: null, loading: false, joining: false, timer: null, seq: 0, secretSeq: 0 };
 
 function el(tag, cls, text){
   const e = document.createElement(tag);
@@ -144,9 +146,11 @@ async function refresh(quiet){
 }
 
 async function paintSecret(){
+  const my = ++st.secretSeq;   // 그새 다시 열었으면 늦게 온 답은 버린다
   const row = $('lobbySecret');
   let s = null;
   try{ s = await provider.mySecretRoom(); }catch(_){ s = null; }
+  if(my !== st.secretSeq) return;
   row.hidden = !s;
   if(!s) return;
   $('lobbySecretName').textContent = s.name;
@@ -154,7 +158,7 @@ async function paintSecret(){
   $('lobbySecretJoin').onclick = () => join(s.code);
   let g = null;
   try{ g = await provider.secretGuests(s.code); }catch(_){ g = null; }
-  if(g != null) $('lobbySecretCount').textContent = '손님 ' + g + '/' + Math.max(0, maxPeople() - 1);
+  if(my === st.secretSeq && g != null) $('lobbySecretCount').textContent = '손님 ' + g + '/' + Math.max(0, maxPeople() - 1);
 }
 
 async function join(code){
@@ -210,6 +214,7 @@ $('lobbyQuick').onclick = () => {
 };
 for(const id of ['lcInvite', 'fsInviteCreate']) $(id).addEventListener('click', onOpen);
 $('inviteClose').addEventListener('click', stopTimer);
+twNav.on(twNav.NAV.ROOM_LOBBY, onOpen);
 
 }
 
