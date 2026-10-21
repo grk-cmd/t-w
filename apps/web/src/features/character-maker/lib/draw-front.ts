@@ -75,7 +75,7 @@ function drawAt(ctx: DrawCtx, m: Mat, shapes: Shape[], makePath: (d: string) => 
   ctx.restore();
 }
 
-/** 눈 한 짝 — 흰자 · 동공 · 아이라인을 차례로 쌓는다. 감은눈이면 아이라인의 감은 모양만. */
+/** 눈 한 짝 — 동공 · 하이라이트 · 아이라인을 차례로 쌓는다. 감은눈이면 아이라인의 감은 모양만. */
 function drawEye(
   ctx: DrawCtx,
   s: CreatorState,
@@ -89,8 +89,8 @@ function drawEye(
     if (m && shapes.length) drawAt(ctx, m, shapes, makePath);
   };
   if (expr === 'open') {
-    put('sclera', findItem('sclera', s.sclera).open(color));
     put('pupil', findItem('pupil', s.pupil).open(color));
+    put('highlight', findItem('highlight', s.highlight).open(color));
     put('eyeline', findItem('eyeline', s.eyeline).open(color));
     return;
   }

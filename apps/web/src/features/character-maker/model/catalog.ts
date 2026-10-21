@@ -26,12 +26,12 @@ export interface LayerItem {
   name: Names;
   /** 뜬 눈 얼굴에 그릴 것 — color 는 고른 색(동공만 쓴다) */
   open: (color: string) => Shape[];
-  /** 감은눈 얼굴에 그릴 것 — 없으면 open 과 같다(흰자 · 동공은 감은눈에 그리지 않는다 — drawFace) */
+  /** 감은눈 얼굴에 그릴 것 — 없으면 open 과 같다(동공 · 하이라이트는 감은눈에 그리지 않는다 — drawFace) */
   closed?: Shape[];
 }
 
 /** 눈 폴더 안 층(아래 → 위) — 폴더를 옮기면 셋이 같이, 층을 고르면 그 층만 폴더 안에서 움직인다 */
-export const EYE_PARTS = ['sclera', 'pupil', 'eyeline'] as const;
+export const EYE_PARTS = ['pupil', 'highlight', 'eyeline'] as const;
 export type EyePart = (typeof EYE_PARTS)[number];
 
 /** 그림을 고르는 레이어 */
@@ -42,29 +42,6 @@ export type AdjTarget = LayerKind | 'eyes';
 const line = (d: string, w: number, stroke = INK): Shape => ({ k: 'path', d, stroke, w });
 
 export const LAYERS: Record<LayerKind, readonly LayerItem[]> = {
-  sclera: [
-    { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
-    {
-      id: 'round',
-      name: { ko: '동그랑', en: 'Round', ja: 'まる' },
-      open: () => [{ k: 'ellipse', rx: 11, ry: 13, fill: '#fff', stroke: INK, w: 2.5 }],
-    },
-    {
-      id: 'big',
-      name: { ko: '큰', en: 'Big', ja: 'おおきい' },
-      open: () => [{ k: 'ellipse', rx: 14, ry: 16, fill: '#fff', stroke: INK, w: 2.5 }],
-    },
-    {
-      id: 'tall',
-      name: { ko: '세로', en: 'Tall', ja: 'たて' },
-      open: () => [{ k: 'ellipse', rx: 9, ry: 14, fill: '#fff', stroke: INK, w: 2.5 }],
-    },
-    {
-      id: 'sleepy',
-      name: { ko: '졸린', en: 'Sleepy', ja: 'ねむい' },
-      open: () => [{ k: 'path', d: 'M-12 -4h24v4a12 10 0 0 1-24 0z', fill: '#fff', stroke: INK, w: 2.5 }],
-    },
-  ],
   pupil: [
     { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
     {
@@ -75,19 +52,12 @@ export const LAYERS: Record<LayerKind, readonly LayerItem[]> = {
     {
       id: 'round',
       name: { ko: '동그랑', en: 'Round', ja: 'まる' },
-      open: (c) => [
-        { k: 'ellipse', rx: 8, ry: 9.5, fill: c },
-        { k: 'ellipse', cx: 3, cy: -4, rx: 3, ry: 3, fill: '#fff' },
-      ],
+      open: (c) => [{ k: 'ellipse', rx: 8, ry: 9.5, fill: c }],
     },
     {
-      id: 'sparkle',
-      name: { ko: '반짝', en: 'Sparkle', ja: 'キラキラ' },
-      open: (c) => [
-        { k: 'ellipse', rx: 9.5, ry: 11, fill: c },
-        { k: 'ellipse', cx: 3.5, cy: -5, rx: 4, ry: 4, fill: '#fff' },
-        { k: 'ellipse', cx: -4, cy: 5, rx: 1.8, ry: 1.8, fill: '#fff' },
-      ],
+      id: 'big',
+      name: { ko: '큰', en: 'Big', ja: 'おおきい' },
+      open: (c) => [{ k: 'ellipse', rx: 9.5, ry: 11, fill: c }],
     },
     {
       id: 'cat',
@@ -96,6 +66,33 @@ export const LAYERS: Record<LayerKind, readonly LayerItem[]> = {
         { k: 'ellipse', rx: 9, ry: 10.5, fill: c },
         { k: 'ellipse', rx: 2.2, ry: 8, fill: INK },
       ],
+    },
+  ],
+  /** 빛반사 — 동공 위에 얹는 하얀 점(색은 동공 색과 상관없다) */
+  highlight: [
+    { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
+    {
+      id: 'dot',
+      name: { ko: '콩', en: 'Dot', ja: 'てん' },
+      open: () => [{ k: 'ellipse', cx: 3, cy: -4, rx: 3, ry: 3, fill: '#fff' }],
+    },
+    {
+      id: 'double',
+      name: { ko: '두 개', en: 'Double', ja: 'ふたつ' },
+      open: () => [
+        { k: 'ellipse', cx: 3.5, cy: -5, rx: 4, ry: 4, fill: '#fff' },
+        { k: 'ellipse', cx: -4, cy: 5, rx: 1.8, ry: 1.8, fill: '#fff' },
+      ],
+    },
+    {
+      id: 'big',
+      name: { ko: '큰', en: 'Big', ja: 'おおきい' },
+      open: () => [{ k: 'ellipse', cx: 2.5, cy: -3.5, rx: 4.5, ry: 5, fill: '#fff' }],
+    },
+    {
+      id: 'star',
+      name: { ko: '반짝', en: 'Sparkle', ja: 'キラキラ' },
+      open: () => [{ k: 'path', d: 'M3 -10q1 4 4 5q-3 1-4 5q-1-4-4-5q3-1 4-5z', fill: '#fff' }],
     },
   ],
   eyeline: [
@@ -206,7 +203,7 @@ export const DRAW_ORDER = ['cheek', 'eyes', 'brows', 'mouth'] as const;
 /** 짝으로 나오는 것 — 왼쪽 짝을 놓고 오른쪽은 좌우를 뒤집어 놓는다(눈 폴더 안 층도 폴더를 따라 짝) */
 export const PAIRED: Record<AdjTarget, boolean> = {
   eyes: true,
-  sclera: true,
+  highlight: true,
   pupil: true,
   eyeline: true,
   brows: true,

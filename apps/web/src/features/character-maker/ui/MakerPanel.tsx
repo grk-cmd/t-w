@@ -11,6 +11,7 @@ import {
   PAIRED,
   TOP_COLORS,
   findAcc,
+  findItem,
   type AdjTarget,
   type LayerKind,
   type Shape,
@@ -39,7 +40,7 @@ export interface MakerActions {
 }
 const TABS: readonly Tab[] = ['skin', 'eyes', 'brows', 'mouth', 'cheek', 'acc', 'image', 'cloth'];
 /** 눈 폴더 안 층 — 위에 그리는 것부터(레이어 판처럼) */
-const EYE_TREE = ['eyeline', 'pupil', 'sclera'] as const;
+const EYE_TREE = ['eyeline', 'highlight', 'pupil'] as const;
 
 function Thumb({ shapes }: { shapes: Shape[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
@@ -56,7 +57,16 @@ function ItemGrid({ s, kind, act }: { s: CreatorState; kind: LayerKind; act: (a:
   const c = m.creator;
   // 미리보기 그림은 색이 바뀔 때만 새로 — 그릴 때마다 새 배열이면 끄는 동안 칸마다 다시 그린다
   const color = s.pupilColor.L;
-  const thumbs = useMemo(() => LAYERS[kind].map((it) => it.open(color)), [kind, color]);
+  const thumbs = useMemo(
+    () =>
+      LAYERS[kind].map((it) =>
+        // 하얀 하이라이트는 흰 칸에서 안 보여 동공 위에 얹어 보여 준다
+        kind === 'highlight'
+          ? [...findItem('pupil', 'round').open(color), ...it.open(color)]
+          : it.open(color),
+      ),
+    [kind, color],
+  );
   return (
     <>
       <p className="group-l">{c.shapeLabel}</p>
@@ -223,7 +233,7 @@ function AdjustBox({ target, s, ops }: { target: AdjTarget; s: CreatorState; ops
   );
 }
 
-/** 👁 눈 탭 — 눈 폴더(전체) 아래 아이라인 · 동공 · 흰자. 폴더를 고르면 셋이 함께, 층을 고르면 그 층만 폴더 안에서 */
+/** 👁 눈 탭 — 눈 폴더(전체) 아래 아이라인 · 하이라이트 · 동공. 폴더를 고르면 셋이 함께, 층을 고르면 그 층만 폴더 안에서 */
 function EyesBox({
   s,
   ops,
@@ -239,8 +249,8 @@ function EyesBox({
   const c = m.creator;
   const partName: Record<(typeof EYE_TREE)[number], string> = {
     eyeline: c.eyeline,
+    highlight: c.highlight,
     pupil: c.pupil,
-    sclera: c.sclera,
   };
   return (
     <>

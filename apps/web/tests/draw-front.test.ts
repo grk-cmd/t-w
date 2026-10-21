@@ -36,7 +36,7 @@ const draw = (s: CreatorState, expr: 'open' | 'closed' = 'open') => {
 };
 const only = (s: CreatorState, keep: string[]) => {
   let x = s;
-  for (const k of ['sclera', 'pupil', 'eyeline', 'brows', 'cheek'] as const)
+  for (const k of ['pupil', 'highlight', 'eyeline', 'brows', 'cheek'] as const)
     if (!keep.includes(k)) x = reduce(x, { t: 'item', kind: k, id: 'none' });
   return x;
 };
@@ -51,43 +51,45 @@ describe('drawFront', () => {
   });
 
   it('눈 폴더는 왼쪽 66,112 · 오른쪽은 좌우를 뒤집어 134,112', () => {
-    const log = draw(only(DEFAULT_STATE, ['sclera']));
+    const log = draw(only(DEFAULT_STATE, ['pupil']));
     expect(log).toContain('m 1 0 0 1 66 112');
     expect(log).toContain('m -1 0 0 1 134 112');
   });
 
   it('폴더 안 층은 폴더 위에 얹힌다 — 폴더를 옮기면 층이 같이 · 층만 옮기면 그 층만', () => {
-    let s = only(DEFAULT_STATE, ['sclera', 'pupil']);
+    let s = only(DEFAULT_STATE, ['pupil', 'highlight']);
     s = reduce(s, { t: 'move', target: 'eyes', side: 'L', x: 10, y: 0 });
     let log = draw(s);
-    expect(log).toContain('m 1 0 0 1 76 112'); // 흰자 · 동공 모두 폴더를 따라 76
+    expect(log.filter((l) => l === 'm 1 0 0 1 76 112').length).toBe(2); // 동공 · 하이라이트 모두 폴더를 따라 76
     expect(log).toContain('m -1 0 0 1 124 112');
-    s = reduce(s, { t: 'move', target: 'pupil', side: 'L', x: 4, y: 0 });
+    s = reduce(s, { t: 'move', target: 'highlight', side: 'L', x: 4, y: 0 });
     log = draw(s);
-    expect(log).toContain('m 1 0 0 1 76 112'); // 흰자는 그대로
-    // 동공만 +4 — 오른쪽은 뒤집힌 폴더 안이라 바깥으로
+    expect(log.filter((l) => l === 'm 1 0 0 1 76 112').length).toBe(1); // 동공은 그대로
+    // 하이라이트만 +4 — 오른쪽은 뒤집힌 폴더 안이라 바깥으로
     expect(log).toContain('m 1 0 0 1 80 112');
     expect(log).toContain('m -1 0 0 1 120 112');
   });
 
-  it('흰자 → 동공 → 아이라인 차례로 쌓는다 — 동공을 흰자 밖으로 옮겨도 잘리지 않는다', () => {
-    let s = reduce(DEFAULT_STATE, { t: 'move', target: 'pupil', side: 'L', x: 30, y: 0 });
-    s = only(s, ['sclera', 'pupil', 'eyeline']);
+  it('동공 → 하이라이트 → 아이라인 차례로 쌓는다 — 하이라이트는 동공 위(동공 밖으로 옮겨도 그대로 그린다)', () => {
+    let s = reduce(DEFAULT_STATE, { t: 'move', target: 'highlight', side: 'L', x: 30, y: 0 });
+    s = only(s, ['pupil', 'highlight', 'eyeline']);
     const log = draw(s);
-    const white = log.indexOf('fill #fff');
     const pupil = log.indexOf(`fill ${s.pupilColor.L}`);
-    const line = log.findIndex((l, i) => i > pupil && l.startsWith('stroke path('));
-    expect(white).toBeGreaterThanOrEqual(0);
-    expect(pupil).toBeGreaterThan(white);
-    expect(line).toBeGreaterThan(pupil);
-    expect(log).toContain('m 1 0 0 1 96 112'); // 흰자 밖(66 + 30)에도 그대로 그린다
+    const shine = log.indexOf('fill #fff');
+    const line = log.findIndex((l, i) => i > shine && l.startsWith('stroke path('));
+    expect(pupil).toBeGreaterThanOrEqual(0);
+    expect(shine).toBeGreaterThan(pupil);
+    expect(line).toBeGreaterThan(shine);
+    expect(log).toContain('m 1 0 0 1 96 112'); // 동공 밖(66 + 30)에도 그린다
   });
 
-  it('감은눈은 흰자 · 동공을 그리지 않고 아이라인의 감은 모양만 — 아이라인 «없음» 도 감은 줄은 보인다', () => {
+  it('감은눈은 동공 · 하이라이트를 그리지 않고 아이라인의 감은 모양만 — 아이라인 «없음» 도 감은 줄은 보인다', () => {
     const open = draw(DEFAULT_STATE).join('\n');
     const closed = draw(DEFAULT_STATE, 'closed').join('\n');
-    expect(open).toContain('e 0 0 11 13'); // 흰자
-    expect(closed).not.toContain('e 0 0 11 13');
+    expect(open).toContain('e 0 0 8 9.5'); // 동공
+    expect(open).toContain('fill #fff'); // 하이라이트
+    expect(closed).not.toContain('e 0 0 8 9.5');
+    expect(closed).not.toContain('fill #fff');
     expect(open).not.toContain('path(M-11 -1q11 9 22 0)'); // 뜬눈엔 감은 줄을 겹쳐 그리지 않는다
     expect(closed).toContain('path(M-11 -1q11 9 22 0)');
     const noLine = draw(reduce(DEFAULT_STATE, { t: 'item', kind: 'eyeline', id: 'none' }), 'closed').join(
