@@ -1,4 +1,4 @@
-import { LAYER_ORDER, PAIRED, SLOT, findItem, type Shape } from '../model/catalog';
+import { FACE_UNITS, LAYER_ORDER, PAIRED, SLOT, findItem, type Shape } from '../model/catalog';
 import type { Adjust, CreatorState } from '../model/state';
 
 /** 그리기에 쓰는 2D 컨텍스트 몫(시험은 가짜로) */
@@ -24,7 +24,6 @@ export interface DrawCtx {
 
 /** 200 얼굴 판이 앞모습 판(0~1) 어디에 놓이는가 — 실제 머리에 비춰 보고 맞춘 값(눈 · 입이 얼굴 앞에 오도록) */
 export const FACE_BOX = { x: 0.14, y: 0.2, size: 0.72 } as const;
-export const FACE_UNITS = 200;
 
 export type Expr = 'open' | 'closed';
 
@@ -77,21 +76,15 @@ function placed(
   ctx.restore();
 }
 
-/** 앞모습 판(한 변 size 픽셀)에 얼굴 레이어를 쌓아 그린다 — 판은 투명에서 시작(피부는 텍스처 합성 때 아래에 깔린다). */
-export function drawFront(
+/** 얼굴 판(200 단위 좌표)에 레이어를 쌓는다 — 3D 텍스처(앞모습 판)와 평면 텍스처 칸이 같은 그림을 쓴다. 지우기 · 배경은 부르는 쪽 몫. */
+export function drawFace(
   ctx: DrawCtx,
   s: CreatorState,
   expr: Expr,
-  size: number,
   opts: { image?: CanvasImageSource | null; makePath?: (d: string) => Path2D } = {},
 ) {
   const makePath = opts.makePath ?? ((d: string) => new Path2D(d));
-  ctx.clearRect(0, 0, size, size);
   const img = s.img && opts.image && (s.img.on === 'both' || s.img.on === expr) ? opts.image : null;
-  ctx.save();
-  // 200 얼굴 판 좌표로
-  ctx.translate(FACE_BOX.x * size, FACE_BOX.y * size);
-  ctx.scale((FACE_BOX.size * size) / FACE_UNITS, (FACE_BOX.size * size) / FACE_UNITS);
   if (img && s.img?.pos === 'under') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
   for (const kind of LAYER_ORDER) {
     const item = findItem(kind, s[kind]);
@@ -106,6 +99,22 @@ export function drawFront(
     } else if (adj.C) placed(ctx, at.x, at.y, adj.C, false, shapes, makePath);
   }
   if (img && s.img?.pos === 'top') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
+}
+
+/** 앞모습 판(한 변 size 픽셀)에 얼굴 레이어를 쌓아 그린다 — 판은 투명에서 시작(피부는 텍스처 합성 때 아래에 깔린다). */
+export function drawFront(
+  ctx: DrawCtx,
+  s: CreatorState,
+  expr: Expr,
+  size: number,
+  opts: { image?: CanvasImageSource | null; makePath?: (d: string) => Path2D } = {},
+) {
+  ctx.clearRect(0, 0, size, size);
+  ctx.save();
+  // 200 얼굴 판 좌표로
+  ctx.translate(FACE_BOX.x * size, FACE_BOX.y * size);
+  ctx.scale((FACE_BOX.size * size) / FACE_UNITS, (FACE_BOX.size * size) / FACE_UNITS);
+  drawFace(ctx, s, expr, opts);
   ctx.restore();
 }
 

@@ -14,6 +14,9 @@ export interface CreatorMessages {
   previewLabel: string;
   exprOpen: string;
   exprClosed: string;
+  texLabel: string;
+  texHint: string;
+  texIdle: string;
   tabSkin: string;
   tabEyes: string;
   tabBrows: string;
@@ -143,6 +146,9 @@ export const ko: Messages = {
     previewLabel: '만든 캐릭터 3D 미리보기 — 끌어서 돌려 보세요',
     exprOpen: '기본',
     exprClosed: '감은눈',
+    texLabel: '얼굴 텍스처',
+    texHint: '고른 레이어를 끌어서 옮겨요 (Shift: 가로 · 세로만)',
+    texIdle: '눈 · 눈썹 · 입 · 볼 탭에서 끌어 옮길 수 있어요',
     tabSkin: '피부',
     tabEyes: '눈',
     tabBrows: '눈썹',
@@ -286,6 +292,9 @@ export const en: Messages = {
     previewLabel: 'Your character in 3D — drag to turn it',
     exprOpen: 'Default',
     exprClosed: 'Eyes closed',
+    texLabel: 'Face texture',
+    texHint: 'Drag the selected layer to move it (Shift: straight lines only)',
+    texIdle: 'Open the Eyes, Brows, Mouth or Cheeks tab to drag layers',
     tabSkin: 'Skin',
     tabEyes: 'Eyes',
     tabBrows: 'Brows',
@@ -431,6 +440,9 @@ export const ja: Messages = {
     previewLabel: '作ったキャラクターの 3D プレビュー — ドラッグで回せます',
     exprOpen: '通常',
     exprClosed: '目閉じ',
+    texLabel: '顔テクスチャ',
+    texHint: '選んだレイヤーをドラッグで移動(Shift:縦・横のみ)',
+    texIdle: '目・眉・口・頬のタブでドラッグして動かせます',
     tabSkin: '肌',
     tabEyes: '目',
     tabBrows: 'まゆ',

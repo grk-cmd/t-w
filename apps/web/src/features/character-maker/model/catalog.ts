@@ -144,6 +144,9 @@ export const LAYER_ORDER: readonly LayerKind[] = ['cheek', 'eyes', 'brows', 'mou
 /** 짝으로 나오는 것 — 왼쪽 짝을 놓고 오른쪽은 좌우를 뒤집어 놓는다 */
 export const PAIRED: Record<LayerKind, boolean> = { eyes: true, brows: true, cheek: true, mouth: false };
 /** 200×200 얼굴 판에서의 기본 자리 — 짝은 왼쪽 짝 x(오른쪽은 200 − x), 하나짜리는 가운데 */
+/** 얼굴 판 한 변(단위) — 자리(SLOT) · 조정 값 · 그리기가 모두 이 좌표. 오른쪽 짝은 FACE_UNITS − 왼쪽 자리 */
+export const FACE_UNITS = 200;
+
 export const SLOT: Record<LayerKind, { x: number; y: number }> = {
   eyes: { x: 66, y: 112 },
   brows: { x: 66, y: 88 },
@@ -172,7 +175,7 @@ export const BOT_COLORS = [
   '#FF9BB3',
 ] as const;
 /** 조정 범위 — 자리(얼굴 판 픽셀) · 크기(배율) · 회전(도) */
-export const LIMITS = { x: [-40, 40], y: [-40, 40], s: [0.5, 1.8], r: [-45, 45] } as const;
+export const LIMITS = { x: [-80, 80], y: [-80, 80], s: [0.3, 2.5], r: [-45, 45] } as const;
 
 export const findItem = (kind: LayerKind, id: string): LayerItem =>
   LAYERS[kind].find((it) => it.id === id) ?? (LAYERS[kind][0] as LayerItem);
