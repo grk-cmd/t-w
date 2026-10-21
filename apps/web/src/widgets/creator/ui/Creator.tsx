@@ -1,6 +1,13 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CharacterPreview, loadCharKit, type CharKit } from '@/entities/character';
-import { createFaceTextures, MakerPanel, useMaker } from '@/features/character-maker';
+import {
+  createFaceTextures,
+  FaceTexturePanel,
+  layerOfTab,
+  MakerPanel,
+  useMaker,
+  type MakerTab,
+} from '@/features/character-maker';
 import { ExportDialog, type WebCharacter } from '@/features/clone-code';
 import { useI18n } from '@/shared/i18n';
 import { loadImage } from '@/shared/lib/image';
@@ -63,6 +70,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   const { state, canUndo, act, live, commit, undo, random, reset } = useMaker();
   const ops = useMemo(() => ({ act, live, commit }), [act, live, commit]);
   const [expr, setExpr] = useState<Expr>('open');
+  const [tab, setTab] = useState<MakerTab>('skin');
   const [exporting, setExporting] = useState(false);
   const tex = useMemo(() => createFaceTextures(kit), [kit]);
   // 붙인 그림은 dataURL → 그림으로 풀어 둔다 — 지금 dataURL 과 짝이 맞을 때만 쓴다(바뀐 직후 옛 그림이 남지 않게)
@@ -121,6 +129,13 @@ function CreatorReady({ kit }: { kit: CharKit }) {
           </div>
           <CharacterPreview kit={kit} look={look} label={c.previewLabel} />
         </div>
+        <FaceTexturePanel
+          s={state}
+          kind={layerOfTab(tab)}
+          ops={ops}
+          skinColor={kit.skinSwatches[state.skin] ?? '#f2d2bd'}
+          image={image}
+        />
         <div className="row">
           <button className="btn" type="button" onClick={random}>
             {c.random}
@@ -134,7 +149,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
         </div>
       </div>
       <div className="side">
-        <MakerPanel s={state} ops={ops} skinSwatches={kit.skinSwatches} />
+        <MakerPanel s={state} ops={ops} skinSwatches={kit.skinSwatches} tab={tab} onTab={setTab} />
         <button className="btn default export" type="button" onClick={() => setExporting(true)}>
           <b>{c.exportBtn}</b>
           <small>{c.exportSub}</small>

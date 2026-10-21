@@ -20,7 +20,7 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | `src/app/` | `App`(언어 공급 + 페이지) · `entry-client.tsx`(미리 그린 HTML 에 이어 붙이기 — 언어는 `<html lang>`) · `entry-server.tsx`(빌드 때 언어마다 그리기) · `styles/` |
 | `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로 · 캐릭터 만들기(생성기를 브라우저에서만 따로 싣는다) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
 | `src/widgets/creator/` | 🎨 웹 생성기(#440) — 3D 미리보기 · 고르기 판 · 되돌리기 · 앱으로 가져가기를 묶는다. three 와 몸 모델이 무거워 첫 화면 묶음과 따로 받는다 |
-| `src/features/character-maker/` | 얼굴 레이어(프로토타입 시안 그림을 도형 자료로 — `model/catalog.ts`) · 상태 규칙(`reduce` — 모르는 그림 · 색 모양은 안 받음 · 대칭 거울) · 되돌리기 40번 · 앞모습 판 그리기(`drawFront`) · 얼굴 텍스처 한 벌(앞모습 판 → 코어 `paintFront` 로 얼굴 UV 에) |
+| `src/features/character-maker/` | 얼굴 레이어(프로토타입 시안 그림을 도형 자료로 — `model/catalog.ts`) · 상태 규칙(`reduce` — 모르는 그림 · 색 모양은 안 받음 · 대칭 거울) · 되돌리기 40번 · 얼굴 판 그리기(`drawFace` — 3D 텍스처 · 평면 칸이 같이 씀) · 앞모습 판(`drawFront`) · 얼굴 텍스처 한 벌(앞모습 판 → 코어 `paintFront` 로 얼굴 UV 에) · 평면 얼굴 텍스처 칸(`ui/FaceTexturePanel.tsx` — 고른 탭 레이어를 끌어 옮김 · 계산은 `model/drag.ts`) |
 | `src/features/clone-code/` | 앱으로 가져가기 — 코어 `encodeCloneCode`(앱 «코드 입력하기» 가 읽는 DCC1). 싣는 칸은 앱 생성기와 같다(피부 · 얼굴 · 감은눈 · 상의 · 하의 색 — 파츠 · 책상 없음). 비밀번호 · 코드는 화면에만 |
 | `src/entities/character/` | 코어 한 벌(몸 · 얼굴 · 톤 · 앞모습 지도)을 만드는 `loadCharKit` · 3D 미리보기. 빛 · 재질 고치기는 코어 한 벌(`@tw/char-core` 의 `lighting.ts` — 앱 생성기 · 실행 화면과 같은 숫자) |
 | `src/shared/i18n/` | 언어(`ko` 기본 · `en` · `ja`) · 주소(`/` · `/en/` · `/ja/`) · 화면 글(`messages.ts` — 언어마다 같은 모양, 빠지면 타입 검사가 잡는다) |

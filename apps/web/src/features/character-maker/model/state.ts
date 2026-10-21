@@ -57,7 +57,8 @@ export const DEFAULT_STATE: CreatorState = {
 };
 
 const clamp = (v: number, [lo, hi]: readonly [number, number]) => Math.min(hi, Math.max(lo, v));
-export const mirrorAdjust = (a: Adjust): Adjust => ({ x: -a.x, y: a.y, s: a.s, r: -a.r });
+// 0 − 값: 0 을 뒤집어도 −0 이 아닌 0 으로(같은 자리 판정이 −0 · 0 으로 갈리지 않게)
+export const mirrorAdjust = (a: Adjust): Adjust => ({ x: 0 - a.x, y: a.y, s: a.s, r: 0 - a.r });
 
 export type Action =
   | { t: 'item'; kind: LayerKind; id: string }
@@ -65,6 +66,8 @@ export type Action =
   | { t: 'skin'; skin: number }
   | { t: 'cloth'; part: 'top' | 'bot'; color: string }
   | { t: 'adjust'; kind: LayerKind; side: Side; key: keyof Adjust; value: number }
+  /** 텍스처 위에서 끌기 — x · y 를 한 번에 */
+  | { t: 'move'; kind: LayerKind; side: Side; x: number; y: number }
   | { t: 'resetAdjust'; kind: LayerKind }
   | { t: 'sym'; on: boolean }
   | { t: 'image'; img: FaceImage | null }
@@ -89,18 +92,10 @@ export function reduce(s: CreatorState, a: Action): CreatorState {
       const c = a.color.toLowerCase();
       return c === s[a.part] ? s : { ...s, [a.part]: c };
     }
-    case 'adjust': {
-      if (!Number.isFinite(a.value)) return s;
-      const cur = s.adj[a.kind][a.side];
-      if (!cur) return s;
-      const v = clamp(a.value, LIMITS[a.key]);
-      if (v === cur[a.key]) return s;
-      const next = { ...cur, [a.key]: v };
-      const set: AdjustSet = { ...s.adj[a.kind], [a.side]: next };
-      // 대칭이면 반대 짝도 거울로 따라간다
-      if (s.sym && a.side !== 'C') set[a.side === 'L' ? 'R' : 'L'] = mirrorAdjust(next);
-      return { ...s, adj: { ...s.adj, [a.kind]: set } };
-    }
+    case 'adjust':
+      return patchAdjust(s, a.kind, a.side, { [a.key]: a.value });
+    case 'move':
+      return patchAdjust(s, a.kind, a.side, { x: a.x, y: a.y });
     case 'resetAdjust':
       return { ...s, adj: { ...s.adj, [a.kind]: freshAdjust()[a.kind] } };
     case 'sym': {
@@ -119,6 +114,22 @@ export function reduce(s: CreatorState, a: Action): CreatorState {
     case 'replace':
       return a.state;
   }
+}
+
+/** 한 짝의 자리를 고친다 — 범위로 자르고, 바뀐 게 없으면 같은 상태, 대칭이면 반대 짝은 거울로 */
+function patchAdjust(s: CreatorState, kind: LayerKind, side: Side, patch: Partial<Adjust>): CreatorState {
+  const cur = s.adj[kind][side];
+  if (!cur) return s;
+  const next = { ...cur };
+  for (const k of Object.keys(patch) as (keyof Adjust)[]) {
+    const v = patch[k];
+    if (v === undefined || !Number.isFinite(v)) return s;
+    next[k] = clamp(v, LIMITS[k]);
+  }
+  if ((Object.keys(next) as (keyof Adjust)[]).every((k) => next[k] === cur[k])) return s;
+  const set: AdjustSet = { ...s.adj[kind], [side]: next };
+  if (s.sym && side !== 'C') set[side === 'L' ? 'R' : 'L'] = mirrorAdjust(next);
+  return { ...s, adj: { ...s.adj, [kind]: set } };
 }
 
 /** 무작위 얼굴 — 자리는 그대로 두고 그림 · 색만 고른다 */

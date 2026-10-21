@@ -26,11 +26,11 @@ describe('reduce — 생성기 상태', () => {
 
   it('조정은 범위로 자르고, 대칭이면 반대 짝이 거울로 따라간다', () => {
     const a = reduce(S, { t: 'adjust', kind: 'eyes', side: 'L', key: 'x', value: 999 });
-    expect(a.adj.eyes.L?.x).toBe(40);
-    expect(a.adj.eyes.R?.x).toBe(-40);
+    expect(a.adj.eyes.L?.x).toBe(80);
+    expect(a.adj.eyes.R?.x).toBe(-80);
     const r = reduce(a, { t: 'adjust', kind: 'eyes', side: 'L', key: 'r', value: 20 });
     expect(r.adj.eyes.R?.r).toBe(-20);
-    expect(reduce(S, { t: 'adjust', kind: 'eyes', side: 'L', key: 's', value: 0 }).adj.eyes.L?.s).toBe(0.5);
+    expect(reduce(S, { t: 'adjust', kind: 'eyes', side: 'L', key: 's', value: 0 }).adj.eyes.L?.s).toBe(0.3);
     expect(reduce(S, { t: 'adjust', kind: 'eyes', side: 'L', key: 'y', value: NaN })).toBe(S);
   });
 
@@ -61,7 +61,7 @@ describe('reduce — 생성기 상태', () => {
     s = reduce(s, { t: 'adjust', kind: 'eyes', side: 'L', key: 'x', value: 5 });
     s = reduce(s, { t: 'adjust', kind: 'eyes', side: 'R', key: 'x', value: -30 });
     s = reduce(s, { t: 'sym', on: true });
-    expect(s.adj.eyes.R).toEqual({ ...s.adj.eyes.L, x: -5, r: -(s.adj.eyes.L?.r ?? 0) });
+    expect(s.adj.eyes.R).toEqual({ ...s.adj.eyes.L, x: -5, r: 0 - (s.adj.eyes.L?.r ?? 0) });
     // 그 뒤 왼쪽을 고치면 오른쪽이 튀지 않고 거울로 따라간다
     s = reduce(s, { t: 'adjust', kind: 'eyes', side: 'L', key: 'x', value: 6 });
     expect(s.adj.eyes.R?.x).toBe(-6);

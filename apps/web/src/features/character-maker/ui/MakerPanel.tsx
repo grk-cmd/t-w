@@ -12,9 +12,10 @@ import {
 } from '../model/catalog';
 import { SKIN_COUNT, type Action, type Adjust, type CreatorState, type Side } from '../model/state';
 import { drawItemThumb } from '../lib/draw-front';
+import type { MakerTab } from '../model/tabs';
 import { fileToFaceImage } from '../lib/load-image';
 
-type Tab = 'skin' | LayerKind | 'image' | 'cloth';
+type Tab = MakerTab;
 
 /** 고르기 판이 상태를 바꾸는 길 — act 는 한 번에 한 기록, live 는 끄는 동안(놓을 때 commit 이 한 기록으로 쌓는다) */
 export interface MakerActions {
@@ -236,17 +237,21 @@ export function MakerPanel({
   s,
   ops,
   skinSwatches,
+  tab,
+  onTab,
 }: {
   s: CreatorState;
   ops: MakerActions;
   /** 피부 번호 차례의 단추 색 */
   skinSwatches: readonly string[];
+  /** 지금 탭 — 생성기가 들고 있다(텍스처 칸이 어느 레이어를 끌지 안다) */
+  tab: MakerTab;
+  onTab: (t: MakerTab) => void;
 }) {
   const act = ops.act;
   const { lang, m } = useI18n();
   const c = m.creator;
   const base = useId();
-  const [tab, setTab] = useState<Tab>('skin');
   const label: Record<Tab, string> = {
     skin: c.tabSkin,
     eyes: c.tabEyes,
@@ -267,7 +272,7 @@ export function MakerPanel({
             id={`${base}-${t}`}
             aria-selected={tab === t}
             aria-controls={`${base}-panel`}
-            onClick={() => setTab(t)}
+            onClick={() => onTab(t)}
           >
             {label[t]}
           </button>
