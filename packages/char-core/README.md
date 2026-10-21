@@ -11,6 +11,10 @@
 | 🎀 파츠를 캐릭터에 붙일 한 벌로(복제 · 재질 · `_col` · `_pic` · 리깅 판정 · 다시 묶기 · wrapper · 저작 오프셋 · 다중 인스턴스) | `src/parts.ts` → `TwCharCore.createParts` | `app.js` 의 `partsCore` — 장착 차례 · 옷 겹침 · 귀 · 애니메이션 · 책상 파츠 · 좌석 저장은 `equipPartOnSeat` 에 남는다(코어는 책상 · 좌석을 모른다) |
 | 💡 재질 톤(얼굴 맵 · 몸 평탄 조명 · 파츠 톤 · baseFlat · 텍스처 파츠 색조 셰이더) · 파츠 xf 적용 | `src/tone.ts` → `TwCharCore.createTone` · `src/parts.ts` `applyXfToWrapper` | `shared/light-tone.js` 가 화면 밝기 예산(FLAT_EMISSIVE)으로 만들어 `toneCore` 로 내놓는다(책상 · 아이템 톤은 앱). `mat-tone.js` 는 🐾 동물 귀 깜빡임만 더한다 |
 
+| 새로 생긴 것(앱에는 아직 부르는 곳 없음) | 파일 | 쓰는 곳 |
+|---|---|---|
+| 🖼️ 앞모습 그림 → 얼굴 텍스처(정면을 보는 얼굴 조각마다 «앞모습 판 → UV» 아핀 변환으로 옮겨 그리기 · `frontMap` · `paintFront`) | `src/front-paint.ts` | 웹 생성기(`apps/web` — 얼굴 레이어를 앞모습 판에 쌓아 얼굴 · 감은눈 그림으로). 앱이 정면 도장 등에 쓰려면 같은 함수를 부른다 |
+
 ## 책임
 - 들어오는 것: 캐릭터 정의(def) 정리 · 몸 모델 · def → 3D 캐릭터 한 덩어리 · 얼굴 · 피부 합성 · 귀 · 동물 · 파츠 붙이기 · 색조 · 복제 코드 DCC1(#430 3.1).
 - 들어오지 않는 것: 장면 · 카메라 · 렌더러 · 조명 · 좌석 · 방 · 저장 · 동기화 · 유료 · 가챠 · 커미션 자산 해석.
