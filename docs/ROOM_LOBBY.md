@@ -48,11 +48,10 @@ roomLobby/workingroom/WORK-AB12 = { t: '방 제목', n: 3, max: 10, hn: '방장 
 - **규칙**: `.read` 는 `roomIndex` 와 같은 조건, `.write: false`(함수만 · Admin SDK).
 - 인원은 최대 1분 늦다 — 들어갈 때는 지금처럼 그 방의 정원을 다시 확인한다(목록 숫자로 막지 않는다).
 
-### 2.3 내 시크릿룸 `users/{나}/mySecretRooms/{코드} = true` (새 칸)
-- **쓰는 곳**: ① 관리자가 시크릿룸을 발급할 때(앱 `issueSecretRoom` · 웹 관리자 `grantSecretRoom`) ② 지금 갖고 있는 방은 방장이 그 방에 들어갈 때 한 번(이미 들어갈 때마다 방장을 owner 로 다시 쓰는 자리 — `startRoom`).
-- **규칙**: 읽기 · 쓰기 모두 본인(`userAuth/{나}` == auth.uid)만. 쓰기는 `secretRooms/{코드}/pub/owner` 가 나일 때만 · 관리자는 늘.
-- **로비가 읽는 것**: 내 목록(보통 0~1개) → 방마다 `secretRooms/{코드}/pub`(이름 · 만료) · 인원은 지금 있는 `checkSecretRoomEntry`.
-- 웹 관리자에서 옛 방을 한 번에 옮겨 적는 버튼은 선택 — 방장이 한 번 들어오면 채워지므로 필수는 아니다.
+### 2.3 내 시크릿룸 — 이미 있는 `users/{나}/secretRoom` 을 쓴다
+- 이 칸은 지금도 있다: 관리자가 시크릿룸을 발급할 때(앱 `admin-license-bulk.js` · 웹 관리자 `grantSecretRoom`) 받는 사람 칸에 코드를 적고, 앱 참여 화면이 `getMySecretRoom` 으로 읽어 «내 시크릿룸» 을 채운다. 새 칸 · 규칙 변경은 없다.
+- 이 칸은 «마지막으로 준 코드» 일 뿐 소유의 증거가 아니다(그새 다른 사람에게 재발급될 수 있다) — 로비는 `secretRooms/{코드}/pub.owner` 가 나일 때만 줄을 보인다. 이름 · 만료도 그 `pub` 에서, 인원은 지금 있는 `checkSecretRoomEntry`.
+- 칸이 비어 있는 옛 방장(발급 기록 전)은 지금처럼 코드 칸에 `*` 를 붙여 들어온다.
 
 ## 3. 앱
 
@@ -100,13 +99,13 @@ roomLobby/workingroom/WORK-AB12 = { t: '방 제목', n: 3, max: 10, hn: '방장 
 - 옛 앱이 만든 방은 `title` · `hostName` 이 없다 — 목록에서 «이름 없는 방» 기본값 · 방장 칸 비움으로 그린다. 옛 앱의 방은 `open` 이 워킹룸에만 있으니 옛 투게더룸은 목록에 안 나온다(지금과 같음).
 
 ## 7. 배포 순서
-1. 규칙(`_meta` 새 칸 · `roomLobby` · `mySecretRooms` · `config/bannedWords`) — dev 먼저, 운영은 앱 태그 전에. 처음 금칙어 목록도 이때 넣는다.
+1. 규칙(`_meta` 새 칸 · `roomLobby` · `config/bannedWords`) — dev 먼저, 운영은 앱 태그 전에. 처음 금칙어 목록도 이때 넣는다.
 2. 함수 `room-stats`(목록 사본) — 앱 태그 전에.
 3. 앱 0.13.0.
 4. 사용자 대부분이 올라온 뒤 `minRoomVer` 0.13.0.
 
 ## 8. 나눠 올릴 PR
-1. 규칙 + 함수(`roomLobby` · `_meta` 칸 · `mySecretRooms` · 금칙어 판정 · `config/bannedWords`) + 검사
+1. 규칙 + 함수(`roomLobby` · `_meta` 칸 · 금칙어 판정 · `config/bannedWords`) + 검사
 2. 앱 — 방 만들기 칸(제목 · 최대 인원 · 공개) · `hostName` · 정원 · 금칙어 판정 · 웹 관리자 금칙어 칸
 3. 앱 — 로비 창(model · provider · 화면) · 빠른시작 · 내 시크릿룸
 4. 앱 — 방 안 [방 설정](제목 · 공개 바꾸기)
