@@ -1,4 +1,5 @@
 import { useI18n } from '@/shared/i18n';
+import { TogetherLand } from './TogetherLand';
 
 export function Hero() {
   const { m } = useI18n();
@@ -6,7 +7,10 @@ export function Hero() {
     <section className="hero" aria-labelledby="hero-title">
       <div className="wrap">
         <div className="hero-copy">
-          <img className="logo" src="/icons/icon-256.png" alt="" width="256" height="256" />
+          <div className="hero-top">
+            <img className="logo" src="/icons/icon-256.png" alt="" width="256" height="256" />
+            <TogetherLand />
+          </div>
           <p className="eyebrow">{m.heroEyebrow}</p>
           <h1 id="hero-title">
             {m.heroTitleA}

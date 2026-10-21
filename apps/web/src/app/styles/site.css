@@ -294,6 +294,110 @@ h3 {
   image-rendering: pixelated;
   max-width: 100%;
 }
+/* 투게더랜드: 아직 못 여는 바탕화면 아이콘 — 회색으로 잠겨 있다가 올리면 색이 살짝 비친다 */
+.hero-top {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.land {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  width: 84px;
+  margin-top: 4px;
+  padding: 4px;
+  border: 0;
+  background: none;
+  color: var(--on-desk);
+  cursor: pointer;
+  font: inherit;
+}
+.land-ic {
+  position: relative;
+  display: block;
+  width: 48px;
+  height: 48px;
+  filter: grayscale(1) brightness(0.85);
+  opacity: 0.75;
+  transition:
+    filter 0.3s ease,
+    opacity 0.3s ease;
+}
+.land-ic svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+.land .lock {
+  position: absolute;
+  right: -6px;
+  bottom: -4px;
+  font-size: 16px;
+}
+.land-name {
+  font-size: 12px;
+  padding: 0 3px;
+  text-shadow: 1px 1px 0 var(--desk-shadow);
+  opacity: 0.8;
+}
+.land:hover .land-ic,
+.land:focus-visible .land-ic {
+  filter: grayscale(0.35) brightness(1);
+  opacity: 1;
+}
+.land:hover .land-name,
+.land:focus-visible .land-name {
+  background: var(--accent);
+  text-shadow: none;
+  opacity: 1;
+  outline: 1px dotted var(--on-desk);
+}
+.land:hover .land-ic {
+  animation: land-peek 1.2s steps(2) infinite;
+}
+@keyframes land-peek {
+  50% {
+    transform: translateY(-2px);
+  }
+}
+.land-dlg {
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+}
+.land-dlg .warn {
+  font-size: 32px;
+  line-height: 1;
+}
+.land-dlg p {
+  margin: 0 0 6px;
+}
+.land-bar {
+  font-family: var(--font-num);
+  font-size: 12px;
+  letter-spacing: 1px;
+  color: var(--ink-soft);
+}
+.land-bar .blink {
+  animation: land-blink 1s steps(1) infinite;
+}
+@keyframes land-blink {
+  50% {
+    opacity: 0.2;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .land-ic {
+    transition: none;
+  }
+  .land:hover .land-ic,
+  .land-bar .blink {
+    animation: none;
+  }
+}
 .eyebrow {
   font-size: 13px;
   color: var(--on-desk-soft);
