@@ -19,7 +19,7 @@ const SRC = fs.readFileSync('app.js', 'utf8');
 const FI  = fs.readFileSync('firebase-init.js', 'utf8');
 /* room-channel.js(ES 모듈)를 함수로 불러온다 — export 만 떼면 된다(다른 import 없음). */
 const RC = new Function(fs.readFileSync('room-channel.js', 'utf8').replace(/^export (function|const) /mg, '$1 ')
-  + '\nreturn { CHANNEL, channelFromRoomCode, recoverChannelFor };')();
+  + '\nreturn { CHANNEL, channelFromRoomCode, recoverChannelFor, hostSuccession };')();
 
 let pass = 0, fail = 0, huhs = 0;
 const say = s => console.log(s);
@@ -120,13 +120,12 @@ chk(RC.channelFromRoomCode('WORK-AB12') === 'workingroom', 'WORK- → 워킹룸'
 chk(RC.channelFromRoomCode('SCRT-AB12') === 'togetherroom', 'SCRT- → 투게더룸(시크릿룸)');
 chk(RC.channelFromRoomCode('COZY-AB12') === null && RC.channelFromRoomCode('') === null, '옛 COZY- · 빈 값 → 모름(null)');
 chk(RC.recoverChannelFor('COZY-AB12', true) === 'togetherroom' && RC.recoverChannelFor('COZY-AB12', false) === 'workingroom', '  접두어로 모를 때만 라이선스로 정한다(예전 규칙)');
-chk(/import \{ recoverChannelFor \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-channel\.js";/.test(FI), 'firebase-init 이 room-channel.js 에서 가져다 쓴다');
+chk(/import \{ recoverChannelFor, hostSuccession \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-channel\.js";/.test(FI), 'firebase-init 이 room-channel.js 에서 가져다 쓴다(되살릴 채널 · 방장 승계)');
 
 /* ── 6. 방장 칸이 빈 투게더룸 ── */
 say('── 6. _maybeSucceedHost — 승계 · 해산은 예전 그대로(빈 방장 칸은 대상 아님)');
 const msh = grabFn(FI, '_maybeSucceedHost', 'async function ');
-const pickSrc = (() => { const i = FI.indexOf('const HOST_PICK = {'); return i < 0 ? '' : FI.slice(i, FI.indexOf('\n', i)); })();
-if(!msh || !pickSrc){ huh('_maybeSucceedHost · HOST_PICK 을 못 떼어 옴'); }
+if(!msh){ huh('_maybeSucceedHost 를 못 떼어 옴'); }
 else{
   const mk = () => {
     const log = { disband: 0, claim: [] };
@@ -134,7 +133,7 @@ else{
       firebaseAPI: { claimHostIfVacant: async (room, uid, alive) => { log.claim.push({ uid, alive }); return { ok: false }; } },
     };
     const hooks = { onDisband: () => { log.disband++; }, onHostSucceeded: () => {} };   // joinRoom 이 room-entry 에서 받는 묶음(_roomHooks)
-    const f = new Function('window', '_svNow', 'ROOM_RESTORE_GRACE_MS', '_roomHooks', 'let _lastSuccessionAt = 0;\n' + pickSrc + '\n' + msh + '\nreturn _maybeSucceedHost;')(win, () => 0, 60000, hooks);
+    const f = new Function('window', '_svNow', 'ROOM_RESTORE_GRACE_MS', '_roomHooks', 'hostSuccession', 'let _lastSuccessionAt = 0;\n' + msh + '\nreturn _maybeSucceedHost;')(win, () => 0, 60000, hooks, RC.hostSuccession);
     return { f, log };
   };
   const friendsFree = { m1: { userId: 'a', lic: false }, m2: { userId: 'b', lic: false } };
@@ -161,12 +160,25 @@ else{
   chk(w3.log.disband === 0 && w3.log.claim.length === 0, '  방장이 안에 있으면 아무것도 안 한다');
   const w4 = mk(); w4.f('WORK-X', 'm2', { channel: 'workingroom', host: 'gone' }, { m1: { lic: false }, m2: { userId: 'b', lic: false } });
   chk(w4.log.claim.length === 1 && w4.log.claim[0].uid === 'b', '  userId 가 없는 멤버는 건너뛴다(이어받아도 적을 이름이 없다)');
+  const w4b = mk(); w4b.f('WORK-X', 'm1', { channel: 'workingroom', host: 'gone' }, { m1: { lic: true }, m2: { lic: false } });
+  chk(w4b.log.disband === 0 && w4b.log.claim.length === 0, '★ 워킹룸은 이어받을 사람이 아무도 없어도 해산하지 않는다');
   const w5 = mk(); w5.f('WORK-X', 'm1', { channel: 'workingroom' }, friendsFree);
   chk(w5.log.disband === 0 && w5.log.claim.length === 0, '  방장 칸이 빈 워킹룸은 예전처럼 대상이 아니다');
   const w6 = mk(); w6.f('WORK-X', 'm1', { host: 'gone' }, friendsFree);
   chk(w6.log.disband === 0 && w6.log.claim.length === 0, '★ 채널 표지가 없는 방은 승계 · 해산 모두 안 한다');
   const w7 = mk(); w7.f('SCRT-X', 'm1', { channel: 'workingroom', host: 'gone' }, friendsFree);
   chk(w7.log.claim.length === 0, '  시크릿룸은 그대로 승계하지 않는다');
+}
+
+say('── 6-3. room-channel.js hostSuccession — 채널 규칙 한 곳');
+{
+  const H = RC.hostSuccession, M = { m1: { userId: 'a' }, m2: { userId: 'b', lic: true } };
+  chk(JSON.stringify(H('togetherroom', ['m1', 'm2'], M)) === '{"act":"claim","memberId":"m2"}', '투게더룸 → 입장순 첫 보유자');
+  chk(H('togetherroom', ['m1'], M).act === 'disband', '★ 투게더룸 · 보유자 없음 → 해산');
+  chk(JSON.stringify(H('workingroom', ['m1', 'm2'], M)) === '{"act":"claim","memberId":"m1"}', '워킹룸 → 입장순 첫 사람');
+  chk(H('workingroom', ['m9'], { m9: {} }).act === 'none', '★ 워킹룸 · 후보 없음 → 해산 아님(none)');
+  chk(H('workingroom', [], {}).act === 'none' && H('togetherroom', [], {}).act === 'disband', '  빈 목록 — 워킹룸 none · 투게더룸 disband(부르는 쪽이 빈 목록을 먼저 거른다)');
+  chk(H(undefined, ['m1'], M).act === 'none' && H('lobby', ['m1'], M).act === 'none', '★ 표에 없는 채널(표지 없음) → 승계 · 해산 모두 안 함');
 }
 
 /* ── 7. 채널이 표지를 따라간다 ── */

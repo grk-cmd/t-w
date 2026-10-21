@@ -193,7 +193,7 @@
 | **sim-report-away.js** | 116 | **2e7056e83b60** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
-| **sim-room-channel.js** | 189 | **42f00efb7407** |
+| **sim-room-channel.js** | 201 | **12d2603865f9** |
 | sim-room-clock.js | 135 | 421b90c3df47 |
 | **sim-seat-eq.js** | 101 | **abfda97458b5** |
 | **sim-seat-hide.js** | 84 | **4e8d2348e282** |
