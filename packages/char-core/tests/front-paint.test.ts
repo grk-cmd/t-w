@@ -145,19 +145,34 @@ describe('frontMap — 앱 기본 몸', () => {
 describe('paintFront', () => {
   function recorder() {
     const log: string[] = [];
+    /** 조각마다 자른 경로의 점들 */
+    const paths: number[][] = [];
     const ctx: FrontCtxLike = {
       save: () => log.push('save'),
       restore: () => log.push('restore'),
       beginPath: () => log.push('begin'),
-      moveTo: () => {},
-      lineTo: () => {},
+      moveTo: (x, y) => paths.push([x, y]),
+      lineTo: (x, y) => paths[paths.length - 1]!.push(x, y),
       closePath: () => {},
       clip: () => log.push('clip'),
       setTransform: (...m) => log.push('tf:' + m.map((v) => v.toFixed(3)).join(',')),
       drawImage: (_i, x, y, w, h) => log.push(`draw:${x},${y},${w},${h}`),
     };
-    return { ctx, log };
+    return { ctx, log, paths };
   }
+
+  it('조각은 padTriangle 로 민 삼각형으로 자른다(딱 맞게 자르지 않는다)', () => {
+    const { ctx, paths } = recorder();
+    const tris = map.tris.slice(0, 5);
+    paintFront(ctx, { frame: map.frame, tris }, {}, 512, 512);
+    expect(paths.length).toBe(tris.length);
+    tris.forEach((t, i) => {
+      const d = t.dst.map((v) => v * 512);
+      const want = padTriangle(d, FRONT_PAD_PX);
+      paths[i]!.forEach((v, k) => expect(v).toBeCloseTo(want[k]!, 9));
+      expect(paths[i]).not.toEqual(d);
+    });
+  });
 
   it('조각마다 잘라서 한 번씩 그린다 · save/restore 짝이 맞는다', () => {
     const { ctx, log } = recorder();
@@ -210,10 +225,22 @@ describe('padTriangle — 모서리마다 바깥으로 민다', () => {
     }
   });
 
-  it('밀린 삼각형이 원래 삼각형을 품는다(넓이가 늘고 꼭짓점은 바깥)', () => {
-    const t = [10, 10, 60, 12, 30, 40];
-    const area = (q: number[]) => Math.abs((q[2]! - q[0]!) * (q[5]! - q[1]!) - (q[4]! - q[0]!) * (q[3]! - q[1]!)) / 2;
-    expect(area(padTriangle(t, 1))).toBeGreaterThan(area(t));
+  it('돌림 방향(시계 · 반시계)과 상관없이 바깥으로 — 원래 꼭짓점이 밀린 삼각형의 모서리마다 px 만큼 안쪽', () => {
+    const ccw = [10, 10, 60, 12, 30, 40];
+    const cw = [ccw[0]!, ccw[1]!, ccw[4]!, ccw[5]!, ccw[2]!, ccw[3]!];
+    for (const t of [ccw, cw]) {
+      const p = padTriangle(t, 1);
+      const area2 = (p[2]! - p[0]!) * (p[5]! - p[1]!) - (p[4]! - p[0]!) * (p[3]! - p[1]!);
+      const s = Math.sign(area2);
+      // 밀린 삼각형의 모서리마다, 원래 삼각형의 맞은 모서리 두 끝이 안쪽으로 1 이상 떨어져 있다
+      for (let e = 0; e < 3; e++) {
+        const a = e * 2, b = ((e + 1) % 3) * 2;
+        const ex = p[b]! - p[a]!, ey = p[b + 1]! - p[a + 1]!, L = Math.hypot(ex, ey);
+        const inside = (x: number, y: number) => (s * (ex * (y - p[a + 1]!) - ey * (x - p[a]!))) / L;
+        expect(inside(t[a]!, t[a + 1]!)).toBeGreaterThanOrEqual(1 - 1e-9);
+        expect(inside(t[b]!, t[b + 1]!)).toBeGreaterThanOrEqual(1 - 1e-9);
+      }
+    }
   });
 
   it('진짜 얼굴 메쉬(512 텍스처) — 가는 조각도 모서리마다 FRONT_PAD_PX 만큼 밀린다(가운데에서 키우던 옛 방식은 0.19)', () => {

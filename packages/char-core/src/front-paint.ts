@@ -160,7 +160,6 @@ export function padTriangle(t: number[], px: number): number[] {
   const area2 = (P[1]![0] - P[0]![0]) * (P[2]![1] - P[0]![1]) - (P[2]![0] - P[0]![0]) * (P[1]![1] - P[0]![1]);
   if (!(Math.abs(area2) > 1e-12) || !(px > 0)) return t.slice(0, 6);
   const sign = area2 > 0 ? 1 : -1;
-  // 모서리 i(P[i] → P[i+1])의 바깥 법선
   const normal = (i: number) => {
     const a = P[i]!, b = P[(i + 1) % 3]!;
     const ex = b[0] - a[0], ey = b[1] - a[1], l = Math.hypot(ex, ey) || 1;
