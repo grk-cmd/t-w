@@ -3,7 +3,7 @@ import * as THREE_NS from 'three';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js';
 import { SkeletonUtils } from 'three/examples/jsm/utils/SkeletonUtils.js';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { FRONT_PAD_PX, affineFor, createBody, frontMap, padTriangle, paintFront, type FrontCtxLike, type FrontMap } from '../src/index';
+import { FRONT_PAD_PX, affineFor, createBody, frontMap, padTriangle, rasterFront, type FrontMap, type PixelsLike } from '../src/index';
 
 /* 진짜 three r128 + 앱에 든 진짜 기본 몸 GLB — 얼굴 메쉬의 정면 조각이 앞모습 판과 UV 사이를 제대로 잇는지 본다. */
 const THREE = { ...THREE_NS, SkeletonUtils };
@@ -142,65 +142,104 @@ describe('frontMap — 앱 기본 몸', () => {
   });
 });
 
-describe('paintFront', () => {
-  function recorder() {
-    const log: string[] = [];
-    /** 조각마다 자른 경로의 점들 */
-    const paths: number[][] = [];
-    const ctx: FrontCtxLike = {
-      save: () => log.push('save'),
-      restore: () => log.push('restore'),
-      beginPath: () => log.push('begin'),
-      moveTo: (x, y) => paths.push([x, y]),
-      lineTo: (x, y) => paths[paths.length - 1]!.push(x, y),
-      closePath: () => {},
-      clip: () => log.push('clip'),
-      setTransform: (...m) => log.push('tf:' + m.map((v) => v.toFixed(3)).join(',')),
-      drawImage: (_i, x, y, w, h) => log.push(`draw:${x},${y},${w},${h}`),
-    };
-    return { ctx, log, paths };
-  }
+describe('rasterFront', () => {
+  const pixels = (w: number, h: number, fill?: [number, number, number, number]): PixelsLike => {
+    const data = new Uint8ClampedArray(w * h * 4);
+    if (fill) for (let i = 0; i < data.length; i += 4) data.set(fill, i);
+    return { width: w, height: h, data };
+  };
+  const alphaAt = (p: PixelsLike, x: number, y: number) => p.data[(y * p.width + x) * 4 + 3]!;
 
-  it('조각은 padTriangle 로 민 삼각형으로 자른다(딱 맞게 자르지 않는다)', () => {
-    const { ctx, paths } = recorder();
-    const tris = map.tris.slice(0, 5);
-    paintFront(ctx, { frame: map.frame, tris }, {}, 512, 512);
-    expect(paths.length).toBe(tris.length);
-    tris.forEach((t, i) => {
+  it('반투명 판도 얼굴 어디서나 같은 값 — 이웃 조각과 겹친 띠에서 두 번 칠해지거나 가장자리가 옅어지지 않는다', () => {
+    const src = pixels(512, 512, [255, 0, 0, 153]);
+    const dst = pixels(512, 512);
+    const n = rasterFront(dst, map, src);
+    expect(n).toBe(map.tris.filter((t) => affineFor(t.dst.map((v) => v * 512), t.src.map((v) => v * 512))).length);
+    const seen = new Set<string>();
+    for (let i = 0; i < dst.data.length; i += 4)
+      if (dst.data[i + 3]) seen.add(Array.from(dst.data.subarray(i, i + 4)).join(','));
+    expect([...seen]).toEqual(['255,0,0,153']);
+  });
+
+  it('조각 사이에 빈 픽셀이 없다 — 원래 삼각형 안 픽셀은 모두 칠한다', () => {
+    const dst = pixels(512, 512);
+    rasterFront(dst, map, pixels(512, 512, [0, 0, 0, 255]));
+    let missing = 0;
+    for (const t of map.tris) {
       const d = t.dst.map((v) => v * 512);
-      const want = padTriangle(d, FRONT_PAD_PX);
-      paths[i]!.forEach((v, k) => expect(v).toBeCloseTo(want[k]!, 9));
-      expect(paths[i]).not.toEqual(d);
-    });
+      const cx = (d[0]! + d[2]! + d[4]!) / 3, cy = (d[1]! + d[3]! + d[5]!) / 3;
+      // 삼각형 모서리 위 점(꼭짓점 사이 가운데)도 — 이웃 조각과의 경계
+      for (const [x, y] of [[cx, cy], [(d[0]! + d[2]!) / 2, (d[1]! + d[3]!) / 2], [(d[2]! + d[4]!) / 2, (d[3]! + d[5]!) / 2]])
+        if (!alphaAt(dst, Math.min(511, Math.floor(x!)), Math.min(511, Math.floor(y!)))) missing++;
+    }
+    expect(missing).toBe(0);
   });
 
-  it('조각마다 잘라서 한 번씩 그린다 · save/restore 짝이 맞는다', () => {
-    const { ctx, log } = recorder();
-    const n = paintFront(ctx, map, {}, 512, 512);
-    expect(n).toBe(map.tris.filter((t) => affineFor(t.src.map((v) => v * 512), t.dst.map((v) => v * 512))).length);
-    expect(log.filter((l) => l === 'clip').length).toBe(n);
-    expect(log.filter((l) => l.startsWith('draw:0,0,512,512')).length).toBe(n);
-    expect(log.filter((l) => l === 'save').length).toBe(log.filter((l) => l === 'restore').length);
+  it('앞모습 판의 자리를 UV 자리로 옮긴다 — 판 왼쪽 반만 칠하면 텍스처에서도 그 조각들만', () => {
+    const src = pixels(512, 512);
+    for (let y = 0; y < 512; y++) for (let x = 0; x < 256; x++) src.data.set([0, 0, 255, 255], (y * 512 + x) * 4);
+    const dst = pixels(512, 512);
+    rasterFront(dst, map, src);
+    // 판에서 완전히 왼쪽(< 0.45)인 조각의 무게중심은 칠해지고, 완전히 오른쪽(> 0.55)인 조각은 비어 있다
+    let leftOk = 0, rightOk = 0, left = 0, right = 0;
+    for (const t of map.tris) {
+      const xs = [t.src[0]!, t.src[2]!, t.src[4]!];
+      const d = t.dst.map((v) => v * 512);
+      const a = alphaAt(dst, Math.floor((d[0]! + d[2]! + d[4]!) / 3), Math.floor((d[1]! + d[3]! + d[5]!) / 3));
+      if (Math.max(...xs) < 0.45) (left++, a === 255 && leftOk++);
+      if (Math.min(...xs) > 0.55) (right++, a === 0 && rightOk++);
+    }
+    expect(left).toBeGreaterThan(0);
+    expect(right).toBeGreaterThan(0);
+    expect(leftOk).toBe(left);
+    expect(rightOk).toBe(right);
   });
 
-  it('판 · 텍스처 크기가 달라도 — 변환은 affineFor(판 × srcSize → UV × texSize) · 그림은 판 크기 그대로', () => {
-    const { ctx, log } = recorder();
-    const n = paintFront(ctx, { frame: map.frame, tris: map.tris.slice(0, 5) }, {}, 256, 512);
-    const tfs = log.filter((l) => l.startsWith('tf:'));
-    expect(tfs.length).toBe(n);
-    map.tris.slice(0, n).forEach((t, i) => {
-      const want = affineFor(t.src.map((v) => v * 256), t.dst.map((v) => v * 512))!;
-      expect(tfs[i]).toBe('tf:' + want.map((v) => v.toFixed(3)).join(','));
-    });
-    expect(log.filter((l) => l === 'draw:0,0,256,256').length).toBe(n);
+  it('판 · 텍스처 크기가 달라도 같은 자리 — 판은 가로 · 세로를 제 크기로 잰다(정사각형이 아니어도)', () => {
+    const leftHalf = (w: number, h: number) => {
+      const p = pixels(w, h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w / 2; x++) p.data.set([0, 0, 255, 255], (y * w + x) * 4);
+      return p;
+    };
+    const centroids = (src: PixelsLike) => {
+      const dst = pixels(512, 512);
+      rasterFront(dst, map, src);
+      // 판 가운데 줄에서 먼 조각만 — 가운데 줄에 걸친 조각은 섞인 값이라 크기마다 조금 다르다
+      return map.tris
+        .filter((t) => Math.max(t.src[0]!, t.src[2]!, t.src[4]!) < 0.45 || Math.min(t.src[0]!, t.src[2]!, t.src[4]!) > 0.55)
+        .map((t) => {
+          const d = t.dst.map((v) => v * 512);
+          return alphaAt(dst, Math.floor((d[0]! + d[2]! + d[4]!) / 3), Math.floor((d[1]! + d[3]! + d[5]!) / 3));
+        });
+    };
+    const want = centroids(leftHalf(512, 512));
+    expect(want).toContain(255);
+    expect(want).toContain(0);
+    expect(centroids(leftHalf(256, 256))).toEqual(want);
+    expect(centroids(leftHalf(512, 128))).toEqual(want);
+    expect(centroids(leftHalf(128, 512))).toEqual(want);
   });
 
-  it('그림 · 크기가 없으면 아무것도 안 한다', () => {
-    const { ctx, log } = recorder();
-    expect(paintFront(ctx, map, null, 512, 512)).toBe(0);
-    expect(paintFront(ctx, map, {}, 0, 512)).toBe(0);
-    expect(paintFront(ctx, map, {}, 512, 0)).toBe(0);
-    expect(log).toEqual([]);
+  it('판과 텍스처가 같은 자리 · 같은 크기면 픽셀이 그대로 — 반 픽셀도 밀리지 않는다', () => {
+    const same: FrontMap = {
+      frame: map.frame,
+      tris: [
+        { src: [0, 0, 1, 0, 0, 1], dst: [0, 0, 1, 0, 0, 1] },
+        { src: [1, 0, 1, 1, 0, 1], dst: [1, 0, 1, 1, 0, 1] },
+      ],
+    };
+    const src = pixels(8, 8);
+    for (let i = 0; i < 64; i++) src.data.set((i + (i >> 3)) % 2 ? [255, 255, 255, 255] : [0, 0, 0, 255], i * 4);
+    const dst = pixels(8, 8);
+    rasterFront(dst, same, src);
+    expect(Array.from(dst.data)).toEqual(Array.from(src.data));
+  });
+
+  it('크기가 없으면 아무것도 안 한다', () => {
+    const dst = pixels(4, 4);
+    expect(rasterFront(dst, map, pixels(0, 0))).toBe(0);
+    expect(rasterFront(pixels(0, 0), map, pixels(4, 4))).toBe(0);
+    expect(dst.data.every((v) => v === 0)).toBe(true);
   });
 });
 

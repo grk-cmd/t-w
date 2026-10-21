@@ -1,6 +1,6 @@
 {
   "name": "@tw/char-core",
-  "version": "0.4.2",
+  "version": "0.5.0",
   "private": true,
   "description": "캐릭터 3D 코어 — 앱(apps/desktop)과 메인 홈페이지(apps/web)가 같이 쓰는 한 벌",
   "type": "module",

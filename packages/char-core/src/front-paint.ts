@@ -135,20 +135,14 @@ export function affineFor(src: number[], dst: number[]): [number, number, number
   return [a, b, c, d, u0 - a * x0 - c * y0, v0 - b * x0 - d * y0];
 }
 
-/** 그리기에 쓰는 2D 컨텍스트 몫 */
-export interface FrontCtxLike {
-  save(): void;
-  restore(): void;
-  beginPath(): void;
-  moveTo(x: number, y: number): void;
-  lineTo(x: number, y: number): void;
-  closePath(): void;
-  clip(): void;
-  setTransform(a: number, b: number, c: number, d: number, e: number, f: number): void;
-  drawImage(img: unknown, x: number, y: number, w: number, h: number): void;
+/** 픽셀 판 — ImageData 와 같은 모양(RGBA · 한 줄 width × 4 · 색은 미리 곱하지 않은 값) */
+export interface PixelsLike {
+  width: number;
+  height: number;
+  data: Uint8ClampedArray;
 }
 
-/* 조각 모서리마다 이만큼(텍스처 픽셀) 바깥으로 밀어 자른다 — 딱 맞게 자르면 이웃 조각 사이 반쯤 칠한 가장자리가 머리카락 같은 줄로 남는다.
+/* 조각 모서리마다 이만큼(텍스처 픽셀) 바깥으로 밀어 쓴다 — 딱 맞게 쓰면 이웃 조각 사이 픽셀이 비어 줄로 남는다.
    ⚠️ 가운데에서 키우는 방식으로 되돌리지 말 것 — 가는 조각은 모서리가 거의 안 밀려 줄이 다시 보인다. */
 export const FRONT_PAD_PX = 1;
 /* 뾰족한 꼭짓점은 밀린 두 모서리가 멀리서 만난다 — 꼭짓점이 이 배수보다 멀리 가지 않게 자른다 */
@@ -177,28 +171,69 @@ export function padTriangle(t: number[], px: number): number[] {
   return out;
 }
 
-/** 앞모습 판(src — 정사각형 그림 · 한 변 srcSize 픽셀)을 텍스처 캔버스(한 변 texSize)에 옮겨 그린다. 그린 조각 수.
-    ⚠️ ctx 는 단위 변환이어야 한다 — 조각마다 setTransform 으로 덮어쓰므로 미리 건 배율(dpr 등)은 자르기 경로에만 걸려 그림과 어긋난다. */
-export function paintFront(ctx: FrontCtxLike, map: FrontMap, src: unknown, srcSize: number, texSize: number): number {
-  if (!map || !src || !(srcSize > 0) || !(texSize > 0)) return 0;
+/** 앞모습 판(src 픽셀)을 얼굴 텍스처(dst 픽셀)로 옮겨 쓴다. 쓴 조각 수.
+    조각마다 padTriangle 로 민 삼각형 안의 픽셀을 «덮어쓴다»(섞지 않는다) — 캔버스로 잘라 그리면 겹친 띠에서 반투명 그림(볼터치 등)이
+    두 번 칠해지거나, 자른 가장자리가 반쯤 칠해져 줄이 남는다. 겹친 띠는 이웃 조각이 같은 자리를 거의 같은 값으로 다시 쓸 뿐이다. */
+export function rasterFront(dst: PixelsLike, map: FrontMap, src: PixelsLike): number {
+  if (!map || !(src.width > 0) || !(src.height > 0) || !(dst.width > 0) || !(dst.height > 0)) return 0;
+  const tw = dst.width, th = dst.height, out = dst.data;
+  const px = [0, 0, 0, 0];
   let drawn = 0;
   for (const t of map.tris) {
-    const s = t.src.map((v) => v * srcSize);
-    const d = t.dst.map((v) => v * texSize);
-    const m = affineFor(s, d);
-    if (!m) continue;
-    const clip = padTriangle(d, FRONT_PAD_PX);
-    ctx.save();
-    ctx.beginPath();
-    ctx.moveTo(clip[0] as number, clip[1] as number);
-    ctx.lineTo(clip[2] as number, clip[3] as number);
-    ctx.lineTo(clip[4] as number, clip[5] as number);
-    ctx.closePath();
-    ctx.clip();
-    ctx.setTransform(...m);
-    ctx.drawImage(src, 0, 0, srcSize, srcSize);
-    ctx.restore();
+    const d = [0, 2, 4].flatMap((i) => [(t.dst[i] as number) * tw, (t.dst[i + 1] as number) * th]);
+    const s = [0, 2, 4].flatMap((i) => [(t.src[i] as number) * src.width, (t.src[i + 1] as number) * src.height]);
+    const back = affineFor(d, s);
+    if (!back) continue;
+    const p = padTriangle(d, FRONT_PAD_PX) as [number, number, number, number, number, number];
+    const area = (p[2] - p[0]) * (p[5] - p[1]) - (p[4] - p[0]) * (p[3] - p[1]);
+    const sign = area > 0 ? 1 : -1;
+    const x0 = Math.max(0, Math.floor(Math.min(p[0], p[2], p[4]))), x1 = Math.min(tw - 1, Math.ceil(Math.max(p[0], p[2], p[4])));
+    const y0 = Math.max(0, Math.floor(Math.min(p[1], p[3], p[5]))), y1 = Math.min(th - 1, Math.ceil(Math.max(p[1], p[3], p[5])));
+    // 모서리마다 «안쪽이면 0 이상» 인 일차식 ex·x + ey·y + ec
+    const E: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      const ax = p[i * 2]!, ay = p[i * 2 + 1]!, bx = p[((i + 1) % 3) * 2]!, by = p[((i + 1) % 3) * 2 + 1]!;
+      E.push(-(by - ay) * sign, (bx - ax) * sign, ((by - ay) * ax - (bx - ax) * ay) * sign);
+    }
+    for (let y = y0; y <= y1; y++) {
+      const cy = y + 0.5;
+      for (let x = x0; x <= x1; x++) {
+        const cx = x + 0.5;
+        if (E[0]! * cx + E[1]! * cy + E[2]! < 0 || E[3]! * cx + E[4]! * cy + E[5]! < 0 || E[6]! * cx + E[7]! * cy + E[8]! < 0)
+          continue;
+        sample(src, back[0] * cx + back[2] * cy + back[4], back[1] * cx + back[3] * cy + back[5], px);
+        const o = (y * tw + x) * 4;
+        out[o] = px[0]!;
+        out[o + 1] = px[1]!;
+        out[o + 2] = px[2]!;
+        out[o + 3] = px[3]!;
+      }
+    }
     drawn++;
   }
   return drawn;
+}
+
+/** 판 좌표(픽셀 가장자리 기준)의 색 — 이웃 넷을 섞되 알파를 곱해 섞는다(투명한 이웃의 색이 테두리에 번지지 않게) */
+function sample(src: PixelsLike, x: number, y: number, out: number[]) {
+  const fx = x - 0.5, fy = y - 0.5;
+  const ix = Math.floor(fx), iy = Math.floor(fy), ax = fx - ix, ay = fy - iy;
+  let r = 0, g = 0, b = 0, a = 0;
+  for (let k = 0; k < 4; k++) {
+    const sx = Math.min(src.width - 1, Math.max(0, ix + (k & 1)));
+    const sy = Math.min(src.height - 1, Math.max(0, iy + (k >> 1)));
+    const w = (k & 1 ? ax : 1 - ax) * (k >> 1 ? ay : 1 - ay);
+    const o = (sy * src.width + sx) * 4;
+    const wa = (src.data[o + 3] as number) * w;
+    r += (src.data[o] as number) * wa;
+    g += (src.data[o + 1] as number) * wa;
+    b += (src.data[o + 2] as number) * wa;
+    a += wa;
+  }
+  if (a > 0) {
+    out[0] = r / a;
+    out[1] = g / a;
+    out[2] = b / a;
+  } else out[0] = out[1] = out[2] = 0;
+  out[3] = a;
 }

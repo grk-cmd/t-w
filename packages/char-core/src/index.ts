@@ -38,8 +38,8 @@ export {
   fixMatLighting,
 } from './lighting';
 export type { LitMaterialLike } from './lighting';
-export { frontMap, paintFront, affineFor, padTriangle, FRONT_PAD_PX } from './front-paint';
-export type { FrontMap, FrontTri, FrontFrame, FrontOptions, FrontCtxLike, FrontGeometryLike } from './front-paint';
+export { frontMap, rasterFront, affineFor, padTriangle, FRONT_PAD_PX } from './front-paint';
+export type { FrontMap, FrontTri, FrontFrame, FrontOptions, PixelsLike, FrontGeometryLike } from './front-paint';
 export { createParts } from './parts';
 export type { Parts, PartsDeps, PrepareHooks, RigOptions, DefaultOffsets, PartXf, XfOptions } from './parts';
 export type { Face, FaceDeps, CanvasLike } from './face';

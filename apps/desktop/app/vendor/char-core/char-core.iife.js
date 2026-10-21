@@ -1,4 +1,4 @@
-/* @tw/char-core 0.4.2 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
+/* @tw/char-core 0.5.0 — 생성 파일 · 고치지 말 것(packages/char-core 에서 npm run build) */
 "use strict";
 var TwCharCore = (() => {
   var __defProp = Object.defineProperty;
@@ -57,7 +57,7 @@ var TwCharCore = (() => {
     flatEmissive: () => flatEmissive,
     frontMap: () => frontMap,
     padTriangle: () => padTriangle,
-    paintFront: () => paintFront,
+    rasterFront: () => rasterFront,
     unb64: () => unb64,
     uvFill: () => uv_fill_exports
   });
@@ -1070,28 +1070,65 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
     }
     return out;
   }
-  function paintFront(ctx, map, src, srcSize, texSize) {
-    if (!map || !src || !(srcSize > 0) || !(texSize > 0)) return 0;
+  function rasterFront(dst, map, src) {
+    if (!map || !(src.width > 0) || !(src.height > 0) || !(dst.width > 0) || !(dst.height > 0)) return 0;
+    const tw = dst.width, th = dst.height, out = dst.data;
+    const px = [0, 0, 0, 0];
     let drawn = 0;
     for (const t of map.tris) {
-      const s = t.src.map((v) => v * srcSize);
-      const d = t.dst.map((v) => v * texSize);
-      const m = affineFor(s, d);
-      if (!m) continue;
-      const clip = padTriangle(d, FRONT_PAD_PX);
-      ctx.save();
-      ctx.beginPath();
-      ctx.moveTo(clip[0], clip[1]);
-      ctx.lineTo(clip[2], clip[3]);
-      ctx.lineTo(clip[4], clip[5]);
-      ctx.closePath();
-      ctx.clip();
-      ctx.setTransform(...m);
-      ctx.drawImage(src, 0, 0, srcSize, srcSize);
-      ctx.restore();
+      const d = [0, 2, 4].flatMap((i) => [t.dst[i] * tw, t.dst[i + 1] * th]);
+      const s = [0, 2, 4].flatMap((i) => [t.src[i] * src.width, t.src[i + 1] * src.height]);
+      const back = affineFor(d, s);
+      if (!back) continue;
+      const p = padTriangle(d, FRONT_PAD_PX);
+      const area = (p[2] - p[0]) * (p[5] - p[1]) - (p[4] - p[0]) * (p[3] - p[1]);
+      const sign = area > 0 ? 1 : -1;
+      const x0 = Math.max(0, Math.floor(Math.min(p[0], p[2], p[4]))), x1 = Math.min(tw - 1, Math.ceil(Math.max(p[0], p[2], p[4])));
+      const y0 = Math.max(0, Math.floor(Math.min(p[1], p[3], p[5]))), y1 = Math.min(th - 1, Math.ceil(Math.max(p[1], p[3], p[5])));
+      const E = [];
+      for (let i = 0; i < 3; i++) {
+        const ax = p[i * 2], ay = p[i * 2 + 1], bx = p[(i + 1) % 3 * 2], by = p[(i + 1) % 3 * 2 + 1];
+        E.push(-(by - ay) * sign, (bx - ax) * sign, ((by - ay) * ax - (bx - ax) * ay) * sign);
+      }
+      for (let y = y0; y <= y1; y++) {
+        const cy = y + 0.5;
+        for (let x = x0; x <= x1; x++) {
+          const cx = x + 0.5;
+          if (E[0] * cx + E[1] * cy + E[2] < 0 || E[3] * cx + E[4] * cy + E[5] < 0 || E[6] * cx + E[7] * cy + E[8] < 0)
+            continue;
+          sample(src, back[0] * cx + back[2] * cy + back[4], back[1] * cx + back[3] * cy + back[5], px);
+          const o = (y * tw + x) * 4;
+          out[o] = px[0];
+          out[o + 1] = px[1];
+          out[o + 2] = px[2];
+          out[o + 3] = px[3];
+        }
+      }
       drawn++;
     }
     return drawn;
+  }
+  function sample(src, x, y, out) {
+    const fx = x - 0.5, fy = y - 0.5;
+    const ix = Math.floor(fx), iy = Math.floor(fy), ax = fx - ix, ay = fy - iy;
+    let r = 0, g = 0, b = 0, a = 0;
+    for (let k = 0; k < 4; k++) {
+      const sx = Math.min(src.width - 1, Math.max(0, ix + (k & 1)));
+      const sy = Math.min(src.height - 1, Math.max(0, iy + (k >> 1)));
+      const w = (k & 1 ? ax : 1 - ax) * (k >> 1 ? ay : 1 - ay);
+      const o = (sy * src.width + sx) * 4;
+      const wa = src.data[o + 3] * w;
+      r += src.data[o] * wa;
+      g += src.data[o + 1] * wa;
+      b += src.data[o + 2] * wa;
+      a += wa;
+    }
+    if (a > 0) {
+      out[0] = r / a;
+      out[1] = g / a;
+      out[2] = b / a;
+    } else out[0] = out[1] = out[2] = 0;
+    out[3] = a;
   }
 
   // src/parts.ts
@@ -1426,7 +1463,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
 
   // src/index.ts
   var THREE_REVISION = "128";
-  var VERSION = "0.4.2";
+  var VERSION = "0.5.0";
   function createCharCore(deps) {
     const THREE = deps?.THREE;
     if (!THREE) throw new Error("char-core: deps.THREE 가 필요하다");
