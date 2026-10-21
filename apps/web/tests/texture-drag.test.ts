@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_STATE, reduce } from '@/features/character-maker';
+import { DEFAULT_STATE, layerOfTab, reduce } from '@/features/character-maker';
 import { FACE_UNITS, LIMITS, SLOT } from '@/features/character-maker/model/catalog';
 import { dragTo, pickSide, sideCenter } from '@/features/character-maker/model/drag';
 
@@ -35,6 +35,9 @@ describe('텍스처 끌기 — 끈 만큼', () => {
       lock: null,
     });
   });
+  it('반올림이 −0 을 내지 않는다', () => {
+    expect(Object.is(dragTo(one, { x: 0, y: 0 }, { x: -0.3, y: -0.2 }, false).x, 0)).toBe(true);
+  });
   it('Shift 면 많이 움직인 쪽 하나로만', () => {
     expect(dragTo(one, { x: 0, y: 0 }, { x: 10, y: 3 }, true)).toEqual({ x: 10, y: 0, lock: 'x' });
     expect(dragTo(one, { x: 0, y: 0 }, { x: 2, y: -9 }, true)).toEqual({ x: 0, y: -9, lock: 'y' });
@@ -55,6 +58,16 @@ describe('move 동작', () => {
     expect(reduce(S, { t: 'move', kind: 'eyes', side: 'L', x: 0, y: 0 })).toBe(S);
     expect(reduce(S, { t: 'move', kind: 'eyes', side: 'L', x: NaN, y: 1 })).toBe(S);
     expect(reduce(S, { t: 'move', kind: 'mouth', side: 'L', x: 3, y: 3 })).toBe(S);
+  });
+});
+
+describe('탭 → 끌 레이어', () => {
+  it('얼굴 레이어 탭만 레이어 · 나머지는 null', () => {
+    expect(layerOfTab('eyes')).toBe('eyes');
+    expect(layerOfTab('cheek')).toBe('cheek');
+    expect(layerOfTab('skin')).toBeNull();
+    expect(layerOfTab('image')).toBeNull();
+    expect(layerOfTab('cloth')).toBeNull();
   });
 });
 

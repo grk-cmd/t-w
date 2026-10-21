@@ -11,6 +11,8 @@ const VIEW = 146;
 const GUIDE = '#C2185B';
 
 interface Drag {
+  /** 누를 때의 레이어 — 끄는 중에 탭이 바뀌어도 잡은 레이어를 옮긴다 */
+  kind: LayerKind;
   side: Side;
   from: Pt;
   start: Adjust;
@@ -50,8 +52,8 @@ function FaceCanvas({
     ctx.fillRect(0, 0, FACE_UNITS, FACE_UNITS);
     drawFace(ctx, s, expr, { image });
     // Shift 로 곧게 끌 때 — 움직이는 줄을 보여 준다
-    if (drag?.lock && kind) {
-      const p = sideCenter(s, kind, drag.side);
+    if (drag?.lock) {
+      const p = sideCenter(s, drag.kind, drag.side);
       if (p) {
         ctx.strokeStyle = GUIDE;
         ctx.lineWidth = 1.2;
@@ -68,7 +70,7 @@ function FaceCanvas({
         ctx.setLineDash([]);
       }
     }
-  }, [s, expr, image, skinColor, drag, kind]);
+  }, [s, expr, image, skinColor, drag]);
 
   const toUnits = (e: PointerEvent<HTMLCanvasElement>): Pt => {
     const r = e.currentTarget.getBoundingClientRect();
@@ -95,13 +97,13 @@ function FaceCanvas({
           if (!start) return;
           e.currentTarget.setPointerCapture(e.pointerId);
           e.preventDefault();
-          setDrag({ side, from, start, lock: null });
+          setDrag({ kind, side, from, start, lock: null });
         }}
         onPointerMove={(e) => {
-          if (!drag || !kind) return;
+          if (!drag) return;
           const to = dragTo(drag.start, drag.from, toUnits(e), e.shiftKey);
           if (to.lock !== drag.lock) setDrag({ ...drag, lock: to.lock });
-          ops.live({ t: 'move', kind, side: drag.side, x: to.x, y: to.y });
+          ops.live({ t: 'move', kind: drag.kind, side: drag.side, x: to.x, y: to.y });
         }}
         onPointerUp={() => {
           if (!drag) return;

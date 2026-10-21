@@ -43,5 +43,6 @@ export function dragTo(
     if (lock === 'x') dy = 0;
     else dx = 0;
   }
-  return { x: Math.round(start.x + dx), y: Math.round(start.y + dy), lock };
+  // + 0: 반올림이 −0 을 내도 0 으로(거울 계산과 같은 규칙)
+  return { x: Math.round(start.x + dx) + 0, y: Math.round(start.y + dy) + 0, lock };
 }
