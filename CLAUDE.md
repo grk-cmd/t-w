@@ -31,7 +31,7 @@
 - 관리자 Google 계정으로 `gcloud auth login` 한 사람만 쓴다. 처음 한 번 `node scripts/todo.js setup`. 세션 시작 때 진행 중인 할 일이 자동으로 보인다(관리자가 아니면 조용히 안 나온다).
 
 ## 구조
-저장소 맨 위(#431): 앱(Electron)은 `apps/desktop/` · 웹 관리자는 `apps/admin/` · 메인 홈페이지는 `apps/web/`(빈 자리) · 앱과 웹이 같이 쓰는 라이브러리는 `packages/`(빈 자리) · Firebase(규칙 · 함수 · Hosting · `firebase.json`)는 `firebase/` · 검사 `checks/` · 공용 도구 `scripts/` · 문서 `docs/`. 루트 `package.json` 은 npm workspaces(`apps/web` · `packages/*`)와 명령 모음이다 — 앱 · 웹 관리자는 각자 자기 `package.json` · `package-lock.json` 을 쓴다(앱 버전도 `apps/desktop/package.json`).
+저장소 맨 위(#431): 앱(Electron)은 `apps/desktop/` · 웹 관리자는 `apps/admin/` · 메인 홈페이지는 `apps/web/`(React + Vite + TS · 언어마다 미리 그린 HTML — 안내 `apps/web/README.md`) · 앱과 웹이 같이 쓰는 라이브러리는 `packages/` · Firebase(규칙 · 함수 · Hosting · `firebase.json`)는 `firebase/` · 검사 `checks/` · 공용 도구 `scripts/` · 문서 `docs/`. 루트 `package.json` 은 npm workspaces(`apps/web` · `packages/*`)와 명령 모음이다 — 앱 · 웹 관리자는 각자 자기 `package.json` · `package-lock.json` 을 쓴다(앱 버전도 `apps/desktop/package.json`).
 
 | 위치 | 내용 |
 |---|---|
@@ -153,6 +153,12 @@ npm run check        # 검사 전체 — 마지막 줄 «빨강 0» 이면 통�
 npm run admin:dev    # 로컬 개발 서버 (dev DB · firebase login 필요) → http://localhost:5173/admin/
 npm run admin:test   # vitest
 npm --prefix apps/admin run lint   # oxlint + steiger(FSD 층 규칙) — CI 에서도 돈다
+
+# 메인 홈페이지(apps/web — 루트 workspaces 라 루트에서 npm install --ignore-scripts)
+npm -w @tw/web run dev             # http://localhost:5173/
+npm -w @tw/web test                # vitest
+npm -w @tw/web run lint            # oxlint + steiger — CI 에서도 돈다
+npm -w @tw/web run build           # dist/ (ko · en · ja 미리 그리기)
 
 # 캐릭터 코어(packages/char-core)
 npm -w @tw/char-core test          # vitest
