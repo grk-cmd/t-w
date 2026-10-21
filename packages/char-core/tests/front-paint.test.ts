@@ -154,7 +154,7 @@ describe('rasterFront', () => {
     const src = pixels(512, 512, [255, 0, 0, 153]);
     const dst = pixels(512, 512);
     const n = rasterFront(dst, map, src);
-    expect(n).toBe(map.tris.filter((t) => affineFor(t.src.map((v) => v * 512), t.dst.map((v) => v * 512))).length);
+    expect(n).toBe(map.tris.filter((t) => affineFor(t.dst.map((v) => v * 512), t.src.map((v) => v * 512))).length);
     const seen = new Set<string>();
     for (let i = 0; i < dst.data.length; i += 4)
       if (dst.data[i + 3]) seen.add(Array.from(dst.data.subarray(i, i + 4)).join(','));
@@ -195,12 +195,44 @@ describe('rasterFront', () => {
     expect(rightOk).toBe(right);
   });
 
-  it('판 · 텍스처 크기가 달라도 같은 자리 — 판 256 · 텍스처 512', () => {
-    const big = pixels(512, 512);
-    rasterFront(big, map, pixels(512, 512, [10, 20, 30, 200]));
-    const small = pixels(512, 512);
-    rasterFront(small, map, pixels(256, 256, [10, 20, 30, 200]));
-    expect(Array.from(small.data)).toEqual(Array.from(big.data));
+  it('판 · 텍스처 크기가 달라도 같은 자리 — 판은 가로 · 세로를 제 크기로 잰다(정사각형이 아니어도)', () => {
+    const leftHalf = (w: number, h: number) => {
+      const p = pixels(w, h);
+      for (let y = 0; y < h; y++) for (let x = 0; x < w / 2; x++) p.data.set([0, 0, 255, 255], (y * w + x) * 4);
+      return p;
+    };
+    const centroids = (src: PixelsLike) => {
+      const dst = pixels(512, 512);
+      rasterFront(dst, map, src);
+      // 판 가운데 줄에서 먼 조각만 — 가운데 줄에 걸친 조각은 섞인 값이라 크기마다 조금 다르다
+      return map.tris
+        .filter((t) => Math.max(t.src[0]!, t.src[2]!, t.src[4]!) < 0.45 || Math.min(t.src[0]!, t.src[2]!, t.src[4]!) > 0.55)
+        .map((t) => {
+          const d = t.dst.map((v) => v * 512);
+          return alphaAt(dst, Math.floor((d[0]! + d[2]! + d[4]!) / 3), Math.floor((d[1]! + d[3]! + d[5]!) / 3));
+        });
+    };
+    const want = centroids(leftHalf(512, 512));
+    expect(want).toContain(255);
+    expect(want).toContain(0);
+    expect(centroids(leftHalf(256, 256))).toEqual(want);
+    expect(centroids(leftHalf(512, 128))).toEqual(want);
+    expect(centroids(leftHalf(128, 512))).toEqual(want);
+  });
+
+  it('판과 텍스처가 같은 자리 · 같은 크기면 픽셀이 그대로 — 반 픽셀도 밀리지 않는다', () => {
+    const same: FrontMap = {
+      frame: map.frame,
+      tris: [
+        { src: [0, 0, 1, 0, 0, 1], dst: [0, 0, 1, 0, 0, 1] },
+        { src: [1, 0, 1, 1, 0, 1], dst: [1, 0, 1, 1, 0, 1] },
+      ],
+    };
+    const src = pixels(8, 8);
+    for (let i = 0; i < 64; i++) src.data.set((i + (i >> 3)) % 2 ? [255, 255, 255, 255] : [0, 0, 0, 255], i * 4);
+    const dst = pixels(8, 8);
+    rasterFront(dst, same, src);
+    expect(Array.from(dst.data)).toEqual(Array.from(src.data));
   });
 
   it('크기가 없으면 아무것도 안 한다', () => {
