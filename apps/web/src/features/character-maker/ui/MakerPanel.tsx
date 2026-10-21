@@ -15,6 +15,13 @@ import { drawItemThumb } from '../lib/draw-front';
 import { fileToFaceImage } from '../lib/load-image';
 
 type Tab = 'skin' | LayerKind | 'image' | 'cloth';
+
+/** 고르기 판이 상태를 바꾸는 길 — act 는 한 번에 한 기록, live 는 끄는 동안(놓을 때 commit 이 한 기록으로 쌓는다) */
+export interface MakerActions {
+  act: (a: Action) => void;
+  live: (a: Action) => void;
+  commit: () => void;
+}
 const TABS: readonly Tab[] = ['skin', 'eyes', 'brows', 'mouth', 'cheek', 'image', 'cloth'];
 
 function ItemThumb({ kind, id, color }: { kind: LayerKind; id: string; color: string }) {
@@ -37,7 +44,8 @@ function Swatches({
   colors: readonly string[];
   value: string;
   onPick: (c: string) => void;
-  custom?: string;
+  /** 색 고르개 — 끄는 동안 live, 닫으면 commit */
+  custom?: { label: string; live: (c: string) => void; commit: () => void };
 }) {
   return (
     <div className="swatches" role="group" aria-label={label}>
@@ -54,21 +62,28 @@ function Swatches({
       ))}
       {custom && (
         <label className="sw-custom">
-          <input type="color" value={value} onChange={(e) => onPick(e.currentTarget.value)} />
-          {custom}
+          <input
+            type="color"
+            value={value}
+            onChange={(e) => custom.live(e.currentTarget.value)}
+            onBlur={custom.commit}
+          />
+          {custom.label}
         </label>
       )}
     </div>
   );
 }
 
-function AdjustBox({ kind, s, act }: { kind: LayerKind; s: CreatorState; act: (a: Action) => void }) {
+function AdjustBox({ kind, s, ops }: { kind: LayerKind; s: CreatorState; ops: MakerActions }) {
   const { m } = useI18n();
   const c = m.creator;
   const base = useId();
   const paired = PAIRED[kind];
   const [side, setSide] = useState<Side>(paired ? 'L' : 'C');
-  const cur = s.adj[kind][paired ? side : 'C'];
+  // 대칭이면 왼쪽 짝을 보고 고친다(오른쪽은 거울로 따라간다) — 보는 짝과 고치는 짝이 늘 같아야 한다
+  const shown: Side = paired ? (s.sym ? 'L' : side) : 'C';
+  const cur = s.adj[kind][shown];
   if (!cur) return null;
   const rows: [keyof Adjust, string, number][] = [
     ['x', c.adjX, 1],
@@ -86,7 +101,7 @@ function AdjustBox({ kind, s, act }: { kind: LayerKind; s: CreatorState; act: (a
               className="btn"
               type="button"
               aria-pressed={s.sym}
-              onClick={() => act({ t: 'sym', on: !s.sym })}
+              onClick={() => ops.act({ t: 'sym', on: !s.sym })}
             >
               {c.sym}
             </button>
@@ -112,7 +127,7 @@ function AdjustBox({ kind, s, act }: { kind: LayerKind; s: CreatorState; act: (a
             )}
           </>
         )}
-        <button className="btn" type="button" onClick={() => act({ t: 'resetAdjust', kind })}>
+        <button className="btn" type="button" onClick={() => ops.act({ t: 'resetAdjust', kind })}>
           {c.reset}
         </button>
       </div>
@@ -127,14 +142,10 @@ function AdjustBox({ kind, s, act }: { kind: LayerKind; s: CreatorState; act: (a
             step={step}
             value={cur[key]}
             onChange={(e) =>
-              act({
-                t: 'adjust',
-                kind,
-                side: paired ? (s.sym ? 'L' : side) : 'C',
-                key,
-                value: Number(e.currentTarget.value),
-              })
+              ops.live({ t: 'adjust', kind, side: shown, key, value: Number(e.currentTarget.value) })
             }
+            onPointerUp={ops.commit}
+            onBlur={ops.commit}
           />
           <output>{key === 's' ? cur[key].toFixed(2) : Math.round(cur[key])}</output>
         </div>
@@ -223,14 +234,15 @@ const itemName = (lang: Lang, n: Record<Lang, string>) => n[lang];
 /** 고르기 판 — 탭(피부 · 눈 · 눈썹 · 입 · 볼 · 내 그림 · 옷 색) */
 export function MakerPanel({
   s,
-  act,
+  ops,
   skinSwatches,
 }: {
   s: CreatorState;
-  act: (a: Action) => void;
+  ops: MakerActions;
   /** 피부 번호 차례의 단추 색 */
   skinSwatches: readonly string[];
 }) {
+  const act = ops.act;
   const { lang, m } = useI18n();
   const c = m.creator;
   const base = useId();
@@ -305,7 +317,7 @@ export function MakerPanel({
                 />
               </>
             )}
-            <AdjustBox key={tab} kind={tab} s={s} act={act} />
+            <AdjustBox key={tab} kind={tab} s={s} ops={ops} />
           </>
         )}
         {tab === 'image' && <ImageBox s={s} act={act} />}
@@ -316,7 +328,11 @@ export function MakerPanel({
               label={c.topLabel}
               colors={TOP_COLORS}
               value={s.top}
-              custom={c.customColor}
+              custom={{
+                label: c.customColor,
+                live: (col) => ops.live({ t: 'cloth', part: 'top', color: col }),
+                commit: ops.commit,
+              }}
               onPick={(col) => act({ t: 'cloth', part: 'top', color: col })}
             />
             <p className="group-l">{c.botLabel}</p>
@@ -324,7 +340,11 @@ export function MakerPanel({
               label={c.botLabel}
               colors={BOT_COLORS}
               value={s.bot}
-              custom={c.customColor}
+              custom={{
+                label: c.customColor,
+                live: (col) => ops.live({ t: 'cloth', part: 'bot', color: col }),
+                commit: ops.commit,
+              }}
               onPick={(col) => act({ t: 'cloth', part: 'bot', color: col })}
             />
           </>

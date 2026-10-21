@@ -60,7 +60,8 @@ export function Creator() {
 function CreatorReady({ kit }: { kit: CharKit }) {
   const { m } = useI18n();
   const c = m.creator;
-  const { state, canUndo, act, undo, random, reset } = useMaker();
+  const { state, canUndo, act, live, commit, undo, random, reset } = useMaker();
+  const ops = useMemo(() => ({ act, live, commit }), [act, live, commit]);
   const [expr, setExpr] = useState<Expr>('open');
   const [exporting, setExporting] = useState(false);
   const tex = useMemo(() => createFaceTextures(kit), [kit]);
@@ -133,7 +134,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
         </div>
       </div>
       <div className="side">
-        <MakerPanel s={state} act={act} skinSwatches={kit.skinSwatches} />
+        <MakerPanel s={state} ops={ops} skinSwatches={kit.skinSwatches} />
         <button className="btn default export" type="button" onClick={() => setExporting(true)}>
           <b>{c.exportBtn}</b>
           <small>{c.exportSub}</small>

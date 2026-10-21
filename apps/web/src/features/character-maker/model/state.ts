@@ -76,19 +76,26 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 export function reduce(s: CreatorState, a: Action): CreatorState {
   switch (a.t) {
     case 'item':
-      if (!LAYERS[a.kind].some((it) => it.id === a.id)) return s;
+      if (s[a.kind] === a.id || !LAYERS[a.kind].some((it) => it.id === a.id)) return s;
       return { ...s, [a.kind]: a.id };
     case 'eyeColor':
-      return HEX.test(a.color) ? { ...s, eyeColor: a.color } : s;
+      return HEX.test(a.color) && a.color !== s.eyeColor ? { ...s, eyeColor: a.color } : s;
     case 'skin':
-      return Number.isInteger(a.skin) && a.skin >= 0 && a.skin < SKIN_COUNT ? { ...s, skin: a.skin } : s;
-    case 'cloth':
-      return HEX.test(a.color) ? { ...s, [a.part]: a.color.toLowerCase() } : s;
+      return Number.isInteger(a.skin) && a.skin >= 0 && a.skin < SKIN_COUNT && a.skin !== s.skin
+        ? { ...s, skin: a.skin }
+        : s;
+    case 'cloth': {
+      if (!HEX.test(a.color)) return s;
+      const c = a.color.toLowerCase();
+      return c === s[a.part] ? s : { ...s, [a.part]: c };
+    }
     case 'adjust': {
       if (!Number.isFinite(a.value)) return s;
       const cur = s.adj[a.kind][a.side];
       if (!cur) return s;
-      const next = { ...cur, [a.key]: clamp(a.value, LIMITS[a.key]) };
+      const v = clamp(a.value, LIMITS[a.key]);
+      if (v === cur[a.key]) return s;
+      const next = { ...cur, [a.key]: v };
       const set: AdjustSet = { ...s.adj[a.kind], [a.side]: next };
       // 대칭이면 반대 짝도 거울로 따라간다
       if (s.sym && a.side !== 'C') set[a.side === 'L' ? 'R' : 'L'] = mirrorAdjust(next);
@@ -96,8 +103,17 @@ export function reduce(s: CreatorState, a: Action): CreatorState {
     }
     case 'resetAdjust':
       return { ...s, adj: { ...s.adj, [a.kind]: freshAdjust()[a.kind] } };
-    case 'sym':
-      return { ...s, sym: a.on };
+    case 'sym': {
+      if (a.on === s.sym) return s;
+      if (!a.on) return { ...s, sym: false };
+      // 다시 켜면 오른쪽 짝을 왼쪽의 거울로 맞춘다 — 따로 고친 오른쪽이 남으면 다음 조정 때 갑자기 뛴다
+      const adj = { ...s.adj };
+      for (const k of KINDS) {
+        const L = adj[k].L;
+        if (PAIRED[k] && L) adj[k] = { ...adj[k], R: mirrorAdjust(L) };
+      }
+      return { ...s, sym: true, adj };
+    }
     case 'image':
       return { ...s, img: a.img };
     case 'replace':
