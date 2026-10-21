@@ -65,7 +65,7 @@
 **책임** — 화면 밝기의 손잡이 하나(`TONE_FRONT_TOTAL` — 카메라를 보는 흰 면이 받는 빛의 총합)에서 플랫 조명 몫(`FLAT_EMISSIVE`)을 계산하고,
 아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조)은 캐릭터 코어 `tone.ts` 이고,
 여기서 `FLAT_EMISSIVE` 로 코어 톤을 만들어 `toneCore` 로 내놓는다(앱의 다른 곳은 그것을 deps 로 받는다).
-숫자(`LIGHT_PRESET` · `TONE_FRONT_TOTAL` · 조명 배율)와 플랫 몫 계산식 · 재질 고치기(`fixMatLighting`)는 캐릭터 코어 `lighting.ts` 한 벌 — 웹 생성기도 같은 것을 쓴다.
+숫자(`LIGHT_PRESET` · `CREATOR_LIGHT_SL` · `TONE_FRONT_TOTAL` · 조명 배율)와 플랫 몫 계산식 · 재질 고치기(`fixMatLighting`)는 캐릭터 코어 `lighting.ts` 한 벌 — 웹 생성기도 같은 것을 쓴다.
 
 **만드는 법** — app.js «관리자 모드» 머리 바로 앞:
 
@@ -84,6 +84,7 @@ const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js
 | 이름 | 뜻 |
 |---|---|
 | `LIGHT_PRESET` | 생성기 · 미리보기 조명 프리셋 `{b, h, e}`(코어 — 얼려 있다) |
+| `CREATOR_LIGHT_SL` | 생성기 미리보기 빛의 채도 · 명도 `{s, l}`(코어 — 색상은 `LIGHT_PRESET.h`) |
 | `TONE_FRONT_TOTAL` | 밝기 손잡이(1.0 = 텍스처 값 그대로) |
 | `FLAT_EMISSIVE` | `max(0, 총합 − 0.95×주광 − 주광×채움)` — 조명이 받고 남는 몫 |
 | `toneCore` | 캐릭터 코어 재질 톤(`createTone`) — matToneMod · partsCore 가 deps 로 받는다 |
