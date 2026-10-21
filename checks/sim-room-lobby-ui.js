@@ -146,7 +146,8 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   chk(cards.length === 5 && cards[0].className === 'lb-card' && t.log.lists.join() === 'workingroom', '모달을 열면 워킹룸 목록을 읽어 카드 5장');
   chk(t.$('lobbyInfo').textContent === '워킹룸 공개 방 5개 · 빈자리 있는 방 4개' && t.$('lobbyPage').textContent === '1 / 1', '  위 줄 · 쪽 표시');
   chk(cards[4].disabled && cards[4].className.includes('full') && cards[4].textContent.includes('가득 참'), '  가득 찬 방은 눌리지 않는다');
-  chk(cards[0].children[0].className === 'lb-band' && cards[0].children[0].textContent === '입장 가능' && cards[4].children[0].textContent === '가득 참'
+  chk(cards[0].children[0].children[0].textContent === 'CC33' && cards[4].children[0].children[0].textContent === '', '★ 띠 왼쪽에 방 코드 네 글자(접두어 뗌) — 가득 찬 방은 코드를 안 보인다');
+  chk(cards[0].children[0].className === 'lb-band' && cards[0].children[0].textContent === 'CC33입장 가능' && cards[4].children[0].textContent === '가득 참'
     && cards.every((c) => (c.textContent.match(/입장 가능|가득 참/g) || []).length === 1), '★ 카드 위 띠에 «입장 가능» · «가득 참» — 한 카드에 한 번만');
   chk(!t.$('lobbySecret').hidden && t.$('lobbySecretName').textContent === '<b>우리</b>' && t.$('lobbySecretCount').textContent === '손님 2/9', '★ 내 시크릿룸 줄 — 이름은 글로만(HTML 로 안 읽힘) · 손님 수/손님 정원');
   cards[0].onclick(); cards[0].onclick();

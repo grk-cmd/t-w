@@ -58,13 +58,17 @@ function el(tag, cls, text){
   return e;
 }
 
-// 카드 = 위 띠(입장 가능 / 가득 참 — 색 + 낱말) + 몸(번호 · 제목 · 방장 · 인원)
+// 카드 = 위 띠(왼쪽 방 코드 네 글자 · 오른쪽 입장 가능 / 가득 참) + 몸(번호 · 제목 · 방장 · 인원). 가득 찬 방은 코드를 안 보인다(못 들어가니)
+/** 방 코드에서 접두어(WORK- · COZY- …)를 뗀 네 글자 — 코드 칸에 치는 글자와 같다 */
+function shortCode(code){ return String(code).replace(/^[A-Z]+-/, ''); }
+
 function cardEl(c){
   const b = el('button', 'lb-card' + (c.full ? ' full' : ''));
   b.type = 'button';
   b.disabled = c.full;
   b.title = c.full ? '가득 찼어요' : c.title;
   const band = el('span', 'lb-band');
+  band.appendChild(el('span', 'lb-code', c.full ? '' : shortCode(c.code)));
   band.appendChild(el('span', 'lb-state', c.full ? '가득 참' : '입장 가능'));
   b.appendChild(band);
   const body = el('span', 'lb-body');
