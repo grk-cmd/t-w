@@ -129,7 +129,7 @@
 | **sim-room-meta-cleanup.js** | 320 | **ebafe187a9ad** |
 | **sim-room-stats.js** | 226 | **4a6196ea1d08** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
-| **sim-room-settings.js** | 210 | **b98bc13b35e5** |
+| **sim-room-settings.js** | 211 | **89958d2ed9a1** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |

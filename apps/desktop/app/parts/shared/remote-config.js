@@ -52,7 +52,7 @@ const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'fr
 const SOURCE_FEATURES = Object.freeze(['friends', 'rooms', 'catalog']);
 const DATA_ROUTES_MAX = 200;      // 범용 통로 표 줄 수 상한(data-gateway.js ROUTE_MAX 와 같은 값)
 const DATA_ROUTE_LEN_MAX = 200;   // 한 줄 길이 상한(규칙 config/dataRoutes/$i 와 같은 값)
-const BANNED_WORDS_MAX = 1000;    // 금칙어 줄 수 상한(규칙 config/bannedWords/$i 0~999 와 같은 값)
+const BANNED_WORDS_MAX = 500;     // 금칙어 줄 수 상한(규칙 config/bannedWords/$i 0~499 · 판정 banned-words.js BANNED_MAX 와 같은 값)
 const BANNED_WORD_LEN_MAX = 20;   // 한 낱말 길이 상한(규칙과 같은 값)
 const DEFAULTS = Object.freeze({
   roomLimits: Object.freeze({ workingroom: 300, togetherroom: 300 }),
