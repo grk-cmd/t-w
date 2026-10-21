@@ -128,6 +128,7 @@
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
 | **sim-room-meta-cleanup.js** | 320 | **90868b878de9** |
 | **sim-room-stats.js** | 226 | **3ca0e9bad691** |
+| **sim-room-lobby.js** | 194 | **cf336bea3474** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
@@ -409,7 +410,7 @@
 | **sim-seat-panel.js** | 163 | **2f9bad25ac96** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
 | **sim-chip-popups.js** | 128 | **f9e9fcf20acd** |
-| **sim-rules-keys.js** | 308 | **e497eeedc751** |
+| **sim-rules-keys.js** | 308 | **9e2236694f01** |
 | **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 234 | **ce652588740d** |
