@@ -1923,10 +1923,11 @@ return {
   setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정 — 계정 이어받기
   blankSets: _plBlankSets,                         // 🎵 빈 세 벌 — 로그아웃
   pubSigOf: _plPubSigOf,                           // ☁️ 서버 사본 지문 — 계정 이어받기(헛쓰기 막기)
-  mine: _plMine,                                   // 🎵 보고 있는 프리셋의 곡 — 계정 이어받기(옛 길)
+  mine: _plMine,                                   // 🎵 보고 있는 프리셋의 곡 — 계정 이어받기(옛 길) · 🎧 같이 듣기 DJ 목록
   fillLv: _plFillLv,                               // 🏅 레벨 배지 — 👤 내 정보 머리
   ytVideoId: _ytVideoId,                           // 🔗 유튜브 주소 → 영상 id — 🏠 마이홈 BGM(파서 한 벌)
   syncBgmBounds: _plSyncBgmBounds,                 // 🪟 재생 창 사각형 — 화면 배율 바뀜
+  stopIfPlaying: ()=>{ if(_plNow < 0) return false; _plStop(); return true; },   // 🎧 같이 듣기 방에 들어올 때 — 멈췄으면 true(재생 창이 닫힌다)
   // 검사용
   PL_SETS,
   load: _plLoad,

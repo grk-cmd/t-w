@@ -6,7 +6,7 @@
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 11개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). 마이홈 시작(initMyHome)은 여기서 안 부른다 — app.js INIT 에서 한 번.
      저장된 상태 불러오기 · 칩 첫 그리기 · 캐릭터 크기 복원도 여기서 안 부른다 — app.js 의 만드는 줄 바로 뒤에서(만드는 도중엔 statusChipMod 가 아직 없어 refreshMyStatusUI 가 던진다).
-   ★ 밖에서 부르는 이름: _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · _wpTmp3 · hexToRgba · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition — app.js 는 statusChipMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _positionCascade · _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · _wpTmp3 · hexToRgba · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition — app.js 는 statusChipMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwStatusChip — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-status-chip.js */
@@ -902,6 +902,7 @@ function setSeatDeskEmoji(seat, em){
 }
 
 return {
+  _positionCascade,   // 🎧 같이 듣기 창(room/listen-ui.js)도 상태칩 팝업과 같은 자리 규칙으로 — app.js 가 deps 로 넘긴다
   _positionInputBelowChar,
   _repositionOpenChipPopups,
   _tabHintTimer: ()=>_tabHintTimer,   // 읽는 함수

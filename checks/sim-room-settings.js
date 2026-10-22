@@ -93,7 +93,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   let t = mk({ cap: 8 });
   t.ui.open('workingroom');
   chk(!t.el('roomCreatePanel').hidden && t.el('lobbyMain').hidden && t.el('inviteJoinPanel').hidden, '로비 [방 만들기] → 창이 열리고 로비 · 코드 칸은 숨는다');
-  chk(t.el('rcMax').textContent === '8명' && t.el('rcOpen').checked === true && t.el('rcChWorking').classList.contains('on'), '  처음 값: 최대 인원 = 정원 · 공개 켬 · 워킹룸');
+  chk(t.el('rcMax').textContent === '8명' && t.el('rcOpen').checked === true && t.el('rcMusic').checked === false && t.el('rcChWorking').classList.contains('on'), '  처음 값: 최대 인원 = 정원 · 공개 켬 · 같이 듣기 끔 · 워킹룸');
   chk(t.el('rcChTogether').disabled === true, '  라이선스가 없으면 투게더룸 버튼은 막혀 있다');
   t.el('rcMaxUp').onclick();
   chk(t.el('rcMax').textContent === '8명' && t.el('rcMaxUp').disabled, '  정원에서 + 는 더 안 오른다');
@@ -102,7 +102,13 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   t.el('rcTitle').value = '  공부방  ';
   t.el('rcOpen').checked = false;
   t.el('rcCreate').onclick();
-  chk(t.made.length === 1 && t.made[0][0] === 'workingroom' && JSON.stringify(t.made[0][1]) === '{"title":"공부방","max":2,"open":false}', '★ [방 만들기] → onCreate(채널, { 제목 · 최대 인원 · 공개 })');
+  chk(t.made.length === 1 && t.made[0][0] === 'workingroom' && JSON.stringify(t.made[0][1]) === '{"title":"공부방","max":2,"open":false,"music":false}', '★ [방 만들기] → onCreate(채널, { 제목 · 최대 인원 · 공개 · 같이 듣기 })');
+  t.ui.open('workingroom');
+  chk(t.el('rcMusic').checked === false, '  다시 열면 같이 듣기는 꺼진 채(만든 뒤엔 못 바꿔서 지난 값을 물려주지 않는다)');
+  t.el('rcMusic').checked = true;
+  t.el('rcCreate').onclick();
+  chk(t.made.length === 2 && t.made[1][1].music === true, '★ 같이 듣기를 켜면 music:true 로 넘긴다');
+  t.made.length = 1;
   chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  만들고 나면 창을 닫고 로비로');
 
   t = mk({ banned: ['나쁜말'] });
@@ -141,11 +147,11 @@ say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다'
     await f.go(o.ch, o.settings);
     return { win, log, extra: f.extra() };
   };
-  let r = await run({ ch: 'togetherroom', settings: { title: '수다', max: 4, open: true }, name: ' 말랑콩떡 ' });
+  let r = await run({ ch: 'togetherroom', settings: { title: '수다', max: 4, open: true, music: true }, name: ' 말랑콩떡 ' });
   chk(r.win._pendingRoomChannel === 'togetherroom' && r.win._pendingRoomOpen === true && r.log.started[0] === 'PLAY-AB12', '★ 투게더룸도 공개(open)를 싣는다 — 예전엔 워킹룸만');
-  chk(JSON.stringify(r.extra) === '{"max":4,"title":"수다","hostName":"말랑콩떡"}', '★ 고른 값 { 최대 인원 · 제목 · 방장 닉네임 }');
+  chk(JSON.stringify(r.extra) === '{"max":4,"title":"수다","hostName":"말랑콩떡","music":true}', '★ 고른 값 { 최대 인원 · 제목 · 방장 닉네임 · 같이 듣기 }');
   r = await run({ ch: 'workingroom', settings: { title: '', max: 99, open: false }, cap: 6, name: '' });
-  chk(JSON.stringify(r.extra) === '{"max":6,"title":null,"hostName":null}' && r.win._pendingRoomOpen === false, '★ 빈 제목 · 빈 닉네임은 null(지움)로 — 같은 코드의 지난 방 제목이 update 병합으로 남지 않게 · 최대 인원은 정원 안으로');
+  chk(JSON.stringify(r.extra) === '{"max":6,"title":null,"hostName":null,"music":false}' && r.win._pendingRoomOpen === false, '★ 빈 제목 · 빈 닉네임은 null(지움)로 — 같은 코드의 지난 방 제목이 update 병합으로 남지 않게 · 최대 인원은 정원 안으로');
   chk(/setRoomChannel\(code, _channel, getMyUserId\(\), !!window\._pendingRoomOpen, _pendingExtra\);\s*_pendingExtra = null;/.test(RE_SRC), '  만들기 갈래가 고른 값을 _meta 에 한 번 쓰고 비운다');
   chk(/const _cap2 {2}= _isSecret \? \(maxPeople\(\) - 1\) : roomSettings\.roomCap\(window\._roomMetaCache, maxPeople\(\)\);/.test(RE_SRC)
     && /'이 방은 이미 가득 찼어요\(최대 '\+_cap2\+'명\)'/.test(RE_SRC), '★ 재확인이 이미 읽은 _meta 로 방 최대 인원을 막는다 · 문구도 그 값(시크릿룸은 예전 그대로)');

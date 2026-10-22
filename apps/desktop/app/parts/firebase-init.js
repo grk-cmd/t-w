@@ -2769,6 +2769,7 @@
         if(open === true || open === false) meta.open = open;
         if(fields) Object.assign(meta, fields);
         await update(ref(db, `rooms/${room}/_meta`), meta);
+        if(fields && 'music' in fields) try{ await remove(ref(db, `rooms/${room}/_music`)); }catch(_){}   // 같이 듣기 — 방은 통째로 안 지워져 지난 곡이 남는다(2.4) · 못 지워도 방은 연다
         const extra = { channel: channel||'workingroom' };
         if(open === true || open === false) extra.open = open;
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게
@@ -2808,6 +2809,9 @@
       try{ await update(ref(db, `rooms/${room}/_meta`), { chatOff: !!off }); return { ok:true }; }
       catch(e){ return { ok:false }; }
     },
+    /* 🎧 같이 듣기 곡 칸 — 구독(cb(값|null) · 거부 onErr) · 쓰기(null 은 지움). 모양 · 규칙은 docs/LISTEN_TOGETHER.md 2.2 · 3장. */
+    subscribeRoomMusic(room, cb, onErr){ const unsub = onValue(ref(db, `rooms/${room}/_music`), snap => cb(snap.val() || null), onErr); return ()=>{ try{ unsub(); }catch(_){} }; },
+    async setRoomMusic(room, music){ try{ await set(ref(db, `rooms/${room}/_music`), music || null); return { ok:true }; }catch(e){ return { ok:false, err:e }; } },
     async setRoomInfo(room, info){   // 제목 · 공개 두 칸만 — 빈 제목은 칸을 지운다(«○○ 님의 방» 으로 그림) · open 은 불일 때만
       if(!room || !info) return { ok:false };
       try{ await update(ref(db, `rooms/${room}/_meta`), Object.assign({ title: info.title || null }, typeof info.open === 'boolean' ? { open: info.open } : {})); _touchRoomIndex(room); return { ok:true }; }

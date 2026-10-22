@@ -6831,6 +6831,28 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다�
    ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
 /* 본문은 room-entry.js 로 옮겼다(앱 FSD 33번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+// 🎧 같이 듣기 — 방 입장 모듈의 «방이 바뀜»(들어감 · 나감 · meta) 알림에 sync 를 건다(room/listen-ui.js · 설계 docs/LISTEN_TOGETHER.md)
+const listenUi = TwListenUi.createListenUi({
+  model: TwListenModel,
+  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI }),
+  companion: ()=>window.companion,
+  roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
+  meta: ()=>window._roomMetaCache,
+  isServerRoom: ()=>!!Presence.serverProvider(),
+  isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
+  myId: ()=>getMyUserId(),
+  memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== getMyUserId()),
+  nameOf: (uid)=>{
+    if(uid === getMyUserId()) return getDisplayName();
+    const f = Object.values(Presence.friendsObj() || {}).find(x=>x && x.userId === uid);
+    return (f && f.name) || '(이름 없음)';
+  },
+  djItems: ()=>plMod.mine().slice(),
+  stopPersonal: ()=>plMod.stopIfPlaying(),
+  positionPopup: (el, btn)=>statusChipMod._positionCascade(el, btn, 'right'),
+  escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
 // 🏷️ 방 안 정보 칸 제목 · [방 설정](방장만) — 방 입장 모듈이 들어감 · 나감 · meta 때 paint 를 부른다(room/room-info-ui.js)
 const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
   roomSettings: TwRoomSettings,
@@ -6893,6 +6915,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
 });
+roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
 // 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
 const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   roomSettings: TwRoomSettings,
@@ -8415,12 +8438,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     if(seat.remote){
       const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
       expBarMod.updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
-      overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st);
+      overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st, !!seat.friendUserId && listenUi.djId() === seat.friendUserId);
     }
     else if(seat.isMe){
       const st = focusLevelMod.myFocusShow(), lv = st ? st.lv : focusLevelMod.getFocusLevel();
       expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
-      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st);
+      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!getMyUserId() && listenUi.djId() === getMyUserId());
     }
     else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
     /* 💬 말풍선 — ★ 반드시 이름표·경험치 바 **뒤에** 갱신한다.

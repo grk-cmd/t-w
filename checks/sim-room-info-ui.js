@@ -152,8 +152,8 @@ function mkUi(o, src){
       '★ 방장 · 시크릿룸 판정은 채팅 잠금과 같은 한 곳(room-state.js)을 부른다 — 다시 쓰지 않음 · 서로 부르지 않아 순환 없음');
   }
   chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>window\.firebaseAPI\.setRoomInfo\(room, info\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 firebaseAPI.setRoomInfo');
-  const paintCalls = (RE.match(/\bpaintRoomInfo\(\);/g) || []).length;
-  chk(paintCalls === 3 && /function refreshInviteUI\(\)\{[\s\S]*?paintRoomInfo\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · Firebase meta · 방 서버 meta 세 곳에서 다시 그린다 (' + paintCalls + ')');
+  const paintCalls = (RE.match(/\b_roomChanged\(\);/g) || []).length;   // «방이 바뀜» 알림이 paintRoomInfo 를 부른다(같이 듣기도 같은 알림)
+  chk(paintCalls === 3 && /function _roomChanged\(\)\{ paintRoomInfo\(\);/.test(RE) && /function refreshInviteUI\(\)\{[\s\S]*?_roomChanged\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · Firebase meta · 방 서버 meta 세 곳에서 다시 그린다 (' + paintCalls + ')');
   {
     const fn = takeFn(FI, 'async setRoomInfo(room, info){');
     const writes = [], touched = [];

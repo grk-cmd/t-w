@@ -129,7 +129,8 @@ function nameplateHeight(seat){
   const m = el ? labelMeasure.size(el, el._npKey + '|' + el.className) : null;
   return (m && m.h) || 0;
 }
-function setSeatNamePlate(seat, level, name, star){
+/* dj — 🎧 같이 듣기 방의 지금 DJ 면 이름 뒤에 «🎧 DJ» 딱지(누가 DJ 인지는 app.js 가 listen-ui 에서 받아 넘긴다) */
+function setSeatNamePlate(seat, level, name, star, dj){
   const el=ensureSeatNamePlateEl(seat); if(!el) return;
   // ★ 말풍선(headAnchor 기준, userScale에 비례)이랑 순서가 안 뒤집히게 이름표도 같은 비례식으로 "머리 바로 위" 높이 계산.
   //   group 기준(rig 아님)이라 흔들기/드래그 중에도 책상·상태칩처럼 제자리 고정.
@@ -190,7 +191,7 @@ function setSeatNamePlate(seat, level, name, star){
   if(seat.ridingOn){ el.style.display='none'; return; }
   /* 🌟 회차면 'Lv.' 자리에 색 있는 별(.np-star · 번쩍임)이 선다 — «★342  이름» (개정 70).
      ★ 매 프레임 불리므로 열쇠(_npKey)가 같으면 DOM 을 안 건드린다. 별은 span 이라 textContent 비교로는 못 잰다. */
-  const key = star ? ('\u2605|' + star.cyc + '|' + star.color + '|' + level + '|' + name) : ('Lv.' + level + '  ' + name);
+  const key = (star ? ('\u2605|' + star.cyc + '|' + star.color + '|' + level + '|' + name) : ('Lv.' + level + '  ' + name)) + (dj ? '|dj' : '');
   if(el._npKey !== key){
     el._npKey = key;
     if(star){
@@ -198,7 +199,8 @@ function setSeatNamePlate(seat, level, name, star){
       const sp = document.createElement('span'); sp.className = 'np-star'; sp.textContent = focusLevelMod().lvStarStr(star.cyc);
       el.appendChild(sp);
       el.appendChild(document.createTextNode(level + '  ' + name));
-    } else el.textContent = key;
+    } else el.textContent = 'Lv.' + level + '  ' + name;
+    if(dj){ const b = document.createElement('span'); b.className = 'np-dj'; b.textContent = '🎧 DJ'; el.appendChild(b); }
     _starPaint(el, star);
   }
   el.style.display='block';
