@@ -362,7 +362,10 @@ function part4(){
       chk(r.bio === 'hey' && r.homePublic === true, '  한마디·공개 여부도 실린다');
       const r2 = await mk({ items: { 0:{id:'old'} } })('uB');
       chk(r2 && r2.sets.length === 1 && r2.sets[0].items[0].id === 'old', '  sets 없는 옛 노드는 items 를 0번으로');
-      chk((await mk(null)('uB')) === null, '  노드 없음 → null');
+      const r0 = await mk(null)('uB');
+      chk(r0 && r0.sets.length === 0 && r0.ts === 0, '  노드 없음 → 빈 목록(ts 0) — 못 읽음(null)과 가른다');
+      const rf = await new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => { throw new Error('x'); }, () => null, null, { warn(){} })('uB');
+      chk(rf === null, '  못 읽음 → null');
       /* app.js 쪽 실행 — 복원 함수 전체를 스텁 위에서 돌린다 */
       const fNorm = grabFn(SRC, '_plNormalizeSets'), fBlank = grabFn(SRC, '_plBlankSets'), fIdx = grabFn(SRC, '_plSetIdx'), fSig = grabFn(SRC, '_plPubSigOf');
       const env = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
@@ -372,22 +375,27 @@ function part4(){
         "const _plMine=()=>_plSets[_plCur].items; const _plSave=()=>{ env.saved++; }; const _plPublish=()=>{ env.published++; }; const _plRender=()=>{};\n" +
         /* app.js 는 plMod 로 부른다(앱 FSD 16번) — 함수는 아래에서 떼어 온 진짜 관문 · 지문, 상태는 위 let */
         "const plMod={ PL_MAX, PL_TITLE_MAX, PL_BIO_MAX, normalizeSets:(...a)=>_plNormalizeSets(...a), setIdx:(...a)=>_plSetIdx(...a), pubSigOf:(...a)=>_plPubSigOf(...a),\n" +
-        "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), st:" + PL_ST_ALL + " };\n" +
+        "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), markSynced:(ts)=>{ env.marked = (ts === undefined ? 'push' : ts); }, st:" + PL_ST_ALL + " };\n" +
         "const getMyUserId=()=>'uB'; const gachaMod={ syncGachaToServer:async()=>{ env.gachaPull++; }, isInvOpen:()=>false, renderGachaInv(){} }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
         [fNorm, fBlank, fIdx, fSig, fRestore].join('\n') +
         "\nreturn async()=>{ await _restoreOwnedDataAfterTransfer(); return { sets:_plSets, cur:_plCur, bio:_plBio, pub:_plHomePublic, sig:_plPubSig }; };");
-      const api = { fetchMyPlaylistSets: async () => ({ sets: r.sets, bio: r.bio, homePublic: r.homePublic }), fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
+      const api = { fetchMyPlaylistSets: async () => ({ sets: r.sets, bio: r.bio, homePublic: r.homePublic, ts: 4321 }), fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
       const out = await run(env, { firebaseAPI: api }, api)();
       chk(out.sets.length === 3 && out.sets[0].name === 'A' && out.sets[0].items[0].url === 'https://www.youtube.com/watch?v=v1' && out.sets[2].items.length === 2, '★ 복원 뒤 로컬이 세 벌 다 서버 것 — 옛 프리셋이 안 남는다');
       chk(out.sets[1].items.length === 0, '  서버가 빈 벌은 로컬도 빈다 (이 기기 옛 목록으로 채우지 않는다)');
       chk(out.bio === 'hey' && out.pub === true && env.saved === 1, '  한마디·공개 여부 복원 + 저장 1회');
       chk(typeof out.sig === 'string' && env.published === 0, '  지문을 맞춰 두어 헛쓰기(_plPublish)가 안 나간다');
+      chk(env.marked === 4321, '  ☁️ 기기 간 맞추기를 끝냈다고 알린다 — 고친 시각은 서버 ts');
       chk(env.gachaPull === 1 && env.slotsPull === 1, '  가챠·슬롯 pull 은 그대로 이어서 돈다');
       /* 서버가 비었고 로컬에 곡이 있으면 올린다 */
       const env2 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
-      const api2 = { fetchMyPlaylistSets: async () => null };
+      const api2 = { fetchMyPlaylistSets: async () => ({ sets: [], bio: '', homePublic: false, ts: 0 }) };
       const out2 = await run(env2, { firebaseAPI: api2 }, api2)();
-      chk(out2.sets[0].items[0].id === 'z' && env2.published === 1, '  저쪽이 비었으면 이 기기 목록을 올린다 (첫 업로드)');
+      chk(out2.sets[0].items[0].id === 'z' && env2.published === 1 && env2.marked === 'push', '  저쪽이 비었으면 이 기기 목록을 올린다 (첫 업로드 · 맞춤 끝)');
+      const env3 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
+      const api3 = { fetchMyPlaylistSets: async () => null };
+      const out3 = await run(env3, { firebaseAPI: api3 }, api3)();
+      chk(out3.sets[0].items[0].id === 'z' && env3.published === 0 && env3.marked === undefined, '  못 읽었으면 올리지 않는다(모르는 채 덮어쓰지 않게 — 부팅 맞추기가 다시 본다)');
     })();
   }catch(err){ huh('4절 실행 오류: ' + (err && err.message || err)); }
 }

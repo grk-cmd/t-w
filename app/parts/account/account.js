@@ -789,6 +789,7 @@ async function _restoreOwnedDataAfterTransfer(){
         pl.bio = String(r.bio || '').slice(0, plMod.PL_BIO_MAX);
         pl.homePublic = !!r.homePublic;
         pl.sel = -1; pl.now = -1; pl.nowSet = pl.cur; pl.view = null; pl.nowView = null;
+        plMod.markSynced(Number(r.ts) || 0);   // 고친 시각 = 서버 것 — 다음 부팅이 같은 목록을 다시 올리지 않게
         try{ plMod.save(); }catch(_){}
         /* 방금 받아온 것 = 서버와 같은 내용. 지문을 미리 맞춰 _plPublish 의 헛쓰기를 막는다(모양은 _plPublish 와 같다). */
         pl.pubSig = plMod.pubSigOf(pl.sets.map(ps => ({
@@ -796,8 +797,10 @@ async function _restoreOwnedDataAfterTransfer(){
           items: (((ps && ps.items) || [])).map(x => ({ id:x.id, title:x.title || '' })),
         })), { bio: pl.bio, homePublic: pl.homePublic, private: pl.private });
         if(typeof plMod.render === 'function') plMod.render();
-      } else if(pl.sets.some(ps => ps && ps.items && ps.items.length)){
+      } else if(r && pl.sets.some(ps => ps && ps.items && ps.items.length)){
         // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
+        // ⚠️ 못 읽었으면(r === null) 올리지 않는다 — 모르는 채 올리면 덮어쓰기다. 부팅 맞추기(playlist.js)가 다시 본다.
+        plMod.markSynced();
         pl.pubSig = null;
         if(typeof plMod.publish === 'function') plMod.publish();
       }

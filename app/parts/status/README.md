@@ -35,3 +35,15 @@
 - **내보내는 것**: 순수 함수 `read(값)` · `suspect(값)`(이 값 하나가 이상한가) · `nextBadSince(since, 값, now)` · `held(since, now)`(5초 이어졌나) · `line(값)` · 기준 `HOLD_MS`(5초) · `PEEK_MS`(10초) · `FAIL_MIN`(8회) · `NO_REPLY_MS`(2초) — 검사가 돌린다.
 - **언제 보이나**: ① 광고가 아닌데 앱 음소거가 안 풀림 · 게이트 확인이 8번 잇달아 실패 · 페이지가 2초 넘게 답을 안 함 — 이 상태가 5초 이어질 때만 저절로(곡을 불러오는 짧은 순간에 번쩍이지 않게) ② 음량 아이콘(`#myPlVolIco`)을 누르면 10초 동안(다시 누르면 처음부터 · 저장 안 함).
 - **함정**: 곡이 닫히거나(`onBgmClosed`) 마이홈 BGM 이 창을 가져가면(`onBgmMode`) 값을 비운다 — 안 비우면 낡은 값이 남는다. «소리 신호 있음» 은 페이지가 소리를 내는가(`isCurrentlyAudible`)라 앱 음소거 중에도 있음일 수 있다. 글은 `textContent` 로만. 검사: `checks/sim-bgm-diag.js`.
+
+## playlist-sync.js — ☁️ 플레이리스트 기기 간 맞추기 규칙
+
+- **책임**: 부팅 때 서버 사본(`users/{uid}/playlist`)과 이 기기 목록 중 무엇을 따를지 정하는 순수 규칙(`decide`). DOM · firebase 없음.
+- **만드는 법**: 만들지 않는다 — 얼린 표 `window.TwPlaylistSync`. app.js 가 `playlistSync: TwPlaylistSync` 로 playlist.js 에 넘긴다.
+- **내보내는 것**: `decide(서버 사본 | null, 이 기기 고친 시각, 이 기기에 곡이 있나)` → `'retry'` · `'adopt'` · `'push'` · `'none'` · `countItems(sets)` · `RETRY_MS`(30초).
+- **규칙**: 못 읽으면 retry(모르는 채 올리지 않음) · 이 기기에서 고친 적 없으면(고친 시각 0) 서버에 곡이 있으면 받음 · 그 밖은 고친 시각이 나중인 쪽(서버가 비운 것도 따름).
+- **함정**
+  - 고친 시각(`tw.playlistEditTs`)은 목록 · 한마디 · 공개가 바뀐 저장에서만 오른다(playlist.js `_plSave`) — 창 위치 · 반복 · 음량까지 올리면 다른 기기 목록을 이긴다.
+  - 맞추기 전(`_plSynced` 거짓)에는 playlist.js 가 서버에 올리지 않는다 · 재생 중이면 받기를 미룬다. 계정 연동(account.js)은 `plMod.markSynced(ts)` 로 맞춤을 대신 끝낸다.
+  - 서버 쪽: 비울 때 노드를 지우지 않고 빈 목록 + 시각을 남긴다(`removeMyPlaylist`) — 지우면 다른 기기가 옛 목록을 다시 올린다. 읽기는 비어 있음(빈 목록 · ts 0)과 못 읽음(null)을 가른다.
+  - 검사: `checks/sim-playlist-sync.js`(규칙 · firebase-init) · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림).
