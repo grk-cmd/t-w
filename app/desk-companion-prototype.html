@@ -4586,6 +4586,12 @@
      ⚠️ 62px 면 한 칸(1%)씩 끌어 맞추기는 어렵다. 대신 슬라이더에 포커스를 주고 ←→ 키로 1씩 움직인다
        (title 이 현재 값을 %로 보여주므로 확인은 된다). */
   #myPlaylistBox .plVolIco{flex:none;margin-left:4px;opacity:.75;}
+  #myPlVolIco{cursor:pointer;}
+  #myPlDiag{margin:0 5px 6px;padding:2px 5px;background:#fff;
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    font-size:10px;line-height:1.45;color:var(--ink-soft);word-break:keep-all;user-select:text;
+    border-radius:var(--win-radius-el) !important;}
+  #myPlDiag[hidden]{display:none;}
   #myPlaylistBox .plVol{
     flex:1 1 auto;width:auto;min-width:0;max-width:62px;height:14px;margin:0;padding:0;cursor:pointer;
     -webkit-appearance:none;appearance:none;background:transparent;}
@@ -5102,9 +5108,11 @@
       <!-- 🔊 음량 — 실제 소리는 BGM 자식창의 <video>.volume 이라 main 으로 넘긴다.
            ⚠️ .plBtn 계열이 아니므로 버튼 스타일을 물려받지 않는다. 폭 74px 는 한 칸씩 미세 조정이
              되는 최소 폭이다(.plVol 주석) — 이 줄이 좁아졌으니 남는 폭을 받아 늘어나게 둔다. -->
-      <svg class="plIco plVolIco" viewBox="1.6 1.6 12.8 12.8" aria-hidden="true"><path d="M3 6.2h2.1L8 3.6v8.8L5.1 9.8H3Z" fill="currentColor"/><path d="M10.2 5.9a3 3 0 0 1 0 4.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12.1 4.2a5.4 5.4 0 0 1 0 7.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
+      <svg class="plIco plVolIco" id="myPlVolIco" viewBox="1.6 1.6 12.8 12.8" aria-hidden="true"><title>눌러서 소리 진단 보기</title><path d="M3 6.2h2.1L8 3.6v8.8L5.1 9.8H3Z" fill="currentColor"/><path d="M10.2 5.9a3 3 0 0 1 0 4.2" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/><path d="M12.1 4.2a5.4 5.4 0 0 1 0 7.6" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>
       <input id="myPlVol" class="plVol" type="range" min="0" max="100" step="1" value="80" title="음량 80%" aria-label="음량">
     </div>
+    <!-- 🔍 소리 진단 줄 — 음소거가 안 풀리면 저절로 뜨고, 위 음량 아이콘을 눌러도 켜고 끈다(status/bgm-diag.js) -->
+    <div id="myPlDiag" hidden></div>
     <!-- 🌙 백색소음 (2026-09-23 · 시안 확정 «플레이리스트 창 안에 두는 안» · handoff-2026-09-23-noise §4-3)
          음악 음량 바로 아래 한 줄. 소리를 내는 것은 parts/noise.js 이고 여기는 **설정 칸**이다 —
          창을 닫거나 접어도 소리는 그대로 난다(재생기가 아니다).
@@ -8300,6 +8308,7 @@
 <script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/shared/drag-scroll.js"></script>   <!-- 🖱 목록 끌어 움직이기 — myhome-inbox.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
+<script src="parts/status/bgm-diag.js"></script>   <!-- 🔍 플레이리스트 소리 진단 줄 — app.js 보다 먼저(app.js 가 TwBgmDiag.createBgmDiag 로 만든다) -->
 <script src="parts/status/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
 <script src="parts/admin/admin-license-bulk.js"></script>   <!-- 🛠️ 관리자: 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 — 관리자 코드는 parts/admin/ 에 모은다 · app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicenseBulk.createAdminLicenseBulk 로 만든다) -->
 <script src="parts/admin/admin-console.js"></script>   <!-- 🛠️ 관리자: 🧹 F12 콘솔 도구 일곱(카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 · 이관) — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminConsole.createAdminConsole 로 만든다) -->

@@ -1,0 +1,76 @@
+/* bgm-diag.js — 🔍 플레이리스트 소리 진단 줄 (검사 sim-bgm-diag.js)
+   [왜] «곡은 끝까지 넘어가는데 소리만 안 난다» 를 설치본에서 가를 길이 없다(개발자 도구가 막혀 있다).
+     main.js 의 광고 게이트(bgmStartAdGate)가 음소거를 정할 때 본 값을 1초마다 보내 오면, 여기서 한 줄로 그린다.
+   ★ 줄이 뜨는 때: ① 광고가 아닌데 앱 음소거가 STUCK_MS 넘게 안 풀림 · 확인이 FAIL_MIN 번 넘게 잇달아 실패(저절로)
+     ② 플레이리스트 음량 아이콘(#myPlVolIco)을 눌러 켰을 때(다시 누르면 끔 · 저장 안 함).
+   ⚠️ 읽기만 한다 — 음소거 · 음량을 정하는 것은 main.js 게이트 그대로다.
+   순수 함수(read · suspect · line)는 따로 내놓아 검사가 돌린다. */
+(function(){
+'use strict';
+
+const STUCK_MS = 5000;   // 게이트는 0.25초마다 보므로 정상이면 1초 안에 풀린다
+const FAIL_MIN = 8;      // 0.25초 × 8 = 2초 동안 확인이 한 번도 안 됨
+
+const num = (x) => (typeof x === 'number' && isFinite(x)) ? x : null;
+const bool = (x) => (typeof x === 'boolean') ? x : null;
+
+/* main 이 보낸 값 — 모르는 칸은 버리고 모양을 맞춘다(없으면 null) */
+function read(s){
+  if(!s || typeof s !== 'object') return null;
+  return {
+    gateMuted: s.gateMuted === true, audible: s.audible === true, isAd: s.isAd === true,
+    videos: Math.max(0, Math.floor(num(s.videos) || 0)),
+    vol: num(s.vol), want: num(s.want), vMuted: bool(s.vMuted), paused: bool(s.paused),
+    pVol: num(s.pVol), pMuted: bool(s.pMuted),
+    mutedMs: Math.max(0, num(s.mutedMs) || 0), fail: Math.max(0, Math.floor(num(s.fail) || 0)),
+  };
+}
+/* 저절로 띄울 만큼 이상한가 */
+function suspect(d){
+  if(!d) return false;
+  if(d.fail >= FAIL_MIN) return true;
+  return d.gateMuted && !d.isAd && d.videos > 0 && d.mutedMs >= STUCK_MS;
+}
+const pct = (x) => x === null ? '—' : String(Math.round(x * 100));
+const onOff = (b) => b === null ? '—' : (b ? '켜짐' : '꺼짐');
+/* 화면에 쓸 한 줄(textContent 로만 넣는다) */
+function line(d){
+  if(!d) return '🔍 소리 진단 · 재생 중인 곡이 없어요';
+  const out = ['🔍 소리 진단'];
+  out.push('앱 음소거 ' + (d.gateMuted ? '켜짐' + (d.mutedMs >= 1000 ? ' ' + Math.floor(d.mutedMs / 1000) + '초' : '') : '꺼짐'));
+  out.push('광고 ' + (d.isAd ? '맞음' : '아님'));
+  out.push('영상 ' + d.videos + '개');
+  out.push('영상 음량 ' + pct(d.vol) + '/' + pct(d.want));
+  out.push('영상 음소거 ' + onOff(d.vMuted));
+  if(d.paused === true) out.push('멈춤');
+  if(d.pVol !== null || d.pMuted !== null) out.push('플레이어 ' + (d.pVol === null ? '—' : Math.round(d.pVol)) + (d.pMuted ? ' 음소거' : ''));
+  out.push('소리 ' + (d.audible ? '나는 중' : '안 남'));
+  if(d.fail > 0) out.push('확인 실패 ' + d.fail + '회');
+  return out.join(' · ');
+}
+
+/** @param {{ companion: any }} deps */
+function createBgmDiag(deps){
+  const companion = deps.companion;
+  const el = document.getElementById('myPlDiag');
+  const ico = document.getElementById('myPlVolIco');
+  let last = null, forced = false;
+  if(!companion || !el) return {};
+
+  function paint(){
+    const show = forced || suspect(last);
+    el.hidden = !show;
+    if(show) el.textContent = line(last);
+  }
+  companion.onBgmDiag((s) => { last = read(s); paint(); });
+  // 곡이 멈추거나 마이홈 BGM 이 창을 가져가면 이 줄의 값은 낡은 것이다
+  companion.onBgmClosed(() => { last = null; paint(); });
+  companion.onBgmMode((mode) => { if(mode !== 'playlist'){ last = null; paint(); } });
+  if(ico) ico.addEventListener('click', (e) => { e.stopPropagation(); forced = !forced; paint(); });
+  paint();
+  return {};
+}
+
+const mod = { STUCK_MS, FAIL_MIN, read, suspect, line, createBgmDiag };
+window.TwBgmDiag = mod;
+})();

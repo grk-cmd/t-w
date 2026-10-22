@@ -223,6 +223,10 @@ contextBridge.exposeInMainWorld('companion', {
   onBgmTrackEnd(callback) {
     ipcRenderer.on('companion:bgmTrackEnd', (e, kind) => callback(kind));
   },
+  // 🔍 소리 진단 — 플레이리스트 재생 중 1초마다 게이트가 본 값(status/bgm-diag.js 가 그린다)
+  onBgmDiag(callback) {
+    ipcRenderer.on('companion:bgmDiag', (e, d) => callback(d));
+  },
   // BGM 창 소유권이 바뀔 때 — callback('home' | 'playlist'). 진 쪽이 자기 재생표시를 내린다.
   onBgmMode(callback) {
     ipcRenderer.on('companion:bgmMode', (e, mode) => callback(mode));

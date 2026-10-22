@@ -2710,9 +2710,26 @@ function createWindow() {
        이 조건이 «영영 음소거»가 되므로 그때는 도메인별로 갈라야 한다.
      ⚠️ muted·play 는 여기서도 안 건드린다 — bgmForcePlay 가 주인(위 규칙 그대로). volume 만 본다. */
   let bgmAdPoll = null;
+  /* 🔍 소리 진단 — 게이트가 음소거를 정할 때 본 값을 플레이리스트 창(status/bgm-diag.js)에 1초마다 보낸다.
+     설치본은 개발자 도구가 막혀 있어서 «곡은 넘어가는데 소리만 없다» 를 가를 길이 이것뿐이다.
+     ⚠️ 읽어서 보내기만 한다 — 음소거를 정하는 것은 아래 게이트 그대로다. */
+  let bgmGateMutedSince = 0, bgmGateFail = 0, bgmDiagTick = 0;
+  function bgmSendDiag(d){
+    if(bgmMode !== 'playlist' || (++bgmDiagTick % 4)) return;
+    try{
+      if(!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+      if(!bgmView || bgmView.webContents.isDestroyed()) return;
+      const wc = bgmView.webContents;
+      mainWindow.webContents.send('companion:bgmDiag', Object.assign({}, d, {
+        gateMuted: wc.isAudioMuted(), audible: wc.isCurrentlyAudible(),
+        mutedMs: bgmGateMutedSince ? Date.now() - bgmGateMutedSince : 0, fail: bgmGateFail,
+      }));
+    }catch(_){}
+  }
   function bgmStartAdGate(){
     if(!bgmView) return;
     bgmView.webContents.setAudioMuted(true);   // 로드 시작부터 무조건 음소거
+    bgmGateMutedSince = Date.now(); bgmGateFail = 0;
     if(bgmAdPoll) clearInterval(bgmAdPoll);
     bgmAdPoll = setInterval(()=>{
       if(!bgmView || bgmView.webContents.isDestroyed()){ clearInterval(bgmAdPoll); bgmAdPoll=null; return; }
@@ -2724,12 +2741,20 @@ function createWindow() {
         BGM_SET_VOL_JS+
         'var v=document.querySelector("video"); var volOk=false;'+
         'if(v){ try{ __twSetVol(want); volOk=(Math.abs(v.volume-want)<=0.005); }catch(_){} }'+
-        'return {isAd:isAd, volOk:volOk};})()'
+        // 🔍 진단용 — 판정에는 안 쓴다(bgmSendDiag)
+        'var d={isAd:isAd, videos:document.querySelectorAll("video").length, want:want};'+
+        'if(v){ d.vol=v.volume; d.vMuted=v.muted; d.paused=v.paused; }'+
+        'try{ if(p&&typeof p.getVolume==="function") d.pVol=p.getVolume(); if(p&&typeof p.isMuted==="function") d.pMuted=p.isMuted(); }catch(_){}'+
+        'return {isAd:isAd, volOk:volOk, d:d};})()'
       ).then(r=>{
         if(!bgmView || bgmView.webContents.isDestroyed()) return;
         const isAd = !!(r && r.isAd), volOk = !!(r && r.volOk);
-        bgmView.webContents.setAudioMuted(isAd || !volOk);   // 광고이거나 음량이 아직 안 맞으면 계속 음소거
-      }).catch(()=>{});
+        const mute = isAd || !volOk;
+        bgmView.webContents.setAudioMuted(mute);   // 광고이거나 음량이 아직 안 맞으면 계속 음소거
+        bgmGateFail = 0;
+        if(!mute) bgmGateMutedSince = 0; else if(!bgmGateMutedSince) bgmGateMutedSince = Date.now();
+        bgmSendDiag(r && r.d);
+      }).catch(()=>{ bgmGateFail++; bgmSendDiag(null); });
     }, 250);
   }
   /* 🔊 **음량 선점** — 곡이 바뀌는 순간의 "처음 2초만 원래 크기로 들린다"를 막는 자리.
