@@ -31,12 +31,19 @@ function load(src, o){
   const els = { myPlDiag: o.noEl ? null : mkEl('myPlDiag'), myPlVolIco: mkEl('myPlVolIco') };
   const doc = { getElementById: (id) => els[id] || null };
   const w = {};
-  new Function('window', 'document', 'module', src)(w, doc, undefined);
+  const clk = { now: 1000, timers: [] };
+  const DateX = { now: () => clk.now };
+  const st = (fn, ms) => { const t = { fn, at: clk.now + ms }; clk.timers.push(t); return t; };
+  const ct = (t) => { clk.timers = clk.timers.filter(x => x !== t); };
+  /* 시계를 ms 만큼 돌린다 — 그 사이 걸린 타이머도 돈다 */
+  clk.go = (ms) => { const end = clk.now + ms; for(;;){ const t = clk.timers.filter(x => x.at <= end).sort((a, b) => a.at - b.at)[0];
+    if(!t) break; clk.now = t.at; ct(t); t.fn(); } clk.now = end; };
+  new Function('window', 'document', 'module', 'Date', 'setTimeout', 'clearTimeout', src)(w, doc, undefined, DateX, st, ct);
   const cb = {};
   const comp = o.noCompanion ? undefined : {
     onBgmDiag: (f) => { cb.diag = f; }, onBgmClosed: (f) => { cb.closed = f; }, onBgmMode: (f) => { cb.mode = f; },
   };
-  return { M: w.TwBgmDiag, w, els, cb, mk: () => w.TwBgmDiag.createBgmDiag({ companion: comp }) };
+  return { M: w.TwBgmDiag, w, els, cb, clk, mk: () => w.TwBgmDiag.createBgmDiag({ companion: comp }) };
 }
 const STUCK = { gateMuted: true, audible: false, isAd: false, videos: 1, vol: 0.8, want: 0.8, vMuted: false, paused: false, pVol: 80, pMuted: false, mutedMs: 12000, fail: 0 };
 const OK = Object.assign({}, STUCK, { gateMuted: false, audible: true, mutedMs: 0 });
@@ -49,9 +56,11 @@ function behave(src){
   const g = M.read({ gateMuted: 'yes', videos: -2, vol: NaN, want: 'x', vMuted: 1, mutedMs: -5, fail: 2.7, extra: '<b>' });
   r.readShape = g && g.gateMuted === false && g.videos === 0 && g.vol === null && g.want === null && g.vMuted === null && g.mutedMs === 0 && g.fail === 2 && !('extra' in g);
   const d = (x) => M.read(Object.assign({}, STUCK, x));
-  r.suspect = M.suspect(d({})) && M.suspect(d({ mutedMs: M.STUCK_MS })) && !M.suspect(d({ mutedMs: M.STUCK_MS - 1 }))
+  r.suspect = M.suspect(d({})) && M.suspect(d({ mutedMs: 0 }))
     && !M.suspect(d({ isAd: true })) && !M.suspect(d({ videos: 0 })) && !M.suspect(d({ gateMuted: false }))
     && M.suspect(d({ gateMuted: false, fail: M.FAIL_MIN })) && M.suspect(d({ videos: 0, noReplyMs: M.NO_REPLY_MS })) && !M.suspect(d({ gateMuted: false, noReplyMs: M.NO_REPLY_MS - 1 })) && !M.suspect(d({ gateMuted: false, fail: M.FAIL_MIN - 1 })) && !M.suspect(null);
+  r.hold = M.nextBadSince(0, d({}), 500) === 500 && M.nextBadSince(500, d({}), 900) === 500 && M.nextBadSince(500, d({ gateMuted: false }), 900) === 0
+    && M.nextBadSince(0, null, 900) === 0 && !M.held(0, 99999) && !M.held(500, 500 + M.HOLD_MS - 1) && M.held(500, 500 + M.HOLD_MS);
   const L = M.line(d({}));
   r.line = L.startsWith('🔍 소리 진단') && L.includes('앱 음소거 켜짐 12초') && L.includes('광고 아님') && L.includes('영상 1개')
     && L.includes('영상 음량 80/80') && L.includes('영상 음소거 꺼짐') && L.includes('플레이어 80') && L.includes('소리 신호 없음') && !L.includes('게이트 답 없음') && !L.includes('확인 실패') && !L.includes('멈춤');
@@ -60,21 +69,27 @@ function behave(src){
     && L2.includes('플레이어 — 음소거') && L2.includes('확인 실패 3회') && L2.includes('게이트 답 없음 3초(기다리는 확인 14)');
   r.lineNone = M.line(null) === '🔍 소리 진단 · 재생 중인 곡이 없어요';
 
-  /* 2 */
+  /* 2 — 이상한 값은 1초마다 온다(main 과 같은 간격) */
   const e = load(src); e.mk(); const el = e.els.myPlDiag;
+  const feed = (x, secs) => { for(let i = 0; i < secs; i++){ e.cb.diag(x); e.clk.go(1000); } e.cb.diag(x); };
   const s0 = el.hidden === true;
-  e.cb.diag(OK); const s1 = el.hidden === true;
-  e.cb.diag(STUCK); const s2 = el.hidden === false && el.textContent.includes('앱 음소거 켜짐 12초');
-  e.cb.diag(OK); const s3 = el.hidden === true;
-  r.auto = s0 && s1 && s2 && s3;
+  feed(OK, 8); const s1 = el.hidden === true;
+  feed(STUCK, 3); const s2 = el.hidden === true;                       // 3초 — 아직 안 뜸(곡을 불러오는 짧은 순간)
+  feed(OK, 1); feed(STUCK, 4); const s3 = el.hidden === true;          // 사이에 정상이 끼면 처음부터 센다
+  e.cb.diag(STUCK); e.clk.go(1000); e.cb.diag(STUCK); const s4 = el.hidden === false && el.textContent.includes('앱 음소거 켜짐 12초');   // 5초 이어짐 — 뜸
+  e.cb.diag(OK); const s5 = el.hidden === true;
+  r.auto = s0 && s1 && s2 && s3 && s4 && s5;
   e.els.myPlVolIco.fire('click'); const f1 = el.hidden === false && el.textContent.includes('앱 음소거 꺼짐') && el.textContent.includes('소리 신호 있음');
-  e.cb.closed(); const f2 = el.hidden === false && el.textContent === M.line(null);
-  e.els.myPlVolIco.fire('click'); const f3 = el.hidden === true;
-  r.forced = f1 && f2 && f3;
+  e.clk.go(9000); e.cb.diag(OK); const f2 = el.hidden === false;
+  e.els.myPlVolIco.fire('click'); e.clk.go(9000); const f3 = el.hidden === false;   // 다시 누르면 10초를 처음부터
+  e.clk.go(1000); const f4 = el.hidden === true;                                      // 새 값이 안 와도 저절로 닫힌다
+  e.els.myPlVolIco.fire('click'); e.cb.closed(); const f5 = el.hidden === false && el.textContent === M.line(null);
+  e.clk.go(10000);
+  r.peek = f1 && f2 && f3 && f4 && f5 && el.hidden === true;
   const mode = (m) => { if(e.cb.mode) e.cb.mode(m); };
-  e.cb.diag(STUCK); mode('playlist'); const m1 = el.hidden === false;
-  mode('home'); const m2 = el.hidden === true;
-  e.cb.diag(STUCK); e.cb.closed(); const m3 = el.hidden === true;
+  feed(STUCK, 5); mode('playlist'); const m1 = el.hidden === false;
+  mode('home'); e.cb.diag(STUCK); const m2 = el.hidden === true;                   // 비운 뒤엔 다시 5초를 센다
+  feed(STUCK, 5); e.cb.closed(); const m3 = el.hidden === true;
   r.clear = m1 && m2 && m3;
   r.textOnly = el.innerHTML === null;
   let quiet = true;
@@ -87,13 +102,14 @@ function report(r){
   say('── 1. 순수 함수');
   chk(r.readBad, 'read — 객체가 아니면 null');
   chk(r.readShape, '  모양 맞추기 — 틀린 칸은 null · 0 · 음수 버림 · 모르는 칸 버림');
-  chk(r.suspect, 'suspect — 광고 아님 · 영상 있음 · 음소거 5초부터(4.999초는 아님) · 확인 실패 8회부터 · 답 없음 2초부터 · 광고 · 영상 없음 · 풀림은 아님');
+  chk(r.suspect, 'suspect — 광고 아님 · 영상 있음 · 앱 음소거 · 확인 실패 8회부터 · 답 없음 2초부터 · 광고 · 영상 없음 · 풀림은 아님');
+  chk(r.hold, 'nextBadSince · held — 이상한 상태가 시작된 때를 지키고 정상이면 0 · 5초 이어져야 보임(4.999초는 아님)');
   chk(r.line, 'line — 앱 음소거(초) · 광고 · 영상 수 · 음량(지금/목표) · 영상 음소거 · 플레이어 · 소리');
   chk(r.line2, '  모르는 값은 «—» · 멈춤 · 플레이어 음소거 · 확인 실패 횟수 · 게이트 답 없음(기다리는 확인 수)');
   chk(r.lineNone, '  값이 없으면 «재생 중인 곡이 없어요»');
   say('── 2. 화면');
-  chk(r.auto, '처음엔 숨김 · 정상이면 숨김 · 음소거가 안 풀리면 저절로 뜸 · 풀리면 다시 숨음');
-  chk(r.forced, '음량 아이콘으로 켜면 정상이어도 보임 · 곡이 닫히면 «없어요» · 다시 누르면 끔');
+  chk(r.auto, '처음엔 숨김 · 정상이면 숨김 · 3초 이상은 안 뜸 · 사이에 정상이 끼면 처음부터 · 5초 이어지면 뜸 · 풀리면 숨음');
+  chk(r.peek, '음량 아이콘 — 누르면 정상이어도 10초 보임 · 다시 누르면 10초를 처음부터 · 새 값이 없어도 저절로 닫힘 · 곡이 닫히면 «없어요»');
   chk(r.clear, '마이홈 BGM 이 창을 가져가거나 곡이 닫히면 낡은 값을 비운다');
   chk(r.textOnly, '  textContent 로만 넣는다(innerHTML 안 씀)');
   chk(r.quiet, '  companion · 줄 자리가 없으면 조용히 물러난다');
@@ -217,8 +233,12 @@ say('── 5. 깨 보기');
   const b1 = broken('return d.gateMuted && !d.isAd &&', 'return d.gateMuted &&');
   chk(b1 && !b1.suspect, '광고 조건을 빼면 1절 suspect 가 빨강');
   const b2 = broken('el.textContent = line(last)', 'el.innerHTML = line(last)');
+  const b4 = broken('const show = now < peekUntil || held(badSince, now);', 'const show = now < peekUntil || suspect(last);');
+  chk(b4 && !b4.auto, '이어지는지 안 보고 바로 띄우면 2절이 빨강');
+  const b5 = broken('    peekT = setTimeout(paint, PEEK_MS);\n', '');
+  chk(b5 && !b5.peek, '10초 뒤 닫는 타이머를 빼면 2절이 빨강');
   chk(b2 && !b2.textOnly, 'innerHTML 로 넣으면 2절이 빨강');
-  const b3 = broken("companion.onBgmMode((mode) => { if(mode !== 'playlist'){ last = null; paint(); } });", '');
+  const b3 = broken("companion.onBgmMode((mode) => { if(mode !== 'playlist') clear(); });", '');
   chk(b3 && !b3.clear, '마이홈이 창을 가져갈 때 안 비우면 2절이 빨강');
   const M = SRC['main.js'];
   const g1 = await gateCheck(M.replace("if(bgmMode !== 'playlist' || (++bgmDiagTick % 4)) return;", 'if(++bgmDiagTick % 4) return;'));
