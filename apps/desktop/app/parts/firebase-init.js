@@ -2802,14 +2802,15 @@
     async getRoomMeta(room){
       try{ const snap = await get(ref(db, `rooms/${room}/_meta`)); return snap.val() || null; }catch(_){ return null; }
     },
-    /* 🔇 방 전체 채팅 잠금 — 시크릿룸 방장만 부른다(권한 판정은 렌더러가 한다).
-       ★ `_meta` 아래 한 칸만 갱신한다 — set 으로 통째로 쓰면 channel·host·ts 가 날아가
-         방장 승계가 그 자리에서 깨진다.
-       ⚠️ 규칙 파일은 손댈 필요가 없다: `rooms/$room/_meta` 는 `.write:true` 이고 `.validate` 는
-         channel·host·ts **가 있을 때만** 형식을 보므로, 새 자식이 늘어도 통과한다. */
+    /* 🔇 채팅 잠금 · 🏷️ 방 설정 — 방장만 부른다(판정은 렌더러). ★ `_meta` 아래 칸만 update — set 으로 통째로 쓰면 channel·host·ts 가 날아가 승계가 깨진다. */
     async setRoomChatOff(room, off){
       if(!room) return { ok:false };
       try{ await update(ref(db, `rooms/${room}/_meta`), { chatOff: !!off }); return { ok:true }; }
+      catch(e){ return { ok:false }; }
+    },
+    async setRoomInfo(room, info){   // 제목 · 공개 두 칸만 — 빈 제목은 칸을 지운다(«○○ 님의 방» 으로 그림) · open 은 불일 때만
+      if(!room || !info) return { ok:false };
+      try{ await update(ref(db, `rooms/${room}/_meta`), Object.assign({ title: info.title || null }, typeof info.open === 'boolean' ? { open: info.open } : {})); _touchRoomIndex(room); return { ok:true }; }
       catch(e){ return { ok:false }; }
     },
     /* 🗑 대화 기록 통째 삭제 — 방장이 부른다(권한 판정은 렌더러가 한다).

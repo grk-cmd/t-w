@@ -16,12 +16,13 @@ const Presence = deps.Presence;   // 읽는 함수
 const chatPrefsMod = deps.chatPrefsMod;
 const chatUiMod = deps.chatUiMod;
 const getMyUserId = deps.getMyUserId;
+const roomState = deps.roomState;   // 방장 · 시크릿룸 판정(room/room-state.js — 방 안 [방 설정] 과 같은 한 곳)
 function _chatRoomCode(){
   try{ return (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null; }catch(_){ return null; }
 }
-function _chatIsSecretRoom(){ const c=_chatRoomCode(); return !!c && String(c).indexOf('SCRT-')===0; }
+function _chatIsSecretRoom(){ return roomState.isSecretCode(_chatRoomCode()); }
 function _chatIsHost(){
-  try{ const h = window._roomMetaCache && window._roomMetaCache.host; return !!h && h === getMyUserId(); }catch(_){ return false; }
+  try{ return roomState.isHost(window._roomMetaCache, getMyUserId()); }catch(_){ return false; }
 }
 function _chatOffOn(){
   try{ return _chatIsSecretRoom() && !!(window._roomMetaCache && window._roomMetaCache.chatOff); }catch(_){ return false; }

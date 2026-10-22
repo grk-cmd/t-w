@@ -38,6 +38,7 @@ const CODES = {
   'E-ROOM-01': { msg: '방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'room/room-entry.js — 랜덤 참여 · 갈아타기 (findRandomRooms)' },
   'E-ROOM-02': { msg: '방을 옮기지 못했어요 — 참여를 다시 눌러 주세요', where: 'room/room-entry.js — 갈아타기 뒤 방 밖에 남음' },
   'E-ROOM-03': { msg: '방 목록을 불러오지 못했어요 — 다시 불러오기를 눌러 주세요', where: 'room/room-lobby-ui.js — 로비 목록 사본(roomLobby/{채널}) 읽기 실패' },
+  'E-ROOM-04': { msg: '방 설정을 저장하지 못했어요 — 잠시 후 다시 눌러 주세요', where: 'room/room-info-ui.js — 방 안 [방 설정] 제목 · 공개 쓰기(setRoomInfo) 실패' },
   'E-CHAR-01': { msg: '프리셋을 저장하지 못했어요', where: 'creator/desk-preset.js — 생성기 📐 책상 프리셋 저장 · 비우기 (saveDeskPresets · tw.deskPresets)' },
   'E-CHAR-02': { msg: '프리셋을 읽지 못했어요', where: 'creator/desk-preset-store.js — 생성기 📐 책상 프리셋 읽기 해석 실패 (loadDeskPresets · tw.deskPresets)' },
   'E-CHAR-03': { msg: '프리셋의 책상 모델을 불러오지 못했어요', where: 'creator/desk-preset.js — applyDeskPreset 책상 GLB 해석 실패' },

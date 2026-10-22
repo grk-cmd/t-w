@@ -224,13 +224,13 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
 
 검사: `checks/sim-seat-menu.js`.
 
-## room-settings.js — 방 설정 규칙(제목 · 최대 인원 · 방장 닉네임)
+## room-settings.js — 방 설정 규칙(제목 · 보일 제목 · 최대 인원 · 방장 닉네임)
 
-**책임** — 방 만들기 창 · 입장 정원 검사 · 들어간 뒤 자기 퇴장이 같이 부르는 판정 한 곳(순수 함수 · DOM · firebase 없음). 제목 확인(`checkTitle` — 빈 제목 통과 · 20자 · 금칙어), 최대 인원 고르기(`clampMax` — 2 ~ 정원), 방 정원(`roomCap` — `_meta.max` 와 원격 정원 중 작은 쪽), 방장 닉네임(`hostNameOf`).
+**책임** — 방 만들기 창 · 방 안 [방 설정] · 로비 카드 · 입장 정원 검사 · 들어간 뒤 자기 퇴장이 같이 부르는 판정 한 곳(순수 함수 · DOM · firebase 없음). 제목 확인(`checkTitle` — 빈 제목 통과 · 20자 · 금칙어), 보일 제목(`displayTitle` — 비었거나 금칙어면 «닉네임 님의 방» · 닉네임도 없으면 «이름 없는 방»), «공개» 안내 글(`OPEN_HINT`), 최대 인원 고르기(`clampMax` — 2 ~ 정원), 방 정원(`roomCap` — `_meta.max` 와 원격 정원 중 작은 쪽), 방장 닉네임(`hostNameOf`).
 
 **만드는 법** — classic script(`window.TwRoomSettings`)를 app.js · firebase-init.js 보다 먼저 싣는다. room-entry 는 deps `roomSettings` 로, firebase-init(모듈)은 `window.TwRoomSettings` 로 부른다(원격 설정 정원을 `window.TwRemoteConfig` 로 읽는 것과 같은 자리).
 
-**내놓는 것** — `TITLE_MAX` · `HOST_NAME_MAX` · `ROOM_MAX_MIN` · `ROOM_MAX_MAX` · `TITLE_ERROR_TEXT` · `checkTitle` · `clampMax` · `roomCap` · `hostNameOf`.
+**내놓는 것** — `TITLE_MAX` · `HOST_NAME_MAX` · `ROOM_MAX_MIN` · `ROOM_MAX_MAX` · `TITLE_ERROR_TEXT` · `OPEN_HINT` · `checkTitle` · `displayTitle` · `clampMax` · `roomCap` · `hostNameOf`.
 
 **함정**
 - 범위(제목 20 · 닉네임 20 · 인원 2~50)는 규칙 `rooms/$room/_meta` 와 서버 함수 `firebase/functions/room-lobby.js` 와 같아야 한다 — `sim-room-settings` 가 견준다.
@@ -260,6 +260,32 @@ TwRoomCreateUi.createRoomCreateUi({
 - 금칙어는 원격 설정 `bannedWords`(API 를 못 받으면 Firebase `config/bannedWords`) — API 가 이 칸을 아직 안 주면 앱은 거르지 못하고, 목록에는 서버 함수가 한 번 더 거른다.
 
 검사: `checks/sim-room-settings.js`.
+
+## room-info-ui.js — 방 안 제목 줄 · [방 설정]
+
+**책임** — 방 안 정보 칸(`#inviteActive`) 맨 위 방 제목 줄과, 현재 방장에게만 보이는 [⚙ 방 설정](제목 · 공개 바꾸기). 제목은 `_meta.title` 을 `displayTitle` 로 그린다(금칙어 · 빈 제목 → 기본값). 저장은 deps `saveInfo` 로 `_meta` 의 두 칸만 쓴다(`firebaseAPI.setRoomInfo`).
+
+**만드는 법** — app.js 에서 방 입장 모듈보다 먼저:
+
+```js
+const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings, bannedWords: TwBannedWords, rcStore: ()=>acctStateMod._rcStore(),
+  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, getMyUserId()), isSecretRoom: ()=>TwRoomState.isSecretCode(…),   // 채팅 잠금과 같은 판정(room-state.js)
+  roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), meta: ()=>window._roomMetaCache,
+  isServerRoom: ()=>!!Presence.serverProvider(), saveInfo: (room, info)=>window.firebaseAPI.setRoomInfo(room, info),
+  notifyError: (...a)=>TwErrorCodes.notify(...a) });
+// … createRoomEntry({ …, paintRoomInfo: ()=>roomInfoUi.paint() })
+```
+
+**내놓는 것** — `paint()`. 방 입장 모듈이 들어감 · 나감(`refreshInviteUI`) · Firebase meta · 방 서버 meta 때 부른다.
+
+**함정**
+- `_meta` 는 지금 누구나 쓸 수 있다(규칙) — 버튼은 화면에서만 방장으로 막는다(채팅 잠금 · 탭과 같다). «방장만» 은 방 서버가 지킨다.
+- 방 서버 방은 줄째 숨긴다 — 서버가 아직 `title` · `open` 을 meta 로 받지 않는다(받게 되면 `saveInfo` 를 provider 로).
+- 시크릿룸은 «공개» 칸이 없고 공개를 쓰지 않는다(목록에 원래 안 나온다).
+- `_roomMetaCache` 를 이 모듈이 고쳐 쓰지 않는다(`sim-room-state` — 쓰는 곳은 정해져 있다) — 저장 뒤 제목 줄은 `_meta` 구독이 다시 그린다(방 안 모두 같이).
+- 최대 인원 · 같이 듣기는 만들 때만 정한다(설계 5.1).
+
+검사: `checks/sim-room-info-ui.js`.
 
 ## room-lobby-model.js · room-lobby-provider.js · room-lobby-ui.js — 방 목록 로비
 
