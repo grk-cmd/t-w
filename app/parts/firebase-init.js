@@ -1404,9 +1404,10 @@
        mobileLink/{uid}/live  = { at }                 PC 가 켜져 있다는 표시 · onDisconnect remove
        mobileLink/{uid}/state = { on, app, ts, key }   폰이 REST 로 쓴다(key 일치 + live 존재일 때만 · 규칙)
        ⚠️ presence 를 «PC 켜짐» 으로 쓰지 않는다 — «오프라인으로 보이기» 가 online:false 를 써서 폰 연결까지 끊긴다.
-       ★ 키가 없는 사람(연결 안 한 사람)에게는 이 통로가 **한 번도 안 불린다** — 읽기·쓰기 0. */
-    async mobileLinkStart(userId, cb){
-      if(!userId || typeof cb !== 'function') return null;
+       ★ 키가 없는 사람(연결 안 한 사람)에게는 이 통로가 **한 번도 안 불린다** — 읽기·쓰기 0.
+       onDiag(ev) — 진단 줄(mobile-diag.js)에만: { kind:'reset', v } 부팅 초기화로 내린 원래 값 · { kind:'live', has } PC 켜짐 표시(다른 PC 가 꺼지며 지우면 폰 신호가 거절된다) */
+    async mobileLinkStart(userId, cb, onDiag){
+      if(!userId || typeof cb !== 'function' || !onDiag) return null;
       await _whenAuthReady();
       if(_mobLive && _mobLive.uid === userId) return _mobLive.stop;
       if(_mobLive) _mobLive.stop();
@@ -1418,15 +1419,17 @@
       };
       arm();
       /* 부팅 초기화 — 어제 «닫힘» 이 빠진 채 남은 «켜짐» 이 오늘 시간을 쌓지 않게. on 만 내린다(앱 이름·key 는 둔다). */
-      try{ const s = (await get(stateRef)).val(); if(s && s.on === true) await update(stateRef, { on:false }); }catch(_){}
+      const diag = (ev)=>{ try{ onDiag(ev); }catch(_){} }; try{ const s = (await get(stateRef)).val(); if(s && s.on === true){ await update(stateRef, { on:false }); diag({ kind:'reset', v:s }); } }catch(_){}
       const connRef = ref(db, '.info/connected');
       const onConn = s=>{ if(s.val() === true) arm(); };
       try{ onValue(connRef, onConn); }catch(_){}
       const onState = s=>{ try{ cb(s.val() || null); }catch(_){} };
       onValue(stateRef, onState, e=>{ console.warn('[📱] 구독 실패', e && e.code); try{ cb(null); }catch(_){} });
+      const onLive = s=>diag({ kind:'live', has: s.exists() }); onValue(liveRef, onLive, ()=>{});   // 보이기만 · 다시 걸지는 않는다
       const stop = ()=>{
         try{ off(connRef, 'value', onConn); }catch(_){}
         try{ off(stateRef, 'value', onState); }catch(_){}
+        try{ off(liveRef, 'value', onLive); }catch(_){}
         try{ onDisconnect(liveRef).cancel(); }catch(_){}
         try{ remove(liveRef); }catch(_){}
         if(_mobLive && _mobLive.stop === stop) _mobLive = null;
