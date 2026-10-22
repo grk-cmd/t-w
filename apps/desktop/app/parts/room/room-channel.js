@@ -21,3 +21,18 @@ export function channelFromRoomCode(code){
 export function recoverChannelFor(code, licensed){
   return channelFromRoomCode(code) || (licensed ? CHANNEL.TOGETHER : CHANNEL.WORKING);
 }
+
+// 방장이 나간 방에서 채널마다 누가 이어받나 · 아무도 없으면 해산하나. 표에 없는 채널은 승계 · 해산 모두 안 한다.
+// 투게더룸을 해산하는 까닭: 라이선스 없는 사람들끼리 프리미엄 방을 계속 쓰지 않게.
+const HOST_SUCCESSION = Object.freeze({
+  [CHANNEL.TOGETHER]: { canHost: (m) => !!m.lic, disbandIfNone: true },
+  [CHANNEL.WORKING]: { canHost: (m) => !!m.userId, disbandIfNone: false },
+});
+// sortedIds 는 입장순(memberId 오름차순). → { act:'claim', memberId } · { act:'disband' } · { act:'none' }
+export function hostSuccession(channel, sortedIds, members){
+  const rule = HOST_SUCCESSION[channel];
+  if(!rule) return { act: 'none' };
+  const memberId = sortedIds.find((id) => members[id] && rule.canHost(members[id]));
+  if(memberId) return { act: 'claim', memberId };
+  return { act: rule.disbandIfNone ? 'disband' : 'none' };
+}

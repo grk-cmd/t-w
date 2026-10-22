@@ -223,7 +223,20 @@ contextBridge.exposeInMainWorld('companion', {
   onBgmTrackEnd(callback) {
     ipcRenderer.on('companion:bgmTrackEnd', (e, kind) => callback(kind));
   },
-  // BGM 창 소유권이 바뀔 때 — callback('home' | 'playlist'). 진 쪽이 자기 재생표시를 내린다.
+  // ---- 🎧 같이 듣기 — 같은 재생 창의 세 번째 주인('listen'). 열면 마이홈 BGM · 플레이리스트는 진다 ----
+  // DJ 의 곡을 start(초)부터 연다(유튜브 주소 t). 반복은 main 이 늘 끈다.
+  openListenTrack(url, title, start) {
+    ipcRenderer.send('companion:openListenTrack', url, title || '', Number(start) || 0);
+  },
+  // 위치 맞추기(초) — listen 모드 · 광고가 아닐 때만 main 이 옮긴다
+  bgmSeek(sec) {
+    ipcRenderer.send('companion:bgmSeek', Number(sec));
+  },
+  // 같이 듣기 재생 창 신호 — callback('ended' | 'err' | 'hb:위치|길이|멈춤|광고'). 플레이리스트 신호(onBgmTrackEnd)와 통로가 다르다.
+  onListenSignal(callback) {
+    ipcRenderer.on('companion:listenSignal', (e, kind) => callback(kind));
+  },
+  // BGM 창 소유권이 바뀔 때 — callback('home' | 'playlist' | 'listen'). 진 쪽이 자기 재생표시를 내린다.
   onBgmMode(callback) {
     ipcRenderer.on('companion:bgmMode', (e, mode) => callback(mode));
   },
