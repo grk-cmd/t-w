@@ -73,7 +73,7 @@ function createPresenceLock(deps){
     if(touched){
       // 읽기 전에 눌렀다 — 누른 값은 지키되 고정 여부는 읽은 값을 따른다(고정이면 누른 값이 새 고정값)
       pref = { lock: p.lock, online };
-      if(p.lock && p.online !== online) save(uid); else if(fromServer) writeCache(uid);
+      if(p.lock && p.online !== online && fromServer) save(uid); else writeCache(uid);   // 이 PC 값만으로는 서버를 덮지 않는다
     } else {
       pref = p; online = startOnline(p);
       if(fromServer) writeCache(uid);
