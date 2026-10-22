@@ -61,6 +61,7 @@ const INK_URL = 'data:image/png;base64,INK', BLANK_URL = 'data:image/png;base64,
       n.__ink = false;
       const _gc = n.getContext;
       n.getContext = function(){
+        if(!('__ctxArgs' in n)) n.__ctxArgs = arguments[1];   // 처음 부를 때 받은 속성(newCanvas 검사)
         const c = _gc.apply(n, arguments);
         c.clearRect = ()=>{ n.__ink = false; return c; };
         c.fillRect  = ()=>{ n.__ink = true;  return c; };
@@ -83,7 +84,7 @@ const probe = `
   /* 진짜 THREE.CanvasTexture 는 tex.image 에 원본 캔버스를 담는다 — 복구가 그 자리에 다시 그린다.
      smoke 의 THREE 스텁은 무엇을 물어도 프록시를 돌려줘서 tex.image 가 캔버스가 아니다.
      그러면 «화면 텍스처가 비었다»를 만들 수조차 없으므로, 여기서만 실제 동작대로 채워 준다. */
-  repair: repairBlankFaces, seats, compositeFace, skinCanvases,
+  repair: repairBlankFaces, seats, compositeFace, skinCanvases, newCanvas,
   mkFaceTex: (cv)=>{ const t = mkFaceTex(cv); t.image = cv; return t; } };`;
 
 const say = console.log;
@@ -304,8 +305,9 @@ function clearSlots(){ for (let i = 0; i < P.MAX; i++) P.slots[i] = null; }
   say('');
   say('· 캔버스는 CPU 쪽에 둔다(그래픽 리셋에 안 지워지게 — B-1019-3)');
   {
-    const src = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
-    chk(/function newCanvas\(\)\{[^\n]*c\.getContext\('2d',\{willReadFrequently:true\}\)/.test(src), '★ newCanvas 가 첫 getContext 에 willReadFrequently 를 건다');
+    const c = P.newCanvas();
+    chk(c.__ctxArgs && c.__ctxArgs.willReadFrequently === true && c.width === 512 && c.height === 512, '★ newCanvas 가 처음 부르는 getContext 에 willReadFrequently 를 건다(만든 즉시)');
+    chk(P.skinCanvases.every(k => k.__ctxArgs && k.__ctxArgs.willReadFrequently === true), '  피부 캔버스도 같은 길로 만든다');
   }
 
   say('');

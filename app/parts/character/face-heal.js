@@ -45,7 +45,7 @@ async function _repairSkinCanvases(){
     try{ await loadSkins(); }catch(_){} }
   return bad;
 }
-/* 빈 피부 캔버스 번호 — 합성본은 그림(눈 · 입 선)이 남아 «전부 투명» 이 아니라서 _seatCompositeBlank 가 못 잡는다(B-1019-3) */
+/* 빈 피부 캔버스 번호 — 합성본은 그림(눈 · 입 선)이 남아 «전부 투명» 이 아니라서 _seatCompositeBlank 가 못 잡는다 */
 function _blankSkinIdx(){
   const out = new Set();
   for(let k=0;k<skinCanvases.length;k++) if(_isBlankDraw(skinCanvases[k])) out.add(k);

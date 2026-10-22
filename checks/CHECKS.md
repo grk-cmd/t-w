@@ -113,7 +113,7 @@
 | **sim-desk-setup.js** | 228 | **268fe68a88b2** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
-| **sim-face-loss.js** | 315 | **5f10b2c6c782** |
+| **sim-face-loss.js** | 317 | **921e471b80b1** |
 | **sim-fly-click-through.js** | 131 | **d3a06f4b89f9** |
 | **sim-fly-egg.js** | 259 | **97f6fa1f3ffa** |
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
