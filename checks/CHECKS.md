@@ -214,7 +214,7 @@
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **bf05469a5050** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
-| **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** |
+| **sim-frame-budget.js** | 188 | **6a026ddad3c9** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 156 | **e36dbd6f8eba** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |

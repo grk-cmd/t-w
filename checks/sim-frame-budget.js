@@ -179,6 +179,8 @@ say('── 5. 배선');
   chk(/return !_frameBudget\.admit\(now, _frameCap\(now\)\);/.test(code), '_frameCapped 가 admit 으로 판정');
   chk(/companion\.diagNote\(_FB\.diagLine\(m\)\);[\s\S]{0,40}\}, 60000\);/.test(code) && /if\(!document\.body\.classList\.contains\('runmode'\)\) return;/.test(code), '1분마다 · 실행 화면에서만 진단 줄');
   chk(!/requestAnimationFrame\([^)]*diag/i.test(code), '진단은 rAF 가 아니라 1분 타이머');
+  chk(/if\(!_officeHidden && !\(document\.body\.classList\.contains\('desktop'\) && document\.body\.classList\.contains\('config'\)\)\) renderer\.render\(scene,camera\);/.test(code)
+    && (code.match(/renderer\.render\(scene,camera\)/g) || []).length === 1, '회사원 모드로 화면을 숨긴 동안은 3D 를 안 그린다(그리기 자리는 한 곳)');
 }
 
 say('');
