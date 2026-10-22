@@ -1067,12 +1067,59 @@
       "$code": {
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         ".write": "!data.exists() || (data.child('issuedBy').val() === newData.child('issuedBy').val() && data.child('createdAt').val() === newData.child('createdAt').val()) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
-        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['issuedBy','createdAt']) && newData.child('issuedBy').isString() && newData.child('createdAt').isNumber())",
+        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['issuedBy','createdAt']) && newData.child('issuedBy').isString() && newData.child('createdAt').isNumber()) && !root.child('groupInvites/'+$code).exists()",
         "issuedBy": { ".validate": "newData.isString() && newData.val().length <= 48" },
         "createdAt": { ".validate": true },
         "usedBy": { ".validate": "newData.isString() && newData.val().length <= 64" },
         "usedAt": { ".validate": "newData.isNumber()" },
         "$other": { ".validate": false }
+      }
+    },
+    "groupInvites": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$code": {
+        ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && newData.hasChildren(['issuedBy','createdAt','maxUses','usedCount'])",
+        "issuedBy": { ".validate": "newData.isString() && newData.val().length <= 48" },
+        "createdAt": { ".validate": "newData.isNumber()" },
+        "maxUses": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 1 && newData.val() <= 5000 && newData.val() >= newData.parent().child('usedCount').val()" },
+        "usedCount": {
+          ".write": "data.exists() && newData.exists()",
+          ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= newData.parent().child('maxUses').val() && ((auth != null && root.child('admins').child(auth.uid).val() === true) || (newData.val() === data.val() + 1 && !newData.parent().child('stoppedAt').exists() && (!newData.parent().child('expiresAt').exists() || newData.parent().child('expiresAt').val() > now) && newData.parent().parent().parent().child('groupInviteUses/'+$code+'/'+newData.val()+'/token').exists()))"
+        },
+        "expiresAt": { ".validate": "newData.isNumber()" },
+        "stoppedAt": { ".validate": "newData.isNumber()" },
+        "note": { ".validate": "newData.isString() && newData.val().length <= 40" },
+        "$other": { ".validate": false }
+      }
+    },
+    "groupInviteUses": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$code": {
+        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/)",
+        "$n": {
+          ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || !data.exists()",
+          ".validate": "$n.matches(/^[1-9][0-9]{0,3}$/) && newData.hasChildren(['token','at']) && (data.exists() || (auth != null && root.child('admins').child(auth.uid).val() === true) || (newData.parent().parent().parent().child('groupInvites/'+$code+'/usedCount').val() + '' === $n && newData.parent().parent().parent().child('groupInviteTokens/'+$code+'/'+newData.child('token').val()).val() + '' === $n))",
+          "token": { ".validate": "newData.isString() && newData.val().matches(/^t[a-z0-9]{16}$/) && (!data.exists() || data.val() === newData.val())" },
+          "at": { ".validate": "newData.isNumber() && (!data.exists() || data.val() === newData.val())" },
+          "uid": {
+            ".write": "!data.exists() && auth != null && root.child('authUsers/'+auth.uid+'/userCode').val() === newData.val()",
+            ".validate": "newData.isString() && newData.val().matches(/^[uU][0-9a-zA-Z]{8,40}$/)"
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    },
+    "groupInviteTokens": {
+      ".read": "auth != null && root.child('admins').child(auth.uid).val() === true",
+      "$code": {
+        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/)",
+        "$token": {
+          ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+          ".write": "(auth != null && root.child('admins').child(auth.uid).val() === true) || !data.exists()",
+          ".validate": "$token.matches(/^t[a-z0-9]{16}$/) && newData.isNumber() && newData.parent().parent().parent().child('groupInviteUses/'+$code+'/'+newData.val()+'/token').val() === $token"
+        }
       }
     },
     "friendRequests": {

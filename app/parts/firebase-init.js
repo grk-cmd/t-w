@@ -41,6 +41,7 @@
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
+  import { createGroupInvite } from "./account/group-invite.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
@@ -421,6 +422,7 @@
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
   const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
+  const _groupInvite = createGroupInvite({ db, ref, get, update });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
@@ -3286,20 +3288,17 @@
       });
       return result && result.snapshot ? result.snapshot.val() : null;
     },
-    // 초대 코드 사용 — 미사용 코드만 소진 가능(트랜잭션으로 동시 사용 방지)
-    /* 🎟️ [회원가입 설계 §3 · 개정 8] 초대 코드 소진은 **기기 토큰**으로 한다 — uid 가 아직 없다.
-       예전엔 `redeemInvite(code, getMyUserId())` 였고 그 호출 자체가 새 사람의 uid 를 **발명**했다.
-       ★ 여기서는 `usedBy`·`usedAt` 만 쓴다. 예전에 같이 하던 `users/{uid}/invite` 와 `stats/userCount`
-         는 uid 가 정해진 뒤 `finishInviteSignup` 이 한다 — 토큰 자리에 쓰면 `users/t…` 유령 노드가 생긴다.
-       ★ `usedBy === token` 이면 다시 통과한다(같은 기기의 재시도 · 가입 도중 끊긴 판). */
+    /* 초대 코드 소진은 uid 가 아니라 기기 토큰으로 — uid 는 아직 없다. users/ · stats/ 쓰기는 finishInviteSignup 몫
+       (여기서 쓰면 users/t… 유령 노드가 생긴다). usedBy === token 이면 같은 기기의 재시도라 다시 통과. */
     async redeemInvite(code, token){
       try{
         if(!token) return { ok:false, reason:'초대 코드를 확인하지 못했어요 — 다시 시도해 주세요' };
         const codeRef = ref(db, `invites/${code}`);
-        // ★ issueInvite와 같은 함정 — 첫 실행의 cur는 로컬 캐시(null)라서
-        //   실제 코드가 있어도 "존재하지 않음"으로 중단돼 버림. 서버 값을 미리 읽어 기준으로 씀.
+        // ⚠️ 트랜잭션 첫 cur 는 로컬 캐시(null) — 서버 값을 미리 읽어 기준으로 쓴다(issueInvite 와 같은 함정)
         const preSnap = await get(codeRef);
         const preVal = preSnap.val();
+        // 한 명짜리에 없으면 관리자가 만든 여러 명짜리 코드인지 본다(group-invite.js)
+        if(!preVal) return await _groupInvite.redeem(code, token);
         let failReason = null;
         const result = await runTransaction(codeRef, cur=>{
           const v = cur || preVal;
@@ -3315,32 +3314,35 @@
         return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
       }
     },
-    /* 🎟️ uid 가 정해진 뒤 — 토큰 자리를 진짜 uid 로 바꾸고, 예전 redeemInvite 가 하던 두 쓰기를 한다.
-       ★ `usedBy` 가 이 토큰일 때만 바꾼다(이미 uid 면 그대로 둔다 — 재시도해도 한 번).
-       ★ `users/{uid}/invite` 가 이미 있으면 다시 안 쓴다 → 가입 카운터도 한 번만 오른다.
-       실패하면 { ok:false } — 부르는 쪽은 토큰을 지우지 않고 다음 부팅에 다시 부른다. */
+    /* uid 가 정해진 뒤 — 토큰 자리를 uid 로 바꾸고 users/{uid}/invite · 가입 카운터를 한 번만 쓴다(칸이 있으면 안 씀).
+       실패하면 { ok:false } — 부르는 쪽은 토큰을 남겨 다음 부팅에 다시 부른다. */
     async finishInviteSignup(code, token, userId){
       try{
         if(!code || !token || !userId) return { ok:false, reason:'값이 비었어요' };
         const codeRef = ref(db, `invites/${code}`);
         const preVal = (await get(codeRef)).val();
         let issuedBy = (preVal && preVal.issuedBy) || null;
-        const tr = await runTransaction(codeRef, cur=>{
-          const v = cur || preVal;
-          if(!v) return;                                             // 코드가 사라졌다 — 바꿀 것 없음
-          issuedBy = v.issuedBy || issuedBy;
-          if(v.usedBy === userId) return v;                          // 이미 바꿨다
-          if(v.usedBy !== token) return;                             // 남의 토큰 — 손대지 않는다
-          return Object.assign({}, v, { usedBy: userId });
-        });
-        const now = tr && tr.snapshot ? tr.snapshot.val() : null;
-        if(!now || now.usedBy !== userId) return { ok:false, reason:'초대 코드 기록을 바꾸지 못했어요' };
+        if(!preVal){
+          const g = await _groupInvite.finish(code, token, userId);   // 여러 명짜리 코드(group-invite.js)
+          if(!g.ok) return g;
+          issuedBy = g.issuedBy;
+        }else{
+          const tr = await runTransaction(codeRef, cur=>{
+            const v = cur || preVal;
+            if(!v) return;                                             // 코드가 사라졌다 — 바꿀 것 없음
+            issuedBy = v.issuedBy || issuedBy;
+            if(v.usedBy === userId) return v;                          // 이미 바꿨다
+            if(v.usedBy !== token) return;                             // 남의 토큰 — 손대지 않는다
+            return Object.assign({}, v, { usedBy: userId });
+          });
+          const now = tr && tr.snapshot ? tr.snapshot.val() : null;
+          if(!now || now.usedBy !== userId) return { ok:false, reason:'초대 코드 기록을 바꾸지 못했어요' };
+        }
         const invRef = ref(db, `users/${userId}/invite`);
         const had = (await get(invRef)).exists();
         if(!had){
-          // 신규 유저 — 초대로 들어왔으므로 초대권 0장 (신규 지급 중단 · 예전 redeemInvite 그대로)
-          await update(invRef, { invitesLeft: 0, invitedBy: issuedBy, joinedAt: Date.now() });
-          // 📊 가입 카운터 +1 — 전체 users를 못 읽으니(프라이버시) 숫자만 따로 집계
+          await update(invRef, { invitesLeft: 0, invitedBy: issuedBy, joinedAt: Date.now() });   // 초대로 들어온 사람은 0장
+          // 전체 users 는 못 읽으니 가입 수는 따로 센다
           try{ await runTransaction(ref(db, 'stats/userCount'), c => (typeof c==='number'?c:0) + 1); }catch(_){}
         }
         return { ok:true };

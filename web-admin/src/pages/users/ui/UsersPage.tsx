@@ -5,6 +5,7 @@ import {
   CreateInviteCodesButton,
   GrantInvitesAllButton,
   GrantInvitesSelectedButton,
+  GroupInvitesButton,
   RevokeInvitesAllButton,
   RevokeInvitesSelectedButton,
 } from '@/features/user/grant-invites';
@@ -137,6 +138,7 @@ export function UsersPage() {
           {source && countText && <small> · {userSourceNote(source, stats.data?.syncedAt ?? null)}</small>}
         </span>
         <CreateInviteCodesButton />
+        <GroupInvitesButton />
         <GrantInvitesAllButton />
         <RevokeInvitesAllButton />
         <DeleteAccountButton onDeleted={afterDelete} />

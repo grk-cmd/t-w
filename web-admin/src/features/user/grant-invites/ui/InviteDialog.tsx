@@ -8,15 +8,17 @@ interface DialogProps {
   title: string;
   /** 참이면 Esc · 바깥 클릭으로 닫히지 않는다 — 전체 지급이 도는 중에 창이 사라지면 진행 상황을 볼 수 없다. */
   locked?: boolean;
+  /** 표가 들어가는 창 — 기본 폭(420px)보다 넓게. */
+  wide?: boolean;
   onClose: () => void;
   children: ReactNode;
 }
 
-export function InviteDialog({ open, title, locked, onClose, children }: DialogProps) {
+export function InviteDialog({ open, title, locked, wide, onClose, children }: DialogProps) {
   const { dialogProps } = useModalDialog({ open, onClose, locked });
 
   return (
-    <dialog {...dialogProps} className={styles.dialog}>
+    <dialog {...dialogProps} className={wide ? `${styles.dialog} ${styles.wide}` : styles.dialog}>
       <h2>{title}</h2>
       {open && children}
     </dialog>
