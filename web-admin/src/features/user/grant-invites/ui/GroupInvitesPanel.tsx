@@ -10,6 +10,7 @@ import {
   type GroupInvite,
   type GroupInviteState,
 } from '@/entities/invite';
+import { useEnv, withProdMark } from '@/shared/api';
 import { copyText, errorMessage, formatDate, kstDateKey } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
 import { useCreateGroupInvite, useSetGroupInviteStopped } from '../model/useGrantInvites';
@@ -24,6 +25,7 @@ const STATE_LABEL: Record<GroupInviteState, string> = {
 
 // 관리자 전용 «외부인 초대장» — 코드 하나를 정한 인원까지 쓴다. 일반 사용자는 앱에서 한 명짜리를 한 장씩 만든다(그대로).
 export function GroupInvitesPanel() {
+  const env = useEnv();
   const toast = useToast();
   const list = useGroupInvites(true);
   const create = useCreateGroupInvite();
@@ -41,7 +43,7 @@ export function GroupInvitesPanel() {
 
   return (
     <section className="card">
-      <h2>외부인 초대장 — 인원 제한 코드</h2>
+      <h2>{withProdMark(env, '외부인 초대장 — 인원 제한 코드')}</h2>
       <p className="soft">
         코드 하나를 정한 인원까지 쓸 수 있어요. 마감 날짜를 정하면 그날 밤 12시(서울)까지예요. 0.12.0 이상
         앱에서만 쓸 수 있어요.

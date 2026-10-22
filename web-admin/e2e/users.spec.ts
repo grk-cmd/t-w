@@ -287,7 +287,8 @@ test('외부인 초대장 — 인원 · 마감 · 메모로 만들고, 목록에
   await expect(mine).toContainText('쓰는 중');
 
   await mine.getByRole('button', { name: '중지' }).click();
-  await expect(mine).toContainText('중지');
+  // 누르기 전 버튼 글자도 «중지» 라서, 중지된 뒤에만 보이는 «다시 열기» 를 기다린다
+  await expect(mine.getByRole('button', { name: '다시 열기' })).toBeVisible();
   expect(typeof (await dbGet(`groupInvites/${made}/stoppedAt`))).toBe('number');
   await mine.getByRole('button', { name: '다시 열기' }).click();
   await expect(mine).toContainText('쓰는 중');
