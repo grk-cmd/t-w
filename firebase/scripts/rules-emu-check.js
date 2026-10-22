@@ -293,6 +293,15 @@ const LIMIT_CASES = [
   ['새 계정 ⑨ 프로필', 'PUT', `users/${NEW_U}/profile`, { name: '새사람', updatedAt: 1, level: 1 }, true, 'authN'],
   ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
   ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  /* 🔒 온라인 고정 — 본인만 읽고 쓴다(친구가 «숨긴 오프라인» 을 못 알아보게) · 세 칸 */
+  ['온라인 고정 — 켤 때 읽기(presence 전)', 'GET', `presencePref/${NEW_U}`, null, true, 'authN'],
+  ['온라인 고정 — 본인 쓰기', 'PUT', `presencePref/${NEW_U}`, { lock: true, online: false, ts: TS }, true, 'authN'],
+  ['온라인 고정 — 남이 읽기', 'GET', `presencePref/${NEW_U}`, null, false, 'authA'],
+  ['온라인 고정 — 로그인 없이 읽기', 'GET', `presencePref/${NEW_U}`, null, false],
+  ['온라인 고정 — 남이 쓰기', 'PUT', `presencePref/${NEW_U}`, { lock: false, online: true, ts: TS }, false, 'authA'],
+  ['온라인 고정 — 모르는 칸', 'PUT', `presencePref/${NEW_U}`, { lock: true, online: false, ts: TS, x: 1 }, false, 'authN'],
+  ['온라인 고정 — 칸 빠짐', 'PUT', `presencePref/${NEW_U}`, { lock: true }, false, 'authN'],
+  ['온라인 고정 — 글자 lock', 'PUT', `presencePref/${NEW_U}`, { lock: 'yes', online: false, ts: TS }, false, 'authN'],
   ['새 계정 ⑫ 신고(쓰는 사람 = 나)', 'PUT', `reports/${GOOD_U2}/${NEW_U}`, { kind: 'etc', nick: 'a', code4: 'AB12', ts: 1 }, true, 'authN'],
   /* 🚧 ≤0.10.2 읽기 막기 — 읽는 사람의 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐 · ver 없음» 이면 거절.
      로그인 안 함(auth null) · 이어진 코드 없음(익명 가입 중 · 봇)은 막지 않는다 — 0.11 의 로그인 없는 REST 읽기 · 가입 중 읽기가 산다. */

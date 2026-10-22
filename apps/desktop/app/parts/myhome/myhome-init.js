@@ -30,6 +30,7 @@ const getMyUserId = deps.getMyUserId;
 const inboxMod = deps.inboxMod;   // 읽는 함수
 const mhScheduler = deps.mhScheduler;
 const myHomeOpen = deps.myHomeOpen;   // 읽는 함수
+const presenceLock = deps.presenceLock;   // 🔒 온라인 고정 — 처음 온라인 여부(presence-lock.js)
 const toast = deps.toast;
 const setInboxBroadcast = deps.setInboxBroadcast;   // 쓰는 함수
 const setMyFriendRequests = deps.setMyFriendRequests;   // 쓰는 함수
@@ -81,7 +82,7 @@ async function initMyHome(){
         // 📖 방명록 쓰기 게이트는 이 목록으로 판정한다 — 목록이 도착/변경되면 열려 있는 창에 즉시 반영.
         window._mhGbRefreshWriteUI();
       }, ()=>{ try{ inboxMod().renderMyHomeFriendList(); }catch(_){} });
-      firebaseAPI.setMyPresenceOnline(myId);
+      firebaseAPI.setMyPresenceOnline(myId, presenceLock.startOnlineFor(myId));   // 🔒 첫 쓰기는 고정값을 읽은 뒤(presence-lock.js)
       /* 📱 태블릿·폰 연결 — presence 등록 직후(§4-②). 키가 없는 사람은 아무 일도 안 한다. */
       try{ focusLevelMod()._mobileStart(); }catch(_){}
       /* 🖥️ [2026-09-17 제보 3] 한 계정 한 기기 — 로그인 계정이면 이 기기를 «지금 쓰는 기기» 로 적는다.

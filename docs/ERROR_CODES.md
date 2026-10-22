@@ -35,6 +35,7 @@
 | `E-FR-03` | 보낸 친구 요청을 취소하지 못했어요 | `myhome/friend-manage.js` — 보낸 요청 [취소] |
 | `E-FR-04` | 선택한 친구 요청 일부를 처리하지 못했어요 | `myhome/friend-manage.js` — 받은 요청 일괄 수락 · 거절 |
 | `E-MH-01` | 도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `myhome/help-tab.js` — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(`LOAD_MS`) |
+| `E-MH-02` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(`savePresencePref` · `presencePref/{uid}`) |
 | `E-ROOM-01` | 방 목록을 불러오지 못했어요 | `room/room-entry.js` — 랜덤 참여 · 갈아타기(`findRandomRooms`) |
 | `E-ROOM-02` | 방을 옮기지 못했어요 | `room/room-entry.js` — 갈아타기 뒤 방 밖에 남음 |
 | `E-ROOM-03` | 방 목록을 불러오지 못했어요 | `room/room-lobby-ui.js` — 로비 목록 사본(roomLobby/{채널}) 읽기 실패 |

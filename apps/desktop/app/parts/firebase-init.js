@@ -1321,15 +1321,18 @@
       catch(_){ return null; }
     },
     // 온라인 상태 등록 — onDisconnect로 앱이 꺼지거나 튕기면 자동으로 offline 처리됨.
-    setMyPresenceOnline(userId){
+    setMyPresenceOnline(userId, startOnline){
       if(_myPresenceRef) return;   // 중복 등록 방지
       _myPresenceRef = ref(db, `users/${userId}/presence`);
+      /* 🔒 startOnline — 처음 온라인 여부(Promise · 고정값을 읽은 뒤). 쓰기는 이것이 풀린 뒤에만 — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게.
+         없으면(밀려난 뒤 다시 걸기) 지금 값 그대로. 등록(_myPresenceRef)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게 */
+      const gate = Promise.resolve(startOnline).then(v=>{ if(v === false) _presenceOnline = false; }).catch(()=>{});
       /* 🔌 presence 를 **지금 상태 그대로** 다시 쓰고, onDisconnect 도 함께 다시 건다.
          최초 1회와 재접속이 똑같은 것을 써야 해서 함수로 뺐다.
          ★ online 에 true 가 아니라 `_presenceOnline` 을 넣는 것이 핵심이다 —
            수동으로 오프라인 해 둔 사람을 네트워크가 한 번 끊겼다는 이유로
            온라인으로 되돌리면 안 된다(setMyPresenceState 가 이 값을 세운다). */
-      const _armPresence = ()=>{
+      const _armPresence = ()=>gate.then(()=>{
         if(!_myPresenceRef) return;
         onDisconnect(_myPresenceRef).set(_appVer.withVer({ online:false, lastSeen: Date.now() }));
         set(_myPresenceRef, _appVer.withVer({
@@ -1338,7 +1341,7 @@
           inRoom: _presenceOnline ? _presenceInRoom : false
         }));
         _presenceWritten = true;
-      };
+      });
       /* 🚧 presence 도 소유권이 걸린 가지다 — 세션 복원 전에 쓰면 조용히 거부되고,
          그 기기는 친구 목록에서 영영 오프라인으로 보인다(재접속 복구가 돌기 전까지).
          ⚠️ .info/connected 쪽은 감싸지 않는다. 그건 이미 부팅이 한참 지난 뒤의 경로다. */
@@ -1380,6 +1383,16 @@
           try{ update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() })); }catch(_){}
         }, 6 * 60 * 60 * 1000);
       }catch(_){}
+    },
+    /* 🔒 온라인 고정 — presencePref/{uid} = { lock, online, ts }(본인만 · users/* 밖 — 친구가 «숨긴 오프라인» 을 못 알아보게). 읽기: 비어 있으면 {} · 못 읽으면 null */
+    async loadPresencePref(userId){
+      if(!userId) return null;
+      await _whenAuthReady();
+      try{ return (await get(ref(db, `presencePref/${userId}`))).val() || {}; }catch(_){ return null; }
+    },
+    async savePresencePref(userId, p){
+      await _whenAuthReady();
+      return set(ref(db, `presencePref/${userId}`), { lock: p.lock === true, online: p.online !== false, ts: serverTimestamp() });
     },
     // 온라인 표시 수동 토글 — false면 친구 목록에서 오프라인으로 보임(앱은 계속 실행됨).
     setMyPresenceState(userId, online){

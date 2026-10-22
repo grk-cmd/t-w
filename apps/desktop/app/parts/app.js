@@ -2658,6 +2658,16 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
 });
+/* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 start 로 부른다 */
+const presenceLockMod = TwPresenceLock.createPresenceLock({
+  getMyUserId: (...a)=>getMyUserId(...a),
+  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  loadPref: (...a)=>firebaseAPI.loadPresencePref(...a),
+  savePref: (...a)=>firebaseAPI.savePresencePref(...a),
+  setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
+  storage: localStorage,
+});
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _inboxBroadcast: ()=>_inboxBroadcast,
@@ -2677,6 +2687,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   inboxMod: ()=>inboxMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
+  presenceLock: presenceLockMod,
   toast: (...a)=>toast(...a),
   setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },

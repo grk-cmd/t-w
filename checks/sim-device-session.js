@@ -113,7 +113,7 @@ say('── 2. app.js — 배선');
 {
   const code = strip(SRC);
   const h = code.indexOf('async function initMyHome(');
-  const i = code.indexOf('firebaseAPI.setMyPresenceOnline(myId);', h);
+  const i = code.indexOf('firebaseAPI.setMyPresenceOnline(myId, presenceLock.startOnlineFor(myId));', h);
   chk(h >= 0 && i >= 0 && /firebaseAPI\.claimDeviceSession\(myId, _onDeviceSessionLost\)/.test(code.slice(i, i + 400)), '★ claim 은 presence 등록 직후(initMyHome)');
   const f = code.slice(code.indexOf('function _onDeviceSessionLost('), code.indexOf('function _deviceSessionContinueHere('));
   chk(/window\._deviceSessionLost = true/.test(f) && /twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)/.test(f) && /^twNav\.on\(twNav\.NAV\.LEAVE_ROOM, doLeaveRoom\);/m.test(SRC) && /deviceSessionOverlay/.test(f) && /display = 'flex'/.test(f), '  밀리면: 표식 · 방 나가기 · 화면');

@@ -160,6 +160,20 @@ const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.
 옛 앱의 씻기는 `bg.img` · `img` 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
 검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
 
+## `presence-lock.js` — 🔒 친구 탭 온라인 고정
+
+**책임** — 친구 탭 하단 «■ 온라인» 토글 · 옆 🔒 버튼 · 앱을 켤 때 처음 온라인 여부. 🔒 를 켜 두면 고른 온라인 · 오프라인을 계정에 기억해(`presencePref/{uid}`) 다음 실행 · 다른 PC 에서도 그 값으로 시작한다. 끄면 예전처럼 늘 온라인으로 시작한다.
+
+**만드는 법** — app.js 가 마이홈 처음 준비보다 먼저 `TwPresenceLock.createPresenceLock(deps)` — deps: `getMyUserId` · `toast` · `notifyError` · `loadPref`(비어 있으면 `{}` · 못 읽으면 `null`) · `savePref` · `setPresence`(토글 — `setMyPresenceState`) · `storage`(localStorage). 만들 때 토글 · 🔒 클릭을 건다.
+
+**내놓는 것** — `startOnlineFor(uid)` → Promise<처음 온라인 여부>(던지지 않음). myhome-init 이 `firebaseAPI.setMyPresenceOnline(myId, 이것)` 으로 넘긴다. 순수 `normalize(v)` · `startOnline(pref)` · `CACHE_KEY`.
+
+**함정** — 첫 접속 쓰기는 firebase-init `setMyPresenceOnline` 이 이 Promise 가 풀린 뒤에만 한다(재접속 신호가 먼저 와도) — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게. 등록(`_myPresenceRef`)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게.
+서버를 못 읽으면 이 PC 값(`tw.presencePref` — 계정 uid 와 묶음), 없으면 온라인. 읽기 전에 사용자가 누르면 누른 값을 지킨다.
+고정 안 한 토글은 저장하지 않는다(예전과 같다). 다른 PC 에서 바꾼 고정값은 켜져 있는 PC 에 바로 오지 않는다(다음 실행부터).
+`presencePref` 는 `users/*`(공개 읽기) 밖 — 친구가 «숨긴 오프라인» 을 알아보지 않게 로그인한 본인만 읽고 쓴다.
+검사: `checks/sim-presence-lock.js`.
+
 ## `myhome-sticker-rules.js` — 🔒 스티커 잠금 · 그리는 순서
 
 **책임** — 마이홈 스티커의 잠금 판단과 그리는 순서(뒤 → 앞) 한 벌. 순수 함수만 — DOM · firebase 를 모른다(받은 스티커 묶음의 `z` · `locked` 칸만 고친다).
