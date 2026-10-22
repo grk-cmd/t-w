@@ -58,6 +58,7 @@ function mk(o, src){
     now: () => st.now };
   const errs = [];
   let personalStops = 0;
+  const chipCloses = [];
   const w = {};
   new Function('window', 'document', 'localStorage', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', src || SRC)(
     w, dom, ls, (f) => { timers.iv.push(f); return timers.iv.length; }, (id) => { timers.iv[id - 1] = null; },
@@ -66,13 +67,13 @@ function mk(o, src){
     model: MODEL, provider: prov, companion: () => comp,
     roomCode: () => st.code, meta: () => st.meta, isServerRoom: () => st.server, isSecretRoom: () => st.secret,
     myId: () => st.me, memberIds: () => st.members, nameOf: (u) => '닉_' + u,
-    djItems: () => st.items, stopPersonal: () => { if(!st.plPlaying) return false; st.plPlaying = false; personalStops++; return true; }, positionPopup: () => {},
+    djItems: () => st.items, stopPersonal: () => { if(!st.plPlaying) return false; st.plPlaying = false; personalStops++; return true; }, positionPopup: () => {}, closeChipPopups: (id) => chipCloses.push(id),
     escRegisterWindow: () => {}, notifyError: (c) => errs.push(c),
   });
   const tick = () => timers.iv.filter(Boolean).forEach(f => f());
   const push = (m) => prov.subs[prov.subs.length - 1].cb(m);
   const calls = (n) => comp.log.filter(c => c[0] === n);
-  return { ui, st, dom, comp, prov, errs, tick, push, calls, el: dom.getElementById, personalStops: () => personalStops, store };
+  return { ui, st, dom, comp, prov, errs, tick, push, calls, el: dom.getElementById, personalStops: () => personalStops, store, chipCloses };
 }
 const song = (o) => Object.assign({ id: A, title: '가', by: 'dj', at: T0 - 30000, paused: false, pos: 0, seq: 5 }, o || {});
 
@@ -312,6 +313,7 @@ say('── 7. 창 글 · DJ 딱지');
   t.ui.sync();
   t.el('myPlBtn').click();
   chk(!t.el('listenBox').classList.contains('hidden'), '★ 같이 듣기 방에서 🎧 를 누르면 같이 듣기 창이 열린다');
+  chk(t.chipCloses.length === 1 && t.chipCloses[0] === 'listenBox', '  열 때 상태칩 드롭메뉴를 닫는다(같이 듣기 창은 빼고 — 플레이리스트 창과 같은 규칙)');
   chk(t.el('lsMsg').textContent === '불러오는 중…', '  불러오는 중');
   t.push(song({ title: '<b>제목</b>' }));
   chk(t.el('lsTitle').textContent === '<b>제목</b>' && t.el('lsDj').textContent === '🎧 DJ 닉_dj · 듣는 사람 3명', '  곡 제목은 글로만(textContent) · DJ · 사람 수');
@@ -348,6 +350,7 @@ say('── 8. 이어 붙인 곳');
   const iL = APP.indexOf('const listenUi = TwListenUi.createListenUi({'), iRe = APP.indexOf('const roomEntryMod = TwRoomEntry.createRoomEntry({');
   chk(iL > 0 && iRe > iL && /\nroomEntryMod\.onRoomChanged\(\(\)=>listenUi\.sync\(\)\);/.test(APP) && !/listenUi\.connect/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 · 방 입장 모듈의 «방이 바뀜» 알림에 sync 를 건다(방 입장은 같이 듣기를 모른다)');
   chk(/function _roomChanged\(\)\{ paintRoomInfo\(\); _roomChangedFns\.forEach\(f => f\(\)\); \}/.test(RE) && (RE.match(/\b_roomChanged\(\);/g) || []).length === 3, '  room-entry: 들어감 · 나감 · meta 세 곳이 알림을 보낸다');
+  chk(/closeChipPopups: \(id\)=>chipPopupsMod\._closeChipPopups\(id\)/.test(APP), '  app.js: 상태칩 «한 번에 하나» 닫기를 넘긴다');
   chk(/provider: TwListenProvider\.createListenProvider\(\{ api: \(\)=>window\.firebaseAPI \}\)/.test(APP) && /stopPersonal: \(\)=>plMod\.stopIfPlaying\(\)/.test(APP), '  provider · 내 플레이리스트 멈추기');
   chk(/stopIfPlaying: \(\)=>\{ if\(_plNow < 0\) return false; _plStop\(\); return true; \}/.test(PL), 'playlist.js: 나고 있을 때만 멈추고 true');
   chk(/setSeatNamePlate\(seat, lv, seat\.friendName\|\|'\(이름 없음\)', st, !!seat\.friendUserId && listenUi\.djId\(\) === seat\.friendUserId\)/.test(APP)

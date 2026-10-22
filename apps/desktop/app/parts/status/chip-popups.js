@@ -1,5 +1,5 @@
 /* chip-popups.js — 🗂️ 상태칩 팝업 «한 번에 하나» — 하나를 열 때 나머지 칩 팝업을 닫는다(창 표시 keep 은 남김)
-   책임: 상태칩 줄 팝업들(상태 메뉴 · 더보기 · 채팅 · 커스텀 상태 · 알림 · 이모티콘 · 플레이리스트)의 목록 하나와 «하나만 열기» 닫기 규칙.
+   책임: 상태칩 줄 팝업들(상태 메뉴 · 더보기 · 채팅 · 커스텀 상태 · 알림 · 이모티콘 · 플레이리스트 · 같이 듣기)의 목록 하나와 «하나만 열기» 닫기 규칙.
    받는 deps: userStatus(읽는 함수 — 커스텀 상태면 그 버튼 ● 를 다시 켠다). 내보내는 것: _closeChipPopups(exceptId, force).
    app.js «USER STATUS» 구역 끝을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 1줄 —
@@ -27,6 +27,7 @@ const _CHIP_POPUPS = [
   /* 🎵 플레이리스트 — 음악을 틀어두고 계속 켜 두는 창이다. ▼ 더보기·상태 메뉴 같은
      **드롭메뉴를 열었다고 음악창이 닫히면** 곡을 고를 때마다 다시 열어야 한다(제보). */
   { box:'myPlaylistBox',     btn:'myPlBtn', keep:true },
+  { box:'listenBox',         btn:'myPlBtn', keep:true },   // 🎧 같이 듣기 창(room/listen-ui.js) — 같은 버튼 · 같은 까닭으로 창
 ];
 function _closeChipPopups(exceptId, force){
   _CHIP_POPUPS.forEach(p=>{

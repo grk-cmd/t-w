@@ -133,8 +133,8 @@
 | **sim-room-info-ui.js** | 197 | **5b0e1b58612a** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 82 | **bd2860e92a36** |
-| **sim-listen-ui.js** | 388 | **ba02d40a9b3e** |
-| **sim-room-settings.js** | 218 | **4b2e3f0cc7e2** |
+| **sim-listen-ui.js** | 391 | **8a1100cd60ca** |
+| **sim-room-settings.js** | 226 | **2a5028547101** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
@@ -316,7 +316,7 @@
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **9e6d39720b41** |
 | **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** |
-| **sim-room-entry.js** | 164 | **08315f7dc49a** |
+| **sim-room-entry.js** | 164 | **b3b5f8980a04** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
 | **sim-status-chip.js** | 102 | **edc2ce249dbb** |
@@ -415,7 +415,7 @@
 | **sim-seat-model-load.js** | 194 | **7ff56380f12a** |
 | **sim-seat-panel.js** | 163 | **2f9bad25ac96** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
-| **sim-chip-popups.js** | 128 | **f9e9fcf20acd** |
+| **sim-chip-popups.js** | 128 | **e21adf9aca11** |
 | **sim-rules-keys.js** | 308 | **9e2236694f01** |
 | **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |

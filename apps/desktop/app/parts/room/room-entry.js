@@ -1343,6 +1343,7 @@ return {
   startRoom,
   syncFriendSeats,
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
+  roomServerOn: _roomServerOn,   // 🛰 새 방이 방 서버로 갈 것인가(마지막으로 확인한 «내 서버») — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }
 

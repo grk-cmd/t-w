@@ -257,6 +257,7 @@ function _repositionOpenChipPopups(){
   //   _plHasSavedPos/_plApplyPos 는 playlist.js 가 만들 때 거는 window 고리다 — 만들기 전(이 함수가 더 위에 선언)이면 typeof 로 건너뛴다.
   if(typeof _plHasSavedPos === 'function' && _plHasSavedPos()) _plApplyPos();
   else _positionCascade(document.getElementById('myPlaylistBox'), document.getElementById('myPlBtn'), 'right');
+  _positionCascade(document.getElementById('listenBox'), document.getElementById('myPlBtn'), 'right');   // 🎧 같이 듣기 창(옮기기 없음 — 늘 버튼 옆)
   _repositionOpenChipInputs();
 }
 /* 매 프레임용 — 캐릭터 발 밑에 붙는 입력창만. 이건 '발 밑'이 기준이라 따라가는 게 맞는 동작이다. */

@@ -31,6 +31,7 @@ const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <
  *   djItems: () => { id: string, title?: string }[],
  *   stopPersonal: () => boolean,   // 내 플레이리스트가 나고 있었으면 멈추고 true(재생 창이 닫힌다)
  *   positionPopup: (el: HTMLElement, btn: HTMLElement) => void,
+ *   closeChipPopups: (exceptId: string) => void,   // 열 때 상태칩 드롭메뉴를 닫는다(창 keep 은 남음 — chip-popups.js)
  *   escRegisterWindow: (w: { key: string, el: HTMLElement, isOpen: () => boolean, close: () => void }) => void,
  *   notifyError: (code: string, err?: unknown) => void,
  * }} deps
@@ -49,6 +50,7 @@ const nameOf = deps.nameOf;
 const djItems = deps.djItems;
 const stopPersonal = deps.stopPersonal;
 const positionPopup = deps.positionPopup;
+const closeChipPopups = deps.closeChipPopups;
 const escRegisterWindow = deps.escRegisterWindow;
 const notifyError = deps.notifyError;
 
@@ -242,7 +244,7 @@ function sync(){
 const box = $('listenBox');
 const plBtn = $('myPlBtn');
 function isOpen(){ return !!box && !box.classList.contains('hidden'); }
-function openWin(){ if(!box || !plBtn) return; box.classList.remove('hidden'); plBtn.classList.add('on'); positionPopup(box, plBtn); paint(); }
+function openWin(){ if(!box || !plBtn) return; closeChipPopups('listenBox'); box.classList.remove('hidden'); plBtn.classList.add('on'); positionPopup(box, plBtn); paint(); }
 function closeWin(){ if(!box) return; box.classList.add('hidden'); if(plBtn) plBtn.classList.remove('on'); }
 function paintButton(){
   if(!plBtn) return;

@@ -86,7 +86,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     let lic = !!o.licensed;
     const ui = global.window.TwRoomCreateUi.createRoomCreateUi({
       roomSettings: RS, bannedWords: BW, rcStore: () => ({ bannedWords: () => o.banned || [] }),
-      maxPeople: () => o.cap || 10, isLicensed: () => lic, onCreate: (ch, s) => made.push([ch, s]),
+      maxPeople: () => o.cap || 10, isLicensed: () => lic, onCreate: (ch, s) => made.push([ch, s]), serverRoomLikely: () => !!o.server,
     });
     return { ui, el, made, setLic: (v) => { lic = v; } };
   }
@@ -109,6 +109,14 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   t.el('rcCreate').onclick();
   chk(t.made.length === 2 && t.made[1][1].music === true, '★ 같이 듣기를 켜면 music:true 로 넘긴다');
   t.made.length = 1;
+  const ts = mk({ server: true });
+  ts.ui.open('workingroom');
+  ts.el('rcMusic').checked = true;   // 숨긴 칸에 남은 체크가 있어도
+  ts.el('rcCreate').onclick();
+  chk(ts.el('rcMusicRow').hidden === true && ts.made[0][1].music === false, '★ 새 방이 방 서버로 가면 «🎧 같이 듣기 방» 칸을 숨기고 music:false — 방 서버는 아직 같이 듣기를 모른다');
+  t.ui.open('workingroom');
+  chk(t.el('rcMusicRow').hidden === false, '  Firebase 방이면 칸이 보인다');
+  t.ui.close();
   chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  만들고 나면 창을 닫고 로비로');
 
   t = mk({ banned: ['나쁜말'] });
