@@ -198,7 +198,14 @@ chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdow
 {
   const SC = read('status-chip.js') || read('parts/status/status-chip.js') || read('app/parts/status/status-chip.js') || '';
   chk(/if\(_cvEl && seats\.length && clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{/.test(RUN), '  3D 캐릭터 판정은 charHittable 이 거짓이면(회사원 모드 숨김) 아예 안 한다');
-  chk(/\|\| !clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{[\s\S]{0,200}setCharBoundsLatest\(null\)/.test(SC), '  상태칩도 같은 판단으로 캐릭터 영역을 비운다 — main 의 «우리 UI 위» · 회수(ⓖ) · 펜 앱 근처 판정이 숨긴 자리를 안 본다');
+  const chipOk = (src) => {
+    const hide = (src.match(/  if\(!me \|\| launcherVisible[^\n]*\)\{\n    chip\.style\.display='none';/) || [''])[0];
+    return !!hide && !/charHittable/.test(hide)
+      && /if\(!clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{[\s\S]{0,200}?setCharBoundsLatest\(null\);[\s\S]{0,80}?\} else if\(_charProjSane\(cx, cy, charPxH\)\)\{/.test(src);
+  };
+  chk(chipOk(SC), '  상태칩은 같은 판단으로 main 에 보내는 캐릭터 영역만 비운다(«우리 UI 위» · 회수 ⓖ · 펜 앱 근처가 숨긴 자리를 안 봄) — 칩(■ 숨김 풀기 입구)은 숨기지 않는다');
+  chk(!chipOk(SC.replace("  if(!me || launcherVisible || creatorVisible || moveMode()){", "  if(!me || launcherVisible || creatorVisible || moveMode() || !clickPolicy.charHittable({ officeHidden: _officeHidden() })){")),
+    '  깨 보기: 숨김이면 칩까지 숨김(■ 버튼이 사라져 되돌릴 길이 없음) → 빨강');
 }
 chk(/  clickPolicy: TwClickThroughPolicy,\n/.test(APP), 'app.js — 만드는 줄이 clickPolicy: TwClickThroughPolicy 를 넘긴다');
 const iP = HTML.indexOf('<script src="parts/launcher/click-through-policy.js"></script>'), iR = HTML.indexOf('<script src="parts/launcher/desktop-run.js"></script>');
