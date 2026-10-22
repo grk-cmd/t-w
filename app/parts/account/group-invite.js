@@ -41,8 +41,8 @@ export function createGroupInvite(deps){
     return typeof n === 'number' ? n : null;
   };
 
-  /* head: 부르는 쪽이 이미 읽은 groupInvites/{code}. 없으면(null) 그런 코드가 없다. */
-  async function redeem(code, token, head){
+  async function redeem(code, token){
+    const head = await readHead(code);
     if(!head) return { ok:false, reason:'존재하지 않는 초대 코드예요' };
     // 이미 들어온 기기의 재시도(가입 도중 끊긴 판)는 마감 · 인원과 상관없이 통과
     if(await readSlot(code, token) != null) return { ok:true, issuedBy: head.issuedBy || null };

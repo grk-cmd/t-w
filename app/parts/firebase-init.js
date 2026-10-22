@@ -3298,7 +3298,7 @@
         const preSnap = await get(codeRef);
         const preVal = preSnap.val();
         // 한 명짜리에 없으면 관리자가 만든 여러 명짜리 코드인지 본다(group-invite.js)
-        if(!preVal) return await _groupInvite.redeem(code, token, (await get(ref(db, `groupInvites/${code}`))).val());
+        if(!preVal) return await _groupInvite.redeem(code, token);
         let failReason = null;
         const result = await runTransaction(codeRef, cur=>{
           const v = cur || preVal;

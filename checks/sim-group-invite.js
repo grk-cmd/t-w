@@ -83,11 +83,11 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
   {
     const S = makeServer(seed());
     const g = S.gi();
-    const r1 = await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r1 = await g.redeem(CODE, tok(1));
     chk(r1.ok && r1.issuedBy === 'admin', '첫 사람 → ok · issuedBy');
     chk(S.T.groupInvites[CODE].usedCount === 1 && S.T.groupInviteUses[CODE][1].token === tok(1) && S.T.groupInviteTokens[CODE][tok(1)] === 1, '숫자 1 · 1번 칸 · 색인 한 묶음');
     chk(typeof S.T.groupInviteUses[CODE][1].at === 'number', '칸에 들어온 시각');
-    const r2 = await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r2 = await g.redeem(CODE, tok(1));
     chk(r2.ok && S.T.groupInvites[CODE].usedCount === 1, '같은 기기 재시도 → 통과 · 숫자는 그대로');
     chk(!JSON.stringify(S.T).includes('"users"') && !S.T.stats, 'users/ · stats/ 에 안 쓴다(가입 마무리 몫)');
   }
@@ -95,50 +95,50 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
     const S = makeServer(seed({ usedCount: 3 }));
     S.T.groupInviteTokens = { [CODE]: { [tok(9)]: 3 } };
     const g = S.gi();
-    const full = await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const full = await g.redeem(CODE, tok(1));
     chk(!full.ok && /다 찬/.test(full.reason) && S.log.updates === 0, '다 찬 코드 → 거절 · 쓰기 0');
-    const again = await g.redeem(CODE, tok(9), S.T.groupInvites[CODE]);
+    const again = await g.redeem(CODE, tok(9));
     chk(again.ok, '다 찬 뒤에도 이미 들어온 기기의 재시도는 통과(가입 도중 끊긴 판)');
   }
   {
     const S = makeServer(seed({ expiresAt: NOW - 1 }));
-    const r = await S.gi().redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r = await S.gi().redeem(CODE, tok(1));
     chk(!r.ok && /기간이 지난/.test(r.reason) && S.log.updates === 0, '마감 지난 코드 → 거절 · 쓰기 0');
   }
   {
     const S = makeServer(seed({ stoppedAt: 1 }));
-    const r = await S.gi().redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r = await S.gi().redeem(CODE, tok(1));
     chk(!r.ok && /중지된/.test(r.reason), '중지된 코드 → 거절');
   }
   {
     const S = makeServer({});
-    const r = await S.gi().redeem(CODE, tok(1), null);
+    const r = await S.gi().redeem(CODE, tok(1));
     chk(!r.ok && /존재하지 않는/.test(r.reason), '없는 코드 → «존재하지 않는 초대 코드»');
   }
   {
     const S = makeServer(seed(), { offline: true });
-    let threw = null; try{ await S.gi().redeem(CODE, tok(1), S.T.groupInvites[CODE]); }catch(e){ threw = e; }
+    let threw = null; try{ await S.gi().redeem(CODE, tok(1)); }catch(e){ threw = e; }
     chk(threw && /network/.test(threw.message), '거절이 아닌 오류(네트워크)는 다시 하지 않고 위로 — firebase-init 이 «네트워크 오류» 로');
   }
   {
     // 읽은 뒤 관리자가 중지 — 부딪혀 다시 읽으면 중지를 본다
     const S = makeServer(seed());
-    const stale = JSON.parse(JSON.stringify(S.T.groupInvites[CODE]));
-    S.T.groupInvites[CODE].stoppedAt = 9;
-    const r = await S.gi().redeem(CODE, tok(1), stale);
+    const get0 = S.api.get;
+    S.api.get = async (r) => { const v = await get0(r); if(/^groupInvites\//.test(r.path)) S.T.groupInvites[CODE].stoppedAt = 9; return v; };
+    const r = await S.gi().redeem(CODE, tok(1));
     chk(!r.ok && /중지된/.test(r.reason) && S.log.denied === 1, '읽은 뒤 중지됨 → 서버가 거절 · 다시 읽고 «중지된»');
   }
   {
     // 기기 시계가 늦어 앱은 «열림» 인데 서버 시각으로는 마감이 지난 판
     const S = makeServer(seed({ expiresAt: NOW + 1000 }), { serverNow: NOW + 2000 });
-    const r = await S.gi().redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r = await S.gi().redeem(CODE, tok(1));
     chk(!r.ok && /기간이 지난/.test(r.reason) && S.log.denied === 1, '기기 시계가 늦음 → 서버가 거절 · 숫자가 그대로라 다시 하지 않고 «기간이 지난»');
   }
   {
     // 마감 없는 코드인데 숫자가 그대로인 거절(규칙이 막은 다른 까닭) — 엉뚱한 «몰려» 대신 바로 끝
     const S = makeServer(seed());
     const g = GI.createGroupInvite({ db: {}, ref: S.api.ref, get: S.api.get, update: async () => { throw denied(); }, now: () => NOW, wait: async () => {} });
-    const r = await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r = await g.redeem(CODE, tok(1));
     chk(!r.ok && /사용할 수 없어요/.test(r.reason), '부딪힘이 아닌 거절 → 한 번에 «사용할 수 없어요»');
   }
 
@@ -146,8 +146,7 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
   {
     const S = makeServer(seed({ maxUses: 25 }));
     const g = S.gi();
-    const first = JSON.parse(JSON.stringify(S.T.groupInvites[CODE]));   // 다 같이 같은 머리를 읽은 판
-    const rs = await Promise.all(Array.from({ length: 30 }, (_, i) => g.redeem(CODE, tok(i + 1), first)));
+    const rs = await Promise.all(Array.from({ length: 30 }, (_, i) => g.redeem(CODE, tok(i + 1))));   // 다 같이 같은 머리를 읽는다
     const ok = rs.filter(r => r.ok).length, full = rs.filter(r => !r.ok && /다 찬/.test(r.reason)).length;
     chk(ok === 25 && full === 5, `30명이 한꺼번에 · 인원 25 → 들어옴 ${ok} · 다 참 ${full}`);
     const slots = Object.keys(S.T.groupInviteUses[CODE]).map(Number).sort((a, b) => a - b);
@@ -163,7 +162,7 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
     let n = 0;
     const get = async (r) => { if(/^groupInvites\//.test(r.path)) S.T.groupInvites[CODE].usedCount++; return S.api.get(r); };
     const g = GI.createGroupInvite({ db: {}, ref: S.api.ref, get, update: async () => { n++; throw denied(); }, now: () => NOW, wait: async () => {} });
-    const r = await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r = await g.redeem(CODE, tok(1));
     chk(!r.ok && /몰려/.test(r.reason) && n > 1 && n <= 20, `늘 남에게 밀리면 ${n}번 뒤 «사람이 몰려» 로 끝난다`);
   }
 
@@ -171,7 +170,7 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
   {
     const S = makeServer(seed());
     const g = S.gi();
-    await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    await g.redeem(CODE, tok(1));
     const f = await g.finish(CODE, tok(1), 'unewuser0001');
     chk(f.ok && f.issuedBy === 'admin' && S.T.groupInviteUses[CODE][1].uid === 'unewuser0001', '내 칸에 uid · issuedBy 돌려줌');
     const f2 = await g.finish(CODE, tok(1), 'unewuser0001');
@@ -184,7 +183,7 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
   {
     const S = makeServer(seed(), { uidDenied: true });
     const g = S.gi();
-    await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    await g.redeem(CODE, tok(1));
     const f = await g.finish(CODE, tok(1), 'unewuser0001');
     chk(f.ok && !S.T.groupInviteUses[CODE][1].uid, 'uid 쓰기가 거절돼도(로그인 전) 가입은 끝낸다');
   }
@@ -230,19 +229,18 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
   {
     const broken = load(GI_SRC.replace("const why = closedReason(v, now());", 'const why = null;'));
     const S = makeServer(seed({ usedCount: 3 }));
-    const r = await S.gi(broken).redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    const r = await S.gi(broken).redeem(CODE, tok(1));
     chk(!r.ok && S.log.denied > 0, '마감 판정을 빼도 서버가 받지 않는다(규칙이 마지막 막) — 앱은 «몰려» 로 끝남');
     const broken2 = load(GI_SRC.replace("if(await readSlot(code, token) != null)", 'if(false)'));
     const S2 = makeServer(seed());
     const g = S2.gi(broken2);
-    await g.redeem(CODE, tok(1), S2.T.groupInvites[CODE]);
-    const again = await g.redeem(CODE, tok(1), S2.T.groupInvites[CODE]);
+    await g.redeem(CODE, tok(1));
+    const again = await g.redeem(CODE, tok(1));
     chk(!again.ok && S2.T.groupInvites[CODE].usedCount === 1, '재시도 색인 확인을 빼면 같은 기기의 재시도가 떨어진다(원본은 2절에서 통과) — 서버는 색인 덮어쓰기를 막아 숫자는 그대로');
     const broken3 = load(GI_SRC.replace('if(!isDenied(e)) throw e;', 'throw e;'));
     const S3 = makeServer(seed({ maxUses: 5 }));
     const g3 = S3.gi(broken3);
-    const first = JSON.parse(JSON.stringify(S3.T.groupInvites[CODE]));
-    const rs = await Promise.all(Array.from({ length: 5 }, (_, i) => g3.redeem(CODE, tok(i + 1), first).catch(() => ({ ok: false }))));
+    const rs = await Promise.all(Array.from({ length: 5 }, (_, i) => g3.redeem(CODE, tok(i + 1)).catch(() => ({ ok: false }))));
     chk(rs.filter(r => r.ok).length < 5, '부딪힘 다시 하기를 빼면 자리가 남는데도 떨어진다 — 3절이 이것을 잡는다');
   }
 
