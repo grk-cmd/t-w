@@ -464,7 +464,8 @@ function _plSave(){
     localStorage.setItem('tw.playlistMini', _plMini ? '1' : '0');
     // 목록 · 한마디 · 공개가 바뀐 저장만 «고친 시각» 을 올린다(창 위치 · 반복 · 음량은 기기 설정이라 아님)
     const sig = _plServerShape().sig;
-    if(sig !== _plSavedSig){ _plSavedSig = sig; _plEditTs = Date.now(); localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }
+    // 늘 바탕(받은 사본 · 앞 고침)보다 뒤 — 시계가 늦은 기기가 받은 목록 위에서 고친 것이 «더 이르다» 로 지지 않게
+    if(sig !== _plSavedSig){ _plSavedSig = sig; _plEditTs = Math.max(Date.now(), _plEditTs + 1); localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }
   }catch(_){}
   _plPublish();
 }
@@ -480,6 +481,7 @@ function _plServerShape(){
 /* ☁️ 부팅 때 한 번 — 서버 사본과 이 기기 목록을 맞춘다(규칙은 playlist-sync.js).
    못 읽었거나 계정이 아직 없으면 늘려 가는 간격으로 다시. 재생 중이면 목록을 바꾸지 않고 기다린다(듣던 곡이 사라지지 않게). */
 let _plSyncTry = 0;
+let _plDecideTs = null;   // 받기를 미룬 동안 쓰는 «그때의 이 기기 시각» — 미루는 사이 고쳐도 판단이 «이 기기가 나중» 으로 뒤집히지 않게
 async function _plBootSync(){
   if(_plSynced) return;
   const again = () => { setTimeout(_plBootSync, plSync.retryDelay(_plSyncTry++)); };
@@ -489,16 +491,20 @@ async function _plBootSync(){
   try{ srv = await firebaseAPI.fetchMyPlaylistSets(uid); }catch(_){}   // 던져도 «못 읽음» — 아래 retry
   if(_plSynced) return;
   const local = _plServerShape();
-  const act = plSync.decide(srv, _plEditTs, plSync.countItems(local.sets) > 0);
+  const act = plSync.decide(srv, _plDecideTs !== null ? _plDecideTs : _plEditTs, plSync.countItems(local.sets) > 0);
   if(act === 'retry'){ again(); return; }
   if(act === 'adopt'){
-    if(_plNow >= 0){ again(); return; }
+    if(_plNow >= 0){ if(_plDecideTs === null) _plDecideTs = _plEditTs; again(); return; }   // 그사이 고친 것은 받기 전 백업에 남는다
     _plAdoptServer(srv);
     return;
   }
-  _plSynced = true;
-  if(act === 'none') _plPubSig = local.sig;
-  else _plPublish();
+  _plSynced = true; _plDecideTs = null;
+  if(act === 'none'){ _plPubSig = local.sig; return; }
+  if(!_plEditTs){   // 시각 모르는 이 기기 것을 올린다 — 올리는 시각을 이 기기에도 적어 다음 부팅에 같은 목록을 다시 받지 않게
+    _plEditTs = Date.now();
+    try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
+  }
+  _plPublish();
 }
 /* ☁️ 서버 사본을 이 기기에 앉힌다 — 부팅 맞추기 · 계정 연동(account.js)이 같은 한 벌을 부른다.
    ★ 받기 전에 이 기기 목록을 백업 키에 남긴다 — 규칙이 «시각 모름» 을 다 가르지는 못한다(되살릴 길).
@@ -516,7 +522,7 @@ function _plAdoptServer(srv){
   _plSavedSig = shape.sig; _plPubSig = shape.sig;
   _plEditTs = Number(srv.editTs) > 0 ? Number(srv.editTs) : 0;
   try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
-  _plSynced = true;
+  _plSynced = true; _plDecideTs = null;
   _plSave();
   _plRender();
 }
@@ -524,7 +530,7 @@ function _plAdoptServer(srv){
 function _plMarkSynced(){ _plSynced = true; }
 /* ☁️ 계정을 놓았다(로그아웃 · 갈아타기) — 이 기기는 «새 기기» 와 같다. 앞 계정의 고친 시각이 다음 계정 목록을 이기지 않게 */
 function _plResetSync(){
-  _plEditTs = 0; _plSynced = false; _plSyncTry = 0;
+  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = null;
   _plSavedSig = _plServerShape().sig;
 }
 /* 서버에 올린 내용의 지문 — **만드는 자리가 둘**이다(_plPublish · 계정 이어받기 복원).

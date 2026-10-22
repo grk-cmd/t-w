@@ -454,6 +454,19 @@ async function behave(src){
       await e.advance(30000);
       chk(a && m.state().sets[0].items.length === 3, '  재생 중이면 받기를 미루고 멈춘 뒤 받는다');
     }
+    // ⑨-2 미루는 동안 이 기기에서 곡을 넣었다 — 판단은 그때 것 그대로(받는다 · 올리지 않는다) · 넣은 목록은 백업에
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      e.srv = srvOf(3, 5000);
+      m.st.now = 0;
+      await boot(e);
+      m.st.sets[0].items.push({ id: 'n0000000001', url: 'u', title: 'n' }); m.save();
+      m.st.now = -1;
+      await e.advance(30000); await e.advance(3100);
+      const bk = JSON.parse(e.store.get('tw.playlistBackup') || 'null');
+      chk(m.state().sets[0].items.length === 3 && e.count('publish') === 0 && e.count('removePl') === 0 && bk && bk.sets[0].items.length === 3,
+        '  받기를 미루는 동안 고쳐도 판단이 뒤집히지 않는다(받음 · 안 올림) · 고친 목록은 백업에');
+    }
     // ⑩ 고친 시각 — 목록 · 한마디 · 공개가 바뀔 때만(반복 · 미니미는 기기 설정이라 아님)
     {
       const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '100' } }); const m = e.mk();
@@ -462,6 +475,21 @@ async function behave(src){
       const a = e.store.get('tw.playlistEditTs') === '100';
       m.st.bio = '새 한마디'; await e.advance(1000); m.save();
       chk(a && e.store.get('tw.playlistEditTs') === String(e.t), '  고친 시각은 목록 · 한마디 · 공개가 바뀐 저장에서만 오른다');
+    }
+    // ⑩-2 시계가 늦은 기기 — 받은 시각보다 이른 시계로 고쳐도 고친 시각은 받은 것보다 뒤
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      const ahead = e.t + 3600000;   // 다른 기기가 1시간 빠른 시계로 고친 사본
+      m.adoptServer(srvOf(3, ahead));
+      m.st.bio = '여기서 고침'; m.save();
+      chk(Number(e.store.get('tw.playlistEditTs')) === ahead + 1, '  시계가 늦어도 받은 목록 위에서 고친 시각은 받은 시각보다 뒤(+1)');
+    }
+    // ⑩-3 시각 모르는 이 기기 것을 올리면 그 시각을 이 기기에도 적는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      e.srv = { sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 };
+      await boot(e);
+      chk(e.count('publish') === 1 && Number(e.store.get('tw.playlistEditTs')) === e.pubTs && e.pubTs > 0, '  시각 모르는 이 기기 것을 올리면 올린 시각을 이 기기에도 적는다');
     }
     // ⑪ 계정 연동이 서버 사본을 받았다 — 부팅 맞추기와 같은 한 벌(adoptServer)
     {
@@ -628,11 +656,13 @@ async function runAll(PL, APP, HTML){
     ['PL', '  if(!_plReadOnly()) return;                       // 내 목록에서는', '  // 내 목록에서는', '내 목록에서 담기가 됨'],
     ['PL', '      if(sig === _plPubSig) return;', '', '안 바뀌어도 서버에 씀'],
     ['PL', '  if(!_plSynced) return;   // 서버 사본과 맞추기 전', '  // 서버 사본과 맞추기 전', '맞추기 전에 서버에 올림'],
-    ['PL', '    if(_plNow >= 0){ again(); return; }\n', '', '재생 중에 목록을 바꿈'],
+    ['PL', '    if(_plNow >= 0){ if(_plDecideTs === null) _plDecideTs = _plEditTs; again(); return; }', '    if(false){ again(); return; }', '재생 중에 목록을 바꿈'],
     ['PL', '    if(sig !== _plSavedSig){', '    if(true){', '기기 설정만 바꿔도 고친 시각이 오름'],
     ["PL", "  if(act === 'retry'){ again(); return; }", "  if(act === 'retry') return;", '못 읽으면 다시 안 봄'],
     ['PL', "    try{ localStorage.setItem('tw.playlistBackup',", "    try{ localStorage.setItem('tw.noBackup',", '받기 전 백업이 빠짐'],
-    ['PL', '  _plEditTs = 0; _plSynced = false; _plSyncTry = 0;', '  _plSyncTry = 0;', '계정을 놓아도 고친 시각이 남음'],
+    ['PL', '  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = null;', '  _plSyncTry = 0; _plDecideTs = null;', '계정을 놓아도 고친 시각이 남음'],
+    ['PL', '_plDecideTs !== null ? _plDecideTs : _plEditTs', '_plEditTs', '받기를 미루는 사이 고치면 판단이 뒤집힘'],
+    ['PL', '_plEditTs = Math.max(Date.now(), _plEditTs + 1);', '_plEditTs = Date.now();', '늦은 시계가 받은 목록 위에서 고친 것을 «더 이르다» 로'],
     ['PL', "  }, 3000);\n}", '  }, 0);\n}', '서버 사본 debounce 가 없음'],
     ['PL', '      if(!total){', '      if(false){', '빈 목록을 지우지 않고 올림'],
     ['PL', "  if(atEnd && _plWatchPlayed){", '  if(atEnd){', '끝에 선 채 재생 없음을 정상 종료로'],
