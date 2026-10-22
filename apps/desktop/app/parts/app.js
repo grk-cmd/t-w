@@ -8987,7 +8987,7 @@ function _applyActiveAppState(state){
   if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
   _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
   /* 투게더워킹 창이 앞이면(isSelf) 직전 상태를 둔다 — 포커싱 어플 목록에 없어 «등록 안 된 앱» 으로 보면 앱을 만지는 동안 잠든다 */
-  const keepGate = state.isSelf === true && !figureMode && !mobOn;
+  const keepGate = state.isSelf === true && !state.isFocusedAppRegistered && !figureMode && !mobOn;   // 자기를 포커싱 어플로 등록했으면 예전대로
   if(!keepGate) focusGateSleep = figureMode ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
   _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
 }

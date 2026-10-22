@@ -65,6 +65,10 @@ function behave(fnSrc){
   { const c = mk({ figure: true }), A = c.api; A.apply(SELF); const f = A.get().gate === false;
     const c2 = mk({ mob: true }), A2 = c2.api; A2.apply(BROWSER); c2.env.mob = true; A2.apply(SELF); const m = A2.get().gate === false && A2.get().was === true;
     r.wins = f && m; }
+  // 투게더워킹 자신을 포커싱 어플로 등록(mac 옛 키) — 예전대로 깨우고 센다(잠든 모습으로 쌓이지 않게)
+  { const c = mk(), A = c.api;
+    A.apply(BROWSER); A.apply({ hasAnyRegistered: true, isFocusedAppRegistered: true, isSelf: true });
+    r.selfReg = A.get().gate === false && A.get().was === true; }
   // isSelf 없는 옛 main(같은 앱 · 다른 판이 섞일 일은 없지만) — 예전 그대로 재움
   { const c = mk(), A = c.api;
     A.apply(REG); A.apply({ hasAnyRegistered: true, isFocusedAppRegistered: false }); r.legacy = A.get().gate === true; }
@@ -85,22 +89,26 @@ if(R){
   chk(R.bootSelf, '  켜자마자 투게더워킹 창(런처) — 처음 값 그대로');
   chk(R.noReg, '  등록한 앱이 없어도 투게더워킹 창은 직전 상태를 둔다');
   chk(R.wins, '피규어 모드 · 폰 켜짐은 투게더워킹 창이 앞이어도 예전처럼 깨운다');
+  chk(R.selfReg, '  투게더워킹 자신을 포커싱 어플로 등록했으면 예전대로(깨우고 센다 — 잠든 모습으로 시간이 쌓이지 않게)');
   chk(R.legacy, 'isSelf 가 없는 상태(옛 main)는 예전 그대로 재운다');
   chk(R.leave, '투게더워킹 창을 떠나면 다음 창을 예전처럼 따른다');
 }
 
 say('── 2. main.js');
 {
-  const m = /lastActiveState = \{ exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps\.some\(Boolean\), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE \};/.test(MAIN);
+  const line = (MAIN.match(/lastActiveState = \{[^\n]*\};/g) || []).filter(l => /exeName, key: activeKey/.test(l));
+  const m = line.length === 1 && /isSelf: !!exeName && exeName === SELF_EXE[ ,}]/.test(line[0]);
   chk(m && /const SELF_EXE = sysinput\.selfProcName\(\);/.test(MAIN), '활성 창 상태에 isSelf — 우리 앱 이름(sysinput.selfProcName · win 실행 파일 · mac 번들 id)과 같을 때만');
 }
 
 say('── 3. 깨 보기');
 {
-  const b1 = FN && FN.includes('const keepGate = state.isSelf === true && !figureMode && !mobOn;') ? behave(FN.replace('const keepGate = state.isSelf === true && !figureMode && !mobOn;', 'const keepGate = false;')) : null;
+  const b1 = FN && FN.includes('const keepGate = state.isSelf === true') ? behave(FN.replace('const keepGate = state.isSelf === true', 'const keepGate = false')) : null;
   chk(b1 && !b1.keepAwake, '투게더워킹 창을 «등록 안 된 앱» 으로 보면(옛 동작) 1절이 빨강');
   const b2 = FN && FN.includes('&& !figureMode && !mobOn;') ? behave(FN.replace('&& !figureMode && !mobOn;', ';')) : null;
+  const b3 = FN && FN.includes('&& !state.isFocusedAppRegistered &&') ? behave(FN.replace('&& !state.isFocusedAppRegistered &&', '&&')) : null;
   chk(b2 && !b2.wins, '피규어 모드 · 폰 켜짐까지 막으면 1절이 빨강');
+  chk(b3 && !b3.selfReg, '자기를 등록한 경우까지 직전 상태로 두면 1절이 빨강');
 }
 
 say('');
