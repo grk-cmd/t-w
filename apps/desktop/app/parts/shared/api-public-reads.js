@@ -1,5 +1,5 @@
 /*
- * 🌐 공개 읽기를 API 사본에서 먼저 (검사 sim-api-public-reads.js) — 파도타기 · 명함 · 프로필 사진 · 랭킹 · 방 개수(표시용) · 랜덤 참여 후보.
+ * 🌐 공개 읽기를 API 사본에서 먼저 (검사 sim-api-public-reads.js) — 파도타기 · 명함 · 프로필 사진 · 랭킹 · 랜덤 참여 후보.
  *
  * [왜] Firebase 요금은 내려받은 바이트다. t-w-server 가 같은 데이터의 읽기 전용 사본을 두고 «필요한 한 줄» 모양으로 내준다
  *   (예: 파도타기 = 색인 60줄 + 남의 목록 통째 → 고른 한 벌만). 쓰기 원본은 그대로 Firebase.
@@ -7,7 +7,7 @@
  *   실패 = ApiError 무엇이든(닿지 못함 · 5xx · 503 *_NOT_READY · RTDB_UNAVAILABLE · 4xx) 또는 모양이 다른 응답.
  *   data:null 은 실패가 아니라 «없음» 이다 — 파도타기 «들을 것 없음» · 친구 «목록 없음» 은 Firebase 로 다시 가지 않는다.
  *   화면 · 고르기 규칙은 바꾸지 않는다 — 돌려주는 모양이 원래 함수와 같다(부르는 쪽 playlist.js · app.js 는 모름).
- * [안 바꾸는 것] 정원 · 방 만들기 상한 검사(getRoomCounts 의 quick 아님 · getRoomCount)는 Firebase 그대로.
+ * [안 바꾸는 것] 정원 · 방 만들기 상한 검사(getRoomCounts · getRoomCount)는 Firebase 그대로.
  *   랜덤 참여 후보도 들어가기 전 확인(checkRoomCapacity)은 app.js 그대로.
  *
  * deps: api(TwApi.client — get(path)) · readCell(path) → Promise<값>(Firebase 한 칸 · 사진이 사본에 없을 때만) · now
@@ -20,7 +20,6 @@ export const API_PATHS = Object.freeze({
   card: (uid) => '/v1/users/' + encodeURIComponent(uid) + '/card',
   rank: (uid) => '/v1/leaderboard/rank/' + encodeURIComponent(uid),
   top: '/v1/leaderboard/top',
-  roomCount: '/v1/rooms/count',
   randomRooms: '/v1/rooms/random',
 });
 export const EXCLUDE_MAX = 10;          // 서버 상한(exclude ≤ 10)
@@ -76,7 +75,7 @@ export function createApiPublicReads(deps){
   function wrap(fb){
     if(!fb) return fb;
     const orig = {};
-    for(const k of ['fetchRandomPlaylist', 'fetchPlaylistOf', 'fetchPlaylistCard', 'fetchAvatar', 'fetchMyRank', 'fetchLeaderboardTop', 'getRoomCounts', 'findRandomRooms']){
+    for(const k of ['fetchRandomPlaylist', 'fetchPlaylistOf', 'fetchPlaylistCard', 'fetchAvatar', 'fetchMyRank', 'fetchLeaderboardTop', 'findRandomRooms']){
       orig[k] = (typeof fb[k] === 'function') ? fb[k].bind(fb) : null;
     }
 
@@ -144,20 +143,6 @@ export function createApiPublicReads(deps){
         }
       }catch(e){ warn('랭킹 100줄', e); }
       return orig.fetchLeaderboardTop();
-    };
-
-    /* 방 개수 — **화면 표시용(quick)만** API. 정원 · 만들기 상한 검사(quick 아님)는 Firebase 그대로. */
-    if(orig.getRoomCounts) fb.getRoomCounts = async (opts) => {
-      if(!(opts && opts.quick)) return orig.getRoomCounts(opts);
-      try{
-        const d = await ask(API_PATHS.roomCount);
-        if(isObj(d) && ['total', 'workingroom', 'togetherroom'].every((k) => Number.isInteger(d[k]) && d[k] >= 0)){
-          const out = { total: d.total, workingroom: d.workingroom, togetherroom: d.togetherroom };
-          if(d.inclServer === true) out.inclServer = true;
-          return out;
-        }
-      }catch(e){ warn('방 개수', e); }
-      return orig.getRoomCounts(opts);
     };
 
     /* 🎲 랜덤 참여 후보 — 워킹룸만(투게더룸은 서버도 400). 들어가기 전 확인은 app.js 그대로. 빈 배열 = 후보 없음. */

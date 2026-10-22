@@ -53,7 +53,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `overhead.js` · `away-pic.js` | 머리 위 말풍선 · 이름표 · 공지 배너 · 자리비움 그림 | fb 2 |
 | `room-server-net.js` (ES) | 방 서버 웹소켓 provider(PROTOCOL v1) — 연결 공통부는 `realtime/realtime-link.js` | ws |
 | `room-server-gate.js` (ES) | 이 방을 방 서버로 열지 · 어느 서버로 갈지 | api 2 |
-| `room-alive.js` · `room-ghost-heal.js` · `room-index.js` · `room-channel.js` · `room-stats.js` (ES) | 살아 있음 판정 · 사라진 멤버 다시 등록 · roomIndex · 채널 값 · roomStats 읽기 | (firebase-init 이 연결) |
+| `room-alive.js` · `room-ghost-heal.js` · `room-index.js` · `room-channel.js` (ES) | 살아 있음 판정 · 사라진 멤버 다시 등록 · roomIndex · 채널 값 | (firebase-init 이 연결) |
 
 ## 3. 💬 `chat/` — 채팅 ✅ 옮김(폴더 3번)
 

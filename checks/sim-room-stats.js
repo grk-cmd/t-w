@@ -1,6 +1,6 @@
 /*
  * roomStats(서버 방 개수 요약)와 roomIndex 쓰기 검사. 모듈을 그대로 불러 가짜 DB 로 돌린다.
- * 1. functions/room-stats.js  2. room-index.js  3. room-stats.js  4. firebase-init.js 연결 · 규칙
+ * 1. functions/room-stats.js  2. room-index.js  3. 앱은 roomStats 를 읽지 않는다  4. firebase-init.js 연결 · 규칙
  */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -12,7 +12,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
-const FI = need('firebase-init.js'), RI = need('room-index.js'), RS = need('room-stats.js');
+const FI = need('firebase-init.js'), RI = need('room-index.js');
 need('room-channel.js');
 const RULES = stripReadGate(need('firebase-database-rules.json'));
 need('functions/room-stats.js');
@@ -167,50 +167,26 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '규칙에 없는 값은 싣지 않는다 (쓰기 거부 방지)');
   }
 
-  say('── 3. room-stats.js (roomStats 읽기)');
+  say('── 3. 앱은 roomStats 를 읽지 않는다');
   {
-    const { createRoomStats, ROOM_STATS_FRESH_MS } = esm(RS, 'createRoomStats, ROOM_STATS_FRESH_MS');
-    const mk = (val, now) => createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => ({ val: () => val }), now: () => now });
-    const now = 1e9;
-    chk(ROOM_STATS_FRESH_MS === 3 * 60 * 1000, '신선도 기준 3분 (함수가 1분마다 쓰니 두 번 놓쳐도 버틴다)');
-    chk(JSON.stringify(await mk({ workingroom: 3, togetherroom: 2, at: now - 1000 }, now).counts()) === '{"total":5,"workingroom":3,"togetherroom":2}', 'counts = 채널 둘의 합');
-    chk(await mk({ workingroom: 3, togetherroom: 2, at: now - ROOM_STATS_FRESH_MS }, now).counts() === null, '3분 낡으면 null → roomIndex 로 물러난다');
-    chk(await mk(null, now).counts() === null, '없으면(함수 배포 전) null');
-    chk(JSON.stringify(await mk({ workingroom: 3, togetherroom: 2, at: now - 1000, server: { workingroom: 1, togetherroom: 0 } }, now).counts())
-        === '{"total":5,"workingroom":3,"togetherroom":2,"inclServer":true}', '🛰 server 몫이 있으면 inclServer — 합계에 이미 서버 방이 들어 있다(더하지 않는다)');
-    chk(await mk({ workingroom: '3', togetherroom: 2, at: now }, now).counts() === null, '모양이 틀리면 null');
-    chk(await createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => { throw new Error('permission_denied'); }, now: () => now }).counts() === null, '규칙 거부(규칙 배포 전)도 null');
-    {
-      const W = { cb: null, err: null, off: 0 };
-      const rs = createRoomStats({ db: {}, ref: (_d, p) => p, get: async () => null, now: () => now,
-        onValue: (p, cb, err) => { W.path = p; W.cb = cb; W.err = err; return () => { W.off++; }; } });
-      const got = []; const off = rs.watch(c => got.push(c));
-      W.cb({ val: () => ({ workingroom: 1, togetherroom: 2, at: now }) });
-      W.cb({ val: () => ({ workingroom: 1, togetherroom: 2, at: now - ROOM_STATS_FRESH_MS }) });
-      W.err(new Error('permission_denied'));
-      off();
-      chk(W.path === 'roomStats' && JSON.stringify(got) === '[{"total":3,"workingroom":1,"togetherroom":2},null,null]',
-          'watch — 쓰는 즉시 숫자, 낡음 · 거부는 null');
-      chk(W.off === 1, '  ↳ 돌려준 함수로 구독을 끊는다');
-    }
+    chk(!/roomStats|room-stats\.js|watchRoomCounts|opts\.quick/.test(CODE), '방 개수 요약(roomStats) 읽기 · 구독 · quick 길이 없다 — 채널 카드 숫자는 방 목록 로비로 바뀌었다(요약은 서버 함수 · 웹 관리자 몫)');
+    const rs = read('room-stats.js');   // 스테이징 평평한 폴더에서는 없음 · checks/ 에서 돌리면 서버 함수와 이름이 겹치지 않는다
+    chk(rs === null || !/createRoomStats|ROOM_STATS_FRESH_MS/.test(rs), '  앱 쪽 room-stats.js(createRoomStats · ROOM_STATS_FRESH_MS)가 없다');
   }
 
   say('── 4. firebase-init.js 연결 · 규칙');
   {
-    chk(/import \{ createRoomIndex \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
+    chk(/import \{ createRoomIndex \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-index\.js";/.test(CODE), 'room-index.js 를 import 한다');
     chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
     chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
     chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*if\(fields\) Object\.assign\(meta, fields\);\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
-    chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
-    chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 quick 카운트 · 구독 둘뿐');
-    chk(/createRoomStats\(\{ db, ref, get, onValue, now: \(\) => _svNow\(\) \}\)/.test(CODE) && /watchRoomCounts\(cb\)\{ return _roomStats\.watch\(cb\); \}/.test(CODE), 'firebaseAPI.watchRoomCounts 로 구독을 연다 · 신선도는 서버 기준 시각(_svNow)');
     const APP = strip(_joinRenderer(need('app.js')));
     chk(!/firebaseAPI\.(?:watchRoomCounts|getRoomCounts)\(/.test(APP), '방 창은 방 개수를 읽지도 구독하지도 않는다(채널 카드 숫자는 방 목록 로비로 바뀌었다)');
     const fr = CODE.match(/async findRandomRooms\(limit\)\{[\s\S]*?\n    \},/);
     chk(!!fr && !/_roomStats/.test(fr[0]) && /get\(ref\(db, 'roomIndex'\)\)/.test(fr[0]), '랜덤 참여는 roomIndex 를 직접 읽는다 (방금 연 방도 후보에)');
     const gc = CODE.match(/async getRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);
     chk(!!gc && !/_roomStats/.test(gc[0]), '정원 검사(getRoomCount)는 roomStats 를 쓰지 않는다');
-    const gcnt = CODE.match(/async getRoomCounts\(opts\)\{[\s\S]*?\n    \},/);
+    const gcnt = CODE.match(/async getRoomCounts\(\)\{[\s\S]*?\n    \},/);
     chk(!!gcnt && /if\(e\.srv\) out\.inclServer = true;/.test(gcnt[0]), '🛰 getRoomCounts — 방 서버 줄이 있으면 inclServer (서버 방이 합계에 들어 있다)');
     const cg = CODE.match(/async cleanGhostRooms\(\)\{[\s\S]*?\n    \},/);
     chk(!!cg && /if\(idx\[code\] && idx\[code\]\.srv\) continue;[^\n]*\n\s*if\(!\(code in all\)/.test(cg[0]), '🛰 유령 방 청소는 방 서버 줄을 «rooms 에 없는 고아» 로 지우지 않는다');

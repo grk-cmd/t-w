@@ -1,9 +1,9 @@
 /* ═══ 🌐 sim-api-public-reads.js — 공개 읽기를 API 사본에서 먼저(api-public-reads.js) ═══════════════
-   [왜] 파도타기 · 명함 · 사진 · 랭킹 · 방 개수(표시) · 랜덤 참여 후보를 API 에서 먼저 읽고, 못 받으면 지금 Firebase 길 그대로.
+   [왜] 파도타기 · 명함 · 사진 · 랭킹 · 랜덤 참여 후보를 API 에서 먼저 읽고, 못 받으면 지금 Firebase 길 그대로.
    1. 파도타기 무작위 · 친구 지목 — 모양 같음 · data:null = 없음(Firebase 안 감) · 실패 · 모양 틀림 → 원래 함수(같은 인자)
    2. 명함 · 사진 — avatarUrl · avatarInline(그때만 Firebase 한 칸) · 파도타기에 실려 온 명함 기억 · 실패 → 원래 함수 / Firebase 한 칸 · 명함 날것(fetchUserCardApi — 대체 길 없음)
    3. 랭킹 — 내 순위 한 줄(rank · null · 못 받음 undefined) · 100줄(API → 원래 함수)
-   4. 방 개수 — 표시용(quick)만 API · 정원 검사(quick 아님)는 늘 Firebase · 랜덤 참여 후보(워킹룸 · SCRT 빼기 · 빈 배열 = 없음)
+   4. 랜덤 참여 후보(워킹룸 · SCRT 빼기 · 빈 배열 = 없음) · 방 개수(정원 검사)는 API 를 거치지 않고 늘 Firebase
    5. 실패 종류 — 닿지 못함 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · API 없음 모두 Firebase 길
    6. 배선 — firebase-init(import · firebase-ready 전에 wrap) · app.js 사진 두 곳 · 내 순위 · 모듈은 import 없음
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
@@ -44,7 +44,7 @@ function mkFb(){
     async fetchPlaylistOf(u){ log.push(['of', u]); return { uid: u, items: [{ id: 'y', title: '' }], setName: '', setIdx: 0, bio: '', homePublic: false, FB: 1 }; },
     async fetchPlaylistCard(u){ log.push(['card', u]); return { name: 'FB', level: 3, avatar: 'fb.png', FB: 1 }; },
     async fetchLeaderboardTop(){ log.push(['top']); return [{ uid: 'u1', sec: 9, ts: 1, FB: 1 }]; },
-    async getRoomCounts(o){ log.push(['counts', !!(o && o.quick)]); return { total: 1, workingroom: 1, togetherroom: 0, FB: 1 }; },
+    async getRoomCounts(){ log.push(['counts']); return { total: 1, workingroom: 1, togetherroom: 0, FB: 1 }; },
     async findRandomRooms(n){ log.push(['rooms', n]); return ['WORK-FBFB']; },
     getMyHome(){ throw new Error('home 통째 읽기는 쓰지 않는다'); },
   };
@@ -137,21 +137,16 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
 
   say('── 4. 방 개수 · 랜덤 참여 후보');
   {
-    const api = mkApi((p) => p === '/v1/rooms/count' ? { total: 9, workingroom: 6, togetherroom: 3, inclServer: true, source: 'roomStats', at: 1 }
-      : p.startsWith('/v1/rooms/random') ? { rooms: ['WORK-AAAA', 'SCRT-BBBB', 7, 'WORK-CCCC'] } : new Error('?'));
+    const api = mkApi((p) => p.startsWith('/v1/rooms/random') ? { rooms: ['WORK-AAAA', 'SCRT-BBBB', 7, 'WORK-CCCC'] } : new Error('?'));
     const { fb, log } = mkFb();
     M.createApiPublicReads({ api }).wrap(fb);
-    const q = await fb.getRoomCounts({ quick: true });
-    chk(q.total === 9 && q.workingroom === 6 && q.togetherroom === 3 && q.inclServer === true && !('source' in q) && log.length === 0, '★ 화면 표시용(quick) — GET /v1/rooms/count → { total · workingroom · togetherroom · inclServer }');
     const full = await fb.getRoomCounts();
-    const full2 = await fb.getRoomCounts({});
-    chk(full.FB === 1 && full2.FB === 1 && api.calls.filter((p) => p === '/v1/rooms/count').length === 1 && log.length === 2, '★ 정원 · 만들기 상한 검사(quick 아님)는 API 를 묻지 않고 늘 Firebase');
+    chk(full.FB === 1 && api.calls.length === 0 && log.length === 1, '★ 방 개수(정원 · 만들기 상한 검사)는 감싸지 않는다 — API 를 묻지 않고 늘 Firebase');
+    chk(!('roomCount' in M.API_PATHS), '  방 개수 API 길은 쓰지 않는다(채널 카드 숫자는 방 목록 로비로 바뀌었다)');
     const r = await fb.findRandomRooms(12);
     chk(api.calls.includes('/v1/rooms/random?channel=workingroom&limit=12') && r.join() === 'WORK-AAAA,WORK-CCCC', '★ 랜덤 참여 후보 — 워킹룸만 · limit · SCRT- · 이상한 값 빼기(들어가기 전 확인은 app.js 그대로)');
     const e = mkFb(); M.createApiPublicReads({ api: mkApi(() => ({ rooms: [] })) }).wrap(e.fb);
     chk((await e.fb.findRandomRooms(12)).length === 0 && e.log.length === 0, '  ↳ 빈 배열 = 후보 없음(Firebase 로 다시 가지 않음)');
-    const bad = mkFb(); M.createApiPublicReads({ api: mkApi(() => ({ total: 1, workingroom: -1, togetherroom: 0 })) }).wrap(bad.fb);
-    chk((await bad.fb.getRoomCounts({ quick: true })).FB === 1, '  ↳ 숫자가 이상하면 원래 함수');
     const d = mkFb(); M.createApiPublicReads({ api: mkApi(() => ERR('request', 400, 'BAD_CHANNEL')) }).wrap(d.fb);
     chk((await d.fb.findRandomRooms(12))[0] === 'WORK-FBFB' && d.log[0][1] === 12, '  ↳ 못 받으면(400 포함) 원래 함수(roomIndex)');
   }
@@ -164,8 +159,8 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     for(const k of kinds){
       const { fb, log } = mkFb();
       M.createApiPublicReads({ api: mkApi(() => k), readCell: async () => null }).wrap(fb);
-      const r = [await fb.fetchRandomPlaylist('a', 'b'), await fb.fetchPlaylistOf('u'), await fb.fetchPlaylistCard('u'), await fb.fetchLeaderboardTop(), await fb.getRoomCounts({ quick: true })];
-      if(!r.every((x) => x && (x.FB === 1 || (Array.isArray(x) && x[0].FB === 1))) || log.length !== 5) ok = false;
+      const r = [await fb.fetchRandomPlaylist('a', 'b'), await fb.fetchPlaylistOf('u'), await fb.fetchPlaylistCard('u'), await fb.fetchLeaderboardTop()];
+      if(!r.every((x) => x && (x.FB === 1 || (Array.isArray(x) && x[0].FB === 1))) || log.length !== 4) ok = false;
     }
     chk(ok, '★ 닿지 못함 · 시간 초과 · 쉬는 중 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · 401 · 그 밖 오류 → 원래 Firebase 함수 그대로');
     const { fb, log } = mkFb();

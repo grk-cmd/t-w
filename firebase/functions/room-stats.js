@@ -1,7 +1,7 @@
 /*
  * roomIndex 를 세어 roomStats = { workingroom, togetherroom, at } 에 기록한다.
  * 방이 열리고 닫힐 때(roomIndex 줄 생성 · 삭제) 바로 한 번, 그리고 줄을 지울 사람 없이 끝난 방을 반영하려고 1분마다 한 번 돈다.
- * 앱은 30초마다 roomIndex 전체를 받는 대신 이 작은 노드만 읽는다(app/parts/room-stats.js).
+ * 이 노드를 읽는 것은 웹 관리자(apps/admin entities/room)다 — 앱은 0.13.0 부터 읽지 않는다(방 개수는 방 목록 로비로).
  * 세는 기준(90초 · 시크릿룸 제외 · channel 없으면 워킹룸)은 앱의 getRoomCounts 와 같아야 한다.
  *
  * 10분 넘게 조용한 줄은 지운다. 강제 종료 · 절전으로 끝난 방의 줄이 계속 쌓이기 때문이다.
