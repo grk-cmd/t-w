@@ -144,6 +144,24 @@ say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const m4 = MOD.replace('const left = !_hoppingRoom && _wasInRoom && !on;', 'const left = _wasInRoom && !on;').replace('if(!_hoppingRoom) _wasInRoom = on;', '_wasInRoom = on;');
   chk(m4 !== MOD && !judgeHop(m4), '갈아타는 중을 안 거르면 — 갈아타기 판정이 빨강');
 }
+/* 방 만들기 창의 «새 방이 방 서버로 갈까» — 안 쓰는 판이면 묻지 않는다(대부분 사용자 · 요청 0) */
+{
+  const a = MOD.indexOf('async function _roomServerCheck(){'), b = MOD.indexOf('\n}\n', a) + 2;
+  const run = (possible, mine, net) => {
+    const calls = [];
+    const fa = { roomServerPossible: () => possible, roomServerMine: async (r) => { calls.push(r); return mine; } };
+    const f = new Function('_roomServerNet', 'firebaseAPI', MOD.slice(a, b) + '\nreturn _roomServerCheck;')(() => (net === false ? null : {}), fa);
+    return f().then(v => ({ v, calls }));
+  };
+  globalThis.__rsCheck = (async () => {
+    const off = await run(false, { url: 'x' });
+    chk(a > 0 && off.v === false && off.calls.length === 0, '★ roomServerCheck — 방 서버를 안 쓰는 판이면 «내 서버» 를 묻지 않고 false');
+    const on = await run(true, { url: 'x' }), none = await run(true, null), noNet = await run(true, { url: 'x' }, false);
+    chk(on.v === true && on.calls.join() === 'true' && none.v === false && noNet.v === false && noNet.calls.length === 0, '  쓰는 판이면 다시 물어(roomServerMine(true)) 그 답을 따른다 · 방 서버 연결이 없으면 false');
+    const thr = await new Function('_roomServerNet', 'firebaseAPI', MOD.slice(a, b) + '\nreturn _roomServerCheck;')(() => ({}), { roomServerPossible: () => { throw new Error('x'); } })();
+    chk(thr === false, '  판단이 던져도 false(창이 거부를 받지 않는다)');
+  })();
+}
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-entry.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -160,5 +178,7 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+globalThis.__rsCheck.then(() => {   // 위 roomServerCheck 절은 비동기 — 끝난 뒤 센다
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+});
