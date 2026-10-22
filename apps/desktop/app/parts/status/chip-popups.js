@@ -27,7 +27,7 @@ const _CHIP_POPUPS = [
   /* 🎵 플레이리스트 — 음악을 틀어두고 계속 켜 두는 창이다. ▼ 더보기·상태 메뉴 같은
      **드롭메뉴를 열었다고 음악창이 닫히면** 곡을 고를 때마다 다시 열어야 한다(제보). */
   { box:'myPlaylistBox',     btn:'myPlBtn', keep:true },
-  { box:'listenBox',         btn:'myPlBtn', keep:true },   // 🎧 같이 듣기 창(room/listen-ui.js) — 같은 버튼 · 같은 까닭으로 창
+  { box:'listenBox',         btn:'myPlBtn', keep:true },   // 같이 듣기 창(room/listen-ui.js) — 같은 버튼 · 같은 까닭으로 창
 ];
 function _closeChipPopups(exceptId, force){
   _CHIP_POPUPS.forEach(p=>{

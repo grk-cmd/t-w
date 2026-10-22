@@ -6925,7 +6925,7 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
-  serverRoomLikely: ()=>roomEntryMod.roomServerOn(),
+  serverRoomLikely: ()=>roomEntryMod.roomServerCheck(),
 });
 // 🗂️ 방 목록 로비 — 목록 사본 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
 TwRoomLobbyUi.createRoomLobbyUi({

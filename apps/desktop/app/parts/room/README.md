@@ -348,7 +348,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 재생 창 알림은 처음 방에 들어갈 때 건다 — 앱 밖(웹 미리보기 · smoke)에는 companion 이 없다.
 - 같은 곡은 열쇠 `id|at` 로 가린다 — 길이만 적힌 쓰기(at 그대로)는 다시 안 열고, 다시 틀기(at 이 바뀜)는 멈춘 자리에서 새로 연다.
 - 창(`#listenBox`)은 상태칩 팝업 규칙표(`status/chip-popups.js`)에 플레이리스트 창처럼 `keep` 으로 든다 — 드롭메뉴를 열어도 남고 회사원 모드 숨김(force)에만 닫힌다 · 열 때는 드롭메뉴를 닫는다(deps `closeChipPopups`).
-- 방 만들기 창의 «🎧 같이 듣기 방» 칸은 새 방이 방 서버로 갈 것 같으면(`roomEntryMod.roomServerOn` — 마지막으로 확인한 «내 서버») 숨긴다 · 숨긴 칸은 music:false.
+- 방 만들기 창의 «🎧 같이 듣기 방» 칸은 새 방이 방 서버로 갈 것 같으면(`roomEntryMod.roomServerCheck` — 창을 열 때 «내 서버» 를 다시 확인 · 끝날 때까지는 숨김) 숨긴다 · 숨긴 칸은 music:false.
 - 실패 번호: `E-ROOM-05` 쓰기 실패(DJ) · `E-ROOM-06` 못 트는 곡(곡마다 한 번) · `E-ROOM-07` 구독 거부.
 
 검사: `checks/sim-listen-model.js` · `checks/sim-listen-provider.js` · `checks/sim-listen-ui.js`.

@@ -86,7 +86,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     let lic = !!o.licensed;
     const ui = global.window.TwRoomCreateUi.createRoomCreateUi({
       roomSettings: RS, bannedWords: BW, rcStore: () => ({ bannedWords: () => o.banned || [] }),
-      maxPeople: () => o.cap || 10, isLicensed: () => lic, onCreate: (ch, s) => made.push([ch, s]), serverRoomLikely: () => !!o.server,
+      maxPeople: () => o.cap || 10, isLicensed: () => lic, onCreate: (ch, s) => made.push([ch, s]), serverRoomLikely: () => (o.check ? o.check() : Promise.resolve(!!o.server)),
     });
     return { ui, el, made, setLic: (v) => { lic = v; } };
   }
@@ -103,20 +103,34 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   t.el('rcOpen').checked = false;
   t.el('rcCreate').onclick();
   chk(t.made.length === 1 && t.made[0][0] === 'workingroom' && JSON.stringify(t.made[0][1]) === '{"title":"공부방","max":2,"open":false,"music":false}', '★ [방 만들기] → onCreate(채널, { 제목 · 최대 인원 · 공개 · 같이 듣기 })');
+  // 가짜 DOM 은 mk 마다 전역 document 를 바꾼다 — 한 창의 확인을 끝낸 뒤 다음 창을 만든다
+  const flush = () => new Promise(r => setImmediate(r));
   t.ui.open('workingroom');
-  chk(t.el('rcMusic').checked === false, '  다시 열면 같이 듣기는 꺼진 채(만든 뒤엔 못 바꿔서 지난 값을 물려주지 않는다)');
+  chk(t.el('rcMusicRow').hidden === true, '  «내 서버» 확인이 끝날 때까지는 같이 듣기 칸을 숨겨 둔다(앱을 켠 뒤 처음이면 아직 모른다)');
+  await flush();
+  chk(t.el('rcMusic').checked === false && t.el('rcMusicRow').hidden === false, '  다시 열면 같이 듣기는 꺼진 채 · Firebase 방이면 확인 뒤 칸이 보인다');
   t.el('rcMusic').checked = true;
   t.el('rcCreate').onclick();
   chk(t.made.length === 2 && t.made[1][1].music === true, '★ 같이 듣기를 켜면 music:true 로 넘긴다');
   t.made.length = 1;
   const ts = mk({ server: true });
   ts.ui.open('workingroom');
+  await flush();
   ts.el('rcMusic').checked = true;   // 숨긴 칸에 남은 체크가 있어도
   ts.el('rcCreate').onclick();
   chk(ts.el('rcMusicRow').hidden === true && ts.made[0][1].music === false, '★ 새 방이 방 서버로 가면 «🎧 같이 듣기 방» 칸을 숨기고 music:false — 방 서버는 아직 같이 듣기를 모른다');
-  t.ui.open('workingroom');
-  chk(t.el('rcMusicRow').hidden === false, '  Firebase 방이면 칸이 보인다');
-  t.ui.close();
+  let done = null;
+  const tl = mk({ check: () => new Promise(r => { done = r; }) });
+  tl.ui.open('workingroom');
+  tl.ui.close();
+  done(false); await flush();
+  chk(tl.el('rcMusicRow').hidden === true, '  확인이 끝나기 전에 창을 닫으면 아무것도 안 바뀐다');
+  const tr = mk({ check: () => new Promise(r => { done = r; }) });
+  tr.ui.open('workingroom');
+  const first = done;
+  tr.ui.close(); tr.ui.open('workingroom');   // 다시 열면 지난 확인 결과는 버린다
+  first(false); await flush();
+  chk(tr.el('rcMusicRow').hidden === true, '  다시 연 창에는 지난 확인 결과를 쓰지 않는다');
   chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  만들고 나면 창을 닫고 로비로');
 
   t = mk({ banned: ['나쁜말'] });

@@ -66,6 +66,11 @@ function _roomServerNet(){
   catch(_){ return null; }
 }
 // 방 개수 · 랜덤 입장에 서버 몫을 섞을지 — «내 서버»(허용 목록 · 기본 서버 비율)가 있을 때만. 마지막으로 확인한 값(읽기 없음).
+/* 방 만들기 창이 열릴 때 — 앱을 켠 뒤 아직 한 번도 안 물었으면 마지막 값(_roomServerOn)이 비어 있어 다시 묻는다(랜덤 참여와 같은 길) */
+async function _roomServerCheck(){
+  if(!_roomServerNet()) return false;
+  try{ return !!(await firebaseAPI.roomServerMine(true)); }catch(_){ return false; }
+}
 function _roomServerOn(){
   try{ return !!(_roomServerNet() && firebaseAPI.roomServerMineNow && firebaseAPI.roomServerMineNow()); }catch(_){ return false; }
 }
@@ -1343,7 +1348,7 @@ return {
   startRoom,
   syncFriendSeats,
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
-  roomServerOn: _roomServerOn,   // 🛰 새 방이 방 서버로 갈 것인가(마지막으로 확인한 «내 서버») — 방 만들기 창이 같이 듣기 칸을 숨긴다
+  roomServerCheck: _roomServerCheck,   // 새 방이 방 서버로 갈 것인가(«내 서버» 를 다시 확인) — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }
 
