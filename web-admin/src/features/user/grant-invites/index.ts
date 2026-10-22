@@ -15,4 +15,4 @@ export { GrantInvitesSelectedButton } from './ui/GrantInvitesSelectedButton';
 export { RevokeInvitesAllButton, RevokeInvitesSelectedButton } from './ui/RevokeInvitesButton';
 export { CreateInviteCodesButton } from './ui/CreateInviteCodesButton';
 export { createGroupInviteCode, setGroupInviteStopped } from './model/groupInvites';
-export { GroupInvitesButton } from './ui/GroupInvitesButton';
+export { GroupInvitesPanel } from './ui/GroupInvitesPanel';

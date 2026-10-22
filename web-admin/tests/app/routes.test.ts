@@ -6,7 +6,7 @@ const ids = (g: (typeof ROUTE_GROUPS)[number]) => g.items.map((r) => r.id);
 describe('좌측 메뉴 묶음', () => {
   it('묶음과 항목 순서가 정한 그대로다', () => {
     expect(ROUTE_GROUPS.map((g) => [g.label, ids(g)])).toEqual([
-      ['👥 사용자 · 운영', ['users', 'license', 'reports', 'bugs', 'todos', 'notices']],
+      ['👥 사용자 · 운영', ['users', 'license', 'invites', 'reports', 'bugs', 'todos', 'notices']],
       ['🏠 방 · 서버', ['rooms', 'roomServer']],
       ['🗂️ 콘텐츠', ['catalog']],
       ['📊 성능 · 비용', ['metrics', 'usage', 'improvements']],
