@@ -370,6 +370,7 @@ PRELOAD.push('myhome-inbox.js');
 PRELOAD.push('help-site.js');
 PRELOAD.push('help-tab.js');
 /* bgm-diag.js — 🔍 플레이리스트 소리 진단 줄. app.js 가 TwBgmDiag.createBgmDiag 로 만든다. */
+PRELOAD.push('playlist-sync.js');   // ☁️ 플레이리스트 기기 간 맞추기 규칙 — app.js 가 deps 로 넘긴다
 PRELOAD.push('bgm-diag.js');   // 🔍 소리 진단 줄 — app.js 가 만들 때 TwBgmDiag 를 부른다
 /* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
    300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
