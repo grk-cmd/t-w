@@ -211,7 +211,7 @@ function adminShallow(db){
   };
 }
 
-// 비었음 표시가 EMPTY_GRACE_MS 넘게 그대로인 방의 `_meta` · `_chatTab` · 줄을 걷는다(맨 위 🧹).
+// 비었음 표시가 EMPTY_GRACE_MS 넘게 그대로인 방의 `_meta` · `_music` · `_chatTab` · 줄을 걷는다(맨 위 🧹).
 /* 비었음 줄을 걷는다 — 그새 하트비트가 찍혔거나 새 표시면 그대로 둔다. 첫 호출의 cur 는 로컬 추측값이라 null 을 돌려줘야 서버 값으로 다시 불린다. */
 function dropEmptyRow(db, code, now){
   return db.ref('roomIndex/' + code).transaction(cur => {
@@ -268,6 +268,8 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
         return null;
       }, undefined, false);
       if (!r.committed){ kept++; continue; }
+      // 🎧 같이 듣기 곡 칸도 걷는다 — 남기면 같은 코드로 다시 연 방이 지난 곡 · 지난 DJ 를 읽는다(docs/LISTEN_TOGETHER.md 2.2)
+      if (keys && keys._music) await db.ref('rooms/' + code + '/_music').remove();
       if (await serverRoomLive(db, code)){
         await dropEmptyRow(db, code, now);
         done.add(code); serverKept++; continue;
@@ -331,6 +333,7 @@ async function runRoomStats(db, now, opts){
   // 💓 유령 멤버를 먼저 걷고(빈 방 판정이 유령 hb:2 노드에 걸리지 않게) 같은 roomAlive 트리로 빈 방을 본다 — 트리는 한 번만 읽는다.
   let alive = { ghosts: 0, orphans: 0, kept: 0, failed: 0 };
   let emptied = { done: new Set(), cleared: 0, busy: 0, kept: 0, failed: 0, secretKept: 0, serverKept: 0, codes: [] };
+  let lobby = { candidates: 0, working: 0, together: 0, failed: 0 };
   if (!light){
     let tree = null;
     try{ tree = (await db.ref('roomAlive').get()).val() || {}; }catch(e){ alive.failed++; }
@@ -340,6 +343,8 @@ async function runRoomStats(db, now, opts){
       try{ emptied = await sweepEmptyRooms(db, empty, tree, now, (opts && opts.shallow) || adminShallow(db)); }
       catch(e){ emptied.failed++; }
     }
+    // 방 목록 로비 사본(room-lobby.js) — 같은 트리로 센다. 못 읽었으면 쉰다(옛 사본이 남고 앱은 at 으로 낡음을 본다).
+    if (tree){ try{ lobby = await require('./room-lobby').buildRoomLobby(db, idx, tree, now); }catch(e){ lobby.failed++; } }
   }
   let chatPurge = { waiting: 0, purged: 0, reopened: 0, failed: 0 };
   if (!light){ try{ chatPurge = await sweepChatPurge(db, now); }catch(e){ chatPurge.failed++; } }
@@ -371,11 +376,11 @@ async function runRoomStats(db, now, opts){
                 server: stats.server.workingroom + stats.server.togetherroom,
                 rows: Object.keys(idx).length, dropped, kept, failed, repaired, alive,
                 emptied: { cleared: emptied.cleared, busy: emptied.busy, kept: emptied.kept, failed: emptied.failed, secretKept: emptied.secretKept,
-                           serverKept: emptied.serverKept, codes: emptied.codes }, chatPurge };
-  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed || emptied.serverKept || chatPurge.purged || chatPurge.failed) console.log('[roomStats]', JSON.stringify(sum));
+                           serverKept: emptied.serverKept, codes: emptied.codes }, chatPurge, lobby };
+  if (dropped || failed || repaired || alive.ghosts || alive.failed || emptied.cleared || emptied.failed || emptied.serverKept || chatPurge.purged || chatPurge.failed || lobby.failed || lobby.bannedFailed) console.log('[roomStats]', JSON.stringify(sum));
   return sum;
 }
 
-module.exports = { roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, serverRoomLive, onServerRoomClosed, markChatPurge, sweepChatPurge, isEmptyMark, quietSince, isServerRow,
+module.exports = { CHANNEL, SECRET_ROOM_PREFIX, roomStatsFrom, runRoomStats, adminShallow, staleAliveFrom, sweepRoomAlive, sweepEmptyRooms, roomOccupied, serverRoomLive, onServerRoomClosed, markChatPurge, sweepChatPurge, isEmptyMark, quietSince, isServerRow,
   ROOM_LIVE_MS, ROOM_INDEX_DROP_MS, ROOM_DROP_MAX, ROOM_REPAIR_MAX, ROOM_ALIVE_STALE_MS, ROOM_ALIVE_HB,
   EMPTY_GRACE_MS, MEMBER_GONE_MS, EMPTY_SWEEP_MAX, CHAT_KEEP_EMPTY_MS, CHAT_PURGE_PATH, CHAT_PURGE_MAX };
