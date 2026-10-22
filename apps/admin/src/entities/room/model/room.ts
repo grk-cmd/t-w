@@ -1,4 +1,4 @@
-// DB 모양과 시간 기준은 앱(app/parts/room-index.js · room-stats.js · firebase-init.js)과 functions/room-stats.js 를 따른다.
+// DB 모양과 시간 기준은 앱(app/parts/room-index.js · firebase-init.js)과 functions/room-stats.js 를 따른다.
 export type Channel = 'workingroom' | 'togetherroom';
 
 export interface RoomIndexEntry {
@@ -20,7 +20,7 @@ export interface RoomStats {
 export const SECRET_ROOM_PREFIX = 'SCRT-';
 // 하트비트가 30초라 세 번 놓치면 끝난 방으로 본다 — 앱 getRoomCounts · cleanGhostRooms, functions ROOM_LIVE_MS 와 같다.
 export const ROOM_LIVE_MS = 90 * 1000;
-// functions 가 1분마다 쓰므로 이보다 낡았으면 함수가 멈춘 것이다 — 앱 ROOM_STATS_FRESH_MS 와 같다.
+// functions 가 1분마다 쓰므로 이보다 낡았으면 함수가 멈춘 것이다(두 번 놓쳐도 버티게 3분).
 export const ROOM_STATS_FRESH_MS = 3 * 60 * 1000;
 
 /**

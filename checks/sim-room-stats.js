@@ -170,7 +170,8 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   say('── 3. 앱은 roomStats 를 읽지 않는다');
   {
     chk(!/roomStats|room-stats\.js|watchRoomCounts|opts\.quick/.test(CODE), '방 개수 요약(roomStats) 읽기 · 구독 · quick 길이 없다 — 채널 카드 숫자는 방 목록 로비로 바뀌었다(요약은 서버 함수 · 웹 관리자 몫)');
-    chk(read('room-stats.js') === null || /exports\.|module\.exports/.test(read('room-stats.js')), '  앱 쪽 room-stats.js 모듈이 없다');
+    const rs = read('room-stats.js');   // 스테이징 평평한 폴더에서는 없음 · checks/ 에서 돌리면 서버 함수와 이름이 겹치지 않는다
+    chk(rs === null || !/createRoomStats|ROOM_STATS_FRESH_MS/.test(rs), '  앱 쪽 room-stats.js(createRoomStats · ROOM_STATS_FRESH_MS)가 없다');
   }
 
   say('── 4. firebase-init.js 연결 · 규칙');

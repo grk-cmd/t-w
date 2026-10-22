@@ -44,7 +44,7 @@ function mkFb(){
     async fetchPlaylistOf(u){ log.push(['of', u]); return { uid: u, items: [{ id: 'y', title: '' }], setName: '', setIdx: 0, bio: '', homePublic: false, FB: 1 }; },
     async fetchPlaylistCard(u){ log.push(['card', u]); return { name: 'FB', level: 3, avatar: 'fb.png', FB: 1 }; },
     async fetchLeaderboardTop(){ log.push(['top']); return [{ uid: 'u1', sec: 9, ts: 1, FB: 1 }]; },
-    async getRoomCounts(o){ log.push(['counts', !!(o && o.quick)]); return { total: 1, workingroom: 1, togetherroom: 0, FB: 1 }; },
+    async getRoomCounts(){ log.push(['counts']); return { total: 1, workingroom: 1, togetherroom: 0, FB: 1 }; },
     async findRandomRooms(n){ log.push(['rooms', n]); return ['WORK-FBFB']; },
     getMyHome(){ throw new Error('home 통째 읽기는 쓰지 않는다'); },
   };

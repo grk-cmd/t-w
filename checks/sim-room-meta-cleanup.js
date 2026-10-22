@@ -48,7 +48,7 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk(/if\(keys2 === null\) return;/.test(leave) && /filter\(_isMemberKey\)\.length === 0\) await _finalCleanup\(keys2\)/.test(leave),
       '동시 퇴장 시차 재조회는 그대로 — 못 읽으면 아무것도 안 남긴다');
     // 비었음 줄은 앱 어디서도 살아 있는 방으로 안 센다 (lastSeen 0)
-    chk(/if\(!e\.lastSeen \|\| \(now - e\.lastSeen\) >= STALE\) continue;/.test(grab(CODE, 'async getRoomCounts(opts){', '\n    },')),
+    chk(/if\(!e\.lastSeen \|\| \(now - e\.lastSeen\) >= STALE\) continue;/.test(grab(CODE, 'async getRoomCounts(){', '\n    },')),
       '방 개수(getRoomCounts)는 lastSeen 0 줄을 안 센다');
     chk(/if\(!e\.lastSeen \|\| \(now - e\.lastSeen\) >= STALE\) continue;/.test(grab(CODE, 'async findRandomRooms(limit){', '\n    },')),
       '랜덤 참여 후보(findRandomRooms)도 안 고른다 — 빈 방으로 보내지 않는다');

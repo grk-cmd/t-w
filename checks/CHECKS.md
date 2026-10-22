@@ -126,8 +126,8 @@
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
-| **sim-room-meta-cleanup.js** | 326 | **edcb3da43e3f** |
-| **sim-room-stats.js** | 198 | **926fb5bc198d** |
+| **sim-room-meta-cleanup.js** | 326 | **bdab6639ee31** |
+| **sim-room-stats.js** | 199 | **0bcea1517588** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
 | **sim-room-lobby-ui.js** | 260 | **7bfa9de2c900** |
 | **sim-room-info-ui.js** | 197 | **5b0e1b58612a** |
@@ -268,7 +268,7 @@
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
-| **sim-api-public-reads.js** | 191 | **a49730ea5992** |
+| **sim-api-public-reads.js** | 191 | **b6f0a07d333f** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 436 | **3efe3c0c6962** |
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
