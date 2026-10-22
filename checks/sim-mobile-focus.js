@@ -145,7 +145,7 @@ say('── 4. 서버 (firebase-init)');
   const st = grabBlock(FBI, 'async mobileLinkStart(') || '';
   chk(/onDisconnect\(liveRef\)\.remove\(\)/.test(st), 'live — onDisconnect remove');
   chk(/\.info\/connected/.test(st) && /s\.val\(\) === true\) arm\(\)/.test(st), 'live — 재접속 때 다시 건다');
-  chk(/s && s\.on === true\) await update\(stateRef, \{ on:false \}\)/.test(st), '부팅 초기화 — 켜짐이 남아 있으면 on=false');
+  chk(/s && s\.on === true\)\{ await update\(stateRef, \{ on:false \}\); diag\(\{ kind:'reset', v:s \}\); \}/.test(st), '부팅 초기화 — 켜짐이 남아 있으면 on=false(내린 원래 값은 진단 줄로)');
   chk(st.indexOf('update(stateRef') < st.indexOf('onValue(stateRef'), '  초기화가 구독보다 먼저');
   chk(!/presence/.test(strip(st)), 'presence 를 «PC 켜짐» 으로 쓰지 않는다(오프라인 토글이 폰까지 끊는다)');
   chk(/await _whenAuthReady\(\)/.test(st), '세션 복원 뒤에 쓴다');

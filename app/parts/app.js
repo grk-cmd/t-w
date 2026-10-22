@@ -9272,6 +9272,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  mobileDiag: TwMobileDiag,
   renderLauncher: (...a)=>renderLauncher(...a),
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
