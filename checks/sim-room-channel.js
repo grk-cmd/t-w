@@ -130,6 +130,7 @@ else{
   const mk = () => {
     const log = { disband: 0, claim: [] };
     const win = {
+      TwRoomSettings: (() => { const w = {}; new Function('window', fs.readFileSync('room-settings.js', 'utf8'))(w); return w.TwRoomSettings; })(),   // 승계가 방장 닉네임을 이 규칙으로 적는다
       firebaseAPI: { claimHostIfVacant: async (room, uid, alive) => { log.claim.push({ uid, alive }); return { ok: false }; } },
     };
     const hooks = { onDisband: () => { log.disband++; }, onHostSucceeded: () => {} };   // joinRoom 이 room-entry 에서 받는 묶음(_roomHooks)

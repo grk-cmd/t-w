@@ -55,6 +55,7 @@ const tricksMod = deps.tricksMod;
 const triggerPet = deps.triggerPet;
 const uiIconEl = deps.uiIconEl;
 const updateMyStatusChipPosition = deps.updateMyStatusChipPosition;
+const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 function _roomServerNet(){
   try{ return (window.firebaseAPI && typeof firebaseAPI.roomServerNet === 'function') ? firebaseAPI.roomServerNet() : null; }
   catch(_){ return null; }
@@ -736,6 +737,7 @@ async function startRoom(code){
       if(!_iAmSrOwner){
         //   _ownerIn 을 못 구했으면(구버전 API 등) false 로 남아 예약석 한 자리를 늘 비워두는 쪽으로 기운다.
         //   손님 하나가 덜 들어가는 것이, 방장이 못 들어가는 것보다 낫다.
+        // 방 최대 인원(_meta.max)은 아래 재확인이 이미 읽어 둔 _meta 로 본다 — 여기서 또 읽지 않는다
         const _cap  = _isSecret ? (maxPeople() - 1) : maxPeople();
         const _here = _isSecret ? (_roomCount - (_ownerIn ? 1 : 0)) : _roomCount;
         if(_here >= _cap){
@@ -779,7 +781,8 @@ async function startRoom(code){
       /* 만들기: 채널 + 방장(나) 기록. 방을 만든 사람이 최초 방장이다.
          🎲 4번째 인자(open)는 '만들기' 경로에서만 명시적으로 넘긴다 — 다른 경로(시크릿룸·빈 방 승격·
             하트비트)는 안 넘겨서, 같은 코드로 예전에 열었던 랜덤 방의 open:true 를 물려받지 않는다. */
-      await firebaseAPI.setRoomChannel(code, _channel, getMyUserId(), (_channel === 'workingroom') && !!window._pendingRoomOpen);
+      await firebaseAPI.setRoomChannel(code, _channel, getMyUserId(), !!window._pendingRoomOpen, _pendingExtra);
+      _pendingExtra = null;
     } else if(!_channel && window.firebaseAPI && firebaseAPI.getRoomChannel){
       const _iAmLicensed = _myRoomLicensed();
       /* 🚪 빈 방(=살아있는 멤버가 0명인 코드)에 들어가는 것은 사실상 '새로 여는 것'이다.
@@ -810,11 +813,11 @@ async function startRoom(code){
         if(_openCount != null && _openCount >= _openLimit){
           toast(_channelFullMsg(_openCh));
           window._pendingRoomChannel = null;
-          window._pendingRoomOpen = false;   // 🎲 만들기 취소 — 토글 값이 다음 입장에 따라붙지 않게
+          window._pendingRoomOpen = false;   // 만들기 취소 — 공개 값이 다음 입장에 따라붙지 않게
           return;
         }
         let _claim = null;
-        try{ if(firebaseAPI.claimEmptyRoom) _claim = await firebaseAPI.claimEmptyRoom(code, getMyUserId(), _iAmLicensed); }catch(_){}
+        try{ if(firebaseAPI.claimEmptyRoom) _claim = await firebaseAPI.claimEmptyRoom(code, getMyUserId(), _iAmLicensed, roomSettings.hostNameOf(getDisplayName())); }catch(_){}
         if(_claim && _claim.channel){
           _channel = _claim.channel;   // 내가 졌으면 이긴 사람이 정한 채널로 들어간다
           if(_claim.mine) toast(_iAmLicensed ? '빈 방을 투게더룸으로 열었어요 👑' : '아무도 없던 방이라 새로 열었어요');
@@ -876,12 +879,12 @@ async function startRoom(code){
         if(_sr2){ _recount = _sr2.count; _ownerIn2 = !!_sr2.ownerIn; }
       }
       if(_recount === null) _recount = await window.firebaseAPI.checkRoomCapacity(code);
-      const _cap2  = _isSecret ? (maxPeople() - 1) : maxPeople();
+      const _cap2  = _isSecret ? (maxPeople() - 1) : roomSettings.roomCap(window._roomMetaCache, maxPeople());
       const _here2 = (typeof _recount === 'number')
         ? (_isSecret ? (_recount - (_ownerIn2 ? 1 : 0)) : _recount) : null;
       if(typeof _here2 === 'number' && _here2 >= _cap2){
         toast(_isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
-                        : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)'));
+                        : ('이 방은 이미 가득 찼어요(최대 '+_cap2+'명)'));
         window._pendingRoomChannel = null;
         window._pendingRoomOpen = false;
         return;
@@ -1022,8 +1025,12 @@ function startRoomCountWatch(){
   }, 30000);
 }
 
-/* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다. */
-async function doCreateRoomInChannel(channel){
+/* 방 만들기 창이 고른 _meta 칸 { title, max, hostName } — startRoom 의 만들기 갈래(Firebase)가 한 번 쓰고 비운다.
+   만들기가 중간에 막히면 남지만, 그 값을 읽는 곳은 _pendingRoomChannel 이 있는 만들기 갈래뿐이고 다음 만들기가 덮는다. */
+let _pendingExtra = null;
+/* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다.
+   settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용) }. */
+async function doCreateRoomInChannel(channel, settings){
   channel = channel || 'workingroom';
   const limit = roomLimitOf(channel);
   // 해당 채널의 현재 방 개수만 확인(참여는 방 개수가 안 늘어나므로 만들 때만 검사)
@@ -1034,10 +1041,11 @@ async function doCreateRoomInChannel(channel){
     return;
   }
   window._pendingRoomChannel = channel;   // startRoom이 이 값으로 _meta.channel을 기록
-  /* 🎲 랜덤 참여 허용 — 워킹룸 카드의 토글만 본다. 투게더룸에는 토글 자체가 없으므로
-     혹시 DOM이 남아 있더라도 채널로 한 번 더 막는다(findRandomRooms 의 채널 필터와 함께 세 겹). */
-  const _randEl = document.getElementById('chRandOpen');
-  window._pendingRoomOpen = (channel === 'workingroom') && !!(_randEl && _randEl.checked);
+  // 공개는 두 채널 모두 — 랜덤 참여 후보는 findRandomRooms 가 워킹룸만 고른다(투게더룸 공개는 방 목록에만 보인다)
+  window._pendingRoomOpen = !!(settings && settings.open);
+  // 비운 칸은 null(지움)로 싣는다 — 같은 코드에 서버 함수가 아직 걷지 않은 지난 방 _meta 가 있으면 그 제목이 남지 않게(update 병합)
+  _pendingExtra = { max: roomSettings.clampMax(settings && settings.max, maxPeople()),
+    title: (settings && settings.title) || null, hostName: roomSettings.hostNameOf(getDisplayName()) };
   const c=genRoomCode(channel);   // 🏷️ #9 — 채널대로 WORK-/PLAY-
   startRoom(c);
 }
@@ -1335,16 +1343,7 @@ async function doCopyRoomCode(){
   try{ await navigator.clipboard.writeText(code); toast('방 코드를 복사했어요: '+code); }
   catch(err){ toast('복사에 실패했어요'); }
 }
-// ★ 채널 개편 — 채널 카드가 상시 표시되므로 카드 클릭이 곧 방 만들기.
-{ const c=document.getElementById('chCardWorking'); if(c) c.onclick=()=>doCreateRoomInChannel('workingroom'); }
-/* 🎲 토글은 카드 '안'에 있다 — 그냥 두면 체크하는 순간 카드 클릭이 함께 터져 방이 만들어진다.
-   label 활성화(체크 토글)는 버블링과 별개라 stopPropagation 해도 정상 동작한다. */
-{ const w=document.getElementById('chRandWrap'); if(w) w.addEventListener('click', e=>e.stopPropagation()); }
-{ const c=document.getElementById('chCardTogether'); if(c) c.onclick=()=>{
-    const premium = !!(typeof isPremium()!=='undefined' && isPremium()) || !!(typeof isAdmin()!=='undefined' && isAdmin());
-    if(!premium){ return; }   // 🚫 라이선스 없으면 눌리지 않음(안내 문구는 카드에 상시 표시)
-    doCreateRoomInChannel('togetherroom');
-  }; }
+// 채널 카드 클릭은 방 만들기 창(room-create-ui.js)이 받는다 — 창의 [방 만들기] 가 doCreateRoomInChannel 로 넘긴다.
 document.getElementById('inviteJoin').onclick=()=>doJoinRoom(document.getElementById('inviteCode'));
 { const b=document.getElementById('inviteSecretJoin'); if(b) b.onclick=()=>doJoinSecretRoom(document.getElementById('inviteSecretCode')); }
 document.getElementById('inviteLeave').onclick=()=>doLeaveRoom({ wipeChat: true });
@@ -1461,6 +1460,8 @@ _setupSecretCodeInput(document.getElementById('fsInviteSecretCode'));
 
 twNav.on(twNav.NAV.LEAVE_ROOM, doLeaveRoom);   // 🧭 다른 기기에 밀려남 · 자리비움 자동 퇴장이 이 통로로 나간다
 return {
+  doCreateRoomInChannel,
+  _myRoomLicensed,
   CHANNEL_NAMES,
   NET_READY_WAIT_MS,
   ROOM_PREFIX,

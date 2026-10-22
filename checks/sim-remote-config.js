@@ -260,7 +260,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       '  ↳ 방 입장 최소 버전 — 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
     chk(/Promise\.resolve\(_rc \? _rc\.minRoomVer\(\) : null\)\.then\(v => \{/.test(fi) && /aliveV2On\(v\)/.test(fi), '  ↳ 💓 새 하트비트도 같은 값');
     chk(/getDailyMax: \(\) => _rc \? _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\)\.then\(\(\) => _rc\.bugDailyMax\(\)\) : null,/.test(fi), '  ↳ 제보 하루 상한도 원격 설정');
-    chk(/const _cap = \(window\.TwRemoteConfig && window\.TwRemoteConfig\.store\) \? window\.TwRemoteConfig\.store\.maxPeople\(\) : 10;/.test(fi) && !/window\.MAX_PEOPLE/.test(fi),
+    chk(/const _cap = window\.TwRoomSettings\.roomCap\(_capturedMeta, \(window\.TwRemoteConfig && window\.TwRemoteConfig\.store\) \? window\.TwRemoteConfig\.store\.maxPeople\(\) : 10\);/.test(fi) && !/window\.MAX_PEOPLE/.test(fi),
       '  ↳ 정원 초과 자기 퇴장도 같은 store 의 정원(window.MAX_PEOPLE 안 씀)');
     chk(!/^\s*import\s/m.test(RC) && !/gstatic|getDatabase|require\(/.test(strip(RC)), 'remote-config.js 는 Firebase 를 import 하지 않는다(비상 읽기도 deps.fallbackRead)');
   }

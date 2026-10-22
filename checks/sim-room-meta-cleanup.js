@@ -279,14 +279,14 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
 
   say('── 3. 들어오는 길 — 남은 _meta 가 있는 빈 방');
   {
-    const claim = grab(FI, 'async claimEmptyRoom(room, myUserId, licensed){', '\n    },');
+    const claim = grab(FI, 'async claimEmptyRoom(room, myUserId, licensed, hostName){', '\n    },');
     const txSrc = (claim.match(/runTransaction\(ref\(db, `rooms\/\$\{room\}\/_meta`\), (cur => \{[\s\S]*?\n {8}\})\);/) || [])[1];
     chk(!!txSrc, 'claimEmptyRoom 트랜잭션을 찾았다');
     const NOW = 5e11;
     const FRESH = +((claim.match(/const FRESH = (\d+)\*1000;/) || [])[1] || 0) * 1000;
     chk(FRESH === 20000, '동시 입장 창 FRESH 20초');
-    const mkTx = new Function('_svNow', 'myUserId', 'licensed', 'FRESH', 'return (' + txSrc + ');');
-    const tx = (svNow, me, lic) => mkTx(svNow, me, lic, FRESH);
+    const mkTx = new Function('_svNow', 'myUserId', 'licensed', 'FRESH', 'hostName', 'return (' + txSrc + ');');
+    const tx = (svNow, me, lic, hn) => mkTx(svNow, me, lic, FRESH, hn);
     const stale = { channel: 'togetherroom', host: 'uOld', openLic: true, openTs: NOW - 5 * 60000, ts: NOW - 5 * 60000,
                     open: true, chatOff: true, restoredTs: NOW - 9 * 60000, tabs: { s1: { name: '공부', ts: 1 } } };
     const out = tx(() => NOW, 'uMe', false)(JSON.parse(JSON.stringify(stale)));
@@ -308,7 +308,7 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     // 빈 방 판정은 checkRoomCapacity(멤버만) — _meta 가 남아 있어도 0 명
     const cap = grab(CODE, 'async checkRoomCapacity(room){', '\n    },');
     chk(/const ids = Object\.keys\(keys\)\.filter\(id => id\.charAt\(0\) !== '_' && id !== 'chatLog'\);/.test(cap), '정원 검사는 _meta · _chatTab · chatLog 를 사람으로 안 센다 — 남은 표지가 있어도 빈 방');
-    chk(/if\(_roomCount === 0\)\{[\s\S]{0,1200}firebaseAPI\.claimEmptyRoom\(code, getMyUserId\(\), _iAmLicensed\)/.test(APP), '빈 방(0명)이면 선점(claimEmptyRoom)으로 연다');
+    chk(/if\(_roomCount === 0\)\{[\s\S]{0,1200}firebaseAPI\.claimEmptyRoom\(code, getMyUserId\(\), _iAmLicensed, roomSettings\.hostNameOf\(getDisplayName\(\)\)\)/.test(APP), '빈 방(0명)이면 선점(claimEmptyRoom)으로 연다');
     // 시크릿룸 · 되살리기 · 방 서버
     chk(/if\(_isSecret\)\{[\s\S]{0,400}firebaseAPI\.setRoomChannel\(code, 'togetherroom', _secretOwner\)/.test(APP), '시크릿룸은 들어올 때마다 channel · host(주인) · ts 를 다시 쓴다 — 남은 _meta 도 주인 방으로');
     chk(!/restoreRoomMeta/.test(FI) && /if\(meta\.restoredTs && \(_svNow\(\) - meta\.restoredTs\) < ROOM_RESTORE_GRACE_MS\) return;/.test(FI),

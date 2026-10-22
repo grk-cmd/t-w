@@ -436,6 +436,9 @@ PRELOAD.push('settings-panel.js');
 PRELOAD.push('click-through-policy.js');
 PRELOAD.push('desktop-run.js');
 /* room-entry.js — 🛰 방 서버 · 입장 · 방 개수(앱 FSD 33번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomEntry 를 같이 굴린다. */
+PRELOAD.push('banned-words.js');   // 🏷️ 방 제목 금칙어 판정(TwBannedWords)
+PRELOAD.push('room-settings.js');   // 🏷️ 방 설정 규칙(TwRoomSettings)
+PRELOAD.push('room-create-ui.js');   // 🏷️ 방 만들기 창(TwRoomCreateUi)
 PRELOAD.push('room-entry.js');
 /* label-measure.js — 📐 라벨 잰 값 기억. overhead.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('label-measure.js');
