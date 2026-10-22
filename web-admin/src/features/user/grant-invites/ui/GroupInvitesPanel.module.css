@@ -1,0 +1,37 @@
+/* 외부인 초대장 — 입력 세 칸 · 만든 코드 표 */
+.form {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.form label {
+  display: grid;
+  grid-template-columns: 6em 12em 1fr;
+  align-items: center;
+  gap: 8px;
+}
+
+.sub {
+  margin: 18px 0 6px;
+  font-size: 14px;
+}
+
+.table {
+  width: 100%;
+  font-size: 13px;
+  border-collapse: collapse;
+}
+
+.table th,
+.table td {
+  padding: 4px 6px;
+  text-align: left;
+  border-bottom: 1px solid var(--line);
+}
+
+.actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 4px;
+}

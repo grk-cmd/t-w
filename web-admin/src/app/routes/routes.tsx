@@ -4,6 +4,7 @@ import { BugBoardPage } from '@/pages/bug-board';
 import { CatalogPage } from '@/pages/catalog';
 import { FeatureSwitchPage } from '@/pages/feature-switch';
 import { ImprovementsPage } from '@/pages/improvements';
+import { InvitesPage } from '@/pages/invites';
 import { LicensePage } from '@/pages/license';
 import { MetricsPage } from '@/pages/metrics';
 import { NoticesPage } from '@/pages/notices';
@@ -34,6 +35,7 @@ export const ROUTE_GROUPS: RouteGroup[] = [
     items: [
       { id: 'users', label: '👥 사용자', Page: UsersPage },
       { id: 'license', label: '🎟️ 라이선스', Page: LicensePage },
+      { id: 'invites', label: '✉️ 초대장', Page: InvitesPage },
       { id: 'reports', label: '🚩 신고', Page: ReportsPage },
       { id: 'bugs', label: '🐞 제보', Page: BugBoardPage },
       { id: 'todos', label: '📋 할 일', Page: TodosPage },

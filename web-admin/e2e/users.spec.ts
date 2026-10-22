@@ -1,7 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { expect, test } from './fixtures';
 import { dbGet, dbSet } from './support/emulator';
-import { openMenu, toast } from './support/ui';
+import { card, openMenu, toast } from './support/ui';
 
 const T0 = Date.UTC(2026, 0, 1);
 
@@ -164,7 +164,7 @@ test('초대권 칸이 없는 계정에는 지급 버튼이 잠긴다', async ({
 
 test('전체 지급은 «전체 지급» 을 적어야 열리고, 칸 없는 사람 · 상한은 건너뛴다', async ({ page, seed }) => {
   await seed(DATA);
-  await openMenu(page, 'users');
+  await openMenu(page, 'invites');
 
   await page.getByRole('button', { name: '전체 초대권 지급' }).click();
   const dialog = page.getByRole('dialog');
@@ -232,7 +232,7 @@ test('초대 코드 만들기 — 고른 개수만큼 invites 에 생기고, 이
   seed,
 }) => {
   await seed({ ...DATA, invites: { 'INVT-KEEP-KEEP': { issuedBy: 'u1', createdAt: 1, usedBy: 'u2' } } });
-  await openMenu(page, 'users');
+  await openMenu(page, 'invites');
 
   await page.getByRole('button', { name: '초대 코드 만들기' }).click();
   const dialog = page.getByRole('dialog');
@@ -248,6 +248,50 @@ test('초대 코드 만들기 — 고른 개수만큼 invites 에 생기고, 이
     expect(await dbGet(`invites/${code}`)).toMatchObject({ issuedBy: 'admin' });
   }
   expect(await dbGet('invites/INVT-KEEP-KEEP')).toMatchObject({ usedBy: 'u2' });
+});
+
+test('외부인 초대장 — 인원 · 마감 · 메모로 만들고, 목록에서 쓴 수 · 상태를 보고 중지 · 다시 열기', async ({
+  page,
+  seed,
+}) => {
+  await seed({
+    ...DATA,
+    groupInvites: {
+      'INVT-OLDD-OLDD': { issuedBy: 'admin', createdAt: 1, maxUses: 2, usedCount: 2, note: '지난 모집' },
+    },
+  });
+  await openMenu(page, 'invites');
+
+  const panel = card(page, /외부인 초대장/);
+  const table = panel.getByRole('table', { name: '만든 외부인 초대장' });
+  await expect(table.getByRole('row', { name: /지난 모집/ })).toContainText('2 / 2명');
+  await expect(table.getByRole('row', { name: /지난 모집/ })).toContainText('다 참');
+
+  await panel.getByLabel('인원').fill('500');
+  await panel.getByLabel('마감 날짜').fill('2099-12-31');
+  await panel.getByLabel('메모').fill('10월 모집');
+  await panel.getByRole('button', { name: '500명 코드 만들기' }).click();
+
+  const made = (await panel.locator('p.msg code.key').innerText()).trim();
+  expect(made).toMatch(/^INVT-[A-HJ-NP-Z2-9]{4}-[A-HJ-NP-Z2-9]{4}$/);
+  expect(await dbGet(`groupInvites/${made}`)).toMatchObject({
+    issuedBy: 'admin',
+    maxUses: 500,
+    usedCount: 0,
+    expiresAt: Date.parse('2099-12-31T15:00:00Z'),
+    note: '10월 모집',
+  });
+  const mine = table.getByRole('row', { name: /10월 모집/ });
+  await expect(mine).toContainText('0 / 500명');
+  await expect(mine).toContainText('2099-12-31까지');
+  await expect(mine).toContainText('쓰는 중');
+
+  await mine.getByRole('button', { name: '중지' }).click();
+  await expect(mine).toContainText('중지');
+  expect(typeof (await dbGet(`groupInvites/${made}/stoppedAt`))).toBe('number');
+  await mine.getByRole('button', { name: '다시 열기' }).click();
+  await expect(mine).toContainText('쓰는 중');
+  expect(await dbGet(`groupInvites/${made}/stoppedAt`)).toBeNull();
 });
 
 // 상세 창의 한 칸 — «라벨» 바로 옆 값.
