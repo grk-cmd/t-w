@@ -133,7 +133,7 @@
 | **sim-room-info-ui.js** | 197 | **5b0e1b58612a** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 82 | **bd2860e92a36** |
-| **sim-listen-ui.js** | 391 | **8a1100cd60ca** |
+| **sim-listen-ui.js** | 394 | **6d7bd79c036d** |
 | **sim-room-settings.js** | 240 | **7463abdf93af** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
