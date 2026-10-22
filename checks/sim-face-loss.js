@@ -271,6 +271,24 @@ function clearSlots(){ for (let i = 0; i < P.MAX; i++) P.slots[i] = null; }
     chk(warns.length === 0, '멀쩡한데 콘솔을 더럽히지 않는다');
 
     say('');
+    say('· 🛡️ 피부만 비었다(B-1019-3) — 그림은 남아 합성본이 «전부 투명» 이 아니어도 잡는다');
+    {
+      const k = d.skin || 0, sk = P.skinCanvases[k];
+      sk.getContext('2d').clearRect(0,0,512,512);
+      seat.faceMapOrig.needsUpdate = false;
+      chk(P.isBlank(P.skinCanvases[k]) && !P.isBlank(d.face) && !P.isBlank(seat.faceMapOrig.image), '피부 캔버스만 비었고 그림 · 합성본엔 선이 남았다 (실험 조건 확인)');
+      warns = [];
+      const n2 = await P.repair();
+      chk(n2 > 0 && !P.isBlank(P.skinCanvases[k]), '★ 피부 캔버스를 메우고 복구했다고 보고한다 (' + n2 + '칸)');
+      chk(seat.faceMapOrig.needsUpdate === true, '★ 그 피부를 쓰는 좌석 텍스처를 다시 그린다');
+      chk(warns.some(w => w.includes('피부')), '  콘솔에 «피부» 로 남는다');
+      const other = (k + 1) % P.skinCanvases.length;
+      P.skinCanvases[other].getContext('2d').clearRect(0,0,512,512);
+      seat.faceMapOrig.needsUpdate = false;
+      chk(await P.repair() === 0 && !P.isBlank(P.skinCanvases[other]) && seat.faceMapOrig.needsUpdate === false, '  아무 칸도 안 쓰는 피부가 비면 메우기만 한다(좌석은 그대로 · 0)');
+    }
+
+    say('');
     say('· 이미 손상된 저장본(원본도 빈 그림)에서 헛돌지 않는다');
     {
       const slot = { skin: 2, top: '#abc', bot: '#def', face: BLANK_URL, blink: BLANK_URL };
@@ -281,6 +299,13 @@ function clearSlots(){ for (let i = 0; i < P.MAX; i++) P.slots[i] = null; }
       chk(await P.repair() === 0, '★ 되살릴 원본이 없는 칸은 후보로 잡지 않는다 (무한 복구 없음)');
     }
     P.seats.length = 0;
+  }
+
+  say('');
+  say('· 캔버스는 CPU 쪽에 둔다(그래픽 리셋에 안 지워지게 — B-1019-3)');
+  {
+    const src = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
+    chk(/function newCanvas\(\)\{[^\n]*c\.getContext\('2d',\{willReadFrequently:true\}\)/.test(src), '★ newCanvas 가 첫 getContext 에 willReadFrequently 를 건다');
   }
 
   say('');

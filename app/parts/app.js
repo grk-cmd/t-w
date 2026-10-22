@@ -5622,7 +5622,9 @@ let curSlot=_loadCurSlot();
 const CANVAS_SZ=512;
 const FACE_SYM_SUM=0.36;                 // 얼굴 UV 좌우 대칭축(u0≈0.18) → 미러 u' = 0.36 - u
 const SYM_PX=FACE_SYM_SUM*CANVAS_SZ;     // 픽셀 기준 미러 합
-function newCanvas(){const c=document.createElement('canvas');c.width=c.height=CANVAS_SZ;return c;}
+/* ⚠️ 첫 getContext 에 willReadFrequently 를 건다 — CPU 쪽 캔버스라 그래픽 리셋(GPU 프로세스 재시작)에도 내용이 안 지워진다.
+   GPU 쪽이면 피부 · 얼굴 캔버스가 통째로 비어 캐릭터가 투명해졌다(B-1019-3). 같은 캔버스의 다음 getContext('2d') 는 이 컨텍스트를 돌려준다. */
+function newCanvas(){const c=document.createElement('canvas');c.width=c.height=CANVAS_SZ;try{c.getContext('2d',{willReadFrequently:true});}catch(_){}return c;}
 /* 🛡️ [얼굴 영구 소실 방어 · 판정] 그림 레이어가 **완전히 비었는지** 싸게 본다.
    [경위] 제보 — 아무것도 안 건드렸는데 실행 중에 얼굴이 사라지고, 꺼다 켜도 그대로였다.
      def.face 는 살아 있는 캔버스라 loadSlots 의 _imgBroken 표식이 붙지 않고,
