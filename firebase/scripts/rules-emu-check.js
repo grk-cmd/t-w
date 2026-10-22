@@ -294,7 +294,7 @@ const LIMIT_CASES = [
   ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
   ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
   /* 🔒 온라인 고정 — 본인만 읽고 쓴다(친구가 «숨긴 오프라인» 을 못 알아보게) · 세 칸 */
-  ['온라인 고정 — 켤 때 읽기(presence 전)', 'GET', `presencePref/${NEW_U}`, null, true, 'authN'],
+  ['온라인 고정 — 켤 때 읽기', 'GET', `presencePref/${NEW_U}`, null, true, 'authN'],
   ['온라인 고정 — 본인 쓰기', 'PUT', `presencePref/${NEW_U}`, { lock: true, online: false, ts: TS }, true, 'authN'],
   ['온라인 고정 — 남이 읽기', 'GET', `presencePref/${NEW_U}`, null, false, 'authA'],
   ['온라인 고정 — 로그인 없이 읽기', 'GET', `presencePref/${NEW_U}`, null, false],

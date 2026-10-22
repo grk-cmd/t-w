@@ -11,6 +11,7 @@
 'use strict';
 
 const CACHE_KEY = 'tw.presencePref';   // { u, lock, online } — 서버를 못 읽을 때만 쓴다
+const LOAD_WAIT_MS = 5000;   // 첫 접속 쓰기 · 재접속 복구가 이 읽기를 기다린다 — 멈추면 이만큼 뒤 이 PC 값으로
 
 /* 서버 · 이 PC 에서 읽은 값 → { lock, online }(모르는 칸 · 틀린 모양은 «고정 없음 · 온라인») */
 function normalize(v){
@@ -28,6 +29,7 @@ function startOnline(p){ return !(p && p.lock === true && p.online === false); }
  *   savePref: (uid: string, p: { lock: boolean, online: boolean }) => Promise<unknown>,
  *   setPresence: (uid: string, online: boolean) => unknown,
  *   storage: { getItem: (k: string) => string | null, setItem: (k: string, v: string) => void },
+ *   setTimer: (fn: () => void, ms: number) => unknown,
  * }} deps */
 function createPresenceLock(deps){
   const getMyUserId = deps.getMyUserId;
@@ -67,10 +69,16 @@ function createPresenceLock(deps){
   async function startOnlineFor(uid){
     if(!uid) return online;
     let got = null;
-    try{ got = await deps.loadPref(uid); }catch(_){ got = null; }
+    try{ got = await Promise.race([deps.loadPref(uid), new Promise(r => deps.setTimer(() => r(null), LOAD_WAIT_MS))]); }catch(_){ got = null; }
     const p = got ? normalize(got) : readCache(uid);
-    if(p && !touched){ pref = p; online = startOnline(p); }
-    if(got) writeCache(uid);
+    if(p && touched){
+      // 읽기 전에 눌렀다 — 누른 값은 지키되 고정 여부는 읽은 값을 따른다(고정이면 누른 값이 새 고정값)
+      pref = { lock: p.lock, online };
+      if(p.lock && p.online !== online) save(uid); else if(got) writeCache(uid);
+    } else if(p){
+      pref = p; online = startOnline(p);
+      if(got) writeCache(uid);
+    }
     paint();
     return online;
   }
@@ -99,5 +107,5 @@ function createPresenceLock(deps){
   return { startOnlineFor };
 }
 
-window.TwPresenceLock = { CACHE_KEY, normalize, startOnline, createPresenceLock };
+window.TwPresenceLock = { CACHE_KEY, LOAD_WAIT_MS, normalize, startOnline, createPresenceLock };
 })();

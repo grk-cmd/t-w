@@ -37,7 +37,7 @@ function el(){
 function world(src, o){
   const w = Object.assign({ uid: 'u1', load: async () => ({}), saveFail: false }, o || {});
   const tog = el(), lock = el(), store = Object.assign({}, w.store || {});
-  const out = { tog, lock, store, saves: [], sets: [], toasts: [], errs: [] };
+  const out = { tog, lock, store, saves: [], sets: [], toasts: [], errs: [], timers: [] };
   const doc = { getElementById: (id) => id === 'mhPresenceToggle' ? tog : id === 'mhPresenceLock' ? lock : null };
   const win = {};
   new Function('window', 'document', src)(win, doc);
@@ -50,6 +50,7 @@ function world(src, o){
     savePref: async (uid, p) => { out.saves.push([uid, p.lock, p.online]); if(w.saveFail) throw new Error('거절'); },
     setPresence: (uid, on) => out.sets.push([uid, on]),
     storage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
+    setTimer: (fn, ms) => { out.timers.push([fn, ms]); return out.timers.length; },
   });
   return out;
 }
@@ -88,7 +89,19 @@ async function behave(src){
   const pr = w.m.startOnlineFor('u1');
   w.tog.click();
   res({ lock: true, online: true });
-  r.touched = (await pr) === false && isOff(w) && w.sets.length === 1 && w.sets[0][1] === false;
+  const t1 = (await pr) === false && isOff(w) && w.sets.length === 1 && w.sets[0][1] === false && w.lock.textContent === '🔒';
+  await tick();
+  const t2 = JSON.stringify(w.saves) === '[["u1",true,false]]' && JSON.parse(w.store['tw.presencePref']).lock === true && JSON.parse(w.store['tw.presencePref']).online === false;
+  // 읽기 전 누름 · 서버는 고정 안 함 → 🔓 · 저장 없음
+  w = world(src, { load: () => new Promise(a => { res = a; }) });
+  const pr2 = w.m.startOnlineFor('u1'); w.tog.click(); res({ lock: false, online: true }); await pr2; await tick();
+  r.touched = t1 && t2 && w.lock.textContent === '🔓' && w.saves.length === 0 && isOff(w);
+  // 읽기가 멈추면 시한 뒤 이 PC 값
+  w = world(src, { load: () => new Promise(() => {}), store: { 'tw.presencePref': JSON.stringify({ u: 'u1', lock: true, online: false }) } });
+  const pr3 = w.m.startOnlineFor('u1'); await tick();
+  const tm = w.timers.find(t => t[1] === w.T.LOAD_WAIT_MS);
+  if(tm) tm[0]();
+  r.slow = !!tm && w.T.LOAD_WAIT_MS === 5000 && (await pr3) === false && isOff(w);
   // 고정 안 함 · 토글 → 접속 표시만(저장 없음)
   w = world(src); await w.m.startOnlineFor('u1');
   w.tog.click(); await tick();
@@ -119,7 +132,8 @@ function report(r){
   chk(r.bootUnlocked, '  고정을 안 했으면 마지막이 오프라인이어도 온라인으로 시작(예전과 같다)');
   chk(r.bootEmpty, '  서버가 비어 있으면 온라인 · 이 PC 값도 «고정 없음» 으로 맞춘다');
   chk(r.bootFallback, '  서버를 못 읽으면 이 PC 값(같은 계정만 · 깨진 값은 무시) · 없으면 온라인');
-  chk(r.touched, '  고정값을 읽기 전에 누르면 누른 값을 지킨다(읽은 값으로 덮지 않음)');
+  chk(r.touched, '  고정값을 읽기 전에 누르면 누른 값을 지키고 고정 여부는 읽은 값 — 고정이면 누른 값이 새 고정값(🔒 · 저장 · 이 PC 값)');
+  chk(r.slow, '  서버 읽기가 멈추면 5초 뒤 이 PC 값으로(첫 쓰기 · 재접속 복구가 무한정 기다리지 않게)');
   chk(r.toggleUnlocked, '고정 안 함 — 토글은 접속 표시만 바꾸고 저장하지 않는다(예전과 같다)');
   chk(r.lockFlow, '🔒 누르면 지금 값으로 저장 · 고정 중 토글은 저장 · 🔓 누르면 풀림 저장 · 안내 문구');
   chk(r.edge, '로그인 없음 → 안내만 · 저장 실패 → E-MH-02(이 PC 에는 남김) · uid 없으면 온라인');
@@ -131,14 +145,14 @@ async function gate(fbi){
   const on = grab(fbi, 'setMyPresenceOnline(userId, startOnline){'), st = grab(fbi, 'setMyPresenceState(userId, online){');
   if(!on || !st) return null;
   const mk = (preset) => {
-    const w = { log: [], connected: [] };
+    const w = { log: [], connected: [], ticks: [] };
     const c = {
       Date: { now: () => 1 }, Promise, db: {},
       ref: (d, p) => ({ p }),
-      set: (r, v) => { w.log.push(['set', v.online]); return Promise.resolve(); }, update: () => Promise.resolve(),
+      set: (r, v) => { w.log.push(['set', v.online]); return Promise.resolve(); }, update: (r, v) => { w.log.push(['update', v.online]); return Promise.resolve(); },
       onDisconnect: () => ({ set: (v) => { w.log.push(['od', v.online]); return Promise.resolve(); } }),
       onValue: (r, cb) => { if(r.p === '.info/connected') w.connected.push(cb); },
-      setInterval: () => 1, _whenAuthReady: () => Promise.resolve(),
+      setInterval: (fn) => { w.ticks.push(fn); return 1; }, _whenAuthReady: () => Promise.resolve(),
       _appVer: { ready: Promise.resolve(), withVer: (x) => x },
     };
     vm.createContext(c);
@@ -151,10 +165,11 @@ async function gate(fbi){
   let res; let w = mk();
   w.api.setMyPresenceOnline('u1', new Promise(a => { res = a; }));
   const reg = !!w.api.ref();
-  w.connect(); await tick();
-  const before = w.log.filter(e => e[0] === 'set').length;
+  w.connect(); w.ticks.forEach(f => f()); await tick();
+  const before = w.log.filter(e => e[0] === 'set' || e[1] === true).length;
   res(false); await tick();
-  r.wait = reg && before === 0 && w.log.some(e => e[0] === 'set') && w.log.filter(e => e[0] === 'set').every(e => e[1] === false);
+  w.ticks.forEach(f => f()); await tick();
+  r.wait = reg && before === 0 && w.log.some(e => e[0] === 'set') && w.log.every(e => e[1] !== true);
   w = mk(); w.api.setMyPresenceOnline('u1', Promise.resolve(true)); await tick();
   r.onTrue = w.log.filter(e => e[0] === 'set').every(e => e[1] === true) && w.log.some(e => e[0] === 'set');
   w = mk(false); w.api.setMyPresenceOnline('u1'); await tick();
@@ -172,7 +187,7 @@ async function gate(fbi){
   const G = await gate(FBI);
   chk(!!G, 'setMyPresenceOnline(userId, startOnline) · setMyPresenceState 를 찾았다');
   if(G){
-    chk(G.wait, '처음 값이 풀리기 전엔 쓰지 않는다(재접속 신호가 먼저 와도) · 등록은 바로 · «🔒 오프라인» 이면 첫 쓰기부터 false');
+    chk(G.wait, '처음 값이 풀리기 전엔 쓰지 않는다(재접속 신호 · 6시간 lastSeen 이 먼저 와도) · 등록은 바로 · «🔒 오프라인» 이면 어느 쓰기에도 online:true 없음');
     chk(G.onTrue, '  처음 값이 온라인이면 예전처럼 온라인');
     chk(G.noArg, '  처음 값이 없으면(밀려난 뒤 다시 걸기) 지금 값 그대로 · 처음 값이 실패해도 쓴다');
   }
@@ -208,8 +223,14 @@ async function gate(fbi){
     chk(b1 && !b1.bootLocked, '고정값을 무시하고 늘 온라인으로 시작하면 2절이 빨강');
     const b2 = await br("if(uid && pref.lock){ pref = { lock: true, online }; save(uid); }", "if(uid){ pref = { lock: pref.lock, online }; save(uid); }");
     chk(b2 && !b2.toggleUnlocked, '고정 안 했는데 토글마다 저장하면 2절이 빨강');
-    const b3 = await br("if(p && !touched){", "if(p){");
-    chk(b3 && !b3.touched, '읽기 전 누름을 덮으면 2절이 빨강');
+    const b3 = await br("if(p && touched){", "if(false){");
+    chk(b3 && !b3.touched, '읽기 전 누름을 읽은 값으로 덮으면 2절이 빨강');
+    const b4 = await br("      pref = { lock: p.lock, online };", "      pref = { lock: false, online };");
+    chk(b4 && !b4.touched, '읽기 전 누름 뒤 서버 고정을 잊으면(🔓 로 보이고 다음 실행은 숨은 고정값) 2절이 빨강');
+    const b5 = await br("new Promise(r => deps.setTimer(() => r(null), LOAD_WAIT_MS))", "new Promise(() => {})");
+    chk(b5 && !b5.slow, '읽기 시한이 없으면 2절이 빨강');
+    const g2 = FBI.includes("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))") ? await gate(FBI.replace("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))", "update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now(), online: true }))")) : null;
+    chk(g2 && !g2.wait, '6시간 lastSeen 에 online:true 를 섞으면 3절이 빨강');
     const g1 = FBI.includes("const _armPresence = ()=>gate.then(()=>{") ? await gate(FBI.replace("const _armPresence = ()=>gate.then(()=>{", "const _armPresence = ()=>Promise.resolve().then(()=>{")) : null;
     chk(g1 && !g1.wait, '첫 쓰기가 처음 값을 안 기다리면 3절이 빨강');
   }
