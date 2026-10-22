@@ -99,6 +99,11 @@ const KIND = {
   '/mobileLink/$userId': 'userPadded',
   '/leaderboard/$userId': 'user',
   '/invites/$code': 'invite',
+  '/groupInvites/$code': 'invite',
+  '/groupInviteUses/$code': 'invite',
+  '/groupInviteUses/$code/$n': 'own',            // 들어온 순서 1..9999
+  '/groupInviteTokens/$code': 'invite',
+  '/groupInviteTokens/$code/$token': 'own',      // 기기 토큰 t + 16자(license-gate _inviteTokenFor)
   '/friendRequests/$toId': 'user',
   '/friendRequests/$toId/$fromId': 'user',
   '/sentFriendRequests/$fromId': 'user',
