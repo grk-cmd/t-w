@@ -198,14 +198,32 @@ chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdow
 {
   const SC = read('status-chip.js') || read('parts/status/status-chip.js') || read('app/parts/status/status-chip.js') || '';
   chk(/if\(_cvEl && seats\.length && clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{/.test(RUN), '  3D 캐릭터 판정은 charHittable 이 거짓이면(회사원 모드 숨김) 아예 안 한다');
-  const chipOk = (src) => {
-    const hide = (src.match(/  if\(!me \|\| launcherVisible[^\n]*\)\{\n    chip\.style\.display='none';/) || [''])[0];
-    return !!hide && !/charHittable/.test(hide)
-      && /if\(!clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{[\s\S]{0,200}?setCharBoundsLatest\(null\);[\s\S]{0,80}?\} else if\(_charProjSane\(cx, cy, charPxH\)\)\{/.test(src);
+  /* 상태칩을 가짜 화면 위에서 실제로 만들어 updateMyStatusChipPosition 을 부른다 — 칩 표시 · main 에 보내는 캐릭터 영역을 본다 */
+  const chipRun = (src, hidden) => {
+    const anything = () => { const f = function(){ return Q; }; const Q = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => 0) : k === 'then' ? (() => Q) : k === 'length' ? 0 : Q, apply: () => Q, construct: () => Q, set: () => true, has: () => true }); return Q; };
+    const any = anything(), sent = [], els = {};
+    const el = (id) => els[id] || (els[id] = { id, style: {}, classList: { contains: () => false, add(){}, remove(){}, toggle(){} },
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100 }), addEventListener(){}, contains: () => false, offsetWidth: 10, offsetHeight: 10 });
+    const doc = new Proxy({ getElementById: el, addEventListener(){}, querySelectorAll: () => [], createElement: () => any, body: el('body') }, { get: (t, k) => k in t ? t[k] : any });
+    const deps = new Proxy({ clickPolicy: P, _officeHidden: () => hidden.v, seats: [{ isMe: true, expBarEl: null, namePlateEl: null, group: anything(), rig: anything(), desk: anything() }], moveMode: () => false,
+      setCharBoundsLatest: (v) => sent.push(v), setCharBadWhy: () => {}, _charProjSane: () => true, _charBadWhy: () => null, renderer: { domElement: el('cv') }, camera: any }, { get: (t, k) => k in t ? t[k] : (() => any) });
+    const win = new Proxy({ innerWidth: 1000, innerHeight: 800 }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+    try{
+      const api = new Function('window', 'document', 'localStorage', 'navigator', 'THREE', 'setTimeout', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', 'getComputedStyle', 'addEventListener', src + '\nreturn window.TwStatusChip;')
+        (win, doc, { getItem: () => null, setItem(){} }, any, any, () => 0, () => 0, () => 0, 1000, 800, () => ({}), () => {});
+      const m = api.createStatusChip(deps);
+      const one = () => { sent.length = 0; m.updateMyStatusChipPosition(); return { chip: els.myStatusChip && els.myStatusChip.style.display, bounds: sent[sent.length - 1] }; };
+      hidden.v = true; const h = one(); hidden.v = false; const v = one();
+      return { h, v };
+    }catch(e){ return { err: String(e && e.message || e) }; }
   };
-  chk(chipOk(SC), '  상태칩은 같은 판단으로 main 에 보내는 캐릭터 영역만 비운다(«우리 UI 위» · 회수 ⓖ · 펜 앱 근처가 숨긴 자리를 안 봄) — 칩(■ 숨김 풀기 입구)은 숨기지 않는다');
+  const chipOk = (src) => { const r = chipRun(src, { v: false }); return !r.err && r.h.chip === 'flex' && r.h.bounds === null && r.v.chip === 'flex' && !!r.v.bounds && typeof r.v.bounds.r === 'number'; };
+  { const r = chipRun(SC, { v: false });
+    chk(chipOk(SC), '  상태칩(실제로 불러 봄) — 숨김이면 칩(■ 숨김 풀기 입구)은 그대로 · main 에 보내는 캐릭터 영역만 null · 풀면 바로 영역이 돌아온다' + (r.err ? ' — ' + r.err : '')); }
   chk(!chipOk(SC.replace("  if(!me || launcherVisible || creatorVisible || moveMode()){", "  if(!me || launcherVisible || creatorVisible || moveMode() || !clickPolicy.charHittable({ officeHidden: _officeHidden() })){")),
     '  깨 보기: 숨김이면 칩까지 숨김(■ 버튼이 사라져 되돌릴 길이 없음) → 빨강');
+  chk(!chipOk(SC.replace("  if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })){", "  if(false){")),
+    '  깨 보기: 숨김인데 캐릭터 영역을 그대로 보냄 → 빨강');
 }
 chk(/  clickPolicy: TwClickThroughPolicy,\n/.test(APP), 'app.js — 만드는 줄이 clickPolicy: TwClickThroughPolicy 를 넘긴다');
 const iP = HTML.indexOf('<script src="parts/launcher/click-through-policy.js"></script>'), iR = HTML.indexOf('<script src="parts/launcher/desktop-run.js"></script>');

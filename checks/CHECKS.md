@@ -146,7 +146,7 @@
 | **sim-gacha-prune.js** | 166 | **d7bae5f811b6** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
-| **sim-click-through-policy.js** | 294 | **0691c2dfdfa6** |
+| **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
 | **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
