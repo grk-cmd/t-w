@@ -42,7 +42,7 @@ function makeServer(seed, o = {}){
         const cnt = keys.filter(k => /^groupInvites\/[^/]+\/usedCount$/.test(k));
         for(const k of cnt){
           const code = k.split('/')[1], head = at('groupInvites/' + code), n = v[k];
-          const ok = head && n === head.usedCount + 1 && n <= head.maxUses && !head.stoppedAt && !(typeof head.expiresAt === 'number' && head.expiresAt <= (o.now || NOW))
+          const ok = head && n === head.usedCount + 1 && n <= head.maxUses && !head.stoppedAt && !(typeof head.expiresAt === 'number' && head.expiresAt <= (o.serverNow || o.now || NOW))
             && at(`groupInviteUses/${code}/${n}`) === undefined && v[`groupInviteUses/${code}/${n}`]
             && v[`groupInviteTokens/${code}/${v[`groupInviteUses/${code}/${n}`].token}`] === n
             && at(`groupInviteTokens/${code}/${v[`groupInviteUses/${code}/${n}`].token}`) === undefined
@@ -128,6 +128,19 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
     const r = await S.gi().redeem(CODE, tok(1), stale);
     chk(!r.ok && /중지된/.test(r.reason) && S.log.denied === 1, '읽은 뒤 중지됨 → 서버가 거절 · 다시 읽고 «중지된»');
   }
+  {
+    // 기기 시계가 늦어 앱은 «열림» 인데 서버 시각으로는 마감이 지난 판
+    const S = makeServer(seed({ expiresAt: NOW + 1000 }), { serverNow: NOW + 2000 });
+    const r = await S.gi().redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    chk(!r.ok && /기간이 지난/.test(r.reason) && S.log.denied === 1, '기기 시계가 늦음 → 서버가 거절 · 숫자가 그대로라 다시 하지 않고 «기간이 지난»');
+  }
+  {
+    // 마감 없는 코드인데 숫자가 그대로인 거절(규칙이 막은 다른 까닭) — 엉뚱한 «몰려» 대신 바로 끝
+    const S = makeServer(seed());
+    const g = GI.createGroupInvite({ db: {}, ref: S.api.ref, get: S.api.get, update: async () => { throw denied(); }, now: () => NOW, wait: async () => {} });
+    const r = await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
+    chk(!r.ok && /사용할 수 없어요/.test(r.reason), '부딪힘이 아닌 거절 → 한 번에 «사용할 수 없어요»');
+  }
 
   say('\n【3】 몰렸을 때 — 인원만큼만');
   {
@@ -145,11 +158,13 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
   }
   {
     // 늘 부딪히면 끝없이 돌지 않는다
-    const S = makeServer(seed());
+    // 다시 읽을 때마다 남이 한 자리씩 가져간 판
+    const S = makeServer(seed({ maxUses: 100 }));
     let n = 0;
-    const g = GI.createGroupInvite({ db: {}, ref: S.api.ref, get: S.api.get, update: async () => { n++; throw denied(); }, now: () => NOW, wait: async () => {} });
+    const get = async (r) => { if(/^groupInvites\//.test(r.path)) S.T.groupInvites[CODE].usedCount++; return S.api.get(r); };
+    const g = GI.createGroupInvite({ db: {}, ref: S.api.ref, get, update: async () => { n++; throw denied(); }, now: () => NOW, wait: async () => {} });
     const r = await g.redeem(CODE, tok(1), S.T.groupInvites[CODE]);
-    chk(!r.ok && /몰려/.test(r.reason) && n > 1 && n <= 20, `늘 거절되면 ${n}번 뒤 «사람이 몰려» 로 끝난다`);
+    chk(!r.ok && /몰려/.test(r.reason) && n > 1 && n <= 20, `늘 남에게 밀리면 ${n}번 뒤 «사람이 몰려» 로 끝난다`);
   }
 
   say('\n【4】 마무리 — uid 기록');
@@ -222,7 +237,7 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
     const g = S2.gi(broken2);
     await g.redeem(CODE, tok(1), S2.T.groupInvites[CODE]);
     const again = await g.redeem(CODE, tok(1), S2.T.groupInvites[CODE]);
-    chk(!again.ok || S2.T.groupInvites[CODE].usedCount === 1, '재시도 색인 확인을 빼면 — 같은 토큰 두 번째는 서버가 거절(색인 덮어쓰기 금지)');
+    chk(!again.ok && S2.T.groupInvites[CODE].usedCount === 1, '재시도 색인 확인을 빼면 같은 기기의 재시도가 떨어진다(원본은 2절에서 통과) — 서버는 색인 덮어쓰기를 막아 숫자는 그대로');
     const broken3 = load(GI_SRC.replace('if(!isDenied(e)) throw e;', 'throw e;'));
     const S3 = makeServer(seed({ maxUses: 5 }));
     const g3 = S3.gi(broken3);

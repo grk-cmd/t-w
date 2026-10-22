@@ -8,9 +8,8 @@
  *   groupInviteTokens/{code}/{token} = n                     같은 기기의 재시도를 찾는 색인
  * 한 사람 = usedCount +1 · 칸 n · 색인 셋을 한 묶음 update 로 쓴다. 규칙이 셋이 맞물릴 때만 받아서 인원을 넘길 수 없다.
  * 두 기기가 같은 n 을 잡으면 늦은 쪽이 거절(permission_denied)되고, 조금 쉬었다 새로 읽어 다음 n 으로 다시 한다
- * (쉬는 시간을 흩뜨려야 몰린 기기들이 같은 순간에 또 부딪히지 않는다).
- *
- * deps: db, ref, get, update, now · wait(테스트용 — 기본 Date.now · setTimeout)
+ * (쉬는 시간을 흩뜨려야 몰린 기기들이 같은 순간에 또 부딪히지 않는다). 다시 읽었는데 숫자가 그대로면 남과 부딪힌 게 아니라
+ * 서버가 막은 것(마감은 서버 시각으로 본다 — 기기 시계가 늦은 판)이라 다시 하지 않는다.
  */
 const TRIES = 12;
 const WAIT_MAX_MS = 400;
@@ -23,9 +22,14 @@ export function closedReason(head, now){
 }
 
 function isDenied(e){
-  return !!e && (e.code === 'PERMISSION_DENIED' || /permission_denied/i.test(String(e.message || e)));
+  return !!e && e.code === 'PERMISSION_DENIED';
 }
 
+/**
+ * @param {{ db: object, ref: (db: object, path?: string) => object, get: (ref: object) => Promise<{ val: () => any }>,
+ *   update: (ref: object, value: object) => Promise<void>, now?: () => number, wait?: (ms: number) => Promise<void> }} deps
+ *   now · wait 는 테스트용 — 기본 Date.now · setTimeout
+ */
 export function createGroupInvite(deps){
   const { db, ref, get, update } = deps;
   const now = deps.now || (() => Date.now());
@@ -60,6 +64,8 @@ export function createGroupInvite(deps){
       }
       await wait(Math.random() * WAIT_MAX_MS);
       v = await readHead(code);
+      if(v && (v.usedCount || 0) === n - 1 && !closedReason(v, now()))
+        return { ok:false, reason: typeof v.expiresAt === 'number' ? '기간이 지난 초대 코드예요' : '초대 코드를 사용할 수 없어요' };
     }
     return { ok:false, reason:'사람이 몰려 초대 코드를 쓰지 못했어요 — 잠시 뒤 다시 시도해 주세요' };
   }

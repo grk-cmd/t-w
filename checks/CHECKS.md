@@ -137,7 +137,7 @@
 | **sim-app-version-gate.js** | 177 | **92374665c4d9** |
 | **sim-invite-account.js** | 80 | **a6c43e555063** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
-| **sim-group-invite.js** | 236 | **3ea1ad657800** |
+| **sim-group-invite.js** | 251 | **a9eac59829a4** |
 | **sim-room-invite-wait.js** | 44 | **6d9e289acbd7** |
 | **sim-focus-auth.js** | 91 | **ef2f4cad0aeb** |
 | **sim-focus-sync.js** | 174 | **084cb3a11f49** |
