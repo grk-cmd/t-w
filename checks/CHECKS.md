@@ -319,7 +319,7 @@
 | **sim-room-entry.js** | 164 | **c6fabfb79493** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
-| **sim-status-chip.js** | 102 | **ce8e2cb3e006** |
+| **sim-status-chip.js** | 102 | **edc2ce249dbb** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
