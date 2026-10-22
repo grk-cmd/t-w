@@ -94,7 +94,7 @@
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
 | **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
-| **sim-fix-1008.js** | 412 | **94a402a85237** |
+| **sim-fix-1008.js** | 425 | **5cd2ba6b8971** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 80 | **8c117fa521be** |
@@ -146,7 +146,7 @@
 | **sim-gacha-prune.js** | 166 | **d7bae5f811b6** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
-| **sim-click-through-policy.js** | 279 | **085f9b967aed** |
+| **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
 | **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
@@ -163,7 +163,7 @@
 | **sim-fix-0923.js** | 297 | **9f338dfa790b** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
 | **sim-mobile-focus.js** | 219 | **c7a03a78f5b0** |
-| **sim-mac-0923.js** | 86 | **dffa6adc7170** |
+| **sim-mac-0923.js** | 86 | **7987043b2649** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
@@ -214,7 +214,7 @@
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **bf05469a5050** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
-| **sim-frame-budget.js** | 186 | **6d7b7c2bd72e** |
+| **sim-frame-budget.js** | 188 | **6a026ddad3c9** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 156 | **e36dbd6f8eba** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
@@ -303,11 +303,11 @@
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **5753dcf76a9a** |
-| **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** |
+| **sim-desktop-run.js** | 94 | **742b11531096** |
 | **sim-room-entry.js** | 124 | **c7dac617f4af** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
-| **sim-status-chip.js** | 102 | **ce8e2cb3e006** |
+| **sim-status-chip.js** | 102 | **76a65b890f4b** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
