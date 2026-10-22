@@ -74,6 +74,8 @@ say('── 2. 잇기 (focus-level.js 의 _mobileStart 를 실제로 돌린다)'
   const env = { applied: [], renders: 0, cb: null, onDiag: null };
   const ctx = new Function('mobileDiag', 'window', 'firebaseAPI', 'getMyUserId', '_mobileGetKey', '_mobileApplyState', '_mobRenderPanel',
     'let _mobileStop = null, _mobDiag = null, _mobDiagFirst = true;\n' + ms + '\nreturn { start: _mobileStart, diag: () => _mobDiag };');
+  const ctx2 = (src) => new Function('mobileDiag', 'window', 'firebaseAPI', 'getMyUserId', '_mobileGetKey', '_mobileApplyState', '_mobRenderPanel',
+    'let _mobileStop = null, _mobDiag = null, _mobDiagFirst = true;\n' + src + '\nreturn { start: _mobileStart, diag: () => _mobDiag };');
   const api = { mobileLinkStart: (uid, cb, onDiag) => { env.cb = cb; env.onDiag = onDiag; return Promise.resolve(() => {}); } };
   const m = ms ? ctx(w.TwMobileDiag, { firebaseAPI: api }, api, () => 'u1', () => 'K', (v) => env.applied.push(v), () => { env.renders++; }) : null;
   if(m){
@@ -88,9 +90,23 @@ say('── 2. 잇기 (focus-level.js 의 _mobileStart 를 실제로 돌린다)'
     chk(d.count === 1 && d.hist[0].ts === 70 && d.hist[1].ts === 50 && d.hist[1].on === true, '다른 키 값은 안 센다 · 부팅 초기화 뒤 같은 ts «꺼짐» 은 버린다 · 다음 신호는 센다');
     env.onDiag({ kind: 'live', has: false });
     chk(m.diag().live === false && env.renders >= 2, '서버 알림(초기화 · live)이 오면 칸을 다시 그린다');
+    env.onDiag({ kind: 'reset', v: { on: true, ts: 80, app: 'X', key: 'OLD' } });
+    chk(m.diag().reset !== 80 && m.diag().hist[0].ts === 70, '다른 키로 쓴 «켜짐» 의 부팅 초기화는 진단에 안 넣는다');
     m.start();
     chk(m.diag().count === 0 && m.diag().hist.length === 0, '다시 시작(키 교체)하면 진단도 처음부터');
+    env.cb(null);
+    env.cb({ on: true, ts: 100, app: 'P', key: 'K' });
+    env.cb({ on: false, ts: 200, app: 'P', key: 'K' });
+    chk(m.diag().count === 2, '첫 값이 비어 있으면(처음 연결 · 새 키) 다음 신호부터 센다');
   } else chk(false, '_mobileStart 를 돌리지 못했다');
+  {
+    const brk = ms.replace("const first = _mobDiagFirst; _mobDiagFirst = false;", "const first = _mobDiagFirst;").replace("if(v && v.key === key) _mobDiag = mobileDiag.next(_mobDiag, { kind:'state', v, first });", "if(v && v.key === key){ _mobDiag = mobileDiag.next(_mobDiag, { kind:'state', v, first }); _mobDiagFirst = false; }");
+    const e2 = { cb: null };
+    const api2 = { mobileLinkStart: (uid, cb) => { e2.cb = cb; return Promise.resolve(() => {}); } };
+    const m2 = brk !== ms ? ctx2(brk)(w.TwMobileDiag, { firebaseAPI: api2 }, api2, () => 'u1', () => 'K', () => {}, () => {}) : null;
+    if(m2){ m2.start(); e2.cb(null); e2.cb({ on: true, ts: 100, key: 'K' }); e2.cb({ on: false, ts: 200, key: 'K' }); }
+    chk(m2 && m2.diag().count === 1, '깨 보기 — 깃발을 맞는 키 값에서만 내리면 위 판정이 빨강(수가 1)');
+  }
   const rp = grab('_mobRenderPanel');
   chk(/const dg = document\.getElementById\('fsMobDiag'\);/.test(rp) && /dg\.textContent = paired \? mobileDiag\.line\(_mobDiag\) : '';/.test(rp) && /dg\.style\.display = paired \? '' : 'none';/.test(rp),
     '칸 그리기 — 연결했을 때만 보이고 textContent 로만 넣는다');
@@ -101,7 +117,7 @@ say('── 3. 배선');
   const F = SRC['app/parts/firebase-init.js'], H = SRC['app/desk-companion-prototype.html'], A = SRC['app/parts/app.js'];
   const a = F.indexOf('async mobileLinkStart('), b = F.indexOf('\n    },', a), st = a > 0 ? F.slice(a, b) : '';
   chk(/async mobileLinkStart\(userId, cb, onDiag\)/.test(st) && /diag\(\{ kind:'reset', v:s \}\)/.test(st), 'firebase-init — 부팅 초기화로 내린 원래 값을 알린다');
-  chk(/if\(onDiag\) onValue\(liveRef, onLive, \(\)=>\{\}\);/.test(st) && /off\(liveRef, 'value', onLive\)/.test(st), '  live 는 진단을 받을 때만 구독 · 멈출 때 끊는다');
+  chk(/typeof cb !== 'function' \|\| !onDiag\) return null;/.test(st) && /onValue\(liveRef, onLive, \(\)=>\{\}\);/.test(st) && /off\(liveRef, 'value', onLive\)/.test(st), '  onDiag 는 꼭 받는다 · live 구독은 멈출 때 끊는다');
   chk(!/arm\(\)[^;]*onLive|onLive[^;]*arm\(\)/.test(st), '  live 가 사라져도 다시 걸지 않는다(보이기만 — 동작은 그대로)');
   const iD = H.indexOf('<script src="parts/focus/mobile-diag.js"></script>'), iL = H.indexOf('<script src="parts/focus/focus-level.js"></script>');
   chk(iD > 0 && iL > iD, 'html — mobile-diag.js 가 focus-level.js 보다 먼저');

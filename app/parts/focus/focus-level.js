@@ -494,10 +494,14 @@ function _mobileStart(){
   if(!uid || !key || !window.firebaseAPI || !firebaseAPI.mobileLinkStart) return;
   _mobDiag = mobileDiag.empty(); _mobDiagFirst = true;
   const onState = (v)=>{
-    if(v && v.key === key){ _mobDiag = mobileDiag.next(_mobDiag, { kind:'state', v, first:_mobDiagFirst }); _mobDiagFirst = false; }
+    const first = _mobDiagFirst; _mobDiagFirst = false;   // 첫 값이 비어 있어도(처음 연결 · 새 키) 깃발은 내린다
+    if(v && v.key === key) _mobDiag = mobileDiag.next(_mobDiag, { kind:'state', v, first });
     _mobileApplyState(v);
   };
-  const onDiag = (ev)=>{ _mobDiag = mobileDiag.next(_mobDiag, ev); try{ _mobRenderPanel(); }catch(_){} };
+  const onDiag = (ev)=>{
+    if(ev.kind === 'reset' && !(ev.v && ev.v.key === key)) return;   // 다른 키로 쓴 «켜짐» 은 이 PC 의 신호가 아니다
+    _mobDiag = mobileDiag.next(_mobDiag, ev); try{ _mobRenderPanel(); }catch(_){}
+  };
   Promise.resolve(firebaseAPI.mobileLinkStart(uid, onState, onDiag)).then(stop=>{ if(stop) _mobileStop = stop; }).catch(()=>{});
 }
 /* ── 📱 설정 › 포커싱어플 칸 + QR 창 (시안 ①~③) ─────────────────────────────
