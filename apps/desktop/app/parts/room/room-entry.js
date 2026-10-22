@@ -66,13 +66,14 @@ function _roomServerNet(){
   catch(_){ return null; }
 }
 // 방 개수 · 랜덤 입장에 서버 몫을 섞을지 — «내 서버»(허용 목록 · 기본 서버 비율)가 있을 때만. 마지막으로 확인한 값(읽기 없음).
-/* 방 만들기 창이 열릴 때 — 앱을 켠 뒤 아직 한 번도 안 물었으면 마지막 값(_roomServerOn)이 비어 있어 다시 묻는다(랜덤 참여와 같은 길) */
-async function _roomServerCheck(){
-  if(!_roomServerNet()) return false;
-  try{ return !!(await firebaseAPI.roomServerMine(true)); }catch(_){ return false; }
-}
 function _roomServerOn(){
   try{ return !!(_roomServerNet() && firebaseAPI.roomServerMineNow && firebaseAPI.roomServerMineNow()); }catch(_){ return false; }
+}
+/* 방 만들기 창이 열릴 때 — 방 서버를 안 쓰는 판이면 읽기 없이 false(대부분 사용자) · 쓰는 판이면 «내 서버» 를 다시 묻는다
+   (앱을 켠 뒤 아직 한 번도 안 물었으면 마지막 값이 비어 있다 — 랜덤 참여와 같은 길) */
+async function _roomServerCheck(){
+  if(!_roomServerNet() || !firebaseAPI.roomServerPossible()) return false;
+  try{ return !!(await firebaseAPI.roomServerMine(true)); }catch(_){ return false; }
 }
 /* 서버 meta { channel, host(userId), open, chatOff, secret } → Firebase _meta 리스너가 하던 것과 같은 자리로 */
 function _onServerRoomMeta(meta, prev){
