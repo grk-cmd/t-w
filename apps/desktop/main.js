@@ -1388,7 +1388,7 @@ function startActiveWinPolling(){
       //   렌더러의 1.5초(FOCUS_MS) 기록 창이 너무 좁다. 펜 앱일 때만 그 창을 넓히는 데 쓴다.
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
-      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow };
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };
       if(penNow !== _penAppActive){
         _penAppActive = penNow;
         if(!_penAppActive){
