@@ -508,6 +508,25 @@ async function behave(src){
       await m.bootSync(); await e.advance(3100);
       chk(m.state().sets[0].items.length === 3 && e.count('publish') === 0 && e.count('removePl') === 0, '  계정을 놓은 뒤 — 다음 계정 서버 목록을 받는다(빈 목록으로 덮지 않는다)');
     }
+    // ⑫-2 고친 시각이 서버와 같은데 맞추기 전에(오프라인 · 다시 시도 중) 고쳤다 — 맞춘 뒤 한 번 올린다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '5000' } }); const m = e.mk();
+      e.srv = null; await e.advance(4300);
+      m.st.sets[0].items.push({ id: 'o0000000001', url: 'u', title: 'o' }); m.save();
+      const edited = Number(e.store.get('tw.playlistEditTs'));
+      e.srv = srvOf(2, 5000);
+      await e.advance(30000); await e.advance(3100);
+      chk(e.count('publish') === 1 && e.pubTs === edited && m.state().sets[0].items.length === 3, '  같은 시각 · 맞추기 전에 고침 — 맞춘 뒤 한 번 올린다(ts = 고친 시각)');
+    }
+    // ⑫-3 다시 시도 사슬은 하나 — 기다리는 중에 다시 불러도 읽기가 두 배가 되지 않는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      e.srv = null; await e.advance(4300);
+      await m.bootSync();
+      await e.advance(29999);
+      const n = e.count('fetchMine');
+      chk(n === 2, '  다시 시도 중에 또 불러도 타이머는 하나(' + n + '번 읽음)');
+    }
     // ⑬ 계정 이어받기 중 서버를 못 읽었다 — 앞 uid 의 고친 시각(메모리 · 저장)이 남지 않아 다시 맞출 때 새 계정 목록을 받는다
     {
       const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
@@ -677,6 +696,8 @@ async function runAll(PL, APP, HTML){
     ['PL', "  try{ localStorage.removeItem('tw.playlistEditTs'); }catch(_){}\n", '', '이어받기 때 저장된 고친 시각이 남음'],
     ['PL', '_plDecideTs !== null ? _plDecideTs : _plEditTs', '_plEditTs', '받기를 미루는 사이 고치면 판단이 뒤집힘'],
     ['PL', '_plEditTs = Math.max(Date.now(), _plEditTs + 1);', '_plEditTs = Date.now();', '늦은 시계가 받은 목록 위에서 고친 것을 «더 이르다» 로'],
+    ['PL', '    if(_plEditTs > baseTs) _plPublish();', '    if(false) _plPublish();', '같은 시각 · 맞추기 전에 고친 것이 안 올라감'],
+    ['PL', '  clearTimeout(_plSyncT); _plSyncT = null;   // 다시 시도 사슬은 하나만', '  _plSyncT = null;   // 다시 시도 사슬은 하나만', '다시 시도 사슬이 갈라짐'],
     ['PL', "  }, 3000);\n}", '  }, 0);\n}', '서버 사본 debounce 가 없음'],
     ['PL', '      if(!total){', '      if(false){', '빈 목록을 지우지 않고 올림'],
     ['PL', "  if(atEnd && _plWatchPlayed){", '  if(atEnd){', '끝에 선 채 재생 없음을 정상 종료로'],

@@ -481,25 +481,32 @@ function _plServerShape(){
 }
 /* ☁️ 부팅 때 한 번 — 서버 사본과 이 기기 목록을 맞춘다(규칙은 playlist-sync.js).
    못 읽었거나 계정이 아직 없으면 늘려 가는 간격으로 다시. 재생 중이면 목록을 바꾸지 않고 기다린다(듣던 곡이 사라지지 않게). */
-let _plSyncTry = 0;
+let _plSyncTry = 0, _plSyncT = null;
 let _plDecideTs = null;   // 맞추기 판단에 쓰는 이 기기 시각 — 불러온 때(또는 계정을 놓은 때) 것으로 묶는다. 맞추기 전에 고쳐도(미루는 동안 · 이어받기 직후) «이 기기가 나중» 으로 뒤집히지 않게(고친 것은 받기 전 백업에)
 async function _plBootSync(){
+  clearTimeout(_plSyncT); _plSyncT = null;   // 다시 시도 사슬은 하나만(계정 이어받기가 다시 불러도)
   if(_plSynced) return;
-  const again = () => { setTimeout(_plBootSync, plSync.retryDelay(_plSyncTry++)); };
+  const again = () => { clearTimeout(_plSyncT); _plSyncT = setTimeout(_plBootSync, plSync.retryDelay(_plSyncTry++)); };
   const uid = getMyUserId();
   if(!uid || !window.firebaseAPI){ again(); return; }   // 서버 연결이 아직 안 붙었다
   let srv = null;
   try{ srv = await firebaseAPI.fetchMyPlaylistSets(uid); }catch(_){}   // 던져도 «못 읽음» — 아래 retry
-  if(_plSynced) return;
+  if(_plSynced || getMyUserId() !== uid) return;   // 기다리는 사이 맞췄거나 계정이 바뀌었다(이어받기가 새로 맞춘다)
   const local = _plServerShape();
-  const act = plSync.decide(srv, _plDecideTs !== null ? _plDecideTs : _plEditTs, plSync.countItems(local.sets) > 0);
+  const baseTs = _plDecideTs !== null ? _plDecideTs : _plEditTs;
+  const act = plSync.decide(srv, baseTs, plSync.countItems(local.sets) > 0);
   if(act === 'retry'){ again(); return; }
   if(act === 'adopt'){
     if(_plNow >= 0){ again(); return; }
     _plAdoptServer(srv);
     return;
   }
-  if(act === 'none'){ _plSynced = true; _plDecideTs = null; _plPubSig = local.sig; return; }
+  if(act === 'none'){
+    _plSynced = true; _plDecideTs = null;
+    if(_plEditTs > baseTs) _plPublish();   // 판단한 때 뒤로 이 기기에서 고쳤다(오프라인 · 다시 시도 중) — 같은 바탕 위 고침이라 올린다
+    else _plPubSig = local.sig;
+    return;
+  }
   _plMarkSynced();
   _plPublish();
 }
@@ -1987,7 +1994,7 @@ return {
   markSynced: _plMarkSynced,                       // ☁️ 기기 간 맞추기를 계정 이어받기가 끝냈다(이 기기 것을 올릴 때)
   adoptServer: _plAdoptServer,                     // ☁️ 서버 사본을 앉히기 — 계정 이어받기(부팅 맞추기와 한 벌)
   resetSync: _plResetSync,                         // ☁️ 계정을 놓을 때 — 고친 시각 · 맞춤 상태를 새 기기처럼
-  bootSync: _plBootSync,                           // ☁️ 검사용 — 부팅 맞추기 한 번
+  bootSync: _plBootSync,                           // ☁️ 부팅 맞추기 한 번 — 계정 이어받기가 못 읽었을 때 다시 건다
   normalizeSets: _plNormalizeSets,                 // 🎵 저장값 관문(세 벌 · 16자 · 20곡) — 계정 이어받기
   setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정 — 계정 이어받기
   blankSets: _plBlankSets,                         // 🎵 빈 세 벌 — 로그아웃

@@ -794,7 +794,9 @@ async function _restoreOwnedDataAfterTransfer(){
         plMod.markSynced();
         pl.pubSig = null;
         plMod.publish();
-      } else if(!r){
+      } else if(r){
+        plMod.markSynced();   // 양쪽 다 비었다 — 맞춤 끝(안 하면 이 실행 동안 새로 넣은 곡이 안 올라간다)
+      } else {
         plMod.bootSync();   // 못 읽었다 — 올리지 않고 새 기기처럼 다시 맞춘다(늘려 가는 간격)
       }
     } else if(window.firebaseAPI && firebaseAPI.fetchPlaylistOf){

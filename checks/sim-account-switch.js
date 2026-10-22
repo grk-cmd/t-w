@@ -373,7 +373,7 @@ function part4(){
       const env = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
       const run = new Function('env', 'window', 'firebaseAPI',
         "const PL_SETS=3, PL_MAX=20, PL_TITLE_MAX=16, PL_BIO_MAX=140; const console={warn(){}};\n" +
-        "let _plSets=[{name:'옛',items:[{id:'z',url:'u',title:''}]},{name:'',items:[]},{name:'',items:[]}], _plCur=2, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null, _plSel=0, _plNow=0, _plNowSet=0, _plView=null, _plNowView=null;\n" +
+        "let _plSets=env.emptyLocal ? [{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}] : [{name:'옛',items:[{id:'z',url:'u',title:''}]},{name:'',items:[]},{name:'',items:[]}], _plCur=2, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null, _plSel=0, _plNow=0, _plNowSet=0, _plView=null, _plNowView=null;\n" +
         "const _plMine=()=>_plSets[_plCur].items; const _plSave=()=>{ env.saved++; }; const _plPublish=()=>{ env.published++; }; const _plRender=()=>{};\n" +
         /* app.js 는 plMod 로 부른다(앱 FSD 16번) — 함수는 아래에서 떼어 온 진짜 관문 · 지문, 상태는 위 let */
         "const plMod={ PL_MAX, PL_TITLE_MAX, PL_BIO_MAX, normalizeSets:(...a)=>_plNormalizeSets(...a), setIdx:(...a)=>_plSetIdx(...a), pubSigOf:(...a)=>_plPubSigOf(...a),\n" +
@@ -399,6 +399,11 @@ function part4(){
       const api3 = { fetchMyPlaylistSets: async () => null };
       const out3 = await run(env3, { firebaseAPI: api3 }, api3)();
       chk(out3.sets[0].items[0].id === 'z' && env3.published === 0 && env3.marked === undefined && env3.reset === 1 && env3.boot === 1, '  못 읽었으면 올리지 않고 새 기기처럼 다시 맞춘다(resetSync · bootSync)');
+      const env4 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
+      const api4 = { fetchMyPlaylistSets: async () => ({ sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 }) };
+      env4.emptyLocal = true;
+      const out4 = await run(env4, { firebaseAPI: api4 }, api4)();
+      chk(out4.sets.every(x => !x.items.length) && env4.published === 0 && env4.marked === 'push' && env4.reset === 1 && !env4.boot, '  양쪽 다 비었다 — 맞춤 끝(markSynced) · 안 하면 이 실행 동안 넣은 곡이 안 올라간다');
     })();
   }catch(err){ huh('4절 실행 오류: ' + (err && err.message || err)); }
 }
