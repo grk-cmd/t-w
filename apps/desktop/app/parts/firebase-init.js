@@ -2774,14 +2774,8 @@
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게
       }catch(_){}
     },
-    /* 🎲 랜덤 참여 후보 찾기 — roomIndex 하나만 읽는다(getRoomCounts 가 이미 읽는 노드라 새 노드가 아니다).
-       조건: 워킹룸 · open===true · lastSeen 신선(90초, 화면 멤버 필터와 같은 기준) · SCRT- 아님.
-       · 투게더룸은 후보에서 제외한다 — 라이선스 방에 모르는 사람이 랜덤으로 들어가면 안 된다.
-         카드에 토글을 안 그리는 것과 함께 두 겹으로 막는다.
-       · 정원·생존 확인은 하지 않는다(인덱스는 최대 90초 낡을 수 있다) — 부르는 쪽이
-         checkRoomCapacity 로 확인하며 넘어간다.
-       반환: 섞은 코드 배열 / 조회 실패는 null / 후보 없음은 [] — 문구를 다르게 내려고 구분한다.
-       버튼을 누를 때만 도니 roomStats(최대 1분 늦음) 대신 직접 읽는다 — 방금 연 방도 후보에 나온다. */
+    /* 랜덤 참여 후보 — roomIndex 하나만(워킹룸 · open · 90초 안 · SCRT- 아님). 투게더룸은 빼서 모르는 사람이 라이선스 방에 랜덤으로 들지 않게.
+       정원 · 생존은 부르는 쪽이 checkRoomCapacity 로. 반환: 섞은 코드 / 실패 null / 없음 [] — 문구를 가른다. */
     async findRandomRooms(limit){
       try{
         const snap = await get(ref(db, 'roomIndex'));
@@ -2799,6 +2793,11 @@
         for(let i=out.length-1; i>0; i--){ const j=Math.floor(Math.random()*(i+1)); const t=out[i]; out[i]=out[j]; out[j]=t; }
         return (limit > 0) ? out.slice(0, limit) : out;
       }catch(_){ return null; }
+    },
+    /* 방 목록 로비 사본 한 채널(서버 함수가 1분마다 — functions/room-lobby.js) → { at, rooms } · 칸이 없으면 { at:null, rooms:{} } · 실패 null. */
+    async getRoomLobby(channel){
+      try{ const v = (await get(ref(db, `roomLobby/${channel}`))).val(); return { at: (v && v.at) || null, rooms: (v && v.rooms) || {} }; }
+      catch(_){ return null; }
     },
     async getRoomMeta(room){
       try{ const snap = await get(ref(db, `rooms/${room}/_meta`)); return snap.val() || null; }catch(_){ return null; }

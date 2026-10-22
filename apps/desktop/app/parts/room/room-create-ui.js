@@ -1,8 +1,8 @@
 /* room-create-ui.js — 🏷️ 방 만들기 창(제목 · 방 종류 · 최대 인원 · 방 목록 공개).
-   방 만들기 / 참여하기 모달(#inviteModal) 안의 #roomCreatePanel 을 쓴다 — 채널 카드를 누르면 카드 · 코드 칸 대신 보이고,
+   방 찾기 · 만들기 모달(#inviteModal) 안의 #roomCreatePanel 을 쓴다 — 로비의 [방 만들기] 를 누르면 로비 · 코드 칸 대신 보이고,
    [방 만들기] 를 누르면 제목을 확인해(금칙어 · 길이) onCreate(채널, 설정) 를 부른다. 모달 안이라 클릭 통과 목록을 따로 늘리지 않는다.
-   채널 카드(#chCardWorking · #chCardTogether)를 누르면 연다 — 투게더룸 카드는 보유자만(아니면 카드의 «라이선스가 필요해요» 그대로).
-   classic script(window.TwRoomCreateUi) — app.js 가 방 입장 모듈 뒤에서 createRoomCreateUi(deps) · 밖에서 부르는 이름 없음.
+   여는 곳은 로비(room-lobby-ui.js)의 [방 만들기] — 그 탭의 채널로 연다(투게더룸은 보유자만).
+   classic script(window.TwRoomCreateUi) — app.js 가 방 입장 모듈 뒤에서 createRoomCreateUi(deps) · 부르는 곳은 roomCreateUi.open(채널).
    검사: checks/sim-room-settings.js */
 (function(){
 
@@ -47,7 +47,7 @@ function paint(){
 function showError(text){ $('rcTitleErr').textContent = text || ''; }
 function setShown(on){
   $('roomCreatePanel').hidden = !on;
-  $('inviteChannelPick').hidden = on;
+  $('lobbyMain').hidden = on;
   $('inviteJoinPanel').hidden = on;
 }
 
@@ -80,9 +80,7 @@ $('rcTitle').oninput = () => { showError(''); paint(); };
 $('rcTitle').onkeydown = (e) => { if(e.key === 'Enter'){ e.preventDefault(); submit(); } };
 $('rcCreate').onclick = submit;
 $('rcCancel').onclick = close;
-$('inviteClose').addEventListener('click', close);   // 모달을 닫으면 다음에 열 때 카드부터 보이게
-$('chCardWorking').onclick = () => open('workingroom');
-$('chCardTogether').onclick = () => { if(isLicensed()) open('togetherroom'); };
+$('inviteClose').addEventListener('click', close);   // 모달을 닫으면 다음에 열 때 로비부터 보이게
 
 return { open, close };
 }

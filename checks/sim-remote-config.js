@@ -306,7 +306,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(create && /const limit = roomLimitOf\(channel\);/.test(create) && /toast\(_channelFullMsg\(channel\)\)/.test(create), '방 만들기 — 설정 상한');
     chk(/const _openLimit = roomLimitOf\(_openCh\);/.test(a) && /toast\(_channelFullMsg\(_openCh\)\)/.test(a), 'Firebase 빈 방 열기 — 설정 상한');
     const counts = a.match(/\$\{roomLimitOf\('(workingroom|togetherroom)'\)\}/g) || [];
-    chk(counts.length === 6, '방 개수 표시 «n / 상한» 세 곳(구독 · 채널 화면 · 옛 API) × 2 = 6 — 설정 상한 (' + counts.length + ')');
+    chk(counts.length === 0, '방 개수 «n / 상한» 표시는 없다 — 채널 카드는 방 목록 로비로 바뀌었다(상한은 만들기 · 빈 방 열기 검사만) (' + counts.length + ')');
     const jm = takeFn(a, 'function _roomServerJoinMessage(');
     chk(jm && /const ch = openCh \|\| /.test(jm) && /return _channelFullMsg\(ch\);/.test(jm), '방 서버 channelFull 문구 — 설정 상한 · 서버가 연 빈 방이면 그 채널');
     chk((a.match(/maxPeople\(\)/g) || []).length >= 15, '정원 사용처 전부 maxPeople() (' + (a.match(/maxPeople\(\)/g) || []).length + ')');
@@ -315,22 +315,16 @@ const RCM = require(path.resolve(where('remote-config.js')));
       '부팅 스위치 — 첫 답을 최대 3초 기다린 뒤 초대 게이트(못 받으면 기본값 true)');
     chk(/if\(!inviteGateOn\(\)\)\{/.test(a) && /if\(!existingSignupOn\(\)\) return null;/.test(a), '  ↳ 게이트 · 가입 강제가 스위치 함수를 본다');
 
-    // 화면 숫자 다시 그리기 — 가짜 DOM
-    const els = {
-      chCountWorking: { textContent: '12 / 300' }, chCountTogether: { textContent: '— / 300' },
-      chMetaTogether: { textContent: '라이선스 · 최대 10명', querySelector: () => null },
-    };
+    // 화면 숫자 다시 그리기 — 가짜 DOM(«최대 N명» 자리)
     const spans = [{ textContent: '10' }, { textContent: '10' }];
-    const doc = { getElementById: (id) => els[id] || null, querySelectorAll: (q) => (q === '[data-tw-max-people]' ? spans : []) };
+    const doc = { getElementById: () => null, querySelectorAll: (q) => (q === '[data-tw-max-people]' ? spans : []) };
     const st = RCM.createRemoteConfig();
-    const src = [takeFn(a, 'function roomLimitOf('), takeFn(a, 'function maxPeople('), takeFn(a, 'function _paintRoomLimits('), takeFn(a, 'function _paintMaxPeople('),
-      'return { _paintRoomLimits, _paintMaxPeople };'].join('\n');
+    const src = [takeFn(a, 'function maxPeople('), takeFn(a, 'function _paintMaxPeople('), 'return { _paintMaxPeople };'].join('\n');
     const U = Function('document', '_rcStore', src)(doc, () => st);
-    st.set('roomLimits', { workingroom: 450, togetherroom: 1000 }); st.set('roomMaxPeople', 12);
-    U._paintRoomLimits(); U._paintMaxPeople();
-    chk(els.chCountWorking.textContent === '12 / 450' && els.chCountTogether.textContent === '— / 1000', '설정이 바뀌면 «n / 상한» 의 상한만 바뀐다(읽기 없음)');
-    chk(spans.every((x) => x.textContent === '12') && els.chMetaTogether.textContent === '라이선스 · 최대 12명', '  ↳ «최대 N명» 자리 · 투게더룸 카드 문구');
-    chk(/s\.onChange\(\(c, key\)=>\{ if\(key === 'roomLimits'\) _paintRoomLimits\(\); else if\(key === 'roomMaxPeople'\) _paintMaxPeople\(\); \}\);/.test(a), '  ↳ onChange 에 묶여 있다');
+    st.set('roomMaxPeople', 12);
+    U._paintMaxPeople();
+    chk(spans.every((x) => x.textContent === '12'), '설정이 바뀌면 «최대 N명» 자리만 바뀐다(읽기 없음)');
+    chk(/s\.onChange\(\(c, key\)=>\{ if\(key === 'roomMaxPeople'\) _paintMaxPeople\(\); \}\);/.test(a), '  ↳ onChange 에 묶여 있다');
   }
 
   say('── 5. 방 서버 길 빈 방 열기 — 상한');
@@ -423,8 +417,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>');
     const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>');
     chk(iRc > 0 && iApp > iRc && iApi > 0 && iApi < iRc, 'api-client.js → remote-config.js → app.js 차례로 싣는다(firebase-init.js 는 module 이라 그 뒤에 돈다)');
-    chk(/id="chCountWorking">— \/ 300</.test(HTML) && /id="chCountTogether">— \/ 300</.test(HTML) && !/— \/ 250/.test(HTML), '방 개수 기본 표시 «— / 300»(기본 상한과 같다)');
-    chk((HTML.match(/<span data-tw-max-people>10<\/span>/g) || []).length === 4 && !/최대 10명/.test(HTML), '«최대 10명» 네 곳이 설정을 따라가는 자리');
+    chk(!/id="chCountWorking"/.test(HTML) && !/— \/ 250/.test(HTML), '채널 카드의 «n / 상한» 칸은 방 목록 로비로 바뀌어 없다(그리는 쪽은 칸이 없으면 건너뛴다 — 위 가짜 칸 시험)');
+    chk((HTML.match(/<span data-tw-max-people>10<\/span>/g) || []).length === 2 && !/최대 10명/.test(HTML), '«최대 10명» 두 곳이 설정을 따라가는 자리(채널 카드 두 곳은 로비로 바뀌어 없다)');
     const csp = [...HTML.matchAll(/<meta http-equiv="Content-Security-Policy" content="([^"]+)"/g)].map((m) => m[1]);
     const conn = csp.map((c) => (/connect-src ([^;]+);/.exec(c) || [])[1] || '');
     const has = (c, pre, dom) => new RegExp('(^| )' + pre + ':\\/\\/\\*\\.' + dom.replace(/\./g, '\\.') + '( |$)').test(c);

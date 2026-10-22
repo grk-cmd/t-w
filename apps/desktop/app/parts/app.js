@@ -2245,7 +2245,6 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   SPACING: ()=>SPACING,
   _chatEsc: (...a)=>_chatEsc(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
-  _updateRoomCountUI: (...a)=>roomEntryMod._updateRoomCountUI(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   applyChipOrientation: (...a)=>overheadMod.applyChipOrientation(...a),
@@ -2280,7 +2279,6 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   seatEqualizeOn: ()=>seatEqMod.seatEqualizeOn(),
   seats: seats,
   slots: ()=>slots,
-  startRoomCountWatch: (...a)=>roomEntryMod.startRoomCountWatch(...a),
   toast: (...a)=>toast(...a),
   updateCameraOnly: (...a)=>seatCameraMod.updateCameraOnly(...a),
   wardrobeMod: ()=>wardrobeMod,
@@ -6832,6 +6830,8 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다�
    ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
 /* 본문은 room-entry.js 로 옮겼다(앱 FSD 33번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+// 🗂️ 방 목록 로비 · F1 시크릿룸 칸이 같이 읽는 provider — 방 입장 모듈보다 먼저(room/room-lobby-provider.js)
+const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
@@ -6872,20 +6872,35 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   triggerPet: (...a)=>triggerPet(...a),
-  uiIconEl: (...a)=>statusChipMod.uiIconEl(...a),
   updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
   twNav: twNav,
+  mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
   roomSettings: TwRoomSettings,
 });
-// 🏷️ 방 만들기 창 — 채널 카드가 열고, [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
-TwRoomCreateUi.createRoomCreateUi({
+// 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
+const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   roomSettings: TwRoomSettings,
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
+});
+// 🗂️ 방 목록 로비 — 목록 사본 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
+TwRoomLobbyUi.createRoomLobbyUi({
+  model: TwRoomLobbyModel,
+  provider: roomLobbyProvider,
+  inRoom: ()=>Presence.active(),
+  twNav: twNav,
+  maxPeople: ()=>maxPeople(),
+  isLicensed: ()=>roomEntryMod._myRoomLicensed(),
+  joinRoom: (code)=>roomEntryMod.startRoom(code),
+  openCreate: (ch)=>roomCreateUi.open(ch),
+  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  now: ()=>Date.now(),
+  random: ()=>Math.random(),
 });
 const USER_NAME_KEY = 'tw.userName';
 

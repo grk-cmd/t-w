@@ -21,7 +21,6 @@ const Presence = deps.Presence;   // 읽는 함수
 const SPACING = deps.SPACING;   // 읽는 함수
 const _chatEsc = deps._chatEsc;
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
-const _updateRoomCountUI = deps._updateRoomCountUI;
 const allDeskItems = deps.allDeskItems;
 const applyCharToSeat = deps.applyCharToSeat;
 const applyChipOrientation = deps.applyChipOrientation;
@@ -56,7 +55,6 @@ const scene = deps.scene;
 const seatEqualizeOn = deps.seatEqualizeOn;   // 읽는 함수
 const seats = deps.seats;
 const slots = deps.slots;   // 읽는 함수
-const startRoomCountWatch = deps.startRoomCountWatch;
 const toast = deps.toast;
 const updateCameraOnly = deps.updateCameraOnly;
 const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
@@ -301,15 +299,6 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
         if(px<0 || py<0 || px>innerWidth || py>innerHeight) window._fsPanelDragged=false;
       }
       renderSlots(); sizeSlider.value = String(focusCharScale()); renderSizeBar(); renderGapBar(); refreshToggleBtns(); renderMonitors(); renderCharSlots(); refreshFsAdBanner();
-      // ★ 탭은 마지막 선택 상태가 유지된다 — 투게더룸 탭인 채로 패널을 다시 열면 탭 클릭이
-      //   일어나지 않아 위 핸들러를 안 탄다. 그 경우에도 조회가 시작되게 여기서 한 번 더 확인.
-      try{
-        const _mt=document.getElementById('fsTabMulti');
-        if(_mt && _mt.style.display!=='none'){
-          _updateRoomCountUI();
-          startRoomCountWatch();
-        }
-      }catch(_){}
     }
   });
   const panelCloseBtn=document.getElementById('fsPanelClose');
@@ -578,12 +567,6 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
       if(t.btn==='fsTabBtnSize') renderCharSlots();
       if(t.btn==='fsTabBtnMulti'){
         refreshInviteUI();
-        _updateRoomCountUI();   // 캐시값이 있으면 즉시 표시
-        // ★ _updateRoomCountUI는 '다시 그리기'만 한다 — 조회는 startRoomCountWatch가 한다.
-        //   이 호출이 빠져 있어서 런처의 [방 만들기/참여하기]를 한 번도 안 열었으면
-        //   _liveRoomCount가 null인 채로 남아 '방 개수 확인 중...'만 계속 떠 있었다.
-        //   (watch의 자동 정지 조건은 이미 #fsInviteRoomCount 가시성을 보고 있어 이 탭을 지원한다)
-        startRoomCountWatch();
         // 🪑 방에 연결된 상태로 이 탭에 들어오면 자리추가(내 슬롯) 좌석을 정리한다.
         //   방 만들기/참여 경로에서는 이미 호출되지만 F1 탭을 여는 것만으로는 정리가 안 돼,
         //   방 안인데도 내 슬롯 캐릭터들이 화면에 남아 보이던 문제가 있었음.

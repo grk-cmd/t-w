@@ -205,16 +205,13 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 quick 카운트 · 구독 둘뿐');
     chk(/createRoomStats\(\{ db, ref, get, onValue, now: \(\) => _svNow\(\) \}\)/.test(CODE) && /watchRoomCounts\(cb\)\{ return _roomStats\.watch\(cb\); \}/.test(CODE), 'firebaseAPI.watchRoomCounts 로 구독을 연다 · 신선도는 서버 기준 시각(_svNow)');
     const APP = strip(_joinRenderer(need('app.js')));
-    const sw = APP.match(/function startRoomCountWatch\(\)\{[\s\S]*?\n\}/);
-    chk(!!sw && /_roomCountUnsub = firebaseAPI\.watchRoomCounts\(_paintRoomCounts\)/.test(sw[0]), '방 창을 열면 구독한다 (startRoomCountWatch)');
-    chk(!!sw && /clearInterval\(_roomCountTimer\);[\s\S]{0,80}_roomCountUnsub\(\)/.test(sw[0]), '  ↳ 방 창이 닫히면 구독을 끊는다');
+    chk(!/firebaseAPI\.(?:watchRoomCounts|getRoomCounts)\(/.test(APP), '방 창은 방 개수를 읽지도 구독하지도 않는다(채널 카드 숫자는 방 목록 로비로 바뀌었다)');
     const fr = CODE.match(/async findRandomRooms\(limit\)\{[\s\S]*?\n    \},/);
     chk(!!fr && !/_roomStats/.test(fr[0]) && /get\(ref\(db, 'roomIndex'\)\)/.test(fr[0]), '랜덤 참여는 roomIndex 를 직접 읽는다 (방금 연 방도 후보에)');
     const gc = CODE.match(/async getRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);
     chk(!!gc && !/_roomStats/.test(gc[0]), '정원 검사(getRoomCount)는 roomStats 를 쓰지 않는다');
     const gcnt = CODE.match(/async getRoomCounts\(opts\)\{[\s\S]*?\n    \},/);
     chk(!!gcnt && /if\(e\.srv\) out\.inclServer = true;/.test(gcnt[0]), '🛰 getRoomCounts — 방 서버 줄이 있으면 inclServer (서버 방이 합계에 들어 있다)');
-    chk(/function _addServerRoomCounts\(c\)\{[\s\S]{0,120}if\(!c \|\| c\.inclServer \|\|/.test(APP), '  ↳ app.js 는 inclServer 면 방 서버 stats 를 또 더하지 않는다 (두 번 세기)');
     const cg = CODE.match(/async cleanGhostRooms\(\)\{[\s\S]*?\n    \},/);
     chk(!!cg && /if\(idx\[code\] && idx\[code\]\.srv\) continue;[^\n]*\n\s*if\(!\(code in all\)/.test(cg[0]), '🛰 유령 방 청소는 방 서버 줄을 «rooms 에 없는 고아» 로 지우지 않는다');
     let rr = null; try{ rr = JSON.parse(RULES).rules.roomStats; }catch(_){}

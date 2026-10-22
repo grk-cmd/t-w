@@ -91,8 +91,8 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     return { ui, el, made, setLic: (v) => { lic = v; } };
   }
   let t = mk({ cap: 8 });
-  t.el('chCardWorking').onclick();
-  chk(!t.el('roomCreatePanel').hidden && t.el('inviteChannelPick').hidden && t.el('inviteJoinPanel').hidden, '워킹룸 카드 → 창이 열리고 카드 · 코드 칸은 숨는다');
+  t.ui.open('workingroom');
+  chk(!t.el('roomCreatePanel').hidden && t.el('lobbyMain').hidden && t.el('inviteJoinPanel').hidden, '로비 [방 만들기] → 창이 열리고 로비 · 코드 칸은 숨는다');
   chk(t.el('rcMax').textContent === '8명' && t.el('rcOpen').checked === true && t.el('rcChWorking').classList.contains('on'), '  처음 값: 최대 인원 = 정원 · 공개 켬 · 워킹룸');
   chk(t.el('rcChTogether').disabled === true, '  라이선스가 없으면 투게더룸 버튼은 막혀 있다');
   t.el('rcMaxUp').onclick();
@@ -103,10 +103,10 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   t.el('rcOpen').checked = false;
   t.el('rcCreate').onclick();
   chk(t.made.length === 1 && t.made[0][0] === 'workingroom' && JSON.stringify(t.made[0][1]) === '{"title":"공부방","max":2,"open":false}', '★ [방 만들기] → onCreate(채널, { 제목 · 최대 인원 · 공개 })');
-  chk(t.el('roomCreatePanel').hidden && !t.el('inviteChannelPick').hidden, '  만들고 나면 창을 닫는다');
+  chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  만들고 나면 창을 닫고 로비로');
 
   t = mk({ banned: ['나쁜말'] });
-  t.el('chCardWorking').onclick();
+  t.ui.open('workingroom');
   t.el('rcTitle').value = '나 쁜 말';
   t.el('rcCreate').onclick();
   chk(t.made.length === 0 && t.el('rcTitleErr').textContent === RS.TITLE_ERROR_TEXT.banned && !t.el('roomCreatePanel').hidden, '★ 금칙어 제목은 만들지 않고 칸 아래에 문구 — 창은 그대로');
@@ -114,16 +114,17 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   chk(t.el('rcTitleErr').textContent === '', '  다시 고치기 시작하면 문구를 지운다');
 
   t = mk();
-  t.el('chCardTogether').onclick();
-  chk(t.el('roomCreatePanel').hidden === true, '★ 라이선스 없이 투게더룸 카드를 눌러도 열리지 않는다');
+  t.ui.open('togetherroom');
+  chk(t.el('rcChWorking').classList.contains('on') && !t.el('rcChTogether').classList.contains('on'), '★ 라이선스 없이 투게더룸으로 열면 워킹룸으로 연다(투게더룸 버튼은 막힘)');
+  t.ui.close();
   t.setLic(true);
-  t.el('chCardTogether').onclick();
+  t.ui.open('togetherroom');
   chk(!t.el('roomCreatePanel').hidden && t.el('rcChTogether').classList.contains('on'), '  보유자는 투게더룸으로 열린다');
   t.el('rcCreate').onclick();
   chk(t.made[0][0] === 'togetherroom' && t.made[0][1].open === true && t.made[0][1].title === '', '  투게더룸도 공개를 고를 수 있다 · 빈 제목은 \'\'');
-  t.el('chCardWorking').onclick();
+  t.ui.open('workingroom');
   t.el('inviteClose').listeners.click();
-  chk(t.el('roomCreatePanel').hidden && !t.el('inviteChannelPick').hidden, '  모달을 닫으면 다음엔 카드부터');
+  chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  모달을 닫으면 다음엔 로비부터');
   delete global.document; delete global.window;
 }
 

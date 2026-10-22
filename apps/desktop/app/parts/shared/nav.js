@@ -13,6 +13,7 @@ const NAV = Object.freeze({
   MY_HOME: 'myHome',                                // 🏠 마이홈 창 열기 · 거는 곳 myhome-ui.js
   LEAVE_ROOM: 'leaveRoom',                          // 🚪 방 나가기 — (opts) · 거는 곳 room-entry.js
   ASSET_IMPORT: 'assetImport',                      // ➕ 코드로 추가하기 창 열기 — (kind, cat) · 거는 곳 creator/asset-import.js
+  ROOM_LOBBY: 'roomLobby',                          // 🗂️ 방 목록 로비 다시 읽기 — 모달이 열린 채 방을 나와 로비가 다시 보일 때 · 거는 곳 room/room-lobby-ui.js
 });
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }

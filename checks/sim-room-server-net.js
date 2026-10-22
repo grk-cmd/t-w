@@ -811,8 +811,7 @@ async function joined(o = {}){
       '💬 채팅 탭 — 서버 방이면 만들기 · 이름 바꾸기 · 지우기를 방 서버 meta 로(기록 지우기는 Firebase) · 아니면 Firebase _meta/tabs');
     chk(/r = await _chatTabAdd\(room, c\.name\);/.test(AC) && /else r = await _chatTabRename\(room, edit\.id, c\.name\);/.test(AC) && /const r = await _chatTabDelete\(_chatRoomCode\(\), id\);/.test(AC)
       && !/firebaseAPI\.(addChatTab|renameChatTab|deleteChatTab)\(/.test(AC.replace(ctAdd, '')) && !/_chatTabsOnServer/.test(AC), '  ↳ 탭 줄 · 메뉴는 이 셋만 부른다 · 서버 방이라고 [+] 를 숨기지 않는다');
-    chk(/await _withServerRoomCounts\(await firebaseAPI\.getRoomCounts\(\{ quick: true \}\)\)/.test(AC) && /c = _addServerRoomCounts\(c\);/.test(AC), '방 개수 — 서버 몫을 더한다(켜져 있을 때만)');
-    const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 방 개수 — 서버 방 몫을 더한다'));
+    const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 랜덤 입장 후보 — 서버 방을 먼저 본다'));
     chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\) return 'firebase';/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');
     chk(/const following = rs\.from === 'dir';/.test(so) && /rd = await net\.ensureReady\(net\.timing\(\)\.joinWaitMs, \{ retry: true \}\);/.test(so) && /if\(!rd\.ok\) return blockFollow\(rd\.code\);/.test(so),
       '★ 주소록에 있는 방(이미 열림)은 입장 대기(원격 · 기본 10초)만큼 기다리고, 못 붙으면 Firebase 로 가지 않고 막는다');
