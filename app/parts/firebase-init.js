@@ -728,7 +728,7 @@
          활성 프리셋만 세면 «빈 프리셋을 열어 둔 사람이 파도타기에서 사라지는» 옛 옆효과가 남는다. */
     async publishMyPlaylist(uid, name, sets, meta, editTs){
       try{
-        const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();   // 고친 시각 — 다른 기기가 «어느 쪽이 나중인가» 를 가른다
+        const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();   // 고친 시각 — 다른 기기가 «어느 쪽이 나중인가» 를 가른다(editTs 칸 · 옛 앱은 이 칸을 안 써서 «모름» 이 된다)
         const m = meta || {};
         const ss = (Array.isArray(sets) ? sets : []).map(s => ({
           name: String((s && s.name) || ''),
@@ -736,7 +736,7 @@
         }));
         const total = ss.reduce((n, s) => n + s.items.length, 0);
         const mirror = (ss.find(s => s.items.length) || { items: [] }).items;
-        await set(ref(db, `users/${uid}/playlist`), { sets: ss, items: mirror, ts,
+        await set(ref(db, `users/${uid}/playlist`), { sets: ss, items: mirror, ts, editTs: ts,
           bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
         /* 🔒 비공개 — 색인에서만 뺀다. 무작위 파도타기는 이 색인에서 사람을 고르므로 안 걸리고,
            친구 지목 파도타기(fetchPlaylistOf)는 노드를 직접 읽으므로 **그대로 들린다.**
@@ -754,7 +754,8 @@
         const m = meta || {};
         /* 노드는 지우지 않고 빈 목록 + 고친 시각으로 남긴다 — 지우면 다른 기기가 «서버에 없다» 로 읽고 옛 목록을 다시 올린다.
            ⚠️ sets 도 같이 비운다(옛 프리셋이 남으면 친구 지목 파도타기에 계속 걸린다). */
-        await set(ref(db, `users/${uid}/playlist`), { sets: [], items: [], ts: Number(editTs) > 0 ? Number(editTs) : Date.now(),
+        const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();
+        await set(ref(db, `users/${uid}/playlist`), { sets: [], items: [], ts, editTs: ts,
           bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
         await remove(ref(db, `playlistIndex/${uid}`));
         return true;
@@ -841,7 +842,7 @@
       try{
         const ps = await get(ref(db, `users/${uid}/playlist`));
         const pv = ps.val();
-        if(!pv) return { sets: [], bio: '', homePublic: false, ts: 0 };   // 비어 있음 ≠ 못 읽음(null) — 기기 간 맞추기가 가른다
+        if(!pv) return { sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 };   // 비어 있음 ≠ 못 읽음(null) — 기기 간 맞추기가 가른다
         const raw = pv.sets ? Object.values(pv.sets) : null;
         let sets;
         if(raw && raw.length){
@@ -853,7 +854,7 @@
           const it = pv.items ? Object.values(pv.items).filter(x => x && x.id) : [];
           sets = [{ name:'', items: it }];
         }
-        return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic, ts: Number(pv.ts) || 0 };
+        return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic, ts: Number(pv.ts) || 0, editTs: Number(pv.editTs) || 0 };   // editTs 없음(옛 앱이 쓴 노드) = 고친 시각 모름
       }catch(e){ console.warn('[플레이리스트] 내 프리셋 읽기 실패', e); return null; }
     },
     async fetchPlaylistOf(uid){

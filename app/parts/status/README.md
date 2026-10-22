@@ -38,12 +38,18 @@
 
 ## playlist-sync.js — ☁️ 플레이리스트 기기 간 맞추기 규칙
 
-- **책임**: 부팅 때 서버 사본(`users/{uid}/playlist`)과 이 기기 목록 중 무엇을 따를지 정하는 순수 규칙(`decide`). DOM · firebase 없음.
+- **책임**: 부팅 때 서버 사본(`users/{uid}/playlist`)과 이 기기 목록 중 무엇을 따를지 정하는 순수 규칙(`decide`) · 다시 시도 간격(`retryDelay`). DOM · firebase 없음.
 - **만드는 법**: 만들지 않는다 — 얼린 표 `window.TwPlaylistSync`. app.js 가 `playlistSync: TwPlaylistSync` 로 playlist.js 에 넘긴다.
-- **내보내는 것**: `decide(서버 사본 | null, 이 기기 고친 시각, 이 기기에 곡이 있나)` → `'retry'` · `'adopt'` · `'push'` · `'none'` · `countItems(sets)` · `RETRY_MS`(30초).
-- **규칙**: 못 읽으면 retry(모르는 채 올리지 않음) · 이 기기에서 고친 적 없으면(고친 시각 0) 서버에 곡이 있으면 받음 · 그 밖은 고친 시각이 나중인 쪽(서버가 비운 것도 따름).
+- **내보내는 것**: `decide(서버 사본 | null, 이 기기 고친 시각, 이 기기에 곡이 있나)` → `'retry'` · `'adopt'` · `'push'` · `'none'` · `retryDelay(n)`(30초에서 두 배씩 · 10분 상한) · `countItems(sets)`.
+- **규칙**: 고친 시각은 이 기기 `tw.playlistEditTs` · 서버 `editTs` 칸(이 판부터 앱만 쓴다 — 옛 앱이 쓴 노드엔 없어서 «모름»).
+  - 못 읽으면 retry(모르는 채 올리지 않음).
+  - 양쪽 다 알면 나중인 쪽(서버가 비운 것도 따름).
+  - 이 기기만 모르면(새 기기 · 이 판 전 저장분) 서버에 곡이 있으면 받는다.
+  - 서버가 모르면 양쪽 곡이 있을 때 이 판에서 고친 기기만 올리고, 둘 다 모르면 그대로 둔다(업그레이드 첫 부팅 · 옛 앱과 섞어 쓸 때 좋은 목록을 잃지 않게).
 - **함정**
-  - 고친 시각(`tw.playlistEditTs`)은 목록 · 한마디 · 공개가 바뀐 저장에서만 오른다(playlist.js `_plSave`) — 창 위치 · 반복 · 음량까지 올리면 다른 기기 목록을 이긴다.
-  - 맞추기 전(`_plSynced` 거짓)에는 playlist.js 가 서버에 올리지 않는다 · 재생 중이면 받기를 미룬다. 계정 연동(account.js)은 `plMod.markSynced(ts)` 로 맞춤을 대신 끝낸다.
-  - 서버 쪽: 비울 때 노드를 지우지 않고 빈 목록 + 시각을 남긴다(`removeMyPlaylist`) — 지우면 다른 기기가 옛 목록을 다시 올린다. 읽기는 비어 있음(빈 목록 · ts 0)과 못 읽음(null)을 가른다.
-  - 검사: `checks/sim-playlist-sync.js`(규칙 · firebase-init) · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림).
+  - 고친 시각은 목록 · 한마디 · 공개가 바뀐 저장에서만 오른다(playlist.js `_plSave`) — 창 위치 · 반복 · 음량까지 올리면 다른 기기 목록을 이긴다.
+  - 고친 시각은 그 기기 시계다 — 시계가 많이 빠른 기기가 늘 이긴다(서버 시각으로는 «고친 순간» 을 못 담는다).
+  - 서버 것을 받을 땐 playlist.js `_plAdoptServer` 한 벌만 쓴다(부팅 맞추기 · 계정 연동) — 받기 전 이 기기 목록을 `tw.playlistBackup` 에 남긴다.
+  - 맞추기 전(`_plSynced` 거짓)에는 서버에 올리지 않는다 · 재생 중이면 받기를 미룬다. 계정을 놓을 때(account.js `_wipeAccountLocal`) `plMod.resetSync()` 와 지움 목록(`tw.playlistEditTs` · `tw.playlistBackup`)으로 새 기기처럼 돌린다 — 안 하면 앞 계정 시각이 다음 계정 목록을 비운다.
+  - 서버 쪽: 비울 때 노드를 지우지 않고 빈 목록 + 시각을 남긴다(`removeMyPlaylist`) · 읽기는 비어 있음(빈 목록 · editTs 0)과 못 읽음(null)을 가른다.
+  - 검사: `checks/sim-playlist-sync.js`(규칙 · firebase-init) · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림) · `checks/sim-account-switch.js`(계정 놓기 · 연동).

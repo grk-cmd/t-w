@@ -477,11 +477,12 @@ function _plServerShape(){
   const meta = { bio: _plBio, homePublic: _plHomePublic, private: _plPrivate };
   return { sets, meta, sig: _plPubSigOf(sets, meta) };
 }
-/* ☁️ 부팅 때 한 번 — 서버 사본과 이 기기 목록 중 «마지막으로 고친» 쪽을 따른다(규칙은 playlist-sync.js).
-   못 읽었거나 계정이 아직 없으면 RETRY_MS 뒤 다시. 재생 중이면 목록을 바꾸지 않고 기다린다(듣던 곡이 사라지지 않게). */
+/* ☁️ 부팅 때 한 번 — 서버 사본과 이 기기 목록을 맞춘다(규칙은 playlist-sync.js).
+   못 읽었거나 계정이 아직 없으면 늘려 가는 간격으로 다시. 재생 중이면 목록을 바꾸지 않고 기다린다(듣던 곡이 사라지지 않게). */
+let _plSyncTry = 0;
 async function _plBootSync(){
   if(_plSynced) return;
-  const again = () => { setTimeout(_plBootSync, plSync.RETRY_MS); };
+  const again = () => { setTimeout(_plBootSync, plSync.retryDelay(_plSyncTry++)); };
   const uid = getMyUserId();
   if(!uid || !window.firebaseAPI){ again(); return; }   // 서버 연결이 아직 안 붙었다
   let srv = null;
@@ -492,31 +493,39 @@ async function _plBootSync(){
   if(act === 'retry'){ again(); return; }
   if(act === 'adopt'){
     if(_plNow >= 0){ again(); return; }
-    _plSets = _plNormalizeSets(srv.sets);
-    _plCur = _plSetIdx(_plCur); _plNowSet = _plCur; _plSel = -1; _plView = null; _plNowView = null;
-    _plBio = String(srv.bio || '').slice(0, PL_BIO_MAX);
-    _plHomePublic = !!srv.homePublic;
-    const shape = _plServerShape();
-    _plSavedSig = shape.sig; _plPubSig = shape.sig;   // 서버와 같은 내용 — 고친 시각도 서버 것, 다시 올리지 않는다
-    _plEditTs = Number(srv.ts) || 0;
-    try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
-    _plSynced = true;
-    _plSave();
-    _plRender();
+    _plAdoptServer(srv);
     return;
   }
   _plSynced = true;
   if(act === 'none') _plPubSig = local.sig;
   else _plPublish();
 }
-/* ☁️ 계정 연동(account.js)이 맞추기를 대신 끝냈다 — 서버 사본을 앉혔으면 그 ts 를 고친 시각으로(fromTs), 이 기기 것을 올리면 없이 */
-function _plMarkSynced(fromTs){
-  if(typeof fromTs === 'number'){
-    _plSavedSig = _plServerShape().sig;
-    _plEditTs = Math.max(0, fromTs);
-    try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
+/* ☁️ 서버 사본을 이 기기에 앉힌다 — 부팅 맞추기 · 계정 연동(account.js)이 같은 한 벌을 부른다.
+   ★ 받기 전에 이 기기 목록을 백업 키에 남긴다 — 규칙이 «시각 모름» 을 다 가르지는 못한다(되살릴 길).
+   고친 시각은 서버 editTs(옛 앱이 쓴 노드면 0 = 모름) · 지문을 맞춰 같은 목록을 다시 올리지 않는다. */
+function _plAdoptServer(srv){
+  const prev = _plServerShape();
+  if(plSync.countItems(prev.sets) > 0){
+    try{ localStorage.setItem('tw.playlistBackup', JSON.stringify({ at: Date.now(), sets: prev.sets, bio: _plBio })); }catch(_){}
   }
+  _plSets = _plNormalizeSets(srv.sets);
+  _plCur = _plSetIdx(_plCur); _plNowSet = _plCur; _plSel = -1; _plNow = -1; _plView = null; _plNowView = null;
+  _plBio = String(srv.bio || '').slice(0, PL_BIO_MAX);
+  _plHomePublic = !!srv.homePublic;
+  const shape = _plServerShape();
+  _plSavedSig = shape.sig; _plPubSig = shape.sig;
+  _plEditTs = Number(srv.editTs) > 0 ? Number(srv.editTs) : 0;
+  try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
   _plSynced = true;
+  _plSave();
+  _plRender();
+}
+/* ☁️ 계정 연동이 «저쪽 서버가 비었으니 이 기기 것을 올린다» 로 맞춤을 끝냈다 */
+function _plMarkSynced(){ _plSynced = true; }
+/* ☁️ 계정을 놓았다(로그아웃 · 갈아타기) — 이 기기는 «새 기기» 와 같다. 앞 계정의 고친 시각이 다음 계정 목록을 이기지 않게 */
+function _plResetSync(){
+  _plEditTs = 0; _plSynced = false; _plSyncTry = 0;
+  _plSavedSig = _plServerShape().sig;
 }
 /* 서버에 올린 내용의 지문 — **만드는 자리가 둘**이다(_plPublish · 계정 이어받기 복원).
    ★ 그래서 함수로 묶는다. 예전엔 두 곳이 각각 만들었고 이어받기 쪽이 meta 를 빼먹어서,
@@ -1964,7 +1973,9 @@ return {
   render: _plRender,                               // 🎵 창 다시 그리기 — 계정 이어받기 · 📷 재생 재우기/되살리기
   save: _plSave,                                   // 💾 로컬 저장 + 서버 사본(3초 debounce) — 계정 이어받기
   publish: _plPublish,                             // ☁️ 서버 사본만 — 계정 이어받기(저쪽이 비었을 때)
-  markSynced: _plMarkSynced,                       // ☁️ 기기 간 맞추기를 계정 이어받기가 끝냈다
+  markSynced: _plMarkSynced,                       // ☁️ 기기 간 맞추기를 계정 이어받기가 끝냈다(이 기기 것을 올릴 때)
+  adoptServer: _plAdoptServer,                     // ☁️ 서버 사본을 앉히기 — 계정 이어받기(부팅 맞추기와 한 벌)
+  resetSync: _plResetSync,                         // ☁️ 계정을 놓을 때 — 고친 시각 · 맞춤 상태를 새 기기처럼
   bootSync: _plBootSync,                           // ☁️ 검사용 — 부팅 맞추기 한 번
   normalizeSets: _plNormalizeSets,                 // 🎵 저장값 관문(세 벌 · 16자 · 20곡) — 계정 이어받기
   setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정 — 계정 이어받기

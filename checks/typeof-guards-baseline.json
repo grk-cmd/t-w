@@ -1,8 +1,8 @@
 {
  "note": "sim-typeof-guards.js 기준선 — 파일별 «있으면 부르기» typeof 가드 개수(예외 빼고). 줄기만 한다: 걷었으면 같은 PR 에서 --write-baseline 으로 내리고, 새 가드는 넣지 말 것.",
- "total": 173,
+ "total": 172,
  "counts": {
-  "account/account.js": 5,
+  "account/account.js": 4,
   "account/license-gate.js": 1,
   "account/user-name.js": 1,
   "admin/admin-license-bulk.js": 2,
