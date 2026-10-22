@@ -330,19 +330,7 @@ function syncFriendsOpen(){
     addRow.classList.toggle('on');
     if(addRow.classList.contains('on')){ const ai=document.getElementById('mhAddInput'); if(ai) ai.focus(); }
   });
-  // 🟢 온라인 표시 토글(목업: "온라인 (누르면 오프라인)") — 친구 목록에서 나를 오프라인으로 보이게 함
-  let _mhPresenceOnline = true;
-  const presToggle=document.getElementById('mhPresenceToggle');
-  if(presToggle) presToggle.addEventListener('click', ()=>{
-    _mhPresenceOnline = !_mhPresenceOnline;
-    if(window.firebaseAPI && firebaseAPI.setMyPresenceState){
-      try{ firebaseAPI.setMyPresenceState(getMyUserId(), _mhPresenceOnline); }catch(e){}
-    }
-    presToggle.innerHTML = _mhPresenceOnline
-      ? '<span class="mh-fdot on"></span> 온라인 <small>(누르면 오프라인)</small>'
-      : '<span class="mh-fdot off"></span> 오프라인 <small>(누르면 온라인)</small>';
-    toast(_mhPresenceOnline ? '이제 친구들에게 온라인으로 보여요' : '이제 친구들에게 오프라인으로 보여요');
-  });
+  // 🟢 온라인 표시 토글 · 🔒 고정은 presence-lock.js
   /* 📩 우편함 UI 바인딩 — 왼쪽 세로 메뉴, 소식 종류, 읽은 우편 지우기, 전체 읽음, 관리자 작성.
      ⚠️ 소식 종류는 반드시 #mhInboxTabs 안으로 좁힐 것 — 친구 관리 서브탭이 같은 .mh-ibx-tab 클래스라
        전역으로 걸면 '받은 요청'을 눌렀을 때 소식 종류가 undefined→'all' 로 같이 바뀐다. */

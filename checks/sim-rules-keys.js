@@ -64,6 +64,7 @@ const KIND = {
   '/roomAlive/$room/$memberId': 'member',
   '/licenseRequests/$reqId': 'other',
   '/accountSnap/$userId': 'user',
+  '/presencePref/$userId': 'user',
   '/userAuth/$userId': 'user',
   '/friendCodes/$code': 'room',
   '/users/$userId': 'user',

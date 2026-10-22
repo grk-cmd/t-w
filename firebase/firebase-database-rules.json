@@ -891,6 +891,17 @@
         "$other": { ".validate": false }
       }
     },
+    "presencePref": {
+      "$userId": {
+        ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+        ".validate": "$userId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $userId !== 'undefined' && newData.hasChildren(['lock','online','ts'])",
+        "lock":   { ".validate": "newData.isBoolean()" },
+        "online": { ".validate": "newData.isBoolean()" },
+        "ts":     { ".validate": "newData.isNumber() && newData.val() <= now + 60000" },
+        "$other": { ".validate": false }
+      }
+    },
     "leaderboard": {
       ".read": "(query.orderByChild == 'sec' && query.limitToLast <= 100) && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       ".indexOn": "sec",

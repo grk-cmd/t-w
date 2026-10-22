@@ -161,7 +161,7 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     const SRC = {
       sync: grab(CODE, 'function _syncPresenceRoom('),
       av: grab(CODE, 'const _appVer = createAppVersion('),
-      on: grab(CODE, 'setMyPresenceOnline(userId){'),
+      on: grab(CODE, 'setMyPresenceOnline(userId, startOnline){'),
       st: grab(CODE, 'setMyPresenceState(userId, online){'),
     };
     chk(Object.values(SRC).every(Boolean), '_syncPresenceRoom · _appVer · setMyPresenceOnline · setMyPresenceState 를 찾았다');
