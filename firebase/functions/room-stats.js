@@ -211,7 +211,7 @@ function adminShallow(db){
   };
 }
 
-// 비었음 표시가 EMPTY_GRACE_MS 넘게 그대로인 방의 `_meta` · `_chatTab` · 줄을 걷는다(맨 위 🧹).
+// 비었음 표시가 EMPTY_GRACE_MS 넘게 그대로인 방의 `_meta` · `_music` · `_chatTab` · 줄을 걷는다(맨 위 🧹).
 /* 비었음 줄을 걷는다 — 그새 하트비트가 찍혔거나 새 표시면 그대로 둔다. 첫 호출의 cur 는 로컬 추측값이라 null 을 돌려줘야 서버 값으로 다시 불린다. */
 function dropEmptyRow(db, code, now){
   return db.ref('roomIndex/' + code).transaction(cur => {
@@ -268,6 +268,8 @@ async function sweepEmptyRooms(db, codes, aliveTree, now, shallow){
         return null;
       }, undefined, false);
       if (!r.committed){ kept++; continue; }
+      // 🎧 같이 듣기 곡 칸도 걷는다 — 남기면 같은 코드로 다시 연 방이 지난 곡 · 지난 DJ 를 읽는다(docs/LISTEN_TOGETHER.md 2.2)
+      if (keys && keys._music) await db.ref('rooms/' + code + '/_music').remove();
       if (await serverRoomLive(db, code)){
         await dropEmptyRow(db, code, now);
         done.add(code); serverKept++; continue;

@@ -36,7 +36,7 @@
   import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
   import { createGhostHeal } from "./room/room-ghost-heal.js";
   import { createRoomIndex } from "./room/room-index.js";
-  import { recoverChannelFor } from "./room/room-channel.js";
+  import { recoverChannelFor, hostSuccession } from "./room/room-channel.js";
   import { createRoomStats } from "./room/room-stats.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
@@ -345,10 +345,8 @@
      [절차]
        1. 방장(_meta.host)이 살아있는 멤버 중에 있으면 → 할 일 없음(정상)
        2. 방장이 없다(이탈) → 남은 멤버를 memberId(=입장순)로 정렬
-       3. 프리미엄 방이면: 라이선스 보유자 중 입장순 첫 번째가 후보.
-          ★ 보유자가 아무도 없으면 승계 자체가 불가 → 방 해산(각자 솔로 모드로 복귀).
-            예전엔 무료 워킹룸으로 강등했는데, 라이선스 없는 사람들이 프리미엄 방을 계속
-            쓰는 모양새가 돼서 방을 터뜨리는 쪽으로 바꿨다.
+       3. 후보 · 해산 여부는 채널 규칙(room-channel.js hostSuccession) — 투게더룸은 보유자 · 없으면 해산,
+          워킹룸은 입장순 첫 사람 · 해산 없음.
        4. 내가 그 후보일 때만 트랜잭션(claimHostIfVacant) 시도 — 나머지는 아무것도 안 함
      누가 계산해도 같은 후보가 나오므로 트랜잭션은 사실상 후보 1명만 실행한다.
      트랜잭션 자체도 '이미 유효한 host가 있으면 포기'라 이중 안전. */
@@ -367,9 +365,6 @@
     if(String(room||'').indexOf('SCRT-') === 0) return;
     if(!meta || !meta.host) return;                    // 방장 정보가 없는 방 → 승계 대상 아님
     if(meta.restoredTs && (_svNow() - meta.restoredTs) < ROOM_RESTORE_GRACE_MS) return;   // 🛰 되살린 방 — 방장이 넘어오는 중
-    // ★ 무료방(워킹룸)은 승계하지 않는다 — 방장 권한이 '프리미엄 방 생성 자격'뿐이라 무료방에선 의미가 없다.
-    //   참여·채팅 모두 방장과 무관하므로 방장이 나가도 남은 사람들은 그대로 쓰면 된다.
-    if(meta.channel !== 'togetherroom') return;
     const ids = Object.keys(friends || {});
     if(ids.length === 0) return;                        // 살아있는 멤버가 없음(내가 나가는 중 등) → 스킵
     // 내가 이 방에 살아있는 멤버인지(내 memberId가 friends에 있어야 승계 주체가 될 수 있음)
@@ -379,18 +374,15 @@
     if(aliveUserIds.indexOf(meta.host) >= 0) return;    // 방장 건재 → 할 일 없음
     // 2) 방장 이탈 — 입장순(memberId 오름차순) 정렬
     const sorted = ids.slice().sort();                  // memberId 앞부분이 입장시각(Date.now 36진수)이라 문자열 정렬=입장순
-    // 3) 후보 선출 (프리미엄 방 전용)
-    const candidate = sorted.find(id => friends[id] && friends[id].lic);   // 라이선스 보유자 중 입장순 첫
-    if(!candidate){
-      /* ★ 이어받을 라이선스 보유자가 없다 → 무료 워킹룸 강등이 아니라 '방 해산'.
-         남은 사람들은 방 없이 각자 솔로 모드로 돌아간다.
-         구현: 서버에 해산 표시를 쓰지 않는다. 이 판정은 모든 클라이언트가 같은 입력
-         (_meta + 살아있는 멤버 목록)으로 같은 결론을 내리므로, 각자 알아서 나가면 끝이다.
-         → 쓰기도, 트랜잭션도, 경쟁도 없다. 마지막 사람이 나가면 방은 자연히 비어 사라진다. */
+    // 3) 후보 선출 — 표지가 없는 채널은 'none'
+    const next = hostSuccession(meta.channel, sorted, friends);
+    if(next.act === 'disband'){
+      /* ★ 해산은 서버에 표시를 쓰지 않는다. 모든 클라이언트가 같은 입력(_meta + 살아있는 멤버 목록)으로
+         같은 결론을 내리므로 각자 알아서 나가면 끝이다 — 쓰기 · 트랜잭션 · 경쟁이 없다. */
       _roomHooks.onDisband();
       return;
     }
-    if(candidate !== myMemberId) return;                // 내가 후보가 아니면 아무것도 안 함(경쟁 원천 차단)
+    if(next.act !== 'claim' || next.memberId !== myMemberId) return;   // 내가 후보가 아니면 아무것도 안 함(경쟁 원천 차단)
     // 4) 내가 후보 — 짧은 시간 내 중복 실행 방지(리스너가 연달아 여러 번 오는 경우)
     const nowMs = Date.now();
     if(nowMs - _lastSuccessionAt < 3000) return;
@@ -3133,8 +3125,8 @@
     },
     /* ★ 방장 승계 — 경쟁 없는 결정론적 방식.
        남은 멤버는 모두 memberId(=입장시각 기반)로 정렬하면 '입장 순서'가 나온다. 누가 계산해도 같은 순서다.
-       그 순서로 훑어 첫 라이선스 보유자가 새 방장. 보유자가 없으면 호출부가 아예 이걸 부르지 않고
-       방을 해산한다(_maybeSucceedHost 참고) — newChannel은 그래서 지금은 항상 null이다.
+       그 순서로 훑어 채널 규칙(hostSuccession)에 맞는 첫 사람이 새 방장. 투게더룸에 보유자가 없으면 호출부가 아예 이걸
+       부르지 않고 방을 해산한다(_maybeSucceedHost 참고) — newChannel은 그래서 지금은 항상 null이다.
        (파라미터는 남겨둔다: 나중에 다른 채널로 옮기는 승계가 생기면 그대로 쓰면 된다)
        트랜잭션은 '유효한 host가 이미 있으면 손대지 않는다' 한 겹만 — 순간적인 동시 판단으로 두 번 쓰는 것 방지. */
     async claimHostIfVacant(room, myUserId, aliveUserIds, newChannel, hostName){
