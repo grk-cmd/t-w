@@ -65,7 +65,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22        # ★ ⑦: electron 42+ 의 지연 다운로드(@electron/get 4.x)가 Node 22.12+ 를 요구한다
+          node-version: 24        # ★ ⑦: electron 42+ 의 지연 다운로드(@electron/get 4.x)가 Node 22.12+ 를 요구한다
+          check-latest: true
 
       # ⓞ oauth-config.js — 저장소에 없는 파일이다(.gitignore 5행 · 클라이언트 시크릿이 들어 있다).
       #   내 PC 빌드는 로컬 파일을 쓰지만 러너는 받아 온 저장소뿐이라, 이걸 안 만들면
@@ -166,7 +167,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 24
+          check-latest: true
 
       # 표본이 무엇이었는지 안 남기면 "초록이었는데 왜 실기기에서 다르냐"를 나중에 못 가린다.
       # ⚠️ 러너에 무엇이 깔려 있는지는 우리가 못 정한다 — 그래서 목록을 찍어 둔다.

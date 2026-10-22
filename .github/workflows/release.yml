@@ -106,7 +106,8 @@ jobs:
           ref: ${{ env.TAG }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+          check-latest: true
           # 내려받은 패키지(~/.npm)만 저장해 둔다 — node_modules 는 매번 새로 깔리므로
           # node-window-manager 컴파일 · postinstall 패치(scripts/patch-nwm.js)는 그대로 돈다.
           cache: npm
@@ -188,7 +189,8 @@ jobs:
           ref: ${{ env.TAG }}
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+          check-latest: true
           # 내려받은 패키지(~/.npm)만 저장해 둔다 — node_modules 는 매번 새로 깔리므로
           # node-window-manager 컴파일 · postinstall 패치(scripts/patch-nwm.js)는 그대로 돈다.
           cache: npm
