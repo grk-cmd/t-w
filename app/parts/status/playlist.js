@@ -497,7 +497,7 @@ async function _plBootSync(){
   const act = plSync.decide(srv, baseTs, plSync.countItems(local.sets) > 0);
   if(act === 'retry'){ again(); return; }
   if(act === 'adopt'){
-    if(_plNow >= 0){ again(); return; }
+    if(_plNow >= 0){ clearTimeout(_plSyncT); _plSyncT = setTimeout(_plBootSync, plSync.RETRY_MS); return; }   // 듣는 동안은 고정 간격(다시 시도 횟수와 따로)
     _plAdoptServer(srv);
     return;
   }
@@ -542,6 +542,7 @@ function _plMarkSynced(){
 /* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 이 기기는 «새 기기» 와 같다. 앞 계정의 고친 시각(메모리 · 저장)이 다음 계정 목록을 이기지 않게 */
 function _plResetSync(){
   _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = 0;
+  clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기가 앞 계정 목록을 새 계정에 올리지 않게
   try{ localStorage.removeItem('tw.playlistEditTs'); }catch(_){}
   _plSavedSig = _plServerShape().sig;
 }
@@ -556,10 +557,12 @@ function _plPubSigOf(sets, meta){
 /* 서버 사본 갱신 — 3초 debounce. 드래그 한 번에 수십 번 저장되므로 묶지 않으면 쓰기가 그만큼 나간다.
    목록이 비면 색인에서 지운다(파도타기에 빈 목록이 걸리지 않게). */
 function _plPublish(){
-  if(!_plSynced) return;   // 서버 사본과 맞추기 전 — 맞춘 뒤 _plBootSync 가 올린다
   if(_plPubTimer) clearTimeout(_plPubTimer);
+  const uid0 = getMyUserId();
   _plPubTimer = setTimeout(async ()=>{
     _plPubTimer = null;
+    // 서버 사본과 맞추기 전이면 안 올린다(맞춘 뒤 _plBootSync 가 올린다) · 기다리는 사이 계정이 바뀌었으면 앞 계정 목록을 새 계정에 올리지 않는다
+    if(!_plSynced || getMyUserId() !== uid0) return;
     try{
       if(typeof firebaseAPI === 'undefined' || !firebaseAPI.publishMyPlaylist) return;
       /* 올라가는 것은 프리셋 세 벌 전부 · 한마디 · 공개 · 비공개(지문도 같은 한 벌 — 하나라도 빠지면 그것만 바꿨을 때 안 올라간다).

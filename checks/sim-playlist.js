@@ -527,6 +527,19 @@ async function behave(src){
       const n = e.count('fetchMine');
       chk(n === 2, '  다시 시도 중에 또 불러도 타이머는 하나(' + n + '번 읽음)');
     }
+    // ⑫-4 곡을 고친 직후(올리기 3초 대기 중) 계정이 바뀌었다 — 앞 계정 목록을 새 계정에 올리지 않는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); e.uid = 'ME01'; const m = e.mk({ getMyUserId: () => e.uid });
+      m.markSynced();
+      m.st.sets[0].items.pop(); m.save();
+      e.uid = 'NEW1'; await e.advance(3100);
+      const a = e.count('publish') === 0 && e.count('removePl') === 0;
+      const f = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const n = f.mk();
+      n.markSynced();
+      n.st.sets[0].items.pop(); n.save();
+      n.resetSync(); await f.advance(3100);
+      chk(a && f.count('publish') === 0 && f.count('removePl') === 0, '  올리기를 기다리는 사이 계정이 바뀌거나 계정을 놓으면 올리지 않는다(앞 계정 목록이 새 계정에 안 올라감)');
+    }
     // ⑬ 계정 이어받기 중 서버를 못 읽었다 — 앞 uid 의 고친 시각(메모리 · 저장)이 남지 않아 다시 맞출 때 새 계정 목록을 받는다
     {
       const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
@@ -687,8 +700,8 @@ async function runAll(PL, APP, HTML){
     ['PL', "    _plView = r; _plSel = -1;", '    _plView = r; _plSel = -1; _plNow = -1;', '파도타기가 듣던 곡을 끊음'],
     ['PL', '  if(!_plReadOnly()) return;                       // 내 목록에서는', '  // 내 목록에서는', '내 목록에서 담기가 됨'],
     ['PL', '      if(sig === _plPubSig) return;', '', '안 바뀌어도 서버에 씀'],
-    ['PL', '  if(!_plSynced) return;   // 서버 사본과 맞추기 전', '  // 서버 사본과 맞추기 전', '맞추기 전에 서버에 올림'],
-    ['PL', '    if(_plNow >= 0){ again(); return; }', '    if(false){ again(); return; }', '재생 중에 목록을 바꿈'],
+    ['PL', '    if(!_plSynced || getMyUserId() !== uid0) return;', '    if(getMyUserId() !== uid0) return;', '맞추기 전에 서버에 올림'],
+    ['PL', '    if(_plNow >= 0){ clearTimeout(_plSyncT);', '    if(false){ clearTimeout(_plSyncT);', '재생 중에 목록을 바꿈'],
     ['PL', '    if(sig !== _plSavedSig){', '    if(true){', '기기 설정만 바꿔도 고친 시각이 오름'],
     ["PL", "  if(act === 'retry'){ again(); return; }", "  if(act === 'retry') return;", '못 읽으면 다시 안 봄'],
     ['PL', "    try{ localStorage.setItem('tw.playlistBackup',", "    try{ localStorage.setItem('tw.noBackup',", '받기 전 백업이 빠짐'],
@@ -697,6 +710,7 @@ async function runAll(PL, APP, HTML){
     ['PL', '_plDecideTs !== null ? _plDecideTs : _plEditTs', '_plEditTs', '받기를 미루는 사이 고치면 판단이 뒤집힘'],
     ['PL', '_plEditTs = Math.max(Date.now(), _plEditTs + 1);', '_plEditTs = Date.now();', '늦은 시계가 받은 목록 위에서 고친 것을 «더 이르다» 로'],
     ['PL', '    if(_plEditTs > baseTs) _plPublish();', '    if(false) _plPublish();', '같은 시각 · 맞추기 전에 고친 것이 안 올라감'],
+    ['PL', '    if(!_plSynced || getMyUserId() !== uid0) return;', '    if(!_plSynced) return;', '올리기 대기 중 계정이 바뀌어도 앞 목록을 올림'],
     ['PL', '  clearTimeout(_plSyncT); _plSyncT = null;   // 다시 시도 사슬은 하나만', '  _plSyncT = null;   // 다시 시도 사슬은 하나만', '다시 시도 사슬이 갈라짐'],
     ['PL', "  }, 3000);\n}", '  }, 0);\n}', '서버 사본 debounce 가 없음'],
     ['PL', '      if(!total){', '      if(false){', '빈 목록을 지우지 않고 올림'],

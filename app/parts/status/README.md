@@ -52,6 +52,6 @@
   - «서버가 비운 것도 따름» 은 양쪽 시각을 다 알 때만이다 — 시각 모르는 옛 기기에 곡이 있으면 그 기기 것을 올린다(옛 앱 시절과 같은 결과).
   - 판단은 불러온 때(또는 계정을 놓은 때)의 이 기기 시각으로 한다 — 맞추기 전에 고친 것(받기를 미루는 동안 · 이어받기 직후)이 «이 기기가 나중» 으로 뒤집지 않게(고친 것은 받기 전 백업에). 계정 이어받기(account.js)는 읽기 전에 `resetSync`(저장된 고친 시각까지 지움) · 못 읽으면 `bootSync` 로 다시 맞춘다.
   - 서버 것을 받을 땐 playlist.js `_plAdoptServer` 한 벌만 쓴다(부팅 맞추기 · 계정 연동) — 받기 전 이 기기 목록을 `tw.playlistBackup` 에 남긴다.
-  - 맞추기 전(`_plSynced` 거짓)에는 서버에 올리지 않는다 · 재생 중이면 받기를 미룬다. 계정을 놓을 때(account.js `_wipeAccountLocal`) `plMod.resetSync()` 와 지움 목록(`tw.playlistEditTs` · `tw.playlistBackup`)으로 새 기기처럼 돌린다 — 안 하면 앞 계정 시각이 다음 계정 목록을 비운다.
+  - 맞추기 전(`_plSynced` 거짓)에는 서버에 올리지 않는다 — 3초 뒤 실제로 올리는 순간에 맞춤 상태와 계정(예약 때 uid)을 다시 본다(곡을 고친 직후 계정을 갈아타도 앞 목록이 새 계정에 안 올라가게) · 재생 중이면 받기를 30초 고정 간격으로 미룬다. 계정을 놓을 때(account.js `_wipeAccountLocal`) `plMod.resetSync()` 와 지움 목록(`tw.playlistEditTs` · `tw.playlistBackup`)으로 새 기기처럼 돌린다 — 안 하면 앞 계정 시각이 다음 계정 목록을 비운다.
   - 서버 쪽: 비울 때 노드를 지우지 않고 빈 목록 + 시각을 남긴다(`removeMyPlaylist`) · 읽기는 비어 있음(빈 목록 · editTs 0)과 못 읽음(null)을 가른다.
   - 검사: `checks/sim-playlist-sync.js`(규칙 · firebase-init) · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림) · `checks/sim-account-switch.js`(계정 놓기 · 연동).
