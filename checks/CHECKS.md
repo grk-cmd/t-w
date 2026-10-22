@@ -263,7 +263,7 @@
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 590 | **51a66cd2cac2** |
 | **sim-playlist-sync.js** | 87 | **9e23b8878d97** |
-| **sim-playlist.js** | 633 | **d37d01ea3f59** |
+| **sim-playlist.js** | 635 | **d9e31fbbd2e8** |
 | **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |

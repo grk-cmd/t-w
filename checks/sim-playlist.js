@@ -124,7 +124,7 @@ function mkEnv(o){
     removeMyPlaylist: async (uid, meta, ts) => { env.pubTs = ts; env.calls.push('removePl ' + uid + ' ' + JSON.stringify(meta)); return true; },
     fetchPlaylistCard: async (uid) => { env.calls.push('card ' + uid); return env.cards[uid] || null; },
     fetchRandomPlaylist: async (me, ex) => { env.calls.push('random ' + me + ' ' + ex); return env.randomPl || null; },
-    fetchMyPlaylistSets: async (uid) => { env.calls.push('fetchMine ' + uid); return env.srv === undefined ? { sets: [], bio: '', homePublic: false, ts: 0 } : env.srv; },
+    fetchMyPlaylistSets: async (uid) => { env.calls.push('fetchMine ' + uid); if(env.srvThrow) throw new Error('끊김'); return env.srv === undefined ? { sets: [], bio: '', homePublic: false, ts: 0 } : env.srv; },
     fetchPlaylistOf: async (uid) => { env.calls.push('of ' + uid); return env.plOf ? env.plOf[uid] || null : null; },
   };
   const comp = o.noCompanion ? undefined : {
@@ -417,11 +417,13 @@ async function behave(src){
     {
       const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
       e.srv = null;
-      await boot(e);
-      const a = e.count('fetchMine') === 1 && e.count('publish') === 0;
+      e.srvThrow = true; await e.advance(4300); e.srvThrow = false;   // 던져도 못 읽음과 같다(새지 않는다)
+      e.srv = null;
+      await e.advance(30000); await e.advance(3100);
+      const a = e.count('fetchMine') === 2 && e.count('publish') === 0;
       e.srv = srvOf(3, 5000);
       await e.advance(30000); await e.advance(3100);
-      chk(a && e.count('fetchMine') === 2 && e.count('publish') === 1 && m.state().sets[0].items.length === 2, '  서버를 못 읽으면 아무것도 안 하고 30초 뒤 다시 본다(그동안 안 올림)');
+      chk(a && e.count('fetchMine') === 3 && e.count('publish') === 1 && m.state().sets[0].items.length === 2, '  서버를 못 읽으면(던져도) 아무것도 안 하고 30초 뒤 다시 본다(그동안 안 올림)');
     }
     // ⑦ 재생 중이면 받기를 미룬다 — 듣던 곡이 사라지지 않게
     {

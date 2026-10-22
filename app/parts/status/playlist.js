@@ -484,7 +484,8 @@ async function _plBootSync(){
   const again = () => { setTimeout(_plBootSync, plSync.RETRY_MS); };
   const uid = getMyUserId();
   if(!uid || !window.firebaseAPI){ again(); return; }   // 서버 연결이 아직 안 붙었다
-  const srv = await firebaseAPI.fetchMyPlaylistSets(uid);
+  let srv = null;
+  try{ srv = await firebaseAPI.fetchMyPlaylistSets(uid); }catch(_){}   // 던져도 «못 읽음» — 아래 retry
   if(_plSynced) return;
   const local = _plServerShape();
   const act = plSync.decide(srv, _plEditTs, plSync.countItems(local.sets) > 0);
