@@ -2273,6 +2273,7 @@ const plMod = TwPlaylist.createPlaylist({
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   escEditable: (...a)=>winStackMod._escEditable(...a),
 });
+TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리스트 소리 진단 줄
 /* ═══ 🎵 프리셋 세 벌 ═══ */
 /* 🎵 프리셋 세 벌(_plSets · _plCur · _plNowSet …) · 저장 · 서버 사본은 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 연결은 바로 위 «🎵 상태칩 플레이리스트» 머리 아래(plMod). */
 /* ═══ 👤 프로필 소개칸 ═══════════════════════════════════════════════════

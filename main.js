@@ -2710,12 +2710,34 @@ function createWindow() {
        이 조건이 «영영 음소거»가 되므로 그때는 도메인별로 갈라야 한다.
      ⚠️ muted·play 는 여기서도 안 건드린다 — bgmForcePlay 가 주인(위 규칙 그대로). volume 만 본다. */
   let bgmAdPoll = null;
+  /* 🔍 소리 진단 — 게이트가 음소거를 정할 때 본 값을 플레이리스트 창(status/bgm-diag.js)에 1초마다 보낸다.
+     설치본은 개발자 도구가 막혀 있어서 «곡은 넘어가는데 소리만 없다» 를 가를 길이 이것뿐이다.
+     ★ 보내기는 interval tick 에서 한다 — 페이지가 답을 안 하면(then · catch 둘 다 안 옴) 음소거가 시작값 그대로
+       남는데, 답에 얹어 보내면 그 경우를 못 보여 준다. 그래서 «답 없음 · 기다리는 확인 수» 도 같이 보낸다.
+     ⚠️ 읽어서 보내기만 한다 — 음소거를 정하는 것은 아래 게이트 그대로다. */
+  let bgmGateMutedSince = 0, bgmGateFail = 0, bgmGatePending = 0, bgmGateLastReply = 0, bgmGateStart = 0, bgmGateLastD = null, bgmDiagTick = 0;
+  function bgmSendDiag(){
+    if(bgmMode !== 'playlist' || (++bgmDiagTick % 4)) return;
+    try{
+      if(!mainWindow || mainWindow.isDestroyed() || mainWindow.webContents.isDestroyed()) return;
+      if(!bgmView || bgmView.webContents.isDestroyed()) return;
+      const wc = bgmView.webContents, now = Date.now();
+      mainWindow.webContents.send('companion:bgmDiag', Object.assign({}, bgmGateLastD, {
+        gateMuted: wc.isAudioMuted(), audible: wc.isCurrentlyAudible(),
+        mutedMs: bgmGateMutedSince ? now - bgmGateMutedSince : 0, fail: bgmGateFail,
+        pending: bgmGatePending, noReplyMs: now - (bgmGateLastReply || bgmGateStart),
+      }));
+    }catch(_){}
+  }
   function bgmStartAdGate(){
     if(!bgmView) return;
     bgmView.webContents.setAudioMuted(true);   // 로드 시작부터 무조건 음소거
+    bgmGateMutedSince = bgmGateStart = Date.now(); bgmGateFail = 0; bgmGatePending = 0; bgmGateLastReply = 0; bgmGateLastD = null;
     if(bgmAdPoll) clearInterval(bgmAdPoll);
     bgmAdPoll = setInterval(()=>{
       if(!bgmView || bgmView.webContents.isDestroyed()){ clearInterval(bgmAdPoll); bgmAdPoll=null; return; }
+      bgmSendDiag();
+      bgmGatePending++;
       bgmView.webContents.executeJavaScript(
         '(function(){var p=document.querySelector("#movie_player,.html5-video-player");'+
         'var isAd=!!((p&&p.classList&&p.classList.contains("ad-showing"))||'+
@@ -2724,12 +2746,20 @@ function createWindow() {
         BGM_SET_VOL_JS+
         'var v=document.querySelector("video"); var volOk=false;'+
         'if(v){ try{ __twSetVol(want); volOk=(Math.abs(v.volume-want)<=0.005); }catch(_){} }'+
-        'return {isAd:isAd, volOk:volOk};})()'
+        // 🔍 진단용 — 판정에는 안 쓴다(bgmSendDiag)
+        'var d={isAd:isAd, videos:document.querySelectorAll("video").length, want:want};'+
+        'if(v){ d.vol=v.volume; d.vMuted=v.muted; d.paused=v.paused; }'+
+        'try{ if(p&&typeof p.getVolume==="function") d.pVol=p.getVolume(); if(p&&typeof p.isMuted==="function") d.pMuted=p.isMuted(); }catch(_){}'+
+        'return {isAd:isAd, volOk:volOk, d:d};})()'
       ).then(r=>{
+        bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now();
         if(!bgmView || bgmView.webContents.isDestroyed()) return;
         const isAd = !!(r && r.isAd), volOk = !!(r && r.volOk);
-        bgmView.webContents.setAudioMuted(isAd || !volOk);   // 광고이거나 음량이 아직 안 맞으면 계속 음소거
-      }).catch(()=>{});
+        const mute = isAd || !volOk;
+        bgmView.webContents.setAudioMuted(mute);   // 광고이거나 음량이 아직 안 맞으면 계속 음소거
+        bgmGateFail = 0; bgmGateLastD = (r && r.d) || null;
+        if(!mute) bgmGateMutedSince = 0; else if(!bgmGateMutedSince) bgmGateMutedSince = Date.now();
+      }).catch(()=>{ bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now(); bgmGateFail++; bgmGateLastD = null; });
     }, 250);
   }
   /* 🔊 **음량 선점** — 곡이 바뀌는 순간의 "처음 2초만 원래 크기로 들린다"를 막는 자리.
