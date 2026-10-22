@@ -587,11 +587,18 @@ function _srFmtDate(ms){
    자주 불리지만(refreshInviteUI) 판정은 세션에 한 번 기억된 값이라 읽기가 늘지 않는다.
    «내 시크릿룸» 판정(pub.owner 가 나 · 만료 전)은 로비와 같은 한 곳(room-lobby-provider.js mySecretRoom)을 쓴다.
    코드를 공유받은 친구는 칸이 안 보여도 된다 — COZY 칸에 «1234*» 로 넣으면 시크릿룸으로 간다. */
+/* 🎧 «내 시크릿룸을 같이 듣기로 열기» — 이 기기에 기억(한 계정 한 기기 · 로그아웃 때 지움 account.js). 주인이 빈 방을 열 때 _meta.music 으로 쓴다. */
+const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';
+function _secretMusicOn(){ try{ return localStorage.getItem(SECRET_MUSIC_KEY) === '1'; }catch(_){ return false; } }
+{ const c=document.getElementById('fsSecretMusic'); if(c) c.addEventListener('change', ()=>{ try{ localStorage.setItem(SECRET_MUSIC_KEY, c.checked ? '1' : '0'); }catch(_){} }); }
 function _refreshSecretRoomUI(){
   const w=document.getElementById('fsInviteSecretWrap'); const inp=document.getElementById('fsInviteSecretCode');
   if(!w) return;
   Promise.resolve(mySecretRoom()).then(s=>{
     w.style.display = s ? 'flex' : 'none';
+    const mr=document.getElementById('fsSecretMusicRow'), mc=document.getElementById('fsSecretMusic');
+    if(mr) mr.style.display = s ? '' : 'none';
+    if(mc) mc.checked = _secretMusicOn();
     if(s && inp && !inp.value) inp.value=s.code.replace(/^SCRT-/,'');
   }).catch(()=>{});
 }
@@ -752,7 +759,9 @@ async function startRoom(code){
       // 시크릿룸은 항상 투게더룸이고 투게더룸 상한·빈 방 승격 분기를 타지 않는다(정원 밖).
       // host는 입장할 때마다 owner로 다시 쓴다(멱등) — 주인이 아닌 친구가 먼저 들어와도 방장은 주인.
       _channel = 'togetherroom';
-      if(window.firebaseAPI && firebaseAPI.setRoomChannel) await firebaseAPI.setRoomChannel(code, 'togetherroom', _secretOwner);
+      // 🎧 같이 듣기는 주인이 빈 방을 열 때만 정한다 — 손님이 들어올 때마다 쓰면 듣던 곡(_music)이 지워진다 · 인원을 못 셌으면(null) 안 건드린다
+      const _srOpen = (_iAmSrOwner && _roomCount === 0) ? { music: _secretMusicOn() } : undefined;
+      if(window.firebaseAPI && firebaseAPI.setRoomChannel) await firebaseAPI.setRoomChannel(code, 'togetherroom', _secretOwner, undefined, _srOpen);
     } else if(_channel && window.firebaseAPI && firebaseAPI.setRoomChannel){
       /* 만들기: 채널 + 방장(나) 기록. 방을 만든 사람이 최초 방장이다.
          🎲 4번째 인자(open)는 '만들기' 경로에서만 명시적으로 넘긴다 — 다른 경로(시크릿룸·빈 방 승격·
@@ -935,11 +944,11 @@ function _paintMaxPeople(){
   _paintMaxPeople();
 })();
 
-/* 방 만들기 창이 고른 _meta 칸 { title, max, hostName } — startRoom 의 만들기 갈래(Firebase)가 한 번 쓰고 비운다.
+/* 방 만들기 창이 고른 _meta 칸 { title, max, hostName, music } — startRoom 의 만들기 갈래(Firebase)가 한 번 쓰고 비운다.
    만들기가 중간에 막히면 남지만, 그 값을 읽는 곳은 _pendingRoomChannel 이 있는 만들기 갈래뿐이고 다음 만들기가 덮는다. */
 let _pendingExtra = null;
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다.
-   settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용) }. */
+   settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용), music(🎧 같이 듣기) }. */
 async function doCreateRoomInChannel(channel, settings){
   channel = channel || 'workingroom';
   const limit = roomLimitOf(channel);
@@ -955,7 +964,7 @@ async function doCreateRoomInChannel(channel, settings){
   window._pendingRoomOpen = !!(settings && settings.open);
   // 비운 칸은 null(지움)로 싣는다 — 같은 코드에 서버 함수가 아직 걷지 않은 지난 방 _meta 가 있으면 그 제목이 남지 않게(update 병합)
   _pendingExtra = { max: roomSettings.clampMax(settings && settings.max, maxPeople()),
-    title: (settings && settings.title) || null, hostName: roomSettings.hostNameOf(getDisplayName()) };
+    title: (settings && settings.title) || null, hostName: roomSettings.hostNameOf(getDisplayName()), music: !!(settings && settings.music) };
   const c=genRoomCode(channel);   // 🏷️ #9 — 채널대로 WORK-/PLAY-
   startRoom(c);
 }

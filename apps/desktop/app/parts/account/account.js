@@ -299,6 +299,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
   'tw.playlistHomePublic', 'tw.playlistPrivate',
+  'tw.secretRoomMusic',        // 🎧 내 시크릿룸을 같이 듣기로 열기 — 그 계정의 시크릿룸 설정이라 다음 사람에게 남기지 않는다
   /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
   USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', MY_AD_BANNER_KEY,
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,

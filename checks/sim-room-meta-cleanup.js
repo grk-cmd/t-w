@@ -310,7 +310,7 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk(/const ids = Object\.keys\(keys\)\.filter\(id => id\.charAt\(0\) !== '_' && id !== 'chatLog'\);/.test(cap), '정원 검사는 _meta · _chatTab · chatLog 를 사람으로 안 센다 — 남은 표지가 있어도 빈 방');
     chk(/if\(_roomCount === 0\)\{[\s\S]{0,1200}firebaseAPI\.claimEmptyRoom\(code, getMyUserId\(\), _iAmLicensed, roomSettings\.hostNameOf\(getDisplayName\(\)\)\)/.test(APP), '빈 방(0명)이면 선점(claimEmptyRoom)으로 연다');
     // 시크릿룸 · 되살리기 · 방 서버
-    chk(/if\(_isSecret\)\{[\s\S]{0,400}firebaseAPI\.setRoomChannel\(code, 'togetherroom', _secretOwner\)/.test(APP), '시크릿룸은 들어올 때마다 channel · host(주인) · ts 를 다시 쓴다 — 남은 _meta 도 주인 방으로');
+    chk(/if\(_isSecret\)\{[\s\S]{0,800}firebaseAPI\.setRoomChannel\(code, 'togetherroom', _secretOwner(?:, undefined, _srOpen)?\)/.test(APP), '시크릿룸은 들어올 때마다 channel · host(주인) · ts 를 다시 쓴다 — 남은 _meta 도 주인 방으로(🎧 같이 듣기는 주인이 빈 방을 열 때만 — sim-listen-ui)');
     chk(!/restoreRoomMeta/.test(FI) && /if\(meta\.restoredTs && \(_svNow\(\) - meta\.restoredTs\) < ROOM_RESTORE_GRACE_MS\) return;/.test(FI),
       '0.11.4 는 방 서버 방을 Firebase 에 되살리지 않는다 — 옛 앱이 되살린 방의 방장 유예만 남김');
     chk(/const _via = await _startRoomOnServer\(code,[\s\S]{0,80}if\(_via !== 'firebase'\) return;/.test(APP), '방 서버 방은 Firebase _meta 를 쓰기 전에 갈라진다 — 이 청소와 무관');

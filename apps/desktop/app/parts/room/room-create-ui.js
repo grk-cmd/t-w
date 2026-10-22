@@ -1,4 +1,4 @@
-/* room-create-ui.js — 🏷️ 방 만들기 창(제목 · 방 종류 · 최대 인원 · 방 목록 공개).
+/* room-create-ui.js — 🏷️ 방 만들기 창(제목 · 방 종류 · 최대 인원 · 방 목록 공개 · 🎧 같이 듣기).
    방 찾기 · 만들기 모달(#inviteModal) 안의 #roomCreatePanel 을 쓴다 — 로비의 [방 만들기] 를 누르면 로비 · 코드 칸 대신 보이고,
    [방 만들기] 를 누르면 제목을 확인해(금칙어 · 길이) onCreate(채널, 설정) 를 부른다. 모달 안이라 클릭 통과 목록을 따로 늘리지 않는다.
    여는 곳은 로비(room-lobby-ui.js)의 [방 만들기] — 그 탭의 채널로 연다(투게더룸은 보유자만).
@@ -13,7 +13,7 @@
  *   rcStore: () => { bannedWords(): string[] },
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
- *   onCreate: (channel: string, settings: { title: string, max: number, open: boolean }) => void,
+ *   onCreate: (channel: string, settings: { title: string, max: number, open: boolean, music: boolean }) => void,
  * }} deps
  */
 function createRoomCreateUi(deps){
@@ -53,6 +53,7 @@ function open(ch){
   max = maxPeople();
   $('rcTitle').value = '';
   $('rcOpen').checked = true;
+  $('rcMusic').checked = false;   // 만든 뒤엔 못 바꾸니 늘 꺼진 채로 연다(docs/LISTEN_TOGETHER.md 1장)
   showError('');
   setShown(true);
   paint();
@@ -64,7 +65,7 @@ function submit(){
   const r = roomSettings.checkTitle($('rcTitle').value, bannedWords.cleanBannedList(rcStore().bannedWords()), bannedWords);
   if(!r.ok){ showError(roomSettings.TITLE_ERROR_TEXT[r.reason]); $('rcTitle').focus(); return; }
   close();
-  onCreate(channel, { title: r.title, max: roomSettings.clampMax(max, maxPeople()), open: $('rcOpen').checked });
+  onCreate(channel, { title: r.title, max: roomSettings.clampMax(max, maxPeople()), open: $('rcOpen').checked, music: $('rcMusic').checked });
 }
 
 $('rcChWorking').onclick = () => { channel = 'workingroom'; paint(); };
