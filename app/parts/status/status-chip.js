@@ -44,6 +44,7 @@ const toast = deps.toast;
 const userStatus = deps.userStatus;   // 읽는 함수
 const setCharBadWhy = deps.setCharBadWhy;   // 쓰는 함수
 const setCharBoundsLatest = deps.setCharBoundsLatest;   // 쓰는 함수
+const clickPolicy = deps.clickPolicy;   // 클릭 통과 판단 규칙(click-through-policy.js) — 캐릭터 영역을 main 에 보낼지
 const setDanceCmdCooldownAt = deps.setDanceCmdCooldownAt;   // 쓰는 함수
 const setMoveModeJustToggled = deps.setMoveModeJustToggled;   // 쓰는 함수
 const setMoveMode = deps.setMoveMode;   // 쓰는 함수
@@ -301,7 +302,7 @@ function updateMyStatusChipPosition(){
   const creatorOn=document.getElementById('creatorOverlay'); const creatorVisible=creatorOn&&creatorOn.classList.contains('on');
   // ⭐ 경험치 바는 이제 좌석별(seat.expBarEl)이라 여기서 숨기지 않는다.
   //    런처가 뜨면 렌더 루프의 setSeatNamePlate 구간이 안 돌거나 nameplateEnabled 판정에 걸려 자동으로 숨는다.
-  if(!me || launcherVisible || creatorVisible || moveMode()){
+  if(!me || launcherVisible || creatorVisible || moveMode() || !clickPolicy.charHittable({ officeHidden: _officeHidden() })){
     chip.style.display='none';
     setCharBoundsLatest(null);   // 캐릭터 없음 — 생존 신호는 타이머가 계속 보낸다(위 주석 참고)
     setCharBadWhy(null);         // 🧭 '없다'는 정상이다 — 고장으로 기록하지 않는다

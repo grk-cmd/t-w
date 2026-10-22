@@ -35,7 +35,7 @@ const L = load(POLSRC), P = L.mod;
 /* ── 1. 모듈 모양 · 상수 ── */
 say('── 1. 모듈 모양 · 상수 값');
 chk(P && L.win === P, 'module.exports(main) 와 window.TwClickThroughPolicy(렌더러)가 같은 것');
-const FNS = ['holdForDrag', 'moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep',
+const FNS = ['holdForDrag', 'moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep', 'charHittable',
   'mainArmed', 'stallStep', 'staleCaptureStep', 'foreignInputStep', 'deferExpiredStep'];
 chk(FNS.every(n => typeof P[n] === 'function'), '판단 함수 ' + FNS.length + '개');
 const CONSTS = { MOVE_GAP_RECEIVING_MS: 40, MOVE_GAP_PASSING_MS: 10, PASS_DEBOUNCE_MS: 150, KICK_GAP_MS: 1500, MOVE_ALIVE_MS: 3000,
@@ -103,6 +103,9 @@ T('pokeStep — main 상태 정정 · 끌기 보호 · left/null', P.pokeStep, [
 T('clickMayKick — 휠은 사다리를 안 탄다', P.clickMayKick, [
   ['클릭', { offOverlay: false }, true], ['휠', { wheel: true }, false], ['구버전(필드 없음)', {}, true], ['state 없음', undefined, true],
   ['wheel 이 참 같은 값이지만 true 아님', { wheel: 1 }, true],
+]);
+T('charHittable — 회사원 모드로 화면을 숨겼으면 캐릭터를 클릭 판정에서 뺀다', P.charHittable, [
+  ['평소', { officeHidden: false }, true], ['숨김', { officeHidden: true }, false], ['모름(필드 없음)', {}, true],
 ]);
 const kk = (o) => Object.assign({ ignoreSent: true, offOverlay: false, penApp: false, now: 100000, lastKickAt: 0, lastMoveSeen: 0,
   lastPokePen: false, lastPokeAt: 0, stage: 0 }, o);
@@ -189,9 +192,14 @@ say('── 4. 연결 — 네 길이 모두 이 모듈을 부른다');
 const RUNC = strip(RUN), MAINC = strip(MAIN);
 chk(/^const clickPolicy = deps\.clickPolicy;/m.test(RUN), 'desktop-run.js — deps.clickPolicy 로 받는다(전역 직접 참조 없음)');
 chk(!/TwClickThroughPolicy/.test(RUNC), '  desktop-run.js 는 window.TwClickThroughPolicy 를 직접 안 본다');
-const CALLS = ['moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep'];
+const CALLS = ['moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep', 'charHittable'];
 const miss = CALLS.filter(n => !new RegExp('clickPolicy\\.' + n + '\\(').test(RUNC));
-chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdown · 전역 클릭이 정책을 부른다' + (miss.length ? ' — 빠짐: ' + miss.join(' · ') : ''));
+chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdown · 전역 클릭 · 3D 캐릭터 판정이 정책을 부른다' + (miss.length ? ' — 빠짐: ' + miss.join(' · ') : ''));
+{
+  const SC = read('status-chip.js') || read('parts/status/status-chip.js') || read('app/parts/status/status-chip.js') || '';
+  chk(/if\(_cvEl && seats\.length && clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{/.test(RUN), '  3D 캐릭터 판정은 charHittable 이 거짓이면(회사원 모드 숨김) 아예 안 한다');
+  chk(/\|\| !clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{[\s\S]{0,200}setCharBoundsLatest\(null\)/.test(SC), '  상태칩도 같은 판단으로 캐릭터 영역을 비운다 — main 의 «우리 UI 위» · 회수(ⓖ) · 펜 앱 근처 판정이 숨긴 자리를 안 본다');
+}
 chk(/  clickPolicy: TwClickThroughPolicy,\n/.test(APP), 'app.js — 만드는 줄이 clickPolicy: TwClickThroughPolicy 를 넘긴다');
 const iP = HTML.indexOf('<script src="parts/launcher/click-through-policy.js"></script>'), iR = HTML.indexOf('<script src="parts/launcher/desktop-run.js"></script>');
 chk(iP > 0 && iR > iP, 'html — click-through-policy.js 를 desktop-run.js 보다 먼저 싣는다');

@@ -2196,6 +2196,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
   chatUiMod: ()=>chatUiMod,
+  clickPolicy: TwClickThroughPolicy,
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   moveMode: ()=>moveMode,
@@ -9579,6 +9580,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
 const desktopRunMod = TwDesktopRun.createDesktopRun({
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
   _charBoundsLatest: ()=>_charBoundsLatest,
+  _officeHidden: ()=>_officeHidden,
   _penAppFocused: ()=>_penAppFocused,
   _skipFlyingRigs: (...a)=>hiddenSeatsMod._skipFlyingRigs(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),

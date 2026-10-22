@@ -146,7 +146,7 @@
 | **sim-gacha-prune.js** | 166 | **d7bae5f811b6** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
-| **sim-click-through-policy.js** | 279 | **085f9b967aed** |
+| **sim-click-through-policy.js** | 287 | **e1e1f535a817** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
 | **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
@@ -303,11 +303,11 @@
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **5753dcf76a9a** |
-| **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** |
+| **sim-desktop-run.js** | 94 | **742b11531096** |
 | **sim-room-entry.js** | 124 | **c7dac617f4af** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
-| **sim-status-chip.js** | 102 | **ce8e2cb3e006** |
+| **sim-status-chip.js** | 102 | **76a65b890f4b** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
