@@ -55,6 +55,10 @@ const tricksMod = deps.tricksMod;
 const triggerPet = deps.triggerPet;
 const updateMyStatusChipPosition = deps.updateMyStatusChipPosition;
 const paintRoomInfo = deps.paintRoomInfo;   // 방 안 정보 칸 제목 · [방 설정](room-info-ui.js) — 들어감 · 나감 · meta 가 바뀔 때
+/* 🔔 «방이 바뀜»(들어감 · 나감 · meta) 알림 — 위층(🎧 같이 듣기 listen-ui.js)이 만든 뒤 onRoomChanged 로 건다. 이 모듈은 그쪽을 모른다(순환 막기). */
+const _roomChangedFns = [];
+function onRoomChanged(fn){ _roomChangedFns.push(fn); }
+function _roomChanged(){ paintRoomInfo(); _roomChangedFns.forEach(f => f()); }
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 function _roomServerNet(){
@@ -72,7 +76,7 @@ function _onServerRoomMeta(meta, prev){
   const me = getMyUserId();
   if(prev && meta && prev.host !== me && meta.host === me) window._onHostSucceeded(meta);
   try{ window._onRoomMeta(meta); }catch(_){}
-  paintRoomInfo();
+  _roomChanged();
 }
 /* Firebase 방(firebase-init joinRoom)이 알릴 곳 — 방 서버 provider(makeServerProvider)가 받는 것과 같은 몫.
    firebase-init 은 아래층이라 여기 이름을 직접 부르지 않고 이 묶음을 넘겨받는다. */
@@ -84,7 +88,7 @@ function _firebaseRoomHooks(){
     onMeta: (meta)=>{
       window._roomMetaCache = meta;
       window._onRoomMeta(meta);
-      paintRoomInfo();
+      _roomChanged();
     },
     getExp: ()=>myExpCells(),
     secretOwner: ()=>window._srOwnerUid,
@@ -625,7 +629,7 @@ function refreshInviteUI(){ const on=Presence.active();
   ['inviteHopRandom','fsInviteHopRandom'].forEach(id=>{
     const b=document.getElementById(id); if(b) b.style.display = _hopOn ? '' : 'none';
   });
-  paintRoomInfo();
+  _roomChanged();
   // 모달이 열린 채 방을 나왔으면 로비가 이제 보인다 — 방 안에서 열었을 땐 안 읽었으니 지금 읽게 알린다
   if(left && document.getElementById('inviteOverlay').classList.contains('on')) twNav.go(twNav.NAV.ROOM_LOBBY);
 }
@@ -1338,6 +1342,7 @@ return {
   refreshInviteUI,
   startRoom,
   syncFriendSeats,
+  onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
 };
 }
 

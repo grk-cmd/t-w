@@ -54,6 +54,7 @@ chk(p.paused === true && p.pos === 61 && p.seq === 8 && p.by === 'u1' && p.at ==
 const r = M.resumed(p, T0 + 500000);
 chk(r.paused === false && r.at === T0 + 500000 - 61000 && r.pos === 0 && r.seq === 9 && M.posOf(r, T0 + 500000) === 61, '★ 다시 = 멈춘 자리부터(at 을 다시 계산) · 차례 +1');
 chk(M.paused(song({ seq: 1e9 }), T0) === null && M.resumed(null, T0) === null, '  상한 · 곡 없음이면 null');
+chk(M.paused(song(), T0, 'u2').by === 'u2' && M.resumed(p, T0, 'u2').by === 'u2' && M.resumed(p, T0).by === 'u1', '★ by 를 주면 쓴 사람이 바뀐다(이어받은 DJ 의 멈춤 · 다시) · 안 주면 그대로');
 chk(M.withDur(song(), 204.9).dur === 204 && M.withDur(song(), 204).seq === 4, '길이 적기 — 정수 · 차례 +1');
 chk(M.withDur(song({ dur: 100 }), 204) === null && M.withDur(song(), -1) === null && M.withDur(song(), 0) === null, '  이미 있거나 모르면(-1 · 0) 안 쓴다 — 곡마다 한 번');
 

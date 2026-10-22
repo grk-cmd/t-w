@@ -71,16 +71,17 @@ function nextSeq(prev){
   return s <= SEQ_MAX ? s : null;
 }
 
-/** 멈춤 · 다시 — 쓴 사람(by)은 그대로(승계 뒤 «지금 곡은 옛 DJ 것» 판정이 by 를 본다) · 차례 +1 · 상한을 넘으면 null */
-function paused(m, now){
+/** 멈춤 · 다시 — 차례 +1 · 상한을 넘으면 null. by 를 주면 쓴 사람을 바꾼다 — 이어받은 DJ 가 멈추거나 다시 튼 곡은 그 DJ 것으로 친다
+ *  («옛 DJ 가 멈춘 채 나감» 으로 다시 읽혀 멈춤이 바로 풀리지 않게 · 그 곡이 내 목록에 있으면 다음 곡은 그 뒤부터). 안 주면 그대로. */
+function paused(m, now, by){
   const seq = m ? nextSeq(m.seq) : null;
   if(seq === null) return null;
-  return Object.assign({}, m, { paused: true, pos: Math.floor(posOf(m, now)), seq });
+  return Object.assign({}, m, { paused: true, pos: Math.floor(posOf(m, now)), seq }, by ? { by } : {});
 }
-function resumed(m, now){
+function resumed(m, now, by){
   const seq = m ? nextSeq(m.seq) : null;
   if(seq === null) return null;
-  return Object.assign({}, m, { paused: false, at: Math.floor(now - (Number(m.pos) || 0) * 1000), pos: 0, seq });
+  return Object.assign({}, m, { paused: false, at: Math.floor(now - (Number(m.pos) || 0) * 1000), pos: 0, seq }, by ? { by } : {});
 }
 /** 길이를 적은 한 줄(DJ 재생 창 하트비트가 알려 줄 때 한 번) — 이미 있으면 null */
 function withDur(m, dur){

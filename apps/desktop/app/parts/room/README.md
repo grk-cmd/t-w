@@ -326,19 +326,26 @@ TwRoomLobbyUi.createRoomLobbyUi({
 - `listen-provider.js` — 곡 칸 구독(부르자마자 `undefined` = 불러오는 중 → 값 | `null` = 틀 곡 없음 · 거부는 `onErr`) · 쓰기 · `now()`(`firebaseAPI.serverNow`). 방 서버가 `music` 을 받게 되면 여기만 바꾼다.
 - `listen-ui.js`(`TwListenUi`) — 같이 듣기 방(`_meta.music === true` · 방 서버 방은 아님)에 있는 동안만 구독 · 상태칩 🎵 버튼을 🎧 로 바꿔 `#listenBox`(칩 안 팝업) 를 연다 · 재생 창 세 번째 주인 `listen` 으로 곡을 지금 위치부터 연다 · DJ 만 곡 칸을 쓴다(빈 칸 → 첫 곡 · 곡 끝 → 다음 · 옛 DJ 곡 다음은 내 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시) · 다른 음악이 재생 창을 가져가면 «[다시 듣기]» · 나가면 닫는다(내 플레이리스트는 멈춘 채). 소리 크기 · 음소거는 이 기기(`tw.listenVol` · `tw.listenMute`).
 
-**만드는 법** — app.js 에서 방 입장 모듈보다 먼저 만들고, 플레이리스트 · 상태칩 자리 규칙은 만든 뒤 `connect` 로 잇는다(deps 로 받으면 방 입장 → 같이 듣기 → 플레이리스트 → … 순환):
+**만드는 법** — app.js 에서 방 입장 모듈보다 먼저 만들고, 방 입장 모듈의 «방이 바뀜» 알림(`onRoomChanged` — 들어감 · 나감 · meta)에 `sync` 를 건다. 방 입장 모듈은 같이 듣기를 모른다(deps 로 넘기면 방 입장 → 같이 듣기 → 플레이리스트 → … 순환):
 
 ```js
 const listenUi = TwListenUi.createListenUi({ model: TwListenModel, provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI }),
-  companion: ()=>window.companion, roomCode, meta, isServerRoom, isSecretRoom, myId, memberIds, nameOf, escRegisterWindow, notifyError });
-listenUi.connect({ djItems: ()=>plMod.mine().slice(), stopPersonal: ()=>plMod.stopIfPlaying(), positionPopup: (el, btn)=>statusChipMod._positionCascade(el, btn, 'right') });
+  companion: ()=>window.companion, roomCode, meta, isServerRoom, isSecretRoom, myId, memberIds, nameOf,
+  djItems: ()=>plMod.mine().slice(), stopPersonal: ()=>plMod.stopIfPlaying(), positionPopup: (el, btn)=>statusChipMod._positionCascade(el, btn, 'right'),
+  escRegisterWindow, notifyError });
+// … const roomEntryMod = createRoomEntry({ … })
+roomEntryMod.onRoomChanged(()=>listenUi.sync());
 ```
 
-**내놓는 것** — `sync()`(들어감 · 나감 · meta) · `djId()`(이름표 «🎧 DJ» 딱지 — app.js 가 `setSeatNamePlate` 다섯째 인자로) · `connect`.
+**내놓는 것** — `sync()`(들어감 · 나감 · meta) · `djId()`(이름표 «🎧 DJ» 딱지 — app.js 가 `setSeatNamePlate` 다섯째 인자로).
 
 **함정**
 - 방을 여는 길이 같이 듣기를 정할 때(`setRoomChannel` 의 `fields.music`) 지난 곡 칸을 먼저 지운다 — 방은 통째로 안 지워진다. 시크릿룸은 **주인이 빈 방을 열 때만** 정한다(손님이 들어올 때마다 쓰면 듣던 곡이 지워진다 · F1 «내 시크릿룸을 같이 듣기로 열기» `tw.secretRoomMusic`).
-- 재생 창 «닫힘» 알림은 늦게 올 수 있다 — 내가 닫은 수(`selfCloses`)를 세어 «다른 음악이 이김» 과 가른다.
+- 곡을 열 때 내 플레이리스트 창을 닫지 않는다(닫기는 늦게 끝나 막 연 곡까지 닫는다) — 여는 쪽이 창을 넘겨받고 플레이리스트는 `onBgmMode` 로 진다. 닫는 건 틀 곡이 없거나 멈춤일 때만.
+- 재생 창 «닫힘» 알림은 늦게 올 수 있다 — 내가 닫은 수(`selfCloses`)를 세어 «다른 음악이 이김» 과 가르고, 그 사이 내가 연 곡이 같이 닫혔으면 다시 연다.
+- 이어받은 DJ 가 멈추거나 다시 튼 곡은 쓴 사람(`by`)을 그 DJ 로 바꾼다 — «옛 DJ 가 멈춘 채 나감» 으로 다시 읽혀 멈춤이 바로 풀리지 않게.
+- 다음 곡 쓰기가 막히면 그 차례 표시를 되돌린다(⏭ 로 다시 넘길 수 있게) · 저절로 다시 쓰기는 5초 기다린다.
+- 재생 창 알림은 처음 방에 들어갈 때 건다 — 앱 밖(웹 미리보기 · smoke)에는 companion 이 없다.
 - 같은 곡은 열쇠 `id|at` 로 가린다 — 길이만 적힌 쓰기(at 그대로)는 다시 안 열고, 다시 틀기(at 이 바뀜)는 멈춘 자리에서 새로 연다.
 - 실패 번호: `E-ROOM-05` 쓰기 실패(DJ) · `E-ROOM-06` 못 트는 곡(곡마다 한 번) · `E-ROOM-07` 구독 거부.
 

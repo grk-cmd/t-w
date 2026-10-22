@@ -2768,8 +2768,8 @@
         // open 도 _meta 에 둔다. 방 사람들의 하트비트가 roomIndex 줄을 되살릴 때 여기서 꺼내 싣는다(room-index.js).
         if(open === true || open === false) meta.open = open;
         if(fields) Object.assign(meta, fields);
-        if(fields && 'music' in fields) await remove(ref(db, `rooms/${room}/_music`));   // 같이 듣기 — 방은 통째로 안 지워져 지난 곡이 남는다(docs/LISTEN_TOGETHER.md 2.4)
         await update(ref(db, `rooms/${room}/_meta`), meta);
+        if(fields && 'music' in fields) try{ await remove(ref(db, `rooms/${room}/_music`)); }catch(_){}   // 같이 듣기 — 방은 통째로 안 지워져 지난 곡이 남는다(2.4) · 못 지워도 방은 연다
         const extra = { channel: channel||'workingroom' };
         if(open === true || open === false) extra.open = open;
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게

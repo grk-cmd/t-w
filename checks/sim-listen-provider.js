@@ -61,10 +61,11 @@ say('── 3. firebase-init');
   chk(/subscribeRoomMusic\(room, cb, onErr\)\{ const unsub = onValue\(ref\(db, `rooms\/\$\{room\}\/_music`\), snap => cb\(snap\.val\(\) \|\| null\), onErr\);/.test(FI), '구독은 rooms/{방}/_music 한 칸만(방 전체를 받지 않는다) · 거부는 onErr');
   chk(/async setRoomMusic\(room, music\)\{ try\{ await set\(ref\(db, `rooms\/\$\{room\}\/_music`\), music \|\| null\); return \{ ok:true \}; \}catch\(e\)\{ return \{ ok:false, err:e \}; \} \}/.test(FI), '쓰기는 같은 칸에 set · 실패는 { ok:false, err }');
   const sc = (FI.match(/async setRoomChannel\(room, channel, hostUserId, open, fields\)\{[\s\S]*?\n    \},/) || [''])[0];
-  const iRm = sc.indexOf("if(fields && 'music' in fields) await remove(ref(db, `rooms/${room}/_music`));");
+  const RM = "if(fields && 'music' in fields) try{ await remove(ref(db, `rooms/${room}/_music`)); }catch(_){}";
+  const iRm = sc.indexOf(RM);
   const iUp = sc.indexOf('await update(ref(db, `rooms/${room}/_meta`), meta);');
-  chk(iRm > 0 && iUp > iRm, '★ 방을 열며 같이 듣기를 정하면(music 칸) 지난 곡을 먼저 지우고 _meta 를 쓴다 — 방은 통째로 안 지워진다');
-  chk(!/music/.test(sc.replace("if(fields && 'music' in fields) await remove(ref(db, `rooms/${room}/_music`));", '').replace(/\/\/.*$/gm, '')), '  music 칸이 없는 쓰기(하트비트 · 빈 방 선점)는 곡을 건드리지 않는다');
+  chk(iUp > 0 && iRm > iUp, '★ 방을 열며 같이 듣기를 정하면(music 칸) 지난 곡을 지운다 — 방은 통째로 안 지워진다 · _meta 를 먼저 써서 지우기가 막혀도 방은 열린다');
+  chk(!/music/.test(sc.replace(RM, '').replace(/\/\/.*$/gm, '')), '  music 칸이 없는 쓰기(하트비트 · 빈 방 선점)는 곡을 건드리지 않는다');
 }
 
 say('── 4. 깨 보기');

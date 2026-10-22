@@ -57,6 +57,7 @@ function mk(o, src){
     async write(room, m){ prov.writes.push([room, m]); return { ok: st.writeOk, err: st.writeOk ? undefined : 'denied' }; },
     now: () => st.now };
   const errs = [];
+  let personalStops = 0;
   const w = {};
   new Function('window', 'document', 'localStorage', 'setInterval', 'clearInterval', 'setTimeout', 'clearTimeout', src || SRC)(
     w, dom, ls, (f) => { timers.iv.push(f); return timers.iv.length; }, (id) => { timers.iv[id - 1] = null; },
@@ -65,10 +66,9 @@ function mk(o, src){
     model: MODEL, provider: prov, companion: () => comp,
     roomCode: () => st.code, meta: () => st.meta, isServerRoom: () => st.server, isSecretRoom: () => st.secret,
     myId: () => st.me, memberIds: () => st.members, nameOf: (u) => '닉_' + u,
+    djItems: () => st.items, stopPersonal: () => { if(!st.plPlaying) return false; st.plPlaying = false; personalStops++; return true; }, positionPopup: () => {},
     escRegisterWindow: () => {}, notifyError: (c) => errs.push(c),
   });
-  let personalStops = 0;
-  ui.connect({ djItems: () => st.items, stopPersonal: () => { if(!st.plPlaying) return false; st.plPlaying = false; personalStops++; return true; }, positionPopup: () => {} });
   const tick = () => timers.iv.filter(Boolean).forEach(f => f());
   const push = (m) => prov.subs[prov.subs.length - 1].cb(m);
   const calls = (n) => comp.log.filter(c => c[0] === n);
@@ -87,13 +87,19 @@ say('── 1. 들어감 · 나감');
   t.ui.sync();
   chk(t.prov.subs.length === 1 && t.prov.subs[0].room === 'PLAY-AB12', '★ meta 가 같이 듣기 방이 되면 곡 칸 하나를 구독');
   chk(t.el('myPlBtn').textContent === '🎧' && t.el('myPlBtn').title === '같이 듣기', '  상태칩 🎵 버튼이 🎧 «같이 듣기» 가 된다');
-  chk(t.personalStops() === 1, '★ 들어오면 내 플레이리스트가 멈춘다');
   t.ui.sync();
   chk(t.prov.subs.length === 1, '  같은 방에서 다시 불려도 구독은 하나');
   t.push(song());
+  chk(t.personalStops() === 0 && t.calls('closeBgm').length === 0 && t.calls('openListenTrack').length === 1,
+    '★ 곡이 있으면 내 플레이리스트 창을 닫지 않고 넘겨받는다(닫기는 늦게 끝나 막 연 곡까지 닫는다 — 플레이리스트는 onBgmMode 로 진다)');
   t.st.code = null; t.st.meta = null;
   t.ui.sync();
   chk(t.prov.unsubs === 1 && t.el('myPlBtn').textContent === '🎵', '★ 나가면 구독을 끊고 버튼을 되돌린다');
+  const tq = mk({ plPlaying: true });
+  tq.ui.sync(); tq.push(null);
+  const tp = mk({ plPlaying: true });
+  tp.ui.sync(); tp.push(song({ paused: true, pos: 9 }));
+  chk(tq.personalStops() === 1 && tp.personalStops() === 1, '★ 틀 곡이 없거나 멈춘 방에 들어오면 내 플레이리스트를 멈춘다');
   chk(t.calls('closeBgm').length === 1 && t.calls('openListenTrack').length === 1, '  같이 듣기 곡을 닫는다(내 플레이리스트는 멈춘 채 — 다시 틀지 않는다)');
   t = mk();
   t.st.server = true;
@@ -167,7 +173,28 @@ say('── 3. DJ');
   t.ui.sync();
   t.push(song({ by: 'old', paused: true, pos: 77 }));
   await flush();
-  chk(t.prov.writes.length === 1 && t.prov.writes[0][1].paused === false && MODEL.posOf(t.prov.writes[0][1], T0) === 77, '★ 옛 DJ 가 멈춘 채 나갔으면 새 DJ 가 그 자리부터 다시 튼다');
+  chk(t.prov.writes.length === 1 && t.prov.writes[0][1].paused === false && MODEL.posOf(t.prov.writes[0][1], T0) === 77 && t.prov.writes[0][1].by === 'me', '★ 옛 DJ 가 멈춘 채 나갔으면 새 DJ 가 그 자리부터 다시 튼다(이제 내 곡)');
+  t = mk({ meta: { host: 'me', music: true } });
+  t.ui.sync();
+  t.push(song({ by: 'old' }));
+  t.el('lsPlay').click();
+  await flush();
+  t.push(t.prov.writes[0][1]);
+  await flush();
+  chk(t.prov.writes.length === 1 && t.prov.writes[0][1].paused === true && t.prov.writes[0][1].by === 'me', '★ 이어받은 DJ 가 옛 DJ 곡을 멈추면 멈춘 채로 — «옛 DJ 가 멈춘 채 나감» 으로 다시 풀지 않는다');
+  t = mk({ meta: { host: 'me', music: true } });
+  t.st.writeOk = false;
+  t.ui.sync();
+  t.push(song({ by: 'me', dur: 20 }));
+  t.tick();
+  await flush();
+  t.tick(); t.tick();
+  await flush();
+  chk(t.prov.writes.length === 1, '  쓰기가 막히면 1초 tick 마다 다시 쓰지 않는다(잠깐 기다림)');
+  t.st.writeOk = true;
+  t.el('lsSkip').click();
+  await flush();
+  chk(t.prov.writes.length === 2 && t.prov.writes[1][1].id === B, '★ 다음 곡 쓰기가 실패해도 그 곡에 갇히지 않는다 — ⏭ 로 다시 넘긴다');
   t = mk({ meta: { host: 'me', music: true } });
   t.ui.sync();
   t.push(song({ by: 'me', dur: 20 }));
@@ -213,13 +240,19 @@ say('── 4. 다른 음악이 이김');
 
   t = mk({ plPlaying: true });
   t.ui.sync();
-  t.push(song());
-  t.comp.cb.closed();   // 들어올 때 멈춘 내 플레이리스트 창의 닫힘 알림이 곡을 연 뒤에 온다
-  t.push(song({ id: B, seq: 6 }));
-  chk(t.calls('openListenTrack').length === 2, '★ 내가 멈춘 플레이리스트 창의 «닫힘» 은 이김이 아니다(알림이 늦게 와도)');
+  t.push(null);            // 틀 곡 없음 → 내 플레이리스트를 멈춘다(창 닫기 요청)
+  t.push(song());          // 그 닫힘 알림이 오기 전에 DJ 곡이 와서 연다
+  t.comp.cb.closed();      // 늦은 닫힘 — 막 연 곡도 같이 닫혔다
+  chk(t.calls('openListenTrack').length === 2, '★ 내가 닫은 창의 «닫힘» 이 곡을 연 뒤에 오면 이김이 아니고 · 같이 닫힌 곡을 다시 연다');
+  t.push(song({ paused: true, pos: 40, seq: 6 }));
+  chk(t.calls('pauseBgm').length === 1, '  늦은 닫힘 뒤에도 DJ 멈춤을 따른다');
+  t.st.code = null; t.st.meta = null; t.ui.sync();
+  chk(t.calls('closeBgm').length === 1, '  늦은 닫힘 뒤에도 나가면 같이 듣기 곡을 닫는다');
+  t = mk();
+  t.ui.sync(); t.push(song());
   t.comp.cb.closed();
   t.push(song({ id: C, seq: 7 }));
-  chk(t.calls('openListenTrack').length === 2, '  내가 안 닫은 재생 창이 닫히면 이김으로 본다');
+  chk(t.calls('openListenTrack').length === 1, '  내가 안 닫은 재생 창이 닫히면 이김으로 본다');
 }
 
 say('── 5. 하트비트');
@@ -313,7 +346,8 @@ say('── 7. 창 글 · DJ 딱지');
 say('── 8. 이어 붙인 곳');
 {
   const iL = APP.indexOf('const listenUi = TwListenUi.createListenUi({'), iRe = APP.indexOf('const roomEntryMod = TwRoomEntry.createRoomEntry({');
-  chk(iL > 0 && iRe > iL && /listenUi\.connect\(\{/.test(APP) && /paintRoomInfo: \(\)=>\{ roomInfoUi\.paint\(\); listenUi\.sync\(\); \},/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 · 플레이리스트는 connect 로 · 들어감 · 나감 · meta 때 sync');
+  chk(iL > 0 && iRe > iL && /\nroomEntryMod\.onRoomChanged\(\(\)=>listenUi\.sync\(\)\);/.test(APP) && !/listenUi\.connect/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 · 방 입장 모듈의 «방이 바뀜» 알림에 sync 를 건다(방 입장은 같이 듣기를 모른다)');
+  chk(/function _roomChanged\(\)\{ paintRoomInfo\(\); _roomChangedFns\.forEach\(f => f\(\)\); \}/.test(RE) && (RE.match(/\b_roomChanged\(\);/g) || []).length === 3, '  room-entry: 들어감 · 나감 · meta 세 곳이 알림을 보낸다');
   chk(/provider: TwListenProvider\.createListenProvider\(\{ api: \(\)=>window\.firebaseAPI \}\)/.test(APP) && /stopPersonal: \(\)=>plMod\.stopIfPlaying\(\)/.test(APP), '  provider · 내 플레이리스트 멈추기');
   chk(/stopIfPlaying: \(\)=>\{ if\(_plNow < 0\) return false; _plStop\(\); return true; \}/.test(PL), 'playlist.js: 나고 있을 때만 멈추고 true');
   chk(/setSeatNamePlate\(seat, lv, seat\.friendName\|\|'\(이름 없음\)', st, !!seat\.friendUserId && listenUi\.djId\(\) === seat\.friendUserId\)/.test(APP)

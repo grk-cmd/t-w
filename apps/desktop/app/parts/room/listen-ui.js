@@ -10,7 +10,8 @@
 const VOL_KEY = 'tw.listenVol';     // 기기 설정 — 플레이리스트 음량(tw.playlistVol)과 따로 둔다(방을 나가면 플레이리스트가 제 값으로 연다)
 const MUTE_KEY = 'tw.listenMute';
 const TICK_MS = 1000;
-const SEEK_GAP_MS = 8000;            // 위치 옮기기 사이 최소 간격 — 옮긴 직후 하트비트가 옛 위치를 한 번 더 말해도 또 옮기지 않게
+const SEEK_GAP_MS = 8000;
+const RETRY_MS = 5000;            // 위치 옮기기 사이 최소 간격 — 옮긴 직후 하트비트가 옛 위치를 한 번 더 말해도 또 옮기지 않게
 const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <video> 가 생길 때까지 음량을 다시 보낸다(playlist.js _plApplyVolSoon 과 같은 까닭)
 
 /**
@@ -26,6 +27,9 @@ const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <
  *   myId: () => string|null,
  *   memberIds: () => string[],
  *   nameOf: (uid: string) => string,
+ *   djItems: () => { id: string, title?: string }[],
+ *   stopPersonal: () => boolean,   // 내 플레이리스트가 나고 있었으면 멈추고 true(재생 창이 닫힌다)
+ *   positionPopup: (el: HTMLElement, btn: HTMLElement) => void,
  *   escRegisterWindow: (w: { key: string, el: HTMLElement, isOpen: () => boolean, close: () => void }) => void,
  *   notifyError: (code: string, err?: unknown) => void,
  * }} deps
@@ -41,14 +45,9 @@ const isSecretRoom = deps.isSecretRoom;
 const myId = deps.myId;
 const memberIds = deps.memberIds;
 const nameOf = deps.nameOf;
-/* 플레이리스트 · 상태칩 자리 규칙은 app.js 가 만든 뒤 connect 로 잇는다 — deps 로 받으면 방 입장 → 같이 듣기 → 플레이리스트 → … 로 순환이 된다(sim-dep-cycles).
-   잇기 전(부팅 중)에는 방에 있을 수 없어 불리지 않는다. */
-/** @type {{ djItems: () => { id: string, title?: string }[], stopPersonal: () => boolean, positionPopup: (el: HTMLElement, btn: HTMLElement) => void }|null} */
-let link = null;
-function connect(l){ link = l; }
-const djItems = () => link.djItems();
-const stopPersonal = () => link.stopPersonal();   // 내 플레이리스트가 나고 있었으면 멈추고 true(재생 창이 닫힌다)
-const positionPopup = (el, btn) => link.positionPopup(el, btn);
+const djItems = deps.djItems;
+const stopPersonal = deps.stopPersonal;
+const positionPopup = deps.positionPopup;
 const escRegisterWindow = deps.escRegisterWindow;
 const notifyError = deps.notifyError;
 
@@ -64,6 +63,7 @@ let playerPaused = false;
 let lost = false;         // 다른 음악이 이김 — [다시 듣기] 전까지 재생 창을 안 건드린다
 let selfCloses = 0;       // 내가 닫은 재생 창의 «닫힘» 알림 수 — 그건 «다른 음악이 이김» 이 아니다(알림이 곡을 연 뒤에 올 수 있다)
 let writing = false;
+let retryAt = 0;          // 쓰기가 막힌 뒤 저절로 다시 쓰는 때(1초 tick 마다 거부당하지 않게) — 버튼은 기다리지 않는다
 let advancedSeq = -1;     // 이 차례 번호에서 이미 다음 곡을 썼다(곡 끝 신호 · 예비 판정 · 버튼이 겹쳐도 한 번)
 let errNotified = null;   // 못 트는 곡 알림은 곡마다 한 번
 let lastSeekAt = 0;
@@ -80,19 +80,22 @@ function amDj(){ const me = myId(); return !!me && djId() === me; }
 
 /* ── 재생 창 ── */
 function keyOf(m){ return m ? m.id + '|' + m.at : null; }
-function applyVol(){ try{ companion().setBgmVolume(muted ? 0 : vol / 100); }catch(_){} }
+function applyVol(){ companion().setBgmVolume(muted ? 0 : vol / 100); }
 let volT = [];
 function applyVolSoon(){ volT.forEach(clearTimeout); volT = VOL_RESEND_MS.map(ms => setTimeout(() => { if(owner === 'listen') applyVol(); }, ms)); applyVol(); }
 function closePlayer(){
-  if(owner !== 'listen' || !openedKey) return;
+  if(owner !== 'listen' || !openedKey) return false;
   selfCloses++;
-  try{ companion().closeBgm(); }catch(_){ selfCloses--; }
+  companion().closeBgm();
   owner = null; openedKey = null; playerPaused = false;
+  return true;
 }
+/* 열 곡이 없을 때만 내 플레이리스트를 멈춘다(창을 닫는다). 곡을 열 때는 닫지 않는다 — 닫기는 늦게 끝나서 막 연 곡을 같이 닫는다.
+   여는 쪽이 창을 넘겨받으면 플레이리스트는 onBgmMode 로 제 표시를 내린다(playlist.js). */
+function quietPersonal(){ if(stopPersonal()) selfCloses++; }
 function openPlayer(m){
   const c = companion();
-  if(!(c && c.openListenTrack)) return;
-  try{ c.setBgmLoop(false); }catch(_){}   // 개인 «한 곡 반복» 이 남아 있으면 곡 끝 신호가 안 온다
+  c.setBgmLoop(false);   // 개인 «한 곡 반복» 이 남아 있으면 곡 끝 신호가 안 온다
   c.openListenTrack('https://www.youtube.com/watch?v=' + m.id, m.title, Math.floor(model.posOf(m, now())));
   owner = 'listen'; openedKey = keyOf(m); playerPaused = false; lastSeekAt = Date.now();
   applyVolSoon();
@@ -100,9 +103,10 @@ function openPlayer(m){
 /* 곡 칸 → 재생 창. 다시 틀기는 pos 에서 새로 연다(at 이 바뀌어 다른 열쇠) — 재생 창의 멈춤은 곡을 새로 열면 풀린다. */
 function applyPlayer(){
   if(!room || lost || music === undefined) return;
-  if(!music){ closePlayer(); return; }
+  if(!music){ if(!closePlayer()) quietPersonal(); return; }
   if(music.paused){
-    if(owner === 'listen' && openedKey === keyOf(music) && !playerPaused){ try{ companion().pauseBgm(); }catch(_){} playerPaused = true; }
+    if(owner === 'listen' && openedKey === keyOf(music)){ if(!playerPaused){ companion().pauseBgm(); playerPaused = true; } }
+    else quietPersonal();
     return;
   }
   if(owner === 'listen' && openedKey === keyOf(music)) return;
@@ -110,39 +114,45 @@ function applyPlayer(){
 }
 
 /* ── DJ 쓰기 ── */
+/** 받아졌으면 true — 다른 쓰기 중이라 버렸거나 막혔으면 false */
 async function write(m){
   const r0 = room;
-  if(!r0 || writing) return;
+  if(!r0 || writing) return false;
   writing = true;
   let r = null;
   try{ r = await provider.write(r0, m); }catch(e){ r = { ok: false, err: e }; }
   writing = false;
-  if(room === r0 && !(r && r.ok)) notifyError('E-ROOM-05', r && r.err);
+  const ok = !!(r && r.ok);
+  if(room === r0 && !ok){ retryAt = Date.now() + RETRY_MS; notifyError('E-ROOM-05', r && r.err); }
+  return ok;
 }
 /** 다음(1) · 이전(-1) 곡 — 지금 곡이 옛 DJ 것이면 내 목록 첫 곡부터 · 내 목록이 비면 칸을 지운다(«틀 곡 없음») */
-function advance(dir){
+async function advance(dir){
   if(!amDj() || !music || advancedSeq === music.seq) return;
-  advancedSeq = music.seq;
+  const seq = music.seq;
+  advancedSeq = seq;
   const items = djItems(), me = myId();
   const i = (music.by !== me) ? model.playableFrom(items, 0, 1)
           : model.playableFrom(items, model.stepIndex(items, music.id, dir), dir);
-  write(i >= 0 ? model.makeMusic(items[i], me, now(), music.seq) : null);
+  const ok = await write(i >= 0 ? model.makeMusic(items[i], me, now(), seq) : null);
+  if(!ok && advancedSeq === seq) advancedSeq = -1;   // 못 썼으면 이 차례에서 다시 넘길 수 있게
 }
 /* 내가 DJ 일 때 해야 할 일 — 칸이 비었으면 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시 · 곡이 끝났는데 신호를 못 받았으면 다음 */
 function reconcileDj(){
-  if(!room || music === undefined || loadFailed || writing || !amDj()) return;
+  if(!room || music === undefined || loadFailed || writing || Date.now() < retryAt || !amDj()) return;
   const me = myId();
   if(music === null){
     const items = djItems(), i = model.playableFrom(items, 0, 1);
     if(i >= 0) write(model.makeMusic(items[i], me, now(), -1));
     return;
   }
-  if(music.paused && music.by !== me){ const m = model.resumed(music, now()); if(m) write(m); return; }
+  // 옛 DJ 가 멈춘 채 나감 — 다시 틀며 쓴 사람을 나로 바꾼다(내가 다시 멈춘 곡을 또 풀지 않게)
+  if(music.paused && music.by !== me){ const m = model.resumed(music, now(), me); if(m) write(m); return; }
   if(model.isEnded(music, now())) advance(1);
 }
 function togglePause(){
   if(!amDj() || !music) return;
-  const m = music.paused ? model.resumed(music, now()) : model.paused(music, now());
+  const m = music.paused ? model.resumed(music, now(), myId()) : model.paused(music, now(), myId());
   if(m) write(m);
 }
 
@@ -159,7 +169,7 @@ function onSignal(kind){
   if(!beat) return;
   if(model.needSeek(music, now(), beat) && Date.now() - lastSeekAt >= SEEK_GAP_MS){
     lastSeekAt = Date.now();
-    try{ companion().bgmSeek(Math.floor(model.posOf(music, now()))); }catch(_){}
+    companion().bgmSeek(Math.floor(model.posOf(music, now())));
   }
   if(!beat.ad && amDj() && music.by === myId()){ const m = model.withDur(music, beat.dur); if(m) write(m); }
 }
@@ -170,13 +180,15 @@ function onMode(mode){
 function onClosed(){
   const mine = selfCloses > 0;
   if(mine) selfCloses--;
+  const hadOpen = owner === 'listen';
   owner = null; openedKey = null; playerPaused = false;
-  if(!mine && room && !lost && music && !music.paused){ lost = true; paint(); }
+  // 내가 닫은 창인데 그 사이 내가 곡을 열었으면 그 곡도 같이 닫혔다 — 다시 연다
+  if(mine){ if(hadOpen) applyPlayer(); return; }
+  if(room && !lost && music && !music.paused){ lost = true; paint(); }
 }
 function relisten(){
   if(!room) return;
   lost = false; owner = null; openedKey = null;
-  if(stopPersonal()) selfCloses++;
   applyPlayer();
   paint();
 }
@@ -190,11 +202,22 @@ function onMusic(v){
   paint();
 }
 function onLoadErr(e){ loadFailed = true; notifyError('E-ROOM-07', e); paint(); }
+/* 재생 창 알림은 처음 방에 들어갈 때 건다 — 앱이 아닌 곳(웹 미리보기 · smoke)엔 companion 이 없고, 같이 듣기 방은 앱에서만 들어간다 */
+let bound = false;
+function bindPlayer(){
+  if(bound) return;
+  bound = true;
+  const c = companion();
+  c.onListenSignal(onSignal);
+  c.onBgmMode(onMode);
+  c.onBgmClosed(onClosed);
+}
 function start(code){
-  room = code; music = undefined; loadFailed = false; lost = false; advancedSeq = -1; errNotified = null;
-  if(stopPersonal()) selfCloses++;   // 방에 들어오면 내 플레이리스트는 멈춘다(곡이 있으면 재생 창이 넘어오며 어차피 진다)
+  bindPlayer();
+  room = code; music = undefined; loadFailed = false; lost = false; advancedSeq = -1; errNotified = null; retryAt = 0;
+  // 내 플레이리스트는 곡이 오면 재생 창을 넘겨주며 지고, 틀 곡이 없거나 멈춤이면 applyPlayer 가 멈춘다
   unsub = provider.subscribe(code, onMusic, onLoadErr);
-  tickT = setInterval(() => { reconcileDj(); paintTime(); }, TICK_MS);
+  tickT = setInterval(() => { reconcileDj(); paint(); }, TICK_MS);   // DJ · 사람 수가 meta 없이 바뀌어도 창 글이 따라가게
 }
 function stop(){
   if(unsub){ try{ unsub(); }catch(_){} }
@@ -295,14 +318,8 @@ if(box && plBtn){
   });
   escRegisterWindow({ key: 'listen', el: box, isOpen, close: closeWin });
 }
-{
-  const c = companion();
-  if(c && c.onListenSignal) c.onListenSignal(onSignal);
-  if(c && c.onBgmMode) c.onBgmMode(onMode);
-  if(c && c.onBgmClosed) c.onBgmClosed(onClosed);
-}
 
-return { sync, djId, connect };
+return { sync, djId };
 }
 
 window.TwListenUi = { createListenUi };

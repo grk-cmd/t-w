@@ -200,7 +200,7 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(/import \{ createRoomIndex \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-index\.js";/.test(CODE) && /import \{ createRoomStats \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-stats\.js";/.test(CODE), 'room-index.js · room-stats.js 를 import 한다');
     chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
     chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
-    chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*if\(fields\) Object\.assign\(meta, fields\);\s*(?:if\(fields && 'music' in fields\) await remove\([^\n]*\s*)?await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
+    chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*if\(fields\) Object\.assign\(meta, fields\);\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
     chk(/async getRoomCounts\(opts\)\{\s*if\(opts && opts\.quick\)\{\s*const qc = await _roomStats\.counts\(\);/.test(CODE), 'getRoomCounts 는 quick 일 때만 roomStats 를 본다');
     chk((CODE.match(/_roomStats\./g) || []).length === 2, 'roomStats 를 쓰는 자리는 quick 카운트 · 구독 둘뿐');
     chk(/createRoomStats\(\{ db, ref, get, onValue, now: \(\) => _svNow\(\) \}\)/.test(CODE) && /watchRoomCounts\(cb\)\{ return _roomStats\.watch\(cb\); \}/.test(CODE), 'firebaseAPI.watchRoomCounts 로 구독을 연다 · 신선도는 서버 기준 시각(_svNow)');
