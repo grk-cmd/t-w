@@ -377,17 +377,18 @@ function part4(){
         "const _plMine=()=>_plSets[_plCur].items; const _plSave=()=>{ env.saved++; }; const _plPublish=()=>{ env.published++; }; const _plRender=()=>{};\n" +
         /* app.js 는 plMod 로 부른다(앱 FSD 16번) — 함수는 아래에서 떼어 온 진짜 관문 · 지문, 상태는 위 let */
         "const plMod={ PL_MAX, PL_TITLE_MAX, PL_BIO_MAX, normalizeSets:(...a)=>_plNormalizeSets(...a), setIdx:(...a)=>_plSetIdx(...a), pubSigOf:(...a)=>_plPubSigOf(...a),\n" +
-        "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), markSynced:()=>{ env.marked = 'push'; }, adoptServer:(r)=>{ env.adopted = r; _plSets = _plNormalizeSets(r.sets); _plBio = String(r.bio || ''); _plHomePublic = !!r.homePublic; _plPubSig = 'adopted'; _plSave(); _plRender(); }, st:" + PL_ST_ALL + " };\n" +
+        "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), markSynced:()=>{ env.marked = 'push'; }, resetSync:()=>{ env.reset = (env.reset || 0) + 1; env.resetBeforeFetch = !env.fetched; }, bootSync:()=>{ env.boot = (env.boot || 0) + 1; }, adoptServer:(r)=>{ env.adopted = r; _plSets = _plNormalizeSets(r.sets); _plBio = String(r.bio || ''); _plHomePublic = !!r.homePublic; _plPubSig = 'adopted'; _plSave(); _plRender(); }, st:" + PL_ST_ALL + " };\n" +
         "const getMyUserId=()=>'uB'; const gachaMod={ syncGachaToServer:async()=>{ env.gachaPull++; }, isInvOpen:()=>false, renderGachaInv(){} }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
         [fNorm, fBlank, fIdx, fSig, fRestore].join('\n') +
         "\nreturn async()=>{ await _restoreOwnedDataAfterTransfer(); return { sets:_plSets, cur:_plCur, bio:_plBio, pub:_plHomePublic, sig:_plPubSig }; };");
-      const api = { fetchMyPlaylistSets: async () => ({ sets: r.sets, bio: r.bio, homePublic: r.homePublic, ts: 4321 }), fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
+      const api = { fetchMyPlaylistSets: async () => { env.fetched = true; return { sets: r.sets, bio: r.bio, homePublic: r.homePublic, ts: 4321 }; }, fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
       const out = await run(env, { firebaseAPI: api }, api)();
       chk(out.sets.length === 3 && out.sets[0].name === 'A' && out.sets[0].items[0].url === 'https://www.youtube.com/watch?v=v1' && out.sets[2].items.length === 2, '★ 복원 뒤 로컬이 세 벌 다 서버 것 — 옛 프리셋이 안 남는다');
       chk(out.sets[1].items.length === 0, '  서버가 빈 벌은 로컬도 빈다 (이 기기 옛 목록으로 채우지 않는다)');
       chk(out.bio === 'hey' && out.pub === true && env.saved === 1, '  한마디·공개 여부 복원 + 저장 1회');
       chk(typeof out.sig === 'string' && env.published === 0, '  지문을 맞춰 두어 헛쓰기(_plPublish)가 안 나간다');
       chk(env.adopted && env.adopted.ts === 4321 && env.marked === undefined, '  ☁️ 받은 사본을 그대로 adoptServer 에 넘긴다(고친 시각 · 백업은 그쪽 몫)');
+      chk(env.reset === 1 && env.resetBeforeFetch === true && !env.boot, '  ☁️ 읽기 전에 이 기기를 새 기기로(resetSync) — 앞 uid 의 고친 시각이 새 계정 목록을 이기지 않게');
       chk(env.gachaPull === 1 && env.slotsPull === 1, '  가챠·슬롯 pull 은 그대로 이어서 돈다');
       /* 서버가 비었고 로컬에 곡이 있으면 올린다 */
       const env2 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
@@ -397,7 +398,7 @@ function part4(){
       const env3 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
       const api3 = { fetchMyPlaylistSets: async () => null };
       const out3 = await run(env3, { firebaseAPI: api3 }, api3)();
-      chk(out3.sets[0].items[0].id === 'z' && env3.published === 0 && env3.marked === undefined, '  못 읽었으면 올리지 않는다(모르는 채 덮어쓰지 않게 — 부팅 맞추기가 다시 본다)');
+      chk(out3.sets[0].items[0].id === 'z' && env3.published === 0 && env3.marked === undefined && env3.reset === 1 && env3.boot === 1, '  못 읽었으면 올리지 않고 새 기기처럼 다시 맞춘다(resetSync · bootSync)');
     })();
   }catch(err){ huh('4절 실행 오류: ' + (err && err.message || err)); }
 }

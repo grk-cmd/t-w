@@ -508,6 +508,19 @@ async function behave(src){
       await m.bootSync(); await e.advance(3100);
       chk(m.state().sets[0].items.length === 3 && e.count('publish') === 0 && e.count('removePl') === 0, '  계정을 놓은 뒤 — 다음 계정 서버 목록을 받는다(빈 목록으로 덮지 않는다)');
     }
+    // ⑬ 계정 이어받기 중 서버를 못 읽었다 — 앞 uid 의 고친 시각(메모리 · 저장)이 남지 않아 다시 맞출 때 새 계정 목록을 받는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
+      m.markSynced();
+      m.resetSync();   // account.js — 이어받기 시작
+      const a = e.store.get('tw.playlistEditTs') === undefined || e.store.get('tw.playlistEditTs') === null;
+      m.st.sets[0].items.pop(); m.save(); await e.advance(3100);
+      const b = e.count('publish') === 0;   // 맞추기 전 — 고쳐도 새 계정 서버에 안 올린다
+      e.srv = srvOf(3, 5000);
+      await m.bootSync(); await e.advance(3100);
+      chk(a && b && m.state().sets[0].items.length === 3 && e.count('publish') === 0 && !!e.store.get('tw.playlistBackup'),
+        '  이어받기 중 못 읽음 — 고친 시각 키까지 지워 다시 맞출 때 새 계정 목록을 받는다(이 기기 것은 백업)');
+    }
   }
   {
     const e = E({ noApi: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
@@ -656,11 +669,12 @@ async function runAll(PL, APP, HTML){
     ['PL', '  if(!_plReadOnly()) return;                       // 내 목록에서는', '  // 내 목록에서는', '내 목록에서 담기가 됨'],
     ['PL', '      if(sig === _plPubSig) return;', '', '안 바뀌어도 서버에 씀'],
     ['PL', '  if(!_plSynced) return;   // 서버 사본과 맞추기 전', '  // 서버 사본과 맞추기 전', '맞추기 전에 서버에 올림'],
-    ['PL', '    if(_plNow >= 0){ if(_plDecideTs === null) _plDecideTs = _plEditTs; again(); return; }', '    if(false){ again(); return; }', '재생 중에 목록을 바꿈'],
+    ['PL', '    if(_plNow >= 0){ again(); return; }', '    if(false){ again(); return; }', '재생 중에 목록을 바꿈'],
     ['PL', '    if(sig !== _plSavedSig){', '    if(true){', '기기 설정만 바꿔도 고친 시각이 오름'],
     ["PL", "  if(act === 'retry'){ again(); return; }", "  if(act === 'retry') return;", '못 읽으면 다시 안 봄'],
     ['PL', "    try{ localStorage.setItem('tw.playlistBackup',", "    try{ localStorage.setItem('tw.noBackup',", '받기 전 백업이 빠짐'],
-    ['PL', '  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = null;', '  _plSyncTry = 0; _plDecideTs = null;', '계정을 놓아도 고친 시각이 남음'],
+    ['PL', '  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = 0;', '  _plSyncTry = 0;', '계정을 놓아도 고친 시각이 남음'],
+    ['PL', "  try{ localStorage.removeItem('tw.playlistEditTs'); }catch(_){}\n", '', '이어받기 때 저장된 고친 시각이 남음'],
     ['PL', '_plDecideTs !== null ? _plDecideTs : _plEditTs', '_plEditTs', '받기를 미루는 사이 고치면 판단이 뒤집힘'],
     ['PL', '_plEditTs = Math.max(Date.now(), _plEditTs + 1);', '_plEditTs = Date.now();', '늦은 시계가 받은 목록 위에서 고친 것을 «더 이르다» 로'],
     ['PL', "  }, 3000);\n}", '  }, 0);\n}', '서버 사본 debounce 가 없음'],

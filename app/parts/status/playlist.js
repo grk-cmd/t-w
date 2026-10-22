@@ -416,6 +416,7 @@ function _plLoad(){
     _plPrivate    = localStorage.getItem('tw.playlistPrivate') === '1';
     _plMini = localStorage.getItem('tw.playlistMini') === '1';
     _plEditTs = Math.max(0, Number(localStorage.getItem('tw.playlistEditTs')) || 0);
+    _plDecideTs = _plEditTs;
   }catch(_){ _plSets = _plBlankSets(); _plCur = 0; _plNowSet = 0; }
   _plSavedSig = _plServerShape().sig;
 }
@@ -481,7 +482,7 @@ function _plServerShape(){
 /* ☁️ 부팅 때 한 번 — 서버 사본과 이 기기 목록을 맞춘다(규칙은 playlist-sync.js).
    못 읽었거나 계정이 아직 없으면 늘려 가는 간격으로 다시. 재생 중이면 목록을 바꾸지 않고 기다린다(듣던 곡이 사라지지 않게). */
 let _plSyncTry = 0;
-let _plDecideTs = null;   // 받기를 미룬 동안 쓰는 «그때의 이 기기 시각» — 미루는 사이 고쳐도 판단이 «이 기기가 나중» 으로 뒤집히지 않게
+let _plDecideTs = null;   // 맞추기 판단에 쓰는 이 기기 시각 — 불러온 때(또는 계정을 놓은 때) 것으로 묶는다. 맞추기 전에 고쳐도(미루는 동안 · 이어받기 직후) «이 기기가 나중» 으로 뒤집히지 않게(고친 것은 받기 전 백업에)
 async function _plBootSync(){
   if(_plSynced) return;
   const again = () => { setTimeout(_plBootSync, plSync.retryDelay(_plSyncTry++)); };
@@ -494,16 +495,12 @@ async function _plBootSync(){
   const act = plSync.decide(srv, _plDecideTs !== null ? _plDecideTs : _plEditTs, plSync.countItems(local.sets) > 0);
   if(act === 'retry'){ again(); return; }
   if(act === 'adopt'){
-    if(_plNow >= 0){ if(_plDecideTs === null) _plDecideTs = _plEditTs; again(); return; }   // 그사이 고친 것은 받기 전 백업에 남는다
+    if(_plNow >= 0){ again(); return; }
     _plAdoptServer(srv);
     return;
   }
-  _plSynced = true; _plDecideTs = null;
-  if(act === 'none'){ _plPubSig = local.sig; return; }
-  if(!_plEditTs){   // 시각 모르는 이 기기 것을 올린다 — 올리는 시각을 이 기기에도 적어 다음 부팅에 같은 목록을 다시 받지 않게
-    _plEditTs = Date.now();
-    try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
-  }
+  if(act === 'none'){ _plSynced = true; _plDecideTs = null; _plPubSig = local.sig; return; }
+  _plMarkSynced();
   _plPublish();
 }
 /* ☁️ 서버 사본을 이 기기에 앉힌다 — 부팅 맞추기 · 계정 연동(account.js)이 같은 한 벌을 부른다.
@@ -526,11 +523,19 @@ function _plAdoptServer(srv){
   _plSave();
   _plRender();
 }
-/* ☁️ 계정 연동이 «저쪽 서버가 비었으니 이 기기 것을 올린다» 로 맞춤을 끝냈다 */
-function _plMarkSynced(){ _plSynced = true; }
-/* ☁️ 계정을 놓았다(로그아웃 · 갈아타기) — 이 기기는 «새 기기» 와 같다. 앞 계정의 고친 시각이 다음 계정 목록을 이기지 않게 */
+/* ☁️ «이 기기 것을 올린다» 로 맞춤을 끝냈다(부팅 맞추기 · 계정 연동).
+   시각 모르는 이 기기 것이면 올리는 시각을 이 기기에도 적는다 — 다음 부팅에 같은 목록을 다시 받지 않게 */
+function _plMarkSynced(){
+  _plSynced = true; _plDecideTs = null;
+  if(!_plEditTs){
+    _plEditTs = Date.now();
+    try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
+  }
+}
+/* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 이 기기는 «새 기기» 와 같다. 앞 계정의 고친 시각(메모리 · 저장)이 다음 계정 목록을 이기지 않게 */
 function _plResetSync(){
-  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = null;
+  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = 0;
+  try{ localStorage.removeItem('tw.playlistEditTs'); }catch(_){}
   _plSavedSig = _plServerShape().sig;
 }
 /* 서버에 올린 내용의 지문 — **만드는 자리가 둘**이다(_plPublish · 계정 이어받기 복원).

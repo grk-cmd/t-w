@@ -782,16 +782,20 @@ async function _restoreOwnedDataAfterTransfer(){
        세 벌을 다 받아야 «돌아오면 그대로» 가 성립한다.
        ⚠️ 구버전 firebaseAPI(fetchMyPlaylistSets 없음)에서는 예전 길(fetchPlaylistOf)로 물러난다. */
     if(window.firebaseAPI && firebaseAPI.fetchMyPlaylistSets){
-      const r = await firebaseAPI.fetchMyPlaylistSets(uid);   // {sets,bio,homePublic} | null
+      /* 이어받기 전 이 기기는 «새 기기» — 앞 uid 의 고친 시각이 남으면 못 읽었을 때 다음 맞추기에서 새 계정 목록을 덮는다
+         (옛 uid 주인이 없는 갈아타기는 _wipeAccountLocal 을 안 거친다) */
+      plMod.resetSync();
+      const r = await firebaseAPI.fetchMyPlaylistSets(uid);   // {sets,bio,homePublic,editTs} | null
       const total = r && Array.isArray(r.sets) ? r.sets.reduce((n, s) => n + ((s && s.items) ? s.items.length : 0), 0) : 0;
       if(total){
         plMod.adoptServer(r);   // 앉히기 · 백업 · 고친 시각 · 지문 · 저장 · 그리기 — 부팅 맞추기와 한 벌(playlist.js)
       } else if(r && pl.sets.some(ps => ps && ps.items && ps.items.length)){
         // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
-        // ⚠️ 못 읽었으면(r === null) 올리지 않는다 — 모르는 채 올리면 덮어쓰기다. 부팅 맞추기(playlist.js)가 다시 본다.
         plMod.markSynced();
         pl.pubSig = null;
-        if(typeof plMod.publish === 'function') plMod.publish();
+        plMod.publish();
+      } else if(!r){
+        plMod.bootSync();   // 못 읽었다 — 올리지 않고 새 기기처럼 다시 맞춘다(늘려 가는 간격)
       }
     } else if(window.firebaseAPI && firebaseAPI.fetchPlaylistOf){
       const r = await firebaseAPI.fetchPlaylistOf(uid);   // 비어 있으면 null
