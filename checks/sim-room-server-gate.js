@@ -293,6 +293,17 @@ const ls = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     chk(ri > 0 && FC.indexOf('roomAlive/${room}/${memberId}', ri) > ri, '💓 roomAlive 하트비트는 Firebase joinRoom 안에만 — 서버 방(provider.join)에서는 돌지 않는다');
   }
 
+  say('── 읽기 없이 — 방 서버를 쓸 수도 있는 판인가(serverPossible · 방 만들기 창의 같이 듣기 칸)');
+  {
+    const off = mkGate({ [C + '/on']: false });
+    chk(off.gate.serverPossible() === false && off.cfgCalls() === 0 && off.reads.length === 0 && off.me.length === 0, '★ 방 서버를 안 쓰는 판이면 false — 원격 설정 · 허용 목록을 다시 묻지 않는다');
+    chk(mkGate(base()).gate.serverPossible() === true, '  쓰는 판(옛 on · sources.rooms)이면 true — 그때만 «내 서버» 를 묻는다');
+    chk(mkGate(base(), { source: 'firebase' }).gate.serverPossible() === false && mkGate({ [C + '/on']: false }, { source: 'server' }).gate.serverPossible() === true, '  sources.rooms 가 옛 on 보다 먼저(받는 곳 고르기 한 곳)');
+    chk(mkGate({ [C + '/on']: false }, { env: 'dev', storage: ls({ 'tw.roomServer': '1' }) }).gate.serverPossible() === true
+      && mkGate({ [C + '/on']: false }, { env: 'prod', storage: ls({ 'tw.roomServer': '1' }) }).gate.serverPossible() === false, '  개발용 켜기는 dev 앱에서만');
+    chk(/roomServerPossible\(\)\{ return _roomServerGate\.serverPossible\(\); \}/.test(FI), '  firebaseAPI.roomServerPossible 로 내놓는다');
+  }
+
   say(fail ? `\n✗ 실패 ${fail}건` : `\n전부 통과 ✅ (${pass}건)`);
   process.exit(fail ? 1 : 0);
 })().catch((err) => { chk(false, '실행 오류 — ' + (err && err.stack)); say(`\n✗ 실패 ${fail}건`); process.exit(1); });

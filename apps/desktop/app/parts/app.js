@@ -6850,6 +6850,7 @@ const listenUi = TwListenUi.createListenUi({
   djItems: ()=>plMod.mine().slice(),
   stopPersonal: ()=>plMod.stopIfPlaying(),
   positionPopup: (el, btn)=>statusChipMod._positionCascade(el, btn, 'right'),
+  closeChipPopups: (id)=>chipPopupsMod._closeChipPopups(id),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
@@ -6924,6 +6925,7 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
+  serverRoomLikely: ()=>roomEntryMod.roomServerCheck(),
 });
 // 🗂️ 방 목록 로비 — 목록 사본 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
 TwRoomLobbyUi.createRoomLobbyUi({

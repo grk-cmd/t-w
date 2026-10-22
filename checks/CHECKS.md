@@ -133,8 +133,8 @@
 | **sim-room-info-ui.js** | 197 | **5b0e1b58612a** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 82 | **bd2860e92a36** |
-| **sim-listen-ui.js** | 391 | **206144af3b37** |
-| **sim-room-settings.js** | 218 | **4b2e3f0cc7e2** |
+| **sim-listen-ui.js** | 394 | **6d7bd79c036d** |
+| **sim-room-settings.js** | 240 | **7463abdf93af** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
@@ -145,7 +145,7 @@
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-server-net.js** | 838 | **9cd5dbe99496** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
-| **sim-room-server-gate.js** | 298 | **2646f32ca2ab** |
+| **sim-room-server-gate.js** | 309 | **39d158c2f7e6** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 308 | **62235f6b38d0** |
 | **sim-app-version-gate.js** | 177 | **92374665c4d9** |
@@ -316,7 +316,7 @@
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **9e6d39720b41** |
 | **sim-desktop-run.js** | 94 | **0a2ae4d1ff26** |
-| **sim-room-entry.js** | 164 | **08315f7dc49a** |
+| **sim-room-entry.js** | 184 | **4fc135abc2f8** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
 | **sim-status-chip.js** | 102 | **edc2ce249dbb** |
@@ -415,7 +415,7 @@
 | **sim-seat-model-load.js** | 194 | **7ff56380f12a** |
 | **sim-seat-panel.js** | 163 | **2f9bad25ac96** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
-| **sim-chip-popups.js** | 128 | **f9e9fcf20acd** |
+| **sim-chip-popups.js** | 128 | **e21adf9aca11** |
 | **sim-rules-keys.js** | 308 | **9e2236694f01** |
 | **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |

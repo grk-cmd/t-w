@@ -158,5 +158,8 @@ export function createRoomServerGate(deps){
     return mine;
   }
 
-  return { resolveRoomServer, refreshMine, mine: () => mine, serverUrl };
+  /* 읽기 없이 — 방 서버를 쓸 수도 있는 판인가(개발용 켜기 · 원격 설정 사본의 sources.rooms). false 면 resolveRoomServer 도 늘 Firebase 다. */
+  function serverPossible(){ return !!devOverride(env, deps.storage) || pickSource() === 'server'; }
+
+  return { resolveRoomServer, refreshMine, mine: () => mine, serverUrl, serverPossible };
 }

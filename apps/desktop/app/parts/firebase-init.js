@@ -630,6 +630,7 @@
       return r;
     },
     roomServerMineNow(){ return _roomServerGate.mine(); },
+    roomServerPossible(){ return _roomServerGate.serverPossible(); },   // 읽기 없이 — 방 서버를 쓸 수도 있는 판인가
     // 방 개수 · 랜덤 입장 — «내 서버»(허용 목록 · 기본 서버 비율) 만. 없으면 null.
     async roomServerMine(refresh){
       const m = refresh ? await _roomServerGate.refreshMine() : _roomServerGate.mine();

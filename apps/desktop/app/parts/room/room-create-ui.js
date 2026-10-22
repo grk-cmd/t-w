@@ -13,6 +13,7 @@
  *   rcStore: () => { bannedWords(): string[] },
  *   maxPeople: () => number,
  *   isLicensed: () => boolean,
+ *   serverRoomLikely: () => Promise<boolean>,   // 새 방이 방 서버로 갈 것인가 — 방 서버는 아직 같이 듣기를 모른다(docs/LISTEN_TOGETHER.md 5장)
  *   onCreate: (channel: string, settings: { title: string, max: number, open: boolean, music: boolean }) => void,
  * }} deps
  */
@@ -22,11 +23,13 @@ const bannedWords = deps.bannedWords;
 const rcStore = deps.rcStore;
 const maxPeople = deps.maxPeople;
 const isLicensed = deps.isLicensed;
+const serverRoomLikely = deps.serverRoomLikely;
 const onCreate = deps.onCreate;
 
 const $ = (id) => document.getElementById(id);
 let channel = 'workingroom';
 let max = 0;
+let openSeq = 0;   // 창을 다시 열었으면 지난 «내 서버» 확인 결과는 버린다
 
 function paint(){
   $('rcChWorking').classList.toggle('on', channel === 'workingroom');
@@ -54,6 +57,13 @@ function open(ch){
   $('rcTitle').value = '';
   $('rcOpen').checked = true;
   $('rcMusic').checked = false;   // 만든 뒤엔 못 바꾸니 늘 꺼진 채로 연다(docs/LISTEN_TOGETHER.md 1장)
+  // 방 서버 방에서는 켜도 아무 일 없는 칸이라 숨긴다 — 확인이 끝날 때까지는 숨겨 둔다
+  $('rcMusicRow').hidden = true;
+  const seq = ++openSeq;
+  serverRoomLikely().then((server) => {
+    if(seq !== openSeq || $('roomCreatePanel').hidden) return;
+    $('rcMusicRow').hidden = server;
+  });
   showError('');
   setShown(true);
   paint();
@@ -65,7 +75,7 @@ function submit(){
   const r = roomSettings.checkTitle($('rcTitle').value, bannedWords.cleanBannedList(rcStore().bannedWords()), bannedWords);
   if(!r.ok){ showError(roomSettings.TITLE_ERROR_TEXT[r.reason]); $('rcTitle').focus(); return; }
   close();
-  onCreate(channel, { title: r.title, max: roomSettings.clampMax(max, maxPeople()), open: $('rcOpen').checked, music: $('rcMusic').checked });
+  onCreate(channel, { title: r.title, max: roomSettings.clampMax(max, maxPeople()), open: $('rcOpen').checked, music: !$('rcMusicRow').hidden && $('rcMusic').checked });
 }
 
 $('rcChWorking').onclick = () => { channel = 'workingroom'; paint(); };

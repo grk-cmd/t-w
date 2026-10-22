@@ -69,6 +69,12 @@ function _roomServerNet(){
 function _roomServerOn(){
   try{ return !!(_roomServerNet() && firebaseAPI.roomServerMineNow && firebaseAPI.roomServerMineNow()); }catch(_){ return false; }
 }
+/* 방 만들기 창이 열릴 때 — 방 서버를 안 쓰는 판이면 읽기 없이 false(대부분 사용자) · 쓰는 판이면 «내 서버» 를 다시 묻는다
+   (앱을 켠 뒤 아직 한 번도 안 물었으면 마지막 값이 비어 있다 — 랜덤 참여와 같은 길) */
+async function _roomServerCheck(){
+  if(!_roomServerNet()) return false;
+  try{ return firebaseAPI.roomServerPossible() && !!(await firebaseAPI.roomServerMine(true)); }catch(_){ return false; }
+}
 /* 서버 meta { channel, host(userId), open, chatOff, secret } → Firebase _meta 리스너가 하던 것과 같은 자리로 */
 function _onServerRoomMeta(meta, prev){
   window._roomMetaCache = meta;
@@ -1343,6 +1349,7 @@ return {
   startRoom,
   syncFriendSeats,
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
+  roomServerCheck: _roomServerCheck,   // 새 방이 방 서버로 갈 것인가(«내 서버» 를 다시 확인) — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }
 
