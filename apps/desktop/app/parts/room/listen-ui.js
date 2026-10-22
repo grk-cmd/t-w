@@ -3,15 +3,16 @@
    ・지금 DJ = 방에 있는 현재 방장(listen-model djOf). 곡을 쓰는 건 DJ 한 사람뿐 — 듣는 사람은 따라 틀기만.
    ・재생 창은 마이홈 BGM · 플레이리스트와 하나를 나눠 쓴다(나중에 연 쪽이 이김). 다른 쪽이 이기면 «다른 음악이 이김 [다시 듣기]».
    ・창은 #myStatusChip 안에 있어야 실행 화면에서 클릭이 뒤로 새지 않는다(#myPlaylistBox 와 같은 까닭).
-   classic script(window.TwListenUi) — app.js 가 방 입장 모듈보다 먼저 createListenUi(deps) · 방 입장 모듈이 paintRoomInfo 를 부르는 자리(들어감 · 나감 · meta)에서 sync.
+   classic script(window.TwListenUi) — app.js 가 방 입장 모듈보다 먼저 createListenUi(deps) · 방 입장 모듈의 «방이 바뀜» 알림(roomEntryMod.onRoomChanged — 들어감 · 나감 · meta)에 sync 를 건다.
+   방 입장 모듈이 이 모듈을 deps 로 받으면 방 입장 → 같이 듣기 → 플레이리스트 → … 순환이라 방향을 뒤집어 둔다(sim-dep-cycles).
    검사: checks/sim-listen-ui.js */
 (function(){
 
 const VOL_KEY = 'tw.listenVol';     // 기기 설정 — 플레이리스트 음량(tw.playlistVol)과 따로 둔다(방을 나가면 플레이리스트가 제 값으로 연다)
 const MUTE_KEY = 'tw.listenMute';
 const TICK_MS = 1000;
-const SEEK_GAP_MS = 8000;
-const RETRY_MS = 5000;            // 위치 옮기기 사이 최소 간격 — 옮긴 직후 하트비트가 옛 위치를 한 번 더 말해도 또 옮기지 않게
+const SEEK_GAP_MS = 8000;            // 위치 옮기기 사이 최소 간격 — 옮긴 직후 하트비트가 옛 위치를 한 번 더 말해도 또 옮기지 않게
+const RETRY_MS = 5000;               // 쓰기가 막힌 뒤 저절로 다시 쓰기까지 — 1초 tick 마다 거부당하지 않게(버튼은 기다리지 않는다)
 const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <video> 가 생길 때까지 음량을 다시 보낸다(playlist.js _plApplyVolSoon 과 같은 까닭)
 
 /**
