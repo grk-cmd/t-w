@@ -393,8 +393,7 @@ else:
 section('검사 9 · RTDB 비용 회귀 가드 (rooms 전체 읽기 재발 방지)')
 ok9 = True
 # (a) 최상위 노드 "통째" 실시간 구독 — rooms는 절대 금지, 그 외도 허용 목록만
-_ALLOW_SUB = {'licenseRequests', 'roomStats'}   # 기존부터 있던 소형·관리자성 구독
-# roomStats = 서버가 세어 둔 방 개수 세 칸(수십 바이트). 방 창이 열려 있는 동안만 구독한다(room-stats.js watch).
+_ALLOW_SUB = {'licenseRequests'}   # 기존부터 있던 소형·관리자성 구독
 for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_code):
     _n = _mm.group(1)
     if _n not in _ALLOW_SUB:
@@ -404,10 +403,8 @@ for _mm in re.finditer(r"onValue\(ref\(db,\s*[`'\"]([^`'\"/$]+)[`'\"]", html_cod
         ok9 = False
 # (b) 최상위 노드 통째 get() — 알려진 기준선 초과 시 경보 (기준: 패치 시점)
 _BASELINE_GET = {'rooms': 3, 'users': 2, 'licenses': 2, 'parties': 1, 'roomIndex': 99,
-                 'friendCodes': 2, 'reports': 1, 'roomStats': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
+                 'friendCodes': 2, 'reports': 1, 'roomAlive': 1}   # rooms 3곳 = 관리자 함수만(카운트 폴백 제거됨)
 # roomAlive 1곳 = 💓 cleanGhostRooms(관리자 전용 · 버튼 누를 때 1회 · 규칙상 관리자만 읽힘). 멤버당 숫자 하나(수십 바이트).
-# roomStats 1곳 = room-stats.js read() — 서버가 세어 둔 방 개수 요약(수백 바이트).
-#   30초 폴링이 roomIndex(약 24KB) 대신 이걸 읽는다. 늘어나면 같은 요약을 두 번 읽는 자리가 생긴 것.
 # reports 1곳 = 🚩 listReports(관리자 전용 · [신고 목록] 버튼 누를 때 1회 · 규칙상 관리자만 읽힘 · 2026-09-23 개정 60).
 # friendCodes 2곳 = 🎟️ grantInvitesAll · invite-revoke.js 전체 회수(둘 다 관리자 전용, 버튼 누를 때 1회).
 #   users 전체 읽기는 규칙상 거부되므로(.read는 users/$userId에만 존재) uid 목록을 얻는 대체 인덱스로 사용.

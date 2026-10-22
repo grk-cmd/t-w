@@ -37,7 +37,6 @@
   import { createGhostHeal } from "./room/room-ghost-heal.js";
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor, hostSuccession } from "./room/room-channel.js";
-  import { createRoomStats } from "./room/room-stats.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
@@ -412,7 +411,6 @@
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
-  const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
@@ -2678,16 +2676,8 @@
           → 구버전 클라이언트가 연 방(인덱스 미기록)도 정확히 세면서 rooms "전체 트리"는 절대 안 읽음.
           → 전 사용자가 업데이트되면 2)는 대상 0건이 되어 비용 없이 은퇴한다.
        lastSeen 90초 기준(하트비트 30초×3회 유실)은 화면 멤버 필터와 동일.
-       반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null)
-       opts.quick: 화면 표시용. 서버가 세어 둔 roomStats 를 먼저 보고, 없으면 아래처럼 직접 센다.
-         최대 1분 늦고 2) 프로브를 안 타므로 정원 검사에는 쓰지 않는다. */
-    // 방 창이 열려 있는 동안 roomStats 를 구독한다. cb(counts | null), 돌려주는 함수로 끊는다.
-    watchRoomCounts(cb){ return _roomStats.watch(cb); },
-    async getRoomCounts(opts){
-      if(opts && opts.quick){
-        const qc = await _roomStats.counts();
-        if(qc) return qc;
-      }
+       반환: { total, workingroom, togetherroom } (모든 소스 실패 시 각 null) — 정원 · 방 만들기 상한 검사(getRoomCount)가 쓴다 */
+    async getRoomCounts(){
       const now = _svNow(); const STALE = 90*1000;
       const out = { total:0, workingroom:0, togetherroom:0 };
       let anySource = false;
