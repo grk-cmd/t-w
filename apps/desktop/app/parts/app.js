@@ -2668,6 +2668,7 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
   storage: localStorage,
   setTimer: (fn, ms)=>setTimeout(fn, ms),
+  deviceSessionLost: ()=>firebaseAPI.deviceSessionLost(),
 });
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,

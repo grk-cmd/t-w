@@ -30,6 +30,7 @@ function startOnline(p){ return !(p && p.lock === true && p.online === false); }
  *   setPresence: (uid: string, online: boolean) => unknown,
  *   storage: { getItem: (k: string) => string | null, setItem: (k: string, v: string) => void },
  *   setTimer: (fn: () => void, ms: number) => unknown,
+ *   deviceSessionLost: () => boolean,   // 다른 기기에 밀렸으면 접속 표시는 이긴 쪽 것
  * }} deps */
 function createPresenceLock(deps){
   const getMyUserId = deps.getMyUserId;
@@ -37,6 +38,7 @@ function createPresenceLock(deps){
   let pref = { lock: false, online: true };
   let online = true;
   let touched = false;   // 고정값을 읽기 전에 사용자가 누름 — 읽은 값으로 덮지 않는다
+  let saved = false;     // 이 실행에서 고정값을 저장함 — 그 뒤 늦게 온 서버 값은 저장 전 값이다
   const tog = document.getElementById('mhPresenceToggle');
   const lockBtn = document.getElementById('mhPresenceLock');
 
@@ -61,6 +63,7 @@ function createPresenceLock(deps){
     }
   }
   function save(uid){
+    saved = true;
     writeCache(uid);
     Promise.resolve().then(() => deps.savePref(uid, { lock: pref.lock, online: pref.online }))
       .catch(err => deps.notifyError('E-MH-02', err));
@@ -86,10 +89,10 @@ function createPresenceLock(deps){
     if(got === TIMEOUT){
       // 늦게 온 서버 값도 받는다 — 이미 쓴 접속 표시와 다르면 바로잡는다(로그인 복원이 느린 새 PC 가 고정을 놓치지 않게)
       load.then(v => {
-        if(!v) return;
+        if(!v || saved) return;   // 사용자가 그 사이 저장했으면 늦은 값은 옛것
         const before = online;
         adopt(uid, normalize(v), true);
-        if(online !== before){ try{ deps.setPresence(uid, online); }catch(_){} }
+        if(online !== before && !deps.deviceSessionLost()){ try{ deps.setPresence(uid, online); }catch(_){} }
       });
       const c = readCache(uid);
       if(c) adopt(uid, c, false); else paint();

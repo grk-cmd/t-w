@@ -35,7 +35,7 @@ function el(){
 }
 /* 모듈 하나를 가짜 세상에서 만든다 */
 function world(src, o){
-  const w = Object.assign({ uid: 'u1', load: async () => ({}), saveFail: false }, o || {});
+  const w = Object.assign({ uid: 'u1', load: async () => ({}), saveFail: false, lost: false }, o || {});
   const tog = el(), lock = el(), store = Object.assign({}, w.store || {});
   const out = { tog, lock, store, saves: [], sets: [], toasts: [], errs: [], timers: [] };
   const doc = { getElementById: (id) => id === 'mhPresenceToggle' ? tog : id === 'mhPresenceLock' ? lock : null };
@@ -51,6 +51,7 @@ function world(src, o){
     setPresence: (uid, on) => out.sets.push([uid, on]),
     storage: { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); } },
     setTimer: (fn, ms) => { out.timers.push([fn, ms]); return out.timers.length; },
+    deviceSessionLost: () => w.lost,
   });
   return out;
 }
@@ -114,6 +115,26 @@ async function behave(src){
   let res5; w = world(src, { load: () => new Promise(a => { res5 = a; }) });
   const pr5 = w.m.startOnlineFor('u1'); w.tog.click(); res5({ lock: true, online: false }); await pr5; await tick();
   r.sameLock = w.saves.length === 0 && w.lock.textContent === '🔒' && JSON.parse(w.store['tw.presencePref']).lock === true;
+  // 시한 뒤 사용자가 🔒 / 🔓 를 누른 다음 옛 서버 값이 늦게 오면 — 누른 것을 지킨다
+  const lateAfter = async (store, server) => {
+    let rr; const x = world(src, { load: () => new Promise(a => { rr = a; }), store });
+    const pp = x.m.startOnlineFor('u1'); await tick();
+    const t = x.timers.find(q => q[1] === x.T.LOAD_WAIT_MS); if(t) t[0]();
+    await pp; x.lock.click(); await tick();
+    const shown = [x.tog.innerHTML, x.lock.textContent, x.store['tw.presencePref']].join('|');
+    rr(server); await tick();
+    return { x, same: shown === [x.tog.innerHTML, x.lock.textContent, x.store['tw.presencePref']].join('|') };
+  };
+  const A1 = await lateAfter({}, { lock: true, online: false });
+  const B1 = await lateAfter({ 'tw.presencePref': JSON.stringify({ u: 'u1', lock: true, online: false }) }, { lock: true, online: false });
+  r.lateAfterClick = A1.same && A1.x.sets.length === 0 && JSON.stringify(A1.x.saves) === '[["u1",true,true]]' && A1.x.lock.textContent === '🔒' && isOn(A1.x)
+    && B1.same && B1.x.sets.length === 0 && JSON.stringify(B1.x.saves) === '[["u1",false,false]]' && B1.x.lock.textContent === '🔓';
+  // 다른 기기에 밀린 뒤 늦은 값 — 접속 표시는 쓰지 않는다
+  let r6; w = world(src, { load: () => new Promise(a => { r6 = a; }), lost: true });
+  const p6 = w.m.startOnlineFor('u1'); await tick();
+  const t6 = w.timers.find(q => q[1] === w.T.LOAD_WAIT_MS); if(t6) t6[0]();
+  await p6; r6({ lock: true, online: false }); await tick();
+  r.lateLost = w.sets.length === 0;
   // 고정 안 함 · 토글 → 접속 표시만(저장 없음)
   w = world(src); await w.m.startOnlineFor('u1');
   w.tog.click(); await tick();
@@ -148,6 +169,8 @@ function report(r){
   chk(r.slow, '  서버 읽기가 멈추면 5초 뒤 이 PC 값으로(첫 쓰기 · 재접속 복구가 무한정 기다리지 않게)');
   chk(r.late, '  시한 뒤 늦게 온 서버 고정도 받는다 — 접속 표시 · 🔒 · 이 PC 값을 바로잡는다(로그인 복원이 느린 새 PC)');
   chk(r.sameLock, '  읽기 전 누름이 서버 고정값과 같으면 다시 쓰지 않는다');
+  chk(r.lateAfterClick, '  시한 뒤 🔒 · 🔓 를 누른 다음 늦게 온 옛 서버 값은 버린다(화면 · 접속 표시 · 이 PC 값 · 저장이 누른 그대로)');
+  chk(r.lateLost, '  다른 기기에 밀린 뒤 늦게 온 값으로는 접속 표시를 쓰지 않는다(이긴 쪽 것)');
   chk(r.toggleUnlocked, '고정 안 함 — 토글은 접속 표시만 바꾸고 저장하지 않는다(예전과 같다)');
   chk(r.lockFlow, '🔒 누르면 지금 값으로 저장 · 고정 중 토글은 저장 · 🔓 누르면 풀림 저장 · 안내 문구');
   chk(r.edge, '로그인 없음 → 안내만 · 저장 실패 → E-MH-02(이 PC 에는 남김) · uid 없으면 온라인');
@@ -245,8 +268,12 @@ async function gate(fbi){
     chk(b5 && !b5.slow, '읽기 시한이 없으면 2절이 빨강');
     const b6 = await br("if(p.lock && p.online !== online) save(uid);", "if(p.lock) save(uid);");
     chk(b6 && !b6.sameLock, '같은 고정값을 또 쓰면 2절이 빨강');
-    const b7 = await br("        if(!v) return;", "        return;");
+    const b7 = await br("        if(!v || saved) return;", "        return;");
     chk(b7 && !b7.late, '늦게 온 서버 고정을 버리면 2절이 빨강');
+    const b8 = await br("        if(!v || saved) return;", "        if(!v) return;");
+    chk(b8 && !b8.lateAfterClick, '저장 뒤 늦게 온 옛 값을 받으면 2절이 빨강');
+    const b9 = await br("if(online !== before && !deps.deviceSessionLost()){", "if(online !== before){");
+    chk(b9 && !b9.lateLost, '밀린 뒤 늦은 값으로 접속 표시를 쓰면 2절이 빨강');
     const g2 = FBI.includes("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))") ? await gate(FBI.replace("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))", "update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now(), online: true }))")) : null;
     chk(g2 && !g2.wait, '6시간 lastSeen 에 online:true 를 섞으면 3절이 빨강');
     const g1 = FBI.includes("const _armPresence = ()=>gate.then(()=>{") ? await gate(FBI.replace("const _armPresence = ()=>gate.then(()=>{", "const _armPresence = ()=>Promise.resolve().then(()=>{")) : null;
