@@ -205,6 +205,10 @@ const LIMIT_CASES = [
   ['  ↳ 마감 뒤 첫 사람', 'PATCH', '', { 'groupInvites/GRUP-EX12-CD34/usedCount': 1, 'groupInviteUses/GRUP-EX12-CD34/1': { token: 'tabcdefghij012345', at: 1 }, 'groupInviteTokens/GRUP-EX12-CD34/tabcdefghij012345': 1 }, false],
   ['여럿 초대 — 없는 코드에 첫 사람', 'PATCH', '', { 'groupInvites/GRUP-NO12-CD34/usedCount': 1, 'groupInviteUses/GRUP-NO12-CD34/1': { token: 'tabcdefghij012345', at: 1 }, 'groupInviteTokens/GRUP-NO12-CD34/tabcdefghij012345': 1 }, false],
   ['여럿 초대 — 모르는 칸', 'PUT', 'groupInvites/GRUP-JK12-CD34', { issuedBy: 'admin', createdAt: 1, maxUses: 2, usedCount: 0, junk: 1 }, false, ADMIN_A],
+  /* 앱은 invites/{code} 를 먼저 본다 — 같은 이름의 한 명짜리를 누가 만들면 여러 명 코드가 통째로 «이미 사용된» 이 된다 */
+  ['여럿 초대 — 같은 이름으로 한 명짜리 만들기(로그인 없이)', 'PUT', 'invites/GRUP-AB12-CD34', { issuedBy: 'x', createdAt: 1, usedBy: 'tabcdefghij012345' }, false],
+  ['  ↳ 관리자도 같은 이름은 못 만듦', 'PUT', 'invites/GRUP-AB12-CD34', { issuedBy: 'admin', createdAt: 1 }, false, ADMIN_A],
+  ['  ↳ 다른 이름의 한 명짜리는 그대로 된다', 'PUT', 'invites/GRUP-ZZ99-CD34', { issuedBy: GOOD_U, createdAt: 1 }, true],
 
   /* 친구 요청 · 보낸 요청 · 방 초대 */
   ['친구 요청 — 요청 + 거울 한 번에', 'PATCH', '', { [`friendRequests/${GOOD_U2}/${GOOD_U}`]: { name: '민수', ts: 1 }, [`sentFriendRequests/${GOOD_U}/${GOOD_U2}`]: { ts: 1, toName: '지영', toCode: 'MATE-AB12' } }, true],

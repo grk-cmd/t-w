@@ -225,6 +225,14 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
     }
   }
 
+  say('\n【5-2】 규칙 — 같은 이름의 한 명짜리로 덮지 못한다');
+  {
+    // 앱은 invites/{code} 를 먼저 본다 — 누가 같은 이름의 한 명짜리를 만들면 여러 명 코드 전체가 «이미 사용된» 이 된다.
+    // 서버 판정은 scripts/rules-emu-check.js(에뮬레이터)가 보고, 여기서는 그 조건이 규칙에서 빠지지 않았는지만 본다.
+    const R = JSON.parse(need('firebase-database-rules.json')).rules;
+    chk(String(R.invites.$code['.validate']).includes("!root.child('groupInvites/'+$code).exists()"), 'invites/$code 는 같은 이름의 groupInvites 가 있으면 거절');
+  }
+
   say('\n【6】 깨 보기');
   {
     const broken = load(GI_SRC.replace("const why = closedReason(v, now());", 'const why = null;'));

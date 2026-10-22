@@ -1067,7 +1067,7 @@
       "$code": {
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         ".write": "!data.exists() || (data.child('issuedBy').val() === newData.child('issuedBy').val() && data.child('createdAt').val() === newData.child('createdAt').val()) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
-        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['issuedBy','createdAt']) && newData.child('issuedBy').isString() && newData.child('createdAt').isNumber())",
+        ".validate": "$code.matches(/^[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}$/) && (newData.hasChildren(['issuedBy','createdAt']) && newData.child('issuedBy').isString() && newData.child('createdAt').isNumber()) && !root.child('groupInvites/'+$code).exists()",
         "issuedBy": { ".validate": "newData.isString() && newData.val().length <= 48" },
         "createdAt": { ".validate": true },
         "usedBy": { ".validate": "newData.isString() && newData.val().length <= 64" },
