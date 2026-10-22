@@ -8258,6 +8258,7 @@ function frame(now, manual){
   updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
   seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
+  const _djNow = listenUi.djId();   // 🎧 이름표 «DJ» 딱지 — 프레임에 한 번(좌석마다 방 사람 목록을 다시 만들지 않게)
   seats.forEach(seat=>{
     const state=seatState(seat,now);
     if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
@@ -8438,12 +8439,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     if(seat.remote){
       const st = seat.friendStar || null, lv = st ? st.lv : (seat.friendLevel||1);
       expBarMod.updateSeatExpBar(seat, lv, (seat.friendExp==null ? null : seat.friendExp), st);
-      overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st, !!seat.friendUserId && listenUi.djId() === seat.friendUserId);
+      overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st, !!seat.friendUserId && _djNow === seat.friendUserId);
     }
     else if(seat.isMe){
       const st = focusLevelMod.myFocusShow(), lv = st ? st.lv : focusLevelMod.getFocusLevel();
       expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
-      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!getMyUserId() && listenUi.djId() === getMyUserId());
+      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!getMyUserId() && _djNow === getMyUserId());
     }
     else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
     /* 💬 말풍선 — ★ 반드시 이름표·경험치 바 **뒤에** 갱신한다.
