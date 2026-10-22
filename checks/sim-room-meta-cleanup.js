@@ -128,7 +128,13 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     }, extra || {});
     const run = async (srv, o) => { const m = mkDb(srv, o); const sum = await quiet(() => f.runRoomStats(m.db, now, { shallow: m.shallow })); return { srv: m.L.srv, L: m.L, sum }; };
 
-    let r = await run(room('P1'));
+    let r = await run(room('P1', { 'rooms/P1/_music': { id: 'jfKfPfyJRdk', title: 'x', by: 'uA', at: 1, paused: false, pos: 0, seq: 1 } }));
+    chk(!('rooms/P1/_music' in r.srv), '★ 같이 듣기 곡 칸(_music)도 걷는다 — 같은 코드로 다시 연 방이 지난 곡을 읽지 않게');
+    r = await run(room('SCRT-MU', { 'rooms/SCRT-MU/_music': { id: 'jfKfPfyJRdk', title: 'x', by: 'uA', at: 1, paused: false, pos: 0, seq: 1 } }));
+    chk('rooms/SCRT-MU/_music' in r.srv, '  ↳ 시크릿룸은 남긴다(주인이 열 때 새로 쓰거나 지운다)');
+    r = await run(room('PB', { 'rooms/PB/_meta': { channel: 'togetherroom', host: 'uA', ts: now - 10 * 1000 }, 'rooms/PB/_music': { id: 'jfKfPfyJRdk', title: 'x', by: 'uA', at: 1, paused: false, pos: 0, seq: 1 } }));
+    chk('rooms/PB/_music' in r.srv, '  ↳ 방 표지를 못 걷었으면(그새 다시 열림) 곡 칸도 그대로');
+    r = await run(room('P1'));
     chk(!('rooms/P1/_meta' in r.srv) && !Object.keys(r.srv).some(k => k.startsWith('rooms/P1/_chatTab')) && !('roomIndex/P1' in r.srv),
       '빈 채로 2분 넘은 방 — _meta · _chatTab · 줄을 걷는다');
     chk('rooms/P1/chatLog/k1' in r.srv && r.srv['chatPurge/P1'] === now, '★ 투게더룸(공용 · 대여룸)은 #일반 대화(chatLog)를 바로 안 지우고 지울 시각을 적는다 (chatPurge — 1시간 뒤)');
