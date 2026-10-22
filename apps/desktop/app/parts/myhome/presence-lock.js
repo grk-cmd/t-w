@@ -65,21 +65,38 @@ function createPresenceLock(deps){
     Promise.resolve().then(() => deps.savePref(uid, { lock: pref.lock, online: pref.online }))
       .catch(err => deps.notifyError('E-MH-02', err));
   }
+  /* 읽은 고정값을 받는다 — fromServer 면 이 PC 값도 맞춘다 */
+  function adopt(uid, p, fromServer){
+    if(touched){
+      // 읽기 전에 눌렀다 — 누른 값은 지키되 고정 여부는 읽은 값을 따른다(고정이면 누른 값이 새 고정값)
+      pref = { lock: p.lock, online };
+      if(p.lock && p.online !== online) save(uid); else if(fromServer) writeCache(uid);
+    } else {
+      pref = p; online = startOnline(p);
+      if(fromServer) writeCache(uid);
+    }
+    paint();
+  }
   /* 앱을 켤 때 한 번 — 고정값을 읽고 처음 온라인 여부를 돌려준다(던지지 않는다) */
   async function startOnlineFor(uid){
     if(!uid) return online;
-    let got = null;
-    try{ got = await Promise.race([deps.loadPref(uid), new Promise(r => deps.setTimer(() => r(null), LOAD_WAIT_MS))]); }catch(_){ got = null; }
-    const p = got ? normalize(got) : readCache(uid);
-    if(p && touched){
-      // 읽기 전에 눌렀다 — 누른 값은 지키되 고정 여부는 읽은 값을 따른다(고정이면 누른 값이 새 고정값)
-      pref = { lock: p.lock, online };
-      if(p.lock && p.online !== online) save(uid); else if(got) writeCache(uid);
-    } else if(p){
-      pref = p; online = startOnline(p);
-      if(got) writeCache(uid);
+    const TIMEOUT = {};
+    const load = (async () => deps.loadPref(uid))().catch(() => null);   // 던져도 «못 읽음»
+    const got = await Promise.race([load, new Promise(r => deps.setTimer(() => r(TIMEOUT), LOAD_WAIT_MS))]);
+    if(got === TIMEOUT){
+      // 늦게 온 서버 값도 받는다 — 이미 쓴 접속 표시와 다르면 바로잡는다(로그인 복원이 느린 새 PC 가 고정을 놓치지 않게)
+      load.then(v => {
+        if(!v) return;
+        const before = online;
+        adopt(uid, normalize(v), true);
+        if(online !== before){ try{ deps.setPresence(uid, online); }catch(_){} }
+      });
+      const c = readCache(uid);
+      if(c) adopt(uid, c, false); else paint();
+      return online;
     }
-    paint();
+    const p = got ? normalize(got) : readCache(uid);
+    if(p) adopt(uid, p, !!got); else paint();
     return online;
   }
 

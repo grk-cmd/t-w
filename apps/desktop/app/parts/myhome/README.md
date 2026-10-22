@@ -169,7 +169,7 @@ const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.
 **내놓는 것** — `startOnlineFor(uid)` → Promise<처음 온라인 여부>(던지지 않음). myhome-init 이 `firebaseAPI.setMyPresenceOnline(myId, 이것)` 으로 넘긴다. 순수 `normalize(v)` · `startOnline(pref)` · `CACHE_KEY`.
 
 **함정** — 첫 접속 쓰기는 firebase-init `setMyPresenceOnline` 이 이 Promise 가 풀린 뒤에만 한다(재접속 신호가 먼저 와도) — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게. 등록(`_myPresenceRef`)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게.
-서버를 못 읽거나 5초(`LOAD_WAIT_MS`) 안에 안 오면 이 PC 값(`tw.presencePref` — 계정 uid 와 묶음), 없으면 온라인 — 첫 쓰기 · 재접속 복구가 이 읽기를 기다려서 시한을 둔다. 읽기 전에 사용자가 누르면 누른 값은 지키고 고정 여부는 읽은 값을 따른다(고정이면 누른 값이 새 고정값).
+서버를 못 읽거나 5초(`LOAD_WAIT_MS`) 안에 안 오면 이 PC 값(`tw.presencePref` — 계정 uid 와 묶음), 없으면 온라인 — 첫 쓰기 · 재접속 복구가 이 읽기를 기다려서 시한을 둔다. 시한 뒤 늦게 온 서버 값도 받아 접속 표시 · 🔒 를 바로잡는다(로그인 복원이 느린 새 PC). 읽기 전에 사용자가 누르면 누른 값은 지키고 고정 여부는 읽은 값을 따른다(고정이면 누른 값이 새 고정값).
 고정을 안 써도 켤 때마다 이 읽기 한 번이 늘고, 첫 «온라인» 쓰기가 그 뒤로 미뤄진다.
 고정 안 한 토글은 저장하지 않는다(예전과 같다). 다른 PC 에서 바꾼 고정값은 켜져 있는 PC 에 바로 오지 않는다(다음 실행부터).
 `presencePref` 는 `users/*`(공개 읽기) 밖 — 친구가 «숨긴 오프라인» 을 알아보지 않게 로그인한 본인만 읽고 쓴다.

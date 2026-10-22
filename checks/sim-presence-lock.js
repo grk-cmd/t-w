@@ -102,6 +102,18 @@ async function behave(src){
   const tm = w.timers.find(t => t[1] === w.T.LOAD_WAIT_MS);
   if(tm) tm[0]();
   r.slow = !!tm && w.T.LOAD_WAIT_MS === 5000 && (await pr3) === false && isOff(w);
+  // 시한 뒤 늦게 온 서버 고정(오프라인) — 이 PC 값 없는 새 PC 도 바로잡는다
+  let res4; w = world(src, { load: () => new Promise(a => { res4 = a; }) });
+  const pr4 = w.m.startOnlineFor('u1'); await tick();
+  const tm4 = w.timers.find(t => t[1] === w.T.LOAD_WAIT_MS); if(tm4) tm4[0]();
+  const early = (await pr4) === true && isOn(w) && w.lock.textContent === '🔓';
+  res4({ lock: true, online: false }); await tick();
+  r.late = early && isOff(w) && w.lock.textContent === '🔒' && JSON.stringify(w.sets) === '[["u1",false]]' && w.saves.length === 0
+    && JSON.parse(w.store['tw.presencePref']).lock === true;
+  // 읽기 전 누름 · 서버도 같은 값으로 고정 → 다시 쓰지 않는다
+  let res5; w = world(src, { load: () => new Promise(a => { res5 = a; }) });
+  const pr5 = w.m.startOnlineFor('u1'); w.tog.click(); res5({ lock: true, online: false }); await pr5; await tick();
+  r.sameLock = w.saves.length === 0 && w.lock.textContent === '🔒' && JSON.parse(w.store['tw.presencePref']).lock === true;
   // 고정 안 함 · 토글 → 접속 표시만(저장 없음)
   w = world(src); await w.m.startOnlineFor('u1');
   w.tog.click(); await tick();
@@ -134,6 +146,8 @@ function report(r){
   chk(r.bootFallback, '  서버를 못 읽으면 이 PC 값(같은 계정만 · 깨진 값은 무시) · 없으면 온라인');
   chk(r.touched, '  고정값을 읽기 전에 누르면 누른 값을 지키고 고정 여부는 읽은 값 — 고정이면 누른 값이 새 고정값(🔒 · 저장 · 이 PC 값)');
   chk(r.slow, '  서버 읽기가 멈추면 5초 뒤 이 PC 값으로(첫 쓰기 · 재접속 복구가 무한정 기다리지 않게)');
+  chk(r.late, '  시한 뒤 늦게 온 서버 고정도 받는다 — 접속 표시 · 🔒 · 이 PC 값을 바로잡는다(로그인 복원이 느린 새 PC)');
+  chk(r.sameLock, '  읽기 전 누름이 서버 고정값과 같으면 다시 쓰지 않는다');
   chk(r.toggleUnlocked, '고정 안 함 — 토글은 접속 표시만 바꾸고 저장하지 않는다(예전과 같다)');
   chk(r.lockFlow, '🔒 누르면 지금 값으로 저장 · 고정 중 토글은 저장 · 🔓 누르면 풀림 저장 · 안내 문구');
   chk(r.edge, '로그인 없음 → 안내만 · 저장 실패 → E-MH-02(이 PC 에는 남김) · uid 없으면 온라인');
@@ -223,12 +237,16 @@ async function gate(fbi){
     chk(b1 && !b1.bootLocked, '고정값을 무시하고 늘 온라인으로 시작하면 2절이 빨강');
     const b2 = await br("if(uid && pref.lock){ pref = { lock: true, online }; save(uid); }", "if(uid){ pref = { lock: pref.lock, online }; save(uid); }");
     chk(b2 && !b2.toggleUnlocked, '고정 안 했는데 토글마다 저장하면 2절이 빨강');
-    const b3 = await br("if(p && touched){", "if(false){");
+    const b3 = await br("    if(touched){\n      // 읽기 전에 눌렀다", "    if(false){\n      // 읽기 전에 눌렀다");
     chk(b3 && !b3.touched, '읽기 전 누름을 읽은 값으로 덮으면 2절이 빨강');
     const b4 = await br("      pref = { lock: p.lock, online };", "      pref = { lock: false, online };");
     chk(b4 && !b4.touched, '읽기 전 누름 뒤 서버 고정을 잊으면(🔓 로 보이고 다음 실행은 숨은 고정값) 2절이 빨강');
-    const b5 = await br("new Promise(r => deps.setTimer(() => r(null), LOAD_WAIT_MS))", "new Promise(() => {})");
+    const b5 = await br("new Promise(r => deps.setTimer(() => r(TIMEOUT), LOAD_WAIT_MS))", "new Promise(() => {})");
     chk(b5 && !b5.slow, '읽기 시한이 없으면 2절이 빨강');
+    const b6 = await br("if(p.lock && p.online !== online) save(uid);", "if(p.lock) save(uid);");
+    chk(b6 && !b6.sameLock, '같은 고정값을 또 쓰면 2절이 빨강');
+    const b7 = await br("        if(!v) return;", "        return;");
+    chk(b7 && !b7.late, '늦게 온 서버 고정을 버리면 2절이 빨강');
     const g2 = FBI.includes("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))") ? await gate(FBI.replace("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))", "update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now(), online: true }))")) : null;
     chk(g2 && !g2.wait, '6시간 lastSeen 에 online:true 를 섞으면 3절이 빨강');
     const g1 = FBI.includes("const _armPresence = ()=>gate.then(()=>{") ? await gate(FBI.replace("const _armPresence = ()=>gate.then(()=>{", "const _armPresence = ()=>Promise.resolve().then(()=>{")) : null;
