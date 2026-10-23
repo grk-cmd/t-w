@@ -61,6 +61,7 @@ const INK_URL = 'data:image/png;base64,INK', BLANK_URL = 'data:image/png;base64,
       n.__ink = false;
       const _gc = n.getContext;
       n.getContext = function(){
+        if(!('__ctxArgs' in n)) n.__ctxArgs = arguments[1];   // 처음 부를 때 받은 속성(newCanvas 검사)
         const c = _gc.apply(n, arguments);
         c.clearRect = ()=>{ n.__ink = false; return c; };
         c.fillRect  = ()=>{ n.__ink = true;  return c; };
@@ -83,7 +84,7 @@ const probe = `
   /* 진짜 THREE.CanvasTexture 는 tex.image 에 원본 캔버스를 담는다 — 복구가 그 자리에 다시 그린다.
      smoke 의 THREE 스텁은 무엇을 물어도 프록시를 돌려줘서 tex.image 가 캔버스가 아니다.
      그러면 «화면 텍스처가 비었다»를 만들 수조차 없으므로, 여기서만 실제 동작대로 채워 준다. */
-  repair: repairBlankFaces, seats, compositeFace, skinCanvases,
+  repair: repairBlankFaces, seats, compositeFace, skinCanvases, newCanvas,
   mkFaceTex: (cv)=>{ const t = mkFaceTex(cv); t.image = cv; return t; } };`;
 
 const say = console.log;
@@ -271,6 +272,24 @@ function clearSlots(){ for (let i = 0; i < P.MAX; i++) P.slots[i] = null; }
     chk(warns.length === 0, '멀쩡한데 콘솔을 더럽히지 않는다');
 
     say('');
+    say('· 🛡️ 피부만 비었다(B-1019-3) — 그림은 남아 합성본이 «전부 투명» 이 아니어도 잡는다');
+    {
+      const k = d.skin || 0, sk = P.skinCanvases[k];
+      sk.getContext('2d').clearRect(0,0,512,512);
+      seat.faceMapOrig.needsUpdate = false;
+      chk(P.isBlank(P.skinCanvases[k]) && !P.isBlank(d.face) && !P.isBlank(seat.faceMapOrig.image), '피부 캔버스만 비었고 그림 · 합성본엔 선이 남았다 (실험 조건 확인)');
+      warns = [];
+      const n2 = await P.repair();
+      chk(n2 > 0 && !P.isBlank(P.skinCanvases[k]), '★ 피부 캔버스를 메우고 복구했다고 보고한다 (' + n2 + '칸)');
+      chk(seat.faceMapOrig.needsUpdate === true, '★ 그 피부를 쓰는 좌석 텍스처를 다시 그린다');
+      chk(warns.some(w => w.includes('피부')), '  콘솔에 «피부» 로 남는다');
+      const other = (k + 1) % P.skinCanvases.length;
+      P.skinCanvases[other].getContext('2d').clearRect(0,0,512,512);
+      seat.faceMapOrig.needsUpdate = false;
+      chk(await P.repair() === 0 && !P.isBlank(P.skinCanvases[other]) && seat.faceMapOrig.needsUpdate === false, '  아무 칸도 안 쓰는 피부가 비면 메우기만 한다(좌석은 그대로 · 0)');
+    }
+
+    say('');
     say('· 이미 손상된 저장본(원본도 빈 그림)에서 헛돌지 않는다');
     {
       const slot = { skin: 2, top: '#abc', bot: '#def', face: BLANK_URL, blink: BLANK_URL };
@@ -281,6 +300,14 @@ function clearSlots(){ for (let i = 0; i < P.MAX; i++) P.slots[i] = null; }
       chk(await P.repair() === 0, '★ 되살릴 원본이 없는 칸은 후보로 잡지 않는다 (무한 복구 없음)');
     }
     P.seats.length = 0;
+  }
+
+  say('');
+  say('· 캔버스는 CPU 쪽에 둔다(그래픽 리셋에 안 지워지게 — B-1019-3)');
+  {
+    const c = P.newCanvas();
+    chk(c.__ctxArgs && c.__ctxArgs.willReadFrequently === true && c.width === 512 && c.height === 512, '★ newCanvas 가 처음 부르는 getContext 에 willReadFrequently 를 건다(만든 즉시)');
+    chk(P.skinCanvases.every(k => k.__ctxArgs && k.__ctxArgs.willReadFrequently === true), '  피부 캔버스도 같은 길로 만든다');
   }
 
   say('');

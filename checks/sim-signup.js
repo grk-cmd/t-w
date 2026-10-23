@@ -34,6 +34,7 @@ const chk = (c, m) => { if (c) { pass++; say('  ✓ ' + m); } else { fail++; say
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const APP = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const FI  = fs.readFileSync('firebase-init.js', 'utf8');
+const GI  = new Function(fs.readFileSync('group-invite.js', 'utf8').replace(/^export function /mg, 'function ') + '\nreturn { createGroupInvite };')();
 
 /* 함수 본문 떼어 오기 — `function 이름(` 부터 짝 맞는 `}` 까지. 문자열·주석 안의 괄호는 이 파일들에선 짝이 맞는다. */
 function takeFn(src, head){
@@ -123,7 +124,8 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       },
       update: async (r, v) => { const base = at(r.path) || {}; put(r.path, Object.assign({}, base, v)); writes.push(r.path); },
     };
-    const o = (new Function('db', 'ref', 'get', 'runTransaction', 'update', 'return ({\n' + methods + '\n});'))(api.db, api.ref, api.get, api.runTransaction, api.update);
+    const groupInvite = GI.createGroupInvite({ db: api.db, ref: api.ref, get: api.get, update: api.update });   // 여러 명짜리 갈래는 sim-group-invite.js 가 본다
+    const o = (new Function('db', 'ref', 'get', 'runTransaction', 'update', '_groupInvite', 'return ({\n' + methods + '\n});'))(api.db, api.ref, api.get, api.runTransaction, api.update, groupInvite);
     return { o, T, writes };
   }
   const INV = { invites: { 'INVT-AAAA-BBBB': { issuedBy:'uissuer0001', createdAt:1 } }, stats: { userCount: 10 } };

@@ -2,7 +2,7 @@ import { queryOptions, useQuery } from '@tanstack/react-query';
 import { useDb, type Db } from '@/shared/api';
 import { licenseStatus, type License } from '@/entities/license/@x/user';
 import type { UserLicense } from '../model/userRow';
-import { cleanVer } from '../model/version';
+import { APP_VER_UNKNOWN, cleanVer } from '../model/version';
 
 const FRIEND_CODE_PREFIXES = ['MATE', 'COZY'];
 
@@ -53,6 +53,8 @@ export interface Presence {
   room: string | null;
   /** 앱 버전 — 0.11.0 부터. 꺼진 뒤에도 남는다. 옛 앱은 null. */
   ver: string | null;
+  /** 앱이 버전을 못 받은 채 쓴 presence(ver «unknown») — 0.11.0 이상이라 옛 앱이 아니다. 이때 ver 는 null. */
+  verUnknown: boolean;
 }
 
 // presence 는 online · lastSeen · room · inRoom · ver 다섯 칸뿐이라 통째로 읽는다(접속 중인 사람은 lastSeen 이 접속한 시각이라 online 도 봐야 한다).
@@ -68,6 +70,7 @@ export async function getUserPresence(db: Db, uid: string): Promise<Presence | n
     // 끈 앱은 room 을 지우지 못하고 남길 수 있다 — 접속 중일 때만 믿는다.
     room: online && typeof p.room === 'string' && p.room ? p.room : null,
     ver: cleanVer(p.ver),
+    verUnknown: p.ver === APP_VER_UNKNOWN,
   };
 }
 

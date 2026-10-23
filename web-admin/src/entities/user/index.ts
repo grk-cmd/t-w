@@ -36,6 +36,7 @@ export {
   type UserRow,
 } from './model/userRow';
 export {
+  cleanVer,
   compareVerDesc,
   currentVer,
   matchesVer,

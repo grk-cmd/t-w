@@ -1,6 +1,12 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRef, useState } from 'react';
-import { useForgetUserInvites, useSetInvitesLeftCache } from '@/entities/invite';
+import {
+  GROUP_INVITES_KEY,
+  useForgetUserInvites,
+  useSetInvitesLeftCache,
+  type GroupInvite,
+  type GroupInviteDraft,
+} from '@/entities/invite';
 import { listFriendCodes } from '@/entities/user';
 import { useDb } from '@/shared/api';
 import {
@@ -11,6 +17,7 @@ import {
   uniqueUserIds,
   type GrantScope,
 } from './grantInvites';
+import { createGroupInviteCode, setGroupInviteStopped } from './groupInvites';
 
 export function useGrantInvites(uid: string) {
   const db = useDb();
@@ -98,4 +105,24 @@ export function useLoadAllUserIds(): () => Promise<string[]> {
         staleTime: Infinity,
       }),
     );
+}
+
+/** 여러 명 코드 — 만들거나 중지하면 목록을 다시 받는다. */
+export function useCreateGroupInvite() {
+  const db = useDb();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: (draft: GroupInviteDraft) => createGroupInviteCode(db, draft),
+    onSuccess: () => client.invalidateQueries({ queryKey: GROUP_INVITES_KEY }),
+  });
+}
+
+export function useSetGroupInviteStopped() {
+  const db = useDb();
+  const client = useQueryClient();
+  return useMutation({
+    mutationFn: ({ invite, stop }: { invite: GroupInvite; stop: boolean }) =>
+      setGroupInviteStopped(db, invite, stop),
+    onSettled: () => client.invalidateQueries({ queryKey: GROUP_INVITES_KEY }),
+  });
 }

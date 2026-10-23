@@ -32,10 +32,14 @@ if(require.main === module){
      내 authUsers 에 조건을 붙이면 presence 가 «켜짐 · ver 없음» 으로 남은 사람은 로그인(구글 · 친구 코드)이 늘 실패해
      새 앱이 presence 를 고쳐 쓸 기회가 없다 — 칸에는 내 userCode 하나뿐이고 옛 앱은 그다음 읽기에서 막힌다. */
   const SELF_AUTH_READ = 'auth != null && auth.uid === $authUid';
+  /* 방 입장 최소 버전은 옛 앱도 읽어야 한다 — 0.10.2 는 이 값을 못 읽으면 «조회 실패는 통과» 로 방에 들어간다(막으면 문이 열린다).
+     읽으면 옛 앱이 스스로 «업데이트해야 방 이용» 으로 멈춘다. 이 한 칸만 조건 없이 둔다. */
+  const MIN_ROOM_VER = '/config/minRoomVer';
   const ADMIN_ONLY = /^(\(?auth != null && )?root\.child\('admins'\)\.child\(auth\.uid\)\.val\(\) === true\)?( \|\| \(auth != null && root\.child\('apiBots'\)\.child\(auth\.uid\)\.val\(\) === true\))?$/;
   const exempt = ([p, v]) => v === false || /^\/mobileLink\//.test(p) || /^\/mobileKeys\//.test(p) || ADMIN_ONLY.test(String(v))
     || String(v) === "(auth != null && root.child('apiBots').child(auth.uid).val() === true)"
-    || (p === '/authUsers/$authUid' && String(v) === SELF_AUTH_READ);
+    || (p === '/authUsers/$authUid' && String(v) === SELF_AUTH_READ)
+    || (p === MIN_ROOM_VER && v === true);
   const judge = (text) => {
     const all = reads(text);
     const open = all.filter(r => !exempt(r) && String(r[1]).indexOf(READ_GATE) < 0);
@@ -44,7 +48,10 @@ if(require.main === module){
 
   const J = judge(RAW);
   chk(J.open.length === 0, `★ 앱이 읽는 .read 에는 전부 옛 앱 막기 조건이 붙었다 (붙음 ${J.gated.length} · 관리자 · 봇 · 폰 연결 · 막힘 ${J.all.length - J.gated.length})` + (J.open.length ? ' — 빠짐: ' + J.open.map(r => r[0]).join(', ') : ''));
-  chk(!/"\.read": true/.test(RAW), '  ↳ 조건 없는 «.read: true» 가 남지 않았다');
+  const bareReads = (text) => reads(text).filter(([, v]) => v === true).map(([p]) => p);
+  chk(bareReads(RAW).join() === MIN_ROOM_VER, '  ↳ 조건 없는 «.read: true» 는 방 입장 최소 버전 한 칸뿐');
+  const minRoomVerOpen = (text) => JSON.parse(text).rules.config.minRoomVer['.read'] === true;
+  chk(minRoomVerOpen(RAW), '★ 방 입장 최소 버전은 옛 앱도 읽는다 — 못 읽으면 0.10.2 는 «조회 실패는 통과» 로 방에 들어간다');
   chk(reads(RAW).filter(([p]) => /^\/mobileLink\//.test(p)).every(([, v]) => String(v).indexOf(READ_GATE) < 0), '  ↳ 폰 연결(mobileLink)은 안 막는다 — 로그인 없는 링크 페이지가 읽는다');
   const au = ((JSON.parse(RAW).rules.authUsers || {}).$authUid || {})['.read'];
   chk(au === SELF_AUTH_READ, '★ 로그인 때 내 authUsers 읽기는 막기 조건 없이 나만 — presence 가 남은 사람도 로그인해 presence 를 고쳐 쓴다');
@@ -62,6 +69,10 @@ if(require.main === module){
   /* 깨 보기 — 내 authUsers 를 남도 읽게 넓히면 «빠짐» 으로 잡는가 */
   const auOpen = RAW.replace('"' + SELF_AUTH_READ + '"', '"auth != null"');
   chk(auOpen !== RAW && judge(auOpen).open.some(r => r[0] === '/authUsers/$authUid'), '깨 보기 — 내 authUsers 를 «로그인만 하면 누구나» 로 넓히면 잡는다');
+  /* 깨 보기 — 최소 버전에 다시 조건을 붙이면 잡는가 · 다른 칸을 true 로 열면 잡는가 */
+  const mrv = JSON.parse(RAW); mrv.rules.config.minRoomVer['.read'] = READ_GATE;
+  chk(!minRoomVerOpen(JSON.stringify(mrv)), '깨 보기 — 최소 버전에 조건을 다시 붙이면 «옛 앱도 읽는다» 가 빨강');
+  chk(bareReads(broken).length === 2, '깨 보기 — 다른 칸을 «.read: true» 로 열면 «한 칸뿐» 이 빨강');
   console.log(fail ? `✗ 실패 ${fail}건` : '✓ 전부 통과');
   process.exit(fail ? 1 : 0);
 }

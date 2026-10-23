@@ -146,7 +146,7 @@ say('── 4. 구독기 (가짜 DB · 가짜 저장소)');
       setTimer: (fn, ms) => { const t = { fn, ms }; env.timers.push(t); return t; },
       clearTimer: (t) => { const i = env.timers.indexOf(t); if(i >= 0) env.timers.splice(i, 1); },
       random: () => (o.random == null ? 0.5 : o.random),
-      warn: () => {},
+      warn: (...a) => { (env.warns = env.warns || []).push(a.join(' ')); },
       fetch: o.fetchOf ? o.fetchOf(env) : undefined,
     });
     env.fire = (p, v) => { for(const s of (env.subs[p] || [])) if(s.on) s.cb({ val: () => (v == null ? null : JSON.parse(JSON.stringify(v))) }); };
@@ -172,6 +172,15 @@ say('── 4. 구독기 (가짜 DB · 가짜 저장소)');
     e.sub('items', v => got.push(v));
     e.deny('catalogMeta/items'); await flush();
     chk(e.live('catalog/items') === 1, 'catalogMeta 읽기 거부(규칙 배포 전) → 통째 onValue 로 물러난다 (재시도 없이 끊기는 구독)');
+    e.deny('catalog/items'); await flush();
+    chk(e.live('catalog/items') === 0 && (e.warns || []).some(w => /통째 구독 거부/.test(w) && /items/.test(w)), '  ↳ 통째 구독도 거부되면(같은 계정 옛 앱 — 읽기 막기) 조용히 죽지 않고 경고를 남긴다');
+    /* 버전 구독은 살아 있는데 받기가 실패해 통째로 물러났다가 그것이 거부된 경우 — 다음 판정이 다시 건다 */
+    e = mk({ getFails: true });
+    e.sub('desks', () => {});
+    e.fire('catalogMeta/desks', V); await flush(); await flush();
+    e.deny('catalog/desks'); await flush();
+    e.fire('catalogMeta/desks', null); await flush();
+    chk(e.live('catalog/desks') === 1, '  ↳ 거부된 통째 구독은 비워 두어 다음 판정(버전 없음)이 다시 건다 — «이미 걸려 있다» 로 잘못 건너뛰지 않는다');
 
     /* 캐시 없음 → 받기 + 캐시 쓰기 */
     e = mk(); got = [];

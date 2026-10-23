@@ -32,9 +32,9 @@ const FACE_WATCH_MS = 4000;        // 점검 주기. 32² 알파 스캔 몇 번�
 const FACE_TOAST_GAP_MS = 60000;   // 같은 안내를 도배하지 않는 최소 간격
 let _faceRepairBusy = false, _faceRepairToldAt = 0;
 
-/* 피부 캔버스도 같은 이유로 비었을 수 있다(똑같은 캔버스다).
-   비었으면 우선 단색으로 즉시 메우고(합성이 투명해지는 것부터 막는다), PNG 는 loadSkins 로 되받는다. */
-function _repairSkinCanvases(){
+/* 피부 캔버스도 비었을 수 있다(그래픽 리셋 때 같은 캔버스다). 비었으면 단색으로 바로 메우고 PNG 는 loadSkins 로 되받는다.
+   ⚠️ 되받기를 기다린 뒤 돌아온다 — loadSkins 는 skinCanvases[i] 를 새 캔버스로 바꾸므로, 먼저 좌석을 다시 그리면 단색이 남는다. */
+async function _repairSkinCanvases(){
   let bad = 0;
   for(let k=0;k<skinCanvases.length;k++){
     if(!_isBlankDraw(skinCanvases[k])) continue;
@@ -42,9 +42,16 @@ function _repairSkinCanvases(){
     try{ const x=skinCanvases[k].getContext('2d'); x.fillStyle=SKIN_COLORS[k]||SKIN_COLORS[0]; x.fillRect(0,0,CANVAS_SZ,CANVAS_SZ); }catch(_){}
   }
   if(bad){ console.warn('[얼굴복구] 피부 캔버스 '+bad+'장도 비어 있었습니다 — 단색으로 메우고 텍스처를 다시 불러옵니다');
-    try{ loadSkins(); }catch(_){} }
+    try{ await loadSkins(); }catch(_){} }
   return bad;
 }
+/* 빈 피부 캔버스 번호 — 합성본은 그림(눈 · 입 선)이 남아 «전부 투명» 이 아니라서 _seatCompositeBlank 가 못 잡는다 */
+function _blankSkinIdx(){
+  const out = new Set();
+  for(let k=0;k<skinCanvases.length;k++) if(_isBlankDraw(skinCanvases[k])) out.add(k);
+  return out;
+}
+const _skinIdxOf = (d) => skinCanvases[d.skin||0] ? (d.skin||0) : 0;   // skinCanvasFor 와 같은 물러남
 
 /* 저장된 dataURL 을 **같은 캔버스 객체 안에** 다시 그린다.
    ★ 새 캔버스를 만들어 갈아 끼우면 안 된다 — slots[i].face 는 좌석 charDef·방 전송기가
@@ -95,23 +102,28 @@ function _seatCompositeBlank(def){
 async function repairBlankFaces(){
   if(_faceRepairBusy) return 0;
   try{ if(creatorOpen()) return 0; }catch(_){ return 0; }
+  const skinBad = _blankSkinIdx();
   const targets = [];
   for(let i=0;i<CHAR_SLOT_MAX;i++){
     const d = slots[i];
     if(!d || d.animal || d._imgBroken) continue;
-    if(!_faceEverDrawn[i] && !_blinkEverDrawn[i]) continue;
+    const skinGone  = skinBad.has(_skinIdxOf(d));
+    if(!skinGone && !_faceEverDrawn[i] && !_blinkEverDrawn[i]) continue;
     const faceGone  = _faceEverDrawn[i]  && _isBlankDraw(d.face);
     const blinkGone = _blinkEverDrawn[i] && _isBlankDraw(d.blink);
     const compGone  = _seatCompositeBlank(d);
-    if(faceGone || blinkGone || compGone) targets.push({i,d,faceGone,blinkGone,compGone});
+    if(faceGone || blinkGone || compGone || skinGone) targets.push({i,d,faceGone,blinkGone,compGone,skinGone});
   }
-  if(!targets.length) return 0;
+  if(!targets.length){
+    if(skinBad.size){ _faceRepairBusy = true; try{ await _repairSkinCanvases(); }finally{ _faceRepairBusy = false; } }   // 쓰는 칸이 없어도 다음에 고를 때 투명하지 않게
+    return 0;
+  }
 
   _faceRepairBusy = true;
   let fixed = 0;
   const log = [];
   try{
-    _repairSkinCanvases();
+    await _repairSkinCanvases();
     let prev = null;
     try{ prev = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); }catch(_){ prev = null; }
     for(const t of targets){
@@ -119,6 +131,7 @@ async function repairBlankFaces(){
       const what = [];
       if(t.faceGone){  if(await _redrawInto(t.d.face,  p && p.face))  what.push('얼굴');  else what.push('얼굴✗'); }
       if(t.blinkGone){ if(await _redrawInto(t.d.blink, p && p.blink)) what.push('감은눈'); else what.push('감은눈✗'); }
+      if(t.skinGone) what.push('피부');
       if(t.compGone && !what.length) what.push('화면텍스처');
       if(_refreshSeatFaceTex(t.d)) fixed++;
       log.push((t.i+1)+'번('+what.join('·')+')');

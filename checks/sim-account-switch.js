@@ -75,6 +75,7 @@ chk(has('GACHA_OWNED_KEY') && has('GACHA_TS_KEY') && has('GACHA_BONUS_KEY'), '�
 chk(has('LS_KEY') && has('SLOTS_TS_KEY'), '② 캐릭터 슬롯 + ts — 남으면 슬롯 동기화가 다음 계정으로 push 한다');
 chk(/'tw\.roomFaceUrls'/.test(listSrc) && has('SLOT_GLB_CACHE_KEY'), '  업로드 캐시 둘 — users/{uid}/ 경로라 다른 uid 가 물려받으면 남의 Storage 를 가리킨다');
 chk(/'tw\.playlistSets'/.test(listSrc) && /'tw\.playlist'/.test(listSrc), '  플레이리스트 세 벌 + 옛 거울');
+chk(/'tw\.playlistEditTs'/.test(listSrc) && /'tw\.playlistBackup'/.test(listSrc), '  플레이리스트 고친 시각 · 백업 — 고친 시각이 남으면 다음 계정 서버 목록을 «이 기기가 나중» 으로 비운다');
 /* 개정 56 (회원가입 설계 §6-②) — «버린 uid» 목록을 걷었다. 목록에서 빠지고, 예전 판이 남긴 값은 부팅에 한 번 지운다. */
 chk(!/MY_PREV_USER_IDS_KEY/.test(listSrc) && !/\bMY_PREV_USER_IDS_KEY\s*=/.test(SRC), '  «버린 uid» 목록은 걷었다 — 상수도 목록 항목도 없다 (개정 56)');
 chk(/try\{ localStorage\.removeItem\('tw\.myPrevUserIds'\); \}catch\(_\)\{\}/.test(SRC), '  ↳ 예전 판이 남긴 tw.myPrevUserIds 는 부팅에 한 번 지운다');
@@ -104,7 +105,8 @@ const fFlush = grabFn(SRC, '_acctFlushToServer', 'async function ');
 const fPre = grabFn(SRC, '_acctPreflight', 'async function ');
 const fWipe = /let _acctDetached = false;/.test(SRC) ? ('let _acctDetached = false;\n' + (grabFn(SRC, '_wipeAccountLocal') || '')) : null;
 const fDet = grabFn(SRC, '_detachAccountLocal', 'async function ');
-const tmo = (SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0];
+const tmo = [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].every(Boolean)
+  ? [(SRC.match(/const ACCT_FLUSH_TIMEOUT_MS = \d+;/) || [])[0], (SRC.match(/const PRESENCE_OFF_WAIT_MS = \d+;/) || [])[0], grabFn(SRC, '_presenceOff')].join('\n') : null;
 if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
   huh('본문을 못 떼어 옴 — list:' + !!fList + ' flush:' + !!fFlush + ' pre:' + !!fPre + ' wipe:' + !!fWipe + ' det:' + !!fDet);
 }else{
@@ -125,12 +127,14 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       loadSlotsTs: async () => { env.calls.push('slotsTs'); return env.slotsTs; },
       loadGachaOwned: async () => { env.calls.push('gacha'); return env.srvGacha; },
       releaseDeviceSession: async () => { env.calls.push('release'); },
+      setMyPresenceState: (uid, on) => { env.calls.push('presence:' + uid + ':' + on); return env.presenceHang ? new Promise(() => {}) : Promise.resolve(); },
+      deviceSessionLost: () => !!env.lost,
     } : null;
     const window = { firebaseAPI };
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' + [
       "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); env.mark = env.total; env.hasMark = true; };",
       /* 🎰 가챠는 gacha.js 모듈(앱 FSD 8번) — app.js 는 gachaMod.syncGachaToServer · owned · resetMemory 로 부른다. 메모리 칸은 아래 let 이 대신한다 */
-      "const gachaMod={ syncGachaToServer:async(r)=>{ env.calls.push('flush:gacha:'+r); }, owned:()=>gachaOwned, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
+      "const gachaMod={ syncGachaToServer:async(r)=>{ env.calls.push('flush:gacha:'+r); }, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
       /* 👑 달성표는 weekly-challenge.js 모듈 — app.js 는 weeklyChal.syncChalToServer · resetMemory 로 부른다. 메모리 칸은 여기 let 이 대신한다 */
       "const weeklyChal={ syncChalToServer:async(r)=>{ env.calls.push('flush:chal:'+r); }, resetMemory(){ env.calls.push('chal:reset'); chalRec = _chalBlank(); _chalDirty = false; } };",
       "const syncSlotsToServer=async(r)=>{ env.calls.push('flush:slots:'+r); };",
@@ -146,9 +150,9 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let _slotsTs = 7, extraSeatSlots = [1,2];",
       "let _plSets = [{name:'a',items:[{id:'x'}]}], _plCur = 1, _plBio = 'hi', _plHomePublic = true, _plPrivate = true, _plPubSig = 'sig';",
       /* 🎵 플레이리스트는 playlist.js 모듈(앱 FSD 16번) — app.js 는 plMod.st(상태 묶음) · plMod.blankSets 로 쓴다. 메모리 칸은 위 let 이 대신한다 */
-      "const plMod={ blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], st:" + PL_ST_MEM + " };",
+      "const plMod={ blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], resetSync:()=>{ env.plReset = (env.plReset || 0) + 1; }, st:" + PL_ST_MEM + " };",
     ].join('\n');
-    const body = [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n');
+    const body = [tmo, fList, fPref, fFlush, fPre, fWipe, env.det || fDet].join('\n');
     const f = new Function('env', 'localStorage', 'window', decl + '\n' + body +
       "\nreturn { detach:_detachAccountLocal, wipe:_wipeAccountLocal, keys:ACCOUNT_LOCAL_KEYS, mem:()=>({ total:_focusTotalSec, gacha:gachaOwned, gts:_gachaTs, bonus:_gachaBonus, chalDirty:_chalDirty, chalTs:chalRec.ts, slotsTs:_slotsTs, extra:extraSeatSlots, sets:_plSets, sig:_plPubSig, detached:_acctDetached }) };");
     env.m = f(env, localStorage, window);
@@ -159,7 +163,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e.LS.setItem(K.MY_USER_ID_KEY, 'uA'); e.LS.setItem(K.LOGIN_EMAIL_KEY, 'a@x'); e.LS.setItem(K.INVITE_PASS_KEY, '1');
     e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-A'); e.LS.setItem(K.FOCUS_TOTAL_KEY, '3600'); e.LS.setItem(K.FOCUS_SYNCED_KEY, '3600');
     e.LS.setItem(K.GACHA_OWNED_KEY, '{"p1":1}'); e.LS.setItem(K.GACHA_TS_KEY, '9'); e.LS.setItem(K.LS_KEY, '[{"skin":1}]');
-    e.LS.setItem(K.SLOTS_TS_KEY, '7'); e.LS.setItem('tw.roomFaceUrls', '{"face:h":"https://st/u/A"}'); e.LS.setItem('tw.playlistSets', '[]');
+    e.LS.setItem(K.SLOTS_TS_KEY, '7'); e.LS.setItem('tw.roomFaceUrls', '{"face:h":"https://st/u/A"}'); e.LS.setItem('tw.playlistSets', '[]'); e.LS.setItem('tw.playlistEditTs', '9000');
     e.LS.setItem(K.MY_FRIEND_CODE_PREV_KEY, '["MATE-OLD1"]'); e.LS.setItem(K.CHAL_KEY, '{}'); e.LS.setItem(K.USER_NAME_KEY, 'A');
     e.LS.setItem('tw_chat_read:COZY-1', '5'); e.LS.setItem('tw_chat_join:COZY-1', '1');
     /* 기기 설정 — 남아야 한다 */
@@ -184,6 +188,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(m.total === 0 && Object.keys(m.gacha).length === 0 && m.gts === 0 && m.bonus === 0, '★ 메모리도 비웠다 — 누적·가챠·시각·보너스 = 0');
     chk(m.chalDirty === false && m.chalTs === 0 && e.calls.includes('chal:reset'), '  달성표 dirty=false (beforeunload 의 _chalSave 가 지운 키를 도로 안 쓴다 · weeklyChal.resetMemory)');
     chk(m.slotsTs === 0 && m.extra.length === 0 && m.sig === null && m.sets.every(s => !s.items.length), '  슬롯 ts·추가 좌석·플레이리스트 지문 초기화');
+    chk(e.plReset === 1 && e.LS.getItem('tw.playlistEditTs') === null, '  ☁️ 플레이리스트 고친 시각 · 맞춤 상태도 새 기기처럼(plMod.resetSync · 키 지움)');
     chk(m.detached === true, '  _acctDetached 가 섰다 (3절의 근거)');
 
     /* ② 슬롯 push 가 거부된 기기 — 아무것도 안 지운다 */
@@ -209,22 +214,23 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **마크를 안 옮기는 flush**(쓰기가 거부된 기기)로 바꿔 끼운다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
-      "const syncFocusTotalToServer=async()=>{}; const gachaMod={ syncGachaToServer:async()=>{}, owned:()=>gachaOwned, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
+      "const syncFocusTotalToServer=async()=>{}; const gachaMod={ syncGachaToServer:async()=>{}, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
       "let _slotsPushTimer=null; const clearTimeout=()=>{}; const setTimeout=()=>0; const _slotsHasLocal=()=>false;\n" +
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
       "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;\n" +
       "let chalRec={ts:0}, _chalDirty=false; const _chalBlank=()=>({ts:0}); let _slotsTs=0, extraSeatSlots=[];\n" +
       "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const plMod={ blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
       [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
+    const FB_MIN = { deviceSessionLost: () => false, setMyPresenceState: () => Promise.resolve() };   // 늘 있는 둘 — 검문 뒤 presence «꺼짐» 이 부른다
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
     let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 3600, hasMark: true };
-    r = await g(env4, lsOf(env4), { firebaseAPI: {} })();
+    r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
     chk(r && r.ok === false && /누적 시간/.test(r.reason || ''), '★ 마크가 2분 넘게 뒤처지면 막는다 (' + (r && r.reason) + ')');
     env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 0, hasMark: false };
-    r = await g(env4, lsOf(env4), { firebaseAPI: {} })();
+    r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
     chk(r && r.ok === false, '  마크가 아예 없는데 누적이 있으면 막는다 (서버와 한 번도 안 맞춰봄)');
     env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 7150, hasMark: true };
-    r = await g(env4, lsOf(env4), { firebaseAPI: {} })();
+    r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
     chk(r && r.ok === true, '  50초 차이는 통과 (왕복 사이에 쌓인 폭)');
 
     /* ⑤ uid 가 없는 기기 — 검문 없이 그냥 지운다 */
@@ -238,6 +244,29 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     e = mkEnv({ apiOn: false }); fillA(e);
     r = await e.m.detach();
     chk(r && r.ok === false && /네트워크/.test(r.reason || ''), '  firebaseAPI 가 없으면 막는다 (' + (r && r.reason) + ')');
+
+    /* ⑥-2 presence «꺼짐» — signOut 뒤에는 onDisconnect 가 돌지 않아 로그아웃한 사람이 접속중으로 남던 것 */
+    say('· ⑥-2 로그아웃 전에 presence «꺼짐»');
+    e = mkEnv(); fillA(e);
+    await e.m.detach();
+    const iP = e.calls.indexOf('presence:uA:false'), iR = e.calls.indexOf('release');
+    chk(iP >= 0 && iR > iP && e.calls.indexOf('slotsTs') < iP, '★ 검문을 지난 뒤 · 기기 세션 놓기 전에 presence 를 «꺼짐» 으로 쓴다(로그인이 남아 있을 때)');
+    e = mkEnv({ slotsTs: 0 }); fillA(e);
+    await e.m.detach();
+    chk(!e.calls.some(c => c.startsWith('presence:')), '  막힌 로그아웃은 presence 를 안 건드린다');
+    e = mkEnv({ lost: true }); fillA(e);
+    await e.m.detach();
+    chk(!e.calls.some(c => c.startsWith('presence:')), '★ 다른 기기에 밀려난 기기는 안 쓴다 — 그 칸은 이긴 쪽 것');
+    e = mkEnv({ presenceHang: true, fastTimeout: true }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.ok === true && e.calls.includes('release'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다');
+    e = mkEnv({ apiOn: false }); fillA(e);
+    r = await e.m.detach({ force: true });
+    chk(r && r.ok === true && e.LS.getItem(K.MY_USER_ID_KEY) === null, '  firebaseAPI 가 없는 강제 로그아웃도 «꺼짐» 쓰기에서 던지지 않고 지운다');
+    const noOff = fDet.replace('if(uid) await _presenceOff(uid);', '');
+    e = mkEnv({ det: noOff }); fillA(e);
+    await e.m.detach();
+    chk(noOff !== fDet && !e.calls.includes('presence:uA:false'), '  깨 보기 — «꺼짐» 쓰기를 빼면 위 ★ 가 빨강(그 판정이 이 줄을 본다)');
 
     /* ⑦ 대기 중인 슬롯 debounce push 를 먼저 흘린다 */
     e = mkEnv({ pushTimer: 42 }); fillA(e);
@@ -258,6 +287,14 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(r && r.items && r.items.length === 2, '★ 첫 실패에서 끝내지 않고 **전 항목**을 센다 (' + (r && r.items ? r.items.length : 0) + '개)');
     chk(r && r.items && r.items[0].label === '캐릭터 2개' && /뽑은 파츠 1개/.test(r.items[1].label), '  항목에 **이름과 개수**가 있다 — «이 컴퓨터에만 있는 것: 캐릭터 2개 · 뽑은 파츠 1개» (' + (r && r.items ? r.items.map(i => i.label).join(' · ') : '') + ')');
     chk(e.LS.getItem(K.MY_USER_ID_KEY) === 'uA', '  여전히 아무것도 안 지웠다');
+    /* B-1021-13 — 서버에 보유분이 «있어도» 이 PC 뽑기가 다 올라가지 않았으면 막는다(예전엔 «하나라도 있나» 만 봐서 지웠다) */
+    e = mkEnv({ gacha: { p1: 2, p9: 1 }, srvGacha: { owned: { p1: 1 }, ts: 5 } }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.ok === false && r.items && r.items.length === 1 && /뽑은 파츠/.test(r.items[0].label) && r.kind === 'denied' && e.LS.getItem(K.MY_USER_ID_KEY) === 'uA',
+        '★ 서버에 일부만 있으면(p1 1/2 · p9 없음) 막는다 — 서버에 못 올라간 뽑기를 로그아웃이 지우지 않게');
+    e = mkEnv({ gacha: { p1: 1 }, srvGacha: { owned: { p1: 3 }, ts: 5 } }); fillA(e);
+    r = await e.m.detach();
+    chk(r && r.ok === true, '  서버가 더 많으면(다른 PC 에서 뽑음) 통과');
     e = mkEnv({ slotsTs: 0, fastTimeout: true }); fillA(e);
     r = await e.m.detach();
     chk(r && r.kind === 'timeout' && r.timedOut === true, '★ 8초 상한에 걸린 뒤의 «없다» 는 timeout — «아직 올리는 중» 이라고 말할 재료');
@@ -322,7 +359,7 @@ function part4(){
   chk(fSets && /users\/\$\{uid\}\/playlist`/.test(fSets) && !/_plPickSet/.test(fSets), '  노드를 그대로 읽고 _plPickSet(무작위 한 벌)을 거치지 않는다');
   const fRestore = grabFn(SRC, '_restoreOwnedDataAfterTransfer', 'async function ') || '';
   chk(/fetchMyPlaylistSets/.test(fRestore), '★ _restoreOwnedDataAfterTransfer 가 fetchMyPlaylistSets 를 쓴다');
-  chk(/plMod\.normalizeSets\(r\.sets\)/.test(fRestore), '  받은 세 벌이 부팅 로드와 같은 관문(_plNormalizeSets — playlist.js 의 plMod.normalizeSets)을 지난다');
+  chk(/plMod\.adoptServer\(r\)/.test(fRestore) && !/plMod\.normalizeSets\(r\.sets\)/.test(fRestore), '  받은 세 벌은 부팅 맞추기와 같은 한 벌(plMod.adoptServer — 관문 · 백업 · 고친 시각 · 지문)로 앉힌다');
   chk(/fetchPlaylistOf/.test(fRestore), '  구버전 API(fetchMyPlaylistSets 없음)에서는 옛 길로 물러난다');
   if(!fSets) return;
   /* firebase-init 쪽 실행 — get/ref 스텁 */
@@ -335,32 +372,46 @@ function part4(){
       chk(r.bio === 'hey' && r.homePublic === true, '  한마디·공개 여부도 실린다');
       const r2 = await mk({ items: { 0:{id:'old'} } })('uB');
       chk(r2 && r2.sets.length === 1 && r2.sets[0].items[0].id === 'old', '  sets 없는 옛 노드는 items 를 0번으로');
-      chk((await mk(null)('uB')) === null, '  노드 없음 → null');
+      const r0 = await mk(null)('uB');
+      chk(r0 && r0.sets.length === 0 && r0.ts === 0, '  노드 없음 → 빈 목록(ts 0) — 못 읽음(null)과 가른다');
+      const rf = await new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => { throw new Error('x'); }, () => null, null, { warn(){} })('uB');
+      chk(rf === null, '  못 읽음 → null');
       /* app.js 쪽 실행 — 복원 함수 전체를 스텁 위에서 돌린다 */
       const fNorm = grabFn(SRC, '_plNormalizeSets'), fBlank = grabFn(SRC, '_plBlankSets'), fIdx = grabFn(SRC, '_plSetIdx'), fSig = grabFn(SRC, '_plPubSigOf');
       const env = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
       const run = new Function('env', 'window', 'firebaseAPI',
         "const PL_SETS=3, PL_MAX=20, PL_TITLE_MAX=16, PL_BIO_MAX=140; const console={warn(){}};\n" +
-        "let _plSets=[{name:'옛',items:[{id:'z',url:'u',title:''}]},{name:'',items:[]},{name:'',items:[]}], _plCur=2, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null, _plSel=0, _plNow=0, _plNowSet=0, _plView=null, _plNowView=null;\n" +
+        "let _plSets=env.emptyLocal ? [{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}] : [{name:'옛',items:[{id:'z',url:'u',title:''}]},{name:'',items:[]},{name:'',items:[]}], _plCur=2, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null, _plSel=0, _plNow=0, _plNowSet=0, _plView=null, _plNowView=null;\n" +
         "const _plMine=()=>_plSets[_plCur].items; const _plSave=()=>{ env.saved++; }; const _plPublish=()=>{ env.published++; }; const _plRender=()=>{};\n" +
         /* app.js 는 plMod 로 부른다(앱 FSD 16번) — 함수는 아래에서 떼어 온 진짜 관문 · 지문, 상태는 위 let */
         "const plMod={ PL_MAX, PL_TITLE_MAX, PL_BIO_MAX, normalizeSets:(...a)=>_plNormalizeSets(...a), setIdx:(...a)=>_plSetIdx(...a), pubSigOf:(...a)=>_plPubSigOf(...a),\n" +
-        "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), st:" + PL_ST_ALL + " };\n" +
+        "  mine:()=>_plMine(), save:()=>_plSave(), publish:()=>_plPublish(), render:()=>_plRender(), markSynced:()=>{ env.marked = 'push'; }, resetSync:()=>{ env.reset = (env.reset || 0) + 1; env.resetBeforeFetch = !env.fetched; }, bootSync:()=>{ env.boot = (env.boot || 0) + 1; }, adoptServer:(r)=>{ env.adopted = r; _plSets = _plNormalizeSets(r.sets); _plBio = String(r.bio || ''); _plHomePublic = !!r.homePublic; _plPubSig = 'adopted'; _plSave(); _plRender(); }, st:" + PL_ST_ALL + " };\n" +
         "const getMyUserId=()=>'uB'; const gachaMod={ syncGachaToServer:async()=>{ env.gachaPull++; }, isInvOpen:()=>false, renderGachaInv(){} }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
         [fNorm, fBlank, fIdx, fSig, fRestore].join('\n') +
         "\nreturn async()=>{ await _restoreOwnedDataAfterTransfer(); return { sets:_plSets, cur:_plCur, bio:_plBio, pub:_plHomePublic, sig:_plPubSig }; };");
-      const api = { fetchMyPlaylistSets: async () => ({ sets: r.sets, bio: r.bio, homePublic: r.homePublic }), fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
+      const api = { fetchMyPlaylistSets: async () => { env.fetched = true; return { sets: r.sets, bio: r.bio, homePublic: r.homePublic, ts: 4321 }; }, fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
       const out = await run(env, { firebaseAPI: api }, api)();
       chk(out.sets.length === 3 && out.sets[0].name === 'A' && out.sets[0].items[0].url === 'https://www.youtube.com/watch?v=v1' && out.sets[2].items.length === 2, '★ 복원 뒤 로컬이 세 벌 다 서버 것 — 옛 프리셋이 안 남는다');
       chk(out.sets[1].items.length === 0, '  서버가 빈 벌은 로컬도 빈다 (이 기기 옛 목록으로 채우지 않는다)');
       chk(out.bio === 'hey' && out.pub === true && env.saved === 1, '  한마디·공개 여부 복원 + 저장 1회');
       chk(typeof out.sig === 'string' && env.published === 0, '  지문을 맞춰 두어 헛쓰기(_plPublish)가 안 나간다');
+      chk(env.adopted && env.adopted.ts === 4321 && env.marked === undefined, '  ☁️ 받은 사본을 그대로 adoptServer 에 넘긴다(고친 시각 · 백업은 그쪽 몫)');
+      chk(env.reset === 1 && env.resetBeforeFetch === true && !env.boot, '  ☁️ 읽기 전에 이 기기를 새 기기로(resetSync) — 앞 uid 의 고친 시각이 새 계정 목록을 이기지 않게');
       chk(env.gachaPull === 1 && env.slotsPull === 1, '  가챠·슬롯 pull 은 그대로 이어서 돈다');
       /* 서버가 비었고 로컬에 곡이 있으면 올린다 */
       const env2 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
-      const api2 = { fetchMyPlaylistSets: async () => null };
+      const api2 = { fetchMyPlaylistSets: async () => ({ sets: [], bio: '', homePublic: false, ts: 0 }) };
       const out2 = await run(env2, { firebaseAPI: api2 }, api2)();
-      chk(out2.sets[0].items[0].id === 'z' && env2.published === 1, '  저쪽이 비었으면 이 기기 목록을 올린다 (첫 업로드)');
+      chk(out2.sets[0].items[0].id === 'z' && env2.published === 1 && env2.marked === 'push', '  저쪽이 비었으면 이 기기 목록을 올린다 (첫 업로드 · 맞춤 끝)');
+      const env3 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
+      const api3 = { fetchMyPlaylistSets: async () => null };
+      const out3 = await run(env3, { firebaseAPI: api3 }, api3)();
+      chk(out3.sets[0].items[0].id === 'z' && env3.published === 0 && env3.marked === undefined && env3.reset === 1 && env3.boot === 1, '  못 읽었으면 올리지 않고 새 기기처럼 다시 맞춘다(resetSync · bootSync)');
+      const env4 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
+      const api4 = { fetchMyPlaylistSets: async () => ({ sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 }) };
+      env4.emptyLocal = true;
+      const out4 = await run(env4, { firebaseAPI: api4 }, api4)();
+      chk(out4.sets.every(x => !x.items.length) && env4.published === 0 && env4.marked === 'push' && env4.reset === 1 && !env4.boot, '  양쪽 다 비었다 — 맞춤 끝(markSynced) · 안 하면 이 실행 동안 넣은 곡이 안 올라간다');
     })();
   }catch(err){ huh('4절 실행 오류: ' + (err && err.message || err)); }
 }

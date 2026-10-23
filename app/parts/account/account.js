@@ -299,6 +299,8 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
   'tw.playlistHomePublic', 'tw.playlistPrivate',
+  /* 고친 시각이 남으면 다음 계정의 서버 목록을 «이 기기가 나중» 으로 이겨 비운다 · 백업은 앞 계정 목록이다 */
+  'tw.playlistEditTs', 'tw.playlistBackup',
   /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
   USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', MY_AD_BANNER_KEY,
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,
@@ -368,12 +370,13 @@ async function _acctPreflight(uid, opt){
       else if(!(typeof ts === 'number' && ts > 0)) push(lblSlots, '캐릭터를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
     }
   }catch(_){ push(lblSlots, '캐릭터 저장 상태를 확인하지 못했어요', 'unknown'); }
-  /* 🎰 가챠 — 로컬 보유분이 있으면 서버에도 보유분이 있어야 한다. */
+  /* 🎰 가챠 — 이 PC 의 뽑기가 서버에 다 있어야 한다(파츠마다 개수까지). ⚠️ «서버에 하나라도 있나» 로 줄이지 말 것 —
+     서버에 못 올라간 뽑기가 있어도 통과해 로그아웃이 지운다. */
   try{
     if(nGacha && api.loadGachaOwned){
       const srv = await api.loadGachaOwned(uid);
       if(srv === null || srv === undefined) push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown');
-      else if(!Object.keys(srv.owned || {}).length) push(lblGacha, '뽑은 파츠를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
+      else if(gachaMod().unsynced(srv.owned) > 0) push(lblGacha, '뽑은 파츠를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
     }
   }catch(_){ push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown'); }
   /* 🕒 누적 시간 — 마크가 로컬 누적을 따라잡았어야 한다(2분은 왕복 사이에 쌓이는 폭). */
@@ -415,11 +418,22 @@ function _wipeAccountLocal(){
   try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — gachaOwned = {} · _gachaTs = 0 · _gachaBonus = 0 (gacha.js)
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ slotSyncMod().setSlotsTs(0); slotSyncMod().setSlotsSeen(0); slotSyncMod().setSlotsConflict(null); setExtraSeatSlots([]); }catch(_){}
-  try{ const pl = plMod.st; pl.sets = plMod.blankSets(); pl.cur = 0; pl.bio = ''; pl.homePublic = false; pl.private = false; pl.pubSig = null; }catch(_){}   // 🎵 playlist.js — 상태 묶음
+  try{ const pl = plMod.st; pl.sets = plMod.blankSets(); pl.cur = 0; pl.bio = ''; pl.homePublic = false; pl.private = false; pl.pubSig = null; plMod.resetSync(); }catch(_){}   // 🎵 playlist.js — 상태 묶음 · ☁️ 맞춤 상태도 새 기기처럼
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }
 
+/* 로그인이 남아 있을 때 presence 를 «꺼짐» 으로 — signOut 뒤에는 onDisconnect(꺼짐)가 돌지 않아(그 칸은 이 계정 로그인만 쓴다)
+   친구에게 접속중으로 남는다. 밀려난 기기는 쓰지 않는다 — 그 칸은 이긴 쪽 것이다.
+   firebaseAPI 가 없을 수 있다 — 강제 로그아웃은 검문(«네트워크 없음»)에 걸려도 여기까지 온다. */
+const PRESENCE_OFF_WAIT_MS = 3000;   // 오프라인이면 쓰기가 안 끝난다 — 로그아웃을 이만큼만 붙잡는다
+function _presenceOff(uid){
+  const api = window.firebaseAPI;
+  if(!api || api.deviceSessionLost()) return Promise.resolve();
+  let p = null;
+  try{ p = api.setMyPresenceState(uid, false); }catch(_){}
+  return Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, PRESENCE_OFF_WAIT_MS))]);
+}
 /* 신원 놓기 한 벌 — 올리고 → 검문 → 지운다. 로그아웃·연동 해제가 같이 쓴다.
    @return { ok:true } | { ok:false, reason } — false 면 **아무것도 안 지웠다.** 부르는 쪽이 이유를 보여준다. */
 async function _detachAccountLocal(opt){
@@ -434,6 +448,7 @@ async function _detachAccountLocal(opt){
     if(!pf.ok && !force) return pf;
     if(!pf.ok) console.warn('[계정] 검문에 걸렸지만 강제 로그아웃 — 이 기기에만 있던 것: ' + (pf.items || []).map(i => i.label).join(' · '));
   }
+  if(uid) await _presenceOff(uid);
   _wipeAccountLocal();
   /* 🖥️ 기기 세션을 놓는다 — 내 것일 때만 지운다. authSignOut 은 이 뒤(_loginDoLogout)라 아직 쓸 수 있다. */
   try{ if(window.firebaseAPI && firebaseAPI.releaseDeviceSession) await firebaseAPI.releaseDeviceSession(); }catch(_){}
@@ -768,26 +783,22 @@ async function _restoreOwnedDataAfterTransfer(){
        세 벌을 다 받아야 «돌아오면 그대로» 가 성립한다.
        ⚠️ 구버전 firebaseAPI(fetchMyPlaylistSets 없음)에서는 예전 길(fetchPlaylistOf)로 물러난다. */
     if(window.firebaseAPI && firebaseAPI.fetchMyPlaylistSets){
-      const r = await firebaseAPI.fetchMyPlaylistSets(uid);   // {sets,bio,homePublic} | null
+      /* 이어받기 전 이 기기는 «새 기기» — 앞 uid 의 고친 시각이 남으면 못 읽었을 때 다음 맞추기에서 새 계정 목록을 덮는다
+         (옛 uid 주인이 없는 갈아타기는 _wipeAccountLocal 을 안 거친다) */
+      plMod.resetSync();
+      const r = await firebaseAPI.fetchMyPlaylistSets(uid);   // {sets,bio,homePublic,editTs} | null
       const total = r && Array.isArray(r.sets) ? r.sets.reduce((n, s) => n + ((s && s.items) ? s.items.length : 0), 0) : 0;
       if(total){
-        /* 서버 항목은 {id, title} 뿐이다 — url 은 _plNormalizeSets 가 id 로 복원한다(부팅 로드와 같은 관문). */
-        pl.sets = plMod.normalizeSets(r.sets);
-        pl.cur = plMod.setIdx(pl.cur);
-        pl.bio = String(r.bio || '').slice(0, plMod.PL_BIO_MAX);
-        pl.homePublic = !!r.homePublic;
-        pl.sel = -1; pl.now = -1; pl.nowSet = pl.cur; pl.view = null; pl.nowView = null;
-        try{ plMod.save(); }catch(_){}
-        /* 방금 받아온 것 = 서버와 같은 내용. 지문을 미리 맞춰 _plPublish 의 헛쓰기를 막는다(모양은 _plPublish 와 같다). */
-        pl.pubSig = plMod.pubSigOf(pl.sets.map(ps => ({
-          name: String((ps && ps.name) || '').slice(0, plMod.PL_TITLE_MAX),
-          items: (((ps && ps.items) || [])).map(x => ({ id:x.id, title:x.title || '' })),
-        })), { bio: pl.bio, homePublic: pl.homePublic, private: pl.private });
-        if(typeof plMod.render === 'function') plMod.render();
-      } else if(pl.sets.some(ps => ps && ps.items && ps.items.length)){
+        plMod.adoptServer(r);   // 앉히기 · 백업 · 고친 시각 · 지문 · 저장 · 그리기 — 부팅 맞추기와 한 벌(playlist.js)
+      } else if(r && pl.sets.some(ps => ps && ps.items && ps.items.length)){
         // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
+        plMod.markSynced();
         pl.pubSig = null;
-        if(typeof plMod.publish === 'function') plMod.publish();
+        plMod.publish();
+      } else if(r){
+        plMod.markSynced();   // 양쪽 다 비었다 — 맞춤 끝(안 하면 이 실행 동안 새로 넣은 곡이 안 올라간다)
+      } else {
+        plMod.bootSync();   // 못 읽었다 — 올리지 않고 새 기기처럼 다시 맞춘다(늘려 가는 간격)
       }
     } else if(window.firebaseAPI && firebaseAPI.fetchPlaylistOf){
       const r = await firebaseAPI.fetchPlaylistOf(uid);   // 비어 있으면 null

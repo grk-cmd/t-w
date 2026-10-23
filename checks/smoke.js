@@ -369,6 +369,9 @@ PRELOAD.push('myhome-inbox.js');
 /* help-site.js · help-tab.js — 📘 도움말 탭. app.js 가 만들 때 TwHelpTab 을 부르고, 그 모듈이 TwHelpSite 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('help-site.js');
 PRELOAD.push('help-tab.js');
+/* bgm-diag.js — 🔍 플레이리스트 소리 진단 줄. app.js 가 TwBgmDiag.createBgmDiag 로 만든다. */
+PRELOAD.push('playlist-sync.js');   // ☁️ 플레이리스트 기기 간 맞추기 규칙 — app.js 가 deps 로 넘긴다
+PRELOAD.push('bgm-diag.js');   // 🔍 소리 진단 줄 — app.js 가 만들 때 TwBgmDiag 를 부른다
 /* playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). 같은 까닭 — 만들 때 하는 일(🪟 창 위치 초기화 등록 · 저장값 읽기 · 버튼 · ESC · 끌기 연결 · 미니미 ·
    300ms 폴링 · BGM 신호 구독 · 음량 한 번 · window 고리)과 app.js 가 원래 자리에서 부르는 createPlaylist 를 같이 굴린다. */
 PRELOAD.push('playlist.js');
@@ -412,6 +415,7 @@ PRELOAD.push('ride-bench.js');
 PRELOAD.push('ride-chain.js');
 /* part-paint.js — 🖍️ 파츠에 직접 그리기 · 그림칸(앱 FSD 21번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createPartPaint 를 같이 굴린다. */
 PRELOAD.push('part-paint.js');
+PRELOAD.push('mobile-diag.js');   // 📱 진단 줄 규칙 — focus-level.js 가 deps 로 받는다
 /* focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿(앱 FSD 26번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusLevel 를 같이 굴린다. */
 PRELOAD.push('focus-level.js');
 /* chat-ui.js — 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘(앱 FSD 24번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatUi 를 같이 굴린다. */

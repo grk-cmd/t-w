@@ -5,9 +5,13 @@ export const OLD_VER_LABEL = '0.10.2 이하';
 
 const VER_MAX = 20;
 
-/** 앱이 올린 버전 문자열만 믿는다(규칙과 같은 20자). 아니면 null. */
+// 앱이 버전을 아직 못 받았을 때 presence 에 싣는 값(app/parts/shared/app-version.js APP_VER_UNKNOWN) — 버전이 아니다.
+// 0.11.0 이상 앱이 쓰니 «옛 앱» 도 아니다.
+export const APP_VER_UNKNOWN = 'unknown';
+
+/** 앱이 올린 버전 문자열만 믿는다(규칙과 같은 20자). 아니거나 «모름» 이면 null. */
 export function cleanVer(v: unknown): string | null {
-  return typeof v === 'string' && v && v.length <= VER_MAX ? v : null;
+  return typeof v === 'string' && v && v.length <= VER_MAX && v !== APP_VER_UNKNOWN ? v : null;
 }
 
 /** 지금 쓰는 앱 버전. ver 가 없고 old 면 버전을 안 남기는 옛 앱(0.10.2 이하), 둘 다 아니면 모름. */
@@ -18,10 +22,12 @@ export interface CurrentVer {
 
 // presence 는 모든 앱이 켤 때마다 쓰지만(0.11.0 부터 ver 포함) 계정 요약은 로그인된 기기가 켤 때만 다시 써서
 // 옛 버전이 남는다 — presence 가 있으면 그것만 믿고, presence 를 못 받았을 때만 계정 요약을 본다.
+// presence 버전이 «모름» 이면 새 앱이라 옛 앱으로 치지 않고, 계정 요약에 버전이 있으면 그것을 본다.
 export function currentVer(
-  presence: { ver: string | null } | null,
+  presence: { ver: string | null; verUnknown: boolean } | null,
   row: Pick<UserRow, 'ver' | 'hasAccount'>,
 ): CurrentVer {
+  if (presence?.verUnknown) return { ver: row.ver, old: false };
   if (presence) return { ver: presence.ver, old: !presence.ver };
   return { ver: row.ver, old: !row.ver && row.hasAccount };
 }
