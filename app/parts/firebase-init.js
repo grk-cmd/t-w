@@ -38,6 +38,7 @@
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor } from "./room/room-channel.js";
   import { createRoomStats } from "./room/room-stats.js";
+  import { createGachaTx } from "./character/gacha-tx.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
@@ -422,6 +423,7 @@
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
   const _roomStats = createRoomStats({ db, ref, get, onValue, now: () => _svNow() });
+  const _gachaTx = createGachaTx({ db, ref, get, runTransaction, waitConnected: ms => window.firebaseAPI.waitConnected(ms), whenAuthReady: _whenAuthReady });
   const _groupInvite = createGroupInvite({ db, ref, get, update });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
@@ -903,10 +905,7 @@
          users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
          users/{uid}/gacha/ts             = 172…   // 마지막으로 바꾼 시각(ms)
        내 것만 1회 get 한다 — 목록을 실시간 구독하면 비용이 터진다(audit 검사 9).
-       ★ 반영은 '최신 기기 통째로 덮어쓰기(set)'다. ts 비교와 판정은 전부 app.js
-         syncGachaToServer 가 하고, 여기는 읽기/쓰기만 한다.
-         set 을 쓰는 것이 중요하다 — update 면 진 기기에만 있던 파츠가 서버에 그대로 남아
-         "덮어썼는데 옛것이 섞여 있다"가 된다.
+       ★ 쓰기는 트랜잭션 한 길(updateGacha → character/gacha-tx.js)뿐이다 — 통째 set 은 다른 PC 의 뽑기를 지운다.
        ⚠️ 규칙 파일의 users/$userId 안에 gacha 블록이 없으면 여기 쓰기가 **조용히 전부 거부**된다.
          audit 검사 7은 최상위 경로만 보므로 users 하위 키는 잡아주지 않는다. */
     async loadGachaOwned(uid){
@@ -917,17 +916,7 @@
       }
       catch(e){ console.warn('[가챠] 소유 목록 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
     },
-    async saveGachaOwned(uid, owned, ts){
-      try{
-        const clean = {};
-        for(const k in (owned || {})){
-          const n = Math.max(0, Math.floor(Number(owned[k]) || 0));
-          if(n > 0) clean[k] = n;
-        }
-        await set(ref(db, `users/${uid}/gacha`), { owned: clean, ts: Math.max(0, Math.floor(Number(ts) || 0)) });
-        return true;
-      }catch(e){ console.warn('[가챠] 소유 반영 실패', e); return false; }
-    },
+    updateGacha(uid, apply, opt){ return _gachaTx.updateGacha(uid, apply, opt); },
     /* ===== 🧍 캐릭터 슬롯 (기기 간 동기화 · 2026-09-16 제보 6-b) =====
          users/{uid}/slots/ts      = 172…   // 마지막으로 바꾼 시각(ms · 서버 시계)
          users/{uid}/slots/v       = 1
@@ -1143,7 +1132,7 @@
       }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
     },
     /* 🏅 👑달성표 주간 보상 — 추가 뽑기 횟수. users/{uid}/chalBonus (숫자 하나)
-       ★ **gacha 노드 안에 두지 않는다.** 바로 위 saveGachaOwned 가 그 노드를 통째로 set 하는데,
+       ★ **gacha 노드 안에 두지 않는다.** 옛 판(0.11 이하)이 그 노드를 통째로 set 하는데,
          보상을 모르는 **옛 버전 클라이언트**는 {owned, ts} 만 실어 보낸다 — 그 한 번의 쓰기로
          보상이 증발한다. 기기 두 대 중 하나만 업데이트한 사람에게 실제로 일어나는 일이다.
          노드를 갈라 두면 옛 버전이 건드릴 수 있는 경로 자체가 없다.
