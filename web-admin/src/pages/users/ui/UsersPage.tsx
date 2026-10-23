@@ -1,13 +1,7 @@
 import { useMemo, useState } from 'react';
 import { userSourceNote, type LastSeenOrder, type UserQuery, type UserRow } from '@/entities/user';
 import { DeleteAccountButton } from '@/features/user/delete-account';
-import {
-  CreateInviteCodesButton,
-  GrantInvitesAllButton,
-  GrantInvitesSelectedButton,
-  RevokeInvitesAllButton,
-  RevokeInvitesSelectedButton,
-} from '@/features/user/grant-invites';
+import { GrantInvitesSelectedButton, RevokeInvitesSelectedButton } from '@/features/user/grant-invites';
 import {
   hasPeriod,
   inPeriod,
@@ -136,9 +130,6 @@ export function UsersPage() {
           {/* 서버 사본이면 기준 시각을, 예전 방식이면 왜 넘어왔는지를 작게 */}
           {source && countText && <small> · {userSourceNote(source, stats.data?.syncedAt ?? null)}</small>}
         </span>
-        <CreateInviteCodesButton />
-        <GrantInvitesAllButton />
-        <RevokeInvitesAllButton />
         <DeleteAccountButton onDeleted={afterDelete} />
         <button type="button" className="btn" onClick={reload}>
           새로고침

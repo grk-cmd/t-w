@@ -2,6 +2,7 @@ import { expect, type Locator, type Page } from '@playwright/test';
 
 export type Menu =
   | 'license'
+  | 'invites'
   | 'users'
   | 'reports'
   | 'notices'

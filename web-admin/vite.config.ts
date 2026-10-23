@@ -1,6 +1,6 @@
 /// <reference types="vitest/config" />
 import react from '@vitejs/plugin-react';
-import { execFileSync } from 'node:child_process';
+import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { defineConfig, type Plugin } from 'vite';
 
@@ -11,9 +11,8 @@ const DEV_PROJECT = 'together-working-dev';
 function devFirebaseConfig(): Plugin {
   let cached: string | null = null;
   const load = () => {
-    const out = execFileSync('firebase', ['apps:sdkconfig', 'WEB', '--project', DEV_PROJECT, '--json'], {
-      encoding: 'utf8',
-    });
+    // 셸로 부른다 — Windows 의 firebase 는 firebase.cmd 라 셸 없이는 못 찾는다. 명령은 고정 글자뿐이다
+    const out = execSync(`firebase apps:sdkconfig WEB --project ${DEV_PROJECT} --json`, { encoding: 'utf8' });
     return JSON.stringify(JSON.parse(out).result.sdkConfig);
   };
 

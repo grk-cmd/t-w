@@ -37,6 +37,7 @@ const findMySeat = deps.findMySeat;
 const getDisplayName = deps.getDisplayName;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const getMyUserId = deps.getMyUserId;
+const mobileDiag = deps.mobileDiag;
 const renderLauncher = deps.renderLauncher;
 const toast = deps.toast;
 const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
@@ -430,6 +431,7 @@ const MOBILE_KEY_LS = 'tw.mobileKey';   // { u, k } — 이 PC 가 만든 키. u
 const MOBILE_APP_MAX = 40;
 let _mobileFocus = { on:false, app:'', since:0, seen:false };   // seen = 이 키로 폰이 한 번이라도 신호를 보냈다
 let _mobileStop = null;
+let _mobDiag = null, _mobDiagFirst = true;   // 🔍 진단 줄 — 이번 실행에 받은 신호(mobile-diag.js) · first = 구독 뒤 처음 온 값
 function _mobileNow(){ try{ if(window.firebaseAPI && firebaseAPI.serverNow) return firebaseAPI.serverNow(); }catch(_){} return Date.now(); }
 /* 폰이 지금 «포커싱 어플을 쓰는 중» 인가 — 켜짐 + 상한 안. */
 function _mobileOn(){
@@ -490,7 +492,17 @@ function _mobileChanged(){
 function _mobileStart(){
   const uid = getMyUserId(), key = _mobileGetKey();
   if(!uid || !key || !window.firebaseAPI || !firebaseAPI.mobileLinkStart) return;
-  Promise.resolve(firebaseAPI.mobileLinkStart(uid, _mobileApplyState)).then(stop=>{ if(stop) _mobileStop = stop; }).catch(()=>{});
+  _mobDiag = mobileDiag.empty(); _mobDiagFirst = true;
+  const onState = (v)=>{
+    const first = _mobDiagFirst; _mobDiagFirst = false;   // 첫 값이 비어 있어도(처음 연결 · 새 키) 깃발은 내린다
+    if(v && v.key === key) _mobDiag = mobileDiag.next(_mobDiag, { kind:'state', v, first });
+    _mobileApplyState(v);
+  };
+  const onDiag = (ev)=>{
+    if(ev.kind === 'reset' && !(ev.v && ev.v.key === key)) return;   // 다른 키로 쓴 «켜짐» 은 이 PC 의 신호가 아니다
+    _mobDiag = mobileDiag.next(_mobDiag, ev); try{ _mobRenderPanel(); }catch(_){}
+  };
+  Promise.resolve(firebaseAPI.mobileLinkStart(uid, onState, onDiag)).then(stop=>{ if(stop) _mobileStop = stop; }).catch(()=>{});
 }
 /* ── 📱 설정 › 포커싱어플 칸 + QR 창 (시안 ①~③) ─────────────────────────────
    ★ 그리는 곳은 _mobRenderPanel 하나. 상태가 바뀔 때 · 1분마다 · 창을 열 때 부른다.
@@ -516,6 +528,8 @@ function _mobRenderPanel(){
   if(qr) qr.textContent = paired ? 'QR 다시 보기' : 'QR로 연결하기';
   if(un && !un._armed){ un.style.display = paired ? '' : 'none'; un.textContent = '연결 끊기'; }
   if(note) note.style.display = paired ? '' : 'none';
+  const dg = document.getElementById('fsMobDiag');
+  if(dg){ dg.style.display = paired ? '' : 'none'; dg.textContent = paired ? mobileDiag.line(_mobDiag) : ''; }
 }
 function _mobDrawQr(text){
   const cv = document.getElementById('mobLinkQr'); if(!cv || !window.TWQR) return false;

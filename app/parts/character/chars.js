@@ -537,12 +537,14 @@ async function _charsDeskToBox(i){
     // 진행 중인 동기화가 끝날 때까지(최대 20초). ⚠️ 이 함수 안에 둔다 — sim-signup 이 이 함수만 떼어 돌린다.
     const _idle = async () => { for(let t = 0; typeof _charsSyncing !== 'undefined' && _charsSyncing && t < 200; t++) await new Promise(res => setTimeout(res, 100)); };
     await _idle();
-    try{ await _charsSync('force'); }catch(_){}
+    let sr = null;
+    try{ sr = await _charsSync('force'); }catch(_){}
     await _idle();
+    const syncCode = (sr && sr.code) || '';   // 왜 못 올렸나 — 실패 문구 끝에 싣는다(제보로 원인을 가르게)
     box = _charsBoxGet(); desk = _charsDeskGet();
     /* 기다리는 사이 칸 번호가 바뀌었으면 그 캐릭터의 새 번호로 따라간다(번호만 믿으면 엉뚱한 칸을 당긴다). */
     if(desk[i] !== cid){ const j = desk.indexOf(cid); if(j < 0) return { ok: false, why: 'moved' }; i = j; }
-    if(!box[cid] || typeof box[cid].def !== 'string') return { ok: false, why: 'dirty' };
+    if(!box[cid] || typeof box[cid].def !== 'string') return { ok: false, why: 'dirty', err: syncCode || undefined };
   }
   for(let k = i; k < CHAR_SLOT_MAX - 1; k++) desk[k] = desk[k + 1];
   desk[CHAR_SLOT_MAX - 1] = null;
@@ -588,7 +590,13 @@ function _charsMoveMsg(r){
   const w = r && r.why;
   if(w === 'off') return '보관함은 계정 연동이 끝난 뒤에 쓸 수 있어요 — 잠시 뒤 다시 눌러 주세요';
   if(w === 'full') return '보관함이 가득 찼어요 (' + CHARS_BOX_MAX + '/' + CHARS_BOX_MAX + ')';
-  if(w === 'dirty') return '방금 고친 모습을 계정에 올리는 중이에요 — 잠시 뒤 다시 눌러 주세요';
+  if(w === 'dirty'){
+    /* 계정에 못 올린 까닭(_charsSync 의 code — 'img@2' · 'size162k@2' · 'write' …)을 사람 말로 끝에 붙인다 — 제보 한 줄로 원인을 가르게 */
+    const c = String((r && r.err) || ''), at = c.indexOf('@'), kind = at < 0 ? c : c.slice(0, at), slot = at < 0 ? '' : c.slice(at + 1);
+    const WHY = { img: '그림 올리기 실패', write: '서버가 거절', read: '서버 읽기 실패', fetch: '그림 받기 실패', creator: '생성기가 열려 있음', nopath: '서버 연결 전' };
+    const label = WHY[kind] || (/^size\d+k$/.test(kind) ? '크기 초과 ' + kind.slice(4) : '');
+    return '방금 고친 모습을 계정에 올리는 중이에요 — 잠시 뒤 다시 눌러 주세요' + (label ? ' (이유: ' + label + (slot ? ' · ' + slot + '번 칸' : '') + ')' : '');
+  }
   if(w === 'slotsfull') return '슬롯이 꽉 차서 이동할 수 없어요. 슬롯을 먼저 비워 주세요 — 런처 톱니 [보관함 이동]';
   if(w === 'img') return '캐릭터 그림을 받지 못했어요 — 네트워크를 확인하고 다시 눌러 주세요';
   return '옮기지 못했어요 — 다시 눌러 주세요' + (w ? ' (' + w + ')' : '');   // 🩺 이유 코드 — 제보 때 갈래를 가른다
@@ -760,36 +768,38 @@ async function _charsSync(reason){
   _charsSyncing = true;
   try{
     const uid = _charsCachedUid();
-    if(!uid || !(window.firebaseAPI && firebaseAPI.loadCharsMetaTs && firebaseAPI.loadCharsRemote && firebaseAPI.saveCharsEntries)) return { ok: false, reason: '통로 없음' };
+    if(!uid || !(window.firebaseAPI && firebaseAPI.loadCharsMetaTs && firebaseAPI.loadCharsRemote && firebaseAPI.saveCharsEntries)) return { ok: false, reason: '통로 없음', code: 'nopath' };
     const gen = _charsGen;
     const box = _charsBoxGet(), desk = _charsDeskGet(), pend = _charsJsonGet(CHARS_TRASH_PEND_KEY, []);
     const mine = desk.some(c => c && box[c] && box[c].dirty) || (Array.isArray(pend) && pend.length > 0);
     const tsKey = CHARS_META_TS_PREFIX + uid;
     const ts = await firebaseAPI.loadCharsMetaTs(uid);
-    if(ts === null) return { ok: false, reason: 'charsMeta.ts 읽기 실패' };
+    if(ts === null) return { ok: false, reason: 'charsMeta.ts 읽기 실패', code: 'read' };
     let known = 0; try{ known = Number(localStorage.getItem(tsKey)) || 0; }catch(_){}
     const tombPend = Object.keys(box).some(c => _charsIsTomb(box[c]) && box[c].pend);
     if(!mine && !tombPend && ts === known && reason !== 'force') return { ok: true, did: '할 일 없음' };
-    if(typeof creatorOpen() !== 'undefined' && creatorOpen()) return { ok: true, did: '생성기가 열려 있어 다음에' };
+    if(typeof creatorOpen() !== 'undefined' && creatorOpen()) return { ok: true, did: '생성기가 열려 있어 다음에', code: 'creator' };
     const cr = await firebaseAPI.loadCharsRemote(uid);
-    if(!cr) return { ok: false, reason: '서버 chars 읽기 실패' };
+    if(!cr) return { ok: false, reason: '서버 chars 읽기 실패', code: 'read' };
     let prevRaw = null, raw = null;
     try{ prevRaw = localStorage.getItem(LS_KEY); raw = JSON.parse(prevRaw || 'null'); }catch(_){}
     if(!Array.isArray(raw)) raw = [];
     const p = _charsPlanSync(box, desk, raw, cr.chars, {});
     /* ① 올릴 것 — 하나라도 못 바꾸면 아무것도 안 쓴다. */
     const faceSt = _roomFaceCacheLoad(), glbSt = _slotGlbCacheLoad();
+    let toJsWhy = '';   // 못 올린 까닭 — 보관함 이동 실패 문구에 실린다(그림 업로드 실패 · 크기 초과를 가른다)
     const toJs = async (obj) => {
       const so = await _slotToServerObj(uid, obj, faceSt, glbSt);
       _roomFaceCacheSave(faceSt); _slotGlbCacheSave(glbSt);
-      if(!so) return null;
+      if(!so){ toJsWhy = 'img'; return null; }
       const js = JSON.stringify(so);
-      return js.length > SLOT_JSON_MAX ? null : js;
+      if(js.length > SLOT_JSON_MAX){ toJsWhy = 'size' + Math.round(js.length / 1000) + 'k'; return null; }
+      return js;
     };
     const entries = Object.assign({}, p.pushServer);
     for(const u of p.upload){
       const js = await toJs(raw[u.slot]);
-      if(!js) return { ok: false, reason: (u.slot + 1) + '번 칸을 올리지 못함 — 아무것도 안 바꿨다' };
+      if(!js) return { ok: false, reason: (u.slot + 1) + '번 칸을 올리지 못함 — 아무것도 안 바꿨다', code: toJsWhy + '@' + (u.slot + 1) };
       entries[u.cid] = { def: js, mtime: u.mtime };
       p.box[u.cid] = { def: js, mtime: u.mtime, h: box[u.cid] && box[u.cid].h };
     }
@@ -804,12 +814,12 @@ async function _charsSync(reason){
     const next = raw.slice();
     for(const r of p.reseat){
       try{ next[r.slot] = await _slotFromServerObj(JSON.parse(p.box[r.cid].def)); }
-      catch(e){ return { ok: false, reason: (r.slot + 1) + '번 칸 그림을 받지 못함 — 아무것도 안 바꿨다' }; }
+      catch(e){ return { ok: false, reason: (r.slot + 1) + '번 칸 그림을 받지 못함 — 아무것도 안 바꿨다', code: 'fetch@' + (r.slot + 1) }; }
     }
     for(const i of p.unseat) next[i] = null;
     /* ③ 서버 — 실패하면 로컬은 안 바꾼다. */
     let w = true;
-    if(Object.keys(entries).length){ w = await firebaseAPI.saveCharsEntries(uid, entries); if(!w) return { ok: false, reason: '서버 chars 쓰기 실패' }; }
+    if(Object.keys(entries).length){ w = await firebaseAPI.saveCharsEntries(uid, entries); if(!w) return { ok: false, reason: '서버 chars 쓰기 실패', code: 'write' }; }
     if(trash.length && firebaseAPI.appendCharsTrash) await firebaseAPI.appendCharsTrash(uid, trash);
     /* 대기 줄은 **이번에 올린 것만** 지운다 — 도는 사이 휴지통 이동이 또 있었으면 그 줄은 남아야 한다. */
     try{
