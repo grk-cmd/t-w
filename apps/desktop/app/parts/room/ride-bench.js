@@ -821,7 +821,7 @@ function mountRide(animalSeat, hostSeat){
   //   그때도 토스트가 뜨면 남의 행동을 내가 한 것처럼 알리고, broadcastRide까지 불려
   //   친구의 상태 변화마다 내 presence 쓰기가 한 번씩 더 나간다(불필요한 서버 비용·왕복).
   if(!animalSeat.remote){
-    if(!_rideQuietToast) toast('🐾 머리 위에 올라탔어요! (다시 드래그하면 내려와요)');   // 🗼 탑이 내려앉으며 다시 태울 땐 조용히
+    if(!_rideQuietToast) toast('🐾 머리 위에 올라탔어요! (한 번 클릭하면 내려와요)');   // 🗼 탑이 내려앉으며 다시 태울 땐 조용히
     try{ broadcastRide(); }catch(_){}
   }
   /* 🐾 이 좌석은 이제 자리 계산에서 빠진다(layoutSeats 의 placed 주석) — 남은 좌석이 그 자리를
