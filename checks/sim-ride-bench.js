@@ -1,7 +1,7 @@
 /* ═══ 🗼 sim-ride-bench.js — 🗼 올라타기(탑) · 벤치 좌석 자리 잡기 · 🪑 멀티좌석 책상(2·3인승 벤치 모듈 구조 (2026-10-14 신설 · 앱 FSD 30번) ═══════════════
    app.js 의 «🗼 올라타기» · «🪑 멀티좌석 책상» 두 구역 본문 을 parts/room/ride-bench.js 로 옮겼다(글자 그대로 · 바뀐 줄 6 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(올라타기 · 벤치를 보던 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_checkCircusBalance · _remeasureRideHeadTop · _resetIdeskRestore · _rideBottom · _rideDepth · _rideIsAbove · _rideLeaveTower · _rideRiders · _updateRideChains · attachBenchToSeat · findBenchSlot · mountBench · mountRide · restoreInteractionDesk · toggleIdeskInventory · unmountBench · unmountRide)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_checkCircusBalance · _remeasureRideArm · _remeasureRideHeadTop · _resetIdeskRestore · _rideBottom · _rideDepth · _rideIsAbove · _rideLeaveTower · _rideRiders · _updateRideChains · attachBenchToSeat · findBenchSlot · mountBench · mountRide · restoreInteractionDesk · toggleIdeskInventory · unmountBench · unmountRide)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 69줄 그대로(진단 기록 diagNote · 몸 재기 measureBodyBox · isPartByRigOrName 더함) · 부르는 곳은 rideBenchMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 올라탄 높이 다시 재기 — 실패하면 옛 높이 그대로 · 진단 기록 한 줄 / 성공하면 탄 좌석 모두 새 값 · 다음 프레임 검증 줄(작은 가짜 THREE · 깨 보기)
@@ -22,8 +22,8 @@ const FN_DEPS = ["_collapseRideTower","_deskDefById","_measureAnimalArmH","_meas
 const VAL_DEPS = ["ANIMAL_RUN_SCALE","CIRCUS_FOOT_CENTER","CIRCUS_FOOT_SINK","CIRCUS_FOOT_Z","CIRCUS_FOOT_Z_FROM_TOP","CIRCUS_MIN_DEPTH","CIRCUS_PANIC_MS","CIRCUS_PANIC_SLEEPERS","CIRCUS_SWAY_CALM","CIRCUS_SWAY_PANIC","CIRCUS_SWAY_SPEED","CIRCUS_TOP_SLAB","CIRCUS_TREMOR_AMP","CIRCUS_TREMOR_AT","CIRCUS_TREMOR_CALMDOWN","CIRCUS_TREMOR_SPD","CIRCUS_YAW_MAX","CIRCUS_YAW_MIN","CIRCUS_YAW_RANDOM","CIRCUS_Z_DEPTH_K_ON_ANIMAL","RIDE_ARM_SINK","RIDE_ARM_SINK_ON_ANIMAL","RIDE_ARM_SIZE_FOLLOW","RIDE_FOLLOW_HEAD_TILT","RIDE_HEAD_OFFSET_Y","RIDE_HEAD_OFFSET_Z","RIDE_HEAD_OFFSET_Z_ON_ANIMAL","RIDE_MAX_STACK","RIDE_PART_CENTER_MARGIN","RIDE_Z_DEPTH_K_ON_ANIMAL","_rideAwayP","_rideAwayS","_rideAxisY","_rideFootOff","_rideOff","_rideQC","_rideQD","_rideQP","_rideQR","_rideQSpin","_rideQY","_rideTmp","_rideWP","matWood","matWoodD","seats"];
 const GET_DEPS = ["IDESK_ENABLED","INTERACTION_DESKS","Presence","savedParts"];
 const SET_DEPS = [];
-const EXPORTS = ["_checkCircusBalance","_remeasureRideHeadTop","_resetIdeskRestore","_rideBottom","_rideDepth","_rideIsAbove","_rideLeaveTower","_rideRiders","_updateRideChains","attachBenchToSeat","findBenchSlot","mountBench","mountRide","restoreInteractionDesk","toggleIdeskInventory","unmountBench","unmountRide"];
-const MOVED = ["_checkCircusBalance","_updateRideChains","_benchWP","_benchQ","_benchGP","_positionBenchSeat","_positionRideSeat","_rideDepth","_rideIsAbove","_rideRiders","_rideBottom","_partAllowsRideTop","_measureRideablePartTop","_measureHostHeadTop","_remeasureRideHeadTop","mountRide","_rideQuietToast","_rideLeaveTower","unmountRide","BENCH_SNAP_DIST","buildPrimitiveBench","_readBenchSlots","attachBenchToSeat","equipInteractionDesk","unequipInteractionDesk","findBenchSlot","mountBench","unmountBench","removeMyBench","_ideskRestored","restoreInteractionDesk","_resetIdeskRestore","_ideskInRoom","renderIdeskInventory","openIdeskInventory","closeIdeskInventory","_ideskOpen","toggleIdeskInventory","IDESK_POS_KEY","_saveIdeskPos","_restoreIdeskPos"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const EXPORTS = ["_checkCircusBalance","_remeasureRideArm","_remeasureRideHeadTop","_resetIdeskRestore","_rideBottom","_rideDepth","_rideIsAbove","_rideLeaveTower","_rideRiders","_updateRideChains","attachBenchToSeat","findBenchSlot","mountBench","mountRide","restoreInteractionDesk","toggleIdeskInventory","unmountBench","unmountRide"];
+const MOVED = ["_checkCircusBalance","_updateRideChains","_benchWP","_benchQ","_benchGP","_positionBenchSeat","_positionRideSeat","_rideDepth","_rideIsAbove","_rideRiders","_rideBottom","_partAllowsRideTop","_measureRideablePartTop","_measureHostHeadTop","_remeasureRideArm","_remeasureRideHeadTop","mountRide","_rideQuietToast","_rideLeaveTower","unmountRide","BENCH_SNAP_DIST","buildPrimitiveBench","_readBenchSlots","attachBenchToSeat","equipInteractionDesk","unequipInteractionDesk","findBenchSlot","mountBench","unmountBench","removeMyBench","_ideskRestored","restoreInteractionDesk","_resetIdeskRestore","_ideskInRoom","renderIdeskInventory","openIdeskInventory","closeIdeskInventory","_ideskOpen","toggleIdeskInventory","IDESK_POS_KEY","_saveIdeskPos","_restoreIdeskPos"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  CIRCUS_FOOT_CENTER: CIRCUS_FOOT_CENTER,","  CIRCUS_FOOT_SINK: CIRCUS_FOOT_SINK,","  CIRCUS_FOOT_Z: CIRCUS_FOOT_Z,","  CIRCUS_FOOT_Z_FROM_TOP: CIRCUS_FOOT_Z_FROM_TOP,","  CIRCUS_MIN_DEPTH: CIRCUS_MIN_DEPTH,","  CIRCUS_PANIC_MS: CIRCUS_PANIC_MS,","  CIRCUS_PANIC_SLEEPERS: CIRCUS_PANIC_SLEEPERS,","  CIRCUS_SWAY_CALM: CIRCUS_SWAY_CALM,","  CIRCUS_SWAY_PANIC: CIRCUS_SWAY_PANIC,","  CIRCUS_SWAY_SPEED: CIRCUS_SWAY_SPEED,","  CIRCUS_TOP_SLAB: CIRCUS_TOP_SLAB,","  CIRCUS_TREMOR_AMP: CIRCUS_TREMOR_AMP,","  CIRCUS_TREMOR_AT: CIRCUS_TREMOR_AT,","  CIRCUS_TREMOR_CALMDOWN: CIRCUS_TREMOR_CALMDOWN,","  CIRCUS_TREMOR_SPD: CIRCUS_TREMOR_SPD,","  CIRCUS_YAW_MAX: CIRCUS_YAW_MAX,","  CIRCUS_YAW_MIN: CIRCUS_YAW_MIN,","  CIRCUS_YAW_RANDOM: CIRCUS_YAW_RANDOM,","  CIRCUS_Z_DEPTH_K_ON_ANIMAL: CIRCUS_Z_DEPTH_K_ON_ANIMAL,","  IDESK_ENABLED: ()=>IDESK_ENABLED,","  INTERACTION_DESKS: ()=>INTERACTION_DESKS,","  Presence: ()=>Presence,","  RIDE_ARM_SINK: RIDE_ARM_SINK,","  RIDE_ARM_SINK_ON_ANIMAL: RIDE_ARM_SINK_ON_ANIMAL,","  RIDE_ARM_SIZE_FOLLOW: RIDE_ARM_SIZE_FOLLOW,","  RIDE_FOLLOW_HEAD_TILT: RIDE_FOLLOW_HEAD_TILT,","  RIDE_HEAD_OFFSET_Y: RIDE_HEAD_OFFSET_Y,","  RIDE_HEAD_OFFSET_Z: RIDE_HEAD_OFFSET_Z,","  RIDE_HEAD_OFFSET_Z_ON_ANIMAL: RIDE_HEAD_OFFSET_Z_ON_ANIMAL,","  RIDE_MAX_STACK: RIDE_MAX_STACK,","  RIDE_PART_CENTER_MARGIN: RIDE_PART_CENTER_MARGIN,","  RIDE_Z_DEPTH_K_ON_ANIMAL: RIDE_Z_DEPTH_K_ON_ANIMAL,","  _collapseRideTower: (...a)=>_collapseRideTower(...a),","  _deskDefById: (...a)=>_deskDefById(...a),","  _measureAnimalArmH: (...a)=>_measureAnimalArmH(...a),","  _measureCircusFootOff: (...a)=>_measureCircusFootOff(...a),","  _rideAwayP: _rideAwayP,","  _rideAwayS: _rideAwayS,","  _rideAxisY: _rideAxisY,","  _rideBottom: (...a)=>_rideBottom(...a),","  _rideFootOff: _rideFootOff,","  _rideHostSpinY: (...a)=>_rideHostSpinY(...a),","  _rideOff: _rideOff,","  _rideQC: _rideQC,","  _rideQD: _rideQD,","  _rideQP: _rideQP,","  _rideQR: _rideQR,","  _rideQSpin: _rideQSpin,","  _rideQY: _rideQY,","  _rideTmp: _rideTmp,","  _rideWP: _rideWP,","  broadcastRide: (...a)=>broadcastRide(...a),","  charLiftWorld: (...a)=>charLiftWorld(...a),","  diagNote: (...a)=>diagNote(...a),","  getActiveInteractionDeskId: (...a)=>getActiveInteractionDeskId(...a),","  isDeskUnlocked: (...a)=>isDeskUnlocked(...a),","  isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),","  layoutSeats: (...a)=>layoutSeats(...a),","  matWood: matWood,","  matWoodD: matWoodD,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  measureHeadBoxNoParts: (...a)=>measureHeadBoxNoParts(...a),","  savedParts: ()=>savedParts,","  seatScale: (...a)=>seatScale(...a),","  seatState: (...a)=>seatState(...a),","  seats: seats,","  setActiveInteractionDeskId: (...a)=>setActiveInteractionDeskId(...a),","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
@@ -128,6 +128,34 @@ judgeRemeasure(MOD).forEach(([ok, msg]) => chk(ok, msg));
   const m2 = MOD.replace(/if\(v == null\)\{ diagNote\([^)]*\); return; \}/, 'if(v == null) return;');
   let rows2; try{ rows2 = judgeRemeasure(m2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — 실패 기록 줄을 빼면 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 5. 탄 동물이 다시 맞춰지면 팔 높이도 다시 잰다(파츠 붙음 · 뗌 · 동물 바꿈 — mountRide 의 1회 실측은 파츠 전 값일 수 있다)');
+function judgeArm(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  try{
+    const notes = []; let arm = 0.7;
+    const host = {};
+    const mod = build(src, { seats: [host], diagNote: (m) => notes.push(m), _measureAnimalArmH: () => arm });
+    const a = { ridingOn: host, _rideArmH: 0.3 };
+    mod._remeasureRideArm(a);
+    t(a._rideArmH === 0.7 && a._rideDbgOnce === true, '★ 탄 동물 — 새 팔 높이(0.3 → 0.7) · 다음 프레임 검증 줄');
+    const c = { ridingOn: host, _rideArmH: 0.3, _circusOn: true }; mod._remeasureRideArm(c);
+    const n = { _rideArmH: null }; mod._remeasureRideArm(n);
+    t(c._rideArmH === 0.3 && n._rideArmH === null && !notes.length, '  묘기(2층+) 자세 · 안 탄 좌석은 재지 않는다');
+    arm = null; const f = { ridingOn: host, _rideArmH: 0.3 }; mod._remeasureRideArm(f);
+    t(f._rideArmH === 0.3 && notes.some(m => /팔 높이 다시 재기 실패/.test(m)), '  재기 실패 — 옛 값 그대로 · 진단 기록 한 줄');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 80)); }
+  return r;
+}
+judgeArm(MOD).forEach(([ok, msg]) => chk(ok, msg));
+for(const [name, a, b] of [
+  ['새 값을 안 심음', '  seat._rideArmH = h;\n', ''],
+  ['묘기 자세에서도 잼', 'if(!seat || !seat.ridingOn || seat._circusOn) return;', 'if(!seat || !seat.ridingOn) return;'],
+]){
+  const m2 = MOD.replace(a, b);
+  let rows2; try{ rows2 = judgeArm(m2); }catch(_){ rows2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 {
   const m3 = MOD.replace(' r._rideDbgOnce = true;', '');

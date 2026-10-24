@@ -242,7 +242,7 @@
 | **sim-app-size.js** | 127 | **1fcf39621d00** |
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
-| **sim-scheduler.js** | 241 | **4b341e0cc402** |
+| **sim-scheduler.js** | 261 | **ded3144b895d** |
 | **sim-weekly-challenge.js** | 345 | **35279543c804** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
@@ -296,7 +296,7 @@
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **8d2f056f3589** |
 | **sim-tricks.js** | 94 | **53f1d40a59a5** |
-| **sim-ride-bench.js** | 138 | **7319dc266acd** |
+| **sim-ride-bench.js** | 166 | **65ba6106b0cc** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **3e7fcbc11472** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
@@ -394,7 +394,7 @@
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
 | **sim-seat-layout.js** | 172 | **6f339dcee0bc** |
-| **sim-seat-refit.js** | 182 | **d7e352d1115d** |
+| **sim-seat-refit.js** | 182 | **864d3b36827b** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 159 | **7ee3787c0a8c** |
 | **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |
@@ -418,6 +418,7 @@
 | **sim-part-ao-clean.js** | 122 | **535053a793ff** |
 | **sim-img-retry.js** | 71 | **a963d5e30fd6** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
+| **sim-room-code-len.js** | 87 | **f0578d075c5e** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

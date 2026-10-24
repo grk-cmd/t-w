@@ -5,7 +5,7 @@
      IDESK_ENABLED · INTERACTION_DESKS · Presence · savedParts 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 15개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _checkCircusBalance · _remeasureRideHeadTop · _resetIdeskRestore · _rideBottom · _rideDepth · _rideIsAbove · _rideLeaveTower · _rideRiders · _updateRideChains · attachBenchToSeat · findBenchSlot · mountBench · mountRide · restoreInteractionDesk · toggleIdeskInventory · unmountBench · unmountRide — app.js 는 rideBenchMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _checkCircusBalance · _remeasureRideArm · _remeasureRideHeadTop · _resetIdeskRestore · _rideBottom · _rideDepth · _rideIsAbove · _rideLeaveTower · _rideRiders · _updateRideChains · attachBenchToSeat · findBenchSlot · mountBench · mountRide · restoreInteractionDesk · toggleIdeskInventory · unmountBench · unmountRide — app.js 는 rideBenchMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwRideBench — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-ride-bench.js */
@@ -715,6 +715,17 @@ function _remeasureRideHeadTop(hostSeat){
     riders.forEach(r=>{ try{ r._rideHeadTop = v; r._rideHeadTopBare = vb; r._rideHeadTopPart = vp; r._rideDbgOnce = true; }catch(_){} });   // 다음 프레임에 새 값으로 검증 한 줄
   }catch(_){}
 }
+/* 🐾 탄 동물 자신이 다시 맞춰지면(파츠 붙음 · 뗌 · 친구가 동물을 바꿈) 팔 높이를 다시 잰다 —
+   mountRide 의 1회 실측은 파츠 GLB 가 붙어 모델 높이가 바뀌기 전 값일 수 있다(머리 위 동물이 뜨거나 파묻힘).
+   ⚠️ 묘기(2층+) 자세에서는 재지 않는다 — 팔 자세가 달라 1층으로 돌아왔을 때 어긋난다(그 층은 팔 높이를 안 쓴다).
+   실패하면(null) 옛 값을 둔다. */
+function _remeasureRideArm(seat){
+  if(!seat || !seat.ridingOn || seat._circusOn) return;
+  const h = _measureAnimalArmH(seat);
+  if(h == null){ diagNote('[올라타기] 팔 높이 다시 재기 실패 — 옛 값 그대로'); return; }
+  seat._rideArmH = h;
+  seat._rideDbgOnce = true;   // 다음 프레임에 새 값으로 검증 한 줄
+}
 /* 🐾 올라타기 — 동물 좌석을 대상 머리에 태우기/내리기 */
 function mountRide(animalSeat, hostSeat){
   if(!animalSeat || !hostSeat || animalSeat===hostSeat) return false;
@@ -1150,6 +1161,7 @@ function _restoreIdeskPos(){
 
 return {
   _checkCircusBalance,
+  _remeasureRideArm,
   _remeasureRideHeadTop,
   _resetIdeskRestore,
   _rideBottom,
