@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_checkCircusBalance · _remeasureRideHeadTop · _resetIdeskRestore · _rideBottom · _rideDepth · _rideIsAbove · _rideLeaveTower · _rideRiders · _updateRideChains · attachBenchToSeat · findBenchSlot · mountBench · mountRide · restoreInteractionDesk · toggleIdeskInventory · unmountBench · unmountRide)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 69줄 그대로(진단 기록 diagNote · 몸 재기 measureBodyBox · isPartByRigOrName 더함) · 부르는 곳은 rideBenchMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
-   ・4절: 올라탄 높이 다시 재기가 실패하면 옛 높이 그대로 · 진단 기록 한 줄(깨 보기)
+   ・4절: 올라탄 높이 다시 재기 — 실패하면 옛 높이 그대로 · 진단 기록 한 줄 / 성공하면 탄 좌석 모두 새 값 · 다음 프레임 검증 줄(작은 가짜 THREE · 깨 보기)
    [실행] app.js · desk-companion-prototype.html · ride-bench.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -33,7 +33,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src, over){
+function build(src, over, three){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
@@ -44,7 +44,7 @@ function build(src, over){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'module',
-    src + '\nreturn window.TwRideBench;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, undefined);
+    src + '\nreturn window.TwRideBench;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, three || any, undefined);
   return api.createRideBench(Object.assign(deps, over || {}));
 }
 
@@ -106,6 +106,20 @@ function judgeRemeasure(src){
     const n0 = notes.length;
     build(src, { seats: [host], diagNote: (m) => notes.push(m) })._remeasureRideHeadTop(host);
     t(notes.length === n0, '  아무도 안 타고 있으면 재지도 · 기록하지도 않는다');
+    /* 성공 길 — 작은 가짜 THREE 위에서 머리 박스(y 1.0~1.4 · 머리 본 y 1.0)를 재 탄 좌석 모두에 새 값 + 다음 프레임 검증 줄 */
+    class V3 { constructor(x = 0, y = 0, z = 0){ this.x = x; this.y = y; this.z = z; } set(x, y, z){ this.x = x; this.y = y; this.z = z; return this; } copy(v){ return this.set(v.x, v.y, v.z); } clone(){ return new V3(this.x, this.y, this.z); } }
+    class Box3 { constructor(){ this.min = new V3(Infinity, Infinity, Infinity); this.max = new V3(-Infinity, -Infinity, -Infinity); }
+      isEmpty(){ return this.max.y < this.min.y; } union(b){ if(b && !b.isEmpty()){ ['x','y','z'].forEach(k => { this.min[k] = Math.min(this.min[k], b.min[k]); this.max[k] = Math.max(this.max[k], b.max[k]); }); } return this; } setFromObject(){ return this; } }
+    const head = new Box3(); head.min.set(-0.1, 1.0, -0.1); head.max.set(0.1, 1.4, 0.1);
+    const q = { clone(){ return { }; }, identity(){}, copy(){} };
+    const host2 = { charDef: {}, gltfRoot: { traverse(){} }, bones: { head: { getWorldPosition(v){ return v.set(0, 1.0, 0); } } }, group: { quaternion: q, updateMatrixWorld(){} } };
+    const r1 = { ridingOn: host2, _rideHeadTop: 0.9, _rideHeadTopPart: 0.9 }, r2 = { ridingOn: host2, _rideHeadTop: 0.9 };
+    const notes2 = [];
+    const mod2 = build(src, { seats: [host2, r1, r2], diagNote: (m) => notes2.push(m), measureHeadBoxNoParts: () => head, measureBodyBox: () => new Box3(), savedParts: () => [] }, new Proxy({ Box3, Vector3: V3 }, { get: (o, k) => (k in o ? o[k] : anything()) }));   // 재기에 쓰는 둘만 진짜 — 모듈 머리의 나머지는 받아 주기만
+    mod2._remeasureRideHeadTop(host2);
+    const near = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-9;
+    t(near(r1._rideHeadTop, 0.4) && near(r2._rideHeadTop, 0.4) && r1._rideDbgOnce === true && r2._rideDbgOnce === true && r1._rideHeadTopPart === null && !notes2.length,
+      '★ 다시 재기 성공 — 탄 좌석 모두 새 머리 높이(0.4) · 파츠 꼭대기 걷음 · 다음 프레임 검증 줄 켬 · 실패 기록 없음');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 80)); }
   return r;
 }
@@ -114,6 +128,11 @@ judgeRemeasure(MOD).forEach(([ok, msg]) => chk(ok, msg));
   const m2 = MOD.replace(/if\(v == null\)\{ diagNote\([^)]*\); return; \}/, 'if(v == null) return;');
   let rows2; try{ rows2 = judgeRemeasure(m2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — 실패 기록 줄을 빼면 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+{
+  const m3 = MOD.replace(' r._rideDbgOnce = true;', '');
+  let rows3; try{ rows3 = judgeRemeasure(m3); }catch(_){ rows3 = [[false, '던짐']]; }
+  chk(m3 !== MOD && rows3.some(([ok]) => !ok), '깨 보기 — 다시 잰 뒤 검증 줄을 안 켜면 빨강' + (m3 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
