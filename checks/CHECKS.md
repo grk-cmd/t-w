@@ -333,7 +333,7 @@
 | **sim-rich-text.js** | 95 | **e2857c0faa2d** |
 | **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
-| **sim-face-heal.js** | 192 | **1b228827d868** |
+| **sim-face-heal.js** | 200 | **6823e7ddab86** |
 | **sim-slot-save.js** | 96 | **1c9716fbec27** |
 | **sim-interaction-desk.js** | 96 | **632770d8d886** |
 | **sim-ad-banner.js** | 96 | **69f9e0557056** |

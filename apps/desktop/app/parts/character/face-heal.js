@@ -32,7 +32,7 @@ const slots = deps.slots;
 const toast = deps.toast;
 const diagNote = deps.diagNote;          // 진단 기록 — 설치본은 콘솔을 못 본다
 const loadImgCors = deps.loadImgCors;    // 남의 그림(주소) 받기 — crossOrigin · 크기 0 거름(room-sync.js 와 같은 함수)
-const FACE_WATCH_MS = 4000;        // 점검 주기. 32² 알파 스캔 몇 번이라 비용은 무시할 수준이다.
+const FACE_WATCH_MS = 4000;        // 점검 주기. 비용은 좌석 수에 비례 — 알파 스캔이 내 칸마다 몇 장 · 남의 좌석마다 합성본 2장 · 동물 좌석은 몸 2장 + 귀마다 2장.
 const FACE_TOAST_GAP_MS = 60000;   // 같은 안내를 도배하지 않는 최소 간격
 let _faceRepairBusy = false, _faceRepairToldAt = 0;
 
@@ -166,6 +166,8 @@ async function repairSeatTextures(){
         if(_isBlankDraw(d.face)  && fu) what.push(await _redrawInto(d.face,  fu, loadImgCors) ? '얼굴' : '얼굴✗');
         if(_isBlankDraw(d.blink) && bu) what.push(await _redrawInto(d.blink, bu, loadImgCors) ? '감은눈' : '감은눈✗');
         if(!what.length && _isBlankDraw(d.face)) what.push('재료 없음');
+        /* 받는 사이에 피부가 비었을 수 있다 — 지금 합성하면 단색 피부로 굳는다. 합성본은 투명하게 두어 다음 차례에 다시 잡히게 한다 */
+        if(_faceRepairBusy || _blankSkinIdx().size){ what.push('합성 다음 차례'); log.push(no + '번(남 ' + what.join('·') + ')'); continue; }
         if(_refreshFaceTexOf(t.s, d)) fixed++;
         what.push('화면텍스처');
       }
