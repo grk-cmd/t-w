@@ -994,16 +994,17 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const fns = ['function _charsIsTomb(', 'function _charsBoxOnlyCount(', 'async function _charsDeskToBox(', 'function _charsMoveMsg(', 'function _miSlotThumb('].map(h => takeFn(A, h));
     chk(fns.every(Boolean), 'app.js: _charsBoxOnlyCount · _charsDeskToBox · _charsMoveMsg');
     if (fns.every(Boolean)){
-      const mk = (box, desk, active, syncFix) => {
+      const mk = (box, desk, active, syncFix, slots, fnsUse) => {
         const LS = { 'B': JSON.stringify(box), 'D': JSON.stringify(desk) };
         const env = { syncs: 0 };
-        const F = new Function('LS', 'env', 'syncFix', "const CHAR_SLOT_MAX=5, CHARS_BOX_MAX=20, CHARS_BOX_KEY='B', CHARS_DESK_KEY='D'; let _charsGen=0;" +
+        const F = new Function('LS', 'env', 'syncFix', 'slots', "const CHAR_SLOT_MAX=5, CHARS_BOX_MAX=20, CHARS_BOX_KEY='B', CHARS_DESK_KEY='D'; let _charsGen=0;" +
+          "const _charsOnNew=(i)=>{ const b=JSON.parse(LS.B), d=JSON.parse(LS.D); b.n1={def:null,mtime:9,dirty:true}; d[i]='n1'; LS.B=JSON.stringify(b); LS.D=JSON.stringify(d); return 'n1'; };" +
           "const localStorage={ getItem:k=>LS[k]==null?null:LS[k], setItem:(k,v)=>{ LS[k]=String(v); } };" +
           "const _charsActive=()=>" + (active ? 'true' : 'false') + ";" +
           "const _charsBoxGet=()=>JSON.parse(LS.B); const _charsDeskGet=()=>JSON.parse(LS.D);" +
           "const _charsSync=async()=>{ env.syncs++; if(syncFix){ const b=JSON.parse(LS.B); for(const c in b) if(b[c].dirty){ b[c]={def:'{}',mtime:b[c].mtime}; } LS.B=JSON.stringify(b); } };" +
-          fns.join('\n') + '\nreturn { toBox:_charsDeskToBox, count:_charsBoxOnlyCount, msg:_charsMoveMsg, thumb:_miSlotThumb };');
-        return { F: F(LS, env, !!syncFix), LS, env };
+          (fnsUse || fns).join('\n') + '\nreturn { toBox:_charsDeskToBox, count:_charsBoxOnlyCount, msg:_charsMoveMsg, thumb:_miSlotThumb };');
+        return { F: F(LS, env, !!syncFix, slots || []), LS, env };
       };
       await (async () => {
         let t = mk({ a:{def:'{}',mtime:1}, b:{def:'{}',mtime:2}, c:{def:'{}',mtime:3} }, ['a','b','c',null,null], true);
@@ -1024,6 +1025,25 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         r = await t.F.toBox(0);
         chk(!r.ok && r.why === 'off' && t.LS.D === JSON.stringify(['a',null,null,null,null]), '  보관함이 안 열렸으면(첫 채택 전) 아무것도 안 바꾼다');
         chk(/슬롯이 꽉 차서 이동할 수 없어요/.test(t.F.msg({ why:'slotsfull' })), '  [슬롯에 올리기] 슬롯 꽉 참 = 시안 D3 문구');
+        /* 칸엔 캐릭터가 있는데 이름표가 묘비 · 없음(nocid 제보) — 새 이름표로 올린 뒤 옮긴다 */
+        const nocid = async (fnsUse) => {
+          const a = mk({ a:{del:5}, b:{def:'{}',mtime:2} }, ['a','b',null,null,null], true, true, [{ name:'A' }, { name:'B' }], fnsUse);
+          const ra = await a.F.toBox(0);
+          const b = mk({ b:{def:'{}',mtime:2} }, ['gone','b',null,null,null], true, true, [{ name:'A' }, { name:'B' }], fnsUse);
+          const rb = await b.F.toBox(0);
+          const c = mk({ b:{def:'{}',mtime:2} }, [null,'b',null,null,null], true, true, [null, { name:'B' }], fnsUse);
+          const rc = await c.F.toBox(0);
+          return [ra.ok && ra.cid === 'n1' && a.env.syncs === 1 && a.LS.D === JSON.stringify(['b',null,null,null,null]) && JSON.parse(a.LS.B).n1.def === '{}' && JSON.parse(a.LS.B).a.del === 5,
+                  rb.ok && rb.cid === 'n1' && b.LS.D === JSON.stringify(['b',null,null,null,null]),
+                  !rc.ok && rc.why === 'nocid' && c.LS.D === JSON.stringify([null,'b',null,null,null]) && !JSON.parse(c.LS.B).n1];
+        };
+        const nv = await nocid();
+        chk(nv[0], '★ 이름표가 묘비인 칸 — 새 이름표로 올린 뒤(동기화) 보관함으로 옮긴다 · 묘비는 그대로');
+        chk(nv[1], '★ 이름표가 보관함에 없는 칸 — 같은 길');
+        chk(nv[2], '  빈 칸은 그대로 nocid(새 이름표를 만들지 않는다)');
+        const brokeD2b = fns.map(f => f.replace(/\n  if\(\(!cid \|\| !box\[cid\] \|\| _charsIsTomb\(box\[cid\]\)\) && slots\[i\]\)\{[^\n]*/, ''));
+        const nb = brokeD2b.join() !== fns.join() ? await nocid(brokeD2b) : [true, true, true];
+        chk(brokeD2b.join() !== fns.join() && (!nb[0] || !nb[1]), '  깨 보기 — 새 이름표 줄을 빼면 빨강');
       })().catch(e => chk(false, '11절 옮기기 예외: ' + (e && e.message)));
     }
     const up = takeFn(A, 'async function _charsBoxToDesk(') || '';
