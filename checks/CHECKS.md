@@ -80,7 +80,7 @@
 | **sim-bug-board.js** | 384 | **7edc054fab9a** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
-| **sim-chat-history.js** | 244 | **530050435065** |
+| **sim-chat-history.js** | 244 | **9bbbfd7c28fc** |
 | **sim-gamepad-activity.js** | 131 | **320f86854007** |
 | **sim-mallang-hide.js** | 122 | **1250ce12a494** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
@@ -110,7 +110,7 @@
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
 | **sim-desk-preset.js** | 251 | **3ed07bb98346** |
 | **sim-json-store.js** | 209 | **05d6cff00a2f** |
-| **sim-desk-setup.js** | 228 | **268fe68a88b2** |
+| **sim-desk-setup.js** | 229 | **c6aca6da921a** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
 | **sim-face-loss.js** | 317 | **921e471b80b1** |
@@ -199,7 +199,7 @@
 | **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
-| **sim-signup.js** | 1569 | **88e4e2fc6139** |
+| **sim-signup.js** | 1597 | **0005d55d27d4** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
@@ -279,7 +279,7 @@
 | **sim-win-layers.js** | 203 | **cab1b61e089c** |
 | sim-yard-enter.js | 59 | c323aea595a5 |
 | **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
-| **sim-kb-blind.js** | 108 | **34c3cd78a410** |
+| **sim-kb-blind.js** | 109 | **9d043ac91694** |
 | **sim-mhd-hidefolders.js** | 135 | **69194c95439e** |
 | **sim-pomodoro.js** | 130 | **ef28b73a68d0** |
 | **sim-admin-console.js** | 142 | **3e1dc419471c** |
@@ -339,7 +339,7 @@
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 151 | **ddc82c19c666** |
+| **sim-device-lost.js** | 180 | **634846059164** |
 | **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
 | **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
 | **sim-inbox-sections.js** | 126 | **1a78a79c79f8** |
@@ -413,6 +413,9 @@
 | **sim-label-measure.js** | 234 | **ce652588740d** |
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
+| **sim-mallang-gift.js** | 75 | **4e210440f918** |
+| **sim-room-face-load.js** | 74 | **066e7ae3d3a1** |
+| **sim-part-ao-clean.js** | 122 | **535053a793ff** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

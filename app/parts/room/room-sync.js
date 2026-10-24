@@ -411,6 +411,8 @@ async function deserializeDefFromNetwork(def){
     if(typeof out.face==='string'){ const img=await loadImg(out.face); const c=newCanvas(); c.getContext('2d').drawImage(img,0,0); out.face=c; }
     if(typeof out.blink==='string'){ const img=await loadImg(out.blink); const c=newCanvas(); c.getContext('2d').drawImage(img,0,0); out.blink=c; }
   }catch(e){ /* 이미지 복원 실패 시 원본 문자열 그대로 둠 — compositeFace에서 또 실패하겠지만 앱 전체가 죽진 않게 위쪽에서 방어 */ }
+  /* 감은눈만 못 받으면 눈을 감을 때마다 피부만 보인다(얼굴이 깜박이며 사라졌다 돌아옴) — 표정 그림을 대신 쓴다 */
+  if(!out.blink && out.face && typeof out.face!=='string') out.blink = out.face;
   return out;
 }
 /* 💰 방 업데이트 델타 전송.

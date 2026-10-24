@@ -1738,6 +1738,8 @@
         try{
           const res = await fetch(snapUrl);
           const blob = await res.blob();
+          /* 404 · 오류 페이지를 그림처럼 다시 올리면 받은 사람 칸이 깨진 그림이 된다 — 그림이 아니면 원본 주소를 그대로 보낸다 */
+          if(!res.ok || !blob || !blob.size || !/^image\//.test(blob.type || '')) throw new Error('not image');
           const dataUrl = await new Promise((ok,ng)=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.onerror=ng; r.readAsDataURL(blob); });
           const up = await _uploadDataUrlIfNeeded(`users/${toId}/giftimg/${giftId}.png`, dataUrl);
           if(up && !up.startsWith('data:')) snapUrl = up;

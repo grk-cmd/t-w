@@ -528,7 +528,13 @@ async function _charsDeskToBox(i){
   if(!_charsActive()) return { ok: false, why: 'off' };
   if(!(i >= 0 && i < CHAR_SLOT_MAX)) return { ok: false, why: 'nocid' };
   let box = _charsBoxGet(), desk = _charsDeskGet();
-  const cid = desk[i];
+  let cid = desk[i];
+  /* 칸엔 캐릭터가 있는데 이름표가 없거나 묘비면(다른 기기에서 지운 cid 가 이 칸에 남는 일이 있다) 새 이름표로 다시 올린 뒤 옮긴다.
+     보관함이 가득이면 옮기지 못하니 새 이름표도 만들지 않는다(지운 캐릭터가 계정에 다시 살아나지 않게) */
+  if((!cid || !box[cid] || _charsIsTomb(box[cid])) && slots[i]){
+    if(_charsBoxOnlyCount(box, desk) >= CHARS_BOX_MAX) return { ok: false, why: 'full' };
+    cid = _charsOnNew(i); box = _charsBoxGet(); desk = _charsDeskGet();
+  }
   if(!cid || !box[cid] || _charsIsTomb(box[cid])) return { ok: false, why: 'nocid' };
   if(_charsBoxOnlyCount(box, desk) >= CHARS_BOX_MAX) return { ok: false, why: 'full' };
   if(typeof box[cid].def !== 'string'){

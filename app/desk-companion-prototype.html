@@ -6631,12 +6631,10 @@
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:320px;max-width:92vw;font-family:var(--tw-font-legacy);">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🖥️ 다른 기기에서 사용 중이에요</div>
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));" id="deviceSessionTitle">🖥️ 다른 기기에서 사용 중이에요</div>
     <div style="padding:14px;">
-      <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;">
-        이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.<br>
-        이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.
-      </div>
+      <div id="deviceSessionMsg" style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;white-space:pre-line;">이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.
+이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.</div>
       <div style="display:flex;gap:6px;">
         <button id="deviceSessionContinue" class="lc-btn" style="margin-top:0;flex:1;white-space:nowrap;">여기서 계속 쓰기</button>
         <button id="deviceSessionQuit" class="lc-btn ghost" style="margin-top:0;flex:1;white-space:nowrap;">앱 닫기</button>
@@ -7152,7 +7150,7 @@
           <span>컴퓨터 켤 때 자동 실행</span>
           <button class="fs-toggle-btn" id="progAutoLaunchToggle" type="button">꺼짐</button>
         </div>
-        <p style="margin:8px 0 12px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.</p>
+        <p style="margin:8px 0 12px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.<br>Windows 에서 «관리자 권한으로 실행» 을 켜 두었다면 자동 실행이 막혀요 — 그때는 직접 켜 주세요.</p>
         <div class="fs-toggle-row">
           <span>피규어 모드</span>
           <button class="fs-toggle-btn" id="progFigureModeToggle" type="button">꺼짐</button>
