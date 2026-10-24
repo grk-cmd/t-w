@@ -7,95 +7,135 @@ import { accItems, findItem, layerItems } from '@/features/character-maker/model
 import { parseRemoteParts, partImageUrlOk } from '@/features/character-maker/model/remote-parts';
 import { API_ORIGIN } from '@/shared/config';
 
-const IMG = `${API_ORIGIN}/web-creator/images/a.png`;
+const IMG = `${API_ORIGIN}/v1/decal-images/h2a.png`;
 const name = { ko: '별눈', en: 'Star', ja: 'ほし' };
-const part = (o: Record<string, unknown> = {}) => ({
+const decal = (o: Record<string, unknown> = {}) => ({
   id: 'p1',
+  surface: 'face',
   slot: 'pupil',
-  name,
   src: IMG,
   w: 20,
   h: 22,
-  order: 1,
   ...o,
 });
+const set = (decals: unknown[], o: Record<string, unknown> = {}) => ({
+  id: 's1',
+  target: { kind: 'baseModel' },
+  name,
+  decals,
+  ...o,
+});
+/** 데칼 하나짜리 세트 하나의 응답 data */
+const one = (o: Record<string, unknown> = {}) => ({ sets: [set([decal(o)])] });
 
 afterEach(() => setRemoteParts([]));
 
-describe('parseRemoteParts — 서버에서 받은 파츠 검사', () => {
-  it('맞는 모양은 그대로 · 숨김 · 모양이 틀린 것은 뺀다 · order 차례', () => {
+describe('parseRemoteParts — 서버 세트를 고르기 판 항목(데칼 하나씩)으로 펼친다', () => {
+  it('세트 안 데칼을 차례대로 · 이름은 세트 이름 · 같은 데칼 id 는 앞의 것만', () => {
     const got = parseRemoteParts({
-      parts: [
-        part({ id: 'b', order: 2 }),
-        part({ id: 'a', order: 1 }),
-        part({ id: 'h', hidden: true }),
-        part({ id: 'x', slot: 'hair' }),
-        part({ id: 'a', order: 0 }), // 같은 id 는 앞의 것만
+      sets: [
+        set([decal({ id: 'b', slot: 'brows' }), decal({ id: 'a' })], {
+          id: 'cat',
+          name: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
+        }),
+        set([decal({ id: 'a', slot: 'mouth' }), decal({ id: 'c', slot: 'acc' })], { id: 'dog' }),
       ],
     });
-    expect(got.map((p) => p.id)).toEqual(['a', 'b']);
-    expect(got[0]).toEqual({
+    expect(got.map((p) => `${p.id}:${p.slot}:${p.name.ko}`)).toEqual([
+      'b:brows:고양이',
+      'a:pupil:고양이',
+      'c:acc:별눈',
+    ]);
+    expect(got[1]).toEqual({
       id: 'a',
       slot: 'pupil',
-      name,
+      name: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
       src: IMG,
       closedSrc: null,
       w: 20,
       h: 22,
-      order: 1,
     });
   });
 
-  it('그림 주소는 우리 API 서버 https 만', () => {
+  it('그릴 수 없는 것은 건너뛴다 — 다른 모델 · 다른 면 · 모르는 slot · 숨긴 세트(나머지는 그대로)', () => {
+    const got = parseRemoteParts({
+      sets: [
+        set([decal({ id: 'm1' })], { id: 'part', target: { kind: 'part', id: 'hat01' } }),
+        set([decal({ id: 'm2' })], { id: 'nt', target: 'baseModel' }),
+        set([decal({ id: 'ear', surface: 'earL', slot: 'ear' }), decal({ id: 'ok' })], { id: 'mix' }),
+        set([decal({ id: 'x', slot: 'hair' })], { id: 'unk' }),
+        set([decal({ id: 'h' })], { id: 'hid', hidden: true }),
+      ],
+    });
+    expect(got.map((p) => p.id)).toEqual(['ok']);
+  });
+
+  it('그림 주소는 우리 API 서버의 /v1/decal-images/ 아래 https 만', () => {
     expect(partImageUrlOk(IMG)).toBe(true);
     for (const bad of [
-      'http://api.together-working.com/a.png',
+      'http://api.together-working.com/v1/decal-images/a.png',
       'https://evil.example/a.png',
-      'https://together-working.com/a.png',
-      `${API_ORIGIN}/admin/web-creator/parts`, // API 서버라도 그림 경로가 아니면
-      `${API_ORIGIN}/web-creator/imagesX/a.png`,
-      'https://api.together-working.com.evil.example/a.png',
+      'https://together-working.com/v1/decal-images/a.png',
+      `${API_ORIGIN}/v1/admin/decal-images/a.png`, // API 서버라도 공개 그림 길이 아니면
+      `${API_ORIGIN}/v1/decal-imagesX/a.png`,
+      `${API_ORIGIN}/web-creator/images/a.png`, // 옛 경로
+      'https://api.together-working.com.evil.example/v1/decal-images/a.png',
       'javascript:alert(1)',
       'data:image/png;base64,AAAA',
       42,
     ])
       expect(partImageUrlOk(bad), String(bad)).toBe(false);
-    expect(parseRemoteParts({ parts: [part({ src: 'https://evil.example/a.png' })] })).toEqual([]);
+    expect(parseRemoteParts(one({ src: 'https://evil.example/a.png' }))).toEqual([]);
   });
 
-  it('이름 셋(한 · 영 · 일)이 다 있어야 · 너무 길면 안 받는다 · 크기는 0 < 크기 ≤ 200', () => {
-    const bad = [
-      part({ name: { ko: '별', en: 'Star' } }),
-      part({ name: { ...name, ja: '  ' } }),
-      part({ name: { ...name, ko: '가'.repeat(21) } }),
-      part({ w: 0 }),
-      part({ h: 201 }),
-      part({ w: Number.NaN }),
-      part({ id: '../x' }),
+  it('세트 이름 셋(한 · 영 · 일)이 다 있어야 · 너무 길면 안 받는다 · 크기는 0 < 크기 ≤ 200 · id 모양', () => {
+    const badSets = [
+      set([decal()], { name: { ko: '별', en: 'Star' } }),
+      set([decal()], { name: { ...name, ja: '  ' } }),
+      set([decal()], { name: { ...name, ko: '가'.repeat(21) } }),
+      set([decal()], { id: '../x' }),
+      set('no' as unknown as unknown[]),
     ];
-    for (const b of bad) expect(parseRemoteParts({ parts: [b] }), JSON.stringify(b)).toEqual([]);
-    expect(parseRemoteParts({ parts: [part({ w: 200, h: 0.5 })] })).toHaveLength(1);
+    for (const b of badSets) expect(parseRemoteParts({ sets: [b] }), JSON.stringify(b)).toEqual([]);
+    const badDecals = [
+      { w: 0 },
+      { h: 201 },
+      { w: Number.NaN },
+      { w: '20' },
+      { id: '../x' },
+      { surface: undefined },
+    ];
+    for (const o of badDecals) expect(parseRemoteParts(one(o)), JSON.stringify(o)).toEqual([]);
+    expect(parseRemoteParts(one({ w: 200, h: 0.5 }))).toHaveLength(1);
   });
 
   it('감은눈 그림은 아이라인만 받는다', () => {
-    const closed = `${API_ORIGIN}/web-creator/images/c.png`;
-    expect(parseRemoteParts({ parts: [part({ slot: 'eyeline', closedSrc: closed })] })[0]?.closedSrc).toBe(
-      closed,
-    );
-    expect(
-      parseRemoteParts({ parts: [part({ slot: 'mouth', closedSrc: closed })] })[0]?.closedSrc,
-    ).toBeNull();
+    const closed = `${API_ORIGIN}/v1/decal-images/h2c.png`;
+    expect(parseRemoteParts(one({ slot: 'eyeline', closedSrc: closed }))[0]?.closedSrc).toBe(closed);
+    expect(parseRemoteParts(one({ slot: 'mouth', closedSrc: closed }))[0]?.closedSrc).toBeNull();
   });
 
-  it('모양이 아닌 응답은 빈 목록', () => {
-    for (const d of [null, undefined, 3, 'x', [], { parts: 'no' }]) expect(parseRemoteParts(d)).toEqual([]);
+  it('모양이 아닌 응답은 빈 목록 · 옛 모양({ parts })도 빈 목록', () => {
+    for (const d of [null, undefined, 3, 'x', [], { sets: 'no' }, { parts: [decal()] }])
+      expect(parseRemoteParts(d)).toEqual([]);
+  });
+
+  it('펼친 데칼은 200개까지', () => {
+    const decals = Array.from({ length: 20 }, (_, i) => decal({ id: `d${i}` }));
+    const sets = Array.from({ length: 11 }, (_, i) =>
+      set(
+        decals.map((d) => ({ ...d, id: `${d.id}_${i}` })),
+        { id: `s${i}` },
+      ),
+    );
+    expect(parseRemoteParts({ sets })).toHaveLength(200);
   });
 });
 
 describe('setRemoteParts — 기본 그림 뒤에 붙는다', () => {
   it('레이어 · 액세서리에 «w:» 를 붙여 넣고 빈 목록이면 기본만', () => {
     const before = layerItems('pupil').length;
-    setRemoteParts(parseRemoteParts({ parts: [part(), part({ id: 'acc1', slot: 'acc' })] }));
+    setRemoteParts(parseRemoteParts({ sets: [set([decal(), decal({ id: 'acc1', slot: 'acc' })])] }));
     expect(layerItems('pupil').length).toBe(before + 1);
     expect(layerItems('pupil').at(-1)?.id).toBe('w:p1');
     expect(accItems().at(-1)?.id).toBe('w:acc1');
@@ -107,12 +147,12 @@ describe('setRemoteParts — 기본 그림 뒤에 붙는다', () => {
   it('고르기는 목록에 있는 것만 — 들어오기 전엔 안 받고 들어온 뒤엔 받는다', () => {
     const pick = () => reduce(DEFAULT_STATE, { t: 'item', kind: 'pupil', id: 'w:p1' }).pupil;
     expect(pick()).toBe(DEFAULT_STATE.pupil);
-    setRemoteParts(parseRemoteParts({ parts: [part()] }));
+    setRemoteParts(parseRemoteParts(one()));
     expect(pick()).toBe('w:p1');
   });
 
   it('감은눈 그림이 없는 아이라인은 기본 감은 줄로 — 감은눈 얼굴이 비지 않게', () => {
-    setRemoteParts(parseRemoteParts({ parts: [part({ slot: 'eyeline' })] }));
+    setRemoteParts(parseRemoteParts(one({ slot: 'eyeline' })));
     expect(findItem('eyeline', 'w:p1').closed).toEqual(findItem('eyeline', 'thin').closed);
   });
 });
@@ -145,7 +185,7 @@ describe('그림 파츠 그리기', () => {
   const makePath = () => ({}) as Path2D;
 
   it('불러온 그림은 가운데를 자리에 맞춰 w × h 로 · 아직이면 건너뛴다', () => {
-    setRemoteParts(parseRemoteParts({ parts: [part()] }));
+    setRemoteParts(parseRemoteParts(one()));
     const s = reduce(DEFAULT_STATE, { t: 'item', kind: 'pupil', id: 'w:p1' });
     const img = {} as CanvasImageSource;
     let r = fake();
@@ -197,12 +237,12 @@ describe('fetchWebParts — 공개 목록 읽기', () => {
   const res = (status: number, body: unknown) =>
     ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
 
-  it('API 서버의 /web-creator/parts 를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
-    const f = vi.fn(async () => res(200, { success: true, data: { parts: [part()] } }));
+  it('API 서버의 /v1/decal-sets(기본 몸 모델 · 얼굴 면)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
+    const f = vi.fn(async () => res(200, { success: true, data: one() }));
     const r = await fetchWebParts(f as unknown as typeof fetch);
-    expect(r).toEqual({ t: 'ok', parts: parseRemoteParts({ parts: [part()] }) });
+    expect(r).toEqual({ t: 'ok', parts: parseRemoteParts(one()) });
     expect(f).toHaveBeenCalledWith(
-      `${API_ORIGIN}/web-creator/parts`,
+      `${API_ORIGIN}/v1/decal-sets?target=baseModel&surface=face`,
       expect.objectContaining({ credentials: 'omit' }),
     );
   });
@@ -225,7 +265,7 @@ describe('fetchWebParts — 공개 목록 읽기', () => {
   });
 
   it('올린 파츠가 없으면 빈 목록(실패와 다르다)', async () => {
-    const f = (async () => res(200, { success: true, data: { parts: [] } })) as unknown as typeof fetch;
+    const f = (async () => res(200, { success: true, data: { sets: [] } })) as unknown as typeof fetch;
     expect(await fetchWebParts(f)).toEqual({ t: 'ok', parts: [] });
   });
 });
