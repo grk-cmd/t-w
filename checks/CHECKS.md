@@ -414,6 +414,7 @@
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
+| **sim-room-face-load.js** | 74 | **066e7ae3d3a1** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
