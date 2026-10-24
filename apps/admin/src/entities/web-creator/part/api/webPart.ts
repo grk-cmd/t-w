@@ -52,7 +52,7 @@ export async function uploadPartFile(api: Api | null, bytes: Uint8Array): Promis
 }
 
 const pieceBody = (draft: WebPartDraft, image: string, closed: string | null) => ({
-  ...PIECE_KIND,
+  kind: PIECE_KIND,
   target: PIECE_TARGET,
   surface: PIECE_SURFACE,
   slot: draft.slot,

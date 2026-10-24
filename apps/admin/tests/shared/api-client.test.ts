@@ -197,7 +197,7 @@ describe('API 파일 올리기(upload)', () => {
   it('POST · 바이트 그대로 · 준 Content-Type · 토큰 — 봉투의 data 만', async () => {
     const { client, calls } = api(() => json(200, { success: true, data: { hash: 'h2a' } }));
     const bytes = new Uint8Array([1, 2, 3]);
-    await expect(client.upload('/v1/admin/decal-images', bytes, 'image/png')).resolves.toEqual({
+    await expect(client.upload('/v1/admin/assets', bytes, 'image/png')).resolves.toEqual({
       hash: 'h2a',
     });
     const init = calls[0].init;

@@ -60,7 +60,6 @@ function fakeApi(data: unknown = null) {
 
 const piece = (o: Record<string, unknown> = {}) => ({
   id: 'pc1',
-  dimension: '2d',
   kind: 'decal',
   target: { kind: 'baseModel' },
   surface: 'face',
@@ -118,14 +117,14 @@ describe('웹 생성기 파츠 — 폼 값 검사', () => {
 });
 
 describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
-  it('서버 순서 그대로 · 상태 · 2D 얼굴 조각 하나짜리만 고칠 수 있다', () => {
+  it('서버 순서 그대로 · 상태 · 그림(얼굴) 조각 하나짜리만 고칠 수 있다', () => {
     const got = parseAdminParts({
       items: [
         itemRow({ id: 'b', status: 'draft' }),
         itemRow({ id: 'a' }),
         itemRow({ id: 'multi', pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] }),
         itemRow({ id: 'ear', pieces: [piece({ surface: 'earL', slot: 'ear' })] }),
-        itemRow({ id: 'p3d', pieces: [piece({ dimension: '3d', kind: 'part' })] }),
+        itemRow({ id: 'p3d', pieces: [{ id: 'pp', kind: 'part', partId: 'part_catear' }] }),
         itemRow({ id: 'other', target: { kind: 'part', id: 'hat' } }),
         itemRow({ id: 'bad', status: 'hidden' }),
         itemRow({ id: '' }),
@@ -195,7 +194,7 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     await expect(uploadPartFile(fakeApi({}).api, PNG)).rejects.toThrow('모양');
   });
 
-  it('새 파츠 = 조각 하나짜리 상품 — target · 이름 · 썸네일(그 그림) · 2D 얼굴 조각(해시) · 상태 · 순서는 안 보냄', async () => {
+  it('새 파츠 = 조각 하나짜리 상품 — target · 이름 · 썸네일(그 그림) · 그림(얼굴) 조각(해시) · 상태 · 순서는 안 보냄', async () => {
     const { api, calls } = fakeApi();
     await createWebPart(api, draft(), 'h2i');
     expect(calls[0]).toEqual({
@@ -207,7 +206,6 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
         thumb: 'h2i',
         pieces: [
           {
-            dimension: '2d',
             kind: 'decal',
             target: { kind: 'baseModel' },
             surface: 'face',

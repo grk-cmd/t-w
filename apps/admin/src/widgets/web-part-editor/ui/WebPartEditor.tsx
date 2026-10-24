@@ -41,7 +41,7 @@ async function readPng(file: File): Promise<Picked | string> {
   return { bytes, preview: `data:image/png;base64,${toBase64(bytes)}` };
 }
 
-/** 고칠 수 있는 상품(2D 얼굴 조각 하나) */
+/** 고칠 수 있는 상품(그림(얼굴) 조각 하나) */
 type EditablePart = WebPart & { piece: WebPiece };
 const editable = (p: WebPart): p is EditablePart => p.piece !== null;
 

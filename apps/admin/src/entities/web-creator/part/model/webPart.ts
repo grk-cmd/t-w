@@ -1,10 +1,11 @@
 /* 웹 생성기 파츠 — 서버 규격 grk-cmd/t-w#517(/v1 꾸미기 상품). 홈페이지 캐릭터 만들기가 기본 그림 뒤에 붙여 보여 준다.
-   이 화면은 «2D 조각 하나짜리 상품» 을 파츠 하나로 다룬다(여러 조각 · 파일 보관함 · 권한 고르기는 다음 일).
+   이 화면은 «그림 조각 하나짜리 상품» 을 파츠 하나로 다룬다(여러 조각 · 파일 보관함 · 권한 고르기는 다음 일).
    검사 규칙은 홈페이지(apps/web model/remote-parts.ts)와 서버가 같은 값을 쓴다 — 셋 중 하나만 바꾸지 않는다. */
 
 /** 지금 받는 조각(#517 §2) — 다른 면 · 3D 가 열리면 여기와 고르기를 더한다 */
 export const PIECE_TARGET = { kind: 'baseModel' } as const;
-export const PIECE_KIND = { dimension: '2d', kind: 'decal' } as const;
+/** 그림 조각 — 규격은 kind 하나로 종류를 정한다(dimension 칸은 없다 · 보내면 400) */
+export const PIECE_KIND = 'decal';
 export const PIECE_SURFACE = 'face';
 
 export const WEB_PART_SLOTS = ['pupil', 'highlight', 'eyeline', 'brows', 'mouth', 'cheek', 'acc'] as const;
@@ -40,7 +41,7 @@ export const PART_IMAGE_MAX_BYTES = 512 * 1024;
 /** 그림 한 변 픽셀 상한 — 서버가 PNG 머리로 먼저 거절한다(#517 §10) */
 export const PART_IMAGE_MAX_PX = 1024;
 
-/** 상품 안 2D 얼굴 조각 하나 */
+/** 상품 안 그림(얼굴) 조각 하나 */
 export interface WebPiece {
   id: string;
   slot: WebPartSlot;
@@ -60,7 +61,7 @@ export interface WebPart {
   name: PartNames;
   status: ItemStatus;
   thumb: string | null;
-  /** 이 화면이 고칠 수 있는 «2D 얼굴 조각 하나짜리» 상품이면 그 조각 · 아니면 null(상태 · 순서만) */
+  /** 이 화면이 고칠 수 있는 «그림(얼굴) 조각 하나짜리» 상품이면 그 조각 · 아니면 null(상태 · 순서만) */
   piece: WebPiece | null;
   pieceCount: number;
 }
@@ -125,6 +126,9 @@ export function toBase64(bytes: Uint8Array): string {
 }
 
 /** 파일 해시 — 관리자 응답에 실린 값(#517 §7-2), 없으면 파일 주소의 이름(이름이 곧 내용 해시 · §6-2) */
+/** 응답 값이 파일 주소인가(아니면 해시) — 관리자 응답의 썸네일 · 표정 그림이 어느 쪽으로 올지 규격(§7-2)이 둘 다로 읽혀 둘 다 받는다 */
+const isFileUrl = (v: string) => v.includes('/');
+
 function fileHash(given: unknown, src: unknown): string | null {
   if (typeof given === 'string' && given) return given;
   if (typeof src !== 'string') return null;
@@ -133,14 +137,14 @@ function fileHash(given: unknown, src: unknown): string | null {
 
 function parsePiece(v: unknown): WebPiece | null {
   if (!isObj(v)) return null;
-  const { id, dimension, kind, target, surface, slot, src, w, h } = v;
-  if (dimension !== PIECE_KIND.dimension || kind !== PIECE_KIND.kind) return null;
-  if (!isObj(target) || target.kind !== PIECE_TARGET.kind || surface !== PIECE_SURFACE) return null;
+  const { id, kind, target, surface, slot, src, w, h } = v;
+  if (kind !== PIECE_KIND || !isObj(target) || target.kind !== PIECE_TARGET.kind || surface !== PIECE_SURFACE)
+    return null;
   if (typeof id !== 'string' || !id || !isSlot(slot) || typeof src !== 'string' || !sizeOk(w) || !sizeOk(h))
     return null;
-  // 관리자 응답의 variants 값이 주소인지 해시인지 규격(§7-2)이 둘 다로 읽혀 둘 다 받는다 — 주소면 미리보기 · 해시는 파일 이름에서
+  // 주소면 미리보기 + 파일 이름에서 해시 · 해시면 미리보기 없이 해시
   const closed = isObj(v.variants) && typeof v.variants.closed === 'string' ? v.variants.closed : null;
-  const closedIsUrl = closed !== null && closed.includes('/');
+  const closedIsUrl = closed !== null && isFileUrl(closed);
   return {
     id,
     slot,
@@ -162,7 +166,7 @@ function parseItem(v: unknown): WebPart | null {
   for (const l of PART_LANGS) name[l] = typeof v.name[l] === 'string' ? (v.name[l] as string) : '';
   const piece = pieces.length === 1 ? parsePiece(pieces[0]) : null;
   // 썸네일도 주소일 때만 그린다(해시로 오면 조각 그림으로)
-  const thumb = typeof v.thumb === 'string' && v.thumb.includes('/') ? v.thumb : null;
+  const thumb = typeof v.thumb === 'string' && isFileUrl(v.thumb) ? v.thumb : null;
   return {
     id: v.id,
     name,
