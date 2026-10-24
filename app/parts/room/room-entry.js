@@ -145,6 +145,11 @@ const ROOM_SERVER_CONNECTING_TOAST_MS = 1000;   // 이만큼 지나도 못 붙�
 function _myRoomLicensed(){ return !!((typeof isPremium()!=='undefined' && isPremium()) || (typeof isAdmin()!=='undefined' && isAdmin())); }
 /* 'firebase' 를 돌려줄 때 ctx.fbWhy 에 까닭을 남긴다 — 이 앱이 Firebase 방을 새로 열면 _meta.fbWhy 로 적는다(어느 길로 새는지 세려고).
    noNet 방 서버 모듈 없음 · gateErr 문지기 실패 · off · notAllowed · noDir 문지기 답 · ready-<코드> 연결 실패 · follow Firebase 에 사람 있음 · join-<코드> 입장 실패 */
+/* Firebase 방에 들어간 뒤 _meta.fbWhy 로 남길 까닭 — 이 앱이 방을 새로 열었을 때만(만들기 · 빈 방). 사람이 있는 방 · 인원을 못 셌으면 null(따라 들어간 사람은 덮지 않는다). */
+function _fallbackMarkWhy(o){
+  if(!o.why) return null;
+  return (o.pending || o.roomCount === 0) ? o.why : null;
+}
 async function _startRoomOnServer(code, ctx){
   const net = _roomServerNet();
   if(!(net && firebaseAPI.resolveRoomServer)){ ctx.fbWhy = 'noNet'; return 'firebase'; }
@@ -893,10 +898,10 @@ async function startRoom(code){
       }
     }catch(_){}
   }
-  const _iOpened = !!window._pendingRoomChannel || _roomCount === 0;   // 이 앱이 Firebase 방을 새로 연다 — 따라 들어간 사람은 까닭을 덮지 않는다
+  const _markWhy = _fallbackMarkWhy({ pending: !!window._pendingRoomChannel, roomCount: _roomCount, why: _srvCtx.fbWhy });
   _clearHiddenSeats();   // 🙈 숨김은 그 방에 있는 동안만
   await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });
-  if(_iOpened && _srvCtx.fbWhy) firebaseAPI.markRoomFallback(code, _srvCtx.fbWhy);   // 진단 한 줄 — 기다리지 않고 실패도 무시(입장과 무관)
+  if(_markWhy) firebaseAPI.markRoomFallback(code, _markWhy);   // 진단 한 줄 — 기다리지 않고 실패도 무시(입장과 무관)
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   window._pendingRoomChannel = null;
   window._pendingRoomOpen = false;   // 🎲 소비 완료 — 다음 '참여'가 이 값을 물려받지 않게

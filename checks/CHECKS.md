@@ -258,7 +258,7 @@
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
 | **sim-api-public-reads.js** | 196 | **f5a6835717fb** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 508 | **2c001e9cf05b** |
+| **sim-remote-config.js** | 522 | **64a4ff6d3b5e** |
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
 | **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |

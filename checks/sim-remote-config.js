@@ -464,10 +464,24 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(ok.r === 'done' && ok.why === null, '  ↳ 방 서버로 들어가면 까닭을 남기지 않는다');
     const st = await run({ joinFail: 'full' }, okNet);
     chk(st.r === 'stop' && st.why === null, '  ↳ 막혀서 멈추면(정원 등) 까닭을 남기지 않는다');
+    const mw = takeFn(a, 'function _fallbackMarkWhy(');
+    chk(!!mw, '_fallbackMarkWhy 가 있다');
+    if(mw){
+      const W = Function(mw + '\nreturn _fallbackMarkWhy;')();
+      const rows = [
+        ['만들기 중', { pending: true, roomCount: 3, why: 'off' }, 'off'],
+        ['빈 방(0명)', { pending: false, roomCount: 0, why: 'ready-timeout' }, 'ready-timeout'],
+        ['사람이 있는 방(2명)', { pending: false, roomCount: 2, why: 'follow' }, null],
+        ['인원 확인 실패(null)', { pending: false, roomCount: null, why: 'off' }, null],
+        ['까닭 없음', { pending: true, roomCount: 0, why: null }, null],
+      ];
+      for(const [n, o, want] of rows) chk(W(o) === want, '  ↳ ' + n + ' → ' + JSON.stringify(want) + ' (' + JSON.stringify(W(o)) + ')');
+      const broken = Function(mw.replace('o.roomCount === 0', 'o.roomCount >= 0') + '\nreturn _fallbackMarkWhy;')();
+      chk(broken({ pending: false, roomCount: 2, why: 'follow' }) !== null, '  ↳ 깨 보기: «=== 0» 을 «>= 0» 으로 바꾸면 사람이 있는 방도 남긴다(위 판정이 잡는다)');
+    }
     const body = takeFn(a, 'async function startRoom(') || '';
-    const iMark = body.indexOf('firebaseAPI.markRoomFallback(code, _srvCtx.fbWhy)'), iStart = body.indexOf("await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });");
-    chk(iStart > 0 && iMark > iStart && /if\(_iOpened && _srvCtx\.fbWhy\) firebaseAPI\.markRoomFallback/.test(body) && /const _iOpened = !!window\._pendingRoomChannel \|\| _roomCount === 0;/.test(body),
-      'startRoom: Firebase 방에 들어간 뒤 · 새로 연 앱만 · 까닭이 있을 때만 적는다(따라 들어간 사람은 덮지 않음)');
+    const iMark = body.indexOf('firebaseAPI.markRoomFallback(code, _markWhy)'), iStart = body.indexOf("await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });");
+    chk(iStart > 0 && iMark > iStart, 'startRoom: Firebase 방에 들어간 뒤에 적는다(_fallbackMarkWhy 가 고른 까닭만)');
     const F = fs.readFileSync(where('firebase-init.js'), 'utf8');
     const m = /async markRoomFallback\(room, why\)\{[\s\S]*?\n    \},/.exec(F);
     const wr = [];
