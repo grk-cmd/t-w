@@ -79,8 +79,9 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
           [
             piece({ id: 'p3d', kind: 'part', partId: 'part_catear' }),
             piece({ id: 'pk', kind: 'sticker' }),
-            piece({ id: 'ear', surface: 'earL', slot: 'ear' }),
-            piece({ id: 'onp', target: { kind: 'part', id: 'part_catear' }, surface: 'pic' }),
+            piece({ id: 'ear', surface: 'earL' }), // 다른 면만 다름(slot 은 얼굴 것)
+            piece({ id: 'body', surface: 'body', slot: 'pattern' }),
+            piece({ id: 'onp', target: { kind: 'part', id: 'part_catear' } }), // 3D 위 그림 — target 만 다름(면은 face)
             piece({ id: 'dim', dimension: '2d' }), // 옛 규격의 dimension 칸이 와도 받는다
             piece({ id: 'ok' }),
           ],
