@@ -6,7 +6,7 @@
    ・2절: app.js 배선 — 펜 활동과 같은 처리(anyInput · 포커싱 앱일 때만 activity) · 모듈 없으면 건너뜀 · html 순서
    ・3절: 게임이 앞일 때(10-16 제보 7) — Windows 는 XInput 을 직접 읽는다. 읽기 규칙(pad-xinput.js)을 가짜 koffi 로 돌려 Gamepad API 모양 ·
      빈 자리를 덜 묻는지 · 못 불러오면 빈 목록인지, 일꾼(pad-worker.js) · sysinput-win.js readPads 를 가짜 Worker 로 돌려 main 이 기다리지 않는지 ·
-     일꾼이 죽으면 빈 목록 · 기록 한 번인지, main 이 같은 판정 · 같은 통로로 보내는지 · 설치본 목록 · 깨 보기 */
+     일꾼이 죽으면 빈 목록 · 기록 한 번인지, 진짜 worker_threads 로 띄워 앱 종료를 붙잡지 않는지, main 이 같은 판정 · 같은 통로로 보내는지 · 설치본 목록 · 깨 보기 */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
@@ -61,7 +61,7 @@ chk(!/USE_OS_IDLE_FOR_FOCUS = true/.test(APP), '  OS 유휴시간 보정은 여�
 
 say('── 3. 게임이 앞일 때 — main 이 XInput 직접 읽기 (pad-xinput.js · pad-worker.js · sysinput-win.js · main.js)');
 const WIN = read('sysinput-win.js'), MAC = read('sysinput-mac.js'), MAIN = read('main.js'), XIN = read('pad-xinput.js'), PW = read('pad-worker.js'), PKG = read('package.json');
-if (!WIN || !MAC || !MAIN || !XIN || !PW || !PKG) { say('  ? 원본 못 찾음 — sysinput-win.js · sysinput-mac.js · main.js · pad-xinput.js · pad-worker.js · package.json'); process.exit(2); }
+if (!WIN || !MAC || !MAIN || !XIN || !PW || !PKG || !read('native-peek.js')) { say('  ? 원본 못 찾음 — sysinput-win.js · sysinput-mac.js · main.js · pad-xinput.js · pad-worker.js · package.json'); process.exit(2); }
 const loadXin = (src) => { const m = { exports: {} }; new Function('require', 'module', 'exports', 'Buffer', src)(require, m, m.exports, Buffer); return m.exports; };
 const X = loadXin(XIN);
 const st = {};         // 자리 → { buttons, lt, rt, lx, ly, rx, ry }
@@ -191,6 +191,36 @@ let pk = {}; try { pk = JSON.parse(PKG).build || {}; } catch (_) {}
 chk(['pad-worker.js', 'pad-xinput.js'].every(f => (pk.files || []).includes(f) && (pk.asarUnpack || []).includes(f)) && (pk.asarUnpack || []).includes('node_modules/koffi/**/*'),
   '★ 설치본 — 일꾼 두 파일은 build.files · asarUnpack 에 (풀린 node_modules/koffi 를 찾게)');
 chk(!/require\('koffi'\)/.test(WIN), '  main 쪽(sysinput-win.js)은 koffi 를 직접 싣지 않는다 — 동기 호출은 일꾼에만');
+/* 진짜 worker_threads — 임시 폴더에 가짜 koffi 를 두고 sysinput-win.js · pad-worker.js 를 그대로 띄운다.
+   readPads 뒤에 프로세스가 스스로 끝나야 한다(일꾼이 앱 종료를 붙잡으면 설치본이 안 꺼진다). */
+const realRun = (winSrc) => {
+  const os = require('os'), pth = require('path'), cp = require('child_process');
+  const dir = fs.mkdtempSync(pth.join(os.tmpdir(), 'tw-pad-'));
+  try {
+    fs.writeFileSync(pth.join(dir, 'sysinput-win.js'), winSrc);
+    fs.writeFileSync(pth.join(dir, 'pad-worker.js'), PW);
+    fs.writeFileSync(pth.join(dir, 'pad-xinput.js'), XIN);
+    fs.writeFileSync(pth.join(dir, 'native-peek.js'), PEEK);
+    fs.mkdirSync(pth.join(dir, 'node_modules', 'koffi'), { recursive: true });
+    fs.writeFileSync(pth.join(dir, 'node_modules', 'koffi', 'index.js'),
+      "module.exports = { load: () => ({ func: () => (slot, buf) => { if (slot !== 0) return 1167; buf.fill(0); buf.writeUInt16LE(0x1000, 4); return 0; } }) };\n");
+    fs.writeFileSync(pth.join(dir, 'c.js'),
+      "const S = require('./sysinput-win.js'); S.init({ log: () => {} }); S.readPads();\n" +
+      "setTimeout(() => { console.log('PADS ' + S.readPads().length); }, 800);\n");
+    const r = cp.spawnSync(process.execPath, [pth.join(dir, 'c.js')], { timeout: 4000, encoding: 'utf8' });
+    return { ended: r.status === 0, pads: (String(r.stdout).match(/PADS (\d+)/) || [])[1] };
+  } finally { fs.rmSync(dir, { recursive: true, force: true }); }
+};
+const PEEK = read('native-peek.js');
+const real = realRun(WIN);
+chk(real.ended && real.pads === '1', '★ 진짜 일꾼 — 패드 값을 받아 오고(PADS ' + real.pads + ') readPads 뒤에도 프로세스가 스스로 끝난다(앱 종료를 붙잡지 않음)');
+{
+  const UNREF = "  /* 일꾼이 앱 종료를 붙잡지 않게 — ⚠️ 리스너를 다 붙인 **뒤에** 부른다('message' 리스너가 붙으면 Node 가 다시 ref 한다) */\n  _padWorker.unref();\n";
+  const NEW_W = "  try{ _padWorker = new Worker(file); }\n  catch(err){ _log('게임패드 일꾼을 못 띄움: ' + (err && err.message || err)); return; }\n";
+  const bad = WIN.includes(UNREF) && WIN.includes(NEW_W) ? WIN.replace(UNREF, '').replace(NEW_W, NEW_W + '  _padWorker.unref();\n') : WIN;
+  const rb = bad !== WIN ? realRun(bad) : { ended: true };
+  chk(bad !== WIN && rb.ended === false, '깨 보기 — unref 를 리스너 앞으로 되돌리면 프로세스가 안 끝난다 → 빨강' + (bad !== WIN ? '' : ' (바꿀 글을 못 찾음)'));
+}
 /* 깨 보기 — 고친 줄을 되돌리면 위 판정이 빨강인가 */
 const mkSpy = (sl) => class extends FakeWorker { constructor(f){ super(f); sl.push(this); } };
 const breaks = [

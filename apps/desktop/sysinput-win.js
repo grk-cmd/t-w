@@ -300,14 +300,16 @@ function _startPadWorker(){
   const file = path.join(__dirname, PAD_WORKER_NAME).replace(/app\.asar(?=[\\/])/, 'app.asar.unpacked');
   try{ _padWorker = new Worker(file); }
   catch(err){ _log('게임패드 일꾼을 못 띄움: ' + (err && err.message || err)); return; }
-  _padWorker.unref();   // 일꾼이 앱 종료를 붙잡지 않게
   _padWorker.on('message', (m) => {
+    if(!_padWorker) return;   // 멈춘 뒤 늦게 온 값으로 다시 채우지 않는다
     if(m && Array.isArray(m.pads)) _lastPads = m.pads;
     else if(m && typeof m.log === 'string') _log(m.log);
     else if(m && m.off) _padWorker = null;   // 패드를 못 쓰는 PC — 까닭은 log 로 왔다, 뒤따르는 종료는 조용히
   });
   _padWorker.on('error', (err) => _padWorkerGone(err && err.message || String(err)));
   _padWorker.on('exit', (code) => { if(_padWorker) _padWorkerGone('종료 코드 ' + code); });
+  /* 일꾼이 앱 종료를 붙잡지 않게 — ⚠️ 리스너를 다 붙인 **뒤에** 부른다('message' 리스너가 붙으면 Node 가 다시 ref 한다) */
+  _padWorker.unref();
 }
 
 function readPads(){
