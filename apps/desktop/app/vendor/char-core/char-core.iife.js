@@ -714,6 +714,10 @@ var TwCharCore = (() => {
     function newCanvas() {
       const c = deps.makeCanvas();
       c.width = c.height = CANVAS_SZ;
+      try {
+        c.getContext("2d", { willReadFrequently: true });
+      } catch (_) {
+      }
       return c;
     }
     let probe = null;

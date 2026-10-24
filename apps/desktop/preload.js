@@ -223,6 +223,10 @@ contextBridge.exposeInMainWorld('companion', {
   onBgmTrackEnd(callback) {
     ipcRenderer.on('companion:bgmTrackEnd', (e, kind) => callback(kind));
   },
+  // 🔍 소리 진단 — 플레이리스트 재생 중 1초마다 게이트가 본 값(status/bgm-diag.js 가 그린다)
+  onBgmDiag(callback) {
+    ipcRenderer.on('companion:bgmDiag', (e, d) => callback(d));
+  },
   // ---- 🎧 같이 듣기 — 같은 재생 창의 세 번째 주인('listen'). 열면 마이홈 BGM · 플레이리스트는 진다 ----
   // DJ 의 곡을 start(초)부터 연다(유튜브 주소 t). 반복은 main 이 늘 끈다.
   openListenTrack(url, title, start) {

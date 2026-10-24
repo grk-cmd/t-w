@@ -5,6 +5,7 @@ test('관리자로 들어가 왼쪽 메뉴가 모두 보인다', async ({ page, 
   await page.goto('/admin/');
   for (const name of [
     '라이선스',
+    '초대장',
     '사용자',
     '신고',
     '공지',

@@ -44,7 +44,8 @@ jobs:
 
       - uses: actions/setup-node@v4
         with:
-          node-version: 22
+          node-version: 24
+          check-latest: true
 
       - uses: actions/setup-python@v5
         with:
@@ -103,6 +104,8 @@ jobs:
               # 정식: main 에 버전 커밋 + 태그. 지금이 베타 번호면(옛 방식) 꼬리만 뗀다 — 0.10.2-beta.1 → 0.10.2.
               node scripts/bump-version.js "$KIND"
               TAG="v$(node -p "require('./apps/desktop/package.json').version")"
+              # 공지 글이 없으면 올리기 전에 멈춘다 — 버전 커밋 · 태그는 이 러너 안에만 있어 함께 사라진다
+              node scripts/release-notes.js check "${TAG#v}"
               git push origin HEAD:main --follow-tags
               ;;
             beta)

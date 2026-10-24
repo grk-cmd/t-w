@@ -42,6 +42,7 @@ const applyClothVisibility = deps.applyClothVisibility;
 const saveSlots = deps.saveSlots;
 const findMySeat = deps.findMySeat;
 const escHtml = deps.escHtml;
+const notifyError = deps.notifyError;                          // ⚠️ 에러코드 알림 — TwErrorCodes.notify
 const isGachaPart = deps.isGachaPart;                          // 가챠 파츠인가(rec.gacha) — 카탈로그(premium-assets.js)가 정의한다
 /* 🛠 관리자 파츠 등록 · 삭제 — app.js 가 setPartEditor 로 건다(가챠는 관리자 모듈을 부르지 않는다) */
 let openPartRegister = null, syncPartRegGachaLock = null, deletePart = null;
@@ -81,8 +82,8 @@ const GACHA_BONUS_KEY = deps.bonusKey;                         // 'tw.gachaBonus
    꽝이 없으므로 '총 뽑기 횟수 = 소유 개수의 합'이 항상 성립한다 → used를 따로 안 저장한다.
      남은 뽑기 = floor(레벨/5) − Σowned
 
-   ★ 서버 병합은 '최신 기기 통째로 덮어쓰기'다(ts 비교). 합치지도, max 를 잡지도 않는다.
-     자세한 이유와 함정은 syncGachaToServer 주석에 적어 두었다.
+   ★ 서버가 원본이다 — 뽑기는 서버 트랜잭션이 저장해야 끝나고(gachaDraw), 기기끼리는 파츠마다 큰 쪽으로 합친다
+     (syncGachaToServer). ts 는 옛 판(0.11 이하)이 «최신 기기» 판정에 쓰는 값이라, 이 판은 쓸 때 지금으로 찍기만 한다.
    ⚠️ 규칙 파일에 users/$userId/gacha 블록을 반드시 같이 넣을 것. audit 검사 7은 최상위 경로만
      보므로 users 하위 키가 비면 잡히지 않고 **조용히 전부 거부**된다. */
 const GACHA_LEVELS_PER_TICKET = 5;    // 5레벨당 뽑기 1회. ⚠️ 한 번 풀면 회수 불가 — 완화만 가능
@@ -127,11 +128,9 @@ function gachaDupesFor(rec){
 function _gachaNow(){
   return _srvNow();   // ★ 서버 시계는 한 곳에서만 읽는다 — 두 벌이 되면 한쪽만 고쳐진다
 }
-/* 서버 ts 가 이만큼 미래면 '시계가 틀어진 채 올라간 값'으로 본다.
-   왕복 지연과 오프셋이 아직 안 온 창을 넉넉히 덮으면서, 진짜 방금 뽑기(초 단위)와는 겹치지 않는 폭. */
-const GACHA_TS_SKEW_TOL_MS = 5*60*1000;
+const GACHA_OWNED_MAX = 9999;         // 파츠 하나 보유 상한 — 규칙 users/$userId/gacha/owned/$partId 와 같은 값
 let gachaOwned = {};                  // {partId: 뽑은 횟수}
-let _gachaTs = 0;                     // 위 값의 시각. 서버 ts 와 비교해 어느 쪽이 최신인지 가른다
+let _gachaTs = 0;                     // 서버 ts 사본 — 이 판은 판정에 안 쓴다(옛 판 호환으로 저장만)
 let _gachaSyncing = false;
 /* 진행 중이라 삼켜진 동기화 요청 — 끝난 뒤 한 번 다시 돈다.
    [왜] 예전엔 `if(_gachaSyncing) return;` 이 끝이었다. 부팅 동기화가 느린 회선에서 몇 초씩
@@ -143,7 +142,7 @@ let _gachaSyncPending = null;
    '보유분을 모르는 채로' 벗기는 것이 되어, 오프라인 부팅에서 멀쩡한 파츠가 사라진다. */
 let _gachaSrvSeen = false;
 /* 👑 달성표 보상분(추가 뽑기 횟수). 서버에서는 **users/{uid}/chalBonus** 에 따로 산다 —
-   gacha 노드 안에 두면 saveGachaOwned 의 통째 set 이 지운다(옛 버전 클라이언트가 특히 그렇다).
+   gacha 노드 안에 두면 옛 판(0.11 이하)의 통째 set 이 지운다.
    여기 값은 서버 합계를 받아 적는 사본이다.
    ⚠️ 서버를 못 읽었을 때는 절대 손대지 않는다(로컬 값 유지) — 0 으로 내려가면 이미 준 보상이
      사라진 것처럼 보인다. 그래서 loadChalBonus 는 실패를 null 로 돌려주고 0 과 구분한다. */
@@ -170,16 +169,9 @@ function _saveGachaLocal(touch){
   }catch(e){}
 }
 gachaOwned = _loadGachaLocal();
-/* 시각 부트스트랩 —
-   · 저장된 시각이 있으면 그대로 쓴다.
-   · 없는데 뽑은 게 **있으면** 지금으로 찍는다. 시각 개념이 생기기 전(규칙 파일에 gacha 블록이 없어
-     서버 쓰기가 조용히 거부되던 시절) 로컬에만 쌓인 사람들이다. 이 기기를 '최신'으로 봐야
-     그 기록이 서버로 올라간다 — 0 으로 두면 첫 동기화에서 빈 서버 값에 덮여 통째로 사라진다.
-   · 없고 뽑은 것도 없으면 0. 새 기기/새 설치라 서버가 항상 이긴다(원하는 동작). */
 try{
   const _t = parseInt(localStorage.getItem(GACHA_TS_KEY) || '0', 10);
   if(_t > 0) _gachaTs = _t;
-  else if(Object.keys(gachaOwned).length) _saveGachaLocal(true);
 }catch(_){}
 
 /* 지금 가챠 중인 시즌. 클라이언트 시계 기준이라 조작하면 다른 시즌을 뽑을 수 있지만,
@@ -211,34 +203,76 @@ function isGachaColorUnlocked(partId){
 }
 
 /* 이번 시즌 가챠 풀. 4개를 다 모은 파츠는 빠진다 — 그래서 중복 낭비가 0이고 모든 뽑기가 진척이 된다. */
-function gachaPool(){
+function _poolFor(owned){
   const season = gachaSeasonNow();
   return savedParts().filter(p => isGachaPart(p)
     && (!p.season || p.season === season)
-    && gachaCount(p.id) < gachaDupesFor(p));   // 색 없는 파츠는 1개만 모으면 빠진다
+    && (owned[p.id] | 0) < gachaDupesFor(p));   // 색 없는 파츠는 1개만 모으면 빠진다
 }
+function gachaPool(){ return _poolFor(gachaOwned); }
 // 이번 시즌에 뽑힐 수 있는 전체(다 모은 것 포함) — 보관함의 "이번 시즌 컴플리트" 판정용
 function gachaSeasonParts(){
   const season = gachaSeasonNow();
   return savedParts().filter(p => isGachaPart(p) && (!p.season || p.season === season));
 }
-function gachaUsedTotal(){ let n = 0; for(const k in gachaOwned) n += gachaOwned[k] | 0; return n; }
+function _usedIn(owned){ let n = 0; for(const k in owned) n += owned[k] | 0; return n; }
+function gachaUsedTotal(){ return _usedIn(gachaOwned); }
 /* ⚠️ 예전 불변식은 "총 뽑기 = 레벨/5" 하나였다. 👑달성표 주간 보상(_gachaBonus)이 붙으면서
      항이 하나 늘었다 — 화면에 "5레벨당 1회"만 적으면 거짓말이 되므로 renderGachaInv 표기도 같이 고쳤다. */
 function gachaTicketsEarned(){ return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0); }
 function gachaTicketsLeft(){ return Math.max(0, gachaTicketsEarned() - gachaUsedTotal()); }
 
-/* 뽑기. n회를 굴려 결과 배열을 돌려준다 — 연출은 이 결과를 받아 그리기만 하면 된다.
+/* 보유분 씻기 — 0 이하 · 숫자 아님 · 규칙이 거부하는 키는 빼고 상한에서 자른다(규칙 owned/$partId 와 같은 모양).
+   ⚠️ 규칙에 안 맞는 옛 키를 하나라도 다시 쓰면 트랜잭션 전체가 거부된다. */
+const GACHA_BAD_KEY_RE = /^(null|undefined|NaN)$|^ | $/;
+function _cleanOwned(o){
+  const out = {};
+  for(const k in (o || {})){
+    if(GACHA_BAD_KEY_RE.test(k)) continue;
+    const n = Math.max(0, Math.min(GACHA_OWNED_MAX, Math.floor(Number(o[k]) || 0)));
+    if(n > 0) out[k] = n;
+  }
+  return out;
+}
+/* 두 벌을 파츠마다 큰 쪽으로 합친다. 보유 수는 늘기만 한다(줄이는 길이 없다) — 그래서 합쳐도 잃는 것이 없고,
+   서버에 못 올라간 이 PC 의 뽑기(옛 판 · 로그인이 풀린 채 뽑은 것)가 살아남는다. */
+function _mergeOwned(a, b){
+  const out = _cleanOwned(a), add = _cleanOwned(b);
+  for(const k in add) if(add[k] > (out[k] | 0)) out[k] = add[k];
+  return out;
+}
+function _sameOwned(a, b){
+  const ka = Object.keys(a);
+  return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k]);
+}
+/* 서버에 없는 이 PC 의 뽑기 수 — 로그아웃 전 검문이 «지워질 뽑기» 를 센다. */
+function gachaUnsynced(srvOwned){
+  const srv = _cleanOwned(srvOwned), mine = _cleanOwned(gachaOwned);
+  let n = 0;
+  for(const k in mine) n += Math.max(0, mine[k] - (srv[k] | 0));
+  return n;
+}
+/* 서버 값을 이 PC 사본으로 받는다 — 이 PC 에만 있는 뽑기는 지우지 않는다(합치기). */
+function _adoptServer(v){
+  if(!v) return;
+  gachaOwned = _mergeOwned(v.owned, gachaOwned);
+  _saveGachaLocal(Number(v.ts) || 0);
+  _gachaSrvSeen = true;
+  if(_gachaInvOpen()) renderGachaInv();
+}
+
+/* 뽑기 계산 — owned 에서 n회를 굴려 { owned: 새 보유분, out } 을 돌려준다(받은 owned 는 안 바꾼다).
    티켓이 모자라거나 풀이 비면 그 자리에서 멈춘다(요청한 n보다 적게 나올 수 있다). */
-function gachaDraw(n){
-  const out = [];
+function _planDraw(owned, n){
+  const next = Object.assign({}, owned), out = [];
+  const earned = gachaTicketsEarned();
   for(let i = 0; i < Math.max(1, n | 0); i++){
-    if(gachaTicketsLeft() <= 0) break;
-    const pool = gachaPool();
+    if(earned - _usedIn(next) <= 0) break;
+    const pool = _poolFor(next);
     if(!pool.length) break;
     const rec = pool[Math.floor(Math.random() * pool.length)];
-    const after = gachaCount(rec.id) + 1;
-    gachaOwned[rec.id] = after;
+    const after = (next[rec.id] | 0) + 1;
+    next[rec.id] = after;
     out.push({
       id: rec.id, rec, count: after,
       isNew: after === 1,
@@ -246,33 +280,47 @@ function gachaDraw(n){
       unlockedColor: !rec.noColor && after === GACHA_DUPES_FOR_COLOR   // 이 뽑기로 막 열린 경우만 true
     });
   }
-  if(out.length){
-    _saveGachaLocal(true);   // ★ true = 이 기기가 방금 바꿨다고 시각을 찍는다(최신 판정의 근거)
-    // 서버 반영은 기다리지 않는다 — 실패해도 로컬에 남아 있고, 다음 동기화에서 올라간다.
-    syncGachaToServer('draw');
-  }
-  return out;
+  return { owned: next, out };
 }
 
-/* 서버와 맞추기 — 부팅 직후 1회, 뽑을 때마다, 그리고 계정 연동 직후.
+/* 뽑기 — 서버가 원본이다. 남은 횟수 확인 · 굴리기 · 저장을 서버 트랜잭션 하나에서 하고, 저장이 끝나야 결과를 돌려준다.
+   ★ 횟수와 풀은 트랜잭션 안에서 **서버 보유분**으로 센다 — 다른 PC 가 동시에 뽑으면 트랜잭션이 새 값으로 다시 돌아,
+     남은 횟수를 넘겨 뽑지 못한다.
+   ★ 실패하면 이 PC 는 아무것도 바꾸지 않는다(횟수 그대로). ⚠️ 이 PC 에 먼저 적지 말 것 — 로그인이 풀린 PC 에서 뽑은 것이 그 PC 에만 남는다.
+   ★ 늦게 붙은 저장(시간 초과 뒤 서버에 들어감)은 onLate 로 사본에 합친다 — 뽑기가 사라지지 않는다.
+   @return { ok:true, out } | { ok:false, reason:'busy'|'nouser'|'offline'|'timeout'|'denied'|'error' } */
+let _gachaDrawing = false;
+async function gachaDraw(n){
+  if(_gachaDrawing) return { ok:false, reason:'busy' };
+  const uid = getMyUserId();
+  if(!uid) return { ok:false, reason:'nouser' };
+  _gachaDrawing = true;
+  try{
+    const mine = _cleanOwned(gachaOwned);   // 이 PC 에만 있는 뽑기도 같이 올린다 — syncGachaToServer 와 같은 합치기
+    let out = [];
+    const r = await firebaseAPI.updateGacha(uid, cur => {
+      const plan = _planDraw(_mergeOwned(cur && cur.owned, mine), n);
+      out = plan.out;
+      return plan.out.length ? { owned: plan.owned, ts: _gachaNow() } : null;   // null = 뽑을 것 없음(쓰지 않음)
+    }, { onLate: _adoptServer });
+    if(!r.ok) return { ok:false, reason: r.reason };
+    _adoptServer(r.value);
+    return { ok:true, out: r.committed ? out : [] };
+  }finally{ _gachaDrawing = false; }
+}
 
-   ★ 병합 규칙은 **최신 기기 통째로 덮어쓰기(last-write-wins)** 다. 합치지 않는다(요청사항).
-     users/{uid}/gacha 에 owned 와 함께 ts(마지막으로 바꾼 시각)를 두고, ts 가 큰 쪽이 이긴다.
-       · 서버 ts > 내 ts  → 서버 것으로 로컬을 통째 교체 (내 ts 는 서버 ts 를 그대로 물려받는다)
-       · 내 ts > 서버 ts  → 내 것으로 서버를 통째 교체 (set — 사라진 파츠도 서버에서 지워진다)
-       · 같으면 아무것도 안 한다
-     [왜 바꿨나] 예전의 max 병합은 A기기 abc + B기기 bcd → abcd 로 합쳐졌다. 연동이 안 따라온
-       상태에서 두 기기를 따로 쓴 사람에게는 "최근에 쓴 기기 것이 정답"이 자연스럽다.
-     ⚠️ 덮어쓰기라 지는 쪽 기록은 사라진다. 규칙 파일에 gacha 블록이 들어간 뒤로는 뽑는 즉시
-       올라가므로 두 기기가 갈라질 창이 거의 없지만, 오프라인에서 뽑고 나중에 켜면 그 사이에
-       다른 기기가 뽑은 것이 이긴다. 이 성질을 바꾸려면 max 로 되돌리는 수밖에 없다.
+/* 서버와 맞추기 — 부팅 직후 1회 · 10분마다 · 보관함 열 때 · 런처 복귀 · 로그아웃 직전 · 계정 연동 직후.
 
-   mode='pull' — ts 를 보지 않고 **무조건 서버 것을 받는다**. 계정 연동 전용이다:
-     연동은 "저쪽 계정으로 갈아탄다"는 뜻이라, 이 기기의 로컬이 더 최신이어도 그 계정 것이 정답이다.
-     단 서버가 비어 있으면(한 번도 동기화 안 된 계정) 로컬을 지우지 않고 그대로 올린다. */
+   ★ 서버가 원본이고 이 PC 는 사본이다. 맞출 때는 **파츠마다 큰 쪽으로 합친다**(_mergeOwned) — 덮어쓰지 않는다.
+       · 이 PC 에만 있는 뽑기가 없으면 → 서버 값을 받는다(쓰기 0)
+       · 있으면(옛 판 · 로그인이 풀린 채 뽑은 것) → 서버 트랜잭션 안에서 합쳐 올린다
+     ⚠️ «ts 가 큰 기기가 통째로 이긴다» 로 되돌리지 말 것 — 진 기기의 뽑기가 지워진다.
+
+   mode='pull' — 계정 연동 전용. 이 PC 사본은 다른 계정 것일 수 있어 합치지 않고 **서버 것을 받는다**.
+     서버가 비어 있으면(한 번도 동기화 안 된 계정) 로컬을 지우지 않고 올린다. */
 /* 🎰 보유하지 않은 가챠 파츠를 착용 목록에서 걷어낸다 — **보유분이 바뀔 수 있는 자리마다 부른다.**
 
-   [경위] 동기화(ts 승패)나 계정 연동(pull)은 gachaOwned 를 통째로 갈아끼우는데, 착용 정보
+   [경위] 계정 연동(pull)은 gachaOwned 를 통째로 갈아끼우는데, 착용 정보
      (def.equippedParts)는 예전부터 **아무도 손대지 않았다.** 그래서 "보관함에는 없는데 실행
      화면에는 그대로 붙어 있는" 파츠가 남는다(제보: 초기화된 욕조가 계속 보임).
      게다가 renderGachaInv 는 보유 0 인 칸을 locked 로 그리며 **onclick 을 아예 안 붙이고**,
@@ -354,7 +402,7 @@ async function syncGachaToServer(reason, mode){
     if(!_gachaSyncPending || mode === 'pull') _gachaSyncPending = { reason, mode };
     return;
   }
-  if(!(window.firebaseAPI && firebaseAPI.loadGachaOwned && firebaseAPI.saveGachaOwned)) return;
+  if(!(window.firebaseAPI && firebaseAPI.loadGachaOwned && firebaseAPI.updateGacha)) return;
   _gachaSyncing = true;
   /* 서버 보유분을 실제로 읽었는가 — 아래 finally 의 착용 정리가 이 값에만 의지한다.
      (읽기 실패와 '읽었는데 비어 있다'는 완전히 다른 상태다) */
@@ -363,65 +411,26 @@ async function syncGachaToServer(reason, mode){
     const uid = getMyUserId();
     if(!uid) return;   // 🪪 uid 가 정해지기 전 — _srvRead=false 라 finally 의 착용 정리도 안 돈다
     const srv = await firebaseAPI.loadGachaOwned(uid);   // {owned, ts} | null(읽기 실패)
-    if(srv === null) return;                             // 읽기 실패 — 아무것도 안 한다(덮어쓰기는 위험)
+    if(srv === null) return;                             // 읽기 실패 — 아무것도 안 한다
     _srvRead = true;
     _gachaSrvSeen = true;                                // 이 세션에서 보유분을 알게 됐다 → 회수를 허용
-    const sOwned = (srv && srv.owned) || {};
-    /* ⚠️ ms 시각에 |0 을 쓰면 안 된다 — 32비트로 잘려 **음수**가 된다(1786320000000|0 = -386395136).
-       그러면 sTs 는 항상 음수, _gachaTs 는 양수라 `sTs > _gachaTs` 가 영영 참이 안 되고,
-       "서버가 최신이면 받아온다"는 가지가 통째로 죽는다 — 늘 로컬을 올리기만 했다.
-       (계정 연동 pull 로 한 번 _adopt 되면 로컬 ts 까지 음수로 저장돼 그 뒤 비교가 전부 무의미해진다) */
-    const sTs    = Number(srv && srv.ts) || 0;
-    const sHas   = Object.keys(sOwned).length > 0;
-
-    const _adopt = ()=>{                                  // 서버 것으로 로컬 교체
-      gachaOwned = {};
-      for(const k in sOwned){ const n = sOwned[k] | 0; if(n > 0) gachaOwned[k] = n; }
-      _saveGachaLocal(sTs || _gachaNow());
-      if(_gachaInvOpen()) renderGachaInv();
-    };
-    const _push = async ()=>{                             // 내 것으로 서버 교체
-      if(!_gachaTs) _saveGachaLocal(true);                // 시각이 없으면 지금 찍고 올린다
-      /* 🔑 [2026-09-12 제보] **쓰기 실패를 삼키지 않는다.**
-         saveGachaOwned 는 실패하면 false 를 돌려주는데(콘솔에만 남는다), 여기서 반환값을 버리고
-         있었다. 그래서 "규칙이 거부한 기기"는 뽑을 때마다 로컬에만 쌓이고 화면에는 멀쩡히
-         보이는데 서버에는 한 번도 안 올라간다 — 다른 기기에서는 영영 안 보인다.
-         제보의 경위가 정확히 이것이다(자세한 판정은 _warnServerWriteDenied 주석). */
-      const ok = await firebaseAPI.saveGachaOwned(uid, gachaOwned, _gachaTs);
-      if(ok === false){ try{ _warnServerWriteDenied('가챠'); }catch(_){} }
-      return ok !== false;
-    };
-
-    /* 🕒 미래 ts 치유 — 모든 판정보다 **먼저** 본다. 서버 ts 가 지금(서버 시계)보다 한참 앞이면
-       시계가 틀어진 기기가 올린 값이고, 그게 살아 있는 한 정상 기기는 영영 _adopt 만 한다.
-       ★ 이때만은 **합친다**(파츠별 max). 평소 규칙은 통째 덮어쓰기지만, 여기서는 ts 자체가
-         못 믿을 값이라 "어느 쪽이 최신인가"에 답이 없다 — 한쪽을 골랐다가 틀리면 되돌릴
-         방법이 없으므로, 둘 다 살리는 것이 유일하게 안전한 선택이다. 뽑기 횟수는
-         `earned − Σowned` 라 합친 만큼 정직하게 줄어든다(공짜로 얻는 것이 아니다).
-       ★ 치유는 계정당 사실상 한 번이다 — 정정한 ts 로 서버를 덮으면 다음부터는 이 가지에 안 온다.
-       ⚠️ pull 보다 위에 있어야 한다. 연동 직후에도 서버 ts 가 오염돼 있을 수 있고, 그 값을 그대로
-         물려받으면 새 계정까지 같은 상태로 묶인다. */
-    if(sTs > _gachaNow() + GACHA_TS_SKEW_TOL_MS){
-      const merged = {};
-      for(const k in sOwned){ const n = sOwned[k] | 0; if(n > 0) merged[k] = n; }
-      for(const k in gachaOwned){ const n = gachaOwned[k] | 0; if(n > (merged[k] | 0)) merged[k] = n; }
-      gachaOwned = merged;
-      _saveGachaLocal(true);                              // 서버 시계 기준 '지금'으로 다시 찍는다
-      await _push();
-      console.warn('[가챠] 서버 ts 가 미래(' + new Date(sTs).toISOString() + ')라 정정했습니다 — 보유분은 양쪽을 합쳤습니다');
-      if(_gachaInvOpen()) renderGachaInv();
-      return;
-    }
+    const sOwned = _cleanOwned(srv && srv.owned);
     if(mode === 'pull'){
-      if(sHas) _adopt();
-      else if(Object.keys(gachaOwned).length) await _push();
+      if(Object.keys(sOwned).length){
+        gachaOwned = sOwned;
+        _saveGachaLocal(Number(srv.ts) || _gachaNow());
+        if(_gachaInvOpen()) renderGachaInv();
+        return;
+      }
+      if(!Object.keys(_cleanOwned(gachaOwned)).length) return;
+    }else if(_sameOwned(_mergeOwned(sOwned, gachaOwned), sOwned)){
+      _adoptServer(srv);                                 // 이 PC 에만 있는 뽑기 없음 — 서버 값을 받는다
       return;
     }
-    if(sTs > _gachaTs)      _adopt();
-    else if(_gachaTs > sTs) await _push();
-    /* ts 가 같은데 내용이 다른 경우는 시각 부트스트랩이 겹칠 때뿐이라 사실상 없다.
-       그래도 서버에 아무것도 없고 로컬엔 있으면 한 번 올려준다 — 조용히 유실되는 쪽을 막는다. */
-    else if(!sHas && Object.keys(gachaOwned).length) await _push();
+    const mine = _cleanOwned(gachaOwned);
+    const r = await firebaseAPI.updateGacha(uid, cur => ({ owned: _mergeOwned(cur && cur.owned, mine), ts: _gachaNow() }), { onLate: _adoptServer });
+    if(r.ok) _adoptServer(r.value);
+    else if(r.reason === 'denied'){ try{ _warnServerWriteDenied('가챠'); }catch(_){} }
   }catch(e){ console.warn('[가챠] 동기화 실패', e); }
   finally{
     _gachaSyncing = false;
@@ -453,10 +462,7 @@ setTimeout(()=>{ try{ syncGachaToServer('boot'); }catch(_){} }, 4200);
      앱이라 그 4.2초가 그 세션의 처음이자 마지막 조회였고, 게다가 그 시점에 firebaseAPI 가 아직
      안 붙어 있으면 조용히 return 해서 **그 세션에는 재시도가 아예 없었다**(집중 누적 쪽은 주기
      타이머가 다시 시도해 준다 — 그 차이 하나로 증상이 갈렸다).
-   [왜 단순히 '안 보임'으로 끝나지 않는가] 병합이 ts 최신 승 **통째 덮어쓰기**라, 받아오지 못한
-     기기에서 한 번만 뽑으면 그 기기의 목록이 서버를 덮어 다른 기기의 뽑기가 사라진다.
-     즉 안 받아오는 것이 곧 지우는 것이다 — 그래서 '연동이 안 된다'로 보인다.
-   [비용] 읽기 1회/10분/기기. 쓰기는 내 ts 가 더 클 때만이라 평소엔 0회다. */
+   [비용] 읽기 1회/10분/기기. 쓰기는 이 PC 에만 있는 뽑기가 있을 때만이라 평소엔 0회다. */
 const GACHA_SYNC_INTERVAL_MS = 10*60*1000;   // 10분 — 집중 누적(FOCUS_SYNC_INTERVAL_MS)과 같은 박자
 setInterval(()=>{ try{ syncGachaToServer('tick'); }catch(_){} }, GACHA_SYNC_INTERVAL_MS);
 
@@ -941,18 +947,37 @@ function _gachaSetBusy(on){
   });
 }
 
+/* 뽑기 실패를 알린다(문구는 error-codes.js 표). 어느 경우든 이 PC 는 아무것도 안 바뀌고 횟수도 그대로다. */
+function _gachaNotifyFail(reason){
+  if(reason === 'denied' || reason === 'nouser') notifyError('E-CHAR-09', reason);
+  else if(reason === 'offline') notifyError('E-CHAR-10', reason);
+  else if(reason === 'timeout') notifyError('E-CHAR-11', reason);
+  else notifyError('E-CHAR-12', reason);
+}
+
 /* 뽑기 버튼을 누른 순간부터의 시퀀스: 빠른 떨림 → 갈라짐 + 픽셀 파티클 → 결과 팝인
    ★ n 은 '요청 횟수'다. 티켓이 모자라면 gachaDraw 가 알아서 줄여서 돌려준다 —
      호출부에서 Math.min 으로 깎아 넘기지 않는다(그게 5연속 먹통의 원인이었다. 아래 참고). */
-function _gachaRunDraw(n){
+async function _gachaRunDraw(n){
+  if(_gachaDrawing) return;   // 이미 뽑는 중 — 그쪽이 마무리한다
   /* 잠금 해제를 한 곳으로 모은다. 예전엔 시퀀스 안의 return 이 전부 busy 를 남긴 채 빠져나가서,
      한 번 어긋나면 버튼이 영영 죽은 채로 남았다. */
   let _done = false;
   const finish = ()=>{ if(_done) return; _done = true; _gachaSetBusy(false); renderGachaDrawBar(); };
 
-  let res = [];
-  try{ res = gachaDraw(n) || []; }
-  catch(e){ console.warn('[가챠] 뽑기 실패', e); toast('뽑기에 실패했어요 — 잠시 후 다시 시도해 주세요'); finish(); return; }
+  /* 서버 저장을 기다리는 동안 캡슐이 떤다 — 저장이 끝나야 연다(서버가 받아 준 결과만 보인다). */
+  _gachaSetBusy(true);
+  const s0 = _gachaStage();
+  if(s0) s0.innerHTML = '<div class="gc-cap-wrap rumble">' + _gachaCapsuleSVG(7) + '</div>';
+  let r;
+  try{ r = await gachaDraw(n); }
+  catch(e){ console.warn('[가챠] 뽑기 실패', e); r = { ok:false, reason:'error' }; }
+  if(!r.ok){
+    try{ renderGachaDraw(null); _gachaNotifyFail(r.reason); }
+    finally{ finish(); }   // 안내가 던져도 버튼이 잠긴 채 남지 않게
+    return;
+  }
+  const res = r.out;
 
   /* 📄 방금 뽑은 것 중 마지막 파츠를 기억해 둔다 — [보관함으로] 를 누르면 그 페이지가 열린다.
      [왜] 8칸 페이지로 끊은 뒤로는 새로 뽑은 파츠가 3페이지에 들어앉을 수 있다.
@@ -961,13 +986,11 @@ function _gachaRunDraw(n){
 
   if(!res.length){
     toast(gachaTicketsLeft() <= 0 ? '남은 뽑기가 없어요' : '이번 시즌에 뽑을 파츠가 없어요');
-    renderGachaDraw(null); return;
+    renderGachaDraw(null); finish(); return;
   }
-  const s = _gachaStage(); if(!s){ renderGachaDraw(res); return; }
+  const s = _gachaStage(); if(!s){ renderGachaDraw(res); finish(); return; }
   const token = ++_gachaAnimToken;
   const alive = () => token === _gachaAnimToken && _gachaDrawOpen();
-  _gachaSetBusy(true);
-  s.innerHTML = '<div class="gc-cap-wrap rumble">' + _gachaCapsuleSVG(7) + '</div>';
   /* 🛟 안전장치 — 어떤 이유로든 시퀀스가 끝까지 못 가면 1.6초 뒤에 잠금을 푼다.
      연출은 총 880ms 라 정상 흐름에서는 이 타이머가 발동하기 전에 finish 가 끝나 있다. */
   setTimeout(()=>{ if(token === _gachaAnimToken) finish(); }, 1600);
@@ -1088,10 +1111,8 @@ function renderGachaDraw(results){
 function openGachaInv(){
   const ov = document.getElementById('gachaInvOverlay'); if(!ov) return;
   const dv = document.getElementById('gachaDrawOverlay'); if(dv) dv.style.display='none';
-  /* 🎰 열자마자 서버와 한 번 맞춘다 — 뽑기 창은 이 창을 거쳐야만 들어갈 수 있으므로(#gachaGoDraw),
-     여기가 '뽑기 직전'을 잡을 수 있는 유일한 관문이다. 낡은 목록으로 뽑으면 그 뽑기가 서버를
-     통째로 덮어써서 다른 기기의 파츠를 지운다(syncGachaToServer 의 last-write-wins).
-     ★ 기다리지 않는다 — 받아오면 _adopt 안에서 renderGachaInv 를 다시 부른다(그쪽 코드 참고). */
+  /* 🎰 열자마자 서버와 한 번 맞춘다 — 다른 PC 에서 뽑은 것이 보이게.
+     ★ 기다리지 않는다 — 받아오면 _adoptServer 가 renderGachaInv 를 다시 부른다. */
   try{ syncGachaToServer('inv-open'); }catch(_){}
   /* 📄 열 때는 지금 보고 있는 파츠(_gachaSelId)가 있는 페이지에서 시작한다.
      [왜] 미리보기 아래 색상 영역이 _gachaSelId 를 따라간다. 그 칸이 3페이지에 있는데 1페이지가
@@ -1298,6 +1319,7 @@ return {
   isDrawOpen: _gachaDrawOpen,
   selId: ()=>_gachaSelId,               // 보관함에서 지금 보고 있는 파츠 — 꾸미기 미리보기 색상 영역이 따라간다
   owned: ()=>gachaOwned,                // 계정 전환 검문 — «뽑은 파츠 N개»
+  unsynced: gachaUnsynced,              // 로그아웃 전 검문 — 서버에 없는 이 PC 의 뽑기 수
   bonus: ()=>_gachaBonus,               // 👑 달성표 — 보너스 뽑기 수
   setBonusLocal: _setGachaBonusLocal,
   resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로

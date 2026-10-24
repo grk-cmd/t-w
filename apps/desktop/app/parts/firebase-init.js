@@ -37,9 +37,11 @@
   import { createGhostHeal } from "./room/room-ghost-heal.js";
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor, hostSuccession } from "./room/room-channel.js";
+  import { createGachaTx } from "./character/gacha-tx.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
+  import { createGroupInvite } from "./account/group-invite.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
@@ -411,6 +413,8 @@
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
+  const _gachaTx = createGachaTx({ db, ref, get, runTransaction, waitConnected: ms => window.firebaseAPI.waitConnected(ms), whenAuthReady: _whenAuthReady });
+  const _groupInvite = createGroupInvite({ db, ref, get, update });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
@@ -715,9 +719,9 @@
          남겨두면 같은 곡 목록을 두 벌 쓰게 되어 쓰기가 계속 두 배다.
        ⚠️ n(색인)은 **세 벌 합계**다. fetchRandomPlaylist 가 n > 0 으로 사람을 거르므로,
          활성 프리셋만 세면 «빈 프리셋을 열어 둔 사람이 파도타기에서 사라지는» 옛 옆효과가 남는다. */
-    async publishMyPlaylist(uid, name, sets, meta){
+    async publishMyPlaylist(uid, name, sets, meta, editTs){
       try{
-        const ts = Date.now();
+        const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();   // 고친 시각 — 다른 기기가 «어느 쪽이 나중인가» 를 가른다(editTs 칸 · 옛 앱은 이 칸을 안 써서 «모름» 이 된다)
         const m = meta || {};
         const ss = (Array.isArray(sets) ? sets : []).map(s => ({
           name: String((s && s.name) || ''),
@@ -725,7 +729,7 @@
         }));
         const total = ss.reduce((n, s) => n + s.items.length, 0);
         const mirror = (ss.find(s => s.items.length) || { items: [] }).items;
-        await set(ref(db, `users/${uid}/playlist`), { sets: ss, items: mirror, ts,
+        await set(ref(db, `users/${uid}/playlist`), { sets: ss, items: mirror, ts, editTs: ts,
           bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
         /* 🔒 비공개 — 색인에서만 뺀다. 무작위 파도타기는 이 색인에서 사람을 고르므로 안 걸리고,
            친구 지목 파도타기(fetchPlaylistOf)는 노드를 직접 읽으므로 **그대로 들린다.**
@@ -738,17 +742,14 @@
     },
     /* 목록을 비웠다 — 색인에서는 지워 파도타기에 안 걸리게 하되, 노드 자체는 한마디·공개 여부를
        담아 남긴다. 통째로 지우면 곡을 전부 뺐다가 다시 넣는 사이에 써둔 한마디가 사라진다. */
-    async removeMyPlaylist(uid, meta){
+    async removeMyPlaylist(uid, meta, editTs){
       try{
         const m = meta || {};
-        if(m.bio || m.homePublic){
-          /* ⚠️ sets 도 같이 비운다. 안 비우면 곡을 전부 뺐는데 옛 프리셋이 서버에 남아
-             파도타기에 계속 걸린다(색인만 지우는 것으로는 친구 지목이 안 막힌다). */
-          await set(ref(db, `users/${uid}/playlist`), { sets: [], items: [], ts: Date.now(),
-            bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
-        }else{
-          await remove(ref(db, `users/${uid}/playlist`));
-        }
+        /* 노드는 지우지 않고 빈 목록 + 고친 시각으로 남긴다 — 지우면 다른 기기가 «서버에 없다» 로 읽고 옛 목록을 다시 올린다.
+           ⚠️ sets 도 같이 비운다(옛 프리셋이 남으면 친구 지목 파도타기에 계속 걸린다). */
+        const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();
+        await set(ref(db, `users/${uid}/playlist`), { sets: [], items: [], ts, editTs: ts,
+          bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
         await remove(ref(db, `playlistIndex/${uid}`));
         return true;
       }catch(e){ console.warn('[플레이리스트] 공개 해제 실패', e); return false; }
@@ -834,7 +835,7 @@
       try{
         const ps = await get(ref(db, `users/${uid}/playlist`));
         const pv = ps.val();
-        if(!pv) return null;
+        if(!pv) return { sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 };   // 비어 있음 ≠ 못 읽음(null) — 기기 간 맞추기가 가른다
         const raw = pv.sets ? Object.values(pv.sets) : null;
         let sets;
         if(raw && raw.length){
@@ -846,7 +847,7 @@
           const it = pv.items ? Object.values(pv.items).filter(x => x && x.id) : [];
           sets = [{ name:'', items: it }];
         }
-        return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic };
+        return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic, ts: Number(pv.ts) || 0, editTs: Number(pv.editTs) || 0 };   // editTs 없음(옛 앱이 쓴 노드) = 고친 시각 모름
       }catch(e){ console.warn('[플레이리스트] 내 프리셋 읽기 실패', e); return null; }
     },
     async fetchPlaylistOf(uid){
@@ -895,10 +896,7 @@
          users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
          users/{uid}/gacha/ts             = 172…   // 마지막으로 바꾼 시각(ms)
        내 것만 1회 get 한다 — 목록을 실시간 구독하면 비용이 터진다(audit 검사 9).
-       ★ 반영은 '최신 기기 통째로 덮어쓰기(set)'다. ts 비교와 판정은 전부 app.js
-         syncGachaToServer 가 하고, 여기는 읽기/쓰기만 한다.
-         set 을 쓰는 것이 중요하다 — update 면 진 기기에만 있던 파츠가 서버에 그대로 남아
-         "덮어썼는데 옛것이 섞여 있다"가 된다.
+       ★ 쓰기는 트랜잭션 한 길(updateGacha → character/gacha-tx.js)뿐이다 — 통째 set 은 다른 PC 의 뽑기를 지운다.
        ⚠️ 규칙 파일의 users/$userId 안에 gacha 블록이 없으면 여기 쓰기가 **조용히 전부 거부**된다.
          audit 검사 7은 최상위 경로만 보므로 users 하위 키는 잡아주지 않는다. */
     async loadGachaOwned(uid){
@@ -909,17 +907,7 @@
       }
       catch(e){ console.warn('[가챠] 소유 목록 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
     },
-    async saveGachaOwned(uid, owned, ts){
-      try{
-        const clean = {};
-        for(const k in (owned || {})){
-          const n = Math.max(0, Math.floor(Number(owned[k]) || 0));
-          if(n > 0) clean[k] = n;
-        }
-        await set(ref(db, `users/${uid}/gacha`), { owned: clean, ts: Math.max(0, Math.floor(Number(ts) || 0)) });
-        return true;
-      }catch(e){ console.warn('[가챠] 소유 반영 실패', e); return false; }
-    },
+    updateGacha(uid, apply, opt){ return _gachaTx.updateGacha(uid, apply, opt); },
     /* ===== 🧍 캐릭터 슬롯 (기기 간 동기화 · 2026-09-16 제보 6-b) =====
          users/{uid}/slots/ts      = 172…   // 마지막으로 바꾼 시각(ms · 서버 시계)
          users/{uid}/slots/v       = 1
@@ -1135,7 +1123,7 @@
       }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
     },
     /* 🏅 👑달성표 주간 보상 — 추가 뽑기 횟수. users/{uid}/chalBonus (숫자 하나)
-       ★ **gacha 노드 안에 두지 않는다.** 바로 위 saveGachaOwned 가 그 노드를 통째로 set 하는데,
+       ★ **gacha 노드 안에 두지 않는다.** 옛 판(0.11 이하)이 그 노드를 통째로 set 하는데,
          보상을 모르는 **옛 버전 클라이언트**는 {owned, ts} 만 실어 보낸다 — 그 한 번의 쓰기로
          보상이 증발한다. 기기 두 대 중 하나만 업데이트한 사람에게 실제로 일어나는 일이다.
          노드를 갈라 두면 옛 버전이 건드릴 수 있는 경로 자체가 없다.
@@ -1409,9 +1397,10 @@
        mobileLink/{uid}/live  = { at }                 PC 가 켜져 있다는 표시 · onDisconnect remove
        mobileLink/{uid}/state = { on, app, ts, key }   폰이 REST 로 쓴다(key 일치 + live 존재일 때만 · 규칙)
        ⚠️ presence 를 «PC 켜짐» 으로 쓰지 않는다 — «오프라인으로 보이기» 가 online:false 를 써서 폰 연결까지 끊긴다.
-       ★ 키가 없는 사람(연결 안 한 사람)에게는 이 통로가 **한 번도 안 불린다** — 읽기·쓰기 0. */
-    async mobileLinkStart(userId, cb){
-      if(!userId || typeof cb !== 'function') return null;
+       ★ 키가 없는 사람(연결 안 한 사람)에게는 이 통로가 **한 번도 안 불린다** — 읽기·쓰기 0.
+       onDiag(ev) — 진단 줄(mobile-diag.js)에만: { kind:'reset', v } 부팅 초기화로 내린 원래 값 · { kind:'live', has } PC 켜짐 표시(다른 PC 가 꺼지며 지우면 폰 신호가 거절된다) */
+    async mobileLinkStart(userId, cb, onDiag){
+      if(!userId || typeof cb !== 'function' || !onDiag) return null;
       await _whenAuthReady();
       if(_mobLive && _mobLive.uid === userId) return _mobLive.stop;
       if(_mobLive) _mobLive.stop();
@@ -1423,15 +1412,17 @@
       };
       arm();
       /* 부팅 초기화 — 어제 «닫힘» 이 빠진 채 남은 «켜짐» 이 오늘 시간을 쌓지 않게. on 만 내린다(앱 이름·key 는 둔다). */
-      try{ const s = (await get(stateRef)).val(); if(s && s.on === true) await update(stateRef, { on:false }); }catch(_){}
+      const diag = (ev)=>{ try{ onDiag(ev); }catch(_){} }; try{ const s = (await get(stateRef)).val(); if(s && s.on === true){ await update(stateRef, { on:false }); diag({ kind:'reset', v:s }); } }catch(_){}
       const connRef = ref(db, '.info/connected');
       const onConn = s=>{ if(s.val() === true) arm(); };
       try{ onValue(connRef, onConn); }catch(_){}
       const onState = s=>{ try{ cb(s.val() || null); }catch(_){} };
       onValue(stateRef, onState, e=>{ console.warn('[📱] 구독 실패', e && e.code); try{ cb(null); }catch(_){} });
+      const onLive = s=>diag({ kind:'live', has: s.exists() }); onValue(liveRef, onLive, ()=>{});   // 보이기만 · 다시 걸지는 않는다
       const stop = ()=>{
         try{ off(connRef, 'value', onConn); }catch(_){}
         try{ off(stateRef, 'value', onState); }catch(_){}
+        try{ off(liveRef, 'value', onLive); }catch(_){}
         try{ onDisconnect(liveRef).cancel(); }catch(_){}
         try{ remove(liveRef); }catch(_){}
         if(_mobLive && _mobLive.stop === stop) _mobLive = null;
@@ -3288,20 +3279,17 @@
       });
       return result && result.snapshot ? result.snapshot.val() : null;
     },
-    // 초대 코드 사용 — 미사용 코드만 소진 가능(트랜잭션으로 동시 사용 방지)
-    /* 🎟️ [회원가입 설계 §3 · 개정 8] 초대 코드 소진은 **기기 토큰**으로 한다 — uid 가 아직 없다.
-       예전엔 `redeemInvite(code, getMyUserId())` 였고 그 호출 자체가 새 사람의 uid 를 **발명**했다.
-       ★ 여기서는 `usedBy`·`usedAt` 만 쓴다. 예전에 같이 하던 `users/{uid}/invite` 와 `stats/userCount`
-         는 uid 가 정해진 뒤 `finishInviteSignup` 이 한다 — 토큰 자리에 쓰면 `users/t…` 유령 노드가 생긴다.
-       ★ `usedBy === token` 이면 다시 통과한다(같은 기기의 재시도 · 가입 도중 끊긴 판). */
+    /* 초대 코드 소진은 uid 가 아니라 기기 토큰으로 — uid 는 아직 없다. users/ · stats/ 쓰기는 finishInviteSignup 몫
+       (여기서 쓰면 users/t… 유령 노드가 생긴다). usedBy === token 이면 같은 기기의 재시도라 다시 통과. */
     async redeemInvite(code, token){
       try{
         if(!token) return { ok:false, reason:'초대 코드를 확인하지 못했어요 — 다시 시도해 주세요' };
         const codeRef = ref(db, `invites/${code}`);
-        // ★ issueInvite와 같은 함정 — 첫 실행의 cur는 로컬 캐시(null)라서
-        //   실제 코드가 있어도 "존재하지 않음"으로 중단돼 버림. 서버 값을 미리 읽어 기준으로 씀.
+        // ⚠️ 트랜잭션 첫 cur 는 로컬 캐시(null) — 서버 값을 미리 읽어 기준으로 쓴다(issueInvite 와 같은 함정)
         const preSnap = await get(codeRef);
         const preVal = preSnap.val();
+        // 한 명짜리에 없으면 관리자가 만든 여러 명짜리 코드인지 본다(group-invite.js)
+        if(!preVal) return await _groupInvite.redeem(code, token);
         let failReason = null;
         const result = await runTransaction(codeRef, cur=>{
           const v = cur || preVal;
@@ -3317,32 +3305,35 @@
         return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
       }
     },
-    /* 🎟️ uid 가 정해진 뒤 — 토큰 자리를 진짜 uid 로 바꾸고, 예전 redeemInvite 가 하던 두 쓰기를 한다.
-       ★ `usedBy` 가 이 토큰일 때만 바꾼다(이미 uid 면 그대로 둔다 — 재시도해도 한 번).
-       ★ `users/{uid}/invite` 가 이미 있으면 다시 안 쓴다 → 가입 카운터도 한 번만 오른다.
-       실패하면 { ok:false } — 부르는 쪽은 토큰을 지우지 않고 다음 부팅에 다시 부른다. */
+    /* uid 가 정해진 뒤 — 토큰 자리를 uid 로 바꾸고 users/{uid}/invite · 가입 카운터를 한 번만 쓴다(칸이 있으면 안 씀).
+       실패하면 { ok:false } — 부르는 쪽은 토큰을 남겨 다음 부팅에 다시 부른다. */
     async finishInviteSignup(code, token, userId){
       try{
         if(!code || !token || !userId) return { ok:false, reason:'값이 비었어요' };
         const codeRef = ref(db, `invites/${code}`);
         const preVal = (await get(codeRef)).val();
         let issuedBy = (preVal && preVal.issuedBy) || null;
-        const tr = await runTransaction(codeRef, cur=>{
-          const v = cur || preVal;
-          if(!v) return;                                             // 코드가 사라졌다 — 바꿀 것 없음
-          issuedBy = v.issuedBy || issuedBy;
-          if(v.usedBy === userId) return v;                          // 이미 바꿨다
-          if(v.usedBy !== token) return;                             // 남의 토큰 — 손대지 않는다
-          return Object.assign({}, v, { usedBy: userId });
-        });
-        const now = tr && tr.snapshot ? tr.snapshot.val() : null;
-        if(!now || now.usedBy !== userId) return { ok:false, reason:'초대 코드 기록을 바꾸지 못했어요' };
+        if(!preVal){
+          const g = await _groupInvite.finish(code, token, userId);   // 여러 명짜리 코드(group-invite.js)
+          if(!g.ok) return g;
+          issuedBy = g.issuedBy;
+        }else{
+          const tr = await runTransaction(codeRef, cur=>{
+            const v = cur || preVal;
+            if(!v) return;                                             // 코드가 사라졌다 — 바꿀 것 없음
+            issuedBy = v.issuedBy || issuedBy;
+            if(v.usedBy === userId) return v;                          // 이미 바꿨다
+            if(v.usedBy !== token) return;                             // 남의 토큰 — 손대지 않는다
+            return Object.assign({}, v, { usedBy: userId });
+          });
+          const now = tr && tr.snapshot ? tr.snapshot.val() : null;
+          if(!now || now.usedBy !== userId) return { ok:false, reason:'초대 코드 기록을 바꾸지 못했어요' };
+        }
         const invRef = ref(db, `users/${userId}/invite`);
         const had = (await get(invRef)).exists();
         if(!had){
-          // 신규 유저 — 초대로 들어왔으므로 초대권 0장 (신규 지급 중단 · 예전 redeemInvite 그대로)
-          await update(invRef, { invitesLeft: 0, invitedBy: issuedBy, joinedAt: Date.now() });
-          // 📊 가입 카운터 +1 — 전체 users를 못 읽으니(프라이버시) 숫자만 따로 집계
+          await update(invRef, { invitesLeft: 0, invitedBy: issuedBy, joinedAt: Date.now() });   // 초대로 들어온 사람은 0장
+          // 전체 users 는 못 읽으니 가입 수는 따로 센다
           try{ await runTransaction(ref(db, 'stats/userCount'), c => (typeof c==='number'?c:0) + 1); }catch(_){}
         }
         return { ok:true };

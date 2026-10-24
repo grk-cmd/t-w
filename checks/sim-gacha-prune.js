@@ -72,7 +72,7 @@ function serverStub({ readOk = true, owned = {}, ts = 0, delay = 0 } = {}){
   globalThis.window = globalThis.window || globalThis;
   window.firebaseAPI = {
     loadGachaOwned: () => new Promise(res => realST(()=>res(readOk ? { owned, ts } : null), delay)),
-    saveGachaOwned: () => Promise.resolve(true),
+    updateGacha: (uid, apply) => { const v = apply({ owned, ts }); return Promise.resolve({ ok:true, committed: v != null, value: v || { owned, ts } }); },
   };
   globalThis.firebaseAPI = window.firebaseAPI;
 }
