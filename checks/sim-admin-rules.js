@@ -115,11 +115,13 @@ console.log('\n── 3. 새는 곳이 없는가');
       '라이선스 전체 읽기는 관리자 또는 봇 — 봇에게 쓰기 길 없음');
   // 웹 관리자 사용자 목록을 API 로 — 봇이 accountSnap · friendCodes 를 통째로 읽는다. 관리자 조건과 || 로 이어야 관리자 읽기가 안 막히고, 봇 조건은 목록 읽기 한 곳뿐.
   // 운영 설정(config) · 관리자 작업 기록(adminLog) 도 같은 모양 — API 가 읽기 사본을 만든다(쓰기 원본은 그대로 Firebase · 관리자).
-  for (const [p, label] of [['accountSnap', '계정 요약(accountSnap)'], ['friendCodes', '친구코드 명단(friendCodes)'], ['config', '운영 설정(config)'], ['adminLog', '관리자 작업 기록(adminLog)']]) {
+  for (const [p, label] of [['accountSnap', '계정 요약(accountSnap)'], ['friendCodes', '친구코드 명단(friendCodes)'], ['config', '운영 설정(config)']]) {
     const rd = String(r(p));
     chk(isAdmin(rd) && isBot(rd) && /\|\|/.test(rd) && !w(p) && !/apiBots/.test(JSON.stringify(at(p)).replace(rd, '')),
         `${label} 전체 읽기는 관리자 또는 봇 — 봇은 아래 칸 읽기 · 쓰기 없음`);
   }
+  { const rd = String(r('adminLog'));   // adminLog 는 봇이 «관리자 대신» 새 줄도 쓴다 — 쓰기 판정은 6절에서 실제로 돌린다
+    chk(isAdmin(rd) && isBot(rd) && /\|\|/.test(rd) && !w('adminLog'), '관리자 작업 기록(adminLog) 전체 읽기는 관리자 또는 봇 — 모음째 쓰기 없음'); }
   // 공개 읽기 사본(파도타기 색인 · 랭킹) — 사람은 예전 쿼리 조건 그대로, 봇만 통째로 읽는다. 쓰기 · 아래 칸은 그대로.
   const BOT = "(auth != null && root.child('apiBots').child(auth.uid).val() === true)";
   // 봇 갈래가 앞 — «최근 N개» 조건이 앞이면 조건 없는 봇 통째 읽기에서 계산이 먼저 실패해 봇도 401(10-18 · scripts/rules-emu-check.js «서버 봇»)
@@ -188,8 +190,8 @@ console.log('\n── 6. 관리자 작업 기록(adminLog) — 관리자만, 새
     hasChildren: (ks) => ks.every(k => val && val[k] !== undefined),
     child: (k) => snap(val && val[k] !== undefined ? val[k] : null),
   });
-  const ADMIN = 'adm1', NOW = Date.UTC(2026, 9, 5);
-  const ROOT = snap({ admins: { [ADMIN]: true } });
+  const ADMIN = 'adm1', BOT = 'bot1', NOW = Date.UTC(2026, 9, 5);
+  const ROOT = snap({ admins: { [ADMIN]: true }, apiBots: { [BOT]: true } });
   const run = (expr, ctx) => {
     if (typeof expr !== 'string') return expr === true;
     String.prototype.matches = function (re) { return re.test(String(this)); };   // eslint-disable-line no-extend-native
@@ -228,6 +230,12 @@ console.log('\n── 6. 관리자 작업 기록(adminLog) — 관리자만, 새
   chk(!as(ADMIN, { ...good, target: 'x'.repeat(61) }) && as(ADMIN, { ...good, target: 'x'.repeat(60) }), '  ↳ target 60자까지');
   chk(!as(ADMIN, { ...good, detail: 'x'.repeat(121) }) && as(ADMIN, { ...good, detail: 'x'.repeat(120) }), '  ↳ detail 120자까지');
   chk(!as(ADMIN, good, null, 'a/b c'), '  ↳ 키는 짧은 id 모양만');
+  // 서버(상품 API)가 «토큰의 관리자» 이름으로 남기는 기록 — 봇은 새 줄만 · by 는 실제 관리자만
+  chk(as(BOT, good), '서버 봇은 관리자 이름(by = 실제 관리자 uid)으로 새 기록을 쓴다');
+  chk(!as(BOT, { ...good, by: 'user9' }) && !as(BOT, { ...good, by: BOT }), '★ 봇이 쓰는 by 는 admins 에 있는 uid 만 — 아무 uid · 봇 자신은 거절');
+  chk(!as(BOT, good, { ...good, at: NOW - 1000 }), '★ 봇은 이미 있는 기록을 고치지 못한다');
+  chk(!as(BOT, null, { ...good, at: NOW - 91 * 24 * 3600 * 1000 }), '★ 봇은 지우지 못한다(오래된 것도)');
+  chk(!as(BOT, { ...good, at: NOW - 1000 }) && !as(BOT, { ...good, extra: 1 }), '  ↳ 봇도 서버 시각 · 정해진 칸 검사를 그대로 받는다');
   const DAY = 24 * 3600 * 1000;
   chk(!as(ADMIN, null, { ...good, at: NOW - 30 * DAY }), '최근(90일 안) 기록은 지우지 못한다 — 흔적을 지우는 길을 막는다');
   chk(as(ADMIN, null, { ...good, at: NOW - 91 * DAY }), '  ↳ 90일 지난 기록은 관리자가 한 건씩 정리할 수 있다');
@@ -368,6 +376,36 @@ console.log('\n── 7. 관리자 할 일(adminTodos) · 관리자 이름(admin
   chk(tplOk(A1, null) && !tplOk('user9', null), '  ↳ 지우기(기본 문구로 되돌리기)도 관리자만');
   chk(tpl['.read'] === undefined && isAdmin(r('config')), '  ↳ 읽기는 config 통째 규칙대로 관리자만 (누구나 읽기 칸을 두지 않는다)');
   chk(!!app && !/releaseAnswerTpl/.test(app), '  ↳ 앱은 이 칸을 쓰지 않는다 — 웹 관리자 전용');
+}
+
+console.log('\n── 8. 서버 상품 API 원본(products · listings · assets) — 서버 봇만 읽고 쓴다');
+{
+  const snapOf = (val) => ({ exists: () => val != null, val: () => val, child: (k) => snapOf(val && val[k] !== undefined ? val[k] : null) });
+  const ROOT7 = snapOf({ admins: { adm1: true }, apiBots: { bot1: true } });
+  const ok = (expr, uid) => {
+    if (typeof expr !== 'string') return expr === true;
+    try { return !!new Function('auth', 'root', 'return (' + expr + ');')(uid ? { uid } : null, ROOT7); } catch (_) { return false; }
+  };
+  /* 판정 한 벌 — 깨 보기가 같은 판정을 망가진 규칙에 다시 돌린다. 틀린 줄 이름을 돌려준다. */
+  const judge7 = (R) => {
+    const bad = [];
+    for (const [node, key] of [['products', '$id'], ['listings', '$id'], ['assets', '$hash']]) {
+      const n = (R[node] || {}), c = n[key] || {};
+      if (!(ok(n['.read'], 'bot1') && ok(c['.write'], 'bot1'))) bad.push(node + ' 봇 읽기 · 쓰기');
+      if (ok(n['.read'], 'adm1') || ok(n['.read'], 'user9') || ok(n['.read'], null)) bad.push(node + ' 사람 읽기');
+      if (ok(c['.write'], 'adm1') || ok(c['.write'], 'user9') || ok(c['.write'], null)) bad.push(node + ' 사람 쓰기');
+      if (n['.write'] !== undefined || Object.keys(n).some(k => k[0] !== '.' && k !== key)) bad.push(node + ' 모음째 쓰기 · 다른 칸');
+    }
+    return bad;
+  };
+  const bad = judge7(rules);
+  chk(!bad.length, '봇만 읽고 쓴다 · 관리자 · 일반 · 로그인 안 함은 읽기 · 쓰기 없음 · 모음째 쓰기 없음' + (bad.length ? ' — ' + bad.join(', ') : ''));
+  // 깨 보기 — 사람에게 열거나 봇 조건을 빼면 위 판정이 빨강이 돼야 한다
+  const broken = (fn) => { const R = JSON.parse(JSON.stringify(rules)); fn(R); return judge7(R).length > 0; };
+  chk(broken(R => { R.products['.read'] = 'auth != null'; }), '  ↳ 깨 보기: 로그인한 누구나 읽게 하면 빨강');
+  chk(broken(R => { R.listings.$id['.write'] = "auth != null && root.child('admins').child(auth.uid).val() === true"; }), '  ↳ 깨 보기: 관리자에게 쓰기를 열면 빨강');
+  chk(broken(R => { delete R.assets.$hash['.write']; }), '  ↳ 깨 보기: 봇 쓰기를 빼면 빨강');
+  chk(broken(R => { R.products['.write'] = true; }), '  ↳ 깨 보기: 모음째 쓰기를 열면 빨강');
 }
 
 console.log(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');
