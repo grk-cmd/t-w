@@ -172,10 +172,10 @@ const mhStickerRules = TwMyHomeStickerRules;   // myhome-edit.js(스티커 끌�
 TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ```
 
-**내놓는 것** — `isLocked(s)` · `setLocked(s, on)`(풀면 칸을 지운다) · `orderedIds(stickers)` → 뒤 → 앞 id 배열 · `nextZ(stickers)` → 새 스티커 z · `move(stickers, sid, ±1)` → 옮겼으면 true(모두에게 0,1,2… 를 다시 매긴다).
+**내놓는 것** — `isLocked(s)` · `setLocked(s, on)`(풀면 칸을 지운다) · `orderedIds(stickers)` → 뒤 → 앞 id 배열 · `nextZ(stickers)` → 새 스티커 z · `move(stickers, sid, ±1)` → 옮겼으면 true(모두에게 0,1,2… 를 다시 매긴다) · `hitsAddBtn(rect, x, y)` → 누른 자리가 [+ 스티커] 버튼 안인가(버튼을 가린 스티커가 그 자리 클릭을 버튼에 넘길 때 — `myhome-edit.js`).
 
 **함정** — 순서를 키 이름으로 바꾸지 말 것: Realtime DB 는 키를 사전순으로 돌려준다. `z` 없는 옛 스티커는 키 순서대로 새 스티커들보다 뒤.
-잠금은 자리 · 크기 · 회전만 — 끌기(`myhome-edit.js`) · 편집 모드 · ◎ · 전부 화면 안으로가 본다. 지우기 · 링크 · 움직임 · 순서는 잠겨도 된다.
+잠금은 편집 모드 밖 끌기(`myhome-edit.js`) · ◎ · 전부 화면 안으로만 막는다. 우클릭 · ✎ 편집 모드(이동 · 크기 · 회전)는 잠겨도 되고 잠금은 그대로 남는다 — ✎ 는 창 밖의 잠긴 스티커도 창 안으로 당긴다. 지우기 · 링크 · 움직임 · 순서도 잠겨도 된다.
 옛 앱은 `z` · `locked` 를 모른다 — 만든 차례로 그리고 잠금 없이 움직인다(칸은 지우지 않고 남긴다).
 검사: `checks/sim-myhome-sticker-rules.js`.
 
