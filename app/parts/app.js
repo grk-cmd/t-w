@@ -3888,6 +3888,9 @@ function activity(){lastActivity=performance.now();}
    하지만 자동 자리비움은 어떤 앱을 쓰든 "사람이 컴퓨터를 만지고 있는가"만 보면 되므로 별도로 기록함. */
 let lastAnyInput = performance.now();
 function anyInput(){ lastAnyInput = performance.now(); }
+/* ⌨️ 입력칸에 있음 → main(입력하는 동안 mac 전역 훅 쉬기) · 한글 조합 진단 — shared/typing-focus.js */
+if(window.companion && companion.setTyping) TwTypingFocus.createTypingFocus({ send: (on)=>companion.setTyping(on), anyInput: (...a)=>anyInput(...a),
+  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); }, now: ()=>performance.now() }).attach(document);
 window.addEventListener('mousemove',activity);window.addEventListener('keydown',activity);window.addEventListener('wheel',activity);
 document.addEventListener('visibilitychange',()=>windowFocused=!document.hidden);
 window.addEventListener('blur',()=>windowFocused=false); window.addEventListener('focus',()=>{windowFocused=true;activity();anyInput();});

@@ -291,3 +291,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **함정** — 페이지가 보내는 모양은 `hosting/help/embed.js` 와 짝이다 — 한쪽만 바꾸면 목차가 안 뜬다(`sim-help-tab` 이 embed.js 를 돌려 이 함수로 읽어 본다).
 사이트 주소를 바꾸면 앱 CSP `frame-src` 도 같이. 검사: `checks/sim-help-tab.js`.
+
+## `typing-focus.js` — ⌨️ 입력칸에 있음 알리기 · 한글 조합 진단
+- **책임**: 포커스가 글자 입력칸(text · search · email · url · tel · textarea · contenteditable)에 들어가고 나올 때만 `send(on)` 으로 main 에 알린다(main 이 그동안 mac 전역 훅을 쉬게 한다 — `launcher/hook-pause-policy.js`). 붙일 때 한 번 `false` 를 보내 다시 불러온 화면의 남은 상태를 지운다.
+- **deps**: `send(on)` · `anyInput()`(훅이 쉬는 동안 입력칸 keydown 으로 «입력 있음» 을 채운다 — 자동 자리비움 판정) · `diagNote(msg)` · `now()`.
+- **진단**: 입력칸에서 나올 때, 지우기 키 없이 글자가 지워진 일(조합이 깨진 흔적)이 있었으면 한 줄(1분에 한 번까지).
+- 검사: `checks/sim-hook-pause.js` 4절

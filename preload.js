@@ -287,6 +287,11 @@ contextBridge.exposeInMainWorld('companion', {
     return ipcRenderer.invoke('companion:openDiagFolder');
   },
 
+  // ⌨️ 우리 창 입력칸에 있는가 — main 이 그동안 mac 전역 훅을 쉬게 한다(launcher/hook-pause-policy.js)
+  setTyping(on) {
+    ipcRenderer.send('companion:setTyping', !!on);
+  },
+
   // 🩺 렌더러 쪽 사건 한 줄을 진단 기록에 남긴다(WebGL 연결 끊김 등). 길이는 main 이 자른다.
   diagNote(msg) {
     ipcRenderer.send('companion:diagNote', String(msg == null ? '' : msg).slice(0, 200));

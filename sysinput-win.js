@@ -328,9 +328,13 @@ function readPads(){
   return out;
 }
 
+/* ⌨️ mac 판은 입력하는 동안 훅을 쉬게 한다(한글 조합이 깨져서). Windows 저수준 훅은 메인 스레드에 글자를 묻지 않아 그 문제가 없다 — 쉬지 않는다. */
+function pauseGlobalHooks(){ return false; }
+function resumeGlobalHooks(){}
+
 module.exports = {
   init,
-  startGlobalHooks, stopGlobalHooks,
+  startGlobalHooks, stopGlobalHooks, pauseGlobalHooks, resumeGlobalHooks,
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,

@@ -90,6 +90,7 @@ const HoverPoke = require('./hover-poke');
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+const HookPause = require('./app/parts/launcher/hook-pause-policy');   // ⌨️ 입력하는 동안 전역 훅 쉬기 판단(_syncHookPause)
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
@@ -956,6 +957,34 @@ function _inputDiagTick(now){
   _diagLog('[입력] 앞창=' + (lastActiveState.key || '(없음)') + ' 등록=예 60초 수신 클릭=' + c.click
     + ' 휠=' + c.wheel + ' 키=' + c.key + ' 커서이동=' + c.cursor
     + ((c.click + c.wheel + c.key) === 0 ? ' ⚠️훅 미수신' : ''));
+}
+/* ⌨️ 우리 창 입력칸에 치는 동안 전역 훅 쉬기 — 판단은 launcher/hook-pause-policy.js(키 처리 도중에 내리면 앱이 멈추는 함정 포함),
+   내리고 올리는 것은 sysinput(Windows 는 아무것도 안 한다). 렌더러가 companion:setTyping 으로 «입력칸에 있음» 을 알린다.
+   키가 왔는지는 _inputDiag.key 가 바뀌었는지로 본다 — 훅 등록 자리의 감싸기 줄은 다른 검사가 모양까지 지킨다. */
+const HOOK_PAUSE_TICK_MS = 100;
+const HOOK_PAUSE_LOG_GAP_MS = 10 * 60000;
+let _typingInOurWin = false, _typingOffAt = 0, _hooksPaused = false;
+let _hookKeySeen = 0, _hookKeyAt = 0, _hookPauseTimer = null, _hookPauseCount = 0, _hookPauseLoggedAt = 0;
+function _syncHookPause(){
+  if(_hookPauseTimer){ clearTimeout(_hookPauseTimer); _hookPauseTimer = null; }
+  if(!mainWindow || mainWindow.isDestroyed()) return;
+  const now = Date.now();
+  if(_inputDiag.key !== _hookKeySeen){ _hookKeySeen = _inputDiag.key; _hookKeyAt = now; }
+  const act = HookPause.step({ typing: _typingInOurWin, focused: mainWindow.isFocused(), paused: _hooksPaused,
+    now, lastKeyAt: _hookKeyAt, typingOffAt: _typingOffAt });
+  if(act === 'pause'){
+    if(sysinput.pauseGlobalHooks()){ _hooksPaused = true; _hookPauseCount++; }
+  } else if(act === 'resume'){
+    sysinput.resumeGlobalHooks();
+    _hooksPaused = false;
+    if(now - _hookPauseLoggedAt >= HOOK_PAUSE_LOG_GAP_MS){
+      _hookPauseLoggedAt = now;
+      _diagLog('[입력] 우리 창에 입력하는 동안 전역 훅 쉼 ' + _hookPauseCount + '번(10분 묶음 · mac 한글 조합)');
+      _hookPauseCount = 0;
+    }
+  } else if(act === 'wait'){
+    _hookPauseTimer = setTimeout(_syncHookPause, HOOK_PAUSE_TICK_MS);
+  }
 }
 let _forcedPassthrough = false;  // 강제 전환이 걸려 있는 중인지(중복 발동 방지)
 /* ★ 이 시간 이상 생존 신호가 끊기면 '멈췄다'고 본다 — 몇 초짜리 딸꾹질(도트 렌더 · GLB 파싱)마다 통과로 바꾸면 유령이 된다(4000 → 12000).
@@ -2535,9 +2564,11 @@ function createWindow() {
        여기서 정리되므로 "영원히 깜빡이는" 상태가 남지 않는다.
        ⚠️ 켜는 쪽은 여기 없다. 켜기는 초대가 왔을 때 renderer 가 시킬 때만이다. */
     try{ mainWindow.flashFrame(false); }catch(_){}
+    _syncHookPause();   // ⌨️ 입력칸에 있던 채로 돌아왔으면 다시 쉰다
   });
   mainWindow.on('blur', () => {
     try{ _fdOnBlur(); }catch(_){}   // 🩺 [진단] 활성 유지 시간 — "뚝뚝 끊긴다"의 리듬이 여기서 나온다
+    _syncHookPause();   // ⌨️ 다른 앱으로 — 쉬던 훅을 바로 올린다
     setTimeout(async () => {
       try{
         const w = await activeWin();
@@ -3597,6 +3628,13 @@ function createWindow() {
      ⚠️ 파일을 여는 게 아니라 **폴더를 열고 그 파일을 선택**한다(showItemInFolder). 로그를
        메모장으로 열어 버리면 유저가 내용을 복사해서 붙여넣게 되는데, 그러면 잘려서 온다. */
   /* 🩺 렌더러가 보내는 진단 한 줄 — 렌더러에서 났는지 보이게 머리표를 붙이고, 줄바꿈을 지워 한 줄로 묶는다. */
+  ipcMain.on('companion:setTyping', (e, on) => {
+    const v = !!on;
+    if(v === _typingInOurWin) return;
+    _typingInOurWin = v;
+    if(!v) _typingOffAt = Date.now();
+    _syncHookPause();
+  });
   ipcMain.on('companion:diagNote', (e, msg) => {
     if(!mainWindow || mainWindow.isDestroyed() || e.sender !== mainWindow.webContents) return;
     _diagLog('[렌더러] ' + String(msg == null ? '' : msg).replace(/[\r\n]+/g, ' ').slice(0, 200));

@@ -331,6 +331,7 @@ async function listWindows(){
      ⚠️ 권한을 **거부했을 때의 동작은 실기기에서만 볼 수 있다.** 거부 뒤 어떤 값이 오는지가
        §7-2 의 확인 항목이고, 그 답에 따라 아래 로그 문구를 고치게 된다. */
 const _noop = () => {};
+let _hookOn = false;   // 훅이 지금 걸려 있나 — 쉬기 · 다시 걸기 · 끄기가 본다
 function startGlobalHooks(handlers){
   _flushBootLog();   // ★ app 준비 뒤 첫 자리 — 위 주석 참고
   if(windowManager && typeof windowManager.requestAccessibility === 'function'){
@@ -348,9 +349,24 @@ function startGlobalHooks(handlers){
   uIOhook.on('keydown',   h.keydown   || _noop);
   try{
     uIOhook.start();
+    _hookOn = true;
   }catch(err){
     _log('uIOhook.start 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err));
   }
+}
+
+/* ⌨️ 우리 창 입력칸에 치는 동안 훅을 쉬게 한다 — 키마다 메인 스레드에 글자를 물어 한글 조합이 깨진다.
+   언제 부를지는 launcher/hook-pause-policy.js 가 정한다(키 처리 도중에 내리면 앱이 멈추는 함정이 거기 있다).
+   걸어 둔 처리기(on)는 그대로 남아 다시 걸면 같은 함수로 받는다. 내렸으면 true. */
+function pauseGlobalHooks(){
+  if(!uIOhook || !_hookOn) return false;
+  try{ uIOhook.stop(); _hookOn = false; return true; }
+  catch(err){ _log('전역 훅 쉬기 실패: ' + (err && err.message || err)); return false; }
+}
+function resumeGlobalHooks(){
+  if(!uIOhook || _hookOn) return;
+  try{ uIOhook.start(); _hookOn = true; }
+  catch(err){ _log('전역 훅 다시 걸기 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err)); }
 }
 
 /* ⚠️ before-quit·session-end 두 자리가 이 함수 하나를 부른다 — 네이티브 호출은 1곳이다.
@@ -358,7 +374,8 @@ function startGlobalHooks(handlers){
    ★ session-end 는 Windows 신호라 mac 에서는 안 온다. 그래도 이 함수는 양쪽에서 불려야 한다 —
      main.js 가 두 자리에 다 걸어 두었고, 안 오는 신호는 그냥 안 올 뿐이다. */
 function stopGlobalHooks(){
-  if(!uIOhook) return;
+  if(!uIOhook || !_hookOn) return;
+  _hookOn = false;
   try{ uIOhook.stop(); }catch(_){}
 }
 
@@ -370,7 +387,7 @@ function readPads(){ return []; }
 
 module.exports = {
   init,
-  startGlobalHooks, stopGlobalHooks,
+  startGlobalHooks, stopGlobalHooks, pauseGlobalHooks, resumeGlobalHooks,
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,

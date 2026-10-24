@@ -72,3 +72,9 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 프로그램 설정 바로 뒤에서 만들기만).
 - 목록 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(`window.TwOssNotices` · 손으로 고치지 않는다). 줄은 `VENDOR` + 앱이 직접 쓰는 npm 패키지, 하위 패키지는 그 줄 원문 안으로. 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 lock 운영 패키지를 다 덮지 않으면 빨강.
 - 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `shared/outside-close.js`. 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+
+## hook-pause-policy.js — ⌨️ 입력하는 동안 전역 훅 쉬기 판단
+- **책임**: 우리 창 입력칸에 치는 동안 전역 키 · 클릭 훅(uiohook)을 내릴지 · 올릴지 정하는 순수 규칙 `step(f)`. main.js `_syncHookPause` 가 require 로 받고, 실제로 내리고 올리는 것은 `sysinput-{mac,win}.js` 의 `pauseGlobalHooks` · `resumeGlobalHooks`(Windows 는 아무것도 안 함). «입력칸에 있음» 은 렌더러 `shared/typing-focus.js` 가 `companion.setTyping` 으로 알린다.
+- **왜**: mac 의 uiohook 은 키마다 메인 스레드에 글자를 물어(libuiohook darwin `dispatch_sync` → TIS) 한글 조합을 깨뜨린다(글자가 먹히거나 지워짐).
+- **함정**: 키를 처리하는 도중에 내리면 훅 스레드와 메인이 서로 기다려 앱이 멈춘다 — `QUIET_MS` 동안 키가 없을 때만 내린다. 입력칸 사이를 옮길 때 내렸다 올렸다 하지 않게 `RESUME_DELAY_MS` 뒤에 올리고, 다른 앱으로 가면 바로 올린다.
+- 검사: `checks/sim-hook-pause.js`
