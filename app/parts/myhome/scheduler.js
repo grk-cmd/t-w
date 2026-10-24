@@ -1079,6 +1079,9 @@ function renderBellList(){
     setTimeout(()=>{
       const mailTab = document.querySelector('.mh-tab[data-tab="mail"]');
       if(mailTab) mailTab.click();   // 탭에 들어오면 안 읽은 우편이 있는 칸부터 보인다(inbox-sections.js firstSec)
+      // 소식 종류는 «전체» 로 — 그 실행에서 «업데이트» 를 골라 뒀으면 새 공지가 목록에 안 보인다
+      const allTab = document.querySelector('#mhInboxTabs .mh-ibx-tab[data-tag="all"]');
+      if(allTab) allTab.click();
     }, 320);
   };
   list.appendChild(btn);
