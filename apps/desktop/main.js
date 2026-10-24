@@ -946,7 +946,10 @@ function _kbShowGuide(){
 }
 /* 감지 부품(uiohook-napi · node-window-manager)을 못 불러오면 설치 파일이 깨졌거나 보안 · 문서 암호화 프로그램이 바꾼 것이다 —
    키보드 안내(보안 프로그램 · 관리자 권한)로는 안 고쳐지므로 부팅 때 한 번 «다시 설치» 를 알린다. 원인 한 줄은 진단 기록에 이미 있다. */
+let _nativeGuideShown = false;   // mac 은 Dock 으로 창을 다시 열면 createWindow 가 다시 돈다 — 실행마다 한 번만
 function _nativeShowGuide(){
+  if(_nativeGuideShown) return;
+  _nativeGuideShown = true;
   const mac = process.platform === 'darwin';
   const opts = {
     type: 'warning', title: 'Together Working',

@@ -429,7 +429,7 @@
 | **sim-label-measure.js** | 234 | **ce652588740d** |
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
-| **sim-native-peek.js** | 162 | **997eb4572fec** |
+| **sim-native-peek.js** | 168 | **10af633f27f9** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

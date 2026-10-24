@@ -4,7 +4,7 @@
      ③ 키보드 안내(보안 프로그램 · 관리자 권한)는 띄우지 않는다 — 그 안내로는 안 고쳐진다.
    ・1절: native-peek.js peekUnpacked — 정상 JSON · 깨진 바이트 · 없음 · 설치 폴더 모름 · 경로
    ・2절: sysinput-win.js · sysinput-mac.js — 실패한 부품 이름(nativeLoadFailed) · 기록 한 줄에 peek · 다 실리면 빈 목록
-   ・3절: main.js — 실패면 키보드 안내는 건너뛰고 «다시 설치» 안내(Windows · mac 문구) · 부팅 때 훅 건 바로 뒤에서 부름
+   ・3절: main.js — 실패면 키보드 안내는 건너뛰고 «다시 설치» 안내(Windows · mac 문구 · 실행마다 한 번) · 부팅 때 훅 건 바로 뒤에서 부름
    ・4절: 설치본에 native-peek.js 가 들어간다(package.json build.files)
    ・5절: 일부러 깨 보기
    [실행] node checks/run.js sim-native-peek */
@@ -110,7 +110,9 @@ function judgeMain(main){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
   const kb = grabFn(main, 'function _kbShowGuide(){');
-  const nv = grabFn(main, 'function _nativeShowGuide(){');
+  const nvFn = grabFn(main, 'function _nativeShowGuide(){');
+  const flag = (main.match(/\nlet _nativeGuideShown = false;[^\n]*/) || [''])[0];
+  const nv = nvFn && (flag + '\n' + nvFn);
   if(!kb || !nv){ t(false, 'main.js 에서 _kbShowGuide · _nativeShowGuide 를 못 찾음'); return r; }
   const run = (fnSrc, name, failed, platform) => {
     const shown = [];
@@ -127,6 +129,9 @@ function judgeMain(main){
     const m = run(nv, '_nativeShowGuide', ['uiohook-napi'], 'darwin')[0];
     t(w && /감지 부품을 불러오지 못했어요/.test(w.message) && /설정 › 앱/.test(w.detail) && /다시 설치/.test(w.detail) && /예외로 등록/.test(w.detail), '★ «다시 설치» 안내(Windows) — 제거 · 다시 설치 · 회사 PC 예외 등록');
     t(m && /응용 프로그램 폴더/.test(m.detail) && !/설정 › 앱/.test(m.detail), '  mac 문구는 응용 프로그램 폴더');
+    const twice = (() => { const shown = []; const dialog = { showMessageBox: (a, b) => { shown.push(b || a); return Promise.resolve({}); } };
+      new Function('sysinput', 'dialog', 'mainWindow', 'process', nv + '\n_nativeShowGuide(); _nativeShowGuide();')({ nativeLoadFailed: () => ['x'] }, dialog, null, { platform: 'darwin' }); return shown.length; })();
+    t(twice === 1, '  ★ 실행마다 한 번만(mac 은 Dock 으로 창을 다시 열면 createWindow 가 다시 돈다)');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 80)); }
   t(/\n {4}keydown: {3}\(e\) => \{ _inputDiag\.key\+\+; {3}_onGlobalKeyDown\(e\); \},\n {2}\}\);\n {2}if\(sysinput\.nativeLoadFailed\(\)\.length\) _nativeShowGuide\(\);/.test(main), '부팅 때 훅을 건 바로 뒤(로드 실패 기록이 흐른 뒤)에서 «다시 설치» 를 부른다');
   return r;
@@ -151,6 +156,7 @@ const breaks = [
   ['win 이 실패 이름을 안 남김', () => judgeSys(WIN.replace("  _nativeFailed.push('uiohook-napi');", ''), 'win')],
   ['mac 기록에 peek 이 없음', () => judgeSys(MAC.replace(" + ' | ' + peekUnpacked('uiohook-napi')", ''), 'mac')],
   ['키보드 안내가 실패를 안 봄', () => judgeMain(MAIN.replace(/\n {2}if\(sysinput\.nativeLoadFailed\(\)\.length\) return;[^\n]*/, ''))],
+  ['두 번 띄움', () => judgeMain(MAIN.replace('  if(_nativeGuideShown) return;\n', ''))],
   ['부팅 때 안 부름', () => judgeMain(MAIN.replace(/\n {2}if\(sysinput\.nativeLoadFailed\(\)\.length\) _nativeShowGuide\(\);[^\n]*/, ''))],
   ['설치본에서 빠짐', () => judgePkg(PKG && { build: { files: PKG.build.files.filter(f => f !== 'native-peek.js') } })],
 ];
