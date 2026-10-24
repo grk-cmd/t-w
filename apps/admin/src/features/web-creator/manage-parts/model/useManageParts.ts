@@ -1,39 +1,35 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query';
 import {
-  createWebPart,
-  deleteWebPart,
-  updateWebPart,
+  reorderWebParts,
+  setWebPartStatus,
   WEB_PARTS_KEY,
-  type WebPartDraft,
+  type ItemStatus,
 } from '@/entities/web-creator/part';
 import { useApi } from '@/shared/api';
+import { savePart, type SavePart } from './savePart';
 
-/** 저장할 것 — id 가 없으면 새 파츠(그림 필수), 있으면 고치기(그림은 바꿀 때만) */
-export interface SavePart {
-  id: string | null;
-  draft: WebPartDraft;
-  image?: string;
-  closedImage?: string;
+function useInvalidate() {
+  const client = useQueryClient();
+  return () => client.invalidateQueries({ queryKey: WEB_PARTS_KEY });
 }
 
 export function useSaveWebPart() {
   const api = useApi();
-  const client = useQueryClient();
+  const onSuccess = useInvalidate();
+  return useMutation({ mutationFn: (save: SavePart) => savePart(api, save), onSuccess });
+}
+
+export function useSetWebPartStatus() {
+  const api = useApi();
+  const onSuccess = useInvalidate();
   return useMutation({
-    mutationFn: ({ id, draft, image, closedImage }: SavePart) => {
-      if (id) return updateWebPart(api, id, draft, image, closedImage);
-      if (!image) throw new Error('새 파츠는 그림이 있어야 해요');
-      return createWebPart(api, draft, image, closedImage);
-    },
-    onSuccess: () => client.invalidateQueries({ queryKey: WEB_PARTS_KEY }),
+    mutationFn: ({ id, status }: { id: string; status: ItemStatus }) => setWebPartStatus(api, id, status),
+    onSuccess,
   });
 }
 
-export function useDeleteWebPart() {
+export function useReorderWebParts() {
   const api = useApi();
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteWebPart(api, id),
-    onSuccess: () => client.invalidateQueries({ queryKey: WEB_PARTS_KEY }),
-  });
+  const onSuccess = useInvalidate();
+  return useMutation({ mutationFn: (ids: readonly string[]) => reorderWebParts(api, ids), onSuccess });
 }

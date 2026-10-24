@@ -192,3 +192,30 @@ describe('API 쓰기(send)', () => {
     expect(anon.calls).toHaveLength(0);
   });
 });
+
+describe('API 파일 올리기(upload)', () => {
+  it('POST · 바이트 그대로 · 준 Content-Type · 토큰 — 봉투의 data 만', async () => {
+    const { client, calls } = api(() => json(200, { success: true, data: { hash: 'h2a' } }));
+    const bytes = new Uint8Array([1, 2, 3]);
+    await expect(client.upload('/v1/admin/assets', bytes, 'image/png')).resolves.toEqual({
+      hash: 'h2a',
+    });
+    const init = calls[0].init;
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe(bytes); // JSON 으로 바꾸지 않는다
+    const headers = init.headers as Record<string, string>;
+    expect(headers['Content-Type']).toBe('image/png');
+    expect(headers.Authorization).toBe('Bearer tok');
+  });
+
+  it('413 은 요청 오류 — 서버 글이 실린다', async () => {
+    const e = await failure(
+      api(() => json(413, { success: false, code: 'TOO_LARGE', message: '512KB 까지예요' })).client.upload(
+        '/x',
+        new Uint8Array(1),
+        'image/png',
+      ),
+    );
+    expect([e.kind, e.status, e.message]).toEqual(['request', 413, '512KB 까지예요']);
+  });
+});

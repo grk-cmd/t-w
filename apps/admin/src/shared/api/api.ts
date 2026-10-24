@@ -64,13 +64,15 @@ export function isApiAuthError(error: unknown): error is ApiError {
 
 export type ApiParams = Record<string, string | number | undefined>;
 
-export type ApiWriteMethod = 'POST' | 'PATCH' | 'DELETE';
+export type ApiWriteMethod = 'POST' | 'PUT' | 'PATCH' | 'DELETE';
 
 export interface Api {
   /** 성공 봉투의 data 만 돌려준다. 실패는 ApiError. */
   get<T>(path: string, params?: ApiParams): Promise<T>;
   /** 쓰기 — 본문은 JSON. 실패 규칙은 get 과 같다(쓰기는 예전 방식으로 넘어가지 않으니 부르는 쪽이 그대로 보여 준다). */
   send<T>(method: ApiWriteMethod, path: string, body?: unknown): Promise<T>;
+  /** 파일 올리기(POST) — 본문은 바이트 그대로 · Content-Type 은 contentType. 실패 규칙은 send 와 같다. */
+  upload<T>(path: string, bytes: Uint8Array, contentType: string): Promise<T>;
 }
 
 /**
@@ -113,7 +115,11 @@ export function createApi({
     return u;
   };
 
-  async function request<T>(method: 'GET' | ApiWriteMethod, u: URL, payload?: unknown): Promise<T> {
+  async function request<T>(
+    method: 'GET' | ApiWriteMethod,
+    u: URL,
+    payload?: { type: string; body: BodyInit },
+  ): Promise<T> {
     const idToken = await token();
     if (!idToken) throw new ApiError('auth', 401, 'AUTH_REQUIRED', '로그인이 필요해요');
 
@@ -123,11 +129,11 @@ export function createApi({
     let body: Envelope | null = null;
     try {
       const headers: Record<string, string> = { Authorization: `Bearer ${idToken}` };
-      if (payload !== undefined) headers['Content-Type'] = 'application/json';
+      if (payload) headers['Content-Type'] = payload.type;
       res = await fetch(u, {
         method,
         headers,
-        body: payload === undefined ? undefined : JSON.stringify(payload),
+        body: payload?.body,
         signal: abort.signal,
       });
       try {
@@ -172,6 +178,12 @@ export function createApi({
   return {
     get: <T>(path: string, params?: ApiParams) => request<T>('GET', url(path, params)),
     send: <T>(method: ApiWriteMethod, path: string, payload?: unknown) =>
-      request<T>(method, url(path), payload),
+      request<T>(
+        method,
+        url(path),
+        payload === undefined ? undefined : { type: 'application/json', body: JSON.stringify(payload) },
+      ),
+    upload: <T>(path: string, bytes: Uint8Array, contentType: string) =>
+      request<T>('POST', url(path), { type: contentType, body: bytes as BodyInit }),
   };
 }
