@@ -221,7 +221,9 @@ function _uiAnchorWorld(seat, out){
    [왜] main 의 «우리 UI 위 클릭인가»(_ptOnOurUI)는 내 좌석 원과 창 사각형만 알았다. 렌더러(_pointHitsInteractive)는
      좌석 **전부**를 맞히므로, 클릭이 굳은 채 남의 캐릭터 · 혼자 모드 추가 좌석을 누르면 main 은 «UI 밖» 이라 보고
      고착 회복 사다리 3단계를 건너뛰어(click-through-policy skip-offui) 못 빠져나왔다. 두 쪽 기준을 맞춘다.
-   ★ 내 좌석은 뺀다(원으로 따로 간다) · 날아가는 좌석 · 숨긴 좌석은 뺀다(누를 일이 없다) · 회사원 숨김이면 하나도 안 보낸다.
+   ★ 내 좌석은 뺀다(원으로 따로 간다) · 날아가는 좌석은 뺀다(누를 일이 없다) · 회사원 숨김이면 하나도 안 보낸다.
+   ★ 숨긴 좌석도 일부러 뺀다 — 렌더러 레이캐스트는 숨긴 좌석도 맞히지만, 안 보이는 몸이 클릭을 가로채는 쪽이 문제라
+     그 자리는 main 의 회수(ⓖ)에 맡긴다.
    ★ 크기는 상태칩과 같은 실측(_chipCharMetrics — 400ms 캐시)과 같은 투영 · 같은 문지기(_charProjSane) — 터진 투영은 안 보낸다.
    ⚠️ 화면 밖으로 걸친 부분은 잘라서 보낸다 — 안 자르면 main 쪽 사각형이 부풀어 헛참이 생긴다(desktop-run.js _uiRegions 주석). */
 const SEAT_REGION_MAX = 24;   // 하트비트(10Hz) 한 번에 보낼 좌석 수 상한
@@ -954,7 +956,7 @@ return {
   setTabHintTimer: (v)=>{ _tabHintTimer = v; },   // 쓰는 함수 — app.js 가 비운다
   _wpTmp3,
   hexToRgba,
-  otherSeatRegions,   // 🖱️ 하트비트가 main 에 보내는 regions 에 더한다(app.js)
+  otherSeatRegions,   // 🖱️ main 에 보내는 regions 에 더한다(desktop-run.js _uiRegions)
   setSeatDeskEmoji,
   uiIconEl,
   updateMyStatusChipPosition,

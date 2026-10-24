@@ -17,13 +17,13 @@ const MOD = ["desktop-run.js","parts/launcher/desktop-run.js","app/parts/launche
 if(!MOD){ say('  ? 원본 못 찾음 — desktop-run.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyActiveAppState","_skipFlyingRigs","_skipHiddenDesk","activity","anyInput","backToLauncher"];
+const FN_DEPS = ["_applyActiveAppState","_skipFlyingRigs","_skipHiddenDesk","activity","anyInput","backToLauncher","otherSeatRegions"];
 const VAL_DEPS = ["camera","clickPolicy","desktopMode","ray","renderer","seats"];
 const GET_DEPS = ["_charBoundsLatest","_officeHidden","_penAppFocused","_twMoveSeenAt","drag","focusGateSleep","lastActivity","lastAnyInput","moveMode"];
 const SET_DEPS = ["_twMoveSeenAt","lastActivity","lastAnyInput"];
 const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _applyActiveAppState: (...a)=>_applyActiveAppState(...a),","  _charBoundsLatest: ()=>_charBoundsLatest,","  _officeHidden: ()=>_officeHidden,","  _penAppFocused: ()=>_penAppFocused,","  _skipFlyingRigs: (...a)=>_skipFlyingRigs(...a),","  _skipHiddenDesk: (...a)=>_skipHiddenDesk(...a),","  _twMoveSeenAt: ()=>_twMoveSeenAt,","  activity: (...a)=>activity(...a),","  anyInput: (...a)=>anyInput(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  clickPolicy: TwClickThroughPolicy,","  desktopMode: desktopMode,","  drag: ()=>drag,","  focusGateSleep: ()=>focusGateSleep,","  lastActivity: ()=>lastActivity,","  lastAnyInput: ()=>lastAnyInput,","  moveMode: ()=>moveMode,","  ray: ray,","  renderer: renderer,","  seats: seats,","  setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },","  setLastActivity: (v)=>{ lastActivity = v; },","  setLastAnyInput: (v)=>{ lastAnyInput = v; },"];
+const GLUE = ["  _applyActiveAppState: (...a)=>_applyActiveAppState(...a),","  _charBoundsLatest: ()=>_charBoundsLatest,","  _officeHidden: ()=>_officeHidden,","  _penAppFocused: ()=>_penAppFocused,","  _skipFlyingRigs: (...a)=>_skipFlyingRigs(...a),","  _skipHiddenDesk: (...a)=>_skipHiddenDesk(...a),","  _twMoveSeenAt: ()=>_twMoveSeenAt,","  activity: (...a)=>activity(...a),","  anyInput: (...a)=>anyInput(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  clickPolicy: TwClickThroughPolicy,","  desktopMode: desktopMode,","  drag: ()=>drag,","  focusGateSleep: ()=>focusGateSleep,","  lastActivity: ()=>lastActivity,","  lastAnyInput: ()=>lastAnyInput,","  moveMode: ()=>moveMode,","  otherSeatRegions: (...a)=>statusChipMod.otherSeatRegions(...a),","  ray: ray,","  renderer: renderer,","  seats: seats,","  setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },","  setLastActivity: (v)=>{ lastActivity = v; },","  setLastAnyInput: (v)=>{ lastAnyInput = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

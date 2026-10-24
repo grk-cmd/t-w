@@ -4,7 +4,8 @@
      렌더러(_pointHitsInteractive)는 좌석 전부를 맞히므로 다른 좌석 자리도 하트비트 regions 에 싣는다.
    ・1절: otherSeatRegions 를 가짜 THREE · 카메라 · DOM 위에서 실제로 돌린다 — 다른 좌석은 몸 크기 사각형 · 내 좌석 · 날아가는 좌석 ·
           숨긴 좌석은 뺌 · 회사원 숨김 / run 화면 아님이면 빈 목록 · 화면 밖으로 걸치면 잘라서 · 화면 밖 · 터진 투영은 뺌 · 상한
-   ・2절: 하트비트(app.js)가 창 사각형 뒤에 이어 보낸다 · main 의 _ptOnOurUI 가 그 사각형 안 점을 «UI 위» 로 본다(진짜 함수)
+   ・2절: main 에 regions 를 보내는 두 길 — 하트비트(app.js)와 클릭받기 전환 이유(desktop-run.js _pushIgnoreWhy) — 를 실제로 돌려
+          보낸 payload 에 좌석 사각형이 있는지 · main 의 _ptOnOurUI 가 그 사각형 안 점을 «UI 위» 로 본다(진짜 함수)
    ・3절: 일부러 깨 보기
    [실행] node checks/run.js sim-seat-regions */
 'use strict';
@@ -21,7 +22,7 @@ function findUp(name){
   return null;
 }
 const read = (n) => { const f = findUp(n); return f ? fs.readFileSync(f, 'utf8') : ''; };
-const MOD = read('status-chip.js'), APP = read('app.js'), MAIN = read('main.js');
+const MOD = read('status-chip.js'), APP = read('app.js'), MAIN = read('main.js'), DR = read('desktop-run.js');
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -93,25 +94,76 @@ function judge(src, app){
     t(build(src, { seats: [seat(-30, 0), seat(1e9, 0)] }).otherSeatRegions().length === 0, '  화면 밖 · 터진 투영 — 뺀다');
     const many = []; for(let i = 0; i < 40; i++) many.push(seat(0, 0));
     t(build(src, { seats: many }).otherSeatRegions().length === 24, '  상한 24');
-    t(/regions: window\.__uiRegions \? window\.__uiRegions\(\)\.concat\(statusChipMod\.otherSeatRegions\(\)\) : undefined,/.test(app), '하트비트 — 창 사각형 뒤에 좌석 사각형을 이어 보낸다');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   return r;
 }
-say('── 1 · 2. 좌석 사각형');
+/* desktop-run.js 를 실제로 만들고 두 길로 보낸 payload 를 모은다 — 좌석 사각형은 dep otherSeatRegions 가 준다 */
+const SEAT_G = { x: 592, y: 400, w: 16, h: 40 };
+function sendPaths(dr, app){
+  const any = anything();
+  const sent = [], L = {};
+  const companion = new Proxy({ setCharBounds: (b) => sent.push(b) }, { get: (t, k) => k in t ? t[k] : any });
+  const win = new Proxy({ companion, addEventListener: (ty, fn) => { (L[ty] = L[ty] || []).push(fn); } }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const body = { classList: { contains: (c) => c === 'runmode', add(){}, remove(){}, toggle(){} } };
+  const doc = new Proxy({ body, querySelectorAll: () => [], elementFromPoint: () => null }, { get: (t, k) => k in t ? t[k] : any });
+  const deps = new Proxy({
+    desktopMode: true, seats: [], otherSeatRegions: () => [SEAT_G],
+    clickPolicy: new Proxy({ pointerDownStep: () => 'receive' }, { get: (t, k) => k in t ? t[k] : (() => ({})) }),
+    _charBoundsLatest: () => ({ x: 10, y: 10, r: 50 }), _twMoveSeenAt: () => 0,
+  }, { get: (t, k) => k in t ? t[k] : any });
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'innerWidth', 'innerHeight', 'performance', 'getComputedStyle',
+    dr + '\nreturn window.TwDesktopRun;')(win, doc, { getItem: () => null, setItem(){}, removeItem(){} }, any, any, companion, () => 0, () => 0, () => {}, () => {}, (fn) => { fn(); return 0; }, any, win.addEventListener, () => {}, undefined, W, H, { now: () => 0 }, () => ({}));
+  api.createDesktopRun(deps);
+  const out = {};
+  (L.pointerdown || []).forEach(fn => fn({}));            // 클릭받기로 전환 → _pushIgnoreWhy 가 보낸다
+  out.why = sent.find(b => b.ignoreWhy) || null;
+  /* 하트비트 — app.js 의 setInterval 덩이를 떼어 실제로 한 번 돌린다 */
+  const i = app.indexOf('let _twMoveSeenAt = 0;\ntry{\n  setInterval(');
+  const END = '  }, 100);\n}catch(_){}';
+  const j = app.indexOf(END, i);
+  if(i < 0 || j < 0) throw new Error('app.js 에서 하트비트 덩이를 못 찾음');
+  let tick = null;
+  new Function('window', 'companion', 'setInterval', '_charBoundsLatest', '_charBadWhy', app.slice(i, j + END.length))(win, companion, (fn) => { tick = fn; }, { x: 10, y: 10, r: 50 }, null);
+  const n0 = sent.length; if(tick) tick();
+  out.beat = sent.length > n0 ? sent[sent.length - 1] : null;
+  return out;
+}
+function judgePaths(dr, app){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const has = (b) => !!(b && Array.isArray(b.regions) && b.regions.some(g => g.x === SEAT_G.x && g.w === SEAT_G.w));
+  try{
+    const o = sendPaths(dr, app);
+    t(has(o.why) && o.why.ignoreWhy === 'pointerdown', '★ 클릭받기 전환 이유(_pushIgnoreWhy)가 보낸 regions 에도 좌석 사각형 — 그 순간 좌석이 빠지면 ⓖ 가 회수한다');
+    t(has(o.beat), '★ 하트비트(app.js)가 보낸 regions 에도 좌석 사각형');
+    t(o.beat && mainPtOnUI(o.beat.regions, 600, 420) === true, '  main _ptOnOurUI — 보낸 regions 로 남의 캐릭터 위 점은 «UI 위»');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
+  return r;
+}
+say('── 1. 좌석 사각형');
 judge(MOD, APP).forEach(([ok, msg]) => chk(ok, msg));
+say('── 2. main 에 보내는 두 길');
+judgePaths(DR, APP).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기');
 const breaks = [
   ['내 좌석도 담음', "if(!s || s.isMe || !s.group || s.fly || _seatHidden(s)) continue;", "if(!s || !s.group || s.fly || _seatHidden(s)) continue;", null],
   ['숨긴 좌석도 담음', "if(!s || s.isMe || !s.group || s.fly || _seatHidden(s)) continue;", "if(!s || s.isMe || !s.group || s.fly) continue;", null],
   ['회사원 숨김을 안 봄', "  if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })) return out;\n  let rect = null;", "  let rect = null;", null],
   ['화면 밖을 안 자름', "const x0 = Math.max(0, cx - half)", "const x0 = (cx - half)", null],
-  ['하트비트가 안 붙임', null, null, ".concat(statusChipMod.otherSeatRegions())"],
 ];
-for(const [name, a, b, appDrop] of breaks){
-  const m2 = a ? MOD.replace(a, b) : MOD, a2 = appDrop ? APP.replace(appDrop, '') : APP;
-  const changed = m2 !== MOD || a2 !== APP;
-  let rows; try{ rows = judge(m2, a2); }catch(_){ rows = [[false, '던짐']]; }
-  chk(changed && rows.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+for(const [name, a, b] of breaks){
+  const m2 = MOD.replace(a, b);
+  let rows; try{ rows = judge(m2, APP); }catch(_){ rows = [[false, '던짐']]; }
+  chk(m2 !== MOD && rows.some(([ok]) => !ok), name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+const drBreaks = [
+  ['_uiRegions 가 좌석을 안 합침', "      try{ const sr = otherSeatRegions(); for(let i = 0; i < sr.length; i++) out.push(sr[i]); }catch(_){}\n", ''],
+  ['_pushIgnoreWhy 가 좌석 없는 목록을 보냄', 'regions: _uiRegions(), ignoreWhy: why });', 'regions: [], ignoreWhy: why });'],
+];
+for(const [name, a, b] of drBreaks){
+  const d2 = DR.replace(a, b);
+  let rows; try{ rows = judgePaths(d2, APP); }catch(_){ rows = [[false, '던짐']]; }
+  chk(d2 !== DR && rows.some(([ok]) => !ok), name + (d2 !== DR ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
