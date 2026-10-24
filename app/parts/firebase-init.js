@@ -429,6 +429,7 @@
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
      버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
+  const ROOM_FALLBACK_WHY_MAX = 32;   // _meta.fbWhy 길이 — 규칙과 같은 값
   const _appVer = createAppVersion({
     getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
     onReady: (ver) => {
@@ -2773,6 +2774,14 @@
         const extra = { channel: channel||'workingroom' };
         if(open === true || open === false) extra.open = open;
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게
+      }catch(_){}
+    },
+    /* 🛰 Firebase 방을 새로 연 까닭 — 방 서버로 가야 할 앱이 왜 Firebase 로 왔는지 _meta 에 두 칸(규칙 rooms/$room/_meta/fbWhy · fbVer).
+       방이 지워지면 같이 사라진다 — 열린 방을 그때그때 세는 진단이다. 실패는 무시(입장과 무관). */
+    async markRoomFallback(room, why){
+      try{
+        const w = String(why || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, ROOM_FALLBACK_WHY_MAX) || 'unknown';
+        await update(ref(db, `rooms/${room}/_meta`), { fbWhy: w, fbVer: _appVer.withVer({}).ver });
       }catch(_){}
     },
     /* 🎲 랜덤 참여 후보 찾기 — roomIndex 하나만 읽는다(getRoomCounts 가 이미 읽는 노드라 새 노드가 아니다).

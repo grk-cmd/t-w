@@ -143,14 +143,21 @@ function _roomServerJoinMessage(code, isSecret, openCh){
 const ROOM_SERVER_CONNECTING_TOAST_MS = 1000;   // 이만큼 지나도 못 붙었으면 «연결 중» 을 보인다(바로 붙으면 안 띄운다)
 /* 빈 방을 열 때 채널을 정하는 자격 — 보유자(라이선스 · 관리자)면 투게더룸. Firebase 갈래 · 서버 갈래가 같은 것을 쓴다. */
 function _myRoomLicensed(){ return !!((typeof isPremium()!=='undefined' && isPremium()) || (typeof isAdmin()!=='undefined' && isAdmin())); }
+/* Firebase 방에 들어간 뒤 _meta.fbWhy 로 남길 까닭 — 이 앱이 방을 새로 열었을 때만(만들기 · 빈 방). 사람이 있는 방 · 인원을 못 셌으면 null(따라 들어간 사람은 덮지 않는다). */
+function _fallbackMarkWhy(o){
+  if(!o.why) return null;
+  return (o.pending || o.roomCount === 0) ? o.why : null;
+}
+/* 'firebase' 를 돌려줄 때 ctx.fbWhy 에 까닭을 남긴다 — 이 앱이 Firebase 방을 새로 열면 _meta.fbWhy 로 적는다(어느 길로 새는지 세려고).
+   noNet 방 서버 모듈 없음 · gateErr 문지기 실패 · off · notAllowed · noDir 문지기 답 · ready-<코드> 연결 실패 · follow Firebase 에 사람 있음 · join-<코드> 입장 실패 */
 async function _startRoomOnServer(code, ctx){
   const net = _roomServerNet();
-  if(!(net && firebaseAPI.resolveRoomServer)) return 'firebase';
+  if(!(net && firebaseAPI.resolveRoomServer)){ ctx.fbWhy = 'noNet'; return 'firebase'; }
   const creating = !!window._pendingRoomChannel && !ctx.isSecret;
   let openCh = null;   // 서버가 빈 방을 열 때 그 채널(상한 검사 · channelFull 문구)
   let rs = null;
   try{ rs = await firebaseAPI.resolveRoomServer(code, { creating }); }catch(_){ rs = null; }
-  if(!(rs && rs.via === 'server')) return 'firebase';
+  if(!(rs && rs.via === 'server')){ ctx.fbWhy = rs ? rs.why : 'gateErr'; return 'firebase'; }
   const following = rs.from === 'dir';
   // 이미 열린 방에 못 붙었다 — 막고 안내(만들기 · 시크릿룸 표시는 안 남긴다). Firebase 로 가면 방이 갈린다.
   const blockFollow = (why)=>{
@@ -169,7 +176,7 @@ async function _startRoomOnServer(code, ctx){
     if(!rd.ok) return blockFollow(rd.code);
   }else{
     rd = await net.ensureReady();
-    if(!rd.ok){ console.warn('[방 서버] 연결 안 됨 — Firebase 방식으로 들어갑니다 (' + rd.code + ' · ' + rs.from + ')'); return 'firebase'; }
+    if(!rd.ok){ console.warn('[방 서버] 연결 안 됨 — Firebase 방식으로 들어갑니다 (' + rd.code + ' · ' + rs.from + ')'); ctx.fbWhy = 'ready-' + rd.code; return 'firebase'; }
   }
   if(!creating && !following){
     let pk = null;
@@ -180,7 +187,7 @@ async function _startRoomOnServer(code, ctx){
         if(ctx.isSecret && firebaseAPI.checkSecretRoomEntry){ const sr = await firebaseAPI.checkSecretRoomEntry(code, ctx.secretOwner); fb = sr ? sr.count : null; }
         if(fb === null && firebaseAPI.checkRoomCapacity) fb = await firebaseAPI.checkRoomCapacity(code);
       }catch(_){ fb = null; }
-      if(typeof fb === 'number' && fb > 0) return 'firebase';
+      if(typeof fb === 'number' && fb > 0){ ctx.fbWhy = 'follow'; return 'firebase'; }
       /* 서버에도 Firebase 에도 사람이 없다 = 서버가 새 방을 연다 → [방 만들기] 와 같은 상한(개수는 roomIndex — doCreateRoomInChannel 과 같다).
          되살리기(주소록에 있는 방 · from 'dir')는 여기 오지 않는다 — 이미 있던 방이라 세지 않는다. 시크릿룸은 정원 밖. */
       if(!ctx.isSecret){
@@ -203,7 +210,7 @@ async function _startRoomOnServer(code, ctx){
   if(!(r && r.ok)){
     const msg = _roomServerJoinMessage(r && r.code, ctx.isSecret, openCh);
     if(!msg && following) return blockFollow(r && r.code);
-    if(!msg){ console.warn('[방 서버] 입장 실패 — Firebase 방식으로 들어갑니다 (' + (r && r.code) + ')'); return 'firebase'; }
+    if(!msg){ console.warn('[방 서버] 입장 실패 — Firebase 방식으로 들어갑니다 (' + (r && r.code) + ')'); ctx.fbWhy = 'join-' + (r && r.code); return 'firebase'; }
     toast(msg);
     window._pendingRoomChannel = null;
     window._pendingRoomOpen = false;
@@ -717,8 +724,9 @@ async function startRoom(code){
   window._srOwnerUid = _isSecret ? (_secretOwner || null) : null;
   /* 🛰 방 서버 — 관리자 스위치가 켜져 있을 때만 서버로(기본 꺼짐 · _startRoomOnServer 주석). 'firebase' 면 아래 기존 흐름 그대로다.
      ★ 아래의 Firebase 쓰기(_meta · roomIndex · 빈 방 선점)보다 **먼저** 가른다 — 서버 방에 Firebase 표지가 생기면 옛 앱이 그 방을 «있는 방» 으로 센다. */
+  const _srvCtx = { isSecret:_isSecret, secretOwner:_secretOwner, myDef, fbWhy:null };
   {
-    const _via = await _startRoomOnServer(code, { isSecret:_isSecret, secretOwner:_secretOwner, myDef });
+    const _via = await _startRoomOnServer(code, _srvCtx);
     if(_via !== 'firebase') return;
   }
   // ★ 예전엔 정원 체크가 전혀 없어서 화면에 표시되는 한도(maxPeople())보다 많은 인원이 그냥 입장은 되고,
@@ -890,8 +898,10 @@ async function startRoom(code){
       }
     }catch(_){}
   }
+  const _markWhy = _fallbackMarkWhy({ pending: !!window._pendingRoomChannel, roomCount: _roomCount, why: _srvCtx.fbWhy });
   _clearHiddenSeats();   // 🙈 숨김은 그 방에 있는 동안만
   await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });
+  if(_markWhy) firebaseAPI.markRoomFallback(code, _markWhy);   // 진단 한 줄 — 기다리지 않고 실패도 무시(입장과 무관)
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   window._pendingRoomChannel = null;
   window._pendingRoomOpen = false;   // 🎲 소비 완료 — 다음 '참여'가 이 값을 물려받지 않게

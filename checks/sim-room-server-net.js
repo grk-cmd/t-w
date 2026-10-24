@@ -813,7 +813,7 @@ async function joined(o = {}){
       && !/firebaseAPI\.(addChatTab|renameChatTab|deleteChatTab)\(/.test(AC.replace(ctAdd, '')) && !/_chatTabsOnServer/.test(AC), '  ↳ 탭 줄 · 메뉴는 이 셋만 부른다 · 서버 방이라고 [+] 를 숨기지 않는다');
     chk(/await _withServerRoomCounts\(await firebaseAPI\.getRoomCounts\(\{ quick: true \}\)\)/.test(AC) && /c = _addServerRoomCounts\(c\);/.test(AC), '방 개수 — 서버 몫을 더한다(켜져 있을 때만)');
     const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 방 개수 — 서버 방 몫을 더한다'));
-    chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\) return 'firebase';/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');
+    chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\)\{ ctx\.fbWhy = [^;]+; return 'firebase'; \}/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');
     chk(/const following = rs\.from === 'dir';/.test(so) && /rd = await net\.ensureReady\(net\.timing\(\)\.joinWaitMs, \{ retry: true \}\);/.test(so) && /if\(!rd\.ok\) return blockFollow\(rd\.code\);/.test(so),
       '★ 주소록에 있는 방(이미 열림)은 입장 대기(원격 · 기본 10초)만큼 기다리고, 못 붙으면 Firebase 로 가지 않고 막는다');
     chk(/if\(!msg && following\) return blockFollow\(r && r\.code\);/.test(so) && /toast\(ROOM_SERVER_BUSY_MSG\);/.test(so)
@@ -821,7 +821,7 @@ async function joined(o = {}){
     chk(/rd = await net\.ensureReady\(\);\s*if\(!rd\.ok\)\{ console\.warn\('\[방 서버\] 연결 안 됨 — Firebase 방식으로 들어갑니다/.test(so), '  ↳ 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase 로 — 갈릴 사람이 없다');
     chk(/if\(!creating && !following\)\{\s*let pk = null;/.test(so), '  ↳ 주소록 따라가기는 peek 없이 바로 join(되살릴 후보 방은 peek 에 안 나온다) · join 이 실패할 때만 Firebase');
     const iPeek = so.indexOf('await net.peek(code)'), iFbCnt = so.indexOf('firebaseAPI.checkRoomCapacity(code)'), iStart = so.indexOf('await Presence.start(');
-    chk(iPeek > 0 && iFbCnt > iPeek && iStart > iFbCnt && /if\(!\(pk && pk\.exists\)\)\{/.test(so) && /if\(typeof fb === 'number' && fb > 0\) return 'firebase';/.test(so),
+    chk(iPeek > 0 && iFbCnt > iPeek && iStart > iFbCnt && /if\(!\(pk && pk\.exists\)\)\{/.test(so) && /if\(typeof fb === 'number' && fb > 0\)\{ ctx\.fbWhy = 'follow'; return 'firebase'; \}/.test(so),
       '코드로 들어가기 — peek 먼저: 서버에 있으면 서버, 없고 Firebase 에 사람이 있으면 Firebase, 둘 다 없으면 서버');
     chk(!/Presence\.stop\(\);\s*\/\/ 서버에는 없던 방/.test(so) && !/\bprobe\b/.test(so), '  ↳ 들어갔다 나오는 탐색(probe)은 없앴다');
     chk(/const _srv = await _serverRandomRooms\(12\);/.test(AC) && /_serverRandomRooms\(12\)\)\.filter\(c => c !== cur\)/.test(AC), '랜덤 입장 · 갈아타기 — 서버 방 먼저');

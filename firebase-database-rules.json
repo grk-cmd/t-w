@@ -42,6 +42,8 @@
           "chatOff": { ".validate": "newData.isBoolean()" },
           "openLic": { ".validate": "newData.isBoolean()" },
           "openTs": { ".validate": "newData.isNumber()" },
+          "fbWhy": { ".validate": "newData.isString() && newData.val().matches(/^[A-Za-z0-9-]{1,32}$/)" },
+          "fbVer": { ".validate": "newData.isString() && newData.val().length <= 20" },
           "$other": { ".validate": false }
         },
         "chatLog": {

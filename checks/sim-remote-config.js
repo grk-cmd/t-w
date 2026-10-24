@@ -361,7 +361,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
         peek: async () => { log.peek++; return { exists: !!o.onServer }; },
       };
       const api = {
-        resolveRoomServer: async () => ({ via: 'server', from: o.from || 'allow' }),
+        resolveRoomServer: async () => { if(o.gateThrow) throw new Error('net'); return o.rs || { via: 'server', from: o.from || 'allow' }; },
         checkRoomCapacity: async () => o.fbPeople || 0,
         checkSecretRoomEntry: async () => ({ count: 0, ownerIn: false }),
         getRoomCount: async (ch) => { log.counts.push(ch); if(o.countThrow) throw new Error('net'); return (o.count && ch in o.count) ? o.count[ch] : 0; },
@@ -371,7 +371,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
         'toast', 'refreshInviteUI', 'applyExtraSeatForMode', 'startRoom', '_rcStore', 'isPremium', 'isAdmin', 'console', SRC)(
         win, api, () => net, Presence, () => ({}), () => {}, () => '나', () => {},
         (m) => log.toasts.push(m), () => {}, () => {}, async () => {}, () => st, !!o.premium, false, { warn() {}, log() {} });
-      return { go: (code, ctx) => fn(code, Object.assign({ isSecret: false, secretOwner: null, myDef: {} }, ctx || {})), log, win };
+      const ctxOf = (ctx) => Object.assign({ isSecret: false, secretOwner: null, myDef: {}, fbWhy: null }, ctx || {});
+      return { go: (code, ctx) => fn(code, ctxOf(ctx)), goC: async (code, ctx) => { const c = ctxOf(ctx); return { r: await fn(code, c), why: c.fbWhy }; }, log, win };
     }
     let t = mk({ count: { workingroom: 300 } });
     let r = await t.go('WORK-AB12');
@@ -416,6 +417,85 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk((await t.go('WORK-AB12')) === 'firebase' && JSON.stringify(t.log.ready) === '[[null,false]]', '  ↳ 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase 로 — 갈릴 사람이 없다');
     t = mk({ pending: 'workingroom', notReady: true });
     chk((await t.go('WORK-AB12')) === 'firebase', '  ↳ [방 만들기] 도 서버에 못 붙으면 Firebase 로 연다');
+  }
+
+  say('── 5-2. Firebase 로 갈 때 까닭(ctx.fbWhy → _meta.fbWhy)');
+  {
+    const a = strip(APP);
+    const SRC = [
+      "const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };",
+      'const ROOM_SERVER_CONNECTING_TOAST_MS = 1000;',
+      "const ROOM_SERVER_BUSY_MSG = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';",
+      ...['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed('].map((h) => takeFn(a, h)),
+      'return _startRoomOnServer;',
+    ].join('\n');
+    const run = async (o, net) => {
+      const st = RCM.createRemoteConfig();
+      const api = {
+        resolveRoomServer: async () => { if(o.gateThrow) throw new Error('net'); return o.rs || { via: 'server', from: 'allow' }; },
+        checkRoomCapacity: async () => o.fbPeople || 0, getRoomCount: async () => 0,
+      };
+      if(o.noGate) delete api.resolveRoomServer;
+      const Presence = { start: async () => (o.joinFail ? { ok: false, code: o.joinFail } : { ok: true, others: 1, meta: null }) };
+      const fn = Function('window', 'firebaseAPI', '_roomServerNet', 'Presence', 'makeServerProvider', '_clearHiddenSeats', 'getDisplayName', 'presenceChanged',
+        'toast', 'refreshInviteUI', 'applyExtraSeatForMode', 'startRoom', '_rcStore', 'isPremium', 'isAdmin', 'console', SRC)(
+        { _pendingRoomChannel: null }, api, () => net, Presence, () => ({}), () => {}, () => '나', () => {},
+        () => {}, () => {}, () => {}, async () => {}, () => st, false, false, { warn() {}, log() {} });
+      const c = { isSecret: false, secretOwner: null, myDef: {}, fbWhy: null };
+      return { r: await fn('WORK-AB12', c), why: c.fbWhy };
+    };
+    const okNet = { ensureReady: async () => ({ ok: true }), timing: () => ({ joinWaitMs: 1 }), peek: async () => ({ exists: false }) };
+    const badNet = Object.assign({}, okNet, { ensureReady: async () => ({ ok: false, code: 'timeout' }) });
+    const cases = [
+      ['방 서버 모듈 없음', {}, null, 'noNet'],
+      ['문지기 없음', { noGate: true }, okNet, 'noNet'],
+      ['문지기가 던짐', { gateThrow: true }, okNet, 'gateErr'],
+      ['문지기 «off»', { rs: { via: 'firebase', why: 'off' } }, okNet, 'off'],
+      ['문지기 «noDir»', { rs: { via: 'firebase', why: 'noDir' } }, okNet, 'noDir'],
+      ['연결 시간 초과', {}, badNet, 'ready-timeout'],
+      ['Firebase 에 사람 있음', { fbPeople: 2 }, okNet, 'follow'],
+      ['입장 실패(문구 없는 코드)', { joinFail: 'weird' }, okNet, 'join-weird'],
+    ];
+    for(const [name, o, net, want] of cases){
+      const x = await run(o, net);
+      chk(x.r === 'firebase' && x.why === want, name + ' → Firebase · 까닭 «' + want + '» (' + x.r + ' · ' + x.why + ')');
+    }
+    const ok = await run({}, okNet);
+    chk(ok.r === 'done' && ok.why === null, '  ↳ 방 서버로 들어가면 까닭을 남기지 않는다');
+    const st = await run({ joinFail: 'full' }, okNet);
+    chk(st.r === 'stop' && st.why === null, '  ↳ 막혀서 멈추면(정원 등) 까닭을 남기지 않는다');
+    const mw = takeFn(a, 'function _fallbackMarkWhy(');
+    chk(!!mw, '_fallbackMarkWhy 가 있다');
+    if(mw){
+      const W = Function(mw + '\nreturn _fallbackMarkWhy;')();
+      const rows = [
+        ['만들기 중', { pending: true, roomCount: 3, why: 'off' }, 'off'],
+        ['빈 방(0명)', { pending: false, roomCount: 0, why: 'ready-timeout' }, 'ready-timeout'],
+        ['사람이 있는 방(2명)', { pending: false, roomCount: 2, why: 'follow' }, null],
+        ['인원 확인 실패(null)', { pending: false, roomCount: null, why: 'off' }, null],
+        ['까닭 없음', { pending: true, roomCount: 0, why: null }, null],
+      ];
+      for(const [n, o, want] of rows) chk(W(o) === want, '  ↳ ' + n + ' → ' + JSON.stringify(want) + ' (' + JSON.stringify(W(o)) + ')');
+      const broken = Function(mw.replace('o.roomCount === 0', 'o.roomCount >= 0') + '\nreturn _fallbackMarkWhy;')();
+      chk(broken({ pending: false, roomCount: 2, why: 'follow' }) !== null, '  ↳ 깨 보기: «=== 0» 을 «>= 0» 으로 바꾸면 사람이 있는 방도 남긴다(위 판정이 잡는다)');
+    }
+    const body = takeFn(a, 'async function startRoom(') || '';
+    const iMark = body.indexOf('firebaseAPI.markRoomFallback(code, _markWhy)'), iStart = body.indexOf("await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });");
+    chk(iStart > 0 && iMark > iStart, 'startRoom: Firebase 방에 들어간 뒤에 적는다(_fallbackMarkWhy 가 고른 까닭만)');
+    const F = fs.readFileSync(where('firebase-init.js'), 'utf8');
+    const m = /async markRoomFallback\(room, why\)\{[\s\S]*?\n    \},/.exec(F);
+    const wr = [];
+    if(m){
+      const mk2 = Function('update', 'ref', 'db', '_appVer', 'ROOM_FALLBACK_WHY_MAX', 'return {' + m[0] + '}.markRoomFallback;');
+      const f = mk2(async (r, v) => { wr.push([r, v]); }, (db, p) => p, {}, { withVer: (o) => Object.assign({}, o, { ver: '0.12.1' }) }, 32);
+      await f('WORK-AB12', 'ready-timeout'); await f('WORK-AB12', 'a b<' + 'x'.repeat(40)); await f('WORK-AB12', '');
+      const bad = mk2(async () => { throw new Error('PERMISSION_DENIED'); }, (db, p) => p, {}, { withVer: (o) => Object.assign({}, o, { ver: 'unknown' }) }, 32);
+      let threw = false; try{ await bad('WORK-AB12', 'off'); }catch(_){ threw = true; }
+      chk(!threw, '  ↳ 규칙이 거절해도(규칙 배포 전) 던지지 않는다 — 입장과 무관');
+    }
+    chk(JSON.stringify(wr[0]) === JSON.stringify(['rooms/WORK-AB12/_meta', { fbWhy: 'ready-timeout', fbVer: '0.12.1' }]), 'markRoomFallback: _meta 에 fbWhy · fbVer 두 칸만 update');
+    chk(wr[1] && /^[A-Za-z0-9-]{1,32}$/.test(wr[1][1].fbWhy) && wr[1][1].fbWhy.length === 32, '  ↳ 이상한 글자는 빼고 32자로 자른다(규칙과 같은 모양)');
+    chk(wr[2] && wr[2][1].fbWhy === 'unknown', '  ↳ 비면 «unknown»');
   }
 
   say('── 6. html — 순서 · 기본 표시 · CSP');
