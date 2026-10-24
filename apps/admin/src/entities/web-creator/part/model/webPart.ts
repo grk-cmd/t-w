@@ -177,9 +177,9 @@ function parseItem(v: unknown): WebPart | null {
   };
 }
 
-/** 관리자 목록 응답 data({ items }) → 상품 목록. 서버가 진열 순서로 보내므로 순서는 그대로. */
+/** 관리자 목록 응답 data({ products }) → 상품 목록. 서버가 진열 순서로 보내므로 순서는 그대로. */
 export function parseAdminParts(data: unknown): WebPart[] {
-  const list = isObj(data) && Array.isArray(data.items) ? data.items : [];
+  const list = isObj(data) && Array.isArray(data.products) ? data.products : [];
   return list.map(parseItem).filter((p): p is WebPart => p !== null);
 }
 

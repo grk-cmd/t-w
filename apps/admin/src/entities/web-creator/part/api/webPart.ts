@@ -11,7 +11,7 @@ import {
   type WebPartDraft,
 } from '../model/webPart';
 
-const ITEMS = '/v1/admin/items';
+const PRODUCTS = '/v1/admin/products';
 const ASSETS = '/v1/admin/assets';
 export const WEB_PARTS_KEY = ['webParts'] as const;
 
@@ -35,12 +35,12 @@ const need = (api: Api | null): Api => {
   if (!api) throw new NoApiError();
   return api;
 };
-const one = (id: string) => `${ITEMS}/${encodeURIComponent(id)}`;
+const one = (id: string) => `${PRODUCTS}/${encodeURIComponent(id)}`;
 
 /** 이 모델의 상품 — 기본은 단종을 뺀 것(순서 바꾸기는 이 목록 전부를 보내야 한다), archived 면 단종만 */
 export async function listWebParts(api: Api | null, archived = false): Promise<WebPart[]> {
   const params = { target: PIECE_TARGET.kind, status: archived ? 'archived' : undefined };
-  return parseAdminParts(await need(api).get<unknown>(ITEMS, params));
+  return parseAdminParts(await need(api).get<unknown>(PRODUCTS, params));
 }
 
 /** 파일 한 장 올리기 → 해시. 상품은 이 해시만 가리킨다(같은 파일은 서버에 한 벌) */
@@ -64,7 +64,7 @@ const pieceBody = (draft: WebPartDraft, image: string, closed: string | null) =>
 
 /** 새 파츠 = 조각 하나짜리 상품(서버가 «초안» 으로 만든다). 썸네일은 그 그림 · 권한은 기본(모두) */
 export function createWebPart(api: Api | null, draft: WebPartDraft, image: string, closedImage?: string) {
-  return need(api).send<unknown>('POST', ITEMS, {
+  return need(api).send<unknown>('POST', PRODUCTS, {
     target: PIECE_TARGET,
     name: draft.name,
     thumb: image,
@@ -102,7 +102,7 @@ export function setWebPartStatus(api: Api | null, id: string, status: ItemStatus
 
 /** 진열 순서 다시 매기기 — ids 는 이 모델의 단종 아닌 상품 전부(초안 포함) */
 export function reorderWebParts(api: Api | null, ids: readonly string[]) {
-  return need(api).send<unknown>('PUT', `${ITEMS}/order`, { target: PIECE_TARGET, ids });
+  return need(api).send<unknown>('PUT', `${PRODUCTS}/order`, { target: PIECE_TARGET, ids });
 }
 
 export function useWebParts(archived = false) {

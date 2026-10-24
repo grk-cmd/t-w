@@ -29,7 +29,7 @@ function fakeApi(failUpload = false) {
 
 const existing = (): WebPart => {
   const p = parseAdminParts({
-    items: [
+    products: [
       {
         id: 'i1',
         target: { kind: 'baseModel' },

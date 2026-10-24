@@ -69,7 +69,7 @@ const piece = (o: Record<string, unknown> = {}) => ({
   h: 12,
   ...o,
 });
-const itemRow = (o: Record<string, unknown> = {}) => ({
+const productRow = (o: Record<string, unknown> = {}) => ({
   id: 'i1',
   target: { kind: 'baseModel' },
   name: { ko: '가', en: 'a', ja: 'あ' },
@@ -81,7 +81,7 @@ const itemRow = (o: Record<string, unknown> = {}) => ({
   ...o,
 });
 const partOf = (o: Record<string, unknown> = {}): WebPart => {
-  const p = parseAdminParts({ items: [itemRow(o)] })[0];
+  const p = parseAdminParts({ products: [productRow(o)] })[0];
   if (!p) throw new Error('시험용 상품을 읽지 못했다');
   return p;
 };
@@ -119,15 +119,15 @@ describe('웹 생성기 파츠 — 폼 값 검사', () => {
 describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
   it('서버 순서 그대로 · 상태 · 그림(얼굴) 조각 하나짜리만 고칠 수 있다', () => {
     const got = parseAdminParts({
-      items: [
-        itemRow({ id: 'b', status: 'draft' }),
-        itemRow({ id: 'a' }),
-        itemRow({ id: 'multi', pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] }),
-        itemRow({ id: 'ear', pieces: [piece({ surface: 'earL', slot: 'ear' })] }),
-        itemRow({ id: 'p3d', pieces: [{ id: 'pp', kind: 'part', partId: 'part_catear' }] }),
-        itemRow({ id: 'other', target: { kind: 'part', id: 'hat' } }),
-        itemRow({ id: 'bad', status: 'hidden' }),
-        itemRow({ id: '' }),
+      products: [
+        productRow({ id: 'b', status: 'draft' }),
+        productRow({ id: 'a' }),
+        productRow({ id: 'multi', pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] }),
+        productRow({ id: 'ear', pieces: [piece({ surface: 'earL', slot: 'ear' })] }),
+        productRow({ id: 'p3d', pieces: [{ id: 'pp', kind: 'part', partId: 'part_catear' }] }),
+        productRow({ id: 'other', target: { kind: 'part', id: 'hat' } }),
+        productRow({ id: 'bad', status: 'hidden' }),
+        productRow({ id: '' }),
       ],
     });
     expect(got.map((p) => `${p.id}:${p.status}`)).toEqual([
@@ -142,7 +142,8 @@ describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
     expect(got[3]?.piece).toBeNull(); // 다른 면은 이 화면에서 고치지 않는다
     expect(got[4]?.piece).toBeNull(); // 3D 도
     expect(parseAdminParts(null)).toEqual([]);
-    expect(parseAdminParts({ sets: [itemRow()] })).toEqual([]); // 옛 모양
+    expect(parseAdminParts({ sets: [productRow()] })).toEqual([]); // 옛 모양
+    expect(parseAdminParts({ items: [productRow()] })).toEqual([]); // 지난 판 이름
   });
 
   it('파일 해시 — 응답 값 · 없으면 파일 주소의 이름 · 모르면 null · 감은 그림은 주소든 해시든', () => {
@@ -162,7 +163,7 @@ describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
   });
 
   it('한 칸 옮기기 — 끝을 넘으면 null', () => {
-    const list = parseAdminParts({ items: ['a', 'b', 'c'].map((id) => itemRow({ id })) });
+    const list = parseAdminParts({ products: ['a', 'b', 'c'].map((id) => productRow({ id })) });
     expect(movedIds(list, 1, -1)).toEqual(['b', 'a', 'c']);
     expect(movedIds(list, 1, 1)).toEqual(['a', 'c', 'b']);
     expect(movedIds(list, 0, 1)).toEqual(['b', 'a', 'c']); // 첫 줄도 아래로
@@ -179,11 +180,11 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     await listWebParts(api, true);
     await expect(uploadPartFile(api, PNG)).resolves.toBe('h2new');
     expect(calls[0]).toMatchObject({
-      path: '/v1/admin/items',
+      path: '/v1/admin/products',
       params: { target: 'baseModel', status: undefined },
     });
     expect(calls[1]).toMatchObject({
-      path: '/v1/admin/items',
+      path: '/v1/admin/products',
       params: { target: 'baseModel', status: 'archived' },
     });
     expect(calls[2]).toMatchObject({
@@ -200,7 +201,7 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     await createWebPart(api, draft(), 'h2i');
     expect(calls[0]).toEqual({
       method: 'POST',
-      path: '/v1/admin/items',
+      path: '/v1/admin/products',
       body: {
         target: { kind: 'baseModel' },
         name: draft().name,
@@ -248,7 +249,9 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
       w: 24,
       h: 24,
     });
-    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(Array(3).fill('PATCH /v1/admin/items/a%2Fb')); // id 는 경로 한 칸으로만
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(
+      Array(3).fill('PATCH /v1/admin/products/a%2Fb'),
+    ); // id 는 경로 한 칸으로만
     expect(calls[0]?.body).toEqual({ name: draft().name, pieces: [body('brows', 'h2a', 'h2c')] });
     expect(calls[1]?.body).toEqual({
       name: draft().name,
@@ -276,10 +279,10 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     await setWebPartStatus(api, 'p1', 'archived');
     await reorderWebParts(api, ['b', 'a']);
     expect(calls).toEqual([
-      { method: 'PATCH', path: '/v1/admin/items/p1', body: { status: 'archived' } },
+      { method: 'PATCH', path: '/v1/admin/products/p1', body: { status: 'archived' } },
       {
         method: 'PUT',
-        path: '/v1/admin/items/order',
+        path: '/v1/admin/products/order',
         body: { target: { kind: 'baseModel' }, ids: ['b', 'a'] },
       },
     ]);
