@@ -9,21 +9,18 @@ import {
   PART_NAME_MAX,
   PART_SIZE_MAX,
   SLOT_LABELS,
+  STATUS_LABELS,
   toBase64,
   useWebParts,
   WEB_PART_SLOTS,
   webPartErrorMessage,
-  type WebDecal,
+  type ItemStatus,
   type WebPart,
   type WebPartDraft,
   type WebPartSlot,
+  type WebPiece,
 } from '@/entities/web-creator/part';
-import {
-  useDeleteWebPart,
-  useReorderWebParts,
-  useSaveWebPart,
-  useSetWebPartHidden,
-} from '@/features/web-creator/manage-parts';
+import { useReorderWebParts, useSaveWebPart, useSetWebPartStatus } from '@/features/web-creator/manage-parts';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
@@ -44,17 +41,29 @@ async function readPng(file: File): Promise<Picked | string> {
   return { bytes, preview: `data:image/png;base64,${toBase64(bytes)}` };
 }
 
-/** 고칠 수 있는 세트(데칼 한 장) */
-type EditablePart = WebPart & { decal: WebDecal };
-const editable = (p: WebPart): p is EditablePart => p.decal !== null;
+/** 고칠 수 있는 상품(2D 얼굴 조각 하나) */
+type EditablePart = WebPart & { piece: WebPiece };
+const editable = (p: WebPart): p is EditablePart => p.piece !== null;
 
 const toDraft = (p: EditablePart): WebPartDraft => ({
-  slot: p.decal.slot,
+  slot: p.piece.slot,
   name: { ...p.name },
-  w: p.decal.w,
-  h: p.decal.h,
-  hidden: p.hidden,
+  w: p.piece.w,
+  h: p.piece.h,
 });
+
+/** 상태 버튼 — 지금 상태에서 갈 수 있는 곳과 묻는 말 */
+const STATUS_ACTIONS: Record<ItemStatus, { to: ItemStatus; label: string; ask: string }[]> = {
+  draft: [
+    { to: 'active', label: '진열 시작', ask: '홈페이지 캐릭터 만들기에 보이게 할까요?' },
+    { to: 'archived', label: '단종', ask: '단종할까요? 목록에서 빠지지만 이미 고른 캐릭터는 그대로예요.' },
+  ],
+  active: [
+    { to: 'draft', label: '진열 내리기', ask: '초안으로 내릴까요? 홈페이지에서 안 보이게 돼요.' },
+    { to: 'archived', label: '단종', ask: '단종할까요? 목록에서 빠지지만 이미 고른 캐릭터는 그대로예요.' },
+  ],
+  archived: [{ to: 'draft', label: '초안으로 되살리기', ask: '초안으로 되살릴까요? 목록 맨 뒤에 붙어요.' }],
+};
 
 function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => void }) {
   const toast = useToast();
@@ -63,6 +72,7 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
   const [draft, setDraft] = useState<WebPartDraft>(part ? toDraft(part) : emptyDraft());
   const [image, setImage] = useState<Picked | null>(null);
   const [closed, setClosed] = useState<Picked | null>(null);
+  const [dropClosed, setDropClosed] = useState(false);
   const [problem, setProblem] = useState<string | null>(null);
   const set = (patch: Partial<WebPartDraft>) => setDraft((d) => ({ ...d, ...patch }));
 
@@ -82,9 +92,9 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
     const p = draftProblem(draft) ?? (!part && !image ? 'PNG 그림을 골라 주세요' : null);
     if (p) return setProblem(p);
     const what = part
-      ? `«${draft.name.ko.trim()}» 을(를) 고칠까요?`
-      : `«${draft.name.ko.trim()}» 을(를) 더할까요?`;
-    if (!confirm(withProdMark(env, `${what} 홈페이지 캐릭터 만들기에 바로 보여요.`))) return;
+      ? `«${draft.name.ko.trim()}» 을(를) 고칠까요?${part.status === 'active' ? ' 홈페이지에 바로 보여요.' : ''}`
+      : `«${draft.name.ko.trim()}» 을(를) 초안으로 더할까요? «진열 시작» 을 눌러야 홈페이지에 보여요.`;
+    if (!confirm(withProdMark(env, what))) return;
     const trimmed = {
       ...draft,
       name: { ko: draft.name.ko.trim(), en: draft.name.en.trim(), ja: draft.name.ja.trim() },
@@ -94,7 +104,7 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
         part,
         draft: trimmed,
         image: image?.bytes,
-        closedImage: closed?.bytes,
+        closedImage: closed ? closed.bytes : dropClosed ? null : undefined,
       });
       toast('저장했어요');
       onDone();
@@ -103,12 +113,9 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
     }
   };
 
-  const shown = image?.preview ?? part?.decal.src ?? null;
-  // 아이라인이 아니면 감은눈 그림은 저장하지 않는다 — 미리보기도 감춘다
-  const closedShown =
-    draft.slot === 'eyeline'
-      ? (closed?.preview ?? (part?.decal.slot === 'eyeline' ? part.decal.closedSrc : null))
-      : null;
+  const shown = image?.preview ?? part?.piece.src ?? null;
+  const closedShown = closed?.preview ?? (dropClosed ? null : (part?.piece.closedSrc ?? null));
+  const hasClosed = Boolean(part?.piece.closedSrc || part?.piece.closedImage);
   return (
     <form className={styles.form} onSubmit={submit}>
       <label>
@@ -154,29 +161,38 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
           onChange={(e) => set({ h: e.target.valueAsNumber })}
         />
       </label>
-      <label className={styles.check}>
-        <input type="checkbox" checked={draft.hidden} onChange={(e) => set({ hidden: e.target.checked })} />
-        숨기기(홈페이지에 안 보임)
-      </label>
       <label>
         그림(PNG{part ? ' — 바꿀 때만' : ''})
         <input type="file" accept="image/png" onChange={(e) => void pick(e.target.files?.[0], setImage)} />
       </label>
-      {draft.slot === 'eyeline' && (
-        <label>
-          감은눈 그림(PNG · 없으면 기본 감은 줄)
-          <input type="file" accept="image/png" onChange={(e) => void pick(e.target.files?.[0], setClosed)} />
+      <label>
+        눈 감은 얼굴 그림(PNG · 선택 — 없으면 {draft.slot === 'eyeline' ? '기본 감은 줄' : '위 그림 그대로'})
+        <input
+          type="file"
+          accept="image/png"
+          onChange={(e) =>
+            void pick(e.target.files?.[0], (p) => {
+              setClosed(p);
+              setDropClosed(false);
+            })
+          }
+        />
+      </label>
+      {part && hasClosed && !closed && (
+        <label className={styles.check}>
+          <input type="checkbox" checked={dropClosed} onChange={(e) => setDropClosed(e.target.checked)} />
+          지금 감은 얼굴 그림 빼기
         </label>
       )}
       {shown && (
         <div className={styles.preview}>
           <img src={shown} alt="고른 그림 미리보기" />
-          {closedShown && <img src={closedShown} alt="감은눈 그림 미리보기" />}
+          {closedShown && <img src={closedShown} alt="눈 감은 얼굴 그림 미리보기" />}
         </div>
       )}
       <div className={styles.actions}>
         <button type="submit" className="btn primary" disabled={save.isPending}>
-          {save.isPending ? '저장 중…' : part ? '저장' : '더하기'}
+          {save.isPending ? '저장 중…' : part ? '저장' : '초안으로 더하기'}
         </button>
         <button type="button" className="btn" onClick={onDone}>
           취소
@@ -191,35 +207,21 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
   );
 }
 
-/** 웹 생성기 파츠 — 홈페이지 캐릭터 만들기에 기본 그림 뒤로 붙는 PNG 파츠(데칼 한 장짜리 세트)를 더하고 고친다(자체 서버 · #517) */
+/** 웹 생성기 파츠 — 홈페이지 캐릭터 만들기에 기본 그림 뒤로 붙는 PNG 파츠(조각 하나짜리 상품)를 더하고 고친다(자체 서버 · #517) */
 export function WebPartEditor() {
   const toast = useToast();
   const env = useEnv();
-  const parts = useWebParts();
-  const remove = useDeleteWebPart();
-  const hide = useSetWebPartHidden();
+  const [archived, setArchived] = useState(false);
+  const parts = useWebParts(archived);
+  const status = useSetWebPartStatus();
   const reorder = useReorderWebParts();
   const [editing, setEditing] = useState<string | 'new' | null>(null);
 
-  const del = async (p: WebPart) => {
-    if (
-      !confirm(
-        withProdMark(env, `«${p.name.ko}» 을(를) 지울까요? 이 그림을 고른 사람은 기본 그림으로 바뀌어요.`),
-      )
-    )
-      return;
+  const changeStatus = async (p: WebPart, to: ItemStatus, ask: string) => {
+    if (!confirm(withProdMark(env, `«${p.name.ko}» — ${ask}`))) return;
     try {
-      await remove.mutateAsync(p.id);
-      toast('지웠어요');
-    } catch (err) {
-      toast(webPartErrorMessage(err, '지우지 못했어요'));
-    }
-  };
-
-  const toggleHidden = async (p: WebPart) => {
-    try {
-      await hide.mutateAsync({ id: p.id, hidden: !p.hidden });
-      toast(p.hidden ? '보이게 했어요' : '숨겼어요');
+      await status.mutateAsync({ id: p.id, status: to });
+      toast(`${STATUS_LABELS[to]}(으)로 바꿨어요`);
     } catch (err) {
       toast(webPartErrorMessage(err, '바꾸지 못했어요'));
     }
@@ -240,15 +242,27 @@ export function WebPartEditor() {
       <div className="card-head">
         <h2>웹 생성기 파츠</h2>
         <span className="soft">{parts.data && `${parts.data.length}개`}</span>
-        {editing === null && !parts.isError && (
+        <label className={styles.check}>
+          <input
+            type="checkbox"
+            checked={archived}
+            onChange={(e) => {
+              setArchived(e.target.checked);
+              setEditing(null);
+            }}
+          />
+          단종만 보기
+        </label>
+        {editing === null && !archived && !parts.isError && (
           <button type="button" className="btn primary" onClick={() => setEditing('new')}>
             ＋ 새 파츠
           </button>
         )}
       </div>
       <p className={`soft ${styles.hint}`}>
-        홈페이지 캐릭터 만들기에 기본 그림 뒤로, 이 목록 순서대로 붙어요. 그림은 PNG(512KB · 가로 · 세로
-        1024px 까지) · 가운데를 레이어 자리에 맞춰 가로 × 세로 크기로 그려요(얼굴 판 한 변 200).
+        «진열 중» 인 것만 홈페이지 캐릭터 만들기에 기본 그림 뒤로, 이 목록 순서대로 붙어요. 새 파츠는 초안으로
+        들어가요. 그림은 PNG(512KB · 가로 · 세로 1024px 까지) · 가운데를 레이어 자리에 맞춰 가로 × 세로 크기로
+        그려요(얼굴 판 한 변 200).
       </p>
       {editing === 'new' && <PartForm part={null} onDone={() => setEditing(null)} />}
       {parts.isPending && <p className="soft">불러오는 중…</p>}
@@ -259,14 +273,16 @@ export function WebPartEditor() {
             : errorMessage(parts.error, '목록을 불러오지 못했어요')}
         </p>
       )}
-      {parts.data && parts.data.length === 0 && <p className="soft">아직 올린 파츠가 없어요.</p>}
+      {parts.data && parts.data.length === 0 && (
+        <p className="soft">{archived ? '단종한 파츠가 없어요.' : '아직 올린 파츠가 없어요.'}</p>
+      )}
       {parts.data && parts.data.length > 0 && (
         <div className="list">
           {parts.data.map((p, i) =>
             editing === p.id && editable(p) ? (
               <PartForm key={p.id} part={p} onDone={() => setEditing(null)} />
             ) : (
-              <div key={p.id} className={p.hidden ? `row ${styles.hidden}` : 'row'}>
+              <div key={p.id} className={p.status === 'active' ? 'row' : `row ${styles.dim}`}>
                 <span className={styles.thumb}>{p.thumb && <img src={p.thumb} alt="" />}</span>
                 <span className="grow">
                   <b>{p.name.ko}</b>{' '}
@@ -275,54 +291,53 @@ export function WebPartEditor() {
                   </span>
                   <br />
                   <small className="soft">
-                    {p.decal
-                      ? `${SLOT_LABELS[p.decal.slot]} · ${p.decal.w} × ${p.decal.h}`
-                      : `여러 장 세트(데칼 ${p.decalCount}장) — 여기선 숨기기 · 지우기 · 순서만`}
-                    {p.hidden && ' · 숨김'}
+                    {STATUS_LABELS[p.status]} ·{' '}
+                    {p.piece
+                      ? `${SLOT_LABELS[p.piece.slot]} · ${p.piece.w} × ${p.piece.h}`
+                      : `조각 ${p.pieceCount}개 상품 — 여기선 상태 · 순서만`}
                   </small>
                 </span>
-                <button
-                  type="button"
-                  className="btn"
-                  aria-label="앞으로"
-                  onClick={() => void move(i, -1)}
-                  disabled={reorder.isPending || i === 0}
-                >
-                  ▲
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  aria-label="뒤로"
-                  onClick={() => void move(i, 1)}
-                  disabled={reorder.isPending || i === parts.data.length - 1}
-                >
-                  ▼
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => setEditing(p.id)}
-                  disabled={editing !== null || !p.decal}
-                >
-                  고치기
-                </button>
-                <button
-                  type="button"
-                  className="btn"
-                  onClick={() => void toggleHidden(p)}
-                  disabled={hide.isPending}
-                >
-                  {p.hidden ? '보이기' : '숨기기'}
-                </button>
-                <button
-                  type="button"
-                  className="btn danger"
-                  onClick={() => void del(p)}
-                  disabled={remove.isPending}
-                >
-                  지우기
-                </button>
+                {!archived && (
+                  <>
+                    <button
+                      type="button"
+                      className="btn"
+                      aria-label="앞으로"
+                      onClick={() => void move(i, -1)}
+                      disabled={reorder.isPending || i === 0}
+                    >
+                      ▲
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      aria-label="뒤로"
+                      onClick={() => void move(i, 1)}
+                      disabled={reorder.isPending || i === parts.data.length - 1}
+                    >
+                      ▼
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={() => setEditing(p.id)}
+                      disabled={editing !== null || !p.piece}
+                    >
+                      고치기
+                    </button>
+                  </>
+                )}
+                {STATUS_ACTIONS[p.status].map((a) => (
+                  <button
+                    key={a.to}
+                    type="button"
+                    className={a.to === 'archived' ? 'btn danger' : 'btn'}
+                    onClick={() => void changeStatus(p, a.to, a.ask)}
+                    disabled={status.isPending}
+                  >
+                    {a.label}
+                  </button>
+                ))}
               </div>
             ),
           )}

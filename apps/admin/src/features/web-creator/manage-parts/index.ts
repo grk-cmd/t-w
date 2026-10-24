@@ -1,7 +1,6 @@
 export {
-  useDeleteWebPart,
   useReorderWebParts,
   useSaveWebPart,
-  useSetWebPartHidden,
+  useSetWebPartStatus,
   type SavePart,
 } from './model/useManageParts';

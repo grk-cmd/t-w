@@ -62,6 +62,7 @@
   object-fit: contain;
 }
 
-.hidden {
+/* 초안 · 단종 — 홈페이지에 안 보이는 줄 */
+.dim {
   opacity: 0.55;
 }
