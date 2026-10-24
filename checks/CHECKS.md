@@ -88,7 +88,7 @@
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-char-core-load.js** | 89 | **740ecf90c6f1** |
 | **sim-chat-history.js** | 244 | **530050435065** |
-| **sim-gamepad-activity.js** | 131 | **320f86854007** |
+| **sim-gamepad-activity.js** | 132 | **f077a8965452** |
 | **sim-mallang-hide.js** | 122 | **1250ce12a494** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
@@ -248,7 +248,7 @@
 | **sim-hover-poke.js** | 197 | **9fb43da458ac** |
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
-| **sim-admin-active.js** | 154 | **015bbc6e3888** |
+| **sim-admin-active.js** | 155 | **100afda315c1** |
 | **sim-room-order.js** | 78 | **19449085aa33** |
 | **sim-device-session.js** | 144 | **bff537b6265c** |
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** |
@@ -429,6 +429,7 @@
 | **sim-label-measure.js** | 234 | **ce652588740d** |
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
+| **sim-native-peek.js** | 168 | **10af633f27f9** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

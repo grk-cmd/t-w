@@ -42,19 +42,23 @@ const path = require('path');
      쌓아 두었다가 주입된 뒤 한 번에 흘린다 — 안 남기면 §0-① 과 같은 종류의
      "개선도 고장도 아무 데도 안 남는" 상태가 된다. */
 const _bootErrors = [];
+const { peekUnpacked } = require('./native-peek');   // 못 불러온 부품의 설치 파일 상태 한 줄(진단 기록용)
+const _nativeFailed = [];   // 못 불러온 부품 이름 — main.js 가 «다시 설치» 안내를 고른다
 /* ⚠️ UiohookKey 는 지금 어디에서도 안 쓰인다(main.js 시절부터 그랬다). 이사는 "옮기는 것"이라
    여기서 정리하지 않고 그대로 데려왔다 — 떼는 건 별건이다. */
 let uIOhook = null, UiohookKey = null;
 try{
   ({ uIOhook, UiohookKey } = require('uiohook-napi'));
 }catch(err){
-  _bootErrors.push('uiohook-napi 로드 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err));
+  _bootErrors.push('uiohook-napi 로드 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err) + ' | ' + peekUnpacked('uiohook-napi'));
+  _nativeFailed.push('uiohook-napi');
 }
 let windowManager = null;
 try{
   ({ windowManager } = require('node-window-manager'));
 }catch(err){
-  _bootErrors.push('node-window-manager 로드 실패 — 활성 창 감지·창 목록 없음: ' + (err && err.message || err));
+  _bootErrors.push('node-window-manager 로드 실패 — 활성 창 감지·창 목록 없음: ' + (err && err.message || err) + ' | ' + peekUnpacked('node-window-manager'));
+  _nativeFailed.push('node-window-manager');
 }
 
 /* 주입 — 안 부르면 훅 기동 실패도, 위 로드 실패도 조용히 사라진다. */
@@ -335,4 +339,5 @@ module.exports = {
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,
   WINLIST_SKIP,
+  nativeLoadFailed: () => _nativeFailed.slice(),
 };
