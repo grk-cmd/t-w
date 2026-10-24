@@ -170,10 +170,11 @@ function renderWdDeskSection(wrap){
     applyDeskDotThumb(rec, card);
     card.onclick=async()=>{
       if(def.deskCatalogId===rec.id) return;
+      let glbErr = null;
       if(!rec.glb && rec.glbUrl){
-        try{ await resolveCatalogGlb(rec); }catch(_){}
+        try{ await resolveCatalogGlb(rec); }catch(e){ glbErr = e; }
       }
-      if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
+      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-13', glbErr || (rec.glbUrl ? 'no-glb' : 'no-url')); return; }
       _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });
       renderWardrobe();
     };
