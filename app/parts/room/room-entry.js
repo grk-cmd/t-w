@@ -577,6 +577,8 @@ function syncFriendSeats(friends){
    ⚠️ 친구코드(MATE-/옛 COZY-)와는 별개다. 그쪽 COZY 하위호환(_friendCodeCandidates 등)은 건드리지 말 것. */
 const ROOM_PREFIX = { workingroom:'WORK-', togetherroom:'PLAY-' };
 const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;
+/* 코드 본문(접두어 뺀 4자리) — 규칙 rooms/$room 이 XXXX-XXXX 만 받는다. 다른 길이로 들어가면 쓰기가 전부 조용히 거절돼 아무도 없는 방이 된다. */
+const ROOM_CODE_BODY_RE = /^[A-Z0-9]{4}$/;
 function _roomPrefixFor(channel){ return ROOM_PREFIX[channel] || ROOM_PREFIX.workingroom; }
 /* 빈 방을 열 때 내가 갖게 될 채널의 접두어 — 빈 방 승격 규칙(보유자=투게더룸)과 **같은 판정**이어야 한다. */
 function _myRoomPrefix(){
@@ -1227,6 +1229,7 @@ async function doJoinRoom(codeInputEl){
   const _explicit = _pm ? (_pm[1] + '-') : _dsPre;
   c = (_body0.length > 4 ? _body0.replace(/^(?:COZY|WORK|PLAY|SCRT)-?/, '') : _body0).replace(/[^A-Z0-9]/g, '');
   if(!c){ toast('방 코드를 입력하세요'); return; }
+  if(!ROOM_CODE_BODY_RE.test(c)){ toast('방 코드는 4자리예요'); return; }
   /* 🔒 갈림길은 여기가 전부다 — **별표(또는 SCRT 접두어)가 없으면 무조건 COZY.**
 
      ★★ 이건 사양이다. 버그가 아니다. ★★
@@ -1266,7 +1269,7 @@ function doJoinSecretRoom(codeInputEl){
   if(c.length > 4) c = c.replace(/^SCRT-?/, '');
   c = c.replace(/[^A-Z0-9]/g, '');
   if(!c){ toast('시크릿룸 코드를 입력하세요'); return; }
-  if(!/^[A-Z0-9]{4}$/.test(c)){ toast('시크릿룸 코드는 4자리예요'); return; }
+  if(!ROOM_CODE_BODY_RE.test(c)){ toast('시크릿룸 코드는 4자리예요'); return; }
   startRoom('SCRT-'+c);
 }
 /* ★ 방장 승계 결과 알림 — HTML 리스너의 _maybeSucceedHost가 승계에 성공하면 부른다. */

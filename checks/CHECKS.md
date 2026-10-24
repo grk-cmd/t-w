@@ -418,6 +418,7 @@
 | **sim-part-ao-clean.js** | 122 | **535053a793ff** |
 | **sim-img-retry.js** | 71 | **a963d5e30fd6** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
+| **sim-room-code-len.js** | 87 | **f0578d075c5e** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
