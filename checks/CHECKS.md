@@ -75,7 +75,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
-| **sim-cfg-fit.js** | 144 | **7d2963e0741d** |
+| **sim-cfg-fit.js** | 145 | **26df0415ed74** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 384 | **7edc054fab9a** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
@@ -417,6 +417,7 @@
 | **sim-room-face-load.js** | 166 | **3db4ef1aa1d3** |
 | **sim-part-ao-clean.js** | 122 | **535053a793ff** |
 | **sim-img-retry.js** | 71 | **a963d5e30fd6** |
+| **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

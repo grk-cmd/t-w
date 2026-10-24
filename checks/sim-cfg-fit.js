@@ -114,9 +114,10 @@ chk(calls >= 3, '_fitConfigRect 호출 ' + calls + '곳 (createWindow · setConf
 const cw = grabFn(MAIN, 'createWindow') || '';
 chk(/_fitConfigRect\('launcher'/.test(cw), 'createWindow 가 첫 창을 이 함수로 잡는다');
 chk(!/Math\.round\(\(width - CONFIG_WIDTH\)/.test(cw), '★ 예전 (0,0) 기준 중앙 계산이 createWindow 에 없다');
-const scm = MAIN.slice(MAIN.indexOf("ipcMain.on('companion:setConfigMode'"));
-const scmBody = scm.slice(0, scm.indexOf("ipcMain.on('companion:moveWindow'"));
+/* 창 맞추기 본문은 _applyConfigMode — IPC(companion:setConfigMode)와 렌더러가 죽었을 때 되돌리기가 같이 부른다 */
+const scmBody = grabFn(MAIN, '_applyConfigMode') || '';
 chk(/const cfgRect = _fitConfigRect\(/.test(scmBody), 'setConfigMode 의 cfgRect 가 이 함수에서 나온다');
+chk(/ipcMain\.on\('companion:setConfigMode', \(e, isConfig, mode, extra\) => \{ _applyConfigMode\(isConfig, mode, extra\); \}\);/.test(MAIN), '  IPC 는 _applyConfigMode 를 그대로 부른다');
 chk(!/const useX = remembered/.test(scmBody), '★ 예전 «remembered ? 그대로 : 중앙» 직접 계산이 setConfigMode 에 없다');
 const dm = MAIN.slice(MAIN.indexOf("screen.on('display-metrics-changed'"));
 const dmBody = dm.slice(0, dm.indexOf('}, 400);'));
