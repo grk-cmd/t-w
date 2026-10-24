@@ -1619,19 +1619,19 @@
       }
     },
     "products": {
-      ".read": "auth != null && root.child('apiBots').child(auth.uid).val() === true",
+      ".read": "(auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "$id": {
         ".write": "auth != null && root.child('apiBots').child(auth.uid).val() === true"
       }
     },
     "listings": {
-      ".read": "auth != null && root.child('apiBots').child(auth.uid).val() === true",
+      ".read": "(auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "$id": {
         ".write": "auth != null && root.child('apiBots').child(auth.uid).val() === true"
       }
     },
     "assets": {
-      ".read": "auth != null && root.child('apiBots').child(auth.uid).val() === true",
+      ".read": "(auth != null && root.child('apiBots').child(auth.uid).val() === true)",
       "$hash": {
         ".write": "auth != null && root.child('apiBots').child(auth.uid).val() === true"
       }
