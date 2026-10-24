@@ -1,6 +1,2 @@
-export {
-  useReorderWebParts,
-  useSaveWebPart,
-  useSetWebPartStatus,
-  type SavePart,
-} from './model/useManageParts';
+export { savePart, type SavePart } from './model/savePart';
+export { useReorderWebParts, useSaveWebPart, useSetWebPartStatus } from './model/useManageParts';

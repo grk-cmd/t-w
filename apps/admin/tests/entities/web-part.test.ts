@@ -165,6 +165,7 @@ describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
     const list = parseAdminParts({ items: ['a', 'b', 'c'].map((id) => itemRow({ id })) });
     expect(movedIds(list, 1, -1)).toEqual(['b', 'a', 'c']);
     expect(movedIds(list, 1, 1)).toEqual(['a', 'c', 'b']);
+    expect(movedIds(list, 0, 1)).toEqual(['b', 'a', 'c']); // 첫 줄도 아래로
     expect(movedIds(list, 0, -1)).toBeNull();
     expect(movedIds(list, 2, 1)).toBeNull();
     expect(movedIds(list, 5, -1)).toBeNull();
@@ -227,7 +228,7 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     expect(pieceBody(calls[1] as object)).not.toHaveProperty('variants');
   });
 
-  it('고치기 — 조각 id 유지 · 안 바꾼 그림은 지금 해시 · 새 그림이면 썸네일도 · 감은 그림 그대로 / 바꿈 / 뺌', async () => {
+  it('고치기 — 본문은 규격 칸만: 조각 id 유지 · 안 바꾼 그림은 지금 해시 · 새 그림이면 썸네일도 · 감은 그림 그대로 / 바꿈 / 뺌', async () => {
     const { api, calls } = fakeApi();
     const eye = partOf({
       id: 'a/b',
@@ -236,22 +237,25 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     await updateWebPart(api, eye, draft({ slot: 'brows' }));
     await updateWebPart(api, eye, draft(), { image: 'h2n', closed: 'h2m' });
     await updateWebPart(api, eye, draft(), { closed: null });
-    expect(calls[0]?.path).toBe('/v1/admin/items/a%2Fb'); // id 는 경로 한 칸으로만
-    expect(calls[0]?.body).not.toHaveProperty('thumb');
-    expect(pieceBody(calls[0] as object)).toMatchObject({
+    const body = (slot: string, image: string, closed?: string) => ({
       id: 'pc1',
-      slot: 'brows',
-      image: 'h2a',
-      variants: { closed: 'h2c' },
+      kind: 'decal',
+      target: { kind: 'baseModel' },
+      surface: 'face',
+      slot,
+      image,
+      ...(closed ? { variants: { closed } } : {}),
+      w: 24,
+      h: 24,
     });
-    expect(calls[1]?.body).toMatchObject({ thumb: 'h2n', name: draft().name });
-    expect(pieceBody(calls[1] as object)).toMatchObject({
-      id: 'pc1',
-      image: 'h2n',
-      variants: { closed: 'h2m' },
+    expect(calls.map((c) => `${c.method} ${c.path}`)).toEqual(Array(3).fill('PATCH /v1/admin/items/a%2Fb')); // id 는 경로 한 칸으로만
+    expect(calls[0]?.body).toEqual({ name: draft().name, pieces: [body('brows', 'h2a', 'h2c')] });
+    expect(calls[1]?.body).toEqual({
+      name: draft().name,
+      thumb: 'h2n',
+      pieces: [body('pupil', 'h2n', 'h2m')],
     });
-    expect(pieceBody(calls[2] as object)).not.toHaveProperty('variants');
-    expect(calls[0]?.body).not.toHaveProperty('status');
+    expect(calls[2]?.body).toEqual({ name: draft().name, pieces: [body('pupil', 'h2a')] });
   });
 
   it('고칠 수 없는 경우는 보내지 않는다 — 여러 조각 · 그림 해시를 모름 · 감은 그림 해시를 모름', () => {
