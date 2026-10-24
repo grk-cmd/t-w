@@ -21,7 +21,7 @@ const piece = (o: Record<string, unknown> = {}) => ({
   h: 22,
   ...o,
 });
-const item = (pieces: unknown[], o: Record<string, unknown> = {}) => ({
+const product = (pieces: unknown[], o: Record<string, unknown> = {}) => ({
   id: 'i1',
   target: { kind: 'baseModel' },
   name,
@@ -31,19 +31,19 @@ const item = (pieces: unknown[], o: Record<string, unknown> = {}) => ({
   ...o,
 });
 /** 조각 하나짜리 상품 하나의 응답 data */
-const one = (o: Record<string, unknown> = {}) => ({ items: [item([piece(o)])] });
+const one = (o: Record<string, unknown> = {}) => ({ products: [product([piece(o)])] });
 
 afterEach(() => setRemoteParts([]));
 
 describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하나씩)으로 펼친다', () => {
   it('상품 차례 · 상품 안 조각 차례 · 이름은 상품 이름 · 같은 조각 id 는 앞의 것만', () => {
     const got = parseRemoteParts({
-      items: [
-        item([piece({ id: 'b', slot: 'brows' }), piece({ id: 'a' })], {
+      products: [
+        product([piece({ id: 'b', slot: 'brows' }), piece({ id: 'a' })], {
           id: 'cat',
           name: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
         }),
-        item([piece({ id: 'a', slot: 'mouth' }), piece({ id: 'c', slot: 'acc' })], { id: 'dog' }),
+        product([piece({ id: 'a', slot: 'mouth' }), piece({ id: 'c', slot: 'acc' })], { id: 'dog' }),
       ],
     });
     expect(got.map((p) => `${p.id}:${p.slot}:${p.name.ko}`)).toEqual([
@@ -64,7 +64,7 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
 
   it('그릴 수 없는 것은 건너뛴다 — 잠긴 상품 · 다른 모델 · 3D 모양 · 다른 종류 · 다른 면 · 3D 위 그림 · 모르는 slot', () => {
     const got = parseRemoteParts({
-      items: [
+      products: [
         {
           id: 'lock',
           target: { kind: 'baseModel' },
@@ -73,9 +73,9 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
           locked: true,
           requires: { kind: 'entitlement', key: 'premium' },
         },
-        item([piece({ id: 'lk' })], { id: 'lock2', locked: true }), // 잠겼는데 조각이 실려 와도 쓰지 않는다
-        item([piece({ id: 'm1' })], { id: 'part', target: { kind: 'part', id: 'hat01' } }),
-        item(
+        product([piece({ id: 'lk' })], { id: 'lock2', locked: true }), // 잠겼는데 조각이 실려 와도 쓰지 않는다
+        product([piece({ id: 'm1' })], { id: 'part', target: { kind: 'part', id: 'hat01' } }),
+        product(
           [
             piece({ id: 'p3d', kind: 'part', partId: 'part_catear' }),
             piece({ id: 'pk', kind: 'sticker' }),
@@ -87,7 +87,7 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
           ],
           { id: 'mix' },
         ),
-        item([piece({ id: 'x', slot: 'hair' })], { id: 'unk' }),
+        product([piece({ id: 'x', slot: 'hair' })], { id: 'unk' }),
       ],
     });
     expect(got.map((p) => p.id)).toEqual(['dim', 'ok']);
@@ -114,13 +114,13 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
 
   it('상품 이름 셋(한 · 영 · 일)이 다 있어야 · 너무 길면 안 받는다 · 크기는 0 < 크기 ≤ 200 · id 모양', () => {
     const badItems = [
-      item([piece()], { name: { ko: '별', en: 'Star' } }),
-      item([piece()], { name: { ...name, ja: '  ' } }),
-      item([piece()], { name: { ...name, ko: '가'.repeat(21) } }),
-      item([piece()], { id: '../x' }),
-      item('no' as unknown as unknown[]),
+      product([piece()], { name: { ko: '별', en: 'Star' } }),
+      product([piece()], { name: { ...name, ja: '  ' } }),
+      product([piece()], { name: { ...name, ko: '가'.repeat(21) } }),
+      product([piece()], { id: '../x' }),
+      product('no' as unknown as unknown[]),
     ];
-    for (const b of badItems) expect(parseRemoteParts({ items: [b] }), JSON.stringify(b)).toEqual([]);
+    for (const b of badItems) expect(parseRemoteParts({ products: [b] }), JSON.stringify(b)).toEqual([]);
     const badPieces = [
       { w: 0 },
       { h: 201 },
@@ -143,35 +143,36 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
     expect(parseRemoteParts(one({ variants: 'x' }))[0]?.closedSrc).toBeNull();
   });
 
-  it('모양이 아닌 응답은 빈 목록 · 옛 모양({ parts } · { sets })도 빈 목록', () => {
+  it('모양이 아닌 응답은 빈 목록 · 옛 모양({ parts } · { sets } · { items })도 빈 목록', () => {
     for (const d of [
       null,
       undefined,
       3,
       'x',
       [],
-      { items: 'no' },
+      { products: 'no' },
       { parts: [piece()] },
-      { sets: [item([piece()])] },
+      { sets: [product([piece()])] },
+      { items: [product([piece()])] }, // 지난 판 이름
     ])
       expect(parseRemoteParts(d)).toEqual([]);
   });
 
   it('펼친 조각은 200개까지', () => {
-    const items = Array.from({ length: 11 }, (_, i) =>
-      item(
+    const products = Array.from({ length: 11 }, (_, i) =>
+      product(
         Array.from({ length: 20 }, (_, j) => piece({ id: `d${j}_${i}` })),
         { id: `s${i}` },
       ),
     );
-    expect(parseRemoteParts({ items })).toHaveLength(200);
+    expect(parseRemoteParts({ products })).toHaveLength(200);
   });
 });
 
 describe('setRemoteParts — 기본 그림 뒤에 붙는다', () => {
   it('레이어 · 액세서리에 «w:» 를 붙여 넣고 빈 목록이면 기본만', () => {
     const before = layerItems('pupil').length;
-    setRemoteParts(parseRemoteParts({ items: [item([piece(), piece({ id: 'acc1', slot: 'acc' })])] }));
+    setRemoteParts(parseRemoteParts({ products: [product([piece(), piece({ id: 'acc1', slot: 'acc' })])] }));
     expect(layerItems('pupil').length).toBe(before + 1);
     expect(layerItems('pupil').at(-1)?.id).toBe('w:p1');
     expect(accItems().at(-1)?.id).toBe('w:acc1');
@@ -327,12 +328,12 @@ describe('fetchWebParts — 공개 목록 읽기', () => {
   const res = (status: number, body: unknown) =>
     ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
 
-  it('API 서버의 /v1/items(기본 몸 모델 · 얼굴 면)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
+  it('API 서버의 /v1/products(기본 몸 모델 · 얼굴 면)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
     const f = vi.fn(async () => res(200, { success: true, data: one() }));
     const r = await fetchWebParts(f as unknown as typeof fetch);
     expect(r).toEqual({ t: 'ok', parts: parseRemoteParts(one()) });
     expect(f).toHaveBeenCalledWith(
-      `${API_ORIGIN}/v1/items?target=baseModel&surface=face`,
+      `${API_ORIGIN}/v1/products?target=baseModel&surface=face`,
       expect.objectContaining({ credentials: 'omit' }),
     );
   });
@@ -355,7 +356,7 @@ describe('fetchWebParts — 공개 목록 읽기', () => {
   });
 
   it('올린 파츠가 없으면 빈 목록(실패와 다르다)', async () => {
-    const f = (async () => res(200, { success: true, data: { items: [] } })) as unknown as typeof fetch;
+    const f = (async () => res(200, { success: true, data: { products: [] } })) as unknown as typeof fetch;
     expect(await fetchWebParts(f)).toEqual({ t: 'ok', parts: [] });
   });
 });
