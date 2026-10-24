@@ -22,6 +22,8 @@ describe('미리 그린 페이지', () => {
       expect(html).toContain(m.heroTitleB);
       expect(html).toContain(`aria-label="${m.landAria}"`); // 투게더랜드 잠긴 아이콘 — 경고창은 누를 때만
       expect(html).not.toContain(m.landLocked);
+      expect(html).not.toContain('↓'); // 내려받기는 화살표 글자 대신 아이콘
+      expect(html).toMatch(/<a class="btn big default" href="#download"><svg class="ico"/);
       expect(html).toContain(m.newsTitle); // 📰 소식 창 자리 — 글은 아직 빈 안내
       expect(html).toContain(m.newsEmpty);
       expect(html).toContain(`<link rel="canonical" href="${SITE_ORIGIN}${pathFor(lang)}"/>`);
@@ -61,6 +63,6 @@ describe('미리 그린 페이지', () => {
     const { body } = renderPage('ko');
     const m = messagesFor('ko');
     for (const label of [m.dlWindows, m.dlMac])
-      expect(body).toMatch(new RegExp(`<button[^>]*disabled[^>]*>${label}<`));
+      expect(body).toMatch(new RegExp(`<button[^>]*disabled[^>]*><svg class="ico"[^]*?</svg>${label}<`));
   });
 });

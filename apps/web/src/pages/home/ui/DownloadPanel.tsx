@@ -1,6 +1,6 @@
 import { HELP_URL } from '@/shared/config';
 import { useI18n } from '@/shared/i18n';
-import { Win } from '@/shared/ui';
+import { DownloadIcon, Win } from '@/shared/ui';
 
 /** 내려받기 — 설치 파일 주소는 서버가 확인한 뒤 준다(#430). 그 길이 생기기 전까지 단추는 눌리지 않게 둔다. */
 export function DownloadPanel() {
@@ -15,9 +15,11 @@ export function DownloadPanel() {
         <Win title={m.dlWinTitle}>
           <div className="row">
             <button className="btn big default" type="button" disabled aria-describedby="dl-soon">
+              <DownloadIcon />
               {m.dlWindows}
             </button>
             <button className="btn big" type="button" disabled aria-describedby="dl-soon">
+              <DownloadIcon />
               {m.dlMac}
             </button>
           </div>
