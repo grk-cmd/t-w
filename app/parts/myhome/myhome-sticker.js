@@ -207,7 +207,6 @@ try{
 }catch(_){}
 
 function _mhStickerEditStart(sid){
-  const s=(_myHomeData() && _myHomeData().stickers || {})[sid];
   _setMhStickerEditSid(sid);
   const hint = document.getElementById('mhStickerEditHint');
   if(hint) hint.classList.add('on');

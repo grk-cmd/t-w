@@ -149,7 +149,7 @@ function mkEnv(opt){
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });   // 🪝 마이홈 고리판 — 편집 묶음이 만들 때 건다(순환 끊기 8)
   vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 스티커 잠금 · 순서 규칙 — 편집 묶음이 만들 때 받는다
-  vm.runInContext(MOD, ctx, { filename: 'myhome-edit.js' });
+  vm.runInContext(opt.src || MOD, ctx, { filename: 'myhome-edit.js' });
   env.ctx = ctx;
   env.H = ctx.TwMyHomeHooks; env.K = ctx.TwMyHomeHooks.HOOK;
   env.origRender = () => { env.origRenders++; };
@@ -320,7 +320,7 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   e.ctx._mhPreviewMode = true; e.viewing = null; zone.fire('mousedown', { target: tgt, clientX: 120, clientY: 120 }); e.ctx._mhPreviewMode = false;
   chk(!e.dragSets.length, '관람 · 미리보기 중에는 못 끈다');
   /* [+ 스티커] 버튼을 가린 스티커 — 버튼 자리 왼쪽 클릭은 버튼으로(끌지 않음 · 스티커 링크 안 엶) */
-  e = mkEnv({ data: { stickers: { a: { x: 10, y: 10 } } } }); M = e.mk();
+  { const e = mkEnv({ data: { stickers: { a: { x: 10, y: 10 } } } }); e.mk();
   e.els.mhStickerAddBtn._rect = { left: 300, top: 300, width: 60, height: 20 };
   const st2 = mkEl(e, 'div'); st2.dataset.sid = 'a'; st2._rect = { left: 290, top: 290 };
   const tgt2 = { closest: (q) => q === '.mh-sticker' ? st2 : null };
@@ -333,6 +333,10 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   z2.fire('click', { target: tgt2, clientX: 200, clientY: 200, button: 0 });
   z2.fire('mousedown', { target: tgt2, clientX: 200, clientY: 200, button: 0 });
   chk(e.sticker.open === 1 && e.dragSets.join() === '0', '  버튼 밖 · 오른쪽 버튼은 그대로 스티커가 받는다');
+  (e.docL.mousemove || []).forEach(f => f({ clientX: 310, clientY: 305 }));
+  (e.docL.mouseup || []).forEach(f => f({})); await flush();
+  z2.fire('click', { target: tgt2, clientX: 310, clientY: 305, button: 0 });
+  chk(e.sticker.open === 1 && e.saveCount() === 1 && e.data.stickers.a.x !== 10, '★ 버튼 밖에서 잡아 버튼 위에서 놓으면 옮기기 — 관리 창 안 열림 · 저장');
   st2.classList.add('editing'); e.dragSets.length = 0;
   z2.fire('click', { target: tgt2, clientX: 310, clientY: 305, button: 0 });
   z2.fire('mousedown', { target: tgt2, clientX: 310, clientY: 305, button: 0 });
@@ -341,6 +345,22 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   st2.classList.remove('editing'); e.els.mhStickerAddBtn._rect = { left: 0, top: 0, width: 0, height: 0 };
   z2.fire('click', { target: tgt2, clientX: 0, clientY: 0, button: 0 });
   chk(e.sticker.open === 1, '  숨긴 버튼(관람 중)은 통과하지 않는다');
+  }
+  /* 깨 보기 — 누를 때 버튼 자리였는지 안 보면 «끌어 와 버튼 위에서 놓기» 가 관리 창을 연다 */
+  const dropOnBtn = async (src) => {
+    const e = mkEnv({ src, data: { stickers: { a: { x: 10, y: 10 } } } }); e.mk();
+    e.els.mhStickerAddBtn._rect = { left: 300, top: 300, width: 60, height: 20 };
+    const s3 = mkEl(e, 'div'); s3.dataset.sid = 'a'; s3._rect = { left: 190, top: 190 };
+    const t3 = { closest: (q) => q === '.mh-sticker' ? s3 : null };
+    const z3 = e.els.mhStickerZone; z3._rect = { left: 100, top: 100, width: 600, height: 400 };
+    z3.fire('mousedown', { target: t3, clientX: 200, clientY: 200, button: 0 });
+    (e.docL.mousemove || []).forEach(f => f({ clientX: 310, clientY: 305 }));
+    (e.docL.mouseup || []).forEach(f => f({})); await flush();
+    z3.fire('click', { target: t3, clientX: 310, clientY: 305, button: 0 });
+    return e.sticker.open;
+  };
+  const brokeSrc = MOD.replace('if(e.button || !go || !passToAdd(e)) return;', 'if(e.button || !passToAdd(e)) return;');
+  chk(await dropOnBtn() === 0 && brokeSrc !== MOD && await dropOnBtn(brokeSrc) === 1, '  깨 보기 — 누른 자리를 안 보면 놓기만으로 관리 창이 열린다(빨강)');
   /* 감싼 renderMyHomeStickers — 삭제 버튼에 저장 한 번 더 */
   const del = mkEl(e, 'button'); let orig = 0; del.onclick = () => { orig++; }; e.dels = [del];
   e.curRender();
