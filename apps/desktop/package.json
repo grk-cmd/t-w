@@ -34,6 +34,7 @@
       "overlay-mac.js",
       "sysinput-win.js",
       "sysinput-mac.js",
+      "native-peek.js",
       "hover-poke.js",
       "devtools-gate.js",
       "oauth-config.js",

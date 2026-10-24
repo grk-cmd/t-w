@@ -914,6 +914,7 @@ function _kbBlindTick(now){
   _kbShowGuide();
 }
 function _kbShowGuide(){
+  if(sysinput.nativeLoadFailed().length) return;   // 감지 부품을 못 불러온 판은 부팅 때 «다시 설치» 로 따로 알렸다 — 보안 프로그램 · 관리자 권한 안내는 맞지 않는다
   const mac = process.platform === 'darwin';
   const opts = mac ? {
     type: 'warning', title: 'Together Working',
@@ -942,6 +943,23 @@ function _kbShowGuide(){
       try{ shell.openExternal('x-apple.systempreferences:com.apple.preference.security?Privacy_ListenEvent'); }catch(_){}
     }
   }).catch(()=>{});
+}
+/* 감지 부품(uiohook-napi · node-window-manager)을 못 불러오면 설치 파일이 깨졌거나 보안 · 문서 암호화 프로그램이 바꾼 것이다 —
+   키보드 안내(보안 프로그램 · 관리자 권한)로는 안 고쳐지므로 부팅 때 한 번 «다시 설치» 를 알린다. 원인 한 줄은 진단 기록에 이미 있다. */
+function _nativeShowGuide(){
+  const mac = process.platform === 'darwin';
+  const opts = {
+    type: 'warning', title: 'Together Working',
+    message: '키보드 · 프로그램 감지 부품을 불러오지 못했어요',
+    detail: '이대로는 타이핑 · 등록한 프로그램을 감지하지 못해 포커스 시간이 쌓이지 않아요.\n\n'
+      + (mac
+        ? '① Together Working 을 완전히 종료하고 응용 프로그램 폴더에서 지워 주세요\n② 설치 파일로 다시 설치해 주세요'
+        : '① Together Working 을 완전히 종료하고 [설정 › 앱] 에서 제거해 주세요\n② 설치 파일로 다시 설치해 주세요')
+      + '\n\n캐릭터 · 기록은 계정에 저장돼 있어 그대로예요. 회사 PC 에서 다시 설치해도 같으면, 보안 · 문서 암호화 프로그램에 Together Working 설치 폴더를 예외로 등록해 달라고 요청해 주세요.',
+    buttons: ['확인'], defaultId: 0, cancelId: 0,
+  };
+  const parent = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : undefined;
+  Promise.resolve(parent ? dialog.showMessageBox(parent, opts) : dialog.showMessageBox(opts)).catch(()=>{});
 }
 let _inputDiagAt = 0;
 const _inputDiag = { click: 0, wheel: 0, key: 0, cursor: 0 };
@@ -3822,6 +3840,7 @@ function createWindow() {
     wheel:     (e) => { _inputDiag.wheel++; _onGlobalWheel(e); },
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
+  if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
   app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } });
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야

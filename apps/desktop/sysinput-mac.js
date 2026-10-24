@@ -47,17 +47,21 @@ const { execFileSync } = require('child_process');
    node-window-manager 가 매 설치마다 소스를 컴파일하므로 Xcode CLT 가 없는 기기에서 통째로 빈다.
    ⚠️ 조용히 삼키지 않는다. 이 시점은 init(log) **전**이라 로그 통로가 없어서 쌓아 둔다. */
 const _bootErrors = [];
+const { peekUnpacked } = require('./native-peek');   // 못 불러온 부품의 설치 파일 상태 한 줄(진단 기록용)
+const _nativeFailed = [];   // 못 불러온 부품 이름 — main.js 가 «다시 설치» 안내를 고른다
 let uIOhook = null, UiohookKey = null;
 try{
   ({ uIOhook, UiohookKey } = require('uiohook-napi'));
 }catch(err){
-  _bootErrors.push('uiohook-napi 로드 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err));
+  _bootErrors.push('uiohook-napi 로드 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err) + ' | ' + peekUnpacked('uiohook-napi'));
+  _nativeFailed.push('uiohook-napi');
 }
 let windowManager = null;
 try{
   ({ windowManager } = require('node-window-manager'));
 }catch(err){
-  _bootErrors.push('node-window-manager 로드 실패 — 활성 창 감지·창 목록 없음: ' + (err && err.message || err));
+  _bootErrors.push('node-window-manager 로드 실패 — 활성 창 감지·창 목록 없음: ' + (err && err.message || err) + ' | ' + peekUnpacked('node-window-manager'));
+  _nativeFailed.push('node-window-manager');
 }
 
 let _log = () => {};
@@ -375,4 +379,5 @@ module.exports = {
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,
   WINLIST_SKIP,
+  nativeLoadFailed: () => _nativeFailed.slice(),
 };

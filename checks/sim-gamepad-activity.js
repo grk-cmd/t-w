@@ -68,6 +68,7 @@ const loadWin = (koffi, logs) => {
     if (n === 'path') return require('path');
     if (n === 'child_process') return { execFile() {} };
     if (n === 'koffi') { if (!koffi) throw new Error('no koffi'); return koffi; }
+    if (n === './native-peek') return { peekUnpacked: () => '(검사)' };   // 네이티브가 없는 셈이라 로드 실패 한 줄에 붙는다
     throw new Error('no ' + n);
   };
   new Function('require', 'module', 'exports', 'Buffer', 'process', WIN)(req, mod, mod.exports, Buffer, process);
