@@ -384,15 +384,14 @@ function _loadImgCors(src){ return new Promise((res,rej)=>{ const i=new Image();
      잘리고, 작으면 왼쪽 위 구석에 몰린다. 그 조각이 UV 전체에 펴 발려서 «얼굴 텍스처가 밀렸다» 가
      된다. 공유 코드로 들어온 텍스처는 256(CODE_TEX_SIZE)이라 정확히 1/4 구석에 몰렸다.
      사람 얼굴·감은눈은 512 라 멀쩡했던 것도 이것으로 갈린다. 크기를 못 읽으면 예전처럼 512. */
-/* 같은 그림이 CORS 없이 먼저 캐시돼 있으면(마이홈 · 친구 목록의 그냥 <img>) 그 캐시로는 crossOrigin 로드가 막힌다 —
-   주소 뒤에 표식을 붙여 캐시를 비켜 한 번만 다시 받는다. 일부 PC 에서만 남의 얼굴이 하얗게 보이던 갈래 */
-function _roomCacheBust(u){ return u + (u.indexOf('?') >= 0 ? '&' : '?') + 'twr=' + Date.now(); }
+/* 같은 그림이 CORS 없이 먼저 캐시돼 있으면(그냥 <img>) crossOrigin 로드가 막힌다 — 처음 실패하면 표식 붙은 주소로 한 번만 다시(규칙은 shared/img-retry.js) */
 async function _roomFaceUrlToCanvas(url){
   let img;
   try{ img = await _loadImgCors(url); }
   catch(e){
-    if(!/^https?:/i.test(String(url))) throw e;
-    img = await _loadImgCors(_roomCacheBust(url));
+    const again = TwImgRetry.retryUrl(url);
+    if(!again) throw e;
+    img = await _loadImgCors(again);
   }
   const w = img.naturalWidth || img.width || 0, h = img.naturalHeight || img.height || 0;
   const c = newCanvas();
@@ -400,6 +399,9 @@ async function _roomFaceUrlToCanvas(url){
   c.getContext('2d').drawImage(img, 0, 0);
   return c;
 }
+/* 방 스냅샷마다 모든 멤버 def 를 다시 풀므로, 못 받은 주소는 진단 기록에 한 번만(올라타기 진단 줄이 밀려나지 않게) */
+const _diagSeen = new Set();
+function _diagOnce(key, line){ if(_diagSeen.has(key)) return; _diagSeen.add(key); diagNote(line); }
 async function deserializeDefFromNetwork(def){
   if(!def) return def;
   const out=Object.assign({}, def);
@@ -411,11 +413,11 @@ async function deserializeDefFromNetwork(def){
        함께 왔으면 그걸로 되돌리고, 그것도 없으면 최소한 콘솔에 남긴다. */
     if(typeof def.faceUrl==='string'){
       try{ out.face = await _roomFaceUrlToCanvas(def.faceUrl); }
-      catch(e){ if(typeof def.face!=='string'){ console.warn('[방] 얼굴 이미지 로드 실패 — 피부색만 보입니다', def.faceUrl, e); diagNote('[방] 남의 얼굴 그림을 두 번 다 못 받음 — 피부색만 보임'); } }
+      catch(e){ if(typeof def.face!=='string'){ console.warn('[방] 얼굴 이미지 로드 실패 — 피부색만 보입니다', def.faceUrl, e); _diagOnce(def.faceUrl, '[방] 남의 얼굴 그림을 두 번 다 못 받음 — 피부색만 보임'); } }
     }
     if(typeof def.blinkUrl==='string'){
       try{ out.blink = await _roomFaceUrlToCanvas(def.blinkUrl); }
-      catch(e){ if(typeof def.blink!=='string'){ console.warn('[방] 감은눈 이미지 로드 실패', def.blinkUrl, e); diagNote('[방] 남의 감은눈 그림을 두 번 다 못 받음 — 표정 그림으로 대신'); } }
+      catch(e){ if(typeof def.blink!=='string'){ console.warn('[방] 감은눈 이미지 로드 실패', def.blinkUrl, e); _diagOnce(def.blinkUrl, '[방] 남의 감은눈 그림을 두 번 다 못 받음 — 표정 그림으로 대신'); } }
     }
     if(typeof out.face==='string'){ const img=await loadImg(out.face); const c=newCanvas(); c.getContext('2d').drawImage(img,0,0); out.face=c; }
     if(typeof out.blink==='string'){ const img=await loadImg(out.blink); const c=newCanvas(); c.getContext('2d').drawImage(img,0,0); out.blink=c; }

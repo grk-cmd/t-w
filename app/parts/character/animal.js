@@ -1940,10 +1940,10 @@ function _texFromDataURL(url, fallbackFill){
   const src=TwSafeHtml.safeUrl(url,'image');   // 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소만
   if(src){ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
     im.onload=()=>{ x.drawImage(im,0,0,P_SZ,P_SZ); t.needsUpdate=true; };
-    /* CORS 없이 먼저 캐시된 같은 그림이면 crossOrigin 로드가 막힌다 — 주소 뒤 표식으로 한 번만 다시(room-sync.js _roomCacheBust 와 같은 까닭) */
-    let retried=false;
+    /* CORS 없이 먼저 캐시된 같은 그림이면 crossOrigin 로드가 막힌다 — 표식 붙은 주소로 한 번만 다시(규칙은 shared/img-retry.js) */
     im.onerror=()=>{
-      if(!retried && /^https?:/i.test(src)){ retried=true; im.src=src+(src.indexOf('?')>=0?'&':'?')+'twr='+Date.now(); return; }
+      const again=TwSafeHtml.safeUrl(TwImgRetry.retryUrl(im.src),'image');   // 다시 받은 주소(twr=1)면 null → 빈 값이라 두 번까지만
+      if(again){ im.src=again; return; }
       console.warn('[동물] 페인트 텍스처 로드 실패:', (url||'').slice(0,64));
     };
     im.src=src; }
