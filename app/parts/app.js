@@ -1751,6 +1751,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   _rideWP: rideTuneMod._rideWP,
   broadcastRide: (...a)=>broadcastRide(...a),
   charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
+  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
   isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),

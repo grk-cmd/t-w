@@ -66,6 +66,7 @@ const _rideTmp = deps._rideTmp;
 const _rideWP = deps._rideWP;
 const broadcastRide = deps.broadcastRide;
 const charLiftWorld = deps.charLiftWorld;
+const diagNote = deps.diagNote;   // 진단 기록(tw-mouse-diag.log) 한 줄 — 설치본은 콘솔을 못 보니 제보 때 이 파일로 높이 값을 본다
 const getActiveInteractionDeskId = deps.getActiveInteractionDeskId;
 const isDeskUnlocked = deps.isDeskUnlocked;
 const isPartByRigOrName = deps.isPartByRigOrName;
@@ -374,6 +375,10 @@ function _positionRideSeat(seat, now){
                        ? ('  ⚠️ 귀 하위의 숨은 메쉬가 ' + _f2(host._earTopRawDbg - host._earTopDbg) + ' 만큼 부풀리고 있었음')
                        : '  (귀 하위엔 숨은 메쉬 없음 — 이 높이는 실제 귀)'))
                 : ''));
+          /* 진단 기록 한 줄 — «파츠를 떼거나 캐릭터를 바꿔도 높이가 그대로» 제보를 가를 값만(200자 안) */
+          diagNote('[올라타기] 대상=' + ((host.charDef && host.charDef.animal) ? '동물' : '사람') + ' ' + (_circus ? '묘기' : '1층')
+            + ' 머리=' + _f2(seat._rideHeadTop) + ' 파츠=' + _f2(seat._rideHeadTopPart) + ' 팔=' + _f2(seat._rideArmH)
+            + ' offY=' + _f2(_offY) + ' 발-머리꼭대기=' + _f2((_hb2 && !_hb2.isEmpty()) ? (seat.group.position.y - _hb2.max.y) : null));
         }catch(_){}
       }
       /* ★ UI(상태칩·메뉴·입력창) 전용 '흔들림 없는' 앵커를 따로 저장한다.
@@ -704,10 +709,10 @@ function _remeasureRideHeadTop(hostSeat){
   try{
     const headNode = (hostSeat.bones && hostSeat.bones.head) ? hostSeat.bones.head : hostSeat.headAnchor;
     const v = _measureHostHeadTop(hostSeat, headNode);
-    if(v == null) return;
+    if(v == null){ diagNote('[올라타기] 다시 재기 실패 — 옛 높이 그대로'); return; }
     const vb = (hostSeat._headTopNoEar != null) ? hostSeat._headTopNoEar : v;   // 🎪 묘기용(귀 제외)
     const vp = (hostSeat._headTopPart != null) ? hostSeat._headTopPart : null;  // 🎩 머리 중앙 파츠 위
-    riders.forEach(r=>{ try{ r._rideHeadTop = v; r._rideHeadTopBare = vb; r._rideHeadTopPart = vp; }catch(_){} });
+    riders.forEach(r=>{ try{ r._rideHeadTop = v; r._rideHeadTopBare = vb; r._rideHeadTopPart = vp; r._rideDbgOnce = true; }catch(_){} });   // 다음 프레임에 새 값으로 검증 한 줄
   }catch(_){}
 }
 /* 🐾 올라타기 — 동물 좌석을 대상 머리에 태우기/내리기 */
