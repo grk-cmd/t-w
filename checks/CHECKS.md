@@ -307,7 +307,7 @@
 | **sim-desktop-run.js** | 94 | **742b11531096** |
 | **sim-room-entry.js** | 124 | **c7dac617f4af** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
-| **sim-room-sync.js** | 99 | **6f7d27e6557e** |
+| **sim-room-sync.js** | 99 | **3a4397bd1b84** |
 | **sim-status-chip.js** | 102 | **76a65b890f4b** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
@@ -414,7 +414,7 @@
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
-| **sim-room-face-load.js** | 74 | **066e7ae3d3a1** |
+| **sim-room-face-load.js** | 152 | **96e51e3a34f5** |
 | **sim-part-ao-clean.js** | 122 | **535053a793ff** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
