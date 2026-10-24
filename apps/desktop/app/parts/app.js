@@ -2045,6 +2045,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   _lowestDanceReq: (...a)=>iDeskMod._lowestDanceReq(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
   _officeHidden: ()=>_officeHidden,
+  _seatHidden: (...a)=>hiddenSeatsMod._seatHidden(...a),
   _pickUnlockedDance: (...a)=>iDeskMod._pickUnlockedDance(...a),
   _premiumOn: (...a)=>_premiumOn(...a),
   _rollRoulette: (...a)=>rouletteMod._rollRoulette(...a),
@@ -2222,7 +2223,8 @@ try{
          정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
       companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
         moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined,
+        /* 다른 좌석 자리도 같이 — 렌더러는 좌석 전부를 맞히는데 main 이 내 좌석만 알면 남의 캐릭터 위 클릭을 «UI 밖» 으로 본다(otherSeatRegions 주석) */
+        regions: window.__uiRegions ? window.__uiRegions().concat(statusChipMod.otherSeatRegions()) : undefined,
         /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
            구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
         charBad: _charBadWhy || undefined });
