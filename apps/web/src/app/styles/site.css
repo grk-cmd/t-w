@@ -150,6 +150,9 @@ h3 {
 .btn.default {
   outline: 1px solid var(--bevel-dark);
 }
+.btn .ico {
+  flex: none;
+}
 .btn.big {
   min-height: 40px;
   padding: 6px 18px;
