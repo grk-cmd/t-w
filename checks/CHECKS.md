@@ -80,7 +80,7 @@
 | **sim-bug-board.js** | 384 | **7edc054fab9a** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
-| **sim-chat-history.js** | 244 | **530050435065** |
+| **sim-chat-history.js** | 244 | **9bbbfd7c28fc** |
 | **sim-gamepad-activity.js** | 131 | **320f86854007** |
 | **sim-mallang-hide.js** | 122 | **1250ce12a494** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
@@ -339,7 +339,7 @@
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 151 | **ddc82c19c666** |
+| **sim-device-lost.js** | 180 | **634846059164** |
 | **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
 | **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
 | **sim-inbox-sections.js** | 126 | **1a78a79c79f8** |
