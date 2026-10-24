@@ -5276,7 +5276,7 @@ function _applyXfToWrapper(wrp, xf, cat){
        ★ 부착 시점의 저장값으로 한 번 정하고, 그 뒤에는 기즈모가 값을 새로 쓸 때만 false 로 내린다
          (syncWdGizmoToXf 참고). 그래야 apply↔sync 가 서로 정확한 역함수로 남는다. */
     if(wrp.userData._aoLegacy === undefined)
-      wrp.userData._aoLegacy = !!(ao && _isLegacyAuthorCompensation(xf.pos, ao));
+      wrp.userData._aoLegacy = !!(ao && !xf.aoClean && _isLegacyAuthorCompensation(xf.pos, ao));   // aoClean = 기즈모 · 초기화가 쓴 깨끗한 값(다른 좌석에서도 다시 판정하지 않는다)
     const legacy = wrp.userData._aoLegacy;
     wrp.position.x += xf.pos[0] + (legacy ? ao.x : 0);
     wrp.position.y += xf.pos[1] + (legacy ? ao.y : 0) + _ahdy;

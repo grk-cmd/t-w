@@ -343,6 +343,8 @@ function syncWdGizmoToXf(){
     /* ★ 여기서 쓴 값은 ao 를 이미 되더한 '깨끗한' 값이다 — 옛 손보정 판정을 내려둔다.
        안 내리면 다음 apply 가 legacy 로 보고 +ao 를 또 더해, 만질 때마다 ao 씩 밀린다. */
     wrapper.userData._aoLegacy = false;
+    /* 저장값에도 남긴다 — 실행 화면 좌석은 새 wrapper 라 표식이 없어서, 크게 옮긴 값을 옛 손보정으로 잘못 보고 +ao 만큼 되돌려 붙였다 */
+    if(ao) xf.aoClean = true;
   }
   xf.rot = [ wrapper.rotation.x, wrapper.rotation.y, wrapper.rotation.z ];
   xf.scale = wrapper.scale.x;
@@ -1379,7 +1381,7 @@ function createWardrobeAdjPanel(cat, id) {
   };
   const resetOne = (kind)=>{
     _resetTargets().forEach(x=>{
-      if(kind==='pos')   x.pos   = (defXf && Array.isArray(defXf.pos))   ? defXf.pos.slice()  : [0,0,0];
+      if(kind==='pos'){  x.pos   = (defXf && Array.isArray(defXf.pos))   ? defXf.pos.slice()  : [0,0,0]; x.aoClean = true; }
       if(kind==='rot')   x.rot   = (defXf && Array.isArray(defXf.rot))   ? defXf.rot.slice()  : [0,0,0];
       if(kind==='scale') x.scale = (defXf && typeof defXf.scale==='number') ? defXf.scale     : 1;
     });
