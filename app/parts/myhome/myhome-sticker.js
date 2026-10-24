@@ -49,7 +49,6 @@ const STICKER_MAX = deps.stickerMax;
 const STICKER_BASE = deps.stickerBase;
 const STICKER_ROT_SNAP = deps.stickerRotSnap;
 const stRules = TwMyHomeStickerRules;                    // 🔒 잠금 · 순서 규칙(같은 폴더 · 순수 함수)
-const LOCKED_MSG = '🔒 잠긴 스티커예요 — 스티커 관리에서 잠금을 풀 수 있어요';
 
 /* ============================================================ 🎨 스티커 관리 창
    [왜 필요했나] 스티커를 드래그하다 마이홈 창 밖으로 밀어내면 화면에서 통째로 사라지는데,
@@ -128,7 +127,7 @@ function renderStickerMgr(){
     const mk=(parent, txt, title, fn)=>{ const b=document.createElement('button'); b.type='button';
       b.textContent=txt; b.title=title; b.onclick=fn; parent.appendChild(b); return b; };
 
-    /* 🔒 잠금 — 자리 · 크기 · 회전을 굳힌다(끌기 · 편집 모드 · ◎ 가 안 듣는다). 편집 중인 것을 잠그면 편집을 끝낸다. */
+    /* 🔒 잠금 — 끌기 · ◎ 로는 안 움직인다(고칠 땐 우클릭 · ✎ 편집 모드 — 잠금은 그대로). 편집 중인 것을 잠그면 편집을 끝낸다. */
     const lockBtn = mk(btns, locked ? '🔒' : '🔓', locked ? '잠금 풀기' : '잠그기(자리 · 크기 고정)', ()=>{
       stRules.setLocked(s, !locked);
       if(!locked && _mhStickerEditSid()===sid) _mhStickerEditEnd();
@@ -137,12 +136,12 @@ function renderStickerMgr(){
     lockBtn.classList.toggle('on', locked);
     /* ★ 편집은 관리 창을 닫고 스티커 자체로 넘긴다 — 이동·크기·회전은 실제 화면에서 봐야 맞출 수 있다.
        화면 밖에 있던 스티커라면 먼저 데려온 뒤 편집모드로 들어간다(안 그러면 또 안 보인다). */
-    mk(btns, '✎', locked ? '잠긴 스티커는 편집하지 않아요' : '편집 (이동·크기·회전)', ()=>{
+    mk(btns, '✎', locked ? '편집 (잠금은 그대로 — 끌어서는 안 움직여요)' : '편집 (이동·크기·회전)', ()=>{
       if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); commitMyHomePage(true); }
       closeStickerMgr();
       renderMyHomeStickers();
       _mhStickerEditStart(sid);
-    }).disabled = locked;
+    });
 
     /* ⋯ 더보기 — 누르면 버튼 아래로 펼치고, 고르거나 · 다시 누르거나 · 줄 밖으로 나가면 접는다.
        ⚠️ 목록이 스크롤 상자라 메뉴는 화면 기준(fixed)으로 놓는다 — 상자 안에 두면 마지막 줄 메뉴가 잘린다. */
@@ -209,7 +208,6 @@ try{
 
 function _mhStickerEditStart(sid){
   const s=(_myHomeData() && _myHomeData().stickers || {})[sid];
-  if(stRules.isLocked(s)){ toast(LOCKED_MSG); return; }
   _setMhStickerEditSid(sid);
   const hint = document.getElementById('mhStickerEditHint');
   if(hint) hint.classList.add('on');
@@ -240,7 +238,7 @@ function _mhBindStickerDrag(el, sid){
     if(e.target.classList.contains('mh-sticker-del')) return;
     if(e.target.classList.contains('mh-sticker-anim')) return;    // ✨ 움직임 버튼 — 드래그로 삼키지 않게
     e.preventDefault(); e.stopPropagation();
-    const s = (_myHomeData().stickers||{})[sid]; if(!s || stRules.isLocked(s)) return;
+    const s = (_myHomeData().stickers||{})[sid]; if(!s) return;   // 편집 모드는 잠긴 스티커도 움직인다(잠금은 편집 모드 밖의 끌기만 막는다)
     dragging=true; sx=e.clientX; sy=e.clientY;
     ox=s.x||0; oy=s.y||0; _setMhStickerDragDist(0);
     try{ el.setPointerCapture(e.pointerId); }catch(_){}
@@ -278,7 +276,7 @@ function _mhBindStickerRotate(handle, sid, lblEl){
 
   handle.addEventListener('pointerdown', e=>{
     e.preventDefault(); e.stopPropagation();
-    const s=(_myHomeData().stickers||{})[sid]; if(!s || stRules.isLocked(s)) return;
+    const s=(_myHomeData().stickers||{})[sid]; if(!s) return;
     const node = el(); if(!node) return;
     const r = node.getBoundingClientRect();
     cx = r.left + r.width/2;
@@ -323,7 +321,7 @@ function _mhBindStickerResize(handle, sid){
   let dragging=false, sx=0, sy=0, startSize=1;
   handle.addEventListener('pointerdown', e=>{
     e.preventDefault(); e.stopPropagation();
-    const s=(_myHomeData().stickers||{})[sid]; if(!s || stRules.isLocked(s)) return;
+    const s=(_myHomeData().stickers||{})[sid]; if(!s) return;
     dragging=true; sx=e.clientX; sy=e.clientY;
     startSize=(typeof s.size==='number' && s.size>0)?s.size:1;
     try{ handle.setPointerCapture(e.pointerId); }catch(_){}
