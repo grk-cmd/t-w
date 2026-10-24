@@ -6,6 +6,7 @@ export {
   updateWebPart,
   useWebParts,
   WEB_PARTS_KEY,
+  webPartErrorMessage,
 } from './api/webPart';
 export {
   draftProblem,

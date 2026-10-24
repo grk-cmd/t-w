@@ -12,9 +12,10 @@ import {
   PART_IMAGE_MAX_BYTES,
   toBase64,
   updateWebPart,
+  webPartErrorMessage,
   type WebPartDraft,
 } from '@/entities/web-creator/part';
-import type { Api, ApiWriteMethod } from '@/shared/api';
+import { ApiError, type Api, type ApiWriteMethod } from '@/shared/api';
 
 const PNG = new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 1, 2, 3]);
 const draft = (o: Partial<WebPartDraft> = {}): WebPartDraft => ({
@@ -124,5 +125,24 @@ describe('웹 생성기 파츠 — API', () => {
   it('API 가 없는 환경(dev · e2e)은 예전 방식이 없어 «API 없음» 오류', async () => {
     await expect(listWebParts(null)).rejects.toBeInstanceOf(NoApiError);
     expect(() => createWebPart(null, draft(), 'I')).toThrow(NoApiError);
+  });
+});
+
+describe('웹 생성기 파츠 — 쓰기 실패 글', () => {
+  it('서버가 400 · 404 로 보낸 까닭은 붙이고, 권한 · 닿지 못함은 기존 글', () => {
+    const f = '저장하지 못했어요';
+    expect(webPartErrorMessage(new ApiError('request', 400, 'BAD', 'PNG 가 아니에요'), f)).toBe(
+      `${f} — PNG 가 아니에요`,
+    );
+    expect(webPartErrorMessage(new ApiError('unavailable', 404, '', '이미 지운 파츠예요'), f)).toBe(
+      `${f} — 이미 지운 파츠예요`,
+    );
+    expect(webPartErrorMessage(new ApiError('auth', 401, 'AUTH_REQUIRED', ''), f)).toContain('다시 로그인');
+    expect(webPartErrorMessage(new ApiError('auth', 403, 'ACCESS_DENIED', '거절'), f)).toContain(
+      '권한이 없어요',
+    );
+    expect(webPartErrorMessage(new ApiError('unavailable', 0, '', 'API 에 연결하지 못했어요'), f)).toBe(f);
+    expect(webPartErrorMessage(new ApiError('unavailable', 502, '', 'API 오류 (502)'), f)).toBe(f);
+    expect(webPartErrorMessage(new Error('x'), f)).toBe(f);
   });
 });

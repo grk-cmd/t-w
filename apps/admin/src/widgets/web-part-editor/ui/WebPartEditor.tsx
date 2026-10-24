@@ -11,6 +11,7 @@ import {
   toBase64,
   useWebParts,
   WEB_PART_SLOTS,
+  webPartErrorMessage,
   type WebPart,
   type WebPartDraft,
   type WebPartSlot,
@@ -89,7 +90,7 @@ function PartForm({ part, onDone }: { part: WebPart | null; onDone: () => void }
       toast('저장했어요');
       onDone();
     } catch (err) {
-      setProblem(errorMessage(err, '저장하지 못했어요'));
+      setProblem(webPartErrorMessage(err, '저장하지 못했어요'));
     }
   };
 
@@ -207,7 +208,7 @@ export function WebPartEditor() {
       await remove.mutateAsync(p.id);
       toast('지웠어요');
     } catch (err) {
-      toast(errorMessage(err, '지우지 못했어요'));
+      toast(webPartErrorMessage(err, '지우지 못했어요'));
     }
   };
 
@@ -216,7 +217,7 @@ export function WebPartEditor() {
       await save.mutateAsync({ id: p.id, draft: { ...toDraft(p), hidden: !p.hidden } });
       toast(p.hidden ? '보이게 했어요' : '숨겼어요');
     } catch (err) {
-      toast(errorMessage(err, '바꾸지 못했어요'));
+      toast(webPartErrorMessage(err, '바꾸지 못했어요'));
     }
   };
 

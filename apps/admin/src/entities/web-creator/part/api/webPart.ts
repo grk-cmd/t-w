@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
-import { useApi, type Api } from '@/shared/api';
+import { ApiError, useApi, type Api } from '@/shared/api';
+import { errorMessage } from '@/shared/lib';
 import { parseAdminParts, type WebPart, type WebPartDraft } from '../model/webPart';
 
 const BASE = '/admin/web-creator/parts';
@@ -11,6 +12,14 @@ export class NoApiError extends Error {
     super('이 환경에는 자체 서버 API 가 없어 웹 생성기 파츠를 볼 수 없어요(운영 관리자에서만)');
     this.name = 'NoApiError';
   }
+}
+
+/** 쓰기 실패 글 — 서버가 400 · 404 로 까닭(«PNG 가 아니에요» · «이미 지운 파츠예요»)을 보내면 그 글을 붙인다.
+    공용 errorMessage 는 서버 글을 버려 다른 화면에 영향 없게 여기서만 붙인다. */
+export function webPartErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError && (err.kind === 'request' || err.status === 404) && err.message)
+    return `${fallback} — ${err.message}`;
+  return errorMessage(err, fallback);
 }
 
 const need = (api: Api | null): Api => {
