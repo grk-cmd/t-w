@@ -12,7 +12,6 @@ const SHUT = `${API_ORIGIN}/v1/assets/h2c.png`;
 const name = { ko: '별눈', en: 'Star', ja: 'ほし' };
 const piece = (o: Record<string, unknown> = {}) => ({
   id: 'p1',
-  dimension: '2d',
   kind: 'decal',
   target: { kind: 'baseModel' },
   surface: 'face',
@@ -63,7 +62,7 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
     });
   });
 
-  it('그릴 수 없는 것은 건너뛴다 — 잠긴 상품 · 다른 모델 · 3D · 다른 종류 · 다른 면 · 조각 모델 · 모르는 slot', () => {
+  it('그릴 수 없는 것은 건너뛴다 — 잠긴 상품 · 다른 모델 · 3D 모양 · 다른 종류 · 다른 면 · 3D 위 그림 · 모르는 slot', () => {
     const got = parseRemoteParts({
       items: [
         {
@@ -78,10 +77,11 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
         item([piece({ id: 'm1' })], { id: 'part', target: { kind: 'part', id: 'hat01' } }),
         item(
           [
-            piece({ id: 'p3d', dimension: '3d', kind: 'part' }),
+            piece({ id: 'p3d', kind: 'part', partId: 'part_catear' }),
             piece({ id: 'pk', kind: 'sticker' }),
             piece({ id: 'ear', surface: 'earL', slot: 'ear' }),
-            piece({ id: 'onp', target: { kind: 'piece', ref: 'p3d' } }),
+            piece({ id: 'onp', target: { kind: 'part', id: 'part_catear' }, surface: 'pic' }),
+            piece({ id: 'dim', dimension: '2d' }), // 옛 규격의 dimension 칸이 와도 받는다
             piece({ id: 'ok' }),
           ],
           { id: 'mix' },
@@ -89,7 +89,7 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
         item([piece({ id: 'x', slot: 'hair' })], { id: 'unk' }),
       ],
     });
-    expect(got.map((p) => p.id)).toEqual(['ok']);
+    expect(got.map((p) => p.id)).toEqual(['dim', 'ok']);
   });
 
   it('그림 주소는 우리 API 서버의 /v1/assets/ 아래 https 만', () => {
@@ -126,7 +126,7 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
       { w: Number.NaN },
       { w: '20' },
       { id: '../x' },
-      { dimension: undefined },
+      { kind: undefined },
     ];
     for (const o of badPieces) expect(parseRemoteParts(one(o)), JSON.stringify(o)).toEqual([]);
     expect(parseRemoteParts(one({ w: 200, h: 0.5 }))).toHaveLength(1);

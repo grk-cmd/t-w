@@ -2,13 +2,13 @@ import { API_ORIGIN } from '@/shared/config';
 import type { Lang } from '@/shared/i18n';
 import type { LayerKind } from './catalog';
 
-/** 관리자가 올린 그림 조각(2D 데칼)이 들어갈 자리 — 얼굴 레이어 또는 액세서리 */
+/** 관리자가 올린 그림 조각(decal)이 들어갈 자리 — 얼굴 레이어 또는 액세서리 */
 export type PartSlot = LayerKind | 'acc';
 
 /* 서버 규격(grk-cmd/t-w#517 · /v1/items): 조각(piece)은 늘 상품(item) 안에 있다.
-   생성기가 그릴 수 있는 것은 «2D 데칼 · 기본 몸 모델 · 얼굴 면» 뿐 — 다른 차원 · 종류 · 모델 · 면 · 모르는 slot 은 건너뛴다(서버가 먼저 늘어도 깨지지 않게).
+   생성기가 그릴 수 있는 것은 «그림(decal) · 기본 몸 모델 · 얼굴 면» 뿐 — 3D 모양(part) · 다른 모델 · 면 · 모르는 slot 은 건너뛴다(서버가 먼저 늘어도 깨지지 않게).
+   조각 종류는 kind 하나로 정한다(규격에서 dimension 칸은 빠졌다 — 와도 보지 않는다).
    잠긴 상품(locked)은 조각이 오지 않는다 — 🔒 칸은 화면을 정한 뒤에 그린다(#517 §13). */
-const DIMENSION = '2d';
 const PIECE_KIND = 'decal';
 const TARGET_KIND = 'baseModel';
 const SURFACE = 'face';
@@ -23,7 +23,7 @@ const PART_IMAGE_PATH = '/v1/assets/';
 const PARTS_MAX = 200;
 const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
 
-/** 서버에서 받은 2D 조각 하나 — 고르기 판의 항목 하나. 검사를 통과한 것만 */
+/** 서버에서 받은 그림 조각 하나 — 고르기 판의 항목 하나. 검사를 통과한 것만 */
 export interface RemotePart {
   /** 조각 id(서버가 만든다 · 상품을 고쳐도 남는다) */
   id: string;
@@ -70,9 +70,8 @@ function parseNames(name: unknown): Record<Lang, string> | null {
 
 function parsePiece(v: unknown, name: Record<Lang, string>): RemotePart | null {
   if (!isObj(v)) return null;
-  const { id, dimension, kind, target, surface, slot, src, variants, w, h } = v;
-  if (dimension !== DIMENSION || kind !== PIECE_KIND || !onBaseModel(target) || surface !== SURFACE)
-    return null;
+  const { id, kind, target, surface, slot, src, variants, w, h } = v;
+  if (kind !== PIECE_KIND || !onBaseModel(target) || surface !== SURFACE) return null;
   if (typeof id !== 'string' || !ID_RE.test(id)) return null;
   if (typeof slot !== 'string' || !(SLOTS as readonly string[]).includes(slot)) return null;
   if (!partImageUrlOk(src) || !sizeOk(w) || !sizeOk(h)) return null;
