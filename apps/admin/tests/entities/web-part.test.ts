@@ -117,14 +117,14 @@ describe('웹 생성기 파츠 — 폼 값 검사', () => {
 });
 
 describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
-  it('서버 순서 그대로 · 상태 · 그림(얼굴) 조각 하나짜리만 고칠 수 있다', () => {
+  it('상태 · 그림(얼굴) 조각 하나짜리만 고칠 수 있다 · 모양이 틀린 줄은 뺀다', () => {
     const got = parseAdminParts({
       products: [
-        productRow({ id: 'b', status: 'draft' }),
-        productRow({ id: 'a' }),
-        productRow({ id: 'multi', pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] }),
-        productRow({ id: 'ear', pieces: [piece({ surface: 'earL', slot: 'ear' })] }),
-        productRow({ id: 'p3d', pieces: [{ id: 'pp', kind: 'part', partId: 'part_catear' }] }),
+        productRow({ id: 'b', status: 'draft', position: 10 }),
+        productRow({ id: 'a', position: 20 }),
+        productRow({ id: 'multi', position: 30, pieces: [piece(), piece({ id: 'pc2', slot: 'mouth' })] }),
+        productRow({ id: 'ear', position: 40, pieces: [piece({ surface: 'earL', slot: 'ear' })] }),
+        productRow({ id: 'p3d', position: 50, pieces: [{ id: 'pp', kind: 'part', partId: 'part_catear' }] }),
         productRow({ id: 'other', target: { kind: 'part', id: 'hat' } }),
         productRow({ id: 'bad', status: 'hidden' }),
         productRow({ id: '' }),
@@ -160,6 +160,20 @@ describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
   it('썸네일은 주소일 때만 · 해시로 오면 조각 그림', () => {
     expect(partOf({ thumb: 'h2t' }).thumb).toBe(FILE('h2a'));
     expect(partOf().thumb).toBe(FILE('h2t'));
+  });
+
+  it('진열 순서 — position 작은 값이 앞 · 같으면 id · 없거나 틀리면 맨 뒤(서버 배열 순서는 믿지 않는다)', () => {
+    const got = parseAdminParts({
+      products: [
+        productRow({ id: 'c', position: 30 }),
+        productRow({ id: 'none', position: undefined }),
+        productRow({ id: 'b', position: 10 }),
+        productRow({ id: 'bad', position: 'x' }),
+        productRow({ id: 'a', position: 10 }),
+        productRow({ id: 'd', position: 20 }),
+      ],
+    });
+    expect(got.map((p) => p.id)).toEqual(['a', 'b', 'd', 'c', 'bad', 'none']);
   });
 
   it('한 칸 옮기기 — 끝을 넘으면 null', () => {

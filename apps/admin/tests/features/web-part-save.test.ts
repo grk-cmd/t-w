@@ -54,8 +54,10 @@ const existing = (): WebPart => {
   if (!p) throw new Error('시험용 상품을 읽지 못했다');
   return p;
 };
-const pieceOf = (c: { body?: unknown } | undefined) =>
-  (c?.body as { pieces: Record<string, unknown>[] }).pieces[0];
+const pieceOf = (c: { body?: unknown } | undefined) => {
+  const body = c?.body as { pieces: Record<string, unknown>[] } | undefined;
+  return body?.pieces[0];
+};
 
 describe('웹 생성기 파츠 저장 — 파일 → 감은 그림 → 상품 차례', () => {
   it('새 파츠: 그림 · 감은 그림을 차례로 올리고 받은 해시로 만든다', async () => {

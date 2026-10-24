@@ -20,7 +20,7 @@
   font-size: 13px;
 }
 
-.form .check {
+.check {
   flex-direction: row;
   align-items: center;
 }

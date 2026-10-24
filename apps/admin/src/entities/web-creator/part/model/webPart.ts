@@ -64,6 +64,8 @@ export interface WebPart {
   /** 이 화면이 고칠 수 있는 «그림(얼굴) 조각 하나짜리» 상품이면 그 조각 · 아니면 null(상태 · 순서만) */
   piece: WebPiece | null;
   pieceCount: number;
+  /** 진열 순서(작은 값이 앞) — 서버가 매긴다 · 없거나 틀리면 맨 뒤 */
+  position: number;
 }
 
 /** 폼이 고치는 칸 — 그림은 따로(새로 고를 때만 올린다) */
@@ -174,13 +176,20 @@ function parseItem(v: unknown): WebPart | null {
     thumb: thumb ?? piece?.src ?? null,
     piece,
     pieceCount: pieces.length,
+    position: typeof v.position === 'number' && Number.isFinite(v.position) ? v.position : Infinity,
   };
 }
 
-/** 관리자 목록 응답 data({ products }) → 상품 목록. 서버가 진열 순서로 보내므로 순서는 그대로. */
+/** 관리자 목록 응답 data({ products }) → 상품 목록 · 진열 순서(position 작은 값이 앞 · 같으면 id).
+    관리자 응답은 배열 순서를 약속하지 않는다(#517 §7-2) — ▲▼ 가 화면 순서를 통째로 보내므로 여기서 맞춘다 */
 export function parseAdminParts(data: unknown): WebPart[] {
   const list = isObj(data) && Array.isArray(data.products) ? data.products : [];
-  return list.map(parseItem).filter((p): p is WebPart => p !== null);
+  return list
+    .map(parseItem)
+    .filter((p): p is WebPart => p !== null)
+    .sort((a, b) =>
+      a.position === b.position ? (a.id < b.id ? -1 : a.id > b.id ? 1 : 0) : a.position < b.position ? -1 : 1,
+    );
 }
 
 /** 목록에서 i 번째를 한 칸 옮긴 id 순서 — 끝을 넘으면 null */
