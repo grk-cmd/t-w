@@ -128,7 +128,7 @@ function renderStickerMgr(){
       b.textContent=txt; b.title=title; b.onclick=fn; parent.appendChild(b); return b; };
 
     /* 🔒 잠금 — 끌기 · ◎ 로는 안 움직인다(고칠 땐 우클릭 · ✎ 편집 모드 — 잠금은 그대로). 편집 중인 것을 잠그면 편집을 끝낸다. */
-    const lockBtn = mk(btns, locked ? '🔒' : '🔓', locked ? '잠금 풀기' : '잠그기(자리 · 크기 고정)', ()=>{
+    const lockBtn = mk(btns, locked ? '🔒' : '🔓', locked ? '잠금 풀기' : '잠그기(끌어서 안 움직임)', ()=>{
       stRules.setLocked(s, !locked);
       if(!locked && _mhStickerEditSid()===sid) _mhStickerEditEnd();
       redraw();
