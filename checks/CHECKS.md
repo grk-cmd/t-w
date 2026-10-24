@@ -296,7 +296,7 @@
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **8d2f056f3589** |
 | **sim-tricks.js** | 94 | **53f1d40a59a5** |
-| **sim-ride-bench.js** | 138 | **7319dc266acd** |
+| **sim-ride-bench.js** | 166 | **65ba6106b0cc** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **3e7fcbc11472** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
@@ -394,7 +394,7 @@
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
 | **sim-seat-layout.js** | 172 | **6f339dcee0bc** |
-| **sim-seat-refit.js** | 182 | **d7e352d1115d** |
+| **sim-seat-refit.js** | 182 | **864d3b36827b** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 159 | **7ee3787c0a8c** |
 | **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |
