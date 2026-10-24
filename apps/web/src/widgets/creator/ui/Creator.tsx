@@ -84,7 +84,9 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   useEffect(() => {
     let alive = true;
     void fetchWebParts().then((r) => {
-      if (!alive || r.t !== 'ok' || !r.parts.length) return;
+      if (!alive) return;
+      // 화면은 기본 그림 그대로 — 서버를 연 뒤 원인을 알 수 있게 까닭만 남긴다
+      if (r.t === 'failed') return console.warn('[웹 생성기 파츠] 못 불러옴 —', r.why);
       setRemoteParts(r.parts);
       setRev((n) => n + 1);
     });

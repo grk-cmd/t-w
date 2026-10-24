@@ -52,6 +52,8 @@ describe('parseRemoteParts — 서버에서 받은 파츠 검사', () => {
       'http://api.together-working.com/a.png',
       'https://evil.example/a.png',
       'https://together-working.com/a.png',
+      `${API_ORIGIN}/admin/web-creator/parts`, // API 서버라도 그림 경로가 아니면
+      `${API_ORIGIN}/web-creator/imagesX/a.png`,
       'https://api.together-working.com.evil.example/a.png',
       'javascript:alert(1)',
       'data:image/png;base64,AAAA',

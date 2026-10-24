@@ -10,6 +10,8 @@ const LANGS: readonly Lang[] = ['ko', 'en', 'ja'];
 /** 그림 한 변 상한(얼굴 판 200 단위) — 얼굴 판을 넘는 그림은 받지 않는다 */
 const SIZE_MAX = 200;
 const NAME_MAX = 20;
+/** 그림은 API 서버의 이 아래만 — 서버의 다른 경로를 그림으로 받지 않는다 */
+const PART_IMAGE_PATH = '/web-creator/images/';
 /** 목록 상한 — 응답이 비정상으로 커도 고르기 판이 터지지 않게 */
 const PARTS_MAX = 200;
 
@@ -33,7 +35,8 @@ export interface RemotePart {
 export function partImageUrlOk(u: unknown): u is string {
   if (typeof u !== 'string') return false;
   try {
-    return new URL(u).origin === API_ORIGIN;
+    const url = new URL(u);
+    return url.origin === API_ORIGIN && url.pathname.startsWith(PART_IMAGE_PATH);
   } catch {
     return false;
   }
