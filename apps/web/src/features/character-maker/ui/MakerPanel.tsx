@@ -1,17 +1,17 @@
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent } from 'react';
 import { useI18n } from '@/shared/i18n';
 import {
-  ACCS,
   ACC_LIMITS,
   ACC_MAX,
   BOT_COLORS,
   EYE_COLORS,
-  LAYERS,
   LIMITS,
   PAIRED,
   TOP_COLORS,
+  accItems,
   findAcc,
   findItem,
+  layerItems,
   type AdjTarget,
   type LayerKind,
   type Shape,
@@ -27,6 +27,7 @@ import {
   type Side,
 } from '../model/state';
 import { drawItemThumb } from '../lib/draw-front';
+import { usePartArt } from './part-art';
 import type { EyeNode, MakerTab, Selection } from '../model/tabs';
 import { fileToFaceImage } from '../lib/load-image';
 
@@ -44,10 +45,11 @@ const EYE_TREE = ['eyeline', 'highlight', 'pupil'] as const;
 
 function Thumb({ shapes }: { shapes: Shape[] }) {
   const ref = useRef<HTMLCanvasElement>(null);
+  const art = usePartArt();
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
-    if (ctx) drawItemThumb(ctx, shapes, 44);
-  }, [shapes]);
+    if (ctx) drawItemThumb(ctx, shapes, 44, { images: art.images });
+  }, [shapes, art]);
   return <canvas ref={ref} width={44} height={44} aria-hidden="true" />;
 }
 
@@ -57,21 +59,23 @@ function ItemGrid({ s, kind, act }: { s: CreatorState; kind: LayerKind; act: (a:
   const c = m.creator;
   // 미리보기 그림은 색이 바뀔 때만 새로 — 그릴 때마다 새 배열이면 끄는 동안 칸마다 다시 그린다
   const color = s.pupilColor.L;
+  // 서버 그림이 들어오면 목록 배열이 새로 바뀌어 미리보기도 다시 만든다
+  const items = layerItems(kind);
   const thumbs = useMemo(
     () =>
-      LAYERS[kind].map((it) =>
+      items.map((it) =>
         // 하얀 하이라이트는 흰 칸에서 안 보여 동공 위에 얹어 보여 준다
         kind === 'highlight'
           ? [...findItem('pupil', 'round').open(color), ...it.open(color)]
           : it.open(color),
       ),
-    [kind, color],
+    [items, kind, color],
   );
   return (
     <>
       <p className="group-l">{c.shapeLabel}</p>
       <div className="items" role="group" aria-label={c.shapeLabel}>
-        {LAYERS[kind].map((it, i) => (
+        {items.map((it, i) => (
           <button
             key={it.id}
             type="button"
@@ -353,7 +357,7 @@ function AccBox({
         {c.accAdd} ({s.acc.length}/{ACC_MAX})
       </p>
       <div className="items" role="group" aria-label={c.accAdd}>
-        {ACCS.map((it) => (
+        {accItems().map((it) => (
           <button
             key={it.id}
             type="button"

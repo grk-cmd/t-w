@@ -7,6 +7,7 @@ import type { Adjust, CreatorState, Side } from '../model/state';
 import type { DragTarget } from '../model/tabs';
 import { drawFace, type Expr } from '../lib/draw-front';
 import type { MakerActions } from './MakerPanel';
+import { usePartArt } from './part-art';
 
 /** 칸 한 변(화면 픽셀) — 두 장이 옆 칸(300)에 나란히 들어간다 */
 const VIEW = 146;
@@ -51,6 +52,7 @@ function FaceCanvas({
 }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const [drag, setDrag] = useState<Drag | null>(null);
+  const art = usePartArt();
 
   useEffect(() => {
     const c = ref.current;
@@ -63,7 +65,7 @@ function FaceCanvas({
     ctx.clearRect(0, 0, FACE_UNITS, FACE_UNITS);
     ctx.fillStyle = skinColor;
     ctx.fillRect(0, 0, FACE_UNITS, FACE_UNITS);
-    drawFace(ctx, s, expr, { image });
+    drawFace(ctx, s, expr, { image, images: art.images });
     // Shift 로 곧게 끌 때 — 움직이는 줄을 보여 준다
     if (drag?.lock) {
       const p = grabCenter(s, drag.grab);
@@ -83,7 +85,7 @@ function FaceCanvas({
         ctx.setLineDash([]);
       }
     }
-  }, [s, expr, image, skinColor, drag]);
+  }, [s, expr, image, skinColor, drag, art]);
 
   const toUnits = (e: PointerEvent<HTMLCanvasElement>): Pt => {
     const r = e.currentTarget.getBoundingClientRect();

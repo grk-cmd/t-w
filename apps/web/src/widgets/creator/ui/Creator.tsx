@@ -2,10 +2,14 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { CharacterPreview, loadCharKit, type CharKit } from '@/entities/character';
 import {
   createFaceTextures,
+  createPartImages,
   DEFAULT_SELECTION,
   dragTargetOf,
   FaceTexturePanel,
+  fetchWebParts,
   MakerPanel,
+  PartArtProvider,
+  setRemoteParts,
   useMaker,
   type Selection,
 } from '@/features/character-maker';
@@ -74,6 +78,23 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   const [sel, setSel] = useState<Selection>(DEFAULT_SELECTION);
   const [exporting, setExporting] = useState(false);
   const tex = useMemo(() => createFaceTextures(kit), [kit]);
+  // 관리자가 올린 그림 파츠 — 목록이 오거나 그림이 하나 불러질 때마다 rev 가 늘어 다시 그린다. 서버에 닿지 못하면 기본 그림만.
+  const [rev, setRev] = useState(0);
+  const images = useMemo(() => createPartImages(() => setRev((n) => n + 1)), []);
+  useEffect(() => {
+    let alive = true;
+    void fetchWebParts().then((r) => {
+      if (!alive) return;
+      // 화면은 기본 그림 그대로 — 서버를 연 뒤 원인을 알 수 있게 까닭만 남긴다
+      if (r.t === 'failed') return console.warn('[웹 생성기 파츠] 못 불러옴 —', r.why);
+      setRemoteParts(r.parts);
+      setRev((n) => n + 1);
+    });
+    return () => {
+      alive = false;
+    };
+  }, []);
+  const art = useMemo(() => ({ images, rev }), [images, rev]);
   // 붙인 그림은 dataURL → 그림으로 풀어 둔다 — 지금 dataURL 과 짝이 맞을 때만 쓴다(바뀐 직후 옛 그림이 남지 않게)
   const [decoded, setDecoded] = useState<{ url: string; img: HTMLImageElement } | null>(null);
   const imgUrl = state.img?.dataUrl ?? null;
@@ -93,11 +114,11 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   const look = useMemo(
     () => ({
       faceTexture: tex.display,
-      paintFace: () => tex.render(state, expr, image),
+      paintFace: () => tex.render(state, expr, image, art.images),
       top: state.top,
       bot: state.bot,
     }),
-    [tex, state, expr, image],
+    [tex, state, expr, image, art],
   );
 
   const getCharacter = useCallback(
@@ -112,52 +133,54 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   );
 
   return (
-    <div className="maker-body">
-      <div className="stage">
-        <div className="view field">
-          <div className="turn" role="group">
-            {(['open', 'closed'] as const).map((e) => (
-              <button
-                key={e}
-                className="btn"
-                type="button"
-                aria-pressed={expr === e}
-                onClick={() => setExpr(e)}
-              >
-                {e === 'open' ? c.exprOpen : c.exprClosed}
-              </button>
-            ))}
+    <PartArtProvider value={art}>
+      <div className="maker-body">
+        <div className="stage">
+          <div className="view field">
+            <div className="turn" role="group">
+              {(['open', 'closed'] as const).map((e) => (
+                <button
+                  key={e}
+                  className="btn"
+                  type="button"
+                  aria-pressed={expr === e}
+                  onClick={() => setExpr(e)}
+                >
+                  {e === 'open' ? c.exprOpen : c.exprClosed}
+                </button>
+              ))}
+            </div>
+            <CharacterPreview kit={kit} look={look} label={c.previewLabel} />
           </div>
-          <CharacterPreview kit={kit} look={look} label={c.previewLabel} />
+          <FaceTexturePanel
+            s={state}
+            target={dragTargetOf(sel)}
+            onGrabAcc={(uid) => setSel((v) => ({ ...v, acc: uid }))}
+            ops={ops}
+            skinColor={kit.skinSwatches[state.skin] ?? '#f2d2bd'}
+            image={image}
+          />
+          <div className="row">
+            <button className="btn" type="button" onClick={random}>
+              {c.random}
+            </button>
+            <button className="btn" type="button" onClick={undo} disabled={!canUndo}>
+              {c.undo}
+            </button>
+            <button className="btn" type="button" onClick={reset}>
+              {c.startOver}
+            </button>
+          </div>
         </div>
-        <FaceTexturePanel
-          s={state}
-          target={dragTargetOf(sel)}
-          onGrabAcc={(uid) => setSel((v) => ({ ...v, acc: uid }))}
-          ops={ops}
-          skinColor={kit.skinSwatches[state.skin] ?? '#f2d2bd'}
-          image={image}
-        />
-        <div className="row">
-          <button className="btn" type="button" onClick={random}>
-            {c.random}
-          </button>
-          <button className="btn" type="button" onClick={undo} disabled={!canUndo}>
-            {c.undo}
-          </button>
-          <button className="btn" type="button" onClick={reset}>
-            {c.startOver}
+        <div className="side">
+          <MakerPanel s={state} ops={ops} skinSwatches={kit.skinSwatches} sel={sel} onSel={setSel} />
+          <button className="btn default export" type="button" onClick={() => setExporting(true)}>
+            <b>{c.exportBtn}</b>
+            <small>{c.exportSub}</small>
           </button>
         </div>
+        {exporting && <ExportDialog getCharacter={getCharacter} onClose={() => setExporting(false)} />}
       </div>
-      <div className="side">
-        <MakerPanel s={state} ops={ops} skinSwatches={kit.skinSwatches} sel={sel} onSel={setSel} />
-        <button className="btn default export" type="button" onClick={() => setExporting(true)}>
-          <b>{c.exportBtn}</b>
-          <small>{c.exportSub}</small>
-        </button>
-      </div>
-      {exporting && <ExportDialog getCharacter={getCharacter} onClose={() => setExporting(false)} />}
-    </div>
+    </PartArtProvider>
   );
 }

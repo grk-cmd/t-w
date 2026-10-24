@@ -2,10 +2,11 @@ import {
   ACC_LIMITS,
   ACC_MAX,
   EYE_COLORS,
-  LAYERS,
+  LAYER_KINDS,
   LIMITS,
   PAIRED,
   findAcc,
+  layerItems,
   isEyePart,
   type AdjTarget,
   type LayerKind,
@@ -60,7 +61,7 @@ export const SKIN_COUNT = 5;
 /** 새 액세서리를 옆으로 비켜 붙이는 간격(얼굴 판) */
 const ACC_STEP = 14;
 const one = (): Adjust => ({ x: 0, y: 0, s: 1, r: 0 });
-const KINDS = Object.keys(LAYERS) as LayerKind[];
+const KINDS = LAYER_KINDS;
 const TARGETS = Object.keys(PAIRED) as AdjTarget[];
 
 export function freshAdjust(): Record<AdjTarget, AdjustSet> {
@@ -125,7 +126,7 @@ const HEX = /^#[0-9a-fA-F]{6}$/;
 export function reduce(s: CreatorState, a: Action): CreatorState {
   switch (a.t) {
     case 'item':
-      if (s[a.kind] === a.id || !LAYERS[a.kind].some((it) => it.id === a.id)) return s;
+      if (s[a.kind] === a.id || !layerItems(a.kind).some((it) => it.id === a.id)) return s;
       return { ...s, [a.kind]: a.id };
     case 'pupilColor': {
       if (!HEX.test(a.color)) return s;
@@ -230,7 +231,7 @@ export function randomState(s: CreatorState, rnd: () => number = Math.random): C
   };
   // 동공은 «없음» 을 빼고 고른다 — 무작위로 눈이 사라지지 않게
   for (const k of KINDS) {
-    const items = k === 'pupil' ? LAYERS[k].filter((it) => it.id !== 'none') : LAYERS[k];
+    const items = k === 'pupil' ? layerItems(k).filter((it) => it.id !== 'none') : layerItems(k);
     out[k] = pick(items).id;
   }
   return out;
