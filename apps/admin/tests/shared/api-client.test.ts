@@ -64,6 +64,10 @@ describe('API 통로', () => {
       ['s', 'a b'],
     ]);
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer tok');
+    // 읽기는 본문 · Content-Type 없이 GET 으로 — send 와 request 를 나눠 쓴 뒤에도
+    expect(calls[0].init.method).toBe('GET');
+    expect(calls[0].init.body).toBeUndefined();
+    expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
   });
 
   it('로그인 전(토큰 없음)이면 부르지 않고 401 오류', async () => {
@@ -147,5 +151,44 @@ describe('API 통로', () => {
     expect([e.kind, e.code]).toEqual(['request', 'INVALID_REQUEST']);
     expect(shouldFallback(e)).toBe(false);
     expect(shouldFallback(new Error('x'))).toBe(false);
+  });
+});
+
+describe('API 쓰기(send)', () => {
+  it('메서드 · JSON 본문 · Content-Type · 토큰을 싣고 봉투의 data 만 돌려준다', async () => {
+    const { client, calls } = api(() => json(200, { success: true, data: { id: 'p1' } }));
+    await expect(client.send('POST', '/admin/x', { a: 1 })).resolves.toEqual({ id: 'p1' });
+    const init = calls[0].init;
+    expect(init.method).toBe('POST');
+    expect(init.body).toBe('{"a":1}');
+    const headers = init.headers as Record<string, string>;
+    expect(headers['Content-Type']).toBe('application/json');
+    expect(headers.Authorization).toBe('Bearer tok');
+  });
+
+  it('본문이 없으면(DELETE) 본문 · Content-Type 도 없다', async () => {
+    const { client, calls } = api(() => json(200, { success: true, data: null }));
+    await client.send('DELETE', '/admin/x/1');
+    expect(calls[0].init.method).toBe('DELETE');
+    expect(calls[0].init.body).toBeUndefined();
+    expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+  });
+
+  it('오류 규칙은 읽기와 같다 — 403 권한 · 400 요청 · 로그인 전엔 부르지 않음', async () => {
+    const e403 = await failure(
+      api(() => json(403, { success: false, code: 'ACCESS_DENIED' })).client.send('PATCH', '/x', {}),
+    );
+    const e400 = await failure(
+      api(() => json(400, { success: false, code: 'BAD', message: 'PNG 가 아니에요' })).client.send(
+        'POST',
+        '/x',
+        {},
+      ),
+    );
+    expect([e403.kind, e403.code]).toEqual(['auth', 'ACCESS_DENIED']);
+    expect([e400.kind, e400.message]).toEqual(['request', 'PNG 가 아니에요']);
+    const anon = api(() => json(200, { success: true, data: 1 }), '');
+    expect((await failure(anon.client.send('POST', '/x', {}))).kind).toBe('auth');
+    expect(anon.calls).toHaveLength(0);
   });
 });

@@ -56,12 +56,18 @@ function fakeApi(respond: (path: string, params?: ApiParams) => unknown) {
       calls.push([path, params]);
       return respond(path, params) as T;
     },
+    send: async () => {
+      throw new Error('이 시험은 쓰기를 부르지 않는다');
+    },
   };
   return { api, calls };
 }
 
 const failing = (e: ApiError): Api => ({
   get: async () => {
+    throw e;
+  },
+  send: async () => {
     throw e;
   },
 });

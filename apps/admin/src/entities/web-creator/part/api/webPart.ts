@@ -1,0 +1,67 @@
+import { useQuery } from '@tanstack/react-query';
+import { ApiError, useApi, type Api } from '@/shared/api';
+import { errorMessage } from '@/shared/lib';
+import { parseAdminParts, type WebPart, type WebPartDraft } from '../model/webPart';
+
+const BASE = '/admin/web-creator/parts';
+export const WEB_PARTS_KEY = ['webParts'] as const;
+
+/** 이 환경에는 API 가 없다(dev · e2e) — 웹 생성기 파츠는 자체 서버에만 있어 예전 방식(RTDB)이 없다 */
+export class NoApiError extends Error {
+  constructor() {
+    super('이 환경에는 자체 서버 API 가 없어 웹 생성기 파츠를 볼 수 없어요(운영 관리자에서만)');
+    this.name = 'NoApiError';
+  }
+}
+
+/** 쓰기 실패 글 — 서버가 400 · 404 로 까닭(«PNG 가 아니에요» · «이미 지운 파츠예요»)을 보내면 그 글을 붙인다.
+    공용 errorMessage 는 서버 글을 버려 다른 화면에 영향 없게 여기서만 붙인다. */
+export function webPartErrorMessage(err: unknown, fallback: string): string {
+  if (err instanceof ApiError && (err.kind === 'request' || err.status === 404) && err.message)
+    return `${fallback} — ${err.message}`;
+  return errorMessage(err, fallback);
+}
+
+const need = (api: Api | null): Api => {
+  if (!api) throw new NoApiError();
+  return api;
+};
+const one = (id: string) => `${BASE}/${encodeURIComponent(id)}`;
+
+export async function listWebParts(api: Api | null): Promise<WebPart[]> {
+  return parseAdminParts(await need(api).get<unknown>(BASE));
+}
+
+/** 새 파츠 — 그림(PNG base64)은 꼭 · 감은눈 그림은 아이라인만 */
+export function createWebPart(api: Api | null, draft: WebPartDraft, image: string, closedImage?: string) {
+  return need(api).send<unknown>('POST', BASE, {
+    ...draft,
+    image,
+    ...(draft.slot === 'eyeline' && closedImage ? { closedImage } : {}),
+  });
+}
+
+/** 고치기 — 그림은 새로 골랐을 때만 싣는다 */
+export function updateWebPart(
+  api: Api | null,
+  id: string,
+  draft: WebPartDraft,
+  image?: string,
+  closedImage?: string,
+) {
+  return need(api).send<unknown>('PATCH', one(id), {
+    ...draft,
+    ...(image ? { image } : {}),
+    ...(draft.slot === 'eyeline' && closedImage ? { closedImage } : {}),
+  });
+}
+
+export function deleteWebPart(api: Api | null, id: string) {
+  return need(api).send<unknown>('DELETE', one(id));
+}
+
+export function useWebParts() {
+  const api = useApi();
+  // 서버가 아직 이 길을 모르면(배포 전) 404 — 다시 해 봐도 같다
+  return useQuery({ queryKey: WEB_PARTS_KEY, queryFn: () => listWebParts(api), retry: false });
+}

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react';
 import { Base64CleanupCard, CatalogAnalysisCard } from '@/features/catalog/diagnose-catalog';
 import { CategoryNamesCard } from '@/features/catalog/manage-categories';
 import { CatalogList } from '@/widgets/catalog-list';
+import { WebPartEditor } from '@/widgets/web-part-editor';
 import styles from './CatalogPage.module.css';
 
 interface Tab {
@@ -21,6 +22,7 @@ const TABS: Tab[] = [
   { id: 'gachaParts', label: '가챠 파츠', render: () => <CatalogList kind="gachaParts" /> },
   { id: 'desks', label: '책상', render: () => <CatalogList kind="desks" editable /> },
   { id: 'items', label: '아이템', render: () => <CatalogList kind="items" editable /> },
+  { id: 'webParts', label: '웹 생성기 파츠', render: () => <WebPartEditor /> },
   {
     id: 'diagnose',
     label: '진단',
