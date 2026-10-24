@@ -31,7 +31,7 @@ export async function cleanGhostRooms(
     targets.map(async (code) =>
       code in index
         ? isRoomAlive(index[code], now)
-        : isRoomAlive({ lastSeen: (await probeRoom(db, code, true)).lastSeen ?? undefined }, now),
+        : isRoomAlive({ lastSeen: (await probeRoom(db, code, true, false)).lastSeen ?? undefined }, now),
     ),
   );
   const removed = targets.filter((_, i) => !alive[i]);

@@ -1,7 +1,7 @@
 /* click-through-policy.js — 클릭 통과(setIgnoreMouseEvents)로 바꿀지 판단하는 규칙 한 곳
    렌더러(desktop-run.js 의 mousemove · 재판정 · 고착 회복 사다리)와 main.js(안전장치 ⓔ·ⓕ·ⓖ)가 같은 파일을 쓴다.
    받는 deps: 없음 — 순수 함수다. 입력은 «무슨 일이 있었나» 사실, 출력은 결정(문자열 · 작은 객체). DOM · IPC · 타이머 · 로그는 부르는 쪽이 한다.
-   내놓는 것: 상수(아래 묶음) · 렌더러 holdForDrag · moveStep · hitStep · pointerDownStep · pokeStep · clickMayKick · kickStep
+   내놓는 것: 상수(아래 묶음) · 렌더러 holdForDrag · moveStep · hitStep · pointerDownStep · pokeStep · clickMayKick · kickStep · charHittable
               / main mainArmed · stallStep · staleCaptureStep · foreignInputStep · deferExpiredStep
    ★ main.js 는 require 로, 렌더러는 window.TwClickThroughPolicy 로 받는다 — 두 프로세스의 문턱이 갈라지지 않게.
    ⚠️ 같은 조건을 다른 파일에 다시 쓰지 않는다(검사 checks/sim-click-through-policy.js 가 빨강을 낸다). 규칙을 바꾸려면 여기만 고친다. */
@@ -92,6 +92,11 @@ function kickStep(f){
   return { act: 'probe', stage };
 }
 
+/* 캐릭터를 클릭 판정에 넣는가 — 렌더러 3D 판정(desktop-run.js)과 main 이 받는 캐릭터 영역(상태칩이 보냄)이 같이 따른다.
+   ★ 회사원 모드로 화면을 숨겼으면 안 넣는다 — 숨김은 CSS 로 화면만 감춰서, 판정에 남으면 보이지 않는 캐릭터 자리가
+     다른 앱(포토샵 등) 클릭을 가로채고 회수 장치(ⓖ)도 «우리 UI 위» 로 보고 물러난다. */
+function charHittable(f){ return !f.officeHidden; }
+
 /* ═══ main ═══ */
 
 /* ⓔ·ⓕ·ⓖ 공통 — run 모드이고 지금 클릭을 받는 중일 때만 회수할 것이 있다 */
@@ -158,7 +163,7 @@ const api = {
   MOVE_GAP_RECEIVING_MS, MOVE_GAP_PASSING_MS, PASS_DEBOUNCE_MS, KICK_GAP_MS, MOVE_ALIVE_MS, POKE_ALIVE_MS,
   KICK_REARM_STAGES, KICK_PROBE_MS,
   RENDERER_STALL_MS, FWD_STALE_MS, FWD_MOVE_MIN_PX, FWD_REFIRE_MS, FGN_CHAR_MARGIN, FGN_BOUNDS_FRESH_MS, FGN_TRUST_MS, FGN_DEFER_MS,
-  holdForDrag, moveStep, hitStep, pointerDownStep, pokeStep, clickMayKick, kickStep,
+  holdForDrag, moveStep, hitStep, pointerDownStep, pokeStep, clickMayKick, kickStep, charHittable,
   mainArmed, stallStep, staleCaptureStep, foreignInputStep, deferExpiredStep,
 };
 if(typeof window !== 'undefined') window.TwClickThroughPolicy = api;

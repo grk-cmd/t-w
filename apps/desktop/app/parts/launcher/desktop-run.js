@@ -25,6 +25,7 @@ const anyInput = deps.anyInput;
 const backToLauncher = deps.backToLauncher;
 const camera = deps.camera;
 const clickPolicy = deps.clickPolicy;   // 클릭 통과 판단 규칙(click-through-policy.js)
+const _officeHidden = deps._officeHidden;   // 읽는 함수 — 회사원 모드 화면 숨김
 const desktopMode = deps.desktopMode;
 const drag = deps.drag;   // 읽는 함수
 const focusGateSleep = deps.focusGateSleep;   // 읽는 함수
@@ -352,7 +353,7 @@ if(desktopMode){
         return true;
       }
       // 3D 캐릭터 위인지 (raycast)
-      if(_cvEl && seats.length){
+      if(_cvEl && seats.length && clickPolicy.charHittable({ officeHidden: _officeHidden() })){
         const r = _cvEl.getBoundingClientRect();
         if(cx>=r.left && cx<=r.right && cy>=r.top && cy<=r.bottom){
           _ndcHit.x = ((cx - r.left)/r.width)*2 - 1;

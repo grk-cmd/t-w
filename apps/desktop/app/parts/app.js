@@ -2051,6 +2051,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   backToLauncher: (...a)=>backToLauncher(...a),
   camera: camera,
   chatUiMod: ()=>chatUiMod,
+  clickPolicy: TwClickThroughPolicy,
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   moveMode: ()=>moveMode,
@@ -2127,7 +2128,9 @@ const plMod = TwPlaylist.createPlaylist({
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   escEditable: (...a)=>winStackMod._escEditable(...a),
+  playlistSync: TwPlaylistSync,
 });
+TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리스트 소리 진단 줄
 /* ═══ 🎵 프리셋 세 벌 ═══ */
 /* 🎵 프리셋 세 벌(_plSets · _plCur · _plNowSet …) · 저장 · 서버 사본은 parts/playlist.js 로 옮겼다(앱 FSD 16번) — 연결은 바로 위 «🎵 상태칩 플레이리스트» 머리 아래(plMod). */
 /* ═══ 👤 프로필 소개칸 ═══════════════════════════════════════════════════
@@ -8502,7 +8505,8 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   if(desktopMode){ renderer.clear(); }   // 투명 클리어 강제 — 프레임 사이 흰 잔상 방지
   /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
-  if(!(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
+  /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
+  if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
   if(!manual) requestAnimationFrame(frame);
@@ -8747,6 +8751,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  mobileDiag: TwMobileDiag,
   renderLauncher: (...a)=>renderLauncher(...a),
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
@@ -8809,6 +8814,7 @@ const gachaMod = TwGacha.createGacha({
   tsKey: GACHA_TS_KEY,
   bonusKey: GACHA_BONUS_KEY,
   isGachaPart: (...a)=>premiumMod.isGachaPart(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({
@@ -9058,6 +9064,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
 const desktopRunMod = TwDesktopRun.createDesktopRun({
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
   _charBoundsLatest: ()=>_charBoundsLatest,
+  _officeHidden: ()=>_officeHidden,
   _penAppFocused: ()=>_penAppFocused,
   _skipFlyingRigs: (...a)=>hiddenSeatsMod._skipFlyingRigs(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),

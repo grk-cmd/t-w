@@ -34,9 +34,12 @@ export function createFace(deps: FaceDeps) {
   if (!deps || typeof deps.makeCanvas !== 'function') throw new Error('char-core: deps.makeCanvas 가 필요하다');
   const warn = deps.warn || ((...a: unknown[]) => console.warn(...a));
 
+  /* ⚠️ 첫 getContext 에 willReadFrequently — CPU 쪽 캔버스라 그래픽 리셋(GPU 프로세스 재시작)에도 내용이 안 지워진다.
+     GPU 쪽이면 피부 · 얼굴 캔버스가 통째로 비어 캐릭터가 투명해진다. 같은 캔버스의 다음 getContext('2d') 는 이 컨텍스트를 돌려준다. */
   function newCanvas(): CanvasLike {
     const c = deps.makeCanvas();
     c.width = c.height = CANVAS_SZ;
+    try { c.getContext('2d', { willReadFrequently: true }); } catch (_) { /* 가짜 캔버스 등 */ }
     return c;
   }
 

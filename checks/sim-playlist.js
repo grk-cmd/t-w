@@ -22,9 +22,10 @@ let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['playlist.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['playlist.js', 'playlist-sync.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+const PLSYNC = (() => { const w = {}; new Function('window', SRC['playlist-sync.js'])(w); return w.TwPlaylistSync; })();   // ☁️ 기기 간 맞추기 규칙(진짜)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const flush = () => new Promise(r => setImmediate(r));
 
@@ -119,10 +120,11 @@ function mkEnv(o){
     env.t = end;
   };
   const api = o.noApi ? undefined : {
-    publishMyPlaylist: async (uid, name, sets, meta) => { env.calls.push('publish ' + uid + ' ' + name + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); return true; },
-    removeMyPlaylist: async (uid, meta) => { env.calls.push('removePl ' + uid + ' ' + JSON.stringify(meta)); return true; },
+    publishMyPlaylist: async (uid, name, sets, meta, ts) => { env.pubTs = ts; env.calls.push('publish ' + uid + ' ' + name + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); return true; },
+    removeMyPlaylist: async (uid, meta, ts) => { env.pubTs = ts; env.calls.push('removePl ' + uid + ' ' + JSON.stringify(meta)); return true; },
     fetchPlaylistCard: async (uid) => { env.calls.push('card ' + uid); return env.cards[uid] || null; },
     fetchRandomPlaylist: async (me, ex) => { env.calls.push('random ' + me + ' ' + ex); return env.randomPl || null; },
+    fetchMyPlaylistSets: async (uid) => { env.calls.push('fetchMine ' + uid); if(env.srvThrow) throw new Error('끊김'); return env.srv === undefined ? { sets: [], bio: '', homePublic: false, ts: 0 } : env.srv; },
     fetchPlaylistOf: async (uid) => { env.calls.push('of ' + uid); return env.plOf ? env.plOf[uid] || null : null; },
   };
   const comp = o.noCompanion ? undefined : {
@@ -154,6 +156,7 @@ function mkEnv(o){
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
+      playlistSync: PLSYNC,
     }, extra || {}));
     return env.m;
   };
@@ -351,6 +354,7 @@ async function behave(src){
   }
   {
     const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+    m.markSynced();   // 부팅 맞추기는 5-2절 — 여기선 맞춘 뒤의 올리기만 본다
     m.save(); m.save();
     await e.advance(2900);
     chk(e.count('publish') === 0, '☁️ 서버 사본 — 3초 debounce(그 전엔 안 올린다)');
@@ -365,6 +369,190 @@ async function behave(src){
     chk(e.count('removePl') === 1, '  세 벌이 다 비면 서버 사본을 지운다');
     e.byId.myPlPub.checked = true; e.byId.myPlPub.fire('change');
     chk(m.state().homePublic && /마이홈에 들어올 수 있어요/.test(e.toasts.slice(-1)[0]), '🏠 마이홈 공개 — 켤 때만 무슨 일인지 알린다');
+  }
+  say('── 5-2. ☁️ 기기 간 맞추기(부팅)');
+  {
+    const srvOf = (n, editTs, pre) => ({ sets: [{ name: '메인', items: songs(n, pre) }], bio: '안녕', homePublic: true, ts: editTs || 1, editTs });
+    const boot = async (e) => { await e.advance(4300); await e.advance(3100); };
+    // ① 새 기기(이 기기에서 고친 적 없음) — 맞추기 전엔 안 올리고 · 시각 아는 서버 목록을 받는다(이 기기 것은 백업)
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(1, 'o')) } }); const m = e.mk();
+      e.srv = srvOf(3, 5000);
+      m.st.sets[0].items.push({ id: 'x0000000001', url: 'u', title: 't' }); m.save(); await e.advance(3100);
+      chk(e.count('publish') === 0 && e.count('removePl') === 0, '맞추기 전에는 고쳐도 서버에 안 올린다(다른 기기 목록을 덮던 길)');
+      const e2 = E({ store: { 'tw.playlistSets': setsOf(songs(1, 'o')) } }); const m2 = e2.mk();
+      e2.srv = srvOf(3, 5000);
+      await boot(e2);
+      const s2 = m2.state(), bk = JSON.parse(e2.store.get('tw.playlistBackup') || 'null');
+      chk(e2.count('fetchMine') === 1 && s2.sets[0].items.length === 3 && s2.sets[0].name === '메인' && s2.bio === '안녕' && s2.homePublic
+        && e2.store.get('tw.playlistEditTs') === '5000' && JSON.parse(e2.store.get('tw.playlistSets'))[0].items.length === 3 && e2.count('publish') === 0,
+        '  고친 적 없는 기기 — 시각 아는 서버 목록 · 한마디 · 공개를 받아 저장 · 고친 시각은 서버 것 · 다시 올리지 않는다');
+      chk(bk && bk.sets[0].items.length === 1 && bk.sets[0].items[0].id === songs(1, 'o')[0].id, '  받기 전 이 기기 목록을 백업 키(tw.playlistBackup)에 남긴다');
+    }
+    // ② 이 기기에서 나중에 고쳤다 — 이 기기 것을 올린다(ts = 고친 시각)
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
+      e.srv = srvOf(3, 5000);
+      await boot(e);
+      chk(m.state().sets[0].items.length === 2 && e.count('publish') === 1 && e.pubTs === 9000, '  이 기기가 나중 — 이 기기 목록을 올린다(ts 는 고친 시각)');
+    }
+    // ③ 서버가 나중 — 받는다 · ④ 같다 — 아무것도 안 쓴다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '3000' } }); const m = e.mk();
+      e.srv = srvOf(4, 5000);
+      await boot(e);
+      chk(m.state().sets[0].items.length === 4 && e.count('publish') === 0, '  서버가 나중 — 서버 목록을 받는다');
+      const f = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '5000' } }); const n = f.mk();
+      f.srv = srvOf(4, 5000);
+      await boot(f);
+      chk(n.state().sets[0].items.length === 2 && f.count('publish') === 0 && f.count('removePl') === 0, '  고친 시각이 같다 — 그대로 · 쓰기 없음');
+    }
+    // ⑤ 서버가 비웠다(빈 목록 + 시각) — 나중이면 이 기기도 비운다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '3000' } }); const m = e.mk();
+      e.srv = { sets: [], bio: '', homePublic: false, ts: 5000, editTs: 5000 };
+      await boot(e);
+      chk(m.state().sets.every(x => !x.items.length) && e.count('publish') === 0, '  다른 기기가 나중에 다 비웠다 — 이 기기도 비운다(지운 목록이 되살아나지 않게)');
+    }
+    // ⑥ 업그레이드 첫 부팅 — 옛 앱이 쓴 서버(시각 모름)와 이 판 전 저장분(시각 모름)이 둘 다 곡이면 아무것도 덮지 않는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2, 'g')) } }); const m = e.mk();
+      e.srv = { sets: [{ name: '옛', items: songs(3, 'x') }], bio: '', homePublic: false, ts: 99999 };   // editTs 칸 없음 = 옛 앱
+      await boot(e);
+      const a = m.state().sets[0].items[0].id === songs(1, 'g')[0].id && e.count('publish') === 0;
+      m.st.sets[0].items.pop(); m.save(); await e.advance(3100);
+      chk(a && e.count('publish') === 1 && e.pubTs === e.t - 3100, '  업그레이드 첫 부팅 — 둘 다 시각 모름이면 이 기기 목록을 지키고 · 고치면 그때 올린다');
+    }
+    // ⑦ 옛 앱과 섞어 쓴다 — 옛 앱이 나중에 올려도(ts 만 큼) 이 판에서 고친 기기 목록이 이긴다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
+      e.srv = { sets: [{ name: '옛', items: songs(3, 'x') }], bio: '', homePublic: false, ts: 99999 };
+      await boot(e);
+      chk(m.state().sets[0].items.length === 2 && e.count('publish') === 1 && e.pubTs === 9000, '  옛 앱이 쓴 노드(editTs 없음) — 이 판에서 고친 이 기기 목록을 올린다');
+    }
+    // ⑧ 못 읽었다 — 아무것도 안 하고 늘려 가는 간격으로 다시 · 그동안 안 올림
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
+      e.srvThrow = true; await e.advance(4300); e.srvThrow = false;   // 던져도 못 읽음과 같다(새지 않는다)
+      e.srv = null;
+      await e.advance(30000);
+      const a = e.count('fetchMine') === 2 && e.count('publish') === 0;
+      e.srv = srvOf(3, 5000);
+      await e.advance(59000);
+      const b = e.count('fetchMine') === 2;
+      await e.advance(1000); await e.advance(3100);
+      chk(a && b && e.count('fetchMine') === 3 && e.count('publish') === 1 && m.state().sets[0].items.length === 2, '  서버를 못 읽으면(던져도) 아무것도 안 하고 30초 · 60초 … 뒤 다시 본다(그동안 안 올림)');
+    }
+    // ⑨ 재생 중이면 받기를 미룬다 — 듣던 곡이 사라지지 않게
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      e.srv = srvOf(3, 5000);
+      m.st.now = 0;
+      await boot(e);
+      const a = m.state().sets[0].items.length === 2;
+      m.st.now = -1;
+      await e.advance(30000);
+      chk(a && m.state().sets[0].items.length === 3, '  재생 중이면 받기를 미루고 멈춘 뒤 받는다');
+    }
+    // ⑨-2 미루는 동안 이 기기에서 곡을 넣었다 — 판단은 그때 것 그대로(받는다 · 올리지 않는다) · 넣은 목록은 백업에
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      e.srv = srvOf(3, 5000);
+      m.st.now = 0;
+      await boot(e);
+      m.st.sets[0].items.push({ id: 'n0000000001', url: 'u', title: 'n' }); m.save();
+      m.st.now = -1;
+      await e.advance(30000); await e.advance(3100);
+      const bk = JSON.parse(e.store.get('tw.playlistBackup') || 'null');
+      chk(m.state().sets[0].items.length === 3 && e.count('publish') === 0 && e.count('removePl') === 0 && bk && bk.sets[0].items.length === 3,
+        '  받기를 미루는 동안 고쳐도 판단이 뒤집히지 않는다(받음 · 안 올림) · 고친 목록은 백업에');
+    }
+    // ⑩ 고친 시각 — 목록 · 한마디 · 공개가 바뀔 때만(반복 · 미니미는 기기 설정이라 아님)
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '100' } }); const m = e.mk();
+      m.markSynced();
+      await e.advance(1000); m.save();
+      const a = e.store.get('tw.playlistEditTs') === '100';
+      m.st.bio = '새 한마디'; await e.advance(1000); m.save();
+      chk(a && e.store.get('tw.playlistEditTs') === String(e.t), '  고친 시각은 목록 · 한마디 · 공개가 바뀐 저장에서만 오른다');
+    }
+    // ⑩-2 시계가 늦은 기기 — 받은 시각보다 이른 시계로 고쳐도 고친 시각은 받은 것보다 뒤
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      const ahead = e.t + 3600000;   // 다른 기기가 1시간 빠른 시계로 고친 사본
+      m.adoptServer(srvOf(3, ahead));
+      m.st.bio = '여기서 고침'; m.save();
+      chk(Number(e.store.get('tw.playlistEditTs')) === ahead + 1, '  시계가 늦어도 받은 목록 위에서 고친 시각은 받은 시각보다 뒤(+1)');
+    }
+    // ⑩-3 시각 모르는 이 기기 것을 올리면 그 시각을 이 기기에도 적는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      e.srv = { sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 };
+      await boot(e);
+      chk(e.count('publish') === 1 && Number(e.store.get('tw.playlistEditTs')) === e.pubTs && e.pubTs > 0, '  시각 모르는 이 기기 것을 올리면 올린 시각을 이 기기에도 적는다');
+    }
+    // ⑪ 계정 연동이 서버 사본을 받았다 — 부팅 맞추기와 같은 한 벌(adoptServer)
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      m.adoptServer(srvOf(3, 7000));
+      await e.advance(3100);
+      chk(e.store.get('tw.playlistEditTs') === '7000' && m.state().sets[0].items.length === 3 && e.count('publish') === 0 && !!e.store.get('tw.playlistBackup'),
+        '  계정 연동이 받은 목록 — 고친 시각은 서버 것 · 백업 · 같은 목록을 다시 올리지 않는다');
+    }
+    // ⑫ 계정을 놓았다 — 고친 시각 · 맞춤 상태가 새 기기처럼(앞 계정 시각이 다음 계정 목록을 이기지 않게)
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
+      m.markSynced();
+      m.st.sets = m.blankSets(); m.resetSync();
+      e.srv = srvOf(3, 5000);
+      await m.bootSync(); await e.advance(3100);
+      chk(m.state().sets[0].items.length === 3 && e.count('publish') === 0 && e.count('removePl') === 0, '  계정을 놓은 뒤 — 다음 계정 서버 목록을 받는다(빈 목록으로 덮지 않는다)');
+    }
+    // ⑫-2 고친 시각이 서버와 같은데 맞추기 전에(오프라인 · 다시 시도 중) 고쳤다 — 맞춘 뒤 한 번 올린다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '5000' } }); const m = e.mk();
+      e.srv = null; await e.advance(4300);
+      m.st.sets[0].items.push({ id: 'o0000000001', url: 'u', title: 'o' }); m.save();
+      const edited = Number(e.store.get('tw.playlistEditTs'));
+      e.srv = srvOf(2, 5000);
+      await e.advance(30000); await e.advance(3100);
+      chk(e.count('publish') === 1 && e.pubTs === edited && m.state().sets[0].items.length === 3, '  같은 시각 · 맞추기 전에 고침 — 맞춘 뒤 한 번 올린다(ts = 고친 시각)');
+    }
+    // ⑫-3 다시 시도 사슬은 하나 — 기다리는 중에 다시 불러도 읽기가 두 배가 되지 않는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+      e.srv = null; await e.advance(4300);
+      await m.bootSync();
+      await e.advance(29999);
+      const n = e.count('fetchMine');
+      chk(n === 2, '  다시 시도 중에 또 불러도 타이머는 하나(' + n + '번 읽음)');
+    }
+    // ⑫-4 곡을 고친 직후(올리기 3초 대기 중) 계정이 바뀌었다 — 앞 계정 목록을 새 계정에 올리지 않는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); e.uid = 'ME01'; const m = e.mk({ getMyUserId: () => e.uid });
+      m.markSynced();
+      m.st.sets[0].items.pop(); m.save();
+      e.uid = 'NEW1'; await e.advance(3100);
+      const a = e.count('publish') === 0 && e.count('removePl') === 0;
+      const f = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const n = f.mk();
+      n.markSynced();
+      n.st.sets[0].items.pop(); n.save();
+      n.resetSync(); await f.advance(3100);
+      chk(a && f.count('publish') === 0 && f.count('removePl') === 0, '  올리기를 기다리는 사이 계정이 바뀌거나 계정을 놓으면 올리지 않는다(앞 계정 목록이 새 계정에 안 올라감)');
+    }
+    // ⑬ 계정 이어받기 중 서버를 못 읽었다 — 앞 uid 의 고친 시각(메모리 · 저장)이 남지 않아 다시 맞출 때 새 계정 목록을 받는다
+    {
+      const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
+      m.markSynced();
+      m.resetSync();   // account.js — 이어받기 시작
+      const a = e.store.get('tw.playlistEditTs') === undefined || e.store.get('tw.playlistEditTs') === null;
+      m.st.sets[0].items.pop(); m.save(); await e.advance(3100);
+      const b = e.count('publish') === 0;   // 맞추기 전 — 고쳐도 새 계정 서버에 안 올린다
+      e.srv = srvOf(3, 5000);
+      await m.bootSync(); await e.advance(3100);
+      chk(a && b && m.state().sets[0].items.length === 3 && e.count('publish') === 0 && !!e.store.get('tw.playlistBackup'),
+        '  이어받기 중 못 읽음 — 고친 시각 키까지 지워 다시 맞출 때 새 계정 목록을 받는다(이 기기 것은 백업)');
+    }
   }
   {
     const e = E({ noApi: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
@@ -444,9 +632,9 @@ function wiring(PL, APP, HTML){
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistSync: TwPlaylistSync,']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 21 && !miss.length, 'deps 21개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 22 && !miss.length, 'deps 22개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 맞추기 규칙(순수 모듈) (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeLoaded', '_myHomeData', '_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeLoaded · _myHomeData · _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
@@ -462,7 +650,7 @@ function wiring(PL, APP, HTML){
   chk(stUsed.every(n => new RegExp('get ' + n + '\\(\\)').test(stKeys) && new RegExp('set ' + n + '\\(v\\)').test(stKeys)), '  상태 묶음이 밖에서 쓰는 칸을 다 갖는다 (' + stUsed.join(' · ') + ')');
   const uses = ['plMod.st.lastBoundsKey = \'\'; plMod.syncBgmBounds();', 'ytVideoId: (...a)=>plMod.ytVideoId(...a),', 'plRender: (...a)=>plMod.render(...a),',
     'plPlaying: ()=>plMod.st.playing,', 'setPlPlaying: v=>{ plMod.st.playing = v; },', 'pl.sets = plMod.blankSets();', 'plMod.fillLv(lv, n, st);',
-    'pl.sets = plMod.normalizeSets(r.sets);', 'pl.cur = plMod.setIdx(pl.cur);', 'plMod.pubSigOf(pl.sets.map(', '} else if(plMod.mine().length){'];
+    'plMod.adoptServer(r);', 'plMod.resetSync();', 'plMod.pubSigOf(pl.sets.map(', '} else if(plMod.mine().length){'];
   const lost = uses.filter(u => A.indexOf(u) < 0);
   chk(!lost.length, '부르는 곳 — 화면 배율 · 마이홈 BGM · 📷 스티커사진 · 로그아웃 · 내 정보 배지 · 계정 이어받기' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
   chk(/if\(typeof _plHasSavedPos === 'function' && _plHasSavedPos\(\)\) _plApplyPos\(\);/.test(A) && /window\._plHasSavedPos = _plHasSavedPos; window\._plApplyPos = _plApplyPos; window\._plSyncBgmBounds = _plSyncBgmBounds;/.test(PL),
@@ -486,8 +674,9 @@ async function runAll(PL, APP, HTML){
     new Function('window', 'module', PL)(win, undefined);
     chk(Object.keys(win).join() === 'TwPlaylist' && typeof win.TwPlaylist.createPlaylist === 'function', '싣기만 하면 window.TwPlaylist 하나뿐');
     const e = mkEnv({ store: { 'tw.playlistSets': setsOf(songs(1)) } }); e.mk();
-    chk(e.esc.length === 1 && e.cb.end && e.cb.mode && e.cb.closed && e.count('setInterval 300') === 1 && e.count('vol') === 1 && e.count('publish') === 0 && e.timers.length === 1,
-      '만들 때 — ESC 등록 · BGM 신호 셋 구독 · 300ms 폴링 · 음량 한 번(서버 쓰기 · 다른 타이머 없음)');
+    chk(e.esc.length === 1 && e.cb.end && e.cb.mode && e.cb.closed && e.count('setInterval 300') === 1 && e.count('vol') === 1 && e.count('publish') === 0 && e.timers.length === 2
+      && e.timers.some(t => !t.every && t.at === e.t + 4200),
+      '만들 때 — ESC 등록 · BGM 신호 셋 구독 · 300ms 폴링 · 음량 한 번 · ☁️ 4.2초 뒤 부팅 맞추기 한 번(서버 쓰기 없음)');
     chk(e.store.size === 1 && e.byId.myPlaylistBox.classList.contains('hidden') && e.toasts.length === 0 && e.front.length === 0, '  저장소를 안 쓰고 창은 닫힌 채 · 토스트 없음');
   }
   await runAll(PL, APP, HTML);
@@ -511,6 +700,18 @@ async function runAll(PL, APP, HTML){
     ['PL', "    _plView = r; _plSel = -1;", '    _plView = r; _plSel = -1; _plNow = -1;', '파도타기가 듣던 곡을 끊음'],
     ['PL', '  if(!_plReadOnly()) return;                       // 내 목록에서는', '  // 내 목록에서는', '내 목록에서 담기가 됨'],
     ['PL', '      if(sig === _plPubSig) return;', '', '안 바뀌어도 서버에 씀'],
+    ['PL', '    if(!_plSynced || getMyUserId() !== uid0) return;', '    if(getMyUserId() !== uid0) return;', '맞추기 전에 서버에 올림'],
+    ['PL', '    if(_plNow >= 0){ clearTimeout(_plSyncT);', '    if(false){ clearTimeout(_plSyncT);', '재생 중에 목록을 바꿈'],
+    ['PL', '    if(sig !== _plSavedSig){', '    if(true){', '기기 설정만 바꿔도 고친 시각이 오름'],
+    ["PL", "  if(act === 'retry'){ again(); return; }", "  if(act === 'retry') return;", '못 읽으면 다시 안 봄'],
+    ['PL', "    try{ localStorage.setItem('tw.playlistBackup',", "    try{ localStorage.setItem('tw.noBackup',", '받기 전 백업이 빠짐'],
+    ['PL', '  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = 0;', '  _plSyncTry = 0;', '계정을 놓아도 고친 시각이 남음'],
+    ['PL', "  try{ localStorage.removeItem('tw.playlistEditTs'); }catch(_){}\n", '', '이어받기 때 저장된 고친 시각이 남음'],
+    ['PL', '_plDecideTs !== null ? _plDecideTs : _plEditTs', '_plEditTs', '받기를 미루는 사이 고치면 판단이 뒤집힘'],
+    ['PL', '_plEditTs = Math.max(Date.now(), _plEditTs + 1);', '_plEditTs = Date.now();', '늦은 시계가 받은 목록 위에서 고친 것을 «더 이르다» 로'],
+    ['PL', '    if(_plEditTs > baseTs) _plPublish();', '    if(false) _plPublish();', '같은 시각 · 맞추기 전에 고친 것이 안 올라감'],
+    ['PL', '    if(!_plSynced || getMyUserId() !== uid0) return;', '    if(!_plSynced) return;', '올리기 대기 중 계정이 바뀌어도 앞 목록을 올림'],
+    ['PL', '  clearTimeout(_plSyncT); _plSyncT = null;   // 다시 시도 사슬은 하나만', '  _plSyncT = null;   // 다시 시도 사슬은 하나만', '다시 시도 사슬이 갈라짐'],
     ['PL', "  }, 3000);\n}", '  }, 0);\n}', '서버 사본 debounce 가 없음'],
     ['PL', '      if(!total){', '      if(false){', '빈 목록을 지우지 않고 올림'],
     ['PL', "  if(atEnd && _plWatchPlayed){", '  if(atEnd){', '끝에 선 채 재생 없음을 정상 종료로'],

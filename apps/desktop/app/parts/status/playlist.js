@@ -53,6 +53,7 @@ const _repositionOpenChipPopups = deps.repositionOpenChipPopups;
 const bringWinToFront = deps.bringWinToFront;
 const escRegisterWindow = deps.escRegisterWindow;
 const _escEditable = deps.escEditable;
+const plSync = deps.playlistSync;                    // ☁️ 기기 간 맞추기 규칙(playlist-sync.js — 순수)
 /* ═══ 🎵 상태칩 플레이리스트 ═════════════════════════════════════════════
    유튜브 링크를 여러 개 담아 순서대로 듣는 목록 + 🌊 남의 목록으로 파도타기 + 재생.
 
@@ -156,6 +157,11 @@ let _plPrivate = false;
 let _plMini = false;
 let _plPubTimer = null;
 let _plPubSig = null;     // 마지막으로 서버에 올린 목록의 지문 — 같으면 쓰기를 건너뛴다
+/* ☁️ 기기 간 맞추기(playlist-sync.js) — 목록 · 한마디 · 공개가 마지막으로 바뀐 시각(이 기기)과 그때의 지문.
+   ⚠️ 부팅 때 서버 사본과 맞추기 전(_plSynced=false)에는 서버에 올리지 않는다 — 다른 기기의 옛 목록이 메인 기기 목록을 덮던 길. */
+let _plEditTs = 0;
+let _plSavedSig = null;
+let _plSynced = false;
 let _plPlaying = false;   // 지금 소리가 나는 중인지 (일시정지면 false, _plNow 는 그대로 유지)
 let _plErrStreak = 0;     // 연속 재생실패 수 — 전부 못 트는 목록에서 무한히 다음 곡으로 넘어가는 것 방지
 /* 유저가 타이틀바로 옮겨둔 창 위치. null이면 상태칩 옆(캐스케이드)에 붙는다.
@@ -409,7 +415,10 @@ function _plLoad(){
     _plHomePublic = localStorage.getItem('tw.playlistHomePublic') === '1';
     _plPrivate    = localStorage.getItem('tw.playlistPrivate') === '1';
     _plMini = localStorage.getItem('tw.playlistMini') === '1';
+    _plEditTs = Math.max(0, Number(localStorage.getItem('tw.playlistEditTs')) || 0);
+    _plDecideTs = _plEditTs;
   }catch(_){ _plSets = _plBlankSets(); _plCur = 0; _plNowSet = 0; }
+  _plSavedSig = _plServerShape().sig;
 }
 /* 저장값을 **믿지 않고** 항상 세 벌 · 이름 16자 · 곡 20개 안으로 깎는다.
    ★ 여기가 유일한 관문이다 — 부팅 로드와 계정 이어받기가 같은 함수를 지난다. 남이 만든 노드나
@@ -454,8 +463,88 @@ function _plSave(){
     localStorage.setItem('tw.playlistHomePublic', _plHomePublic ? '1' : '0');
     localStorage.setItem('tw.playlistPrivate', _plPrivate ? '1' : '0');
     localStorage.setItem('tw.playlistMini', _plMini ? '1' : '0');
+    // 목록 · 한마디 · 공개가 바뀐 저장만 «고친 시각» 을 올린다(창 위치 · 반복 · 음량은 기기 설정이라 아님)
+    const sig = _plServerShape().sig;
+    // 늘 바탕(받은 사본 · 앞 고침)보다 뒤 — 시계가 늦은 기기가 받은 목록 위에서 고친 것이 «더 이르다» 로 지지 않게
+    if(sig !== _plSavedSig){ _plSavedSig = sig; _plEditTs = Math.max(Date.now(), _plEditTs + 1); localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }
   }catch(_){}
   _plPublish();
+}
+/* 서버에 올리는 모양과 그 지문 — 올리기 · 고친 시각 · 맞추기가 같은 한 벌을 본다 */
+function _plServerShape(){
+  const sets = _plSets.map(s => ({
+    name: String((s && s.name) || '').slice(0, PL_TITLE_MAX),
+    items: (((s && s.items) || [])).map(x => ({ id: x.id, title: x.title || '' })),
+  }));
+  const meta = { bio: _plBio, homePublic: _plHomePublic, private: _plPrivate };
+  return { sets, meta, sig: _plPubSigOf(sets, meta) };
+}
+/* ☁️ 부팅 때 한 번 — 서버 사본과 이 기기 목록을 맞춘다(규칙은 playlist-sync.js).
+   못 읽었거나 계정이 아직 없으면 늘려 가는 간격으로 다시. 재생 중이면 목록을 바꾸지 않고 기다린다(듣던 곡이 사라지지 않게). */
+let _plSyncTry = 0, _plSyncT = null;
+let _plDecideTs = null;   // 맞추기 판단에 쓰는 이 기기 시각 — 불러온 때(또는 계정을 놓은 때) 것으로 묶는다. 맞추기 전에 고쳐도(미루는 동안 · 이어받기 직후) «이 기기가 나중» 으로 뒤집히지 않게(고친 것은 받기 전 백업에)
+async function _plBootSync(){
+  clearTimeout(_plSyncT); _plSyncT = null;   // 다시 시도 사슬은 하나만(계정 이어받기가 다시 불러도)
+  if(_plSynced) return;
+  const again = () => { clearTimeout(_plSyncT); _plSyncT = setTimeout(_plBootSync, plSync.retryDelay(_plSyncTry++)); };
+  const uid = getMyUserId();
+  if(!uid || !window.firebaseAPI){ again(); return; }   // 서버 연결이 아직 안 붙었다
+  let srv = null;
+  try{ srv = await firebaseAPI.fetchMyPlaylistSets(uid); }catch(_){}   // 던져도 «못 읽음» — 아래 retry
+  if(_plSynced || getMyUserId() !== uid) return;   // 기다리는 사이 맞췄거나 계정이 바뀌었다(이어받기가 새로 맞춘다)
+  const local = _plServerShape();
+  const baseTs = _plDecideTs !== null ? _plDecideTs : _plEditTs;
+  const act = plSync.decide(srv, baseTs, plSync.countItems(local.sets) > 0);
+  if(act === 'retry'){ again(); return; }
+  if(act === 'adopt'){
+    if(_plNow >= 0){ clearTimeout(_plSyncT); _plSyncT = setTimeout(_plBootSync, plSync.RETRY_MS); return; }   // 듣는 동안은 고정 간격(다시 시도 횟수와 따로)
+    _plAdoptServer(srv);
+    return;
+  }
+  if(act === 'none'){
+    _plSynced = true; _plDecideTs = null;
+    if(_plEditTs > baseTs) _plPublish();   // 판단한 때 뒤로 이 기기에서 고쳤다(오프라인 · 다시 시도 중) — 같은 바탕 위 고침이라 올린다
+    else _plPubSig = local.sig;
+    return;
+  }
+  _plMarkSynced();
+  _plPublish();
+}
+/* ☁️ 서버 사본을 이 기기에 앉힌다 — 부팅 맞추기 · 계정 연동(account.js)이 같은 한 벌을 부른다.
+   ★ 받기 전에 이 기기 목록을 백업 키에 남긴다 — 규칙이 «시각 모름» 을 다 가르지는 못한다(되살릴 길).
+   고친 시각은 서버 editTs(옛 앱이 쓴 노드면 0 = 모름) · 지문을 맞춰 같은 목록을 다시 올리지 않는다. */
+function _plAdoptServer(srv){
+  const prev = _plServerShape();
+  if(plSync.countItems(prev.sets) > 0){
+    try{ localStorage.setItem('tw.playlistBackup', JSON.stringify({ at: Date.now(), sets: prev.sets, bio: _plBio })); }catch(_){}
+  }
+  _plSets = _plNormalizeSets(srv.sets);
+  _plCur = _plSetIdx(_plCur); _plNowSet = _plCur; _plSel = -1; _plNow = -1; _plView = null; _plNowView = null;
+  _plBio = String(srv.bio || '').slice(0, PL_BIO_MAX);
+  _plHomePublic = !!srv.homePublic;
+  const shape = _plServerShape();
+  _plSavedSig = shape.sig; _plPubSig = shape.sig;
+  _plEditTs = Number(srv.editTs) > 0 ? Number(srv.editTs) : 0;
+  try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
+  _plSynced = true; _plDecideTs = null;
+  _plSave();
+  _plRender();
+}
+/* ☁️ «이 기기 것을 올린다» 로 맞춤을 끝냈다(부팅 맞추기 · 계정 연동).
+   시각 모르는 이 기기 것이면 올리는 시각을 이 기기에도 적는다 — 다음 부팅에 같은 목록을 다시 받지 않게 */
+function _plMarkSynced(){
+  _plSynced = true; _plDecideTs = null;
+  if(!_plEditTs){
+    _plEditTs = Date.now();
+    try{ localStorage.setItem('tw.playlistEditTs', String(_plEditTs)); }catch(_){}
+  }
+}
+/* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 이 기기는 «새 기기» 와 같다. 앞 계정의 고친 시각(메모리 · 저장)이 다음 계정 목록을 이기지 않게 */
+function _plResetSync(){
+  _plEditTs = 0; _plSynced = false; _plSyncTry = 0; _plDecideTs = 0;
+  clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기가 앞 계정 목록을 새 계정에 올리지 않게
+  try{ localStorage.removeItem('tw.playlistEditTs'); }catch(_){}
+  _plSavedSig = _plServerShape().sig;
 }
 /* 서버에 올린 내용의 지문 — **만드는 자리가 둘**이다(_plPublish · 계정 이어받기 복원).
    ★ 그래서 함수로 묶는다. 예전엔 두 곳이 각각 만들었고 이어받기 쪽이 meta 를 빼먹어서,
@@ -469,40 +558,25 @@ function _plPubSigOf(sets, meta){
    목록이 비면 색인에서 지운다(파도타기에 빈 목록이 걸리지 않게). */
 function _plPublish(){
   if(_plPubTimer) clearTimeout(_plPubTimer);
+  const uid0 = getMyUserId();
   _plPubTimer = setTimeout(async ()=>{
     _plPubTimer = null;
+    // 서버 사본과 맞추기 전이면 안 올린다(맞춘 뒤 _plBootSync 가 올린다) · 기다리는 사이 계정이 바뀌었으면 앞 계정 목록을 새 계정에 올리지 않는다
+    if(!_plSynced || getMyUserId() !== uid0) return;
     try{
       if(typeof firebaseAPI === 'undefined' || !firebaseAPI.publishMyPlaylist) return;
-      // 🔁 반복 토글·창 위치 같은 '내 기기 설정'도 _plSave 를 거친다. 목록이 그대로면 서버는 건드리지 않는다.
-      /* 🎵 올라가는 것은 **프리셋 세 벌 전부**다(users/{uid}/playlist.sets).
-         예전에는 «보고 있는 프리셋» 하나만 올렸다. 그래서 파도타기에는 그 사람이 마지막으로
-         열어 두었던 한 벌만 걸렸고, 셋을 다 채워도 나머지 둘은 남에게 영영 안 보였다.
-         ★ **옆효과 하나가 여기서 사라진다** — 예전엔 빈 프리셋을 보고 있으면 색인에서 빠져
-           파도타기에 아예 안 걸렸다. 이제 «보고 있는 것»과 무관하므로 그 제약이 없다.
-         ⚠️ 지문(sig)도 sets 기준이다. items 만 보면 프리셋 2번만 고쳤을 때 «안 바뀌었다»로
-           읽어 서버에 안 올라간다. 아래 계정 이어받기 쪽 지문과 **모양이 같아야 한다.** */
-      const sets = _plSets.map(s => ({
-        name: String((s && s.name) || '').slice(0, PL_TITLE_MAX),
-        items: (((s && s.items) || [])).map(x => ({ id: x.id, title: x.title || '' })),
-      }));
+      /* 올라가는 것은 프리셋 세 벌 전부 · 한마디 · 공개 · 비공개(지문도 같은 한 벌 — 하나라도 빠지면 그것만 바꿨을 때 안 올라간다).
+         ts 는 이 기기에서 고친 시각 — 다른 기기가 부팅 때 «어느 쪽이 나중인가» 를 이것으로 가른다(playlist-sync.js). */
+      const { sets, meta, sig } = _plServerShape();
       const total = sets.reduce((n, s) => n + s.items.length, 0);
-      /* ✍️🏠 한마디·공개 여부도 지문에 넣는다 — 안 넣으면 곡 목록이 그대로일 때 둘을 바꿔도
-         서버에 안 올라가서, 남이 보는 창에는 옛 한마디가 계속 남는다. */
-      /* ✍️🏠 한마디·공개 여부도 지문에 넣는다 — 안 넣으면 곡 목록이 그대로일 때 둘을 바꿔도
-         서버에 안 올라가서, 남이 보는 창에는 옛 한마디가 계속 남는다.
-         🔒 비공개도 같은 이유로 지문에 넣는다. 안 넣으면 체크만 바꿨을 때 쓰기를 건너뛰어
-           색인이 그대로 남는다. */
-      const meta = { bio: _plBio, homePublic: _plHomePublic, private: _plPrivate };
-      const sig = _plPubSigOf(sets, meta);
       if(sig === _plPubSig) return;
       const uid = getMyUserId();
       if(!total){   // 세 벌이 전부 비었다 — 한 벌만 비어도 지우면 나머지가 사라진다
-        if(await firebaseAPI.removeMyPlaylist(uid, meta)) _plPubSig = sig;
+        if(await firebaseAPI.removeMyPlaylist(uid, meta, _plEditTs)) _plPubSig = sig;
         return;
       }
-      /* 🔒 비공개여도 **올리는 것은 똑같다.** 달라지는 건 publishMyPlaylist 안에서 색인을
-         지우느냐뿐이다 — 곡 목록은 남아 있어야 친구 지목 파도타기가 계속 들린다. */
-      if(await firebaseAPI.publishMyPlaylist(uid, getDisplayName(), sets, meta)) _plPubSig = sig;
+      // 🔒 비공개여도 올리는 것은 같다 — 색인만 뺀다(곡 목록이 있어야 친구 지목 파도타기가 들린다)
+      if(await firebaseAPI.publishMyPlaylist(uid, getDisplayName(), sets, meta, _plEditTs)) _plPubSig = sig;
     }catch(_){}
   }, 3000);
 }
@@ -1661,6 +1735,7 @@ function _plApplyVolSoon(){
   const btn = document.getElementById('myPlBtn'), box = document.getElementById('myPlaylistBox');
   if(!btn || !box) return;
   _plLoad();
+  setTimeout(_plBootSync, 4200);   // ☁️ 계정 · firebaseAPI 가 붙을 틈(가챠 부팅 동기화와 같은 박자)
   btn.addEventListener('click', e=>{
     e.stopPropagation();
     const willOpen = box.classList.contains('hidden');
@@ -1919,6 +1994,10 @@ return {
   render: _plRender,                               // 🎵 창 다시 그리기 — 계정 이어받기 · 📷 재생 재우기/되살리기
   save: _plSave,                                   // 💾 로컬 저장 + 서버 사본(3초 debounce) — 계정 이어받기
   publish: _plPublish,                             // ☁️ 서버 사본만 — 계정 이어받기(저쪽이 비었을 때)
+  markSynced: _plMarkSynced,                       // ☁️ 기기 간 맞추기를 계정 이어받기가 끝냈다(이 기기 것을 올릴 때)
+  adoptServer: _plAdoptServer,                     // ☁️ 서버 사본을 앉히기 — 계정 이어받기(부팅 맞추기와 한 벌)
+  resetSync: _plResetSync,                         // ☁️ 계정을 놓을 때 — 고친 시각 · 맞춤 상태를 새 기기처럼
+  bootSync: _plBootSync,                           // ☁️ 부팅 맞추기 한 번 — 계정 이어받기가 못 읽었을 때 다시 건다
   normalizeSets: _plNormalizeSets,                 // 🎵 저장값 관문(세 벌 · 16자 · 20곡) — 계정 이어받기
   setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정 — 계정 이어받기
   blankSets: _plBlankSets,                         // 🎵 빈 세 벌 — 로그아웃

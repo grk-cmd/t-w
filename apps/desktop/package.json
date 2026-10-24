@@ -1,6 +1,6 @@
 {
   "name": "together-working",
-  "version": "0.11.3",
+  "version": "0.12.0",
   "description": "책상 위에 사는 데스크톱 컴패니언",
   "main": "main.js",
   "scripts": {
@@ -14,7 +14,7 @@
   "author": "",
   "license": "UNLICENSED",
   "devDependencies": {
-    "electron": "^44.0.0",
+    "electron": "^44.9.3",
     "electron-builder": "^24.13.3"
   },
   "dependencies": {

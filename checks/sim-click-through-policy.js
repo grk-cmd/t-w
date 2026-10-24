@@ -35,7 +35,7 @@ const L = load(POLSRC), P = L.mod;
 /* ── 1. 모듈 모양 · 상수 ── */
 say('── 1. 모듈 모양 · 상수 값');
 chk(P && L.win === P, 'module.exports(main) 와 window.TwClickThroughPolicy(렌더러)가 같은 것');
-const FNS = ['holdForDrag', 'moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep',
+const FNS = ['holdForDrag', 'moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep', 'charHittable',
   'mainArmed', 'stallStep', 'staleCaptureStep', 'foreignInputStep', 'deferExpiredStep'];
 chk(FNS.every(n => typeof P[n] === 'function'), '판단 함수 ' + FNS.length + '개');
 const CONSTS = { MOVE_GAP_RECEIVING_MS: 40, MOVE_GAP_PASSING_MS: 10, PASS_DEBOUNCE_MS: 150, KICK_GAP_MS: 1500, MOVE_ALIVE_MS: 3000,
@@ -103,6 +103,9 @@ T('pokeStep — main 상태 정정 · 끌기 보호 · left/null', P.pokeStep, [
 T('clickMayKick — 휠은 사다리를 안 탄다', P.clickMayKick, [
   ['클릭', { offOverlay: false }, true], ['휠', { wheel: true }, false], ['구버전(필드 없음)', {}, true], ['state 없음', undefined, true],
   ['wheel 이 참 같은 값이지만 true 아님', { wheel: 1 }, true],
+]);
+T('charHittable — 회사원 모드로 화면을 숨겼으면 캐릭터를 클릭 판정에서 뺀다', P.charHittable, [
+  ['평소', { officeHidden: false }, true], ['숨김', { officeHidden: true }, false], ['모름(필드 없음)', {}, true],
 ]);
 const kk = (o) => Object.assign({ ignoreSent: true, offOverlay: false, penApp: false, now: 100000, lastKickAt: 0, lastMoveSeen: 0,
   lastPokePen: false, lastPokeAt: 0, stage: 0 }, o);
@@ -189,9 +192,39 @@ say('── 4. 연결 — 네 길이 모두 이 모듈을 부른다');
 const RUNC = strip(RUN), MAINC = strip(MAIN);
 chk(/^const clickPolicy = deps\.clickPolicy;/m.test(RUN), 'desktop-run.js — deps.clickPolicy 로 받는다(전역 직접 참조 없음)');
 chk(!/TwClickThroughPolicy/.test(RUNC), '  desktop-run.js 는 window.TwClickThroughPolicy 를 직접 안 본다');
-const CALLS = ['moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep'];
+const CALLS = ['moveStep', 'hitStep', 'pointerDownStep', 'pokeStep', 'clickMayKick', 'kickStep', 'charHittable'];
 const miss = CALLS.filter(n => !new RegExp('clickPolicy\\.' + n + '\\(').test(RUNC));
-chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdown · 전역 클릭이 정책을 부른다' + (miss.length ? ' — 빠짐: ' + miss.join(' · ') : ''));
+chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdown · 전역 클릭 · 3D 캐릭터 판정이 정책을 부른다' + (miss.length ? ' — 빠짐: ' + miss.join(' · ') : ''));
+{
+  const SC = read('status-chip.js') || read('parts/status/status-chip.js') || read('app/parts/status/status-chip.js') || '';
+  chk(/if\(_cvEl && seats\.length && clickPolicy\.charHittable\(\{ officeHidden: _officeHidden\(\) \}\)\)\{/.test(RUN), '  3D 캐릭터 판정은 charHittable 이 거짓이면(회사원 모드 숨김) 아예 안 한다');
+  /* 상태칩을 가짜 화면 위에서 실제로 만들어 updateMyStatusChipPosition 을 부른다 — 칩 표시 · main 에 보내는 캐릭터 영역을 본다 */
+  const chipRun = (src, hidden) => {
+    const anything = () => { const f = function(){ return Q; }; const Q = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => 0) : k === 'then' ? (() => Q) : k === 'length' ? 0 : Q, apply: () => Q, construct: () => Q, set: () => true, has: () => true }); return Q; };
+    const any = anything(), sent = [], els = {};
+    const el = (id) => els[id] || (els[id] = { id, style: {}, classList: { contains: () => false, add(){}, remove(){}, toggle(){} },
+      getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100, right: 100, bottom: 100 }), addEventListener(){}, contains: () => false, offsetWidth: 10, offsetHeight: 10 });
+    const doc = new Proxy({ getElementById: el, addEventListener(){}, querySelectorAll: () => [], createElement: () => any, body: el('body') }, { get: (t, k) => k in t ? t[k] : any });
+    const deps = new Proxy({ clickPolicy: P, _officeHidden: () => hidden.v, seats: [{ isMe: true, expBarEl: null, namePlateEl: null, group: anything(), rig: anything(), desk: anything() }], moveMode: () => false,
+      setCharBoundsLatest: (v) => sent.push(v), setCharBadWhy: () => {}, _charProjSane: () => true, _charBadWhy: () => null, renderer: { domElement: el('cv') }, camera: any }, { get: (t, k) => k in t ? t[k] : (() => any) });
+    const win = new Proxy({ innerWidth: 1000, innerHeight: 800 }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+    try{
+      const api = new Function('window', 'document', 'localStorage', 'navigator', 'THREE', 'setTimeout', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', 'getComputedStyle', 'addEventListener', src + '\nreturn window.TwStatusChip;')
+        (win, doc, { getItem: () => null, setItem(){} }, any, any, () => 0, () => 0, () => 0, 1000, 800, () => ({}), () => {});
+      const m = api.createStatusChip(deps);
+      const one = () => { sent.length = 0; m.updateMyStatusChipPosition(); return { chip: els.myStatusChip && els.myStatusChip.style.display, bounds: sent[sent.length - 1] }; };
+      hidden.v = true; const h = one(); hidden.v = false; const v = one();
+      return { h, v };
+    }catch(e){ return { err: String(e && e.message || e) }; }
+  };
+  const chipOk = (src) => { const r = chipRun(src, { v: false }); return !r.err && r.h.chip === 'flex' && r.h.bounds === null && r.v.chip === 'flex' && !!r.v.bounds && typeof r.v.bounds.r === 'number'; };
+  { const r = chipRun(SC, { v: false });
+    chk(chipOk(SC), '  상태칩(실제로 불러 봄) — 숨김이면 칩(■ 숨김 풀기 입구)은 그대로 · main 에 보내는 캐릭터 영역만 null · 풀면 바로 영역이 돌아온다' + (r.err ? ' — ' + r.err : '')); }
+  chk(!chipOk(SC.replace("  if(!me || launcherVisible || creatorVisible || moveMode()){", "  if(!me || launcherVisible || creatorVisible || moveMode() || !clickPolicy.charHittable({ officeHidden: _officeHidden() })){")),
+    '  깨 보기: 숨김이면 칩까지 숨김(■ 버튼이 사라져 되돌릴 길이 없음) → 빨강');
+  chk(!chipOk(SC.replace("  if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })){", "  if(false){")),
+    '  깨 보기: 숨김인데 캐릭터 영역을 그대로 보냄 → 빨강');
+}
 chk(/  clickPolicy: TwClickThroughPolicy,\n/.test(APP), 'app.js — 만드는 줄이 clickPolicy: TwClickThroughPolicy 를 넘긴다');
 const iP = HTML.indexOf('<script src="parts/launcher/click-through-policy.js"></script>'), iR = HTML.indexOf('<script src="parts/launcher/desktop-run.js"></script>');
 chk(iP > 0 && iR > iP, 'html — click-through-policy.js 를 desktop-run.js 보다 먼저 싣는다');

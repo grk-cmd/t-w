@@ -83,7 +83,8 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
+          check-latest: true
 
       - uses: actions/setup-python@v5
         with:
@@ -115,7 +116,8 @@ jobs:
 
       - uses: actions/setup-node@v5
         with:
-          node-version: 22
+          node-version: 24
+          check-latest: true
           cache: npm
           cache-dependency-path: apps/admin/package-lock.json
 

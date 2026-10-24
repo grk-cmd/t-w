@@ -140,6 +140,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `license-ui.js` · `license-key.js` · `license-request.js` | 라이선스 화면 · 키 등록 / 해제 · 요청 | fb 6 |
 | `device-lost.js` · `name-guard.js` | 한 계정 한 기기 · 운영진처럼 보이는 이름 막기 | fb 4 |
 | `invite-account.js` · `invite-revoke.js` (ES) | 초대 게이트용 계정 읽기 · 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
+| `group-invite.js` (ES) | 여러 명이 쓰는 초대 코드(관리자가 웹 관리자에서 만든 코드) 소진 · 가입 마무리 — 한 명짜리 `invites/` 에 없을 때만 | (firebase-init 이 연결) |
 
 ## 10. 🖥️ `launcher/` — 런처 · 앱 껍데기 ✅ 옮김(폴더 7번)
 
