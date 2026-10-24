@@ -137,6 +137,10 @@ const SKIP = {
   '/roomDir/$code': 'closed',       // .write false — 방 서버(관리자 SDK)만 쓴다
   '/admins/$uid': 'closed',
   '/apiBots/$uid': 'closed',
+  // 서버 상품 API 의 원본 — 서버 봇(apiBots)만 읽고 쓴다. 키(상품 id · 파일 해시) 모양은 서버가 검사한다
+  '/products/$id': 'bot',
+  '/listings/$id': 'bot',
+  '/assets/$hash': 'bot',
 };
 for (const p of ['/catalog/parts/$partId', '/catalog/gachaParts/$partId', '/catalog/desks/$deskId', '/catalog/items/$itemId',
   '/catalog/customCats/$catId', '/catalog/catOverrides/$catId', '/catalogMeta/$kind', '/config/chatKeepDays/$kind', '/config/sources/$feature', '/config/dataRoutes/$i', '/config/bannedWords/$i',
@@ -228,6 +232,7 @@ function check(rules, quiet){
     if (skip) {
       if (skip === 'admin') say(!anyoneCanWrite(v), `${v.path} — 관리자만 쓴다(일반 · 로그인 안 함 쓰기 길 없음)`);
       else if (skip === 'self') say(/auth\.uid === \$authUid/.test(JSON.stringify(v.node)), `${v.path} — 내 auth uid 칸만`);
+      else if (skip === 'bot') say(!anyoneCanWrite(v) && /root\.child\('apiBots'\)\.child\(auth\.uid\)\.val\(\) === true/.test(String(v.node['.write'])), `${v.path} — 서버 봇만 쓴다(일반 · 관리자 · 로그인 안 함 쓰기 길 없음)`);
       else if (skip === 'closed') say(v.node['.write'] === false, `${v.path} — 쓰기 닫힘`);
       else if (skip === 'key') say(/root\.child\('licenses'\)\.child\(\$key\)\.exists\(\)/.test(JSON.stringify(v.node)), `${v.path} — 사용자 쓰기는 있는 키에만`);
       continue;
