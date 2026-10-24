@@ -22,9 +22,9 @@ new Function('module', 'window', GR)(mod, undefined);
 const G = mod.exports;
 chk(G.WAIT_MS === 6000 && G.RELOAD_MAX === 1 && /^tw\./.test(G.RELOAD_KEY), '기다림 6초 · 다시 불러오기 1번 · 저장 키 tw. 접두사');
 const env = () => {
-  const e = { t: 0, timers: [], logs: [], reloads: 0, mem: {} };
+  const e = { t: 0, timers: [], logs: [], reloads: 0, mem: {}, after: 0 };
   e.deps = {
-    log: (m) => e.logs.push(m), reload: () => e.reloads++, now: () => e.t,
+    log: (m) => e.logs.push(m), reload: () => e.reloads++, now: () => e.t, afterRestore: () => e.after++,
     setTimer: (fn, ms) => { e.timers.push({ fn, at: e.t + ms, dead: false }); return e.timers.length - 1; },
     clearTimer: (id) => { if (e.timers[id]) e.timers[id].dead = true; },
     store: { get: (k) => e.mem[k] || null, set: (k, v) => { e.mem[k] = v; } },
@@ -43,6 +43,13 @@ const env = () => {
   const e = env(), r = G.createGlRecover(e.deps);
   r.onLost(); e.tick(2000); r.onRestored(); e.tick(10000);
   chk(e.reloads === 0 && !r.isLost() && e.logs.some(m => /복구 — 2000ms/.test(m)), '★ 그 안에 돌아오면 다시 불러오지 않는다 · 걸린 시간 기록');
+  chk(e.after === 1, '★ 돌아온 직후 할 일(좌석 그림 점검)을 한 번 부른다');
+}
+{
+  const e = env(); e.deps.afterRestore = () => { throw new Error('점검 오류'); };
+  const r = G.createGlRecover(e.deps);
+  r.onLost(); r.onRestored();
+  chk(!r.isLost() && e.logs.some(m => /복구 뒤 점검 실패 — 점검 오류/.test(m)), '  점검이 던져도 복구 처리는 끝나고 기록만 남긴다');
 }
 {
   const e = env(); e.mem[G.RELOAD_KEY] = '1';
@@ -70,6 +77,7 @@ chk(iG > 0 && iA > iG, 'HTML — app.js 보다 먼저 싣는다');
 const iR = APP.indexOf('const renderer=new THREE.WebGLRenderer({canvas,'), iW = APP.indexOf('GlRecover.createGlRecover({');
 chk(iR >= 0 && iW > iR && /\}\)\.attach\(canvas\);/.test(APP.slice(iW, iW + 800)), '★ app.js — 메인 렌더러를 만든 뒤 같은 캔버스에 붙인다');
 chk(/reload: \(\) => location\.reload\(\)/.test(APP) && /sessionStorage\.getItem\(k\)/.test(APP), '  다시 불러오기 · 횟수는 sessionStorage (앱을 끄면 초기화)');
+chk(/afterRestore: \(\) => faceHealMod\.reportGlReset\(\),/.test(APP), '  돌아오면 좌석 그림 점검(face-heal reportGlReset)');
 chk(/diagNote\(msg\) \{\s*ipcRenderer\.send\('companion:diagNote'/.test(PRE), 'preload — diagNote 통로');
 chk(/ipcMain\.on\('companion:diagNote'/.test(MAIN) && /e\.sender !== mainWindow\.webContents\) return;/.test(MAIN) && /_diagLog\('\[렌더러\] '/.test(MAIN), 'main — 메인 창에서 온 것만 · 한 줄로 기록');
 const iD = MAIN.indexOf('app.disableDomainBlockingFor3DAPIs();'), iReady = MAIN.indexOf('app.whenReady()');

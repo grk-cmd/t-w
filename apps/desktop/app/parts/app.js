@@ -16,6 +16,7 @@ try{
       reload: () => location.reload(),
       setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
       store: { get: (k) => sessionStorage.getItem(k), set: (k, v) => sessionStorage.setItem(k, v) },
+      afterRestore: () => faceHealMod.reportGlReset(),   // 좌석 그림 점검 — faceHealMod 는 첫 프레임 전에 아래에서 만들어진다
     }).attach(canvas);
   }
 }catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
@@ -7594,6 +7595,8 @@ const faceHealMod = TwFaceHeal.createFaceHeal({
   skinCanvases: skinCanvases,
   slots: slots,
   toast: (...a)=>toast(...a),
+  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },
+  loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),
 });
 
 /* ===== 진짜 암호화: AES-256-GCM + PBKDF2(150k) ===== */
@@ -9113,7 +9116,7 @@ requestAnimationFrame(launcherPrevMod.launcherLoop);
    ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
      그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고
      느끼기 전에 대개 돌아온다. */
-setInterval(()=>{ try{ faceHealMod.repairBlankFaces(); }catch(_){} }, faceHealMod.FACE_WATCH_MS);
+setInterval(()=>{ try{ faceHealMod.repairBlankFaces(); faceHealMod.repairSeatTextures(); }catch(_){} }, faceHealMod.FACE_WATCH_MS);
 function resize(){ layoutSeats(); if(launcherPrevMod.lRenderer()&&document.getElementById('launcher').classList.contains('on')) launcherPrevMod.sizeLauncherPreview(); }
 addEventListener('resize',resize); resize();
 /* ═══════════════ 🙋 투게더룸 친구 초대 ═══════════════ */
