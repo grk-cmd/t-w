@@ -21,13 +21,13 @@ if(!NET){ say('  ? 원본 못 찾음 — net-ready.js'); process.exit(2); }
 const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_autoAwayResetClock","_chatIsHost","_chatIsSecretRoom","getMyUserId","loadImg","newCanvas","toast"];
+const FN_DEPS = ["_autoAwayResetClock","_chatIsHost","_chatIsSecretRoom","getMyUserId","loadImg","newCanvas","toast","diagNote"];
 const VAL_DEPS = ["faceUploadCache","twNav"];
 const GET_DEPS = ["DESK_LICENSE_HOLD","ITEM_LICENSE_HOLD","Presence","savedDesks"];
 const SET_DEPS = [];
 const EXPORTS = ["AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","POKE_SKEW_MS","_autoExitCancel","_autoExitWarn","_defSizeNames","_loadImgCors","_pokeFresh","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_srvNow","_storageFaceUrlOne","defWireForSize","deserializeDefFromNetwork","ensureRoomFaceUrls","makeFirebaseProvider","serializeDefForNetwork"];
 const MOVED = ["POKE_FRESH_MS","POKE_SKEW_MS","_srvNow","_pokeFresh","AUTO_EXIT_AFTER_AWAY_MS","AUTO_EXIT_WARN_MS","_autoExitOv","_autoExitTimer","_autoExitDue","_autoExitDone","_autoExitInRoom","_autoExitExempt","_autoExitCancel","_autoExitDo","_autoExitWarn","ROOM_FACE_SEND_DATAURL","_quickHash","_roomFaceCacheLoad","_roomFaceCacheSave","_storageFaceUrlOne","ensureRoomFaceUrls","serializeDefForNetwork","_DEF_SIZE_URL","_DEF_SIZE_IMGS","defWireForSize","_defSizeNames","DEF_DIAG_WARN_BYTES","_defDiagLastSig","_defPayloadDiag","_loadImgCors","_roomFaceUrlToCanvas","deserializeDefFromNetwork","_lastSentRoomPayload","_roomSnapSeq","_sameRoomVal","_diffRoomPayload","makeFirebaseProvider"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,","  Presence: ()=>Presence,","  _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),","  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),","  faceUploadCache: uploadCacheMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  twNav: twNav,","  savedDesks: ()=>commissionMod.savedDesks(),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,","  Presence: ()=>Presence,","  _autoAwayResetClock: (...a)=>window._autoAwayResetClock(...a),","  _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),","  _chatIsSecretRoom: (...a)=>chatLockMod._chatIsSecretRoom(...a),","  faceUploadCache: uploadCacheMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  loadImg: (...a)=>loadImg(...a),","  newCanvas: (...a)=>newCanvas(...a),","  twNav: twNav,","  savedDesks: ()=>commissionMod.savedDesks(),","  toast: (...a)=>toast(...a),","  diagNote: (...a)=>diagNote(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

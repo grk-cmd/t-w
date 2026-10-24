@@ -1543,6 +1543,7 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   twNav: twNav,
   savedDesks: ()=>commissionMod.savedDesks(),
   toast: (...a)=>toast(...a),
+  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
 });
 /* 지금 이 좌석을 날릴 수 있는가. 여기서 걸러지는 것이 곧 규칙이다.
    ★ 막는 이유가 전부 "그 좌석의 위치를 이미 다른 코드가 매 프레임 정하고 있다"는 것이다.
@@ -1751,6 +1752,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   _rideWP: rideTuneMod._rideWP,
   broadcastRide: (...a)=>broadcastRide(...a),
   charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
+  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
   isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),

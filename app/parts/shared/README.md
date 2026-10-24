@@ -272,6 +272,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
 
+## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
+
+- **책임**: crossOrigin 그림이 처음 실패했을 때 다시 받을 주소를 정하는 규칙 한 곳(순수 함수).
+- **쓰는 법**: `TwImgRetry.retryUrl(u)` — 다시 받을 주소(뒤에 `twr=1`), 다시 받지 않을 주소(dataURL 등 http(s) 아님 · 이미 표식)면 `null`.
+- **지금 쓰는 곳**: `room/room-sync.js`(남의 얼굴 · 감은눈) · `character/animal.js`(동물 페인트 그림).
+- **함정**: 표식은 고정값이어야 한다 — 다시 받은 응답이 그 주소로 캐시돼 방 스냅샷마다 다시 받지 않는다(`Date.now()` 를 붙이면 매번 새로 받는다).
+- 검사: `checks/sim-img-retry.js`.
+
 ## `help-site.js` — 📘 도움말 웹 페이지 규칙(주소 · 들일 주소 · 알림 읽기)
 
 **책임** — 도움말 탭(`myhome/help-tab.js`)이 여는 주소와, main.js 가 안쪽 틀 이동을 허락하는 주소를 한 벌로. 두 프로세스가 같이 쓴다
