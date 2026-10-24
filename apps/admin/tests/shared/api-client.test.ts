@@ -64,6 +64,10 @@ describe('API 통로', () => {
       ['s', 'a b'],
     ]);
     expect((calls[0].init.headers as Record<string, string>).Authorization).toBe('Bearer tok');
+    // 읽기는 본문 · Content-Type 없이 GET 으로 — send 와 request 를 나눠 쓴 뒤에도
+    expect(calls[0].init.method).toBe('GET');
+    expect(calls[0].init.body).toBeUndefined();
+    expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
   });
 
   it('로그인 전(토큰 없음)이면 부르지 않고 401 오류', async () => {
