@@ -931,7 +931,8 @@ function _kbShowGuide(){
     message: '키보드 입력이 감지되지 않고 있어요',
     detail: '타이핑해도 캐릭터가 작업 중으로 인식하지 못해요.\n\n'
       + '・키보드 보안 프로그램(TouchEn nxKey · AhnLab Safe Transaction 등 은행·공공기관용)이 켜져 있으면 키 입력을 막을 수 있어요. 잠시 꺼 보거나 PC 를 다시 시작해 확인해 주세요.\n'
-      + '・작업 중인 프로그램을 «관리자 권한으로 실행» 했다면, Together Working 도 관리자 권한으로 실행해야 키를 볼 수 있어요.',
+      + '・작업 중인 프로그램을 «관리자 권한으로 실행» 했다면, Together Working 도 관리자 권한으로 실행해야 키를 볼 수 있어요. (관리자 권한으로 실행하면 컴퓨터 켤 때 자동 실행은 Windows 가 막아요)\n'
+      + '・둘 다 아닌데도 계속 이 알림이 뜨면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
     buttons: ['확인'], defaultId: 0, cancelId: 0,
     checkboxLabel: '다시 보지 않기',
   };
