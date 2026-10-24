@@ -51,7 +51,6 @@ const CODES = {
   'E-CHAR-12': { msg: '뽑기를 저장하지 못했어요 — 잠시 후 다시 시도해 주세요(횟수는 그대로예요)', where: 'character/gacha.js — 뽑기 트랜잭션 오류 (updateGacha error)' },
   'E-CHAR-13': { msg: '책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요', where: 'character/wardrobe.js — 꾸미기 🪑 책상 탭에서 카탈로그 책상 고르기 (resolveCatalogGlb 실패 · rec.glb 없음)' },
   'E-CHAR-14': { msg: '책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요', where: 'creator/desk-setup.js — 생성기 책상 카드 고르기 (resolveCatalogGlb 실패 · rec.glb 없음)' },
-  'E-CHAR-15': { msg: '동물 캐릭터 그림을 받지 못했어요 — 하얗게 보이면 앱을 다시 켜 주세요', where: 'character/animal.js — _texFromDataURL 페인트 텍스처 로드 실패 (im.onerror)' },
   'E-DATA-01': { msg: '이 작업을 할 권한이 없어요', where: 'shared/data-gateway.js — 서버 범용 통로 ACCESS_DENIED(경로 처리기가 권한 거절)' },
   'E-DATA-02': { msg: '요청 모양이 맞지 않아 처리하지 못했어요', where: 'shared/data-gateway.js — 서버 범용 통로 INVALID_REQUEST' },
   'E-DATA-03': { msg: '다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요', where: 'shared/data-gateway.js — 서버 범용 통로 CONCURRENT_UPDATE' },

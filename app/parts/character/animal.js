@@ -1940,7 +1940,7 @@ function _texFromDataURL(url, fallbackFill){
   const src=TwSafeHtml.safeUrl(url,'image');   // 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소만
   if(src){ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
     im.onload=()=>{ x.drawImage(im,0,0,P_SZ,P_SZ); t.needsUpdate=true; };
-    im.onerror=()=>TwErrorCodes.notify('E-CHAR-15', String(url||'').startsWith('data:') ? 'data-url' : 'url');   // 주소는 기록에 싣지 않는다(남의 계정 경로일 수 있다)
+    im.onerror=()=>console.warn('[동물] 페인트 텍스처 로드 실패:', (url||'').slice(0,64));
     im.src=src; }
   return t;
 }
