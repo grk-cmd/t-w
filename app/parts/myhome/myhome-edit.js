@@ -389,8 +389,25 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
   let dragSticker=null, dragOffX=0, dragOffY=0, dragStartX=0, dragStartY=0;
   const zone=document.getElementById('mhStickerZone');
   if(zone){
+    /* [+ 스티커] 버튼을 가린 스티커는 그 자리 왼쪽 클릭을 버튼에 넘긴다(편집 중인 스티커만 빼고).
+       붙잡기(capture)로 받아 스티커 자신의 링크 열기보다 먼저 막는다. */
+    const passToAdd=(e)=>{
+      const el=e.target.closest && e.target.closest('.mh-sticker');
+      if(!el || el.classList.contains('editing') || !stickerAddBtn) return false;
+      return mhStickerRules.hitsAddBtn(stickerAddBtn.getBoundingClientRect(), e.clientX, e.clientY);
+    };
+    // ⚠️ 누를 때도 버튼 자리였어야 넘긴다 — 밖에서 끌어 와 버튼 위에서 놓은 것은 옮기기다.
+    let downToAdd=false;
+    zone.addEventListener('click', e=>{
+      const go=downToAdd; downToAdd=false;
+      if(e.button || !go || !passToAdd(e)) return;
+      e.stopPropagation(); e.preventDefault();
+      stickerAddBtn.click();
+    }, true);
     zone.addEventListener('mousedown', e=>{
+      downToAdd = !e.button && passToAdd(e);
       if(_mhViewingUserId() || window._mhPreviewMode) return;   // ★ 관람/미리보기 중에는 스티커를 만질 수 없음
+      if(downToAdd) return;                                      // 버튼으로 넘길 클릭 — 끌지 않는다
       const el=e.target.closest('.mh-sticker'); if(!el) return;
       if(mhStickerRules.isLocked((_myHomeData().stickers||{})[el.dataset.sid])) return;   // 🔒 잠긴 스티커는 끌리지 않는다
       dragSticker=el; const r=el.getBoundingClientRect();

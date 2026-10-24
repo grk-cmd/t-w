@@ -4,7 +4,7 @@
      z 없는 옛 스티커가 새 스티커 앞으로 튀어나오면 붙인 지 오래된 것이 갑자기 위를 덮는다. 잠금은 끌기 한 길이라도 빠지면 «잠갔는데 움직였다» 가 된다.
    ・1절: 규칙을 실제로 돌린다 — 잠금 · 풀기 · 순서(z · 옛 스티커 · 섞임 · 같은 z) · 새 z · ▲▼(끝 · 없는 id · 잘못된 방향 · 다시 매김)
    ・2절: 깨 보기 — 규칙 글을 망가뜨려 1절 판정이 빨강이 되는지 스스로 굴린다
-   ・3절: 배선 — 끌기(myhome-edit.js)가 잠금을 본다 · 새 스티커 z · 그리기 순서(app.js) · html · smoke 순서 */
+   ・3절: 배선 — 끌기(myhome-edit.js)가 잠금을 본다 · [+ 스티커] 버튼 통과는 이 규칙을 부른다 · 새 스티커 z · 그리기 순서(app.js) · html · smoke 순서 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -39,17 +39,21 @@ function judge(R){
     const mixed = { old: {}, n1: { z: 0 }, n2: { z: 1 } };
     R.move(mixed, 'old', 1);
     t(JSON.stringify(R.orderedIds(mixed)) === '["n1","old","n2"]' && mixed.old.z === 1, '옛 스티커도 옮기면 자리를 받는다');
+    const br = { left: 10, top: 20, width: 50, height: 16 };
+    t(R.hitsAddBtn(br, 30, 28) === true && R.hitsAddBtn(br, 10, 20) === true, '[+ 스티커] 버튼 안 — 통과');
+    t(R.hitsAddBtn(br, 60, 28) === false && R.hitsAddBtn(br, 30, 36) === false && R.hitsAddBtn(br, 9, 28) === false && R.hitsAddBtn(br, 30, 19) === false, '  버튼 밖(오른쪽 · 아래 끝은 밖)');
+    t(R.hitsAddBtn({ left: 0, top: 0, width: 0, height: 0 }, 0, 0) === false && R.hitsAddBtn(null, 1, 1) === false, '  숨긴 버튼(크기 0) · 없음 — 통과 안 함');
   } catch (e) { bad.push('던짐 — ' + (e && e.message)); }
   return bad;
 }
 
 say('── 1. 규칙 실제로 돌리기');
 const R = load(MOD);
-chk(!!R && ['isLocked', 'setLocked', 'orderedIds', 'nextZ', 'move'].every(k => typeof R[k] === 'function'), '싣기만 하면 window.TwMyHomeStickerRules — 다섯 이름');
+chk(!!R && ['isLocked', 'setLocked', 'orderedIds', 'nextZ', 'move', 'hitsAddBtn'].every(k => typeof R[k] === 'function'), '싣기만 하면 window.TwMyHomeStickerRules — 여섯 이름');
 const bad = judge(R);
 ['잠금 판정', '잠그기 · 풀면 칸 지움', '옛 스티커(z 없음)는 키 순서', 'z 작은 것부터(뒤 → 앞)', '옛 스티커는 z 받은 것보다 뒤', '같은 z 는 키 순서',
  '숫자 아닌 z 는 없는 것으로', '빈 묶음', '새 z = 맨 앞 + 1', '▲ 한 칸 앞 · 모두 다시 매김', '맨 앞에서 ▲ 는 안 함', '맨 뒤에서 ▼ 는 안 함', '▼ 한 칸 뒤',
- '없는 id · 잘못된 방향 · 빈 묶음', '옛 스티커도 옮기면 자리를 받는다'].forEach(n => chk(!bad.includes(n), n));
+ '없는 id · 잘못된 방향 · 빈 묶음', '옛 스티커도 옮기면 자리를 받는다', '[+ 스티커] 버튼 안 — 통과', '  버튼 밖(오른쪽 · 아래 끝은 밖)', '  숨긴 버튼(크기 0) · 없음 — 통과 안 함'].forEach(n => chk(!bad.includes(n), n));
 chk(!bad.some(n => /^던짐/.test(n)), '던지지 않는다' + (bad.find(n => /^던짐/.test(n)) ? ' — ' + bad.find(n => /^던짐/.test(n)) : ''));
 
 say('── 2. 깨 보기 — 규칙을 망가뜨리면 1절이 빨강인가');
@@ -60,6 +64,7 @@ const BREAKS = [
   ['새 z 를 0 으로', 'return max + 1;', 'return 0;'],
   ['다시 매기지 않음', 'order.forEach((id, k) => { stickers[id].z = k; });', ''],
   ['끝 넘어 옮김', 'if(j < 0 || j >= order.length) return false;', ''],
+  ['버튼 끝을 안 봄', 'x < rect.left + rect.width && ', ''],
 ];
 for (const [name, a, b] of BREAKS) {
   if (!MOD.includes(a)) { chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음(규칙 글이 바뀌었으면 이 표도)'); continue; }
@@ -70,6 +75,7 @@ for (const [name, a, b] of BREAKS) {
 say('── 3. 배선');
 const zd = EDIT.slice(EDIT.indexOf("zone.addEventListener('mousedown'"), EDIT.indexOf('dragSticker=el;'));
 chk(/^const mhStickerRules = TwMyHomeStickerRules;/m.test(EDIT) && /mhStickerRules\.isLocked\(\(_myHomeData\(\)\.stickers\|\|\{\}\)\[el\.dataset\.sid\]\)\) return;/.test(zd), '★ 마이홈 스티커 끌기(편집모드 밖)도 잠긴 스티커는 안 잡는다');
+chk(/mhStickerRules\.hitsAddBtn\(stickerAddBtn\.getBoundingClientRect\(\), e\.clientX, e\.clientY\)/.test(EDIT), '  [+ 스티커] 버튼 통과는 hitsAddBtn 을 부른다(조건을 다시 쓰지 않음)');
 chk(/z: mhStickerRules\.nextZ\(_myHomeData\(\)\.stickers\),/.test(EDIT), '  새 스티커는 맨 앞 z');
 const rs = APP.slice(APP.indexOf('function renderMyHomeStickers(){'), APP.indexOf('function renderMyHomeStickers(){') + 1200);
 chk(/TwMyHomeStickerRules\.orderedIds\(data\)\.forEach\(sid=>/.test(rs) && !/Object\.keys\(data\)\.forEach\(sid=>/.test(rs), '★ 그리기는 z 순서(뒤 → 앞) — 키 순서로 그리지 않는다');

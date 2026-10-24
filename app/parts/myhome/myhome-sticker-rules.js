@@ -1,9 +1,11 @@
 /* myhome-sticker-rules.js — 🎨 마이홈 스티커 잠금 · 그리는 순서 규칙(순수 함수 · DOM · firebase 없음)
-   ・잠금(locked): 잠긴 스티커는 끌기 · 편집 모드(이동 · 크기 · 회전) · ◎ 데려오기로 움직이지 않는다. 지우기 · 링크 · 움직임은 된다.
+   ・잠금(locked): 잠긴 스티커는 끌기 · ◎ 데려오기 · «전부 화면 안으로» 로 움직이지 않는다. 우클릭 · ✎ 편집 모드(이동 · 크기 · 회전)는 되고 잠금은 그대로 남는다. 지우기 · 링크 · 움직임도 된다.
    ・순서(z): 작은 수부터 그린다 — 큰 수가 앞. z 가 없는 옛 스티커는 키 순서(만든 차례) 그대로 뒤쪽에 깔린 것으로 본다.
      ⚠️ 키 순서에 기대지 않으려고 z 를 둔다 — 서버(Firebase)는 키를 사전순으로 돌려줘서 키 이름으로 순서를 바꿀 수 없다.
      ⚠️ 옛 앱은 z · locked 를 모른다 — 옛 앱으로 보면 만든 차례로 그려지고 잠금도 없다(데이터는 그대로 남는다).
-   내놓음: isLocked · setLocked · orderedIds · nextZ · move
+   ・[+ 스티커] 버튼 통과: 편집 중이 아닌 스티커가 버튼을 가려도 버튼 자리를 왼쪽 클릭하면 버튼이 눌린다(스티커는 안 끌리고 링크도 안 열림).
+     버튼이 숨겨졌으면(관람 중 — 크기 0) 통과하지 않는다. 우클릭 편집은 스티커가 받는다.
+   내놓음: isLocked · setLocked · orderedIds · nextZ · move · hitsAddBtn
    검사: checks/sim-myhome-sticker-rules.js */
 (function(){
 'use strict';
@@ -49,7 +51,13 @@ function move(stickers, sid, dir){
   return true;
 }
 
-const api = { isLocked, setLocked, orderedIds, nextZ, move };
+/* 누른 자리(x, y — 화면 좌표)가 [+ 스티커] 버튼 사각형 안인가. 숨긴 버튼(크기 0)은 오른쪽 · 아래 끝이 밖이라 늘 아니다 */
+function hitsAddBtn(rect, x, y){
+  if(!rect) return false;
+  return x >= rect.left && x < rect.left + rect.width && y >= rect.top && y < rect.top + rect.height;
+}
+
+const api = { isLocked, setLocked, orderedIds, nextZ, move, hitsAddBtn };
 if(typeof window !== 'undefined') window.TwMyHomeStickerRules = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
