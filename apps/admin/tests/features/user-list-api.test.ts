@@ -83,6 +83,9 @@ function fakeApi(respond: (path: string, params?: ApiParams) => unknown = (_, p)
     send: async () => {
       throw new Error('이 시험은 쓰기를 부르지 않는다');
     },
+    upload: async () => {
+      throw new Error('이 시험은 쓰기를 부르지 않는다');
+    },
   };
   return { api, calls };
 }
@@ -92,6 +95,9 @@ const failing = (e: ApiError): Api => ({
     throw e;
   },
   send: async () => {
+    throw e;
+  },
+  upload: async () => {
     throw e;
   },
 });

@@ -35,7 +35,7 @@
   width: 96px;
   height: 96px;
   object-fit: contain;
-  background: repeating-conic-gradient(#ddd 0 25%, #fff 0 50%) 0 0 / 12px 12px;
+  background: repeating-conic-gradient(var(--line) 0 25%, var(--card) 0 50%) 0 0 / 12px 12px;
   border-radius: 6px;
 }
 
