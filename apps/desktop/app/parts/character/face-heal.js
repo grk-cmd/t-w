@@ -146,6 +146,7 @@ function _blankSeats(){
 }
 async function repairSeatTextures(){
   if(_seatRepairBusy) return 0;
+  if(_faceRepairBusy) return 0;   // 내 칸 복구가 피부를 단색으로 칠하고 PNG 를 기다리는 중 — 지금 합성하면 단색 피부로 굳는다(_repairSkinCanvases 주석)
   if(_blankSkinIdx().size) return 0;   // 피부부터 — repairBlankFaces 가 먼저 메운다(합성 재료가 비면 피부 없는 얼굴이 굳는다)
   const targets = _blankSeats();
   if(!targets.length) return 0;
@@ -161,8 +162,9 @@ async function repairSeatTextures(){
         if(any) fixed++;
       } else {
         const d = t.d;
-        if(_isBlankDraw(d.face)  && typeof d.faceUrl==='string')  what.push(await _redrawInto(d.face,  TwSafeHtml.safeUrl(d.faceUrl,'image'),  loadImgCors) ? '얼굴' : '얼굴✗');
-        if(_isBlankDraw(d.blink) && typeof d.blinkUrl==='string') what.push(await _redrawInto(d.blink, TwSafeHtml.safeUrl(d.blinkUrl,'image'), loadImgCors) ? '감은눈' : '감은눈✗');
+        const fu = TwSafeHtml.safeUrl(d.faceUrl,'image'), bu = TwSafeHtml.safeUrl(d.blinkUrl,'image');   // 남이 보낸 주소 — 허용된 그림 주소만
+        if(_isBlankDraw(d.face)  && fu) what.push(await _redrawInto(d.face,  fu, loadImgCors) ? '얼굴' : '얼굴✗');
+        if(_isBlankDraw(d.blink) && bu) what.push(await _redrawInto(d.blink, bu, loadImgCors) ? '감은눈' : '감은눈✗');
         if(!what.length && _isBlankDraw(d.face)) what.push('재료 없음');
         if(_refreshFaceTexOf(t.s, d)) fixed++;
         what.push('화면텍스처');

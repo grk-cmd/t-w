@@ -2,11 +2,12 @@
    app.js 의 얼굴 자동 복구 구역 본문 을 parts/character/face-heal.js 로 옮겼다(글자 그대로 · 바뀐 줄 1 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(얼굴 자동 복구 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(FACE_WATCH_MS · repairBlankFaces)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 16줄 그대로 · 부르는 곳은 faceHealMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 18줄 그대로 · 부르는 곳은 faceHealMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 남의 좌석 · 동물 좌석 그림 복구(repairSeatTextures · reportGlReset)를 가짜 캔버스 위에서 실제로 돌린다 —
           남의 빈 얼굴 → 받아 둔 주소로 다시 그림 · 동물 빈 그림 → 기억한 원본으로 · 원본 없음 → 바탕만 · 받기 실패 → 기록 ·
-          얼굴을 안 그린 친구(합성본 멀쩡)는 안 건드림 · 피부가 비면 다음 차례 · 리셋 진단 한 줄 · 깨 보기
+          얼굴을 안 그린 친구(합성본 멀쩡)는 안 건드림 · 피부가 비면 다음 차례 · 내 칸 복구가 피부 PNG 를 기다리는 동안 건너뜀 ·
+          허용 안 되는 주소는 안 그림 · 리셋 진단 한 줄 · 깨 보기
    [실행] app.js · desk-companion-prototype.html · face-heal.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -98,17 +99,17 @@ for(const [name, fm, fa, fh] of breaks){
 
 say('── 4. 남의 좌석 · 동물 좌석 그림 복구 — 실제로 돌린다');
 /* 가짜 캔버스 — 칠하면 안 빈 것, 지우면 빈 것. 그린 원본을 기억한다 */
-const mkCv = (blank, w) => { const c = { blank: !!blank, width: w || 512, height: w || 512, drawn: [] };
+const mkCv = (blank, w, src) => { const c = { blank: !!blank, width: w || 512, height: w || 512, drawn: [], src };
   c.getContext = () => ({ clearRect(){ c.blank = true; }, fillRect(){ c.blank = false; }, set fillStyle(v){ c.fill = v; },
     drawImage(img){ if(img && img.blank) return; c.blank = false; c.drawn.push(img && img.src); } }); return c; };
 function seatEnv(src, o){
   const notes = [];
-  const skin = mkCv(false);
+  const skins = o.skins || [mkCv(false)];
   const deps = {
     CANVAS_SZ: 512, CHAR_SLOT_MAX: 3, LS_KEY: 'k', Presence: { active: () => true }, SKIN_COLORS: ['#fff'],
     _blinkEverDrawn: [], _faceEverDrawn: [], _isBlankDraw: (cv) => !cv || !!cv.blank, creatorOpen: () => false,
-    loadImg: async (u) => ({ src: u }), loadSkins: async () => {}, seats: o.seats, skinCanvasFor: () => skin,
-    skinCanvases: o.skins || [skin], slots: [], toast: () => {}, diagNote: (m) => notes.push(m),
+    loadImg: async (u) => ({ src: u }), loadSkins: o.loadSkins || (async () => {}), seats: o.seats, skinCanvasFor: () => skins[0],
+    skinCanvases: skins, slots: [], toast: () => {}, diagNote: (m) => notes.push(m),
     loadImgCors: async (u) => { if(u === 'https://bad.test/x.png') throw new Error('net'); return { src: u }; },
   };
   const safe = { safeUrl: (u) => (/^https:\/\//.test(String(u)) ? u : '') };
@@ -150,6 +151,23 @@ async function judgeSeats(src){
     const s4 = { remote: true, charDef: d4, faceMapOrig: tex(mkCv(true)) };
     const E2 = seatEnv(src, { seats: [s4], skins: [mkCv(true)] });
     t(await E2.M.repairSeatTextures() === 0 && d4.face.blank, '  피부 캔버스가 비면 이번엔 건너뛴다(피부 없는 얼굴이 굳지 않게)');
+    /* 4초 점검처럼 기다리지 않고 잇달아 부른다 — 내 칸 복구가 피부를 단색으로 칠하고 PNG 를 기다리는 사이 */
+    let doneSkin; const skins3 = [mkCv(true, 512, 'skin-old')];
+    const d5 = { face: mkCv(true), faceUrl: 'https://s.test/f.png' };
+    const s5 = { remote: true, charDef: d5, faceMapOrig: tex(mkCv(true)) };
+    const E3 = seatEnv(src, { seats: [s5], skins: skins3, loadSkins: () => new Promise(res => { doneSkin = () => { skins3[0] = mkCv(false, 512, 'skin-png'); res(); }; }) });
+    const pMine = E3.M.repairBlankFaces();
+    const r1 = await E3.M.repairSeatTextures();
+    t(r1 === 0 && s5.faceMapOrig.image.blank, '★ 내 칸 복구가 피부 PNG 를 기다리는 동안 — 남의 합성본을 안 건드린다(단색 피부로 굳지 않게)');
+    doneSkin(); await pMine;
+    await E3.M.repairSeatTextures();
+    t(!s5.faceMapOrig.image.blank && s5.faceMapOrig.image.drawn.includes('skin-png') && !s5.faceMapOrig.image.drawn.includes('skin-old'), '  다음 차례 — 새 피부(PNG) 캔버스로 합성');
+    /* 허용 안 되는 주소(https 아님) — 그리지 않는다 */
+    const d6 = { face: mkCv(true), faceUrl: 'http://evil.test/f.png' };
+    const s6 = { remote: true, charDef: d6, faceMapOrig: tex(mkCv(true)) };
+    const E4 = seatEnv(src, { seats: [s6] });
+    await E4.M.repairSeatTextures();
+    t(d6.face.blank && !d6.face.drawn.length && E4.notes.some(m => /재료 없음/.test(m)), '  허용 안 되는 주소는 그리지 않는다(재료 없음 · 피부만 다시 합성)');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   return r;
 }
@@ -160,6 +178,8 @@ async function judgeSeats(src){
     ['동물 귀를 안 봄', "  (ears || []).forEach(e=>{ if(e){ out.push(e.fT, e.bT); } });\n", ''],
     ['원본 없을 때 바탕도 안 칠함', "  x.fillStyle = u.twFill || '#ffffff'; x.fillRect(0,0,cv.width,cv.height);\n", ''],
     ['피부 먼저를 안 지킴', "  if(_blankSkinIdx().size) return 0;   // 피부부터", "  if(false) return 0;   // 피부부터"],
+    ['내 칸 복구 중에도 합성', "  if(_faceRepairBusy) return 0;   // 내 칸 복구가", "  if(false) return 0;   // 내 칸 복구가"],
+    ['남의 주소를 안 거름', "const fu = TwSafeHtml.safeUrl(d.faceUrl,'image'), bu = TwSafeHtml.safeUrl(d.blinkUrl,'image');", "const fu = d.faceUrl, bu = d.blinkUrl;"],
     ['리셋 진단을 안 남김', "  try{ diagNote(line); }catch(_){}\n  if(blank.length)", "  if(blank.length)"],
   ];
   for(const [name, a, b] of sb){
