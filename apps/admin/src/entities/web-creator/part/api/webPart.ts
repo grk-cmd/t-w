@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { useQuery } from '@tanstack/react-query';
 import { useApi, type Api } from '@/shared/api';
 import { parseAdminParts, type WebPart, type WebPartDraft } from '../model/webPart';
 
@@ -55,33 +55,4 @@ export function useWebParts() {
   const api = useApi();
   // 서버가 아직 이 길을 모르면(배포 전) 404 — 다시 해 봐도 같다
   return useQuery({ queryKey: WEB_PARTS_KEY, queryFn: () => listWebParts(api), retry: false });
-}
-
-export interface SavePart {
-  id: string | null;
-  draft: WebPartDraft;
-  image?: string;
-  closedImage?: string;
-}
-
-export function useSaveWebPart() {
-  const api = useApi();
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, draft, image, closedImage }: SavePart) => {
-      if (id) return updateWebPart(api, id, draft, image, closedImage);
-      if (!image) throw new Error('새 파츠는 그림이 있어야 해요');
-      return createWebPart(api, draft, image, closedImage);
-    },
-    onSuccess: () => client.invalidateQueries({ queryKey: WEB_PARTS_KEY }),
-  });
-}
-
-export function useDeleteWebPart() {
-  const api = useApi();
-  const client = useQueryClient();
-  return useMutation({
-    mutationFn: (id: string) => deleteWebPart(api, id),
-    onSuccess: () => client.invalidateQueries({ queryKey: WEB_PARTS_KEY }),
-  });
 }

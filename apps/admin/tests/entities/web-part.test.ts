@@ -116,8 +116,9 @@ describe('웹 생성기 파츠 — API', () => {
     const { api, calls } = fakeApi();
     await createWebPart(api, draft({ slot: 'eyeline' }), 'I', 'C');
     await createWebPart(api, draft({ slot: 'mouth' }), 'I', 'C');
-    expect((calls[0]?.body as Record<string, unknown>).closedImage).toBe('C');
-    expect((calls[1]?.body as Record<string, unknown>).closedImage).toBeUndefined();
+    const bodies = calls.map((c) => c.body as Record<string, unknown>);
+    expect(bodies[0]).toMatchObject({ closedImage: 'C' });
+    expect(bodies[1]).not.toHaveProperty('closedImage');
   });
 
   it('API 가 없는 환경(dev · e2e)은 예전 방식이 없어 «API 없음» 오류', async () => {

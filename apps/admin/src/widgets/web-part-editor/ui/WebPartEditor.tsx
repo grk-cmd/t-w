@@ -9,14 +9,13 @@ import {
   PART_SIZE_MAX,
   SLOT_LABELS,
   toBase64,
-  useDeleteWebPart,
-  useSaveWebPart,
   useWebParts,
   WEB_PART_SLOTS,
   type WebPart,
   type WebPartDraft,
   type WebPartSlot,
 } from '@/entities/web-creator/part';
+import { useDeleteWebPart, useSaveWebPart } from '@/features/web-creator/manage-parts';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';

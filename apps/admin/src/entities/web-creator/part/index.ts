@@ -4,11 +4,8 @@ export {
   listWebParts,
   NoApiError,
   updateWebPart,
-  useDeleteWebPart,
-  useSaveWebPart,
   useWebParts,
   WEB_PARTS_KEY,
-  type SavePart,
 } from './api/webPart';
 export {
   draftProblem,
