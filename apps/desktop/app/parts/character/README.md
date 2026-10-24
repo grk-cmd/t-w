@@ -352,3 +352,13 @@
   - 시간 상한은 사전 get 부터 저장까지 덮는다. 넘긴 뒤 늦게 committed 되면 `opt.onLate(값)` 로만 알린다(부르는 쪽이 사본에 합친다).
   - apply 는 재시도마다 다시 불린다 — 부작용 없이 값만 돌려줄 것(gacha.js 는 마지막 실행의 결과만 쓴다).
   - 검사: `checks/sim-gacha-tx.js`(연결 · 가짜 SDK · 깨 보기).
+
+## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
+
+- **책임**: 그래픽 리셋 등으로 캔버스가 비면 같은 캔버스에 다시 그린다. `repairBlankFaces` — 내 사람 칸(저장본 `LS_KEY` 로). `repairSeatTextures` — 남의 사람 좌석(방 동기화가 남긴 `faceUrl` · `blinkUrl`)과 동물 좌석(내 것 포함 · `animal.js` 가 텍스처에 남긴 `userData.twSrc` · `twFill`). `reportGlReset` — WebGL 이 돌아온 직후(`gl-recover.js` `afterRestore`) 빈 좌석 그림 수를 진단 기록에 한 줄 남기고 바로 고친다.
+- **deps**: 캔버스 · 좌석 값(`seats` · `slots` · `skinCanvases` …) · `_isBlankDraw` · `loadImg`(저장본) · `loadImgCors`(남의 주소 — room-sync `_loadImgCors`) · `diagNote` · `toast`. app.js 가 4초마다(`FACE_WATCH_MS`) 두 복구를 부른다.
+- **함정**
+  - 판정은 «합성 텍스처가 투명» 하나다 — 피부가 깔린 합성본 · 흰 바탕을 먼저 칠한 동물 텍스처는 정상이면 투명하지 않다. 받은 얼굴(`def.face`) 이 빈 것만 보면 얼굴을 안 그린 친구를 매번 잡는다.
+  - 새로 받지 않는다 — 이미 받은 주소 · 원본만(캐시). 원본이 없거나 받기 실패면 처음 바탕색만 칠해 둔다(다시 투명이 아니라 헛돌지 않는다).
+  - 피부 캔버스가 비었으면 남의 좌석은 그 차례를 건너뛴다(피부 없는 얼굴이 굳는다) — 피부는 `repairBlankFaces` 가 먼저 메운다.
+  - 검사: `checks/sim-face-heal.js` 4절(가짜 캔버스에서 실제로 돌림 · 깨 보기) · `checks/sim-gl-recover.js`.

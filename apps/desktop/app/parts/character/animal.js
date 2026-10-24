@@ -1938,6 +1938,7 @@ function _texFromDataURL(url, fallbackFill){
   const x=c.getContext('2d'); x.fillStyle=fallbackFill||'#ffffff'; x.fillRect(0,0,P_SZ,P_SZ);
   const t=new THREE.CanvasTexture(c); t.flipY=false; t.encoding=THREE.sRGBEncoding;
   const src=TwSafeHtml.safeUrl(url,'image');   // 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소만
+  t.userData.twSrc=src||null; t.userData.twFill=fallbackFill||'#ffffff';   // 그래픽 리셋으로 캔버스가 비면 face-heal.js 가 이것으로 다시 그린다
   if(src){ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
     im.onload=()=>{ x.drawImage(im,0,0,P_SZ,P_SZ); t.needsUpdate=true; };
     im.onerror=()=>console.warn('[동물] 페인트 텍스처 로드 실패:', (url||'').slice(0,64));

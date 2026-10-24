@@ -5,7 +5,9 @@
      creatorOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: FACE_WATCH_MS · repairBlankFaces — app.js 는 faceHealMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: FACE_WATCH_MS · repairBlankFaces · repairSeatTextures · reportGlReset — app.js 는 faceHealMod.이름 으로 부른다.
+   ★ repairSeatTextures — 남의 좌석(사람) · 동물 좌석(내 것 포함)의 빈 그림을 이미 받아 둔 원본으로 같은 캔버스에 다시 그린다.
+     repairBlankFaces 는 내 사람 칸(slots · 저장본)만 고친다 — 남의 좌석은 저장본이 없고 동물은 문자열 원본에서 텍스처를 만든다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwFaceHeal — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-face-heal.js */
@@ -28,6 +30,8 @@ const skinCanvasFor = deps.skinCanvasFor;
 const skinCanvases = deps.skinCanvases;
 const slots = deps.slots;
 const toast = deps.toast;
+const diagNote = deps.diagNote;          // 진단 기록 — 설치본은 콘솔을 못 본다
+const loadImgCors = deps.loadImgCors;    // 남의 그림(주소) 받기 — crossOrigin · 크기 0 거름(room-sync.js 와 같은 함수)
 const FACE_WATCH_MS = 4000;        // 점검 주기. 32² 알파 스캔 몇 번이라 비용은 무시할 수준이다.
 const FACE_TOAST_GAP_MS = 60000;   // 같은 안내를 도배하지 않는 최소 간격
 let _faceRepairBusy = false, _faceRepairToldAt = 0;
@@ -56,12 +60,12 @@ const _skinIdxOf = (d) => skinCanvases[d.skin||0] ? (d.skin||0) : 0;   // skinCa
 /* 저장된 dataURL 을 **같은 캔버스 객체 안에** 다시 그린다.
    ★ 새 캔버스를 만들어 갈아 끼우면 안 된다 — slots[i].face 는 좌석 charDef·방 전송기가
      같은 객체로 붙들고 있다. 객체를 바꾸면 그쪽 참조가 옛 빈 캔버스에 남는다. */
-async function _redrawInto(cv, dataUrl){
+async function _redrawInto(cv, dataUrl, load){
   try{
     if(!cv || typeof cv.getContext!=='function' || typeof dataUrl!=='string') return false;
-    const img = await loadImg(dataUrl);
+    const img = await (load || loadImg)(dataUrl);
     const x = cv.getContext('2d');
-    x.clearRect(0,0,CANVAS_SZ,CANVAS_SZ);
+    x.clearRect(0,0,cv.width||CANVAS_SZ,cv.height||CANVAS_SZ);   // 남의 얼굴 캔버스는 그림 원래 크기다(room-sync _roomFaceUrlToCanvas)
     x.drawImage(img,0,0);
     return !_isBlankDraw(cv);
   }catch(_){ return false; }
@@ -74,6 +78,15 @@ async function _redrawInto(cv, dataUrl){
      mkFaceTex 로 새로 만들면 눈 깜빡임이 붙들고 있는 faceMapOrig/blinkTex 참조와 어긋난다. */
 function _refreshSeatFaceTex(def){
   let n = 0;
+  seats.forEach(s=>{
+    if(!s || s.remote || s.charDef !== def) return;
+    n += _refreshFaceTexOf(s, def);
+  });
+  return n;
+}
+/* 좌석 하나의 합성 텍스처 두 장(표정 · 감은눈)을 다시 합성한다 — 내 칸 · 남의 좌석 공용 */
+function _refreshFaceTexOf(s, def){
+  let n = 0;
   const one = (tex, drawCv)=>{
     const cv = tex && tex.image;
     if(!cv || typeof cv.getContext!=='function') return;
@@ -83,20 +96,96 @@ function _refreshSeatFaceTex(def){
     try{ x.drawImage(drawCv,0,0); }catch(_){}
     tex.needsUpdate = true; n++;
   };
-  seats.forEach(s=>{
-    if(!s || s.remote || s.charDef !== def) return;
-    one(s.faceMapOrig, def.face);
-    one(s.blinkTex,    def.blink);
-  });
+  one(s.faceMapOrig, def.face);
+  one(s.blinkTex,    def.blink);
   return n;
 }
 
 /* 합성 텍스처만 따로 날아간 경우도 있다(def.face 는 멀쩡한데 화면만 빈다).
    합성본에는 피부가 깔려 있어 정상이면 절대 투명하지 않다 — 투명하면 그 자체가 증거다. */
 function _seatCompositeBlank(def){
-  return seats.some(s=> s && !s.remote && s.charDef===def
-    && ((s.faceMapOrig && _isBlankDraw(s.faceMapOrig.image))
-     || (s.blinkTex    && _isBlankDraw(s.blinkTex.image))));
+  return seats.some(s=> s && !s.remote && s.charDef===def && _compBlankOf(s));
+}
+const _compBlankOf = (s)=> (s.faceMapOrig && _isBlankDraw(s.faceMapOrig.image))
+                        || (s.blinkTex    && _isBlankDraw(s.blinkTex.image));
+
+/* ── 남의 좌석 · 동물 좌석 ─────────────────────────────────────────────
+   ★ 판정은 위와 같은 «합성 텍스처가 투명» 하나다 — 피부가 깔린 합성본 · 흰 바탕을 먼저 칠하는 동물 텍스처는
+     정상이면 절대 투명하지 않으니 투명하면 그 자체가 그래픽 리셋의 증거다(얼굴을 안 그린 친구도 거짓으로 잡히지 않는다).
+   ★ 새로 받지 않는다 — 다시 그리는 원본은 방 동기화가 남긴 주소(faceUrl · blinkUrl)와 동물 텍스처가 기억한 원본(userData.twSrc)뿐.
+     이미 한 번 받은 그림이라 캐시에서 온다. 원본이 없으면 기록만 한다(«재료 없음»). */
+let _seatRepairBusy = false;
+/* 동물 좌석의 텍스처 전부 — 몸(표정 · 감은눈) + 귀(animal.js 가 몸 재질에 단 등록표) */
+function _animalTexOf(s){
+  const out = [s.faceMapOrig, s.blinkTex];
+  const ears = s.faceMat && s.faceMat.userData && s.faceMat.userData.animalEars;
+  (ears || []).forEach(e=>{ if(e){ out.push(e.fT, e.bT); } });
+  return out.filter((t, i, a)=> t && t.image && a.indexOf(t) === i);
+}
+/* 동물 텍스처 하나를 처음 만들던 그대로(바탕색 → 원본) 다시 그린다. 그렸으면 true · 원본이 없으면 'none' */
+async function _redrawAnimalTex(tex){
+  const cv = tex.image, u = tex.userData || {};
+  if(!cv || !cv.getContext) return false;
+  const x = cv.getContext('2d');
+  x.fillStyle = u.twFill || '#ffffff'; x.fillRect(0,0,cv.width,cv.height);
+  tex.needsUpdate = true;
+  if(!u.twSrc) return 'none';
+  try{ const img = await loadImgCors(u.twSrc); x.drawImage(img,0,0,cv.width,cv.height); tex.needsUpdate = true; return true; }
+  catch(_){ return false; }
+}
+/* 빈 그림이 있는 좌석 — 남의 사람 좌석(합성 텍스처) · 동물 좌석(내 것 포함) */
+function _blankSeats(){
+  const out = [];
+  seats.forEach(s=>{
+    const d = s && s.charDef;
+    if(!d) return;
+    if(d.animal){ const bad = _animalTexOf(s).filter(t=>_isBlankDraw(t.image)); if(bad.length) out.push({ s, d, animal:true, bad }); }
+    else if(s.remote && _compBlankOf(s)) out.push({ s, d, animal:false });
+  });
+  return out;
+}
+async function repairSeatTextures(){
+  if(_seatRepairBusy) return 0;
+  if(_blankSkinIdx().size) return 0;   // 피부부터 — repairBlankFaces 가 먼저 메운다(합성 재료가 비면 피부 없는 얼굴이 굳는다)
+  const targets = _blankSeats();
+  if(!targets.length) return 0;
+  _seatRepairBusy = true;
+  let fixed = 0;
+  const log = [];
+  try{
+    for(const t of targets){
+      const no = seats.indexOf(t.s) + 1, what = [];
+      if(t.animal){
+        let any = false;
+        for(const tex of t.bad){ const r = await _redrawAnimalTex(tex); if(r) any = true; what.push(r === true ? '그림' : r === 'none' ? '바탕만' : '그림✗'); }
+        if(any) fixed++;
+      } else {
+        const d = t.d;
+        if(_isBlankDraw(d.face)  && typeof d.faceUrl==='string')  what.push(await _redrawInto(d.face,  TwSafeHtml.safeUrl(d.faceUrl,'image'),  loadImgCors) ? '얼굴' : '얼굴✗');
+        if(_isBlankDraw(d.blink) && typeof d.blinkUrl==='string') what.push(await _redrawInto(d.blink, TwSafeHtml.safeUrl(d.blinkUrl,'image'), loadImgCors) ? '감은눈' : '감은눈✗');
+        if(!what.length && _isBlankDraw(d.face)) what.push('재료 없음');
+        if(_refreshFaceTexOf(t.s, d)) fixed++;
+        what.push('화면텍스처');
+      }
+      log.push(no + '번(' + (t.s.remote ? '남' : '나') + (t.animal ? '·동물' : '') + ' ' + what.join('·') + ')');
+    }
+  }catch(e){ console.warn('[얼굴복구] 좌석 텍스처 복구 중 오류', e); }
+  finally{ _seatRepairBusy = false; }
+  const line = '[얼굴복구] 빈 좌석 그림을 다시 그림 — ' + log.join(' · ');
+  console.warn(line);
+  try{ diagNote(line); }catch(_){}
+  return fixed;
+}
+/* 🧯 그래픽 연결이 돌아온 직후 — 좌석 그림이 얼마나 비었는지 한 줄 남기고 바로 고친다(다음 4초 점검을 기다리지 않음) */
+function reportGlReset(){
+  const remote = seats.filter(s=>s && s.remote).length;
+  const blank = _blankSeats();
+  const face = blank.filter(t=>!t.animal).length, animal = blank.filter(t=>t.animal).length;
+  const line = '[WebGL] 복구 뒤 좌석 점검 — 좌석 ' + seats.length + ' · 남의 좌석 ' + remote
+    + ' · 빈 얼굴(남) ' + face + ' · 빈 동물 그림 ' + animal + ' · 빈 피부 ' + _blankSkinIdx().size;
+  try{ diagNote(line); }catch(_){}
+  if(blank.length) repairSeatTextures();
+  return line;
 }
 
 async function repairBlankFaces(){
@@ -162,6 +251,8 @@ async function repairBlankFaces(){
 return {
   FACE_WATCH_MS,
   repairBlankFaces,
+  repairSeatTextures,
+  reportGlReset,
 };
 }
 

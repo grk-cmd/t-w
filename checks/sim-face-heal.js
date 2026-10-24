@@ -4,6 +4,9 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(FACE_WATCH_MS · repairBlankFaces)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 16줄 그대로 · 부르는 곳은 faceHealMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 남의 좌석 · 동물 좌석 그림 복구(repairSeatTextures · reportGlReset)를 가짜 캔버스 위에서 실제로 돌린다 —
+          남의 빈 얼굴 → 받아 둔 주소로 다시 그림 · 동물 빈 그림 → 기억한 원본으로 · 원본 없음 → 바탕만 · 받기 실패 → 기록 ·
+          얼굴을 안 그린 친구(합성본 멀쩡)는 안 건드림 · 피부가 비면 다음 차례 · 리셋 진단 한 줄 · 깨 보기
    [실행] app.js · desk-companion-prototype.html · face-heal.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -17,13 +20,13 @@ const MOD = ["face-heal.js","parts/character/face-heal.js","app/parts/character/
 if(!MOD){ say('  ? 원본 못 찾음 — face-heal.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_isBlankDraw","loadImg","loadSkins","skinCanvasFor","toast"];
+const FN_DEPS = ["_isBlankDraw","loadImg","loadSkins","skinCanvasFor","toast","diagNote","loadImgCors"];
 const VAL_DEPS = ["CANVAS_SZ","CHAR_SLOT_MAX","LS_KEY","Presence","SKIN_COLORS","_blinkEverDrawn","_faceEverDrawn","seats","skinCanvases","slots"];
 const GET_DEPS = ["creatorOpen"];
 const SET_DEPS = [];
-const EXPORTS = ["FACE_WATCH_MS","repairBlankFaces"];
+const EXPORTS = ["FACE_WATCH_MS","repairBlankFaces","repairSeatTextures","reportGlReset"];
 const MOVED = ["FACE_WATCH_MS","FACE_TOAST_GAP_MS","_faceRepairBusy","_faceRepairToldAt","_repairSkinCanvases","_redrawInto","_refreshSeatFaceTex","_seatCompositeBlank","repairBlankFaces"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  LS_KEY: LS_KEY,","  Presence: Presence,","  SKIN_COLORS: SKIN_COLORS,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  creatorOpen: ()=>creatorOpen,","  loadImg: (...a)=>loadImg(...a),","  loadSkins: (...a)=>loadSkins(...a),","  seats: seats,","  skinCanvasFor: (...a)=>skinCanvasFor(...a),","  skinCanvases: skinCanvases,","  slots: slots,","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  LS_KEY: LS_KEY,","  Presence: Presence,","  SKIN_COLORS: SKIN_COLORS,","  _blinkEverDrawn: _blinkEverDrawn,","  _faceEverDrawn: _faceEverDrawn,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  creatorOpen: ()=>creatorOpen,","  loadImg: (...a)=>loadImg(...a),","  loadSkins: (...a)=>loadSkins(...a),","  seats: seats,","  skinCanvasFor: (...a)=>skinCanvasFor(...a),","  skinCanvases: skinCanvases,","  slots: slots,","  toast: (...a)=>toast(...a),","  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },","  loadImgCors: (...a)=>roomSyncMod._loadImgCors(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -92,5 +95,78 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+
+say('── 4. 남의 좌석 · 동물 좌석 그림 복구 — 실제로 돌린다');
+/* 가짜 캔버스 — 칠하면 안 빈 것, 지우면 빈 것. 그린 원본을 기억한다 */
+const mkCv = (blank, w) => { const c = { blank: !!blank, width: w || 512, height: w || 512, drawn: [] };
+  c.getContext = () => ({ clearRect(){ c.blank = true; }, fillRect(){ c.blank = false; }, set fillStyle(v){ c.fill = v; },
+    drawImage(img){ if(img && img.blank) return; c.blank = false; c.drawn.push(img && img.src); } }); return c; };
+function seatEnv(src, o){
+  const notes = [];
+  const skin = mkCv(false);
+  const deps = {
+    CANVAS_SZ: 512, CHAR_SLOT_MAX: 3, LS_KEY: 'k', Presence: { active: () => true }, SKIN_COLORS: ['#fff'],
+    _blinkEverDrawn: [], _faceEverDrawn: [], _isBlankDraw: (cv) => !cv || !!cv.blank, creatorOpen: () => false,
+    loadImg: async (u) => ({ src: u }), loadSkins: async () => {}, seats: o.seats, skinCanvasFor: () => skin,
+    skinCanvases: o.skins || [skin], slots: [], toast: () => {}, diagNote: (m) => notes.push(m),
+    loadImgCors: async (u) => { if(u === 'https://bad.test/x.png') throw new Error('net'); return { src: u }; },
+  };
+  const safe = { safeUrl: (u) => (/^https:\/\//.test(String(u)) ? u : '') };
+  const api = new Function('window', 'module', 'TwSafeHtml', 'localStorage', 'performance', src + '\nreturn window.TwFaceHeal;')({}, undefined, safe, { getItem: () => null }, { now: () => 0 });
+  return { M: api.createFaceHeal(deps), notes };
+}
+const tex = (cv, ud) => ({ image: cv, needsUpdate: false, userData: ud || {} });
+async function judgeSeats(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  try{
+    /* 남의 사람 좌석 — 합성 텍스처 · 받은 얼굴 캔버스가 비었다 */
+    const d1 = { face: mkCv(true), blink: mkCv(true), faceUrl: 'https://s.test/f.png', blinkUrl: 'https://s.test/b.png' };
+    const s1 = { remote: true, charDef: d1, faceMapOrig: tex(mkCv(true)), blinkTex: tex(mkCv(true)) };
+    /* 얼굴을 안 그린 친구 — 받은 얼굴은 비었지만 합성본(피부)은 멀쩡 = 리셋 아님 */
+    const d2 = { face: mkCv(true), blink: mkCv(true), faceUrl: 'https://s.test/e.png' };
+    const s2 = { remote: true, charDef: d2, faceMapOrig: tex(mkCv(false)), blinkTex: tex(mkCv(false)) };
+    /* 동물 좌석(남) — 몸 · 귀 텍스처 비었음, 귀는 원본 없음, 감은눈은 받기 실패 */
+    const fT = tex(mkCv(true), { twSrc: 'https://s.test/a.png', twFill: '#ffffff' }), bT = tex(mkCv(true), { twSrc: 'https://bad.test/x.png' });
+    const eT = tex(mkCv(true), { twSrc: null, twFill: '#ffffff' });
+    const s3 = { remote: true, charDef: { animal: true }, faceMapOrig: fT, blinkTex: bT, faceMat: { userData: { animalEars: [{ fT: eT, bT: eT }] } } };
+    /* 내 사람 좌석 — 여기서는 안 건드린다(repairBlankFaces 몫) */
+    const mine = { remote: false, charDef: {}, faceMapOrig: tex(mkCv(true)), blinkTex: tex(mkCv(true)) };
+    const E = seatEnv(src, { seats: [mine, s1, s2, s3] });
+    const line = E.M.reportGlReset();
+    t(/좌석 4 · 남의 좌석 3 · 빈 얼굴\(남\) 1 · 빈 동물 그림 1 · 빈 피부 0/.test(line) && E.notes[0] === line, '★ 리셋 진단 한 줄 — 좌석 · 남의 좌석 · 빈 얼굴(남) · 빈 동물 그림 · 빈 피부');
+    await new Promise(res => setTimeout(res, 0)); await new Promise(res => setTimeout(res, 0));
+    t(!d1.face.blank && d1.face.drawn.includes('https://s.test/f.png') && !d1.blink.blank && !s1.faceMapOrig.image.blank && s1.faceMapOrig.needsUpdate && !s1.blinkTex.image.blank,
+      '★ 남의 빈 얼굴 · 감은눈 — 받아 둔 주소로 같은 캔버스에 다시 그리고 합성 텍스처를 다시 합성');
+    t(d2.face.blank && !d2.face.drawn.length, '  얼굴을 안 그린 친구(합성본 멀쩡) — 안 건드린다');
+    t(!fT.image.blank && fT.image.drawn.includes('https://s.test/a.png') && fT.needsUpdate, '★ 동물 빈 그림 — 기억한 원본으로 다시 그림');
+    t(!eT.image.blank && !eT.image.drawn.length && !bT.image.blank, '  원본 없음 · 받기 실패 — 처음 바탕색은 칠해 둔다(다시 투명이 아니라 헛돌지 않는다)');
+    t(mine.faceMapOrig.image.blank, '  내 사람 좌석은 이 함수가 안 건드린다(저장본으로 고치는 repairBlankFaces 몫)');
+    const rep = E.notes.find(m => /빈 좌석 그림을 다시 그림/.test(m)) || '';
+    t(/2번\(남 얼굴·감은눈·화면텍스처\)/.test(rep) && /4번\(남·동물 그림·그림✗·바탕만\)/.test(rep), '  고친 결과도 진단 기록에 한 줄(그림✗ = 받기 실패 · 바탕만 = 원본 없음)');
+    t(await E.M.repairSeatTextures() === 0, '  다 고친 뒤 다시 돌면 할 일 없음');
+    /* 피부가 비었으면 다음 차례 — 합성 재료부터 */
+    const d4 = { face: mkCv(true), faceUrl: 'https://s.test/f.png' };
+    const s4 = { remote: true, charDef: d4, faceMapOrig: tex(mkCv(true)) };
+    const E2 = seatEnv(src, { seats: [s4], skins: [mkCv(true)] });
+    t(await E2.M.repairSeatTextures() === 0 && d4.face.blank, '  피부 캔버스가 비면 이번엔 건너뛴다(피부 없는 얼굴이 굳지 않게)');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
+  return r;
+}
+(async () => {
+  (await judgeSeats(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+  const sb = [
+    ['남의 좌석을 안 봄', "    else if(s.remote && _compBlankOf(s)) out.push({ s, d, animal:false });\n", ''],
+    ['동물 귀를 안 봄', "  (ears || []).forEach(e=>{ if(e){ out.push(e.fT, e.bT); } });\n", ''],
+    ['원본 없을 때 바탕도 안 칠함', "  x.fillStyle = u.twFill || '#ffffff'; x.fillRect(0,0,cv.width,cv.height);\n", ''],
+    ['피부 먼저를 안 지킴', "  if(_blankSkinIdx().size) return 0;   // 피부부터", "  if(false) return 0;   // 피부부터"],
+    ['리셋 진단을 안 남김', "  try{ diagNote(line); }catch(_){}\n  if(blank.length)", "  if(blank.length)"],
+  ];
+  for(const [name, a, b] of sb){
+    const m2 = MOD.replace(a, b);
+    const rows2 = m2 !== MOD ? await judgeSeats(m2) : [];
+    chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})();

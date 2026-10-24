@@ -13,7 +13,8 @@
   const RELOAD_MAX = 1;
   const RELOAD_KEY = 'tw.glReloads';
 
-  /* deps: { log(msg), reload(), setTimer(fn, ms) → id, clearTimer(id), now(), store: {get(k), set(k, v)} } */
+  /* deps: { log(msg), reload(), setTimer(fn, ms) → id, clearTimer(id), now(), store: {get(k), set(k, v)}, afterRestore() }
+     afterRestore — 돌아온 직후 할 일(좌석 그림 점검 · face-heal.js reportGlReset). 2D 캔버스도 같은 GPU 를 잃어 같이 빌 수 있다. */
   function createGlRecover(deps){
     let lost = false, lostAt = 0, timer = null, losses = 0;
     const reloads = () => { try{ return Number(deps.store.get(RELOAD_KEY)) || 0; }catch(_){ return 0; } };
@@ -38,6 +39,7 @@
       lost = false;
       if(timer !== null){ deps.clearTimer(timer); timer = null; }
       deps.log('WebGL 연결 복구 — ' + took + 'ms');
+      try{ deps.afterRestore(); }catch(e){ deps.log('복구 뒤 점검 실패 — ' + (e && e.message || e)); }
     }
     function attach(canvas){
       canvas.addEventListener('webglcontextlost', onLost, false);
