@@ -1033,15 +1033,23 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
           const rb = await b.F.toBox(0);
           const c = mk({ b:{def:'{}',mtime:2} }, [null,'b',null,null,null], true, true, [null, { name:'B' }], fnsUse);
           const rc = await c.F.toBox(0);
+          const fullBox = { b:{def:'{}',mtime:2} }; for (let k = 0; k < 20; k++) fullBox['x' + k] = { def:'{}', mtime:k };
+          const d = mk(Object.assign({ a:{del:5} }, fullBox), ['a','b',null,null,null], true, true, [{ name:'A' }, { name:'B' }], fnsUse);
+          const rd = await d.F.toBox(0);
           return [ra.ok && ra.cid === 'n1' && a.env.syncs === 1 && a.LS.D === JSON.stringify(['b',null,null,null,null]) && JSON.parse(a.LS.B).n1.def === '{}' && JSON.parse(a.LS.B).a.del === 5,
                   rb.ok && rb.cid === 'n1' && b.LS.D === JSON.stringify(['b',null,null,null,null]),
-                  !rc.ok && rc.why === 'nocid' && c.LS.D === JSON.stringify([null,'b',null,null,null]) && !JSON.parse(c.LS.B).n1];
+                  !rc.ok && rc.why === 'nocid' && c.LS.D === JSON.stringify([null,'b',null,null,null]) && !JSON.parse(c.LS.B).n1,
+                  !rd.ok && rd.why === 'full' && d.LS.D === JSON.stringify(['a','b',null,null,null]) && !JSON.parse(d.LS.B).n1];
         };
         const nv = await nocid();
         chk(nv[0], '★ 이름표가 묘비인 칸 — 새 이름표로 올린 뒤(동기화) 보관함으로 옮긴다 · 묘비는 그대로');
         chk(nv[1], '★ 이름표가 보관함에 없는 칸 — 같은 길');
         chk(nv[2], '  빈 칸은 그대로 nocid(새 이름표를 만들지 않는다)');
-        const brokeD2b = fns.map(f => f.replace(/\n  if\(\(!cid \|\| !box\[cid\] \|\| _charsIsTomb\(box\[cid\]\)\) && slots\[i\]\)\{[^\n]*/, ''));
+        chk(nv[3], '  보관함이 가득이면 — full · 새 이름표를 만들지 않는다(지운 캐릭터가 계정에 되살아나지 않게)');
+        const brokeD2b = fns.map(f => f.replace(/\n    cid = _charsOnNew\(i\);[^\n]*/, ''));
+        const brokeFull = fns.map(f => f.replace(/\n    if\(_charsBoxOnlyCount\(box, desk\) >= CHARS_BOX_MAX\) return \{ ok: false, why: 'full' \};/, ''));
+        const nf = brokeFull.join() !== fns.join() ? await nocid(brokeFull) : [true, true, true, true];
+        chk(brokeFull.join() !== fns.join() && !nf[3], '  깨 보기 — 가득 참 검사를 새 이름표 뒤로 미루면 빨강');
         const nb = brokeD2b.join() !== fns.join() ? await nocid(brokeD2b) : [true, true, true];
         chk(brokeD2b.join() !== fns.join() && (!nb[0] || !nb[1]), '  깨 보기 — 새 이름표 줄을 빼면 빨강');
       })().catch(e => chk(false, '11절 옮기기 예외: ' + (e && e.message)));
