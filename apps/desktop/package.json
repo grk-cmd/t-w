@@ -35,6 +35,8 @@
       "sysinput-win.js",
       "sysinput-mac.js",
       "native-peek.js",
+      "pad-worker.js",
+      "pad-xinput.js",
       "hover-poke.js",
       "devtools-gate.js",
       "oauth-config.js",
@@ -45,6 +47,8 @@
       "node_modules/node-window-manager/**/*",
       "node_modules/koffi/**/*",
       "node_modules/@koromix/**/*",
+      "pad-worker.js",
+      "pad-xinput.js",
       "**/*.node"
     ],
     "directories": {
