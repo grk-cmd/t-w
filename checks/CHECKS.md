@@ -399,7 +399,7 @@
 | **sim-catalog-sync.js** | 282 | **d94edeb793ac** |
 | **sim-catalog-source.js** | 100 | **48a661048e45** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
-| **sim-bgm-diag.js** | 257 | **042268d4ec5b** |
+| **sim-bgm-diag.js** | 260 | **b16b4f888b77** |
 | **sim-mobile-diag.js** | 147 | **5fbdf8d713ab** |
 | **sim-blink-timing.js** | 112 | **624e0321ea28** |
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** |

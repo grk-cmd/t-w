@@ -123,10 +123,13 @@ async function gateCheck(MAIN){
   const gate = g0 > 0 ? MAIN.slice(g0, g1) : '';
   const e0 = gate.indexOf('executeJavaScript(\n'), e1 = gate.indexOf('\n      ).then(');
   const v0 = MAIN.indexOf('const BGM_SET_VOL_JS ='), v1 = MAIN.indexOf("'}';", v0);
+  const a0 = MAIN.indexOf('const BGM_IS_AD_JS ='), a1 = MAIN.indexOf("}';", a0);   // 광고 판정 글(0.13.0 에서 상수로 뺐다)
+  let BGM_IS_AD_JS = '';
+  try{ BGM_IS_AD_JS = a0 > 0 ? new Function('return ' + MAIN.slice(a0 + 'const BGM_IS_AD_JS ='.length, a1 + 2).trim())() : ''; }catch(_){}
   let run = null;
   try{
     const BGM_SET_VOL_JS = new Function('return ' + MAIN.slice(v0 + 'const BGM_SET_VOL_JS ='.length, v1 + 3).trim())();
-    const js = new Function('bgmVolume', 'BGM_SET_VOL_JS', 'return ' + gate.slice(e0 + 'executeJavaScript('.length, e1).trim())(0.8, BGM_SET_VOL_JS);
+    const js = new Function('bgmVolume', 'BGM_SET_VOL_JS', 'BGM_IS_AD_JS', 'return ' + gate.slice(e0 + 'executeJavaScript('.length, e1).trim())(0.8, BGM_SET_VOL_JS, BGM_IS_AD_JS);
     run = (page) => new Function('document', 'window', 'localStorage', 'return ' + js)(page.doc, page.win, { setItem(){} });
   }catch(err){ say('  · 게이트 글을 못 꺼냄 — ' + err.message); }
   const mkPage = (o) => {
@@ -162,9 +165,9 @@ async function gateCheck(MAIN){
     const view = { webContents: wc };
     const win = o.noWin ? null : { isDestroyed: () => false, webContents: { isDestroyed: () => false, send: (ch, d) => t.sent.push({ ch, d }) } };
     const BGM_SET_VOL_JS = '';
-    const f = new Function('bgmView', 'mainWindow', 'bgmMode', 'bgmVolume', 'BGM_SET_VOL_JS', 'setInterval', 'clearInterval', 'Date',
+    const f = new Function('bgmView', 'mainWindow', 'bgmMode', 'bgmVolume', 'BGM_SET_VOL_JS', 'BGM_IS_AD_JS', 'setInterval', 'clearInterval', 'Date',
       MAIN.slice(b0, b1) + '\nreturn bgmStartAdGate;');
-    const start = f(view, win, o.mode || 'playlist', 0.8, BGM_SET_VOL_JS, (fn) => { t.timers.push(fn); return 1; }, () => {}, { now: () => t.now });
+    const start = f(view, win, o.mode || 'playlist', 0.8, BGM_SET_VOL_JS, BGM_IS_AD_JS, (fn) => { t.timers.push(fn); return 1; }, () => {}, { now: () => t.now });
     start();
     for(let i = 0; i < (o.ticks || 8); i++){ t.now += 250; t.timers.forEach(fn => fn()); await new Promise(r => setImmediate(r)); }
     return t;

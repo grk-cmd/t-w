@@ -2759,6 +2759,7 @@ function createWindow() {
         // 🔍 진단용 — 판정에는 안 쓴다(bgmSendDiag)
         'var d={isAd:isAd, videos:document.querySelectorAll("video").length, want:want};'+
         'if(v){ d.vol=v.volume; d.vMuted=v.muted; d.paused=v.paused; }'+
+        'var p=document.querySelector("#movie_player, .html5-video-player");'+   // 광고 판정(__twIsAd)의 p 는 그 함수 안이라 여기서 다시 찾는다
         'try{ if(p&&typeof p.getVolume==="function") d.pVol=p.getVolume(); if(p&&typeof p.isMuted==="function") d.pMuted=p.isMuted(); }catch(_){}'+
         'return {isAd:isAd, volOk:volOk, d:d};})()'
       ).then(r=>{
