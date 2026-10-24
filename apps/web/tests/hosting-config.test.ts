@@ -2,6 +2,7 @@ import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
+import { API_ORIGIN } from '@/shared/config';
 
 /* 홈페이지 Hosting 칸(firebase/firebase.json `home`) — 빌드 결과를 올리고, 남의 주소 · 인라인 코드를 막는 머리가 있어야 한다. */
 const FB = new URL('../../../firebase/', import.meta.url);
@@ -63,13 +64,15 @@ describe('홈페이지 Hosting 칸', () => {
         .filter((d) => d[0])
         .map((d) => [d[0], d.slice(1)]),
     );
-    for (const d of ['default-src', 'script-src', 'style-src', 'connect-src', 'font-src'])
+    for (const d of ['default-src', 'script-src', 'style-src', 'font-src'])
       expect(dirs[d], d).toEqual(["'self'"]);
-    expect(dirs['img-src']).toEqual(["'self'", 'data:', 'blob:']);
+    // 바깥은 우리 API 서버 하나 — 관리자가 올린 생성기 파츠 목록 · 그림(코드의 API_ORIGIN 과 같아야 한다)
+    expect(dirs['connect-src']).toEqual(["'self'", API_ORIGIN]);
+    expect(dirs['img-src']).toEqual(["'self'", 'data:', 'blob:', API_ORIGIN]);
     // default-src 로 돌아가지 않는 지시어 · 막아 둔 것 — 빠지면 그만큼 풀린다
     for (const d of ['frame-ancestors', 'object-src', 'base-uri', 'form-action', 'worker-src'])
       expect(dirs[d], d).toEqual(["'none'"]);
-    expect(csp).not.toMatch(/unsafe-inline|unsafe-eval|https?:|\*/);
+    expect(csp.replaceAll(API_ORIGIN, '')).not.toMatch(/unsafe-inline|unsafe-eval|https?:|\*/);
   });
 
   it('CSP 는 «**» 규칙 한 곳에만 — 다른 규칙이 덮어쓰지 않는다', () => {

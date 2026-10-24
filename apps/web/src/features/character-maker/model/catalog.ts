@@ -1,4 +1,5 @@
 import type { Lang } from '@/shared/i18n';
+import type { RemotePart } from './remote-parts';
 
 /* 얼굴 레이어 그림 — 프로토타입(PR #428)의 시안 그림을 도형 자료로 옮긴 것. 좌표는 200×200 얼굴 판(가운데 100),
    한 짝은 (0,0) 을 가운데로 그리고 자리(SLOT)에 놓는다. ⚠️ 그림은 시안 수준이다 — 디자이너 그림이 오면 이 표만 바꾼다. */
@@ -17,7 +18,9 @@ export type Shape =
       stroke?: string;
       w?: number;
       alpha?: number;
-    };
+    }
+  /** 관리자가 올린 그림 — 가운데를 (0,0) 에 두고 w × h(얼굴 판 단위)로 그린다 */
+  | { k: 'img'; src: string; w: number; h: number };
 
 type Names = Record<Lang, string>;
 
@@ -41,7 +44,7 @@ export type AdjTarget = LayerKind | 'eyes';
 
 const line = (d: string, w: number, stroke = INK): Shape => ({ k: 'path', d, stroke, w });
 
-export const LAYERS: Record<LayerKind, readonly LayerItem[]> = {
+const BUILTIN_LAYERS: Record<LayerKind, readonly LayerItem[]> = {
   pupil: [
     { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
     {
@@ -246,7 +249,7 @@ export const BOT_COLORS = [
 export const LIMITS = { x: [-80, 80], y: [-80, 80], s: [0.3, 2.5], r: [-45, 45] } as const;
 
 export const findItem = (kind: LayerKind, id: string): LayerItem =>
-  LAYERS[kind].find((it) => it.id === id) ?? (LAYERS[kind][0] as LayerItem);
+  layers[kind].find((it) => it.id === id) ?? (layers[kind][0] as LayerItem);
 
 /* 액세서리 — 얼굴 어디든 여러 개(최대 ACC_MAX) 붙여 하나씩 옮긴다. 자리는 얼굴 판 가운데 기준. */
 export interface AccItem {
@@ -258,7 +261,7 @@ export const ACC_MAX = 5;
 export const ACC_SLOT = { x: 100, y: 120 } as const;
 /** 액세서리 자리 범위 — 얼굴 판 어디로든 */
 export const ACC_LIMITS = { x: [-100, 100], y: [-120, 80], s: [0.3, 2.5], r: [-180, 180] } as const;
-export const ACCS: readonly AccItem[] = [
+const BUILTIN_ACCS: readonly AccItem[] = [
   {
     id: 'bandage',
     name: { ko: '반창고', en: 'Bandage', ja: 'ばんそうこう' },
@@ -327,4 +330,39 @@ export const ACCS: readonly AccItem[] = [
     shapes: [{ k: 'path', d: 'M0 -10q8 10 0 15q-8-5 0-15z', fill: '#BFE8FF', stroke: '#6FB6E0', w: 1.5 }],
   },
 ];
-export const findAcc = (id: string): AccItem | null => ACCS.find((a) => a.id === id) ?? null;
+export const findAcc = (id: string): AccItem | null => accs.find((a) => a.id === id) ?? null;
+
+/* 관리자가 올린 그림 파츠(서버) — 기본 그림 뒤에 붙인다. 서버에 닿지 못하면 기본 그림만 쓴다.
+   id 앞에 «w:» 를 붙여 기본 그림 id 와 겹치지 않게 한다. */
+let layers: Record<LayerKind, readonly LayerItem[]> = BUILTIN_LAYERS;
+let accs: readonly AccItem[] = BUILTIN_ACCS;
+
+/** 레이어 하나의 고를 수 있는 그림 — 기본 + 서버 */
+export const layerItems = (kind: LayerKind): readonly LayerItem[] => layers[kind];
+/** 붙일 수 있는 액세서리 — 기본 + 서버 */
+export const accItems = (): readonly AccItem[] => accs;
+export const LAYER_KINDS = Object.keys(BUILTIN_LAYERS) as LayerKind[];
+
+/** 아이라인 그림에 감은눈 그림이 없으면 기본 감은 줄 — 감은눈 얼굴이 비지 않게 */
+const FALLBACK_CLOSED = BUILTIN_LAYERS.eyeline.find((it) => it.id === 'thin')?.closed ?? [];
+
+/** 서버 그림 파츠를 고르기 목록에 넣는다(다시 부르면 바꿔 끼운다 · 빈 목록이면 기본만) */
+export function setRemoteParts(parts: readonly RemotePart[]): void {
+  const img = (src: string, p: RemotePart): Shape => ({ k: 'img', src, w: p.w, h: p.h });
+  const next = { ...BUILTIN_LAYERS };
+  const nextAcc: AccItem[] = [...BUILTIN_ACCS];
+  for (const p of parts) {
+    const id = `w:${p.id}`;
+    if (p.slot === 'acc') {
+      nextAcc.push({ id, name: p.name, shapes: [img(p.src, p)] });
+      continue;
+    }
+    const closed = p.slot === 'eyeline' ? (p.closedSrc ? [img(p.closedSrc, p)] : FALLBACK_CLOSED) : undefined;
+    const item: LayerItem = closed
+      ? { id, name: p.name, open: () => [img(p.src, p)], closed }
+      : { id, name: p.name, open: () => [img(p.src, p)] };
+    next[p.slot] = [...next[p.slot], item];
+  }
+  layers = next;
+  accs = nextAcc;
+}

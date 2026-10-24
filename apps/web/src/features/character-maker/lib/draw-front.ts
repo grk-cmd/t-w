@@ -36,7 +36,32 @@ export const FACE_BOX = { x: 0.14, y: 0.2, size: 0.72 } as const;
 
 export type Expr = 'open' | 'closed';
 
-function drawShape(ctx: DrawCtx, sh: Shape, makePath: (d: string) => Path2D) {
+/** 서버 그림 파츠 주소 → 불러온 그림(아직이면 null — 다 불러오면 부르는 쪽이 다시 그린다) */
+export type PartImages = (src: string) => CanvasImageSource | null;
+const NO_IMAGES: PartImages = () => null;
+
+/** 도형을 그리는 데 쓰는 것 — 길(Path2D) 만들기 · 그림 찾기 */
+interface Pen {
+  makePath: (d: string) => Path2D;
+  images: PartImages;
+}
+export interface DrawOptions {
+  /** 사용자가 붙인 그림 */
+  image?: CanvasImageSource | null;
+  makePath?: (d: string) => Path2D;
+  images?: PartImages;
+}
+const penOf = (o: DrawOptions): Pen => ({
+  makePath: o.makePath ?? ((d: string) => new Path2D(d)),
+  images: o.images ?? NO_IMAGES,
+});
+
+function drawShape(ctx: DrawCtx, sh: Shape, pen: Pen) {
+  if (sh.k === 'img') {
+    const im = pen.images(sh.src);
+    if (im) ctx.drawImage(im, -sh.w / 2, -sh.h / 2, sh.w, sh.h);
+    return;
+  }
   ctx.save();
   if (sh.k === 'ellipse') {
     ctx.globalAlpha = sh.alpha ?? 1;
@@ -52,7 +77,7 @@ function drawShape(ctx: DrawCtx, sh: Shape, makePath: (d: string) => Path2D) {
       ctx.stroke();
     }
   } else {
-    const p = makePath(sh.d);
+    const p = pen.makePath(sh.d);
     if (sh.fill) {
       ctx.fillStyle = sh.fill;
       ctx.fill(p);
@@ -68,25 +93,18 @@ function drawShape(ctx: DrawCtx, sh: Shape, makePath: (d: string) => Path2D) {
   ctx.restore();
 }
 
-function drawAt(ctx: DrawCtx, m: Mat, shapes: Shape[], makePath: (d: string) => Path2D) {
+function drawAt(ctx: DrawCtx, m: Mat, shapes: Shape[], pen: Pen) {
   ctx.save();
   ctx.transform(...m);
-  for (const sh of shapes) drawShape(ctx, sh, makePath);
+  for (const sh of shapes) drawShape(ctx, sh, pen);
   ctx.restore();
 }
 
 /** 눈 한 짝 — 동공 · 하이라이트 · 아이라인을 차례로 쌓는다. 감은눈이면 아이라인의 감은 모양만. */
-function drawEye(
-  ctx: DrawCtx,
-  s: CreatorState,
-  side: Side,
-  expr: Expr,
-  color: string,
-  makePath: (d: string) => Path2D,
-) {
+function drawEye(ctx: DrawCtx, s: CreatorState, side: Side, expr: Expr, color: string, pen: Pen) {
   const put = (k: LayerKind, shapes: Shape[]) => {
     const m = layerMatrix(s, k, side);
-    if (m && shapes.length) drawAt(ctx, m, shapes, makePath);
+    if (m && shapes.length) drawAt(ctx, m, shapes, pen);
   };
   if (expr === 'open') {
     put('pupil', findItem('pupil', s.pupil).open(color));
@@ -98,46 +116,35 @@ function drawEye(
   const closed = line.closed ?? line.open(color);
   // 아이라인 «없음» 은 뜬눈에서 안 보여 그 층 자리를 볼 수 없다 — 감은 줄은 폴더 자리에 둔다
   const m = layerMatrix(s, s.eyeline === 'none' ? 'eyes' : 'eyeline', side);
-  if (m && closed.length) drawAt(ctx, m, closed, makePath);
+  if (m && closed.length) drawAt(ctx, m, closed, pen);
 }
 
 /** 얼굴 판(200 단위 좌표)에 레이어를 쌓는다 — 3D 텍스처(앞모습 판)와 평면 텍스처 칸이 같은 그림을 쓴다. 지우기 · 배경은 부르는 쪽 몫. */
-export function drawFace(
-  ctx: DrawCtx,
-  s: CreatorState,
-  expr: Expr,
-  opts: { image?: CanvasImageSource | null; makePath?: (d: string) => Path2D } = {},
-) {
-  const makePath = opts.makePath ?? ((d: string) => new Path2D(d));
+export function drawFace(ctx: DrawCtx, s: CreatorState, expr: Expr, opts: DrawOptions = {}) {
+  const pen = penOf(opts);
   const img = s.img && opts.image && (s.img.on === 'both' || s.img.on === expr) ? opts.image : null;
   if (img && s.img?.pos === 'under') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
   for (const kind of DRAW_ORDER) {
     const sides: Side[] = PAIRED[kind] ? ['L', 'R'] : ['C'];
     for (const side of sides) {
       if (kind === 'eyes') {
-        drawEye(ctx, s, side, expr, side === 'R' ? s.pupilColor.R : s.pupilColor.L, makePath);
+        drawEye(ctx, s, side, expr, side === 'R' ? s.pupilColor.R : s.pupilColor.L, pen);
         continue;
       }
       const shapes = findItem(kind, s[kind]).open(s.pupilColor.L);
       const mx = layerMatrix(s, kind, side);
-      if (mx && shapes.length) drawAt(ctx, mx, shapes, makePath);
+      if (mx && shapes.length) drawAt(ctx, mx, shapes, pen);
     }
   }
   for (const a of s.acc) {
     const item = findAcc(a.id);
-    if (item) drawAt(ctx, accMatrix(a), item.shapes, makePath);
+    if (item) drawAt(ctx, accMatrix(a), item.shapes, pen);
   }
   if (img && s.img?.pos === 'top') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
 }
 
 /** 앞모습 판(한 변 size 픽셀)에 얼굴 레이어를 쌓아 그린다 — 판은 투명에서 시작(피부는 텍스처 합성 때 아래에 깔린다). */
-export function drawFront(
-  ctx: DrawCtx,
-  s: CreatorState,
-  expr: Expr,
-  size: number,
-  opts: { image?: CanvasImageSource | null; makePath?: (d: string) => Path2D } = {},
-) {
+export function drawFront(ctx: DrawCtx, s: CreatorState, expr: Expr, size: number, opts: DrawOptions = {}) {
   ctx.clearRect(0, 0, size, size);
   ctx.save();
   // 200 얼굴 판 좌표로
@@ -152,12 +159,13 @@ export function drawItemThumb(
   ctx: DrawCtx,
   shapes: Shape[],
   size: number,
-  makePath: (d: string) => Path2D = (d) => new Path2D(d),
+  opts: Omit<DrawOptions, 'image'> = {},
 ) {
+  const pen = penOf(opts);
   ctx.clearRect(0, 0, size, size);
   ctx.save();
   ctx.translate(size / 2, size / 2);
   ctx.scale(size / 44, size / 44);
-  for (const sh of shapes) drawShape(ctx, sh, makePath);
+  for (const sh of shapes) drawShape(ctx, sh, pen);
   ctx.restore();
 }

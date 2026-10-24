@@ -1,7 +1,7 @@
 import { rasterFront } from '@tw/char-core';
 import type { CharKit } from '@/entities/character';
 import type { CreatorState } from '../model/state';
-import { drawFront, type Expr } from './draw-front';
+import { drawFront, type Expr, type PartImages } from './draw-front';
 
 /** 앞모습 판 크기 — 얼굴 텍스처(512)와 같게 둬야 옮겨 그릴 때 흐려지지 않는다 */
 const PANEL = 512;
@@ -21,8 +21,8 @@ export function createFaceTextures(kit: CharKit) {
   const layers: Record<Expr, ReturnType<typeof canvas2d>> = { open: canvas2d(size), closed: canvas2d(size) };
   const display = canvas2d(size);
 
-  function paint(s: CreatorState, expr: Expr, image: CanvasImageSource | null) {
-    drawFront(panel.ctx, s, expr, PANEL, { image });
+  function paint(s: CreatorState, expr: Expr, image: CanvasImageSource | null, images: PartImages) {
+    drawFront(panel.ctx, s, expr, PANEL, { image, images });
     const l = layers[expr];
     const out = l.ctx.createImageData(size, size);
     rasterFront(out, kit.frontMap, panel.ctx.getImageData(0, 0, PANEL, PANEL));
@@ -34,9 +34,9 @@ export function createFaceTextures(kit: CharKit) {
     blink: layers.closed.c,
     display: display.c,
     /** 상태 → 두 그림 층을 다시 그리고, 미리보기는 show 표정으로 */
-    render(s: CreatorState, show: Expr, image: CanvasImageSource | null) {
-      paint(s, 'open', image);
-      paint(s, 'closed', image);
+    render(s: CreatorState, show: Expr, image: CanvasImageSource | null, images: PartImages) {
+      paint(s, 'open', image, images);
+      paint(s, 'closed', image, images);
       display.ctx.clearRect(0, 0, size, size);
       display.ctx.drawImage(kit.face.skinCanvasFor(s.skin) as unknown as CanvasImageSource, 0, 0);
       display.ctx.drawImage(layers[show].c, 0, 0);
