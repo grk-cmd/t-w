@@ -378,7 +378,7 @@ describe('방 서버 목록 — 시크릿룸 · 사람 합치기 · 찾기', () 
 
   it('API 가 없는 환경(dev)은 null · 모양이 틀리면 던진다', async () => {
     expect(await getLiveRooms(null)).toBeNull();
-    const api = (data: unknown) => ({ get: async () => data as never });
+    const api = (data: unknown) => ({ get: async () => data as never, send: async () => data as never });
     expect((await getLiveRooms(api(live)))?.rooms.length).toBe(2);
     await expect(getLiveRooms(api({ nope: 1 }))).rejects.toThrow('모양');
   });

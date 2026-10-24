@@ -64,9 +64,13 @@ export function isApiAuthError(error: unknown): error is ApiError {
 
 export type ApiParams = Record<string, string | number | undefined>;
 
+export type ApiWriteMethod = 'POST' | 'PATCH' | 'DELETE';
+
 export interface Api {
   /** 성공 봉투의 data 만 돌려준다. 실패는 ApiError. */
   get<T>(path: string, params?: ApiParams): Promise<T>;
+  /** 쓰기 — 본문은 JSON. 실패 규칙은 get 과 같다(쓰기는 예전 방식으로 넘어가지 않으니 부르는 쪽이 그대로 보여 준다). */
+  send<T>(method: ApiWriteMethod, path: string, body?: unknown): Promise<T>;
 }
 
 /**
@@ -109,58 +113,65 @@ export function createApi({
     return u;
   };
 
-  return {
-    async get<T>(path: string, params?: ApiParams): Promise<T> {
-      const idToken = await token();
-      if (!idToken) throw new ApiError('auth', 401, 'AUTH_REQUIRED', '로그인이 필요해요');
+  async function request<T>(method: 'GET' | ApiWriteMethod, u: URL, payload?: unknown): Promise<T> {
+    const idToken = await token();
+    if (!idToken) throw new ApiError('auth', 401, 'AUTH_REQUIRED', '로그인이 필요해요');
 
-      const abort = new AbortController();
-      const timer = setTimeout(() => abort.abort(), timeoutMs);
-      let res: Response;
-      let body: Envelope | null = null;
+    const abort = new AbortController();
+    const timer = setTimeout(() => abort.abort(), timeoutMs);
+    let res: Response;
+    let body: Envelope | null = null;
+    try {
+      const headers: Record<string, string> = { Authorization: `Bearer ${idToken}` };
+      if (payload !== undefined) headers['Content-Type'] = 'application/json';
+      res = await fetch(u, {
+        method,
+        headers,
+        body: payload === undefined ? undefined : JSON.stringify(payload),
+        signal: abort.signal,
+      });
       try {
-        res = await fetch(url(path, params), {
-          headers: { Authorization: `Bearer ${idToken}` },
-          signal: abort.signal,
-        });
-        try {
-          body = (await res.json()) as Envelope;
-        } catch {
-          body = null;
-        }
+        body = (await res.json()) as Envelope;
       } catch {
-        // 네트워크 · CORS 거절 · 타임아웃(abort) — 브라우저는 셋을 가르지 않고 TypeError · AbortError 로만 알려 준다
-        throw new ApiError(
-          'unavailable',
-          0,
-          '',
-          abort.signal.aborted ? 'API 응답이 늦어요' : 'API 에 연결하지 못했어요',
-        );
-      } finally {
-        clearTimeout(timer);
+        body = null;
       }
+    } catch {
+      // 네트워크 · CORS 거절 · 타임아웃(abort) — 브라우저는 셋을 가르지 않고 TypeError · AbortError 로만 알려 준다
+      throw new ApiError(
+        'unavailable',
+        0,
+        '',
+        abort.signal.aborted ? 'API 응답이 늦어요' : 'API 에 연결하지 못했어요',
+      );
+    } finally {
+      clearTimeout(timer);
+    }
 
-      const code = text(body?.code);
-      const message = text(body?.message);
-      if (res.status === 401 || res.status === 403) {
-        throw new ApiError(
-          'auth',
-          res.status,
-          code || (res.status === 401 ? 'AUTH_REQUIRED' : 'ACCESS_DENIED'),
-          message,
-        );
-      }
-      // 404 는 서버가 아직 이 기능을 모르는 판(배포 전)일 때다 — 닿지 못한 것과 같이 본다
-      if (res.status >= 500 || res.status === 404) {
-        throw new ApiError('unavailable', res.status, code, message || `API 오류 (${res.status})`);
-      }
-      if (!res.ok)
-        throw new ApiError('request', res.status, code, message || `API 요청 오류 (${res.status})`);
-      // 앞단(Caddy)의 오류 페이지처럼 봉투가 아닌 2xx 도 서버 문제로 본다
-      if (!body || body.success !== true) {
-        throw new ApiError('unavailable', res.status, code, message || 'API 응답 모양이 달라요');
-      }
-      return body.data as T;
-    },
+    const code = text(body?.code);
+    const message = text(body?.message);
+    if (res.status === 401 || res.status === 403) {
+      throw new ApiError(
+        'auth',
+        res.status,
+        code || (res.status === 401 ? 'AUTH_REQUIRED' : 'ACCESS_DENIED'),
+        message,
+      );
+    }
+    // 404 는 서버가 아직 이 기능을 모르는 판(배포 전)일 때다 — 닿지 못한 것과 같이 본다
+    if (res.status >= 500 || res.status === 404) {
+      throw new ApiError('unavailable', res.status, code, message || `API 오류 (${res.status})`);
+    }
+    if (!res.ok) throw new ApiError('request', res.status, code, message || `API 요청 오류 (${res.status})`);
+    // 앞단(Caddy)의 오류 페이지처럼 봉투가 아닌 2xx 도 서버 문제로 본다
+    if (!body || body.success !== true) {
+      throw new ApiError('unavailable', res.status, code, message || 'API 응답 모양이 달라요');
+    }
+    return body.data as T;
+  }
+
+  return {
+    get: <T>(path: string, params?: ApiParams) => request<T>('GET', url(path, params)),
+    send: <T>(method: ApiWriteMethod, path: string, payload?: unknown) =>
+      request<T>(method, url(path), payload),
   };
 }

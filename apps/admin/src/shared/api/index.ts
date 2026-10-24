@@ -25,6 +25,7 @@ export {
   type ApiErrorKind,
   type ApiFallback,
   type ApiParams,
+  type ApiWriteMethod,
 } from './api';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';
 export type { Files } from './files';
