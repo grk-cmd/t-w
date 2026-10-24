@@ -353,6 +353,27 @@ const BOT_CASES = [
   ['봇 아닌 사람 — 로그인 연결표 통째 읽기는 막힘', 'GET', 'userAuth', null, false, 'authNew2'],
   ['로그인 없음 — 로그인 연결표 통째 읽기는 막힘', 'GET', 'userAuth', null, false],
   ['봇 아닌 사람 — 연결 한 칸은 그대로 읽힘', 'GET', `userAuth/${GOOD_U}`, null, true, 'authNew2'],
+
+  /* 서버 상품 API 원본(products · listings · assets) — 서버 봇만 읽고 쓴다 · 관리자 작업 기록은 봇이 «토큰의 관리자» 이름으로 새 줄만 */
+  ['준비: 관리자 한 명(admins/adminA)', 'PUT', `admins/${ADMIN_A}`, true, true, OWNER],
+  ['서버 봇 — 상품 정의 쓰기', 'PUT', 'products/p1', { name: { ko: '고양이 눈' } }, true, BOT],
+  ['서버 봇 — 진열 쓰기', 'PUT', 'listings/p1', { status: 'draft', position: 10 }, true, BOT],
+  ['서버 봇 — 파일 보관함 쓰기', 'PUT', 'assets/h2abc', { kind: 'image', bytes: 10 }, true, BOT],
+  ['서버 봇 — 상품 · 진열 · 파일 통째 읽기', 'GET', 'products', null, true, BOT],
+  ['  ↳ 진열 통째 읽기', 'GET', 'listings', null, true, BOT],
+  ['  ↳ 파일 보관함 통째 읽기', 'GET', 'assets', null, true, BOT],
+  ['관리자 — 상품 정의 읽기는 막힘(서버 API 로만)', 'GET', 'products', null, false, ADMIN_A],
+  ['관리자 — 상품 정의 쓰기는 막힘', 'PUT', 'products/p2', { name: { ko: 'x' } }, false, ADMIN_A],
+  ['로그인한 사람 — 진열 읽기는 막힘', 'GET', 'listings/p1', null, false, 'authNew2'],
+  ['로그인 없음 — 파일 보관함 읽기는 막힘', 'GET', 'assets', null, false],
+  ['로그인한 사람 — 파일 보관함 쓰기는 막힘', 'PUT', 'assets/h2zzz', { kind: 'image' }, false, 'authNew2'],
+  ['서버 봇 — 관리자 이름으로 작업 기록 새 줄', 'PUT', 'adminLog/l1', { at: TS, by: ADMIN_A, action: 'product.create', target: 'p1', detail: '고양이 눈' }, true, BOT],
+  ['  ↳ by 가 관리자 아닌 uid 면 거절', 'PUT', 'adminLog/l2', { at: TS, by: 'authNew2', action: 'product.create', target: 'p1' }, false, BOT],
+  ['  ↳ by 가 봇 자신이면 거절', 'PUT', 'adminLog/l3', { at: TS, by: BOT, action: 'product.create', target: 'p1' }, false, BOT],
+  ['  ↳ 이미 있는 줄 덮어쓰기는 거절', 'PUT', 'adminLog/l1', { at: TS, by: ADMIN_A, action: 'product.update', target: 'p1' }, false, BOT],
+  ['  ↳ 지우기는 거절', 'DELETE', 'adminLog/l1', null, false, BOT],
+  ['관리자 — 자기 이름으로 작업 기록(그대로)', 'PUT', 'adminLog/l4', { at: TS, by: ADMIN_A, action: 'license.issue', target: 'k1' }, true, ADMIN_A],
+  ['  ↳ 관리자가 남의 이름으로는 거절(그대로)', 'PUT', 'adminLog/l5', { at: TS, by: 'adminB', action: 'license.issue', target: 'k1' }, false, ADMIN_A],
 ];
 
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
