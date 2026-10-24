@@ -100,7 +100,7 @@ function drawAt(ctx: DrawCtx, m: Mat, shapes: Shape[], pen: Pen) {
   ctx.restore();
 }
 
-/** 눈 한 짝 — 동공 · 하이라이트 · 아이라인을 차례로 쌓는다. 감은눈이면 아이라인의 감은 모양만. */
+/** 눈 한 짝 — 동공 · 하이라이트 · 아이라인을 차례로 쌓는다. 감은눈이면 아이라인의 감은 모양 — 동공 · 하이라이트는 감은 그림이 있을 때만. */
 function drawEye(ctx: DrawCtx, s: CreatorState, side: Side, expr: Expr, color: string, pen: Pen) {
   const put = (k: LayerKind, shapes: Shape[]) => {
     const m = layerMatrix(s, k, side);
@@ -111,6 +111,10 @@ function drawEye(ctx: DrawCtx, s: CreatorState, side: Side, expr: Expr, color: s
     put('highlight', findItem('highlight', s.highlight).open(color));
     put('eyeline', findItem('eyeline', s.eyeline).open(color));
     return;
+  }
+  for (const k of ['pupil', 'highlight'] as const) {
+    const shut = findItem(k, s[k]).closed;
+    if (shut) put(k, shut);
   }
   const line = findItem('eyeline', s.eyeline);
   const closed = line.closed ?? line.open(color);
@@ -131,14 +135,15 @@ export function drawFace(ctx: DrawCtx, s: CreatorState, expr: Expr, opts: DrawOp
         drawEye(ctx, s, side, expr, side === 'R' ? s.pupilColor.R : s.pupilColor.L, pen);
         continue;
       }
-      const shapes = findItem(kind, s[kind]).open(s.pupilColor.L);
+      const it = findItem(kind, s[kind]);
+      const shapes = expr === 'closed' && it.closed ? it.closed : it.open(s.pupilColor.L);
       const mx = layerMatrix(s, kind, side);
       if (mx && shapes.length) drawAt(ctx, mx, shapes, pen);
     }
   }
   for (const a of s.acc) {
     const item = findAcc(a.id);
-    if (item) drawAt(ctx, accMatrix(a), item.shapes, pen);
+    if (item) drawAt(ctx, accMatrix(a), (expr === 'closed' && item.closed) || item.shapes, pen);
   }
   if (img && s.img?.pos === 'top') ctx.drawImage(img, 0, 0, FACE_UNITS, FACE_UNITS);
 }

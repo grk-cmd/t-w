@@ -29,7 +29,7 @@ export interface LayerItem {
   name: Names;
   /** 뜬 눈 얼굴에 그릴 것 — color 는 고른 색(동공만 쓴다) */
   open: (color: string) => Shape[];
-  /** 감은눈 얼굴에 그릴 것 — 없으면 open 과 같다(동공 · 하이라이트는 감은눈에 그리지 않는다 — drawFace) */
+  /** 감은눈 얼굴에 그릴 것 — 없으면 open 과 같다(동공 · 하이라이트는 이것이 있을 때만 감은눈에 그린다 — drawFace) */
   closed?: Shape[];
 }
 
@@ -256,6 +256,8 @@ export interface AccItem {
   id: string;
   name: Names;
   shapes: Shape[];
+  /** 감은눈 얼굴에 그릴 것 — 없으면 shapes */
+  closed?: Shape[];
 }
 export const ACC_MAX = 5;
 export const ACC_SLOT = { x: 100, y: 120 } as const;
@@ -343,7 +345,7 @@ export const layerItems = (kind: LayerKind): readonly LayerItem[] => layers[kind
 export const accItems = (): readonly AccItem[] => accs;
 export const LAYER_KINDS = Object.keys(BUILTIN_LAYERS) as LayerKind[];
 
-/** 아이라인 그림에 감은눈 그림이 없으면 기본 감은 줄 — 감은눈 얼굴이 비지 않게 */
+/** 아이라인 그림에 감은 얼굴 그림이 없으면 기본 감은 줄 — 감은눈 얼굴이 비지 않게(다른 자리는 없으면 뜬 그림 그대로) */
 const FALLBACK_CLOSED = BUILTIN_LAYERS.eyeline.find((it) => it.id === 'thin')?.closed ?? [];
 
 /** 서버 그림 파츠를 고르기 목록에 넣는다(다시 부르면 바꿔 끼운다 · 빈 목록이면 기본만) */
@@ -353,11 +355,16 @@ export function setRemoteParts(parts: readonly RemotePart[]): void {
   const nextAcc: AccItem[] = [...BUILTIN_ACCS];
   for (const p of parts) {
     const id = `w:${p.id}`;
+    const shut = p.closedSrc ? [img(p.closedSrc, p)] : undefined;
     if (p.slot === 'acc') {
-      nextAcc.push({ id, name: p.name, shapes: [img(p.src, p)] });
+      nextAcc.push(
+        shut
+          ? { id, name: p.name, shapes: [img(p.src, p)], closed: shut }
+          : { id, name: p.name, shapes: [img(p.src, p)] },
+      );
       continue;
     }
-    const closed = p.slot === 'eyeline' ? (p.closedSrc ? [img(p.closedSrc, p)] : FALLBACK_CLOSED) : undefined;
+    const closed = shut ?? (p.slot === 'eyeline' ? FALLBACK_CLOSED : undefined);
     const item: LayerItem = closed
       ? { id, name: p.name, open: () => [img(p.src, p)], closed }
       : { id, name: p.name, open: () => [img(p.src, p)] };
