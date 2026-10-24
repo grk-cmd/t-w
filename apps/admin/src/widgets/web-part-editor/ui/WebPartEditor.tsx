@@ -62,7 +62,7 @@ const STATUS_ACTIONS: Record<ItemStatus, { to: ItemStatus; label: string; ask: s
     { to: 'draft', label: '진열 내리기', ask: '초안으로 내릴까요? 홈페이지에서 안 보이게 돼요.' },
     { to: 'archived', label: '단종', ask: '단종할까요? 목록에서 빠지지만 이미 고른 캐릭터는 그대로예요.' },
   ],
-  archived: [{ to: 'draft', label: '초안으로 되살리기', ask: '초안으로 되살릴까요? 목록 맨 뒤에 붙어요.' }],
+  archived: [{ to: 'draft', label: '초안으로 되살리기', ask: '초안으로 되살릴까요?' }],
 };
 
 function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => void }) {

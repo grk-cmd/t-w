@@ -125,10 +125,10 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-/** 파일 해시 — 관리자 응답에 실린 값(#517 §7-2), 없으면 파일 주소의 이름(이름이 곧 내용 해시 · §6-2) */
 /** 응답 값이 파일 주소인가(아니면 해시) — 관리자 응답의 썸네일 · 표정 그림이 어느 쪽으로 올지 규격(§7-2)이 둘 다로 읽혀 둘 다 받는다 */
 const isFileUrl = (v: string) => v.includes('/');
 
+/** 파일 해시 — 관리자 응답에 실린 값(#517 §7-2), 없으면 파일 주소의 이름(이름이 곧 내용 해시 · §6-2) */
 function fileHash(given: unknown, src: unknown): string | null {
   if (typeof given === 'string' && given) return given;
   if (typeof src !== 'string') return null;
