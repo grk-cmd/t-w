@@ -77,7 +77,7 @@ function mkEnv(opt){
   ctx._mhFitWindow = () => { env.fit = (env.fit || 0) + 1; };   // 런처 창 넓히기 고리(myhome-sticker-layout.js 가 부팅 때 건다)
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 잠금 · 순서 규칙 — 만들 때 받는다
-  vm.runInContext(MOD, ctx, { filename: 'myhome-sticker.js' });
+  vm.runInContext(opt.src || MOD, ctx, { filename: 'myhome-sticker.js' });
   env.ctx = ctx; env.els = els;
   const out = (s) => (s.x || 0) < 0 || (s.y || 0) < 0 || (s.x || 0) > env.W - 10 || (s.y || 0) > env.H - 10;
   env.mk = () => ctx.TwMyHomeSticker.createMyHomeSticker({
@@ -276,6 +276,17 @@ await sec('── 5-2. 🔒 잠금 · ▲▼ 순서 (관리 창 · 편집모드 
   chk(e.data.stickers.a.x === ax, '  ◎(bringIn) 도 잠긴 것은 안 옮긴다');
   e.data.stickers.a.x = -500; const nb = e.toasts.length; E.stMgrBringAll.onclick();
   chk(e.data.stickers.a.x === -500 && e.data.stickers.b.x === 560, '  전부 화면 안으로 — 잠긴 것은 그대로 · 나머지만');
+  const cE = e.commits; lbtn('✎').click();
+  chk(e.data.stickers.a.x === 0 && e.editSid === 'a' && e.data.stickers.a.locked === true && e.commits === cE + 1, '★ 창 밖의 잠긴 스티커도 ✎ — 창 안으로 당겨 편집모드 · 잠금은 그대로 · 저장');
+  e.editSid = null; e.docL = {};
+  { /* 깨 보기 — ✎ 가 ◎ 처럼 잠긴 것을 건너뛰면 창 밖에 남은 채 편집모드(안 보임) */
+    const bad = MOD.replace('if(_mhStickerOutOfView(s)){ _mhClampStickerPos(s); commitMyHomePage(true); }', 'if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); commitMyHomePage(true); }');
+    const b = mkEnv({ src: bad, stickers: { a: { x: -500, y: 10, locked: true } } }); b.mk().open();
+    const br = b.els.stMgrList.children.find(r => /locked/.test(r.className));
+    const pen = br && b.walk(b.part(br, 'st-mgr-btns')).find(x => x.tagName === 'BUTTON' && x.textContent.split(' ')[0] === '✎');
+    if(pen) pen.click();
+    chk(bad !== MOD && !!pen && b.data.stickers.a.x === -500, '  깨 보기 — ✎ 가 잠긴 것을 건너뛰면 창 밖에 남는다(빨강)');
+  }
   e.data.stickers.a.x = 10;
   const t0 = e.toasts.length; M.editStart('a');
   chk(e.editSid === 'a' && e.toasts.length === t0 && e.data.stickers.a.locked === true, '★ 잠긴 스티커도 우클릭 · ✎ 로 편집모드에 들어간다 · 잠금은 그대로');

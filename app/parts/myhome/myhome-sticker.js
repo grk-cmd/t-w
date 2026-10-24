@@ -135,9 +135,10 @@ function renderStickerMgr(){
     });
     lockBtn.classList.toggle('on', locked);
     /* ★ 편집은 관리 창을 닫고 스티커 자체로 넘긴다 — 이동·크기·회전은 실제 화면에서 봐야 맞출 수 있다.
-       화면 밖에 있던 스티커라면 먼저 데려온 뒤 편집모드로 들어간다(안 그러면 또 안 보인다). */
+       화면 밖에 있던 스티커라면 먼저 창 안으로 당긴 뒤 편집모드로 들어간다(안 그러면 또 안 보인다).
+       ⚠️ ◎(_mhBringStickerIn)는 잠긴 것을 건너뛰어서 여기선 직접 당긴다 — 창 밖의 잠긴 스티커를 고칠 길은 ✎ 뿐이다. */
     mk(btns, '✎', locked ? '편집 (잠금은 그대로 — 끌어서는 안 움직여요)' : '편집 (이동·크기·회전)', ()=>{
-      if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); commitMyHomePage(true); }
+      if(_mhStickerOutOfView(s)){ _mhClampStickerPos(s); commitMyHomePage(true); }
       closeStickerMgr();
       renderMyHomeStickers();
       _mhStickerEditStart(sid);
