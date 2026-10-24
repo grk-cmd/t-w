@@ -319,11 +319,11 @@
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **9e6d39720b41** |
-| **sim-desktop-run.js** | 94 | **742b11531096** |
+| **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **4fc135abc2f8** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **6f7d27e6557e** |
-| **sim-status-chip.js** | 102 | **d5241c06f591** |
+| **sim-status-chip.js** | 102 | **6cb3c48e161a** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
@@ -430,6 +430,7 @@
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-native-peek.js** | 168 | **10af633f27f9** |
+| **sim-seat-regions.js** | 169 | **87bb9574eaf8** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

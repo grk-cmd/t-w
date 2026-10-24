@@ -32,6 +32,7 @@ const focusGateSleep = deps.focusGateSleep;   // 읽는 함수
 const lastActivity = deps.lastActivity;   // 읽는 함수
 const lastAnyInput = deps.lastAnyInput;   // 읽는 함수
 const moveMode = deps.moveMode;   // 읽는 함수
+const otherSeatRegions = deps.otherSeatRegions;   // 🖱️ 다른 좌석 화면 사각형(status-chip.js)
 const ray = deps.ray;
 const renderer = deps.renderer;
 const seats = deps.seats;
@@ -318,6 +319,9 @@ if(desktopMode){
           push(els[i], UI_REGION_DEPTH, null);
         }
       }catch(_){}
+      /* 🖱️ 다른 좌석 자리도 여기서 합친다 — main 에 regions 를 보내는 길(하트비트 · _pushIgnoreWhy)이 둘이라, 한쪽만 붙이면
+         남의 캐릭터 위에서 클릭받기로 바뀌는 바로 그 순간 좌석이 빠져 ⓖ 가 회수한다(otherSeatRegions 주석) */
+      try{ const sr = otherSeatRegions(); for(let i = 0; i < sr.length; i++) out.push(sr[i]); }catch(_){}
       return out;
     }
     window.__uiRegions = _uiRegions;   // 하트비트가 쓴다(아래 setCharBounds 타이머)
