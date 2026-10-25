@@ -5,6 +5,7 @@
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 69줄 그대로(진단 기록 diagNote · 몸 재기 measureBodyBox · isPartByRigOrName 더함) · 부르는 곳은 rideBenchMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 올라탄 높이 다시 재기 — 실패하면 옛 높이 그대로 · 진단 기록 한 줄 / 성공하면 탄 좌석 모두 새 값 · 다음 프레임 검증 줄(작은 가짜 THREE · 깨 보기)
+   ・6절: 탑 맨 아래 사람이 나가면 위층도 바닥으로 — 높이 0 · 묘기 자세 풀림 · 내 좌석이면 «내렸다» 방송(깨 보기)
    [실행] app.js · desk-companion-prototype.html · ride-bench.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -161,6 +162,47 @@ for(const [name, a, b] of [
   const m3 = MOD.replace(' r._rideDbgOnce = true;', '');
   let rows3; try{ rows3 = judgeRemeasure(m3); }catch(_){ rows3 = [[false, '던짐']]; }
   chk(m3 !== MOD && rows3.some(([ok]) => !ok), '깨 보기 — 다시 잰 뒤 검증 줄을 안 켜면 빨강' + (m3 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 6. 탑 맨 아래 사람이 나가면 위층도 바닥으로(내려앉힐 곳이 없을 때의 하차)');
+/* 나 → X → B 에서 B 가 방을 나가면 프레임 루프가 unmountRide(X) 를 부른다(app.js «태운 대상이 방을 나감»).
+   X 위의 «나» 는 내려앉힐 B 가 없으니 하차해야 한다 — 높이 0 · 묘기 자세 풀림 · 내 좌석이면 «내렸다» 방송. */
+function judgeTowerDrop(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  /* 올라타기는 동물만 된다 — 위층을 다시 얹는 갈래(mountRide)까지 타게 동물 좌석으로 만든다. 사람(동물 아님)은 그 갈래에서 거절돼 바닥으로 */
+  const mk = (o) => Object.assign({ charDef: { animal: true }, group: { position: { x: 0, y: 1, z: 0 }, quaternion: { identity(){} }, rotation: { set(){} } }, desk: null }, o);
+  const run = (make) => {
+    const calls = { cast: 0 }, seats = [];
+    const S = make(seats);
+    const bottom = (x) => { let p = x, g = 0; while(p && p.ridingOn && g++ < 16) p = p.ridingOn; return p; };
+    build(src, { seats, RIDE_MAX_STACK: 5, broadcastRide: () => { calls.cast++; }, layoutSeats: () => {}, toast: () => {}, _rideBottom: bottom, _measureAnimalArmH: () => 0.5, seatScale: () => 1 }).unmountRide(S.X);
+    return Object.assign(S, { cast: calls.cast });
+  };
+  const floor = (s) => s.ridingOn === null && s.group.position.y === 0 && s._circusOn === false;
+  try{
+    /* ① 나 → X → B, 내 위에 남의 동물 top. B 가 나가서 seats 에 없다 */
+    const a = run(seats => { const B = mk({ remote: true }), X = mk({ remote: true, ridingOn: B }), me = mk({ ridingOn: X, _circusOn: true }), top = mk({ remote: true, ridingOn: me });
+      seats.push(X, me, top); return { X, me, top }; });
+    t(a.X.ridingOn === null && a.X.group.position.y === 0, 'X(아래 대상이 나감) — 내려와 높이 0');
+    t(floor(a.me), '★ X 위의 나 — 탄 상태 풀림 · 높이 0 · 묘기 자세 풀림(공중에 안 남는다)');
+    t(a.cast === 1, '★ 내 좌석이 내려왔으니 «내렸다» 를 한 번 방송한다(남의 화면에서도 내려온다)');
+    t(a.top.ridingOn === a.X, '  내 위에 있던 동물은 «내가 있던 자리» 의 아래(X — 이제 바닥)로 내려앉는다');
+    /* ② 나 → Y → X → B — 나는 맨 위(4층) */
+    const b = run(seats => { const B = mk({ remote: true }), X = mk({ remote: true, ridingOn: B }), Y = mk({ remote: true, ridingOn: X, _circusOn: true }), me = mk({ ridingOn: Y, _circusOn: true });
+      seats.push(X, Y, me); return { X, Y, me }; });
+    t(floor(b.Y) && b.me.ridingOn === b.X && b.cast === 1, '  맨 위의 나 — 가운데 Y 는 바닥 · 나는 X 위로 내려앉고 «탔다» 를 한 번 방송');
+    /* ③ 위층이 사람(동물 아님) — 다시 얹기가 거절돼도 공중에 안 남는다 */
+    const c = run(seats => { const B = mk({ remote: true }), X = mk({ remote: true, ridingOn: B }), me = mk({ ridingOn: X, charDef: {}, _circusOn: true }), Y = mk({ remote: true, ridingOn: me, charDef: {} });
+      seats.push(X, me, Y); return { X, me, Y }; });
+    t(floor(c.me) && floor(c.Y), '  다시 얹기가 거절되는 위층(사람)도 바닥으로 — 공중에 안 남는다');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 80)); }
+  return r;
+}
+judgeTowerDrop(MOD).forEach(([ok, msg]) => chk(ok, msg));
+{
+  const m2 = MOD.replace('      up.ridingOn = animalSeat;\n      unmountRide(up);', '      up.ridingOn = null;\n      unmountRide(up);');
+  let rows2; try{ rows2 = judgeTowerDrop(m2); }catch(_){ rows2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — 탄 대상을 비운 채 하차를 부르면(옛 모양) 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

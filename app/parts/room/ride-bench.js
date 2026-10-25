@@ -876,11 +876,14 @@ function unmountRide(animalSeat){
   //   허공에 남지 않게 한다(안전한 폴백).
   try{
     _rideRiders(animalSeat).forEach(up=>{
-      up.ridingOn = null;
       if(_below && seats.includes(_below) && !_rideIsAbove(_below, up) && _rideDepth(_below)+1 <= RIDE_MAX_STACK){
+        up.ridingOn = null;
         if(mountRide(up, _below)) return;
       }
-      unmountRide(up);   // 내려앉힐 곳이 없으면 하차
+      /* 내려앉힐 곳이 없으면 하차 — ⚠️ unmountRide 는 탄 대상이 없으면 바로 끝나므로 지금 대상을 다시 채워서 부른다
+         (비워 둔 채 부르면 높이 · 묘기 자세가 공중에 남고 «내렸다» 도 안 나간다 — 맨 아래 사람이 나간 탑) */
+      up.ridingOn = animalSeat;
+      unmountRide(up);
     });
   }catch(_){}
   if(animalSeat.desk) animalSeat.desk.visible = true;
