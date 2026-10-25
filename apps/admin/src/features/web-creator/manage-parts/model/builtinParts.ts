@@ -1,6 +1,7 @@
 import {
   listWebParts,
   PART_LANGS,
+  reorderWebParts,
   WEB_PART_SLOTS,
   type PartNames,
   type WebPart,
@@ -11,7 +12,7 @@ import { savePart } from './savePart';
 import manifest from '../builtin/manifest.json';
 
 /* 홈페이지 코드에 도형으로 있던 기본 파츠를 서버 상품으로 옮기는 한 번짜리 가져오기.
-   그림 · 목록은 apps/web/scripts/export-builtin-parts.mjs 가 뽑은 것(builtin/) — 동공 · «없음» · 처음 얼굴은 코드에 남는다. */
+   그림 · 목록은 apps/web/scripts/export-builtin-parts.mjs 가 뽑은 것(builtin/) — «없음» · 처음 얼굴(하이라이트 · 눈썹 · 입 · 볼)은 코드에 남는다. */
 
 /** 옮길 기본 파츠 하나 */
 export interface BuiltinPart {
@@ -22,6 +23,8 @@ export interface BuiltinPart {
   h: number;
   file: string;
   closedFile: string | null;
+  /** 처음 얼굴 — 홈페이지는 자리 목록의 맨 앞을 처음 얼굴로 그려서, 가져오면 진열 순서 맨 앞으로 옮긴다 */
+  lead: boolean;
 }
 
 const isSlot = (v: unknown): v is WebPartSlot =>
@@ -39,7 +42,8 @@ export function parseManifest(raw: unknown): BuiltinPart[] {
       typeof v.w === 'number' &&
       typeof v.h === 'number' &&
       typeof v.file === 'string' &&
-      (v.closedFile === null || typeof v.closedFile === 'string');
+      (v.closedFile === null || typeof v.closedFile === 'string') &&
+      typeof v.lead === 'boolean';
     if (!ok) throw new Error(`기본 파츠 목록 ${i}번 줄 모양이 달라요`);
     return v as unknown as BuiltinPart;
   });
@@ -71,14 +75,36 @@ export async function importBuiltins(
   const todo = missingBuiltins([...live, ...archived], all);
   let done = 0;
   onProgress(done, todo.length);
-  for (const b of todo) {
-    await savePart(api, {
-      part: null,
-      draft: { slot: b.slot, name: { ...b.name }, w: b.w, h: b.h },
-      image: await loadBytes(b.file),
-      closedImage: b.closedFile ? await loadBytes(b.closedFile) : undefined,
-    });
-    onProgress(++done, todo.length);
+  try {
+    for (const b of todo) {
+      await savePart(api, {
+        part: null,
+        draft: { slot: b.slot, name: { ...b.name }, w: b.w, h: b.h },
+        image: await loadBytes(b.file),
+        closedImage: b.closedFile ? await loadBytes(b.closedFile) : undefined,
+      });
+      onProgress(++done, todo.length);
+    }
+  } finally {
+    // 중간에 실패해도 맞춘다 — 다시 누르면 처음 얼굴은 이미 있어 할 일에서 빠지니, 서버 순서를 보고 정한다
+    if (todo.length > 0) await leadFirst(api, all);
   }
   return done;
+}
+
+/** 처음 얼굴 파츠가 자기 자리의 맨 앞이 아니면 진열 순서 맨 앞으로(나머지 순서는 그대로).
+    남은 기본 파츠를 가져올 때마다 다시 맞춘다 — 그 사이 손으로 바꾼 자리 순서도 처음 얼굴이 맨 앞으로 돌아온다 */
+async function leadFirst(api: Api | null, all: readonly BuiltinPart[]): Promise<void> {
+  const live = await listWebParts(api);
+  const leads = all
+    .filter((b) => b.lead)
+    .map((b) => live.find(sameAs(b)))
+    .filter((p): p is WebPart => p !== undefined);
+  const firstOfSlot = (p: WebPart) => live.find((q) => q.piece?.slot === p.piece?.slot);
+  if (leads.every((p) => firstOfSlot(p) === p)) return;
+  const rest = live.filter((p) => !leads.includes(p));
+  await reorderWebParts(
+    api,
+    [...leads, ...rest].map((p) => p.id),
+  );
 }

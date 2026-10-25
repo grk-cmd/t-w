@@ -3,6 +3,7 @@ import {
   draftProblem,
   emptyDraft,
   imageProblem,
+  LIGHT_SLOTS,
   movedIds,
   NoApiError,
   PART_LANGS,
@@ -167,6 +168,12 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
           onChange={(e) => set({ h: e.target.valueAsNumber })}
         />
       </label>
+      {draft.slot === 'pupil' && (
+        <p className={`soft ${styles.full}`}>
+          동공 그림은 흰 부분이 홈페이지에서 고른 눈 색으로 칠해져요(검은 부분은 그대로) — 흰색으로 그려
+          주세요.
+        </p>
+      )}
       <label>
         그림(PNG{part ? ' — 바꿀 때만' : ''})
         <input type="file" accept="image/png" onChange={(e) => void pick(e.target.files?.[0], setImage)} />
@@ -191,7 +198,9 @@ function PartForm({ part, onDone }: { part: EditablePart | null; onDone: () => v
         </label>
       )}
       {shown && (
-        <div className={styles.preview}>
+        <div
+          className={LIGHT_SLOTS.includes(draft.slot) ? `${styles.preview} ${styles.onDark}` : styles.preview}
+        >
           <img src={shown} alt="고른 그림 미리보기" />
           {closedShown && <img src={closedShown} alt="눈 감은 얼굴 그림 미리보기" />}
         </div>
@@ -290,8 +299,9 @@ export function WebPartEditor() {
       </p>
       {builtinLeft > 0 && editing === null && (
         <p className={`note ${styles.builtin}`}>
-          홈페이지 코드에 있던 기본 파츠 중 {builtinLeft}개가 아직 서버에 없어요(동공 · 처음 얼굴은 코드에
-          남아요).{' '}
+          홈페이지 코드에 있던 기본 파츠 중 {builtinLeft}개가 아직 서버에 없어요(«없음» · 처음 얼굴의
+          하이라이트 · 눈썹 · 입 · 볼은 코드에 남아요. 기본 동공 «동그랑» · 아이라인 «얇은» 은 올리면 진열
+          순서 맨 앞으로 — 자리마다 맨 앞이 홈페이지 처음 얼굴이에요).{' '}
           <button
             type="button"
             className="btn"
@@ -323,7 +333,15 @@ export function WebPartEditor() {
               <PartForm key={p.id} part={p} onDone={() => setEditing(null)} />
             ) : (
               <div key={p.id} className={p.status === 'active' ? 'row' : `row ${styles.dim}`}>
-                <span className={styles.thumb}>{p.thumb && <img src={p.thumb} alt="" />}</span>
+                <span
+                  className={
+                    p.piece && LIGHT_SLOTS.includes(p.piece.slot)
+                      ? `${styles.thumb} ${styles.onDark}`
+                      : styles.thumb
+                  }
+                >
+                  {p.thumb && <img src={p.thumb} alt="" />}
+                </span>
                 <span className="grow">
                   <b>{p.name.ko}</b>{' '}
                   <span className="soft">
