@@ -28,6 +28,7 @@ export {
   PIECE_SURFACE,
   PIECE_TARGET,
   pngSize,
+  LIGHT_SLOTS,
   SLOT_LABELS,
   STATUS_LABELS,
   toBase64,

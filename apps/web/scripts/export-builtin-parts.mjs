@@ -1,5 +1,6 @@
 // 홈페이지 기본 파츠(코드 안 도형)를 PNG 로 뽑아 웹 관리자 «기본 파츠 가져오기» 에 넣는다 — 한 번 쓰는 옮기기 도구.
-// 동공 · «없음» · 처음 얼굴(기본값)은 코드에 남는다(사용자 결정) — 아래 MOVE 에 든 것만 뽑는다.
+// «없음» · 처음 얼굴(하이라이트 · 눈썹 · 입 · 볼 기본값)은 코드에 남는다(사용자 결정) — 아래 MOVE 에 든 것만 뽑는다.
+// 동공은 흰색으로 뽑는다 — 홈페이지가 흰 부분을 고른 눈 색으로 칠한다(곱하기 · 검은 부분은 그대로).
 // 쓰는 법: 루트에서 `node apps/web/scripts/export-builtin-parts.mjs` (playwright 가 깔린 PC 에서 · 결과 PNG 는 저장소에 올린다)
 import { build } from 'esbuild';
 import { createRequire } from 'node:module';
@@ -15,13 +16,19 @@ const OUT = join(here, '../../admin/src/features/web-creator/manage-parts/builti
 const PX = 8;
 
 const MOVE = {
+  pupil: ['round', 'dot', 'big', 'cat'],
   highlight: ['double', 'big', 'star'],
-  eyeline: ['thick', 'lash', 'smile', 'sleepy'],
+  eyeline: ['thin', 'thick', 'lash', 'smile', 'sleepy'],
   brows: ['thick', 'worry'],
   mouth: ['cat', 'open', 'flat', 'o'],
   cheek: ['lines', 'freckle'],
   acc: ['bandage', 'scar', 'scarline', 'mole', 'tear', 'star', 'heart', 'sweat'],
 };
+
+/** 처음 얼굴이 될 것 — 홈페이지는 그 자리 목록의 맨 앞을 처음 얼굴로 그린다(가져오기가 맨 앞으로 옮긴다) */
+const LEAD = ['pupil/round', 'eyeline/thin'];
+/** 동공 색 자리 — 흰색이라야 곱하기로 칠한 색이 그대로 나온다 */
+const TINT_BASE = '#FFFFFF';
 
 const bundled = await build({
   stdin: {
@@ -62,8 +69,9 @@ for (const [slot, ids] of Object.entries(MOVE))
     const it = findItem(slot, id);
     if (it.id !== id) throw new Error(`없는 기본 파츠: ${slot}/${id}`);
     // 아이라인은 감은 얼굴 그림이 늘 있다 — 기본 그림에 따로 없으면 지금 화면처럼 뜬 모양을 그대로(홈페이지는 없으면 기본 감은 줄을 그려 모양이 바뀐다)
-    const closed = slot === 'eyeline' ? (it.closed ?? it.open('#000')) : null;
-    jobs.push({ slot, id, name: it.name, open: it.open('#000'), closed });
+    const color = slot === 'pupil' ? TINT_BASE : '#000';
+    const closed = slot === 'eyeline' ? (it.closed ?? it.open(color)) : null;
+    jobs.push({ slot, id, name: it.name, open: it.open(color), closed });
   }
 
 const browser = await chromium.launch();
@@ -110,7 +118,8 @@ for (const j of jobs) {
     closedFile = `${j.slot}-${j.id}-closed.png`;
     await shot(svgs[1], closedFile);
   }
-  manifest.push({ key: `${j.slot}/${j.id}`, slot: j.slot, name: j.name, w, h, file, closedFile });
+  const key = `${j.slot}/${j.id}`;
+  manifest.push({ key, slot: j.slot, name: j.name, w, h, file, closedFile, lead: LEAD.includes(key) });
 }
 await browser.close();
 writeFileSync(join(OUT, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);

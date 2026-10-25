@@ -1,5 +1,61 @@
 [
   {
+    "key": "pupil/round",
+    "slot": "pupil",
+    "name": {
+      "ko": "동그랑",
+      "en": "Round",
+      "ja": "まる"
+    },
+    "w": 18,
+    "h": 20,
+    "file": "pupil-round.png",
+    "closedFile": null,
+    "lead": true
+  },
+  {
+    "key": "pupil/dot",
+    "slot": "pupil",
+    "name": {
+      "ko": "콩",
+      "en": "Dot",
+      "ja": "てん"
+    },
+    "w": 12,
+    "h": 12,
+    "file": "pupil-dot.png",
+    "closedFile": null,
+    "lead": false
+  },
+  {
+    "key": "pupil/big",
+    "slot": "pupil",
+    "name": {
+      "ko": "큰",
+      "en": "Big",
+      "ja": "おおきい"
+    },
+    "w": 20,
+    "h": 24,
+    "file": "pupil-big.png",
+    "closedFile": null,
+    "lead": false
+  },
+  {
+    "key": "pupil/cat",
+    "slot": "pupil",
+    "name": {
+      "ko": "고양이",
+      "en": "Cat",
+      "ja": "ねこ"
+    },
+    "w": 20,
+    "h": 22,
+    "file": "pupil-cat.png",
+    "closedFile": null,
+    "lead": false
+  },
+  {
     "key": "highlight/double",
     "slot": "highlight",
     "name": {
@@ -10,7 +66,8 @@
     "w": 16,
     "h": 20,
     "file": "highlight-double.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "highlight/big",
@@ -23,7 +80,8 @@
     "w": 16,
     "h": 18,
     "file": "highlight-big.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "highlight/star",
@@ -36,7 +94,22 @@
     "w": 16,
     "h": 22,
     "file": "highlight-star.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
+  },
+  {
+    "key": "eyeline/thin",
+    "slot": "eyeline",
+    "name": {
+      "ko": "얇은",
+      "en": "Thin",
+      "ja": "ほそい"
+    },
+    "w": 30,
+    "h": 32,
+    "file": "eyeline-thin.png",
+    "closedFile": "eyeline-thin-closed.png",
+    "lead": true
   },
   {
     "key": "eyeline/thick",
@@ -49,7 +122,8 @@
     "w": 34,
     "h": 34,
     "file": "eyeline-thick.png",
-    "closedFile": "eyeline-thick-closed.png"
+    "closedFile": "eyeline-thick-closed.png",
+    "lead": false
   },
   {
     "key": "eyeline/lash",
@@ -62,7 +136,8 @@
     "w": 44,
     "h": 42,
     "file": "eyeline-lash.png",
-    "closedFile": "eyeline-lash-closed.png"
+    "closedFile": "eyeline-lash-closed.png",
+    "lead": false
   },
   {
     "key": "eyeline/smile",
@@ -75,7 +150,8 @@
     "w": 28,
     "h": 14,
     "file": "eyeline-smile.png",
-    "closedFile": "eyeline-smile-closed.png"
+    "closedFile": "eyeline-smile-closed.png",
+    "lead": false
   },
   {
     "key": "eyeline/sleepy",
@@ -88,7 +164,8 @@
     "w": 32,
     "h": 14,
     "file": "eyeline-sleepy.png",
-    "closedFile": "eyeline-sleepy-closed.png"
+    "closedFile": "eyeline-sleepy-closed.png",
+    "lead": false
   },
   {
     "key": "brows/thick",
@@ -101,7 +178,8 @@
     "w": 22,
     "h": 8,
     "file": "brows-thick.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "brows/worry",
@@ -114,7 +192,8 @@
     "w": 26,
     "h": 12,
     "file": "brows-worry.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "mouth/cat",
@@ -127,7 +206,8 @@
     "w": 34,
     "h": 14,
     "file": "mouth-cat.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "mouth/open",
@@ -140,7 +220,8 @@
     "w": 26,
     "h": 24,
     "file": "mouth-open.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "mouth/flat",
@@ -153,7 +234,8 @@
     "w": 22,
     "h": 8,
     "file": "mouth-flat.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "mouth/o",
@@ -166,7 +248,8 @@
     "w": 14,
     "h": 16,
     "file": "mouth-o.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "cheek/lines",
@@ -179,7 +262,8 @@
     "w": 30,
     "h": 12,
     "file": "cheek-lines.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "cheek/freckle",
@@ -192,7 +276,8 @@
     "w": 18,
     "h": 18,
     "file": "cheek-freckle.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/bandage",
@@ -205,7 +290,8 @@
     "w": 48,
     "h": 16,
     "file": "acc-bandage.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/scar",
@@ -218,7 +304,8 @@
     "w": 24,
     "h": 24,
     "file": "acc-scar.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/scarline",
@@ -231,7 +318,8 @@
     "w": 36,
     "h": 14,
     "file": "acc-scarline.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/mole",
@@ -244,7 +332,8 @@
     "w": 8,
     "h": 8,
     "file": "acc-mole.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/tear",
@@ -257,7 +346,8 @@
     "w": 10,
     "h": 22,
     "file": "acc-tear.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/star",
@@ -270,7 +360,8 @@
     "w": 24,
     "h": 24,
     "file": "acc-star.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/heart",
@@ -283,7 +374,8 @@
     "w": 22,
     "h": 20,
     "file": "acc-heart.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   },
   {
     "key": "acc/sweat",
@@ -296,6 +388,7 @@
     "w": 12,
     "h": 24,
     "file": "acc-sweat.png",
-    "closedFile": null
+    "closedFile": null,
+    "lead": false
   }
 ]

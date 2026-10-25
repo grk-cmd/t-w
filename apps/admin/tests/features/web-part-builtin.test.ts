@@ -39,8 +39,8 @@ const product = (id: string, slot: string, ko: string, status = 'active') => ({
   ],
 });
 
-/** 목록은 live · archived 따로 · 올리기는 h2up1 … · 만들기 본문을 모은다 */
-function fakeApi(live: unknown[], archived: unknown[] = []) {
+/** 목록은 live · archived 따로 · 올리기는 h2up1 … · 만들기 본문을 모은다 · failKo 이름의 만들기는 실패 */
+function fakeApi(live: unknown[], archived: unknown[] = [], failKo?: string) {
   const calls: string[] = [];
   const bodies: unknown[] = [];
   let n = 0;
@@ -50,6 +50,15 @@ function fakeApi(live: unknown[], archived: unknown[] = []) {
     send: async <T>(method: ApiWriteMethod, path: string, body?: unknown) => {
       calls.push(`${method} ${path}`);
       bodies.push(body);
+      // 만든 상품은 다음 목록 읽기에 보인다(서버처럼 맨 뒤)
+      if (method === 'POST') {
+        const b = body as { name: { ko: string }; pieces: { slot: string }[] };
+        if (b.name.ko === failKo) throw new Error('서버 503');
+        live.push({
+          ...product(`n${live.length}`, b.pieces[0]?.slot ?? '', b.name.ko, 'draft'),
+          position: 100 + live.length,
+        });
+      }
       return null as T;
     },
     upload: async <T>() => {
@@ -62,14 +71,15 @@ function fakeApi(live: unknown[], archived: unknown[] = []) {
 const bytes = async (file: string) => new TextEncoder().encode(file);
 
 describe('기본 파츠 목록(뽑은 그림)', () => {
-  it('23개 · 동공 · 처음 얼굴 · «없음» 은 없다 · 아이라인만 감은 그림', () => {
-    expect(BUILTIN_PARTS).toHaveLength(23);
+  it('28개 · 코드에 남는 처음 얼굴 · «없음» 은 없다 · 아이라인만 감은 그림 · 처음 얼굴은 동공 «동그랑» · 아이라인 «얇은»', () => {
+    expect(BUILTIN_PARTS).toHaveLength(28);
     const keys = BUILTIN_PARTS.map((b) => b.key);
-    for (const kept of ['highlight/dot', 'eyeline/thin', 'brows/arc', 'mouth/smile', 'cheek/blush'])
+    for (const kept of ['highlight/dot', 'brows/arc', 'mouth/smile', 'cheek/blush'])
       expect(keys).not.toContain(kept);
-    expect(keys.some((k) => k.startsWith('pupil/'))).toBe(false);
+    expect(keys.some((k) => k.endsWith('/none'))).toBe(false);
     for (const b of BUILTIN_PARTS) expect(b.closedFile !== null, b.key).toBe(b.slot === 'eyeline');
     expect(new Set(keys).size).toBe(keys.length);
+    expect(BUILTIN_PARTS.filter((b) => b.lead).map((b) => b.key)).toEqual(['pupil/round', 'eyeline/thin']);
   });
 
   it('그림 파일이 다 있고 서버 규칙(PNG · 512KB · 1024px · 크기 0~200)을 지킨다', () => {
@@ -103,6 +113,7 @@ describe('기본 파츠 가져오기', () => {
       h: 16,
       file: 'mouth-o.png',
       closedFile: null,
+      lead: false,
     },
     {
       key: 'eyeline/thick',
@@ -112,6 +123,7 @@ describe('기본 파츠 가져오기', () => {
       h: 34,
       file: 'eyeline-thick.png',
       closedFile: 'eyeline-thick-closed.png',
+      lead: false,
     },
   ];
 
@@ -146,6 +158,61 @@ describe('기본 파츠 가져오기', () => {
         },
       ],
     });
+  });
+
+  it('처음 얼굴(lead)을 올렸으면 진열 순서 맨 앞으로 — 나머지 순서는 그대로', async () => {
+    const lead: BuiltinPart = {
+      key: 'eyeline/thin',
+      slot: 'eyeline',
+      name: { ko: '얇은', en: 'Thin', ja: 'ほそい' },
+      w: 30,
+      h: 32,
+      file: 'eyeline-thin.png',
+      closedFile: null,
+      lead: true,
+    };
+    const { api, calls, bodies } = fakeApi([product('a', 'mouth', '오'), product('b', 'eyeline', '굵은')]);
+    expect(await importBuiltins(api, bytes, () => {}, [...two, lead])).toBe(1);
+    expect(calls.at(-1)).toBe('PUT /v1/admin/products/order');
+    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['n2', 'a', 'b'] });
+  });
+
+  it('처음 얼굴 뒤에서 실패해도 순서는 맞춘다 · 다시 눌러도 이미 맨 앞이면 보내지 않는다', async () => {
+    const lead: BuiltinPart = {
+      ...(two[1] as BuiltinPart),
+      key: 'eyeline/thin',
+      name: { ko: '얇은', en: 'Thin', ja: 'ほそい' },
+      lead: true,
+    };
+    const { api, calls, bodies } = fakeApi([product('b', 'eyeline', '굵은')], [], '오');
+    await expect(importBuiltins(api, bytes, () => {}, [lead, two[0] as BuiltinPart])).rejects.toThrow('503');
+    expect(calls.at(-1)).toBe('PUT /v1/admin/products/order');
+    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['n1', 'b'] });
+    calls.length = 0;
+    // 서버가 순서를 바꿨다고 치고 다시 — 맨 앞이면 순서는 그대로
+    const again = fakeApi([
+      { ...product('n1', 'eyeline', '얇은'), position: 10 },
+      { ...product('b', 'eyeline', '굵은'), position: 20 },
+    ]);
+    expect(await importBuiltins(again.api, bytes, () => {}, [lead, two[0] as BuiltinPart])).toBe(1);
+    expect(again.calls).not.toContain('PUT /v1/admin/products/order');
+  });
+
+  it('처음 얼굴이 이미 자리 맨 앞이면 순서를 건드리지 않는다', async () => {
+    const lead = { ...two[0], lead: true } as BuiltinPart;
+    const { api, calls } = fakeApi([product('a', 'mouth', '오')]);
+    expect(await importBuiltins(api, bytes, () => {}, [lead, two[1] as BuiltinPart])).toBe(1);
+    expect(calls).not.toContain('PUT /v1/admin/products/order');
+  });
+
+  it('손으로 처음 얼굴을 뒤로 보냈으면 남은 것을 가져올 때 다시 맨 앞으로', async () => {
+    const lead = { ...two[0], lead: true } as BuiltinPart;
+    const { api, bodies } = fakeApi([
+      { ...product('z', 'mouth', '다른 입'), position: 10 },
+      { ...product('a', 'mouth', '오'), position: 20 },
+    ]);
+    expect(await importBuiltins(api, bytes, () => {}, [lead, two[1] as BuiltinPart])).toBe(1);
+    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['a', 'z', 'n2'] });
   });
 
   it('다 있으면 아무것도 올리지 않는다(다시 눌러도 겹치지 않음)', async () => {
