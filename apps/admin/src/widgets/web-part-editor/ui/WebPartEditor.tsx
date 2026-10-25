@@ -20,7 +20,13 @@ import {
   type WebPartSlot,
   type WebPiece,
 } from '@/entities/web-creator/part';
-import { useReorderWebParts, useSaveWebPart, useSetWebPartStatus } from '@/features/web-creator/manage-parts';
+import {
+  missingBuiltins,
+  useImportBuiltins,
+  useReorderWebParts,
+  useSaveWebPart,
+  useSetWebPartStatus,
+} from '@/features/web-creator/manage-parts';
 import { useEnv, withProdMark } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 import { useToast } from '@/shared/ui';
@@ -213,8 +219,12 @@ export function WebPartEditor() {
   const env = useEnv();
   const [archived, setArchived] = useState(false);
   const parts = useWebParts(archived);
+  // 기본 파츠가 남았는지는 단종까지 봐야 한다(단종한 것을 다시 올리지 않게) — 두 목록은 탭 상태와 따로 읽는다
+  const live = useWebParts(false);
+  const gone = useWebParts(true);
   const status = useSetWebPartStatus();
   const reorder = useReorderWebParts();
+  const importer = useImportBuiltins();
   const [editing, setEditing] = useState<string | 'new' | null>(null);
 
   const changeStatus = async (p: WebPart, to: ItemStatus, ask: string) => {
@@ -226,6 +236,20 @@ export function WebPartEditor() {
       toast(webPartErrorMessage(err, '바꾸지 못했어요'));
     }
   };
+
+  const importBuiltins = async (count: number) => {
+    const ask = `홈페이지 코드에 있던 기본 파츠 ${count}개를 서버에 초안으로 올릴까요? 올린 뒤 «진열 시작» 을 눌러야 홈페이지에 보여요.`;
+    if (!confirm(withProdMark(env, ask))) return;
+    try {
+      const done = await importer.mutateAsync();
+      toast(done ? `기본 파츠 ${done}개를 초안으로 올렸어요` : '이미 다 올라가 있어요');
+    } catch (err) {
+      toast(webPartErrorMessage(err, '기본 파츠를 다 올리지 못했어요 — 다시 누르면 남은 것만 올려요'));
+    }
+  };
+
+  const builtinLeft =
+    !archived && live.data && gone.data ? missingBuiltins([...live.data, ...gone.data]).length : 0;
 
   const move = async (i: number, by: -1 | 1) => {
     const ids = parts.data && movedIds(parts.data, i, by);
@@ -264,6 +288,22 @@ export function WebPartEditor() {
         들어가요. 그림은 PNG(512KB · 가로 · 세로 1024px 까지) · 가운데를 레이어 자리에 맞춰 가로 × 세로 크기로
         그려요(얼굴 판 한 변 200).
       </p>
+      {builtinLeft > 0 && editing === null && (
+        <p className={`note ${styles.builtin}`}>
+          홈페이지 코드에 있던 기본 파츠 중 {builtinLeft}개가 아직 서버에 없어요(동공 · 처음 얼굴은 코드에
+          남아요).{' '}
+          <button
+            type="button"
+            className="btn"
+            onClick={() => void importBuiltins(builtinLeft)}
+            disabled={importer.isPending}
+          >
+            {importer.progress
+              ? `올리는 중 ${importer.progress.done}/${importer.progress.total}`
+              : '기본 파츠 가져오기'}
+          </button>
+        </p>
+      )}
       {editing === 'new' && <PartForm part={null} onDone={() => setEditing(null)} />}
       {parts.isPending && <p className="soft">불러오는 중…</p>}
       {parts.isError && (

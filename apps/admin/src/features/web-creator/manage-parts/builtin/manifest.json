@@ -1,0 +1,301 @@
+[
+  {
+    "key": "highlight/double",
+    "slot": "highlight",
+    "name": {
+      "ko": "두 개",
+      "en": "Double",
+      "ja": "ふたつ"
+    },
+    "w": 16,
+    "h": 20,
+    "file": "highlight-double.png",
+    "closedFile": null
+  },
+  {
+    "key": "highlight/big",
+    "slot": "highlight",
+    "name": {
+      "ko": "큰",
+      "en": "Big",
+      "ja": "おおきい"
+    },
+    "w": 16,
+    "h": 18,
+    "file": "highlight-big.png",
+    "closedFile": null
+  },
+  {
+    "key": "highlight/star",
+    "slot": "highlight",
+    "name": {
+      "ko": "반짝",
+      "en": "Sparkle",
+      "ja": "キラキラ"
+    },
+    "w": 16,
+    "h": 22,
+    "file": "highlight-star.png",
+    "closedFile": null
+  },
+  {
+    "key": "eyeline/thick",
+    "slot": "eyeline",
+    "name": {
+      "ko": "굵은",
+      "en": "Thick",
+      "ja": "ふとい"
+    },
+    "w": 34,
+    "h": 34,
+    "file": "eyeline-thick.png",
+    "closedFile": "eyeline-thick-closed.png"
+  },
+  {
+    "key": "eyeline/lash",
+    "slot": "eyeline",
+    "name": {
+      "ko": "속눈썹",
+      "en": "Lashes",
+      "ja": "まつげ"
+    },
+    "w": 44,
+    "h": 42,
+    "file": "eyeline-lash.png",
+    "closedFile": "eyeline-lash-closed.png"
+  },
+  {
+    "key": "eyeline/smile",
+    "slot": "eyeline",
+    "name": {
+      "ko": "웃는",
+      "en": "Smiling",
+      "ja": "にっこり"
+    },
+    "w": 28,
+    "h": 14,
+    "file": "eyeline-smile.png",
+    "closedFile": "eyeline-smile-closed.png"
+  },
+  {
+    "key": "eyeline/sleepy",
+    "slot": "eyeline",
+    "name": {
+      "ko": "졸린",
+      "en": "Sleepy",
+      "ja": "ねむい"
+    },
+    "w": 32,
+    "h": 14,
+    "file": "eyeline-sleepy.png",
+    "closedFile": "eyeline-sleepy-closed.png"
+  },
+  {
+    "key": "brows/thick",
+    "slot": "brows",
+    "name": {
+      "ko": "굵은",
+      "en": "Thick",
+      "ja": "ふとい"
+    },
+    "w": 22,
+    "h": 8,
+    "file": "brows-thick.png",
+    "closedFile": null
+  },
+  {
+    "key": "brows/worry",
+    "slot": "brows",
+    "name": {
+      "ko": "걱정",
+      "en": "Worried",
+      "ja": "こまり"
+    },
+    "w": 26,
+    "h": 12,
+    "file": "brows-worry.png",
+    "closedFile": null
+  },
+  {
+    "key": "mouth/cat",
+    "slot": "mouth",
+    "name": {
+      "ko": "고양이",
+      "en": "Cat",
+      "ja": "ねこ"
+    },
+    "w": 34,
+    "h": 14,
+    "file": "mouth-cat.png",
+    "closedFile": null
+  },
+  {
+    "key": "mouth/open",
+    "slot": "mouth",
+    "name": {
+      "ko": "헤",
+      "en": "Open",
+      "ja": "あーん"
+    },
+    "w": 26,
+    "h": 24,
+    "file": "mouth-open.png",
+    "closedFile": null
+  },
+  {
+    "key": "mouth/flat",
+    "slot": "mouth",
+    "name": {
+      "ko": "일자",
+      "en": "Flat",
+      "ja": "いちもんじ"
+    },
+    "w": 22,
+    "h": 8,
+    "file": "mouth-flat.png",
+    "closedFile": null
+  },
+  {
+    "key": "mouth/o",
+    "slot": "mouth",
+    "name": {
+      "ko": "오",
+      "en": "Oh",
+      "ja": "お"
+    },
+    "w": 14,
+    "h": 16,
+    "file": "mouth-o.png",
+    "closedFile": null
+  },
+  {
+    "key": "cheek/lines",
+    "slot": "cheek",
+    "name": {
+      "ko": "빗금",
+      "en": "Lines",
+      "ja": "しゃせん"
+    },
+    "w": 30,
+    "h": 12,
+    "file": "cheek-lines.png",
+    "closedFile": null
+  },
+  {
+    "key": "cheek/freckle",
+    "slot": "cheek",
+    "name": {
+      "ko": "주근깨",
+      "en": "Freckles",
+      "ja": "そばかす"
+    },
+    "w": 18,
+    "h": 18,
+    "file": "cheek-freckle.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/bandage",
+    "slot": "acc",
+    "name": {
+      "ko": "반창고",
+      "en": "Bandage",
+      "ja": "ばんそうこう"
+    },
+    "w": 48,
+    "h": 16,
+    "file": "acc-bandage.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/scar",
+    "slot": "acc",
+    "name": {
+      "ko": "상처",
+      "en": "Scar",
+      "ja": "きず"
+    },
+    "w": 24,
+    "h": 24,
+    "file": "acc-scar.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/scarline",
+    "slot": "acc",
+    "name": {
+      "ko": "흉터",
+      "en": "Stitches",
+      "ja": "ぬいあと"
+    },
+    "w": 36,
+    "h": 14,
+    "file": "acc-scarline.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/mole",
+    "slot": "acc",
+    "name": {
+      "ko": "점",
+      "en": "Mole",
+      "ja": "ほくろ"
+    },
+    "w": 8,
+    "h": 8,
+    "file": "acc-mole.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/tear",
+    "slot": "acc",
+    "name": {
+      "ko": "눈물",
+      "en": "Tear",
+      "ja": "なみだ"
+    },
+    "w": 10,
+    "h": 22,
+    "file": "acc-tear.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/star",
+    "slot": "acc",
+    "name": {
+      "ko": "별",
+      "en": "Star",
+      "ja": "ほし"
+    },
+    "w": 24,
+    "h": 24,
+    "file": "acc-star.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/heart",
+    "slot": "acc",
+    "name": {
+      "ko": "하트",
+      "en": "Heart",
+      "ja": "ハート"
+    },
+    "w": 22,
+    "h": 20,
+    "file": "acc-heart.png",
+    "closedFile": null
+  },
+  {
+    "key": "acc/sweat",
+    "slot": "acc",
+    "name": {
+      "ko": "땀",
+      "en": "Sweat",
+      "ja": "あせ"
+    },
+    "w": 12,
+    "h": 24,
+    "file": "acc-sweat.png",
+    "closedFile": null
+  }
+]
