@@ -2,6 +2,7 @@ import {
   ACC_LIMITS,
   ACC_MAX,
   EYE_COLORS,
+  FIRST_ITEM,
   LAYER_KINDS,
   LIMITS,
   PAIRED,
@@ -72,9 +73,9 @@ export function freshAdjust(): Record<AdjTarget, AdjustSet> {
 
 export const DEFAULT_STATE: CreatorState = {
   skin: 1,
-  pupil: 'round',
+  pupil: FIRST_ITEM,
   highlight: 'dot',
-  eyeline: 'thin',
+  eyeline: FIRST_ITEM,
   brows: 'arc',
   mouth: 'smile',
   cheek: 'blush',
@@ -229,10 +230,11 @@ export function randomState(s: CreatorState, rnd: () => number = Math.random): C
     pupilColor: { L: color, R: color },
     oddEye: false,
   };
-  // 동공은 «없음» 을 빼고 고른다 — 무작위로 눈이 사라지지 않게
+  // 동공은 «없음» 을 빼고 고른다 — 무작위로 눈이 사라지지 않게(서버 동공이 없으면 «없음» 뿐)
   for (const k of KINDS) {
-    const items = k === 'pupil' ? layerItems(k).filter((it) => it.id !== 'none') : layerItems(k);
-    out[k] = pick(items).id;
+    const all = layerItems(k);
+    const real = k === 'pupil' ? all.filter((it) => it.id !== 'none') : all;
+    out[k] = pick(real.length > 0 ? real : all).id;
   }
   return out;
 }

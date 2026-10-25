@@ -1,7 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_STATE, reduce, type CreatorState } from '@/features/character-maker';
+import { DEFAULT_STATE, reduce, setRemoteParts, type CreatorState } from '@/features/character-maker';
 import { drawFront, FACE_BOX, type DrawCtx } from '@/features/character-maker/lib/draw-front';
-import { MOLE, useTestAccs } from './fixtures/test-accs';
+import {
+  LINE_SHUT_SRC,
+  LINE_SRC,
+  MOLE,
+  PUPIL_SRC,
+  THIN,
+  useTestAccs,
+  useTestFace,
+} from './fixtures/test-accs';
 
 /** 그리기를 글로 적는 가짜 컨텍스트 — 칠할 때 그때의 색도 적는다 */
 function fake() {
@@ -18,7 +26,9 @@ function fake() {
       log.push(`fill ${this.fillStyle}${p ? ' ' + String(p) : ''}`);
     },
     stroke: (p?: unknown) => log.push(`stroke${p ? ' ' + String(p) : ''}`),
-    drawImage: () => log.push('img'),
+    // 서버 그림은 주소(· 칠한 색)까지 적는다 — 사용자 그림({})은 그냥 img
+    drawImage: (im: { src?: string; tint?: string }) =>
+      log.push(['img', im.src, im.tint].filter(Boolean).join(' ')),
     clearRect: () => log.push('clear'),
     fillStyle: '',
     strokeStyle: '',
@@ -30,11 +40,14 @@ function fake() {
   return { ctx: ctx as unknown as DrawCtx, log };
 }
 const makePath = (d: string) => `path(${d})` as unknown as Path2D;
+/** 서버 그림 — 주소 · 칠한 색을 그대로 돌려 drawImage 가 적게 한다 */
+const images = (src: string, tint?: string) => ({ src, tint }) as unknown as CanvasImageSource;
 const draw = (s: CreatorState, expr: 'open' | 'closed' = 'open') => {
   const { ctx, log } = fake();
-  drawFront(ctx, s, expr, 200, { makePath });
+  drawFront(ctx, s, expr, 200, { makePath, images });
   return log;
 };
+const pupilImg = (color: string) => `img ${PUPIL_SRC} ${color}`;
 const only = (s: CreatorState, keep: string[]) => {
   let x = s;
   for (const k of ['pupil', 'highlight', 'eyeline', 'brows', 'cheek'] as const)
@@ -43,6 +56,7 @@ const only = (s: CreatorState, keep: string[]) => {
 };
 
 describe('drawFront', () => {
+  useTestFace();
   it('판을 비우고 얼굴 판(200)으로 옮겨 그린다 · save/restore 짝', () => {
     const { ctx, log } = fake();
     drawFront(ctx, DEFAULT_STATE, 'open', 512, { makePath });
@@ -75,9 +89,9 @@ describe('drawFront', () => {
     let s = reduce(DEFAULT_STATE, { t: 'move', target: 'highlight', side: 'L', x: 30, y: 0 });
     s = only(s, ['pupil', 'highlight', 'eyeline']);
     const log = draw(s);
-    const pupil = log.indexOf(`fill ${s.pupilColor.L}`);
+    const pupil = log.indexOf(pupilImg(s.pupilColor.L));
     const shine = log.indexOf('fill #fff');
-    const line = log.findIndex((l, i) => i > shine && l.startsWith('stroke path('));
+    const line = log.indexOf(`img ${LINE_SRC}`);
     expect(pupil).toBeGreaterThanOrEqual(0);
     expect(shine).toBeGreaterThan(pupil);
     expect(line).toBeGreaterThan(shine);
@@ -87,12 +101,12 @@ describe('drawFront', () => {
   it('감은눈은 동공 · 하이라이트를 그리지 않고 아이라인의 감은 모양만 — 아이라인 «없음» 도 감은 줄은 보인다', () => {
     const open = draw(DEFAULT_STATE).join('\n');
     const closed = draw(DEFAULT_STATE, 'closed').join('\n');
-    expect(open).toContain('e 0 0 8 9.5'); // 동공
+    expect(open).toContain(pupilImg(DEFAULT_STATE.pupilColor.L)); // 처음 얼굴 = 서버 목록 맨 앞 동공
     expect(open).toContain('fill #fff'); // 하이라이트
-    expect(closed).not.toContain('e 0 0 8 9.5');
+    expect(closed).not.toContain(PUPIL_SRC);
     expect(closed).not.toContain('fill #fff');
-    expect(open).not.toContain('path(M-11 -1q11 9 22 0)'); // 뜬눈엔 감은 줄을 겹쳐 그리지 않는다
-    expect(closed).toContain('path(M-11 -1q11 9 22 0)');
+    expect(open).not.toContain(LINE_SHUT_SRC); // 뜬눈엔 감은 줄을 겹쳐 그리지 않는다
+    expect(closed).toContain(LINE_SHUT_SRC);
     const noLine = draw(reduce(DEFAULT_STATE, { t: 'item', kind: 'eyeline', id: 'none' }), 'closed').join(
       '\n',
     );
@@ -107,17 +121,24 @@ describe('drawFront', () => {
     expect(log).toContain('m -1 0 0 1 134 112'); // 오른쪽은 뒤집힌 폴더 자리
     expect(log).not.toContain('m 1 0 0 1 26 112');
     // 보이는 아이라인이면 감은 줄도 그 층 자리로
-    log = draw(reduce(s, { t: 'item', kind: 'eyeline', id: 'thin' }), 'closed');
+    log = draw(reduce(s, { t: 'item', kind: 'eyeline', id: THIN }), 'closed');
     expect(log).toContain('m 1 0 0 1 26 112');
   });
 
-  it('오드아이 — 왼 동공과 오른 동공을 다른 색으로', () => {
-    let s = only(DEFAULT_STATE, ['pupil']);
+  it('오드아이 — 왼 동공과 오른 동공을 다른 색으로 칠한다(동공 그림만 · 아이라인은 칠하지 않음)', () => {
+    let s = only(DEFAULT_STATE, ['pupil', 'eyeline']);
     s = reduce(reduce(s, { t: 'oddEye', on: true }), { t: 'pupilColor', side: 'R', color: '#C2593A' });
-    const fills = draw(s).filter((l) => l.startsWith('fill #'));
-    expect(fills).toContain(`fill ${s.pupilColor.L}`);
-    expect(fills).toContain('fill #C2593A');
-    expect(fills.indexOf(`fill ${s.pupilColor.L}`)).toBeLessThan(fills.indexOf('fill #C2593A')); // 왼쪽 먼저
+    const log = draw(s);
+    expect(log.indexOf(pupilImg(s.pupilColor.L))).toBeGreaterThanOrEqual(0);
+    expect(log.indexOf(pupilImg(s.pupilColor.L))).toBeLessThan(log.indexOf(pupilImg('#C2593A'))); // 왼쪽 먼저
+    expect(log).toContain(`img ${LINE_SRC}`);
+  });
+
+  it('처음 얼굴의 동공 · 아이라인은 서버 목록 맨 앞 — 서버가 없으면 그리지 않는다(감은 줄은 남음)', () => {
+    setRemoteParts([]);
+    const open = draw(DEFAULT_STATE);
+    expect(open.some((l) => l.startsWith('img'))).toBe(false);
+    expect(draw(DEFAULT_STATE, 'closed').join('\n')).toContain('path(M-11 -1q11 9 22 0)');
   });
 
   it('없음을 고른 레이어는 그리지 않는다', () => {
@@ -133,10 +154,10 @@ describe('drawFront', () => {
       let s = reduce(DEFAULT_STATE, { t: 'accAdd', id: MOLE });
       s = reduce(s, { t: 'accMove', uid: 1, x: 20, y: -10 });
       const { ctx, log } = fake();
-      drawFront(ctx, s, 'open', 200, { makePath, images: () => ({}) as CanvasImageSource });
+      drawFront(ctx, s, 'open', 200, { makePath, images });
       const mole = log.indexOf('m 1 0 0 1 120 110'); // 자리 = ACC_SLOT(100,120) + (20,−10)
       expect(mole).toBeGreaterThan(log.indexOf('m 1 0 0 1 100 142')); // 입 다음
-      expect(log.slice(mole)).toContain('img');
+      expect(log.slice(mole).some((l) => l.includes('h2mole'))).toBe(true);
     });
   });
 

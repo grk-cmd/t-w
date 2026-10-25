@@ -1,12 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_STATE, histReduce, randomState, reduce, type Hist } from '@/features/character-maker';
-import { BANDAGE, MOLE, STAR, useTestAccs } from './fixtures/test-accs';
+import {
+  DEFAULT_STATE,
+  histReduce,
+  randomState,
+  reduce,
+  setRemoteParts,
+  type Hist,
+} from '@/features/character-maker';
+import { BANDAGE, MOLE, ROUND, STAR, useTestFace } from './fixtures/test-accs';
 
 const S = DEFAULT_STATE;
 
 describe('reduce — 생성기 상태', () => {
+  useTestFace();
   it('아는 그림만 고른다(모르는 id 는 그대로)', () => {
-    expect(reduce(S, { t: 'item', kind: 'pupil', id: 'dot' }).pupil).toBe('dot');
+    expect(reduce(S, { t: 'item', kind: 'pupil', id: ROUND }).pupil).toBe(ROUND);
     expect(reduce(S, { t: 'item', kind: 'pupil', id: 'nope' })).toBe(S);
     expect(reduce(S, { t: 'item', kind: 'mouth', id: 'arc' })).toBe(S); // 눈썹 그림을 입에 — 안 받는다
   });
@@ -88,7 +96,7 @@ describe('reduce — 생성기 상태', () => {
 });
 
 describe('reduce — 눈 폴더 · 오드아이 · 액세서리', () => {
-  useTestAccs();
+  useTestFace();
   it('눈 폴더 안 층은 대칭이면 오른쪽이 같은 값(폴더가 이미 뒤집어 그린다) · 폴더와 다른 레이어는 거울', () => {
     const a = reduce(S, { t: 'adjust', target: 'pupil', side: 'L', key: 'x', value: 4 });
     expect(a.adj.pupil.R).toEqual(a.adj.pupil.L);
@@ -152,9 +160,16 @@ describe('reduce — 눈 폴더 · 오드아이 · 액세서리', () => {
     expect(r.oddEye).toBe(false);
     expect(r.pupilColor.L).toBe(r.pupilColor.R);
   });
+
+  it('서버 동공 · 아이라인이 없어도 무작위가 된다(«없음» 뿐이면 «없음»)', () => {
+    setRemoteParts([]);
+    const r = randomState(S, () => 0.99);
+    expect([r.pupil, r.eyeline]).toEqual(['none', 'none']);
+  });
 });
 
 describe('histReduce — 되돌리기', () => {
+  useTestFace();
   const init: Hist = { cur: S, past: [], liveFrom: null };
   it('바뀐 것만 쌓고 되돌린다', () => {
     const h1 = histReduce(init, { t: 'do', a: { t: 'skin', skin: 3 } });

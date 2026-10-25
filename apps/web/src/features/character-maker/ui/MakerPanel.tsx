@@ -43,47 +43,52 @@ const TABS: readonly Tab[] = ['skin', 'eyes', 'brows', 'mouth', 'cheek', 'acc', 
 /** 눈 폴더 안 층 — 위에 그리는 것부터(레이어 판처럼) */
 const EYE_TREE = ['eyeline', 'highlight', 'pupil'] as const;
 
-function Thumb({ shapes }: { shapes: Shape[] }) {
+function Thumb({ shapes, color }: { shapes: Shape[]; color?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const art = usePartArt();
   useEffect(() => {
     const ctx = ref.current?.getContext('2d');
-    if (ctx) drawItemThumb(ctx, shapes, 44, { images: art.images });
-  }, [shapes, art]);
+    if (ctx) drawItemThumb(ctx, shapes, 44, { images: art.images, color });
+  }, [shapes, art, color]);
   return <canvas ref={ref} width={44} height={44} aria-hidden="true" />;
 }
 
 /** 그림 고르기 — 레이어 하나의 목록 */
 function ItemGrid({ s, kind, act }: { s: CreatorState; kind: LayerKind; act: (a: Action) => void }) {
   const { lang, m } = useI18n();
+  const { load } = usePartArt();
   const c = m.creator;
   // 미리보기 그림은 색이 바뀔 때만 새로 — 그릴 때마다 새 배열이면 끄는 동안 칸마다 다시 그린다
   const color = s.pupilColor.L;
   // 서버 그림이 들어오면 목록 배열이 새로 바뀌어 미리보기도 다시 만든다
   const items = layerItems(kind);
+  const pupil = findItem('pupil', s.pupil);
+  const picked = findItem(kind, s[kind]).id;
   const thumbs = useMemo(
     () =>
       items.map((it) =>
-        // 하얀 하이라이트는 흰 칸에서 안 보여 동공 위에 얹어 보여 준다
-        kind === 'highlight'
-          ? [...findItem('pupil', 'round').open(color), ...it.open(color)]
-          : it.open(color),
+        // 하얀 하이라이트는 흰 칸에서 안 보여 지금 동공 위에 얹어 보여 준다
+        kind === 'highlight' ? [...pupil.open(color), ...it.open(color)] : it.open(color),
       ),
-    [items, kind, color],
+    [items, kind, color, pupil],
   );
+  // 동공 · 아이라인은 서버 상품만 있다 — «없음» 뿐이면 왜 비었는지 알린다
+  const shapeNone = { loading: c.shapeLoading, ready: c.shapeNone, failed: c.shapeLoadFailed };
+  const onlyNone = items.every((it) => it.id === 'none');
   return (
     <>
       <p className="group-l">{c.shapeLabel}</p>
+      {onlyNone && <p className="hint">{shapeNone[load]}</p>}
       <div className="items" role="group" aria-label={c.shapeLabel}>
         {items.map((it, i) => (
           <button
             key={it.id}
             type="button"
             className="item"
-            aria-pressed={s[kind] === it.id}
+            aria-pressed={picked === it.id}
             onClick={() => act({ t: 'item', kind, id: it.id })}
           >
-            <Thumb shapes={thumbs[i] ?? []} />
+            <Thumb shapes={thumbs[i] ?? []} color={color} />
             <span>{it.name[lang]}</span>
           </button>
         ))}

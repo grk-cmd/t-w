@@ -19,8 +19,9 @@ export type Shape =
       w?: number;
       alpha?: number;
     }
-  /** 관리자가 올린 그림 — 가운데를 (0,0) 에 두고 w × h(얼굴 판 단위)로 그린다 */
-  | { k: 'img'; src: string; w: number; h: number };
+  /** 관리자가 올린 그림 — 가운데를 (0,0) 에 두고 w × h(얼굴 판 단위)로 그린다.
+      tint 면 고른 눈 색을 곱해 칠한다(흰 부분 = 눈 색 · 검은 부분은 그대로 — 동공 그림의 약속) */
+  | { k: 'img'; src: string; w: number; h: number; tint?: boolean };
 
 type Names = Record<Lang, string>;
 
@@ -44,33 +45,12 @@ export type AdjTarget = LayerKind | 'eyes';
 
 const line = (d: string, w: number, stroke = INK): Shape => ({ k: 'path', d, stroke, w });
 
+/** 기본 감은 줄 — 아이라인 «없음» · 감은 그림이 없는 서버 아이라인이 쓴다 */
+const SHUT_LINE: Shape[] = [line('M-11 -1q11 9 22 0', 3.5)];
+
 const BUILTIN_LAYERS: Record<LayerKind, readonly LayerItem[]> = {
-  pupil: [
-    { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
-    {
-      id: 'dot',
-      name: { ko: '콩', en: 'Dot', ja: 'てん' },
-      open: (c) => [{ k: 'ellipse', rx: 5, ry: 5.5, fill: c }],
-    },
-    {
-      id: 'round',
-      name: { ko: '동그랑', en: 'Round', ja: 'まる' },
-      open: (c) => [{ k: 'ellipse', rx: 8, ry: 9.5, fill: c }],
-    },
-    {
-      id: 'big',
-      name: { ko: '큰', en: 'Big', ja: 'おおきい' },
-      open: (c) => [{ k: 'ellipse', rx: 9.5, ry: 11, fill: c }],
-    },
-    {
-      id: 'cat',
-      name: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
-      open: (c) => [
-        { k: 'ellipse', rx: 9, ry: 10.5, fill: c },
-        { k: 'ellipse', rx: 2.2, ry: 8, fill: INK },
-      ],
-    },
-  ],
+  // 동공 · 기본 아이라인은 서버 상품(관리자에서 고침) — 처음 얼굴은 서버 목록 맨 앞(FIRST_ITEM)
+  pupil: [{ id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] }],
   /** 빛반사 — 동공 위에 얹는 하얀 점(색은 동공 색과 상관없다) */
   highlight: [
     { id: 'none', name: { ko: '없음', en: 'None', ja: 'なし' }, open: () => [] },
@@ -86,13 +66,7 @@ const BUILTIN_LAYERS: Record<LayerKind, readonly LayerItem[]> = {
       name: { ko: '없음', en: 'None', ja: 'なし' },
       open: () => [],
       // 아이라인이 없어도 감은눈은 보여야 한다
-      closed: [line('M-11 -1q11 9 22 0', 3.5)],
-    },
-    {
-      id: 'thin',
-      name: { ko: '얇은', en: 'Thin', ja: 'ほそい' },
-      open: () => [line('M-13 -9q13-10 26 0', 3)],
-      closed: [line('M-11 -1q11 9 22 0', 3.5)],
+      closed: SHUT_LINE,
     },
   ],
   brows: [
@@ -163,8 +137,14 @@ export const BOT_COLORS = [
 /** 조정 범위 — 자리(얼굴 판 픽셀) · 크기(배율) · 회전(도) */
 export const LIMITS = { x: [-80, 80], y: [-80, 80], s: [0.3, 2.5], r: [-45, 45] } as const;
 
-export const findItem = (kind: LayerKind, id: string): LayerItem =>
-  layers[kind].find((it) => it.id === id) ?? (layers[kind][0] as LayerItem);
+/** «목록 맨 앞» — 처음 얼굴의 동공 · 아이라인. 관리자가 진열 순서로 정하고, 서버가 없으면 «없음» */
+export const FIRST_ITEM = 'first';
+/** 그림 찾기 — FIRST_ITEM 은 «없음» 다음 맨 앞 · 모르는 id 는 목록 첫 칸 */
+export const findItem = (kind: LayerKind, id: string): LayerItem => {
+  const list = layers[kind];
+  const hit = id === FIRST_ITEM ? list.find((it) => it.id !== 'none') : list.find((it) => it.id === id);
+  return hit ?? (list[0] as LayerItem);
+};
 
 /* 액세서리 — 얼굴 어디든 여러 개(최대 ACC_MAX) 붙여 하나씩 옮긴다. 자리는 얼굴 판 가운데 기준. */
 export interface AccItem {
@@ -192,12 +172,10 @@ export const layerItems = (kind: LayerKind): readonly LayerItem[] => layers[kind
 export const accItems = (): readonly AccItem[] => accs;
 export const LAYER_KINDS = Object.keys(BUILTIN_LAYERS) as LayerKind[];
 
-/** 아이라인 그림에 감은 얼굴 그림이 없으면 기본 감은 줄 — 감은눈 얼굴이 비지 않게(다른 자리는 없으면 뜬 그림 그대로) */
-const FALLBACK_CLOSED = BUILTIN_LAYERS.eyeline.find((it) => it.id === 'thin')?.closed ?? [];
-
 /** 서버 그림 파츠를 고르기 목록에 넣는다(다시 부르면 바꿔 끼운다 · 빈 목록이면 기본만) */
 export function setRemoteParts(parts: readonly RemotePart[]): void {
-  const img = (src: string, p: RemotePart): Shape => ({ k: 'img', src, w: p.w, h: p.h });
+  const img = (src: string, p: RemotePart): Shape =>
+    p.slot === 'pupil' ? { k: 'img', src, w: p.w, h: p.h, tint: true } : { k: 'img', src, w: p.w, h: p.h };
   const next = { ...BUILTIN_LAYERS };
   const nextAcc: AccItem[] = [...BUILTIN_ACCS];
   for (const p of parts) {
@@ -211,7 +189,8 @@ export function setRemoteParts(parts: readonly RemotePart[]): void {
       );
       continue;
     }
-    const closed = shut ?? (p.slot === 'eyeline' ? FALLBACK_CLOSED : undefined);
+    // 아이라인에 감은 그림이 없으면 기본 감은 줄 — 감은눈 얼굴이 비지 않게(다른 자리는 없으면 뜬 그림 그대로)
+    const closed = shut ?? (p.slot === 'eyeline' ? SHUT_LINE : undefined);
     const item: LayerItem = closed
       ? { id, name: p.name, open: () => [img(p.src, p)], closed }
       : { id, name: p.name, open: () => [img(p.src, p)] };
