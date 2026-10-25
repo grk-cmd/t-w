@@ -196,7 +196,7 @@ describe('setRemoteParts — 기본 그림 뒤에 붙는다', () => {
 
   it('감은눈 그림이 없는 아이라인은 기본 감은 줄로 — 감은눈 얼굴이 비지 않게', () => {
     setRemoteParts(parseRemoteParts(one({ slot: 'eyeline' })));
-    expect(findItem('eyeline', 'w:p1').closed).toEqual(findItem('eyeline', 'thin').closed);
+    expect(findItem('eyeline', 'w:p1').closed).toEqual(findItem('eyeline', 'none').closed);
   });
 });
 
@@ -350,6 +350,9 @@ describe('동공 그림 칠하기 — 흰 부분 = 고른 눈 색', () => {
     expect(tintImage({} as CanvasImageSource, 40, 48, '#2E5E9C', c)).toBe(c);
     expect([c.width, c.height]).toEqual([40, 48]);
     expect(c.log).toEqual(['draw source-over', 'fill #2E5E9C multiply 0 0 40 48', 'draw destination-in']);
+    const empty = canvas();
+    expect(tintImage({} as CanvasImageSource, 0, 48, '#2E5E9C', empty)).toBeNull(); // 크기 없는 그림은 칠하지 않는다
+    expect(empty.log).toEqual([]);
   });
 
   it('서버 동공만 칠한다 — 아이라인 · 액세서리는 그대로', () => {

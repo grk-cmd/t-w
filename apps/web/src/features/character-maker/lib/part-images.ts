@@ -33,6 +33,8 @@ export function tintImage(
   color: string,
   c: TintCanvas,
 ): TintCanvas | null {
+  // 크기 없는 그림으로 만든 0×0 판은 그릴 때 브라우저가 오류를 던져 얼굴 그리기가 멈춘다
+  if (!(w > 0) || !(h > 0)) return null;
   const ctx = c.getContext('2d');
   if (!ctx) return null;
   c.width = w;
