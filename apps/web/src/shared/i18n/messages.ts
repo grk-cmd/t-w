@@ -27,6 +27,9 @@ export interface CreatorMessages {
   accAdd: string;
   accList: string;
   accEmpty: string;
+  accLoading: string;
+  accLoadFailed: string;
+  accNone: string;
   accFull: string;
   accRemove: string;
   tabSkin: string;
@@ -188,6 +191,9 @@ export const ko: Messages = {
     accAdd: '붙이기',
     accList: '붙인 것',
     accEmpty: '아직 붙인 액세서리가 없어요.',
+    accLoading: '액세서리를 불러오는 중이에요…',
+    accLoadFailed: '액세서리를 불러오지 못했어요. 잠시 뒤 다시 열어 주세요.',
+    accNone: '아직 고를 수 있는 액세서리가 없어요.',
     accFull: '최대 5개까지 붙일 수 있어요.',
     accRemove: '떼기',
     tabSkin: '피부',
@@ -357,6 +363,9 @@ export const en: Messages = {
     accAdd: 'Add',
     accList: 'Added',
     accEmpty: 'No accessories yet.',
+    accLoading: 'Loading accessories…',
+    accLoadFailed: "Couldn't load accessories. Please try again later.",
+    accNone: 'No accessories to choose yet.',
     accFull: 'You can add up to 5.',
     accRemove: 'Remove',
     tabSkin: 'Skin',
@@ -527,6 +536,9 @@ export const ja: Messages = {
     accAdd: 'つける',
     accList: 'つけたもの',
     accEmpty: 'まだアクセサリーがありません。',
+    accLoading: 'アクセサリーを読み込み中…',
+    accLoadFailed: 'アクセサリーを読み込めませんでした。しばらくしてからもう一度開いてください。',
+    accNone: 'まだ選べるアクセサリーがありません。',
     accFull: '5個までつけられます。',
     accRemove: 'はずす',
     tabSkin: '肌',

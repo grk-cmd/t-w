@@ -351,11 +351,15 @@ function AccBox({
   const { lang, m } = useI18n();
   const c = m.creator;
   const full = s.acc.length >= ACC_MAX;
+  // 기본 액세서리는 서버 상품으로 옮겨 코드에 없다 — 빈 칸이면 왜 비었는지 알린다
+  const { load } = usePartArt();
+  const accNone = { loading: c.accLoading, ready: c.accNone, failed: c.accLoadFailed };
   return (
     <>
       <p className="group-l">
         {c.accAdd} ({s.acc.length}/{ACC_MAX})
       </p>
+      {accItems().length === 0 && <p className="hint">{accNone[load]}</p>}
       <div className="items" role="group" aria-label={c.accAdd}>
         {accItems().map((it) => (
           <button

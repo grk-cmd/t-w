@@ -11,6 +11,7 @@ import {
   PartArtProvider,
   setRemoteParts,
   useMaker,
+  type RemoteLoad,
   type Selection,
 } from '@/features/character-maker';
 import { ExportDialog, type WebCharacter } from '@/features/clone-code';
@@ -80,21 +81,26 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   const tex = useMemo(() => createFaceTextures(kit), [kit]);
   // 관리자가 올린 그림 파츠 — 목록이 오거나 그림이 하나 불러질 때마다 rev 가 늘어 다시 그린다. 서버에 닿지 못하면 기본 그림만.
   const [rev, setRev] = useState(0);
+  const [load, setLoad] = useState<RemoteLoad>('loading');
   const images = useMemo(() => createPartImages(() => setRev((n) => n + 1)), []);
   useEffect(() => {
     let alive = true;
     void fetchWebParts().then((r) => {
       if (!alive) return;
       // 화면은 기본 그림 그대로 — 서버를 연 뒤 원인을 알 수 있게 까닭만 남긴다
-      if (r.t === 'failed') return console.warn('[웹 생성기 파츠] 못 불러옴 —', r.why);
+      if (r.t === 'failed') {
+        setLoad('failed');
+        return console.warn('[웹 생성기 파츠] 못 불러옴 —', r.why);
+      }
       setRemoteParts(r.parts);
+      setLoad('ready');
       setRev((n) => n + 1);
     });
     return () => {
       alive = false;
     };
   }, []);
-  const art = useMemo(() => ({ images, rev }), [images, rev]);
+  const art = useMemo(() => ({ images, rev, load }), [images, rev, load]);
   // 붙인 그림은 dataURL → 그림으로 풀어 둔다 — 지금 dataURL 과 짝이 맞을 때만 쓴다(바뀐 직후 옛 그림이 남지 않게)
   const [decoded, setDecoded] = useState<{ url: string; img: HTMLImageElement } | null>(null);
   const imgUrl = state.img?.dataUrl ?? null;
