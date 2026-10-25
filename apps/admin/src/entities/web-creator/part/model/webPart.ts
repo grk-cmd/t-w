@@ -11,6 +11,9 @@ export const PIECE_SURFACE = 'face';
 export const WEB_PART_SLOTS = ['pupil', 'highlight', 'eyeline', 'brows', 'mouth', 'cheek', 'acc'] as const;
 export type WebPartSlot = (typeof WEB_PART_SLOTS)[number];
 
+/** 흰 그림이 기본인 자리 — 하이라이트는 흰색 · 동공은 흰 부분을 홈페이지가 고른 눈 색으로 칠한다. 미리보기를 어두운 바탕에 */
+export const LIGHT_SLOTS: readonly WebPartSlot[] = ['pupil', 'highlight'];
+
 export const SLOT_LABELS: Record<WebPartSlot, string> = {
   pupil: '동공',
   highlight: '하이라이트',
