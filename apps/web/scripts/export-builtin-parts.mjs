@@ -5,7 +5,7 @@ import { build } from 'esbuild';
 import { createRequire } from 'node:module';
 import { mkdirSync, rmSync, writeFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const here = dirname(fileURLToPath(import.meta.url));
 // playwright 는 저장소 의존성이 아니다(이 도구만 쓴다) — 깔린 것을 require 로 찾는다
@@ -36,7 +36,7 @@ const bundled = await build({
 });
 const tmp = join(here, '.export-catalog.mjs');
 writeFileSync(tmp, bundled.outputFiles[0].text);
-const { findItem, findAcc } = await import(tmp);
+const { findItem, findAcc } = await import(pathToFileURL(tmp).href);
 rmSync(tmp);
 
 /** 도형 → SVG 조각(캔버스 그리기 draw-front.ts 와 같은 뜻 — 선은 둥근 끝 · 둥근 이음) */
