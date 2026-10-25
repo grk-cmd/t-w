@@ -39,8 +39,8 @@ const product = (id: string, slot: string, ko: string, status = 'active') => ({
   ],
 });
 
-/** 목록은 live · archived 따로 · 올리기는 h2up1 … · 만들기 본문을 모은다 */
-function fakeApi(live: unknown[], archived: unknown[] = []) {
+/** 목록은 live · archived 따로 · 올리기는 h2up1 … · 만들기 본문을 모은다 · failKo 이름의 만들기는 실패 */
+function fakeApi(live: unknown[], archived: unknown[] = [], failKo?: string) {
   const calls: string[] = [];
   const bodies: unknown[] = [];
   let n = 0;
@@ -53,7 +53,11 @@ function fakeApi(live: unknown[], archived: unknown[] = []) {
       // 만든 상품은 다음 목록 읽기에 보인다(서버처럼 맨 뒤)
       if (method === 'POST') {
         const b = body as { name: { ko: string }; pieces: { slot: string }[] };
-        live.push(product(`n${live.length}`, b.pieces[0]?.slot ?? '', b.name.ko, 'draft'));
+        if (b.name.ko === failKo) throw new Error('서버 503');
+        live.push({
+          ...product(`n${live.length}`, b.pieces[0]?.slot ?? '', b.name.ko, 'draft'),
+          position: 100 + live.length,
+        });
       }
       return null as T;
     },
@@ -173,11 +177,42 @@ describe('기본 파츠 가져오기', () => {
     expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['n2', 'a', 'b'] });
   });
 
-  it('처음 얼굴이 이미 있으면 순서를 건드리지 않는다', async () => {
+  it('처음 얼굴 뒤에서 실패해도 순서는 맞춘다 · 다시 눌러도 이미 맨 앞이면 보내지 않는다', async () => {
+    const lead: BuiltinPart = {
+      ...(two[1] as BuiltinPart),
+      key: 'eyeline/thin',
+      name: { ko: '얇은', en: 'Thin', ja: 'ほそい' },
+      lead: true,
+    };
+    const { api, calls, bodies } = fakeApi([product('b', 'eyeline', '굵은')], [], '오');
+    await expect(importBuiltins(api, bytes, () => {}, [lead, two[0] as BuiltinPart])).rejects.toThrow('503');
+    expect(calls.at(-1)).toBe('PUT /v1/admin/products/order');
+    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['n1', 'b'] });
+    calls.length = 0;
+    // 서버가 순서를 바꿨다고 치고 다시 — 맨 앞이면 순서는 그대로
+    const again = fakeApi([
+      { ...product('n1', 'eyeline', '얇은'), position: 10 },
+      { ...product('b', 'eyeline', '굵은'), position: 20 },
+    ]);
+    expect(await importBuiltins(again.api, bytes, () => {}, [lead, two[0] as BuiltinPart])).toBe(1);
+    expect(again.calls).not.toContain('PUT /v1/admin/products/order');
+  });
+
+  it('처음 얼굴이 이미 자리 맨 앞이면 순서를 건드리지 않는다', async () => {
     const lead = { ...two[0], lead: true } as BuiltinPart;
     const { api, calls } = fakeApi([product('a', 'mouth', '오')]);
     expect(await importBuiltins(api, bytes, () => {}, [lead, two[1] as BuiltinPart])).toBe(1);
     expect(calls).not.toContain('PUT /v1/admin/products/order');
+  });
+
+  it('손으로 처음 얼굴을 뒤로 보냈으면 남은 것을 가져올 때 다시 맨 앞으로', async () => {
+    const lead = { ...two[0], lead: true } as BuiltinPart;
+    const { api, bodies } = fakeApi([
+      { ...product('z', 'mouth', '다른 입'), position: 10 },
+      { ...product('a', 'mouth', '오'), position: 20 },
+    ]);
+    expect(await importBuiltins(api, bytes, () => {}, [lead, two[1] as BuiltinPart])).toBe(1);
+    expect(bodies.at(-1)).toEqual({ target: { kind: 'baseModel' }, ids: ['a', 'z', 'n2'] });
   });
 
   it('다 있으면 아무것도 올리지 않는다(다시 눌러도 겹치지 않음)', async () => {

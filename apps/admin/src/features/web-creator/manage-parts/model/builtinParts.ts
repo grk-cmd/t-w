@@ -75,26 +75,33 @@ export async function importBuiltins(
   const todo = missingBuiltins([...live, ...archived], all);
   let done = 0;
   onProgress(done, todo.length);
-  for (const b of todo) {
-    await savePart(api, {
-      part: null,
-      draft: { slot: b.slot, name: { ...b.name }, w: b.w, h: b.h },
-      image: await loadBytes(b.file),
-      closedImage: b.closedFile ? await loadBytes(b.closedFile) : undefined,
-    });
-    onProgress(++done, todo.length);
+  try {
+    for (const b of todo) {
+      await savePart(api, {
+        part: null,
+        draft: { slot: b.slot, name: { ...b.name }, w: b.w, h: b.h },
+        image: await loadBytes(b.file),
+        closedImage: b.closedFile ? await loadBytes(b.closedFile) : undefined,
+      });
+      onProgress(++done, todo.length);
+    }
+  } finally {
+    // 중간에 실패해도 맞춘다 — 다시 누르면 처음 얼굴은 이미 있어 할 일에서 빠지니, 서버 순서를 보고 정한다
+    if (todo.length > 0) await leadFirst(api, all);
   }
-  if (todo.some((b) => b.lead)) await leadFirst(api, all);
   return done;
 }
 
-/** 처음 얼굴 파츠를 진열 순서 맨 앞으로 — 나머지 순서는 그대로 */
+/** 처음 얼굴 파츠가 자기 자리의 맨 앞이 아니면 진열 순서 맨 앞으로(나머지 순서는 그대로).
+    남은 기본 파츠를 가져올 때마다 다시 맞춘다 — 그 사이 손으로 바꾼 자리 순서도 처음 얼굴이 맨 앞으로 돌아온다 */
 async function leadFirst(api: Api | null, all: readonly BuiltinPart[]): Promise<void> {
   const live = await listWebParts(api);
   const leads = all
     .filter((b) => b.lead)
     .map((b) => live.find(sameAs(b)))
     .filter((p): p is WebPart => p !== undefined);
+  const firstOfSlot = (p: WebPart) => live.find((q) => q.piece?.slot === p.piece?.slot);
+  if (leads.every((p) => firstOfSlot(p) === p)) return;
   const rest = live.filter((p) => !leads.includes(p));
   await reorderWebParts(
     api,
