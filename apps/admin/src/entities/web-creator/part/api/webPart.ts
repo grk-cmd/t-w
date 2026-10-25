@@ -56,8 +56,8 @@ const pieceBody = (draft: WebPartDraft, image: string, closed: string | null) =>
   target: PIECE_TARGET,
   surface: PIECE_SURFACE,
   slot: draft.slot,
-  image,
-  ...(closed ? { variants: { closed } } : {}),
+  imageHash: image,
+  ...(closed ? { variantHashes: { closed } } : {}),
   w: draft.w,
   h: draft.h,
 });
@@ -67,7 +67,7 @@ export function createWebPart(api: Api | null, draft: WebPartDraft, image: strin
   return need(api).send<unknown>('POST', PRODUCTS, {
     target: PIECE_TARGET,
     name: draft.name,
-    thumb: image,
+    thumbHash: image,
     pieces: [pieceBody(draft, image, closedImage ?? null)],
   });
 }
@@ -90,7 +90,7 @@ export function updateWebPart(api: Api | null, part: WebPart, draft: WebPartDraf
     throw new Error('지금 감은 얼굴 그림의 이름을 알 수 없어요 — 다시 고르거나 빼 주세요');
   return a.send<unknown>('PATCH', one(part.id), {
     name: draft.name,
-    ...(files.image ? { thumb: files.image } : {}),
+    ...(files.image ? { thumbHash: files.image } : {}),
     pieces: [{ id: p.id, ...pieceBody(draft, image, closed) }],
   });
 }

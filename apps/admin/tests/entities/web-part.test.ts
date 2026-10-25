@@ -147,7 +147,7 @@ describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
   });
 
   it('파일 해시 — 응답 값 · 없으면 파일 주소의 이름 · 모르면 null · 감은 그림은 주소든 해시든', () => {
-    expect(partOf({ pieces: [piece({ image: 'given' })] }).piece?.image).toBe('given');
+    expect(partOf({ pieces: [piece({ imageHash: 'given' })] }).piece?.image).toBe('given');
     expect(partOf().piece?.image).toBe('h2a');
     expect(partOf({ pieces: [piece({ src: 'https://x.example/a.png' })] }).piece?.image).toBeNull();
     const byUrl = partOf({ pieces: [piece({ variants: { closed: FILE('h2c') } })] }).piece;
@@ -155,6 +155,11 @@ describe('웹 생성기 파츠 — 목록 읽기(상품)', () => {
     const byHash = partOf({ pieces: [piece({ variants: { closed: 'h2c' } })] }).piece;
     expect([byHash?.closedSrc, byHash?.closedImage]).toEqual([null, 'h2c']);
     expect(partOf().piece?.closedImage).toBeNull();
+    // 관리자 응답의 …Hash 칸(§7-2)이 주소 이름보다 먼저
+    const given = partOf({
+      pieces: [piece({ variants: { closed: 'https://x.example/c.png' }, variantHashes: { closed: 'h2g' } })],
+    }).piece;
+    expect([given?.closedSrc, given?.closedImage]).toEqual(['https://x.example/c.png', 'h2g']);
   });
 
   it('썸네일은 주소일 때만 · 해시로 오면 조각 그림', () => {
@@ -219,14 +224,14 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
       body: {
         target: { kind: 'baseModel' },
         name: draft().name,
-        thumb: 'h2i',
+        thumbHash: 'h2i',
         pieces: [
           {
             kind: 'decal',
             target: { kind: 'baseModel' },
             surface: 'face',
             slot: 'pupil',
-            image: 'h2i',
+            imageHash: 'h2i',
             w: 24,
             h: 24,
           },
@@ -235,12 +240,12 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     });
   });
 
-  it('눈 감은 얼굴 그림은 모든 자리 — variants.closed', async () => {
+  it('눈 감은 얼굴 그림은 모든 자리 — variantHashes.closed', async () => {
     const { api, calls } = fakeApi();
     await createWebPart(api, draft({ slot: 'mouth' }), 'I', 'C');
     await createWebPart(api, draft({ slot: 'eyeline' }), 'I');
-    expect(pieceBody(calls[0] as object)).toMatchObject({ slot: 'mouth', variants: { closed: 'C' } });
-    expect(pieceBody(calls[1] as object)).not.toHaveProperty('variants');
+    expect(pieceBody(calls[0] as object)).toMatchObject({ slot: 'mouth', variantHashes: { closed: 'C' } });
+    expect(pieceBody(calls[1] as object)).not.toHaveProperty('variantHashes');
   });
 
   it('고치기 — 본문은 규격 칸만: 조각 id 유지 · 안 바꾼 그림은 지금 해시 · 새 그림이면 썸네일도 · 감은 그림 그대로 / 바꿈 / 뺌', async () => {
@@ -258,8 +263,8 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
       target: { kind: 'baseModel' },
       surface: 'face',
       slot,
-      image,
-      ...(closed ? { variants: { closed } } : {}),
+      imageHash: image,
+      ...(closed ? { variantHashes: { closed } } : {}),
       w: 24,
       h: 24,
     });
@@ -269,7 +274,7 @@ describe('웹 생성기 파츠 — API(#517 경로 · 본문)', () => {
     expect(calls[0]?.body).toEqual({ name: draft().name, pieces: [body('brows', 'h2a', 'h2c')] });
     expect(calls[1]?.body).toEqual({
       name: draft().name,
-      thumb: 'h2n',
+      thumbHash: 'h2n',
       pieces: [body('pupil', 'h2n', 'h2m')],
     });
     expect(calls[2]?.body).toEqual({ name: draft().name, pieces: [body('pupil', 'h2a')] });

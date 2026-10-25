@@ -127,10 +127,10 @@ export function toBase64(bytes: Uint8Array): string {
   return btoa(s);
 }
 
-/** 응답 값이 파일 주소인가(아니면 해시) — 관리자 응답의 썸네일 · 표정 그림이 어느 쪽으로 올지 규격(§7-2)이 둘 다로 읽혀 둘 다 받는다 */
+/** 응답 값이 파일 주소인가(아니면 해시) — 주소 칸(thumb · variants)에 해시가 와도 미리보기로 쓰지 않게 */
 const isFileUrl = (v: string) => v.includes('/');
 
-/** 파일 해시 — 관리자 응답에 실린 값(#517 §7-2), 없으면 파일 주소의 이름(이름이 곧 내용 해시 · §6-2) */
+/** 파일 해시 — 관리자 응답의 …Hash 칸(#517 §7-2), 없으면 파일 주소의 이름(이름이 곧 내용 해시 · §6-2) */
 function fileHash(given: unknown, src: unknown): string | null {
   if (typeof given === 'string' && given) return given;
   if (typeof src !== 'string') return null;
@@ -144,9 +144,10 @@ function parsePiece(v: unknown): WebPiece | null {
     return null;
   if (typeof id !== 'string' || !id || !isSlot(slot) || typeof src !== 'string' || !sizeOk(w) || !sizeOk(h))
     return null;
-  // 주소면 미리보기 + 파일 이름에서 해시 · 해시면 미리보기 없이 해시
+  // 요청 칸 이름 규칙(§2): 응답의 variants 는 주소 · variantHashes 는 해시
   const closed = isObj(v.variants) && typeof v.variants.closed === 'string' ? v.variants.closed : null;
   const closedIsUrl = closed !== null && isFileUrl(closed);
+  const closedHash = isObj(v.variantHashes) ? v.variantHashes.closed : null;
   return {
     id,
     slot,
@@ -154,8 +155,9 @@ function parsePiece(v: unknown): WebPiece | null {
     closedSrc: closedIsUrl ? closed : null,
     w,
     h,
-    image: fileHash(v.image, src),
-    closedImage: closed === null ? null : closedIsUrl ? fileHash(null, closed) : closed,
+    image: fileHash(v.imageHash, src),
+    // 해시를 모르면 null — 감은 그림이 있는데 null 이면 고치기가 막는다(모르고 빼지 않게)
+    closedImage: fileHash(closedHash, closedIsUrl ? closed : null) ?? (closedIsUrl ? null : closed),
   };
 }
 
