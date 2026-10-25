@@ -3,6 +3,7 @@ import { DEFAULT_STATE, dragTargetOf, reduce } from '@/features/character-maker'
 import { ACC_SLOT, FACE_UNITS, LIMITS, SLOT } from '@/features/character-maker/model/catalog';
 import { dragAccTo, dragTo, pickAcc, pickSide, sideCenter } from '@/features/character-maker/model/drag';
 import { apply, invert, layerMatrix, mul, placeMatrix } from '@/features/character-maker/model/geometry';
+import { MOLE, STAR, useTestAccs } from './fixtures/test-accs';
 
 const S = DEFAULT_STATE;
 const one = { x: 0, y: 0, s: 1, r: 0 };
@@ -71,9 +72,10 @@ describe('텍스처 끌기 — 끈 만큼', () => {
 });
 
 describe('액세서리 끌기', () => {
+  useTestAccs();
   it('가장 가까운 것을 잡는다 · 없으면 null', () => {
     expect(pickAcc(S, { x: 0, y: 0 })).toBeNull();
-    let s = reduce(reduce(S, { t: 'accAdd', id: 'mole' }), { t: 'accAdd', id: 'star' });
+    let s = reduce(reduce(S, { t: 'accAdd', id: MOLE }), { t: 'accAdd', id: STAR });
     s = reduce(s, { t: 'accMove', uid: 2, x: 40, y: 0 });
     expect(pickAcc(s, { x: ACC_SLOT.x + 35, y: ACC_SLOT.y })).toBe(2);
     expect(pickAcc(s, { x: ACC_SLOT.x, y: ACC_SLOT.y })).toBe(1);

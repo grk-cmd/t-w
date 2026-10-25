@@ -36,14 +36,16 @@ export const FACE_BOX = { x: 0.14, y: 0.2, size: 0.72 } as const;
 
 export type Expr = 'open' | 'closed';
 
-/** 서버 그림 파츠 주소 → 불러온 그림(아직이면 null — 다 불러오면 부르는 쪽이 다시 그린다) */
-export type PartImages = (src: string) => CanvasImageSource | null;
+/** 서버 그림 파츠 주소 → 불러온 그림(아직이면 null — 다 불러오면 부르는 쪽이 다시 그린다). tint 를 주면 그 색을 곱해 칠한 그림 */
+export type PartImages = (src: string, tint?: string) => CanvasImageSource | null;
 const NO_IMAGES: PartImages = () => null;
 
 /** 도형을 그리는 데 쓰는 것 — 길(Path2D) 만들기 · 그림 찾기 */
 interface Pen {
   makePath: (d: string) => Path2D;
   images: PartImages;
+  /** 칠하는 그림(tint)에 곱할 눈 색 — 눈 한 짝마다 다르다(오드아이) */
+  color: string;
 }
 export interface DrawOptions {
   /** 사용자가 붙인 그림 */
@@ -51,14 +53,15 @@ export interface DrawOptions {
   makePath?: (d: string) => Path2D;
   images?: PartImages;
 }
-const penOf = (o: DrawOptions): Pen => ({
+const penOf = (o: DrawOptions, color = '#000000'): Pen => ({
   makePath: o.makePath ?? ((d: string) => new Path2D(d)),
   images: o.images ?? NO_IMAGES,
+  color,
 });
 
 function drawShape(ctx: DrawCtx, sh: Shape, pen: Pen) {
   if (sh.k === 'img') {
-    const im = pen.images(sh.src);
+    const im = sh.tint ? pen.images(sh.src, pen.color) : pen.images(sh.src);
     if (im) ctx.drawImage(im, -sh.w / 2, -sh.h / 2, sh.w, sh.h);
     return;
   }
@@ -101,7 +104,8 @@ function drawAt(ctx: DrawCtx, m: Mat, shapes: Shape[], pen: Pen) {
 }
 
 /** 눈 한 짝 — 동공 · 하이라이트 · 아이라인을 차례로 쌓는다. 감은눈이면 아이라인의 감은 모양 — 동공 · 하이라이트는 감은 그림이 있을 때만. */
-function drawEye(ctx: DrawCtx, s: CreatorState, side: Side, expr: Expr, color: string, pen: Pen) {
+function drawEye(ctx: DrawCtx, s: CreatorState, side: Side, expr: Expr, color: string, face: Pen) {
+  const pen = { ...face, color };
   const put = (k: LayerKind, shapes: Shape[]) => {
     const m = layerMatrix(s, k, side);
     if (m && shapes.length) drawAt(ctx, m, shapes, pen);
@@ -119,7 +123,7 @@ function drawEye(ctx: DrawCtx, s: CreatorState, side: Side, expr: Expr, color: s
   const line = findItem('eyeline', s.eyeline);
   const closed = line.closed ?? line.open(color);
   // 아이라인 «없음» 은 뜬눈에서 안 보여 그 층 자리를 볼 수 없다 — 감은 줄은 폴더 자리에 둔다
-  const m = layerMatrix(s, s.eyeline === 'none' ? 'eyes' : 'eyeline', side);
+  const m = layerMatrix(s, line.id === 'none' ? 'eyes' : 'eyeline', side);
   if (m && closed.length) drawAt(ctx, m, closed, pen);
 }
 
@@ -164,9 +168,9 @@ export function drawItemThumb(
   ctx: DrawCtx,
   shapes: Shape[],
   size: number,
-  opts: Omit<DrawOptions, 'image'> = {},
+  opts: Omit<DrawOptions, 'image'> & { color?: string } = {},
 ) {
-  const pen = penOf(opts);
+  const pen = penOf(opts, opts.color);
   ctx.clearRect(0, 0, size, size);
   ctx.save();
   ctx.translate(size / 2, size / 2);

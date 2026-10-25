@@ -2,12 +2,18 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { DEFAULT_STATE, reduce, setRemoteParts } from '@/features/character-maker';
 import { fetchWebParts } from '@/features/character-maker/api/web-parts';
 import { drawFace, type DrawCtx } from '@/features/character-maker/lib/draw-front';
-import { createPartImages, type ImgLike } from '@/features/character-maker/lib/part-images';
+import {
+  createPartImages,
+  tintImage,
+  type ImgLike,
+  type TintCanvas,
+} from '@/features/character-maker/lib/part-images';
 import { accItems, findItem, layerItems } from '@/features/character-maker/model/catalog';
 import { parseRemoteParts, partImageUrlOk } from '@/features/character-maker/model/remote-parts';
 import { API_ORIGIN } from '@/shared/config';
 
 const IMG = `${API_ORIGIN}/v1/assets/h2a.png`;
+const N = { ko: '가', en: 'a', ja: 'あ' };
 const SHUT = `${API_ORIGIN}/v1/assets/h2c.png`;
 const name = { ko: '별눈', en: 'Star', ja: 'ほし' };
 const piece = (o: Record<string, unknown> = {}) => ({
@@ -190,7 +196,7 @@ describe('setRemoteParts — 기본 그림 뒤에 붙는다', () => {
 
   it('감은눈 그림이 없는 아이라인은 기본 감은 줄로 — 감은눈 얼굴이 비지 않게', () => {
     setRemoteParts(parseRemoteParts(one({ slot: 'eyeline' })));
-    expect(findItem('eyeline', 'w:p1').closed).toEqual(findItem('eyeline', 'thin').closed);
+    expect(findItem('eyeline', 'w:p1').closed).toEqual(findItem('eyeline', 'none').closed);
   });
 });
 
@@ -321,6 +327,78 @@ describe('createPartImages — 그림 불러오기', () => {
     (made[0]?.onerror as (() => void) | null)?.();
     expect(images(IMG)).toBeNull();
     expect(made).toHaveLength(1);
+  });
+});
+
+describe('동공 그림 칠하기 — 흰 부분 = 고른 눈 색', () => {
+  /** 칠하기를 글로 적는 가짜 판 */
+  function canvas() {
+    const log: string[] = [];
+    const ctx = {
+      drawImage: () => log.push(`draw ${ctx.globalCompositeOperation}`),
+      fillRect: (x: number, y: number, w: number, h: number) =>
+        log.push(`fill ${ctx.fillStyle} ${ctx.globalCompositeOperation} ${x} ${y} ${w} ${h}`),
+      fillStyle: '',
+      globalCompositeOperation: 'source-over' as GlobalCompositeOperation,
+    };
+    const c: TintCanvas & { log: string[] } = { width: 0, height: 0, getContext: () => ctx, log };
+    return c;
+  }
+
+  it('그림 → 색 곱하기 → 그림 알파로 오리기 · 판은 그림 크기', () => {
+    const c = canvas();
+    expect(tintImage({} as CanvasImageSource, 40, 48, '#2E5E9C', c)).toBe(c);
+    expect([c.width, c.height]).toEqual([40, 48]);
+    expect(c.log).toEqual(['draw source-over', 'fill #2E5E9C multiply 0 0 40 48', 'draw destination-in']);
+    const empty = canvas();
+    expect(tintImage({} as CanvasImageSource, 0, 48, '#2E5E9C', empty)).toBeNull(); // 크기 없는 그림은 칠하지 않는다
+    expect(empty.log).toEqual([]);
+  });
+
+  it('서버 동공만 칠한다 — 아이라인 · 액세서리는 그대로', () => {
+    setRemoteParts([
+      { id: 'p', slot: 'pupil', name: N, src: IMG, closedSrc: null, w: 16, h: 18 },
+      { id: 'e', slot: 'eyeline', name: N, src: IMG, closedSrc: null, w: 16, h: 18 },
+    ]);
+    expect(findItem('pupil', 'w:p').open('#123456')).toEqual([
+      { k: 'img', src: IMG, w: 16, h: 18, tint: true },
+    ]);
+    expect(findItem('eyeline', 'w:e').open('#123456')).toEqual([{ k: 'img', src: IMG, w: 16, h: 18 }]);
+  });
+
+  it('불러온 뒤에야 · 색마다 한 번만 칠하고 기억한다(색 고르개를 끌어도 쌓이지 않게 32개까지)', () => {
+    const made: ImgLike[] = [];
+    const boards: ReturnType<typeof canvas>[] = [];
+    const images = createPartImages(
+      () => {},
+      () => {
+        const im = {
+          crossOrigin: null,
+          src: '',
+          onload: null,
+          onerror: null,
+          naturalWidth: 40,
+          naturalHeight: 48,
+        } as ImgLike;
+        made.push(im);
+        return im;
+      },
+      () => {
+        const c = canvas();
+        boards.push(c);
+        return c;
+      },
+    );
+    expect(images(IMG, '#111111')).toBeNull(); // 아직 못 불러옴
+    made[0]?.onload?.(new Event('load'));
+    const a = images(IMG, '#111111');
+    expect(a).toBe(boards[0]);
+    expect(images(IMG, '#111111')).toBe(a);
+    expect(images(IMG)).toBe(made[0]); // 칠하지 않은 원본은 그대로
+    expect(boards).toHaveLength(1);
+    for (let i = 0; i < 40; i++) images(IMG, `#0000${String(i).padStart(2, '0')}`);
+    expect(images(IMG, '#111111')).not.toBe(a); // 오래된 것은 버렸다가 다시 칠한다
+    expect(boards).toHaveLength(42);
   });
 });
 

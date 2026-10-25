@@ -1,11 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { DEFAULT_STATE, histReduce, randomState, reduce, type Hist } from '@/features/character-maker';
+import {
+  DEFAULT_STATE,
+  histReduce,
+  randomState,
+  reduce,
+  setRemoteParts,
+  type Hist,
+} from '@/features/character-maker';
+import { BANDAGE, MOLE, ROUND, STAR, useTestFace } from './fixtures/test-accs';
 
 const S = DEFAULT_STATE;
 
 describe('reduce — 생성기 상태', () => {
+  useTestFace();
   it('아는 그림만 고른다(모르는 id 는 그대로)', () => {
-    expect(reduce(S, { t: 'item', kind: 'pupil', id: 'dot' }).pupil).toBe('dot');
+    expect(reduce(S, { t: 'item', kind: 'pupil', id: ROUND }).pupil).toBe(ROUND);
     expect(reduce(S, { t: 'item', kind: 'pupil', id: 'nope' })).toBe(S);
     expect(reduce(S, { t: 'item', kind: 'mouth', id: 'arc' })).toBe(S); // 눈썹 그림을 입에 — 안 받는다
   });
@@ -87,6 +96,7 @@ describe('reduce — 생성기 상태', () => {
 });
 
 describe('reduce — 눈 폴더 · 오드아이 · 액세서리', () => {
+  useTestFace();
   it('눈 폴더 안 층은 대칭이면 오른쪽이 같은 값(폴더가 이미 뒤집어 그린다) · 폴더와 다른 레이어는 거울', () => {
     const a = reduce(S, { t: 'adjust', target: 'pupil', side: 'L', key: 'x', value: 4 });
     expect(a.adj.pupil.R).toEqual(a.adj.pupil.L);
@@ -119,16 +129,16 @@ describe('reduce — 눈 폴더 · 오드아이 · 액세서리', () => {
   it('액세서리 — 아는 것만 · 최대 5개 · 번호는 지워도 겹치지 않는다', () => {
     let s = reduce(S, { t: 'accAdd', id: 'nope' });
     expect(s).toBe(S);
-    for (let i = 0; i < 7; i++) s = reduce(s, { t: 'accAdd', id: 'mole' });
+    for (let i = 0; i < 7; i++) s = reduce(s, { t: 'accAdd', id: MOLE });
     expect(s.acc.map((a) => a.uid)).toEqual([1, 2, 3, 4, 5]);
     s = reduce(s, { t: 'accRemove', uid: 2 });
-    s = reduce(s, { t: 'accAdd', id: 'star' });
+    s = reduce(s, { t: 'accAdd', id: STAR });
     expect(s.acc.map((a) => a.uid)).toEqual([1, 3, 4, 5, 6]);
     expect(reduce(s, { t: 'accRemove', uid: 99 })).toBe(s);
   });
 
   it('액세서리 옮기기 — 범위로 자르고 같은 자리 · 없는 번호 · NaN 은 같은 상태', () => {
-    const s = reduce(S, { t: 'accAdd', id: 'bandage' });
+    const s = reduce(S, { t: 'accAdd', id: BANDAGE });
     const m = reduce(s, { t: 'accMove', uid: 1, x: 999, y: -999 });
     expect(m.acc[0]?.a).toEqual({ x: 100, y: -120, s: 1, r: 0 });
     expect(reduce(s, { t: 'accMove', uid: 1, x: s.acc[0]!.a.x, y: 0 })).toBe(s);
@@ -139,7 +149,7 @@ describe('reduce — 눈 폴더 · 오드아이 · 액세서리', () => {
 
   it('새 액세서리는 붙어 있는 수만큼 옆으로 비켜 붙는다(겹치지 않게)', () => {
     let s = S;
-    for (let i = 0; i < 3; i++) s = reduce(s, { t: 'accAdd', id: 'mole' });
+    for (let i = 0; i < 3; i++) s = reduce(s, { t: 'accAdd', id: MOLE });
     const xs = s.acc.map((a) => a.a.x);
     expect(new Set(xs).size).toBe(3);
   });
@@ -150,9 +160,16 @@ describe('reduce — 눈 폴더 · 오드아이 · 액세서리', () => {
     expect(r.oddEye).toBe(false);
     expect(r.pupilColor.L).toBe(r.pupilColor.R);
   });
+
+  it('서버 동공 · 아이라인이 없어도 무작위가 된다(«없음» 뿐이면 «없음»)', () => {
+    setRemoteParts([]);
+    const r = randomState(S, () => 0.99);
+    expect([r.pupil, r.eyeline]).toEqual(['none', 'none']);
+  });
 });
 
 describe('histReduce — 되돌리기', () => {
+  useTestFace();
   const init: Hist = { cur: S, past: [], liveFrom: null };
   it('바뀐 것만 쌓고 되돌린다', () => {
     const h1 = histReduce(init, { t: 'do', a: { t: 'skin', skin: 3 } });

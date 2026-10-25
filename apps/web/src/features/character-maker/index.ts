@@ -8,4 +8,4 @@ export { fetchWebParts, type WebPartsResult } from './api/web-parts';
 export { createPartImages } from './lib/part-images';
 export { setRemoteParts } from './model/catalog';
 export type { PartImages } from './lib/draw-front';
-export { PartArtProvider, type PartArt } from './ui/part-art';
+export { PartArtProvider, type PartArt, type RemoteLoad } from './ui/part-art';
