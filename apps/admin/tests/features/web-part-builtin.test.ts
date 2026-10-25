@@ -132,15 +132,15 @@ describe('기본 파츠 가져오기', () => {
     expect(bodies[0]).toEqual({
       target: { kind: 'baseModel' },
       name: { ko: '굵은', en: 'Thick', ja: 'ふとい' },
-      thumb: 'h2up1',
+      thumbHash: 'h2up1',
       pieces: [
         {
           kind: 'decal',
           target: { kind: 'baseModel' },
           surface: 'face',
           slot: 'eyeline',
-          image: 'h2up1',
-          variants: { closed: 'h2up2' },
+          imageHash: 'h2up1',
+          variantHashes: { closed: 'h2up2' },
           w: 34,
           h: 34,
         },
