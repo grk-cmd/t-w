@@ -1,8 +1,9 @@
 import type { Lang } from '@/shared/i18n';
 import type { RemotePart } from './remote-parts';
 
-/* 얼굴 레이어 그림 — 프로토타입(PR #428)의 시안 그림을 도형 자료로 옮긴 것. 좌표는 200×200 얼굴 판(가운데 100),
-   한 짝은 (0,0) 을 가운데로 그리고 자리(SLOT)에 놓는다. ⚠️ 그림은 시안 수준이다 — 디자이너 그림이 오면 이 표만 바꾼다. */
+/* 얼굴 레이어 그림 — 코드에는 «없음» 과 처음 얼굴의 하이라이트 · 눈썹 · 입 · 볼만 도형으로 남고, 나머지는 관리자가 올린
+   서버 상품이다(동공 · 아이라인의 처음 얼굴은 서버 목록 맨 앞 — FIRST_ITEM). 좌표는 200×200 얼굴 판(가운데 100),
+   한 짝은 (0,0) 을 가운데로 그리고 자리(SLOT)에 놓는다. */
 
 const INK = '#2A2320';
 
@@ -161,18 +162,18 @@ export const ACC_LIMITS = { x: [-100, 100], y: [-120, 80], s: [0.3, 2.5], r: [-1
 const BUILTIN_ACCS: readonly AccItem[] = [];
 export const findAcc = (id: string): AccItem | null => accs.find((a) => a.id === id) ?? null;
 
-/* 관리자가 올린 그림 파츠(서버) — 기본 그림 뒤에 붙인다. 서버에 닿지 못하면 기본 그림만 쓴다.
-   id 앞에 «w:» 를 붙여 기본 그림 id 와 겹치지 않게 한다. */
+/* 관리자가 올린 그림 파츠(서버) — 코드에 남은 «없음» · 처음 얼굴 몇 개 뒤에 붙는다. 그 밖의 그림은 모두 서버 것이라
+   서버에 닿지 못하면 칸이 비고 고르기 판이 까닭을 알린다. id 앞에 «w:» 를 붙여 코드 그림 id 와 겹치지 않게 한다. */
 let layers: Record<LayerKind, readonly LayerItem[]> = BUILTIN_LAYERS;
 let accs: readonly AccItem[] = BUILTIN_ACCS;
 
-/** 레이어 하나의 고를 수 있는 그림 — 기본 + 서버 */
+/** 레이어 하나의 고를 수 있는 그림 — 코드 + 서버 */
 export const layerItems = (kind: LayerKind): readonly LayerItem[] => layers[kind];
-/** 붙일 수 있는 액세서리 — 기본 + 서버 */
+/** 붙일 수 있는 액세서리 — 서버 것뿐 */
 export const accItems = (): readonly AccItem[] => accs;
 export const LAYER_KINDS = Object.keys(BUILTIN_LAYERS) as LayerKind[];
 
-/** 서버 그림 파츠를 고르기 목록에 넣는다(다시 부르면 바꿔 끼운다 · 빈 목록이면 기본만) */
+/** 서버 그림 파츠를 고르기 목록에 넣는다(다시 부르면 바꿔 끼운다 · 빈 목록이면 코드 그림만) */
 export function setRemoteParts(parts: readonly RemotePart[]): void {
   const img = (src: string, p: RemotePart): Shape =>
     p.slot === 'pupil' ? { k: 'img', src, w: p.w, h: p.h, tint: true } : { k: 'img', src, w: p.w, h: p.h };

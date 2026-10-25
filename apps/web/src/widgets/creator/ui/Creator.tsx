@@ -79,7 +79,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
   const [sel, setSel] = useState<Selection>(DEFAULT_SELECTION);
   const [exporting, setExporting] = useState(false);
   const tex = useMemo(() => createFaceTextures(kit), [kit]);
-  // 관리자가 올린 그림 파츠 — 목록이 오거나 그림이 하나 불러질 때마다 rev 가 늘어 다시 그린다. 서버에 닿지 못하면 기본 그림만.
+  // 관리자가 올린 그림 파츠 — 목록이 오거나 그림이 하나 불러질 때마다 rev 가 늘어 다시 그린다. 서버에 닿지 못하면 빈 칸에 안내(load).
   const [rev, setRev] = useState(0);
   const [load, setLoad] = useState<RemoteLoad>('loading');
   const images = useMemo(() => createPartImages(() => setRev((n) => n + 1)), []);
@@ -87,7 +87,7 @@ function CreatorReady({ kit }: { kit: CharKit }) {
     let alive = true;
     void fetchWebParts().then((r) => {
       if (!alive) return;
-      // 화면은 기본 그림 그대로 — 서버를 연 뒤 원인을 알 수 있게 까닭만 남긴다
+      // 화면은 «못 불러옴» 안내 — 서버를 연 뒤 원인을 알 수 있게 까닭도 남긴다
       if (r.t === 'failed') {
         setLoad('failed');
         return console.warn('[웹 생성기 파츠] 못 불러옴 —', r.why);
