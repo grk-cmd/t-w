@@ -68,8 +68,8 @@ describe('웹 생성기 파츠 저장 — 파일 → 감은 그림 → 상품 �
       'UPLOAD:2',
       'POST:',
     ]);
-    expect(calls[2]?.body).toMatchObject({ thumb: 'h2up1' });
-    expect(pieceOf(calls[2])).toMatchObject({ image: 'h2up1', variants: { closed: 'h2up2' } });
+    expect(calls[2]?.body).toMatchObject({ thumbHash: 'h2up1' });
+    expect(pieceOf(calls[2])).toMatchObject({ imageHash: 'h2up1', variantHashes: { closed: 'h2up2' } });
   });
 
   it('새 파츠인데 그림이 없으면 아무것도 보내지 않는다', async () => {
@@ -82,18 +82,18 @@ describe('웹 생성기 파츠 저장 — 파일 → 감은 그림 → 상품 �
     const keep = fakeApi();
     await savePart(keep.api, { part: existing(), draft });
     expect(keep.calls.map((c) => c.method)).toEqual(['PATCH']);
-    expect(pieceOf(keep.calls[0])).toMatchObject({ image: 'h2a', variants: { closed: 'h2c' } });
+    expect(pieceOf(keep.calls[0])).toMatchObject({ imageHash: 'h2a', variantHashes: { closed: 'h2c' } });
 
     const drop = fakeApi();
     await savePart(drop.api, { part: existing(), draft, closedImage: null });
     expect(drop.calls.map((c) => c.method)).toEqual(['PATCH']);
-    expect(pieceOf(drop.calls[0])).not.toHaveProperty('variants');
+    expect(pieceOf(drop.calls[0])).not.toHaveProperty('variantHashes');
 
     const change = fakeApi();
     await savePart(change.api, { part: existing(), draft, closedImage: SHUT });
     expect(change.calls.map((c) => c.method)).toEqual(['UPLOAD', 'PATCH']);
-    expect(pieceOf(change.calls[1])).toMatchObject({ image: 'h2a', variants: { closed: 'h2up1' } });
-    expect(change.calls[1]?.body).not.toHaveProperty('thumb'); // 본 그림은 그대로
+    expect(pieceOf(change.calls[1])).toMatchObject({ imageHash: 'h2a', variantHashes: { closed: 'h2up1' } });
+    expect(change.calls[1]?.body).not.toHaveProperty('thumbHash'); // 본 그림은 그대로
   });
 
   it('올리다 실패하면 상품은 쓰지 않는다', async () => {
