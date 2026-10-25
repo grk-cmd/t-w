@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { DEFAULT_STATE, reduce, type CreatorState } from '@/features/character-maker';
 import { drawFront, FACE_BOX, type DrawCtx } from '@/features/character-maker/lib/draw-front';
+import { MOLE, useTestAccs } from './fixtures/test-accs';
 
 /** 그리기를 글로 적는 가짜 컨텍스트 — 칠할 때 그때의 색도 적는다 */
 function fake() {
@@ -126,13 +127,17 @@ describe('drawFront', () => {
     expect(draw(DEFAULT_STATE)).toContain('m 1 0 0 1 66 88');
   });
 
-  it('액세서리는 입 위(맨 나중)에 · 각자 자리로', () => {
-    let s = reduce(DEFAULT_STATE, { t: 'accAdd', id: 'mole' });
-    s = reduce(s, { t: 'accMove', uid: 1, x: 20, y: -10 });
-    const log = draw(s); // 자리 = ACC_SLOT(100,120) + (20,−10)
-    const mole = log.indexOf('m 1 0 0 1 120 110');
-    expect(mole).toBeGreaterThan(log.indexOf('m 1 0 0 1 100 142')); // 입 다음
-    expect(log.slice(mole).find((l) => l.startsWith('e '))).toBe('e 0 0 2.6 2.6');
+  describe('액세서리', () => {
+    useTestAccs();
+    it('입 위(맨 나중)에 · 각자 자리로', () => {
+      let s = reduce(DEFAULT_STATE, { t: 'accAdd', id: MOLE });
+      s = reduce(s, { t: 'accMove', uid: 1, x: 20, y: -10 });
+      const { ctx, log } = fake();
+      drawFront(ctx, s, 'open', 200, { makePath, images: () => ({}) as CanvasImageSource });
+      const mole = log.indexOf('m 1 0 0 1 120 110'); // 자리 = ACC_SLOT(100,120) + (20,−10)
+      expect(mole).toBeGreaterThan(log.indexOf('m 1 0 0 1 100 142')); // 입 다음
+      expect(log.slice(mole)).toContain('img');
+    });
   });
 
   it('내 그림은 고른 얼굴에만 · 아래 / 맨 위 자리', () => {
