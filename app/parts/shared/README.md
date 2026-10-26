@@ -315,3 +315,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **함정** — 페이지가 보내는 모양은 `hosting/help/embed.js` 와 짝이다 — 한쪽만 바꾸면 목차가 안 뜬다(`sim-help-tab` 이 embed.js 를 돌려 이 함수로 읽어 본다).
 사이트 주소를 바꾸면 앱 CSP `frame-src` 도 같이. 검사: `checks/sim-help-tab.js`.
+
+## `input-diag.js` — 🩺 한글 씹힘 진단(조합 끊김 · 메인 멈춤 · 활성 창 조회)
+
+- **책임**: 진단 기록(`tw-mouse-diag.log`)에 남길 줄을 만든다. 렌더러 · main 이 같이 싣는다(`window.TwInputDiag` · `module.exports`).
+- **쓰는 법**
+  - 렌더러: `TwInputDiag.createImeWatch({ note, now }).attach(document, window)` — 한글 조합 중 입력칸이 포커스를 잃거나(칸 · 창) 칸이 사라지면 `[한글] …` 한 줄을 `note` 로. 친 글자는 적지 않는다(조합 길이 · 칸 이름 · 시작 뒤 ms · 창 포커스만).
+  - main: `createLagWatch({ now, log, front })` — `tick()` 을 `LAG_TICK_MS` 마다, 활성 창 조회가 끝날 때 `activeWinDone(ms)`. `REPORT_MS`(1분)마다 멈춤(`LAG_SLOW_MS`+) · 느린 조회(`AW_SLOW_MS`+)가 있었을 때만 `[입력지연] …` 한 줄.
+- **지금 쓰는 곳**: `app.js` 맨 앞(WebGL 감시 옆) · `main.js` 활성 창 폴링(`startActiveWinPolling`).
+- **함정**: 조합 끝(compositionend)과 포커스 잃음(focusout · blur)의 순서는 입력기마다 다르다 — 조합이 끝난 뒤 `END_GRACE_MS` 안의 포커스 잃음도 같은 줄로 본다. 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
+- 검사: `checks/sim-input-diag.js`(깨 보기 여섯).
