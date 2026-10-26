@@ -272,6 +272,13 @@ async function planAccountDelete(db, code, deps, viaFc){
   };
 }
 
+/* 탈퇴한 주인의 시크릿룸이 끝나는 시각. 이미 끝난 방은 그 날짜 그대로(언제 끝났는지가 발급 기록이다) ·
+   기간이 남았거나 영구(없음 · 0 · 숫자 아님 — 앱 입장 검사와 같은 판정)면 지금보다 SECRET_EXPIRE_BACK_MS 앞. */
+function secretExpireAt(prev, nowMs){
+  if (typeof prev === 'number' && prev > 0 && prev <= nowMs) return prev;
+  return nowMs - SECRET_EXPIRE_BACK_MS;
+}
+
 const hideAuthUid = (p) => (p.startsWith('authUsers/') ? 'authUsers/(로그인 계정)' : p.replace(/^bugBoard\/prv\/[^/]+\//, 'bugBoard/prv/(로그인 계정)/'));
 
 /* 화면으로 돌려줄 모양 — 로그인 계정 uid · 파일 이름은 싣지 않는다. */
@@ -317,11 +324,7 @@ async function executeAccountDelete(db, plan, deps, by, nowMs, action){
 
   const patch = {};
   for (const p of plan.dbPaths) patch[p] = null;
-  if (plan.secretExpire){
-    // 이미 끝난 방은 그 날짜를 그대로 둔다(언제 끝났는지가 발급 기록이다)
-    const prev = plan.secretExpire.prev;
-    patch[plan.secretExpire.path] = (typeof prev === 'number' && prev > 0 && prev <= nowMs) ? prev : nowMs - SECRET_EXPIRE_BACK_MS;
-  }
+  if (plan.secretExpire) patch[plan.secretExpire.path] = secretExpireAt(plan.secretExpire.prev, nowMs);
   const id = logId(nowMs);
   patch[ADMIN_LOG + '/' + id] = {
     at: deps.serverNow(),
@@ -427,6 +430,6 @@ function adminDeps(db){
 
 module.exports = {
   parseTarget, resolveTarget, pruneNested, planAccountDelete, summarize, executeAccountDelete,
-  handleAdminDeleteAccount, handleSelfDeleteAccount, adminDeps, storageTargets, logDetail,
+  handleAdminDeleteAccount, handleSelfDeleteAccount, adminDeps, storageTargets, logDetail, secretExpireAt, SECRET_EXPIRE_BACK_MS,
   GROUPS, KEPT, LOG_ACTION, SELF_LOG_ACTION, SELF_CONFIRM_WORD, FRIEND_CODE_RE,
 };

@@ -181,6 +181,17 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(JSON.stringify(r) === JSON.stringify(['inbox/a', 'users/a', 'users/ab']), '조상이 있으면 자손을 뺀다 · 같은 줄은 하나로 · «users/a» 가 «users/ab» 를 먹지 않는다');
   }
 
+  say('── 2-1. 탈퇴한 주인의 시크릿룸이 끝나는 시각 (secretExpireAt)');
+  {
+    const B = m.SECRET_EXPIRE_BACK_MS, DAY = 86400000, past = T0 - 5 * DAY;
+    chk(B === 1000, '끝낼 때 지금보다 1초 앞 — 입장 검사 Date.now() > exp 와 expireSecretRoom 과 같은 값');
+    chk(m.secretExpireAt(T0 + 30 * DAY, T0) === T0 - B, '기간이 남은 방 → 지금 1초 앞으로 당긴다(남은 기간 동안 들어오지 못하게)');
+    chk(m.secretExpireAt(past, T0) === past, '이미 끝난 방 → 끝난 날짜 그대로(발급 기록)');
+    chk(m.secretExpireAt(T0, T0) === T0, '  ↳ 경계: 바로 지금 끝난 방도 그대로');
+    chk(m.secretExpireAt(T0 + 1, T0) === T0 - B, '  ↳ 경계: 1ms 남은 방은 당긴다');
+    chk([undefined, null, 0, -5, '123', NaN].every((v) => m.secretExpireAt(v, T0) === T0 - B), '영구(없음 · 0 · 음수 · 숫자 아님) → 지금 1초 앞 — 앱 입장 검사가 영구로 보는 값과 같다');
+  }
+
   say('── 3. 미리 보기 — 지울 것 · 남길 것');
   let W = world();
   {
