@@ -93,6 +93,7 @@ const ClickPolicy = require('./app/parts/launcher/click-through-policy');
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
+const MhPadPos = require('./app/parts/myhome/mh-pad-pos');   // 🎨 마이홈 창 자리 — 스티커 여백을 뺀 자리로 기억
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
    ⚠️ 화살표 상수가 아니라 **함수 선언**이다. 원래가 그랬고(호이스팅), 여기서 모양을 바꾸면
      정의보다 앞선 자리에서 부르는 코드가 생겼을 때 조용히 TDZ 로 죽는다. */
@@ -487,10 +488,19 @@ function applyUiZoom(op, why){
    렌더러가 «창 밖으로 나간 만큼» 을 CSS px 로 보내 오면(setConfigMode 셋째 인자) 마이홈 창을 양쪽으로 그만큼 넓힌다.
    ★ 양쪽 같은 폭으로 넓힌다 — 마이홈 창은 OS 창 가운데에 놓이므로(#myHomeWin left/top 50%) 한쪽만 넓히면 마이홈이 움직인다.
    ★ 크기를 정하는 자리가 전부 _modeSize 를 지나므로(줌 · 모니터 변경 · 표시 설정) 여기 한 곳에 더한다.
-   _mhPadApplied 는 지금 창에 얹힌 여백(DIP) — 여백이 바뀔 때 창 좌상단을 그만큼 옮겨 마이홈이 제자리에 있게 한다. */
+   _mhPadApplied 는 지금 창에 얹힌 여백(DIP) — savedPos.myhome 은 여백을 뺀 자리로 기억한다(mh-pad-pos.js). */
 const MH_PAD_MAX = 400;               // 한쪽 여백 상한(CSS px) — 아주 멀리 나간 옛 스티커 하나로 창이 끝없이 커지지 않게
 let _mhPad = { x: 0, y: 0 };          // CSS px
 let _mhPadApplied = { x: 0, y: 0 };   // DIP
+/* 창을 옮긴 뒤 그 모드의 자리를 기억한다 — 마이홈만 여백을 뺀 자리(놓는 쪽 _applyConfigMode 와 짝) */
+function _rememberPos(m, b){
+  savedPos[m] = m === 'myhome' ? MhPadPos.rememberOf(b, _mhPadApplied) : { x: b.x, y: b.y };
+}
+/* 지금 줌에서 창에 얹을 여백(DIP) — 크기(_modeSize)와 같은 식. 놓기 · 줌 맞춤이 같이 부른다 */
+function _mhPadDip(){
+  const z = (uiZoom > 0) ? uiZoom : 1;
+  return { x: Math.round(_mhPad.x * z), y: Math.round(_mhPad.y * z) };
+}
 function _mhPadOf(v){
   const n = (k) => { const x = Number(v && v[k]); return isFinite(x) && x > 0 ? Math.min(MH_PAD_MAX, Math.ceil(x)) : 0; };
   return { x: n('x'), y: n('y') };
@@ -513,11 +523,12 @@ function _refitConfigForZoom(m){
   const b = mainWindow.getBounds();
   const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
   if(_sameRect(rect, b)) return;
+  if(m === 'myhome') _mhPadApplied = _mhPadDip();   // 창 크기는 새 줌 여백 — 'moved'(setBounds 중) · 아래 기억이 옛 여백으로 적지 않게
   mainWindow.setResizable(true);    // 고정 크기 상태로 setBounds 하면 크기가 깎인다 — setConfigMode 와 같은 순서
   mainWindow.setBounds(rect);
   mainWindow.setResizable(false);
   _noteApplied(rect, false);
-  savedPos[m] = { x: rect.x, y: rect.y };
+  _rememberPos(m, rect);
   _diagLog('[창] 줌 ' + Math.round(uiZoom * 100) + '% — ' + m + ' 창 크기 맞춤 ' + rect.width + 'x' + rect.height);
 }
 const _zoomIn  = v => v * uiZoom;   // CSS px → DIP
@@ -1829,6 +1840,8 @@ function _applyConfigMode(isConfig, mode, extra){
   const waPos = display.workArea;   // {x, y, width, height} — 전역 좌표계에서의 작업영역(멀티모니터 대응)
   if (isConfig) {
     // 설정 화면: mode에 따라 크기 다름. 사용자가 옮긴 적 있으면 그 위치, 없으면 선택된 모니터 중앙.
+    /* 🎨 스티커 여백 — 크기(_modeSize)가 읽으니 재기 전에 바꾼다. 옛 렌더러(셋째 인자 없음)면 0 */
+    if(mode==='myhome') _mhPad = _mhPadOf(extra);
     const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
     /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
        고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
@@ -1849,11 +1862,8 @@ function _applyConfigMode(isConfig, mode, extra){
       // ★ 마이홈 위치 기억(요청사항) — 유저가 옮겨둔 위치가 있으면 거기로, 없으면(첫 열기) 런처가 있는
       //   모니터 중앙. 'moved' 핸들러가 sizeToMode('myhome')로 위치를 계속 기록해줌.
       remembered = savedPos.myhome || null;
-      /* 🎨 스티커 여백 — 옛 렌더러(셋째 인자 없음)면 0. 여백이 바뀐 만큼 좌상단을 옮겨 마이홈을 제자리에 둔다. */
-      _mhPad = _mhPadOf(extra);
-      const _z = (uiZoom > 0) ? uiZoom : 1;
-      const padDip = { x: Math.round(_mhPad.x * _z), y: Math.round(_mhPad.y * _z) };
-      if(remembered) remembered = { x: remembered.x - (padDip.x - _mhPadApplied.x), y: remembered.y - (padDip.y - _mhPadApplied.y) };
+      const padDip = _mhPadDip();
+      remembered = MhPadPos.placeOf(remembered, padDip);   // 기억은 여백 없는 자리('moved') — 지금 여백만큼 왼쪽 위로
       _mhPadApplied = padDip;
     }
     /* 📐 [2026-09-15 제보 1·2] 크기·위치를 작업영역에 맞춘다 — 근거는 _fitConfigRect 위 주석.
@@ -2488,7 +2498,7 @@ function createWindow() {
     const b = mainWindow.getBounds();
     const m = sizeToMode(b.width, b.height);
     if (m) {
-      savedPos[m] = { x: b.x, y: b.y };
+      _rememberPos(m, b);
     }
   });
 
@@ -3462,7 +3472,7 @@ function createWindow() {
         /* 📐 줌 걸린 크기로, 작업영역에 맞춰 — 직접 setBounds 하면 _fittedSize 가 안 남아 다음 sizeToMode 가 못 알아본다. */
         const mvc = _fitConfigRect(curMode, _modeSize(curMode), target, null);
         mainWindow.setBounds(mvc);
-        savedPos[curMode] = { x: mvc.x, y: mvc.y };
+        _rememberPos(curMode, mvc);
       } else {
         // run(전체화면): 그 모니터 작업영역 꽉 채움
         // ★ 높이는 overlay.runOverlayHeight 를 거친다 — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
@@ -3693,7 +3703,7 @@ function createWindow() {
           mainWindow.setBounds(rect);
           mainWindow.setResizable(false);
           _noteApplied(rect, false);
-          savedPos[m] = { x: rect.x, y: rect.y };
+          _rememberPos(m, rect);
           _diagLog('[창] 표시설정 변경 — ' + m + ' 창을 작업영역에 다시 맞춤 ' + rect.x + ',' + rect.y + ' ' + rect.width + 'x' + rect.height);
         }catch(_){}
         return;

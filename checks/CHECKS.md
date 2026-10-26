@@ -203,7 +203,7 @@
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
-| **sim-zoom-window.js** | 68 | **77ab3834d455** |
+| **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
 | **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
 | **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
 | **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** |
@@ -249,7 +249,7 @@
 | **sim-guestbook.js** | 289 | **ad0203fe9bda** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
-| **sim-myhome-sticker.js** | 415 | **81dff33ecfbd** |
+| **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
 | **sim-myhome-edit.js** | 611 | **57cd7e5ce457** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
@@ -419,6 +419,7 @@
 | **sim-img-retry.js** | 81 | **ae3ae329553c** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
+| **sim-mh-pad-pos.js** | 164 | **4f0a3400f69c** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
