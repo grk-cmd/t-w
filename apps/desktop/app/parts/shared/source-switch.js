@@ -19,11 +19,13 @@ const SKIP = Object.freeze({ skip: true });
 /* 기능 표 — 새 칸(sources.{기능})이 없을 때 옛 칸을 어떻게 읽나. 지금 동작과 같게 둔다.
      friends : 옛 flags.friendsApi — 끌 때만 false, 값이 없으면 켜짐(서버 먼저)
      rooms   : 옛 roomServer.on — true 일 때만 방 서버(허용 목록 · 비율 · 기본 서버는 그다음에 room-server-gate.js 가 본다)
-     catalog : 옛 스위치 없음 — 늘 서버(읽기 사본) 먼저 */
+     catalog : 옛 스위치 없음 — 늘 서버(읽기 사본) 먼저
+     gacha   : 옛 스위치 없음 — 늘 옛 길(앱이 Firebase 트랜잭션으로 뽑기). 'server' 면 서버가 뽑는다(되돌아가지 않음 — gacha-server.js) */
 const FEATURES = Object.freeze({
   friends: Object.freeze({ legacy: (v) => (v === false ? SOURCE.FIREBASE : SOURCE.SERVER), legacyOf: (rc) => rc.friendsApi() }),
   rooms: Object.freeze({ legacy: (v) => (v === true ? SOURCE.SERVER : SOURCE.FIREBASE), legacyOf: (rc) => rc.roomServer().on }),
   catalog: Object.freeze({ legacy: () => SOURCE.SERVER, legacyOf: () => undefined }),
+  gacha: Object.freeze({ legacy: () => SOURCE.FIREBASE, legacyOf: () => undefined }),
 });
 
 /* 새 칸 값 → 'server' | 'firebase' | null(칸 없음 · 모르는 값) */

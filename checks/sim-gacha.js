@@ -76,6 +76,8 @@ function mkEnv(opt){
     draft: null, adj: null, equips: [], commits: 0, denied: [], deleted: [], regs: [], prunedDef: [], saves: 0, colorRefresh: 0,
     seats: [], slots: [], srv: opt.srv === undefined ? { owned: {}, ts: 0 } : opt.srv, srvDelay: 0, pushes: [], txCalls: 0, txFail: null, txRace: null, txLate: false, errs: [],
     rand: [0], randI: 0,
+    /* 🎰 서버 길 — source 가 'server' 면 gacha.js 가 gachaServer 를 부른다. gs = 서버 상태 · gsFail = 실패 이유 · gsOut = 이번 뽑기 결과 */
+    source: opt.source || 'firebase', gs: opt.gs || null, gsFail: null, gsOut: [], gsLoads: 0, gsDraws: [],
   };
   const els = {};
   const byId = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl(/^gacha(Draw1|Draw5|BackInv|GoDraw|AdminAdd)$/.test(id) ? 'button' : 'div', id))));
@@ -159,6 +161,11 @@ function mkEnv(opt){
     ownedKey: 'tw.gachaOwned', tsKey: 'tw.gachaOwnedTs', bonusKey: 'tw.gachaBonus',
     isGachaPart: (rec) => !!(rec && rec.gacha),   // 정의는 카탈로그(premium-assets.js) — 같은 한 줄
     notifyError: (code, err) => { env.errs.push(code); if(env.errThrows) throw new Error('알림 깨짐'); },
+    gachaSource: () => env.source,
+    gachaServer: {
+      load: async () => { env.gsLoads++; if(env.gsFail) throw Object.assign(new Error('x'), { kind: 'unavailable' }); return JSON.parse(JSON.stringify(env.gs)); },
+      draw: async (n) => { env.gsDraws.push(n); if(env.gsFail) return { ok: false, reason: env.gsFail }; return { ok: true, out: env.gsOut, state: JSON.parse(JSON.stringify(env.gs)) }; },
+    },
   });
   /* 🛠 관리자 등록 · 삭제 — app.js 가 만든 뒤 setPartEditor 로 건다 */
   m.setPartEditor({
@@ -271,6 +278,43 @@ await sec('── 3. 뽑기', async () => {
   chk(!r.ok && r.reason === 'timeout' && JSON.stringify(M.owned()) === '{}', '시간 초과 — 결과는 «확인 못 함» · 사본은 그대로');
   e.lateOpt.onLate(e.srv);
   chk(M.owned().a === 1 && JSON.parse(e.ls.get('tw.gachaOwned')).a === 1, '  늦게 붙으면 onLate 로 사본에 합친다 — 뽑기가 사라지지 않는다');
+});
+
+await sec('── 3-2. 서버 길(sources.gacha = server) — 서버가 뽑고 저장한다', async () => {
+  const ST = (owned, extra) => Object.assign({ owned, ts: 500, earned: 3, left: 3 - Object.values(owned).reduce((a, b) => a + b, 0), season: 'winter' }, extra || {});
+  let e = mkEnv({ source: 'server', level: 50, saved: [G('a'), G('w', { season: 'winter' }), G('s', { season: 'spring' })], ls: { 'tw.gachaOwned': '{"a":1,"z":9}' } });
+  let M = e.mk();
+  e.gs = ST({ a: 1, w: 1 }); e.gsOut = [{ id: 'w', count: 1, isNew: true, unlockedColor: false }];
+  let r = await M.draw(5);
+  chk(r.ok && e.gsDraws.join() === '5' && e.txCalls === 0, '뽑기는 서버에 부탁한다 — 앱 트랜잭션(옛 길)은 안 돈다');
+  chk(r.out.length === 1 && r.out[0].id === 'w' && r.out[0].rec && r.out[0].rec.id === 'w' && r.out[0].isNew, '  결과에 카탈로그 항목(rec)을 붙인다 — 연출이 이름 · 그림을 읽는다');
+  chk(JSON.stringify(M.owned()) === '{"a":1,"w":1}' && JSON.parse(e.ls.get('tw.gachaOwned')).z === undefined && M.state.ts() === 500 && M.state.srvSeen(),
+      '  보유분은 서버 값으로 갈아 끼운다 — 이 PC 에만 있던 뽑기(z)는 올리지도 남기지도 않는다');
+  chk(M.ticketsEarned() === 3 && M.ticketsLeft() === 1 && M.seasonNow() === 'winter', '  남은 뽑기 · 시즌은 서버 값(레벨 50 · 이 PC 시계 4월이어도)');
+  chk(M.pool().map(p => p.id).join() === 'a,w', '  풀도 서버 시즌으로 센다(겨울 w 는 들고 · 이 PC 시계로는 제철인 봄 s 는 빠짐)');
+  e.gsOut = [{ id: 'gone', count: 1, isNew: true, unlockedColor: false }];
+  r = await M.draw(1); chk(r.ok && r.out[0].rec.name === '파츠', '  카탈로그에 없는 파츠는 이름 없는 칸으로(연출이 멈추지 않게)');
+  for(const why of ['offline', 'timeout', 'nouser', 'error']){
+    e = mkEnv({ source: 'server', level: 10, saved: [G('a')], ls: { 'tw.gachaOwned': '{"a":1}' } }); M = e.mk(); e.gs = ST({ a: 1 }); e.gsFail = why;
+    r = await M.draw(1);
+    chk(!r.ok && r.reason === why && e.txCalls === 0 && JSON.stringify(M.owned()) === '{"a":1}', '서버 뽑기 실패(' + why + ') — 옛 길로 넘기지 않고 이 PC 도 그대로');
+  }
+  chk(e.gsLoads === 1, '  실패하면 서버 값을 다시 받으러 간다(시간 초과 뒤 서버엔 들어갔을 수 있다)');
+  e = mkEnv({ source: 'server', uid: null, saved: [G('a')] }); M = e.mk();
+  r = await M.draw(1); chk(!r.ok && r.reason === 'nouser' && !e.gsDraws.length, '  내 코드가 없으면 서버에 가지도 않는다');
+
+  /* 맞추기 — 받기만 · 합치지 않음 · 못 받으면 아무것도 안 함 */
+  e = mkEnv({ source: 'server', level: 10, saved: [G('a')], ls: { 'tw.gachaOwned': '{"a":2,"loc":3}' } }); M = e.mk(); e.gs = ST({ a: 1 });
+  await M.syncGachaToServer('tick');
+  chk(JSON.stringify(M.owned()) === '{"a":1}' && e.txCalls === 0 && e.loads === undefined && e.pushes.length === 0, '맞추기 — 서버 값을 받는다(이 PC 의 큰 값 · 이 PC 에만 있는 것도 안 올림 · Firebase 안 읽음)');
+  e.gs = ST({ b: 2 }); await M.syncGachaToServer('transfer', 'pull');
+  chk(JSON.stringify(M.owned()) === '{"b":2}', '  계정 연동(pull)도 서버 값');
+  e = mkEnv({ source: 'server', level: 10, saved: [G('a')], ls: { 'tw.gachaOwned': '{"a":2}' } }); M = e.mk(); e.gsFail = 'offline';
+  e.seats.push({ remote: false, charDef: { equippedParts: { hat: [{ id: 'a' }] } }, stackedPartObjs: { hat: {} } });
+  await M.syncGachaToServer('tick');
+  chk(JSON.stringify(M.owned()) === '{"a":2}' && !M.state.srvSeen() && !e.prunedDef.length, '  못 받으면 아무것도 안 바꾸고 착용도 안 벗긴다');
+  M.resetMemory(); e.source = 'firebase';
+  chk(M.seasonNow() === 'spring' && M.ticketsEarned() === 2, '로그아웃 지우기 뒤 · 옛 길로 돌아가면 이 PC 의 레벨 · 시계로 센다');
 });
 
 await sec('── 4. 서버 동기화', async () => {
@@ -473,8 +517,8 @@ await sec('── 7. app.js 배선', () => {
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // 파츠 등록 창 셋은 adminPartReg.이름
   const getters = ['isAdmin: ()=>isAdmin,', 'savedParts: ()=>savedParts,', 'partCats: ()=>PART_CATS,', 'wdDraftDef: ()=>wdDraftDef,', 'activeWdAdj: ()=>activeWdAdj,', 'setActiveWdAdj: (v)=>{ activeWdAdj = v; },'];
   const vals = ['seats: seats,', 'slots: slots,', 'presence: Presence,', 'ownedKey: GACHA_OWNED_KEY,', 'tsKey: GACHA_TS_KEY,', 'bonusKey: GACHA_BONUS_KEY,'];
-  chk(deps.length === 39 && fnDeps.length === 27 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
-      'deps 39개 — 함수 27은 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 41 && fnDeps.length === 27 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
+      'deps 41개 — 함수 27은 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
@@ -493,6 +537,10 @@ await sec('── 7. app.js 배선', () => {
   chk(used.every(n => new RegExp('(^|\\n)\\s*' + n + '\\b').test(ret)), '  모듈 반환값도 그 이름을 다 갖는다');
   const iS = HTML.indexOf('<script src="parts/myhome/myhome-sticker.js"></script>'), iG = HTML.indexOf('<script src="parts/character/gacha.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iS > 0 && iG > iS && iA > iG, 'html — gacha.js 를 app.js 앞에 싣는다');
+  const iGs = HTML.indexOf('<script src="parts/character/gacha-server.js"></script>');
+  chk(iGs > 0 && iGs < iA && deps.includes('gachaServer: gachaServerMod,') && deps.some(l => /^gachaSource: \(\)=>TwSourceSwitch\.store\.pick\('gacha'\),/.test(l))
+      && APP.indexOf('const gachaServerMod = TwGachaServer.createGachaServer({') < iMk && APP.indexOf('const gachaServerMod') > 0,
+      '  서버 길 — gacha-server.js 를 app.js 앞에 · 만든 것을 deps 로 · 받는 곳은 source-switch(gacha)');
   chk(/^Tw[A-Z]/.test('TwGacha') && !/window\.Gacha\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
   /* 모듈이 없을 때 — 빈 껍데기 줄만 떼어 굴린다 */
   const wire = (APP.match(/const GACHA_OFF = [\s\S]*?\n\}\);/) || [''])[0];

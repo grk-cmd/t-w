@@ -8779,6 +8779,12 @@ focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 
 const GACHA_OWNED_KEY = 'tw.gachaOwned';
 const GACHA_TS_KEY    = 'tw.gachaOwnedTs';   // 이 기기가 마지막으로 gachaOwned 를 '바꾼' 시각(ms)
 const GACHA_BONUS_KEY = 'tw.gachaBonus';     // 👑달성표 주간 보상으로 얹힌 추가 뽑기 횟수
+/* 🎰 가챠 서버 길 — 서버가 뽑고 저장한다(character/gacha-server.js) · 로그인 API 통로는 firebase-init.js */
+const gachaServerMod = TwGachaServer.createGachaServer({
+  get: (p, o)=>firebaseAPI.apiGetAuthed(p, o),
+  post: (p, b, o)=>firebaseAPI.apiPostAuthed(p, b, o),
+  newRequestId: ()=>crypto.randomUUID(),
+});
 const gachaMod = TwGacha.createGacha({
   toast: (...a)=>toast(...a),
   srvNow: (...a)=>roomSyncMod._srvNow(...a),
@@ -8819,6 +8825,8 @@ const gachaMod = TwGacha.createGacha({
   bonusKey: GACHA_BONUS_KEY,
   isGachaPart: (...a)=>premiumMod.isGachaPart(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  gachaSource: ()=>TwSourceSwitch.store.pick('gacha'),   // 받는 곳 — 원격 설정 sources.gacha(없으면 옛 길) · 고르기는 shared/source-switch.js
+  gachaServer: gachaServerMod,
 });
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({

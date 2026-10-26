@@ -353,6 +353,18 @@
   - apply 는 재시도마다 다시 불린다 — 부작용 없이 값만 돌려줄 것(gacha.js 는 마지막 실행의 결과만 쓴다).
   - 검사: `checks/sim-gacha-tx.js`(연결 · 가짜 SDK · 깨 보기).
 
+## gacha-server.js — 🎰 가챠 서버 길
+
+- **책임**: 서버가 뽑고 서버가 저장하는 길(`GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수는 서버가 정한다. 이 PC 에만 있는 뽑기는 올리지 않는다(서버 값만 원본).
+- **고르기**: `gacha.js` 가 `deps.gachaSource()`(원격 설정 `sources.gacha` · `shared/source-switch.js`)가 `'server'` 일 때만 이 길을 탄다. 칸이 없으면 옛 길(`gacha-tx.js` 트랜잭션 · 앱이 뽑기).
+- **deps**: `get` · `post`(로그인 API 통로 — `firebaseAPI.apiGetAuthed` · `apiPostAuthed`) · `newRequestId`(같은 뽑기를 다시 보내도 서버가 두 번 굴리지 않게).
+- **내보내는 것**: `createGachaServer(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason } }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
+- **함정**
+  - 실패해도 옛 길로 넘기지 않는다 — 넘기면 서버가 정하는 뜻이 없어진다. 실패하면 `gacha.js` 가 서버 값을 다시 받는다(시간 초과 뒤 서버엔 들어갔을 수 있다).
+  - 서버 길에서 보유분은 **갈아 끼운다**(합치지 않음). 못 받으면 아무것도 안 바꾸고 착용도 안 벗긴다.
+  - 컷오버 전까지 옛 앱이 `users/*/gacha` 를 직접 쓴다 — 조작을 막는 건 규칙을 닫는 날이다.
+  - 검사: `checks/sim-gacha-server.js`(요청 모양 · 응답 씻기 · 실패 · 깨 보기) · `checks/sim-gacha.js` 3-2절(서버 길로 굴리기).
+
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 
 - **책임**: 그래픽 리셋 등으로 캔버스가 비면 같은 캔버스에 다시 그린다. `repairBlankFaces` — 내 사람 칸(저장본 `LS_KEY` 로). `repairSeatTextures` — 남의 사람 좌석(방 동기화가 남긴 `faceUrl` · `blinkUrl`)과 동물 좌석(내 것 포함 · `animal.js` 가 텍스처에 남긴 `userData.twSrc` · `twFill`). `reportGlReset` — WebGL 이 돌아온 직후(`gl-recover.js` `afterRestore`) 빈 좌석 그림 수를 진단 기록에 한 줄 남기고 바로 고친다.
