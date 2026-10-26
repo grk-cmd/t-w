@@ -675,8 +675,8 @@ export function createRoomServerNet(deps){
           send(msg);
         });
       },
-      serverNow(){ return now() + P.clockOff; },
-      lastMusicSeq(){ return P.musicSeq; },   // 서버가 마지막으로 받아들인 차례(곡이 비어도) · 모르면 -1   // welcome · music 의 now 로 맞춘 서버 시각(ms)
+      serverNow(){ return now() + P.clockOff; },   // welcome · music 의 now 로 맞춘 서버 시각(ms)
+      lastMusicSeq(){ return P.musicSeq; },   // 서버가 마지막으로 받아들인 차례(곡이 비어도) · 모르면 -1
       memberId(){ return P.memberId; },
       roomMeta(){ return P.meta; },
       _state: P,   // 검사용
