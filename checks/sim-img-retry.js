@@ -37,6 +37,14 @@ function judgeFn(src){
   t(f('https://s.test/a.png?twr=1') === null && f('https://s.test/a.png?x=1&twr=1') === null, '  이미 다시 받은 주소 — null(두 번까지만)');
   t(f('data:image/png;base64,AA') === null && f('') === null && f(null) === null && f(undefined) === null, '  dataURL · 빈 값 — null');
   t(f('HTTP://S.TEST/A.PNG') === 'HTTP://S.TEST/A.PNG?twr=1', '  대문자 http 도 주소로 본다');
+  const g = api.laterRetryMs;
+  if(typeof g !== 'function'){ t(false, 'laterRetryMs 가 없음'); return r; }
+  const u = 'https://s.test/a.png';
+  const w = [0, 1, 2, 3, 4].map((n) => g(u, n));
+  t(w[0] > 0 && w[1] > w[0] && w[2] > w[1] && w[3] === null && w[4] === null, '★ 나중 받기 — 점점 길게 세 번까지 · 그 뒤 null(늘 받기 없음)');
+  t(g(u + '?twr=1', 0) === w[0], '  다시 받은 주소(표식)도 나중 받기는 같다');
+  t(g('data:image/png;base64,AA', 0) === null && g('', 0) === null && g(null, 0) === null, '  dataURL · 빈 값 — null');
+  t(g(u, -1) === null && g(u, 1.5) === null, '  이상한 횟수 — null');
   return r;
 }
 function judgeUse(rs, an, html){
@@ -59,6 +67,8 @@ const breaks = [
   ['표식이 매번 달라짐', () => judgeFn(MOD.replace("const RETRY_MARK = 'twr=1';", "const RETRY_MARK = 'twr=' + Math.random();"))],
   ['? 를 안 가림', () => judgeFn(MOD.replace("(s.indexOf('?') >= 0 ? '&' : '?')", "'?'"))],
   ['dataURL 도 다시 받음', () => judgeFn(MOD.replace("if(!/^https?:/i.test(s)) return null;", ''))],
+  ['나중 받기 상한 없음', () => judgeFn(MOD.replace('(Number.isInteger(n) && n >= 0 && n < LATER_RETRY_MS.length) ? LATER_RETRY_MS[n] : null', 'LATER_RETRY_MS[0]'))],
+  ['나중 받기가 dataURL 도 받음', () => judgeFn(MOD.replace("  if(!/^https?:/i.test(String(u == null ? '' : u))) return null;\n", ''))],
   ['두 번째도 다시 받음', () => judgeFn(MOD.replace("if(/[?&]twr=1(?:&|$)/.test(s)) return null;", ''))],
   ['room-sync 가 규칙을 따로 씀', () => judgeUse(RS.replace('TwImgRetry.retryUrl(', "(u=>u+'?twr=1')("), AN, HTML)],
   ['html 줄 빠짐', () => judgeUse(RS, AN, HTML.replace('<script src="parts/shared/img-retry.js"></script>', ''))],

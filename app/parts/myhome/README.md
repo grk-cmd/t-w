@@ -203,3 +203,13 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 **함정** — 토스트 · `title` · `textContent` 는 씻지 않는다(말랑이 선물 토스트가 `&lt;` 를 글자로 보이던 자리). 허용 안 된 주소는 그리지 않고 빈 칸 · 기본 모양으로 둔다.
 `myhome-desktop.js` 모험 시나리오는 상수 표의 고정 마크업이라 검사 예외(`checks/sim-safe-html.js` ALLOW)에 이유와 함께 있다. ⚠️ 파티 방장이 보내는 `storyHtml` 은 남은 구멍 — 받은 마크업을 그대로 그린다(비트 id 로 바꾸는 일은 따로 결정).
 검사: `checks/sim-safe-html.js`.
+
+## `mh-pad-pos.js` — 🎨 마이홈 창 자리 기억(스티커 여백)
+
+**책임** — 스티커가 창 밖에 있어 마이홈 창을 양쪽으로 넓힐 때(여백), 창 자리를 «여백을 뺀 마이홈 자리» 로 기억하고 놓을 때 지금 여백만큼 뺀다. 렌더러 모듈이 아니라 **main.js 가 `require`** 한다(순수 함수 · deps 없음).
+
+**내놓는 것** — `rememberOf(창 좌상단, 얹힌 여백)` → 기억할 자리 · `placeOf(기억한 자리, 놓을 여백)` → 창 좌상단(기억 없으면 `null` — 가운데에 놓인다). main.js 는 창 자리를 기억하는 곳(`'moved'` · 줌 · 모니터 · 표시설정)이 전부 `_rememberPos` 를 지나고, `_applyConfigMode('myhome')` 이 `placeOf` 로 놓는다.
+
+**함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
+
+검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).

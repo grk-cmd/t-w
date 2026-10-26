@@ -5,6 +5,7 @@
    ・2절: 저장(commit) · 초안 복사(copyIntoDraft)
    ・1절 끝: ✎ 그리기 대상 · 그림 저장 · 종류를 바꾸면 그림 버림
    ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 3-c 탑승 높이 · 3-d 귀 까닥임 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
+   ・3-f절: 귀 탭은 꾸미기 창이 떠 있고 파츠를 안 골랐을 때만 — 창을 닫은 뒤 보관함(T) 조절이 귀로 가던 것 · 깨 보기
    ・4절: html · smoke.js
    [실행] wd-ear.js · human-ear.js · app.js · base-glb.js · ears-glb.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -58,7 +59,7 @@ let decorations = [], drawing = false, synced = 0;
 let tab = W.WD_EAR_TAB, draft = { skin:0, top:'#fff' }, root = glbTree(win.BASE_GLB_B64), rerenders = 0, toasts = [];
 HE.ensureHolder(root);
 const gizmo = { object:null, attach(o){ this.object = o; }, detach(){ this.object = null; } };
-const WE = W.createWdEar({ humanEar:HE, HumanEar:H, doc, getTab:() => tab, getDraft:() => draft, getPreviewRoot:() => root,
+const WE = W.createWdEar({ humanEar:HE, HumanEar:H, doc, getTab:() => tab, isPanelOpen:() => true, hasPartSel:() => false, getDraft:() => draft, getPreviewRoot:() => root,
   getGizmo:() => gizmo, setGizmoMode:() => {}, earTypes:() => win.ANIMAL_EAR_TYPES, material:() => new THREE.MeshBasicMaterial(),
   toast:(m) => toasts.push(m), rerender:() => { rerenders++; },
   decorate:(w) => { decorations.push(w.userData.humanEar); }, isDrawing:() => drawing, onSynced:() => { synced++; } });
@@ -291,6 +292,67 @@ say('── 3-e. 저장 · 불러오기 — 껐다 켜도 귀가 남는다 (제�
     '  생성기 [완료] 가 귀를 이어받는다(꾸미기 파츠와 같은 이유)');
   chk(/earL:def\.earL\|\|null,earR:def\.earR\|\|null,earAdj:def\.earAdj\|\|null,/.test(APP) && /if\(!o\.animal\)\{ if\(o\.earL\)_d\.earL=o\.earL;/.test(APP),
     '  캐릭터 코드 내보내기 · 가져오기에도 귀');
+}
+
+say('── 3-f. 귀 탭은 꾸미기 창이 떠 있을 때만 (제보: 귀를 조절한 뒤 다른 파츠가 귀에 잡힘)');
+{
+  /* 실제 wd-ear.js 를 새로 만들어 돌린다 — 창 열림 · 파츠 선택을 바꿔 가며 기즈모 · 크기 · 그리기 대상이 어디로 가는지 */
+  function run(src){
+    const w2 = {};
+    ['base-glb.js', 'ears-glb.js', 'human-ear.js'].forEach(f => new Function('window', 'module', SRC[f])(w2, undefined));
+    new Function('window', 'module', src)(w2, undefined);
+    const st = { open:true, sel:false };
+    const r2 = glbTree(w2.BASE_GLB_B64);
+    const he2 = w2.HumanEar.createHumanEar({ THREE, earTypes:() => w2.ANIMAL_EAR_TYPES, parseEar:(k, cb) => cb(w2.ANIMAL_EARS[k] ? fakeEar(k) : null) });
+    he2.ensureHolder(r2);
+    const gz = { object:null, attach(o){ this.object = o; }, detach(){ this.object = null; } };
+    const d2 = { skin:0, top:'#fff' };
+    const we = w2.WdEar.createWdEar({ humanEar:he2, HumanEar:w2.HumanEar, doc, getTab:() => w2.WdEar.WD_EAR_TAB,
+      isPanelOpen:() => st.open, hasPartSel:() => st.sel, getDraft:() => d2, getPreviewRoot:() => r2,
+      getGizmo:() => gz, setGizmoMode:() => {}, earTypes:() => w2.ANIMAL_EAR_TYPES, material:() => new THREE.MeshBasicMaterial(),
+      toast:() => {}, rerender:() => {}, decorate:() => {}, isDrawing:() => false, onSynced:() => {} });
+    const k = w2.ANIMAL_EAR_TYPES[0].key;
+    const pickSide = (wrapEl) => { const b = all(wrapEl).filter(e => e.tagName === 'BUTTON' && e.textContent === (w2.ANIMAL_EAR_TYPES[0].label || k)); b[0].onclick(); };
+    const wr = mkEl('div'); we.render(wr); pickSide(wr);
+    const out = {};
+    out.openActive = we.isActive();
+    we.syncGizmo(); out.openGizmoOnEar = !!gz.object;
+    st.open = false;
+    out.closedActive = we.isActive();
+    out.closedPic = we.picTarget();
+    gz.object = null; we.onEarAttached(r2); out.closedReattach = !!gz.object;
+    st.open = true; st.sel = true;
+    out.selActive = we.isActive();
+    st.sel = false;
+    out.backActive = we.isActive();
+    return out;
+  }
+  const rows = (o) => [
+    [o.openActive && o.openGizmoOnEar, '꾸미기 창이 떠 있고 귀 탭 — 귀가 조정 대상 · 핸들이 귀에'],
+    [o.closedActive === false, '★ 꾸미기 창을 닫으면(탭 이름은 남아도) 귀 탭이 아니다 — 보관함(T)의 기즈모 · 크기 －/＋ · 미리보기 누르기가 귀로 안 간다'],
+    [o.closedPic === null, '★ 창을 닫은 뒤 ✎ 그리기 대상도 귀가 아니다'],
+    [o.closedReattach === false, '  창을 닫은 뒤 귀가 늦게 붙어도 핸들을 귀에 다시 붙이지 않는다'],
+    [o.selActive === false, '★ 창을 같이 띄운 채 보관함에서 파츠를 골랐으면 그 파츠가 임자'],
+    [o.backActive === true, '  선택이 풀리면(귀 탭을 다시 누름) 다시 귀'],
+  ];
+  let o = null;
+  try{ o = run(SRC['wd-ear.js']); }catch(e){ chk(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
+  if(o) rows(o).forEach(([ok, msg]) => chk(ok, msg));
+  chk(/isPanelOpen:\(\)=>!!document\.querySelector\('#wardrobePanel\.on'\),\s*hasPartSel:\(\)=>!!\(activeWdAdj && activeWdAdj\.cat\),/.test(A), '  app.js 배선 — 창 열림은 #wardrobePanel.on · 파츠 선택은 activeWdAdj');
+  /* 깨 보기 — 예전 판정(탭 이름만)으로 되돌리면 빨강 */
+  const OLD = 'const isActive = ()=>deps.getTab() === WD_EAR_TAB;';
+  const NEW = /const isActive = \(\)=>deps\.getTab\(\) === WD_EAR_TAB && deps\.isPanelOpen\(\) && !deps\.hasPartSel\(\);/;
+  const breaks = [
+    ['탭 이름만 본다(예전)', OLD],
+    ['창 열림을 안 본다', 'const isActive = ()=>deps.getTab() === WD_EAR_TAB && !deps.hasPartSel();'],
+    ['파츠 선택을 안 본다', 'const isActive = ()=>deps.getTab() === WD_EAR_TAB && deps.isPanelOpen();'],
+  ];
+  for(const [name, rep] of breaks){
+    const m2 = SRC['wd-ear.js'].replace(NEW, rep);
+    let red = false;
+    if(m2 !== SRC['wd-ear.js']){ try{ red = rows(run(m2)).some(([ok]) => !ok); }catch(_){ red = true; } }
+    chk(m2 !== SRC['wd-ear.js'] && red, '깨 보기 — ' + name + ' → 빨강' + (m2 !== SRC['wd-ear.js'] ? '' : ' (바꿀 글을 못 찾음)'));
+  }
 }
 
 say('── 4. html · smoke');

@@ -28,6 +28,7 @@ const chatUiMod = deps.chatUiMod;
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
 const deserializeDefFromNetwork = deps.deserializeDefFromNetwork;
+const retryDefAfter = deps.retryDefAfter;   // 얼굴 못 받은 def 를 다시 풀 때까지 기다릴 ms(room-sync.js)
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
@@ -93,6 +94,7 @@ function makeServerProvider(net, create){
   return net.makeProvider({
     serializeDef: serializeDefForNetwork,
     deserializeDef: deserializeDefFromNetwork,
+    retryDefAfter,
     getExp: ()=>{ try{ return myExpCells(); }catch(_){ return undefined; } },
     onMeta: _onServerRoomMeta,
     onDisband: ()=>{ window._onRoomDisbanded(); },

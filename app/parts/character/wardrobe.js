@@ -108,6 +108,8 @@ const WD_EAR_OFF = { TAB:'__ear__', available:()=>false, isActive:()=>false, ren
 const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.createWdEar({
   humanEar, HumanEar, doc:document,
   getTab:()=>currentWdTab,
+  isPanelOpen:()=>!!document.querySelector('#wardrobePanel.on'),
+  hasPartSel:()=>!!(activeWdAdj && activeWdAdj.cat),
   getDraft:()=>ensureWdDraft(),
   getPreviewRoot:()=>(wdPreviewBase && wdPreviewBase.root) || null,
   getGizmo:()=>{ ensureWdGizmo(); return wdGizmo; },

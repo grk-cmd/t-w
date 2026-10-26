@@ -23,7 +23,9 @@ function createWdEar(deps){
   let side = 'L';
 
   const available = (def)=>!!def && !def.animal;
-  const isActive = ()=>deps.getTab() === WD_EAR_TAB;
+  /* 귀 탭은 꾸미기 창이 떠 있을 때만 — 닫혀도 탭 이름은 남아서(다시 열 때 그 탭) 보관함(T)의 조절이 귀로 갔다.
+     창을 같이 띄운 채 보관함에서 파츠를 골랐으면 그 파츠가 임자다(귀 탭을 다시 누르면 선택이 풀린다). */
+  const isActive = ()=>deps.getTab() === WD_EAR_TAB && deps.isPanelOpen() && !deps.hasPartSel();
   const typeOf = (def, s)=>HE.readDef(def)[s];
 
   function adjOf(def, s){

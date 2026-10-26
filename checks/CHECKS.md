@@ -129,7 +129,7 @@
 | **sim-account-delete.js** | 477 | **15ca3fb1d26e** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
-| **sim-room-server-net.js** | 839 | **36907316e4ab** |
+| **sim-room-server-net.js** | 909 | **9ee37aa0acdc** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-server-gate.js** | 298 | **2646f32ca2ab** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
@@ -203,13 +203,13 @@
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
-| **sim-zoom-window.js** | 68 | **77ab3834d455** |
+| **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
 | **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
 | **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
 | **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
-| **sim-wd-ear.js** | 304 | **b3c29e73a6ed** |
+| **sim-wd-ear.js** | 366 | **8a1e093afa86** |
 | **sim-uv-fill.js** | 102 | **f4cb774248be** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
@@ -249,7 +249,7 @@
 | **sim-guestbook.js** | 289 | **ad0203fe9bda** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
-| **sim-myhome-sticker.js** | 415 | **81dff33ecfbd** |
+| **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
 | **sim-myhome-edit.js** | 612 | **0d0a383a8c8b** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
@@ -305,9 +305,9 @@
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **5753dcf76a9a** |
 | **sim-desktop-run.js** | 94 | **742b11531096** |
-| **sim-room-entry.js** | 124 | **c7dac617f4af** |
+| **sim-room-entry.js** | 124 | **410ad665f515** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
-| **sim-room-sync.js** | 99 | **3a4397bd1b84** |
+| **sim-room-sync.js** | 99 | **a352bc22d8ac** |
 | **sim-status-chip.js** | 102 | **76a65b890f4b** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
@@ -414,11 +414,12 @@
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
-| **sim-room-face-load.js** | 166 | **3db4ef1aa1d3** |
+| **sim-room-face-load.js** | 217 | **d619e9556ab2** |
 | **sim-part-ao-clean.js** | 122 | **535053a793ff** |
-| **sim-img-retry.js** | 71 | **a963d5e30fd6** |
+| **sim-img-retry.js** | 81 | **ae3ae329553c** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
+| **sim-mh-pad-pos.js** | 164 | **4f0a3400f69c** |
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다

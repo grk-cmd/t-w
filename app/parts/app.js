@@ -7467,6 +7467,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
   renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
+  retryDefAfter: (...a)=>roomSyncMod.retryDefAfter(...a),
   rideBenchMod: rideBenchMod,
   scene: scene,
   seats: seats,

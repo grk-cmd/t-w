@@ -400,8 +400,8 @@ await sec('── 7. 런처에서도 창 밖 스티커가 그 자리에 보이�
   chk(JSON.stringify(G.po({ x: 12.2, y: -5 })) === '{"x":13,"y":0}' && G.po({ x: 99999 }).x === +mx && JSON.stringify(G.po(null)) === '{"x":0,"y":0}' && JSON.stringify(G.po({ x: 'a' })) === '{"x":0,"y":0}',
     '  받은 값 — 올림 · 음수 · 이상한 값은 0 · 상한 ' + mx + ' · 옛 렌더러(없음)는 0');
   chk(/ipcMain\.on\('companion:setConfigMode', \(e, isConfig, mode, extra\) =>/.test(MAIN) && /_mhPad = _mhPadOf\(extra\);/.test(MAIN)
-    && /if\(remembered\) remembered = \{ x: remembered\.x - \(padDip\.x - _mhPadApplied\.x\), y: remembered\.y - \(padDip\.y - _mhPadApplied\.y\) \};/.test(MAIN),
-    '★ 여백이 바뀐 만큼 창 좌상단을 옮겨 마이홈이 제자리에 있다');
+    && MAIN.includes('remembered = MhPadPos.placeOf(remembered, padDip);'),
+    '★ 여백만큼 창 좌상단을 옮겨 마이홈이 제자리에 있다(자리 규칙은 sim-mh-pad-pos)');
   chk(/setConfigMode\(isConfig, mode, extra\) \{\s*ipcRenderer\.send\('companion:setConfigMode', !!isConfig, mode \|\| 'launcher', extra \|\| null\);/.test(PRE), '  preload 가 셋째 인자를 넘긴다');
 });
 
