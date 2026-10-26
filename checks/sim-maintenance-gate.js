@@ -1,10 +1,10 @@
 /* ═══ 🛠 sim-maintenance-gate.js — 서버 점검 창(maintenance-gate.js) ═══════════════
    ・1절: 순수 — maintenanceOf(on 이 정확히 true 일 때만 · 시각 · 문구 상한) · endsAtText(오늘 / 다른 날) · viewOf(단추)
-   ・2-1절: 사람이 누른 동작 — 입력 시각 1초 판정(로컬 클릭 3초 뒤 뒤쪽 요청 · «확인» 뒤 요청은 창 없음 · 클릭 직후 요청은 창)
+   ・2-1절: 사람이 누른 동작 — 입력 시각 1초 판정(로컬 클릭 3초 뒤 뒤쪽 요청 · «확인» 뒤 요청은 창 없음 · 클릭 직후 요청은 창) · 자식 창(방명록 · 디자인)에서 누르면 그 창에 그림
    ・2절: 창 — 점검 중이어도 사람이 누른 동작일 때만 · 뒤에서 혼자 낸 요청은 조용히 · 떠 있는 창은 바뀐 끝 시각으로 다시 · 끝나면 다시 켜기를 묻는다(본 적 없으면 안 물음) · 단추
    ・3절: 고리 — 범용 통로(data-gateway.js)가 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
-   ・5절: 깨 보기 — 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
+   ・5절: 깨 보기 — 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
    [실행] node checks/run.js sim-maintenance-gate */
 'use strict';
 const fs = require('fs');
@@ -100,6 +100,26 @@ function run(M, label){
   chk(g.touch() === false, '★ (나) 점검 창 «확인» 을 누른 직후 뒤쪽 요청(하트비트) — 창 없음');
   t = 40000; clock.note(false); t += M.ACTIVE_MS;
   chk(g.touch() === true && M.ACTIVE_MS <= 1000, '  ↳ 판정 폭 경계(' + M.ACTIVE_MS + 'ms)는 안쪽');
+  t = 50000; clock.note(false, 'child');
+  chk(clock.lastDoc() === 'child', '  ↳ 입력이 난 창(document)을 기억한다');
+
+  // 가짜 document — createMaintenanceDom 이 쓰는 만큼만
+  const mkDoc = (name) => {
+    const el = () => { const e = { style: {}, children: [], textContent: '', appendChild(c){ this.children.push(c); return c; } }; return e; };
+    const body = el();
+    return { name, body, createElement: el, documentElement: body };
+  };
+  const main = mkDoc('main'), child = mkDoc('child');
+  let target = main;
+  const multi = M.createMultiDocUi(() => target);
+  const mv = M.viewOf({ endsAt: null, message: '' }, 0);
+  multi.show(mv, () => {});
+  target = child;
+  multi.show(mv, () => {});
+  const ovOf = (d) => d.body.children[0];
+  chk(ovOf(child) && ovOf(child).style.display === '' && ovOf(main).style.display === 'none', '★ 자식 창(방명록 · 디자인)에서 누르면 그 창 안에 그리고 본창 것은 숨긴다');
+  multi.hide();
+  chk(ovOf(child).style.display === 'none' && ovOf(main).style.display === 'none', '  ↳ 닫기는 모든 창에서');
   return fail === fails0;
 }
 
@@ -175,8 +195,10 @@ say('── 3. 고리');
   chk(b3 && !quietRun(asModule(b3)), '본 적 없는데 다시 켜기를 물으면 빨강');
   const b5 = broke(SRC, 'const ACTIVE_MS = 1000;', 'const ACTIVE_MS = 5000;');
   chk(b5 && !quietRun(asModule(b5)), '판정 폭을 5초로 되돌리면 빨강(뒤쪽 요청에 창)');
-  const b6 = broke(SRC, 'note(inGate){ if(!inGate) last = now(); }', 'note(inGate){ last = now(); }');
+  const b6 = broke(SRC, 'note(inGate, doc){ if(inGate) return; ', 'note(inGate, doc){ ');
   chk(b6 && !quietRun(asModule(b6)), '점검 창 안 입력도 세면 빨강(«확인» 뒤 창이 다시 뜸)');
+  const b7 = broke(SRC, 'for(const [doc, dom] of doms){ if(doc !== target) dom.hide(); }', '');
+  chk(b7 && !quietRun(asModule(b7)), '다른 창의 점검 창을 안 숨기면 빨강(두 창에 겹쳐 뜸)');
   const b4 = broke(EC, '    if(d.muted && d.muted()) return false;', '');
   { const E = b4 && asModule(b4); const t = []; const w = console.warn; console.warn = () => {};
     const s = E && E.createErrorNotice({ now: () => 1, toast: (m) => t.push(m), muted: () => true }).notify('E-FR-01'); console.warn = w;

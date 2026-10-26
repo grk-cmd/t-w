@@ -26,6 +26,7 @@ const getDisplayName = deps.getDisplayName;
 const toast = deps.toast;
 const escHtml = deps.escHtml;
 const applyThemeToChildDoc = deps.applyThemeToChildDoc;   // 🎨 별도 창 = 별도 document — 테마 토큰을 넣어 준다
+const watchMaintenanceInput = deps.watchMaintenanceInput; // 🛠 이 창에서 누른 서버 동작에도 점검 창(maintenance-gate.js)
 const _mhViewingUserId = deps.mhViewingUserId;            // 👀 친구 홈 관람 중이면 그 사람 uid — app.js 의 let(다시 대입된다)
 const _mhViewingDisplayName = deps.mhViewingDisplayName;
 const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 캐시 — app.js 의 let(구독마다 다시 대입된다)
@@ -398,6 +399,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     const d=_gbWin.document;
     d.open(); d.write(GB_HTML); d.close();
     applyThemeToChildDoc(d);   // 🎨 [제보 5] 별도 창 = 별도 document — 메인의 data-theme 이 안 온다
+    watchMaintenanceInput(d);  // d.close() 뒤에 — document.open 이 리스너를 지운다
     d.getElementById('gbTitleText').textContent = (_mhViewingUserId() ? _mhViewingDisplayName() : getDisplayName())+' 님의 방명록';
     d.getElementById('gbClose').onclick=()=>{ try{ _gbWin.close(); }catch(_){} };
     // ⎋ ESC로도 닫힘(요청사항). 마이홈 클릭으로 닫히는 건 별도 코드가 아니라 main.js의 blur-닫힘이 담당 —

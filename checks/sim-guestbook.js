@@ -61,7 +61,7 @@ function mkChildWin(env){
 
 function mkEnv(opt){
   opt = opt || {};
-  const env = { toasts: [], warns: [], ls: {}, subs: [], unsubs: 0, adds: [], dels: [], claps: [], emojis: [], themed: [], wins: [], childClosed: 0,
+  const env = { toasts: [], warns: [], ls: {}, subs: [], unsubs: 0, adds: [], dels: [], claps: [], emojis: [], themed: [], watched: [], wins: [], childClosed: 0,
     viewing: opt.viewing || null, friends: opt.friends || {}, me: 'me' in opt ? opt.me : 'uA', name: '나', btnL: null };
   const mainEls = {};
   const getEl = id => (opt.noDom ? null : (mainEls[id] || (mainEls[id] = mkEl('div', id))));
@@ -95,6 +95,7 @@ function mkEnv(opt){
     toast: (m) => env.toasts.push(m),
     escHtml: (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'),
     applyThemeToChildDoc: (d) => env.themed.push(d),
+    watchMaintenanceInput: (d) => env.watched.push(d),
     mhViewingUserId: () => env.viewing,
     mhViewingDisplayName: () => '친구' + env.viewing,
     myHomeFriends: () => env.friends,
@@ -152,6 +153,7 @@ await sec('── 3. 창 — 열기 · 목록 · 관람 · 외부인', async () 
   const w = e.wins[0], d = w && w.document;
   chk(!!w && /<div id="gbBody">/.test(d.written) && /<\/html>$/.test(d.written), '자식 창을 열어 GB_HTML 을 쓴다');
   chk(e.themed.length === 1 && e.themed[0] === d, '쓰자마자 applyThemeToChildDoc(자식 문서)');
+  chk(e.watched.length === 1 && e.watched[0] === d, '  ↳ 이 창 입력도 점검 판정에 센다(watchMaintenanceInput — 쓴 뒤에)');
   chk(d.getElementById('gbTitleText').textContent === '나 님의 방명록', '제목 — 내 이름');
   chk(e.subs.join() === 'gb:uA,clap:uA', '내 방명록 · 박수를 구독한다');
   chk(+e.ls['tw.mhGbLastRead:uA'] > 1e12, '창을 열면 새 글 배지는 다 읽음');
@@ -261,7 +263,7 @@ await sec('── 5. app.js 배선', () => {
   chk(/function showChatBubble\(seat, text\)/.test(APP) && !/showChatBubble/.test(strip(MOD)), '💬 showChatBubble 은 app.js 에 남는다');
   const call = (APP.match(/TwGuestbook\.createGuestbook\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 8 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)), 'deps 8개 — 전부 화살표로 감싼다(부를 때 찾게) (' + deps.length + ')');
+  chk(deps.length === 9 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)), 'deps 9개 — 전부 화살표로 감싼다(부를 때 찾게) (' + deps.length + ')');
   chk(/mhViewingUserId: \(\)=>_mhViewingUserId,/.test(call) && /myHomeFriends: \(\)=>_myHomeFriends,/.test(call), '다시 대입되는 let(_mhViewingUserId · _myHomeFriends)은 읽는 함수로');
   const m = strip(MOD);
   chk(!/_mhViewingUserId(?!\s*\(|!==|\s*===)/.test(m.replace(/const _mhViewingUserId = deps\.mhViewingUserId;/, '')) && !/_myHomeFriends(?!\s*\(| !==)/.test(m.replace(/const _myHomeFriends = deps\.myHomeFriends;/, '')),

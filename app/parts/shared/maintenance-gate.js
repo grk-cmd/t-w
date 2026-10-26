@@ -5,13 +5,15 @@
      원격 설정(API 먼저)으로 읽지 않는 까닭 — 점검 중엔 API 가 없다.
    [사람이 누른 동작] 클릭 · 키 입력 뒤 ACTIVE_MS(1초) 안에 나간 요청. 점검 창 안의 입력은 세지 않는다(«확인» 이 창을 다시 부르지 않게).
      ⚠️ navigator.userActivation.isActive 를 쓰지 말 것 — 아무 데나 누른 뒤 약 5초 참이라, 꾸미기 저장 디바운스(3초) · 하트비트 같은 뒤쪽 요청에도 창이 뜬다.
+     따로 된 창(📖 방명록 · 👑 디자인 스튜디오 — window.open)의 입력도 센다: 그 창을 열 때 store.watchInput(그 document) 를 건다(document.open 이 리스너를 지우니 d.close() 뒤에).
+     점검 창은 마지막으로 누른 창 안에 그린다(본창에만 그리면 앞에 뜬 자식 창에 가려진다).
      잡는 문은 범용 통로 · API 통로 둘뿐 — runTransaction 직접 호출 · 함수 호출 · 방 서버 웹소켓으로만 닿는 기능은 창 없이 실패한다.
    [끝나면] 권한이 거부된 onValue 구독은 다시 붙지 않아서 앱을 다시 켜야 친구 · 우편 · 방이 이어진다.
      로컬 기능을 쓰는 중일 수 있으니 저절로 끄지 않고 [지금 다시 켜기] [나중에] 를 묻는다. 이번 실행에 점검을 본 적이 없으면 묻지 않는다.
    [못 읽음] 모르는 모양은 «점검 아님» — 잘못 막는 쪽이 못 막는 쪽보다 크다(app-version-gate.js 와 같다).
    deps: userActive() · ui({ show(view, onPress) · hide() }) · relaunch() · now()
    내놓는 것: createMaintenance(deps) → { onValue(값) · touch() · on() } · createInputClock({ now }) → { note(안쪽인가) · active() }
-     · 앱 한 벌 store(firebase-init 이 onValue 를 잇고, 요청 문 · api-client 가 touch)
+     · 앱 한 벌 store(firebase-init 이 onValue 를 잇고, 요청 문 · api-client 가 touch · 자식 창을 여는 모듈이 watchInput(doc))
    classic script — error-codes.js · api-client.js 보다 먼저 싣는다(window.TwMaintenance). Firebase 를 모른다. */
 (function(){
 'use strict';
@@ -48,14 +50,15 @@ function viewOf(m, nowMs){
   return { title: '서버 점검 중', body: (m.message || DEFAULT_BODY) + ends, note: NOTE, buttons: [{ label: '확인', action: 'close' }] };
 }
 
-/* 마지막 사람 입력 시각 — 점검 창 안의 입력(inGate)은 세지 않는다. */
+/* 마지막 사람 입력 시각 · 그 입력이 난 document — 점검 창 안의 입력(inGate)은 세지 않는다. */
 /** @param {{ now?: () => number }} deps */
 function createInputClock(deps){
   const now = (deps && deps.now) || (() => Date.now());
-  let last = -Infinity;
+  let last = -Infinity, lastDoc = null;
   return {
-    note(inGate){ if(!inGate) last = now(); },
+    note(inGate, doc){ if(inGate) return; last = now(); lastDoc = doc || null; },
     active: () => now() - last <= ACTIVE_MS,
+    lastDoc: () => lastDoc,
   };
 }
 
@@ -140,18 +143,38 @@ function createMaintenanceDom(doc){
   };
 }
 
-const api = { MAINTENANCE_PATH, GATE_ID, MESSAGE_MAX, ACTIVE_MS, maintenanceOf, endsAtText, viewOf, createInputClock, createMaintenance, createMaintenanceDom };
+/* 창을 여러 document(본창 · 자식 창)에 — getDoc() 이 고른 창에 그리고 나머지는 숨긴다 · 닫기는 전부. */
+function createMultiDocUi(getDoc){
+  const doms = new Map();   // document → 창
+  const domOf = (doc) => { if(!doms.has(doc)) doms.set(doc, createMaintenanceDom(doc)); return doms.get(doc); };
+  return {
+    show(v, onPress){
+      const target = getDoc();
+      for(const [doc, dom] of doms){ if(doc !== target) dom.hide(); }
+      domOf(target).show(v, onPress);
+    },
+    hide(){ for(const dom of doms.values()) dom.hide(); },
+  };
+}
+
+const api = { MAINTENANCE_PATH, GATE_ID, MESSAGE_MAX, ACTIVE_MS, maintenanceOf, endsAtText, viewOf, createInputClock, createMaintenance, createMaintenanceDom, createMultiDocUi };
 /* 렌더러에서는 한 벌을 만들어 둔다 — 창은 처음 띄울 때 만든다(document 는 그때 있다). */
 if(typeof window !== 'undefined' && typeof document !== 'undefined'){
   const input = createInputClock();
-  const noteInput = (e) => { const t = e && e.target; input.note(!!(t && t.closest && t.closest('#' + GATE_ID))); };
-  document.addEventListener('pointerdown', noteInput, true);
-  document.addEventListener('keydown', noteInput, true);
+  const watchInput = (doc) => {
+    const note = (e) => { const t = e && e.target; input.note(!!(t && t.closest && t.closest('#' + GATE_ID)), doc); };
+    doc.addEventListener('pointerdown', note, true);
+    doc.addEventListener('keydown', note, true);
+  };
+  watchInput(document);
+  // 마지막으로 누른 창이 아직 열려 있으면 그 창, 아니면 본창
+  const docNow = () => { const d = input.lastDoc(); return (d && d.defaultView && !d.defaultView.closed) ? d : document; };
   api.store = createMaintenance({
     userActive: input.active,
-    ui: createMaintenanceDom(document),
+    ui: createMultiDocUi(docNow),
     relaunch: () => window.companion.relaunchApp(),
   });
+  api.store.watchInput = watchInput;
   window.TwMaintenance = api;
 }
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

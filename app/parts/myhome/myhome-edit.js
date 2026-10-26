@@ -42,6 +42,7 @@ const _mhViewingDisplayName = deps.mhViewingDisplayName; // 👀 관람 중인 �
 const _mhApplyVisitUI = deps.mhApplyVisitUI;
 const _ytVideoId = deps.ytVideoId;                       // 🎵 유튜브 주소 → 영상 id(플레이리스트와 한 벌) — app.js
 const applyThemeToChildDoc = deps.applyThemeToChildDoc;  // 🎨 자식 창에 테마 토큰 — app.js
+const watchMaintenanceInput = deps.watchMaintenanceInput; // 🛠 이 창에서 누른 서버 동작에도 점검 창(maintenance-gate.js)
 const commitUserName = deps.commitUserName;              // 🏷️ 닉네임 저장 · 읽기 — app.js
 const getDisplayName = deps.getDisplayName;
 const getUserName = deps.getUserName;
@@ -1175,6 +1176,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const d=_mhDsWin.document;
     d.open(); d.write(DS_HTML); d.close();
     applyThemeToChildDoc(d);   // 🎨 [제보 5] 방명록과 같은 구조(별도 BrowserWindow)
+    watchMaintenanceInput(d);  // d.close() 뒤에 — document.open 이 리스너를 지운다
     d.getElementById('dsClose').onclick=()=>{ try{ _mhDsWin.close(); }catch(_){} };
     d.getElementById('dsDone').onclick=()=>{ commitMyHomePage(true); try{ _mhDsWin.close(); }catch(_){} };
     // ★ confirm()은 Electron 투명 창에서 렌더러를 블로킹한 채 다이얼로그가 안 보여
