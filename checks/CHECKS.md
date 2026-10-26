@@ -209,7 +209,7 @@
 | **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
-| **sim-wd-ear.js** | 304 | **b3c29e73a6ed** |
+| **sim-wd-ear.js** | 366 | **8a1e093afa86** |
 | **sim-uv-fill.js** | 102 | **f4cb774248be** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
