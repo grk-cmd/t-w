@@ -190,8 +190,21 @@ say('── 5-2. 방 서버 만들기 칸(serverCreateOf) · room-entry 가 싣�
     && RS.serverCreateOf('workingroom', true, { max: 50 }).max === 50 && !('max' in RS.serverCreateOf('workingroom', true, { max: 4.5 })), '  최대 인원 경계 2 · 50 · 범위 밖 · 소수는 뺀다');
   chk(!('title' in RS.serverCreateOf('workingroom', true, { title: 'x'.repeat(21) })) && RS.serverCreateOf('workingroom', true, { title: 'x'.repeat(20) }).title.length === 20, '  제목 20자까지 · 21자는 뺀다');
   chk(JSON.stringify(RS.serverCreateOf('workingroom', 1, null)) === '{"channel":"workingroom","open":true}', '  고른 값이 없으면(옛 길) 채널 · 공개만');
-  chk(/const create = creating \? roomSettings\.serverCreateOf\(window\._pendingRoomChannel, !!window\._pendingRoomOpen, _pendingExtra\) : null;/.test(RE_SRC)
-    && /window\._pendingRoomOpen = false;\n  _pendingExtra = null;\n  if\(typeof settingsMod\.applyExtraSeatForMode/.test(RE_SRC), '★ room-entry: 방 서버로 만들 때 고른 값을 싣고 · 들어간 뒤 비운다');
+  // 어느 create 를 실을지 — 만들기 갈래 · 시크릿룸 갈래 · 그 밖
+  const ex = { title: '수다', max: 4, hostName: '말랑', music: true };
+  chk(JSON.stringify(RS.serverJoinCreate(true, 'workingroom', true, ex, { music: false })) === JSON.stringify(RS.serverCreateOf('workingroom', true, ex)),
+    '★ 만들기면 고른 값(serverCreateOf) — 시크릿룸 표시가 있어도 만들기가 이긴다');
+  chk(JSON.stringify(RS.serverJoinCreate(false, null, false, null, { music: true })) === '{"channel":"togetherroom","music":true}'
+    && JSON.stringify(RS.serverJoinCreate(false, null, false, null, { music: false })) === '{"channel":"togetherroom","music":false}', '★ 시크릿룸을 주인이 열면 { channel: togetherroom, music } — 같이 듣기를 끈 것도 싣는다(지난 값이 남지 않게)');
+  chk(RS.serverJoinCreate(false, 'workingroom', true, ex, undefined) === null, '  그 밖(코드로 들어가기 · 손님 · 인원 모름)은 null — create 없이');
+  const rc = takeFn(RE_SRC, 'async function _startRoomOnServer(');
+  chk(/const create = roomSettings\.serverJoinCreate\(creating, window\._pendingRoomChannel, !!window\._pendingRoomOpen, _pendingExtra, srOpen\);/.test(rc), '  room-entry 방 서버 갈래가 이 한 함수로 고른다');
+  // 들어간 뒤 비우기 — 함수를 떼어 실제로 굴린다
+  const clr = (RE_SRC.match(/function _clearPendingCreate\(\)\{[^\n]*\}/) || [''])[0];
+  const runClear = (src) => { const w = { _pendingRoomChannel: 'workingroom', _pendingRoomOpen: true }; const ex2 = new Function('window', 'let _pendingExtra = { title: 1 };\n' + src + '\n_clearPendingCreate(); return _pendingExtra;')(w); return { w, ex2 }; };
+  const cr = runClear(clr);
+  chk(clr && cr.w._pendingRoomChannel === null && cr.w._pendingRoomOpen === false && cr.ex2 === null, '★ 들어간 뒤 만들기 표시 셋(채널 · 공개 · 고른 값)을 비운다 — 다음 입장이 지난 제목 · 인원을 물려받지 않게');
+  chk(/refreshInviteUI\(\); toast\('방에 연결됐어요: '\+code\);\n  _clearPendingCreate\(\);/.test(rc), '  방 서버 갈래가 들어간 뒤 그것을 부른다');
   chk(/if\(code === 'title'\) return roomSettings\.TITLE_ERROR_TEXT\.banned;/.test(RE_SRC), '  서버가 금칙어로 거절하면 «방 제목에 쓸 수 없는 말이 있어요»');
 }
 
@@ -248,6 +261,11 @@ say('── 8. 깨 보기');
   chk(BW_APP.replace('500', '400') !== BW_FN, '앱 사본만 바꾸면 1절 «글자까지 같다» 가 빨강이 된다');
   const noRange = classic(RS_SRC.replace('if(Number.isInteger(e.max) && e.max >= ROOM_MAX_MIN && e.max <= ROOM_MAX_MAX) out.max = e.max;', 'if(e.max != null) out.max = e.max;'), 'TwRoomSettings');
   chk('max' in noRange.serverCreateOf('workingroom', true, { max: 99 }), '최대 인원 범위 거르기를 빼면 5-2절 «범위 밖은 뺀다» 가 빨강이 된다');
+  const noSecret = classic(RS_SRC.replace("return secretOpen ? { channel: 'togetherroom', music: !!secretOpen.music } : null;", 'return null;'), 'TwRoomSettings');
+  chk(noSecret.serverJoinCreate(false, null, false, null, { music: true }) === null, '시크릿룸 갈래를 빼면 5-2절 «주인이 열면» 이 빨강이 된다');
+  const noExtraClear = (RE_SRC.match(/function _clearPendingCreate\(\)\{[^\n]*\}/) || [''])[0].replace(' _pendingExtra = null;', '');
+  const nb = new Function('window', 'let _pendingExtra = { title: 1 };\n' + noExtraClear + '\n_clearPendingCreate(); return _pendingExtra;')({});
+  chk(nb !== null, '고른 값 비우기를 빼면 5-2절 «비운다» 가 빨강이 된다');
 }
 
 say('');

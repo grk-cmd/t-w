@@ -400,7 +400,7 @@ say('── 8. 이어 붙인 곳');
       '★ 시크릿룸: 주인이 빈 방(0명)을 열 때만 같이 듣기를 정한다 — 손님 · 사람 있음 · 인원 모름(null)은 안 건드린다(듣던 곡이 지워지지 않게)');
     chk(/const _srOpen = _secretOpenFields\(_iAmSrOwner, _roomCount\);/.test(RE) && /setRoomChannel\(code, 'togetherroom', _secretOwner, undefined, _srOpen\)/.test(RE)
       && /const srOpen = ctx\.isSecret \? _secretOpenFields\(ctx\.iAmSecretOwner, others\) : undefined;/.test(RE)
-      && /: \(srOpen \? \{ channel: 'togetherroom', music: srOpen\.music \} : null\);/.test(RE) && /iAmSecretOwner:_iAmSrOwner/.test(RE),
+      && /roomSettings\.serverJoinCreate\(creating, [^\n]*, srOpen\);/.test(RE) && /iAmSecretOwner:_iAmSrOwner/.test(RE),
       '  Firebase 길(_meta)과 방 서버 길(create { channel: togetherroom, music })이 같은 판정 함수를 부른다');
     chk(/if\(pk && pk\.exists\) others = pk\.count;/.test(RE) && /if\(fb === 0\) others = 0;/.test(RE) && /let others = null;/.test(RE),
       '  방 서버 길의 인원 — 서버 방이 있으면 그 사람 수 · 없고 Firebase 도 0명이면 0 · 주소록 방(따라가기) · 못 셈은 null');

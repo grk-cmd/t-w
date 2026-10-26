@@ -73,7 +73,16 @@ function serverCreateOf(channel, open, extra){
   return out;
 }
 
+/** 방 서버 join 에 실을 create — 만들기면 고른 값(serverCreateOf) · 시크릿룸을 주인이 열면 { channel: togetherroom, music }
+ *  (서버는 시크릿룸 create 에서 music 만 본다) · 그 밖은 null(create 없이 들어가기).
+ *  @param {boolean} creating  @param {string} channel  @param {boolean} open  @param {object|null} extra
+ *  @param {{ music: boolean }|undefined} secretOpen room-entry _secretOpenFields 결과 */
+function serverJoinCreate(creating, channel, open, extra, secretOpen){
+  if(creating) return serverCreateOf(channel, open, extra);
+  return secretOpen ? { channel: 'togetherroom', music: !!secretOpen.music } : null;
+}
+
 window.TwRoomSettings = { TITLE_MAX, HOST_NAME_MAX, ROOM_MAX_MIN, ROOM_MAX_MAX, TITLE_ERROR_TEXT, OPEN_HINT,
-  checkTitle, displayTitle, clampMax, roomCap, hostNameOf, serverCreateOf };
+  checkTitle, displayTitle, clampMax, roomCap, hostNameOf, serverCreateOf, serverJoinCreate };
 
 })();

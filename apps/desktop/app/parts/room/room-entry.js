@@ -217,8 +217,7 @@ async function _startRoomOnServer(code, ctx){
   // 방 만들기 창이 고른 값 — 공개는 두 채널 모두 · 제목 · 최대 인원 · 같이 듣기(방장 이름은 서버가 정한다)
   // 시크릿룸은 주인이 빈 방을 열 때만 같이 듣기를 싣는다(서버는 시크릿룸 create 에서 music 만 본다)
   const srOpen = ctx.isSecret ? _secretOpenFields(ctx.iAmSecretOwner, others) : undefined;
-  const create = creating ? roomSettings.serverCreateOf(window._pendingRoomChannel, !!window._pendingRoomOpen, _pendingExtra)
-               : (srOpen ? { channel: 'togetherroom', music: srOpen.music } : null);
+  const create = roomSettings.serverJoinCreate(creating, window._pendingRoomChannel, !!window._pendingRoomOpen, _pendingExtra, srOpen);
   _clearHiddenSeats();
   const r = await Presence.start(code, ctx.myDef, getDisplayName(), presenceChanged, { provider: makeServerProvider(net, create) });
   if(!(r && r.ok)){
@@ -243,9 +242,7 @@ async function _startRoomOnServer(code, ctx){
     }
   }
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
-  window._pendingRoomChannel = null;
-  window._pendingRoomOpen = false;
-  _pendingExtra = null;
+  _clearPendingCreate();
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();
   return 'done';
 }
@@ -968,6 +965,8 @@ function _paintMaxPeople(){
 /* 방 만들기 창이 고른 _meta 칸 { title, max, hostName, music } — startRoom 의 만들기 갈래(Firebase · 방 서버)가 한 번 쓰고 비운다.
    만들기가 중간에 막히면 남지만, 그 값을 읽는 곳은 _pendingRoomChannel 이 있는 만들기 갈래뿐이고 다음 만들기가 덮는다. */
 let _pendingExtra = null;
+/* 만들기 표시 셋(채널 · 공개 · 고른 값)을 한 번에 비운다 — 들어간 뒤 다음 입장이 지난 만들기 값을 물려받지 않게 */
+function _clearPendingCreate(){ window._pendingRoomChannel = null; window._pendingRoomOpen = false; _pendingExtra = null; }
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다.
    settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용), music(🎧 같이 듣기) }. */
 async function doCreateRoomInChannel(channel, settings){

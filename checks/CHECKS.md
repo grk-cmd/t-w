@@ -132,9 +132,9 @@
 | **sim-room-lobby-ui.js** | 280 | **17aaec38948c** |
 | **sim-room-info-ui.js** | 202 | **9e002b240f2f** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
-| **sim-listen-provider.js** | 127 | **7c55bac349ac** |
-| **sim-listen-ui.js** | 440 | **75d83b13d779** |
-| **sim-room-settings.js** | 256 | **b35ec55e7bed** |
+| **sim-listen-provider.js** | 132 | **a39451c59791** |
+| **sim-listen-ui.js** | 440 | **aa6563bcf73d** |
+| **sim-room-settings.js** | 274 | **db268d8a4e87** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |

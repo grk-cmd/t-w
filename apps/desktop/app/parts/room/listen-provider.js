@@ -14,7 +14,7 @@
  *   },
  *   server: () => ({ onMusic(fn: (m: object|null) => void): () => void, sendMusic(m: object|null, pos?: number): Promise<{ ok: boolean, code?: string }>,
  *                    serverNow(): number, lastMusicSeq(): number }|null),
- *   model: { posOf(m: object, now: number): number },   // TwListenModel — 위치 계산은 그 한 곳
+ *   model: { wirePos(m: object, now: number): number },   // TwListenModel — 위치 계산 · 상한은 그 한 곳
  * }} deps
  */
 function createListenProvider(deps){
@@ -35,7 +35,7 @@ async function write(room, m){
   if(!room) return { ok: false };
   const sp = server();
   if(sp){
-    const r = await sp.sendMusic(m || null, m ? model.posOf(m, sp.serverNow()) : 0);
+    const r = await sp.sendMusic(m || null, m ? model.wirePos(m, sp.serverNow()) : 0);
     return (r && r.ok) ? { ok: true } : { ok: false, err: (r && r.code) || 'error' };
   }
   return api().setRoomMusic(room, m || null);

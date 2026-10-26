@@ -82,6 +82,9 @@ say('── 2-2. 방 서버 방');
   chk(sl.pos[0] === 30 && sl.pos[0] === MODEL.posOf(sl.sent[0], 9999), '★ 지금 위치는 listen-model posOf(서버 시계)로 재서 넘긴다 — 위치 계산은 한 곳');
   await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', at: 0, paused: true, pos: 12, seq: 4 });
   chk(sl.pos[2] === 12, '  멈춘 곡은 멈춘 위치');
+  await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', at: 9999 - 200000 * 1000, paused: false, pos: 0, seq: 5 });
+  await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', at: 0, paused: true, pos: 99999, seq: 6 });
+  chk(sl.pos[3] === MODEL.MUSIC_POS_MAX && sl.pos[4] === 86400 && MODEL.MUSIC_POS_MAX === 86400, '★ 보내는 위치는 0~86400 으로 자른다 — 방 서버가 그 밖이면 badRequest 로 통째로 거절');
   chk(P.lastSeq() === 6, '★ 칸이 비었을 때 새 곡의 앞 차례 — 방 서버가 기억하는 마지막 차례');
   sl.reply = { ok: false, code: 'stale' };
   const r3 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', seq: 1 });
@@ -120,6 +123,8 @@ say('── 4. 깨 보기');
   chk(fbSubs === 1, '방 서버 고르기를 빼면 Firebase 를 구독한다 — 2-2절이 빨강');
   const B3 = load(SRC.replace('return sp ? sp.lastMusicSeq() : -1;', 'return -1;')).createListenProvider({ api: () => api, server: () => sp, model: MODEL });
   chk(B3.lastSeq() !== 6, '서버 마지막 차례를 안 내놓으면 2-2절 «앞 차례» 가 빨강');
+  const MB = (() => { const w = {}; new Function('window', need('listen-model.js').replace('return Math.min(MUSIC_POS_MAX, posOf(m, now));', 'return posOf(m, now);'))(w); return w.TwListenModel; })();
+  chk(MB.wirePos({ paused: true, pos: 99999 }, 0) > 86400, '위치 상한을 빼면 2-2절 «0~86400 으로 자른다» 가 빨강');
 }
 
 say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);
