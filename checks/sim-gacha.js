@@ -313,7 +313,9 @@ await sec('── 3-2. 서버 길(sources.gacha = server) — 서버가 뽑고 �
   e.seats.push({ remote: false, charDef: { equippedParts: { hat: [{ id: 'a' }] } }, stackedPartObjs: { hat: {} } });
   await M.syncGachaToServer('tick');
   chk(JSON.stringify(M.owned()) === '{"a":2}' && !M.state.srvSeen() && !e.prunedDef.length, '  못 받으면 아무것도 안 바꾸고 착용도 안 벗긴다');
-  M.resetMemory(); e.source = 'firebase';
+  chk(M.unsynced({}) === 0, '  로그아웃 검문 — 서버 길은 이 PC 몫을 올리지 않으니 «서버에 없는 뽑기» 로 세지 않는다');
+  e.source = 'firebase'; chk(M.unsynced({}) === 2, '  ↳ 옛 길은 그대로 센다');
+  M.resetMemory();
   chk(M.seasonNow() === 'spring' && M.ticketsEarned() === 2, '로그아웃 지우기 뒤 · 옛 길로 돌아가면 이 PC 의 레벨 · 시계로 센다');
 });
 

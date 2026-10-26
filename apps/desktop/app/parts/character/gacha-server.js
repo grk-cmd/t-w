@@ -1,6 +1,6 @@
 /* gacha-server.js — 🎰 가챠 서버 길 — 서버가 뽑고 서버가 저장한다(GET /v1/me/gacha · POST /v1/me/gacha/draws · t-w-server character)
    책임: 내 보유분 · 남은 뽑기 · 시즌을 서버에서 받고, 뽑기를 서버에 부탁한다. 확률 · 풀 · 시즌 · 남은 횟수는 서버가 정한다.
-     이 PC 에만 있는 뽑기는 올리지 않는다 — 서버 값만 원본(사용자 10-26). 받는 곳 고르기(서버 / 옛 길)는 gacha.js 가 source-switch 로.
+     이 PC 에만 있는 뽑기는 올리지 않는다 — 서버 값만 원본. 받는 곳 고르기(서버 / 옛 길)는 gacha.js 가 source-switch 로.
    deps: get(path, opts) · post(path, body, opts) → Promise<data> — 로그인 API 통로(firebase-init.js apiGetAuthed · apiPostAuthed — 토큰은 거기서)
          newRequestId() → 문자열(같은 뽑기를 다시 보내도 서버가 두 번 굴리지 않게 하는 이름)
    내보냄: createGachaServer(deps) → { load() → Promise<상태> · draw(n) → Promise<{ ok:true, out, state } | { ok:false, reason }> }
@@ -61,9 +61,13 @@ function resultsOf(list){
 }
 
 /* 실패 → gacha.js 의 뽑기 실패 이유(_gachaNotifyFail 이 E-CHAR-09~12 로 그린다). */
+/* 서버가 살아 있는데 지금 못 하는 것(겹친 저장 · 카탈로그 준비 중)은 «연결 확인» 이 아니라 «잠시 후 다시» 다. */
+const SERVER_BUSY_CODES = Object.freeze(['GACHA_BUSY', 'CATALOG_NOT_READY']);
+
 function reasonOf(e){
   if(!e) return 'error';
   if(e.code === 'TIMEOUT') return 'timeout';
+  if(SERVER_BUSY_CODES.indexOf(e.code) >= 0) return 'error';
   if(e.kind === 'unavailable' || e.kind === 'notReady') return 'offline';
   if(e.kind === 'auth') return 'nouser';
   return 'error';
@@ -99,7 +103,7 @@ function createGachaServer(deps){
   return { load, draw };
 }
 
-const api = { createGachaServer, stateOf, resultsOf, reasonOf, clampCount, ownedOf,
+const api = { createGachaServer, stateOf, resultsOf, reasonOf, clampCount, ownedOf, SERVER_BUSY_CODES,
   GACHA_PATH, DRAWS_PATH, COUNT_MAX, LOAD_TIMEOUT_MS, DRAW_TIMEOUT_MS, OWNED_MAX, SEASONS };
 if(typeof window !== 'undefined') window.TwGachaServer = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

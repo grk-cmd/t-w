@@ -1375,7 +1375,7 @@ return {
   isDrawOpen: _gachaDrawOpen,
   selId: ()=>_gachaSelId,               // 보관함에서 지금 보고 있는 파츠 — 꾸미기 미리보기 색상 영역이 따라간다
   owned: ()=>gachaOwned,                // 계정 전환 검문 — «뽑은 파츠 N개»
-  unsynced: gachaUnsynced,              // 로그아웃 전 검문 — 서버에 없는 이 PC 의 뽑기 수
+  unsynced: (srv)=>_serverMode() ? 0 : gachaUnsynced(srv),   // 로그아웃 전 검문 — 서버에 없는 이 PC 의 뽑기 수(서버 길은 이 PC 몫을 올리지 않으니 0)
   bonus: ()=>_gachaBonus,               // 👑 달성표 — 보너스 뽑기 수
   setBonusLocal: _setGachaBonusLocal,
   resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; _srvState = null; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로

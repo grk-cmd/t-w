@@ -44,6 +44,8 @@ await sec('── 1. 순수', () => {
   chk(M.resultsOf(null) === null && M.resultsOf([]).length === 0, '  배열이 아니면 null · 빈 배열은 빈 결과');
   chk(M.reasonOf(apiErr('unavailable', 'TIMEOUT')) === 'timeout' && M.reasonOf(apiErr('unavailable', 'NETWORK')) === 'offline' && M.reasonOf(apiErr('notReady'))
       === 'offline' && M.reasonOf(apiErr('auth', 'NO_TOKEN')) === 'nouser' && M.reasonOf(apiErr('request', '', 400)) === 'error' && M.reasonOf(null) === 'error', 'reasonOf — 시간 초과 · 닿지 못함 · 로그인 · 그 밖');
+  chk(M.reasonOf(apiErr('unavailable', 'GACHA_BUSY', 503)) === 'error' && M.reasonOf(apiErr('notReady', 'CATALOG_NOT_READY', 503)) === 'error' && M.reasonOf(apiErr('unavailable', '', 503)) === 'offline',
+      '  서버가 살아 있는데 못 하는 것(겹친 저장 · 카탈로그 준비 중)은 «잠시 후 다시»(error) · 그냥 503 은 닿지 못함');
   chk(M.clampCount(0) === 1 && M.clampCount(5) === 5 && M.clampCount(10) === 10 && M.clampCount(11) === 10 && M.clampCount('x') === 1 && M.clampCount(2.9) === 2, 'clampCount — 1..10 · 숫자 아님은 1');
 });
 
@@ -96,6 +98,8 @@ await sec('── 4. 깨 보기', async () => {
   chk(B2 && B2.clampCount(11) !== 10, '횟수 상한을 풀면 빨강이 된다');
   const B3 = broke("if(e.code === 'TIMEOUT') return 'timeout';", '');
   chk(B3 && B3.reasonOf(apiErr('unavailable', 'TIMEOUT')) !== 'timeout', '시간 초과를 따로 안 가르면 빨강이 된다');
+  const B4 = broke("if(SERVER_BUSY_CODES.indexOf(e.code) >= 0) return 'error';", '');
+  chk(B4 && B4.reasonOf(apiErr('unavailable', 'GACHA_BUSY', 503)) !== 'error', '서버 바쁨을 따로 안 가르면 빨강이 된다');
 });
 
 say('');

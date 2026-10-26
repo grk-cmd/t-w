@@ -159,7 +159,7 @@
 | **sim-gift-star.js** | 127 | **09dec0581403** |
 | **sim-gacha-prune.js** | 166 | **d9e85bab60ff** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
-| **sim-gacha-server.js** | 107 | **6dcb9cfd58dd** |
+| **sim-gacha-server.js** | 111 | **b7d5fbf55bc2** |
 | **sim-gacha-tx.js** | 168 | **bee2d5e4c04c** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
@@ -266,7 +266,7 @@
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 404 | **fa81a0910b31** |
-| **sim-gacha.js** | 558 | **b0d6cb0880e8** |
+| **sim-gacha.js** | 560 | **adf6a6f32af6** |
 | **sim-myhome-edit.js** | 568 | **8e0409db75b0** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
