@@ -181,6 +181,20 @@ say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다'
   chk(!/chRandOpen/.test(RE_SRC), '  옛 «랜덤 참여 허용» 토글을 읽지 않는다(창의 «방 목록에 공개» 로)');
 }
 
+say('── 5-2. 방 서버 만들기 칸(serverCreateOf) · room-entry 가 싣는다');
+{
+  const c = RS.serverCreateOf('togetherroom', true, { title: ' 수다 ', max: 4, hostName: '말랑', music: true });
+  chk(JSON.stringify(c) === '{"channel":"togetherroom","open":true,"title":"수다","max":4,"music":true}', '★ 제목(앞뒤 공백 걷음) · 최대 인원 · 같이 듣기 · 공개 — 방장 이름은 안 싣는다(서버가 정함) (' + JSON.stringify(c) + ')');
+  chk(JSON.stringify(RS.serverCreateOf('workingroom', false, { title: null, max: 6, hostName: null, music: false })) === '{"channel":"workingroom","open":false,"max":6}', '  빈 제목 · 꺼진 같이 듣기는 칸째 뺀다(서버는 틀린 모양을 통째로 거절)');
+  chk(!('max' in RS.serverCreateOf('workingroom', true, { max: 1 })) && !('max' in RS.serverCreateOf('workingroom', true, { max: 51 })) && RS.serverCreateOf('workingroom', true, { max: 2 }).max === 2
+    && RS.serverCreateOf('workingroom', true, { max: 50 }).max === 50 && !('max' in RS.serverCreateOf('workingroom', true, { max: 4.5 })), '  최대 인원 경계 2 · 50 · 범위 밖 · 소수는 뺀다');
+  chk(!('title' in RS.serverCreateOf('workingroom', true, { title: 'x'.repeat(21) })) && RS.serverCreateOf('workingroom', true, { title: 'x'.repeat(20) }).title.length === 20, '  제목 20자까지 · 21자는 뺀다');
+  chk(JSON.stringify(RS.serverCreateOf('workingroom', 1, null)) === '{"channel":"workingroom","open":true}', '  고른 값이 없으면(옛 길) 채널 · 공개만');
+  chk(/const create = creating \? roomSettings\.serverCreateOf\(window\._pendingRoomChannel, !!window\._pendingRoomOpen, _pendingExtra\) : null;/.test(RE_SRC)
+    && /window\._pendingRoomOpen = false;\n  _pendingExtra = null;\n  if\(typeof settingsMod\.applyExtraSeatForMode/.test(RE_SRC), '★ room-entry: 방 서버로 만들 때 고른 값을 싣고 · 들어간 뒤 비운다');
+  chk(/if\(code === 'title'\) return roomSettings\.TITLE_ERROR_TEXT\.banned;/.test(RE_SRC), '  서버가 금칙어로 거절하면 «방 제목에 쓸 수 없는 말이 있어요»');
+}
+
 say('── 6. firebase-init — 쓰기');
 {
   const method = (head) => takeFn(FI, head);
@@ -232,6 +246,8 @@ say('── 8. 깨 보기');
   const noBan = classic(RS_SRC.replace("if(bw.hasBannedWord(title, banned)) return { ok: false, reason: 'banned' };", ''), 'TwRoomSettings');
   chk(noBan.checkTitle('나쁜말', ['나쁜말'], BW).ok === true, '금칙어 확인을 빼면 2절 «banned» 가 빨강이 된다');
   chk(BW_APP.replace('500', '400') !== BW_FN, '앱 사본만 바꾸면 1절 «글자까지 같다» 가 빨강이 된다');
+  const noRange = classic(RS_SRC.replace('if(Number.isInteger(e.max) && e.max >= ROOM_MAX_MIN && e.max <= ROOM_MAX_MAX) out.max = e.max;', 'if(e.max != null) out.max = e.max;'), 'TwRoomSettings');
+  chk('max' in noRange.serverCreateOf('workingroom', true, { max: 99 }), '최대 인원 범위 거르기를 빼면 5-2절 «범위 밖은 뺀다» 가 빨강이 된다');
 }
 
 say('');

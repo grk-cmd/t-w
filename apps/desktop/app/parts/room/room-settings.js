@@ -60,7 +60,20 @@ function hostNameOf(name){
   return s || null;
 }
 
+/** 방 서버 join 의 create — { channel, open, title?, max?, music? }. 방 만들기 창이 고른 값(extra = room-entry _pendingExtra)에서
+ *  빈 제목 · 범위 밖 최대 인원 · 꺼진 같이 듣기는 칸째 뺀다(서버는 모르는 칸 · 틀린 모양을 통째로 거절한다). hostName 은 서버가 정한다 — 싣지 않는다.
+ *  @param {string} channel  @param {boolean} open  @param {{ title?: string|null, max?: number, music?: boolean }|null} extra */
+function serverCreateOf(channel, open, extra){
+  const out = { channel, open: !!open };
+  const e = extra || {};
+  const title = (typeof e.title === 'string') ? e.title.trim() : '';
+  if(title && title.length <= TITLE_MAX) out.title = title;
+  if(Number.isInteger(e.max) && e.max >= ROOM_MAX_MIN && e.max <= ROOM_MAX_MAX) out.max = e.max;
+  if(e.music === true) out.music = true;
+  return out;
+}
+
 window.TwRoomSettings = { TITLE_MAX, HOST_NAME_MAX, ROOM_MAX_MIN, ROOM_MAX_MAX, TITLE_ERROR_TEXT, OPEN_HINT,
-  checkTitle, displayTitle, clampMax, roomCap, hostNameOf };
+  checkTitle, displayTitle, clampMax, roomCap, hostNameOf, serverCreateOf };
 
 })();

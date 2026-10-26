@@ -1,7 +1,8 @@
 /*
  * 🎧 같이 듣기 곡 칸 provider(room/listen-provider.js) + firebase-init 두 함수 검사 — 가짜 api 로 돌린다.
  * 1. 구독: 불러오는 중(undefined) → 값 | null · 못 받음은 onErr · 방이 없으면 구독 안 함
- * 2. 쓰기 · 지우기 · 서버 시각  3. firebase-init: 경로 · setRoomChannel 이 같이 듣기를 정할 때 지난 곡을 지운다  4. 깨 보기
+ * 2. 쓰기 · 지우기 · 서버 시각  2-2. 방 서버 방 — music 메시지(구독 · 쓰기 · 거절 · 서버 시계) · Firebase 를 안 부른다
+ * 3. firebase-init: 경로 · setRoomChannel 이 같이 듣기를 정할 때 지난 곡을 지운다  4. 깨 보기
  * 설계: docs/LISTEN_TOGETHER.md 2.2 · 2.4 · 5장
  */
 'use strict';
@@ -27,7 +28,7 @@ function fakeApi(){
 say('── 1. 구독');
 {
   const { api, log } = fakeApi();
-  const P = load(SRC).createListenProvider({ api: () => api });
+  const P = load(SRC).createListenProvider({ api: () => api, server: () => null });
   const got = [];
   const un = P.subscribe('PLAY-AB12', (v) => got.push(v), (e) => got.push('ERR:' + e));
   chk(got.length === 1 && got[0] === undefined, '★ 부르자마자 undefined — 불러오는 중(«틀 곡 없음» 과 다르게 그린다)');
@@ -46,7 +47,7 @@ say('── 1. 구독');
 say('── 2. 쓰기 · 서버 시각');
 {
   const { api, log } = fakeApi();
-  const P = load(SRC).createListenProvider({ api: () => api });
+  const P = load(SRC).createListenProvider({ api: () => api, server: () => null });
   const r1 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa' });
   const r2 = await P.write('PLAY-AB12', null);
   const r3 = await P.write('DENY', { id: 'aaaaaaaaaaa' });
@@ -54,6 +55,34 @@ say('── 2. 쓰기 · 서버 시각');
   chk(r1.ok && r2.ok && log.writes[1][1] === null, '쓰기 · 지우기(null — 틀 곡 없음)');
   chk(r3.ok === false && r4.ok === false && log.writes.length === 3, '  실패는 { ok:false } 그대로 · 방이 없으면 안 쓴다');
   chk(P.now() === 1234, '★ 시각은 서버 시각(firebaseAPI.serverNow) — 기기 시계가 아니다');
+}
+
+say('── 2-2. 방 서버 방');
+{
+  const { api, log } = fakeApi();
+  const sl = { fns: [], sent: [], reply: { ok: true } };
+  const sp = {
+    onMusic(fn){ sl.fns.push(fn); return () => { sl.fns = sl.fns.filter(f => f !== fn); }; },
+    async sendMusic(m){ sl.sent.push(m); return sl.reply; },
+    serverNow(){ return 9999; },
+  };
+  let srv = sp;
+  const P = load(SRC).createListenProvider({ api: () => api, server: () => srv });
+  const got = [];
+  const un = P.subscribe('PLAY-AB12', (v) => got.push(v), () => got.push('ERR'));
+  chk(got.length === 1 && got[0] === undefined && sl.fns.length === 1 && log.subs.length === 0, '★ 방 서버 방은 서버 music 을 듣는다 — Firebase _music 은 구독하지 않는다 · 처음은 불러오는 중');
+  sl.fns[0](null); sl.fns[0]({ id: 'aaaaaaaaaaa', seq: 2 });
+  chk(got[1] === null && got[2].seq === 2, '  서버가 준 곡 · 없음(null)을 그대로');
+  un(); chk(sl.fns.length === 0, '  끊는 함수가 서버 듣기를 끊는다');
+  const r1 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', seq: 3 });
+  const r2 = await P.write('PLAY-AB12', null);
+  chk(r1.ok && r2.ok && sl.sent.length === 2 && sl.sent[1] === null && log.writes.length === 0, '★ 쓰기 · 지우기도 서버로 — Firebase 에 안 쓴다');
+  sl.reply = { ok: false, code: 'stale' };
+  const r3 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', seq: 1 });
+  chk(r3.ok === false && r3.err === 'stale', '  서버 거절은 { ok:false, err: 까닭 } — 화면이 E-ROOM-05 로');
+  chk(P.now() === 9999, '★ 시각은 방 서버 시계(welcome · music 의 now) — Firebase 보정 시각이 아니다');
+  srv = null;
+  chk(P.now() === 1234, '  방 서버 방이 아니면 다시 Firebase 시각');
 }
 
 say('── 3. firebase-init');
@@ -71,10 +100,17 @@ say('── 3. firebase-init');
 say('── 4. 깨 보기');
 {
   const { api } = fakeApi();
-  const B = load(SRC.replace('  cb(undefined);\n', '')).createListenProvider({ api: () => api });
+  const B = load(SRC.replace('  cb(undefined);\n', '')).createListenProvider({ api: () => api, server: () => null });
   const got = [];
   B.subscribe('PLAY-AB12', (v) => got.push(v));
   chk(got.length === 0, '«불러오는 중» 을 빼면 1절이 빨강');
+  const sp = { onMusic(){ return () => {}; }, async sendMusic(){ return { ok: true }; }, serverNow(){ return 9999; } };
+  const B2 = load(SRC.replace('if(sp) return sp.onMusic(', 'if(false) return sp.onMusic(')).createListenProvider({ api: () => api, server: () => sp });
+  const before = api.subscribeRoomMusic;
+  let fbSubs = 0; api.subscribeRoomMusic = () => { fbSubs++; return () => {}; };
+  B2.subscribe('PLAY-AB12', () => {});
+  api.subscribeRoomMusic = before;
+  chk(fbSubs === 1, '방 서버 고르기를 빼면 Firebase 를 구독한다 — 2-2절이 빨강');
 }
 
 say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);

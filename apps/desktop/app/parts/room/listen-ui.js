@@ -1,5 +1,5 @@
 /* listen-ui.js — 🎧 같이 듣기: 창(#listenBox · 상태칩 안 팝업) · 재생 창 다루기 · DJ 의 곡 쓰기 · 상태칩 🎵 버튼 바꾸기.
-   같이 듣기 방(_meta.music === true)에 있는 동안만 곡 칸 하나(rooms/{방}/_music)를 구독한다. 규칙 · 모양은 docs/LISTEN_TOGETHER.md.
+   같이 듣기 방(_meta.music === true)에 있는 동안만 곡 칸 하나를 구독한다(Firebase rooms/{방}/_music · 방 서버 방은 서버 music — listen-provider.js 가 고른다). 규칙 · 모양은 docs/LISTEN_TOGETHER.md.
    ・지금 DJ = 방에 있는 현재 방장(listen-model djOf). 곡을 쓰는 건 DJ 한 사람뿐 — 듣는 사람은 따라 틀기만.
    ・재생 창은 마이홈 BGM · 플레이리스트와 하나를 나눠 쓴다(나중에 연 쪽이 이김). 다른 쪽이 이기면 «다른 음악이 이김 [다시 듣기]».
    ・창은 #myStatusChip 안에 있어야 실행 화면에서 클릭이 뒤로 새지 않는다(#myPlaylistBox 와 같은 까닭).
@@ -23,7 +23,6 @@ const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <
  *   companion: () => any,
  *   roomCode: () => string|null,
  *   meta: () => object|null,
- *   isServerRoom: () => boolean,
  *   isSecretRoom: () => boolean,
  *   myId: () => string|null,
  *   memberIds: () => string[],
@@ -42,7 +41,6 @@ const provider = deps.provider;
 const companion = deps.companion;
 const roomCode = deps.roomCode;
 const meta = deps.meta;
-const isServerRoom = deps.isServerRoom;
 const isSecretRoom = deps.isSecretRoom;
 const myId = deps.myId;
 const memberIds = deps.memberIds;
@@ -234,7 +232,7 @@ function stop(){
 /** 들어감 · 나감 · meta 가 바뀔 때(방 입장 모듈이 부른다) — 같이 듣기 방이면 구독, 아니면 끊는다 */
 function sync(){
   const code = roomCode(), m = meta();
-  const want = (code && !isServerRoom() && model.isMusicRoom(m)) ? code : null;
+  const want = (code && model.isMusicRoom(m)) ? code : null;
   if(want !== room){ if(room) stop(); if(want) start(want); }
   paintButton();
   if(room){ reconcileDj(); paint(); }

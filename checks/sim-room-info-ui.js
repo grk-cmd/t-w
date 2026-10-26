@@ -41,13 +41,13 @@ function mkDom(){
 function mkUi(o, src){
   const { doc, el } = mkDom();
   global.document = doc;
-  const st = Object.assign({ me: 'u1', code: 'COZY-AB12', meta: { host: 'u1', title: '마감방', hostName: '도토리', open: true }, server: false, banned: [], save: async () => ({ ok: true }) }, o || {});
+  const st = Object.assign({ me: 'u1', code: 'COZY-AB12', meta: { host: 'u1', title: '마감방', hostName: '도토리', open: true }, banned: [], save: async () => ({ ok: true }) }, o || {});
   const log = { saves: [], errors: [] };
   const UI = classic(src || UI_SRC, 'TwRoomInfoUi');
   const ui = UI.createRoomInfoUi({
     roomSettings: RS, bannedWords: BW, rcStore: () => ({ bannedWords: () => st.banned }),
     // 방장 · 시크릿룸 판정은 app.js 가 채팅 잠금(chat-lock.js _chatIsHost · _chatIsSecretRoom)을 넘긴다 — 여기선 같은 모양으로
-    isHost: () => !!(st.meta && st.me && st.meta.host === st.me), isSecretRoom: () => /^SCRT-/.test(st.code || ''), roomCode: () => st.code, meta: () => st.meta, isServerRoom: () => st.server,
+    isHost: () => !!(st.meta && st.me && st.meta.host === st.me), isSecretRoom: () => /^SCRT-/.test(st.code || ''), roomCode: () => st.code, meta: () => st.meta,
     saveInfo: async (room, info) => { log.saves.push([room, info]); return st.save(room, info); },
     notifyError: (c) => log.errors.push(c),
   });
@@ -78,8 +78,7 @@ function mkUi(o, src){
   chk(t.el('riBox').hidden, '방 밖이면 줄째 숨는다');
   t = mkUi({ meta: null }); t.ui.paint();
   chk(t.el('riBox').hidden, '  meta 를 아직 못 받았으면 숨는다');
-  t = mkUi({ server: true }); t.ui.paint();
-  chk(t.el('riBox').hidden, '★ 방 서버 방은 숨긴다(서버가 아직 제목 · 공개 바꾸기를 받지 않음)');
+  chk(!/isServerRoom/.test(UI_SRC), '★ 방 서버 방도 같은 칸 — 저장 길(서버 meta · Firebase _meta)은 app.js 의 saveInfo 가 고른다');
   t = mkUi({ meta: { host: 'u1', title: '', hostName: '도토리' } }); t.ui.paint();
   chk(t.el('riTitle').textContent === '도토리 님의 방' && t.el('riTitle').classList.contains('dim'), '  빈 제목은 기본값 · 흐리게');
   t = mkUi({ meta: { host: 'u1', title: '바보들의 방', hostName: '도토리' }, banned: ['바보'] }); t.ui.paint();
@@ -117,6 +116,11 @@ function mkUi(o, src){
   t = mkUi({ save: async () => { throw new Error('net'); } }); t.ui.paint(); t.el('riEdit').onclick();
   await t.el('riSave').onclick();
   chk(t.log.errors.join() === 'E-ROOM-04', '  던져도 같은 길');
+  for(const [code, text] of [['title', RS.TITLE_ERROR_TEXT.banned], ['forbidden', '지금 방장만 바꿀 수 있어요']]){
+    t = mkUi({ save: async () => ({ ok: false, code }) }); t.ui.paint(); t.el('riEdit').onclick();
+    await t.el('riSave').onclick();
+    chk(!t.log.errors.length && t.el('riTitleErr').textContent === text && !t.el('riPanel').hidden, '★ 방 서버 거절(' + code + ') → 칸 아래 글 · 오류 번호 아님 · 칸은 그대로');
+  }
   let release;
   t = mkUi({ save: () => new Promise((r) => { release = () => r({ ok: true }); }) }); t.ui.paint(); t.el('riEdit').onclick();
   t.el('riSave').onclick(); t.el('riSave').onclick();
@@ -151,7 +155,7 @@ function mkUi(o, src){
       && /roomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(CL) && /roomState\.isSecretCode\(_chatRoomCode\(\)\)/.test(CL) && /roomState: TwRoomState,/.test(APP) && !/isSecretCode/.test(RS_SRC),
       '★ 방장 · 시크릿룸 판정은 채팅 잠금과 같은 한 곳(room-state.js)을 부른다 — 다시 쓰지 않음 · 서로 부르지 않아 순환 없음');
   }
-  chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>window\.firebaseAPI\.setRoomInfo\(room, info\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 firebaseAPI.setRoomInfo');
+  chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>\(Presence\.serverProvider\(\) \? Presence\.serverProvider\(\)\.setMeta\(info\) : window\.firebaseAPI\.setRoomInfo\(room, info\)\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 방 서버 방이면 서버 meta · 아니면 firebaseAPI.setRoomInfo');
   const paintCalls = (RE.match(/\b_roomChanged\(\);/g) || []).length;   // «방이 바뀜» 알림이 paintRoomInfo 를 부른다(같이 듣기도 같은 알림)
   chk(paintCalls === 3 && /function _roomChanged\(\)\{ paintRoomInfo\(\);/.test(RE) && /function refreshInviteUI\(\)\{[\s\S]*?_roomChanged\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · Firebase meta · 방 서버 meta 세 곳에서 다시 그린다 (' + paintCalls + ')');
   {
@@ -185,9 +189,10 @@ function mkUi(o, src){
     const b3 = mkUi({ code: 'SCRT-AB12' }, noSecret); b3.ui.paint(); b3.el('riEdit').onclick();
     await b3.el('riSave').onclick();
     chk(noSecret !== UI_SRC && ('open' in b3.log.saves[0][1]), '시크릿룸 거르기를 빼면 3절 «공개는 쓰지 않는다» 가 빨강');
-    const noServer = UI_SRC.replace('const show = !!code && !!m && !isServerRoom();', 'const show = !!code && !!m;');
-    const b4 = mkUi({ server: true }, noServer); b4.ui.paint();
-    chk(noServer !== UI_SRC && !b4.el('riBox').hidden, '방 서버 거르기를 빼면 2절 «방 서버 방은 숨긴다» 가 빨강');
+    const noWhy = UI_SRC.replace('const why = res && SERVER_REFUSED_TEXT[res.code];', 'const why = null;');
+    const b4 = mkUi({ save: async () => ({ ok: false, code: 'title' }) }, noWhy); b4.ui.paint(); b4.el('riEdit').onclick();
+    await b4.el('riSave').onclick();
+    chk(noWhy !== UI_SRC && b4.log.errors.join() === 'E-ROOM-04', '서버 거절 글을 빼면 3절 «칸 아래 글» 이 빨강');
     delete global.document;
   }
 

@@ -65,7 +65,7 @@ function mk(o, src){
     (f) => { timers.to.push(f); return 0; }, () => {});
   const ui = w.TwListenUi.createListenUi({
     model: MODEL, provider: prov, companion: () => comp,
-    roomCode: () => st.code, meta: () => st.meta, isServerRoom: () => st.server, isSecretRoom: () => st.secret,
+    roomCode: () => st.code, meta: () => st.meta, isSecretRoom: () => st.secret,
     myId: () => st.me, memberIds: () => st.members, nameOf: (u) => '닉_' + u,
     djItems: () => st.items, stopPersonal: () => { if(!st.plPlaying) return false; st.plPlaying = false; personalStops++; return true; }, positionPopup: () => {}, closeChipPopups: (id) => chipCloses.push(id),
     escRegisterWindow: () => {}, notifyError: (c) => errs.push(c),
@@ -102,10 +102,7 @@ say('── 1. 들어감 · 나감');
   tp.ui.sync(); tp.push(song({ paused: true, pos: 9 }));
   chk(tq.personalStops() === 1 && tp.personalStops() === 1, '★ 틀 곡이 없거나 멈춘 방에 들어오면 내 플레이리스트를 멈춘다');
   chk(t.calls('closeBgm').length === 1 && t.calls('openListenTrack').length === 1, '  같이 듣기 곡을 닫는다(내 플레이리스트는 멈춘 채 — 다시 틀지 않는다)');
-  t = mk();
-  t.st.server = true;
-  t.ui.sync();
-  chk(t.prov.subs.length === 0 && t.el('myPlBtn').textContent === '🎵', '방 서버 방은 같이 듣기를 하지 않는다(서버가 music 을 받기 전까지)');
+  chk(!/isServerRoom/.test(SRC), '방 서버 방도 같이 듣기를 한다 — 받는 곳(서버 music · Firebase _music)은 provider 가 고른다(listen-provider.js · sim-listen-provider 2-2절)');
 }
 
 say('── 2. 듣는 사람');
@@ -351,7 +348,7 @@ say('── 8. 이어 붙인 곳');
   chk(iL > 0 && iRe > iL && /\nroomEntryMod\.onRoomChanged\(\(\)=>listenUi\.sync\(\)\);/.test(APP) && !/listenUi\.connect/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 · 방 입장 모듈의 «방이 바뀜» 알림에 sync 를 건다(방 입장은 같이 듣기를 모른다)');
   chk(/function _roomChanged\(\)\{ paintRoomInfo\(\); _roomChangedFns\.forEach\(f => f\(\)\); \}/.test(RE) && (RE.match(/\b_roomChanged\(\);/g) || []).length === 3, '  room-entry: 들어감 · 나감 · meta 세 곳이 알림을 보낸다');
   chk(/closeChipPopups: \(id\)=>chipPopupsMod\._closeChipPopups\(id\)/.test(APP), '  app.js: 상태칩 «한 번에 하나» 닫기를 넘긴다');
-  chk(/provider: TwListenProvider\.createListenProvider\(\{ api: \(\)=>window\.firebaseAPI \}\)/.test(APP) && /stopPersonal: \(\)=>plMod\.stopIfPlaying\(\)/.test(APP), '  provider · 내 플레이리스트 멈추기');
+  chk(/provider: TwListenProvider\.createListenProvider\(\{ api: \(\)=>window\.firebaseAPI, server: \(\)=>Presence\.serverProvider\(\) \}\)/.test(APP) && /stopPersonal: \(\)=>plMod\.stopIfPlaying\(\)/.test(APP), '  provider(방 서버 방이면 서버 provider) · 내 플레이리스트 멈추기');
   chk(/stopIfPlaying: \(\)=>\{ if\(_plNow < 0\) return false; _plStop\(\); return true; \}/.test(PL), 'playlist.js: 나고 있을 때만 멈추고 true');
   const fr = (APP.match(/\nfunction frame\(now, manual\)\{[\s\S]*?\n\}\n/) || [''])[0];
   const iDj = fr.indexOf('const _djNow = listenUi.djId();'), iLoop = fr.indexOf('  seats.forEach(seat=>{');

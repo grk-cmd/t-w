@@ -136,6 +136,7 @@ function _roomServerJoinMessage(code, isSecret, openCh){
   }
   if(code === 'secretClosed') return '이 시크릿룸은 이용 기간이 끝났어요';
   if(code === 'forbidden') return '투게더룸은 라이선스가 있어야 열 수 있어요';
+  if(code === 'title') return roomSettings.TITLE_ERROR_TEXT.banned;   // 서버가 금칙어로 거절(앱 목록이 늦었을 때)
   return null;
 }
 /* startRoom 의 서버 갈래. 'firebase' = 아래 기존 흐름으로 계속 · 그 밖 = 여기서 끝났다.
@@ -210,8 +211,8 @@ async function _startRoomOnServer(code, ctx){
       }
     }
   }
-  const create = creating ? { channel: window._pendingRoomChannel,
-    open: (window._pendingRoomChannel === 'workingroom') && !!window._pendingRoomOpen } : null;
+  // 방 만들기 창이 고른 값 — 공개는 두 채널 모두 · 제목 · 최대 인원 · 같이 듣기(방장 이름은 서버가 정한다)
+  const create = creating ? roomSettings.serverCreateOf(window._pendingRoomChannel, !!window._pendingRoomOpen, _pendingExtra) : null;
   _clearHiddenSeats();
   const r = await Presence.start(code, ctx.myDef, getDisplayName(), presenceChanged, { provider: makeServerProvider(net, create) });
   if(!(r && r.ok)){
@@ -238,6 +239,7 @@ async function _startRoomOnServer(code, ctx){
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   window._pendingRoomChannel = null;
   window._pendingRoomOpen = false;
+  _pendingExtra = null;
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();
   return 'done';
 }
@@ -954,7 +956,7 @@ function _paintMaxPeople(){
   _paintMaxPeople();
 })();
 
-/* 방 만들기 창이 고른 _meta 칸 { title, max, hostName, music } — startRoom 의 만들기 갈래(Firebase)가 한 번 쓰고 비운다.
+/* 방 만들기 창이 고른 _meta 칸 { title, max, hostName, music } — startRoom 의 만들기 갈래(Firebase · 방 서버)가 한 번 쓰고 비운다.
    만들기가 중간에 막히면 남지만, 그 값을 읽는 곳은 _pendingRoomChannel 이 있는 만들기 갈래뿐이고 다음 만들기가 덮는다. */
 let _pendingExtra = null;
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다.

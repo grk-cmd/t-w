@@ -84,9 +84,25 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
       getSecretRoomPub: async (c) => { o.pubAsked = c; return o.pub || null; },
       checkSecretRoomEntry: async () => { o.entryAsked = (o.entryAsked || 0) + 1; return o.entry === undefined ? { count: 2, ownerIn: false } : o.entry; },
     });
-    const mk = (o, uid) => P.createRoomLobbyProvider({ api: () => mkApi(o), myUserId: () => (uid === undefined ? 'u1' : uid), now: () => now });
+    const apiDown = async () => { throw Object.assign(new Error('down'), { kind: 'unavailable' }); };
+    const mk = (o, uid) => P.createRoomLobbyProvider({ api: () => mkApi(o), apiGet: o.apiGet || apiDown, myUserId: () => (uid === undefined ? 'u1' : uid), now: () => now });
     let o = { lobby: { workingroom: { at: 1, rooms: {} } } };
-    chk((await mk(o).listRooms('workingroom')).at === 1 && (await mk(o).listRooms('togetherroom')) === null, 'listRooms 는 채널 사본을 그대로(못 읽음 null 그대로)');
+    chk((await mk(o).listRooms('workingroom')).at === 1 && (await mk(o).listRooms('togetherroom')) === null, 'API 를 못 받으면 Firebase 채널 사본을 그대로(못 읽음 null 그대로)');
+    {
+      const asked = [];
+      const srv = { at: 7, rooms: { 'WORK-SV11': { t: '서버 방', n: 2, max: 4, hn: '도토리', mu: false, since: 5 } } };
+      const oo = { lobby: { workingroom: { at: 1, rooms: {} } }, apiGet: async (path, opts) => { asked.push([path, opts]); return srv; } };
+      const v = await mk(oo).listRooms('workingroom');
+      chk(v.at === 7 && v.rooms['WORK-SV11'].hn === '도토리' && asked[0][0] === '/v1/rooms/lobby?channel=workingroom' && asked[0][1].auth === true && asked[0][1].timeoutMs > 0,
+        '★ API 먼저 — GET /v1/rooms/lobby?channel= · 로그인 통로 · 시간 제한 · 받으면 Firebase 는 읽지 않는다');
+      let fbReads = 0;
+      const o2 = { apiGet: async () => ({ at: 'x', rooms: [] }) };
+      const pv = P.createRoomLobbyProvider({ api: () => Object.assign(mkApi(o2), { getRoomLobby: async () => { fbReads++; return { at: 2, rooms: {} }; } }), apiGet: o2.apiGet, myUserId: () => 'u1', now: () => now });
+      chk((await pv.listRooms('togetherroom')).at === 2 && fbReads === 1, '  API 답 모양이 틀리면(at 숫자 아님 · rooms 배열) Firebase 로 물러선다');
+      const o3 = { apiGet: async () => ({ at: 3, rooms: {} }) };
+      const pv3 = P.createRoomLobbyProvider({ api: () => Object.assign(mkApi(o3), { getRoomLobby: async () => { fbReads++; return null; } }), apiGet: o3.apiGet, myUserId: () => 'u1', now: () => now });
+      chk((await pv3.listRooms('workingroom')).at === 3 && Object.keys((await pv3.listRooms('workingroom')).rooms).length === 0 && fbReads === 1, '  API 의 빈 목록은 «빈 목록» 그대로(못 읽음과 다름)');
+    }
     o = { code: 'ABCD', pub: { owner: 'u1', name: '우리 방' } };
     const s1 = await mk(o).mySecretRoom();
     chk(s1 && s1.code === 'SCRT-ABCD' && s1.name === '우리 방' && o.pubAsked === 'SCRT-ABCD' && !o.entryAsked, '★ 내 시크릿룸: 발급 칸 코드(접두어 없어도) → SCRT- · 이름 — 손님 수(방 멤버)는 읽지 않는다');
@@ -229,6 +245,7 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   const order = ['room/room-lobby-model.js', 'room/room-lobby-provider.js', 'room/room-lobby-ui.js', 'app.js'].map((f) => HTML.indexOf('<script src="parts/' + f + '"'));
   chk(order.every((v, i) => v > 0 && (i === 0 || v > order[i - 1])), '  스크립트 순서: model → provider → ui → app.js');
   chk(/TwRoomLobbyUi\.createRoomLobbyUi\(\{/.test(APP) && /openCreate: \(ch\)=>roomCreateUi\.open\(ch\)/.test(APP) && /joinRoom: \(code\)=>roomEntryMod\.startRoom\(code\)/.test(APP), '  app.js 가 만들고 방 만들기 창 · 입장으로 잇는다');
+  chk(/TwRoomLobbyProvider\.createRoomLobbyProvider\(\{ api: \(\)=>window\.firebaseAPI, apiGet: \(p, o\)=>window\.firebaseAPI\.apiGetAuthed\(p, o\),/.test(APP), '  app.js: 로비 provider 에 로그인 API 통로(apiGetAuthed)를 넘긴다');
   chk(/async getRoomLobby\(channel\)\{\s*try\{ const v = \(await get\(ref\(db, `roomLobby\/\$\{channel\}`\)\)\)\.val\(\);/.test(FI), '  firebase-init: 채널 사본 하나만 읽는다(roomLobby 통째 아님)');
   chk(/'E-ROOM-03'/.test(EC), '  오류 번호 E-ROOM-03 이 표에 있다');
   chk(!/innerHTML/.test(U_SRC), '★ 로비 화면은 innerHTML 을 안 쓴다 — 남이 쓴 제목 · 닉네임은 글로만');
@@ -237,6 +254,9 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   {
     const noSort = model(M_SRC.replace('if(a.full !== b.full) return a.full ? 1 : -1;', ''));
     chk(noSort.cardsFrom(node, { now, cap: 10 }).list[0].code !== 'WORK-CC33', '«입장 가능 먼저» 를 빼면 1절 정렬이 빨강');
+    const noApi = classic(P_SRC.replace('  if(v) return v;\n', ''), 'TwRoomLobbyProvider');
+    const p1 = noApi.createRoomLobbyProvider({ api: () => ({ getRoomLobby: async () => ({ at: 1, rooms: {} }) }), apiGet: async () => ({ at: 7, rooms: {} }), myUserId: () => 'u1', now: () => now });
+    chk((await p1.listRooms('workingroom')).at !== 7, 'API 답을 안 쓰면 2절 «API 먼저» 가 빨강');
     const noOwner = classic(P_SRC.replace('return (pub && pub.owner === uid) ? { code: full, pub } : null;', 'return pub ? { code: full, pub } : null;'), 'TwRoomLobbyProvider');
     const p2 = noOwner.createRoomLobbyProvider({ api: () => ({ getMySecretRoom: async () => 'ABCD', getSecretRoomPub: async () => ({ owner: 'u2' }), checkSecretRoomEntry: async () => null }), myUserId: () => 'u1', now: () => now });
     chk(await p2.mySecretRoom() !== null, '소유 확인을 빼면 2절 «남에게 재발급» 이 빨강');

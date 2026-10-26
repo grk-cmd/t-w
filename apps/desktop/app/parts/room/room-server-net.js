@@ -3,6 +3,8 @@
  * 통신 규약의 정본은 방 서버 저장소의 PROTOCOL.md (PROTOCOL_VERSION = 1) 다. 칸 이름 · 한도는 거기를 따른다.
  * peek · rid 는 v1 안에서 선택으로 더해진 것이다. 그 전 서버에서는 peek 이 null 로 끝나고, rid 없는 답은 보낸 순서로 짝짓는다.
  * 채팅 탭(멤버 칸 tab · chat 의 tab · meta 의 tabs)도 v1 안에서 더해졌다 — 그 전 서버는 tab 이 실린 메시지를 거절하므로 서버를 먼저 배포한다.
+ * 0.13 방 설정 · 같이 듣기도 v1 선택 칸이다 — join.create 의 title · max · music(두 채널 open) · meta 요청의 title · music 메시지(보내기 · 받기) ·
+ * welcome 의 music · now · random 의 channel. 이것도 그 전 서버는 거절하므로 서버를 먼저 배포한다.
  *
  * 켤지 · 어느 서버로 갈지는 room-server-gate.js(관리자 스위치 = 원격 설정 roomServer · 방 주소록 roomDir)가 정하고,
  * firebase-init.js 가 그 결과 주소를 url() 로 넘긴다. url() 이 null 이면 서버 쪽은 아예 쓰지 않는다.
@@ -104,13 +106,23 @@ export function chatFromWire(m){
   return { key: 'chat', val: c };
 }
 
-/* meta 요청이 반영됐는지 — tabs 는 { s1: { name } | null } 을 서버 meta.tabs 와 견준다. */
+/* meta 요청이 반영됐는지 — tabs 는 { s1: { name } | null } 을 서버 meta.tabs 와 견준다. title '' 은 «칸 없음» 과 같다(지움). */
 export function metaMatches(meta, want){
   return Object.keys(want).every((k) => {
+    if(k === 'title') return (meta.title || '') === want.title;
     if(k !== 'tabs') return meta[k] === want[k];
     const cur = (meta && meta.tabs && typeof meta.tabs === 'object') ? meta.tabs : {};
     return Object.keys(want.tabs).every((id) => want.tabs[id] === null ? !cur[id] : !!(cur[id] && cur[id].name === want.tabs[id].name));
   });
+}
+
+/* 같이 듣기 곡 줄(listen-model 모양 { id, title, by, at, paused, pos, seq, dur? }) → 방 서버 music 메시지.
+   by · at 은 서버가 정한다 — 재생 중이면 지금 위치(pos)를 서버 시각으로 계산해 보낸다. now 는 서버 시각(ms). */
+export function musicToWire(m, now){
+  const out = { t: 'music', id: m.id, title: m.title, paused: !!m.paused, seq: m.seq };
+  out.pos = m.paused ? Math.max(0, Number(m.pos) || 0) : Math.max(0, (now - (Number(m.at) || 0)) / 1000);
+  if(Number(m.dur) > 0) out.dur = Number(m.dur);
+  return out;
 }
 
 export function createRoomServerNet(deps){
@@ -209,9 +221,11 @@ export function createRoomServerNet(deps){
   function stats(){
     return request({ t: 'stats' }, (m) => ({ workingroom: m.workingroom | 0, togetherroom: m.togetherroom | 0, total: m.total | 0 }));
   }
-  function random(limit){
+  // channel — 'togetherroom' 후보를 물을 때만 싣는다(없으면 서버가 워킹룸으로 본다 · channel 을 모르는 옛 서버에도 그대로 묻게)
+  function random(limit, channel){
     const msg = { t: 'random' };
     if(limit > 0) msg.limit = Math.min(50, limit | 0);
+    if(channel === 'togetherroom') msg.channel = channel;
     return request(msg, (m) => (Array.isArray(m.rooms) ? m.rooms.filter((c) => typeof c === 'string') : []));
   }
   /* 들어가지 않고 방 보기 — { exists, count, channel, secret } · 못 물으면 null(꺼짐 · 못 붙음 · 시간 초과 · peek 을 모르는 서버).
@@ -318,6 +332,11 @@ export function createRoomServerNet(deps){
       for(const w of list) w.done({ ok: false, code: m.code });
       return;
     }
+    if(m.ref === 'music'){
+      const list = P.musicWaiters; P.musicWaiters = [];
+      for(const w of list) w.done({ ok: false, code: m.code });
+      return;
+    }
     if(m.ref === 'leave' || m.code === 'notInRoom') return;
     try{ log.warn('[방 서버] 거절 —', m.code, m.ref || ''); }catch(_){}
   }
@@ -343,6 +362,20 @@ export function createRoomServerNet(deps){
       else P.metaWaiters.push(w);
     }
     try{ if(P.hooks.onMeta) P.hooks.onMeta(meta, prev); }catch(_){}
+  }
+
+  /* 같이 듣기 곡 — 서버가 welcome · music 으로 준다(null = 틀 곡 없음). now 칸으로 서버 시계를 맞춘다.
+     보낸 쓰기(musicWaiters)는 같은 차례 이상의 곡이 돌아오면 끝난다(서버가 보낸 사람에게도 돌려준다). */
+  function setClock(P, srvNow){ if(typeof srvNow === 'number' && isFinite(srvNow)) P.clockOff = srvNow - now(); }
+  function setMusic(P, music){
+    P.music = (music && typeof music === 'object') ? music : null;
+    const seq = P.music ? Number(P.music.seq) : -1;
+    const list = P.musicWaiters; P.musicWaiters = [];
+    for(const w of list){
+      if(seq >= w.seq || (w.clear && !P.music)) w.done({ ok: true });
+      else P.musicWaiters.push(w);
+    }
+    for(const fn of P.musicFns.slice()){ try{ fn(P.music); }catch(_){} }
   }
 
   /* 친구 객체를 makeFirebaseProvider 가 changeCb 로 넘기는 모양 그대로 만든다 — 멤버 칸 + userId + def(복원본) + chat + poke.
@@ -390,6 +423,8 @@ export function createRoomServerNet(deps){
           P.members[id] = v;
         }
         setMeta(P, m.meta);
+        setClock(P, m.now);
+        if('music' in m) setMusic(P, m.music);   // music 을 모르는 옛 서버는 칸이 없다 — 곡은 «불러오는 중» 으로 남는다
         if(first){
           P.joined = true;
           if(!P.expTimer) P.expTimer = iSet(() => checkExp(P), EXP_CHECK_MS);
@@ -459,6 +494,10 @@ export function createRoomServerNet(deps){
       case 'meta':
         setMeta(P, m.meta);
         return;
+      case 'music':
+        setClock(P, m.now);
+        setMusic(P, m.music);
+        return;
       case 'disband':
         detach(P);
         try{ if(P.hooks.onDisband) P.hooks.onDisband(m.reason || null); }catch(_){}
@@ -524,6 +563,7 @@ export function createRoomServerNet(deps){
       members: {}, meta: null, defCache: {}, seq: 0,
       changeCb: null, onPoked: null, joinWaiter: null, leaveWaiter: null, metaWaiters: [],
       stateTimer: null, expTimer: null, lastStateAt: -Infinity, noticed: false,
+      music: undefined, musicFns: [], musicWaiters: [], clockOff: 0,
     };
     return {
       kind: 'server',
@@ -564,11 +604,12 @@ export function createRoomServerNet(deps){
         if(canSend(P)) send({ t: 'poke', to: P.memberId, type: String(type) });
         else hold(P, 'poke', { t: 'poke', to: null, type: String(type) });
       },
-      // 방장만 — chatOff · open · tabs({ s1: { name } | null }). 서버가 바뀐 meta 를 돌려주면 ok.
+      // 방장만 — chatOff · open · title · tabs({ s1: { name } | null }). 서버가 바뀐 meta 를 돌려주면 ok · 거절은 { ok:false, code }(title · forbidden …).
       setMeta(fields){
         const want = {};
         if(fields && typeof fields.chatOff === 'boolean') want.chatOff = fields.chatOff;
         if(fields && typeof fields.open === 'boolean') want.open = fields.open;
+        if(fields && typeof fields.title === 'string') want.title = fields.title;   // '' = 지움
         if(fields && fields.tabs && typeof fields.tabs === 'object'){
           const tabs = {};
           for(const id of CHAT_TAB_IDS){
@@ -579,6 +620,7 @@ export function createRoomServerNet(deps){
           if(Object.keys(tabs).length) want.tabs = tabs;
         }
         if(!Object.keys(want).length || !canSend(P)) return Promise.resolve({ ok: false });
+        if(P.meta && metaMatches(P.meta, want)) return Promise.resolve({ ok: true });   // 이미 그 값 — 서버가 바뀐 meta 를 안 보낼 수 있어 기다리면 시간 초과로 끝난다
         return new Promise((res) => {
           const w = { want, done: null, timer: null };
           w.done = (r) => { tClear(w.timer); res(r); };
@@ -607,6 +649,30 @@ export function createRoomServerNet(deps){
           lingering = P;
         });
       },
+      /* 🎧 같이 듣기 — 지금 곡을 듣는다(이미 받았으면 바로 한 번) · 끊는 함수. 받기 전에는 부르지 않는다(불러오는 중). */
+      onMusic(fn){
+        P.musicFns.push(fn);
+        if(P.music !== undefined){ try{ fn(P.music); }catch(_){} }
+        return () => { const i = P.musicFns.indexOf(fn); if(i >= 0) P.musicFns.splice(i, 1); };
+      },
+      /* 곡 쓰기(방장 · 같이 듣기 방만) — m 은 listen-model 의 곡 줄 · null 은 지움. 서버가 돌려주면 ok · 거절은 { ok:false, code }(forbidden · stale …). */
+      sendMusic(m){
+        if(!canSend(P)) return Promise.resolve({ ok: false, code: 'notReady' });
+        const seq = m ? Number(m.seq) : (P.music ? Number(P.music.seq) + 1 : 0);
+        const msg = m ? musicToWire(m, now() + P.clockOff) : { t: 'music', clear: true, seq };
+        return new Promise((res) => {
+          const w = { seq, clear: !m, done: null, timer: null };
+          w.done = (r) => { tClear(w.timer); res(r); };
+          w.timer = tSet(() => {
+            const i = P.musicWaiters.indexOf(w);
+            if(i >= 0) P.musicWaiters.splice(i, 1);
+            res({ ok: false, code: 'timeout' });
+          }, REQ_TIMEOUT_MS);
+          P.musicWaiters.push(w);
+          send(msg);
+        });
+      },
+      serverNow(){ return now() + P.clockOff; },   // welcome · music 의 now 로 맞춘 서버 시각(ms)
       memberId(){ return P.memberId; },
       roomMeta(){ return P.meta; },
       _state: P,   // 검사용
