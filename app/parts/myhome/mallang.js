@@ -250,7 +250,7 @@
         if(!item.on) slot.classList.add('off');
         /* 주소는 남의 것일 수 있다(선물) — 허용된 그림 주소만 · 마크업에 붙이지 않고 요소로 */
         const src = TwSafeHtml.safeUrl(item.url, 'image');
-        if(src){ const im = document.createElement('img'); im.src = src; im.alt = ''; slot.appendChild(im); }
+        if(src){ const im = TwImgRetry.retryOnError(document.createElement('img')); im.src = src; im.alt = ''; slot.appendChild(im); }
         const del = document.createElement('button'); del.className = 'ml-del'; del.dataset.i = String(i); del.textContent = '×';
         slot.appendChild(del);
         slot.querySelector('.ml-del').addEventListener('click', (e)=>{ e.stopPropagation(); removeImg(i, inp); });
@@ -384,7 +384,7 @@
     _pending++;                     // 🎫 자리 예약 — 아래 onload/onerror 에서 반드시 놓는다
     let _slotDone = false;
     const _release = ()=>{ if(_slotDone) return; _slotDone = true; _pending = Math.max(0, _pending - 1); };
-    im.onerror = ()=>{ _release(); try{ guy.remove(); }catch(_){} };
+    TwImgRetry.retryOnError(im, ()=>{ _release(); try{ guy.remove(); }catch(_){} });   // 한 번 더 받아도 못 받으면 자리를 놓는다
     im.onload = ()=>{
       _release();
       const ratio = im.naturalHeight / (im.naturalWidth||1);
@@ -1057,7 +1057,7 @@
     mine.forEach(item=>{
       const cell = document.createElement('div'); cell.className='ml-gcell';
       const gsrc = TwSafeHtml.safeUrl(item.url, 'image');
-      if(gsrc){ const gim = document.createElement('img'); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
+      if(gsrc){ const gim = TwImgRetry.retryOnError(document.createElement('img')); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
       cell.addEventListener('click', async ()=>{
         /* ⚠️ 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다.
            보내기 직전에 한 번 더 본다(로컬 판정이라 왕복은 없다). */

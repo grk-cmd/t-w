@@ -160,6 +160,21 @@ const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.
 옛 앱의 씻기는 `bg.img` · `img` 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
 검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
 
+## `mh-bg-url.js` — 🖼️ 마이홈 배경 그림 주소 규칙
+
+**책임** — 배경 그림 주소가 `http://` 면 `https://` 로 바꿔 그리기(`httpsOf`) · 바꾼 주소를 한 번 불러 보고 못 받으면 «https 주소를 써 주세요»(`E-MH-02`) 안내. 그림 주소 씻기는 하지 않는다 — 부르는 쪽이 `TwSafeHtml.cssUrl(httpsOf(u))` 로 safe-html 에 맡긴다(페이지에 http 주소는 안 들어간다).
+
+**만드는 법** — 만들지 않는다(받는 것 없음 · 실릴 때 바로). safe-html.js · error-codes.js 뒤, `myhome-edit.js` · `myhome-desktop.js` · app.js 보다 먼저 싣는다:
+
+```js
+const mhBgUrl = TwMhBgUrl;   // myhome-edit.js 머리 — myhome-desktop.js(옛 IIFE)는 TwMhBgUrl 을 바로 부른다
+```
+
+**내놓는 것** — `httpsOf(u)` · `createBgProbe({ makeImage, onFail })` → `probe(raw)`(http 였던 주소만 · 같은 주소 한 번) · `probeOwnerBg(raw)`(앱이 쓰는 한 벌 — 못 받으면 `E-MH-02`).
+
+**함정** — 안내는 **내 배경일 때만** 부른다(바탕화면 `advApplyBg` 는 `!advVisiting`, 창 바깥 `applyMyHomeBg` 는 `!_mhViewingUserId()`) — 친구 홈 구경에서 남의 배경 오류를 띄우지 않는다. 진단 줄에 주소를 싣지 않는다.
+검사: `checks/sim-mh-bg-url.js`(입력 → 출력 · 불러 보기 · 그리는 곳 두 군데를 떼어 돌림 · 깨 보기).
+
 ## `myhome-sticker-rules.js` — 🔒 스티커 잠금 · 그리는 순서
 
 **책임** — 마이홈 스티커의 잠금 판단과 그리는 순서(뒤 → 앞) 한 벌. 순수 함수만 — DOM · firebase 를 모른다(받은 스티커 묶음의 `z` · `locked` 칸만 고친다).
@@ -172,10 +187,10 @@ const mhStickerRules = TwMyHomeStickerRules;   // myhome-edit.js(스티커 끌�
 TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ```
 
-**내놓는 것** — `isLocked(s)` · `setLocked(s, on)`(풀면 칸을 지운다) · `orderedIds(stickers)` → 뒤 → 앞 id 배열 · `nextZ(stickers)` → 새 스티커 z · `move(stickers, sid, ±1)` → 옮겼으면 true(모두에게 0,1,2… 를 다시 매긴다).
+**내놓는 것** — `isLocked(s)` · `setLocked(s, on)`(풀면 칸을 지운다) · `orderedIds(stickers)` → 뒤 → 앞 id 배열 · `nextZ(stickers)` → 새 스티커 z · `move(stickers, sid, ±1)` → 옮겼으면 true(모두에게 0,1,2… 를 다시 매긴다) · `hitsAddBtn(rect, x, y)` → 누른 자리가 [+ 스티커] 버튼 안인가(버튼을 가린 스티커가 그 자리 클릭을 버튼에 넘길 때 — `myhome-edit.js`).
 
 **함정** — 순서를 키 이름으로 바꾸지 말 것: Realtime DB 는 키를 사전순으로 돌려준다. `z` 없는 옛 스티커는 키 순서대로 새 스티커들보다 뒤.
-잠금은 자리 · 크기 · 회전만 — 끌기(`myhome-edit.js`) · 편집 모드 · ◎ · 전부 화면 안으로가 본다. 지우기 · 링크 · 움직임 · 순서는 잠겨도 된다.
+잠금은 편집 모드 밖 끌기(`myhome-edit.js`) · ◎ · 전부 화면 안으로만 막는다. 우클릭 · ✎ 편집 모드(이동 · 크기 · 회전)는 잠겨도 되고 잠금은 그대로 남는다 — ✎ 는 창 밖의 잠긴 스티커도 창 안으로 당긴다. 지우기 · 링크 · 움직임 · 순서도 잠겨도 된다.
 옛 앱은 `z` · `locked` 를 모른다 — 만든 차례로 그리고 잠금 없이 움직인다(칸은 지우지 않고 남긴다).
 검사: `checks/sim-myhome-sticker-rules.js`.
 
@@ -188,3 +203,13 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 **함정** — 토스트 · `title` · `textContent` 는 씻지 않는다(말랑이 선물 토스트가 `&lt;` 를 글자로 보이던 자리). 허용 안 된 주소는 그리지 않고 빈 칸 · 기본 모양으로 둔다.
 `myhome-desktop.js` 모험 시나리오는 상수 표의 고정 마크업이라 검사 예외(`checks/sim-safe-html.js` ALLOW)에 이유와 함께 있다. ⚠️ 파티 방장이 보내는 `storyHtml` 은 남은 구멍 — 받은 마크업을 그대로 그린다(비트 id 로 바꾸는 일은 따로 결정).
 검사: `checks/sim-safe-html.js`.
+
+## `mh-pad-pos.js` — 🎨 마이홈 창 자리 기억(스티커 여백)
+
+**책임** — 스티커가 창 밖에 있어 마이홈 창을 양쪽으로 넓힐 때(여백), 창 자리를 «여백을 뺀 마이홈 자리» 로 기억하고 놓을 때 지금 여백만큼 뺀다. 렌더러 모듈이 아니라 **main.js 가 `require`** 한다(순수 함수 · deps 없음).
+
+**내놓는 것** — `rememberOf(창 좌상단, 얹힌 여백)` → 기억할 자리 · `placeOf(기억한 자리, 놓을 여백)` → 창 좌상단(기억 없으면 `null` — 가운데에 놓인다). main.js 는 창 자리를 기억하는 곳(`'moved'` · 줌 · 모니터 · 표시설정)이 전부 `_rememberPos` 를 지나고, `_applyConfigMode('myhome')` 이 `placeOf` 로 놓는다.
+
+**함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
+
+검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).

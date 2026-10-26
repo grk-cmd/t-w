@@ -367,7 +367,7 @@ async function judge(S){
     chk(/const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  firebase: friendsFirebaseMod,\n  api: friendsApiMod,\n  source: \(\)=>TwSourceSwitch\.store\.pick\('friends'\),[^\n]*\n  serverFirst: TwSourceSwitch\.serverFirst,/.test(a), '  ↳ 포트가 provider 둘 · 스위치(원격 설정 friendsApi — 설정이 없으면 켜짐)를 받는다');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: \(\.\.\.a\)=>firebaseAPI\.apiGetAuthed\(\.\.\.a\),[^\n]*\n  getCard: [^\n]*\n  wait: \(ms\)=>new Promise\(r=>setTimeout\(r, ms\)\),/.test(a), '  ↳ api provider 가 로그인 API 통로(firebase-init apiGetAuthed) · 쉬기를 받는다');
     const fi = strip(S.FI);
-    chk(/const _authApi = \(window\.TwApi && window\.TwApi\.client\) \? window\.TwApi\.createApiClient\(\{\n    baseUrl: window\.TwApi\.client\.baseUrl\(\), fetch: \(\.\.\.a\) => window\.fetch\(\.\.\.a\), getToken: \(\) => _getIdToken\(false\), backoffMs: 0,\n  \}\) : null;/.test(fi)
+    chk(/const _authApi = \(window\.TwApi && window\.TwApi\.client\) \? window\.TwApi\.createApiClient\(\{\n    baseUrl: window\.TwApi\.client\.baseUrl\(\), fetch: \(\.\.\.a\) => window\.fetch\(\.\.\.a\), getToken: \(\) => _getIdToken\(false\), backoffMs: 0,[^\n]*\n  \}\) : null;/.test(fi)
       && /apiGetAuthed\(path, opts\)\{ return _authApi \? _authApi\.get\(path, opts\) : Promise\.reject\(/.test(fi),
       '  ↳ firebase-init — 로그인 API 통로: 공용 주소 · Firebase ID 토큰 · 쉬기 끔(공용 통로를 쉬게 하지 않게) · 없으면 거절(옛 길)');
     chk(/  listFriends: \(\.\.\.a\)=>friendsPortMod\.listFriends\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 이름 받기(listFriends)도 포트로');

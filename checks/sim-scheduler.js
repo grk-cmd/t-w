@@ -67,7 +67,7 @@ function mkEnv(opt){
   const document = {
     getElementById: id => (opt.only && !opt.only.includes(id)) ? null : (els[id] = els[id] || mkEl('div', id)),
     createElement: tag => mkEl(tag),
-    querySelector: () => null, querySelectorAll: () => [],
+    querySelector: (q) => (opt.qs && opt.qs[q]) || null, querySelectorAll: () => [],
     addEventListener(){}, removeEventListener(){},
     body: mkEl('body'),
   };
@@ -75,8 +75,9 @@ function mkEnv(opt){
   const setInterval = (fn, ms) => { timers.push({ fn, ms }); return timers.length; };
   const raf = fn => 0;
   const g = { viewing: null, friends: {} };
-  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', SRC['net-ready.js'] + '\nvar TwNetReady = window.TwNetReady;\n' + (opt.src || MOD))
-    (win, undefined, document, localStorage, win.firebaseAPI, setInterval, raf, 1280, 800);
+  const setTimeoutF = opt.nowTimers ? (fn) => { fn(); return 0; } : setTimeout;   // 알림 버튼의 한 박자 뒤 탭 누르기를 바로 돌린다
+  new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'setInterval', 'requestAnimationFrame', 'innerWidth', 'innerHeight', 'setTimeout', SRC['net-ready.js'] + '\nvar TwNetReady = window.TwNetReady;\n' + (opt.src || MOD))
+    (win, undefined, document, localStorage, win.firebaseAPI, setInterval, raf, 1280, 800, setTimeoutF);
   const S = win.MhScheduler.createScheduler({
     getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), getDisplayName: () => '나나',
     viewingUserId: () => g.viewing, myHomeFriends: () => g.friends,
@@ -86,6 +87,7 @@ function mkEnv(opt){
     closeChipPopups: () => {}, positionInputBelowChar: () => {},
     inboxUnreadCount: () => opt.inbox || 0, refreshFriendTabBadge: () => { g.friendBadge = (g.friendBadge || 0) + 1; },
     bellSeenKey: 'tw.bellSeenTs',
+    twNav: opt.twNav || { go(){}, NAV: {} },
   });
   return { S, win, els, ls, subs, timers, toasts, escWins, winListeners, g, api, el: id => document.getElementById(id) };
 }
@@ -168,6 +170,24 @@ sec('── 3. 🔔 뱃지 · 알림 목록', () => {
   const inboxBtn = list.children.find(c => c.className === 'bell-inbox-btn');
   try{ inboxBtn.onclick(); }catch(_){}
   chk(!!inboxBtn && E.el('bellWin').style.display === 'none' && !E.S.isBellOpen(), '[📪 알림함 확인] → 알림창이 닫힌다(예전엔 typeof closeBell 이 늘 거짓이라 안 닫혔다)');
+  /* [📪 알림함 확인] → 마이홈 · 우편함 탭 · 소식 종류 «전체» (예전 판과 같음) */
+  const clicked = [], navs = [];
+  const tab = (n) => { const t = mkEl('button'); t.onclick = () => clicked.push(n); return t; };
+  const E3 = mkEnv({ inbox: 1, nowTimers: true, twNav: { go: (k) => navs.push(k), NAV: { MY_HOME: 'myHome' } },
+    qs: { '.mh-tab[data-tab="mail"]': tab('mail'), '#mhInboxTabs .mh-ibx-tab[data-tag="all"]': tab('all') } });
+  E3.S.renderBellList();
+  const b3 = E3.el('bellList').children.find(c => c.className === 'bell-inbox-btn');
+  b3.onclick();
+  chk(navs.join() === 'myHome' && clicked.join() === 'mail,all', '★ [📪 알림함 확인] — 마이홈 → 우편함 탭 → 소식 종류 «전체» (고른 종류에 새 공지가 가리지 않게)');
+  { /* 깨 보기 — «전체» 누르는 줄을 빼면 빨강 */
+    const bad = MOD.replace("      if(allTab) allTab.click();\n", '');
+    const c2 = [];
+    const t2 = (n) => { const t = mkEl('button'); t.onclick = () => c2.push(n); return t; };
+    const Eb = mkEnv({ src: bad, inbox: 1, nowTimers: true, qs: { '.mh-tab[data-tab="mail"]': t2('mail'), '#mhInboxTabs .mh-ibx-tab[data-tag="all"]': t2('all') } });
+    Eb.S.renderBellList();
+    Eb.el('bellList').children.find(c => c.className === 'bell-inbox-btn').onclick();
+    chk(bad !== MOD && c2.join() === 'mail', '  깨 보기 — «전체» 를 안 누르면 우편함 탭만(빨강)');
+  }
   const E2 = mkEnv();
   E2.S.renderBellList();
   chk(E2.el('bellList').textContent.includes('오늘 예정된 일정이 없어요'), '아무것도 없으면 «오늘 예정된 일정이 없어요»');

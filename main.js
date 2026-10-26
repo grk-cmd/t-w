@@ -90,9 +90,11 @@ const HoverPoke = require('./hover-poke');
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
+const MhPadPos = require('./app/parts/myhome/mh-pad-pos');   // 🎨 마이홈 창 자리 — 스티커 여백을 뺀 자리로 기억
 /* 호출부 17곳의 이름·형태를 그대로 두기 위한 이음매 — 본문은 모듈에 있다.
    ⚠️ 화살표 상수가 아니라 **함수 선언**이다. 원래가 그랬고(호이스팅), 여기서 모양을 바꾸면
      정의보다 앞선 자리에서 부르는 코드가 생겼을 때 조용히 TDZ 로 죽는다. */
@@ -487,10 +489,19 @@ function applyUiZoom(op, why){
    렌더러가 «창 밖으로 나간 만큼» 을 CSS px 로 보내 오면(setConfigMode 셋째 인자) 마이홈 창을 양쪽으로 그만큼 넓힌다.
    ★ 양쪽 같은 폭으로 넓힌다 — 마이홈 창은 OS 창 가운데에 놓이므로(#myHomeWin left/top 50%) 한쪽만 넓히면 마이홈이 움직인다.
    ★ 크기를 정하는 자리가 전부 _modeSize 를 지나므로(줌 · 모니터 변경 · 표시 설정) 여기 한 곳에 더한다.
-   _mhPadApplied 는 지금 창에 얹힌 여백(DIP) — 여백이 바뀔 때 창 좌상단을 그만큼 옮겨 마이홈이 제자리에 있게 한다. */
+   _mhPadApplied 는 지금 창에 얹힌 여백(DIP) — savedPos.myhome 은 여백을 뺀 자리로 기억한다(mh-pad-pos.js). */
 const MH_PAD_MAX = 400;               // 한쪽 여백 상한(CSS px) — 아주 멀리 나간 옛 스티커 하나로 창이 끝없이 커지지 않게
 let _mhPad = { x: 0, y: 0 };          // CSS px
 let _mhPadApplied = { x: 0, y: 0 };   // DIP
+/* 창을 옮긴 뒤 그 모드의 자리를 기억한다 — 마이홈만 여백을 뺀 자리(놓는 쪽 _applyConfigMode 와 짝) */
+function _rememberPos(m, b){
+  savedPos[m] = m === 'myhome' ? MhPadPos.rememberOf(b, _mhPadApplied) : { x: b.x, y: b.y };
+}
+/* 지금 줌에서 창에 얹을 여백(DIP) — 크기(_modeSize)와 같은 식. 놓기 · 줌 맞춤이 같이 부른다 */
+function _mhPadDip(){
+  const z = (uiZoom > 0) ? uiZoom : 1;
+  return { x: Math.round(_mhPad.x * z), y: Math.round(_mhPad.y * z) };
+}
 function _mhPadOf(v){
   const n = (k) => { const x = Number(v && v[k]); return isFinite(x) && x > 0 ? Math.min(MH_PAD_MAX, Math.ceil(x)) : 0; };
   return { x: n('x'), y: n('y') };
@@ -513,11 +524,12 @@ function _refitConfigForZoom(m){
   const b = mainWindow.getBounds();
   const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
   if(_sameRect(rect, b)) return;
+  if(m === 'myhome') _mhPadApplied = _mhPadDip();   // 창 크기는 새 줌 여백 — 'moved'(setBounds 중) · 아래 기억이 옛 여백으로 적지 않게
   mainWindow.setResizable(true);    // 고정 크기 상태로 setBounds 하면 크기가 깎인다 — setConfigMode 와 같은 순서
   mainWindow.setBounds(rect);
   mainWindow.setResizable(false);
   _noteApplied(rect, false);
-  savedPos[m] = { x: rect.x, y: rect.y };
+  _rememberPos(m, rect);
   _diagLog('[창] 줌 ' + Math.round(uiZoom * 100) + '% — ' + m + ' 창 크기 맞춤 ' + rect.width + 'x' + rect.height);
 }
 const _zoomIn  = v => v * uiZoom;   // CSS px → DIP
@@ -563,6 +575,7 @@ function _exitNow(){
   try{ sysinput.stopGlobalHooks(); }catch(_){}
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
+  try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
 }
@@ -931,7 +944,8 @@ function _kbShowGuide(){
     message: '키보드 입력이 감지되지 않고 있어요',
     detail: '타이핑해도 캐릭터가 작업 중으로 인식하지 못해요.\n\n'
       + '・키보드 보안 프로그램(TouchEn nxKey · AhnLab Safe Transaction 등 은행·공공기관용)이 켜져 있으면 키 입력을 막을 수 있어요. 잠시 꺼 보거나 PC 를 다시 시작해 확인해 주세요.\n'
-      + '・작업 중인 프로그램을 «관리자 권한으로 실행» 했다면, Together Working 도 관리자 권한으로 실행해야 키를 볼 수 있어요.',
+      + '・작업 중인 프로그램을 «관리자 권한으로 실행» 했다면, Together Working 도 관리자 권한으로 실행해야 키를 볼 수 있어요. (관리자 권한으로 실행하면 컴퓨터 켤 때 자동 실행은 Windows 가 막아요)\n'
+      + '・둘 다 아닌데도 계속 이 알림이 뜨면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
     buttons: ['확인'], defaultId: 0, cancelId: 0,
     checkboxLabel: '다시 보지 않기',
   };
@@ -1337,11 +1351,18 @@ let _pollTimer = null;
    _guardStuckClickCapture()까지 같이 건너뛰어 '마우스가 영영 안 먹는' 상태를 풀어줄 안전장치가
    통째로 죽는다 — 소수 유저만 겪는 마우스 먹통 제보의 유력 후보. 이제는 무슨 일이 있어도 부른다. */
 let _activeWinFailStreak = 0;
+/* 🩺 메인 멈춤 · 활성 창 조회 시간을 1분에 한 줄(느린 것이 있을 때만 — shared/input-diag.js).
+   맥 전역 키 훅은 키마다 main 스레드에 묻고 기다리므로, 여기서 잰 멈춤이 곧 키가 밀린 시간이다. */
+const _lagWatch = InputDiag.createLagWatch({ now: () => Date.now(), log: (m) => _diagLog(m), front: () => lastActiveState.exeName });
+let _lagTimer = null;
 function startActiveWinPolling(){
   if(_pollTimer) return;
+  _lagTimer = setInterval(() => _lagWatch.tick(), InputDiag.LAG_TICK_MS);
   _pollTimer = setInterval(async ()=>{
     try{
+      const t0 = Date.now();
       const w = await activeWin();
+      _lagWatch.activeWinDone(Date.now() - t0);
       if(!w || !w.owner){
         _activeWinFailStreak++;
         // 20회(=10초) 연속 실패면 한 번만 남긴다 — 이 환경에선 포커싱 어플/펜 앱 판정도 같이 죽어 있다.
@@ -1809,6 +1830,91 @@ const MODE_SIZE = {
 const CONFIG_WIDTH = MODE_SIZE.launcher.w;
 const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
 
+/* config 모드(런처 · 생성기 · 마이홈) ↔ run 모드(캐릭터 실행) 창 맞추기 — 렌더러 요청(companion:setConfigMode)과
+   렌더러가 죽어 다시 불러올 때(_resetWindowForReload) 같이 쓴다. mode: 'launcher' | 'creator' | 'myhome' | 'animal' | 'run' */
+function _applyConfigMode(isConfig, mode, extra){
+  _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
+  if (!mainWindow) return;
+  // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
+  //   다르게 지정해둔 듀얼 모니터 환경에서, 런처와 동떨어진 엉뚱한 모니터에 뜨던 문제를 방지.
+  let display;
+  if(mode==='myhome'){
+    const b = mainWindow.getBounds();
+    const centerPoint = { x: b.x + Math.round(b.width/2), y: b.y + Math.round(b.height/2) };
+    display = screen.getDisplayNearestPoint(centerPoint);
+  } else {
+    display = getRunDisplay();
+  }
+  const wa = display.workAreaSize;
+  const waPos = display.workArea;   // {x, y, width, height} — 전역 좌표계에서의 작업영역(멀티모니터 대응)
+  if (isConfig) {
+    // 설정 화면: mode에 따라 크기 다름. 사용자가 옮긴 적 있으면 그 위치, 없으면 선택된 모니터 중앙.
+    /* 🎨 스티커 여백 — 크기(_modeSize)가 읽으니 재기 전에 바꾼다. 옛 렌더러(셋째 인자 없음)면 0 */
+    if(mode==='myhome') _mhPad = _mhPadOf(extra);
+    const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
+    /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
+       고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
+       그걸 판정 전에 부르면 isResizable() 이 항상 true 가 되어 판정이 영영 성립하지 않는다.
+       (여기서 순서를 되돌리면 억제가 조용히 죽는다 — sim-overlay-apply-dedupe.js 가 지킨다.) */
+    let remembered = savedPos[mode];
+    // ★ creator(캐릭터 생성)로 전환할 때는 "지금 창이 있던 자리"를 그대로 이어받도록 강제.
+    //   사용자가 런처를 옮겨둔 자리에서 캐릭터 생성을 누르면 그 자리에서 열리길 원함(중앙으로 튀거나
+    //   이전 creator 세션의 좌표로 되돌아가지 않게). launcher → creator, run → creator 전환 모두 대응.
+    if(mode==='creator'){
+      const b = mainWindow.getBounds();
+      // 현재가 launcher/creator/myhome 크기면 그 좌상단을 그대로. run(전체화면)이면 그 모니터 중앙으로.
+      const curMode = sizeToMode(b.width, b.height);
+      if(curMode){ remembered = { x: b.x, y: b.y }; }
+      else       { remembered = null; }   // run에서 진입한 경우엔 아래 중앙 계산 사용
+      savedPos[mode] = remembered;
+    } else if(mode==='myhome'){
+      // ★ 마이홈 위치 기억(요청사항) — 유저가 옮겨둔 위치가 있으면 거기로, 없으면(첫 열기) 런처가 있는
+      //   모니터 중앙. 'moved' 핸들러가 sizeToMode('myhome')로 위치를 계속 기록해줌.
+      remembered = savedPos.myhome || null;
+      const padDip = _mhPadDip();
+      remembered = MhPadPos.placeOf(remembered, padDip);   // 기억은 여백 없는 자리('moved') — 지금 여백만큼 왼쪽 위로
+      _mhPadApplied = padDip;
+    }
+    /* 📐 [2026-09-15 제보 1·2] 크기·위치를 작업영역에 맞춘다 — 근거는 _fitConfigRect 위 주석.
+       예전 «remembered ? 그대로 : 중앙» 은 그 함수 안에 그대로 있다. 여기서 직접 계산으로 되돌리지 말 것. */
+    const cfgRect = _fitConfigRect(MODE_SIZE[mode] ? mode : 'launcher', sz, display, remembered);
+    /* 🔁 여기도 같은 억제 — 마이홈이 열려 있는 동안에도 layoutSeats 가 이 IPC 를 계속 보낸다
+       (applyDesktopRunClass 는 마이홈이면 mode='myhome' 으로 부른다). 위 savedPos 기록은
+       이미 끝난 뒤라 건너뛰어도 위치 기억은 그대로다 — 건너뛰는 것은 창 조작뿐이다. */
+    let cfgSame = false;
+    try{ cfgSame = _winAlreadyIs(cfgRect, false) && mainWindow.isResizable() === false; }catch(_){}
+    if(cfgSame){ _ovSkipped++; return; }
+    mainWindow.setResizable(true);      // ★ 고정 크기 상태로 setBounds 하면 크기가 깎인다 — 잠깐 풀었다 닫는다
+    mainWindow.setBounds(cfgRect);
+    mainWindow.setResizable(false);
+    mainWindow.setAlwaysOnTop(false);   // 런처/생성기에서는 다른 프로그램 작업을 방해하지 않게 항상위 해제
+    _noteApplied(cfgRect, false);       // 🩺 OS 가 크기를 깎아도 같은 요청이 반복되지 않게
+  } else {
+    // 실행 화면: 선택된 모니터를 꽉 채우는 전체화면 투명 오버레이 (전역 좌표 x/y 포함 → 2번 모니터도 정확히 이동)
+    // ★ 높이는 overlay.runOverlayHeight 를 거친다 — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
+    const runRect = { x: waPos.x, y: waPos.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, display) };
+    /* 🔁 이미 그 상태면 아무것도 하지 않는다(_winAlreadyIs 주석 — 실측 906회/30분).
+       setBounds·setAlwaysOnTop 을 다시 부르는 것 자체가 뒤 창의 합성을 흔든다. */
+    if(_winAlreadyIs(runRect, true)){ _ovSkipped++; return; }
+    mainWindow.setBounds(runRect);
+    overlay.logGeometry('run 진입' + (_ovSkipped ? ' (같은 요청 ' + _ovSkipped + '건 생략 후)' : ''));   // 🩺 실제 틈이 생겼는지 기록(제보 재확인용)
+    _ovSkipped = 0;
+    // 실행 중엔 캐릭터가 항상 보여야 하니 항상위 유지 — level을 'screen-saver'(가장 높은 단계)로
+    // 줘서, 다른 프로그램(게임 오버레이, RGB 제어 소프트웨어 등)이 자기도 "항상 위"로 떠 있으려 할 때
+    // 그쪽이 우리보다 더 높은 단계를 쓰면 우리 캐릭터가 가려질 수 있음 — 최고 단계를 써서 그런 경우를 최소화.
+    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    _noteApplied(runRect, true);        // 🩺 위와 같은 이유. 실측 417회/9분을 만든 자리다
+  }
+}
+/* 렌더러가 죽어 다시 불러오면 화면은 런처로 돌아오는데 창은 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남아,
+   덮인 채 아무것도 못 누르게 된다 — 창부터 런처로 되돌리고 클릭을 받는다(다시 불러온 렌더러가 제 모드를 다시 보낸다). */
+function _resetWindowForReload(){
+  if(!mainWindow || mainWindow.isDestroyed()) return;
+  _applyConfigMode(true, 'launcher');
+  _lastIgnoreRequested = false;
+  _reapplyIgnoreMouse();
+  _diagLog('[렌더러] 다시 불러오기 전 창을 런처로 되돌림');
+}
 /* 🩺 [2026-10-08 제보 #1 · 보류 #11 공용] 렌더러 · GPU 프로세스의 죽음과 로드 실패를 기록한다.
    [왜] «설치 후 아무것도 안 보이는데 클릭은 된다» 의 남은 갈래가 «렌더러가 한 번도 안 그려졌다(로드 실패 · 크래시 · 백신 격리)» 인데,
      이 파일에 그 이벤트 처리가 하나도 없어서 로그로 가를 수가 없었다. OBS 충돌 제보(#11)의 GPU 프로세스 종료도 같은 통로로 남는다.
@@ -1824,6 +1930,8 @@ function _watchRendererHealth(win){
     const reason = (d && d.reason) || '?';
     _diagLog('[렌더러] 프로세스 종료 — reason=' + reason + ' exitCode=' + (d && d.exitCode) + ' | 자동 재로드 ' + _rendererReloads + '/' + RENDERER_AUTO_RELOAD_MAX);
     if(reason === 'clean-exit' || reason === 'killed') return;   // 앱이 닫히는 중 · 사용자가 끈 것
+    /* 다시 불러오든(런처로 돌아옴) 안 불러오든(죽은 화면) 모니터 전체를 덮은 채 둘 수는 없다 — 횟수 판정보다 먼저 */
+    if(win === mainWindow){ try{ _resetWindowForReload(); }catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); } }
     if(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX) return;
     _rendererReloads++;
     setTimeout(() => { try{ if(!win.isDestroyed()) wc.reload(); _diagLog('[렌더러] 자동 재로드 실행'); }catch(err){ _diagLog('[렌더러] 자동 재로드 실패 — ' + (err && err.message)); } }, 1000);
@@ -2399,7 +2507,7 @@ function createWindow() {
     const b = mainWindow.getBounds();
     const m = sizeToMode(b.width, b.height);
     if (m) {
-      savedPos[m] = { x: b.x, y: b.y };
+      _rememberPos(m, b);
     }
   });
 
@@ -3373,7 +3481,7 @@ function createWindow() {
         /* 📐 줌 걸린 크기로, 작업영역에 맞춰 — 직접 setBounds 하면 _fittedSize 가 안 남아 다음 sizeToMode 가 못 알아본다. */
         const mvc = _fitConfigRect(curMode, _modeSize(curMode), target, null);
         mainWindow.setBounds(mvc);
-        savedPos[curMode] = { x: mvc.x, y: mvc.y };
+        _rememberPos(curMode, mvc);
       } else {
         // run(전체화면): 그 모니터 작업영역 꽉 채움
         // ★ 높이는 overlay.runOverlayHeight 를 거친다 — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
@@ -3390,81 +3498,7 @@ function createWindow() {
 
   // config 모드(런처/생성기) ↔ run 모드(캐릭터 실행) 전환
   // mode: 'launcher' | 'creator' | 'run'
-  ipcMain.on('companion:setConfigMode', (e, isConfig, mode, extra) => {
-    _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
-    if (!mainWindow) return;
-    // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
-    //   다르게 지정해둔 듀얼 모니터 환경에서, 런처와 동떨어진 엉뚱한 모니터에 뜨던 문제를 방지.
-    let display;
-    if(mode==='myhome'){
-      const b = mainWindow.getBounds();
-      const centerPoint = { x: b.x + Math.round(b.width/2), y: b.y + Math.round(b.height/2) };
-      display = screen.getDisplayNearestPoint(centerPoint);
-    } else {
-      display = getRunDisplay();
-    }
-    const wa = display.workAreaSize;
-    const waPos = display.workArea;   // {x, y, width, height} — 전역 좌표계에서의 작업영역(멀티모니터 대응)
-    if (isConfig) {
-      // 설정 화면: mode에 따라 크기 다름. 사용자가 옮긴 적 있으면 그 위치, 없으면 선택된 모니터 중앙.
-      const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
-      /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
-         고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
-         그걸 판정 전에 부르면 isResizable() 이 항상 true 가 되어 판정이 영영 성립하지 않는다.
-         (여기서 순서를 되돌리면 억제가 조용히 죽는다 — sim-overlay-apply-dedupe.js 가 지킨다.) */
-      let remembered = savedPos[mode];
-      // ★ creator(캐릭터 생성)로 전환할 때는 "지금 창이 있던 자리"를 그대로 이어받도록 강제.
-      //   사용자가 런처를 옮겨둔 자리에서 캐릭터 생성을 누르면 그 자리에서 열리길 원함(중앙으로 튀거나
-      //   이전 creator 세션의 좌표로 되돌아가지 않게). launcher → creator, run → creator 전환 모두 대응.
-      if(mode==='creator'){
-        const b = mainWindow.getBounds();
-        // 현재가 launcher/creator/myhome 크기면 그 좌상단을 그대로. run(전체화면)이면 그 모니터 중앙으로.
-        const curMode = sizeToMode(b.width, b.height);
-        if(curMode){ remembered = { x: b.x, y: b.y }; }
-        else       { remembered = null; }   // run에서 진입한 경우엔 아래 중앙 계산 사용
-        savedPos[mode] = remembered;
-      } else if(mode==='myhome'){
-        // ★ 마이홈 위치 기억(요청사항) — 유저가 옮겨둔 위치가 있으면 거기로, 없으면(첫 열기) 런처가 있는
-        //   모니터 중앙. 'moved' 핸들러가 sizeToMode('myhome')로 위치를 계속 기록해줌.
-        remembered = savedPos.myhome || null;
-        /* 🎨 스티커 여백 — 옛 렌더러(셋째 인자 없음)면 0. 여백이 바뀐 만큼 좌상단을 옮겨 마이홈을 제자리에 둔다. */
-        _mhPad = _mhPadOf(extra);
-        const _z = (uiZoom > 0) ? uiZoom : 1;
-        const padDip = { x: Math.round(_mhPad.x * _z), y: Math.round(_mhPad.y * _z) };
-        if(remembered) remembered = { x: remembered.x - (padDip.x - _mhPadApplied.x), y: remembered.y - (padDip.y - _mhPadApplied.y) };
-        _mhPadApplied = padDip;
-      }
-      /* 📐 [2026-09-15 제보 1·2] 크기·위치를 작업영역에 맞춘다 — 근거는 _fitConfigRect 위 주석.
-         예전 «remembered ? 그대로 : 중앙» 은 그 함수 안에 그대로 있다. 여기서 직접 계산으로 되돌리지 말 것. */
-      const cfgRect = _fitConfigRect(MODE_SIZE[mode] ? mode : 'launcher', sz, display, remembered);
-      /* 🔁 여기도 같은 억제 — 마이홈이 열려 있는 동안에도 layoutSeats 가 이 IPC 를 계속 보낸다
-         (applyDesktopRunClass 는 마이홈이면 mode='myhome' 으로 부른다). 위 savedPos 기록은
-         이미 끝난 뒤라 건너뛰어도 위치 기억은 그대로다 — 건너뛰는 것은 창 조작뿐이다. */
-      let cfgSame = false;
-      try{ cfgSame = _winAlreadyIs(cfgRect, false) && mainWindow.isResizable() === false; }catch(_){}
-      if(cfgSame){ _ovSkipped++; return; }
-      mainWindow.setResizable(true);      // ★ 고정 크기 상태로 setBounds 하면 크기가 깎인다 — 잠깐 풀었다 닫는다
-      mainWindow.setBounds(cfgRect);
-      mainWindow.setResizable(false);
-      mainWindow.setAlwaysOnTop(false);   // 런처/생성기에서는 다른 프로그램 작업을 방해하지 않게 항상위 해제
-      _noteApplied(cfgRect, false);       // 🩺 OS 가 크기를 깎아도 같은 요청이 반복되지 않게
-    } else {
-      // 실행 화면: 선택된 모니터를 꽉 채우는 전체화면 투명 오버레이 (전역 좌표 x/y 포함 → 2번 모니터도 정확히 이동)
-      // ★ 높이는 overlay.runOverlayHeight 를 거친다 — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
-      const runRect = { x: waPos.x, y: waPos.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, display) };
-      /* 🔁 이미 그 상태면 아무것도 하지 않는다(_winAlreadyIs 주석 — 실측 906회/30분).
-         setBounds·setAlwaysOnTop 을 다시 부르는 것 자체가 뒤 창의 합성을 흔든다. */
-      if(_winAlreadyIs(runRect, true)){ _ovSkipped++; return; }
-      mainWindow.setBounds(runRect);
-      overlay.logGeometry('run 진입' + (_ovSkipped ? ' (같은 요청 ' + _ovSkipped + '건 생략 후)' : ''));   // 🩺 실제 틈이 생겼는지 기록(제보 재확인용)
-      _ovSkipped = 0;
-      // 실행 중엔 캐릭터가 항상 보여야 하니 항상위 유지 — level을 'screen-saver'(가장 높은 단계)로
-      // 줘서, 다른 프로그램(게임 오버레이, RGB 제어 소프트웨어 등)이 자기도 "항상 위"로 떠 있으려 할 때
-      // 그쪽이 우리보다 더 높은 단계를 쓰면 우리 캐릭터가 가려질 수 있음 — 최고 단계를 써서 그런 경우를 최소화.
-      mainWindow.setAlwaysOnTop(true, 'screen-saver');
-      _noteApplied(runRect, true);        // 🩺 위와 같은 이유. 실측 417회/9분을 만든 자리다
-    }
-  });
+  ipcMain.on('companion:setConfigMode', (e, isConfig, mode, extra) => { _applyConfigMode(isConfig, mode, extra); });
 
   // 창 드래그 이동 (run 모드 deskBar grip 등, 수동 dx/dy 방식이 필요한 경우용)
   ipcMain.on('companion:moveWindow', (e, dx, dy) => {
@@ -3678,7 +3712,7 @@ function createWindow() {
           mainWindow.setBounds(rect);
           mainWindow.setResizable(false);
           _noteApplied(rect, false);
-          savedPos[m] = { x: rect.x, y: rect.y };
+          _rememberPos(m, rect);
           _diagLog('[창] 표시설정 변경 — ' + m + ' 창을 작업영역에 다시 맞춤 ' + rect.x + ',' + rect.y + ' ' + rect.width + 'x' + rect.height);
         }catch(_){}
         return;

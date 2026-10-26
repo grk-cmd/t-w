@@ -1,7 +1,7 @@
 /* sim-help-pages.js — 📘 도움말 웹 페이지(hosting/help/)가 깨지지 않았는가
    앱 📘 도움말 칸이 이 페이지를 그대로 보여 주므로, 링크 하나 · 그림 하나가 비어도 사용자가 빈 칸을 본다.
    ・1절: 목차 · 편마다 — / 링크가 가리키는 편 · 그림 파일이 실제로 있다 · 이전 / 다음이 목차 순서와 같다
-   ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/)
+   ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/) · GIF 없이(움직이는 그림은 mp4) · 하나 2MB 까지
    ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
           ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
    ・4절: 깨 보기
@@ -23,16 +23,19 @@ const OTHER_PAGES = ['privacy.html', 'link.html'];
 function load(){
   const pages = {};
   for (const f of fs.readdirSync(DIR)) if (f.endsWith('.html') && !OTHER_PAGES.includes(f)) pages[f] = fs.readFileSync(path.join(DIR, f), 'utf8');
-  const files = new Set();
-  const walk = (d, rel) => { for (const f of fs.readdirSync(d)){ const p = path.join(d, f); fs.statSync(p).isDirectory() ? walk(p, rel + f + '/') : files.add(rel + f); } };
+  const files = new Set(), sizes = {};
+  const walk = (d, rel) => { for (const f of fs.readdirSync(d)){ const p = path.join(d, f); const st = fs.statSync(p); if (st.isDirectory()) walk(p, rel + f + '/'); else { files.add(rel + f); sizes[rel + f] = st.size; } } };
   walk(DIR, '');
   const fontCss = fs.readFileSync(path.join(DIR, 'fonts', 'nanum-gothic.css'), 'utf8');
   const toc = JSON.parse(fs.readFileSync(path.join(DIR, 'toc.json'), 'utf8'));
-  return { pages, files, fontCss, toc };
+  return { pages, files, sizes, fontCss, toc };
 }
 
 /* 판정 — 오류 글 목록을 돌려준다(빈 목록이면 통과) */
-function judge({ pages, files, fontCss, toc }){
+// 그림 파일 하나 상한 — 도움말은 앱 우편함 칸에서 열려 한 편 그림이 다 받아져야 보인다
+const IMG_MAX = 2 * 1024 * 1024;
+
+function judge({ pages, files, sizes, fontCss, toc }){
   const errs = [];
   const idx = pages['index.html'] || '';
   const order = [...idx.matchAll(/<li><a href="\/([\w-]+)">/g)].map(m => m[1]);
@@ -47,10 +50,12 @@ function judge({ pages, files, fontCss, toc }){
     const scripts = [...s.matchAll(/<script\b([^>]*)>/g)].map(m => m[1]);
     if (scripts.join('|') !== ' src="/theme.js"| src="/embed.js" defer') errs.push(f + ' — 스크립트가 /theme.js · /embed.js(defer) 두 줄이 아니다');
     if (/data:image|원본 그림|점선 테두리|\[원본/.test(s)) errs.push(f + ' — 시안용 글 · 박아 넣은 그림이 남았다');
+    if (/src="\/img\/[^"]+\.gif"/.test(s)) errs.push(f + ' — GIF 그림이 있다(움직이는 그림은 mp4 <video autoplay loop muted playsinline> — GIF 는 열 배 무겁다)');
     if (/<img\b[^>]*\ssrc="(?!\/)/.test(s)) errs.push(f + ' — 바깥 주소 그림이 있다(사이트 안 /img/ 로 옮긴다 — 원본이 지워지면 깨지고 볼 때마다 남의 사이트로 간다)');
     if (!/<link rel="stylesheet" href="\/tokens\.css">/.test(s) || !files.has('tokens.css')) errs.push(f + ' — 디자인 토큰(/tokens.css · design:build 가 만듦)을 안 싣는다');
     if (!/<link rel="stylesheet" href="\/fonts\/nanum-gothic\.css">/.test(s)) errs.push(f + ' — 나눔고딕을 안 싣는다');
   }
+  for (const f of files) if (f.startsWith('img/') && sizes[f] > IMG_MAX) errs.push(f + ' — ' + (sizes[f] / 1048576).toFixed(1) + 'MB(그림 하나 2MB 까지 — 줄이거나 mp4 · webp 로)');
   /* toc.json(앱 왼쪽 메뉴가 그리는 목차)이 목차 페이지와 같은 순서 · 같은 이름 */
   const idxTitles = [...idx.matchAll(/<li><a href="\/([\w-]+)"><span class="no">[^<]*<\/span>([^<]*)</g)].map(m => m[1] + ' ' + m[2].replace(/&amp;/g, '&').trim());
   const idxGroups = [...idx.matchAll(/<h2>([^<]*)<\/h2>/g)].map(m => m[1]);
@@ -101,7 +106,7 @@ const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
 chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
 
 say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
-const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), fontCss: real.fontCss, toc: JSON.parse(JSON.stringify(real.toc)) });
+const clone = () => ({ pages: Object.assign({}, real.pages), files: new Set(real.files), sizes: Object.assign({}, real.sizes), fontCss: real.fontCss, toc: JSON.parse(JSON.stringify(real.toc)) });
 const breaks = [
   ['그림 파일 하나가 빠짐', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.files.delete(f); }],
   ['편 하나가 빠짐', (w) => { delete w.pages['3.html']; }],
@@ -114,6 +119,8 @@ const breaks = [
   ['toc.json 에 편 하나가 빠짐', (w) => { w.toc[3].pages.pop(); }],
   ['embed.js 를 안 싣는 편', (w) => { w.pages['2.html'] = w.pages['2.html'].replace('<script src="/embed.js" defer></script>', ''); }],
   ['바깥 주소 그림', (w) => { w.pages['5.html'] += '<figure><img src="https://image.aladin.co.kr/Tobe/Note/x.png" alt=""></figure>'; }],
+  ['GIF 그림', (w) => { w.files.add('img/5/99.gif'); w.pages['5.html'] += '<figure><img src="/img/5/99.gif" alt=""></figure>'; }],
+  ['2MB 넘는 그림', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.sizes[f] = IMG_MAX + 1; }],
   ['박아 넣은 그림', (w) => { w.pages['4.html'] += '<img src="data:image/png;base64,AA">'; }],
 ];
 for (const [name, f] of breaks){ const w = clone(); f(w); chk(judge(w).length > 0, name); }

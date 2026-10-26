@@ -242,6 +242,26 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
 
+## `maintenance-gate.js` — 🛠 서버 점검 창
+
+**책임** — Firebase `config/maintenance`(`{ on, endsAt?, message? }` · 웹 관리자가 씀)가 켜진 동안, **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
+
+**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `config/maintenance` 를 구독해 `store.onValue` 에 잇고, 범용 통로(`data-gateway.js` `onOp`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
+
+**내놓는 것**
+- `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).
+- 순수: `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
+
+**함정**
+- «사람이 누른 동작» 은 클릭 · 키 입력 뒤 `ACTIVE_MS`(1초) 안에 나간 요청이다(점검 창 안 입력은 세지 않는다). `navigator.userActivation.isActive` 는 쓰지 않는다 — 아무 데나 누른 뒤 약 5초 참이라 꾸미기 저장 디바운스(3초) · 하트비트에도 창이 뜬다.
+- 따로 된 창(`window.open` — 📖 방명록 · 👑 디자인 스튜디오)은 본창 입력 시계가 못 듣는다. 그런 창을 새로 만들면 열 때 `store.watchInput(그 document)` 를 건다(deps `watchMaintenanceInput` · `d.close()` 뒤 — `document.open` 이 리스너를 지운다). 점검 창은 마지막으로 누른 창 안에 그린다.
+- 잡는 문은 범용 통로 · API 통로 둘뿐이다 — `runTransaction` 직접 호출 · 함수 호출 · 방 서버 웹소켓으로만 닿는 기능은 창 없이 실패한다(오류 번호 토스트도 점검 중엔 꺼짐).
+- 끝나도 저절로 다시 켜지 않는다(로컬 기능을 쓰는 중일 수 있다). 다만 점검 중 거부된 `onValue` 구독은 다시 붙지 않으니, 다시 켜야 친구 · 우편 · 방이 이어진다.
+- 점검 때 Firebase 를 잠그는 규칙도 `config/maintenance` **읽기는 열어 둬야** 한다 — 닫으면 구독이 끊겨 끝난 것을 모른다.
+- 창이 떠 있는 동안 관리자가 끝 시각 · 문구를 바꾸면 바로 다시 그린다.
+
+검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 7).
+
 ## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
 
 - **책임**: 남이 쓸 수 있는 글(닉네임 · 메모 · 서버 값)을 **친 그대로 보이게** 하고 HTML 로는 절대 안 읽히게 한다. «초마 <뚱쟁이>» · «병준이<3» · «>_<» 는 진짜 이름이다 — 지우거나 거절하지 않는다. 주소 · CSS 값도 여기서 거른다. 순수 함수 · DOM 없음.
@@ -272,6 +292,18 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
 
+## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
+
+- **책임**: crossOrigin 그림이 처음 실패했을 때 다시 받을 주소를 정하는 규칙 한 곳(순수 함수).
+- **쓰는 법**: `TwImgRetry.retryUrl(u)` — 다시 받을 주소(뒤에 `twr=1`), 다시 받지 않을 주소(dataURL 등 http(s) 아님 · 이미 표식)면 `null`.
+  `TwImgRetry.laterRetryMs(u, n)` — 두 번 다 못 받은 그림을 n 번째(0부터) 나중에 다시 받기까지 기다릴 ms(`LATER_RETRY_MS` 5 · 20 · 60초) · http(s) 아님 · 횟수 다 씀이면 `null`.
+  `TwImgRetry.retryOnError(img, onGiveUp)` — 화면의 `<img>` 에 «못 받으면 `retryUrl` 로 한 번 더» 를 건다(그래도 못 받으면 `onGiveUp`) · 받은 `img` 를 돌려준다.
+- **지금 쓰는 곳**: `room/room-sync.js`(남의 얼굴 · 감은눈 · 얼굴 못 받은 def 를 방 서버 provider 가 다시 풀 때 — `retryDefAfter`) · `character/animal.js`(동물 페인트 그림) · `myhome/mallang.js`(말랑이 · 등록 칸 · 선물 고르기 — `retryOnError`) · `myhome/myhome-inbox.js`(💝 선물함 칸 — `retryOnError`).
+- **함정**: 표식은 고정값이어야 한다 — 다시 받은 응답이 그 주소로 캐시돼 방 스냅샷마다 다시 받지 않는다(`Date.now()` 를 붙이면 매번 새로 받는다).
+  나중 받기는 횟수 상한이 있어야 한다 — 끝내 못 받는 그림을 계속 받으면 늘 받기(폴링)가 된다.
+- **함정(retryOnError)**: `src` 를 넣기 **전에** 건다(새로 만드는 `<img>`). innerHTML 로 만든 칸은 넣은 바로 뒤에 건다 — 실패 이벤트는 다음 차례에 나서 놓치지 않는다.
+- 검사: `checks/sim-img-retry.js` · 쓰는 곳은 `checks/sim-room-face-load.js` · `checks/sim-room-server-net.js` · `checks/sim-gift-img-retry.js`.
+
 ## `help-site.js` — 📘 도움말 웹 페이지 규칙(주소 · 들일 주소 · 알림 읽기)
 
 **책임** — 도움말 탭(`myhome/help-tab.js`)이 여는 주소와, main.js 가 안쪽 틀 이동을 허락하는 주소를 한 벌로. 두 프로세스가 같이 쓴다
@@ -283,3 +315,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **함정** — 페이지가 보내는 모양은 `hosting/help/embed.js` 와 짝이다 — 한쪽만 바꾸면 목차가 안 뜬다(`sim-help-tab` 이 embed.js 를 돌려 이 함수로 읽어 본다).
 사이트 주소를 바꾸면 앱 CSP `frame-src` 도 같이. 검사: `checks/sim-help-tab.js`.
+
+## `input-diag.js` — 🩺 한글 씹힘 진단(조합 끊김 · 메인 멈춤 · 활성 창 조회)
+
+- **책임**: 진단 기록(`tw-mouse-diag.log`)에 남길 줄을 만든다. 렌더러 · main 이 같이 싣는다(`window.TwInputDiag` · `module.exports`).
+- **쓰는 법**
+  - 렌더러: `TwInputDiag.createImeWatch({ note, now, defer }).attach(document, window)` — 한글 조합이 «포커스 뺏김(누르기 · Tab · Enter · Esc 없이 옮겨 감)» · «창 포커스 잃음» · «입력칸이 사라짐» 으로 끊기면 `[한글] …` 한 줄을 `note` 로. 사람이 누르기 · Tab · Enter · Esc 로 옮긴 것은 평소 입력이라 남기지 않는다. 친 글자는 적지 않는다(조합 길이 · 칸 이름 · 시작 뒤 ms · 창 포커스만).
+  - main: `createLagWatch({ now, log, front })` — `tick()` 을 `LAG_TICK_MS` 마다, 활성 창 조회가 끝날 때 `activeWinDone(ms)`. `REPORT_MS`(1분)마다 멈춤(`LAG_SLOW_MS`+) · 느린 조회(`AW_SLOW_MS`+)가 있었을 때만 `[입력지연] …` 한 줄.
+- **지금 쓰는 곳**: `app.js` 맨 앞(WebGL 감시 옆) · `main.js` 활성 창 폴링(`startActiveWinPolling`).
+- **함정**: 크로미움(Electron 44 실측)은 칸을 옮기면 compositionend → blur → focusout(같은 틱), 다른 앱이 앞으로 오면 focusout(창 포커스 없음) → window blur → compositionend, 칸을 다시 그리면 compositionend 없이 focusout(그때는 아직 붙어 있음 — 그래서 `defer` 뒤에 `isConnected` 를 본다). 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
+- **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
+- 검사: `checks/sim-input-diag.js`(깨 보기 열).

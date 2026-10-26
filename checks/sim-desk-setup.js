@@ -45,7 +45,8 @@ function world(src, o = {}) {
   };
   const ray = { setFromCamera: () => {}, intersectObjects: () => o.hits || [] };
   const confirmFn = () => !!o.confirm;
-  const T = new Function('window', 'document', 'confirm', 'module', src + '\nreturn window.TwDeskSetup;')({ focus() {} }, doc, confirmFn, undefined);
+  const errCodes = { notify: (code, err) => log.toasts.push([code, err]) };   // 실패 알림은 번호 통로(TwErrorCodes) — 번호를 토스트 칸에 적는다
+  const T = new Function('window', 'document', 'confirm', 'module', 'TwErrorCodes', src + '\nreturn window.TwDeskSetup;')({ focus() {} }, doc, confirmFn, undefined, errCodes);
   const out = T.createDeskSetup({
     DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', DEF_SIZE_TOAST_MS: () => 5000, DESK_ITEMS: [{ id: 'plant', name: '화분' }, { id: 'cup', name: '컵' }, { id: 'books', name: '책' }], DESK_SCALE_DEFAULT: 0.175,
     _creatorSizeGrow: (fn) => { const d = {}; fn(d); log.calls.push(['grow', d]); return o.sizeFail ? { ok: false, message: '용량' } : { ok: true }; },
@@ -94,7 +95,7 @@ async function behave(src) {
   w = world(src, { desks: D, resolveFail: true }); w.out.renderCrItems(); await deskCards(w)[2].onclick(); await flush();
   const w2 = world(src, { desks: D, sizeFail: true }); w2.out.renderCrItems(); await deskCards(w2)[1].onclick(); await flush();
   const w3 = world(src, { desks: D, parseFail: true }); w3.out.renderCrItems(); await deskCards(w3)[1].onclick(); await flush();
-  t(lastT(w) === '책상 GLB를 불러올 수 없어요 (네트워크 확인)' && w2.log.toasts[0][0] === '용량' && w2.log.toasts[0][2] === 5000 && !w2.st.activeCustomDeskId && lastT(w3) === '책상 적용 실패', '못 받음 · 용량 초과 · 못 읽음 — 알리고 그대로');
+  t(lastT(w) === 'E-CHAR-14' && w2.log.toasts[0][0] === '용량' && w2.log.toasts[0][2] === 5000 && !w2.st.activeCustomDeskId && lastT(w3) === '책상 적용 실패', '못 받음(오류 E-CHAR-14) · 용량 초과 · 못 읽음 — 알리고 그대로');
   w = world(src, { desks: D, active: 'd1' }); w.out.renderCrItems(); await deskCards(w)[0].onclick(); await flush();
   t(w.st.activeCustomDeskId === null && w.st.cDeskTemplate === null && w.calls('resolve')[0][1] === '__default_desk__' && w.calls('swap')[0][3] === true && w.calls('color').length >= 1, '기본 책상 — 관리자가 등록한 기본 책상(URL 받기)으로 · 덮어쓰기 표시');
   /* 잠금 안전망 — 거르기 뒤에 licenseOnly 가 서는 경우(카탈로그가 늦게 와 licenseOnly 를 아직 모르던 순간)에도 고르지 못한다 */

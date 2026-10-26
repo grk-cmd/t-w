@@ -5974,8 +5974,8 @@
         font-family:var(--tw-font-legacy);font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
         ⚙️ 설정
       </button>
-      <!-- 🎟️ 초대장 발급 — 남은 장수는 JS(refreshInviteBtn)가 채움. 0장이면 비활성. -->
-      <button id="lcInviteIssueBtn" style="background:none;border:none;white-space:nowrap;
+      <!-- 🎟️ 초대장 발급 — 남은 장수는 JS(refreshInviteBtn)가 채움. 장수를 읽기 전 · 못 읽음 · 0장이면 비활성. -->
+      <button id="lcInviteIssueBtn" disabled style="background:none;border:none;white-space:nowrap;opacity:.5;
         font-family:var(--tw-font-legacy);font-size:10px;color:var(--ink-soft);cursor:pointer;padding:4px 6px;">
         🎟️ 초대장
       </button>
@@ -6204,7 +6204,7 @@
                 <li>마이홈(자기소개 · 게시글 · 스티커 · 사진 · BGM) · 내 마이홈 방명록</li>
                 <li>친구 목록 · 친구 요청 · 방 초대 — <b>친구들의 목록에서도 빠져요</b></li>
                 <li>포커스 기록 · 레벨 · 랭킹 · 달성표 · 일정 · 플레이리스트 · 책갈피</li>
-                <li>받은 편지 · 선물함 · 폰 연결 · 내가 방장인 시크릿룸 · 아직 안 쓴 초대 코드</li>
+                <li>받은 편지 · 선물함 · 폰 연결 · 아직 안 쓴 초대 코드</li>
                 <li>올린 사진 · 이모티콘 · 자리비움 그림 · 스티커사진 파일</li>
                 <li>로그인 계정(구글 연결 · 친구 코드 · 비밀번호)과 라이선스 신청 기록</li>
               </ul>
@@ -6212,6 +6212,7 @@
               <ul style="margin:3px 0 7px;padding-left:16px;">
                 <li>신고 기록 — 처리 완료 후 1년 보관(개인정보 처리방침)</li>
                 <li>라이선스 키 — 키에는 사람 정보가 없고, 계정과의 연결은 끊겨요</li>
+                <li>내가 방장인 시크릿룸의 발급 기록 — 코드가 다른 사람에게 다시 나가지 않게 남겨요. 방은 끝나고 방 이름은 지워져요</li>
                 <li>방 채팅에 남긴 지난 메시지 — 보낸 뒤 3일이 지나면 자동으로 지워져요</li>
                 <li>다른 사람 마이홈에 쓴 방명록 글 · 보낸 선물 — 받은 사람의 기록이에요</li>
                 <li>관리자 작업 기록(탈퇴했다는 사실과 코드만) · 누구인지 알 수 없는 합계 숫자 · 이미 쓰인 초대 코드</li>
@@ -6631,12 +6632,10 @@
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
     width:320px;max-width:92vw;font-family:var(--tw-font-legacy);">
     <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">🖥️ 다른 기기에서 사용 중이에요</div>
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));" id="deviceSessionTitle">🖥️ 다른 기기에서 사용 중이에요</div>
     <div style="padding:14px;">
-      <div style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;">
-        이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.<br>
-        이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.
-      </div>
+      <div id="deviceSessionMsg" style="font-size:11.5px;color:var(--ink-soft);line-height:1.6;margin-bottom:12px;white-space:pre-line;">이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.
+이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.</div>
       <div style="display:flex;gap:6px;">
         <button id="deviceSessionContinue" class="lc-btn" style="margin-top:0;flex:1;white-space:nowrap;">여기서 계속 쓰기</button>
         <button id="deviceSessionQuit" class="lc-btn ghost" style="margin-top:0;flex:1;white-space:nowrap;">앱 닫기</button>
@@ -7152,7 +7151,7 @@
           <span>컴퓨터 켤 때 자동 실행</span>
           <button class="fs-toggle-btn" id="progAutoLaunchToggle" type="button">꺼짐</button>
         </div>
-        <p style="margin:8px 0 12px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.</p>
+        <p style="margin:8px 0 12px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.<br>Windows 에서 «관리자 권한으로 실행» 을 켜 두었다면 자동 실행이 막혀요 — 그때는 직접 켜 주세요.</p>
         <div class="fs-toggle-row">
           <span>피규어 모드</span>
           <button class="fs-toggle-btn" id="progFigureModeToggle" type="button">꺼짐</button>
@@ -8255,6 +8254,7 @@
      ⚠️ firebase-init.js 는 type="module" 이라 이 classic 스크립트들보다 **늦게** 돈다.
        그래서 app.js 는 firebaseAPI.pkGet 이 아직 없을 수 있다고 보고 쓴다(_purikura() 참고). -->
 <script src="parts/shared/safe-html.js"></script>   <!-- 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳(window.TwSafeHtml — text · attr · safeUrl · cssUrl · cssColor) — 쓰는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/img-retry.js"></script>   <!-- 🖼 남의 그림을 한 번 더 받을 주소(window.TwImgRetry) — room-sync.js · animal.js · myhome-inbox.js · mallang.js 보다 먼저 -->
 <script src="parts/shared/ps1-dither.js"></script>   <!-- 🕹️ PS1 디더 규칙(색 단계 · Bayer 표) — 스티커사진 PS1 필터와 도트 모드가 같이 읽는다 · 둘보다 먼저 -->
 <script src="parts/purikura/purikura-net.js"></script>
 <script src="vendor/qrcode.js"></script>   <!-- 📱 태블릿·폰 연결 QR (MIT · 로컬 파일 — CSP) -->
@@ -8262,6 +8262,7 @@
 <script src="parts/chat/chat-copy.js"></script>
 <script src="parts/chat/chat-tabs.js"></script>   <!-- 💬 채팅 탭 규칙(window.ChatTabs) — app.js 보다 먼저 -->   <!-- 📋 대화 복사 형식(window.ChatCopy) — app.js 보다 먼저 -->
 <script src="parts/shared/gl-recover.js"></script>   <!-- 🧯 WebGL 연결 끊김 감시(window.GlRecover) — app.js 보다 먼저 -->
+<script src="parts/shared/input-diag.js"></script>   <!-- 🩺 한글 조합 끊김 진단(window.TwInputDiag) — app.js 보다 먼저 -->
 <script src="parts/character/human-ear.js"></script>   <!-- 🐾 사람 귀(꾸미기 › 머리 › 귀) — app.js 보다 먼저. 귀 GLB 는 ears-glb.js 가 나중에 채운다 -->
 <script src="parts/character/wd-ear.js"></script>   <!-- 🐾 꾸미기 › 머리 › 귀 탭 — app.js 보다 먼저(app.js 가 createWdEar 로 만든다) -->
 <script src="parts/creator/uv-fill.js"></script>   <!-- 🪣 꾸미기 그리기 «채우기» — 누른 메쉬의 UV 자리만 칠한다 -->
@@ -8273,6 +8274,7 @@
 <script src="parts/character/def-size.js"></script>   <!-- 📦 캐릭터 디자인(def) 용량 상한 500KB · 부분별 크기 안내 — app.js 보다 먼저 -->
 <script src="parts/shared/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
 <script src="parts/shared/blink-timing.js"></script>   <!-- 👁 깜빡임 시간표(좌석 · 런처 미리보기) — app.js 보다 먼저 -->
+<script src="parts/shared/maintenance-gate.js"></script>   <!-- 🛠 서버 점검 창(window.TwMaintenance — config/maintenance · 서버 기능을 누르면 창) — error-codes.js · api-client.js 보다 먼저 -->
 <script src="parts/shared/error-codes.js"></script>   <!-- ⚠️ 에러코드 표 · 실패 토스트에 번호 붙이기(window.TwErrorCodes) — 부르는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/json-store.js"></script>   <!-- 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳(window.TwJsonStore) — 책상 프리셋 저장 · animal.js · app.js 보다 먼저 -->
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
@@ -8302,6 +8304,7 @@
 <script src="parts/myhome/myhome-sticker-rules.js"></script>   <!-- 🔒 스티커 잠금 · 순서 규칙(window.TwMyHomeStickerRules) — myhome-sticker.js · myhome-edit.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-sticker.js"></script>   <!-- 🎨 마이홈 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeSticker.createMyHomeSticker 로 만든다) -->
 <script src="parts/character/gacha.js"></script>   <!-- 🎰 파츠 가챠 코어 · 파츠 보관함(T) · 뽑기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwGacha.createGacha 로 만든다) -->
+<script src="parts/myhome/mh-bg-url.js"></script>   <!-- 🖼️ 마이홈 배경 그림 주소 규칙(http → https 로 바꿔 불러 보기 · 못 받으면 주인에게 안내) — myhome-edit.js · myhome-desktop.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-preset.js"></script>   <!-- 👑 디자인 프리셋 규칙(지금 디자인 ↔ 칸 · 저장본 씻기 · 그림 키 — 순수 함수) — myhome-edit.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-edit.js"></script>   <!-- 🏠 마이홈 페이지 편집 묶음(자동저장 · 글 서식 · 닉네임 · BGM · 배경 · 테마) · 👑 디자인 스튜디오 · 프리셋 — myhome-sticker.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeEdit.createMyHomeEdit 로 만든다) -->
 <script src="parts/room/room-invite-ui.js"></script>   <!-- 🙋 투게더룸 친구 초대(친구 고르기 창 · 초대 보내기) · 🚪 방 초대 받기 팝업 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomInviteUi.createRoomInviteUi 로 만든다) -->

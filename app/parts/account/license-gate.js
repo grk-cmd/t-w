@@ -647,11 +647,18 @@ function _showInviteGate(){
 }
 
 /* 런처의 🎟️ 초대장 버튼 — 남은 장수 표시, 클릭 시 발급 */
+/* 초대장 버튼 한 벌 — 남은 장수를 읽어 1장 이상일 때만 켠다. 못 읽었으면(서버 준비 전 · 내 코드 없음 · 읽기 실패) 끈다 */
+function _setInviteBtn(btn, text, on, title){
+  btn.textContent = text;
+  btn.disabled = !on;
+  btn.style.opacity = on ? '' : '.5';
+  btn.title = title;
+}
 async function refreshInviteBtn(){
   const btn = document.getElementById('lcInviteIssueBtn');
   if(!btn) return;
-  if(isAdmin()){ btn.textContent = '🎟️ 초대장 (무제한)'; btn.disabled = false; btn.style.opacity=''; return; }
-  if(!window.firebaseAPI || !firebaseAPI.getInvitesLeft || !getMyUserId()){ btn.textContent = '🎟️ 초대장'; return; }   // 내 코드가 없으면 읽지 않는다(읽어도 거부 → 같은 글)
+  if(isAdmin()){ _setInviteBtn(btn, '🎟️ 초대장 (무제한)', true, '초대장을 발급해 친구를 초대할 수 있어요'); return; }
+  if(!window.firebaseAPI || !firebaseAPI.getInvitesLeft || !getMyUserId()){ _setInviteBtn(btn, '🎟️ 초대장', false, '초대장 수를 불러오지 못했어요'); return; }   // 내 코드가 없으면 읽지 않는다(읽어도 거부 → 같은 글)
   try{
     // 🩹 self-heal: "정식으로 게이트를 통과한 적 있는 기기(INVITE_PASS_KEY)"의 기존 유저가
     //   invite 노드를 잃었을 때만 재지급. 게이트 통과 전 신규 유저에겐 절대 발동 안 함 —
@@ -670,13 +677,10 @@ async function refreshInviteBtn(){
     }
     const left = await firebaseAPI.getInvitesLeft(getMyUserId());
     // 잔액이 음수(회수 처리 등)여도 사용자에겐 0으로 보여줌 — 화면에 -1 같은 값이 뜨면 오류로 오해받음.
-    btn.textContent = `🎟️ 초대장 (${Math.max(0, left)})`;
-    btn.disabled = left <= 0;
-    btn.style.opacity = left > 0 ? '' : '.5';
-    btn.title = left > 0 ? '초대장을 발급해 친구를 초대할 수 있어요' : '남은 초대장이 없어요';
+    _setInviteBtn(btn, `🎟️ 초대장 (${Math.max(0, left)})`, left > 0, left > 0 ? '초대장을 발급해 친구를 초대할 수 있어요' : '남은 초대장이 없어요');
   }catch(e){
     console.warn('[invite] 초대장 버튼 갱신 실패', e);
-    btn.textContent = '🎟️ 초대장';
+    _setInviteBtn(btn, '🎟️ 초대장', false, '초대장 수를 불러오지 못했어요');
   }
 }
 

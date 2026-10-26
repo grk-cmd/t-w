@@ -30,6 +30,7 @@ say('── 1. 배선');
   chk(/x-apple\.systempreferences:com\.apple\.preference\.security\?Privacy_ListenEvent/.test(GUIDE), 'mac 안내 버튼 → 입력 모니터링 설정 바로 열기');
   chk(/입력 모니터링/.test(GUIDE) && /지운 뒤/.test(GUIDE) && /완전히 종료했다가 다시 실행/.test(GUIDE), 'mac 안내 — 재설치 뒤엔 «지웠다가 다시 추가 · 재실행» 을 말한다(켜져 보여도 안 먹는 경우)');
   chk(/TouchEn nxKey/.test(GUIDE) && /관리자 권한/.test(GUIDE), 'Windows 안내 — 키보드 보안 프로그램 · 관리자 권한 실행');
+  chk(/자동 실행은 Windows 가 막아요/.test(GUIDE) && /진단 기록 폴더 열기[^\n]*tw-mouse-diag\.log/.test(GUIDE), '  관리자 권한이면 자동 실행이 막힌다는 안내 · 둘 다 아니면 진단 기록을 보내 달라는 안내');
   chk(/checkboxLabel: '다시 보지 않기'/.test(GUIDE) && /r\.checkboxChecked/.test(GUIDE) && /writeFileSync\(f/.test(GUIDE), '«다시 보지 않기» 를 고르면 userData/kb-guide-off 에 남긴다');
   chk(!/anyInput|_markActivity|activity\s*=|reportActivity/.test(strip(READ) + strip(TICK)), '★ 판정값을 활동으로 쓰지 않는다(OS 유휴시간 보정은 센서 떨림 때문에 걷어 낸 방식)');
   chk(!/_inputDiag\.\w+\s*(\+\+|\+=|=)/.test(strip(READ)), '훅 카운터(_inputDiag)를 읽기만 한다 — 감싸기 줄은 sim-admin-active 가 모양까지 지킨다');
