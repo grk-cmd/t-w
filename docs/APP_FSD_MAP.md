@@ -252,9 +252,9 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 |---|---:|---|---|---|
 | 파츠 착용(`WARDROBE PARTS`) | 1,080 | 꾸미기 파츠를 좌석 캐릭터에 붙이기 · 위치 · 크기 · 저장 — 코어 `createParts` 다음 단계 | `character/` | 가장 큼. 생성기 묶음(20 · 28)과 얽힘 |
 | 애니메이션 루프(`ANIM`) | 666 | 매 프레임 — 걷기 · 앉기 · 잠 · 표정 · 좌석 움직임 | `room/` 또는 `character/` | 프레임 예산(`shared/frame-budget.js`)과 같이 본다 |
-| 책상 · 소품 · 좌석 만들기(`BUILDERS`) | 479 | 책상 위 소품 붙이기 · 좌석 만들고 지우기 | `room/` | ⚠️ **내 코드 · 친구코드 만들기(`getMyUserId` · `genFriendCodeCandidate` · `ensureMyFriendCode` 등)가 섞여 있다** — 옮길 때 이 몫은 `account/` 로 |
+| 책상 · 소품 · 좌석 만들기(`BUILDERS`) | 479 | 책상 위 소품 붙이기 · 좌석 만들고 지우기 | `room/` | |
 | 종족 선택창 | 459 | 사람 · 동물 고르기 창(일부는 `creator/race-picker.js`) | `creator/` | 남은 몫만 |
-| 좌석(`SEATS`) | 454 | 좌석 배열 · 간격 · 위치 저장 | `room/` | 79개 구역이 쓰는 핵심 상태 — 마지막에 |
+| 좌석(`SEATS`) | 454 | 좌석 배열 · 간격 · 위치 저장 | `room/` | 79개 구역이 쓰는 핵심 상태 — 마지막에. ⚠️ **내 코드 · 친구코드 만들기(`getMyUserId` · `_inventMyUserId` · `_setMyUserId` · `genFriendCodeCandidate` · `ensureMyFriendCode` · `_friendCodeMirrorFix` · `_healFriendCodeOwner` · 옛 친구코드 기억)가 이 구역 아래 섞여 있다** — 옮길 때 이 몫은 `account/` 로 |
 | 캐릭터에 직접 그리기(3D 페인팅) | 421 | 붓 · 단계 · 양파껍질 · 되돌리기 | `character/` (`part-paint.js` 옆) | |
 | 좌석 배치 · 카메라(`layoutSeats`) | 371 | 배치 · 카메라 · 도트 텍스처 필터 | `room/` | 본문이 `layoutSeats` 를 다시 대입하는 곳이 있다(2차 32번 메모) |
 | 캐릭터 흔들기(시메지) | 302 | 끌어서 흔들기 물리 | `room/` | |
