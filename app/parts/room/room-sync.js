@@ -5,7 +5,7 @@
      DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · Presence · savedDesks 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 7개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). _autoAwayResetClock 은 Presence(room/presence.js)가 window 에 거는 것을 app.js 가 이어 준다(모듈끼리 window 로 부르면 순환 — sim-dep-cycles).
-   ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · retryDefAfter · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwRoomSync — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-room-sync.js */
@@ -424,7 +424,16 @@ async function deserializeDefFromNetwork(def){
   }catch(e){ /* 이미지 복원 실패 시 원본 문자열 그대로 둠 — compositeFace에서 또 실패하겠지만 앱 전체가 죽진 않게 위쪽에서 방어 */ }
   /* 감은눈만 못 받으면 눈을 감을 때마다 피부만 보인다(얼굴이 깜박이며 사라졌다 돌아옴) — 표정 그림을 대신 쓴다 */
   if(!out.blink && out.face && typeof out.face!=='string') out.blink = out.face;
+  if((typeof def.faceUrl==='string' || typeof def.face==='string') && !(out.face && typeof out.face!=='string')) _faceMissDefs.add(out);
   return out;
+}
+/* 얼굴을 못 받은 채 푼 def — 방 서버 provider 는 같은 원본 def 를 다시 풀지 않으므로(풀어 둔 것을 씀) 이걸 보고 나중에 다시 푼다.
+   def 에 칸을 더하지 않고 따로 둔다 — 풀린 def 는 지문 · 좌석 · 다시 보내기로 흘러간다. */
+const _faceMissDefs = new WeakSet();
+/* hooks.retryDefAfter(풀린 def, 이미 다시 푼 횟수) → 기다릴 ms | null(얼굴 받음 · 횟수 다 씀 · 다시 받을 주소 아님) */
+function retryDefAfter(def, tries){
+  if(!def || !_faceMissDefs.has(def)) return null;
+  return TwImgRetry.laterRetryMs(def.faceUrl, tries);
 }
 /* 💰 방 업데이트 델타 전송.
    [왜] RTDB 프로파일러 실측: 한 멤버가 1바이트를 쓰면 방에 있는 나머지 인원수만큼 내려간다
@@ -617,6 +626,7 @@ return {
   deserializeDefFromNetwork,
   ensureRoomFaceUrls,
   makeFirebaseProvider,
+  retryDefAfter,
   serializeDefForNetwork,
 };
 }

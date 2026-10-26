@@ -1,10 +1,11 @@
 /* ═══ 🙂 sim-room-face-load.js — 방에서 받은 남의 얼굴 · 감은눈 그림 복원 ═══════════════════════
    [무엇을 지키나] deserializeDefFromNetwork 는 상대 def 의 faceUrl · blinkUrl 을 캔버스로 바꾼다. 감은눈만 못 받으면
      눈을 감을 때마다 피부만 보여 얼굴이 깜박이며 사라졌다 돌아온다 — 그때는 표정 그림을 감은눈 자리에 대신 쓴다.
-   ・동물 그림(animal.js _texFromDataURL)도 처음 실패하면 한 번만 다시 받는다 · 깨 보기
+   ・동물 그림(animal.js _texFromDataURL)도 처음 실패하면 한 번 더 받는다 · 깨 보기
    ・0절: 그림 받기 — 처음 실패하면 캐시를 비켜 한 번만 다시(dataURL 제외 · 두 번까지) · 깨 보기
    ・1절: 가짜 이미지 · 캔버스 위에서 실제로 돌린다 — 둘 다 받음 · 감은눈만 실패 · 얼굴도 실패 · 감은눈 dataURL 이 같이 옴
    ・2절: 일부러 깨 보기 — 대신 쓰는 줄 · 주소마다 한 번 막기를 빼면 빨강
+   ・3절: 얼굴을 못 받은 def 는 «나중에 다시 풀 것» 으로 표시(retryDefAfter) · 동물 그림도 두 번 다 못 받으면 조금 뒤 몇 번 더 — 횟수 상한 · 깨 보기
    [실행] room-sync.js · animal.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -49,11 +50,37 @@ async function run(fnSrc, def, ok, again){
   const notes = [];
   const once = grabFn(SRC_FOR_ONCE, 'function _diagOnce(key, line){');
   const _diagOnce = new Function('diagNote', 'const _diagSeen = new Set();\n' + once + '\nreturn _diagOnce;')((m) => notes.push(m));
-  const f = new Function('_roomFaceUrlToCanvas', 'loadImg', 'newCanvas', 'console', '_diagOnce', fnSrc + '\nreturn deserializeDefFromNetwork;')(_roomFaceUrlToCanvas, loadImg, newCanvas, console, _diagOnce);
+  const miss = new WeakSet();
+  const f = new Function('_roomFaceUrlToCanvas', 'loadImg', 'newCanvas', 'console', '_diagOnce', '_faceMissDefs', fnSrc + '\nreturn deserializeDefFromNetwork;')(_roomFaceUrlToCanvas, loadImg, newCanvas, console, _diagOnce, miss);
   const out = await f(def);
   if(again) await f(def);   // 같은 멤버 def 를 다음 스냅샷에 또 푼다
   out._notes = notes;
+  out._missed = miss.has(out);
   return out;
+}
+/* 얼굴 못 받은 def 표시 → retryDefAfter 가 기다릴 시간(횟수 · 간격은 img-retry.js) */
+function judgeRetryAfter(src, fnSrc){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const ra = grabFn(src, 'function retryDefAfter(def, tries){');
+  if(!ra){ t(false, 'room-sync.js 에서 retryDefAfter 를 못 찾음'); return Promise.resolve(r); }
+  return (async () => {
+    try{
+      const miss = new WeakSet();
+      const f = new Function('_faceMissDefs', 'TwImgRetry', ra + '\nreturn retryDefAfter;')(miss, TwImgRetry);
+      const none = await run(fnSrc, { faceUrl: 'https://s.test/f.png' }, []);
+      const got = await run(fnSrc, { faceUrl: 'https://s.test/f.png' }, ['https://s.test/f.png']);
+      const noFace = await run(fnSrc, { skin: 1 }, []);
+      t(none._missed && !got._missed && !noFace._missed, '★ 얼굴을 못 받은 def 만 «다시 풀 것» 표시(받음 · 얼굴 없는 def 는 아님)');
+      const d = { faceUrl: 'https://s.test/f.png' }; miss.add(d);
+      const waits = [0, 1, 2, 3].map((n) => f(d, n));
+      t(waits[0] > 0 && waits[1] > waits[0] && waits[2] > waits[1] && waits[3] === null, '★ 다시 풀기는 점점 길게 세 번까지 — 네 번째는 그만(늘 받기 없음)');
+      t(f({ faceUrl: 'https://s.test/f.png' }, 0) === null, '  표시 없는 def(얼굴 받음) — 다시 풀지 않는다');
+      const dd = { faceUrl: 'data:image/png;base64,AA' }; miss.add(dd);
+      t(f(dd, 0) === null && f(null, 0) === null, '  dataURL · 빈 def — 다시 풀지 않는다');
+    }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 80)); }
+    return r;
+  })();
 }
 async function judge(fnSrc){
   const r = [];
@@ -109,24 +136,35 @@ function judgeAnimalRetry(src){
   const fn = grabFn(src, 'function _texFromDataURL(url, fallbackFill){');
   if(!fn){ t(false, 'animal.js 에서 _texFromDataURL 을 못 찾음'); return r; }
   const run = (url, failN) => {
-    const srcs = [];
+    const srcs = [], timers = [];
     let warned = 0;
-    function Image(){ const self = this; let n = 0; Object.defineProperty(this, 'src', { set(v){ srcs.push(v); n++; if(n <= failN) self.onerror(); else self.onload(); }, get(){ return srcs[srcs.length - 1]; } }); }
+    function Image(){ const self = this; Object.defineProperty(this, 'src', { set(v){ srcs.push(v); if(srcs.length <= failN) self.onerror(); else self.onload(); }, get(){ return srcs[srcs.length - 1]; } }); }
+    const setTimeout = (fn, ms) => { timers.push(ms); fn(); };
     const ctx = { fillRect(){}, drawImage(){}, set fillStyle(_){} };
     const document = { createElement: () => ({ getContext: () => ctx }) };
     const THREE = { CanvasTexture: function(){ this.needsUpdate = false; }, sRGBEncoding: 1 };
     const console = { warn(){ warned++; }, log(){} };
-    const f = new Function('document', 'THREE', 'TwSafeHtml', 'TwImgRetry', 'Image', 'console', 'P_SZ', fn + '\nreturn _texFromDataURL;')(document, THREE, { safeUrl: (u) => u }, TwImgRetry, Image, console, 512);
+    const diag = [];
+    const window = { companion: { diagNote: (m) => diag.push(m) } };
+    const companion = window.companion;
+    const f = new Function('document', 'THREE', 'TwSafeHtml', 'TwImgRetry', 'Image', 'console', 'P_SZ', 'setTimeout', 'window', 'companion',
+      fn + '\nconst _texDiagSeen = new Set();\n' + diagFn + '\nreturn _texFromDataURL;')(document, THREE, { safeUrl: (u) => u }, TwImgRetry, Image, console, 512, setTimeout, window, companion);
     const tex = f(url);
-    return { srcs, warned, tex };
+    return { srcs, warned, tex, timers, diag };
   };
+  const diagFn = grabFn(src, 'function _texDiagOnce(url){');
+  if(!diagFn){ t(false, 'animal.js 에서 _texDiagOnce 를 못 찾음'); return r; }
+  const LATE = TwImgRetry.LATER_RETRY_MS || [];
   try{
     const a = run('https://s.test/a.png', 1);
-    t(a.srcs.length === 2 && /\?twr=1$/.test(a.srcs[1]) && a.warned === 0 && a.tex.needsUpdate === true, '★ 동물 그림 — 처음 실패 → 한 번 더 받아 그린다');
-    const b = run('https://s.test/a.png', 5);
-    t(b.srcs.length === 2 && b.warned === 1, '  두 번 다 실패 — 두 번까지만 · 콘솔에 남김(예전과 같다)');
+    t(a.srcs.length === 2 && /\?twr=1$/.test(a.srcs[1]) && a.warned === 0 && a.tex.needsUpdate === true && !a.timers.length, '★ 동물 그림 — 처음 실패 → 한 번 더 받아 그린다(기다림 없음)');
+    const late = run('https://s.test/a.png', 3);
+    t(late.srcs.length === 4 && late.timers.length === 2 && late.tex.needsUpdate === true && late.warned === 0, '★ 두 번 다 실패해도 — 조금 뒤 다시 받아 흰 바탕을 그림으로 바꾼다');
+    const b = run('https://s.test/a.png', 99);
+    t(b.srcs.length === 2 + LATE.length && b.timers.join() === LATE.join() && b.warned === 1 && b.diag.length === 1 && b.tex.needsUpdate === false,
+      '★ 끝내 못 받으면 — 나중 받기는 ' + LATE.length + '번까지만(점점 길게) · 콘솔 · 진단 기록에 한 줄');
     const c = run('data:image/png;base64,AA', 5);
-    t(c.srcs.length === 1, '  dataURL 은 다시 받지 않는다');
+    t(c.srcs.length === 1 && !c.timers.length, '  dataURL 은 다시 받지 않는다');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 80)); }
   return r;
 }
@@ -136,7 +174,7 @@ function judgeAnimalRetry(src){
   say('── 동물 그림 다시 받기');
   judgeAnimalRetry(ANIMAL).forEach(([ok, msg]) => chk(ok, msg));
   {
-    const a2 = ANIMAL.replace('if(again){ im.src=again; return; }', '');
+    const a2 = ANIMAL.replace('if(again){ load(again); return; }', '');
     const rows = a2 !== ANIMAL ? judgeAnimalRetry(a2) : [[true, '']];
     chk(a2 !== ANIMAL && rows.some(([ok]) => !ok), '깨 보기 — 동물 그림 다시 받기를 끄면 빨강' + (a2 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
   }
@@ -156,6 +194,19 @@ function judgeAnimalRetry(src){
     const rows = SRC_FOR_ONCE !== SRC ? await judge(F) : [[true, '']];
     chk(SRC_FOR_ONCE !== SRC && rows.some(([ok]) => !ok), '깨 보기 — 주소마다 한 번 막기를 빼면 빨강' + (SRC_FOR_ONCE !== SRC ? '' : ' — 바꿀 글을 못 찾음'));
     SRC_FOR_ONCE = SRC;
+  }
+  say('── 3. 얼굴 못 받은 def — 나중에 다시 풀 것');
+  (await judgeRetryAfter(SRC, F)).forEach(([ok, msg]) => chk(ok, msg));
+  {
+    const F2 = F.replace(/\n[^\n]*_faceMissDefs\.add\(out\);/, '');
+    const rows = F2 !== F ? await judgeRetryAfter(SRC, F2) : [[true, '']];
+    chk(F2 !== F && rows.some(([ok]) => !ok), '깨 보기 — 못 받은 표시를 빼면 빨강' + (F2 !== F ? '' : ' — 바꿀 글을 못 찾음'));
+    const a3 = ANIMAL.replace("if(wait!==null){ late++; setTimeout(()=>load(u), wait); return; }", '');
+    const rows3 = a3 !== ANIMAL ? judgeAnimalRetry(a3) : [[true, '']];
+    chk(a3 !== ANIMAL && rows3.some(([ok]) => !ok), '깨 보기 — 동물 그림 나중 받기를 빼면 빨강' + (a3 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
+    const a4 = ANIMAL.replace("const wait=TwImgRetry.laterRetryMs(u, late);", 'const wait=1000;');
+    const rows4 = a4 !== ANIMAL ? (() => { try{ return judgeAnimalRetry(a4); }catch(_){ return [[false, '']]; } })() : [[true, '']];
+    chk(a4 !== ANIMAL && rows4.some(([ok]) => !ok), '깨 보기 — 나중 받기 횟수 상한을 빼면 빨강' + (a4 !== ANIMAL ? '' : ' — 바꿀 글을 못 찾음'));
   }
   const m2 = F ? F.replace(/\n[^\n]*if\(!out\.blink && out\.face[^\n]*/, '') : F;
   const rows = m2 && m2 !== F ? await judge(m2) : [[true, '']];
