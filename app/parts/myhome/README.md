@@ -160,6 +160,21 @@ const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.
 옛 앱의 씻기는 `bg.img` · `img` 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
 검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
 
+## `mh-bg-url.js` — 🖼️ 마이홈 배경 그림 주소 규칙
+
+**책임** — 배경 그림 주소가 `http://` 면 `https://` 로 바꿔 그리기(`httpsOf`) · 바꾼 주소를 한 번 불러 보고 못 받으면 «https 주소를 써 주세요»(`E-MH-02`) 안내. 그림 주소 씻기는 하지 않는다 — 부르는 쪽이 `TwSafeHtml.cssUrl(httpsOf(u))` 로 safe-html 에 맡긴다(페이지에 http 주소는 안 들어간다).
+
+**만드는 법** — 만들지 않는다(받는 것 없음 · 실릴 때 바로). safe-html.js · error-codes.js 뒤, `myhome-edit.js` · `myhome-desktop.js` · app.js 보다 먼저 싣는다:
+
+```js
+const mhBgUrl = TwMhBgUrl;   // myhome-edit.js 머리 — myhome-desktop.js(옛 IIFE)는 TwMhBgUrl 을 바로 부른다
+```
+
+**내놓는 것** — `httpsOf(u)` · `createBgProbe({ makeImage, onFail })` → `probe(raw)`(http 였던 주소만 · 같은 주소 한 번) · `probeOwnerBg(raw)`(앱이 쓰는 한 벌 — 못 받으면 `E-MH-02`).
+
+**함정** — 안내는 **내 배경일 때만** 부른다(바탕화면 `advApplyBg` 는 `!advVisiting`, 창 바깥 `applyMyHomeBg` 는 `!_mhViewingUserId()`) — 친구 홈 구경에서 남의 배경 오류를 띄우지 않는다. 진단 줄에 주소를 싣지 않는다.
+검사: `checks/sim-mh-bg-url.js`(입력 → 출력 · 불러 보기 · 그리는 곳 두 군데를 떼어 돌림 · 깨 보기).
+
 ## `myhome-sticker-rules.js` — 🔒 스티커 잠금 · 그리는 순서
 
 **책임** — 마이홈 스티커의 잠금 판단과 그리는 순서(뒤 → 앞) 한 벌. 순수 함수만 — DOM · firebase 를 모른다(받은 스티커 묶음의 `z` · `locked` 칸만 고친다).
