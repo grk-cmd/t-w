@@ -5,7 +5,8 @@
    ・2절: main.js 의 _rememberPos 를 떼어 와 «창을 놓는 흐름» 을 돌린다 — 여백이 0 → 120 → 120 → 0 → 120 → 40 으로 바뀌어도
           마이홈(창 좌상단 + 여백)이 사용자가 둔 자리에 있다. 'moved' 가 오는 OS · 안 오는 OS 둘 다
           + 여백 120 · 줌 1 → 1.25 → 메뉴 누름에서 창이 튀지 않는다(_refitConfigForZoom 을 떼어 와 돌림)
-   ・3절: 일부러 깨 보기 — 예전 «바뀐 만큼» 공식 · 여백 안 빼고 기억하기 · 줌 맞춤에서 여백 안 맞추기는 빨강
+          + 실제 _applyConfigMode 에 여백 0 → 120 → 120 → 40 — 마이홈 제자리 · 창 너비에 그때 여백
+   ・3절: 일부러 깨 보기 — 예전 «바뀐 만큼» 공식 · 여백 안 빼고 기억하기 · 줌 맞춤에서 여백 안 맞추기 · 여백을 크기 잰 뒤에 바꾸기는 빨강
    [실행] node checks/run.js sim-mh-pad-pos */
 'use strict';
 const fs = require('fs');
@@ -80,6 +81,34 @@ function zoomFlow(src, movedFires){
 }
 const zoomSteady = (r) => !!r && r.afterZoom === '180,140' && r.afterMenu === '180,140';
 
+/* main.js 의 실제 _applyConfigMode 를 돌린다 — 렌더러가 여백을 보낼 때마다(스티커 놓음 · 메뉴 누름) 한 번씩 부른다.
+   매 호출 뒤 마이홈 자리(창 x + (창 너비 − 마이홈 너비) / 2)가 사용자가 끌어 둔 500 그대로인지, 창 너비에 그때 여백이 들었는지 본다. */
+const ANAMES = ['_applyConfigMode', '_fitConfigRect', '_modeSize', '_mhPadDip', '_mhPadOf', '_rememberPos', 'sizeToMode'];
+function applyFlow(src, movedFires){
+  const parts = ANAMES.map(n => grabFn(src, n));
+  if(parts.some(x => !x)) return null;
+  const api = new Function('MhPadPos', 'MOVED',
+    'let uiZoom = 1, _mhPad = { x: 0, y: 0 }, _mhPadApplied = { x: 0, y: 0 }, _isConfigMode = true, _ovSkipped = 0;\n'
+    + 'const MH_PAD_MAX = 400, SIZE_MATCH_TOL = 3; const savedPos = {}; const _fittedSize = {};\n'
+    + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
+    + 'const WA = { x: 0, y: 0, width: 3840, height: 2160 }; const D = { workArea: WA, workAreaSize: { width: 3840, height: 2160 } };\n'
+    + 'const screen = { getDisplayMatching: () => D, getDisplayNearestPoint: () => D }; const getRunDisplay = () => D; const overlay = {};\n'
+    + 'let W = { x: 300, y: 200, width: 380, height: 680, res: false };\n'
+    + 'const _winAlreadyIs = (r) => W.x === r.x && W.y === r.y && W.width === r.width && W.height === r.height; const _noteApplied = () => {};\n'
+    + 'const mainWindow = { getBounds: () => ({ x: W.x, y: W.y, width: W.width, height: W.height }), isResizable: () => W.res, setResizable(v){ W.res = v; }, setAlwaysOnTop(){},\n'
+    + '  setBounds(r){ Object.assign(W, r); if(MOVED){ const m = sizeToMode(W.width, W.height); if(m) _rememberPos(m, W); } } };\n'
+    + parts.join('\n')
+    + '\nreturn { call: (px) => _applyConfigMode(true, "myhome", { x: px, y: 0 }),\n'
+    + '  drag: (x) => { W.x = x; const m = sizeToMode(W.width, W.height); if(m) _rememberPos(m, W); },\n'
+    + '  at: () => ({ mh: W.x + (W.width - 800) / 2, w: W.width }) };')(P, movedFires);
+  api.call(0); api.drag(500);
+  const rows = [];
+  for(const px of [0, 120, 120, 40]){ api.call(px); const a = api.at(); rows.push({ px, mh: a.mh, w: a.w }); }
+  return rows;
+}
+const applySteady = (rows) => !!rows && rows.every(r => r.mh === 500 && r.w === 800 + 2 * r.px);
+const applyText = (rows) => rows ? rows.map(r => r.px + '→' + r.mh + '/w' + r.w).join(' ') : '함수를 못 찾음';
+
 say('── 2. 창을 놓는 흐름(main.js _rememberPos)');
 chk(!!REM, 'main.js 에 _rememberPos 가 있다');
 const steady = (s) => s.every(v => v === '300,200');
@@ -92,7 +121,10 @@ if(REM){
   chk(J(st.saved.launcher) === '{"x":10,"y":20}', '  런처 · 생성기는 창 좌상단 그대로(여백은 마이홈만)');
 }
 /* 놓는 자리 · 기억하는 자리가 모두 이 규칙을 지나는가 — 창 자리를 직접 적는 곳은 creator(지금 창 자리 이어받기)뿐 */
-chk(MAIN.includes('remembered = MhPadPos.placeOf(remembered, padDip);'), "  _applyConfigMode('myhome') 가 placeOf 로 놓는다");
+for(const mv of [false, true]){
+  const rows = applyFlow(MAIN, mv);
+  chk(applySteady(rows), "★ _applyConfigMode 에 여백 0 → 120 → 120 → 40 — 마이홈 제자리 · 창 너비에 그때 여백(" + (mv ? "'moved' 오는 OS" : "'moved' 안 오는 OS") + ' · ' + applyText(rows) + ')');
+}
 const direct = (MAIN.match(/savedPos\[[^\]]+\] = \{ x:/g) || []).length;
 chk(direct === 0 && (MAIN.match(/_rememberPos\(/g) || []).length >= 5, "  'moved' · 줌 · 모니터 · 표시설정이 전부 _rememberPos 로 기억한다 (직접 적는 곳 " + direct + ')');
 
@@ -113,6 +145,18 @@ if(REM){
   for(const mv of [false, true]){
     const r = noSync !== MAIN ? zoomFlow(noSync, mv) : null;
     chk(noSync !== MAIN && !!r && !zoomSteady(r), "줌 맞춤에서 여백 맞추는 줄을 빼면 메뉴를 누를 때 튄다(" + (mv ? "'moved' 오는 OS" : "안 오는 OS") + (noSync !== MAIN ? '' : ' — 바꿀 글을 못 찾음') + ')');
+  }
+}
+
+{
+  /* 여백 대입을 크기 재기(sz) 뒤로 되돌린다 — 첫 호출의 크기가 옛 여백이 된다 */
+  const PRE = "    if(mode==='myhome') _mhPad = _mhPadOf(extra);\n";
+  const SZ = '    const sz = _modeSize(mode);';
+  const late = MAIN.replace(PRE, '').replace(SZ, SZ + "\n    if(mode==='myhome') _mhPad = _mhPadOf(extra);");
+  const moved = late !== MAIN && late.indexOf(SZ) < late.indexOf("_mhPad = _mhPadOf(extra)");
+  for(const mv of [false, true]){
+    const rows = moved ? applyFlow(late, mv) : null;
+    chk(moved && !!rows && !applySteady(rows), "여백 대입을 크기 잰 뒤로 되돌리면 마이홈이 밀린다(" + (mv ? "'moved' 오는 OS" : "안 오는 OS") + (moved ? ' · ' + applyText(rows) : ' — 바꿀 글을 못 찾음') + ')');
   }
 }
 

@@ -419,7 +419,7 @@
 | **sim-img-retry.js** | 71 | **a963d5e30fd6** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
-| **sim-mh-pad-pos.js** | 120 | **2253d4de1034** |
+| **sim-mh-pad-pos.js** | 164 | **4f0a3400f69c** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

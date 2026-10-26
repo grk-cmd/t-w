@@ -1840,6 +1840,8 @@ function _applyConfigMode(isConfig, mode, extra){
   const waPos = display.workArea;   // {x, y, width, height} — 전역 좌표계에서의 작업영역(멀티모니터 대응)
   if (isConfig) {
     // 설정 화면: mode에 따라 크기 다름. 사용자가 옮긴 적 있으면 그 위치, 없으면 선택된 모니터 중앙.
+    /* 🎨 스티커 여백 — 크기(_modeSize)가 읽으니 재기 전에 바꾼다. 옛 렌더러(셋째 인자 없음)면 0 */
+    if(mode==='myhome') _mhPad = _mhPadOf(extra);
     const sz = _modeSize(mode);   // 📐 MODE_SIZE × 줌 — 줌을 올려도 창이 내용을 따라 커진다(_modeSize 주석)
     /* ⚠️ setResizable(true) 는 아래 '같은 상태면 생략' 판정 **뒤로** 옮겼다.
        고정 크기 창에 setBounds 를 걸면 OS 가 크기를 깎을 수 있어 잠깐 풀어줘야 하는데,
@@ -1860,8 +1862,6 @@ function _applyConfigMode(isConfig, mode, extra){
       // ★ 마이홈 위치 기억(요청사항) — 유저가 옮겨둔 위치가 있으면 거기로, 없으면(첫 열기) 런처가 있는
       //   모니터 중앙. 'moved' 핸들러가 sizeToMode('myhome')로 위치를 계속 기록해줌.
       remembered = savedPos.myhome || null;
-      /* 🎨 스티커 여백 — 옛 렌더러(셋째 인자 없음)면 0. */
-      _mhPad = _mhPadOf(extra);
       const padDip = _mhPadDip();
       remembered = MhPadPos.placeOf(remembered, padDip);   // 기억은 여백 없는 자리('moved') — 지금 여백만큼 왼쪽 위로
       _mhPadApplied = padDip;
