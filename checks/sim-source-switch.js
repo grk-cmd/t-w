@@ -56,8 +56,9 @@ async function judge(S){
     chk(P('friends', 'SERVER', false) === 'firebase' && P('rooms', 'on', true) === 'server' && P('friends', 1, undefined) === 'server', '  ↳ 모르는 값은 칸 없음으로(옛 스위치)');
     chk(P('presence', 'server', true) === 'firebase' && P(undefined) === 'firebase', '모르는 기능은 파이어베이스(옛 길 — 안전한 쪽)');
     chk(SW.cleanSource('server') === 'server' && SW.cleanSource('firebase') === 'firebase' && SW.cleanSource('') === null && SW.cleanSource(null) === null, 'cleanSource 경계');
-    chk(JSON.stringify(Object.keys(SW.FEATURES)) === JSON.stringify(['friends', 'rooms', 'catalog']) && JSON.stringify(RC.SOURCE_FEATURES) === JSON.stringify(Object.keys(SW.FEATURES)),
-      '기능 표 — friends · rooms · catalog · 원격 설정 칸 이름과 같다');
+    chk(JSON.stringify(Object.keys(SW.FEATURES)) === JSON.stringify(['friends', 'rooms', 'catalog', 'gacha']) && JSON.stringify(RC.SOURCE_FEATURES) === JSON.stringify(Object.keys(SW.FEATURES)),
+      '기능 표 — friends · rooms · catalog · gacha · 원격 설정 칸 이름과 같다');
+    chk(P('gacha') === 'firebase' && P('gacha', 'server') === 'server' && P('gacha', 'x', true) === 'firebase', '  가챠 — 칸이 없거나 모르는 값이면 옛 길(앱이 뽑기) · server 면 서버가 뽑는다');
   }
 
   say('── 2. serverFirst — 넘어가기 한 벌');
@@ -104,10 +105,10 @@ async function judge(S){
 
   say('── 4. 원격 설정 · 규칙');
   {
-    chk(RC.KEYS.includes('sources') && JSON.stringify(RC.DEFAULTS.sources) === JSON.stringify({ friends: null, rooms: null, catalog: null }), '원격 설정 sources 칸 · 기본값 null(옛 스위치)');
-    chk(JSON.stringify(RC.cleanSources({ friends: 'server', rooms: 'x', catalog: 'firebase', presence: 'server' })) === JSON.stringify({ friends: 'server', rooms: null, catalog: 'firebase' })
-      && JSON.stringify(RC.cleanSources(null)) === JSON.stringify({ friends: null, rooms: null, catalog: null }), '  ↳ 모르는 값 · 모르는 기능은 버린다');
-    chk(RC.FALLBACK_PATHS.srcFriends === 'config/sources/friends' && RC.FALLBACK_PATHS.srcRooms === 'config/sources/rooms' && RC.FALLBACK_PATHS.srcCatalog === 'config/sources/catalog',
+    chk(RC.KEYS.includes('sources') && JSON.stringify(RC.DEFAULTS.sources) === JSON.stringify({ friends: null, rooms: null, catalog: null, gacha: null }), '원격 설정 sources 칸 · 기본값 null(옛 스위치)');
+    chk(JSON.stringify(RC.cleanSources({ friends: 'server', rooms: 'x', catalog: 'firebase', presence: 'server' })) === JSON.stringify({ friends: 'server', rooms: null, catalog: 'firebase', gacha: null })
+      && JSON.stringify(RC.cleanSources(null)) === JSON.stringify({ friends: null, rooms: null, catalog: null, gacha: null }), '  ↳ 모르는 값 · 모르는 기능은 버린다');
+    chk(RC.FALLBACK_PATHS.srcFriends === 'config/sources/friends' && RC.FALLBACK_PATHS.srcRooms === 'config/sources/rooms' && RC.FALLBACK_PATHS.srcCatalog === 'config/sources/catalog' && RC.FALLBACK_PATHS.srcGacha === 'config/sources/gacha',
       '  ↳ API 를 못 받으면 Firebase config/sources/{기능} 한 칸씩');
     chk(JSON.stringify(RC.fieldsOf({ sources: { rooms: 'server' } }).sources) === JSON.stringify({ rooms: 'server' }), '  ↳ GET /v1/config 의 data.sources 를 받는다');
     let R = null; try{ R = JSON.parse(S.RULES).rules.config.sources; }catch(_){}

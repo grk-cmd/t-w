@@ -44,6 +44,8 @@ const findMySeat = deps.findMySeat;
 const escHtml = deps.escHtml;
 const notifyError = deps.notifyError;                          // ⚠️ 에러코드 알림 — TwErrorCodes.notify
 const isGachaPart = deps.isGachaPart;                          // 가챠 파츠인가(rec.gacha) — 카탈로그(premium-assets.js)가 정의한다
+const gachaSource = deps.gachaSource;                          // 🎚️ 받는 곳 — 'server' | 'firebase'(source-switch.js · 원격 설정 sources.gacha)
+const gachaServer = deps.gachaServer;                          // 🎰 서버 길 — gacha-server.js(서버가 뽑고 저장)
 /* 🛠 관리자 파츠 등록 · 삭제 — app.js 가 setPartEditor 로 건다(가챠는 관리자 모듈을 부르지 않는다) */
 let openPartRegister = null, syncPartRegGachaLock = null, deletePart = null;
 function setPartEditor(a){ openPartRegister = a.openPartRegister; syncPartRegGachaLock = a.syncPartRegGachaLock; deletePart = a.deletePart; }
@@ -148,6 +150,12 @@ let _gachaSrvSeen = false;
      사라진 것처럼 보인다. 그래서 loadChalBonus 는 실패를 null 로 돌려주고 0 과 구분한다. */
 let _gachaBonus = 0;
 try{ _gachaBonus = Math.max(0, parseInt(localStorage.getItem(GACHA_BONUS_KEY) || '0', 10) || 0); }catch(_){}
+/* 서버 길(sources.gacha = 'server')에서 서버가 알려 준 { earned, left, season } — 남은 뽑기 · 시즌을 서버 값으로 그린다.
+   옛 길이거나 아직 못 받았으면 null(이 PC 의 레벨 · 시계로 센다). */
+let _srvState = null;
+/* 서버 길 뽑기가 성공할 때마다 올린다 — 그 전에 나간 상태 받기(GET)가 늦게 와 방금 뽑은 것을 덮지 않게(갈아 끼우기라 옛 길의 합치기처럼 안전하지 않다). */
+let _srvDrawGen = 0;
+const _serverMode = () => gachaSource() === 'server';
 function _setGachaBonusLocal(n){
   _gachaBonus = Math.max(0, Math.min(9999, Math.floor(Number(n) || 0)));
   try{ localStorage.setItem(GACHA_BONUS_KEY, String(_gachaBonus)); }catch(_){}
@@ -176,7 +184,9 @@ try{
 
 /* 지금 가챠 중인 시즌. 클라이언트 시계 기준이라 조작하면 다른 시즌을 뽑을 수 있지만,
    §5와 같은 결로 감수한다 — 조작해도 남에게 피해가 가지 않는다. */
+const GACHA_SEASON_KEYS = Object.freeze({ spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' });
 function gachaSeasonNow(){
+  if(_serverMode() && _srvState && GACHA_SEASON_KEYS[_srvState.season]) return GACHA_SEASON_KEYS[_srvState.season];   // 서버 길 — 서버 시계(서울)의 시즌(아는 이름만)
   const m = new Date().getMonth() + 1;
   if(m === 12 || m <= 2) return 'winter';
   if(m <= 5) return 'spring';
@@ -219,8 +229,14 @@ function _usedIn(owned){ let n = 0; for(const k in owned) n += owned[k] | 0; ret
 function gachaUsedTotal(){ return _usedIn(gachaOwned); }
 /* ⚠️ 예전 불변식은 "총 뽑기 = 레벨/5" 하나였다. 👑달성표 주간 보상(_gachaBonus)이 붙으면서
      항이 하나 늘었다 — 화면에 "5레벨당 1회"만 적으면 거짓말이 되므로 renderGachaInv 표기도 같이 고쳤다. */
-function gachaTicketsEarned(){ return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0); }
-function gachaTicketsLeft(){ return Math.max(0, gachaTicketsEarned() - gachaUsedTotal()); }
+function gachaTicketsEarned(){
+  if(_serverMode() && _srvState) return _srvState.earned;   // 서버 길 — 서버가 센 값(레벨 · 달성표 보상)
+  return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0);
+}
+function gachaTicketsLeft(){
+  if(_serverMode() && _srvState) return Math.max(0, Math.floor(Number(_srvState.left)) || 0);   // 서버 길 — 남은 횟수도 서버가 센 값
+  return Math.max(0, gachaTicketsEarned() - gachaUsedTotal());
+}
 
 /* 보유분 씻기 — 0 이하 · 숫자 아님 · 규칙이 거부하는 키는 빼고 상한에서 자른다(규칙 owned/$partId 와 같은 모양).
    ⚠️ 규칙에 안 맞는 옛 키를 하나라도 다시 쓰면 트랜잭션 전체가 거부된다. */
@@ -261,6 +277,20 @@ function _adoptServer(v){
   if(_gachaInvOpen()) renderGachaInv();
 }
 
+/* 서버 길 — 서버 상태를 이 PC 사본으로 **갈아 끼운다**(합치지 않는다 — 서버 값만 원본 · 이 PC 에만 있는 뽑기는 올리지 않는다). */
+function _adoptServerState(st){
+  gachaOwned = st.owned;
+  _saveGachaLocal(st.ts || _gachaNow());
+  _srvState = st;
+  _gachaSrvSeen = true;
+  if(_gachaInvOpen()) renderGachaInv();
+}
+/* 서버 결과 줄에 카탈로그 항목을 붙인다 — 연출 · 이름 · 그림이 rec 를 읽는다. 카탈로그에 없으면 이름 없는 칸으로. */
+function _withRec(out){
+  const list = savedParts() || [];
+  return out.map(r => Object.assign({ rec: list.find(p => p.id === r.id) || { id: r.id, name: '파츠' } }, r));
+}
+
 /* 뽑기 계산 — owned 에서 n회를 굴려 { owned: 새 보유분, out } 을 돌려준다(받은 owned 는 안 바꾼다).
    티켓이 모자라거나 풀이 비면 그 자리에서 멈춘다(요청한 n보다 적게 나올 수 있다). */
 function _planDraw(owned, n){
@@ -295,6 +325,18 @@ async function gachaDraw(n){
   const uid = getMyUserId();
   if(!uid) return { ok:false, reason:'nouser' };
   _gachaDrawing = true;
+  if(_serverMode()){
+    try{
+      const r = await gachaServer.draw(n);
+      if(!r.ok){
+        try{ syncGachaToServer('draw-fail'); }catch(_){}   // 시간 초과 뒤 서버엔 들어갔을 수 있다 — 서버 값을 다시 받는다
+        return { ok:false, reason: r.reason };
+      }
+      _srvDrawGen++;
+      _adoptServerState(r.state);
+      return { ok:true, out: _withRec(r.out) };
+    }finally{ _gachaDrawing = false; }
+  }
   try{
     const mine = _cleanOwned(gachaOwned);   // 이 PC 에만 있는 뽑기도 같이 올린다 — syncGachaToServer 와 같은 합치기
     let out = [];
@@ -402,6 +444,7 @@ async function syncGachaToServer(reason, mode){
     if(!_gachaSyncPending || mode === 'pull') _gachaSyncPending = { reason, mode };
     return;
   }
+  if(_serverMode()) return _syncFromServer(reason, mode);
   if(!(window.firebaseAPI && firebaseAPI.loadGachaOwned && firebaseAPI.updateGacha)) return;
   _gachaSyncing = true;
   /* 서버 보유분을 실제로 읽었는가 — 아래 finally 의 착용 정리가 이 값에만 의지한다.
@@ -451,6 +494,28 @@ async function syncGachaToServer(reason, mode){
        ⚠️ _gachaSyncing 을 false 로 되돌린 **뒤에** 부를 것 — 먼저 부르면 그 호출이 다시
          pending 에 적히고 아무도 실행하지 않는다. 꼬리물기는 안 생긴다: 이 시점에는 진행 중인
          동기화가 없으므로 재시도분은 pending 이 아니라 본문으로 들어간다. */
+    const _pend = _gachaSyncPending; _gachaSyncPending = null;
+    if(_pend){ try{ syncGachaToServer(_pend.reason, _pend.mode); }catch(_){} }
+  }
+}
+/* 서버 길의 맞추기 — 받기만 한다(올리지 않음). pull(계정 연동)도 같다: 서버 값이 그 계정의 원본이다.
+   못 받으면 아무것도 바꾸지 않고 착용 정리도 하지 않는다(옛 길과 같은 전제 — 보유분을 모르는 채 벗기지 않는다). */
+async function _syncFromServer(reason, mode){
+  _gachaSyncing = true;
+  let _srvRead = false;
+  try{
+    if(!getMyUserId()) return;
+    const gen = _srvDrawGen;
+    let st = null;
+    try{ st = await gachaServer.load(); }catch(e){ console.warn('[가챠] 서버 상태 받기 실패', e && (e.code || e.kind)); return; }
+    if(gen !== _srvDrawGen) return;   // 받는 사이 뽑기가 끝났다 — 이 답은 뽑기 전 상태(뽑기 답이 이미 더 새 값을 넣었다)
+    _srvRead = true;
+    _adoptServerState(st);
+  }finally{
+    _gachaSyncing = false;
+    if(_srvRead){
+      try{ pruneUnownedGachaParts(); }catch(e){ console.warn('[가챠] 미보유 파츠 정리 실패', e); }
+    }
     const _pend = _gachaSyncPending; _gachaSyncPending = null;
     if(_pend){ try{ syncGachaToServer(_pend.reason, _pend.mode); }catch(_){} }
   }
@@ -1319,10 +1384,10 @@ return {
   isDrawOpen: _gachaDrawOpen,
   selId: ()=>_gachaSelId,               // 보관함에서 지금 보고 있는 파츠 — 꾸미기 미리보기 색상 영역이 따라간다
   owned: ()=>gachaOwned,                // 계정 전환 검문 — «뽑은 파츠 N개»
-  unsynced: gachaUnsynced,              // 로그아웃 전 검문 — 서버에 없는 이 PC 의 뽑기 수
+  unsynced: (srv)=>_serverMode() ? 0 : gachaUnsynced(srv),   // 로그아웃 전 검문 — 서버에 없는 이 PC 의 뽑기 수(서버 길은 이 PC 몫을 올리지 않으니 0)
   bonus: ()=>_gachaBonus,               // 👑 달성표 — 보너스 뽑기 수
   setBonusLocal: _setGachaBonusLocal,
-  resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
+  resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; _srvState = null; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-gacha.js · sim-gacha-prune.js · sim-part-color-entry.js */
   draw: gachaDraw, pool: gachaPool, seasonNow: gachaSeasonNow, ticketsLeft: gachaTicketsLeft, ticketsEarned: gachaTicketsEarned,
   openGachaInv, closeGachaInv, runDraw: _gachaRunDraw, renderGachaDraw,

@@ -437,6 +437,14 @@ const BOT_CASES = [
   ['  ↳ 지우기는 거절', 'DELETE', 'adminLog/l1', null, false, BOT],
   ['관리자 — 자기 이름으로 작업 기록(그대로)', 'PUT', 'adminLog/l4', { at: TS, by: ADMIN_A, action: 'license.issue', target: 'k1' }, true, ADMIN_A],
   ['  ↳ 관리자가 남의 이름으로는 거절(그대로)', 'PUT', 'adminLog/l5', { at: TS, by: 'adminB', action: 'license.issue', target: 'k1' }, false, ADMIN_A],
+
+  /* 🎰 가챠 서버 뽑기 — 서버 봇이 그 사람 가챠 칸을 대신 저장한다(로그인에 묶인 사람이어도) · 모양 검사는 그대로 · 남은 막지 않음 */
+  ['준비: 로그인에 묶인 사람(userAuth/GOOD_U2 = authG)', 'PUT', `userAuth/${GOOD_U2}`, 'authG', true, OWNER],
+  ['서버 봇 — 묶인 사람 가챠 저장', 'PUT', `users/${GOOD_U2}/gacha`, { owned: { hat1: 2 }, ts: 1 }, true, BOT],
+  ['  ↳ 봇이어도 모양이 틀리면 거절(보유 상한 9999)', 'PUT', `users/${GOOD_U2}/gacha`, { owned: { hat1: 10000 }, ts: 1 }, false, BOT],
+  ['  ↳ 본인은 지금처럼 쓴다(옛 앱 길 — 컷오버 때 닫음)', 'PUT', `users/${GOOD_U2}/gacha`, { owned: { hat1: 3 }, ts: 2 }, true, 'authG'],
+  ['  ↳ 묶이지 않은 남은 막힘', 'PUT', `users/${GOOD_U2}/gacha`, { owned: { hat1: 9 }, ts: 3 }, false, 'authNew2'],
+  ['  ↳ 봇이라도 다른 칸(chalBonus)은 못 씀', 'PUT', `users/${GOOD_U2}/chalBonus`, 5, false, BOT],
 ];
 
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */

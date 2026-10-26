@@ -64,7 +64,10 @@ say('── 2. firebase-database-rules.json — users/$userId/slots');
 const U = RULES.rules && RULES.rules.users && RULES.rules.users['$userId'];
 const G = U && U.gacha, S = U && U.slots;
 chk(!!S, '★ slots 블록이 있다 (없으면 쓰기가 조용히 전부 거부된다 — gacha 때와 같은 사고)');
-chk(S && G && S['.write'] === G['.write'], '  .write 가 gacha 블록과 같은 문장');
+/* gacha 는 서버 봇(apiBots)이 대신 저장하는 절이 뒤에 더 붙었다 — 앞의 소유권 절은 slots 와 같은 문장이어야 한다 */
+const BOT_WRITE = "(auth != null && root.child('apiBots').child(auth.uid).val() === true)";
+chk(S && G && (G['.write'] === S['.write'] || G['.write'] === '(' + S['.write'] + ') || ' + BOT_WRITE), '  .write 가 gacha 블록과 같은 소유권 문장(gacha 는 봇 절만 더함)');
+chk(S && !String(S['.write']).includes('apiBots'), '  ↳ slots 에는 봇 쓰기가 없다(서버가 슬롯을 대신 쓰지 않는다)');
 chk(S && S.ts && /isNumber/.test(S.ts['.validate']), '  ts 는 숫자');
 const V = S && S.s && S.s['$i'] && S.s['$i']['.validate'] || '';
 chk(/\$i\.matches\(\/\^\[0-4\]\$\/\)/.test(V), '  칸 키는 0~4');

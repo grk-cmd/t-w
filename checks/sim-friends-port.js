@@ -386,7 +386,9 @@ async function judge(S){
     const bad = ALL_JS.filter(([f, src]) => f !== 'firebase-init.js' && f !== 'app.js'
       && FRIEND_FB_FNS.some(n => new RegExp('firebaseAPI\\s*\\.\\s*' + n + '\\b').test(strip(src))));
     chk(!bad.length, '화면 · 도메인 파일이 친구 데이터 firebaseAPI 함수(' + FRIEND_FB_FNS.join(' · ') + ')를 직접 안 부른다' + (bad.length ? ' — ' + bad.map(b => b[0]).join(' · ') : ''));
-    const appCalls = (a.match(/firebaseAPI\.(subscribeMyFriends|getMyFriendList|watchMyFriendList|getFriendCard|watchFriendPresence|getFriendPresence|watchFriendProfile|getFriendProfile|apiGetAuthed)\(/g) || []).length;
+    /* 🎰 가챠 서버 길(gachaServerMod)도 로그인 통로(apiGetAuthed)를 쓴다 — 친구 provider 몫이 아니라 빼고 센다 */
+    const aFriends = a.replace(/const gachaServerMod = TwGachaServer\.createGachaServer\(\{[\s\S]*?\n\}\);/, '');
+    const appCalls = (aFriends.match(/firebaseAPI\.(subscribeMyFriends|getMyFriendList|watchMyFriendList|getFriendCard|watchFriendPresence|getFriendPresence|watchFriendProfile|getFriendProfile|apiGetAuthed)\(/g) || []).length;
     chk(appCalls === 8, '  ↳ app.js 도 provider deps 여덟 줄에서만 (' + appCalls + ')');
     chk(!/subscribeMyFriends/.test(strip(S.FI)) && !/subscribeMyFriends/.test(a), '  ↳ 친구별 4개 구독(subscribeMyFriends)은 어디에도 없다');
   }
