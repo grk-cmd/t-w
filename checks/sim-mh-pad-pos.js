@@ -4,7 +4,8 @@
    ・1절: rememberOf · placeOf 를 불러 본다 — 기억 없음 · 이상한 값 · 0 여백
    ・2절: main.js 의 _rememberPos 를 떼어 와 «창을 놓는 흐름» 을 돌린다 — 여백이 0 → 120 → 120 → 0 → 120 → 40 으로 바뀌어도
           마이홈(창 좌상단 + 여백)이 사용자가 둔 자리에 있다. 'moved' 가 오는 OS · 안 오는 OS 둘 다
-   ・3절: 일부러 깨 보기 — 예전 «바뀐 만큼» 공식 · 여백 안 빼고 기억하기는 빨강
+          + 여백 120 · 줌 1 → 1.25 → 메뉴 누름에서 창이 튀지 않는다(_refitConfigForZoom 을 떼어 와 돌림)
+   ・3절: 일부러 깨 보기 — 예전 «바뀐 만큼» 공식 · 여백 안 빼고 기억하기 · 줌 맞춤에서 여백 안 맞추기는 빨강
    [실행] node checks/run.js sim-mh-pad-pos */
 'use strict';
 const fs = require('fs');
@@ -51,6 +52,34 @@ const NEW_PLACE = (rem, pad) => P.placeOf(rem, pad);
 const OLD_PLACE = (rem, pad, applied) => ({ x: rem.x - (pad.x - applied.x), y: rem.y - (pad.y - applied.y) });
 const REM = grabFn(MAIN, '_rememberPos');
 
+/* 줌을 바꾼 뒤 메뉴를 누른다 — main.js 의 _refitConfigForZoom · _rememberPos · _mhPadDip · _modeSize · _fitConfigRect 를 그대로 돌린다.
+   여백 120 · 줌 1 → 1.25. 줌을 바꾸는 순간 창 좌상단은 그대로 두고, 그 뒤 메뉴를 누르면 창이 그 자리에 있어야 한다. */
+const ZNAMES = ['_refitConfigForZoom', '_rememberPos', '_mhPadDip', '_modeSize', '_fitConfigRect', '_sameRect'];
+function zoomFlow(src, movedFires){
+  const parts = ZNAMES.map(n => grabFn(src, n));
+  if(parts.some(x => !x)) return null;
+  const E = { win: null, moved: movedFires };
+  const api = new Function('MhPadPos', 'E',
+    'let uiZoom = 1, _mhPad = { x: 120, y: 60 }, _mhPadApplied = { x: 0, y: 0 }; const savedPos = {}; const _fittedSize = {};\n'
+    + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, myhome:{ w:800, h:580 } };\n'
+    + 'const WA = { x: 0, y: 0, width: 3840, height: 2160 }; const screen = { getDisplayMatching: () => ({ workArea: WA }) };\n'
+    + 'const _noteApplied = () => {}, _diagLog = () => {};\n'
+    + 'const mainWindow = { isDestroyed: () => false, getBounds: () => Object.assign({}, E.win), setResizable(){},\n'
+    + '  setBounds(r){ E.win = Object.assign({}, r); if(E.moved) _rememberPos("myhome", E.win); } };\n'
+    + parts.join('\n')
+    + '\nreturn {\n'
+    + '  open(at){ _mhPadApplied = _mhPadDip(); const sz = _modeSize("myhome"); E.win = { x: at.x, y: at.y, width: sz.w, height: sz.h }; _rememberPos("myhome", E.win); },\n'
+    + '  zoom(z){ uiZoom = z; _refitConfigForZoom("myhome"); },\n'
+    + '  menu(){ const padDip = _mhPadDip(); const r = _fitConfigRect("myhome", _modeSize("myhome"), screen.getDisplayMatching(), MhPadPos.placeOf(savedPos.myhome, padDip)); _mhPadApplied = padDip; mainWindow.setBounds(r); },\n'
+    + '};')(P, E);
+  api.open({ x: 180, y: 140 });
+  api.zoom(1.25);
+  const afterZoom = E.win.x + ',' + E.win.y;
+  api.menu();
+  return { afterZoom, afterMenu: E.win.x + ',' + E.win.y };
+}
+const zoomSteady = (r) => !!r && r.afterZoom === '180,140' && r.afterMenu === '180,140';
+
 say('── 2. 창을 놓는 흐름(main.js _rememberPos)');
 chk(!!REM, 'main.js 에 _rememberPos 가 있다');
 const steady = (s) => s.every(v => v === '300,200');
@@ -67,11 +96,24 @@ chk(MAIN.includes('remembered = MhPadPos.placeOf(remembered, padDip);'), "  _app
 const direct = (MAIN.match(/savedPos\[[^\]]+\] = \{ x:/g) || []).length;
 chk(direct === 0 && (MAIN.match(/_rememberPos\(/g) || []).length >= 5, "  'moved' · 줌 · 모니터 · 표시설정이 전부 _rememberPos 로 기억한다 (직접 적는 곳 " + direct + ')');
 
+for(const mv of [false, true]){
+  const r = zoomFlow(MAIN, mv);
+  chk(zoomSteady(r), "★ 여백 120 · 줌 1 → 1.25 → 메뉴 누름 — 창이 튀지 않는다(" + (mv ? "'moved' 오는 OS" : "'moved' 안 오는 OS") + ' · ' + (r ? r.afterZoom + ' → ' + r.afterMenu : '함수를 못 찾음') + ')');
+}
+
 say('── 3. 일부러 깨 보기');
 if(REM){
   chk(!steady(run(REM, OLD_PLACE, false)), "예전 «바뀐 만큼» 공식 — 'moved' 가 안 오면 움직인다(빨강이어야 함)");
   const noPad = REM.replace('MhPadPos.rememberOf(b, _mhPadApplied)', '{ x: b.x, y: b.y }');
   chk(noPad !== REM && !steady(run(noPad, NEW_PLACE, true)), "여백 안 빼고 기억 — 'moved' 가 오는 OS 에서 움직인다(빨강이어야 함)");
+}
+{
+  const SYNC = "  if(m === 'myhome') _mhPadApplied = _mhPadDip();";
+  const noSync = MAIN.replace(SYNC, '');
+  for(const mv of [false, true]){
+    const r = noSync !== MAIN ? zoomFlow(noSync, mv) : null;
+    chk(noSync !== MAIN && !!r && !zoomSteady(r), "줌 맞춤에서 여백 맞추는 줄을 빼면 메뉴를 누를 때 튄다(" + (mv ? "'moved' 오는 OS" : "안 오는 OS") + (noSync !== MAIN ? '' : ' — 바꿀 글을 못 찾음') + ')');
+  }
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

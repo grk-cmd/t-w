@@ -496,6 +496,11 @@ let _mhPadApplied = { x: 0, y: 0 };   // DIP
 function _rememberPos(m, b){
   savedPos[m] = m === 'myhome' ? MhPadPos.rememberOf(b, _mhPadApplied) : { x: b.x, y: b.y };
 }
+/* 지금 줌에서 창에 얹을 여백(DIP) — 크기(_modeSize)와 같은 식. 놓기 · 줌 맞춤이 같이 부른다 */
+function _mhPadDip(){
+  const z = (uiZoom > 0) ? uiZoom : 1;
+  return { x: Math.round(_mhPad.x * z), y: Math.round(_mhPad.y * z) };
+}
 function _mhPadOf(v){
   const n = (k) => { const x = Number(v && v[k]); return isFinite(x) && x > 0 ? Math.min(MH_PAD_MAX, Math.ceil(x)) : 0; };
   return { x: n('x'), y: n('y') };
@@ -518,6 +523,7 @@ function _refitConfigForZoom(m){
   const b = mainWindow.getBounds();
   const rect = _fitConfigRect(m, _modeSize(m), screen.getDisplayMatching(b), { x: b.x, y: b.y });
   if(_sameRect(rect, b)) return;
+  if(m === 'myhome') _mhPadApplied = _mhPadDip();   // 창 크기는 새 줌 여백 — 'moved'(setBounds 중) · 아래 기억이 옛 여백으로 적지 않게
   mainWindow.setResizable(true);    // 고정 크기 상태로 setBounds 하면 크기가 깎인다 — setConfigMode 와 같은 순서
   mainWindow.setBounds(rect);
   mainWindow.setResizable(false);
@@ -1856,8 +1862,7 @@ function _applyConfigMode(isConfig, mode, extra){
       remembered = savedPos.myhome || null;
       /* 🎨 스티커 여백 — 옛 렌더러(셋째 인자 없음)면 0. */
       _mhPad = _mhPadOf(extra);
-      const _z = (uiZoom > 0) ? uiZoom : 1;
-      const padDip = { x: Math.round(_mhPad.x * _z), y: Math.round(_mhPad.y * _z) };
+      const padDip = _mhPadDip();
       remembered = MhPadPos.placeOf(remembered, padDip);   // 기억은 여백 없는 자리('moved') — 지금 여백만큼 왼쪽 위로
       _mhPadApplied = padDip;
     }

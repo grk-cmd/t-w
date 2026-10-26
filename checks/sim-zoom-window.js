@@ -25,7 +25,7 @@ chk(/const mvc = _fitConfigRect\(curMode, _modeSize\(curMode\), target, null\);/
 chk(!/_fitConfigRect\([^,()]+,\s*MODE_SIZE[.\[]/.test(MAIN), 'MODE_SIZE 를 줌 없이 크기로 바로 넘기는 자리가 없다(둘째 인자)');
 
 say('── 2. 실제로 돌려 본다');
-const names = ['_clampZoom', '_zoomStep', 'applyUiZoom', '_modeSize', '_cfgModeForZoom', '_refitConfigForZoom', '_fitConfigRect', 'sizeToMode', '_sameRect', '_rememberPos'];
+const names = ['_clampZoom', '_zoomStep', 'applyUiZoom', '_modeSize', '_cfgModeForZoom', '_refitConfigForZoom', '_fitConfigRect', 'sizeToMode', '_sameRect', '_rememberPos', '_mhPadDip'];
 const src = names.map(grab);
 chk(src.every(Boolean), '함수 ' + names.length + '개를 찾았다');
 if(!src.every(Boolean)){ say('  · 못 찾은 함수: ' + names.filter((n, i) => !src[i]).join(', ') + ' — 2절을 건너뛴다'); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); }

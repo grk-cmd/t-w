@@ -203,7 +203,7 @@
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
-| **sim-zoom-window.js** | 68 | **4020c1abdd0e** |
+| **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
 | **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
 | **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
 | **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** |
@@ -419,7 +419,7 @@
 | **sim-img-retry.js** | 71 | **a963d5e30fd6** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
-| **sim-mh-pad-pos.js** | 78 | **1f0bdb6ff814** |
+| **sim-mh-pad-pos.js** | 120 | **2253d4de1034** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
