@@ -126,7 +126,7 @@
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
 | **sim-daily-summary.js** | 115 | **5362f8640c27** |
-| **sim-account-delete.js** | 495 | **18b698e0e546** |
+| **sim-account-delete.js** | 502 | **6b9278fac508** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-server-net.js** | 910 | **5b67a6af4df6** |

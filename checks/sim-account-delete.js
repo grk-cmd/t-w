@@ -95,7 +95,8 @@ const AMY = 'uamy00000003';
 const ADMIN = 'adminAuthUid';
 const T0 = Date.UTC(2026, 9, 7);
 
-function world(){
+/* srExp — 이 사람 시크릿룸(SCRT-AAAA)의 pub.exp. 없으면 영구 방 */
+function world(srExp){
   const tree = {
     admins: { [ADMIN]: true },
     users: {
@@ -118,7 +119,7 @@ function world(){
     friendRequests: { [ME]: { ucarl0000004: { name: '칼', ts: 1 } }, udan00000005: { [ME]: { name: '지울이', ts: 1 } } },
     sentFriendRequests: { [ME]: { udan00000005: { ts: 1 } }, ucarl0000004: { [ME]: { ts: 1 } } },
     roomInvites: { [ME]: { [BOB]: { roomCode: 'R1', ts: 1 } }, [AMY]: { [ME]: { roomCode: 'R2', ts: 1 } }, [BOB]: { [AMY]: { roomCode: 'R3', ts: 1 } } },
-    secretRooms: { 'SCRT-AAAA': { k: 'x', pub: { owner: ME, ts: 1, name: '지울이방' } }, 'SCRT-BBBB': { k: 'x', pub: { owner: BOB, ts: 1 } } },
+    secretRooms: { 'SCRT-AAAA': { k: 'x', pub: { owner: ME, ts: 1, name: '지울이방', ...(srExp !== undefined ? { exp: srExp } : {}) } }, 'SCRT-BBBB': { k: 'x', pub: { owner: BOB, ts: 1 } } },
     invites: {
       'INVT-AAAA-AAAA': { issuedBy: ME, createdAt: 1, usedBy: null },
       'INVT-BBBB-BBBB': { issuedBy: ME, createdAt: 1, usedBy: AMY, usedAt: 2 },
@@ -309,6 +310,12 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
       chk(!!sr && sr.k === 'x' && sr.pub.owner === ME && sr.pub.ts === 1 && sr.pub.name === undefined,
           '이 사람 시크릿룸은 발급 기록(열쇠 · 주인 · 발급 시각)이 남고 이름만 사라진다 — 코드가 다시 나가지 않게');
       chk(typeof sr.pub.exp === 'number' && sr.pub.exp < T0 && T0 - sr.pub.exp <= 1000, '  ↳ 영구였던 방은 지금(1초 앞)으로 끝난다 — 다음 입장부터 막힌다');
+    }
+    // 실제 실행 길 — 계획이 지금 exp 를 읽어 넘겨야 «이미 끝난 방은 그대로» 가 지켜진다
+    for (const [what, srExp, want] of [['이미 끝난 방(5일 전) → 끝난 날짜 그대로', T0 - 5 * 86400000, T0 - 5 * 86400000], ['기간 남은 방(30일) → 지금 1초 앞', T0 + 30 * 86400000, T0 - 1000]]){
+      const W2 = world(srExp);
+      await m.handleAdminDeleteAccount(W2.db, adminReq({ code: ME, dryRun: false }), W2.deps, T0);
+      chk(W2.at('secretRooms/SCRT-AAAA/pub/exp') === want && W2.at('secretRooms/SCRT-AAAA/pub/owner') === ME, '  ↳ 실제 탈퇴: ' + what);
     }
     chk(W.files.join() === ['purikura/ROOM1/' + BOB + '/0.webp', 'users/' + BOB + '/avatar.jpg', 'users/' + ME + 'x/avatar.jpg'].join(), 'Storage 는 이 사람 파일만 사라졌다');
     chk(!W.authUsers.authMe && W.authUsers.authBob === 'google', '로그인 계정은 이 사람 것만 사라졌다');
