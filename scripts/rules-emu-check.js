@@ -87,30 +87,30 @@ const LIMIT_CASES = [
   ['_meta — 옛 칸을 그대로 실은 통째 쓰기는 거절(바뀌지 않은 칸도 다시 검사된다 — 알고 둔다)', 'PUT', `rooms/WORK-ABCD/_meta`, { channel: 'workingroom', host: GOOD_U2, ts: 2, legacy: 'x' }, false],
   ['_meta — 옛 칸이 있어도 update 는 통과', 'PATCH', `rooms/WORK-ABCD/_meta`, { host: GOOD_U2, ts: 2 }, true],
 
-  /* 🔒 시크릿룸 — SCRT- 방은 발급(pub.owner)된 방만 쓴다 · 새 멤버 칸은 기간 안(exp 가 숫자 > 0 이고 지났으면 거절)일 때만.
-     앱 입장 검사(room-entry.js startRoom)와 같은 판정 — 이 규칙은 앱을 고쳐 그 검사를 건너뛴 쓰기를 막는다.
-     이미 방 안에 있던 사람은 만료 뒤에도 그대로(앱 · 방 서버도 입장 길목에서만 본다) · 지우기(나가기)는 다른 칸이 남아도 된다. */
+  /* 🔒 시크릿룸 — SCRT- 방에 새 멤버 칸을 만들 때만 «발급됨(pub.owner 가 빈 글자 아님)» 을 본다. 앱 입장 검사(room-entry.js startRoom)와 같은 판정이고,
+     앱을 고쳐 그 검사를 건너뛰고 발급 안 된 코드로 방을 쓰는 것을 막는다. 이미 있는 칸(끊겼다 다시 붙기 전까지) · 지우기 · 나가기는 건드리지 않는다.
+     기간(exp)은 규칙이 보지 않는다 — 끝난 방에서 끊겼다 다시 붙으면 칸을 새로 만드는데 그때 막으면 남에게 안 보이게 된다. 기간은 앱 · 방 서버가 들어올 때 본다. */
   ['준비: 발급된 영구 시크릿룸(규칙 건너뜀)', 'PUT', 'secretRooms/SCRT-AB12', { k: 'x', pub: { owner: GOOD_U, ts: 1 } }, true, OWNER],
-  ['준비: 기간 안 시크릿룸', 'PUT', 'secretRooms/SCRT-FU12', { k: 'x', pub: { owner: GOOD_U, ts: 1, exp: FUTURE } }, true, OWNER],
   ['준비: 기간 끝난 시크릿룸', 'PUT', 'secretRooms/SCRT-EX12', { k: 'x', pub: { owner: GOOD_U, ts: 1, exp: 1000 } }, true, OWNER],
   ['준비: 기간 끝난 방에 남은 멤버 둘 · _meta · 채팅 기록', 'PATCH', 'rooms/SCRT-EX12', { [MEMBER2]: JOIN, mabc11111: JOIN, _meta: { channel: 'togetherroom', host: GOOD_U, ts: 1 }, chatLog: { '-Nex1': { uid: GOOD_U, name: '민수', text: 'a', ts: 1 } } }, true, OWNER],
-  ['준비: exp 가 0 인 옛 발급분 · 주인이 빈 글자', 'PATCH', 'secretRooms', { 'SCRT-ZE12': { k: 'x', pub: { owner: GOOD_U, ts: 1, exp: 0 } }, 'SCRT-OW12': { k: 'x', pub: { owner: '', ts: 1 } } }, true, OWNER],
-  ['시크릿룸 — 영구 방 입장', 'PUT', `rooms/SCRT-AB12/${MEMBER}`, JOIN, true],
-  ['시크릿룸 — 영구 방 상태 update', 'PATCH', `rooms/SCRT-AB12/${MEMBER}`, BASE, true],
-  ['시크릿룸 — 영구 방 _meta(setRoomChannel)', 'PATCH', `rooms/SCRT-AB12/_meta`, { channel: 'togetherroom', ts: TS, host: GOOD_U }, true],
-  ['시크릿룸 — 영구 방 채팅 기록', 'PUT', `rooms/SCRT-AB12/chatLog/-Nsr1`, { uid: GOOD_U, name: '민수', text: 'hi', ts: TS }, true],
-  ['시크릿룸 — 기간 안 방 입장', 'PUT', `rooms/SCRT-FU12/${MEMBER}`, JOIN, true],
+  ['준비: 주인이 빈 글자인 발급분', 'PUT', 'secretRooms/SCRT-OW12', { k: 'x', pub: { owner: '', ts: 1 } }, true, OWNER],
+  ['준비: 발급 기록이 없는 방에 남은 멤버 둘 · _meta(예전 탈퇴가 기록을 지운 방)', 'PATCH', 'rooms/SCRT-GN12', { [MEMBER2]: JOIN, mabc11111: JOIN, _meta: { channel: 'togetherroom', host: GOOD_U, ts: 1 } }, true, OWNER],
+  ['시크릿룸 — 발급된 방 입장', 'PUT', `rooms/SCRT-AB12/${MEMBER}`, JOIN, true],
+  ['시크릿룸 — 발급된 방 상태 update', 'PATCH', `rooms/SCRT-AB12/${MEMBER}`, BASE, true],
+  ['시크릿룸 — 발급된 방 _meta(setRoomChannel)', 'PATCH', `rooms/SCRT-AB12/_meta`, { channel: 'togetherroom', ts: TS, host: GOOD_U }, true],
+  ['시크릿룸 — 발급된 방 채팅 기록', 'PUT', `rooms/SCRT-AB12/chatLog/-Nsr1`, { uid: GOOD_U, name: '민수', text: 'hi', ts: TS }, true],
   ['시크릿룸 — 발급 안 된 코드 입장', 'PUT', `rooms/SCRT-NO12/${MEMBER}`, JOIN, false],
-  ['시크릿룸 — 발급 안 된 코드 _meta', 'PATCH', `rooms/SCRT-NO12/_meta`, { channel: 'togetherroom', ts: TS, host: GOOD_U }, false],
-  ['시크릿룸 — 발급 안 된 코드 채팅 기록', 'PUT', `rooms/SCRT-NO12/chatLog/-Nsr2`, { uid: GOOD_U, name: '민수', text: 'hi', ts: TS }, false],
-  ['시크릿룸 — 기간 끝난 방 입장', 'PUT', `rooms/SCRT-EX12/${MEMBER}`, JOIN, false],
-  ['시크릿룸 — 기간 끝난 방에 남은 사람의 상태 update(들어올 때만 본다)', 'PATCH', `rooms/SCRT-EX12/${MEMBER2}`, BASE, true],
+  ['시크릿룸 — 주인이 빈 글자면 발급 안 된 것(앱과 같다)', 'PUT', `rooms/SCRT-OW12/${MEMBER}`, JOIN, false],
+  ['시크릿룸 — 발급 안 된 코드에 멤버 없이 _meta 만은 막지 않는다(아무도 그 방에 안 보인다)', 'PATCH', `rooms/SCRT-NO12/_meta`, { channel: 'togetherroom', ts: TS, host: GOOD_U }, true],
+  ['시크릿룸 — 기간 끝난 방에 남은 사람의 상태 update', 'PATCH', `rooms/SCRT-EX12/${MEMBER2}`, BASE, true],
   ['시크릿룸 — 기간 끝난 방에 남은 사람의 칸 일부 내리기(null)', 'PATCH', `rooms/SCRT-EX12/${MEMBER2}`, { chat: null }, true],
   ['시크릿룸 — 기간 끝난 방에서 나가기(다른 사람 · _meta 가 남음)', 'DELETE', `rooms/SCRT-EX12/${MEMBER2}`, null, true],
+  ['시크릿룸 — 기간 끝난 방에서 끊겼다 다시 붙기(칸을 새로 만듦)', 'PUT', `rooms/SCRT-EX12/${MEMBER2}`, JOIN, true],
   ['시크릿룸 — 기간 끝난 방 채팅 기록 한 줄 지우기', 'DELETE', 'rooms/SCRT-EX12/chatLog/-Nex1', null, true],
   ['시크릿룸 — 기간 끝난 방 여러 경로 한 번에 지우기', 'PATCH', 'rooms/SCRT-EX12', { mabc11111: null, _meta: null }, true],
-  ['시크릿룸 — exp 0 은 영구로 본다(앱과 같다)', 'PUT', `rooms/SCRT-ZE12/${MEMBER}`, JOIN, true],
-  ['시크릿룸 — 주인이 빈 글자면 발급 안 된 것(앱과 같다)', 'PUT', `rooms/SCRT-OW12/${MEMBER}`, JOIN, false],
+  ['시크릿룸 — 발급 기록이 없는 방에 남은 사람의 상태 update', 'PATCH', `rooms/SCRT-GN12/${MEMBER2}`, BASE, true],
+  ['시크릿룸 — 발급 기록이 없는 방에서 나가기(다른 사람 · _meta 가 남음)', 'DELETE', `rooms/SCRT-GN12/${MEMBER2}`, null, true],
+  ['시크릿룸 — 발급 기록이 없는 방에 다시 들어오기', 'PUT', `rooms/SCRT-GN12/${MEMBER2}`, JOIN, false],
   ['시크릿룸 규칙은 다른 방에 닿지 않는다 — PLAY 방 입장', 'PUT', `rooms/PLAY-NO12/${MEMBER}`, JOIN, true],
 
   /* 대화 기록 */
