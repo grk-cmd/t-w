@@ -13,6 +13,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const need = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } };
 const SRC = need('listen-provider.js'), FI = need('firebase-init.js');
 const load = (src) => { const w = {}; new Function('window', src)(w); return w.TwListenProvider; };
+const MODEL = (() => { const w = {}; new Function('window', need('listen-model.js'))(w); return w.TwListenModel; })();   // 위치 계산 정본
 
 function fakeApi(){
   const log = { subs: [], writes: [], unsubs: 0 };
@@ -28,7 +29,7 @@ function fakeApi(){
 say('── 1. 구독');
 {
   const { api, log } = fakeApi();
-  const P = load(SRC).createListenProvider({ api: () => api, server: () => null });
+  const P = load(SRC).createListenProvider({ api: () => api, server: () => null, model: MODEL });
   const got = [];
   const un = P.subscribe('PLAY-AB12', (v) => got.push(v), (e) => got.push('ERR:' + e));
   chk(got.length === 1 && got[0] === undefined, '★ 부르자마자 undefined — 불러오는 중(«틀 곡 없음» 과 다르게 그린다)');
@@ -47,7 +48,7 @@ say('── 1. 구독');
 say('── 2. 쓰기 · 서버 시각');
 {
   const { api, log } = fakeApi();
-  const P = load(SRC).createListenProvider({ api: () => api, server: () => null });
+  const P = load(SRC).createListenProvider({ api: () => api, server: () => null, model: MODEL });
   const r1 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa' });
   const r2 = await P.write('PLAY-AB12', null);
   const r3 = await P.write('DENY', { id: 'aaaaaaaaaaa' });
@@ -60,29 +61,35 @@ say('── 2. 쓰기 · 서버 시각');
 say('── 2-2. 방 서버 방');
 {
   const { api, log } = fakeApi();
-  const sl = { fns: [], sent: [], reply: { ok: true } };
+  const sl = { fns: [], sent: [], pos: [], reply: { ok: true } };
   const sp = {
     onMusic(fn){ sl.fns.push(fn); return () => { sl.fns = sl.fns.filter(f => f !== fn); }; },
-    async sendMusic(m){ sl.sent.push(m); return sl.reply; },
+    async sendMusic(m, pos){ sl.sent.push(m); sl.pos.push(pos); return sl.reply; },
     serverNow(){ return 9999; },
+    lastMusicSeq(){ return 6; },
   };
   let srv = sp;
-  const P = load(SRC).createListenProvider({ api: () => api, server: () => srv });
+  const P = load(SRC).createListenProvider({ api: () => api, server: () => srv, model: MODEL });
   const got = [];
   const un = P.subscribe('PLAY-AB12', (v) => got.push(v), () => got.push('ERR'));
   chk(got.length === 1 && got[0] === undefined && sl.fns.length === 1 && log.subs.length === 0, '★ 방 서버 방은 서버 music 을 듣는다 — Firebase _music 은 구독하지 않는다 · 처음은 불러오는 중');
   sl.fns[0](null); sl.fns[0]({ id: 'aaaaaaaaaaa', seq: 2 });
   chk(got[1] === null && got[2].seq === 2, '  서버가 준 곡 · 없음(null)을 그대로');
   un(); chk(sl.fns.length === 0, '  끊는 함수가 서버 듣기를 끊는다');
-  const r1 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', seq: 3 });
+  const r1 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', at: 9999 - 30000, paused: false, pos: 0, seq: 3 });
   const r2 = await P.write('PLAY-AB12', null);
   chk(r1.ok && r2.ok && sl.sent.length === 2 && sl.sent[1] === null && log.writes.length === 0, '★ 쓰기 · 지우기도 서버로 — Firebase 에 안 쓴다');
+  chk(sl.pos[0] === 30 && sl.pos[0] === MODEL.posOf(sl.sent[0], 9999), '★ 지금 위치는 listen-model posOf(서버 시계)로 재서 넘긴다 — 위치 계산은 한 곳');
+  await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', at: 0, paused: true, pos: 12, seq: 4 });
+  chk(sl.pos[2] === 12, '  멈춘 곡은 멈춘 위치');
+  chk(P.lastSeq() === 6, '★ 칸이 비었을 때 새 곡의 앞 차례 — 방 서버가 기억하는 마지막 차례');
   sl.reply = { ok: false, code: 'stale' };
   const r3 = await P.write('PLAY-AB12', { id: 'aaaaaaaaaaa', seq: 1 });
   chk(r3.ok === false && r3.err === 'stale', '  서버 거절은 { ok:false, err: 까닭 } — 화면이 E-ROOM-05 로');
   chk(P.now() === 9999, '★ 시각은 방 서버 시계(welcome · music 의 now) — Firebase 보정 시각이 아니다');
   srv = null;
   chk(P.now() === 1234, '  방 서버 방이 아니면 다시 Firebase 시각');
+  chk(P.lastSeq() === -1, '  Firebase 방은 -1(칸을 지우면 차례도 없다)');
 }
 
 say('── 3. firebase-init');
@@ -100,17 +107,19 @@ say('── 3. firebase-init');
 say('── 4. 깨 보기');
 {
   const { api } = fakeApi();
-  const B = load(SRC.replace('  cb(undefined);\n', '')).createListenProvider({ api: () => api, server: () => null });
+  const B = load(SRC.replace('  cb(undefined);\n', '')).createListenProvider({ api: () => api, server: () => null, model: MODEL });
   const got = [];
   B.subscribe('PLAY-AB12', (v) => got.push(v));
   chk(got.length === 0, '«불러오는 중» 을 빼면 1절이 빨강');
-  const sp = { onMusic(){ return () => {}; }, async sendMusic(){ return { ok: true }; }, serverNow(){ return 9999; } };
-  const B2 = load(SRC.replace('if(sp) return sp.onMusic(', 'if(false) return sp.onMusic(')).createListenProvider({ api: () => api, server: () => sp });
+  const sp = { onMusic(){ return () => {}; }, async sendMusic(){ return { ok: true }; }, serverNow(){ return 9999; }, lastMusicSeq(){ return 6; } };
+  const B2 = load(SRC.replace('if(sp) return sp.onMusic(', 'if(false) return sp.onMusic(')).createListenProvider({ api: () => api, server: () => sp, model: MODEL });
   const before = api.subscribeRoomMusic;
   let fbSubs = 0; api.subscribeRoomMusic = () => { fbSubs++; return () => {}; };
   B2.subscribe('PLAY-AB12', () => {});
   api.subscribeRoomMusic = before;
   chk(fbSubs === 1, '방 서버 고르기를 빼면 Firebase 를 구독한다 — 2-2절이 빨강');
+  const B3 = load(SRC.replace('return sp ? sp.lastMusicSeq() : -1;', 'return -1;')).createListenProvider({ api: () => api, server: () => sp, model: MODEL });
+  chk(B3.lastSeq() !== 6, '서버 마지막 차례를 안 내놓으면 2-2절 «앞 차례» 가 빨강');
 }
 
 say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);

@@ -6852,7 +6852,7 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다�
 // 🎧 같이 듣기 — 방 입장 모듈의 «방이 바뀜»(들어감 · 나감 · meta) 알림에 sync 를 건다(room/listen-ui.js · 설계 docs/LISTEN_TOGETHER.md)
 const listenUi = TwListenUi.createListenUi({
   model: TwListenModel,
-  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI, server: ()=>Presence.serverProvider() }),
+  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI, server: ()=>Presence.serverProvider(), model: TwListenModel }),
   companion: ()=>window.companion,
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,

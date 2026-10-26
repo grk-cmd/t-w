@@ -117,10 +117,9 @@ export function metaMatches(meta, want){
 }
 
 /* 같이 듣기 곡 줄(listen-model 모양 { id, title, by, at, paused, pos, seq, dur? }) → 방 서버 music 메시지.
-   by · at 은 서버가 정한다 — 재생 중이면 지금 위치(pos)를 서버 시각으로 계산해 보낸다. now 는 서버 시각(ms). */
-export function musicToWire(m, now){
-  const out = { t: 'music', id: m.id, title: m.title, paused: !!m.paused, seq: m.seq };
-  out.pos = m.paused ? Math.max(0, Number(m.pos) || 0) : Math.max(0, (now - (Number(m.at) || 0)) / 1000);
+   by · at 은 서버가 정한다 — 지금 위치(pos)는 부르는 쪽(listen-provider 가 listen-model posOf 로)이 재서 넘긴다. 여기는 칸 이름만 바꾼다. */
+export function musicToWire(m, pos){
+  const out = { t: 'music', id: m.id, title: m.title, paused: !!m.paused, pos: Math.max(0, Number(pos) || 0), seq: m.seq };
   if(Number(m.dur) > 0) out.dur = Number(m.dur);
   return out;
 }
@@ -367,9 +366,13 @@ export function createRoomServerNet(deps){
   /* 같이 듣기 곡 — 서버가 welcome · music 으로 준다(null = 틀 곡 없음). now 칸으로 서버 시계를 맞춘다.
      보낸 쓰기(musicWaiters)는 같은 차례 이상의 곡이 돌아오면 끝난다(서버가 보낸 사람에게도 돌려준다). */
   function setClock(P, srvNow){ if(typeof srvNow === 'number' && isFinite(srvNow)) P.clockOff = srvNow - now(); }
-  function setMusic(P, music){
+  /* srvSeq — 서버가 마지막으로 받아들인 차례(music 메시지 맨 위 seq · welcome.musicSeq). 곡을 지워도 남는다 —
+     지운 뒤 새 곡을 0 부터 쓰면 서버가 stale 로 늘 거절한다. */
+  function setMusic(P, music, srvSeq){
     P.music = (music && typeof music === 'object') ? music : null;
-    const seq = P.music ? Number(P.music.seq) : -1;
+    if(typeof srvSeq === 'number' && isFinite(srvSeq)) P.musicSeq = srvSeq;
+    else if(P.music && Number(P.music.seq) > P.musicSeq) P.musicSeq = Number(P.music.seq);
+    const seq = P.musicSeq;
     const list = P.musicWaiters; P.musicWaiters = [];
     for(const w of list){
       if(seq >= w.seq || (w.clear && !P.music)) w.done({ ok: true });
@@ -424,7 +427,7 @@ export function createRoomServerNet(deps){
         }
         setMeta(P, m.meta);
         setClock(P, m.now);
-        if('music' in m) setMusic(P, m.music);   // music 을 모르는 옛 서버는 칸이 없다 — 곡은 «불러오는 중» 으로 남는다
+        if('music' in m) setMusic(P, m.music, m.musicSeq);   // music 을 모르는 옛 서버는 칸이 없다 — 곡은 «불러오는 중» 으로 남는다
         if(first){
           P.joined = true;
           if(!P.expTimer) P.expTimer = iSet(() => checkExp(P), EXP_CHECK_MS);
@@ -496,7 +499,7 @@ export function createRoomServerNet(deps){
         return;
       case 'music':
         setClock(P, m.now);
-        setMusic(P, m.music);
+        setMusic(P, m.music, m.seq);
         return;
       case 'disband':
         detach(P);
@@ -563,7 +566,7 @@ export function createRoomServerNet(deps){
       members: {}, meta: null, defCache: {}, seq: 0,
       changeCb: null, onPoked: null, joinWaiter: null, leaveWaiter: null, metaWaiters: [],
       stateTimer: null, expTimer: null, lastStateAt: -Infinity, noticed: false,
-      music: undefined, musicFns: [], musicWaiters: [], clockOff: 0,
+      music: undefined, musicSeq: -1, musicFns: [], musicWaiters: [], clockOff: 0,
     };
     return {
       kind: 'server',
@@ -655,11 +658,11 @@ export function createRoomServerNet(deps){
         if(P.music !== undefined){ try{ fn(P.music); }catch(_){} }
         return () => { const i = P.musicFns.indexOf(fn); if(i >= 0) P.musicFns.splice(i, 1); };
       },
-      /* 곡 쓰기(방장 · 같이 듣기 방만) — m 은 listen-model 의 곡 줄 · null 은 지움. 서버가 돌려주면 ok · 거절은 { ok:false, code }(forbidden · stale …). */
-      sendMusic(m){
+      /* 곡 쓰기(방장 · 같이 듣기 방만) — m 은 listen-model 의 곡 줄 · pos 는 지금 위치(초) · null 은 지움. 서버가 돌려주면 ok · 거절은 { ok:false, code }(forbidden · stale …). */
+      sendMusic(m, pos){
         if(!canSend(P)) return Promise.resolve({ ok: false, code: 'notReady' });
-        const seq = m ? Number(m.seq) : (P.music ? Number(P.music.seq) + 1 : 0);
-        const msg = m ? musicToWire(m, now() + P.clockOff) : { t: 'music', clear: true, seq };
+        const seq = m ? Number(m.seq) : P.musicSeq + 1;
+        const msg = m ? musicToWire(m, pos) : { t: 'music', clear: true, seq };
         return new Promise((res) => {
           const w = { seq, clear: !m, done: null, timer: null };
           w.done = (r) => { tClear(w.timer); res(r); };
@@ -672,7 +675,8 @@ export function createRoomServerNet(deps){
           send(msg);
         });
       },
-      serverNow(){ return now() + P.clockOff; },   // welcome · music 의 now 로 맞춘 서버 시각(ms)
+      serverNow(){ return now() + P.clockOff; },
+      lastMusicSeq(){ return P.musicSeq; },   // 서버가 마지막으로 받아들인 차례(곡이 비어도) · 모르면 -1   // welcome · music 의 now 로 맞춘 서버 시각(ms)
       memberId(){ return P.memberId; },
       roomMeta(){ return P.meta; },
       _state: P,   // 검사용

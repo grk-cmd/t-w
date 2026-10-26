@@ -313,7 +313,7 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk(/if\(_isSecret\)\{[\s\S]{0,800}firebaseAPI\.setRoomChannel\(code, 'togetherroom', _secretOwner(?:, undefined, _srOpen)?\)/.test(APP), '시크릿룸은 들어올 때마다 channel · host(주인) · ts 를 다시 쓴다 — 남은 _meta 도 주인 방으로(🎧 같이 듣기는 주인이 빈 방을 열 때만 — sim-listen-ui)');
     chk(!/restoreRoomMeta/.test(FI) && /if\(meta\.restoredTs && \(_svNow\(\) - meta\.restoredTs\) < ROOM_RESTORE_GRACE_MS\) return;/.test(FI),
       '0.11.4 는 방 서버 방을 Firebase 에 되살리지 않는다 — 옛 앱이 되살린 방의 방장 유예만 남김');
-    chk(/const _via = await _startRoomOnServer\(code,[\s\S]{0,80}if\(_via !== 'firebase'\) return;/.test(APP), '방 서버 방은 Firebase _meta 를 쓰기 전에 갈라진다 — 이 청소와 무관');
+    chk(/const _via = await _startRoomOnServer\(code,[\s\S]{0,140}if\(_via !== 'firebase'\) return;/.test(APP), '방 서버 방은 Firebase _meta 를 쓰기 전에 갈라진다 — 이 청소와 무관');
     // 새 탭은 빈 기록으로
     const add = grab(FI, 'async addChatTab(room, name){', '\n    },');
     chk(/return \{ ok:false, reason: full[^\n]*\n[\s\S]{0,400}await remove\(ref\(db, _chatLogPath\(room, id\)\)\)\.catch\(\(\)=>\{\}\);\s*return \{ ok:true, id \};/.test(add),

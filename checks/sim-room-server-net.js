@@ -624,30 +624,39 @@ async function joined(o = {}){
     // 쓰기 — 재생 중이면 서버 시각으로 위치를 계산해 보낸다
     e = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: null, now: 1_800_000_000_000 } });
     const at = e.prov.serverNow() - 30000;
-    const sp1 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: false, pos: 0, seq: 1, dur: 200 });
+    const sp1 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: false, pos: 0, seq: 1, dur: 200 }, 30);
     await tick();
     const w1 = e.ws.last('music');
     chk(w1 && w1.id === 'aaaaaaaaaaa' && w1.title === 'lofi' && w1.seq === 1 && w1.pos === 30 && w1.paused === false && w1.dur === 200 && !('by' in w1) && !('at' in w1),
-      '★ sendMusic → {t:music, id, title, paused, pos(서버 시각으로 30초), seq, dur} — by · at 은 서버가 정한다');
-    e.ws.msg({ t: 'music', music: { id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: false, pos: 0, seq: 1 }, now: e.clock.t });
-    chk((await sp1).ok === true, '  ↳ 같은 차례 곡이 돌아오면 ok');
-    const sp2 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: true, pos: 12.5, seq: 2 });
+      '★ sendMusic(곡, 위치) → {t:music, id, title, paused, pos(받은 위치), seq, dur} — 위치는 부르는 쪽이 잰다 · by · at 은 서버가 정한다');
+    e.ws.msg({ t: 'music', music: { id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: false, pos: 0, seq: 1 }, seq: 1, now: e.clock.t });
+    chk((await sp1).ok === true && e.prov.lastMusicSeq() === 1, '  ↳ 같은 차례 곡이 돌아오면 ok · 마지막 차례 1');
+    const sp2 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: true, pos: 12.5, seq: 2 }, 12.5);
     await tick();
-    chk(e.ws.last('music').pos === 12.5 && e.ws.last('music').paused === true, '  멈춤이면 pos 그대로');
+    chk(e.ws.last('music').pos === 12.5 && e.ws.last('music').paused === true, '  멈춤 — 받은 위치 그대로');
     e.ws.msg({ t: 'error', code: 'stale', ref: 'music' });
     const r2 = await sp2;
     chk(r2.ok === false && r2.code === 'stale', '  ↳ 서버 거절(stale)은 { ok:false, code }');
     const sp3 = e.prov.sendMusic(null);
     await tick();
     const w3 = e.ws.last('music');
-    chk(w3.clear === true && w3.seq === 2, 'sendMusic(null) → {t:music, clear:true, seq: 지금+1}');
-    e.ws.msg({ t: 'music', music: null, now: e.clock.t });
-    chk((await sp3).ok === true, '  ↳ 곡이 비면 ok');
+    chk(w3.clear === true && w3.seq === 2, 'sendMusic(null) → {t:music, clear:true, seq: 마지막 차례+1}');
+    e.ws.msg({ t: 'music', music: null, seq: 2, now: e.clock.t });
+    chk((await sp3).ok === true && e.prov.lastMusicSeq() === 2, '★ 곡이 비어도 서버가 준 마지막 차례(2)를 들고 있다 — 다음 새 곡은 3 부터');
+    const sp3b = e.prov.sendMusic(null);
+    await tick();
+    chk(e.ws.last('music').seq === 3, '  비운 뒤 다시 지워도 마지막 차례+1(곡이 없다고 0 으로 돌아가지 않는다)');
+    e.ws.msg({ t: 'music', music: null, seq: 3, now: e.clock.t }); await sp3b;
     const sp4 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: true, pos: 1, seq: 9 });
     await e.clock.advance(4000);
     chk((await sp4).code === 'timeout', '  ↳ 답이 없으면 4초 뒤 timeout');
     // 옛 서버(welcome 에 music 없음) — 곡은 불러오는 중으로 남는다
+    const ew = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: null, musicSeq: 7, now: 1_800_000_000_000 } });
+    chk(ew.prov.lastMusicSeq() === 7, '★ welcome.musicSeq — 들어오자마자 서버의 마지막 차례(곡이 비어 있어도)');
+    const ew2 = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: { id: 'aaaaaaaaaaa', title: 'x', by: 'u1', at: 1, paused: false, pos: 0, seq: 4 }, now: 1 } });
+    chk(ew2.prov.lastMusicSeq() === 4, '  musicSeq 가 없으면 받은 곡의 차례 · 곡도 없으면 -1');
     e = await joined();
+    chk(e.prov.lastMusicSeq() === -1, '  아무것도 모르면 -1');
     const g2 = []; e.prov.onMusic((m) => g2.push(m));
     chk(g2.length === 0 && e.prov.serverNow() === e.clock.t, 'music 을 모르는 옛 서버 — 듣기는 «불러오는 중» 그대로 · 시계는 기기 시각');
     // random 채널
@@ -658,8 +667,15 @@ async function joined(o = {}){
     e.ws.msg({ t: 'random', rooms: [], rid: ra.rid }); e.ws.msg({ t: 'random', rooms: [], rid: rb.rid });
     await rp; await rq;
     // 깨 보기
-    const B = esm(SRC.replace("out.pos = m.paused ? Math.max(0, Number(m.pos) || 0) : Math.max(0, (now - (Number(m.at) || 0)) / 1000);", 'out.pos = Number(m.pos) || 0;'));
-    chk(B.musicToWire({ id: 'a', title: 't', paused: false, at: 0, pos: 0, seq: 1 }, 30000).pos !== 30, '재생 중 위치 계산을 빼면 9-4 «서버 시각으로 30초» 가 빨강');
+    chk(!/posOf|\(now - \(Number\(m\.at\)/.test(strip(SRC)), '위치 계산은 여기서 다시 쓰지 않는다(listen-model posOf 한 곳 — listen-provider 가 재서 넘긴다)');
+    const B = esm(SRC.replace("pos: Math.max(0, Number(pos) || 0), seq: m.seq };", "pos: Math.max(0, Number(m.pos) || 0), seq: m.seq };"));
+    chk(B.musicToWire({ id: 'a', title: 't', paused: false, at: 0, pos: 0, seq: 1 }, 30).pos !== 30, '받은 위치를 안 쓰면 9-4 «받은 위치» 가 빨강');
+    const real = M.createRoomServerNet;
+    M.createRoomServerNet = esm(SRC.replace("isFinite(srvSeq)) P.musicSeq = srvSeq;", "isFinite(srvSeq)) {}")).createRoomServerNet;
+    try{
+      const bw = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: null, musicSeq: 7, now: 1 } });
+      chk(bw.prov.lastMusicSeq() !== 7, '서버가 준 마지막 차례를 안 받으면 9-4 «welcome.musicSeq» 가 빨강');
+    }finally{ M.createRoomServerNet = real; }
     const B2 = esm(SRC.replace("if(k === 'title') return (meta.title || '') === want.title;", ''));
     chk(B2.metaMatches({}, { title: '' }) === false, 'title 지움 비교를 빼면 9-4 metaMatches 가 빨강');
   }

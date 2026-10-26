@@ -19,7 +19,7 @@ const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <
  * @param {{
  *   model: typeof window.TwListenModel,
  *   provider: { subscribe(room: string, cb: (m: object|null|undefined) => void, onErr: (e: unknown) => void): () => void,
- *               write(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>, now(): number },
+ *               write(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>, now(): number, lastSeq(): number },
  *   companion: () => any,
  *   roomCode: () => string|null,
  *   meta: () => object|null,
@@ -144,7 +144,7 @@ function reconcileDj(){
   const me = myId();
   if(music === null){
     const items = djItems(), i = model.playableFrom(items, 0, 1);
-    if(i >= 0) write(model.makeMusic(items[i], me, now(), -1));
+    if(i >= 0) write(model.makeMusic(items[i], me, now(), provider.lastSeq()));   // 방 서버는 지운 뒤에도 차례를 기억한다
     return;
   }
   // 옛 DJ 가 멈춘 채 나감 — 다시 틀며 쓴 사람을 나로 바꾼다(내가 다시 멈춘 곡을 또 풀지 않게)

@@ -12,12 +12,15 @@
  *     setRoomMusic(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>,
  *     serverNow(): number,
  *   },
- *   server: () => ({ onMusic(fn: (m: object|null) => void): () => void, sendMusic(m: object|null): Promise<{ ok: boolean, code?: string }>, serverNow(): number }|null),
+ *   server: () => ({ onMusic(fn: (m: object|null) => void): () => void, sendMusic(m: object|null, pos?: number): Promise<{ ok: boolean, code?: string }>,
+ *                    serverNow(): number, lastMusicSeq(): number }|null),
+ *   model: { posOf(m: object, now: number): number },   // TwListenModel — 위치 계산은 그 한 곳
  * }} deps
  */
 function createListenProvider(deps){
 const api = deps.api;
 const server = deps.server;   // 방 서버 방의 provider · 아니면 null
+const model = deps.model;
 
 /** 곡 칸 구독 — 부르자마자 cb(undefined)(불러오는 중), 그 뒤 값 | null. 끊는 함수를 돌려준다. */
 function subscribe(room, cb, onErr){
@@ -32,10 +35,15 @@ async function write(room, m){
   if(!room) return { ok: false };
   const sp = server();
   if(sp){
-    const r = await sp.sendMusic(m || null);
+    const r = await sp.sendMusic(m || null, m ? model.posOf(m, sp.serverNow()) : 0);
     return (r && r.ok) ? { ok: true } : { ok: false, err: (r && r.code) || 'error' };
   }
   return api().setRoomMusic(room, m || null);
+}
+/** 칸이 비었을 때 새 곡의 앞 차례 — 방 서버는 지운 뒤에도 마지막 차례를 기억해 그보다 커야 받는다 · Firebase 칸은 지우면 차례도 없다(-1). */
+function lastSeq(){
+  const sp = server();
+  return sp ? sp.lastMusicSeq() : -1;
 }
 /** 서버 시각(ms) — 방 서버 방은 welcome · music 의 now 로 맞춘 시계, 아니면 `.info/serverTimeOffset` 보정 · 위치 계산은 늘 이 값으로 */
 function now(){
@@ -43,7 +51,7 @@ function now(){
   return sp ? sp.serverNow() : api().serverNow();
 }
 
-return { subscribe, write, now };
+return { subscribe, write, now, lastSeq };
 }
 
 window.TwListenProvider = { createListenProvider };

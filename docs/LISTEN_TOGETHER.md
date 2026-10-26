@@ -66,7 +66,7 @@ rooms/{방}/_music = {
 | 파일 | 할 일 |
 |---|---|
 | `room/listen-model.js` (새 · 순수) | 지금 위치(`posOf(music, now)`) · 어긋남 판정(5초 넘으면 맞춤) · **지금 DJ 판정 한 곳**(`djOf(meta, 방에 있는 사람, 방 코드)` — 현재 방장이 방에 있으면 그 사람 · 시크릿룸에 주인이 없으면 없음) · 곡 끝 예비 판정(`posOf ≥ dur + 3초`) · 다음 곡 고르기(DJ 플레이리스트 순서 · 끝이면 처음) · `_music` 한 줄 만들기(빈 제목은 id). DOM · firebase 없음 — `sim-listen-model.js` |
-| `room/listen-provider.js` (새) | `_music` 구독 · 쓰기 · `now()`(서버 시각) 한 곳 — 방 서버 meta 가 생기면 여기만 바꾼다. `sim-listen-provider.js`(가짜 api 로 구독 · 쓰기 · 없음과 불러오는 중) |
+| `room/listen-provider.js` (새) | 곡 구독 · 쓰기 · `now()`(서버 시각) · `lastSeq()` 한 곳 — 방 서버 방이면 방 서버 `music` 메시지, 아니면 Firebase `_music` 을 부를 때마다 고른다. `sim-listen-provider.js`(가짜 api 로 구독 · 쓰기 · 없음과 불러오는 중) |
 | `room/listen-ui.js` (새 · `TwListenUi`) | 같이 듣기 창(DJ · 듣는 사람 · «쉬는 중» · «다른 음악이 이김 [다시 듣기]» — 시안 1장) · 재생 창 다루기 · 들어올 때 내 플레이리스트 넘겨받기 · 승계 · 곡 끝 · DJ 딱지 상태 |
 | `status/playlist.js` | 같이 듣기 방이면 🎵 버튼을 🎧 로 · **창을 닫지 않고 재생 상태만 내리는 길**(`_plRelease` — `_plNow=-1` · 재생 표시 끔 · 감시견 멈춤)을 내놓는다(`_plStop` 은 창을 닫아 같이 듣기가 연 곡이 바로 꺼지는 경쟁이 생긴다) · DJ 다음 곡 목록(지금 프리셋)을 읽는 함수 · 재생 창 신호(곡 끝 · 하트비트)는 재생 창 주인이 `playlist` 일 때만 해석 |
 | `room/room-create-ui.js` (#481 뒤) | «🎧 같이 듣기 방» 칸 → `onCreate(채널, { …, music })` |
@@ -87,7 +87,7 @@ rooms/{방}/_music = {
 ## 5. 서버 작업 필요 (`t-w-server` — 이 저장소 밖)
 - 방 `meta` 에 `music` 을 받기(방 만들기 `join` 의 `create`) · 방 메시지 `music`(위 2.2 모양)을 **현재 방장만** 보낼 수 있게 · 들어오는 사람에게 지금 `music` 을 같이 준다 · `seq` 가 커지는 쓰기만 받는다(0 이상 10억 이하 정수 — 규칙과 같다).
 - 서버 시각: 방 서버 방은 서버가 주는 시각으로 `at` 을 맞춘다(provider `now()`).
-- 서버가 생기기 전 앱의 옛 길: Firebase `rooms/{방}/_music` · 방 서버 방에서는 같이 듣기 칸을 숨긴다(방 설정 줄과 같다). 서버가 생기면 바꿀 자리: `room/listen-provider.js`.
+- 앱 길: Firebase 방은 `rooms/{방}/_music`, 방 서버 방은 `music` 메시지(`room/listen-provider.js` 가 고른다 · 위치는 `listen-model posOf` 로 재서 보낸다). 방 서버는 곡을 지워도 마지막 차례를 기억하므로(`welcome.musicSeq` · `music.seq`) 칸이 빈 뒤 첫 곡은 그 다음 차례로 쓴다(Firebase 방은 -1 다음 = 0).
 
 ## 6. 옛 앱과 섞일 때
 - 옛 앱(0.12 이하)은 `_music` 을 모른다 — 같이 듣기 방에 들어와도 음악이 안 나오고 자기 플레이리스트가 그대로 돈다.
