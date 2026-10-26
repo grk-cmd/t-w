@@ -130,6 +130,58 @@ judgeRemeasure(MOD).forEach(([ok, msg]) => chk(ok, msg));
   let rows2; try{ rows2 = judgeRemeasure(m2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — 실패 기록 줄을 빼면 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
+say('── 4-2. 다시 재기에서 파츠 꼭대기를 못 잡아도 같은 «얹을 수 있음» 파츠가 그대로면 옛 높이를 둔다(모자 위 동물이 파묻히던 것)');
+/* 대상 머리 박스 y 1.0~1.4 · 머리 본 y 1.0. 모자 wrapper 하나(id hat · 얹을 수 있음) — 박스가 머리 중심을 덮으면 꼭대기 1.6(→ 0.6), 옆으로 비켜 있으면 못 잡음 */
+function judgeKeep(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  try{
+    class V3 { constructor(x = 0, y = 0, z = 0){ this.x = x; this.y = y; this.z = z; } set(x, y, z){ this.x = x; this.y = y; this.z = z; return this; } copy(v){ return this.set(v.x, v.y, v.z); } clone(){ return new V3(this.x, this.y, this.z); } }
+    class Box3 { constructor(){ this.min = new V3(Infinity, Infinity, Infinity); this.max = new V3(-Infinity, -Infinity, -Infinity); }
+      isEmpty(){ return this.max.y < this.min.y; } clone(){ const b = new Box3(); b.min = this.min.clone(); b.max = this.max.clone(); return b; }
+      union(b){ if(b && !b.isEmpty()){ ['x','y','z'].forEach(k => { this.min[k] = Math.min(this.min[k], b.min[k]); this.max[k] = Math.max(this.max[k], b.max[k]); }); } return this; } setFromObject(){ return this; } }
+    const box = (x0, x1, y0, y1, z0, z1) => { const b = new Box3(); b.min.set(x0, y0, z0); b.max.set(x1, y1, z1); return b; };
+    const run = ({ wraps, riderPart, riderKey }) => {
+      const notes = [];
+      const host = { charDef: {}, bones: { head: { getWorldPosition(v){ return v.set(0, 1.0, 0); } } }, group: { quaternion: { clone(){ return {}; }, identity(){}, copy(){} }, updateMatrixWorld(){} },
+        gltfRoot: { traverse(cb){ wraps.forEach(w => cb(w)); } } };
+      const rider = { ridingOn: host, _rideHeadTop: 0.4, _rideHeadTopPart: riderPart, _rideHeadTopPartKey: riderKey };
+      const head = box(-0.1, 0.1, 1.0, 1.4, -0.1, 0.1);
+      const mod = build(src, { seats: [host, rider], diagNote: (m) => notes.push(m),
+        measureHeadBoxNoParts: (root, out) => { if(out) out.push(head); return head.clone(); },
+        measureBodyBox: (o) => o._box ? o._box.clone() : new Box3(),
+        savedParts: () => [{ id: 'hat', rideTop: true }, { id: 'cap', rideTop: true }] },
+        new Proxy({ Box3, Vector3: V3 }, { get: (o, k) => (k in o ? o[k] : anything()) }));
+      mod._remeasureRideHeadTop(host);
+      return { rider, notes };
+    };
+    const hatOn  = { visible: true, userData: { __twPartWrap: true, partId: 'hat' }, _box: box(-0.2, 0.2, 1.3, 1.6, -0.2, 0.2) };
+    const hatOff = { visible: true, userData: { __twPartWrap: true, partId: 'hat' }, _box: box(0.05, 0.4, 1.3, 1.6, -0.2, 0.2) };   // 그 순간 판정에서 빗나감
+    const near = (a, b) => typeof a === 'number' && Math.abs(a - b) < 1e-9;
+    const a = run({ wraps: [hatOn], riderPart: null, riderKey: '' });
+    t(near(a.rider._rideHeadTopPart, 0.6) && a.rider._rideHeadTopPartKey === 'hat', '모자를 잡으면 — 파츠 꼭대기(0.6) · 붙은 파츠 묶음(hat) 기억');
+    const b = run({ wraps: [hatOff], riderPart: 0.6, riderKey: 'hat' });
+    t(near(b.rider._rideHeadTopPart, 0.6) && b.notes.some(m => /옛 높이 유지/.test(m)), '★ 같은 모자가 그대로인데 이번에 못 잡음 — 옛 높이(0.6) 유지 · 진단 기록 한 줄');
+    const c = run({ wraps: [], riderPart: 0.6, riderKey: 'hat' });
+    t(c.rider._rideHeadTopPart === null && c.rider._rideHeadTopPartKey === '', '  모자를 뺐으면 — 걷는다(머리 위로)');
+    const d = run({ wraps: [Object.assign({}, hatOff, { visible: false })], riderPart: 0.6, riderKey: 'hat' });
+    t(d.rider._rideHeadTopPart === null, '  모자를 숨겼으면(꾸미기 파츠 끄기) — 걷는다');
+    const e = run({ wraps: [{ visible: true, userData: { __twPartWrap: true, partId: 'cap' }, _box: box(0.05, 0.4, 1.3, 1.6, -0.2, 0.2) }], riderPart: 0.6, riderKey: 'hat' });
+    t(e.rider._rideHeadTopPart === null && e.rider._rideHeadTopPartKey === 'cap', '  다른 파츠로 바꿨는데 못 잡음 — 걷는다(옛 모자 높이를 새 파츠에 쓰지 않는다)');
+    const f = run({ wraps: [hatOff], riderPart: null, riderKey: 'hat' });
+    t(f.rider._rideHeadTopPart === null, '  처음부터 파츠 위가 아니었으면 — 그대로 null');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
+  return r;
+}
+judgeKeep(MOD).forEach(([ok, msg]) => chk(ok, msg));
+for(const [name, a, b] of [
+  ['못 잡으면 늘 걷음(예전)', '      r._rideHeadTopPart = _keepRidePartTop(r, vp, key);', '      r._rideHeadTopPart = vp;'],
+  ['파츠 묶음을 안 봄', '  if(old == null || !key || rider._rideHeadTopPartKey !== key) return null;', '  if(old == null) return null;'],
+]){
+  const m2 = MOD.replace(a, b);
+  let rows2; try{ rows2 = judgeKeep(m2); }catch(_){ rows2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
 say('── 5. 탄 동물이 다시 맞춰지면 팔 높이도 다시 잰다(파츠 붙음 · 뗌 · 동물 바꿈 — mountRide 의 1회 실측은 파츠 전 값일 수 있다)');
 function judgeArm(src){
   const r = [];

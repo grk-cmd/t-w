@@ -51,9 +51,16 @@ function _measureAnimalArmH(animalSeat){
     const b = animalSeat && animalSeat.bones && (animalSeat.bones.handL || animalSeat.bones.handR);
     const ref = animalSeat && animalSeat.bodyWrap;
     if(!b || !ref) return null;
-    animalSeat.group.updateMatrixWorld(true);
+    /* 좌석 기울임을 잠시 지우고 잰다(대상 머리 재기 _measureHostHeadTop 과 같은 규칙) — 탄 채로 다시 재면 대상 고개 기울기가 섞여
+       얹을 때 잰 값과 어긋난다(위 동물이 뜨거나 파묻힘). 같은 함수 안에서 되돌린다. */
+    const _g = animalSeat.group;
+    const _savedQ = _g.quaternion.clone();
+    _g.quaternion.identity();
+    _g.updateMatrixWorld(true);
     const _hp = new THREE.Vector3(), _gp = new THREE.Vector3();
     b.getWorldPosition(_hp); ref.getWorldPosition(_gp);
+    _g.quaternion.copy(_savedQ);
+    _g.updateMatrixWorld(true);
     /* 🪑 실측한 팔 높이는 월드값이라 평준화 배율까지 이미 들어가 있다. raw userScale 로 나누면
        그 k 가 armH 안에 남아, 평준화된 좌석 위에 올라탄 동물이 뜨거나 파묻힌다. */
     const s = seatEqMod.seatScale(animalSeat) || 1;
