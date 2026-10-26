@@ -240,28 +240,28 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 남은 건 위 «남기는 것» · «더 남기는 것» 과 생성기 묶음(20 · 28 · #150 등 — 도메인 단계에서 한 덩이로)뿐이다.
 다음은 구조 정리 2단계 — 도메인별로 무엇이 어디 있는지 문서로(그다음 도메인 폴더 → 컨벤션). 임시 다리 «// 옛 전역 이름» 11줄은 4단계 첫 PR 에서 걷었다. keep 공용 이름은 4단계에서 deps 로 바꾸며 걷는다.
 
-## 5차 후보 — 캐릭터 코어(`packages/char-core`) 뒤에 남은 앱 전용 3D (2026-10-26)
+## 5차 후보 — 캐릭터 코어(`packages/char-core`) 뒤에 남은 앱 전용 덩어리 (2026-10-26)
 
 «끝의 정의» 의 «3D 핵심» 이 바뀌었다. 몸(`createBody`) · 얼굴(`createFace`) · 파츠(`createParts`) · 조명 · 색조 · 복제 코드 · UV 채우기는
 `@tw/char-core` 로 빠져 앱과 웹이 같이 쓴다(#430). app.js 에 남은 3D 는 **데스크톱 앱에만 있는 기능**이라 «핵심이라 남김» 이 아니라 모듈로 옮길 대상이다.
 한 번에 옮기지 않고, 그 구역을 고치는 PR 이 생길 때 같이 떼어 낸다(«손대는 구역만» 규칙과 같다).
 
-0.13.0 app.js 9,171줄 기준 — 구역 머리 하나 아래에 머리 없이 붙은 덩어리가 많아 «구역 표» 줄 수와 다를 수 있다.
+0.13.0 app.js 9,171줄 기준 — 줄 수는 구역 머리부터 다음 머리 앞까지, «실제로 들어 있는 것» 은 그 범위의 최상위 함수 목록으로 셌다. 머리 이름과 아래 내용이 다른 곳이 있다(메모 칸).
 
-| 덩어리 | 줄(약) | 내용 | 갈 곳(제안) | 메모 |
+| 덩어리(구역 머리) | 줄(약) | 실제로 들어 있는 것 | 갈 곳(제안) | 메모 |
 |---|---:|---|---|---|
-| 파츠 착용(`WARDROBE PARTS`) | 1,080 | 꾸미기 파츠를 좌석 캐릭터에 붙이기 · 위치 · 크기 · 저장 — 코어 `createParts` 다음 단계 | `character/` | 가장 큼. 생성기 묶음(20 · 28)과 얽힘 |
-| 애니메이션 루프(`ANIM`) | 666 | 매 프레임 — 상태별 자세(쉼 · 집중 · 쓰다듬기 · 흔들림 · 어지러움 · 잠) · 벤치 앉기 · 춤 · 묘기 | `room/` 또는 `character/` | 프레임 예산(`shared/frame-budget.js`)과 같이 본다 |
-| 책상 · 소품 · 좌석 만들기(`BUILDERS`) | 479 | 책상 위 소품 붙이기 · 좌석 만들고 지우기 | `room/` | |
-| 좌석에 캐릭터 입히기 · 앱 화면 전환(«🐾 종족 선택창» 머리 아래) | 459 | 입히기 묶음(`_purgeSeatParts` ~ `applyCharToSeat`, 약 290줄 — `applyCharToSeat` 하나가 약 190줄) · 앱 화면 전환 `applyAppMode` · `launchApp` · `backToLauncher` · 커미션 코드 입력 연결 | 입히기는 `character/`, 화면 전환은 `launcher/` | 종족 선택창 본문은 이미 `creator/race-picker.js` — 머리 이름과 아래 내용이 다르다 |
-| 좌석(`SEATS`) | 454 | 좌석 배열 · 간격 · 위치 저장 · 모니터별 캐릭터 크기 · 이동 한계 | `room/` | 여러 구역이 쓰는 핵심 상태 — 마지막에. ⚠️ **내 코드 · 친구코드 만들기(`getMyUserId` · `_inventMyUserId` · `_setMyUserId` · `genFriendCodeCandidate` · `ensureMyFriendCode` · `_friendCodeMirrorFix` · `_healFriendCodeOwner` · 옛 친구코드 기억)가 이 구역 아래 섞여 있다** — 옮길 때 이 몫은 `account/` 로 |
-| 캐릭터에 직접 그리기(3D 페인팅) | 421 | 붓 · 단계 · 양파껍질 · 되돌리기 | `character/` (`part-paint.js` 옆) | |
-| 좌석 배치 · 카메라(`layoutSeats`) | 371 | 배치 · 카메라 · 도트는 이미 모듈 연결 줄뿐 — 남은 몸통은 맞추기(`fitModel` · `fitDesk` · `saveSeatXf`) · 내 상태(`userStatus` · `setUserStatus` · `refreshMyStatusUI`) | 맞추기는 `room/`, 내 상태는 `status/` | 본문이 `layoutSeats` 를 다시 대입하는 곳이 있다(2차 32번 메모) |
-| 캐릭터 흔들기(시메지) | 302 | 끌어서 흔들기 물리 | `room/` | |
-| 생성기 미리보기 | 250 | 생성기 렌더러 · 카메라 · 열기 · 닫기 | `creator/` | 웹 생성기와 겹치는 몫은 코어로 |
-| 장면 준비(`SETUP`) | 180 | three.js 장면 · 렌더러 · 조명 걸기 | app.js 에 남김 | 부팅 순서 |
+| 파츠 착용(`WARDROBE PARTS`) | 1,080 | 좌석 캐릭터에 파츠 붙이기 · 떼기 · 위치(`equipPartOnSeat` · `unequipPartFromSeat` · `applyPartXf` · `applyEquippedPartsToSeat` · `pruneSeatPartsAgainstDef`) · 뼈 · 머리 높이 맞추기 · 정렬 진단 | `character/` | 가장 큼. 코어 `createParts` 다음 단계 |
+| 애니메이션 · 프레임 루프(`ANIM`) | 666 | 상태별 자세 고르기(`targetFor` — 평소 · 활동 · 쓰다듬 · 잠 · 흔들림 · 어지러움) · 뼈 움직이기(`animateRig` — 벤치 앉기 · 춤 · 묘기) · 매 프레임(`frame`) · 프레임 상한(`_frameCap` · `_fbIsBusy`) | 자세 · 뼈는 `character/`, 프레임 루프 · 상한은 app.js 에 남김 | 프레임 예산은 `shared/frame-budget.js` 와 같이 본다 |
+| 책상 · 소품(`BUILDERS`) | 479 | 기본 책상 · 소품 만들기(`buildDesk` · `buildCup` · `buildBooks` · `buildDeskPlant`) · 책상 위 소품 붙이기 · 저장(`equipDeskItem` · `applyDeskItemsTo`) · 파츠 · 소품 대기 애니메이션(`_setupPartIdleAnim` · `updateIdleItemPlayback`) · 자리표시 캐릭터(`buildPlaceholder`) | `room/`(책상 · 소품), 대기 애니메이션은 `character/` | |
+| 좌석(`SEATS`) | 454 | 좌석 만들고 지우기(`createSeat` · `removeSeat`) · 간격 · 모니터별 캐릭터 크기 · 위치 저장 · 책상 이동 한계 | `room/` | 여러 구역이 쓰는 핵심 상태 — 마지막에. ⚠️ **내 코드 · 친구코드(`getMyUserId` · `_inventMyUserId` · `_setMyUserId` · `genFriendCodeCandidate` · `ensureMyFriendCode` · `_friendCodeMirrorFix` · `_healFriendCodeOwner` · 옛 친구코드 기억)가 이 구역 아래 섞여 있다** — 이 몫은 `account/` 로 |
+| «🐾 종족 선택창» 머리 아래 | 459 | 종족 선택창 본문은 이미 `creator/race-picker.js` — 남은 것은 커미션 코드 입력 연결 · 좌석에 캐릭터 입히기 묶음(`_purgeSeatParts` ~ `applyCharToSeat`, 약 290줄 — `applyCharToSeat` 하나가 약 190줄) · 앱 화면 전환(`applyAppMode` · `launchApp` · `backToLauncher`) · 방 정원(`maxPeople`) | 입히기는 `character/`, 화면 전환은 `launcher/`, 방 정원은 `room/` | 머리 이름과 아래 내용이 다르다 |
+| «캐릭터에 직접 그리기» 머리 아래(생성기 안) | 421 | 생성기 편집 상태 판정 · 그리기 기록 · 되돌리기(`pushHistory` · `undo` · `redo`) · 붓 연결(`bindPaint`) · 피부색 견본 · 책상 프리셋 연결 | `creator/` | 생성기 단계(«CREATOR + LAUNCHER» 구역 안) |
+| 좌석 배치 · 카메라(`layoutSeats`) | 371 | 배치 · 카메라 · 도트는 이미 모듈 연결 줄뿐 — 남은 몸통은 캐릭터 · 책상 맞추기(`fitModel` · `fitDesk` · `saveSeatXf`) · 내 상태(`setUserStatus` · `refreshMyStatusUI` · 커스텀 상태 저장) | 맞추기는 `room/`, 내 상태는 `status/` | `layoutSeats` 를 다시 대입하는 곳이 INIT 쪽에 있다(2차 32번 메모) |
+| «캐릭터 흔들기» 머리 아래 | 302 | 흔들기 본문은 거의 없고 누르기 판정(`classifyHit`) · 끌기 멈춤 풀기 · 이름표 끌기 · 좌석 메뉴 · 친구 요청 모듈 연결 | `room/` | 머리 이름과 아래 내용이 다르다 |
+| 생성기 미리보기 | 250 | 생성기 열기(`openCreator`) · 생성기 흐름 · 저장 모듈 연결 | `creator/` | 웹 생성기와 겹치는 몫은 코어로 |
+| 맨 앞(`SETUP`) | 180 | 몸 측정 연결 · 빛 번짐(`applyGlowEffect` 등) · 재질 조명 맞추기 · 캐릭터 높이 · 깊이 도우미(`clampCharY` · `seatCharZ` · `sizeFloorTo`) | 빛 번짐 · 도우미는 `character/`, 연결 줄은 app.js | |
 
-남는 것(끝의 정의 새 판): 부팅 순서 · 모듈 연결 · 장면 준비 · 공용 상태(`seats` 등)를 넘기는 줄.
+남는 것(끝의 정의 새 판): 부팅 순서 · 모듈 연결 · 프레임 루프 · 공용 상태(`seats` 등)를 넘기는 줄.
 데이터 읽기 · 쓰기(`firebase-init.js`)는 이 표와 별개 — 서버 API 로 옮기면서 줄어든다(데이터 통로 `shared/data-gateway.js` · 서버 처리기).
 
 ## 구역 표 — `apps/desktop/app/parts/app.js`
