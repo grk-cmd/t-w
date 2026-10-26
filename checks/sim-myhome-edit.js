@@ -147,8 +147,8 @@ function mkEnv(opt){
   ctx.innerWidth = 1600; ctx.innerHeight = 900;
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });   // 🪝 마이홈 고리판 — 편집 묶음이 만들 때 건다(순환 끊기 8)
-  vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });
-  vm.runInContext(SRC['mh-bg-url.js'], ctx, { filename: 'mh-bg-url.js' });   // 🖼️ 배경 그림 주소 규칙 — 편집 묶음이 만들 때 받는다   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
+  vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
+  vm.runInContext(SRC['mh-bg-url.js'], ctx, { filename: 'mh-bg-url.js' });   // 🖼️ 배경 그림 주소 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 스티커 잠금 · 순서 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(opt.src || MOD, ctx, { filename: 'myhome-edit.js' });
   env.ctx = ctx;

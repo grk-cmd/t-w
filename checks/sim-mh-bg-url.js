@@ -67,14 +67,22 @@ function judge(src){
 
     /* 2절 — 불러 보기 */
     const made = [];
-    let fails = 0;
-    const probe = M.createBgProbe({ makeImage: () => { const im = {}; made.push(im); return im; }, onFail: () => { fails++; } });
+    let fails = 0, offline = false;
+    const probe = M.createBgProbe({ makeImage: () => { const im = {}; made.push(im); return im; }, onFail: () => { fails++; }, isOffline: () => offline });
     t(probe(GIF) === true && made.length === 1 && made[0].src === 'https://i.example.com/a.gif', '불러 보기 — 바꾼 https 주소로 한 번');
     t(probe(GIF) === false && probe(' ' + GIF) === false && made.length === 1, '  같은 주소는 다시 안 부른다(다시 그릴 때마다 요청 안 함)');
     made[0].onerror();
     t(fails === 1, '★ 못 받으면 onFail(안내)');
     t(probe('https://i.example.com/b.gif') === false && probe(PNG) === false && probe('') === false && probe(null) === false, '  원래 https · data: · 빈 값은 안 본다');
     t(probe('http://i.example.com/c.gif') === true && made.length === 2 && fails === 1 && typeof made[1].onload === 'undefined', '  받으면 조용히(onerror 만 건다)');
+    offline = true;
+    t(probe('http://i.example.com/d.gif') === true && made.length === 3, '  연결이 꺼져 있어도 한 번은 불러 본다');
+    made[2].onerror();
+    t(fails === 1, '★ 연결이 꺼져서 못 받았으면 «https 주소를 써 주세요» 를 띄우지 않는다');
+    offline = false;
+    t(probe('http://i.example.com/d.gif') === true && made.length === 4, '★  연결이 돌아온 뒤 다음 그리기에 다시 불러 본다');
+    made[3].onerror();
+    t(fails === 2, '  그때 못 받으면 안내');
 
     /* 3절 — 실제 그리는 곳 */
     for (const [where, s] of [['desk', src.desk], ['edit', src.edit]]) {
@@ -108,6 +116,7 @@ say('── 5. 일부러 깨 보기');
 const breaks = [
   ['바꾸기 없음(예전처럼 http 를 버림)', 'mod', "  if(typeof u !== 'string' || !HTTP_RE.test(u)) return u;\n  return 'https://' + u.trim().slice(7);", '  return u;'],
   ['같은 주소를 매번 부름', 'mod', '    if(!u || seen.has(u)) return false;', '    if(!u) return false;'],
+  ['연결이 꺼진 실패도 안내', 'mod', '      if(deps.isOffline()){ seen.delete(u); return; }\n', ''],
   ['바탕화면이 예전 씻기(cssUrl)를 바로 부름', 'desk', 'TwSafeHtml.cssUrl(TwMhBgUrl.httpsOf(bg.img))', 'TwSafeHtml.cssUrl(bg.img)'],
   ['바탕화면이 친구 집에서도 안내', 'desk', 'if(bg && !advVisiting) TwMhBgUrl.probeOwnerBg', 'if(bg) TwMhBgUrl.probeOwnerBg'],
   ['창 바깥이 예전 씻기(cssUrl)를 바로 부름', 'edit', 'TwSafeHtml.cssUrl(mhBgUrl.httpsOf(bg.img))', 'TwSafeHtml.cssUrl(bg.img)'],

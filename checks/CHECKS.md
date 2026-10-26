@@ -251,7 +251,7 @@
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **81dff33ecfbd** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
-| **sim-myhome-edit.js** | 612 | **b4f395ff61bb** |
+| **sim-myhome-edit.js** | 612 | **0d0a383a8c8b** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
@@ -419,7 +419,7 @@
 | **sim-img-retry.js** | 71 | **a963d5e30fd6** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
-| **sim-mh-bg-url.js** | 124 | **f9eaf718c963** |
+| **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

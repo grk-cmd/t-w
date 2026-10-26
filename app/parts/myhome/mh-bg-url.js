@@ -15,7 +15,8 @@ function httpsOf(u){
 }
 
 /* https 로 바꾼 주소를 한 번 불러 보고 못 받으면 onFail — 같은 주소는 한 번만(다시 그릴 때마다 요청하지 않게).
-   deps: makeImage() → Image 같은 것 · onFail(), 원래 https 거나 data: 인 주소는 보지 않는다(바꾼 것만 책임진다) */
+   deps: makeImage() → Image 같은 것 · onFail() · isOffline() — 꺼진 연결 탓이면 안내하지 않고 다음 그리기에 다시 본다.
+   원래 https 거나 data: 인 주소는 보지 않는다(바꾼 것만 책임진다) */
 function createBgProbe(deps){
   const seen = new Set();
   return function probe(raw){
@@ -24,7 +25,10 @@ function createBgProbe(deps){
     if(!u || seen.has(u)) return false;
     seen.add(u);
     const im = deps.makeImage();
-    im.onerror = ()=>deps.onFail();
+    im.onerror = ()=>{
+      if(deps.isOffline()){ seen.delete(u); return; }
+      deps.onFail();
+    };
     im.src = u;
     return true;
   };
@@ -35,6 +39,7 @@ if(typeof window !== 'undefined'){
   /* 진단 줄에 남의 주소를 싣지 않는다 — 원인은 고정 글 */
   api.probeOwnerBg = createBgProbe({
     makeImage: ()=>new Image(),
+    isOffline: ()=>navigator.onLine === false,
     onFail: ()=>TwErrorCodes.notify('E-MH-02', 'https 배경 그림 못 받음'),
   });
   window.TwMhBgUrl = Object.freeze(api);
