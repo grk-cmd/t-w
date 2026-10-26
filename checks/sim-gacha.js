@@ -163,7 +163,7 @@ function mkEnv(opt){
     notifyError: (code, err) => { env.errs.push(code); if(env.errThrows) throw new Error('알림 깨짐'); },
     gachaSource: () => env.source,
     gachaServer: {
-      load: async () => { env.gsLoads++; if(env.gsFail) throw Object.assign(new Error('x'), { kind: 'unavailable' }); return JSON.parse(JSON.stringify(env.gs)); },
+      load: async () => { env.gsLoads++; const snap = JSON.parse(JSON.stringify(env.gs)); if(env.gsHold) await env.gsHold; if(env.gsFail) throw Object.assign(new Error('x'), { kind: 'unavailable' }); return snap; },
       draw: async (n) => { env.gsDraws.push(n); if(env.gsFail) return { ok: false, reason: env.gsFail }; return { ok: true, out: env.gsOut, state: JSON.parse(JSON.stringify(env.gs)) }; },
     },
   });
@@ -317,6 +317,15 @@ await sec('── 3-2. 서버 길(sources.gacha = server) — 서버가 뽑고 �
   e.seats.push({ remote: false, charDef: { equippedParts: { hat: [{ id: 'a' }] } }, stackedPartObjs: { hat: {} } });
   await M.syncGachaToServer('tick');
   chk(JSON.stringify(M.owned()) === '{"a":2}' && !M.state.srvSeen() && !e.prunedDef.length, '  못 받으면 아무것도 안 바꾸고 착용도 안 벗긴다');
+  /* 늦게 온 상태 받기 — 받는 사이 뽑기가 끝나면 그 답(뽑기 전 상태)은 버린다 */
+  e.source = 'server'; e.gsFail = null; e.gs = ST({ a: 1 }); await M.syncGachaToServer('tick');
+  let release; e.gsHold = new Promise(r => { release = r; });
+  const pend = M.syncGachaToServer('inv-open');
+  e.gs = ST({ a: 2 }); e.gsOut = [{ id: 'a', count: 2, isNew: false, unlockedColor: false }];
+  e.gsHold = null; r = await M.draw(1);
+  release(); await pend; await flush();
+  chk(JSON.stringify(M.owned()) === '{"a":2}', '  받는 사이 뽑기가 끝나면 늦게 온 옛 상태로 덮지 않는다(방금 뽑은 a 2개 유지)');
+  e.gs = ST({});
   chk(M.unsynced({}) === 0, '  로그아웃 검문 — 서버 길은 이 PC 몫을 올리지 않으니 «서버에 없는 뽑기» 로 세지 않는다');
   e.source = 'firebase'; chk(M.unsynced({}) === 2, '  ↳ 옛 길은 그대로 센다');
   M.resetMemory();

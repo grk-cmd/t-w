@@ -153,6 +153,8 @@ try{ _gachaBonus = Math.max(0, parseInt(localStorage.getItem(GACHA_BONUS_KEY) ||
 /* 서버 길(sources.gacha = 'server')에서 서버가 알려 준 { earned, left, season } — 남은 뽑기 · 시즌을 서버 값으로 그린다.
    옛 길이거나 아직 못 받았으면 null(이 PC 의 레벨 · 시계로 센다). */
 let _srvState = null;
+/* 서버 길 뽑기가 성공할 때마다 올린다 — 그 전에 나간 상태 받기(GET)가 늦게 와 방금 뽑은 것을 덮지 않게(갈아 끼우기라 옛 길의 합치기처럼 안전하지 않다). */
+let _srvDrawGen = 0;
 const _serverMode = () => gachaSource() === 'server';
 function _setGachaBonusLocal(n){
   _gachaBonus = Math.max(0, Math.min(9999, Math.floor(Number(n) || 0)));
@@ -182,8 +184,9 @@ try{
 
 /* 지금 가챠 중인 시즌. 클라이언트 시계 기준이라 조작하면 다른 시즌을 뽑을 수 있지만,
    §5와 같은 결로 감수한다 — 조작해도 남에게 피해가 가지 않는다. */
+const GACHA_SEASON_KEYS = Object.freeze({ spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' });
 function gachaSeasonNow(){
-  if(_serverMode() && _srvState && _srvState.season) return _srvState.season;   // 서버 길 — 서버 시계(서울)의 시즌
+  if(_serverMode() && _srvState && GACHA_SEASON_KEYS[_srvState.season]) return GACHA_SEASON_KEYS[_srvState.season];   // 서버 길 — 서버 시계(서울)의 시즌(아는 이름만)
   const m = new Date().getMonth() + 1;
   if(m === 12 || m <= 2) return 'winter';
   if(m <= 5) return 'spring';
@@ -231,7 +234,7 @@ function gachaTicketsEarned(){
   return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0);
 }
 function gachaTicketsLeft(){
-  if(_serverMode() && _srvState) return _srvState.left;   // 서버 길 — 남은 횟수도 서버가 센 값
+  if(_serverMode() && _srvState) return Math.max(0, Math.floor(Number(_srvState.left)) || 0);   // 서버 길 — 남은 횟수도 서버가 센 값
   return Math.max(0, gachaTicketsEarned() - gachaUsedTotal());
 }
 
@@ -329,6 +332,7 @@ async function gachaDraw(n){
         try{ syncGachaToServer('draw-fail'); }catch(_){}   // 시간 초과 뒤 서버엔 들어갔을 수 있다 — 서버 값을 다시 받는다
         return { ok:false, reason: r.reason };
       }
+      _srvDrawGen++;
       _adoptServerState(r.state);
       return { ok:true, out: _withRec(r.out) };
     }finally{ _gachaDrawing = false; }
@@ -501,8 +505,10 @@ async function _syncFromServer(reason, mode){
   let _srvRead = false;
   try{
     if(!getMyUserId()) return;
+    const gen = _srvDrawGen;
     let st = null;
     try{ st = await gachaServer.load(); }catch(e){ console.warn('[가챠] 서버 상태 받기 실패', e && (e.code || e.kind)); return; }
+    if(gen !== _srvDrawGen) return;   // 받는 사이 뽑기가 끝났다 — 이 답은 뽑기 전 상태(뽑기 답이 이미 더 새 값을 넣었다)
     _srvRead = true;
     _adoptServerState(st);
   }finally{
