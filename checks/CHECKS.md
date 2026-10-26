@@ -129,7 +129,7 @@
 | **sim-account-delete.js** | 477 | **15ca3fb1d26e** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
-| **sim-room-server-net.js** | 839 | **36907316e4ab** |
+| **sim-room-server-net.js** | 909 | **9ee37aa0acdc** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-server-gate.js** | 298 | **2646f32ca2ab** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
@@ -305,9 +305,9 @@
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **5753dcf76a9a** |
 | **sim-desktop-run.js** | 94 | **742b11531096** |
-| **sim-room-entry.js** | 124 | **c7dac617f4af** |
+| **sim-room-entry.js** | 124 | **410ad665f515** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
-| **sim-room-sync.js** | 99 | **3a4397bd1b84** |
+| **sim-room-sync.js** | 99 | **a352bc22d8ac** |
 | **sim-status-chip.js** | 102 | **76a65b890f4b** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
@@ -414,9 +414,9 @@
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
-| **sim-room-face-load.js** | 166 | **3db4ef1aa1d3** |
+| **sim-room-face-load.js** | 217 | **d619e9556ab2** |
 | **sim-part-ao-clean.js** | 122 | **535053a793ff** |
-| **sim-img-retry.js** | 71 | **a963d5e30fd6** |
+| **sim-img-retry.js** | 81 | **ae3ae329553c** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
 
