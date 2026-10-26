@@ -2,7 +2,7 @@
    실행:  node sim-input-diag.js   (input-diag.js · main.js · app.js · desk-companion-prototype.html 이 있는 폴더에서)
    ★ 왜 이 검사가 있는가 — 제보자 PC 기록 한 장으로 «조합 중 포커스 잃음» 과 «메인 멈춤» 을 가르려는 진단이다.
      줄이 안 남으면(이벤트 순서 · 절전 · 상한) 다시 받을 길이 없고, 너무 많이 남으면 다른 진단을 밀어낸다.
-   ・1절: 조합 끊김 — 포커스 잃음이 조합 끝보다 먼저 · 나중 · 창 blur · 칸 사라짐 · 평범한 확정은 조용 · 글 내용 안 적음 · 연달아 한 줄 · 상한
+   ・1절: 조합 끊김(Electron 44 실측 순서) — 누르기 · Tab 으로 옮김은 조용 · 앱이 포커스를 뺏음 · 다른 앱이 앞으로 · 칸 다시 그림 · 글 내용 안 적음 · 연달아 한 줄 · 상한
    ・2절: 메인 멈춤 · 활성 창 조회 — 느린 것만 · 절전은 안 셈 · 1분에 한 줄 · 아무 일 없으면 조용
    ・3절: 깨 보기 — 갈래를 하나씩 지운 모듈로 1 · 2절을 다시 돌려 빨강이 나는지
    ・4절: 배선 — main 이 조회 시간을 넘기고 타이머를 끝낼 때 내림 · app.js 가 document 에 건다 · html 에서 app.js 보다 먼저 */
@@ -36,45 +36,46 @@ function suite(D, quiet){
   let t = 1000;
   const now = () => t;
 
-  if(!quiet) say('── 1. 조합 끊김');
-  let notes = [];
-  const mk = () => { notes = []; t += 10000; const d = fakeDom(); D.createImeWatch({ note: (m) => notes.push(m), now }).attach(d.doc, d.win); return d; };
-  let d = mk(); const el = input('chatInput');
-  d.fire('compositionstart', { target: el }); t += 300; d.fire('compositionupdate', { data: '가' }); t += 200;
-  d.doc._focus = false; d.fire('focusout', { target: el }); d.fire('compositionend', { target: el, data: '가' });
-  c(notes.length === 1 && /\[한글\] 조합 중 칸 포커스 잃음/.test(notes[0]) && /textarea#chatInput/.test(notes[0]) && /시작 뒤 500ms/.test(notes[0]), '★ 포커스를 먼저 잃고 조합이 끝나도 한 줄 — 칸 · 시작 뒤 시간: ' + (notes[0] || '(없음)'));
+  if(!quiet) say('── 1. 조합 끊김(크로미움 실측 순서 — Electron 44)');
+  let notes = [], later = [];
+  const flush = () => { const q = later; later = []; q.forEach(f => f()); };
+  const mk = () => { notes = []; later = []; t += 10000; const d = fakeDom(); D.createImeWatch({ note: (m) => notes.push(m), now, defer: (f) => later.push(f) }).attach(d.doc, d.win); return d; };
+  const type = (d, el) => { d.fire('compositionstart', { target: el }); t += 300; d.fire('compositionupdate', { data: '가' }); t += 200; };
+  let d = mk(); const el = input('chatInput'), other = input('other');
+
+  type(d, el); d.fire('pointerdown'); d.fire('compositionend', { target: el }); d.fire('focusout', { target: el }); flush();
+  c(notes.length === 0, '★ 조합 중 다른 칸을 눌러 옮김(compositionend → focusout) — 평소 입력이라 조용');
+  d = mk(); type(d, el); d.fire('keydown', { key: 'Tab' }); d.fire('compositionend', { target: el }); d.fire('focusout', { target: el }); flush();
+  c(notes.length === 0, '★ 조합 중 Tab 으로 옮김 — 조용');
+  d = mk(); type(d, el); d.fire('compositionend', { target: el }); t += 2000; d.fire('focusout', { target: el }); flush();
+  c(notes.length === 0, '  확정하고 한참 뒤 포커스가 옮겨 감 — 조용');
+
+  d = mk(); type(d, el); d.fire('compositionend', { target: el }); t += 5; d.fire('focusout', { target: el }); flush();
+  c(notes.length === 1 && /포커스 뺏김/.test(notes[0]) && /textarea#chatInput/.test(notes[0]) && /시작 뒤 50\dms/.test(notes[0]), '★ 누르기 · Tab 없이 포커스가 옮겨 감(앱이 다른 곳에 focus) — 한 줄: ' + (notes[0] || '(없음)'));
   c(notes.length === 1 && !/가/.test(notes[0]) && /조합 1글자/.test(notes[0]), '★ 친 글자는 적지 않는다(조합 길이만)');
+  d = mk(); type(d, el); d.fire('pointerdown'); t += D.USER_MOVE_MS + 50; d.fire('compositionend', { target: el }); d.fire('focusout', { target: el }); flush();
+  c(notes.length === 1 && /포커스 뺏김/.test(notes[0]), '  누른 지 ' + (D.USER_MOVE_MS + 50) + 'ms 지나 옮겨 가면 사람이 옮긴 게 아니다 — 한 줄');
 
-  d = mk();
-  d.fire('compositionstart', { target: el }); t += 100; d.fire('compositionend', { target: el, data: '가' }); t += D.END_GRACE_MS - 10;
-  d.fire('focusout', { target: el });
-  c(notes.length === 1 && /칸 포커스 잃음/.test(notes[0]), '★ 조합이 먼저 끝나고 ' + (D.END_GRACE_MS - 10) + 'ms 뒤 포커스를 잃어도 한 줄(크로미움 · 입력기마다 순서가 다르다)');
+  d = mk(); type(d, el); d.doc._focus = false; d.fire('focusout', { target: el }); d.fireWin('blur'); d.fire('compositionend', { target: el }); flush();
+  c(notes.length === 1 && /창 포커스 잃음/.test(notes[0]) && /창 포커스=없음/.test(notes[0]), '★ 조합 중 다른 앱이 앞으로(focusout → window blur → compositionend) — «창 포커스 잃음» 한 줄');
+  d = mk(); type(d, el); d.doc._focus = false; d.fireWin('blur'); flush();
+  c(notes.length === 1 && /창 포커스 잃음/.test(notes[0]), '  focusout 없이 창만 잃어도 한 줄');
 
-  d = mk();
-  d.fire('compositionstart', { target: el }); d.fire('compositionend', { target: el, data: '가' }); t += 2000;
-  d.fire('focusout', { target: el });
-  c(notes.length === 0, '★ 평범하게 확정하고 한참 뒤 다른 칸으로 가면 조용(정상 입력을 기록하지 않는다)');
+  d = mk(); const gone = input('statusInput');
+  type(d, gone); d.fire('focusout', { target: gone }); gone.isConnected = false; flush();
+  c(notes.length === 1 && /입력칸이 사라짐/.test(notes[0]) && /statusInput/.test(notes[0]), '★ 조합 중 칸을 다시 그림(compositionend 없이 focusout · 그때는 아직 붙어 있음) — «입력칸이 사라짐»');
+  d = mk(); type(d, el); d.fire('focusout', { target: el }); flush();
+  c(notes.length === 1 && /칸 포커스 잃음/.test(notes[0]), '  조합이 살아 있는 채 칸만 포커스를 잃고 칸은 그대로 — «칸 포커스 잃음»');
 
-  d = mk();
-  d.fire('compositionstart', { target: el }); t += 50; d.doc._focus = false; d.fireWin('blur');
-  c(notes.length === 1 && /창 포커스 잃음/.test(notes[0]) && /창 포커스=없음/.test(notes[0]), '★ 조합 중 창이 포커스를 잃으면(다른 앱이 앞으로) 한 줄');
-
-  d = mk();
-  const gone = input('statusInput');
-  d.fire('compositionstart', { target: gone }); t += 50; gone.isConnected = false; d.fire('compositionend', { target: gone });
-  c(notes.length === 1 && /입력칸이 사라짐/.test(notes[0]) && /statusInput/.test(notes[0]), '★ 조합 중 칸을 다시 그려 칸이 사라지면 한 줄');
-
-  d = mk(); const other = input('other');
-  d.fire('compositionstart', { target: el }); d.fire('focusout', { target: other });
+  d = mk(); type(d, el); d.fire('focusout', { target: other }); flush();
   c(notes.length === 0, '  다른 칸의 focusout 은 이 조합과 상관없다');
-
   d = mk();
   for(let i = 0; i < 5; i++){ d.fire('compositionstart', { target: el }); t += 100; d.fireWin('blur'); }
   c(notes.length === 1, '★ 연달아 나면(' + D.IME_MIN_GAP_MS + 'ms 안) 한 줄만 — 5번 → ' + notes.length);
   d = mk();
-  for(let i = 0; i < D.MAX_LINES + 20; i++){ d.fire('compositionstart', { target: el }); t += D.IME_MIN_GAP_MS; d.fireWin('blur'); }
+  for(let i = 0; i < D.MAX_LINES + 20; i++){ type(d, el); t += D.IME_MIN_GAP_MS; d.fireWin('blur'); }
   c(notes.length === D.MAX_LINES && /기록 상한/.test(notes[notes.length - 1]), '★ 상한 ' + D.MAX_LINES + '줄 — 마지막 줄은 «기록 상한» (' + notes.length + '줄)');
-  const d2 = fakeDom(); const w2 = D.createImeWatch({ note: () => {}, now }); w2.attach(d2.doc, d2.win); w2.attach(d2.doc, d2.win);
+  const d2 = fakeDom(); const w2 = D.createImeWatch({ note: () => {}, now, defer: (f) => f() }); w2.attach(d2.doc, d2.win);
   let n2 = 0; d2.doc.addEventListener = () => { n2++; }; w2.attach(d2.doc, d2.win);
   c(n2 === 0, '  같은 document 에 두 번 걸지 않는다');
 
@@ -108,7 +109,9 @@ pass += p0; fail += f0;
 
 say('── 3. 깨 보기');
 const breaks = [
-  ['조합이 먼저 끝난 뒤 포커스 잃음을 안 봄', /if\(ended && now\(\) - ended\.endAt <= END_GRACE_MS/, 'if(false && ended'],
+  ['조합이 끝난 직후 포커스 뺏김을 안 봄', /if\(ended && el === ended\.el/, 'if(false && ended'],
+  ['사람이 옮긴 것도 남김(평소 입력이 잡음)', /if\(now\(\) - userMoveAt > USER_MOVE_MS\) /, ''],
+  ['칸 사라짐을 기다리지 않고 바로 적음', /defer\(\(\)=> line\(/, '(f=>f())(()=> line('],
   ['창 blur 를 안 들음', /if\(win\) win\.addEventListener\('blur'/, 'if(false) win.addEventListener(\'blur\''],
   ['절전을 멈춤으로 셈', /late < LAG_SLEEP_MS/, 'true'],
   ['줄 수 상한 없음', /if\(lines >= MAX_LINES\) return false;/, ''],

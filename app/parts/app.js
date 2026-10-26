@@ -23,6 +23,7 @@ try{
 TwInputDiag.createImeWatch({
   note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   now: () => Date.now(),
+  defer: (fn) => setTimeout(fn, 0),
 }).attach(document, window);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
