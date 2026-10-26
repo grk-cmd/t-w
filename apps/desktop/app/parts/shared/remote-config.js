@@ -43,13 +43,13 @@ const FALLBACK_PATHS = Object.freeze({
   minAppVer: 'config/minAppVer', minRoomVer: 'config/minRoomVer',
   rsOn: 'config/roomServer/on', rsDefault: 'config/roomServer/default', rsPercent: 'config/roomServer/defaultPercent',
   rsJoinWait: 'config/roomServer/timing/joinWaitMs', rsGiveUp: 'config/roomServer/timing/clientGiveUpMs',
-  srcFriends: 'config/sources/friends', srcRooms: 'config/sources/rooms', srcCatalog: 'config/sources/catalog',
+  srcFriends: 'config/sources/friends', srcRooms: 'config/sources/rooms', srcCatalog: 'config/sources/catalog', srcGacha: 'config/sources/gacha',
   dataRoutes: 'config/dataRoutes', bannedWords: 'config/bannedWords',
 });
 const FB_ALLOW = 'config/roomServer/allow/', FB_SERVERS = 'config/roomServer/servers/';
 const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'existingSignup', 'friendsApi', 'roomServer', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'sources', 'dataRoutes', 'bannedWords'];
 /* 기능별 받는 곳(source-switch.js FEATURES 와 같은 이름) — 칸 값은 'server' | 'firebase', 없으면 null(옛 스위치 · 기본값) */
-const SOURCE_FEATURES = Object.freeze(['friends', 'rooms', 'catalog']);
+const SOURCE_FEATURES = Object.freeze(['friends', 'rooms', 'catalog', 'gacha']);
 const DATA_ROUTES_MAX = 200;      // 범용 통로 표 줄 수 상한(data-gateway.js ROUTE_MAX 와 같은 값)
 const DATA_ROUTE_LEN_MAX = 200;   // 한 줄 길이 상한(규칙 config/dataRoutes/$i 와 같은 값)
 const BANNED_WORDS_MAX = 500;     // 금칙어 줄 수 상한(규칙 config/bannedWords/$i 0~499 · 판정 banned-words.js BANNED_MAX 와 같은 값)
@@ -64,7 +64,7 @@ const DEFAULTS = Object.freeze({
   roomServerTiming: Object.freeze({ joinWaitMs: TIMING_RANGES.joinWaitMs[2], clientGiveUpMs: TIMING_RANGES.clientGiveUpMs[2] }),
   minVersion: Object.freeze({ app: null, room: null }),
   bugDailyMax: 5,
-  sources: Object.freeze({ friends: null, rooms: null, catalog: null }),
+  sources: Object.freeze({ friends: null, rooms: null, catalog: null, gacha: null }),
   dataRoutes: Object.freeze([]),   // 범용 통로(data-gateway.js)가 서버로 보낼 경로 앞부분 — 비면 모든 동작이 Firebase(지금 길)
   bannedWords: Object.freeze([]),  // 방 제목 금칙어 원문(웹 관리자) — 맞추기 · 판정은 shared/banned-words.js 한 곳
 });
@@ -221,7 +221,7 @@ function createRemoteConfig(){
       minVersion: { app: v.minAppVer, room: v.minRoomVer },
       roomServer: { on: v.rsOn, default: v.rsDefault, defaultPercent: v.rsPercent, servers: {} },
       roomServerTiming: { joinWaitMs: v.rsJoinWait, clientGiveUpMs: v.rsGiveUp },
-      sources: { friends: v.srcFriends, rooms: v.srcRooms, catalog: v.srcCatalog }, dataRoutes: v.dataRoutes, bannedWords: v.bannedWords };
+      sources: { friends: v.srcFriends, rooms: v.srcRooms, catalog: v.srcCatalog, gacha: v.srcGacha }, dataRoutes: v.dataRoutes, bannedWords: v.bannedWords };
     src = 'firebase';
     apply(data, false); saveCache(data);
     return true;

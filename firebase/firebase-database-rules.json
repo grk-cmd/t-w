@@ -543,7 +543,7 @@
           "$other": { ".validate": false }
         },
         "gacha": {
-          ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+          ".write": "((!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
           "ts": {
             ".validate": "newData.isNumber() && newData.val() >= 0"
           },
