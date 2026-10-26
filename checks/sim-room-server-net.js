@@ -40,6 +40,18 @@ const M = Object.assign({}, L, esm(SRC));
 
 // ── 가짜 시계 · 가짜 웹소켓 ──────────────────────────────────────────────
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
+/* 답이 안 올 수 있는 약속을 기다린다 — 바로 끝나면 그 값, 아니면 가짜 시계를 요청 시간 제한(4초) 넘게 돌려 본다. 그래도 안 끝나면 { hang: true }.
+   [왜] 가짜 시계를 안 돌린 채 그냥 await 하면 이벤트 루프가 비어 node 가 0 으로 조용히 끝나고, 뒤 절이 안 돌아도 초록으로 센다. */
+const REQ_WAIT_MS = 4000 + 1;
+async function settle(p, clock){
+  let st = null;
+  p.then((v) => { st = { v }; }, (e) => { st = { e }; });
+  await tick();
+  if(!st) await clock.advance(REQ_WAIT_MS);
+  if(!st) return { hang: true };
+  if(st.e) throw st.e;
+  return st.v;
+}
 function mkClock(){
   const c = { t: 1_800_000_000_000, q: [], id: 0 };
   c.setTimeout = (f, ms) => { const h = { id: ++c.id, at: c.t + Math.max(0, ms | 0), f }; c.q.push(h); return h; };
@@ -602,10 +614,10 @@ async function joined(o = {}){
     const mm = e.ws.last('meta');
     chk(mm && mm.title === '새 이름' && mm.open === false, 'setMeta({title, open}) → {t:meta, title, open}');
     e.ws.msg({ t: 'error', code: 'title', ref: 'meta' });
-    const mr = await mp;
+    const mr = await settle(mp, e.clock);
     chk(mr.ok === false && mr.code === 'title', '  ↳ 금칙어 거절은 { ok:false, code:title } — 방 안 설정이 칸 아래 글로');
     const n0 = e.ws.all('meta').length;
-    const same = await e.prov.setMeta({ title: '', open: true });
+    const same = await settle(e.prov.setMeta({ title: '', open: true }), e.clock);
     chk(same.ok === true && e.ws.all('meta').length === n0, '  ↳ 이미 그 값이면 보내지 않고 바로 ok(서버가 바뀐 meta 를 안 보낼 수 있다)');
 
     // 같이 듣기 — welcome 의 music · now
@@ -630,23 +642,24 @@ async function joined(o = {}){
     chk(w1 && w1.id === 'aaaaaaaaaaa' && w1.title === 'lofi' && w1.seq === 1 && w1.pos === 30 && w1.paused === false && w1.dur === 200 && !('by' in w1) && !('at' in w1),
       '★ sendMusic(곡, 위치) → {t:music, id, title, paused, pos(받은 위치), seq, dur} — 위치는 부르는 쪽이 잰다 · by · at 은 서버가 정한다');
     e.ws.msg({ t: 'music', music: { id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: false, pos: 0, seq: 1 }, seq: 1, now: e.clock.t });
-    chk((await sp1).ok === true && e.prov.lastMusicSeq() === 1, '  ↳ 같은 차례 곡이 돌아오면 ok · 마지막 차례 1');
+    chk((await settle(sp1, e.clock)).ok === true && e.prov.lastMusicSeq() === 1, '  ↳ 같은 차례 곡이 돌아오면 ok · 마지막 차례 1');
     const sp2 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: true, pos: 12.5, seq: 2 }, 12.5);
     await tick();
     chk(e.ws.last('music').pos === 12.5 && e.ws.last('music').paused === true, '  멈춤 — 받은 위치 그대로');
     e.ws.msg({ t: 'error', code: 'stale', ref: 'music' });
-    const r2 = await sp2;
+    const r2 = await settle(sp2, e.clock);
     chk(r2.ok === false && r2.code === 'stale', '  ↳ 서버 거절(stale)은 { ok:false, code }');
     const sp3 = e.prov.sendMusic(null);
     await tick();
     const w3 = e.ws.last('music');
     chk(w3.clear === true && w3.seq === 2, 'sendMusic(null) → {t:music, clear:true, seq: 마지막 차례+1}');
     e.ws.msg({ t: 'music', music: null, seq: 2, now: e.clock.t });
-    chk((await sp3).ok === true && e.prov.lastMusicSeq() === 2, '★ 곡이 비어도 서버가 준 마지막 차례(2)를 들고 있다 — 다음 새 곡은 3 부터');
+    chk((await settle(sp3, e.clock)).ok === true && e.prov.lastMusicSeq() === 2, '★ 곡이 비어도 서버가 준 마지막 차례(2)를 들고 있다 — 다음 새 곡은 3 부터');
     const sp3b = e.prov.sendMusic(null);
     await tick();
     chk(e.ws.last('music').seq === 3, '  비운 뒤 다시 지워도 마지막 차례+1(곡이 없다고 0 으로 돌아가지 않는다)');
-    e.ws.msg({ t: 'music', music: null, seq: 3, now: e.clock.t }); await sp3b;
+    e.ws.msg({ t: 'music', music: null, seq: 3, now: e.clock.t });
+    chk((await settle(sp3b, e.clock)).ok === true, '  ↳ 그 지우기도 ok');
     const sp4 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: true, pos: 1, seq: 9 });
     await e.clock.advance(4000);
     chk((await sp4).code === 'timeout', '  ↳ 답이 없으면 4초 뒤 timeout');
@@ -923,7 +936,11 @@ async function joined(o = {}){
   done();
 })().catch((err) => { chk(false, '실행 오류 — ' + (err && err.stack)); done(); });
 
+let finished = false;
 function done(){
+  finished = true;
   say(fail ? `\n✗ 실패 ${fail}건` : `\n전부 통과 ✅ (${pass}건)`);
   process.exit(fail ? 1 : 0);
 }
+/* 기다리던 약속이 영영 안 풀려 이벤트 고리가 비면 node 는 0 으로 조용히 끝난다 — 판정 줄 없이 끝나면 빨강 */
+process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌았다 — 기다리던 응답이 오지 않았다\n실패 ' + (fail + 1) + '건'); process.exitCode = 1; } });
