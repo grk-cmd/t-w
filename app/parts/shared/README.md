@@ -315,3 +315,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **함정** — 페이지가 보내는 모양은 `hosting/help/embed.js` 와 짝이다 — 한쪽만 바꾸면 목차가 안 뜬다(`sim-help-tab` 이 embed.js 를 돌려 이 함수로 읽어 본다).
 사이트 주소를 바꾸면 앱 CSP `frame-src` 도 같이. 검사: `checks/sim-help-tab.js`.
+
+## `input-diag.js` — 🩺 한글 씹힘 진단(조합 끊김 · 메인 멈춤 · 활성 창 조회)
+
+- **책임**: 진단 기록(`tw-mouse-diag.log`)에 남길 줄을 만든다. 렌더러 · main 이 같이 싣는다(`window.TwInputDiag` · `module.exports`).
+- **쓰는 법**
+  - 렌더러: `TwInputDiag.createImeWatch({ note, now, defer }).attach(document, window)` — 한글 조합이 «포커스 뺏김(누르기 · Tab · Enter · Esc 없이 옮겨 감)» · «창 포커스 잃음» · «입력칸이 사라짐» 으로 끊기면 `[한글] …` 한 줄을 `note` 로. 사람이 누르기 · Tab · Enter · Esc 로 옮긴 것은 평소 입력이라 남기지 않는다. 친 글자는 적지 않는다(조합 길이 · 칸 이름 · 시작 뒤 ms · 창 포커스만).
+  - main: `createLagWatch({ now, log, front })` — `tick()` 을 `LAG_TICK_MS` 마다, 활성 창 조회가 끝날 때 `activeWinDone(ms)`. `REPORT_MS`(1분)마다 멈춤(`LAG_SLOW_MS`+) · 느린 조회(`AW_SLOW_MS`+)가 있었을 때만 `[입력지연] …` 한 줄.
+- **지금 쓰는 곳**: `app.js` 맨 앞(WebGL 감시 옆) · `main.js` 활성 창 폴링(`startActiveWinPolling`).
+- **함정**: 크로미움(Electron 44 실측)은 칸을 옮기면 compositionend → blur → focusout(같은 틱), 다른 앱이 앞으로 오면 focusout(창 포커스 없음) → window blur → compositionend, 칸을 다시 그리면 compositionend 없이 focusout(그때는 아직 붙어 있음 — 그래서 `defer` 뒤에 `isConnected` 를 본다). 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
+- **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
+- 검사: `checks/sim-input-diag.js`(깨 보기 열).

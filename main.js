@@ -90,6 +90,7 @@ const HoverPoke = require('./hover-poke');
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
@@ -574,6 +575,7 @@ function _exitNow(){
   try{ sysinput.stopGlobalHooks(); }catch(_){}
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
+  try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
 }
@@ -1349,11 +1351,18 @@ let _pollTimer = null;
    _guardStuckClickCapture()까지 같이 건너뛰어 '마우스가 영영 안 먹는' 상태를 풀어줄 안전장치가
    통째로 죽는다 — 소수 유저만 겪는 마우스 먹통 제보의 유력 후보. 이제는 무슨 일이 있어도 부른다. */
 let _activeWinFailStreak = 0;
+/* 🩺 메인 멈춤 · 활성 창 조회 시간을 1분에 한 줄(느린 것이 있을 때만 — shared/input-diag.js).
+   맥 전역 키 훅은 키마다 main 스레드에 묻고 기다리므로, 여기서 잰 멈춤이 곧 키가 밀린 시간이다. */
+const _lagWatch = InputDiag.createLagWatch({ now: () => Date.now(), log: (m) => _diagLog(m), front: () => lastActiveState.exeName });
+let _lagTimer = null;
 function startActiveWinPolling(){
   if(_pollTimer) return;
+  _lagTimer = setInterval(() => _lagWatch.tick(), InputDiag.LAG_TICK_MS);
   _pollTimer = setInterval(async ()=>{
     try{
+      const t0 = Date.now();
       const w = await activeWin();
+      _lagWatch.activeWinDone(Date.now() - t0);
       if(!w || !w.owner){
         _activeWinFailStreak++;
         // 20회(=10초) 연속 실패면 한 번만 남긴다 — 이 환경에선 포커싱 어플/펜 앱 판정도 같이 죽어 있다.

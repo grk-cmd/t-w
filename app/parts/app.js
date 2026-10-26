@@ -19,6 +19,12 @@ try{
     }).attach(canvas);
   }
 }catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
+/* 🩺 한글 조합 중 입력칸이 포커스를 잃으면 진단 기록에 한 줄(shared/input-diag.js) — 맥 한글 씹힘 제보를 제보자 PC 기록으로 가른다 */
+TwInputDiag.createImeWatch({
+  note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
+  now: () => Date.now(),
+  defer: (fn) => setTimeout(fn, 0),
+}).attach(document, window);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();
