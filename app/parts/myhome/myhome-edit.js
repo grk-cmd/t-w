@@ -63,6 +63,7 @@ const DS_IMG_MAX_BG_W = deps.dsImgMaxBgW;                // 👑 디자인 스�
 const DS_IMG_MAX_BG_H = deps.dsImgMaxBgH;
 const DS_IMG_MAX_PANEL = deps.dsImgMaxPanel;
 const DS_IMG_QUALITY = deps.dsImgQuality;
+const mhBgUrl = TwMhBgUrl;                               // 🖼️ 배경 그림 주소 규칙(mh-bg-url.js — 먼저 싣는 아래층) — http 는 https 로 바꿔 불러 본다
 const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고리판(myhome-hooks.js — 먼저 싣는 아래층) — 다른 파일이 부를 함수를 건다
 const mhPreset = TwMyHomePreset;                         // 👑 디자인 프리셋 규칙(myhome-preset.js — 먼저 싣는 아래층 · 순수 함수)
 const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠금 · 순서 규칙(myhome-sticker-rules.js — 순수 함수)
@@ -659,7 +660,8 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const win=document.getElementById('myHomeWin'); if(!win) return;
     const bg=_myHomeData().bg;
     /* 친구 홈 구경에서는 남의 값 — 허용된 그림 주소 · 색만(shared/safe-html.js) */
-    const bgUrl = bg ? TwSafeHtml.cssUrl(bg.img) : '';
+    const bgUrl = bg ? TwSafeHtml.cssUrl(mhBgUrl.httpsOf(bg.img)) : '';
+    if(bg && !_mhViewingUserId()) mhBgUrl.probeOwnerBg(bg.img);   // 못 받으면 주인에게만 안내
     if(bgUrl) win.style.background=bgUrl+' center/cover no-repeat, var(--win-face)';
     else if(bg && bg.color) win.style.background=TwSafeHtml.cssColor(bg.color);
     else win.style.background='var(--win-face)';

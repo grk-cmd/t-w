@@ -22,7 +22,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['myhome-edit.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js', 'myhome-preset.js', 'myhome-sticker-rules.js'];
+const need = ['myhome-edit.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js', 'myhome-preset.js', 'myhome-sticker-rules.js', 'mh-bg-url.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['myhome-edit.js'];
@@ -147,7 +147,8 @@ function mkEnv(opt){
   ctx.innerWidth = 1600; ctx.innerHeight = 900;
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(SRC['myhome-hooks.js'], ctx, { filename: 'myhome-hooks.js' });   // 🪝 마이홈 고리판 — 편집 묶음이 만들 때 건다(순환 끊기 8)
-  vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
+  vm.runInContext(SRC['myhome-preset.js'], ctx, { filename: 'myhome-preset.js' });
+  vm.runInContext(SRC['mh-bg-url.js'], ctx, { filename: 'mh-bg-url.js' });   // 🖼️ 배경 그림 주소 규칙 — 편집 묶음이 만들 때 받는다   // 👑 디자인 프리셋 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 스티커 잠금 · 순서 규칙 — 편집 묶음이 만들 때 받는다
   vm.runInContext(opt.src || MOD, ctx, { filename: 'myhome-edit.js' });
   env.ctx = ctx;
