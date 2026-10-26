@@ -26,6 +26,8 @@ const LOG_TARGET_MAX = 60;
 const LOG_DETAIL_MAX = 120;
 // 친구 · 요청이 비정상적으로 많아도 함수 한 번에 끝나게 자른다(잘리면 경고로 알린다).
 const FAN_MAX = 500;
+// 시크릿룸을 끝낼 때 exp 를 지금보다 이만큼 앞으로 — 입장 검사가 Date.now() > exp 라 같은 밀리초에는 안 막힌다(expireSecretRoom 과 같다)
+const SECRET_EXPIRE_BACK_MS = 1000;
 const PARALLEL = 20;
 
 // 사람이 쓴 파일이 있는 Storage 위치 — firebase-init.js 의 업로드 경로(users/{코드}/… · away · bookmarks)와
@@ -51,7 +53,7 @@ const GROUPS = [
   ['friendOf', '다른 사람 친구 목록 속 이 사람'],
   ['friendReq', '친구 요청 (받은 것 · 보낸 것)'],
   ['roomInvite', '방 초대 (받은 것 · 보낸 것)'],
-  ['secretRoom', '시크릿룸'],
+  ['secretRoom', '시크릿룸 이름 (방은 끝남으로 바꾸고 발급 기록은 남김)'],
   ['invite', '이 사람이 만든 안 쓴 초대 코드'],
   ['licenseRequest', '라이선스 신청 기록 (이름 · 친구 코드)'],
   ['metrics', '날짜별 접속자 명단 속 이 사람'],
@@ -61,6 +63,7 @@ const GROUPS = [
 // 지우지 않는 것 — 화면에 그대로 보여 준다. 처리방침 5항의 보관 기간을 따른다.
 const KEPT = [
   { label: '신고 기록 (받은 신고 · 한 신고)', why: '처리방침: 처리 완료 후 1년 보관' },
+  { label: '시크릿룸 발급 기록', why: '코드가 다른 사람에게 다시 나가지 않게 · 발급 문의 확인용 — 방은 끝남으로 바꾸고 이름은 지운다' },
   { label: '라이선스 키', why: '라이선스 기록은 키가 유효한 동안 보관 — 키에는 사람 정보가 없고, 계정 요약이 지워져 사람과의 연결은 끊긴다' },
   { label: '관리자 작업 기록', why: '누가 언제 무엇을 했는지 — 이 삭제도 남는다(내용 없이 코드만)' },
   { label: '날짜별 합계 숫자 (접속자 수 · 방문 수)', why: '개인을 알아볼 수 없는 합계' },
@@ -202,9 +205,12 @@ async function planAccountDelete(db, code, deps, viaFc){
   });
   if (gotInvRaw != null) add('roomInvite', 'roomInvites/' + code);
 
-  // 시크릿룸 — 주인이 이 사람일 때만(다른 사람에게 넘어간 방은 그대로).
+  // 시크릿룸 — 주인이 이 사람일 때만(다른 사람에게 넘어간 방은 그대로). 발급 기록은 지우지 않는다:
+  // 지우면 그 코드가 다른 사람에게 다시 나가 옛 방 손님이 새 주인 방에 들어간다. 이름만 지우고 방은 끝남으로 바꾼다(executeAccountDelete).
+  let secretExpire = null;
   if (typeof mySr === 'string' && SAFE_KEY_RE.test(mySr) && (await val('secretRooms/' + mySr + '/pub/owner')) === code){
-    add('secretRoom', 'secretRooms/' + mySr);
+    add('secretRoom', 'secretRooms/' + mySr + '/pub/name');
+    secretExpire = { path: 'secretRooms/' + mySr + '/pub/exp', prev: await val('secretRooms/' + mySr + '/pub/exp') };
   }
 
   // 라이선스 신청 기록 — 친구 코드가 적힌 신청 · 이 사람이 등록한 키로 발급된 신청. 둘 다 규칙 licenseRequests 색인으로 그것만 받는다.
@@ -260,6 +266,7 @@ async function planAccountDelete(db, code, deps, viaFc){
     authToDelete,
     groups: GROUPS.map(([key, label]) => ({ key, label, paths: Array.from(new Set(groups[key])).sort() })).filter((g) => g.paths.length),
     dbPaths,
+    secretExpire,
     storage,
     warnings,
   };
@@ -310,6 +317,11 @@ async function executeAccountDelete(db, plan, deps, by, nowMs, action){
 
   const patch = {};
   for (const p of plan.dbPaths) patch[p] = null;
+  if (plan.secretExpire){
+    // 이미 끝난 방은 그 날짜를 그대로 둔다(언제 끝났는지가 발급 기록이다)
+    const prev = plan.secretExpire.prev;
+    patch[plan.secretExpire.path] = (typeof prev === 'number' && prev > 0 && prev <= nowMs) ? prev : nowMs - SECRET_EXPIRE_BACK_MS;
+  }
   const id = logId(nowMs);
   patch[ADMIN_LOG + '/' + id] = {
     at: deps.serverNow(),
