@@ -87,7 +87,7 @@ rooms/{방}/_music = {
 ## 5. 서버 작업 필요 (`t-w-server` — 이 저장소 밖)
 - 방 `meta` 에 `music` 을 받기(방 만들기 `join` 의 `create`) · 방 메시지 `music`(위 2.2 모양)을 **현재 방장만** 보낼 수 있게 · 들어오는 사람에게 지금 `music` 을 같이 준다 · `seq` 가 커지는 쓰기만 받는다(0 이상 10억 이하 정수 — 규칙과 같다).
 - 서버 시각: 방 서버 방은 서버가 주는 시각으로 `at` 을 맞춘다(provider `now()`).
-- 앱 길: Firebase 방은 `rooms/{방}/_music`, 방 서버 방은 `music` 메시지(`room/listen-provider.js` 가 고른다 · 위치는 `listen-model posOf` 로 재서 보낸다). 방 서버는 곡을 지워도 마지막 차례를 기억하므로(`welcome.musicSeq` · `music.seq`) 칸이 빈 뒤 첫 곡은 그 다음 차례로 쓴다(Firebase 방은 -1 다음 = 0).
+- 앱 길: Firebase 방은 `rooms/{방}/_music`, 방 서버 방은 `music` 메시지(`room/listen-provider.js` 가 고른다 · 위치는 `listen-model wirePos`(`posOf` 를 0~86400초로 자른 값)로 재서 보낸다). 방 서버는 곡을 지워도 마지막 차례를 기억하므로(`welcome.musicSeq` · `music.seq`) 칸이 빈 뒤 첫 곡은 그 다음 차례로 쓴다(Firebase 방은 -1 다음 = 0).
 
 ## 6. 옛 앱과 섞일 때
 - 옛 앱(0.12 이하)은 `_music` 을 모른다 — 같이 듣기 방에 들어와도 음악이 안 나오고 자기 플레이리스트가 그대로 돈다.

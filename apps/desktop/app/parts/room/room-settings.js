@@ -77,9 +77,10 @@ function serverCreateOf(channel, open, extra){
  *  (서버는 시크릿룸 create 에서 music 만 본다) · 그 밖은 null(create 없이 들어가기).
  *  @param {boolean} creating  @param {string} channel  @param {boolean} open  @param {object|null} extra
  *  @param {{ music: boolean }|undefined} secretOpen room-entry _secretOpenFields 결과 */
+const SECRET_ROOM_CHANNEL = 'togetherroom';   // 시크릿룸 채널 — room-channel.js CHANNEL.TOGETHER 와 같은 값(그 파일은 ES 모듈이라 여기서 못 부른다)
 function serverJoinCreate(creating, channel, open, extra, secretOpen){
   if(creating) return serverCreateOf(channel, open, extra);
-  return secretOpen ? { channel: 'togetherroom', music: !!secretOpen.music } : null;
+  return secretOpen ? { channel: SECRET_ROOM_CHANNEL, music: !!secretOpen.music } : null;
 }
 
 window.TwRoomSettings = { TITLE_MAX, HOST_NAME_MAX, ROOM_MAX_MIN, ROOM_MAX_MAX, TITLE_ERROR_TEXT, OPEN_HINT,

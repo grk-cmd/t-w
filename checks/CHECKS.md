@@ -134,7 +134,7 @@
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 132 | **a39451c59791** |
 | **sim-listen-ui.js** | 440 | **aa6563bcf73d** |
-| **sim-room-settings.js** | 274 | **db268d8a4e87** |
+| **sim-room-settings.js** | 274 | **e4ca78f5250d** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |

@@ -261,7 +261,7 @@ say('── 8. 깨 보기');
   chk(BW_APP.replace('500', '400') !== BW_FN, '앱 사본만 바꾸면 1절 «글자까지 같다» 가 빨강이 된다');
   const noRange = classic(RS_SRC.replace('if(Number.isInteger(e.max) && e.max >= ROOM_MAX_MIN && e.max <= ROOM_MAX_MAX) out.max = e.max;', 'if(e.max != null) out.max = e.max;'), 'TwRoomSettings');
   chk('max' in noRange.serverCreateOf('workingroom', true, { max: 99 }), '최대 인원 범위 거르기를 빼면 5-2절 «범위 밖은 뺀다» 가 빨강이 된다');
-  const noSecret = classic(RS_SRC.replace("return secretOpen ? { channel: 'togetherroom', music: !!secretOpen.music } : null;", 'return null;'), 'TwRoomSettings');
+  const noSecret = classic(RS_SRC.replace("return secretOpen ? { channel: SECRET_ROOM_CHANNEL, music: !!secretOpen.music } : null;", 'return null;'), 'TwRoomSettings');
   chk(noSecret.serverJoinCreate(false, null, false, null, { music: true }) === null, '시크릿룸 갈래를 빼면 5-2절 «주인이 열면» 이 빨강이 된다');
   const noExtraClear = (RE_SRC.match(/function _clearPendingCreate\(\)\{[^\n]*\}/) || [''])[0].replace(' _pendingExtra = null;', '');
   const nb = new Function('window', 'let _pendingExtra = { title: 1 };\n' + noExtraClear + '\n_clearPendingCreate(); return _pendingExtra;')({});
