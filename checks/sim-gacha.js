@@ -291,6 +291,10 @@ await sec('── 3-2. 서버 길(sources.gacha = server) — 서버가 뽑고 �
   chk(JSON.stringify(M.owned()) === '{"a":1,"w":1}' && JSON.parse(e.ls.get('tw.gachaOwned')).z === undefined && M.state.ts() === 500 && M.state.srvSeen(),
       '  보유분은 서버 값으로 갈아 끼운다 — 이 PC 에만 있던 뽑기(z)는 올리지도 남기지도 않는다');
   chk(M.ticketsEarned() === 3 && M.ticketsLeft() === 1 && M.seasonNow() === 'winter', '  남은 뽑기 · 시즌은 서버 값(레벨 50 · 이 PC 시계 4월이어도)');
+  e.gs = ST({ a: 1, w: 1 }, { left: 0 }); await M.syncGachaToServer('tick');
+  chk(M.ticketsLeft() === 0 && M.ticketsEarned() === 3, '  남은 뽑기는 서버가 준 left 그대로(earned − 보유 합으로 다시 세지 않음)');
+  e.gs = ST({ a: 1, w: 1 });
+  await M.syncGachaToServer('tick');
   chk(M.pool().map(p => p.id).join() === 'a,w', '  풀도 서버 시즌으로 센다(겨울 w 는 들고 · 이 PC 시계로는 제철인 봄 s 는 빠짐)');
   e.gsOut = [{ id: 'gone', count: 1, isNew: true, unlockedColor: false }];
   r = await M.draw(1); chk(r.ok && r.out[0].rec.name === '파츠', '  카탈로그에 없는 파츠는 이름 없는 칸으로(연출이 멈추지 않게)');

@@ -230,7 +230,10 @@ function gachaTicketsEarned(){
   if(_serverMode() && _srvState) return _srvState.earned;   // 서버 길 — 서버가 센 값(레벨 · 달성표 보상)
   return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0);
 }
-function gachaTicketsLeft(){ return Math.max(0, gachaTicketsEarned() - gachaUsedTotal()); }
+function gachaTicketsLeft(){
+  if(_serverMode() && _srvState) return _srvState.left;   // 서버 길 — 남은 횟수도 서버가 센 값
+  return Math.max(0, gachaTicketsEarned() - gachaUsedTotal());
+}
 
 /* 보유분 씻기 — 0 이하 · 숫자 아님 · 규칙이 거부하는 키는 빼고 상한에서 자른다(규칙 owned/$partId 와 같은 모양).
    ⚠️ 규칙에 안 맞는 옛 키를 하나라도 다시 쓰면 트랜잭션 전체가 거부된다. */

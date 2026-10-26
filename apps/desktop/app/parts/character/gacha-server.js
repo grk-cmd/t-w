@@ -1,8 +1,8 @@
-/* gacha-server.js — 🎰 가챠 서버 길 — 서버가 뽑고 서버가 저장한다(GET /v1/me/gacha · POST /v1/me/gacha/draws · t-w-server character)
+/* gacha-server.js — 🎰 가챠 서버 길 — 서버가 뽑고 서버가 저장한다(GET /v1/me/gacha · POST /v1/me/gacha/draws)
    책임: 내 보유분 · 남은 뽑기 · 시즌을 서버에서 받고, 뽑기를 서버에 부탁한다. 확률 · 풀 · 시즌 · 남은 횟수는 서버가 정한다.
      이 PC 에만 있는 뽑기는 올리지 않는다 — 서버 값만 원본. 받는 곳 고르기(서버 / 옛 길)는 gacha.js 가 source-switch 로.
    deps: get(path, opts) · post(path, body, opts) → Promise<data> — 로그인 API 통로(firebase-init.js apiGetAuthed · apiPostAuthed — 토큰은 거기서)
-         newRequestId() → 문자열(같은 뽑기를 다시 보내도 서버가 두 번 굴리지 않게 하는 이름)
+         newRequestId() → 문자열(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게)
    내보냄: createGachaServer(deps) → { load() → Promise<상태> · draw(n) → Promise<{ ok:true, out, state } | { ok:false, reason }> }
      순수: stateOf(data) · resultsOf(list) · reasonOf(err) · clampCount(n) · GACHA_PATH · DRAWS_PATH · COUNT_MAX · DRAW_TIMEOUT_MS (TwGachaServer 위)
    ⚠️ 실패해도 옛 길(Firebase 트랜잭션)로 넘기지 않는다 — 넘기면 서버가 정하는 뜻이 없어진다. 실패는 그대로 알린다(E-CHAR-*).
