@@ -1,10 +1,11 @@
 /* input-diag.js — 🩺 한글 씹힘 진단 — 진단 기록(tw-mouse-diag.log)에 남길 줄을 만든다
    ・createImeWatch(deps) — 렌더러: 한글 조합이 포커스 뺏김 · 창 잃음 · 칸 사라짐으로 끊기면 한 줄. 친 글자는 적지 않는다(조합 길이만).
    ・createLagWatch(deps) — main: 메인 스레드 멈춤 · 활성 창 조회 시간을 모아 REPORT_MS 마다 한 줄(느린 것이 있을 때만).
-   [왜] 개발 PC 에서는 씹힘이 재현되지 않았고, «조합 중 포커스를 잃으면 글자가 깨진다» 만 3/3 재현됐다. 맥 전역 키 훅은
+   [왜] 개발 PC 에서는 씹힘이 재현되지 않았고, «조합 중 포커스를 잃으면 글자가 깨진다» 만 재현됐다. 맥 전역 키 훅은
      키마다 main 스레드에 묻고 기다리므로, main 이 멈춰도 키가 밀린다. 제보자 PC 에서 둘 중 무엇이 나는지 이 줄로 가른다.
    ⚠️ 줄 수 상한(MAX_LINES) — 이 진단이 클릭고착 · 포커스 기록을 밀어내지 않게(파일은 256KB 에서 회전).
-   ⚠️ 사람이 누르기 · Tab 으로 칸을 옮겨 조합이 끝나는 것은 평소 입력이라 남기지 않는다(맥은 끝 글자가 늘 조합 중이다).
+   ⚠️ 사람이 누르기 · Tab · Enter · Esc 로 칸을 옮겨 조합이 끝나는 것은 평소 입력이라 남기지 않는다(맥은 끝 글자가 늘 조합 중이다).
+   ⚠️ 못 보는 것: 조합 중 칸을 display:none 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
    검사: checks/sim-input-diag.js */
 (function(){
 'use strict';
@@ -15,7 +16,8 @@ const LAG_SLEEP_MS = 10 * 1000;     // 이보다 길면 절전 · 잠자기로 �
 const AW_SLOW_MS = 50;              // 활성 창 조회가 이만큼 걸리면 «느림»
 const REPORT_MS = 60 * 1000;        // 모아서 남기는 주기
 const END_GRACE_MS = 50;            // 조합이 끝난 뒤 이 안에 포커스를 잃으면 «포커스가 옮겨 가 끝난 조합»
-const USER_MOVE_MS = 300;           // 이 안에 누르기 · Tab 이 있었으면 사람이 옮긴 것 — 기록하지 않는다(평소 입력)
+const USER_MOVE_MS = 300;           // 이 안에 누르기 · 아래 키가 있었으면 사람이 옮긴 것 — 기록하지 않는다(평소 입력)
+const USER_MOVE_KEYS = new Set(['Tab', 'Enter', 'Escape']);   // Enter · Esc 에 blur 하는 칸이 있다(닉네임 · 제목) — 맥은 조합 중인 채 Enter 를 보낸다
 const IME_MIN_GAP_MS = 2000;        // 연달아 나면 한 줄만
 const MAX_LINES = 300;
 
@@ -50,15 +52,15 @@ function createImeWatch(deps){
   let comp = null;      // 조합 중 { el, at, len }
   let ended = null;     // 방금 끝난 조합 { el, at, len, endAt }
   let userMoveAt = -Infinity;   // 마지막 누르기 · Tab — 사람이 칸을 옮긴 것
-  let lastAt = -Infinity;
+  const lastAt = new Map();   // 갈래(why)마다 — 다른 갈래가 바로 뒤에 나도 버리지 않게
 
-  function say(msg){
+  function say(why, msg){
     const t = now();
-    if(t - lastAt < IME_MIN_GAP_MS) return;
-    if(emit(msg)) lastAt = t;
+    if(t - (lastAt.has(why) ? lastAt.get(why) : -Infinity) < IME_MIN_GAP_MS) return;
+    if(emit(msg)) lastAt.set(why, t);
   }
   function line(why, c, docFocused){
-    say('[한글] 조합 중 ' + why + ' — 칸=' + describe(c.el) + ' 조합 ' + c.len + '글자 · 시작 뒤 ' + (now() - c.at) + 'ms'
+    say(why, '[한글] 조합 중 ' + why + ' — 칸=' + describe(c.el) + ' 조합 ' + c.len + '글자 · 시작 뒤 ' + (now() - c.at) + 'ms'
       + ' · 창 포커스=' + (docFocused ? '있음' : '없음'));
   }
   function onStart(e){ comp = { el: e.target, at: now(), len: 0 }; ended = null; }
@@ -77,7 +79,7 @@ function createImeWatch(deps){
     if(ended && el === ended.el && now() - ended.endAt <= END_GRACE_MS){
       const c = ended;
       ended = null;
-      if(now() - userMoveAt > USER_MOVE_MS) line('포커스 뺏김(누르기 · Tab 없음)', c, docFocused);
+      if(now() - userMoveAt > USER_MOVE_MS) line('포커스 뺏김(누르기 · 키 없음)', c, docFocused);
     }
   }
   /* 창 blur — focusout 없이 창만 잃는 경우의 몫 */
@@ -90,7 +92,7 @@ function createImeWatch(deps){
     doc.addEventListener('compositionupdate', onUpdate, true);
     doc.addEventListener('compositionend', onEnd, true);
     doc.addEventListener('pointerdown', onUserMove, true);
-    doc.addEventListener('keydown', (e)=>{ if(e && e.key === 'Tab') onUserMove(); }, true);
+    doc.addEventListener('keydown', (e)=>{ if(e && USER_MOVE_KEYS.has(e.key)) onUserMove(); }, true);
     doc.addEventListener('focusout', (e)=> onFocusOut(e.target, focused()), true);
     if(win) win.addEventListener('blur', onWinBlur);
   }
@@ -137,7 +139,7 @@ function createLagWatch(deps){
 }
 
 const api = { createImeWatch, createLagWatch, describe,
-  USER_MOVE_MS, LAG_TICK_MS, LAG_SLOW_MS, LAG_SLEEP_MS, AW_SLOW_MS, REPORT_MS, END_GRACE_MS, IME_MIN_GAP_MS, MAX_LINES };
+  USER_MOVE_MS, USER_MOVE_KEYS, LAG_TICK_MS, LAG_SLOW_MS, LAG_SLEEP_MS, AW_SLOW_MS, REPORT_MS, END_GRACE_MS, IME_MIN_GAP_MS, MAX_LINES };
 if(typeof window !== 'undefined') window.TwInputDiag = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -47,6 +47,10 @@ function suite(D, quiet){
   c(notes.length === 0, '★ 조합 중 다른 칸을 눌러 옮김(compositionend → focusout) — 평소 입력이라 조용');
   d = mk(); type(d, el); d.fire('keydown', { key: 'Tab' }); d.fire('compositionend', { target: el }); d.fire('focusout', { target: el }); flush();
   c(notes.length === 0, '★ 조합 중 Tab 으로 옮김 — 조용');
+  d = mk(); type(d, el); d.fire('keydown', { key: 'Enter', isComposing: true }); d.fire('compositionend', { target: el }); d.fire('focusout', { target: el }); flush();
+  c(notes.length === 0, '★ 조합 중 Enter 에 칸이 스스로 blur(닉네임 · 제목 칸) — 조용');
+  d = mk(); type(d, el); d.fire('keydown', { key: 'Escape' }); d.fire('compositionend', { target: el }); d.fire('focusout', { target: el }); flush();
+  c(notes.length === 0, '  조합 중 Esc 에 blur — 조용');
   d = mk(); type(d, el); d.fire('compositionend', { target: el }); t += 2000; d.fire('focusout', { target: el }); flush();
   c(notes.length === 0, '  확정하고 한참 뒤 포커스가 옮겨 감 — 조용');
 
@@ -72,6 +76,8 @@ function suite(D, quiet){
   d = mk();
   for(let i = 0; i < 5; i++){ d.fire('compositionstart', { target: el }); t += 100; d.fireWin('blur'); }
   c(notes.length === 1, '★ 연달아 나면(' + D.IME_MIN_GAP_MS + 'ms 안) 한 줄만 — 5번 → ' + notes.length);
+  d = mk(); type(d, el); d.fire('compositionend', { target: el }); d.fire('focusout', { target: el }); t += 100; d.fire('compositionstart', { target: el }); d.doc._focus = false; d.fireWin('blur');
+  c(notes.length === 2 && /포커스 뺏김/.test(notes[0]) && /창 포커스 잃음/.test(notes[1]), '★ 묶음은 갈래마다 — «포커스 뺏김» 바로 뒤 «창 포커스 잃음» 도 남는다');
   d = mk();
   for(let i = 0; i < D.MAX_LINES + 20; i++){ type(d, el); t += D.IME_MIN_GAP_MS; d.fireWin('blur'); }
   c(notes.length === D.MAX_LINES && /기록 상한/.test(notes[notes.length - 1]), '★ 상한 ' + D.MAX_LINES + '줄 — 마지막 줄은 «기록 상한» (' + notes.length + '줄)');
@@ -111,11 +117,13 @@ say('── 3. 깨 보기');
 const breaks = [
   ['조합이 끝난 직후 포커스 뺏김을 안 봄', /if\(ended && el === ended\.el/, 'if(false && ended'],
   ['사람이 옮긴 것도 남김(평소 입력이 잡음)', /if\(now\(\) - userMoveAt > USER_MOVE_MS\) /, ''],
+  ['Enter 를 사람 옮김으로 안 셈', /'Tab', 'Enter', 'Escape'/, "'Tab'"],
+  ['묶음을 갈래 없이 하나로', /lastAt\.set\(why, t\)/, "lastAt.set('', t)"],
   ['칸 사라짐을 기다리지 않고 바로 적음', /defer\(\(\)=> line\(/, '(f=>f())(()=> line('],
   ['창 blur 를 안 들음', /if\(win\) win\.addEventListener\('blur'/, 'if(false) win.addEventListener(\'blur\''],
   ['절전을 멈춤으로 셈', /late < LAG_SLEEP_MS/, 'true'],
   ['줄 수 상한 없음', /if\(lines >= MAX_LINES\) return false;/, ''],
-  ['연달아 나도 다 남김', /if\(t - lastAt < IME_MIN_GAP_MS\) return;/, ''],
+  ['연달아 나도 다 남김', /if\(t - \(lastAt\.has\(why\)[^\n]*IME_MIN_GAP_MS\) return;/, ''],
   ['활성 창 조회 느림을 안 셈', /if\(ms >= AW_SLOW_MS\) aw\.slow\+\+;/, ''],
 ];
 for(const [name, re, to] of breaks){
