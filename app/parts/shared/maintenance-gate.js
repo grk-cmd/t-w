@@ -3,12 +3,15 @@
      서버에 닿는 요청을 «사람이 방금 누른 동작» 이 낼 때만 창을 띄운다. 앱이 뒤에서 혼자 내는 요청(친구 목록 · 원격 설정 · 구독)은 조용히 넘긴다
      — 요청마다 띄우면 창이 끝없이 뜬다. 점검 중엔 오류 번호 토스트도 내지 않는다(error-codes.js muted).
      원격 설정(API 먼저)으로 읽지 않는 까닭 — 점검 중엔 API 가 없다.
-   [사람이 누른 동작] navigator.userActivation.isActive(클릭 · 키 뒤 몇 초) — 모르는 환경이면 늘 «아님»(창 없음).
+   [사람이 누른 동작] 클릭 · 키 입력 뒤 ACTIVE_MS(1초) 안에 나간 요청. 점검 창 안의 입력은 세지 않는다(«확인» 이 창을 다시 부르지 않게).
+     ⚠️ navigator.userActivation.isActive 를 쓰지 말 것 — 아무 데나 누른 뒤 약 5초 참이라, 꾸미기 저장 디바운스(3초) · 하트비트 같은 뒤쪽 요청에도 창이 뜬다.
+     잡는 문은 범용 통로 · API 통로 둘뿐 — runTransaction 직접 호출 · 함수 호출 · 방 서버 웹소켓으로만 닿는 기능은 창 없이 실패한다.
    [끝나면] 권한이 거부된 onValue 구독은 다시 붙지 않아서 앱을 다시 켜야 친구 · 우편 · 방이 이어진다.
      로컬 기능을 쓰는 중일 수 있으니 저절로 끄지 않고 [지금 다시 켜기] [나중에] 를 묻는다. 이번 실행에 점검을 본 적이 없으면 묻지 않는다.
    [못 읽음] 모르는 모양은 «점검 아님» — 잘못 막는 쪽이 못 막는 쪽보다 크다(app-version-gate.js 와 같다).
    deps: userActive() · ui({ show(view, onPress) · hide() }) · relaunch() · now()
-   내놓는 것: createMaintenance(deps) → { onValue(값) · touch() · on() } · 앱 한 벌 store(firebase-init 이 onValue 를 잇고, 요청 문 · api-client 가 touch)
+   내놓는 것: createMaintenance(deps) → { onValue(값) · touch() · on() } · createInputClock({ now }) → { note(안쪽인가) · active() }
+     · 앱 한 벌 store(firebase-init 이 onValue 를 잇고, 요청 문 · api-client 가 touch)
    classic script — error-codes.js · api-client.js 보다 먼저 싣는다(window.TwMaintenance). Firebase 를 모른다. */
 (function(){
 'use strict';
@@ -16,6 +19,7 @@
 const MAINTENANCE_PATH = 'config/maintenance';
 const GATE_ID = 'maintGateOverlay';          // desktop-run.js UI_HIT_SEL 에도 있어야 클릭을 받는다
 const MESSAGE_MAX = 200;                     // 규칙 config/maintenance/message 와 같은 값
+const ACTIVE_MS = 1000;                      // 누른 뒤 이 안에 나간 요청만 «그 동작이 낸 것» 으로 본다
 
 const DEFAULT_BODY = '더 좋은 서비스를 위해 서버를 점검하고 있어요.';
 const NOTE = '이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 그대로 쓸 수 있어요. 캐릭터 · 친구 · 기록은 계정에 그대로 남아 있어요.';
@@ -44,6 +48,17 @@ function viewOf(m, nowMs){
   return { title: '서버 점검 중', body: (m.message || DEFAULT_BODY) + ends, note: NOTE, buttons: [{ label: '확인', action: 'close' }] };
 }
 
+/* 마지막 사람 입력 시각 — 점검 창 안의 입력(inGate)은 세지 않는다. */
+/** @param {{ now?: () => number }} deps */
+function createInputClock(deps){
+  const now = (deps && deps.now) || (() => Date.now());
+  let last = -Infinity;
+  return {
+    note(inGate){ if(!inGate) last = now(); },
+    active: () => now() - last <= ACTIVE_MS,
+  };
+}
+
 /** @param {{ userActive: () => boolean, ui: { show: (view: object, onPress: (action: string) => void) => void, hide: () => void }, relaunch: () => void, now?: () => number }} deps */
 function createMaintenance(deps){
   const userActive = deps.userActive;
@@ -51,8 +66,7 @@ function createMaintenance(deps){
   const relaunch = deps.relaunch;
   const now = deps.now || (() => Date.now());
   let cur = null;             // 지금 점검이면 { endsAt, message }
-  let seen = false;           // 이번 실행에 점검을 본 적이 있는가 — 없으면 끝나도 다시 켜기를 묻지 않는다
-  let open = false;           // 점검 창이 떠 있는가 — 떠 있으면 관리자가 바꾼 끝 시각 · 문구를 바로 다시 그린다
+  let open = false;           // 창(점검 중 · 끝남)이 떠 있는가 — 떠 있으면 바뀐 값으로 바로 다시 그린다
 
   function press(action){
     open = false;
@@ -62,10 +76,10 @@ function createMaintenance(deps){
 
   function onValue(raw){
     const m = maintenanceOf(raw);
-    if(m){ cur = m; seen = true; if(open) ui.show(viewOf(m, now()), press); return; }
-    const was = !!cur;
+    if(m){ cur = m; if(open) ui.show(viewOf(m, now()), press); return; }
+    const was = !!cur;   // 이번 실행에 점검을 본 적이 없으면 끝나도 다시 켜기를 묻지 않는다
     cur = null;
-    if(was && seen){ open = false; ui.show(viewOf(null, now()), press); }
+    if(was){ open = true; ui.show(viewOf(null, now()), press); }
   }
 
   /* 서버 요청이 나가기 직전에 부른다 — 점검 중이고 사람이 방금 누른 동작일 때만 창. 이미 떠 있으면 글만 새로. */
@@ -126,11 +140,15 @@ function createMaintenanceDom(doc){
   };
 }
 
-const api = { MAINTENANCE_PATH, GATE_ID, MESSAGE_MAX, maintenanceOf, endsAtText, viewOf, createMaintenance, createMaintenanceDom };
+const api = { MAINTENANCE_PATH, GATE_ID, MESSAGE_MAX, ACTIVE_MS, maintenanceOf, endsAtText, viewOf, createInputClock, createMaintenance, createMaintenanceDom };
 /* 렌더러에서는 한 벌을 만들어 둔다 — 창은 처음 띄울 때 만든다(document 는 그때 있다). */
 if(typeof window !== 'undefined' && typeof document !== 'undefined'){
+  const input = createInputClock();
+  const noteInput = (e) => { const t = e && e.target; input.note(!!(t && t.closest && t.closest('#' + GATE_ID))); };
+  document.addEventListener('pointerdown', noteInput, true);
+  document.addEventListener('keydown', noteInput, true);
   api.store = createMaintenance({
-    userActive: () => !!(window.navigator && window.navigator.userActivation && window.navigator.userActivation.isActive),
+    userActive: input.active,
     ui: createMaintenanceDom(document),
     relaunch: () => window.companion.relaunchApp(),
   });

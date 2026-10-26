@@ -1,9 +1,10 @@
 /* ═══ 🛠 sim-maintenance-gate.js — 서버 점검 창(maintenance-gate.js) ═══════════════
    ・1절: 순수 — maintenanceOf(on 이 정확히 true 일 때만 · 시각 · 문구 상한) · endsAtText(오늘 / 다른 날) · viewOf(단추)
+   ・2-1절: 사람이 누른 동작 — 입력 시각 1초 판정(로컬 클릭 3초 뒤 뒤쪽 요청 · «확인» 뒤 요청은 창 없음 · 클릭 직후 요청은 창)
    ・2절: 창 — 점검 중이어도 사람이 누른 동작일 때만 · 뒤에서 혼자 낸 요청은 조용히 · 떠 있는 창은 바뀐 끝 시각으로 다시 · 끝나면 다시 켜기를 묻는다(본 적 없으면 안 물음) · 단추
    ・3절: 고리 — 범용 통로(data-gateway.js)가 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
-   ・5절: 깨 보기 — 사람이 누른 동작 확인을 빼거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
+   ・5절: 깨 보기 — 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
    [실행] node checks/run.js sim-maintenance-gate */
 'use strict';
 const fs = require('fs');
@@ -80,6 +81,25 @@ function run(M, label){
   const r2 = rig(M, true);
   r2.g.onValue(null); r2.g.onValue({ on: false });
   chk(r2.shows.length === 0, '켤 때부터 점검이 아니었으면 묻지 않는다');
+  const r3 = rig(M, true);
+  r3.g.onValue({ on: true }); r3.g.onValue(null);
+  chk(r3.shows.length === 1 && r3.shows[0].title === '점검이 끝났어요', '끝남 창이 떠 있고');
+  r3.g.onValue({ on: true, message: '다시 점검' });
+  chk(r3.shows.length === 2 && r3.shows[1].title === '서버 점검 중', '  ↳ 그 사이 점검이 다시 켜지면 점검 글로 바꿔 그린다(끝남 창이 남지 않게)');
+
+  say('── 2-1. 사람이 누른 동작' + label);
+  let t = 0; const clock = M.createInputClock({ now: () => t });
+  chk(clock.active() === false, '입력이 없으면 아님');
+  const g = M.createMaintenance({ userActive: clock.active, ui: { show(){}, hide(){} }, relaunch(){}, now: () => t });
+  g.onValue({ on: true });
+  t = 10000; clock.note(false); t += 3000;
+  chk(g.touch() === false, '★ (가) 로컬 클릭 3초 뒤 뒤쪽 요청(꾸미기 저장 디바운스) — 창 없음');
+  t = 20000; clock.note(false);
+  chk(g.touch() === true, '★ (다) 클릭 직후 같은 틱 요청 — 창');
+  t = 30000; clock.note(true); t += 200;
+  chk(g.touch() === false, '★ (나) 점검 창 «확인» 을 누른 직후 뒤쪽 요청(하트비트) — 창 없음');
+  t = 40000; clock.note(false); t += M.ACTIVE_MS;
+  chk(g.touch() === true && M.ACTIVE_MS <= 1000, '  ↳ 판정 폭 경계(' + M.ACTIVE_MS + 'ms)는 안쪽');
   return fail === fails0;
 }
 
@@ -151,8 +171,12 @@ say('── 3. 고리');
   chk(b1 && !quietRun(asModule(b1)), '사람이 누른 동작 확인을 빼면 빨강(뒤에서 혼자 낸 요청에도 창)');
   const b2 = broke(SRC, "raw.on !== true", "!raw.on");
   chk(b2 && !quietRun(asModule(b2)), 'on 판정을 느슨하게 하면 빨강');
-  const b3 = broke(SRC, 'if(was && seen){', 'if(true){');
+  const b3 = broke(SRC, 'if(was){', 'if(true){');
   chk(b3 && !quietRun(asModule(b3)), '본 적 없는데 다시 켜기를 물으면 빨강');
+  const b5 = broke(SRC, 'const ACTIVE_MS = 1000;', 'const ACTIVE_MS = 5000;');
+  chk(b5 && !quietRun(asModule(b5)), '판정 폭을 5초로 되돌리면 빨강(뒤쪽 요청에 창)');
+  const b6 = broke(SRC, 'note(inGate){ if(!inGate) last = now(); }', 'note(inGate){ last = now(); }');
+  chk(b6 && !quietRun(asModule(b6)), '점검 창 안 입력도 세면 빨강(«확인» 뒤 창이 다시 뜸)');
   const b4 = broke(EC, '    if(d.muted && d.muted()) return false;', '');
   { const E = b4 && asModule(b4); const t = []; const w = console.warn; console.warn = () => {};
     const s = E && E.createErrorNotice({ now: () => 1, toast: (m) => t.push(m), muted: () => true }).notify('E-FR-01'); console.warn = w;

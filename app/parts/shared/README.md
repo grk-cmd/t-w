@@ -253,12 +253,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 순수: `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
 
 **함정**
-- «사람이 누른 동작» 은 `navigator.userActivation.isActive` 다. 이 확인을 빼면 앱이 뒤에서 내는 요청(친구 목록 · 원격 설정 · 구독)마다 창이 뜬다.
+- «사람이 누른 동작» 은 클릭 · 키 입력 뒤 `ACTIVE_MS`(1초) 안에 나간 요청이다(점검 창 안 입력은 세지 않는다). `navigator.userActivation.isActive` 는 쓰지 않는다 — 아무 데나 누른 뒤 약 5초 참이라 꾸미기 저장 디바운스(3초) · 하트비트에도 창이 뜬다.
+- 잡는 문은 범용 통로 · API 통로 둘뿐이다 — `runTransaction` 직접 호출 · 함수 호출 · 방 서버 웹소켓으로만 닿는 기능은 창 없이 실패한다(오류 번호 토스트도 점검 중엔 꺼짐).
 - 끝나도 저절로 다시 켜지 않는다(로컬 기능을 쓰는 중일 수 있다). 다만 점검 중 거부된 `onValue` 구독은 다시 붙지 않으니, 다시 켜야 친구 · 우편 · 방이 이어진다.
 - 점검 때 Firebase 를 잠그는 규칙도 `config/maintenance` **읽기는 열어 둬야** 한다 — 닫으면 구독이 끊겨 끝난 것을 모른다.
 - 창이 떠 있는 동안 관리자가 끝 시각 · 문구를 바꾸면 바로 다시 그린다.
 
-검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 4).
+검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 6).
 
 ## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
 
