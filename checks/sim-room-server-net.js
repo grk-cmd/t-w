@@ -93,6 +93,7 @@ function mkNet(o = {}){
     now: () => clock.t,
     setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
     setInterval: clock.setInterval, clearInterval: clock.clearInterval,
+    random: () => 0.5,   // 다시 붙기 흩기 없음 — 백오프 시험이 정확한 초를 본다(흩기 자체는 sim-realtime-link)
     log: { warn(){} },
   });
   return { net, clock, socks, calls };

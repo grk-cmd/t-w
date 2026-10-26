@@ -16,7 +16,7 @@
  * deps: createLink(realtime-link.js createRealtimeLink), WebSocket, enabled() → bool, url() → 문자열 | null, getToken(force) → Promise<문자열 | null>,
  *       getUserId() → 문자열 | null, getVersion() → 문자열 | Promise,
  *       timing() → { joinWaitMs, clientGiveUpMs } | null(원격 설정 roomServerTiming — 없거나 비면 TIMING_DEFAULTS),
- *       now · setTimeout · clearTimeout · setInterval · clearInterval · log 는 검사용(기본 전역).
+ *       now · setTimeout · clearTimeout · setInterval · clearInterval · random · log 는 검사용(기본 전역).
  */
 export const ROOM_SERVER_PV = 1;
 
@@ -152,7 +152,7 @@ export function createRoomServerNet(deps){
     busy: () => !!active,
     reconnectWanted: () => !!(active && active.inRoom),
     hooks: { onReady, onMessage: onMsg, onClosed: closed },
-    now, setTimeout: tSet, clearTimeout: tClear, log,
+    now, setTimeout: tSet, clearTimeout: tClear, random: deps.random, log,
   });
   const send = (o) => link.send(o);
   const close = () => link.close();
