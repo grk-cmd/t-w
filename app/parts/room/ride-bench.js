@@ -489,6 +489,22 @@ function _partAllowsRideTop(partId){
    RIDE_DIAG_ALL_OPTS — 진단 «숨은 메쉬 · 기본 장식까지 넣은 꼭대기»: 파츠(리깅 · 이름)와 리깅 스킨드메시만 뺀다 */
 const RIDE_WRAP_OPTS = { excludeParts: 'skinned', visibleOnly: true, updateWorld: false };
 const RIDE_DIAG_ALL_OPTS = { excludeParts: true, partTest: p => isPartByRigOrName(p), updateWorld: false };
+/* 🎩 «얹을 수 있음» 파츠 중 지금 붙어 있고 보이는 것 — 파츠 꼭대기 재기와, 다시 재기가 «같은 파츠 그대로인가» 를 보는 쪽이 같이 쓴다 */
+function _rideTopWraps(hostSeat){
+  const out = [];
+  if(!hostSeat || !hostSeat.gltfRoot) return out;
+  hostSeat.gltfRoot.traverse(o=>{
+    if(!(o.userData && o.userData.__twPartWrap)) return;
+    if(o.visible === false) return;
+    if(!_partAllowsRideTop(o.userData.partId)) return;
+    out.push(o);
+  });
+  return out;
+}
+/* 붙어 있는 «얹을 수 있음» 파츠 id 묶음(정렬한 글) — 없으면 '' */
+function _rideTopPartKey(hostSeat){
+  return _rideTopWraps(hostSeat).map(o=>String(o.userData.partId)).sort().join(',');
+}
 function _measureRideablePartTop(hostSeat, slabBox){
   if(!hostSeat || !hostSeat.gltfRoot || !slabBox || slabBox.isEmpty()) return null;
   const headW = slabBox.max.x - slabBox.min.x;
@@ -499,10 +515,7 @@ function _measureRideablePartTop(hostSeat, slabBox){
   const needX = headW * RIDE_PART_CENTER_MARGIN;
   const needZ = headD * RIDE_PART_CENTER_MARGIN;
   let best = null;
-  hostSeat.gltfRoot.traverse(o=>{
-    if(!(o.userData && o.userData.__twPartWrap)) return;
-    if(o.visible === false) return;
-    if(!_partAllowsRideTop(o.userData.partId)) return;
+  _rideTopWraps(hostSeat).forEach(o=>{
     const b = measureBodyBox(o, RIDE_WRAP_OPTS);
     if(b.isEmpty()) return;
     if(Math.min(cx - b.min.x, b.max.x - cx) < needX) return;   // 좌우로 중심을 덮는가
@@ -712,8 +725,24 @@ function _remeasureRideHeadTop(hostSeat){
     if(v == null){ diagNote('[올라타기] 다시 재기 실패 — 옛 높이 그대로'); return; }
     const vb = (hostSeat._headTopNoEar != null) ? hostSeat._headTopNoEar : v;   // 🎪 묘기용(귀 제외)
     const vp = (hostSeat._headTopPart != null) ? hostSeat._headTopPart : null;  // 🎩 머리 중앙 파츠 위
-    riders.forEach(r=>{ try{ r._rideHeadTop = v; r._rideHeadTopBare = vb; r._rideHeadTopPart = vp; r._rideDbgOnce = true; }catch(_){} });   // 다음 프레임에 새 값으로 검증 한 줄
+    const key = _rideTopPartKey(hostSeat);
+    riders.forEach(r=>{ try{
+      r._rideHeadTop = v; r._rideHeadTopBare = vb;
+      r._rideHeadTopPart = _keepRidePartTop(r, vp, key);
+      r._rideHeadTopPartKey = key;
+      r._rideDbgOnce = true;   // 다음 프레임에 새 값으로 검증 한 줄
+    }catch(_){} });
   }catch(_){}
+}
+/* 🎩 다시 재기에서 파츠 꼭대기를 못 잡았는데 **같은 «얹을 수 있음» 파츠가 그대로 붙어 있으면** 옛 값을 둔다.
+   ⚠️ 판정(머리 꼭대기 층 중심을 덮는가)은 그 순간 대상의 자세 · 고개를 따라 갈린다 — 파츠는 그대로인데 null 로 덮으면
+     위 동물이 모자 높이만큼 파묻힌 채 다음 다시 재기까지 남는다. 파츠를 빼거나 바꾸거나 숨기면 묶음이 달라져 그대로 걷는다. */
+function _keepRidePartTop(rider, vp, key){
+  if(vp != null) return vp;
+  const old = rider._rideHeadTopPart;
+  if(old == null || !key || rider._rideHeadTopPartKey !== key) return null;
+  diagNote('[올라타기] 파츠 꼭대기 다시 재기 실패 — 같은 파츠 그대로라 옛 높이 유지(' + (+old).toFixed(4) + ')');
+  return old;
 }
 /* 🐾 탄 동물 자신이 다시 맞춰지면(파츠 붙음 · 뗌 · 친구가 동물을 바꿈) 팔 높이를 다시 잰다 —
    mountRide 의 1회 실측은 파츠 GLB 가 붙어 모델 높이가 바뀌기 전 값일 수 있다(머리 위 동물이 뜨거나 파묻힘).
@@ -809,6 +838,7 @@ function mountRide(animalSeat, hostSeat){
   /* 🎩 머리 중앙 파츠의 꼭대기도 같이 캐싱한다(없으면 null). 1층에서만 쓴다 —
      고르는 것은 _positionRideSeat 이고, 여기서는 값만 남긴다. */
   animalSeat._rideHeadTopPart = (hostSeat._headTopPart != null) ? hostSeat._headTopPart : null;
+  animalSeat._rideHeadTopPartKey = _rideTopPartKey(hostSeat);
   // 🔍 진단 — "머리 위에 얹으면 뜬다"의 원인 항 특정용.
   //   ★ armH에는 반드시 _sizeMul(=RIDE_ARM_SIZE_FOLLOW 반영)을 곱한 값을 봐야 한다.
   //     앞서 이걸 빼고 찍는 바람에 실제보다 낮은 offY가 보고됐다.

@@ -142,8 +142,9 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **함정**
   - 드래그 중(rig 가 들린 채)에 재면 값이 틀린다 — 접지점은 rig 가 원점에 놓인 첫 묘기 프레임, 팔 높이는 bodyWrap 기준.
   - 캐릭터 높이 상쇄는 `_positionRideSeat` 가 `charLiftWorld` 로 한 번 — 여기서도 빼므로 armH 에는 높이가 안 섞인다(두 번 빼지 말 것).
+  - 팔 높이는 좌석 기울임을 지우고 잰다(대상 머리 재기와 같은 규칙) — 탄 채로 다시 재면(`_remeasureRideArm`) 대상 고개 기울기가 섞인다.
   - 임시 벡터(`_rideFootTmpV` 등)를 돌려주지 않고 `clone()` 한다 — 호출부가 값을 들고 있어도 안전.
-  - 검사: `checks/sim-ride-measure.js`(4절 — 실제 three 로 회전 · 위치를 뺀 오프셋 · 경계 0.3 · 들린 rig 상쇄 · 크기 0).
+  - 검사: `checks/sim-ride-measure.js`(4절 — 실제 three 로 회전 · 위치를 뺀 오프셋 · 경계 0.3 · 들린 rig 상쇄 · 크기 0 · 기울어진 채 잰 팔 높이).
 
 ## ride-tuning.js — 🎛️ 올라타기 · 묘기 튜닝 값
 
