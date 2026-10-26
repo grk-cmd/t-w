@@ -240,6 +240,30 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 남은 건 위 «남기는 것» · «더 남기는 것» 과 생성기 묶음(20 · 28 · #150 등 — 도메인 단계에서 한 덩이로)뿐이다.
 다음은 구조 정리 2단계 — 도메인별로 무엇이 어디 있는지 문서로(그다음 도메인 폴더 → 컨벤션). 임시 다리 «// 옛 전역 이름» 11줄은 4단계 첫 PR 에서 걷었다. keep 공용 이름은 4단계에서 deps 로 바꾸며 걷는다.
 
+## 5차 후보 — 캐릭터 코어(`packages/char-core`) 뒤에 남은 앱 전용 덩어리 (2026-10-26)
+
+«끝의 정의» 의 «3D 핵심» 이 바뀌었다. 몸(`createBody`) · 얼굴(`createFace`) · 파츠(`createParts`) · 조명 · 색조 · 복제 코드 · UV 채우기는
+`@tw/char-core` 로 빠져 앱과 웹이 같이 쓴다(#430). app.js 에 남은 3D 는 **데스크톱 앱에만 있는 기능**이라 «핵심이라 남김» 이 아니라 모듈로 옮길 대상이다.
+한 번에 옮기지 않고, 그 구역을 고치는 PR 이 생길 때 같이 떼어 낸다(«손대는 구역만» 규칙과 같다).
+
+줄 범위는 0.13.0 `apps/desktop/app/parts/app.js`(9,171줄) 기준이다. 무엇이 들어 있는지는 옮길 때 그 범위를 열어 본다.
+
+| 덩어리(구역 머리 글자) | 줄 범위 | 줄 수 | 대표 함수 | 갈 곳(제안) | 메모 |
+|---|---|---:|---|---|---|
+| `WARDROBE PARTS` | 4009–5088 | 1,080 | `equipPartOnSeat` · `applyPartXf` · `applyEquippedPartsToSeat` | `character/` | |
+| `ANIM` | 7851–8516 | 666 | `targetFor` · `animateRig` · `frame` | `character/` · 프레임 루프는 app.js | |
+| `BUILDERS` | 273–751 | 479 | `buildDesk` · `equipDeskItem` · `buildPlaceholder` | `room/` | |
+| `SEATS` | 752–1205 | 454 | `createSeat` · `removeSeat` · `saveCharPos` | `room/` | ⚠️ 내 코드 · 친구코드(`getMyUserId` · `genFriendCodeCandidate` · `ensureMyFriendCode` 등)가 섞여 있다 — 이 몫은 `account/` |
+| `🐾 종족 선택창` | 6322–6780 | 459 | `applyCharToSeat` · `launchApp` · `backToLauncher` | `character/` · `launcher/` | 종족 선택창 본문은 이미 `creator/race-picker.js` — 머리 이름과 아래 내용이 다르다 |
+| `캐릭터에 직접 페인팅 (3D)` | 5161–5581 | 421 | `pushHistory` · `undo` · `bindPaint` | `creator/` | |
+| `🪑 좌석 배치(layoutSeats)` | 1657–2027 | 371 | `fitModel` · `fitDesk` · `setUserStatus` | `room/` · `status/` | |
+| `캐릭터 흔들기 — 시메지 컨셉` | 3698–3999 | 302 | `classifyHit` · 캔버스 누르기 · 끌기 · 떼기 처리기 | `room/` | |
+| `🧍 생성기 미리보기` | 5999–6248 | 250 | `openCreator` | `creator/` | |
+| `SETUP` | 1–180 | 180 | 렌더러 · 씬 · 조명 만들기 · `applyGlowEffect` | 부팅은 app.js · 빛 번짐은 `character/` | |
+
+남는 것(끝의 정의 새 판): 부팅 순서 · 모듈 연결 · 프레임 루프 · 공용 상태(`seats` 등)를 넘기는 줄.
+데이터 읽기 · 쓰기(`firebase-init.js`)는 이 표와 별개 — 서버 API 로 옮기면서 줄어든다(데이터 통로 `shared/data-gateway.js` · 서버 처리기).
+
 ## 구역 표 — `apps/desktop/app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
