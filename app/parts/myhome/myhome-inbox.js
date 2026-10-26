@@ -431,6 +431,7 @@ function _giftBoxPaint(listEl, gifts){
   // 남은 칸은 빈 칸으로 채워 격자 모양을 유지
   for(let i=keys.length;i<lim.max;i++) cells.push('<div class="gift-cell empty"></div>');
   listEl.innerHTML = '<div class="gift-grid">'+cells.join('')+'</div>';
+  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));   // 못 받은 응답이 캐시에 남아 빈칸이 되지 않게(실패 이벤트는 다음 차례에 나서 지금 걸어도 받는다)
   _giftStat('⭐ '+starN+'/'+lim.starMax+' · 보관 '+keys.length+'/'+lim.max);
   const repaint = ()=>{ try{ _giftBoxPaint(listEl, gifts); }catch(_){} };
   // ★ 선물함 항목 클릭 → 마이홈에 다시 소환. innerHTML로 만든 목록이라 위임 방식으로 한 번만 건다.

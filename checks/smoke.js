@@ -330,7 +330,7 @@ let failed = null;
 const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* safe-html.js — 🛡️ 화면에 넣는 값 씻기(window.TwSafeHtml). app.js escHtml · 모듈들이 부를 때 읽는다 — 맨 먼저. */
 PRELOAD.push('safe-html.js');
-/* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js 가 부를 때 읽는다. */
+/* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
