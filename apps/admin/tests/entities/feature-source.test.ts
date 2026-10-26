@@ -10,8 +10,8 @@ import {
 import { auditsOf, fakeDb } from '../shared/fakeDb';
 
 describe('🎚️ 기능 스위치 — 받는 곳', () => {
-  it('기능 표 — 앱 source-switch.js 와 같은 세 기능', () => {
-    expect([...FEATURES]).toEqual(['friends', 'rooms', 'catalog']);
+  it('기능 표 — 앱 source-switch.js 와 같은 네 기능', () => {
+    expect([...FEATURES]).toEqual(['friends', 'rooms', 'catalog', 'gacha']);
   });
 
   it('새 칸이 없으면 옛 스위치(앱 pickSource 와 같은 규칙)', () => {
@@ -20,6 +20,8 @@ describe('🎚️ 기능 스위치 — 받는 곳', () => {
     expect(effectiveSource('rooms', null, true)).toBe('server');
     expect(effectiveSource('rooms', null, null)).toBe('firebase');
     expect(effectiveSource('catalog', null, undefined)).toBe('server');
+    expect(effectiveSource('gacha', null, undefined)).toBe('firebase');
+    expect(effectiveSource('gacha', 'server', undefined)).toBe('server');
   });
 
   it('새 칸이 있으면 그쪽이 이기고, 모르는 값은 칸 없음으로', () => {
@@ -38,11 +40,13 @@ describe('🎚️ 기능 스위치 — 받는 곳', () => {
       friends: 'firebase',
       rooms: 'server',
       catalog: 'firebase',
+      gacha: 'firebase',
     });
   });
 
   it('쓰기 — 새 칸과 옛 칸(옛 앱용)을 한 묶음 · 기록 한 줄', async () => {
     expect(sourceUpdates('catalog', 'server')).toEqual({ 'config/sources/catalog': 'server' });
+    expect(sourceUpdates('gacha', 'server')).toEqual({ 'config/sources/gacha': 'server' });
     const { db, writes } = fakeDb();
     await setFeatureSource(db, 'friends', 'firebase');
     await setFeatureSource(db, 'rooms', 'server');

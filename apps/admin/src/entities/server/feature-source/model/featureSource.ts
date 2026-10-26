@@ -1,9 +1,9 @@
 // config/sources/{기능} = 'server' | 'firebase' — 앱이 기능마다 어디서 받을지 고르는 스위치(app/parts/shared/source-switch.js).
-// 칸이 없으면 옛 스위치(친구 flags.friendsApi · 방 roomServer.on · 카탈로그 없음 — 늘 서버)를 본다. 옛 앱은 옛 스위치만 읽으므로
+// 칸이 없으면 옛 스위치(친구 flags.friendsApi · 방 roomServer.on · 카탈로그 없음 — 늘 서버 · 가챠 없음 — 늘 옛 길)를 본다. 옛 앱은 옛 스위치만 읽으므로
 // 쓸 때는 새 자리와 옛 자리를 한 묶음으로 같이 쓴다(웹 관리자 · 옛 관리자 · 옛 앱 · 새 앱이 같은 값을 보게).
 export const SOURCES_PATH = 'config/sources';
 
-export const FEATURES = ['friends', 'rooms', 'catalog'] as const;
+export const FEATURES = ['friends', 'rooms', 'catalog', 'gacha'] as const;
 export type Feature = (typeof FEATURES)[number];
 export type Source = 'server' | 'firebase';
 export type FeatureSources = Record<Feature, Source>;
@@ -47,6 +47,16 @@ export const FEATURE_META: Record<Feature, FeatureMeta> = {
     firebase: '파이어베이스에서만 받아요 — 서버 사본에 문제가 있을 때',
     legacyPath: null,
     legacy: () => 'server',
+    toLegacy: () => null,
+  },
+  gacha: {
+    label: '🎰 가챠 뽑기',
+    what: '파츠 가챠를 누가 뽑고 저장하는지',
+    server:
+      '서버(POST /v1/me/gacha/draws)가 확률 · 풀 · 남은 횟수를 정하고 저장해요 — 서버가 안 되면 뽑기가 실패로 떠요(앱이 대신 뽑지 않음). 이 PC 에만 있던 뽑기는 올라가지 않아요',
+    firebase: '앱이 뽑아 파이어베이스에 저장해요(지금까지 길)',
+    legacyPath: null,
+    legacy: () => 'firebase',
     toLegacy: () => null,
   },
 };
