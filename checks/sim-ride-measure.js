@@ -154,8 +154,26 @@ say('── 4. 동작 — 접지점 · 회전 춤 · 팔 높이');
   };
   const tc = tiltCase(M);
   chk(near(tc.tilted, tc.straight) && tc.restored, '★ 기울어진 채로 재도 곧은 자세 값과 같다 · 재고 나면 기울임 되돌림');
+  /* 재는 도중 던져도 기울임은 원래대로 — 실패는 null(옛 값 유지는 부르는 쪽) */
+  const throwCase = (Mx) => {
+    const a = mkAnimal(0.3); a.group.rotation.set(0.6, 0, 0.3); a.group.updateMatrixWorld(true);
+    const q0 = a.group.quaternion.clone();
+    a.bones.handL.getWorldPosition = () => { throw new Error('깨 봄'); };
+    const v = Mx._measureAnimalArmH(a);
+    return v === null && a.group.quaternion.equals(q0);
+  };
+  chk(throwCase(M), '★ 재는 도중 던져도 — null · 기울임은 원래대로');
   if(typeof MOD === 'string' && MOD){
-    const MODb = MOD.replace('    _g.quaternion.identity();\n', '');
+    const MODc = MOD.replace('    }finally{\n      _g.quaternion.copy(_savedQ);\n      _g.updateMatrixWorld(true);\n    }', '    }catch(e){ throw e; }\n    _g.quaternion.copy(_savedQ);\n    _g.updateMatrixWorld(true);');
+    let red = MODc === MOD;
+    if(!red){
+      const win = {}; new Function('window', 'module', 'THREE', 'console', MODc)(win, undefined, THREE, con);
+      red = !throwCase(win.TwRideMeasure.createRideMeasure({ seatEqMod: { seatScale: () => 2, charLiftWorld: () => 0.1 } }));
+    }
+    chk(red && MODc !== MOD, '  깨 보기 — 되돌리기를 finally 밖에 두면 빨강');
+  }
+  if(typeof MOD === 'string' && MOD){
+    const MODb = MOD.replace('      _g.quaternion.identity();\n', '');
     let red = MODb === MOD;
     if(!red){
       const win = {}; new Function('window', 'module', 'THREE', 'console', MODb)(win, undefined, THREE, con);

@@ -141,18 +141,23 @@ function judgeKeep(src){
       isEmpty(){ return this.max.y < this.min.y; } clone(){ const b = new Box3(); b.min = this.min.clone(); b.max = this.max.clone(); return b; }
       union(b){ if(b && !b.isEmpty()){ ['x','y','z'].forEach(k => { this.min[k] = Math.min(this.min[k], b.min[k]); this.max[k] = Math.max(this.max[k], b.max[k]); }); } return this; } setFromObject(){ return this; } }
     const box = (x0, x1, y0, y1, z0, z1) => { const b = new Box3(); b.min.set(x0, y0, z0); b.max.set(x1, y1, z1); return b; };
-    const run = ({ wraps, riderPart, riderKey }) => {
-      const notes = [];
-      const host = { charDef: {}, bones: { head: { getWorldPosition(v){ return v.set(0, 1.0, 0); } } }, group: { quaternion: { clone(){ return {}; }, identity(){}, copy(){} }, updateMatrixWorld(){} },
-        gltfRoot: { traverse(cb){ wraps.forEach(w => cb(w)); } } };
-      const rider = { ridingOn: host, _rideHeadTop: 0.4, _rideHeadTopPart: riderPart, _rideHeadTopPartKey: riderKey };
+    const mkHost = (wraps) => ({ charDef: {}, bones: { head: { getWorldPosition(v){ return v.set(0, 1.0, 0); } } }, group: { quaternion: { clone(){ return {}; }, identity(){}, copy(){} }, updateMatrixWorld(){} },
+      gltfRoot: { traverse(cb){ wraps.forEach(w => cb(w)); } } });
+    const mkMod = (seats, notes) => {
       const head = box(-0.1, 0.1, 1.0, 1.4, -0.1, 0.1);
-      const mod = build(src, { seats: [host, rider], diagNote: (m) => notes.push(m),
+      return build(src, { seats, diagNote: (m) => notes.push(m),
         measureHeadBoxNoParts: (root, out) => { if(out) out.push(head); return head.clone(); },
         measureBodyBox: (o) => o._box ? o._box.clone() : new Box3(),
-        savedParts: () => [{ id: 'hat', rideTop: true }, { id: 'cap', rideTop: true }] },
+        savedParts: () => [{ id: 'hat', rideTop: true }, { id: 'cap', rideTop: true }],
+        _rideBottom: (x) => { let b = x, g = 0; while(b && b.ridingOn && g++ < 16) b = b.ridingOn; return b; }, RIDE_MAX_STACK: 5,
+        _measureAnimalArmH: () => 0.3, seatScale: () => 1, layoutSeats: () => {} },
         new Proxy({ Box3, Vector3: V3 }, { get: (o, k) => (k in o ? o[k] : anything()) }));
-      mod._remeasureRideHeadTop(host);
+    };
+    const run = ({ wraps, riderPart, riderKey }) => {
+      const notes = [];
+      const host = mkHost(wraps);
+      const rider = { ridingOn: host, _rideHeadTop: 0.4, _rideHeadTopPart: riderPart, _rideHeadTopPartKey: riderKey };
+      mkMod([host, rider], notes)._remeasureRideHeadTop(host);
       return { rider, notes };
     };
     const hatOn  = { visible: true, userData: { __twPartWrap: true, partId: 'hat' }, _box: box(-0.2, 0.2, 1.3, 1.6, -0.2, 0.2) };
@@ -170,6 +175,19 @@ function judgeKeep(src){
     t(e.rider._rideHeadTopPart === null && e.rider._rideHeadTopPartKey === 'cap', '  다른 파츠로 바꿨는데 못 잡음 — 걷는다(옛 모자 높이를 새 파츠에 쓰지 않는다)');
     const f = run({ wraps: [hatOff], riderPart: null, riderKey: 'hat' });
     t(f.rider._rideHeadTopPart === null, '  처음부터 파츠 위가 아니었으면 — 그대로 null');
+    /* 실제 길 — 모자가 머리 중심을 덮을 때 mountRide 로 얹고, 이어서 판정이 빗나가는 순간에 다시 잰다 */
+    {
+      const notes = [], wraps = [hatOn];
+      const host = mkHost(wraps);
+      const animal = { charDef: { animal: true }, remote: true, desk: null, group: { quaternion: { identity(){} } } };
+      const mod = mkMod([host, animal], notes);
+      const ok = mod.mountRide(animal, host);
+      const atMount = animal._rideHeadTopPart;
+      wraps[0] = hatOff;
+      mod._remeasureRideHeadTop(host);
+      t(ok === true && near(atMount, 0.6) && animal._rideHeadTopPartKey === 'hat' && near(animal._rideHeadTopPart, 0.6),
+        '★ mountRide 로 모자 위(0.6)에 얹고 · 다음 다시 재기가 빗나가도 얹을 때 높이 그대로');
+    }
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   return r;
 }
@@ -177,6 +195,7 @@ judgeKeep(MOD).forEach(([ok, msg]) => chk(ok, msg));
 for(const [name, a, b] of [
   ['못 잡으면 늘 걷음(예전)', '      r._rideHeadTopPart = _keepRidePartTop(r, vp, key);', '      r._rideHeadTopPart = vp;'],
   ['파츠 묶음을 안 봄', '  if(old == null || !key || rider._rideHeadTopPartKey !== key) return null;', '  if(old == null) return null;'],
+  ['mountRide 가 묶음을 안 적음', '  animalSeat._rideHeadTopPartKey = _rideTopPartKey(hostSeat);\n', ''],
 ]){
   const m2 = MOD.replace(a, b);
   let rows2; try{ rows2 = judgeKeep(m2); }catch(_){ rows2 = [[false, '던짐']]; }
