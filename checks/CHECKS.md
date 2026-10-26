@@ -82,7 +82,7 @@
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-chat-history.js** | 244 | **9bbbfd7c28fc** |
 | **sim-gamepad-activity.js** | 131 | **320f86854007** |
-| **sim-mallang-hide.js** | 122 | **1250ce12a494** |
+| **sim-mallang-hide.js** | 124 | **86040d19c645** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
@@ -263,7 +263,7 @@
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
 | **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
-| **sim-myhome-inbox.js** | 590 | **51a66cd2cac2** |
+| **sim-myhome-inbox.js** | 592 | **aa2d345d3fb9** |
 | **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |
 | **sim-playlist.js** | 743 | **9c64891954bf** |
 | **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** |
@@ -422,6 +422,7 @@
 | **sim-room-code-len.js** | 87 | **f0578d075c5e** |
 | **sim-mh-pad-pos.js** | 164 | **4f0a3400f69c** |
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
+| **sim-gift-img-retry.js** | 149 | **a9d5d585e30e** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

@@ -16,6 +16,7 @@
    [실행] myhome-inbox.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
+globalThis.TwImgRetry = require([__dirname, process.cwd()].flatMap(d => ['img-retry.js', 'parts/shared/img-retry.js', 'app/parts/shared/img-retry.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🖼 선물 칸 그림 한 번 더 받기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -44,6 +45,7 @@ function mkEl(tag, env){
       toggle: (c, f) => { const on = f === undefined ? !el.classList.contains(c) : !!f; on ? el.classList.add(c) : el.classList.remove(c); return on; },
     },
     appendChild(c){ c.parent = el; el.children.push(c); return c; },
+    querySelectorAll(){ return []; },   // 선물 칸 그림(retryOnError) — 이 검사는 그림을 보지 않는다(sim-gift-img-retry 가 본다)
     remove(){ el.removed = true; if(el.parent){ el.parent.children = el.parent.children.filter(x => x !== el); el.parent = null; } },
     addEventListener(t, fn){ (L[t] = L[t] || []).push(fn); },
     fire(t, ev){ (L[t] || []).slice().forEach(fn => fn(Object.assign({ preventDefault(){ ev._pd = true; }, stopPropagation(){ ev._sp = true; } }, ev))); },
