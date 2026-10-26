@@ -87,6 +87,25 @@ const LIMIT_CASES = [
   ['_meta — 옛 칸을 그대로 실은 통째 쓰기는 거절(바뀌지 않은 칸도 다시 검사된다 — 알고 둔다)', 'PUT', `rooms/WORK-ABCD/_meta`, { channel: 'workingroom', host: GOOD_U2, ts: 2, legacy: 'x' }, false],
   ['_meta — 옛 칸이 있어도 update 는 통과', 'PATCH', `rooms/WORK-ABCD/_meta`, { host: GOOD_U2, ts: 2 }, true],
 
+  /* 🔒 시크릿룸 — SCRT- 방은 발급(pub.owner)됐고 기간 안(exp 없음 = 영구 · 지나지 않음)일 때만 쓴다. 지우기(나가기)는 늘 된다.
+     앱은 들어가기 전에 같은 조건을 본다(room-entry.js startRoom) — 이 규칙은 앱을 고쳐 그 검사를 건너뛴 쓰기를 막는다. */
+  ['준비: 발급된 영구 시크릿룸(규칙 건너뜀)', 'PUT', 'secretRooms/SCRT-AB12', { k: 'x', pub: { owner: GOOD_U, ts: 1 } }, true, OWNER],
+  ['준비: 기간 안 시크릿룸', 'PUT', 'secretRooms/SCRT-FU12', { k: 'x', pub: { owner: GOOD_U, ts: 1, exp: FUTURE } }, true, OWNER],
+  ['준비: 기간 끝난 시크릿룸', 'PUT', 'secretRooms/SCRT-EX12', { k: 'x', pub: { owner: GOOD_U, ts: 1, exp: 1000 } }, true, OWNER],
+  ['준비: 기간 끝난 방에 남은 멤버', 'PUT', `rooms/SCRT-EX12/${MEMBER2}`, JOIN, true, OWNER],
+  ['시크릿룸 — 영구 방 입장', 'PUT', `rooms/SCRT-AB12/${MEMBER}`, JOIN, true],
+  ['시크릿룸 — 영구 방 상태 update', 'PATCH', `rooms/SCRT-AB12/${MEMBER}`, BASE, true],
+  ['시크릿룸 — 영구 방 _meta(setRoomChannel)', 'PATCH', `rooms/SCRT-AB12/_meta`, { channel: 'togetherroom', ts: TS, host: GOOD_U }, true],
+  ['시크릿룸 — 영구 방 채팅 기록', 'PUT', `rooms/SCRT-AB12/chatLog/-Nsr1`, { uid: GOOD_U, name: '민수', text: 'hi', ts: TS }, true],
+  ['시크릿룸 — 기간 안 방 입장', 'PUT', `rooms/SCRT-FU12/${MEMBER}`, JOIN, true],
+  ['시크릿룸 — 발급 안 된 코드 입장', 'PUT', `rooms/SCRT-NO12/${MEMBER}`, JOIN, false],
+  ['시크릿룸 — 발급 안 된 코드 _meta', 'PATCH', `rooms/SCRT-NO12/_meta`, { channel: 'togetherroom', ts: TS, host: GOOD_U }, false],
+  ['시크릿룸 — 발급 안 된 코드 채팅 기록', 'PUT', `rooms/SCRT-NO12/chatLog/-Nsr2`, { uid: GOOD_U, name: '민수', text: 'hi', ts: TS }, false],
+  ['시크릿룸 — 기간 끝난 방 입장', 'PUT', `rooms/SCRT-EX12/${MEMBER}`, JOIN, false],
+  ['시크릿룸 — 기간 끝난 방에 남은 사람의 상태 update', 'PATCH', `rooms/SCRT-EX12/${MEMBER2}`, BASE, false],
+  ['시크릿룸 — 기간 끝난 방에서 나가기(지우기)', 'DELETE', `rooms/SCRT-EX12/${MEMBER2}`, null, true],
+  ['시크릿룸 규칙은 다른 방에 닿지 않는다 — PLAY 방 입장', 'PUT', `rooms/PLAY-NO12/${MEMBER}`, JOIN, true],
+
   /* 대화 기록 */
   ['채팅 기록 — 1200자 · uid', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg1`, { uid: GOOD_U, name: '민수', text: 'a'.repeat(1200), ts: TS }, true],
   ['채팅 기록 — 방장 지우기 표시 sys', 'PUT', `rooms/${ROOM}/chatLog/-Nmsg2`, { uid: GOOD_U, name: '민수', text: '', ts: TS, sys: 'clr' }, true],
