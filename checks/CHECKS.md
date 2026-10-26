@@ -87,7 +87,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 618 | **6664bb6aad56** |
-| **sim-friends-port.js** | 456 | **2dd8fdb877a0** |
+| **sim-friends-port.js** | 456 | **a95b435cd461** |
 | **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 95 | **71c92bf7579e** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
@@ -135,6 +135,7 @@
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 308 | **62235f6b38d0** |
 | **sim-app-version-gate.js** | 177 | **92374665c4d9** |
+| **sim-maintenance-gate.js** | 212 | **9e1067926d18** |
 | **sim-invite-account.js** | 80 | **a6c43e555063** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-group-invite.js** | 257 | **cf8bf2ab412b** |
@@ -246,12 +247,12 @@
 | **sim-weekly-challenge.js** | 345 | **35279543c804** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
-| **sim-guestbook.js** | 289 | **ad0203fe9bda** |
+| **sim-guestbook.js** | 291 | **d7d424fc8974** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
-| **sim-myhome-edit.js** | 612 | **0d0a383a8c8b** |
+| **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |

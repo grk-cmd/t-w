@@ -87,7 +87,7 @@ function mkEnv(opt){
     toasts: [], saves: [], saveRes: undefined, saveThrows: false, commitsName: [], renders: 0, origRenders: 0, page: 0, clicks: [], exec: [],
     prompts: [], promptAns: [], viewing: opt.viewing || null, loaded: opt.loaded !== false, homeUid: 'u1', uid: 'u1', setLoaded: [],
     dragDist: 0, dragSets: [], premium: !!opt.premium, admin: false, userName: '나', nameMaxReady: !opt.lateConst, sticker: { open: 0, render: 0 },
-    timers: [], docL: {}, els: {}, ls: {}, comp: [], compCb: {}, rt: [], uploads: [], opened: [], themeChild: [], raf: [],
+    timers: [], docL: {}, els: {}, ls: {}, comp: [], compCb: {}, rt: [], uploads: [], opened: [], themeChild: [], watchedChild: [], raf: [],
     data: Object.assign({ avatar: null, bio: '', postTitle: '', post: '', stickers: {}, bgm: null, bg: null, theme: null }, opt.data || {}),
   };
   /* 입력칸(편집 중에만 생기는 것)은 저절로 만들지 않는다 — «이미 편집 중» 판정이 그 칸이 있는지로 갈린다 */
@@ -170,6 +170,7 @@ function mkEnv(opt){
     mhApplyVisitUI: () => { env.visitUI = (env.visitUI || 0) + 1; },
     ytVideoId: (u) => { const m = /youtu\.?be[^/]*\/(?:watch\?v=)?([\w-]+)/.exec(u || ''); return m ? m[1] : null; },
     applyThemeToChildDoc: (d) => env.themeChild.push(d),
+    watchMaintenanceInput: (d) => env.watchedChild.push(d),
     commitUserName: (v) => env.commitsName.push(v),
     getDisplayName: () => env.userName === '나' ? '(이름 없음)' : env.userName,
     getUserName: () => env.userName,
@@ -487,6 +488,7 @@ await sec('── 8. 👑 디자인 스튜디오 · 프리셋', async () => {
   const W = e.child, d = W.document;
   chk(!!W && /<div id="dsPresets"><\/div>/.test(d.html) && /👑/.test(d.html) && d.closedDoc, '창 — DS_HTML 을 써 넣는다');
   chk(e.themeChild.length === 1 && e.themeChild[0] === d, '  쓰자마자 테마 토큰을 넣는다(applyThemeToChildDoc)');
+  chk(e.watchedChild.length === 1 && e.watchedChild[0] === d, '  이 창 입력도 점검 판정에 센다(watchMaintenanceInput — 쓴 뒤에)');
   const body = d.getElementById('dsBody');
   chk(body.children.length === 17 && body.children[0].className === 'ds-group' && body.children[1].className === 'ds-row' && /바깥 배경/.test(body.children[1].innerHTML), '마이홈 탭 — 그룹 넷 · 항목 열셋(17줄)');
   chk(/background:#333333;/.test(body.children[1].innerHTML) && /data-act="img"/.test(body.children[1].innerHTML), '  바깥 배경 칸 — 지금 색 · IMG 버튼');
@@ -576,8 +578,8 @@ await sec('── 9. app.js 배선', () => {
     'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,', 'getRenderMyHomeStickers: ()=>renderMyHomeStickers,'];
   const setters = ['setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },', 'setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },', 'setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },'];
   const vals = ['homeUploadCache: uploadCacheMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
-  chk(deps.length === 35 && fnDeps.length === 15 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
-      'deps 35개 — 함수 15는 화살표 · 읽는 함수 9 · 쓰는 함수 3 · 앞에 선언된 const 8은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 36 && fnDeps.length === 16 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
+      'deps 36개 — 함수 16은 화살표 · 읽는 함수 9 · 쓰는 함수 3 · 앞에 선언된 const 8은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   const before = (n) => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; };
   chk(['uploadCacheMod', 'myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
   chk(!before('USER_NAME_MAX') && APP.search(/^const USER_NAME_MAX\s*=/m) > iMk, '  ★ USER_NAME_MAX 는 만드는 줄보다 뒤 — 그래서 읽는 함수');

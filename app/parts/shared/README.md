@@ -242,6 +242,26 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 검사: `checks/sim-app-version.js` (1절 모듈 · 2절 쓰는 자리 · 3절 규칙 · 5절 presence 쓰기를 실제로 돌림 — 평소 · 늦게 옴 · 못 받음 · companion 없음 · 영영 안 옴 · 오프라인 · 규칙 판정 · 깨 보기 3).
 
+## `maintenance-gate.js` — 🛠 서버 점검 창
+
+**책임** — Firebase `config/maintenance`(`{ on, endsAt?, message? }` · 웹 관리자가 씀)가 켜진 동안, **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
+
+**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `config/maintenance` 를 구독해 `store.onValue` 에 잇고, 범용 통로(`data-gateway.js` `onOp`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
+
+**내놓는 것**
+- `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).
+- 순수: `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
+
+**함정**
+- «사람이 누른 동작» 은 클릭 · 키 입력 뒤 `ACTIVE_MS`(1초) 안에 나간 요청이다(점검 창 안 입력은 세지 않는다). `navigator.userActivation.isActive` 는 쓰지 않는다 — 아무 데나 누른 뒤 약 5초 참이라 꾸미기 저장 디바운스(3초) · 하트비트에도 창이 뜬다.
+- 따로 된 창(`window.open` — 📖 방명록 · 👑 디자인 스튜디오)은 본창 입력 시계가 못 듣는다. 그런 창을 새로 만들면 열 때 `store.watchInput(그 document)` 를 건다(deps `watchMaintenanceInput` · `d.close()` 뒤 — `document.open` 이 리스너를 지운다). 점검 창은 마지막으로 누른 창 안에 그린다.
+- 잡는 문은 범용 통로 · API 통로 둘뿐이다 — `runTransaction` 직접 호출 · 함수 호출 · 방 서버 웹소켓으로만 닿는 기능은 창 없이 실패한다(오류 번호 토스트도 점검 중엔 꺼짐).
+- 끝나도 저절로 다시 켜지 않는다(로컬 기능을 쓰는 중일 수 있다). 다만 점검 중 거부된 `onValue` 구독은 다시 붙지 않으니, 다시 켜야 친구 · 우편 · 방이 이어진다.
+- 점검 때 Firebase 를 잠그는 규칙도 `config/maintenance` **읽기는 열어 둬야** 한다 — 닫으면 구독이 끊겨 끝난 것을 모른다.
+- 창이 떠 있는 동안 관리자가 끝 시각 · 문구를 바꾸면 바로 다시 그린다.
+
+검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 7).
+
 ## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
 
 - **책임**: 남이 쓸 수 있는 글(닉네임 · 메모 · 서버 값)을 **친 그대로 보이게** 하고 HTML 로는 절대 안 읽히게 한다. «초마 <뚱쟁이>» · «병준이<3» · «>_<» 는 진짜 이름이다 — 지우거나 거절하지 않는다. 주소 · CSS 값도 여기서 거른다. 순수 함수 · DOM 없음.

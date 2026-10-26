@@ -83,7 +83,7 @@ function diagText(code, err){
   return '[오류] ' + code + (why ? ' ' + why : '');
 }
 
-/* deps: toast(msg, icon, ms) · diag(line) · now() — 모두 부를 때 찾는다. */
+/* deps: toast(msg, icon, ms) · diag(line) · now() · muted()(참이면 기록만 · 토스트 없음) — 모두 부를 때 찾는다. */
 function createErrorNotice(deps){
   const d = deps || {};
   const now = d.now || (()=>Date.now());
@@ -96,6 +96,7 @@ function createErrorNotice(deps){
     if(recent.length > KEEP) recent.shift();
     try{ if(d.diag) d.diag(diagText(c, err)); }catch(_){}
     try{ console.warn('[오류] ' + c, err == null ? '' : err); }catch(_){}
+    if(d.muted && d.muted()) return false;   // 서버 점검 중 — 실패는 점검 창이 알린다(maintenance-gate.js)
     if(lastShown[c] && at - lastShown[c] < REPEAT_MS) return false;
     lastShown[c] = at;
     try{ if(d.toast) d.toast(toastText(c, text), null, TOAST_MS); }catch(_){}
@@ -113,6 +114,7 @@ if(typeof window !== 'undefined'){
   const notice = createErrorNotice({
     toast: (...a)=>window.toast(...a),   // app.js 의 전역 toast — 실패 알림은 부팅 뒤에만 난다(새 typeof 가드 금지)
     diag: (line)=>{ if(window.companion && window.companion.diagNote) window.companion.diagNote(line); },
+    muted: ()=>window.TwMaintenance.store.on(),
   });
   api.notify = notice.notify;
   api.recent = notice.recent;

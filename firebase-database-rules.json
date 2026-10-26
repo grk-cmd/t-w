@@ -912,6 +912,15 @@
         ".write": "root.child('admins').child(auth.uid).val() === true",
         ".validate": "newData.isString() && newData.val().length <= 20"
       },
+      "maintenance": {
+        ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": "auth != null && root.child('admins').child(auth.uid).val() === true",
+        ".validate": "newData.hasChildren(['on']) && newData.child('on').isBoolean()",
+        "on": {},
+        "endsAt": { ".validate": "newData.isNumber() && newData.val() > 0" },
+        "message": { ".validate": "newData.isString() && newData.val().length <= 200" },
+        "$other": { ".validate": false }
+      },
       "minAppVer": {
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         ".write": "root.child('admins').child(auth.uid).val() === true",
