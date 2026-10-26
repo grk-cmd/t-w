@@ -330,7 +330,10 @@ const RCM = require(path.resolve(where('remote-config.js')));
   say('── 5. 방 서버 길 빈 방 열기 — 상한');
   {
     const a = strip(APP);
-    const need = ['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed('];
+    const need = ['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed(',
+      'function _secretOpenFields(', 'function _clearPendingCreate('];
+    /* 방 서버 만들기 칸 고르기(serverJoinCreate)는 room-settings.js 진짜 모듈 — 글을 떼어 오지 않고 싣는다 */
+    const RS = (() => { const w = {}; Function('window', read('room-settings.js'))(w); return w.TwRoomSettings; })();
     const miss = need.filter((h) => !takeFn(a, h));
     chk(miss.length === 0, '함수들이 있다' + (miss.length ? ' — 없음: ' + miss.join(', ') : ''));
     if(miss.length) return finish();
@@ -340,6 +343,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
       "const ROOM_SERVER_BUSY_MSG = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';",
       "const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;",
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
+      'let _pendingExtra = null;',
+      'function _secretMusicOn(){ return false; }',
       ...need.map((h) => takeFn(a, h)),
       'return _startRoomOnServer;',
     ].join('\n');
@@ -362,9 +367,9 @@ const RCM = require(path.resolve(where('remote-config.js')));
       };
       const Presence = { start: async () => { log.started++; return o.joinFail ? { ok: false, code: o.joinFail } : { ok: true, others: 1, meta: null }; }, stop: async () => {} };
       const fn = Function('window', 'firebaseAPI', '_roomServerNet', 'Presence', 'makeServerProvider', '_clearHiddenSeats', 'getDisplayName', 'presenceChanged',
-        'toast', 'refreshInviteUI', 'applyExtraSeatForMode', 'startRoom', '_rcStore', 'isPremium', 'isAdmin', 'console', SRC)(
+        'toast', 'refreshInviteUI', 'applyExtraSeatForMode', 'startRoom', '_rcStore', 'isPremium', 'isAdmin', 'console', 'roomSettings', SRC)(
         win, api, () => net, Presence, () => ({}), () => {}, () => '나', () => {},
-        (m) => log.toasts.push(m), () => {}, () => {}, async () => {}, () => st, !!o.premium, false, { warn() {}, log() {} });
+        (m) => log.toasts.push(m), () => {}, () => {}, async () => {}, () => st, !!o.premium, false, { warn() {}, log() {} }, RS);
       return { go: (code, ctx) => fn(code, Object.assign({ isSecret: false, secretOwner: null, myDef: {} }, ctx || {})), log, win };
     }
     let t = mk({ count: { workingroom: 300 } });

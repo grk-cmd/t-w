@@ -9,6 +9,7 @@ const TITLE_MAX = 100;
 const SEQ_MAX = 1e9;          // 규칙 상한 — 아주 큰 차례 번호로 다음 쓰기를 막아 두지 못하게
 const DRIFT_SEC = 5;          // 이만큼 넘게 다르면 위치를 옮긴다(하트비트가 5초마다라 그 아래는 못 잰다)
 const END_GRACE_SEC = 3;      // 곡 끝 예비 판정 — 재생 창의 «곡 끝» 신호를 못 받았을 때
+const MUSIC_POS_MAX = 86400;  // 보내는 위치(초) 상한 — 방 서버가 music.pos 0~86400 밖이면 badRequest 로 거절한다
 
 /** 지금 위치(초) — 멈췄으면 pos, 아니면 (지금 − at) · 곡이 없으면 0. now 는 서버 시각(ms). */
 function posOf(m, now){
@@ -102,7 +103,10 @@ function parseBeat(s){
 /** 같이 듣기 방인가 — `_meta.music === true` */
 function isMusicRoom(meta){ return !!(meta && meta.music === true); }
 
-window.TwListenModel = Object.freeze({ ID_RE, TITLE_MAX, SEQ_MAX, DRIFT_SEC, END_GRACE_SEC,
-  posOf, needSeek, djOf, isEnded, stepIndex, playableFrom, makeMusic, paused, resumed, withDur, parseBeat, isMusicRoom });
+/** 보낼 위치(초) — 지금 위치를 0 ~ MUSIC_POS_MAX 로 자른다(아주 오래 켜 둔 곡 · 틀린 at 으로 서버가 쓰기를 통째로 거절하지 않게). */
+function wirePos(m, now){ return Math.min(MUSIC_POS_MAX, posOf(m, now)); }
+
+window.TwListenModel = Object.freeze({ ID_RE, TITLE_MAX, SEQ_MAX, DRIFT_SEC, END_GRACE_SEC, MUSIC_POS_MAX,
+  posOf, wirePos, needSeek, djOf, isEnded, stepIndex, playableFrom, makeMusic, paused, resumed, withDur, parseBeat, isMusicRoom });
 
 })();

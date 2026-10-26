@@ -136,6 +136,7 @@ function _roomServerJoinMessage(code, isSecret, openCh){
   }
   if(code === 'secretClosed') return '이 시크릿룸은 이용 기간이 끝났어요';
   if(code === 'forbidden') return '투게더룸은 라이선스가 있어야 열 수 있어요';
+  if(code === 'title') return roomSettings.TITLE_ERROR_TEXT.banned;   // 서버가 금칙어로 거절(앱 목록이 늦었을 때)
   return null;
 }
 /* startRoom 의 서버 갈래. 'firebase' = 아래 기존 흐름으로 계속 · 그 밖 = 여기서 끝났다.
@@ -185,9 +186,11 @@ async function _startRoomOnServer(code, ctx){
     rd = await net.ensureReady();
     if(!rd.ok){ console.warn('[방 서버] 연결 안 됨 — Firebase 방식으로 들어갑니다 (' + rd.code + ' · ' + rs.from + ')'); return 'firebase'; }
   }
+  let others = null;   // 서버 방에 이미 있는 사람 수(나 제외) — 모르면 null · 주소록에 있는 방(따라가기)은 이미 열린 방이라 세지 않는다
   if(!creating && !following){
     let pk = null;
     try{ pk = await net.peek(code); }catch(_){ pk = null; }
+    if(pk && pk.exists) others = pk.count;
     if(!(pk && pk.exists)){
       let fb = null;   // Firebase 쪽 사람 수 — 서버에 방이 없을 때만 읽는다
       try{
@@ -195,6 +198,7 @@ async function _startRoomOnServer(code, ctx){
         if(fb === null && firebaseAPI.checkRoomCapacity) fb = await firebaseAPI.checkRoomCapacity(code);
       }catch(_){ fb = null; }
       if(typeof fb === 'number' && fb > 0) return 'firebase';
+      if(fb === 0) others = 0;
       /* 서버에도 Firebase 에도 사람이 없다 = 서버가 새 방을 연다 → [방 만들기] 와 같은 상한(개수는 roomIndex — doCreateRoomInChannel 과 같다).
          되살리기(주소록에 있는 방 · from 'dir')는 여기 오지 않는다 — 이미 있던 방이라 세지 않는다. 시크릿룸은 정원 밖. */
       if(!ctx.isSecret){
@@ -210,8 +214,10 @@ async function _startRoomOnServer(code, ctx){
       }
     }
   }
-  const create = creating ? { channel: window._pendingRoomChannel,
-    open: (window._pendingRoomChannel === 'workingroom') && !!window._pendingRoomOpen } : null;
+  // 방 만들기 창이 고른 값 — 공개는 두 채널 모두 · 제목 · 최대 인원 · 같이 듣기(방장 이름은 서버가 정한다)
+  // 시크릿룸은 주인이 빈 방을 열 때만 같이 듣기를 싣는다(서버는 시크릿룸 create 에서 music 만 본다)
+  const srOpen = ctx.isSecret ? _secretOpenFields(ctx.iAmSecretOwner, others) : undefined;
+  const create = roomSettings.serverJoinCreate(creating, window._pendingRoomChannel, !!window._pendingRoomOpen, _pendingExtra, srOpen);
   _clearHiddenSeats();
   const r = await Presence.start(code, ctx.myDef, getDisplayName(), presenceChanged, { provider: makeServerProvider(net, create) });
   if(!(r && r.ok)){
@@ -236,8 +242,7 @@ async function _startRoomOnServer(code, ctx){
     }
   }
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
-  window._pendingRoomChannel = null;
-  window._pendingRoomOpen = false;
+  _clearPendingCreate();
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();
   return 'done';
 }
@@ -600,6 +605,9 @@ function _srFmtDate(ms){
 /* 🎧 «내 시크릿룸을 같이 듣기로 열기» — 이 기기에 기억(한 계정 한 기기 · 로그아웃 때 지움 account.js). 주인이 빈 방을 열 때 _meta.music 으로 쓴다. */
 const SECRET_MUSIC_KEY = 'tw.secretRoomMusic';
 function _secretMusicOn(){ try{ return localStorage.getItem(SECRET_MUSIC_KEY) === '1'; }catch(_){ return false; } }
+/* 🎧 시크릿룸을 «연다» = 주인이 아무도 없는 방에 들어갈 때만 — 그때만 같이 듣기를 정한다(Firebase 길 · 방 서버 길이 같은 판정).
+   손님이 들어올 때마다 정하면 듣던 곡이 지워진다 · 인원을 못 셌으면(null) 정하지 않는다. → { music } | undefined */
+function _secretOpenFields(isOwner, othersCount){ return (isOwner && othersCount === 0) ? { music: _secretMusicOn() } : undefined; }
 { const c=document.getElementById('fsSecretMusic'); if(c) c.addEventListener('change', ()=>{ try{ localStorage.setItem(SECRET_MUSIC_KEY, c.checked ? '1' : '0'); }catch(_){} }); }
 function _refreshSecretRoomUI(){
   const w=document.getElementById('fsInviteSecretWrap'); const inp=document.getElementById('fsInviteSecretCode');
@@ -710,7 +718,7 @@ async function startRoom(code){
   /* 🛰 방 서버 — 관리자 스위치가 켜져 있을 때만 서버로(기본 꺼짐 · _startRoomOnServer 주석). 'firebase' 면 아래 기존 흐름 그대로다.
      ★ 아래의 Firebase 쓰기(_meta · roomIndex · 빈 방 선점)보다 **먼저** 가른다 — 서버 방에 Firebase 표지가 생기면 옛 앱이 그 방을 «있는 방» 으로 센다. */
   {
-    const _via = await _startRoomOnServer(code, { isSecret:_isSecret, secretOwner:_secretOwner, myDef });
+    const _via = await _startRoomOnServer(code, { isSecret:_isSecret, secretOwner:_secretOwner, iAmSecretOwner:_iAmSrOwner, myDef });
     if(_via !== 'firebase') return;
   }
   // ★ 예전엔 정원 체크가 전혀 없어서 화면에 표시되는 한도(maxPeople())보다 많은 인원이 그냥 입장은 되고,
@@ -770,7 +778,7 @@ async function startRoom(code){
       // host는 입장할 때마다 owner로 다시 쓴다(멱등) — 주인이 아닌 친구가 먼저 들어와도 방장은 주인.
       _channel = 'togetherroom';
       // 🎧 같이 듣기는 주인이 빈 방을 열 때만 정한다 — 손님이 들어올 때마다 쓰면 듣던 곡(_music)이 지워진다 · 인원을 못 셌으면(null) 안 건드린다
-      const _srOpen = (_iAmSrOwner && _roomCount === 0) ? { music: _secretMusicOn() } : undefined;
+      const _srOpen = _secretOpenFields(_iAmSrOwner, _roomCount);
       if(window.firebaseAPI && firebaseAPI.setRoomChannel) await firebaseAPI.setRoomChannel(code, 'togetherroom', _secretOwner, undefined, _srOpen);
     } else if(_channel && window.firebaseAPI && firebaseAPI.setRoomChannel){
       /* 만들기: 채널 + 방장(나) 기록. 방을 만든 사람이 최초 방장이다.
@@ -954,9 +962,11 @@ function _paintMaxPeople(){
   _paintMaxPeople();
 })();
 
-/* 방 만들기 창이 고른 _meta 칸 { title, max, hostName, music } — startRoom 의 만들기 갈래(Firebase)가 한 번 쓰고 비운다.
+/* 방 만들기 창이 고른 _meta 칸 { title, max, hostName, music } — startRoom 의 만들기 갈래(Firebase · 방 서버)가 한 번 쓰고 비운다.
    만들기가 중간에 막히면 남지만, 그 값을 읽는 곳은 _pendingRoomChannel 이 있는 만들기 갈래뿐이고 다음 만들기가 덮는다. */
 let _pendingExtra = null;
+/* 만들기 표시 셋(채널 · 공개 · 고른 값)을 한 번에 비운다 — 들어간 뒤 다음 입장이 지난 만들기 값을 물려받지 않게 */
+function _clearPendingCreate(){ window._pendingRoomChannel = null; window._pendingRoomOpen = false; _pendingExtra = null; }
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다.
    settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용), music(🎧 같이 듣기) }. */
 async function doCreateRoomInChannel(channel, settings){

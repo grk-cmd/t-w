@@ -14,6 +14,7 @@
  * 9-1. 요청 id(rid)로 답 짝짓기 · peek(들어가지 않고 보기) · peek 을 모르는 옛 서버
  * 9-2. 주소 바꾸기 — 방 밖이면 새 서버로 · 방 안이면 그 방 서버 그대로 · 못 붙은 주소만 1분 쉼
  * 9-3. 방 안에서 서버가 30초 넘게 안 돌아오면 unreachable(→ Firebase 로 다시 입장) · 잠깐 끊김은 이어 붙음
+ * 9-4. 방 설정(title · open) · 같이 듣기(music · 서버 시계) · random 채널 · 만들기 칸 — 0.13 선택 칸
  * 10. firebase-init.js · app.js · HTML 연결
  */
 'use strict';
@@ -39,6 +40,18 @@ const M = Object.assign({}, L, esm(SRC));
 
 // ── 가짜 시계 · 가짜 웹소켓 ──────────────────────────────────────────────
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
+/* 답이 안 올 수 있는 약속을 기다린다 — 바로 끝나면 그 값, 아니면 가짜 시계를 요청 시간 제한(4초) 넘게 돌려 본다. 그래도 안 끝나면 { hang: true }.
+   [왜] 가짜 시계를 안 돌린 채 그냥 await 하면 이벤트 루프가 비어 node 가 0 으로 조용히 끝나고, 뒤 절이 안 돌아도 초록으로 센다. */
+const REQ_WAIT_MS = 4000 + 1;
+async function settle(p, clock){
+  let st = null;
+  p.then((v) => { st = { v }; }, (e) => { st = { e }; });
+  await tick();
+  if(!st) await clock.advance(REQ_WAIT_MS);
+  if(!st) return { hang: true };
+  if(st.e) throw st.e;
+  return st.v;
+}
 function mkClock(){
   const c = { t: 1_800_000_000_000, q: [], id: 0 };
   c.setTimeout = (f, ms) => { const h = { id: ++c.id, at: c.t + Math.max(0, ms | 0), f }; c.q.push(h); return h; };
@@ -589,6 +602,97 @@ async function joined(o = {}){
     chk(gr.ok === false && gr.code === 'full', '정원 초과 → { ok:false, code:full } (앱이 지금 쓰는 «가득 찼어요» 문구로)');
   }
 
+  say('── 9-4. 방 설정 · 같이 듣기 · random 채널 · 만들기 칸');
+  {
+    chk(M.metaMatches({ title: '마감방' }, { title: '마감방' }) && M.metaMatches({}, { title: '' }) && !M.metaMatches({ title: '옛' }, { title: '' }) && !M.metaMatches({}, { title: '새' }),
+      'metaMatches — title \'\' 은 «칸 없음» 과 같다(지움)');
+    let e = await joined({ create: { channel: 'workingroom', open: true, title: '마감방', max: 4, music: true } });
+    const jm = e.ws.last('join');
+    chk(jm.create && jm.create.title === '마감방' && jm.create.max === 4 && jm.create.music === true && jm.create.open === true && !('hostName' in jm.create), 'join.create 에 제목 · 최대 인원 · 같이 듣기 · 공개(방장 이름은 안 싣는다)');
+    const mp = e.prov.setMeta({ title: '새 이름', open: false });
+    await tick();
+    const mm = e.ws.last('meta');
+    chk(mm && mm.title === '새 이름' && mm.open === false, 'setMeta({title, open}) → {t:meta, title, open}');
+    e.ws.msg({ t: 'error', code: 'title', ref: 'meta' });
+    const mr = await settle(mp, e.clock);
+    chk(mr.ok === false && mr.code === 'title', '  ↳ 금칙어 거절은 { ok:false, code:title } — 방 안 설정이 칸 아래 글로');
+    const n0 = e.ws.all('meta').length;
+    const same = await settle(e.prov.setMeta({ title: '', open: true }), e.clock);
+    chk(same.ok === true && e.ws.all('meta').length === n0, '  ↳ 이미 그 값이면 보내지 않고 바로 ok(서버가 바뀐 meta 를 안 보낼 수 있다)');
+
+    // 같이 듣기 — welcome 의 music · now
+    e = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: { id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at: 1000, paused: false, pos: 0, seq: 4 }, now: 1_800_000_005_000 } });
+    chk(e.prov.serverNow() === e.clock.t + 5000, '★ 서버 시계 — welcome.now 로 맞춘다(기기 시계가 5초 늦어도)');
+    const got = [];
+    const un = e.prov.onMusic((m) => got.push(m));
+    chk(got.length === 1 && got[0].seq === 4, '  지금 곡을 이미 받았으면 듣자마자 한 번');
+    e.ws.msg({ t: 'music', music: { id: 'bbbbbbbbbbb', title: 'next', by: 'u1', at: 2000, paused: false, pos: 0, seq: 5 }, now: 1_800_000_009_000 });
+    chk(got.length === 2 && got[1].id === 'bbbbbbbbbbb' && e.prov.serverNow() === e.clock.t + 9000, 'music 메시지 → 곡 · 서버 시계 갱신');
+    e.ws.msg({ t: 'music', music: null, now: 1_800_000_009_000 });
+    chk(got[2] === null, '  music:null → 틀 곡 없음');
+    un();
+    e.ws.msg({ t: 'music', music: { id: 'ccccccccccc', title: 'x', by: 'u1', at: 1, paused: false, pos: 0, seq: 6 }, now: 1 });
+    chk(got.length === 3, '  끊으면 더 안 받는다');
+    // 쓰기 — 재생 중이면 서버 시각으로 위치를 계산해 보낸다
+    e = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: null, now: 1_800_000_000_000 } });
+    const at = e.prov.serverNow() - 30000;
+    const sp1 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: false, pos: 0, seq: 1, dur: 200 }, 30);
+    await tick();
+    const w1 = e.ws.last('music');
+    chk(w1 && w1.id === 'aaaaaaaaaaa' && w1.title === 'lofi' && w1.seq === 1 && w1.pos === 30 && w1.paused === false && w1.dur === 200 && !('by' in w1) && !('at' in w1),
+      '★ sendMusic(곡, 위치) → {t:music, id, title, paused, pos(받은 위치), seq, dur} — 위치는 부르는 쪽이 잰다 · by · at 은 서버가 정한다');
+    e.ws.msg({ t: 'music', music: { id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: false, pos: 0, seq: 1 }, seq: 1, now: e.clock.t });
+    chk((await settle(sp1, e.clock)).ok === true && e.prov.lastMusicSeq() === 1, '  ↳ 같은 차례 곡이 돌아오면 ok · 마지막 차례 1');
+    const sp2 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: true, pos: 12.5, seq: 2 }, 12.5);
+    await tick();
+    chk(e.ws.last('music').pos === 12.5 && e.ws.last('music').paused === true, '  멈춤 — 받은 위치 그대로');
+    e.ws.msg({ t: 'error', code: 'stale', ref: 'music' });
+    const r2 = await settle(sp2, e.clock);
+    chk(r2.ok === false && r2.code === 'stale', '  ↳ 서버 거절(stale)은 { ok:false, code }');
+    const sp3 = e.prov.sendMusic(null);
+    await tick();
+    const w3 = e.ws.last('music');
+    chk(w3.clear === true && w3.seq === 2, 'sendMusic(null) → {t:music, clear:true, seq: 마지막 차례+1}');
+    e.ws.msg({ t: 'music', music: null, seq: 2, now: e.clock.t });
+    chk((await settle(sp3, e.clock)).ok === true && e.prov.lastMusicSeq() === 2, '★ 곡이 비어도 서버가 준 마지막 차례(2)를 들고 있다 — 다음 새 곡은 3 부터');
+    const sp3b = e.prov.sendMusic(null);
+    await tick();
+    chk(e.ws.last('music').seq === 3, '  비운 뒤 다시 지워도 마지막 차례+1(곡이 없다고 0 으로 돌아가지 않는다)');
+    e.ws.msg({ t: 'music', music: null, seq: 3, now: e.clock.t });
+    chk((await settle(sp3b, e.clock)).ok === true, '  ↳ 그 지우기도 ok');
+    const sp4 = e.prov.sendMusic({ id: 'aaaaaaaaaaa', title: 'lofi', by: 'u1', at, paused: true, pos: 1, seq: 9 });
+    await e.clock.advance(4000);
+    chk((await sp4).code === 'timeout', '  ↳ 답이 없으면 4초 뒤 timeout');
+    // 옛 서버(welcome 에 music 없음) — 곡은 불러오는 중으로 남는다
+    const ew = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: null, musicSeq: 7, now: 1_800_000_000_000 } });
+    chk(ew.prov.lastMusicSeq() === 7, '★ welcome.musicSeq — 들어오자마자 서버의 마지막 차례(곡이 비어 있어도)');
+    const ew2 = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: { id: 'aaaaaaaaaaa', title: 'x', by: 'u1', at: 1, paused: false, pos: 0, seq: 4 }, now: 1 } });
+    chk(ew2.prov.lastMusicSeq() === 4, '  musicSeq 가 없으면 받은 곡의 차례 · 곡도 없으면 -1');
+    e = await joined();
+    chk(e.prov.lastMusicSeq() === -1, '  아무것도 모르면 -1');
+    const g2 = []; e.prov.onMusic((m) => g2.push(m));
+    chk(g2.length === 0 && e.prov.serverNow() === e.clock.t, 'music 을 모르는 옛 서버 — 듣기는 «불러오는 중» 그대로 · 시계는 기기 시각');
+    // random 채널
+    const rp = e.net.random(5, 'togetherroom'), rq = e.net.random(5);
+    await tick();
+    const [ra, rb] = e.ws.all('random');
+    chk(ra.channel === 'togetherroom' && !('channel' in rb), 'random(5, togetherroom) 만 channel 을 싣는다(워킹룸은 기본 · 옛 서버에도 그대로)');
+    e.ws.msg({ t: 'random', rooms: [], rid: ra.rid }); e.ws.msg({ t: 'random', rooms: [], rid: rb.rid });
+    await rp; await rq;
+    // 깨 보기
+    chk(!/posOf|\(now - \(Number\(m\.at\)/.test(strip(SRC)), '위치 계산은 여기서 다시 쓰지 않는다(listen-model posOf 한 곳 — listen-provider 가 재서 넘긴다)');
+    const B = esm(SRC.replace("pos: Math.max(0, Number(pos) || 0), seq: m.seq };", "pos: Math.max(0, Number(m.pos) || 0), seq: m.seq };"));
+    chk(B.musicToWire({ id: 'a', title: 't', paused: false, at: 0, pos: 0, seq: 1 }, 30).pos !== 30, '받은 위치를 안 쓰면 9-4 «받은 위치» 가 빨강');
+    const real = M.createRoomServerNet;
+    M.createRoomServerNet = esm(SRC.replace("isFinite(srvSeq)) P.musicSeq = srvSeq;", "isFinite(srvSeq)) {}")).createRoomServerNet;
+    try{
+      const bw = await joined({ welcome: { meta: Object.assign({}, META, { music: true }), music: null, musicSeq: 7, now: 1 } });
+      chk(bw.prov.lastMusicSeq() !== 7, '서버가 준 마지막 차례를 안 받으면 9-4 «welcome.musicSeq» 가 빨강');
+    }finally{ M.createRoomServerNet = real; }
+    const B2 = esm(SRC.replace("if(k === 'title') return (meta.title || '') === want.title;", ''));
+    chk(B2.metaMatches({}, { title: '' }) === false, 'title 지움 비교를 빼면 9-4 metaMatches 가 빨강');
+  }
+
   say('── 9-1. rid · peek');
   {
     const RID = /^[A-Za-z0-9_.:-]{1,16}$/;
@@ -832,7 +936,11 @@ async function joined(o = {}){
   done();
 })().catch((err) => { chk(false, '실행 오류 — ' + (err && err.stack)); done(); });
 
+let finished = false;
 function done(){
+  finished = true;
   say(fail ? `\n✗ 실패 ${fail}건` : `\n전부 통과 ✅ (${pass}건)`);
   process.exit(fail ? 1 : 0);
 }
+/* 기다리던 약속이 영영 안 풀려 이벤트 고리가 비면 node 는 0 으로 조용히 끝난다 — 판정 줄 없이 끝나면 빨강 */
+process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌았다 — 기다리던 응답이 오지 않았다\n실패 ' + (fail + 1) + '건'); process.exitCode = 1; } });

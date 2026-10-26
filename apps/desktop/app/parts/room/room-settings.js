@@ -60,7 +60,30 @@ function hostNameOf(name){
   return s || null;
 }
 
+/** 방 서버 join 의 create — { channel, open, title?, max?, music? }. 방 만들기 창이 고른 값(extra = room-entry _pendingExtra)에서
+ *  빈 제목 · 범위 밖 최대 인원 · 꺼진 같이 듣기는 칸째 뺀다(서버는 모르는 칸 · 틀린 모양을 통째로 거절한다). hostName 은 서버가 정한다 — 싣지 않는다.
+ *  @param {string} channel  @param {boolean} open  @param {{ title?: string|null, max?: number, music?: boolean }|null} extra */
+function serverCreateOf(channel, open, extra){
+  const out = { channel, open: !!open };
+  const e = extra || {};
+  const title = (typeof e.title === 'string') ? e.title.trim() : '';
+  if(title && title.length <= TITLE_MAX) out.title = title;
+  if(Number.isInteger(e.max) && e.max >= ROOM_MAX_MIN && e.max <= ROOM_MAX_MAX) out.max = e.max;
+  if(e.music === true) out.music = true;
+  return out;
+}
+
+/** 방 서버 join 에 실을 create — 만들기면 고른 값(serverCreateOf) · 시크릿룸을 주인이 열면 { channel: togetherroom, music }
+ *  (서버는 시크릿룸 create 에서 music 만 본다) · 그 밖은 null(create 없이 들어가기).
+ *  @param {boolean} creating  @param {string} channel  @param {boolean} open  @param {object|null} extra
+ *  @param {{ music: boolean }|undefined} secretOpen room-entry _secretOpenFields 결과 */
+const SECRET_ROOM_CHANNEL = 'togetherroom';   // 시크릿룸 채널 — room-channel.js CHANNEL.TOGETHER 와 같은 값(그 파일은 ES 모듈이라 여기서 못 부른다)
+function serverJoinCreate(creating, channel, open, extra, secretOpen){
+  if(creating) return serverCreateOf(channel, open, extra);
+  return secretOpen ? { channel: SECRET_ROOM_CHANNEL, music: !!secretOpen.music } : null;
+}
+
 window.TwRoomSettings = { TITLE_MAX, HOST_NAME_MAX, ROOM_MAX_MIN, ROOM_MAX_MAX, TITLE_ERROR_TEXT, OPEN_HINT,
-  checkTitle, displayTitle, clampMax, roomCap, hostNameOf };
+  checkTitle, displayTitle, clampMax, roomCap, hostNameOf, serverCreateOf, serverJoinCreate };
 
 })();

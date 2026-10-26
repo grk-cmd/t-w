@@ -6852,11 +6852,10 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다�
 // 🎧 같이 듣기 — 방 입장 모듈의 «방이 바뀜»(들어감 · 나감 · meta) 알림에 sync 를 건다(room/listen-ui.js · 설계 docs/LISTEN_TOGETHER.md)
 const listenUi = TwListenUi.createListenUi({
   model: TwListenModel,
-  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI }),
+  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI, server: ()=>Presence.serverProvider(), model: TwListenModel }),
   companion: ()=>window.companion,
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
-  isServerRoom: ()=>!!Presence.serverProvider(),
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
   myId: ()=>getMyUserId(),
   memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== getMyUserId()),
@@ -6881,12 +6880,11 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
-  isServerRoom: ()=>!!Presence.serverProvider(),
-  saveInfo: (room, info)=>window.firebaseAPI.setRoomInfo(room, info),
+  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : window.firebaseAPI.setRoomInfo(room, info)),   // 방 서버 방은 서버 meta
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 // 🗂️ 방 목록 로비 · F1 시크릿룸 칸이 같이 읽는 provider — 방 입장 모듈보다 먼저(room/room-lobby-provider.js)
-const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
+const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, apiGet: (p, o)=>window.firebaseAPI.apiGetAuthed(p, o), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,

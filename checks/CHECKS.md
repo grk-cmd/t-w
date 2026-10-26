@@ -94,7 +94,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 618 | **6664bb6aad56** |
-| **sim-friends-port.js** | 458 | **99e628887ca2** |
+| **sim-friends-port.js** | 459 | **20191f088196** |
 | **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 95 | **71c92bf7579e** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
@@ -126,15 +126,15 @@
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
-| **sim-room-meta-cleanup.js** | 326 | **bdab6639ee31** |
+| **sim-room-meta-cleanup.js** | 326 | **5629d47bab63** |
 | **sim-room-stats.js** | 199 | **0bcea1517588** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
-| **sim-room-lobby-ui.js** | 260 | **7bfa9de2c900** |
-| **sim-room-info-ui.js** | 197 | **5b0e1b58612a** |
+| **sim-room-lobby-ui.js** | 280 | **17aaec38948c** |
+| **sim-room-info-ui.js** | 202 | **9e002b240f2f** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
-| **sim-listen-provider.js** | 82 | **bd2860e92a36** |
-| **sim-listen-ui.js** | 394 | **6d7bd79c036d** |
-| **sim-room-settings.js** | 240 | **7463abdf93af** |
+| **sim-listen-provider.js** | 132 | **a39451c59791** |
+| **sim-listen-ui.js** | 440 | **aa6563bcf73d** |
+| **sim-room-settings.js** | 274 | **e4ca78f5250d** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
@@ -143,7 +143,7 @@
 | **sim-account-delete.js** | 477 | **15ca3fb1d26e** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
-| **sim-room-server-net.js** | 838 | **9cd5dbe99496** |
+| **sim-room-server-net.js** | 946 | **49179b3f5e27** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
 | **sim-room-server-gate.js** | 309 | **39d158c2f7e6** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
@@ -274,7 +274,7 @@
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
 | **sim-api-public-reads.js** | 191 | **b6f0a07d333f** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 436 | **3efe3c0c6962** |
+| **sim-remote-config.js** | 441 | **6767fa9fdeeb** |
 | **sim-source-switch.js** | 178 | **0dbd6e281aa4** |
 | **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |

@@ -1,6 +1,6 @@
 /* room-lobby-provider.js — 🗂️ 방 목록 로비가 읽는 것(채널 목록 사본 · 내 시크릿룸)을 한 곳에서.
-   지금은 Firebase 옛 길뿐이다 — 방 서버 API(GET /v1/rooms/lobby?channel=)가 생기면 listRooms 만 «API 먼저 · 못 받으면 Firebase» 로 바꾼다
-   (설계 docs/ROOM_LOBBY.md 4장 · api-public-reads.js 의 count · random 과 같은 모양). 화면(room-lobby-ui.js)은 이 모양만 안다.
+   목록은 API(GET /v1/rooms/lobby?channel= — 방 서버 방 + Firebase 방 사본을 서버가 합친 것) 먼저 · 못 받거나 모양이 틀리면 Firebase roomLobby/{채널}
+   (설계 docs/ROOM_LOBBY.md 4장). 화면(room-lobby-ui.js)은 이 모양만 안다.
    classic script(window.TwRoomLobbyProvider) — app.js 가 createRoomLobbyProvider(deps). 검사: checks/sim-room-lobby-ui.js */
 (function(){
 
@@ -12,18 +12,30 @@
  *     getSecretRoomPub(code: string): Promise<{ owner: string, name?: string, exp?: number }|null>,
  *     checkSecretRoomEntry(code: string, ownerUid: string): Promise<{ count: number, ownerIn: boolean }|null>,
  *   },
+ *   apiGet: (path: string, opts: object) => Promise<any>,   // 로그인 API 통로(firebaseAPI.apiGetAuthed) — 실패는 던진다
  *   myUserId: () => string|null,
  *   now: () => number,
  * }} deps
  */
+const LOBBY_PATH = '/v1/rooms/lobby';
+const LOBBY_TIMEOUT_MS = 5000;
+
 function createRoomLobbyProvider(deps){
 const api = deps.api;
+const apiGet = deps.apiGet;
 const myUserId = deps.myUserId;
 const now = deps.now;
 
+/** API 답 → { at, rooms } · 모양이 틀리면 null(Firebase 로 물러선다). */
+function lobbyOf(d){
+  if(!d || typeof d !== 'object' || !Number.isFinite(d.at) || !d.rooms || typeof d.rooms !== 'object' || Array.isArray(d.rooms)) return null;
+  return { at: d.at, rooms: d.rooms };
+}
 /** 채널 목록 사본 — { at, rooms } · 칸 없음은 { at:null, rooms:{} } · 못 읽음 null(빈 목록과 다르게 그린다). */
-// TODO: 방 서버 API(GET /v1/rooms/lobby)가 생기면 먼저 묻고 서버 방을 합친다.
 async function listRooms(channel){
+  let v = null;
+  try{ v = lobbyOf(await apiGet(LOBBY_PATH + '?channel=' + encodeURIComponent(channel), { auth: true, timeoutMs: LOBBY_TIMEOUT_MS })); }catch(_){ v = null; }
+  if(v) return v;
   return api().getRoomLobby(channel);
 }
 

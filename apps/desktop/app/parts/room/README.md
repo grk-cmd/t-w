@@ -226,11 +226,11 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
 
 ## room-settings.js — 방 설정 규칙(제목 · 보일 제목 · 최대 인원 · 방장 닉네임)
 
-**책임** — 방 만들기 창 · 방 안 [방 설정] · 로비 카드 · 입장 정원 검사 · 들어간 뒤 자기 퇴장이 같이 부르는 판정 한 곳(순수 함수 · DOM · firebase 없음). 제목 확인(`checkTitle` — 빈 제목 통과 · 20자 · 금칙어), 보일 제목(`displayTitle` — 비었거나 금칙어면 «닉네임 님의 방» · 닉네임도 없으면 «이름 없는 방»), «공개» 안내 글(`OPEN_HINT`), 최대 인원 고르기(`clampMax` — 2 ~ 정원), 방 정원(`roomCap` — `_meta.max` 와 원격 정원 중 작은 쪽), 방장 닉네임(`hostNameOf`).
+**책임** — 방 만들기 창 · 방 안 [방 설정] · 로비 카드 · 입장 정원 검사 · 들어간 뒤 자기 퇴장이 같이 부르는 판정 한 곳(순수 함수 · DOM · firebase 없음). 제목 확인(`checkTitle` — 빈 제목 통과 · 20자 · 금칙어), 보일 제목(`displayTitle` — 비었거나 금칙어면 «닉네임 님의 방» · 닉네임도 없으면 «이름 없는 방»), «공개» 안내 글(`OPEN_HINT`), 최대 인원 고르기(`clampMax` — 2 ~ 정원), 방 정원(`roomCap` — `_meta.max` 와 원격 정원 중 작은 쪽), 방장 닉네임(`hostNameOf`), 방 서버 만들기 칸(`serverCreateOf` — `join.create` 의 `{ channel, open, title?, max?, music? }` · 빈 칸은 뺀다 · 방장 이름은 서버가 정해서 안 싣는다), 방 서버 join 에 실을 create 고르기(`serverJoinCreate` — 만들기면 `serverCreateOf` · 시크릿룸을 주인이 열면 `{ channel: 'togetherroom', music }` · 그 밖은 null).
 
 **만드는 법** — classic script(`window.TwRoomSettings`)를 app.js · firebase-init.js 보다 먼저 싣는다. room-entry 는 deps `roomSettings` 로, firebase-init(모듈)은 `window.TwRoomSettings` 로 부른다(원격 설정 정원을 `window.TwRemoteConfig` 로 읽는 것과 같은 자리).
 
-**내놓는 것** — `TITLE_MAX` · `HOST_NAME_MAX` · `ROOM_MAX_MIN` · `ROOM_MAX_MAX` · `TITLE_ERROR_TEXT` · `OPEN_HINT` · `checkTitle` · `displayTitle` · `clampMax` · `roomCap` · `hostNameOf`.
+**내놓는 것** — `TITLE_MAX` · `HOST_NAME_MAX` · `ROOM_MAX_MIN` · `ROOM_MAX_MAX` · `TITLE_ERROR_TEXT` · `OPEN_HINT` · `checkTitle` · `displayTitle` · `clampMax` · `roomCap` · `hostNameOf` · `serverCreateOf` · `serverJoinCreate`.
 
 **함정**
 - 범위(제목 20 · 닉네임 20 · 인원 2~50)는 규칙 `rooms/$room/_meta` 와 서버 함수 `firebase/functions/room-lobby.js` 와 같아야 한다 — `sim-room-settings` 가 견준다.
@@ -263,7 +263,7 @@ TwRoomCreateUi.createRoomCreateUi({
 
 ## room-info-ui.js — 방 안 제목 줄 · [방 설정]
 
-**책임** — 방 안 정보 칸(`#inviteActive`) 맨 위 방 제목 줄과, 현재 방장에게만 보이는 [⚙ 방 설정](제목 · 공개 바꾸기). 제목은 `_meta.title` 을 `displayTitle` 로 그린다(금칙어 · 빈 제목 → 기본값). 저장은 deps `saveInfo` 로 `_meta` 의 두 칸만 쓴다(`firebaseAPI.setRoomInfo`).
+**책임** — 방 안 정보 칸(`#inviteActive`) 맨 위 방 제목 줄과, 현재 방장에게만 보이는 [⚙ 방 설정](제목 · 공개 바꾸기). 제목은 `_meta.title` 을 `displayTitle` 로 그린다(금칙어 · 빈 제목 → 기본값). 저장은 deps `saveInfo` 한 곳 — Firebase 방은 `_meta` 의 두 칸(`firebaseAPI.setRoomInfo`), 방 서버 방은 서버 `meta{ title, open }`(provider `setMeta`). 방 서버 거절(`title` 금칙어 · `forbidden` 방장 아님)은 칸 아래 글로, 그 밖의 실패는 `E-ROOM-04`.
 
 **만드는 법** — app.js 에서 방 입장 모듈보다 먼저:
 
@@ -271,7 +271,7 @@ TwRoomCreateUi.createRoomCreateUi({
 const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings, bannedWords: TwBannedWords, rcStore: ()=>acctStateMod._rcStore(),
   isHost: ()=>TwRoomState.isHost(window._roomMetaCache, getMyUserId()), isSecretRoom: ()=>TwRoomState.isSecretCode(…),   // 채팅 잠금과 같은 판정(room-state.js)
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), meta: ()=>window._roomMetaCache,
-  isServerRoom: ()=>!!Presence.serverProvider(), saveInfo: (room, info)=>window.firebaseAPI.setRoomInfo(room, info),
+  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : window.firebaseAPI.setRoomInfo(room, info)),
   notifyError: (...a)=>TwErrorCodes.notify(...a) });
 // … createRoomEntry({ …, paintRoomInfo: ()=>{ roomInfoUi.paint(); listenUi.sync(); } })   // 같이 듣기도 같은 자리(listen-ui.js)
 ```
@@ -279,8 +279,8 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings,
 **내놓는 것** — `paint()`. 방 입장 모듈이 들어감 · 나감(`refreshInviteUI`) · Firebase meta · 방 서버 meta 때 부른다.
 
 **함정**
-- `_meta` 는 지금 누구나 쓸 수 있다(규칙) — 버튼은 화면에서만 방장으로 막는다(채팅 잠금 · 탭과 같다). «방장만» 은 방 서버가 지킨다.
-- 방 서버 방은 줄째 숨긴다 — 서버가 아직 `title` · `open` 을 meta 로 받지 않는다(받게 되면 `saveInfo` 를 provider 로).
+- Firebase `_meta` 는 누구나 쓸 수 있다(규칙) — 그 방에서는 버튼이 화면에서만 방장으로 막는다(채팅 잠금 · 탭과 같다). 방 서버 방은 서버가 «방장만» 을 지킨다.
+- 방 서버 setMeta 는 이미 그 값이면 보내지 않고 바로 ok 다 — 바뀐 게 없으면 서버가 meta 를 안 보낼 수 있어 기다리면 시간 초과로 끝난다.
 - 시크릿룸은 «공개» 칸이 없고 공개를 쓰지 않는다(목록에 원래 안 나온다).
 - `_roomMetaCache` 를 이 모듈이 고쳐 쓰지 않는다(`sim-room-state` — 쓰는 곳은 정해져 있다) — 저장 뒤 제목 줄은 `_meta` 구독이 다시 그린다(방 안 모두 같이).
 - 최대 인원 · 같이 듣기는 만들 때만 정한다(설계 5.1).
@@ -291,13 +291,14 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings,
 
 **책임**
 - `room-lobby-model.js`(순수 · 정원은 `TwRoomSettings.roomCap` — room-settings.js 뒤에 싣는다) — 채널 사본(`roomLobby/{채널}` = `{ at, rooms }`) → 카드 · 상태(`failed` 못 읽음 · `missing` 칸 없음 · `stale` 3분 넘게 그대로 · `ok`) · 정렬(입장 가능 → 인원 많은 순 → 오래 열린 순) · «빈자리 있는 방» 거르기 · 번호 · 쪽(12장) · 빠른시작 고르기.
-- `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(지금은 Firebase 옛 길 · 방 서버 API 가 생기면 여기만 바꾼다) · `mySecretRoom()`(발급 칸 + `secretRooms/{코드}/pub.owner` 가 나일 때 · 만료 전만 — 세션에 한 번 읽고 기억) · `secretGuests(코드)`(손님 수 — 방장을 뺀다 · 방 멤버를 읽어서 로비 줄만 부른다). F1 «멀티모드» 탭의 시크릿룸 칸(room-entry `_refreshSecretRoomUI`)도 deps `mySecretRoom` 으로 같은 판정을 쓴다.
+- `room-lobby-provider.js` — 로비가 읽는 것 한 곳: `listRooms(채널)`(API `GET /v1/rooms/lobby?channel=` — 방 서버 방 + Firebase 방 사본을 서버가 합친 것 — 먼저 · 못 받거나 모양이 틀리면 Firebase `roomLobby/{채널}`) · `mySecretRoom()`(발급 칸 + `secretRooms/{코드}/pub.owner` 가 나일 때 · 만료 전만 — 세션에 한 번 읽고 기억) · `secretGuests(코드)`(손님 수 — 방장을 뺀다 · 방 멤버를 읽어서 로비 줄만 부른다). F1 «멀티모드» 탭의 시크릿룸 칸(room-entry `_refreshSecretRoomUI`)도 deps `mySecretRoom` 으로 같은 판정을 쓴다.
 - `room-lobby-ui.js` — 방 찾기 · 만들기 모달 안 `#lobbyMain`: 탭 · 거르기 · 카드(위 띠 «입장 가능» / «가득 참») · 쪽 · [방 만들기] · [빠른시작] · «내 시크릿룸» 줄. 모달을 열 때 · [새로 고침] · 열려 있는 동안 60초마다만 읽는다 — 방 안이면(모달이 «연결된 방» 화면) 읽지 않는다.
 
 **만드는 법** — provider 는 방 입장 모듈보다 먼저(F1 시크릿룸 칸이 같이 쓴다) · 화면은 방 만들기 창 바로 뒤:
 
 ```js
-const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
+const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, apiGet: (p, o)=>window.firebaseAPI.apiGetAuthed(p, o),   // 로그인 API 통로
+  myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 // … createRoomEntry({ …, mySecretRoom: ()=>roomLobbyProvider.mySecretRoom() })
 TwRoomLobbyUi.createRoomLobbyUi({
   model: TwRoomLobbyModel, provider: roomLobbyProvider, inRoom: ()=>Presence.active(), twNav,
@@ -322,15 +323,16 @@ TwRoomLobbyUi.createRoomLobbyUi({
 ## listen-model.js · listen-provider.js · listen-ui.js — 🎧 같이 듣기
 
 **책임** (설계 `docs/LISTEN_TOGETHER.md`)
-- `listen-model.js`(순수 · `TwListenModel`) — 지금 위치(`posOf` — 서버 시각 기준) · 어긋남(5초 넘고 광고가 아닐 때만 `needSeek`) · **지금 DJ 판정 한 곳**(`djOf` — 방에 있는 현재 방장 · 없으면 null) · 곡 끝 예비 판정(`isEnded` — 길이 + 3초) · 다음 · 이전 곡(`stepIndex` · `playableFrom`) · `_music` 한 줄(`makeMusic` · `paused` · `resumed` · `withDur` — 차례 +1 · 상한 10억) · 하트비트 읽기(`parseBeat`). 범위는 규칙 `rooms/$room/_music` 과 같다.
-- `listen-provider.js` — 곡 칸 구독(부르자마자 `undefined` = 불러오는 중 → 값 | `null` = 틀 곡 없음 · 거부는 `onErr`) · 쓰기 · `now()`(`firebaseAPI.serverNow`). 방 서버가 `music` 을 받게 되면 여기만 바꾼다.
-- `listen-ui.js`(`TwListenUi`) — 같이 듣기 방(`_meta.music === true` · 방 서버 방은 아님)에 있는 동안만 구독 · 상태칩 🎵 버튼을 🎧 로 바꿔 `#listenBox`(칩 안 팝업) 를 연다 · 재생 창 세 번째 주인 `listen` 으로 곡을 지금 위치부터 연다 · DJ 만 곡 칸을 쓴다(빈 칸 → 첫 곡 · 곡 끝 → 다음 · 옛 DJ 곡 다음은 내 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시) · 다른 음악이 재생 창을 가져가면 «[다시 듣기]» · 나가면 닫는다(내 플레이리스트는 멈춘 채). 소리 크기 · 음소거는 이 기기(`tw.listenVol` · `tw.listenMute`).
+- `listen-model.js`(순수 · `TwListenModel`) — 지금 위치(`posOf` — 서버 시각 기준) · 보낼 위치(`wirePos` — `posOf` 를 0~`MUSIC_POS_MAX`(86400초 · 방 서버 `music.pos` 범위)로 자름) · 어긋남(5초 넘고 광고가 아닐 때만 `needSeek`) · **지금 DJ 판정 한 곳**(`djOf` — 방에 있는 현재 방장 · 없으면 null) · 곡 끝 예비 판정(`isEnded` — 길이 + 3초) · 다음 · 이전 곡(`stepIndex` · `playableFrom`) · `_music` 한 줄(`makeMusic` · `paused` · `resumed` · `withDur` — 차례 +1 · 상한 10억) · 하트비트 읽기(`parseBeat`). 범위는 규칙 `rooms/$room/_music` 과 같다.
+- `listen-provider.js` — 곡 칸 구독(부르자마자 `undefined` = 불러오는 중 → 값 | `null` = 틀 곡 없음 · 거부는 `onErr`) · 쓰기 · `now()` · `lastSeq()`(칸이 빈 뒤 첫 곡의 앞 차례 — 방 서버는 마지막으로 받아들인 차례 · Firebase 는 -1). 부를 때마다 deps `server()`(방 서버 방의 provider)로 고른다 — 방 서버 방은 서버 `music` 메시지(`onMusic` · `sendMusic` · `serverNow` = welcome · music 의 `now` 로 맞춘 시계), 아니면 Firebase `_music` · `firebaseAPI.serverNow`.
+- `listen-ui.js`(`TwListenUi`) — 같이 듣기 방(`_meta.music === true` — 방 서버 방도)에 있는 동안만 구독 · 상태칩 🎵 버튼을 🎧 로 바꿔 `#listenBox`(칩 안 팝업) 를 연다 · 재생 창 세 번째 주인 `listen` 으로 곡을 지금 위치부터 연다 · DJ 만 곡 칸을 쓴다(빈 칸 → 첫 곡 · 곡 끝 → 다음 · 옛 DJ 곡 다음은 내 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시) · 다른 음악이 재생 창을 가져가면 «[다시 듣기]» · 나가면 닫는다(내 플레이리스트는 멈춘 채). 소리 크기 · 음소거는 이 기기(`tw.listenVol` · `tw.listenMute`).
 
 **만드는 법** — app.js 에서 방 입장 모듈보다 먼저 만들고, 방 입장 모듈의 «방이 바뀜» 알림(`onRoomChanged` — 들어감 · 나감 · meta)에 `sync` 를 건다. 방 입장 모듈은 같이 듣기를 모른다(deps 로 넘기면 방 입장 → 같이 듣기 → 플레이리스트 → … 순환):
 
 ```js
-const listenUi = TwListenUi.createListenUi({ model: TwListenModel, provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI }),
-  companion: ()=>window.companion, roomCode, meta, isServerRoom, isSecretRoom, myId, memberIds, nameOf,
+const listenUi = TwListenUi.createListenUi({ model: TwListenModel,
+  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI, server: ()=>Presence.serverProvider(), model: TwListenModel }),
+  companion: ()=>window.companion, roomCode, meta, isSecretRoom, myId, memberIds, nameOf,
   djItems: ()=>plMod.mine().slice(), stopPersonal: ()=>plMod.stopIfPlaying(), positionPopup: (el, btn)=>statusChipMod._positionCascade(el, btn, 'right'),
   escRegisterWindow, notifyError });
 // … const roomEntryMod = createRoomEntry({ … })
@@ -341,6 +343,8 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 
 **함정**
 - 방을 여는 길이 같이 듣기를 정할 때(`setRoomChannel` 의 `fields.music`) 지난 곡 칸을 먼저 지운다 — 방은 통째로 안 지워진다. 시크릿룸은 **주인이 빈 방을 열 때만** 정한다(손님이 들어올 때마다 쓰면 듣던 곡이 지워진다 · F1 «내 시크릿룸을 같이 듣기로 열기» `tw.secretRoomMusic`).
+- 방 서버 방의 곡 쓰기는 `by` · `at` 을 서버가 정한다 — 지금 위치(`pos`)는 `listen-provider.js` 가 `model.wirePos`(서버 시계 · 0~86400 으로 자른 `posOf`)로 재서 넘기고, `room-server-net.js musicToWire` 는 칸 이름만 바꾼다(위치 계산은 listen-model 한 곳). welcome 에 `music` 이 없는 옛 서버면 «불러오는 중» 그대로다.
+- 방 서버는 곡을 지운 뒤에도 마지막 차례를 기억한다(`welcome.musicSeq` · `music.seq`) — 칸이 빈 뒤 첫 곡은 `provider.lastSeq()` 다음 차례로 쓴다(-1 로 쓰면 stale 로 늘 거절된다).
 - 곡을 열 때 내 플레이리스트 창을 닫지 않는다(닫기는 늦게 끝나 막 연 곡까지 닫는다) — 여는 쪽이 창을 넘겨받고 플레이리스트는 `onBgmMode` 로 진다. 닫는 건 틀 곡이 없거나 멈춤일 때만.
 - 재생 창 «닫힘» 알림은 늦게 올 수 있다 — 내가 닫은 수(`selfCloses`)를 세어 «다른 음악이 이김» 과 가르고, 그 사이 내가 연 곡이 같이 닫혔으면 다시 연다.
 - 이어받은 DJ 가 멈추거나 다시 튼 곡은 쓴 사람(`by`)을 그 DJ 로 바꾼다 — «옛 DJ 가 멈춘 채 나감» 으로 다시 읽혀 멈춤이 바로 풀리지 않게.
