@@ -5,6 +5,7 @@
           (이번 실행에 키가 한 번도 없었을 때만) **고치는 법을 한 번** 알려 준다(mac = 입력 모니터링 설정 열기).
    ・1절: 배선(정적) — 500ms 폴링 안 순서 · 안내 문구/버튼 · «다시 보지 않기» · 활동으로 쓰지 않음.
    ・2절: 동작 — _kbReadHooks · _kbBlindTick 을 떼어 시계를 돌려 본다.
+   ・3절: sysinput-win.js · sysinput-mac.js 의 restartGlobalHooks 를 가짜 uiohook 위에서 부른다.
    [실행] main.js 가 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
@@ -48,7 +49,7 @@ say('── 2. 동작');
     const _inputDiag = env.diag;
     const powerMonitor = { getSystemIdleTime: () => env.idle };
     const process = { platform: 'darwin' };
-    const _diagLog = () => {};
+    const _diagLog = (x) => { env.logs.push(x); };
     const _kbGuideOffPath = () => '/u/kb-guide-off';
     const require = () => ({ existsSync: () => !!env.optOut });
     const _kbShowGuide = () => { env.shown++; };
@@ -58,7 +59,7 @@ say('── 2. 동작');
     ${TICK}
     return { read: _kbReadHooks, tick: _kbBlindTick, cursor: (t) => { _kbLastCursorAt = t; }, n: () => _kbUnexplained };
   `)(env);
-  const reset = (o = {}) => { Object.assign(env, { boot: 0, idle: 0, shown: 0, rearms: 0, alive: false, reviveOnRearm: false, optOut: false, diag: { click:0, wheel:0, key:0, cursor:0 } }, o); return mk(); };
+  const reset = (o = {}) => { Object.assign(env, { boot: 0, idle: 0, shown: 0, rearms: 0, logs: [], alive: false, reviveOnRearm: false, optOut: false, diag: { click:0, wheel:0, key:0, cursor:0 } }, o); return mk(); };
   /* 500ms 씩 `sec` 초 돌린다. each(t) 는 그 표본에서 일어날 일(훅 · 커서). */
   const run = (K, from, sec, each) => { let t = from; for(let i = 0; i < sec * 2; i++, t += 500){ if(each) each(t); K.read(t); K.tick(t); } return t; };
 
@@ -99,6 +100,7 @@ say('── 2. 동작');
   t2 = run(K, 0, 6 * 60, (tt) => { if(tt % 1000 === 0) env.diag.key++; });
   run(K, t2, 30 * 60);
   chk(env.rearms === 1 && env.shown === 0, '★ 키가 들어왔던 실행이면 다시 걸어도 안 와도 안내창은 없다(센서 떨림 오판 막기) · 다시 걸기도 한 번');
+  chk(env.logs.filter(l => /다시 걸어도 키가 안 들어온다/.test(l)).length === 1, '  그때 «다시 걸어도 안 온다» 기록은 30분 동안 한 줄뿐(60초마다 되풀이하지 않는다)');
 
   K = reset();
   run(K, 0, 10 * 60, (tt) => K.cursor(tt));
@@ -128,6 +130,49 @@ say('── 2. 동작');
   env.diag.key = 5; K.read(1000); env.diag.key = 0; K.read(1500); env.diag.key = 2; K.read(2000);
   run(K, 2500, 10 * 60);
   chk(env.shown === 0, '카운터가 0 으로 돌아간 직후의 키도 «들어왔다» 로 센다(줄면 0 부터 다시)');
+}
+
+say('── 3. sysinput restartGlobalHooks — 가짜 uiohook 위에서 실제로 부른다');
+{
+  const path = require('path');
+  const load = (file, hook) => {
+    const src = fs.readFileSync(file, 'utf8'), logs = [];
+    const req = (n) => {
+      if(n === 'path') return path.win32;
+      if(n === 'child_process') return { execFile(){} };
+      if(n === 'fs') return fs;
+      if(n === './native-peek') return { peekUnpacked: () => '' };
+      if(n === 'uiohook-napi'){ if(!hook) throw new Error('no addon'); return { uIOhook: hook, UiohookKey: {} }; }
+      if(n === 'node-window-manager') return { windowManager: { getActiveWindow(){ return null; }, getWindows(){ return []; } } };
+      throw new Error('no ' + n);
+    };
+    const m = { exports: {} };
+    new Function('require', 'module', 'exports', 'Buffer', 'process', src)(req, m, m.exports, Buffer, { execPath: 'C:\\tw\\tw.exe', platform: 'win32' });
+    m.exports.init({ log: (x) => logs.push(x) });
+    return { mod: m.exports, logs };
+  };
+  const fake = (o = {}) => { const calls = []; return { calls,
+    on(ev){ calls.push('on:' + ev); }, stop(){ calls.push('stop'); },
+    start(){ calls.push('start'); if(o.failSecond && calls.filter(c => c === 'start').length > 1) throw new Error('UIOHOOK_ERROR_SET_WINDOWS_HOOK_EX'); } }; };
+  const H = { mousedown(){}, wheel(){}, keydown(){} };
+
+  let h = fake(), S = load('sysinput-win.js', h);
+  S.mod.startGlobalHooks(H);
+  const ons = h.calls.filter(c => c.startsWith('on:')).length;
+  const r = S.mod.restartGlobalHooks();
+  const tail = h.calls.slice(-2).join();
+  chk(r === true && tail === 'stop,start', 'win — 내렸다(stop) 다시 건다(start) · true');
+  chk(h.calls.filter(c => c.startsWith('on:')).length === ons, 'win — 처리기를 다시 걸지 않는다(키 하나가 두 번 세지지 않게)');
+  h = fake({ failSecond: true }); S = load('sysinput-win.js', h);
+  S.mod.startGlobalHooks(H);
+  chk(S.mod.restartGlobalHooks() === false && S.logs.some(l => /uIOhook\.start 실패/.test(l)), 'win — 다시 걸기가 실패하면 false · «uIOhook.start 실패» 기록');
+  S = load('sysinput-win.js', null);
+  chk(S.mod.restartGlobalHooks() === false, 'win — uiohook 을 못 실었으면 false(부를 것이 없다)');
+
+  h = fake(); S = load('sysinput-mac.js', h);
+  S.mod.startGlobalHooks(H);
+  const n0 = h.calls.length;
+  chk(S.mod.restartGlobalHooks() === null && h.calls.length === n0, 'mac — 다시 걸지 않는다(null · 네이티브 호출 없음 — 실행 도중 권한 창이 또 뜨지 않게)');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
