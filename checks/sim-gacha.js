@@ -516,11 +516,20 @@ await sec('── 6. 뽑기 창', async () => {
   const reveal = wrap && wrap.children.find(c => c.className === 'gc-reveal');
   chk(!!reveal && reveal.children.length === 2 && wrap.classList.contains('crack') && wrap.classList.contains('wide'), '갈라짐(2회 이상은 wide — 토큰 하나씩) · 결과 둘');
   chk(e.els.gachaDraw1.disabled === true && /남은 뽑기 <b>0회<\/b>/.test(e.els.gachaDrawBar.innerHTML), '끝나면 정보줄 갱신 · 남은 뽑기 0 이면 버튼 꺼짐');
-  e.els.gachaBackInv.onclick();
+  const loadsBefore = e.loads | 0;
+  e.adj = { cat: 'hat', id: 'zz' };   // 다른 도감에서 보던 상세조정
+  e.els.gachaBackInv.onclick(); await flush();
+  chk(e.adj === null, '도감으로 — 다른 도감으로 가면 상세조정을 접는다');
+  chk((e.loads | 0) === loadsBefore, '도감으로 — 방금 뽑기가 서버 값을 받아 왔으니 다시 읽지 않는다');
+  M.onAlbumShow(); await flush();
+  chk((e.loads | 0) === loadsBefore + 1, '  건너뛰기는 한 번만 — 다음에 도감을 보이면 다시 맞춘다');
   chk(e.albumOpens === 1 && M.isInvOpen() && !M.isDrawOpen() && M.state.album() === '' && M.selId() === 'b'
       && e.els.gachaInvHost.children.some(c => c.id === 'gachaInvGrid'), '도감으로 — 뽑기 창 닫고 꾸미기 창 «도감» 탭 · 방금 뽑은 파츠의 도감 · 그 파츠를 고른다');
-  e.els.gachaGoDraw.onclick(); e.docL.keydown[0]({ key: 'Escape' });
-  chk(!M.isDrawOpen() && !e.els.gachaDrawStage.innerHTML, 'ESC — 뽑기 창만 닫고 무대를 비운다');
+  let stopped = 0;
+  e.els.gachaGoDraw.onclick(); e.docL.keydown[0]({ key: 'Escape', stopPropagation(){ stopped++; } });
+  chk(!M.isDrawOpen() && !e.els.gachaDrawStage.innerHTML && stopped === 1, 'ESC — 뽑기 창만 닫고 무대를 비운다 · 멈춰서 뒤 꾸미기 창은 안 닫힌다');
+  e.docL.keydown[0]({ key: 'Escape', stopPropagation(){ stopped++; } });
+  chk(stopped === 1, '  뽑기 창이 없으면 ESC 를 막지 않는다(꾸미기 창이 받는다)');
   e.els.gachaGoDraw.onclick(); e.docL.mousedown[0]({ target: { closest: (sel) => /#wardrobePanel/.test(sel) ? {} : null } });
   chk(M.isDrawOpen(), '  꾸미기 창 안을 누르면 안 닫는다(입혀 보는 곳)');
   e.docL.mousedown[0]({ target: { closest: () => null } });

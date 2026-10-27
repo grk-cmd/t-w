@@ -566,8 +566,10 @@ function _gachaDropAdj(){
 /* 📚 도감 탭을 처음 보일 때 — 꾸미기 창을 «도감» 탭으로 열거나 탭을 바꿀 때 꾸미기 창이 부른다.
    ★ 서버와 한 번 맞춘다(다른 PC 에서 뽑은 것이 보이게) — 기다리지 않는다. 받아오면 _adoptServer 가 다시 그린다.
    ★ 고른 파츠가 있는 쪽에서 시작한다 — 색상 영역은 그 파츠를 따라가는데 칸이 3쪽에 있으면 화면에 안 보인다. */
+let _gachaSkipSync = false;   // [도감으로] — 방금 뽑기가 서버 값을 받아 왔으니 한 번 건너뛴다
 function onAlbumShow(){
-  try{ syncGachaToServer('inv-open'); }catch(_){}
+  if(_gachaSkipSync) _gachaSkipSync = false;
+  else { try{ syncGachaToServer('inv-open'); }catch(_){} }
   _gachaJumpId = _gachaSelId;
 }
 
@@ -1148,16 +1150,24 @@ function _gachaDrawOpen(){ const ov=document.getElementById('gachaDrawOverlay');
     /* 📄 방금 뽑은 파츠의 도감 · 그 쪽으로 — 새로 뽑은 파츠가 안 보이면 안 들어온 줄 안다.
        안 뽑고 돌아왔으면 보던 자리 그대로. */
     const rec = _gachaLastDrawId ? savedParts().find(p => p.id === _gachaLastDrawId) : null;
-    if(rec && gachaAlbum.isAlbumKey(rec.season || '')){ _gachaAlbum = rec.season || ''; _gachaSelId = rec.id; }
+    if(rec && gachaAlbum.isAlbumKey(rec.season || '')){
+      if(_gachaAlbum !== (rec.season || '')) _gachaDropAdj();   // 다른 도감으로 가면 보던 파츠의 상세조정 · 기즈모를 접는다
+      _gachaAlbum = rec.season || ''; _gachaSelId = rec.id;
+    }
     _gachaLastDrawId = null;
-    twNav.go(twNav.NAV.WARDROBE_ALBUM);   // 꾸미기 창을 «도감» 탭으로(이미 열려 있으면 탭만) — onAlbumShow 가 고른 파츠의 쪽으로 옮긴다
+    _gachaSkipSync = true;
+    twNav.go(twNav.NAV.WARDROBE_ALBUM);
+    _gachaSkipSync = false;   // 꾸미기 창이 «도감» 탭을 안 그렸어도(창 없음) 예약을 남기지 않는다   // 꾸미기 창을 «도감» 탭으로(이미 열려 있으면 탭만) — onAlbumShow 가 고른 파츠의 쪽으로 옮긴다
   };
   if(q('gachaDraw1')) q('gachaDraw1').onclick = ()=>_gachaRunDraw(1);
   /* ★ Math.min(5, gachaTicketsLeft()) 로 미리 깎아 넘기지 않는다 — 요청 횟수를 그대로 주고 gachaDraw 가 정한다. */
   if(q('gachaDraw5')) q('gachaDraw5').onclick = ()=>_gachaRunDraw(5);
+  /* ESC — 뽑기 창이 맨 위다. 캡처 단계에서 닫고 멈춰서 뒤의 꾸미기 창(같은 ESC 를 듣는다)은 그대로 둔다. */
   document.addEventListener('keydown', e=>{
-    if(e.key==='Escape' && _gachaDrawOpen()) closeGachaDraw();
-  });
+    if(e.key!=='Escape' || !_gachaDrawOpen()) return;
+    closeGachaDraw();
+    e.stopPropagation();
+  }, true);
   /* 🖱️ 바깥을 누르면 닫는다. .gacha-ov 는 pointer-events:none 이라 document 캡처 단계에서 받고, 닫으면 안 되는 곳만 뺀다.
      ★ 꾸미기 창 · 미리보기는 뺀다 — 뽑은 파츠를 입혀 보는 곳이다. 관리자 등록 모달 · 색상 팝업도 같은 까닭. */
   const _GACHA_KEEP = '#gachaDrawWin, #wdPreviewPanel, #wardrobePanel,'

@@ -37,6 +37,7 @@ globalThis.__P = {
   setTab: v=>{ currentWdTab = v; },
   setAdj: v=>{ activeWdAdj = v; },
   setGachaOpen: fn=>{ globalThis.__gachaHostOn = !!fn(); },
+  setPremium: v=>{ isPremium = v; },
   setGachaSel: v=>{ gachaMod.state.setSelId(v); },
   setOwned: v=>{ gachaMod.state.setOwned(v); },
   wrapBuildColorRows: fn=>{ const o = buildColorRows; buildColorRows = (...a)=>{ fn(...a); return o(...a); }; },
@@ -63,6 +64,7 @@ const mesh = () => ({ material: { color: { set(){} }, userData: {} }, userData: 
 const wrap = id => ({ userData: { partId: id, cat: 'hat', colorGroups: { col1: [mesh()] } } });
 const entry = id => ({ id, xf: { scale: 1, pos: [0,0,0], rot: [0,0,0], color: {}, __owner: id } });
 
+P.setPremium(true);   // 카테고리 탭의 색상 영역은 라이선스가 있을 때만 열린다(꾸미기 «도감» 탭 말고) — 아래 마지막 절이 반대 경우
 /* rec 목록 — 귀 파츠는 🔗 stackable, 평범한 모자는 일반 */
 P.setSaved([
   { id: 'ear',  cat: 'hat', name: '귀',   stackable: true  },
@@ -131,6 +133,15 @@ say('\n=== 5. 🎰 보관함(T)에서 귀 파츠를 고른 상태 — 모자도 
   if (!r) { chk(false, '색상 영역이 뜬다 (색상 게이트에 막혔으면 이 검사 자체가 무의미하다)'); }
   else chk(r.xfOwner === r.wrapperOwner,
     '저장 대상(' + r.xfOwner + ') = 색칠 대상(' + r.wrapperOwner + ')');
+}
+
+say('\n=== 라이선스 없음 — 카테고리 탭은 잠금 안내뿐 ===');
+{
+  P.setPremium(false);
+  const r = scene({ entries: entry('cap'), main: 'cap', stacked: null });
+  chk(!r, '착용해 둔 꾸미기 파츠의 색상 영역을 열지 않는다(닫으면 저장되는 길을 막는다)');
+  P.setPremium(true);
+  chk(!!scene({ entries: entry('cap'), main: 'cap', stacked: null }), '  라이선스가 있으면 그대로 열린다');
 }
 
 say('');

@@ -40,13 +40,8 @@ let open = null, close = null, isOpen = null;   // bindWardrobe 가 채운다 �
   };
   btn.addEventListener('click', e=>{ e.stopPropagation(); if(panel.classList.contains('on'))close(); else open(); });
   if(closeBtn) closeBtn.addEventListener('click', close);
-  /* ESC — 뽑기 창이 떠 있으면 그 창만 닫힌다(gacha.js) · 꾸미기 창은 다음 ESC 에 */
-  document.addEventListener('keydown', e=>{
-    if(e.key!=='Escape' || !panel.classList.contains('on')) return;
-    const dv=document.getElementById('gachaDrawOverlay');
-    if(dv && dv.style.display==='block') return;
-    close();
-  });
+  /* ESC — 뽑기 창이 떠 있으면 gacha.js 가 캡처 단계에서 그 창만 닫고 여기까지 안 보낸다 · 꾸미기 창은 다음 ESC 에 */
+  document.addEventListener('keydown', e=>{ if(e.key==='Escape' && panel.classList.contains('on')) close(); });
   window.openWardrobe = open;
   window.closeWardrobe = close;
   window.refreshWardrobe = ()=>{ if(panel.classList.contains('on')) wardrobeMod().renderWardrobe(); };

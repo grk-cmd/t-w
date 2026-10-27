@@ -78,7 +78,7 @@ function behave(src){
   const t = (ok, msg) => r.push([!!ok, msg]);
   const mkEl = () => { const cls = new Set(), on = {}; return { cls, on, classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) },
     addEventListener: (k, fn) => { (on[k] = on[k] || []).push(fn); }, contains: () => false }; };
-  const els = { myWardrobeBtn: mkEl(), wardrobePanel: mkEl(), wardrobeClose: mkEl(), gachaDrawOverlay: Object.assign(mkEl(), { style: { display: 'none' } }) };
+  const els = { myWardrobeBtn: mkEl(), wardrobePanel: mkEl(), wardrobeClose: mkEl() };
   const docOn = {}, winOn = {};
   const document = { getElementById: id => els[id] || null, addEventListener: (k, fn) => { (docOn[k] = docOn[k] || []).push(fn); }, querySelectorAll: () => [], querySelector: () => null };
   const log = [];
@@ -102,9 +102,7 @@ function behave(src){
   t(!on() && log.join() === 'commit', '  «도감» 탭이 보이면 닫는다(저장)');
   tab = 'hat'; els.myWardrobeBtn.on.click[0]({ stopPropagation(){} }); log.length = 0; api.toggleAlbum();
   t(on() && log.join() === 'tab:album,render', '  다른 탭이 열려 있으면 «도감» 탭으로 바꾼다(닫지 않음)');
-  els.gachaDrawOverlay.style.display = 'block'; docOn.keydown[0]({ key: 'Escape' });
-  t(on(), 'ESC — 뽑기 창이 떠 있으면 꾸미기 창은 그대로(뽑기 창만 닫힌다)');
-  els.gachaDrawOverlay.style.display = 'none'; docOn.keydown[0]({ key: 'Escape' });
+  docOn.keydown[0]({ key: 'Escape' });
   t(!on(), 'ESC — 닫는다');
   log.length = 0; twNav.go('wardrobeAlbum');
   t(on() && log.join() === 'nav:wardrobeAlbum,tab:album,render', '뽑기 창 [도감으로] — 통로(WARDROBE_ALBUM)로 «도감» 탭을 연다');
@@ -132,7 +130,6 @@ const behaveBreaks = [
   ['T 가 도감 탭을 안 줌', m => m.replace('else open(wardrobeMod().ALBUM_TAB);', 'else open();')],
   ['[도감으로] 통로를 안 걺', m => m.replace("twNav.on(twNav.NAV.WARDROBE_ALBUM,", "(()=>0)(twNav.NAV.WARDROBE_ALBUM,")],
   ['다시 연 창이 저장 안 함', m => m.replace("wardrobeMod().commitWdDraft();   // ★", "0;   // ★")],
-  ['ESC 가 뽑기 창 뒤 꾸미기 창까지 닫음', m => m.replace("if(dv && dv.style.display==='block') return;", '')],
 ];
 for(const [name, fm] of behaveBreaks){
   const m2 = fm(MOD);
