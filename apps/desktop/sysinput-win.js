@@ -258,10 +258,15 @@ function startGlobalHooks(handlers){
   uIOhook.on('mousedown', h.mousedown || _noop);
   uIOhook.on('wheel',     h.wheel     || _noop);
   uIOhook.on('keydown',   h.keydown   || _noop);
+  _startHook();
+}
+function _startHook(){
   try{
     uIOhook.start();
+    return true;
   }catch(err){
     _log('uIOhook.start 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err));
+    return false;
   }
 }
 
@@ -271,6 +276,15 @@ function startGlobalHooks(handlers){
 function stopGlobalHooks(){
   if(!uIOhook) return;
   try{ uIOhook.stop(); }catch(_){}
+}
+
+/* 걸린 훅을 내렸다 다시 건다(main.js _kbBlindTick 이 키가 끊겼을 때 부른다). 건 처리기는 그대로 남는다.
+   ⚠️ 저수준 훅은 나중에 건 것이 먼저 키를 받는다 — 우리 뒤에 켜진 키보드 보안 프로그램이 키를 삼켜도 다시 걸면 앞에 선다.
+     Windows 가 느린 훅을 말없이 떼어 낸 경우도 이것으로 돌아온다. stop() 은 훅 스레드가 끝날 때까지 기다려 겹치지 않는다. */
+function restartGlobalHooks(){
+  if(!uIOhook) return false;
+  try{ uIOhook.stop(); }catch(_){}
+  return _startHook();
 }
 
 /* ── 🎮 게임패드(XInput) ─────────────────────────────────────────────────
@@ -319,7 +333,7 @@ function readPads(){
 
 module.exports = {
   init,
-  startGlobalHooks, stopGlobalHooks,
+  startGlobalHooks, stopGlobalHooks, restartGlobalHooks,
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,

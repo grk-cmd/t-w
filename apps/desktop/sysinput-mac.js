@@ -350,10 +350,15 @@ function startGlobalHooks(handlers){
   uIOhook.on('mousedown', h.mousedown || _noop);
   uIOhook.on('wheel',     h.wheel     || _noop);
   uIOhook.on('keydown',   h.keydown   || _noop);
+  _startHook();
+}
+function _startHook(){
   try{
     uIOhook.start();
+    return true;
   }catch(err){
     _log('uIOhook.start 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err));
+    return false;
   }
 }
 
@@ -366,6 +371,14 @@ function stopGlobalHooks(){
   try{ uIOhook.stop(); }catch(_){}
 }
 
+/* 걸린 훅을 내렸다 다시 건다(main.js _kbBlindTick 이 키가 끊겼을 때 부른다) — win 판과 이름을 맞춘다. 건 처리기는 그대로 남는다.
+   ⚠️ mac 에서 키가 안 오는 까닭은 대개 입력 모니터링 권한이라 다시 걸어도 안 풀린다 — 그때는 안내창 몫이다. */
+function restartGlobalHooks(){
+  if(!uIOhook) return false;
+  try{ uIOhook.stop(); }catch(_){}
+  return _startHook();
+}
+
 /* ⚠️ UiohookKey 는 지금 어디에서도 안 쓰인다 — win 판과 같은 상태로 맞춰 둔다. */
 void UiohookKey;
 
@@ -374,7 +387,7 @@ function readPads(){ return []; }
 
 module.exports = {
   init,
-  startGlobalHooks, stopGlobalHooks,
+  startGlobalHooks, stopGlobalHooks, restartGlobalHooks,
   getActiveWindow, listWindows,
   selfProcName, procNameOf, displayNameOf, legacyProcNameOf,
   readPads,
