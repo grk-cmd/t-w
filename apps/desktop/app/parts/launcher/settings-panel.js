@@ -40,7 +40,7 @@ const escRegisterWindow = deps.escRegisterWindow;
 const findMySeat = deps.findMySeat;
 const focusCharScale = deps.focusCharScale;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
-const isLauncherShown = deps.isLauncherShown;   // 읽는 함수 — 지금 런처 화면인가(설정 창을 가운데에 띄운다)
+const isLauncherShown = deps.isLauncherShown;   // 지금 런처 화면인가(설정 창을 가운데에 띄운다)
 const layoutSeats = deps.layoutSeats;
 const moveMode = deps.moveMode;   // 읽는 함수
 const nameplateEnabled = deps.nameplateEnabled;   // 읽는 함수
@@ -375,6 +375,7 @@ const fsWin = (function bindFocusSettings(){
     '#myHomeOverlay', '#bellWin', '#focusLogOverlay',
     '#mobLinkOverlay',      // 📱 태블릿·폰 연결 창 — 설정에서 열었으므로 눌러도 설정이 안 닫힌다
     '#ossLicensesOverlay',  // 📄 오픈소스 라이선스 창 — 정보 탭에서 열었으므로 같은 이유
+    '#inviteOverlay',       // 🚪 방 목록 창 — 방 연결 탭 [방 만들기] 로 열었으므로 같은 이유
     '.gacha-ov', '.idesk-ov', '.toast'
   ].join(', ');
   /* 이 클릭 «전에» 열려 있었는가 — 다른 곳의 버튼(런처 ⚙️ 설정 · 꾸미기 라이선스 안내)이 창을 연 그 클릭이
@@ -616,6 +617,10 @@ const fsWin = (function bindFocusSettings(){
   };
   return { openSettings, closeSettings, onTabShown: (fn) => { _tabShown.push(fn); } };
 })();
+/* 맨 위 이름으로도 둔다 — 검사(sim-renderer-src joinRenderer)가 «옮기기 전 app.js 글» 을 되살릴 때 이 이름들이 맨 위에 있어야 한다 */
+const openSettings = fsWin.openSettings;
+const closeSettings = fsWin.closeSettings;
+const onTabShown = fsWin.onTabShown;   // (fn(탭)) — 탭을 보일 때마다 부른다
 
 /* 설정 패널 광고 배너 — 기본은 관리자가 등록한 배너(런처와 동일 데이터) 그대로 보여줌.
    라이선스 보유자(isPremium)는 배너 우클릭 시 파일 선택창이 떠서 자기 이미지(로컬 저장, 이 기기 한정)로 바꿀 수 있음.
@@ -925,9 +930,9 @@ function _fsRevealSlot(stripId, idx){
 }
 
 return {
-  openSettings: fsWin.openSettings,   // (탭?) — 'display' | 'char' | 'focus' | 'room' | 'info' · 없으면 마지막에 본 탭
-  closeSettings: fsWin.closeSettings,
-  onTabShown: fsWin.onTabShown,   // (fn(탭)) — 탭을 보일 때마다 부른다
+  openSettings,   // (탭?) — 'display' | 'char' | 'focus' | 'room' | 'info' · 없으면 마지막에 본 탭
+  closeSettings,
+  onTabShown,
   nameplateClamp,
   nameplatePct,
   EXTRA_SEAT_KEY,

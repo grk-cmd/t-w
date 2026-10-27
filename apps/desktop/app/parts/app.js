@@ -2276,7 +2276,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   findMySeat: (...a)=>findMySeat(...a),
   focusCharScale: ()=>focusCharScale,
   isPremium: ()=>isPremium,
-  isLauncherShown: ()=>document.getElementById('launcher').classList.contains('on'),
+  isLauncherShown: (...a)=>isLauncherShown(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   moveMode: ()=>moveMode,
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
@@ -6732,6 +6732,7 @@ function launchApp(opts){ opts=opts||{};
     }, 1200));
   }
 }
+function isLauncherShown(){ return document.getElementById('launcher').classList.contains('on'); }
 function backToLauncher(){
   if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
   // 🪑 방을 나가면 상호작용 책상 복원 플래그 리셋(다음 입장 때 저장값으로 다시 복원) +

@@ -158,7 +158,7 @@ resolveLoad({ items: [
       querySelector: () => null, querySelectorAll: () => [], appendChild(){}, closest: () => null }; };
     const doc = { getElementById: (id) => els[id] || node(id, null), querySelector: () => null, querySelectorAll: () => [],
       createElement: () => node('_' + Object.keys(els).length, null), addEventListener: (type, fn, cap) => docOn.push({ type, fn, cap: !!cap }) };
-    const deps = new Proxy({}, { get: (t, k) => k === 'isLauncherShown' ? () => true : k === 'refreshProgramTab' ? () => {} : () => P });
+    const deps = new Proxy({}, { get: (t, k) => k === 'isLauncherShown' ? () => true : () => P });
     const api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module',
       src + '\nreturn window.TwSettingsPanel;')({ _fsPanelDragged: false }, doc, { getItem: () => null, setItem(){} }, undefined, () => 0, () => 0, () => {}, () => 0, P, { safeUrl: () => '' }, 1000, 800, undefined)
       .createSettingsPanel(deps);
