@@ -877,7 +877,7 @@ const INPUT_DIAG_MS = 60 * 1000;
      (_reportCursorActivity 위 주석). 대신 **«키 훅이 안 들어오는 상태»를 알아채서 고치는 법을 한 번 알려 준다.**
    [판정] OS 는 입력이 있었다고 하는데(유휴 0초) 훅도 커서 이동도 그 입력을 설명하지 못하는 순간을 센다.
      부팅 뒤 5분이 지났고, 마지막 키 훅 뒤로 그런 순간이 누적 60초(500ms × 120)를 넘으면 의심한다.
-   [의심하면] 먼저 훅을 다시 건다(sysinput.restartGlobalHooks) — 쓰는 도중 뒤에 켜진 보안 프로그램 · Windows 가 떼어 낸 훅은 이것으로 돌아온다.
+   [의심하면] 먼저 훅을 다시 건다(sysinput.restartGlobalHooks) — 쓰는 도중 뒤에 켜진 보안 프로그램 · Windows 가 떼어 낸 훅은 이것으로 돌아온다(mac 은 건너뜀 — sysinput-mac.js).
      다시 걸고도 같은 만큼 또 쌓이면: 이번 실행에 키가 한 번도 안 왔으면 안내창, 왔었으면 기록만 한 줄
      (센서 떨림처럼 훅과 무관하게 유휴가 0 이 되는 PC 에서 잘 쓰던 사람에게 안내창이 뜨지 않게).
      키가 다시 들어오면 처음으로 돌아간다.
@@ -921,7 +921,7 @@ function _kbBlindTick(now){
     _kbRearm = 1;
     let ok = false;
     try{ ok = sysinput.restartGlobalHooks(); }catch(_){}
-    _diagLog('[입력] ⚠️ 키 훅 미수신 의심 — 훅을 다시 건다(' + (ok ? '성공' : '실패') + ') · 부팅 뒤 키=' + _kbKeyTotal
+    _diagLog('[입력] ⚠️ 키 훅 미수신 의심 — 훅을 다시 건다(' + (ok === null ? '건너뜀' : ok ? '성공' : '실패') + ') · 부팅 뒤 키=' + _kbKeyTotal
       + ' · 클릭=' + _kbClickTotal + ' · 설명 안 되는 입력 ' + n + '회(×0.5초) · ' + process.platform);
     return;
   }

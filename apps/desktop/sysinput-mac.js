@@ -371,12 +371,11 @@ function stopGlobalHooks(){
   try{ uIOhook.stop(); }catch(_){}
 }
 
-/* 걸린 훅을 내렸다 다시 건다(main.js _kbBlindTick 이 키가 끊겼을 때 부른다) — win 판과 이름을 맞춘다. 건 처리기는 그대로 남는다.
-   ⚠️ mac 에서 키가 안 오는 까닭은 대개 입력 모니터링 권한이라 다시 걸어도 안 풀린다 — 그때는 안내창 몫이다. */
+/* win 판과 이름을 맞춘 자리 — mac 은 다시 걸지 않는다(null = 건너뜀).
+   ⚠️ mac 에서 키가 안 오는 까닭은 대개 입력 모니터링 권한이라 다시 걸어도 안 풀리고, 손쉬운 사용 권한이 없으면
+     다시 걸 때 libuiohook 이 시스템 권한 창을 실행 도중에 또 띄운다. 이 경우는 안내창 몫이다. */
 function restartGlobalHooks(){
-  if(!uIOhook) return false;
-  try{ uIOhook.stop(); }catch(_){}
-  return _startHook();
+  return null;
 }
 
 /* ⚠️ UiohookKey 는 지금 어디에서도 안 쓰인다 — win 판과 같은 상태로 맞춰 둔다. */
