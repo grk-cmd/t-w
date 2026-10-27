@@ -162,7 +162,7 @@
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
 | **sim-gacha-server.js** | 111 | **b7d5fbf55bc2** |
 | **sim-gacha-tx.js** | 168 | **bee2d5e4c04c** |
-| **sim-gacha-album.js** | 118 | **ff648a36d141** |
+| **sim-gacha-album.js** | 120 | **6295fd952b85** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |

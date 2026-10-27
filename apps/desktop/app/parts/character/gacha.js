@@ -167,16 +167,17 @@ try{
 
 /* 지금 가챠 중인 시즌. 클라이언트 시계 기준이라 조작하면 다른 시즌을 뽑을 수 있지만,
    §5와 같은 결로 감수한다 — 조작해도 남에게 피해가 가지 않는다. */
-const GACHA_SEASON_KEYS = Object.freeze({ spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' });
+const gachaAlbum = TwGachaAlbum;   // 📚 시즌 이름 · 이름표 · 달의 정본(gacha-album.js) — 도감과 뽑기 풀이 같은 표를 본다
 function gachaSeasonNow(){
-  if(_serverMode() && _srvState && GACHA_SEASON_KEYS[_srvState.season]) return GACHA_SEASON_KEYS[_srvState.season];   // 서버 길 — 서버 시계(서울)의 시즌(아는 이름만)
+  const srvSeason = _serverMode() && _srvState ? _srvState.season : '';
+  if(srvSeason && gachaAlbum.isAlbumKey(srvSeason)) return srvSeason;   // 서버 길 — 서버 시계(서울)의 시즌(아는 이름만)
   const m = new Date().getMonth() + 1;
   if(m === 12 || m <= 2) return 'winter';
   if(m <= 5) return 'spring';
   if(m <= 8) return 'summer';
   return 'autumn';
 }
-const GACHA_SEASON_LABEL = { '':'상시', spring:'🌸 봄', summer:'🌊 여름', autumn:'🍂 가을', winter:'❄ 겨울' };
+const GACHA_SEASON_LABEL = gachaAlbum.ALBUM_LABEL;
 
 function gachaCount(partId){ return gachaOwned[partId] | 0; }
 function isGachaOwnedPart(partId){ return gachaCount(partId) > 0; }
@@ -520,7 +521,6 @@ setInterval(()=>{ try{ syncGachaToServer('tick'); }catch(_){} }, GACHA_SYNC_INTE
    ★ 착용은 꾸미기와 같은 배관이다 — toggleEquip(cat, id). 저장은 꾸미기 창을 닫을 때(commitWdDraft).
      가챠 파츠는 stackable 이 강제라 꾸미기 파츠를 밀어내지 않는다.
    ★ 도감 줄 · 쪽 규칙은 gacha-album.js(순수 함수). */
-const gachaAlbum = TwGachaAlbum;
 /* 지금 연 도감 — null 이면 도감 목록, '' 은 상시, 시즌 키면 그 시즌. 창을 닫았다 열어도 남는다. */
 let _gachaAlbum = null;
 /* 📄 4열 × 3줄 = 한 쪽 12칸.
@@ -555,7 +555,6 @@ function _gachaWornIds(){
 function _gachaThumb(rec){ return TwSafeHtml.safeUrl(rec.thumbUrl || rec.thumbnail, 'image') || null; }   // 카탈로그 그림 — 허용된 그림 주소만
 function _gachaPips(n, max){ const m = max || GACHA_DUPES_FOR_COLOR;
   return '●'.repeat(Math.min(n, m)) + '○'.repeat(Math.max(0, m - n)); }
-const GACHA_SEASON_MONTH = { spring:'3월', summer:'6월', autumn:'9월', winter:'12월' };
 
 function _gachaHost(){ return document.getElementById('gachaInvHost'); }
 /* 상세조정 패널은 접는다 — 열려 있던 파츠가 다른 도감이라 화면에서 사라지면 패널만 남아 어느 파츠 것인지 모른다. */
@@ -764,7 +763,7 @@ function _renderGachaAlbumGrid(host, list){
     } else if(offSeason){
       /* ★ "매년 돌아온다"를 UI로 못박는 자리다. 1회 한정으로 바꾸려면 이 문구부터 걷어야 한다. */
       const bk = document.createElement('div'); bk.className='gc-back';
-      bk.textContent = (GACHA_SEASON_MONTH[rec.season]||'') + '에 돌아옴';
+      bk.textContent = (gachaAlbum.ALBUM_MONTH[rec.season]||'') + '에 돌아옴';
       cell.appendChild(bk);
       cell.title = '지금은 가챠에 나오지 않는 시즌 파츠예요';
     } else {
