@@ -2,8 +2,8 @@
    같은 파츠를 가리키는가 (핸드오프 ② 후보 ⓐ)
 
    실행:  node sim-part-color-entry.js   (app.js · gacha.js · smoke.js 와 같은 폴더에서)
-   ※ 🎰 가챠(보관함 · 보유분)는 parts/character/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가한다.
-     보관함이 열렸는지는 그 모듈이 #gachaInvOverlay 의 display 로 판정하므로 그 칸을 바꿔 연다 · 닫는다.
+   ※ 🎰 가챠(도감 · 보유분)는 parts/character/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가한다(도감 규칙 gacha-album.js 도).
+     도감이 보이는지는 그 모듈이 #gachaInvHost(꾸미기 창 «도감» 탭이 만드는 자리)가 있는지로 판정하므로 그 자리를 있게 · 없게 한다.
 
    ★ 무엇을 보는가
      refreshWdPreviewColorSection 은 두 값을 **서로 다른 근거로** 고른다.
@@ -28,21 +28,24 @@ smokeSrc = smokeSrc.slice(0, smokeSrc.indexOf('/* ── 실행'))
 vm.runInThisContext(smokeSrc, { filename: 'smoke-stubs.js' });
 
 const probe = `
-;globalThis.__P = {
+;(function(){ const gid = document.getElementById.bind(document);
+  document.getElementById = (id)=> (id === 'gachaInvHost' && !globalThis.__gachaHostOn) ? null : gid(id); })();
+globalThis.__P = {
   refresh: ()=>refreshWdPreviewColorSection(),
   setSaved: v=>{ savedParts = v; },
   setPreview: v=>{ wdPreviewBase = v; },
   setTab: v=>{ currentWdTab = v; },
   setAdj: v=>{ activeWdAdj = v; },
-  setGachaOpen: fn=>{ document.getElementById('gachaInvOverlay').style.display = fn() ? 'block' : 'none'; },
+  setGachaOpen: fn=>{ globalThis.__gachaHostOn = !!fn(); },
+  setPremium: v=>{ isPremium = v; },
   setGachaSel: v=>{ gachaMod.state.setSelId(v); },
   setOwned: v=>{ gachaMod.state.setOwned(v); },
   wrapBuildColorRows: fn=>{ const o = buildColorRows; buildColorRows = (...a)=>{ fn(...a); return o(...a); }; },
 };`;
 
 const say = console.log; console.log = () => {}; console.warn = () => {};
-if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
-try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
+if (!fs.existsSync('gacha.js') || !fs.existsSync('gacha-album.js')) { say('  ? 원본 못 찾음 — gacha.js · gacha-album.js'); process.exit(2); }
+try { vm.runInThisContext(fs.readFileSync('gacha-album.js', 'utf8'), { filename: 'gacha-album.js' }); vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
 console.log = say;
 
@@ -61,6 +64,7 @@ const mesh = () => ({ material: { color: { set(){} }, userData: {} }, userData: 
 const wrap = id => ({ userData: { partId: id, cat: 'hat', colorGroups: { col1: [mesh()] } } });
 const entry = id => ({ id, xf: { scale: 1, pos: [0,0,0], rot: [0,0,0], color: {}, __owner: id } });
 
+P.setPremium(true);   // 카테고리 탭의 색상 영역은 라이선스가 있을 때만 열린다(꾸미기 «도감» 탭 말고) — 아래 마지막 절이 반대 경우
 /* rec 목록 — 귀 파츠는 🔗 stackable, 평범한 모자는 일반 */
 P.setSaved([
   { id: 'ear',  cat: 'hat', name: '귀',   stackable: true  },
@@ -129,6 +133,15 @@ say('\n=== 5. 🎰 보관함(T)에서 귀 파츠를 고른 상태 — 모자도 
   if (!r) { chk(false, '색상 영역이 뜬다 (색상 게이트에 막혔으면 이 검사 자체가 무의미하다)'); }
   else chk(r.xfOwner === r.wrapperOwner,
     '저장 대상(' + r.xfOwner + ') = 색칠 대상(' + r.wrapperOwner + ')');
+}
+
+say('\n=== 라이선스 없음 — 카테고리 탭은 잠금 안내뿐 ===');
+{
+  P.setPremium(false);
+  const r = scene({ entries: entry('cap'), main: 'cap', stacked: null });
+  chk(!r, '착용해 둔 꾸미기 파츠의 색상 영역을 열지 않는다(닫으면 저장되는 길을 막는다)');
+  P.setPremium(true);
+  chk(!!scene({ entries: entry('cap'), main: 'cap', stacked: null }), '  라이선스가 있으면 그대로 열린다');
 }
 
 say('');

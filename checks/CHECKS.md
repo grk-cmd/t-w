@@ -74,7 +74,7 @@
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
 | **audit.py** | 937 | **6d2124379e6e** |
-| **smoke.js** | 719 | **dee96b946102** |
+| **smoke.js** | 720 | **a61c377b61ee** |
 | **sim-account-switch.js** | 452 | **71fef7fe9435** |
 | **sim-admin-rules.js** | 411 | **8901ec208a8f** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
@@ -162,6 +162,7 @@
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
 | **sim-gacha-server.js** | 111 | **b7d5fbf55bc2** |
 | **sim-gacha-tx.js** | 168 | **bee2d5e4c04c** |
+| **sim-gacha-album.js** | 120 | **6295fd952b85** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
@@ -171,7 +172,7 @@
 | **sim-google-login.js** | 656 | **7117b52660b6** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
-| **sim-key-input.js** | 71 | **3116fd7dd8fb** |
+| **sim-key-input.js** | 71 | **180b0a3448b6** |
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 288 | **73780a67f961** |
 | **sim-mh-sanitize.js** | 274 | **b840325c6768** |
@@ -185,7 +186,7 @@
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
 | **sim-overlay-layered.js** | 361 | **d9b483ece5e7** |
-| **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
+| **sim-part-color-entry.js** | 154 | **f98e52fce12a** |
 | **sim-pk-fit.js** | 170 | **354391f1f290** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
 | **sim-pl-loop.js** | 508 | **131a502c88a2** |
@@ -267,7 +268,7 @@
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
-| **sim-gacha.js** | 573 | **158e5e7830be** |
+| **sim-gacha.js** | 622 | **485a0f025f30** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
@@ -320,7 +321,7 @@
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
-| **sim-wardrobe.js** | 95 | **ee1777e686b8** |
+| **sim-wardrobe.js** | 181 | **fd9548503cc6** |
 | **sim-settings-panel.js** | 201 | **8bd1a935f960** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **e1fdfef1a3ca** |
@@ -341,7 +342,7 @@
 | **sim-interaction-desk.js** | 96 | **632770d8d886** |
 | **sim-ad-banner.js** | 96 | **69f9e0557056** |
 | **sim-license-request.js** | 96 | **2fc254e81411** |
-| **sim-fn-keys.js** | 95 | **ddaff9377359** |
+| **sim-fn-keys.js** | 95 | **acb83f385e6d** |
 | **sim-hidden-seats.js** | 96 | **178381fbe522** |
 | **sim-theme-ui.js** | 96 | **ac544bbe99ae** |
 | **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** |
@@ -370,7 +371,7 @@
 | **sim-mat-tone.js** | 179 | **1ed9ca399291** |
 | **sim-oss-licenses.js** | 180 | **40f8118d76e8** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
-| **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
+| **sim-wardrobe-panel.js** | 146 | **b52894590b3c** |
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |
 | **sim-realtime-link.js** | 323 | **1c6e8a88bcf8** |
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
@@ -388,7 +389,7 @@
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 94 | **d9d3c39a82ed** |
-| **sim-nav.js** | 85 | **7bb5e77ec7f6** |
+| **sim-nav.js** | 85 | **c4361c67713f** |
 | **sim-net-ready.js** | 145 | **0a54ffa6283c** |
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
@@ -861,7 +862,7 @@ UI_HIT_SEL 개명            → ⚠️ 정의를 못 찾음
 |---|---|---|
 | 7920 | `FS_KEEP_OPEN_SEL` | 설정창을 **안 닫을** 창 목록. ★ 하필 `'#myStatusChip'` 으로 시작한다 |
 | 8373 | `OPEN_MODAL_SEL` | 지금 열린 모달이 있는가 |
-| 8495 | (무명) | 꾸미기창 **바깥 클릭** 예외 21개. `#gachaInvOverlay` 로 시작 |
+| 8495 | (무명) | 꾸미기창 **바깥 클릭** 예외 21개. `#gachaDrawOverlay` 로 시작 |
 | 8505 | `modalOpen` | 8373 과 거의 같은 목록 (둘이 갈려 있다) |
 | 30210 | `bindLauncherDim` | 런처 카드 톤다운용. `#commImpOverlay` 를 들고 있는 유일한 자리 |
 

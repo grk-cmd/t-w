@@ -2369,7 +2369,7 @@ const focusLog = TwFocusLog.createFocusLog({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const fnKeysMod = TwFnKeys.createFnKeys({
   chatUiMod: ()=>chatUiMod,
-  gachaMod: ()=>gachaMod,
+  wdPanelMod: ()=>wdPanelMod,
   iDeskMod: iDeskMod,
   rideBenchMod: rideBenchMod,
 });
@@ -2378,11 +2378,8 @@ const fnKeysMod = TwFnKeys.createFnKeys({
 /* 본문은 wardrobe-panel.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const wdPanelMod = TwWardrobePanel.createWardrobePanel({
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
-  twNav: twNav,
-  toast: (...a)=>toast(...a),
   wardrobeMod: ()=>wardrobeMod,
+  twNav: twNav,
 });
 
 /* ═══ 👀 꾸미기 미리보기 — 렌더러 · 기즈모 · 창 자리 · 카메라 ═══ */
@@ -2432,6 +2429,8 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   getCommissionScene: (...a)=>getCommissionScene(...a),
   groupOfCat: (...a)=>premiumMod.groupOfCat(...a),
   isAdmin: ()=>isAdmin,
+  isPremium: ()=>isPremium,
+  twNav: twNav,
   isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),
   isHueTintMesh: (...a)=>isHueTintMesh(...a),
   measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
@@ -8776,7 +8775,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
 focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
-/* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다
+/* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 도감(꾸미기 창 «도감» 탭 · T) · 뽑기 창은 parts/gacha.js 로 옮겼다
    (앱 FSD 8번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 · 10분 tick ·
      창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결)이 예전과 같은 때 돈다.
@@ -8814,13 +8813,7 @@ const gachaMod = TwGacha.createGacha({
   clearMultiPanelRef: (...a)=>wardrobeMod._clearMultiPanelRef(...a),
   refreshWdPreviewColorSection: (...a)=>wardrobeMod.refreshWdPreviewColorSection(...a),
   updateWdGizmoForActivePanel: (...a)=>wardrobeMod.updateWdGizmoForActivePanel(...a),
-  commitWdDraft: (...a)=>wardrobeMod.commitWdDraft(...a),
-  syncWdPreviewOwner: (...a)=>wardrobeMod.syncWdPreviewOwner(...a),
-  wdPreviewSavedPos: (...a)=>wardrobeMod.wdPreviewSavedPos(...a),
-  placeWdPreview: (...a)=>wardrobeMod.placeWdPreview(...a),
-  clampWdPreviewIntoView: (...a)=>wardrobeMod.clampWdPreviewIntoView(...a),
-  refreshWdPreviewChar: (...a)=>wardrobeMod.refreshWdPreviewChar(...a),
-  detachWdGizmo: (...a)=>wardrobeMod.detachWdGizmo(...a),
+  twNav: twNav,
   isAdmin: ()=>isAdmin,
   savedParts: ()=>premiumMod.savedParts(),
   partCats: ()=>premiumMod.PART_CATS(),

@@ -426,7 +426,6 @@
   html[data-theme="bubble"] #exportModal h2,
   html[data-theme="bubble"] #focusLogTitle,
   html[data-theme="bubble"] #focusSettingsPanel .fs-titlebar,
-  html[data-theme="bubble"] #gachaInvHead,
   html[data-theme="bubble"] #gachaDrawHead,
   html[data-theme="bubble"] #glbEncModal h2,
   html[data-theme="bubble"] #glbLoadModal h2,
@@ -472,7 +471,6 @@
   html[data-theme="bubble"] .mh-ds-tab,
   html[data-theme="bubble"] .wd-tab-btn,
   html[data-theme="bubble"] .wd-group-btn,
-  html[data-theme="bubble"] .gc-tab,
   html[data-theme="bubble"] .ct-tab,
   html[data-theme="bubble"] #lobbyMain .lb-tab,
   html[data-theme="bubble"] .cr-tabs button,
@@ -481,8 +479,7 @@
      특이도상 위 선택자가 이기지만, 그 미묘한 계산에 의존하지 않게 명시해 둔다. */
   html[data-theme="bubble"] .fs-tab-btn.on,
   html[data-theme="bubble"] .mh-tab.on,
-  html[data-theme="bubble"] .wd-group-btn.on,
-  html[data-theme="bubble"] .gc-tab.on{
+  html[data-theme="bubble"] .wd-group-btn.on{
     border-radius:var(--win-radius-sm) var(--win-radius-sm) 0 0 !important;
   }
   /* 탭 바로 아래 붙는 패널 — 반대로 아래쪽만 둥글린다. 윗변이 휘면 탭과 사이가 벌어져 보인다. */
@@ -2321,67 +2318,53 @@
   .mh-ask-win .ma-foot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   .mh-ask-win .ma-foot button.danger{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
 
-  /* 🎰 파츠 보관함 / 가챠 뽑기 — idesk 창과 같은 관례(배경 안 어둡게, 떠 있는 창).
+  /* 🎰 가챠 뽑기 창 — idesk 창과 같은 관례(배경 안 어둡게, 떠 있는 창) · 아래쪽은 꾸미기 창 «도감» 탭 칸.
      ⚠️ 색은 전부 토큰 경유다. 하드코딩하면 버블 테마에서 이 창만 Win98로 남는다(audit 검사 12·13). */
   .gacha-ov{position:fixed;inset:0;z-index:122;pointer-events:none;background:transparent;}
-  #gachaInvWin,#gachaDrawWin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
+  #gachaDrawWin{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);
     width:360px;max-width:92vw;background:var(--win-face);border:2px solid;pointer-events:auto;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:var(--win-drop-el, 3px 3px 0 rgba(0,0,0,.4));border-radius:var(--win-radius-el) !important;}
-  #gachaInvHead,#gachaDrawHead{display:flex;align-items:center;justify-content:space-between;cursor:move;
+  #gachaDrawHead{display:flex;align-items:center;justify-content:space-between;cursor:move;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
     color:#fff;font-size:11px;font-weight:bold;padding:5px 8px;user-select:none;}
-  #gachaInvClose,#gachaDrawClose{width:16px;height:14px;font-size:10px;line-height:1;cursor:pointer;color:var(--ink);
+  #gachaDrawClose{width:16px;height:14px;font-size:10px;line-height:1;cursor:pointer;color:var(--ink);
     display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
-  #gachaInvClose:active,#gachaDrawClose:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
-  #gachaInvBar,#gachaDrawBar{font-size:10.5px;opacity:.8;padding:7px 10px 5px;line-height:1.6;}
-  #gachaInvBar b,#gachaDrawBar b{color:var(--win-title-b);}
-  /* 폴더탭 — 아래 패널과 이어져 보여야 하므로 위쪽만 둥글린다(audit 검사 12b). */
-  #gachaInvTabs{display:flex;gap:3px;padding:0 10px;}
-  .gc-tab{background:var(--win-face);border:2px solid;border-bottom:none;
-    border-color:var(--win-hi) var(--win-lo-2) var(--win-face) var(--win-hi);
-    border-radius:var(--win-radius-el) var(--win-radius-el) 0 0 !important;
-    color:var(--ink);font-size:10.5px;font-family:inherit;cursor:pointer;padding:3px 10px;}
-  .gc-tab.on{font-weight:bold;background:var(--win-face-2, var(--win-face));}
-  /* 🏷️ 카테고리 소분류 — 꾸미기창 .wd-sub-row / .wd-sub-btn 과 같은 모양(Win98 라디오 14px).
-     ⚠️ .wd-sub-btn 을 그대로 재사용하지 않고 따로 둔 이유: .wd-sub-btn 은 .wd-tab-btn 의
-       배경·테두리를 지우는 것을 전제로 쓰인다(!important 로 덮어씀). 보관함에는 .wd-tab-btn 이
-       없으므로 여기서는 처음부터 배경 없는 상태로 정의하는 편이 규칙이 짧다.
-     ★ 카테고리가 많으면 wrap 되어 줄이 늘어난다 — 그리드(46vh)를 밀지 않도록 max-height 로 막고
-       넘치면 이 줄만 세로 스크롤한다. 창 전체가 길어지면 작은 화면에서 [가챠 뽑으러 가기]가
-       화면 밖으로 나간다.
-     ⚠️ 그 max-height/overflow 는 **#gachaInvCats(안쪽)** 에 있다. 바깥 줄에 두면 오른쪽
-       시즌 드롭다운이 카테고리와 같이 스크롤 안으로 밀려 들어가 보이지 않는 필터가 된다. */
-  #gachaInvSubs{display:flex;align-items:flex-start;gap:9px;padding:7px 10px 3px;}
-  #gachaInvSubs:empty{display:none;}
-  #gachaInvCats{display:flex;flex-wrap:wrap;gap:9px;flex:1 1 auto;min-width:0;
-    max-height:66px;overflow-y:auto;}
-  /* 🍂 시즌 드롭다운 — sunken 필드는 .code-pass 관례를 그대로(테두리 lo/hi/hi/lo + inset 그림자).
-     ★ 색은 전부 토큰 경유다. 하드코딩하면 버블 테마에서 이 컨트롤만 Win98로 남는다(audit 검사 12·13).
-     ★ max-width 로 묶는다 — 시즌 라벨에 이모지가 붙어 있어(🍂 가을 5) 길어지면 카테고리 줄을 밀어낸다. */
-  #gachaInvSeason{flex:0 0 auto;margin-left:auto;max-width:46%;
-    font-family:inherit;font-size:10.5px;padding:1px 3px;cursor:pointer;
-    color:var(--ink);background:#fff;border:2px solid;
-    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    box-shadow:inset 1px 1px 0 var(--win-lo-2);
-    border-radius:var(--win-radius-el) !important;}
-  /* 시즌이 하나뿐일 때 — 고를 것이 없으니 잠근다. 다만 «지금 무엇을 보고 있는지»는 계속 보인다.
-     ⚠️ 이때 숨기지 말 것. 숨겼더니 기능이 아예 안 들어간 것처럼 보인다는 제보를 받았다
-       (9월엔 가을 하나뿐이라 사실상 늘 숨겨졌다). */
-  #gachaInvSeason:disabled{cursor:default;opacity:.72;background:var(--win-face-2);}
-  .gc-sub-btn{font-size:10.5px;padding:1px 2px;background:transparent;border:none;box-shadow:none;
-    color:var(--ink);cursor:pointer;font-weight:normal;font-family:inherit;
-    display:inline-flex;align-items:center;gap:5px;}
-  .gc-sub-btn::before{content:'';width:14px;height:14px;background:#fff;border:2px solid;
-    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-    box-shadow:inset 1px 1px 0 var(--win-lo-2), inset -1px -1px 0 var(--win-face-2);
-    border-radius:50%;flex-shrink:0;box-sizing:border-box;}
-  .gc-sub-btn.on{font-weight:bold;}
-  /* 검은 도트는 원 배경에 radial-gradient 로 — 꾸미기창과 같은 방식(좌표 계산 오차 없음) */
-  .gc-sub-btn.on::before{background:#fff radial-gradient(circle at center, #000 0 2px, transparent 2.5px);}
-  .gc-sub-btn .gc-sub-n{opacity:.55;font-weight:normal;}
-  #gachaInvGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:7px;padding:8px 10px;
-    max-height:46vh;overflow-y:auto;}
+  #gachaDrawClose:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  #gachaDrawBar{font-size:10.5px;opacity:.8;padding:7px 10px 5px;line-height:1.6;}
+  #gachaDrawBar b,#gachaInvBar b{color:var(--win-title-b);}
+  /* 📚 도감 — 꾸미기 창 «도감» 탭 안(#gachaInvHost · 글은 gacha.js). 색은 전부 토큰 경유(audit 검사 12·13). */
+  #gachaInvHost .gc-empty{font-size:11px;color:var(--ink-soft);text-align:center;padding:24px 6px;line-height:1.7;}
+  .gc-al-sec{font-size:10.5px;font-weight:bold;color:var(--ink-soft);margin:10px 2px 5px;}
+  .gc-al-sec:first-child{margin-top:0;}
+  .gc-album{display:flex;align-items:center;gap:8px;width:100%;padding:6px 8px;margin:0 0 6px;cursor:pointer;text-align:left;
+    font-family:inherit;color:var(--ink);background:var(--win-face-2);border:2px solid;
+    border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  .gc-album:hover{border-color:var(--win-title-b);}
+  .gc-album.now{outline:2px solid var(--win-title-b);outline-offset:-2px;}
+  .gc-al-thumbs{display:flex;gap:2px;flex:0 0 auto;padding:3px;background:var(--win-face);border:1px solid;
+    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
+  .gc-al-thumbs img,.gc-al-thumbs .gc-al-ph{width:28px;height:28px;object-fit:contain;image-rendering:pixelated;
+    display:flex;align-items:center;justify-content:center;font-size:14px;}
+  .gc-al-thumbs .gc-al-ph{opacity:.4;}
+  .gc-al-body{flex:1 1 auto;min-width:0;}
+  .gc-al-title{font-size:11.5px;font-weight:bold;display:flex;align-items:center;gap:5px;}
+  .gc-al-now{font-size:9px;padding:0 4px;color:var(--win-face);background:var(--win-title-b);border-radius:var(--win-radius-el) !important;}
+  .gc-al-line{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  .gc-al-bar{flex:1 1 auto;height:6px;overflow:hidden;background:var(--win-face);border:1px solid;
+    border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
+  .gc-al-bar i{display:block;height:100%;background:var(--tw-meter-on);}
+  .gc-al-n{font-size:9.5px;color:var(--ink-soft);white-space:nowrap;}
+  .gc-al-go{flex:0 0 auto;font-size:16px;font-weight:bold;color:var(--ink-soft);}
+  .gc-al-head{display:flex;align-items:center;gap:6px;margin:0 0 8px;}
+  .gc-al-head .gc-al-n{margin-left:auto;}
+  .gc-al-back{width:22px;height:22px;padding:0;font-size:14px;font-weight:bold;line-height:1;cursor:pointer;font-family:inherit;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  .gc-al-back:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  /* ⚠️ 4열 — gacha.js 의 GACHA_GRID_COLS 와 같이 고친다. 세로 스크롤은 꾸미기 창 몸통(#wardrobeContent)이 맡는다. */
+  #gachaInvGrid{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;}
   .gc-cell{position:relative;aspect-ratio:1/1;display:flex;flex-direction:column;align-items:center;justify-content:center;
     background:var(--win-face-2, #fdfcf6);border:1px solid;
     border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -2394,32 +2377,32 @@
     font-size:8px;font-family:inherit;cursor:pointer;color:var(--ink);background:var(--win-face);
     border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     border-radius:var(--win-radius-el) !important;}
-  #gachaInvFoot{justify-content:space-between;}
-  #gachaInvFoot #gachaGoDraw{margin-left:auto;}
-  /* ◀ 1/2 ▶ 페이저 — 하단 버튼 줄의 비어 있던 왼쪽에 앉는다(창 높이가 안 늘어난다).
-     ⚠️ #gachaInvFoot button 규칙이 이 안의 button 까지 잡아가므로(폰트 11px·패딩 4/12)
-       여기서 다시 좁힌다. 안 그러면 화살표 버튼이 [가챠 뽑으러 가기] 만큼 커진다. */
-  .gc-pg{display:flex;align-items:center;gap:5px;font-size:10px;color:var(--ink);}
-  .gc-pg:empty{display:none;}
-  #gachaInvFoot .gc-pg button{width:16px;height:16px;padding:0;line-height:1;font-size:8px;flex:0 0 auto;}
-  #gachaInvFoot .gc-pg button:disabled{opacity:.4;cursor:default;box-shadow:none;}
-  .gc-pg .gc-pg-num{min-width:26px;text-align:center;opacity:.8;letter-spacing:.3px;}
-  /* 마지막 페이지의 빈자리 — 자리만 차지하고 아무것도 아닌 칸.
-     [왜] 안 채우면 페이지를 넘길 때마다 그리드 높이가 줄어 창이 출렁이고,
-       하단 [가챠 뽑으러 가기] 가 위아래로 움직여 누르려던 순간 자리를 옮긴다. */
-  .gc-cell.gc-hole{background:transparent;border-color:transparent;cursor:default;pointer-events:none;}
-  .gc-cell.gc-hole:hover{border-color:transparent;}
-  .gc-cell.locked{cursor:default;opacity:.55;}
+  /* 안 뽑은 칸(«???») · 쪽의 남는 자리 — 점선. 안 뽑은 칸은 글자가 있고 남는 자리는 비어 있어 갈린다. */
+  .gc-cell.locked{cursor:default;border:1px dashed var(--win-lo-2);background:transparent;}
+  .gc-cell.locked > *{opacity:.6;}
+  .gc-cell.gc-hole{background:transparent;border:1px dashed var(--win-lo);cursor:default;pointer-events:none;}
   .gc-cell .gc-thumb{width:66%;height:52%;object-fit:contain;image-rendering:pixelated;image-rendering:-moz-crisp-edges;}
   .gc-cell .gc-ph{width:66%;height:50%;display:flex;align-items:center;justify-content:center;font-size:22px;}
   .gc-cell .gc-name{font-size:9px;margin-top:2px;text-align:center;line-height:1.1;padding:0 2px;}
   .gc-cell .gc-pips{font-size:8.5px;letter-spacing:.5px;margin-top:1px;opacity:.85;}
   .gc-cell .gc-back{font-size:8.5px;margin-top:2px;text-align:center;line-height:1.15;opacity:.8;}
-  #gachaInvFoot,#gachaDrawFoot{display:flex;justify-content:flex-end;gap:6px;padding:6px 10px 10px;}
+  /* ⏮ ◀ 1 / 2 ▶ ⏭ — 칸 아래 가운데. 한 쪽뿐이어도 그린다(자리가 늘 같게). */
+  .gc-pg{display:flex;align-items:center;justify-content:center;gap:4px;margin-top:8px;font-size:10px;color:var(--ink);}
+  .gc-pg button{width:20px;height:18px;padding:0;line-height:1;font-size:8px;cursor:pointer;font-family:inherit;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    border-radius:var(--win-radius-el) !important;}
+  .gc-pg button:disabled{opacity:.4;cursor:default;}
+  .gc-pg .gc-pg-num{min-width:38px;text-align:center;opacity:.8;letter-spacing:.3px;}
+  /* 도감 아래 줄 — 꾸미기 창 «도감» 탭에서만(#wardrobePanel.wd-album). */
+  #gachaInvFoot{display:none;align-items:center;gap:6px;padding:7px 10px 8px;flex:0 0 auto;
+    border-top:1px solid var(--win-lo);background:var(--win-face);}
+  #wardrobePanel.wd-album #gachaInvFoot{display:flex;}
+  #gachaInvBar{flex:1 1 auto;min-width:0;font-size:10.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #gachaDrawFoot{display:flex;justify-content:flex-end;gap:6px;padding:6px 10px 10px;}
   #gachaInvFoot button,#gachaDrawFoot button{background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
-    color:var(--ink);font-size:11px;font-weight:bold;cursor:pointer;padding:4px 12px;font-family:inherit;border-radius:var(--win-radius-el) !important;}
+    color:var(--ink);font-size:11px;font-weight:bold;cursor:pointer;padding:4px 12px;font-family:inherit;flex:0 0 auto;border-radius:var(--win-radius-el) !important;}
   #gachaInvFoot button:active,#gachaDrawFoot button:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
   #gachaInvFoot button:disabled,#gachaDrawFoot button:disabled{opacity:.45;cursor:not-allowed;}
@@ -4873,7 +4856,7 @@
   .wd-tabs{display:flex;flex-direction:column;gap:0;padding:6px 10px 0;}
   /* Phase 2 — 상위 그룹 탭 (머리/옷/장식/손) — 설정창(.fs-tab-btn)과 동일한 Win98 폴더탭 스타일 */
   .wd-group-row{display:flex;gap:2px;margin-top:0;}
-  .wd-group-btn{flex:1;padding:6px 4px;font-size:11px;font-weight:bold;color:var(--ink-soft);cursor:pointer;font-family:inherit;
+  .wd-group-btn{flex:1;min-width:0;white-space:nowrap;padding:6px 2px;font-size:11px;font-weight:bold;color:var(--ink-soft);cursor:pointer;font-family:inherit;
     background:var(--win-face-2);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     border-bottom:none;border-radius:var(--win-radius-el) !important;}
   .wd-group-btn.on{color:var(--ink);background:var(--win-face);
@@ -4881,6 +4864,7 @@
     position:relative;z-index:1;border-radius:var(--win-radius-el) !important;}
   /* Phase 2 — 하위 카테고리 (Win98 커스텀 라디오 14px: 흰 배경 + 음각 테두리 + 검은 도트 정중앙) */
   .wd-sub-row{display:flex;flex-wrap:wrap;gap:10px;padding:8px 4px 4px 4px;background:transparent;}
+  .wd-sub-row[hidden]{display:none;}   /* 📚 도감 · 🔒 라이선스 없는 탭 — 고를 하위 칸이 없다 */
   /* .wd-tab-btn을 함께 상속 받으므로, 여기서 배경/테두리/그림자를 다 지워서 라디오 문구 형태로만 남김 */
   .wd-sub-btn{font-size:11px;padding:2px 4px;background:transparent !important;border:none !important;box-shadow:none !important;color:var(--ink);cursor:pointer;
     font-weight:normal;font-family:inherit;display:inline-flex;align-items:center;gap:5px;}
@@ -4904,6 +4888,11 @@
   .cr-item-page-btn.on{background:var(--win-face-2);font-weight:bold;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   .wd-empty{color:var(--ink-soft);font-size:12px;text-align:center;padding:36px 12px;line-height:1.7;}
   .wd-empty .ic{font-size:26px;display:block;margin-bottom:10px;opacity:.7;}
+  /* 🔒 라이선스 없는 탭 — [라이선스 등록하러 가기](설정 › 정보) */
+  .wd-locked-go{display:inline-block;margin-top:12px;padding:4px 12px;font-size:11px;font-weight:bold;cursor:pointer;font-family:inherit;color:var(--ink);
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
+  .wd-locked-go:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   /* 카테고리 섹션 */
   .wd-cat{margin-bottom:16px;}
   .wd-cat:last-child{margin-bottom:4px;}
@@ -5013,33 +5002,6 @@
      · 채팅/알림 입력창은 캐릭터 발 밑에 뜸(app.js positionInputBelowChar)
      · myWardrobeBtn / myFocusGearBtn / myMoveBtn / myBackToLauncherBtn id는 F1~F4 단축키가 click 트리거하므로 반드시 유지. -->
 <!-- 🪑 상호작용 책상 인벤토리 (I키) — 방 안에서만. 레벨 해금 그리드. -->
-<div id="gachaInvOverlay" class="gacha-ov" style="display:none;">
-  <div id="gachaInvWin">
-    <div id="gachaInvHead">
-      <span>🎰 파츠 보관함</span>
-      <span id="gachaInvClose" title="닫기 (T)">✕</span>
-    </div>
-    <div id="gachaInvBar"></div>
-    <div id="gachaInvTabs">
-      <button type="button" class="gc-tab on" data-gtab="all">전체</button>
-      <button type="button" class="gc-tab" data-gtab="always">상시</button>
-      <button type="button" class="gc-tab" data-gtab="season">시즌</button>
-    </div>
-    <!-- 🏷️ 카테고리 소분류 — 꾸미기창(.wd-sub-row)과 같은 Win98 라디오 관례.
-         내용은 renderGachaInv 가 매번 다시 그린다(지금 목록에 실제로 있는 카테고리만 나온다). -->
-    <div id="gachaInvSubs"></div>
-    <div id="gachaInvGrid"></div>
-    <div id="gachaInvFoot">
-      <!-- ◀ 1/2 ▶ — 파츠 그리드 페이지. renderGachaInv 가 채우고, 한 페이지면 비워 둔다.
-           ★ 이 줄 왼쪽은 원래 비어 있었다(#gachaGoDraw 가 margin-left:auto 로 오른쪽에 붙음).
-             그 빈자리를 쓰므로 창 높이가 늘지 않는다 — 새 줄을 만들면 그만큼 창이 길어진다. -->
-      <div id="gachaInvPager" class="gc-pg"></div>
-      <select id="gachaAdminCat" class="code-pass" style="display:none;width:auto;flex:0 0 auto;margin:0;font-size:10.5px;padding:3px 4px;"></select>
-      <button id="gachaAdminAdd" type="button" style="display:none;" title="가챠 전용 파츠를 GLB로 등록해요 (관리자)">+ 등록</button>
-      <button id="gachaGoDraw" type="button">가챠 뽑으러 가기 ››</button>
-    </div>
-  </div>
-</div>
 <div id="gachaDrawOverlay" class="gacha-ov" style="display:none;">
   <div id="gachaDrawWin">
     <div id="gachaDrawHead">
@@ -5052,7 +5014,7 @@
     <div id="gachaDrawFoot">
       <button id="gachaDraw1" type="button">1회 뽑기</button>
       <button id="gachaDraw5" type="button">5연속 뽑기</button>
-      <button id="gachaBackInv" type="button">보관함으로</button>
+      <button id="gachaBackInv" type="button">도감으로</button>
     </div>
   </div>
 </div>
@@ -5613,6 +5575,13 @@
       아직 등록된 파츠가 없어요.<br>
       관리자 모드에서 모자·안경·옷·헤어·날개·손 파츠를<br>추가하면 여기에 카테고리별로 나타나요.
     </div>
+  </div>
+  <!-- 📚 «도감» 탭 아래 줄 — 남은 뽑기 · 이번 시즌 · [뽑으러 가기]. 도감 탭에서만 보인다(#wardrobePanel.wd-album) · 글은 gacha.js -->
+  <div id="gachaInvFoot">
+    <div id="gachaInvBar"></div>
+    <select id="gachaAdminCat" class="code-pass" style="display:none;width:auto;flex:0 0 auto;margin:0;font-size:10.5px;padding:3px 4px;"></select>
+    <button id="gachaAdminAdd" type="button" style="display:none;" title="가챠 전용 파츠를 GLB로 등록해요 (관리자)">+ 등록</button>
+    <button id="gachaGoDraw" type="button">뽑으러 가기 ›</button>
   </div>
   <div id="wardrobeAdminFoot" class="admin-only" style="padding:8px 12px;border-top:1px solid var(--win-lo);background:var(--win-face);text-align:right;">
     <button id="wardrobeCategoryManageBtn" style="font-size:11px;padding:3px 10px;background:var(--win-face);
@@ -7825,7 +7794,7 @@
     <div class="chat-titlebar">
       <span class="chat-title"><span class="ui-ic" data-ic="chat" data-px="14" style="font-size:13px;">💬</span> 대화하기</span>
       <!-- 🌫️ 투명도 — 타이틀바는 드래그 핸들이라, 여기 pointerdown 이 창 드래그로 새지 않게
-           _bindChatDrag 에서 #chatOpacity 를 예외 처리해 뒀다(#gachaInvHead 관례와 동일). -->
+           _bindChatDrag 에서 #chatOpacity 를 예외 처리해 뒀다(#gachaDrawHead 관례와 동일). -->
       <input type="range" id="chatOpacity" min="10" max="100" step="5" value="100" title="투명도">
       <button class="win98titlebtn" id="chatMinBtn" title="최소화 — 입력칸만 남기기">－</button>
       <button class="win98titlebtn" id="chatCloseBtn" title="닫기">&times;</button>
@@ -8453,7 +8422,8 @@
 <script src="parts/myhome/myhome-sticker-rules.js"></script>   <!-- 🔒 스티커 잠금 · 순서 규칙(window.TwMyHomeStickerRules) — myhome-sticker.js · myhome-edit.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-sticker.js"></script>   <!-- 🎨 마이홈 스티커 관리 창 · 스티커 편집모드 · 드래그 · 회전 · 크기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeSticker.createMyHomeSticker 로 만든다) -->
 <script src="parts/character/gacha-server.js"></script>   <!-- 🎰 가챠 서버 길(window.TwGachaServer) — app.js 가 만들어 gacha.js 에 deps 로 넘긴다 -->
-<script src="parts/character/gacha.js"></script>   <!-- 🎰 파츠 가챠 코어 · 파츠 보관함(T) · 뽑기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwGacha.createGacha 로 만든다) -->
+<script src="parts/character/gacha-album.js"></script>   <!-- 📚 도감 규칙(순수) — gacha.js 보다 먼저(gacha.js 가 TwGachaAlbum 을 읽는다) -->
+<script src="parts/character/gacha.js"></script>   <!-- 🎰 파츠 가챠 코어 · 도감(꾸미기 창 «도감» 탭) · 뽑기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwGacha.createGacha 로 만든다) -->
 <script src="parts/myhome/mh-bg-url.js"></script>   <!-- 🖼️ 마이홈 배경 그림 주소 규칙(http → https 로 바꿔 불러 보기 · 못 받으면 주인에게 안내) — myhome-edit.js · myhome-desktop.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-preset.js"></script>   <!-- 👑 디자인 프리셋 규칙(지금 디자인 ↔ 칸 · 저장본 씻기 · 그림 키 — 순수 함수) — myhome-edit.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-edit.js"></script>   <!-- 🏠 마이홈 페이지 편집 묶음(자동저장 · 글 서식 · 닉네임 · BGM · 배경 · 테마) · 👑 디자인 스튜디오 · 프리셋 — myhome-sticker.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeEdit.createMyHomeEdit 로 만든다) -->

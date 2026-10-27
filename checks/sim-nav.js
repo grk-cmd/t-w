@@ -17,7 +17,7 @@ const MOD = read('shared/nav.js'), HTML = read('desk-companion-prototype.html'),
 if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — nav.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 /* 이름 → 거는 파일(nav.js 주석과 같다) */
-const OWNER = { PROGRAM_SETTINGS: 'launcher/program-settings.js', PROGRAM_SETTINGS_CLOSE: 'launcher/program-settings.js', MY_HOME: 'myhome/myhome-ui.js', LEAVE_ROOM: 'room/room-entry.js', ASSET_IMPORT: 'creator/asset-import.js', ROOM_LOBBY: 'room/room-lobby-ui.js' };
+const OWNER = { PROGRAM_SETTINGS: 'launcher/program-settings.js', PROGRAM_SETTINGS_CLOSE: 'launcher/program-settings.js', MY_HOME: 'myhome/myhome-ui.js', LEAVE_ROOM: 'room/room-entry.js', ASSET_IMPORT: 'creator/asset-import.js', ROOM_LOBBY: 'room/room-lobby-ui.js', WARDROBE_ALBUM: 'character/wardrobe-panel.js' };
 
 function load(mod) { const win = {}; new Function('window', 'module', mod)(win, undefined); return win.TwNav; }
 function judge(mod, html, files) {
@@ -53,7 +53,7 @@ const FILES = ORDER.map(f => [f, f === 'app.js' ? APP : read(f)]).filter(([, t])
 const R = judge(MOD, HTML, FILES);
 
 say('── 1. 통로');
-chk(!R.err && R.names, '이름 넷(설정 창 열기 · 닫기 · 마이홈 · 방 나가기) · 바꿀 수 없는 표' + (R.err ? ' — ' + R.err : ''));
+chk(!R.err && R.names, '이름 일곱(설정 창 열기 · 닫기 · 마이홈 · 방 나가기 · 코드로 추가 · 방 목록 · 꾸미기 «도감» 탭) · 바꿀 수 없는 표' + (R.err ? ' — ' + R.err : ''));
 chk(R.go, '건 함수를 그 인자로 부르고 돌려준 값을 그대로 돌려준다');
 chk(R.unset, '안 걸린 이름 · 모르는 이름은 아무 일도 안 한다(예전 «typeof 함수면 부른다» 와 같다)');
 

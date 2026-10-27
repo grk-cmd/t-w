@@ -1,16 +1,18 @@
 /* ═══ 🎰 sim-gacha.js — 파츠 가챠 모듈 (2026-10-10 신설 · 앱 FSD 8번) ═══════════════
-   app.js 의 두 구역(«🎰 파츠 가챠 — 코어» · «🎰 파츠 보관함 (T키) · 가챠 뽑기 창»)을 parts/character/gacha.js 로 옮겼다.
-   동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM · 가짜 서버 위에서 통째로 굴린다.
+   app.js 의 두 구역(«🎰 파츠 가챠 — 코어» · «🎰 파츠 보관함 · 가챠 뽑기 창»)을 parts/character/gacha.js 로 옮겼다.
+   보관함은 꾸미기 창 «📚 도감» 탭이 됐다(#540 P2) — 여기서는 모듈을 가짜 DOM · 가짜 서버 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwGacha 뿐 · 만들면 로컬 보유분 · 보너스 읽기 · 시각 부트스트랩 · 부팅 4.2초 · 10분 tick ·
-           창 버튼 · ESC · 바깥 클릭 · blur 연결 · window 고리 셋 · 창 위치 초기화 목록 · DOM 없으면 조용히
+           뽑기 창 버튼 · ESC · 바깥 클릭 · blur 연결 · window 고리(_gachaRestorePos) · 창 위치 초기화 목록 · DOM 없으면 조용히
    ・2절: 셈 — 보유 · 색상 해금(관리자 통과 · 색 없는 파츠 1개) · 풀(다 모은 것 · 다른 시즌 빠짐) · 남은 뽑기(레벨/5 + 👑 보너스) · 보너스 저장
    ・3절: 뽑기 — 서버 트랜잭션이 저장해야 결과(NEW · 색상 해금) · 티켓이 모자라면 멈춤 · 실패하면 이 PC 그대로(횟수 원복) ·
            다른 PC 가 먼저 뽑으면 서버 값으로 다시 셈(횟수 넘김 없음) · 이 PC 에만 있던 뽑기도 같이 올림 · 늦게 붙은 저장 · 겹친 누름
    ・4절: 서버 동기화 — 서버가 원본(받음 · 쓰기 0) · 이 PC 에만 있는 뽑기는 합쳐 올림(덮어쓰기 없음) · pull · 시계 틀어진 ts 상관없이 합침 ·
            읽기 실패(아무것도 안 함 · 회수 안 함) · 쓰기 거부(안내) · 진행 중 요청은 끝나고 한 번 더 · 미보유 파츠 회수 · 로그아웃 메모리 지우기 ·
            로그아웃 검문의 «서버에 없는 뽑기 수»
-   ・5절: 보관함 — 정보줄(👑 보너스) · 탭 · 카테고리 · 시즌 · 8칸 페이지 · 잠긴 칸 · 누르면 착용 · 관리자 삭제(confirm 뒤 focus) · 열기 · 닫기
-   ・6절: 뽑기 창 — 연출(잠금 → 결과 → 풀림) · 남은 뽑기 없음 · 뽑기 실패(오류) 안내
+   ・5절: 도감 — 자리(#gachaInvHost)가 없으면 안 그림 · 아래 줄(남은 뽑기 · 시즌 · 👑) · 도감 줄(상시 → 시즌 · 지금 · n / m · 뽑은 그림만) ·
+           도감 칸(12칸 쪽 · ⏮ ◀ ▶ ⏭ · 점선 빈칸 · ??? · n월에 돌아옴 · 누르면 착용 · 우클릭) · ‹ 목록 · 고른 파츠 쪽으로 · 빈 도감은 목록으로 ·
+           관리자 삭제(confirm 뒤 focus) · 서버 맞추기(onAlbumShow)
+   ・6절: 뽑기 창 — 연출(잠금 → 결과 → 풀림) · 남은 뽑기 없음 · [도감으로](그 도감 · 그 쪽) · 닫기(ESC · 바깥 · blur) · 뽑기 실패(오류) 안내
    ・7절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · 저장 키 세 줄은 app.js · 부르는 곳은 gachaMod.이름 ·
            빈 껍데기 · html 순서 · 전역 이름
    [실행] gacha.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
@@ -23,7 +25,7 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['gacha.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['gacha.js', 'gacha-album.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['gacha.js'];
@@ -80,9 +82,9 @@ function mkEnv(opt){
     source: opt.source || 'firebase', gs: opt.gs || null, gsFail: null, gsOut: [], gsLoads: 0, gsDraws: [],
   };
   const els = {};
-  const byId = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl(/^gacha(Draw1|Draw5|BackInv|GoDraw|AdminAdd)$/.test(id) ? 'button' : 'div', id))));
-  const tabs = ['all', 'always', 'season'].map(t => { const b = mkEl('button'); b.dataset.gtab = t; return b; });
-  if(!opt.noDom){ byId('gachaInvOverlay')._all = tabs; byId('gachaInvOverlay').style.display = 'none'; byId('gachaDrawOverlay').style.display = 'none'; }
+  /* #gachaInvHost — 꾸미기 창이 «도감» 탭을 그릴 때만 있다(env.hostOn) */
+  const byId = id => (opt.noDom || (id === 'gachaInvHost' && !env.hostOn) ? null : (els[id] || (els[id] = mkEl(/^gacha(Draw1|Draw5|BackInv|GoDraw|AdminAdd)$/.test(id) ? 'button' : 'div', id))));
+  if(!opt.noDom){ byId('gachaDrawOverlay').style.display = 'none'; }
   class FakeDate extends Date { constructor(...a){ if(a.length) super(...a); else super(env.now); } static now(){ return env.now; } }
   const fakeMath = Object.create(Math); fakeMath.random = () => env.rand[(env.randI++) % env.rand.length];
   const ctx = {
@@ -92,7 +94,7 @@ function mkEnv(opt){
     document: {
       getElementById: byId,
       createElement: (t) => mkEl(t),
-      addEventListener: (t, fn) => { (env.docL[t] = env.docL[t] || []).push(fn); },
+      addEventListener: (t, fn, cap) => { fn._cap = !!cap; (env.docL[t] = env.docL[t] || []).push(fn); },
       querySelector: () => null,
     },
     setTimeout: (fn, ms) => { env.timers.push({ fn, ms }); return env.timers.length; },
@@ -121,8 +123,9 @@ function mkEnv(opt){
     },
   };
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
+  vm.runInContext(SRC['gacha-album.js'], ctx, { filename: 'gacha-album.js' });   // 📚 도감 규칙 — html 이 gacha.js 앞에 싣는 진짜
   vm.runInContext(MOD, ctx, { filename: 'gacha.js' });
-  env.ctx = ctx; env.els = els; env.tabs = tabs;
+  env.ctx = ctx; env.els = els;
   env.mk = () => { const m = ctx.TwGacha.createGacha({
     toast: (m) => env.toasts.push(m),
     srvNow: () => { if(env.srvThrows) throw new Error('시계 깨짐'); return env.srvNow || env.now; },
@@ -142,13 +145,7 @@ function mkEnv(opt){
     clearMultiPanelRef: () => {},
     refreshWdPreviewColorSection: () => { env.colorRefresh++; },
     updateWdGizmoForActivePanel: () => {},
-    commitWdDraft: () => { env.commits++; },
-    syncWdPreviewOwner: () => {},
-    wdPreviewSavedPos: () => null,
-    placeWdPreview: (x, y) => { env.placed = { x, y }; },
-    clampWdPreviewIntoView: () => {},
-    refreshWdPreviewChar: () => {},
-    detachWdGizmo: () => {},
+    twNav: { NAV: { WARDROBE_ALBUM: 'wardrobeAlbum' }, go: (name, opts) => { if(name !== 'wardrobeAlbum') return; env.albumOpens = (env.albumOpens || 0) + 1; env.hostOn = true; m.onAlbumShow(opts); m.renderGachaInv(); } },   // 창 열기 통로 — 꾸미기 창 «도감» 탭으로 여는 것 흉내
     isAdmin: () => env.admin,
     savedParts: () => env.saved,
     partCats: () => env.cats,
@@ -186,22 +183,22 @@ const sec = async (t, fn) => { say(t); try{ await fn(); }catch(e){ chk(false, '�
 await sec('── 1. 만들 때', () => {
   const e = mkEnv({ ls: { 'tw.gachaOwned': '{"a":2}', 'tw.gachaBonus': '3' } });
   chk(typeof e.ctx.TwGacha.createGacha === 'function' && Object.keys(e.ctx.TwGacha).join() === 'createGacha', '싣기만 하면 window.TwGacha(createGacha) 하나뿐');
-  chk(!e.timers.length && !e.intervals.length && !e.docL.keydown && !e.ctx.openGachaInv, '  싣기만 해서는 타이머 · 이벤트 · 고리가 없다');
+  chk(!e.timers.length && !e.intervals.length && !e.docL.keydown && !e.ctx._gachaRestorePos && !!e.ctx.TwGachaAlbum, '  싣기만 해서는 타이머 · 이벤트 · 고리가 없다(도감 규칙은 따로 실림)');
   const M = e.mk();
   chk(M.gachaCount('a') === 2 && M.bonus() === 3, '로컬 보유분 · 👑 보너스를 읽는다');
   chk(M.state.ts() === 0 && !e.ls.has('tw.gachaOwnedTs'), '시각을 새로 찍지 않는다 — 서버가 원본이라 판정에 안 쓴다(이 PC 에만 있는 뽑기는 합치기로 올라간다)');
   chk(e.timers.some(t => t.ms === 4200) && e.intervals.some(t => t.ms === 10 * 60 * 1000), '부팅 4.2초 동기화 · 10분 tick');
-  chk(typeof e.els.gachaInvClose.onclick === 'function' && typeof e.els.gachaGoDraw.onclick === 'function' && typeof e.els.gachaDraw1.onclick === 'function'
-      && typeof e.els.gachaDraw5.onclick === 'function' && typeof e.els.gachaBackInv.onclick === 'function' && typeof e.els.gachaDrawClose.onclick === 'function', '창 버튼 연결(✕ 둘 · 뽑으러 가기 · 1회 · 5연속 · 보관함으로)');
-  chk(e.docL.keydown && e.docL.keydown.length === 1 && e.docL.mousedown && e.docL.mousedown.length === 1 && e.winL.blur && e.winL.blur.length === 1, 'ESC · 바깥 클릭 · blur 닫기 연결');
-  chk(typeof e.ctx.openGachaInv === 'function' && typeof e.ctx.closeGachaInv === 'function' && typeof e.ctx._gachaRestorePos === 'function', 'window 고리 셋(openGachaInv · closeGachaInv · _gachaRestorePos) 그대로');
+  chk(typeof e.els.gachaGoDraw.onclick === 'function' && typeof e.els.gachaDraw1.onclick === 'function'
+      && typeof e.els.gachaDraw5.onclick === 'function' && typeof e.els.gachaBackInv.onclick === 'function' && typeof e.els.gachaDrawClose.onclick === 'function', '버튼 연결(뽑으러 가기 · 1회 · 5연속 · 도감으로 · ✕)');
+  chk(e.docL.keydown && e.docL.keydown.length === 1 && e.docL.mousedown && e.docL.mousedown.length === 1 && e.winL.blur && e.winL.blur.length === 1, 'ESC · 바깥 클릭 · blur 닫기 연결(뽑기 창)');
+  chk(typeof e.ctx._gachaRestorePos === 'function' && e.ctx.openGachaInv === undefined && e.ctx.closeGachaInv === undefined && M.toggleGachaInv === undefined, 'window 고리는 _gachaRestorePos 하나 — 옛 보관함 창 고리(openGachaInv · closeGachaInv · toggleGachaInv)는 없다');
   chk(Array.isArray(e.ctx.__winPosResetters) && e.ctx.__winPosResetters.length === 1, '🪟 창 위치 초기화 목록에 한 자리');
   const e2 = mkEnv(); e2.mk();
   chk(!e2.ls.has('tw.gachaOwnedTs'), '새 기기(보유 0 · 시각 없음)도 시각을 안 찍는다');
   const e3 = mkEnv({ ls: { 'tw.gachaOwned': '{"a":1}', 'tw.gachaOwnedTs': '77' } }); const M3 = e3.mk();
   chk(M3.state.ts() === 77, '저장된 시각이 있으면 그대로');
   const e4 = mkEnv({ noDom: true }); let ok = true; try{ e4.mk(); }catch(_){ ok = false; }
-  chk(ok && !e4.docL.keydown && !e4.ctx.openGachaInv, 'DOM 이 없으면 창 연결 없이 조용히 넘어간다');
+  chk(ok && !e4.docL.keydown && !e4.ctx._gachaRestorePos, 'DOM 이 없으면 창 연결 없이 조용히 넘어간다');
 });
 
 await sec('── 2. 셈 — 보유 · 색상 해금 · 풀 · 남은 뽑기', () => {
@@ -419,61 +416,94 @@ await sec('── 4. 서버 동기화', async () => {
   chk(JSON.stringify(M.owned()) === '{}' && M.state.ts() === 0 && M.bonus() === 0, '로그아웃 지우기 — 보유 · 시각 · 보너스 메모리를 빈 기기 값으로');
 });
 
-await sec('── 5. 보관함', async () => {
-  const many = []; for(let i = 0; i < 10; i++) many.push(G('p' + i, { order: i, cat: i < 7 ? 'hat' : 'glasses', season: i === 9 ? 'spring' : (i === 8 ? 'winter' : undefined) }));
-  const owned = {}; for(let i = 0; i < 9; i++) owned['p' + i] = i === 2 ? 4 : 1;
-  const e = mkEnv({ ls: { 'tw.gachaOwned': JSON.stringify(owned) }, level: 50, saved: many });
+await sec('── 5. 도감', async () => {
+  /* 상시 14(2쪽) · 겨울 둘(하나만 뽑음) · 봄 하나(안 뽑음) — 지금은 봄 */
+  const parts = []; for(let i = 0; i < 14; i++) parts.push(G('p' + i, { order: i, cat: i < 10 ? 'hat' : 'glasses', thumbUrl: 'https://x.test/p' + i + '.png' }));
+  parts.push(G('w0', { season: 'winter', order: 1, thumbUrl: 'https://x.test/w0.png' }), G('w1', { season: 'winter', order: 2, thumbUrl: 'https://x.test/w1.png' }), G('s0', { season: 'spring', order: 1 }));
+  const owned = { w0: 1 }; for(let i = 0; i < 14; i++) if(i !== 3) owned['p' + i] = i === 2 ? 4 : 1;
+  const e = mkEnv({ ls: { 'tw.gachaOwned': JSON.stringify(owned) }, level: 100, saved: parts.concat([{ id: 'n', cat: 'hat' }]) });
   const M = e.mk(); M.setBonusLocal(2);
-  M.openGachaInv();
-  const grid = e.els.gachaInvGrid;
-  chk(e.els.gachaInvOverlay.style.display === 'block' && M.isInvOpen() && !M.isDrawOpen(), '열면 보관함이 보이고 뽑기 창은 닫힌다');
-  chk(/레벨 <b>50<\/b>/.test(e.els.gachaInvBar.innerHTML) && /👑달성표 2회/.test(e.els.gachaInvBar.innerHTML) && /🌸 봄/.test(e.els.gachaInvBar.innerHTML), '정보줄 — 레벨 · 👑 보너스 · 이번 시즌');
-  chk(cells(grid).length === 8 && e.els.gachaInvPager.children.length === 3, '8칸 한 페이지 · ◀ 1/2 ▶');
-  e.els.gachaInvPager.children[2].click();
-  chk(M.state.page() === 1 && cells(grid).length === 2 && grid.children.filter(c => /gc-hole/.test(c.className)).length === 6, '▶ — 2페이지 · 남는 자리는 빈 칸으로 높이 고정');
-  const p9 = cells(grid).find(c => c.textContent.includes('???'));
-  chk(!!p9 && /locked/.test(p9.className) && !p9.onclick, '안 뽑은 파츠는 ??? · 잠김 · 누를 수 없음');
-  p9.oncontextmenu({ preventDefault(){} });
-  chk(/아직 안 뽑은/.test(e.toasts[e.toasts.length - 1]), '  잠긴 칸 우클릭도 안내');
-  const p8 = cells(grid).find(c => c.textContent.includes('p8'));
-  chk(!!p8, '다른 시즌이어도 가진 파츠는 보인다');
-  await p8.onclick();
-  chk(e.equips.join() === 'glasses:p8' && M.selId() === 'p8' && e.colorRefresh > 0, '누르면 착용 · 선택 · 색상 영역 갱신');
-  e.tabs[1].onclick();
-  chk(M.state.tab() === 'always' && M.state.page() === 0 && cells(grid).every(c => !/p8|p9/.test(c.textContent)), '상시 탭 — 시즌 파츠 빠짐 · 1페이지로');
-  const catBtns = e.els.gachaInvSubs.children[0].children;
-  chk(catBtns.length === 3 && /전체/.test(catBtns[0].innerHTML), '카테고리 줄 — 목록에 있는 것만(전체 · 모자 · 안경)');
-  catBtns[2].onclick();
-  chk(M.state.cat() === 'glasses' && cells(grid).length === 1, '  안경만');
-  e.els.gachaInvSubs.children[0].children[1].onclick();
-  chk(M.state.cat() === 'hat' && cells(grid).length === 7, '  모자만');
-  e.tabs[2].onclick();
-  chk(M.state.cat() === 'all', '시즌 탭으로 가 모자가 하나도 없으면 «전체» 로 되돌린다');
-  const sel = e.els.gachaInvSubs.children.find(c => c.id === 'gachaInvSeason');
-  chk(!!sel && sel.options.length === 3, '시즌 드롭다운 — 시즌 탭 · 후보 둘 이상일 때만');
-  sel.value = 'winter'; sel.onchange();
-  chk(M.state.season() === 'winter' && cells(grid).length === 1 && cells(grid)[0].textContent.includes('p8'), '  겨울만');
-  e.admin = true; M.renderGachaInv();
-  const del = cells(grid)[0].children.find(c => c.className === 'gc-del');
+  M.renderGachaInv();
+  chk(!M.isInvOpen() && !e.els.gachaInvBar, '자리(#gachaInvHost)가 없으면 아무것도 안 그린다 — 다른 탭 · 창 닫힘');
+  e.hostOn = true; e.loads = 0;
+  M.onAlbumShow(); await flush();
+  chk(e.loads === 1, '«도감» 탭을 보이면 서버와 한 번 맞춘다(onAlbumShow)');
+  M.renderGachaInv();
+  const host = e.els.gachaInvHost;
+  chk(M.isInvOpen() && /남은 뽑기 <b>5회<\/b>/.test(e.els.gachaInvBar.innerHTML) && /🌸 봄 시즌/.test(e.els.gachaInvBar.innerHTML) && !/레벨/.test(e.els.gachaInvBar.innerHTML)
+      && /👑 달성표 2회/.test(e.els.gachaInvBar.title), '아래 줄 — 남은 뽑기 · 이번 시즌(레벨은 안 적는다 — 경험치 바에 있다) · 👑 보너스는 풀이에');
+  const rows = host.children.filter(c => /\bgc-album\b/.test(c.className));
+  const secs = host.children.filter(c => c.className === 'gc-al-sec').map(c => c.textContent);
+  chk(rows.length === 3 && secs.join() === '⭐ 상시,🗂 시즌별 도감', '도감 줄 — 상시 · 시즌(파츠가 있는 봄 · 겨울만) · 묶음 머리 둘');
+  const txt = rows.map(r => r.textContent);
+  chk(/⭐ 상시/.test(txt[0]) && /13 \/ 14 모음/.test(txt[0]) && /🌸 봄/.test(txt[1]) && /0 \/ 1 모음/.test(txt[1]) && /❄ 겨울/.test(txt[2]) && /1 \/ 2 모음/.test(txt[2]), '  순서 상시 → 봄 → 겨울 · «n / m 모음»');
+  chk(/\bnow\b/.test(rows[1].className) && /지금/.test(txt[1]) && !/\bnow\b/.test(rows[0].className + rows[2].className), '  지금 시즌 도감에 «지금»');
+  const thumbs = r => r.children[0].children;
+  chk(thumbs(rows[0]).length === 3 && thumbs(rows[0]).every(t => t.tagName === 'IMG') && thumbs(rows[2]).filter(t => t.tagName === 'IMG').length === 1
+      && !thumbs(rows[2]).some(t => t.src === 'https://x.test/w1.png') && thumbs(rows[1]).every(t => t.textContent === '❔'), '  ★ 줄 그림은 뽑은 파츠만 셋까지(안 뽑은 겨울 그림 · 봄은 ❔)');
+  rows[0].onclick();
+  const grid = () => host.children.find(c => c.id === 'gachaInvGrid');
+  const pager = () => host.children.find(c => c.id === 'gachaInvPager');
+  chk(M.state.album() === '' && cells(grid()).length === 12 && pager().children.length === 5 && /1 \/ 2/.test(pager().textContent), '상시 도감 — 12칸 한 쪽 · ⏮ ◀ 1 / 2 ▶ ⏭');
+  chk(pager().children[0].disabled && pager().children[1].disabled && !pager().children[3].disabled, '  첫 쪽에선 ⏮ ◀ 꺼짐');
+  const p3 = cells(grid()).find(c => c.textContent.includes('???'));
+  chk(!!p3 && /locked/.test(p3.className) && !p3.onclick && !p3.children.some(c => c.tagName === 'IMG'), '안 뽑은 파츠는 ??? · 점선(locked) · 그림 없음 · 누를 수 없음');
+  p3.oncontextmenu({ preventDefault(){} });
+  chk(/아직 안 뽑은/.test(e.toasts[e.toasts.length - 1]), '  안 뽑은 칸 우클릭도 안내');
+  const p2 = cells(grid()).find(c => c.textContent.includes('p2'));
+  chk(/●●●● 🎨/.test(p2.textContent), '뽑은 칸 — ●○ · 🎨(넷 모으면)');
+  await p2.onclick();
+  chk(e.equips.join() === 'hat:p2' && M.selId() === 'p2' && e.colorRefresh > 0, '누르면 착용 · 선택 · 색상 영역 갱신');
+  pager().children[4].click();
+  const holes = grid().children.filter(c => /gc-hole/.test(c.className));
+  chk(M.state.page() === 1 && cells(grid()).length === 2 && holes.length === 10, '⏭ — 2쪽 · 남는 자리는 점선 빈칸으로 높이 고정');
+  pager().children[0].click();
+  chk(M.state.page() === 0, '⏮ — 첫 쪽');
+  /* 고른 파츠(2쪽의 p13)가 있는 쪽에서 다시 연다 */
+  M.state.setSelId('p13'); M.state.setAlbum(''); M.onAlbumShow(); M.renderGachaInv();
+  chk(M.state.page() === 1, '★ 도감 탭을 다시 열면 고른 파츠가 있는 쪽부터');
+  M.renderGachaInv();
+  chk(M.state.page() === 1, '  예약은 한 번만 — 다음 그리기에서 튀지 않는다');
+  const head = host.children.find(c => c.className === 'gc-al-head');
+  chk(/⭐ 상시/.test(head.textContent) && /13 \/ 14 모음/.test(head.textContent), '도감 머리 — 이름 · n / m 모음');
+  head.children[0].onclick();
+  chk(M.state.album() === null && host.children.some(c => /gc-album/.test(c.className)), '‹ — 도감 목록으로');
+  host.children.filter(c => /\bgc-album\b/.test(c.className))[2].onclick();
+  const w1 = cells(grid()).find(c => c.textContent.includes('???'));
+  chk(M.state.album() === 'winter' && cells(grid()).length === 2 && w1 && /12월에 돌아옴/.test(w1.textContent), '지금이 아닌 시즌 — 안 뽑은 칸에 «12월에 돌아옴»');
+  w1.oncontextmenu({ preventDefault(){} });
+  chk(/시즌 파츠/.test(e.toasts[e.toasts.length - 1]), '  우클릭 — 시즌 파츠 안내');
+  /* 우클릭 상세조정 — 착용한 것만 */
+  e.draft = { equippedParts: { hat: [{ id: 'w0' }] } };
+  e.saved.find(p => p.id === 'w0').cat = 'hat';
+  M.renderGachaInv();
+  const w0 = cells(grid()).find(c => c.textContent.includes('w0'));
+  w0.oncontextmenu({ preventDefault(){} });
+  chk(e.adj && e.adj.id === 'w0' && grid().children.some(c => c.className === 'adj'), '착용한 칸 우클릭 — 상세조정 패널이 그 칸 뒤에');
+  head.children[0].onclick && host.children.find(c => c.className === 'gc-al-head').children[0].onclick();
+  chk(e.adj === null, '  도감을 바꾸면 상세조정은 접는다');
+  /* 관리자 — 삭제 · 빈 도감은 목록으로 */
+  e.admin = true; M.state.setAlbum('spring'); M.renderGachaInv();
+  const s0 = cells(grid())[0];
+  chk(/\(미보유\)/.test(s0.textContent) && !/locked/.test(s0.className), '관리자 — 안 뽑은 것도 열려 보인다(등록 후 시험)');
+  const del = s0.children.find(c => c.className === 'gc-del');
   e.confirmAns = false; del.onclick({ stopPropagation(){} });
   chk(!e.deleted.length && e.focus === 1, '관리자 ✕ — 취소해도 window.focus()(Electron 멈춤 방지)');
   e.confirmAns = true; del.onclick({ stopPropagation(){} });
-  chk(e.deleted.join() === 'p8' && e.focus === 2, '  확인하면 지운다');
-  e.admin = false;
-  e.adj = { cat: 'hat', id: 'p1' };
-  M.closeGachaInv();
-  chk(e.els.gachaInvOverlay.style.display === 'none' && e.commits === 1 && e.adj === null, '닫으면 저장(commitWdDraft) · 상세조정 선택도 푼다');
-  M.toggleGachaInv(); chk(M.isInvOpen(), 'T — 닫혀 있으면 연다');
-  e.docL.keydown[0]({ key: 'Escape' }); chk(!M.isInvOpen() && e.commits === 2, 'ESC — 닫고 저장');
-  M.toggleGachaInv(); e.docL.mousedown[0]({ target: { closest: () => null } }); chk(!M.isInvOpen(), '바깥 클릭 — 닫는다');
-  M.toggleGachaInv(); e.winL.blur[0](); chk(!M.isInvOpen(), '창이 포커스를 잃으면 닫는다');
+  chk(e.deleted.join() === 's0' && e.focus === 2 && M.state.album() === null, '  확인하면 지운다 · 빈 도감이 되면 목록으로');
+  chk(e.els.gachaAdminCat.style.display === '' && e.els.gachaAdminCat.options.length === 2, '  관리자 등록 줄(카테고리 · + 등록)');
+  e.admin = false; M.renderGachaInv();
+  chk(e.els.gachaAdminCat.style.display === 'none', '  관리자가 아니면 숨김');
+  /* 파츠가 하나도 없으면 */
+  const e2 = mkEnv({ saved: [] }); e2.hostOn = true; const M2 = e2.mk(); M2.renderGachaInv();
+  chk(/아직 가챠로 나오는 파츠가 없어요/.test(e2.els.gachaInvHost.textContent), '가챠 파츠가 없으면 안내');
 });
 
 await sec('── 6. 뽑기 창', async () => {
   let e = mkEnv({ level: 10, saved: [G('a'), G('b')] });
   let M = e.mk();
-  M.openGachaInv(); e.els.gachaGoDraw.onclick();
-  chk(e.els.gachaDrawOverlay.style.display === 'block' && e.els.gachaInvOverlay.style.display === 'none' && /gc-cap-wrap idle/.test(e.els.gachaDrawStage.innerHTML), '뽑으러 가기 — 대기 캡슐');
+  e.els.gachaGoDraw.onclick();
+  chk(M.isDrawOpen() && /gc-cap-wrap idle/.test(e.els.gachaDrawStage.innerHTML), '뽑으러 가기 — 대기 캡슐');
   chk(/남은 뽑기 <b>2회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && e.els.gachaDraw5.textContent === '2연속 뽑기' && !e.els.gachaDraw5.disabled, '정보줄 · 5연속은 남은 수만큼(죽이지 않는다)');
   e.rand = [0.0, 0.6];
   e.timers.length = 0;
@@ -486,28 +516,47 @@ await sec('── 6. 뽑기 창', async () => {
   const reveal = wrap && wrap.children.find(c => c.className === 'gc-reveal');
   chk(!!reveal && reveal.children.length === 2 && wrap.classList.contains('crack') && wrap.classList.contains('wide'), '갈라짐(2회 이상은 wide — 토큰 하나씩) · 결과 둘');
   chk(e.els.gachaDraw1.disabled === true && /남은 뽑기 <b>0회<\/b>/.test(e.els.gachaDrawBar.innerHTML), '끝나면 정보줄 갱신 · 남은 뽑기 0 이면 버튼 꺼짐');
-  e.els.gachaBackInv.onclick();
-  chk(M.isInvOpen() && !M.isDrawOpen(), '보관함으로 — 방금 뽑은 파츠가 있는 페이지');
+  const loadsBefore = e.loads | 0;
+  e.adj = { cat: 'hat', id: 'zz' };   // 다른 도감에서 보던 상세조정
+  e.els.gachaBackInv.onclick(); await flush();
+  chk(e.adj === null, '도감으로 — 다른 도감으로 가면 상세조정을 접는다');
+  chk((e.loads | 0) === loadsBefore, '도감으로 — 방금 뽑기가 서버 값을 받아 왔으니 다시 읽지 않는다');
+  M.onAlbumShow(); await flush();
+  chk((e.loads | 0) === loadsBefore + 1, '  건너뛰기는 한 번만 — 다음에 도감을 보이면 다시 맞춘다');
+  chk(e.albumOpens === 1 && M.isInvOpen() && !M.isDrawOpen() && M.state.album() === '' && M.selId() === 'b'
+      && e.els.gachaInvHost.children.some(c => c.id === 'gachaInvGrid'), '도감으로 — 뽑기 창 닫고 꾸미기 창 «도감» 탭 · 방금 뽑은 파츠의 도감 · 그 파츠를 고른다');
+  let stopped = 0;
+  e.els.gachaGoDraw.onclick(); e.docL.keydown[0]({ key: 'Escape', stopPropagation(){ stopped++; } });
+  chk(e.docL.keydown[0]._cap === true, 'ESC 는 캡처 단계에서 받는다 — 먼저 걸린 꾸미기 창의 ESC 보다 앞서 멈추려고');
+  chk(!M.isDrawOpen() && !e.els.gachaDrawStage.innerHTML && stopped === 1, 'ESC — 뽑기 창만 닫고 무대를 비운다 · 멈춰서 뒤 꾸미기 창은 안 닫힌다');
+  e.docL.keydown[0]({ key: 'Escape', stopPropagation(){ stopped++; } });
+  chk(stopped === 1, '  뽑기 창이 없으면 ESC 를 막지 않는다(꾸미기 창이 받는다)');
+  e.els.gachaGoDraw.onclick(); e.docL.mousedown[0]({ target: { closest: (sel) => /#wardrobePanel/.test(sel) ? {} : null } });
+  chk(M.isDrawOpen(), '  꾸미기 창 안을 누르면 안 닫는다(입혀 보는 곳)');
+  e.docL.mousedown[0]({ target: { closest: () => null } });
+  chk(!M.isDrawOpen(), '  바깥을 누르면 닫는다');
+  e.els.gachaGoDraw.onclick(); e.winL.blur[0]();
+  chk(!M.isDrawOpen(), '  창이 포커스를 잃으면 닫는다');
   e.els.gachaGoDraw.onclick(); e.toasts.length = 0;
   await e.els.gachaDraw1.onclick();
   chk(e.toasts.join() === '남은 뽑기가 없어요' && /남은 뽑기가 없어요/.test(e.els.gachaDrawStage.children[0] ? e.els.gachaDrawStage.children[0].textContent : ''), '남은 뽑기가 없으면 안내 · 무대에 문구');
   /* 오류 — 뽑기 안에서 던지면(여기서는 서버 시계) 에러코드로 알리고 잠금을 푼다 */
   e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk();
-  M.openGachaInv(); e.els.gachaGoDraw.onclick();
+  e.els.gachaGoDraw.onclick();
   e.srvThrows = true;
   await e.els.gachaDraw1.onclick();
   chk(e.errs.join() === 'E-CHAR-12' && e.els.gachaBackInv.disabled === false && /gc-cap-wrap idle/.test(e.els.gachaDrawStage.innerHTML), '뽑기 오류 — E-CHAR-12 · 잠금 풀림 · 대기 캡슐로');
   e.srvThrows = false;
   /* 안내가 던져도 잠금은 풀린다(finally) */
   e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk();
-  M.openGachaInv(); e.els.gachaGoDraw.onclick(); e.txFail = 'denied'; e.errThrows = true;
+  e.els.gachaGoDraw.onclick(); e.txFail = 'denied'; e.errThrows = true;
   try{ await e.els.gachaDraw1.onclick(); }catch(_){}
   chk(e.els.gachaDraw1.disabled === false && e.els.gachaBackInv.disabled === false, '실패 안내가 던져도 뽑기 버튼 잠금이 풀린다');
   /* 서버 저장 실패 — 이유별 번호 · 횟수 그대로 */
   const want = { denied: 'E-CHAR-09', offline: 'E-CHAR-10', timeout: 'E-CHAR-11', error: 'E-CHAR-12' };
   for(const why of Object.keys(want)){
     e = mkEnv({ level: 10, saved: [G('a')] }); M = e.mk();
-    M.openGachaInv(); e.els.gachaGoDraw.onclick(); e.txFail = why;
+    e.els.gachaGoDraw.onclick(); e.txFail = why;
     await e.els.gachaDraw1.onclick();
     chk(e.errs.join() === want[why] && /남은 뽑기 <b>2회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && e.els.gachaDraw1.disabled === false,
         '  ' + why + ' → ' + want[why] + ' · 남은 뽑기 그대로(2회) · 다시 누를 수 있다');
@@ -516,12 +565,12 @@ await sec('── 6. 뽑기 창', async () => {
 
 await sec('── 7. app.js 배선', () => {
   const code = strip(APP);
-  const defs = /function (gachaDraw|gachaPool|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|openGachaInv|closeGachaInv|toggleGachaInv|_gachaRunDraw|sceneHasColorGroup|_gachaInvOpen)\(|\blet (gachaOwned|_gachaTs|_gachaBonus|_gachaTab|_gachaSelId)\b/;
+  const defs = /function (gachaDraw|gachaPool|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|onAlbumShow|closeGachaDraw|_gachaRunDraw|sceneHasColorGroup|_gachaInvOpen)\(|\blet (gachaOwned|_gachaTs|_gachaBonus|_gachaAlbum|_gachaSelId)\b/;
   chk(!defs.test(code) && defs.test(MOD), '가챠 정의는 모듈에만');
   chk(/^const isGachaPart = deps\.isGachaPart;/m.test(MOD) && !/function isGachaPart\(/.test(MOD) && /isGachaPart: \(\.\.\.a\)=>(premiumMod\.)?isGachaPart\(\.\.\.a\),/.test(APP), '  isGachaPart 는 카탈로그(premium-assets.js)가 정의하고 가챠는 deps 로 받는다(모듈 순환 끊기 3)');
   chk(/gachaMod\.setPartEditor\(\{/.test(APP) && !/\b(openPartRegister|syncPartRegGachaLock|deletePart): \(\.\.\.a\)=>adminPartReg\./.test((APP.match(/TwGacha\.createGacha\(\{([\s\S]*?)\n\}\);/) || [])[1] || ''), '  관리자 등록 · 삭제는 만든 뒤 setPartEditor 로 건다 — 가챠는 관리자 모듈을 부르지 않는다');
   const code2 = code.replace(/const GACHA_OFF = \{[\s\S]*?\};/, '').replace(/\brenderGachaInv: \(\)=>/, '');   // 빈 껍데기 · 👑 달성표 deps 의 이름 칸은 뺀다
-  chk(!/(?<![\w$.])(isGachaColorUnlocked|gachaCount|sceneHasColorGroup|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|toggleGachaInv|_gachaInvOpen|_gachaDrawOpen|_gachaSelId|gachaOwned|_gachaTs|_gachaBonus|_setGachaBonusLocal|GACHA_DUPES_FOR_COLOR)\b/.test(code2), '  app.js 는 옛 이름을 부르지 않는다(gachaMod.이름)');
+  chk(!/(?<![\w$.])(isGachaColorUnlocked|gachaCount|sceneHasColorGroup|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|onAlbumShow|_gachaInvOpen|_gachaDrawOpen|_gachaSelId|gachaOwned|_gachaTs|_gachaBonus|_setGachaBonusLocal|GACHA_DUPES_FOR_COLOR)\b/.test(code2), '  app.js 는 옛 이름을 부르지 않는다(gachaMod.이름)');
   chk(/window\.TwGacha = api/.test(MOD) && (code.match(/TwGacha\.createGacha\(/g) || []).length === 1, '모듈은 window.TwGacha · 만드는 곳은 한 곳');
   const iMk = APP.indexOf('TwGacha.createGacha('), iPrev = APP.indexOf('function _starColorOk('), iWarn = APP.indexOf('async function _warnServerWriteDenied('), iTheme = APP.indexOf('/* ═══ 🎨 디자인 테마');
   chk(iPrev > 0 && iMk > iPrev && iWarn > iMk && iTheme > iWarn, '원래 자리 — 🚩 신고 · 별 색 뒤 · 🔑 쓰기 거부 안내 · 🎨 디자인 테마 앞');
@@ -532,19 +581,19 @@ await sec('── 7. app.js 배선', () => {
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // 파츠 등록 창 셋은 adminPartReg.이름
   const getters = ['isAdmin: ()=>isAdmin,', 'savedParts: ()=>savedParts,', 'partCats: ()=>PART_CATS,', 'wdDraftDef: ()=>wdDraftDef,', 'activeWdAdj: ()=>activeWdAdj,', 'setActiveWdAdj: (v)=>{ activeWdAdj = v; },'];
   const vals = ['seats: seats,', 'slots: slots,', 'presence: Presence,', 'ownedKey: GACHA_OWNED_KEY,', 'tsKey: GACHA_TS_KEY,', 'bonusKey: GACHA_BONUS_KEY,'];
-  chk(deps.length === 41 && fnDeps.length === 27 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
-      'deps 41개 — 함수 27은 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 35 && fnDeps.length === 20 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)) && deps.includes('twNav: twNav,'),
+      'deps 35개 — 함수 20은 화살표 · 📚 [도감으로] 는 창 열기 통로(twNav) · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋과 저장 키 셋은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
-  const calls = ['gachaMod.toggleGachaInv();', 'gachaMod.isInvOpen()', 'gachaMod.isDrawOpen()', 'gachaMod.pruneUnownedGachaParts();', 'gachaMod.selId()',
+  const calls = ['gachaMod.onAlbumShow(opts);', 'gachaMod.renderGachaInv();', 'gachaMod.isInvOpen()', 'gachaMod.pruneUnownedGachaParts();', 'gachaMod.selId()',
     'gachaMod.isGachaPart(', 'gachaMod.isGachaColorUnlocked(', 'gachaMod.gachaCount(', 'gachaMod.DUPES_FOR_COLOR', 'gachaMod.sceneHasColorGroup(',
     'gachaMod.renderGachaInv();', "gachaMod.syncGachaToServer('launcher');", "call(gachaMod.syncGachaToServer, 'logout');", 'gachaMod.owned()', 'gachaMod.resetMemory();',
     "await gachaMod.syncGachaToServer('transfer', 'pull');", 'setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),', 'renderGachaInv: ()=>gachaMod.renderGachaInv(),', 'gachaBonus: ()=>gachaMod.bonus(),'];
   const callCode = code + '\n' + strip(PREG).replace(/gachaMod\(\)/g, 'gachaMod');   // 파츠 등록 창(admin-part-register.js)이 부르는 곳까지
   const miss = calls.filter(c => !callCode.includes(c));
-  chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 5 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 3,
-      '부르는 곳 — T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 런처 · 로그아웃 · 연동 · 👑 달성표 (' + (miss[0] || '다 있음') + ')');
+  chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 6 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 3,
+      '부르는 곳 — 꾸미기 창 «도감» 탭 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 런처 · 로그아웃 · 연동 · 👑 달성표 (' + (miss[0] || '다 있음') + ' · isGachaPart ' + (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length + ' · prune ' + (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length + ')');
   const off = (APP.match(/const GACHA_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/gachaMod\.(\w+)/g) || []).map(s => s.split('.')[1]))];
   chk(!/\bGACHA_OFF\b/.test(APP), '빈 껍데기 GACHA_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');

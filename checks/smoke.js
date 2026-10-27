@@ -353,8 +353,9 @@ PRELOAD.push('pomodoro.js');
 /* myhome-sticker-rules.js — 🔒 스티커 잠금 · 순서 규칙(순수 함수). 관리 창 · 편집 묶음이 만들 때 TwMyHomeStickerRules 를 받으므로 먼저. */
 PRELOAD.push('myhome-sticker-rules.js');
 PRELOAD.push('myhome-sticker.js');
-/* gacha.js — 🎰 파츠 가챠 코어 · 파츠 보관함(T) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(보유분 · 보너스 읽기 · 부팅 동기화 4.2초 · 10분 tick · 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
+/* gacha.js — 🎰 파츠 가챠 코어 · 도감(꾸미기 창 «도감» 탭) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(보유분 · 보너스 읽기 · 부팅 동기화 4.2초 · 10분 tick · 뽑기 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
 PRELOAD.push('gacha-server.js');   // 🎰 가챠 서버 길 — app.js 가 만들 때 TwGachaServer 를 부른다
+PRELOAD.push('gacha-album.js');    // 📚 도감 규칙(순수) — gacha.js 가 만들 때 TwGachaAlbum 을 읽는다
 PRELOAD.push('gacha.js');
 /* myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋(앱 FSD 7-2). 같은 까닭 — 만들 때 하는 일(버튼 · 입력칸 연결 · window 고리 · BGM 창 구독)을 같이 굴린다. */
 PRELOAD.push('myhome-edit.js');

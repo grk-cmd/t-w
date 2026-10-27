@@ -1,31 +1,20 @@
-/* gacha.js — 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수) + 파츠 보관함(T) · 뽑기 창(캡슐 연출)
-   app.js 의 두 구역(«🎰 파츠 가챠 — 코어» · «🎰 파츠 보관함 (T키) · 가챠 뽑기 창»)을 그대로 옮긴 모듈이다(앱 FSD 8번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 한 파일이다(👑 달성표 weekly-challenge.js 와 같은 방식 — entities 규칙 + widgets 화면). 보관함 · 뽑기 창이 코어의 이름
-     스무 개 가까이(보유 수 · 풀 · 시즌 · 남은 뽑기 · 보너스 · 동기화 …)를 그대로 쓰고, 코어의 동기화도 보관함을 다시 그린다 —
-     둘로 나누면 그 이름이 전부 deps 로 오가며 글자 그대로 옮기기가 깨진다.
-
-   ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
-     바뀐 것은 app.js 의 let 을 읽고 쓰는 방법뿐이다.
-       · isAdmin → isAdmin() · savedParts → savedParts() · PART_CATS → PART_CATS() · wdDraftDef → wdDraftDef() · activeWdAdj → activeWdAdj()
-         app.js 가 다시 대입하는 let 이라(관리자 로그인 · 카탈로그 도착 · 카테고리 구독 · 꾸미기 초안 · 상세조정 선택) 값이 아니라 읽는 함수로 받는다.
-       · activeWdAdj = x → _setActiveWdAdj(x) — 상세조정 선택은 꾸미기 창 · 기즈모 · 색상 영역이 같이 보는 app.js 의 let 이다.
-       · GACHA_OWNED_KEY · GACHA_TS_KEY · GACHA_BONUS_KEY 는 deps 값 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로
-         정의(세 줄)는 app.js 에 남겼다(달성표 CHAL_KEY 와 같은 방식).
-   ★ 두 구역 사이에 끼어 있던 🔑 «서버가 조용히 거부하는 기기» 안내(_warnServerWriteDenied)는 가챠만의 것이 아니라
-     app.js 에 남겼다 — 🧍 캐릭터 슬롯 동기화도 부른다. 여기서는 deps 로 받는다.
-   ★ 다른 구역이 다시 대입하던 상태는 함수로 바꾼다 — gachaOwned · _gachaTs · _gachaBonus(로그아웃 지우기) → resetMemory().
-   ★ 밖으로 내놓는 이름은 반환값이다(isGachaPart · isGachaColorUnlocked · gachaCount · sceneHasColorGroup · DUPES_FOR_COLOR ·
-     syncGachaToServer · pruneUnownedGachaParts · renderGachaInv · toggleGachaInv · isInvOpen · isDrawOpen · selId · owned · bonus ·
-     setBonusLocal · resetMemory). 부르는 곳(꾸미기 창 · 파츠 등록 · 카탈로그 도착 · 런처 복귀 · 로그아웃 · 계정 연동 · 달성표 보상 · T 키)은
-     전부 만드는 줄보다 늦게 돈다(부팅 중에 먼저 불리는 곳 없음 — 헤드리스로 확인) — app.js 에서 gachaMod.이름 으로 부른다.
-     예전부터 window 에 걸던 고리 셋(openGachaInv · closeGachaInv · _gachaRestorePos)은 그대로 건다.
+/* gacha.js — 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수) + 도감(꾸미기 창 «도감» 탭) · 뽑기 창(캡슐 연출)
+   app.js 의 두 구역(«🎰 파츠 가챠 — 코어» · «🎰 파츠 보관함 · 가챠 뽑기 창»)을 옮긴 모듈이다(앱 FSD 8번 — docs/APP_FSD_MAP.md).
+   ★ 한 파일이다(👑 달성표 weekly-challenge.js 와 같은 방식 — entities 규칙 + widgets 화면). 도감 · 뽑기 창이 코어의 이름
+     스무 개 가까이(보유 수 · 풀 · 시즌 · 남은 뽑기 · 보너스 · 동기화 …)를 그대로 쓰고, 코어의 동기화도 도감을 다시 그린다.
+   ★ 도감은 따로 뜨는 창이 아니다 — 꾸미기 창(wardrobe.js)이 «도감» 탭을 그릴 때 #gachaInvHost 를 만들고 renderGachaInv 를 부른다.
+     T 키 · [도감으로] 는 꾸미기 창을 «도감» 탭으로 연다(wardrobe-panel.js). 도감 줄 · 쪽 규칙은 gacha-album.js(순수).
+   ★ app.js 의 let 은 읽는 함수로 받는다 — isAdmin() · savedParts() · PART_CATS() · wdDraftDef() · activeWdAdj()(쓰기는 _setActiveWdAdj).
+     GACHA_OWNED_KEY · GACHA_TS_KEY · GACHA_BONUS_KEY 는 deps 값 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로 정의는 app.js.
+   ★ 🔑 «서버가 조용히 거부하는 기기» 안내(_warnServerWriteDenied)는 app.js — 🧍 캐릭터 슬롯 동기화도 부른다. 여기서는 deps 로 받는다.
+   ★ 밖으로 내놓는 이름은 반환값이다 — app.js 에서 gachaMod.이름 으로 부른다(만드는 줄보다 늦게 돈다).
+     window 고리는 _gachaRestorePos 하나(뽑기 창 자리).
    ★ createGacha 는 app.js 의 원래 자리에서 부른다. 만들 때 바로 도는 것(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 ·
-     10분 tick · 창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결 bindGachaWindows)이 예전과 같은 순서 · 같은 때에 돈다.
-   ⚠️ firebaseAPI · localStorage · document · window · confirm 은 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
+     10분 tick · 뽑기 창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결 bindGachaWindows)이 같은 순서로 돈다.
+   ⚠️ firebaseAPI · localStorage · document · window · confirm 은 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwGacha — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
    검사: checks/sim-gacha.js — 만들 때 · 보유 · 색상 해금 · 풀 · 남은 뽑기(보너스) · 뽑기 · 서버 동기화(최신 승 · pull · 미래 ts ·
-         실패) · 보관함(탭 · 카테고리 · 시즌 · 페이지) · 뽑기 창(연출 · 오류) · app.js 배선 · html 순서. */
+         실패) · 도감(목록 · 칸 · 쪽 · [도감으로]) · 뽑기 창(연출 · 오류) · app.js 배선 · html 순서. */
 (function(){
 
 function createGacha(deps){
@@ -54,13 +43,7 @@ const createWardrobeAdjPanel = deps.createWardrobeAdjPanel;
 const _clearMultiPanelRef = deps.clearMultiPanelRef;
 const refreshWdPreviewColorSection = deps.refreshWdPreviewColorSection;
 const updateWdGizmoForActivePanel = deps.updateWdGizmoForActivePanel;
-const commitWdDraft = deps.commitWdDraft;
-const syncWdPreviewOwner = deps.syncWdPreviewOwner;            // 🖼 꾸미기 미리보기 패널 — app.js
-const wdPreviewSavedPos = deps.wdPreviewSavedPos;
-const placeWdPreview = deps.placeWdPreview;
-const clampWdPreviewIntoView = deps.clampWdPreviewIntoView;
-const refreshWdPreviewChar = deps.refreshWdPreviewChar;
-const detachWdGizmo = deps.detachWdGizmo;
+const twNav = deps.twNav;                                      // 🧭 창 열기 통로(nav.js) — [도감으로] 가 꾸미기 창 «도감» 탭을 부탁한다(가챠는 꾸미기 창을 모른다)
 const isAdmin = deps.isAdmin;                                  // 🔑 관리자 — app.js 의 let(로그인할 때 다시 대입된다)
 const savedParts = deps.savedParts;                            // 📦 파츠 카탈로그 — app.js 의 let(카탈로그 도착 때 다시 대입된다)
 const PART_CATS = deps.partCats;                               // 🏷️ 카테고리 — app.js 의 let(커스텀 카테고리 구독 때 다시 대입된다)
@@ -76,7 +59,7 @@ const GACHA_BONUS_KEY = deps.bonusKey;                         // 'tw.gachaBonus
 
 /* ═══ 🎰 파츠 가챠 — 코어 ══════════════════════════════════════════════════
    성격은 '집중 보상'이다. 수집 경쟁이 아니므로 등급(rarity)도 꽝도 없고 확률은 균등하다.
-   화면(보관함·뽑기 연출)은 아직 없다 — 여기 있는 것은 상태·계산·뽑기까지다.
+   화면(도감 · 뽑기 연출)은 이 파일 아래쪽에 있다 — 여기 있는 것은 상태 · 계산 · 뽑기까지다.
 
    저장은 이 한 노드가 전부다:
      users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
@@ -136,7 +119,7 @@ let _gachaTs = 0;                     // 서버 ts 사본 — 이 판은 판정�
 let _gachaSyncing = false;
 /* 진행 중이라 삼켜진 동기화 요청 — 끝난 뒤 한 번 다시 돈다.
    [왜] 예전엔 `if(_gachaSyncing) return;` 이 끝이었다. 부팅 동기화가 느린 회선에서 몇 초씩
-     걸리는 동안 보관함을 열면(openGachaInv 의 'inv-open') 그 호출이 통째로 사라져, 화면을
+     걸리는 동안 도감을 열면(onAlbumShow 의 'inv-open') 그 호출이 통째로 사라져, 화면을
      맞출 기회가 10분 뒤 tick 까지 없었다. */
 let _gachaSyncPending = null;
 /* 이 세션에서 서버 보유분을 **실제로 한 번이라도 읽었는가**.
@@ -184,16 +167,17 @@ try{
 
 /* 지금 가챠 중인 시즌. 클라이언트 시계 기준이라 조작하면 다른 시즌을 뽑을 수 있지만,
    §5와 같은 결로 감수한다 — 조작해도 남에게 피해가 가지 않는다. */
-const GACHA_SEASON_KEYS = Object.freeze({ spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' });
+const gachaAlbum = TwGachaAlbum;   // 📚 시즌 이름 · 이름표 · 달의 정본(gacha-album.js) — 도감과 뽑기 풀이 같은 표를 본다
 function gachaSeasonNow(){
-  if(_serverMode() && _srvState && GACHA_SEASON_KEYS[_srvState.season]) return GACHA_SEASON_KEYS[_srvState.season];   // 서버 길 — 서버 시계(서울)의 시즌(아는 이름만)
+  const srvSeason = _serverMode() && _srvState ? _srvState.season : '';
+  if(srvSeason && gachaAlbum.isAlbumKey(srvSeason)) return srvSeason;   // 서버 길 — 서버 시계(서울)의 시즌(아는 이름만)
   const m = new Date().getMonth() + 1;
   if(m === 12 || m <= 2) return 'winter';
   if(m <= 5) return 'spring';
   if(m <= 8) return 'summer';
   return 'autumn';
 }
-const GACHA_SEASON_LABEL = { '':'상시', spring:'🌸 봄', summer:'🌊 여름', autumn:'🍂 가을', winter:'❄ 겨울' };
+const GACHA_SEASON_LABEL = gachaAlbum.ALBUM_LABEL;
 
 function gachaCount(partId){ return gachaOwned[partId] | 0; }
 function isGachaOwnedPart(partId){ return gachaCount(partId) > 0; }
@@ -220,7 +204,7 @@ function _poolFor(owned){
     && (owned[p.id] | 0) < gachaDupesFor(p));   // 색 없는 파츠는 1개만 모으면 빠진다
 }
 function gachaPool(){ return _poolFor(gachaOwned); }
-// 이번 시즌에 뽑힐 수 있는 전체(다 모은 것 포함) — 보관함의 "이번 시즌 컴플리트" 판정용
+// 이번 시즌에 뽑힐 수 있는 전체(다 모은 것 포함) — 뽑기 창의 "이번 시즌 컴플리트" 판정용
 function gachaSeasonParts(){
   const season = gachaSeasonNow();
   return savedParts().filter(p => isGachaPart(p) && (!p.season || p.season === season));
@@ -351,7 +335,7 @@ async function gachaDraw(n){
   }finally{ _gachaDrawing = false; }
 }
 
-/* 서버와 맞추기 — 부팅 직후 1회 · 10분마다 · 보관함 열 때 · 런처 복귀 · 로그아웃 직전 · 계정 연동 직후.
+/* 서버와 맞추기 — 부팅 직후 1회 · 10분마다 · 도감을 열 때 · 런처 복귀 · 로그아웃 직전 · 계정 연동 직후.
 
    ★ 서버가 원본이고 이 PC 는 사본이다. 맞출 때는 **파츠마다 큰 쪽으로 합친다**(_mergeOwned) — 덮어쓰지 않는다.
        · 이 PC 에만 있는 뽑기가 없으면 → 서버 값을 받는다(쓰기 0)
@@ -531,41 +515,23 @@ setTimeout(()=>{ try{ syncGachaToServer('boot'); }catch(_){} }, 4200);
 const GACHA_SYNC_INTERVAL_MS = 10*60*1000;   // 10분 — 집중 누적(FOCUS_SYNC_INTERVAL_MS)과 같은 박자
 setInterval(()=>{ try{ syncGachaToServer('tick'); }catch(_){} }, GACHA_SYNC_INTERVAL_MS);
 
-/* ═══ 🎰 파츠 보관함 (T키) · 가챠 뽑기 창 ══════════════════════════════════
-   ★ 착용은 꾸미기(F2)와 같은 배관을 그대로 탄다 — toggleEquip(cat, id).
-     draft에 얹고 미리보기에 붙인 뒤, 창을 닫을 때 commitWdDraft()로 실제 캐릭터에 저장한다.
-     가챠 파츠는 stackable이 강제로 켜져 있으므로 기존 꾸미기 파츠를 밀어내지 않는다.
-   🚧 뽑기 연출(캡슐 크랙·도트 파티클)은 아직 없다. 지금은 결과만 뜬다. */
-let _gachaTab = 'all';   // all | always | season
-/* 🏷️ 카테고리 소분류 — 'all' 또는 PART_CATS 의 cat 값. 상시/시즌 탭과 **직교하는 두 번째 축**이다.
-   ★ _gachaTab 과 같은 모듈 변수라 창을 닫았다 열어도 유지된다(탭과 같은 관례를 일부러 맞췄다).
-   ★ 상시↔시즌을 오갔을 때 그쪽에 그 카테고리가 하나도 없으면 renderGachaInv 가 'all' 로 되돌린다 —
-     안 그러면 파츠는 있는데 화면만 텅 빈 상태가 되어 "보관함이 비었다"로 오해한다. */
-let _gachaCat = 'all';
-/* 🍂 시즌 드롭다운 — 'all' 또는 GACHA_SEASON_LABEL 의 시즌 키(spring/summer/autumn/winter).
-   ★ **시즌 탭에서만** 쓰인다. 상시 탭은 정의상 p.season 이 없는 것들이라 거를 축이 없고,
-     전체 탭에서 걸면 «시즌으로 걸러진 전체»라는 앞뒤가 안 맞는 상태가 된다.
-   ★ _gachaCat 과 같은 모듈 변수 — 창을 닫았다 열어도, 탭을 오갔다 돌아와도 유지된다.
-   ★ 고른 시즌이 목록에서 사라지면 _gachaSeasonCounts 가 조용히 'all' 로 되돌린다. */
-let _gachaSeason = 'all';
-/* 📄 파츠 그리드 페이지 — 4열 × 2줄 = 한 페이지 8칸.
-   ★ 세로 스크롤 대신 페이지로 끊는다. 그리드의 max-height:46vh · overflow-y:auto 는 **그대로 둔다** —
-     우클릭 상세조정 패널이 끼면 8칸에 더해 한 줄이 더 붙어서 46vh를 넘길 수 있고, 그때는
-     예전처럼 스크롤되는 편이 안전하다(패널의 scrollIntoView 도 그 스크롤 박스를 전제로 쓴다).
-   ⚠️ 열을 바꾸려면 CSS(#gachaInvGrid 의 repeat(4,1fr))와 여기를 **같이** 고쳐야 한다.
-     한쪽만 고치면 페이지당 칸 수와 실제 줄 수가 어긋나 마지막 줄이 잘리거나 빈칸이 남는다. */
-const GACHA_GRID_COLS = 4, GACHA_GRID_ROWS = 2;
+/* ═══ 🎰 도감(꾸미기 창 «도감» 탭) · 가챠 뽑기 창 ══════════════════════════════════
+   ★ 도감은 꾸미기 창(#wardrobePanel)의 탭 하나다 — 꾸미기 창이 «도감» 탭을 그릴 때 #gachaInvHost 를 만들고
+     renderGachaInv 를 부른다. 그 자리가 없으면(다른 탭 · 창 닫힘) 아무것도 그리지 않는다.
+   ★ 착용은 꾸미기와 같은 배관이다 — toggleEquip(cat, id). 저장은 꾸미기 창을 닫을 때(commitWdDraft).
+     가챠 파츠는 stackable 이 강제라 꾸미기 파츠를 밀어내지 않는다.
+   ★ 도감 줄 · 쪽 규칙은 gacha-album.js(순수 함수). */
+/* 지금 연 도감 — null 이면 도감 목록, '' 은 상시, 시즌 키면 그 시즌. 창을 닫았다 열어도 남는다. */
+let _gachaAlbum = null;
+/* 📄 4열 × 3줄 = 한 쪽 12칸.
+   ⚠️ 열을 바꾸면 CSS(#gachaInvGrid 의 repeat(4,1fr))도 같이 고친다 — 한쪽만 고치면 마지막 줄이 잘리거나 빈칸이 남는다. */
+const GACHA_GRID_COLS = 4, GACHA_GRID_ROWS = 3;
 const GACHA_PAGE_SIZE = GACHA_GRID_COLS * GACHA_GRID_ROWS;
 let _gachaPage = 0;
-/* 다음 렌더 때 '이 파츠가 있는 페이지'로 한 번 점프하고 스스로 비워지는 예약 슬롯.
-   [왜 필요한가] 창을 열면 미리보기 아래 색상 영역은 _gachaSelId 를 따라가는데, 정작 그 칸이
-     3페이지에 있으면 "색상은 모자 것인데 화면엔 모자가 없다"가 된다. 뽑기 직후도 같다 —
-     새로 뽑은 파츠가 안 보이면 안 들어온 줄 안다.
-   ★ 매 렌더마다 따라가면 안 된다. 그러면 3페이지를 보다가 파츠를 하나 착용하는 것만으로
-     선택이 옮겨가 페이지가 제멋대로 튄다. 그래서 '한 번만' 쓰고 지운다. */
+/* 다음 그리기 때 '이 파츠가 있는 쪽'으로 한 번 옮기고 스스로 비우는 예약.
+   ★ 매번 따라가면 3쪽을 보다가 파츠 하나 착용하는 것만으로 쪽이 튄다 — 한 번만 쓰고 지운다. */
 let _gachaJumpId = null;
-// 방금 뽑은 파츠 — [보관함으로] 를 누를 때 _gachaJumpId 로 옮겨진다(그 페이지가 열린다).
-let _gachaLastDrawId = null;
+let _gachaLastDrawId = null;   // 방금 뽑은 파츠 — [도감으로] 가 그 도감 · 그 쪽을 연다
 let _gachaSelId = null;  // 지금 보고 있는 파츠 — 미리보기 아래 색상 영역이 이걸 따라간다
 
 /* 관리자 등록 — 꾸미기의 [+ 등록]과 같은 흐름(#partRegOverlay)을 그대로 쓴다.
@@ -589,144 +555,99 @@ function _gachaWornIds(){
 function _gachaThumb(rec){ return TwSafeHtml.safeUrl(rec.thumbUrl || rec.thumbnail, 'image') || null; }   // 카탈로그 그림 — 허용된 그림 주소만
 function _gachaPips(n, max){ const m = max || GACHA_DUPES_FOR_COLOR;
   return '●'.repeat(Math.min(n, m)) + '○'.repeat(Math.max(0, m - n)); }
-const GACHA_SEASON_MONTH = { spring:'3월', summer:'6월', autumn:'9월', winter:'12월' };
 
-/* 🏷️ 카테고리 소분류 줄 — 꾸미기창의 하위 카테고리(.wd-sub-row)와 같은 Win98 라디오 관례.
-   [무엇을 푸는가] 보관함에는 상시/시즌 축밖에 없어서, 파츠가 늘어나면 모자를 찾으려고
-     4열 그리드를 끝까지 스크롤해야 했다.
-   ★ **지금 목록에 실제로 존재하는 카테고리만** 낸다. PART_CATS 전부를 늘어놓으면 가챠 파츠가
-     하나도 없는 카테고리까지 라디오가 생겨, 눌러도 빈 화면만 나오는 선택지가 된다.
-     (PART_CATS 는 customPartCats 병합분이라 개수가 고정도 아니다 — 12개를 넘기면 줄이 계속 늘어난다.)
-   ★ 순서는 PART_CATS 순서를 따른다. 등장 순서로 정렬하면 파츠를 하나 뽑을 때마다 라디오가
-     자리를 바꿔서, 늘 같은 곳에 있던 '모자'를 매번 다시 찾아야 한다.
-   ⚠️ 여기서 _gachaCat 을 되돌리는 일이 있으므로 **호출부는 이 함수 뒤에 필터를 걸어야 한다.**
-      순서를 바꾸면 사라진 카테고리로 한 프레임 동안 빈 그리드가 그려진다. */
-/* 🍂 시즌 후보 집계 — **시즌 필터를 걸기 전 목록**으로 센다.
-   ⚠️ 걸고 나서 세면 지금 고른 시즌 하나만 남아 나머지 선택지가 화면에서 사라진다
-     (한 번 고르면 다른 시즌으로 돌아올 수 없게 된다). 카테고리 라디오가 listBeforeCat 을
-     받는 것과 똑같은 이유다.
-   ⚠️ 여기서 _gachaSeason 을 되돌리는 일이 있으므로 **호출부는 이 함수 뒤에 필터를 걸어야 한다.**
-     순서를 바꾸면 사라진 시즌으로 한 프레임 동안 빈 그리드가 그려진다. */
-function _gachaSeasonCounts(listBeforeSeason){
-  const cnt = Object.create(null);
-  (listBeforeSeason||[]).forEach(p=>{ if(p.season) cnt[p.season] = (cnt[p.season]|0) + 1; });
-  /* 고른 시즌이 이 목록에 없으면 조용히 전체로 되돌린다 — 카테고리 라디오와 같은 처리(토스트 없음). */
-  if(_gachaSeason !== 'all' && !cnt[_gachaSeason]){ _gachaSeason = 'all'; _gachaPage = 0; }
-  return cnt;
+function _gachaHost(){ return document.getElementById('gachaInvHost'); }
+/* 상세조정 패널은 접는다 — 열려 있던 파츠가 다른 도감이라 화면에서 사라지면 패널만 남아 어느 파츠 것인지 모른다. */
+function _gachaDropAdj(){
+  if(activeWdAdj()){ _setActiveWdAdj(null); _clearMultiPanelRef(); }
 }
 
-/* 🍂 시즌 드롭다운 — 카테고리 라디오와 **같은 줄** 오른쪽 끝(#gachaInvSubs).
-   [왜 이 줄인가] 이 줄은 원래도 :empty 면 통째로 사라진다 — 「시즌 탭에서만 나타나는 컨트롤」이
-     이 줄에서는 새로 만드는 성질이 아니라 이미 있는 성질이다. 폴더탭 줄(#gachaInvTabs)에 얹으면
-     탭과 아래 패널을 잇는 border-bottom:none 라인을 sunken 컨트롤이 끊는다 — 그 줄은
-     '아래와 이어져 보이는 것'이 일이라 거기에 다른 컨트롤을 두면 안 된다.
-   ★ 후보는 «지금 목록에 실제로 있는 시즌»뿐이다 — 눌러도 빈 화면인 선택지를 만들지 않는다.
-     관리자는 renderGachaInv 의 filter 를 isAdmin 이 앞에서 끊어 목록 자체가 전부이므로,
-     **이 규칙 하나만으로 네 시즌이 다 뜬다.** 관리자 분기를 따로 두지 않는 이유다.
-   ★ 선택지가 0~1종이면 그리지 않는다 — 카테고리 라디오의 cats.length<2 와 같은 관례.
-   ⚠️ 색·테두리는 전부 토큰 경유여야 한다(CSS #gachaInvSeason). 여기서 style 을 직접 박으면
-     버블 테마에서 이 컨트롤만 Win98 로 남는다(audit 검사 12·13). */
-function _appendGachaSeasonSel(row, seasonCnt){
-  if(!seasonCnt) return;
-  const keys = Object.keys(GACHA_SEASON_LABEL).filter(k => k && seasonCnt[k]);
-  if(keys.length < 2) return;
-  const sel = document.createElement('select');
-  sel.id = 'gachaInvSeason';
-  sel.title = '시즌으로 걸러요';
-  const total = keys.reduce((s,k)=> s + (seasonCnt[k]|0), 0);
-  const add = (v, label)=>{
-    const o = document.createElement('option');
-    o.value = v; o.textContent = label;
-    if(_gachaSeason === v) o.selected = true;
-    sel.appendChild(o);
-  };
-  add('all', '전체 시즌 ' + total);
-  keys.forEach(k => add(k, (GACHA_SEASON_LABEL[k] || k) + ' ' + (seasonCnt[k]|0)));
-  sel.onchange = ()=>{
-    const v = sel.value;
-    if(_gachaSeason === v) return;
-    _gachaSeason = v;
-    _gachaPage = 0;   // 시즌이 바뀌면 목록 자체가 다른 것이다 — 3페이지에서 시작하면 안 된다
-    /* 상세조정 패널은 접는다 — 열려 있던 파츠가 다른 시즌이라 목록에서 사라지면 패널만 남아
-       어느 파츠 것인지 알 수 없는 상태가 된다(카테고리 라디오와 같은 처리). */
-    if(activeWdAdj()){
-      _setActiveWdAdj(null);
-      _clearMultiPanelRef();
+/* 📚 도감 탭을 처음 보일 때 — 꾸미기 창을 «도감» 탭으로 열거나 탭을 바꿀 때 꾸미기 창이 부른다.
+   ★ 서버와 한 번 맞춘다(다른 PC 에서 뽑은 것이 보이게) — 기다리지 않는다. 받아오면 _adoptServer 가 다시 그린다.
+   ★ 고른 파츠가 있는 쪽에서 시작한다 — 색상 영역은 그 파츠를 따라가는데 칸이 3쪽에 있으면 화면에 안 보인다.
+   opts.skipSync — [도감으로]: 방금 뽑기가 서버 값을 받아 왔으니 다시 읽지 않는다. */
+function onAlbumShow(opts){
+  if(!(opts && opts.skipSync)){ try{ syncGachaToServer('inv-open'); }catch(_){} }
+  _gachaJumpId = _gachaSelId;
+}
+
+/* 아래 줄(꾸미기 창 #gachaInvFoot) — 남은 뽑기 · 이번 시즌 · 관리자 등록 */
+function _renderGachaFoot(){
+  const bar = document.getElementById('gachaInvBar');
+  if(bar){
+    const season = gachaSeasonNow();
+    bar.innerHTML = '🎰 남은 뽑기 <b>' + gachaTicketsLeft() + '회</b> · ' + escHtml(GACHA_SEASON_LABEL[season] || season) + ' 시즌';
+    bar.title = GACHA_LEVELS_PER_TICKET + '레벨마다 뽑기 1회' + ((_gachaBonus|0) > 0 ? ' + 👑 달성표 ' + (_gachaBonus|0) + '회' : '');
+  }
+  _renderGachaAdminFoot();
+}
+
+/* 도감 목록 — 줄마다 그림 셋 · 이름 · 모은 막대 · «n / m 모음». 지금 시즌 도감은 «지금» 표시. */
+function _renderGachaAlbumList(host, all){
+  const rows = gachaAlbum.albumList(all, gachaCount);
+  if(!rows.length){
+    const d = document.createElement('div'); d.className = 'gc-empty';
+    d.textContent = isAdmin() ? '등록된 가챠 파츠가 없어요. 아래 [+ 등록]으로 만들어 주세요.'
+                              : '아직 가챠로 나오는 파츠가 없어요.';
+    host.appendChild(d);
+    return;
+  }
+  const now = gachaSeasonNow();
+  let seasonHead = false;
+  rows.forEach(a => {
+    if(!a.key || !seasonHead){
+      const h = document.createElement('div'); h.className = 'gc-al-sec';
+      h.textContent = a.key ? '🗂 시즌별 도감' : '⭐ 상시';
+      host.appendChild(h);
+      if(a.key) seasonHead = true;
     }
-    renderGachaInv();
-    refreshWdPreviewColorSection();
-  };
-  row.appendChild(sel);
-}
-
-function _renderGachaCatRow(listBeforeCat, seasonCnt){
-  const row = document.getElementById('gachaInvSubs');
-  if(!row) return;
-  const cnt = Object.create(null);
-  (listBeforeCat||[]).forEach(p=>{ cnt[p.cat] = (cnt[p.cat]|0) + 1; });
-  const cats = PART_CATS().filter(c => cnt[c.cat]);
-
-  /* 고른 카테고리가 이 탭에 없으면 조용히 전체로 되돌린다.
-     [왜 토스트를 안 띄우나] 탭을 누른 것은 유저이고, 그 결과가 화면에 바로 보인다 —
-       여기에 알림까지 붙이면 탭을 오갈 때마다 토스트가 쌓인다. */
-  if(_gachaCat !== 'all' && !cnt[_gachaCat]) { _gachaCat = 'all'; _gachaPage = 0; }
-
-  row.innerHTML = '';
-
-  const total = (listBeforeCat||[]).length;
-  const mk = (cat, label, n)=>{
-    const b = document.createElement('button');
-    b.type = 'button';
-    b.className = 'gc-sub-btn' + (_gachaCat === cat ? ' on' : '');
-    b.innerHTML = escHtml(label) + ' <span class="gc-sub-n">' + (n|0) + '</span>';
-    b.onclick = ()=>{
-      if(_gachaCat === cat) return;
-      _gachaCat = cat;
-      _gachaPage = 0;   // 카테고리가 바뀌면 목록 자체가 다른 것이다 — 3페이지에서 시작하면 안 된다
-      /* 상세조정 패널은 접는다 — 열려 있던 파츠가 다른 카테고리라 목록에서 사라지면
-         패널만 남아 어느 파츠 것인지 알 수 없는 상태가 된다(꾸미기창이 탭을 바꿀 때와 같은 처리). */
-      if(activeWdAdj()){
-        _setActiveWdAdj(null);
-        _clearMultiPanelRef();
-      }
+    const row = document.createElement('button');
+    row.type = 'button';
+    row.className = 'gc-album' + (a.key && a.key === now ? ' now' : '');
+    const th = document.createElement('div'); th.className = 'gc-al-thumbs';
+    for(let i = 0; i < gachaAlbum.ALBUM_THUMBS; i++){
+      const rec = a.thumbs[i];
+      const src = rec ? _gachaThumb(rec) : null;
+      if(src){ const img = document.createElement('img'); img.src = src; img.alt = ''; th.appendChild(img); }
+      else { const ph = document.createElement('span'); ph.className = 'gc-al-ph'; ph.textContent = rec ? (rec.icon || '🎁') : '❔'; th.appendChild(ph); }
+    }
+    row.appendChild(th);
+    const body = document.createElement('div'); body.className = 'gc-al-body';
+    const tt = document.createElement('div'); tt.className = 'gc-al-title';
+    tt.textContent = a.label;
+    if(a.key && a.key === now){ const b = document.createElement('span'); b.className = 'gc-al-now'; b.textContent = '지금'; tt.appendChild(b); }
+    body.appendChild(tt);
+    const bar = document.createElement('div'); bar.className = 'gc-al-bar';
+    const fill = document.createElement('i'); fill.style.width = gachaAlbum.albumPct(a.owned, a.total) + '%';
+    bar.appendChild(fill);
+    const n = document.createElement('span'); n.className = 'gc-al-n'; n.textContent = a.owned + ' / ' + a.total + ' 모음';
+    const line = document.createElement('div'); line.className = 'gc-al-line';
+    line.appendChild(bar); line.appendChild(n);
+    body.appendChild(line);
+    row.appendChild(body);
+    const go = document.createElement('span'); go.className = 'gc-al-go'; go.textContent = '›';
+    row.appendChild(go);
+    row.title = a.label + ' 도감 — ' + a.owned + ' / ' + a.total + ' 모음';
+    row.onclick = ()=>{
+      _gachaAlbum = a.key;
+      _gachaPage = 0;
+      _gachaJumpId = _gachaSelId;   // 고른 파츠가 이 도감에 있으면 그 쪽부터
+      _gachaDropAdj();
       renderGachaInv();
       refreshWdPreviewColorSection();
     };
-    return b;
-  };
-  /* 카테고리가 0~1종뿐이면 라디오를 아예 안 그린다 — 선택지가 하나인 라디오는 자리만 먹는다.
-     ⚠️ 예전에는 여기서 return 해 줄을 통째로 비웠다. 지금은 시즌 드롭다운이 **같은 줄**을 쓰므로
-       카테고리가 하나여도 드롭다운은 나와야 한다. 둘 다 없으면 줄은 여전히 비고,
-       #gachaInvSubs:empty 가 알아서 숨긴다(관례 그대로). */
-  if(cats.length >= 2){
-    /* 라디오만 따로 감싼다 — 넘칠 때 세로 스크롤되는 것은 **이 안쪽**이어야 한다.
-       [왜] 예전엔 #gachaInvSubs 자체가 max-height:66px + overflow-y:auto 였다. 그대로 두고
-         드롭다운을 같은 줄에 넣으면 카테고리가 많을 때 드롭다운이 스크롤 안으로 밀려 들어가
-         「보이지 않는 필터」가 된다. 스크롤 상자를 한 겹 안으로 옮겨 드롭다운은 늘 제자리에 둔다. */
-    const box = document.createElement('div');
-    box.id = 'gachaInvCats';
-    box.appendChild(mk('all', '전체', total));
-    cats.forEach(c=> box.appendChild(mk(c.cat, (c.icon||'') + ' ' + c.label, cnt[c.cat])));
-    row.appendChild(box);
-  }
-  _appendGachaSeasonSel(row, seasonCnt);
+    host.appendChild(row);
+  });
 }
 
-/* 📄 ◀ 1/2 ▶ — 하단 버튼 줄 왼쪽. 한 페이지뿐이면 통째로 비운다(:empty 로 숨겨진다).
-   ★ 그리드는 건드리지 않는다. 페이저는 '몇 번째 8칸을 보여줄지'만 정하고,
-     실제 목록은 상시/시즌 탭과 카테고리 라디오가 정한다. */
-function _renderGachaPager(pages){
-  const box = document.getElementById('gachaInvPager');
-  if(!box) return;
-  box.innerHTML = '';
-  if(pages <= 1) return;
-  const step = d=>()=>{
-    const next = Math.min(pages - 1, Math.max(0, _gachaPage + d));
+/* 📄 ⏮ ◀ 1/2 ▶ ⏭ — 칸 아래. 한 쪽뿐이어도 그린다(자리가 늘 같아야 누른 손이 다른 버튼을 누르지 않는다). */
+function _renderGachaPager(box, pages){
+  const go = p=>()=>{
+    const next = Math.min(pages - 1, Math.max(0, p));
     if(next === _gachaPage) return;
     _gachaPage = next;
     renderGachaInv();
-    /* 색상 영역은 건드리지 않는다 — 페이지를 넘긴 것뿐이고 고른 파츠(_gachaSelId)는 그대로다.
-       여기서 갱신하면 페이지를 넘길 때마다 색상 영역이 깜빡인다. */
+    /* 색상 영역은 건드리지 않는다 — 쪽을 넘긴 것뿐이고 고른 파츠(_gachaSelId)는 그대로다. */
   };
   const mk = (txt, title, dis, fn)=>{
     const b = document.createElement('button');
@@ -734,70 +655,47 @@ function _renderGachaPager(pages){
     if(!dis) b.onclick = fn;
     return b;
   };
-  box.appendChild(mk('◀', '이전 페이지', _gachaPage <= 0, step(-1)));
+  box.appendChild(mk('⏮', '첫 쪽', _gachaPage <= 0, go(0)));
+  box.appendChild(mk('◀', '이전 쪽', _gachaPage <= 0, go(_gachaPage - 1)));
   const n = document.createElement('span'); n.className='gc-pg-num';
-  n.textContent = (_gachaPage + 1) + '/' + pages;
+  n.textContent = (_gachaPage + 1) + ' / ' + pages;
   box.appendChild(n);
-  box.appendChild(mk('▶', '다음 페이지', _gachaPage >= pages - 1, step(1)));
+  box.appendChild(mk('▶', '다음 쪽', _gachaPage >= pages - 1, go(_gachaPage + 1)));
+  box.appendChild(mk('⏭', '마지막 쪽', _gachaPage >= pages - 1, go(pages - 1)));
 }
 
-function renderGachaInv(){
-  const bar = document.getElementById('gachaInvBar');
-  const grid = document.getElementById('gachaInvGrid');
-  if(!bar || !grid) return;
+/* 한 도감의 칸 — 뽑은 것은 그림 · 이름 · ●○ · 🎨, 안 뽑은 것은 점선 «???»(시즌 밖이면 «n월에 돌아옴»). */
+function _renderGachaAlbumGrid(host, list){
   const season = gachaSeasonNow();
-  const left = gachaTicketsLeft();
-  bar.innerHTML = '레벨 <b>' + Number(getFocusLevel()) + '</b> · 남은 뽑기 <b>' + left + '회</b>'
-    + ' <span style="opacity:.6">(' + GACHA_LEVELS_PER_TICKET + '레벨당 1회'
-      + ((_gachaBonus|0) > 0 ? ' + 👑달성표 ' + (_gachaBonus|0) + '회' : '') + ')</span><br>'
-    + '이번 시즌 가챠 — <b>' + (GACHA_SEASON_LABEL[season] || season) + '</b>';
-
-  // 보여줄 것: 이번 시즌 가챠분 전부 + 지금은 안 나오지만 내가 가진 비시즌 파츠
-  // ★ 관리자는 시즌·소유와 무관하게 전부 본다 — 등록한 파츠를 그 자리에서 테스트해야 하기 때문이다.
-  let list = savedParts().filter(p => isGachaPart(p)
-    && (isAdmin() || !p.season || p.season === season || gachaCount(p.id) > 0));
-  if(_gachaTab === 'always') list = list.filter(p => !p.season);
-  if(_gachaTab === 'season') list = list.filter(p => !!p.season);
-  /* 🍂 시즌 축 — **시즌 탭에서만** 건다. 집계(=드롭다운 후보)가 먼저, 필터는 그 뒤다.
-     ★ 상시 탭은 정의상 p.season 이 없는 것들이라 거를 축이 없고, 전체 탭에서 걸면
-       «시즌으로 걸러진 전체»가 되어 탭 이름과 내용이 어긋난다. */
-  let seasonCnt = null;
-  if(_gachaTab === 'season'){
-    seasonCnt = _gachaSeasonCounts(list);
-    if(_gachaSeason !== 'all') list = list.filter(p => p.season === _gachaSeason);
-  }
-  /* 🏷️ 소분류 줄은 **카테고리 필터를 걸기 전 목록**으로 그린다 — 걸고 나서 세면 지금 고른
-     카테고리 하나만 남아 나머지 선택지가 화면에서 사라진다(고르면 되돌아올 수 없게 된다). */
-  _renderGachaCatRow(list, seasonCnt);
-  if(_gachaCat !== 'all') list = list.filter(p => p.cat === _gachaCat);
-  list.sort((a,b)=> (a.order|0) - (b.order|0));
+  const head = document.createElement('div'); head.className = 'gc-al-head';
+  const back = document.createElement('button'); back.type = 'button'; back.className = 'gc-al-back';
+  back.textContent = '‹'; back.title = '도감 목록으로';
+  back.onclick = ()=>{ _gachaAlbum = null; _gachaDropAdj(); renderGachaInv(); refreshWdPreviewColorSection(); };
+  head.appendChild(back);
+  const tt = document.createElement('span'); tt.className = 'gc-al-title';
+  tt.textContent = gachaAlbum.ALBUM_LABEL[_gachaAlbum];
+  head.appendChild(tt);
+  const cnt = document.createElement('span'); cnt.className = 'gc-al-n';
+  cnt.textContent = list.filter(p => gachaCount(p.id) > 0).length + ' / ' + list.length + ' 모음';
+  head.appendChild(cnt);
+  host.appendChild(head);
 
   const worn = _gachaWornIds();
-  grid.innerHTML = '';
-  if(!list.length){
-    const d = document.createElement('div');
-    d.style.cssText = 'grid-column:1/-1;font-size:11px;opacity:.7;text-align:center;padding:18px 6px;line-height:1.7;';
-    d.textContent = isAdmin() ? '등록된 가챠 파츠가 없어요. 아래 [+ 등록]으로 만들어 주세요.'
-                            : '아직 이 시즌에 가챠로 나오는 파츠가 없어요.';
-    grid.appendChild(d);
-  }
+  const grid = document.createElement('div'); grid.id = 'gachaInvGrid';
   // 선택이 비었거나 목록에서 사라졌으면 착용 중인 것 → 가진 것 순으로 하나 잡아둔다.
   if(!list.some(p => p.id === _gachaSelId)){
     const pick = list.find(p => worn.includes(p.id)) || list.find(p => gachaCount(p.id) > 0) || null;
     _gachaSelId = pick ? pick.id : null;
   }
-
-  /* 📄 페이지 확정 — 예약된 점프가 있으면 그 파츠가 있는 쪽으로 한 번만 옮기고 예약을 지운다.
-     ⚠️ 점프는 _gachaPage 를 덮으므로 반드시 범위 보정보다 **먼저** 온다. */
-  const pages = Math.max(1, Math.ceil(list.length / GACHA_PAGE_SIZE));
+  /* 📄 쪽 확정 — 예약된 점프가 먼저(쪽을 덮으므로), 범위 보정이 그 뒤.
+     목록이 줄어 지금 쪽이 사라지는 경우가 있다(관리자 삭제 · 서버 동기화) — 빈 쪽이 열리면 «다 사라졌다» 로 보인다. */
   if(_gachaJumpId){
-    const at = list.findIndex(p => p.id === _gachaJumpId);
-    if(at >= 0) _gachaPage = Math.floor(at / GACHA_PAGE_SIZE);
-    _gachaJumpId = null;   // 성공하든 못 찾든 한 번 쓰고 버린다 — 안 지우면 매 렌더마다 페이지가 튄다
+    const at = gachaAlbum.pageOf(list, _gachaJumpId, GACHA_PAGE_SIZE);
+    if(at >= 0) _gachaPage = at;
+    _gachaJumpId = null;   // 찾든 못 찾든 한 번 쓰고 버린다
   }
-  /* 목록이 줄어 지금 페이지가 사라지는 경우가 있다(관리자 삭제·시즌 교체·서버 동기화).
-     그대로 두면 빈 페이지가 열리고 "파츠가 다 사라졌다"로 보인다. */
-  _gachaPage = Math.min(pages - 1, Math.max(0, _gachaPage | 0));
+  _gachaPage = gachaAlbum.clampPage(_gachaPage, list.length, GACHA_PAGE_SIZE);
+  const pages = gachaAlbum.pageCount(list.length, GACHA_PAGE_SIZE);
   const pageList = list.slice(_gachaPage * GACHA_PAGE_SIZE, (_gachaPage + 1) * GACHA_PAGE_SIZE);
 
   pageList.forEach(rec => {
@@ -817,7 +715,7 @@ function renderGachaInv(){
       cell.appendChild(ph);
     }
     const nm = document.createElement('div'); nm.className='gc-name';
-    // ⚠️ 미획득 파츠는 이름을 숨긴다 — 이름이 보이면 실루엣의 의미가 없다.
+    // ⚠️ 안 뽑은 파츠는 이름을 숨긴다 — 이름이 보이면 실루엣의 의미가 없다.
     nm.textContent = show ? (rec.name || '파츠') : '???';
     cell.appendChild(nm);
     if(show){
@@ -838,11 +736,8 @@ function renderGachaInv(){
         renderGachaInv();
         refreshWdPreviewColorSection();
       };
-      /* 🖱️ 우클릭 = 상세조정 — 꾸미기 카드와 완전히 같은 관례·같은 패널(createWardrobeAdjPanel).
-         [왜] 보관함에서 착용하면 미리보기에는 붙는데 위치·크기·회전을 만질 방법이 없었다.
-           가챠 파츠는 stackable이 강제라 꾸미기 창에도 안 뜨므로, 여기서 못 하면 아예 못 한다.
-         ★ activeWdAdj 를 그대로 쓴다 — 기즈모 부착(updateWdGizmoForActivePanel)과 미리보기 하단
-           색상 영역이 전부 이 값을 보고 움직이기 때문에, 별도 상태를 만들면 셋이 따로 논다. */
+      /* 🖱️ 우클릭 = 상세조정 — 꾸미기 카드와 같은 관례 · 같은 패널(createWardrobeAdjPanel).
+         ★ activeWdAdj 를 그대로 쓴다 — 기즈모 부착과 미리보기 색상 영역이 전부 이 값을 본다. */
       cell.oncontextmenu = e=>{
         e.preventDefault();
         if(!worn.includes(rec.id)){ toast('먼저 파츠를 착용해 주세요'); return; }
@@ -868,16 +763,13 @@ function renderGachaInv(){
     } else if(offSeason){
       /* ★ "매년 돌아온다"를 UI로 못박는 자리다. 1회 한정으로 바꾸려면 이 문구부터 걷어야 한다. */
       const bk = document.createElement('div'); bk.className='gc-back';
-      bk.textContent = (GACHA_SEASON_MONTH[rec.season]||'') + '에 돌아옴';
+      bk.textContent = (gachaAlbum.ALBUM_MONTH[rec.season]||'') + '에 돌아옴';
       cell.appendChild(bk);
       cell.title = '지금은 가챠에 나오지 않는 시즌 파츠예요';
     } else {
       cell.title = '아직 안 뽑은 파츠예요';
     }
-    /* 🖱️ 잠긴 칸(미보유)에도 우클릭 응답을 준다.
-       [왜] 예전엔 oncontextmenu 가 show 블록 안에만 있어서, 안 뽑은 파츠를 우클릭하면
-         토스트조차 없이 완전히 무반응이었다 — 유저에겐 "우클릭 기능이 고장났다"로 보인다.
-         특히 서버 동기화가 막혀 보유 목록이 비어버린 사람은 전 칸이 잠기므로 전멸처럼 느껴진다. */
+    /* 🖱️ 안 뽑은 칸에도 우클릭 응답을 준다 — 무반응이면 «우클릭이 고장났다» 로 보인다. */
     if(!show){
       cell.oncontextmenu = e=>{
         e.preventDefault();
@@ -886,33 +778,38 @@ function renderGachaInv(){
       };
     }
     grid.appendChild(cell);
-    /* 상세조정 패널은 그 칸 **바로 뒤**에 끼운다(꾸미기 그리드와 같은 관례).
-       그리드가 4열이라 그냥 넣으면 한 칸짜리로 찌그러진다 — 한 줄을 통째로 쓰게 한다. */
+    /* 상세조정 패널은 그 칸 **바로 뒤**에 한 줄을 통째로 써서 끼운다(4열에 그냥 넣으면 한 칸짜리로 찌그러진다). */
     if(activeWdAdj() && activeWdAdj().id === rec.id && worn.includes(rec.id)){
       const panel = createWardrobeAdjPanel(rec.cat, rec.id);
       panel.style.gridColumn = '1 / -1';
       grid.appendChild(panel);
-      /* ★ 그리드는 max-height:46vh 짜리 스크롤 박스다. 아랫줄 칸을 우클릭하면 패널이
-         스크롤 밖에 열려서 "아무것도 안 나온다"로 보인다 — 열자마자 보이는 데까지 끌어온다.
-         block:'nearest' 이라 이미 보이는 위치면 화면이 튀지 않는다. */
       requestAnimationFrame(()=>{ try{ panel.scrollIntoView({block:'nearest'}); }catch(_){} });
     }
   });
-  /* 📄 마지막 페이지의 남는 자리를 보이지 않는 칸으로 채워 그리드 높이를 2줄로 고정한다.
-     [왜] 안 채우면 페이지를 넘길 때마다 창이 줄었다 늘었다 하고, 그 아래 [가챠 뽑으러 가기]가
-       위아래로 움직인다 — ▶ 를 누른 손이 그대로 뽑기 버튼을 누르는 사고가 난다.
-     ★ 페이지가 하나뿐이면 채우지 않는다. 파츠가 3개뿐인 사람의 창이 억지로 2줄로 늘어나면
-       빈 칸이 '아직 안 뽑은 파츠'처럼 보인다(잠긴 칸과 구분이 안 된다). */
-  if(pages > 1){
-    for(let i = pageList.length; i < GACHA_PAGE_SIZE; i++){
-      const hole = document.createElement('div');
-      hole.className = 'gc-cell gc-hole';
-      grid.appendChild(hole);
-    }
+  /* 📄 남는 자리는 점선 빈칸으로 채워 칸 높이를 늘 3줄로 둔다 — 쪽을 넘길 때 창 높이가 출렁이지 않게.
+     안 뽑은 칸(«???»)과는 글자가 없어서 갈린다. */
+  for(let i = pageList.length; i < GACHA_PAGE_SIZE; i++){
+    const hole = document.createElement('div');
+    hole.className = 'gc-cell gc-hole';
+    grid.appendChild(hole);
   }
-  _renderGachaPager(pages);
-  _renderGachaAdminFoot();
-  // ★ 기즈모 부착·기즈모 바 표시는 꾸미기와 같은 함수가 담당한다(activeWdAdj를 보고 판단).
+  host.appendChild(grid);
+  const pg = document.createElement('div'); pg.id = 'gachaInvPager'; pg.className = 'gc-pg';
+  _renderGachaPager(pg, pages);
+  host.appendChild(pg);
+}
+
+function renderGachaInv(){
+  const host = _gachaHost();
+  if(!host) return;
+  _renderGachaFoot();
+  const all = savedParts().filter(p => isGachaPart(p));
+  // 연 도감이 비었으면(관리자 삭제 · 시즌 정리) 목록으로 — 빈 칸만 있는 도감은 «다 사라졌다» 로 보인다.
+  if(_gachaAlbum !== null && !gachaAlbum.albumParts(all, _gachaAlbum).length) _gachaAlbum = null;
+  host.innerHTML = '';
+  if(_gachaAlbum === null) _renderGachaAlbumList(host, all);
+  else _renderGachaAlbumGrid(host, gachaAlbum.albumParts(all, _gachaAlbum));
+  // ★ 기즈모 부착 · 기즈모 바 표시는 꾸미기와 같은 함수가 담당한다(activeWdAdj를 보고 판단).
   updateWdGizmoForActivePanel();
 }
 
@@ -1001,7 +898,7 @@ function _gachaStageIdle(){
   s.innerHTML = '<div class="gc-cap-wrap idle">' + _gachaCapsuleSVG(7) + '</div>';
 }
 
-/* 연출 중 잠금 — 뽑기 버튼과 [보관함으로]만 잠근다.
+/* 연출 중 잠금 — 뽑기 버튼과 [도감으로]만 잠근다.
    ⚠️ 닫기(✕)는 **절대 잠그지 않는다.** 예전엔 여기 gachaDrawClose 가 들어 있어서 pointer-events 가
      꺼졌는데, 아래 시퀀스에는 busy 를 못 풀고 빠져나가는 return 이 여럿 있었다. 그 조합이
      "창이 통째로 얼어서 닫지도 못한다"였다. 잠금이 풀리지 않아도 최소한 닫을 수는 있어야 한다. */
@@ -1044,9 +941,8 @@ async function _gachaRunDraw(n){
   }
   const res = r.out;
 
-  /* 📄 방금 뽑은 것 중 마지막 파츠를 기억해 둔다 — [보관함으로] 를 누르면 그 페이지가 열린다.
-     [왜] 8칸 페이지로 끊은 뒤로는 새로 뽑은 파츠가 3페이지에 들어앉을 수 있다.
-       보관함에 안 보이면 유저는 뽑기가 안 들어온 줄 안다. */
+  /* 📄 방금 뽑은 것 중 마지막 파츠를 기억해 둔다 — [도감으로] 를 누르면 그 도감 · 그 쪽이 열린다
+     (새로 뽑은 파츠가 안 보이면 뽑기가 안 들어온 줄 안다). */
   if(res.length) _gachaLastDrawId = res[res.length - 1].id;
 
   if(!res.length){
@@ -1173,87 +1069,22 @@ function renderGachaDraw(results){
   stage.appendChild(reveal);
 }
 
-function openGachaInv(){
-  const ov = document.getElementById('gachaInvOverlay'); if(!ov) return;
+/* 뽑기 창 닫기 — ✕ · ESC · 바깥 클릭 · 창이 포커스를 잃을 때. 꾸미기 창은 그대로 둔다(뽑은 것을 바로 입혀 볼 수 있게).
+   ⚠️ 무대를 비운다 — 안 비우면 캡슐 떨림 애니메이션이 실행 화면 내내 돈다. */
+function closeGachaDraw(){
   const dv = document.getElementById('gachaDrawOverlay'); if(dv) dv.style.display='none';
-  /* 🎰 열자마자 서버와 한 번 맞춘다 — 다른 PC 에서 뽑은 것이 보이게.
-     ★ 기다리지 않는다 — 받아오면 _adoptServer 가 renderGachaInv 를 다시 부른다. */
-  try{ syncGachaToServer('inv-open'); }catch(_){}
-  /* 📄 열 때는 지금 보고 있는 파츠(_gachaSelId)가 있는 페이지에서 시작한다.
-     [왜] 미리보기 아래 색상 영역이 _gachaSelId 를 따라간다. 그 칸이 3페이지에 있는데 1페이지가
-       열리면 "색상은 모자 것인데 화면 어디에도 모자가 없다"가 된다. */
-  _gachaJumpId = _gachaSelId;
-  renderGachaInv();
-  ov.style.display = 'block';
-  window._gachaRestorePos('inv', document.getElementById('gachaInvWin'));
-  /* 좌측 미리보기는 꾸미기 것을 그대로 재사용한다 — 착용 결과를 캐릭터로 바로 본다.
-     ★ z-index 를 .gacha-ov(122) 위로 올린다. 다만 z-index 는 '누가 위냐'만 정할 뿐이라,
-       겹치는 한 어느 쪽이 위로 와도 다른 한쪽은 가려진다. 그래서 **자리를 아예 안 겹치게 잡는다.**
-       미리보기 기본 자리는 right:352px·width:320px(꾸미기 창 레이아웃 전제)라 왼쪽 끝이
-       (창너비-672), 보관함 창은 정중앙 360px 라 오른쪽 끝이 (창너비/2+180) —
-       즉 창 너비가 1704px 미만이면 반드시 겹친다. 1920 100% 배율은 안 걸려도
-       1600/1440/1366 이나 Windows 배율 125%(=1536 CSS px)는 전부 걸린다.
-     ⚠️ 유저가 직접 옮겨 둔 자리가 있으면 그건 존중한다 — 화면 안으로 끌어오기만 한다.
-     ⚠️ z-index 는 닫을 때 반드시 되돌린다 — 안 그러면 꾸미기(F2) 창에서도 계속 122 위에 남는다. */
-  const wp = document.getElementById('wdPreviewPanel');
-  if(wp){
-    syncWdPreviewOwner();   // .on + z-index(123) 부여
-    if(!wdPreviewSavedPos()){
-      const gw = document.getElementById('gachaInvWin');
-      const gr = gw ? gw.getBoundingClientRect() : null;
-      const pr = wp.getBoundingClientRect();
-      const pwid = pr.width || 320, phgt = pr.height || 420;
-      if(gr && gr.width){
-        // 보관함 왼쪽에 붙인다. 왼쪽이 좁으면 오른쪽으로 넘긴다(placeWdPreview 가 화면 안으로 clamp).
-        let x = gr.left - pwid - 12;
-        if(x < 8) x = gr.right + 12;
-        placeWdPreview(x, (innerHeight - phgt) / 2);
-      }
-    }
-    clampWdPreviewIntoView();
-  }
-  refreshWdPreviewChar();
-  // 색상 영역이 꾸미기 탭이 아니라 보관함 선택을 따라가게 한 번 다시 그린다.
-  refreshWdPreviewColorSection();
-}
-function closeGachaInv(){
-  const ov = document.getElementById('gachaInvOverlay'); if(ov) ov.style.display='none';
-  const dv = document.getElementById('gachaDrawOverlay'); if(dv) dv.style.display='none';
-  // ⚠️ 무대를 비운다 — 안 비우면 캡슐 떨림 애니메이션이 run 모드 내내 계속 돈다.
   _gachaStopAnim();
   _gachaSetBusy(false);
-  // ★ 꾸미기와 같은 관례 — 닫을 때 저장한다. 저장 버튼이 따로 없으므로 여기서 안 하면 착용이 날아간다.
-  commitWdDraft();
-  // ★ openGachaInv 에서 올려둔 z-index 를 되돌린다(꾸미기 창의 기본값 54로 복귀).
-  //   ⚠️ 꾸미기 창이 아직 열려 있으면 미리보기 자체는 남겨야 한다 — 판정은 syncWdPreviewOwner 한 곳에서만.
-  syncWdPreviewOwner();
-  /* ★ 상세조정 선택도 같이 푼다. 안 풀면 activeWdAdj 가 가챠 파츠를 가리킨 채 남아, 다음에 꾸미기
-     창을 열었을 때 기즈모 바만 떠 있고 정작 그 파츠는 목록에 없는(가챠는 걸러진다) 상태가 된다. */
-  _setActiveWdAdj(null);
-  _clearMultiPanelRef();
-  detachWdGizmo();
-  // ★ 색상 영역은 보관함이 열린 동안 가챠 선택을 따라간다 — 닫을 때 꾸미기 기준으로 되돌린다.
-  refreshWdPreviewColorSection();
 }
-function _gachaInvOpen(){ const ov=document.getElementById('gachaInvOverlay'); return !!(ov && ov.style.display!=='none'); }
+/* 도감이 화면에 있는가 — 꾸미기 창이 «도감» 탭을 그릴 때만 #gachaInvHost 가 있다(다른 탭은 그 자리를 비운다). */
+function _gachaInvOpen(){ return !!_gachaHost(); }
 function _gachaDrawOpen(){ const ov=document.getElementById('gachaDrawOverlay'); return !!(ov && ov.style.display!=='none'); }
-/* 🎰 보관함·가챠는 **라이선스 없이도** 쓸 수 있다(요청사항).
-   [왜 안전한가] 가챠 파츠는 renderWardrobe 의 !isGachaPart 필터에 걸려 꾸미기(F2) 창에 한 칸도
-     안 뜬다. 그래서 보관함만 열어줘도 라이선스 전용인 '일반 꾸미기 파츠'와는 섞이지 않는다.
-     착용 배관(toggleEquip / commitWdDraft / #wdPreviewPanel)에는 원래 라이선스 검사가 없었다.
-   ⚠️ 게이트를 되살릴 일이 생기면 여기 한 곳만 되돌리면 된다 — 뽑기 창은 보관함 안의
-     #gachaGoDraw 로만 들어오므로 진입점이 여기 하나다. */
-function toggleGachaInv(){
-  if(_gachaInvOpen() || _gachaDrawOpen()) closeGachaInv(); else openGachaInv();
-}
 
 (function bindGachaWindows(){
-  const inv=document.getElementById('gachaInvOverlay'), dw=document.getElementById('gachaDrawOverlay');
-  if(!inv || !dw) return;
+  const dw=document.getElementById('gachaDrawOverlay');
+  if(!dw) return;
   const q=id=>document.getElementById(id);
-  /* 🖱️ 타이틀바 드래그 — idesk 인벤토리와 같은 방식(transform 중앙정렬 → left/top 절대좌표 전환).
-     ★ 두 창은 자리를 **따로** 기억한다. 보관함과 뽑기 창은 크기가 달라서, 하나로 묶으면
-       한쪽을 옮긴 뒤 다른 쪽을 열었을 때 화면 밖으로 삐져나갈 수 있다. */
+  /* 🖱️ 타이틀바 드래그 — transform 가운데 → left/top 절대좌표로 바꿔 옮긴다. 자리는 'draw' 칸에 기억한다. */
   const GACHA_POS_KEY = 'tw.gachaWinPos';
   let _gachaPos = {};
   try{ _gachaPos = JSON.parse(localStorage.getItem(GACHA_POS_KEY) || '{}') || {}; }catch(_){ _gachaPos = {}; }
@@ -1261,8 +1092,7 @@ function toggleGachaInv(){
     try{ _gachaPos[key] = { left:win.style.left, top:win.style.top };
       localStorage.setItem(GACHA_POS_KEY, JSON.stringify(_gachaPos)); }catch(_){}
   }
-  /* 저장된 자리로 되돌린다. 그 사이 모니터가 바뀌거나 해상도가 줄어 화면 밖이면 가운데로 되돌린다 —
-     안 그러면 창이 열려 있는데 안 보이고, 유저에게는 "T를 눌러도 아무 일이 없다"로 보인다. */
+  /* 저장된 자리로 되돌린다. 그 사이 모니터가 바뀌어 화면 밖이면 가운데로 — 안 그러면 열려 있는데 안 보인다. */
   function _gachaRestorePos(key, win){
     const p = _gachaPos[key];
     if(!p || !p.left || !p.top) return;
@@ -1303,69 +1133,56 @@ function toggleGachaInv(){
       try{ localStorage.setItem(GACHA_POS_KEY, JSON.stringify(_gachaPos)); }catch(_){}
     });
   }
-  /* 🪟 창 위치 초기화 버튼(F1 → 화면 표시)이 부른다 — 저장 키만 지우면 이 메모리 값이 남아
-     다음에 열 때 그대로 그 자리로 간다. */
+  /* 🪟 창 위치 초기화 버튼(F1 → 화면 표시)이 부른다 — 저장 키만 지우면 이 메모리 값이 남는다. */
   (window.__winPosResetters = window.__winPosResetters || []).push(()=>{ _gachaPos = {}; });
-  _gachaBindDrag('inv',  q('gachaInvWin'),  q('gachaInvHead'),  '#gachaInvClose');
   _gachaBindDrag('draw', q('gachaDrawWin'), q('gachaDrawHead'), '#gachaDrawClose');
   window._gachaRestorePos = _gachaRestorePos;
-  if(q('gachaInvClose')) q('gachaInvClose').onclick = closeGachaInv;
-  if(q('gachaDrawClose')) q('gachaDrawClose').onclick = closeGachaInv;
+  if(q('gachaDrawClose')) q('gachaDrawClose').onclick = closeGachaDraw;
   if(q('gachaGoDraw')) q('gachaGoDraw').onclick = ()=>{
-    inv.style.display='none'; dw.style.display='block';
+    dw.style.display='block';
     _gachaRestorePos('draw', q('gachaDrawWin'));
     renderGachaDraw(null);
   };
   if(q('gachaBackInv')) q('gachaBackInv').onclick = ()=>{
-    _gachaStopAnim();
-    dw.style.display='none'; inv.style.display='block';
-    _gachaRestorePos('inv', q('gachaInvWin'));
-    // 📄 방금 뽑은 파츠가 있는 페이지로. 안 뽑고 돌아왔으면 null 이라 아무 일도 안 일어난다.
-    _gachaJumpId = _gachaLastDrawId; _gachaLastDrawId = null;
-    renderGachaInv();
+    closeGachaDraw();
+    /* 📄 방금 뽑은 파츠의 도감 · 그 쪽으로 — 새로 뽑은 파츠가 안 보이면 안 들어온 줄 안다.
+       안 뽑고 돌아왔으면 보던 자리 그대로. */
+    const rec = _gachaLastDrawId ? savedParts().find(p => p.id === _gachaLastDrawId) : null;
+    if(rec && gachaAlbum.isAlbumKey(rec.season || '')){
+      if(_gachaAlbum !== (rec.season || '')) _gachaDropAdj();   // 다른 도감으로 가면 보던 파츠의 상세조정 · 기즈모를 접는다
+      _gachaAlbum = rec.season || ''; _gachaSelId = rec.id;
+    }
+    _gachaLastDrawId = null;
+    twNav.go(twNav.NAV.WARDROBE_ALBUM, { skipSync: true });   // 꾸미기 창을 «도감» 탭으로(이미 열려 있으면 탭만) — onAlbumShow 가 고른 파츠의 쪽으로 옮긴다
   };
   if(q('gachaDraw1')) q('gachaDraw1').onclick = ()=>_gachaRunDraw(1);
-  /* ★ Math.min(5, gachaTicketsLeft()) 로 미리 깎아 넘기지 않는다 — 티켓이 0이면 n=0 이 넘어가
-     Math.max(1,0)=1 로 되살아나는 등 경계가 지저분했다. 요청 횟수를 그대로 주고 gachaDraw 가 정한다. */
+  /* ★ Math.min(5, gachaTicketsLeft()) 로 미리 깎아 넘기지 않는다 — 요청 횟수를 그대로 주고 gachaDraw 가 정한다. */
   if(q('gachaDraw5')) q('gachaDraw5').onclick = ()=>_gachaRunDraw(5);
-  inv.querySelectorAll('.gc-tab').forEach(b=>{
-    b.onclick = ()=>{
-      _gachaTab = b.dataset.gtab || 'all';
-      _gachaPage = 0;   // 📄 탭이 바뀌면 목록 자체가 다른 것이다 — 3페이지에서 시작하면 안 된다
-      inv.querySelectorAll('.gc-tab').forEach(x=>x.classList.toggle('on', x===b));
-      renderGachaInv();
-    };
-  });
+  /* ESC — 뽑기 창이 맨 위다. 캡처 단계에서 닫고 멈춰서 뒤의 꾸미기 창(같은 ESC 를 듣는다)은 그대로 둔다. */
   document.addEventListener('keydown', e=>{
-    if(e.key==='Escape' && (_gachaInvOpen() || _gachaDrawOpen())) closeGachaInv();
-  });
-  /* 🖱️ 바깥을 누르면 저장하고 닫는다(요청사항). closeGachaInv가 commitWdDraft를 부르므로
-     "닫으면 저장"은 ✕·ESC와 완전히 같은 경로다 — 여기서 따로 저장하지 않는다.
-     ⚠️ .gacha-ov 는 pointer-events:none 이라 오버레이에 핸들러를 걸면 클릭이 아예 안 온다.
-       그래서 document 캡처 단계에서 받고, "닫으면 안 되는 곳"만 제외한다.
-     ★ 미리보기 패널은 반드시 제외 — 기즈모를 끌거나 캐릭터를 돌리는 것도 '바깥 클릭'이 되어
-       조정하려는 순간 창이 닫혀버린다. 관리자 등록 모달·색상 팝업도 같은 이유. */
-  const _GACHA_KEEP = '#gachaInvWin, #gachaDrawWin, #wdPreviewPanel, #wardrobePanel,'
+    if(e.key!=='Escape' || !_gachaDrawOpen()) return;
+    closeGachaDraw();
+    e.stopPropagation();
+  }, true);
+  /* 🖱️ 바깥을 누르면 닫는다. .gacha-ov 는 pointer-events:none 이라 document 캡처 단계에서 받고, 닫으면 안 되는 곳만 뺀다.
+     ★ 꾸미기 창 · 미리보기는 뺀다 — 뽑은 파츠를 입혀 보는 곳이다. 관리자 등록 모달 · 색상 팝업도 같은 까닭. */
+  const _GACHA_KEEP = '#gachaDrawWin, #wdPreviewPanel, #wardrobePanel,'
     + ' #partRegOverlay, #assetImpOverlay, #categoryManageOverlay, #focusSettingsPanel.fs-in-launcher,'
     + ' .wd-color-palette, .mh-color-pop, .toast';
   document.addEventListener('mousedown', e=>{
-    if(!(_gachaInvOpen() || _gachaDrawOpen())) return;
+    if(!_gachaDrawOpen()) return;
     const t=e.target;
     if(t && t.closest && t.closest(_GACHA_KEEP)) return;
-    closeGachaInv();
+    closeGachaDraw();
   }, true);
-  /* ★ .gacha-ov 는 pointer-events:none — "진짜 바깥"(투명 오버레이 영역) 클릭은 mousedown 이
-     아예 안 온다(Electron 클릭통과). 꾸미기 창과 같은 보완: 창이 포커스를 잃는 시점도 닫힘으로 처리.
-     ⚠️ 파일 선택 다이얼로그(파츠 등록 GLB 선택 등)로 포커스가 잠깐 빠질 때 닫히면 등록 창까지
-       같이 사라진다 — 꾸미기가 쓰는 modalOpen 가드를 그대로 가져온다. */
+  /* ★ "진짜 바깥"(투명 영역) 클릭은 mousedown 이 안 온다(Electron 클릭통과) — 창이 포커스를 잃을 때도 닫는다.
+     ⚠️ 파일 선택 창(파츠 등록 GLB 등)으로 포커스가 잠깐 빠질 때는 닫지 않는다(꾸미기 창과 같은 modalOpen 가드). */
   window.addEventListener('blur', ()=>{
-    if(!(_gachaInvOpen() || _gachaDrawOpen())) return;
+    if(!_gachaDrawOpen()) return;
     const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #focusSettingsPanel.fs-in-launcher.on, #myHomeOverlay.on, #categoryManageOverlay.on, #pkOverlay.on');
     if(modalOpen) return;
-    closeGachaInv();
+    closeGachaDraw();
   });
-  window.openGachaInv = openGachaInv;
-  window.closeGachaInv = closeGachaInv;
 })();
 
 return {
@@ -1378,11 +1195,11 @@ return {
   DUPES_FOR_COLOR: GACHA_DUPES_FOR_COLOR,
   syncGachaToServer,                    // 런처 복귀('launcher') · 로그아웃 직전('logout') · 계정 연동('transfer','pull')
   pruneUnownedGachaParts,               // 꾸미기 커밋 · 카탈로그 도착
-  renderGachaInv,                       // 파츠 등록 · 썸네일 재생성 · 계정 연동 · 👑 달성표 보상
-  toggleGachaInv,                       // T 키
+  renderGachaInv,                       // 파츠 등록 · 썸네일 재생성 · 계정 연동 · 👑 달성표 보상 · 꾸미기 창 «도감» 탭
+  onAlbumShow,                          // 꾸미기 창이 «도감» 탭을 보일 때(서버와 맞추기 · 고른 파츠 쪽으로)
   isInvOpen: _gachaInvOpen,
   isDrawOpen: _gachaDrawOpen,
-  selId: ()=>_gachaSelId,               // 보관함에서 지금 보고 있는 파츠 — 꾸미기 미리보기 색상 영역이 따라간다
+  selId: ()=>_gachaSelId,               // 도감에서 지금 보고 있는 파츠 — 꾸미기 미리보기 색상 영역이 따라간다
   owned: ()=>gachaOwned,                // 계정 전환 검문 — «뽑은 파츠 N개»
   unsynced: (srv)=>_serverMode() ? 0 : gachaUnsynced(srv),   // 로그아웃 전 검문 — 서버에 없는 이 PC 의 뽑기 수(서버 길은 이 PC 몫을 올리지 않으니 0)
   bonus: ()=>_gachaBonus,               // 👑 달성표 — 보너스 뽑기 수
@@ -1390,10 +1207,10 @@ return {
   resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; _srvState = null; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-gacha.js · sim-gacha-prune.js · sim-part-color-entry.js */
   draw: gachaDraw, pool: gachaPool, seasonNow: gachaSeasonNow, ticketsLeft: gachaTicketsLeft, ticketsEarned: gachaTicketsEarned,
-  openGachaInv, closeGachaInv, runDraw: _gachaRunDraw, renderGachaDraw,
+  closeGachaDraw, runDraw: _gachaRunDraw, renderGachaDraw,
   state: {
-    ts: ()=>_gachaTs, srvSeen: ()=>_gachaSrvSeen, page: ()=>_gachaPage, tab: ()=>_gachaTab, cat: ()=>_gachaCat, season: ()=>_gachaSeason,
-    setOwned(v){ gachaOwned = v; }, setSelId(v){ _gachaSelId = v; },
+    ts: ()=>_gachaTs, srvSeen: ()=>_gachaSrvSeen, page: ()=>_gachaPage, album: ()=>_gachaAlbum,
+    setOwned(v){ gachaOwned = v; }, setSelId(v){ _gachaSelId = v; }, setAlbum(v){ _gachaAlbum = v; _gachaPage = 0; },
   },
 };
 }

@@ -323,7 +323,7 @@ async function _chalMaybeEarlyPay(){
   _chalPushDue(key, 1);
   const got = await _chalPayTickets(1, key);
   try{ syncChalToServer('early'); }catch(_){}
-  if(got > 0) try{ toast('🎰 뽑기 1회를 받았어요 — 파츠 보관함(T)에서 뽑을 수 있어요'); }catch(_){}
+  if(got > 0) try{ toast('🎰 뽑기 1회를 받았어요 — 꾸미기 › 📚 도감(T)에서 뽑을 수 있어요'); }catch(_){}
   try{ _chalRender(); }catch(_){}
 }
 
@@ -594,8 +594,8 @@ function _chalShowSettlePopup(s, total, early, phKey, days){
   let line;
   if((total | 0) <= 0)  line = '이번 ' + ph.name + '은 보상을 못 받았어요.' + sub(ph.need1 + '일 이상 달성하면 뽑기 1회예요');
   else if(rest > 0)     line = '<b>가챠 뽑기 ' + rest + '회</b>를 받았어요.'
-                             + sub(early ? ('먼저 받은 1회까지 이번 ' + ph.name + ' 합계 ' + total + '회예요') : '파츠 보관함(T)에서 뽑을 수 있어요');
-  else                  line = '보상 <b>' + total + '회</b>는 이미 받았어요.' + sub('파츠 보관함(T)에서 뽑을 수 있어요');
+                             + sub(early ? ('먼저 받은 1회까지 이번 ' + ph.name + ' 합계 ' + total + '회예요') : '꾸미기 › 📚 도감(T)에서 뽑을 수 있어요');
+  else                  line = '보상 <b>' + total + '회</b>는 이미 받았어요.' + sub('꾸미기 › 📚 도감(T)에서 뽑을 수 있어요');
   const body = (names ? (names + ' ') : '') + '<b>' + s + '일</b>을 지켰어요.<br>' + line;
   _chalPopup('🏅 이번 ' + ph.name + ' 달성표', body, [{a:'ok',t:'확인'}]);
 }

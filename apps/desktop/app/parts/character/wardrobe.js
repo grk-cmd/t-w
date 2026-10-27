@@ -1,8 +1,8 @@
-/* wardrobe.js — 🎨 꾸미기 창 — 미리보기 · 초안 · 상세조정 · 색 줄 · 창 그리기 · 파츠 착용
+/* wardrobe.js — 🎨 꾸미기 창 — 미리보기 · 초안 · 상세조정 · 색 줄 · 창 그리기 · 파츠 착용 · 탭(머리 … 책상 · 📚 도감)
+   ★ «📚 도감» 탭은 가챠 칸(gacha.js 가 #gachaInvHost 에 그린다) · 라이선스가 없으면 도감만 열고 다른 탭은 잠금 안내(wdLicensed).
    app.js 꾸미기 다섯 구역(👀 미리보기 · 📝 초안 · 🎛️ 상세조정 · 🎨 색 줄 · 🎨 창 그리기 · 파츠 착용) 본문을 그대로 옮긴 모듈이다(앱 FSD 29번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 70줄 —
-     PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
+   ★ 본문은 app.js 에 있던 글에서 시작했다(들여쓰기도 · 덩이 5개를 원래 차례로). 옮길 때 바꾼 줄 —
+     PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · isPremium · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 51개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · clampWdPreviewIntoView · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdPreview · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdPreviewSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
@@ -55,6 +55,8 @@ const gachaMod = deps.gachaMod;   // 읽는 함수
 const getCommissionScene = deps.getCommissionScene;
 const groupOfCat = deps.groupOfCat;
 const isAdmin = deps.isAdmin;   // 읽는 함수
+const isPremium = deps.isPremium;   // 읽는 함수 — 라이선스(«도감» 말고 다른 탭은 라이선스가 있어야 쓴다)
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 라이선스 안내의 [라이선스 등록하러 가기]
 const isDeskPartCat = deps.isDeskPartCat;
 const isHueTintMesh = deps.isHueTintMesh;
 const measureCharBox = deps.measureCharBox;
@@ -460,9 +462,7 @@ function updateWdGizmoForActivePanel(){
 
 /* 📐 미리보기 창 자리 — 공용 배치기.
    [왜 필요한가] 이 패널의 기본 자리는 CSS 의 `right:352px · width:320px` 로, **꾸미기 창이 오른쪽에
-     붙어 있다**는 레이아웃을 전제로 한 값이다. 가챠 보관함처럼 정중앙에 뜨는 창과 같이 쓰면
-     창 너비가 1704px 미만일 때 반드시 겹치고, z-index 로 순서만 정하면 어느 쪽이 위로 오든
-     한쪽은 가려진다(제보: "왼쪽 미리보기만 안 보인다").
+     붙어 있다**는 레이아웃을 전제로 한 값이다.
    ⚠️ 드래그 위치는 localStorage('tw.wdPreviewPos')에 저장되는데, 저장할 땐 그때의 창 크기로
      clamp 하고 **복원할 땐 안 했다.** 창이 작아지거나 해상도·배율이 바뀌면 그 좌표가 화면 밖이라
      패널이 통째로 안 보인다 — 재설치(=저장값 소멸)로만 고쳐지던 종류의 증상이다.
@@ -492,29 +492,12 @@ function clampWdPreviewIntoView(){
 /* 창 크기가 바뀌면 다시 끌어온다 — 저장값이 옛 화면 크기 기준일 수 있다. */
 addEventListener('resize', ()=>{ try{ clampWdPreviewIntoView(); }catch(_){} });
 
-/* 👀 미리보기 패널의 주인이 둘이다 — 꾸미기(#wardrobePanel)와 파츠보관함(#gachaInvOverlay).
-   [제보] "파츠보관함 미리보기창이 안 보인다 · 창 위치 초기화를 눌러도 여전히 안 보인다"
-   [경위] 두 창이 같은 패널 하나를 나눠 쓰는데, 각자 자기가 닫힐 때 **조건 없이** .on 을 뗐다.
-     · 꾸미기가 열린 채로 보관함 안을 클릭하면 꾸미기의 '바깥 클릭 자동 닫기'가 발동한다
-       (그 예외 목록에 보관함 오버레이가 빠져 있었다). 그러면 아직 보관함이 열려 있는데도
-       미리보기가 사라진다.
-     · 반대로 보관함을 닫으면 꾸미기가 열려 있어도 미리보기가 사라진다.
-     반대 방향은 이미 막혀 있었다(_GACHA_KEEP 에 #wardrobePanel·#wdPreviewPanel 이 들어 있다) —
-     한쪽만 상대를 알고 있던 비대칭이 원인이다.
-   ⚠️ 위치 초기화가 안 듣는 이유가 여기 있다. .on 이 없으면 clampWdPreviewIntoView 는 크기를 잴 수
-     없어 즉시 반환하고, resetAllWinPositions 가 지우는 것은 좌표뿐이다 — 애초에 위치 문제가 아니라
-     '표시' 문제라서 좌표를 아무리 되돌려도 화면에는 변화가 없다.
-   ★ 그래서 '누가 닫혔는가'가 아니라 **'지금 이 패널을 필요로 하는 창이 하나라도 있는가'**로 판정한다.
-   ★ z-index 도 같은 자리에서 정한다 — 보관함(.gacha-ov 는 122)이 열려 있으면 그 위로 올리고,
-     보관함이 닫히면 꾸미기 기준(CSS 54)으로 되돌린다. 되돌리지 않으면 꾸미기 창에서도 계속 122 위에 남는다. */
+/* 👀 미리보기 패널은 꾸미기 창(#wardrobePanel)이 열려 있는 동안만 보인다(도감도 꾸미기 창의 탭이다).
+   ⚠️ .on 이 없으면 clampWdPreviewIntoView 가 크기를 못 잰다 — 표시를 먼저 맞추고 끌어온다. */
 function syncWdPreviewOwner(){
   const wp = document.getElementById('wdPreviewPanel'); if(!wp) return;
-  const wardrobeOn = !!document.querySelector('#wardrobePanel.on');
-  const invOn = gachaMod().isInvOpen()
-             || gachaMod().isDrawOpen();
-  if(!wardrobeOn && !invOn){ wp.classList.remove('on'); wp.style.zIndex=''; return; }
+  if(!document.querySelector('#wardrobePanel.on')){ wp.classList.remove('on'); return; }
   wp.classList.add('on');
-  wp.style.zIndex = invOn ? '123' : '';
   try{ clampWdPreviewIntoView(); }catch(_){}
 }
 
@@ -851,7 +834,7 @@ requestAnimationFrame(wdPreviewLoop);
   }, true);   // ★ 캡처 단계에서 먼저 가로채서, 혹시 다른 곳에서 ArrowUp을 먼저 처리하고 멈춰버리는 걸 방지
 })();
 // ★ 요청사항: 저장 버튼을 없애고, 꾸미기 창을 닫을 때(바깥 클릭/X/Escape 전부) 자동으로 저장되게 함.
-/* ★ 커밋 직렬화 — 보관함 닫힘(closeGachaInv)과 꾸미기 닫힘(close)이 연달아 부르면
+/* ★ 커밋 직렬화 — 꾸미기 닫힘(close)과 주 캐릭터 교체(_wdAfterMainSwap)가 연달아 부르면
    두 commitWdDraft 가 겹칠 수 있다(둘 다 await 없이 부른다). 같은 draft·같은 좌석을 만지므로
    겹치면 안 되고, 겹침을 막는 것이지 커밋을 건너뛰면 안 된다(닫힘 = 저장이다) —
    진행 중인 커밋을 들고 있다가 이어 붙인다. */
@@ -897,7 +880,7 @@ async function _commitWdDraftNow(silent){
   }
   /* 🎰 착용이 확정되는 자리에서도 한 번 본다 — 초안(wdDraftDef)이 회수보다 오래 열려 있었으면
      여기서 def 로 되살아난다. 보유한 파츠만 착용할 수 있으므로 방금 유저가 고른 것이
-     여기서 벗겨지는 일은 없다(보관함의 잠긴 칸에는 onclick 자체가 없다). */
+     여기서 벗겨지는 일은 없다(도감의 안 뽑은 칸에는 onclick 자체가 없다). */
   try{ gachaMod().pruneUnownedGachaParts(); }
   catch(e){ console.warn('[가챠] 커밋 후 정리 실패', e); }
   return true;
@@ -931,8 +914,8 @@ async function _commitWdDraftToOwner(draft, silent){
 /* 🔀 주 캐릭터가 바뀐 직후 — 열려 있던 꾸미기 초안을 원래 캐릭터에 저장하고, 미리보기를 새 캐릭터로 다시 그린다. */
 function _wdAfterMainSwap(){
   if(!wdDraftDef) return;
-  const wd = document.getElementById('wardrobePanel'), gi = document.getElementById('gachaInvOverlay');
-  const editing = (wd && wd.classList.contains('on')) || (gi && gi.style.display && gi.style.display !== 'none');
+  const wd = document.getElementById('wardrobePanel');
+  const editing = !!(wd && wd.classList.contains('on'));
   /* 창이 닫혀 있으면 닫힐 때 이미 저장됐다 — 다시 쓰지 않고 남은 초안만 버린다(다른 경로가 옛 초안을 읽지 않게). */
   if(!editing){ wdDraftDef = null; return; }
   commitWdDraft(true).then(()=>{
@@ -960,9 +943,8 @@ function refreshWdPreviewColorSection(){
   if(!wdPreviewBase || !wdPreviewBase.equippedPartObjs){ container.style.display='none'; _finish(); return; }
   const def = wdPreviewBase.charDef;
   let cat, entry;
-  /* 🎰 파츠 보관함이 열려 있으면 이 영역은 '지금 보고 있는 가챠 파츠'의 것이다.
-     ⚠️ 안 그러면 꾸미기 창에서 마지막으로 보던 탭(currentWdTab)의 파츠 색상이 그대로 뜬다 —
-        보관함에서 가챠 파츠를 누르고 있는데 엉뚱한 모자 색이 나오는 화면이 된다. */
+  /* 🎰 «도감» 탭이면 이 영역은 '도감에서 고른 가챠 파츠'의 것이다 — 안 그러면 마지막으로 보던 카테고리 탭의
+     파츠 색상이 그대로 뜬다(도감에서 파츠를 누르고 있는데 엉뚱한 모자 색). */
   if(gachaMod().isInvOpen()){
     const gRec = gachaMod().selId() ? savedParts().find(p=>p.id===gachaMod().selId()) : null;
     if(!gRec){ container.style.display='none'; _finish(); return; }
@@ -981,6 +963,8 @@ function refreshWdPreviewColorSection(){
     }
   } else {
     if(!currentWdTab){ container.style.display='none'; _finish(); return; }
+    /* 🔒 라이선스가 없으면 카테고리 탭은 잠금 안내뿐이다 — 착용해 둔 꾸미기 파츠의 색 · 그리기를 여기서 열지 않는다 */
+    if(!wdLicensed()){ container.style.display='none'; _finish(); return; }
     cat = currentWdTab;
     /* 🎨 **어느 파츠를 만지는가를 id 하나로 먼저 정한다.** 아래에서 entry(저장 대상)와
          wrapper(색칠 대상)를 둘 다 이 id 로 되찾는다.
@@ -1606,6 +1590,35 @@ function buildColorRows(cat, xf, wrapper, syncFn){
 
 let currentWdTab = null;   // 현재 선택된 꾸미기 서브카테고리 탭 — null이면 첫 카테고리로 자동 지정
 let currentWdGroup = null; // ★ Phase 2: 현재 선택된 상위 그룹 (head/cloth/deco/hand)
+/* 📚 «도감» — PART_CATS 에 없는 가상 탭(책상 · 귀와 같은 방식). 칸은 gacha.js 가 #gachaInvHost 에 그린다. */
+const WD_ALBUM_TAB = 'album';
+const WD_ALBUM_GROUP = { group:'album', icon:'📚', label:'도감' };
+/* 라이선스가 없으면 «도감» 만 쓴다 — 다른 탭은 잠금 안내를 그린다(관리자는 다 연다). */
+function wdLicensed(){ return !!(isPremium() || isAdmin()); }
+
+/* 탭 고르기 — 꾸미기 창을 열 때(F2 · T · [도감으로]) 와 «도감» 탭 버튼이 부른다. tab 을 안 주면 마지막에 본 탭.
+   처음 여는데 라이선스가 없으면 «도감» 으로 연다(잠긴 탭부터 보이지 않게).
+   «도감» 이 보이기 시작하면 가챠가 서버와 한 번 맞춘다(onAlbumShow — opts 는 그대로 넘긴다). */
+/* ⚠️ «처음» 은 currentWdTab 이 비었는지로 보면 안 된다 — 카탈로그가 도착하면 창이 닫힌 채 renderWardrobe 가 돌아 기본 탭(모자)을 채워 둔다. */
+let _wdOpened = false;
+function selectWdTab(tab, opts){
+  if(tab && tab !== currentWdTab){ currentWdTab = tab; activeWdAdj = null; _clearMultiPanelRef(); }   // 다른 탭의 상세조정 패널이 남지 않게
+  else if(!tab && !_wdOpened && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;
+  _wdOpened = true;
+  if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);
+}
+function isAlbumTab(){ return currentWdTab === WD_ALBUM_TAB; }
+
+/* 🔒 라이선스 없는 탭 — 안내와 [라이선스 등록하러 가기](설정 › 정보) */
+function renderWdLocked(wrap){
+  const box=document.createElement('div'); box.className='wd-empty wd-locked';
+  box.innerHTML='<span class="ic">🔒</span>꾸미기 파츠는 라이선스를 등록하면 쓸 수 있어요.<br>뽑은 가챠 파츠는 «📚 도감» 탭에서 입을 수 있어요.';
+  const go=document.createElement('button'); go.type='button'; go.className='wd-locked-go';
+  go.textContent='라이선스 등록하러 가기';
+  go.onclick=()=>twNav.go(twNav.NAV.PROGRAM_SETTINGS, 'license');
+  box.appendChild(go);
+  wrap.appendChild(box);
+}
 
 function renderWardrobe(){
   const wrap=document.getElementById('wardrobeContent');
@@ -1616,6 +1629,8 @@ function renderWardrobe(){
   const def=ensureWdDraft();
   const equipped=(def&&def.equippedParts)||{};
 
+  const panel=document.getElementById('wardrobePanel');
+  if(panel) panel.classList.toggle('wd-album', currentWdTab === WD_ALBUM_TAB);
   /* 🪑 파츠가 하나도 없어도 «책상» 탭은 열려야 한다 — 전용 책상만 등록된 기기가 있을 수 있다. */
   if(savedParts().length===0 && !isAdmin() && !_wdLicenseDesks().length){
     if(tabsWrap) tabsWrap.innerHTML='';
@@ -1629,22 +1644,24 @@ function renderWardrobe(){
      안 빼면 그 탭을 고르는 순간 첫 카테고리(모자)로 튕긴다. */
   /* 🐾 동물로 바뀌었는데 귀 탭이면 머리 첫 칸(모자)으로 돌린다 — 동물은 생성기에서 귀를 정한다 */
   if(currentWdTab === wdEar.TAB && !wdEar.available(def)) currentWdTab = (partsInGroup('head')[0] || PART_CATS()[0]).cat;
-  if(currentWdTab !== wdEar.TAB && currentWdTab !== WD_DESK_TAB() && (!currentWdTab || !PART_CATS().find(c=>c.cat===currentWdTab))) currentWdTab = PART_CATS()[0].cat;
-  currentWdGroup = (currentWdTab === WD_DESK_TAB()) ? 'desk' : (currentWdTab === wdEar.TAB) ? 'head' : (groupOfCat(currentWdTab) || PART_GROUPS()[0].group);
+  if(currentWdTab !== WD_ALBUM_TAB && currentWdTab !== wdEar.TAB && currentWdTab !== WD_DESK_TAB() && (!currentWdTab || !PART_CATS().find(c=>c.cat===currentWdTab))) currentWdTab = PART_CATS()[0].cat;
+  currentWdGroup = (currentWdTab === WD_ALBUM_TAB) ? 'album' : (currentWdTab === WD_DESK_TAB()) ? 'desk' : (currentWdTab === wdEar.TAB) ? 'head' : (groupOfCat(currentWdTab) || PART_GROUPS()[0].group);
 
   if(tabsWrap){
     tabsWrap.innerHTML='';
     // 1단계: 상위 그룹 탭
     const groupRow=document.createElement('div'); groupRow.className='wd-group-row';
-    PART_GROUPS().forEach(g=>{
+    [...PART_GROUPS(), WD_ALBUM_GROUP].forEach(g=>{
       const btn=document.createElement('button');
       btn.className='wd-tab-btn wd-group-btn'+(g.group===currentWdGroup?' on':'');
       btn.textContent=g.icon+' '+g.label;
       btn.onclick=()=>{
+        if(g.group==='album' && currentWdGroup==='album') return;   // 도감을 또 누르면 그대로(서버 읽기가 늘지 않게)
         currentWdGroup=g.group;
         // 그룹 바뀌면 그 그룹의 첫 서브카테고리로 자동 이동
         /* 🪑 책상 그룹의 첫 칸은 «책상»(가상 탭)이다 — 시안에서 정한 순서(◉ 책상 · ○ 책상 위). */
-        if(g.group === 'desk'){ currentWdTab = WD_DESK_TAB(); }
+        if(g.group === 'album'){ selectWdTab(WD_ALBUM_TAB); }
+        else if(g.group === 'desk'){ currentWdTab = WD_DESK_TAB(); }
         else { const firstSub = partsInGroup(g.group)[0]; if(firstSub) currentWdTab = firstSub.cat; }
         activeWdAdj=null; _clearMultiPanelRef();
         renderWardrobe();
@@ -1652,8 +1669,9 @@ function renderWardrobe(){
       groupRow.appendChild(btn);
     });
     tabsWrap.appendChild(groupRow);
-    // 2단계: 하위 카테고리 탭 (선택된 그룹의 하위만)
+    // 2단계: 하위 카테고리 탭 (선택된 그룹의 하위만) — 도감 · 라이선스 없는 탭에는 없다
     const subRow=document.createElement('div'); subRow.className='wd-sub-row';
+    if(currentWdGroup === 'album' || !wdLicensed()) subRow.hidden = true;
     if(currentWdGroup === 'desk'){
       /* 🪑 책상 **본체** — 같은 그룹의 «책상 위»(deskitem)와 나란히 서지만 배관이 다르다(WD_DESK_TAB 주석). */
       const dbtn=document.createElement('button');
@@ -1680,6 +1698,23 @@ function renderWardrobe(){
     tabsWrap.appendChild(subRow);
   }
 
+  /* 📚 «도감» — 칸은 gacha.js 가 그린다(라이선스 없이도 연다). */
+  if(currentWdTab === WD_ALBUM_TAB){
+    wrap.innerHTML='';
+    const host=document.createElement('div'); host.id='gachaInvHost';
+    wrap.appendChild(host);
+    gachaMod().renderGachaInv();
+    refreshWdPreviewColorSection();
+    return;
+  }
+  if(!wdLicensed()){
+    if(currentWdTab === wdEar.TAB) currentWdTab = (partsInGroup('head')[0] || PART_CATS()[0]).cat;   // 귀 핸들 · 조정 줄이 잠금 안내 옆에 열리지 않게
+    wrap.innerHTML='';
+    renderWdLocked(wrap);
+    refreshWdPreviewColorSection();
+    updateWdGizmoForActivePanel();
+    return;
+  }
   /* 🪑 «책상» 가상 탭 — 파츠 그리드 배관을 타지 않고 여기서 갈라진다(WD_DESK_TAB 주석). */
   /* 🐾 «귀» 가상 탭 — 기즈모·조정할 귀 줄은 updateWdGizmoForActivePanel 이 wd-ear.js 로 넘긴다.
      책상 탭도 같이 맞춘다 — 안 부르면 귀 탭에서 넘어올 때 귀 핸들·줄이 남는다. */
@@ -1692,12 +1727,10 @@ function renderWardrobe(){
   }
   const info = PART_CATS().find(c=>c.cat===currentWdTab);
   wrap.innerHTML='';
-  /* 🎰 가챠 파츠는 여기 안 나온다 — 뽑아서 얻고 [파츠 보관함](T키)에서 착용한다.
-     ⚠️ 이건 "내가 가진 것만 보여준다"가 아니다. 그 필터는 기존 유저가 쓰던 파츠를 잃게 만든다.
-        여기서 거르는 것은 gacha 플래그가 켜진 파츠뿐이고, 지금 등록된 파츠 중에는 하나도 없다
-        (= 기존 유저의 화면은 한 칸도 안 바뀐다). partsInCat 자체는 안 건드린다 —
-        관리자 등록 시 카테고리 상한 계산에는 가챠 파츠도 같이 세어야 하기 때문이다. */
-  const list=partsInCat(info.cat).filter(p=>!gachaMod().isGachaPart(p));
+  /* 🎰 가챠 파츠는 **뽑은 것만** 여기에도 보인다(🎰 표시) — 안 뽑은 것은 «도감» 에서만(???).
+     ⚠️ 거르는 것은 가챠 파츠뿐이다 — 꾸미기 파츠를 «가진 것만» 으로 거르면 기존 유저가 쓰던 파츠를 잃는다.
+     partsInCat 자체는 안 건드린다(관리자 등록 때 카테고리 상한 계산에는 가챠 파츠도 같이 센다). */
+  const list=partsInCat(info.cat).filter(p=>!gachaMod().isGachaPart(p) || gachaMod().gachaCount(p.id)>0);
   const sec=document.createElement('div'); sec.className='wd-cat';
   const head=document.createElement('div'); head.className='wd-cat-head';
   head.innerHTML='<h3>'+escHtml(info.icon)+' '+escHtml(info.label)+'</h3>';  const actions=document.createElement('div'); actions.className='wd-cat-head-actions';
@@ -1721,7 +1754,7 @@ function renderWardrobe(){
     if(gcnt){
       const note=document.createElement('div');
       note.style.cssText='font-size:10px;color:var(--ink-soft);opacity:.85;margin:-2px 2px 6px;';
-      note.textContent='🎰 가챠 전용 '+gcnt+'개는 여기 안 보여요 — 파츠 보관함(T)에서 관리해요';
+      note.textContent='🎰 가챠 파츠 '+gcnt+'개 — 여기엔 뽑은 것만 보여요 · 등록 · 수정은 «📚 도감» 탭에서';
       sec.appendChild(note);
     }
   }
@@ -1753,8 +1786,17 @@ function renderWardrobe(){
       ? '<img class="wd-thumb" src="'+escHtml(TwSafeHtml.safeUrl(_thumbSrc,'image'))+'" alt="">'
       : '<span>'+escHtml(rec.icon||info.icon)+'</span>';
     card.innerHTML = thumbHtml + '<span class="nm">'+escHtml(rec.name||'파츠')+'</span>';
+    const isGacha = gachaMod().isGachaPart(rec);
+    // 🎰 뽑은 가챠 파츠 — 우상단에 🎰(가챠는 stackable 이 강제라 🔗 대신)
+    if(isGacha){
+      const gBadge = document.createElement('div');
+      gBadge.className = 'wd-card-stack-badge wd-card-gacha';
+      gBadge.textContent = '🎰';
+      gBadge.title = '가챠에서 뽑은 파츠 — 도감에서도 입을 수 있어요';
+      card.appendChild(gBadge);
+    }
     // 🔗 다른 파츠와 함께 착용 가능한 파츠는 우상단에 뱃지 표시
-    if(rec.stackable){
+    else if(rec.stackable){
       const stackBadge = document.createElement('div');
       stackBadge.className = 'wd-card-stack-badge';
       stackBadge.textContent = '🔗';
@@ -1769,7 +1811,8 @@ function renderWardrobe(){
       else activeWdAdj = {cat: info.cat, id: rec.id};
       renderWardrobe();
     };
-    if(isAdmin()){
+    /* 관리자 삭제 · 수정 · 순서는 꾸미기 파츠만 — 가챠 파츠는 «도감» 탭에서 관리한다. */
+    if(isAdmin() && !isGacha){
       const x=document.createElement('div'); x.className='wd-card-x'; x.textContent='×';
       x.onclick=ev=>{ ev.stopPropagation(); activeWdAdj=null; _adminPartActions.deletePart(rec.id); };
       card.appendChild(x);
@@ -1792,8 +1835,8 @@ function renderWardrobe(){
     dv.innerHTML='<span>기본 캐릭터</span><div class="wd-divider-line"></div>';
     sec.appendChild(dv);
     const grid=document.createElement('div'); grid.className='wd-grid';
-    /* 🎰 [안 함] 의 선택 표시는 **꾸미기 파츠만** 본다. 가챠 파츠는 이 창에 안 보이므로,
-       보관함에서 착용한 파츠 하나 때문에 [안 함] 이 안 켜지면 "안 함을 눌렀는데 표시가 안 된다" 가 된다.
+    /* 🎰 [안 함] 의 선택 표시는 **꾸미기 파츠만** 본다 — [안 함] 은 가챠 파츠를 벗기지 않으므로(toggleEquip),
+       가챠 파츠 하나 때문에 [안 함] 이 안 켜지면 "안 함을 눌렀는데 표시가 안 된다" 가 된다.
        (toggleEquip 의 [안 함] 처리와 판정 기준을 반드시 같이 맞춰야 한다 — 조회 실패는 '가챠로 취급'.) */
     const _wornWardrobe = entriesForCat(def, info.cat).some(e=>{
       const eid = partEntryId(e); if(!eid) return false;
@@ -1841,9 +1884,7 @@ async function toggleEquip(cat, id){
     /* [안 함] — 이 카테고리의 **꾸미기 파츠만** 정리한다. 🎰 가챠 파츠는 남긴다.
        [경위] 예전엔 delete def.equippedParts[cat] + unequipPartFromSeat(.., true) 로 카테고리를
          통째로 비웠다. 가챠 파츠는 stackable 강제라 같은 카테고리 컨테이너에 들어가므로,
-         보관함(T)에서 착용한 파츠가 꾸미기 창의 [안 함] 한 번에 같이 벗겨졌다(제보).
-         꾸미기 창은 애초에 가챠 파츠를 한 칸도 안 보여주므로(renderWardrobe 의 !isGachaPart 필터),
-         여기서 벗기는 것은 유저가 보고 있지도 않은 것을 건드리는 셈이다.
+         도감에서 착용한 가챠 파츠가 [안 함] 한 번에 같이 벗겨졌다(제보). 가챠 파츠는 그 칸(🎰)을 눌러 벗는다.
        ⚠️ savedParts 조회 실패는 '남긴다'로 떨어뜨린다 — 카탈로그 동기화 직전에 조회가 빈 경우
          '가챠 아님'으로 단정하면 착용 파츠를 지우는 사고가 된다(pruneSeatPartsAgainstDef 가 그랬다).
          못 지우면 유저가 한 번 더 누르면 되지만, 지워버린 것은 되돌릴 방법이 없다. */
@@ -1931,6 +1972,9 @@ return {
   ORBIT_DRAG_DIR,
   _clearMultiPanelRef,
   _wdAfterMainSwap,
+  ALBUM_TAB: WD_ALBUM_TAB,
+  selectWdTab,
+  isAlbumTab,
   activeWdAdj: ()=>activeWdAdj,   // 읽는 함수
   setActiveWdAdj: (v)=>{ activeWdAdj = v; },   // 쓰는 함수 — app.js 가 비운다
   buildFreeColorPicker,

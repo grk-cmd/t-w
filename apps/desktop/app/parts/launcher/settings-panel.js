@@ -426,7 +426,7 @@ const fsWin = (function bindFocusSettings(){
     (window.__winPosResetters||[]).forEach(fn=>{ try{ fn(); }catch(_){} });
     /* 지금 떠 있는 창은 그 자리에서 기본 위치로 돌려놓는다 — 다시 열 때까지 기다리게 하면
        "눌러도 아무 일이 없다"로 보인다. 기본 위치는 CSS 가 정하므로 인라인 값만 지운다. */
-    ['wdPreviewPanel','gachaInvWin','gachaDrawWin','ideskInvWin','myPlaylistBox','bellWin','chatWindow']
+    ['wdPreviewPanel','gachaDrawWin','ideskInvWin','myPlaylistBox','bellWin','chatWindow']
       .forEach(id=>{
         const el=document.getElementById(id); if(!el) return;
         el.style.left=''; el.style.top=''; el.style.right=''; el.style.transform='';

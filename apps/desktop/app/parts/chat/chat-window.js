@@ -96,7 +96,7 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
     title.addEventListener('pointerdown', e=>{
       /* 닫기 버튼과 투명도 슬라이더는 드래그 시작 안 함 — 타이틀바가 드래그 핸들이라
          여기서 빼주지 않으면 슬라이더를 잡는 순간 창이 끌려가 값을 못 바꾼다
-         (#gachaInvHead 의 closeSel 예외와 같은 관례). */
+         (#gachaDrawHead 의 closeSel 예외와 같은 관례). */
       // ▁ 최소화 버튼도 드래그 예외 — 안 넣으면 누를 때마다 창이 따라 움직인다
       if(e.target.closest && e.target.closest('#chatCloseBtn, #chatMinBtn, #chatOpacity')) return;
       dragging=true;
