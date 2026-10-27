@@ -66,7 +66,7 @@ function _positionCascade(menuEl, anchorBtn, preferSide){
   if(preferSide === 'right' || preferSide === 'left'){
     // 😊 선호 방향 고정 모드 — 항상 그쪽에 열고, 벽에 닿아 공간이 부족할 때만 반대편으로 반전.
     //   히스테리시스: 한 번 반전되면 원래 방향에 여유(menuW+30)가 다시 생겨야 복귀 —
-    //   캐릭터가 경계에서 움직일 때 팔레트가 좌우로 파닥거리지 않게(상태칩의 _lastChipPlaceRight와 같은 기법).
+    //   캐릭터가 경계에서 움직일 때 팔레트가 좌우로 파닥거리지 않게.
     const wantR = (preferSide === 'right');
     const primary  = wantR ? spaceRight : spaceLeft;
     const opposite = wantR ? spaceLeft  : spaceRight;

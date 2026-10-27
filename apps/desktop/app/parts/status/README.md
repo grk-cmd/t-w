@@ -35,7 +35,7 @@
 - **내보내는 것**: `updateMyStatusChipPosition` · `_positionCascade` · `_repositionOpenChipPopups` 등(머리 주석 목록).
 - **함정**
   - `#myStatusChipBtn` 은 회사원 모드로 숨겨도 남는 유일한 버튼이고 **우클릭**이 숨김 · 되돌리기다(app.js `bindOfficeHideGesture`). `#myStatusChip` 밖으로 옮기면 클릭 통과 화이트리스트에서 빠져 되돌릴 길이 없다.
-  - 메뉴 안 버튼(🎵 · 🔔)이 연 창은 그 줄이 아니라 ▾ 옆에 놓는다 — 메뉴가 닫히면 줄 자리가 의미가 없다(listen-ui.js 도 같은 기준).
+  - 메뉴 안 🎵 · 🎧 줄이 연 창은 그 줄이 아니라 ▾ 옆에 놓는다(🔔 일정 창은 예전처럼 발 밑 · 기억한 자리) — 메뉴가 닫히면 줄 자리가 의미가 없다(listen-ui.js 도 같은 기준).
   - F키는 메뉴 안 버튼 id(`myFocusGearBtn` · `myWardrobeBtn` · `myMoveBtn` · `myHomeMenuBtn`)를 클릭한다 — id 를 바꾸지 않는다.
 - **검사**: `checks/sim-status-chip.js`(2-2절 — ▾ 열고 닫기 · 투게더룸이면 춤 · 룰렛 숨김 · 상태 고르면 닫힘 · 깨 보기).
 

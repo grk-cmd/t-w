@@ -76,7 +76,8 @@ function behave(src){
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
-  deps._officeHidden = () => false;
+  let office = false;
+  deps._officeHidden = () => office;
   deps.setUserStatus = (v) => picked.push(v);
   deps._closeChipPopups = () => {};
   const win = { _activeChannel: 1, addEventListener(){}, removeEventListener(){} };
@@ -104,7 +105,8 @@ function behave(src){
     press(btn); const n = picked.length;
     (menu.on.click || []).forEach(fn => fn({ target: { closest: (sel) => (sel === '.stItem' ? custom : null) } }));
     t(picked.length === n, '  ✨ 커스텀 상태 줄(data-st 없음)은 상태를 바꾸지 않는다 — 입력창 여는 전용 처리에 맡긴다');
-    deps._officeHidden = () => true;
+    more.classList.add('hidden'); btn.classList.remove('on'); office = true; press(btn);
+    t(more.classList.contains('hidden'), '회사원 모드로 숨긴 동안엔 ▾ 를 눌러도 메뉴가 안 열린다(되돌리기는 우클릭)');
   }catch(e){ t(false, '동작 판정 중 던짐 — ' + String(e.message || e).slice(0, 80)); }
   return r;
 }

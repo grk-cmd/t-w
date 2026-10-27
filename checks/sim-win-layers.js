@@ -170,7 +170,7 @@ const mkBox = () => ({ hidden:true, style:{},
               remove(){}, } });
 function fakeDoc(){
   const ids = ['myStatusMenu','myChipMore','myChatBox','myCustomStatusBox','bellWin','myDemojiBox','myPlaylistBox',
-               'myStatusChipBtn','myChipMoreBtn','myChatBtn','myCustomStatusBtn','myBellBtn','myDemojiBtn','myPlBtn'];
+               'myStatusChipBtn','myChatBtn','myCustomStatusBtn','myBellBtn','myDemojiBtn','myPlBtn'];
   ids.forEach(id => {
     const o = { style:{}, hidden:false, on:true };
     o.classList = { add:c => { if(c==='hidden') o.hidden = true; }, remove:c => { if(c==='on') o.on = false; } };
