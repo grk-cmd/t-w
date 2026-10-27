@@ -72,8 +72,33 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* ⌨️ 키를 실제로 눌러 본다 — T 는 아무 일도 안 하고(#540 P2 뒤 · 도감은 F2 꾸미기 창의 탭), F2 · I 는 그대로 */
+function behave(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const clicked = [], on = {};
+  const el = (id) => ({ id, click: () => clicked.push(id), classList: { contains: () => false }, addEventListener(){} });
+  const document = { readyState: 'complete', body: { classList: { contains: () => false } }, activeElement: null,
+    getElementById: (id) => /^(launcher|creatorOverlay|myHomeOverlay)$/.test(id) ? null : el(id),
+    querySelector: () => null, querySelectorAll: () => [], addEventListener: (k, fn) => { (on[k] = on[k] || []).push(fn); } };
+  const hotkeyLetter = (e) => String(e.key || '').toLowerCase();
+  try{
+    new Function('window', 'document', 'navigator', 'hotkeyLetter', 'module', src + '\nreturn window.TwFnKeys;')
+      ({}, document, { platform: 'Win32', userAgent: '' }, hotkeyLetter, undefined)
+      .createFnKeys({ chatUiMod: () => ({}), iDeskMod: { IDESK_ENABLED: false }, rideBenchMod: {} });
+  }catch(e){ t(false, '가짜 DOM 위에서 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
+  const press = (key) => { let prevented = false; (on.keydown || []).forEach(fn => fn({ key, repeat: false, preventDefault: () => { prevented = true; } })); return prevented; };
+  clicked.length = 0;
+  t(!press('t') && !press('T') && !clicked.length, '★ T(t · T) — 아무 창도 안 열고 키를 막지도 않는다(도감은 F2 꾸미기 창의 탭)');
+  t(press('F2') && clicked.join() === 'myWardrobeBtn', 'F2 — 꾸미기 창 버튼');
+  t(press('i'), 'I — 그대로 받는다(상호작용 책상 · 이번 판은 꺼짐)');
+  return r;
+}
+
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 키 눌러 보기');
+behave(MOD).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/fn-keys.js"></script>', '')],
@@ -85,6 +110,13 @@ const breaks = [
 
   ['만들 때 던짐', m => m.replace('function createFnKeys(deps){', 'function createFnKeys(deps){ throw new Error("깨 봄");'), null, null],
 ];
+const behaveBreaks = [
+  ['T 가 되살아남', m => m.replace("if(!isFKey && letter!=='i') return;", "if(!isFKey && letter!=='i' && letter!=='t') return;")],
+];
+for(const [name, fm] of behaveBreaks){
+  const m2 = fm(MOD);
+  chk(m2 !== MOD && behave(m2).some(([ok]) => !ok), '동작 깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;

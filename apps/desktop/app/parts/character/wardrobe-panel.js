@@ -75,9 +75,7 @@ let open = null, close = null, isOpen = null;   // bindWardrobe 가 채운다 �
 /* 📚 뽑기 창 [도감으로] — «도감» 탭으로 연다(열려 있으면 탭만 바꾼다). 가챠는 꾸미기 창을 모르므로 통로로 부탁한다. */
 twNav.on(twNav.NAV.WARDROBE_ALBUM, (opts)=>{ if(open) open(wardrobeMod().ALBUM_TAB, opts); });
 
-return {
-
-};
+return {};
 }
 
 const api = { createWardrobePanel };
