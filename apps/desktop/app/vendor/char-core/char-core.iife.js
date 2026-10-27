@@ -1420,7 +1420,7 @@ vec3 twHueShift(vec3 rgb, float hue, float sat, float val){
           wrp.position.y += dOff.y;
           wrp.position.z += dOff.z;
         }
-        if (wrp.userData._aoLegacy === void 0) wrp.userData._aoLegacy = !!(ao && isLegacyAuthorCompensation(pos, ao));
+        if (wrp.userData._aoLegacy === void 0) wrp.userData._aoLegacy = !!(ao && !xf.aoClean && isLegacyAuthorCompensation(pos, ao));
         const legacy = wrp.userData._aoLegacy;
         wrp.position.x += pos[0] + (legacy ? ao.x : 0);
         wrp.position.y += pos[1] + (legacy ? ao.y : 0) + ahdy;

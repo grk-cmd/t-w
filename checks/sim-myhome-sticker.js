@@ -77,7 +77,7 @@ function mkEnv(opt){
   ctx._mhFitWindow = () => { env.fit = (env.fit || 0) + 1; };   // 런처 창 넓히기 고리(myhome-sticker-layout.js 가 부팅 때 건다)
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(SRC['myhome-sticker-rules.js'], ctx, { filename: 'myhome-sticker-rules.js' });   // 🔒 잠금 · 순서 규칙 — 만들 때 받는다
-  vm.runInContext(MOD, ctx, { filename: 'myhome-sticker.js' });
+  vm.runInContext(opt.src || MOD, ctx, { filename: 'myhome-sticker.js' });
   env.ctx = ctx; env.els = els;
   const out = (s) => (s.x || 0) < 0 || (s.y || 0) < 0 || (s.x || 0) > env.W - 10 || (s.y || 0) > env.H - 10;
   env.mk = () => ctx.TwMyHomeSticker.createMyHomeSticker({
@@ -271,20 +271,31 @@ await sec('── 5-2. 🔒 잠금 · ▲▼ 순서 (관리 창 · 편집모드 
   chk(lockedId === 'a' && e.data.stickers.a.locked === true, '★ 🔓 — 잠근다(locked: true)');
   const lr = E.stMgrList.children.find(r => /locked/.test(r.className));
   const lbtn = (t) => e.walk(e.part(lr, 'st-mgr-btns')).find(b => b.tagName === 'BUTTON' && b.textContent.split(' ')[0] === t);
-  chk(!!lr && lbtn('🔒') && lbtn('🔒').classList.contains('on') && lbtn('◎').disabled === true && lbtn('✎').disabled === true && lbtn('🔗') && !lbtn('🔗').disabled && !lbtn('×').disabled, '  잠긴 줄 — 🔒 켜짐 · ◎ ✎ 꺼짐 · 🔗 × 는 된다');
+  chk(!!lr && lbtn('🔒') && lbtn('🔒').classList.contains('on') && lbtn('◎').disabled === true && !lbtn('✎').disabled && lbtn('🔗') && !lbtn('🔗').disabled && !lbtn('×').disabled, '  잠긴 줄 — 🔒 켜짐 · ◎ 꺼짐 · ✎ 🔗 × 는 된다(✎ 은 우클릭과 같은 편집)');
   const ax = e.data.stickers.a.x; M.bringIn('a');
   chk(e.data.stickers.a.x === ax, '  ◎(bringIn) 도 잠긴 것은 안 옮긴다');
   e.data.stickers.a.x = -500; const nb = e.toasts.length; E.stMgrBringAll.onclick();
   chk(e.data.stickers.a.x === -500 && e.data.stickers.b.x === 560, '  전부 화면 안으로 — 잠긴 것은 그대로 · 나머지만');
+  const cE = e.commits; lbtn('✎').click();
+  chk(e.data.stickers.a.x === 0 && e.editSid === 'a' && e.data.stickers.a.locked === true && e.commits === cE + 1, '★ 창 밖의 잠긴 스티커도 ✎ — 창 안으로 당겨 편집모드 · 잠금은 그대로 · 저장');
+  e.editSid = null; e.docL = {};
+  { /* 깨 보기 — ✎ 가 ◎ 처럼 잠긴 것을 건너뛰면 창 밖에 남은 채 편집모드(안 보임) */
+    const bad = MOD.replace('if(_mhStickerOutOfView(s)){ _mhClampStickerPos(s); commitMyHomePage(true); }', 'if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); commitMyHomePage(true); }');
+    const b = mkEnv({ src: bad, stickers: { a: { x: -500, y: 10, locked: true } } }); b.mk().open();
+    const br = b.els.stMgrList.children.find(r => /locked/.test(r.className));
+    const pen = br && b.walk(b.part(br, 'st-mgr-btns')).find(x => x.tagName === 'BUTTON' && x.textContent.split(' ')[0] === '✎');
+    if(pen) pen.click();
+    chk(bad !== MOD && !!pen && b.data.stickers.a.x === -500, '  깨 보기 — ✎ 가 잠긴 것을 건너뛰면 창 밖에 남는다(빨강)');
+  }
   e.data.stickers.a.x = 10;
   const t0 = e.toasts.length; M.editStart('a');
-  chk(e.editSid !== 'a' && e.toasts.length === t0 + 1 && /잠긴 스티커/.test(e.toasts[t0]), '★ 잠긴 스티커는 편집모드에 안 들어간다 · 안내');
+  chk(e.editSid === 'a' && e.toasts.length === t0 && e.data.stickers.a.locked === true, '★ 잠긴 스티커도 우클릭 · ✎ 로 편집모드에 들어간다 · 잠금은 그대로');
   const el = mkEl(); el.classList.add('editing'); M.bindDrag(el, 'a');
   el.fire('pointerdown', { clientX: 0, clientY: 0, target: el }); el.fire('pointermove', { clientX: 50, clientY: 50 });
-  chk(!el._cap && e.data.stickers.a.x === 10, '  편집 표시가 남아 있어도 끌기 · 회전 · 크기 핸들이 안 잡는다');
+  chk(!!el._cap && e.data.stickers.a.x === 60, '  편집모드에선 잠긴 스티커도 끌어 옮긴다');
   const p2 = mkEl(); const h = mkEl(); p2.appendChild(h); M.bindResize(h, 'a'); h.fire('pointerdown', { clientX: 0, clientY: 0 }); h.fire('pointermove', { clientX: 40, clientY: 40 });
   const p3 = mkEl(); const r = mkEl(); p3.appendChild(r); M.bindRotate(r, 'a', mkEl()); r.fire('pointerdown', { clientX: 120, clientY: 80 }); r.fire('pointermove', { clientX: 160, clientY: 120 });
-  chk(!e.data.stickers.a.size && !e.data.stickers.a.rot, '  크기 · 회전 그대로');
+  chk(!!e.data.stickers.a.size && e.data.stickers.a.size !== 1 && typeof e.data.stickers.a.rot === 'number' && e.data.stickers.a.rot !== 0 && e.data.stickers.a.locked === true, '  크기 · 회전 핸들도 잡는다 · 잠금은 그대로');
   e.editSid = 'c'; M.open();
   e.btn(2, '🔓').click();
   chk(e.data.stickers.c.locked === true && e.editSid === null, '  편집 중인 스티커를 잠그면 편집이 끝난다');
@@ -389,8 +400,8 @@ await sec('── 7. 런처에서도 창 밖 스티커가 그 자리에 보이�
   chk(JSON.stringify(G.po({ x: 12.2, y: -5 })) === '{"x":13,"y":0}' && G.po({ x: 99999 }).x === +mx && JSON.stringify(G.po(null)) === '{"x":0,"y":0}' && JSON.stringify(G.po({ x: 'a' })) === '{"x":0,"y":0}',
     '  받은 값 — 올림 · 음수 · 이상한 값은 0 · 상한 ' + mx + ' · 옛 렌더러(없음)는 0');
   chk(/ipcMain\.on\('companion:setConfigMode', \(e, isConfig, mode, extra\) =>/.test(MAIN) && /_mhPad = _mhPadOf\(extra\);/.test(MAIN)
-    && /if\(remembered\) remembered = \{ x: remembered\.x - \(padDip\.x - _mhPadApplied\.x\), y: remembered\.y - \(padDip\.y - _mhPadApplied\.y\) \};/.test(MAIN),
-    '★ 여백이 바뀐 만큼 창 좌상단을 옮겨 마이홈이 제자리에 있다');
+    && MAIN.includes('remembered = MhPadPos.placeOf(remembered, padDip);'),
+    '★ 여백만큼 창 좌상단을 옮겨 마이홈이 제자리에 있다(자리 규칙은 sim-mh-pad-pos)');
   chk(/setConfigMode\(isConfig, mode, extra\) \{\s*ipcRenderer\.send\('companion:setConfigMode', !!isConfig, mode \|\| 'launcher', extra \|\| null\);/.test(PRE), '  preload 가 셋째 인자를 넘긴다');
 });
 

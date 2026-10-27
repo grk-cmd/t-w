@@ -16,10 +16,25 @@ const getMyUserId = deps.getMyUserId;
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 방 나가기
 const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;   // 앱 다시 켜기(account-state.js) — 못 하면 onFallback 을 부르고 false
 window._deviceSessionLost = false;
-function _onDeviceSessionLost(){
+/* 왜 밀렸나 — 세션 구독이 읽기 거부로 끊기면(firebase-init 이 null 을 넘긴다) 다른 기기 로그인이 아니라, 같은 계정의 옛 앱
+   (presence 에 ver 없음)이 켜져 있어 규칙이 이 앱의 읽기를 막은 경우가 대부분이다. 같은 «다른 기기» 안내를 띄우면
+   [여기서 계속] 을 눌러도 옛 앱이 켜져 있는 한 다시 막혀 같은 화면만 되풀이된다 — 무엇을 끄면 되는지 알려 준다. */
+const LOST_TEXT = {
+  device: { title: '🖥️ 다른 기기에서 사용 중이에요', btn: '여기서 계속 쓰기',
+    msg: '이 계정이 방금 다른 PC에서 로그인됐어요. 투게더워킹은 한 번에 한 기기에서만 쓸 수 있어요.\n이 PC의 캐릭터·기록은 그대로 두고, 방 접속만 끊었어요.' },
+  oldApp: { title: '🖥️ 옛 버전 투게더워킹이 켜져 있어요', btn: '다시 시도',
+    msg: '서버가 이 PC의 읽기를 막고 있어요. 같은 계정으로 옛 버전 투게더워킹(맥 등)이 켜져 있으면 이렇게 돼요.\n그 기기에서 앱을 업데이트하거나 꺼 준 뒤 [다시 시도]를 눌러 주세요.' },
+};
+function lostKind(v){ return v === null ? 'oldApp' : 'device'; }
+function _onDeviceSessionLost(v){
   if(window._deviceSessionLost) return;
   window._deviceSessionLost = true;
   try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(()=>{}); }catch(_){}
+  const t = LOST_TEXT[lostKind(v)];
+  const ti = document.getElementById('deviceSessionTitle'), mi = document.getElementById('deviceSessionMsg'), b1 = document.getElementById('deviceSessionContinue');
+  if(ti) ti.textContent = t.title;
+  if(mi) mi.textContent = t.msg;
+  if(b1){ b1.textContent = t.btn; _continueLabel = t.btn; }
   const ov = document.getElementById('deviceSessionOverlay');
   if(ov) ov.style.display = 'flex';
 }

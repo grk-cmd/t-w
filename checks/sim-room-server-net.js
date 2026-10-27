@@ -6,7 +6,7 @@
  * 3-1. 💬 채팅 탭 — 멤버 칸 tab · chatTab ↔ chat{tab} · meta.tabs(방장 setMeta) · 받은 말풍선을 chat / chatTab 자리로
  * 4. state 1초 묶기 · exp 는 바뀔 때만
  * 5. 찌르기 all · 받은 찌르기
- * 6. 서버 사건(joined · patch · left · meta · disband · replaced) · def 푸는 순서
+ * 6. 서버 사건(joined · patch · left · meta · disband · replaced) · def 푸는 순서 · 얼굴 못 받은 def 다시 풀기(retryDefAfter) · 깨 보기
  * 7. 끊김 → 재연결(resume) · resumeFailed → 전체 다시 입장
  * 7-1. 이어 붙으면 지금 상태 전체를 한 번 다시 · 끊긴 동안의 말 · 찌르기는 들고 있다가 보냄(종류마다 5개 · 15초)
  * 8. 인증 실패 · 시간 초과 · 꺼짐 → Firebase 로 돌아가라는 신호
@@ -94,7 +94,7 @@ function mkNet(o = {}){
   const clock = mkClock();
   const { FakeWS, socks } = mkWS();
   const calls = { token: [] };
-  const net = M.createRoomServerNet({
+  const net = (o.mod || M).createRoomServerNet({
     createLink: L.createRealtimeLink,
     WebSocket: FakeWS,
     enabled: () => o.enabled !== false,
@@ -106,6 +106,7 @@ function mkNet(o = {}){
     now: () => clock.t,
     setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
     setInterval: clock.setInterval, clearInterval: clock.clearInterval,
+    random: () => 0.5,   // 다시 붙기 흩기 없음 — 백오프 시험이 정확한 초를 본다(흩기 자체는 sim-realtime-link)
     log: { warn(){} },
   });
   return { net, clock, socks, calls };
@@ -116,6 +117,7 @@ function mkHooks(o = {}){
     serializeDef: (d) => ({ ser: d }),
     deserializeDef: o.deserializeDef || ((d) => { h.defCalls++; return Promise.resolve({ de: d }); }),
     getExp: () => h.exp,
+    retryDefAfter: o.retryDefAfter,
     onMeta: (m, p) => h.log.push(['meta', m, p]),
     onDisband: () => h.log.push(['disband']),
     onReplaced: () => h.log.push(['replaced']),
@@ -134,6 +136,62 @@ const ME = { def: { skin: 1 }, name: '철수', state: 'idle', userStatus: null, 
 const META = { channel: 'workingroom', host: 'u1', open: true, chatOff: false, secret: false };
 const WELCOME = (o = {}) => Object.assign({ t: 'welcome', room: 'WORK-AB12', memberId: 'mME', resume: 'R1', resumed: false,
   members: { mA: { name: 'A', state: 'focus', userId: 'uA', def: { a: 1 }, chat: { text: 'hi', ts: 5 } } }, meta: META }, o);
+
+/* 얼굴 못 받은 def 다시 풀기 — 가짜 훅: n 번째 풀기까지 «못 받음», 기다림은 5 · 20 · 60초(img-retry.js 와 같은 모양) */
+async function faceRetryCases(mod){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const WAIT = [5000, 20000, 60000];
+  const mk = async (failUntil) => {
+    let n = 0;
+    const calls = [];
+    const hooks = {
+      deserializeDef: (d) => { n++; calls.push(d); return Promise.resolve({ de: d, n, miss: n <= failUntil }); },
+      retryDefAfter: (d, tries) => (d && d.miss && tries < WAIT.length) ? WAIT[tries] : null,
+    };
+    const e = await joined({ net: { mod }, hooks });
+    return Object.assign(e, { calls });
+  };
+  try{
+    const a = await mk(2);
+    const f0 = a.h.frames.length;
+    t(a.calls.length === 1 && a.h.frames[f0 - 1].mA.def.n === 1, '얼굴 못 받은 채 들어옴 — 일단 그린다(기다리지 않음)');
+    await a.clock.advance(4999); await tick();
+    t(a.calls.length === 1, '  ↳ 기다릴 시간 전엔 다시 풀지 않는다');
+    await a.clock.advance(1); await tick();
+    t(a.calls.length === 2 && a.h.frames.length === f0 + 1 && a.h.frames[f0].mA.def.n === 2, '★ 시간이 되면 다시 풀어 화면에 넘긴다(아무 사건 없이도)');
+    await a.clock.advance(20000); await tick();
+    t(a.calls.length === 3 && a.h.frames[a.h.frames.length - 1].mA.def.n === 3 && !a.h.frames[a.h.frames.length - 1].mA.def.miss, '★ 다음엔 더 길게 — 받으면 그 얼굴로 그린다');
+    await a.clock.advance(600000); await tick();
+    t(a.calls.length === 3, '  ↳ 받은 뒤엔 다시 풀지 않는다');
+    a.ws.msg({ t: 'patch', memberId: 'mA', state: 'sleep' }); await tick();
+    t(a.calls.length === 3 && a.h.frames[a.h.frames.length - 1].mA.def.n === 3, '  ↳ 상태만 바뀐 갱신은 받은 def 를 그대로 쓴다');
+
+    const b = await mk(99);
+    await b.clock.advance(600000); await tick();
+    t(b.calls.length === 1 + WAIT.length, '★ 끝내 못 받으면 — 다시 풀기는 훅이 준 횟수(' + WAIT.length + '번)까지만(늘 받기 없음)');
+
+    const c = await mk(99);
+    c.ws.msg({ t: 'left', memberId: 'mA' }); await tick();
+    await c.clock.advance(600000); await tick();
+    t(c.calls.length === 1, '  그 사람이 나갔으면 — 다시 풀지 않는다');
+
+    const d = await mk(99);
+    d.ws.msg({ t: 'def', memberId: 'mA', def: { a: 2 } }); await tick();
+    await d.clock.advance(5000); await tick();
+    t(d.calls.length === 3 && d.calls.every((x, i) => i === 0 || x.a === 2), '  def 가 바뀌었으면 — 옛 def 는 다시 풀지 않는다(새 def 만)');
+
+    const g = await mk(99);
+    g.prov.leave(); await tick();
+    await g.clock.advance(600000); await tick();
+    t(g.calls.length === 1, '  방에서 나왔으면 — 다시 풀지 않는다');
+
+    const h = await joined({ net: { mod } });
+    await h.clock.advance(600000); await tick();
+    t(h.h.defCalls === 1, '  retryDefAfter 훅이 없으면 — 예전처럼 한 번만 푼다');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e && e.message || e).slice(0, 100)); }
+  return r;
+}
 
 // 입장까지 마친 상태를 만든다
 async function joined(o = {}){
@@ -361,6 +419,19 @@ async function joined(o = {}){
     o.ws.msg({ t: 'patch', memberId: 'mA', state: 'focus' });
     await tick();
     chk(o.h.frames.length === before + 2, '  ↳ def 가 그대로면 다시 풀지 않고 바로 그린다');
+
+    // 얼굴을 못 받은 채 풀린 def — retryDefAfter 가 준 시간 뒤 다시 풀어 그린다(횟수는 훅이 정한다)
+    for(const row of await faceRetryCases(M)) chk(row[0], row[1]);
+    const breaks = [
+      ['다시 푼 뒤 화면에 안 넘김', "        startRestore(P, id, raw, tries + 1);\n        emit(P);", "        startRestore(P, id, raw, tries + 1);"],
+      ['다시 푼 횟수를 안 셈(늘 받기)', 'startRestore(P, id, raw, tries + 1);', 'startRestore(P, id, raw, 0);'],
+      ['def 가 바뀌어도 옛 것을 다시 풂', "        if(P.defCache[id] !== entry || !P.inRoom || active !== P) return;\n", "        if(!P.inRoom || active !== P) return;\n"],
+    ];
+    for(const [name, a, b] of breaks){
+      const s2 = SRC.replace(a, b);
+      const rows = s2 !== SRC ? await faceRetryCases(Object.assign({}, L, esm(s2))) : [];
+      chk(s2 !== SRC && rows.some(([ok]) => !ok), '깨 보기 — ' + name + (s2 !== SRC ? '' : ' — 바꿀 글을 못 찾음'));
+    }
   }
 
   say('── 7. 끊김 → 재연결');
@@ -916,7 +987,7 @@ async function joined(o = {}){
     chk(/r = await _chatTabAdd\(room, c\.name\);/.test(AC) && /else r = await _chatTabRename\(room, edit\.id, c\.name\);/.test(AC) && /const r = await _chatTabDelete\(_chatRoomCode\(\), id\);/.test(AC)
       && !/firebaseAPI\.(addChatTab|renameChatTab|deleteChatTab)\(/.test(AC.replace(ctAdd, '')) && !/_chatTabsOnServer/.test(AC), '  ↳ 탭 줄 · 메뉴는 이 셋만 부른다 · 서버 방이라고 [+] 를 숨기지 않는다');
     const so = AC.slice(AC.indexOf('async function _startRoomOnServer('), AC.indexOf('/* 랜덤 입장 후보 — 서버 방을 먼저 본다'));
-    chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\) return 'firebase';/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');
+    chk(/rs = await firebaseAPI\.resolveRoomServer\(code, \{ creating \}\);/.test(so) && /if\(!\(rs && rs\.via === 'server'\)\)\{ ctx\.fbWhy = [^;]+; return 'firebase'; \}/.test(so), '서버로 갈지는 firebaseAPI.resolveRoomServer 한 곳 — 아니면 Firebase');
     chk(/const following = rs\.from === 'dir';/.test(so) && /rd = await net\.ensureReady\(net\.timing\(\)\.joinWaitMs, \{ retry: true \}\);/.test(so) && /if\(!rd\.ok\) return blockFollow\(rd\.code\);/.test(so),
       '★ 주소록에 있는 방(이미 열림)은 입장 대기(원격 · 기본 10초)만큼 기다리고, 못 붙으면 Firebase 로 가지 않고 막는다');
     chk(/if\(!msg && following\) return blockFollow\(r && r\.code\);/.test(so) && /toast\(ROOM_SERVER_BUSY_MSG\);/.test(so)
@@ -924,7 +995,7 @@ async function joined(o = {}){
     chk(/rd = await net\.ensureReady\(\);\s*if\(!rd\.ok\)\{ console\.warn\('\[방 서버\] 연결 안 됨 — Firebase 방식으로 들어갑니다/.test(so), '  ↳ 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase 로 — 갈릴 사람이 없다');
     chk(/if\(!creating && !following\)\{\s*let pk = null;/.test(so), '  ↳ 주소록 따라가기는 peek 없이 바로 join(되살릴 후보 방은 peek 에 안 나온다) · join 이 실패할 때만 Firebase');
     const iPeek = so.indexOf('await net.peek(code)'), iFbCnt = so.indexOf('firebaseAPI.checkRoomCapacity(code)'), iStart = so.indexOf('await Presence.start(');
-    chk(iPeek > 0 && iFbCnt > iPeek && iStart > iFbCnt && /if\(!\(pk && pk\.exists\)\)\{/.test(so) && /if\(typeof fb === 'number' && fb > 0\) return 'firebase';/.test(so),
+    chk(iPeek > 0 && iFbCnt > iPeek && iStart > iFbCnt && /if\(!\(pk && pk\.exists\)\)\{/.test(so) && /if\(typeof fb === 'number' && fb > 0\)\{ ctx\.fbWhy = 'follow'; return 'firebase'; \}/.test(so),
       '코드로 들어가기 — peek 먼저: 서버에 있으면 서버, 없고 Firebase 에 사람이 있으면 Firebase, 둘 다 없으면 서버');
     chk(!/Presence\.stop\(\);\s*\/\/ 서버에는 없던 방/.test(so) && !/\bprobe\b/.test(so), '  ↳ 들어갔다 나오는 탐색(probe)은 없앴다');
     chk(/const _srv = await _serverRandomRooms\(12\);/.test(AC) && /_serverRandomRooms\(12\)\)\.filter\(c => c !== cur\)/.test(AC), '랜덤 입장 · 갈아타기 — 서버 방 먼저');

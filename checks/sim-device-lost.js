@@ -5,6 +5,7 @@
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 2줄 그대로 · 부르는 곳은 deviceLostMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 밀림 · «여기서 계속» 을 실제로 눌러 본다 — 다시 켜기를 부르고(끊긴 구독은 다시 켜야 산다) · 못 하면 여기서 다시 claim · presence · 깨 보기
+   ・5절: 읽기가 막힌 밀림(onLost(null) — 옛 버전 앱) 은 «옛 버전» 안내 · [다시 시도], 다른 기기 · 인자 없음은 예전 안내 · 깨 보기
    [실행] app.js · desk-companion-prototype.html · device-lost.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -96,7 +97,7 @@ for(const [name, fm, fa, fh] of breaks){
 (async () => {
 say('── 4. 밀림 · «여기서 계속» 을 눌러 본다');
 /* 이름으로 요소를 찾는 작은 가짜 DOM — 화면 · 버튼 · 부른 차례를 그대로 기록한다 */
-async function press(src, relaunch, after){
+async function press(src, relaunch, after, lostArg){
   const els = {};
   const el = (id) => els[id] || (els[id] = { id, style: { display: 'none' }, textContent: id === 'deviceSessionContinue' ? '여기서 계속 쓰기' : '', disabled: false, onclick: null });
   const calls = [];
@@ -106,13 +107,13 @@ async function press(src, relaunch, after){
   const doc = { getElementById: el };
   const api = new Function('window', 'document', 'firebaseAPI', 'module', src + '\nreturn window.TwDeviceLost;')(win, doc, fb, undefined);
   const mod = api.createDeviceLost({ getMyUserId: () => 'uA', twNav: nav, _acctRelaunchAfterDetach: (onFallback) => relaunch(onFallback, calls) });
-  mod._onDeviceSessionLost();
+  mod._onDeviceSessionLost(lostArg);
   const lostShown = el('deviceSessionOverlay').style.display;
   const p1 = el('deviceSessionContinue').onclick();
   const p2 = el('deviceSessionContinue').onclick();   // 두 번 눌러도 한 번
   await p1; await p2;
   if(after) after();
-  return { calls, lostShown, ov: el('deviceSessionOverlay').style.display, btn: el('deviceSessionContinue'), lost: win._deviceSessionLost };
+  return { calls, lostShown, title: el('deviceSessionTitle').textContent, msg: el('deviceSessionMsg').textContent, ov: el('deviceSessionOverlay').style.display, btn: el('deviceSessionContinue'), lost: win._deviceSessionLost };
 }
 async function judgePress(src){
   const r = [];
@@ -144,6 +145,34 @@ const pressBreaks = [
 for(const [name, fm] of pressBreaks){
   const m2 = fm(MOD);
   let rows2; try{ rows2 = await judgePress(m2); }catch(_){ rows2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 5. 읽기가 막힌 밀림(옛 버전 앱) — «다른 기기» 와 따로 안내');
+/* 읽기 거부는 claimDeviceSession 이 onLost(null) 로 알린다 · 다른 기기에 밀리면 그 기기 값 · room-entry 는 인자 없이 */
+async function judgeKind(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  let o, d, n;
+  try{
+    o = await press(src, (fb) => { fb(); return false; }, null, null);
+    d = await press(src, (fb) => { fb(); return false; }, null, { id: 'dev-B' });
+    n = await press(src, (fb) => { fb(); return false; });
+  }catch(e){ t(false, '눌러 보다 던짐 — ' + String(e.message || e).slice(0, 80)); return r; }
+  t(o.lostShown === 'flex' && o.title.includes('옛 버전') && o.msg.includes('옛 버전') && o.btn.textContent === '다시 시도', '★ onLost(null) — 옛 버전 안내 · [다시 시도](맥 «다른 PC 에서 접속 중» 반복 막기)');
+  t(o.calls.includes('claim:uA') && o.calls.includes('presence:uA'), '  [다시 시도] 도 계속 쓰기와 같은 길(presence · 기기 세션)');
+  t(d.title.includes('다른 기기') && d.btn.textContent === '여기서 계속 쓰기' && !d.msg.includes('옛 버전'), '★ 다른 기기 값 — 예전 «다른 기기에서 사용 중» 그대로');
+  t(n.title.includes('다른 기기') && n.btn.textContent === '여기서 계속 쓰기', '  인자 없이(room-entry) — 다른 기기 안내');
+  return r;
+}
+(await judgeKind(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+const kindBreaks = [
+  ['늘 다른 기기 안내', m => m.replace("return v === null ? 'oldApp' : 'device';", "return 'device';")],
+  ['늘 옛 버전 안내', m => m.replace("return v === null ? 'oldApp' : 'device';", "return 'oldApp';")],
+  ['제목을 안 바꿈', m => m.replace('if(ti) ti.textContent = t.title;', '')],
+];
+for(const [name, fm] of kindBreaks){
+  const m2 = fm(MOD);
+  let rows2; try{ rows2 = await judgeKind(m2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

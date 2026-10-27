@@ -20,6 +20,12 @@ try{
     }).attach(canvas);
   }
 }catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
+/* 🩺 한글 조합 중 입력칸이 포커스를 잃으면 진단 기록에 한 줄(shared/input-diag.js) — 맥 한글 씹힘 제보를 제보자 PC 기록으로 가른다 */
+TwInputDiag.createImeWatch({
+  note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
+  now: () => Date.now(),
+  defer: (fn) => setTimeout(fn, 0),
+}).attach(document, window);
 renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();
@@ -1399,6 +1405,7 @@ const roomSyncMod = TwRoomSync.createRoomSync({
   twNav: twNav,
   savedDesks: ()=>commissionMod.savedDesks(),
   toast: (...a)=>toast(...a),
+  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
 });
 /* 지금 이 좌석을 날릴 수 있는가. 여기서 걸러지는 것이 곧 규칙이다.
    ★ 막는 이유가 전부 "그 좌석의 위치를 이미 다른 코드가 매 프레임 정하고 있다"는 것이다.
@@ -1607,6 +1614,7 @@ const rideBenchMod = TwRideBench.createRideBench({
   _rideWP: rideTuneMod._rideWP,
   broadcastRide: (...a)=>broadcastRide(...a),
   charLiftWorld: (...a)=>seatEqMod.charLiftWorld(...a),
+  diagNote: (...a)=>{ if(window.companion && companion.diagNote) companion.diagNote(...a); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   getActiveInteractionDeskId: (...a)=>iDeskMod.getActiveInteractionDeskId(...a),
   isDeskUnlocked: (...a)=>iDeskMod.isDeskUnlocked(...a),
   isPartByRigOrName: (...a)=>bodyMeasureMod.isPartByRigOrName(...a),
@@ -1685,7 +1693,7 @@ const seatRefitMod = TwSeatRefit.createSeatRefit({
   requestFrame: (...a)=>requestAnimationFrame(...a),
   seats: seats,
 });
-seatRefitMod.onRefitted((s)=>rideBenchMod._remeasureRideHeadTop(s));   // 올라탄 사람 높이 다시 재기 — 알림으로 거는 까닭은 seat-refit.js 머리 주석
+seatRefitMod.onRefitted((s)=>{ rideBenchMod._remeasureRideArm(s); rideBenchMod._remeasureRideHeadTop(s); });   // 탄 동물 팔 높이 · 올라탄 사람 높이 다시 재기 — 알림으로 거는 까닭은 seat-refit.js 머리 주석
 /* 본문은 room/seat-camera.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatCameraMod = TwSeatCamera.createSeatCamera({
@@ -3072,6 +3080,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   mhApplyVisitUI: (...a)=>mhVisitMod._mhApplyVisitUI(...a),
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
+  watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
@@ -3108,6 +3117,7 @@ const guestbook = TwGuestbook.createGuestbook({
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
+  watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
   myHomeFriends: ()=>_myHomeFriends,
@@ -6914,6 +6924,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
   renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
+  retryDefAfter: (...a)=>roomSyncMod.retryDefAfter(...a),
   rideBenchMod: rideBenchMod,
   scene: scene,
   seats: seats,

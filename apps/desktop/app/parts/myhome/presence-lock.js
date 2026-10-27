@@ -66,7 +66,7 @@ function createPresenceLock(deps){
     saved = true;
     writeCache(uid);
     Promise.resolve().then(() => deps.savePref(uid, { lock: pref.lock, online: pref.online }))
-      .catch(err => deps.notifyError('E-MH-02', err));
+      .catch(err => deps.notifyError('E-MH-03', err));
   }
   /* 읽은 고정값을 받는다 — fromServer 면 이 PC 값도 맞춘다 */
   function adopt(uid, p, fromServer){

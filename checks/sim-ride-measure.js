@@ -143,6 +143,45 @@ say('── 4. 동작 — 접지점 · 회전 춤 · 팔 높이');
   chk(M._measureAnimalArmH(null) === null && M._measureAnimalArmH({ bones: {} }) === null && M._measureAnimalArmH({ bones: { handR: {} } }) === null, '  손 · bodyWrap 이 없으면 null');
   const M0 = load({ seatScale: () => 0, charLiftWorld: () => 0 });
   chk(near(M0._measureAnimalArmH(mkAnimal(0.3)), 0.3), '  경계 — 실효 크기 0 이면 1 로 나눈다');
+  /* 탄 채로 다시 잴 때 — 좌석이 대상 고개를 따라 기울어 있어도 얹을 때(곧은 자세) 잰 값과 같아야 한다 */
+  const tiltCase = (Mx) => {
+    const a = mkAnimal(0.3); a.bones.handL.position.z = 0.2;   // 손이 앞으로 나와 있으면 기울임에 높이가 흔들린다
+    const straight = Mx._measureAnimalArmH(a);
+    a.group.rotation.set(0.6, 0, 0.3); a.group.updateMatrixWorld(true);
+    const q0 = a.group.quaternion.clone();
+    const tilted = Mx._measureAnimalArmH(a);
+    return { straight, tilted, restored: a.group.quaternion.equals(q0) };
+  };
+  const tc = tiltCase(M);
+  chk(near(tc.tilted, tc.straight) && tc.restored, '★ 기울어진 채로 재도 곧은 자세 값과 같다 · 재고 나면 기울임 되돌림');
+  /* 재는 도중 던져도 기울임은 원래대로 — 실패는 null(옛 값 유지는 부르는 쪽) */
+  const throwCase = (Mx) => {
+    const a = mkAnimal(0.3); a.group.rotation.set(0.6, 0, 0.3); a.group.updateMatrixWorld(true);
+    const q0 = a.group.quaternion.clone();
+    a.bones.handL.getWorldPosition = () => { throw new Error('깨 봄'); };
+    const v = Mx._measureAnimalArmH(a);
+    return v === null && a.group.quaternion.equals(q0);
+  };
+  chk(throwCase(M), '★ 재는 도중 던져도 — null · 기울임은 원래대로');
+  if(typeof MOD === 'string' && MOD){
+    const MODc = MOD.replace('    }finally{\n      _g.quaternion.copy(_savedQ);\n      _g.updateMatrixWorld(true);\n    }', '    }catch(e){ throw e; }\n    _g.quaternion.copy(_savedQ);\n    _g.updateMatrixWorld(true);');
+    let red = MODc === MOD;
+    if(!red){
+      const win = {}; new Function('window', 'module', 'THREE', 'console', MODc)(win, undefined, THREE, con);
+      red = !throwCase(win.TwRideMeasure.createRideMeasure({ seatEqMod: { seatScale: () => 2, charLiftWorld: () => 0.1 } }));
+    }
+    chk(red && MODc !== MOD, '  깨 보기 — 되돌리기를 finally 밖에 두면 빨강');
+  }
+  if(typeof MOD === 'string' && MOD){
+    const MODb = MOD.replace('      _g.quaternion.identity();\n', '');
+    let red = MODb === MOD;
+    if(!red){
+      const win = {}; new Function('window', 'module', 'THREE', 'console', MODb)(win, undefined, THREE, con);
+      const tb = tiltCase(win.TwRideMeasure.createRideMeasure({ seatEqMod: { seatScale: () => 2, charLiftWorld: () => 0.1 } }));
+      red = !near(tb.tilted, tb.straight);
+    }
+    chk(red && MODb !== MOD, '  깨 보기 — 기울임을 안 지우고 재면 빨강');
+  }
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

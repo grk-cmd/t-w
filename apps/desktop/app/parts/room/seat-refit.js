@@ -5,7 +5,7 @@
    내보내는 것: refitSeatAfterParts(seat, opts) — opts: { wait: 기다릴 장착 Promise · layout: layoutSeats 도 부를지 · isCurrent: 기다린 뒤에도 같은 좌석 상태인지(아니면 아무것도 안 함) }
      · requestRefit(seat) — 파츠를 뗀 자리(unequipStackablePart · unequipPartFromSeat)가 부른다. 다음 프레임에 한 번 다시 맞춘다 — 같은 프레임에 여러 번 불러도 좌석마다 한 번.
        기다릴 장착이 없어서 그 사이 다른 장착이 남아 있어도(남은 파츠 GLB 받는 중) 뗀 몫은 바로 맞춘다. 실행 화면 좌석(seats)이 아니면(꾸미기 · 생성기 미리보기) 아무것도 안 한다.
-     · onRefitted(fn) — 다시 맞춘 뒤 할 일을 건다(app.js 가 올라탄 사람 높이 다시 재기 rideBenchMod._remeasureRideHeadTop 을 건다). 다시 맞춘 좌석과 그 좌석이 탄 대상(ridingOn)에 한 번씩 부른다.
+     · onRefitted(fn) — 다시 맞춘 뒤 할 일을 건다(app.js 가 탄 동물 팔 높이 rideBenchMod._remeasureRideArm · 올라탄 사람 높이 _remeasureRideHeadTop 을 건다). 다시 맞춘 좌석과 그 좌석이 탄 대상(ridingOn)에 한 번씩 부른다.
    ★ 올라타기 모듈을 deps 로 받지 않고 알림으로 받는 까닭: ride-bench.js 는 꾸미기 · 방 입장과 한 순환 묶음 안에 있어서, 그 둘이 부르는 이 모듈이
      ride-bench 를 부르면 새 순환이 된다(sim-dep-cycles). 이 모듈은 좌석 줄 배치 아래에 있는 잎으로 둔다.
    ★ 부르는 곳: 꾸미기 저장(wardrobe.js 두 곳) · 친구 파츠 변경(room-entry.js) · 좌석 다시 짓기(app.js applyCharToSeat) · 카탈로그가 늦게 와 붙은 파츠(catalog-sync.js) · 관리자 파츠 다시 등록(admin-part-register.js).

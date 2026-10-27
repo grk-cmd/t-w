@@ -95,7 +95,8 @@ const AMY = 'uamy00000003';
 const ADMIN = 'adminAuthUid';
 const T0 = Date.UTC(2026, 9, 7);
 
-function world(){
+/* srExp — 이 사람 시크릿룸(SCRT-AAAA)의 pub.exp. 없으면 영구 방 */
+function world(srExp){
   const tree = {
     admins: { [ADMIN]: true },
     users: {
@@ -118,7 +119,7 @@ function world(){
     friendRequests: { [ME]: { ucarl0000004: { name: '칼', ts: 1 } }, udan00000005: { [ME]: { name: '지울이', ts: 1 } } },
     sentFriendRequests: { [ME]: { udan00000005: { ts: 1 } }, ucarl0000004: { [ME]: { ts: 1 } } },
     roomInvites: { [ME]: { [BOB]: { roomCode: 'R1', ts: 1 } }, [AMY]: { [ME]: { roomCode: 'R2', ts: 1 } }, [BOB]: { [AMY]: { roomCode: 'R3', ts: 1 } } },
-    secretRooms: { 'SCRT-AAAA': { k: 'x', pub: { owner: ME, ts: 1 } }, 'SCRT-BBBB': { k: 'x', pub: { owner: BOB, ts: 1 } } },
+    secretRooms: { 'SCRT-AAAA': { k: 'x', pub: { owner: ME, ts: 1, name: '지울이방', ...(srExp !== undefined ? { exp: srExp } : {}) } }, 'SCRT-BBBB': { k: 'x', pub: { owner: BOB, ts: 1 } } },
     invites: {
       'INVT-AAAA-AAAA': { issuedBy: ME, createdAt: 1, usedBy: null },
       'INVT-BBBB-BBBB': { issuedBy: ME, createdAt: 1, usedBy: AMY, usedAt: 2 },
@@ -181,6 +182,17 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(JSON.stringify(r) === JSON.stringify(['inbox/a', 'users/a', 'users/ab']), '조상이 있으면 자손을 뺀다 · 같은 줄은 하나로 · «users/a» 가 «users/ab» 를 먹지 않는다');
   }
 
+  say('── 2-1. 탈퇴한 주인의 시크릿룸이 끝나는 시각 (secretExpireAt)');
+  {
+    const B = m.SECRET_EXPIRE_BACK_MS, DAY = 86400000, past = T0 - 5 * DAY;
+    chk(B === 1000, '끝낼 때 지금보다 1초 앞 — 입장 검사 Date.now() > exp 와 expireSecretRoom 과 같은 값');
+    chk(m.secretExpireAt(T0 + 30 * DAY, T0) === T0 - B, '기간이 남은 방 → 지금 1초 앞으로 당긴다(남은 기간 동안 들어오지 못하게)');
+    chk(m.secretExpireAt(past, T0) === past, '이미 끝난 방 → 끝난 날짜 그대로(발급 기록)');
+    chk(m.secretExpireAt(T0, T0) === T0, '  ↳ 경계: 바로 지금 끝난 방도 그대로');
+    chk(m.secretExpireAt(T0 + 1, T0) === T0 - B, '  ↳ 경계: 1ms 남은 방은 당긴다');
+    chk([undefined, null, 0, -5, '123', NaN].every((v) => m.secretExpireAt(v, T0) === T0 - B), '영구(없음 · 0 · 음수 · 숫자 아님) → 지금 1초 앞 — 앱 입장 검사가 영구로 보는 값과 같다');
+  }
+
   say('── 3. 미리 보기 — 지울 것 · 남길 것');
   let W = world();
   {
@@ -191,7 +203,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
       'leaderboard/' + ME, 'playlistIndex/' + ME, 'bookmarksPub/' + ME, 'bookmarks/' + ME, 'mobileKeys/' + ME, 'mobileLink/' + ME,
       'users/' + BOB + '/friends/' + ME, 'users/' + AMY + '/friends/' + ME,
       'friendRequests/' + ME, 'sentFriendRequests/' + ME, 'sentFriendRequests/ucarl0000004/' + ME, 'friendRequests/udan00000005/' + ME,
-      'roomInvites/' + ME, 'roomInvites/' + AMY + '/' + ME, 'secretRooms/SCRT-AAAA', 'invites/INVT-AAAA-AAAA',
+      'roomInvites/' + ME, 'roomInvites/' + AMY + '/' + ME, 'secretRooms/SCRT-AAAA/pub/name', 'invites/INVT-AAAA-AAAA',
       'metrics/daily/2026-10-06/u/' + ME, 'licenseRequests/r1', 'licenseRequests/r2',
       'bugBoard/list/b1', 'bugBoard/pub/b1', 'bugBoard/ans/pub/b1', 'bugBoard/likes/b1',
       'bugBoard/list/b2', 'bugBoard/prv/(로그인 계정)/b2', 'bugBoard/rep/prv/b2',
@@ -293,6 +305,18 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(!W.at('licenseRequests/r1') && !W.at('licenseRequests/r2') && !!W.at('licenseRequests/r3') && !!W.at('licenseRequests/r4'), '이 사람 신청 기록만 사라지고 남의 신청 · 사람을 알 수 없는 신청은 그대로');
     chk(!!W.at('metrics/daily/2026-10-06/u/' + BOB) && W.at('metrics/daily/2026-10-06/visits') === 3 && !!W.at('metrics/summary/2026-10-06'), '접속 명단에서 이 사람만 빠지고 숫자 · 합계는 그대로');
     chk(!!W.at('invites/INVT-BBBB-BBBB') && !W.at('invites/INVT-AAAA-AAAA') && !!W.at('secretRooms/SCRT-BBBB'), '쓰인 초대 · 남의 시크릿룸은 남는다');
+    {
+      const sr = W.at('secretRooms/SCRT-AAAA');
+      chk(!!sr && sr.k === 'x' && sr.pub.owner === ME && sr.pub.ts === 1 && sr.pub.name === undefined,
+          '이 사람 시크릿룸은 발급 기록(열쇠 · 주인 · 발급 시각)이 남고 이름만 사라진다 — 코드가 다시 나가지 않게');
+      chk(typeof sr.pub.exp === 'number' && sr.pub.exp < T0 && T0 - sr.pub.exp <= 1000, '  ↳ 영구였던 방은 지금(1초 앞)으로 끝난다 — 다음 입장부터 막힌다');
+    }
+    // 실제 실행 길 — 계획이 지금 exp 를 읽어 넘겨야 «이미 끝난 방은 그대로» 가 지켜진다
+    for (const [what, srExp, want] of [['이미 끝난 방(5일 전) → 끝난 날짜 그대로', T0 - 5 * 86400000, T0 - 5 * 86400000], ['기간 남은 방(30일) → 지금 1초 앞', T0 + 30 * 86400000, T0 - 1000]]){
+      const W2 = world(srExp);
+      await m.handleAdminDeleteAccount(W2.db, adminReq({ code: ME, dryRun: false }), W2.deps, T0);
+      chk(W2.at('secretRooms/SCRT-AAAA/pub/exp') === want && W2.at('secretRooms/SCRT-AAAA/pub/owner') === ME, '  ↳ 실제 탈퇴: ' + what);
+    }
     chk(W.files.join() === ['purikura/ROOM1/' + BOB + '/0.webp', 'users/' + BOB + '/avatar.jpg', 'users/' + ME + 'x/avatar.jpg'].join(), 'Storage 는 이 사람 파일만 사라졌다');
     chk(!W.authUsers.authMe && W.authUsers.authBob === 'google', '로그인 계정은 이 사람 것만 사라졌다');
   }
@@ -450,8 +474,9 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     const inLoggedIn = HTML.indexOf('id="acctDeleteBtn"') > HTML.indexOf('id="acctLoggedIn"') && HTML.indexOf('id="acctDeleteBtn"') < HTML.indexOf('id="acctNoLogin"');
     chk(inLoggedIn, '버튼은 [내 정보 › 계정]의 로그인 얼굴 안');
     chk(/되돌릴 수 없어요/.test(box) && /지워지는 것/.test(box) && /남는 것/.test(box) && /꼭 알아 두세요/.test(box), '고지 — 되돌릴 수 없음 · 지워지는 것 · 남는 것 · 알아 둘 것');
-    const keptWords = ['신고 기록', '라이선스 키', '방 채팅', '방명록', '작업 기록'];
-    chk(keptWords.every((k) => box.includes(k)) && m.KEPT.length === 7, '  ↳ 남는 것은 서버 KEPT 일곱과 같은 내용(KEPT 를 바꾸면 여기도)');
+    const keptWords = ['신고 기록', '라이선스 키', '시크릿룸의 발급 기록', '방 채팅', '방명록', '작업 기록'];
+    chk(keptWords.every((k) => box.includes(k)) && m.KEPT.length === 8, '  ↳ 남는 것은 서버 KEPT 여덟과 같은 내용(KEPT 를 바꾸면 여기도)');
+    chk(!/<li>[^<]*내가 방장인 시크릿룸 ·/.test(box), '  ↳ 시크릿룸은 «지워지는 것» 에 없다(발급 기록은 남는다)');
     chk(/친구들의 목록에서도/.test(box) && /로그인 계정/.test(box) && /다시 돌려받을 수 없어요/.test(box), '  ↳ 친구 쪽에서도 빠짐 · 로그인 계정 삭제 · 혜택 못 돌려받음');
     chk(/id="acctDeleteAgree" type="checkbox"/.test(box) && /id="acctDeleteWord"/.test(box) && /id="acctDeleteYes"[^>]*disabled/.test(box), '확인 — 체크 + «탈퇴» 입력 · [탈퇴하기]는 처음에 꺼져 있다');
     const M = strip(MI);

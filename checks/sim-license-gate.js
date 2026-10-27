@@ -3,6 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(INVITE_GRANT_MAX · INVITE_PASS_KEY · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _existingSignupCheck · _genLicenseKey · _licenseSnapForPush · _markInvitePassed · _needLoginCheck · _rcStore · _setPremium · activateLicense · checkInviteGate · deactivateLicense · loadLicenseFromStorage · refreshInviteBtn · verifyLicense)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 33줄 그대로 · 부르는 곳은 licenseGateMod.이름 · html(app.js 앞)
+   ・2-3절: 런처 초대장 버튼 — refreshInviteBtn 을 실제로 돌려 남은 장수를 읽어 1장 이상일 때만 켜지는지(못 읽음 · 0장 · 읽기 전엔 꺼짐)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · license-gate.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -91,14 +92,71 @@ function callsWith(src, uid){
 }
 const judgeNoUid = (src) => !callsWith(src, null).includes('getInvitesLeft') && callsWith(src, 'ME').includes('getInvitesLeft');
 
+/* 런처 초대장 버튼 — 진짜 refreshInviteBtn 을 돌려 버튼이 켜졌는지 본다.
+   o: { uid, admin, api: firebaseAPI 흉내(없으면 서버 준비 전) } → 버튼 { disabled, text } */
+async function inviteBtnAfter(src, o){
+  const any = anything();
+  const btn = { textContent: '', disabled: false, title: '', style: {}, addEventListener: () => {} };
+  const doc = new Proxy({}, { get: (t, k) => k === 'getElementById' ? (id => id === 'lcInviteIssueBtn' ? btn : any) : any });
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  deps.getMyUserId = () => o.uid;
+  deps.isAdmin = () => !!o.admin;
+  deps.HAD_USER_ID_AT_BOOT = false;
+  const win = { firebaseAPI: o.api };
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const quiet = { warn: () => {}, log: () => {} };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'console', 'module', src + '\nreturn window.TwLicenseGate;')(win, doc, ls, o.api, quiet, undefined);
+  await api.createLicenseGate(deps).refreshInviteBtn();
+  return { disabled: btn.disabled === true, text: btn.textContent };
+}
+async function judgeInviteBtn(src, html){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const left = (n) => ({ getInvitesLeft: async () => n });
+  try{
+    const b3 = await inviteBtnAfter(src, { uid: 'ME', api: left(3) });
+    t(!b3.disabled && b3.text === '🎟️ 초대장 (3)', '3장 남음 — 켜짐 «🎟️ 초대장 (3)»');
+    const b0 = await inviteBtnAfter(src, { uid: 'ME', api: left(0) });
+    t(b0.disabled, '0장 — 꺼짐');
+    const bErr = await inviteBtnAfter(src, { uid: 'ME', api: { getInvitesLeft: async () => { throw new Error('permission_denied'); } } });
+    t(bErr.disabled, '★ 장수를 못 읽음(읽기 거부 · 네트워크) — 꺼짐');
+    const bNoApi = await inviteBtnAfter(src, { uid: 'ME', api: undefined });
+    t(bNoApi.disabled, '★ 서버 준비 전 — 꺼짐');
+    const bNoUid = await inviteBtnAfter(src, { uid: null, api: left(3) });
+    t(bNoUid.disabled, '★ 내 코드 없음 — 꺼짐');
+    const bAdm = await inviteBtnAfter(src, { uid: 'ME', admin: true, api: left(0) });
+    t(!bAdm.disabled && /무제한/.test(bAdm.text), '관리자 — 켜짐 «무제한»');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
+  const tag = (html.match(/<button id="lcInviteIssueBtn"[^>]*>/) || [''])[0];
+  t(/\sdisabled[\s>]/.test(tag), '★ html — 처음(장수를 읽기 전)엔 꺼진 채 그린다');
+  return r;
+}
+
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 그 요청 0');
 chk(judgeNoUid(MOD), '내 코드 없음 → 초대장 남은 수 요청(getInvitesLeft) 0 · 코드 있으면 읽는다');
+(async () => {
+say('── 2-3. 런처 초대장 버튼');
+(await judgeInviteBtn(MOD, HTML)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace('|| !firebaseAPI.getInvitesLeft || !getMyUserId()){', '|| !firebaseAPI.getInvitesLeft){');
   chk(m2 !== MOD && !judgeNoUid(m2), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
+}
+const btnBreaks = [
+  ['못 읽으면 버튼을 그대로 둠(예전)', m => m.replace("    _setInviteBtn(btn, '🎟️ 초대장', false, '초대장 수를 불러오지 못했어요');\n  }", "    btn.textContent = '🎟️ 초대장';\n  }"), h => h],
+  ['서버 준비 전 · 내 코드 없음에 버튼을 그대로 둠(예전)', m => m.replace("){ _setInviteBtn(btn, '🎟️ 초대장', false, '초대장 수를 불러오지 못했어요'); return; }", "){ btn.textContent = '🎟️ 초대장'; return; }"), h => h],
+  ['html 처음부터 켜짐(예전)', m => m, h => h.replace('<button id="lcInviteIssueBtn" disabled style=', '<button id="lcInviteIssueBtn" style=')],
+];
+for(const [name, fm, fh] of btnBreaks){
+  const m2 = fm(MOD), h2 = fh(HTML);
+  const changed = m2 !== MOD || h2 !== HTML;
+  const rows2 = changed ? await judgeInviteBtn(m2, h2) : [];
+  chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/account/license-gate.js"></script>', '')],
@@ -118,3 +176,4 @@ for(const [name, fm, fa, fh] of breaks){
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
+})().catch(e => { say('  ✗ 검사가 던졌다: ' + (e && e.stack || e)); process.exit(1); });

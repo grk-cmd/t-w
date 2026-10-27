@@ -51,6 +51,8 @@ function mkEnv(src){
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => fs.existsSync(p)));   // 🛡️ 공용 씻기 — 진짜 파일
+  ctx.TwImgRetry = require([__dirname, process.cwd()].flatMap(d => ['img-retry.js', 'parts/shared/img-retry.js', 'app/parts/shared/img-retry.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🖼 말랑이 그림 한 번 더 받기 — 진짜 파일
+  globalThis.TwSafeHtml = ctx.TwSafeHtml;   // img-retry.js 는 node 쪽 전역에서 TwSafeHtml 을 찾는다
   vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'mallang.js' });
   const loadAll = () => { imgs.splice(0).forEach(im => im.onload && im.onload()); };

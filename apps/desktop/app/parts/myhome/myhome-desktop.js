@@ -5597,7 +5597,8 @@ function advApplyBg(){
   const d=document.getElementById('advDesktop'); if(!d) return;
   // 방문 중엔 내 배경이 아니라 "그 집 주인"의 배경을 보여준다(서버에서 받아온 advVisitBg).
   const bg = advVisiting ? advVisitBg : ADV.bg;
-  const bgUrl = bg ? TwSafeHtml.cssUrl(bg.img) : '';   // 남의 집 배경일 수 있다 — 허용된 그림 주소 · 색만
+  const bgUrl = bg ? TwSafeHtml.cssUrl(TwMhBgUrl.httpsOf(bg.img)) : '';   // 남의 집 배경일 수 있다 — 허용된 그림 주소 · 색만(http 는 https 로 바꿔 불러 봄)
+  if(bg && !advVisiting) TwMhBgUrl.probeOwnerBg(bg.img);   // 못 받으면 주인에게만 안내
   if(bgUrl) d.style.background=bgUrl+' center/cover no-repeat';
   else if(bg&&bg.color) d.style.background=TwSafeHtml.cssColor(bg.color);
   // 방문 중인데 집주인 배경이 서버에 없으면(상대가 아직 업데이트 전) 청록 단색 대신 투명 처리 —

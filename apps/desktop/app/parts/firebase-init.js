@@ -108,6 +108,7 @@
     _gwQueries.set(q, parts.every((d) => d) ? { ref: r, query: Object.assign({}, ...parts) } : null);
     return q;
   };
+  const _mt = window.TwMaintenance.store;
   const _gw = window.TwDataGateway.createDataGateway({
     sdk: { get: _sdkGet, set: _sdkSet, update: _dbUpdate, remove: _sdkRemove, push: _sdkPush, onValue: _sdkOnValue },
     routes: () => window.TwRemoteConfig.store.dataRoutes(),
@@ -118,6 +119,7 @@
     post: (path, body) => _gwPost(path, body),
     stream: window.TwDataGateway.makeStream({ post: (p, b) => _gwPost(p, b), getToken: () => _getIdToken(false), baseUrl: () => window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a) }),
     notifyError: (...a) => window.TwErrorCodes.notify(...a),
+    onOp: () => _mt.touch(),   // 🛠 서버 점검(maintenance-gate.js) — 사람이 방금 누른 동작이 서버에 닿으면 점검 창
     warn: (...a) => console.warn(...a),
   });
   const get = (...a) => _gw.get(...a);
@@ -419,6 +421,7 @@
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
      버전보다 presence 가 먼저 쓰였으면 받은 뒤 ver 만 update 하고 onDisconnect 도 ver 를 실어 다시 건다. */
+  const ROOM_FALLBACK_WHY_MAX = 32;   // _meta.fbWhy 길이 — 규칙과 같은 값
   const _appVer = createAppVersion({
     getVersion: () => (window.companion && window.companion.getAppVersion) ? window.companion.getAppVersion() : null,
     onReady: (ver) => {
@@ -427,8 +430,7 @@
       update(_myPresenceRef, { ver }).catch(()=>{});
     },
   });
-  /* ⚙️ 원격 설정(remote-config.js · html 이 app.js 앞에 싣는 classic script) — 쓰기 원본은 Firebase config/*, 읽기는 API 사본(GET /v1/config) 먼저.
-     켤 때 한 번 + 5분마다 · 창이 다시 보일 때. API 를 못 받으면 Firebase config 칸 → 이 PC 저장값 → 기본값. */
+  /* ⚙️ 원격 설정(remote-config.js — 읽는 차례 · 주기는 그 머리 주석) */
   const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
   const _rc = (window.TwRemoteConfig && window.TwRemoteConfig.store) || null;
   const MIN_APP_VER_WAIT_MS = 7000;   // 첫 답을 이만큼만 기다린다(API 3초 + Firebase 3초 + 여유 · 게이트 8초보다 짧게) — 넘으면 막지 않는다
@@ -440,14 +442,14 @@
       win: window,
     });
   }
-  /* 앱 최소 버전(app-version-gate.js) — 원격 설정의 첫 답(minVersion.app)을 기다려, 이 앱이 낮으면 «업데이트해 주세요» 로 막는다.
-     최소 버전은 이번 실행에 받은 값(API · Firebase)만 본다 — 저장값은 안 쓰고, 못 받으면(오프라인 · 시간 초과) 막지 않는다. */
+  /* 앱 최소 버전(app-version-gate.js) — 원격 설정의 첫 답(이번 실행에 받은 값만)으로 «업데이트해 주세요» · 못 받으면 막지 않는다. */
   createAppVersionGate({
     readMin: () => _rc ? _rc.ready(null, MIN_APP_VER_WAIT_MS).then(() => _rc.minAppVer()) : null,
     getVersion: () => _appVer.ready,
     companion: window.companion || null,
     ui: createAppVersionGateDom(document),
   }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
+  onValue(ref(db, window.TwMaintenance.MAINTENANCE_PATH), (s) => _mt.onValue(s.val()), () => {});   // 🛠 서버 점검 표시 — 점검 중에도 규칙이 이 칸 읽기는 연다
   /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
      ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
   createVisitPing({
@@ -460,10 +462,9 @@
   /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
      여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
-  /* 🌐 로그인이 필요한 API 통로(첫 사용자 friends/friends-api.js) — 공용 통로와 같은 주소 · 이 Firebase ID 토큰을 붙인다(api-client.js getToken).
-     쉬기는 끈다 — 이 경로의 실패가 공용 통로(원격 설정 · 공개 읽기)를 쉬게 하지 않고, 부르는 쪽이 다시 묻기를 정한다. 토큰은 여기서만 넘긴다(api-client 는 Firebase 를 모른다). */
+  /* 🌐 로그인이 필요한 API 통로 — 공용 통로와 같은 주소 · ID 토큰을 붙인다. 쉬기는 끈다(이 실패가 공용 통로를 쉬게 하지 않게 · 다시 묻기는 부르는 쪽). */
   const _authApi = (window.TwApi && window.TwApi.client) ? window.TwApi.createApiClient({
-    baseUrl: window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a), getToken: () => _getIdToken(false), backoffMs: 0,
+    baseUrl: window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a), getToken: () => _getIdToken(false), backoffMs: 0, onRequest: () => _mt.touch(),
   }) : null;
   /* 🚪 범용 통로의 서버 쪽 — 로그인 통로(_authApi · ID 토큰 · 내 코드). 실패는 던지기만 — Firebase 로 넘기기는 통로(serverFirst)가 한다. */
   function _gwPost(path, body){
@@ -1743,6 +1744,8 @@
         try{
           const res = await fetch(snapUrl);
           const blob = await res.blob();
+          /* 404 · 오류 페이지를 그림처럼 다시 올리면 받은 사람 칸이 깨진 그림이 된다 — 그림이 아니면 원본 주소를 그대로 보낸다 */
+          if(!res.ok || !blob || !blob.size || !/^image\//.test(blob.type || '')) throw new Error('not image');
           const dataUrl = await new Promise((ok,ng)=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.onerror=ng; r.readAsDataURL(blob); });
           const up = await _uploadDataUrlIfNeeded(`users/${toId}/giftimg/${giftId}.png`, dataUrl);
           if(up && !up.startsWith('data:')) snapUrl = up;
@@ -2770,6 +2773,11 @@
         if(open === true || open === false) extra.open = open;
         _touchRoomIndex(room, extra);   // 💰 채널별 카운트가 인덱스만 읽으면 되게
       }catch(_){}
+    },
+    /* 🛰 방 서버로 가야 할 앱이 Firebase 방을 새로 연 까닭 — _meta 두 칸(fbWhy · fbVer · 방이 지워지면 같이 사라지는 진단) · 실패는 무시(입장과 무관) */
+    async markRoomFallback(room, why){
+      const w = String(why || '').replace(/[^A-Za-z0-9-]/g, '').slice(0, ROOM_FALLBACK_WHY_MAX) || 'unknown';
+      try{ await update(ref(db, `rooms/${room}/_meta`), { fbWhy: w, fbVer: _appVer.withVer({}).ver }); }catch(_){}
     },
     /* 랜덤 참여 후보 — roomIndex 하나만(워킹룸 · open · 90초 안 · SCRT- 아님). 투게더룸은 빼서 모르는 사람이 라이선스 방에 랜덤으로 들지 않게.
        정원 · 생존은 부르는 쪽이 checkRoomCapacity 로. 반환: 섞은 코드 / 실패 null / 없음 [] — 문구를 가른다. */

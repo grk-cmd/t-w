@@ -25,7 +25,7 @@ chk(/const mvc = _fitConfigRect\(curMode, _modeSize\(curMode\), target, null\);/
 chk(!/_fitConfigRect\([^,()]+,\s*MODE_SIZE[.\[]/.test(MAIN), 'MODE_SIZE 를 줌 없이 크기로 바로 넘기는 자리가 없다(둘째 인자)');
 
 say('── 2. 실제로 돌려 본다');
-const names = ['_clampZoom', '_zoomStep', 'applyUiZoom', '_modeSize', '_cfgModeForZoom', '_refitConfigForZoom', '_fitConfigRect', 'sizeToMode', '_sameRect'];
+const names = ['_clampZoom', '_zoomStep', 'applyUiZoom', '_modeSize', '_cfgModeForZoom', '_refitConfigForZoom', '_fitConfigRect', 'sizeToMode', '_sameRect', '_rememberPos', '_mhPadDip'];
 const src = names.map(grab);
 chk(src.every(Boolean), '함수 ' + names.length + '개를 찾았다');
 if(!src.every(Boolean)){ say('  · 못 찾은 함수: ' + names.filter((n, i) => !src[i]).join(', ') + ' — 2절을 건너뛴다'); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); }
@@ -37,12 +37,12 @@ const mk = (cfg, wa) => {
     setBounds: (r) => { E.bounds = Object.assign({}, r); E.sets++; }, setResizable(){},
     webContents: { setZoomFactor(){}, send(){} } };
   const scr = { getDisplayMatching: () => ({ workArea: WA }) };
-  const f = new Function('mainWindow', 'screen', 'E',
-    'let uiZoom = 1; let _isConfigMode = E.cfg; const savedPos = {}; const _fittedSize = {}; const SIZE_MATCH_TOL = 3; let _mhPad = { x: 0, y: 0 };\n'
+  const f = new Function('mainWindow', 'screen', 'E', 'MhPadPos',
+    'let uiZoom = 1; let _isConfigMode = E.cfg; const savedPos = {}; const _fittedSize = {}; const SIZE_MATCH_TOL = 3; let _mhPad = { x: 0, y: 0 }; let _mhPadApplied = { x: 0, y: 0 };\n'
     + 'const MODE_SIZE = { launcher:{ w:380, h:680 }, creator:{ w:740, h:620 }, animal:{ w:860, h:440 }, myhome:{ w:800, h:580 } };\n'
     + consts + '\nconst saveSettings=()=>{}; const _diagLog=()=>{}; const _noteApplied=()=>{}; let _onUiZoomChanged=null;\n'
     + src.join('\n') + '\nreturn { zoom: (op) => applyUiZoom(op, "t"), fit: _fitConfigRect, ms: _modeSize, mode: () => _cfgModeForZoom() };');
-  return { api: f(win, scr, E), E };
+  return { api: f(win, scr, E, require('./mh-pad-pos.js')), E };
 };
 let t = mk({ config: true, bounds: { x: 100, y: 50, width: 800, height: 580 } });
 t.api.zoom('in'); t.api.zoom('in');
