@@ -889,14 +889,18 @@ const INPUT_DIAG_MS = 60 * 1000;
    [대응] 기록을 대신 쌓지 않는다 — OS 유휴시간으로 활동을 보정하는 길은 센서 떨림·펜 호버 때문에 한 번 걷어 낸 방식이다
      (_reportCursorActivity 위 주석). 대신 **«키 훅이 안 들어오는 상태»를 알아채서 고치는 법을 한 번 알려 준다.**
    [판정] OS 는 입력이 있었다고 하는데(유휴 0초) 훅도 커서 이동도 그 입력을 설명하지 못하는 순간을 센다.
-     부팅 뒤 5분이 지났고, 그동안 키 훅이 **한 번도** 안 왔고, 그런 순간이 누적 60초(500ms × 120)를 넘으면 의심한다.
-     ⚠️ 키가 한 번이라도 들어오면 그 실행 동안은 다시 안 본다 — 훅이 살아 있다는 확증이다.
+     부팅 뒤 5분이 지났고, 마지막 키 훅 뒤로 그런 순간이 누적 60초(500ms × 120)를 넘으면 의심한다.
+   [의심하면] 먼저 훅을 다시 건다(sysinput.restartGlobalHooks) — 쓰는 도중 뒤에 켜진 보안 프로그램 · Windows 가 떼어 낸 훅은 이것으로 돌아온다(mac 은 건너뜀 — sysinput-mac.js).
+     다시 걸고도 같은 만큼 또 쌓이면: 이번 실행에 키가 한 번도 안 왔으면 안내창, 왔었으면 기록만 한 줄
+     (센서 떨림처럼 훅과 무관하게 유휴가 0 이 되는 PC 에서 잘 쓰던 사람에게 안내창이 뜨지 않게).
+     키가 다시 들어오면 처음으로 돌아간다.
      ⚠️ 안내는 실행당 한 번 · «다시 보지 않기» 를 고르면 그 뒤로 안 띄운다(userData/kb-guide-off).
      ⚠️ 이 값은 판정용일 뿐 활동(anyInput·activity)으로 쓰이지 않는다 — 위 이유. */
 const KB_BLIND_MIN_UPTIME_MS = 5 * 60 * 1000;
 const KB_BLIND_TICKS = 120;
 let _kbBootAt = Date.now(), _kbKeyTotal = 0, _kbClickTotal = 0, _kbLastHookAt = 0, _kbLastCursorAt = 0;
 let _kbUnexplained = 0, _kbGuideShown = false;
+let _kbRearm = 0;   // 0 지켜봄 · 1 다시 걸고 키를 기다림 · 2 다시 걸어도 안 옴(기록함)
 function _kbGuideOffPath(){ try{ return require('path').join(app.getPath('userData'), 'kb-guide-off'); }catch(_){ return null; } }
 /* 훅 수신은 _inputDiag 카운터의 **변화량**으로 읽는다 — 등록 자리의 감싸기 줄은 sim-admin-active 가 모양까지 지키므로
    거기에 셈을 더 얹지 않는다. 카운터는 1분마다 0 으로 돌아가므로(_inputDiagTick) 줄었으면 0 에서 다시 센다.
@@ -908,20 +912,39 @@ function _kbReadHooks(now){
   const d = (k)=> (c[k] >= _kbPrev[k]) ? (c[k] - _kbPrev[k]) : c[k];
   const dc = d('click'), dw = d('wheel'), dk = d('key');
   _kbPrev = { click:c.click, wheel:c.wheel, key:c.key };
-  if(dk > 0) _kbKeyTotal += dk;
+  if(dk > 0){
+    _kbKeyTotal += dk;
+    _kbUnexplained = 0;
+    if(_kbRearm){ _kbRearm = 0; _diagLog('[입력] 키 훅 다시 걸기 뒤로 키가 다시 들어온다'); }
+  }
   if(dc > 0) _kbClickTotal += dc;
   if(dc + dw + dk > 0) _kbLastHookAt = now;
 }
 function _kbBlindTick(now){
-  if(_kbGuideShown || _kbKeyTotal > 0) return;
+  if(_kbGuideShown || _kbRearm === 2) return;
   let idle = null;
   try{ idle = powerMonitor.getSystemIdleTime(); }catch(_){ return; }
   if(idle !== 0) return;                                   // 지난 1초 안에 OS 가 본 입력이 없다
   if(now - _kbLastHookAt < 1500 || now - _kbLastCursorAt < 1500) return;   // 훅·커서로 설명되는 입력
   _kbUnexplained++;
   if(now - _kbBootAt < KB_BLIND_MIN_UPTIME_MS || _kbUnexplained < KB_BLIND_TICKS) return;
+  const n = _kbUnexplained;
+  _kbUnexplained = 0;
+  if(_kbRearm === 0){
+    _kbRearm = 1;
+    let ok = false;
+    try{ ok = sysinput.restartGlobalHooks(); }catch(_){}
+    _diagLog('[입력] ⚠️ 키 훅 미수신 의심 — 훅을 다시 건다(' + (ok === null ? '건너뜀' : ok ? '성공' : '실패') + ') · 부팅 뒤 키=' + _kbKeyTotal
+      + ' · 클릭=' + _kbClickTotal + ' · 설명 안 되는 입력 ' + n + '회(×0.5초) · ' + process.platform);
+    return;
+  }
+  if(_kbKeyTotal > 0){
+    _kbRearm = 2;
+    _diagLog('[입력] ⚠️ 훅을 다시 걸어도 키가 안 들어온다 — 부팅 뒤 키=' + _kbKeyTotal + ' · ' + process.platform);
+    return;
+  }
   _kbGuideShown = true;
-  _diagLog('[입력] ⚠️ 키 훅 미수신 의심 — 부팅 뒤 키=0 · 클릭=' + _kbClickTotal + ' · 설명 안 되는 입력 ' + _kbUnexplained
+  _diagLog('[입력] ⚠️ 훅을 다시 걸어도 키가 안 들어온다 — 부팅 뒤 키=0 · 클릭=' + _kbClickTotal + ' · 설명 안 되는 입력 ' + n
     + '회(×0.5초) · ' + process.platform);
   try{ const f = _kbGuideOffPath(); if(f && require('fs').existsSync(f)) return; }catch(_){}
   _kbShowGuide();

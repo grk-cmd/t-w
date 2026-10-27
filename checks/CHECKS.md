@@ -297,7 +297,7 @@
 | **sim-win-layers.js** | 203 | **cab1b61e089c** |
 | sim-yard-enter.js | 59 | c323aea595a5 |
 | **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
-| **sim-kb-blind.js** | 109 | **9d043ac91694** |
+| **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
 | **sim-mhd-hidefolders.js** | 135 | **69194c95439e** |
 | **sim-pomodoro.js** | 130 | **ef28b73a68d0** |
 | **sim-admin-console.js** | 142 | **3e1dc419471c** |
