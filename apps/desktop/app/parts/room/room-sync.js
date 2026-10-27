@@ -5,7 +5,7 @@
      DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · Presence · savedDesks 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 7개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). _autoAwayResetClock 은 Presence(room/presence.js)가 window 에 거는 것을 app.js 가 이어 준다(모듈끼리 window 로 부르면 순환 — sim-dep-cycles).
-   ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · retryDefAfter · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwRoomSync — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-room-sync.js */
@@ -25,6 +25,7 @@ const newCanvas = deps.newCanvas;
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 방 나가기
 const savedDesks = deps.savedDesks;   // 읽는 함수
 const toast = deps.toast;
+const diagNote = deps.diagNote;   // 진단 기록(tw-mouse-diag.log) 한 줄 — 남의 그림을 못 받은 PC 를 제보 때 가른다
 const POKE_FRESH_MS = 30000;   // 이보다 오래된 알림은 재생하지 않는다
 const POKE_SKEW_MS  = 60000;   // 기기 시계가 서버보다 앞설 때의 여유(음수 나이 허용폭)
 /* 서버 시계 — 가챠 ts 와 같은 곳을 본다(firebaseAPI.serverNow). 없으면 기기 시계로 물러난다. */
@@ -383,14 +384,24 @@ function _loadImgCors(src){ return new Promise((res,rej)=>{ const i=new Image();
      잘리고, 작으면 왼쪽 위 구석에 몰린다. 그 조각이 UV 전체에 펴 발려서 «얼굴 텍스처가 밀렸다» 가
      된다. 공유 코드로 들어온 텍스처는 256(CODE_TEX_SIZE)이라 정확히 1/4 구석에 몰렸다.
      사람 얼굴·감은눈은 512 라 멀쩡했던 것도 이것으로 갈린다. 크기를 못 읽으면 예전처럼 512. */
+/* 같은 그림이 CORS 없이 먼저 캐시돼 있으면(그냥 <img>) crossOrigin 로드가 막힌다 — 처음 실패하면 표식 붙은 주소로 한 번만 다시(규칙은 shared/img-retry.js) */
 async function _roomFaceUrlToCanvas(url){
-  const img = await _loadImgCors(url);
+  let img;
+  try{ img = await _loadImgCors(url); }
+  catch(e){
+    const again = TwImgRetry.retryUrl(url);
+    if(!again) throw e;
+    img = await _loadImgCors(again);
+  }
   const w = img.naturalWidth || img.width || 0, h = img.naturalHeight || img.height || 0;
   const c = newCanvas();
   if(w > 0 && h > 0){ c.width = w; c.height = h; }
   c.getContext('2d').drawImage(img, 0, 0);
   return c;
 }
+/* 방 스냅샷마다 모든 멤버 def 를 다시 풀므로, 못 받은 주소는 진단 기록에 한 번만(올라타기 진단 줄이 밀려나지 않게) */
+const _diagSeen = new Set();
+function _diagOnce(key, line){ if(_diagSeen.has(key)) return; _diagSeen.add(key); diagNote(line); }
 async function deserializeDefFromNetwork(def){
   if(!def) return def;
   const out=Object.assign({}, def);
@@ -402,16 +413,27 @@ async function deserializeDefFromNetwork(def){
        함께 왔으면 그걸로 되돌리고, 그것도 없으면 최소한 콘솔에 남긴다. */
     if(typeof def.faceUrl==='string'){
       try{ out.face = await _roomFaceUrlToCanvas(def.faceUrl); }
-      catch(e){ if(typeof def.face!=='string') console.warn('[방] 얼굴 이미지 로드 실패 — 피부색만 보입니다', def.faceUrl, e); }
+      catch(e){ if(typeof def.face!=='string'){ console.warn('[방] 얼굴 이미지 로드 실패 — 피부색만 보입니다', def.faceUrl, e); _diagOnce(def.faceUrl, '[방] 남의 얼굴 그림을 두 번 다 못 받음 — 피부색만 보임'); } }
     }
     if(typeof def.blinkUrl==='string'){
       try{ out.blink = await _roomFaceUrlToCanvas(def.blinkUrl); }
-      catch(e){ if(typeof def.blink!=='string') console.warn('[방] 감은눈 이미지 로드 실패', def.blinkUrl, e); }
+      catch(e){ if(typeof def.blink!=='string'){ console.warn('[방] 감은눈 이미지 로드 실패', def.blinkUrl, e); _diagOnce(def.blinkUrl, '[방] 남의 감은눈 그림을 두 번 다 못 받음 — 표정 그림으로 대신'); } }
     }
     if(typeof out.face==='string'){ const img=await loadImg(out.face); const c=newCanvas(); c.getContext('2d').drawImage(img,0,0); out.face=c; }
     if(typeof out.blink==='string'){ const img=await loadImg(out.blink); const c=newCanvas(); c.getContext('2d').drawImage(img,0,0); out.blink=c; }
   }catch(e){ /* 이미지 복원 실패 시 원본 문자열 그대로 둠 — compositeFace에서 또 실패하겠지만 앱 전체가 죽진 않게 위쪽에서 방어 */ }
+  /* 감은눈만 못 받으면 눈을 감을 때마다 피부만 보인다(얼굴이 깜박이며 사라졌다 돌아옴) — 표정 그림을 대신 쓴다 */
+  if(!out.blink && out.face && typeof out.face!=='string') out.blink = out.face;
+  if((typeof def.faceUrl==='string' || typeof def.face==='string') && !(out.face && typeof out.face!=='string')) _faceMissDefs.add(out);
   return out;
+}
+/* 얼굴을 못 받은 채 푼 def — 방 서버 provider 는 같은 원본 def 를 다시 풀지 않으므로(풀어 둔 것을 씀) 이걸 보고 나중에 다시 푼다.
+   def 에 칸을 더하지 않고 따로 둔다 — 풀린 def 는 지문 · 좌석 · 다시 보내기로 흘러간다. */
+const _faceMissDefs = new WeakSet();
+/* hooks.retryDefAfter(풀린 def, 이미 다시 푼 횟수) → 기다릴 ms | null(얼굴 받음 · 횟수 다 씀 · 다시 받을 주소 아님) */
+function retryDefAfter(def, tries){
+  if(!def || !_faceMissDefs.has(def)) return null;
+  return TwImgRetry.laterRetryMs(def.faceUrl, tries);
 }
 /* 💰 방 업데이트 델타 전송.
    [왜] RTDB 프로파일러 실측: 한 멤버가 1바이트를 쓰면 방에 있는 나머지 인원수만큼 내려간다
@@ -604,6 +626,7 @@ return {
   deserializeDefFromNetwork,
   ensureRoomFaceUrls,
   makeFirebaseProvider,
+  retryDefAfter,
   serializeDefForNetwork,
 };
 }

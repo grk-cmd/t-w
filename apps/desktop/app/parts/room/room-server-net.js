@@ -18,7 +18,7 @@
  * deps: createLink(realtime-link.js createRealtimeLink), WebSocket, enabled() → bool, url() → 문자열 | null, getToken(force) → Promise<문자열 | null>,
  *       getUserId() → 문자열 | null, getVersion() → 문자열 | Promise,
  *       timing() → { joinWaitMs, clientGiveUpMs } | null(원격 설정 roomServerTiming — 없거나 비면 TIMING_DEFAULTS),
- *       now · setTimeout · clearTimeout · setInterval · clearInterval · log 는 검사용(기본 전역).
+ *       now · setTimeout · clearTimeout · setInterval · clearInterval · random · log 는 검사용(기본 전역).
  */
 export const ROOM_SERVER_PV = 1;
 
@@ -163,7 +163,7 @@ export function createRoomServerNet(deps){
     busy: () => !!active,
     reconnectWanted: () => !!(active && active.inRoom),
     hooks: { onReady, onMessage: onMsg, onClosed: closed },
-    now, setTimeout: tSet, clearTimeout: tClear, log,
+    now, setTimeout: tSet, clearTimeout: tClear, random: deps.random, log,
   });
   const send = (o) => link.send(o);
   const close = () => link.close();
@@ -384,15 +384,32 @@ export function createRoomServerNet(deps){
   /* 친구 객체를 makeFirebaseProvider 가 changeCb 로 넘기는 모양 그대로 만든다 — 멤버 칸 + userId + def(복원본) + chat + poke.
      ★ 순서 보장은 makeFirebaseProvider 의 _roomSnapSeq 와 같은 방식이다. 매번 «방 전체» 를 만들어 넘기므로,
        def 를 푸는 동안 더 새 것이 지나갔으면 이건 버린다(뒤의 것이 이것을 다 담고 있다).
-       풀어 둔 def 는 원본이 같으면 다시 풀지 않는다 — 상태 칸만 바뀌는 대부분의 갱신이 기다림 없이 지나간다. */
+       풀어 둔 def 는 원본이 같으면 다시 풀지 않는다 — 상태 칸만 바뀌는 대부분의 갱신이 기다림 없이 지나간다.
+       ⚠️ 그래서 얼굴 그림을 못 받은 채 풀린 def 는 그 사람이 def 를 바꿀 때까지 얼굴 없이 남는다 —
+         hooks.retryDefAfter 가 기다릴 시간을 주면 그 뒤 다시 풀어 화면에 넘긴다(횟수는 훅이 정한다). */
   function restoreDef(P, id){
     const raw = P.members[id] && P.members[id].def;
     const c = P.defCache[id];
     if(c && c.raw === raw) return c.p;
+    return startRestore(P, id, raw, 0);
+  }
+  function startRestore(P, id, raw, tries){
     let p;
     try{ p = Promise.resolve(P.hooks.deserializeDef ? P.hooks.deserializeDef(raw) : raw).catch(() => raw); }
     catch(_){ p = Promise.resolve(raw); }
-    P.defCache[id] = { raw, p };
+    const entry = { raw, p };
+    P.defCache[id] = entry;
+    if(P.hooks.retryDefAfter) p.then((d) => {
+      let wait = null;
+      try{ wait = P.hooks.retryDefAfter(d, tries); }catch(_){}
+      if(wait === null || P.defCache[id] !== entry) return;
+      tSet(() => {
+        // 그사이 나갔거나 · 그 사람이 나갔거나 · def 가 바뀌었으면(새로 풀었음) 그만
+        if(P.defCache[id] !== entry || !P.inRoom || active !== P) return;
+        startRestore(P, id, raw, tries + 1);
+        emit(P);
+      }, wait);
+    });
     return p;
   }
   function emit(P){

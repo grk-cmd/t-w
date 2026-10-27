@@ -49,6 +49,8 @@ export interface PartXf {
   color?: Record<string, string>;
   colorHSV?: Record<string, { h?: number; s?: number | null; v?: number | null }>;
   pic?: unknown;
+  /** 기즈모 · 초기화가 쓴 깨끗한 값 — 옛 손보정 판정(이중 보정 되돌리기)을 다시 하지 않는다 */
+  aoClean?: boolean;
 }
 export interface XfOptions {
   defaultXf(): PartXf;
@@ -356,7 +358,7 @@ export function createParts(deps: PartsDeps) {
       /* 예전에 «떠 있는 걸 눌러 맞춰 둔» xf.pos 는 이중 보정이라 되돌린다.
          ⚠️ 판정은 wrapper 마다 한 번만(캐시) — 끌 때마다 다시 판정하면 드래그 도중 뒤집혀 파츠가 크게 튄다.
          기즈모가 값을 새로 쓸 때만 부르는 쪽이 false 로 내린다. */
-      if (wrp.userData._aoLegacy === undefined) wrp.userData._aoLegacy = !!(ao && isLegacyAuthorCompensation(pos, ao));
+      if (wrp.userData._aoLegacy === undefined) wrp.userData._aoLegacy = !!(ao && !xf.aoClean && isLegacyAuthorCompensation(pos, ao));   // aoClean = 기즈모 · 초기화가 쓴 깨끗한 값(다른 좌석에서도 다시 판정하지 않는다)
       const legacy = wrp.userData._aoLegacy;
       wrp.position.x += pos[0] + (legacy ? ao.x : 0);
       wrp.position.y += pos[1] + (legacy ? ao.y : 0) + ahdy;

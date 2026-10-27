@@ -86,6 +86,8 @@ function mk(o = {}){
       onClosed: (wasReady, fatal) => { log.closed.push([wasReady, fatal]); },
     },
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
+    // 0.5 = 흩기 없음(아래 백오프 시험이 정확한 초를 본다) · 흩기 시험은 o.random 으로 끝값을 준다
+    random: o.random || (() => 0.5),
     log: { warn(){} },
   });
   return { link, clock, socks, log, st, setUrl: (u) => { url = u; } };
@@ -107,6 +109,7 @@ async function up(env){
     const T = M.LINK_TIMING;
     chk(T.CONNECT_TIMEOUT_MS === 5000 && T.REQ_TIMEOUT_MS === 4000 && T.FAIL_COOLDOWN_MS === 60000 && JSON.stringify(T.BACKOFF_MS) === '[1000,2000,4000,8000,15000]', 'LINK_TIMING — 방 연결과 같은 값(5초 · 4초 · 1분 · 백오프 1~15초)');
     chk(Object.isFrozen(T) && Object.isFrozen(T.BACKOFF_MS), '  ↳ 바꿀 수 없다');
+    chk(T.BACKOFF_JITTER === 0.5, 'BACKOFF_JITTER — 백오프를 ±50% 흩는다');
     chk(!/^\s*import\s/m.test(SRC) && !/firebase|gstatic/i.test(strip(SRC)), 'realtime-link.js 는 아무것도 import 하지 않는다(Firebase 직접 호출 없음)');
   }
 
@@ -207,6 +210,29 @@ async function up(env){
     e.link.scheduleReconnect();
     await e.clock.advance(1000);
     chk(e.socks.length === 2, 'ready 를 한 번 받으면 백오프는 1초부터 다시');
+
+    // 흩기 — 같은 순간 끊긴 앱들이 1초 «한 점» 이 아니라 0.5~1.5초에 퍼져 다시 붙는다
+    for(const [rnd, lo, hi, what] of [[0, 499, 500, '난수 0 → 0.5초(가장 이름)'], [0.999, 1498, 1499, '난수 0.999 → 약 1.5초(가장 늦음)']]){
+      const j = mk({ random: () => rnd });
+      const { ws: jw } = await up(j);
+      jw.close();
+      j.link.scheduleReconnect();
+      await j.clock.advance(lo);
+      const before = j.socks.length;
+      await j.clock.advance(hi - lo);
+      chk(before === 1 && j.socks.length === 2, '첫 다시 붙기 ' + what);
+    }
+    {
+      const j = mk({ random: () => 0.999 });
+      const { ws: jw } = await up(j);
+      jw.close();
+      j.link.scheduleReconnect(); await j.clock.advance(1499);
+      j.socks[1].close();
+      j.link.scheduleReconnect(); await j.clock.advance(2997);
+      const before = j.socks.length;
+      await j.clock.advance(1);
+      chk(before === 2 && j.socks.length === 3, '  ↳ 두 번째는 2초 기준으로 흩는다(약 3초)');
+    }
 
     const a = mk();
     const pa = a.link.ensureReady();

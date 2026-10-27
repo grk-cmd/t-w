@@ -42,6 +42,7 @@ const _mhViewingDisplayName = deps.mhViewingDisplayName; // 👀 관람 중인 �
 const _mhApplyVisitUI = deps.mhApplyVisitUI;
 const _ytVideoId = deps.ytVideoId;                       // 🎵 유튜브 주소 → 영상 id(플레이리스트와 한 벌) — app.js
 const applyThemeToChildDoc = deps.applyThemeToChildDoc;  // 🎨 자식 창에 테마 토큰 — app.js
+const watchMaintenanceInput = deps.watchMaintenanceInput; // 🛠 이 창에서 누른 서버 동작에도 점검 창(maintenance-gate.js)
 const commitUserName = deps.commitUserName;              // 🏷️ 닉네임 저장 · 읽기 — app.js
 const getDisplayName = deps.getDisplayName;
 const getUserName = deps.getUserName;
@@ -63,6 +64,7 @@ const DS_IMG_MAX_BG_W = deps.dsImgMaxBgW;                // 👑 디자인 스�
 const DS_IMG_MAX_BG_H = deps.dsImgMaxBgH;
 const DS_IMG_MAX_PANEL = deps.dsImgMaxPanel;
 const DS_IMG_QUALITY = deps.dsImgQuality;
+const mhBgUrl = TwMhBgUrl;                               // 🖼️ 배경 그림 주소 규칙(mh-bg-url.js — 먼저 싣는 아래층) — http 는 https 로 바꿔 불러 본다
 const mhHooks = TwMyHomeHooks;                           // 🪝 마이홈 고리판(myhome-hooks.js — 먼저 싣는 아래층) — 다른 파일이 부를 함수를 건다
 const mhPreset = TwMyHomePreset;                         // 👑 디자인 프리셋 규칙(myhome-preset.js — 먼저 싣는 아래층 · 순수 함수)
 const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠금 · 순서 규칙(myhome-sticker-rules.js — 순수 함수)
@@ -389,8 +391,25 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
   let dragSticker=null, dragOffX=0, dragOffY=0, dragStartX=0, dragStartY=0;
   const zone=document.getElementById('mhStickerZone');
   if(zone){
+    /* [+ 스티커] 버튼을 가린 스티커는 그 자리 왼쪽 클릭을 버튼에 넘긴다(편집 중인 스티커만 빼고).
+       붙잡기(capture)로 받아 스티커 자신의 링크 열기보다 먼저 막는다. */
+    const passToAdd=(e)=>{
+      const el=e.target.closest && e.target.closest('.mh-sticker');
+      if(!el || el.classList.contains('editing') || !stickerAddBtn) return false;
+      return mhStickerRules.hitsAddBtn(stickerAddBtn.getBoundingClientRect(), e.clientX, e.clientY);
+    };
+    // ⚠️ 누를 때도 버튼 자리였어야 넘긴다 — 밖에서 끌어 와 버튼 위에서 놓은 것은 옮기기다.
+    let downToAdd=false;
+    zone.addEventListener('click', e=>{
+      const go=downToAdd; downToAdd=false;
+      if(e.button || !go || !passToAdd(e)) return;
+      e.stopPropagation(); e.preventDefault();
+      stickerAddBtn.click();
+    }, true);
     zone.addEventListener('mousedown', e=>{
+      downToAdd = !e.button && passToAdd(e);
       if(_mhViewingUserId() || window._mhPreviewMode) return;   // ★ 관람/미리보기 중에는 스티커를 만질 수 없음
+      if(downToAdd) return;                                      // 버튼으로 넘길 클릭 — 끌지 않는다
       const el=e.target.closest('.mh-sticker'); if(!el) return;
       if(mhStickerRules.isLocked((_myHomeData().stickers||{})[el.dataset.sid])) return;   // 🔒 잠긴 스티커는 끌리지 않는다
       dragSticker=el; const r=el.getBoundingClientRect();
@@ -642,7 +661,8 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const win=document.getElementById('myHomeWin'); if(!win) return;
     const bg=_myHomeData().bg;
     /* 친구 홈 구경에서는 남의 값 — 허용된 그림 주소 · 색만(shared/safe-html.js) */
-    const bgUrl = bg ? TwSafeHtml.cssUrl(bg.img) : '';
+    const bgUrl = bg ? TwSafeHtml.cssUrl(mhBgUrl.httpsOf(bg.img)) : '';
+    if(bg && !_mhViewingUserId()) mhBgUrl.probeOwnerBg(bg.img);   // 못 받으면 주인에게만 안내
     if(bgUrl) win.style.background=bgUrl+' center/cover no-repeat, var(--win-face)';
     else if(bg && bg.color) win.style.background=TwSafeHtml.cssColor(bg.color);
     else win.style.background='var(--win-face)';
@@ -1156,6 +1176,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const d=_mhDsWin.document;
     d.open(); d.write(DS_HTML); d.close();
     applyThemeToChildDoc(d);   // 🎨 [제보 5] 방명록과 같은 구조(별도 BrowserWindow)
+    watchMaintenanceInput(d);  // d.close() 뒤에 — document.open 이 리스너를 지운다
     d.getElementById('dsClose').onclick=()=>{ try{ _mhDsWin.close(); }catch(_){} };
     d.getElementById('dsDone').onclick=()=>{ commitMyHomePage(true); try{ _mhDsWin.close(); }catch(_){} };
     // ★ confirm()은 Electron 투명 창에서 렌더러를 블로킹한 채 다이얼로그가 안 보여

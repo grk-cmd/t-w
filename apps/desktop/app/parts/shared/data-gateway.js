@@ -16,7 +16,7 @@
    서버로 보내지 않는 것(늘 Firebase): 트랜잭션 · onDisconnect · 자식 단위 듣기(onChild*) · 위에 없는 조건.
    받는 deps(createDataGateway): sdk{ get, set, update, remove, push, onValue } · routes() → 표 · myCode() → 내 코드 | null · canServer() → 로그인 세션 있나 ·
      queryOf(r) → undefined(조건 없는 ref) | null(서버로 못 보내는 조건) | { ref, query } · serverFirst · post(주소, 본문) → Promise<data> ·
-     stream(본문, onData, onError) → 끊기 함수 · notifyError — 번호 · 오류를 받아 알림 · warn(...a) · later(f, ms) — 다시 붙기 전 쉬기(없으면 setTimeout)
+     stream(본문, onData, onError) → 끊기 함수 · notifyError — 번호 · 오류를 받아 알림 · warn(...a) · later(f, ms) — 다시 붙기 전 쉬기(없으면 setTimeout) · onOp() — 요청마다 먼저(없으면 아무것도 안 함)
    내놓는 것: DATA_PATH · STREAM_PATH · REQUEST_TIMEOUT_MS · ME · QUERY_KEYS · FALLBACK_CODES · ERROR_NOTICES · matchRoute · pathOf · toServerPath ·
      translate(err) · snapshotOf · parseSse · makeStream(통로) → stream · createDataGateway(deps) → { route, get, set, update, remove, push, onValue }
    검사: checks/sim-data-gateway.js */
@@ -163,6 +163,7 @@ function createDataGateway(deps){
   const stream = deps.stream;
   const notifyError = deps.notifyError;
   const warn = deps.warn || (() => {});
+  const onOp = deps.onOp || (() => {});   // 요청이 문을 지날 때마다 — 서버 점검 창(maintenance-gate.js touch)
   const sp = (p) => { let c = null; try{ c = myCode(); }catch(_){ c = null; } return toServerPath(p, c); };
 
   /* 경로 → 'server' | 'firebase'. 표를 못 읽으면 · 로그인 세션이 없으면 Firebase(지금 길). */
@@ -264,7 +265,8 @@ function createDataGateway(deps){
     open();
     return () => { closed = true; try{ off && off(); }catch(_){} };
   }
-  return { route, get, set, update, remove, push, onValue };
+  const passing = (f) => (...a) => { onOp(); return f(...a); };
+  return { route, get: passing(get), set: passing(set), update: passing(update), remove: passing(remove), push: passing(push), onValue: passing(onValue) };
 }
 
 const api = { SERVER, FIREBASE, ROUTE_MAX, ROUTE_RE, DATA_PATH, STREAM_PATH, REQUEST_TIMEOUT_MS, RESUBSCRIBE_DELAY_MS, ME, QUERY_KEYS, FALLBACK_CODES, ERROR_NOTICES,

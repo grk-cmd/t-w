@@ -46,7 +46,8 @@ const envOf = (w) => (w && w.companion && w.companion.firebaseEnv === 'dev') ? '
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 
-/* deps: { baseUrl, fetch, now, timeoutMs, backoffMs, getToken() → Promise<토큰 | null>(로그인 요청만 · 없으면 로그인 요청은 늘 NO_TOKEN) } */
+/* deps: { baseUrl, fetch, now, timeoutMs, backoffMs, getToken() → Promise<토큰 | null>(로그인 요청만 · 없으면 로그인 요청은 늘 NO_TOKEN),
+   onRequest()(요청이 나가기 직전 — 서버 점검 창 maintenance-gate.js touch) } */
 function createApiClient(deps){
   const d = deps || {};
   const base = String(d.baseUrl || '').replace(/\/+$/, '');
@@ -55,6 +56,7 @@ function createApiClient(deps){
   const timeoutMs = d.timeoutMs || TIMEOUT_MS;
   const backoffMs = (d.backoffMs == null) ? BACKOFF_MS : d.backoffMs;
   const getToken = d.getToken || null;   // 로그인 통로만 넘긴다 — 공개 통로는 없다
+  const onRequest = d.onRequest || (() => {});
   const cache = new Map();      // path → { data, until }
   const inflight = new Map();   // path → Promise
   let downUntil = 0;
@@ -107,6 +109,7 @@ function createApiClient(deps){
     if(c && c.until > now()) return Promise.resolve(c.data);
     if(downUntil > now()) return Promise.reject(new ApiError('unavailable', 0, 'BACKOFF', 'API 를 잠깐 쉬는 중'));
     if(inflight.has(path)) return inflight.get(path);
+    onRequest();
     const p = once(path, o.timeoutMs || timeoutMs, o).then((data) => {
       downUntil = 0;
       if(o.cacheMs > 0 && !o.auth) cache.set(path, { data, until: now() + o.cacheMs });
@@ -124,6 +127,7 @@ function createApiClient(deps){
   function post(path, body, opts){
     const o = Object.assign({}, opts || {}, { method: 'POST', body });
     if(!base || !fetchFn) return Promise.reject(new ApiError('unavailable', 0, 'NO_API', 'API 주소 없음'));
+    onRequest();
     return once(path, o.timeoutMs || timeoutMs, o);
   }
 
@@ -141,7 +145,8 @@ let client = null;
 try{
   if(typeof window !== 'undefined'){
     let st = null; try{ st = window.localStorage; }catch(_){}
-    client = createApiClient({ baseUrl: apiBaseFor(envOf(window), st), fetch: (typeof window.fetch === 'function') ? window.fetch.bind(window) : null });
+    client = createApiClient({ baseUrl: apiBaseFor(envOf(window), st), fetch: (typeof window.fetch === 'function') ? window.fetch.bind(window) : null,
+      onRequest: () => { window.TwMaintenance.store.touch(); } });
   }
 }catch(_){ client = null; }
 

@@ -12,7 +12,7 @@
  *       ridless(rid 없는 답을 같은 종류의 가장 먼저 보낸 요청에 줄까 — 옛 서버용),
  *       idleCloseMs(0 이면 쉬어도 안 닫음) · busy() → 쉬면 닫기를 미룰까 · reconnectWanted() → 다시 붙기 타이머가 울렸을 때 붙을까,
  *       hooks: { onReady(), onMessage(m), onClosed(wasReady, fatal) },
- *       now · setTimeout · clearTimeout · log 는 검사용(기본 전역).
+ *       now · setTimeout · clearTimeout · random · log 는 검사용(기본 전역).
  * 내보냄: createRealtimeLink(deps) → { enabled, ensureReady(ms, o), request(msg, map), send(o), close(), drop(), scheduleReconnect(),
  *       scheduleIdle(), cancelIdle(), markAuthRetry(), markFailed(), isReady(), state() }
  *   순수: jwtExpMs(token) · LINK_TIMING
@@ -21,6 +21,8 @@ export const LINK_TIMING = Object.freeze({
   CONNECT_TIMEOUT_MS: 5000,      // 재연결 한 번이 ready 를 기다리는 시간 — 입장 대기(ensureReady(ms))가 더 길면 그만큼
   REQ_TIMEOUT_MS: 4000,          // rid 요청의 답
   BACKOFF_MS: Object.freeze([1000, 2000, 4000, 8000, 15000]),
+  // 백오프를 ±이 비율만큼 흩는다 — 서버가 재시작하면 모든 앱이 같은 순간 끊겨, 흩지 않으면 1 · 2 · 4초 뒤에 한꺼번에 다시 붙는다
+  BACKOFF_JITTER: 0.5,
   TOKEN_LEAD_MS: 5 * 60 * 1000,  // 만료 5분 전에 새 토큰으로 hello
   TOKEN_FALLBACK_MS: 50 * 60 * 1000,
   TOKEN_MIN_MS: 60 * 1000,
@@ -44,6 +46,7 @@ export function createRealtimeLink(deps){
   const tSet = deps.setTimeout || ((f, ms) => setTimeout(f, ms));
   const tClear = deps.clearTimeout || ((h) => clearTimeout(h));
   const now = deps.now || (() => Date.now());
+  const random = deps.random || Math.random;
   const hooks = deps.hooks || {};
   const requestKinds = deps.requestKinds || [];
   const answers = deps.answers || {};
@@ -138,7 +141,8 @@ export function createRealtimeLink(deps){
 
   function scheduleReconnect(){
     if(reconnectTimer) return;
-    const delay = T.BACKOFF_MS[Math.min(attempt, T.BACKOFF_MS.length - 1)];
+    const base = T.BACKOFF_MS[Math.min(attempt, T.BACKOFF_MS.length - 1)];
+    const delay = Math.round(base * (1 + T.BACKOFF_JITTER * (2 * random() - 1)));
     attempt++;
     reconnectTimer = tSet(() => {
       reconnectTimer = null;

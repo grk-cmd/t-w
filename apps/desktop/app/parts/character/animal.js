@@ -1939,11 +1939,30 @@ function _texFromDataURL(url, fallbackFill){
   const t=new THREE.CanvasTexture(c); t.flipY=false; t.encoding=THREE.sRGBEncoding;
   const src=TwSafeHtml.safeUrl(url,'image');   // 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소만
   t.userData.twSrc=src||null; t.userData.twFill=fallbackFill||'#ffffff';   // 그래픽 리셋으로 캔버스가 비면 face-heal.js 가 이것으로 다시 그린다
-  if(src){ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
-    im.onload=()=>{ x.drawImage(im,0,0,P_SZ,P_SZ); t.needsUpdate=true; };
-    im.onerror=()=>console.warn('[동물] 페인트 텍스처 로드 실패:', (url||'').slice(0,64));
-    im.src=src; }
+  if(src){
+    let late=0;
+    const load=(u)=>{ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)
+      im.onload=()=>{ x.drawImage(im,0,0,P_SZ,P_SZ); t.needsUpdate=true; };
+      /* CORS 없이 먼저 캐시된 같은 그림이면 crossOrigin 로드가 막힌다 — 표식 붙은 주소로 한 번만 다시.
+         그래도 못 받으면 흰 바탕으로 남지 않게 조금 뒤 몇 번 더(횟수 · 간격은 shared/img-retry.js) */
+      im.onerror=()=>{
+        const again=TwSafeHtml.safeUrl(TwImgRetry.retryUrl(u),'image');   // 이미 다시 받은 주소면 null
+        if(again){ load(again); return; }
+        const wait=TwImgRetry.laterRetryMs(u, late);
+        if(wait!==null){ late++; setTimeout(()=>load(u), wait); return; }
+        console.warn('[동물] 페인트 텍스처 로드 실패:', (url||'').slice(0,64));
+        _texDiagOnce(url);
+      };
+      im.src=u; };
+    load(src); }
   return t;
+}
+/* 설치본은 콘솔을 못 보니 끝내 못 받은 그림은 진단 기록에 — 좌석을 다시 세울 때마다 쌓이지 않게 주소마다 한 번 */
+const _texDiagSeen=new Set();
+function _texDiagOnce(url){
+  const key=String(url||'').slice(0,96);
+  if(_texDiagSeen.has(key)) return; _texDiagSeen.add(key);
+  if(window.companion && companion.diagNote) companion.diagNote('[동물] 남의 그림을 끝내 못 받음 — 흰 바탕으로 보임');   // 브라우저 미리보기 · 검사엔 companion 이 없다
 }
 // 인간 재질과 같은 자체발광 평탄화 — 씬 조명 의존을 줄여 밝기를 인간과 일치시킴
 function _animLit(mat){

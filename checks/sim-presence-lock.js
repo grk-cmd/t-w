@@ -1,7 +1,7 @@
 /* sim-presence-lock.js — 🔒 친구 탭 온라인 고정(myhome/presence-lock.js) · 첫 쓰기 미루기(firebase-init setMyPresenceOnline) · 규칙(presencePref)
    ・1절: normalize · startOnline — 고정했을 때만 고른 값 · 틀린 모양은 «고정 없음 · 온라인»
    ・2절: 모듈을 가짜 DOM 으로 실제로 돌린다 — 켤 때 고정값 · 못 읽으면 이 PC 값(계정과 묶음) · 읽기 전 누름은 덮지 않음 ·
-          고정 중 토글만 저장 · 🔒 누르면 지금 값으로 저장 · 로그인 없음 · 저장 실패는 E-MH-02
+          고정 중 토글만 저장 · 🔒 누르면 지금 값으로 저장 · 로그인 없음 · 저장 실패는 E-MH-03
    ・3절: setMyPresenceOnline 을 실제로 돌린다 — 처음 값이 풀리기 전엔 쓰지 않음(재접속 신호가 먼저 와도) · 오프라인 고정이면 첫 쓰기부터 false ·
           처음 값이 없으면(밀려난 뒤 다시 걸기) 지금 값 · 등록(_myPresenceRef)은 바로
    ・4절: 배선 — html 버튼 · 싣는 순서 · app.js · myhome-init · myhome-ui 옛 토글 걷음 · 규칙 · 오류 번호 · smoke
@@ -170,7 +170,7 @@ async function behave(src){
   w = world(src, { uid: '' }); w.lock.click(); await tick();
   const noUid = w.saves.length === 0 && /로그인/.test(w.toasts[0]) && w.lock.textContent === '🔓';
   w = world(src, { saveFail: true }); await w.m.startOnlineFor('u1'); w.lock.click(); await tick();
-  r.edge = noUid && w.errs.join() === 'E-MH-02' && w.lock.textContent === '🔒' && JSON.parse(w.store['tw.presencePref']).lock === true
+  r.edge = noUid && w.errs.join() === 'E-MH-03' && w.lock.textContent === '🔒' && JSON.parse(w.store['tw.presencePref']).lock === true
     && (await world(src).m.startOnlineFor('')) === true;
   return r;
 }
@@ -192,7 +192,7 @@ function report(r){
   chk(r.cacheNoSave, '  서버를 못 읽고 이 PC 값만 있을 때 읽기 전 누름은 이 PC 에만 남긴다(서버를 덮지 않음)');
   chk(r.toggleUnlocked, '고정 안 함 — 토글은 접속 표시만 바꾸고 저장하지 않는다(예전과 같다)');
   chk(r.lockFlow, '🔒 누르면 지금 값으로 저장 · 고정 중 토글은 저장 · 🔓 누르면 풀림 저장 · 안내 문구');
-  chk(r.edge, '로그인 없음 → 안내만 · 저장 실패 → E-MH-02(이 PC 에는 남김) · uid 없으면 온라인');
+  chk(r.edge, '로그인 없음 → 안내만 · 저장 실패 → E-MH-03(이 PC 에는 남김) · uid 없으면 온라인');
 }
 
 async function gate(fbi){
@@ -268,7 +268,7 @@ async function gate(fbi){
     chk(!!R && own.test(R['.read']) && own.test(R['.write']) && !/!root\.child\('userAuth/.test(R['.read'] + R['.write'])
       && /hasChildren\(\['lock','online','ts'\]\)/.test(R['.validate']) && R.$other['.validate'] === false && /isBoolean/.test(R.lock['.validate']) && /isBoolean/.test(R.online['.validate']),
       '규칙 — 로그인한 본인만 읽기 · 쓰기(친구가 «숨긴 오프라인» 을 못 알아보게) · 세 칸 · 다른 칸 거부');
-    chk(/'E-MH-02': \{ msg: '[^']+', where: 'myhome\/presence-lock\.js/.test(SRC[A + 'parts/shared/error-codes.js']), '오류 번호 E-MH-02 가 표에 있다');
+    chk(/'E-MH-03': \{ msg: '[^']+', where: 'myhome\/presence-lock\.js/.test(SRC[A + 'parts/shared/error-codes.js']), '오류 번호 E-MH-03 가 표에 있다');
     chk(SRC['checks/smoke.js'].indexOf("PRELOAD.push('presence-lock.js');") > 0, 'smoke PRELOAD 에 presence-lock.js');
   }
 

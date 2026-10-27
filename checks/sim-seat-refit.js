@@ -107,7 +107,7 @@ async function judge(src) {
   const iMk = src.APP.indexOf('const seatRefitMod = TwSeatRefit.createSeatRefit({'), iRb = src.APP.indexOf('const rideBenchMod = TwRideBench.createRideBench(');
   r.made = iMk > 0 && iRb > 0 && iRb < iMk;
   /* 올라탄 사람 높이 다시 재기는 만든 바로 뒤에 알림으로 건다(rideBenchMod 를 deps 로 받으면 새 순환 — sim-dep-cycles) */
-  r.hook = /\nseatRefitMod\.onRefitted\(\(s\)=>rideBenchMod\._remeasureRideHeadTop\(s\)\);/.test(src.APP) && !/rideBenchMod/.test(src.MOD.replace(/\/\*[\s\S]*?\*\//g, ''));
+  r.hook = /\nseatRefitMod\.onRefitted\(\(s\)=>\{ rideBenchMod\._remeasureRideArm\(s\); rideBenchMod\._remeasureRideHeadTop\(s\); \}\);/.test(src.APP) && !/rideBenchMod/.test(src.MOD.replace(/\/\*[\s\S]*?\*\//g, ''));
   r.passed = (src.APP.match(/\n  refitSeatAfterParts: \(\.\.\.a\)=>seatRefitMod\.refitSeatAfterParts\(\.\.\.a\),/g) || []).length === 4;
   const mk = (src.APP.match(/const seatRefitMod = TwSeatRefit\.createSeatRefit\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   r.mkDeps = /^  requestFrame: \(\.\.\.a\)=>requestAnimationFrame\(\.\.\.a\),$/m.test(mk) && /^  seats: seats,$/m.test(mk);
@@ -139,7 +139,7 @@ async function judge(src) {
   chk(R.noOldThen && R.noOldAwait, '장착 뒤 fitModel 을 직접 부르던 옛 줄이 남지 않는다');
   chk(R.deps && R.passed, '네 모듈은 deps 로 받는다 · app.js 가 넷 다 넘긴다');
   chk(R.html && R.made, 'html — seat-refit.js 를 app.js 보다 먼저 · app.js 는 rideBenchMod 뒤에서 만든다');
-  chk(R.hook, 'app.js 가 만든 바로 뒤 올라탄 사람 높이 다시 재기(_remeasureRideHeadTop)를 onRefitted 로 건다 — 모듈은 rideBenchMod 를 모른다');
+  chk(R.hook, 'app.js 가 만든 바로 뒤 탄 동물 팔 높이 · 올라탄 사람 높이 다시 재기(_remeasureRideArm · _remeasureRideHeadTop)를 onRefitted 로 건다 — 모듈은 rideBenchMod 를 모른다');
   chk(R.riding, '남의 머리에 탄 좌석을 다시 맞추면 그 대상(ridingOn) 위 높이도 다시 잰다 — 판단은 이 모듈 한 곳');
 
   say('── 3. 파츠 떼기 — 다음 프레임에 한 번');

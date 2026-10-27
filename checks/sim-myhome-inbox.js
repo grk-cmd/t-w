@@ -12,10 +12,12 @@
    ・6절: 친구 목록 — (n/상한) · 비었을 때 · 온라인 / 오프라인 이름순 · 검색(전체 수 그대로 · 찾음 · 없음) · 강조 이스케이프 ·
            시크릿룸 코드 숨김 · 🏠 · 선택 · 놀러 가기 칸 · 삭제 확인 · 검색줄 닫으면 검색어도 비움
    ・7절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리 · deps 모양 · 빈 껍데기 · 부르는 곳 · html 순서 · 전역 이름
+   ・5절 안: 선물함 칸 그림 — 못 받으면 img-retry.js retryOnError 로 한 번 더(표식 twr=1) · 선물이 없으면 안 건다
    ・8절: 일부러 깨 보기 — 모듈 · app.js 글을 조금씩 망가뜨려 2~7절이 잡아내는지(이 검사가 헛돌지 않는지) 스스로 확인
    [실행] myhome-inbox.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 globalThis.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
+globalThis.TwImgRetry = require([__dirname, process.cwd()].flatMap(d => ['img-retry.js', 'parts/shared/img-retry.js', 'app/parts/shared/img-retry.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🖼 선물 칸 그림 한 번 더 받기 — 진짜 파일
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 let pass = 0, fail = 0, quiet = false, qfail = 0;
@@ -44,6 +46,7 @@ function mkEl(tag, env){
       toggle: (c, f) => { const on = f === undefined ? !el.classList.contains(c) : !!f; on ? el.classList.add(c) : el.classList.remove(c); return on; },
     },
     appendChild(c){ c.parent = el; el.children.push(c); return c; },
+    querySelectorAll(sel){ return (el._qa && el._qa[sel]) || []; },   // 미리 심어 둔 가짜 요소(선물 칸 그림 — 5절)
     remove(){ el.removed = true; if(el.parent){ el.parent.children = el.parent.children.filter(x => x !== el); el.parent = null; } },
     addEventListener(t, fn){ (L[t] = L[t] || []).push(fn); },
     fire(t, ev){ (L[t] || []).slice().forEach(fn => fn(Object.assign({ preventDefault(){ ev._pd = true; }, stopPropagation(){ ev._sp = true; } }, ev))); },
@@ -319,10 +322,15 @@ async function behave(src){
     const e = E(); const m = e.mk();
     const stat = e.reg('mhGiftStat'); const homeWin = e.reg('myHomeWin');
     const list = mkEl('div', e);
-    e.gifts = { g1: { ts: 10, fromName: '가<나', msg: '"안녕"', imgUrl: 'https://i/1.png' }, g2: { ts: 30, starred: true, fromName: '다', imgUrl: 'https://i/2.png' }, 'g-out': { ts: 20, fromName: '라' } };
+    e.gifts = { g1: { ts: 10, fromName: '가<나', msg: '"안녕"', imgUrl: 'https://i/1.png' }, g2: { ts: 30, starred: true, fromName: '다', imgUrl: 'https://i/2.png?alt=media' }, 'g-out': { ts: 20, fromName: '라' } };
+    /* 칸 그림 — innerHTML 로 만든 <img> 를 querySelectorAll 이 돌려준다고 치고 심어 둔다 */
+    const gImgs = [{ src: 'https://i/1.png' }, { src: 'https://i/2.png?alt=media' }];
+    list._qa = { '.gift-item img': gImgs };
     m.renderGiftBox(list);
     chk(list.innerHTML === '<div class="mh-ibx-empty">불러오는 중…</div>', '먼저 «불러오는 중…»');
     await flush(); await flush();
+    gImgs.forEach(im => im.onerror && im.onerror());
+    chk(gImgs[0].src === 'https://i/1.png?twr=1' && gImgs[1].src === 'https://i/2.png?alt=media&twr=1', '★ 칸 그림을 못 받으면 표식 주소(twr=1)로 한 번 더 받는다(img-retry.js retryOnError)');
     chk(e.calls.join() === 'getMallangGifts ME01', '  받은 선물은 내 코드로 한 번 받는다');
     const noUid = async (o) => { const u = E(o); const um = u.mk({ getMyUserId: () => null }); u.reg('mhGiftStat'); u.reg('myHomeWin'); u.gifts = e.gifts; const l = mkEl('div', u); um.renderGiftBox(l); await flush(); await flush();
       return u.calls.length === 0 && /아직 받은 선물이 없어요/.test(l.innerHTML); };
@@ -368,8 +376,11 @@ async function behave(src){
     const ov3 = (list.oncontextmenu({ target: tg('g2', false), preventDefault(){}, stopPropagation(){} }), homeWin.children[0]);
     ov3.fire('click', { target: ov3 });
     chk(ov3.removed && e.calls.length === 1, '  바깥(배경) 누르면 그냥 닫힌다');
+    const noImgs = [{ src: 'https://i/9.png' }];
+    list._qa = { '.gift-item img': noImgs };
     e.gifts = {}; m.renderGiftBox(list); await flush(); await flush();
     chk(/아직 받은 선물이 없어요/.test(list.innerHTML) && list.onclick === null && stat.textContent === '', '선물이 없으면 안내 · 누르기 해제 · 표시 비움');
+    chk(noImgs[0].onerror === undefined, '  선물이 없으면 다시 받기를 걸지 않는다');
     m.giftStat('x'); chk(stat.textContent === 'x', 'giftStat 은 #mhGiftStat 에 쓴다');
   }
 
@@ -554,6 +565,7 @@ async function runAll(MI, APP, HTML){
     ['MI', 'if(on && starN >= lim.starMax){', 'if(false){', '⭐ 상한 없음'],
     ['MI', "if(ev.target.closest('.gift-star')){\n      ev.stopPropagation();", "if(ev.target.closest('.gift-star')){", '⭐ 누르기가 칸 누르기로 번짐(stopPropagation 없음)'],
     ['MI', 'win.appendChild(ov);', 'document.body.appendChild(ov);', '확인창이 body 로'],
+    ['MI', "  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));", '', '선물함 칸 그림에 다시 받기를 안 걺'],
     ['MI', "' data-img=\"'+escHtml(g.imgUrl||'')+'\" data-msg=\"'+escHtml(g.msg||'')+'\" title=\"'+escHtml(tip)+'\">'", "' data-img=\"'+escHtml(g.imgUrl||'')+'\" data-msg=\"'+(g.msg||'')+'\" title=\"'+(tip)+'\">'", '선물 글을 속성값에 그대로'],
     ['MI', "if(!r || r.indexOf('SCRT-') === 0) return '';", "if(!r) return '';", '시크릿룸 코드가 보임'],
     ['MI', "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/'+FRIEND_MAX+')';", "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/50)';", '친구 상한을 숫자로 박음'],

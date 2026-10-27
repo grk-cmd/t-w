@@ -117,10 +117,11 @@ function renderCrItems(){
       if(crState.activeCustomDeskId===rec.id) return;   // 이미 활성
       if(deskLocked){ toast('🔒 "'+(rec.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요'); return; }   // 🔒 위 주석
       // Storage 이관 후속: rec.glb가 없고 glbUrl만 있으면 Storage에서 fetch
+      let glbErr = null;
       if(!rec.glb && rec.glbUrl){
-        try{ await catalogGlbMod().resolveCatalogGlb(rec); }catch(_){}
+        try{ await catalogGlbMod().resolveCatalogGlb(rec); }catch(e){ glbErr = e; }
       }
-      if(!rec.glb){ toast('책상 GLB를 불러올 수 없어요 (네트워크 확인)'); return; }
+      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-14', glbErr || (rec.glbUrl ? 'no-glb' : 'no-url')); return; }
       /* 📦 코드로 넣은 책상만 GLB 가 def 에 실린다(카탈로그 책상은 id 만) — crDone 과 같은 갈래. */
       if(!rec.fromCatalog){
         const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });
