@@ -7,7 +7,8 @@
    ・4절: 남의 좌석 · 동물 좌석 그림 복구(repairSeatTextures · reportGlReset)를 가짜 캔버스 위에서 실제로 돌린다 —
           남의 빈 얼굴 → 받아 둔 주소로 다시 그림 · 동물 빈 그림 → 기억한 원본으로 · 원본 없음 → 바탕만 · 받기 실패 → 기록 ·
           얼굴을 안 그린 친구(합성본 멀쩡)는 안 건드림 · 피부가 비면 다음 차례 · 내 칸 복구가 피부 PNG 를 기다리는 동안 건너뜀 ·
-          받는 사이에 피부가 비면 합성을 다음 차례로 · 허용 안 되는 주소는 안 그림 · 리셋 진단 한 줄 · 깨 보기
+          받는 사이에 피부가 비면 합성을 다음 차례로 · 허용 안 되는 주소는 안 그림 · 리셋 진단 한 줄 ·
+          원래 주소가 실패로 캐시된 PC — 표식 주소로 한 번 더 받아 그림(진짜 img-retry.js) · 깨 보기
    [실행] app.js · desk-companion-prototype.html · face-heal.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -19,6 +20,9 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["face-heal.js","parts/character/face-heal.js","app/parts/character/face-heal.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — face-heal.js'); process.exit(2); }
+const RETRY_SRC = ["img-retry.js","parts/shared/img-retry.js","app/parts/shared/img-retry.js"].map(read).find(Boolean);
+if(!RETRY_SRC){ say('  ? 원본 못 찾음 — img-retry.js'); process.exit(2); }
+const IMG_RETRY = (() => { const m = { exports: {} }; new Function('window', 'module', RETRY_SRC)(undefined, m); return m.exports; })();
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_isBlankDraw","loadImg","loadSkins","skinCanvasFor","toast","diagNote","loadImgCors"];
@@ -110,10 +114,13 @@ function seatEnv(src, o){
     _blinkEverDrawn: [], _faceEverDrawn: [], _isBlankDraw: (cv) => !cv || !!cv.blank, creatorOpen: () => false,
     loadImg: async (u) => ({ src: u }), loadSkins: o.loadSkins || (async () => {}), seats: o.seats, skinCanvasFor: () => skins[0],
     skinCanvases: skins, slots: [], toast: () => {}, diagNote: (m) => notes.push(m),
-    loadImgCors: o.loadImgCors || (async (u) => { if(u === 'https://bad.test/x.png') throw new Error('net'); return { src: u }; }),
+    loadImgCors: o.loadImgCors || (async (u) => {
+      if(u.startsWith('https://bad.test/')) throw new Error('net');                       // 표식 주소로도 못 받음
+      if(u.startsWith('https://stale.test/') && !/twr=1/.test(u)) throw new Error('cors'); // 원래 주소만 실패로 캐시된 PC
+      o.got && o.got.push(u); return { src: u }; }),
   };
   const safe = { safeUrl: (u) => (/^https:\/\//.test(String(u)) ? u : '') };
-  const api = new Function('window', 'module', 'TwSafeHtml', 'localStorage', 'performance', src + '\nreturn window.TwFaceHeal;')({}, undefined, safe, { getItem: () => null }, { now: () => 0 });
+  const api = new Function('window', 'module', 'TwSafeHtml', 'TwImgRetry', 'localStorage', 'performance', src + '\nreturn window.TwFaceHeal;')({}, undefined, safe, IMG_RETRY, { getItem: () => null }, { now: () => 0 });
   return { M: api.createFaceHeal(deps), notes };
 }
 const tex = (cv, ud) => ({ image: cv, needsUpdate: false, userData: ud || {} });
@@ -175,6 +182,17 @@ async function judgeSeats(src){
     const E4 = seatEnv(src, { seats: [s6] });
     await E4.M.repairSeatTextures();
     t(d6.face.blank && !d6.face.drawn.length && E4.notes.some(m => /재료 없음/.test(m)), '  허용 안 되는 주소는 그리지 않는다(재료 없음 · 피부만 다시 합성)');
+    /* 원래 주소의 응답이 실패로 캐시된 PC — 처음 받을 때처럼 표식 주소로 한 번 더(규칙은 img-retry.js) */
+    const got = [];
+    const d8 = { face: mkCv(true), faceUrl: 'https://stale.test/f.png?alt=media&token=t' };
+    const s8 = { remote: true, charDef: d8, faceMapOrig: tex(mkCv(true)) };
+    const aT = tex(mkCv(true), { twSrc: 'https://stale.test/a.png', twFill: '#ffffff' });
+    const s9 = { remote: true, charDef: { animal: true }, faceMapOrig: aT };
+    const E6 = seatEnv(src, { seats: [s8, s9], got });
+    await E6.M.repairSeatTextures();
+    t(!d8.face.blank && d8.face.drawn.includes('https://stale.test/f.png?alt=media&token=t&twr=1'), '★ 남의 얼굴 — 원래 주소가 막힌 PC 면 표식 주소(&twr=1)로 한 번 더 받아 다시 그림');
+    t(!aT.image.blank && aT.image.drawn.includes('https://stale.test/a.png?twr=1') && aT.needsUpdate, '★ 동물 그림 — 같은 규칙으로 표식 주소(?twr=1)에서 다시 그림');
+    t(got.length === 2 && got.every(u => /twr=1/.test(u)), '  받은 요청은 표식 주소 두 번뿐(원래 주소는 실패 · 그 뒤로 더 받지 않음)');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   return r;
 }
@@ -188,6 +206,7 @@ async function judgeSeats(src){
     ['내 칸 복구 중에도 합성', "  if(_faceRepairBusy) return 0;   // 내 칸 복구가", "  if(false) return 0;   // 내 칸 복구가"],
     ['받은 뒤 피부를 다시 안 봄', "        if(_faceRepairBusy || _blankSkinIdx().size){ what.push('합성 다음 차례');", "        if(false){ what.push('합성 다음 차례');"],
     ['남의 주소를 안 거름', "const fu = TwSafeHtml.safeUrl(d.faceUrl,'image'), bu = TwSafeHtml.safeUrl(d.blinkUrl,'image');", "const fu = d.faceUrl, bu = d.blinkUrl;"],
+    ['다시 받을 때 표식 주소를 안 씀', "const _loadRemote = (u)=> TwImgRetry.loadWithRetry(loadImgCors, u);", "const _loadRemote = loadImgCors;"],
     ['리셋 진단을 안 남김', "  try{ diagNote(line); }catch(_){}\n  if(blank.length)", "  if(blank.length)"],
   ];
   for(const [name, a, b] of sb){

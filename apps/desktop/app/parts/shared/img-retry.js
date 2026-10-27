@@ -2,9 +2,10 @@
    ・내놓는 것: retryUrl(u) — 다시 받을 주소(주소 뒤 RETRY_MARK) · 다시 받지 않을 주소(dataURL 등 http(s) 아닌 것 · 이미 표식이 붙은 것)면 null
               laterRetryMs(u, n) — 두 번 다 못 받은 그림을 n 번째(0부터)로 나중에 다시 받기까지 기다릴 ms · 그만둘 때(http(s) 아님 · 횟수 다 씀)면 null
               retryOnError(img, onGiveUp) — 화면의 <img> 에 «못 받으면 retryUrl 로 한 번 더» 를 건다 · 그래도 못 받으면 onGiveUp(없으면 조용히)
+              loadWithRetry(load, u) — load(u) 가 실패하면 retryUrl(u) 로 한 번 더 load · 다시 받을 주소가 없으면 처음 실패를 그대로 던진다(받기 함수는 부르는 쪽 것)
    ⚠️ 표식은 고정값이다 — 같은 그림이 CORS 없이 먼저 캐시돼 있으면(그냥 <img>) 원래 주소로는 계속 막히는데, 다시 받은 응답이
      이 주소로 캐시돼 다음부터는 요청이 늘지 않는다(Date.now() 를 붙이면 매번 새로 받는다).
-   DOM 은 retryOnError 가 받은 <img> 의 src · onerror 만 만진다(네트워크 없음 · 넣는 주소는 TwSafeHtml.safeUrl 을 지난다 — safe-html.js 뒤에 싣는다). 쓰는 곳: room/room-sync.js(남의 얼굴 · 감은눈) · character/animal.js(동물 페인트 그림) · room/room-server-net.js(얼굴 못 받은 def 다시 풀기 — room-sync.js 가 hooks 로 넘김) · myhome/mallang.js · myhome/myhome-inbox.js(말랑이 · 선물 그림 — retryOnError).
+   DOM 은 retryOnError 가 받은 <img> 의 src · onerror 만 만진다(네트워크 없음 · 넣는 주소는 TwSafeHtml.safeUrl 을 지난다 — safe-html.js 뒤에 싣는다). 쓰는 곳: room/room-sync.js(남의 얼굴 · 감은눈) · character/face-heal.js(그래픽 리셋 뒤 남의 얼굴 · 동물 그림 다시 그리기 — loadWithRetry) · character/animal.js(동물 페인트 그림) · room/room-server-net.js(얼굴 못 받은 def 다시 풀기 — room-sync.js 가 hooks 로 넘김) · myhome/mallang.js · myhome/myhome-inbox.js(말랑이 · 선물 그림 — retryOnError).
    검사: checks/sim-img-retry.js */
 (function(){
 
@@ -36,7 +37,17 @@ function retryOnError(img, onGiveUp){
   return img;
 }
 
-const api = { retryUrl, laterRetryMs, retryOnError, RETRY_MARK, LATER_RETRY_MS };
+/* 그림을 받는 함수(load: 주소 → Promise<이미지>)에 «처음 실패하면 표식 주소로 한 번 더» 를 씌운다 */
+async function loadWithRetry(load, u){
+  try{ return await load(u); }
+  catch(e){
+    const again = retryUrl(u);
+    if(!again) throw e;
+    return load(again);
+  }
+}
+
+const api = { retryUrl, laterRetryMs, retryOnError, loadWithRetry, RETRY_MARK, LATER_RETRY_MS };
 if(typeof window !== 'undefined') window.TwImgRetry = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

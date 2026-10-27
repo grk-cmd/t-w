@@ -386,13 +386,7 @@ function _loadImgCors(src){ return new Promise((res,rej)=>{ const i=new Image();
      사람 얼굴·감은눈은 512 라 멀쩡했던 것도 이것으로 갈린다. 크기를 못 읽으면 예전처럼 512. */
 /* 같은 그림이 CORS 없이 먼저 캐시돼 있으면(그냥 <img>) crossOrigin 로드가 막힌다 — 처음 실패하면 표식 붙은 주소로 한 번만 다시(규칙은 shared/img-retry.js) */
 async function _roomFaceUrlToCanvas(url){
-  let img;
-  try{ img = await _loadImgCors(url); }
-  catch(e){
-    const again = TwImgRetry.retryUrl(url);
-    if(!again) throw e;
-    img = await _loadImgCors(again);
-  }
+  const img = await TwImgRetry.loadWithRetry(_loadImgCors, url);
   const w = img.naturalWidth || img.width || 0, h = img.naturalHeight || img.height || 0;
   const c = newCanvas();
   if(w > 0 && h > 0){ c.width = w; c.height = h; }
