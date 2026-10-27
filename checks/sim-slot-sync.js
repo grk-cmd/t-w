@@ -426,7 +426,9 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
     chk(!/_roomFaceUrlToCanvas/.test(fFetchImg), '★ 되받기가 **캔버스를 거치지 않는다** — 거치면 512 가 아닌 그림이 그 자리에서 잘린다');
     const rec = { drawn: [], made: [] };
     const store = new Map();
-    const mk = new Function('rec', 'store', [
+    /* 되받기는 shared/img-retry.js 의 loadWithRetry 를 지난다 — 진짜 파일을 싣는다 */
+    const TwImgRetry = (() => { const t = ['img-retry.js', 'parts/shared/img-retry.js', 'app/parts/shared/img-retry.js', 'apps/desktop/app/parts/shared/img-retry.js'].map((f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean); const m = { exports: {} }; new Function('module', 'window', t)(m, undefined); return m.exports; })();
+    const mk = new Function('rec', 'store', 'TwImgRetry', [
       "const CANVAS_SZ=512;",
       "const newCanvas=()=>{ const c={ width:CANVAS_SZ, height:CANVAS_SZ, getContext:()=>({ drawImage:(im,x,y)=>rec.drawn.push({ cw:c.width, ch:c.height, iw:im.naturalWidth, x, y }) }), toDataURL:()=>'data:image/png;base64,zzzz' }; rec.made.push(c); return c; };",
       "const _loadImgCors=async(u)=>{ const e=store.get(u); return { naturalWidth:e.w, naturalHeight:e.h }; };",
@@ -435,7 +437,7 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
       fToCanvas, fFetchImg,
       "return { toCanvas:_roomFaceUrlToCanvas, toData:_fetchImgDataUrl };",
     ].join('\n'));
-    const R = mk(rec, store);
+    const R = mk(rec, store, TwImgRetry);
 
     store.set('u256', { w: 256, h: 256, body: 'data:image/png;base64,QUJDRA==', type: null });
     store.set('u1024', { w: 1024, h: 1024, body: 'data:image/png;base64,QUJDRA==', type: null });

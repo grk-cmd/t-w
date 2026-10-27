@@ -211,7 +211,7 @@
 | **sim-seat-hide.js** | 84 | **4e8d2348e282** |
 | **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
-| **sim-slot-sync.js** | 480 | **31cd24157c6e** |
+| **sim-slot-sync.js** | 482 | **612ff46fdd50** |
 | **sim-slot-conflict.js** | 256 | **d34d5155c360** |
 | **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
