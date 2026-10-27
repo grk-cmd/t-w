@@ -17,13 +17,13 @@ const MOD = ["wardrobe-panel.js","parts/character/wardrobe-panel.js","app/parts/
 if(!MOD){ say('  ? 원본 못 찾음 — wardrobe-panel.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["toast"];
+const FN_DEPS = [];
 const VAL_DEPS = ["twNav"];
-const GET_DEPS = ["isAdmin","isPremium","wardrobeMod"];
+const GET_DEPS = ["wardrobeMod"];
 const SET_DEPS = [];
-const EXPORTS = [];
+const EXPORTS = ["toggleAlbum"];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  twNav: twNav,","  toast: (...a)=>toast(...a),","  wardrobeMod: ()=>wardrobeMod,"];
+const GLUE = ["  wardrobeMod: ()=>wardrobeMod,","  twNav: twNav,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -72,8 +72,49 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* 📚 여닫기 · 탭 — 가짜 DOM(버튼 · 창) 위에서 실제로 눌러 본다(#540 P2 — 라이선스 검사는 탭마다 꾸미기 창이 한다) */
+function behave(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const mkEl = () => { const cls = new Set(), on = {}; return { cls, on, classList: { add: c => cls.add(c), remove: c => cls.delete(c), contains: c => cls.has(c) },
+    addEventListener: (k, fn) => { (on[k] = on[k] || []).push(fn); }, contains: () => false }; };
+  const els = { myWardrobeBtn: mkEl(), wardrobePanel: mkEl(), wardrobeClose: mkEl(), gachaDrawOverlay: Object.assign(mkEl(), { style: { display: 'none' } }) };
+  const docOn = {}, winOn = {};
+  const document = { getElementById: id => els[id] || null, addEventListener: (k, fn) => { (docOn[k] = docOn[k] || []).push(fn); }, querySelectorAll: () => [], querySelector: () => null };
+  const log = [];
+  let tab = null;
+  const wm = { ALBUM_TAB: 'album', selectWdTab: (x) => { log.push('tab:' + (x || '-')); if(x) tab = x; }, isAlbumTab: () => tab === 'album',
+    renderWardrobe: () => log.push('render'), syncWdPreviewOwner: () => {}, refreshWdPreviewChar: () => {}, commitWdDraft: () => log.push('commit'), detachWdGizmo: () => {} };
+  const navFns = {};
+  const twNav = { NAV: { WARDROBE_ALBUM: 'wardrobeAlbum', PROGRAM_SETTINGS: 'programSettings' }, on: (n, fn) => { navFns[n] = fn; }, go: (n, ...a) => { log.push('nav:' + n); return navFns[n] && navFns[n](...a); } };
+  const win = { addEventListener: (k, fn) => { (winOn[k] = winOn[k] || []).push(fn); } };
+  let api;
+  try{ api = new Function('window', 'document', 'module', src + '\nreturn window.TwWardrobePanel;')(win, document, undefined).createWardrobePanel({ wardrobeMod: () => wm, twNav }); }
+  catch(e){ t(false, '가짜 DOM 위에서 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
+  const on = () => els.wardrobePanel.classList.contains('on');
+  els.myWardrobeBtn.on.click[0]({ stopPropagation(){} });
+  t(on() && log.join() === 'tab:-,render' && !log.some(x => /^nav:/.test(x)), 'F2(버튼) — 라이선스 없이도 연다 · 탭은 꾸미기 창이 정한다(마지막에 본 탭) · 설정 창으로 보내지 않는다');
+  els.myWardrobeBtn.on.click[0]({ stopPropagation(){} });
+  t(!on() && log[log.length - 1] === 'commit', '  다시 누르면 닫고 저장');
+  log.length = 0; api.toggleAlbum();
+  t(on() && log.join() === 'tab:album,render', 'T — 닫혀 있으면 «도감» 탭으로 연다');
+  log.length = 0; api.toggleAlbum();
+  t(!on() && log.join() === 'commit', '  «도감» 탭이 보이면 닫는다(저장)');
+  tab = 'hat'; els.myWardrobeBtn.on.click[0]({ stopPropagation(){} }); log.length = 0; api.toggleAlbum();
+  t(on() && log.join() === 'tab:album,render', '  다른 탭이 열려 있으면 «도감» 탭으로 바꾼다(닫지 않음)');
+  els.gachaDrawOverlay.style.display = 'block'; docOn.keydown[0]({ key: 'Escape' });
+  t(on(), 'ESC — 뽑기 창이 떠 있으면 꾸미기 창은 그대로(뽑기 창만 닫힌다)');
+  els.gachaDrawOverlay.style.display = 'none'; docOn.keydown[0]({ key: 'Escape' });
+  t(!on(), 'ESC — 닫는다');
+  log.length = 0; twNav.go('wardrobeAlbum');
+  t(on() && log.join() === 'nav:wardrobeAlbum,tab:album,render', '뽑기 창 [도감으로] — 통로(WARDROBE_ALBUM)로 «도감» 탭을 연다');
+  return r;
+}
+
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 여닫기 · 탭');
+behave(MOD).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/wardrobe-panel.js"></script>', '')],
@@ -85,6 +126,18 @@ const breaks = [
 
   ['만들 때 던짐', m => m.replace('function createWardrobePanel(deps){', 'function createWardrobePanel(deps){ throw new Error("깨 봄");'), null, null],
 ];
+/* 동작을 일부러 깨 본다 — 2-2절이 빨갛게 되어야 한다 */
+const behaveBreaks = [
+  ['T 가 늘 닫기만', m => m.replace("if(isOpen() && wardrobeMod().isAlbumTab()) close();", 'if(isOpen()) close();')],
+  ['T 가 도감 탭을 안 줌', m => m.replace('else open(wardrobeMod().ALBUM_TAB);', 'else open();')],
+  ['[도감으로] 통로를 안 걺', m => m.replace("twNav.on(twNav.NAV.WARDROBE_ALBUM,", "(()=>0)(twNav.NAV.WARDROBE_ALBUM,")],
+  ['다시 연 창이 저장 안 함', m => m.replace("wardrobeMod().commitWdDraft();   // ★", "0;   // ★")],
+  ['ESC 가 뽑기 창 뒤 꾸미기 창까지 닫음', m => m.replace("if(dv && dv.style.display==='block') return;", '')],
+];
+for(const [name, fm] of behaveBreaks){
+  const m2 = fm(MOD);
+  chk(m2 !== MOD && behave(m2).some(([ok]) => !ok), '동작 깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;

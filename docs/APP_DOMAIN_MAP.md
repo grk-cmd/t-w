@@ -100,7 +100,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `chars.js` · `slot-save.js` · `slot-sync.js` | 캐릭터 보관함(chars) · 슬롯 저장 · 기기 간 동기화 | fb 33 · 15 |
 | `char-code.js` · `code-crypto.js` · `asset-code.js` · `commission.js` | 복제 코드 · 암호화 · 에셋 코드 · 커미션 zip · 저장 책상 / 아이템 | — |
 | `face-heal.js` · `def-size.js` · `seat-slot.js` | 얼굴 자동 복구 · def 용량 상한 · 좌석 안 파츠 가두기 | — |
-| `gacha.js` | 파츠 가챠 · 보관함 · 뽑기 창 | fb 5 |
+| `gacha.js` · `gacha-album.js` | 파츠 가챠 · 도감(꾸미기 창 탭) · 뽑기 창 · 도감 규칙 | fb 5 |
 | `catalog-cache.js` (ES) | 카탈로그(parts · gachaParts · items · desks) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
 
 ## 6. 🎨 `creator/` — 생성기 ✅ 옮김(폴더 12번)

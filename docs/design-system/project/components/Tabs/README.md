@@ -5,4 +5,4 @@
 - 탭 글자 `caption`(11px), 낱말 하나 · 두 글자에서 네 글자. 이모지 머리표 금지.
 - 탭이 5개를 넘으면 창을 나눈다(설정창 탭은 지금 7개 이상 — 이행 4단계에서 묶는다).
 
-**앱 대응**: `.fs-tab-btn` · `.mh-tab` · `.mh-ds-tab` · `.wd-tab-btn` · `.wd-group-btn` · `.gc-tab` · `.ct-tab` · `.cr-tabs button` · `#crSteps span` — 9종 → `.tw-tab`.
+**앱 대응**: `.fs-tab-btn` · `.mh-tab` · `.mh-ds-tab` · `.wd-tab-btn` · `.wd-group-btn` · `.ct-tab` · `.cr-tabs button` · `#crSteps span` — 8종 → `.tw-tab`.

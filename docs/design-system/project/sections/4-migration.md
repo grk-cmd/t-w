@@ -45,7 +45,7 @@
 | `.tw-win` · `.tw-titlebar` · `.tw-tbtn` | `.win98raised` 창 · `#chatWindow` 등 ID 20곳 · `.win98titlebar` · `.lc-bar` · `.wd-top` · `.mh-*-head` · `.decor-top` · `.win98titlebtn` |
 | `.tw-btn` (+ `--primary` `--danger` `--quiet` `--icon` `--pill`) | `.lc-btn` · `.lc-gear` · `.lc-arrow` · `.fs-monitor-btn` · `.bb-btn` · `.wd-pic-btn` · `.plBtn` · `.plTxtBtn` · `#myChatBtn` 등 |
 | `.tw-toggle` | `.fs-toggle-btn` · `.plChkBtn` |
-| `.tw-tabs` · `.tw-tab` · `.tw-tabpage` | `.fs-tab-btn` · `.fs-tabpage` · `.mh-tab` · `.mh-ds-tab` · `.wd-tab-btn` · `.wd-group-btn` · `.gc-tab` · `.ct-tab` · `.cr-tabs button` · `#crSteps span` |
+| `.tw-tabs` · `.tw-tab` · `.tw-tabpage` | `.fs-tab-btn` · `.fs-tabpage` · `.mh-tab` · `.mh-ds-tab` · `.wd-tab-btn` · `.wd-group-btn` · `.ct-tab` · `.cr-tabs button` · `#crSteps span` |
 | `.tw-chip` · `.tw-badge` · `.tw-dot` · `.tw-lv` | `.bb-tag` · `.bb-dot` · `.mh-flv` · 관리자 `StatusChip` |
 | `.tw-toast` | `.toast` |
 | `.tw-plate` · `.tw-exp` | `.seat-nameplate` · `.seat-exp` · `.exp-fill` |

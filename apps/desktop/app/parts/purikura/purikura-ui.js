@@ -2594,7 +2594,7 @@ function _pkBindWinDrag(){
   let dragging = false, offX = 0, offY = 0;
   bar.addEventListener('pointerdown', e=>{
     /* 닫기 버튼은 드래그 시작 안 함 — 타이틀바가 손잡이라 빼주지 않으면 누를 때마다 창이 끌린다
-       (#chatCloseBtn·#gachaInvHead 와 같은 관례). */
+       (#chatCloseBtn·#gachaDrawHead 와 같은 관례). */
     if(e.target.closest && e.target.closest('#pkCloseBtn, #pkBgmBtn')) return;
     dragging = true;
     const r = win.getBoundingClientRect();

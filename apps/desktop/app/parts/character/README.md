@@ -365,6 +365,18 @@
   - 컷오버 전까지 옛 앱이 `users/*/gacha` 를 직접 쓴다 — 조작을 막는 건 규칙을 닫는 날이다.
   - 검사: `checks/sim-gacha-server.js`(요청 모양 · 응답 씻기 · 실패 · 깨 보기) · `checks/sim-gacha.js` 3-2절(서버 길로 굴리기).
 
+## gacha-album.js — 📚 도감 규칙
+
+- **책임**: 꾸미기 창 «📚 도감» 탭의 줄 · 쪽 규칙(순수 함수 · DOM · firebase 없음). 도감 = «⭐ 상시» + 시즌(봄 · 여름 · 가을 · 겨울) — 파츠가 하나라도 있는 것만 줄을 세운다. 그리기는 `gacha.js`.
+- **만드는 법**: classic script(`window.TwGachaAlbum`) — html 이 `gacha.js` 앞에 싣고, `gacha.js` 가 `const gachaAlbum = TwGachaAlbum;` 로 받는다.
+- **내놓는 것**: `ALBUM_KEYS` · `ALBUM_LABEL` · `ALBUM_THUMBS`(3) · `isAlbumKey` · `albumParts(parts, key)` · `albumList(parts, count)` → `[{ key, label, owned, total, thumbs }]` · `albumPct` · `pageCount` · `clampPage` · `pageOf`.
+- **함정**:
+  - 줄 그림은 **뽑은 파츠에서만** 고른다 — 안 뽑은 파츠는 도감 안에서도 «???» 다.
+  - 모르는 시즌 이름(rec.season)은 어느 도감에도 넣지 않는다 — 뽑기 풀도 아는 시즌만 돈다.
+  - 도감 화면 흐름: 꾸미기 창(`wardrobe.js`)이 «도감» 탭을 그릴 때 `#gachaInvHost` 를 만들고 `gachaMod.renderGachaInv()` 를 부른다 · 탭이 보이기 시작하면 `gachaMod.onAlbumShow()`(서버와 한 번 맞춤). T 키는 `wardrobe-panel.js` 의 `toggleAlbum` · 뽑기 창 [도감으로] 는 창 열기 통로(`twNav.NAV.WARDROBE_ALBUM`).
+  - 라이선스가 없으면 꾸미기 창은 «도감» 탭만 연다(다른 탭은 잠금 안내 · [라이선스 등록하러 가기]). 뽑은 가챠 파츠는 카테고리 칸에도 🎰 로 보인다.
+  - 검사: `checks/sim-gacha-album.js`(규칙 · 연결 · 깨 보기) · `checks/sim-gacha.js` 5절(도감 화면) · `checks/sim-wardrobe.js` 2-2절(탭 · 라이선스) · `checks/sim-wardrobe-panel.js` 2-2절(T · [도감으로]).
+
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 
 - **책임**: 그래픽 리셋 등으로 캔버스가 비면 같은 캔버스에 다시 그린다. `repairBlankFaces` — 내 사람 칸(저장본 `LS_KEY` 로). `repairSeatTextures` — 남의 사람 좌석(방 동기화가 남긴 `faceUrl` · `blinkUrl`)과 동물 좌석(내 것 포함 · `animal.js` 가 텍스처에 남긴 `userData.twSrc` · `twFill`). `reportGlReset` — WebGL 이 돌아온 직후(`gl-recover.js` `afterRestore`) 빈 좌석 그림 수를 진단 기록에 한 줄 남기고 바로 고친다.
