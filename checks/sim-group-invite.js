@@ -3,7 +3,7 @@
 
    [무엇을 보는가] 모듈을 그대로 불러 가짜 서버로 돌린다. 가짜 서버는 규칙(groupInvites · groupInviteUses · groupInviteTokens)이
      받는 것만 받는다 — usedCount 는 +1 만 · 그 번호 칸 · 색인이 같이 와야 · 인원 · 마감 · 중지. 실제 규칙 판정은
-     scripts/rules-emu-check.js(에뮬레이터)가 본다.
+     firebase/scripts/rules-emu-check.js(에뮬레이터)가 본다.
    1. 마감 판정(closedReason) 경계값  2. 한 사람 · 재시도 · 다 참 · 마감 · 중지 · 없는 코드  3. 몰렸을 때 — 인원만큼만 들어온다
    4. 마무리(uid 기록 · 남의 토큰)  5. firebase-init 연결 — 한 명짜리에 없을 때만 넘기고, 가입 칸 · 카운터는 한 번  6. 깨 보기 */
 'use strict';
@@ -228,7 +228,7 @@ const seed = (x) => ({ groupInvites: { [CODE]: head(x) } });
   say('\n【5-2】 규칙 — 같은 이름의 한 명짜리로 덮지 못한다');
   {
     // 앱은 invites/{code} 를 먼저 본다 — 누가 같은 이름의 한 명짜리를 만들면 여러 명 코드 전체가 «이미 사용된» 이 된다.
-    // 서버 판정은 scripts/rules-emu-check.js(에뮬레이터)가 보고, 여기서는 그 조건이 규칙에서 빠지지 않았는지만 본다.
+    // 서버 판정은 firebase/scripts/rules-emu-check.js(에뮬레이터)가 보고, 여기서는 그 조건이 규칙에서 빠지지 않았는지만 본다.
     const R = JSON.parse(need('firebase-database-rules.json')).rules;
     chk(String(R.invites.$code['.validate']).includes("!root.child('groupInvites/'+$code).exists()"), 'invites/$code 는 같은 이름의 groupInvites 가 있으면 거절');
   }

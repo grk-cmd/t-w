@@ -4,7 +4,7 @@
    [쓰는 법] const { stripReadGate } = require('./sim-rules-src.js');  const RULES = stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'));
      · 조건 하나만 있던 자리("조건") → true · 다른 조건 뒤에 붙은 자리(« && 조건») → 걷음. 붙일 때 «걷으면 예전 글과 같도록» 붙였다.
    [조건] 읽는 사람 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐(online:true) · ver 없음»(= 0.10.2 이하 앱이 켜져 있음)이면 거절.
-     로그인 안 함 · 이어진 코드 없음(가입 중 익명 · 봇)은 막지 않는다. 실제 판정은 에뮬레이터(scripts/rules-emu-check.js)가 본다.
+     로그인 안 함 · 이어진 코드 없음(가입 중 익명 · 봇)은 막지 않는다. 실제 판정은 에뮬레이터(firebase/scripts/rules-emu-check.js)가 본다.
    [직접 실행] 조건이 빠진 열린 읽기가 없는지 · 걷은 글이 JSON 인지 · 관리자 · 봇 · 폰 연결 읽기에는 안 붙었는지 · 깨 보기. */
 'use strict';
 const fs = require('fs');

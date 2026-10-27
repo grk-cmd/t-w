@@ -7,7 +7,7 @@
    [무엇을] 규칙의 경로 변수($이름)마다 «무슨 키인가» 를 아래 표에 적고, 그 변수의 .validate 에서 키만 보는 조건을
      꺼내 JS 로 실제로 돌린다 — 운영 키 모양은 통과, null · undefined · NaN · 앞뒤 공백 · 형식 틀림은 거절.
      표에 없는 새 경로 변수가 생기면 빨강 — 형식을 정해 규칙과 표에 같이 넣는다.
-   ⚠️ 서버가 정말 그렇게 판정하는지는 에뮬레이터로만 안다 — 규칙을 바꾸면 node scripts/rules-emu-check.js 도 돌린다. */
+   ⚠️ 서버가 정말 그렇게 판정하는지는 에뮬레이터로만 안다 — 규칙을 바꾸면 node firebase/scripts/rules-emu-check.js 도 돌린다. */
 'use strict';
 const fs = require('fs');
 
