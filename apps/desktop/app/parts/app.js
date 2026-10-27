@@ -6709,6 +6709,7 @@ function launchApp(opts){ opts=opts||{};
   seatPanelMod.selectSeat(me);seatPanelMod.renderSeatTabs();seatPanelMod.setManual(null);
   appMode = (opts.mode==='edit') ? 'editseat' : 'run';
   applyAppMode();
+  settingsMod.closeSettings();   // ⚙️ 런처에서 연 설정 창(가운데)이 실행 화면에 남지 않게
   document.getElementById('launcher').classList.remove('on');
   if(Presence.active()){
     roomEntryMod.syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
@@ -6744,6 +6745,7 @@ function backToLauncher(){
       _me._benchOwnerSit=false; _me._benchSit=false; if(_me.desk) _me.desk.visible=true; }
   }catch(_){}
   appMode='run';
+  settingsMod.closeSettings();   // ⚙️ 실행 화면에서 연 설정 창(머리 위)이 런처 위에 남지 않게
   document.getElementById('launcher').classList.add('on');
   // ★ 꾸미기 창이 켜진 채로 런처에 돌아가면 그대로 떠 있던 채 따라오던 문제 — 런처로 돌아갈 땐 항상 닫음.
   //   (이 상태가 이어져서 이후 관리자 모드에서 꾸미기 아이콘이 안 먹히는 것처럼 보이던 문제도 같이 방지됨)

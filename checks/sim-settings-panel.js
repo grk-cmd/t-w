@@ -164,12 +164,15 @@ function judgeAll(mod, app, html){
   t(!bare.length, '부르는 곳은 settingsMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/launcher/settings-panel.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/launcher/settings-panel.js 를 app.js 보다 먼저 싣는다');
+  /* 런처 ↔ 실행 화면을 오갈 때 설정 창을 닫는다 — 런처에서 연 가운데 창 · 실행 화면에서 연 머리 위 창이 다른 화면에 남지 않게 */
+  const fnBody = (name) => { const i = A.indexOf('function ' + name + '('); if(i < 0) return ''; let d = 0; for(let k = A.indexOf('{', i); k < A.length; k++){ if(A[k] === '{') d++; else if(A[k] === '}' && --d === 0) return A.slice(i, k + 1); } return ''; };
+  t(/settingsMod\.closeSettings\(\)/.test(fnBody('launchApp')) && /settingsMod\.closeSettings\(\)/.test(fnBody('backToLauncher')), '런처 ↔ 실행 화면 전환(launchApp · backToLauncher) 때 설정 창을 닫는다');
   for(const row of behave(mod)) r.push(row);
   return r;
 }
 
 const rows = judgeAll(MOD, SRC, HTML);
-rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); if(i === 8) say('── 3. 여닫기 · 탭 · ⓘ · 이름표 크기'); chk(ok, msg); });
+rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); if(i === 9) say('── 3. 여닫기 · 탭 · ⓘ · 이름표 크기'); chk(ok, msg); });
 say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/settings-panel.js"></script>', '')],
@@ -184,6 +187,7 @@ const breaks = [
   ['런처 표시 안 함', m => m.replace("panel.classList.toggle('fs-in-launcher', inLauncher);", ''), null, null],
   ['마지막 탭 잊음', m => m.replace('showTab(tab || _curTab);', "showTab(tab || 'display');"), null, null],
   ['이름표 끝 안 막음', m => m.replace('Math.max(NAMEPLATE_SIZE.min, Math.min(NAMEPLATE_SIZE.max, ', '(('), null, null],
+  ['런처로 갈 때 안 닫음', null, a => a.replace(/(function backToLauncher\(\)\{[\s\S]*?)settingsMod\.closeSettings\(\);/, '$1'), null],
   ['방 목록 창 예외 빠짐', m => m.replace(/\n[^\n]*'#inviteOverlay',[^\n]*/, ''), null, null],
   ['ⓘ 안 열림', m => m.replace('desc.hidden = !desc.hidden;', ''), null, null],
 ];

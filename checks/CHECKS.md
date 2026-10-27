@@ -321,7 +321,7 @@
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
-| **sim-settings-panel.js** | 197 | **e8f2a20bd573** |
+| **sim-settings-panel.js** | 201 | **765d240f91ad** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **e1fdfef1a3ca** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
