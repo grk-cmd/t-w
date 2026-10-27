@@ -111,7 +111,8 @@ function behave(src, opt){
   const wrap = els.wardrobeContent, tabs = els.wardrobeTabs;
   const groupBtns = () => tabs.children[0].children;
   try{
-    /* 라이선스 없음 — 처음 열면 «도감» */
+    /* 라이선스 없음 — 처음 열면 «도감». 부팅 때처럼 카탈로그 도착이 창이 닫힌 채 먼저 한 번 그린다(기본 탭을 채운다) */
+    M.renderWardrobe(); log.length = 0;
     M.selectWdTab(); M.renderWardrobe();
     t(M.isAlbumTab() && log.join() === 'albumShow,renderAlbum' && wrap.children[0] && wrap.children[0].id === 'gachaInvHost', '★ 라이선스 없이 처음 열면 «도감» 탭 — 가챠가 서버와 맞추고(onAlbumShow) 자리(#gachaInvHost)에 그린다');
     t(els.wardrobePanel.classList.contains('wd-album') && tabs.children[1].hidden, '  도감 탭이면 창에 wd-album(아래 줄 보이기) · 하위 카테고리 줄은 숨김');
@@ -159,7 +160,8 @@ const breaks = [
 ];
 /* 동작을 일부러 깨 본다 — 2-2절이 빨갛게 되어야 한다 */
 const behaveBreaks = [
-  ['라이선스 없어도 처음 탭이 모자', m => m.replace("else if(!currentWdTab && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;", '')],
+  ['라이선스 없어도 처음 탭이 모자', m => m.replace("else if(!tab && !_wdOpened && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;", '')],
+  ['«처음» 을 빈 탭으로 판정(부팅 때 닫힌 채 그린 모자에 막힘)', m => m.replace("else if(!tab && !_wdOpened && !wdLicensed())", "else if(!currentWdTab && !wdLicensed())")],
   ['잠금 안내 없이 칸을 그림', m => m.replace("  if(!wdLicensed()){\n    wrap.innerHTML='';\n    renderWdLocked(wrap);", "  if(false){\n    wrap.innerHTML='';\n    renderWdLocked(wrap);")],
   ['안 뽑은 가챠도 칸에', m => m.replace("!gachaMod().isGachaPart(p) || gachaMod().gachaCount(p.id)>0", '!0')],
   ['도감 탭에서 서버를 안 맞춤', m => m.replace('if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);', '')],

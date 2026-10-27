@@ -1599,9 +1599,12 @@ function wdLicensed(){ return !!(isPremium() || isAdmin()); }
 /* 탭 고르기 — 꾸미기 창을 열 때(F2 · T · [도감으로]) 와 «도감» 탭 버튼이 부른다. tab 을 안 주면 마지막에 본 탭.
    처음 여는데 라이선스가 없으면 «도감» 으로 연다(잠긴 탭부터 보이지 않게).
    «도감» 이 보이기 시작하면 가챠가 서버와 한 번 맞춘다(onAlbumShow — opts 는 그대로 넘긴다). */
+/* ⚠️ «처음» 은 currentWdTab 이 비었는지로 보면 안 된다 — 카탈로그가 도착하면 창이 닫힌 채 renderWardrobe 가 돌아 기본 탭(모자)을 채워 둔다. */
+let _wdOpened = false;
 function selectWdTab(tab, opts){
   if(tab && tab !== currentWdTab){ currentWdTab = tab; activeWdAdj = null; _clearMultiPanelRef(); }   // 다른 탭의 상세조정 패널이 남지 않게
-  else if(!currentWdTab && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;
+  else if(!tab && !_wdOpened && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;
+  _wdOpened = true;
   if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);
 }
 function isAlbumTab(){ return currentWdTab === WD_ALBUM_TAB; }

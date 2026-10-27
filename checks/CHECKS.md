@@ -268,7 +268,7 @@
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
-| **sim-gacha.js** | 621 | **f9657ad0aab0** |
+| **sim-gacha.js** | 622 | **485a0f025f30** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
@@ -321,7 +321,7 @@
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
-| **sim-wardrobe.js** | 179 | **452cfeb84344** |
+| **sim-wardrobe.js** | 181 | **b8fd1d24af29** |
 | **sim-settings-panel.js** | 201 | **8bd1a935f960** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **e1fdfef1a3ca** |

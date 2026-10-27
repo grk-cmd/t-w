@@ -94,7 +94,7 @@ function mkEnv(opt){
     document: {
       getElementById: byId,
       createElement: (t) => mkEl(t),
-      addEventListener: (t, fn) => { (env.docL[t] = env.docL[t] || []).push(fn); },
+      addEventListener: (t, fn, cap) => { fn._cap = !!cap; (env.docL[t] = env.docL[t] || []).push(fn); },
       querySelector: () => null,
     },
     setTimeout: (fn, ms) => { env.timers.push({ fn, ms }); return env.timers.length; },
@@ -527,6 +527,7 @@ await sec('── 6. 뽑기 창', async () => {
       && e.els.gachaInvHost.children.some(c => c.id === 'gachaInvGrid'), '도감으로 — 뽑기 창 닫고 꾸미기 창 «도감» 탭 · 방금 뽑은 파츠의 도감 · 그 파츠를 고른다');
   let stopped = 0;
   e.els.gachaGoDraw.onclick(); e.docL.keydown[0]({ key: 'Escape', stopPropagation(){ stopped++; } });
+  chk(e.docL.keydown[0]._cap === true, 'ESC 는 캡처 단계에서 받는다 — 먼저 걸린 꾸미기 창의 ESC 보다 앞서 멈추려고');
   chk(!M.isDrawOpen() && !e.els.gachaDrawStage.innerHTML && stopped === 1, 'ESC — 뽑기 창만 닫고 무대를 비운다 · 멈춰서 뒤 꾸미기 창은 안 닫힌다');
   e.docL.keydown[0]({ key: 'Escape', stopPropagation(){ stopped++; } });
   chk(stopped === 1, '  뽑기 창이 없으면 ESC 를 막지 않는다(꾸미기 창이 받는다)');
