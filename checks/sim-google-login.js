@@ -70,11 +70,11 @@ say('· §1 마크업 — 계정 자리([내 정보 › 계정])가 참조하는
   const iAcc = HTML.indexOf('id="miPageAcct"'), iOv = HTML.indexOf('id="lcMyInfo"'), iIn = HTML.indexOf('id="acctLoggedIn"'), iMsg = HTML.indexOf('id="acctLoginMsg"');
   chk(iOv >= 0 && iAcc > iOv && iIn > iAcc && iMsg > iIn, '로그인 후 얼굴 · 안내 줄이 [내 정보 › 계정] 안에 있다');
 }
-/* 프로그램 정보(버전)는 유저 정보가 아니므로 시스템에 남아야 한다. */
+/* 프로그램 정보(버전)는 유저 정보가 아니므로 설정 창 «정보» 탭에 남아야 한다. */
 {
-  const iSys = HTML.indexOf('id="progTabSystem"'), iClose = HTML.indexOf('id="progSettingsCloseBtn"');
-  chk(HTML.indexOf('id="progVersionText"') > iSys && HTML.indexOf('id="progVersionText"') < iClose,
-      '프로그램 정보(버전)는 시스템 탭에 그대로 남아 있다');
+  const iInfo = HTML.indexOf('id="fsTabInfo"'), iEnd = HTML.indexOf('id="fsMoveHint"');
+  chk(iInfo > 0 && HTML.indexOf('id="progVersionText"') > iInfo && HTML.indexOf('id="progVersionText"') < iEnd,
+      '프로그램 정보(버전)는 설정 › 정보 탭에 그대로 남아 있다');
 }
 say('');
 
@@ -135,11 +135,11 @@ if (F_OUT){
 /* 부팅 스냅샷은 로그인된 기기에서만 — 조건 없이 돌리면 남의 유저 코드로 쓰기가 나갈 수 있다 */
 chk(/if\(!getMyLoginEmail\(\)\)\s*return/.test(UI),
     '부팅 스냅샷 올리기가 로그인된 기기에서만 돈다');
-/* 3탭이 전부 전환 목록에 있는가 — 빠지면 그 탭은 눌러도 안 열린다. 계정은 개정 45 에서 [내 정보]로 옮겨 없다. */
-const TABS = cutFn(SRC, 'setProgSettingsTab');
-['license','display','system'].forEach(k =>
-  chk(TABS.includes("key:'" + k + "'"), '탭 전환 목록에 ' + k + ' 이 있다'));
-chk(!TABS.includes("key:'account'"), '탭 전환 목록에 account 가 없다 (개정 45 — 계정은 [내 정보 › 계정])');
+/* 설정 창 탭 다섯이 전부 전환 목록에 있는가 — 빠지면 그 탭은 눌러도 안 열린다. 계정은 개정 45 에서 [내 정보]로 옮겨 없다. */
+const TABS = (SRC.match(/const FS_TABS = \{([\s\S]*?)\n\s*\};/) || [])[1] || '';
+['display','char','focus','room','info'].forEach(k =>
+  chk(new RegExp('\\b' + k + '\\s*:').test(TABS), '탭 전환 목록에 ' + k + ' 이 있다'));
+chk(!/\baccount\s*:/.test(TABS), '탭 전환 목록에 account 가 없다 (개정 45 — 계정은 [내 정보 › 계정])');
 say('');
 
 /* ── §3. firebase-init.js — 선점과 되돌리기 ────────────────────────── */

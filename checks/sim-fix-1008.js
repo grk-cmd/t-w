@@ -86,7 +86,7 @@ say('§4 영상 겹침 실험이 재부팅 후 꺼짐 — 부팅 판정이 막�
     {
       const m = MAIN.match(/const LAY_RETRY_MAX = (\d+);[^\n]*\nconst LAY_RETRY_DELAYS_MS = \[([\d, ]+)\];/);
       chk(!!m && +m[1] <= 30 && m[2].split(',').length <= 6 && Math.max(...m[2].split(',').map(Number)) <= 600000, '  상한 ≤ 30번 · 시간 재시도 ≤ 6번 · 마지막 ≤ 10분 (' + (m ? m[1] + ' · ' + m[2] : '없음') + ')');
-    chk(/if\(\(tab\|\|'license'\)==='system'\)  \{[^\n]*refreshLabVideoUI\(\)/.test(APP), '  설정을 시스템 탭으로 바로 열어도 실제 적용 상태를 다시 읽는다');
+    chk(/if\(key==='display'\)\{[^\n]*refreshLabVideoUI\(\)/.test(APP), '  설정을 디스플레이 탭(영상 겹침 칸이 있는 탭)으로 열면 실제 적용 상태를 다시 읽는다(refreshTab)');
     }
     chk(/overlay\.applyLayered\('재시도 ' \+ _layTries \+ '\(' \+ why \+ '\)'\)/.test(blk), '  재시도도 같은 함수 — GPU 합성 꺼짐 보호(10-01)를 그대로 지난다');
     // 흉내: gpu-info-update 가 세 번 오는데 처음 두 번은 아직 막힘 → 셋째에 걸리고 그 뒤로는 안 부른다

@@ -175,7 +175,7 @@ say('── 5. 배선');
   const qRow = (H.match(/<div class="fs-monitors" id="progQualityRow">([\s\S]*?)<\/div>/) || [, ''])[1];
   const qs = [...qRow.matchAll(/data-q="(\w+)"/g)].map(m => m[1]);
   chk(qs.join(',') === 'sharp,auto,light' && qs.every(q => F.qualityFrom(q) === q), 'html — 모니터 탭에 선명하게 · 자동 · 가볍게(규칙이 아는 값만)');
-  chk(H.indexOf('id="progQualityRow"') > H.indexOf('id="progTabDisplay"') && H.indexOf('id="progQualityRow"') < H.indexOf('id="progTabSystem"'), '  칸은 프로그램 설정 › 모니터 탭 안');
+  chk(H.indexOf('id="progQualityRow"') > H.indexOf('id="fsTabDisplay"') && H.indexOf('id="progQualityRow"') < H.indexOf('id="fsTabSize"'), '  칸은 설정 › 디스플레이 탭 안');
   chk(/return !_frameBudget\.admit\(now, _frameCap\(now\)\);/.test(code), '_frameCapped 가 admit 으로 판정');
   chk(/companion\.diagNote\(_FB\.diagLine\(m\)\);[\s\S]{0,40}\}, 60000\);/.test(code) && /if\(!document\.body\.classList\.contains\('runmode'\)\) return;/.test(code), '1분마다 · 실행 화면에서만 진단 줄');
   chk(!/requestAnimationFrame\([^)]*diag/i.test(code), '진단은 rAF 가 아니라 1분 타이머');

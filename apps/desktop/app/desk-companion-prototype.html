@@ -95,7 +95,7 @@
     --z-wardrobe: 93;        /* 🎨 꾸미기 · 꾸미기 미리보기 */
     --z-dialog-code: 100;    /* 캐릭터 코드 창 */
     --z-dialog: 101;         /* 코드 · 등록 대화상자 묶음(코드로 추가하기 · 파츠 / 책상 등록 · 내보내기 …) */
-    --z-dialog-program: 102; /* 프로그램 설정 */
+    --z-dialog-program: 102; /* 오픈소스 라이선스 창(정보 탭에서 연다 — 설정 창 위) */
     --z-dialog-admin: 103;   /* 관리자 · 초대 · 공지 대화상자 */
     --z-dialog-notice: 104;  /* 업데이트 공지(사용자) */
     --z-gate-device: 110;    /* 캐릭터 연결 안내 · 다른 기기 접속 */
@@ -273,6 +273,7 @@
     --tw-status-focus:#E0A050;
     --tw-status-pet:#E89B9B;
     --tw-status-sleep:#7FA0C4;
+    --tw-meter-on:#000080;   /* 설정 막대(캐릭터 배율 · 좌석 간격)의 켜진 칸 — 꺼진 칸은 bg-face · 칸 테두리는 line */
     --tw-kakao:var(--kakao);
     /* 모서리 · 그림자 · 간격 */
     --tw-radius-sm:var(--win-radius-sm);
@@ -290,7 +291,7 @@
     --tw-font-num:var(--win-font-num);
     --tw-font-legacy:Tahoma,'Malgun Gothic',sans-serif;
   }
-  html[data-theme="bubble"]{ --tw-title-a:var(--acc-l, #D8EE9E); --tw-on-pop:#3A2A00; }
+  html[data-theme="bubble"]{ --tw-title-a:var(--acc-l, #D8EE9E); --tw-on-pop:#3A2A00; --tw-meter-on:#5164D6; }
 
   /* ══════════════════════════════════════════════════════════════════════════
      🫧 버블 테마 — 2000년대 메신저
@@ -2801,7 +2802,7 @@
   #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,-100%);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    padding:0;width:300px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;}
+    padding:0;width:312px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;}
   #focusSettingsPanel.on{display:block;}
   #focusSettingsPanel .fs-titlebar{font-size:11px;font-weight:bold;color:#fff;padding:5px 8px;margin-bottom:10px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
@@ -2809,7 +2810,42 @@
   #focusSettingsPanel .fs-titlebar-x{width:16px;height:14px;font-size:10px;line-height:1;cursor:pointer;color:var(--ink);
     display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel .fs-body{padding:0 12px 12px;}
+  #focusSettingsPanel .fs-body{padding:0 12px 12px;max-height:calc(100vh - 48px);overflow-y:auto;}
+  /* 탭이 길어져 화면보다 커지면 몸통만 굴린다. 폭 312 는 6px 스크롤바가 생겨도 캐릭터 칸 4개가 들어가는 값(sim-slot-fit) */
+  #focusSettingsPanel .fs-body::-webkit-scrollbar{width:6px;}
+  #focusSettingsPanel .fs-body::-webkit-scrollbar-thumb{background:var(--tw-line);border-radius:3px;}
+  /* 🚪 런처에서 열면 가운데 · 실행 화면 전용 칸(광고 · 캐릭터 교체 칸 · 아래 버튼)은 숨기고 런처 전용 안내를 보인다.
+     ⚠️ 머리 위 따라가기(status-chip.js)가 left/top 을 인라인으로 적을 수 있어 !important 로 덮는다. */
+  #focusSettingsPanel.fs-in-launcher{left:50% !important;top:50% !important;transform:translate(-50%,-50%) !important;}
+  #focusSettingsPanel.fs-in-launcher .fs-run-only{display:none !important;}
+  #focusSettingsPanel.fs-in-launcher .fs-titlebar{cursor:default !important;}
+  #focusSettingsPanel:not(.fs-in-launcher) .fs-launcher-only{display:none !important;}
+  #focusSettingsPanel .fs-launch-note{display:flex;align-items:center;gap:8px;padding:10px;font-size:11px;line-height:1.5;color:var(--tw-ink-soft);
+    border:1px dashed var(--tw-line);background:var(--tw-bg-field);border-radius:var(--win-radius-el);}
+  #focusSettingsPanel .fs-launch-note b{color:var(--tw-ink);}
+  #focusSettingsPanel .fs-launch-note-ic{font-size:18px;flex:none;}
+  #focusSettingsPanel .fs-tab-btn{flex:1 1 auto;padding:6px 3px;white-space:nowrap;}
+  #focusSettingsPanel .fs-sep{border-top:1px solid var(--tw-line);margin:12px 0 10px;}
+  #focusSettingsPanel .fs-note{margin:6px 0 0;font-size:10.5px;color:var(--tw-ink-soft);line-height:1.5;}
+  #focusSettingsPanel .fs-seg-bar{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  /* ⓘ — 누르면 aria-controls 로 가리킨 설명(.fs-desc)이 열리고 다시 누르면 닫힌다(settings-panel.js) */
+  #focusSettingsPanel .fs-info{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:3px;padding:0;
+    vertical-align:1px;font:bold 9px/1 Georgia,serif;font-style:italic;cursor:pointer;color:var(--tw-ink-soft);
+    background:var(--tw-bg-select);border:1px solid var(--tw-line);border-radius:50%;}
+  #focusSettingsPanel .fs-info[aria-expanded="true"]{color:#fff;background:var(--tw-accent);border-color:var(--tw-accent);}
+  #focusSettingsPanel .fs-desc{margin:-2px 0 8px;font-size:10.5px;color:var(--tw-ink-soft);line-height:1.5;}
+  /* 켜짐/꺼짐 스위치 — 글자(켜짐 · 꺼짐)는 읽어 주기용으로 남기고 화면에선 손잡이로 보인다. 누르는 동작은 .fs-toggle-btn 그대로 */
+  #focusSettingsPanel .fs-toggle-btn.fs-switch{position:relative;flex:none;width:34px;height:18px;padding:0;font-size:0;color:transparent;
+    background:var(--tw-bg-field);border:1px solid var(--tw-line);box-shadow:inset 1px 1px 0 var(--win-lo);}
+  #focusSettingsPanel .fs-toggle-btn.fs-switch::after{content:'';position:absolute;top:2px;left:2px;width:12px;height:12px;
+    background:var(--win-face);border:1px solid var(--tw-line);box-sizing:border-box;border-radius:inherit;transition:left .12s;}
+  #focusSettingsPanel .fs-toggle-btn.fs-switch.on{background:var(--tw-accent);border-color:var(--tw-accent);box-shadow:none;}
+  #focusSettingsPanel .fs-toggle-btn.fs-switch.on::after{left:18px;background:#fff;}
+  html[data-theme="bubble"] #focusSettingsPanel .fs-toggle-btn.fs-switch{border-radius:999px !important;background-image:none;}
+  /* [−] 100% [+] [↺] — 버튼이 줄면 글자가 세로로 깨져서(제보) 줄지 않게 */
+  #focusSettingsPanel .fs-stepper{display:flex;align-items:center;gap:4px;flex-shrink:0;}
+  #focusSettingsPanel .fs-stepper .fs-toggle-btn{white-space:nowrap;flex-shrink:0;width:26px;padding-left:0;padding-right:0;}
+  #focusSettingsPanel .fs-stepper-val{min-width:36px;text-align:center;font-weight:bold;}
   /* 광고 배너 — 관리자가 등록한 이미지 기본 표시. 라이선스 보유자는 우클릭으로 자기 이미지(로컬)로 교체 가능 */
   .fs-adbanner-wrap{margin:10px 0 8px;}
   .fs-adbanner{width:100%;display:block;-webkit-user-drag:none;user-select:none;border:2px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -2833,7 +2869,7 @@
     color:var(--ink);font-size:11px;font-weight:bold;cursor:pointer;padding:4px 10px;margin-bottom:10px;border-radius:var(--win-radius-el) !important;}
   #focusSettingsPanel .fs-back:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
-  #focusSettingsPanel .fs-label, #programSettingsOverlay .fs-label{font-size:11px;font-weight:bold;color:var(--ink);margin:8px 0 6px;}
+  #focusSettingsPanel .fs-label{font-size:11px;font-weight:bold;color:var(--ink);margin:8px 0 6px;}
   #focusSettingsPanel .fs-slots{display:flex;gap:6px;flex-wrap:wrap;}
   #focusSettingsPanel .fs-hint{margin-top:7px;font-size:10px;line-height:1.4;color:var(--ink-soft);}
   #focusSettingsPanel .fs-hint b{color:var(--ink);}
@@ -2859,19 +2895,19 @@
   #focusSettingsPanel .fs-move-btn:active,#focusSettingsPanel .fs-move-btn.active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
   #focusSettingsPanel .fs-hint{font-size:10.5px;color:var(--ink-soft);line-height:1.5;margin-top:6px;}
-  #focusSettingsPanel .fs-toggle-row, #programSettingsOverlay .fs-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;}
-  #focusSettingsPanel .fs-toggle-row span, #programSettingsOverlay .fs-toggle-row span{font-size:11px;color:var(--ink);}
-  #focusSettingsPanel .fs-toggle-btn, #programSettingsOverlay .fs-toggle-btn{padding:4px 10px;font-size:11px;font-weight:bold;cursor:pointer;color:var(--ink);
+  #focusSettingsPanel .fs-toggle-row{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0;}
+  #focusSettingsPanel .fs-toggle-row span{font-size:11px;color:var(--ink);}
+  #focusSettingsPanel .fs-toggle-btn{padding:4px 10px;font-size:11px;font-weight:bold;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel .fs-toggle-btn.on, #programSettingsOverlay .fs-toggle-btn.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+  #focusSettingsPanel .fs-toggle-btn.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
-  /* 모니터 선택 버튼들 (run 모드 설정 패널 + 런처의 프로그램 설정 모달 공용) */
-  #focusSettingsPanel .fs-monitors, #programSettingsOverlay .fs-monitors{display:flex;gap:6px;flex-wrap:wrap;}
-  #focusSettingsPanel .fs-mon-btn, #programSettingsOverlay .fs-mon-btn{padding:5px 10px;font-size:11px;font-weight:bold;cursor:pointer;color:var(--ink);
+  /* 모니터 · 화질 고르기 버튼 */
+  #focusSettingsPanel .fs-monitors{display:flex;gap:6px;flex-wrap:wrap;}
+  #focusSettingsPanel .fs-mon-btn{padding:5px 10px;font-size:11px;font-weight:bold;cursor:pointer;color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel .fs-mon-btn.current, #programSettingsOverlay .fs-mon-btn.current{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
+  #focusSettingsPanel .fs-mon-btn.current{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);background:var(--win-select-bg);}
 
   /* 캐릭터 크기 — 부드러운 슬라이더 대신 15칸 막대바 + 좌우 화살표(클릭 한 번 = 한 단계, 렉 없이 즉시 반영) */
@@ -2886,8 +2922,8 @@
     flex:1;display:flex;gap:2px;padding:3px;
     background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
     box-shadow: inset 1px 1px 0 var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel .fs-seg-track .fs-seg{flex:1;height:14px;background:#d8d4c8;cursor:pointer;}
-  #focusSettingsPanel .fs-seg-track .fs-seg.on{background:#4a5fc1;}
+  #focusSettingsPanel .fs-seg-track .fs-seg{flex:1;height:14px;background:var(--tw-bg-face);border:1px solid var(--tw-line);box-sizing:border-box;cursor:pointer;}
+  #focusSettingsPanel .fs-seg-track .fs-seg.on{background:var(--tw-meter-on);border-color:var(--tw-meter-on);}
   #focusSettingsPanel .fs-seg-track .fs-seg:hover{opacity:.85;}
 
   /* 캐릭터 교체 / 자리 추가 — 슬롯 미니 프로필 카드 (주황=현재 활성 캐릭터, 초록=자리에 추가된 캐릭터) */
@@ -5252,29 +5288,197 @@
   </div>
 </div>
 
-<!-- 캐릭터 머리 위 설정 패널 (⚙ 클릭 시) -->
+<!-- ⚙️ 설정 창 — 런처와 실행 화면 어디서 열든 이 창 하나(탭 다섯). 실행 화면에선 캐릭터 머리 위, 런처에선 가운데(.fs-in-launcher).
+     여닫기 · 탭은 launcher/settings-panel.js(openSettings), 런처 «프로그램» 칸(테마 · 화질 · 자동 실행 · 회사원 · 피규어 · 라이선스 · 정보)의 동작은 launcher/program-settings.js.
+     ⓘ 버튼(.fs-info)은 aria-controls 로 가리킨 설명(.fs-desc)을 열고 닫는다. -->
 <div id="focusSettingsPanel">
   <div class="fs-titlebar"><span>⚙️ 설정</span><span class="fs-titlebar-x" id="fsPanelClose">✕</span></div>
   <div class="fs-body">
-  <div class="fs-adbanner-wrap">
+  <div class="fs-adbanner-wrap fs-run-only">
     <img id="fsAdBannerImg" class="fs-adbanner" src="" draggable="false" style="display:none;">
     <input type="file" id="fsAdBannerFileInput" accept="image/*" style="display:none;">
   </div>
-  <div class="fs-tabs">
-    <button class="fs-tab-btn on" id="fsTabBtnApp" type="button">포커싱어플</button>
-    <button class="fs-tab-btn" id="fsTabBtnDisplay" type="button">화면표시</button>
+  <div class="fs-tabs" role="tablist">
+    <button class="fs-tab-btn on" id="fsTabBtnDisplay" type="button">디스플레이</button>
     <button class="fs-tab-btn" id="fsTabBtnSize" type="button">캐릭터</button>
-    <button class="fs-tab-btn" id="fsTabBtnMulti" type="button">방 만들기/참여하기</button>
+    <button class="fs-tab-btn" id="fsTabBtnApp" type="button">포커싱</button>
+    <button class="fs-tab-btn" id="fsTabBtnMulti" type="button">방 연결</button>
+    <button class="fs-tab-btn" id="fsTabBtnInfo" type="button">정보</button>
   </div>
-  <div class="fs-tabpage" id="fsTabApp">
-    <div class="fs-label">포커싱 어플 <span style="font-weight:normal;color:var(--ink-soft);">— 등록된 앱을 쓸 때만 반응해요</span></div>
+
+  <!-- ── 탭 1 · 디스플레이 — [테마 · 모니터 · 실행] [표시 옵션] [크기 · 위치] ── -->
+  <div class="fs-tabpage" id="fsTabDisplay">
+    <!-- 🎨 디자인 테마 — 모양(2) × 색상(5). 고르면 즉시 적용되고 이 PC에 저장돼요. -->
+    <div class="fs-label" style="margin-top:0;">디자인 테마</div>
+    <div class="theme-grid">
+      <button class="theme-opt" id="themeOptDefault" type="button">
+        <span class="prev"><span class="tb" style="background:var(--win-title-grad);"></span><span class="bd" style="background:#C0C0C0;"></span></span>
+        <b>기본</b>
+      </button>
+      <button class="theme-opt" id="themeOptBubble" type="button">
+        <span class="prev" style="border-radius:5px;"><span class="tb" style="background:linear-gradient(180deg,#D8EE9E,#9ED44F);"></span><span class="bd" style="background:#EEF1EA;"></span></span>
+        <b>버블</b>
+      </button>
+    </div>
+    <div class="fs-label">색상</div>
+    <div class="color-row" id="themeColorRow"></div>
+    <div class="color-names" id="themeColorNames"></div>
+    <p class="fs-note">색상은 테마마다 따로예요. 캐릭터 모습은 바뀌지 않아요.</p>
+
+    <div class="fs-sep"></div>
+    <div class="fs-label" id="fsMonitorLabel">모니터 선택</div>
+    <div class="fs-monitors" id="fsMonitors" style="display:none;"></div>
+    <p class="fs-note" id="fsMonitorSingleMsg" style="margin-top:0;">연결된 모니터가 1개뿐이라 선택할 필요가 없어요.</p>
+    <!-- 🎚️ 실행 화면 화질 — 고르면 이 PC 에 저장(launcher/program-settings.js · 규칙은 shared/frame-budget.js) -->
+    <div class="fs-label">실행 화면 화질</div>
+    <div class="fs-monitors" id="progQualityRow">
+      <button class="fs-mon-btn" type="button" data-q="sharp">선명하게</button>
+      <button class="fs-mon-btn" type="button" data-q="auto">자동</button>
+      <button class="fs-mon-btn" type="button" data-q="light">가볍게</button>
+    </div>
+    <p class="fs-note" id="progQualityHint"></p>
+
+    <div class="fs-sep"></div>
+    <div class="fs-toggle-row">
+      <span>컴퓨터 켤 때 자동 실행 <button class="fs-info" type="button" aria-controls="fsDescAutoLaunch" aria-expanded="false" title="설명 보기">i</button></span>
+      <button class="fs-toggle-btn fs-switch" id="progAutoLaunchToggle" type="button">꺼짐</button>
+    </div>
+    <p class="fs-desc" id="fsDescAutoLaunch" hidden>켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.<br>Windows 에서 «관리자 권한으로 실행» 을 켜 두었다면 자동 실행이 막혀요 — 그때는 직접 켜 주세요.</p>
+    <div class="fs-toggle-row">
+      <span>회사원 모드 <button class="fs-info" type="button" aria-controls="fsDescOffice" aria-expanded="false" title="설명 보기">i</button></span>
+      <button class="fs-toggle-btn fs-switch" id="progOfficeModeToggle" type="button">꺼짐</button>
+    </div>
+    <p class="fs-desc" id="fsDescOffice" hidden>켜면 마이홈·말풍선이 잠기고, 상태칩의 ▪ 버튼으로 화면을 즉시 숨길 수 있어요.</p>
+    <div class="fs-toggle-row">
+      <span>저해상도(도트) 렌더</span>
+      <button class="fs-toggle-btn fs-switch" id="fsDotToggle" type="button">꺼짐</button>
+    </div>
+    <div class="fs-toggle-row">
+      <span>이모지 반응 (💤♥💫)</span>
+      <button class="fs-toggle-btn fs-switch" id="fsEmojiToggle" type="button">켜짐</button>
+    </div>
+    <div class="fs-toggle-row">
+      <span>머리 위 레벨/이름 표시</span>
+      <button class="fs-toggle-btn fs-switch" id="fsNameplateToggle" type="button">켜짐</button>
+    </div>
+    <div class="fs-toggle-row">
+      <span>상태칩 배치</span>
+      <button class="fs-toggle-btn" id="fsChipOrientToggle" type="button">세로</button>
+    </div>
+
+    <div class="fs-sep"></div>
+    <!-- 🔍 프로그램 크기 — 캐릭터와 창을 함께(렌더러 줌). 캐릭터 탭의 «캐릭터 배율»(아바타존만)과 다르다.
+         Ctrl+= / Ctrl+- / Ctrl+0 · Ctrl+휠도 같은 값이다(main.js applyUiZoom). 구버전 앱(companion.uiZoom 없음)에서는 이 행을 숨긴다.
+         ⚠️ 패널이 좁으면 버튼이 줄어들며 글자가 세로로 깨진다(제보 «화\n면\n−») — .fs-stepper 의 버튼은 nowrap · 줄지 않음. -->
+    <div class="fs-toggle-row" id="fsUiZoomRow" style="display:none;">
+      <span>프로그램 크기</span>
+      <span class="fs-stepper">
+        <button class="fs-toggle-btn" id="fsUiZoomOut" type="button" title="화면 축소 (Ctrl+-)" aria-label="화면 축소">−</button>
+        <span class="fs-stepper-val" id="fsUiZoomPct">100%</span>
+        <button class="fs-toggle-btn" id="fsUiZoomIn" type="button" title="화면 확대 (Ctrl+=)" aria-label="화면 확대">+</button>
+        <button class="fs-toggle-btn" id="fsUiZoomReset" type="button" title="처음 크기로 (Ctrl+0)" aria-label="프로그램 크기 초기화">↺</button>
+      </span>
+    </div>
+    <div class="fs-toggle-row">
+      <span>레벨/이름 크기</span>
+      <span class="fs-stepper">
+        <button class="fs-toggle-btn" id="fsNameplateSizeOut" type="button" title="작게" aria-label="레벨/이름 작게">−</button>
+        <span class="fs-stepper-val" id="fsNameplateSizePct">100%</span>
+        <button class="fs-toggle-btn" id="fsNameplateSizeIn" type="button" title="크게" aria-label="레벨/이름 크게">+</button>
+        <button class="fs-toggle-btn" id="fsNameplateSizeReset" type="button" title="처음 크기로" aria-label="레벨/이름 크기 초기화">↺</button>
+      </span>
+    </div>
+    <!-- 🪟 창이 화면 밖으로 나가 안 보일 때의 탈출구. 모니터를 바꾸거나 해상도가 줄면
+         저장된 자리가 화면 밖이 되어 "꾸미기 미리보기가 사라졌다"로 보인다. -->
+    <div class="fs-toggle-row">
+      <span>창 위치 초기화</span>
+      <button class="fs-toggle-btn" id="fsResetWinPos" type="button" style="white-space:nowrap;flex-shrink:0;">되돌리기</button>
+    </div>
+
+    <!-- 🎬 영상 겹침 실험 — 화면공유 영상이 검어지거나 깜빡일 때만 켜는 것. 통로가 있는 앱에서만 보인다(program-settings.js).
+         ⚠️ 이름을 '실험실'로 하지 않은 것은 의도적이다 — 증상 이름을 붙이면 그 증상이 없는 사람은 켤 이유가 없다.
+         ⚠️ **성공하면 지운다** — 기본 동작으로 올리고 이 칸 · 배선 · preload 통로 · main IPC 를 함께 걷어낼 것.
+         ⚠️ 폐기된 🧪 '다른 프로그램 방해 안 함'(창 활성화 차단)은 다시 만들지 말 것 — main.js 폐기 주석 · handoff-focus-steal-5.md §7. -->
+    <div class="fs-toggle-row" id="progLabVideoRow" style="display:none;margin-top:12px;border-top:1px solid var(--win-lo-2);padding-top:12px;">
+      <span>영상 겹침 실험</span>
+      <button class="fs-toggle-btn" id="progLabVideoToggle" type="button">꺼짐</button>
+    </div>
+    <p class="fs-note" id="progLabVideoHint" style="display:none;">화면공유 영상이 검어지거나 깜빡일 때만 켜세요. 그런 일이 없으면 그냥 두세요.</p>
+    <!-- 🎬 «적용 안 됨» 일 때만 보이는 안내 — 글은 program-settings.js LAB_VIDEO_BLOCKED_GUIDE -->
+    <p id="progLabVideoWarn" style="display:none;margin:8px 0 0;padding:8px 10px;font-size:10.5px;line-height:1.6;
+      color:var(--ink);background:var(--win-face);border:1px dashed var(--ink-soft);white-space:pre-line;"></p>
+  </div>
+
+  <!-- ── 탭 2 · 캐릭터 ── -->
+  <div class="fs-tabpage" id="fsTabSize" style="display:none;">
+    <div class="fs-label" style="margin-top:0;">캐릭터 교체</div>
+    <!-- 런처에서 열면 교체 칸 대신 이 안내(교체는 실행 화면의 내 좌석을 바꾼다) -->
+    <div class="fs-launch-note fs-launcher-only" id="fsCharSwapNote"><span class="fs-launch-note-ic">🚪</span><span><b>방에서 교체할 수 있어요</b><br>방에 들어간 뒤 ⚙ 설정에서 바꿔주세요</span></div>
+    <!-- 슬롯 5칸이 패널에 안 들어가서 4칸씩 밀어 본다. 창(.fs-slotvp) 안의 줄을 화살표로 굴린다.
+         ⚠️ JS(renderCharSlots)는 #fsCharSlots 안에만 칸을 그린다 — 창·화살표는 건드리지 않는다. -->
+    <div class="fs-run-only">
+    <div class="fs-slotrow" id="fsCharSlotRow">
+      <button class="fs-slot-arrow" data-dir="-1" type="button" title="이전 칸">◀</button>
+      <div class="fs-slotvp"><div class="fs-charslots" id="fsCharSlots"></div></div>
+      <button class="fs-slot-arrow" data-dir="1" type="button" title="다음 칸">▶</button>
+    </div>
+      <div class="fs-label" id="fsAddSeatLabel">자리 추가 <span style="font-weight:normal;color:var(--ink-soft);">(솔로모드만 가능)</span></div>
+      <div class="fs-slotrow" id="fsAddSeatRow">
+        <button class="fs-slot-arrow" data-dir="-1" type="button" title="이전 칸">◀</button>
+        <div class="fs-slotvp"><div class="fs-charslots" id="fsAddSeatSlots"></div></div>
+        <button class="fs-slot-arrow" data-dir="1" type="button" title="다음 칸">▶</button>
+      </div>
+    </div>
+
+    <div class="fs-sep"></div>
+    <div class="fs-label" style="margin-top:0;">캐릭터 배율 <span style="font-weight:normal;color:var(--ink-soft);">— 내 화면에서만 · 글자와 버튼은 그대로</span></div>
+    <input type="range" id="fsSizeSlider" min="0.6" max="1.6" step="0.02" value="1" style="display:none;">
+    <div id="fsSizeBar" class="fs-seg-bar">
+      <button id="fsSizeBarLeft" class="fs-seg-arrow" type="button" title="한 단계 작게">◀</button>
+      <div id="fsSizeBarTrack" class="fs-seg-track"></div>
+      <button id="fsSizeBarRight" class="fs-seg-arrow" type="button" title="한 단계 크게">▶</button>
+    </div>
+    <div class="fs-label">좌석 간격</div>
+    <div id="fsGapBar" class="fs-seg-bar">
+      <button id="fsGapBarLeft" class="fs-seg-arrow" type="button" title="더 가깝게">◀</button>
+      <div id="fsGapBarTrack" class="fs-seg-track"></div>
+      <button id="fsGapBarRight" class="fs-seg-arrow" type="button" title="더 멀게">▶</button>
+    </div>
+
+    <div class="fs-sep"></div>
+    <div class="fs-toggle-row">
+      <span>좌석 크기 평준화</span>
+      <button class="fs-toggle-btn fs-switch" id="fsSeatEqToggle" type="button">꺼짐</button>
+    </div>
+    <!-- 🎁 꾸미기 파츠 표시 — 내 화면에서만, 나 포함 전 좌석의 가챠 파츠를 숨긴다. 책상 아이템은 그대로. 서버에 안 쓴다. -->
+    <div class="fs-toggle-row">
+      <span>꾸미기 파츠 표시 <button class="fs-info" type="button" aria-controls="fsDescDecoParts" aria-expanded="false" title="설명 보기">i</button></span>
+      <button class="fs-toggle-btn fs-switch" id="fsDecoPartsToggle" type="button">켜짐</button>
+    </div>
+    <p class="fs-desc" id="fsDescDecoParts" hidden>끄면 내 화면에서만 나와 상대의 꾸미기 파츠가 안 보여요</p>
+    <div class="fs-toggle-row">
+      <span>피규어 모드 <button class="fs-info" type="button" aria-controls="fsDescFigure" aria-expanded="false" title="설명 보기">i</button></span>
+      <button class="fs-toggle-btn fs-switch" id="progFigureModeToggle" type="button">꺼짐</button>
+    </div>
+    <p class="fs-desc" id="fsDescFigure" hidden>포커싱 어플이 아니어도, 어떤 프로그램에서든 입력하면 캐릭터가 깨어나요. 손을 떼고 8초가 지나면 잠들어요. (포커스 시간은 등록한 포커싱 어플에서만 쌓여요)</p>
+    <!-- 🪑 방에서 내 자리 — 줄 안에 함께(기본 · 책상 끌기로 누구든 자리 바꿈) / 맨 오른쪽 고정(나는 늘 맨 오른쪽). 글은 seat-pin.js label -->
+    <div class="fs-toggle-row">
+      <span>방에서 내 자리 <button class="fs-info" type="button" aria-controls="fsDescRoomSeat" aria-expanded="false" title="설명 보기">i</button></span>
+      <button class="fs-toggle-btn" id="fsRoomSeatModeToggle" type="button" style="white-space:nowrap;flex-shrink:0;">줄 안에 함께</button>
+    </div>
+    <p class="fs-desc" id="fsDescRoomSeat" hidden>맨 오른쪽 고정이면 방에서 내 캐릭터가 늘 줄 맨 오른쪽에 있어요(다른 사람 책상을 끌어도 그 자리엔 못 와요)</p>
+  </div>
+
+  <!-- ── 탭 3 · 포커싱 ── -->
+  <div class="fs-tabpage" id="fsTabApp" style="display:none;">
+    <div class="fs-label" style="margin-top:0;">포커싱 어플 <span style="font-weight:normal;color:var(--ink-soft);">— 등록된 앱을 쓸 때만 반응해요</span></div>
     <div class="fs-slots" id="fsSlots"></div>
     <!-- 🎮 우클릭 경로 안내 — 이 줄이 없으면 아무도 못 찾는다.
          게임은 자동 등록이 거의 항상 틀린다(게임에서 빠져나오는 사이에 바탕화면·런처가 한 번
          활성이 되고, 그게 대신 등록된다). 그래서 목록에서 직접 고르는 길을 열어두고 여기서 알린다. -->
     <div class="fs-hint" id="fsSlotHint">🎮 게임은 슬롯을 <b>우클릭</b>해서 목록에서 직접 고르세요</div>
-    <!-- 📱 태블릿·폰 (개정 74 · 시안 ①② 승인) — 슬롯·🎮 안내 줄 아래. 폰 자동화가 «앱 열림/닫힘» 을 보내면 PC 가 판정한다.
-         상태 칸 넷: 초록(쓰는 중) · 노랑(연결됨 · 쉬는 중) · 회색(연결 안 됨 / 신호 기다림). 그리는 곳은 app.js _mobRenderPanel 하나. -->
+    <!-- 📱 태블릿·폰 — 폰 자동화가 «앱 열림/닫힘» 을 보내면 PC 가 판정한다.
+         상태 칸 넷: 초록(쓰는 중) · 노랑(연결됨 · 쉬는 중) · 회색(연결 안 됨 / 신호 기다림). 그리는 곳은 _mobRenderPanel 하나. -->
     <div class="fs-mob" id="fsMob">
       <div class="fs-label">📱 태블릿·폰 <span style="font-weight:normal;color:var(--ink-soft);">— 폰에서 그릴 때도 반응해요</span></div>
       <div class="fs-mob-st off" id="fsMobSt"><span class="fs-mob-dot"></span><span class="fs-mob-txt"><b id="fsMobMain">연결 안 됨</b><span class="fs-mob-sub" id="fsMobSub" style="display:none;"></span></span></div>
@@ -5287,98 +5491,8 @@
       <div class="fs-hint fs-mob-diag" id="fsMobDiag" style="display:none;"></div>
     </div>
   </div>
-  <div class="fs-tabpage" id="fsTabDisplay" style="display:none;">
-    <div class="fs-label" id="fsMonitorLabel" style="display:none;">모니터 선택 <span style="font-weight:normal;color:var(--ink-soft);">— 캐릭터를 표시할 화면</span></div>
-    <div class="fs-monitors" id="fsMonitors" style="display:none;"></div>
-    <div class="fs-toggle-row">
-      <span>이모지 반응 (💤♥💫)</span>
-      <button class="fs-toggle-btn" id="fsEmojiToggle" type="button">켜짐</button>
-    </div>
-    <div class="fs-toggle-row">
-      <span>저해상도(도트) 렌더</span>
-      <button class="fs-toggle-btn" id="fsDotToggle" type="button">꺼짐</button>
-    </div>
-    <div class="fs-toggle-row">
-      <span>머리 위 레벨/이름 표시</span>
-      <button class="fs-toggle-btn" id="fsNameplateToggle" type="button">켜짐</button>
-    </div>
-    <div class="fs-toggle-row">
-      <span>상태칩 배치</span>
-      <button class="fs-toggle-btn" id="fsChipOrientToggle" type="button">세로</button>
-    </div>
-    <div class="fs-label" style="margin-top:8px;">레벨/이름 크기</div>
-    <input type="range" id="fsNameplateSize" min="10" max="26" step="1" value="15" style="width:100%;">
-    <!-- 🪟 창이 화면 밖으로 나가 안 보일 때의 탈출구. 모니터를 바꾸거나 해상도가 줄면
-         저장된 자리가 화면 밖이 되어 "꾸미기 미리보기가 사라졌다"로 보인다. -->
-    <!-- [2026-09-17 시안 확정] 두 행의 부연 문구(«— 안 보이는 창 되돌리기» · «— 캐릭터와 창을 함께»)를 뺐다.
-         ⚠️ 문구를 빼도 패널이 좁으면 버튼이 줄어들며 글자가 세로로 깨진다(제보 스크린샷 «화\n면\n−»). 그래서 버튼에
-         white-space:nowrap · flex-shrink:0 을 두고, −·+ 는 28px 정사각으로 줄였다. 단축키는 title 에 남아 있다. -->
-    <div class="fs-toggle-row" style="margin-top:14px;">
-      <span>창 위치 초기화</span>
-      <button class="fs-toggle-btn" id="fsResetWinPos" type="button" style="white-space:nowrap;flex-shrink:0;">되돌리기</button>
-    </div>
-    <!-- 🔍 프로그램 크기 — 캐릭터와 창을 함께(렌더러 줌). 캐릭터 탭의 «화면 크기»(아바타존만)와 다르다.
-         Ctrl+= / Ctrl+- / Ctrl+0 · Ctrl+휠도 같은 값이다(main.js applyUiZoom). 시안 확정 2026-09-16 (F-1) · 이름·정렬 개정 2026-09-17.
-         구버전 앱(companion.uiZoom 없음)에서는 app.js 가 이 행을 숨긴다. -->
-    <div class="fs-toggle-row" id="fsUiZoomRow" style="margin-top:6px;display:none;">
-      <span>프로그램 크기</span>
-      <span style="display:flex;align-items:center;gap:4px;flex-shrink:0;">
-        <button class="fs-toggle-btn" id="fsUiZoomOut" type="button" title="화면 축소 (Ctrl+-)" aria-label="화면 축소" style="white-space:nowrap;width:28px;padding-left:0;padding-right:0;">−</button>
-        <span id="fsUiZoomPct" style="min-width:36px;text-align:center;font-weight:bold;">100%</span>
-        <button class="fs-toggle-btn" id="fsUiZoomIn" type="button" title="화면 확대 (Ctrl+=)" aria-label="화면 확대" style="white-space:nowrap;width:28px;padding-left:0;padding-right:0;">+</button>
-        <button class="fs-toggle-btn" id="fsUiZoomReset" type="button" title="Ctrl+0" style="white-space:nowrap;flex-shrink:0;">초기화</button>
-      </span>
-    </div>
-  </div>
-  <div class="fs-tabpage" id="fsTabSize" style="display:none;">
-    <div class="fs-label">화면 크기</div>
-    <input type="range" id="fsSizeSlider" min="0.6" max="1.6" step="0.02" value="1" style="display:none;">
-    <div id="fsSizeBar" style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-      <button id="fsSizeBarLeft" class="fs-seg-arrow" type="button" title="한 단계 작게">◀</button>
-      <div id="fsSizeBarTrack" class="fs-seg-track"></div>
-      <button id="fsSizeBarRight" class="fs-seg-arrow" type="button" title="한 단계 크게">▶</button>
-    </div>
 
-    <div class="fs-label" style="margin-top:14px;">좌석 간격</div>
-    <div id="fsGapBar" style="display:flex;align-items:center;gap:6px;margin-top:4px;">
-      <button id="fsGapBarLeft" class="fs-seg-arrow" type="button" title="더 가깝게">◀</button>
-      <div id="fsGapBarTrack" class="fs-seg-track"></div>
-      <button id="fsGapBarRight" class="fs-seg-arrow" type="button" title="더 멀게">▶</button>
-    </div>
-
-    <div class="fs-toggle-row" style="margin-top:14px;">
-      <span>좌석 크기 평준화</span>
-      <button class="fs-toggle-btn" id="fsSeatEqToggle" type="button">꺼짐</button>
-    </div>
-    <!-- 🎁 꾸미기 파츠 표시 — 내 화면에서만, 나 포함 전 좌석의 가챠 파츠를 숨긴다. 책상 아이템은 그대로. 서버에 안 쓴다. [2026-09-17 시안 확정] -->
-    <div class="fs-toggle-row">
-      <span>꾸미기 파츠 표시</span>
-      <button class="fs-toggle-btn" id="fsDecoPartsToggle" type="button" style="white-space:nowrap;flex-shrink:0;">켜짐</button>
-    </div>
-    <div class="fs-hint" style="margin-top:0;">끄면 내 화면에서만 나와 상대의 꾸미기 파츠가 안 보여요</div>
-    <!-- 🪑 방에서 내 자리 — 줄 안에 함께(기본 · 책상 끌기로 누구든 자리 바꿈) / 맨 오른쪽 고정(나는 늘 맨 오른쪽). 글은 seat-pin.js label -->
-    <div class="fs-toggle-row">
-      <span>방에서 내 자리</span>
-      <button class="fs-toggle-btn" id="fsRoomSeatModeToggle" type="button" style="white-space:nowrap;flex-shrink:0;">줄 안에 함께</button>
-    </div>
-    <div class="fs-hint" style="margin-top:0;">맨 오른쪽 고정이면 방에서 내 캐릭터가 늘 줄 맨 오른쪽에 있어요(다른 사람 책상을 끌어도 그 자리엔 못 와요)</div>
-
-    <div class="fs-label" style="margin-top:14px;">캐릭터 교체</div>
-    <!-- 슬롯 5칸이 300px 패널에 안 들어가서 4칸씩 밀어 본다. 창(.fs-slotvp) 안의 줄을 화살표로 굴린다.
-         ⚠️ JS(renderCharSlots)는 #fsCharSlots 안에만 칸을 그린다 — 창·화살표는 건드리지 않는다. -->
-    <div class="fs-slotrow" id="fsCharSlotRow">
-      <button class="fs-slot-arrow" data-dir="-1" type="button" title="이전 칸">◀</button>
-      <div class="fs-slotvp"><div class="fs-charslots" id="fsCharSlots"></div></div>
-      <button class="fs-slot-arrow" data-dir="1" type="button" title="다음 칸">▶</button>
-    </div>
-
-    <div class="fs-label" id="fsAddSeatLabel" style="margin-top:14px;">자리 추가 <span style="font-weight:normal;color:var(--ink-soft);">(솔로모드만 가능)</span></div>
-    <div class="fs-slotrow" id="fsAddSeatRow">
-      <button class="fs-slot-arrow" data-dir="-1" type="button" title="이전 칸">◀</button>
-      <div class="fs-slotvp"><div class="fs-charslots" id="fsAddSeatSlots"></div></div>
-      <button class="fs-slot-arrow" data-dir="1" type="button" title="다음 칸">▶</button>
-    </div>
-  </div>
+  <!-- ── 탭 4 · 방 연결 ── -->
   <div class="fs-tabpage" id="fsTabMulti" style="display:none;">
     <div style="font-size:11.5px;color:var(--ink-soft);margin-bottom:10px;line-height:1.5;">
       같은 방 코드로 연결하면, 서로의 이미지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)
@@ -5410,8 +5524,73 @@
       <button class="lc-btn ghost" id="fsInviteHopRandom" style="margin-bottom:6px;display:none;">🎲 다른 랜덤룸 참여하기</button>
     </div>
   </div>
+
+  <!-- ── 탭 5 · 정보 ── -->
+  <div class="fs-tabpage" id="fsTabInfo" style="display:none;">
+    <div class="fs-label" style="margin-top:0;">라이선스</div>
+    <p class="fs-note" style="margin:0 0 10px;">전달받은 라이선스 키를 입력하면 🎨 꾸미기 기능이 열려요.</p>
+    <div id="licenseActiveBox" style="display:none;background:var(--win-select-bg);
+      border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+      padding:8px 10px;margin-bottom:10px;font-size:11.5px;color:var(--ink);">
+      ✅ 라이선스가 등록되어 있어요.
+      <button id="licenseDeactivateBtn" style="display:block;margin-top:6px;background:none;border:none;
+        color:var(--win-error);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">이 기기에서 라이선스 해제</button>
+    </div>
+    <input id="licenseKeyInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX"
+      style="width:100%;padding:7px 8px;box-sizing:border-box;
+      background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+      box-shadow: inset 1px 1px 0 var(--win-lo-2);
+      font-family:'Courier New',monospace;font-size:12px;margin-bottom:10px;">
+    <div id="licenseErrorMsg" style="display:none;color:var(--win-error);font-size:11px;margin:-4px 0 8px;"></div>
+    <button id="licenseSubmitBtn" class="lc-btn" style="margin-top:0;">확인</button>
+    <div id="licenseReqSection" class="lic-req-section">
+      <div id="licenseReqIdle">
+        <p style="margin:0 0 8px;font-size:11px;color:var(--ink-soft);line-height:1.5;">키가 없으신가요? 이름과 함께 요청을 보내면 관리자가 확인 후 발급해줘요.</p>
+        <button id="licenseReqBtn" class="lc-btn" style="margin-top:0;">🙋 라이선스 요청 보내기</button>
+      </div>
+      <div id="licenseReqPending" style="display:none;font-size:11.5px;color:var(--ink-soft);">
+        ⏳ 요청을 보냈어요 (<b id="licenseReqName"></b> 님) — 관리자 승인을 기다리는 중...
+      </div>
+      <div id="licenseReqApproved" style="display:none;background:var(--win-select-bg);
+        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px 10px;font-size:11.5px;">
+        ✅ 발급됐어요! <span id="licenseReqKeyText" style="font-family:'Courier New',monospace;font-weight:bold;"></span>
+        <button id="licenseReqApplyBtn" style="display:block;margin-top:6px;background:none;border:none;
+          color:var(--win-select);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">바로 적용하기</button>
+      </div>
+    </div>
+
+    <div class="fs-sep"></div>
+    <!-- ℹ️ 프로그램 정보 — 제보를 받을 때 "어느 버전이냐"를 유저가 직접 확인할 수 있게.
+         버전 문자열은 package.json 하나가 원본이고, main.js가 app.getVersion()으로 돌려준다. -->
+    <div class="fs-label" style="margin-top:0;">프로그램 정보</div>
+    <p style="margin:0;font-size:10.5px;color:var(--ink-soft);line-height:1.6;">
+      Together Working <b id="progVersionText" data-app-version style="color:var(--ink);font-size:11.5px;">확인 중…</b>
+    </p>
+    <!-- 🩺 진단 기록 폴더 열기 — 제보할 때 쓰는 것 둘(버전·기록)이 한 칸에 모인다. -->
+    <button id="progOpenDiagBtn" type="button" style="margin-top:8px;background:none;border:none;
+      color:var(--ink-soft);font-size:10.5px;cursor:pointer;text-decoration:underline;padding:0;">진단 기록 폴더 열기</button>
+    <!-- 💬 이 PC 에 저장된 대화(워킹룸 · 시크릿룸) 지우기 — 처리방침 §7 의 «설정에서 지우면 삭제». 두 번 눌러야 지운다(chat-history.js bindSettings) -->
+    <br><button id="progChatHistWipe" type="button" style="margin-top:6px;background:none;border:none;
+      color:var(--ink-soft);font-size:10.5px;cursor:pointer;text-decoration:underline;padding:0;">이 PC 에 저장된 대화 지우기</button>
+    <!-- 🎨 아이콘 출처 표기 — 링크는 앱 안에서 열면 안 된다(단일 페이지 오버레이라 캐릭터·씬이 통째로
+         날아간다). _bindDonate 가 클릭을 가로채 companion.openBrowser = 시스템 기본 브라우저로 넘긴다.
+         ⚠️ 주소는 여기 href 에만 둔다 — 바꿀 때 app.js 를 뒤질 필요가 없게. -->
+    <p style="margin:10px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.6;">
+      icon cm <a id="progIconCredit" href="https://x.com/Miraclelife_CM"
+        title="아이콘을 그려주신 분의 X 페이지로 이동해요"
+        style="color:var(--win-title-b);text-decoration:underline;cursor:pointer;">@Miraclelife_CM</a>
+    </p>
+    <!-- dev 로 켠 앱도 운영 호스팅 주소를 연다 — 처리방침은 하나뿐이다. 클릭은 위 아이콘 출처와 같은 _bindDonate 가 받는다. -->
+    <p style="margin:6px 0 0;font-size:10.5px;line-height:1.6;">
+      <a id="progPrivacyLink" href="https://help.together-working.com/privacy"
+        title="개인정보 처리방침을 브라우저로 열어요"
+        style="color:var(--win-title-b);text-decoration:underline;cursor:pointer;">개인정보 처리방침</a>
+      · <a id="progOssLink" href="#" title="이 프로그램이 쓰는 오픈소스와 라이선스를 봐요"
+        style="color:var(--win-title-b);text-decoration:underline;cursor:pointer;">오픈소스 라이선스</a>
+    </p>
+  </div>
   <div class="fs-hint" id="fsMoveHint" style="display:none;">캐릭터가 마우스를 따라다녀요. 원하는 위치에서 <b>클릭</b>하면 확정!</div>
-  <div class="fs-bottom-row">
+  <div class="fs-bottom-row fs-run-only">
     <button class="fs-move-btn fs-bottom-btn" id="fsMyHomeBtn" type="button">🏠 마이홈</button>
     <button class="fs-move-btn fs-bottom-btn" id="fsFocusLogBtn" type="button">기록 열기</button>
     <button class="fs-back fs-bottom-btn" id="fsBackBtn" type="button">런처로 이동&laquo;</button>
@@ -7167,173 +7346,6 @@
   </div>
 </div>
 
-<!-- 프로그램 설정 모달 — 라이선스 / 모니터 탭 (run 모드 ⚙ 설정 패널과 같은 탭 스타일) -->
-<div id="programSettingsOverlay" style="position:fixed;inset:0;z-index:var(--z-dialog-program);display:none;align-items:center;justify-content:center;
-  background:none;pointer-events:none;">
-  <div style="pointer-events:auto;width:300px;max-width:90vw;max-height:90vh;overflow-y:auto;
-    background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);">
-    <div style="font-family:var(--tw-font-legacy);font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">⚙️ 프로그램 설정</div>
-    <div style="padding:10px 12px 14px;">
-      <div class="fs-tabs">
-        <button class="fs-tab-btn on" id="progTabBtnLicense" type="button">라이선스</button>
-        <button class="fs-tab-btn" id="progTabBtnDisplay" type="button">모니터</button>
-        <button class="fs-tab-btn" id="progTabBtnSystem" type="button">시스템</button>
-      </div>
-
-      <div class="fs-tabpage" id="progTabLicense">
-        <p style="margin:0 0 12px;font-size:11px;color:var(--ink-soft);line-height:1.5;">
-          전달받은 라이선스 키를 입력하면 🎨 꾸미기 기능이 열려요.
-        </p>
-        <div id="licenseActiveBox" style="display:none;background:var(--win-select-bg);
-          border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          padding:8px 10px;margin-bottom:10px;font-size:11.5px;color:var(--ink);">
-          ✅ 라이선스가 등록되어 있어요.
-          <button id="licenseDeactivateBtn" style="display:block;margin-top:6px;background:none;border:none;
-            color:var(--win-error);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">이 기기에서 라이선스 해제</button>
-        </div>
-        <input id="licenseKeyInput" type="text" placeholder="XXXX-XXXX-XXXX-XXXX"
-          style="width:100%;padding:7px 8px;box-sizing:border-box;
-          background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-          box-shadow: inset 1px 1px 0 var(--win-lo-2);
-          font-family:'Courier New',monospace;font-size:12px;margin-bottom:10px;">
-        <div id="licenseErrorMsg" style="display:none;color:var(--win-error);font-size:11px;margin:-4px 0 8px;"></div>
-        <button id="licenseSubmitBtn" class="lc-btn" style="margin-top:0;">확인</button>
-        <div id="licenseReqSection" class="lic-req-section">
-          <div id="licenseReqIdle">
-            <p style="margin:0 0 8px;font-size:11px;color:var(--ink-soft);line-height:1.5;">키가 없으신가요? 이름과 함께 요청을 보내면 관리자가 확인 후 발급해줘요.</p>
-            <button id="licenseReqBtn" class="lc-btn" style="margin-top:0;">🙋 라이선스 요청 보내기</button>
-          </div>
-          <div id="licenseReqPending" style="display:none;font-size:11.5px;color:var(--ink-soft);">
-            ⏳ 요청을 보냈어요 (<b id="licenseReqName"></b> 님) — 관리자 승인을 기다리는 중...
-          </div>
-          <div id="licenseReqApproved" style="display:none;background:var(--win-select-bg);
-            border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);padding:8px 10px;font-size:11.5px;">
-            ✅ 발급됐어요! <span id="licenseReqKeyText" style="font-family:'Courier New',monospace;font-weight:bold;"></span>
-            <button id="licenseReqApplyBtn" style="display:block;margin-top:6px;background:none;border:none;
-              color:var(--win-select);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;">바로 적용하기</button>
-          </div>
-        </div>
-      </div>
-
-      <div class="fs-tabpage" id="progTabDisplay" style="display:none;">
-        <div class="fs-label" id="progMonitorLabel" style="display:none;">모니터 선택 <span style="font-weight:normal;color:var(--ink-soft);">— 캐릭터를 표시할 화면</span></div>
-        <div class="fs-monitors" id="progMonitors" style="display:none;"></div>
-        <p id="progMonitorSingleMsg" style="margin:0;font-size:11px;color:var(--ink-soft);line-height:1.5;">연결된 모니터가 1개뿐이라 선택할 필요가 없어요.</p>
-
-        <!-- 🎚️ 실행 화면 화질 — 고르면 이 PC 에 저장(launcher/program-settings.js · 규칙은 shared/frame-budget.js) -->
-        <div class="fs-label" style="margin-top:14px;border-top:1px solid var(--win-lo-2);padding-top:12px;">실행 화면 화질</div>
-        <div class="fs-monitors" id="progQualityRow">
-          <button class="fs-mon-btn" type="button" data-q="sharp">선명하게</button>
-          <button class="fs-mon-btn" type="button" data-q="auto">자동</button>
-          <button class="fs-mon-btn" type="button" data-q="light">가볍게</button>
-        </div>
-        <p id="progQualityHint" style="margin:6px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;"></p>
-
-        <!-- 🎨 디자인 테마 — 모양(2) × 색상(5). 고르면 즉시 적용되고 이 PC에 저장돼요. -->
-        <div class="fs-label" style="margin-top:14px;border-top:1px solid var(--win-lo-2);padding-top:12px;">디자인 테마</div>
-        <div class="theme-grid">
-          <button class="theme-opt" id="themeOptDefault" type="button">
-            <span class="prev"><span class="tb" style="background:var(--win-title-grad);"></span><span class="bd" style="background:#C0C0C0;"></span></span>
-            <b>기본</b>
-          </button>
-          <button class="theme-opt" id="themeOptBubble" type="button">
-            <span class="prev" style="border-radius:5px;"><span class="tb" style="background:linear-gradient(180deg,#D8EE9E,#9ED44F);"></span><span class="bd" style="background:#EEF1EA;"></span></span>
-            <b>버블</b>
-          </button>
-        </div>
-
-        <div class="fs-label" style="margin-top:12px;">색상</div>
-        <div class="color-row" id="themeColorRow"></div>
-        <div class="color-names" id="themeColorNames"></div>
-        <p style="margin:9px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">
-          색상은 테마마다 따로예요. 캐릭터 모습은 바뀌지 않아요.</p>
-      </div>
-
-      <div class="fs-tabpage" id="progTabSystem" style="display:none;">
-        <div class="fs-toggle-row" style="margin:0;">
-          <span>컴퓨터 켤 때 자동 실행</span>
-          <button class="fs-toggle-btn" id="progAutoLaunchToggle" type="button">꺼짐</button>
-        </div>
-        <p style="margin:8px 0 12px;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">켜면 다음 로그인부터 이 앱이 자동으로 실행돼요.<br>Windows 에서 «관리자 권한으로 실행» 을 켜 두었다면 자동 실행이 막혀요 — 그때는 직접 켜 주세요.</p>
-        <div class="fs-toggle-row">
-          <span>피규어 모드</span>
-          <button class="fs-toggle-btn" id="progFigureModeToggle" type="button">꺼짐</button>
-        </div>
-        <p style="margin:8px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">포커싱 어플이 아니어도, 어떤 프로그램에서든 입력하면 캐릭터가 깨어나요. 손을 떼고 8초가 지나면 잠들어요. (포커스 시간은 등록한 포커싱 어플에서만 쌓여요)</p>
-        <div class="fs-toggle-row">
-          <span>회사원 모드</span>
-          <button class="fs-toggle-btn" id="progOfficeModeToggle" type="button">꺼짐</button>
-        </div>
-        <p style="margin:8px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">켜면 마이홈·말풍선이 잠기고, 상태칩의 ▪ 버튼으로 화면을 즉시 숨길 수 있어요.</p>
-
-
-        <!-- 🎬 영상 겹침 실험 — 화면공유 영상이 검어지거나 깜빡일 때만 켜는 것.
-             오버레이 창에 반투명(알파 252 = 98.8%)을 걸어 크로미움의 '가리는 창' 판정에서
-             영구히 빠지게 한다(main.js OVERLAY_LAYERED_ALPHA 주석).
-             ⚠️ 이름을 '실험실'로 하지 않은 것은 의도적이다 — 폐기된 🧪 칸이 위험해진 이유가
-               "뜻 모르고 호기심에 켜 보는" 사람들이었다. 증상 이름을 붙이면 그 증상이 없는
-               사람은 켤 이유가 없어진다.
-             ⚠️ **성공하면 지운다.** 실기기에서 효과가 확인되면 기본 동작으로 올리고
-               이 칸·app.js 배선·preload 통로·main IPC 를 함께 걷어낼 것. 한 번 내보낸 토글은
-               켜 둔 사용자가 생겨 나중에 지우기 어려워진다.
-             ⚠️ 이 토글은 알파만 건드린다. 아래틈(overlayBottomGap)은 최대화 창을 쓰는 사용자의
-               방어라 실험 때문에 뺏지 않는다 — 그 값은 설정 파일로만 만진다. -->
-        <div class="fs-toggle-row" id="progLabVideoRow" style="display:none;margin-top:12px;
-          border-top:1px solid var(--win-lo-2);padding-top:12px;">
-          <span>영상 겹침 실험</span>
-          <button class="fs-toggle-btn" id="progLabVideoToggle" type="button">꺼짐</button>
-        </div>
-        <p id="progLabVideoHint" style="display:none;margin:8px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">
-          화면공유 영상이 검어지거나 깜빡일 때만 켜세요. 그런 일이 없으면 그냥 두세요.</p>
-        <!-- 🎬 «적용 안 됨» 일 때만 보이는 안내 — 무엇을 하면 되는지(껐다 켜기 → 그래도면 버그제보). 글은 app.js LAB_VIDEO_BLOCKED_GUIDE -->
-        <p id="progLabVideoWarn" style="display:none;margin:8px 0 0;padding:8px 10px;font-size:10.5px;line-height:1.6;
-          color:var(--ink);background:var(--win-face);border:1px dashed var(--ink-soft);white-space:pre-line;"></p>
-
-        <!-- ❌ [폐기 2026-08-26] 여기 있던 🧪 실험실 칸('다른 프로그램 방해 안 함' = 창 활성화 차단)은
-             통째로 지웠다. WS_EX_NOACTIVATE 창에서는 한/영 전환이 **원리적으로** 불가능하고
-             (IME 는 포그라운드 창의 입력 컨텍스트에 묶인다) 단축키도 같이 죽는다.
-             켜 둔 사용자가 "한글이 안 쳐진다"로 제보한 그 토글이라, 화면에 남겨 두는 것 자체가 위험했다.
-             ⚠️ 다시 만들지 말 것 — main.js 의 폐기 주석과 handoff-focus-steal-5.md §7 을 먼저 읽을 것.
-             ⚠️ '진단 기록 폴더 열기'는 이 실험과 무관한 별개 기능이라, 아래 프로그램 정보로 옮겨 살려 뒀다. -->
-
-        <!-- ℹ️ 프로그램 정보 — 제보를 받을 때 "어느 버전이냐"를 유저가 직접 확인할 수 있게.
-             버전 문자열은 package.json 하나가 원본이고, main.js가 app.getVersion()으로 돌려준다. -->
-        <div class="fs-label" style="margin-top:14px;border-top:1px solid var(--win-lo-2);padding-top:12px;">프로그램 정보</div>
-        <p style="margin:0;font-size:10.5px;color:var(--ink-soft);line-height:1.6;">
-          Together Working <b id="progVersionText" data-app-version style="color:var(--ink);font-size:11.5px;">확인 중…</b>
-        </p>
-        <!-- 🩺 진단 기록 폴더 열기 — 제보를 받을 때 "이 경로의 파일을 보내주세요" 대신 버튼 하나로 끝내려는 것.
-             버전 바로 아래가 자리다. 제보할 때 쓰는 것 둘(버전·기록)이 한 칸에 모인다. -->
-        <button id="progOpenDiagBtn" type="button" style="margin-top:8px;background:none;border:none;
-          color:var(--ink-soft);font-size:10.5px;cursor:pointer;text-decoration:underline;padding:0;">진단 기록 폴더 열기</button>
-        <!-- 💬 이 PC 에 저장된 대화(워킹룸 · 시크릿룸) 지우기 — 처리방침 §7 의 «설정에서 지우면 삭제». 두 번 눌러야 지운다(chat-history.js bindSettings) -->
-        <br><button id="progChatHistWipe" type="button" style="margin-top:6px;background:none;border:none;
-          color:var(--ink-soft);font-size:10.5px;cursor:pointer;text-decoration:underline;padding:0;">이 PC 에 저장된 대화 지우기</button>
-        <!-- 🎨 아이콘 출처 표기 — 링크는 앱 안에서 열면 안 된다(단일 페이지 오버레이라 캐릭터·씬이 통째로
-             날아간다). app.js 의 _bindDonate 가 클릭을 가로채 companion.openBrowser = 시스템 기본
-             브라우저로 넘긴다. 후원 링크·광고 배너와 같은 처리다.
-             ⚠️ 주소는 여기 href 에만 둔다 — 바꿀 때 app.js 를 뒤질 필요가 없게. -->
-        <p style="margin:10px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.6;">
-          icon cm <a id="progIconCredit" href="https://x.com/Miraclelife_CM"
-            title="아이콘을 그려주신 분의 X 페이지로 이동해요"
-            style="color:var(--win-title-b);text-decoration:underline;cursor:pointer;">@Miraclelife_CM</a>
-        </p>
-        <!-- dev 로 켠 앱도 운영 호스팅 주소를 연다 — 처리방침은 하나뿐이다. 클릭은 위 아이콘 출처와 같은 _bindDonate 가 받는다. -->
-        <p style="margin:6px 0 0;font-size:10.5px;line-height:1.6;">
-          <a id="progPrivacyLink" href="https://help.together-working.com/privacy"
-            title="개인정보 처리방침을 브라우저로 열어요"
-            style="color:var(--win-title-b);text-decoration:underline;cursor:pointer;">개인정보 처리방침</a>
-          · <a id="progOssLink" href="#" title="이 프로그램이 쓰는 오픈소스와 라이선스를 봐요"
-            style="color:var(--win-title-b);text-decoration:underline;cursor:pointer;">오픈소스 라이선스</a>
-        </p>
-      </div>
-
-      <button id="progSettingsCloseBtn" class="lc-btn ghost" style="margin-top:12px;width:100%;">닫기</button>
-    </div>
-  </div>
-</div>
 
 <div id="creatorOverlay">
   <div id="creatorModal">

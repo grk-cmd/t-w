@@ -1346,7 +1346,7 @@ function toggleGachaInv(){
      ★ 미리보기 패널은 반드시 제외 — 기즈모를 끌거나 캐릭터를 돌리는 것도 '바깥 클릭'이 되어
        조정하려는 순간 창이 닫혀버린다. 관리자 등록 모달·색상 팝업도 같은 이유. */
   const _GACHA_KEEP = '#gachaInvWin, #gachaDrawWin, #wdPreviewPanel, #wardrobePanel,'
-    + ' #partRegOverlay, #assetImpOverlay, #categoryManageOverlay, #programSettingsOverlay,'
+    + ' #partRegOverlay, #assetImpOverlay, #categoryManageOverlay, #focusSettingsPanel.fs-in-launcher,'
     + ' .wd-color-palette, .mh-color-pop, .toast';
   document.addEventListener('mousedown', e=>{
     if(!(_gachaInvOpen() || _gachaDrawOpen())) return;
@@ -1360,7 +1360,7 @@ function toggleGachaInv(){
        같이 사라진다 — 꾸미기가 쓰는 modalOpen 가드를 그대로 가져온다. */
   window.addEventListener('blur', ()=>{
     if(!(_gachaInvOpen() || _gachaDrawOpen())) return;
-    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #programSettingsOverlay.on, #myHomeOverlay.on, #categoryManageOverlay.on, #pkOverlay.on');
+    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #focusSettingsPanel.fs-in-launcher.on, #myHomeOverlay.on, #categoryManageOverlay.on, #pkOverlay.on');
     if(modalOpen) return;
     closeGachaInv();
   });

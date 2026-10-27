@@ -67,8 +67,23 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   동작 판정은 원래 검사들(`sim-ghost-cache-sync` · `sim-wheel-kick` · `sim-hover-poke` 등)도 그대로 본다.
 
 ## oss-licenses.js — 📄 오픈소스 라이선스 창
-- 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 시스템 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
+- 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 정보 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
 - deps: `document` · `window` · `links`(a 요소 목록 — 없는 것은 건너뜀) · `openUrl`(시스템 브라우저로 열기) · `escRegisterWindow`(ESC 스택) · `load`(검사용 — 기본은 `app/licenses/oss-notices.js` 를 처음 열 때 싣기).
-- 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 프로그램 설정 바로 뒤에서 만들기만).
+- 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 program-settings 만드는 줄 바로 뒤에서 만들기만).
 - 목록 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(`window.TwOssNotices` · 손으로 고치지 않는다). 줄은 `VENDOR` + 앱이 직접 쓰는 npm 패키지, 하위 패키지는 그 줄 원문 안으로. 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 lock 운영 패키지를 다 덮지 않으면 빨강.
-- 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `shared/outside-close.js`. 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+- 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 설정 창(정보 탭) 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `settings-panel.js` 의 바깥 클릭 예외 목록(`FS_KEEP_OPEN_SEL`). 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+
+## settings-panel.js — ⚙️ 설정 창 하나(런처 · 실행 화면 공용)
+- **책임**: 설정 창(`#focusSettingsPanel`) 여닫기 · 탭 다섯(디스플레이 · 캐릭터 · 포커싱 · 방 연결 · 정보) · ⓘ 설명 접기 · 바깥 클릭 닫기, 그리고 디스플레이(모니터 · 표시 옵션 · 프로그램 크기 · 레벨/이름 크기 · 창 위치) · 캐릭터(교체 · 자리 추가 · 배율 · 좌석 간격 · 표시 옵션) · 포커싱(어플 칸) 칸의 동작 · 광고 배너.
+  런처에서 열면(`isLauncherShown`) 가운데에 `.fs-in-launcher` 로 뜨고 실행 화면 전용 칸(`.fs-run-only` — 광고 · 캐릭터 교체 칸 · 아래 버튼)은 숨는다, 런처 전용 안내(`.fs-launcher-only`)가 보인다.
+- **deps**: 함수 · 값 · 읽는 함수 · 쓰는 함수 — 목록은 `checks/sim-settings-panel.js` 의 `GLUE`. 이번에 더한 것: `isLauncherShown`(읽는 함수).
+- **내놓는 것**: `onTabShown(fn(탭))` — 탭을 보일 때 부를 것을 건다(program-settings.js 가 건다 — 이 모듈은 그쪽을 모른다, 서로 부르면 순환) · `openSettings(탭?)` — 탭 `'display' | 'char' | 'focus' | 'room' | 'info'`, 안 정하면 이번 실행에서 마지막에 본 탭(처음은 디스플레이) · `closeSettings()` · `nameplateClamp` · `nameplatePct`(이름표 크기 규칙 — 10~26px, 기본 15px = 100%) · 자리 추가 · 광고 배너 이름들.
+- **함정**: 다른 곳 버튼(런처 ⚙️ 설정 · 꾸미기 라이선스 안내)이 창을 연 그 클릭이 문서까지 올라와도 닫지 않게 «클릭 전에 열려 있었나» 를 캡처 단계에서 본다. 새 창을 만들었는데 그 창 위 클릭이 설정을 닫으면 안 되면 `FS_KEEP_OPEN_SEL` 에 더한다. 런처에선 끌기를 막는다(옮긴 자리가 실행 화면까지 따라간다).
+- **검사**: `checks/sim-settings-panel.js` — 모듈 모양 · app.js 연결 · 여닫기 · 탭 기억 · ⓘ · 이름표 크기 경계 · 깨 보기.
+
+## program-settings.js — ⚙️ 설정 창의 «프로그램» 칸
+- **책임**: 설정 창 안의 테마 · 실행 화면 화질 · 자동 실행 · 회사원 · 피규어 모드 · 영상 겹침 실험 · 라이선스 · 프로그램 정보 칸 동작. 창 · 탭은 settings-panel.js 하나다.
+- **deps**: `openSettings` · `closeSettings` · `onTabShown`(settings-panel.js) 외 목록은 `checks/sim-program-settings.js` 의 `GLUE`.
+- **내놓는 것**: `refreshTab(탭)` — 탭을 보일 때 그 탭의 칸을 다시 그린다(만들 때 `onTabShown` 에 건다) · `openProgramSettings(탭?)` · `closeProgramSettings()` — 옛 탭 이름(`license` → 정보 · `display` · `system` → 디스플레이)도 받는다. twNav `PROGRAM_SETTINGS` · `PROGRAM_SETTINGS_CLOSE` 를 여기서 건다.
+- **함정**: 영상 겹침 실험 칸은 통로가 있는 앱에서만 보인다 — 실험이 성공하면 칸 · 배선 · preload · main IPC 를 함께 걷는다.
+- **검사**: `checks/sim-program-settings.js` — 모듈 모양 · 옛 탭 이름 · 탭 다시 그리기 · 버전 칸 · 깨 보기.

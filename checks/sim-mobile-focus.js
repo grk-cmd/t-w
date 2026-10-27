@@ -184,11 +184,11 @@ say('── 5. 규칙');
 
 say('── 6. 화면');
 {
-  const iTab = HTMLC.indexOf('id="fsTabApp"'), iHint = HTMLC.indexOf('id="fsSlotHint"'), iMob = HTMLC.indexOf('id="fsMob"'), iNext = HTMLC.indexOf('id="fsTabDisplay"');
+  const iTab = HTMLC.indexOf('id="fsTabApp"'), iHint = HTMLC.indexOf('id="fsSlotHint"'), iMob = HTMLC.indexOf('id="fsMob"'), iNext = HTMLC.indexOf('id="fsTabMulti"');   // 포커싱 탭 다음은 방 연결 탭(#540 P1 탭 차례)
   chk(iTab > 0 && iHint > iTab && iMob > iHint && iMob < iNext, '📱 칸 — #fsTabApp 안 · #fsSlotHint 뒤');
   const blk = HTMLC.slice(iMob, iNext);
   chk(/id="fsMobSt"/.test(blk) && /id="fsMobQr"/.test(blk) && /id="fsMobUnlink"/.test(blk) && /id="fsMobNote"/.test(blk), '  상태 칸 · 버튼 둘 · 안내 줄');
-  chk((blk.match(/<button/g) || []).length <= 2, '  버튼 한 줄 최대 2개(패널 300px)');
+  chk((blk.match(/<button/g) || []).length <= 2, '  버튼 한 줄 최대 2개(좁은 패널)');
   chk(/#mobLinkOverlay \.box\{[^}]*border-color:var\(--win-hi\)[^}]*border-radius:var\(--win-radius-el\)/.test(HTML), 'QR 창 베젤 radius');
   chk(/html\[data-theme="bubble"\] #mobLinkOverlay \.ttl,/.test(HTML), '  제목줄이 버블 목록에');
   chk(/const UI_HIT_SEL = '[^']*#mobLinkOverlay/.test(CODE), '클릭 통과 목록(UI_HIT_SEL)에 QR 창');

@@ -22,7 +22,7 @@ const WINDOWS = {
   friendPicker: '--z-friend-picker', launcher: '--z-launcher', creatorOverlay: '--z-work', raceOverlay: '--z-work',
   codeOverlay: '--z-dialog-code', exportOverlay: '--z-dialog', glbEncOverlay: '--z-dialog', glbLoadOverlay: '--z-dialog', assetGenOverlay: '--z-dialog',
   assetImpOverlay: '--z-dialog', inviteOverlay: '--z-dialog', commGenOverlay: '--z-dialog', partRegOverlay: '--z-dialog', deskRegOverlay: '--z-dialog',
-  focusSettingsPanel: '--z-win-settings', programSettingsOverlay: '--z-dialog-program', mobLinkOverlay: '--z-dialog-admin',
+  focusSettingsPanel: '--z-win-settings', mobLinkOverlay: '--z-dialog-admin',
   inviteGrantOverlay: '--z-dialog-admin', inviteIssuedOverlay: '--z-dialog-admin', adminPassOverlay: '--z-dialog-admin', licenseGenOverlay: '--z-dialog-admin',
   announceOverlay: '--z-dialog-admin', updateNoticeAdminOverlay: '--z-dialog-admin', categoryManageOverlay: '--z-dialog-admin', gameCfgOverlay: '--z-dialog-admin',
   adBannerOverlay: '--z-dialog-admin', totalStatsOverlay: '--z-dialog-admin', roomInvitePickOverlay: '--z-dialog-admin',

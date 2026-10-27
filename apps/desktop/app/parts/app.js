@@ -1,6 +1,6 @@
 /* ============================================================ SETUP */
 const canvas=document.getElementById('scene');
-/* 🎚️ 실행 화면 화질(프로그램 설정 › 모니터 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
+/* 🎚️ 실행 화면 화질(설정 › 디스플레이 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
    ⚠️ 도트 렌더 저장값으로 antialias 를 정하지 말 것 — 개발 실행 · 설치본이 저장소를 같이 써서 안 보이게 꺼진 채 굳었다(도트 느낌은 DOT_RENDER_SCALE 로 충분). */
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
@@ -2276,6 +2276,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   findMySeat: (...a)=>findMySeat(...a),
   focusCharScale: ()=>focusCharScale,
   isPremium: ()=>isPremium,
+  isLauncherShown: (...a)=>isLauncherShown(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   moveMode: ()=>moveMode,
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
@@ -6708,6 +6709,7 @@ function launchApp(opts){ opts=opts||{};
   seatPanelMod.selectSeat(me);seatPanelMod.renderSeatTabs();seatPanelMod.setManual(null);
   appMode = (opts.mode==='edit') ? 'editseat' : 'run';
   applyAppMode();
+  settingsMod.closeSettings();   // ⚙️ 런처에서 연 설정 창(가운데)이 실행 화면에 남지 않게
   document.getElementById('launcher').classList.remove('on');
   if(Presence.active()){
     roomEntryMod.syncFriendSeats(Presence.friendsObj());   // 초대된 친구 복원
@@ -6731,6 +6733,7 @@ function launchApp(opts){ opts=opts||{};
     }, 1200));
   }
 }
+function isLauncherShown(){ return document.getElementById('launcher').classList.contains('on'); }
 function backToLauncher(){
   if(statusChipMod._tabHintTimer()){ clearTimeout(statusChipMod._tabHintTimer()); statusChipMod.setTabHintTimer(null); }
   // 🪑 방을 나가면 상호작용 책상 복원 플래그 리셋(다음 입장 때 저장값으로 다시 복원) +
@@ -6742,6 +6745,7 @@ function backToLauncher(){
       _me._benchOwnerSit=false; _me._benchSit=false; if(_me.desk) _me.desk.visible=true; }
   }catch(_){}
   appMode='run';
+  settingsMod.closeSettings();   // ⚙️ 실행 화면에서 연 설정 창(머리 위)이 런처 위에 남지 않게
   document.getElementById('launcher').classList.add('on');
   // ★ 꾸미기 창이 켜진 채로 런처에 돌아가면 그대로 떠 있던 채 따라오던 문제 — 런처로 돌아갈 땐 항상 닫음.
   //   (이 상태가 이어져서 이후 관리자 모드에서 꾸미기 아이콘이 안 먹히는 것처럼 보이던 문제도 같이 방지됨)
@@ -7016,7 +7020,6 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   focusGateSleep: ()=>focusGateSleep,
   officeMode: ()=>officeMode,
   purikuraUi: purikuraUi,
-  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
   refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
@@ -7030,6 +7033,9 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   setRenderQuality: (v)=>{ _renderQuality = v; },
   renderAntialias: _renderAA,
   applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),
+  openSettings: (...a)=>settingsMod.openSettings(...a),
+  closeSettings: (...a)=>settingsMod.closeSettings(...a),
+  onTabShown: (...a)=>settingsMod.onTabShown(...a),
 });
 TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementById('progOssLink'), document.getElementById('miOssLink')], openUrl: (u)=>companion.openBrowser(u), escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a) });
 

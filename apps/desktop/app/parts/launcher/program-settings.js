@@ -1,4 +1,6 @@
-/* program-settings.js — ⚙️ 프로그램 설정 창(열기 · 닫기 · 회사원 · 피규어 모드)
+/* program-settings.js — ⚙️ 설정 창의 «프로그램» 칸들(테마 · 실행 화면 화질 · 자동 실행 · 회사원 · 피규어 모드 · 영상 겹침 실험 · 라이선스 · 프로그램 정보)
+   ★ 창은 하나다 — 여닫기 · 탭은 launcher/settings-panel.js(openSettings). 여기는 칸의 동작과, 탭을 보일 때 다시 그리기(refreshTab — 만들 때 onTabShown 으로 건다)만.
+     옛 «프로그램 설정» 창(런처)의 탭 이름으로 여는 부탁(twNav PROGRAM_SETTINGS 'license' 등)은 OLD_TAB 으로 새 탭에 잇는다.
    app.js «🏷️ 닉네임 저장 — 모달이 아니라 제자리 편집이 부르는 한 벌» 구역 본문(⚙️ 프로그램 설정 창 열기 · 닫기 · 회사원 · 피규어 모드 포함)을 그대로 옮긴 모듈이다(앱 FSD 40번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다. 내 이름 도우미(getDisplayName · getUserName · setUserName)는 여러 모듈이 써서 app.js 에 있다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 14줄 —
@@ -6,8 +8,8 @@
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 12개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 🏷️ 닉네임 저장(USER_NAME_MAX · commitUserName)은 account/user-name.js 로 옮겼다(모듈 순환 끊기 7) — 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게.
-   ★ 🎚️ 실행 화면 화질(모니터 탭)은 고르기만 여기서 — 상태는 app.js(_renderQuality · 렌더러를 만들 때 읽는다), 규칙은 shared/frame-budget.js.
-   ★ 밖에서 부르는 이름: closeProgramSettings · openProgramSettings — app.js 는 progSettingsMod.이름 으로 부른다.
+   ★ 🎚️ 실행 화면 화질(디스플레이 탭)은 고르기만 여기서 — 상태는 app.js(_renderQuality · 렌더러를 만들 때 읽는다), 규칙은 shared/frame-budget.js.
+   ★ 밖에서 부르는 이름: closeProgramSettings · openProgramSettings · refreshTab — app.js 는 progSettingsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwProgramSettings — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-program-settings.js */
@@ -25,7 +27,6 @@ const figureMode = deps.figureMode;   // 읽는 함수
 const focusGateSleep = deps.focusGateSleep;   // 읽는 함수
 const officeMode = deps.officeMode;   // 읽는 함수
 const purikuraUi = deps.purikuraUi;
-const refreshCharScaleForCurrentDisplay = deps.refreshCharScaleForCurrentDisplay;
 const refreshLicenseUI = deps.refreshLicenseUI;
 const refreshOfficeChipUI = deps.refreshOfficeChipUI;
 const refreshThemeUI = deps.refreshThemeUI;
@@ -38,63 +39,11 @@ const renderQuality = deps.renderQuality;   // 읽는 함수 — 실행 화면 �
 const setRenderQuality = deps.setRenderQuality;   // 쓰는 함수
 const renderAntialias = deps.renderAntialias;   // 값 — 이번 실행의 렌더러가 테두리 다듬기를 켜고 만들어졌는가
 const applyRunPixelRatio = deps.applyRunPixelRatio;   // 실행 화면 배율을 지금 화질로 다시 맞춘다
+const openSettings = deps.openSettings;   // ⚙️ 설정 창 열기(settings-panel.js) — (탭?)
+const closeSettings = deps.closeSettings;
+const onTabShown = deps.onTabShown;   // (fn(탭)) — 탭을 보일 때 부를 것을 건다
 
-/* --- 프로그램 설정(⚙️) — 라이선스 등록 UI가 이 모달의 "라이선스" 탭 안으로 들어옴, + "모니터" 탭 추가 ---
-   모니터 선택은 run 모드의 focusSettingsPanel(renderMonitors)과 동일한 방식: companion.getDisplays()로
-   목록을 받아 버튼으로 그리고, 클릭 시 companion.moveToDisplay(id)로 즉시 반영. */
-async function renderProgMonitors(){
-  const labelEl=document.getElementById('progMonitorLabel');
-  const monEl=document.getElementById('progMonitors');
-  const singleMsg=document.getElementById('progMonitorSingleMsg');
-  if(!monEl || !labelEl) return;
-  if(!window.companion || !companion.getDisplays){ labelEl.style.display='none'; monEl.style.display='none'; if(singleMsg) singleMsg.style.display='block'; return; }
-  let displays=[];
-  try{ displays = await companion.getDisplays(); }catch(e){}
-  if(!displays || displays.length<2){
-    // 모니터가 1개면 선택할 필요가 없으니 숨김 (focusSettingsPanel과 동일한 규칙)
-    labelEl.style.display='none'; monEl.style.display='none'; if(singleMsg) singleMsg.style.display='block';
-    return;
-  }
-  if(singleMsg) singleMsg.style.display='none';
-  labelEl.style.display='block'; monEl.style.display='flex';
-  monEl.innerHTML='';
-  displays.forEach(d=>{
-    const btn=document.createElement('button');
-    btn.type='button';
-    btn.className='fs-mon-btn'+(d.isCurrent?' current':'');
-    btn.textContent=d.label; if(d.name) btn.title=d.name;   // OS 가 주는 모니터 이름(제보 #10)
-    btn.onclick=async ()=>{
-      if(window.companion && companion.moveToDisplay){
-        const res=await companion.moveToDisplay(d.id);
-        if(res && res.ok){ toast(d.label+'로 이동'); renderProgMonitors(); refreshCharScaleForCurrentDisplay(); }
-        else{ toast('이동 실패'); }
-      }
-    };
-    monEl.appendChild(btn);
-  });
-}
-/* 탭 전환 — run 모드 설정 패널(bindFsTabs)과 동일한 방식. 3탭(라이선스/모니터/시스템)
-   ★ [회원가입 설계 개정 16] '계정' 탭은 걷었다 — 계정 기능의 자리는 [내 정보 › 계정](C4) 하나다(openMyInfo).
-     프로그램 정보(버전)는 유저 정보가 아니므로 시스템에 그대로 있다. */
-function setProgSettingsTab(tab){   // tab: 'license' | 'display' | 'system'
-  const tabs = [
-    { key:'license', btn:'progTabBtnLicense', page:'progTabLicense' },
-    { key:'display', btn:'progTabBtnDisplay', page:'progTabDisplay' },
-    { key:'system',  btn:'progTabBtnSystem',  page:'progTabSystem'  },
-  ];
-  tabs.forEach(t=>{
-    const b=document.getElementById(t.btn), p=document.getElementById(t.page);
-    if(b) b.classList.toggle('on', t.key===tab);
-    if(p) p.style.display = (t.key===tab) ? 'block' : 'none';
-  });
-}
-if(document.getElementById('progTabBtnLicense')) document.getElementById('progTabBtnLicense').onclick=()=>setProgSettingsTab('license');
-if(document.getElementById('progTabBtnDisplay')) document.getElementById('progTabBtnDisplay').onclick=()=>{ setProgSettingsTab('display'); renderProgMonitors(); refreshThemeUI(); refreshRenderQualityUI(); };
-// 🎨 테마·색상 칩 바인딩은 여기서 하면 안 된다 — bindThemeUI()가 THEME_COLORS(const, 파일 아래쪽)를 읽어서
-//    TDZ 에러로 app.js 전체 실행이 여기서 멈춘다. 선언 바로 뒤(applyTheme 옆)에서 부른다.
-if(document.getElementById('progTabBtnSystem'))  document.getElementById('progTabBtnSystem').onclick =()=>{ setProgSettingsTab('system'); refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshLabVideoUI(); refreshAppVersionUI(); };
-
-/* --- 🎚️ 실행 화면 화질(모니터 탭) — 고르면 이 PC 에 저장 · 배율은 바로, 테두리 다듬기는 다시 켜야 --- */
+/* --- 🎚️ 실행 화면 화질(디스플레이 탭) — 고르면 이 PC 에 저장 · 배율은 바로, 테두리 다듬기는 다시 켜야 --- */
 const RENDER_QUALITY_HINT = {
   sharp: '지금처럼 선명하게 그려요.',
   auto: '화면이 계속 버벅이면 알아서 해상도를 낮춰요. 앱을 다시 켜면 선명하게 다시 시작해요.',
@@ -281,7 +230,7 @@ if(document.getElementById('progLabVideoToggle')){
   };
 }
 
-/* ℹ️ 프로그램 버전 표시 — 시스템 탭 맨 아래 · 첫 화면(초대 게이트) 맨 아래. data-app-version 칸을 모두 같은 글로 채운다.
+/* ℹ️ 프로그램 버전 표시 — 정보 탭 · 첫 화면(초대 게이트) 맨 아래. data-app-version 칸을 모두 같은 글로 채운다.
    companion.getAppVersion()은 main의 app.getVersion() = package.json의 version이라
    빌드된 exe와 항상 일치한다(하드코딩하면 릴리스 때마다 어긋난다).
    브라우저 미리보기처럼 companion이 없는 환경에선 조용히 '-'로 둔다.
@@ -296,21 +245,18 @@ function refreshAppVersionUI(){
     .catch(()=>{ put('-'); });
 }
 
-/* 프로그램 설정 모달 열기/닫기 — 꾸미기 프리미엄 게이트(라이선스 탭으로 직행)에서도 재사용 */
-function openProgramSettings(tab){
-  const o=document.getElementById('programSettingsOverlay'); if(!o) return;
-  o.classList.add('on'); o.style.display='flex';
-  setProgSettingsTab(tab||'license');
-  refreshLicenseUI();
-  if((tab||'license')==='display') { renderProgMonitors(); refreshThemeUI(); }
-  if((tab||'license')==='system')  { refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshLabVideoUI(); refreshAppVersionUI(); }   // 🎬 시스템 탭으로 바로 열려도 실제 적용 상태(적용 안 됨)를 보인다
+/* 탭을 보일 때 그 탭에 있는 이 모듈 칸을 다시 그린다 — 만들 때 onTabShown 으로 건다 */
+function refreshTab(key){
+  if(key==='display'){ refreshThemeUI(); refreshRenderQualityUI(); refreshAutoLaunchUI(); refreshOfficeModeUI(); refreshLabVideoUI(); }   // 🎬 실제 적용 상태(적용 안 됨)까지 보인다
+  if(key==='char') refreshFigureModeUI();
+  if(key==='info'){ refreshLicenseUI(); refreshAppVersionUI(); }
 }
-function closeProgramSettings(){
-  const o=document.getElementById('programSettingsOverlay'); if(!o) return;
-  o.classList.remove('on'); o.style.display='none';
-}
-document.getElementById('lcProgSettingsBtn').onclick=()=>openProgramSettings('license');
-document.getElementById('progSettingsCloseBtn').onclick=()=>closeProgramSettings();
+/* 옛 «프로그램 설정» 창의 탭 이름 → 지금 탭. 꾸미기 프리미엄 게이트는 'license' 로 연다 */
+const OLD_TAB = { license:'info', display:'display', system:'display' };
+function openProgramSettings(tab){ openSettings(OLD_TAB[tab] || tab); }
+function closeProgramSettings(){ closeSettings(); }
+document.getElementById('lcProgSettingsBtn').onclick=()=>openProgramSettings();
+onTabShown(refreshTab);
 
 twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기 · 라이선스 요청이 이 통로로 연다 · 닫는다
 twNav.on(twNav.NAV.PROGRAM_SETTINGS_CLOSE, closeProgramSettings);
@@ -318,6 +264,7 @@ refreshAppVersionUI();
 return {
   closeProgramSettings,
   openProgramSettings,
+  refreshTab,
 };
 }
 

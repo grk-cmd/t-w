@@ -26,7 +26,7 @@ const rideBenchMod = deps.rideBenchMod;
      (예: F2를 다시 누르면 꾸미기 창이 닫히면서 commitWdDraft로 자동 저장까지 자동 처리) */
 (function bindHotkeys(){
   // 이미 열려있으면 스킵할 모달 셀렉터 — updateMyStatusChipPosition 근처의 다른 모달 셀렉터와 동일한 세트.
-  const OPEN_MODAL_SEL = '#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #codeOverlay.on, #programSettingsOverlay.on, #pkOverlay.on';
+  const OPEN_MODAL_SEL = '#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #codeOverlay.on, #focusSettingsPanel.fs-in-launcher.on, #pkOverlay.on';
   function isTyping(){
     const a = document.activeElement;
     if(!a) return false;

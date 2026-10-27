@@ -199,7 +199,7 @@ export function createChatHistory(deps){
   const wipeAll = () => store ? store.wipeAll() : Promise.resolve(null);
   const count = () => store ? store.count() : Promise.resolve(0);
 
-  /* 설정 › 시스템 [저장된 대화 지우기] — 첫 누름은 몇 줄인지 보여 주고, 한 번 더 눌러야 지운다(되돌릴 수 없다). */
+  /* 설정 › 정보 [저장된 대화 지우기] — 첫 누름은 몇 줄인지 보여 주고, 한 번 더 눌러야 지운다(되돌릴 수 없다). */
   function bindSettings(doc, toast){
     const b = doc && doc.getElementById('progChatHistWipe'); if(!b) return;
     const label = b.textContent;

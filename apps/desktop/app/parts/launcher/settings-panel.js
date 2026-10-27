@@ -1,11 +1,12 @@
-/* settings-panel.js — ⚙ 설정 패널(포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너) · 캐릭터 탭(캐릭터 교체 · 자리 추가)
+/* settings-panel.js — ⚙ 설정 창 하나(런처 · 실행 화면 공용 — 여닫기 openSettings · 탭 다섯 · ⓘ 설명) · 디스플레이 · 캐릭터 · 포커싱 · 방 연결 칸 · 광고 배너 · 캐릭터 교체 · 자리 추가
+   ★ 런처에서 열면(isLauncherShown) 가운데에 .fs-in-launcher 로 뜬다 — 실행 화면 전용 칸(.fs-run-only)은 숨는다. 테마 · 화질 · 자동 실행 · 라이선스 같은 «프로그램» 칸은 program-settings.js 가 그리고, 탭을 보일 때 다시 그리기는 그쪽이 onTabShown 으로 건다(한 방향 — 이 모듈은 그쪽을 모른다).
    app.js «⚙ 설정 패널» · «설정 패널 캐릭터 탭» 두 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 27번 — docs/APP_FSD_MAP.md).
    이동 모드 상태(moveMode 등) · 앱 화면 전환(appMode · launchApp · backToLauncher · applyAppMode)은 부팅 · 화면 핵심이라 app.js 에 남겼다. 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 62줄 —
      MULTIPLAYER_SPACING · Presence · SPACING · _moveModeJustToggled · chipHorizontal · curSlot · decoPartsVisible · dotRenderEnabled · emojiReactionsEnabled · focusCharScale · isPremium · moveMode · nameplateEnabled · roomSeatMode · seatEqualizeOn · slots · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMULTIPLAYER_SPACING · setSPACING · setMoveModeJustToggled · setChipHorizontal · setCurSlot · setDecoPartsVisible · setDotRenderEnabled · setEmojiReactionsEnabled · setFocusCharScale · setMoveMode · setNameplateEnabled · setRoomSeatMode · setSeatEqualizeOn(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 24개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: openSettings · closeSettings · onTabShown · nameplateClamp · nameplatePct · EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSettingsPanel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-settings-panel.js */
@@ -39,6 +40,7 @@ const escRegisterWindow = deps.escRegisterWindow;
 const findMySeat = deps.findMySeat;
 const focusCharScale = deps.focusCharScale;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
+const isLauncherShown = deps.isLauncherShown;   // 지금 런처 화면인가(설정 창을 가운데에 띄운다)
 const layoutSeats = deps.layoutSeats;
 const moveMode = deps.moveMode;   // 읽는 함수
 const nameplateEnabled = deps.nameplateEnabled;   // 읽는 함수
@@ -71,7 +73,12 @@ const setMoveMode = deps.setMoveMode;   // 쓰는 함수
 const setNameplateEnabled = deps.setNameplateEnabled;   // 쓰는 함수
 const setRoomSeatMode = deps.setRoomSeatMode;   // 쓰는 함수
 const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
-(function bindFocusSettings(){
+/* 🏷️ 이름표(레벨/이름) 크기 — px 범위 · 기본값 · 화면에 보일 % (기본 = 100%) */
+const NAMEPLATE_SIZE = { min:10, max:26, def:15, key:'tw.nameplateSize' };
+const nameplateClamp = (v) => Math.max(NAMEPLATE_SIZE.min, Math.min(NAMEPLATE_SIZE.max, Math.round(+v || NAMEPLATE_SIZE.def)));
+const nameplatePct = (px) => Math.round(nameplateClamp(px) / NAMEPLATE_SIZE.def * 100);
+
+const fsWin = (function bindFocusSettings(){
   const gearBtn=document.getElementById('myFocusGearBtn');
   const panel=document.getElementById('focusSettingsPanel');
   const slotsEl=document.getElementById('fsSlots');
@@ -79,7 +86,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   const moveBtn=document.getElementById('fsMoveBtn');
   const moveHint=document.getElementById('fsMoveHint');
   const backBtn=document.getElementById('fsBackBtn');
-  if(!gearBtn||!panel) return;
+  if(!gearBtn||!panel) return { openSettings(){}, closeSettings(){}, onTabShown(){} };
 
   // ✥ 설정창 자유 이동 — 타이틀바(⚙️ 설정)를 잡고 드래그. 옮긴 뒤엔 캐릭터 머리 위 자동 따라가기가
   //   중단되고(위 렌더 루프의 _fsPanelDragged 체크), 창을 닫았다 다시 열면 머리 위 기본 위치로 복귀.
@@ -90,6 +97,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     let dragging=false, offX=0, offY=0;
     bar.addEventListener('pointerdown', e=>{
       if(e.target.closest && e.target.closest('#fsPanelClose')) return;   // ✕ 버튼은 그대로 닫기
+      if(panel.classList.contains('fs-in-launcher')) return;   // 런처에선 가운데 고정 — 옮긴 자리가 실행 화면까지 따라가지 않게
       dragging=true; window._fsPanelDragged=true;
       const px=parseFloat(panel.style.left)||0, py=parseFloat(panel.style.top)||0;
       offX=e.clientX-px; offY=e.clientY-py;
@@ -250,18 +258,15 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   }
 
   async function renderMonitors(){
-    const labelEl=document.getElementById('fsMonitorLabel');
     const monEl=document.getElementById('fsMonitors');
-    if(!monEl || !labelEl) return;
-    if(!window.companion || !companion.getDisplays){ labelEl.style.display='none'; monEl.style.display='none'; return; }
+    const singleMsg=document.getElementById('fsMonitorSingleMsg');
+    if(!monEl) return;
+    const showList=(on)=>{ monEl.style.display = on ? 'flex' : 'none'; if(singleMsg) singleMsg.style.display = on ? 'none' : ''; };
+    if(!window.companion || !companion.getDisplays){ showList(false); return; }
     let displays=[];
     try{ displays = await companion.getDisplays(); }catch(e){}
-    if(!displays || displays.length<2){
-      // 모니터가 1개면 선택할 필요가 없으니 숨김
-      labelEl.style.display='none'; monEl.style.display='none';
-      return;
-    }
-    labelEl.style.display='block'; monEl.style.display='flex';
+    if(!displays || displays.length<2){ showList(false); return; }   // 모니터가 1개면 고를 것이 없다 — 안내만
+    showList(true);
     monEl.innerHTML='';
     displays.forEach(d=>{
       const btn=document.createElement('button');
@@ -282,27 +287,78 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   /* ⎋ ESC 스택 — 이 창은 여태 ESC 로 닫히지 않았다(바깥 클릭과 ⚙️ 토글뿐이었다). 스택에 태우면서
      ESC 로도 닫힌다. 닫는 일은 클래스 하나를 떼는 것이라 별도 정리 절차가 없다 —
      ⚠️ 나중에 저장·정리를 붙이게 되면 여기 close 와 gearBtn 토글 **둘 다** 고칠 것. */
+  /* 🗂️ 탭 다섯 — 열 때 어느 탭인지 안 정하면 이번 실행에서 마지막에 본 탭(처음은 디스플레이) */
+  const FS_TABS = {
+    display: { btn:'fsTabBtnDisplay', page:'fsTabDisplay' },
+    char:    { btn:'fsTabBtnSize',    page:'fsTabSize' },
+    focus:   { btn:'fsTabBtnApp',     page:'fsTabApp' },
+    room:    { btn:'fsTabBtnMulti',   page:'fsTabMulti' },
+    info:    { btn:'fsTabBtnInfo',    page:'fsTabInfo' },
+  };
+  let _curTab = 'display';
+  const _tabShown = [];   // 탭을 보일 때 부를 것 — program-settings.js 가 onTabShown 으로 건다(이 모듈은 그쪽을 모른다)
+  function showTab(key){
+    if(!FS_TABS[key]) key = 'display';
+    _curTab = key;
+    for(const k in FS_TABS){
+      const b=document.getElementById(FS_TABS[k].btn), p=document.getElementById(FS_TABS[k].page);
+      if(b) b.classList.toggle('on', k===key);
+      if(p) p.style.display = (k===key) ? 'block' : 'none';
+    }
+    const inLauncher = panel.classList.contains('fs-in-launcher');
+    if(key==='display'){ renderMonitors(); refreshToggleBtns(); }
+    if(key==='char'){
+      renderSizeBar(); renderGapBar(); refreshToggleBtns();
+      if(!inLauncher) renderCharSlots();   // 런처에선 교체 칸 대신 안내만 보인다
+    }
+    if(key==='focus') renderSlots();
+    if(key==='room'){
+      refreshInviteUI();
+      // 🪑 방에 연결된 상태로 이 탭에 들어오면 자리추가(내 슬롯) 좌석을 정리한다 — F1 탭을 여는 것만으로는
+      //   정리가 안 돼 방 안인데도 내 슬롯 캐릭터들이 화면에 남아 보이던 문제. 런처에선 좌석이 없다.
+      if(!inLauncher) applyExtraSeatForMode();
+    }
+    _tabShown.forEach(fn => fn(key));
+  }
+  for(const k in FS_TABS){
+    const b=document.getElementById(FS_TABS[k].btn);
+    if(b) b.onclick = ()=>showTab(k);
+  }
+  function openSettings(tab){
+    const inLauncher = !!isLauncherShown();
+    panel.classList.toggle('fs-in-launcher', inLauncher);
+    panel.classList.add('on');
+    bringWinToFront('focusSettingsPanel');   // 🪟 열 때는 맨 앞으로
+    // ✥ 드래그로 옮긴 위치 기억 — 닫았다 열어도 그 자리. 단 화면 밖(해상도 변경 등)이면 머리 위 기본 위치로 복귀.
+    if(!inLauncher && window._fsPanelDragged){
+      const px=parseFloat(panel.style.left)||0, py=parseFloat(panel.style.top)||0;
+      if(px<0 || py<0 || px>innerWidth || py>innerHeight) window._fsPanelDragged=false;
+    }
+    sizeSlider.value = String(focusCharScale());
+    showTab(tab || _curTab);
+    if(!inLauncher) refreshFsAdBanner();
+  }
+  function closeSettings(){ panel.classList.remove('on'); }
   escRegisterWindow({
     key:'focusSettings', el:panel,
     isOpen:()=>panel.classList.contains('on'),
-    close:()=>panel.classList.remove('on'),
+    close:closeSettings,
   });
   gearBtn.addEventListener('click', e=>{
     e.stopPropagation();
-    const willOpen = !panel.classList.contains('on');
-    panel.classList.toggle('on', willOpen);
-    if(willOpen){
-      bringWinToFront('focusSettingsPanel');   // 🪟 열 때는 맨 앞으로
-      // ✥ 드래그로 옮긴 위치 기억 — 닫았다 열어도 그 자리. 단 화면 밖(해상도 변경 등)이면 머리 위 기본 위치로 복귀.
-      if(window._fsPanelDragged){
-        const px=parseFloat(panel.style.left)||0, py=parseFloat(panel.style.top)||0;
-        if(px<0 || py<0 || px>innerWidth || py>innerHeight) window._fsPanelDragged=false;
-      }
-      renderSlots(); sizeSlider.value = String(focusCharScale()); renderSizeBar(); renderGapBar(); refreshToggleBtns(); renderMonitors(); renderCharSlots(); refreshFsAdBanner();
-    }
+    if(panel.classList.contains('on')) closeSettings(); else openSettings();
   });
   const panelCloseBtn=document.getElementById('fsPanelClose');
-  if(panelCloseBtn) panelCloseBtn.addEventListener('click', e=>{ e.stopPropagation(); panel.classList.remove('on'); });
+  if(panelCloseBtn) panelCloseBtn.addEventListener('click', e=>{ e.stopPropagation(); closeSettings(); });
+  /* ⓘ — 라벨 옆 i 를 누르면 그 줄의 설명이 열리고, 다시 누르면 닫힌다 */
+  panel.addEventListener('click', e=>{
+    const btn = e.target && e.target.closest && e.target.closest('.fs-info');
+    if(!btn) return;
+    const desc = document.getElementById(btn.getAttribute('aria-controls'));
+    if(!desc) return;
+    desc.hidden = !desc.hidden;
+    btn.setAttribute('aria-expanded', desc.hidden ? 'false' : 'true');
+  });
   /* 🪟 **다른 창을 눌렀다고 닫지 않는다.**
      [경위] 채팅창이나 플레이리스트를 누르면 설정창이 그냥 사라졌다(제보). 여기 바깥 클릭 규칙이
        "패널과 ⚙️ 버튼 말고는 전부 바깥"이었기 때문이다. 창을 나란히 놓고 쓰는 사용에서는
@@ -318,10 +374,16 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     '#wardrobePanel', '#wdPreviewPanel',   // 🎨 꾸미기·미리보기
     '#myHomeOverlay', '#bellWin', '#focusLogOverlay',
     '#mobLinkOverlay',      // 📱 태블릿·폰 연결 창 — 설정에서 열었으므로 눌러도 설정이 안 닫힌다
+    '#ossLicensesOverlay',  // 📄 오픈소스 라이선스 창 — 정보 탭에서 열었으므로 같은 이유
+    '#inviteOverlay',       // 🚪 방 목록 창 — 방 연결 탭 [방 만들기] 로 열었으므로 같은 이유
     '.gacha-ov', '.idesk-ov', '.toast'
   ].join(', ');
+  /* 이 클릭 «전에» 열려 있었는가 — 다른 곳의 버튼(런처 ⚙️ 설정 · 꾸미기 라이선스 안내)이 창을 연 그 클릭이
+     여기까지 올라와 바로 닫아 버리지 않게(outside-close.js 와 같은 방식) */
+  let _openBeforeClick = false;
+  document.addEventListener('click', ()=>{ _openBeforeClick = panel.classList.contains('on'); }, true);
   document.addEventListener('click', e=>{
-    if(!panel.classList.contains('on')) return;
+    if(!_openBeforeClick || !panel.classList.contains('on')) return;
     // ★ e.target 대신 e.composedPath()를 씀 — 클릭 처리 도중(예: 캐릭터 교체/자리추가로 renderCharSlots가
     //   버튼들을 통째로 지웠다가 다시 그리는 경우) 원래 클릭했던 요소가 DOM에서 이미 제거돼버리면
     //   panel.contains(e.target)이 "떨어져나간 노드"라서 무조건 false가 되어 패널 밖 클릭으로 착각,
@@ -333,7 +395,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
       if(n && n.matches && n.matches(FS_KEEP_OPEN_SEL)) return;   // 다른 창 위 — 그대로 둔다
     }
     if(!path.includes(panel) && e.target!==gearBtn){
-      panel.classList.remove('on');
+      closeSettings();
     }
   });
 
@@ -466,22 +528,28 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     localStorage.setItem('tw.nameplate', nameplateEnabled()?'1':'0');
     refreshToggleBtns();
   };
-  // 이름표(레벨/이름) 크기 슬라이더 — CSS 변수(--nameplate-size)를 갱신해서 즉시 반영, localStorage에 저장.
-  const npSizeSlider=document.getElementById('fsNameplateSize');
-  if(npSizeSlider){
-    // 저장된 값 복원 (없으면 기본 15)
-    let saved=15;
-    try{ const v=parseInt(localStorage.getItem('tw.nameplateSize'),10); if(isFinite(v)&&v>0) saved=v; }catch(e){}
-    npSizeSlider.value=String(saved);
-    document.getElementById('seatLabelsLayer').style.setProperty('--nameplate-size', saved+'px');
-    npSizeSlider.oninput=()=>{
-      const v=+npSizeSlider.value;
-      document.getElementById('seatLabelsLayer').style.setProperty('--nameplate-size', v+'px');
-      try{ localStorage.setItem('tw.nameplateSize', String(v)); }catch(e){}
+  // 이름표(레벨/이름) 크기 — [−] 100% [+] [↺]. 한 번에 1px, 기본 크기를 100% 로 보인다. CSS 변수(--nameplate-size)로 즉시 반영 · localStorage 에 저장.
+  (function bindNameplateSize(){
+    const layer=document.getElementById('seatLabelsLayer');
+    const pctEl=document.getElementById('fsNameplateSizePct');
+    let size=NAMEPLATE_SIZE.def;
+    try{ const v=parseInt(localStorage.getItem(NAMEPLATE_SIZE.key),10); if(isFinite(v)&&v>0) size=nameplateClamp(v); }catch(e){}
+    const show=()=>{
+      if(layer) layer.style.setProperty('--nameplate-size', size+'px');
+      if(pctEl) pctEl.textContent = nameplatePct(size)+'%';
     };
-  }
+    const set=(v)=>{
+      size=nameplateClamp(v); show();
+      try{ localStorage.setItem(NAMEPLATE_SIZE.key, String(size)); }catch(e){}
+    };
+    const b=(id, fn)=>{ const el=document.getElementById(id); if(el) el.onclick=fn; };
+    b('fsNameplateSizeOut', ()=>set(size-1));
+    b('fsNameplateSizeIn', ()=>set(size+1));
+    b('fsNameplateSizeReset', ()=>set(NAMEPLATE_SIZE.def));
+    show();
+  })();
 
-  if(backBtn) backBtn.onclick = ()=>{ panel.classList.remove('on'); backToLauncher(); };
+  if(backBtn) backBtn.onclick = ()=>{ closeSettings(); backToLauncher(); };
 
   // ★ 부드러운 슬라이더 대신 15칸 막대바 + 좌우 화살표로 변경 — 드래그 중 계속 재계산되던 것과 달리
   //   클릭 한 번에 한 단계만 딱 반영되니 렉(버벅임) 없이 큼직큼직하게 조절 가능.
@@ -545,36 +613,14 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     moveBtn.classList.toggle('active', moveMode());
     moveBtn.textContent = moveMode() ? '클릭해서 위치 확정' : '프로그램 이동';
     if(moveHint) moveHint.style.display = moveMode() ? 'block' : 'none';
-    if(moveMode()){ panel.classList.remove('on'); }   // 이동 중엔 패널 가려서 시야 확보
+    if(moveMode()){ closeSettings(); }   // 이동 중엔 패널 가려서 시야 확보
   };
+  return { openSettings, closeSettings, onTabShown: (fn) => { _tabShown.push(fn); } };
 })();
-
-/* 설정 패널 탭 전환 (포커싱어플 / 화면표시 / 캐릭터크기) */
-(function bindFsTabs(){
-  const tabs=[
-    { btn:'fsTabBtnApp', page:'fsTabApp' },
-    { btn:'fsTabBtnDisplay', page:'fsTabDisplay' },
-    { btn:'fsTabBtnSize', page:'fsTabSize' },
-    { btn:'fsTabBtnMulti', page:'fsTabMulti' },
-  ];
-  tabs.forEach(t=>{
-    const btn=document.getElementById(t.btn); if(!btn) return;
-    btn.onclick=()=>{
-      tabs.forEach(o=>{
-        document.getElementById(o.btn).classList.toggle('on', o.btn===t.btn);
-        document.getElementById(o.page).style.display = (o.btn===t.btn) ? 'block' : 'none';
-      });
-      if(t.btn==='fsTabBtnSize') renderCharSlots();
-      if(t.btn==='fsTabBtnMulti'){
-        refreshInviteUI();
-        // 🪑 방에 연결된 상태로 이 탭에 들어오면 자리추가(내 슬롯) 좌석을 정리한다.
-        //   방 만들기/참여 경로에서는 이미 호출되지만 F1 탭을 여는 것만으로는 정리가 안 돼,
-        //   방 안인데도 내 슬롯 캐릭터들이 화면에 남아 보이던 문제가 있었음.
-        applyExtraSeatForMode();
-      }
-    };
-  });
-})();
+/* 맨 위 이름으로도 둔다 — 검사(sim-renderer-src joinRenderer)가 «옮기기 전 app.js 글» 을 되살릴 때 이 이름들이 맨 위에 있어야 한다 */
+const openSettings = fsWin.openSettings;
+const closeSettings = fsWin.closeSettings;
+const onTabShown = fsWin.onTabShown;   // (fn(탭)) — 탭을 보일 때마다 부른다
 
 /* 설정 패널 광고 배너 — 기본은 관리자가 등록한 배너(런처와 동일 데이터) 그대로 보여줌.
    라이선스 보유자(isPremium)는 배너 우클릭 시 파일 선택창이 떠서 자기 이미지(로컬 저장, 이 기기 한정)로 바꿀 수 있음.
@@ -884,6 +930,11 @@ function _fsRevealSlot(stripId, idx){
 }
 
 return {
+  openSettings,   // (탭?) — 'display' | 'char' | 'focus' | 'room' | 'info' · 없으면 마지막에 본 탭
+  closeSettings,
+  onTabShown,
+  nameplateClamp,
+  nameplatePct,
   EXTRA_SEAT_KEY,
   MY_AD_BANNER_KEY,
   _saveExtraSeatSlots,
