@@ -20,20 +20,20 @@ let open = null, close = null, isOpen = null;   // bindWardrobe 가 채운다 �
   const closeBtn=document.getElementById('wardrobeClose');
   if(!btn||!panel)return;
   isOpen = ()=>panel.classList.contains('on');
-  /* tab — 보일 탭(안 주면 마지막에 본 탭). 이미 열려 있으면 탭만 바꿔 다시 그린다. */
-  open = function(tab){
-    wardrobeMod().selectWdTab(tab);
+  /* tab — 보일 탭(안 주면 마지막에 본 탭) · opts 는 도감 탭에 그대로(skipSync). 이미 열려 있으면 탭만 바꿔 다시 그린다. */
+  open = function(tab, opts){
+    wardrobeMod().selectWdTab(tab, opts);
     wardrobeMod().renderWardrobe();
     panel.classList.add('on');
-    if(typeof wardrobeMod().syncWdPreviewOwner==='function') wardrobeMod().syncWdPreviewOwner();
-    if(typeof wardrobeMod().refreshWdPreviewChar==='function') wardrobeMod().refreshWdPreviewChar();
+    wardrobeMod().syncWdPreviewOwner();
+    wardrobeMod().refreshWdPreviewChar();
   };
   close = function(){
-    if(panel.classList.contains('on') && typeof wardrobeMod().commitWdDraft==='function') wardrobeMod().commitWdDraft();   // ★ 저장 버튼 없이, 닫힐 때 자동 저장
+    if(panel.classList.contains('on')) wardrobeMod().commitWdDraft();   // ★ 저장 버튼 없이, 닫힐 때 자동 저장
     panel.classList.remove('on');
     // ★ 미리보기 표시 판정은 syncWdPreviewOwner 한 곳에서만.
-    if(typeof wardrobeMod().syncWdPreviewOwner==='function') wardrobeMod().syncWdPreviewOwner();
-    if(typeof wardrobeMod().detachWdGizmo==='function') wardrobeMod().detachWdGizmo();
+    wardrobeMod().syncWdPreviewOwner();
+    wardrobeMod().detachWdGizmo();
     // ★ 컬러 선택 팝업(body에 fixed로 붙는 팔레트)이 열린 채로 꾸미기창이 닫히면 팔레트만 남던 문제 —
     //   꾸미기창이 닫힐 땐 떠 있는 팔레트도 전부 같이 제거(요청사항).
     document.querySelectorAll('.wd-color-palette').forEach(p=>p.remove());
@@ -80,7 +80,7 @@ function toggleAlbum(){
 }
 
 /* 📚 뽑기 창 [도감으로] — «도감» 탭으로 연다(열려 있으면 탭만 바꾼다). 가챠는 꾸미기 창을 모르므로 통로로 부탁한다. */
-twNav.on(twNav.NAV.WARDROBE_ALBUM, ()=>{ if(open) open(wardrobeMod().ALBUM_TAB); });
+twNav.on(twNav.NAV.WARDROBE_ALBUM, (opts)=>{ if(open) open(wardrobeMod().ALBUM_TAB, opts); });
 
 return {
   toggleAlbum,

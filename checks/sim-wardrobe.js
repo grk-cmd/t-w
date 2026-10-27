@@ -162,7 +162,7 @@ const behaveBreaks = [
   ['라이선스 없어도 처음 탭이 모자', m => m.replace("else if(!currentWdTab && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;", '')],
   ['잠금 안내 없이 칸을 그림', m => m.replace("  if(!wdLicensed()){\n    wrap.innerHTML='';\n    renderWdLocked(wrap);", "  if(false){\n    wrap.innerHTML='';\n    renderWdLocked(wrap);")],
   ['안 뽑은 가챠도 칸에', m => m.replace("!gachaMod().isGachaPart(p) || gachaMod().gachaCount(p.id)>0", '!0')],
-  ['도감 탭에서 서버를 안 맞춤', m => m.replace('if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow();', '')],
+  ['도감 탭에서 서버를 안 맞춤', m => m.replace('if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);', '')],
   ['가챠 칸에도 관리자 ×', m => m.replace('if(isAdmin() && !isGacha){', 'if(isAdmin()){')],
 ];
 for(const [name, fm] of behaveBreaks){

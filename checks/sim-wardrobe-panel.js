@@ -83,7 +83,7 @@ function behave(src){
   const document = { getElementById: id => els[id] || null, addEventListener: (k, fn) => { (docOn[k] = docOn[k] || []).push(fn); }, querySelectorAll: () => [], querySelector: () => null };
   const log = [];
   let tab = null;
-  const wm = { ALBUM_TAB: 'album', selectWdTab: (x) => { log.push('tab:' + (x || '-')); if(x) tab = x; }, isAlbumTab: () => tab === 'album',
+  const wm = { ALBUM_TAB: 'album', selectWdTab: (x, o) => { log.push('tab:' + (x || '-') + (o && o.skipSync ? '+skip' : '')); if(x) tab = x; }, isAlbumTab: () => tab === 'album',
     renderWardrobe: () => log.push('render'), syncWdPreviewOwner: () => {}, refreshWdPreviewChar: () => {}, commitWdDraft: () => log.push('commit'), detachWdGizmo: () => {} };
   const navFns = {};
   const twNav = { NAV: { WARDROBE_ALBUM: 'wardrobeAlbum', PROGRAM_SETTINGS: 'programSettings' }, on: (n, fn) => { navFns[n] = fn; }, go: (n, ...a) => { log.push('nav:' + n); return navFns[n] && navFns[n](...a); } };
@@ -104,8 +104,8 @@ function behave(src){
   t(on() && log.join() === 'tab:album,render', '  다른 탭이 열려 있으면 «도감» 탭으로 바꾼다(닫지 않음)');
   docOn.keydown[0]({ key: 'Escape' });
   t(!on(), 'ESC — 닫는다');
-  log.length = 0; twNav.go('wardrobeAlbum');
-  t(on() && log.join() === 'nav:wardrobeAlbum,tab:album,render', '뽑기 창 [도감으로] — 통로(WARDROBE_ALBUM)로 «도감» 탭을 연다');
+  log.length = 0; twNav.go('wardrobeAlbum', { skipSync: true });
+  t(on() && log.join() === 'nav:wardrobeAlbum,tab:album+skip,render', '뽑기 창 [도감으로] — 통로(WARDROBE_ALBUM)로 «도감» 탭을 연다 · skipSync 를 도감 탭까지 그대로 넘긴다');
   return r;
 }
 
@@ -128,6 +128,7 @@ const breaks = [
 const behaveBreaks = [
   ['T 가 늘 닫기만', m => m.replace("if(isOpen() && wardrobeMod().isAlbumTab()) close();", 'if(isOpen()) close();')],
   ['T 가 도감 탭을 안 줌', m => m.replace('else open(wardrobeMod().ALBUM_TAB);', 'else open();')],
+  ['[도감으로] 가 opts 를 버림', m => m.replace('open(wardrobeMod().ALBUM_TAB, opts); });', 'open(wardrobeMod().ALBUM_TAB); });')],
   ['[도감으로] 통로를 안 걺', m => m.replace("twNav.on(twNav.NAV.WARDROBE_ALBUM,", "(()=>0)(twNav.NAV.WARDROBE_ALBUM,")],
   ['다시 연 창이 저장 안 함', m => m.replace("wardrobeMod().commitWdDraft();   // ★", "0;   // ★")],
 ];

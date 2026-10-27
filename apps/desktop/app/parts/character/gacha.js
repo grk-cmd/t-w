@@ -565,11 +565,10 @@ function _gachaDropAdj(){
 
 /* 📚 도감 탭을 처음 보일 때 — 꾸미기 창을 «도감» 탭으로 열거나 탭을 바꿀 때 꾸미기 창이 부른다.
    ★ 서버와 한 번 맞춘다(다른 PC 에서 뽑은 것이 보이게) — 기다리지 않는다. 받아오면 _adoptServer 가 다시 그린다.
-   ★ 고른 파츠가 있는 쪽에서 시작한다 — 색상 영역은 그 파츠를 따라가는데 칸이 3쪽에 있으면 화면에 안 보인다. */
-let _gachaSkipSync = false;   // [도감으로] — 방금 뽑기가 서버 값을 받아 왔으니 한 번 건너뛴다
-function onAlbumShow(){
-  if(_gachaSkipSync) _gachaSkipSync = false;
-  else { try{ syncGachaToServer('inv-open'); }catch(_){} }
+   ★ 고른 파츠가 있는 쪽에서 시작한다 — 색상 영역은 그 파츠를 따라가는데 칸이 3쪽에 있으면 화면에 안 보인다.
+   opts.skipSync — [도감으로]: 방금 뽑기가 서버 값을 받아 왔으니 다시 읽지 않는다. */
+function onAlbumShow(opts){
+  if(!(opts && opts.skipSync)){ try{ syncGachaToServer('inv-open'); }catch(_){} }
   _gachaJumpId = _gachaSelId;
 }
 
@@ -1155,9 +1154,7 @@ function _gachaDrawOpen(){ const ov=document.getElementById('gachaDrawOverlay');
       _gachaAlbum = rec.season || ''; _gachaSelId = rec.id;
     }
     _gachaLastDrawId = null;
-    _gachaSkipSync = true;
-    twNav.go(twNav.NAV.WARDROBE_ALBUM);
-    _gachaSkipSync = false;   // 꾸미기 창이 «도감» 탭을 안 그렸어도(창 없음) 예약을 남기지 않는다   // 꾸미기 창을 «도감» 탭으로(이미 열려 있으면 탭만) — onAlbumShow 가 고른 파츠의 쪽으로 옮긴다
+    twNav.go(twNav.NAV.WARDROBE_ALBUM, { skipSync: true });   // 꾸미기 창을 «도감» 탭으로(이미 열려 있으면 탭만) — onAlbumShow 가 고른 파츠의 쪽으로 옮긴다
   };
   if(q('gachaDraw1')) q('gachaDraw1').onclick = ()=>_gachaRunDraw(1);
   /* ★ Math.min(5, gachaTicketsLeft()) 로 미리 깎아 넘기지 않는다 — 요청 횟수를 그대로 주고 gachaDraw 가 정한다. */

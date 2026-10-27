@@ -268,7 +268,7 @@
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
-| **sim-gacha.js** | 621 | **93954e1460ae** |
+| **sim-gacha.js** | 621 | **f9657ad0aab0** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
@@ -321,7 +321,7 @@
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
-| **sim-wardrobe.js** | 179 | **46606ffcae79** |
+| **sim-wardrobe.js** | 179 | **452cfeb84344** |
 | **sim-settings-panel.js** | 201 | **8bd1a935f960** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **e1fdfef1a3ca** |
@@ -371,7 +371,7 @@
 | **sim-mat-tone.js** | 179 | **1ed9ca399291** |
 | **sim-oss-licenses.js** | 180 | **40f8118d76e8** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
-| **sim-wardrobe-panel.js** | 145 | **53493d59fd00** |
+| **sim-wardrobe-panel.js** | 146 | **b52894590b3c** |
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |
 | **sim-realtime-link.js** | 323 | **1c6e8a88bcf8** |
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
@@ -862,7 +862,7 @@ UI_HIT_SEL 개명            → ⚠️ 정의를 못 찾음
 |---|---|---|
 | 7920 | `FS_KEEP_OPEN_SEL` | 설정창을 **안 닫을** 창 목록. ★ 하필 `'#myStatusChip'` 으로 시작한다 |
 | 8373 | `OPEN_MODAL_SEL` | 지금 열린 모달이 있는가 |
-| 8495 | (무명) | 꾸미기창 **바깥 클릭** 예외 21개. `#gachaInvOverlay` 로 시작(지금은 `#gachaDrawOverlay` — 보관함 창은 #540 P2 에서 걷음) |
+| 8495 | (무명) | 꾸미기창 **바깥 클릭** 예외 21개. `#gachaDrawOverlay` 로 시작 |
 | 8505 | `modalOpen` | 8373 과 거의 같은 목록 (둘이 갈려 있다) |
 | 30210 | `bindLauncherDim` | 런처 카드 톤다운용. `#commImpOverlay` 를 들고 있는 유일한 자리 |
 

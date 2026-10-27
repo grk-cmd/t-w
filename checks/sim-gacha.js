@@ -145,7 +145,7 @@ function mkEnv(opt){
     clearMultiPanelRef: () => {},
     refreshWdPreviewColorSection: () => { env.colorRefresh++; },
     updateWdGizmoForActivePanel: () => {},
-    twNav: { NAV: { WARDROBE_ALBUM: 'wardrobeAlbum' }, go: (name) => { if(name !== 'wardrobeAlbum') return; env.albumOpens = (env.albumOpens || 0) + 1; env.hostOn = true; m.onAlbumShow(); m.renderGachaInv(); } },   // 창 열기 통로 — 꾸미기 창 «도감» 탭으로 여는 것 흉내
+    twNav: { NAV: { WARDROBE_ALBUM: 'wardrobeAlbum' }, go: (name, opts) => { if(name !== 'wardrobeAlbum') return; env.albumOpens = (env.albumOpens || 0) + 1; env.hostOn = true; m.onAlbumShow(opts); m.renderGachaInv(); } },   // 창 열기 통로 — 꾸미기 창 «도감» 탭으로 여는 것 흉내
     isAdmin: () => env.admin,
     savedParts: () => env.saved,
     partCats: () => env.cats,
@@ -585,7 +585,7 @@ await sec('── 7. app.js 배선', () => {
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
-  const calls = ['gachaMod.onAlbumShow();', 'gachaMod.renderGachaInv();', 'gachaMod.isInvOpen()', 'gachaMod.pruneUnownedGachaParts();', 'gachaMod.selId()',
+  const calls = ['gachaMod.onAlbumShow(opts);', 'gachaMod.renderGachaInv();', 'gachaMod.isInvOpen()', 'gachaMod.pruneUnownedGachaParts();', 'gachaMod.selId()',
     'gachaMod.isGachaPart(', 'gachaMod.isGachaColorUnlocked(', 'gachaMod.gachaCount(', 'gachaMod.DUPES_FOR_COLOR', 'gachaMod.sceneHasColorGroup(',
     'gachaMod.renderGachaInv();', "gachaMod.syncGachaToServer('launcher');", "call(gachaMod.syncGachaToServer, 'logout');", 'gachaMod.owned()', 'gachaMod.resetMemory();',
     "await gachaMod.syncGachaToServer('transfer', 'pull');", 'setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),', 'renderGachaInv: ()=>gachaMod.renderGachaInv(),', 'gachaBonus: ()=>gachaMod.bonus(),'];

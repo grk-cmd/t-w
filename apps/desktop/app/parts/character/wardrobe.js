@@ -1,7 +1,6 @@
 /* wardrobe.js — 🎨 꾸미기 창 — 미리보기 · 초안 · 상세조정 · 색 줄 · 창 그리기 · 파츠 착용 · 탭(머리 … 책상 · 📚 도감)
    ★ «📚 도감» 탭은 가챠 칸(gacha.js 가 #gachaInvHost 에 그린다) · 라이선스가 없으면 도감만 열고 다른 탭은 잠금 안내(wdLicensed).
    app.js 꾸미기 다섯 구역(👀 미리보기 · 📝 초안 · 🎛️ 상세조정 · 🎨 색 줄 · 🎨 창 그리기 · 파츠 착용) 본문을 그대로 옮긴 모듈이다(앱 FSD 29번 — docs/APP_FSD_MAP.md).
-   옮긴 뒤 #540 P2 에서 «📚 도감» 탭 · 라이선스 잠금 · 🎰 칸을 더했다.
    ★ 본문은 app.js 에 있던 글에서 시작했다(들여쓰기도 · 덩이 5개를 원래 차례로). 옮길 때 바꾼 줄 —
      PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · isPremium · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
@@ -1599,11 +1598,11 @@ function wdLicensed(){ return !!(isPremium() || isAdmin()); }
 
 /* 탭 고르기 — 꾸미기 창을 열 때(F2 · T · [도감으로]) 와 «도감» 탭 버튼이 부른다. tab 을 안 주면 마지막에 본 탭.
    처음 여는데 라이선스가 없으면 «도감» 으로 연다(잠긴 탭부터 보이지 않게).
-   «도감» 이 보이기 시작하면 가챠가 서버와 한 번 맞춘다(onAlbumShow). */
-function selectWdTab(tab){
+   «도감» 이 보이기 시작하면 가챠가 서버와 한 번 맞춘다(onAlbumShow — opts 는 그대로 넘긴다). */
+function selectWdTab(tab, opts){
   if(tab && tab !== currentWdTab){ currentWdTab = tab; activeWdAdj = null; _clearMultiPanelRef(); }   // 다른 탭의 상세조정 패널이 남지 않게
   else if(!currentWdTab && !wdLicensed()) currentWdTab = WD_ALBUM_TAB;
-  if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow();
+  if(currentWdTab === WD_ALBUM_TAB) gachaMod().onAlbumShow(opts);
 }
 function isAlbumTab(){ return currentWdTab === WD_ALBUM_TAB; }
 
