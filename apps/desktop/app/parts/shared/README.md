@@ -302,11 +302,12 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **쓰는 법**: `TwImgRetry.retryUrl(u)` — 다시 받을 주소(뒤에 `twr=1`), 다시 받지 않을 주소(dataURL 등 http(s) 아님 · 이미 표식)면 `null`.
   `TwImgRetry.laterRetryMs(u, n)` — 두 번 다 못 받은 그림을 n 번째(0부터) 나중에 다시 받기까지 기다릴 ms(`LATER_RETRY_MS` 5 · 20 · 60초) · http(s) 아님 · 횟수 다 씀이면 `null`.
   `TwImgRetry.retryOnError(img, onGiveUp)` — 화면의 `<img>` 에 «못 받으면 `retryUrl` 로 한 번 더» 를 건다(그래도 못 받으면 `onGiveUp`) · 받은 `img` 를 돌려준다.
-- **지금 쓰는 곳**: `room/room-sync.js`(남의 얼굴 · 감은눈 · 얼굴 못 받은 def 를 방 서버 provider 가 다시 풀 때 — `retryDefAfter`) · `character/animal.js`(동물 페인트 그림) · `myhome/mallang.js`(말랑이 · 등록 칸 · 선물 고르기 — `retryOnError`) · `myhome/myhome-inbox.js`(💝 선물함 칸 — `retryOnError`).
+  `TwImgRetry.loadWithRetry(load, u)` — 받기 함수(`load`: 주소 → Promise<이미지>)가 처음 실패하면 `retryUrl(u)` 로 한 번 더 · 다시 받을 주소가 없으면 처음 실패를 그대로 던진다.
+- **지금 쓰는 곳**: `room/room-sync.js`(남의 얼굴 · 감은눈 — `loadWithRetry` · 얼굴 못 받은 def 를 방 서버 provider 가 다시 풀 때 — `retryDefAfter`) · `character/face-heal.js`(그래픽 리셋 뒤 남의 얼굴 · 동물 그림 다시 그리기 — `loadWithRetry`) · `character/animal.js`(동물 페인트 그림) · `myhome/mallang.js`(말랑이 · 등록 칸 · 선물 고르기 — `retryOnError`) · `myhome/myhome-inbox.js`(💝 선물함 칸 — `retryOnError`).
 - **함정**: 표식은 고정값이어야 한다 — 다시 받은 응답이 그 주소로 캐시돼 방 스냅샷마다 다시 받지 않는다(`Date.now()` 를 붙이면 매번 새로 받는다).
   나중 받기는 횟수 상한이 있어야 한다 — 끝내 못 받는 그림을 계속 받으면 늘 받기(폴링)가 된다.
 - **함정(retryOnError)**: `src` 를 넣기 **전에** 건다(새로 만드는 `<img>`). innerHTML 로 만든 칸은 넣은 바로 뒤에 건다 — 실패 이벤트는 다음 차례에 나서 놓치지 않는다.
-- 검사: `checks/sim-img-retry.js` · 쓰는 곳은 `checks/sim-room-face-load.js` · `checks/sim-room-server-net.js` · `checks/sim-gift-img-retry.js`.
+- 검사: `checks/sim-img-retry.js` · 쓰는 곳은 `checks/sim-room-face-load.js` · `checks/sim-room-server-net.js` · `checks/sim-gift-img-retry.js` · `checks/sim-face-heal.js`.
 
 ## `help-site.js` — 📘 도움말 웹 페이지 규칙(주소 · 들일 주소 · 알림 읽기)
 

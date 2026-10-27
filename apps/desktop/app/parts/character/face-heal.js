@@ -113,7 +113,9 @@ const _compBlankOf = (s)=> (s.faceMapOrig && _isBlankDraw(s.faceMapOrig.image))
    ★ 판정은 위와 같은 «합성 텍스처가 투명» 하나다 — 피부가 깔린 합성본 · 흰 바탕을 먼저 칠하는 동물 텍스처는
      정상이면 절대 투명하지 않으니 투명하면 그 자체가 그래픽 리셋의 증거다(얼굴을 안 그린 친구도 거짓으로 잡히지 않는다).
    ★ 새로 받지 않는다 — 다시 그리는 원본은 방 동기화가 남긴 주소(faceUrl · blinkUrl)와 동물 텍스처가 기억한 원본(userData.twSrc)뿐.
-     이미 한 번 받은 그림이라 캐시에서 온다. 원본이 없으면 기록만 한다(«재료 없음»). */
+     이미 한 번 받은 그림이라 캐시에서 온다. 원본이 없으면 기록만 한다(«재료 없음»).
+   ⚠️ 원래 주소의 응답이 실패로 캐시된 PC 에선 처음 받을 때처럼 표식 주소로 한 번 더 받는다(_loadRemote — 규칙은 shared/img-retry.js). */
+const _loadRemote = (u)=> TwImgRetry.loadWithRetry(loadImgCors, u);
 let _seatRepairBusy = false;
 /* 동물 좌석의 텍스처 전부 — 몸(표정 · 감은눈) + 귀(animal.js 가 몸 재질에 단 등록표) */
 function _animalTexOf(s){
@@ -130,7 +132,7 @@ async function _redrawAnimalTex(tex){
   x.fillStyle = u.twFill || '#ffffff'; x.fillRect(0,0,cv.width,cv.height);
   tex.needsUpdate = true;
   if(!u.twSrc) return 'none';
-  try{ const img = await loadImgCors(u.twSrc); x.drawImage(img,0,0,cv.width,cv.height); tex.needsUpdate = true; return true; }
+  try{ const img = await _loadRemote(u.twSrc); x.drawImage(img,0,0,cv.width,cv.height); tex.needsUpdate = true; return true; }
   catch(_){ return false; }
 }
 /* 빈 그림이 있는 좌석 — 남의 사람 좌석(합성 텍스처) · 동물 좌석(내 것 포함) */
@@ -163,8 +165,8 @@ async function repairSeatTextures(){
       } else {
         const d = t.d;
         const fu = TwSafeHtml.safeUrl(d.faceUrl,'image'), bu = TwSafeHtml.safeUrl(d.blinkUrl,'image');   // 남이 보낸 주소 — 허용된 그림 주소만
-        if(_isBlankDraw(d.face)  && fu) what.push(await _redrawInto(d.face,  fu, loadImgCors) ? '얼굴' : '얼굴✗');
-        if(_isBlankDraw(d.blink) && bu) what.push(await _redrawInto(d.blink, bu, loadImgCors) ? '감은눈' : '감은눈✗');
+        if(_isBlankDraw(d.face)  && fu) what.push(await _redrawInto(d.face,  fu, _loadRemote) ? '얼굴' : '얼굴✗');
+        if(_isBlankDraw(d.blink) && bu) what.push(await _redrawInto(d.blink, bu, _loadRemote) ? '감은눈' : '감은눈✗');
         if(!what.length && _isBlankDraw(d.face)) what.push('재료 없음');
         /* 받는 사이에 피부가 비었을 수 있다 — 지금 합성하면 단색 피부로 굳는다. 합성본은 투명하게 두어 다음 차례에 다시 잡히게 한다 */
         if(_faceRepairBusy || _blankSkinIdx().size){ what.push('합성 다음 차례'); log.push(no + '번(남 ' + what.join('·') + ')'); continue; }

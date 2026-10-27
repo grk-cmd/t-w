@@ -181,7 +181,7 @@ function judgeAnimalRetry(src){
   say('── 0. 그림 받기 다시 시도');
   (await judgeRetry(SRC)).forEach(([ok, msg]) => chk(ok, msg));
   {
-    const s2 = SRC.replace('img = await _loadImgCors(again);', 'throw e;');
+    const s2 = SRC.replace('const img = await TwImgRetry.loadWithRetry(_loadImgCors, url);', 'const img = await _loadImgCors(url);');
     const rows = s2 !== SRC ? await judgeRetry(s2) : [[true, '']];
     chk(s2 !== SRC && rows.some(([ok]) => !ok), '깨 보기 — 다시 받는 줄을 빼면 빨강' + (s2 !== SRC ? '' : ' — 바꿀 글을 못 찾음'));
   }
