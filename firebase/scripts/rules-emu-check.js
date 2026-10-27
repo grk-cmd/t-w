@@ -140,6 +140,25 @@ const LIMIT_CASES = [
   ['금칙어 — 500번째(0~499) 칸까지', 'PUT', 'config/bannedWords/499', '욕', true, ADMIN_A],
   ['금칙어 — 501번째(500) 칸은 거절(판정 상한 500 과 같게)', 'PUT', 'config/bannedWords/500', '욕', false, ADMIN_A],
   ['금칙어 — 관리자가 목록 비우기(지우기)', 'DELETE', 'config/bannedWords', null, true, ADMIN_A],
+  /* 🛠️ 서버 점검 칸(config/maintenance · #551) — 관리자만 쓴다 · on(불리언) 필수 · endsAt 양수 · message 200자 · 다른 칸 거절 */
+  ['점검 — 관리자가 켜기(on 만)', 'PUT', 'config/maintenance', { on: true }, true, ADMIN_A],
+  ['점검 — 관리자가 끝 시각 · 문구까지', 'PUT', 'config/maintenance', { on: true, endsAt: FUTURE, message: '더 좋은 서비스를 위해 서버를 점검하고 있어요.' }, true, ADMIN_A],
+  ['점검 — 관리자가 끄기', 'PUT', 'config/maintenance', { on: false }, true, ADMIN_A],
+  ['점검 — 문구 200자까지', 'PUT', 'config/maintenance', { on: true, message: '가'.repeat(200) }, true, ADMIN_A],
+  ['점검 — 사용자는 못 씀', 'PUT', 'config/maintenance', { on: true }, false, 'authA'],
+  ['점검 — 로그인 없이 못 씀', 'PUT', 'config/maintenance', { on: true }, false],
+  ['점검 — 모르는 칸', 'PUT', 'config/maintenance', { on: true, x: 1 }, false, ADMIN_A],
+  ['점검 — on 빠짐', 'PUT', 'config/maintenance', { endsAt: FUTURE }, false, ADMIN_A],
+  ['점검 — on 이 글자', 'PUT', 'config/maintenance', { on: 'yes' }, false, ADMIN_A],
+  ['점검 — 끝 시각 0', 'PUT', 'config/maintenance', { on: true, endsAt: 0 }, false, ADMIN_A],
+  ['점검 — 끝 시각 음수', 'PUT', 'config/maintenance', { on: true, endsAt: -5 }, false, ADMIN_A],
+  ['점검 — 끝 시각이 글자', 'PUT', 'config/maintenance', { on: true, endsAt: '20:13' }, false, ADMIN_A],
+  ['점검 — 문구 201자', 'PUT', 'config/maintenance', { on: true, message: '가'.repeat(201) }, false, ADMIN_A],
+  ['점검 — 문구가 숫자', 'PUT', 'config/maintenance', { on: true, message: 1 }, false, ADMIN_A],
+  ['점검 — 칸 하나만 바꾸기(끝 시각 늘리기)', 'PUT', 'config/maintenance/endsAt', FUTURE + 60000, true, ADMIN_A],
+  ['  ↳ 사용자는 칸 하나도 못 바꿈', 'PUT', 'config/maintenance/endsAt', FUTURE, false, 'authA'],
+  ['점검 — 관리자가 칸 지우기', 'DELETE', 'config/maintenance', null, true, ADMIN_A],
+  ['  ↳ 사용자는 못 지움', 'DELETE', 'config/maintenance', null, false, 'authA'],
 
   /* 🔒 시크릿룸 — SCRT- 방에 새 멤버 칸을 만들 때만 «발급됨(pub.owner 가 빈 글자 아님)» 을 본다. 앱 입장 검사(room-entry.js startRoom)와 같은 판정이고,
      앱을 고쳐 그 검사를 건너뛰고 발급 안 된 코드로 방을 쓰는 것을 막는다. 이미 있는 칸(끊겼다 다시 붙기 전까지) · 지우기 · 나가기는 건드리지 않는다.
@@ -390,6 +409,10 @@ const LIMIT_CASES = [
   /* 방 입장 최소 버전은 옛 앱도 읽는다 — 0.10.2 는 못 읽으면 «조회 실패는 통과» 로 방에 들어간다. 읽으면 스스로 멈춘다. */
   ['옛 앱 — 방 입장 최소 버전(minRoomVer)은 읽힌다', 'GET', 'config/minRoomVer', null, true, 'authOld'],
   ['  ↳ 다른 원격 설정은 막힘', 'GET', 'config/minAppVer', null, false, 'authOld'],
+  /* 점검 칸 읽기는 minAppVer 와 같은 조건 — 로그인 전 · 새 앱은 읽고, 켜져 있는 옛 앱(ver 없음)은 막힌다 */
+  ['점검 — 로그인 없이 읽기(부팅 전)', 'GET', 'config/maintenance', null, true],
+  ['점검 — 새 앱(로그인 · presence 전) 읽기', 'GET', 'config/maintenance', null, true, 'authNew2'],
+  ['  ↳ 옛 앱은 못 읽음', 'GET', 'config/maintenance', null, false, 'authOld'],
   /* 방 멤버 칸을 새로 만들 때 — 그 사람(userId) presence 가 «켜짐 · ver 없음»(≤0.10.2 가 켜져 있음)이면 거절.
      0.10.2 와 0.11 은 멤버 칸 모양이 같아 칸으로는 못 가른다. 이미 있는 칸 고치기 · 지우기 · userId 없는 칸은 그대로. */
   ['옛 앱 — 방 멤버 칸 새로 만들기(입장)', 'PUT', `rooms/${ROOM}/mold000001`, { ...JOIN, userId: OLD2_U }, false],
@@ -594,8 +617,10 @@ function freePort(){
 async function outer(){
   const port = await freePort();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-rules-emu-'));
+  /* firebase-tools 는 rules 를 firebase.json 폴더 기준 상대 경로로 읽는다(절대 경로도 앞의 / 를 떼어 붙여 ENOENT) — 같은 폴더에 복사해 이름만 준다 */
+  fs.copyFileSync(RULES, path.join(dir, 'database.rules.json'));
   fs.writeFileSync(path.join(dir, 'firebase.json'), JSON.stringify({
-    database: { rules: RULES },
+    database: { rules: 'database.rules.json' },
     emulators: { database: { port }, ui: { enabled: false }, singleProjectMode: true },
   }));
   const r = spawnSync('firebase', ['emulators:exec', '--only', 'database', '--project', PROJECT,
