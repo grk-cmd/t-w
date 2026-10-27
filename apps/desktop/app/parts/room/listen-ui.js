@@ -242,11 +242,13 @@ function sync(){
 const box = $('listenBox');
 const plBtn = $('myPlBtn');
 function isOpen(){ return !!box && !box.classList.contains('hidden'); }
-function openWin(){ if(!box || !plBtn) return; closeChipPopups('listenBox'); box.classList.remove('hidden'); plBtn.classList.add('on'); positionPopup(box, plBtn); paint(); }
+function openWin(){ if(!box || !plBtn) return; closeChipPopups('listenBox'); box.classList.remove('hidden'); plBtn.classList.add('on'); positionPopup(box, $('myStatusChipBtn')); paint(); }   // 🎧 는 ▾ 메뉴 안 줄이라 창은 ▾ 옆에
 function closeWin(){ if(!box) return; box.classList.add('hidden'); if(plBtn) plBtn.classList.remove('on'); }
 function paintButton(){
   if(!plBtn) return;
-  plBtn.textContent = room ? '🎧' : '🎵';
+  const ic = plBtn.querySelector('.ic'), txt = plBtn.querySelector('.plbTxt');
+  if(ic) ic.textContent = room ? '🎧' : '🎵';
+  if(txt) txt.textContent = room ? '같이 듣기' : '플레이리스트';
   plBtn.title = room ? '같이 듣기' : '플레이리스트';
 }
 function fmt(sec){ const s = Math.max(0, Math.floor(sec)); return Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0'); }

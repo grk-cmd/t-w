@@ -1,5 +1,5 @@
 /* chip-popups.js — 🗂️ 상태칩 팝업 «한 번에 하나» — 하나를 열 때 나머지 칩 팝업을 닫는다(창 표시 keep 은 남김)
-   책임: 상태칩 줄 팝업들(상태 메뉴 · 더보기 · 채팅 · 커스텀 상태 · 알림 · 이모티콘 · 플레이리스트 · 같이 듣기)의 목록 하나와 «하나만 열기» 닫기 규칙.
+   책임: 상태칩 줄 팝업들(▾ 두 칸 메뉴 · 채팅 · 커스텀 상태 · 알림 · 이모티콘 · 플레이리스트 · 같이 듣기)의 목록 하나와 «하나만 열기» 닫기 규칙.
    받는 deps: userStatus(읽는 함수 — 커스텀 상태면 그 버튼 ● 를 다시 켠다). 내보내는 것: _closeChipPopups(exceptId, force).
    app.js «USER STATUS» 구역 끝을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 1줄 —
@@ -18,8 +18,7 @@ const userStatus = deps.userStatus;   // 읽는 함수
    ★ keep:true 인 것은 **'지나가는 메뉴'가 아니라 창**이다 — 다른 팝업을 연다고 닫히지 않는다.
      정말 전부 닫아야 하는 자리(오피스 모드 숨김)만 force=true 로 부른다. */
 const _CHIP_POPUPS = [
-  { box:'myStatusMenu',      btn:'myStatusChipBtn' },
-  { box:'myChipMore',        btn:'myChipMoreBtn'   },
+  { box:'myChipMore',        btn:'myStatusChipBtn' },   // ▾ 두 칸 메뉴 — 상태 목록(#myStatusMenu)은 그 안이라 따로 닫지 않는다(닫으면 목록만 사라진다)
   { box:'myChatBox',         btn:'myChatBtn'       },
   { box:'myCustomStatusBox', btn:'myCustomStatusBtn' },   // ✨ 커스텀 상태 입력창
   { box:'bellWin',           btn:'myBellBtn'       },     // 🔔 일정 알림 창

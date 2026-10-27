@@ -68,11 +68,11 @@ const rideBenchMod = deps.rideBenchMod;
     };
     if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', run, { once:true }); else run();
   })();
-  /* 🏠/🕒 더보기 메뉴 퀵 항목 — F4(마이홈)·[기록 열기](포커스 기록)와 같은 동작.
+  /* 🏠/🕒 ▾ 메뉴 퀵 항목 — F4(마이홈)·[기록 열기](포커스 기록)와 같은 동작.
      항목을 누르면 더보기 캐스케이드를 닫고 실행(마이홈/기록 창이 위에 뜨는데 메뉴가 남아있으면 지저분함). */
   function _closeMoreCascade(){
     const more=document.getElementById('myChipMore'); if(more) more.classList.add('hidden');
-    const mbtn=document.getElementById('myChipMoreBtn'); if(mbtn) mbtn.classList.remove('on');
+    const mbtn=document.getElementById('myStatusChipBtn'); if(mbtn) mbtn.classList.remove('on');
   }
   const _mhMenuBtn=document.getElementById('myHomeMenuBtn');
   if(_mhMenuBtn) _mhMenuBtn.addEventListener('click', e=>{ e.stopPropagation(); _closeMoreCascade(); toggleMyHomeShortcut(); });

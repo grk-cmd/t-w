@@ -459,9 +459,6 @@
   html[data-theme="bubble"] .fs-monitor-btn,
   html[data-theme="bubble"] #myStatusChipBtn,
   html[data-theme="bubble"] #myChatBtn, html[data-theme="bubble"] #myDemojiBtn,
-  html[data-theme="bubble"] #myBellBtn,
-  html[data-theme="bubble"] #myPlBtn,
-  html[data-theme="bubble"] #myChipMoreBtn,
   html[data-theme="bubble"] input, html[data-theme="bubble"] textarea,
   html[data-theme="bubble"] select, html[data-theme="bubble"] button{
     border-radius:var(--win-radius-sm) !important;
@@ -499,10 +496,7 @@
   html[data-theme="bubble"] .lc-btn,
   html[data-theme="bubble"] .fs-toggle-btn,
   html[data-theme="bubble"] #myStatusChipBtn,
-  html[data-theme="bubble"] #myChatBtn, html[data-theme="bubble"] #myDemojiBtn,
-  html[data-theme="bubble"] #myBellBtn,
-  html[data-theme="bubble"] #myPlBtn,
-  html[data-theme="bubble"] #myChipMoreBtn{ background-image:var(--win-btn-grad); }
+  html[data-theme="bubble"] #myChatBtn, html[data-theme="bubble"] #myDemojiBtn{ background-image:var(--win-btn-grad); }
   html[data-theme="bubble"] .lc-card,
   html[data-theme="bubble"] .fs-tabpage,
   html[data-theme="bubble"] #focusSettingsPanel{ background-image:var(--win-face-grad); }
@@ -2250,29 +2244,35 @@
      ⚠️ 55 는 그 아래 레이어(≤50)보다 위라, 칩이 다른 것에 가려지는 부작용은 없다.
        (#wardrobePanel·#wdPreviewPanel 은 마우스 통과 화이트리스트에 이미 있어서, 겹친 자리를
         눌러도 클릭이 뒤로 뚫리지 않는다 — audit 검사 2) */
-  #myChipGroup{display:flex;flex-direction:column;align-items:stretch;position:relative;
+  /* 이름표 아래 가로 한 덩이 — [💬 채팅 | ▾] (왼쪽 버튼은 방마다 하나만 보인다) */
+  #myChipGroup{display:flex;flex-direction:row;align-items:stretch;position:relative;
     transition:opacity .2s ease, transform .2s ease;}
   #myStatusChip.collapsed #myChipGroup{opacity:0;transform:scale(.9);pointer-events:none;}
 
-  /* 상태 버튼 — dot 하나만 표시하는 컴팩트 아이콘 (다른 버튼과 동일한 26px 높이) */
+  /* ▾ 메뉴 버튼 — 지금 상태 점 + ▾ (채팅 버튼과 같은 26px 높이) */
   #myStatusChipBtn{
-    width:28px;height:26px;cursor:pointer;font-family:var(--tw-font-legacy);padding:0;
+    height:26px;cursor:pointer;font-family:var(--tw-font-legacy);padding:0 6px;gap:4px;position:relative;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
     display:flex;align-items:center;justify-content:center;border-radius:var(--win-radius-el) !important;}
   #myStatusChipBtn:active,#myStatusChipBtn.on{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
   #myStatusChipBtn.on{background:var(--win-select-bg);}
-  #myStatusChipBtn .dot{width:12px;height:12px;border-radius:50%;background:#9dba8a;box-shadow:0 0 0 1px #000;flex:none;}
+  #myStatusChipBtn .dot{width:9px;height:9px;border-radius:50%;background:#9dba8a;box-shadow:0 0 0 1px #000;flex:none;}
+  #myStatusChipBtn .caret{font-size:10px;line-height:1;color:var(--ink);}
+  /* 🔔 안 읽은 일정이 있으면 ▾ 에도 점 — 일정 알림이 메뉴 안으로 들어가 버튼 배지가 안 보이므로 */
+  #myStatusChip:has(#myBellBadge.on) #myStatusChipBtn::after{content:'';position:absolute;top:-3px;right:-3px;width:8px;height:8px;
+    border-radius:50%;background:var(--win-error);border:1px solid #000;}
 
-  /* 채팅·알림·더보기 세로 아이콘 버튼 (공통) */
-  #myChatBtn, #myDemojiBtn, #myBellBtn, #myPlBtn, #myChipMoreBtn{
-    width:28px;height:26px;padding:0;font-family:var(--tw-font-legacy);font-size:13px;line-height:1;cursor:pointer;
+  /* [💬 채팅] · [😊 이모티콘] — 아이콘 + 글자 */
+  #myChatBtn, #myDemojiBtn{
+    height:26px;padding:0 8px;gap:4px;font-family:var(--tw-font-legacy);font-size:13px;line-height:1;cursor:pointer;white-space:nowrap;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);
     color:var(--ink);display:inline-flex;align-items:center;justify-content:center;border-radius:var(--win-radius-el) !important;}
-  /* 세로 스택: 아래 버튼이 위 버튼의 border와 겹치게 -2px */
-  #myChipGroup > *+*{margin-top:-2px;}
+  #myChatBtn .cbTxt, #myDemojiBtn .cbTxt{font-size:11px;font-weight:bold;}
+  /* 이웃 버튼끼리 테두리를 겹친다 */
+  #myChipGroup > *+*{margin-left:-2px;}
 
   /* 🔔💬🫧 이모지 대신 들어가는 그림 — app.js 의 _applyUiIcons 가 부팅 때 <img> 로 채운다.
      ★ 스팬 안에는 **예전 이모지를 그대로 적어 둔다**. 스크립트가 안 돌면 그게 보일 뿐이고
@@ -2755,15 +2755,11 @@
      같이 쓰면 메뉴를 닫는 순간 숨김 표시까지 사라진다. */
   #myStatusChipBtn.office-hiding{background:var(--win-select-bg);}
 
-  /* 가로 배치(설정 > 화면표시 > 상태칩 배치) — 버튼을 옆으로 늘어놓는다.
-     세로용 겹침 마진(-2px top)을 좌측 겹침으로 바꿔야 테두리가 이어져 보인다. */
-  #myStatusChip.horz #myChipGroup{flex-direction:row;align-items:stretch;}
-  #myStatusChip.horz #myChipGroup > *+*{margin-top:0;margin-left:-2px;}
-  #myChatBtn:active, #myDemojiBtn:active, #myBellBtn:active, #myPlBtn:active, #myChipMoreBtn:active,
-  #myChatBtn.on, #myDemojiBtn.on, #myBellBtn.on, #myPlBtn.on, #myChipMoreBtn.on{
+  #myChatBtn:active, #myDemojiBtn:active,
+  #myChatBtn.on, #myDemojiBtn.on{
     border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
-  #myChatBtn.on, #myDemojiBtn.on, #myBellBtn.on, #myPlBtn.on, #myChipMoreBtn.on{background:var(--win-select-bg);}
+  #myChatBtn.on, #myDemojiBtn.on{background:var(--win-select-bg);}
 
   /* ==== 채팅·커스텀 상태 입력창 — 캐릭터 발 밑에 뜸 (JS가 fixed 좌표 지정) ==== */
   #myChatBox, #myCustomStatusBox{
@@ -3074,26 +3070,18 @@
     border-bottom:1px solid #ddd;position:sticky;top:0;z-index:2;}
   #mhFriendList{flex:1;overflow-y:auto;min-height:0;}
 
-  /* 🔔 알림 버튼 뱃지 */
-  #myBellBtn{position:relative;}
-  /* ★ 칩 버튼은 -2px 마진으로 테두리를 겹친다. 겹친 자리에서 어느 쪽이 위에 그려지는가는
-     "위치 지정된 형제가 그렇지 않은 형제보다 위"라는 규칙이 먼저다. #myBellBtn만 뱃지 기준점 때문에
-     position:relative 라서, 알림 버튼의 검은 아래 테두리(--win-lo-2)가 다음 버튼의 흰 위 테두리
-     (--win-hi)를 덮어 그 이음선만 2px 진하게 보였다. 뒤 형제들도 위치 지정 요소로 만들어 주면
-     같은 층에서 DOM 순서대로 겹쳐 다른 이음선과 똑같아진다.
-     (버블 테마는 hi·lo·lo-2가 전부 같은 색이라 이 차이가 드러나지 않았다.) */
-  #myChipGroup #myBellBtn ~ *{position:relative;}
-  #myBellBadge{display:none;position:absolute;top:-2px;right:-2px;min-width:13px;height:13px;
-    padding:0 2px;box-sizing:border-box;background:var(--win-error);color:#fff;
-    font-family:var(--tw-font-legacy);font-size:8px;font-weight:bold;line-height:13px;text-align:center;
+  /* 🔔 일정 알림 줄의 안 읽은 수 — 줄 오른쪽 끝 */
+  #myBellBadge{display:none;margin-left:auto;min-width:13px;height:13px;
+    padding:0 3px;box-sizing:border-box;background:var(--win-error);color:#fff;
+    font-family:var(--tw-font-legacy);font-size:8px;font-weight:bold;line-height:11px;text-align:center;
     border:1px solid #000;border-radius:7px;}
-  #myBellBadge.on{display:block;}
+  #myBellBadge.on{display:inline-block;}
 
   /* 💬 안 읽은 채팅 개수 뱃지 — 🔔 뱃지와 같은 규격이되 '왼쪽 모서리 고정'이 다르다.
      right로 잡으면 두 자리부터 왼쪽으로 자라 💬 아이콘을 덮으므로, left를 고정해 오른쪽으로만 늘어나게 한다.
      (뱃지가 버튼 기준으로 앉으려면 버튼 자신이 position:relative여야 함 — 아래 규칙) */
   #myChatBtn{position:relative;}
-  #myChatBadge{display:none;position:absolute;top:-4px;left:19px;height:13px;min-width:13px;
+  #myChatBadge{display:none;position:absolute;top:-4px;right:-4px;height:13px;min-width:13px;
     padding:0 3px;box-sizing:border-box;background:var(--win-error);color:#fff;
     font-family:var(--tw-font-legacy);font-size:8px;font-weight:bold;line-height:11px;text-align:center;
     border:1px solid #000;border-radius:7px;white-space:nowrap;pointer-events:none;}
@@ -4278,15 +4266,8 @@
   #pomoDrawer .pomo-bar.rest > div{background:repeating-linear-gradient(90deg,#2e8b57 0 7px,transparent 7px 9px);}
   #pomoDrawer .pomo-dots{text-align:center;font-size:13px;letter-spacing:2px;margin-top:6px;min-height:16px;}
 
-  /* ==== 상태 메뉴 — Win98 캐스케이드 스타일 (좌우 자동 반전은 JS positionCascade에서 처리) ==== */
-  #myStatusMenu{
-    position:fixed;z-index:60;
-    display:flex;flex-direction:column;
-    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.35));
-    min-width:128px;padding:2px;
-    pointer-events:none;opacity:0;transition:opacity .12s ease;border-radius:var(--win-radius-el) !important;}
-  #myStatusMenu:not(.hidden){pointer-events:auto;opacity:1;}
+  /* ==== 상태 목록 — ▾ 두 칸 메뉴의 왼쪽 칸 안(따로 뜨지 않는다 — 여닫기는 #myChipMore) ==== */
+  #myStatusMenu{display:flex;flex-direction:column;min-width:118px;}
   /* ★ 좌우 여백 축소(22→12/16) — 캐릭터 옆에 붙는 메뉴라 안쪽 패딩이 넓으면 글자가 캐릭터에서 멀어 보인다.
      왼쪽은 .active::before(●) 자리를 남겨야 해서 16px 유지, 마커는 left:5px로 당김. */
   #myStatusMenu .stItem{
@@ -4311,7 +4292,7 @@
   /* ==== 더보기(▼) 메뉴 — 캐스케이드 스타일. 안쪽 버튼 id(myWardrobeBtn 등)는 F키 단축키가 클릭 트리거하므로 유지. ==== */
   #myChipMore{
     position:fixed;z-index:60;
-    display:flex;flex-direction:column;
+    display:flex;flex-direction:row;align-items:stretch;
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.35));
     padding:2px;min-width:104px;
@@ -4331,6 +4312,12 @@
   #myChipMore .fkey{margin-left:auto;padding-left:14px;opacity:.5;font-size:10px;letter-spacing:.5px;}
   #myChipMore button:hover .fkey{opacity:.85;}
   #myChipMore .sep{height:0;margin:3px 2px;border-top:1px solid var(--win-lo);border-bottom:1px solid var(--win-hi);}
+  /* 두 칸 — 왼쪽 «내 상태»(아래 끝에 런처로) · 오른쪽 «바로가기» */
+  #myChipMore .cmCol{display:flex;flex-direction:column;}
+  #myChipMore .cmStatus{border-right:1px solid var(--tw-line);padding-right:2px;margin-right:2px;}
+  #myChipMore .cmFill{flex:1;}
+  #myChipMore .cmHead{font-size:10px;color:var(--ink-soft);padding:4px 12px 2px;}
+  #myChipMore #myPlBtn.on, #myChipMore #myBellBtn.on{background:var(--win-select-bg);}
 
   /* 🔒 관리자 전용 UI — 기본은 CSS로 숨긴다.
      ⚠️ 예전엔 숨기는 일을 JS(refreshAdminVisibility)만 했다. 그 호출은 app.js **맨 끝줄**에 있어서,
@@ -5083,59 +5070,58 @@
   </div>
 </div>
 <div id="myStatusChip" style="display:none;">
+  <!-- 이름표 아래 [💬 채팅 | ▾] 한 덩이(#540 P3). 왼쪽 버튼은 방마다 하나만 보인다 — 투게더룸 💬 채팅 · 워킹룸 😊 이모티콘 · 혼자면 없음(status-chip.js).
+       ▾(#myStatusChipBtn)가 두 칸 메뉴(#myChipMore)를 연다. 앞의 점은 지금 상태 색.
+       ⚠️ #myStatusChipBtn 은 회사원 모드에서 숨겨도 남는 유일한 버튼이고 **우클릭**이 화면 숨김 · 되돌리기다(app.js bindOfficeHideGesture).
+         #myStatusChip 안에 있어야 클릭 통과 화이트리스트에 든다 — 밖으로 옮기면 숨긴 순간 되돌릴 길이 사라진다. -->
   <div id="myChipGroup">
-    <!-- 🏢 화면 숨김 (회사원 모드 전용)은 이 ■ 상태 버튼 **우클릭**이다. 전용 버튼을 하나 더
-         두면 칩 그룹이 그만큼 길어져서, 숨겼을 때 남는 바로 이 버튼에 손짓을 합쳤다.
-         #myStatusChip 안에 있으므로 app.js 의 클릭 통과 화이트리스트(closest('#myStatusChip, ...'))에
-         자동으로 포함된다. 밖으로 옮기면 숨긴 순간 되돌릴 길이 사라진다. -->
-    <div id="myStatusChipBtn" role="button" title="상태">
-      <span class="dot" id="myStatusDot"></span>
-    </div>
-    <button id="myChatBtn" type="button" title="채팅 (멀티모드 전용)" style="display:none;"><span class="ui-ic" data-ic="chat" data-px="16">💬</span><span id="myChatBadge"></span></button>
-    <!-- 😊 기본 이모티콘 — 채팅이 없는 워킹룸에서 demoji 하나를 말풍선으로 보냄(라이선스 불필요).
-         투게더룸(채널2)은 채팅창이 demoji를 이미 지원하므로 이 버튼은 숨김. -->
-    <button id="myDemojiBtn" type="button" title="이모티콘" style="display:none;">😊</button>
-    <!-- 🔔 일정 알림 — 오늘 일정 + 친구가 태그한 일정. 안 읽은 게 있으면 뱃지가 붙음. -->
-    <button id="myBellBtn" type="button" title="일정 알림"><span class="ui-ic" data-ic="bell" data-px="16">🔔</span><span id="myBellBadge"></span></button>
-    <!-- 🎵 플레이리스트 — 유튜브 링크를 여러 개 담아 순서대로 재생. 목록/순서는 로컬(tw.playlist) 저장. -->
-    <button id="myPlBtn" type="button" title="플레이리스트">🎵</button>
-    <button id="myChipMoreBtn" type="button" title="꾸미기·설정·이동·런처">▼</button>
-  </div>
-  <div id="myStatusMenu" class="hidden">
-    <button class="stItem" data-st=""><span class="dot" style="background:#9dba8a"></span>온라인</button>
-    <button class="stItem" data-st="meal"><span class="dot" style="background:#e89b7d"></span>🍚 밥 먹는 중</button>
-    <!-- 🫧 자리비움 — 이모지와 라벨을 .stTxt 로 **한 덩어리로 묶는다.**
-         .stItem 이 display:flex + gap:8px 라, 그림을 그냥 끼우면 스팬이 별도 플렉스 항목이 되어
-         gap 이 한 번 더 붙고 이 줄만 오른쪽으로 밀린다(다른 네 줄은 "이모지+글자"가 익명 항목
-         하나로 묶여 있다). 묶어 두면 항목 수가 dot+1 로 같아져 줄이 안 흔들린다. -->
-    <button class="stItem" data-st="away"><span class="dot" style="background:#9aa0a8"></span><span class="stTxt"><span class="ui-ic" data-ic="away" data-px="13">🫧</span> 자리비움</span></button>
-    <button class="stItem" data-st="grind"><span class="dot" style="background:#e07a55"></span>🔥 빡일중</button>
-    <button class="stItem" data-st="gaming"><span class="dot" style="background:#8a8ec9"></span>🎮 게임 중</button>
-    <!-- ✨ 커스텀 상태 (프리미엄 전용) — 라이선스가 없으면 항목 자체를 숨긴다.
-         [경위] 예전엔 칩 그룹에 아이콘 버튼으로 서 있었는데, 칩 줄이 길어서 이 메뉴 안으로 들였다.
-         ⚠️ id(myCustomStatusBtn)는 그대로 둘 것 — 열기/닫기·바깥클릭 예외·_CHIP_POPUPS 가 이 id 로 잡는다.
-         ⚠️ 다른 stItem 과 달리 data-st 가 없다 — 있으면 상태 목록 클릭 핸들러가 먼저 집어간다.
-           (여기서 하는 일은 '상태 고르기'가 아니라 '문구 입력창 열기'다.) -->
-    <button class="stItem" id="myCustomStatusBtn" type="button" style="display:none;">
-      <span class="csEmo">✨</span><span class="csLabel">커스텀 상태</span>
-    </button>
+    <button id="myChatBtn" type="button" title="채팅" style="display:none;"><span class="ui-ic" data-ic="chat" data-px="16">💬</span><span class="cbTxt">채팅</span><span id="myChatBadge"></span></button>
+    <!-- 😊 기본 이모티콘 — 채팅이 없는 워킹룸에서 demoji 하나를 말풍선으로 보냄(라이선스 불필요). -->
+    <button id="myDemojiBtn" type="button" title="이모티콘" style="display:none;"><span>😊</span><span class="cbTxt">이모티콘</span></button>
+    <div id="myStatusChipBtn" role="button" title="메뉴" aria-haspopup="true"><span class="dot" id="myStatusDot"></span><span class="caret" aria-hidden="true">▾</span></div>
   </div>
   <!-- 😊 기본 이모티콘 팔레트 — JS(_buildDemojiPalette)가 DEMOJI_LIST로 버튼을 채움.
        #myStatusChip 안에 있어서 마우스 클릭-통과 화이트리스트(closest '#myStatusChip')에 자동 포함됨. -->
   <div id="myDemojiBox" class="hidden"></div>
+  <!-- 두 칸 메뉴 — 왼쪽 «내 상태» · 오른쪽 «바로가기». 안쪽 버튼 id(myFocusGearBtn · myWardrobeBtn · myMoveBtn · myHomeMenuBtn)는 F키 단축키가 클릭 트리거하므로 유지. -->
   <div id="myChipMore" class="hidden">
-    <button id="myFocusGearBtn" type="button" title="설정 (F1)"><span class="ic">⚙️</span>설정<span class="fkey">F1</span></button>
-    <button id="myWardrobeBtn" type="button" title="꾸미기 (F2)"><span class="ic">🎨</span>꾸미기<span class="fkey">F2</span></button>
-    <button id="myMoveBtn" type="button" title="프로그램 이동 (F3)"><span class="ic">✥</span>이동<span class="fkey">F3</span></button>
-    <button id="myDanceBtn" type="button" title="춤추기"><span class="ic">💃</span>춤추기</button>
-    <!-- 🔫 러시안룰렛 — 내 주사위 둘 중 하나라도 1이면 내가 날아간다. 모든 채널에서 보인다(app.js _rollRoulette). -->
-    <button id="myRouletteBtn" type="button" title="러시안룰렛"><span class="ic">🔫</span>러시안룰렛</button>
-    <div class="sep"></div>
-    <!-- 🏠/🕒 퀵 메뉴 — 마이홈은 F4 단축키(toggleMyHomeShortcut)와 같은 동작, 포커스 기록은 설정 패널의 [기록 열기]와 같은 동작 -->
-    <button id="myHomeMenuBtn" type="button" title="마이홈 (F4)"><span class="ic">🏠</span>마이홈<span class="fkey">F4</span></button>
-    <button id="myFocusLogMenuBtn" type="button" title="포커스 기록"><span class="ic">🕒</span>포커스 기록</button>
-    <div class="sep"></div>
-    <button id="myBackToLauncherBtn" type="button" title="런처로"><span class="ic">«</span>런처로</button>
+    <div class="cmCol cmStatus">
+      <div class="cmHead">내 상태</div>
+      <div id="myStatusMenu">
+        <button class="stItem" data-st="" type="button"><span class="dot" style="background:#9dba8a"></span>온라인</button>
+        <button class="stItem" data-st="grind" type="button"><span class="dot" style="background:#e07a55"></span>집중</button>
+        <button class="stItem" data-st="meal" type="button"><span class="dot" style="background:#e89b7d"></span>밥 먹는 중</button>
+        <button class="stItem" data-st="away" type="button"><span class="dot" style="background:#9aa0a8"></span>자리 비움</button>
+        <button class="stItem" data-st="gaming" type="button"><span class="dot" style="background:#8a8ec9"></span>게임 중</button>
+        <!-- ✨ 커스텀 상태 (프리미엄 전용) — 라이선스가 없으면 항목 자체를 숨긴다.
+             ⚠️ id(myCustomStatusBtn)는 그대로 둘 것 — 열기/닫기·바깥클릭 예외·_CHIP_POPUPS 가 이 id 로 잡는다.
+             ⚠️ 다른 stItem 과 달리 data-st 가 없다 — 있으면 상태 목록 클릭 핸들러가 먼저 집어간다(여기서 하는 일은 «문구 입력창 열기»). -->
+        <button class="stItem" id="myCustomStatusBtn" type="button" style="display:none;">
+          <span class="csEmo">✨</span><span class="csLabel">커스텀 상태</span>
+        </button>
+      </div>
+      <div class="cmFill"></div>
+      <div class="sep"></div>
+      <button id="myBackToLauncherBtn" type="button" title="런처로"><span class="ic">«</span>런처로</button>
+    </div>
+    <div class="cmCol cmLinks">
+      <div class="cmHead">바로가기</div>
+      <!-- 🔔 일정 알림 — 오늘 일정 + 친구가 태그한 일정. 안 읽은 게 있으면 뱃지(▾ 버튼에도 점). -->
+      <button id="myBellBtn" type="button" title="일정 알림"><span class="ic"><span class="ui-ic" data-ic="bell" data-px="14">🔔</span></span>일정 알림<span id="myBellBadge"></span></button>
+      <!-- 🎵 플레이리스트 — 같이 듣기 방에서는 🎧 같이 듣기(room/listen-ui.js paintButton). -->
+      <button id="myPlBtn" type="button" title="플레이리스트"><span class="ic">🎵</span><span class="plbTxt">플레이리스트</span></button>
+      <div class="sep"></div>
+      <button id="myFocusGearBtn" type="button" title="설정 (F1)"><span class="ic">⚙️</span>설정<span class="fkey">F1</span></button>
+      <button id="myWardrobeBtn" type="button" title="꾸미기 (F2)"><span class="ic">🎨</span>꾸미기<span class="fkey">F2</span></button>
+      <button id="myMoveBtn" type="button" title="프로그램 이동 (F3)"><span class="ic">✥</span>이동<span class="fkey">F3</span></button>
+      <button id="myHomeMenuBtn" type="button" title="마이홈 (F4)"><span class="ic">🏠</span>마이홈<span class="fkey">F4</span></button>
+      <button id="myFocusLogMenuBtn" type="button" title="포커스 기록"><span class="ic">🕒</span>포커스 기록</button>
+      <!-- 💃 · 🔫 — 투게더룸(채널2)에선 숨긴다(채팅 /80 · 대화창 🎲 가 같은 일을 한다). 숨을 땐 위 구분선도 같이 숨는다(status-chip.js). -->
+      <div class="sep cmPlaySep"></div>
+      <button id="myDanceBtn" type="button" title="춤추기"><span class="ic">💃</span>춤추기</button>
+      <!-- 🔫 러시안룰렛 — 내 주사위 둘 중 하나라도 1이면 내가 날아간다(app.js _rollRoulette). -->
+      <button id="myRouletteBtn" type="button" title="러시안룰렛"><span class="ic">🔫</span>러시안룰렛</button>
+    </div>
   </div>
   <!-- 🎵 플레이리스트 패널 — #myStatusChip 안에 두어 클릭-통과 화이트리스트에 자동 포함시킨다.
        (#myDemojiBox 주석과 같은 관례. body로 옮기면 run 모드에서 클릭이 뒤로 뚫린다.)
@@ -5360,10 +5346,6 @@
     <div class="fs-toggle-row">
       <span>머리 위 레벨/이름 표시</span>
       <button class="fs-toggle-btn fs-switch" id="fsNameplateToggle" type="button">켜짐</button>
-    </div>
-    <div class="fs-toggle-row">
-      <span>상태칩 배치</span>
-      <button class="fs-toggle-btn" id="fsChipOrientToggle" type="button">세로</button>
     </div>
 
     <div class="fs-sep"></div>

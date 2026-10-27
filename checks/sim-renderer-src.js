@@ -32,7 +32,7 @@ const MODULES = [
   { file: 'settings-panel.js', mod: 'settingsMod', glob: 'TwSettingsPanel', sample: 'function loadAdBannerSlides(' },   // 앱 FSD 27번
   { file: 'desktop-run.js', mod: 'desktopRunMod', glob: 'TwDesktopRun', sample: 'function showUpdateReadyBanner(' },   // 앱 FSD 32번
   { file: 'room-entry.js', mod: 'roomEntryMod', glob: 'TwRoomEntry', sample: 'function _roomServerNet(' },   // 앱 FSD 33번
-  { file: 'overhead.js', mod: 'overheadMod', glob: 'TwOverhead', sample: 'function applyChipOrientation(' },   // 앱 FSD 34번
+  { file: 'overhead.js', mod: 'overheadMod', glob: 'TwOverhead', sample: 'function setSeatMenu(' },   // 앱 FSD 34번
   { file: 'room-sync.js', mod: 'roomSyncMod', glob: 'TwRoomSync', sample: 'function _srvNow(' },   // 앱 FSD 35번
   { file: 'status-chip.js', mod: 'statusChipMod', glob: 'TwStatusChip', sample: 'function hexToRgba(' },   // 앱 FSD 36번
   { file: 'premium-assets.js', mod: 'premiumMod', glob: 'TwPremiumAssets', sample: 'function _wdLicenseDesks(' },   // 앱 FSD 37번

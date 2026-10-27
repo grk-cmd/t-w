@@ -1994,11 +1994,11 @@ function refreshMyStatusUI(){
   // ✨ 커스텀 상태는 등록한 문구/이모지로 해석해야 하므로 statusConfFor를 통해 얻음(내 좌석 기준).
   const c = userStatus ? statusConfFor(null, userStatus) : null;
   if(c){
-    // 세로 배열 A안: 라벨 요소는 없앴고 대신 title(툴팁)로 현재 상태 표시. dot 색은 그대로 상태 시각화.
-    btn.title = (c.emo ? c.emo+' ' : '') + c.label;
+    // ▾ 버튼 앞 점 색 = 지금 상태 · 이름은 툴팁으로
+    btn.title = '메뉴 — 지금 상태: ' + (c.emo ? c.emo+' ' : '') + c.label;
     if(dot){ dot.style.background = TwSafeHtml.cssColor(c.dot||'#9dba8a'); dot.style.boxShadow='0 0 0 2px '+statusChipMod.hexToRgba(c.dot||'#9dba8a',.18); }
   } else {
-    btn.title = '상태';
+    btn.title = '메뉴';
     if(dot){ dot.style.background = '#9dba8a'; dot.style.boxShadow='0 0 0 2px rgba(157,186,138,.18)'; }
   }
   /* ⚠️ data-st 가 있는 항목만 본다. ✨ 커스텀 상태 항목은 data-st 가 없어서 ''===''(온라인)로
@@ -2065,7 +2065,6 @@ const statusChipMod = TwStatusChip.createStatusChip({
   customStatusConf: ()=>userStatusTableMod.customStatusConf(),
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   moveMode: ()=>moveMode,
-  overheadMod: ()=>overheadMod,
   renderer: renderer,
   rideBenchMod: rideBenchMod,
   saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),
@@ -2260,11 +2259,9 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   _moveModeJustToggled: ()=>_moveModeJustToggled,
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
-  applyChipOrientation: (...a)=>overheadMod.applyChipOrientation(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
   backToLauncher: (...a)=>backToLauncher(...a),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
-  chipHorizontal: ()=>overheadMod.chipHorizontal(),
   createSeat: (...a)=>createSeat(...a),
   curSlot: ()=>curSlot,
   decoPartsVisible: ()=>decoPartsMod.decoPartsVisible(),
@@ -2299,7 +2296,6 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   setMULTIPLAYER_SPACING: (v)=>{ MULTIPLAYER_SPACING = v; },
   setSPACING: (v)=>{ SPACING = v; },
   setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
-  setChipHorizontal: (v)=>{ overheadMod.setChipHorizontal(v); },
   setCurSlot: (v)=>{ curSlot = v; },
   setDecoPartsVisible: (v)=>{ decoPartsMod.setDecoPartsVisible(v); },
   setDotRenderEnabled: (v)=>{ dotRenderEnabled = v; },
@@ -8593,7 +8589,7 @@ function setOfficeHidden(on){
        메뉴를 닫는 순간 숨김 표시까지 지워진다 — 전용 클래스를 쓴다. */
     btn.classList.toggle('office-hiding', _officeHidden);
     btn.title = _officeHidden ? '우클릭: 화면 다시 보이기'
-              : (officeMode ? '상태 (우클릭: 화면 숨기기)' : '상태');
+              : (officeMode ? '메뉴 (우클릭: 화면 숨기기)' : '메뉴');
   }
   /* 숨길 때 열려 있던 **칩 팝업**(상태·더보기·알림 등)은 닫는다 — 지나가는 것들이라 숨김을
      푼 뒤에도 떠 있으면 오히려 거슬린다.
@@ -8604,8 +8600,7 @@ function setOfficeHidden(on){
     /* force=true — 🎵 플레이리스트까지 닫는다. 이 창만은 예외로 남기면 안 된다:
        재생 중이면 _plSyncBgmBounds 가 패널 자리를 main 에 계속 알려서, 화면을 숨겨도
        유튜브 자식창이 그 자리에 그대로 떠 있게 된다(숨김이 안 된 것처럼 보인다). */
-    try{ chipPopupsMod._closeChipPopups(null, true); }catch(_){}
-    const sm=document.getElementById('myStatusMenu'); if(sm) sm.classList.add('hidden');
+    try{ chipPopupsMod._closeChipPopups(null, true); }catch(_){}   // ▾ 메뉴(상태 목록 포함)도 이 목록에 있다
   }
 }
 function refreshOfficeChipUI(){

@@ -4,6 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_positionCascade · _positionInputBelowChar · _repositionOpenChipPopups · _tabHintTimer · setTabHintTimer · _wpTmp3 · hexToRgba · otherSeatRegions · setSeatDeskEmoji · uiIconEl · updateMyStatusChipPosition)
      만들 때 deps 함수를 되부르지 않는다 — 만드는 도중엔 app.js 의 statusChipMod 가 아직 없어(TDZ) 되부른 refreshMyStatusUI 가 던졌다(상태를 저장해 둔 사람은 app.js 가 통째로 멈춘 사고)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 33줄 그대로 · 부르는 곳은 statusChipMod.이름 · html(app.js 앞)
+   ・2-2절: ▾ 두 칸 메뉴 — 작은 가짜 DOM 위에서 ▾ 를 눌러 열고 닫기 · 투게더룸이면 춤 · 룰렛 숨김 · 상태 고르면 닫힘 · 커스텀 줄은 상태 안 바꿈
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · status-chip.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -20,11 +21,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ["_charProjSane","_closeChipPopups","_lowestDanceReq","_seatHidden","_pickUnlockedDance","_premiumOn","_rollRoulette","backToLauncher","measureBodyBox","saveCustomStatusConf","setUserStatus","startMyDance","toast"];
 const VAL_DEPS = ["CUSTOM_STATUS_MAXLEN","_CHIP_POPUPS","camera","clickPolicy","renderer","rideBenchMod","seats"];
-const GET_DEPS = ["Presence","_charBadWhy","_charBoundsLatest","_danceCmdCooldownAt","_moveModeJustToggled","_officeHidden","chatUiMod","customStatusConf","moveMode","overheadMod","userStatus"];
+const GET_DEPS = ["Presence","_charBadWhy","_charBoundsLatest","_danceCmdCooldownAt","_moveModeJustToggled","_officeHidden","chatUiMod","customStatusConf","moveMode","userStatus"];
 const SET_DEPS = ["_charBadWhy","_charBoundsLatest","_danceCmdCooldownAt","_moveModeJustToggled","moveMode"];
 const EXPORTS = ["_positionCascade","_positionInputBelowChar","_repositionOpenChipPopups","_tabHintTimer","setTabHintTimer","_wpTmp3","hexToRgba","otherSeatRegions","setSeatDeskEmoji","uiIconEl","updateMyStatusChipPosition"];
 const MOVED = ["hexToRgba","_positionCascade","UI_FOLLOW_WHILE_RIDING","_CHIP_METRIC_MS","CHIP_METRIC_HOLD_MS","_chipOriginTmp","_chipBoxTmp","_chipMeshBoxTmp","_isPartSubtree","_expandVisibleBox","_chipCharMetrics","_uiAnchorSeat","_uiAnchorWorld","_positionInputBelowChar","_repositionOpenChipPopups","_repositionOpenChipInputs","_lastChipPlaceRight","_wpTmp","_wpTmp2","_wpTmp3","CHIP_VERT_TOP_RATIO","CHIP_GAP_CHAR_RATIO","updateMyStatusChipPosition","_tabHintTimer","_emojiTexCache","EMOJI_TEX_IMG","UI_ICON","UI_ICON_ALT","uiIconEl","_applyUiIcons","makeEmojiTexture","DESK_EMOJI_Y_OFFSET","DESK_EMOJI_Z_OFFSET","DESK_EMOJI_SIZE","ensureSeatDeskEmoji","setSeatDeskEmoji"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,","  Presence: ()=>Presence,","  _CHIP_POPUPS: _CHIP_POPUPS,","  _charBadWhy: ()=>_charBadWhy,","  _charBoundsLatest: ()=>_charBoundsLatest,","  _charProjSane: (...a)=>_charProjSane(...a),","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  _danceCmdCooldownAt: ()=>_danceCmdCooldownAt,","  _lowestDanceReq: (...a)=>_lowestDanceReq(...a),","  _moveModeJustToggled: ()=>_moveModeJustToggled,","  _officeHidden: ()=>_officeHidden,","  _seatHidden: (...a)=>_seatHidden(...a),","  _pickUnlockedDance: (...a)=>_pickUnlockedDance(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  _rollRoulette: (...a)=>_rollRoulette(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  chatUiMod: ()=>chatUiMod,","  clickPolicy: TwClickThroughPolicy,","  customStatusConf: ()=>customStatusConf,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  moveMode: ()=>moveMode,","  overheadMod: ()=>overheadMod,","  renderer: renderer,","  rideBenchMod: rideBenchMod,","  saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  startMyDance: (...a)=>startMyDance(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  setCharBadWhy: (v)=>{ _charBadWhy = v; },","  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },","  setDanceCmdCooldownAt: (v)=>{ _danceCmdCooldownAt = v; },","  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },","  setMoveMode: (v)=>{ moveMode = v; },"];
+const GLUE = ["  CUSTOM_STATUS_MAXLEN: CUSTOM_STATUS_MAXLEN,","  Presence: ()=>Presence,","  _CHIP_POPUPS: _CHIP_POPUPS,","  _charBadWhy: ()=>_charBadWhy,","  _charBoundsLatest: ()=>_charBoundsLatest,","  _charProjSane: (...a)=>_charProjSane(...a),","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  _danceCmdCooldownAt: ()=>_danceCmdCooldownAt,","  _lowestDanceReq: (...a)=>_lowestDanceReq(...a),","  _moveModeJustToggled: ()=>_moveModeJustToggled,","  _officeHidden: ()=>_officeHidden,","  _seatHidden: (...a)=>_seatHidden(...a),","  _pickUnlockedDance: (...a)=>_pickUnlockedDance(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  _rollRoulette: (...a)=>_rollRoulette(...a),","  backToLauncher: (...a)=>backToLauncher(...a),","  camera: camera,","  chatUiMod: ()=>chatUiMod,","  clickPolicy: TwClickThroughPolicy,","  customStatusConf: ()=>customStatusConf,","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  moveMode: ()=>moveMode,","  renderer: renderer,","  rideBenchMod: rideBenchMod,","  saveCustomStatusConf: (...a)=>saveCustomStatusConf(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  startMyDance: (...a)=>startMyDance(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  setCharBadWhy: (v)=>{ _charBadWhy = v; },","  setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },","  setDanceCmdCooldownAt: (v)=>{ _danceCmdCooldownAt = v; },","  setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },","  setMoveMode: (v)=>{ moveMode = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -47,6 +48,65 @@ function build(src){
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
     src + '\nreturn window.TwStatusChip;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
   return api.createStatusChip(deps);
+}
+
+/* ▾ 두 칸 메뉴(#540 P3) — 작은 가짜 DOM 위에서 버튼을 실제로 눌러 본다 */
+function behave(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const any = anything();
+  const els = {}, docOn = [];
+  const mk = (id, parent) => {
+    const cls = new Set(), on = {}, q = {};
+    const el = { id, parent: parent || null, style: {}, dataset: {}, cls, on, textContent: '',
+      classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c),
+        toggle: (c, f) => { const v = f === undefined ? !cls.has(c) : !!f; v ? cls.add(c) : cls.delete(c); return v; } },
+      addEventListener: (type, fn) => { (on[type] = on[type] || []).push(fn); },
+      contains(x){ for(let n = x; n; n = n.parent) if(n === el) return true; return false; },
+      querySelector: (sel) => q[sel] || (q[sel] = mk(id + ' ' + sel, el)), querySelectorAll: () => [],
+      getBoundingClientRect: () => ({ left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 }),
+      closest: () => null, setAttribute(){}, getAttribute: () => null, appendChild(){} };
+    return el;
+  };
+  const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), querySelector: () => null, querySelectorAll: () => [],
+    createElement: () => mk('_'), addEventListener: (type, fn) => docOn.push({ type, fn }), body: mk('body'), head: mk('head') };
+  const picked = [];
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  deps._officeHidden = () => false;
+  deps.setUserStatus = (v) => picked.push(v);
+  deps._closeChipPopups = () => {};
+  const win = { _activeChannel: 1, addEventListener(){}, removeEventListener(){} };
+  const store = {};
+  const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+  try{
+    new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'innerWidth', 'innerHeight', 'module',
+      src + '\nreturn window.TwStatusChip;')(win, document, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, 1000, 800, undefined).createStatusChip(deps);
+  }catch(e){ t(false, '가짜 DOM 위에서 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
+  const btn = els.myStatusChipBtn, more = els.myChipMore, menu = els.myStatusMenu;
+  const press = (el, ev) => (el.on.click || []).forEach(fn => fn(Object.assign({ stopPropagation(){}, target: el }, ev || {})));
+  try{
+    more.classList.add('hidden');
+    press(btn);
+    t(!more.classList.contains('hidden') && btn.classList.contains('on'), '▾ 를 누르면 두 칸 메뉴가 열리고 버튼이 눌린다');
+    t(els.myDanceBtn.style.display === '' && more.querySelector('.cmPlaySep').style.display === '', '  워킹룸 · 혼자면 춤추기 · 룰렛과 구분선이 보인다');
+    press(btn);
+    t(more.classList.contains('hidden') && !btn.classList.contains('on'), '다시 누르면 닫힌다');
+    win._activeChannel = 2; press(btn);
+    t(els.myDanceBtn.style.display === 'none' && els.myRouletteBtn.style.display === 'none' && more.querySelector('.cmPlaySep').style.display === 'none', '투게더룸이면 춤추기 · 룰렛 · 구분선을 숨긴다');
+    const item = { dataset: { st: 'meal' }, hasAttribute: (a) => a === 'data-st' };
+    (menu.on.click || []).forEach(fn => fn({ target: { closest: (sel) => (sel === '.stItem' ? item : null) } }));
+    t(picked[picked.length - 1] === 'meal' && more.classList.contains('hidden'), '«내 상태» 에서 고르면 그 상태로 바꾸고 메뉴를 닫는다');
+    const custom = { dataset: {}, hasAttribute: () => false };
+    press(btn); const n = picked.length;
+    (menu.on.click || []).forEach(fn => fn({ target: { closest: (sel) => (sel === '.stItem' ? custom : null) } }));
+    t(picked.length === n, '  ✨ 커스텀 상태 줄(data-st 없음)은 상태를 바꾸지 않는다 — 입력창 여는 전용 처리에 맡긴다');
+    deps._officeHidden = () => true;
+  }catch(e){ t(false, '동작 판정 중 던짐 — ' + String(e.message || e).slice(0, 80)); }
+  return r;
 }
 
 function judgeAll(mod, app, html){
@@ -74,13 +134,17 @@ function judgeAll(mod, app, html){
   t(!bare.length, '부르는 곳은 statusChipMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/status/status-chip.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/status/status-chip.js 를 app.js 보다 먼저 싣는다');
+  for(const row of behave(mod)) r.push(row);
   return r;
 }
 
 const rows = judgeAll(MOD, SRC, HTML);
-rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 5) say('── 2. app.js 연결'); chk(ok, msg); });
+const NB = behave(MOD).length;
+rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 5) say('── 2. app.js 연결'); if(i === rows.length - NB) say('── 2-2. ▾ 두 칸 메뉴'); chk(ok, msg); });
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
+  ['상태 고르고 메뉴 안 닫음', m => m.replace('      setUserStatus(b.dataset.st || null);\n      closeMore();', '      setUserStatus(b.dataset.st || null);'), null, null],
+  ['투게더룸에서 춤 안 숨김', m => m.replace("const playHidden = (window._activeChannel === 2);", 'const playHidden = false;'), null, null],
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/status/status-chip.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
   ['deps 하나 빠짐', null, a => { const i = a.indexOf("const statusChipMod = TwStatusChip.createStatusChip({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }, null],
