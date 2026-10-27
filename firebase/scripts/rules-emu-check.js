@@ -594,8 +594,10 @@ function freePort(){
 async function outer(){
   const port = await freePort();
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-rules-emu-'));
+  /* firebase-tools 는 rules 를 firebase.json 폴더 기준 상대 경로로 읽는다(절대 경로도 앞의 / 를 떼어 붙여 ENOENT) — 같은 폴더에 복사해 이름만 준다 */
+  fs.copyFileSync(RULES, path.join(dir, 'database.rules.json'));
   fs.writeFileSync(path.join(dir, 'firebase.json'), JSON.stringify({
-    database: { rules: RULES },
+    database: { rules: 'database.rules.json' },
     emulators: { database: { port }, ui: { enabled: false }, singleProjectMode: true },
   }));
   const r = spawnSync('firebase', ['emulators:exec', '--only', 'database', '--project', PROJECT,
