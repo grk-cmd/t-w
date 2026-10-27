@@ -2,7 +2,7 @@
    app.js «📍 상태칩 자리 · 칩 클릭 · Tab 접기» · «📐 상태칩 팝업 · 입력창 자리 계산 · 캐릭터 실측» · «🫧 상태 이모지 그림 · UI 아이콘 · 책상 위 이모지» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 36번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 33줄 —
-     Presence · _charBadWhy · _charBoundsLatest · _danceCmdCooldownAt · _moveModeJustToggled · _officeHidden · chatUiMod · customStatusConf · moveMode · overheadMod · userStatus 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCharBadWhy · setCharBoundsLatest · setDanceCmdCooldownAt · setMoveModeJustToggled · setMoveMode(…).
+     Presence · _charBadWhy · _charBoundsLatest · _danceCmdCooldownAt · _moveModeJustToggled · _officeHidden · chatUiMod · customStatusConf · moveMode · userStatus 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCharBadWhy · setCharBoundsLatest · setDanceCmdCooldownAt · setMoveModeJustToggled · setMoveMode(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 11개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). 마이홈 시작(initMyHome)은 여기서 안 부른다 — app.js INIT 에서 한 번.
      저장된 상태 불러오기 · 칩 첫 그리기 · 캐릭터 크기 복원도 여기서 안 부른다 — app.js 의 만드는 줄 바로 뒤에서(만드는 도중엔 statusChipMod 가 아직 없어 refreshMyStatusUI 가 던진다).
@@ -34,7 +34,6 @@ const chatUiMod = deps.chatUiMod;   // 읽는 함수
 const customStatusConf = deps.customStatusConf;   // 읽는 함수
 const measureBodyBox = deps.measureBodyBox;
 const moveMode = deps.moveMode;   // 읽는 함수
-const overheadMod = deps.overheadMod;   // 읽는 함수
 const renderer = deps.renderer;
 const rideBenchMod = deps.rideBenchMod;
 const saveCustomStatusConf = deps.saveCustomStatusConf;
@@ -67,7 +66,7 @@ function _positionCascade(menuEl, anchorBtn, preferSide){
   if(preferSide === 'right' || preferSide === 'left'){
     // 😊 선호 방향 고정 모드 — 항상 그쪽에 열고, 벽에 닿아 공간이 부족할 때만 반대편으로 반전.
     //   히스테리시스: 한 번 반전되면 원래 방향에 여유(menuW+30)가 다시 생겨야 복귀 —
-    //   캐릭터가 경계에서 움직일 때 팔레트가 좌우로 파닥거리지 않게(상태칩의 _lastChipPlaceRight와 같은 기법).
+    //   캐릭터가 경계에서 움직일 때 팔레트가 좌우로 파닥거리지 않게.
     const wantR = (preferSide === 'right');
     const primary  = wantR ? spaceRight : spaceLeft;
     const opposite = wantR ? spaceLeft  : spaceRight;
@@ -290,16 +289,14 @@ function _positionInputBelowChar(inputEl){
       다시 받으면 메뉴가 캐릭터와 함께 떨린다(실제로 그렇게 보였다). 메뉴는 열린 자리에 서 있어야 한다.
       캐릭터를 따라가야 하는 것은 상태칩 자신과 '발 밑' 입력창뿐 — 그건 _repositionOpenChipInputs 로 분리했다. */
 function _repositionOpenChipPopups(){
-  const statusBtn = document.getElementById('myStatusChipBtn');
-  const moreBtn   = document.getElementById('myChipMoreBtn');
-  _positionCascade(document.getElementById('myStatusMenu'), statusBtn);
-  _positionCascade(document.getElementById('myChipMore'),   moreBtn, 'right');   // ▼ 더보기 — 우측 우선, 벽 근처에서만 좌측 반전
+  const menuBtn = document.getElementById('myStatusChipBtn');   // ▾ — 두 칸 메뉴와 메뉴 안 버튼이 연 창(🎵 · 🎧)의 기준
+  _positionCascade(document.getElementById('myChipMore'), menuBtn, 'right');   // ▾ 두 칸 메뉴 — 우측 우선, 벽 근처에서만 좌측 반전
   _positionCascade(document.getElementById('myDemojiBox'),  document.getElementById('myDemojiBtn'), 'right');   // 😊 팔레트 — 우측 우선, 벽 근처에서만 좌측 반전
   // 🎵 플레이리스트는 유저가 타이틀바로 옮겨둔 자리가 있으면 그 자리를 쓴다(캐스케이드로 덮으면 옮긴 게 튕겨나간다).
   //   _plHasSavedPos/_plApplyPos 는 playlist.js 가 만들 때 거는 window 고리다 — 만들기 전(이 함수가 더 위에 선언)이면 typeof 로 건너뛴다.
   if(typeof _plHasSavedPos === 'function' && _plHasSavedPos()) _plApplyPos();
-  else _positionCascade(document.getElementById('myPlaylistBox'), document.getElementById('myPlBtn'), 'right');
-  _positionCascade(document.getElementById('listenBox'), document.getElementById('myPlBtn'), 'right');   // 같이 듣기 창(옮기기 없음 — 늘 버튼 옆)
+  else _positionCascade(document.getElementById('myPlaylistBox'), menuBtn, 'right');
+  _positionCascade(document.getElementById('listenBox'), menuBtn, 'right');   // 같이 듣기 창(옮기기 없음 — 늘 ▾ 옆)
   _repositionOpenChipInputs();
 }
 /* 매 프레임용 — 캐릭터 발 밑에 붙는 입력창만. 이건 '발 밑'이 기준이라 따라가는 게 맞는 동작이다. */
@@ -310,32 +307,13 @@ function _repositionOpenChipInputs(){
 // 창 크기가 바뀌면 열려 있는 메뉴가 화면 밖으로 밀릴 수 있으므로 그때는 다시 잡아준다.
 addEventListener('resize', ()=>{ try{ _repositionOpenChipPopups(); }catch(_){} });
 
-let _lastChipPlaceRight = true;   // 상태칩 좌우 반전 히스테리시스 — 방향이 매 프레임 튀지 않게 마지막 판정을 기억
-
 /* 칩 위치를 매 프레임 자기 좌석 발 밑(화면 좌표)에 맞춤. 설정 패널이 열려있으면 그 위치도 같이 갱신. */
 const _wpTmp=new THREE.Vector3();
 const _wpTmp2=new THREE.Vector3();
 const _wpTmp3=new THREE.Vector3();
-/* ★ 세로 배치 상태칩의 높이 조절점 — 이 값 하나.
-   캐릭터 '머리 끝'에서 키의 몇 %를 내려온 지점을 툴바 맨 위로 삼는다.
-   줄이면 올라가고(0 = 머리 끝과 같은 높이), 키우면 내려간다.
-   ★ 비율이라 커미션·동물·파츠로 덩치가 달라져도 같은 자리로 보인다 —
-     px 상수로 바꾸면 캐릭터 크기를 키울 때마다 어긋난다(예전에 그 문제로 실측 방식으로 바꿨다).
-   (가로 배치 높이는 경험치 바 아래에 자동으로 붙으므로 EXP_BAR_GAP으로 조절한다) */
-const CHIP_VERT_TOP_RATIO = 0.25;   // 0.41(어깨) → 0.32로 조금 올림
-/* ★ 캐릭터와 칩 사이 여백을 **캐릭터 실측 반폭의 몇 %**로 잡는다 — 이 값 하나.
-   [경위] 여백이 6px 고정이라 캐릭터를 키우면 그 6px 만 안 커졌다. 크기 슬라이더(focusCharScale)는
-     모델을 키우는 게 아니라 **카메라를 당기므로**(applyCameraAndCanvas 의 dist / focusCharScale)
-     화면상 캐릭터가 커진 만큼 실루엣도 같이 커지는데, 여백만 그대로라 상대적으로 붙는다.
-     게다가 실측 박스는 **파츠를 일부러 뺀 '몸'만**이므로(CHIP_BODY_OPTS) 모자·머리카락·날개는
-     그 밖으로 튀어나온다. 몸 옆 6px 자리는 작을 땐 몇 px 만 물리지만 크면 그만큼 크게 물린다 —
-     그게 "좌석이 커지면 칩이 캐릭터를 가린다"의 정체다.
-   ⚠️ px 상수로 되돌리지 말 것. 크기·동물·커미션마다 다시 어긋난다(CHIP_VERT_TOP_RATIO 와 같은 이유).
-   ⚠️ 이 비율은 **캐릭터 대 칩**에만 쓴다. 이름표·경험치 바를 비키는 여백은 DOM 대 DOM 이고
-     그쪽은 글꼴 px 고정이라 같이 키우면 큰 캐릭터에서 칩만 멀리 날아간다 — 거기는 GAP 그대로다.
-   📐 0.15 는 기본 크기(사람 반폭 ≈ 40px)에서 지금과 같은 ≈6px 이 나오는 값이다. 눈으로 맞춘
-     지금 모양을 그대로 두고 커질 때만 벌어지게 한 것 — 여전히 물리면 이 숫자만 올릴 것. */
-const CHIP_GAP_CHAR_RATIO = 0.15;
+/* main 에 보내는 캐릭터 클릭 원의 중심 높이 — 머리 끝에서 키의 몇 % 내려온 곳.
+   ★ 비율이라 커미션·동물·파츠로 덩치가 달라져도 같은 자리다(px 상수로 바꾸면 캐릭터 크기마다 어긋난다). */
+const CHAR_HIT_Y_RATIO = 0.25;
 function updateMyStatusChipPosition(){
   const chip=document.getElementById('myStatusChip'); if(!chip)return;
   const me=seats.find(s=>s.isMe);
@@ -351,9 +329,7 @@ function updateMyStatusChipPosition(){
     return;
   }
   chip.style.display='flex';
-  // ★ 캐릭터 위치를 그대로 투영 → 화면(픽셀) 단위로 오프셋. 원근 드리프트 0.
-  //   [세로 배열 A안 재구성] 예전 가로 배열용 오프셋(캐릭터 왼쪽 아래 발밑 근처)은 세로 툴바가 아래로 뻗으면서
-  //   화면 좌하단으로 밀려나는 문제가 있었음. 이제 캐릭터 몸통 옆(왼쪽/오른쪽 자동)에 붙는 방식.
+  // ★ 캐릭터 위치를 그대로 투영 → 화면(픽셀) 단위로 오프셋. 원근 드리프트 0. 칩은 늘 이름표 아래 가운데(#540 P3).
   _uiAnchorWorld(me, _wpTmp);   // 올라탄 동안엔 탑 바닥 캐릭터 기준(_uiAnchorSeat 주석 참고)
   // ★ 예전엔 캐릭터를 "키 1.45 / 반폭 0.4 월드유닛"으로 가정한 상수로 칩 위치를 잡았다.
   //   실제 모델은 커미션·동물·파츠에 따라 이보다 작아서, 그 오차가 화면 크기 배율(focusCharScale)에
@@ -369,45 +345,12 @@ function updateMyStatusChipPosition(){
   const cyFeet =rect.top +(-_wpTmp.y*0.5+0.5)*rect.height;   // 발밑 화면 y
   const cyTop  =rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;  // 머리 끝 화면 y
   const charPxH = Math.max(1, Math.abs(cyFeet - cyTop));     // 화면상 캐릭터 키(px)
-  const pxPerUnit = charPxH / Math.max(0.01, _m.topY);       // 1 world unit = 몇 px
-  // 세로 배치 기준 높이 — 머리 끝에서 키의 몇 %를 내려온 지점을 툴바 top으로 쓴다(0.41 ≈ 어깨).
-  const cy = cyTop + charPxH * CHIP_VERT_TOP_RATIO;
-  const CHAR_HALF_PX = pxPerUnit * _m.halfW;                 // 실측 반폭(px)
-  // ★ 칩과 캐릭터 사이 고정 여백(px). 반폭을 실측하므로 이제 이 숫자 하나만 조절하면 된다.
-  //   동물 보정(ANIMAL_CHIP_GAP_EXTRA)은 실측으로 대체돼 불필요 — 제거됨.
-  const GAP = 6;
-  /* 캐릭터 옆에 붙일 때만 쓰는 여백 — 캐릭터가 커지면 같이 벌어진다(CHIP_GAP_CHAR_RATIO 주석).
-     ⚠️ 최소값은 GAP 이다. 작은 동물에서 여백이 2~3px 로 쪼그라들면 칩이 몸에 닿아 보인다. */
-  const GAP_CHAR = Math.max(GAP, CHAR_HALF_PX * CHIP_GAP_CHAR_RATIO);
-  // 실측 툴바 폭 (없으면 기본 32)
+  const cy = cyTop + charPxH * CHAR_HIT_Y_RATIO;              // 클릭 원의 중심
   const chipRect0 = chip.getBoundingClientRect();
   const chipW0 = chipRect0.width || 32;
-  const chipH0 = chipRect0.height || 108;
-  // 기본은 오른쪽. 캐릭터가 화면 우측 끝에 붙어 오른쪽에 툴바 폭+여유가 안 들어가면 왼쪽으로 반전.
-  // ★ 반전 판정을 캐릭터별로 "안정"하게 유지 —
-  //   솔로에서 자리 추가로 캐릭터가 여러 개일 때, 자리간격 조절/창 이동으로 순간적으로 우측 여유가
-  //   부족해지면 매 프레임 반전이 튀는 문제(왼쪽↔오른쪽 진동)가 있었음.
-  //   히스테리시스(마지막 방향)를 도입 — 한 번 정한 방향은 확실히 반대쪽이 나을 때만 뒤집힘.
-  let placeRight = (_lastChipPlaceRight !== false);   // 기본 오른쪽
-  // ⚠️ 아래 px0 이 실제로 쓰는 여백과 **같은 값**으로 재야 한다. 여기만 GAP 으로 남겨두면
-  //   "오른쪽에 들어간다"고 판정해놓고 실제로는 그보다 더 밖에 놓여 화면 끝을 넘는다.
-  const rightSpace = innerWidth - (cx + CHAR_HALF_PX + GAP_CHAR);
-  const leftSpace  = cx - CHAR_HALF_PX - GAP_CHAR;
-  if(placeRight){
-    // 지금 오른쪽인데 오른쪽 공간이 툴바+여유(12)에도 부족하고 왼쪽에는 여유가 있으면 반전
-    if(rightSpace < chipW0 + 12 && leftSpace > chipW0 + 24) placeRight = false;
-  } else {
-    // 지금 왼쪽인데 오른쪽에 여유가 확실히 회복(툴바+여유*2) 되면 되돌림
-    if(rightSpace > chipW0 + 24) placeRight = true;
-  }
-  _lastChipPlaceRight = placeRight;
-  //  가로 배치: 캐릭터 옆이 아니라 '발 밑에 가로로' 놓는다. 세로 툴바를 그대로 가로로 눕히면
-  //   캐릭터 옆으로 길게 튀어나가 화면을 많이 먹고, 머리 위는 레벨/이름표와 겹치기 때문.
-  //   좌우는 캐릭터 중앙 정렬, 세로는 발 밑(어깨 기준 cy에서 캐릭터 높이만큼 내려간 지점).
+  const chipH0 = chipRect0.height || 26;
   /* 🏷️ 발밑 라벨 띠(경험치 바 + Lv./닉네임 이름표)를 칩이 덮지 않게 비킨다.
-     [경위] 예전엔 경험치 바만 봤다. 그런데 이름표는 그 바로 아래에 있어서
-       (NAMEPLATE_BELOW_EXPBAR), 가로 배치에서는 칩 줄이 이름표와 같은 높이에 앉아 닉네임을
-       통째로 덮었고, 세로 배치에서는 칩 기둥이 발밑까지 내려와 이름표 끝을 잘라먹었다(제보 사진).
+     이름표는 경험치 바 바로 아래에 있다(NAMEPLATE_BELOW_EXPBAR) — 바만 보면 칩이 닉네임을 덮는다.
      ★ 두 요소 다 이 함수보다 **먼저** 배치된다(프레임 순서: 바 → 이름표 → … → 칩).
        그래서 다시 계산하지 않고 실제 렌더된 사각형을 그대로 읽는다 —
        두 곳에서 따로 계산하면 반드시 어긋난다.
@@ -423,22 +366,9 @@ function updateMyStatusChipPosition(){
   });
   let labelBottom = cyFeet;
   _labels.forEach(_r => { labelBottom = Math.max(labelBottom, _r.bottom); });
-  let px0, py0;
-  if(overheadMod().chipHorizontal()){
-    px0 = cx - chipW0/2;
-    py0 = labelBottom + GAP;      // 바 아래가 아니라 '이름표 아래'
-  }else{
-    px0 = placeRight ? (cx + CHAR_HALF_PX + GAP_CHAR) : (cx - CHAR_HALF_PX - GAP_CHAR - chipW0);
-    py0 = cy;   // 툴바 top = 어깨 화면 좌표
-    /* 세로 배치에서는 칩 기둥이 어깨부터 발밑 라벨 띠까지 내려온다. 위로 올리면 머리 위로
-       솟구치므로(기둥이 캐릭터보다 길다) **옆으로** 비킨다 — 이름표는 캐릭터보다 조금 넓을
-       뿐이라 몇 px 만 밀면 된다. 세로로 안 겹치는 라벨은 애초에 상관이 없다. */
-    _labels.forEach(_r => {
-      if(_r.bottom < py0 || _r.top > py0 + chipH0) return;
-      if(placeRight) px0 = Math.max(px0, _r.right + GAP);
-      else           px0 = Math.min(px0, _r.left - GAP - chipW0);
-    });
-  }
+  const GAP = 6;
+  const px0 = cx - chipW0/2;          // 캐릭터 가운데
+  const py0 = labelBottom + GAP;      // 바 아래가 아니라 '이름표 아래'
   // 화면 밖으로 나가지 않게 clamp — 실제 렌더된 크기를 재서 여유를 둠
   const chipRect = chip.getBoundingClientRect();
   const chipW = chipRect.width || chipW0, chipH = chipRect.height || chipH0;
@@ -536,52 +466,43 @@ function updateMyStatusChipPosition(){
 (function bindMyStatusChip(){
   const btn=document.getElementById('myStatusChipBtn'); const menu=document.getElementById('myStatusMenu');
   if(!btn||!menu)return;
-  btn.addEventListener('click',e=>{
-    e.stopPropagation();
-    /* 🏢 숨김 중에는 상태 메뉴를 열지 않는다 — 메뉴 자체가 CSS 로 숨겨져 있어서
-       열어봐야 아무것도 안 뜨는 '죽은 클릭'이 된다. 되돌리는 손짓은 우클릭이다. */
-    if(_officeHidden()) return;
-    const willOpen = menu.classList.contains('hidden');
-    if(willOpen) _closeChipPopups('myStatusMenu');   // 상태 메뉴를 열 땐 다른 칩 팝업은 모두 닫음(겹침 방지)
-    menu.classList.toggle('hidden');
-    // 열릴 때만 즉시 위치 계산 — 매 프레임 갱신도 되지만 첫 프레임 깜빡임 방지.
-    if(!menu.classList.contains('hidden')){ btn.classList.add('on'); _positionCascade(menu, btn); }
-    else btn.classList.remove('on');
-  });
-  document.addEventListener('click',e=>{ if(!menu.contains(e.target)&&e.target!==btn){ menu.classList.add('hidden'); btn.classList.remove('on'); } });
-  menu.addEventListener('click',e=>{
-    const b = e.target.closest('.stItem'); if(!b) return;
-    /* ✨ 커스텀 상태 항목은 '상태 고르기'가 아니라 '문구 입력창 열기'다 — 전용 핸들러가 따로 있다.
-       여기서 먼저 집어가면 setUserStatus(null) 이 돼 상태가 조용히 온라인으로 풀린다. */
-    if(!b.hasAttribute('data-st')) return;
-    setUserStatus(b.dataset.st || null);
-    menu.classList.add('hidden');
-  });
-  // 런처2 (요청): [▼] 드롭다운 — 꾸미기·설정·이동 3개 버튼을 하나로 축약.
-  const moreBtn=document.getElementById('myChipMoreBtn'), more=document.getElementById('myChipMore');
-  if(moreBtn && more){
-    moreBtn.addEventListener('click', e=>{
+  const more=document.getElementById('myChipMore');
+  if(more){
+    const closeMore=()=>{ more.classList.add('hidden'); btn.classList.remove('on'); };
+    btn.addEventListener('click', e=>{
       e.stopPropagation();
+      /* 🏢 숨김 중에는 메뉴를 열지 않는다 — 메뉴 자체가 CSS 로 숨겨져 있어서
+         열어봐야 아무것도 안 뜨는 '죽은 클릭'이 된다. 되돌리는 손짓은 우클릭이다. */
+      if(_officeHidden()) return;
       const willOpen = more.classList.contains('hidden');
-      if(willOpen) _closeChipPopups('myChipMore');   // 더보기를 열 땐 다른 칩 팝업은 모두 닫음(겹침 방지)
-      // 💃 춤추기 버튼 — 투게더룸(채널2)에선 채팅 /80으로 대체되므로 숨김. 워킹룸·혼자 모드에서만 노출.
-      const danceBtn = document.getElementById('myDanceBtn');
-      if(danceBtn) danceBtn.style.display = (window._activeChannel === 2) ? 'none' : '';
-      /* 🔫 러시안룰렛 — 투게더룸(채널2)에선 숨긴다(2026-09-23 요청). 거기선 대화창 🎲 가 같은 일을 한다
-         (하나라도 1이면 굴린 사람이 날아간다 · _rollDice). 워킹룸·혼자 모드에는 그 🎲 가 없어서 버튼이 필요하다. */
-      const rouletteBtn = document.getElementById('myRouletteBtn');
-      if(rouletteBtn) rouletteBtn.style.display = (window._activeChannel === 2) ? 'none' : '';
-      more.classList.toggle('hidden');
-      if(!more.classList.contains('hidden')){ moreBtn.classList.add('on'); _positionCascade(more, moreBtn, 'right'); }
-      else moreBtn.classList.remove('on');
+      if(willOpen){
+        _closeChipPopups('myChipMore');   // 메뉴를 열 땐 다른 칩 팝업은 모두 닫음(겹침 방지)
+        /* 💃 · 🔫 — 투게더룸(채널2)에선 숨긴다: 춤은 채팅 /80, 룰렛은 대화창 🎲 가 같은 일을 한다.
+           워킹룸·혼자 모드에는 그 길이 없어서 버튼이 필요하다. 둘이 숨으면 위 구분선도 같이 숨긴다. */
+        const playHidden = (window._activeChannel === 2);
+        ['myDanceBtn','myRouletteBtn'].forEach(id=>{ const b=document.getElementById(id); if(b) b.style.display = playHidden ? 'none' : ''; });
+        const playSep = more.querySelector('.cmPlaySep'); if(playSep) playSep.style.display = playHidden ? 'none' : '';
+      }
+      more.classList.toggle('hidden', !willOpen);
+      btn.classList.toggle('on', willOpen);
+      if(willOpen) _positionCascade(more, btn, 'right');   // 열릴 때만 즉시 위치 계산 — 첫 프레임 깜빡임 방지
+    });
+    // 상태 고르기 — 왼쪽 칸
+    menu.addEventListener('click',e=>{
+      const b = e.target.closest('.stItem'); if(!b) return;
+      /* ✨ 커스텀 상태 항목은 '상태 고르기'가 아니라 '문구 입력창 열기'다 — 전용 핸들러가 따로 있다.
+         여기서 먼저 집어가면 setUserStatus(null) 이 돼 상태가 조용히 온라인으로 풀린다. */
+      if(!b.hasAttribute('data-st')) return;
+      setUserStatus(b.dataset.st || null);
+      closeMore();
     });
     // 바깥 클릭 시 닫힘 — 안쪽 버튼(꾸미기 등)을 눌러 각 기능이 열리는 순간에도 드롭다운은 자동 닫힘.
     document.addEventListener('click', e=>{
-      if(!more.contains(e.target) && e.target!==moreBtn){ more.classList.add('hidden'); moreBtn.classList.remove('on'); }
+      if(!more.contains(e.target) && !btn.contains(e.target)) closeMore();
     });
     more.addEventListener('click', e=>{
-      // 안쪽 버튼 클릭이면 드롭다운 닫음(각 기능은 원래 핸들러가 실행됨)
-      if(e.target.closest('button')){ more.classList.add('hidden'); moreBtn.classList.remove('on'); }
+      // 안쪽 버튼 클릭이면 메뉴를 닫음(각 기능은 원래 핸들러가 실행됨)
+      if(e.target.closest('button')) closeMore();
     });
     /* 🪟 [2026-08-29] **다른 프로그램을 누르면 닫는다.** — 요청
 
@@ -590,7 +511,7 @@ function updateMyStatusChipPosition(){
          (app.js 클릭통과 블록의 _pointHitsInteractive). 그러면 바깥을 눌러도 **이 창에는
          이벤트가 오지 않는다** — 리스너는 멀쩡히 달려 있는데 부를 사람이 없는 상태였다.
 
-       [왜 blur 면 되나] 이 메뉴는 ▼ 를 눌러야 열리고, 그 클릭이 우리 창을 활성화한다. 즉
+       [왜 blur 면 되나] 이 메뉴는 ▾ 를 눌러야 열리고, 그 클릭이 우리 창을 활성화한다. 즉
          메뉴가 떠 있는 동안 우리 창은 **반드시 포커스를 쥐고 있다.** 다른 프로그램을 누르는
          순간 그 포커스를 잃으므로 blur 한 번이면 정확히 그 경우만 잡힌다.
 
@@ -602,14 +523,14 @@ function updateMyStatusChipPosition(){
          본다. 그 둘은 파일 선택 다이얼로그 때문에 modalOpen 가드를 달았는데, 여기는 필요 없다:
          이 메뉴는 안쪽 버튼을 누르는 순간 스스로 닫히므로(위 more click 핸들러) 모달이 열릴
          시점에는 이미 사라져 있다.
-       ⚠️ 대상은 이 ▼ 메뉴 하나다. 상태 메뉴·이모티콘 팔레트도 같은 모양이라 넓히고 싶어지지만,
+       ⚠️ 대상은 이 ▾ 메뉴 하나다. 이모티콘 팔레트도 같은 모양이라 넓히고 싶어지지만,
          채팅 입력창·플레이리스트·꾸미기창까지 같이 닫으면 "다른 창 보러 갔다 오니 치던 글이
          날아갔다"가 된다. 넓힐 때는 _CHIP_POPUPS 의 keep 표를 먼저 볼 것.
        ⚠️ BGM 자식창·OS 색 선택 대화상자가 뜰 때도 blur 가 난다. 그때 메뉴가 닫히는 것은
          무해하므로 따로 예외를 두지 않는다. */
     window.addEventListener('blur', ()=>{
       if(more.classList.contains('hidden')) return;
-      more.classList.add('hidden'); moreBtn.classList.remove('on');
+      closeMore();
     });
   }
 
@@ -631,9 +552,9 @@ function updateMyStatusChipPosition(){
       if(nowMs - _danceCmdCooldownAt() < 5000){ toast('⏳ 춤은 5초에 한 번!'); return; }
       setDanceCmdCooldownAt(nowMs);
       startMyDance(def);
-      // 더보기 메뉴 닫기
+      // ▾ 메뉴 닫기
       const more=document.getElementById('myChipMore'); if(more) more.classList.add('hidden');
-      const moreBtn=document.getElementById('myChipMoreBtn'); if(moreBtn) moreBtn.classList.remove('on');
+      const menuBtn=document.getElementById('myStatusChipBtn'); if(menuBtn) menuBtn.classList.remove('on');
     });
   }
 
@@ -644,7 +565,7 @@ function updateMyStatusChipPosition(){
       e.stopPropagation();
       _rollRoulette();
       const more=document.getElementById('myChipMore'); if(more) more.classList.add('hidden');
-      const moreBtn=document.getElementById('myChipMoreBtn'); if(moreBtn) moreBtn.classList.remove('on');
+      const menuBtn=document.getElementById('myStatusChipBtn'); if(menuBtn) menuBtn.classList.remove('on');
     });
   }
 
@@ -667,7 +588,7 @@ function updateMyStatusChipPosition(){
     });
   }
 
-  // 런처2 후속: [«] 런처 복귀 버튼 — 실행 화면에서 상태칩 [▼] 드롭다운 안. backToLauncher()는 기존 함수 재사용.
+  // [«] 런처 복귀 버튼 — ▾ 메뉴 «내 상태» 칸 맨 아래. backToLauncher()는 기존 함수 재사용.
   const myBackBtn=document.getElementById('myBackToLauncherBtn');
   if(myBackBtn){
     myBackBtn.addEventListener('click', e=>{
@@ -821,10 +742,10 @@ document.addEventListener('keydown', e=>{
        손짓이라 창까지 닫으면 곡을 고를 때마다 다시 펼쳐야 한다.
      ★ 창은 접힌 뒤에도 그대로 보인다 — #myPlaylistBox 는 #myChipGroup 밖에 있어서
        `.collapsed` 의 페이드 대상이 아니다. 제목줄의 ✕ 로 언제든 닫을 수 있다.
-     ⚠️ 다루는 범위는 예전 그대로 여섯 개다. 목록을 통째로 _CHIP_POPUPS 로 갈아끼우면 🔔 알림창까지
+     ⚠️ 다루는 범위는 예전 그대로다(상태 목록은 ▾ 메뉴 안으로 들어가 메뉴와 함께 닫힌다). 목록을 통째로 _CHIP_POPUPS 로 갈아끼우면 🔔 알림창까지
        새로 닫히기 시작한다 — 그건 이 요청과 무관한 동작 변경이다. */
   const _tabKeep = id => _CHIP_POPUPS.some(p => p.box === id && p.keep);
-  [['myStatusMenu','myStatusChipBtn'], ['myChipMore','myChipMoreBtn'], ['myChatBox','myChatBtn'],
+  [['myChipMore','myStatusChipBtn'], ['myChatBox','myChatBtn'],
    ['myCustomStatusBox',null], ['myDemojiBox','myDemojiBtn'], ['myPlaylistBox','myPlBtn']].forEach(pair=>{
     const boxId = pair[0], btnId = pair[1];
     if(_tabKeep(boxId)) return;

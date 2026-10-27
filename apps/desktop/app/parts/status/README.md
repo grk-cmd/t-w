@@ -5,7 +5,7 @@
 
 ## user-status-table.js — 🍚 상태 표 · 커스텀 상태 저장값
 
-- **책임**: «활동 상태» 의 값 표(밥 · 자리비움 · 빡일중 · 게임 · 커스텀 — 이모지 · 이름 · 점 색 · 동작 깃발)와 커스텀 상태 문구 저장값(`tw.customStatus` 불러오기 · 자르기). DOM · 방 통신 없음(아래층).
+- **책임**: «활동 상태» 의 값 표(밥 · 자리비움 · 집중(`grind` — 옛 이름 «빡일중») · 게임 · 커스텀 — 이모지 · 이름 · 점 색 · 동작 깃발)와 커스텀 상태 문구 저장값(`tw.customStatus` 불러오기 · 자르기). DOM · 방 통신 없음(아래층).
 - **만드는 법**: deps 없음 — `const userStatusTableMod = TwUserStatusTable.createUserStatusTable({` / `});`.
 - **내보내는 것**: `USER_STATUSES` · `CUSTOM_STATUS_KEY` · `CUSTOM_STATUS_MAXLEN`(12) · `loadCustomStatusFromStorage()` · `customStatusConf()` / `setCustomStatusConf(v)`(app.js 의 saveCustomStatusConf 가 쓴다).
   ```js
@@ -26,7 +26,18 @@
   chipPopupsMod._closeChipPopups('myChatBox');   // 채팅을 열기 전에 나머지를 닫는다
   ```
 - **확장할 때 고칠 자리**: 새 칩 팝업은 `_CHIP_POPUPS` 에 `{ box, btn }` 한 줄 — 계속 켜 두는 창이면 `keep:true`(force 일 때만 닫힌다).
-- **함정**: 알림 창(bellWin)은 class 와 함께 `display:none` 도 건다. 지금 커스텀 상태면 커스텀 버튼 ● 를 다시 켠다. 검사: `checks/sim-chip-popups.js`.
+- **함정**: ▾ 두 칸 메뉴 안의 상태 목록(`#myStatusMenu`)은 목록에 넣지 않는다 — 따로 닫으면 메뉴는 열린 채 목록만 사라진다(메뉴째 `myChipMore` 로 여닫는다). 알림 창(bellWin)은 class 와 함께 `display:none` 도 건다. 지금 커스텀 상태면 커스텀 버튼 ● 를 다시 켠다. 검사: `checks/sim-chip-popups.js`.
+
+## status-chip.js — 📍 상태칩(이름표 아래 [💬 채팅 | ▾]) · ▾ 두 칸 메뉴
+
+- **책임**: 내 캐릭터 이름표 아래 가운데에 붙는 한 덩이 버튼(`#myChipGroup`)과 ▾ 두 칸 메뉴(`#myChipMore` — 왼쪽 «내 상태» 목록 `#myStatusMenu` · 맨 아래 «런처로», 오른쪽 «바로가기» 일정 알림 · 플레이리스트(같이 듣기) · 설정 F1 · 꾸미기 F2 · 이동 F3 · 마이홈 F4 · 포커스 기록 · 춤추기 · 러시안룰렛). 칩 자리(매 프레임) · 팝업 자리(`_positionCascade`) · 발 밑 입력창 · Tab 접기 · 책상 위 이모지.
+  - 왼쪽 버튼은 방마다 하나: 투게더룸 `#myChatBtn`(💬 채팅) · 워킹룸 `#myDemojiBtn`(😊 이모티콘) · 혼자면 없음. ▾(`#myStatusChipBtn`) 앞 점은 지금 상태 색(app.js `refreshMyStatusUI`), 안 읽은 일정이 있으면 ▾ 에도 빨간 점(CSS `:has(#myBellBadge.on)`).
+- **내보내는 것**: `updateMyStatusChipPosition` · `_positionCascade` · `_repositionOpenChipPopups` 등(머리 주석 목록).
+- **함정**
+  - `#myStatusChipBtn` 은 회사원 모드로 숨겨도 남는 유일한 버튼이고 **우클릭**이 숨김 · 되돌리기다(app.js `bindOfficeHideGesture`). `#myStatusChip` 밖으로 옮기면 클릭 통과 화이트리스트에서 빠져 되돌릴 길이 없다.
+  - 메뉴 안 🎵 · 🎧 줄이 연 창은 그 줄이 아니라 ▾ 옆에 놓는다(🔔 일정 창은 예전처럼 발 밑 · 기억한 자리) — 메뉴가 닫히면 줄 자리가 의미가 없다(listen-ui.js 도 같은 기준).
+  - F키는 메뉴 안 버튼 id(`myFocusGearBtn` · `myWardrobeBtn` · `myMoveBtn` · `myHomeMenuBtn`)를 클릭한다 — id 를 바꾸지 않는다.
+- **검사**: `checks/sim-status-chip.js`(2-2절 — ▾ 열고 닫기 · 투게더룸이면 춤 · 룰렛 숨김 · 상태 고르면 닫힘 · 깨 보기).
 
 ## bgm-diag.js — 🔍 플레이리스트 소리 진단 줄
 

@@ -113,7 +113,6 @@
   "status/status-chip.js > chat/chat-ui.js",
   "status/status-chip.js > launcher/settings-panel.js",
   "status/status-chip.js > room/interaction-desk.js",
-  "status/status-chip.js > room/overhead.js",
   "status/status-chip.js > room/ride-bench.js",
   "status/status-chip.js > room/roulette.js",
   "status/status-chip.js > status/playlist.js"

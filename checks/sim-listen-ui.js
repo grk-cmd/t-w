@@ -25,7 +25,8 @@ const A = 'aaaaaaaaaaa', B = 'bbbbbbbbbbb', C = 'ccccccccccc';
 function mkDom(){
   const els = {};
   const mk = (id) => ({
-    id, textContent: '', title: '', hidden: false, disabled: false, value: '', style: {}, _l: [],
+    id, textContent: '', title: '', hidden: false, disabled: false, value: '', style: {}, _l: [], _q: {},
+    querySelector(sel){ return this._q[sel] || (this._q[sel] = { textContent: '' }); },   // 🎵 줄 안 칸(.ic · .plbTxt)
     classList: { s: new Set(id === 'listenBox' ? ['hidden'] : []), add(c){ this.s.add(c); }, remove(c){ this.s.delete(c); },
       toggle(c, on){ on ? this.s.add(c) : this.s.delete(c); }, contains(c){ return this.s.has(c); } },
     addEventListener(t, f, cap){ this._l.push({ t, f, cap: !!cap }); },
@@ -92,12 +93,13 @@ say('── 1. 들어감 · 나감');
 {
   let t = mk({ meta: { host: 'dj' } });
   t.ui.sync();
-  chk(t.prov.subs.length === 0 && t.el('myPlBtn').textContent === '🎵', '일반 방(music 아님)은 구독하지 않고 🎵 그대로');
+  const plIc = () => t.el('myPlBtn').querySelector('.ic').textContent, plTx = () => t.el('myPlBtn').querySelector('.plbTxt').textContent;
+  chk(t.prov.subs.length === 0 && plIc() === '🎵' && plTx() === '플레이리스트', '일반 방(music 아님)은 구독하지 않고 🎵 플레이리스트 그대로');
   t.st.meta = { host: 'dj', music: true };
   t.st.plPlaying = true;
   t.ui.sync();
   chk(t.prov.subs.length === 1 && t.prov.subs[0].room === 'PLAY-AB12', '★ meta 가 같이 듣기 방이 되면 곡 칸 하나를 구독');
-  chk(t.el('myPlBtn').textContent === '🎧' && t.el('myPlBtn').title === '같이 듣기', '  상태칩 🎵 버튼이 🎧 «같이 듣기» 가 된다');
+  chk(plIc() === '🎧' && plTx() === '같이 듣기' && t.el('myPlBtn').title === '같이 듣기', '  ▾ 메뉴 🎵 줄이 🎧 «같이 듣기» 가 된다');
   t.ui.sync();
   chk(t.prov.subs.length === 1, '  같은 방에서 다시 불려도 구독은 하나');
   t.push(song());
@@ -105,7 +107,7 @@ say('── 1. 들어감 · 나감');
     '★ 곡이 있으면 내 플레이리스트 창을 닫지 않고 넘겨받는다(닫기는 늦게 끝나 막 연 곡까지 닫는다 — 플레이리스트는 onBgmMode 로 진다)');
   t.st.code = null; t.st.meta = null;
   t.ui.sync();
-  chk(t.prov.unsubs === 1 && t.el('myPlBtn').textContent === '🎵', '★ 나가면 구독을 끊고 버튼을 되돌린다');
+  chk(t.prov.unsubs === 1 && plIc() === '🎵' && plTx() === '플레이리스트', '★ 나가면 구독을 끊고 줄을 되돌린다');
   const tq = mk({ plPlaying: true });
   tq.ui.sync(); tq.push(null);
   const tp = mk({ plPlaying: true });

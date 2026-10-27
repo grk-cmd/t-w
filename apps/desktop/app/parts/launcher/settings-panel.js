@@ -3,7 +3,7 @@
    app.js «⚙ 설정 패널» · «설정 패널 캐릭터 탭» 두 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 27번 — docs/APP_FSD_MAP.md).
    이동 모드 상태(moveMode 등) · 앱 화면 전환(appMode · launchApp · backToLauncher · applyAppMode)은 부팅 · 화면 핵심이라 app.js 에 남겼다. 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 62줄 —
-     MULTIPLAYER_SPACING · Presence · SPACING · _moveModeJustToggled · chipHorizontal · curSlot · decoPartsVisible · dotRenderEnabled · emojiReactionsEnabled · focusCharScale · isPremium · moveMode · nameplateEnabled · roomSeatMode · seatEqualizeOn · slots · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMULTIPLAYER_SPACING · setSPACING · setMoveModeJustToggled · setChipHorizontal · setCurSlot · setDecoPartsVisible · setDotRenderEnabled · setEmojiReactionsEnabled · setFocusCharScale · setMoveMode · setNameplateEnabled · setRoomSeatMode · setSeatEqualizeOn(…).
+     MULTIPLAYER_SPACING · Presence · SPACING · _moveModeJustToggled · curSlot · decoPartsVisible · dotRenderEnabled · emojiReactionsEnabled · focusCharScale · isPremium · moveMode · nameplateEnabled · roomSeatMode · seatEqualizeOn · slots · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMULTIPLAYER_SPACING · setSPACING · setMoveModeJustToggled · setCurSlot · setDecoPartsVisible · setDotRenderEnabled · setEmojiReactionsEnabled · setFocusCharScale · setMoveMode · setNameplateEnabled · setRoomSeatMode · setSeatEqualizeOn(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 24개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: openSettings · closeSettings · onTabShown · nameplateClamp · nameplatePct · EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
@@ -24,11 +24,9 @@ const _chatEsc = deps._chatEsc;
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
 const allDeskItems = deps.allDeskItems;
 const applyCharToSeat = deps.applyCharToSeat;
-const applyChipOrientation = deps.applyChipOrientation;
 const applyClothVisibility = deps.applyClothVisibility;
 const backToLauncher = deps.backToLauncher;
 const bringWinToFront = deps.bringWinToFront;
-const chipHorizontal = deps.chipHorizontal;   // 읽는 함수
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
 const decoPartsVisible = deps.decoPartsVisible;   // 읽는 함수
@@ -63,7 +61,6 @@ const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
 const setMULTIPLAYER_SPACING = deps.setMULTIPLAYER_SPACING;   // 쓰는 함수
 const setSPACING = deps.setSPACING;   // 쓰는 함수
 const setMoveModeJustToggled = deps.setMoveModeJustToggled;   // 쓰는 함수
-const setChipHorizontal = deps.setChipHorizontal;   // 쓰는 함수
 const setCurSlot = deps.setCurSlot;   // 쓰는 함수
 const setDecoPartsVisible = deps.setDecoPartsVisible;   // 쓰는 함수
 const setDotRenderEnabled = deps.setDotRenderEnabled;   // 쓰는 함수
@@ -406,8 +403,6 @@ const fsWin = (function bindFocusSettings(){
     if(dotBtn){ dotBtn.textContent = dotRenderEnabled()?'켜짐':'꺼짐'; dotBtn.classList.toggle('on', dotRenderEnabled()); }
     const npBtn=document.getElementById('fsNameplateToggle');
     if(npBtn){ npBtn.textContent = nameplateEnabled()?'켜짐':'꺼짐'; npBtn.classList.toggle('on', nameplateEnabled()); }
-    const coBtn=document.getElementById('fsChipOrientToggle');
-    if(coBtn){ coBtn.textContent = chipHorizontal()?'가로':'세로'; coBtn.classList.toggle('on', chipHorizontal()); }
     const eqBtn=document.getElementById('fsSeatEqToggle');
     if(eqBtn){ eqBtn.textContent = seatEqualizeOn()?'켜짐':'꺼짐'; eqBtn.classList.toggle('on', seatEqualizeOn()); }
     const dpBtn=document.getElementById('fsDecoPartsToggle');
@@ -501,13 +496,6 @@ const fsWin = (function bindFocusSettings(){
     try{ localStorage.setItem('tw.decoParts', decoPartsVisible()?'1':'0'); }catch(_){}
     refreshToggleBtns();
     try{ seats.forEach(s => applyClothVisibility(s)); }catch(_){}
-  };
-  const coBtn=document.getElementById('fsChipOrientToggle');
-  if(coBtn) coBtn.onclick=()=>{
-    setChipHorizontal(!chipHorizontal());
-    try{ localStorage.setItem('tw.chipHorz', chipHorizontal()?'1':'0'); }catch(_){}
-    applyChipOrientation();
-    refreshToggleBtns();
   };
   const emojiBtn=document.getElementById('fsEmojiToggle');
   if(emojiBtn) emojiBtn.onclick=()=>{

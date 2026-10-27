@@ -548,7 +548,7 @@ section('검사 14 · 상태칩 버튼이 공용 스타일 규칙에 전부 들�
 # 반드시 빠뜨리고, 그러면 그 버튼만 브라우저 기본 스타일로 남아 혼자 따로 논다.
 # (실제로 🎵 플레이리스트 버튼이 5개 규칙 전부에서 빠져 크기·배경·모서리가 전부 달랐다)
 _gs = html.find('<div id="myChipGroup">')
-_ge = html.find('<div id="myStatusMenu"')
+_ge = html.find('<div id="myDemojiBox"')   # #myChipGroup 바로 뒤 — 칩 버튼은 그 안의 [💬 채팅] · [😊 이모티콘](▾ 는 따로 그리는 div)
 _ok14 = True
 if _gs == -1 or _ge == -1 or _ge < _gs:
     print('  ⚠️ #myChipGroup 범위를 못 찾음 — 건너뜀')
@@ -559,7 +559,7 @@ else:
     if _sty14 and _chipBtns:
         for _rm in re.finditer(r'([^{}]*)\{([^{}]*)\}', _sty14.group(1)):
             _sel = _rm.group(1)
-            if '#myChipMoreBtn' not in _sel: continue      # 공용 칩버튼 규칙의 표식
+            if '#myDemojiBtn' not in _sel: continue      # 공용 칩버튼 규칙의 표식
             # 모양을 정하는 규칙만 본다. position:relative 처럼 일부 버튼에만 필요한 규칙은 대상이 아니다.
             if not re.search(r'border-color|border-radius|background|width\s*:', _rm.group(2)): continue
             _rules14 += 1
@@ -569,6 +569,11 @@ else:
                 problems.append('검사14: 칩버튼 ' + ','.join(_miss14) + ' 이(가) 공용 스타일 규칙에서 빠짐(style~' + str(_ln) + ') — 그 버튼만 혼자 다르게 보입니다')
                 print('  ⚠️ 누락:', ','.join(_miss14), '@style~' + str(_ln), '—', re.sub(r'\s+', ' ', _sel.strip())[:50])
                 _ok14 = False
+    if _chipBtns and not _rules14:
+        # 표식 규칙을 하나도 못 찾았으면 아무것도 안 본 것이다 — 통과로 두면 이 검사가 조용히 죽는다
+        problems.append('검사14: 칩버튼 공용 스타일 규칙(#myDemojiBtn 표식)을 하나도 못 찾음 — 검사가 아무것도 안 봤습니다')
+        print('  ⚠️ 공용 규칙 0개 — 표식(#myDemojiBtn)이 든 규칙이 없다')
+        _ok14 = False
     if _ok14:
         print('  통과 ✅ (버튼 ' + str(len(_chipBtns)) + '개 · 규칙 ' + str(_rules14) + '개 전부 포함)')
 

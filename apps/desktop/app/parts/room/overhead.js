@@ -1,11 +1,11 @@
-/* overhead.js — 💬 머리 위 말풍선 · 회사원 모드 라벨 · 🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너
+/* overhead.js — 💬 머리 위 말풍선 · 회사원 모드 라벨 · 🏷️ 머리 위 이름표 · 공지 배너
    app.js «💬 머리 위 말풍선 · 회사원 모드 라벨» · «🏷️ 머리 위 이름표 · 상태칩 방향 · 공지 배너» 두 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 34번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 3줄 —
      focusLevelMod · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 6개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: setSeatMenu · setLabelDrag · bindLabelDrag · NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · applyChipOrientation · chipHorizontal · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate — app.js 는 overheadMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: setSeatMenu · setLabelDrag · bindLabelDrag · NAMEPLATE_BELOW_EXPBAR · _officeDemojiHtml · _seatLabelName · dismissSeatHeadBubble · ensureSeatLabelsLayer · nameplateEnabled · projectWorldToScreenPx · removeSeatLabels · setSeatHeadBubble · setSeatNamePlate — app.js 는 overheadMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwOverhead — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-overhead.js */
@@ -48,14 +48,6 @@ const labelMeasure = TwLabelMeasure.createLabelMeasure({
         자동으로 폭이 늘어나서 잘릴 일이 없음. 3) 픽셀 단위 오프셋(예: 3px)을 정확히 줄 수 있음(3D 월드좌표는 근사치만 가능).
    위치 갱신은 상태칩(updateMyStatusChipPosition)과 완전히 같은 방식: 3D 월드좌표 → project(camera) → 화면 픽셀. ── */
 let nameplateEnabled = (localStorage.getItem('tw.nameplate') !== '0');   // 기본 켜짐
-/* 상태칩 배치 — 'v'(세로, 기본) | 'h'(가로). 설정 > 화면표시에서 전환, localStorage에 유지.
-   CSS는 #myStatusChip.horz 로 방향만 바꾸고, 화면상 위치는 updateMyStatusChipPosition이 분기 처리한다. */
-let chipHorizontal = (localStorage.getItem('tw.chipHorz') === '1');
-function applyChipOrientation(){
-  const chip = document.getElementById('myStatusChip');
-  if(chip) chip.classList.toggle('horz', chipHorizontal);
-}
-try{ applyChipOrientation(); }catch(_){}
 // 저장된 이름표 크기(--nameplate-size)를 페이지 로드 시점에 즉시 CSS 변수에 반영. 설정 패널을 안 열어도 유지됨.
 (function _applySavedNameplateSize(){
   try{
@@ -670,9 +662,6 @@ return {
   nameplateHeight,
   _officeDemojiHtml,
   _seatLabelName,
-  applyChipOrientation,
-  chipHorizontal: ()=>chipHorizontal,   // 읽는 함수
-  setChipHorizontal: (v)=>{ chipHorizontal = v; },   // 쓰는 함수 — app.js 가 비운다
   dismissSeatHeadBubble,
   ensureSeatLabelsLayer,
   nameplateEnabled: ()=>nameplateEnabled,   // 읽는 함수
