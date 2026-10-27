@@ -319,8 +319,8 @@ say('\n── 7. 토글 통로 4단 (main IPC → preload → HTML → app.js)')
     chk(/companion\.getLabVideo/.test(a) && /companion\.setLabVideo/.test(a), '  두 통로를 모두 부른다');
     chk(/if\s*\(\s*!\s*\(\s*window\.companion\s*&&\s*companion\.getLabVideo\s*\)/.test(a),
       '  ★ 구버전이면 칸을 숨긴다 — 통로 없는 버튼을 내보내지 않는다');
-    chk(new RegExp('progTabBtnSystem[\\s\\S]{0,400}?refreshLabVideoUI').test(a),
-      '  시스템 탭을 열 때 상태를 다시 읽는다 — 파일로 바꾼 값이 화면과 어긋나지 않는다');
+    chk(new RegExp("key==='display'\\)\\{[^\\n]{0,300}?refreshLabVideoUI").test(a),
+      '  디스플레이 탭(칸이 있는 탭)을 열 때 상태를 다시 읽는다 — 파일로 바꾼 값이 화면과 어긋나지 않는다');
   }
 }
 

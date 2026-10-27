@@ -3,6 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(USER_NAME_MAX · closeProgramSettings · commitUserName · openProgramSettings)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 26줄 그대로 · 부르는 곳은 progSettingsMod.이름 · html(app.js 앞)
+     2-2: 창은 settings-panel.js 하나 — 옛 탭 이름(license · system)으로 여는 부탁이 새 탭(정보 · 디스플레이)으로 · 런처 ⚙️ 설정은 마지막 탭 · 탭을 보일 때 이 모듈 칸을 다시 그린다(refreshTab)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 버전 표시 — 만들 때 data-app-version 칸(설정 › 프로그램 정보 · 첫 화면 맨 아래)을 모두 «v버전» 으로 · 못 받으면 «-» ·
      첫 화면 맨 아래 개인정보 처리방침 링크 — 주소가 다른 두 링크와 같고 room-entry.js 가 시스템 브라우저로 연다(깨 보기 포함)
@@ -19,13 +20,13 @@ const MOD = ["program-settings.js","parts/launcher/program-settings.js","app/par
 if(!MOD){ say('  ? 원본 못 찾음 — program-settings.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyChatSfxUI","_focusShowPush","_lsSet","refreshCharScaleForCurrentDisplay","refreshLicenseUI","refreshOfficeChipUI","refreshThemeUI","toast","applyRunPixelRatio"];
+const FN_DEPS = ["_applyChatSfxUI","_focusShowPush","_lsSet","refreshLicenseUI","refreshOfficeChipUI","refreshThemeUI","toast","applyRunPixelRatio","openSettings","closeSettings"];
 const VAL_DEPS = ["chatUiMod","purikuraUi","tricksMod","twNav","renderAntialias"];
 const GET_DEPS = ["FIGURE_MODE_KEY","OFFICE_MODE_KEY","figureMode","focusGateSleep","officeMode","renderQuality"];
 const SET_DEPS = ["figureMode","focusGateSleep","officeMode","renderQuality"];
-const EXPORTS = ["closeProgramSettings","openProgramSettings"];
+const EXPORTS = ["closeProgramSettings","openProgramSettings","refreshTab"];
 const MOVED = ["USER_NAME_MAX","commitUserName","renderProgMonitors","setProgSettingsTab","refreshAutoLaunchUI","refreshFigureModeUI","refreshOfficeModeUI","_labVideoShow","LAB_VIDEO_BLOCKED_GUIDE","_labVideoWarn","refreshLabVideoUI","refreshAppVersionUI","openProgramSettings","closeProgramSettings"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,","  renderQuality: ()=>_renderQuality,","  setRenderQuality: (v)=>{ _renderQuality = v; },","  renderAntialias: _renderAA,","  applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),"];
+const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,","  renderQuality: ()=>_renderQuality,","  setRenderQuality: (v)=>{ _renderQuality = v; },","  renderAntialias: _renderAA,","  applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),","  openSettings: (...a)=>settingsMod.openSettings(...a),","  closeSettings: (...a)=>settingsMod.closeSettings(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -47,6 +48,47 @@ function build(src){
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
     src + '\nreturn window.TwProgramSettings;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
   return api.createProgramSettings(deps);
+}
+
+/* 창은 settings-panel.js 하나 — 옛 탭 이름으로 여는 부탁이 새 탭으로 가는가 · 탭을 보일 때 이 모듈 칸을 다시 그리는가 */
+function behave(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const any = anything();
+  const calls = [];
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  deps.openSettings = (tab) => calls.push(['open', tab]);
+  deps.closeSettings = () => calls.push(['close']);
+  deps.refreshLicenseUI = () => calls.push(['license']);
+  deps.refreshThemeUI = () => calls.push(['theme']);
+  const els = {};
+  const doc = new Proxy({}, { get: (tg, k) => k === 'getElementById' ? (id) => (els[id] = els[id] || { id, style:{}, classList:{ toggle(){}, contains:()=>false }, textContent:'' })
+    : k === 'querySelectorAll' ? () => [] : any });
+  let api;
+  try{
+    api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'FrameBudget', 'module',
+      src + '\nreturn window.TwProgramSettings;')({}, doc, any, undefined, () => 0, any, undefined).createProgramSettings(deps);
+  }catch(e){ t(false, '가짜 DOM 위에서 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
+  const last = () => calls[calls.length - 1] || [];
+  api.openProgramSettings('license');
+  t(last()[0] === 'open' && last()[1] === 'info', "옛 'license' 로 열면 정보 탭(꾸미기 라이선스 안내)");
+  api.openProgramSettings('system');
+  t(last()[1] === 'display', "옛 'system' 은 디스플레이 탭");
+  api.openProgramSettings('char');
+  t(last()[1] === 'char', '새 탭 이름은 그대로 넘긴다');
+  els.lcProgSettingsBtn.onclick();
+  t(last()[0] === 'open' && last()[1] === undefined, '런처 ⚙️ 설정 — 탭을 정하지 않고 연다(마지막에 본 탭)');
+  api.closeProgramSettings();
+  t(last()[0] === 'close', '닫기는 설정 창 닫기');
+  calls.length = 0; api.refreshTab('info');
+  t(calls.some(c => c[0] === 'license') && !calls.some(c => c[0] === 'theme'), '정보 탭을 보이면 라이선스 칸을 다시 그린다(테마 칸은 안)');
+  calls.length = 0; api.refreshTab('display');
+  t(calls.some(c => c[0] === 'theme') && !calls.some(c => c[0] === 'license'), '디스플레이 탭이면 테마 칸');
+  return r;
 }
 
 function judgeAll(mod, app, html){
@@ -71,11 +113,12 @@ function judgeAll(mod, app, html){
   t(!bare.length, '부르는 곳은 progSettingsMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/launcher/program-settings.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/launcher/program-settings.js 를 app.js 보다 먼저 싣는다');
+  for(const row of behave(mod)) r.push(row);
   return r;
 }
 
 const rows = judgeAll(MOD, SRC, HTML);
-rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); if(i === 8) say('── 2-2. 한 창으로 — 옛 탭 이름 · 탭 다시 그리기'); chk(ok, msg); });
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/launcher/program-settings.js"></script>', '')],
@@ -86,6 +129,8 @@ const breaks = [
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const progSettingsMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('progSettingsMod.' + x)); if(n){ ls[i] = ls[i].replace('progSettingsMod.' + n, n); return ls.join('\n'); } } return a + "\nopenProgramSettings('license');\n"; }, null],   /* app.js 에 부르는 곳이 없으면(창 열기는 통로 nav.js — 모듈 순환 끊기 6 · 7) 옛 이름 부름 한 줄을 넣어 본다 */
   ['만들 때 던짐', m => m.replace('function createProgramSettings(deps){', 'function createProgramSettings(deps){ throw new Error("깨 봄");'), null, null],
+  ['옛 탭 이름 안 이음', m => m.replace("license:'info', ", ''), null, null],
+  ['라이선스 칸 안 그림', m => m.replace("if(key==='info'){ refreshLicenseUI(); ", "if(key==='info'){ "), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;

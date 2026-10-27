@@ -1,6 +1,6 @@
 /* ============================================================ SETUP */
 const canvas=document.getElementById('scene');
-/* 🎚️ 실행 화면 화질(프로그램 설정 › 모니터 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
+/* 🎚️ 실행 화면 화질(설정 › 디스플레이 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
    ⚠️ 도트 렌더 저장값으로 antialias 를 정하지 말 것 — 개발 실행 · 설치본이 저장소를 같이 써서 안 보이게 꺼진 채 굳었다(도트 느낌은 DOT_RENDER_SCALE 로 충분). */
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
@@ -2276,12 +2276,14 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   findMySeat: (...a)=>findMySeat(...a),
   focusCharScale: ()=>focusCharScale,
   isPremium: ()=>isPremium,
+  isLauncherShown: ()=>document.getElementById('launcher').classList.contains('on'),
   layoutSeats: (...a)=>layoutSeats(...a),
   moveMode: ()=>moveMode,
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
   plMod: plMod,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshInviteUI: (...a)=>roomEntryMod.refreshInviteUI(...a),
+  refreshProgramTab: (...a)=>progSettingsMod.refreshTab(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
   roomSeatMode: ()=>roomSeatMode,
   saveCharScale: (...a)=>saveCharScale(...a),
@@ -7016,7 +7018,6 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   focusGateSleep: ()=>focusGateSleep,
   officeMode: ()=>officeMode,
   purikuraUi: purikuraUi,
-  refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
   refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
@@ -7030,6 +7031,8 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   setRenderQuality: (v)=>{ _renderQuality = v; },
   renderAntialias: _renderAA,
   applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),
+  openSettings: (...a)=>settingsMod.openSettings(...a),
+  closeSettings: (...a)=>settingsMod.closeSettings(...a),
 });
 TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementById('progOssLink'), document.getElementById('miOssLink')], openUrl: (u)=>companion.openBrowser(u), escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a) });
 

@@ -65,7 +65,7 @@ const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
        _GACHA_KEEP 에 #wardrobePanel 을 넣어 두어 반대 방향은 이미 막혀 있었는데 여기만 없었다.
        그래서 꾸미기를 열어 둔 채 보관함 안을 클릭하면 여기서 close() 가 돌고, 그 close() 가
        두 창이 함께 쓰는 미리보기 패널의 .on 까지 떼어 갔다(제보: "보관함 미리보기창이 안 보임"). */
-    if(e.target.closest && e.target.closest('#gachaInvOverlay, #gachaDrawOverlay, #partRegOverlay, #deskRegOverlay, #assetImpOverlay, #assetGenOverlay, #glbEncOverlay, #glbLoadOverlay, #exportOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #commGenOverlay, #inviteOverlay, #raceOverlay, #codeOverlay, #creatorOverlay, #programSettingsOverlay, #focusSettingsPanel, #myHomeOverlay, .toast')) return;
+    if(e.target.closest && e.target.closest('#gachaInvOverlay, #gachaDrawOverlay, #partRegOverlay, #deskRegOverlay, #assetImpOverlay, #assetGenOverlay, #glbEncOverlay, #glbLoadOverlay, #exportOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #commGenOverlay, #inviteOverlay, #raceOverlay, #codeOverlay, #creatorOverlay, #focusSettingsPanel.fs-in-launcher, #focusSettingsPanel, #myHomeOverlay, .toast')) return;
     close();
   });
   // ★ 투명 배경(클릭통과 처리되는 영역)을 클릭하면 그 클릭 이벤트 자체가 우리 창에 전달되지 않아서
@@ -75,7 +75,7 @@ const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
     if(!panel.classList.contains('on')) return;
     // ★ 파츠 등록 등 우리 모달이 열려있는 상태에서 파일 선택 다이얼로그를 띄우면 Electron 창의 포커스가
     //   잠깐 빠지는데, 그때 여기서 닫아버리면 등록 창까지 같이 사라져 버림 — 모달이 하나라도 열려있으면 blur 무시.
-    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #programSettingsOverlay.on, #myHomeOverlay.on, #pkOverlay.on');
+    const modalOpen = document.querySelector('#partRegOverlay.on, #deskRegOverlay.on, #assetImpOverlay.on, #assetGenOverlay.on, #glbEncOverlay.on, #glbLoadOverlay.on, #exportOverlay.on, #adminPassOverlay.on, #licenseGenOverlay.on, #announceOverlay.on, #adBannerOverlay.on, #commGenOverlay.on, #inviteOverlay.on, #raceOverlay.on, #creatorOverlay.on, #focusSettingsPanel.fs-in-launcher.on, #myHomeOverlay.on, #pkOverlay.on');
     if(modalOpen) return;
     close();
   });

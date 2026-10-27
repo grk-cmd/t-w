@@ -1073,7 +1073,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const _AM = ['admin-mode.js', 'parts/admin/admin-mode.js', 'app/parts/admin/admin-mode.js'].map(f => { try { return fs.readFileSync(f, 'utf8'); } catch (_) { return ''; } }).find(Boolean) || '';
     const _AH = A + '\n' + _AM;
     chk(count(_AH, /async function _sha256Hex\(/g) === 1 && /async function _sha256Hex\(s\)\{[\s\S]{0,600}catch\(e\)\{ return null; \}/.test(_AH), '  _sha256Hex 는 한 벌 · 실패하면 null');
-    const tabs = takeFn(A, 'function setProgSettingsTab(') || '';
+    const tabs = (A.match(/const FS_TABS = \{([\s\S]*?)\n\s*\};/) || [])[1] || '';   // 설정 창 탭 목록(settings-panel.js)
     chk(!!tabs && !/account/.test(tabs.replace(/\/\/.*$/mg, '')) && !/설정 → 계정|설정 › 계정/.test(Ac), '  설정 탭에 계정 없음 · 없어진 [설정 › 계정]을 가리키는 안내 없음');
     const _iLU = A.indexOf('(function initAccountLoginUI(');   // 덩이 끝은 그 즉시 실행 함수의 닫는 줄(«다시 켜기» 도우미는 계정 핵심 상태로 옮겼다 — 모듈 순환 끊기 5)
     const gateUI = _iLU < 0 ? '' : A.slice(_iLU, A.indexOf('\n})();', _iLU));

@@ -32,7 +32,7 @@ const myInfoMod = deps.myInfoMod;
   if(!card) return;
   const overlaySelectors = ['#codeOverlay','#exportOverlay','#glbEncOverlay','#glbLoadOverlay',
     '#assetGenOverlay','#assetImpOverlay','#inviteOverlay','#commGenOverlay','#commImpOverlay',
-    '#partRegOverlay','#creatorOverlay','#programSettingsOverlay','#adminPassOverlay','#licenseGenOverlay',
+    '#partRegOverlay','#creatorOverlay','#focusSettingsPanel','#adminPassOverlay','#licenseGenOverlay',
     '#adBannerOverlay','#gameCfgOverlay','#raceOverlay'];
   function refresh(){
     const anyOpen = overlaySelectors.some(sel=>{ const el=document.querySelector(sel); return el && el.classList.contains('on'); });

@@ -168,7 +168,7 @@
 | **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
-| **sim-google-login.js** | 656 | **99e6d39cc736** |
+| **sim-google-login.js** | 656 | **7117b52660b6** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
@@ -179,12 +179,12 @@
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
 | **sim-fix-0923.js** | 297 | **9f338dfa790b** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
-| **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
+| **sim-mobile-focus.js** | 219 | **dab2fcb75879** |
 | **sim-focus-gate-self.js** | 116 | **19283b4c764a** |
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
-| **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
+| **sim-overlay-layered.js** | 361 | **d9b483ece5e7** |
 | **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
 | **sim-pk-fit.js** | 170 | **354391f1f290** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
@@ -216,12 +216,12 @@
 | **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
-| **sim-signup.js** | 1597 | **0005d55d27d4** |
+| **sim-signup.js** | 1597 | **4b7e5277b87c** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
-| **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
+| **sim-ui-zoom.js** | 132 | **3a62138fcd8e** |
 | **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
-| **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
+| **sim-z-layers.js** | 168 | **8cbeb3e3f5c6** |
 | **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
 | **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
@@ -232,7 +232,7 @@
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **bf05469a5050** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
-| **sim-frame-budget.js** | 188 | **6a026ddad3c9** |
+| **sim-frame-budget.js** | 188 | **9d88ea741f36** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 163 | **7adeaa1327ac** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
@@ -253,7 +253,7 @@
 | **sim-admin-active.js** | 155 | **100afda315c1** |
 | **sim-room-order.js** | 78 | **19449085aa33** |
 | **sim-device-session.js** | 144 | **bff537b6265c** |
-| **sim-deco-parts.js** | 67 | **c017ce7764fc** |
+| **sim-deco-parts.js** | 67 | **b2906a9efc04** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
 | **sim-font-hangul.js** | 54 | **1e0479f9fce5** |
 | **sim-app-size.js** | 127 | **f4d91c399857** |
@@ -321,7 +321,7 @@
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
-| **sim-settings-panel.js** | 95 | **9e6d39720b41** |
+| **sim-settings-panel.js** | 193 | **112030087360** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **e1fdfef1a3ca** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
@@ -330,7 +330,7 @@
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
-| **sim-program-settings.js** | 148 | **ca3242f94e17** |
+| **sim-program-settings.js** | 193 | **b866b5f2f299** |
 | **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
 | **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
 | **sim-rich-text.js** | 95 | **e2857c0faa2d** |
@@ -368,7 +368,7 @@
 | **sim-launcher-controls.js** | 204 | **78202998b89b** |
 | **sim-launcher-preview.js** | 159 | **046bc6923a36** |
 | **sim-mat-tone.js** | 179 | **1ed9ca399291** |
-| **sim-oss-licenses.js** | 176 | **4b8e6195aaab** |
+| **sim-oss-licenses.js** | 180 | **5f57554b8e20** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |

@@ -2,7 +2,7 @@
    1절: 만든 목록이 package-lock.json 의 운영 패키지 + VENDOR 를 빠짐없이 덮는다 — 의존성 · CDN Firebase 판을 바꾸고 다시 안 만들면 빨강(깨 보기 포함).
    2절: 만드는 함수 — 직접 쓰는 패키지마다 한 줄 · 하위 패키지는 그 줄 안으로 · 같은 원문은 한 번 · 원문 없는 MIT 는 저자로 · 링크 · CDN Firebase 판 읽기.
    3절: 창 — 고정 크기 · 목록과 원문은 안쪽 스크롤 · 이름은 textContent · 링크는 openUrl · 원문 펼치기 · 못 실음 · 닫기 · ESC 스택.
-   4절: 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않는다(shared/outside-close.js 예외 · 깨 보기). */
+   4절: 설정 창(정보 탭)에서 연 이 창 안 클릭이 설정을 닫지 않는다(launcher/settings-panel.js 바깥 클릭 예외 · 깨 보기). */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -144,33 +144,37 @@ resolveLoad({ items: [
   mod2.close(); await mod2.open();
   chk(fails === 2 && byClass(doc2.body, 'oss-row').length === 1 && byClass(doc2.body, 'oss-msg').length === 0, '3절 못 실었으면 다음에 열 때 다시 해 본다');
 
-  /* 4절 — outside-close: 설정이 열린 채 라이선스 창 안을 누른다 */
-  const OC = find('app', 'parts', 'shared', 'outside-close.js');
-  if(!OC){ console.log('  ? 원본 못 찾음 — outside-close.js'); process.exit(2); }
-  const ocSrc = fs.readFileSync(OC, 'utf8');
-  function runOutside(src){
-    const handlers = [];
-    let closed = 0;
-    const node = (id, parent) => ({ id, parent, classList: { contains: (c) => c === 'on' && id === 'programSettingsOverlay' }, firstElementChild: null,
-      contains(t){ for(let x = t; x; x = x.parent) if(x === this) return true; return false; },
-      closest(sel){ const want = sel.replace('#', ''); for(let x = this; x; x = x.parent) if(x.id === want) return x; return null; }, click(){ closed++; } });
-    const settings = node('programSettingsOverlay', null); settings.firstElementChild = node('psBox', settings);
-    const oss = node('ossLicensesOverlay', null); const inside = node('ossItem', node('ossBox', oss));
-    const outsideEl = node('desk', null);
-    const byId = { programSettingsOverlay: settings, progSettingsCloseBtn: { click(){ closed++; } } };
-    const fakeDoc = { addEventListener: (t, f) => handlers.push(f), getElementById: (id) => byId[id] || null };
-    const { createOutsideClose } = (() => { const m = { exports: {} }; new Function('document', 'window', 'module', src)(fakeDoc, {}, m); return m.exports; })();
-    handlers.length = 0;
-    createOutsideClose({});
-    const click = (t) => handlers.forEach(h => h({ target: t }));
-    click(inside); const afterInside = closed;
-    click(outsideEl);
-    return { afterInside, afterOutside: closed };
+  /* 4절 — 설정 창이 열린 채 라이선스 창 안을 누른다(바깥 클릭 판정은 settings-panel.js) */
+  const SP = find('app', 'parts', 'launcher', 'settings-panel.js');
+  if(!SP){ console.log('  ? 원본 못 찾음 — settings-panel.js'); process.exit(2); }
+  const spSrc = fs.readFileSync(SP, 'utf8');
+  function runSettings(src){
+    const P = new Proxy(function(){}, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : P, apply: () => P, set: () => true });
+    const els = {}, docOn = [];
+    /* 선택자 목록(쉼표)에 #id 가 있으면 맞는다 — 이 판정이 쓰는 선택자는 id · 클래스뿐 */
+    const node = (id, parent) => { const cls = new Set(); return els[id] = { id, parent, style: { setProperty(){} }, dataset: {},
+      classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c), toggle: (c, f) => { const v = f === undefined ? !cls.has(c) : !!f; v ? cls.add(c) : cls.delete(c); return v; } },
+      matches: (sel) => sel.split(',').map(x => x.trim()).includes('#' + id), addEventListener(){}, setAttribute(){}, getAttribute: () => null,
+      querySelector: () => null, querySelectorAll: () => [], appendChild(){}, closest: () => null }; };
+    const doc = { getElementById: (id) => els[id] || node(id, null), querySelector: () => null, querySelectorAll: () => [],
+      createElement: () => node('_' + Object.keys(els).length, null), addEventListener: (type, fn, cap) => docOn.push({ type, fn, cap: !!cap }) };
+    const deps = new Proxy({}, { get: (t, k) => k === 'isLauncherShown' ? () => true : k === 'refreshProgramTab' ? () => {} : () => P });
+    const api = new Function('window', 'document', 'localStorage', 'companion', 'setTimeout', 'setInterval', 'clearInterval', 'requestAnimationFrame', 'TwMyHomeHooks', 'TwSafeHtml', 'innerWidth', 'innerHeight', 'module',
+      src + '\nreturn window.TwSettingsPanel;')({ _fsPanelDragged: false }, doc, { getItem: () => null, setItem(){} }, undefined, () => 0, () => 0, () => {}, () => 0, P, { safeUrl: () => '' }, 1000, 800, undefined)
+      .createSettingsPanel(deps);
+    const panel = els.focusSettingsPanel;
+    const oss = node('ossLicensesOverlay', null), box = node('ossBox', oss), item = node('ossItem', box), desk = node('desk', null);
+    const click = (t, path) => { const ev = { target: t, composedPath: () => path };
+      docOn.filter(h => h.type === 'click' && h.cap).forEach(h => h.fn(ev)); docOn.filter(h => h.type === 'click' && !h.cap).forEach(h => h.fn(ev)); };
+    api.openSettings('info');
+    click(item, [item, box, oss]); const afterInside = panel.classList.contains('on');
+    click(desk, [desk]); const afterOutside = panel.classList.contains('on');
+    return { afterInside, afterOutside };
   }
-  const real = runOutside(ocSrc);
-  chk(real.afterInside === 0 && real.afterOutside === 1, '4절 설정이 열린 채 라이선스 창 안을 누르면 설정이 남고 · 진짜 바깥을 누르면 닫힌다');
-  const broken = runOutside(ocSrc.replace(/if\(overlayId==='programSettingsOverlay'[^\n]*#ossLicensesOverlay[^\n]*\n/, ''));
-  chk(broken.afterInside === 1, '4절 깨 보기 — 예외 줄을 빼면 라이선스 창 안 클릭이 설정을 닫는다(빨강)');
+  const real = runSettings(spSrc);
+  chk(real.afterInside === true && real.afterOutside === false, '4절 설정이 열린 채 라이선스 창 안을 누르면 설정이 남고 · 진짜 바깥을 누르면 닫힌다');
+  const broken = runSettings(spSrc.replace(/\n[^\n]*'#ossLicensesOverlay',[^\n]*/, ''));
+  chk(broken.afterInside === false, '4절 깨 보기 — 예외 줄을 빼면 라이선스 창 안 클릭이 설정을 닫는다(빨강)');
   console.log(fail ? `✗ 실패 ${fail}건` : '✓ 전부 통과');
   process.exit(fail ? 1 : 0);
 })();

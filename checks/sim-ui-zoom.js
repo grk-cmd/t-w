@@ -108,16 +108,18 @@ say('── 4. preload · HTML · app.js');
 chk(/uiZoom\(op\) \{\s*return ipcRenderer\.invoke\('companion:uiZoom', op\);/.test(PRE), '★ preload.uiZoom(op) → invoke companion:uiZoom');
 chk(/onUiZoom\(callback\) \{\s*ipcRenderer\.on\('companion:uiZoom'/.test(PRE), '  preload.onUiZoom — main 이 바꾼 값을 받는다');
 const iReset = HTML.indexOf('id="fsResetWinPos"'), iRow = HTML.indexOf('id="fsUiZoomRow"');
-chk(iRow > iReset && iRow - iReset < 1200, '★ 행이 «창 위치 초기화» **바로 아래**에 있다 (시안)');
+chk(iRow > 0 && iReset > iRow && iReset - iRow < 2400, '★ 행이 «창 위치 초기화» 와 한 묶음(크기 · 위치 — 프로그램 크기 · 레벨/이름 크기 · 창 위치 초기화 차례, #540 P1 시안)');
 const row = HTML.slice(iRow, iRow + 1200);
 /* [2026-09-17 시안 확정] 이름이 «프로그램 크기» 로 바뀌고 부연 문구가 빠졌다. 옛 판정(«전체 화면 크기 — 캐릭터와 창을 함께»)은 거짓 빨강. */
 chk(/<span>프로그램 크기<\/span>/.test(row) && !/캐릭터와 창을 함께/.test(row), '  이름은 «프로그램 크기» · 부연 문구 없음 (캐릭터 탭의 «화면 크기»와 구분)');
-chk(/id="fsUiZoomOut"[^>]*white-space:nowrap[^>]*>−</.test(row) && /id="fsUiZoomIn"[^>]*white-space:nowrap[^>]*>\+</.test(row), '  −·+ 는 한 글자 버튼 · 줄바꿈 금지 (좁은 패널에서 «화\\n면\\n−» 로 깨지던 것)');
-chk(/id="fsUiZoomReset"[^>]*white-space:nowrap/.test(row) && /id="fsResetWinPos"[^>]*white-space:nowrap/.test(HTML), '  초기화·되돌리기도 줄바꿈 금지');
+/* 줄바꿈 금지는 버튼마다 적지 않고 .fs-stepper 묶음 규칙 한 줄로 건다 */
+const stepCss = (HTML.match(/#focusSettingsPanel \.fs-stepper \.fs-toggle-btn\{[^}]*\}/) || [''])[0];
+chk(/<span class="fs-stepper">[\s\S]*id="fsUiZoomOut"[^>]*>−<[\s\S]*id="fsUiZoomIn"[^>]*>\+</.test(row) && /white-space:nowrap/.test(stepCss) && /flex-shrink:0/.test(stepCss), '  −·+ 는 한 글자 버튼 · 묶음(.fs-stepper)이 줄바꿈 · 줄어듦 금지 (좁은 패널에서 «화\\n면\\n−» 로 깨지던 것)');
+chk(/id="fsUiZoomReset"[^>]*>↺</.test(row) && /id="fsResetWinPos"[^>]*white-space:nowrap/.test(HTML), '  초기화는 ↺ 한 글자(같은 묶음) · 되돌리기는 줄바꿈 금지');
 chk(['fsUiZoomOut','fsUiZoomIn','fsUiZoomReset'].every(id => new RegExp('class="fs-toggle-btn" id="' + id + '"').test(row)), '  버튼 셋이 fs-toggle-btn (같은 탭의 «창 위치 초기화» 행과 같은 모양)');
 chk(/id="fsUiZoomPct"[^>]*>100%</.test(row), '  현재 배율 숫자(100%) — 초기화 버튼의 짝');
 chk(/id="fsUiZoomRow"[^>]*display:none/.test(row), '  행은 숨긴 채 시작 — 구버전 앱에서는 그대로 숨는다');
-chk(/id="fsTabSize"/.test(HTML) && /id="fsSizeBar"/.test(HTML), '  캐릭터 탭의 «화면 크기»(아바타존)는 그대로 남아 있다 — 둘 다 남긴다');
+chk(/id="fsTabSize"/.test(HTML) && /id="fsSizeBar"/.test(HTML), '  캐릭터 탭의 «캐릭터 배율»(아바타존)은 그대로 남아 있다 — 둘 다 남긴다');
 const fRow = grabFn(SRC, 'initUiZoomRow') || '';
 chk(!!fRow, '★ app.js initUiZoomRow 가 있다');
 chk(/typeof companion\.uiZoom === 'function'/.test(fRow) && /row\.style\.display = 'none'; return;/.test(fRow), '  preload 에 uiZoom 이 없으면 행을 숨기고 물러난다');

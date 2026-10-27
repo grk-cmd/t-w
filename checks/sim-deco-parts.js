@@ -59,7 +59,7 @@ say('── 3. 토글 · 버튼 · HTML');
   chk(/fsDecoPartsToggle'\);\s*if\(dpBtn\)\{ dpBtn\.textContent = decoPartsVisible\?'켜짐':'꺼짐'/.test(code), '  refreshToggleBtns 가 켜짐/꺼짐을 그린다');
   const a = HTML.indexOf('id="fsSeatEqToggle"'), b = HTML.indexOf('id="fsDecoPartsToggle"');
   chk(a >= 0 && b > a && b - a < 600, '★ HTML: «좌석 크기 평준화» 바로 아래');
-  chk(/<span>꾸미기 파츠 표시<\/span>/.test(HTML) && /id="fsDecoPartsToggle"[^>]*>켜짐</.test(HTML), '  이름 «꾸미기 파츠 표시» · 기본 켜짐');
+  chk(/<span>꾸미기 파츠 표시[ <]/.test(HTML) && /id="fsDecoPartsToggle"[^>]*>켜짐</.test(HTML), '  이름 «꾸미기 파츠 표시»(옆에 ⓘ) · 기본 켜짐');
   chk(/끄면 내 화면에서만 나와 상대의 꾸미기 파츠가 안 보여요/.test(HTML), '  안내 한 줄(시안)');
 }
 
