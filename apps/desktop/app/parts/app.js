@@ -2283,7 +2283,6 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   plMod: plMod,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshInviteUI: (...a)=>roomEntryMod.refreshInviteUI(...a),
-  refreshProgramTab: (...a)=>progSettingsMod.refreshTab(...a),
   removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),
   roomSeatMode: ()=>roomSeatMode,
   saveCharScale: (...a)=>saveCharScale(...a),
@@ -7033,6 +7032,7 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),
   openSettings: (...a)=>settingsMod.openSettings(...a),
   closeSettings: (...a)=>settingsMod.closeSettings(...a),
+  onTabShown: (...a)=>settingsMod.onTabShown(...a),
 });
 TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementById('progOssLink'), document.getElementById('miOssLink')], openUrl: (u)=>companion.openBrowser(u), escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a) });
 

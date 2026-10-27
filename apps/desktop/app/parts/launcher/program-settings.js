@@ -1,5 +1,5 @@
 /* program-settings.js — ⚙️ 설정 창의 «프로그램» 칸들(테마 · 실행 화면 화질 · 자동 실행 · 회사원 · 피규어 모드 · 영상 겹침 실험 · 라이선스 · 프로그램 정보)
-   ★ 창은 하나다 — 여닫기 · 탭은 launcher/settings-panel.js(openSettings). 여기는 칸의 동작과, 탭을 보일 때 다시 그리기(refreshTab)만.
+   ★ 창은 하나다 — 여닫기 · 탭은 launcher/settings-panel.js(openSettings). 여기는 칸의 동작과, 탭을 보일 때 다시 그리기(refreshTab — 만들 때 onTabShown 으로 건다)만.
      옛 «프로그램 설정» 창(런처)의 탭 이름으로 여는 부탁(twNav PROGRAM_SETTINGS 'license' 등)은 OLD_TAB 으로 새 탭에 잇는다.
    app.js «🏷️ 닉네임 저장 — 모달이 아니라 제자리 편집이 부르는 한 벌» 구역 본문(⚙️ 프로그램 설정 창 열기 · 닫기 · 회사원 · 피규어 모드 포함)을 그대로 옮긴 모듈이다(앱 FSD 40번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다. 내 이름 도우미(getDisplayName · getUserName · setUserName)는 여러 모듈이 써서 app.js 에 있다.
@@ -41,6 +41,7 @@ const renderAntialias = deps.renderAntialias;   // 값 — 이번 실행의 렌�
 const applyRunPixelRatio = deps.applyRunPixelRatio;   // 실행 화면 배율을 지금 화질로 다시 맞춘다
 const openSettings = deps.openSettings;   // ⚙️ 설정 창 열기(settings-panel.js) — (탭?)
 const closeSettings = deps.closeSettings;
+const onTabShown = deps.onTabShown;   // (fn(탭)) — 탭을 보일 때 부를 것을 건다
 
 /* --- 🎚️ 실행 화면 화질(디스플레이 탭) — 고르면 이 PC 에 저장 · 배율은 바로, 테두리 다듬기는 다시 켜야 --- */
 const RENDER_QUALITY_HINT = {
@@ -244,7 +245,7 @@ function refreshAppVersionUI(){
     .catch(()=>{ put('-'); });
 }
 
-/* 탭을 보일 때 그 탭에 있는 이 모듈 칸을 다시 그린다 — settings-panel.js 의 showTab 이 부른다 */
+/* 탭을 보일 때 그 탭에 있는 이 모듈 칸을 다시 그린다 — 만들 때 onTabShown 으로 건다 */
 function refreshTab(key){
   if(key==='display'){ refreshThemeUI(); refreshRenderQualityUI(); refreshAutoLaunchUI(); refreshOfficeModeUI(); refreshLabVideoUI(); }   // 🎬 실제 적용 상태(적용 안 됨)까지 보인다
   if(key==='char') refreshFigureModeUI();
@@ -255,6 +256,7 @@ const OLD_TAB = { license:'info', display:'display', system:'display' };
 function openProgramSettings(tab){ openSettings(OLD_TAB[tab] || tab); }
 function closeProgramSettings(){ closeSettings(); }
 document.getElementById('lcProgSettingsBtn').onclick=()=>openProgramSettings();
+onTabShown(refreshTab);
 
 twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기 · 라이선스 요청이 이 통로로 연다 · 닫는다
 twNav.on(twNav.NAV.PROGRAM_SETTINGS_CLOSE, closeProgramSettings);

@@ -321,7 +321,7 @@
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
-| **sim-settings-panel.js** | 193 | **112030087360** |
+| **sim-settings-panel.js** | 193 | **37cfc553ded5** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **e1fdfef1a3ca** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
@@ -330,7 +330,7 @@
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
-| **sim-program-settings.js** | 193 | **b866b5f2f299** |
+| **sim-program-settings.js** | 197 | **b1335da0e79b** |
 | **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
 | **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
 | **sim-rich-text.js** | 95 | **e2857c0faa2d** |

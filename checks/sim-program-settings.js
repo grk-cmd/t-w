@@ -20,13 +20,13 @@ const MOD = ["program-settings.js","parts/launcher/program-settings.js","app/par
 if(!MOD){ say('  ? 원본 못 찾음 — program-settings.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyChatSfxUI","_focusShowPush","_lsSet","refreshLicenseUI","refreshOfficeChipUI","refreshThemeUI","toast","applyRunPixelRatio","openSettings","closeSettings"];
+const FN_DEPS = ["_applyChatSfxUI","_focusShowPush","_lsSet","refreshLicenseUI","refreshOfficeChipUI","refreshThemeUI","toast","applyRunPixelRatio","openSettings","closeSettings","onTabShown"];
 const VAL_DEPS = ["chatUiMod","purikuraUi","tricksMod","twNav","renderAntialias"];
 const GET_DEPS = ["FIGURE_MODE_KEY","OFFICE_MODE_KEY","figureMode","focusGateSleep","officeMode","renderQuality"];
 const SET_DEPS = ["figureMode","focusGateSleep","officeMode","renderQuality"];
 const EXPORTS = ["closeProgramSettings","openProgramSettings","refreshTab"];
 const MOVED = ["USER_NAME_MAX","commitUserName","renderProgMonitors","setProgSettingsTab","refreshAutoLaunchUI","refreshFigureModeUI","refreshOfficeModeUI","_labVideoShow","LAB_VIDEO_BLOCKED_GUIDE","_labVideoWarn","refreshLabVideoUI","refreshAppVersionUI","openProgramSettings","closeProgramSettings"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,","  renderQuality: ()=>_renderQuality,","  setRenderQuality: (v)=>{ _renderQuality = v; },","  renderAntialias: _renderAA,","  applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),","  openSettings: (...a)=>settingsMod.openSettings(...a),","  closeSettings: (...a)=>settingsMod.closeSettings(...a),"];
+const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,","  renderQuality: ()=>_renderQuality,","  setRenderQuality: (v)=>{ _renderQuality = v; },","  renderAntialias: _renderAA,","  applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),","  openSettings: (...a)=>settingsMod.openSettings(...a),","  closeSettings: (...a)=>settingsMod.closeSettings(...a),","  onTabShown: (...a)=>settingsMod.onTabShown(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -63,6 +63,8 @@ function behave(src){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   deps.openSettings = (tab) => calls.push(['open', tab]);
   deps.closeSettings = () => calls.push(['close']);
+  let tabShown = null;
+  deps.onTabShown = (fn) => { tabShown = fn; };
   deps.refreshLicenseUI = () => calls.push(['license']);
   deps.refreshThemeUI = () => calls.push(['theme']);
   const els = {};
@@ -84,9 +86,10 @@ function behave(src){
   t(last()[0] === 'open' && last()[1] === undefined, '런처 ⚙️ 설정 — 탭을 정하지 않고 연다(마지막에 본 탭)');
   api.closeProgramSettings();
   t(last()[0] === 'close', '닫기는 설정 창 닫기');
-  calls.length = 0; api.refreshTab('info');
+  t(tabShown === api.refreshTab, '만들 때 탭 다시 그리기(refreshTab)를 설정 창에 건다(onTabShown — 한 방향)');
+  calls.length = 0; tabShown('info');
   t(calls.some(c => c[0] === 'license') && !calls.some(c => c[0] === 'theme'), '정보 탭을 보이면 라이선스 칸을 다시 그린다(테마 칸은 안)');
-  calls.length = 0; api.refreshTab('display');
+  calls.length = 0; tabShown('display');
   t(calls.some(c => c[0] === 'theme') && !calls.some(c => c[0] === 'license'), '디스플레이 탭이면 테마 칸');
   return r;
 }
@@ -130,6 +133,7 @@ const breaks = [
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const progSettingsMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('progSettingsMod.' + x)); if(n){ ls[i] = ls[i].replace('progSettingsMod.' + n, n); return ls.join('\n'); } } return a + "\nopenProgramSettings('license');\n"; }, null],   /* app.js 에 부르는 곳이 없으면(창 열기는 통로 nav.js — 모듈 순환 끊기 6 · 7) 옛 이름 부름 한 줄을 넣어 본다 */
   ['만들 때 던짐', m => m.replace('function createProgramSettings(deps){', 'function createProgramSettings(deps){ throw new Error("깨 봄");'), null, null],
   ['옛 탭 이름 안 이음', m => m.replace("license:'info', ", ''), null, null],
+  ['탭 다시 그리기 안 걺', m => m.replace('onTabShown(refreshTab);', ''), null, null],
   ['라이선스 칸 안 그림', m => m.replace("if(key==='info'){ refreshLicenseUI(); ", "if(key==='info'){ "), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){

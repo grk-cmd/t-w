@@ -1,12 +1,12 @@
 /* settings-panel.js — ⚙ 설정 창 하나(런처 · 실행 화면 공용 — 여닫기 openSettings · 탭 다섯 · ⓘ 설명) · 디스플레이 · 캐릭터 · 포커싱 · 방 연결 칸 · 광고 배너 · 캐릭터 교체 · 자리 추가
-   ★ 런처에서 열면(isLauncherShown) 가운데에 .fs-in-launcher 로 뜬다 — 실행 화면 전용 칸(.fs-run-only)은 숨는다. 테마 · 화질 · 자동 실행 · 라이선스 같은 «프로그램» 칸은 program-settings.js 가 그리고, 탭을 보일 때 refreshProgramTab 으로 부른다.
+   ★ 런처에서 열면(isLauncherShown) 가운데에 .fs-in-launcher 로 뜬다 — 실행 화면 전용 칸(.fs-run-only)은 숨는다. 테마 · 화질 · 자동 실행 · 라이선스 같은 «프로그램» 칸은 program-settings.js 가 그리고, 탭을 보일 때 다시 그리기는 그쪽이 onTabShown 으로 건다(한 방향 — 이 모듈은 그쪽을 모른다).
    app.js «⚙ 설정 패널» · «설정 패널 캐릭터 탭» 두 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 27번 — docs/APP_FSD_MAP.md).
    이동 모드 상태(moveMode 등) · 앱 화면 전환(appMode · launchApp · backToLauncher · applyAppMode)은 부팅 · 화면 핵심이라 app.js 에 남겼다. 동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 62줄 —
      MULTIPLAYER_SPACING · Presence · SPACING · _moveModeJustToggled · chipHorizontal · curSlot · decoPartsVisible · dotRenderEnabled · emojiReactionsEnabled · focusCharScale · isPremium · moveMode · nameplateEnabled · roomSeatMode · seatEqualizeOn · slots · wardrobeMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMULTIPLAYER_SPACING · setSPACING · setMoveModeJustToggled · setChipHorizontal · setCurSlot · setDecoPartsVisible · setDotRenderEnabled · setEmojiReactionsEnabled · setFocusCharScale · setMoveMode · setNameplateEnabled · setRoomSeatMode · setSeatEqualizeOn(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 24개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: openSettings · closeSettings · nameplateClamp · nameplatePct · EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: openSettings · closeSettings · onTabShown · nameplateClamp · nameplatePct · EXTRA_SEAT_KEY · MY_AD_BANNER_KEY · _saveExtraSeatSlots · addExtraSeat · applyExtraSeatForMode · extraSeatSlots · loadAdBannerSlides · refreshFsAdBanner · renderCharSlots — app.js 는 settingsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSettingsPanel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-settings-panel.js */
@@ -47,7 +47,6 @@ const nameplateEnabled = deps.nameplateEnabled;   // 읽는 함수
 const plMod = deps.plMod;
 const refreshCharScaleForCurrentDisplay = deps.refreshCharScaleForCurrentDisplay;
 const refreshInviteUI = deps.refreshInviteUI;
-const refreshProgramTab = deps.refreshProgramTab;   // 탭을 보일 때 program-settings.js 칸(테마 · 화질 · 자동 실행 · 라이선스 …)을 다시 그린다
 const removeSeatLabels = deps.removeSeatLabels;
 const roomSeatMode = deps.roomSeatMode;   // 읽는 함수
 const saveCharScale = deps.saveCharScale;
@@ -87,7 +86,7 @@ const fsWin = (function bindFocusSettings(){
   const moveBtn=document.getElementById('fsMoveBtn');
   const moveHint=document.getElementById('fsMoveHint');
   const backBtn=document.getElementById('fsBackBtn');
-  if(!gearBtn||!panel) return { openSettings(){}, closeSettings(){} };
+  if(!gearBtn||!panel) return { openSettings(){}, closeSettings(){}, onTabShown(){} };
 
   // ✥ 설정창 자유 이동 — 타이틀바(⚙️ 설정)를 잡고 드래그. 옮긴 뒤엔 캐릭터 머리 위 자동 따라가기가
   //   중단되고(위 렌더 루프의 _fsPanelDragged 체크), 창을 닫았다 다시 열면 머리 위 기본 위치로 복귀.
@@ -297,6 +296,7 @@ const fsWin = (function bindFocusSettings(){
     info:    { btn:'fsTabBtnInfo',    page:'fsTabInfo' },
   };
   let _curTab = 'display';
+  const _tabShown = [];   // 탭을 보일 때 부를 것 — program-settings.js 가 onTabShown 으로 건다(이 모듈은 그쪽을 모른다)
   function showTab(key){
     if(!FS_TABS[key]) key = 'display';
     _curTab = key;
@@ -318,7 +318,7 @@ const fsWin = (function bindFocusSettings(){
       //   정리가 안 돼 방 안인데도 내 슬롯 캐릭터들이 화면에 남아 보이던 문제. 런처에선 좌석이 없다.
       if(!inLauncher) applyExtraSeatForMode();
     }
-    refreshProgramTab(key);
+    _tabShown.forEach(fn => fn(key));
   }
   for(const k in FS_TABS){
     const b=document.getElementById(FS_TABS[k].btn);
@@ -614,7 +614,7 @@ const fsWin = (function bindFocusSettings(){
     if(moveHint) moveHint.style.display = moveMode() ? 'block' : 'none';
     if(moveMode()){ closeSettings(); }   // 이동 중엔 패널 가려서 시야 확보
   };
-  return { openSettings, closeSettings };
+  return { openSettings, closeSettings, onTabShown: (fn) => { _tabShown.push(fn); } };
 })();
 
 /* 설정 패널 광고 배너 — 기본은 관리자가 등록한 배너(런처와 동일 데이터) 그대로 보여줌.
@@ -927,6 +927,7 @@ function _fsRevealSlot(stripId, idx){
 return {
   openSettings: fsWin.openSettings,   // (탭?) — 'display' | 'char' | 'focus' | 'room' | 'info' · 없으면 마지막에 본 탭
   closeSettings: fsWin.closeSettings,
+  onTabShown: fsWin.onTabShown,   // (fn(탭)) — 탭을 보일 때마다 부른다
   nameplateClamp,
   nameplatePct,
   EXTRA_SEAT_KEY,

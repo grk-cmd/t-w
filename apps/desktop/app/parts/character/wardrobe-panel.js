@@ -65,7 +65,7 @@ const wardrobeMod = deps.wardrobeMod;   // 읽는 함수
        _GACHA_KEEP 에 #wardrobePanel 을 넣어 두어 반대 방향은 이미 막혀 있었는데 여기만 없었다.
        그래서 꾸미기를 열어 둔 채 보관함 안을 클릭하면 여기서 close() 가 돌고, 그 close() 가
        두 창이 함께 쓰는 미리보기 패널의 .on 까지 떼어 갔다(제보: "보관함 미리보기창이 안 보임"). */
-    if(e.target.closest && e.target.closest('#gachaInvOverlay, #gachaDrawOverlay, #partRegOverlay, #deskRegOverlay, #assetImpOverlay, #assetGenOverlay, #glbEncOverlay, #glbLoadOverlay, #exportOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #commGenOverlay, #inviteOverlay, #raceOverlay, #codeOverlay, #creatorOverlay, #focusSettingsPanel.fs-in-launcher, #focusSettingsPanel, #myHomeOverlay, .toast')) return;
+    if(e.target.closest && e.target.closest('#gachaInvOverlay, #gachaDrawOverlay, #partRegOverlay, #deskRegOverlay, #assetImpOverlay, #assetGenOverlay, #glbEncOverlay, #glbLoadOverlay, #exportOverlay, #adminPassOverlay, #licenseGenOverlay, #announceOverlay, #adBannerOverlay, #commGenOverlay, #inviteOverlay, #raceOverlay, #codeOverlay, #creatorOverlay, #focusSettingsPanel, #myHomeOverlay, .toast')) return;
     close();
   });
   // ★ 투명 배경(클릭통과 처리되는 영역)을 클릭하면 그 클릭 이벤트 자체가 우리 창에 전달되지 않아서
