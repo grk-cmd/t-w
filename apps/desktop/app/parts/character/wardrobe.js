@@ -1708,6 +1708,7 @@ function renderWardrobe(){
     return;
   }
   if(!wdLicensed()){
+    if(currentWdTab === wdEar.TAB) currentWdTab = (partsInGroup('head')[0] || PART_CATS()[0]).cat;   // 귀 핸들 · 조정 줄이 잠금 안내 옆에 열리지 않게
     wrap.innerHTML='';
     renderWdLocked(wrap);
     refreshWdPreviewColorSection();

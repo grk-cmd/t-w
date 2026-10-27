@@ -8775,7 +8775,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
 focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
-/* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다
+/* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 도감(꾸미기 창 «도감» 탭 · T) · 뽑기 창은 parts/gacha.js 로 옮겼다
    (앱 FSD 8번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 · 10분 tick ·
      창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결)이 예전과 같은 때 돈다.
