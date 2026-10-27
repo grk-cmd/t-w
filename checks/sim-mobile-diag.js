@@ -121,7 +121,7 @@ say('── 3. 배선');
   chk(!/arm\(\)[^;]*onLive|onLive[^;]*arm\(\)/.test(st), '  live 가 사라져도 다시 걸지 않는다(보이기만 — 동작은 그대로)');
   const iD = H.indexOf('<script src="parts/focus/mobile-diag.js"></script>'), iL = H.indexOf('<script src="parts/focus/focus-level.js"></script>');
   chk(iD > 0 && iL > iD, 'html — mobile-diag.js 가 focus-level.js 보다 먼저');
-  const iNote = H.indexOf('id="fsMobNote"'), iDiag = H.indexOf('id="fsMobDiag"'), iEnd = H.indexOf('id="fsTabDisplay"');
+  const iNote = H.indexOf('id="fsMobNote"'), iDiag = H.indexOf('id="fsMobDiag"'), iEnd = H.indexOf('id="fsTabMulti"');   // 포커싱 탭 다음은 방 연결 탭(#540 P1)
   chk(iNote > 0 && iDiag > iNote && iDiag < iEnd && /<div class="fs-hint fs-mob-diag" id="fsMobDiag" style="display:none;"><\/div>/.test(H), '칸 — 📱 안내 줄 아래 · 처음엔 숨김');
   chk((A.match(/mobileDiag: TwMobileDiag,/g) || []).length === 1, 'app.js — 포커스 레벨을 만들 때 deps 로 넘긴다(한 곳)');
   chk(SRC['checks/smoke.js'].indexOf("PRELOAD.push('mobile-diag.js');") > 0
