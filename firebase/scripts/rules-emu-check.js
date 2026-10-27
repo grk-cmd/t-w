@@ -3,7 +3,7 @@
    «되어야 하는 쓰기는 되고, 막혀야 하는 쓰기는 막히는지» 를 REST 로 하나씩 보낸다.
    checks/sim-rules-keys.js 는 규칙 글에서 형식을 꺼내 JS 로 돌려 볼 뿐이라, 서버가 실제로 그렇게 판정하는지는 여기서만 안다.
    필요: firebase CLI(firebase-tools) · Java 11+. CI 에는 없어서 손으로 돌린다 — 규칙을 바꾼 PR 은 결과를 본문에 붙인다.
-   실행: node scripts/rules-emu-check.js   (종료 코드 0 = 전부 기대대로) */
+   실행: node firebase/scripts/rules-emu-check.js   (저장소 맨 위에서 · 종료 코드 0 = 전부 기대대로) */
 'use strict';
 const fs = require('fs');
 const os = require('os');
