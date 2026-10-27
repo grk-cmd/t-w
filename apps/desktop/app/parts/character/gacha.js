@@ -3,7 +3,7 @@
    ★ 한 파일이다(👑 달성표 weekly-challenge.js 와 같은 방식 — entities 규칙 + widgets 화면). 도감 · 뽑기 창이 코어의 이름
      스무 개 가까이(보유 수 · 풀 · 시즌 · 남은 뽑기 · 보너스 · 동기화 …)를 그대로 쓰고, 코어의 동기화도 도감을 다시 그린다.
    ★ 도감은 따로 뜨는 창이 아니다 — 꾸미기 창(wardrobe.js)이 «도감» 탭을 그릴 때 #gachaInvHost 를 만들고 renderGachaInv 를 부른다.
-     T 키 · [도감으로] 는 꾸미기 창을 «도감» 탭으로 연다(wardrobe-panel.js). 도감 줄 · 쪽 규칙은 gacha-album.js(순수).
+     뽑기 창 [도감으로] 는 꾸미기 창을 «도감» 탭으로 연다(wardrobe-panel.js · 따로 단축키 없음 — F2). 도감 줄 · 쪽 규칙은 gacha-album.js(순수).
    ★ app.js 의 let 은 읽는 함수로 받는다 — isAdmin() · savedParts() · PART_CATS() · wdDraftDef() · activeWdAdj()(쓰기는 _setActiveWdAdj).
      GACHA_OWNED_KEY · GACHA_TS_KEY · GACHA_BONUS_KEY 는 deps 값 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로 정의는 app.js.
    ★ 🔑 «서버가 조용히 거부하는 기기» 안내(_warnServerWriteDenied)는 app.js — 🧍 캐릭터 슬롯 동기화도 부른다. 여기서는 deps 로 받는다.

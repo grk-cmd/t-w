@@ -3,7 +3,7 @@
    동작은 옮기기 전과 같다.
    ★ wardrobeMod 는 읽는 함수로 받는다(모듈을 만드는 줄보다 뒤에 선언된다).
    ★ 라이선스 검사는 여기서 하지 않는다 — 창은 누구나 열고, 탭마다 꾸미기 창(wardrobe.js)이 가른다(«📚 도감» 은 라이선스 없이).
-   ★ 밖에서 부르는 이름: toggleAlbum() — T 키. 뽑기 창 [도감으로] 는 창 열기 통로(twNav.NAV.WARDROBE_ALBUM)로 부탁한다. 예전 window 고리(openWardrobe · closeWardrobe · refreshWardrobe)도 그대로 건다.
+   ★ 밖에서 부르는 이름: 없음 — 도감은 F2(꾸미기 창)의 «📚 도감» 탭. 뽑기 창 [도감으로] 는 창 열기 통로(twNav.NAV.WARDROBE_ALBUM)로 부탁한다. 예전 window 고리(openWardrobe · closeWardrobe · refreshWardrobe)도 그대로 건다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwWardrobePanel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-wardrobe-panel.js */
@@ -72,18 +72,11 @@ let open = null, close = null, isOpen = null;   // bindWardrobe 가 채운다 �
   });
 })();
 
-/* 📚 T 키 — «도감» 탭이 보이면 닫고, 아니면 «도감» 탭으로 연다(열려 있으면 탭만 바꾼다). */
-function toggleAlbum(){
-  if(!open) return;
-  if(isOpen() && wardrobeMod().isAlbumTab()) close();
-  else open(wardrobeMod().ALBUM_TAB);
-}
-
 /* 📚 뽑기 창 [도감으로] — «도감» 탭으로 연다(열려 있으면 탭만 바꾼다). 가챠는 꾸미기 창을 모르므로 통로로 부탁한다. */
 twNav.on(twNav.NAV.WARDROBE_ALBUM, (opts)=>{ if(open) open(wardrobeMod().ALBUM_TAB, opts); });
 
 return {
-  toggleAlbum,
+
 };
 }
 

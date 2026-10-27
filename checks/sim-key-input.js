@@ -58,7 +58,7 @@ say('── 3. 쓰는 곳');
   const code = strip(APP) + '\n' + strip(ANIMAL) + '\n' + strip(AMODE);
   chk(!/\b(e|ev)\.key\s*[!=]==?\s*'[a-zA-Z]'/.test(code), '글자 단축키를 e.key 로 직접 비교하는 곳이 없다');
   chk(/const letter = \(e\.ctrlKey \|\| e\.metaKey \|\| e\.altKey\) \? '' : hotkeyLetter\(e\);/.test(code)
-      && /case 't':\s*(wdPanelMod\.)?toggleAlbum\(\);/.test(code), 'T(꾸미기 창 «도감» 탭)는 hotkeyLetter 로 · 수정키가 없을 때만 (꾸미기 창은 wardrobe-panel.js — app.js 는 wdPanelMod.toggleAlbum)');
+      && /if\(!isFKey && letter!=='i'\) return;/.test(code) && !/case 't':/.test(code), 'I 는 hotkeyLetter 로 · 수정키가 없을 때만 · T 단축키는 없다(도감은 F2 꾸미기 창의 탭 — #540 P2 뒤)');
   chk(/hotkeyLetter\(e\) !== 'b'/.test(code) && /hotkeyLetter\(e\)==='e'/.test(code), 'B(조준) · Ctrl+E(관리자 끄기)도');
   chk(['c', 'x', 'z'].every((k) => new RegExp("hotkeyLetter\\(e\\)==='" + k + "' && isDrawStep\\(\\)").test(code)), '생성기 C · X · Z');
   chk(/const k = hotkeyLetter\(e\);/.test(strip(ANIMAL)) && ['z', 'c', 'x', 'g'].every((k) => new RegExp("k==='" + k + "'").test(strip(ANIMAL))), '동물 생성기 Z · C · X · G');

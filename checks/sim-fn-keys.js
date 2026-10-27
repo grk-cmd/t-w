@@ -19,11 +19,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = [];
 const VAL_DEPS = ["iDeskMod","rideBenchMod"];
-const GET_DEPS = ["chatUiMod","wdPanelMod"];
+const GET_DEPS = ["chatUiMod"];
 const SET_DEPS = [];
 const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  chatUiMod: ()=>chatUiMod,","  wdPanelMod: ()=>wdPanelMod,","  iDeskMod: iDeskMod,","  rideBenchMod: rideBenchMod,"];
+const GLUE = ["  chatUiMod: ()=>chatUiMod,","  iDeskMod: iDeskMod,","  rideBenchMod: rideBenchMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
