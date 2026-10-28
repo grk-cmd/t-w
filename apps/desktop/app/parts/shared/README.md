@@ -217,17 +217,6 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **내놓는 것**: `load(key, fallback)` → `{ ok, list, err, bytes }`(키가 없거나 빈 글이면 ok · fallback) · `save(key, value)` → `{ ok, err, bytes }`(던지지 않는다).
 - **함정**: 값의 모양(배열 · 객체)은 부르는 쪽이 본다. DOM · 토스트를 모른다 — 알리기는 부르는 쪽. 검사 `checks/sim-json-store.js`.
 
-## `data-gateway.js` — 🚪 범용 데이터 통로(서버만 배포해서 기능 옮기기)
-
-- **책임**: `firebase-init.js` 의 Firebase 기본 동작(get · set · update · remove · push · onValue) 앞의 문 하나. 원격 설정 **dataRoutes** 표에 걸린 경로만 서버 범용 끝점(`POST /v1/data` · 듣기는 `GET /v1/data/stream` SSE)으로 보내고, 나머지는 SDK 를 같은 인자로 그대로 부른다. **표가 비면 지금과 똑같다.**
-- **왜**: 기능 함수(firebaseAPI 256개)마다 서버 주소를 박으면 기능을 옮길 때마다 앱 업데이트가 필요하다. 문 하나를 두면 «서버에 그 경로 처리기 추가 + 표에 경로 한 줄» 만으로 옮긴다(앱 업데이트 없음 · 표에서 빼면 즉시 되돌림).
-- **만드는 법**: `TwDataGateway.createDataGateway({ sdk, routes, myCode, serverFirst, post, stream, isQuery, warn })` — firebase-init.js 가 만든다(`post` · `stream` 은 로그인 통로 `_authApi` · ID 토큰).
-- **표**: `config/dataRoutes`(관리자만 쓰기 · 누구나 읽기 · 글자 배열) · `GET /v1/config` 의 `dataRoutes`. 경로 앞부분 — 칸 자리에 별표를 쓰면 아무 칸.
-- **신원**: 경로 속 코드는 데이터 주소일 뿐이다. 서버로 보낼 때 **내 코드인 칸만 `me`** 로 바꾼다(`toServerPath`). 신원은 서버가 ID 토큰에서만 정한다.
-- **실패하면**: 연결 실패 · 시간 초과 · 5xx · 404(서버가 모르는 경로) → 그 호출은 Firebase 로(`source-switch.js` serverFirst 한 벌). 듣기는 첫 값 전에 끊기면 Firebase 로 듣는다.
-- **늘 Firebase**: 조건 붙은 읽기(query) · 트랜잭션 · onDisconnect · 자식 단위 듣기(onChild*).
-- **⚠️ 함정**: 기능 함수에서 SDK 함수를 새로 import 해 직접 부르지 말 것 — 통로를 건너뛰면 그 기능은 서버로 못 옮긴다(`checks/sim-data-gateway.js`). 다중 경로 update 는 칸이 서버 · Firebase 로 섞이면 쪼개지 않고 통째로 Firebase.
-
 ## `app-version.js` — 🏷️ 앱 버전(ver) 싣기
 
 **책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence · 라이선스 요청에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
@@ -250,7 +239,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **책임** — Firebase `config/maintenance`(`{ on, endsAt?, message? }` · 웹 관리자가 씀)가 켜진 동안, **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
 
-**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `config/maintenance` 를 구독해 `store.onValue` 에 잇고, 범용 통로(`data-gateway.js` `onOp`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
+**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `config/maintenance` 를 구독해 `store.onValue` 에 잇고, Firebase 기본 동작(firebase-init.js `_touched`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
 
 **내놓는 것**
 - `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).

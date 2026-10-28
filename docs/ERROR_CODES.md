@@ -23,7 +23,7 @@
 | `CHAT` | 채팅 |
 | `CHAR` | 캐릭터 · 꾸미기 · 가챠 |
 | `FOCUS` | 포커스 · 레벨 |
-| `DATA` | 범용 데이터 통로(서버로 옮긴 경로) |
+| `DATA` | (걷음) 범용 데이터 통로 — 걷은 번호만 |
 | `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
 | `SYS` | 그 밖 |
 
@@ -59,10 +59,6 @@
 | `E-CHAR-12` | 뽑기를 저장하지 못했어요 — 잠시 후 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 뽑기 트랜잭션 오류 · 서버 길 서버 바쁨 · 카탈로그 준비 중 · 그 밖 4xx(`gacha-server.js` reasonOf) |
 | `E-CHAR-13` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `character/wardrobe.js` — 꾸미기 책상 탭에서 카탈로그 책상 고르기(모델 받기 실패) |
 | `E-CHAR-14` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `creator/desk-setup.js` — 생성기 책상 카드 고르기(모델 받기 실패) |
-| `E-DATA-01` | 이 작업을 할 권한이 없어요 | `shared/data-gateway.js` — 서버 범용 통로 `ACCESS_DENIED` |
-| `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/data-gateway.js` — 서버 범용 통로 `INVALID_REQUEST` |
-| `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 `CONCURRENT_UPDATE` |
-| `E-DATA-04` | 서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 모르는 code |
 | `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |
 | `E-NET-02` | 이 작업을 할 권한이 없어요 | `shared/api-errors.js` — 공통 `ACCESS_DENIED` |
 | `E-NET-03` | 프리미엄에서 쓸 수 있는 기능이에요 | `shared/api-errors.js` — 공통 `PREMIUM_REQUIRED`(이 기기 판정 — `X-Device-Id`) |
@@ -73,4 +69,9 @@
 | `E-NET-08` | 서버에서 처리하지 못했어요 — 잠시 뒤 다시 해 주세요 | `shared/api-errors.js` — 표에 없는 code(기능 표 · 공통 표 둘 다 없음) |
 
 ## 걷은 번호
-(아직 없음)
+| 번호 | 사용자 문구 | 언제 · 왜 |
+|---|---|---|
+| `E-DATA-01` | 이 작업을 할 권한이 없어요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 `ACCESS_DENIED` |
+| `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 `INVALID_REQUEST` |
+| `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 `CONCURRENT_UPDATE` |
+| `E-DATA-04` | 서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 모르는 code |
