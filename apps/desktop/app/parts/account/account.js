@@ -9,7 +9,7 @@
    ★ «연동됨» 안내 창(_charsLinkedMaybeShow)은 보관함 화면이 있는 my-info.js 로 옮겼다 — 표시 키 CHARS_LINKED_KEY 는 쓰는 쪽(여기)에 두고 내놓는다.
    ★ 0.13 — 로그인 · 가입 판정은 login-flow.js(서버 GET /v1/me), 여기는 그 결과로 이 PC 를 맞춘다(_enterAccount). 계정 이전 사본(accountSnap)으로 복원하던 길은 걷었다 —
      다른 PC 이어받기는 같은 계정 로그인으로 끝난다(서버가 원본).
-   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _wipeAccountLocal · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAccount — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-account.js */
@@ -328,17 +328,22 @@ async function _loginDoLogout(opt){
   return { ok:true };
 }
 
-/* 🗑️ 회원 탈퇴 — 서버에서 계정을 지운 뒤(account-delete-net.js) 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
-   ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없고, DB 연결도 이미 끊었다.
-   ★ 지금 기기 자리는 로그인을 놓을 때(loginFlowMod.logout — realtime 끄기) 놓인다.
-   @return { ok, reason } — ok=false 면 이 PC 는 그대로다(서버는 지우다 멈췄을 수 있다 — 다시 누르면 이어서 지운다). */
+/* 🗑️ 회원 탈퇴 — 서버(POST /v1/me/withdrawal · 202)가 계정을 지운 뒤 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
+   ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없다.
+   ★ 서버는 5분 안 로그인을 요구한다 — 오래됐으면 구글로 다시 확인(_withRecentLogin).
+   @return { ok, reason } — ok=false 면 이 PC 는 그대로다. */
+const WITHDRAW_WORD = '탈퇴';   // 서버 확인 글자와 같다(user-api.js WITHDRAW_CONFIRM)
 async function _loginDoDeleteAccount(word){
-  const api = window.firebaseAPI && firebaseAPI.accountDelete;
-  if(!api) return { ok:false, reason:'탈퇴 기능을 불러오지 못했어요 — 앱을 다시 시작해 주세요' };
-  const r = await api.run(word);
-  if(!r || !r.ok) return r || { ok:false, reason:'탈퇴하지 못했어요' };
+  if(String(word == null ? '' : word).trim() !== WITHDRAW_WORD) return { ok:false, reason:'확인 글자 «' + WITHDRAW_WORD + '» 를 그대로 입력해 주세요' };
+  const r = await _withRecentLogin(() => userApiMod.withdraw());
+  if(!r.ok) return r;
+  try{ await loginFlowMod.logout(); }catch(_){}   // realtime 끄기 · 로그인 놓기(로그인 계정은 서버가 뒤에서 지운다)
   _wipeAccountLocal();
-  return r;
+  return { ok:true };
+}
+/* 탈퇴 안내의 «지울 항목 n 개 · 파일 m 개» — 못 읽으면 { ok:false }(안내 줄만 숨긴다) */
+async function _withdrawPreview(){
+  try{ const p = await userApiMod.withdrawalPreview(); return p ? Object.assign({ ok:true }, p) : { ok:false }; }catch(_){ return { ok:false }; }
 }
 
 /* 🔐 [회원가입 설계 §7-C2·C3 · 개정 14 · 시안 확정] 계정 탭 — 로그인 수단 · 비밀번호 만들기(C3) · 바꾸기(C2).
@@ -537,6 +542,7 @@ return {
   _loginDoGoogle,
   _loginDoLogout,
   _loginDoDeleteAccount,
+  _withdrawPreview,
   _wipeAccountLocal,
   refreshAccountTab,
 };

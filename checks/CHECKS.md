@@ -140,7 +140,7 @@
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
 | **sim-daily-summary.js** | 115 | **5362f8640c27** |
-| **sim-account-delete.js** | 502 | **6b9278fac508** |
+| **sim-account-delete.js** | 494 | **626f7629117b** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-server-net.js** | 1017 | **dff7cccfa0aa** |
@@ -301,7 +301,7 @@
 | **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 139 | **144912a9daf0** |
-| **sim-my-info.js** | 98 | **82f72a3b5a87** |
+| **sim-my-info.js** | 98 | **5f813ccf1322** |
 | **sim-renderer-src.js** | 229 | **bfec39a42a8e** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
@@ -313,7 +313,7 @@
 | **sim-focus-level.js** | 119 | **3e7fcbc11472** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
 | **sim-license-gate.js** | 180 | **6e019b8f8674** |
-| **sim-account.js** | 95 | **be166bbe3edf** |
+| **sim-account.js** | 95 | **9c0edc4e4354** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **9e6d39720b41** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
@@ -373,7 +373,7 @@
 | **sim-license-key.js** | 95 | **9b2c72d7fa60** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
 | **sim-myhome-init.js** | 132 | **2652c214c2dc** |
-| **sim-presence-lock.js** | 310 | **90b185582ac9** |
+| **sim-presence-lock.js** | 310 | **f3ac10c9cfdd** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
@@ -388,7 +388,7 @@
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 77 | **0e8ccbe59d09** |
 | **sim-typeof-guards.js** | 134 | **6fcc265732dd** |
-| **sim-user-name.js** | 92 | **74e9a7a6d03a** |
+| **sim-user-name.js** | 98 | **485beb0533ee** |
 | **sim-part-scene.js** | 209 | **4d4fc633d0be** |
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |

@@ -16,17 +16,18 @@ const MOD = read('account/user-name.js'), GUARD = read('account/name-guard.js'),
 if (!MOD || !GUARD || !HTML || !APP) { say('  ? 원본 못 찾음 — user-name.js · name-guard.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 
 function build(mod, o) {
-  const env = { name: o.name || '', toasts: [], profiles: [], plates: [], admin: !!o.admin, active: o.active !== false };
-  const win = { firebaseAPI: { setMyProfile: (...a) => { env.profiles.push(a); return o.reject ? Promise.reject(Object.assign(new Error('PERMISSION_DENIED'), { code: 'PERMISSION_DENIED' })) : Promise.resolve(); } } };
+  const env = { name: o.name || '', toasts: [], profiles: [], plates: [], errs: [], admin: !!o.admin, active: o.active !== false };
+  const win = { firebaseAPI: {} };
   const nameEl = { textContent: '' };
   const document = { getElementById: (id) => id === 'mhMyName' ? nameEl : null };
   const isStaffName = new Function(GUARD + '\nreturn isStaffName;')();   // name-guard.js 는 맨 위 함수 선언(app.js 앞 classic script)
   const api = new Function('window', 'document', 'firebaseAPI', 'isStaffName', 'module', mod + '\nreturn window.TwUserName;')(win, document, win.firebaseAPI, isStaffName, undefined);
   const m = api.createUserName({
     Presence: { active: () => env.active, setName: (n) => env.plates.push(n) },
-    focusLevelMod: () => ({ getFocusLevel: () => 7, myStarProfileOut: () => 'c3' }),
     getDisplayName: () => env.name || '나', getMyUserId: () => ('uid' in o ? o.uid : 'u1'), getUserName: () => env.name,
     isAdmin: () => env.admin, setUserName: (v) => { env.name = v; }, toast: (t) => env.toasts.push(t),
+    saveNameOnServer: (n) => { env.profiles.push([n]); return Promise.resolve(o.reject ? { ok: false, err: { kind: 'request', code: o.reject } } : { ok: true }); },
+    notifyError: (code, e) => { env.errs.push(code); },
   });
   return { m, env, win, nameEl };
 }
@@ -37,7 +38,7 @@ function judge(mod, html, app) {
     r.max = b.m.USER_NAME_MAX === 12;
     b.m.commitUserName('  가나다라마바사아자차카타파하  ');
     r.cut = b.env.name === '가나다라마바사아자차카타' && b.env.toasts[0] === '이름이 저장됐어요';
-    r.side = b.env.profiles.length === 1 && b.env.profiles[0].join() === 'u1,가나다라마바사아자차카타,7,c3' && b.env.plates[0] === '가나다라마바사아자차카타' && b.nameEl.textContent === '가나다라마바사아자차카타';
+    r.side = b.env.profiles.length === 1 && b.env.profiles[0].join() === '가나다라마바사아자차카타' && b.env.plates[0] === '가나다라마바사아자차카타' && b.nameEl.textContent === '가나다라마바사아자차카타';
     b.m.commitUserName('   '); r.empty = b.env.name === '나';
     b = build(mod, {}); b.m.commitUserName('운영자'); r.staff = b.env.name === '' && /운영진/.test(b.env.toasts[0] || '') && !b.env.profiles.length;
     b = build(mod, { admin: true }); b.m.commitUserName('운영자'); r.admin = b.env.name === '운영자';
@@ -59,19 +60,24 @@ const R = judge(MOD, HTML, APP);
 
 say('── 1. 저장');
 chk(!R.err && R.max && R.cut, '앞뒤 빈칸을 지우고 12자로 자른다 · «이름이 저장됐어요»' + (R.err ? ' — ' + R.err : ''));
-chk(R.side, '저장 뒤 프로필(이름 · 레벨 · 별 색) · 방 이름표 · 마이홈 표시를 같은 값으로 갱신');
+chk(R.side, '저장 뒤 서버 계정 이름(PATCH /v1/me) · 방 이름표 · 마이홈 표시를 같은 값으로 갱신');
 chk(R.empty, '비우면 «나»');
 chk(R.staff && R.admin && R.same, '운영진처럼 보이는 이름은 막는다 — 관리자 · 이미 그 이름인 사람은 예외(name-guard.js)');
 chk(R.noRoom, '방에 없으면 이름표는 안 건드린다');
 chk(R.win, 'window.commitUserName 도 예전처럼 건다');
-chk(R.noUid, '내 코드 없음 — 프로필 요청 0 · 이름은 이 기기에 저장 · «이름이 저장됐어요» 그대로');
+chk(R.noUid, '내 코드 없음(로그인 전) — 서버 요청 0 · 이름은 이 기기에 저장 · «이름이 저장됐어요» 그대로');
 const REJ = (async () => {
-  /* 로그인 전 기기는 규칙이 프로필 쓰기를 거부한다 — 그 거부가 «잡히지 않은 오류» 로 남지 않아야 한다(async 라 try 로는 못 받는다) */
+  /* 서버가 거절하면 — 쓸 수 없는 이름은 그 문구, 그 밖은 번호 토스트(E-ACC-01) · 잡히지 않은 오류 없음 */
   const caught = []; const onU = (e) => caught.push(e);
   process.on('unhandledRejection', onU);
-  const warn = console.warn; const warns = []; console.warn = (...a) => warns.push(a.join(' '));
-  try { const b = build(MOD, { reject: true }); b.m.commitUserName('아무개'); await new Promise(r => setTimeout(r, 20)); } finally { console.warn = warn; process.off('unhandledRejection', onU); }
-  chk(!caught.length && warns.some(w => /프로필 서버 반영 실패/.test(w)), '서버가 프로필 쓰기를 거부해도 잡히지 않은 오류가 없다 — 경고 한 줄(이름은 이 기기에 저장)');
+  let b1, b2;
+  try {
+    b1 = build(MOD, { reject: 'NETWORK' }); b1.m.commitUserName('아무개');
+    b2 = build(MOD, { reject: 'USER_RESERVED_NAME' }); b2.m.commitUserName('아무개');
+    await new Promise(r => setTimeout(r, 20));
+  } finally { process.off('unhandledRejection', onU); }
+  chk(!caught.length && b1.env.errs.join() === 'E-ACC-01' && b1.env.name === '아무개', '서버 저장 실패 — 번호 토스트(E-ACC-01) · 이름은 이 PC 에 남음');
+  chk(b2.env.errs.length === 0 && b2.env.toasts.some(t => /운영진/.test(t)), '서버가 쓸 수 없는 이름(USER_RESERVED_NAME)으로 거절 — 그 문구');
 })();
 
 say('── 2. 연결');
@@ -82,7 +88,7 @@ chk(R.callers >= 3 && R.old === 0, '부르는 곳은 userNameMod.이름(' + R.ca
 say('── 3. 일부러 깨 보기');
 chk(!judge(MOD.replace('.slice(0, USER_NAME_MAX)', ''), HTML, APP).cut, '자르기를 빼면 빨강');
 chk(!judge(MOD.replace("  if(isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin() !== 'undefined' && isAdmin())){", '  if(false){'), HTML, APP).staff, '운영진 이름 막기를 빼면 빨강');
-chk(!judge(MOD.replace('if(getMyUserId() && window.firebaseAPI && firebaseAPI.setMyProfile)', 'if(window.firebaseAPI && firebaseAPI.setMyProfile)'), HTML, APP).noUid, '내 코드 확인을 빼면 빨강');
+chk(!judge(MOD.replace('if(getMyUserId()) Promise.resolve(saveNameOnServer(', 'if(true) Promise.resolve(saveNameOnServer('), HTML, APP).noUid, '내 코드 확인을 빼면 빨강');
 chk(!judge(MOD, HTML.replace('<script src="parts/account/user-name.js"></script>', ''), APP).order, 'html 줄이 빠지면 빨강');
 chk(judge(MOD, HTML, APP + '\nprogSettingsMod.commitUserName("x");\n').old > 0, '설정 창 이름으로 부르면 빨강');
 

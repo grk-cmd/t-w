@@ -2633,8 +2633,8 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  loadPref: (...a)=>firebaseAPI.loadPresencePref(...a),
-  savePref: (...a)=>firebaseAPI.savePresencePref(...a),
+  loadPref: ()=>userApiMod.me().then((me)=>(me ? { lock: me.presencePref.locked, online: me.presencePref.online } : null)),   // 서버 계정의 접속 고정(GET /v1/me)
+  savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
   storage: localStorage,
   setTimer: (fn, ms)=>setTimeout(fn, ms),
@@ -6975,13 +6975,14 @@ function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()
 /* 🏷️ 닉네임 저장 — 본문은 account/user-name.js(모듈 순환 끊기 7 — 설정 창과 떼어 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게). 원래 자리라 여기서 만든다 */
 const userNameMod = TwUserName.createUserName({
   Presence: Presence,
-  focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getUserName: (...a)=>getUserName(...a),
   isAdmin: ()=>isAdmin,
   setUserName: (...a)=>setUserName(...a),
   toast: (...a)=>toast(...a),
+  saveNameOnServer: (name)=>loginFlowMod.patchMe({ displayName: name }),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const progSettingsMod = TwProgramSettings.createProgramSettings({
   FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,
@@ -7130,6 +7131,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   _focusTotalSec: ()=>_focusTotalSec,
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
   _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
+  _withdrawPreview: (...a)=>accountMod._withdrawPreview(...a),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),

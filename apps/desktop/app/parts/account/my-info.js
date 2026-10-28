@@ -42,6 +42,7 @@ const _charsTrashView = deps._charsTrashView;
 const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
 const _loginDoLogout = deps._loginDoLogout;
 const _loginDoDeleteAccount = deps._loginDoDeleteAccount;
+const _withdrawPreview = deps._withdrawPreview;   // 탈퇴 미리보기(GET /v1/me/withdrawal-preview — account.js)
 const _myHomeData = deps._myHomeData;   // 읽는 함수
 const _pushLevelIfChanged = deps._pushLevelIfChanged;
 const _slotsNow = deps._slotsNow;
@@ -645,9 +646,7 @@ function _miCodeLoad(){
     const delShowCount = (p) => {
       if(!dCount) return;
       if(!p || !p.ok){ dCount.style.display = 'none'; return; }
-      const files = (p.storage && p.storage.count) || 0;
-      dCount.textContent = '서버에서 지울 곳 ' + (p.dbCount || 0) + '곳 · 올린 파일 ' + files + '개'
-        + (p.warnings && p.warnings.length ? ' — ' + p.warnings.join(' · ') : '');
+      dCount.textContent = '지울 항목 ' + p.items + '개' + (p.files == null ? '' : ' · 파일 ' + p.files + '개');   // 파일 수를 셀 수 없으면(null) 그 칸은 뺀다
       dCount.style.display = 'block';
     };
     /* 탈퇴 안내를 여는 동안 계정 탭(로그인 수단 ~ 로그아웃)을 숨기고 그 자리에 보인다 — CSS #acctLoggedIn.acct-deleting */
@@ -664,8 +663,7 @@ function _miCodeLoad(){
       if(pg && zone) try{ pg.scrollTop = Math.max(0, zone.offsetTop - 8); }catch(_){}   // 안내 머리가 보이게
       const cancelBtn = $('acctDeleteCancel'); if(cancelBtn) try{ cancelBtn.focus(); }catch(_){}
       const seq = ++_delSeq;
-      const api = window.firebaseAPI && firebaseAPI.accountDelete;
-      if(api) api.preview().then(p => { if(seq === _delSeq) delShowCount(p); }).catch(()=>{});
+      _withdrawPreview().then(p => { if(seq === _delSeq) delShowCount(p); }).catch(()=>{});
     };
     if(dAgree) dAgree.onchange = delSync;
     if(dWord){ dWord.oninput = delSync; dWord.onkeydown = (e) => { if(e.key === 'Enter' && dYes && !dYes.disabled) dYes.click(); }; }
