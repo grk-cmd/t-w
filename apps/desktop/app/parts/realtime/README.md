@@ -35,6 +35,6 @@
 - 다시 받기: 유예(`RESYNC_AFTER_MS` 20초)보다 오래 끊겼다 붙으면 건 함수마다 `{ kind, resync:true }` 로 한 번(같은 함수를 여러 종류에 걸어도 한 번). 짧게 끊긴 동안의 알림은 서버가 들고 있다 보낸다.
 - 그 밖의 메시지: `onMessage(t, fn)` — `presence` · `announce` · `roomInvited` · `mobileFocus` · `sessionLost` · `error` · 방 메시지(`ROOM_TYPES` — C 묶음 방 포트 자리). 보내기 `send(msg)`(ready 일 때만 true) · 답 있는 요청 `request(msg)`(rid 짝 — `presenceGet` · `random` · `peek`).
 - 상태: `onState(fn)` — `off` · `connecting` · `ready` · `retrying` · `sessionLost`(4004 — 멈춤) · `update`(4003 — 멈춤 · 업데이트 안내) · `authFailed`(4001 두 번 — 멈춤). 4005 · 그 밖은 다시 붙기.
-- 만드는 법: 연결 공통부(ES 모듈)와 토큰 · 버전은 firebase-init.js 가 `TwRtHub.store.bind({ createLink, getToken, getVersion })` 로 잇는다 — bind 전 `start()` 는 던진다. 주소는 운영 `wss://realtime.together-working.com` · dev `wss://realtime-dev.together-working.com`(dev 앱만 `tw.realtimeUrl` 시험 주소).
+- 만드는 법: 연결 공통부(ES 모듈)와 토큰 · 버전은 firebase-init.js 가 `TwRtHub.store.bind({ createLink, getToken, getVersion })` 로 잇는다 — bind 전 `start()` 는 던진다. 주소는 운영 `wss://realtime.together-working.com` · dev `ws://127.0.0.1:8787`(dev 서버는 이 PC 로컬)(dev 앱만 `tw.realtimeUrl` 시험 주소).
 - 함정: 다시 받기는 GET 몰림을 만들 수 있다 — 함수 안에서 또 흩지 말고(서버가 ready 를 0~30초 흩는다) ETag GET 한 번만. 방 안 90초 포기 · 방 자리 이어 붙기(`resume`)는 방 포트 몫.
 - 검사: `checks/sim-rt-hub.js`(진짜 realtime-link 위에서 · 깨 보기).

@@ -441,7 +441,7 @@
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
-| **sim-rt-hub.js** | 316 | **51b1a6739613** |
+| **sim-rt-hub.js** | 317 | **e6925fc1e131** |
 | **sim-room-rt.js** | 357 | **1f746cdeb8d6** |
 | **sim-chat-rt.js** | 186 | **043e7c9b1109** |
 | **sim-room-invite-rt.js** | 73 | **05182e7f4355** |

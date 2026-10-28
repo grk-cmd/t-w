@@ -244,6 +244,7 @@ async function judge(S){
     const H = loadHub(S.HUB);
     const mem = (o) => ({ getItem: (k) => (k in o ? o[k] : null) });
     chk(H.realtimeUrlFor('prod', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:8787' })) === 'wss://realtime.together-working.com', '운영 앱은 늘 운영 주소(시험 주소 무시)');
+    chk(H.REALTIME_URLS.dev === 'ws://127.0.0.1:8787' && H.DEV_URL_RE.test(H.REALTIME_URLS.dev), '  dev 기본은 이 PC 로컬 8787(dev 용 공개 이름은 없다) · 시험 주소 규칙 안');
     chk(H.realtimeUrlFor('dev', mem({})) === H.REALTIME_URLS.dev && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:8787' })) === 'ws://127.0.0.1:8787'
       && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'wss://evil.example' })) === H.REALTIME_URLS.dev && H.realtimeUrlFor('dev', mem({ 'tw.realtimeUrl': 'ws://127.0.0.1:9999' })) === H.REALTIME_URLS.dev,
       '  ↳ dev 앱만 tw.realtimeUrl(묶음 안 wss · 로컬 8787) · 밖은 무시');
