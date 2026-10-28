@@ -78,6 +78,7 @@ const CASES = [
   ['맥 설치', (r) => r.answer.faq && r.answer.p === 'faq', '맥 설치 FAQ(편 없음 → FAQ 페이지)'],
   ['손상되었다고 나와요', (r) => r.answer.faq && /손상/.test(r.answer.h), '맥 «손상» FAQ'],
   ['버전 정', (r) => r.answer.faq && r.answer.p === '1', '치는 중인 한 글자(정)가 앞 낱말(버전)을 덮지 않는다'],
+  ['올라타기 내려오기', (r) => r.answer.p === '2-1', '2-1편 › 올라타기(올라 → 레벨로 새지 않음)'],
 ];
 for (const [q, ok, want] of CASES){
   const r = C.search(P, q);
@@ -110,6 +111,8 @@ chk(C.href('4-1', 's3', 'theme=bubble&embed=1') === '/4-1?theme=bubble&embed=1#s
 say('── 4. 경계');
 for (const q of ['', '   ', null, undefined, '?!…']) chk(!C.search(P, q).answer, `  빈 질문 «${q}» — 답 없음`);
 chk(!C.search(P, '어떻게 해요').answer && !C.search(P, 'qwzx').answer, '군말뿐 · 모르는 말 — 답 없음(못 찾음 안내)');
+chk(!C.search(P, 'a').answer && !C.search(P, '7').answer && C.search(P, '버전 a').terms.join() === '버전' && C.search(P, 'f1').terms.join() === 'f1', '영문 · 숫자 한 글자(a · 7)는 낱말로 안 친다(f1 처럼 두 글자는 그대로)');
+chk(!C.expand(P.graph, '올라타기').some(e => e.w === '레벨업'), '  거미줄에 그대로 있는 낱말(올라타기)은 앞만 같은 짧은 마디(올라)로 안 넓힌다');
 const long = C.search(P, '캐릭터 '.repeat(100) + '버전');
 chk(long.terms.length <= 8 && !long.terms.includes('버전'), '아주 긴 질문 — 앞 ' + C.MAX_Q + '자 · 낱말 8개까지만 본다');
 let threw = false; try { C.search(P, '<img src=x onerror=alert(1)> "\'&'); } catch (_) { threw = true; }
@@ -142,6 +145,10 @@ chk(noJoin.joinSpaced(P.graph, C.terms('첫 화면')).join() !== '첫화면', ' 
 const SRC_SAVED = SRC;
 const embedOpen = SRC.replace("if(document.documentElement.hasAttribute('data-embed')) return;", '');
 chk(embedOpen !== SRC_SAVED && (() => { const asked = []; new Function('module', 'window', 'document', embedOpen)(undefined, {}, { readyState: 'complete', documentElement: { hasAttribute: () => true, getAttribute: () => null }, querySelector: (q) => { asked.push(q); return null; }, addEventListener(){} }); return asked.includes('.bar'); })(), '  칸 안 막기를 빼면 앱에 검색창이 생긴다(위 검사가 잡는다)');
+const noExact = load(SRC.replace('var exact = !!graph[t];', 'var exact = false;'));
+chk(noExact.expand(P.graph, '올라타기').some(e => e.w === '레벨업'), '  꼭 맞는 마디 우선을 빼면 4절이 잡는다');
+const noOne = load(SRC.replace("ts = ts.filter(function(t){ return !(t.length === 1 && /[0-9a-z]/.test(t)); });", ''));
+chk(!!noOne.search(noOne.prepare(IX), 'a').answer, '  영문 한 글자 빼기를 끄면 4절이 잡는다');
 const noCap = load(SRC.replace('|| (perPage[s.d.p] || 0) >= PER_PAGE ', ''));
 const capHit = ['캐릭터', '꾸미기 색', '방 만들기', '친구', '설정', '마이홈 스티커'].some(q => { const r = noCap.search(noCap.prepare(IX), q); const per = {}; [r.answer].concat(r.list).filter(Boolean).forEach(d => { per[d.p] = (per[d.p] || 0) + 1; }); return Object.values(per).some(n => n > C.PER_PAGE); });
 chk(capHit, '  한 편 상한을 빼면 4절이 잡는다');

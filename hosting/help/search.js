@@ -68,8 +68,10 @@
   /* 낱말 하나 → [{w, k}] — 자기 자신(1)과 거미줄 이웃(줄 무게). 바꾸려 → 바꾸 처럼 앞이 같으면 같은 마디로 본다 */
   function expand(graph, t){
     var best = {}; best[t] = 1;
+    // 낱말이 거미줄에 그대로 있으면 앞만 같은 더 짧은 마디로는 넓히지 않는다(올라타기 → 올라(레벨이 올라요) 로 새지 않게)
+    var exact = !!graph[t];
     Object.keys(graph).forEach(function(key){
-      var hit = key === t || (key.length >= 2 && t.indexOf(key) === 0) || (t.length >= 2 && key.indexOf(t) === 0);
+      var hit = key === t || (!exact && key.length >= 2 && t.indexOf(key) === 0) || (t.length >= 2 && key.indexOf(t) === 0);
       if(!hit) return;
       var via = key === t ? 1 : PREFIX;
       if(!(best[key] >= via)) best[key] = via;
@@ -142,6 +144,9 @@
     ts = joinSpaced(prep.graph, ts);
     // 다른 낱말이 있으면 거미줄에 없는 한 글자(치는 중인 «버전 정» 의 정)는 뺀다 — 설정 · 정해 같은 데 다 걸려 앞 낱말을 덮는다
     if(ts.length > 1) ts = ts.filter(function(t){ return t.length > 1 || prep.graph[t]; });
+    // 영문 · 숫자 한 글자(a · 1)는 다른 낱말 속(macOS · v0.12)에 걸리기만 해서 늘 뺀다
+    ts = ts.filter(function(t){ return !(t.length === 1 && /[0-9a-z]/.test(t)); });
+    if(!ts.length) return { terms: ts, words: [], answer: null, list: [] };
     var res = { terms: ts, words: [], answer: null, list: [] };
     var exs = ts.map(function(t){ return expand(prep.graph, t); });
     exs.forEach(function(ex){ ex.forEach(function(e){ if(res.words.indexOf(e.w) < 0) res.words.push(e.w); }); });
