@@ -69,19 +69,16 @@ chk(!/return\s+s\s*;/.test(F_LOAD),
   chk(iHeal >= 0 && iSan > iHeal,
       '★ 순서가 heal → sanitize 다 (뒤집히면 아홉 겹 &amp; 가 되살아난다)');
 }
-chk(/DOMParser/.test(F_SANH),
-    '★ 읽는 쪽 sanitize 가 DOMParser 를 쓴다');
+chk(/_mhPurify\s*\(/.test(F_SANH),
+    '★ 읽는 쪽 sanitize 가 DOMPurify(_mhPurify)를 쓴다 — 손으로 짠 DOM 고치기가 아니다');
 chk(!/createElement\s*\(\s*['"]div['"]\s*\)/.test(F_SANH),
     '★ 읽는 쪽이 createElement(div).innerHTML 을 쓰지 않는다 — img 가 sanitize 전에 로드된다');
-chk(/_mhSanitizeNode/.test(F_SANH),
-    '   sanitizer 를 새로 만들지 않고 기존 것을 쓴다');
 chk(/catch/.test(F_SANH) && !/catch[\s\S]{0,120}return\s+str\s*;/.test(F_SANH),
     '★ 실패 시 원본을 돌려주지 않는다');
-
-/* 저장 쪽은 **일부러** 안 바꿨다 — 이미 화면에 붙은 편집기를 읽으므로 새 노출이 없고,
-   innerText 로 글자수를 세는데 DOMParser 문서에는 레이아웃이 없어 innerText 가 안 나온다. */
-chk(/createElement/.test(F_SAVE) && /innerText/.test(F_SAVE),
-    '   _mhSaveRT 는 그대로다 (편집기를 읽는 쪽이라 바꿀 이유가 없다)');
+chk(/_mhPurify\s*\(\s*el\.innerHTML\s*\)/.test(F_SAVE),
+    '★ 저장 쪽도 같은 DOMPurify 로 씻는다');
+chk(!/function _mhSanitizeNode/.test(SRC),
+    '★ 손으로 짠 _mhSanitizeNode 가 없다(다시 만들지 않는다)');
 
 /* IMG 정책이 한 곳에만 있는가 — 뒤집는 비용을 0 으로 두려고 상수로 뺐다 */
 const L_POLICY = cutLine('const _MH_IMG_SRC');
@@ -90,133 +87,59 @@ chk(/'(any|storage-only|none)'/.test(L_POLICY),
 
 say('');
 
-/* ── §2. sanitizer 의 판단 — 실제로 돌린다 ─────────────────────────── */
-say('· §2 판단 (흉내 DOM 위에서 실제 실행)');
-
-/* 아주 작은 DOM. element(1)·text(3) 만 있다. sanitizer 가 쓰는 것만 구현한다:
-   nodeType · tagName · attributes · removeAttribute · setAttribute · childNodes ·
-   firstChild · parentNode · insertBefore · remove */
-function mkText(t){ return { nodeType: 3, _text: t, parentNode: null }; }
-function mkEl(tag, attrs){
-  const el = {
-    nodeType: 1, tagName: tag.toUpperCase(), childNodes: [], parentNode: null,
-    _attrs: Object.assign({}, attrs || {}),
-    get attributes(){ return Object.keys(this._attrs).map(n => ({ name: n, value: this._attrs[n] })); },
-    get firstChild(){ return this.childNodes[0] || null; },
-    removeAttribute(n){ delete this._attrs[n]; },
-    setAttribute(n, v){ this._attrs[n] = String(v); },
-    getAttribute(n){ return Object.prototype.hasOwnProperty.call(this._attrs, n) ? this._attrs[n] : null; },
-    remove(){ const p = this.parentNode; if (!p) return;
-      const i = p.childNodes.indexOf(this); if (i >= 0) p.childNodes.splice(i, 1); this.parentNode = null; },
-    insertBefore(node, ref){ const i = this.childNodes.indexOf(ref);
-      if (node.parentNode) node.remove && node.remove();
-      this.childNodes.splice(i < 0 ? this.childNodes.length : i, 0, node); node.parentNode = this; return node; },
-    append(node){ this.childNodes.push(node); node.parentNode = this; return node; },
-  };
-  return el;
-}
-/* text 노드에도 remove 가 필요하다 (허용 안 된 태그 언래핑 중에 옮겨 다닌다) */
-function fixText(t){
-  t.remove = function(){ const p = this.parentNode; if (!p) return;
-    const i = p.childNodes.indexOf(this); if (i >= 0) p.childNodes.splice(i, 1); this.parentNode = null; };
-  return t;
-}
-
-/* 흉내 파서 — `<tag a="1" b='2'>`, `</tag>`, 글자. void 태그는 자식을 안 받는다. */
-const VOID = new Set(['BR', 'IMG', 'HR', 'INPUT', 'META', 'LINK']);
-function parse(html){
-  const root = mkEl('body');
-  let cur = root, i = 0;
-  while (i < html.length){
-    const lt = html.indexOf('<', i);
-    if (lt < 0){ if (i < html.length) cur.append(fixText(mkText(html.slice(i)))); break; }
-    if (lt > i) cur.append(fixText(mkText(html.slice(i, lt))));
-    const gt = html.indexOf('>', lt);
-    if (gt < 0){ cur.append(fixText(mkText(html.slice(lt)))); break; }
-    let tag = html.slice(lt + 1, gt).trim();
-    i = gt + 1;
-    if (tag.startsWith('/')){                       // 닫는 태그
-      const name = tag.slice(1).trim().toUpperCase();
-      let p = cur; while (p && p.tagName !== name) p = p.parentNode;
-      if (p && p.parentNode) cur = p.parentNode;
-      continue;
-    }
-    if (tag.endsWith('/')) tag = tag.slice(0, -1);
-    const m = /^([a-zA-Z0-9]+)\s*([\s\S]*)$/.exec(tag);
-    if (!m) continue;
-    const name = m[1].toUpperCase();
-    const attrs = {};
-    const re = /([a-zA-Z_:][-a-zA-Z0-9_:.]*)(?:\s*=\s*(?:"([^"]*)"|'([^']*)'|([^\s"'>]+)))?/g;
-    let a; while ((a = re.exec(m[2]))) attrs[a[1].toLowerCase()] = a[2] !== undefined ? a[2] : (a[3] !== undefined ? a[3] : (a[4] !== undefined ? a[4] : ''));
-    const el = mkEl(name, attrs);
-    cur.append(el);
-    if (!VOID.has(name)) cur = el;
-  }
-  return root;
-}
-function serialize(node){
-  if (node.nodeType === 3) return node._text;
-  const attrs = Object.keys(node._attrs).map(n => ' ' + n + '="' + node._attrs[n] + '"').join('');
-  const inner = node.childNodes.map(serialize).join('');
-  if (VOID.has(node.tagName)) return '<' + node.tagName.toLowerCase() + attrs + '>';
-  return '<' + node.tagName.toLowerCase() + attrs + '>' + inner + '</' + node.tagName.toLowerCase() + '>';
-}
-
-/* app.js 에서 sanitizer 일가를 그대로 떼어와 이 흉내 위에서 돌린다 */
-const bundle = [
-  cutLine('const _MH_ALLOWED_TAGS'),
-  cutLine('const _MH_ALLOWED_ATTRS'),
-  L_POLICY,
-  cutLine('const _MH_IMG_HOSTS'),
-  cutFn('_mhImgSrcOk'),
-  cutFn('escHtml'),
-  cutFn('_mhSanitizeNode'),
-  F_SANH,
-  'return { _mhSanitizeHtml, _mhSanitizeNode, _MH_IMG_SRC };',
-].join('\n');
-
-/* 정책값을 바꿔치기해서 같은 sanitizer 를 다시 만들 수 있다 — 상수가 진짜로 먹는지 보려면
-   기본값 'any' 만으로는 알 수 없다('any' 는 즉시 true 라 아무 일도 안 하는 것과 구분이 안 된다). */
+/* ── §2. 판단 — 진짜 DOM(jsdom) 위에서 진짜 DOMPurify 로 돌린다 ─────────
+   흉내 파서로는 «허용 안 된 태그를 벗길 때 자식을 다시 씻나» 같은 구멍을 못 봤다(실제로 놓쳤다).
+   그래서 앱이 싣는 파일 둘(vendor/dompurify · parts/shared/rich-text.js)을 그대로 jsdom 창에 싣는다. */
+say('· §2 판단 (jsdom + vendor DOMPurify 실제 실행)');
+const path = require('path');
+/* 러너는 app/ 아래 폴더를 임시 폴더 바로 밑에 펼친다 — 그 자리와 저장소 자리를 다 본다. */
+const APP = [__dirname, path.resolve(__dirname, '..', 'app')].find(d => fs.existsSync(path.join(d, 'vendor', 'dompurify', 'purify.min.js')));
+if (!APP){ console.log('  ? 원본 못 찾음 — vendor/dompurify/purify.min.js'); process.exit(2); }
+let JSDOM;
+try { ({ JSDOM } = require('jsdom')); } catch (e) { say('  ✗ jsdom 을 못 불러옴 — npm install 필요: ' + e.message); process.exit(1); }
+const PURIFY_SRC = fs.readFileSync(path.join(APP, 'vendor', 'dompurify', 'purify.min.js'), 'utf8');
+const RT_SRC = fs.readFileSync(path.join(APP, 'parts', 'shared', 'rich-text.js'), 'utf8');
 function build(policy){
-  const src = policy ? bundle.replace(L_POLICY, "const _MH_IMG_SRC = '" + policy + "';") : bundle;
-  return new Function('DOMParser', 'console', 'URL', src)(
-    function DOMParserStub(){ return { parseFromString(s){ return { body: parse(s) }; } }; },
-    { warn(){}, log(){}, error(){} },
-    URL
-  );
+  const dom = new JSDOM('<!doctype html><body></body>', { runScripts: 'outside-only' });
+  const w = dom.window;
+  w.eval(PURIFY_SRC);
+  w.eval(policy ? RT_SRC.replace(L_POLICY, "const _MH_IMG_SRC = '" + policy + "';") : RT_SRC);
+  const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  return w.TwRichText.createRichText({ escHtml: esc });
 }
 let API;
 try { API = build(null); }
-catch (e){ say('  ✗ sanitizer 를 떼어내 실행하지 못했습니다: ' + e.message); process.exit(1); }
-
-/* body.innerHTML 흉내: parse → sanitizer 본체 → serialize */
-function cleanWith(api, html){
-  const body = parse(html);
-  Array.from(body.childNodes).forEach(api._mhSanitizeNode);
-  return body.childNodes.map(serialize).join('');
-}
+catch (e){ say('  ✗ rich-text 모듈을 jsdom 에 싣지 못했습니다: ' + e.message); process.exit(1); }
+const cleanWith = (api, html) => api._mhLoadRT(html);
 const clean = html => cleanWith(API, html);
 
 const cases = [
-  /* ⚠️ src 는 **절대 URL** 로 쓴다. sanitizer 의 스킴 검사(`^https?:|mailto:`)가 원래부터
-       상대 URL 을 지운다 — `src="x"` 로 쓰면 onerror 가 지워진 것인지 src 가 지워진 것인지
-       구분이 안 돼서 검사가 통과해도 아무것도 증명하지 못한다. */
+  /* ⚠️ src 는 **절대 URL** 로 쓴다 — 상대 URL 은 스킴 검사가 원래부터 지워 무엇이 지워졌는지 구분이 안 된다. */
   ['<img src="https://a.example/x.png" onerror="alert(1)">',
                                               /^<img src="https:\/\/a\.example\/x\.png">$/,
                                                                        'IMG 의 onerror 가 지워지고 src 는 남는다'],
-  ['<img src="x" onerror="alert(1)">',        /^<img>$/,                '상대 URL src 는 스킴 검사가 지운다 (기존 동작)'],
+  ['<img src="x" onerror="alert(1)">',        /^<img>$/,                '상대 URL src 는 스킴 검사가 지운다'],
   ['<img src="javascript:alert(1)">',         /^<img>$/,                'javascript: 스킴 src 가 지워진다'],
   ['<a href="javascript:alert(1)">t</a>',     /^<a>t<\/a>$/,            'javascript: 스킴 href 가 지워진다'],
   ['<a href="https://ok.example">t</a>',      /href="https:\/\/ok\.example"/, 'http(s) href 는 남는다'],
-  ['<script>alert(1)</script>',               /^alert\(1\)$/,           'SCRIPT 태그가 언래핑돼 글자만 남는다'],
+  ['<script>alert(1)</script>t',              /^t$/,                    'SCRIPT 는 내용째 사라진다'],
   ['<iframe src="https://evil"></iframe>',    /^$/,                     'IFRAME 이 사라진다'],
   ['<b onmouseover="x">굵게</b>',              /^<b>굵게<\/b>$/,          'on* 이벤트 속성이 지워진다'],
   ['<span style="color:red">색</span>',        /style="color:red"/,      '허용 style 은 남는다'],
   ['<span style="position:fixed;top:0">x</span>', /^<span>x<\/span>$/,  '허용 목록 밖 style 은 지워진다'],
   ['<b><img src="https://a.example/x.png" onerror="y"></b>',
                                               /^<b><img src="https:\/\/a\.example\/x\.png"><\/b>$/,
-                                                                       '중첩된 자식까지 재귀로 씻는다'],
+                                                                       '중첩된 자식까지 씻는다'],
   ['<div data-x="1" id="a">t</div>',          /^<div>t<\/div>$/,        '화이트리스트 밖 속성이 지워진다'],
+  ['<a href="https://ok.example" style="color:red">t</a>', /^<a href="https:\/\/ok\.example">t<\/a>$/, '태그마다 허용 속성만 — A 의 style 은 지워진다'],
+  ['<section><img src="https://a.example/x.png" onerror="y"></section>',
+                                              /^<img src="https:\/\/a\.example\/x\.png">$/,
+                                                                       '★ 벗긴 태그 안의 자식도 씻는다'],
+  ['<section><section><b onclick="y">t</b></section></section>',
+                                              /^<b>t<\/b>$/,            '★ 여러 겹 벗겨도 안쪽 자식까지 씻는다'],
+  ['<svg><g onload="y"></g></svg>t',          /^t$/,                    '★ SVG 는 사라진다'],
+  ['<math><mi><mglyph><style><img src=x onerror=y></style></mglyph></mi></math>',
+                                              /^(?![\s\S]*onerror)/,     '★ 이름공간을 섞은 변이(mXSS)에도 onerror 가 남지 않는다'],
 ];
 cases.forEach(([input, want, label]) => {
   let out;
@@ -237,6 +160,13 @@ say('· §2-B IMG 정책 상수가 장식이 아닌가 (세 값을 다 돌린다
   const none = build('none');
   chk(cleanWith(none, OURS) === '' && cleanWith(none, EXT) === '',
       "★ 'none' — IMG 가 통째로 사라진다");
+}
+{
+  const dom = new JSDOM('<!doctype html><body></body>', { runScripts: 'outside-only' });
+  dom.window.eval(RT_SRC);
+  const noPurify = dom.window.TwRichText.createRichText({ escHtml: t => String(t) });
+  const out = noPurify._mhLoadRT('<b onclick="y">t</b>');
+  chk(!/<|onclick/.test(out), '★ DOMPurify 가 없으면 태그를 걷고 글자만(원본을 돌려주지 않는다)   [' + out + ']');
 }
 
 say('');

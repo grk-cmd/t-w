@@ -159,7 +159,7 @@
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 288 | **73780a67f961** |
-| **sim-mh-sanitize.js** | 274 | **b840325c6768** |
+| **sim-mh-sanitize.js** | 204 | **a85ae9ebad61** |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
 | **sim-fix-0923.js** | 297 | **9f338dfa790b** |
@@ -316,7 +316,7 @@
 | **sim-program-settings.js** | 148 | **ca3242f94e17** |
 | **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
 | **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
-| **sim-rich-text.js** | 95 | **e2857c0faa2d** |
+| **sim-rich-text.js** | 95 | **32871aaf0950** |
 | **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
 | **sim-face-heal.js** | 96 | **4423b53923fa** |
@@ -444,7 +444,7 @@
 해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
 
 ```
-run.js                         543줄   660499baebc6   ← 2026-10-14 flattenApp — app/ 하위 폴더 .js 도 평면에 · vendor 뺌 (개정 187) · 2026-10-04 SKIP 에 .claude (워크트리 사본) · web-admin (자체 vitest) · 2026-09-22 SKIP 에 functions (개정 44)
+run.js                         545줄   6287f91073d4   ← 2026-10-14 flattenApp — app/ 하위 폴더 .js 도 평면에 · vendor 뺌 (개정 187) · 2026-10-04 SKIP 에 .claude (워크트리 사본) · web-admin (자체 vitest) · 2026-09-22 SKIP 에 functions (개정 44)
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    415줄   cb30d59cf85a   ← 2026-09-30 6절에 `.app` 폴더 경로 · 옛 규칙 (개정 75)
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)

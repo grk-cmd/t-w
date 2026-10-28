@@ -42,43 +42,41 @@ function _mhImgSrcOk(v){
   try{ return _MH_IMG_HOSTS.some(re => re.test(new URL(String(v), 'https://x.invalid').hostname)); }
   catch(e){ return false; }
 }
-function _mhSanitizeNode(node){
-  if(node.nodeType===3) return;   // 텍스트 노드 그대로
-  if(node.nodeType!==1){ node.remove(); return; }
-  const tag = node.tagName;
-  if(!_MH_ALLOWED_TAGS.has(tag)){
-    // 허용 안 된 태그 → 자식만 남기고 자기 자신은 언래핑
-    while(node.firstChild) node.parentNode.insertBefore(node.firstChild, node);
-    node.remove();
-    return;
-  }
-  // 🖼️ IMG 정책이 'none' 이면 언래핑이 아니라 삭제다 — 자식이 없는 태그라 남길 것이 없다
-  if(tag==='IMG' && _MH_IMG_SRC==='none'){ node.remove(); return; }
-  // 허용된 태그도 속성은 화이트리스트만 남김 (특히 on* 이벤트/스타일의 위험한 값 제거)
-  const allowed = _MH_ALLOWED_ATTRS[tag] || [];
-  Array.from(node.attributes).forEach(a=>{
-    const name=a.name.toLowerCase();
-    if(!allowed.includes(name)){ node.removeAttribute(a.name); return; }
-    // href/src는 http(s) / mailto만 허용 (javascript: 등 스크립트 스킴 차단)
-    if((name==='href'||name==='src') && !/^(https?:|mailto:)/i.test(a.value)){
-      node.removeAttribute(a.name);
-      return;
-    }
-    // 🖼️ 스킴이 통과했어도 IMG src 는 정책(_MH_IMG_SRC)을 한 번 더 본다
-    if(name==='src' && tag==='IMG' && !_mhImgSrcOk(a.value)){ node.removeAttribute(a.name); return; }
-    // style은 color·font-size만 허용
-    if(name==='style'){
-      const clean = a.value.split(';').map(s=>s.trim()).filter(s=>/^(color|background-color|font-size|font-weight|font-style)\s*:/i.test(s)).join(';');
-      if(clean) node.setAttribute('style', clean); else node.removeAttribute('style');
+/* 🛡️ 씻기는 DOMPurify(검증된 라이브러리 · vendor/dompurify 판 고정)가 한다 — 위 허용 목록 · 정책을 넘길 뿐 DOM 을 손으로 고치지 않는다.
+   ⚠️ 손으로 짠 «허용 안 된 태그 벗기기» 는 벗겨 낸 자식을 다시 씻지 못해 그 안의 속성이 남았다 — 다시 만들지 말 것.
+   ⚠️ DOMPurify 가 없거나 실패하면 원본을 돌려주지 않는다(부르는 쪽이 글자만 남긴다). */
+const _MH_URI_OK = /^(?:https?:|mailto:)/i;
+const _MH_STYLE_OK = /^(color|background-color|font-size|font-weight|font-style)\s*:/i;
+let _mhPurifier = null;
+function _mhPurifierOf(){
+  if(_mhPurifier) return _mhPurifier;
+  if(typeof window.DOMPurify !== 'function') throw new Error('DOMPurify 없음');
+  const p = window.DOMPurify(window);   // 이 모듈만의 판 — 걸어 둔 고리가 다른 곳에 새지 않게
+  p.addHook('uponSanitizeAttribute', (node, data) => {
+    const tag = node.nodeName;
+    const name = data.attrName;
+    if(!(_MH_ALLOWED_ATTRS[tag] || []).includes(name)){ data.keepAttr = false; return; }
+    if((name === 'href' || name === 'src') && !_MH_URI_OK.test(data.attrValue)){ data.keepAttr = false; return; }
+    if(name === 'src' && tag === 'IMG' && !_mhImgSrcOk(data.attrValue)){ data.keepAttr = false; return; }
+    if(name === 'style'){
+      const clean = String(data.attrValue).split(';').map(x => x.trim()).filter(x => _MH_STYLE_OK.test(x)).join(';');
+      if(clean) data.attrValue = clean; else data.keepAttr = false;
     }
   });
-  // 자식 재귀 sanitize (복사본으로 순회 — 도중 삭제 방지)
-  Array.from(node.childNodes).forEach(_mhSanitizeNode);
+  _mhPurifier = p;
+  return p;
+}
+function _mhPurify(html){
+  const tags = Array.from(_MH_ALLOWED_TAGS).filter(t => !(t === 'IMG' && _MH_IMG_SRC === 'none')).map(t => t.toLowerCase());
+  const attrs = Array.from(new Set(Object.values(_MH_ALLOWED_ATTRS).flat()));
+  return _mhPurifierOf().sanitize(String(html), {
+    ALLOWED_TAGS: tags, ALLOWED_ATTR: attrs, ALLOWED_URI_REGEXP: _MH_URI_OK,
+    ALLOW_DATA_ATTR: false, ALLOW_ARIA_ATTR: false, KEEP_CONTENT: true,
+  });
 }
 // 편집기에서 HTML 뽑아 sanitize + 글자수 하드 리밋(순수 텍스트 기준으로 자름)
 function _mhSaveRT(el, maxChars){
-  const tmp = document.createElement('div'); tmp.innerHTML = el.innerHTML;
-  Array.from(tmp.childNodes).forEach(_mhSanitizeNode);
+  const tmp = document.createElement('div'); tmp.innerHTML = _mhPurify(el.innerHTML);
   // 글자수는 텍스트 기준. 초과분은 뒤에서 잘라 이미지·태그 구조를 깨트리지 않게 함.
   if(tmp.innerText.length > maxChars){
     // 간단하게: 텍스트 노드를 앞에서부터 세다가 초과 지점에서 나머지 텍스트 노드 제거
@@ -131,10 +129,7 @@ function _mhSanitizeHtml(html){
   const str = String(html==null ? '' : html);
   if(str.indexOf('<') < 0) return str;   // 태그가 없으면 그릴 태그도 없다 (엔티티는 글자로만 풀린다)
   try{
-    const doc = new DOMParser().parseFromString(str, 'text/html');
-    if(!doc || !doc.body) throw new Error('DOMParser body 없음');
-    Array.from(doc.body.childNodes).forEach(_mhSanitizeNode);
-    return doc.body.innerHTML;
+    return _mhPurify(str);   // DOMPurify 는 브라우징 컨텍스트가 없는 문서로 읽는다 — 씻기 전에 그림이 불리지 않는다
   }catch(e){
     console.warn('[마이홈] sanitize 실패 — 태그를 걷어내고 글자만 표시', e);
     return escHtml(str.replace(/<[^>]*>/g, ''));
