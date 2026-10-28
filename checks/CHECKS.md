@@ -94,7 +94,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 618 | **6664bb6aad56** |
-| **sim-friends-port.js** | 459 | **fbec075b1d98** |
+| **sim-friends-port.js** | 445 | **a3370aca0deb** |
 | **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 95 | **71c92bf7579e** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
@@ -145,7 +145,7 @@
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-server-net.js** | 1017 | **dff7cccfa0aa** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
-| **sim-room-server-gate.js** | 309 | **39d158c2f7e6** |
+| **sim-room-server-gate.js** | 122 | **1c353957601a** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 308 | **78aac83cbe8c** |
 | **sim-app-version-gate.js** | 177 | **92374665c4d9** |
@@ -165,7 +165,7 @@
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
-| **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
+| **sim-catalog-cache.js** | 391 | **4a3503b771b9** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
 | **sim-google-login.js** | 656 | **99e6d39cc736** |
@@ -276,7 +276,7 @@
 | **sim-api-public-reads.js** | 191 | **b6f0a07d333f** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 527 | **bb9e649b2cae** |
-| **sim-source-switch.js** | 178 | **0dbd6e281aa4** |
+| **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 602 | **2f88802194fc** |
 | **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |

@@ -66,55 +66,43 @@ async function judge(S){
   }
 
   {
-    chk(SW.pickSource('friends', null, true) === 'server' && SW.pickSource('friends', null, undefined) === 'server' && SW.pickSource('friends', null, null) === 'server',
-      '받는 곳(source-switch pickSource) — 옛 스위치가 켜졌거나 값이 없으면 서버');
-    chk(SW.pickSource('friends', null, false) === 'firebase', '  ↳ 옛 스위치(flags.friendsApi)를 끄면 옛 길');
-    chk(SW.pickSource('friends', 'firebase', true) === 'firebase' && SW.pickSource('friends', 'server', false) === 'server', '  ↳ 새 자리(sources.friends)가 있으면 그쪽이 이긴다');
+    chk(SW.pickSource('friends') === 'server', '받는 곳(source-switch pickSource) — 0.13 한 길: 서버 먼저');
     const mkPort = (o) => {
       const L = { api: 0, fb: [], warn: 0 };
       const port = P.createFriendsPort({
         firebase: { listFriends: async (id, op) => { L.fb.push(op); return { f: { from: 'fb' } }; }, readFriend: async (fid) => { L.fb.push('one:' + fid); return { from: 'fb', fid }; }, watchList(){}, watchPresence(){} },
         api: o.noApi ? null : { listFriends: async (id) => { L.api++; if(o.apiFail) throw Object.assign(new Error('x'), { status: 503 }); return { f: { from: 'api', id } }; },
           readFriend: async (fid) => { L.api++; if(o.apiFail) throw Object.assign(new Error('x'), { status: 503 }); return o.apiNull ? null : { from: 'api', fid }; } },
-        source: () => SW.createSourceSwitch({ valueOf: () => o.value, legacyOf: () => o.apiOn() }).pick('friends'), serverFirst: SW.serverFirst, warn: () => { L.warn++; },
+        source: () => o.src || SW.pickSource('friends'), serverFirst: SW.serverFirst, warn: () => { L.warn++; },
       });
       return { port, L };
     };
-    let k = mkPort({ apiOn: () => true });
+    let k = mkPort({});
     let v = await k.port.listFriends('ME', { idsOnly: true });
     chk(v.f.from === 'api' && v.f.id === 'ME' && k.L.api === 1 && !k.L.fb.length && k.port.lastSource() === 'api', '★ 켜짐 — api 에서 받으면 옛 길(Firebase)은 안 읽는다');
-    k = mkPort({ apiOn: () => true, apiFail: true });
+    k = mkPort({ apiFail: true });
     v = await k.port.listFriends('ME', { idsOnly: true });
     chk(v.f.from === 'fb' && k.L.api === 1 && k.L.fb.length === 1 && k.L.fb[0].idsOnly === true && k.L.warn === 1 && k.port.lastSource() === 'firebase', '★ api 가 끝내 못 받으면 — 옛 길로(opts 그대로) · 진단 한 줄');
     v = await k.port.listFriends('ME');
     chk(k.L.api === 2, '  ↳ 다음에 목록을 열면 다시 서버부터(실패를 기억하지 않음)');
-    k = mkPort({ apiOn: () => false });
+    k = mkPort({ src: 'firebase' });
     v = await k.port.listFriends('ME');
-    chk(v.f.from === 'fb' && k.L.api === 0 && k.L.fb.length === 1, '★ 스위치를 끄면 — api 를 부르지도 않고 옛 길만');
-    k = mkPort({ apiOn: () => { throw new Error('설정 아직'); } });
-    v = await k.port.listFriends('ME');
-    chk(v.f.from === 'api', '  ↳ 스위치를 못 읽으면(설정 준비 전) 켜짐으로');
-    k = mkPort({ apiOn: () => true, value: 'firebase' });
-    v = await k.port.listFriends('ME');
-    chk(v.f.from === 'fb' && k.L.api === 0, '★ 새 자리를 파이어베이스로 — 옛 스위치가 켜져 있어도 api 를 안 부른다');
-    k = mkPort({ apiOn: () => false, value: 'server' });
-    v = await k.port.listFriends('ME');
-    chk(v.f.from === 'api', '  ↳ 새 자리를 서버로 — 옛 스위치가 꺼져 있어도 서버 먼저');
-    k = mkPort({ apiOn: () => true, noApi: true });
+    chk(v.f.from === 'fb' && k.L.api === 0 && k.L.fb.length === 1, '★ 받는 곳이 파이어베이스면 — api 를 부르지도 않고 옛 길만');
+    k = mkPort({ noApi: true });
     v = await k.port.listFriends('ME');
     chk(v.f.from === 'fb' && k.L.warn === 0, '  ↳ api provider 가 없으면 옛 길(실패가 아니라 진단 줄 없음)');
-    k = mkPort({ apiOn: () => true });
+    k = mkPort({});
     v = await k.port.readFriend('u7');
     chk(v.from === 'api' && v.fid === 'u7' && k.L.api === 1 && !k.L.fb.length && k.port.lastSource() === null, '★ readFriend — api 먼저(그 친구 하나) · 옛 길 안 읽음 · lastSource 는 목록 받기만 적는다');
-    k = mkPort({ apiOn: () => true, apiNull: true });
+    k = mkPort({ apiNull: true });
     chk((await k.port.readFriend('u7')) === null && !k.L.fb.length, '  ↳ 서버가 «없는 사람»(null) 이면 null · 옛 길로 다시 안 감');
-    k = mkPort({ apiOn: () => true, apiFail: true });
+    k = mkPort({ apiFail: true });
     v = await k.port.readFriend('u7');
     chk(v.from === 'fb' && k.L.fb.join() === 'one:u7' && k.L.warn === 1, '  ↳ api 가 못 받으면 옛 길로 · 진단 한 줄');
-    k = mkPort({ apiOn: () => false });
+    k = mkPort({ src: 'firebase' });
     v = await k.port.readFriend('u7');
-    chk(v.from === 'fb' && k.L.api === 0, '  ↳ 스위치를 끄면 api 를 부르지도 않고 옛 길만');
-    k = mkPort({ apiOn: () => true, noApi: true });
+    chk(v.from === 'fb' && k.L.api === 0, '  ↳ 받는 곳이 파이어베이스면 api 를 부르지도 않고 옛 길만');
+    k = mkPort({ noApi: true });
     chk((await k.port.readFriend('u7')).from === 'fb' && k.L.warn === 0, '  ↳ api provider 가 없으면 옛 길');
     chk(P.LIVE_SOURCE === 'firebase', '듣기(목록 · 접속 상태)는 아직 옛 길 — ws 자리(LIVE_SOURCE)');
   }
@@ -412,9 +400,7 @@ const BREAKS = [
   ['FBP', "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: (p.inRoom !== undefined) ? !!p.inRoom : !!p.room };", "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: !!p.room };", '시크릿룸 «방에 있음» 을 코드로 판정'],
   ['FI', "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        onChange(snap.val() || {});", "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        Object.keys(snap.val() || {}).forEach(fid=>onValue(ref(db, `users/${fid}/profile`), ()=>{}));\n        onChange(snap.val() || {});", '친구별 구독을 되살림'],
   ['APP', '  subscribe: (...a)=>friendsPortMod.watchList(...a),', '  subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),', 'friends-sub 가 포트를 건너뜀'],
-  ['SS', "  friends: Object.freeze({ legacy: (v) => (v === false ? SOURCE.FIREBASE : SOURCE.SERVER),", "  friends: Object.freeze({ legacy: (v) => SOURCE.SERVER,", '옛 스위치를 안 봄'],
-  ['SS', "  friends: Object.freeze({ legacy: (v) => (v === false ? SOURCE.FIREBASE : SOURCE.SERVER),", "  friends: Object.freeze({ legacy: (v) => (v === true ? SOURCE.SERVER : SOURCE.FIREBASE),", '값이 없으면 꺼짐으로'],
-  ['SS', "  return cleanSource(value) || f.legacy(legacy);", "  return f.legacy(legacy);", '새 자리(sources.friends)를 안 봄'],
+  ['SS', "  friends: SOURCE.SERVER,", "  friends: SOURCE.FIREBASE,", '친구가 서버를 안 씀'],
   ['SS', "      if(onFail) onFail(e);", "      throw e;", 'api 실패를 옛 길로 안 넘김'],
   ['PORT', "      apiProvider ? () => apiProvider.listFriends(myId) : null,", "      () => apiProvider.listFriends(myId),", 'api provider 가 없어도 서버 길'],
   ['FAPI', "const RETRY_DELAYS_MS = [1000, 3000];", "const RETRY_DELAYS_MS = [1000, 3000, 9000];", '다시 묻기 횟수가 늘어남'],

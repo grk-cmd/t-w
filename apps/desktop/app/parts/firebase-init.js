@@ -33,7 +33,7 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged,
     getAdditionalUserInfo, deleteUser
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
+  import { firebaseConfig } from "./firebase-config.js";
   import { createGhostHeal } from "./room/room-ghost-heal.js";
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor, hostSuccession } from "./room/room-channel.js";
@@ -434,8 +434,7 @@
     },
     getVersion: () => _appVer.ready,
   }).start();
-  /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
-     여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
+  /* 🛰 옛 방 서버(웹소켓 pv 1) — 문지기(room-server-gate.js)가 0.13 에선 늘 Firebase 를 돌려줘 _rsUrl 은 null 그대로(서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
   /* 🌐 로그인이 필요한 API 통로(api-client.js TwApi.authed — 쉬기 없음 · 기기 머리) — 토큰 출처만 여기서 잇는다. */
   window.TwApi.bindToken(_getIdToken);
@@ -443,16 +442,7 @@
   /* 🛰 realtime 연결 하나(realtime/rt-hub.js) — 연결 공통부 · 토큰 · 버전만 잇는다. 켜기(start) · 끄기는 로그인 흐름 몫. */
   window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });
   let _rsUrl = null;
-  const _roomServerGate = createRoomServerGate({
-    getConfig: async () => { if(!_rc) return null; await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); return _rc.roomServer(); },
-    pickSource: () => window.TwSourceSwitch.store.pick('rooms'),   // 방 서버를 쓸지 — 원격 설정 sources.rooms(없으면 옛 roomServer.on)
-    serverAddr: (name) => _rc ? _rc.serverAddr(name) : null,
-    myServer: (uid) => _rc ? _rc.myServer(uid) : null,
-    read: (path) => get(ref(db, path)).then(s => s.val()),
-    getUserId: () => window.getMyUserId(),
-    env: FIREBASE_ENV,
-    storage: _lsOrNull(),
-  });
+  const _roomServerGate = createRoomServerGate();   // 0.13 — 늘 Firebase 방(room-server-gate.js 머리말 · 방 묶음이 걷는다)
   const _roomServer = createRoomServerNet({
     createLink: createRealtimeLink,   // 연결 공통부(realtime/realtime-link.js)
     WebSocket: (typeof WebSocket === 'function') ? WebSocket : null,

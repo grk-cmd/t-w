@@ -196,18 +196,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
-## `source-switch.js` — 🎚️ 기능별 받는 곳 고르기(서버 / 파이어베이스)
+## `source-switch.js` — 🎚️ 기능별 받는 곳(0.13 — 한 길만 돌려주는 얇은 자리)
 
-- **책임**: 기능(친구 · 방 · 카탈로그 …)마다 «서버(우리 API · 방 서버) / 파이어베이스(옛 길)» 중 어디서 받을지 고르고(`pickSource`), «서버 먼저 → 못 받으면 파이어베이스» 를 한 벌로 돌린다(`serverFirst`). 기능 쪽은 이것만 부른다 — 스위치 이름 · 기본값 · 넘어가기 조건을 다시 쓰지 않는다(`sim-source-switch.js` 가 막는다).
-- **스위치 자리**: 원격 설정 `sources.{기능}`(쓰기 원본 Firebase `config/sources/{기능}` · 웹 관리자 «🎚️ 기능 스위치») = `'server'` | `'firebase'`. 칸이 없으면 기능 표(`FEATURES`)의 옛 자리를 읽는다 — 친구 `flags.friendsApi`(끌 때만 false) · 방 `roomServer.on`(true 일 때만) · 카탈로그(옛 스위치 없음 — 늘 서버 먼저). 그래서 칸을 비워 두면 예전 동작 그대로다.
-- **만드는 법**: 브라우저는 `TwSourceSwitch.store`(원격 설정 store 를 부를 때마다 읽는 한 벌)를 쓴다. 시험에서는 `createSourceSwitch({ valueOf(기능), legacyOf(기능) })`.
-- **내놓는 것**: `SOURCE` · `SKIP` · `FEATURES` · `cleanSource` · `pickSource(기능, 새 값, 옛 값)` · `serverFirst(받는 곳, 서버 함수 | null, 파이어베이스 함수, 실패 알림)` → `{ v, from }` · `createSourceSwitch(deps)` → `{ pick, serverFirst }` · `store`.
-  ```js
-  // 친구 포트
-  const r = await serverFirst(source(), apiProvider ? () => apiProvider.listFriends(myId) : null, () => firebase.listFriends(myId), onFail);
-  ```
-- **확장**: 새 기능을 서버로 옮길 때 `FEATURES` 에 한 줄(옛 스위치가 없으면 `legacy: () => 기본값`) · `remote-config.js` `SOURCE_FEATURES` · 웹 관리자 기능 스위치 표에 한 줄. 규칙은 `config/sources/$feature` 한 칸으로 이미 받는다.
-- **함정**: 서버 함수가 «값은 왔는데 못 쓴다»(예: 사본 버전이 다름)면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 파이어베이스로 간다. 파이어베이스 쪽 오류는 숨기지 않고 그대로 던진다. 방의 허용 목록 · 비율 · 기본 서버는 이 스위치가 «서버» 일 때 `room-server-gate.js` 가 그다음에 본다.
+- **책임**: 0.13 서버 설정(`GET /v1/config`)에는 기능 스위치가 없다. 기능마다 «지금 도는 한 길» 을 고정 표 `ONE_WAY` 로 돌려주고(`pick`), 서버 길이 있는 기능은 «서버 먼저 → 못 받으면 옛 길» 을 한 벌로 돌린다(`serverFirst`).
+- **표**: `friends` 서버 먼저 · `catalog` 서버 먼저 · `gacha` 앱이 뽑기 — 옛 판의 «스위치 칸 없음» 기본값과 같다(동작 그대로). 방은 `room/room-server-gate.js` 가 늘 Firebase 방을 돌려준다(같은 까닭의 얇은 자리).
+- **걷는 차례**: 기능 묶음이 그 기능을 API · realtime 길로 갈아 끼우면 부르는 줄(app.js · firebase-init.js 의 `pick` · `serverFirst`)을 걷고 표에서 한 줄을 지운다. 표가 비면 파일을 지운다. 새 기능을 더하지 않는다.
+- **함정**: 서버 함수가 «값은 왔는데 못 쓴다» 면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 옛 길로 간다. 옛 길 오류는 숨기지 않고 그대로 던진다.
+- 검사: `checks/sim-source-switch.js`.
 
 ## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
 
