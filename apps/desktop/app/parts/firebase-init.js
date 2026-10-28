@@ -462,10 +462,9 @@
   /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
      여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
-  /* 🌐 로그인이 필요한 API 통로 — 공용 통로와 같은 주소 · ID 토큰을 붙인다. 쉬기는 끈다(이 실패가 공용 통로를 쉬게 하지 않게 · 다시 묻기는 부르는 쪽). */
-  const _authApi = (window.TwApi && window.TwApi.client) ? window.TwApi.createApiClient({
-    baseUrl: window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a), getToken: () => _getIdToken(false), backoffMs: 0, onRequest: () => _mt.touch(),
-  }) : null;
+  /* 🌐 로그인이 필요한 API 통로(api-client.js TwApi.authed — 쉬기 없음 · 기기 머리) — 토큰 출처만 여기서 잇는다. */
+  window.TwApi.bindToken(_getIdToken);
+  const _authApi = window.TwApi.authed;
   /* 🚪 범용 통로의 서버 쪽 — 로그인 통로(_authApi · ID 토큰 · 내 코드). 실패는 던지기만 — Firebase 로 넘기기는 통로(serverFirst)가 한다. */
   function _gwPost(path, body){
     if(!_authApi) return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' }));

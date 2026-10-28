@@ -367,9 +367,9 @@ async function judge(S){
     chk(/const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  firebase: friendsFirebaseMod,\n  api: friendsApiMod,\n  source: \(\)=>TwSourceSwitch\.store\.pick\('friends'\),[^\n]*\n  serverFirst: TwSourceSwitch\.serverFirst,/.test(a), '  ↳ 포트가 provider 둘 · 스위치(원격 설정 friendsApi — 설정이 없으면 켜짐)를 받는다');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: \(\.\.\.a\)=>firebaseAPI\.apiGetAuthed\(\.\.\.a\),[^\n]*\n  getCard: [^\n]*\n  wait: \(ms\)=>new Promise\(r=>setTimeout\(r, ms\)\),/.test(a), '  ↳ api provider 가 로그인 API 통로(firebase-init apiGetAuthed) · 쉬기를 받는다');
     const fi = strip(S.FI);
-    chk(/const _authApi = \(window\.TwApi && window\.TwApi\.client\) \? window\.TwApi\.createApiClient\(\{\n    baseUrl: window\.TwApi\.client\.baseUrl\(\), fetch: \(\.\.\.a\) => window\.fetch\(\.\.\.a\), getToken: \(\) => _getIdToken\(false\), backoffMs: 0,[^\n]*\n  \}\) : null;/.test(fi)
+    chk(/window\.TwApi\.bindToken\(_getIdToken\);\n  const _authApi = window\.TwApi\.authed;/.test(fi)
       && /apiGetAuthed\(path, opts\)\{ return _authApi \? _authApi\.get\(path, opts\) : Promise\.reject\(/.test(fi),
-      '  ↳ firebase-init — 로그인 API 통로: 공용 주소 · Firebase ID 토큰 · 쉬기 끔(공용 통로를 쉬게 하지 않게) · 없으면 거절(옛 길)');
+      '  ↳ firebase-init — 로그인 API 통로(api-client.js authed — 공용 주소 · 쉬기 끔)에 Firebase ID 토큰을 잇는다 · 없으면 거절(옛 길)');
     chk(/  listFriends: \(\.\.\.a\)=>friendsPortMod\.listFriends\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 이름 받기(listFriends)도 포트로');
     chk(/  readFriend: \(\.\.\.a\)=>friendsPortMod\.readFriend\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 새 친구 한 명 받기(readFriend)도 포트로');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: [^\n]*\n  getCard: \(\.\.\.a\)=>firebaseAPI\.fetchUserCardApi\(\.\.\.a\),/.test(a), '  ↳ api provider 의 명함은 공개 읽기 통로(api-public-reads.js fetchUserCardApi)');
@@ -423,12 +423,12 @@ const BREAKS = [
   ['FAPI', "  return typeof e.status === 'number' && e.status >= 500;", "  return typeof e.status === 'number' && e.status >= 400;", '4xx 도 다시 물음'],
   ['FAPI', "      if(i) await wait(RETRY_DELAYS_MS[i - 1]);", "      ", '쉬지 않고 바로 다시 물음'],
   ['FAPI', "    if(last && last.status === 400) warn(", "    if(false) warn(", '400 진단 로그 없음'],
-  ['FI', "getToken: () => _getIdToken(false), backoffMs: 0,", "getToken: () => _getIdToken(false),", '로그인 통로가 쉬기를 씀'],
+  ['FI', "  window.TwApi.bindToken(_getIdToken);\n", "", '로그인 통로에 토큰을 안 이음'],
   ['FAPI', "{ auth: true, headers: { [USER_CODE_HEADER]: myId }, timeoutMs: REQUEST_TIMEOUT_MS }", "{ auth: true, timeoutMs: REQUEST_TIMEOUT_MS }", 'X-User-Code 를 안 보냄'],
   ['FAPI', "    level: (typeof c.level === 'number' && c.level >= 1) ? c.level : null,", "    level: c.level,", '레벨 거르기 없음'],
   ['AC', "    h.Authorization = 'Bearer ' + tok;", "    h.Authorization = tok;", '토큰 형식이 틀림'],
   ['AC', "    if(!tok) throw new ApiError('auth', 0, 'NO_TOKEN', '로그인 토큰이 없어요');", "", '토큰 없이도 보냄'],
-  ['AC', "      const headers = await Promise.race([authHeaders(o), timeout]);", "      const headers = await authHeaders(o);", '토큰 받기가 멈추면 영영 기다림'],
+  ['AC', "      const a = await Promise.race([authOf(o, o.force), timeout]);", "      const a = await authOf(o, o.force);", '토큰 받기가 멈추면 영영 기다림'],
   ['RC', "  friendsApi: true,", "  friendsApi: false,", '스위치 기본값이 꺼짐'],
   ['PORT', "      apiProvider ? () => apiProvider.readFriend(fid) : null,", "      null,", '친구 한 명은 서버를 안 봄'],
   ['PORT', "      () => firebase.readFriend(fid),", "      () => null,", '친구 한 명 옛 길이 없음'],

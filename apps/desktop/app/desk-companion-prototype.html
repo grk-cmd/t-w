@@ -8437,7 +8437,8 @@
 <script src="parts/focus/gamepad-activity.js"></script>   <!-- 🎮 게임패드 버튼 · 스틱도 활동으로(window.TwGamepadActivity) — app.js 보다 먼저 -->
 <script src="parts/creator/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
 <script src="parts/shared/request-id.js"></script>   <!-- 🔁 요청 번호(window.TwRequestId — 같은 일 다시 보내기는 같은 번호) — 쓰는 모듈 · app.js 보다 먼저 -->
-<script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi · t-w-server 읽기 사본) — remote-config.js 보다 먼저 -->
+<script src="parts/shared/device-id.js"></script>   <!-- 🖥️ 이 기기 id(window.TwDeviceId — tw.deviceId · X-Device-Id · realtime hello) — request-id.js 다음 · api-client.js 보다 먼저 -->
+<script src="parts/shared/api-client.js"></script>   <!-- 🌐 앱 공통 API 통로(window.TwApi — client 읽기 · authed 로그인 통로) — remote-config.js 보다 먼저 -->
 <script src="parts/shared/remote-config.js"></script>   <!-- ⚙️ 원격 설정(방 상한 · 정원 · 가입 스위치 — window.TwRemoteConfig) — app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/shared/source-switch.js"></script>   <!-- 🎚️ 기능별 받는 곳 고르기(서버 / 파이어베이스 — window.TwSourceSwitch) — remote-config.js 다음 · app.js · firebase-init.js 보다 먼저 -->
 <script src="parts/shared/data-gateway.js"></script>   <!-- 🚪 범용 데이터 통로(window.TwDataGateway — Firebase 기본 동작 앞의 문 · 표에 걸린 경로만 서버로) — source-switch.js 다음 · firebase-init.js 보다 먼저 -->

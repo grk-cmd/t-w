@@ -349,3 +349,19 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **내놓는 것**: `PATTERN` · `isValid` · `newId` · `createPending({ newId?, max? })` → `{ idFor · settle · has · size }` · `createIdMaker({ crypto, random })` · `uuidFrom(bytes)`.
 - **함정**: 다시 보낼 때 새 번호를 만들면 서버가 새 일로 받아 두 번 된다(뽑기 두 번 · 선물 두 번). 끝난 일을 settle 하지 않으면 다음 일이 옛 번호로 가서 서버가 옛 결과를 돌려준다. 끝내지 않은 키는 `PENDING_MAX` 까지만 기억한다.
 - 검사: `checks/sim-request-id.js`.
+
+## `device-id.js` — 🖥️ 이 기기 id(`tw.deviceId`)
+
+- **책임**: 서버가 프리미엄을 «이 기기» 로 판정할 때 쓰는 기기 칸 이름 하나. 로그인 API 요청 머리 `X-Device-Id`(api-client.js 가 붙인다)와 realtime `hello.deviceId` 에 같은 값을 싣는다. 신원이 아니다(신원은 로그인 토큰뿐).
+- **쓰는 법**: `TwDeviceId.store.get()` — 처음 부를 때 한 번 만들어(`TwRequestId.newId` · uuid) `localStorage` 에 두고, 그 뒤로는 저장값. 저장값이 모양(`^[A-Za-z0-9_-]{8,64}$`) 밖이면 새로 만들어 덮는다.
+- **함정**: 계정을 바꿔도 **지우지 않는다**(계정 전환 지움 목록에 넣지 말 것) — 값이 바뀌면 같은 PC 가 등록 기기(3대)를 하나 더 차지한다. 저장이 막힌 PC 는 실행마다 다른 기기로 보인다.
+- 검사: `checks/sim-device-id.js`.
+
+## `api-client.js` — 🌐 앱 공통 API 통로(`/v1`)
+
+- **책임**: fetch · 시간 제한 · 봉투 풀기 · 실패 한 모양(`ApiError` kind · code · items · retryAfterMs) · 토큰 · 기기 머리 · ETag(304) 를 한 곳에서. 앱 오류 번호로 바꾸는 표는 `api-errors.js`.
+- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
+- **ETag**: 응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 `If-None-Match` — 304 면 기억한 값. 로그인 읽기는 토큰 주인(sub)마다 따로 기억한다. 계정을 놓을 때 `clearCache()`.
+- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
+- **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
+- 검사: `checks/sim-api-client.js`.

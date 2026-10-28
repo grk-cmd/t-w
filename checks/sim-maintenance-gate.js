@@ -150,7 +150,7 @@ say('── 3. 고리');
     const c = A.createApiClient({ baseUrl: 'https://api.together-working.com', fetch, onRequest: () => { reqs++; } });
     await c.get('/v1/x', { cacheMs: 60000 });
     await c.get('/v1/x', { cacheMs: 60000 });
-    await c.post('/v1/y', {});
+    await c.post('/v1/y', {}, { auth: false });
     chk(reqs === 2 && fetches === 2, 'API 통로 — 실제로 보낼 때만(캐시에서 준 것은 안 셈) · get · post · ' + reqs);
   }
   {
@@ -171,9 +171,10 @@ say('── 3. 고리');
       'html — error-codes.js · api-client.js 보다 먼저 싣는다(firebase-init.js 는 module 이라 늘 뒤에 돈다)');
   const hit = (DR.match(/const UI_HIT_SEL = '([^']*)'/) || [])[1] || '';
   chk(hit.split(',').map(s => s.trim()).includes('#' + M.GATE_ID), '클릭 통과 목록(UI_HIT_SEL)에 #' + M.GATE_ID + ' — 투명 창에서도 단추를 누른다');
-  chk(/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\), \(s\) => _mt\.onValue\(s\.val\(\)\), \(\) => \{\}\)/.test(FI) && /onOp: \(\) => _mt\.touch\(\)/.test(FI) && /onRequest: \(\) => _mt\.touch\(\)/.test(FI),
-      'firebase-init — config/maintenance 구독 · 범용 통로 · 로그인 API 통로에 고리');
-  chk(/onRequest: \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \}/.test(AC) && /muted: \(\)=>window\.TwMaintenance\.store\.on\(\)/.test(EC), '  ↳ 공용 API 통로 · 오류 번호 한 벌에도');
+  chk(/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\), \(s\) => _mt\.onValue\(s\.val\(\)\), \(\) => \{\}\)/.test(FI) && /onOp: \(\) => _mt\.touch\(\)/.test(FI),
+      'firebase-init — config/maintenance 구독 · 범용 통로에 고리');
+  chk(/const touch = \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \};/.test(AC) && /client = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch \}\);/.test(AC)
+    && /authed = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch,/.test(AC) && /muted: \(\)=>window\.TwMaintenance\.store\.on\(\)/.test(EC), '  ↳ API 통로 두 벌(공용 읽기 · 로그인) · 오류 번호 한 벌에도');
   const n = (RULES.config || {}).maintenance || {};
   chk(n['.read'] === true && /admins/.test(n['.write'] || '') && /auth\.uid/.test(n['.write'] || ''), '★ config/maintenance — 누구나 읽기(로그인 전 · 점검 중) · 관리자만 쓰기');
   const ev = (rule, v) => { try{ return !!new Function('newData', 'return (' + rule + ');')(nd(v)); }catch(_){ return false; } };
