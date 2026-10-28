@@ -4,8 +4,8 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_onDeviceSessionLost)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 2줄 그대로 · 부르는 곳은 deviceLostMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
-   ・4절: 밀림 · «여기서 계속» 을 실제로 눌러 본다 — 다시 켜기를 부르고(끊긴 구독은 다시 켜야 산다) · 못 하면 여기서 다시 claim · presence · 깨 보기
-   ・5절: 읽기가 막힌 밀림(onLost(null) — 옛 버전 앱) 은 «옛 버전» 안내 · [다시 시도], 다른 기기 · 인자 없음은 예전 안내 · 깨 보기
+   ・4절: 밀림 · «여기서 계속» 을 실제로 눌러 본다 — 방 나가기 · 화면 · 같은 연결로 다시 claim(앱을 다시 켜지 않음) · 깨 보기
+   ・5절: 배선 — realtime sessionLost → login-flow → 이 화면 · RTDB 기기 세션 없음 · 클릭 통과
    [실행] app.js · desk-companion-prototype.html · device-lost.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -19,13 +19,13 @@ const MOD = ["device-lost.js","parts/account/device-lost.js","app/parts/account/
 if(!MOD){ say('  ? 원본 못 찾음 — device-lost.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["getMyUserId","_acctRelaunchAfterDetach"];
+const FN_DEPS = [];
 const VAL_DEPS = ["twNav"];
-const GET_DEPS = [];
+const GET_DEPS = ["continueHere"];
 const SET_DEPS = [];
 const EXPORTS = ["_onDeviceSessionLost"];
 const MOVED = ["_onDeviceSessionLost","_deviceSessionContinueHere"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  getMyUserId: (...a)=>getMyUserId(...a),","  twNav: twNav,","  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),"];
+const GLUE = ["  twNav: twNav,","  continueHere: ()=>TwRtHub.store.start({ claim: true }),   // realtime 연결 하나로 다시 claim(login-flow 를 부르지 않는다 — 그쪽이 이 화면을 부른다)"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -95,85 +95,55 @@ for(const [name, fm, fa, fh] of breaks){
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 (async () => {
-say('── 4. 밀림 · «여기서 계속» 을 눌러 본다');
-/* 이름으로 요소를 찾는 작은 가짜 DOM — 화면 · 버튼 · 부른 차례를 그대로 기록한다 */
-async function press(src, relaunch, after, lostArg){
+say('── 4. 밀림 · «여기서 계속» 을 눌러 본다(0.13 — realtime sessionLost → 같은 연결로 다시 claim)');
+async function press(src, twice){
   const els = {};
-  const el = (id) => els[id] || (els[id] = { id, style: { display: 'none' }, textContent: id === 'deviceSessionContinue' ? '여기서 계속 쓰기' : '', disabled: false, onclick: null });
+  const el = (id) => els[id] || (els[id] = { id, style: { display: 'none' }, textContent: '', disabled: false, onclick: null });
   const calls = [];
-  const fb = { claimDeviceSession: async (id) => { await null; calls.push('claim:' + id); return true; }, setMyPresenceOnline: (id) => calls.push('presence:' + id) };
   const nav = { NAV: { LEAVE_ROOM: 'leave' }, go: (n) => { calls.push('go:' + n); } };
-  const win = { companion: {}, firebaseAPI: fb };
-  const doc = { getElementById: el };
-  const api = new Function('window', 'document', 'firebaseAPI', 'module', src + '\nreturn window.TwDeviceLost;')(win, doc, fb, undefined);
-  const mod = api.createDeviceLost({ getMyUserId: () => 'uA', twNav: nav, _acctRelaunchAfterDetach: (onFallback) => relaunch(onFallback, calls) });
-  mod._onDeviceSessionLost(lostArg);
-  const lostShown = el('deviceSessionOverlay').style.display;
-  const p1 = el('deviceSessionContinue').onclick();
-  const p2 = el('deviceSessionContinue').onclick();   // 두 번 눌러도 한 번
-  await p1; await p2;
-  if(after) after();
-  return { calls, lostShown, title: el('deviceSessionTitle').textContent, msg: el('deviceSessionMsg').textContent, ov: el('deviceSessionOverlay').style.display, btn: el('deviceSessionContinue'), lost: win._deviceSessionLost };
+  const win = { companion: {} };
+  const api = new Function('window', 'document', 'module', src + '\nreturn window.TwDeviceLost;')(win, { getElementById: el }, undefined);
+  const mod = api.createDeviceLost({ twNav: nav, continueHere: () => calls.push('claim') });
+  el('deviceSessionContinue').onclick && el('deviceSessionContinue').onclick();   // 밀리기 전에 눌러도 아무 일 없음
+  const before = calls.length;
+  mod._onDeviceSessionLost();
+  if(twice) mod._onDeviceSessionLost();
+  const shown = { ov: el('deviceSessionOverlay').style.display, lost: win._deviceSessionLost, title: el('deviceSessionTitle').textContent, btn: el('deviceSessionContinue').textContent };
+  el('deviceSessionContinue').onclick();
+  el('deviceSessionContinue').onclick();   // 두 번 눌러도 한 번
+  return { calls, before, shown, ov: el('deviceSessionOverlay').style.display, lost: win._deviceSessionLost };
 }
 async function judgePress(src){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
-  let a, b, c;
-  try{
-    a = await press(src, (fb, calls) => { calls.push('relaunch'); return true; });
-    b = await press(src, (fb) => { fb(); return false; });
-    let later = null;
-    c = await press(src, (fb, calls) => { calls.push('relaunch'); later = fb; return true; }, () => later && later());
-  }catch(e){ t(false, '눌러 보다 던짐 — ' + String(e.message || e).slice(0, 80)); return r; }
-  t(a.lostShown === 'flex' && a.calls[0] === 'go:leave', '밀리면 — 방 나가기 · 화면');
-  t(a.calls.slice(1).join() === 'presence:uA,claim:uA,relaunch', '★ 계속 쓰기 = presence → 기기 세션 → 다시 켜기 차례(presence 가 ver 없음인 채로 켜면 부팅 구독이 또 막힌다) · 두 번 눌러도 한 번');
-  t(a.btn.disabled === true && a.btn.textContent === '다시 시작하는 중…' && a.ov === 'flex', '  다시 켜는 동안 — 버튼 잠금 · «다시 시작하는 중…» · 화면 그대로');
-  t(b.calls.includes('claim:uA') && b.calls.includes('presence:uA') && b.ov === 'none' && b.lost === false, '★ 다시 켜기를 못 하는 판 — 재claim · presence 재등록 · 화면 닫기 · 표식 해제(예전과 같다)');
-  t(b.btn.disabled === false && b.btn.textContent === '여기서 계속 쓰기', '  그때 버튼 글 · 잠금 되돌림');
-  t(c.ov === 'none' && c.lost === false && c.btn.textContent === '여기서 계속 쓰기', '  다시 켜기가 늦게 실패해도(onFallback 나중) 여기서 이어 간다');
+  let a, b;
+  try{ a = await press(src, false); b = await press(src, true); }catch(e){ t(false, '눌러 보다 던짐 — ' + String(e.message || e).slice(0, 80)); return r; }
+  t(a.before === 0, '밀리기 전엔 [여기서 계속] 이 아무 일도 안 한다');
+  t(a.shown.ov === 'flex' && a.shown.lost === true && a.calls[0] === 'go:leave' && /다른 기기/.test(a.shown.title) && a.shown.btn === '여기서 계속 쓰기', '밀리면 — 방 나가기 · 방 입장 막기 표식 · «다른 기기에서 사용 중» 화면');
+  t(b.calls.filter((c) => c === 'go:leave').length === 1, '  두 번 알려도 한 번');
+  t(a.calls.filter((c) => c === 'claim').length === 1 && a.ov === 'none' && a.lost === false, '★ 계속 쓰기 = 같은 연결로 다시 claim 한 번 · 화면 닫기 · 표식 풀기(앱을 다시 켜지 않는다)');
   return r;
 }
 (await judgePress(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 const pressBreaks = [
-  ['다시 켜기 안 부름(예전처럼 여기서만)', m => m.replace('_acctRelaunchAfterDetach(_continueInPlace);', '_continueInPlace();')],
-  ['기기 세션을 presence 보다 먼저', m => { const i = m.indexOf("    if(window.firebaseAPI && firebaseAPI.setMyPresenceOnline) firebaseAPI.setMyPresenceOnline(myId);\n"), j = m.indexOf("    if(window.firebaseAPI && firebaseAPI.claimDeviceSession) await"); if(i < 0 || j < 0) return m; const pl = m.slice(i, m.indexOf('\n', i) + 1), cl = m.slice(j, m.indexOf('\n', j) + 1); return m.replace(pl, '').replace(cl, cl + pl); }],
-  ['쓰기를 기다리지 않고 다시 켬', m => m.replace('await firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost);', 'firebaseAPI.claimDeviceSession(myId, _onDeviceSessionLost);')],
-  ['못 하는 판에 이어 가지 않음', m => m.replace('_acctRelaunchAfterDetach(_continueInPlace);', '_acctRelaunchAfterDetach(()=>{});')],
-  ['버튼 글 안 되돌림', m => m.replace('b1.textContent = _continueLabel; }', '}')],
-  ['두 번 누르면 두 번', m => m.replace('if(_continuing) return;', '')],
+  ['계속 쓰기가 claim 안 함', m => m.replace('  try{ continueHere(); }catch(_){}\n', '')],
+  ['두 번 누르면 두 번', m => m.replace('  if(!window._deviceSessionLost) return;\n  try{ continueHere(); }', '  try{ continueHere(); }')],
+  ['밀려도 방에 남음', m => m.replace("  try{ Promise.resolve(twNav.go(twNav.NAV.LEAVE_ROOM)).catch(()=>{}); }catch(_){}\n", '')],
+  ['표식을 안 풂', m => m.replace("  if(ov) ov.style.display = 'none';\n  window._deviceSessionLost = false;", "  if(ov) ov.style.display = 'none';")],
 ];
 for(const [name, fm] of pressBreaks){
   const m2 = fm(MOD);
   let rows2; try{ rows2 = await judgePress(m2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say('── 5. 읽기가 막힌 밀림(옛 버전 앱) — «다른 기기» 와 따로 안내');
-/* 읽기 거부는 claimDeviceSession 이 onLost(null) 로 알린다 · 다른 기기에 밀리면 그 기기 값 · room-entry 는 인자 없이 */
-async function judgeKind(src){
-  const r = [];
-  const t = (ok, msg) => r.push([!!ok, msg]);
-  let o, d, n;
-  try{
-    o = await press(src, (fb) => { fb(); return false; }, null, null);
-    d = await press(src, (fb) => { fb(); return false; }, null, { id: 'dev-B' });
-    n = await press(src, (fb) => { fb(); return false; });
-  }catch(e){ t(false, '눌러 보다 던짐 — ' + String(e.message || e).slice(0, 80)); return r; }
-  t(o.lostShown === 'flex' && o.title.includes('옛 버전') && o.msg.includes('옛 버전') && o.btn.textContent === '다시 시도', '★ onLost(null) — 옛 버전 안내 · [다시 시도](맥 «다른 PC 에서 접속 중» 반복 막기)');
-  t(o.calls.includes('claim:uA') && o.calls.includes('presence:uA'), '  [다시 시도] 도 계속 쓰기와 같은 길(presence · 기기 세션)');
-  t(d.title.includes('다른 기기') && d.btn.textContent === '여기서 계속 쓰기' && !d.msg.includes('옛 버전'), '★ 다른 기기 값 — 예전 «다른 기기에서 사용 중» 그대로');
-  t(n.title.includes('다른 기기') && n.btn.textContent === '여기서 계속 쓰기', '  인자 없이(room-entry) — 다른 기기 안내');
-  return r;
-}
-(await judgeKind(MOD)).forEach(([ok, msg]) => chk(ok, msg));
-const kindBreaks = [
-  ['늘 다른 기기 안내', m => m.replace("return v === null ? 'oldApp' : 'device';", "return 'device';")],
-  ['늘 옛 버전 안내', m => m.replace("return v === null ? 'oldApp' : 'device';", "return 'oldApp';")],
-  ['제목을 안 바꿈', m => m.replace('if(ti) ti.textContent = t.title;', '')],
-];
-for(const [name, fm] of kindBreaks){
-  const m2 = fm(MOD);
-  let rows2; try{ rows2 = await judgeKind(m2); }catch(_){ rows2 = [[false, '던짐']]; }
-  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+say('── 5. 배선 — realtime 밀림이 이 화면을 부른다 · 옛 RTDB 기기 세션 없음');
+{
+  const FI = ['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js'].map(read).find(Boolean) || '';
+  const LF = ['login-flow.js', 'parts/account/login-flow.js', 'app/parts/account/login-flow.js'].map(read).find(Boolean) || '';
+  chk(!!FI && !/claimDeviceSession|releaseDeviceSession|deviceSessionLost\(\)|users\/\$\{userId\}\/session/.test(strip(FI)), 'firebase-init 에 RTDB 기기 세션(users/{uid}/session) 길이 없다');
+  chk(/onSessionLost: \(\)=>deviceLostMod\._onDeviceSessionLost\(\),/.test(SRC) && /if\(s === 'sessionLost'\) deps\.onSessionLost\(\);/.test(LF), 'login-flow 가 realtime sessionLost 상태에서 이 화면을 부른다');
+  chk(/deviceSessionLost: \(\)=>TwRtHub\.store\.state\(\) === TwRtHub\.STATE\.SESSION_LOST/.test(SRC), '접속 고정(presence-lock)은 realtime 상태로 «밀렸나» 를 본다');
+  chk(/#deviceSessionOverlay/.test(['desktop-run.js', 'parts/launcher/desktop-run.js', 'app/parts/launcher/desktop-run.js'].map(read).find(Boolean) || ''), '화면이 클릭 통과 목록(UI_HIT_SEL)에 있다');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

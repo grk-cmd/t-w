@@ -56,6 +56,7 @@ const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 로그인 · 서버 가입 확인 · realtime · 로그아웃
+const sessionLost = deps.sessionLost;   // () => boolean — 다른 기기에 밀렸나(realtime sessionLost) · 그 접속 표시는 이긴 쪽 것
 const ME_CACHE_KEY = deps.ME_CACHE_KEY;   // 내 계정 사본(login-flow.js) — 계정 몫이라 로그아웃이 지운다
 const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 비밀번호 붙이기 · 바꾸기 · 탈퇴 · 화면 문구(reasonOf)
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
@@ -285,7 +286,7 @@ function _wipeAccountLocal(){
 const PRESENCE_OFF_WAIT_MS = 3000;   // 오프라인이면 쓰기가 안 끝난다 — 로그아웃을 이만큼만 붙잡는다
 function _presenceOff(uid){
   const api = window.firebaseAPI;
-  if(!api || api.deviceSessionLost()) return Promise.resolve();
+  if(!api || sessionLost()) return Promise.resolve();
   let p = null;
   try{ p = api.setMyPresenceState(uid, false); }catch(_){}
   return Promise.race([Promise.resolve(p).catch(() => {}), new Promise(r => setTimeout(r, PRESENCE_OFF_WAIT_MS))]);
@@ -306,8 +307,7 @@ async function _detachAccountLocal(opt){
   }
   if(uid) await _presenceOff(uid);
   _wipeAccountLocal();
-  /* 🖥️ 기기 세션을 놓는다 — 내 것일 때만 지운다. authSignOut 은 이 뒤(_loginDoLogout)라 아직 쓸 수 있다. */
-  try{ if(window.firebaseAPI && firebaseAPI.releaseDeviceSession) await firebaseAPI.releaseDeviceSession(); }catch(_){}
+  /* 🖥️ 지금 기기 자리는 realtime 서버가 쥔다 — 로그아웃(loginFlowMod.logout)이 연결을 끊으면 놓인다. */
   return { ok:true };
 }
 
@@ -330,7 +330,7 @@ async function _loginDoLogout(opt){
 
 /* 🗑️ 회원 탈퇴 — 서버에서 계정을 지운 뒤(account-delete-net.js) 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
    ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없고, DB 연결도 이미 끊었다.
-   ★ 기기 세션(releaseDeviceSession)도 놓지 않는다 — users/{코드} 째로 서버가 지웠다.
+   ★ 지금 기기 자리는 로그인을 놓을 때(loginFlowMod.logout — realtime 끄기) 놓인다.
    @return { ok, reason } — ok=false 면 이 PC 는 그대로다(서버는 지우다 멈췄을 수 있다 — 다시 누르면 이어서 지운다). */
 async function _loginDoDeleteAccount(word){
   const api = window.firebaseAPI && firebaseAPI.accountDelete;

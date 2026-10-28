@@ -264,7 +264,6 @@
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
   let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
-  let _sessionRef = null, _sessionId = null, _sessionUnsub = null, _sessionLost = false;   // 🖥️ 한 계정 한 기기(claimDeviceSession)
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
   /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
      [왜 화면에서 가리는 게 아니라 여기서 막나] presence 는 친구라면 누구나 읽는 노드다. 화면에서만
@@ -3898,53 +3897,6 @@
       }
     },
 
-    /* ═══════════ 🖥️ 한 계정 한 기기 — users/{uid}/session ═══════════ [2026-09-17 제보 3 · 시안 확정]
-       [제보] 서브 PC 와 기본 PC 둘 다 로그인해 두면 투게더룸·워킹룸에 다중 접속이 된다. 한쪽에 로그인하면
-         다른 쪽은 풀리거나 접속이 막혔으면 한다. 제보 ②(오프라인으로 둔 계정이 온라인으로 뜸)도 같은
-         뿌리다 — presence 는 계정당 한 노드인데 두 기기가 각자 쓰고 각자 onDisconnect 를 건다.
-       [구조] users/{uid}/session = { id, at }. 부팅 때 id 를 새로 뽑아 쓰고 그 노드를 구독한다.
-         내가 쓴 id 가 아닌 값이 오면 **이 기기는 밀려난 것** — 방에서 나오고 presence 쓰기를 멈추고
-         app.js 가 차단 화면을 띄운다. «여기서 계속 쓰기» 는 다시 claim 하는 것이고, 그러면 반대쪽이 밀린다.
-       ★ 로그아웃이 아니다. 로그아웃(_loginDoLogout)은 올리고→검문→지움이 도는 무거운 길이라 원격 신호로
-         돌리면 검문에 걸린 기기가 반쯤 남는다. 밀려난 기기는 신원·소지품 그대로, **방 접속과 presence 만** 놓는다.
-       ★ 로그인 계정만 대상이다. 로그인 없이는 두 기기가 같은 uid 를 가질 일이 없고, 규칙도 auth 로 잠근다.
-       ⚠️ 규칙 파일에 이 블록이 없으면 쓰기가 조용히 거부돼 **지금과 똑같이 둘 다 그대로**다(더 나빠지지 않는다).
-         필요한 규칙:  "session": {
-                       ".write": "root.child('userAuth/'+$uid).exists() && root.child('userAuth/'+$uid).val() === auth.uid",
-                       ".validate": "!newData.exists() || (newData.hasChildren(['id','at']) && ...)" }   ← 실제 문구는 규칙 파일
-       ⚠️ presence 를 여기서 false 로 쓰지 않는다 — 그 노드는 이제 이긴 쪽 것이다. 내 onDisconnect 만 거둔다. */
-    claimDeviceSession(userId, onLost){
-      if(!userId) return Promise.resolve(false);
-      return _whenAuthReady().then(async ()=>{
-        if(!(auth && auth.currentUser)) return false;           // 로그인 안 한 기기 — 대상 아님
-        const myId = 's' + _svNow().toString(36) + Math.random().toString(36).slice(2, 8);
-        _sessionId = myId; _sessionLost = false;
-        if(_sessionUnsub){ try{ _sessionUnsub(); }catch(_){} _sessionUnsub = null; }
-        _sessionRef = ref(db, `users/${userId}/session`);
-        try{ await set(_sessionRef, { id: myId, at: serverTimestamp() }); }
-        catch(e){ console.warn('[세션] 기기 세션 기록 실패(규칙 미배포?) — 다중 접속 차단 없이 계속', e); _sessionRef = null; return false; }
-        const lose = (v) => {
-          if(_sessionLost) return;
-          _sessionLost = true;
-          /* presence 를 놓는다 — 내 onDisconnect 가 남아 있으면 내가 꺼질 때 이긴 쪽을 오프라인으로 만든다. */
-          try{ if(_myPresenceRef) onDisconnect(_myPresenceRef).cancel(); }catch(_){}
-          _myPresenceRef = null;
-          try{ if(typeof onLost === 'function') onLost(v); }catch(_){}
-        };
-        /* 읽기 거부로 끊김도 밀림 — 같은 계정의 ≤0.10.2 는 presence(ver 없음)를 session 보다 먼저 써서 규칙(옛 앱 읽기 막기)이 이 구독부터 끊는다 */
-        _sessionUnsub = onValue(_sessionRef, snap => { const v = snap.val(); if(v && v.id && v.id !== _sessionId) lose(v); }, () => lose(null));
-        return true;
-      });
-    },
-    deviceSessionLost(){ return !!_sessionLost; },
-    /* 로그아웃·연동 해제 때 — 내 것일 때만 지운다(남의 세션을 지우면 그쪽이 밀린다). */
-    async releaseDeviceSession(){
-      if(_sessionUnsub){ try{ _sessionUnsub(); }catch(_){} _sessionUnsub = null; }
-      if(_sessionRef && _sessionId && !_sessionLost){
-        try{ await runTransaction(_sessionRef, cur => (cur && cur.id === _sessionId) ? null : undefined); }catch(_){}
-      }
-      _sessionRef = null; _sessionId = null; _sessionLost = false;
-    },
 
     /* ===== 🧟 좀비 어드벤처 파티 시스템 — 은퇴(stub) =====
        게임은 adventure-zombie.js(현 myhome-desktop.js)의 ADV_GAME_OFF 스위치로 이미 꺼져 있고,

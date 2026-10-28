@@ -2573,16 +2573,13 @@ function _waitForFirebaseAPI(cb){
      "이름이 안 바뀐다 / 친구가 사라졌다"로만 보인다.
    ⚠️ 막지 않는다. 알려주기만 한다 — 고치는 방법은 재시작 한 번이다(부팅 게이트 K 가 로그인을 받는다 · 개정 16: 설정 › 계정 로그인은 걷었다). */
 /* ═══ 🖥️ 한 계정 한 기기 — 밀려난 기기의 처리 [2026-09-17 제보 3 · 시안 확정(왼쪽)] ═══════════════
-   firebase-init.js claimDeviceSession 주석이 구조다. 여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다:
-     방에서 나온다(doLeaveRoom) · 방 입장을 막는다(startRoom 첫 줄) · 차단 화면을 띄운다.
-   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. 로그아웃은 사람이 눌러야 도는 길이다(_loginDoLogout).
-   «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
+   0.13 — 지금 기기는 realtime 서버가 정한다(hello claim · 밀리면 sessionLost 4004 — rt-hub.js · login-flow.js). 여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다.
+   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
 /* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deviceLostMod = TwDeviceLost.createDeviceLost({
-  getMyUserId: (...a)=>getMyUserId(...a),
   twNav: twNav,
-  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  continueHere: ()=>TwRtHub.store.start({ claim: true }),   // realtime 연결 하나로 다시 claim(login-flow 를 부르지 않는다 — 그쪽이 이 화면을 부른다)
 });
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
@@ -2641,7 +2638,7 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
   storage: localStorage,
   setTimer: (fn, ms)=>setTimeout(fn, ms),
-  deviceSessionLost: ()=>firebaseAPI.deviceSessionLost(),
+  deviceSessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,   // 밀려났으면 접속 표시는 이긴 쪽 것
 });
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
@@ -2652,7 +2649,6 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   _myInbox: ()=>_myInbox,
   _myInboxReady: ()=>_myInboxReady,
   _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),
-  deviceLostMod: deviceLostMod,
   ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),
   focusLevelMod: ()=>focusLevelMod,
   friendManage: friendManage,
@@ -7068,6 +7064,7 @@ const accountMod = TwAccount.createAccount({
   loginFlowMod: loginFlowMod,
   ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
   userApiMod: userApiMod,
+  sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,
 });
 /* ═══ 🧹 [2026-09-16 제보 4] 신원을 놓을 때 이 기기에서 지우는 것 — **한 벌뿐이다** ═══════
    [경위] 로그아웃이 지우던 것은 신원 6개뿐이었다(유저 코드·도장·친추코드·이메일·uid + 마크 정렬).

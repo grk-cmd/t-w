@@ -248,7 +248,6 @@
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
 | **sim-admin-active.js** | 155 | **100afda315c1** |
 | **sim-room-order.js** | 78 | **19449085aa33** |
-| **sim-device-session.js** | 144 | **bff537b6265c** |
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
 | **sim-font-hangul.js** | 54 | **1e0479f9fce5** |
@@ -314,7 +313,7 @@
 | **sim-focus-level.js** | 119 | **3e7fcbc11472** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
 | **sim-license-gate.js** | 180 | **6e019b8f8674** |
-| **sim-account.js** | 95 | **de6a8068344d** |
+| **sim-account.js** | 95 | **be166bbe3edf** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **9e6d39720b41** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
@@ -352,7 +351,7 @@
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 180 | **634846059164** |
+| **sim-device-lost.js** | 150 | **b6f21ce69f16** |
 | **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
 | **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
 | **sim-inbox-sections.js** | 126 | **1a78a79c79f8** |
@@ -373,7 +372,7 @@
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
 | **sim-license-key.js** | 95 | **9b2c72d7fa60** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 132 | **16bf81cfbe09** |
+| **sim-myhome-init.js** | 132 | **2652c214c2dc** |
 | **sim-presence-lock.js** | 310 | **90b185582ac9** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
