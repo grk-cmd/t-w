@@ -22,7 +22,6 @@ const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;   // 🪪 신원을 놓은 뒤 앱 다시 켜기(account-state.js)
 const CHARS_LINKED_KEY = deps.CHARS_LINKED_KEY;   // «연동됨» 안내 표시 — 계정(account.js)이 옮길 때 적는다
 const charsMod = deps.charsMod;   // 읽는 함수
-const MY_USER_ID_KEY = deps.MY_USER_ID_KEY;
 const STAR_PALETTE = deps.STAR_PALETTE;   // 읽는 함수
 const USER_NAME_MAX = deps.USER_NAME_MAX;
 const _acctDetached = deps._acctDetached;   // 읽는 함수
@@ -41,8 +40,6 @@ const _charsRestore = deps._charsRestore;
 const _charsSync = deps._charsSync;
 const _charsTrashView = deps._charsTrashView;
 const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
-const _licenseSnapForPush = deps._licenseSnapForPush;
-const _loginDoGoogle = deps._loginDoGoogle;
 const _loginDoLogout = deps._loginDoLogout;
 const _loginDoDeleteAccount = deps._loginDoDeleteAccount;
 const _myHomeData = deps._myHomeData;   // 읽는 함수
@@ -54,7 +51,6 @@ const curSlot = deps.curSlot;   // 읽는 함수
 const focusCycleOf = deps.focusCycleOf;
 const getDisplayName = deps.getDisplayName;
 const getFocusLevel = deps.getFocusLevel;
-const getMyLoginEmail = deps.getMyLoginEmail;
 const getMyUserId = deps.getMyUserId;
 const getStarColor = deps.getStarColor;
 const getUserName = deps.getUserName;
@@ -565,31 +561,8 @@ function _miCodeLoad(){
     el.style.color = ok ? 'var(--win-ok, #2a7a3f)' : 'var(--win-error)';
   };
 
-  const runLogin = async (btn, msgFn)=>{
-    if(btn){ btn.disabled = true; btn.textContent = '로그인 중…'; }
-    let r;
-    try{ r = await _loginDoGoogle(); }
-    catch(e){ r = { ok:false, reason:'로그인 중 오류가 났어요' }; }
-    if(btn){ btn.disabled = false; btn.textContent = '구글 계정으로 로그인'; }
-    if(!r || !r.ok){
-      // 취소는 오류가 아니다 — 조용히 지운다.
-      msgFn(r && r.canceled ? '' : ((r && r.reason) || '로그인에 실패했어요'), false);
-      return r;
-    }
-    if(r.switched){
-      /* 갈아탔다 — 여기서 그냥 이어 쓰면 옛 uid 로 걸린 구독이 살아 있어 두 계정이 섞인다.
-         계정 연동이 이미 같은 이유로 같은 결론을 냈다. 재시작 안내로 멈춘다. */
-      msgFn('✅ 로그인됐어요! 앱을 완전히 종료했다가 다시 실행하면 이 계정으로 시작돼요.', true);
-      if(btn) btn.disabled = true;
-    } else {
-      msgFn('✅ ' + (r.email || '') + ' 계정과 연결됐어요.', true);
-    }
-    return r;
-  };
-
   const bind = ()=>{
-    /* [개정 16] 로그인 전 얼굴의 [구글 계정으로 로그인](acctGoogleBtn)은 걷었다 — 게이트(H · I · K)가 대신한다.
-       runLogin 은 아래 게이트 구글 버튼이 계속 쓴다. */
+    /* 로그인 · 가입은 게이트(license-gate.js)가 한다 — 여기는 로그아웃 · 탈퇴. */
 
     // ── 로그아웃: 버튼 → 확인 → 완료(종료 안내). 계정 연동 해제와 같은 3단계.
     /* ── 🚪 [2026-09-20 · §2 제보 1] 로그아웃 출구.
@@ -730,95 +703,11 @@ function _miCodeLoad(){
        «이 기기가 버린 uid» 로 결속을 되돌리던 출구였다. 계정 = 친구 코드 + 비밀번호/구글(H · K)이 된 뒤로는
        잘못 물릴 길(구글 로그인의 갈아타기)이 게이트로 닫혔다. firebase-init authRebindUserCode 는 §6-⑧ 묶음(CHECKS 개정 52)에서 걷었다. */
 
-    // ── 초대 게이트 안의 구글 버튼 — 새 컴퓨터의 기존 유저가 초대 코드 없이 들어오는 문.
-    const gate = $('inviteGateGoogleBtn');
-    if(gate) gate.onclick = async ()=>{
-      const gm = (t, ok)=>{
-        const el = $('inviteGateLoginMsg'); if(!el) return;
-        el.style.display = t ? 'block' : 'none';
-        el.textContent = t || '';
-        el.style.color = ok ? 'var(--ink-soft)' : 'var(--win-error)';
-      };
-      const r = await runLogin(gate, gm);
-      if(!r || !r.ok){
-        /* 🚪 이 계정에 묶인 코드가 없다 — 게이트 앞의 임시 코드를 묶어주는 대신 그렇게 말한다.
-           예전에는 여기서 그 임시 코드를 **묶어버리고** 나서 거절했다. 유저 눈에는 똑같이
-           거절 화면이지만, 그 한 번이 원래 컴퓨터의 계정을 빈 계정으로 갈아치우는 씨앗이었다. */
-        if(r.needCode){
-          gm('초대 코드를 넣어 주세요', false);
-          window._inviteGateWantGoogle();   // 게이트 버튼은 _showInviteGate 가 연 뒤에만 보인다 — 그때 이미 걸려 있다
-        }
-        return;
-      }
-      if(r.switched){
-        /* 🔁 계정을 되찾았다 — 자동으로 껐다 켠다.
-           [왜 통과시키지 않고 재시작하는가] 지금 이 세션은 로그아웃 직후 만들어진 **임시 유저
-             코드**로 돌고 있다. 게이트만 닫고 이어 쓰면 그 임시 코드로 걸린 구독·프레즌스가
-             그대로 살아서 두 계정이 섞인다. 계정 연동이 게이트에서 같은 결론을 냈다.
-           ★ 재시작하면 부팅 때 uid 가 복원된 상태로 checkInviteGate 가 돌고, 위에서 이미
-             _markInvitePassed() 를 찍었으므로 게이트를 조용히 지나간다 — 유저 눈에는
-             '로그인했더니 알아서 들어가졌다'가 된다.
-           ⚠️ 게이트 화면에는 종료 버튼이 없다. 여기서 자동 재시작을 안 하면 유저는 안내문만
-             보고 앱을 손으로 껐다 켜야 한다(로그아웃 쪽은 자동인데 돌아오는 길만 수동이었다). */
-        gm('✅ 로그인됐어요. 앱을 다시 시작하는 중이에요…', true);
-        _acctRelaunchAfterDetach(()=> gm('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.', true));
-        return;
-      }
-      if(r.alreadyOwner){
-        /* ✅ 이 기기의 uid 가 그 구글 계정에 **이미** 묶여 있었다 = 정식 주인이다.
-           ★ 여기서는 재시작이 필요 없다 — uid 가 바뀌지 않았으므로 지금 세션의 구독·프레즌스가
-             그대로 맞다(재시작하는 위 경로는 uid 가 갈렸을 때의 얘기다).
-           ★ 도장은 _loginDoGoogle 이 이미 찍었다. 게이트만 닫으면 된다. */
-        gm('✅ ' + (r.email || '') + ' 계정으로 확인됐어요. 들어갈게요…', true);
-        if(typeof window._inviteGatePass === 'function') window._inviteGatePass();
-        else gm('✅ 확인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.', true);
-        return;
-      }
-      /* 이 구글 계정의 **첫 결속**이다 — 방금 묶였을 뿐 통과 자격은 아니다.
-         재시작해도 못 들어가므로 '다시 실행해 주세요'라고 하면 껐다 켰다만 반복하게 된다. */
-      gm('이 계정에는 아직 연결된 기록이 없어요. 초대 코드로 먼저 입장해 주세요.', false);
-    };
-
     refreshAccountTab();
   };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once:true });
   else bind();
 
-  /* 🔄 로그인된 기기는 부팅마다 스냅샷을 한 벌 새로 올린다(쓰기 1회).
-     안 하면 스냅샷이 로그인 시점에 굳어서, 그 뒤 바꾼 이름·산 라이선스가 새 기기에 안 따라온다.
-     ⚠️ 로그인 안 한 기기에서는 아무 일도 하지 않는다. */
-  const push = ()=>{
-    if(!getMyLoginEmail()) return;
-    if(!(window.firebaseAPI && firebaseAPI.setAccountSnapshot)) return;
-    /* 🎫 라이선스 칸은 _licenseSnapForPush 가 채운다 — 이 PC 에 없으면 계정 것을 받아 켜고, 계정 것을 null 로 덮지 않는다. */
-    setTimeout(async ()=>{ try{ firebaseAPI.setAccountSnapshot(getMyUserId(), await _licenseSnapForPush()); }catch(_){} }, 6000);
-  };
-
-  /* 🔇 침묵 깨기 — "묶인 코드인데 로그인은 안 된" 기기에게 그렇다고 말해준다.
-     [개정 16] 고치는 길은 재시작 → 부팅 게이트 K(설정 › 계정 로그인은 걷었다). 문구도 그렇게 바꿨다.
-     [무엇을 막는가] 규칙이 users/{코드} 의 자기 소유 가지를 "주인이 없거나 나일 때"로 잠근 뒤,
-       구글로 로그인해 둔 계정을 다른 컴퓨터에서 **계정 이전(비밀번호)** 으로만 열면 그 컴퓨터의
-       쓰기가 전부 거부된다. 거부는 예외를 던지지 않는다 — 이름을 바꿔도, 마이홈을 꾸며도
-       화면에는 반영되고 다음 부팅에 조용히 되돌아온다. 그게 가장 신고가 늦는 종류의 고장이다.
-     ★ 막지 않는다. 알려주기만 한다 — 이 기기가 진짜 주인일 수도 있고(그냥 로그인만 안 한 것),
-       고치는 방법도 [구글 계정으로 로그인] 한 번이다.
-     ⚠️ 쓰기 1회가 아니라 **읽기 1회**다(userAuth/{코드} = 문자열 하나). 그리고 로그인한 기기에서는
-       아예 돌지 않는다. */
-  const warnUnbound = ()=>{
-    if(getMyLoginEmail()) return;                        // 로그인돼 있으면 물어볼 것이 없다
-    if(!(window.firebaseAPI && firebaseAPI.authOwnerOf)) return;
-    let code = null; try{ code = localStorage.getItem(MY_USER_ID_KEY); }catch(_){}
-    if(!code) return;
-    setTimeout(async ()=>{
-      let owner;
-      try{ owner = await firebaseAPI.authOwnerOf(code); }catch(_){ return; }
-      if(owner === undefined || owner === null) return;   // 조회 실패거나 주인 없음 — 둘 다 조용히
-      toast('🔑 이 PC의 로그인이 풀려 있어 변경 내용이 저장되지 않아요 — 앱을 다시 시작하면 로그인 화면이 나와요');
-    }, 9000);   // 부팅 직후 토스트가 겹치지 않게 스냅샷(6초)보다 뒤에 둔다
-  };
-
-  const boot = ()=>{ push(); warnUnbound(); };
-  TwNetReady.whenNetReady(boot);
 })();
 
 /* 🔁 신원을 놓은 뒤 앱을 껐다 켠다 — 연동 해제와 로그아웃이 **함께 쓰는 한 자리.**

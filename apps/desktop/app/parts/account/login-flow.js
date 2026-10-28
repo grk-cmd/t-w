@@ -39,12 +39,13 @@ function premiumNow(cache, now){
  *   auth: { ready: () => Promise<void>, user: () => ({ uid: string, anonymous: boolean } | null),
  *           signInGoogle: (idToken: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
  *           signInPassword: (code: string, pw: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
- *           signOut: () => Promise<void> },
+ *           signOut: () => Promise<void>, identity: () => ({ email: string | null, uid: string | null }) },
  *   googleWindow: () => Promise<{ ok: boolean, idToken?: string, canceled?: boolean, reason?: string }>,
  *   rt: { start: (o: { claim: boolean }) => void, stop: () => void, onState: (fn: (s: string) => void) => Function },
  *   pending: { idFor: (k: string) => string, settle: (k: string) => void },
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
  *   onSessionLost: () => void,
+ *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
  *   now: () => number, setTimer: (fn: Function, ms: number) => any, clearTimer: (h: any) => void,
  * }} deps */
 function createLoginFlow(deps){
@@ -198,11 +199,12 @@ function createLoginFlow(deps){
     }catch(e){ return { ok: false, err: e }; }
   }
 
-  /* 로그아웃 · 계정을 놓을 때 — realtime 을 끄고 로그인을 놓고 사본을 지운다. */
+  /* 로그아웃 · 계정을 놓을 때 — realtime 을 끄고 · API 통로의 로그인 읽기를 떼고 · 로그인을 놓고 사본을 지운다. */
   async function logout(){
     stopRetry();
     online = false; mode = 'off';
-    try{ deps.rt.stop(); }catch(_){}
+    try{ deps.rt.stop(); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다
+    try{ deps.forgetSession(); }catch(_){}   // 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않게(api-client forgetSession)
     clearCache();
     try{ await auth.signOut(); }catch(_){}
   }
@@ -210,6 +212,7 @@ function createLoginFlow(deps){
   return {
     confirm, goOnline, continueHere, enterLocal, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout,
     meCache: () => readCache(),
+    identity: () => auth.identity(),   // 지금 Auth 로그인 { email, uid } — 이 PC 로그인 표시(계정 탭 얼굴 · 진단)
     premiumNow: () => premiumNow(readCache(), now()),
     mode: () => mode,
   };

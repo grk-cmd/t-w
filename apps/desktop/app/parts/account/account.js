@@ -1,4 +1,4 @@
-/* account.js — 🔑 계정 — 구글 로그인 · 친구코드 로그인 · 로그아웃 · 신원 지우기 · 계정 이전 흔적
+/* account.js — 🔑 계정 — 구글 로그인 · 친구코드 로그인 · 로그아웃 · 신원 지우기 · 서버 계정으로 이 PC 맞추기
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
@@ -7,7 +7,9 @@
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
    ★ «연동됨» 안내 창(_charsLinkedMaybeShow)은 보관함 화면이 있는 my-info.js 로 옮겼다 — 표시 키 CHARS_LINKED_KEY 는 쓰는 쪽(여기)에 두고 내놓는다.
-   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _applyTransferSnapshot · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _loginLocalSnapshot · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
+   ★ 0.13 — 로그인 · 가입 판정은 login-flow.js(서버 GET /v1/me), 여기는 그 결과로 이 PC 를 맞춘다(_enterAccount). 계정 이전 사본(accountSnap)으로 복원하던 길은 걷었다 —
+     다른 PC 이어받기는 같은 계정 로그인으로 끝난다(서버가 원본).
+   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _wipeAccountLocal · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAccount — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-account.js */
@@ -25,7 +27,6 @@ const FOCUS_TOTAL_KEY = deps.FOCUS_TOTAL_KEY;   // 읽는 함수
 const GACHA_BONUS_KEY = deps.GACHA_BONUS_KEY;   // 읽는 함수
 const GACHA_OWNED_KEY = deps.GACHA_OWNED_KEY;   // 읽는 함수
 const GACHA_TS_KEY = deps.GACHA_TS_KEY;   // 읽는 함수
-const HAD_USER_ID_AT_BOOT = deps.HAD_USER_ID_AT_BOOT;
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;
 const LICENSE_REQ_ID_KEY = deps.LICENSE_REQ_ID_KEY;   // 읽는 함수
 const LS_KEY = deps.LS_KEY;   // 읽는 함수
@@ -54,210 +55,64 @@ const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
+const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 로그인 · 서버 가입 확인 · realtime · 로그아웃
+const ME_CACHE_KEY = deps.ME_CACHE_KEY;   // 내 계정 사본(login-flow.js) — 계정 몫이라 로그아웃이 지운다
+const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 비밀번호 붙이기 · 바꾸기 · 탈퇴 · 화면 문구(reasonOf)
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
 const setFocusTotalSec = deps.setFocusTotalSec;   // 쓰는 함수
 const setExtraSeatSlots = deps.setExtraSeatSlots;   // 쓰는 함수
 
-/* 이 기기의 현재 값들 — 로그인/부팅 때 서버 스냅샷에 실어 보내는 한 벌.
-   ★ 여기 없는 것(플레이리스트·가챠·마이홈)은 각자 실시간 사본이 따로 있어서 안 담는다. */
-function _loginLocalSnapshot(){
-  const g = k => { try{ return localStorage.getItem(k) || null; }catch(_){ return null; } };
-  return {
-    license: g(acctStateMod.LICENSE_KEY_STORAGE),
-    focusTotalSec: Number.isFinite(Number(_focusTotalSec())) ? Number(_focusTotalSec()) : null,
-    name: g(USER_NAME_KEY),
-    friendCode: g(MY_FRIEND_CODE_KEY)
-  };
-}
-
-/* 🔒 이 기기의 유저 코드를 구글 계정에 **묶어도 되는가**.
-   [무엇을 막는가] 결속은 한 번 생기면 그 계정의 정답이 되어 다음 로그인마다 그 코드로 끌고 간다.
-     그래서 "계정이라고 부를 수 있는 코드"에만 걸어야 한다. 그런데 getMyUserId() 는 코드가 없으면
-     **그 자리에서 만들어낸다.** 초대 게이트에서 [구글 로그인]을 누른 새 기기가 방금 태어난 임시
-     코드를 계정에 묶어버린 것이 제보의 시작이었다(그리고 화면은 입장을 거부했다 — 묶임만 남았다).
-   [판정 기준이 왜 둘인가] 신호 하나로는 못 가른다.
-     · HAD_USER_ID_AT_BOOT — 이번 부팅 **전부터** 코드가 있던 기기. 어떤 쓰기보다 먼저 캡처되므로
-       "게이트 앞에서 방금 태어난 코드"와 확실히 구별된다. 오프라인으로만 쓰던 기존 유저도 여기 걸린다
-       (그 사람들은 checkInviteGate 의 오프라인 분기로 도장 없이 통과한다 — INVITE_PASS_KEY 만
-        보면 진짜 유저가 로그인을 거절당한다).
-     · INVITE_PASS_KEY — 이번 부팅에 초대 코드로 막 입장한 사람. 코드는 방금 생겼지만 정식 계정이다.
-   ⚠️ '조회'까지 막는 것이 아니다. 결속만 막는다 — 이미 묶인 계정으로 돌아오는 길(게이트 안의
-     구글 버튼)은 그대로 열려 있어야 한다. 그 판정은 서버가 authUsers 를 보고 한다. */
-function _loginMayBind(){
-  let passed = false;
-  try{ passed = !!localStorage.getItem(acctStateMod.INVITE_PASS_KEY); }catch(_){}
-  if(!HAD_USER_ID_AT_BOOT && !passed) return false;
-  try{ return !!localStorage.getItem(MY_USER_ID_KEY); }catch(_){ return false; }
-}
-
-/* 🧬 [회원가입 설계 §3 «다름» · §7-F · CHECKS 개정 57] 다른 계정으로 갈아타기 **직전** 정리 — 이 기기에 남은 옛 계정(before) 몫.
-   [왜] 예전엔 갈아탄 뒤에도 옛 계정의 보관함 · 책상 표(deskFriends.chars.*)가 그대로 남아, 첫 채택이 «이미 채택함» 으로 건너뛰고
-     평상시 동기화가 옛 계정 캐릭터를 **새 계정 서버에 조용히 올렸다**. 책상 표는 옛 cid 를 가리킨 채 새 계정 칸 그림을 받아,
-     그 칸을 고치면 옛 cid 에 새 계정 캐릭터가 덮였다. 로그아웃 → 로그인은 _detachAccountLocal 이 지워서 멀쩡했다 — 로그아웃 없이
-     갈아타는 길(I 의 구글 · K 의 다른 계정 로그인)에만 있던 틈이다.
-   갈래 — 옛 uid 가 어느 계정에 묶였나(userAuth/{before}):
-     · 못 읽음      → 실패(갈아타지 않는다). 어느 쪽인지 모르고 섞거나 버리지 않는다.
-     · 안 묶임(I)   → 같은 사람의 이 PC 몫이다. ① 옛 uid 로 캐릭터를 끝까지 올리고(안 묶인 uid 라 규칙상 쓸 수 있다 · 못 올리면 실패)
-                      ② 옛 uid 서버의 산 캐릭터를 **같은 cid 로** 새 계정 보관함에 복사(_charsLinkPlan · 더 새것이 이긴다 · 묘비는 안 옮김 ·
-                      20 을 넘어도 버리지 않는다 — D2 가 경고) ③ 캐릭터 로컬 키만 내려놓고 ④ F 안내 표시를 남긴다(재시작 뒤 첫 채택이 끝나면 한 번).
-                      집중 시간 · 플레이리스트 등 나머지는 예전처럼 따라간다(같은 사람).
-     · 다른 계정(K) → 남의 계정일 수 있다(한 PC 를 둘이 씀). 아무것도 가져오지 않고 **로그아웃처럼 전부 내려놓는다**(_wipeAccountLocal).
-                      그 계정 몫은 지금 세션으로 올릴 수 없으므로(규칙) 책상 칸은 슬롯 백업에만 남긴다(백업은 uid 대조로 남이 못 줍는다).
-   ⚠️ uid 기록(_setMyUserId) **전에** 부른다 — ① 은 옛 uid 로 돈다. 돌려주는 것: { ok, mode:'none'|'import'|'detach'|'plain', n, reason }. */
+/* «연동됨» 안내 창 표시 키 — my-info.js 가 읽는다(쓰던 계정 이전 갈래는 0.13 에서 걷었다 — 캐릭터 올리기는 첫 실행 legacy-sync). */
 const CHARS_LINKED_KEY = 'tw.charsLinked';
-function _charsLinkPlan(fromChars, toChars){
-  fromChars = (fromChars && typeof fromChars === 'object') ? fromChars : {};
-  toChars = (toChars && typeof toChars === 'object') ? toChars : {};
-  const entries = {}, cids = [];
-  for(const cid in fromChars){
-    const e = fromChars[cid];
-    if(!/^c[a-z0-9]{6,24}$/.test(cid) || !e || typeof e.def !== 'string' || charsMod()._charsIsTomb(e)) continue;
-    const mt = Number(e.mtime) || 0, cur = toChars[cid];
-    if(cur && charsMod()._charsEntryTime(cur) >= mt) continue;             // 새 계정 쪽이 같거나 더 새것(지운 것 포함) — 되살리지 않는다
-    entries[cid] = { def: e.def, mtime: mt };
-    cids.push(cid);
-  }
-  return { entries, cids };
-}
-async function _switchPrepare(before, to){
-  if(!before || before === to) return { ok:true, mode:'none', n:0 };
-  if(!(window.firebaseAPI && firebaseAPI.authOwnerOf)) return { ok:false, reason:'네트워크 연결이 필요해요' };
-  let owner; try{ owner = await firebaseAPI.authOwnerOf(before); }catch(_){ owner = undefined; }
-  if(owner === undefined) return { ok:false, reason:'이 PC 의 옛 계정 정보를 읽지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요' };
-  const dropChars = () => { for(const k of ['deskFriends.chars.v1', 'deskFriends.chars.desk', 'deskFriends.chars.trashPend']){ try{ localStorage.removeItem(k); }catch(_){} } };
-  if(owner !== null){
-    let raw = null; try{ raw = localStorage.getItem(LS_KEY()); }catch(_){}
-    try{ if(raw) slotSyncMod()._slotsBackupSave(raw, '[]', 0); }catch(_){}
-    _wipeAccountLocal();
-    return { ok:true, mode:'detach', n:0 };
-  }
-  if(!(typeof charsMod().CHARS_SYNC_ENABLED !== 'undefined' && charsMod().CHARS_SYNC_ENABLED && typeof charsMod()._charsBoot === 'function')){ dropChars(); return { ok:true, mode:'plain', n:0 }; }
-  const prepFail = { ok:false, reason:'이 PC 의 캐릭터를 올리지 못했어요 — 아무것도 바꾸지 않았어요. 잠시 뒤 다시 시도해 주세요' };
-  let b = null; try{ b = await charsMod()._charsBoot('switch'); }catch(_){ b = null; }
-  if(!b || !b.ok) return prepFail;
-  const box = charsMod()._charsBoxGet();
-  for(const c in box) if(box[c] && box[c].dirty) return prepFail;   // 아직 못 올린 칸이 남았다(도는 중이었던 판 포함)
-  if(!(firebaseAPI.loadCharsRemote && firebaseAPI.saveCharsEntries)) return prepFail;
-  let ca = null, cb = null;
-  try{ [ca, cb] = await Promise.all([ firebaseAPI.loadCharsRemote(before), firebaseAPI.loadCharsRemote(to) ]); }catch(_){}
-  if(!ca || !cb) return prepFail;
-  const plan = _charsLinkPlan(ca.chars, cb.chars);
-  if(plan.cids.length){
-    let ok = false; try{ ok = !!(await firebaseAPI.saveCharsEntries(to, plan.entries)); }catch(_){ ok = false; }
-    if(!ok) return { ok:false, reason:'캐릭터를 계정으로 옮기지 못했어요 — 아무것도 바꾸지 않았어요. 잠시 뒤 다시 시도해 주세요' };
-  }
-  dropChars();
-  if(plan.cids.length){ try{ localStorage.setItem(CHARS_LINKED_KEY, JSON.stringify({ to, cids: plan.cids, at: Date.now() })); }catch(_){} }
-  return { ok:true, mode:'import', n: plan.cids.length };
-}
 
-/* 구글 로그인 — 창 열기(main) → 토큰 검증·결속(firebase) → 필요하면 갈아타기(여기).
-   @return { ok, switched, email, reason }
-           switched=true → 유저 코드가 바뀌었다 = **재시작이 필요하다** */
-async function _loginDoGoogle(){
-  if(!(window.companion && companion.signInWithGoogle))
-    return { ok:false, reason:'이 버전에서는 구글 로그인을 쓸 수 없어요 (앱 업데이트가 필요해요)' };
-  if(!(window.firebaseAPI && firebaseAPI.authSignInWithGoogle))
-    return { ok:false, reason:'네트워크 연결이 필요해요' };
-
-  /* ⚠️ 취소도 정상 경로다. 유저가 창을 그냥 닫으면 여기로 온다 — 반드시 조용히 끝내야 한다
-     (여기서 실패로 시끄럽게 굴면 "닫았을 뿐인데 오류가 뜬다"가 된다). */
-  let g;
-  try{ g = await companion.signInWithGoogle(); }
-  catch(e){ return { ok:false, reason:'로그인 창을 열지 못했어요' }; }
-  /* 🩹 [2026-10-02 제보 #5] canceled 는 «그냥 닫음» 일 때만 — 예전엔 실패를 전부 취소로 쳐서 구글이 막은 사유까지 숨겼다.
-     옛 main 은 canceled 표시 없이 '로그인이 취소됐어요' 만 보내므로 그것도 닫음으로 본다. (세 곳 같은 식 — 검사가 함수를 떼어 돌려 공용 함수를 못 쓴다) */
-  if(!g || !g.ok) return { ok:false, reason:(g && g.reason) || '로그인이 취소됐어요', canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')) };
-
-  /* ⚠️ getMyUserId() 를 쓰지 않는다 — 없으면 만들어내는 함수라, 없다는 사실 자체가 지워진다.
-     여기서는 "이 기기에 코드가 있었는가"가 판단의 근거이므로 날것으로 읽어야 한다. */
+/* 🪪 서버가 돌려준 계정(me)으로 이 PC 를 맞춘다 — 켤 때 확인 · 로그인 · 가입이 같이 부르는 한 곳.
+   login: { email, uid } — 이 PC 의 로그인 표시(계정 탭 얼굴 · 진단). 친구코드 · 이름은 서버 값이 정본이다.
+   돌려주는 것: { ok, switched } — switched 면 이번 실행은 다른 uid 로 돌았다 = 부르는 쪽이 앱을 다시 켠다.
+   ★ 이 PC 에 다른 코드가 있었을 때 — 그 코드로 **로그인했던** PC(로그인 표시가 있음)면 남의 계정일 수 있어 로그아웃처럼 전부 내려놓는다.
+     로그인한 적 없이 쓰던 코드(0.12 의 묶이지 않은 사용자 — 서버로 옮기지 않았다)면 같은 사람으로 보고 신원 키만 바꾼다 —
+     이 PC 의 캐릭터는 0.13 첫 실행(first-run-013.js 의 legacy-sync)이 이 계정으로 올린다.
+   ⚠️ uid 기록은 `_setMyUserId` 하나로. 못 쓰면 실패 — 부르는 쪽이 로그인도 놓는다. */
+const IDENTITY_KEYS = () => [MY_FRIEND_CODE_KEY, MY_FRIEND_CODE_PREV_KEY];
+function _enterAccount(me, login){
+  if(!me || !me.userCode) return { ok:false, reason:'계정을 확인하지 못했어요 — 다시 시도해 주세요' };
   let before = null; try{ before = localStorage.getItem(MY_USER_ID_KEY); }catch(_){}
-  // 묶어도 되는 코드일 때만 서버에 건넨다. null 을 주면 서버는 조회만 하고 결속은 거절한다.
-  const offer = _loginMayBind() ? before : null;
-  const r = await firebaseAPI.authSignInWithGoogle(g.idToken, offer);
-  if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '로그인에 실패했어요', needCode:!!(r && r.needCode) };
-
+  const switched = before !== me.userCode;
+  if(switched && before){
+    if(getMyLoginEmail()) _wipeAccountLocal();
+    else for(const k of IDENTITY_KEYS()){ try{ localStorage.removeItem(k); }catch(_){} }
+  }
+  if(switched && !_setMyUserId(me.userCode)) return { ok:false, reason:'이 기기에 계정을 저장하지 못했어요 — 다시 시도해 주세요' };
   try{
-    localStorage.setItem(LOGIN_EMAIL_KEY, r.email || '');
-    localStorage.setItem(LOGIN_UID_KEY, r.uid || '');
+    localStorage.setItem(LOGIN_EMAIL_KEY, (login && login.email) || '');
+    localStorage.setItem(LOGIN_UID_KEY, (login && login.uid) || '');
   }catch(_){}
-
-  if(r.userCode === before){
-    /* 이 기기가 이미 그 계정이다 — 갈아탈 것이 없다. 첫 결속이면 스냅샷을 한 벌 올려둔다
-       (이걸 빼먹으면 새 기기에서 로그인했을 때 라이선스·이름·친추코드가 비어 온다). */
-    if(r.bound){ try{ await firebaseAPI.setAccountSnapshot(before, _loginLocalSnapshot()); }catch(_){} }
-    /* 🎟️ **bound=false 는 "이 구글 계정에 이 uid 가 이미 묶여 있었다"는 뜻이다** — 서버가 인정한
-       주인이라는 증거다. 그러니 게이트 통과 자격으로 친다(switched 경로와 같은 근거).
-       [경위] 예전에는 여기서 아무 표시도 안 남겼고, 게이트는 이 결과를 "연결된 기록이 없어요"로
-         읽어 막았다. 본인 확인이 끝났는데 실패로 뒤집힌 셈이라, 로그인해 둔 사람도 못 들어왔다.
-       ⚠️ bound=true(이 계정의 첫 결속)는 자격의 근거가 못 된다 — 방금 깐 사람도 로그인만 하면
-         묶이기 때문이다. 그쪽은 여전히 초대 코드가 필요하다. 그래서 둘을 갈라 돌려준다. */
-    const alreadyOwner = !r.bound;
-    if(alreadyOwner){ try{ acctStateMod._markInvitePassed(); }catch(_){} }
-    return { ok:true, switched:false, alreadyOwner, email:r.email };
-  }
-
-  /* ── 그 구글 계정의 uid 로 갈아탄다 (게이트 H · K 의 [구글로 로그인]이 새 PC 에서 계정으로 들어가는 길) ──
-     ★ uid 기록은 `_setMyUserId` 하나로(설계 §6-⑦ · 개정 56). 못 쓰면 Auth 세션도 놓는다 — 친구 코드 로그인과 같은 모양.
-     ★ (개정 56 · 설계 §6-②) 이 기기의 이전 uid 는 적지 않는다 — 다른 계정이다. */
-  /* 🧬 [설계 §3 «다름» · F · CHECKS 개정 57] 갈아타기 전에 이 기기의 옛 계정(before) 몫을 정리한다 — _switchPrepare 주석.
-     못 하면 **갈아타지 않는다**(세션을 놓고 실패) — 옛 계정의 캐릭터를 잃거나 새 계정에 섞지 않게. */
-  const prep = await _switchPrepare(before, r.userCode);
-  if(!prep.ok){
-    try{ await firebaseAPI.authSignOut(); }catch(_){}
-    try{ localStorage.removeItem(LOGIN_EMAIL_KEY); localStorage.removeItem(LOGIN_UID_KEY); }catch(_){}
-    return { ok:false, reason: prep.reason || '이 PC 의 옛 계정을 정리하지 못했어요 — 다시 시도해 주세요' };
-  }
-  if(!_setMyUserId(r.userCode)){
-    try{ await firebaseAPI.authSignOut(); }catch(_){}
-    try{ localStorage.removeItem(LOGIN_EMAIL_KEY); localStorage.removeItem(LOGIN_UID_KEY); }catch(_){}
-    return { ok:false, reason:'이 기기에 계정을 저장하지 못했어요 — 다시 시도해 주세요' };
-  }
-  try{ localStorage.setItem(LOGIN_EMAIL_KEY, r.email || ''); localStorage.setItem(LOGIN_UID_KEY, r.uid || ''); }catch(_){}   // 내려놓기(detach)가 지웠을 수 있다
-  try{
-    const snap = await firebaseAPI.fetchAccountSnapshot(r.userCode);
-    await _applyTransferSnapshot(snap);   // 계정 연동과 **같은 함수** — 복원 규칙은 한 벌뿐이다
-  }catch(e){ console.warn('[로그인] 복원 중 오류 — uid 교체는 이미 끝났다', e); }
-  try{ acctStateMod._markInvitePassed(); }catch(_){}   // 계정이 있는 사람 = 이미 정식 유저
-  return { ok:true, switched:true, email:r.email };
+  let old = null; try{ old = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
+  if(old && old !== me.friendCode) _rememberOldFriendCode(old);   // 진단 기록 — 코드가 바뀌었다는 제보가 오면 본다
+  try{ localStorage.setItem(MY_FRIEND_CODE_KEY, me.friendCode); }catch(_){}
+  try{ if(me.displayName) localStorage.setItem(USER_NAME_KEY, me.displayName); }catch(_){}
+  return { ok:true, switched };
+}
+/* 로그인 흐름의 결과 → 이 PC 맞추기. 못 맞추면 로그인도 놓는다 — «로그인은 됐는데 이 기기는 딴 사람» 을 남기지 않는다. */
+async function _afterLogin(r){
+  const e = _enterAccount(r.me, loginFlowMod.identity());
+  if(!e.ok){ try{ await loginFlowMod.logout(); }catch(_){} return e; }
+  return { ok:true, switched:e.switched, email:r.email || null, me:r.me };
 }
 
-/* 🔑 [회원가입 설계 §3 H · 개정 8] 친구 코드 + 비밀번호 로그인 — 처음 쓰는 PC 의 기존 사용자.
-   서버가 돌려준 uid(`authUsers/{authUid}.userCode`)를 **그대로** 채택한다. 결속은 하지 않는다(가입 A·I 가 한다).
-   돌려주는 것: { ok, switched } — switched 면 부르는 쪽이 재시작한다.
-   ★ uid 기록은 `_setMyUserId` 하나로(설계 §6-⑦). 못 쓰면 Auth 세션도 놓는다 — «로그인은 됐는데 이 기기는 딴 사람» 을 남기지 않는다.
-   ⚠️ LOGIN_EMAIL_KEY 에는 `{코드}@tw.local` 이 들어간다 — 계정 탭(C) 표시는 화면 단계에서 친구 코드로 바꾼다. */
+/* 구글 로그인 — 구글 창(main) → Auth → 서버 가입 확인(login-flow.js) → 이 PC 맞추기.
+   @return { ok, switched, email } · { ok:false, needCode }(이 구글로 가입한 계정이 없다 — 초대 코드로 가입) · { ok:false, canceled }(창을 그냥 닫음 — 조용히) */
+async function _loginDoGoogle(){
+  const r = await loginFlowMod.loginGoogle();
+  if(r.ok) return _afterLogin(r);
+  if(r.state === 'signup') return { ok:false, needCode:true, reason:'이 구글 계정으로 가입한 기록이 없어요 — 초대 코드를 넣어 주세요' };
+  return { ok:false, canceled:!!r.canceled, reason:r.reason || (r.canceled ? '' : '로그인에 실패했어요') };
+}
+
+/* 🔑 친구 코드 + 비밀번호 로그인 → 이 PC 맞추기. @return { ok, switched } — switched 면 부르는 쪽이 다시 켠다. */
 async function _loginDoFriendCode(code, password){
-  if(!(window.firebaseAPI && firebaseAPI.authSignInWithFriendCode))
-    return { ok:false, reason:'네트워크 연결이 필요해요' };
-  const r = await firebaseAPI.authSignInWithFriendCode(code, password);
-  if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '로그인에 실패했어요' };
-  const before = getMyUserId();
-  if(r.userCode !== before){
-    /* 🧬 갈아타기 전 정리(구글 로그인과 같은 함수 · CHECKS 개정 57). 못 하면 갈아타지 않는다. */
-    const prep = await _switchPrepare(before, r.userCode);
-    if(!prep.ok){
-      try{ await firebaseAPI.authSignOut(); }catch(_){}
-      return { ok:false, reason: prep.reason || '이 PC 의 옛 계정을 정리하지 못했어요 — 다시 시도해 주세요' };
-    }
-    if(!_setMyUserId(r.userCode)){
-      try{ await firebaseAPI.authSignOut(); }catch(_){}
-      return { ok:false, reason:'이 기기에 계정을 저장하지 못했어요 — 다시 시도해 주세요' };
-    }
-  }
-  try{
-    localStorage.setItem(LOGIN_EMAIL_KEY, r.email || '');
-    localStorage.setItem(LOGIN_UID_KEY, r.uid || '');
-  }catch(_){}
-  if(r.userCode === before){ try{ acctStateMod._markInvitePassed(); }catch(_){} return { ok:true, switched:false }; }
-  try{
-    const snap = await firebaseAPI.fetchAccountSnapshot(r.userCode);
-    /* 구글 로그인·가입과 **같은 함수** — 복원 규칙은 한 벌뿐이다. 입력한 코드는 비밀번호로 확인된 이 계정의 아이디라,
-       계정에 코드 기록이 없을 때 그것을 쓴다(개정 56). */
-    await _applyTransferSnapshot(snap, { typedCode: code });
-  }catch(e){ console.warn('[로그인] 복원 중 오류 — uid 교체는 이미 끝났다', e); }
-  try{ acctStateMod._markInvitePassed(); }catch(_){}
-  return { ok:true, switched:true };
+  const r = await loginFlowMod.loginPassword(code, password);
+  if(!r.ok) return { ok:false, reason:r.reason || '로그인에 실패했어요' };
+  return _afterLogin(r);
 }
 
 /* 로그아웃 — Auth 세션만 끊는 게 아니라 **이 기기의 신원까지 놓는다.**
@@ -269,9 +124,9 @@ async function _loginDoFriendCode(code, password){
 
 const ACCOUNT_LOCAL_KEYS = ()=>[
   /* 신원 */
-  MY_USER_ID_KEY, acctStateMod.INVITE_PASS_KEY, MY_FRIEND_CODE_KEY, LOGIN_EMAIL_KEY, LOGIN_UID_KEY,
+  MY_USER_ID_KEY, MY_FRIEND_CODE_KEY, LOGIN_EMAIL_KEY, LOGIN_UID_KEY, ME_CACHE_KEY,
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
-  /* 라이선스 — 다시 로그인하면 계정 스냅샷(_applyTransferSnapshot r.license)으로 돌아온다. 없으면 키 재입력. */
+  /* 라이선스 — 이 PC 키 · 해제 표시도 계정 것이다(0.13 은 서버가 계정의 라이선스를 안다 — D8). */
   acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), acctStateMod.LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
   /* 누적 시간(레벨 원본) — 스냅샷 focusTotalSec + syncFocusTotalToServer 의 «서버가 크면 받아온다» 가지.
      ⚠️ FOCUS_SYNCED_KEY 는 **removeItem** 이다. 값을 두면 «마크» 가 되고, 없으면 «한 번도 안 맞춰봄 = 증분 0 · max 바닥만».
@@ -295,7 +150,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      지우면 그것으로 끝이다. 남의 캐릭터를 주워 가는 길은 restoreSlotsBackup 의 uid 대조로 막는다.
      (빠뜨린 것으로 보고 넣지 말 것 — 제보 3-7) */
   EXTRA_SEAT_KEY,              // 슬롯 번호 목록 — 슬롯이 사라지면 가리키는 곳이 없다
-  /* 플레이리스트 — _restoreOwnedDataAfterTransfer 가 세 벌 전부(fetchMyPlaylistSets) 받아온다.
+  /* 플레이리스트 — 다시 로그인하면 서버 사본에서 받아온다.
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
   'tw.playlistHomePublic', 'tw.playlistPrivate',
@@ -469,7 +324,7 @@ async function _detachAccountLocal(opt){
 async function _loginDoLogout(opt){
   const r = await _detachAccountLocal(opt);
   if(!r.ok) return r;
-  try{ if(window.firebaseAPI && firebaseAPI.authSignOut) await firebaseAPI.authSignOut(); }catch(_){}
+  try{ await loginFlowMod.logout(); }catch(_){}   // realtime 끄기 · 로그인 놓기 · 내 계정 사본 지우기
   return { ok:true };
 }
 
@@ -489,8 +344,8 @@ async function _loginDoDeleteAccount(word){
 /* 🔐 [회원가입 설계 §7-C2·C3 · 개정 14 · 시안 확정] 계정 탭 — 로그인 수단 · 비밀번호 만들기(C3) · 바꾸기(C2).
    ★ 모드는 Auth 세션의 제공자(providerData)가 정한다 — 로컬 키가 아니라. 로그인 표시(LOGIN_EMAIL_KEY)는 «탭을 로그인 얼굴로» 만 정한다.
        비밀번호 있음 → C2(바꾸기 · 구글 없으면 경고 + [연결하기]) · 구글만 → C3(만들기) · 세션 없음 → 한 줄(«다시 시작하면 로그인 화면» — 그게 K) · 익명 → 숨김.
-   ★ C3 아이디 = 이 계정의 친구 코드 — 계정 거울 → 이 기기 코드 순으로, **지금 friendCodes 가 내 uid 를 가리킬 때만.** 남의 코드로 `@tw.local` 을 만들지 않는다.
-   ★ C2 는 지금 비밀번호를 묻지 않는다((가)) — 함수 `changePassword` 가 ID 토큰으로 본인을 확인한다. 바꾸면 이 PC 는 새 비밀번호로 곧바로 다시 로그인(firebase-init).
+   ★ C3 아이디 = 이 계정의 친구 코드(서버 계정) — 비밀번호 로그인은 서버가 붙인다(POST /v1/me/password-login).
+   ★ C2 는 지금 비밀번호를 묻지 않는다((가)) — 서버가 토큰으로 본인을 확인한다(5분 안 로그인 — 오래됐으면 구글로 다시 확인). 바꾸면 이 PC 는 새 비밀번호로 곧바로 다시 로그인.
    ⚠️ 옛 계정 탭 안에 넣은 첫 조각이다 — 탭 전체를 C 로 바꾸는 건 화면 단계. */
 function _acctMethodsMode(pv){
   if(!pv) return { mode:'off' };
@@ -508,46 +363,49 @@ function _acctPwCheck(a, b){
   if(a !== b) return { ok:false, focus:2, reason:'비밀번호가 서로 달라요.' };
   return { ok:true };
 }
-async function _acctPwCode(){
-  const uid = getMyUserId();
-  if(!uid) return { ok:false, reason:'이 PC의 계정을 확인하지 못했어요 — 앱을 다시 시작해 주세요' };
-  if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode)) return { ok:false, reason:'네트워크 연결이 필요해요' };
-  const cands = [];
-  try{ const m = firebaseAPI.getUserFriendCode ? await firebaseAPI.getUserFriendCode(uid) : null; if(m) cands.push(String(m)); }catch(_){}
-  try{ const l = localStorage.getItem(MY_FRIEND_CODE_KEY); if(l && !cands.includes(l)) cands.push(String(l)); }catch(_){}
-  let unread = false;
-  for(const c of cands){
-    if(!FRIEND_CODE_LOGIN_RE.test(c)) continue;
-    let owner;
-    try{ owner = await firebaseAPI.lookupFriendCode(c); }catch(_){ unread = true; continue; }
-    if(owner === uid) return { ok:true, code:c };
-  }
-  return { ok:false, reason: unread ? '네트워크 오류 — 인터넷 연결을 확인해 주세요' : '내 친구 코드를 확인하지 못했어요 — 앱을 다시 시작한 뒤 다시 해 주세요' };
+/* C3 아이디 = 이 계정의 친구 코드 — 서버가 돌려준 내 계정(사본) · 없으면 이 기기 코드(로그인 때 서버 값으로 적었다) */
+function _acctPwCode(){
+  const c = loginFlowMod.meCache();
+  let code = c && c.me ? c.me.friendCode : null;
+  if(!code){ try{ code = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} }
+  return (code && FRIEND_CODE_LOGIN_RE.test(code)) ? { ok:true, code } : { ok:false, reason:'내 친구 코드를 확인하지 못했어요 — 앱을 다시 시작한 뒤 다시 해 주세요' };
 }
-/* C3 — 링크 → (오래된 로그인이면) 구글 재인증 → 링크 한 번 더. 재인증은 세션을 바꾸지 않는다(authReauthGoogle). */
-async function _acctCreatePassword(pw){
-  if(!(window.firebaseAPI && firebaseAPI.authLinkPassword)) return { ok:false, reason:'이 버전에서는 비밀번호를 만들 수 없어요' };
-  const c = await _acctPwCode();
-  if(!c.ok) return c;
-  const link = async ()=>{ try{ return await firebaseAPI.authLinkPassword(c.code, pw); }catch(_){ return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; } };
-  let r = await link();
-  if(r && r.needReauth){
-    if(!(window.companion && companion.signInWithGoogle) || !firebaseAPI.authReauthGoogle) return { ok:false, reason:'구글로 다시 확인할 수 없는 버전이에요 — 앱을 다시 시작한 뒤 해 주세요' };
-    let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
-    if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
-    let a = null; try{ a = await firebaseAPI.authReauthGoogle(g.idToken); }catch(_){}
-    if(!a || !a.ok) return a || { ok:false, reason:'구글 확인에 실패했어요' };
-    r = await link();
+/* 서버가 «5분 안 로그인» 을 요구하는 일(비밀번호 붙이기 · 바꾸기 · 탈퇴) — USER_REAUTH_REQUIRED 면 구글로 다시 확인하고 한 번 더.
+   구글이 없는 계정(친구 코드 + 비밀번호만)은 앱에 지금 비밀번호를 받을 화면이 없다 — 다시 로그인한 뒤 하라고 알린다.
+   돌려주는 것: { ok, value } · { ok:false, canceled } · { ok:false, reason } */
+const REAUTH_PASSWORD_ONLY = '보안을 위해 다시 로그인한 뒤 해 주세요 — 로그아웃하고 친구 코드 + 비밀번호로 다시 로그인하면 5분 안에 할 수 있어요';
+async function _withRecentLogin(fn){
+  try{ return { ok:true, value: await fn() }; }
+  catch(e){
+    if(!(e && e.code === 'USER_REAUTH_REQUIRED')) return { ok:false, reason:userApiMod.reasonOf(e), code:(e && e.code) || '' };
   }
-  if(!r || !r.ok) return r || { ok:false, reason:'비밀번호를 만들지 못했어요' };
+  let pv = null; try{ pv = firebaseAPI.authProviders(); }catch(_){}
+  if(!(pv && pv.google)) return { ok:false, reason:REAUTH_PASSWORD_ONLY };
+  let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
+  if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
+  let a = null; try{ a = await firebaseAPI.authReauthGoogle(g.idToken); }catch(_){}
+  if(!a || !a.ok) return { ok:false, reason:(a && a.reason) || '구글 확인에 실패했어요' };
+  try{ return { ok:true, value: await fn() }; }
+  catch(e){ return { ok:false, reason:userApiMod.reasonOf(e), code:(e && e.code) || '' }; }
+}
+/* C3 — 구글만 있는 계정에 `{내 친구코드}@tw.local` + 비밀번호 로그인을 붙인다(서버가 붙인다 — 앱이 붙이면 남의 코드 이메일을 차지할 수 있어서).
+   붙인 뒤 이 PC 의 Auth 사본을 다시 읽어 계정 탭이 C2 로 바뀐다. */
+async function _acctCreatePassword(pw){
+  const c = _acctPwCode();
+  if(!c.ok) return c;
+  const r = await _withRecentLogin(() => userApiMod.attachPasswordLogin(pw));
+  if(!r.ok) return r;
+  try{ await firebaseAPI.authReload(); }catch(_){}
   return { ok:true, code:c.code };
 }
-/* C2 — 함수 한 번. 성공 뒤 다시 로그인은 firebase-init 이 한다(relogged). */
+/* C2 — 서버가 바꾸고 이 계정의 모든 로그인을 끊는다 → 이 PC 는 새 비밀번호로 곧바로 다시 로그인(같은 계정). 다시 로그인이 실패해도 바꾸기는 성공(relogged:false). */
 async function _acctChangePassword(pw){
-  if(!(window.firebaseAPI && firebaseAPI.authChangePassword)) return { ok:false, reason:'이 버전에서는 비밀번호를 바꿀 수 없어요' };
-  let r = null;
-  try{ r = await firebaseAPI.authChangePassword(pw); }catch(_){ r = { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; }
-  return r || { ok:false, reason:'비밀번호를 바꾸지 못했어요' };
+  let pv = null; try{ pv = firebaseAPI.authProviders(); }catch(_){}
+  if(!pv || !pv.passwordEmail) return { ok:false, reason:'비밀번호가 없는 계정이에요 — 먼저 비밀번호를 만들어 주세요' };
+  const r = await _withRecentLogin(() => userApiMod.changePassword(pw));
+  if(!r.ok) return r;
+  let l = null; try{ l = await firebaseAPI.authSignInWithFriendCode(String(pv.passwordEmail).split('@')[0], pw); }catch(_){}
+  return { ok:true, relogged: !!(l && l.ok && l.uid === pv.authUid) };
 }
 let _acctMethodsLast = null;
 /* keepMsg — 방금 한 일의 안내 줄을 남긴 채 모양만 다시 그린다(C3 → C2 로 바뀌는 순간). 탭을 열 때는 입력·안내를 비운다. */
@@ -672,183 +530,14 @@ function refreshAccountTab(){
   else bind();
 })();
 
-/* 🔗 로그인한 계정에 코드 기록이 없을 때 이 기기 코드 — _applyTransferSnapshot 안 주석(개정 56) 참고. 돌려주는 것: 무엇을 했는지. */
-function _adoptAccountFriendCode(r, opts){
-  if(r && r.friendCode) return 'snapshot';
-  let old = null; try{ old = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
-  const typed = String((opts && opts.typedCode) || '').toUpperCase().trim();
-  if(FRIEND_CODE_LOGIN_RE.test(typed)){
-    if(old === typed) return 'typed';
-    if(old) _rememberOldFriendCode(old);
-    try{ localStorage.setItem(MY_FRIEND_CODE_KEY, typed); }catch(_){}
-    return 'typed';
-  }
-  if(!old) return 'none';
-  _rememberOldFriendCode(old);
-  try{ localStorage.removeItem(MY_FRIEND_CODE_KEY); }catch(_){}
-  console.info('[친추코드] 로그인한 계정에 코드 기록이 없어 이 기기 코드(' + old + ')를 내려놓았어요 — 다음 부팅에 계정 코드를 정해요');
-  return 'cleared';
-}
-/* 📥 계정 스냅샷을 로컬 키에 복원 — fetchAccountSnapshot 결과(r · 옛 verifyTransfer 와 같은 모양)를 받아 레벨원본·이름·친추코드·라이선스 반영.
-   userId는 위에서 이미 교체됨. 값이 없는 항목(구버전 등록분)은 건드리지 않아 기존 로컬 값 보존.
-   ⚠️ [2026-09-20 · 제보 3-1] 예전엔 첫 줄이 `if(!r) return` 이었다 — 스냅샷이 null 이면 **소지품 복원까지
-     통째로 건너뛰었다.** 스냅샷은 «이름·라이선스·친추코드·집중초» 고, 소지품(플레이리스트·가챠·슬롯)은
-     `users/{uid}` 의 실시간 사본을 **직접 읽는** 별개의 것인데(아래 주석이 스스로 그렇게 적어 놓았다),
-     호출만 스냅샷 존재에 묶여 있었다. 스냅샷은 첫 결속·비밀번호 등록 때만 쓰이므로, 그 이전 판에서
-     묶인 계정이나 그때 쓰기가 실패한 계정은 스냅샷이 없다 → uid 는 갈아타는데 캐릭터·파츠·곡이 하나도
-     안 따라왔다(회사↔집 제보). 부르는 쪽이 넷(로그인·연동·되찾기·부팅 게이트)이라 **여기서** 가른다:
-     스냅샷 부분만 `if(r)` 안으로, 그 뒤 셋은 있든 없든 돈다. */
-async function _applyTransferSnapshot(r, opts){
-  if(!r) console.warn('[연동] 계정 스냅샷이 없습니다 — 이름·라이선스·친추코드는 못 받지만 소지품(캐릭터·파츠·곡)은 서버 사본에서 그대로 복원합니다');
-  if(r){
-  /* 🔑 [2026-09-15 제보 3] 키만 저장하고 isPremium 을 안 올리던 자리 — 재시작 전까지 내 전용 책상이 기본으로 보였다.
-     loadLicenseFromStorage 와 같은 태도(로컬 키 = 일단 프리미엄, 재검증은 다음 부팅의 initLicense). */
-  try{ if(r.license){ localStorage.setItem(acctStateMod.LICENSE_KEY_STORAGE, r.license); acctStateMod._setPremium(true); } }catch(_){}
-  try{
-    if(Number.isFinite(r.focusTotalSec) && r.focusTotalSec >= 0){
-      /* 🕒 ★ 포커스 누적만은 **덮어쓰지 않는다 — max 다.**
-         플레이리스트·가챠는 "저쪽 계정으로 갈아탄다"가 맞아서 덮어쓰지만(아래
-         _restoreOwnedDataAfterTransfer), 이 값은 레벨의 원본이라 덮어쓰면 유저 눈에는
-         그냥 레벨이 깎인 것으로 보인다. 그리고 max 는 멱등이라 두 번 세어질 걱정도 없다
-         (예전 증분 방식에서 마크를 손으로 맞춰야 했던 이유가 통째로 사라진다).
-         ⚠️ 대가: 연동 전 이 기기에 쌓여 있던 시간이 연동해 온 계정으로 합쳐진다.
-            "기록은 항상 큰 쪽을 따라간다"는 요청의 직접적인 귀결이다. */
-      const _merged = Math.max(Number(_focusTotalSec())||0, r.focusTotalSec);
-      localStorage.setItem(FOCUS_TOTAL_KEY(), String(_merged));
-      /* 🕒 마크도 합친 값으로 맞춘다 — 안 맞추면 "이 기기의 옛 누적치 − 옛 마크"가 증분으로
-         잡혀서, 연동해 온 계정에 이 기기 시간이 통째로 한 번 더 더해진다.
-         마크 = 로컬이면 증분 0 이고, 아래 즉시 동기화는 max 바닥만 태운다(= 서버가 더 크면
-         그 값을 받아오고, 이 기기가 더 크면 서버를 끌어올린다). */
-      localStorage.setItem(focusLevelMod().FOCUS_SYNCED_KEY, String(_merged));
-      /* 메모리 값도 같이 맞춘다 — 즉시 동기화가 localStorage 가 아니라 이 값을 본다. */
-      setFocusTotalSec(_merged);
-    }
-  }catch(_){}
-  try{ if(r.name) localStorage.setItem(USER_NAME_KEY, r.name); }catch(_){}
-  try{
-    if(r.friendCode){
-      // 🔗 스냅샷 코드로 덮기 전에, 이 기기가 쓰던 코드를 적어둔다(진단용 기록 — getOldFriendCodes).
-      let old = null; try{ old = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){}
-      if(old && old !== r.friendCode) _rememberOldFriendCode(old);
-      localStorage.setItem(MY_FRIEND_CODE_KEY, r.friendCode);
-    }
-  }catch(_){}
-  }   // ← 여기까지가 스냅샷이 있어야만 할 수 있는 일. 아래 셋은 스냅샷과 무관하다(제보 3-1).
-  /* 🔗 계정에 코드 기록이 없을 때(스냅샷에도 거울 users/{uid}/friendCode 에도 없음 — fetchAccountSnapshot 이 둘 다 본다).
-     [개정 56 · 사용자 확정 (가)] 그대로 두면 이 기기가 쓰던 코드(= 이전 uid, 곧 **다른 계정**의 코드)가 이 계정의 아이디처럼 보인다.
-       예전엔 _claimFriendCodeAfterTransfer 가 그 코드의 주인을 새 uid 로 **강제로** 바꿔 가렸다 — 남의 아이디를 빼앗는 길이라 걷었다.
-     · 친구 코드로 로그인 → **입력한 코드**(비밀번호로 확인된 이 계정의 아이디).
-     · 그 밖(구글) → 로컬 코드를 **지운다.** 다음 부팅에 ensureMyFriendCode 가 거울을 먼저 보고(_friendCodeMirrorFix),
-       거울도 없으면 이 계정의 **첫** 코드를 뽑는다 — 계정엔 코드가 없었으니 재발급 금지(§1-8)에 걸리지 않는다.
-     ★ 소유권(friendCodes)은 어느 갈래에서도 쓰지 않는다. 지운 코드는 진단 기록에 남는다. */
-  _adoptAccountFriendCode(r, opts);
-  /* 🎵🎰 플레이리스트·가챠 보유분을 연동한 계정 것으로 맞춘다.
-     [경위] 스냅샷(setTransferHash)에는 집중초·이름·친추코드·라이선스만 담겨 있어서,
-       연동해도 플레이리스트와 뽑은 파츠는 이 기기의 옛 로컬 값 그대로였다(제보).
-     ★ 스냅샷에 더 담지 않고 **서버 사본을 직접 읽는다** — 둘 다 users/{uid} 아래에 이미
-       실시간 사본이 있고(.read:true), 스냅샷은 '비밀번호 등록 시점'에 굳은 값이라
-       그 뒤에 추가한 곡·뽑은 파츠를 놓친다. */
-  await _restoreOwnedDataAfterTransfer();
-  /* 🕒 연동 직후 즉시 서버와 맞춘다 — 다른 기기에서 쌓인 기록을 이 자리에서 내려받는다.
-     예전엔 동기화가 도는 시점이 부팅 4초 후와 런처 복귀뿐이라, 연동을 마쳐도 레벨이 곧바로
-     고쳐지지 않았다("집에서 30이었는데 회사에서 26" 제보의 체감 부분).
-     ★ 이 시점엔 마크 == 로컬 누적이라 증분이 0이다 — 올리는 건 없고 서버 값을 받아오기만 한다.
-       (위에서 _focusTotalSec을 스냅샷 값으로 맞춰뒀기 때문. 그 줄과 짝이다) */
-  try{ if(typeof focusLevelMod().syncFocusTotalToServer==='function') await focusLevelMod().syncFocusTotalToServer('transfer'); }catch(_){}
-  /* 🌟 회차 별 색 — 로그아웃이 지웠으니 이 계정 프로필의 starC 를 받아 온다(개정 71). */
-  try{ await focusLevelMod()._adoptStarColorFromProfile(); }catch(_){}
-}
-/* 🎵🎰 연동 직후 — 플레이리스트와 가챠 보유분을 새 uid 기준으로 되맞춘다.
-   호출 시점에 localStorage 의 유저 ID 는 이미 새 계정으로 갈려 있다(getMyUserId()가 새 값).
-
-   [정책이 서로 다른 이유]
-     · 플레이리스트 = **덮어쓰기**. 순서가 있는 목록이라 합치면 남의 순서와 뒤섞이고 상한(PL_MAX)도
-       금방 넘는다. 연동은 "저쪽 계정으로 갈아탄다"는 뜻이므로 저쪽 목록이 정답이다.
-       ★ 단, 저쪽이 비어 있으면 이 기기 목록을 그대로 두고 **올려준다** — 서버 사본이 아직 없는
-         계정(파도타기용 공개를 한 번도 안 한 계정)에서 목록이 증발하는 사고를 막는다.
-     · 가챠 = **저쪽 계정 것을 그대로 받는다**(pull). 평소 동기화는 ts 로 최신 기기가 이기지만,
-       연동은 "저쪽 계정으로 갈아탄다"는 뜻이라 이 기기가 더 최신이어도 그 계정 것이 정답이다.
-       ★ 단, 저쪽 서버가 비어 있으면(한 번도 동기화 안 된 계정) 로컬을 지우지 않고 그대로 올린다 —
-         규칙 파일에 gacha 블록이 없던 시절 로컬에만 쌓인 사람의 파츠가 증발하는 사고를 막는다.
-
-   ⚠️ 실패해도 조용히 넘어간다 — 여기서 예외가 새면 연동 자체가 실패한 것처럼 보인다.
-      (연동의 본체인 uid 교체는 이미 끝났고, 서버 사본은 다음 부팅 동기화에서도 다시 만난다) */
-async function _restoreOwnedDataAfterTransfer(){
-  const uid = getMyUserId();
-  // ── 🎵 플레이리스트 — 상태는 playlist.js 안에 있다. pl(상태 묶음)로 읽고 쓴다(앱 FSD 16번).
-  try{
-    const pl = plMod.st;
-    /* ★ [2026-09-16 제보 4] **세 벌 전부** 받는다(fetchMyPlaylistSets). 예전엔 fetchPlaylistOf 로 한 벌만
-       받아 «지금 고른 프리셋» 에 앉혔는데, 그 함수는 파도타기용이라 벌을 **무작위로** 골랐고
-       나머지 두 벌은 이 기기의 옛 값이 그대로 남았다. 로그아웃이 로컬 목록을 지우게 된 지금은
-       세 벌을 다 받아야 «돌아오면 그대로» 가 성립한다.
-       ⚠️ 구버전 firebaseAPI(fetchMyPlaylistSets 없음)에서는 예전 길(fetchPlaylistOf)로 물러난다. */
-    if(window.firebaseAPI && firebaseAPI.fetchMyPlaylistSets){
-      /* 이어받기 전 이 기기는 «새 기기» — 앞 uid 의 고친 시각이 남으면 못 읽었을 때 다음 맞추기에서 새 계정 목록을 덮는다
-         (옛 uid 주인이 없는 갈아타기는 _wipeAccountLocal 을 안 거친다) */
-      plMod.resetSync();
-      const r = await firebaseAPI.fetchMyPlaylistSets(uid);   // {sets,bio,homePublic,editTs} | null
-      const total = r && Array.isArray(r.sets) ? r.sets.reduce((n, s) => n + ((s && s.items) ? s.items.length : 0), 0) : 0;
-      if(total){
-        plMod.adoptServer(r);   // 앉히기 · 백업 · 고친 시각 · 지문 · 저장 · 그리기 — 부팅 맞추기와 한 벌(playlist.js)
-      } else if(r && pl.sets.some(ps => ps && ps.items && ps.items.length)){
-        // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
-        plMod.markSynced();
-        pl.pubSig = null;
-        plMod.publish();
-      } else if(r){
-        plMod.markSynced();   // 양쪽 다 비었다 — 맞춤 끝(안 하면 이 실행 동안 새로 넣은 곡이 안 올라간다)
-      } else {
-        plMod.bootSync();   // 못 읽었다 — 올리지 않고 새 기기처럼 다시 맞춘다(늘려 가는 간격)
-      }
-    } else if(window.firebaseAPI && firebaseAPI.fetchPlaylistOf){
-      const r = await firebaseAPI.fetchPlaylistOf(uid);   // 비어 있으면 null
-      if(r && r.items && r.items.length){
-        const items = r.items.filter(x => x && x.id).slice(0, plMod.PL_MAX).map(x => ({
-          id: x.id,
-          url: 'https://www.youtube.com/watch?v=' + x.id,
-          title: String(x.title || '').slice(0, 60)
-        }));
-        pl.sets[pl.cur].items = items;
-        pl.sel = -1; pl.now = -1; pl.nowSet = pl.cur; pl.view = null; pl.nowView = null;
-        try{ plMod.save(); }catch(_){}
-        pl.pubSig = plMod.pubSigOf(pl.sets.map(ps => ({
-          name: String((ps && ps.name) || '').slice(0, plMod.PL_TITLE_MAX),
-          items: (((ps && ps.items) || [])).map(x => ({ id:x.id, title:x.title || '' })),
-        })), { bio: pl.bio, homePublic: pl.homePublic, private: pl.private });
-        if(typeof plMod.render === 'function') plMod.render();
-      } else if(plMod.mine().length){
-        pl.pubSig = null;
-        if(typeof plMod.publish === 'function') plMod.publish();
-      }
-    }
-  }catch(e){ console.warn('[연동] 플레이리스트 복원 실패', e); }
-  // ── 🎰 가챠 보유분 — 연동은 '저쪽 계정 것을 받아온다'가 맞으므로 ts 를 보지 않고 무조건 내려받는다.
-  //    (평소 동기화는 최신 기기가 이기는 ts 비교지만, 연동만은 이 기기가 더 최신이어도 저쪽이 정답이다)
-  try{
-    await gachaMod().syncGachaToServer('transfer', 'pull');
-    if(gachaMod().isInvOpen()) gachaMod().renderGachaInv();
-  }catch(e){ console.warn('[연동] 가챠 복원 실패', e); }
-  // ── 🧍 캐릭터 슬롯 [2026-09-16 제보 6-b] — 가챠와 같은 규칙: 저쪽 계정 것을 ts 안 보고 pull,
-  //    저쪽이 비어 있으면 이 기기 것을 push(로컬에만 캐릭터가 있던 사람의 첫 업로드).
-  //    ★ 파츠(가챠) 다음에 온다 — 받은 캐릭터가 입은 파츠의 보유분이 먼저 맞춰져 있어야 한다.
-  try{
-    if(typeof slotSyncMod().syncSlotsToServer === 'function') await slotSyncMod().syncSlotsToServer('transfer', 'pull');
-    /* 🧬 켜져 있으면 캐릭터 단위도 — 로그아웃이 보관함 키를 지웠으므로 이 계정으로 첫 채택부터 다시 한다(개정 36). */
-    if(typeof charsMod()._charsBoot === 'function' && typeof charsMod().CHARS_SYNC_ENABLED !== 'undefined' && charsMod().CHARS_SYNC_ENABLED) await charsMod()._charsBoot('transfer');
-  }catch(e){ console.warn('[연동] 캐릭터 복원 실패', e); }
-}
-/* (걷음 · 개정 56) _claimFriendCodeAfterTransfer — 로그인 직후 로컬 코드의 주인을 새 uid 로 강제로 바꾸던 것. 남의 계정 코드를 가져가는 길이라
-   걷었다(설계 §6 «남는 것» · 소유권 쪽). 대신 _adoptAccountFriendCode 가 **로컬 표시만** 계정 것으로 맞춘다. */
-
 return {
   CHARS_LINKED_KEY,
-  _applyTransferSnapshot,
+  _enterAccount,
   _loginDoFriendCode,
   _loginDoGoogle,
   _loginDoLogout,
   _loginDoDeleteAccount,
-  _loginLocalSnapshot,
+  _wipeAccountLocal,
   refreshAccountTab,
 };
 }

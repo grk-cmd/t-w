@@ -133,48 +133,31 @@ say('── 5. 🫨 말랑이 제자리 떨림');
 
 (async ()=>{
 
-say('── 6. 🎫 라이선스가 계정을 따라간다');
+say('── 6. 🎫 라이선스 — 이 기기에서 등록 · 해제(0.13 — 계정 사본으로 옮기던 길은 걷었다 · 서버가 계정의 라이선스를 안다)');
 {
-  const fns = ['_licenseSnapPushNow', '_licenseSnapForPush', 'activateLicense', 'deactivateLicense'].map(n => (SRC.includes('async function ' + n + '(') ? 'async ' : '') + grab(SRC, n)).join('\n');   // grab 은 async 를 떼어 온다
-  chk(fns.split('function ').length - 1 >= 4, '네 함수를 떼어 왔다');
+  const fns = ['activateLicense', 'deactivateLicense'].map(n => (SRC.includes('async function ' + n + '(') ? 'async ' : '') + grab(SRC, n)).join('\n');   // grab 은 async 를 떼어 온다
+  chk(fns.split('function ').length - 1 >= 2, '두 함수를 떼어 왔다');
   const mk = (o) => {
     const LS = new Map(Object.entries(o.ls || {}));
-    const env = { pushed:[], toasts:[], premium:null, LS };
-    const W = { firebaseAPI:{ setAccountSnapshot:(u, s)=>env.pushed.push(s), fetchAccountSnapshot: async ()=>({ license:o.acct || null }) } };
-    const f = new Function('env', 'window', 'firebaseAPI', `
+    const env = { premium:null, LS };
+    const f = new Function('env', `
       const LICENSE_KEY_STORAGE='tw.licenseKey', LICENSE_OPTOUT_KEY='tw.licenseOptOut';
       const localStorage = { getItem:k=>env.LS.has(k)?env.LS.get(k):null, setItem:(k,v)=>env.LS.set(k,String(v)), removeItem:k=>env.LS.delete(k) };
-      const getMyLoginEmail = ()=> ${o.login === false ? 'null' : "'a@b'"}, getMyUserId = ()=>'U1';
-      const _loginLocalSnapshot = ()=>({ license: localStorage.getItem(LICENSE_KEY_STORAGE), name:'n' });
       const verifyLicense = async (k)=> (${JSON.stringify(o.verify || { ok:true })});
       const _setPremium = (v)=>{ env.premium = v; };
-      const toast = (m)=>env.toasts.push(m); const refreshLicenseUI = ()=>{};
-      let userStatus = null; const setUserStatus = ()=>{};
+      let userStatus = ()=>null; const setUserStatus = ()=>{};
       ${fns}
-      return { forPush:_licenseSnapForPush, act:activateLicense, deact:deactivateLicense };`);
-    return Object.assign(env, f(env, W, W.firebaseAPI));
+      return { act:activateLicense, deact:deactivateLicense };`);
+    return Object.assign(env, f(env));
   };
   await (async ()=>{
-    let e = mk({ acct:'KEY-A' }); let s = await e.forPush();
-    chk(s.license === 'KEY-A' && e.LS.get('tw.licenseKey') === 'KEY-A' && e.premium === true && e.toasts.length === 1, '이 PC 에 없고 계정에 있음 → 검증 뒤 이 PC 에서도 켠다 · 알린다');
-    e = mk({ acct:'KEY-A', ls:{ 'tw.licenseOptOut':'KEY-A' } }); s = await e.forPush();
-    chk(s.license === 'KEY-A' && !e.LS.has('tw.licenseKey') && e.premium === null, '이 기기에서 해제한 키 → 다시 켜지 않지만 계정 것은 지우지 않는다');
-    e = mk({ acct:'KEY-B', ls:{ 'tw.licenseOptOut':'KEY-A' } }); s = await e.forPush();
-    chk(e.LS.get('tw.licenseKey') === 'KEY-B', '해제한 것과 다른 키(새로 산 것)는 켠다');
-    e = mk({ acct:'KEY-A', verify:{ ok:false } }); s = await e.forPush();
-    chk(s.license === null && !e.LS.has('tw.licenseKey'), '회수된 키 → 켜지 않고 계정에서도 빠진다');
-    e = mk({ acct:'KEY-A', verify:{ ok:false, offline:true } }); s = await e.forPush();
-    chk(s.license === 'KEY-A' && !e.LS.has('tw.licenseKey'), '오프라인 → 켜지 않지만 계정 것을 지우지 않는다');
-    e = mk({ acct:null }); s = await e.forPush();
-    chk(s.license === null, '계정에도 없음 → 예전과 같음');
-    e = mk({ acct:'KEY-X', ls:{ 'tw.licenseKey':'KEY-L' } }); s = await e.forPush();
-    chk(s.license === 'KEY-L' && e.toasts.length === 0, '이 PC 에 있으면 그게 올라간다(계정 것을 안 읽는다)');
-    e = mk({ ls:{ 'tw.licenseOptOut':'KEY-A' } }); await e.act(' key-a ');
-    chk(e.LS.get('tw.licenseKey') === 'KEY-A' && !e.LS.has('tw.licenseOptOut') && e.pushed.length === 1 && e.pushed[0].license === 'KEY-A', '등록 즉시 계정에 올린다 · 해제 표시를 지운다');
-    e = mk({ login:false }); await e.act('KEY-A'); chk(e.pushed.length === 0, '로그인 안 한 기기는 올리지 않는다');
+    let e = mk({ ls:{ 'tw.licenseOptOut':'KEY-A' } }); await e.act(' key-a ');
+    chk(e.LS.get('tw.licenseKey') === 'KEY-A' && !e.LS.has('tw.licenseOptOut') && e.premium === true, '등록 — 키 저장 · 해제 표시를 지운다 · 프리미엄');
+    e = mk({ verify:{ ok:false } }); await e.act('KEY-A');
+    chk(!e.LS.has('tw.licenseKey') && e.premium === null, '검증 실패 — 저장 안 함');
     e = mk({ ls:{ 'tw.licenseKey':'KEY-A' } }); e.deact();
     chk(!e.LS.has('tw.licenseKey') && e.LS.get('tw.licenseOptOut') === 'KEY-A' && e.premium === false, '이 기기에서 해제 → 해제 표시에 그 키');
-    chk(/setTimeout\(async \(\)=>\{ try\{ firebaseAPI\.setAccountSnapshot\(getMyUserId\(\), await _licenseSnapForPush\(\)\); \}catch\(_\)\{\} \}, 6000\);/.test(CODE), '부팅 push 가 _licenseSnapForPush 를 거친다(계정 라이선스를 null 로 덮지 않음)');
+    chk(!/setAccountSnapshot|fetchAccountSnapshot|_licenseSnapForPush/.test(CODE), '계정 사본(accountSnap) 길이 남지 않았다');
     chk(/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY,/.test(CODE), '로그아웃이 해제 표시도 지운다(ACCOUNT_LOCAL_KEYS)');
   })();
 }

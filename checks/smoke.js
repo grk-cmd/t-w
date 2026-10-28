@@ -432,6 +432,9 @@ PRELOAD.push('nav.js');
 PRELOAD.push('demoji-catalog.js');
 /* account-state.js — 🪪 계정 핵심 상태(모듈 순환 끊기 5). 같은 까닭 — 초대 게이트 · 계정 · 내 정보 · 포커스 레벨이 만들 때 이 모듈의 알림 자리(onPremiumChanged)를 받는다. */
 PRELOAD.push('account-state.js');
+/* request-id.js · user-api.js · login-flow.js · first-run-013.js — 🔑 0.13 로그인 흐름. app.js 가 계정 핵심 상태 바로 뒤에서 createLoginFlow · createFirstRun 을 부르고
+   게이트 · 계정 모듈에 TwUserApi.store · TwRequestId.createPending() 을 넘긴다(서버 통로 · realtime 은 부를 때 찾는다). */
+PRELOAD.push('request-id.js', 'user-api.js', 'login-flow.js', 'first-run-013.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
 PRELOAD.push('license-gate.js');
 /* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */

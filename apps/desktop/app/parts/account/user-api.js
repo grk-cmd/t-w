@@ -150,7 +150,8 @@ function createUserApi(deps){
   }
 
   return { me, joinWithPassword, joinWithGoogle, updateMe, attachPasswordLogin, changePassword,
-    withdrawalPreview, withdraw, checkInvite, myInvites, createInvite, findByFriendCode, visit };
+    withdrawalPreview, withdraw, checkInvite, myInvites, createInvite, findByFriendCode, visit,
+    reasonOf, inviteReasonOf };   // 화면 문구 표도 같이 — 부르는 쪽이 통로 하나만 받게
 }
 
 const out = { WITHDRAW_CONFIRM, ME_TIMEOUT_MS, INVITE_RE, REASONS, OFFLINE_REASON, UNKNOWN_REASON, INVITE_UNUSABLE,

@@ -58,7 +58,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(D.minVersion.app === null && D.minVersion.room === null && JSON.stringify(D.roomServerTiming) === '{"joinWaitMs":10000,"clientGiveUpMs":90000}', '  ↳ 최소 버전 없음(막지 않음) · 연결 시간 10초 · 90초');
     chk(Object.isFrozen(D) && Object.isFrozen(D.roomLimits) && Object.isFrozen(D.minVersion), '  ↳ 기본값은 얼려 둔다(실수로 바뀌지 않게)');
     const s = RCM.createRemoteConfig();
-    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.existingSignup() === true && s.minAppVer() === null && s.minRoomVer() === null && s.bugDailyMax() === 5
+    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && !('existingSignup' in s) && s.minAppVer() === null && s.minRoomVer() === null && s.bugDailyMax() === 5
       && s.clapDailyMax() === 5 && s.giftDailySendMax() === 10 && JSON.stringify(s.bannedWords()) === '[]', '설정이 하나도 없으면(아직 못 받음) 기본값');
     chk(s.roomLimitOf('???') === 300, '  ↳ 모르는 채널은 워킹룸 상한');
     chk(!('roomServer' in s) && !('sources' in s) && !('dataRoutes' in s) && !('friendsApi' in s) && !('myServer' in s) && !('serverAddr' in s) && !('FALLBACK_PATHS' in RCM),
@@ -102,7 +102,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(ok && bad.maxPeople() === 5, '  ↳ 반영하는 쪽이 터져도 값은 들어간다');
     const r = RCM.createRemoteConfig();
     const t0 = Date.now();
-    const v = await r.ready(['inviteGate', 'existingSignup'], 80);
+    const v = await r.ready(['inviteGate'], 80);
     chk(Date.now() - t0 >= 70 && v.inviteGate === true, 'ready — 답이 없으면 시간 초과 뒤 지금 값(기본값)으로 간다');
     chk(RCM.store && typeof RCM.store.start === 'function', '앱 한 벌(store)이 있다');
   }
@@ -139,7 +139,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     s = RCM.createRemoteConfig();
     await quiet(() => s.start({ api: mkApi(down), storage: memStore() }));
     s.stop();
-    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.existingSignup() === true && s.bugDailyMax() === 5 && s.answered() && s.source() === 'default',
+    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.bugDailyMax() === 5 && s.answered() && s.source() === 'default',
       '★ 처음 실행 · 못 받음 → 기본값');
     s = RCM.createRemoteConfig();
     await s.start({ api: null, storage: memStore() });
@@ -251,7 +251,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const a = strip(APP);
     chk(!/\bconst ROOM_LIMITS\b|\bROOM_LIMITS\b/.test(a) && !/\bMAX_ROOMS\b/.test(a), '박힌 방 상한(ROOM_LIMITS · MAX_ROOMS) 없음');
     chk(!/\bMAX_PEOPLE\b/.test(a) && !/window\.MAX_PEOPLE/.test(a), '박힌 정원(MAX_PEOPLE) 없음 — maxPeople()');
-    chk(!/INVITE_GATE_ENABLED|EXISTING_SIGNUP_ENABLED/.test(a), '박힌 가입 스위치 없음 — inviteGateOn() · existingSignupOn()');
+    chk(!/INVITE_GATE_ENABLED|EXISTING_SIGNUP_ENABLED/.test(a), '박힌 가입 스위치 없음 — inviteGateOn()');
     chk(/function _rcStore\(\)\{ return \(typeof window !== 'undefined' && window\.TwRemoteConfig && window\.TwRemoteConfig\.store\) \|\| null; \}/.test(a), '설정은 window.TwRemoteConfig.store 한 벌');
     chk(/function roomLimitOf\(channel\)\{ const s = _rcStore\(\); return s \? s\.roomLimitOf\(channel\) : 300; \}/.test(a) &&
       /function maxPeople\(\)\{ const s = _rcStore\(\); return s \? s\.maxPeople\(\) : 10; \}/.test(a) &&
@@ -265,9 +265,9 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(jm && /const ch = openCh \|\| /.test(jm) && /return _channelFullMsg\(ch\);/.test(jm), '방 서버 channelFull 문구 — 설정 상한 · 서버가 연 빈 방이면 그 채널');
     chk((a.match(/maxPeople\(\)/g) || []).length >= 15, '정원 사용처 전부 maxPeople() (' + (a.match(/maxPeople\(\)/g) || []).length + ')');
     const ig = takeFn(a, '(function initInviteGate(');
-    chk(ig && /await _s\.ready\(\['inviteGate','existingSignup'\], REMOTE_FLAGS_WAIT_MS\)/.test(ig) && ig.indexOf('_s.ready(') < ig.indexOf('checkInviteGate()') && /const REMOTE_FLAGS_WAIT_MS = 3000;/.test(a),
+    chk(ig && /await _s\.ready\(\['inviteGate'\], REMOTE_FLAGS_WAIT_MS\)/.test(ig) && ig.indexOf('_s.ready(') < ig.indexOf('checkInviteGate()') && /const REMOTE_FLAGS_WAIT_MS = 3000;/.test(a),
       '부팅 스위치 — 첫 답을 최대 3초 기다린 뒤 초대 게이트(못 받으면 기본값 true)');
-    chk(/if\(!inviteGateOn\(\)\)\{/.test(a) && /if\(!existingSignupOn\(\)\) return null;/.test(a), '  ↳ 게이트 · 가입 강제가 스위치 함수를 본다');
+    chk(/if\(!inviteGateOn\(\)\)\{/.test(a) && !/existingSignupOn/.test(a), '  ↳ 게이트가 스위치 함수를 본다(기존 사용자 가입 강제 I 는 0.13 에서 걷음 — 로그인 없이 쓰는 길 없음)');
 
     // 화면 숫자 다시 그리기 — 가짜 DOM(«최대 N명» 자리)
     const spans = [{ textContent: '10' }, { textContent: '10' }];

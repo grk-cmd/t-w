@@ -8,7 +8,7 @@
    ・5절: 가입 — 비밀번호: 닿지 못해 다시 누르면 같은 요청 번호 · 서버가 거절하면 새 번호 · 비밀번호를 바꾸면 새 번호 · 받은 친구코드로 로그인 ·
           로그인을 못 하면 joined(번호 유지) · 구글: 이미 계정 · 가입 전이면 초대 코드로 가입 · 이미 가입(USER_ALREADY_JOINED)은 그 계정
    ・6절: 내 계정 고치기 — 사본 version · 다른 곳이 먼저 바꿨으면 다시 받아 한 번 더 · 그 밖 실패는 ok:false
-   ・7절: 로그아웃 · 프리미엄 유예 — realtime 끔 · 로그인 놓음 · 사본 지움 · 유예 안 · 밖
+   ・7절: 로그아웃 · 프리미엄 유예 — realtime 끔 · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움 · 유예 안 · 밖
    ・8절: 배선 — html 차례(user-api · api-errors · rt-hub 다음 · app.js 앞)
    ・9절: 일부러 깨 보기 */
 'use strict';
@@ -64,7 +64,7 @@ function mkEnv(S, o){
   const flow = LF.createLoginFlow({
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
-    rt, pending: ids, storage, onSessionLost: () => { lost++; },
+    rt, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
     now: () => clock.t,
     setTimer: (fn, ms) => { const h = { at: clock.t + ms, fn }; clock.q.push(h); return h; },
     clearTimer: (h) => { const i = clock.q.indexOf(h); if(i >= 0) clock.q.splice(i, 1); },
@@ -234,7 +234,7 @@ async function judge(S){
     chk(e.LF.premiumNow({ me: ME(1, { premium: false }), at: 0 }, 0) === false, '프리미엄이 아니면 아님');
     e.flow.goOnline();
     await e.flow.logout();
-    chk(e.rtLog.join() === 'start:{"claim":true},stop' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off', '로그아웃 — realtime 끔 · 로그인 놓음 · 사본 지움');
+    chk(e.rtLog.join() === 'start:{"claim":true},stop,forget' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off', '로그아웃 — realtime 끔(안 끄면 토큰 없이 끝없이 다시 붙음) · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움');
   }
 
   say('── 8. 배선');
@@ -265,7 +265,8 @@ const BREAKS = [
   ['LF', "    const a = await auth.signInPassword(me.friendCode, o.password);", "    const a = await auth.signInPassword('MATE-0000', o.password);", '받은 친구코드로 로그인 안 함'],
   ['LF', "    if(c.state === STATE.SIGNUP){ try{ await auth.signOut(); }catch(_){} return", "    if(c.state === STATE.SIGNUP){ return", '계정 없는 로그인을 남김'],
   ['LF', "        if(!(e && e.code === 'CONCURRENT_UPDATE')) throw e;", "        throw e;", '먼저 바뀌면 그냥 실패'],
-  ['LF', "    try{ deps.rt.stop(); }catch(_){}\n    clearCache();", "    clearCache();", '로그아웃에 realtime 안 끔'],
+  ['LF', "    try{ deps.rt.stop(); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다\n", "", '로그아웃에 realtime 안 끔'],
+  ['LF', "    try{ deps.forgetSession(); }catch(_){}", "", '로그아웃에 API 로그인 읽기를 안 뗌'],
   ['LF', "  return (now - cache.at) <= cache.me.premiumGraceSec * 1000;", "  return true;", '유예가 끝없음'],
   ['LF', "  return 'join:' + String(inviteCode || '') + ':' + h.toString(36);", "  return 'join:' + String(inviteCode || '');", '비밀번호를 바꿔도 같은 요청'],
   ['HTML', '<script src="parts/account/login-flow.js"></script>', '', 'html 에 안 실음'],

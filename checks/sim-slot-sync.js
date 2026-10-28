@@ -463,10 +463,7 @@ if(!block || !fSlotToObj || !fImg || !fSave || !fHash || !fCL || !fCS || !fOne){
 
     /* ── 4. 배선 ── */
     say('── 4. 배선');
-    const rest = grabFn(SRC, '_restoreOwnedDataAfterTransfer', 'async function ') || '';
-    const gi = rest.indexOf("syncGachaToServer('transfer', 'pull')"), si = rest.indexOf("syncSlotsToServer('transfer', 'pull')");
-    chk(si > 0, '★ 연동 통로(_restoreOwnedDataAfterTransfer)가 슬롯 pull 을 부른다 — 계정 이전·구글 로그인 둘 다 이 함수 하나');
-    chk(gi > 0 && si > gi, '  가챠 pull 다음이다(받은 캐릭터가 입은 파츠 보유분이 먼저)');
+    chk(!grabFn(SRC, '_restoreOwnedDataAfterTransfer', 'async function '), '연동 pull 통로(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다 — 다른 계정으로 바뀌면 다시 켜고 부팅 맞추기가 받는다');
     chk(/setTimeout\(\(\)=>\{ try\{ syncSlotsToServer\('boot'\); \}catch\(_\)\{\} \}, 4600\);/.test(SRC), '  부팅 4.6초(가챠 4.2초 다음) 1회');
     chk(/setInterval\(\(\)=>\{ try\{ syncSlotsToServer\('tick'\); \}catch\(_\)\{\} \}, SLOTS_SYNC_INTERVAL_MS\);/.test(SRC) && /SLOTS_SYNC_INTERVAL_MS = 30\*60\*1000/.test(SRC), '  30분 주기(ts 한 값)');
     chk(/const _changed = _str !== null && _str !== prevRaw;/.test(fSave) && /fn\(out, _changed\)/.test(fSave) && /onSaved\(\(out, changed\)=>\{\n  if\(!changed\) return;\n  try\{ _slotsTouch\(\); \}catch\(_\)\{\}\n  try\{ _slotsSchedulePush\(\); \}catch\(_\)\{\}/.test(SRC), '  saveSlots 는 문자열이 달라졌을 때만 push 를 예약한다(«저장 뒤» 알림 · changed)');

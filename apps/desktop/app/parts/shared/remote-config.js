@@ -204,8 +204,6 @@ function createRemoteConfig(){
     roomLimitOf: (ch) => cur.roomLimits[ch] || cur.roomLimits.workingroom,
     maxPeople: () => cur.roomMaxPeople,
     inviteGate: () => cur.inviteGate,
-    /* (얇은 자리) 기존 계정 가입 강제 스위치 — 0.13 설정에 칸이 없다. 옛 판 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다 */
-    existingSignup: () => true,
     roomServerTiming: () => cur.roomServerTiming,
     minAppVer: () => cur.minVersion.app,
     minRoomVer: () => cur.minVersion.room,

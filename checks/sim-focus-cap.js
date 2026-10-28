@@ -293,8 +293,7 @@ console.log('\n[6] 색이 계정을 따라간다 — 받아 오기 · 비워 보
   /* 부르는 자리 · 로그아웃 목록 */
   const initMh = CODE4.slice(CODE4.indexOf('try{ await _adoptStarColorFromProfile(); }catch(_){}'), CODE4.indexOf('try{ await _adoptStarColorFromProfile(); }catch(_){}') + 400);
   t(/_adoptStarColorFromProfile\(\); \}catch\(_\)\{\}\s*try\{ await firebaseAPI\.setMyProfile\(myId,/.test(initMh), '★ 마이홈 초기화 — 받아 오기가 첫 프로필 쓰기보다 먼저');
-  const ats = grab(APP, 'async function _applyTransferSnapshot(') || '';
-  t(/await _adoptStarColorFromProfile\(\)/.test(strip(ats)), '  로그인 복원 끝에서도 받아 온다(로그아웃이 지웠으니)');
+  t(!/function _applyTransferSnapshot\(/.test(APP), '  로그인 복원(계정 사본)은 0.13 에서 걷었다 — 다시 로그인하면 마이홈 초기화가 받아 온다');
   const keys = (APP.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
   t(/'tw\.starColor'/.test(keys), '★ tw.starColor 는 로그아웃 목록에 — 돌아올 길(프로필 starC)이 생겼다');
   /* firebase-init — 비어 온 starC 는 서버 값을 지킨다 */
