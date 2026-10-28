@@ -341,3 +341,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 크로미움(Electron 44 실측)은 칸을 옮기면 compositionend → blur → focusout(같은 틱), 다른 앱이 앞으로 오면 focusout(창 포커스 없음) → window blur → compositionend, 칸을 다시 그리면 compositionend 없이 focusout(그때는 아직 붙어 있음 — 그래서 `defer` 뒤에 `isConnected` 를 본다). 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
 - **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
 - 검사: `checks/sim-input-diag.js`(깨 보기 열).
+
+## `request-id.js` — 🔁 요청 번호(requestId)
+
+- **책임**: 새것을 만들거나 쌓는 쓰기(뽑기 · 선물 · 지급 · 초대 · 글 쓰기 · 대화 보내기)에 싣는 `requestId` 를 만든다 — 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`(uuid). 서버는 같은 사람 · 같은 번호를 «처음 결과를 다시 돌려주기» 로 받는다(10분).
+- **쓰는 법**: 한 번 보내고 끝 — `body.requestId = TwRequestId.newId()`. 닿지 못해 다시 보낼 수 있는 일 — `const ids = TwRequestId.createPending()` 을 모듈에 하나 두고 `ids.idFor(키)`(같은 키는 같은 번호) → 답을 받으면(성공이든 서버 거절이든) `ids.settle(키)`.
+- **내놓는 것**: `PATTERN` · `isValid` · `newId` · `createPending({ newId?, max? })` → `{ idFor · settle · has · size }` · `createIdMaker({ crypto, random })` · `uuidFrom(bytes)`.
+- **함정**: 다시 보낼 때 새 번호를 만들면 서버가 새 일로 받아 두 번 된다(뽑기 두 번 · 선물 두 번). 끝난 일을 settle 하지 않으면 다음 일이 옛 번호로 가서 서버가 옛 결과를 돌려준다. 끝내지 않은 키는 `PENDING_MAX` 까지만 기억한다.
+- 검사: `checks/sim-request-id.js`.

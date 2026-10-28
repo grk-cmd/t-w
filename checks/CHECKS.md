@@ -444,6 +444,7 @@
 | **sim-mh-pad-pos.js** | 164 | **4f0a3400f69c** |
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
+| **sim-request-id.js** | 94 | **34021f461cd5** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
