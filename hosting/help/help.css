@@ -3,9 +3,13 @@
 html,body{margin:0}
 body{background:var(--bg-face);color:var(--ink);font-family:'Nanum Gothic','NanumGothic','나눔고딕','Malgun Gothic','Apple SD Gothic Neo',sans-serif;font-size:15px;line-height:1.75}
 a{color:var(--ink-accent)}
-.bar{position:sticky;top:0;z-index:1;padding:var(--space-3) var(--space-5);
+.bar{position:sticky;top:0;z-index:1;padding:var(--space-3) var(--space-5);display:flex;align-items:center;gap:var(--space-5);
   background:linear-gradient(90deg,var(--title-a),var(--title-b));border-bottom:1px solid var(--line-strong)}
-.bar a{color:var(--title-ink);font-weight:bold;text-decoration:none;font-size:13px}
+.bar > a{color:var(--title-ink);font-weight:bold;text-decoration:none;font-size:13px;white-space:nowrap}
+.tabs{display:flex;gap:var(--space-2);margin-right:auto}
+.tabs a{padding:var(--space-1) var(--space-3);color:var(--title-ink);text-decoration:none;font-size:13px;border:1px solid transparent}
+.tabs a:hover{border-color:var(--title-ink)}
+.tabs a[aria-current]{font-weight:bold;border-color:var(--title-ink)}
 main{max-width:680px;margin:0 auto;padding:var(--space-7) var(--space-6) 64px}
 h1{font-size:22px;margin:0 0 var(--space-6);line-height:1.4}
 h2{font-size:18px;margin:36px 0 var(--space-3);padding-top:var(--space-5);border-top:1px solid var(--line)}
@@ -33,7 +37,27 @@ th{background:var(--bg-face-2)}
 .pn a{text-decoration:none}
 .pn .toc{color:var(--ink-soft)}
 .pn .next{text-align:right}
-@media (max-width:480px){ main{padding:var(--space-6) var(--space-5) 48px} .pn{flex-wrap:wrap} }
+@media (max-width:480px){ main{padding:var(--space-6) var(--space-5) 48px} .pn{flex-wrap:wrap} .bar{flex-wrap:wrap} .hs{flex:1 1 100%} }
+/* 🔍 검색(search.js) — 위 띠 오른쪽 칸 · 결과는 그 아래로 펼친다. 결과를 누르면 그 소제목(#sN)으로 간다 —
+   위 띠(sticky)에 가리지 않게 소제목 위를 비우고, 간 자리를 칠한다 */
+h2,h3{scroll-margin-top:56px}
+h2:target,h3:target{background:var(--bg-select)}
+.hs{position:relative;flex:0 1 260px;min-width:0}
+.hs-in{width:100%;padding:var(--space-2) var(--space-3);font:inherit;font-size:13px;color:var(--ink);background:var(--bg-field);border:1px solid var(--line-strong)}
+.hs-in:focus{outline:2px solid var(--ink-accent);outline-offset:-1px}
+.hs-out{position:absolute;right:0;top:calc(100% + var(--space-2));width:min(440px,calc(100vw - 32px));max-height:70vh;overflow:auto;
+  padding:var(--space-4);background:var(--bg-face);border:1px solid var(--line-strong);box-shadow:var(--shadow-window)}
+.hs-note,.hs-sub{margin:var(--space-2) 0;font-size:13px;color:var(--ink-soft)}
+.hs-ans{display:block;padding:var(--space-4) var(--space-5);text-decoration:none;color:var(--ink);background:var(--bg-select);border:1px solid var(--line-strong)}
+.hs-tag{display:block;font-size:12px;color:var(--ink-soft)}
+.hs-where{display:block;margin:var(--space-1) 0}
+.hs-text{display:block;font-size:14px}
+.hs-go{display:block;margin-top:var(--space-2);font-size:13px;color:var(--ink-accent)}
+.hs-list{list-style:none;padding:0;margin:0;display:grid;gap:var(--space-2)}
+.hs-list a{display:block;padding:var(--space-3) var(--space-4);text-decoration:none;color:var(--ink);background:var(--bg-face-2);border:1px solid var(--line);font-size:13px}
+.hs-list a:hover,.hs-ans:hover{border-color:var(--ink-accent)}
+.hs-list b{display:block}
+.hs mark{background:none;color:inherit;font-weight:bold;text-decoration:underline}
 /* 앱 마이홈 📘 도움말 탭 안(?embed=1) — 바탕은 앱 칸 것이 비치게 비우고, 글자 · 여백은 마이홈 칸(11~12px) 가까이.
    위 띠는 앱 왼쪽 메뉴(목차)와 겹쳐 숨긴다 — 편 옮기기는 왼쪽 메뉴 · 아래 «이전 · 다음».
    선 · 카드 · 번호는 글자색을 옅게 섞은 무채색 — 앱 색 고르기(c1~c5)가 무엇이든 마이홈 칸과 따로 놀지 않게 */

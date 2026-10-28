@@ -14,6 +14,7 @@
   if(theme) carry.push('theme=' + theme);
   if(embed) carry.push('embed=1');
   if(!carry.length) return;
+  root.setAttribute('data-carry', carry.join('&'));   // 나중에 만드는 링크(검색 결과 — search.js)도 같은 것을 붙이게
   document.addEventListener('DOMContentLoaded', function(){
     var links = document.querySelectorAll('a[href^="/"]');
     for(var i = 0; i < links.length; i++) links[i].setAttribute('href', links[i].getAttribute('href') + '?' + carry.join('&'));
