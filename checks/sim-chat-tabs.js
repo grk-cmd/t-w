@@ -125,9 +125,8 @@ chk(!rules.chatTab, '  규칙에 `chatTab`(밑줄 없는) 자리는 없다');
 const mv = rules.$memberId['.validate'];
 chk(/newData\.child\('tab'\)\.val\(\)\.length <= 16/.test(mv) && /newData\.child\('chatTab'\)\.child\('text'\)\.val\(\)\.length <= 140/.test(mv), 'presence tab · chatTab 검증 (text ≤ 140)');
 {
-  const fc = (FB.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
   const FN = read('functions/room-stats.js') || '';
-  chk(fc.length > 0 && !/\/_chatTab`/.test(fc) && /if \(keys && keys\._chatTab\) await db\.ref\('rooms\/' \+ code \+ '\/_chatTab'\)\.remove\(\);/.test(FN),
+  chk(!/_finalCleanup/.test(FB) && /if \(keys && keys\._chatTab\) await db\.ref\('rooms\/' \+ code \+ '\/_chatTab'\)\.remove\(\);/.test(FN),
       '빈 방 정리 — 탭 기록은 서버 함수가 _meta 와 함께 걷는다(앱 퇴장은 안 지운다 · sim-room-meta-cleanup.js)');
 }
 chk(/async deleteChatTab\(room, tabId\)\{[\s\S]{0,300}_meta\/tabs\/\$\{tabId\}`\] = null;[\s\S]{0,80}_chatTab\/\$\{tabId\}`\] = null;/.test(FB), '탭 삭제는 정의 · 기록을 한 묶음으로');

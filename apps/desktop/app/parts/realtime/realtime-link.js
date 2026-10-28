@@ -1,5 +1,5 @@
 /*
- * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 옛 방 연결(room/room-server-net.js · pv 1)과 늘 붙는 연결 하나(realtime/rt-hub.js · pv 2)가 같이 쓴다.
+ * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 늘 붙는 연결 하나(realtime/rt-hub.js · pv 2)가 쓴다(방 · 대화 · 사진은 그 위의 포트).
  * 책임: 열기 · hello(인증) · ready 기다리기 · 토큰 갱신 · 다시 붙기 백오프 · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 잠깐 쉬기.
  *   방 · 친구처럼 «무엇을 주고받는지» 는 모른다 — 연결 위의 메시지는 hooks.onMessage 로 넘기고, 끊기면 hooks.onClosed 로 알린다.
  *   다시 붙을지 · 언제 포기할지도 부르는 쪽이 정한다(scheduleReconnect 를 부르면 그때 백오프로 붙는다).

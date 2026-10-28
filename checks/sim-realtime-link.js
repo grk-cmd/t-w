@@ -6,7 +6,7 @@
  * 3. rid 요청 — answers 로 답 짝짓기 · rid 없는 답(ridless 켬/끔) · badRequest(ref · ref 없음) · 시간 초과 · 끊기면 null
  * 4. 끊김 → onClosed(wasReady, fatal) · 다시 붙기 백오프(reconnectWanted) · markAuthRetry → getToken(true)
  * 5. 토큰 갱신 hello 에도 선택 칸 · 쉬면 닫기(idleCloseMs · busy) · 못 붙은 주소 1분 쉼 · retry · 주소 바뀜(switchOk)
- * 6. firebase-init 연결 — import 하고 방 연결에 createLink 로 넘긴다
+ * 6. firebase-init 연결 — import 하고 realtime 연결 하나(rt-hub)에 createLink 로 넘긴다
  */
 'use strict';
 const fs = require('fs');
@@ -347,7 +347,7 @@ async function up(env){
   {
     const FC = strip(FI);
     chk(/import \{ createRealtimeLink \} from "\.\/realtime\/realtime-link\.js";/.test(FC), 'firebase-init.js 가 realtime/realtime-link.js 를 import');
-    chk(/createRoomServerNet\(\{\s*createLink: createRealtimeLink,/.test(FC), '  ↳ 방 연결에 createLink 로 넘긴다');
+    chk(/TwRtHub\.store\.bind\(\{ createLink: createRealtimeLink,/.test(FC) && !/createRoomServerNet/.test(FC), '  ↳ realtime 연결 하나(rt-hub)에 createLink 로 넘긴다 · 옛 방 연결(pv 1)은 없다');
   }
 
   say(fail ? `\n✗ 실패 ${fail}건` : `\n전부 통과 ✅ (${pass}건)`);

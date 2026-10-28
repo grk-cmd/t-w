@@ -5,7 +5,7 @@
   다시 붙기 백오프(1 · 2 · 4 · 8 · 15초) · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 1분 쉬기.
   무엇을 주고받는지(방 · 친구 접속 상태)는 모른다 — 연결 위의 메시지는 `hooks.onMessage`, 끊김은 `hooks.onClosed(wasReady, fatal)` 로 넘긴다.
   다시 붙을지 · 언제 포기할지는 부르는 쪽이 정한다(`scheduleReconnect()` 를 부르면 그때 백오프로 붙는다).
-- 쓰는 곳: `realtime/rt-hub.js`(pv 2 — 로그인 뒤 늘 붙는 연결 하나) · `room/room-server-net.js`(옛 방 연결 pv 1 — 방 묶음이 rt-hub 위로 옮기면 걷는다).
+- 쓰는 곳: `realtime/rt-hub.js`(pv 2 — 로그인 뒤 늘 붙는 연결 하나). 방은 그 위의 방 포트(`room/room-rt.js`)로 — 옛 방 연결(pv 1 · room-server-net.js)은 걷었다. pv 1 갈래(`userId` · `ridless` · `reflessKind`)는 쓰는 곳이 없어 다음에 걷는다.
 - pv 2 부터 hello 에 `userId` 를 싣지 않는다(서버는 모르는 칸을 `badRequest` 로 거절 · 신원은 토큰뿐). 연결마다 · 갱신마다 달라지는 칸은 `helloFields(phase)`(`'open'` · `'refresh'`).
 - `hooks.onReady(readyMsg)` · `hooks.onClosed(wasReady, fatal, closeCode)` — 닫힘 번호(4001 · 4003 · 4004 · 4005)는 부르는 쪽이 판단한다.
 - 만드는 법: 아무것도 import 하지 않는다. firebase-init.js 가 `createRealtimeLink` 를 import 해 토큰 · 버전 · userId 와 함께 넘긴다.
@@ -26,7 +26,7 @@
 - 함정:
   - `ridless` 를 켜면 rid 없는 답을 같은 종류의 가장 먼저 보낸 요청이 가져간다(rid 를 모르는 옛 방 서버용). 밀어 주는 메시지와 답의 t 가 같은 연결(presence)은 꼭 끈다.
   - ready 전의 `error` auth · version · protocol 은 서버가 곧 끊는 신호라 바로 닫고 `onClosed(false, fatal)` — auth 를 한 번 더 시도할지는 부르는 쪽(`markAuthRetry`).
-  - 검사: `checks/sim-realtime-link.js`(공통부) · `checks/sim-room-server-net.js`(방 연결이 이 위에서 그대로 도는지).
+  - 검사: `checks/sim-realtime-link.js`(공통부) · `checks/sim-rt-hub.js` · `checks/sim-room-rt.js`(연결 하나 · 방 포트가 이 위에서 그대로 도는지).
 
 ## rt-hub.js — realtime 연결 하나(pv 2 · classic script `window.TwRtHub`)
 - 책임: 로그인 뒤 늘 붙어 있는 웹소켓 하나 — `hello { pv:2, token, ver, deviceId, session, claim? }` · `ready{ userCode }` · 끊기면 늘 다시 붙기 · 닫힘 번호 판단 · 알림(`notify`) → 건 함수 표 · 오래 끊겼다 붙으면 한 번씩 다시 받기. 방 · 친구 · 알림함 같은 «무엇» 은 모른다.

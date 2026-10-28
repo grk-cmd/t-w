@@ -253,7 +253,7 @@ say('── 10. 📏 자리비움 그림 크기 60·80·100 — 그림 주인이
   chk(px({ remote:true, remoteAwaySz:null }) === 80 && px({ remote:true, remoteAwaySz:999 }) === 80 && px(null) === 80, '안 보냈거나(구버전) 엉뚱한 값이면 기본 80');
   chk((/let myAwaySz=80;/.test(CODE) || (/let myAwaySz=AWAY_SZ_DEFAULT;/.test(CODE) && /const AWAY_SZ_DEFAULT = 80;/.test(CODE) && CODE.indexOf('const AWAY_SZ_DEFAULT = 80;') < CODE.indexOf('let myAwaySz=AWAY_SZ_DEFAULT;'))) && !/let myAwaySz=AWAY_PIC_SCREEN_PX/.test(CODE),   // 숫자 상수(presence.js 위 — C 구역 떼기 w4)도 같은 뜻
   'Presence 초기값은 숫자 — 아래쪽 var 를 읽으면 load 순간 undefined(방 payload 거절)');
-  chk(/\.\.\.myStarOut\(\), awaySz:myAwaySz, lic:/.test(CODE) && /\{def:myDef,name:myName,awaySz:myAwaySz,state:myState,/.test(CODE), '평소 · 입장 payload 에 awaySz(다른 검사가 붙잡은 줄 모양은 안 흔든다)');
+  chk(/\.\.\.myStarOut\(\), awaySz:myAwaySz, awayImg:/.test(CODE) && /\{def:myDef,name:myName,awaySz:myAwaySz,state:myState,/.test(CODE), '평소 · 입장 payload 에 awaySz(다른 검사가 붙잡은 줄 모양은 안 흔든다)');
   chk(/s\.remoteAwaySz=_awaySzOk\(friends\[id\]\.awaySz\) \? friends\[id\]\.awaySz : null;/.test(CODE), '받는 쪽은 세 값만 받는다');
   chk(/function setAwaySz\(px\)\{[\s\S]{0,160}if\(v === myAwaySz\) return;/.test(CODE) && /setAwayImg, setAwaySz,/.test(CODE), 'Presence.setAwaySz — 같으면 안 보냄 · 내보냄');
   const ui = grab(SRC, '_awaySetSz');

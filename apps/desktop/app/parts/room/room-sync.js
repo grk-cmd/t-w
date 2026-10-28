@@ -1,11 +1,11 @@
-/* room-sync.js — 📦 방으로 보내는 def(직렬화 · 얼굴 URL · 델타 전송 · Firebase provider) · 🛰 poke 신선도 · 🚪 자리비움 자동 퇴장 · 🛰 서버 모듈 감시견
+/* room-sync.js — 📦 방으로 보내는 def(직렬화 · 얼굴 URL) · 🛰 poke 신선도 · 🚪 자리비움 자동 퇴장 · 🛰 서버 모듈 감시견
    app.js 네 구역(«📦 방으로 보내는 def» · «🛰 poke 신선도» · «🚪 자리비움 자동 퇴장» · «🛰 서버 모듈 감시견») 본문을 그대로 옮긴 모듈이다(앱 FSD 35번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다. poke 구역에 섞여 있던 날리기(canFly · startFlight)는 도메인이 달라 app.js 에 남겼다. 방 통신 두 통로 정리(-net 전략)는 컨벤션 단계에서 한다.
+   poke 구역에 섞여 있던 날리기(canFly · startFlight)는 도메인이 달라 app.js 에 남겼다. 방 통신은 room-rt.js 방 포트 하나(바뀐 칸 고르기도 거기서).
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 4개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 5줄 —
      DESK_LICENSE_HOLD · ITEM_LICENSE_HOLD · Presence · savedDesks 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 7개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). _autoAwayResetClock 은 Presence(room/presence.js)가 window 에 거는 것을 app.js 가 이어 준다(모듈끼리 window 로 부르면 순환 — sim-dep-cycles).
-   ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · makeFirebaseProvider · retryDefAfter · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: AUTO_EXIT_AFTER_AWAY_MS · AUTO_EXIT_WARN_MS · POKE_SKEW_MS · _autoExitCancel · _autoExitWarn · _defSizeNames · _loadImgCors · _pokeFresh · _quickHash · _roomFaceCacheLoad · _roomFaceCacheSave · _srvNow · _storageFaceUrlOne · defWireForSize · deserializeDefFromNetwork · ensureRoomFaceUrls · retryDefAfter · serializeDefForNetwork — app.js 는 roomSyncMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwRoomSync — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-room-sync.js */
@@ -28,10 +28,10 @@ const toast = deps.toast;
 const diagNote = deps.diagNote;   // 진단 기록(tw-mouse-diag.log) 한 줄 — 남의 그림을 못 받은 PC 를 제보 때 가른다
 const POKE_FRESH_MS = 30000;   // 이보다 오래된 알림은 재생하지 않는다
 const POKE_SKEW_MS  = 60000;   // 기기 시계가 서버보다 앞설 때의 여유(음수 나이 허용폭)
-/* 서버 시계 — 가챠 ts 와 같은 곳을 본다(firebaseAPI.serverNow). 없으면 기기 시계로 물러난다. */
+/* 서버 시계 — 찌르기 ts 는 realtime 서버가 찍는다. 방 안이면 방 포트가 welcome · music 의 now 로 맞춘 시계, 방 밖이면 기기 시계. */
 function _srvNow(){
-  try{ if(window.firebaseAPI && typeof firebaseAPI.serverNow === 'function') return firebaseAPI.serverNow(); }catch(_){}
-  return Date.now();
+  const sp = Presence().serverProvider();
+  return sp ? sp.serverNow() : Date.now();
 }
 function _pokeFresh(ts){
   if(!ts) return true;                       // 옛 클라이언트가 ts 없이 보낸 값 — 예전처럼 그냥 받는다
@@ -128,8 +128,6 @@ function _autoExitWarn(){
   }, 250);
 }
 
-/* Firebase Realtime Database 연동 — 실제 함수는 HTML의 <script type="module">이 window.firebaseAPI로 노출.
-   Presence가 기대하는 join/update/leave 인터페이스로 감싸기만 함. */
 // ★ Canvas 객체는 Firebase(JSON 기반)로 그대로 못 보냄 — 보낼 때 dataURL 문자열로 바꾸고,
 //   받을 때 다시 Canvas로 복원해야 함. 그동안 가짜(mock) 친구는 내 Canvas를 그대로 재사용해서
 //   이 변환이 없어도 문제없이 보였는데, 실제 Firebase 왕복에서는 반드시 필요함.
@@ -439,79 +437,6 @@ function retryDefAfter(def, tries){
    ★ def·chat은 항상 통과 — def는 명시적 변경 요청이고, chat은 ts가 매번 달라서 델타의 의미가 없다.
    ★ html의 재접속 재등록은 _myMemberData(updateMe가 Object.assign으로 계속 누적)를 통째로 set하므로,
      델타로 보내도 _myMemberData에는 전체 상태가 남아 있어 재등록 내용이 깨지지 않는다. */
-let _lastSentRoomPayload = null;
-/* 🛰 방 스냅샷 일련번호 — 늦게 끝난 낡은 스냅샷이 새 것을 덮어쓰지 못하게 하는 유일한 기준.
-   방을 옮겨도 계속 올라가기만 하면 된다(비교만 하고 값 자체는 의미가 없다). */
-let _roomSnapSeq = 0;
-function _sameRoomVal(a, b){
-  if(a === b) return true;
-  if(a == null && b == null) return true;   // null/undefined는 같은 것으로 취급(둘 다 "값 없음")
-  if(a == null || b == null) return false;
-  if(typeof a === 'object' || typeof b === 'object'){
-    try{ return JSON.stringify(a) === JSON.stringify(b); }catch(_){ return false; }
-  }
-  return false;
-}
-function _diffRoomPayload(payload){
-  if(!payload) return payload;
-  if(!_lastSentRoomPayload){                 // 입장 후 첫 갱신 — 기준값이 없으니 전체를 보내고 기준을 만든다
-    _lastSentRoomPayload = {};
-    for(const k in payload){ if(k!=='def' && k!=='chat') _lastSentRoomPayload[k]=payload[k]; }
-    return payload;
-  }
-  const out = {}; let changed = 0;
-  for(const k in payload){
-    if(k === 'def' || k === 'chat'){ out[k] = payload[k]; changed++; continue; }
-    if(_sameRoomVal(_lastSentRoomPayload[k], payload[k])) continue;
-    out[k] = payload[k]; _lastSentRoomPayload[k] = payload[k]; changed++;
-  }
-  return changed ? out : null;               // null = 보낼 게 없음
-}
-function makeFirebaseProvider(hooks){
-  return {
-    join(room, me, changeCb, onPoked){
-      const payload=Object.assign({}, me, { def: serializeDefForNetwork(me.def) });
-      _lastSentRoomPayload = null;   // 새 방 = 새 기준. 첫 update가 전체를 보내며 다시 잡는다.
-      window.firebaseAPI.joinRoom(room, payload, async (friends)=>{
-        friends=friends||{};
-        /* 🛰 **스냅샷 순서 보장** — 이 콜백은 async 라서 여러 스냅샷이 겹쳐 돌 수 있고,
-             안에서 def 를 await 로 푸는 동안 나중 스냅샷이 먼저 끝나 버릴 수 있다.
-           [무엇이 터졌나] 그러면 **낡은 스냅샷이 새 것을 덮어쓴다.** poke 는 사람마다 한 칸뿐이고
-             값이 지워지지 않으므로, 낡은 스냅샷에는 아까 던진 `fly:` 가 그대로 들어 있다.
-             수신부는 "ts 가 직전과 다르면 새 이벤트"로 보니, 새 poke(dance) 를 먼저 본 뒤 낡은
-             fly 가 도착하면 **다시 날린다.** 제보의 "폭탄으로 날린 적 있는 사람만 /80 에 날아간다"가
-             정확히 이것이다 — 그 사람들의 칸에만 fly 가 남아 있으니까.
-             /80 은 방 인원 수만큼 poke 를 연달아 쓰므로 스냅샷이 몰려 들어와 순서가 잘 뒤집힌다.
-           ★ 스냅샷은 **방 전체의 완전한 상태**다. 낡은 것은 합치지 않고 통째로 버리는 게 맞다.
-           ★ 겸사겸사 순차 await 를 Promise.all 로 바꾼다 — 인원수만큼 직렬로 기다리던 것이 한 번에 끝난다. */
-        const _seq = ++_roomSnapSeq;
-        const ids = Object.keys(friends);
-        const defs = await Promise.all(ids.map(id=>deserializeDefFromNetwork(friends[id].def)));
-        if(_seq !== _roomSnapSeq) return;          // 더 새 스냅샷이 이미 지나갔다 — 이건 버린다
-        const restored={};
-        ids.forEach((id,i)=>{ restored[id]=Object.assign({}, friends[id], { def: defs[i] }); });
-        changeCb(restored);
-      }, onPoked, hooks);
-    },
-    update(payload){
-      // def가 같이 왔으면(크기·파츠 변경 등) 직렬화해서 보냄 — join과 마찬가지로 Canvas는 그대로 못 보냄
-      if(payload && payload.def) payload=Object.assign({}, payload, { def: serializeDefForNetwork(payload.def) });
-      const delta = _diffRoomPayload(payload);
-      if(!delta) return;   // 바뀐 게 없음 — 쓰기 생략(방 인원수만큼의 다운로드도 함께 사라진다)
-      window.firebaseAPI.updateMe(delta);
-    },
-    poke(targetId, type){
-      if(window.firebaseAPI.poke) window.firebaseAPI.poke(targetId, type);
-    },
-    pokeSelf(type){
-      if(window.firebaseAPI.pokeSelf) window.firebaseAPI.pokeSelf(type);
-    },
-    leave(){
-      return window.firebaseAPI.leaveRoom();
-    }
-  };
-}
-
 (function _fbBootWatch(){
   const FIRST_WAIT_MS = 12000;   // 첫 판단까지 — 느린 회선의 정상 부팅을 방해하지 않을 만큼
   const RETRY_GAP_MS  = 6000;
@@ -619,7 +544,6 @@ return {
   defWireForSize,
   deserializeDefFromNetwork,
   ensureRoomFaceUrls,
-  makeFirebaseProvider,
   retryDefAfter,
   serializeDefForNetwork,
 };

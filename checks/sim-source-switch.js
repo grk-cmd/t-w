@@ -14,7 +14,7 @@ const at = (f, dir) => [f, 'parts/' + dir + '/' + f, 'app/parts/' + dir + '/' + 
 const SRC0 = {
   SS: pick(at('source-switch.js', 'shared')),
   PORT: pick(at('friends-port.js', 'friends')),
-  GATE: pick(at('room-server-gate.js', 'room')),
+  ROOMRT: pick(at('room-rt.js', 'room')),
   CC: pick(at('catalog-cache.js', 'character')),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
@@ -43,7 +43,7 @@ async function judge(S){
     const P = SW.pickSource;
     chk(P('friends') === 'server' && P('catalog') === 'server' && P('gacha') === 'firebase',
       '★ 친구 서버 먼저 · 카탈로그 서버 먼저 · 가챠 앱이 뽑기 — 옛 판의 «스위치 칸 없음» 기본값과 같다');
-    chk(P('rooms') === 'firebase', '  ↳ 방은 표에 없다(room-server-gate.js 가 늘 Firebase) — 물어도 파이어베이스');
+    chk(P('rooms') === 'firebase', '  ↳ 방은 표에 없다(방은 room-rt.js 방 포트 하나 — 고르지 않는다) — 물어도 파이어베이스');
     chk(P('presence') === 'firebase' && P(undefined) === 'firebase' && P('toString') === 'firebase' && P('__proto__') === 'firebase', '모르는 기능은 파이어베이스(물려받은 이름에도 속지 않음)');
     chk(JSON.stringify(Object.keys(SW.ONE_WAY)) === JSON.stringify(['friends', 'catalog', 'gacha']) && Object.isFrozen(SW.ONE_WAY), '표 — friends · catalog · gacha · 바꿀 수 없다');
     chk(SW.store.pick === SW.pickSource && SW.store.serverFirst === SW.serverFirst, 'store — 같은 두 함수(부르는 쪽 줄은 그대로)');
@@ -83,12 +83,12 @@ async function judge(S){
     const a = strip(S.APP), fi = strip(S.FI);
     chk(/  source: \(\)=>TwSourceSwitch\.store\.pick\('friends'\),/.test(a) && /  serverFirst: TwSourceSwitch\.serverFirst,/.test(a), '친구 — app.js 가 포트에 pick(friends) · serverFirst 를 넘긴다');
     chk(/gachaSource: \(\)=>TwSourceSwitch\.store\.pick\('gacha'\),/.test(a), '가챠 — app.js 가 pick(gacha) 를 넘긴다');
-    chk(!/pick\('rooms'\)/.test(fi) && !/pick\('rooms'\)/.test(a), '방 — 고르지 않는다(문지기가 늘 Firebase)');
+    chk(!/pick\('rooms'\)/.test(fi) && !/pick\('rooms'\)/.test(a), '방 — 고르지 않는다(방 포트 하나)');
     chk(/source: \(\) => window\.TwSourceSwitch\.store\.pick\('catalog'\),/.test(fi) && /serverFirst: window\.TwSourceSwitch\.serverFirst, SKIP: window\.TwSourceSwitch\.SKIP,/.test(fi),
       '카탈로그 — firebase-init 이 본문 받기에 pick(catalog) · serverFirst · SKIP 을 넘긴다');
     chk(/await serverFirst\(source\(\),/.test(strip(S.PORT)) && /await serverFirst\(source\(\), fromApi,/.test(strip(S.CC)),
       '  ↳ 포트 · 카탈로그는 받은 답만 쓴다(serverFirst)');
-    const files = { 'friends-port.js': S.PORT, 'room-server-gate.js': S.GATE, 'catalog-cache.js': S.CC, 'app.js': S.APP, 'firebase-init.js': S.FI };
+    const files = { 'friends-port.js': S.PORT, 'room-rt.js': S.ROOMRT, 'catalog-cache.js': S.CC, 'app.js': S.APP, 'firebase-init.js': S.FI };
     const hits = [];
     for(const [f, src] of Object.entries(files)){ const c = strip(src); for(const [name, re] of OUTSIDE) if(re.test(c)) hits.push(f + ': ' + name); }
     chk(!hits.length, '★ 기능 쪽 · 연결 파일이 옛 스위치를 직접 읽거나 고르기를 다시 쓰지 않는다' + (hits.length ? ' — ' + hits.slice(0, 4).join(' / ') : ''));

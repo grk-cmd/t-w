@@ -7,8 +7,8 @@
    ⇒ launchApp 이 «방에 마지막으로 보낸 def(Presence.myDef)» 와 지금 슬롯 def 를 견주어 다르면
      캐릭터 교체(switchMainCharacter)와 같은 Presence.updateDef 로 보낸다.
 
-   1. Firebase 방 — 바뀐 채로 돌아오면 updateMe 에 새 def · 그냥 왕복은 아무것도 안 보냄 · 방 밖이면 안 보냄
-   2. 방 서버 방 — 같은 길로 provider.update 에 def 가 실린다(서버 provider 는 이 def 를 'def' 메시지로 보낸다)
+   1. 진짜 방 포트(room-rt.js · 가짜 연결) — 바뀐 채로 돌아오면 def 메시지에 새 def · 그냥 왕복은 아무것도 안 보냄 · 방 밖이면 안 보냄
+   2. 가짜 provider — 같은 길로 provider.update 에 def 가 실린다
    3. 줄 — launchApp 이 Presence.myDef 를 보고 updateDef 를 부른다 · 옛 줄(안 보냄)이면 빨강
    ⚠ smoke.js 의 스텁을 빌려 쓴다 — 같은 폴더에 있어야 한다. */
 'use strict';
@@ -35,7 +35,7 @@ globalThis.HTMLImageElement = globalThis.Image;
 
 const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const probe = `
-;globalThis.__P = { Presence, slots, launchApp, setCurSlot: n => { curSlot = n; } };`;
+;globalThis.__P = { Presence, slots, launchApp, serializeDefForNetwork, setCurSlot: n => { curSlot = n; } };`;
 
 const say = console.log;
 console.log = () => {}; console.warn = () => {};
@@ -54,11 +54,24 @@ const tick = () => new Promise(r => realST(r, 20));
 let sent = [];
 globalThis.window.firebaseAPI = {
   uploadRoomFace: async (uid, key) => ({ ok: true, url: 'https://storage.test/' + key + '.png' }),
-  joinRoom: (room, me) => { sent.push({ how: 'join', payload: me }); return 'm_test'; },
-  updateMe: (p) => { sent.push({ how: 'update', payload: p }); },
-  leaveRoom: async () => {},
-  poke: () => {},
 };
+/* 진짜 방 포트를 가짜 연결 위에 — 웹소켓으로 나가는 join · def 를 붙잡는다 */
+function mkHub(){
+  const fns = {};
+  const h = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, onState(){}, request: async () => null,
+    state: () => 'ready', isReady: () => true, userCode: () => 'u_test',
+    send(m){
+      if(m.t === 'join'){ sent.push({ how: 'join', payload: m.me }); realST(() => h.emit({ t: 'welcome', room: m.room, memberId: 'm_test', resume: 'R', resumed: false, members: {}, meta: null, music: null, musicSeq: -1, now: Date.now() }), 0); }
+      else if(m.t === 'def') sent.push({ how: 'update', payload: { def: m.def } });
+      else if(m.t === 'leave') realST(() => h.emit({ t: 'left', memberId: 'm_test', reason: 'leave' }), 0);   // 나가기 확인 — 안 주면 1.5초 기다린다
+      else sent.push({ how: m.t, payload: m });
+      return true;
+    },
+    emit(m){ (fns[m.t] || []).forEach((f) => f(m)); },
+  };
+  return h;
+}
+const rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE });
 globalThis.getMyUserId = () => 'u_test';
 
 const D = t => 'data:image/png;base64,' + t + 'A'.repeat(200);
@@ -70,15 +83,15 @@ const defSends = () => sent.filter(s => s.how === 'update' && s.payload && s.pay
   say('=== 🎨 방에서 런처로 캐릭터를 고치고 돌아오면 방에도 간다 ===');
   say('');
 
-  /* ── 1. Firebase 방 ── */
-  say('· Firebase 방 — 1번 칸으로 입장한 뒤 런처를 오간다');
+  /* ── 1. 진짜 방 포트 ── */
+  say('· 방 포트 — 1번 칸으로 입장한 뒤 런처를 오간다');
   P.slots.fill(null);
   P.slots[0] = OLD;
   P.setCurSlot(0);
   P.launchApp({ mode: 'run' });
   sent = [];
-  await P.Presence.start('TESTROOM', P.slots[0], '나', () => {});
-  chk(sent.length && sent[0].how === 'join', '입장 — joinRoom 으로 갔다');
+  await P.Presence.start('WORK-TEST', P.slots[0], '나', () => {}, { provider: rt.makeProvider({ serializeDef: P.serializeDefForNetwork }, null) });
+  chk(sent.length && sent[0].how === 'join', '입장 — join 메시지로 갔다');
   chk(P.Presence.myDef() === OLD, 'Presence.myDef 는 입장 때 보낸 def 다');
 
   sent = [];
@@ -91,7 +104,7 @@ const defSends = () => sent.filter(s => s.how === 'update' && s.payload && s.pay
   P.launchApp({ mode: 'run' });
   await tick();
   const ds = defSends();
-  chk(ds.length === 1, '고친 뒤 돌아옴 — updateMe 에 def 가 한 번 실렸다 (' + ds.length + ')');
+  chk(ds.length === 1, '고친 뒤 돌아옴 — def 메시지에 def 가 한 번 실렸다 (' + ds.length + ')');
   const d = ds[0] && ds[0].payload.def;
   chk(d && d.skin === 3 && d.top === '#ff0000', '실린 def 가 새 디자인이다(피부 · 윗옷)');
   chk(d && typeof d.faceUrl === 'string' && d.faceUrl.indexOf('https://storage.test/face_') === 0, '얼굴은 Storage URL 로 실렸다');
@@ -111,8 +124,8 @@ const defSends = () => sent.filter(s => s.how === 'update' && s.payload && s.pay
   chk(sent.length === 0, '방 밖 — 아무것도 안 보낸다');
   say('');
 
-  /* ── 2. 방 서버 방 — provider 만 바꿔 같은 길을 탄다 ── */
-  say('· 방 서버 방 — 서버 provider 로 입장한 뒤 런처를 오간다');
+  /* ── 2. 가짜 provider — 같은 길을 탄다 ── */
+  say('· 가짜 provider 로 입장한 뒤 런처를 오간다');
   const upd = [];
   const fakeServer = {
     kind: 'server',

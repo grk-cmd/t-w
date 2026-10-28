@@ -86,7 +86,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
     let lic = !!o.licensed;
     const ui = global.window.TwRoomCreateUi.createRoomCreateUi({
       roomSettings: RS, bannedWords: BW, rcStore: () => ({ bannedWords: () => o.banned || [] }),
-      maxPeople: () => o.cap || 10, isLicensed: () => lic, onCreate: (ch, s) => made.push([ch, s]), serverRoomLikely: () => (o.check ? o.check() : Promise.resolve(!!o.server)),
+      maxPeople: () => o.cap || 10, isLicensed: () => lic, onCreate: (ch, s) => made.push([ch, s]),
     });
     return { ui, el, made, setLic: (v) => { lic = v; } };
   }
@@ -103,34 +103,12 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   t.el('rcOpen').checked = false;
   t.el('rcCreate').onclick();
   chk(t.made.length === 1 && t.made[0][0] === 'workingroom' && JSON.stringify(t.made[0][1]) === '{"title":"공부방","max":2,"open":false,"music":false}', '★ [방 만들기] → onCreate(채널, { 제목 · 최대 인원 · 공개 · 같이 듣기 })');
-  // 가짜 DOM 은 mk 마다 전역 document 를 바꾼다 — 한 창의 확인을 끝낸 뒤 다음 창을 만든다
-  const flush = () => new Promise(r => setImmediate(r));
   t.ui.open('workingroom');
-  chk(t.el('rcMusicRow').hidden === true, '  «내 서버» 확인이 끝날 때까지는 같이 듣기 칸을 숨겨 둔다(앱을 켠 뒤 처음이면 아직 모른다)');
-  await flush();
-  chk(t.el('rcMusic').checked === false && t.el('rcMusicRow').hidden === false, '  다시 열면 같이 듣기는 꺼진 채 · Firebase 방이면 확인 뒤 칸이 보인다');
+  chk(t.el('rcMusic').checked === false && t.el('rcMusicRow').hidden !== true, '  다시 열면 같이 듣기는 꺼진 채 · 칸은 늘 보인다(0.13 — 방은 서버 하나라 같이 듣기를 받는다)');
   t.el('rcMusic').checked = true;
   t.el('rcCreate').onclick();
   chk(t.made.length === 2 && t.made[1][1].music === true, '★ 같이 듣기를 켜면 music:true 로 넘긴다');
   t.made.length = 1;
-  const ts = mk({ server: true });
-  ts.ui.open('workingroom');
-  await flush();
-  ts.el('rcMusic').checked = true;   // 숨긴 칸에 남은 체크가 있어도
-  ts.el('rcCreate').onclick();
-  chk(ts.el('rcMusicRow').hidden === true && ts.made[0][1].music === false, '★ 새 방이 방 서버로 가면 «🎧 같이 듣기 방» 칸을 숨기고 music:false — 방 서버는 아직 같이 듣기를 모른다');
-  let done = null;
-  const tl = mk({ check: () => new Promise(r => { done = r; }) });
-  tl.ui.open('workingroom');
-  tl.ui.close();
-  done(false); await flush();
-  chk(tl.el('rcMusicRow').hidden === true, '  확인이 끝나기 전에 창을 닫으면 아무것도 안 바뀐다');
-  const tr = mk({ check: () => new Promise(r => { done = r; }) });
-  tr.ui.open('workingroom');
-  const first = done;
-  tr.ui.close(); tr.ui.open('workingroom');   // 다시 열면 지난 확인 결과는 버린다
-  first(false); await flush();
-  chk(tr.el('rcMusicRow').hidden === true, '  다시 연 창에는 지난 확인 결과를 쓰지 않는다');
   chk(t.el('roomCreatePanel').hidden && !t.el('lobbyMain').hidden, '  만들고 나면 창을 닫고 로비로');
 
   t = mk({ banned: ['나쁜말'] });
@@ -158,26 +136,23 @@ say('── 4. room-create-ui.js — 가짜 DOM');
 
 say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다');
 {
-  const fn = takeFn(RE_SRC, 'async function doCreateRoomInChannel(');
+  const fn = takeFn(RE_SRC, 'function doCreateRoomInChannel(');
   chk(!!fn && /let _pendingExtra = null;/.test(RE_SRC), '만들기 함수 · 고른 값 칸이 있다');
-  const run = async (o) => {
-    const win = { firebaseAPI: { getRoomCount: async () => 0 } };
-    const log = { started: [], toasts: [] };
-    const f = new Function('window', 'roomLimitOf', 'toast', '_channelFullMsg', 'genRoomCode', 'startRoom', 'roomSettings', 'maxPeople', 'getDisplayName',
+  const run = (o) => {
+    const win = {};
+    const log = { started: [] };
+    const f = new Function('window', 'genRoomCode', 'startRoom', 'roomSettings', 'maxPeople',
       'let _pendingExtra = null;\n' + fn + '\nreturn { go: doCreateRoomInChannel, extra: () => _pendingExtra };')(
-      win, () => 300, (m) => log.toasts.push(m), () => '꽉', (ch) => (ch === 'togetherroom' ? 'PLAY-' : 'WORK-') + 'AB12', (c) => log.started.push(c), RS, () => o.cap || 10, () => (o.name !== undefined ? o.name : '나'));
-    await f.go(o.ch, o.settings);
+      win, (ch) => (ch === 'togetherroom' ? 'PLAY-' : 'WORK-') + 'AB12', (c) => log.started.push(c), RS, () => o.cap || 10);
+    f.go(o.ch, o.settings);
     return { win, log, extra: f.extra() };
   };
-  let r = await run({ ch: 'togetherroom', settings: { title: '수다', max: 4, open: true, music: true }, name: ' 말랑콩떡 ' });
-  chk(r.win._pendingRoomChannel === 'togetherroom' && r.win._pendingRoomOpen === true && r.log.started[0] === 'PLAY-AB12', '★ 투게더룸도 공개(open)를 싣는다 — 예전엔 워킹룸만');
-  chk(JSON.stringify(r.extra) === '{"max":4,"title":"수다","hostName":"말랑콩떡","music":true}', '★ 고른 값 { 최대 인원 · 제목 · 방장 닉네임 · 같이 듣기 }');
-  r = await run({ ch: 'workingroom', settings: { title: '', max: 99, open: false }, cap: 6, name: '' });
-  chk(JSON.stringify(r.extra) === '{"max":6,"title":null,"hostName":null,"music":false}' && r.win._pendingRoomOpen === false, '★ 빈 제목 · 빈 닉네임은 null(지움)로 — 같은 코드의 지난 방 제목이 update 병합으로 남지 않게 · 최대 인원은 정원 안으로');
-  chk(/setRoomChannel\(code, _channel, getMyUserId\(\), !!window\._pendingRoomOpen, _pendingExtra\);\s*_pendingExtra = null;/.test(RE_SRC), '  만들기 갈래가 고른 값을 _meta 에 한 번 쓰고 비운다');
-  chk(/const _cap2 {2}= _isSecret \? \(maxPeople\(\) - 1\) : roomSettings\.roomCap\(window\._roomMetaCache, maxPeople\(\)\);/.test(RE_SRC)
-    && /'이 방은 이미 가득 찼어요\(최대 '\+_cap2\+'명\)'/.test(RE_SRC), '★ 재확인이 이미 읽은 _meta 로 방 최대 인원을 막는다 · 문구도 그 값(시크릿룸은 예전 그대로)');
-  chk(/const _cap {2}= _isSecret \? \(maxPeople\(\) - 1\) : maxPeople\(\);/.test(RE_SRC) && !/_capMeta/.test(RE_SRC), '  사전 검사는 _meta 를 또 읽지 않는다(같은 노드를 이미 두 번 읽는다)');
+  let r = run({ ch: 'togetherroom', settings: { title: '수다', max: 4, open: true, music: true } });
+  chk(r.win._pendingRoomChannel === 'togetherroom' && r.win._pendingRoomOpen === true && r.log.started[0] === 'PLAY-AB12', '★ 투게더룸도 공개(open)를 싣는다');
+  chk(JSON.stringify(r.extra) === '{"max":4,"title":"수다","music":true}', '★ 고른 값 { 최대 인원 · 제목 · 같이 듣기 } — 방장 닉네임은 서버가 정한다');
+  r = run({ ch: 'workingroom', settings: { title: '', max: 99, open: false }, cap: 6 });
+  chk(JSON.stringify(r.extra) === '{"max":6,"title":null,"music":false}' && r.win._pendingRoomOpen === false, '  빈 제목은 null · 최대 인원은 정원 안으로');
+  chk(!/getRoomCount|roomLimitOf\(channel\)/.test(fn), '  방 개수를 앱이 세지 않는다(상한은 서버 channelFull)');
   chk(!/chRandOpen/.test(RE_SRC), '  옛 «랜덤 참여 허용» 토글을 읽지 않는다(창의 «방 목록에 공개» 로)');
 }
 
@@ -197,46 +172,20 @@ say('── 5-2. 방 서버 만들기 칸(serverCreateOf) · room-entry 가 싣�
   chk(JSON.stringify(RS.serverJoinCreate(false, null, false, null, { music: true })) === '{"channel":"togetherroom","music":true}'
     && JSON.stringify(RS.serverJoinCreate(false, null, false, null, { music: false })) === '{"channel":"togetherroom","music":false}', '★ 시크릿룸을 주인이 열면 { channel: togetherroom, music } — 같이 듣기를 끈 것도 싣는다(지난 값이 남지 않게)');
   chk(RS.serverJoinCreate(false, 'workingroom', true, ex, undefined) === null, '  그 밖(코드로 들어가기 · 손님 · 인원 모름)은 null — create 없이');
-  const rc = takeFn(RE_SRC, 'async function _startRoomOnServer(');
-  chk(/const create = roomSettings\.serverJoinCreate\(creating, window\._pendingRoomChannel, !!window\._pendingRoomOpen, _pendingExtra, srOpen\);/.test(rc), '  room-entry 방 서버 갈래가 이 한 함수로 고른다');
+  const rc = takeFn(RE_SRC, 'async function startRoom(');
+  chk(/const create = roomSettings\.serverJoinCreate\(creating, window\._pendingRoomChannel, !!window\._pendingRoomOpen, _pendingExtra, srOpen\);/.test(rc), '  room-entry startRoom 이 이 한 함수로 고른다');
   // 들어간 뒤 비우기 — 함수를 떼어 실제로 굴린다
   const clr = (RE_SRC.match(/function _clearPendingCreate\(\)\{[^\n]*\}/) || [''])[0];
   const runClear = (src) => { const w = { _pendingRoomChannel: 'workingroom', _pendingRoomOpen: true }; const ex2 = new Function('window', 'let _pendingExtra = { title: 1 };\n' + src + '\n_clearPendingCreate(); return _pendingExtra;')(w); return { w, ex2 }; };
   const cr = runClear(clr);
   chk(clr && cr.w._pendingRoomChannel === null && cr.w._pendingRoomOpen === false && cr.ex2 === null, '★ 들어간 뒤 만들기 표시 셋(채널 · 공개 · 고른 값)을 비운다 — 다음 입장이 지난 제목 · 인원을 물려받지 않게');
-  chk(/refreshInviteUI\(\); toast\('방에 연결됐어요: '\+code\);\n  _clearPendingCreate\(\);/.test(rc), '  방 서버 갈래가 들어간 뒤 그것을 부른다');
+  chk(/refreshInviteUI\(\); toast\('방에 연결됐어요: '\+code\);\n  _clearPendingCreate\(\);/.test(rc) && /toast\(_roomJoinMessage\(r && r\.code, isSecret\)\);\n    _clearPendingCreate\(\);/.test(rc), '  들어간 뒤 · 거절된 뒤 둘 다 그것을 부른다');
   chk(/if\(code === 'title'\) return roomSettings\.TITLE_ERROR_TEXT\.banned;/.test(RE_SRC), '  서버가 금칙어로 거절하면 «방 제목에 쓸 수 없는 말이 있어요»');
 }
 
-say('── 6. firebase-init — 쓰기');
+say('── 6. firebase-init — 방 설정 쓰기가 없다(0.13 — 서버 meta · 승계 · 방장 닉네임은 서버)');
 {
-  const method = (head) => takeFn(FI, head);
-  const mkApi = (body) => new Function('ref', 'db', 'runTransaction', 'update', 'serverTimestamp', '_touchRoomIndex', '_svNow', 'return ({ ' + body + ' });');
-  const tx = (cur) => async (r, fn) => { const v = fn(cur === undefined ? null : JSON.parse(JSON.stringify(cur))); return { committed: v !== undefined, snapshot: { val: () => v } }; };
-  // setRoomChannel
-  const writes = [];
-  const set = mkApi(method('async setRoomChannel('))((p) => p, {}, null, async (p, v) => writes.push(v), () => 'TS', () => {}, () => 1);
-  await set.setRoomChannel('WORK-AB12', 'workingroom', 'u1', true, { title: '방', max: 4, hostName: '나' });
-  chk(JSON.stringify(writes[0]) === '{"channel":"workingroom","ts":"TS","host":"u1","open":true,"title":"방","max":4,"hostName":"나"}', '★ setRoomChannel 이 고른 값을 _meta 에 같이 쓴다');
-  await set.setRoomChannel('WORK-AB12', 'workingroom', 'u1');
-  chk(!('title' in writes[1]) && !('open' in writes[1]), '  안 넘기면 안 쓴다(다른 길 — 시크릿룸 · 하트비트)');
-  await set.setRoomChannel('WORK-AB12', 'workingroom', 'u1', false, { max: 3, title: null, hostName: null });
-  chk(writes[2].title === null && writes[2].hostName === null, '  비운 칸은 null 로 실어 update 가 지운다');
-  // claimHostIfVacant
-  const claim = (cur, hn) => mkApi(method('async claimHostIfVacant('))((p) => p, {}, tx(cur), null, null, null, () => 1).claimHostIfVacant('R', 'u2', ['u2'], null, hn);
-  let c = await claim({ host: 'gone', hostName: '나간 사람' }, '새방장');
-  chk(c.ok && c.meta.host === 'u2' && c.meta.hostName === '새방장', '★ 승계가 방장 닉네임도 새 방장으로');
-  c = await claim({ host: 'gone', hostName: '나간 사람' }, null);
-  chk(c.ok && !('hostName' in c.meta), '  새 방장 닉네임을 모르면 나간 사람 이름을 지운다');
-  c = await claim({ host: 'u2', hostName: '그대로' }, '다른');
-  chk(!c.ok, '  방장이 살아 있으면 손대지 않는다(예전 그대로)');
-  // claimEmptyRoom
-  const empty = (cur, hn) => mkApi(method('async claimEmptyRoom('))((p) => p, {}, tx(cur), null, null, () => {}, () => 1e12).claimEmptyRoom('R', 'u3', false, hn);
-  let e = await empty(null, '빈방주인');
-  chk(e && e.mine && /hostName/.test(method('async claimEmptyRoom(')) , '빈 방 선점도 방장 닉네임을 쓴다');
-  chk(/if\(hostName\) out\.hostName = hostName; else delete out\.hostName;/.test(FI), '  모르면 지난 방의 닉네임을 지운다');
-  chk(/const _cap = window\.TwRoomSettings\.roomCap\(_capturedMeta, /.test(FI), '★ 들어간 뒤 자기 퇴장도 같은 규칙(roomCap)으로');
-  chk(/claimHostIfVacant\(room, myUserId, aliveUserIds, null, window\.TwRoomSettings\.hostNameOf\(friends\[myMemberId\]\.name\)\)/.test(FI), '  승계 판정이 내 닉네임을 넘긴다');
+  chk(!/setRoomChannel|claimHostIfVacant|claimEmptyRoom|setRoomInfo/.test(FI), 'firebase-init 에 _meta 쓰기(채널 · 승계 · 빈 방 선점 · 방 정보)가 없다');
 }
 
 say('── 7. remote-config — 금칙어 원문');

@@ -8,7 +8,7 @@
      보내는 쪽에서 그 차이가 날 수 있는 층은 셋뿐이다:
        (1) ensureRoomFaceUrls   — Storage 업로드 + localStorage URL 캐시
        (2) serializeDefForNetwork — URL 이 있으면 dataURL 을 삭제
-       (3) _diffRoomPayload      — 바뀐 필드만 전송
+       (3) 방 포트(room-rt.js)   — 바뀐 칸만 patch · def 는 따로 def 메시지
      이 검증기는 세 층을 실제로 통과시켜 **join 페이로드와 updateDef 페이로드를 바이트 비교**한다.
      둘이 같다면 보내는 쪽은 용의선상에서 빠지고, 조사는 받는 쪽(applyCharToSeat 폴백)으로 넘어간다.
 
@@ -53,17 +53,29 @@ let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 
 /* ── 전송 가로채기 ─────────────────────────────────────────────────
-   firebaseAPI 를 통째로 스텁해서 joinRoom / updateMe 에 실제로 도착한 값을 붙잡는다.
-   (Presence → makeFirebaseProvider 경로를 그대로 태운다 — 여기가 검증 대상이다) */
+   진짜 방 포트(room-rt.js)를 가짜 연결(hub) 위에 만들어 Presence 에 넘기고, 웹소켓으로 나가는 join · def 메시지를 붙잡는다.
+   (Presence → 방 포트 → 직렬화(serializeDefForNetwork) 경로를 그대로 태운다 — 여기가 검증 대상이다) */
 let sent = null;
+function mkHub(){
+  const fns = {};
+  const h = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, onState(){}, request: async () => null,
+    state: () => 'ready', isReady: () => true, userCode: () => 'u_test',
+    send(m){
+      if(m.t === 'join'){ sent = { how: 'join', payload: m.me }; realST(() => h.emit({ t: 'welcome', room: m.room, memberId: 'm_test', resume: 'R', resumed: false, members: {}, meta: null, music: null, musicSeq: -1, now: Date.now() }), 0); }
+      else if(m.t === 'def'){ sent = { how: 'update', payload: { def: m.def } }; }
+      else if(m.t === 'leave') realST(() => h.emit({ t: 'left', memberId: 'm_test', reason: 'leave' }), 0);   // 나가기 확인 — 안 주면 1.5초 기다린다
+      return true;
+    },
+    emit(m){ (fns[m.t] || []).forEach((f) => f(m)); },
+  };
+  return h;
+}
+let rt = null;
 function installApi(uploadOk){
   globalThis.window.firebaseAPI = {
     uploadRoomFace: async (uid, key) => uploadOk ? { ok: true, url: 'https://storage.test/' + key + '.png' } : { ok: false },
-    joinRoom: (room, me) => { sent = { how: 'join', payload: me }; return 'm_test'; },
-    updateMe: (p) => { sent = { how: 'update', payload: p }; },
-    leaveRoom: async () => {},
-    poke: () => {},
   };
+  rt = globalThis.TwRoomRt.createRoomRt({ hub: mkHub(), STATE: globalThis.TwRtHub.STATE });
 }
 globalThis.getMyUserId = () => 'u_test';
 
@@ -84,7 +96,7 @@ async function seedAndEnter(slotArr, idx){
   await P.loadSlots();
   P.setCurSlot(idx);
   sent = null;
-  await P.Presence.start('TESTROOM', P.slots[idx], '나', () => {});
+  await P.Presence.start('WORK-TEST', P.slots[idx], '나', () => {}, { provider: rt.makeProvider({ serializeDef: P.serializeDefForNetwork }, null) });
   return sent;
 }
 
@@ -97,7 +109,7 @@ async function seedAndEnter(slotArr, idx){
   clearFaceCache(); installApi(true);
   const joinSent = await seedAndEnter([HUMAN, ANIMAL, null], 1);
   const jdef = joinSent && joinSent.payload && joinSent.payload.def;
-  chk(joinSent && joinSent.how === 'join', 'joinRoom 으로 전송됐다');
+  chk(joinSent && joinSent.how === 'join', 'join 메시지로 전송됐다');
   chk(!!jdef, 'def 가 페이로드에 실렸다');
   chk(jdef && jdef.animal === true, 'animal 플래그가 살아 있다 (이게 빠지면 받는 쪽은 인간을 그린다)');
   chk(jdef && jdef.animalFace === 2, 'animalFace(얼굴형)가 그대로다');
@@ -112,8 +124,8 @@ async function seedAndEnter(slotArr, idx){
   P.Presence.updateDef(P.slots[1]);
   await new Promise(r => realST(r, 60));
   const udef = sent && sent.payload && sent.payload.def;
-  chk(sent && sent.how === 'update', 'updateMe 로 전송됐다');
-  chk(!!udef, '델타에 def 가 들어 있다 (_diffRoomPayload 가 def 를 떨어뜨리지 않는다)');
+  chk(sent && sent.how === 'update', 'def 메시지로 전송됐다');
+  chk(!!udef, 'def 가 실렸다 (방 포트가 def 를 떨어뜨리지 않는다)');
   chk(udef && JSON.stringify(udef) === JSON.stringify(jdef),
       '입장 def 와 수정 def 가 **완전히 같다** ← 제보의 "수정하면 정상"을 보내는 쪽으로 설명할 수 없다');
   say('');
@@ -124,7 +136,7 @@ async function seedAndEnter(slotArr, idx){
   P.Presence.updateDef(P.slots[1]);
   await new Promise(r => realST(r, 60));
   chk(sent && sent.payload && sent.payload.def,
-      '델타가 비어도 def 는 항상 통과한다(같은 값이라고 생략되면 재전송 요청이 먹통이 된다)');
+      '바뀐 칸이 없어도 def 는 항상 나간다(같은 값이라고 생략되면 재전송 요청이 먹통이 된다)');
   say('');
 
   /* ── 4. Storage 업로드가 실패해도 캐릭터 종류는 살아야 한다 ── */
@@ -160,9 +172,8 @@ async function seedAndEnter(slotArr, idx){
      ★ 핸드오프 8-1 확인점 3. 제보 4의 "빼도 상대에겐 계속 착용"이 여기서 나는지 본다.
        위 1~6절은 전부 '무엇이 실렸는가'만 봤다 — 사라진 것을 보는 검사가 하나도 없었다.
      ⚠ 여기서 통과해도 무혐의가 아니다. 이 검사가 덮는 것은 딱 두 층이다:
-         serializeDefForNetwork 가 빈 카테고리를 지우지 않는가 · _diffRoomPayload 가 def 를 통과시키는가.
-       **덮지 못하는 것**: updateMe 가 RTDB 에 어떻게 쓰는가(update 가 def 자식을 통째로
-       갈아끼우는가, 아니면 병합하는가)와 받는 쪽 syncFriendSeats/prune. 그 둘은 app.js 밖이다. */
+         serializeDefForNetwork 가 빈 카테고리를 지우지 않는가 · 방 포트가 def 를 통째로 보내는가.
+       **덮지 못하는 것**: 받는 쪽 syncFriendSeats/prune. */
   say('· 파츠를 빼고 updateDef 를 보낸다 (제보 4: "빼도 상대에겐 계속 착용")');
   clearFaceCache(); installApi(true);
   const WORN = Object.assign({}, HUMAN, {
@@ -202,10 +213,10 @@ async function seedAndEnter(slotArr, idx){
   chk(!!d3, '★ 다 벗어도 def 는 여전히 전송된다 (여기서 전송이 생략되면 상대는 영영 벗은 걸 못 본다)');
   chk(d3 && d3.equippedParts && Object.keys(d3.equippedParts).length === 0,
       '빈 equippedParts 가 그대로 나간다');
-  say('  ↳ ⚠ 여기까지는 보내는 쪽 두 층뿐이다. RTDB 쓰기 방식과 받는 쪽은 이 검사 밖이다.');
+  say('  ↳ ⚠ 여기까지는 보내는 쪽뿐이다. 받는 쪽은 이 검사 밖이다.');
   say('');
 
-  say(fail ? ('✗ ' + fail + '개 실패') : '✓ 전부 통과 — 보내는 쪽(ensureRoomFaceUrls · serializeDefForNetwork · _diffRoomPayload)은');
+  say(fail ? ('✗ ' + fail + '개 실패') : '✓ 전부 통과 — 보내는 쪽(ensureRoomFaceUrls · serializeDefForNetwork · 방 포트)은');
   if (!fail) say('  입장과 수정에서 **같은 def** 를 만든다. 제보의 원인은 받는 쪽에서 찾아야 한다.');
   process.exit(fail ? 1 : 0);
 })();

@@ -1,6 +1,7 @@
 /*
  * roomStats(서버 방 개수 요약)와 roomIndex 쓰기 검사. 모듈을 그대로 불러 가짜 DB 로 돌린다.
- * 1. functions/room-stats.js  2. room-index.js  3. 앱은 roomStats 를 읽지 않는다  4. firebase-init.js 연결 · 규칙
+ * 1. functions/room-stats.js  3. 앱은 roomStats 를 읽지 않는다  4. 관리자 유령 방 청소 · 규칙
+ * (2. room-index.js 는 걷었다 — 0.13 방은 realtime 서버 메모리라 앱이 roomIndex 를 쓰지 않는다)
  */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -12,8 +13,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
-const FI = need('firebase-init.js'), RI = need('room-index.js');
-need('room-channel.js');
+const FI = need('firebase-init.js');
 const RULES = stripReadGate(need('firebase-database-rules.json'));
 need('functions/room-stats.js');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
@@ -135,38 +135,6 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(!!close && /if \(event\.authType === 'admin'\) return;[\s\S]*runRoomStats/.test(close[0]), "  ↳ 서버 청소(authType 'admin')가 지운 건 건너뛴다 — 수백 줄 청소가 수백 번 다시 세기가 되지 않게");
   }
 
-  say('── 2. room-index.js (roomIndex 쓰기)');
-  {
-    const { createRoomIndex } = esm(RI, 'createRoomIndex');
-    const mk = (o) => {
-      const env = Object.assign({ room: 'COZY-1', meta: { channel: 'togetherroom' }, writes: [] }, o);
-      env.ri = createRoomIndex({
-        db: {}, ref: (_d, p) => p, serverTimestamp: () => 'TS',
-        update: (p, v) => { env.writes.push([p, v]); return Promise.resolve(); },
-        state: () => ({ room: env.room, meta: env.meta }),
-      });
-      return env;
-    };
-    const last = (e) => JSON.stringify(e.writes[e.writes.length - 1]);
-    let e = mk({});
-    e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom"}]', '_meta 에 open 이 없으면 lastSeen + channel 만 (false 로 덮지 않는다)');
-    e = mk({ meta: { channel: 'workingroom', open: true } }); e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"workingroom","open":true}]', '_meta 의 channel · open 을 같이 싣는다');
-    e = mk({ meta: { channel: 'workingroom', open: false } }); e.ri.touch('COZY-1');
-    chk(/"open":false/.test(last(e)), '  ↳ open:false 도 싣는다');
-    e.ri.touch('COZY-1', { channel: 'togetherroom', open: true });
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS","channel":"togetherroom","open":true}]', '명시한 extra 가 이긴다 (setRoomChannel)');
-    e.ri.touch('OTHER');
-    chk(last(e) === '["roomIndex/OTHER",{"lastSeen":"TS"}]', '지금 방이 아닌 코드에는 아무것도 덧붙이지 않는다');
-    const n = e.writes.length; e.ri.touch('SCRT-9');
-    chk(e.writes.length === n, '시크릿룸은 쓰지 않는다');
-    e = mk({ meta: null }); e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '메타 도착 전 → lastSeen 만');
-    e = mk({ meta: { channel: 'evil', open: 'yes' } }); e.ri.touch('COZY-1');
-    chk(last(e) === '["roomIndex/COZY-1",{"lastSeen":"TS"}]', '규칙에 없는 값은 싣지 않는다 (쓰기 거부 방지)');
-  }
-
   say('── 3. 앱은 roomStats 를 읽지 않는다');
   {
     chk(!/roomStats|room-stats\.js|watchRoomCounts|opts\.quick/.test(CODE), '방 개수 요약(roomStats) 읽기 · 구독 · quick 길이 없다 — 채널 카드 숫자는 방 목록 로비로 바뀌었다(요약은 서버 함수 · 웹 관리자 몫)');
@@ -174,20 +142,10 @@ const tick = () => new Promise(r => setTimeout(r, 0));
     chk(rs === null || !/createRoomStats|ROOM_STATS_FRESH_MS/.test(rs), '  앱 쪽 room-stats.js(createRoomStats · ROOM_STATS_FRESH_MS)가 없다');
   }
 
-  say('── 4. firebase-init.js 연결 · 규칙');
+  say('── 4. 관리자 유령 방 청소 · 규칙');
   {
-    chk(/import \{ createRoomIndex \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-index\.js";/.test(CODE), 'room-index.js 를 import 한다');
-    chk(/createRoomIndex\(\{[\s\S]{0,200}state: \(\) => \(\{ room: _roomCode, meta: _roomMetaVal \}\)/.test(CODE), 'roomIndex 에 방 상태를 «부를 때마다» 읽는 함수로 넘긴다');
-    chk(/function _touchRoomIndex\(room, extra\)\{ _roomIndex\.touch\(room, extra\); \}/.test(CODE), '_touchRoomIndex 는 모듈로 넘기기만 한다 (하트비트 · 재접속 · 유령 복구가 모두 이 길)');
-    chk(/if\(open === true \|\| open === false\) meta\.open = open;\s*if\(fields\) Object\.assign\(meta, fields\);\s*await update\(ref\(db, `rooms\/\$\{room\}\/_meta`\), meta\);/.test(CODE), 'setRoomChannel 이 open 을 _meta 에도 쓴다 (명시한 boolean 일 때만)');
     const APP = strip(_joinRenderer(need('app.js')));
     chk(!/firebaseAPI\.(?:watchRoomCounts|getRoomCounts)\(/.test(APP), '방 창은 방 개수를 읽지도 구독하지도 않는다(채널 카드 숫자는 방 목록 로비로 바뀌었다)');
-    const fr = CODE.match(/async findRandomRooms\(limit\)\{[\s\S]*?\n    \},/);
-    chk(!!fr && !/_roomStats/.test(fr[0]) && /get\(ref\(db, 'roomIndex'\)\)/.test(fr[0]), '랜덤 참여는 roomIndex 를 직접 읽는다 (방금 연 방도 후보에)');
-    const gc = CODE.match(/async getRoomCount\([^)]*\)\{[\s\S]*?\n    \},/);
-    chk(!!gc && !/_roomStats/.test(gc[0]), '정원 검사(getRoomCount)는 roomStats 를 쓰지 않는다');
-    const gcnt = CODE.match(/async getRoomCounts\(\)\{[\s\S]*?\n    \},/);
-    chk(!!gcnt && /if\(e\.srv\) out\.inclServer = true;/.test(gcnt[0]), '🛰 getRoomCounts — 방 서버 줄이 있으면 inclServer (서버 방이 합계에 들어 있다)');
     const cg = CODE.match(/async cleanGhostRooms\(\)\{[\s\S]*?\n    \},/);
     chk(!!cg && /if\(idx\[code\] && idx\[code\]\.srv\) continue;[^\n]*\n\s*if\(!\(code in all\)/.test(cg[0]), '🛰 유령 방 청소는 방 서버 줄을 «rooms 에 없는 고아» 로 지우지 않는다');
     let rr = null; try{ rr = JSON.parse(RULES).rules.roomStats; }catch(_){}

@@ -2,12 +2,10 @@
  * 빈 방 표지(_meta · _chatTab) 청소를 앱에서 서버 함수로 옮긴 것 검사.
  * [왜] 앱의 «남은 사람 확인 → _meta 지우기» 는 한 덩어리가 아니라, 그 사이 다시 들어온 사람의 방에서 _meta 가 사라졌다
  *      (자동 업데이트로 다 같이 껐다 켤 때 투게더룸이 워킹룸으로).
- * 1. 앱 퇴장 — _meta · _chatTab · roomIndex 줄을 안 지우고 줄에 «비었음» 만 남긴다(떼어 와 돌림)
- * 2. 서버 함수 — 비었음 표시 뒤 2분 · 지우기 직전 멤버 재확인 · _meta 트랜잭션(가짜 DB · 경쟁 흉내)
- * 3. 들어오는 길 — 남은 _meta 가 있는 빈 방도 새로 연다(선점 · 시크릿룸 · 되살리기 · 방 서버) · 새 탭은 빈 기록
+ * 1. 규칙 — «비었음» 줄을 받는다  2. 서버 함수 — 비었음 표시 뒤 2분 · 지우기 직전 멤버 재확인 · _meta 트랜잭션(가짜 DB · 경쟁 흉내)
+ * (0.13 앱은 Firebase 방에 들어가지 않는다 — 앱 퇴장 청소 · 빈 방 선점(옛 1 · 3절)은 걷었다. 서버 함수가 남은 동안 2절은 그대로 본다)
  */
 'use strict';
-const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const path = require('path');
 let pass = 0, fail = 0;
@@ -15,43 +13,12 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
-const FI = need('firebase-init.js'), APP = _joinRenderer(need('app.js'));
 const FX = need('functions/index.js');
 need('functions/room-stats.js');
-const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-const CODE = strip(FI);
-// 함수 몸통 떼기 — 이름부터 같은 들여쓰기의 닫는 줄까지
-const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return ''; const j = src.indexOf(end, i); return j < 0 ? '' : src.slice(i, j + end.length); };
 
 (async () => {
-  say('── 1. 앱 퇴장 — 표지를 지우지 않고 «비었음» 만');
+  say('── 1. 규칙 — 서버 함수가 쓰는 «비었음» 줄(0.13 앱은 Firebase 방에 들어가지 않는다 — 앱 퇴장 청소는 걷었다)');
   {
-    const leave = grab(CODE, 'async leaveRoom(){', '\n    },');
-    chk(leave.length > 0, 'leaveRoom 을 찾았다');
-    const fc = (leave.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
-    chk(fc.length > 0, '_finalCleanup 을 찾았다');
-    chk(!/_meta`\)\)/.test(fc) && !/\/_chatTab`/.test(fc), '★ _meta · _chatTab 을 통째로 지우지 않는다 (지우기는 서버 함수가 — 경쟁이 없다)');
-    chk(!/remove\(ref\(db, `roomIndex\//.test(fc), '★ roomIndex 줄도 지우지 않는다 (서버가 이 줄로 빈 방을 찾는다)');
-    // 떼어 와 돌린다 — 실제로 무엇을 쓰는지
-    const ops = [];
-    const run = new Function('ref', 'remove', 'update', 'serverTimestamp', 'db', 'KEEP_CHAT_LOG_ON_EMPTY', 'roomCodeForCleanup',
-      fc + '\nreturn _finalCleanup;');
-    const mk = (keep) => run((_d, p) => p, async (p) => { ops.push(['remove', p]); }, async (p, v) => { ops.push(['update', p, v]); },
-      () => 'TS', {}, keep, 'PLAY-AB12');
-    await mk(true)({ _meta: true, _chatTab: true, chatLog: true });
-    chk(JSON.stringify(ops) === JSON.stringify([['remove', 'rooms/PLAY-AB12/_meta/openTs'], ['update', 'roomIndex/PLAY-AB12', { lastSeen: 0, emptyAt: 'TS' }]]),
-      '쓰는 것은 둘뿐 — _meta/openTs 걷기 · 줄에 { lastSeen: 0, emptyAt: 서버시각 } (' + JSON.stringify(ops) + ')');
-    ops.length = 0; await mk(true)({ chatLog: true });
-    chk(ops.length === 1 && ops[0][0] === 'update', '  ↳ _meta 가 없으면 openTs 도 안 건드린다 · 비었음 표시는 남긴다');
-    ops.length = 0; await mk(false)({ _meta: true, chatLog: true });
-    chk(ops.some(o => o[1] === 'rooms/PLAY-AB12/chatLog'), '  ↳ KEEP_CHAT_LOG_ON_EMPTY 를 false 로 되돌리면 chatLog 지우기는 예전대로 돈다');
-    chk(/if\(keys2 === null\) return;/.test(leave) && /filter\(_isMemberKey\)\.length === 0\) await _finalCleanup\(keys2\)/.test(leave),
-      '동시 퇴장 시차 재조회는 그대로 — 못 읽으면 아무것도 안 남긴다');
-    // 비었음 줄은 앱 어디서도 살아 있는 방으로 안 센다 (lastSeen 0)
-    chk(/if\(!e\.lastSeen \|\| \(now - e\.lastSeen\) >= STALE\) continue;/.test(grab(CODE, 'async getRoomCounts(){', '\n    },')),
-      '방 개수(getRoomCounts)는 lastSeen 0 줄을 안 센다');
-    chk(/if\(!e\.lastSeen \|\| \(now - e\.lastSeen\) >= STALE\) continue;/.test(grab(CODE, 'async findRandomRooms(limit){', '\n    },')),
-      '랜덤 참여 후보(findRandomRooms)도 안 고른다 — 빈 방으로 보내지 않는다');
     const RULES = JSON.parse(need('firebase-database-rules.json').replace(/^\s*\/\/[^\n]*$/mg, ''));
     const v = RULES.rules.roomIndex.$room['.validate'];
     const ri = RULES.rules.roomIndex.$room;
@@ -275,49 +242,6 @@ const grab = (src, head, end) => { const i = src.indexOf(head); if(i < 0) return
     chk(/exports\.roomStatsOnOpen = onValueCreated\([\s\S]{0,200}if \(require\('\.\/room-stats'\)\.isEmptyMark\(event\.data && event\.data\.val\(\)\)\) return;/.test(FX),
       '줄 생성 트리거는 비었음 표시로 생긴 줄(시크릿룸 등)에 roomIndex 를 다시 읽지 않는다');
     chk(/exports\.roomStats = onSchedule\(\{ schedule: 'every 1 minutes'/.test(FX), '청소는 1분 주기 함수에 붙었다 — 새 예약 함수 없음');
-  }
-
-  say('── 3. 들어오는 길 — 남은 _meta 가 있는 빈 방');
-  {
-    const claim = grab(FI, 'async claimEmptyRoom(room, myUserId, licensed, hostName){', '\n    },');
-    const txSrc = (claim.match(/runTransaction\(ref\(db, `rooms\/\$\{room\}\/_meta`\), (cur => \{[\s\S]*?\n {8}\})\);/) || [])[1];
-    chk(!!txSrc, 'claimEmptyRoom 트랜잭션을 찾았다');
-    const NOW = 5e11;
-    const FRESH = +((claim.match(/const FRESH = (\d+)\*1000;/) || [])[1] || 0) * 1000;
-    chk(FRESH === 20000, '동시 입장 창 FRESH 20초');
-    const mkTx = new Function('_svNow', 'myUserId', 'licensed', 'FRESH', 'hostName', 'return (' + txSrc + ');');
-    const tx = (svNow, me, lic, hn) => mkTx(svNow, me, lic, FRESH, hn);
-    const stale = { channel: 'togetherroom', host: 'uOld', openLic: true, openTs: NOW - 5 * 60000, ts: NOW - 5 * 60000,
-                    open: true, chatOff: true, restoredTs: NOW - 9 * 60000, tabs: { s1: { name: '공부', ts: 1 } } };
-    const out = tx(() => NOW, 'uMe', false)(JSON.parse(JSON.stringify(stale)));
-    chk(out && out.host === 'uMe' && out.channel === 'workingroom' && out.openTs === NOW,
-      '지난 방 _meta 가 남은 빈 방 — 미보유자가 들어오면 워킹룸 · 방장 나 (빈 방 승격 그대로)');
-    chk(out && !('tabs' in out) && !('open' in out) && !('chatOff' in out) && !('restoredTs' in out),
-      '★ 지난 방의 탭 · 랜덤 허용 · 채팅 잠금 · 되살림 표시를 물려받지 않는다 (' + JSON.stringify(out) + ')');
-    const lic = tx(() => NOW, 'uMe', true)(JSON.parse(JSON.stringify(stale)));
-    chk(lic && lic.channel === 'togetherroom' && lic.openLic === true && !lic.tabs, '  ↳ 보유자는 투게더룸으로 새로');
-    const just = { channel: 'togetherroom', host: 'uOther', openLic: true, openTs: NOW - 2000, ts: NOW - 2000 };
-    chk(tx(() => NOW, 'uMe', false)(Object.assign({}, just)) === undefined, '방금(20초 안) 다른 보유자가 연 방엔 양보한다 (동시 입장 그대로)');
-    const flip = tx(() => NOW, 'uMe', true)(Object.assign({}, just, { openLic: false, channel: 'workingroom', open: true }));
-    chk(flip && flip.channel === 'togetherroom' && flip.open === true, '  ↳ 나만 보유자면 뒤집는다 — 방금 연 방의 값은 그대로 둔다');
-    chk(tx(() => NOW, 'uMe', false)(null).host === 'uMe', '_meta 가 없으면(서버가 걷은 뒤) 그대로 새로 연다');
-    // 퇴장이 openTs 를 걷으므로 «열자마자 비운 방» 도 양보하지 않는다
-    const leftQuick = Object.assign({}, just); delete leftQuick.openTs;
-    chk(tx(() => NOW, 'uMe', false)(leftQuick).host === 'uMe', '열자마자 비운 방(퇴장이 openTs 를 걷음)엔 양보하지 않고 새로 연다');
-
-    // 빈 방 판정은 checkRoomCapacity(멤버만) — _meta 가 남아 있어도 0 명
-    const cap = grab(CODE, 'async checkRoomCapacity(room){', '\n    },');
-    chk(/const ids = Object\.keys\(keys\)\.filter\(id => id\.charAt\(0\) !== '_' && id !== 'chatLog'\);/.test(cap), '정원 검사는 _meta · _chatTab · chatLog 를 사람으로 안 센다 — 남은 표지가 있어도 빈 방');
-    chk(/if\(_roomCount === 0\)\{[\s\S]{0,1200}firebaseAPI\.claimEmptyRoom\(code, getMyUserId\(\), _iAmLicensed, roomSettings\.hostNameOf\(getDisplayName\(\)\)\)/.test(APP), '빈 방(0명)이면 선점(claimEmptyRoom)으로 연다');
-    // 시크릿룸 · 되살리기 · 방 서버
-    chk(/if\(_isSecret\)\{[\s\S]{0,800}firebaseAPI\.setRoomChannel\(code, 'togetherroom', _secretOwner(?:, undefined, _srOpen)?\)/.test(APP), '시크릿룸은 들어올 때마다 channel · host(주인) · ts 를 다시 쓴다 — 남은 _meta 도 주인 방으로(🎧 같이 듣기는 주인이 빈 방을 열 때만 — sim-listen-ui)');
-    chk(!/restoreRoomMeta/.test(FI) && /if\(meta\.restoredTs && \(_svNow\(\) - meta\.restoredTs\) < ROOM_RESTORE_GRACE_MS\) return;/.test(FI),
-      '0.11.4 는 방 서버 방을 Firebase 에 되살리지 않는다 — 옛 앱이 되살린 방의 방장 유예만 남김');
-    chk(/const _via = await _startRoomOnServer\(code,[\s\S]{0,140}if\(_via !== 'firebase'\) return;/.test(APP), '방 서버 방은 Firebase _meta 를 쓰기 전에 갈라진다 — 이 청소와 무관');
-    // 새 탭은 빈 기록으로
-    const add = grab(FI, 'async addChatTab(room, name){', '\n    },');
-    chk(/return \{ ok:false, reason: full[^\n]*\n[\s\S]{0,400}await remove\(ref\(db, _chatLogPath\(room, id\)\)\)\.catch\(\(\)=>\{\}\);\s*return \{ ok:true, id \};/.test(add),
-      '새 탭 자리는 기록을 비우고 연다 — 서버가 걷기 전 다시 연 방에서 지난 탭 기록이 딸려 나오지 않게');
   }
 
   say('');
