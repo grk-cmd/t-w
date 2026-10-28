@@ -62,20 +62,24 @@ function mkWS(){
   return { FakeWS, socks };
 }
 
-function mk(S){
+function mk(S, tokenOk){
+  tokenOk = tokenOk || (() => true);
   const L = loadLink(S.LINK), H = loadHub(S.HUB);
   const clock = mkClock();
   const { FakeWS, socks } = mkWS();
   const forces = [];
   const hub = H.createRtHub({
     createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://realtime.together-working.com',
-    getToken: async (force) => { forces.push(!!force); return 'tok' + forces.length; },
+    getToken: async (force) => { forces.push(!!force); if(!tokenOk()) throw new Error('offline'); return 'tok' + forces.length; },
     getVersion: async () => '0.13.0', deviceId: () => 'dev-0001', session: 'sess01',
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} },
   });
   const states = [];
   hub.onState((s) => states.push(s));
   return { H, L, hub, clock, socks, forces, states, last: () => socks[socks.length - 1] };
+}
+async function waitNewSock(e, n0){   // 새로 만든 · 아직 안 닫힌 소켓이 생길 때까지 시계를 조금씩
+  for(let i = 0; i < 400 && (e.socks.length <= n0 || e.last().closed); i++) await e.clock.advance(250);
 }
 async function readyOn(e, code){
   await tick();
@@ -174,6 +178,23 @@ async function judge(S){
     a.last().kill(4001); await tick();
     await a.clock.advance(30000);
     chk(a.hub.state() === 'authFailed' && a.socks.length === 2, '  ↳ 또 4001 이면 멈춤(authFailed) — 더 붙지 않는다');
+    { /* 이 PC 에서 토큰을 못 받음(오프라인) — 서버가 보낸 4001 이 아니니 멈추지 않고 계속 다시 붙는다 */
+      let online = true;
+      const o = mk(S, () => online);
+      o.hub.start(); const ow = await readyOn(o);
+      online = false; ow.kill(1006); await tick();
+      await o.clock.advance(60000);
+      chk(o.hub.state() === 'retrying', '★ 토큰을 못 받는 동안(오프라인)은 authFailed 가 아니라 retrying — ' + o.hub.state());
+      online = true; await waitNewSock(o, o.socks.length); await readyOn(o);
+      chk(o.hub.state() === 'ready', '  ↳ 다시 받을 수 있게 되면 붙는다');
+      const p = mk(S, () => online);
+      p.hub.start(); const pw = await readyOn(p);
+      pw.kill(4001); await tick();
+      online = false; await p.clock.advance(5000);
+      online = true; await waitNewSock(p, p.socks.length);
+      p.last().open(); await tick(); p.last().kill(4001); await tick(); await p.clock.advance(60000);
+      chk(p.hub.state() === 'authFailed', '  ↳ 4001 → 토큰 실패 → 4001 이면 그때 멈춤 — ' + p.hub.state());
+    }
     const b = mk(S);
     b.hub.start(); const bw = await readyOn(b);
     bw.kill(4003); await tick(); await b.clock.advance(30000);
@@ -268,7 +289,8 @@ const BREAKS = [
   ['HUB', "        if(done.has(fn)) continue;", "", '같은 함수를 종류마다 다시 부름'],
   ['HUB', "      if(!kindFns.has(m.kind)) return;", "      if(!kindFns.has(m.kind)){ emitKind('friends', {}); return; }", '모르는 종류를 다른 데로 흘림'],
   ['HUB', "      if(authFails > 1){ started = false; setState(STATE.AUTH_FAILED); return; }", "", '4001 을 끝없이 다시'],
-  ['HUB', "      link.markAuthRetry();   // 다음 열기는 새 토큰", "", '4001 뒤 옛 토큰으로 다시'],
+  ['HUB', "    if(closeCode === CLOSE.AUTH || fatal === 'auth') link.markAuthRetry();   // 다음 열기는 새 토큰", "", '4001 뒤 옛 토큰으로 다시'],
+  ['HUB', "    if(closeCode === CLOSE.AUTH){\n      authFails++;", "    if(closeCode === CLOSE.AUTH || fatal === 'auth'){\n      authFails++;", '토큰 못 받음(오프라인)도 4001 처럼 세어 멈춤'],
   ['HUB', "    if(closeCode === CLOSE.SESSION_LOST || sawSessionLost){ sawSessionLost = false; started = false; setState(STATE.SESSION_LOST); return; }", "", '밀려나도 다시 붙음'],
   ['HUB', "    if(closeCode === CLOSE.PROTOCOL || fatal === 'protocol'){ started = false; setState(STATE.UPDATE); return; }", "", '판이 달라도 계속 붙음'],
   ['HUB', "    if(!kindFns.has(kind)) throw new Error('[realtime] 모르는 알림 종류 — ' + kind);", "    if(!kindFns.has(kind)) kindFns.set(kind, []);", '모르는 이름을 조용히 받음'],

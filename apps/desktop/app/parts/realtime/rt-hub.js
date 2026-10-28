@@ -106,11 +106,12 @@ function createRtHub(deps){
     if(!started){ setState(STATE.OFF); return; }
     if(closeCode === CLOSE.SESSION_LOST || sawSessionLost){ sawSessionLost = false; started = false; setState(STATE.SESSION_LOST); return; }
     if(closeCode === CLOSE.PROTOCOL || fatal === 'protocol'){ started = false; setState(STATE.UPDATE); return; }
-    if(closeCode === CLOSE.AUTH || fatal === 'auth'){
+    // 멈추는 것은 서버가 보낸 4001 이 두 번일 때만 — 이 PC 에서 토큰을 못 받은 것(오프라인 등)은 서버에 닿지 못한 것이라 계속 다시 붙는다
+    if(closeCode === CLOSE.AUTH){
       authFails++;
       if(authFails > 1){ started = false; setState(STATE.AUTH_FAILED); return; }
-      link.markAuthRetry();   // 다음 열기는 새 토큰
     }
+    if(closeCode === CLOSE.AUTH || fatal === 'auth') link.markAuthRetry();   // 다음 열기는 새 토큰
     setState(STATE.RETRYING);
     link.scheduleReconnect();
   }
