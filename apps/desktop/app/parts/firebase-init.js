@@ -1628,22 +1628,6 @@
       }catch(e){ return { ok:false }; }
     },
     // 나에게 온 친구 요청 실시간 구독 → onChange({ [fromId]: {name, ts} })
-    // 🚪 방 초대 — 친구에게 현재 방으로 초대장 보내기 { roomCode, fromName, ts }
-    async sendRoomInvite(toId, fromId, roomCode, fromName){
-      if(!toId || !roomCode) return { ok:false };
-      await set(ref(db, `roomInvites/${toId}/${fromId}`), {
-        roomCode, fromName: fromName || '(이름 없음)', ts: Date.now()
-      });
-      return { ok:true };
-    },
-    subscribeRoomInvites(myId, onChange){
-      const r = ref(db, `roomInvites/${myId}`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async clearRoomInvite(myId, fromId){
-      try{ await remove(ref(db, `roomInvites/${myId}/${fromId}`)); }catch(_){}
-    },
     subscribeFriendRequests(myId, onChange){
       console.log('[친구요청 구독 시작] myId=', myId);
       const reqRef = ref(db, `friendRequests/${myId}`);

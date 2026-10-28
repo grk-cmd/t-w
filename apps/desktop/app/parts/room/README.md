@@ -365,3 +365,10 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 내놓는 것: `makeProvider` · `random(limit, channel)` · `peek(code)`(못 물으면 `null`) · `roomCode()`(들어가 있는 방) · `myCode()`(연결의 나 — 방장 · 글쓴이 · 사진 자리 판정은 이 값) · `isReady()` · `inRoom()`.
 - 함정: 연결이 꺼져 있으면(로그인 전 · 로그아웃) 입장은 바로 `off` — 켜기(`TwRtHub.store.start`)는 로그인 흐름 몫이다. `error.ref` 가 방 요청(`join` · `meta` · `music` …)인 것만 받는다 — 대화(`chatSay`) · 사진(`photo*`) · 초대 오류는 그 포트가 받는다.
 - 검사: `checks/sim-room-rt.js`(진짜 rt-hub · 연결 공통부 위에서 · 깨 보기).
+
+## `room-invite-rt.js` — 🙋 방 초대 포트(realtime 연결 하나)
+- 책임: 초대 보내기 `roomInvite{ to }` · 받기 `roomInvited{ from, fromName, room, ts }` · 지우기 `roomInviteClear{ from }`. 방 코드 · 보낸 이름은 서버가 채운다 · 친구가 아니면 `ROOM_INVITE_NOT_FRIEND` · 한 쌍에 하나 · 10분 보관(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다).
+- 만드는 법: classic script(`window.TwRoomInviteRt`) — `rt-hub.js` 다음 · app.js 보다 먼저. 앱 한 벌 `TwRoomInviteRt.store` 를 `room-invite-ui.js` 가 deps `invites` 로 받는다.
+- 내놓는 것: `send(to)` → `{ ok }` | `{ ok:false, code }` · `onInvites(fn)`(지금 것을 바로 한 번 · `{ 보낸 사람: { fromName, roomCode, ts } }`) · `clear(from)`.
+- 함정: 보내기는 성공 답이 없다 — 1.5초 안에 오류(ref `roomInvite`)가 없으면 보낸 것으로 본다 · 오류에 누구 것인지 칸이 없어 한 번에 하나씩 보낸다. 받는 사람은 userCode — 친구 목록이 userCode 로 바뀌어야(친구 묶음) 맞는 사람에게 간다.
+- 검사: `checks/sim-room-invite-rt.js`.

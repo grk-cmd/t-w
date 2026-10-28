@@ -151,7 +151,7 @@
 | **sim-invite-account.js** | 80 | **a6c43e555063** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-group-invite.js** | 257 | **50f7cbb67bc6** |
-| **sim-room-invite-wait.js** | 44 | **6d9e289acbd7** |
+| **sim-room-invite-wait.js** | 44 | **e7a75405aef2** |
 | **sim-focus-auth.js** | 91 | **ef2f4cad0aeb** |
 | **sim-focus-sync.js** | 174 | **084cb3a11f49** |
 | **sim-friend-manage.js** | 274 | **73c11c84c96b** |
@@ -264,7 +264,7 @@
 | **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
 | **sim-gacha.js** | 573 | **158e5e7830be** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
-| **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
+| **sim-room-invite-ui.js** | 359 | **73218f615377** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
 | **sim-api-client.js** | 343 | **434141fb839f** |
@@ -444,6 +444,7 @@
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-room-rt.js** | 357 | **1f746cdeb8d6** |
 | **sim-chat-rt.js** | 186 | **043e7c9b1109** |
+| **sim-room-invite-rt.js** | 73 | **05182e7f4355** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

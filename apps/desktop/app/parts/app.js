@@ -9144,8 +9144,7 @@ addEventListener('resize',resize); resize();
 const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
+  invites: TwRoomInviteRt.store,
   startRoom: (...a)=>roomEntryMod.startRoom(...a),
   doLeaveRoom: (...a)=>roomEntryMod.doLeaveRoom(...a),
   friendInRoom: (...a)=>inboxMod.friendInRoom(...a),
