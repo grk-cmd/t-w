@@ -2532,7 +2532,7 @@
   .st-anim-foot button{flex:1;font-size:11px;padding:5px 0;cursor:pointer;background:var(--win-face);
     border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .st-anim-foot button.on{background:var(--win-title-b);color:#fff;font-weight:bold;}
-  /* 📱 태블릿·폰 연결 (개정 74 · 시안 ①~③ 승인) — 설정 › 포커싱어플 탭의 칸 + QR 창.
+  /* 📱 태블릿·폰 연결 — 설정 › 포커싱 탭의 칸 + QR 창.
      ★ 패널 폭 300px 안 — 버튼은 한 줄에 최대 2개. 색은 토큰으로만(초록·노랑은 폴백 있는 토큰).
      ⚠️ 새 클래스에 fly 를 쓰지 말 것(sim-chat-fly 가 .fly 규칙 문자열을 붙잡고 있다). */
   #focusSettingsPanel .fs-mob{margin-top:10px;padding-top:8px;border-top:1px solid var(--win-lo);}
@@ -2712,7 +2712,7 @@
     .seat-nameplate .np-star{ animation:none; }
     .seat-nameplate .np-star::after{ animation:none; opacity:.9; }
   }
-  /* 🏢 회사원 모드 — ▪ 을 누른 '화면 숨김' 상태.
+  /* 🏢 회사원 모드 — ▾ 버튼을 우클릭한 '화면 숨김' 상태.
      ★ 숨길 것을 JS 로 하나씩 지우지 않고 여기 한 곳에 모은다. 이 코드베이스에서
        "선택자를 하나씩 나열하다 빠뜨림"은 반복된 실패 양상이라(검사 12·14·15 가 전부 그 때문에 생겼다),
        새 요소가 생겨도 이 규칙 안에서만 손보면 되도록 컨테이너 단위로 끊는다.
@@ -5296,7 +5296,7 @@
       <span>회사원 모드 <button class="fs-info" type="button" aria-controls="fsDescOffice" aria-expanded="false" title="설명 보기">i</button></span>
       <button class="fs-toggle-btn fs-switch" id="progOfficeModeToggle" type="button">꺼짐</button>
     </div>
-    <p class="fs-desc" id="fsDescOffice" hidden>켜면 마이홈·말풍선이 잠기고, 상태칩의 ▪ 버튼으로 화면을 즉시 숨길 수 있어요.</p>
+    <p class="fs-desc" id="fsDescOffice" hidden>켜면 마이홈·말풍선이 잠기고, 미니 메뉴의 ▾ 버튼을 우클릭하면 화면을 즉시 숨길 수 있어요.</p>
     <div class="fs-toggle-row">
       <span>저해상도(도트) 렌더</span>
       <button class="fs-toggle-btn fs-switch" id="fsDotToggle" type="button">꺼짐</button>
@@ -7206,7 +7206,7 @@
     <div id="stMgrList" class="st-mgr-list"></div>
   </div>
 </div>
-<!-- 📱 태블릿·폰 연결 창 (개정 74 · 시안 ③ 승인) — 설정 › 포커싱어플 [QR로 연결하기]에서 연다.
+<!-- 📱 태블릿·폰 연결 창 — 설정 › 포커싱 [QR로 연결하기]에서 연다.
      QR 은 vendor/qrcode.js(로컬 · CSP) 로 canvas 에 그린다. 내용 = 안내 페이지 주소 · 키는 # 뒤(서버 로그에 안 남게). -->
 <div id="mobLinkOverlay">
   <div class="box" role="dialog" aria-label="태블릿·폰 연결">

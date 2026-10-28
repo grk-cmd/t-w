@@ -186,7 +186,7 @@
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
 | **sim-overlay-layered.js** | 361 | **d9b483ece5e7** |
-| **sim-part-color-entry.js** | 154 | **f98e52fce12a** |
+| **sim-part-color-entry.js** | 154 | **7d76cd1674ff** |
 | **sim-pk-fit.js** | 170 | **354391f1f290** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
 | **sim-pl-loop.js** | 508 | **131a502c88a2** |
@@ -227,7 +227,7 @@
 | **sim-ops-hot-config.js** | 162 | **bc2e1a9dbb34** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
-| **sim-wd-ear.js** | 375 | **96a46559b9b2** |
+| **sim-wd-ear.js** | 375 | **2861d889054f** |
 | **sim-uv-fill.js** | 106 | **66efa9691c9a** |
 | **sim-paint-tools.js** | 300 | **156a46addf8d** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
