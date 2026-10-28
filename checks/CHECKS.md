@@ -446,7 +446,7 @@
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
-| **sim-rt-hub.js** | 277 | **f6e1cae3ee47** |
+| **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
 | **sim-login-flow.js** | 287 | **d41145bb19df** |
 | **sim-first-run-013.js** | 141 | **14d1b0e813d8** |

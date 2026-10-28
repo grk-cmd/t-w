@@ -19,6 +19,7 @@ const SRC0 = {
   LINK: pick(at('realtime-link.js', 'realtime')),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
+  API: pick(at('api-client.js', 'shared')),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
@@ -61,20 +62,24 @@ function mkWS(){
   return { FakeWS, socks };
 }
 
-function mk(S){
+function mk(S, tokenOk){
+  tokenOk = tokenOk || (() => true);
   const L = loadLink(S.LINK), H = loadHub(S.HUB);
   const clock = mkClock();
   const { FakeWS, socks } = mkWS();
   const forces = [];
   const hub = H.createRtHub({
     createLink: L.createRealtimeLink, WebSocket: FakeWS, url: () => 'wss://realtime.together-working.com',
-    getToken: async (force) => { forces.push(!!force); return 'tok' + forces.length; },
+    getToken: async (force) => { forces.push(!!force); if(!tokenOk()) throw new Error('offline'); return 'tok' + forces.length; },
     getVersion: async () => '0.13.0', deviceId: () => 'dev-0001', session: 'sess01',
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout, random: () => 0.5, log: { warn(){} },
   });
   const states = [];
   hub.onState((s) => states.push(s));
   return { H, L, hub, clock, socks, forces, states, last: () => socks[socks.length - 1] };
+}
+async function waitNewSock(e, n0){   // 새로 만든 · 아직 안 닫힌 소켓이 생길 때까지 시계를 조금씩
+  for(let i = 0; i < 400 && (e.socks.length <= n0 || e.last().closed); i++) await e.clock.advance(250);
 }
 async function readyOn(e, code){
   await tick();
@@ -173,6 +178,23 @@ async function judge(S){
     a.last().kill(4001); await tick();
     await a.clock.advance(30000);
     chk(a.hub.state() === 'authFailed' && a.socks.length === 2, '  ↳ 또 4001 이면 멈춤(authFailed) — 더 붙지 않는다');
+    { /* 이 PC 에서 토큰을 못 받음(오프라인) — 서버가 보낸 4001 이 아니니 멈추지 않고 계속 다시 붙는다 */
+      let online = true;
+      const o = mk(S, () => online);
+      o.hub.start(); const ow = await readyOn(o);
+      online = false; ow.kill(1006); await tick();
+      await o.clock.advance(60000);
+      chk(o.hub.state() === 'retrying', '★ 토큰을 못 받는 동안(오프라인)은 authFailed 가 아니라 retrying — ' + o.hub.state());
+      online = true; await waitNewSock(o, o.socks.length); await readyOn(o);
+      chk(o.hub.state() === 'ready', '  ↳ 다시 받을 수 있게 되면 붙는다');
+      const p = mk(S, () => online);
+      p.hub.start(); const pw = await readyOn(p);
+      pw.kill(4001); await tick();
+      online = false; await p.clock.advance(5000);
+      online = true; await waitNewSock(p, p.socks.length);
+      p.last().open(); await tick(); p.last().kill(4001); await tick(); await p.clock.advance(60000);
+      chk(p.hub.state() === 'authFailed', '  ↳ 4001 → 토큰 실패 → 4001 이면 그때 멈춤 — ' + p.hub.state());
+    }
     const b = mk(S);
     b.hub.start(); const bw = await readyOn(b);
     bw.kill(4003); await tick(); await b.clock.advance(30000);
@@ -228,12 +250,28 @@ async function judge(S){
     const sid = H.sessionIdOf('0b6c1f4e-2d0b-4b9e-9a7a-1f2e3d4c5b6a');
     chk(/^[A-Za-z0-9_-]{1,32}$/.test(sid) && sid.length === 32, '세션 id — 서버 규칙(영숫자 _ - 1~32) · ' + sid);
     const w = { localStorage: { getItem: () => null }, TwDeviceId: { store: { get: () => 'dev-0001' } }, TwRequestId: { newId: () => '0b6c1f4e-2d0b-4b9e-9a7a-1f2e3d4c5b6a' }, WebSocket: function(){} };
+    { const m = { exports: {} }; new Function('module', 'window', S.API)(m, undefined); w.TwApi = m.exports; }   // 환경 판정은 api-client 의 envOf 한 곳
     const T = loadHub(S.HUB, w);
     let threw = false; try{ T.store.start(); }catch(_){ threw = true; }
     chk(T && T.store && typeof T.store.bind === 'function' && threw, 'window.TwRtHub.store — bind 전 start 는 던진다(조용히 안 붙지 않게)');
     const h = S.HTML, i = (f) => h.indexOf('<script src="parts/' + f + '"></script>');
     chk(i('shared/request-id.js') > 0 && i('shared/device-id.js') > i('shared/request-id.js') && i('realtime/rt-hub.js') > i('shared/device-id.js') && i('app.js') > i('realtime/rt-hub.js'),
       'html — request-id.js · device-id.js → rt-hub.js → app.js 차례');
+    chk(i('shared/api-client.js') > 0 && i('shared/api-client.js') < i('realtime/rt-hub.js'), 'html — api-client.js(envOf) 가 rt-hub.js 보다 먼저');
+    { /* 앱 한 벌이 고르는 주소 — dev 앱이면 dev · 그 밖은 운영 · 판정은 api-client 의 envOf 를 바꾸면 따라 바뀐다(따로 판정 안 함) */
+      const urlOf = (companion, envOf) => {
+        const w2 = Object.assign({}, w, { companion });
+        { const m = { exports: {} }; new Function('module', 'window', S.API)(m, undefined); w2.TwApi = envOf ? Object.assign({}, m.exports, { envOf }) : m.exports; }
+        const H2 = loadHub(S.HUB, w2); let target = null;
+        H2.store.bind({ createLink: (d) => { target = d.target; return { ensureReady(){}, close(){}, send(){ return false; }, request(){ return Promise.resolve(null); } }; },
+          getToken: async () => 't', getVersion: () => '0.13.0' });
+        try{ H2.store.start(); }catch(_){}
+        try{ H2.store.stop(); }catch(_){}
+        return target ? target() : null;
+      };
+      chk(urlOf({ firebaseEnv: 'dev' }) === H.REALTIME_URLS.dev && urlOf(undefined) === H.REALTIME_URLS.prod, '앱 한 벌 — dev 앱은 dev 주소 · 그 밖은 운영 주소');
+      chk(urlOf({ firebaseEnv: 'dev' }, () => 'prod') === H.REALTIME_URLS.prod, '  ↳ 판정은 TwApi.envOf 를 따른다(따로 판정하지 않는다)');
+    }
     chk(/window\.TwRtHub\.store\.bind\(\{ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: \(\) => _appVer\.ready \}\);/.test(strip(S.FI)), 'firebase-init — 연결 공통부 · 토큰 · 버전을 bind');
     chk(!/\.start\(/.test(strip(S.FI).split('window.TwRtHub.store.bind')[1].split('\n')[0]), '  ↳ 켜기는 여기서 안 한다(로그인 흐름 몫)');
   }
@@ -251,7 +289,8 @@ const BREAKS = [
   ['HUB', "        if(done.has(fn)) continue;", "", '같은 함수를 종류마다 다시 부름'],
   ['HUB', "      if(!kindFns.has(m.kind)) return;", "      if(!kindFns.has(m.kind)){ emitKind('friends', {}); return; }", '모르는 종류를 다른 데로 흘림'],
   ['HUB', "      if(authFails > 1){ started = false; setState(STATE.AUTH_FAILED); return; }", "", '4001 을 끝없이 다시'],
-  ['HUB', "      link.markAuthRetry();   // 다음 열기는 새 토큰", "", '4001 뒤 옛 토큰으로 다시'],
+  ['HUB', "    if(closeCode === CLOSE.AUTH || fatal === 'auth') link.markAuthRetry();   // 다음 열기는 새 토큰", "", '4001 뒤 옛 토큰으로 다시'],
+  ['HUB', "    if(closeCode === CLOSE.AUTH){\n      authFails++;", "    if(closeCode === CLOSE.AUTH || fatal === 'auth'){\n      authFails++;", '토큰 못 받음(오프라인)도 4001 처럼 세어 멈춤'],
   ['HUB', "    if(closeCode === CLOSE.SESSION_LOST || sawSessionLost){ sawSessionLost = false; started = false; setState(STATE.SESSION_LOST); return; }", "", '밀려나도 다시 붙음'],
   ['HUB', "    if(closeCode === CLOSE.PROTOCOL || fatal === 'protocol'){ started = false; setState(STATE.UPDATE); return; }", "", '판이 달라도 계속 붙음'],
   ['HUB', "    if(!kindFns.has(kind)) throw new Error('[realtime] 모르는 알림 종류 — ' + kind);", "    if(!kindFns.has(kind)) kindFns.set(kind, []);", '모르는 이름을 조용히 받음'],
