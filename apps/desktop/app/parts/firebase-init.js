@@ -42,7 +42,7 @@
   import { createAppVersion } from "./shared/app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
-  import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
+  import { createChatHistory, createIdbChatStore } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
   import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./shared/visit-ping.js";
@@ -176,32 +176,8 @@
     try{ await fbSignOut(auth); }catch(_){}
   };
 
-  /* 💬 채팅 탭 기록 경로 — #일반은 chatLog, 그 외는 _chatTab/{tabId} (chat-tabs.js 주석 참고) */
-  const _chatLogPath = (room, tabId) => (!tabId || tabId === 'general') ? `rooms/${room}/chatLog` : `rooms/${room}/_chatTab/${tabId}`;
   // ⏱ 서버 시간 오프셋 — stale 판정을 로컬 시계로 하면 PC 시계가 몇 분만 틀어져도
   //   상대의 멀쩡한 하트비트를 "오래됨"으로 오판해 숨김(A↔B 비대칭의 원인 후보). 서버 오프셋으로 보정.
-  /* 💬 채팅 한 줄의 최대 글자수. **세 곳이 같은 숫자를 봐야 한다:**
-       ① 여기(저장 전 slice) ② app.js 의 CHAT_OUT_MAX ③ firebase-database-rules.json 의 text 상한
-     [경위] ①②는 커스텀 이모티콘 마커(URL 때문에 하나가 200자 안팎) 때문에 500→1200 으로 함께
-       올렸는데, **③ 규칙만 500 에 남아 있었다.** 그래서 501~1200자 줄은 클라이언트를 통과한 뒤
-       서버에서 거부됐다. RTDB 는 낙관적 반영이라 내 화면엔 한 번 떴다가 거부와 함께 사라진다 —
-       보내는 사람에게는 «쳤는데 없어지거나 순서가 뒤엉킨» 것으로 보인다.
-     ⚠️ 이 숫자를 옮기면 반드시 ②③도 같이 옮길 것. 셋 중 하나만 달라도 그 차이 구간이 통째로 사라진다. */
-  const CHAT_TEXT_MAX = 1200;
-  /* 💬 대화 정렬 기준 — **서버가 찍은 ts** 가 먼저다.
-     [경위] 제보 — "내 메시지는 전부 위에, 상대 메시지는 전부 아래에 뭉쳐 나온다. 재접속하니 정상."
-       무작위로 섞인 게 아니라 **사람 단위로 갈렸다**는 것이 단서였다.
-     [왜 그런가] 예전에는 push key 순서(Object.keys().sort())를 그대로 썼다. push key 는 **보내는
-       사람의 클라이언트가** 만든다 — `Date.now() + 서버시각보정`. 그래서 두 갈래로 어긋난다:
-         ① 시계 어긋남 — 보정값이 아직 안 왔거나 틀리면 그 사람 키 전부가 한쪽으로 밀린다
-         ② 잠깐 끊김   — 오프라인 큐에 담긴 글은 **부를 때 만든 옛 키**로 나중에 올라간다
-       둘 다 «한 사람 것이 통째로» 앞뒤로 몰리는 모양이 되고, 재접속하면 저절로 낫는다. 제보 그대로다.
-     [고침] ts 는 serverTimestamp() 라 **서버가 커밋 시점에 찍는다** — 누구의 시계도, 끊김도 타지 않는다.
-       화면에 찍히는 시각(hh:mm)이 바로 이 값이므로, 이제 «보이는 시각과 순서»가 항상 일치한다.
-     ★ ts 가 같거나(같은 밀리초) 없으면 key 로 가른다 — 정렬이 흔들리지 않게 항상 결말이 있어야 한다.
-     ⚠️ 방금 보낸 내 글은 서버 확정 전까지 ts 가 **추정값**(내 시계 기준)이다. 시계가 어긋나 있으면
-       그 잠깐 동안만 자리가 틀리고, 서버 값이 오는 순간 제자리로 간다. 예전처럼 굳지 않는다. */
-  const _chatOrder = chatOrder;   // 본문은 chat-history.js — 대화 기록(커서 · 저장)도 같은 순서를 쓴다
   let _svTimeOffset = 0;
   try{ onValue(ref(db, '.info/serverTimeOffset'), s => { _svTimeOffset = s.val() || 0; }); }catch(e){}
   const _svNow = () => Date.now() + _svTimeOffset;
@@ -1983,70 +1959,6 @@
       const e = String(emoji||'').slice(0, 32);
       await update(ref(db, `users/${userId}/clap`), { emoji: e || null });
     },
-    /* 🔇 채팅 잠금 · 🏷️ 방 설정 — 방장만 부른다(판정은 렌더러). ★ `_meta` 아래 칸만 update — set 으로 통째로 쓰면 channel·host·ts 가 날아가 승계가 깨진다. */
-    async setRoomChatOff(room, off){
-      if(!room) return { ok:false };
-      try{ await update(ref(db, `rooms/${room}/_meta`), { chatOff: !!off }); return { ok:true }; }
-      catch(e){ return { ok:false }; }
-    },
-    /* 🗑 대화 기록 통째 삭제 — 방장이 부른다(권한 판정은 렌더러가 한다).
-       ★ 방 전원이 `subscribeChatLog` 로 같은 노드를 보고 있으므로, 이 한 번의 remove 로
-         **모두의 화면이 같이 빈다.** 각자에게 따로 알릴 필요가 없다.
-       ★ `rooms/{방}/chatLog` **만** 지운다. `_meta` 와 멤버 노드는 건드리지 않는다 —
-         통째로 지우면 방장·채널이 날아가 그 자리에서 방이 해산된다.
-       ⚠️ 되돌릴 수 없다. 되돌리기를 붙이려면 지운 목록을 어딘가에 옮겨 두어야 하는데,
-         그건 "지웠다"는 약속을 어기는 것이라 하지 않기로 했다(요청).
-       ⚠️ 규칙 파일에 `rooms/$room/chatLog` 의 삭제 권한이 없으면 여기서 조용히 실패한다.
-         부르는 쪽이 반드시 반환값을 보고 실패를 사람에게 말할 것 — 삭제는 "눌렀는데 아무 일도
-         안 일어났다"가 가장 나쁜 결과다. (같은 경로의 remove 는 '마지막 사람 퇴장' 정리에서
-         이미 쓰고 있다 — 이 파일 위쪽 chatLog 정리 주석 참고.) */
-    /* tabId — 💬 채팅 탭. 없거나 general 이면 예전 그대로 chatLog(구버전이 보는 자리). 경로는 chat-tabs.js 한 곳. */
-    async clearChatLog(room, tabId){
-      if(!room) return { ok:false };
-      try{
-        if(!tabId || tabId === 'general') await remove(ref(db, `rooms/${room}/chatLog`));
-        else await remove(ref(db, _chatLogPath(room, tabId)));
-        return { ok:true };
-      }
-      catch(e){ return { ok:false, reason:(e && e.message) || '' }; }
-    },
-    /* ── 💬 채팅 탭(채널) — rooms/{방}/_meta/tabs/{tabId} = {name, ts} ──
-       ⚠️ 방장 제한은 **화면 수준**이다(채팅 켜짐/꺼짐과 같다). _meta.host 는 문자열일 뿐이라 서버가 방장을
-         검증하지 못한다 — 규칙은 개수(≤ 2) · 이름 길이만 막는다.
-       ★ 탭 자리는 s1 · s2 두 칸뿐이다(chat-tabs.js SLOTS) — 규칙이 그 이름만 받으므로 셋째는 구조상 못 생긴다.
-       ★ 추가는 트랜잭션 — 두 화면에서 동시에 누르면 같은 빈 자리를 고를 수 있어서 서버 값으로 다시 고른다. */
-    async addChatTab(room, name){
-      if(!room) return { ok:false };
-      try{
-        let full = false, id = null;
-        const res = await runTransaction(ref(db, `rooms/${room}/_meta/tabs`), cur => {
-          const t = cur || {};
-          id = ['s1', 's2'].find(k => !t[k]) || null;
-          if(!id){ full = true; return; }
-          t[id] = { name: String(name).slice(0, 10), ts: Date.now() };
-          return t;
-        });
-        if(full || !res.committed) return { ok:false, reason: full ? '채널은 3개까지예요' : '' };
-        /* 새 탭은 빈 기록으로 시작한다 — 빈 방의 `_chatTab` 은 서버 함수가 2분 넘게 지나서야 걷으므로, 그 사이 다시 연 방에서
-           같은 자리(s1 · s2)를 고르면 지난 방의 탭 기록이 딸려 나온다. 방금 비운 자리라 지금 방 사람의 글은 아직 없다. */
-        await remove(ref(db, _chatLogPath(room, id))).catch(()=>{});
-        return { ok:true, id };
-      }catch(e){ return { ok:false, reason:(e && e.message) || '' }; }
-    },
-    async renameChatTab(room, tabId, name){
-      if(!room || !tabId || tabId === 'general') return { ok:false };
-      try{ await set(ref(db, `rooms/${room}/_meta/tabs/${tabId}/name`), String(name).slice(0, 10)); return { ok:true }; }
-      catch(e){ return { ok:false }; }
-    },
-    /* 탭 삭제 — 정의와 그 기록을 한 묶음으로. 그 탭에 있던 사람은 _meta 리스너가 #일반으로 옮긴다. */
-    async deleteChatTab(room, tabId){
-      if(!room || !tabId || tabId === 'general') return { ok:false };
-      const w = {};
-      w[`rooms/${room}/_meta/tabs/${tabId}`] = null;
-      w[`rooms/${room}/_chatTab/${tabId}`] = null;
-      try{ await update(ref(db), w); return { ok:true }; }
-      catch(e){ return { ok:false }; }
-    },
     /* ===== 🔒 시크릿룸 (후원자 전용 고정 투게더룸) =====
        secretRooms/{SCRT-XXXX} = { pub:{owner, name, ts}, k }
 
@@ -2121,104 +2033,6 @@
     async setMySecretRoom(userId, code){
       try{ await set(ref(db, `users/${userId}/secretRoom`), code || null); return { ok:true }; }
       catch(_){ return { ok:false }; }
-    },
-    /* ★ 프리미엄 채팅 기록 — rooms/{room}/chatLog 아래에 push로 쌓는다.
-       ⚠️ 예전 주석: "방이 폭파되면 기록도 함께 사라진다(원하는 동작)". **더 이상 아니다** —
-         그 동작 때문에 다 같이 앱을 껐다 켜면 기록이 통째로 없어졌다. 지금은 방이 비어도
-         chatLog 만 남는다. 지우는 건 관리자 청소뿐이다.
-       한 방에 최대 100개만 화면에 유지(limitToLast — 저장은 그보다 많이 쌓일 수 있다). */
-    /* opts.wantTs — 서버가 받은 뒤 그 줄의 진짜 시각(ts 한 칸)만 읽어 { id, ts } 로 돌려준다.
-       보낸 사람의 «여기까지 읽음» 을 맞추는 데 쓴다(chat-ui.js _chatMarkSentRead). 다른 호출은 안 읽는다. */
-    async sendChatLog(room, msg, tabId, opts){
-      try{
-        const logRef = ref(db, _chatLogPath(room, tabId));
-        // 상한은 CHAT_TEXT_MAX 한 곳에서 온다 — 아래 slice 와 규칙 파일이 같은 숫자를 봐야 한다.
-        /* ⚠️ 1200 은 app.js 의 CHAT_OUT_MAX 와 **짝이다**. 커스텀 이모티콘 마커는 URL 때문에
-           하나가 200자 안팎이라, 예전 상한 500 에서는 셋만 붙여도 넘어갔다. 그때 마커 한가운데가
-           잘리면 `[emoji:https://…` 가 닫히지 않은 채 남아 그 줄이 통째로 깨졌다
-           ("등록 이모티콘을 연속 세 번 쓰면 오류"의 정체). 한쪽만 옮기지 말 것.
-           ★ 그래도 잘릴 때를 대비해 꼬리에 남은 **열린 마커 조각은 통째로 버린다.** */
-        let _t = String(msg.text||'').slice(0, CHAT_TEXT_MAX);
-        _t = _t.replace(/\[(?:emoji|demoji)(?::[^\]]*)?$/, '');
-        const newRef = push(logRef, {
-          uid: msg.uid || null,
-          name: (msg.name!=null ? String(msg.name).slice(0,20) : '?'),
-          text: _t,
-          ts: serverTimestamp(),
-          ...(msg.sys ? { sys: String(msg.sys).slice(0, 10) } : {})   // 💬 방장 지우기 표시(chat-history.js CLEAR_SYS)
-        });
-        await newRef;
-        /* 쓰기가 끝난 뒤의 ts 는 서버가 정한 값이다(내 PC 가 어림한 임시 값이 아니다). 못 읽어도 보내기는 성공이다. */
-        let ts = null;
-        if(opts && opts.wantTs){
-          try{ const s = await get(ref(db, _chatLogPath(room, tabId) + '/' + newRef.key + '/ts')); ts = s.val(); }catch(_){}
-        }
-        return { ok:true, id: newRef.key, ts };
-      }catch(e){
-        /* ⚠️ 예전엔 `catch(_){}` 로 통째로 삼켰다. 그래서 규칙에 걸려 **서버가 거부한 줄**도
-           보낸 사람에게는 아무 표시가 없었다 — RTDB 는 낙관적 반영이라 내 화면에는 한 번
-           떴다가, 거부가 돌아오는 순간 조용히 사라진다. 보내는 쪽에서는 그게 «순서가 뒤엉킨
-           것»처럼 보인다. 실패는 실패로 돌려주고, 호출부가 사용자에게 알린다. */
-        console.warn('[채팅] 기록 저장 실패 — 길이=' + String(msg && msg.text || '').length
-          + ' / 서버 규칙 상한=' + CHAT_TEXT_MAX, e);
-        return { ok:false, reason:'전송에 실패했어요' };
-      }
-    },
-    subscribeChatLog(room, onChange, limit, tabId){
-      try{
-        // limit 생략 시 100(대화창 본문). 뱃지 카운트처럼 적게만 필요하면 작은 값을 넘겨 트래픽을 줄인다.
-        const n = (typeof limit === 'number' && limit > 0) ? Math.min(200, Math.floor(limit)) : 100;
-        const q = query(ref(db, _chatLogPath(room, tabId)), limitToLast(n));
-        const cb = snap => {
-          const val = snap.val() || {};
-          /* ★ push key(k)를 id로 함께 넘긴다 — "여기까지 읽었습니다" 구분선이 이 id를 기준으로 잡는다.
-             ⚠️ 다만 **순서는 key 로 잡지 않는다.** 아래 _chatOrder 주석을 볼 것. */
-          const list = Object.keys(val).map(k => Object.assign({ id:k }, val[k]));
-          list.sort(_chatOrder);
-          onChange(list);
-        };
-        onValue(q, cb);
-        return () => { try{ off(q, 'value', cb); }catch(_){} };
-      }catch(_){ return ()=>{}; }
-    },
-    /* 💬 이어 받기 — since(서버 ts)부터 전부, 없으면 마지막 limit 줄. 한 줄씩 넘기고(새 줄 · ts 확정) 처음 받기가 끝나면 onReady.
-       ★ 지워진 줄(서버 3일 정리)은 넘기지 않는다 — 이미 받은 것은 남긴다(chat-history.js). ts 색인은 규칙 chatLog · _chatTab .indexOn */
-    subscribeChatSince(room, tabId, since, onMsg, onReady, limit){
-      try{
-        const r = ref(db, _chatLogPath(room, tabId));
-        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, limitToLast(limit || 100));
-        const one = snap => onMsg(Object.assign({ id: snap.key }, snap.val()));
-        const offA = onChildAdded(q, one), offC = onChildChanged(q, one);
-        onValue(q, () => { if(onReady) onReady(); }, { onlyOnce: true });   // child_added 가 다 온 뒤에 한 번
-        return () => { try{ offA(); offC(); }catch(_){} };
-      }catch(_){ if(onReady) onReady(); return ()=>{}; }
-    },
-    /* ★ 커스텀 이모티콘 — 내 계정(users/{uid}/emojis)에 저장. 어느 프리미엄 방에서도 로드된다.
-       이미지는 Storage에 올려 1년 캐시 URL만 RTDB에 둔다(메시지엔 URL만 실려 방 사용량 최소).
-       slot 0~7, { cmd(공백없는 명령어), url, gif(bool), ts } */
-    async saveEmoji(userId, slot, cmd, dataUrl, isGif){
-      try{
-        const ext = isGif ? 'gif' : 'png';
-        const path = `users/${userId}/emojis/${slot}.${ext}`;
-        const storageRef = sref(storage, path);
-        const fmt = dataUrl.startsWith('data:') ? 'data_url' : 'data_url';
-        await uploadString(storageRef, dataUrl, fmt, { cacheControl: STORAGE_CACHE, contentType: isGif?'image/gif':'image/png' });
-        const url = await getDownloadURL(storageRef);
-        await set(ref(db, `users/${userId}/emojis/${slot}`), { cmd:String(cmd||'').slice(0,10), url, gif:!!isGif, ts: serverTimestamp() });
-        return { ok:true, url };
-      }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
-    },
-    async getEmojis(userId){
-      try{ const snap = await get(ref(db, `users/${userId}/emojis`)); return snap.val() || {}; }catch(_){ return {}; }
-    },
-    async deleteEmoji(userId, slot){
-      try{
-        // Storage 파일은 png/gif 둘 다 시도 삭제(어느 쪽이 있었는지 몰라도 안전)
-        try{ await deleteObject(sref(storage, `users/${userId}/emojis/${slot}.png`)); }catch(_){}
-        try{ await deleteObject(sref(storage, `users/${userId}/emojis/${slot}.gif`)); }catch(_){}
-        await remove(ref(db, `users/${userId}/emojis/${slot}`));
-        return { ok:true };
-      }catch(e){ return { ok:false }; }
     },
     // ---- 라이선스 (관리자 직접 발급 방식) ----
     // licenses/{key} = { valid:true, note, createdAt, redeemedAt|null, redeemedBy|null(기기 식별용, 선택) }
@@ -2305,12 +2119,17 @@
                                serverTs: () => serverTimestamp(),
                                getDailyMax: () => _rc ? _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }).then(() => _rc.bugDailyMax()) : null,
                                authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
-    /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
+    /* 💬 대화 기록(서버 3일 · 이 PC 화면 캐시 · 시각으로 이어 받기) — 규칙은 chat-history.js · 서버 길은 대화 포트(chat/chat-rt.js). 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
-      subscribeSince: (room, tab, since, onMsg, onReady) => window.firebaseAPI.subscribeChatSince(room, tab, since, onMsg, onReady),
-      clearLog: (room, tab) => window.firebaseAPI.clearChatLog(room, tab),
-      sendLog: (room, msg, tab) => window.firebaseAPI.sendChatLog(room, msg, tab) }),
+      subscribeSince: (room, tab, since, onMsg, onReady) => window.TwChatRt.store.subscribeSince(room, tab, since, onMsg, onReady),
+      clearLog: (room, tab) => window.TwChatRt.store.clear(room, tab) }),
+    /* 😊 내 이모티콘 그림 올리기 — 서버가 받는 자리 users/{내 코드}/emojis/{칸}.png|gif 에만. 칸 저장 · 지우기는 API(chat-rt.js). 반환: 내려받기 주소 */
+    async uploadEmojiImage(userCode, slot, dataUrl, isGif){
+      const storageRef = sref(storage, `users/${userCode}/emojis/${slot | 0}.${isGif ? 'gif' : 'png'}`);
+      await uploadString(storageRef, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: isGif ? 'image/gif' : 'image/png' });
+      return getDownloadURL(storageRef);
+    },
     /* 🗑️ 회원 탈퇴(함수 deleteMyAccount) — 순서 · 까닭은 account-delete-net.js. 여기는 연결만. */
     accountDelete: createAccountDelete({
       callFn: async (name, data) => { const mod = await import(FUNCTIONS_SDK_URL); return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), name, { timeout: 300000 })(data); },

@@ -39,6 +39,8 @@ const findMySeat = deps.findMySeat;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const chatNet = deps.chatNet;   // 💬 대화 포트(chat-rt.js — 보내기 · 지난 기록 · 이모티콘)
+const myCode = deps.myCode;   // 연결의 나(room-rt.js myCode) — 줄의 글쓴이(userCode)와 견준다
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isDanceUnlocked = deps.isDanceUnlocked;
 const officeMode = deps.officeMode;   // 읽는 함수
@@ -453,10 +455,10 @@ function _stopChatBadgeSub(){
   _chatBadgeRoom = null;
 }
 function _startChatBadgeSub(room){
-  if(!room || !window.firebaseAPI || !firebaseAPI.subscribeChatLog) return;
+  if(!room) return;
   _stopChatBadgeSub();
   _chatBadgeRoom = room;
-  _chatBadgeUnsub = firebaseAPI.subscribeChatLog(room, list => {
+  _chatBadgeUnsub = chatNet.subscribeLog(room, list => {
     /* 🚪 대화창을 안 열어도 방에 들어와 있으면 이 구독이 먼저 도착한다 — 입장 시점은 여기가 더 정확하다.
        ⚠️ 이 구독은 최근 CHAT_BADGE_LIMIT 건만 받는다. 그래도 **마지막 키**는 전체 목록의 마지막과
          같으므로 컷 위치는 정확하다(앞이 잘려도 마지막은 마지막이다). */
@@ -602,13 +604,11 @@ function _chatTabSyncRoom(room){
 const _chatTabUnread = {};        // tabId → 안 읽은 수 (창이 열려 있는 동안, 보고 있지 않은 탭만)
 let _chatTabUnreadUnsubs = [];
 const CHAT_TAB_UNREAD_LIMIT = 30;
-/* 🛰 탭 정의 바꾸기 — 서버 방이면 방 서버 meta(방장만 · 서버가 검사), 아니면 Firebase _meta/tabs.
-   서버 방에서 Firebase 에 쓰면 rooms/{방}/_meta/tabs 만 생겨(유령 방 노드) 방장 혼자만 탭을 본다.
-   탭별 대화 기록(_chatTab)은 어느 방이든 Firebase 다(#일반 chatLog 와 같다). 반환은 firebaseAPI 쪽과 같은 { ok, id?, reason? }. */
+/* 🛰 탭 정의 바꾸기 — 방 포트 meta(방장만 · 서버가 검사). 탭을 만들거나 지우면 서버가 그 탭 기록을 먼저 비운다. 반환 { ok, id?, reason? }. */
 function _chatTabServer(){ try{ return (typeof Presence() !== 'undefined' && Presence().serverProvider && Presence().serverProvider()) || null; }catch(_){ return null; } }
 async function _chatTabAdd(room, name){
   const sp = _chatTabServer();
-  if(!sp) return firebaseAPI.addChatTab(room, name);
+  if(!sp) return { ok:false, reason:'' };
   const id = ChatTabs.freeSlot(_chatTabMeta());
   if(!id) return { ok:false, reason:'채널은 3개까지예요' };
   const r = await sp.setMeta({ tabs: { [id]: { name } } });
@@ -616,18 +616,15 @@ async function _chatTabAdd(room, name){
 }
 async function _chatTabRename(room, id, name){
   const sp = _chatTabServer();
-  if(!sp) return firebaseAPI.renameChatTab(room, id, name);
+  if(!sp) return { ok:false };
   const r = await sp.setMeta({ tabs: { [id]: { name } } });
   return { ok: !!(r && r.ok) };
 }
 async function _chatTabDelete(room, id){
   const sp = _chatTabServer();
-  if(!sp) return firebaseAPI.deleteChatTab(room, id);
+  if(!sp) return { ok:false };
   const r = await sp.setMeta({ tabs: { [id]: null } });
-  if(!(r && r.ok)) return { ok:false };
-  // 정의는 서버에서 지워졌다 — 기록은 Firebase 에 있으니 따로 지운다(실패해도 탭은 이미 없다 · 같은 자리를 다시 쓰기 전에 정리)
-  try{ if(firebaseAPI.clearChatLog) await firebaseAPI.clearChatLog(room, id); }catch(_){}
-  return { ok:true };
+  return { ok: !!(r && r.ok) };
 }
 function _chatTabMeta(){ try{ return (window._roomMetaCache && window._roomMetaCache.tabs) || null; }catch(_){ return null; } }
 function _chatTabResolve(id){ return window.ChatTabs ? ChatTabs.resolve(id, _chatTabMeta()) : 'general'; }
@@ -656,9 +653,9 @@ function _chatSubscribeTab(room){
   try{ _renderChatLog([]); }catch(_){}
   // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
   const _onList = list => { _noteChatJoin(key, list); _renderChatLog(list); };
-  // 💬 이 PC 저장 + 그 뒤만 이어 받기(chat-history.js) — 옛 firebase-init 이면 예전 통째 구독
+  // 💬 이 PC 화면 캐시 + 그 뒤만 이어 받기(chat-history.js · 길은 chat-rt.js) — 연결 모듈이 아직이면 최근 줄 구독
   if(room && window.firebaseAPI && firebaseAPI.chatHistory) setChatLogUnsub(firebaseAPI.chatHistory.open(room, tab, _onList));
-  else if(room && window.firebaseAPI && firebaseAPI.subscribeChatLog) setChatLogUnsub(firebaseAPI.subscribeChatLog(room, _onList, undefined, tab));
+  else if(room) setChatLogUnsub(chatNet.subscribeLog(room, _onList, undefined, tab));
   _chatTabUnreadStart(room);
   _chatTabsRender();
 }
@@ -670,12 +667,12 @@ function _chatTabUnreadStop(){
 }
 function _chatTabUnreadStart(room){
   _chatTabUnreadStop();
-  if(!room || window._activeChannel !== 2 || !window.ChatTabs || !(window.firebaseAPI && firebaseAPI.subscribeChatLog)) return;
+  if(!room || window._activeChannel !== 2 || !window.ChatTabs) return;
   const cur = _chatMyTabId();
   ChatTabs.list(_chatTabMeta()).forEach(t => {
     if(t.id === cur) return;
     const key = _chatMarkKey(room, t.id);
-    _chatTabUnreadUnsubs.push(firebaseAPI.subscribeChatLog(room, list => {
+    _chatTabUnreadUnsubs.push(chatNet.subscribeLog(room, list => {
       let mark = _loadChatReadMarker(key);
       const last = _chatLastOf(list);
       // 처음 보는 탭이면 '지금까지는 읽은 것' — 뱃지 구독과 같은 규칙
@@ -863,7 +860,7 @@ function _renderChatLog(list){
     if(isNaN(d.getTime())) return '';
     return String(d.getHours()).padStart(2,'0') + ':' + String(d.getMinutes()).padStart(2,'0');
   };
-  let _myUid = null; try{ _myUid = getMyUserId(); }catch(_){}
+  let _myUid = null; try{ _myUid = myCode(); }catch(_){}
   rows.forEach((m, i)=>{
     if(i===dividerAt) html.push('<div class="cm-unread-sep" id="cmUnreadSep"><span>여기까지 읽었습니다</span></div>');
     const nm=_chatEsc(m.name||'?');
@@ -1050,7 +1047,7 @@ function _renderChatText(rawText){
 /* 🚫 채팅 제한 — 이모티콘 연타 · 도배 · 길이. 값은 **여기 한 곳에만** 둔다.
    ★ 판정은 마커로 펼친 뒤(outText)에 한다. 원문(`/ㅋㅋ`)으로 세면 내 이모티콘과 기본 이모티콘의
      명령어가 같을 때(내 것 우선 규칙) 다른 그림인데 같은 것으로 세거나 그 반대가 된다.
-   ⚠️ CHAT_OUT_MAX 는 **서버 저장 상한과 짝이다**(firebaseAPI.sendChatLog 의 slice).
+   ⚠️ CHAT_OUT_MAX 는 **서버 저장 상한과 짝이다**(서버 chatSay 실제 상한 1200 — 마커를 펼친 뒤).
      한쪽만 올리면 그 차이만큼이 서버에서 잘려 나가는데, 하필 마커 한가운데가 잘리면
      `[emoji:https://…` 가 닫히지 않은 채로 남아 그 줄이 통째로 깨진다 —
      **커스텀 이모티콘을 연속 세 번 쓰면 깨지던 것의 정체가 이것이었다**(마커 하나가 URL 때문에
@@ -1060,6 +1057,12 @@ const CHAT_SAME_RUN_MAX  = 3;       // 같은 내용을 연달아 보낼 수 있
 const CHAT_SAME_COOL_MS  = 10000;   // 그 뒤 같은 내용을 다시 보낼 수 있을 때까지
 const CHAT_BURST_N = 8, CHAT_BURST_MS = 5000;   // 5초에 8줄까지
 const CHAT_OUT_MAX = 1200;
+/* 서버가 줄을 거절한 까닭(chatSay error code) → 안내. 그 밖은 «전송에 실패했어요» */
+const CHAT_SAY_REFUSED = Object.freeze({
+  CHAT_TOO_FAST: '⏳ 조금 천천히 보내주세요',
+  CHAT_OFF: '🔇 방장이 채팅을 껐어요 — 😊 🎲 💣 와 /80 · /150 은 쓸 수 있어요',
+  CHAT_TEXT_INVALID: '보낼 수 없는 글이에요 — 너무 길거나 비어 있어요',
+});
 let _chatSameText='', _chatSameCount=0, _chatSameAt=0, _chatSendTimes=[];
 /* 같은 이모티콘이 연달아 몇 개 붙었는가 — 사이에 글자가 하나라도 있으면 연속이 끊긴다.
    (공백만 있는 것은 붙여 쓴 것으로 본다. `/ㅋㅋ /ㅋㅋ /ㅋㅋ /ㅋㅋ` 로 우회되면 규칙이 없는 것과 같다.) */
@@ -1154,18 +1157,16 @@ function _sendChatWindowMsg(){
   sendMyChat(bubbleText, _fly, _fly ? _chatFlyColor : '', _chatFlySize, _chatMyTabId());
   // 2) 대화 기록 저장 — 마커가 든 outText 저장(다른 사람도 이모티콘을 URL로 렌더)
   const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():null;
-  if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-    /* ⚠️ 서버가 거부한 줄은 **내 화면에 한 번 떴다가 사라진다** — RTDB 가 낙관적으로 먼저
-       반영하고 거부가 돌아오면 되돌리기 때문이다. 예전엔 그 실패가 어디에도 안 남아서,
-       보내는 사람에게는 «쳤는데 없어지거나 순서가 뒤엉킨» 것으로만 보였다.
-       ★ 친 글은 입력칸에 돌려준다 — 잠금·도배 제한과 같은 관례다(길게 쓴 줄을 날리지 않는다). */
+  if(room){
+    /* 줄은 서버가 저장하고(chatSaid) 방 전원에게 보낸다(chatLine). 거절되면 까닭을 말하고 친 글은 입력칸에 돌려준다
+       — 잠금 · 도배 제한과 같은 관례다(길게 쓴 줄을 날리지 않는다). */
     const sendTab = _chatMyTabId();
     const sendKey = _chatMarkKey(room, sendTab);   // 읽음은 보낸 채널에만 — 그 사이 탭 · 방을 옮겨도
-    Promise.resolve(firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text:outText }, sendTab, { wantTs:true }))
+    Promise.resolve(chatNet.sendText(room, outText, sendTab))
       .then(r=>{
         if(r && r.ok) _chatMarkSentRead(sendKey, r);
         if(r && r.ok === false){
-          toast('전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
+          toast(CHAT_SAY_REFUSED[r.code] || '전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
           const el=document.getElementById('chatInput');
           if(el && !el.value) el.value = text;   // 그 사이에 새로 친 글이 있으면 덮지 않는다
         }
@@ -1200,11 +1201,7 @@ const DEMOJI_BY_ID = demojiCatalog.BY_ID, DEMOJI_BY_CMD = demojiCatalog.BY_CMD;
 
 // 내 이모티콘 로드 (대화창 열 때 1회)
 async function _loadMyEmojis(){
-  try{
-    if(window.firebaseAPI && firebaseAPI.getEmojis){
-      _emojiCache = await firebaseAPI.getEmojis(getMyUserId()) || {};
-    }
-  }catch(_){ _emojiCache = {}; }
+  try{ _emojiCache = await chatNet.getEmojis() || {}; }catch(_){ _emojiCache = {}; }
   _renderEmojiPanel();
 }
 // 이모티콘 창 렌더 — [기본 32개] → [내 이모티콘(× 삭제)] → [＋ 등록] 인라인 나열
@@ -1294,17 +1291,19 @@ async function _onEmojiFilePicked(file){
       });
     }
   }catch(_){ toast('이미지를 읽지 못했어요'); return; }
-  // 저장
-  if(!(window.firebaseAPI && firebaseAPI.saveEmoji)){ toast('앱을 재시작한 후 사용할 수 있어요'); return; }
+  // 저장 — 그림은 Storage(users/{내 코드}/emojis/{칸}) · 칸은 API(PUT /v1/me/emojis/{칸})
+  const me = myCode();
+  if(!(me && window.firebaseAPI && firebaseAPI.uploadEmojiImage)){ toast('서버에 연결된 뒤 등록할 수 있어요'); return; }
   toast('이모티콘 등록 중…');
-  const r = await firebaseAPI.saveEmoji(getMyUserId(), slot, cmd, dataUrl, isGif);
-  if(r && r.ok){ _emojiCache[slot]={cmd,url:r.url,gif:isGif}; _renderEmojiPanel(); toast('이모티콘을 등록했어요'); }
+  let url = null;
+  try{ url = await firebaseAPI.uploadEmojiImage(me, slot, dataUrl, isGif); }catch(_){ url = null; }
+  const r = url ? await chatNet.putEmoji(slot, cmd, url) : { ok:false };
+  if(r && r.ok){ _emojiCache[slot]={cmd,url,gif:isGif}; _renderEmojiPanel(); toast('이모티콘을 등록했어요'); }
   else toast('등록에 실패했어요');
 }
 // 이모티콘 삭제
 async function _deleteEmoji(slot){
-  if(!(window.firebaseAPI && firebaseAPI.deleteEmoji)) return;
-  const r = await firebaseAPI.deleteEmoji(getMyUserId(), slot);
+  const r = await chatNet.deleteEmoji(slot);   // Storage 파일은 서버가 지운다
   if(r && r.ok){ delete _emojiCache[slot]; _renderEmojiPanel(); }
 }
 // 슬래시 명령을 이모티콘 마커로 치환 — 전송 직전 호출. "/ㅋㅋ" → "[emoji:URL]"

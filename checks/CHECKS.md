@@ -87,7 +87,7 @@
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-char-core-load.js** | 89 | **740ecf90c6f1** |
-| **sim-chat-history.js** | 244 | **e7cfd7d9cc52** |
+| **sim-chat-history.js** | 238 | **03bd69ccc2f7** |
 | **sim-gamepad-activity.js** | 252 | **f67604d46dc4** |
 | **sim-mallang-hide.js** | 124 | **86040d19c645** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
@@ -99,7 +99,7 @@
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 95 | **71c92bf7579e** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
-| **sim-chat-tabs.js** | 138 | **4da8439ccd59** |
+| **sim-chat-tabs.js** | 137 | **e9ac9f1183a6** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
 | **sim-fix-1008.js** | 425 | **5cd2ba6b8971** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
@@ -124,7 +124,7 @@
 | **sim-fly-click-through.js** | 131 | **d3a06f4b89f9** |
 | **sim-fly-egg.js** | 259 | **97f6fa1f3ffa** |
 | **sim-fly-replay.js** | 155 | **06a5d591b908** |
-| **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
+| **sim-fly-roulette.js** | 151 | **1086b9bb75ae** |
 | **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
 | **sim-room-meta-cleanup.js** | 250 | **9c9b9de5850b** |
 | **sim-room-stats.js** | 157 | **e5071e7d61ba** |
@@ -283,7 +283,7 @@
 | **sim-def-size.js** | 157 | **68d8b678409d** |
 | **sim-todo-cli.js** | 145 | **cea6fc0dd36b** |
 | **sim-folder-free.js** | 190 | **b48c8b4f9389** |
-| **sim-chat-sfx.js** | 153 | **fbc9c8b4eac6** |
+| **sim-chat-sfx.js** | 153 | **7a565d2f2c49** |
 | **sim-mac-update.js** | 212 | **dda6802135c3** |
 | **sim-focus-cap.js** | 335 | **a290c42c1e85** |
 | **sim-focus-show.js** | 86 | **94e634cb488e** |
@@ -307,11 +307,11 @@
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **8d2f056f3589** |
-| **sim-tricks.js** | 94 | **53f1d40a59a5** |
+| **sim-tricks.js** | 94 | **06bc03aff176** |
 | **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **3e7fcbc11472** |
-| **sim-chat-ui.js** | 95 | **defcaa744921** |
+| **sim-chat-ui.js** | 95 | **b95ebd3ee60b** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
@@ -323,10 +323,10 @@
 | **sim-status-chip.js** | 102 | **6cb3c48e161a** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
-| **sim-dice-games.js** | 95 | **1784b3741383** |
+| **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **ca3242f94e17** |
 | **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
-| **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
+| **sim-chat-read-on-send.js** | 213 | **0f57e0394a96** |
 | **sim-rich-text.js** | 95 | **e2857c0faa2d** |
 | **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
@@ -377,7 +377,7 @@
 | **sim-parts-paths.js** | 84 | **a083fc25955c** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
-| **sim-domain-calls.js** | 158 | **46111b354825** |
+| **sim-domain-calls.js** | 159 | **e1d3033626ee** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
@@ -443,6 +443,7 @@
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-room-rt.js** | 357 | **1f746cdeb8d6** |
+| **sim-chat-rt.js** | 186 | **043e7c9b1109** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

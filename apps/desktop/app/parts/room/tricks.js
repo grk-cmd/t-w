@@ -41,6 +41,7 @@ const creatorOpen = deps.creatorOpen;   // 읽는 함수
 const flySeed = deps.flySeed;
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const chatNet = deps.chatNet;   // 💬 대화 포트(chat-rt.js) — 기록 줄은 서버가 문장을 만든다
 const measureBodyBox = deps.measureBodyBox;
 const ndc = deps.ndc;   // 읽는 함수
 const officeMode = deps.officeMode;   // 읽는 함수
@@ -170,20 +171,16 @@ function throwFlyAt(seat, quiet){
   try{ if(typeof Presence()!=='undefined' && Presence().active()) Presence().poke(seat.friendId, 'fly:' + seed); }
   catch(_){ toast('전송에 실패했어요'); return; }
   if(quiet) return;                            // 깜짝쇼로 던진 것 — 기록을 남기면 예고가 된다
-  const target = (_seatLabelName(seat) || '누군가');
-  _flyChatLog(getDisplayName() + '님이 ' + target + '님을 날려버렸어요.💥💥');
+  /* 기록 줄 — 날린 사람(userCode)만 보내면 서버가 문장을 만든다(«○○님이 ○○님을 날려버렸어요.💥💥») · 상대 코드를 모르면 남기지 않는다 */
+  const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
+  if(room && seat.friendUserId) chatNet.sendGame(room, { fly: seat.friendUserId });
 }
 
-/* 대화 기록 한 줄 — 🎲 주사위와 같은 경로(sendChatLog).
-   ⚠️ 조사는 붙이지 않고 "님이/님을"로 통일한다. 받침 판정 함수를 새로 만들 필요가 없고,
-     이모지가 섞인 닉네임에서도 안 깨진다. */
+/* 대화 기록 한 줄(내 이름의 글 — 룰렛 · 쉬어가기 안내). 서버 기록 줄(game)이 없는 문장이라 글로 보낸다(chat-rt.js sendText · #일반).
+   ⚠️ 조사는 붙이지 않고 "님이/님을"로 통일한다 — 이모지가 섞인 닉네임에서도 안 깨진다. */
 function _flyChatLog(text){
-  try{
-    const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
-    if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-      firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name:getDisplayName(), text });
-    }
-  }catch(_){}
+  const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
+  if(room) chatNet.sendText(room, text, 'general');
 }
 
 /* 방송을 받아 실제로 날린다 — 던진 사람 화면 포함 전원이 이 경로를 탄다.

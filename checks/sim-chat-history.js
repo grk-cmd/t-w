@@ -67,8 +67,7 @@ async function run(){
   const H = M.createChatHistory({
     store, channel: () => chan,
     subscribeSince: (room, tab, since, onMsg, onReady) => { const s = { room, tab, since, onMsg, onReady, off: false }; subs.push(s); return () => { s.off = true; }; },
-    clearLog: async () => ({ ok: true }),
-    sendLog: async (room, msg, tab) => { sent.push({ room, msg, tab }); },
+    clearLog: async (room, tab) => { sent.push({ room, tab }); return { ok: true }; },
     setTimeout: (f) => { Promise.resolve().then(f); return 1; },
   });
   let got = [];
@@ -95,8 +94,8 @@ async function run(){
   chk(got[got.length - 1] === 'a,b,c' && store.msgs.size === 3, '여유 구간에서 다시 온 줄은 겹치지 않고 새 줄만 붙는다');
   // 방장 지우기
   const r = await H.clear('WORK-AB12', 'general');
-  chk(r.ok && sent.length === 1 && sent[0].msg.sys === 'clr' && sent[0].tab === 'general', '방장 [지우기] — 서버를 비운 뒤 표시 줄을 남긴다');
-  subs[1].onMsg(Object.assign({ id: 'z', ts: 4000 }, sent[0].msg));
+  chk(r.ok && sent.length === 1 && sent[0].room === 'WORK-AB12' && sent[0].tab === 'general', '방장 [지우기] — 서버에 지우기만 부탁한다(표시 줄은 서버가 방 전원에 보낸다)');
+  subs[1].onMsg({ id: 'z', ts: 4000, name: '알림', text: '🗑', sys: 'clr' });
   await tick(); await tick();
   chk(got[got.length - 1] === 'z' && store.msgs.size === 1, '★ 표시 줄을 받으면 그 앞을 화면 · 저장에서 모두 지운다(꺼져 있던 사람은 다음 접속 때 같은 길)');
   close();
@@ -153,13 +152,10 @@ async function run(){
 
 run().then(() => {
   say('§3 연결 · 배선');
-  chk(/import \{ createChatHistory, createIdbChatStore, chatOrder \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?chat-history\.js"/.test(FI) && /const _chatOrder = chatOrder;/.test(FI),
-    'firebase-init 은 chat-history.js 를 연결만 · 순서 함수는 한 벌');
-  const sub = (FI.match(/subscribeChatSince\(room, tabId, since, onMsg, onReady, limit\)\{[\s\S]*?\n    \},/) || [''])[0];
-  chk(/orderByChild\('ts'\), startAt\(since\)/.test(sub) && /onChildAdded\(q, one\)/.test(sub) && /onChildChanged\(q, one\)/.test(sub) && !/onChildRemoved/.test(sub),
-    '★ 이어 받기는 ts 커서 · 새 줄 · 고친 줄만 — 지워진 줄(서버 3일)은 안 넘긴다');
-  chk(/onlyOnce: true/.test(sub), '첫 받기 끝(onReady)은 한 번만');
-  chk(/\.\.\.\(msg\.sys \? \{ sys:/.test(FI), 'sendChatLog 가 표시 줄(sys)을 싣는다');
+  chk(/import \{ createChatHistory, createIdbChatStore \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?chat-history\.js"/.test(FI),
+    'firebase-init 은 chat-history.js 를 연결만');
+  chk(/subscribeSince: \(room, tab, since, onMsg, onReady\) => window\.TwChatRt\.store\.subscribeSince\(room, tab, since, onMsg, onReady\)/.test(FI) && /clearLog: \(room, tab\) => window\.TwChatRt\.store\.clear\(room, tab\)/.test(FI) && !/sendLog:/.test(FI),
+    '★ 이어 받기 · 방장 지우기는 대화 포트(chat-rt.js — 시각 since · 서버 표시 줄) · 표시 줄을 앱이 따로 쓰지 않는다');
   chk(/indexedDB/.test(FI) && /firebaseConfig\.databaseURL/.test(FI), '저장 DB 이름에 DB 주소 — 운영 · dev 가 섞이지 않는다');
   chk(/bindSettings\(document/.test(FI) && /id="progChatHistWipe"/.test(HTML), '설정 › 시스템 [이 PC 에 저장된 대화 지우기]');
   const leave = (APP.match(/async function doLeaveRoom\(opt\)\{[\s\S]*?_clearHiddenSeats\(\);/) || [''])[0];
@@ -171,11 +167,9 @@ run().then(() => {
   const noWipe = [/function _onDeviceSessionLost\(v\)\{[\s\S]{0,300}?twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)\)/,   /* 창 열기 통로로 나간다 — 걸린 함수가 인자 없는 doLeaveRoom(모듈 순환 끊기 6) */
     /toast\(ROOM_LOST_MSG\[code\] \|\| ROOM_LOST_DEFAULT\);\s*Promise\.resolve\(doLeaveRoom\(\)\)/];
   chk(noWipe.every(re => re.test(APP)), '★ 튕김(다른 기기 로그인 · 서버 끊김 · 관리자 종료)은 안 지운다 — 다시 들어오면 이어진다');
-  chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList\)/.test(APP) && /_ch \? _ch\.clear\(room, _chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
+  chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList\)/.test(APP) && /firebaseAPI\.chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
     'app.js 배선 — 열기 · 방장 지우기 · 채널 정리 · 계정 놓기');
-  const R = JSON.parse(RULES_SRC);
-  const room = R.rules.rooms.$room;
-  chk(JSON.stringify(room.chatLog['.indexOn']) === '["ts"]' && JSON.stringify(room._chatTab.$tabId['.indexOn']) === '["ts"]', '★ 규칙 — chatLog · _chatTab 에 ts 색인(커서 · 서버 정리가 통째로 받지 않게)');
+  /* 규칙 chatLog · _chatTab 색인은 0.13 앱이 안 쓴다(대화는 API · realtime) — 규칙을 걷는 묶음이 같이 걷는다 */
 
   say('§4 서버 함수 · 처리방침');
   const X = require(path.resolve(EXP_PATH));

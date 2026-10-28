@@ -20,6 +20,7 @@ const findMySeat = deps.findMySeat;
 const flySeed = deps.flySeed;
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
+const chatNet = deps.chatNet;   // 💬 대화 포트(chat-rt.js) — 기록 줄은 서버가 문장을 만든다
 const officeMode = deps.officeMode;   // 읽는 함수
 const showChatBubble = deps.showChatBubble;
 const toast = deps.toast;
@@ -76,22 +77,17 @@ function _rollDice(){
   if(q.left === 0) toast('🎲 오늘 마지막 주사위였어요');
   const n1 = 1 + Math.floor(Math.random()*6);
   const n2 = 1 + Math.floor(Math.random()*6);
-  const name = getDisplayName();
   const dice2 = `[dice:${n1}][dice:${n2}]`;   // 주사위 2개 나란히
   const mySeat = findMySeat();
   const willFly = (n1 === 1 || n2 === 1) && _selfFlyReady(mySeat);
-  // 기록/전송 텍스트에 주사위 마커 삽입 — 렌더 시 SVG로 변환
-  const logText = `${name}님이 주사위 ${dice2} 가 나왔습니다.`;
   // 1) 말풍선 — 주사위 2개만(마커). setSeatHeadBubble이 주사위 마커만으로 된 텍스트를 SVG로 렌더.
   if(mySeat) showChatBubble(mySeat, dice2);
   // 💬 🎲 은 대화창 도구라 지금 보는 탭으로 간다(말풍선 · 기록 둘 다). 날아가는 것(willFly)은 방 전체 그대로.
   const _tab = (typeof chatUiMod._chatMyTabId === 'function') ? chatUiMod._chatMyTabId() : 'general';
   if(typeof Presence()!=='undefined' && Presence().active() && Presence().sendChat) Presence().sendChat(dice2, false, '', '', _tab);
-  // 2) 대화 기록 — 전체 문장
+  // 2) 대화 기록 — 눈 두 개만 보내면 서버가 문장(«○○님이 주사위 … 가 나왔습니다.»)을 만든다
   const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():null;
-  if(room && window.firebaseAPI && firebaseAPI.sendChatLog){
-    firebaseAPI.sendChatLog(room, { uid:getMyUserId(), name, text:logText }, _tab);
-  }
+  if(room) chatNet.sendGame(room, { dice: [n1, n2] }, _tab);
   if(willFly) _selfFlyAfterDice();
 }
 
