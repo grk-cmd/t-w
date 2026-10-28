@@ -365,3 +365,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
 - **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
 - 검사: `checks/sim-api-client.js`.
+
+## `api-errors.js` — 🧭 서버 오류 봉투 → 할 일 · 오류 번호
+
+- **책임**: api-client.js 의 `ApiError`(서버 봉투 code · 통로 kind)를 «할 일 + 오류 번호» 로 바꾸는 표 한 곳. 공통 code 만 여기 — `AUTH_REQUIRED` · `NO_TOKEN` → `login`(E-NET-01) · `USER_CODE_NOT_BOUND` → `signup`(토스트 없음) · `SERVER_ADMIN_ONLY` → `maintenance`(토스트 없음) · `ACCESS_DENIED` · `PREMIUM_REQUIRED` → `notice` · `TOO_MANY_REQUESTS` → `later`(`retryAfterMs`) · `CONCURRENT_UPDATE` → `refetch` · 모양 오류 → `notice` · 닿지 못함 → `offline`(E-NET-07) · 그 밖 → `notice`(E-NET-08).
+- **쓰는 법**: `const t = TwApiErrors.store.notify(err, 내 표)` → `{ code, action, retryAfterMs, items }` 를 받아 화면을 고른다(로그인 화면 · 점검 창 · 다시 받기는 부르는 쪽 몫). 번호 없이 판단만 — `TwApiErrors.translate(err, 내 표)`.
+- **기능 표**: `{ GIFT_DAILY_LIMIT: { action: 'later', notice: (notifyError, e) => notifyError('E-MH-..', e, e.message) } }` 모양으로 그 묶음 파일에 둔다 — 번호는 error-codes.js 표에 먼저 넣고 글자 그대로. 기능 표가 공통 표보다 먼저다.
+- **함정**: 서버 message 는 사용자 문구로 써도 되는 곳만 셋째 인자로(선물 · 하루 상한처럼 숫자가 든 것). 공통 표에 기능 code 를 더하지 않는다 — 같은 code 를 기능마다 다르게 다룰 수 있어야 한다.
+- 검사: `checks/sim-api-errors.js`.

@@ -24,6 +24,7 @@
 | `CHAR` | 캐릭터 · 꾸미기 · 가챠 |
 | `FOCUS` | 포커스 · 레벨 |
 | `DATA` | 범용 데이터 통로(서버로 옮긴 경로) |
+| `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
 | `SYS` | 그 밖 |
 
 ## 번호
@@ -62,6 +63,14 @@
 | `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/data-gateway.js` — 서버 범용 통로 `INVALID_REQUEST` |
 | `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 `CONCURRENT_UPDATE` |
 | `E-DATA-04` | 서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요 | `shared/data-gateway.js` — 서버 범용 통로 모르는 code |
+| `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |
+| `E-NET-02` | 이 작업을 할 권한이 없어요 | `shared/api-errors.js` — 공통 `ACCESS_DENIED` |
+| `E-NET-03` | 프리미엄에서 쓸 수 있는 기능이에요 | `shared/api-errors.js` — 공통 `PREMIUM_REQUIRED`(이 기기 판정 — `X-Device-Id`) |
+| `E-NET-04` | 요청이 너무 잦아요 — 잠시 뒤 다시 해 주세요 | `shared/api-errors.js` — 공통 `TOO_MANY_REQUESTS`(`Retry-After`) |
+| `E-NET-05` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | `shared/api-errors.js` — 공통 `CONCURRENT_UPDATE`(다시 받고 한 번 더) |
+| `E-NET-06` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/api-errors.js` — 공통 `INVALID_REQUEST` · `METHOD_NOT_ALLOWED` · `UNSUPPORTED_MEDIA_TYPE` · `PAYLOAD_TOO_LARGE` |
+| `E-NET-07` | 서버에 닿지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요 | `shared/api-errors.js` — 닿지 못함(네트워크 · 시간 초과 · 5xx · 사본 없음) |
+| `E-NET-08` | 서버에서 처리하지 못했어요 — 잠시 뒤 다시 해 주세요 | `shared/api-errors.js` — 표에 없는 code(기능 표 · 공통 표 둘 다 없음) |
 
 ## 걷은 번호
 (아직 없음)

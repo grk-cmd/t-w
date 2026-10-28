@@ -446,6 +446,7 @@
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
+| **sim-api-errors.js** | 126 | **2c405591f082** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
