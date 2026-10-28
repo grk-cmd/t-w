@@ -8564,15 +8564,15 @@ let figureMode = (localStorage.getItem(FIGURE_MODE_KEY)==='1');
    등록된 앱이 하나도 없으면 항상 true, 등록된 앱이 있으면 "그 앱이 지금 활성 상태"일 때만 false.
    (피규어 모드면 초기값부터 false로 시작 — 첫 폴링 전까지 잠깐 잠든 것처럼 보이는 지연 방지) */
 let focusGateSleep = !figureMode;
-/* 🏢 회사원 모드 — 켜면 남의 마이홈이 안 열리고 말풍선이 잠기며, 상태칩 ■ 버튼 우클릭으로
-   화면을 즉시 숨길 수 있다. (1-1 우클릭 차단 · 1-2 머리 위 라벨은 이후 단계)
+/* 🏢 회사원 모드 — 켜면 남의 마이홈이 안 열리고 말풍선이 잠기며, 미니 메뉴 ▾ 버튼 우클릭으로
+   화면을 즉시 숨길 수 있다.
    ⚠️ 선언 자리를 figureMode 옆으로 잡은 이유 — app.js 는 최상위에서 값을 읽는 코드가 많아
      선언 순서(TDZ)가 실제로 앱을 죽인 적이 있다. 이 값을 읽는 최상위 코드는 반드시
      **이 줄 아래**에 있어야 한다(refreshOfficeModeUI 처럼 나중에 불리는 함수 안은 상관없다).
      `node smoke.js` 가 그걸 잡는다. */
 const OFFICE_MODE_KEY = 'tw.officeMode';
 let officeMode = (localStorage.getItem(OFFICE_MODE_KEY)==='1');
-/* ■ 화면 숨김 — **세션 한정이라 저장하지 않는다.**
+/* 화면 숨김 — **세션 한정이라 저장하지 않는다.**
    숨긴 채로 앱이 꺼졌다 켜지면 아무것도 없는 화면이 뜨는데, 그건 기능이 아니라 고장으로 읽힌다. */
 let _officeHidden = false;
 /* 숨길 대상을 JS 로 하나씩 지우지 않고 body 클래스 하나로 CSS 에 넘긴다 —
@@ -8605,9 +8605,8 @@ function refreshOfficeChipUI(){
   if(!officeMode && _officeHidden) setOfficeHidden(false);   // 모드를 끄면 숨김도 반드시 풀린다
   else setOfficeHidden(_officeHidden);                       // 툴팁 문구를 모드에 맞춰 다시 씀
 }
-/* 숨기기 진입점 = **상태칩 ■ 버튼 우클릭** 하나다.
-   ★ 예전엔 칩 그룹에 ▪ 전용 버튼을 하나 더 뒀는데, 그러려고 버튼이 일곱 개가 됐다.
-     숨겼을 때 남는 것이 그 ■ 버튼이므로, 되돌리는 손짓도 같은 자리에 두는 편이 자연스럽다.
+/* 숨기기 진입점 = **미니 메뉴 ▾ 버튼(#myStatusChipBtn) 우클릭** 하나다.
+   ★ 숨기기 전용 버튼을 따로 두지 않는다 — 숨겼을 때 남는 것이 이 버튼이라 되돌리는 손짓도 같은 자리에 둔다.
    ⚠️ 이 버튼은 #myStatusChip 안에 있어 클릭 통과 화이트리스트에 자동 포함된다 —
      밖으로 옮기면 숨긴 순간 되돌릴 길이 사라진다(그때는 앱 재시작밖에 없다).
    ⚠️ preventDefault 를 빼면 Electron 에서 기본 컨텍스트 메뉴가 같이 뜬다. */
