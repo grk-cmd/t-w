@@ -5,7 +5,7 @@
    ・2절: 저장(commit) · 초안 복사(copyIntoDraft)
    ・1절 끝: ✎ 그리기 대상 · 그림 저장 · 종류를 바꾸면 그림 버림
    ・3절: app.js 배선 — 조립 두 곳 · 초안 · 저장(지금 주인 · 원래 주인) · 탭 · 3-b 귀 그리기(대상 목록 · 대칭 · 저장 · 방 전송 · 지문) · 3-c 탑승 높이 · 3-d 귀 까닥임 · 기즈모 · 크기 · 귀 누르기 · 지문 · 카메라
-   ・3-f절: 귀 탭은 꾸미기 창이 떠 있고 파츠를 안 골랐을 때만 — 창을 닫은 뒤 보관함(T) 조절이 귀로 가던 것 · 깨 보기
+   ・3-f절: 귀 탭은 꾸미기 창이 떠 있고 파츠를 안 골랐을 때만 — 창을 닫은 뒤 다른 곳의 조절이 귀로 가던 것 · 깨 보기
    ・4절: html · smoke.js
    [실행] wd-ear.js · human-ear.js · app.js · base-glb.js · ears-glb.js · desk-companion-prototype.html · smoke.js 가 있는 폴더에서.
      three 는 vendor/three/three.min.js 를 쓴다. */
@@ -338,10 +338,10 @@ say('── 3-f. 귀 탭은 꾸미기 창이 떠 있을 때만 (제보: 귀를 �
   }
   const rows = (o) => [
     [o.openActive && o.openGizmoOnEar, '꾸미기 창이 떠 있고 귀 탭 — 귀가 조정 대상 · 핸들이 귀에'],
-    [o.closedActive === false, '★ 꾸미기 창을 닫으면(탭 이름은 남아도) 귀 탭이 아니다 — 보관함(T)의 기즈모 · 크기 －/＋ · 미리보기 누르기가 귀로 안 간다'],
+    [o.closedActive === false, '★ 꾸미기 창을 닫으면(탭 이름은 남아도) 귀 탭이 아니다 — 다른 곳의 기즈모 · 크기 －/＋ · 미리보기 누르기가 귀로 안 간다'],
     [o.closedPic === null, '★ 창을 닫은 뒤 ✎ 그리기 대상도 귀가 아니다'],
     [o.closedReattach === false, '  창을 닫은 뒤 귀가 늦게 붙어도 핸들을 귀에 다시 붙이지 않는다'],
-    [o.selActive === false, '★ 창을 같이 띄운 채 보관함에서 파츠를 골랐으면 그 파츠가 임자'],
+    [o.selActive === false, '★ 파츠를 골랐으면 그 파츠가 임자'],
     [o.backActive === true, '  선택이 풀리면(귀 탭을 다시 누름) 다시 귀'],
   ];
   let o = null;

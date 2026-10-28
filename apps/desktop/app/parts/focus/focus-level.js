@@ -504,7 +504,7 @@ function _mobileStart(){
   };
   Promise.resolve(firebaseAPI.mobileLinkStart(uid, onState, onDiag)).then(stop=>{ if(stop) _mobileStop = stop; }).catch(()=>{});
 }
-/* ── 📱 설정 › 포커싱어플 칸 + QR 창 (시안 ①~③) ─────────────────────────────
+/* ── 📱 설정 › 포커싱 칸 + QR 창 ─────────────────────────────
    ★ 그리는 곳은 _mobRenderPanel 하나. 상태가 바뀔 때 · 1분마다 · 창을 열 때 부른다.
    ⚠️ 확인은 2단계 누르기(이 파일 관례) — 네이티브 확인창은 투명 오버레이에서 안 보인다(audit 검사 4). */
 function _mobRenderPanel(){
