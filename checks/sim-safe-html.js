@@ -7,7 +7,7 @@
    ・2절: app/parts/**.js · app/*.html 의 <script> · main.js · preload.js 를 typescript 파서로 읽어
      innerHTML · outerHTML · insertAdjacentHTML 에 넣는 식, `.src` · `.href` · setAttribute(src|href) · `style.background*` 에 넣는 식,
      마크업 글자 안 src="…" · href="…" · url(…) 바로 뒤의 값을 끝(잎)까지 따라간다.
-     잎이 글자 · 숫자 리터럴 / TwSafeHtml 함수(text · attr · safeUrl · cssUrl) / 그 별칭(escHtml · _chatEsc · 리치 텍스트 _mhLoadRT) /
+     잎이 글자 · 숫자 리터럴 / TwSafeHtml 함수(text · attr · safeUrl · cssUrl) / 그 별칭(escHtml · _chatEsc · 리치 텍스트 _mhLoadRT · _mhPurify — DOMPurify) /
      숫자를 돌려주는 것 / 같은 파일 안 상수 표 가 아니면 빨강. 예외는 아래 ALLOW 에 «이유» 와 함께만(파일|식 글자).
    ・3절: 깨 보기 — 날값을 붙인 가짜 파일 · 약한 escape · 위험한 주소가 빨강이 나는지 */
 'use strict';
@@ -64,7 +64,6 @@ allow('app.js', 'loadImg — 얼굴 · 피부 캔버스 저장본(data:) · 앱 
 allow('room-sync.js', '얼굴 그림 로더 — 이 기기가 만든 data: 얼굴 · 앱 안 그림(app.js loadImg 와 같은 까닭)', ['src']);
 allow('commission.js', '커미션 zip 에서 이 기기가 풀어 만든 blob: 주소', ['faceUrl', 'blinkUrl']);
 allow('app.js', '수령함 공지 본문 — inboxMod.linkifyText 가 먼저 escHtml 로 씻은 글에서 주소만 a 로 감싼다(myhome-inbox.js)', ["inboxMod.linkifyText(notice.body || '')"]);
-allow('rich-text.js', '저장 직전 — 내가 쓰는 편집기 칸의 마크업을 떼어 낸 div 로 옮겨 바로 _mhSanitizeNode 로 씻는다', ['el.innerHTML']);
 allow('mallang.js', '이 기기 사용자가 방금 고른 파일(FileReader · 파일 창)', ['dataUrl', 'inp.files[0]']);
 
 /* ── 1절: 함수 실행 ───────────────────────────────────────────── */
@@ -116,7 +115,7 @@ for (const u of ['https://x.example/a")%3Bbackground:red', 'https://x.example/a\
 }
 
 /* ── 2절: 파서로 전부 훑기 ───────────────────────────────────── */
-const HTML_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:text|attr|cssColor|safeUrl|cssUrl)|(?:deps\.)?(?:escHtml|_chatEsc)|(?:richTextMod\.)?(?:_mhLoadRT|_mhSanitizeHtml)|encodeURIComponent)$/;
+const HTML_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:text|attr|cssColor|safeUrl|cssUrl)|(?:deps\.)?(?:escHtml|_chatEsc)|(?:richTextMod\.)?(?:_mhLoadRT|_mhSanitizeHtml|_mhPurify)|encodeURIComponent)$/;
 const URL_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.safeUrl|URL\.createObjectURL|encodeURIComponent|[\w$.]*\.toDataURL)$/;
 const CSS_SAFE_FN = /^(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:cssUrl|cssColor)$/;
 const NUM_FN = /^(?:Number|parseInt|parseFloat|Math\.\w+|Date\.now|[\w$.\[\]()]*\.(?:toFixed|toLocaleString|getTime|getFullYear|getMonth|getDate|getDay|getHours|getMinutes|getSeconds|indexOf|lastIndexOf|charCodeAt|findIndex))$/;

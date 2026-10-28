@@ -159,10 +159,10 @@
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 288 | **73780a67f961** |
-| **sim-mh-sanitize.js** | 204 | **a85ae9ebad61** |
+| **sim-mh-sanitize.js** | 222 | **c82f4e179d2b** |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
-| **sim-fix-0923.js** | 297 | **9f338dfa790b** |
+| **sim-fix-0923.js** | 297 | **522d07f95e45** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
@@ -316,7 +316,7 @@
 | **sim-program-settings.js** | 148 | **ca3242f94e17** |
 | **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
 | **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
-| **sim-rich-text.js** | 95 | **32871aaf0950** |
+| **sim-rich-text.js** | 95 | **c8ee332ad595** |
 | **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
 | **sim-face-heal.js** | 96 | **4423b53923fa** |
@@ -412,7 +412,7 @@
 | **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 234 | **ce652588740d** |
-| **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
+| **sim-safe-html.js** | 714 | **9217c2e9671f** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
 | **sim-room-face-load.js** | 217 | **d619e9556ab2** |

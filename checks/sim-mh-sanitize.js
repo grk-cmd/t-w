@@ -88,8 +88,7 @@ chk(/'(any|storage-only|none)'/.test(L_POLICY),
 say('');
 
 /* ── §2. 판단 — 진짜 DOM(jsdom) 위에서 진짜 DOMPurify 로 돌린다 ─────────
-   흉내 파서로는 «허용 안 된 태그를 벗길 때 자식을 다시 씻나» 같은 구멍을 못 봤다(실제로 놓쳤다).
-   그래서 앱이 싣는 파일 둘(vendor/dompurify · parts/shared/rich-text.js)을 그대로 jsdom 창에 싣는다. */
+   흉내 파서로는 실제 파싱 · 씻기를 다 볼 수 없다. 그래서 앱이 싣는 파일 둘(vendor/dompurify · parts/shared/rich-text.js)을 그대로 jsdom 창에 싣는다. */
 say('· §2 판단 (jsdom + vendor DOMPurify 실제 실행)');
 const path = require('path');
 /* 러너는 app/ 아래 폴더를 임시 폴더 바로 밑에 펼친다 — 그 자리와 저장소 자리를 다 본다. */
@@ -105,7 +104,7 @@ function build(policy){
   w.eval(PURIFY_SRC);
   w.eval(policy ? RT_SRC.replace(L_POLICY, "const _MH_IMG_SRC = '" + policy + "';") : RT_SRC);
   const esc = t => String(t).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  return w.TwRichText.createRichText({ escHtml: esc });
+  return w.TwRichText.createRichText({ escHtml: esc, DOMPurify: () => w.DOMPurify });
 }
 let API;
 try { API = build(null); }
@@ -131,12 +130,15 @@ const cases = [
                                               /^<b><img src="https:\/\/a\.example\/x\.png"><\/b>$/,
                                                                        '중첩된 자식까지 씻는다'],
   ['<div data-x="1" id="a">t</div>',          /^<div>t<\/div>$/,        '화이트리스트 밖 속성이 지워진다'],
+  ['<font color="#ff0000" size="5" style="background-color:#ffff00">셋</font>',
+                                              /^<font color="#ff0000" size="5" style="background-color:#ffff00">셋<\/font>$/,
+                                                                       '★ 편집기가 만든 FONT 의 color · size · 배경색이 그대로 남는다'],
   ['<a href="https://ok.example" style="color:red">t</a>', /^<a href="https:\/\/ok\.example">t<\/a>$/, '태그마다 허용 속성만 — A 의 style 은 지워진다'],
   ['<section><img src="https://a.example/x.png" onerror="y"></section>',
                                               /^<img src="https:\/\/a\.example\/x\.png">$/,
-                                                                       '★ 벗긴 태그 안의 자식도 씻는다'],
+                                                                       '★ 허용 밖 태그 안 내용 — 경우 1'],
   ['<section><section><b onclick="y">t</b></section></section>',
-                                              /^<b>t<\/b>$/,            '★ 여러 겹 벗겨도 안쪽 자식까지 씻는다'],
+                                              /^<b>t<\/b>$/,            '★ 허용 밖 태그 안 내용 — 경우 2'],
   ['<svg><g onload="y"></g></svg>t',          /^t$/,                    '★ SVG 는 사라진다'],
   ['<math><mi><mglyph><style><img src=x onerror=y></style></mglyph></mi></math>',
                                               /^(?![\s\S]*onerror)/,     '★ 이름공간을 섞은 변이(mXSS)에도 onerror 가 남지 않는다'],
@@ -146,6 +148,22 @@ cases.forEach(([input, want, label]) => {
   try { out = clean(input); } catch (e) { out = '‼ ' + e.message; }
   chk(want.test(out), label + '   [' + out + ']');
 });
+
+say('');
+say('· §2-A 저장 길 — _mhSaveRT 를 jsdom 편집기 칸으로 직접 돌린다(jsdom 엔 innerText 가 없어 textContent 로 흉내)');
+{
+  const dom = new JSDOM('<!doctype html><body><div id="ed"></div></body>', { runScripts: 'outside-only' });
+  const w = dom.window;
+  Object.defineProperty(w.HTMLElement.prototype, 'innerText', { get(){ return this.textContent; }, configurable: true });
+  w.eval(PURIFY_SRC); w.eval(RT_SRC);
+  const rt = w.TwRichText.createRichText({ escHtml: t => String(t), DOMPurify: () => w.DOMPurify });
+  const ed = w.document.getElementById('ed');
+  ed.innerHTML = '<font color="#ff0000" size="5">색</font><b onclick="y">굵게</b><section><img src="https://a.example/x.png" onerror="y"></section>';
+  const saved = rt._mhSaveRT(ed, 100);
+  chk(/<font color="#ff0000" size="5">색<\/font>/.test(saved) && !/onclick|onerror|section/.test(saved), '★ 저장할 때도 씻고 서식은 남긴다   [' + saved + ']');
+  ed.innerHTML = '<b>가나다라마</b>바사';
+  chk(rt._mhSaveRT(ed, 3) === '<b>가나다</b>', '   글자 수 자르기(3)가 그대로다');
+}
 
 say('');
 say('· §2-B IMG 정책 상수가 장식이 아닌가 (세 값을 다 돌린다)');
@@ -164,7 +182,7 @@ say('· §2-B IMG 정책 상수가 장식이 아닌가 (세 값을 다 돌린다
 {
   const dom = new JSDOM('<!doctype html><body></body>', { runScripts: 'outside-only' });
   dom.window.eval(RT_SRC);
-  const noPurify = dom.window.TwRichText.createRichText({ escHtml: t => String(t) });
+  const noPurify = dom.window.TwRichText.createRichText({ escHtml: t => String(t), DOMPurify: () => undefined });
   const out = noPurify._mhLoadRT('<b onclick="y">t</b>');
   chk(!/<|onclick/.test(out), '★ DOMPurify 가 없으면 태그를 걷고 글자만(원본을 돌려주지 않는다)   [' + out + ']');
 }

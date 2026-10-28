@@ -13,6 +13,7 @@
 
 function createRichText(deps){
 const escHtml = deps.escHtml;
+const getDOMPurify = deps.DOMPurify;   // () => window.DOMPurify — vendor/dompurify 를 rich-text.js 보다 먼저 싣는다
 // ★ 마이홈 4: 리치 텍스트 sanitize / load / count 헬퍼
 //   허용 태그: B/STRONG, I/EM, U, SPAN·DIV·P(style), FONT(color, size — execCommand가 만듦),
 //   BR, A(href), IMG(src, alt). 그 외 태그·이벤트 속성은 전부 제거.
@@ -42,16 +43,17 @@ function _mhImgSrcOk(v){
   try{ return _MH_IMG_HOSTS.some(re => re.test(new URL(String(v), 'https://x.invalid').hostname)); }
   catch(e){ return false; }
 }
-/* 🛡️ 씻기는 DOMPurify(검증된 라이브러리 · vendor/dompurify 판 고정)가 한다 — 위 허용 목록 · 정책을 넘길 뿐 DOM 을 손으로 고치지 않는다.
-   ⚠️ 손으로 짠 «허용 안 된 태그 벗기기» 는 벗겨 낸 자식을 다시 씻지 못해 그 안의 속성이 남았다 — 다시 만들지 말 것.
+/* 🛡️ 씻기는 DOMPurify(검증된 라이브러리 · vendor/dompurify 판 고정)가 한다 — 위 허용 목록 · 정책을 넘길 뿐이다.
+   ⚠️ DOM 을 손으로 고치는 씻기를 다시 만들지 말 것.
    ⚠️ DOMPurify 가 없거나 실패하면 원본을 돌려주지 않는다(부르는 쪽이 글자만 남긴다). */
 const _MH_URI_OK = /^(?:https?:|mailto:)/i;
 const _MH_STYLE_OK = /^(color|background-color|font-size|font-weight|font-style)\s*:/i;
 let _mhPurifier = null;
 function _mhPurifierOf(){
   if(_mhPurifier) return _mhPurifier;
-  if(typeof window.DOMPurify !== 'function') throw new Error('DOMPurify 없음');
-  const p = window.DOMPurify(window);   // 이 모듈만의 판 — 걸어 둔 고리가 다른 곳에 새지 않게
+  const make = getDOMPurify();
+  if(!make) throw new Error('DOMPurify 없음');
+  const p = make(window);   // 이 모듈만의 판 — 걸어 둔 고리가 다른 곳에 새지 않게
   p.addHook('uponSanitizeAttribute', (node, data) => {
     const tag = node.nodeName;
     const name = data.attrName;
@@ -66,11 +68,12 @@ function _mhPurifierOf(){
   _mhPurifier = p;
   return p;
 }
+const _MH_PURIFY_TAGS = Array.from(_MH_ALLOWED_TAGS).filter(t => !(t === 'IMG' && _MH_IMG_SRC === 'none')).map(t => t.toLowerCase());
+const _MH_PURIFY_ATTRS = Array.from(new Set(Object.values(_MH_ALLOWED_ATTRS).flat()));
 function _mhPurify(html){
-  const tags = Array.from(_MH_ALLOWED_TAGS).filter(t => !(t === 'IMG' && _MH_IMG_SRC === 'none')).map(t => t.toLowerCase());
-  const attrs = Array.from(new Set(Object.values(_MH_ALLOWED_ATTRS).flat()));
   return _mhPurifierOf().sanitize(String(html), {
-    ALLOWED_TAGS: tags, ALLOWED_ATTR: attrs, ALLOWED_URI_REGEXP: _MH_URI_OK,
+    ALLOWED_TAGS: _MH_PURIFY_TAGS, ALLOWED_ATTR: _MH_PURIFY_ATTRS, ALLOWED_URI_REGEXP: _MH_URI_OK,
+    ADD_URI_SAFE_ATTR: ['color', 'size'],   // FONT 의 color · size 는 주소가 아니다 — 안 넣으면 주소 규칙에 걸려 글자색 · 크기가 지워진다
     ALLOW_DATA_ATTR: false, ALLOW_ARIA_ATTR: false, KEEP_CONTENT: true,
   });
 }
@@ -109,22 +112,9 @@ function _mhSaveRT(el, maxChars){
 function _mhHealEntities(s){
   return String(s).replace(/&(?:amp;)+((?:[a-z]+|#\d+);)/gi, '&$1');
 }
-/* 🛡️ 저장된 HTML 문자열을 sanitize 해서 문자열로 돌려준다 — **읽는 쪽**용.
-   [왜 있나] 예전엔 sanitize 가 `_mhSaveRT`(저장) 한쪽에만 걸려 있었다. 그런데 `_mhLoadRT` 가
-     그리는 `_myHomeData` 는 **남의 마이홈을 볼 때 남의 데이터**이고, RTDB `users/$uid/home` 은
-     `.write:true` 에 타입·길이 검사뿐이다(앱에 Firebase Auth 가 없어 소유자를 증명할 방법이
-     없다 — 규칙으로는 못 막는다). 즉 저장 경로를 안 거치고 심은 HTML 이 보는 사람 화면에서
-     그대로 실행됐다. 저장형 XSS. **읽는 쪽 sanitize 가 이 구조에서 유일한 방어선이다.**
-
-   ⚠️ `createElement('div')` + `innerHTML` 로 하면 **안 된다.** 문서에 안 붙은 div 라도 크롬은
-     그 안의 `<img>` 를 로드한다 — `onerror` 가 sanitize 보다 먼저 터지고 IP 도 그때 나간다.
-     `DOMParser` 가 만든 문서는 브라우징 컨텍스트가 없어 로드도 실행도 일어나지 않는다.
-     (`_mhStripHtml` 이 먼저 같은 이유로 DOMParser 를 쓰고 있다)
-   ⚠️ 그래서 `_mhSaveRT` 는 **안 바꿨다.** 그쪽은 이미 화면에 붙어 있는 편집기(`el.innerHTML`)를
-     읽으므로 새로 노출될 것이 없고, `innerText` 로 글자수를 세는데 DOMParser 문서에는
-     레이아웃이 없어 `innerText` 가 안 나온다.
-   ⚠️ 실패하면 **원본을 돌려주지 않는다.** 태그를 걷어낸 글자만 돌려준다 — sanitize 못 한 HTML 을
-     그리는 것이 이 함수가 막으려던 바로 그 일이다. */
+/* 🛡️ 저장된 HTML 문자열을 씻어 문자열로 돌려준다 — **읽는 쪽**용(남의 bio · 게시글도 이 길로 그린다 — 저장 규칙만으로는 못 막아 이것이 방어선).
+   ⚠️ 씻기 전에 `createElement('div').innerHTML` 에 넣지 않는다 — 그림이 씻기 전에 불린다(DOMPurify 는 브라우징 컨텍스트 없는 문서로 읽는다).
+   ⚠️ 실패하면 원본을 돌려주지 않는다 — 태그를 걷은 글자만. */
 function _mhSanitizeHtml(html){
   const str = String(html==null ? '' : html);
   if(str.indexOf('<') < 0) return str;   // 태그가 없으면 그릴 태그도 없다 (엔티티는 글자로만 풀린다)
