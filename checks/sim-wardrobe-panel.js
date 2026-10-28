@@ -21,7 +21,7 @@ const FN_DEPS = [];
 const VAL_DEPS = ["twNav"];
 const GET_DEPS = ["wardrobeMod"];
 const SET_DEPS = [];
-const EXPORTS = ["toggleAlbum"];
+const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  wardrobeMod: ()=>wardrobeMod,","  twNav: twNav,"];
 
@@ -96,12 +96,8 @@ function behave(src){
   t(on() && log.join() === 'tab:-,render' && !log.some(x => /^nav:/.test(x)), 'F2(버튼) — 라이선스 없이도 연다 · 탭은 꾸미기 창이 정한다(마지막에 본 탭) · 설정 창으로 보내지 않는다');
   els.myWardrobeBtn.on.click[0]({ stopPropagation(){} });
   t(!on() && log[log.length - 1] === 'commit', '  다시 누르면 닫고 저장');
-  log.length = 0; api.toggleAlbum();
-  t(on() && log.join() === 'tab:album,render', 'T — 닫혀 있으면 «도감» 탭으로 연다');
-  log.length = 0; api.toggleAlbum();
-  t(!on() && log.join() === 'commit', '  «도감» 탭이 보이면 닫는다(저장)');
-  tab = 'hat'; els.myWardrobeBtn.on.click[0]({ stopPropagation(){} }); log.length = 0; api.toggleAlbum();
-  t(on() && log.join() === 'tab:album,render', '  다른 탭이 열려 있으면 «도감» 탭으로 바꾼다(닫지 않음)');
+  t(api && !('toggleAlbum' in api), 'T 단축키 고리가 없다 — 도감은 F2(꾸미기 창)의 «📚 도감» 탭');
+  els.myWardrobeBtn.on.click[0]({ stopPropagation(){} });
   docOn.keydown[0]({ key: 'Escape' });
   t(!on(), 'ESC — 닫는다');
   log.length = 0; twNav.go('wardrobeAlbum', { skipSync: true });
@@ -126,8 +122,6 @@ const breaks = [
 ];
 /* 동작을 일부러 깨 본다 — 2-2절이 빨갛게 되어야 한다 */
 const behaveBreaks = [
-  ['T 가 늘 닫기만', m => m.replace("if(isOpen() && wardrobeMod().isAlbumTab()) close();", 'if(isOpen()) close();')],
-  ['T 가 도감 탭을 안 줌', m => m.replace('else open(wardrobeMod().ALBUM_TAB);', 'else open();')],
   ['[도감으로] 가 opts 를 버림', m => m.replace('open(wardrobeMod().ALBUM_TAB, opts); });', 'open(wardrobeMod().ALBUM_TAB); });')],
   ['[도감으로] 통로를 안 걺', m => m.replace("twNav.on(twNav.NAV.WARDROBE_ALBUM,", "(()=>0)(twNav.NAV.WARDROBE_ALBUM,")],
   ['다시 연 창이 저장 안 함', m => m.replace("wardrobeMod().commitWdDraft();   // ★", "0;   // ★")],

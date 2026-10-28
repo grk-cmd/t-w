@@ -373,9 +373,9 @@
 - **함정**:
   - 줄 그림은 **뽑은 파츠에서만** 고른다 — 안 뽑은 파츠는 도감 안에서도 «???» 다.
   - 모르는 시즌 이름(rec.season)은 어느 도감에도 넣지 않는다 — 뽑기 풀도 아는 시즌만 돈다.
-  - 도감 화면 흐름: 꾸미기 창(`wardrobe.js`)이 «도감» 탭을 그릴 때 `#gachaInvHost` 를 만들고 `gachaMod.renderGachaInv()` 를 부른다 · 탭이 보이기 시작하면 `gachaMod.onAlbumShow()`(서버와 한 번 맞춤). T 키는 `wardrobe-panel.js` 의 `toggleAlbum` · 뽑기 창 [도감으로] 는 창 열기 통로(`twNav.NAV.WARDROBE_ALBUM`).
+  - 도감 화면 흐름: 꾸미기 창(`wardrobe.js`)이 «도감» 탭을 그릴 때 `#gachaInvHost` 를 만들고 `gachaMod.renderGachaInv()` 를 부른다 · 탭이 보이기 시작하면 `gachaMod.onAlbumShow()`(서버와 한 번 맞춤). 단축키는 F2(꾸미기 창) 하나 — 따로 T 키는 없다 · 뽑기 창 [도감으로] 는 창 열기 통로(`twNav.NAV.WARDROBE_ALBUM`).
   - 라이선스가 없으면 꾸미기 창은 «도감» 탭만 연다(다른 탭은 잠금 안내 · [라이선스 등록하러 가기]). 뽑은 가챠 파츠는 카테고리 칸에도 🎰 로 보인다.
-  - 검사: `checks/sim-gacha-album.js`(규칙 · 연결 · 깨 보기) · `checks/sim-gacha.js` 5절(도감 화면) · `checks/sim-wardrobe.js` 2-2절(탭 · 라이선스) · `checks/sim-wardrobe-panel.js` 2-2절(T · [도감으로]).
+  - 검사: `checks/sim-gacha-album.js`(규칙 · 연결 · 깨 보기) · `checks/sim-gacha.js` 5절(도감 화면) · `checks/sim-wardrobe.js` 2-2절(탭 · 라이선스) · `checks/sim-wardrobe-panel.js` 2-2절(F2 · T 고리 없음 · [도감으로]).
 
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 
