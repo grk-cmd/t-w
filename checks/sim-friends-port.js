@@ -1,11 +1,11 @@
 /* ═══ 👥 sim-friends-port.js — 친구 데이터 포트 · provider (2026-10-17 신설) ═══
    [왜] 친구 정보를 Firebase 구독에서 서버(API)로 옮긴다. 도메인(friends-sub.js) · 화면은 포트 하나만 부르고,
      어디서 받을지는 provider(firebase = 옛 길 · api · ws 자리)가 맡는다.
-   ・1절: 포트 — 세 함수가 provider 로 · 목록 받기 · 친구 한 명 받기(readFriend)는 api 먼저 → 못 받으면 옛 길 · 끄는 스위치(flags.friendsApi) 끄면 옛 길만
+   ・1절: 포트 — 세 함수가 provider 로 · 목록 받기 · 친구 한 명 받기(readFriend)는 api 먼저 → 못 받으면 옛 길 · 받는 곳이 파이어베이스면 옛 길만
    ・2절: firebase provider(옛 길) — 목록 한 번 읽기 · 목록 구독 · 접속 상태(2-1절: 목록을 열면 1 + 2n — 접속 상태 · 프로필 · 개정 10-19 친구 이름 실시간 복구)
    ・2-2절: api provider — 응답 모양 · 요청 규칙(5초 · 서버 문제면 1초 · 3초 뒤 두 번 더 · 401 · 400 은 바로) · 가짜 fetch 로 토큰 · X-User-Code 헤더 ·
          친구 한 명 명함(cardOf · readFriend — data:null 은 null · 모양 틀림 · 실패는 던짐 · 다시 안 물음)
-   ・2-3절: 끄는 스위치 — 원격 설정 flags.friendsApi(기본 켜짐) · 규칙(누구나 읽기 · 불리언)
+   ・2-3절: 끄는 스위치는 없다 — 0.13 설정에 친구 스위치 칸이 없다(받는 곳은 source-switch 한 길)
    ・3절: 배선 — app.js 가 포트 → provider 를 잇는다 · html 순서 · friends/ 파일은 firebaseAPI 를 모른다 ·
          화면 파일이 친구 데이터 firebaseAPI 함수를 직접 안 부른다
    ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
@@ -329,21 +329,11 @@ async function judge(S){
     chk(e4 && e4.code === 'TIMEOUT', '  ↳ 토큰 받기가 멈춰도 시간 제한 안에서 끝난다');
   }
 
-  say('── 2-3. 끄는 스위치 — 원격 설정 flags.friendsApi');
+  say('── 2-3. 끄는 스위치는 없다 — 0.13 설정(/v1/config)에 친구 스위치 칸이 없다');
   {
     let RCM = null;
     try{ const m = { exports: {} }; new Function('window', 'module', 'console', S.RC)(undefined, m, { warn(){} }); RCM = m.exports; }catch(e){ chk(false, 'remote-config 싣다 던짐 — ' + e.message); }
-    if(RCM){
-      const st = RCM.createRemoteConfig();
-      chk(RCM.DEFAULTS.friendsApi === true && st.friendsApi() === true, '기본 켜짐(값이 없으면 서버 먼저)');
-      st.apply({ flags: { friendsApi: false } }, false);
-      chk(st.friendsApi() === false, '  ↳ API 사본 flags.friendsApi = false 면 꺼짐');
-      st.apply({ flags: { friendsApi: 'no' } }, false);
-      chk(st.friendsApi() === true, '  ↳ 불리언이 아니면 기본값(켜짐)');
-      chk(RCM.FALLBACK_PATHS.friendsApi === 'config/flags/friendsApi', '  ↳ API 를 못 받으면 Firebase config/flags/friendsApi 한 칸');
-    }
-    let R = null; try{ R = JSON.parse(S.RULES).rules.config.flags.friendsApi; }catch(_){}
-    chk(R && R['.read'] === true && R['.validate'] === 'newData.isBoolean()', '규칙 config/flags/friendsApi — 누구나 읽기 · 불리언만(쓰기는 flags 의 관리자)');
+    if(RCM) chk(!('friendsApi' in RCM.createRemoteConfig()) && !('friendsApi' in RCM.DEFAULTS), '원격 설정에 friendsApi 가 없다 — 받는 곳은 source-switch 한 길(서버 먼저)');
   }
 
   say('── 3. 배선');
@@ -415,14 +405,13 @@ const BREAKS = [
   ['AC', "    h.Authorization = 'Bearer ' + tok;", "    h.Authorization = tok;", '토큰 형식이 틀림'],
   ['AC', "    if(!tok) throw new ApiError('auth', 0, 'NO_TOKEN', '로그인 토큰이 없어요');", "", '토큰 없이도 보냄'],
   ['AC', "      const a = await Promise.race([authOf(o, o.force), timeout]);", "      const a = await authOf(o, o.force);", '토큰 받기가 멈추면 영영 기다림'],
-  ['RC', "  friendsApi: true,", "  friendsApi: false,", '스위치 기본값이 꺼짐'],
+  ['RC', "  inviteGate: true,\n", "  inviteGate: true,\n  friendsApi: false,\n", '원격 설정에 친구 스위치가 되살아남'],
   ['PORT', "      apiProvider ? () => apiProvider.readFriend(fid) : null,", "      null,", '친구 한 명은 서버를 안 봄'],
   ['PORT', "      () => firebase.readFriend(fid),", "      () => null,", '친구 한 명 옛 길이 없음'],
   ['FBP', "  function readFriend(fid){ return _cardOf(fid, now()); }", "  async function readFriend(fid){ return cardOf(await getCard(fid)); }", '친구 한 명이 카드 기억을 안 씀'],
   ['FAPI', "    if(d === null) return null;\n", "", '없는 사람(null)을 실패로 봄'],
   ['FAPI', "    avatar: str(c.avatarUrl) || str(c.avatarInline) || null,", "    avatar: str(c.avatarUrl) || c.avatarInline || null,", 'avatarInline(불리언)을 사진으로 씀'],
   ['FAPI', "    bio: str(c.bio),", "    bio: c.bio,", '명함 소개가 undefined'],
-  ['RULES', '"friendsApi": {\n          ".read": true,', '"friendsApi": {\n          ".read": false,', '규칙이 읽기를 막음'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){

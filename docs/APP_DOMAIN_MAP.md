@@ -177,7 +177,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `win-stack.js` · `outside-close.js` · `async-prompt.js` · `key-input.js` | 창 겹침 · ESC · 팝업 바깥 닫기 · 인앱 프롬프트 · 키 입력 공통 |
 | `rich-text.js` · `sfx.js` · `frame-budget.js` · `gl-recover.js` | 리치 텍스트 sanitize · 효과음 공장 · 프레임 예산 · 3D 연결 끊김 복구 |
 | `theme.js` · `theme-ui.js` | 디자인 테마 · 자식 창 테마 |
-| `api-client.js` · `remote-config.js` | 자체 서버 API 통로 · 원격 설정 (api) |
+| `api-client.js` · `remote-config.js` · `api-errors.js` · `request-id.js` · `device-id.js` | 서버 API 통로 · 원격 설정(GET /v1/config) · 오류 번역 · 요청 번호 · 기기 id (api) |
 | `api-public-reads.js` · `app-version.js` · `app-version-gate.js` · `visit-ping.js` (ES) | 공개 읽기 API 먼저 · 앱 버전 싣기 · 최소 버전 막기 · 방문 집계 |
 
 ## 15. ③ 폴더로 나눌 때 — 같이 고칠 곳과 함정

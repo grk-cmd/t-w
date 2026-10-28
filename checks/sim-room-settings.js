@@ -245,9 +245,8 @@ say('── 7. remote-config — 금칙어 원문');
   chk(JSON.stringify(st.bannedWords()) === '[]', '처음엔 빈 목록');
   st.set('bannedWords', ['나쁜말', '', 3, '가'.repeat(21), '욕']);
   chk(JSON.stringify(st.bannedWords()) === '["나쁜말","욕"]', '  글자 칸만 · 20자까지(규칙과 같다)');
-  st.set('bannedWords', { 0: '가', 1: '나' });
-  chk(JSON.stringify(st.bannedWords()) === '["가","나"]', '  Firebase 의 {0:…} 모양도 받는다');
-  chk(RCM.FALLBACK_PATHS.bannedWords === 'config/bannedWords' && RCM.KEYS.includes('bannedWords'), '  API 를 못 받으면 Firebase config/bannedWords 한 칸');
+  st.apply({ room: { bannedWords: ['가', '나'] } }, false);
+  chk(JSON.stringify(st.bannedWords()) === '["가","나"]' && RCM.KEYS.includes('bannedWords'), '  서버 /v1/config 의 room.bannedWords 를 받는다');
   chk(RCM.BANNED_WORD_LEN_MAX === 20 && RULES.config.bannedWords.$i['.validate'].includes('<= 20'), '  길이 상한이 규칙과 같다');
   chk(RCM.BANNED_WORDS_MAX === BW.BANNED_MAX, '★ 줄 수 상한이 판정(BANNED_MAX)과 같다 — 넘는 낱말을 받아 놓고 판정에서 버리지 않게');
 }
