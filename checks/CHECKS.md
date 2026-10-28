@@ -218,7 +218,7 @@
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
 | **sim-frame-budget.js** | 188 | **6a026ddad3c9** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
-| **sim-help-pages.js** | 164 | **48ae5eaa5684** |
+| **sim-help-pages.js** | 167 | **61d2c319b57e** |
 | **sim-help-search.js** | 167 | **a33d4f4ee4d3** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |

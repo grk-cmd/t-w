@@ -101,6 +101,7 @@ chk(theme(THEME, '?theme=dark') === 'classic' && theme(THEME, '?theme=constructo
 const emb = run(THEME, '?theme=bubble&embed=1');
 chk(emb.embed && !run(THEME, '?theme=bubble').embed && !run(THEME, '?embed=yes').embed, '?embed=1 일 때만 우편함 칸 모양(data-embed)');
 chk(emb.links.join() === '/3?theme=bubble&embed=1,/?theme=bubble&embed=1', '  편을 옮겨도 테마 · 칸 모양이 이어진다(/ 링크에 붙임)');
+chk(run(THEME, '?theme=bubble', ['/1#s9']).links.join() === '/1?theme=bubble#s9', '  소제목 자리(#sN) 링크는 # 앞에 붙인다(FAQ 페이지의 «🔗» 링크)');
 chk(run(THEME, '').links.join() === '/3,/' && run(THEME, '?theme=evil').links.join() === '/3,/', '  웹에서 그냥 열면 링크를 건드리지 않는다(모르는 테마도 안 실어 나름)');
 const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
 chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
@@ -129,6 +130,8 @@ const T2 = THEME.replace("theme ? MAP[theme] : 'classic'", "MAP[t] || t || 'clas
 chk(theme(T2, '?theme=dark') !== 'classic', '  theme.js 가 모르는 값을 그대로 씀');
 const T3 = THEME.replace("if(embed) carry.push('embed=1');", '');
 chk(run(T3, '?theme=bubble&embed=1').links[0] !== '/3?theme=bubble&embed=1', '  편을 옮기면 칸 모양이 풀림');
+const T4 = THEME.replace("at < 0 ? h + '?' + carry.join('&') : h.slice(0, at) + '?' + carry.join('&') + h.slice(at)", "h + '?' + carry.join('&')");
+chk(T4 !== THEME && run(T4, '?theme=bubble', ['/1#s9']).links[0] !== '/1?theme=bubble#s9', '  # 뒤에 붙이면 소제목 링크가 깨짐');
 
 say('── 5. embed.js — 칸 안에서만 지금 편 · 목차를 앱에 알린다');
 const EMBED = fs.readFileSync(path.join(DIR, 'embed.js'), 'utf8');

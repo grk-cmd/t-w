@@ -17,6 +17,10 @@
   root.setAttribute('data-carry', carry.join('&'));   // 나중에 만드는 링크(검색 결과 — search.js)도 같은 것을 붙이게
   document.addEventListener('DOMContentLoaded', function(){
     var links = document.querySelectorAll('a[href^="/"]');
-    for(var i = 0; i < links.length; i++) links[i].setAttribute('href', links[i].getAttribute('href') + '?' + carry.join('&'));
+    // 소제목 자리(#sN)가 든 링크는 # 앞에 끼운다 — 뒤에 붙이면 자리도 테마도 깨진다
+    for(var i = 0; i < links.length; i++){
+      var h = links[i].getAttribute('href'), at = h.indexOf('#');
+      links[i].setAttribute('href', at < 0 ? h + '?' + carry.join('&') : h.slice(0, at) + '?' + carry.join('&') + h.slice(at));
+    }
   });
 })();
