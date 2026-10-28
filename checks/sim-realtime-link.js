@@ -71,8 +71,9 @@ function mk(o = {}){
     getToken: async (force) => { log.tokens.push(!!force); return ('token' in o) ? o.token : 'tok' + log.tokens.length; },
     getUserId: () => ('uid' in o) ? o.uid : 'u1',
     getVersion: async () => '0.11.4',
-    pv: 1,
+    pv: o.pv || 1,
     helloExtra: o.helloExtra,
+    helloFields: o.helloFields,
     requestKinds: o.requestKinds || ['presenceGet'],
     answers: o.answers || { presence: 'presenceGet' },
     reflessKind: o.reflessKind || null,
@@ -81,9 +82,9 @@ function mk(o = {}){
     busy: () => st.busy,
     reconnectWanted: () => st.want,
     hooks: {
-      onReady: () => { log.ready++; },
+      onReady: (m) => { log.ready++; log.readyMsg = m; },
       onMessage: (m) => { log.msgs.push(m); },
-      onClosed: (wasReady, fatal) => { log.closed.push([wasReady, fatal]); },
+      onClosed: (wasReady, fatal, code) => { log.closed.push([wasReady, fatal]); log.codes = (log.codes || []).concat([code]); },
     },
     now: () => clock.t, setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
     // 0.5 = 흩기 없음(아래 백오프 시험이 정확한 초를 본다) · 흩기 시험은 o.random 으로 끝값을 준다
@@ -309,6 +310,37 @@ async function up(env){
     await tick();
     chk(ws1.closed && s.socks[1] && s.socks[1].url === 'ws://other', '  ↳ true 면 옛 연결을 닫고 새 주소로');
     s.socks[1].open(); s.socks[1].msg({ t: 'ready' }); await ps;
+  }
+
+  say('── 5-2. 통신 규약 2판(pv 2) · 닫힘 번호');
+  {
+    const phases = [];
+    const e = mk({ pv: 2, uid: null, helloFields: (ph) => { phases.push(ph); return { deviceId: 'dev-1', session: 's1', ...(ph === 'open' ? { claim: true } : {}) }; } });
+    const { ws, r } = await up(e);
+    const h = ws.all('hello')[0];
+    chk(r.ok && h && h.pv === 2 && !('userId' in h) && h.deviceId === 'dev-1' && h.session === 's1' && h.claim === true && h.ver === '0.11.4',
+      'pv 2 — hello 에 userId 를 싣지 않는다(신원은 토큰뿐) · helloFields(open) 칸 · userId 가 없어도 연다');
+    chk(e.log.readyMsg && e.log.readyMsg.t === 'ready', '  ↳ onReady 에 ready 메시지를 넘긴다(userCode 를 읽게)');
+    const exp = Math.floor(e.clock.t / 1000) + 3600;
+    const e2 = mk({ pv: 2, uid: null, token: jwt(exp), helloFields: (ph) => ({ deviceId: 'dev-1', session: 's1', ...(ph === 'open' ? { claim: true } : {}) }) });
+    const { ws: w2 } = await up(e2);
+    await e2.clock.advance(3600 * 1000 - 5 * 60 * 1000 + 10);
+    const hs = w2.all('hello');
+    chk(hs.length === 2 && !('claim' in hs[1]) && hs[1].session === 's1' && hs[1].deviceId === 'dev-1', '  ↳ 토큰 갱신 hello(refresh)는 같은 기기 · 세션 · claim 없음');
+    const p1 = mk({ uid: 'u1' });
+    const { ws: w3 } = await up(p1);
+    chk(w3.all('hello')[0].userId === 'u1' && w3.all('hello')[0].pv === 1, '  ↳ 옛 판(pv 1)은 그대로 userId 를 싣는다');
+    const p0 = mk({ uid: null });
+    const pr0 = p0.link.ensureReady(); await tick();
+    chk((await pr0).ok === false && p0.socks.length === 0, '  ↳ 옛 판은 userId 가 없으면 열지 않는다(auth)');
+    const c = mk({ pv: 2, uid: null, helloFields: () => ({}) });
+    const { ws: w4 } = await up(c);
+    w4.closed = true; w4.onclose({ code: 4004 });
+    chk(c.log.codes && c.log.codes[c.log.codes.length - 1] === 4004 && c.log.closed[c.log.closed.length - 1][0] === true, 'onClosed 셋째 인자로 닫힘 번호(4004)');
+    const c2 = mk({ pv: 2, uid: null, helloFields: () => ({}) });
+    const { ws: w5 } = await up(c2);
+    w5.close();
+    chk(c2.log.codes[c2.log.codes.length - 1] === null, '  ↳ 번호가 없으면 null');
   }
 
   say('── 6. 연결');

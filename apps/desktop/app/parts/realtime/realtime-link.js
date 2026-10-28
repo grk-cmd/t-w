@@ -1,5 +1,5 @@
 /*
- * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 방 연결(room/room-server-net.js)과 친구 접속 상태 연결(friends/presence-ws.js)이 같이 쓴다.
+ * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 옛 방 연결(room/room-server-net.js · pv 1)과 늘 붙는 연결 하나(realtime/rt-hub.js · pv 2)가 같이 쓴다.
  * 책임: 열기 · hello(인증) · ready 기다리기 · 토큰 갱신 · 다시 붙기 백오프 · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 잠깐 쉬기.
  *   방 · 친구처럼 «무엇을 주고받는지» 는 모른다 — 연결 위의 메시지는 hooks.onMessage 로 넘기고, 끊기면 hooks.onClosed 로 알린다.
  *   다시 붙을지 · 언제 포기할지도 부르는 쪽이 정한다(scheduleReconnect 를 부르면 그때 백오프로 붙는다).
@@ -7,11 +7,12 @@
  *
  * deps: WebSocket, enabled() → bool, target() → 붙을 주소 | null, switchOk() → 주소가 바뀌었을 때 지금 연결을 닫아도 되나,
  *       getToken(force) → Promise<문자열 | null>, getUserId() → 문자열 | null, getVersion() → 문자열 | Promise,
- *       pv(통신 규약 판) · helloExtra({ scope } 같은 hello 선택 칸 — 없으면 안 싣는다),
+ *       pv(통신 규약 판 — 2 부터 hello 에 userId 를 싣지 않는다 · 신원은 토큰뿐) ·
+ *       helloExtra(hello 선택 칸 객체 — 없으면 안 싣는다) · helloFields(phase: 'open' | 'refresh') → 객체(연결마다 · 갱신마다 달라지는 칸 — 있으면 helloExtra 대신),
  *       requestKinds(rid 로 묻는 요청 t 목록) · answers({ 답 t: 요청 t }) · reflessKind(ref 없는 badRequest 를 받을 요청 t | null) ·
  *       ridless(rid 없는 답을 같은 종류의 가장 먼저 보낸 요청에 줄까 — 옛 서버용),
  *       idleCloseMs(0 이면 쉬어도 안 닫음) · busy() → 쉬면 닫기를 미룰까 · reconnectWanted() → 다시 붙기 타이머가 울렸을 때 붙을까,
- *       hooks: { onReady(), onMessage(m), onClosed(wasReady, fatal) },
+ *       hooks: { onReady(readyMsg), onMessage(m), onClosed(wasReady, fatal, closeCode) } — closeCode 는 웹소켓 닫힘 번호(4001 · 4004 …) | null,
  *       now · setTimeout · clearTimeout · random · log 는 검사용(기본 전역).
  * 내보냄: createRealtimeLink(deps) → { enabled, ensureReady(ms, o), request(msg, map), send(o), close(), drop(), scheduleReconnect(),
  *       scheduleIdle(), cancelIdle(), markAuthRetry(), markFailed(), isReady(), state() }
@@ -54,7 +55,7 @@ export function createRealtimeLink(deps){
   const ridless = deps.ridless !== false;
   const idleCloseMs = deps.idleCloseMs || 0;
 
-  let ws = null, gen = 0, opening = false, ready = false, fatal = null;
+  let ws = null, gen = 0, opening = false, ready = false, fatal = null, closeCode = null;
   let token = null, helloUid = null, helloVer = null, forceToken = false, authRetried = false;
   let tokenTimer = null, idleTimer = null, reconnectTimer = null, connectTimer = null, attempt = 0;
   let readyWaiters = [];
@@ -68,8 +69,10 @@ export function createRealtimeLink(deps){
   function enabled(){
     try{ return !!(deps.WebSocket && deps.enabled && deps.enabled() && target()); }catch(_){ return false; }
   }
-  function hello(tk){
-    return Object.assign({ t: 'hello', pv: deps.pv, token: tk, userId: helloUid, ver: helloVer }, deps.helloExtra || {});
+  function hello(tk, phase){
+    const extra = deps.helloFields ? deps.helloFields(phase) : deps.helloExtra;
+    const base = (deps.pv >= 2) ? { t: 'hello', pv: deps.pv, token: tk, ver: helloVer } : { t: 'hello', pv: deps.pv, token: tk, userId: helloUid, ver: helloVer };
+    return Object.assign(base, extra || {});
   }
 
   function sendRaw(sock, o){
@@ -90,7 +93,7 @@ export function createRealtimeLink(deps){
     if(opening || ws) return;
     opening = true;
     const my = ++gen;
-    fatal = null;
+    fatal = null; closeCode = null;
     const force = forceToken; forceToken = false;
     let tk = null, ver = null, uid = null;
     try{ tk = await deps.getToken(force); }catch(_){ tk = null; }
@@ -98,21 +101,21 @@ export function createRealtimeLink(deps){
     try{ uid = deps.getUserId(); }catch(_){ uid = null; }
     opening = false;
     if(my !== gen) return;
-    // 로그인 토큰이나 userId 가 없으면 서버가 받아 주지 않는다(서버는 userAuth 로 묶인 계정만 받는다).
-    if(!tk || !uid){ fatal = 'auth'; closed(); return; }
+    // 로그인 토큰이 없으면 서버가 받아 주지 않는다. 옛 판(pv 1)은 userId 도 싣는다.
+    if(!tk || (deps.pv < 2 && !uid)){ fatal = 'auth'; closed(); return; }
     token = tk; helloUid = uid; helloVer = (typeof ver === 'string' && ver) ? ver : '0.0.0';
     let sock;
     try{ curUrl = target(); sock = new deps.WebSocket(curUrl); }catch(_){ fatal = 'connect'; closed(); return; }
     ws = sock;
     connectTimer = tSet(() => { connectTimer = null; if(my === gen && !ready){ fatal = fatal || 'timeout'; drop(); } }, Math.max(T.CONNECT_TIMEOUT_MS, waitMs || 0));
-    sock.onopen = () => { if(my === gen) sendRaw(sock, hello(tk)); };
+    sock.onopen = () => { if(my === gen) sendRaw(sock, hello(tk, 'open')); };
     sock.onmessage = (ev) => {
       if(my !== gen) return;
       let m = null;
       try{ m = JSON.parse(typeof ev.data === 'string' ? ev.data : String(ev.data)); }catch(_){ return; }
       if(m && typeof m.t === 'string') onMsg(m);
     };
-    sock.onclose = () => { if(my === gen) closed(); };
+    sock.onclose = (ev) => { if(my === gen){ closeCode = (ev && typeof ev.code === 'number') ? ev.code : null; closed(); } };
     sock.onerror = () => {};
   }
 
@@ -136,7 +139,7 @@ export function createRealtimeLink(deps){
     const pending = [...reqWaiters.values()]; reqWaiters.clear();
     for(const w of pending) w.done(null);
     if(wasReady) attempt = 0;
-    try{ if(hooks.onClosed) hooks.onClosed(wasReady, fatal); }catch(e){ try{ (deps.log || console).warn('[realtime] 끊김 처리 실패', e); }catch(_){} }
+    try{ if(hooks.onClosed) hooks.onClosed(wasReady, fatal, closeCode); }catch(e){ try{ (deps.log || console).warn('[realtime] 끊김 처리 실패', e); }catch(_){} }
   }
 
   function scheduleReconnect(){
@@ -162,7 +165,7 @@ export function createRealtimeLink(deps){
       try{ tk = await deps.getToken(true); }catch(_){ tk = null; }
       if(!ready || !tk){ if(ready) scheduleToken(); return; }
       token = tk;
-      send(hello(tk));
+      send(hello(tk, 'refresh'));
       scheduleToken();
     }, delay);
   }
@@ -245,7 +248,7 @@ export function createRealtimeLink(deps){
         ready = true; attempt = 0; authRetried = false; failAt = -Infinity;
         if(connectTimer){ tClear(connectTimer); connectTimer = null; }
         scheduleToken();
-        try{ if(hooks.onReady) hooks.onReady(); }catch(_){}
+        try{ if(hooks.onReady) hooks.onReady(m); }catch(_){}
         settleReady({ ok: true });
         scheduleIdle();
       }else{
