@@ -156,7 +156,7 @@ if(document.getElementById('progOfficeModeToggle')){
     }
     _lsSet(OFFICE_MODE_KEY(), officeMode()?'1':'0');   // ★ 실패하면 여기서 알려준다(조용한 실패 금지)
     refreshOfficeModeUI();
-    refreshOfficeChipUI();   // ■ 버튼 툴팁 갱신 + 모드를 끄면 숨김 해제
+    refreshOfficeChipUI();   // ▾ 버튼 툴팁 갱신 + 모드를 끄면 숨김 해제
     try{ if(typeof chatUiMod._chatFlyRefreshUI === 'function') chatUiMod._chatFlyRefreshUI(); }catch(_){}   // 🌊 날리기 줄 숨김/복귀
     try{ _applyChatSfxUI(); }catch(_){}       // 🔔 알림음 «꺼짐» 표시/복귀
     toast((officeMode() ? '회사원 모드가 켜졌어요' : '회사원 모드가 꺼졌어요') + _offNote);
