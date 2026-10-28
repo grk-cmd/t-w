@@ -8449,6 +8449,7 @@
 <script src="parts/myhome/myhome-hooks.js"></script>   <!-- 🪝 마이홈 고리판(저장 · 배경 · 테마 · BGM 을 이름으로 부르는 한 곳) — 거는 · 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/account/user-api.js"></script>   <!-- 🪪 계정 provider(window.TwUserApi — /v1/me · 가입 · 초대 · 탈퇴 · 방문 기록) — api-client.js · request-id.js 다음 · 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/account/login-flow.js"></script>   <!-- 🔑 로그인 흐름(window.TwLoginFlow — 로그인 → /v1/me → realtime 켜기 · 로컬 모드 · 내 계정 사본) — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 -->
+<script src="parts/account/first-run-013.js"></script>   <!-- 🚚 0.13 첫 실행(window.TwFirstRun013 — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기 차례) — app.js 보다 먼저 -->
 <script src="parts/account/account-state.js"></script>   <!-- 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 · 신원 놓음) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/nav.js"></script>   <!-- 🧭 창 열기 통로(설정 창 · 마이홈 · 방 나가기를 부탁하는 한 곳) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/net-ready.js"></script>   <!-- 🛰 «네트워크(provider) 준비됨» 기다리기 한 곳(window.TwNetReady) — 쓰는 모듈(스케줄러 · 방 · 계정 · 카탈로그 · 버그 게시판) · app.js 보다 먼저 -->

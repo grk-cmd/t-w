@@ -24,3 +24,12 @@
   - 비밀번호 가입은 답을 못 받아 다시 누르면 같은 요청 번호 — 비밀번호를 바꾸면 새 번호(같은 번호면 첫 비밀번호의 계정이 돌아온다).
   - 이 PC 계정 몫 지우기 · 다시 켜기는 부르는 쪽(account.js) 몫 — 여기는 화면 · 저장 키 목록을 모른다.
 - 검사: `checks/sim-login-flow.js`.
+
+## first-run-013.js — 0.13 첫 실행(classic script `window.TwFirstRun013`)
+- 책임: 이 PC 에 남은 0.12 값을 서버로 올리고 지우는 **차례** 한 곳 — ① 로그인 → ② 캐릭터 올리기(legacy-sync) → ③ 라이선스 키 → ④ 이 PC 키 지우기.
+  한 단계라도 ok 가 아니면(실패 · 기다림 · 던짐) 멈추고 아무것도 안 지운다 — 다음 실행에 처음부터. 다 끝나면 `tw.firstRun013` = 내 코드(같은 계정은 건너뜀).
+- deps: `steps: { login, legacySync, licenseKey }`(각각 `() => Promise<{ ok, wipe?:[키], pending?, reason? }>`) · `storage` · `userCode()` · `log`.
+- 내놓는 것: `run()`. 순수: `pendingStep(이름)`(늘 기다림 — 아직 안 채운 단계 자리) · `loginStep(isIn)` · `LOGIN_LEGACY_KEYS` · `STEPS` · `DONE_KEY`.
+- 자리: 캐릭터(D1) · 라이선스(D8) 단계는 app.js 가 `pendingStep` 으로 넘긴다 — 그 묶음이 진짜 함수로 바꾼다. 기다림이 있는 동안 지우기는 돌지 않는다.
+- 함정: 단계는 서버 답(`…_DONE`)으로 «이미 했다» 를 알아 같은 결과를 내야 한다(이 파일은 차례만 지킨다). 지울 키는 단계가 돌려준 것만 — 기기 id(`tw.deviceId`) · 내 계정 사본(`tw.me`)은 넣지 않는다.
+- 검사: `checks/sim-first-run-013.js`.
