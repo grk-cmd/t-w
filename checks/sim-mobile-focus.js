@@ -122,8 +122,8 @@ say('── 2. 곁가지');
 say('── 3. 방');
 {
   chk(/bench:_myBench\(\), mobile:_mobileRoomLabel\(\), danceStyle:/.test(CODE), '평소 payload(_basePayload)에 mobile 한 칸');
-  chk(/\.\.\.myStarOut\(\),mobile:_mobileRoomLabel\(\),userId:getMyUserId\(\)/.test(CODE), '입장 payload 에도 mobile');
-  chk(/flyCool:_myFlyCool\(\), noise:myNoise\}; \}/.test(CODE) && /userId:getMyUserId\(\), noise:myNoise, lic:/.test(CODE), '  남의 검사가 붙잡은 글자(noise 끝 · 입장 줄)는 그대로');
+  chk(/\.\.\.myStarOut\(\),mobile:_mobileRoomLabel\(\), noise:myNoise/.test(CODE), '입장 payload 에도 mobile');
+  chk(/flyCool:_myFlyCool\(\), noise:myNoise\}; \}/.test(CODE) && /_mobileRoomLabel\(\), noise:myNoise, awayImg:myAwayImg\}/.test(CODE), '  남의 검사가 붙잡은 글자(noise 끝 · 입장 줄)는 그대로');
   chk(/s\.remoteMobile=_mobileCleanApp\(friends\[id\]\.mobile\);/.test(CODE), '받는 쪽 — _mobileCleanApp 으로 거른다');
   const clean = new Function(grabFn('_mobileCleanApp').replace('MOBILE_APP_MAX', '40') + ' return _mobileCleanApp;')();
   chk(clean(undefined) === '' && clean(5) === '' && clean(' <b>Pro</b>\n') === 'bPro/b' && clean('x'.repeat(60)).length === 40, '  문자열만 · 제어문자·꺾쇠 제거 · 40자');

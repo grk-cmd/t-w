@@ -176,7 +176,7 @@
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
 | **sim-fix-0923.js** | 297 | **08e7cfc2c083** |
 | **sim-noise.js** | 146 | **e2fb15f39c34** |
-| **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
+| **sim-mobile-focus.js** | 219 | **b83800a80dbf** |
 | **sim-focus-gate-self.js** | 116 | **19283b4c764a** |
 | **sim-mac-0923.js** | 78 | **4a0bc159a008** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
@@ -197,13 +197,13 @@
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** |
 | **sim-purikura-deco.js** | 954 | **25b07f4973c8** |
 | sim-purikura-net.js | 361 | a4029a7ef053 |
-| **sim-purikura-rules.js** | 261 | **0f13cb4f0a37** |
+| **sim-purikura-rules.js** | 250 | **3794c01ca8c9** |
 | **sim-purikura-stage.js** | 270 | **115ae51a42d4** |
 | **sim-report-away.js** | 116 | **38e8c0188013** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
 | **sim-ride-part-top.js** | 101 | **0b4bf839278c** |
 | **sim-seat-eq.js** | 101 | **abfda97458b5** |
-| **sim-seat-hide.js** | 84 | **4e8d2348e282** |
+| **sim-seat-hide.js** | 84 | **6db5dad7b753** |
 | **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
 | **sim-slot-sync.js** | 482 | **612ff46fdd50** |
