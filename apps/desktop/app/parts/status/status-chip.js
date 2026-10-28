@@ -398,7 +398,7 @@ function updateMyStatusChipPosition(){
      ⚠️ 원인(왜 투영이 터지는가)은 아직 못 찾았다. 이건 **막는 장치**이고, 아래 _charBadWhy 가
        다음 로그에서 범인을 지목하라고 붙여 둔 것이다. 원인을 찾아도 이 문지기는 남길 것. */
   if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })){
-    /* 회사원 모드로 숨겼다 — 칩(■ 버튼 — 숨김을 푸는 하나뿐인 입구)은 그대로 두고, main 에 보내는 캐릭터 영역만 비운다 */
+    /* 회사원 모드로 숨겼다 — 칩(▾ 버튼 — 숨김을 푸는 하나뿐인 입구)은 그대로 두고, main 에 보내는 캐릭터 영역만 비운다 */
     setCharBoundsLatest(null);
     setCharBadWhy(null);
   } else if(_charProjSane(cx, cy, charPxH)){

@@ -219,9 +219,9 @@ chk(!miss.length, '① mousemove · ② 재판정 · ③ 사다리 · pointerdow
   };
   const chipOk = (src) => { const r = chipRun(src, { v: false }); return !r.err && r.h.chip === 'flex' && r.h.bounds === null && r.v.chip === 'flex' && !!r.v.bounds && typeof r.v.bounds.r === 'number'; };
   { const r = chipRun(SC, { v: false });
-    chk(chipOk(SC), '  상태칩(실제로 불러 봄) — 숨김이면 칩(■ 숨김 풀기 입구)은 그대로 · main 에 보내는 캐릭터 영역만 null · 풀면 바로 영역이 돌아온다' + (r.err ? ' — ' + r.err : '')); }
+    chk(chipOk(SC), '  상태칩(실제로 불러 봄) — 숨김이면 칩(▾ 숨김 풀기 입구)은 그대로 · main 에 보내는 캐릭터 영역만 null · 풀면 바로 영역이 돌아온다' + (r.err ? ' — ' + r.err : '')); }
   chk(!chipOk(SC.replace("  if(!me || launcherVisible || creatorVisible || moveMode()){", "  if(!me || launcherVisible || creatorVisible || moveMode() || !clickPolicy.charHittable({ officeHidden: _officeHidden() })){")),
-    '  깨 보기: 숨김이면 칩까지 숨김(■ 버튼이 사라져 되돌릴 길이 없음) → 빨강');
+    '  깨 보기: 숨김이면 칩까지 숨김(▾ 버튼이 사라져 되돌릴 길이 없음) → 빨강');
   chk(!chipOk(SC.replace("  if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })){", "  if(false){")),
     '  깨 보기: 숨김인데 캐릭터 영역을 그대로 보냄 → 빨강');
 }
