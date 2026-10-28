@@ -179,7 +179,7 @@ if(typeof window !== 'undefined'){
   let bound = null;
   const need = () => { if(!bound) throw new Error('[realtime] 연결 재료가 아직 없다 — firebase-init 이 bind 한 뒤 start'); return bound; };
   let st = null; try{ st = window.localStorage; }catch(_){ st = null; }
-  const env = (window.companion && window.companion.firebaseEnv === 'dev') ? 'dev' : 'prod';
+  const env = window.TwApi.envOf(window);   // API 와 같은 판정 한 곳 — api-client.js 가 먼저 실린다
   const hub = createRtHub({
     createLink: (d) => need().createLink(d),
     WebSocket: window.WebSocket || null,

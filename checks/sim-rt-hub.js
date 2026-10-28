@@ -19,6 +19,7 @@ const SRC0 = {
   LINK: pick(at('realtime-link.js', 'realtime')),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
+  API: pick(at('api-client.js', 'shared')),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
@@ -228,12 +229,15 @@ async function judge(S){
     const sid = H.sessionIdOf('0b6c1f4e-2d0b-4b9e-9a7a-1f2e3d4c5b6a');
     chk(/^[A-Za-z0-9_-]{1,32}$/.test(sid) && sid.length === 32, '세션 id — 서버 규칙(영숫자 _ - 1~32) · ' + sid);
     const w = { localStorage: { getItem: () => null }, TwDeviceId: { store: { get: () => 'dev-0001' } }, TwRequestId: { newId: () => '0b6c1f4e-2d0b-4b9e-9a7a-1f2e3d4c5b6a' }, WebSocket: function(){} };
+    { const m = { exports: {} }; new Function('module', 'window', S.API)(m, undefined); w.TwApi = m.exports; }   // 환경 판정은 api-client 의 envOf 한 곳
     const T = loadHub(S.HUB, w);
     let threw = false; try{ T.store.start(); }catch(_){ threw = true; }
     chk(T && T.store && typeof T.store.bind === 'function' && threw, 'window.TwRtHub.store — bind 전 start 는 던진다(조용히 안 붙지 않게)');
     const h = S.HTML, i = (f) => h.indexOf('<script src="parts/' + f + '"></script>');
     chk(i('shared/request-id.js') > 0 && i('shared/device-id.js') > i('shared/request-id.js') && i('realtime/rt-hub.js') > i('shared/device-id.js') && i('app.js') > i('realtime/rt-hub.js'),
       'html — request-id.js · device-id.js → rt-hub.js → app.js 차례');
+    chk(i('shared/api-client.js') > 0 && i('shared/api-client.js') < i('realtime/rt-hub.js'), 'html — api-client.js(envOf) 가 rt-hub.js 보다 먼저');
+    chk(!/firebaseEnv/.test(strip(S.HUB)), 'rt-hub 는 환경을 따로 판정하지 않는다(TwApi.envOf 를 부른다)');
     chk(/window\.TwRtHub\.store\.bind\(\{ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: \(\) => _appVer\.ready \}\);/.test(strip(S.FI)), 'firebase-init — 연결 공통부 · 토큰 · 버전을 bind');
     chk(!/\.start\(/.test(strip(S.FI).split('window.TwRtHub.store.bind')[1].split('\n')[0]), '  ↳ 켜기는 여기서 안 한다(로그인 흐름 몫)');
   }

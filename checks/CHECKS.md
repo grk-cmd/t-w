@@ -446,7 +446,7 @@
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
-| **sim-rt-hub.js** | 277 | **f6e1cae3ee47** |
+| **sim-rt-hub.js** | 281 | **a1e95d18dfe9** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
