@@ -69,7 +69,7 @@
 - 만드는 법(app.js):
   ```js
   const friendsApiMod = TwFriendsApi.createFriendsApi({
-    get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로 — firebase-init.js 가 공용 주소 · ID 토큰 · 쉬기 끔으로 만든다
+    get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로 — api-client.js 의 TwApi.authed(쉬기 끔 · 토큰은 bindToken)
     getCard: (...a)=>firebaseAPI.fetchUserCardApi(...a),   // 친구 한 명 명함 — 공개 읽기 통로(api-public-reads.js)
     wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
     warn: (...a)=>console.warn(...a),
@@ -78,5 +78,5 @@
 - 순수: `friendsOf(data)`(응답 → { 친구id: 친구 } · 모양이 틀리면 undefined) · `cardOf(c)`(목록 줄 · 명함 → 친구 칸 한 벌 — 명함의 `avatarInline` 은 불리언이라 사진이 안 된다) · `retryable(err)`.
 - 확장할 때: 응답 칸이 늘면 `friendsOf` 한 곳. 다시 묻기 규칙은 상수 둘과 `retryable`.
 - 함정:
-  - 통로는 쉬기를 끈 **따로 만든 것**(firebase-init.js `_authApi`)을 쓴다 — 토큰을 아는 곳이 거기라 app.js 가 만들면 api-client ↔ firebase-init 순환이 생긴다. 공용 `TwApi.client` 를 쓰면 쉬는 동안 다시 묻기가 묻지도 않고 끝나고, 이 경로 실패 하나가 원격 설정 · 공개 읽기까지 30초 쉬게 한다.
+  - 통로는 쉬기를 끈 로그인 통로(`TwApi.authed` — 토큰은 firebase-init 이 `bindToken` 으로 잇는다)를 쓴다. 공용 `TwApi.client` 를 쓰면 쉬는 동안 다시 묻기가 묻지도 않고 끝나고, 이 경로 실패 하나가 원격 설정 · 공개 읽기까지 30초 쉬게 한다.
   - 응답 `truncated` 로 잘린 친구 · 서버 사본이 늦어 없는 친구는 이름이 자리표시('...')로 남는다 — 누가 친구인지는 옛 길 목록 구독(watchList)만 본다.
