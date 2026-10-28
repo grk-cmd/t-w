@@ -45,17 +45,10 @@
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
   import { createBroadcastSync } from "./myhome/broadcast-cache.js";
-  import { createVisitPing } from "./shared/visit-ping.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
   import { createRoomServerGate } from "./room/room-server-gate.js";
   import { createApiPublicReads } from "./shared/api-public-reads.js";
-  /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
-     ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
-       그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
-     ⚠️ 리전을 바꾸면 HTML CSP connect-src 의 함수 호스트도 같이 바꾼다. */
-  const FUNCTIONS_REGION = 'asia-southeast1';
-  const FUNCTIONS_SDK_URL = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';   // 위 import 들과 같은 판
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
   function _providersOf(cu){
     if(!cu) return null;
@@ -409,15 +402,6 @@
     ui: createAppVersionGateDom(document),
   }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
   onValue(ref(db, window.TwMaintenance.MAINTENANCE_PATH), (s) => _mt.onValue(s.val()), () => {});   // 🛠 서버 점검 표시 — 점검 중에도 규칙이 이 칸 읽기는 연다
-  /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
-     ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
-  createVisitPing({
-    callPing: async (data) => {
-      const mod = await import(FUNCTIONS_SDK_URL);
-      return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), 'visitPing')(data);
-    },
-    getVersion: () => _appVer.ready,
-  }).start();
   /* 🛰 옛 방 서버(웹소켓 pv 1) — 문지기(room-server-gate.js)가 0.13 에선 늘 Firebase 를 돌려줘 _rsUrl 은 null 그대로(서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
   /* 🌐 로그인이 필요한 API 통로(api-client.js TwApi.authed — 쉬기 없음 · 기기 머리) — 토큰 출처만 여기서 잇는다. */

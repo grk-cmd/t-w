@@ -5746,6 +5746,7 @@ const acctStateMod = TwAccountState.createAccountState({
 });
 /* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 로컬 모드. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
 const userApiMod = TwUserApi.store;   // 🪪 계정 provider(account/user-api.js) — 서버 user · invite 길 · 화면 문구
+TwVisitPing.createVisitPing({ callPing: ()=>userApiMod.visit(), win: window }).start();   // 📈 방문 기록 — 켤 때 한 번(로그인과 상관없이 · 실패는 삼킴)
 const loginFlowMod = TwLoginFlow.createLoginFlow({
   userApi: userApiMod,
   translate: (e)=>TwApiErrors.translate(e),
