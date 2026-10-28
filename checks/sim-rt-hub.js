@@ -237,7 +237,20 @@ async function judge(S){
     chk(i('shared/request-id.js') > 0 && i('shared/device-id.js') > i('shared/request-id.js') && i('realtime/rt-hub.js') > i('shared/device-id.js') && i('app.js') > i('realtime/rt-hub.js'),
       'html — request-id.js · device-id.js → rt-hub.js → app.js 차례');
     chk(i('shared/api-client.js') > 0 && i('shared/api-client.js') < i('realtime/rt-hub.js'), 'html — api-client.js(envOf) 가 rt-hub.js 보다 먼저');
-    chk(!/firebaseEnv/.test(strip(S.HUB)), 'rt-hub 는 환경을 따로 판정하지 않는다(TwApi.envOf 를 부른다)');
+    { /* 앱 한 벌이 고르는 주소 — dev 앱이면 dev · 그 밖은 운영 · 판정은 api-client 의 envOf 를 바꾸면 따라 바뀐다(따로 판정 안 함) */
+      const urlOf = (companion, envOf) => {
+        const w2 = Object.assign({}, w, { companion });
+        { const m = { exports: {} }; new Function('module', 'window', S.API)(m, undefined); w2.TwApi = envOf ? Object.assign({}, m.exports, { envOf }) : m.exports; }
+        const H2 = loadHub(S.HUB, w2); let target = null;
+        H2.store.bind({ createLink: (d) => { target = d.target; return { ensureReady(){}, close(){}, send(){ return false; }, request(){ return Promise.resolve(null); } }; },
+          getToken: async () => 't', getVersion: () => '0.13.0' });
+        try{ H2.store.start(); }catch(_){}
+        try{ H2.store.stop(); }catch(_){}
+        return target ? target() : null;
+      };
+      chk(urlOf({ firebaseEnv: 'dev' }) === H.REALTIME_URLS.dev && urlOf(undefined) === H.REALTIME_URLS.prod, '앱 한 벌 — dev 앱은 dev 주소 · 그 밖은 운영 주소');
+      chk(urlOf({ firebaseEnv: 'dev' }, () => 'prod') === H.REALTIME_URLS.prod, '  ↳ 판정은 TwApi.envOf 를 따른다(따로 판정하지 않는다)');
+    }
     chk(/window\.TwRtHub\.store\.bind\(\{ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: \(\) => _appVer\.ready \}\);/.test(strip(S.FI)), 'firebase-init — 연결 공통부 · 토큰 · 버전을 bind');
     chk(!/\.start\(/.test(strip(S.FI).split('window.TwRtHub.store.bind')[1].split('\n')[0]), '  ↳ 켜기는 여기서 안 한다(로그인 흐름 몫)');
   }
