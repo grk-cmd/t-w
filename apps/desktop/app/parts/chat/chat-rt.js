@@ -1,7 +1,7 @@
 /* chat-rt.js — 💬 대화 포트(대화 기록 · 보내기 · 방장 지우기 · 내 이모티콘) — realtime 연결 하나 + API (검사 sim-chat-rt.js)
    [책임] 투게더룸 · 시크릿룸 대화창의 서버 길 한 곳.
      · 보내기 chatSay{ requestId, tab, text | game } → 보낸 연결에 chatSaid · 방 전원에 chatLine. 못 받으면 같은 requestId 로 한 번 더(서버가 처음 줄을 돌려준다).
-     · 지난 기록 GET /v1/rooms/{코드}/chats?tab=&since=&limit= → { lines, hasMore } — since 는 시각(이상) · hasMore 면 마지막 줄 시각으로 다시.
+     · 지난 기록 GET /v1/rooms/{코드}/chats?tab=&since=&limit= → { lines, hasMore } — since 는 시각(이상) · hasMore 면 마지막 줄 시각으로 다시. 시크릿룸은 읽지 않는다(readsServerHistory).
      · 방장 지우기 chatClear{ tab } → 서버가 지우기 표시 줄(CLEAR)을 방 전원에 보낸다(앱이 따로 표시 줄을 쓰지 않는다).
      · 내 이모티콘 8칸 GET · PUT · DELETE /v1/me/emojis — 그림은 Storage 에 올린 주소만(올리기는 부르는 쪽이 넘긴다).
    [모양 바꾸기 — 이 파일 한 곳] 서버 줄 { id, tab:'GENERAL'|'S1'|'S2', kind:TEXT|GAME|CLEAR, userCode?, name, text, ts } →
@@ -22,6 +22,9 @@ const LIVE_MAX = 300;            // 방 · 탭마다 들고 있는 최근 줄(ch
 const CLEAR_SYS = 'clr';         // chat-history.js CLEAR_SYS 와 같다(지우기 표시 줄)
 const EMOJI_PATH = '/v1/me/emojis';
 const ERR_REFS = Object.freeze(['chatSay', 'chatClear']);
+/* 지난 기록을 서버에서 읽는 방인가 — 한 곳. 시크릿룸 대화는 이 PC(IndexedDB · chat-history.js)에만 둔다(사용자 결정 10-29) —
+   시크릿룸에서는 GET 을 부르지 않고 연결 위로 오는 줄만 받는다. 바뀌면 이 줄만 고친다. */
+const readsServerHistory = (room) => !/^SCRT-/.test(String(room || ''));
 
 const msOf = (v) => {
   if(typeof v === 'number' && isFinite(v)) return v;
@@ -164,7 +167,8 @@ function createChatRt(deps){
     subs.add(sub);
     (async () => {
       try{
-        if(typeof since !== 'number'){
+        if(!readsServerHistory(room)){ /* 시크릿룸 — 지난 기록은 이 PC 저장분만 */ }
+        else if(typeof since !== 'number'){
           const p = await page(room, appTab, null, PAGE_LIMIT);
           if(!closed) p.lines.forEach(sub.fn);
         }else{
@@ -196,7 +200,7 @@ function createChatRt(deps){
     };
     const sub = { room, tab, fn: (m) => { box.set(m.id, m); emit(); } };
     subs.add(sub);
-    page(room, appTab, null, n).then((p) => { if(closed) return; p.lines.forEach((m) => box.set(m.id, m)); emit(); }, (e) => { warn('최근 줄을 못 받음', (e && (e.code || e.message)) || e); });
+    if(readsServerHistory(room)) page(room, appTab, null, n).then((p) => { if(closed) return; p.lines.forEach((m) => box.set(m.id, m)); emit(); }, (e) => { warn('최근 줄을 못 받음', (e && (e.code || e.message)) || e); });
     return () => { closed = true; subs.delete(sub); };
   }
 
@@ -226,7 +230,7 @@ function createChatRt(deps){
     _debug: () => ({ live, subs, pendingSay, pendingClear }) };
 }
 
-const api = { SAY_WAIT_MS, SAY_TRIES, CLEAR_WAIT_MS, PAGE_LIMIT, PAGE_MAX, LIVE_MAX, CLEAR_SYS, EMOJI_PATH, lineFromWire, createChatRt };
+const api = { readsServerHistory, SAY_WAIT_MS, SAY_TRIES, CLEAR_WAIT_MS, PAGE_LIMIT, PAGE_MAX, LIVE_MAX, CLEAR_SYS, EMOJI_PATH, lineFromWire, createChatRt };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — realtime 연결 하나 · 방 포트(지금 방 · 탭 바꾸기) · 로그인 API 통로 */
   const R = window.TwRoomRt;

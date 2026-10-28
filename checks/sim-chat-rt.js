@@ -1,7 +1,7 @@
 /* sim-chat-rt.js — 💬 대화 포트(chat/chat-rt.js) 검사 — 가짜 연결(hub) · 가짜 API 로 그대로 돌린다
    ・1절: 줄 모양 — 서버 줄 → 앱 줄(uid · ts ms · 탭 앱 id · CLEAR → sys clr) · 모양이 틀리면 버림
    ・2절: 보내기 — chatSay{ requestId · tab S1 · text } · chatSaid 로 끝남 · 못 받으면 같은 requestId 로 한 번 더 · 거절 code · 방 밖이면 안 보냄 · 게임(주사위 탭 · 날리기는 탭 없음)
-   ・3절: 지난 기록 — since 없으면 최근 쪽 · 있으면 ISO 시각으로 쪽 넘김(hasMore) · 받는 동안 온 줄도 · 못 받아도 onReady · 끊으면 안 부름
+   ・3절: 지난 기록 — 시크릿룸은 서버에서 안 읽음 · since 없으면 최근 쪽 · 있으면 ISO 시각으로 쪽 넘김(hasMore) · 받는 동안 온 줄도 · 못 받아도 onReady · 끊으면 안 부름
    ・4절: 방장 지우기 — chatClear{ tab } · 지우기 표시 줄이 오면 ok · CHAT_NOT_HOST 거절
    ・5절: 최근 줄 구독(안 읽은 수) · 내 이모티콘(slots → 칸 표 · PUT · DELETE)
    ・6절: 배선(html 차례 · firebase-init 이 대화 기록을 이 포트에 잇는다) · 깨 보기 */
@@ -116,6 +116,13 @@ async function judge(S){
     const got4 = []; e.c.subscribeSince('PLAY-AB12', 'general', null, (m) => got4.push(m.id), () => {}); await tick();
     e.emit({ t: 'chatLine', line: LINE('s2', { tab: 'GENERAL' }) });
     chk(got4.join() === 's2', '  구독 전에 지나간 줄은 다시 안 넘긴다(기록은 GET 으로)');
+    e = mk(S, { room: 'SCRT-AB12', get: { lines: [LINE('q1')], hasMore: false } });
+    const got5 = []; let r5 = 0;
+    e.c.subscribeSince('SCRT-AB12', 'general', null, (m) => got5.push(m.id), () => r5++);
+    e.c.subscribeLog('SCRT-AB12', () => {}, 30, 'general');
+    await tick();
+    e.emit({ t: 'chatLine', line: LINE('q2') });
+    chk(e.gets.length === 0 && r5 === 1 && got5.join() === 'q2', '★ 시크릿룸은 지난 기록을 서버에서 읽지 않는다(이 PC 저장분만 · 사용자 결정) — 연결 위로 오는 줄만');
   }catch(err){ chk(false, '3절 던짐 — ' + err.message); }
 
   say('── 4. 방장 지우기');
@@ -163,6 +170,7 @@ async function judge(S){
 await judge(SRC0);
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
+  ['CR', "const readsServerHistory = (room) => !/^SCRT-/.test(String(room || ''));", "const readsServerHistory = (room) => true;", '시크릿룸 기록을 서버에서 읽음'],
   ['CR', "        timer = tSet(() => { if(tries < SAY_TRIES) attempt(); else w.done({ ok: false, code: 'timeout' }); }, SAY_WAIT_MS);", "        timer = tSet(() => { w.done({ ok: false, code: 'timeout' }); }, SAY_WAIT_MS);", '못 받으면 다시 안 보냄'],
   ['CR', "            at = p.lines[p.lines.length - 1].ts;", "            at = since;", '쪽 넘김이 같은 자리를 다시 받음'],
   ['CR', "  if(line.kind === 'CLEAR') m.sys = CLEAR_SYS;", "", '지우기 표시 줄을 모름'],
