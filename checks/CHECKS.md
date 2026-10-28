@@ -382,7 +382,7 @@
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
-| **sim-domain-calls.js** | 157 | **673fc5f9779a** |
+| **sim-domain-calls.js** | 158 | **46111b354825** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
@@ -447,6 +447,7 @@
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 277 | **f6e1cae3ee47** |
+| **sim-room-rt.js** | 357 | **1f746cdeb8d6** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

@@ -357,3 +357,12 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 실패 번호: `E-ROOM-05` 쓰기 실패(DJ) · `E-ROOM-06` 못 트는 곡(곡마다 한 번) · `E-ROOM-07` 구독 거부.
 
 검사: `checks/sim-listen-model.js` · `checks/sim-listen-provider.js` · `checks/sim-listen-ui.js`.
+
+## `room-rt.js` — 🛰 방 포트(realtime 연결 하나 위 · 서버 통신 규약 pv 2)
+- 책임: 방 하나에 들어가 있는 동안의 통신(`join` · `patch` · `def` · `chat` 말풍선 · `poke` · `meta` · `music` · `leave`)과 방 밖의 `random` · `peek`. 받은 메시지는 presence.js 가 받던 친구 객체 모양으로 바꿔 넘긴다. 연결 · 토큰 · 다시 붙기는 `realtime/rt-hub.js` 몫 — 여기는 «방 안이면 다시 붙을 때 `resume`» · «15초 넘게 끊기면 알림» · «90초(`room.timing.clientGiveUpMs`) 못 돌아오면 포기» 만 본다.
+- 서버가 정하는 것(정원 · 같은 계정 중복 · 승계 · 해산 · 채널 · 시크릿룸 입장 · 방 상한 · 버전)은 다시 판단하지 않는다 — 거절은 `join` 의 `{ ok:false, code }` 로 돌려준다(`full` · `channelFull` · `secretClosed` · `forbidden` · `title` · `version` · `unavailable` · `timeout` · `off` · `auth` · `sessionLost`).
+- 앱과 서버의 모양 차이는 이 파일 한 곳: 대화 탭 앱 `s1` · `s2` ↔ 서버 `S1` · `S2`(`tabToWire` · `tabFromWire` · 대화 기록은 `historyTabOf` → `GENERAL` · `S1` · `S2`) · 친구 객체 `userId` = 서버가 붙인 `userCode` · `me.userId` · `lic` 는 싣지 않는다(서버 badRequest).
+- 만드는 법: classic script(`window.TwRoomRt`) — `rt-hub.js` · `remote-config.js` 다음 · app.js 보다 먼저. 앱 한 벌은 `TwRoomRt.store`(`TwRtHub.store` 위). provider 는 `store.makeProvider(hooks, { create })` — hooks: `serializeDef` · `deserializeDef` · `retryDefAfter` · `getExp` · `onMeta` · `onDisband` · `onReplaced` · `onLost(code)` · `onReconnecting(on)` · `onJoined` · `onLeft`.
+- 내놓는 것: `makeProvider` · `random(limit, channel)` · `peek(code)`(못 물으면 `null`) · `roomCode()`(들어가 있는 방) · `myCode()`(연결의 나 — 방장 · 글쓴이 · 사진 자리 판정은 이 값) · `isReady()` · `inRoom()`.
+- 함정: 연결이 꺼져 있으면(로그인 전 · 로그아웃) 입장은 바로 `off` — 켜기(`TwRtHub.store.start`)는 로그인 흐름 몫이다. `error.ref` 가 방 요청(`join` · `meta` · `music` …)인 것만 받는다 — 대화(`chatSay`) · 사진(`photo*`) · 초대 오류는 그 포트가 받는다.
+- 검사: `checks/sim-room-rt.js`(진짜 rt-hub · 연결 공통부 위에서 · 깨 보기).
