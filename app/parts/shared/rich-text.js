@@ -1,9 +1,6 @@
 /* rich-text.js — 🛡️ 리치 텍스트 sanitize · 저장 · 글자 수
    app.js «🛡️ 리치 텍스트 sanitize · 저장 · 글자 수» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 42번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 0줄 —
-     바꾼 이름 없음.
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   옮긴 뒤 씻기를 DOMPurify 로 바꿨다(deps.DOMPurify).
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: _mhLoadRT · _mhSaveRT · _mhStripHtml · _mhUpdateRTCount — app.js 는 richTextMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -26,7 +23,7 @@ const _MH_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','SPAN','FONT','BR','
      (실제 크로미움으로 재현: 글자색·크기·굵게를 먼저 준 글자는 전부 이 모양이다.) 그런데 여기 목록에서
      FONT·B 등에는 style 이 없어서 저장할 때 지워졌다. 띄어쓰기는 보통 그런 태그 밖이라 span 으로 남았다.
    ★ 서식 태그 전부에 style 을 연다 — 값은 아래 style 필터(다섯 속성만)를 그대로 거치므로 위험이 늘지 않는다.
-   ⚠️ 이 선언은 **한 줄**로 둔다 — sim-mh-sanitize.js 가 줄 단위(cutLine)로 떼어 가서 돌린다. */
+   ⚠️ 이 선언은 **한 줄**로 둔다 — sim-fix-0923.js 가 정규식으로 떼어 간다. */
 const _MH_ALLOWED_ATTRS = { A:['href'], IMG:['src','alt'], FONT:['color','size','style'], SPAN:['style'], DIV:['style'], P:['style'], B:['style'], STRONG:['style'], I:['style'], EM:['style'], U:['style'] };
 /* 🖼️ 남의 bio·게시글 속 `<img>` 를 어디까지 허용하는가 — **정책은 이 한 줄에만 있다.**
      'any'          : http(s) 전부 (지금 값). 남의 글을 여는 것만으로 그 서버에 요청이 나간다 = IP 노출

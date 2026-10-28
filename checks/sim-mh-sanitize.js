@@ -1,7 +1,7 @@
 /* sim-mh-sanitize.js — 🛡️ 남의 bio·게시글이 **읽는 쪽에서** 씻기는가 (저장형 XSS)
    실행:  node sim-mh-sanitize.js   (app.js 와 같은 폴더에서)
 
-   ★ 왜 이 검사가 있는가 — sanitize(`_mhSanitizeNode`)가 예전엔 **저장 경로에만** 걸려 있었다:
+   ★ 왜 이 검사가 있는가 — 씻기가 예전엔 **저장 경로에만** 걸려 있었다:
          _mhSaveRT()  → sanitize 를 탄다        ← 내 편집기에서 저장할 때
          _mhLoadRT()  → HTML 로 보이면 원본 그대로 return   ← 그릴 때
      그런데 `_mhLoadRT` 가 그리는 `_myHomeData` 는 **남의 마이홈을 볼 때 남의 데이터**다.
@@ -13,15 +13,9 @@
    ★ 이 검사가 지키는 규약 넷
      ① `_mhLoadRT` 의 HTML 분기는 반드시 `_mhSanitizeHtml` 을 거친다
      ② 순서는 heal → 판정 → sanitize (앞에 넣으면 아홉 겹 `&amp;` 제보가 되살아난다)
-     ③ 읽는 쪽 sanitize 는 `DOMParser` 로 한다 — `createElement('div').innerHTML` 은 안 된다.
-        문서에 안 붙은 div 라도 크롬은 그 안의 `<img>` 를 로드해서 `onerror` 가 sanitize 보다
-        먼저 터지고 IP 도 그때 나간다. DOMParser 문서는 브라우징 컨텍스트가 없어 조용하다
-     ④ sanitize 가 실패하면 **원본을 돌려주지 않는다** (씻지 못한 HTML 을 그리는 게 막으려던 일)
-
-   ⚠ 아래 §2 의 파서는 **흉내**다. 실제 파싱은 브라우저가 한다 — 여기서 보는 것은 파싱이 아니라
-     sanitizer 의 **판단**이다(어떤 태그·속성을 남기고 지우는가). 그래서 공격 문자열은
-     이 흉내 파서가 다룰 수 있는 문법 안에서만 쓴다. 파싱 자체의 기묘한 경우
-     (`<img/src=x`, 주석 안 태그 등)는 여기서 못 본다 — 그건 DOMParser 를 믿는 부분이다. */
+     ③ 씻기는 DOMPurify(브라우징 컨텍스트 없는 문서)로 한다 — 씻기 전에 `createElement('div').innerHTML` 로
+        먼저 읽지 않는다(크롬은 붙지 않은 div 의 `<img>` 도 불러 `onerror` 가 씻기보다 먼저 터진다)
+     ④ sanitize 가 실패하면 **원본을 돌려주지 않는다** (씻지 못한 HTML 을 그리는 게 막으려던 일) */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
