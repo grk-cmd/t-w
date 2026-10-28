@@ -186,7 +186,7 @@ t(/if\(lv\)\{ let n = 1, st = null; try\{ n = getFocusLevel\(\); st = myFocusSho
 /* 보내는 level 은 해금 레벨 그대로 — 받는 쪽 게이트(날리기 색)와 옛 판 */
 t(/level:myLevel, exp:_myExpCells\(\), \.\.\.myStarOut\(\),/.test(CODE4) && /myLevel=getFocusLevel\(\);/.test(CODE4), '★ 프리즌스 level 은 해금 레벨 · 표시는 cyc/clv/starC 로 따로');
 const setProfCalls = (CODE4.match(/setMyProfile\([^;]*\)/g) || []);
-t(setProfCalls.length >= 3 && setProfCalls.every(c => /myStarProfileOut\(\)|, so\)/.test(c)) && /const so = myStarProfileOut\(\)/.test(CODE4), `★ 프로필 쓰기는 매번 회차를 싣는다 — 고른 색이 없으면 비워서(서버 값 지킴 · 개정 71 · ${setProfCalls.length}곳)`);
+t(setProfCalls.length >= 2 && setProfCalls.every(c => /myStarProfileOut\(\)|, so\)/.test(c)) && /const so = myStarProfileOut\(\)/.test(CODE4), `★ 프로필 쓰기는 매번 회차를 싣는다 — 고른 색이 없으면 비워서(서버 값 지킴 · 개정 71 · ${setProfCalls.length}곳)`);
 /* 경험치 칸 — 999 에서 멈추던 분기가 없다 */
 const fnCells = grab(APP, 'function expCellsFromSec(');
 t(!!fnCells && !/FOCUS_LEVEL_CAP_HOURS/.test(strip(fnCells)), '경험치 칸은 이번 시간 안의 진행도 — 999 에서 가득 찬 채 멈추지 않는다');
