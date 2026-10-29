@@ -9123,7 +9123,7 @@ layoutSeats=function(){ _layoutSeats();
 
 /* ============================================================ INIT */
 seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); applyDesktopRunClass();
-/* 🗂️ 로비는 여닫는 길이 여럿(런처 · F1 · ✕ · 바깥 클릭 · 방 입장)이라 길마다 부르지 않고 .on 이 바뀔 때 창 크기를 다시 맞춘다 */
+/* 🗂️ 로비는 여닫는 길이 여럿(런처 · F1 · ✕ · 방 나간 뒤 다시 열기)이라 길마다 부르지 않고 .on 이 바뀔 때 창 크기를 다시 맞춘다 */
 { const ov=document.getElementById('inviteOverlay'); if(ov) new MutationObserver(()=>applyDesktopRunClass()).observe(ov, { attributes:true, attributeFilter:['class'] }); }
 if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
