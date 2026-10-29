@@ -1938,7 +1938,9 @@ function _texFromDataURL(url, fallbackFill){
   const x=c.getContext('2d'); x.fillStyle=fallbackFill||'#ffffff'; x.fillRect(0,0,P_SZ,P_SZ);
   const t=new THREE.CanvasTexture(c); t.flipY=false; t.encoding=THREE.sRGBEncoding;
   const src=TwSafeHtml.safeUrl(url,'image');   // 남의 캐릭터 def 일 수 있다 — 허용된 그림 주소만
-  t.userData.twSrc=src||null; t.userData.twFill=fallbackFill||'#ffffff';   // 그래픽 리셋으로 캔버스가 비면 face-heal.js 가 이것으로 다시 그린다
+  /* 그래픽 리셋으로 캔버스가 비면 face-heal.js 가 이것으로 다시 그린다.
+     ⚠️ three r128 의 Texture 에는 userData 가 없다 — 있는 칸에 쓰듯 쓰면 던져서 동물 조립이 멈추고 사람 모델로 대신 그려진다 */
+  t.userData=Object.assign(t.userData||{}, { twSrc: src||null, twFill: fallbackFill||'#ffffff' });
   if(src){
     let late=0;
     const load=(u)=>{ const im=new Image(); im.crossOrigin='anonymous';   // Storage URL 텍스처용 CORS (dataURL엔 영향 없음)

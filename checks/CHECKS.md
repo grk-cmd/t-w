@@ -448,6 +448,7 @@
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
+| **sim-animal-tex.js** | 67 | **022878707d99** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
