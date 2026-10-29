@@ -20,7 +20,8 @@
   "license": "UNLICENSED",
   "devDependencies": {
     "electron": "^44.9.3",
-    "electron-builder": "^24.13.3"
+    "electron-builder": "^24.13.3",
+    "jsdom": "30.1.2"
   },
   "dependencies": {
     "electron-updater": "^6.1.7",

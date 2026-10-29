@@ -2891,6 +2891,7 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const richTextMod = TwRichText.createRichText({
   escHtml: (...a)=>escHtml(...a),
+  DOMPurify: () => window.DOMPurify,
 });
 
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */

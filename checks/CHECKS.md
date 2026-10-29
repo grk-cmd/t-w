@@ -159,10 +159,10 @@
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 288 | **73780a67f961** |
-| **sim-mh-sanitize.js** | 274 | **b840325c6768** |
+| **sim-mh-sanitize.js** | 216 | **9d3c299cd46e** |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
-| **sim-fix-0923.js** | 297 | **9f338dfa790b** |
+| **sim-fix-0923.js** | 297 | **522d07f95e45** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
@@ -316,7 +316,7 @@
 | **sim-program-settings.js** | 148 | **ca3242f94e17** |
 | **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
 | **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
-| **sim-rich-text.js** | 95 | **e2857c0faa2d** |
+| **sim-rich-text.js** | 95 | **c8ee332ad595** |
 | **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
 | **sim-sfx.js** | 96 | **d24a22a1d75f** |
 | **sim-face-heal.js** | 96 | **4423b53923fa** |
@@ -412,7 +412,7 @@
 | **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 234 | **ce652588740d** |
-| **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
+| **sim-safe-html.js** | 714 | **9217c2e9671f** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
 | **sim-room-face-load.js** | 217 | **d619e9556ab2** |
@@ -444,7 +444,7 @@
 해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
 
 ```
-run.js                         543줄   660499baebc6   ← 2026-10-14 flattenApp — app/ 하위 폴더 .js 도 평면에 · vendor 뺌 (개정 187) · 2026-10-04 SKIP 에 .claude (워크트리 사본) · web-admin (자체 vitest) · 2026-09-22 SKIP 에 functions (개정 44)
+run.js                         545줄   6287f91073d4   ← 2026-10-14 flattenApp — app/ 하위 폴더 .js 도 평면에 · vendor 뺌 (개정 187) · 2026-10-04 SKIP 에 .claude (워크트리 사본) · web-admin (자체 vitest) · 2026-09-22 SKIP 에 functions (개정 44)
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    415줄   cb30d59cf85a   ← 2026-09-30 6절에 `.app` 폴더 경로 · 옛 규칙 (개정 75)
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)
