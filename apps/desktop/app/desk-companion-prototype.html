@@ -1684,7 +1684,8 @@
   .race-card.disabled .race-preview{filter:grayscale(1) opacity(.65);}
 
   /* 방 목록 로비(room-lobby-ui.js) — 모달을 넓혀 카드 3 × 4. 베젤 없음(audit 검사 12 대상 아님) · 색은 토큰만. */
-  #inviteModal{width:720px;}
+  /* 높이: 창(마이홈 크기 580)보다 길어 위아래가 잘리지 않게 모달 안에서 스크롤 */
+  #inviteModal{width:720px;max-height:calc(100vh - 24px);overflow-y:auto;}
   #lobbyMain .lb-secret{display:flex;align-items:center;gap:10px;padding:7px 10px;margin-bottom:10px;border:1px solid var(--win-select);border-radius:var(--win-radius-el);background:var(--win-face-2);font-size:12px;color:var(--ink);}
   #lobbyMain .lb-secret[hidden]{display:none;}
   #lobbyMain .lb-secret-tag{color:var(--win-select);}

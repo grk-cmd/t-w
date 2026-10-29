@@ -9068,7 +9068,10 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
      ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것. */
   const mhOv = document.getElementById('myHomeOverlay');
   const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
-  const showMyHomeSized = mhOn && launcherOn;
+  /* 🗂️ 방 찾기 · 만들기(로비)도 런처의 좁은 창에 갇히지 않게 마이홈 크기로 연다(창 자리도 마이홈과 같이 기억) */
+  const lobbyOv = document.getElementById('inviteOverlay');
+  const lobbyOn = !!(lobbyOv && lobbyOv.classList.contains('on'));
+  const showMyHomeSized = (mhOn || lobbyOn) && launcherOn;
   const config = launcherOn || creatorOpen;
   const runOverlay = appMode==='run' && !config;
   document.body.classList.toggle('runmode', runOverlay);
@@ -9077,7 +9080,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
-  const extra = (mode === 'myhome') ? mhStLayoutMod._mhStickerOverhang() : null;
+  const extra = (mode === 'myhome' && mhOn) ? mhStLayoutMod._mhStickerOverhang() : null;
   if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
 }
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -9120,6 +9123,8 @@ layoutSeats=function(){ _layoutSeats();
 
 /* ============================================================ INIT */
 seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); applyDesktopRunClass();
+/* 🗂️ 로비는 여닫는 길이 여럿(런처 · F1 · ✕ · 바깥 클릭 · 방 입장)이라 길마다 부르지 않고 .on 이 바뀔 때 창 크기를 다시 맞춘다 */
+{ const ov=document.getElementById('inviteOverlay'); if(ov) new MutationObserver(()=>applyDesktopRunClass()).observe(ov, { attributes:true, attributeFilter:['class'] }); }
 if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
 /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
