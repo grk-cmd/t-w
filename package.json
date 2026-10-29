@@ -12,6 +12,7 @@
     "admin:test": "npm --prefix web-admin test",
     "admin:build": "npm --prefix web-admin run build",
     "design:build": "node scripts/build-design-tokens.js",
+    "help:build": "node scripts/build-help-search.js",
     "pack": "electron-builder --dir",
     "dist": "electron-builder",
     "release": "electron-builder --publish always"

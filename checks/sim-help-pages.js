@@ -1,7 +1,7 @@
 /* sim-help-pages.js — 📘 도움말 웹 페이지(hosting/help/)가 깨지지 않았는가
    앱 📘 도움말 칸이 이 페이지를 그대로 보여 주므로, 링크 하나 · 그림 하나가 비어도 사용자가 빈 칸을 본다.
    ・1절: 목차 · 편마다 — / 링크가 가리키는 편 · 그림 파일이 실제로 있다 · 이전 / 다음이 목차 순서와 같다
-   ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/) · GIF 없이(움직이는 그림은 mp4) · 하나 2MB 까지
+   ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js · /embed.js · /search.js 세 줄 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/) · GIF 없이(움직이는 그림은 mp4) · 하나 2MB 까지
    ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
           ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
    ・4절: 깨 보기
@@ -48,7 +48,7 @@ function judge({ pages, files, sizes, fontCss, toc }){
     }
     for (const m of s.matchAll(/src="\/([^"]+)"/g)) if (!files.has(m[1])) errs.push(f + ' 그림 · 파일 /' + m[1] + ' 가 없다');
     const scripts = [...s.matchAll(/<script\b([^>]*)>/g)].map(m => m[1]);
-    if (scripts.join('|') !== ' src="/theme.js"| src="/embed.js" defer') errs.push(f + ' — 스크립트가 /theme.js · /embed.js(defer) 두 줄이 아니다');
+    if (scripts.join('|') !== ' src="/theme.js"| src="/embed.js" defer| src="/search.js" defer') errs.push(f + ' — 스크립트가 /theme.js · /embed.js(defer) · /search.js(defer) 세 줄이 아니다');
     if (/data:image|원본 그림|점선 테두리|\[원본/.test(s)) errs.push(f + ' — 시안용 글 · 박아 넣은 그림이 남았다');
     if (/src="\/img\/[^"]+\.gif"/.test(s)) errs.push(f + ' — GIF 그림이 있다(움직이는 그림은 mp4 <video autoplay loop muted playsinline> — GIF 는 열 배 무겁다)');
     if (/<img\b[^>]*\ssrc="(?!\/)/.test(s)) errs.push(f + ' — 바깥 주소 그림이 있다(사이트 안 /img/ 로 옮긴다 — 원본이 지워지면 깨지고 볼 때마다 남의 사이트로 간다)');
@@ -101,6 +101,7 @@ chk(theme(THEME, '?theme=dark') === 'classic' && theme(THEME, '?theme=constructo
 const emb = run(THEME, '?theme=bubble&embed=1');
 chk(emb.embed && !run(THEME, '?theme=bubble').embed && !run(THEME, '?embed=yes').embed, '?embed=1 일 때만 우편함 칸 모양(data-embed)');
 chk(emb.links.join() === '/3?theme=bubble&embed=1,/?theme=bubble&embed=1', '  편을 옮겨도 테마 · 칸 모양이 이어진다(/ 링크에 붙임)');
+chk(run(THEME, '?theme=bubble', ['/1#s9']).links.join() === '/1?theme=bubble#s9', '  소제목 자리(#sN) 링크는 # 앞에 붙인다(FAQ 페이지의 «🔗» 링크)');
 chk(run(THEME, '').links.join() === '/3,/' && run(THEME, '?theme=evil').links.join() === '/3,/', '  웹에서 그냥 열면 링크를 건드리지 않는다(모르는 테마도 안 실어 나름)');
 const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
 chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
@@ -117,6 +118,7 @@ const breaks = [
   ['글꼴을 안 싣는 편', (w) => { w.pages['6.html'] = w.pages['6.html'].replace('<link rel="stylesheet" href="/fonts/nanum-gothic.css">', ''); }],
   ['toc.json 편 이름이 목차와 다름', (w) => { w.toc[2].pages[0].title = '실행'; }],
   ['toc.json 에 편 하나가 빠짐', (w) => { w.toc[3].pages.pop(); }],
+  ['검색(search.js)을 안 싣는 편', (w) => { w.pages['4.html'] = w.pages['4.html'].replace('<script src="/search.js" defer></script>', ''); }],
   ['embed.js 를 안 싣는 편', (w) => { w.pages['2.html'] = w.pages['2.html'].replace('<script src="/embed.js" defer></script>', ''); }],
   ['바깥 주소 그림', (w) => { w.pages['5.html'] += '<figure><img src="https://image.aladin.co.kr/Tobe/Note/x.png" alt=""></figure>'; }],
   ['GIF 그림', (w) => { w.files.add('img/5/99.gif'); w.pages['5.html'] += '<figure><img src="/img/5/99.gif" alt=""></figure>'; }],
@@ -128,6 +130,8 @@ const T2 = THEME.replace("theme ? MAP[theme] : 'classic'", "MAP[t] || t || 'clas
 chk(theme(T2, '?theme=dark') !== 'classic', '  theme.js 가 모르는 값을 그대로 씀');
 const T3 = THEME.replace("if(embed) carry.push('embed=1');", '');
 chk(run(T3, '?theme=bubble&embed=1').links[0] !== '/3?theme=bubble&embed=1', '  편을 옮기면 칸 모양이 풀림');
+const T4 = THEME.replace("at < 0 ? h + '?' + carry.join('&') : h.slice(0, at) + '?' + carry.join('&') + h.slice(at)", "h + '?' + carry.join('&')");
+chk(T4 !== THEME && run(T4, '?theme=bubble', ['/1#s9']).links[0] !== '/1?theme=bubble#s9', '  # 뒤에 붙이면 소제목 링크가 깨짐');
 
 say('── 5. embed.js — 칸 안에서만 지금 편 · 목차를 앱에 알린다');
 const EMBED = fs.readFileSync(path.join(DIR, 'embed.js'), 'utf8');
