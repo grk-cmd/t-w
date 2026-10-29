@@ -266,7 +266,7 @@
 | **sim-guestbook.js** | 291 | **d7d424fc8974** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
-| **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
+| **sim-myhome-sticker.js** | 415 | **412082771903** |
 | **sim-gacha.js** | 573 | **158e5e7830be** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
@@ -447,6 +447,7 @@
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
+| **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
