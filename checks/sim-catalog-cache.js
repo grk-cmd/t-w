@@ -337,9 +337,9 @@ say('── 4. 구독기 (가짜 DB · 가짜 저장소)');
     const warns = [];
     const TwApi = require(require('path').resolve(['api-client.js', 'app/parts/shared/api-client.js'].find(f => fs.existsSync(f))));   // 진짜 shouldFallback(조용히 넘어갈 실패)
     const SW = require(require('path').resolve(['source-switch.js', 'app/parts/shared/source-switch.js'].find(f => fs.existsSync(f))));   // 진짜 받는 곳 고르기 · 넘어가기 한 벌
-    let srcVal = null;   // 원격 설정 sources.catalog(없으면 늘 서버 먼저)
+    let srcVal = null;   // 받는 곳을 바꿔 볼 때만(없으면 source-switch 한 길 — 서버 먼저)
     const AF = (api) => mod.createApiCatalogFetch({ api, shouldFallback: TwApi.shouldFallback, firebaseGet: fbGet, warn: (...a) => warns.push(a.join(' ')),
-      source: () => SW.pickSource('catalog', srcVal), serverFirst: SW.serverFirst, SKIP: SW.SKIP });
+      source: () => srcVal || SW.pickSource('catalog'), serverFirst: SW.serverFirst, SKIP: SW.SKIP });
     let api = apiOf(() => ({ kind: 'parts', ver: V, data: { a1: { name: 'API' } } }));
     let sn = await AF(api)('parts', V);
     const v1 = sn.val(), v2 = sn.val();
@@ -369,10 +369,10 @@ say('── 4. 구독기 (가짜 DB · 가짜 저장소)');
     fbLog.length = 0; srcVal = 'firebase';
     api = apiOf(() => ({ kind: 'parts', ver: V, data: { a1: { name: 'API' } } }));
     sn = await AF(api)('parts', V);
-    chk(fbLog.join() === 'parts' && !api.calls.length && sn.val().fb, '★ 기능 스위치(sources.catalog)를 파이어베이스로 — API 를 묻지 않고 Firebase get');
+    chk(fbLog.join() === 'parts' && !api.calls.length && sn.val().fb, '★ 받는 곳이 파이어베이스면 — API 를 묻지 않고 Firebase get');
     srcVal = null; fbLog.length = 0;
     /* 구독기에 끼워 — 받은 본문이 화면 · 캐시로 */
-    e = mk({ fetchOf: (env) => mod.createApiCatalogFetch({ api: apiOf((p) => ({ kind: 'parts', ver: V, data: { a1: { name: 'API' } }, path: p })), firebaseGet: (k) => { env.got.push('fb:' + k); return { val: () => ({}) }; }, warn: () => {}, source: () => SW.pickSource('catalog', null), serverFirst: SW.serverFirst, SKIP: SW.SKIP }) }); got = [];
+    e = mk({ fetchOf: (env) => mod.createApiCatalogFetch({ api: apiOf((p) => ({ kind: 'parts', ver: V, data: { a1: { name: 'API' } }, path: p })), firebaseGet: (k) => { env.got.push('fb:' + k); return { val: () => ({}) }; }, warn: () => {}, source: () => SW.pickSource('catalog'), serverFirst: SW.serverFirst, SKIP: SW.SKIP }) }); got = [];
     e.sub('parts', v => got.push(v));
     e.fire('catalogMeta/parts', V); await flush(); await flush();
     chk(got.length === 1 && got[0].a1.name === 'API' && !e.got.length && e.mem['https://tw.db|parts'].data.a1.name === 'API' && e.mem['https://tw.db|parts'].ver === V,

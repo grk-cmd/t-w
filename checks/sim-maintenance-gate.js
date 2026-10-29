@@ -2,7 +2,7 @@
    ・1절: 순수 — maintenanceOf(on 이 정확히 true 일 때만 · 시각 · 문구 상한) · endsAtText(오늘 / 다른 날) · viewOf(단추)
    ・2-1절: 사람이 누른 동작 — 입력 시각 1초 판정(로컬 클릭 3초 뒤 뒤쪽 요청 · «확인» 뒤 요청은 창 없음 · 클릭 직후 요청은 창) · 자식 창(방명록 · 디자인)에서 누르면 그 창에 그림
    ・2절: 창 — 점검 중이어도 사람이 누른 동작일 때만 · 뒤에서 혼자 낸 요청은 조용히 · 떠 있는 창은 바뀐 끝 시각으로 다시 · 끝나면 다시 켜기를 묻는다(본 적 없으면 안 물음) · 단추
-   ・3절: 고리 — 범용 통로(data-gateway.js)가 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
+   ・3절: 고리 — Firebase 기본 동작(firebase-init.js _touched)이 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
    ・5절: 깨 보기 — 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
    [실행] node checks/run.js sim-maintenance-gate */
@@ -15,7 +15,6 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const need = (f) => { const s = read(f); if(s == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } return s; };
 const SRC = need('maintenance-gate.js');
-const GW = need('data-gateway.js');
 const AC = need('api-client.js');
 const EC = need('error-codes.js');
 const FI = need('firebase-init.js');
@@ -128,19 +127,16 @@ run(M, '');
 
 say('── 3. 고리');
 {
-  const G = asWindow(GW, 'TwDataGateway');
-  let ops = 0; const sdkCalls = [];
-  const sdk = {};
-  for(const k of ['get', 'set', 'update', 'remove', 'onValue']) sdk[k] = (...a) => { sdkCalls.push(k); return k === 'onValue' ? () => {} : Promise.resolve(); };
-  sdk.push = (r, v) => { sdkCalls.push('push'); const c = { key: 'k1', toString: () => 'a/k1' }; return v === undefined ? c : Promise.resolve(c); };
-  const gw = G.createDataGateway({ sdk, routes: () => [], myCode: () => 'u1', canServer: () => true, queryOf: () => undefined, serverFirst: (s, a, b) => b(),
-    post: () => Promise.resolve(), stream: () => () => {}, notifyError: () => {}, onOp: () => { ops++; } });
-  const R = { toString: () => 'https://x/users/u1/a' };
-  gw.get(R); gw.set(R, 1); gw.update(R, { a: 1 }); gw.remove(R); gw.onValue(R, () => {}); gw.push(R, 1);
-  chk(ops === 6 && sdkCalls.length === 6, '범용 통로 — get · set · update · remove · onValue · push 마다 한 번(push 속 set 은 또 세지 않음) · ' + ops);
-  const gw0 = G.createDataGateway({ sdk, routes: () => [], myCode: () => 'u1', canServer: () => true, queryOf: () => undefined, serverFirst: (s, a, b) => b(), post: () => Promise.resolve(), stream: () => () => {}, notifyError: () => {} });
-  let threw = false; try{ gw0.get(R); }catch(_){ threw = true; }
-  chk(!threw, '  ↳ onOp 를 안 넘겨도 그대로 돈다');
+  /* firebase-init.js 의 감쌈 한 줄을 그대로 돌린다 — 기본 동작 여섯이 다 그 감쌈을 지나는지도 본다 */
+  const line = (FI.match(/^  const _touched = .*$/m) || [''])[0];
+  let touches = 0; const calls = [];
+  let wrap = null;
+  try{ wrap = new Function('_mt', line.replace('const _touched =', 'return'))({ touch(){ touches++; } }); }catch(_){ wrap = null; }
+  const ops = ['get', 'set', 'update', 'remove', 'onValue', 'push'];
+  if(wrap){ for(const k of ops) wrap((...a) => { calls.push(k + ':' + a.join(',')); return k; })(1, 2); }
+  chk(!!wrap && touches === 6 && calls.join('|') === ops.map((k) => k + ':1,2').join('|'), 'Firebase 기본 동작 — 요청마다 점검 창 touch 한 번 · 인자 · 돌려주는 값 그대로 · ' + touches);
+  const wired = ['get = _touched(_sdkGet)', 'set = _touched(_sdkSet)', 'remove = _touched(_sdkRemove)', 'push = _touched(_sdkPush)', 'onValue = _touched(_sdkOnValue)', '_update = _touched(_dbUpdate)'].filter((x) => FI.indexOf('  const ' + x + ';') < 0);
+  chk(!wired.length, '  ↳ get · set · remove · push · onValue · update 가 다 감쌈을 지난다' + (wired.length ? ' — 빠짐: ' + wired.join(', ') : ''));
 }
 (async () => {
   {
@@ -150,7 +146,7 @@ say('── 3. 고리');
     const c = A.createApiClient({ baseUrl: 'https://api.together-working.com', fetch, onRequest: () => { reqs++; } });
     await c.get('/v1/x', { cacheMs: 60000 });
     await c.get('/v1/x', { cacheMs: 60000 });
-    await c.post('/v1/y', {});
+    await c.post('/v1/y', {}, { auth: false });
     chk(reqs === 2 && fetches === 2, 'API 통로 — 실제로 보낼 때만(캐시에서 준 것은 안 셈) · get · post · ' + reqs);
   }
   {
@@ -171,9 +167,10 @@ say('── 3. 고리');
       'html — error-codes.js · api-client.js 보다 먼저 싣는다(firebase-init.js 는 module 이라 늘 뒤에 돈다)');
   const hit = (DR.match(/const UI_HIT_SEL = '([^']*)'/) || [])[1] || '';
   chk(hit.split(',').map(s => s.trim()).includes('#' + M.GATE_ID), '클릭 통과 목록(UI_HIT_SEL)에 #' + M.GATE_ID + ' — 투명 창에서도 단추를 누른다');
-  chk(/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\), \(s\) => _mt\.onValue\(s\.val\(\)\), \(\) => \{\}\)/.test(FI) && /onOp: \(\) => _mt\.touch\(\)/.test(FI) && /onRequest: \(\) => _mt\.touch\(\)/.test(FI),
-      'firebase-init — config/maintenance 구독 · 범용 통로 · 로그인 API 통로에 고리');
-  chk(/onRequest: \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \}/.test(AC) && /muted: \(\)=>window\.TwMaintenance\.store\.on\(\)/.test(EC), '  ↳ 공용 API 통로 · 오류 번호 한 벌에도');
+  chk(/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\), \(s\) => _mt\.onValue\(s\.val\(\)\), \(\) => \{\}\)/.test(FI),
+      'firebase-init — config/maintenance 구독');
+  chk(/const touch = \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \};/.test(AC) && /client = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch \}\);/.test(AC)
+    && /authed = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch,/.test(AC) && /muted: \(\)=>window\.TwMaintenance\.store\.on\(\)/.test(EC), '  ↳ API 통로 두 벌(공용 읽기 · 로그인) · 오류 번호 한 벌에도');
   const n = (RULES.config || {}).maintenance || {};
   chk(n['.read'] === true && /admins/.test(n['.write'] || '') && /auth\.uid/.test(n['.write'] || ''), '★ config/maintenance — 누구나 읽기(로그인 전 · 점검 중) · 관리자만 쓰기');
   const ev = (rule, v) => { try{ return !!new Function('newData', 'return (' + rule + ');')(nd(v)); }catch(_){ return false; } };

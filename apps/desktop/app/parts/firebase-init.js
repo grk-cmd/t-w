@@ -33,7 +33,7 @@
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged,
     getAdditionalUserInfo, deleteUser
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
-  import { firebaseConfig, FIREBASE_ENV } from "./firebase-config.js";
+  import { firebaseConfig } from "./firebase-config.js";
   import { createGhostHeal } from "./room/room-ghost-heal.js";
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor, hostSuccession } from "./room/room-channel.js";
@@ -91,42 +91,17 @@
   }
   const ref  = (d, p) => (p === undefined ? _dbRef(d) : _dbRef(d, _noUidPath(p)));
   const sref = (st, p) => _stRef(st, _noUidPath(p));
-  /* 🚪 범용 통로(shared/data-gateway.js) — 아래 기능 함수가 쓰는 기본 동작(get · set · update · remove · push · onValue)은 모두 이 문을 지난다.
-     원격 설정 dataRoutes 표에 걸린 경로만 서버(POST /v1/data · SSE)로 가고, 표가 비면 SDK 함수를 같은 인자로 그대로 부른다.
-     ⚠️ 기능 함수는 이 이름들을 그대로 쓴다 — SDK 를 직접 부르는 줄을 새로 만들지 말 것(checks/sim-data-gateway.js). */
-  /* 조건 붙은 읽기(query) — 서버로 보낼 수 있는 조건이면 본문 query 로 적어 둔다. 적지 않은 조건(endBefore · 키 붙은 startAt 등)이 하나라도 섞이면 null(늘 Firebase). */
-  const _gwCons = new WeakMap(), _gwQueries = new WeakMap();
-  const _gwC = (c, d) => { _gwCons.set(c, d); return c; };
-  const orderByChild = (p) => _gwC(_sdkOrderByChild(p), { orderBy: p });
-  const orderByKey = () => _gwC(_sdkOrderByKey(), { orderBy: '$key' });
-  const limitToLast = (n) => _gwC(_sdkLimitToLast(n), { limitToLast: n });
-  const startAt = (...a) => _gwC(_sdkStartAt(...a), a.length > 1 ? null : { startAt: a[0] });
-  const equalTo = (...a) => _gwC(_sdkEqualTo(...a), a.length > 1 ? null : { equalTo: a[0] });
-  const query = (r, ...cs) => {
-    const q = _sdkQuery(r, ...cs);
-    const parts = cs.map((c) => _gwCons.get(c));
-    _gwQueries.set(q, parts.every((d) => d) ? { ref: r, query: Object.assign({}, ...parts) } : null);
-    return q;
-  };
+  /* 기본 동작(get · set · update · remove · push · onValue)은 이 이름들로만 — 요청마다 서버 점검 창(maintenance-gate.js touch)을 먼저 본다.
+     옛 Firebase 길이 남은 동안의 한 벌이다(기능 묶음이 API 로 옮기며 걷는다 — 새 기능은 여기 더하지 않는다). */
+  const orderByChild = _sdkOrderByChild, orderByKey = _sdkOrderByKey, limitToLast = _sdkLimitToLast, startAt = _sdkStartAt, equalTo = _sdkEqualTo, query = _sdkQuery;
   const _mt = window.TwMaintenance.store;
-  const _gw = window.TwDataGateway.createDataGateway({
-    sdk: { get: _sdkGet, set: _sdkSet, update: _dbUpdate, remove: _sdkRemove, push: _sdkPush, onValue: _sdkOnValue },
-    routes: () => window.TwRemoteConfig.store.dataRoutes(),
-    myCode: () => window.getMyUserId(),
-    canServer: () => !!(auth && auth.currentUser),   // 로그인 세션이 없으면(토큰 없음) 표에 걸려도 Firebase 길
-    queryOf: (r) => (_gwQueries.has(r) ? _gwQueries.get(r) : undefined),
-    serverFirst: window.TwSourceSwitch.serverFirst,
-    post: (path, body) => _gwPost(path, body),
-    stream: window.TwDataGateway.makeStream({ post: (p, b) => _gwPost(p, b), getToken: () => _getIdToken(false), baseUrl: () => window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a) }),
-    notifyError: (...a) => window.TwErrorCodes.notify(...a),
-    onOp: () => _mt.touch(),   // 🛠 서버 점검(maintenance-gate.js) — 사람이 방금 누른 동작이 서버에 닿으면 점검 창
-    warn: (...a) => console.warn(...a),
-  });
-  const get = (...a) => _gw.get(...a);
-  const set = (...a) => _gw.set(...a);
-  const remove = (...a) => _gw.remove(...a);
-  const push = (...a) => _gw.push(...a);
-  const onValue = (...a) => _gw.onValue(...a);
+  const _touched = (f) => (...a) => { _mt.touch(); return f(...a); };   // 🛠 사람이 방금 누른 동작이 서버에 닿으면 점검 창
+  const get = _touched(_sdkGet);
+  const set = _touched(_sdkSet);
+  const remove = _touched(_sdkRemove);
+  const push = _touched(_sdkPush);
+  const onValue = _touched(_sdkOnValue);
+  const _update = _touched(_dbUpdate);
   /* 다중 경로 update(루트 ref + {경로: 값}) 는 경로가 키에 있다 — 하나라도 빈 uid 면 통째로 거절한다
      (update 는 한 덩어리라 그 한 줄만 빼고 보내면 규칙이 보던 짝이 깨진다). */
   const update = (r, v) => {
@@ -135,7 +110,7 @@
         if(_noUidPath(k) !== k) return Promise.reject(new Error('[uid-guard] uid 없는 다중 경로 update: ' + k));
       }
     }
-    return _gw.update(r, v);
+    return _update(r, v);
   };
 
   /* 🛰 중복 로드 방지 — app.js 의 감시견(_fbBootWatch)이 이 파일을 다시 꽂을 수 있다.
@@ -433,13 +408,13 @@
   /* ⚙️ 원격 설정(remote-config.js — 읽는 차례 · 주기는 그 머리 주석) */
   const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
   const _rc = (window.TwRemoteConfig && window.TwRemoteConfig.store) || null;
-  const MIN_APP_VER_WAIT_MS = 7000;   // 첫 답을 이만큼만 기다린다(API 3초 + Firebase 3초 + 여유 · 게이트 8초보다 짧게) — 넘으면 막지 않는다
+  const MIN_APP_VER_WAIT_MS = 7000;   // 첫 답을 이만큼만 기다린다(API 시간 제한 + 여유 · 게이트 8초보다 짧게) — 넘으면 막지 않는다
   if(_rc){
     _rc.start({
       api: (window.TwApi && window.TwApi.client) || null,   // 앱 공통 API 통로(api-client.js) — 운영/dev 주소는 거기서
       storage: _lsOrNull(),
-      fallbackRead: (path) => get(ref(db, path)).then(s => s.val()),   // API 를 못 받았을 때만(remote-config.js FALLBACK_PATHS · 한 칸씩)
       win: window,
+      rt: window.TwRtHub.store,   // realtime 알림 config — 서버가 바꿨을 때 · 오래 끊겼다 붙었을 때 다시 묻는다
     });
   }
   /* 앱 최소 버전(app-version-gate.js) — 원격 설정의 첫 답(이번 실행에 받은 값만)으로 «업데이트해 주세요» · 못 받으면 막지 않는다. */
@@ -459,29 +434,15 @@
     },
     getVersion: () => _appVer.ready,
   }).start();
-  /* 🛰 방 서버(웹소켓) — 관리자 스위치(원격 설정 roomServer)가 켜고, 어느 서버로 갈지는 문지기(room-server-gate.js)가 정한다.
-     여기서는 설정 · 서버 주소 · 내 서버(API · 못 받으면 Firebase) · roomDir 칸 읽기 · 토큰 · 버전 · userId 만 잇는다. _rsUrl = 문지기가 마지막으로 고른 주소(null 이면 서버 안 씀). */
+  /* 🛰 옛 방 서버(웹소켓 pv 1) — 문지기(room-server-gate.js)가 0.13 에선 늘 Firebase 를 돌려줘 _rsUrl 은 null 그대로(서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
-  /* 🌐 로그인이 필요한 API 통로 — 공용 통로와 같은 주소 · ID 토큰을 붙인다. 쉬기는 끈다(이 실패가 공용 통로를 쉬게 하지 않게 · 다시 묻기는 부르는 쪽). */
-  const _authApi = (window.TwApi && window.TwApi.client) ? window.TwApi.createApiClient({
-    baseUrl: window.TwApi.client.baseUrl(), fetch: (...a) => window.fetch(...a), getToken: () => _getIdToken(false), backoffMs: 0, onRequest: () => _mt.touch(),
-  }) : null;
-  /* 🚪 범용 통로의 서버 쪽 — 로그인 통로(_authApi · ID 토큰 · 내 코드). 실패는 던지기만 — Firebase 로 넘기기는 통로(serverFirst)가 한다. */
-  function _gwPost(path, body){
-    if(!_authApi) return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' }));
-    return _authApi.post(path, body, { auth: true, timeoutMs: window.TwDataGateway.REQUEST_TIMEOUT_MS });
-  }
+  /* 🌐 로그인이 필요한 API 통로(api-client.js TwApi.authed — 쉬기 없음 · 기기 머리) — 토큰 출처만 여기서 잇는다. */
+  window.TwApi.bindToken(_getIdToken);
+  const _authApi = window.TwApi.authed;
+  /* 🛰 realtime 연결 하나(realtime/rt-hub.js) — 연결 공통부 · 토큰 · 버전만 잇는다. 켜기(start) · 끄기는 로그인 흐름 몫. */
+  window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });
   let _rsUrl = null;
-  const _roomServerGate = createRoomServerGate({
-    getConfig: async () => { if(!_rc) return null; await _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }); return _rc.roomServer(); },
-    pickSource: () => window.TwSourceSwitch.store.pick('rooms'),   // 방 서버를 쓸지 — 원격 설정 sources.rooms(없으면 옛 roomServer.on)
-    serverAddr: (name) => _rc ? _rc.serverAddr(name) : null,
-    myServer: (uid) => _rc ? _rc.myServer(uid) : null,
-    read: (path) => get(ref(db, path)).then(s => s.val()),
-    getUserId: () => window.getMyUserId(),
-    env: FIREBASE_ENV,
-    storage: _lsOrNull(),
-  });
+  const _roomServerGate = createRoomServerGate();   // 0.13 — 늘 Firebase 방(room-server-gate.js 머리말 · 방 묶음이 걷는다)
   const _roomServer = createRoomServerNet({
     createLink: createRealtimeLink,   // 연결 공통부(realtime/realtime-link.js)
     WebSocket: (typeof WebSocket === 'function') ? WebSocket : null,

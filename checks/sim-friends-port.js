@@ -1,11 +1,11 @@
 /* ═══ 👥 sim-friends-port.js — 친구 데이터 포트 · provider (2026-10-17 신설) ═══
    [왜] 친구 정보를 Firebase 구독에서 서버(API)로 옮긴다. 도메인(friends-sub.js) · 화면은 포트 하나만 부르고,
      어디서 받을지는 provider(firebase = 옛 길 · api · ws 자리)가 맡는다.
-   ・1절: 포트 — 세 함수가 provider 로 · 목록 받기 · 친구 한 명 받기(readFriend)는 api 먼저 → 못 받으면 옛 길 · 끄는 스위치(flags.friendsApi) 끄면 옛 길만
+   ・1절: 포트 — 세 함수가 provider 로 · 목록 받기 · 친구 한 명 받기(readFriend)는 api 먼저 → 못 받으면 옛 길 · 받는 곳이 파이어베이스면 옛 길만
    ・2절: firebase provider(옛 길) — 목록 한 번 읽기 · 목록 구독 · 접속 상태(2-1절: 목록을 열면 1 + 2n — 접속 상태 · 프로필 · 개정 10-19 친구 이름 실시간 복구)
    ・2-2절: api provider — 응답 모양 · 요청 규칙(5초 · 서버 문제면 1초 · 3초 뒤 두 번 더 · 401 · 400 은 바로) · 가짜 fetch 로 토큰 · X-User-Code 헤더 ·
          친구 한 명 명함(cardOf · readFriend — data:null 은 null · 모양 틀림 · 실패는 던짐 · 다시 안 물음)
-   ・2-3절: 끄는 스위치 — 원격 설정 flags.friendsApi(기본 켜짐) · 규칙(누구나 읽기 · 불리언)
+   ・2-3절: 끄는 스위치는 없다 — 0.13 설정에 친구 스위치 칸이 없다(받는 곳은 source-switch 한 길)
    ・3절: 배선 — app.js 가 포트 → provider 를 잇는다 · html 순서 · friends/ 파일은 firebaseAPI 를 모른다 ·
          화면 파일이 친구 데이터 firebaseAPI 함수를 직접 안 부른다
    ・4절: 일부러 깨 보기 — 하나라도 못 잡으면 빨강
@@ -66,55 +66,43 @@ async function judge(S){
   }
 
   {
-    chk(SW.pickSource('friends', null, true) === 'server' && SW.pickSource('friends', null, undefined) === 'server' && SW.pickSource('friends', null, null) === 'server',
-      '받는 곳(source-switch pickSource) — 옛 스위치가 켜졌거나 값이 없으면 서버');
-    chk(SW.pickSource('friends', null, false) === 'firebase', '  ↳ 옛 스위치(flags.friendsApi)를 끄면 옛 길');
-    chk(SW.pickSource('friends', 'firebase', true) === 'firebase' && SW.pickSource('friends', 'server', false) === 'server', '  ↳ 새 자리(sources.friends)가 있으면 그쪽이 이긴다');
+    chk(SW.pickSource('friends') === 'server', '받는 곳(source-switch pickSource) — 0.13 한 길: 서버 먼저');
     const mkPort = (o) => {
       const L = { api: 0, fb: [], warn: 0 };
       const port = P.createFriendsPort({
         firebase: { listFriends: async (id, op) => { L.fb.push(op); return { f: { from: 'fb' } }; }, readFriend: async (fid) => { L.fb.push('one:' + fid); return { from: 'fb', fid }; }, watchList(){}, watchPresence(){} },
         api: o.noApi ? null : { listFriends: async (id) => { L.api++; if(o.apiFail) throw Object.assign(new Error('x'), { status: 503 }); return { f: { from: 'api', id } }; },
           readFriend: async (fid) => { L.api++; if(o.apiFail) throw Object.assign(new Error('x'), { status: 503 }); return o.apiNull ? null : { from: 'api', fid }; } },
-        source: () => SW.createSourceSwitch({ valueOf: () => o.value, legacyOf: () => o.apiOn() }).pick('friends'), serverFirst: SW.serverFirst, warn: () => { L.warn++; },
+        source: () => o.src || SW.pickSource('friends'), serverFirst: SW.serverFirst, warn: () => { L.warn++; },
       });
       return { port, L };
     };
-    let k = mkPort({ apiOn: () => true });
+    let k = mkPort({});
     let v = await k.port.listFriends('ME', { idsOnly: true });
     chk(v.f.from === 'api' && v.f.id === 'ME' && k.L.api === 1 && !k.L.fb.length && k.port.lastSource() === 'api', '★ 켜짐 — api 에서 받으면 옛 길(Firebase)은 안 읽는다');
-    k = mkPort({ apiOn: () => true, apiFail: true });
+    k = mkPort({ apiFail: true });
     v = await k.port.listFriends('ME', { idsOnly: true });
     chk(v.f.from === 'fb' && k.L.api === 1 && k.L.fb.length === 1 && k.L.fb[0].idsOnly === true && k.L.warn === 1 && k.port.lastSource() === 'firebase', '★ api 가 끝내 못 받으면 — 옛 길로(opts 그대로) · 진단 한 줄');
     v = await k.port.listFriends('ME');
     chk(k.L.api === 2, '  ↳ 다음에 목록을 열면 다시 서버부터(실패를 기억하지 않음)');
-    k = mkPort({ apiOn: () => false });
+    k = mkPort({ src: 'firebase' });
     v = await k.port.listFriends('ME');
-    chk(v.f.from === 'fb' && k.L.api === 0 && k.L.fb.length === 1, '★ 스위치를 끄면 — api 를 부르지도 않고 옛 길만');
-    k = mkPort({ apiOn: () => { throw new Error('설정 아직'); } });
-    v = await k.port.listFriends('ME');
-    chk(v.f.from === 'api', '  ↳ 스위치를 못 읽으면(설정 준비 전) 켜짐으로');
-    k = mkPort({ apiOn: () => true, value: 'firebase' });
-    v = await k.port.listFriends('ME');
-    chk(v.f.from === 'fb' && k.L.api === 0, '★ 새 자리를 파이어베이스로 — 옛 스위치가 켜져 있어도 api 를 안 부른다');
-    k = mkPort({ apiOn: () => false, value: 'server' });
-    v = await k.port.listFriends('ME');
-    chk(v.f.from === 'api', '  ↳ 새 자리를 서버로 — 옛 스위치가 꺼져 있어도 서버 먼저');
-    k = mkPort({ apiOn: () => true, noApi: true });
+    chk(v.f.from === 'fb' && k.L.api === 0 && k.L.fb.length === 1, '★ 받는 곳이 파이어베이스면 — api 를 부르지도 않고 옛 길만');
+    k = mkPort({ noApi: true });
     v = await k.port.listFriends('ME');
     chk(v.f.from === 'fb' && k.L.warn === 0, '  ↳ api provider 가 없으면 옛 길(실패가 아니라 진단 줄 없음)');
-    k = mkPort({ apiOn: () => true });
+    k = mkPort({});
     v = await k.port.readFriend('u7');
     chk(v.from === 'api' && v.fid === 'u7' && k.L.api === 1 && !k.L.fb.length && k.port.lastSource() === null, '★ readFriend — api 먼저(그 친구 하나) · 옛 길 안 읽음 · lastSource 는 목록 받기만 적는다');
-    k = mkPort({ apiOn: () => true, apiNull: true });
+    k = mkPort({ apiNull: true });
     chk((await k.port.readFriend('u7')) === null && !k.L.fb.length, '  ↳ 서버가 «없는 사람»(null) 이면 null · 옛 길로 다시 안 감');
-    k = mkPort({ apiOn: () => true, apiFail: true });
+    k = mkPort({ apiFail: true });
     v = await k.port.readFriend('u7');
     chk(v.from === 'fb' && k.L.fb.join() === 'one:u7' && k.L.warn === 1, '  ↳ api 가 못 받으면 옛 길로 · 진단 한 줄');
-    k = mkPort({ apiOn: () => false });
+    k = mkPort({ src: 'firebase' });
     v = await k.port.readFriend('u7');
-    chk(v.from === 'fb' && k.L.api === 0, '  ↳ 스위치를 끄면 api 를 부르지도 않고 옛 길만');
-    k = mkPort({ apiOn: () => true, noApi: true });
+    chk(v.from === 'fb' && k.L.api === 0, '  ↳ 받는 곳이 파이어베이스면 api 를 부르지도 않고 옛 길만');
+    k = mkPort({ noApi: true });
     chk((await k.port.readFriend('u7')).from === 'fb' && k.L.warn === 0, '  ↳ api provider 가 없으면 옛 길');
     chk(P.LIVE_SOURCE === 'firebase', '듣기(목록 · 접속 상태)는 아직 옛 길 — ws 자리(LIVE_SOURCE)');
   }
@@ -341,21 +329,11 @@ async function judge(S){
     chk(e4 && e4.code === 'TIMEOUT', '  ↳ 토큰 받기가 멈춰도 시간 제한 안에서 끝난다');
   }
 
-  say('── 2-3. 끄는 스위치 — 원격 설정 flags.friendsApi');
+  say('── 2-3. 끄는 스위치는 없다 — 0.13 설정(/v1/config)에 친구 스위치 칸이 없다');
   {
     let RCM = null;
     try{ const m = { exports: {} }; new Function('window', 'module', 'console', S.RC)(undefined, m, { warn(){} }); RCM = m.exports; }catch(e){ chk(false, 'remote-config 싣다 던짐 — ' + e.message); }
-    if(RCM){
-      const st = RCM.createRemoteConfig();
-      chk(RCM.DEFAULTS.friendsApi === true && st.friendsApi() === true, '기본 켜짐(값이 없으면 서버 먼저)');
-      st.apply({ flags: { friendsApi: false } }, false);
-      chk(st.friendsApi() === false, '  ↳ API 사본 flags.friendsApi = false 면 꺼짐');
-      st.apply({ flags: { friendsApi: 'no' } }, false);
-      chk(st.friendsApi() === true, '  ↳ 불리언이 아니면 기본값(켜짐)');
-      chk(RCM.FALLBACK_PATHS.friendsApi === 'config/flags/friendsApi', '  ↳ API 를 못 받으면 Firebase config/flags/friendsApi 한 칸');
-    }
-    let R = null; try{ R = JSON.parse(S.RULES).rules.config.flags.friendsApi; }catch(_){}
-    chk(R && R['.read'] === true && R['.validate'] === 'newData.isBoolean()', '규칙 config/flags/friendsApi — 누구나 읽기 · 불리언만(쓰기는 flags 의 관리자)');
+    if(RCM) chk(!('friendsApi' in RCM.createRemoteConfig()) && !('friendsApi' in RCM.DEFAULTS), '원격 설정에 friendsApi 가 없다 — 받는 곳은 source-switch 한 길(서버 먼저)');
   }
 
   say('── 3. 배선');
@@ -367,9 +345,9 @@ async function judge(S){
     chk(/const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  firebase: friendsFirebaseMod,\n  api: friendsApiMod,\n  source: \(\)=>TwSourceSwitch\.store\.pick\('friends'\),[^\n]*\n  serverFirst: TwSourceSwitch\.serverFirst,/.test(a), '  ↳ 포트가 provider 둘 · 스위치(원격 설정 friendsApi — 설정이 없으면 켜짐)를 받는다');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: \(\.\.\.a\)=>firebaseAPI\.apiGetAuthed\(\.\.\.a\),[^\n]*\n  getCard: [^\n]*\n  wait: \(ms\)=>new Promise\(r=>setTimeout\(r, ms\)\),/.test(a), '  ↳ api provider 가 로그인 API 통로(firebase-init apiGetAuthed) · 쉬기를 받는다');
     const fi = strip(S.FI);
-    chk(/const _authApi = \(window\.TwApi && window\.TwApi\.client\) \? window\.TwApi\.createApiClient\(\{\n    baseUrl: window\.TwApi\.client\.baseUrl\(\), fetch: \(\.\.\.a\) => window\.fetch\(\.\.\.a\), getToken: \(\) => _getIdToken\(false\), backoffMs: 0,[^\n]*\n  \}\) : null;/.test(fi)
+    chk(/window\.TwApi\.bindToken\(_getIdToken\);\n  const _authApi = window\.TwApi\.authed;/.test(fi)
       && /apiGetAuthed\(path, opts\)\{ return _authApi \? _authApi\.get\(path, opts\) : Promise\.reject\(/.test(fi),
-      '  ↳ firebase-init — 로그인 API 통로: 공용 주소 · Firebase ID 토큰 · 쉬기 끔(공용 통로를 쉬게 하지 않게) · 없으면 거절(옛 길)');
+      '  ↳ firebase-init — 로그인 API 통로(api-client.js authed — 공용 주소 · 쉬기 끔)에 Firebase ID 토큰을 잇는다 · 없으면 거절(옛 길)');
     chk(/  listFriends: \(\.\.\.a\)=>friendsPortMod\.listFriends\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 이름 받기(listFriends)도 포트로');
     chk(/  readFriend: \(\.\.\.a\)=>friendsPortMod\.readFriend\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 새 친구 한 명 받기(readFriend)도 포트로');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: [^\n]*\n  getCard: \(\.\.\.a\)=>firebaseAPI\.fetchUserCardApi\(\.\.\.a\),/.test(a), '  ↳ api provider 의 명함은 공개 읽기 통로(api-public-reads.js fetchUserCardApi)');
@@ -412,9 +390,7 @@ const BREAKS = [
   ['FBP', "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: (p.inRoom !== undefined) ? !!p.inRoom : !!p.room };", "  return { online: !!p.online, lastSeen: p.lastSeen || 0, room: p.room || null, inRoom: !!p.room };", '시크릿룸 «방에 있음» 을 코드로 판정'],
   ['FI', "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        onChange(snap.val() || {});", "      _listOff = onValue(ref(db, `users/${myId}/friends`), snap=>{\n        if(_dead) return;\n        Object.keys(snap.val() || {}).forEach(fid=>onValue(ref(db, `users/${fid}/profile`), ()=>{}));\n        onChange(snap.val() || {});", '친구별 구독을 되살림'],
   ['APP', '  subscribe: (...a)=>friendsPortMod.watchList(...a),', '  subscribe: (...a)=>firebaseAPI.subscribeMyFriends(...a),', 'friends-sub 가 포트를 건너뜀'],
-  ['SS', "  friends: Object.freeze({ legacy: (v) => (v === false ? SOURCE.FIREBASE : SOURCE.SERVER),", "  friends: Object.freeze({ legacy: (v) => SOURCE.SERVER,", '옛 스위치를 안 봄'],
-  ['SS', "  friends: Object.freeze({ legacy: (v) => (v === false ? SOURCE.FIREBASE : SOURCE.SERVER),", "  friends: Object.freeze({ legacy: (v) => (v === true ? SOURCE.SERVER : SOURCE.FIREBASE),", '값이 없으면 꺼짐으로'],
-  ['SS', "  return cleanSource(value) || f.legacy(legacy);", "  return f.legacy(legacy);", '새 자리(sources.friends)를 안 봄'],
+  ['SS', "  friends: SOURCE.SERVER,", "  friends: SOURCE.FIREBASE,", '친구가 서버를 안 씀'],
   ['SS', "      if(onFail) onFail(e);", "      throw e;", 'api 실패를 옛 길로 안 넘김'],
   ['PORT', "      apiProvider ? () => apiProvider.listFriends(myId) : null,", "      () => apiProvider.listFriends(myId),", 'api provider 가 없어도 서버 길'],
   ['FAPI', "const RETRY_DELAYS_MS = [1000, 3000];", "const RETRY_DELAYS_MS = [1000, 3000, 9000];", '다시 묻기 횟수가 늘어남'],
@@ -423,20 +399,19 @@ const BREAKS = [
   ['FAPI', "  return typeof e.status === 'number' && e.status >= 500;", "  return typeof e.status === 'number' && e.status >= 400;", '4xx 도 다시 물음'],
   ['FAPI', "      if(i) await wait(RETRY_DELAYS_MS[i - 1]);", "      ", '쉬지 않고 바로 다시 물음'],
   ['FAPI', "    if(last && last.status === 400) warn(", "    if(false) warn(", '400 진단 로그 없음'],
-  ['FI', "getToken: () => _getIdToken(false), backoffMs: 0,", "getToken: () => _getIdToken(false),", '로그인 통로가 쉬기를 씀'],
+  ['FI', "  window.TwApi.bindToken(_getIdToken);\n", "", '로그인 통로에 토큰을 안 이음'],
   ['FAPI', "{ auth: true, headers: { [USER_CODE_HEADER]: myId }, timeoutMs: REQUEST_TIMEOUT_MS }", "{ auth: true, timeoutMs: REQUEST_TIMEOUT_MS }", 'X-User-Code 를 안 보냄'],
   ['FAPI', "    level: (typeof c.level === 'number' && c.level >= 1) ? c.level : null,", "    level: c.level,", '레벨 거르기 없음'],
   ['AC', "    h.Authorization = 'Bearer ' + tok;", "    h.Authorization = tok;", '토큰 형식이 틀림'],
   ['AC', "    if(!tok) throw new ApiError('auth', 0, 'NO_TOKEN', '로그인 토큰이 없어요');", "", '토큰 없이도 보냄'],
-  ['AC', "      const headers = await Promise.race([authHeaders(o), timeout]);", "      const headers = await authHeaders(o);", '토큰 받기가 멈추면 영영 기다림'],
-  ['RC', "  friendsApi: true,", "  friendsApi: false,", '스위치 기본값이 꺼짐'],
+  ['AC', "      const a = await Promise.race([authOf(o, o.force), timeout]);", "      const a = await authOf(o, o.force);", '토큰 받기가 멈추면 영영 기다림'],
+  ['RC', "  inviteGate: true,\n", "  inviteGate: true,\n  friendsApi: false,\n", '원격 설정에 친구 스위치가 되살아남'],
   ['PORT', "      apiProvider ? () => apiProvider.readFriend(fid) : null,", "      null,", '친구 한 명은 서버를 안 봄'],
   ['PORT', "      () => firebase.readFriend(fid),", "      () => null,", '친구 한 명 옛 길이 없음'],
   ['FBP', "  function readFriend(fid){ return _cardOf(fid, now()); }", "  async function readFriend(fid){ return cardOf(await getCard(fid)); }", '친구 한 명이 카드 기억을 안 씀'],
   ['FAPI', "    if(d === null) return null;\n", "", '없는 사람(null)을 실패로 봄'],
   ['FAPI', "    avatar: str(c.avatarUrl) || str(c.avatarInline) || null,", "    avatar: str(c.avatarUrl) || c.avatarInline || null,", 'avatarInline(불리언)을 사진으로 씀'],
   ['FAPI', "    bio: str(c.bio),", "    bio: c.bio,", '명함 소개가 undefined'],
-  ['RULES', '"friendsApi": {\n          ".read": true,', '"friendsApi": {\n          ".read": false,', '규칙이 읽기를 막음'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){

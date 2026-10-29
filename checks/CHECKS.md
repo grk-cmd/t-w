@@ -74,7 +74,7 @@
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
 | **audit.py** | 932 | **4ea69639c72f** |
-| **smoke.js** | 719 | **dee96b946102** |
+| **smoke.js** | 717 | **9547722f15b2** |
 | **sim-account-switch.js** | 452 | **71fef7fe9435** |
 | **sim-admin-rules.js** | 411 | **8901ec208a8f** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
@@ -94,7 +94,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 618 | **6664bb6aad56** |
-| **sim-friends-port.js** | 459 | **949952d584bb** |
+| **sim-friends-port.js** | 434 | **e8d54cc84cd3** |
 | **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 95 | **71c92bf7579e** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
@@ -134,7 +134,7 @@
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 132 | **a39451c59791** |
 | **sim-listen-ui.js** | 440 | **aa6563bcf73d** |
-| **sim-room-settings.js** | 274 | **e4ca78f5250d** |
+| **sim-room-settings.js** | 273 | **fb2f993f9ce8** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
@@ -145,11 +145,11 @@
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-server-net.js** | 1017 | **dff7cccfa0aa** |
 | **sim-room-parity.js** | 112 | **cc77ba38d744** ← **개정 193 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 119 신규 · 🛰 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab} · Firebase provider 메서드 ⊆ 서버 provider 메서드**
-| **sim-room-server-gate.js** | 309 | **39d158c2f7e6** |
+| **sim-room-server-gate.js** | 122 | **1c353957601a** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 308 | **78aac83cbe8c** |
 | **sim-app-version-gate.js** | 177 | **92374665c4d9** |
-| **sim-maintenance-gate.js** | 212 | **9e1067926d18** |
+| **sim-maintenance-gate.js** | 209 | **ff4f5d5fba53** |
 | **sim-invite-account.js** | 80 | **a6c43e555063** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-group-invite.js** | 257 | **50f7cbb67bc6** |
@@ -165,7 +165,7 @@
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
-| **sim-catalog-cache.js** | 391 | **79b8e26cd2d6** |
+| **sim-catalog-cache.js** | 391 | **4a3503b771b9** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
 | **sim-google-login.js** | 656 | **99e6d39cc736** |
@@ -216,7 +216,7 @@
 | **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
-| **sim-signup.js** | 1597 | **0005d55d27d4** |
+| **sim-signup.js** | 1597 | **14f398af12e0** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
@@ -272,12 +272,11 @@
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
-| **sim-api-client.js** | 162 | **f93d00872b1a** |
+| **sim-api-client.js** | 343 | **434141fb839f** |
 | **sim-api-public-reads.js** | 191 | **b6f0a07d333f** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 527 | **bb9e649b2cae** |
-| **sim-source-switch.js** | 178 | **0dbd6e281aa4** |
-| **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
+| **sim-remote-config.js** | 530 | **449b5e150de7** |
+| **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 602 | **2f88802194fc** |
 | **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |
@@ -372,7 +371,7 @@
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |
-| **sim-realtime-link.js** | 323 | **1c6e8a88bcf8** |
+| **sim-realtime-link.js** | 355 | **be357ad5c7e9** |
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
@@ -444,6 +443,10 @@
 | **sim-mh-pad-pos.js** | 164 | **4f0a3400f69c** |
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
+| **sim-request-id.js** | 94 | **34021f461cd5** |
+| **sim-device-id.js** | 103 | **44a934497fba** |
+| **sim-api-errors.js** | 126 | **2c405591f082** |
+| **sim-rt-hub.js** | 316 | **51b1a6739613** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

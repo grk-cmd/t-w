@@ -1,11 +1,12 @@
-/* ═══ ⚙️ sim-remote-config.js — 원격 설정(방 상한 · 정원 · 가입 스위치 · 방 서버 · 최소 버전 · 제보 상한) ═══════════════
-   [왜] 운영 값을 앱 릴리스 없이 바꾸려고. 쓰기 원본은 Firebase config/*(웹 관리자), 앱은 읽기 사본 API(GET /v1/config)를 먼저 읽는다.
-   1. remote-config.js 실행 — 기본값(300 · 10 · true · 꺼짐 · 5) · 범위 밖 · 타입이 다른 값 무시 · 바뀔 때만 알림 · ready 시간 초과
-   2. 읽는 차례 — API → 못 받으면 Firebase config 칸 → 저장값(최소 버전 제외) → 기본값 · 다시 읽기 · 허용 목록 · 서버 주소 · firebase-init 배선
-   3. 규칙 — 누구나 읽기 · 관리자만 쓰기 · 범위 · 타입 · 모르는 칸 거절 · 제보 하루 상한 100 · 방 서버 시간값(timing)
+/* ═══ ⚙️ sim-remote-config.js — 원격 설정(GET /v1/config 하나 — 방 상한 · 정원 · 연결 시간 · 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물) ═══════════════
+   [왜] 운영 값을 앱 릴리스 없이 바꾸려고. 0.13 은 서버가 원본 — 앱은 GET /v1/config 하나만 읽는다(Firebase config 칸은 안 읽음).
+   1. remote-config.js 실행 — 기본값 · 범위 밖 · 타입이 다른 값 무시 · 서버 묶음 모양 풀기 · 바뀔 때만 알림 · ready 시간 초과
+   2. 읽는 차례 — API → 저장값(최소 버전 제외 · 옛 모양 저장값 무시) → 기본값 · ETag 304 · 다시 읽기 · realtime 알림 config · firebase-init 배선
+   3. 규칙 — 누구나 읽기 · 관리자만 쓰기 · 범위 · 타입 · 모르는 칸 거절 · 제보 하루 상한 100(Firebase 쪽 — 규칙을 걷는 묶음이 같이 걷는다)
    4. app.js 배선 — 박힌 상수 없음 · 사용처가 설정값 · 부팅 스위치는 첫 답을 기다림 · 화면 숫자 다시 그리기
    5. 방 서버 길(_startRoomOnServer) 빈 방 열기 상한 — 실행 · 되살리기(주소록) · 시크릿룸 · 만들기 · 있는 방은 검사 안 함
-   6. html — 스크립트 순서 · 기본 표시 300 · 최대 N명 자리 · CSP(API · 방 서버 와일드카드)
+   6. html — 스크립트 순서 · 기본 표시 · CSP
+   7. 일부러 깨 보기
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -40,28 +41,28 @@ const RCM = require(path.resolve(where('remote-config.js')));
 
 (async () => {
   const memStore = (init) => { const m = Object.assign({}, init || {}); return { m, getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; };
-  const DATA = { version: 7, roomLimits: { workingroom: 500, togetherroom: 400 }, roomMaxPeople: 12, flags: { inviteGate: false, existingSignup: false },
-    roomServer: { on: true, default: 'rooms', defaultPercent: 20, servers: { rooms: 'wss://rooms.togetherworking.duckdns.org' }, limits: { workingroom: 9 }, registerIndex: true },
-    roomServerTiming: { x: 1 }, minVersion: { app: '0.11.4', room: '0.11.5' }, bugDailyMax: 9 };
-  const ENV = { version: 7, syncedAt: '2026-10-14T00:00:00Z', config: DATA };   // GET /v1/config 의 data
-  const okRes = (data, status) => ({ ok: (status || 200) < 300, status: status || 200, json: async () => ({ success: true, data }) });
+  /* GET /v1/config 의 data — 서버가 앱에 주는 묶음 모양 */
+  const DATA = { room: { limits: { workingroom: 500, togetherroom: 400 }, maxPeople: 12, timing: { joinWaitMs: 20000, clientGiveUpMs: 1000 }, minVersion: '0.13.1', bannedWords: ['나쁜말'] },
+    app: { minVersion: '0.13.0' }, user: { inviteGate: false }, bug: { dailyMax: 9 }, guestbook: { clapDailyMax: 7 }, gift: { dailySendMax: 3 } };
+  const okRes = (data, status, hdr) => ({ ok: (status || 200) < 300, status: status || 200, headers: { get: (k) => (hdr || {})[k] || null }, json: async () => ({ success: true, data }) });
   const mkFetch = (fn) => { const calls = []; const f = async (url, init) => { calls.push({ url, init }); return fn(url, init, calls.length); }; f.calls = calls; return f; };
   const API = require(path.resolve(where('api-client.js')));
-  const mkApi = (f) => API.createApiClient({ baseUrl: 'https://api.togetherworking.duckdns.org', fetch: f, backoffMs: 0 });
+  const mkApi = (f) => API.createApiClient({ baseUrl: 'https://api.together-working.com', fetch: f, backoffMs: 0 });
   const quiet = async (fn) => { const w = console.warn; console.warn = () => {}; try{ return await fn(); }finally{ console.warn = w; } };
 
-  say('── 1. remote-config.js — 기본값 · 범위 · 타입');
+  say('── 1. remote-config.js — 기본값 · 범위 · 타입 · 묶음 모양');
   {
     const D = RCM.DEFAULTS;
-    chk(D.roomLimits.workingroom === 300 && D.roomLimits.togetherroom === 300 && D.roomMaxPeople === 10 && D.inviteGate === true && D.existingSignup === true,
-      '기본값 — 방 상한 300 · 정원 10 · 초대 게이트 켜짐 · 가입 강제 켜짐(#157 그대로)');
-    chk(D.roomServer.on === false && D.minVersion.app === null && D.minVersion.room === null && D.bugDailyMax === 5,
-      '  ↳ 방 서버 꺼짐(전원 Firebase) · 최소 버전 없음(막지 않음) · 제보 하루 5건');
-    chk(Object.isFrozen(D) && Object.isFrozen(D.roomLimits) && Object.isFrozen(D.roomServer), '  ↳ 기본값은 얼려 둔다(실수로 바뀌지 않게)');
+    chk(D.roomLimits.workingroom === 300 && D.roomLimits.togetherroom === 300 && D.roomMaxPeople === 10 && D.inviteGate === true && D.bugDailyMax === 5 && D.clapDailyMax === 5 && D.giftDailySendMax === 10,
+      '기본값 — 방 상한 300 · 정원 10 · 초대 게이트 켜짐 · 제보 5 · 박수 5 · 선물 10(서버 설정 키 기본값과 같다)');
+    chk(D.minVersion.app === null && D.minVersion.room === null && JSON.stringify(D.roomServerTiming) === '{"joinWaitMs":10000,"clientGiveUpMs":90000}', '  ↳ 최소 버전 없음(막지 않음) · 연결 시간 10초 · 90초');
+    chk(Object.isFrozen(D) && Object.isFrozen(D.roomLimits) && Object.isFrozen(D.minVersion), '  ↳ 기본값은 얼려 둔다(실수로 바뀌지 않게)');
     const s = RCM.createRemoteConfig();
-    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.existingSignup() === true && s.roomServer().on === false && s.minAppVer() === null && s.minRoomVer() === null && s.bugDailyMax() === 5,
-      '설정이 하나도 없으면(아직 못 받음) 기본값');
+    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.existingSignup() === true && s.minAppVer() === null && s.minRoomVer() === null && s.bugDailyMax() === 5
+      && s.clapDailyMax() === 5 && s.giftDailySendMax() === 10 && JSON.stringify(s.bannedWords()) === '[]', '설정이 하나도 없으면(아직 못 받음) 기본값');
     chk(s.roomLimitOf('???') === 300, '  ↳ 모르는 채널은 워킹룸 상한');
+    chk(!('roomServer' in s) && !('sources' in s) && !('dataRoutes' in s) && !('friendsApi' in s) && !('myServer' in s) && !('serverAddr' in s) && !('FALLBACK_PATHS' in RCM),
+      '★ 0.13 서버에 없는 칸(방 서버 · 기능 스위치 · 범용 통로 · 친구 스위치 · 허용 목록 · Firebase 칸 목록)은 없다');
     const L = RCM.cleanRoomLimits;
     chk(JSON.stringify(L({ workingroom: 500, togetherroom: 1 })) === '{"workingroom":500,"togetherroom":1}' && L({ workingroom: 10000 }).workingroom === 10000, '방 상한 1~10000 정수는 그대로');
     chk([0, -1, 10001, 2.5, '400', NaN, Infinity, null, true].every((v) => L({ workingroom: v }).workingroom === 300), '  ↳ 범위 밖 · 소수 · 문자열 · NaN · 무한 · null · 불리언 → 300');
@@ -70,17 +71,17 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(P(2) === 2 && P(50) === 50 && [1, 0, 51, 9.5, '12', null, undefined, false].every((v) => P(v) === 10), '정원 2~50 정수만(나머지 10)');
     const F = RCM.cleanFlag;
     chk(F(false, true) === false && F('false', true) === true && F(0, true) === true && F(null, true) === true, '스위치는 불리언만 — "false" · 0 · null 은 기본값(true)');
-    const B = RCM.cleanBugDailyMax;
-    chk(B(1) === 1 && B(100) === 100 && [0, 101, 2.5, '7', null].every((v) => B(v) === 5), '제보 하루 상한 1~100 정수만(나머지 5)');
+    chk(RCM.cleanBugDailyMax(1) === 1 && RCM.cleanBugDailyMax(100) === 100 && [0, 101, 2.5, '7', null].every((v) => RCM.cleanBugDailyMax(v) === 5), '제보 하루 상한 1~100 정수만(나머지 5)');
+    chk(RCM.cleanClapDailyMax(1) === 1 && RCM.cleanClapDailyMax(100) === 100 && [0, 101, 1.5].every((v) => RCM.cleanClapDailyMax(v) === 5)
+      && RCM.cleanGiftDailySendMax(100) === 100 && [0, 101, '3'].every((v) => RCM.cleanGiftDailySendMax(v) === 10), '박수 · 선물 하루 상한 1~100 정수만(나머지 5 · 10)');
     const V = RCM.cleanMinVersion;
     chk(JSON.stringify(V({ app: ' 0.11.4 ', room: 7 })) === '{"app":"0.11.4","room":null}' && V({ app: 'x'.repeat(21) }).app === null && V(null).app === null && V({ app: '' }).app === null,
       '최소 버전 — 20자까지 글자만(숫자 · 빈 글자 · 너무 긴 값 · 없음 → 없음)');
-    const S = RCM.cleanRoomServer;
-    const rs = S({ on: true, default: 'rooms', defaultPercent: 30, servers: { rooms: 'wss://a', 'BAD NAME': 'wss://b', n: 3 }, allow: { u1: 'rooms' } });
-    chk(rs.on === true && rs.default === 'rooms' && rs.defaultPercent === 30 && JSON.stringify(rs.servers) === '{"rooms":"wss://a"}' && !('allow' in rs),
-      '방 서버 — on · default · defaultPercent · servers(이름 형식 · 글자 값만) · 그 밖의 칸은 버린다');
-    chk(S({ on: 'true' }).on === false && S({ defaultPercent: 101 }).defaultPercent === 0 && S({ defaultPercent: 2.5 }).defaultPercent === 0 && S({ default: 'X Y' }).default === null && S(null).on === false,
-      '  ↳ on 은 true 만 · 틀린 비율 0 · 틀린 이름 null · 없으면 꺼짐');
+    chk(JSON.stringify(RCM.cleanBannedWords(['나쁜말', '', 3, '가'.repeat(21), '욕'])) === '["나쁜말","욕"]' && JSON.stringify(RCM.cleanBannedWords({ 0: '가' })) === '[]', '금칙어 — 글자 칸만 · 20자까지 · 배열만(서버는 배열로 준다)');
+    const f = RCM.fieldsOf(DATA);
+    chk(JSON.stringify(f.roomLimits) === JSON.stringify(DATA.room.limits) && f.roomMaxPeople === 12 && f.inviteGate === false && f.bugDailyMax === 9 && f.clapDailyMax === 7 && f.giftDailySendMax === 3
+      && f.minVersion.app === '0.13.0' && f.minVersion.room === '0.13.1' && f.roomServerTiming.joinWaitMs === 20000 && f.bannedWords[0] === '나쁜말', '★ 서버 묶음 모양 풀기 — room · app · user · bug · guestbook · gift 를 칸마다');
+    chk(JSON.stringify(RCM.fieldsOf(null).minVersion) === '{}' && RCM.fieldsOf({ room: 3 }).roomLimits === undefined, '  ↳ 묶음이 없거나 객체가 아니면 그 칸은 없음(기본값으로)');
 
     const seen = [];
     s.onChange((c, k) => seen.push(k));
@@ -92,8 +93,9 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(s.maxPeople() === 10 && seen.length === 2, '  ↳ 범위 밖 값은 무시(기본값 그대로 · 알림 없음)');
     chk(s.set('nope', 1) === false && !('nope' in s.get()), '  ↳ 모르는 칸은 받지 않는다');
     s.apply(DATA, false);
-    chk(s.maxPeople() === 12 && s.inviteGate() === false && s.existingSignup() === false && s.roomServer().default === 'rooms' && s.minAppVer() === '0.11.4' && s.minRoomVer() === '0.11.5' && s.bugDailyMax() === 9,
-      'API 응답 한 벌(flags 는 두 칸으로 편다) — 칸마다 반영');
+    chk(s.maxPeople() === 12 && s.inviteGate() === false && s.minAppVer() === '0.13.0' && s.minRoomVer() === '0.13.1' && s.bugDailyMax() === 9 && s.clapDailyMax() === 7 && s.giftDailySendMax() === 3
+      && JSON.stringify(s.roomServerTiming()) === '{"joinWaitMs":20000,"clientGiveUpMs":90000}', 'API 응답 한 벌 — 칸마다 반영(연결 시간은 범위 밖 칸만 기본값)');
+    chk(seen.includes('roomMaxPeople'), '  ↳ 정원이 바뀌면 roomMaxPeople 이름으로 알린다(화면 «최대 N명» 이 듣는 이름 그대로)');
     const bad = RCM.createRemoteConfig();
     bad.onChange(() => { throw new Error('boom'); });
     let ok = true; await quiet(() => { try{ bad.set('roomMaxPeople', 5); }catch(_){ ok = false; } });
@@ -103,105 +105,77 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const v = await r.ready(['inviteGate', 'existingSignup'], 80);
     chk(Date.now() - t0 >= 70 && v.inviteGate === true, 'ready — 답이 없으면 시간 초과 뒤 지금 값(기본값)으로 간다');
     chk(RCM.store && typeof RCM.store.start === 'function', '앱 한 벌(store)이 있다');
-    // 방 서버 연결 시간 — 앱 쪽 두 칸만(서버 쪽 graceMs 등은 안 받음)
-    const tmc = RCM.createRemoteConfig();
-    chk(JSON.stringify(tmc.roomServerTiming()) === '{"joinWaitMs":10000,"clientGiveUpMs":90000}', '연결 시간 기본 — 입장 대기 10초 · 포기 90초');
-    tmc.apply({ roomServerTiming: { joinWaitMs: 20000, clientGiveUpMs: 1000, graceMs: 45000 } }, false);
-    chk(JSON.stringify(tmc.roomServerTiming()) === '{"joinWaitMs":20000,"clientGiveUpMs":90000}', '  ↳ 범위 밖 칸만 기본값 · 서버 쪽 칸(graceMs)은 받지 않는다');
-    chk(JSON.stringify(RCM.TIMING_RANGES) === '{"joinWaitMs":[3000,60000,10000],"clientGiveUpMs":[15000,600000,90000]}'
-      && RCM.FALLBACK_PATHS.rsJoinWait === 'config/roomServer/timing/joinWaitMs' && RCM.FALLBACK_PATHS.rsGiveUp === 'config/roomServer/timing/clientGiveUpMs',
-      '  ↳ 범위(규칙 · API 와 같음) · Firebase 로 읽을 때는 두 칸만 한 칸씩');
   }
 
-  say('── 2. 읽는 차례 — API → Firebase → 저장값 → 기본값 · 다시 읽기 · 허용 목록 · 배선');
+  say('── 2. 읽는 차례 — API → 저장값 → 기본값 · ETag · 다시 읽기 · 알림 · 배선');
   {
-    const BASE = 'https://api.togetherworking.duckdns.org';
-    chk(RCM.CONFIG_PATH === '/v1/config' && RCM.ALLOW_PATH === '/v1/config/room-server/allow/' && /^tw\./.test(RCM.CACHE_KEY),
-      '경로 — /v1/config · /v1/config/room-server/allow/ · 저장 키는 tw. 접두사(주소 · 시간 제한 · 쉬기는 api-client.js — sim-api-client.js)');
-    chk(RCM.REFRESH_MS === 5 * 60 * 1000 && RCM.STALE_MS === 60 * 1000 && RCM.FETCH_TIMEOUT_MS <= 3000 && API.TIMEOUT_MS <= 3000, '다시 읽기 5분 · 입장 때 1분 넘었으면 · API · Firebase 각각 3초 이하');
+    const BASE = 'https://api.together-working.com';
+    chk(RCM.CONFIG_PATH === '/v1/config' && /^tw\./.test(RCM.CACHE_KEY) && RCM.CACHE_VERSION === 2, '경로 /v1/config · 저장 키 tw. 접두사 · 저장 모양 2판');
+    chk(RCM.REFRESH_MS === 5 * 60 * 1000 && RCM.STALE_MS === 60 * 1000 && API.TIMEOUT_MS <= 3000, '다시 읽기 5분 · 입장 때 1분 넘었으면 · API 3초 이하');
 
-    // ① 정상 — API 만
-    const FBV = { 'config/roomLimits': { workingroom: 250, togetherroom: 260 }, 'config/roomMaxPeople': 8, 'config/flags/inviteGate': false, 'config/bugDailyMax': 3,
-      'config/roomServer/on': true, 'config/roomServer/default': 'rooms', 'config/roomServer/defaultPercent': 40, 'config/roomServer/servers/rooms': 'wss://rooms.togetherworking.duckdns.org',
-      'config/roomServer/allow/u1': 'rooms', 'config/minAppVer': '0.11.4', 'config/minRoomVer': '0.11.2' };
-    const fbRead = (log, vals) => async (p) => { log.push(p); return (p in vals) ? vals[p] : null; };
-    let st = memStore(), fb = [];
-    let f = mkFetch(() => okRes(ENV));
+    // ① 정상
+    let st = memStore();
+    let f = mkFetch(() => okRes(DATA));
     let s = RCM.createRemoteConfig();
-    await s.start({ api: mkApi(f), storage: st, fallbackRead: fbRead(fb, FBV) });
+    await s.start({ api: mkApi(f), storage: st });
     s.stop();
     chk(f.calls.length === 1 && f.calls[0].url === BASE + '/v1/config' && !f.calls[0].init.headers.Authorization && f.calls[0].init.credentials === 'omit', '★ 켤 때 GET /v1/config 한 번 — 로그인 없이(토큰 · 쿠키 없음)');
-    chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.minAppVer() === '0.11.4' && s.bugDailyMax() === 9 && s.answered() && s.source() === 'api', '  ↳ 받은 값 반영 · 첫 답 표시 · 출처 api');
-    chk(fb.length === 0, '★ API 를 받으면 Firebase config 는 읽지 않는다(다운로드 절약)');
+    chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.minAppVer() === '0.13.0' && s.bugDailyMax() === 9 && s.answered() && s.source() === 'api', '  ↳ 받은 값 반영 · 첫 답 표시 · 출처 api');
     const saved = JSON.parse(st.m['tw.remoteConfig'] || 'null');
-    chk(saved && saved.data && saved.data.roomMaxPeople === 12, '  ↳ 받은 값을 이 PC 에 저장');
-    chk((await s.serverAddr('rooms')) === 'wss://rooms.togetherworking.duckdns.org' && (await s.serverAddr('nope')) === null && fb.length === 0, '  ↳ API 판의 서버 주소는 응답의 servers 에서(Firebase 안 읽음)');
+    chk(saved && saved.v === 2 && saved.data && saved.data.room.maxPeople === 12, '  ↳ 받은 묶음을 이 PC 에 저장(2판)');
 
-    // ② API 실패 → Firebase config 칸
-    fb = [];
+    // ② 못 받음 → 저장값 → 기본값
     const down = mkFetch(() => { throw new TypeError('Failed to fetch'); });
-    st = memStore();
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ api: mkApi(down), storage: st, fallbackRead: fbRead(fb, FBV) }));
+    await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) }));
     s.stop();
-    chk(s.roomLimitOf('togetherroom') === 260 && s.maxPeople() === 8 && s.inviteGate() === false && s.existingSignup() === true && s.bugDailyMax() === 3 && s.roomServer().on === true && s.roomServer().default === 'rooms' && s.source() === 'firebase',
-      '★ API 실패 → Firebase config 칸을 직접 읽어 쓴다(#157 방식)');
-    chk(s.minAppVer() === '0.11.4' && s.minRoomVer() === '0.11.2', '  ↳ 최소 버전도 Firebase 값(이번 실행에 받은 값이라 막는 데 쓴다)');
-    chk(fb.length === Object.keys(RCM.FALLBACK_PATHS).length && fb.every((p) => p.startsWith('config/') && p.split('/').length >= 2 && !['config/roomServer', 'config/flags', 'config/roomServer/servers', 'config/roomServer/allow'].includes(p)),
-      '  ↳ 칸 단위로만(config · roomServer · 목록 통째 읽기 없음) (' + fb.length + '칸)');
-    chk((await s.serverAddr('rooms')) === 'wss://rooms.togetherworking.duckdns.org' && fb.includes('config/roomServer/servers/rooms'), '  ↳ Firebase 판의 서버 주소는 servers/{이름} 한 칸');
-    const nfb = fb.length; await s.serverAddr('rooms');
-    chk(fb.length === nfb, '    ↳ 5분 기억');
-    chk(JSON.parse(st.m['tw.remoteConfig'] || 'null').data.roomMaxPeople === 8, '  ↳ Firebase 에서 받은 값도 저장값으로 남긴다');
-
-    // ③ API · Firebase 둘 다 실패 → 저장값 → 기본값
-    s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: DATA }) }), fallbackRead: async () => { throw new Error('offline'); } }));
-    s.stop();
-    chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.roomServer().on === true && s.bugDailyMax() === 9 && s.answered() && s.source() === 'cache',
-      '★ API · Firebase 둘 다 실패 → 저장값(방 상한 · 정원 · 스위치 · 방 서버 · 제보 상한)');
+    chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.bugDailyMax() === 9 && s.answered() && s.source() === 'cache',
+      '★ API 를 못 받으면 저장값(방 상한 · 정원 · 스위치 · 제보 상한)');
     chk(s.minAppVer() === null && s.minRoomVer() === null, '★ 최소 버전은 저장값을 쓰지 않는다(못 받으면 막지 않는다)');
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ api: mkApi(down), storage: memStore(), fallbackRead: async () => { throw new Error('offline'); } }));
+    await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { roomMaxPeople: 30, roomLimits: { workingroom: 9 } } }) }) }));
     s.stop();
-    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.existingSignup() === true && s.roomServer().on === false && s.bugDailyMax() === 5 && s.answered() && s.source() === 'default',
-      '★ 처음 실행 · 둘 다 실패 → 기본값(300 · 10 · true · true · 방 서버 꺼짐 · 5)');
-    const nCalls = down.calls.length; fb = [];
+    chk(s.maxPeople() === 10 && s.roomLimitOf('workingroom') === 300 && s.source() === 'default', '  ↳ 옛 판(평평한 칸 · 판 표시 없음)이 남긴 저장값은 읽지 않는다');
     s = RCM.createRemoteConfig();
-    await quiet(() => s.start({ api: null, storage: memStore(), fallbackRead: fbRead(fb, FBV) }));
+    await quiet(() => s.start({ api: mkApi(down), storage: memStore() }));
     s.stop();
-    chk(down.calls.length === nCalls && s.maxPeople() === 8 && fb.length > 0, '  ↳ API 통로가 없으면 묻지 않고 Firebase 부터');
-    // ④ 봉투 · 시간 초과
+    chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.existingSignup() === true && s.bugDailyMax() === 5 && s.answered() && s.source() === 'default',
+      '★ 처음 실행 · 못 받음 → 기본값');
+    s = RCM.createRemoteConfig();
+    await s.start({ api: null, storage: memStore() });
+    s.stop();
+    chk(s.answered() && s.source() === 'default', '  ↳ API 통로가 없으면 묻지 않고 기본값(답은 받은 것으로)');
+    // ③ 봉투 · 모양 · 시간 초과
     const bads = [
       async () => ({ ok: true, status: 200, json: async () => ({ success: false, code: 'X' }) }),
       async () => ({ ok: false, status: 503, json: async () => ({}) }),
       async () => ({ ok: true, status: 200, json: async () => { throw new SyntaxError('html'); } }),
       async () => ({ ok: true, status: 200, json: async () => ({ success: true }) }),
-      async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: { version: 1 } }) }),
-      async () => ({ ok: false, status: 503, json: async () => ({ success: false, code: 'CONFIG_NOT_READY' }) }),
+      async () => ({ ok: true, status: 200, json: async () => ({ success: true, data: { version: 1, config: { roomMaxPeople: 30 } } }) }),
+      async () => ({ ok: false, status: 503, json: async () => ({ success: false, code: 'SERVER_ADMIN_ONLY' }) }),
     ];
     let allOk = true;
     for(const fn of bads){
       const s2 = RCM.createRemoteConfig();
       await quiet(() => s2.start({ api: mkApi(mkFetch(fn)), storage: memStore() }));
       s2.stop();
-      if(s2.maxPeople() !== 10 || !s2.answered()) allOk = false;
+      if(s2.maxPeople() !== 10 || !s2.answered() || s2.source() !== 'default') allOk = false;
     }
-    chk(allOk, '실패 봉투 · 5xx · 봉투 아닌 응답 · data 없음 · config 없음 · 사본 미준비(503 CONFIG_NOT_READY) → 못 받음으로(기본값 · 답은 받음)');
+    chk(allOk, '실패 봉투 · 5xx · 봉투 아닌 응답 · data 없음 · 옛 모양(config 칸) · 점검(503) → 못 받음으로(기본값 · 답은 받음)');
     const hang = RCM.createRemoteConfig();
     const t0 = Date.now();
     const w0 = console.warn; console.warn = () => {};
     hang.start({ api: mkApi(() => new Promise(() => {})), storage: memStore() });
     const v = await hang.ready(null, 300);
     hang.stop();
-    chk(Date.now() - t0 < 1000 && v.roomMaxPeople === 10 && !hang.answered(), '★ API 가 멈춰도(답 없음) 부팅 대기는 ready 시간 상한까지만(초대 게이트 3초) — 기본값으로 간다');
+    chk(Date.now() - t0 < 1000 && v.roomMaxPeople === 10 && !hang.answered(), '★ API 가 멈춰도(답 없음) 부팅 대기는 ready 시간 상한까지만 — 기본값으로 간다');
     await new Promise((res) => setTimeout(res, API.TIMEOUT_MS + 200));
     console.warn = w0;
     chk(hang.answered(), '  ↳ 멈춘 요청도 API 시간 제한(api-client TIMEOUT_MS) 뒤 끊고 «못 받음» 으로 끝낸다');
 
-    // ⑤ 다시 읽기 · 입장 때 STALE_MS
-    let t = 1000, n = 0;
-    f = mkFetch(() => { n++; return okRes({ version: n, config: Object.assign({}, DATA, { roomMaxPeople: 10 + n }) }); });
+    // ④ ETag · 다시 읽기 · 입장 때 STALE_MS
+    let t = 1000;
+    f = mkFetch((url, init) => (init.headers['If-None-Match'] === '"c1"' ? { ok: false, status: 304, headers: { get: () => null }, json: async () => { throw new Error('본문 없음'); } } : okRes(DATA, 200, { ETag: '"c1"' })));
     s = RCM.createRemoteConfig();
     await s.start({ api: mkApi(f), storage: memStore(), now: () => t });
     s.stop();
@@ -209,7 +183,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(f.calls.length === 1, '입장 때 refresh({ maxAgeMs }) — 1분 안이면 다시 묻지 않는다');
     t += RCM.STALE_MS + 1;
     await s.refresh({ maxAgeMs: RCM.STALE_MS });
-    chk(f.calls.length === 2 && s.maxPeople() === 12, '  ↳ 1분이 지났으면 한 번 더 묻고 바뀐 값을 쓴다');
+    chk(f.calls.length === 2 && f.calls[1].init.headers['If-None-Match'] === '"c1"' && s.maxPeople() === 12 && s.source() === 'api', '★ 1분이 지났으면 한 번 더 — 같은 값이면 ETag 304(본문 없이) · 값 그대로');
     const ff = mkFetch(() => { throw new Error('down'); });
     const s3 = RCM.createRemoteConfig();
     await quiet(() => s3.start({ api: mkApi(ff), storage: memStore(), now: () => t }));
@@ -217,52 +191,32 @@ const RCM = require(path.resolve(where('remote-config.js')));
     await quiet(() => s3.refresh({ maxAgeMs: RCM.STALE_MS }));
     chk(ff.calls.length === 1, '  ↳ API 가 멈췄을 때도 1분 안에는 다시 기다리지 않는다(입장마다 시간 초과를 겪지 않게)');
 
-    // ⑥ 허용 목록 — GET /v1/config/room-server/allow/{내 코드}(공개) → 못 받으면 Firebase allow/{내 코드}
-    const isAllow = (url) => url.indexOf('/v1/config/room-server/allow/') >= 0;
-    f = mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: 'rooms' } : ENV));
-    fb = [];
+    // ⑤ realtime 알림 config
+    const hooks = {};
+    const rt = { on: (kind, fn) => { hooks[kind] = fn; return () => {}; } };
+    let n = 0;
+    const fn = mkFetch(() => { n++; return okRes(Object.assign({}, DATA, { room: Object.assign({}, DATA.room, { maxPeople: 10 + n }) })); });
     s = RCM.createRemoteConfig();
-    await s.start({ api: mkApi(f), storage: memStore(), now: () => t, fallbackRead: fbRead(fb, FBV) });
+    await s.start({ api: mkApi(fn), storage: memStore(), now: () => t, rt });
     s.stop();
-    const name = await s.myServer('u1');
-    const meCall = f.calls.find((c) => c.url === BASE + '/v1/config/room-server/allow/u1');
-    chk(name === 'rooms' && meCall && !meCall.init.headers.Authorization && fb.length === 0, '★ 허용 목록 — GET /v1/config/room-server/allow/{내 코드}(공개 · 토큰 없음) → server · Firebase 안 읽음');
-    await s.myServer('u1');
-    chk(f.calls.filter((c) => isAllow(c.url)).length === 1, '  ↳ 1분 기억(입장마다 묻지 않음)');
-    chk((await s.myServer(null)) === null, '  ↳ 내 코드가 없으면 묻지 않고 null');
-    await s.myServer('u/../x');
-    chk(f.calls.some((c) => c.url === BASE + '/v1/config/room-server/allow/u%2F..%2Fx'), '  ↳ 코드는 주소에 넣기 전에 인코딩(경로를 못 바꾼다)');
-    fb = [];
-    const s5 = RCM.createRemoteConfig();
-    await s5.start({ api: mkApi(mkFetch((url) => (isAllow(url) ? { ok: false, status: 503, json: async () => ({ success: false, code: 'CONFIG_NOT_READY' }) } : okRes(ENV)))), storage: memStore(), fallbackRead: fbRead(fb, FBV) });
-    s5.stop();
-    chk((await s5.myServer('u1')) === 'rooms' && fb.join() === 'config/roomServer/allow/u1', '★ 허용 목록 API 를 못 받으면(503) Firebase allow/{내 코드} 한 칸');
-    const s4 = RCM.createRemoteConfig();
-    await s4.start({ api: mkApi(mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: 'BAD NAME' } : ENV))), storage: memStore() });
-    s4.stop();
-    const s7 = RCM.createRemoteConfig();
-    await s7.start({ api: mkApi(mkFetch((url) => okRes(isAllow(url) ? { userCode: 'u1', server: null } : ENV))), storage: memStore(), fallbackRead: fbRead(fb, FBV) });
-    s7.stop();
-    const s6 = RCM.createRemoteConfig();
-    await quiet(() => s6.start({ api: mkApi(mkFetch(() => { throw new Error('down'); })), storage: memStore(), fallbackRead: async () => { throw new Error('denied'); } }));
-    s6.stop();
-    chk((await s4.myServer('u1')) === null && (await s7.myServer('u1')) === null && (await s6.myServer('u1')) === null, '  ↳ 이름 형식이 틀림 · server null(허용 아님 — Firebase 안 봄) · 둘 다 못 받음 → null');
+    chk(typeof hooks.config === 'function' && Object.keys(hooks).join() === 'config', 'realtime 알림 — config 하나만 건다');
+    await hooks.config({ kind: 'config', resync: false });
+    await new Promise((res) => setTimeout(res, 0)); await s.refresh({ maxAgeMs: RCM.STALE_MS });
+    chk(fn.calls.length === 2 && s.maxPeople() === 12, '★ 알림이 오면 1분 안이어도 바로 다시 묻는다(서버가 바꿨다)');
 
-    // ⑦ firebase-init 배선
+    // ⑥ firebase-init 배선
     const fi = strip(FI);
-    chk(/_rc\.start\(\{\s*api: \(window\.TwApi && window\.TwApi\.client\) \|\| null,/.test(fi),
-      'firebase-init.js 가 store.start 로 앱 공통 API 통로(TwApi.client)를 잇는다');
-    chk(/fallbackRead: \(path\) => get\(ref\(db, path\)\)\.then\(s => s\.val\(\)\),/.test(fi), '  ↳ 비상 길 읽기(칸 하나 get)');
-    chk(!/store\.watch/.test(fi) && !/'config\//.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 구독 · 박힌 경로 없음(옛 store.watch 지움)');
+    chk(/_rc\.start\(\{\s*api: \(window\.TwApi && window\.TwApi\.client\) \|\| null,\s*storage: _lsOrNull\(\),\s*win: window,\s*rt: window\.TwRtHub\.store,/.test(fi),
+      'firebase-init.js 가 store.start 로 앱 공통 API 통로(TwApi.client) · realtime 알림(TwRtHub.store)을 잇는다');
+    chk(!/fallbackRead/.test(fi) && !/store\.watch/.test(fi) && !/'config\/(?!maintenance)/.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 비상 읽기 · 구독 · 박힌 경로 없음(점검 칸만 — maintenance-gate.js)');
     chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null,/.test(fi) && fi.indexOf('_rc.start(') < fi.indexOf('createAppVersionGate({'),
       '  ↳ 앱 최소 버전은 원격 설정의 첫 답(API 값만) — start 다음에 게이트');
     chk(/async getMinRoomVer\(\)\{\s*if\(!_rc\) return null;\s*try\{ await _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\); \}catch\(_\)\{\}\s*return _rc\.minRoomVer\(\);/.test(fi),
       '  ↳ 방 입장 최소 버전 — 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
-    chk(/Promise\.resolve\(_rc \? _rc\.minRoomVer\(\) : null\)\.then\(v => \{/.test(fi) && /aliveV2On\(v\)/.test(fi), '  ↳ 💓 새 하트비트도 같은 값');
     chk(/getDailyMax: \(\) => _rc \? _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\)\.then\(\(\) => _rc\.bugDailyMax\(\)\) : null,/.test(fi), '  ↳ 제보 하루 상한도 원격 설정');
     chk(/const _cap = window\.TwRoomSettings\.roomCap\(_capturedMeta, \(window\.TwRemoteConfig && window\.TwRemoteConfig\.store\) \? window\.TwRemoteConfig\.store\.maxPeople\(\) : 10\);/.test(fi) && !/window\.MAX_PEOPLE/.test(fi),
       '  ↳ 정원 초과 자기 퇴장도 같은 store 의 정원(window.MAX_PEOPLE 안 씀)');
-    chk(!/^\s*import\s/m.test(RC) && !/gstatic|getDatabase|require\(/.test(strip(RC)), 'remote-config.js 는 Firebase 를 import 하지 않는다(비상 읽기도 deps.fallbackRead)');
+    chk(!/^\s*import\s/m.test(RC) && !/gstatic|getDatabase|require\(|fallbackRead/.test(strip(RC)), 'remote-config.js 는 Firebase 를 모른다(import · 비상 읽기 없음)');
   }
 
   say('── 3. 규칙 — 읽기 · 쓰기 · validate');
@@ -517,6 +471,55 @@ const RCM = require(path.resolve(where('remote-config.js')));
       'CSP 두 줄 — wss · https://*.together-working.com(새 도메인) · *.togetherworking.duckdns.org(옛 주소 — 옛 설정값 · dev)');
     chk(/^https:\/\/[a-z0-9-]+\.together-working\.com$/.test(require(path.resolve(where('api-client.js'))).API_BASE_PROD), '  ↳ API 주소(api-client.js API_BASE_PROD)도 새 https 와일드카드 안(CSP 를 따로 열지 않음)');
     chk(conn.every((c) => !/rooms(-dev)?\.togetherworking/.test(c) && !/\bws:\/\/\*|wss:\/\/\*\.duckdns|\*\.duckdns\.org|https?:\/\/\*( |$)|\*\.com( |$)|\*-working/.test(c)), '  ↳ 다른 도메인은 그대로 막는다(duckdns 전체 · .com 전체 · ws 와일드카드 없음)');
+  }
+  say('── 7. 일부러 깨 보기');
+  {
+    const loadRc = (src) => { const m = { exports: {} }; new Function('module', 'window', 'console', src)(m, undefined, { warn(){} }); return m.exports; };
+    async function probe(src){
+      let bad = 0;
+      const ok = (c) => { if(!c) bad++; };
+      let M; try{ M = loadRc(src); }catch(_){ return 99; }
+      try{
+        const s1 = M.createRemoteConfig();
+        await s1.start({ api: mkApi(mkFetch(() => okRes(DATA))), storage: memStore() }); s1.stop();
+        ok(s1.maxPeople() === 12 && s1.minAppVer() === '0.13.0' && s1.minRoomVer() === '0.13.1' && s1.clapDailyMax() === 7 && s1.giftDailySendMax() === 3 && s1.inviteGate() === false);
+        const s2 = M.createRemoteConfig();
+        await s2.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) }); s2.stop();
+        ok(s2.maxPeople() === 12 && s2.minAppVer() === null);
+        const s3 = M.createRemoteConfig();
+        await s3.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { room: { maxPeople: 30 } } }) }) }); s3.stop();
+        ok(s3.maxPeople() === 10);
+        const s4 = M.createRemoteConfig();
+        await s4.start({ api: mkApi(mkFetch(() => okRes({ config: { roomMaxPeople: 30 } }))), storage: memStore() }); s4.stop();
+        ok(s4.source() === 'default');
+        const hooks = {}; let n = 0;
+        const s5 = M.createRemoteConfig();
+        await s5.start({ api: mkApi(mkFetch(() => { n++; return okRes(DATA); })), storage: memStore(), rt: { on: (k, fn) => { hooks[k] = fn; } } }); s5.stop();
+        if(hooks.config) await hooks.config({}); await new Promise((r) => setTimeout(r, 0));
+        ok(n === 2);
+        ok(M.cleanTiming({ joinWaitMs: 2999 }).joinWaitMs === 10000 && M.cleanClapDailyMax(101) === 5);
+      }catch(_){ bad++; }
+      return bad;
+    }
+    chk((await probe(RC)) === 0, '원본은 핵심 동작을 다 지킨다');
+    const BREAKS = [
+      ["    for(const k of KEYS){ if(fromCache && k === 'minVersion') continue; set(k, f[k]); }", "    for(const k of KEYS){ set(k, f[k]); }", '저장값의 최소 버전으로 막음'],
+      ["      if(!isObj(c) || c.v !== CACHE_VERSION || !looksLikeConfig(c.data)) return false;", "      if(!isObj(c)) return false;", '옛 모양 저장값을 읽음'],
+      ["        if(!looksLikeConfig(data)) throw new Error('설정 모양이 아님');", "", '엉뚱한 응답을 받은 값으로 봄'],
+      ["    if(opts.rt) opts.rt.on('config', () => { refresh(); });", "", 'realtime 알림을 안 들음'],
+      ["    if(opts.rt) opts.rt.on('config', () => { refresh(); });", "    if(opts.rt) opts.rt.on('config', () => { refresh({ maxAgeMs: STALE_MS }); });", '알림이 와도 1분 안이면 안 물음'],
+      ["    minVersion: { app: pick(d.app, 'minVersion'), room: pick(room, 'minVersion') },", "    minVersion: { app: pick(room, 'minVersion'), room: pick(room, 'minVersion') },", '앱 최소 버전을 방 칸에서 읽음'],
+      ["    clapDailyMax: pick(d.guestbook, 'clapDailyMax'), giftDailySendMax: pick(d.gift, 'dailySendMax'),", "    clapDailyMax: pick(d.guestbook, 'dailyMax'), giftDailySendMax: pick(d.gift, 'dailyMax'),", '박수 · 선물 칸 이름이 틀림'],
+      ["    inviteGate: pick(d.user, 'inviteGate'),", "    inviteGate: pick(d, 'inviteGate'),", '초대 게이트를 엉뚱한 자리에서 읽음'],
+      ["const CLAP_DAILY_MIN = 1, CLAP_DAILY_MAX = 100;", "const CLAP_DAILY_MIN = 1, CLAP_DAILY_MAX = 1000;", '박수 상한 범위가 서버와 다름'],
+      ["  joinWaitMs: Object.freeze([3000, 60000, 10000]),", "  joinWaitMs: Object.freeze([0, 60000, 10000]),", '입장 대기 범위가 서버와 다름'],
+    ];
+    const missed = [];
+    for(const [from, to, what] of BREAKS){
+      if(RC.indexOf(from) < 0){ missed.push('글 못 찾음: ' + what); continue; }
+      if((await probe(RC.split(from).join(to))) === 0) missed.push(what);
+    }
+    chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   }
   finish();
 })().catch((e) => { fail++; say('  ✗ 예외: ' + (e && e.stack || e)); finish(); });

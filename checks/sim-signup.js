@@ -76,18 +76,18 @@ chk(/async finishInviteSignup\(code, token, userId\)/.test(FI), 'finishInviteSig
 /* ══ 2. 안전망 실행 ══ */
 say('');
 say('【2】 빈 uid 안전망 — 경로가 만들어지는 자리에서 막는다');
-/* 안전망(_noUidPath · ref · sref)과 다중 경로 update 감쌈을 잘라 온다. 그 사이의 범용 통로(data-gateway.js) 배선은 빼고,
-   update 감쌈이 넘기는 곳(_gw.update)은 SDK update 를 그대로 부르는 가짜로 — 판정은 안전망 그대로(범용 통로는 sim-data-gateway). */
+/* 안전망(_noUidPath · ref · sref)과 다중 경로 update 감쌈을 잘라 온다. 그 사이의 기본 동작 배선(점검 창 touch)은 빼고,
+   update 감쌈이 넘기는 곳(_update)은 SDK update 를 그대로 부르는 가짜로 — 판정은 안전망 그대로. */
 const g1 = FI.slice(FI.indexOf('  const _NOUID_SEG'), FI.indexOf('  const sref = (st, p) => _stRef(st, _noUidPath(p));') + '  const sref = (st, p) => _stRef(st, _noUidPath(p));'.length);
-const g2 = FI.slice(FI.indexOf('  const update = (r, v) => {'), FI.indexOf('    return _gw.update(r, v);\n  };') + '    return _gw.update(r, v);\n  };'.length);
+const g2 = FI.slice(FI.indexOf('  const update = (r, v) => {'), FI.indexOf('    return _update(r, v);\n  };') + '    return _update(r, v);\n  };'.length);
 const guardSrc = g1 + '\n' + g2;
 const _fakeUpdate = (r, v) => Promise.resolve({ r, v });
-const G = (new Function('_dbRef', '_stRef', '_dbUpdate', '_gw', 'console',
+const G = (new Function('_dbRef', '_stRef', '_dbUpdate', '_update', 'console',
   guardSrc + '\nreturn { _noUidPath, ref, sref, update };'))(
   (d, p) => ({ db: d, path: p === undefined ? '/' : p }),
   (st, p) => ({ st, path: p }),
   _fakeUpdate,
-  { update: _fakeUpdate },
+  _fakeUpdate,
   { warn(){} });
 const ok = p => G._noUidPath(p) === p;
 chk(ok('users/u1abc/profile'), '정상 uid 경로는 그대로');

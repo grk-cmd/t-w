@@ -196,18 +196,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
-## `source-switch.js` — 🎚️ 기능별 받는 곳 고르기(서버 / 파이어베이스)
+## `source-switch.js` — 🎚️ 기능별 받는 곳(0.13 — 한 길만 돌려주는 얇은 자리)
 
-- **책임**: 기능(친구 · 방 · 카탈로그 …)마다 «서버(우리 API · 방 서버) / 파이어베이스(옛 길)» 중 어디서 받을지 고르고(`pickSource`), «서버 먼저 → 못 받으면 파이어베이스» 를 한 벌로 돌린다(`serverFirst`). 기능 쪽은 이것만 부른다 — 스위치 이름 · 기본값 · 넘어가기 조건을 다시 쓰지 않는다(`sim-source-switch.js` 가 막는다).
-- **스위치 자리**: 원격 설정 `sources.{기능}`(쓰기 원본 Firebase `config/sources/{기능}` · 웹 관리자 «🎚️ 기능 스위치») = `'server'` | `'firebase'`. 칸이 없으면 기능 표(`FEATURES`)의 옛 자리를 읽는다 — 친구 `flags.friendsApi`(끌 때만 false) · 방 `roomServer.on`(true 일 때만) · 카탈로그(옛 스위치 없음 — 늘 서버 먼저). 그래서 칸을 비워 두면 예전 동작 그대로다.
-- **만드는 법**: 브라우저는 `TwSourceSwitch.store`(원격 설정 store 를 부를 때마다 읽는 한 벌)를 쓴다. 시험에서는 `createSourceSwitch({ valueOf(기능), legacyOf(기능) })`.
-- **내놓는 것**: `SOURCE` · `SKIP` · `FEATURES` · `cleanSource` · `pickSource(기능, 새 값, 옛 값)` · `serverFirst(받는 곳, 서버 함수 | null, 파이어베이스 함수, 실패 알림)` → `{ v, from }` · `createSourceSwitch(deps)` → `{ pick, serverFirst }` · `store`.
-  ```js
-  // 친구 포트
-  const r = await serverFirst(source(), apiProvider ? () => apiProvider.listFriends(myId) : null, () => firebase.listFriends(myId), onFail);
-  ```
-- **확장**: 새 기능을 서버로 옮길 때 `FEATURES` 에 한 줄(옛 스위치가 없으면 `legacy: () => 기본값`) · `remote-config.js` `SOURCE_FEATURES` · 웹 관리자 기능 스위치 표에 한 줄. 규칙은 `config/sources/$feature` 한 칸으로 이미 받는다.
-- **함정**: 서버 함수가 «값은 왔는데 못 쓴다»(예: 사본 버전이 다름)면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 파이어베이스로 간다. 파이어베이스 쪽 오류는 숨기지 않고 그대로 던진다. 방의 허용 목록 · 비율 · 기본 서버는 이 스위치가 «서버» 일 때 `room-server-gate.js` 가 그다음에 본다.
+- **책임**: 0.13 서버 설정(`GET /v1/config`)에는 기능 스위치가 없다. 기능마다 «지금 도는 한 길» 을 고정 표 `ONE_WAY` 로 돌려주고(`pick`), 서버 길이 있는 기능은 «서버 먼저 → 못 받으면 옛 길» 을 한 벌로 돌린다(`serverFirst`).
+- **표**: `friends` 서버 먼저 · `catalog` 서버 먼저 · `gacha` 앱이 뽑기 — 옛 판의 «스위치 칸 없음» 기본값과 같다(동작 그대로). 방은 `room/room-server-gate.js` 가 늘 Firebase 방을 돌려준다(같은 까닭의 얇은 자리).
+- **걷는 차례**: 기능 묶음이 그 기능을 API · realtime 길로 갈아 끼우면 부르는 줄(app.js · firebase-init.js 의 `pick` · `serverFirst`)을 걷고 표에서 한 줄을 지운다. 표가 비면 파일을 지운다. 새 기능을 더하지 않는다.
+- **함정**: 서버 함수가 «값은 왔는데 못 쓴다» 면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 옛 길로 간다. 옛 길 오류는 숨기지 않고 그대로 던진다.
+- 검사: `checks/sim-source-switch.js`.
 
 ## json-store.js — 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳
 
@@ -216,17 +211,6 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **만드는 법**: 렌더러에서는 `window.TwJsonStore`(`load` · `save`)를 바로 쓴다. 검사 · 다른 저장소는 `TwJsonStore.createJsonStore({ storage: () => 저장소 })`.
 - **내놓는 것**: `load(key, fallback)` → `{ ok, list, err, bytes }`(키가 없거나 빈 글이면 ok · fallback) · `save(key, value)` → `{ ok, err, bytes }`(던지지 않는다).
 - **함정**: 값의 모양(배열 · 객체)은 부르는 쪽이 본다. DOM · 토스트를 모른다 — 알리기는 부르는 쪽. 검사 `checks/sim-json-store.js`.
-
-## `data-gateway.js` — 🚪 범용 데이터 통로(서버만 배포해서 기능 옮기기)
-
-- **책임**: `firebase-init.js` 의 Firebase 기본 동작(get · set · update · remove · push · onValue) 앞의 문 하나. 원격 설정 **dataRoutes** 표에 걸린 경로만 서버 범용 끝점(`POST /v1/data` · 듣기는 `GET /v1/data/stream` SSE)으로 보내고, 나머지는 SDK 를 같은 인자로 그대로 부른다. **표가 비면 지금과 똑같다.**
-- **왜**: 기능 함수(firebaseAPI 256개)마다 서버 주소를 박으면 기능을 옮길 때마다 앱 업데이트가 필요하다. 문 하나를 두면 «서버에 그 경로 처리기 추가 + 표에 경로 한 줄» 만으로 옮긴다(앱 업데이트 없음 · 표에서 빼면 즉시 되돌림).
-- **만드는 법**: `TwDataGateway.createDataGateway({ sdk, routes, myCode, serverFirst, post, stream, isQuery, warn })` — firebase-init.js 가 만든다(`post` · `stream` 은 로그인 통로 `_authApi` · ID 토큰).
-- **표**: `config/dataRoutes`(관리자만 쓰기 · 누구나 읽기 · 글자 배열) · `GET /v1/config` 의 `dataRoutes`. 경로 앞부분 — 칸 자리에 별표를 쓰면 아무 칸.
-- **신원**: 경로 속 코드는 데이터 주소일 뿐이다. 서버로 보낼 때 **내 코드인 칸만 `me`** 로 바꾼다(`toServerPath`). 신원은 서버가 ID 토큰에서만 정한다.
-- **실패하면**: 연결 실패 · 시간 초과 · 5xx · 404(서버가 모르는 경로) → 그 호출은 Firebase 로(`source-switch.js` serverFirst 한 벌). 듣기는 첫 값 전에 끊기면 Firebase 로 듣는다.
-- **늘 Firebase**: 조건 붙은 읽기(query) · 트랜잭션 · onDisconnect · 자식 단위 듣기(onChild*).
-- **⚠️ 함정**: 기능 함수에서 SDK 함수를 새로 import 해 직접 부르지 말 것 — 통로를 건너뛰면 그 기능은 서버로 못 옮긴다(`checks/sim-data-gateway.js`). 다중 경로 update 는 칸이 서버 · Firebase 로 섞이면 쪼개지 않고 통째로 Firebase.
 
 ## `app-version.js` — 🏷️ 앱 버전(ver) 싣기
 
@@ -250,7 +234,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **책임** — Firebase `config/maintenance`(`{ on, endsAt?, message? }` · 웹 관리자가 씀)가 켜진 동안, **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
 
-**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `config/maintenance` 를 구독해 `store.onValue` 에 잇고, 범용 통로(`data-gateway.js` `onOp`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
+**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `config/maintenance` 를 구독해 `store.onValue` 에 잇고, Firebase 기본 동작(firebase-init.js `_touched`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
 
 **내놓는 것**
 - `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).
@@ -341,3 +325,44 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 크로미움(Electron 44 실측)은 칸을 옮기면 compositionend → blur → focusout(같은 틱), 다른 앱이 앞으로 오면 focusout(창 포커스 없음) → window blur → compositionend, 칸을 다시 그리면 compositionend 없이 focusout(그때는 아직 붙어 있음 — 그래서 `defer` 뒤에 `isConnected` 를 본다). 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
 - **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
 - 검사: `checks/sim-input-diag.js`(깨 보기 열).
+
+## `request-id.js` — 🔁 요청 번호(requestId)
+
+- **책임**: 새것을 만들거나 쌓는 쓰기(뽑기 · 선물 · 지급 · 초대 · 글 쓰기 · 대화 보내기)에 싣는 `requestId` 를 만든다 — 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`(uuid). 서버는 같은 사람 · 같은 번호를 «처음 결과를 다시 돌려주기» 로 받는다(10분).
+- **쓰는 법**: 한 번 보내고 끝 — `body.requestId = TwRequestId.newId()`. 닿지 못해 다시 보낼 수 있는 일 — `const ids = TwRequestId.createPending()` 을 모듈에 하나 두고 `ids.idFor(키)`(같은 키는 같은 번호) → 답을 받으면(성공이든 서버 거절이든) `ids.settle(키)`.
+- **내놓는 것**: `PATTERN` · `isValid` · `newId` · `createPending({ newId?, max? })` → `{ idFor · settle · has · size }` · `createIdMaker({ crypto, random })` · `uuidFrom(bytes)`.
+- **함정**: 다시 보낼 때 새 번호를 만들면 서버가 새 일로 받아 두 번 된다(뽑기 두 번 · 선물 두 번). 끝난 일을 settle 하지 않으면 다음 일이 옛 번호로 가서 서버가 옛 결과를 돌려준다. 끝내지 않은 키는 `PENDING_MAX` 까지만 기억한다.
+- 검사: `checks/sim-request-id.js`.
+
+## `device-id.js` — 🖥️ 이 기기 id(`tw.deviceId`)
+
+- **책임**: 서버가 프리미엄을 «이 기기» 로 판정할 때 쓰는 기기 칸 이름 하나. 로그인 API 요청 머리 `X-Device-Id`(api-client.js 가 붙인다)와 realtime `hello.deviceId` 에 같은 값을 싣는다. 신원이 아니다(신원은 로그인 토큰뿐).
+- **쓰는 법**: `TwDeviceId.store.get()` — 처음 부를 때 한 번 만들어(`TwRequestId.newId` · uuid) `localStorage` 에 두고, 그 뒤로는 저장값. 저장값이 모양(`^[A-Za-z0-9_-]{8,64}$`) 밖이면 새로 만들어 덮는다.
+- **함정**: 계정을 바꿔도 **지우지 않는다**(계정 전환 지움 목록에 넣지 말 것) — 값이 바뀌면 같은 PC 가 등록 기기(3대)를 하나 더 차지한다. 저장이 막힌 PC 는 실행마다 다른 기기로 보인다.
+- 검사: `checks/sim-device-id.js`.
+
+## `api-client.js` — 🌐 앱 공통 API 통로(`/v1`)
+
+- **책임**: fetch · 시간 제한 · 봉투 풀기 · 실패 한 모양(`ApiError` kind · code · items · retryAfterMs) · 토큰 · 기기 머리 · ETag(304) 를 한 곳에서. 앱 오류 번호로 바꾸는 표는 `api-errors.js`.
+- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
+- **ETag**: 응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 `If-None-Match` — 304 면 기억한 값. 로그인 읽기는 토큰 주인(sub)마다 따로 기억한다. 계정을 놓을 때 `clearCache()`.
+- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
+- **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
+- 검사: `checks/sim-api-client.js`.
+
+## `api-errors.js` — 🧭 서버 오류 봉투 → 할 일 · 오류 번호
+
+- **책임**: api-client.js 의 `ApiError`(서버 봉투 code · 통로 kind)를 «할 일 + 오류 번호» 로 바꾸는 표 한 곳. 공통 code 만 여기 — `AUTH_REQUIRED` · `NO_TOKEN` → `login`(E-NET-01) · `USER_CODE_NOT_BOUND` → `signup`(토스트 없음) · `SERVER_ADMIN_ONLY` → `maintenance`(토스트 없음) · `ACCESS_DENIED` · `PREMIUM_REQUIRED` → `notice` · `TOO_MANY_REQUESTS` → `later`(`retryAfterMs`) · `CONCURRENT_UPDATE` → `refetch` · 모양 오류 → `notice` · 닿지 못함 → `offline`(E-NET-07) · 그 밖 → `notice`(E-NET-08).
+- **쓰는 법**: `const t = TwApiErrors.store.notify(err, 내 표)` → `{ code, action, retryAfterMs, items }` 를 받아 화면을 고른다(로그인 화면 · 점검 창 · 다시 받기는 부르는 쪽 몫). 번호 없이 판단만 — `TwApiErrors.translate(err, 내 표)`.
+- **기능 표**: `{ GIFT_DAILY_LIMIT: { action: 'later', notice: (notifyError, e) => notifyError('E-MH-..', e, e.message) } }` 모양으로 그 묶음 파일에 둔다 — 번호는 error-codes.js 표에 먼저 넣고 글자 그대로. 기능 표가 공통 표보다 먼저다.
+- **함정**: 서버 message 는 사용자 문구로 써도 되는 곳만 셋째 인자로(선물 · 하루 상한처럼 숫자가 든 것). 공통 표에 기능 code 를 더하지 않는다 — 같은 code 를 기능마다 다르게 다룰 수 있어야 한다.
+- 검사: `checks/sim-api-errors.js`.
+
+## `remote-config.js` — ⚙️ 원격 설정(`GET /v1/config` 하나)
+
+- **책임**: 운영 값(방 상한 · 정원 · 방 연결 시간 · 앱 · 방 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 서버 `GET /v1/config` 한 곳에서 받아 칸마다 씻어 둔다. 못 받으면 이 PC 저장값(2판) → 기본값. Firebase config 칸은 읽지 않는다.
+- **쓰는 법**: `TwRemoteConfig.store` — `maxPeople()` · `roomLimitOf(채널)` · `inviteGate()` · `roomServerTiming()` · `minAppVer()` · `minRoomVer()` · `bugDailyMax()` · `bannedWords()` · `clapDailyMax()` · `giftDailySendMax()` · `onChange(fn)` · `ready(_, ms)` · `refresh({ maxAgeMs })`.
+- **다시 읽기**: 5분마다 · 창이 다시 보일 때(1분 넘었으면) · realtime 알림 `config`(rt-hub.js — 서버가 바꿨다 · 오래 끊겼다 붙음). 같은 값이면 API 통로가 ETag 304 로 받는다.
+- **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.
+- **함정**: 최소 버전은 저장값을 쓰지 않는다(지난 값으로 막지 않게). 옛 판(평평한 칸)이 남긴 저장값은 판 표시가 없어 읽지 않는다. 칸 이름(`roomMaxPeople` 등)은 앱 안 이름이라 서버 이름과 다르다 — 풀기는 `fieldsOf` 한 곳.
+- 검사: `checks/sim-remote-config.js`.

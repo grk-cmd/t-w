@@ -262,7 +262,7 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 | `SETUP` | 1–180 | 180 | 렌더러 · 씬 · 조명 만들기 · `applyGlowEffect` | 부팅은 app.js · 빛 번짐은 `character/` | |
 
 남는 것(끝의 정의 새 판): 부팅 순서 · 모듈 연결 · 프레임 루프 · 공용 상태(`seats` 등)를 넘기는 줄.
-데이터 읽기 · 쓰기(`firebase-init.js`)는 이 표와 별개 — 서버 API 로 옮기면서 줄어든다(데이터 통로 `shared/data-gateway.js` · 서버 처리기).
+데이터 읽기 · 쓰기(`firebase-init.js`)는 이 표와 별개 — 서버 API 로 옮기면서 줄어든다(도메인 provider → `shared/api-client.js` · 0.13 에서 범용 데이터 통로는 걷음).
 
 ## 구역 표 — `apps/desktop/app/parts/app.js`
 

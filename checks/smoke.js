@@ -567,8 +567,6 @@ PRELOAD.push('friends-api.js');
 PRELOAD.push('friends-port.js');
 /* source-switch.js — 기능별 받는 곳 고르기(서버 / 파이어베이스). app.js 가 친구 포트를 만들 때 TwSourceSwitch.serverFirst 를 넘긴다. */
 PRELOAD.push('source-switch.js');
-/* data-gateway.js — 범용 데이터 통로(firebase-init.js 가 기본 동작 앞에 둔다). 표가 비면 모든 동작이 Firebase 그대로. */
-PRELOAD.push('data-gateway.js');
 PRELOAD.push('friends-sub.js');
 PRELOAD.push('presence-lock.js');   // 🔒 친구 탭 온라인 고정 — app.js 가 만든다
 /* myhome-init.js — 마이홈 처음 준비(앱 FSD 44번 남은 몫). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeInit 를 같이 굴린다. */

@@ -22,7 +22,8 @@ const AREAS = {
   CHAT: '채팅',
   CHAR: '캐릭터 · 꾸미기 · 가챠',
   FOCUS: '포커스 · 레벨',
-  DATA: '범용 데이터 통로(서버로 옮긴 경로)',
+  DATA: '(걷음) 범용 데이터 통로 — 걷은 번호만',
+  NET: '서버 통로 공통(API · realtime)',
   SYS: '그 밖',
 };
 const CODE_RE = /^E-([A-Z]+)-(\d{2})$/;
@@ -58,13 +59,22 @@ const CODES = {
   'E-CHAR-12': { msg: '뽑기를 저장하지 못했어요 — 잠시 후 다시 시도해 주세요(횟수는 그대로예요)', where: 'character/gacha.js — 뽑기 트랜잭션 오류 (updateGacha error · 서버 길 GACHA_BUSY · CATALOG_NOT_READY · 그 밖 4xx — gacha-server.js reasonOf)' },
   'E-CHAR-13': { msg: '책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요', where: 'character/wardrobe.js — 꾸미기 🪑 책상 탭에서 카탈로그 책상 고르기 (resolveCatalogGlb 실패 · rec.glb 없음)' },
   'E-CHAR-14': { msg: '책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요', where: 'creator/desk-setup.js — 생성기 책상 카드 고르기 (resolveCatalogGlb 실패 · rec.glb 없음)' },
-  'E-DATA-01': { msg: '이 작업을 할 권한이 없어요', where: 'shared/data-gateway.js — 서버 범용 통로 ACCESS_DENIED(경로 처리기가 권한 거절)' },
-  'E-DATA-02': { msg: '요청 모양이 맞지 않아 처리하지 못했어요', where: 'shared/data-gateway.js — 서버 범용 통로 INVALID_REQUEST' },
-  'E-DATA-03': { msg: '다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요', where: 'shared/data-gateway.js — 서버 범용 통로 CONCURRENT_UPDATE' },
-  'E-DATA-04': { msg: '서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'shared/data-gateway.js — 서버 범용 통로 모르는 code(번역표에 없음)' },
+  'E-NET-01': { msg: '로그인이 풀렸어요 — 다시 로그인해 주세요', where: 'shared/api-errors.js — 공통 AUTH_REQUIRED · 토큰 없음(NO_TOKEN)' },
+  'E-NET-02': { msg: '이 작업을 할 권한이 없어요', where: 'shared/api-errors.js — 공통 ACCESS_DENIED' },
+  'E-NET-03': { msg: '프리미엄에서 쓸 수 있는 기능이에요', where: 'shared/api-errors.js — 공통 PREMIUM_REQUIRED(이 기기 판정 — X-Device-Id)' },
+  'E-NET-04': { msg: '요청이 너무 잦아요 — 잠시 뒤 다시 해 주세요', where: 'shared/api-errors.js — 공통 TOO_MANY_REQUESTS(Retry-After)' },
+  'E-NET-05': { msg: '다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요', where: 'shared/api-errors.js — 공통 CONCURRENT_UPDATE(다시 받고 한 번 더)' },
+  'E-NET-06': { msg: '요청 모양이 맞지 않아 처리하지 못했어요', where: 'shared/api-errors.js — 공통 INVALID_REQUEST · METHOD_NOT_ALLOWED · UNSUPPORTED_MEDIA_TYPE · PAYLOAD_TOO_LARGE' },
+  'E-NET-07': { msg: '서버에 닿지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요', where: 'shared/api-errors.js — 닿지 못함(네트워크 · 시간 초과 · 5xx · 사본 없음)' },
+  'E-NET-08': { msg: '서버에서 처리하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'shared/api-errors.js — 표에 없는 code(기능 표 · 공통 표 둘 다 없음)' },
 };
 /* 걷은 번호 — { 번호: '언제 · 왜' }. 다시 쓰지 않으려고 남긴다. */
-const RETIRED = {};
+const RETIRED = {
+  'E-DATA-01': '0.13 · 범용 데이터 통로(data-gateway.js)를 걷음 — 서버 오류는 api-errors.js(E-NET)',
+  'E-DATA-02': '0.13 · 범용 데이터 통로(data-gateway.js)를 걷음 — 서버 오류는 api-errors.js(E-NET)',
+  'E-DATA-03': '0.13 · 범용 데이터 통로(data-gateway.js)를 걷음 — 서버 오류는 api-errors.js(E-NET)',
+  'E-DATA-04': '0.13 · 범용 데이터 통로(data-gateway.js)를 걷음 — 서버 오류는 api-errors.js(E-NET)',
+};
 
 const REPEAT_MS = 10000;   // 같은 번호를 이 안에 또 부르면 토스트는 한 번만(연타 · 일괄 처리) — 기록은 남는다
 const TOAST_MS = 4000;     // 번호를 읽고 적을 시간 — 기본 토스트(1.9초)보다 길게
