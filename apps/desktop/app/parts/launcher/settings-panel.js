@@ -421,7 +421,7 @@ const fsWin = (function bindFocusSettings(){
        안 하면 그 창만 이 버튼으로 못 되돌린다(= 다시 "사라졌다" 제보가 온다). */
   window.__winPosResetters = window.__winPosResetters || [];
   function resetAllWinPositions(){
-    ['tw.wdPreviewPos','tw.gachaWinPos','tw.ideskInvPos','tw.playlistPos','tw.bellWinPos','tw_chat_win_pos']
+    ['tw.wdWinPos','tw.gachaWinPos','tw.ideskInvPos','tw.playlistPos','tw.bellWinPos','tw_chat_win_pos']
       .forEach(k=>{ try{ localStorage.removeItem(k); }catch(_){} });
     (window.__winPosResetters||[]).forEach(fn=>{ try{ fn(); }catch(_){} });
     /* 지금 떠 있는 창은 그 자리에서 기본 위치로 돌려놓는다 — 다시 열 때까지 기다리게 하면
@@ -432,7 +432,7 @@ const fsWin = (function bindFocusSettings(){
         el.style.left=''; el.style.top=''; el.style.right=''; el.style.transform='';
         el.style.width=''; el.style.height='';
       });
-    if(typeof wardrobeMod().clampWdPreviewIntoView==='function') wardrobeMod().clampWdPreviewIntoView();
+    wardrobeMod().placeWdWindows();   // 꾸미기 창이 떠 있으면 두 창을 가운데로(기억을 지웠다)
     toast('\ud83e\ude9f 창 위치를 처음 상태로 되돌렸어요');
   }
   const rwBtn=document.getElementById('fsResetWinPos');

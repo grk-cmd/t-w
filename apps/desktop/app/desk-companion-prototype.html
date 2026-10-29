@@ -4781,17 +4781,18 @@
      ⚠️ 93 은 **아무 숫자가 아니다** — app.js 의 WIN_Z_MAX(92) 바로 위다. 둘은 함께 움직인다.
        가챠(120)·마이홈 팝업(9200)·색 선택(9999) 은 그대로 이 위에 남는다.
      ⚠️ 여기를 다시 낮추려면 채팅창 쪽도 같이 봐야 한다. 한쪽만 고치면 그때 그 제보로 돌아간다. */
+  /* 🎨 꾸미기 창 · 👀 미리보기 창 — 화면 가운데에 나란히 뜨는 창(자리는 wardrobe.js placeWdWindows 가 left · top 으로 정한다).
+     닫혀 있을 땐 visibility 로 숨긴다 — 닫힌 채 다시 그리는 일(카탈로그 도착 등)이 있어 레이아웃은 남겨 둔다. */
   #wardrobePanel{
-    position:fixed;top:50%;right:16px;transform:translate(120%, -50%);
+    position:fixed;left:0;top:0;visibility:hidden;pointer-events:none;
     width:360px;max-height:calc(100vh - 60px);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    z-index:var(--z-wardrobe);display:flex;flex-direction:column;overflow:hidden;
-    transition:transform .32s cubic-bezier(.34,1.56,.64,1);border-radius:var(--win-radius-el) !important;}
-  #wardrobePanel.on{transform:translate(0, -50%);}
-  /* 꾸미기 미리보기 — 꾸미기 패널 왼쪽에 나란히 뜨는 정적 3D 미리보기 */
+    z-index:var(--z-wardrobe);display:flex;flex-direction:column;overflow:hidden;border-radius:var(--win-radius-el) !important;}
+  #wardrobePanel.on{visibility:visible;pointer-events:auto;}
+  /* 꾸미기 미리보기 — 꾸미기 창 왼쪽에 붙어 같이 움직이는 정적 3D 미리보기 */
   #wdPreviewPanel{
-    position:fixed;top:50%;right:352px;transform:translate(0, -50%);
+    position:fixed;left:0;top:0;
     width:320px;min-height:420px;max-height:78vh;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
@@ -8464,6 +8465,7 @@
 <script src="parts/chat/chat-ui.js"></script>   <!-- 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatUi.createChatUi 로 만든다) -->
 <script src="parts/account/license-gate.js"></script>   <!-- 🎟️ 초대장 · 라이선스 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseGate.createLicenseGate 로 만든다) -->
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
+<script src="parts/character/wardrobe-place.js"></script>   <!-- 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 보다 먼저(wardrobe.js 가 TwWardrobePlace 를 읽는다) -->
 <script src="parts/character/wardrobe.js"></script>   <!-- 🎨 꾸미기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWardrobe.createWardrobe 로 만든다) -->
 <script src="parts/launcher/settings-panel.js"></script>   <!-- ⚙ 설정 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSettingsPanel.createSettingsPanel 로 만든다) -->
 <script src="parts/launcher/click-through-policy.js"></script>   <!-- 🖱 클릭 통과 판단 규칙(순수 함수 · main.js 도 require) — desktop-run.js 보다 먼저 -->

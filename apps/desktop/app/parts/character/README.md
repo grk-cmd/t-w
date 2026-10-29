@@ -377,6 +377,16 @@
   - 라이선스가 없으면 꾸미기 창은 «도감» 탭만 연다(다른 탭은 잠금 안내 · [라이선스 등록하러 가기]). 뽑은 가챠 파츠는 카테고리 칸에도 🎰 로 보인다.
   - 검사: `checks/sim-gacha-album.js`(규칙 · 연결 · 깨 보기) · `checks/sim-gacha.js` 5절(도감 화면) · `checks/sim-wardrobe.js` 2-2절(탭 · 라이선스) · `checks/sim-wardrobe-panel.js` 2-2절(F2 · T 고리 없음 · [도감으로]).
 
+## wardrobe-place.js — 📐 꾸미기 창 · 미리보기 창 자리
+
+- **책임**: 🎨 꾸미기 창(`#wardrobePanel`)과 👀 미리보기 창(`#wdPreviewPanel`)을 어디에 둘지(순수 함수 · DOM · 저장 없음). 두 창은 한 몸 — 미리보기는 늘 꾸미기 창 왼쪽에 붙는다. 기억이 없으면 둘을 묶어 화면 가운데.
+- **만드는 법**: classic script(`window.TwWardrobePlace`) — html 이 `wardrobe.js` 앞에 싣고, `wardrobe.js` 가 `TwWardrobePlace.placeGroup` 을 부른다.
+- **내놓는 것**: `GAP`(8) · `MARGIN`(8) · `isPos(s)` · `placeGroup({ vw, vh, panel:{w,h}, preview:{w,h}, saved })` → `{ panel:{x,y}, preview:{x,y} }`.
+- **함정**:
+  - 자리 기억은 꾸미기 창 왼쪽 위 하나(`tw.wdWinPos` — `wardrobe.js` 가 읽고 쓴다). 어느 쪽 제목줄을 끌어도 같이 움직인다.
+  - 화면이 좁아 둘이 다 안 들어가면 꾸미기 창을 먼저 화면 안으로 · 미리보기는 겹쳐도 화면 안으로만.
+  - 검사: `checks/sim-wardrobe-place.js`.
+
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 
 - **책임**: 그래픽 리셋 등으로 캔버스가 비면 같은 캔버스에 다시 그린다. `repairBlankFaces` — 내 사람 칸(저장본 `LS_KEY` 로). `repairSeatTextures` — 남의 사람 좌석(방 동기화가 남긴 `faceUrl` · `blinkUrl`)과 동물 좌석(내 것 포함 · `animal.js` 가 텍스처에 남긴 `userData.twSrc` · `twFill`). `reportGlReset` — WebGL 이 돌아온 직후(`gl-recover.js` `afterRestore`) 빈 좌석 그림 수를 진단 기록에 한 줄 남기고 바로 고친다.
