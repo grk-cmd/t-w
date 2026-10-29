@@ -266,7 +266,7 @@
 | **sim-guestbook.js** | 291 | **d7d424fc8974** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
-| **sim-myhome-sticker.js** | 415 | **6a7c58901fb9** |
+| **sim-myhome-sticker.js** | 415 | **412082771903** |
 | **sim-gacha.js** | 573 | **158e5e7830be** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
