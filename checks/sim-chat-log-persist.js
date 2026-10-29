@@ -8,10 +8,7 @@
        ① 입장 첫 스냅샷 청소 — **재부팅 직후 첫 사람**이 정확히 여기를 지난다
        ② 마지막 퇴장 청소 — `_finalCleanup`
 
-   ★ 이 검사가 지키는 것 — 셋이 한 묶음이다. 하나만 어긋나도 제보가 그대로 돌아온다.
-     §1 두 청소 자리가 chatLog 를 안 지운다 (플래그 한 곳으로 묶여 있다)
-     §2 _meta 는 서버 함수가 걷고(2분 뒤 · 다시 보고) 퇴장은 roomIndex 줄에 비었음 표시 — 둘 다 죽으면 유령 방·채널 오염이 돌아온다
-     §3 기록만 남은 방은 여전히 '빈 방'이다 (인원 세는 곳이 chatLog 를 멤버로 안 센다)
+   ★ 이 검사가 지키는 것 — (§1~§3 은 0.13 에서 걷었다: 앱이 Firebase 방에 들어가지 않아 청소 자리 자체가 없다 · 방은 realtime 서버)
      §4 '처음 입장한 사람은 이전 기록을 못 본다'는 규칙이 **localStorage 에** 남아 있다
         — 기록을 지우는 것으로 대신하고 있었으므로, 지금부터는 이쪽이 유일한 담당이다
 
@@ -33,107 +30,6 @@ let fail = 0;
 const chk = (c, m) => { say((c ? '  \u2713 ' : '  \u2717 ') + m); if (!c) fail++; };
 
 say('=== 방이 비어도 대화 기록이 남는가 ===');
-say('');
-
-/* ── §1. 지우는 자리 둘 ─────────────────────────────────────────── */
-say('· §1 chatLog 를 지우던 두 자리');
-
-const flagDecl = /const\s+KEEP_CHAT_LOG_ON_EMPTY\s*=\s*(true|false)\s*;/.exec(HTML);
-chk(!!flagDecl, '보존 여부가 상수 하나로 묶여 있다 (KEEP_CHAT_LOG_ON_EMPTY — 한 줄로 뒤집는 자리)');
-chk(!!flagDecl && flagDecl[1] === 'true', '\u2605 지금 켜져 있다 (false 면 제보가 그대로 돌아온다)');
-chk((HTML.match(/KEEP_CHAT_LOG_ON_EMPTY/g) || []).length >= 3,
-    '두 청소 자리가 **같은** 상수를 읽는다 (한쪽만 고치면 나머지 한쪽이 계속 지운다)');
-
-/* 🗑 **사람이 눌러서 지우는 자리는 세지 않는다.**
-   방장이 [대화 기록 삭제]를 누르면 도는 `clearChatLog` 가 그것이다(확인창은 app.js 의
-   `_chatDelOpen` · `_chatDelRun`). 이 검사가 막으려는 것은 «아무도 없으니 지운다»는 **자동**
-   청소지, 사람이 뜻을 밝힌 삭제가 아니다 — 여기를 플래그로 막으면 그 버튼이 조용히 죽는다.
-
-   ★ 2026-09 에 이 자리가 늘어 검사가 빨개졌다. 코드가 샌 게 아니라 **검사가 낡은 것**이었다.
-     (핸드오프 `handoff-checks-baseline.md` §3-④ 의 «검사가 낡은 것인지 코드가 샌 것인지» 가
-      이것이다.)
-   ⚠️ 이름을 늘릴 때는 **사람의 행동에서 시작하는 경로인지** 확인하고 늘릴 것. 자동 청소를
-     여기에 적으면 이 검사가 지키는 것이 통째로 사라진다. */
-const BY_HAND = ['clearChatLog'];
-const lineAt = (i) => HTML.slice(0, i).split('\n').length;
-const handRanges = [];
-for (const name of BY_HAND) {
-  const i = HTML.indexOf(name + '(');
-  if (i < 0) continue;
-  let d = 0;
-  for (let k = HTML.indexOf('{', i); k < HTML.length; k++) {
-    if (HTML[k] === '{') d++;
-    else if (HTML[k] === '}' && --d === 0) { handRanges.push([lineAt(i), lineAt(k)]); break; }
-  }
-}
-const byHand = (n) => handRanges.some(([a, b]) => n >= a && n <= b);
-
-// 모든 chatLog 삭제 호출이 플래그 뒤에 있는가 — 조건 없는 **자동** 삭제가 하나라도 남으면 실패
-const allDel = HTML.split('\n')
-  .map((l, i) => ({ n: i + 1, l }))
-  .filter(o => /remove\(ref\(db,\s*`rooms\/\$\{[^`]*\}\/chatLog`\)\)/.test(o.l));
-const handDel = allDel.filter(o => byHand(o.n));
-const delLines = allDel.filter(o => !byHand(o.n));
-chk(handDel.length === BY_HAND.length,
-    '사람이 눌러 지우는 자리는 ' + BY_HAND.length + '곳 그대로다 (찾은 수: ' + handDel.length
-    + ') — 여기는 막지 않는다');
-chk(delLines.length === 2, '자동으로 지우는 자리는 둘 그대로다 (찾은 수: ' + delLines.length + ')');
-delLines.forEach(o => {
-  chk(/KEEP_CHAT_LOG_ON_EMPTY/.test(o.l) || /if\s*\(\s*!KEEP_CHAT_LOG_ON_EMPTY/.test(o.l)
-      || /!_otherAlive && !KEEP_CHAT_LOG_ON_EMPTY/.test(HTML.split('\n')[o.n - 3] || '')
-      || /KEEP_CHAT_LOG_ON_EMPTY/.test(HTML.split('\n').slice(Math.max(0, o.n - 4), o.n).join('\n')),
-      '\u2605 ' + o.n + '행의 삭제가 플래그 뒤에 있다');
-});
-
-// ①의 자리 — 재부팅 직후 첫 사람이 지난다. 여기가 뚫리면 매 부팅마다 날아간다.
-chk(/if\(!_otherAlive && !KEEP_CHAT_LOG_ON_EMPTY\)/.test(HTML),
-    '\u2605 입장 첫 스냅샷 청소가 막혀 있다 (재부팅 직후 첫 사람이 지나는 자리)');
-// ②의 자리 — 마지막 퇴장
-chk(/!KEEP_CHAT_LOG_ON_EMPTY && keys && keys\.chatLog/.test(HTML),
-    '\u2605 마지막 퇴장 청소(_finalCleanup)가 막혀 있다');
-
-say('');
-
-/* ── §2. 같이 지우면 안 되는 것 / 계속 지워야 하는 것 ───────────── */
-say('· §2 _meta 는 서버 함수가 걷는다 · roomIndex 줄엔 비었음 표시');
-
-/* _meta 지우기는 앱 퇴장에서 서버 함수로 옮겼다(퇴장의 «확인 → 지우기» 경쟁) — sim-room-meta-cleanup.js 가 자세히 본다.
-   여기서는 «누군가는 여전히 지운다» · «chatLog 는 서버도 안 지운다» 만 붙잡는다. */
-const finalCleanup = (HTML.match(/const _finalCleanup = async \(keys\)=>\{[\s\S]*?\n {10}\};/) || [''])[0];
-const FN_RS = ['functions/room-stats.js', '../functions/room-stats.js'].map(f => fs.existsSync(f) ? fs.readFileSync(f, 'utf8') : '').join('');
-chk(finalCleanup.length > 0, '_finalCleanup 블록을 찾았다');
-// 1시간 뒤 지우기 · 다시 열린 방 남기기는 sim-room-meta-cleanup.js 가 가짜 DB 로 돌려 본다 — 여기서는 지우는 곳이 한 곳뿐인지만.
-chk(FN_RS.length > 0 && (FN_RS.match(/chatLog'\)\.remove/g) || []).length === 1
-    && /if \(!inUse\)\{ await db\.ref\('rooms\/' \+ code \+ '\/chatLog'\)\.remove\(\);/.test(FN_RS)
-    && /if \(keys && keys\.chatLog && await isPublicTogether\(db, code, metaChannel\)\) await markChatPurge\(db, code, now\);/.test(FN_RS)
-    && /if \(meta\.channel === CHANNEL\.TOGETHER\) await markChatPurge\(db, code, now\);/.test(FN_RS),
-  '서버 함수는 공용 투게더룸(시크릿 제외)의 chatLog 만 지울 시각을 적고(빈 Firebase 방 · 닫힌 방 서버 방 두 곳) 1시간 뒤 한 곳에서 지운다 — 워킹룸 · 시크릿룸은 남긴다');
-chk(/if \(String\(code\)\.indexOf\(SECRET_ROOM_PREFIX\) === 0\)\{\s*\/\/[^\n]*\n\s*await dropEmptyRow\(db, code, now\);\s*done\.add\(code\); secretKept\+\+; continue;/.test(FN_RS),
-  '  시크릿룸은 _meta(탭 목록) · _chatTab 지우기보다 먼저 빠진다 — 비었음 줄만 걷고 방은 유지');
-chk(/const r = await db\.ref\('rooms\/' \+ code \+ '\/_meta'\)\.transaction\(/.test(FN_RS),
-    '\u2605 _meta 는 서버 함수가 트랜잭션으로 지운다 (아무도 안 지우면 남은 표지가 쌓인다)');
-chk(/update\(ref\(db, `roomIndex\/\$\{roomCodeForCleanup\}`\), \{ lastSeen: 0, emptyAt: serverTimestamp\(\) \}\)/.test(finalCleanup),
-    '\u2605 마지막 퇴장은 roomIndex 줄에 비었음 표시를 남긴다 — 방 개수 · 랜덤 후보에서 바로 빠진다 (\uD83D\uDCB0 서버가 이 줄로 빈 방을 찾는다)');
-
-say('');
-
-/* ── §3. 기록만 남은 방은 빈 방인가 ─────────────────────────────── */
-say('· §3 기록만 남은 방을 사람이 있는 방으로 세지 않는가');
-
-const memberKey = (HTML.match(/const _isMemberKey = [^\n]*/) || [''])[0];
-chk(/k\.charAt\(0\) !== '_'/.test(memberKey) && /k !== 'chatLog'/.test(memberKey),
-    "\u2605 퇴장 청소의 멤버 판정이 chatLog 를 뺀다 (안 빼면 기록 남은 방이 영원히 '사람 있는 방')");
-
-// 인원/정원 계산에서도 같은 규칙이어야 한다 — 여기가 틀리면 빈 방이 만석으로 보인다
-const capacityFilters = (HTML.match(/id !== 'chatLog'|id\.charAt\(0\) !== '_' && id !== 'chatLog'/g) || []).length;
-chk(capacityFilters >= 3,
-    '인원 계산 쪽도 chatLog 를 멤버에서 뺀다 (' + capacityFilters + '곳) — 빈 방이 만석으로 보이지 않는다');
-
-// 유령 방 판정도 같은 규칙 (관리자 청소가 유일한 배출구라 여기가 틀리면 아무것도 못 걷는다)
-const ghost = (HTML.match(/async cleanGhostRooms\(\)\{[\s\S]*?\n    \},/) || [''])[0];
-chk(/k === '_meta' \|\| k === 'chatLog'/.test(ghost),
-    '유령 방 판정도 chatLog 를 멤버로 세지 않는다 (관리자 청소가 용량 배출구다)');
-
 say('');
 
 /* ── §4. '처음 입장'은 이제 여기가 유일한 담당 ──────────────────── */

@@ -3,13 +3,13 @@
      읽음은 창을 닫을 때 «화면 목록의 마지막» 으로 저장하는데, 방금 보낸 내 줄은 서버 시각이 오기 전
      내 PC 가 어림한 임시 시각이라 읽음이 진짜 시각보다 앞에 저장됐다.
    [고침] «보내는 순간 = 거기까지 읽었다» — 서버가 받은 뒤 진짜 시각으로 그 채널 읽음을 저장(chat-ui.js _chatMarkSentRead).
-   실제 chat-ui.js · chat-tabs.js 를 가짜 DOM · 가짜 firebaseAPI 위에서 돌린다(글자 판정 없음).
-   ・1절: 보내기 확인 뒤 읽음 = 내 메시지 진짜 시각 · 확인 전엔 안 바뀜 · sendChatLog 에 wantTs
+   실제 chat-ui.js · chat-tabs.js 를 가짜 DOM · 가짜 대화 포트(chatNet — chatSaid 가 { id, ts } 를 준다) 위에서 돌린다(글자 판정 없음).
+   ・1절: 보내기 확인 뒤 읽음 = 내 메시지 진짜 시각 · 확인 전엔 안 바뀜
    ・2절: 앞으로만 — 더 뒤 표시는 그대로 · 옛 형식(id 만) 표시는 덮는다 · 실패 · 시각 없음이면 안 건드림
    ・3절: 보낸 채널에만 — #s1 에서 보내면 #s1 만 · 확인 전에 탭을 옮겨도 보낸 탭에
    ・4절: 보내고 바로 나갔다 다시 들어와 셀 때 내 메시지가 안 읽음으로 안 잡힌다 · 열린 창의 구분선은 안 움직인다
    ・5절: 날리기(🌊)로 보내도 기록에 남으므로 읽음도 맞춘다
-   ・6절: firebase-init.js sendChatLog — 쓰기가 끝난 뒤 그 줄의 ts 한 칸만 읽어 { id, ts } · wantTs 없으면 안 읽음 · 못 읽어도 보내기 성공
+   ・(6절 걷음 — 서버가 chatSaid 로 줄의 id · 시각을 준다(chat-rt.js · sim-chat-rt.js))
    ・7절: 일부러 깨 보기 — 고친 줄을 되돌리면 빨강
    [실행] chat-ui.js · chat-tabs.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -20,8 +20,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const pick = (n) => [n, 'parts/chat/' + n, 'app/parts/chat/' + n].map(read).find(Boolean);
 const MOD = pick('chat-ui.js'), TABS = pick('chat-tabs.js');
-const FB = ['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js'].map(read).find(Boolean);
-if(!MOD || !TABS || !FB){ say('  ? 원본 못 찾음 — chat-ui.js · chat-tabs.js · firebase-init.js'); process.exit(2); }
+if(!MOD || !TABS){ say('  ? 원본 못 찾음 — chat-ui.js · chat-tabs.js'); process.exit(2); }
 
 const ME = 'u-me', ROOM = 'R1';
 const flush = () => new Promise((r) => setImmediate(r));
@@ -49,12 +48,13 @@ function world(src, opts){
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const els = {};
   const doc = new Proxy({}, { get: (t, k) => k === 'getElementById' ? ((id) => (els[id] || (els[id] = el()))) : anything() });
-  const sends = [];          // sendChatLog 부름 — { room, msg, tab, opts, resolve }
-  const subs = [];           // subscribeChatLog 부름 — { room, cb, limit, tab }
-  const fb = {
-    sendChatLog: (room, msg, tab, o) => new Promise((resolve) => sends.push({ room, msg, tab, opts: o, resolve })),
-    subscribeChatLog: (room, cb, limit, tab) => { const s = { room, cb, limit, tab, off: false }; subs.push(s); return () => { s.off = true; }; },
+  const sends = [];          // chatNet.sendText 부름 — { room, msg, tab, resolve }
+  const subs = [];           // chatNet.subscribeLog 부름 — { room, cb, limit, tab }
+  const chatNet = {
+    sendText: (room, text, tab) => new Promise((resolve) => sends.push({ room, msg: { text }, tab, resolve })),
+    subscribeLog: (room, cb, limit, tab) => { const s = { room, cb, limit, tab, off: false }; subs.push(s); return () => { s.off = true; }; },
   };
+  const fb = {};
   let opened = null;          // 대화창 본문 구독(chatHistory.open)
   fb.chatHistory = { open: (room, tab, onList) => { opened = { room, tab, onList }; return () => {}; } };
   const win = { _activeChannel: 2, _roomMetaCache: { tabs: { s1: { name: '잡담', ts: 1 } } }, firebaseAPI: fb };
@@ -66,7 +66,7 @@ function world(src, opts){
   const presence = { roomCode: () => room, active: () => false, sendChat(){}, serverProvider: () => null };
   const deps = new Proxy({
     Presence: () => presence, _chatRoomCode: () => room, _chatOffOn: () => false, _parseDanceCmdChain: () => null,
-    officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, getDisplayName: () => '나', toast(){},
+    officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, myCode: () => ME, chatNet, getDisplayName: () => '나', toast(){},
     _chatEsc: (s) => String(s), escHtml: (s) => String(s), _chatLinkify: (s) => s,
     _chatLogCache: () => cache, setChatLogCache: (v) => { cache = v; }, _chatLogUnsub: () => null, setChatLogUnsub(){},
     CHAT_WIN_POS_KEY: () => 'tw.chatWinPos', bringWinToFront(){}, demojiCatalog: { DIR: '', LIST: [], BY_ID: {}, BY_CMD: {} }, seats: [], _myHomeData: () => null, isAdmin: () => false,
@@ -91,7 +91,7 @@ async function judgeAll(src){
   {
     const w = world(src, { store: { 'tw_chat_read:R1': 'T1000:-A', 'tw_chat_read:R1#s1': 'T500:-X' } });
     w.type('안녕');
-    t(w.sends.length === 1 && w.sends[0].tab === 'general' && w.sends[0].opts && w.sends[0].opts.wantTs === true, '1-1 보낼 때 sendChatLog 에 { wantTs:true } · #일반');
+    t(w.sends.length === 1 && w.sends[0].tab === 'general' && w.sends[0].msg.text === '안녕', '1-1 보낼 때 대화 포트 sendText · #일반');
     t(w.readOf('R1') === 'T1000:-A', '1-2 서버 확인 전엔 읽음 표시를 안 바꾼다');
     await w.reply(0, { ok: true, id: '-B', ts: 2000 });
     t(w.readOf('R1') === 'T2000:-B', '1-3 확인 뒤 읽음 = 내 메시지 진짜 시각(T2000:-B)' + (w.readOf('R1') !== 'T2000:-B' ? ' — 지금 ' + w.readOf('R1') : ''));
@@ -123,7 +123,7 @@ async function judgeAll(src){
     w.type('실패'); await w.reply(0, { ok: false, reason: 'x' });
     w.type('시각 못 읽음'); await w.reply(1, { ok: true, id: '-B', ts: null });
     w.type('옛 판 대답'); await w.reply(2, { ok: true });
-    t(w.readOf('R1') === 'T1000:-A', '2-5 실패 · 시각 없음 · 옛 대답({ok:true}) 이면 안 건드린다');
+    t(w.readOf('R1') === 'T1000:-A', '2-5 실패 · 시각 없음 · id 없는 대답이면 안 건드린다');
   }
   /* 3절 — 보낸 채널에만 */
   {
@@ -184,54 +184,9 @@ async function judgeAll(src){
     const w = world(src, { store: { 'tw_chat_read:R1': 'T1000:-A' } });
     w.ui.setChatFlyOn(true);
     w.type('날려라');
-    t(w.sends.length === 1, '5-1 날리기도 대화 기록(sendChatLog)에 남는다');
+    t(w.sends.length === 1, '5-1 날리기도 대화 기록(sendText)에 남는다');
     w.sends.length && await w.reply(0, { ok: true, id: '-F', ts: 6000 });
     t(w.readOf('R1') === 'T6000:-F', '5-2 그래서 날리기로 보낸 줄까지도 읽음');
-  }
-  return r;
-}
-
-/* 6절 — sendChatLog 를 떼어 가짜 SDK 위에서 돌린다 */
-function grabSend(fb){
-  const m = /    async sendChatLog\(room, msg, tabId, opts\)\{[\s\S]*?\n    \},\n/.exec(fb);
-  return m ? m[0].trim().replace(/,$/, '') : null;
-}
-async function judgeSend(fb){
-  const r = [];
-  const t = (ok, msg) => r.push([!!ok, msg]);
-  const body = grabSend(fb);
-  t(!!body, '6-0 firebase-init.js 에서 sendChatLog 를 찾았다');
-  if(!body) return r;
-  const mk = (o) => {
-    const log = { pushes: [], gets: [] };
-    const SV = { '.sv': 'timestamp' };
-    const ref = (db, path) => ({ path });
-    const push = (rf, v) => { const key = '-K' + log.pushes.length; log.pushes.push({ path: rf.path, v }); const p = o.pushFail ? Promise.reject(new Error('거절')) : Promise.resolve(); return Object.assign(p.then(() => ({ path: rf.path + '/' + key, key })), { key }); };
-    const get = (rf) => { log.gets.push(rf.path); return o.getFail ? Promise.reject(new Error('못 읽음')) : Promise.resolve({ val: () => 7777 }); };
-    const api = new Function('db', 'ref', 'push', 'get', 'serverTimestamp', '_chatLogPath', 'CHAT_TEXT_MAX', 'console',
-      'return {' + body + '};')(null, ref, push, get, () => SV, (room, tab) => (!tab || tab === 'general') ? 'rooms/' + room + '/chatLog' : 'rooms/' + room + '/_chatTab/' + tab, 1200, { warn(){} });
-    return { api, log };
-  };
-  {
-    const { api, log } = mk({});
-    const res = await api.sendChatLog('R1', { uid: 'u', name: 'n', text: 'hi' }, 's1', { wantTs: true });
-    t(res && res.ok === true && res.id === '-K0' && res.ts === 7777, '6-1 wantTs — { ok, id, ts(서버 값) } 를 돌려준다');
-    t(log.gets.length === 1 && log.gets[0] === 'rooms/R1/_chatTab/s1/-K0/ts', '6-2 읽는 건 그 줄의 ts 한 칸뿐(노드 통째 읽기 없음) — ' + log.gets.join(' · '));
-  }
-  {
-    const { api, log } = mk({});
-    const res = await api.sendChatLog('R1', { uid: 'u', name: 'n', text: 'hi' });
-    t(res && res.ok === true && res.id === '-K0' && res.ts === null && log.gets.length === 0, '6-3 wantTs 없으면(주사위 · 때리기 · 지우기 표시) 아무것도 안 읽는다');
-  }
-  {
-    const { api } = mk({ getFail: true });
-    const res = await api.sendChatLog('R1', { uid: 'u', name: 'n', text: 'hi' }, null, { wantTs: true });
-    t(res && res.ok === true && res.ts === null, '6-4 시각을 못 읽어도 보내기는 성공(ts 만 null)');
-  }
-  {
-    const { api, log } = mk({ pushFail: true });
-    const res = await api.sendChatLog('R1', { uid: 'u', name: 'n', text: 'hi' }, null, { wantTs: true });
-    t(res && res.ok === false && log.gets.length === 0, '6-5 쓰기가 거절되면 { ok:false } · 시각도 안 읽는다');
   }
   return r;
 }
@@ -239,33 +194,18 @@ async function judgeSend(fb){
 (async () => {
   let rows; try{ rows = await judgeAll(MOD); }catch(e){ rows = [[false, '돌리다 던짐 — ' + String(e && e.message || e).slice(0, 120)]]; }
   rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1~5. 실제로 돌려 보기'); chk(ok, msg); });
-  let rs; try{ rs = await judgeSend(FB); }catch(e){ rs = [[false, '돌리다 던짐 — ' + String(e && e.message || e).slice(0, 120)]]; }
-  rs.forEach(([ok, msg], i) => { if(i === 0) say('── 6. firebase-init.js sendChatLog'); chk(ok, msg); });
   say('── 7. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['보낸 뒤 읽음 저장 빼기(예전)', (s) => s.replace('if(r && r.ok) _chatMarkSentRead(sendKey, r);', '')],
     ['앞으로만 빼기 — 늘 덮기', (s) => s.replace(/(function _chatMarkSentRead\(key, sent\)\{[\s\S]*?)if\(!old \|\| !CHAT_MARK_RE\.test\(old\) \|\| _chatIsAfter\(sent, old\)\) /, '$1')],
     ['지금 탭에 저장(보낸 탭 아님)', (s) => s.replace('_chatMarkSentRead(sendKey, r)', '_chatMarkSentRead(_chatMarkKey(room, _chatMyTabId()), r)')],
     ['열린 창 구분선도 옮기기', (s) => s.replace(/(function _chatMarkSentRead\(key, sent\)\{)/, '$1 _chatReadMarker = _chatMarkOf(sent);')],
-    ['wantTs 안 보내기', (s) => s.replace(', sendTab, { wantTs:true })', ', sendTab)')],
   ];
   for(const [name, f] of breaks){
     const b = f(MOD);
     if(b === MOD){ chk(false, '깨 보기 «' + name + '» — 바꿀 줄을 못 찾음'); continue; }
     let bad = 0;
     try{ bad = (await judgeAll(b)).filter(([ok]) => !ok).length; }catch(_){ bad = 1; }
-    chk(bad > 0, '깨 보기 «' + name + '» → 빨강 ' + bad + '건');
-  }
-  const fbBreaks = [
-    ['시각 안 돌려주기(예전 { ok:true })', (s) => s.replace('return { ok:true, id: newRef.key, ts };', 'return { ok:true };')],
-    ['wantTs 없어도 늘 읽기', (s) => s.replace('if(opts && opts.wantTs){', 'if(true){')],
-    ['줄 통째 읽기', (s) => s.replace("+ '/' + newRef.key + '/ts'", "+ '/' + newRef.key")],
-  ];
-  for(const [name, f] of fbBreaks){
-    const b = f(FB);
-    if(b === FB){ chk(false, '깨 보기 «' + name + '» — 바꿀 줄을 못 찾음'); continue; }
-    let bad = 0;
-    try{ bad = (await judgeSend(b)).filter(([ok]) => !ok).length; }catch(_){ bad = 1; }
     chk(bad > 0, '깨 보기 «' + name + '» → 빨강 ' + bad + '건');
   }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

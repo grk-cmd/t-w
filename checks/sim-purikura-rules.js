@@ -155,20 +155,9 @@ say('· §3 좌표가 별도 노드로 가는가 (세션당 1.7원 ↔ 24.4원)'
   const initSrc = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : '';
   chk(!!initSrc, 'firebase-init.js 를 읽었다 (없으면 아래 검사를 못 한다)');
   if (initSrc) {
-    const m = /startAt\(\s*'([^']*)'\s*\)/.exec(initSrc);
-    chk(!!m, '방 프리즌스 리스너의 startAt 값을 찾았다' + (m ? " — '" + m[1] + "'" : ''));
-    if (m) {
-      const cut = m[1];
-      chk('_photo' < cut,
-          "★ '_photo' 가 startAt('" + cut + "') 보다 앞선다 — 방 사람들의 프리즌스 스냅샷에 안 딸려온다");
-      chk(!('photo' < cut),
-          "  ↳ 밑줄을 빼면 'photo' > '" + cut + "' 라 전원에게 딸려간다 (그래서 밑줄이 필수다)");
-      chk('_meta' < cut && 'chatLog' < cut, '  ↳ 같은 기준으로 _meta·chatLog 도 제외된다 (전제가 그대로다)');
-    }
-    /* 멤버를 세는 자리들은 전부 '_ 로 시작하면 멤버가 아니다' 로 짜여 있다.
-       photo 였다면 이 셋을 다 통과해 유령 멤버 한 명으로 세어졌다. */
-    chk((initSrc.match(/charAt\(0\) !== '_'|charAt\(0\) === '_'/g) || []).length >= 3,
-        "★ 멤버 판정이 '_ 로 시작하면 멤버가 아니다' 규약을 쓰고 있다 — _photo 는 인원수에 안 잡힌다");
+    /* 0.13 — 앱은 Firebase 방(rooms/{방} 멤버 노드)에 들어가지 않는다. 방 사람 스냅샷 리스너 · 인원 세기가 firebase-init 에 없으니
+       «_photo 가 스냅샷에 딸려온다 · 유령 멤버로 센다» 는 걱정도 없다. */
+    chk(!/startAt\(\s*'m'\s*\)/.test(initSrc) && !/joinRoom\(/.test(initSrc), '★ firebase-init 에 방 사람 스냅샷 리스너(startAt m · joinRoom)가 없다 — 방은 realtime 서버');
   }
 
   const memberV = v('rooms/$room/$memberId') || '';

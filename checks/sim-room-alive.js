@@ -1,6 +1,7 @@
 /*
  * 💓 새 하트비트(방 구독 밖 roomAlive 도장 + 서버 유령 청소) 검사.
- * 1. room-alive.js 판정 함수  2. functions/room-stats.js 청소(가짜 DB)  3. firebase-init.js 연결  4. 규칙
+ * 1. room-alive.js 판정 함수  2. functions/room-stats.js 청소(가짜 DB)  3. 관리자 유령 방 청소  4. 규칙
+ * 0.13 앱의 방은 realtime 서버 메모리다 — 앱이 roomAlive 도장을 찍던 길(firebase-init joinRoom)은 걷었다. 서버 함수 · 관리자 청소가 남은 동안 판정은 그대로 본다.
  */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -107,25 +108,8 @@ const A = new Function(unexport(RA) + '\nreturn { ROOM_ALIVE_MIN_VER, ROOM_ALIVE
     chk(/if \(!light\)\{\s*let tree = null;[\s\S]{0,200}if \(tree\)\{ try\{ alive = await sweepRoomAlive\(db, now, tree\); \}/.test(SRC), '청소는 1분 주기 실행에서만 — 방 열림 · 닫힘 트리거(light)는 안 한다 (roomAlive 트리는 빈 방 청소와 같이 한 번 읽는다)');
   }
 
-  say('── 3. firebase-init.js 연결');
+  say('── 3. 관리자 유령 방 청소(firebase-init.js) — 0.13 방 입장 길은 realtime 서버로 옮겨 하트비트 연결은 없다');
   {
-    chk(/import \{[^}]*isMemberAlive[^}]*\} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?room-alive\.js"/.test(FI), 'room-alive.js 를 불러 쓴다');
-    chk(/Promise\.resolve\(_rc \? _rc\.minRoomVer\(\) : null\)\.then\(v => \{[\s\S]{0,120}aliveV2On\(v\)/.test(CODE), '입장 때 minRoomVer(원격 설정 minVersion.room)로 새 방식을 켤지 정한다');
-    chk(/_aliveV2 = true;[\s\S]{0,200}update\(_myMemberRef, \{ hb: ROOM_ALIVE_HB \}\)/.test(CODE), '  ↳ 켜지면 멤버 노드에 hb:2 를 한 번 싣는다');
-    const hbBlock = (CODE.match(/_fbHeartbeat = setInterval\(\(\)=>\{([\s\S]*?)\}, 30000\);/) || [])[1] || '';
-    chk(/30000/.test(CODE) && hbBlock.length > 0, '하트비트 간격은 30초 그대로');
-    const v2 = (hbBlock.match(/if\(_aliveV2\)\{([\s\S]*?)\}else\{/) || [])[1] || '';
-    chk(/set\(_myAliveRef, serverTimestamp\(\)\)/.test(v2) && !/lastSeen/.test(v2), '새 방식 하트비트 — 도장은 roomAlive 에만, 멤버 노드에 lastSeen 을 안 쓴다');
-    chk(/if\(_expChanged\) update\(_myMemberRef, \{ exp: _exp \}\)/.test(v2), '  ↳ exp 는 바뀔 때만 멤버 노드에');
-    chk(/update\(_myMemberRef, _hb\)\.catch\(\(\)=>_healMyMemberNode\('heartbeat'\)\)/.test(hbBlock), '옛 방식 하트비트는 예전처럼(멤버 노드 lastSeen · 거부되면 복구)');
-    chk(/if\(isIndexToucher\(memberId, _roomLastFriends\)\) _touchRoomIndex\(room\);/.test(hbBlock), 'roomIndex 도장은 방마다 한 명만');
-    chk(/if\(isMemberAlive\(m, now, STALE_MS\)\) friends\[id\] = m;/.test(CODE), '화면 생존 판정 — hb:2 는 노드가 있으면 산 것');
-    chk(/isNewerSession\(id, friends\[id\], _byUser\[u\], friends\[_byUser\[u\]\]\)/.test(CODE), '같은 사람 중복 세션 — hb:2 는 memberId 로');
-    chk(/if\(!_raw\[memberId\]\) _healMyMemberNode\('snapshot'\);/.test(CODE), '스냅샷에서 내 노드가 사라지면 복구 — 새 방식은 쓰기 거부 신호가 없다');
-    chk(/if\(_aliveV2 && _myAliveRef\)\{ set\(_myAliveRef, serverTimestamp\(\)\)\.catch\(\(\)=>\{\}\); onDisconnect\(_myAliveRef\)\.remove\(\); \}/.test(CODE), '재접속 때 도장 · onDisconnect 를 다시 건다');
-    chk(/if\(_myAliveRef\)\{[\s\S]{0,200}onDisconnect\(aref\)\.cancel\(\)[\s\S]{0,80}remove\(aref\)/.test(CODE), '나갈 때 도장도 지운다');
-    chk((CODE.match(/isProbeAlive\(/g) || []).length === 2 && (CODE.match(/isNodeAlive\(/g) || []).length === 1 && !/!m\.lastSeen\) count\+\+/.test(CODE) && (CODE.match(/get\(ref\(db, `roomAlive\/\$\{room\}`\)\)/g) || []).length === 2, '입장 검사 둘(정원 · 시크릿룸)이 그 방 도장을 한 번씩 본다');
-    chk(/if\(isNodeAlive\(all\[id\], now, STALE_MS\)\) count\+\+/.test(CODE), '  ↳ 정원 검사 대체 경로(방 전체 읽기)는 isNodeAlive 를 부른다(판정은 위 1절에서 실제로 돌려 본다)');
     chk(/aliveTree\[code\] && aliveTree\[code\]\[k\][\s\S]{0,160}ROOM_ALIVE_STALE_MS/.test(CODE), '관리자 유령 방 청소가 도장을 본다 — hb:2 방을 유령으로 지우지 않게');
   }
 

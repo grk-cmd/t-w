@@ -1,7 +1,6 @@
-/* ═══ 🛰 sim-room-entry.js — 🛰 방 서버 provider · 🔢 방 개수 · 방 만들기 · 랜덤 참여 · 🚪 방 입장 · 나가기 · 승계 · 해산 모듈 구조 (2026-10-14 신설 · 앱 FSD 33번) ═══════════════
-   app.js 의 방 서버 · 입장 · 방 개수 세 구역 본문 을 parts/room/room-entry.js 로 옮겼다(글자 그대로 · 바뀐 줄 13 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(방 검사들).
-   여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(CHANNEL_NAMES · NET_READY_WAIT_MS · ROOM_PREFIX · _mockRoomAllowed · _srFmtDate · _waitFirebaseApi · doLeaveRoom · makeMockProvider · refreshInviteUI · startRoom · syncFriendSeats · onRoomChanged · roomServerCheck)
+/* ═══ 🛰 sim-room-entry.js — 🚪 방 입장 · 나가기 · 승계 · 해산 · 방 만들기 · 랜덤 참여 모듈(room/room-entry.js — 앱 FSD 33번 · 0.13 방 포트 하나) ═══════════════
+   모듈 모양 · app.js 연결 · 입장 흐름(가짜 방 포트 · 가짜 Presence 위에서 실제로 굴린다)을 본다.
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(CHANNEL_NAMES · ROOM_PREFIX · _mockRoomAllowed · _srFmtDate · doLeaveRoom · makeMockProvider · refreshInviteUI · startRoom · syncFriendSeats · onRoomChanged · doCreateRoomInChannel · _myRoomLicensed)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 42줄 그대로 · 부르는 곳은 roomEntryMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · room-entry.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -22,12 +21,12 @@ const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_chatNotifyIncoming","_clearHiddenSeats","_onDeviceSessionLost","_pokeFresh","_refreshChatMembers","applyCharToSeat","applyEquippedPartsToSeat","createSeat","deserializeDefFromNetwork","getDisplayName","getMyUserId","layoutSeats","maxPeople","myExpCells","pruneSeatPartsAgainstDef","refitSeatAfterParts","removeSeatLabels","renderSeatTabs","retryDefAfter","serializeDefForNetwork","showChatBubble","spawnFloater","toast","triggerPet","updateMyStatusChipPosition","_rcStore","mySecretRoom","paintRoomInfo"];
-const VAL_DEPS = ["FLOATER_BURST","Presence","chatUiMod","rideBenchMod","roomSettings","scene","seats","settingsMod","slots","tricksMod","twNav"];
+const VAL_DEPS = ["FLOATER_BURST","Presence","chatUiMod","rideBenchMod","roomRt","roomSettings","scene","seats","settingsMod","slots","tricksMod","twNav"];
 const GET_DEPS = ["EXP_CELLS","awayPicMod","curSlot","focusLevelMod","isAdmin","isPremium","officeMode"];
 const SET_DEPS = [];
-const EXPORTS = ["doCreateRoomInChannel","_myRoomLicensed","CHANNEL_NAMES","NET_READY_WAIT_MS","ROOM_PREFIX","_mockRoomAllowed","_srFmtDate","_waitFirebaseApi","doLeaveRoom","makeMockProvider","refreshInviteUI","startRoom","syncFriendSeats","onRoomChanged","roomServerCheck"];
+const EXPORTS = ["doCreateRoomInChannel","_myRoomLicensed","CHANNEL_NAMES","ROOM_PREFIX","_mockRoomAllowed","_srFmtDate","doLeaveRoom","makeMockProvider","refreshInviteUI","startRoom","syncFriendSeats","onRoomChanged"];
 const MOVED = ["_roomServerNet","_roomServerOn","_onServerRoomMeta","makeServerProvider","ROOM_SERVER_LOST_MSG","ROOM_SERVER_BUSY_MSG","_roomServerJoinMessage","ROOM_SERVER_CONNECTING_TOAST_MS","_myRoomLicensed","_startRoomOnServer","_serverRandomRooms","NET_READY_WAIT_MS","_mockRoomAllowed","_waitFirebaseApi","makeMockProvider","mockFriendDef","_charIdentityFingerprint","_deskStateFingerprint","_applyRemoteBenchSeats","_applyRemoteRides","syncFriendSeats","ROOM_PREFIX","ROOM_CODE_RE","_roomPrefixFor","_myRoomPrefix","genRoomCode","presenceChanged","_srFmtDate","_refreshSecretRoomUI","refreshInviteUI","_verLt","_ensureRoomVersionOk","startRoom","_bindDonate","CHANNEL_NAMES","roomLimitOf","_channelFullMsg","_paintMaxPeople","doCreateRoomInChannel","RANDOM_JOIN_TRIES","doJoinRandomRoom","_hoppingRoom","_setHopBusy","doHopRandomRoom","_joiningRoom","_resolveRoomCode","doJoinRoom","doJoinSecretRoom","doLeaveRoom","doCopyRoomCode","fsInviteCreate","fsInviteJoinBtn","fsInviteLeaveBtn","fsInviteRoomCopyBtn","_setupRoomCodeInput","_setupSecretCodeInput"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  EXP_CELLS: ()=>expBarMod.EXP_CELLS,","  FLOATER_BURST: floatersMod.FLOATER_BURST,","  Presence: Presence,","  _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),","  _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),","  _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),","  _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),","  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  awayPicMod: ()=>awayPicMod,","  chatUiMod: chatUiMod,","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  maxPeople: (...a)=>maxPeople(...a),","  myExpCells: (...a)=>expBarMod.myExpCells(...a),","  officeMode: ()=>officeMode,","  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  retryDefAfter: (...a)=>roomSyncMod.retryDefAfter(...a),","  rideBenchMod: rideBenchMod,","  scene: scene,","  seats: seats,","  serializeDefForNetwork: (...a)=>roomSyncMod.serializeDefForNetwork(...a),","  settingsMod: settingsMod,","  showChatBubble: (...a)=>showChatBubble(...a),","  slots: slots,","  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  triggerPet: (...a)=>triggerPet(...a),","  updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),","  twNav: twNav,","  mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),","  paintRoomInfo: ()=>roomInfoUi.paint(),","  roomSettings: TwRoomSettings,"];
+const GLUE = ["  EXP_CELLS: ()=>expBarMod.EXP_CELLS,","  FLOATER_BURST: floatersMod.FLOATER_BURST,","  Presence: Presence,","  _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),","  _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),","  _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),","  _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),","  _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  awayPicMod: ()=>awayPicMod,","  chatUiMod: chatUiMod,","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  deserializeDefFromNetwork: (...a)=>roomSyncMod.deserializeDefFromNetwork(...a),","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  maxPeople: (...a)=>maxPeople(...a),","  myExpCells: (...a)=>expBarMod.myExpCells(...a),","  officeMode: ()=>officeMode,","  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  removeSeatLabels: (...a)=>overheadMod.removeSeatLabels(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  retryDefAfter: (...a)=>roomSyncMod.retryDefAfter(...a),","  rideBenchMod: rideBenchMod,","  scene: scene,","  seats: seats,","  serializeDefForNetwork: (...a)=>roomSyncMod.serializeDefForNetwork(...a),","  settingsMod: settingsMod,","  showChatBubble: (...a)=>showChatBubble(...a),","  slots: slots,","  spawnFloater: (...a)=>floatersMod.spawnFloater(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  triggerPet: (...a)=>triggerPet(...a),","  updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),","  twNav: twNav,","  mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),","  paintRoomInfo: ()=>roomInfoUi.paint(),","  roomSettings: TwRoomSettings,","  roomRt: TwRoomRt.store,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -144,24 +143,96 @@ say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const m4 = MOD.replace('const left = !_hoppingRoom && _wasInRoom && !on;', 'const left = _wasInRoom && !on;').replace('if(!_hoppingRoom) _wasInRoom = on;', '_wasInRoom = on;');
   chk(m4 !== MOD && !judgeHop(m4), '갈아타는 중을 안 거르면 — 갈아타기 판정이 빨강');
 }
-/* 방 만들기 창의 «새 방이 방 서버로 갈까» — 안 쓰는 판이면 묻지 않는다(대부분 사용자 · 요청 0) */
-{
-  const a = MOD.indexOf('async function _roomServerCheck(){'), b = MOD.indexOf('\n}\n', a) + 2;
-  const run = (possible, mine, net) => {
-    const calls = [];
-    const fa = { roomServerPossible: () => possible, roomServerMine: async (r) => { calls.push(r); return mine; } };
-    const f = new Function('_roomServerNet', 'firebaseAPI', MOD.slice(a, b) + '\nreturn _roomServerCheck;')(() => (net === false ? null : {}), fa);
-    return f().then(v => ({ v, calls }));
-  };
-  globalThis.__rsCheck = (async () => {
-    const off = await run(false, { url: 'x' });
-    chk(a > 0 && off.v === false && off.calls.length === 0, '★ roomServerCheck — 방 서버를 안 쓰는 판이면 «내 서버» 를 묻지 않고 false');
-    const on = await run(true, { url: 'x' }), none = await run(true, null), noNet = await run(true, { url: 'x' }, false);
-    chk(on.v === true && on.calls.join() === 'true' && none.v === false && noNet.v === false && noNet.calls.length === 0, '  쓰는 판이면 다시 물어(roomServerMine(true)) 그 답을 따른다 · 방 서버 연결이 없으면 false');
-    const thr = await new Function('_roomServerNet', 'firebaseAPI', MOD.slice(a, b) + '\nreturn _roomServerCheck;')(() => ({}), { roomServerPossible: () => { throw new Error('x'); } })();
-    chk(thr === false, '  판단이 던져도 false(창이 거부를 받지 않는다)');
-  })();
+/* 입장 흐름 — 가짜 방 포트(roomRt) · 가짜 Presence 위에서 startRoom · 만들기 · 랜덤을 실제로 굴린다 */
+const RS = (() => { const src = ["room-settings.js","parts/room/room-settings.js","app/parts/room/room-settings.js"].map(read).find(Boolean); const w = {}; new Function('window', src)(w); return w.TwRoomSettings; })();
+async function flow(src, o){
+  const any = anything();
+  const log = { starts: [], toasts: [], stops: 0, peeks: [], errs: [] };
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  let active = false;
+  const results = (o.results || []).slice();
+  deps.Presence = new Proxy({
+    start: async (code, def, name, cb, opts) => { log.starts.push({ code, create: opts && opts.provider && opts.provider.create }); const r = results.shift() || { ok: true, others: 1, meta: { channel: 'workingroom' } }; active = !!r.ok; return r; },
+    stop: async () => { log.stops++; active = false; },
+    active: () => active, roomCode: () => null,
+  }, { get: (t, k) => (k in t ? t[k] : any) });
+  deps.roomRt = { makeProvider: (h, po) => ({ create: (po && po.create) || null }), peek: async (c) => { log.peeks.push(c); return o.peek === undefined ? { exists: false, count: 0 } : o.peek; },
+    random: async () => (o.random === undefined ? [] : o.random), isReady: () => true, myCode: () => 'u1' };
+  deps.mySecretRoom = async () => o.mySecret || null;
+  deps.toast = (m) => { log.toasts.push(m); };
+  deps.slots = [{ skin: 1 }]; deps.curSlot = () => 0;
+  deps.roomSettings = RS;
+  deps.maxPeople = () => 10;
+  deps.isPremium = () => !!o.premium; deps.isAdmin = () => false;
+  deps._rcStore = () => ({ refresh: async () => {}, minRoomVer: () => null, maxPeople: () => 10, roomLimitOf: () => 300, onChange: () => {} });
+  const win = new Proxy({ companion: undefined, _deviceSessionLost: false, _pendingRoomChannel: null, _pendingRoomOpen: false }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  globalThis.TwErrorCodes = { notify: (c) => log.errs.push(c) };
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
+    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, any, ls, any, any, undefined, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const m = api.createRoomEntry(deps);
+  await o.run(m);
+  for(let k = 0; k < 10; k++) await Promise.resolve();
+  return { log, win };
 }
+const flowRows = async (src) => {
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  try{
+    let f = await flow(src, { run: (m) => m.startRoom('WORK-AB12') });
+    t(f.log.starts.length === 1 && f.log.starts[0].create === null && f.log.toasts.includes('방에 연결됐어요: WORK-AB12'), '코드로 들어가기 — create 없이 · 들어가면 «연결됐어요»');
+    f = await flow(src, { results: [{ ok: false, code: 'channelFull' }], run: (m) => m.startRoom('WORK-AB12') });
+    t(/워킹룸이 지금 꽉 찼어요/.test(f.log.toasts.join()) && f.win._pendingRoomChannel === null, '서버 channelFull → 꽉 찼다는 안내 · 만들기 표시를 지운다');
+    f = await flow(src, { results: [{ ok: false, code: 'timeout' }], run: (m) => m.startRoom('WORK-AB12') });
+    t(f.log.toasts.includes('서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요'), '못 붙음(timeout 등) → «잠시 후 다시»');
+    f = await flow(src, { results: [{ ok: true, others: 0, meta: { channel: 'togetherroom' } }, { ok: true, others: 0, meta: { channel: 'togetherroom' } }], run: (m) => m.startRoom('WORK-AB12') });
+    t(f.log.stops === 1 && f.log.starts.map(x => x.code).join() === 'WORK-AB12,PLAY-AB12', '★ 빈 방이 투게더룸으로 열렸는데 접두어가 WORK- 면 PLAY- 로 옮겨 연다(한 번만)');
+    f = await flow(src, { run: (m) => m.doCreateRoomInChannel('togetherroom', { title: '수다', max: 4, open: true, music: true }) });
+    const c = f.log.starts[0] && f.log.starts[0].create;
+    t(f.log.starts.length === 1 && /^PLAY-[A-Z0-9]{4}$/.test(f.log.starts[0].code) && JSON.stringify(c) === '{"channel":"togetherroom","open":true,"title":"수다","max":4,"music":true}', '★ 만들기 → PLAY- 코드 · join.create 에 고른 값');
+    t(f.win._pendingRoomChannel === null && f.win._pendingRoomOpen === false, '  들어간 뒤 만들기 표시를 비운다');
+    f = await flow(src, { mySecret: { code: 'SCRT-AB12', name: 'x', expiresAt: null }, run: (m) => m.startRoom('SCRT-AB12') });
+    t(f.log.peeks.join() === 'SCRT-AB12' && JSON.stringify(f.log.starts[0].create) === '{"channel":"togetherroom","music":false}', '★ 내 시크릿룸이 비어 있으면(peek 0명) 주인이 연다 — create { togetherroom · music }');
+    f = await flow(src, { mySecret: { code: 'SCRT-AB12' }, peek: { exists: true, count: 2 }, run: (m) => m.startRoom('SCRT-AB12') });
+    t(f.log.starts[0].create === null, '  사람이 있으면 create 없이(듣던 곡을 지우지 않게)');
+    f = await flow(src, { mySecret: { code: 'SCRT-ZZZZ' }, run: (m) => m.startRoom('SCRT-AB12') });
+    t(f.log.peeks.length === 0 && f.log.starts[0].create === null, '  남의 시크릿룸이면 들여다보지 않고 create 없이(입장 판정은 서버)');
+    f = await flow(src, { results: [{ ok: false, code: 'secretClosed' }], run: (m) => m.startRoom('SCRT-AB12') });
+    t(f.log.toasts.includes('없는 시크릿룸이거나 이용 기간이 끝났어요'), '  서버 secretClosed → 안내');
+  }catch(e){ t(false, '흐름이 던짐 — ' + String(e && e.message || e).slice(0, 120)); }
+  return r;
+};
+/* 랜덤 참여 — doJoinRandomRoom 을 떼어 굴린다(못 물음 null · 없음 [] · 있음) */
+const randomRows = async (src) => {
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const a = src.indexOf('async function doJoinRandomRoom(){'), b = src.indexOf('\n}\n', a) + 2;
+  const run = async (list) => {
+    const log = { toasts: [], starts: [], errs: [] };
+    const f = new Function('_randomRooms', 'toast', 'startRoom', 'TwErrorCodes', src.slice(a, b) + '\nreturn doJoinRandomRoom;')(
+      async () => list, (m) => log.toasts.push(m), (c) => log.starts.push(c), { notify: (c) => log.errs.push(c) });
+    await f();
+    return log;
+  };
+  const n = await run(null), e = await run([]), y = await run(['WORK-AAAA', 'WORK-BBBB']);
+  t(a > 0 && n.errs.join() === 'E-ROOM-01' && !n.starts.length, '랜덤 참여 — 못 물으면 E-ROOM-01(빈 목록과 다르게)');
+  t(e.toasts.length === 1 && /참여할 수 있는 방이 없어요/.test(e.toasts[0]) && !e.starts.length, '  없으면 «방을 만들어 보세요»');
+  t(y.starts.join() === 'WORK-AAAA', '  있으면 서버가 고른 첫 방으로(따로 정원을 확인하지 않는다)');
+  return r;
+};
+globalThis.__rsCheck = (async () => {
+  const F = await flowRows(MOD);
+  say('── 4. 입장 흐름(가짜 방 포트)');
+  F.forEach(([ok, msg]) => chk(ok, msg));
+  (await randomRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+  const broke = await flowRows(MOD.replace("    if(m && (m[1] + '-') !== want){", "    if(false){"));
+  chk(broke.some(([ok]) => !ok), '깨 보기: 빈 방 접두어 옮기기를 빼면 입장 흐름이 빨강');
+  const broke2 = await flowRows(MOD.replace("srOpen = _secretOpenFields(true, pk ? (pk.exists ? pk.count : 0) : null);", "srOpen = undefined;"));
+  chk(broke2.some(([ok]) => !ok), '깨 보기: 시크릿룸 «주인이 연다» 를 빼면 입장 흐름이 빨강');
+})();
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/room-entry.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
@@ -178,7 +249,7 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-globalThis.__rsCheck.then(() => {   // 위 roomServerCheck 절은 비동기 — 끝난 뒤 센다
+globalThis.__rsCheck.then(() => {   // 위 입장 흐름 절은 비동기 — 끝난 뒤 센다
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
 });

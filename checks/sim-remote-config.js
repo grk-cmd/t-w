@@ -4,7 +4,7 @@
    2. 읽는 차례 — API → 저장값(최소 버전 제외 · 옛 모양 저장값 무시) → 기본값 · ETag 304 · 다시 읽기 · realtime 알림 config · firebase-init 배선
    3. 규칙 — 누구나 읽기 · 관리자만 쓰기 · 범위 · 타입 · 모르는 칸 거절 · 제보 하루 상한 100(Firebase 쪽 — 규칙을 걷는 묶음이 같이 걷는다)
    4. app.js 배선 — 박힌 상수 없음 · 사용처가 설정값 · 부팅 스위치는 첫 답을 기다림 · 화면 숫자 다시 그리기
-   5. 방 서버 길(_startRoomOnServer) 빈 방 열기 상한 — 실행 · 되살리기(주소록) · 시크릿룸 · 만들기 · 있는 방은 검사 안 함
+   5. 입장 거절 문구 — 서버가 판정한 channelFull · full 의 숫자가 설정값(만들기 · 빈 방 · 시크릿룸)
    6. html — 스크립트 순서 · 기본 표시 · CSP
    7. 일부러 깨 보기
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
@@ -211,11 +211,10 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(!/fallbackRead/.test(fi) && !/store\.watch/.test(fi) && !/'config\/(?!maintenance)/.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 비상 읽기 · 구독 · 박힌 경로 없음(점검 칸만 — maintenance-gate.js)');
     chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null,/.test(fi) && fi.indexOf('_rc.start(') < fi.indexOf('createAppVersionGate({'),
       '  ↳ 앱 최소 버전은 원격 설정의 첫 답(API 값만) — start 다음에 게이트');
-    chk(/async getMinRoomVer\(\)\{\s*if\(!_rc\) return null;\s*try\{ await _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\); \}catch\(_\)\{\}\s*return _rc\.minRoomVer\(\);/.test(fi),
-      '  ↳ 방 입장 최소 버전 — 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
+    chk(!/getMinRoomVer/.test(fi) && /try\{ await s\.refresh\(\{ maxAgeMs: ROOM_VER_MAX_AGE_MS \}\); \}catch\(_\)\{\}\s*const min = s\.minRoomVer\(\);/.test(strip(APP)) && /const ROOM_VER_MAX_AGE_MS = 60 \* 1000;/.test(APP),
+      '  ↳ 방 입장 최소 버전 — 방 입장(room-entry)이 store 를 바로 본다 · 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
     chk(/getDailyMax: \(\) => _rc \? _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\)\.then\(\(\) => _rc\.bugDailyMax\(\)\) : null,/.test(fi), '  ↳ 제보 하루 상한도 원격 설정');
-    chk(/const _cap = window\.TwRoomSettings\.roomCap\(_capturedMeta, \(window\.TwRemoteConfig && window\.TwRemoteConfig\.store\) \? window\.TwRemoteConfig\.store\.maxPeople\(\) : 10\);/.test(fi) && !/window\.MAX_PEOPLE/.test(fi),
-      '  ↳ 정원 초과 자기 퇴장도 같은 store 의 정원(window.MAX_PEOPLE 안 씀)');
+    chk(!/window\.MAX_PEOPLE/.test(fi) && !/_capturedMeta/.test(fi), '  ↳ firebase-init 에 정원 판정이 없다(정원 · 자기 퇴장은 서버 — window.MAX_PEOPLE 안 씀)');
     chk(!/^\s*import\s/m.test(RC) && !/gstatic|getDatabase|require\(|fallbackRead/.test(strip(RC)), 'remote-config.js 는 Firebase 를 모른다(import · 비상 읽기 없음)');
   }
 
@@ -256,14 +255,13 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/function roomLimitOf\(channel\)\{ const s = _rcStore\(\); return s \? s\.roomLimitOf\(channel\) : 300; \}/.test(a) &&
       /function maxPeople\(\)\{ const s = _rcStore\(\); return s \? s\.maxPeople\(\) : 10; \}/.test(a) &&
       /function inviteGateOn\(\)\{ const s = _rcStore\(\); return s \? s\.inviteGate\(\) : true; \}/.test(a), '  ↳ store 가 없어도(검사 · 옛 html) 기본값');
-    const create = takeFn(a, 'async function doCreateRoomInChannel(');
-    chk(create && /const limit = roomLimitOf\(channel\);/.test(create) && /toast\(_channelFullMsg\(channel\)\)/.test(create), '방 만들기 — 설정 상한');
-    chk(/const _openLimit = roomLimitOf\(_openCh\);/.test(a) && /toast\(_channelFullMsg\(_openCh\)\)/.test(a), 'Firebase 빈 방 열기 — 설정 상한');
+    const cfm = takeFn(a, 'function _channelFullMsg(');
+    chk(cfm && /const limit = roomLimitOf\(channel\)/.test(cfm), '꽉 찼을 때 문구 — 설정 상한(판정은 서버 channelFull)');
     const counts = a.match(/\$\{roomLimitOf\('(workingroom|togetherroom)'\)\}/g) || [];
     chk(counts.length === 0, '방 개수 «n / 상한» 표시는 없다 — 채널 카드는 방 목록 로비로 바뀌었다(상한은 만들기 · 빈 방 열기 검사만) (' + counts.length + ')');
-    const jm = takeFn(a, 'function _roomServerJoinMessage(');
-    chk(jm && /const ch = openCh \|\| /.test(jm) && /return _channelFullMsg\(ch\);/.test(jm), '방 서버 channelFull 문구 — 설정 상한 · 서버가 연 빈 방이면 그 채널');
-    chk((a.match(/maxPeople\(\)/g) || []).length >= 15, '정원 사용처 전부 maxPeople() (' + (a.match(/maxPeople\(\)/g) || []).length + ')');
+    const jm = takeFn(a, 'function _roomJoinMessage(');
+    chk(jm && /const ch = window\._pendingRoomChannel \|\| /.test(jm) && /return _channelFullMsg\(ch\);/.test(jm), '서버 channelFull 문구 — 설정 상한 · 만들기면 그 채널 · 빈 방이면 내 자격의 채널');
+    chk((a.match(/maxPeople\(\)/g) || []).length >= 8, '정원 사용처 전부 maxPeople() (' + (a.match(/maxPeople\(\)/g) || []).length + ')');
     const ig = takeFn(a, '(function initInviteGate(');
     chk(ig && /await _s\.ready\(\['inviteGate','existingSignup'\], REMOTE_FLAGS_WAIT_MS\)/.test(ig) && ig.indexOf('_s.ready(') < ig.indexOf('checkInviteGate()') && /const REMOTE_FLAGS_WAIT_MS = 3000;/.test(a),
       '부팅 스위치 — 첫 답을 최대 3초 기다린 뒤 초대 게이트(못 받으면 기본값 true)');
@@ -281,180 +279,31 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/s\.onChange\(\(c, key\)=>\{ if\(key === 'roomMaxPeople'\) _paintMaxPeople\(\); \}\);/.test(a), '  ↳ onChange 에 묶여 있다');
   }
 
-  say('── 5. 방 서버 길 빈 방 열기 — 상한');
+  say('── 5. 입장 거절 문구 — 설정 상한(판정은 서버 · 0.13)');
   {
     const a = strip(APP);
-    const need = ['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed(',
-      'function _secretOpenFields(', 'function _clearPendingCreate('];
-    /* 방 서버 만들기 칸 고르기(serverJoinCreate)는 room-settings.js 진짜 모듈 — 글을 떼어 오지 않고 싣는다 */
-    const RS = (() => { const w = {}; Function('window', read('room-settings.js'))(w); return w.TwRoomSettings; })();
+    const need = ['function _roomJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed('];
     const miss = need.filter((h) => !takeFn(a, h));
     chk(miss.length === 0, '함수들이 있다' + (miss.length ? ' — 없음: ' + miss.join(', ') : ''));
     if(miss.length) return finish();
+    const RS = (() => { const w = {}; Function('window', read('room-settings.js'))(w); return w.TwRoomSettings; })();
     const SRC = [
       "const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };",
-      'const ROOM_SERVER_CONNECTING_TOAST_MS = 1000;',
-      "const ROOM_SERVER_BUSY_MSG = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';",
-      "const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;",
-      "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
-      'let _pendingExtra = null;',
-      'function _secretMusicOn(){ return false; }',
+      "const ROOM_JOIN_BUSY_MSG = '서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';",
+      "const ROOM_LOST_MSG = { version: 'VER' };",
       ...need.map((h) => takeFn(a, h)),
-      'return _startRoomOnServer;',
+      'return _roomJoinMessage;',
     ].join('\n');
-    function mk(o){
-      o = o || {};
-      const log = { toasts: [], counts: [], started: 0, peek: 0, ready: [] };
+    const mk = (o) => {
       const st = RCM.createRemoteConfig();
       if(o.limits) st.set('roomLimits', o.limits);
-      const win = { _pendingRoomChannel: o.pending || null, _pendingRoomOpen: false };
-      const net = {
-        ensureReady: async (ms, ro) => { log.ready.push([ms || null, !!(ro && ro.retry)]); return o.notReady ? { ok: false, code: 'timeout' } : { ok: true }; },
-        timing: () => ({ joinWaitMs: 10000, clientGiveUpMs: 90000 }),
-        peek: async () => { log.peek++; return { exists: !!o.onServer }; },
-      };
-      const api = {
-        resolveRoomServer: async () => { if(o.gateThrow) throw new Error('net'); return o.rs || { via: 'server', from: o.from || 'allow' }; },
-        checkRoomCapacity: async () => o.fbPeople || 0,
-        checkSecretRoomEntry: async () => ({ count: 0, ownerIn: false }),
-        getRoomCount: async (ch) => { log.counts.push(ch); if(o.countThrow) throw new Error('net'); return (o.count && ch in o.count) ? o.count[ch] : 0; },
-      };
-      const Presence = { start: async () => { log.started++; return o.joinFail ? { ok: false, code: o.joinFail } : { ok: true, others: 1, meta: null }; }, stop: async () => {} };
-      const fn = Function('window', 'firebaseAPI', '_roomServerNet', 'Presence', 'makeServerProvider', '_clearHiddenSeats', 'getDisplayName', 'presenceChanged',
-        'toast', 'refreshInviteUI', 'applyExtraSeatForMode', 'startRoom', '_rcStore', 'isPremium', 'isAdmin', 'console', 'roomSettings', SRC)(
-        win, api, () => net, Presence, () => ({}), () => {}, () => '나', () => {},
-        (m) => log.toasts.push(m), () => {}, () => {}, async () => {}, () => st, !!o.premium, false, { warn() {}, log() {} }, RS);
-      const ctxOf = (ctx) => Object.assign({ isSecret: false, secretOwner: null, myDef: {}, fbWhy: null }, ctx || {});
-      return { go: (code, ctx) => fn(code, ctxOf(ctx)), goC: async (code, ctx) => { const c = ctxOf(ctx); return { r: await fn(code, c), why: c.fbWhy }; }, log, win };
-    }
-    let t = mk({ count: { workingroom: 300 } });
-    let r = await t.go('WORK-AB12');
-    chk(r === 'stop' && t.log.started === 0 && t.log.counts.join() === 'workingroom' && /워킹룸이 지금 꽉 찼어요\(300\/300\)/.test(t.log.toasts[0] || ''),
-      '★ 서버에도 Firebase 에도 사람이 없어 서버가 열 방 — 워킹룸 300/300 이면 막는다(기본 상한 300)');
-    t = mk({ count: { workingroom: 299 } });
-    chk((await t.go('WORK-AB12')) === 'done' && t.log.started === 1, '  ↳ 299 면 연다');
-    t = mk({ count: { workingroom: 300 }, limits: { workingroom: 500, togetherroom: 300 } });
-    chk((await t.go('WORK-AB12')) === 'done' && t.log.started === 1, '  ↳ 설정 상한 500 이면 300 개여도 연다(바뀐 값이 바로)');
-    t = mk({ count: { workingroom: 20 }, limits: { workingroom: 20, togetherroom: 300 } });
-    chk((await t.go('WORK-AB12')) === 'stop' && /\(20\/20\)/.test(t.log.toasts[0] || ''), '  ↳ 설정 상한 20 · 20 개면 막고 문구도 20');
-    t = mk({ premium: true, count: { workingroom: 0, togetherroom: 300 } });
-    chk((await t.go('PLAY-AB12')) === 'stop' && t.log.counts.join() === 'togetherroom' && /투게더룸이 지금 꽉 찼어요/.test(t.log.toasts[0] || ''), '  ↳ 보유자는 투게더룸으로 센다(Firebase 갈래와 같은 자격)');
-    t = mk({ from: 'dir', count: { workingroom: 99999 } });
-    chk((await t.go('WORK-AB12')) === 'done' && t.log.counts.length === 0 && t.log.peek === 0, '★ 되살리기 · 따라가기(주소록 roomDir 에 있는 방)는 세지 않는다');
-    t = mk({ count: { workingroom: 99999, togetherroom: 99999 } });
-    chk((await t.go('SCRT-AB12', { isSecret: true, secretOwner: 'u1' })) === 'done' && t.log.counts.length === 0, '  ↳ 시크릿룸은 상한 밖');
-    t = mk({ onServer: true, count: { workingroom: 99999 } });
-    chk((await t.go('WORK-AB12')) === 'done' && t.log.counts.length === 0, '  ↳ 서버에 이미 있는 방에 들어가면 세지 않는다');
-    t = mk({ fbPeople: 3, count: { workingroom: 99999 } });
-    chk((await t.go('WORK-AB12')) === 'firebase' && t.log.counts.length === 0, '  ↳ Firebase 에 사람이 있는 방이면 Firebase 로(세지 않음)');
-    t = mk({ pending: 'workingroom', count: { workingroom: 99999 } });
-    chk((await t.go('WORK-AB12')) === 'done' && t.log.counts.length === 0, '  ↳ [방 만들기] 는 doCreateRoomInChannel 이 이미 셌다(두 번 안 셈)');
-    t = mk({ countThrow: true });
-    chk((await t.go('WORK-AB12')) === 'done', '  ↳ 개수를 못 읽으면 막지 않는다(Firebase 갈래와 같은 태도)');
-    t = mk({ count: { workingroom: 5 }, joinFail: 'channelFull', limits: { workingroom: 300, togetherroom: 77 }, premium: true });
-    chk((await t.go('PLAY-AB12')) === 'stop' && /투게더룸이 지금 꽉 찼어요\(77\/77\)/.test(t.log.toasts[0] || ''), '방 서버가 channelFull 로 거절 — 문구는 그 채널 · 설정 상한');
-    t = mk({ count: { workingroom: 300 } });
-    t.win._pendingRoomOpen = true;
-    await t.go('WORK-AB12');
-    chk(t.win._pendingRoomChannel === null && t.win._pendingRoomOpen === false, '  ↳ 막으면 만들기 표시를 지운다(다음 입장에 따라붙지 않게)');
-    // 이미 열린 방(주소록 roomDir) — 못 붙으면 Firebase 로 가지 않고 막는다
-    const BUSY = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';
-    t = mk({ from: 'dir', notReady: true });
-    chk((await t.go('WORK-AB12')) === 'stop' && t.log.started === 0 && t.log.toasts.includes(BUSY) && JSON.stringify(t.log.ready) === '[[10000,true]]',
-      '★ 주소록에 있는 방에 못 붙으면(입장 대기 10초 · 다시 붙어 보기) 막고 «잠시 후 다시 시도» — Firebase 로 안 간다');
-    t = mk({ from: 'dir', joinFail: 'timeout' });
-    chk((await t.go('WORK-AB12')) === 'stop' && t.log.toasts.includes(BUSY), '  ↳ 붙었는데 입장이 시간 초과여도 막는다');
-    t = mk({ from: 'dir', joinFail: 'full' });
-    chk((await t.go('WORK-AB12')) === 'stop' && /가득 찼어요/.test(t.log.toasts[0] || ''), '  ↳ 정원 등 거절은 지금 문구 그대로');
-    t = mk({ notReady: true });
-    chk((await t.go('WORK-AB12')) === 'firebase' && JSON.stringify(t.log.ready) === '[[null,false]]', '  ↳ 주소록에 없는 방(새 방 · peek)은 지금처럼 Firebase 로 — 갈릴 사람이 없다');
-    t = mk({ pending: 'workingroom', notReady: true });
-    chk((await t.go('WORK-AB12')) === 'firebase', '  ↳ [방 만들기] 도 서버에 못 붙으면 Firebase 로 연다');
-  }
-
-  say('── 5-2. Firebase 로 갈 때 까닭(ctx.fbWhy → _meta.fbWhy)');
-  {
-    const a = strip(APP);
-    const SRC = [
-      "const CHANNEL_NAMES = { workingroom: '워킹룸', togetherroom: '투게더룸' };",
-      'const ROOM_SERVER_CONNECTING_TOAST_MS = 1000;',
-      "const ROOM_SERVER_BUSY_MSG = '방 서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';",
-      "const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;",
-      "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
-      'let _pendingExtra = null;',
-      'function _secretMusicOn(){ return false; }',
-      ...['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed(',
-        'function _secretOpenFields(', 'function _clearPendingCreate('].map((h) => takeFn(a, h)),
-      'return _startRoomOnServer;',
-    ].join('\n');
-    const RS2 = (() => { const w = {}; Function('window', read('room-settings.js'))(w); return w.TwRoomSettings; })();
-    const run = async (o, net) => {
-      const st = RCM.createRemoteConfig();
-      const api = {
-        resolveRoomServer: async () => { if(o.gateThrow) throw new Error('net'); return o.rs || { via: 'server', from: 'allow' }; },
-        checkRoomCapacity: async () => o.fbPeople || 0, getRoomCount: async () => 0,
-      };
-      if(o.noGate) delete api.resolveRoomServer;
-      const Presence = { start: async () => (o.joinFail ? { ok: false, code: o.joinFail } : { ok: true, others: 1, meta: null }) };
-      const fn = Function('window', 'firebaseAPI', '_roomServerNet', 'Presence', 'makeServerProvider', '_clearHiddenSeats', 'getDisplayName', 'presenceChanged',
-        'toast', 'refreshInviteUI', 'applyExtraSeatForMode', 'startRoom', '_rcStore', 'isPremium', 'isAdmin', 'console', 'roomSettings', SRC)(
-        { _pendingRoomChannel: null }, api, () => net, Presence, () => ({}), () => {}, () => '나', () => {},
-        () => {}, () => {}, () => {}, async () => {}, () => st, false, false, { warn() {}, log() {} }, RS2);
-      const c = { isSecret: false, secretOwner: null, myDef: {}, fbWhy: null };
-      return { r: await fn('WORK-AB12', c), why: c.fbWhy };
+      if(o.max) st.set('roomMaxPeople', o.max);
+      return Function('window', '_rcStore', 'isPremium', 'isAdmin', 'roomSettings', SRC)({ _pendingRoomChannel: o.pending || null }, () => st, () => !!o.premium, () => false, RS);
     };
-    const okNet = { ensureReady: async () => ({ ok: true }), timing: () => ({ joinWaitMs: 1 }), peek: async () => ({ exists: false }) };
-    const badNet = Object.assign({}, okNet, { ensureReady: async () => ({ ok: false, code: 'timeout' }) });
-    const cases = [
-      ['방 서버 모듈 없음', {}, null, 'noNet'],
-      ['문지기 없음', { noGate: true }, okNet, 'noNet'],
-      ['문지기가 던짐', { gateThrow: true }, okNet, 'gateErr'],
-      ['문지기 «off»', { rs: { via: 'firebase', why: 'off' } }, okNet, 'off'],
-      ['문지기 «noDir»', { rs: { via: 'firebase', why: 'noDir' } }, okNet, 'noDir'],
-      ['연결 시간 초과', {}, badNet, 'ready-timeout'],
-      ['Firebase 에 사람 있음', { fbPeople: 2 }, okNet, 'follow'],
-      ['입장 실패(문구 없는 코드)', { joinFail: 'weird' }, okNet, 'join-weird'],
-    ];
-    for(const [name, o, net, want] of cases){
-      const x = await run(o, net);
-      chk(x.r === 'firebase' && x.why === want, name + ' → Firebase · 까닭 «' + want + '» (' + x.r + ' · ' + x.why + ')');
-    }
-    const ok = await run({}, okNet);
-    chk(ok.r === 'done' && ok.why === null, '  ↳ 방 서버로 들어가면 까닭을 남기지 않는다');
-    const st = await run({ joinFail: 'full' }, okNet);
-    chk(st.r === 'stop' && st.why === null, '  ↳ 막혀서 멈추면(정원 등) 까닭을 남기지 않는다');
-    const mw = takeFn(a, 'function _fallbackMarkWhy(');
-    chk(!!mw, '_fallbackMarkWhy 가 있다');
-    if(mw){
-      const W = Function(mw + '\nreturn _fallbackMarkWhy;')();
-      const rows = [
-        ['만들기 중', { pending: true, roomCount: 3, why: 'off' }, 'off'],
-        ['빈 방(0명)', { pending: false, roomCount: 0, why: 'ready-timeout' }, 'ready-timeout'],
-        ['사람이 있는 방(2명)', { pending: false, roomCount: 2, why: 'follow' }, null],
-        ['인원 확인 실패(null)', { pending: false, roomCount: null, why: 'off' }, null],
-        ['까닭 없음', { pending: true, roomCount: 0, why: null }, null],
-      ];
-      for(const [n, o, want] of rows) chk(W(o) === want, '  ↳ ' + n + ' → ' + JSON.stringify(want) + ' (' + JSON.stringify(W(o)) + ')');
-      const broken = Function(mw.replace('o.roomCount === 0', 'o.roomCount >= 0') + '\nreturn _fallbackMarkWhy;')();
-      chk(broken({ pending: false, roomCount: 2, why: 'follow' }) !== null, '  ↳ 깨 보기: «=== 0» 을 «>= 0» 으로 바꾸면 사람이 있는 방도 남긴다(위 판정이 잡는다)');
-    }
-    const body = takeFn(a, 'async function startRoom(') || '';
-    const iMark = body.indexOf('firebaseAPI.markRoomFallback(code, _markWhy)'), iStart = body.indexOf("await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });");
-    chk(iStart > 0 && iMark > iStart, 'startRoom: Firebase 방에 들어간 뒤에 적는다(_fallbackMarkWhy 가 고른 까닭만)');
-    const F = fs.readFileSync(where('firebase-init.js'), 'utf8');
-    const m = /async markRoomFallback\(room, why\)\{[\s\S]*?\n    \},/.exec(F);
-    const wr = [];
-    if(m){
-      const mk2 = Function('update', 'ref', 'db', '_appVer', 'ROOM_FALLBACK_WHY_MAX', 'return {' + m[0] + '}.markRoomFallback;');
-      const f = mk2(async (r, v) => { wr.push([r, v]); }, (db, p) => p, {}, { withVer: (o) => Object.assign({}, o, { ver: '0.12.1' }) }, 32);
-      await f('WORK-AB12', 'ready-timeout'); await f('WORK-AB12', 'a b<' + 'x'.repeat(40)); await f('WORK-AB12', '');
-      const bad = mk2(async () => { throw new Error('PERMISSION_DENIED'); }, (db, p) => p, {}, { withVer: (o) => Object.assign({}, o, { ver: 'unknown' }) }, 32);
-      let threw = false; try{ await bad('WORK-AB12', 'off'); }catch(_){ threw = true; }
-      chk(!threw, '  ↳ 규칙이 거절해도(규칙 배포 전) 던지지 않는다 — 입장과 무관');
-    }
-    chk(JSON.stringify(wr[0]) === JSON.stringify(['rooms/WORK-AB12/_meta', { fbWhy: 'ready-timeout', fbVer: '0.12.1' }]), 'markRoomFallback: _meta 에 fbWhy · fbVer 두 칸만 update');
-    chk(wr[1] && /^[A-Za-z0-9-]{1,32}$/.test(wr[1][1].fbWhy) && wr[1][1].fbWhy.length === 32, '  ↳ 이상한 글자는 빼고 32자로 자른다(규칙과 같은 모양)');
-    chk(wr[2] && wr[2][1].fbWhy === 'unknown', '  ↳ 비면 «unknown»');
+    chk(/투게더룸이 지금 꽉 찼어요\(77\/77\)/.test(mk({ premium: true, limits: { workingroom: 300, togetherroom: 77 } })('channelFull', false)), '★ channelFull — 빈 방(만들기 아님)이면 내 자격의 채널 · 설정 상한');
+    chk(/워킹룸이 지금 꽉 찼어요\(20\/20\)/.test(mk({ pending: 'workingroom', premium: true, limits: { workingroom: 20, togetherroom: 300 } })('channelFull', false)), '  ↳ 만들기면 고른 채널');
+    chk(/최대 12명/.test(mk({ max: 12 })('full', false)) && /방장 자리 제외 최대 11명/.test(mk({ max: 12 })('full', true)), '  ↳ 정원 문구도 설정값(시크릿룸은 방장 자리 빼고)');
+    chk(mk({})('weird', false) === '서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요' && mk({})('version', false) === 'VER', '  ↳ 모르는 코드는 «잠시 후 다시» · version 은 업데이트 안내');
   }
 
   say('── 6. html — 순서 · 기본 표시 · CSP');

@@ -4,7 +4,7 @@
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
      바뀐 것은 한 줄뿐이다 — _myHomeFriends → _myHomeFriends().
      app.js 가 친구 목록 구독마다 다시 대입하는 let 이라 값이 아니라 읽는 함수로 받는다.
-   ★ 함수(toast · escHtml · getMyUserId · getDisplayName · startRoom · doLeaveRoom · _friendInRoom)는 app.js 가 화살표로 넘긴다.
+   ★ 함수(toast · escHtml · startRoom · doLeaveRoom · _friendInRoom)는 app.js 가 화살표로 넘긴다 · 초대 통신은 deps invites(room-invite-rt.js).
      본문의 typeof 가드(typeof startRoom · typeof _friendInRoom · typeof toast)는 예전처럼 늘 통과한다.
      Presence 는 app.js 에서 이 모듈을 만드는 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로 받는다.
    ★ 밖에서 부르는 이름은 없다 — 버튼(#inviteFriendBtn · #fsInviteFriendBtn) 연결과 초대 수신 구독을 전부 만들 때 건다.
@@ -22,8 +22,7 @@
 function createRoomInviteUi(deps){
 const toast = deps.toast;
 const escHtml = deps.escHtml;                  // 팝업의 보낸 사람 이름
-const getMyUserId = deps.getMyUserId;
-const getDisplayName = deps.getDisplayName;    // 초대에 실어 보내는 내 이름
+const invites = deps.invites;                  // 🙋 방 초대 포트(room-invite-rt.js — 보내기 · 받기 · 지우기 · 방 코드 · 이름은 서버가 채운다)
 const startRoom = deps.startRoom;              // 수락 — 그 방으로
 const doLeaveRoom = deps.doLeaveRoom;          // 수락 — 이미 방에 있으면 먼저 나간다
 const _friendInRoom = deps.friendInRoom;       // 🏠 다른 방에 있는 친구 판정 — app.js(마이홈 친구 목록)
@@ -127,14 +126,15 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
         const send = async ()=>{
           btn.disabled = true; btn.textContent='...';
           st.sending.add(fid);
-          try{
-            if(window.firebaseAPI && firebaseAPI.sendRoomInvite){
-              await firebaseAPI.sendRoomInvite(fid, getMyUserId(), code, getDisplayName());
-              toast((f.name||'친구') + ' 님에게 초대를 보냈어요');
-              btn.textContent='완료';
-              st.sent.add(fid);
-            } else { toast('네트워크 연결이 필요해요'); btn.disabled=false; btn.textContent='초대'; }
-          }catch(e){ toast('초대에 실패했어요'); btn.disabled=false; btn.textContent='초대'; }
+          const r = await invites.send(fid);
+          if(r && r.ok){
+            toast((f.name||'친구') + ' 님에게 초대를 보냈어요');
+            btn.textContent='완료';
+            st.sent.add(fid);
+          }else{
+            toast(INVITE_REFUSED[r && r.code] || '초대에 실패했어요');
+            btn.disabled=false; btn.textContent='초대';
+          }
           st.sending.delete(fid);
           if(_pick === st && st.gen !== gen && pickOv.style.display !== 'none') _renderPick();
         };
@@ -242,34 +242,35 @@ let _roomInviteBusy = false;
      앞서 있으면 방금 온 초대를 «3분 지남» 으로 읽고 버린다. 3분 대기 자체는 팝업이 뜬 순간부터 잰다(아래). */
 const ROOM_INVITE_WAIT_MS  = 3 * 60 * 1000;
 const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
+/* 보내기 거절 까닭(서버 code) → 안내. 그 밖은 «초대에 실패했어요» */
+const INVITE_REFUSED = Object.freeze({
+  ROOM_INVITE_NOT_FRIEND: '친구에게만 초대를 보낼 수 있어요',
+  notReady: '서버에 연결된 뒤 보낼 수 있어요',
+});
 function _bindRoomInviteReceiver(){
-  if(!(window.firebaseAPI && firebaseAPI.subscribeRoomInvites)) return;
-  const myId = getMyUserId();
-  if(!myId) return;   // 내 코드가 없으면 구독하지 않는다(roomInvites/null)
-  firebaseAPI.subscribeRoomInvites(myId, invites=>{
-    let ids = Object.keys(invites || {});
+  invites.onInvites(got=>{
+    let ids = Object.keys(got || {});
     if(!ids.length || _roomInviteBusy) return;
     /* 오래된 초대는 조용히 거절 처리(지우기). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
     const _now = Date.now();
-    const _stale = ids.filter(id => (invites[id] && invites[id].ts > 0) && (_now - invites[id].ts > ROOM_INVITE_STALE_MS));
+    const _stale = ids.filter(id => (got[id] && got[id].ts > 0) && (_now - got[id].ts > ROOM_INVITE_STALE_MS));
     if(_stale.length){
-      _stale.forEach(id => { try{ Promise.resolve(firebaseAPI.clearRoomInvite(myId, id)).catch(()=>{}); }catch(_){} });
-      ids = ids.filter(id => _stale.indexOf(id) < 0);
-      if(!ids.length) return;
+      _stale.forEach(id => { invites.clear(id); });   // 지우면 남은 것으로 다시 불린다 — 이 판은 여기서 끝
+      return;
     }
     _roomInviteBusy = true;
     // 가장 최근 초대 하나만 처리 (여러 개면 순차)
-    ids.sort((a,b)=> (invites[b].ts||0) - (invites[a].ts||0));
+    ids.sort((a,b)=> (got[b].ts||0) - (got[a].ts||0));
     const fromId = ids[0];
-    const inv = invites[fromId];
+    const inv = got[fromId];
     showRoomInvitePopup(inv.fromName || '친구', inv.roomCode, async (accepted)=>{
-      try{ await firebaseAPI.clearRoomInvite(myId, fromId); }catch(_){}
       if(accepted && inv.roomCode){
         // 이미 다른 방이면 나간 뒤 이동
         try{ if(typeof Presence!=='undefined' && Presence.active()) await doLeaveRoom({ wipeChat: true }); }catch(_){}
         startRoom(inv.roomCode);
       }
       _roomInviteBusy = false;
+      invites.clear(fromId);   // 지우면 남은 초대로 다시 불린다(다음 것을 띄운다)
     });
   });
 }
@@ -325,7 +326,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
 // Firebase 준비되면 수신 구독 시작
-TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver());
+_bindRoomInviteReceiver();   // 받은 초대는 realtime 연결 하나로 온다(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다)
 
 return {
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)

@@ -1,6 +1,6 @@
 /*
- * 💬 대화 기록 — 서버 3일 + 이 PC 저장 + 커서로 이어 받기 (entities · 검사 sim-chat-history.js)
- * Firebase 를 직접 import 하지 않는다 — 구독(subscribeSince) · 지우기(clearLog)는 firebase-init.js 가 넘긴다.
+ * 💬 대화 기록 — 서버 3일 + 이 PC 화면 캐시 + 시각으로 이어 받기 (entities · 검사 sim-chat-history.js)
+ * 서버 길을 모른다 — 이어 받기(subscribeSince) · 방장 지우기(clearLog)는 대화 포트(chat/chat-rt.js)를 firebase-init.js 가 잇는다.
  *
  * [왜] 예전엔 대화창을 열 때마다 마지막 100줄을 onValue 로 통째 구독했다. 서버 기록에는 보관 기간이 없어 계속 쌓였고,
  *   그 100줄 밖의 대화는 볼 길이 없었다. 지금은 카카오톡처럼
@@ -134,7 +134,7 @@ export function createIdbChatStore(idb, scope){
 /* deps:
    subscribeSince(room, tab, since, onMsg, onReady) → 해제 함수 — since 가 null 이면 마지막 CHAT_FIRST_LIMIT 줄,
      숫자면 ts ≥ since 전부. 새 줄 · 고친 줄(ts 확정)마다 onMsg(한 줄), 처음 받기가 끝나면 onReady() 한 번
-   clearLog(room, tab) → Promise<{ok}> · sendLog(room, msg, tab) → Promise
+   clearLog(room, tab) → Promise<{ok}>(서버가 지우기 표시 줄을 남긴다)
    store(createIdbChatStore 모양 · 없으면 저장 없이) · channel() → 지금 방 채널('workingroom' | 'togetherroom')
      — firebase-init 은 채널을 모르므로 room-entry 가 bindChannel 로 firebase-ready 때 건다(걸기 전에는 이 PC 에 저장 쪽)
    setTimeout(검사용 · 없으면 전역) */
@@ -180,11 +180,9 @@ export function createChatHistory(deps){
     })();
     return () => { closed = true; if(unsub){ try{ unsub(); }catch(_){} } };
   }
-  /* 방장 [지우기] — 서버를 비우고 표시 줄을 남긴다. 각자의 저장은 그 줄을 받으면서 비워진다(꺼져 있던 사람은 다음 접속 때). */
+  /* 방장 [지우기] — 서버가 비우고 지우기 표시 줄(CLEAR)을 방 전원에 보낸다. 각자의 저장은 그 줄을 받으면서 비워진다(꺼져 있던 사람은 다음 접속 때). */
   async function clear(room, tab){
-    const r = await deps.clearLog(room, tab);
-    if(r && r.ok){ try{ await deps.sendLog(room, Object.assign({}, CLEAR_MARK), tab); }catch(_){} }
-    return r;
+    return deps.clearLog(room, tab);
   }
   /* 방 메타(채널 목록)가 올 때 — 지워졌거나 같은 자리에 새로 생긴 채널의 저장을 비우고, 지금 채널을 적어 둔다. */
   async function syncTabs(room, metaTabs){

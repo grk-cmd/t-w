@@ -64,6 +64,7 @@ function run(o){
     firebaseAPI: { sendChatLog: (room, m) => log.chatLog.push(m.text) },
     Presence: { active: () => !!o.room, roomCode: () => o.room ? 'R1' : null, sendChat: (t) => log.chat.push(t), pokeSelf: (t) => log.pokeSelf.push(t) },
     getDisplayName: () => '나', _flyChatLog: (t) => log.chatLog.push(t),
+    chatNet: { sendGame: (room, g) => log.chatLog.push(g.dice ? '나님이 주사위 [dice:' + g.dice[0] + '][dice:' + g.dice[1] + '] 가 나왔습니다.' : JSON.stringify(g)) },   // 서버가 만드는 문장 모양을 흉내 낸다
     canFly: () => o.cantFly ? { ok: false, why: '이미 날아가는 중이에요' } : { ok: true },
     flySeed: () => 42, applyRemoteFly: (s, v) => log.remoteFly.push(v),
     setTimeout: (f) => timers.push(f), Date: { now: () => o.now || 100000 }, Math: M,

@@ -40,7 +40,7 @@ async function join(src, fnName, v){
   const out = { room: null, toasts: [], random: 0 };
   const fns = new Function('toast', 'startRoom', '_resolveRoomCode', 'doJoinRandomRoom', '_myRoomPrefix',
     'let _joiningRoom = false;\n' + parts.join('\n') + '\nreturn { doJoinRoom, doJoinSecretRoom };')(
-    (m) => out.toasts.push(m), (code) => { out.room = code; }, async (body, pre) => pre + body, async () => { out.random++; }, () => 'WORK-');
+    (m) => out.toasts.push(m), (code) => { out.room = code; }, (body, pre) => pre + body, async () => { out.random++; }, () => 'WORK-');
   await fns[fnName]({ value: v, dataset: {} });
   return out;
 }
