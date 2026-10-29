@@ -5,7 +5,7 @@
      PART_CATS · PART_DEFAULT_OFFSET · PART_GROUPS · Presence · WD_DESK_TAB · gachaMod · isAdmin · isPremium · partPaintMod · savedParts · slots 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 51개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · clampWdPreviewIntoView · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdPreview · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdPreviewSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ORBIT_DRAG_DIR · _clearMultiPanelRef · _wdAfterMainSwap · activeWdAdj · buildFreeColorPicker · commitWdDraft · createWardrobeAdjPanel · currentWdTab · detachWdGizmo · ensureWdDraft · ensureWdGizmo · placeWdWindows · refreshWdPreviewChar · refreshWdPreviewColorSection · relinkDraftSrc · renderWardrobe · setWdGizmoMode · sizeWdPreview · syncWdGizmoToXf · syncWdPreviewOwner · toggleEquip · updateWdCam · updateWdGizmoForActivePanel · wdCam · wdDraftDef · wdGizmo · wdGizmoMode · wdPreviewBase · wdWinSavedPos · wdScene — app.js 는 wardrobeMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwWardrobe — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-wardrobe.js */
@@ -460,85 +460,77 @@ function updateWdGizmoForActivePanel(){
   // (초기화는 우클릭 조정 패널의 라디오+↺에서 항목별로 — 툴바 ↺는 요청에 따라 제거)
 })();
 
-/* 📐 미리보기 창 자리 — 공용 배치기.
-   [왜 필요한가] 이 패널의 기본 자리는 CSS 의 `right:352px · width:320px` 로, **꾸미기 창이 오른쪽에
-     붙어 있다**는 레이아웃을 전제로 한 값이다.
-   ⚠️ 드래그 위치는 localStorage('tw.wdPreviewPos')에 저장되는데, 저장할 땐 그때의 창 크기로
-     clamp 하고 **복원할 땐 안 했다.** 창이 작아지거나 해상도·배율이 바뀌면 그 좌표가 화면 밖이라
-     패널이 통째로 안 보인다 — 재설치(=저장값 소멸)로만 고쳐지던 종류의 증상이다.
-   ★ 크기를 재야 하므로 패널이 보이는 상태(.on)에서만 동작한다. */
-const WD_PREVIEW_POS_KEY = 'tw.wdPreviewPos';
-function wdPreviewSavedPos(){
+/* 📐 꾸미기 창 · 미리보기 창 자리 — 두 창은 한 몸으로 화면 가운데에 뜨고(규칙은 wardrobe-place.js), 어느 쪽 제목줄을 끌어도 같이 움직인다.
+   자리 기억은 꾸미기 창 왼쪽 위 하나(tw.wdWinPos). 크기를 재야 하므로 꾸미기 창이 보일 때(.on)만 맞춘다. */
+const WD_WIN_POS_KEY = 'tw.wdWinPos';
+function wdWinSavedPos(){
   try{
-    const s = JSON.parse(localStorage.getItem(WD_PREVIEW_POS_KEY) || 'null');
-    return (s && typeof s.x === 'number' && typeof s.y === 'number') ? s : null;
+    const s = JSON.parse(localStorage.getItem(WD_WIN_POS_KEY) || 'null');
+    return TwWardrobePlace.isPos(s) ? s : null;
   }catch(_){ return null; }
 }
-function placeWdPreview(x, y){
-  const p = document.getElementById('wdPreviewPanel'); if(!p) return;
-  const r = p.getBoundingClientRect();
-  const w = r.width || 320, h = r.height || 420;
-  p.style.left = Math.max(8, Math.min(innerWidth  - w - 8, x)) + 'px';
-  p.style.top  = Math.max(8, Math.min(innerHeight - h - 8, y)) + 'px';
-  p.style.right = 'auto'; p.style.transform = 'none';
+/* saved — 꾸미기 창 왼쪽 위(안 주면 기억한 자리 · 기억도 없으면 가운데). 화면 밖이면 안으로 당긴다. */
+function placeWdWindows(saved){
+  const panel = document.getElementById('wardrobePanel');
+  const prev = document.getElementById('wdPreviewPanel');
+  if(!panel || !prev || !panel.classList.contains('on')) return null;
+  const pr = panel.getBoundingClientRect(), vr = prev.getBoundingClientRect();
+  const at = TwWardrobePlace.placeGroup({
+    vw: innerWidth, vh: innerHeight,
+    panel: { w: pr.width, h: pr.height },
+    preview: { w: vr.width || 320, h: vr.height || 420 },
+    saved: saved === undefined ? wdWinSavedPos() : saved,
+  });
+  panel.style.left = at.panel.x + 'px'; panel.style.top = at.panel.y + 'px';
+  prev.style.left = at.preview.x + 'px'; prev.style.top = at.preview.y + 'px';
+  return at;
 }
-function clampWdPreviewIntoView(){
-  const p = document.getElementById('wdPreviewPanel');
-  if(!p || !p.classList.contains('on')) return;      // 숨은 상태에서는 크기를 못 잰다
-  const r = p.getBoundingClientRect(); if(!r.width) return;
-  if(r.left >= 0 && r.top >= 0 && r.right <= innerWidth && r.bottom <= innerHeight) return;
-  placeWdPreview(r.left, r.top);
-}
-/* 창 크기가 바뀌면 다시 끌어온다 — 저장값이 옛 화면 크기 기준일 수 있다. */
-addEventListener('resize', ()=>{ try{ clampWdPreviewIntoView(); }catch(_){} });
+/* 창 크기가 바뀌면 다시 끌어온다 — 기억한 자리가 옛 화면 크기 기준일 수 있다. */
+addEventListener('resize', ()=>{ try{ placeWdWindows(); }catch(_){} });
 
 /* 👀 미리보기 패널은 꾸미기 창(#wardrobePanel)이 열려 있는 동안만 보인다(도감도 꾸미기 창의 탭이다).
-   ⚠️ .on 이 없으면 clampWdPreviewIntoView 가 크기를 못 잰다 — 표시를 먼저 맞추고 끌어온다. */
+   ⚠️ 미리보기를 먼저 보이게 해야 placeWdWindows 가 두 창 크기를 잰다. */
 function syncWdPreviewOwner(){
   const wp = document.getElementById('wdPreviewPanel'); if(!wp) return;
   if(!document.querySelector('#wardrobePanel.on')){ wp.classList.remove('on'); return; }
   wp.classList.add('on');
-  try{ clampWdPreviewIntoView(); }catch(_){}
+  try{ placeWdWindows(); }catch(_){}
 }
 
-// ★ 요청사항: 미리보기 창을 드래그로 옮길 수 있게 — 타이틀바(👀 미리보기)를 잡고 끌면 이동되고,
-//   옮긴 위치는 localStorage에 저장해서 다음에 창을 열어도 그 자리에 그대로 뜸.
-(function bindWdPreviewDrag(){
-  const panel=document.getElementById('wdPreviewPanel'); if(!panel) return;
-  const handle=panel.querySelector('.wd-top'); if(!handle) return;
-  handle.style.cursor='move';
-  const POS_KEY=WD_PREVIEW_POS_KEY;
-  try{
-    const saved=wdPreviewSavedPos();
-    if(saved){
-      panel.style.left=saved.x+'px'; panel.style.top=saved.y+'px';
-      panel.style.right='auto'; panel.style.transform='none';
-      // 여기서는 아직 display:none 이라 크기를 못 잰다 — 실제 clamp 는 창을 열 때 한다.
-    }
-  }catch(e){}
-  let dragging=false, startX=0, startY=0, startLeft=0, startTop=0;
-  handle.addEventListener('pointerdown', e=>{
-    if(e.target.closest('button')) return;   // 혹시 타이틀바에 버튼이 생기더라도 그건 드래그 시작 안 함
-    dragging=true; handle.setPointerCapture(e.pointerId);
-    const rect=panel.getBoundingClientRect();
-    startX=e.clientX; startY=e.clientY; startLeft=rect.left; startTop=rect.top;
-    panel.style.left=rect.left+'px'; panel.style.top=rect.top+'px';
-    panel.style.right='auto'; panel.style.transform='none';
+/* 🖱️ 끌어 옮기기 — 꾸미기 창 · 미리보기 창 제목줄 어느 쪽을 잡아도 두 창이 같이 움직이고, 놓으면 자리를 기억한다. */
+(function bindWdWindowsDrag(){
+  const panel = document.getElementById('wardrobePanel');
+  const prev = document.getElementById('wdPreviewPanel');
+  if(!panel || !prev) return;
+  let drag = null;
+  [panel, prev].forEach(win=>{
+    const handle = win.querySelector('.wd-top'); if(!handle) return;
+    handle.style.cursor = 'move';
+    handle.addEventListener('pointerdown', e=>{
+      if(e.target.closest('button')) return;   // ✕ 는 끌기가 아니다
+      const r = panel.getBoundingClientRect();
+      drag = { id: e.pointerId, handle, sx: e.clientX, sy: e.clientY, x: r.left, y: r.top, last: null };
+      handle.setPointerCapture(e.pointerId);
+    });
+    handle.addEventListener('pointermove', e=>{
+      if(!drag || drag.handle !== handle) return;
+      drag.last = placeWdWindows({ x: drag.x + (e.clientX - drag.sx), y: drag.y + (e.clientY - drag.sy) });
+    });
+    const end = ()=>{
+      if(!drag || drag.handle !== handle) return;
+      const at = drag.last; drag = null;
+      if(!at) return;   // 누르기만 하고 안 움직였다
+      try{ localStorage.setItem(WD_WIN_POS_KEY, JSON.stringify(at.panel)); }catch(_){}
+    };
+    handle.addEventListener('pointerup', end);
+    handle.addEventListener('pointercancel', end);
   });
-  handle.addEventListener('pointermove', e=>{
-    if(!dragging) return;
-    const rect=panel.getBoundingClientRect();
-    let nx=startLeft+(e.clientX-startX), ny=startTop+(e.clientY-startY);
-    nx=Math.max(0, Math.min(innerWidth-rect.width, nx));
-    ny=Math.max(0, Math.min(innerHeight-rect.height, ny));
-    panel.style.left=nx+'px'; panel.style.top=ny+'px';
-  });
-  const endDrag=()=>{
-    if(!dragging) return; dragging=false;
-    try{ localStorage.setItem(POS_KEY, JSON.stringify({x:parseFloat(panel.style.left), y:parseFloat(panel.style.top)})); }catch(e){}
-  };
-  handle.addEventListener('pointerup', endDrag);
-  handle.addEventListener('pointercancel', endDrag);
+  /* 탭을 바꿔 창 높이가 달라지면 지금 자리 그대로 화면 안으로만 당긴다(가운데로 다시 맞추면 탭마다 창이 튄다) */
+  new ResizeObserver(()=>{
+    if(drag || !panel.classList.contains('on')) return;
+    const r = panel.getBoundingClientRect();
+    placeWdWindows({ x: r.left, y: r.top });
+  }).observe(panel);
 })();
 
 function sizeWdPreview(){
@@ -1978,14 +1970,13 @@ return {
   activeWdAdj: ()=>activeWdAdj,   // 읽는 함수
   setActiveWdAdj: (v)=>{ activeWdAdj = v; },   // 쓰는 함수 — app.js 가 비운다
   buildFreeColorPicker,
-  clampWdPreviewIntoView,
   commitWdDraft,
   createWardrobeAdjPanel,
   currentWdTab: ()=>currentWdTab,   // 읽는 함수
   detachWdGizmo,
   ensureWdDraft,
   ensureWdGizmo,
-  placeWdPreview,
+  placeWdWindows,
   refreshWdPreviewChar,
   refreshWdPreviewColorSection,
   renderWardrobe,
@@ -2004,7 +1995,7 @@ return {
   wdGizmo: ()=>wdGizmo,   // 읽는 함수
   wdGizmoMode: ()=>wdGizmoMode,   // 읽는 함수
   wdPreviewBase: ()=>wdPreviewBase,   // 읽는 함수
-  wdPreviewSavedPos,
+  wdWinSavedPos,
   wdScene: ()=>wdScene,   // 읽는 함수
 };
 }
