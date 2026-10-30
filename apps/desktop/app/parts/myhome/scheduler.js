@@ -44,6 +44,7 @@ const DDAY_CARD_IMG_MAX = 150;      // 카드 배경 이미지 리사이즈 상�
 /* 받는 상태 — 달력 · 내 보드 · 친구 보드가 각각 가진다. IDLE(아직 안 물음)은 화면에서 LOADING 과 같게 보인다 */
 const LOAD = Object.freeze({ IDLE: 'idle', LOADING: 'loading', READY: 'ready', ERROR: 'error' });
 const LOAD_TEXT = Object.freeze({ loading: '불러오는 중이에요', error: '불러오지 못했어요 — 눌러서 다시 시도' });
+const LOCK_TEXT = '아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요';   // 받기 전에 고치려 할 때(토스트)
 let _gen = 0;                       // reset 마다 오른다 — 앞 계정의 늦은 답이 새 계정 화면을 건드리지 않게
 let _schedTagTarget = 'sched';      // 지금 태그 팝업이 누구를 위한 것인지: 'sched'(일정) | 'dday'
 let _schedYM        = null;   // 지금 보고 있는 달 'YYYY-MM'
@@ -494,21 +495,25 @@ function _boardRun(fn){
   _boardChain = run.catch(()=>{});
   return run;
 }
+/* 받았으면(또는 받을 필요가 없어졌으면) true, 못 받았으면 false */
 async function _boardFetchNow(quiet){
   const me = getMyUserId(), gen = _gen;
-  if(!me) return;
+  if(!me) return true;
   if(!quiet || _boardState !== LOAD.READY){ _boardState = LOAD.LOADING; renderDdays(); }
   try{
     const dd = await scheduleApi.fetchBoard(me);
-    if(gen !== _gen) return;
+    if(gen !== _gen) return true;
     _schedDdays = dd; _boardState = LOAD.READY; _loadFailing = false;
   }catch(e){
-    if(gen !== _gen) return;
-    if(quiet && _boardState === LOAD.READY) return;   // 조용히 다시 받다 못 받았다 — 있던 값을 둔다
+    if(gen !== _gen) return true;
+    if(quiet && _boardState === LOAD.READY) return false;   // 조용히 다시 받다 못 받았다 — 있던 값을 둔다
     _boardState = LOAD.ERROR; _loadFail(e);
+    renderDdays();
+    return false;
   }
   renderDdays();
   refreshBellBadge();
+  return true;
 }
 function _boardLoad(quiet){ return _boardRun(()=>_boardFetchNow(quiet)); }
 function _ddayRetry(){ if(viewingUserId()) loadVisit(viewingUserId()); else _boardLoad(false); }
@@ -537,7 +542,7 @@ function _boardSave(mutate, tag){
 }
 async function _ddayDelete(id){
   if(viewingUserId()) return;
-  if(_boardState !== LOAD.READY){ toast('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }
+  if(_boardState !== LOAD.READY){ toast(LOCK_TEXT); return; }
   const ok = await _boardSave(m=>{ if(!m[id]) return null; delete m[id]; return m; }, null);
   if(ok) toast('D-day를 삭제했어요');
 }
@@ -553,10 +558,13 @@ async function _ddayReorder(fromId, toId, kind){
   ids.splice(fi, 1);
   ids.splice(ti, 0, fromId);
   // 낙관적 갱신 — 서버 응답을 기다리지 않고 먼저 화면에 반영(끊김 없이 느껴지도록). 서버 값이 오면 그 값으로 바뀐다
+  const before = JSON.parse(JSON.stringify(_schedDdays)), gen = _gen;   // 못 보내고 다시 받기도 못 하면 이 사본으로 되돌린다
   ids.forEach((id, i)=>{ if(_schedDdays[id]) _schedDdays[id].order = i; });
   renderDdays();
   const ok = await _boardSave(m=>{ ids.forEach((id, i)=>{ if(m[id]) m[id].order = i; }); return m; }, null);
-  if(!ok) _boardLoad(true);   // 못 보냈으면 먼저 그린 순서를 서버 것으로 되돌린다
+  if(ok) return;
+  const fresh = await _boardLoad(true);   // 못 보냈으면 먼저 그린 순서를 서버 것으로 되돌린다
+  if(!fresh && gen === _gen && _boardState === LOAD.READY){ _schedDdays = before; renderDdays(); }   // 서버에서도 못 받았다 — 받아 둔 사본으로
 }
 
 /* 카드를 클릭하면 하트가 뿜어짐 (캐릭터 쓰다듬기와 같은 느낌) */
@@ -603,7 +611,7 @@ function _ddayOpenEdit(id, kind, prefillDate){
   const msgEl   = document.getElementById('mhDdayEditMsg');
   const tagInfo = document.getElementById('mhDdayTagInfo');
   if(!modal) return;
-  if(_boardState !== LOAD.READY){ toast('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 받기 전에는 고치지 못하게 잠근다
+  if(_boardState !== LOAD.READY){ toast(LOCK_TEXT); return; }   // 받기 전에는 고치지 못하게 잠근다
 
   _ddayEditId = id;
   _ddayTagSel = [];
@@ -838,7 +846,7 @@ function _applyAnnivHeight(px){
     if(!_schedSelDD){ toast('날짜를 먼저 선택해 주세요'); return; }
     const text = (input ? input.value : '').trim();
     if(!text) return;
-    if(_monthState !== LOAD.READY){ toast('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 받기 전에는 고치지 못하게 잠근다
+    if(_monthState !== LOAD.READY){ toast(LOCK_TEXT); return; }   // 받기 전에는 고치지 못하게 잠근다
     const isPublic = !!(pubChk && pubChk.checked);
     const date = `${_schedYM}-${_schedSelDD}`, tags = _schedTagSel.slice(), gen = _gen;
     _schedAdding = true;
@@ -981,7 +989,7 @@ function _applyAnnivHeight(px){
       if(!_ddayEditId && _ddayOrderedIds(_ddayEditKind).length >= limit){
         ddShowMsg(`${isAnnivSave?'기념일':'D-day'}는 최대 ${limit}개까지만 등록할 수 있어요`, true); return;
       }
-      if(_boardState !== LOAD.READY){ ddShowMsg('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요', true); return; }   // 받기 전에는 고치지 못하게 잠근다
+      if(_boardState !== LOAD.READY){ ddShowMsg(_boardState === LOAD.ERROR ? LOAD_TEXT.error : LOCK_TEXT, true); return; }   // 받기 전에는 고치지 못하게 잠근다
       ddSave.disabled = true; ddShowMsg('저장 중…', false);
       const editId = _ddayEditId, kind = _ddayEditKind, tagSel = _ddayTagSel.slice();
       const key = editId || ('new-' + Date.now().toString(36));   // 새 장의 임시 열쇠 — 서버가 진짜 id 를 정해 돌려준다
@@ -1009,7 +1017,9 @@ function _applyAnnivHeight(px){
         toast(tagSel.length ? `D-day를 저장하고 친구 ${tagSel.length}명에게 알렸어요` : (editId ? `${what2}을 수정했어요` : `${what2}을 추가했어요`));
         _ddayCloseEdit();
       }else{
-        ddShowMsg(gone ? '이미 지워진 항목이에요' : '', gone);
+        /* 말없이 끝나지 않게 — 받기 상태(받는 중 · 못 받음)이면 그 문구를, 아니면(실패 알림은 이미 떴다) 비운다 */
+        const waiting = _boardState !== LOAD.READY;
+        ddShowMsg(gone ? '이미 지워진 항목이에요' : (waiting ? (_boardState === LOAD.ERROR ? LOAD_TEXT.error : LOAD_TEXT.loading) : ''), gone || waiting);
       }
     });
   }

@@ -197,6 +197,23 @@ say('── 4. 디데이 보드 저장');
   const fresh = mk(SRC, { 'PUT /v1/me/ddays': BOARD() });
   const e5 = await rej(fresh.m.saveBoard('me1', {}, null));
   chk(e5 && e5.code === 'NOT_RECEIVED' && fresh.authed.log.length === 0, '받기 전에는 요청 0');
+  { /* 읽은 토큰 주인이 다르면 앞 주인의 판을 잇지 않는다 */
+    const x = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'GET /v1/me/schedules': [], 'PUT /v1/me/ddays': BOARD() });
+    const xb = await x.m.fetchBoard('me1');
+    x.authed.state.who = 'tokenB';
+    await x.m.fetchMonth('me1', '2026-11');
+    const e = await rej(x.m.saveBoard('me1', xb, null));
+    chk(e && e.code === 'NOT_RECEIVED' && x.authed.log.filter((y) => y.method === 'PUT').length === 0, '★ 판은 같은 토큰 주인이 읽은 것만 잇는다 — 다른 주인이 달력을 읽은 틈에 앞 주인의 판으로 보드를 덮지 않는다(요청 0)');
+  }
+  { /* reset 전에 시작한 읽기가 늦게 끝나도 기억을 되살리지 않는다 */
+    let release;
+    const gate = new Promise((r) => { release = r; });
+    const y = mk(SRC, { 'GET /v1/me/schedules': () => gate.then(() => []), 'POST /v1/me/schedules': it('n1', '2026-11-05', 'a') });
+    const pending = y.m.fetchMonth('me1', '2026-11');
+    y.m.reset(); release(); await pending;
+    const e = await rej(y.m.createItem('me1', { date: '2026-11-05', text: 'a' }));
+    chk(e && e.code === 'NOT_RECEIVED' && y.authed.log.filter((z) => z.method === 'POST').length === 0, '★ reset 전에 시작한 읽기가 늦게 끝나도 «받음» 기억을 되살리지 않는다 — 쓰기 요청 0');
+  }
   const month = mk(SRC, { 'GET /v1/me/schedules': [], 'PUT /v1/me/ddays': BOARD() });
   await month.m.fetchMonth('me1', '2026-11');
   chk((await rej(month.m.saveBoard('me1', {}, null))).code === 'NOT_RECEIVED', '달력만 읽고 보드를 안 읽었으면 보드는 쓰지 않는다(판이 없다)');
@@ -287,6 +304,19 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
     await rej(m.saveBoard('me1', board, null));
     const e = await rej(m.saveBoard('me1', board, null));
     chk(e && e.code === 'NOT_RECEIVED', 'x');
+  });
+  await broken('다른 토큰 주인의 읽기에도 앞 판을 잇는다', (x) => x.replace('prev && prev.owner === owner ? prev.v : undefined', 'prev ? prev.v : undefined'), async (src) => {
+    const x = mk(src, { 'GET /v1/me/ddays': BOARD(), 'GET /v1/me/schedules': [], 'PUT /v1/me/ddays': BOARD() });
+    const xb = await x.m.fetchBoard('me1');
+    x.authed.state.who = 'tokenB';
+    await x.m.fetchMonth('me1', '2026-11');
+    chk(!!(await rej(x.m.saveBoard('me1', xb, null))), 'x');
+  });
+  await broken('reset 뒤 늦게 끝난 읽기가 기억을 되살린다', (x) => x.replace('if(at !== epoch) return d;', ''), async (src) => {
+    let release; const gate = new Promise((r) => { release = r; });
+    const y = mk(src, { 'GET /v1/me/schedules': () => gate.then(() => []), 'POST /v1/me/schedules': it('n1', '2026-11-05', 'a') });
+    const pending = y.m.fetchMonth('me1', '2026-11'); y.m.reset(); release(); await pending;
+    chk(!!(await rej(y.m.createItem('me1', { date: '2026-11-05', text: 'a' }))), 'x');
   });
   await broken('새 장에도 ddayId 를 싣는다', (x) => x.replace('if(UUID_RE.test(id)) o.ddayId = id;', 'o.ddayId = id;'), async (src) => {
     const { m, authed } = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });

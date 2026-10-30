@@ -151,13 +151,17 @@ function createScheduleApi(deps){
   const uploadImage = deps.uploadImage;
   const warn = deps.warn;
   const reads = new Map();   // uid → { owner: 마지막으로 읽을 때 쓴 토큰의 주인, v: 보드 판(없으면 undefined) }
+  let epoch = 0;             // reset 마다 오른다 — reset 전에 시작한 읽기가 늦게 끝나도 기억을 되살리지 않게
 
   /* 내 것을 읽는 GET — 토큰 주인을 기억한다. 판은 보드만 */
   async function readMine(uid, path, withVersion){
     let owner;
+    const at = epoch;
     const d = await authed.get(path, { auth: true, onOwner: (who) => { owner = who; } });
+    if(at !== epoch) return d;   // 읽는 사이 계정을 놓았다 — 읽은 기억을 남기지 않는다(쓰기는 다시 받기 전까지 막힌 채)
     const prev = reads.get(uid);
-    reads.set(uid, { owner, v: withVersion ? undefined : (prev ? prev.v : undefined) });
+    /* 판은 «같은 토큰 주인이 읽은» 것만 잇는다 — 다른 주인의 판에 이 주인의 읽기를 얹으면 남의 보드를 내 판으로 덮는 길이 된다 */
+    reads.set(uid, { owner, v: withVersion ? undefined : (prev && prev.owner === owner ? prev.v : undefined) });
     return d;
   }
   /* 쓰기 전에 «읽은 적이 있는가» — 받기 전에는 올리지 않는다 */
@@ -197,10 +201,11 @@ function createScheduleApi(deps){
 
   async function fetchBoard(uid){
     if(!uid) throw codeError('NO_USER', '내 코드 없음');
+    const at = epoch;
     const d = await readMine(uid, PATHS.board, true);
     const out = boardOf(d);
     if(!out) throw shapeError();
-    reads.set(uid, Object.assign({}, reads.get(uid), { v: out.version }));
+    if(at === epoch && reads.get(uid)) reads.set(uid, Object.assign({}, reads.get(uid), { v: out.version }));
     return out.ddays;
   }
   async function fetchBoardOf(userCode){
@@ -260,7 +265,7 @@ function createScheduleApi(deps){
   }
 
   return { fetchMonth, fetchMonthOf, createItem, deleteItem, fetchBoard, fetchBoardOf, saveBoard, fetchBell, deleteBell,
-    orderedIds, reset: () => reads.clear(), LIMITS, KIND };
+    orderedIds, reset: () => { epoch++; reads.clear(); }, LIMITS, KIND };
 }
 
 const api = { createScheduleApi, itemOf, monthOf, ddayOf, ddaysOf, boardOf, bellOf, boardBody, orderedIds, PATHS, LIMITS, KIND };

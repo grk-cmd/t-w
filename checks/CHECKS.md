@@ -95,7 +95,7 @@
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 618 | **6664bb6aad56** |
 | **sim-friends-port.js** | 434 | **bcaa5c7fc5b9** |
-| **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** |
+| **sim-friend-profile-live.js** | 241 | **e41a21eb3c9e** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
 | **sim-wd-parts-persist.js** | 95 | **71c92bf7579e** ← **개정 342 장착 줄을 refitSeatAfterParts 안에서 찾는다(판정 무변경)** · **개정 244 열린 초안 주인은 꾸미기 relinkDraftSrc 를 onSeatRelinked 로 같이 돌림 · 걸려 있는지 판정 1 추가** · **개정 186 app.js(모듈 이름 뗌) + 옮기기 전 모양으로 되살린 모듈 — 공용 sim-renderer-src.js 의 joinRenderer 로 읽음(판정 무변경)** · **개정 155 신규 · 💾 꾸미기 · 가챠 파츠 재부팅 초기화 — _relinkSeatsToSlots 실행(같은 칸 · 비운 칸 · 남의 좌석 · 열린 초안) · 받는 두 곳 배선 · 저장이 파츠 받기보다 먼저 · 숨기기 전 closeWardrobe · 종료 때 저장**
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
@@ -259,7 +259,7 @@
 | **sim-app-size.js** | 127 | **f4d91c399857** |
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
-| **sim-scheduler.js** | 660 | **335bd514641d** |
+| **sim-scheduler.js** | 760 | **8b3f80db3c44** |
 | **sim-weekly-challenge.js** | 345 | **35279543c804** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
@@ -280,7 +280,7 @@
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 602 | **2f88802194fc** |
 | **sim-playlist-api.js** | 277 | **674fd3864893** |
-| **sim-schedule-api.js** | 347 | **ce23f7c891ed** |
+| **sim-schedule-api.js** | 377 | **d4c9757ee685** |
 | **sim-playlist.js** | 928 | **0a979dfac4e1** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
