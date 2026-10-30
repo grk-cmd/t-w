@@ -32,6 +32,7 @@
    · 이번 단계는 UI/규칙 자리만: 파티 바 + 협동 선택지 (0/3) 표시.
    · 실시간 연동(Firebase parties)은 다음 단계 — advPartyAdd에서 안내만.
 
+   ★ deps (createMyHomeDesktop) — advStore: 계정별 로컬 칸(shared/account-store.js · 바탕화면 저장 tw.advZ.v2 · v1). myhome-desktop-boot.js 가 넘긴다
    ★ app.js 전역 의존 (전부 typeof 가드)
    · focusLevelMod.getFocusLevel(), _focusTotalSec, getDisplayName()
    · firebaseAPI.uploadUserImage(), getMyUserId(), toast(), companion.dsHold()

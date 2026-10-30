@@ -70,7 +70,7 @@ const listSrc = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/)
 chk(!!listSrc, '★ ACCOUNT_LOCAL_KEYS 가 있다 (지움 목록은 코드 한 벌이어야 한다 — 주석으로 «같은 목록» 이면 또 새는 자리)');
 const has = n => new RegExp('\\b' + n + '\\b').test(listSrc);
 chk(has('LICENSE_KEY_STORAGE'), '① 라이선스 키 — 남으면 미보유자에게 프리미엄이 열린다');
-chk(has('FOCUS_TOTAL_KEY') && has('FOCUS_SYNCED_KEY'), '③ 누적 시간 + 마크 — 남으면 max 바닥이 다음 계정 서버를 끌어올린다');
+chk(!has('FOCUS_TOTAL_KEY') && !has('FOCUS_SYNCED_KEY') && !has('FOCUS_TODAY_SEC_KEY'), '③ 누적 시간 + 마크는 계정별 칸(shared/account-store.js)이라 지움 목록에 없다 — 계정을 바꾸면 다른 칸이 열려 다음 계정 서버를 안 끌어올린다(흐름은 sim-account-store 6b절)');
 chk(has('GACHA_OWNED_KEY') && has('GACHA_TS_KEY') && has('GACHA_BONUS_KEY'), '④ 가챠 보유·시각·보너스');
 chk(has('LS_KEY') && has('SLOTS_TS_KEY'), '② 캐릭터 슬롯 + ts — 남으면 슬롯 동기화가 다음 계정으로 push 한다');
 chk(/'tw\.roomFaceUrls'/.test(listSrc) && has('SLOT_GLB_CACHE_KEY'), '  업로드 캐시 둘 — users/{uid}/ 경로라 다른 uid 가 물려받으면 남의 Storage 를 가리킨다');

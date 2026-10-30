@@ -870,7 +870,7 @@ function getMyUserId(){
   try{ return localStorage.getItem(MY_USER_ID_KEY) || null; }catch(e){ return null; }
 }
 /* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
-const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId });
+const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
 /* 🪪 uid 를 **만드는** 곳은 여기 하나다(설계 §3 ②). 부르는 곳도 게이트의 «새 사람» 갈래 하나. */
 function _inventMyUserId(){
   return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
@@ -7074,8 +7074,7 @@ const accountMod = TwAccount.createAccount({
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
-  FOCUS_TODAY_DATE_KEY: ()=>focusTotalMod.FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: ()=>focusTotalMod.FOCUS_TODAY_SEC_KEY,
+  accountAdoptStore: accountStoreMod,
   FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
   GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
   GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
