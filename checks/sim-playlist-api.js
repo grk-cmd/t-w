@@ -2,7 +2,7 @@
    [왜] 플레이리스트가 Firebase 대신 우리 서버 공개 API(/v1/me/playlist · /v1/playlists/…)를 쓴다. 서버 모양(tracks[{videoId,title}] ·
      늘 3칸 · listed · 판 version)을 화면 모양(items[{id,title}] · private)으로 맞추는 곳이 provider 하나라 그 맞춤을 실제로 불러서 판정한다.
    ・1절: 읽기 — 내 목록 모양 맞춤 · 빈 목록(객체)과 못 읽음(던짐)을 가름 · 무작위(경로 · exclude) · 들을 것 없음(null) ≠ 실패 · 모양 틀림은 던짐
-   ・2절: 남의 목록 — 경로 · 곡 있는 벌만 무작위(경계: 0 · 1 미만) · 곡 없으면 null · 열어 주지 않음(PLAYLIST_FRIENDS_ONLY)은 null · 그 밖 실패는 던짐
+   ・2절: 남의 목록 — 경로 · 곡 있는 벌만 무작위(경계: 0 · 1 미만) · 곡 없으면 null · 열어 주지 않음(PLAYLIST_FRIENDS_ONLY) · 없는 사용자(USER_NOT_FOUND)는 null · 그 밖 실패는 던짐
    ・3절: 저장 — 본문 모양(version · tracks · listed) · 상한 깎기 · 판 기억(계정별) · 읽은 판 없으면 안 보냄 · 409 는 'conflict'(다시 보내지 않음) · 실패는 'failed'
    ・4절: 배선 — 부르는 곳이 firebaseAPI 로 플레이리스트를 안 부름 · firebase-init 에 옛 메서드가 없음 · html · smoke 순서
    ・5절: 일부러 깨 보기
@@ -124,6 +124,8 @@ async function judge(S){
     chk((await none.m.fetchOf('uF')) === null, '★ 곡 있는 벌이 없다 — null(실패 아님)');
     const fo = mkApi(LIB, { 'GET /v1/playlists/uF': apiErr(403, 'PLAYLIST_FRIENDS_ONLY') });
     chk((await fo.m.fetchOf('uF')) === null, '★ 열어 주지 않음(PLAYLIST_FRIENDS_ONLY) — null');
+    const nf = mkApi(LIB, { 'GET /v1/playlists/uF': apiErr(404, 'USER_NOT_FOUND') });
+    chk((await nf.m.fetchOf('uF')) === null, '★ 없는 사용자(404 USER_NOT_FOUND) — null(«공개한 목록 없음» 갈래 · 연결 문제가 아니다)');
     let thrown = null;
     try{ await mkApi(LIB, { 'GET /v1/playlists/uF': apiErr(500, 'INTERNAL') }).m.fetchOf('uF'); }catch(e){ thrown = e; }
     chk(thrown && thrown.status === 500, '★ 그 밖의 실패 — 던진다');
@@ -215,7 +217,8 @@ async function judge(S){
     ['API', "      if(e && e.status === CONFLICT_STATUS){ versions.delete(uid); return 'conflict'; }", "      if(e && e.status === CONFLICT_STATUS){ versions.delete(uid); return 'failed'; }", '충돌을 일반 실패로 뭉갬'],
     ['API', "  const versions = new Map();   // uid → 마지막으로 읽은(또는 저장한) 판", "  let single; const versions = { has: () => single !== undefined, get: () => single, set: (u, v) => { single = v; }, delete: () => { single = undefined; } };", '판을 계정별로 안 기억함'],
     ['API', "    if(d === null) return null;\n    const out = pickOf(d);", "    const out = pickOf(d);", '들을 것 없음(null)을 실패로 봄'],
-    ['API', "    catch(e){ if(e && e.code === FRIENDS_ONLY_CODE) return null; throw e; }", "    catch(e){ throw e; }", '열어 주지 않음을 실패로 던짐'],
+    ['API', "catch(e){ if(e && (e.code === FRIENDS_ONLY_CODE || e.code === USER_NOT_FOUND_CODE)) return null; throw e; }", "catch(e){ throw e; }", '열어 주지 않음을 실패로 던짐'],
+    ['API', " || e.code === USER_NOT_FOUND_CODE", "", '없는 사용자를 연결 문제로 던짐'],
     ['API', "      warn('[플레이리스트] 저장 실패', (e && (e.code || e.message)) || e);\n      return 'failed';", "      return 'ok';", '저장 실패를 성공으로 알림'],
     ['API', "  sets.forEach((s, i) => { if(s.items.length) cand.push({ idx: i, name: s.name, items: s.items }); });", "  sets.forEach((s, i) => { cand.push({ idx: i, name: s.name, items: s.items }); });", '빈 벌도 후보에 넣음'],
     ['API', "Math.min(cand.length - 1, Math.floor(random() * cand.length))", "Math.floor(random() * cand.length) + 1", '고르는 번호가 범위 밖'],

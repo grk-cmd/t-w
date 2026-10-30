@@ -26,6 +26,7 @@ const PATHS = Object.freeze({
 /* 서버 상한과 같은 값 — 넘기면 서버가 400 으로 거절한다 */
 const LIMITS = Object.freeze({ SETS: 3, TRACKS: 20, NAME: 16, TITLE: 60, BIO: 140 });
 const FRIENDS_ONLY_CODE = 'PLAYLIST_FRIENDS_ONLY';
+const USER_NOT_FOUND_CODE = 'USER_NOT_FOUND';
 const CONFLICT_STATUS = 409;
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -144,7 +145,7 @@ function createPlaylistApi(deps){
     if(!userCode){ const e = new Error('사용자 코드 없음'); e.code = 'NO_USER'; throw e; }
     let d;
     try{ d = await authed.get(PATHS.of(userCode), { auth: true }); }
-    catch(e){ if(e && e.code === FRIENDS_ONLY_CODE) return null; throw e; }
+    catch(e){ if(e && (e.code === FRIENDS_ONLY_CODE || e.code === USER_NOT_FOUND_CODE)) return null; throw e; }   // 비공개 · 없는 사용자는 «공개한 목록 없음»
     const out = publicOf(d, random);
     if(out === undefined) throw shapeError();
     return out;
