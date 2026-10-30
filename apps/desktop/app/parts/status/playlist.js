@@ -244,8 +244,8 @@ function _plCanEdit(){ return !_plReadOnly() && _plLoaded; }
 /* ✏️ 프리셋 이름 — 제목줄에서 바로 고친다(요청 ①). 값은 **보고 있는 프리셋**의 것이다.
    ★ 읽는 곳(_plSetName)과 쓰는 곳(bindPlTitle 의 end) 각각 한 곳뿐이라 프리셋으로 넘어오는 데
      이 두 줄만 바뀌었다 — 앞 세션이 그렇게 만들어 뒀다.
-   ⚠️ 로컬 전용이다. 서버(playlistApi.saveMine)는 아직 이 이름을 올리지 않으므로 남이 보는 창의
-     제목은 예전처럼 "[아무개]의 플레이리스트" 다 — 올리려면 규칙·publish 를 함께 고쳐야 한다(핸드오프 3절).
+   ⚠️ 이름은 서버 저장 본문(sets[].name)에 실려 올라간다(_plPublish) — 남이 파도타기로 볼 때 창 제목에도
+     「이름」으로 나온다(_plViewTitle). 이름을 안 정했으면 예전 문구 "[아무개]의 플레이리스트".
    ⚠️ 빈 문자열은 "안 정했다" 는 뜻이고 그때는 기본 문구를 쓴다. 공백만 넣어 저장하면 지워진다. */
 const PL_TITLE_MAX = 16;
 function _plSetName(i){ const s = _plSets[i]; return (s && s.name) || ''; }
