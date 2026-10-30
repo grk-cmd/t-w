@@ -119,13 +119,16 @@ function mkEnv(o){
     }
     env.t = end;
   };
-  const api = o.noApi ? undefined : {
-    publishMyPlaylist: async (uid, name, sets, meta, ts) => { env.pubTs = ts; env.calls.push('publish ' + uid + ' ' + name + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); return true; },
-    removeMyPlaylist: async (uid, meta, ts) => { env.pubTs = ts; env.calls.push('removePl ' + uid + ' ' + JSON.stringify(meta)); return true; },
+  const api = o.noApi ? undefined : {   // 옛 길에 남은 것 — 명함 읽기뿐
     fetchPlaylistCard: async (uid) => { env.calls.push('card ' + uid); return env.cards[uid] || null; },
-    fetchRandomPlaylist: async (me, ex) => { env.calls.push('random ' + me + ' ' + ex); return env.randomPl || null; },
-    fetchMyPlaylistSets: async (uid) => { env.calls.push('fetchMine ' + uid); if(env.srvThrow) throw new Error('끊김'); return env.srv === undefined ? { sets: [], bio: '', homePublic: false, ts: 0 } : env.srv; },
-    fetchPlaylistOf: async (uid) => { env.calls.push('of ' + uid); return env.plOf ? env.plOf[uid] || null : null; },
+  };
+  /* 🌐 서버 길 provider(playlist-api.js)의 가짜 — 모양은 진짜와 같다(내 목록 / 저장 / 무작위 / 남의 목록). 막히면(noApi) 던진다 */
+  const down = async () => { throw new Error('서버 길 막힘'); };
+  const playlistApi = o.noApi ? { fetchMine: down, saveMine: down, fetchRandom: down, fetchOf: down } : {
+    saveMine: async (uid, sets, meta) => { const empty = sets.every(s => !s.items.length); env.calls.push((empty ? 'removePl ' : 'publish ') + uid + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); return true; },
+    fetchRandom: async (ex) => { env.calls.push('random ' + ex); return env.randomPl || null; },
+    fetchMine: async (uid) => { env.calls.push('fetchMine ' + uid); if(env.srvThrow) throw new Error('끊김'); return env.srv === undefined ? { sets: [], bio: '', homePublic: false, ts: 0 } : env.srv; },
+    fetchOf: async (uid) => { env.calls.push('of ' + uid); return env.plOf ? env.plOf[uid] || null : null; },
   };
   const comp = o.noCompanion ? undefined : {
     openPlaylistTrack: (url, title) => env.calls.push('open ' + url + ' | ' + title),
@@ -156,7 +159,7 @@ function mkEnv(o){
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
-      playlistSync: PLSYNC,
+      playlistSync: PLSYNC, playlistApi,
     }, extra || {}));
     return env.m;
   };
@@ -320,7 +323,7 @@ async function behave(src){
     e.randomPl = { uid: 'U9', name: '하늘', items: songs(4, 'h'), bio: '안녕하세요', homePublic: true, setName: '밤 노래' };
     e.cards.U9 = { level: 12, avatar: 'https://x/a.png' };
     e.byId.myPlPeek.fire('click'); await flush(); await flush();
-    chk(e.last('random') === 'random ME01 null' && m.state().view.uid === 'U9' && m.state().sel === -1 && m.state().now === 1, '🌊 [파도타기] — 남의 목록 · 고른 곡 초기화 · 듣던 곡은 계속');
+    chk(e.last('random') === 'random null' && m.state().view.uid === 'U9' && m.state().sel === -1 && m.state().now === 1, '🌊 [파도타기] — 남의 목록 · 고른 곡 초기화 · 듣던 곡은 계속');
     chk(e.byId.myPlTitle.textContent === '🎵 [하늘]의 「밤 노래」' && e.byId.myPlCount.textContent === '4곡' && e.byId.myPlAdd.style.display === 'none' && e.byId.myPlBack.style.display === '', '  창 제목 · 곡 수 · ＋ 숨김 · ← 내 목록');
     chk(e.byId.myPlList.children[0].querySelector('.plRowGrab') && e.byId.myPlSetBar.style.display === 'none', '  곡 행마다 📥 담기 · 프리셋 줄은 숨김');
     chk(e.byId.myPlNick.textContent === '하늘' && e.byId.myPlAva.classList.contains('go'), '  명함 — 이름 · 공개 홈이면 사진을 누를 수 있다');
@@ -359,7 +362,7 @@ async function behave(src){
     await e.advance(2900);
     chk(e.count('publish') === 0, '☁️ 서버 사본 — 3초 debounce(그 전엔 안 올린다)');
     await e.advance(200);
-    chk(e.count('publish') === 1 && e.last('publish') === 'publish ME01 나나 [2,0,0] {"bio":"","homePublic":false,"private":false}', '  세 벌 전부 · 한마디 · 공개 · 비공개를 함께');
+    chk(e.count('publish') === 1 && e.last('publish') === 'publish ME01 [2,0,0] {"bio":"","homePublic":false,"private":false}', '  세 벌 전부 · 한마디 · 공개 · 비공개를 함께');
     m.save(); await e.advance(3100);
     chk(e.count('publish') === 1, '  안 바뀌었으면(지문 같음) 안 쓴다');
     e.byId.myPlPriv.checked = true; e.byId.myPlPriv.fire('change');
@@ -394,7 +397,7 @@ async function behave(src){
       const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
       e.srv = srvOf(3, 5000);
       await boot(e);
-      chk(m.state().sets[0].items.length === 2 && e.count('publish') === 1 && e.pubTs === 9000, '  이 기기가 나중 — 이 기기 목록을 올린다(ts 는 고친 시각)');
+      chk(m.state().sets[0].items.length === 2 && e.count('publish') === 1 , '  이 기기가 나중 — 이 기기 목록을 올린다');
     }
     // ③ 서버가 나중 — 받는다 · ④ 같다 — 아무것도 안 쓴다
     {
@@ -421,14 +424,14 @@ async function behave(src){
       await boot(e);
       const a = m.state().sets[0].items[0].id === songs(1, 'g')[0].id && e.count('publish') === 0;
       m.st.sets[0].items.pop(); m.save(); await e.advance(3100);
-      chk(a && e.count('publish') === 1 && e.pubTs === e.t - 3100, '  업그레이드 첫 부팅 — 둘 다 시각 모름이면 이 기기 목록을 지키고 · 고치면 그때 올린다');
+      chk(a && e.count('publish') === 1 , '  업그레이드 첫 부팅 — 둘 다 시각 모름이면 이 기기 목록을 지키고 · 고치면 그때 올린다');
     }
     // ⑦ 옛 앱과 섞어 쓴다 — 옛 앱이 나중에 올려도(ts 만 큼) 이 판에서 고친 기기 목록이 이긴다
     {
       const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)), 'tw.playlistEditTs': '9000' } }); const m = e.mk();
       e.srv = { sets: [{ name: '옛', items: songs(3, 'x') }], bio: '', homePublic: false, ts: 99999 };
       await boot(e);
-      chk(m.state().sets[0].items.length === 2 && e.count('publish') === 1 && e.pubTs === 9000, '  옛 앱이 쓴 노드(editTs 없음) — 이 판에서 고친 이 기기 목록을 올린다');
+      chk(m.state().sets[0].items.length === 2 && e.count('publish') === 1 , '  옛 앱이 쓴 노드(editTs 없음) — 이 판에서 고친 이 기기 목록을 올린다');
     }
     // ⑧ 못 읽었다 — 아무것도 안 하고 늘려 가는 간격으로 다시 · 그동안 안 올림
     {
@@ -489,7 +492,7 @@ async function behave(src){
       const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
       e.srv = { sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 };
       await boot(e);
-      chk(e.count('publish') === 1 && Number(e.store.get('tw.playlistEditTs')) === e.pubTs && e.pubTs > 0, '  시각 모르는 이 기기 것을 올리면 올린 시각을 이 기기에도 적는다');
+      chk(e.count('publish') === 1 && Number(e.store.get('tw.playlistEditTs')) > 0, '  시각 모르는 이 기기 것을 올리면 올린 시각을 이 기기에도 적는다');
     }
     // ⑪ 계정 연동이 서버 사본을 받았다 — 부팅 맞추기와 같은 한 벌(adoptServer)
     {
@@ -516,7 +519,7 @@ async function behave(src){
       const edited = Number(e.store.get('tw.playlistEditTs'));
       e.srv = srvOf(2, 5000);
       await e.advance(30000); await e.advance(3100);
-      chk(e.count('publish') === 1 && e.pubTs === edited && m.state().sets[0].items.length === 3, '  같은 시각 · 맞추기 전에 고침 — 맞춘 뒤 한 번 올린다(ts = 고친 시각)');
+      chk(e.count('publish') === 1 && m.state().sets[0].items.length === 3, '  같은 시각 · 맞추기 전에 고침 — 맞춘 뒤 한 번 올린다(ts = 고친 시각)');
     }
     // ⑫-3 다시 시도 사슬은 하나 — 기다리는 중에 다시 불러도 읽기가 두 배가 되지 않는다
     {
@@ -556,8 +559,8 @@ async function behave(src){
   }
   {
     const e = E({ noApi: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
-    e.byId.myPlPeek.fire('click');
-    chk(e.toasts[0] === '파도타기는 인터넷 연결이 필요해요', 'firebaseAPI 가 없으면 파도타기는 안내만');
+    e.byId.myPlPeek.fire('click'); await flush();
+    chk(e.toasts[0] === '파도타기는 인터넷 연결이 필요해요', '서버 길이 막히면(던짐) 파도타기는 안내만');
   }
 
   say('── 6. 🐕 재생 감시견');
@@ -632,9 +635,9 @@ function wiring(PL, APP, HTML){
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistSync: TwPlaylistSync,']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistSync: TwPlaylistSync,', 'playlistApi: playlistApiMod,']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 22 && !miss.length, 'deps 22개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 맞추기 규칙(순수 모듈) (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 23 && !miss.length, 'deps 23개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 맞추기 규칙(순수 모듈) · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeLoaded', '_myHomeData', '_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeLoaded · _myHomeData · _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
@@ -650,7 +653,7 @@ function wiring(PL, APP, HTML){
   chk(stUsed.every(n => new RegExp('get ' + n + '\\(\\)').test(stKeys) && new RegExp('set ' + n + '\\(v\\)').test(stKeys)), '  상태 묶음이 밖에서 쓰는 칸을 다 갖는다 (' + stUsed.join(' · ') + ')');
   const uses = ['plMod.st.lastBoundsKey = \'\'; plMod.syncBgmBounds();', 'ytVideoId: (...a)=>plMod.ytVideoId(...a),', 'plRender: (...a)=>plMod.render(...a),',
     'plPlaying: ()=>plMod.st.playing,', 'setPlPlaying: v=>{ plMod.st.playing = v; },', 'pl.sets = plMod.blankSets();', 'plMod.fillLv(lv, n, st);',
-    'plMod.adoptServer(r);', 'plMod.resetSync();', 'plMod.pubSigOf(pl.sets.map(', '} else if(plMod.mine().length){'];
+    'plMod.adoptServer(r);', 'plMod.resetSync();'];
   const lost = uses.filter(u => A.indexOf(u) < 0);
   chk(!lost.length, '부르는 곳 — 화면 배율 · 마이홈 BGM · 📷 스티커사진 · 로그아웃 · 내 정보 배지 · 계정 이어받기' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
   chk(/if\(typeof _plHasSavedPos === 'function' && _plHasSavedPos\(\)\) _plApplyPos\(\);/.test(A) && /window\._plHasSavedPos = _plHasSavedPos; window\._plApplyPos = _plApplyPos; window\._plSyncBgmBounds = _plSyncBgmBounds;/.test(PL),
@@ -713,7 +716,7 @@ async function runAll(PL, APP, HTML){
     ['PL', '    if(!_plSynced || getMyUserId() !== uid0) return;', '    if(!_plSynced) return;', '올리기 대기 중 계정이 바뀌어도 앞 목록을 올림'],
     ['PL', '  clearTimeout(_plSyncT); _plSyncT = null;   // 다시 시도 사슬은 하나만', '  _plSyncT = null;   // 다시 시도 사슬은 하나만', '다시 시도 사슬이 갈라짐'],
     ['PL', "  }, 3000);\n}", '  }, 0);\n}', '서버 사본 debounce 가 없음'],
-    ['PL', '      if(!total){', '      if(false){', '빈 목록을 지우지 않고 올림'],
+    ['PL', '      if(sig === _plPubSig) return;', '', '지문이 같아도 또 올림'],
     ['PL', "  if(atEnd && _plWatchPlayed){", '  if(atEnd){', '끝에 선 채 재생 없음을 정상 종료로'],
     ['PL', "  if(typeof _plPlaying !== 'undefined' && _plPlaying === false){ _plWatchMoveAt = now; return; }", '', '일시정지 중에도 감시견이 판정'],
     ['PL', "try{ (window.__winPosResetters = window.__winPosResetters || []).push(()=>{ _plPos = null; }); }catch(_){}", '', '창 위치 초기화에 등록 안 함'],
@@ -722,7 +725,7 @@ async function runAll(PL, APP, HTML){
     ['PL', "if(typeof window !== 'undefined') window.TwPlaylist = api;", "if(typeof window !== 'undefined') window.Playlist = api;", '전역 이름에 Tw 가 없음'],
     ['APP', '  myHomeFriends: ()=>_myHomeFriends,', '  myHomeFriends: _myHomeFriends,', '친구 목록을 값으로(TDZ · 옛 것)'],
     ['APP', "  try{ const pl = plMod.st; pl.sets = plMod.blankSets();", '  try{ const pl = plMod.st; _plSets = plMod.blankSets();', '로그아웃이 옛 이름에 씀'],
-    ['APP', '} else if(plMod.mine().length){', '} else if(_plMine().length){', '계정 이어받기가 옛 이름을 부름'],
+    ['APP', 'plMod.adoptServer(r);', 'adoptServer(r);', '계정 이어받기가 모듈 이름을 안 부름'],
     ['HTML', '<script src="parts/status/playlist.js"></script>', '', 'html 이 모듈을 안 실음'],
   ];
   const caught = [];

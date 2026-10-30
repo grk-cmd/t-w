@@ -10,7 +10,7 @@
             force 면 검문에 걸려도 목록 한 벌·메모리 전부 지우고 기기 세션도 놓는다.
             부르는 쪽은 정적으로 — [그래도 로그아웃] 은 두 번째 실패에서만 열리고 바로 실행한다.
    ・3절: 신원을 놓은 뒤 beforeunload 의 syncFocusTotalToServer('quit') 가 임시 uid 를 만들어 올리지 않는다.
-   ・4절: 플레이리스트 세 벌 복원 — fetchMyPlaylistSets(firebase-init) → _restoreOwnedDataAfterTransfer 가 세 벌을 앉힌다.
+   ・4절: 플레이리스트 세 벌 복원 — playlistApi.fetchMine(status/playlist-api.js) → _restoreOwnedDataAfterTransfer 가 세 벌을 앉힌다.
    ・5절: 춤 해금 안내 — 기록이 지워져도 수령함에 우편이 있으면 다시 안 보낸다(새 계정이면 보낸다).
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
@@ -354,33 +354,19 @@ function part3(){
 /* ── 4. 플레이리스트 세 벌 복원 ── */
 function part4(){
   say('── 4. 플레이리스트 — 세 벌 전부 받아온다 (한 벌 무작위가 아니다)');
-  const fSets = grabFn(FI, 'fetchMyPlaylistSets', 'async ');
-  chk(!!fSets, '★ firebase-init 에 fetchMyPlaylistSets 가 있다');
-  chk(fSets && /users\/\$\{uid\}\/playlist`/.test(fSets) && !/_plPickSet/.test(fSets), '  노드를 그대로 읽고 _plPickSet(무작위 한 벌)을 거치지 않는다');
+  chk(!/fetchMyPlaylistSets|fetchPlaylistOf|_plPickSet/.test(FI), '★ firebase-init 에 옛 플레이리스트 읽기(한 벌 무작위 · 내 세 벌)가 없다 — 서버 길(playlist-api.js)로 옮겼다');
   const fRestore = grabFn(SRC, '_restoreOwnedDataAfterTransfer', 'async function ') || '';
-  chk(/fetchMyPlaylistSets/.test(fRestore), '★ _restoreOwnedDataAfterTransfer 가 fetchMyPlaylistSets 를 쓴다');
+  chk(/plApi\.fetchMine\(uid\)/.test(fRestore) && !/firebaseAPI/.test(fRestore.slice(fRestore.indexOf('플레이리스트'), fRestore.indexOf('가챠 보유분'))), '★ _restoreOwnedDataAfterTransfer 가 서버 길 provider(plApi.fetchMine)로 세 벌을 받는다');
   chk(/plMod\.adoptServer\(r\)/.test(fRestore) && !/plMod\.normalizeSets\(r\.sets\)/.test(fRestore), '  받은 세 벌은 부팅 맞추기와 같은 한 벌(plMod.adoptServer — 관문 · 백업 · 고친 시각 · 지문)로 앉힌다');
-  chk(/fetchPlaylistOf/.test(fRestore), '  구버전 API(fetchMyPlaylistSets 없음)에서는 옛 길로 물러난다');
-  if(!fSets) return;
-  /* firebase-init 쪽 실행 — get/ref 스텁 */
+  chk(/catch\(_\)\{ r = null; \}/.test(fRestore), '  provider 가 던지면(못 읽음) null — 올리지 않고 다시 맞춘다');
   try{
-    const node = { sets: { 0:{ name:'A', items:{ 0:{id:'v1',title:'one'} } }, 1:{ name:'', items:{} }, 2:{ name:'C', items:{ 0:{id:'v3',title:'three'}, 1:{id:'v4'} } } }, bio:'hey', homePublic:true, items:{ 0:{id:'v1'} } };
-    const mk = (val) => new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => ({ val: () => val }), () => null, null, { warn(){} });
+    const r = { sets: [{ name:'A', items:[{id:'v1',title:'one'}] }, { name:'', items:[] }, { name:'C', items:[{id:'v3',title:'three'},{id:'v4',title:''}] }], bio:'hey', homePublic:true };
     (async () => {
-      const r = await mk(node)('uB');
-      chk(r && r.sets.length === 3 && r.sets[0].items[0].id === 'v1' && r.sets[2].items.length === 2 && r.sets[1].items.length === 0, '★ 세 벌 그대로 (0:1곡 · 1:빈 · 2:2곡)');
-      chk(r.bio === 'hey' && r.homePublic === true, '  한마디·공개 여부도 실린다');
-      const r2 = await mk({ items: { 0:{id:'old'} } })('uB');
-      chk(r2 && r2.sets.length === 1 && r2.sets[0].items[0].id === 'old', '  sets 없는 옛 노드는 items 를 0번으로');
-      const r0 = await mk(null)('uB');
-      chk(r0 && r0.sets.length === 0 && r0.ts === 0, '  노드 없음 → 빈 목록(ts 0) — 못 읽음(null)과 가른다');
-      const rf = await new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => { throw new Error('x'); }, () => null, null, { warn(){} })('uB');
-      chk(rf === null, '  못 읽음 → null');
       /* app.js 쪽 실행 — 복원 함수 전체를 스텁 위에서 돌린다 */
       const fNorm = grabFn(SRC, '_plNormalizeSets'), fBlank = grabFn(SRC, '_plBlankSets'), fIdx = grabFn(SRC, '_plSetIdx'), fSig = grabFn(SRC, '_plPubSigOf');
       const env = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
       const run = new Function('env', 'window', 'firebaseAPI',
-        "const PL_SETS=3, PL_MAX=20, PL_TITLE_MAX=16, PL_BIO_MAX=140; const console={warn(){}};\n" +
+        "const plApi=firebaseAPI; const PL_SETS=3, PL_MAX=20, PL_TITLE_MAX=16, PL_BIO_MAX=140; const console={warn(){}};\n" +
         "let _plSets=env.emptyLocal ? [{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}] : [{name:'옛',items:[{id:'z',url:'u',title:''}]},{name:'',items:[]},{name:'',items:[]}], _plCur=2, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null, _plSel=0, _plNow=0, _plNowSet=0, _plView=null, _plNowView=null;\n" +
         "const _plMine=()=>_plSets[_plCur].items; const _plSave=()=>{ env.saved++; }; const _plPublish=()=>{ env.published++; }; const _plRender=()=>{};\n" +
         /* app.js 는 plMod 로 부른다(앱 FSD 16번) — 함수는 아래에서 떼어 온 진짜 관문 · 지문, 상태는 위 let */
@@ -389,7 +375,7 @@ function part4(){
         "const getMyUserId=()=>'uB'; const gachaMod={ syncGachaToServer:async()=>{ env.gachaPull++; }, isInvOpen:()=>false, renderGachaInv(){} }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
         [fNorm, fBlank, fIdx, fSig, fRestore].join('\n') +
         "\nreturn async()=>{ await _restoreOwnedDataAfterTransfer(); return { sets:_plSets, cur:_plCur, bio:_plBio, pub:_plHomePublic, sig:_plPubSig }; };");
-      const api = { fetchMyPlaylistSets: async () => { env.fetched = true; return { sets: r.sets, bio: r.bio, homePublic: r.homePublic, ts: 4321 }; }, fetchPlaylistOf: async () => { throw new Error('옛 길을 탔다'); } };
+      const api = { fetchMine: async () => { env.fetched = true; return { sets: r.sets, bio: r.bio, homePublic: r.homePublic, ts: 4321 }; } };
       const out = await run(env, { firebaseAPI: api }, api)();
       chk(out.sets.length === 3 && out.sets[0].name === 'A' && out.sets[0].items[0].url === 'https://www.youtube.com/watch?v=v1' && out.sets[2].items.length === 2, '★ 복원 뒤 로컬이 세 벌 다 서버 것 — 옛 프리셋이 안 남는다');
       chk(out.sets[1].items.length === 0, '  서버가 빈 벌은 로컬도 빈다 (이 기기 옛 목록으로 채우지 않는다)');
@@ -400,15 +386,15 @@ function part4(){
       chk(env.gachaPull === 1 && env.slotsPull === 1, '  가챠·슬롯 pull 은 그대로 이어서 돈다');
       /* 서버가 비었고 로컬에 곡이 있으면 올린다 */
       const env2 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
-      const api2 = { fetchMyPlaylistSets: async () => ({ sets: [], bio: '', homePublic: false, ts: 0 }) };
+      const api2 = { fetchMine: async () => ({ sets: [], bio: '', homePublic: false, ts: 0 }) };
       const out2 = await run(env2, { firebaseAPI: api2 }, api2)();
       chk(out2.sets[0].items[0].id === 'z' && env2.published === 1 && env2.marked === 'push', '  저쪽이 비었으면 이 기기 목록을 올린다 (첫 업로드 · 맞춤 끝)');
       const env3 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
-      const api3 = { fetchMyPlaylistSets: async () => null };
+      const api3 = { fetchMine: async () => { throw new Error('끊김'); } };
       const out3 = await run(env3, { firebaseAPI: api3 }, api3)();
       chk(out3.sets[0].items[0].id === 'z' && env3.published === 0 && env3.marked === undefined && env3.reset === 1 && env3.boot === 1, '  못 읽었으면 올리지 않고 새 기기처럼 다시 맞춘다(resetSync · bootSync)');
       const env4 = { saved: 0, published: 0, gachaPull: 0, slotsPull: 0 };
-      const api4 = { fetchMyPlaylistSets: async () => ({ sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 }) };
+      const api4 = { fetchMine: async () => ({ sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 }) };
       env4.emptyLocal = true;
       const out4 = await run(env4, { firebaseAPI: api4 }, api4)();
       chk(out4.sets.every(x => !x.items.length) && env4.published === 0 && env4.marked === 'push' && env4.reset === 1 && !env4.boot, '  양쪽 다 비었다 — 맞춤 끝(markSynced) · 안 하면 이 실행 동안 넣은 곡이 안 올라간다');

@@ -362,7 +362,7 @@ _callers = {}
 # myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오(앱 FSD 7-2). saveMyHome · uploadUserImage 를 부른다.
 # room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기(앱 FSD 10번). sendRoomInvite · subscribeRoomInvites · clearRoomInvite 를 부른다.
 # myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend · getMallangGifts · setMallangGiftStarred · deleteInboxBroadcast · deleteInboxMessage · setInboxBroadcastPinned · markInboxRead 를 부른다.
-# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). publishMyPlaylist · removeMyPlaylist · fetchPlaylistCard · fetchRandomPlaylist · fetchPlaylistOf 를 부른다.
+# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). fetchPlaylistCard 를 부른다(내 목록 · 파도타기는 서버 길 playlist-api.js).
 # admin/*.js — 🛠️ 관리자 코드는 parts/admin/ 에 모은다(관리자 코드 admin 폴더). 러너 스테이징은 한 층만 펼쳐서 이 폴더가
 #   parts/admin/ 로 남는다 — 이름만으로 못 열면 그 자리도 본다(_open_part). admin-license-bulk.js 는 createLicense · sendInboxMessage ·
 #   lookupFriendCode · listLicenses · getUserNameById · issueSecretRoom · expireSecretRoom · getSecretRoomPub · getMySecretRoom ·

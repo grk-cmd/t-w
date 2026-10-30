@@ -1,6 +1,6 @@
-/* sim-playlist-sync.js — ☁️ 플레이리스트 기기 간 맞추기 규칙(status/playlist-sync.js) · 서버 사본 읽기 · 쓰기(firebase-init.js)
+/* sim-playlist-sync.js — ☁️ 플레이리스트 기기 간 맞추기 규칙(status/playlist-sync.js) · 서버 길(playlist-api.js)이 넘기는 «시각 모름»
    ・1절: decide — 못 읽음 · 양쪽 시각 앎 · 이 기기만 모름 · 서버가 모름(옛 앱) · 이상한 값 · retryDelay
-   ・2절: firebase-init — 비어 있음과 못 읽음을 가른다 · ts 를 돌려준다 · 올릴 때 고친 시각을 쓴다 · 비울 때 노드를 지우지 않고 빈 목록 + 시각
+   ・2절: 서버 길 — 서버에는 고친 시각이 없다(판 version 만) → 읽은 결과의 editTs 는 늘 0 = «모름» 이고, 이 규칙이 그것을 «모름» 으로 판단한다(비어 있음 ≠ 못 읽음)
    ・3절: 배선 — html 싣는 순서 · app.js deps · smoke
    ・4절: 깨 보기
    (부팅 맞추기를 실제로 굴리는 것은 sim-playlist.js 5-2절) */
@@ -11,7 +11,7 @@ const path = require('path');
 const ROOT = fs.existsSync(path.join(__dirname, 'app')) ? __dirname : path.join(__dirname, '..');
 const P = (...a) => path.join(ROOT, ...a);
 const find = (rel) => fs.existsSync(P(rel)) ? P(rel) : path.join(__dirname, path.basename(rel));
-const need = ['app/parts/status/playlist-sync.js', 'app/parts/firebase-init.js', 'app/desk-companion-prototype.html', 'app/parts/app.js', 'checks/smoke.js'];
+const need = ['app/parts/status/playlist-sync.js', 'app/parts/status/playlist-api.js', 'app/desk-companion-prototype.html', 'app/parts/app.js', 'checks/smoke.js'];
 const SRC = {};
 for(const r of need){ const f = find(r); if(!fs.existsSync(f)){ console.log('  ? 원본 못 찾음 — ' + r); process.exit(2); } SRC[r] = fs.readFileSync(f, 'utf8'); }
 
@@ -53,19 +53,15 @@ function report(r){
 const R = behave(SRC['app/parts/status/playlist-sync.js']);
 report(R);
 
-say('── 2. firebase-init');
+say('── 2. 서버 길');
 {
-  const F = SRC['app/parts/firebase-init.js'];
-  const body = (name) => { const a = F.indexOf('async ' + name + '('); const b = F.indexOf('\n    },', a); return a > 0 ? F.slice(a, b) : ''; };
-  const fm = body('fetchMyPlaylistSets'), pub = body('publishMyPlaylist'), rm = body('removeMyPlaylist');
-  chk(/if\(!pv\) return \{ sets: \[\], bio: '', homePublic: false, ts: 0, editTs: 0 \};/.test(fm) && /editTs: Number\(pv\.editTs\) \|\| 0 \}/.test(fm) && /catch\(e\)\{[^}]*return null; \}/.test(fm),
-    '내 사본 읽기 — 비어 있으면 빈 목록(editTs 0) · 있으면 editTs 칸(없으면 0 = 모름) · 못 읽으면 null');
-  chk(/async publishMyPlaylist\(uid, name, sets, meta, editTs\)/.test(pub) && /const ts = Number\(editTs\) > 0 \? Number\(editTs\) : Date\.now\(\);/.test(pub),
-    '올리기 — ts 는 이 기기에서 고친 시각(없으면 지금)');
-  chk(/\{ sets: ss, items: mirror, ts, editTs: ts,/.test(pub), '  올리기 — 새 앱만 쓰는 editTs 칸에도 같은 시각');
-  chk(/async removeMyPlaylist\(uid, meta, editTs\)/.test(rm) && !/remove\(ref\(db, `users\/\$\{uid\}\/playlist`\)\)/.test(rm)
-    && /set\(ref\(db, `users\/\$\{uid\}\/playlist`\), \{ sets: \[\], items: \[\], ts, editTs: ts,/.test(rm) && /const ts = Number\(editTs\) > 0/.test(rm) && /remove\(ref\(db, `playlistIndex\/\$\{uid\}`\)\)/.test(rm),
-    '비우기 — 노드를 지우지 않고 빈 목록 + 고친 시각 · 색인만 지운다(다른 기기가 옛 목록을 되살리지 않게)');
+  const API = (() => { const w = {}; new Function('window', SRC['app/parts/status/playlist-api.js'])(w); return w.TwPlaylistApi; })();
+  const S = load(SRC['app/parts/status/playlist-sync.js']).TwPlaylistSync;
+  const mine = (n) => API.mineOf({ sets: [{ name: '', tracks: Array.from({ length: n }, (_, i) => ({ videoId: 'v' + i, title: '' })) }, { name: '', tracks: [] }, { name: '', tracks: [] }], bio: '', listed: true, homePublic: false, version: 4 });
+  chk(mine(2).editTs === 0 && mine(0).editTs === 0, '서버 길이 읽은 결과의 고친 시각은 늘 0 = «모름»(서버에는 판 번호만 있다)');
+  chk(S.decide(mine(0), 0, true) === 'push' && S.decide(mine(0), 0, false) === 'none', '  빈 서버 + 이 기기에 곡 — 올린다 · 둘 다 비면 그대로(빈 목록은 못 읽음 retry 가 아니다)');
+  chk(S.decide(mine(2), 0, false) === 'adopt' && S.decide(mine(2), 0, true) === 'none' && S.decide(mine(2), 5, true) === 'push', '  서버에 곡 — 새 기기는 받는다 · 양쪽 곡이면 이 판에서 고친 기기만 올린다');
+  chk(S.decide(null, 0, true) === 'retry', '  못 읽음(provider 가 던져 null 이 됨)은 retry');
 }
 
 say('── 3. 배선');

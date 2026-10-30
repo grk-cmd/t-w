@@ -38,7 +38,7 @@
 
 ## playlist-sync.js — ☁️ 플레이리스트 기기 간 맞추기 규칙
 
-- **책임**: 부팅 때 서버 사본(`users/{uid}/playlist`)과 이 기기 목록 중 무엇을 따를지 정하는 순수 규칙(`decide`) · 다시 시도 간격(`retryDelay`). DOM · firebase 없음.
+- **책임**: 부팅 때 서버 사본(`/v1/me/playlist`)과 이 기기 목록 중 무엇을 따를지 정하는 순수 규칙(`decide`) · 다시 시도 간격(`retryDelay`). DOM · firebase 없음.
 - **만드는 법**: 만들지 않는다 — 얼린 표 `window.TwPlaylistSync`. app.js 가 `playlistSync: TwPlaylistSync` 로 playlist.js 에 넘긴다.
 - **내보내는 것**: `decide(서버 사본 | null, 이 기기 고친 시각, 이 기기에 곡이 있나)` → `'retry'` · `'adopt'` · `'push'` · `'none'` · `retryDelay(n)`(30초에서 두 배씩 · 10분 상한) · `countItems(sets)`.
 - **규칙**: 고친 시각은 이 기기 `tw.playlistEditTs` · 서버 `editTs` 칸(이 판부터 앱만 쓴다 — 옛 앱이 쓴 노드엔 없어서 «모름»).
@@ -53,5 +53,18 @@
   - 판단은 불러온 때(또는 계정을 놓은 때)의 이 기기 시각으로 한다 — 맞추기 전에 고친 것(받기를 미루는 동안 · 이어받기 직후)이 «이 기기가 나중» 으로 뒤집지 않게(고친 것은 받기 전 백업에). 계정 이어받기(account.js)는 읽기 전에 `resetSync`(저장된 고친 시각까지 지움) · 못 읽으면 `bootSync` 로 다시 맞춘다.
   - 서버 것을 받을 땐 playlist.js `_plAdoptServer` 한 벌만 쓴다(부팅 맞추기 · 계정 연동) — 받기 전 이 기기 목록을 `tw.playlistBackup` 에 남긴다.
   - 맞추기 전(`_plSynced` 거짓)에는 서버에 올리지 않는다 — 3초 뒤 실제로 올리는 순간에 맞춤 상태와 계정(예약 때 uid)을 다시 본다(곡을 고친 직후 계정을 갈아타도 앞 목록이 새 계정에 안 올라가게) · 재생 중이면 받기를 30초 고정 간격으로 미룬다. 계정을 놓을 때(account.js `_wipeAccountLocal`) `plMod.resetSync()` 와 지움 목록(`tw.playlistEditTs` · `tw.playlistBackup`)으로 새 기기처럼 돌린다 — 안 하면 앞 계정 시각이 다음 계정 목록을 비운다.
-  - 서버 쪽: 비울 때 노드를 지우지 않고 빈 목록 + 시각을 남긴다(`removeMyPlaylist`) · 읽기는 비어 있음(빈 목록 · editTs 0)과 못 읽음(null)을 가른다.
-  - 검사: `checks/sim-playlist-sync.js`(규칙 · firebase-init) · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림) · `checks/sim-account-switch.js`(계정 놓기 · 연동).
+  - 서버 길(playlist-api.js)은 고친 시각이 없다(판 번호뿐) — 읽은 결과의 `editTs` 는 늘 0 = «모름» 이라 위 «서버가 모르면» 줄이 적용된다. 읽기는 비어 있음(빈 목록 객체)과 못 읽음(던짐 → null)을 가른다.
+  - 검사: `checks/sim-playlist-sync.js`(규칙 · 서버 길이 넘기는 «모름») · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림) · `checks/sim-account-switch.js`(계정 놓기 · 연동).
+
+## playlist-api.js — 🌐 플레이리스트 서버 길 provider
+- **책임**: 내 프리셋 세 벌 읽기 · 통째 저장(`GET` · `PUT /v1/me/playlist`) · 무작위 파도타기(`GET /v1/playlists/random`) · 남의 목록(`GET /v1/playlists/{userCode}`). 서버 모양(`tracks[{videoId,title}]` · 늘 3칸 · `listed`)을 화면 모양(`items[{id,title}]` · `private`)으로 맞추는 곳은 여기뿐이다. 신원은 토큰(내 것은 `/v1/me/…`) — 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐).
+- **만드는 법**: `window.TwPlaylistApi.createPlaylistApi({ authed, random, warn })` — app.js 가 플레이리스트보다 먼저 만들어 playlist.js · account.js 에 `playlistApi` deps 로 넘긴다.
+- **deps**: `authed`(로그인 API 통로 `TwApi.authed` — `get(path, { auth: true })` · `put(path, body)`) · `random()`(곡 있는 벌을 고를 때) · `warn(...)`(진단 로그).
+- **내보내는 것**: `fetchMine(uid)`(빈 목록도 객체 · 못 읽으면 던짐) · `saveMine(uid, sets, meta)` → 성공 여부 · `fetchRandom(excludeUid)` → 한 벌 \| null(들을 것 없음) · `fetchOf(userCode)` → 한 벌 \| null(곡 있는 벌 없음 · 열어 주지 않음).
+- **함정**
+  - 서버엔 고친 시각이 없고 판(`version`)이 있다 — 저장은 마지막으로 읽은 판을 싣는다(계정별 기억 · 모르면 먼저 읽음). 409 면 판을 다시 읽어 **한 번만** 더 보낸다(예전처럼 마지막 저장이 이긴다). 그래서 읽은 결과의 `editTs` 는 늘 0 — 기기 간 «나중에 고친 쪽» 판단은 판 번호로 못 한다.
+  - 목록을 전부 비워도 같은 저장이다(빈 세 벌 + 한마디) — 노드를 지우는 길은 없다.
+  - 저장은 서버 상한(세 벌 · 곡 20 · 이름 16 · 제목 60 · 한마디 140)으로 깎는다. 서버가 거절하면(400) 다시 보내지 않고 `false`.
+  - 파도타기 «없음»(`null`)과 «못 불러옴»(던짐)을 가른다 — 부르는 쪽(playlist.js)은 앞엣것에 «아직 파도탈 목록이 없어요» · 뒤엣것에 «인터넷 연결이 필요해요».
+  - 명함(이름 · 레벨 · 사진)은 이 서버 길에 없다 — `firebaseAPI.fetchPlaylistCard`(공개 명함 읽기)가 그대로 맡는다.
+- **검사**: `checks/sim-playlist-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).

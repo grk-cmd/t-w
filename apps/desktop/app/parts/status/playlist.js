@@ -53,6 +53,7 @@ const _repositionOpenChipPopups = deps.repositionOpenChipPopups;
 const bringWinToFront = deps.bringWinToFront;
 const escRegisterWindow = deps.escRegisterWindow;
 const _escEditable = deps.escEditable;
+const plApi = deps.playlistApi;                      // 🌐 서버 목록 provider(playlist-api.js) — 내 목록 읽기 · 저장 · 파도타기
 const plSync = deps.playlistSync;                    // ☁️ 기기 간 맞추기 규칙(playlist-sync.js — 순수)
 /* ═══ 🎵 상태칩 플레이리스트 ═════════════════════════════════════════════
    유튜브 링크를 여러 개 담아 순서대로 듣는 목록 + 🌊 남의 목록으로 파도타기 + 재생.
@@ -246,7 +247,7 @@ function _plReadOnly(){ return !!_plView; }
 /* ✏️ 프리셋 이름 — 제목줄에서 바로 고친다(요청 ①). 값은 **보고 있는 프리셋**의 것이다.
    ★ 읽는 곳(_plSetName)과 쓰는 곳(bindPlTitle 의 end) 각각 한 곳뿐이라 프리셋으로 넘어오는 데
      이 두 줄만 바뀌었다 — 앞 세션이 그렇게 만들어 뒀다.
-   ⚠️ 로컬 전용이다. 서버(publishMyPlaylist)는 아직 이 이름을 올리지 않으므로 남이 보는 창의
+   ⚠️ 로컬 전용이다. 서버(playlistApi.saveMine)는 아직 이 이름을 올리지 않으므로 남이 보는 창의
      제목은 예전처럼 "[아무개]의 플레이리스트" 다 — 올리려면 규칙·publish 를 함께 고쳐야 한다(핸드오프 3절).
    ⚠️ 빈 문자열은 "안 정했다" 는 뜻이고 그때는 기본 문구를 쓴다. 공백만 넣어 저장하면 지워진다. */
 const PL_TITLE_MAX = 16;
@@ -490,7 +491,7 @@ async function _plBootSync(){
   const uid = getMyUserId();
   if(!uid || !window.firebaseAPI){ again(); return; }   // 서버 연결이 아직 안 붙었다
   let srv = null;
-  try{ srv = await firebaseAPI.fetchMyPlaylistSets(uid); }catch(_){}   // 던져도 «못 읽음» — 아래 retry
+  try{ srv = await plApi.fetchMine(uid); }catch(_){}   // 던져도 «못 읽음» — 아래 retry
   if(_plSynced || getMyUserId() !== uid) return;   // 기다리는 사이 맞췄거나 계정이 바뀌었다(이어받기가 새로 맞춘다)
   const local = _plServerShape();
   const baseTs = _plDecideTs !== null ? _plDecideTs : _plEditTs;
@@ -564,19 +565,13 @@ function _plPublish(){
     // 서버 사본과 맞추기 전이면 안 올린다(맞춘 뒤 _plBootSync 가 올린다) · 기다리는 사이 계정이 바뀌었으면 앞 계정 목록을 새 계정에 올리지 않는다
     if(!_plSynced || getMyUserId() !== uid0) return;
     try{
-      if(typeof firebaseAPI === 'undefined' || !firebaseAPI.publishMyPlaylist) return;
       /* 올라가는 것은 프리셋 세 벌 전부 · 한마디 · 공개 · 비공개(지문도 같은 한 벌 — 하나라도 빠지면 그것만 바꿨을 때 안 올라간다).
          ts 는 이 기기에서 고친 시각 — 다른 기기가 부팅 때 «어느 쪽이 나중인가» 를 이것으로 가른다(playlist-sync.js). */
       const { sets, meta, sig } = _plServerShape();
-      const total = sets.reduce((n, s) => n + s.items.length, 0);
       if(sig === _plPubSig) return;
       const uid = getMyUserId();
-      if(!total){   // 세 벌이 전부 비었다 — 한 벌만 비어도 지우면 나머지가 사라진다
-        if(await firebaseAPI.removeMyPlaylist(uid, meta, _plEditTs)) _plPubSig = sig;
-        return;
-      }
-      // 🔒 비공개여도 올리는 것은 같다 — 색인만 뺀다(곡 목록이 있어야 친구 지목 파도타기가 들린다)
-      if(await firebaseAPI.publishMyPlaylist(uid, getDisplayName(), sets, meta, _plEditTs)) _plPubSig = sig;
+      // 세 벌이 전부 비었어도 같은 저장이다(빈 목록 + 한마디) — 노드를 지우는 길은 없다. 비공개여도 올리는 것은 같다(곡 목록이 있어야 친구 지목 파도타기가 들린다)
+      if(await plApi.saveMine(uid, sets, meta)) _plPubSig = sig;
     }catch(_){}
   }, 3000);
 }
@@ -1113,13 +1108,12 @@ function _plDel(){
 }
 /* 🌊 파도타기 — 최근 갱신 60명 중 나를 뺀 무작위 1명. 연달아 누르면 방금 본 사람은 제외한다. */
 async function _plPeek(){
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI.fetchRandomPlaylist){
-    toast('파도타기는 인터넷 연결이 필요해요'); return;
-  }
   const btn = document.getElementById('myPlPeek');
   if(btn) btn.disabled = true;
   try{
-    const r = await firebaseAPI.fetchRandomPlaylist(getMyUserId(), _plView ? _plView.uid : null);
+    let r;
+    try{ r = await plApi.fetchRandom(_plView ? _plView.uid : null); }   // 나는 서버가 토큰으로 뺀다
+    catch(_){ toast('파도타기는 인터넷 연결이 필요해요'); return; }       // 못 불러옴 — «들을 목록 없음»(null)과 다르게 말한다
     if(!r){ toast('아직 파도탈 목록이 없어요'); return; }
     /* 🎵 재생 위치(_plNow)는 **건드리지 않는다** — 듣던 곡은 계속 난다.
        고르기(_plSel)만 초기화한다. 새 목록의 몇 번째를 고르고 있었는지는 뜻이 없다. */
@@ -1188,10 +1182,9 @@ function _plRenderFriendPick(){
   });
 }
 async function _plPeekFriend(fid, name){
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI.fetchPlaylistOf){
-    toast('파도타기는 인터넷 연결이 필요해요'); return;
-  }
-  const r = await firebaseAPI.fetchPlaylistOf(fid);
+  let r;
+  try{ r = await plApi.fetchOf(fid); }
+  catch(_){ toast('파도타기는 인터넷 연결이 필요해요'); return; }
   /* ★ "친구지만 목록이 비었다"를 그대로 말해준다 — 무작위 파도타기의 '아직 파도탈 목록이 없어요'와
      뭉뚱그리면 내 친구가 목록을 안 만든 건지 앱이 고장난 건지 구분이 안 된다. */
   if(!r){ toast(name + ' 님은 아직 공개한 목록이 없어요'); return; }
@@ -1341,7 +1334,7 @@ function _plSwitchSet(i){
 /* 📥 파도타기 중에 마음에 든 곡을 내 목록으로 담는다.
    ★ 남의 목록은 읽기 전용이므로 저쪽은 아무것도 안 바뀐다 — 내 프리셋(_plMine)에만 복사한다.
    ★ 서버 사본(users/{uid}/playlist)은 _plSave 안의 _plPublish 가 3초 debounce 로 알아서 올린다.
-   ⚠️ 남의 목록 항목은 {id, title} 뿐이다(publishMyPlaylist 가 그 둘만 올린다).
+   ⚠️ 남의 목록 항목은 {id, title} 뿐이다(playlistApi.saveMine 이 그 둘만 올린다).
       url 은 내 목록 형식에 맞춰 id 로 복원한다 — 안 하면 제목 없는 곡에서 표시할 게 없어진다. */
 function _plSetItems(k){ const s = _plSets[_plSetIdx(k)]; return (s && s.items) || []; }
 /* 📥 지금 고른 곡을 k 번 프리셋에 담을 수 있는가 — 못 담으면 **이유**를, 담을 수 있으면 null 을 준다.

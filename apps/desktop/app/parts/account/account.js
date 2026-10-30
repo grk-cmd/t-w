@@ -50,6 +50,7 @@ const LOGIN_UID_KEY = deps.LOGIN_UID_KEY;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
+const plApi = deps.playlistApi;   // 🌐 서버 목록 provider(status/playlist-api.js)
 const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
@@ -295,7 +296,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      지우면 그것으로 끝이다. 남의 캐릭터를 주워 가는 길은 restoreSlotsBackup 의 uid 대조로 막는다.
      (빠뜨린 것으로 보고 넣지 말 것 — 제보 3-7) */
   EXTRA_SEAT_KEY,              // 슬롯 번호 목록 — 슬롯이 사라지면 가리키는 곳이 없다
-  /* 플레이리스트 — _restoreOwnedDataAfterTransfer 가 세 벌 전부(fetchMyPlaylistSets) 받아온다.
+  /* 플레이리스트 — _restoreOwnedDataAfterTransfer 가 세 벌 전부(playlistApi.fetchMine) 받아온다.
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
   'tw.playlistHomePublic', 'tw.playlistPrivate',
@@ -778,49 +779,24 @@ async function _restoreOwnedDataAfterTransfer(){
   // ── 🎵 플레이리스트 — 상태는 playlist.js 안에 있다. pl(상태 묶음)로 읽고 쓴다(앱 FSD 16번).
   try{
     const pl = plMod.st;
-    /* ★ [2026-09-16 제보 4] **세 벌 전부** 받는다(fetchMyPlaylistSets). 예전엔 fetchPlaylistOf 로 한 벌만
-       받아 «지금 고른 프리셋» 에 앉혔는데, 그 함수는 파도타기용이라 벌을 **무작위로** 골랐고
-       나머지 두 벌은 이 기기의 옛 값이 그대로 남았다. 로그아웃이 로컬 목록을 지우게 된 지금은
-       세 벌을 다 받아야 «돌아오면 그대로» 가 성립한다.
-       ⚠️ 구버전 firebaseAPI(fetchMyPlaylistSets 없음)에서는 예전 길(fetchPlaylistOf)로 물러난다. */
-    if(window.firebaseAPI && firebaseAPI.fetchMyPlaylistSets){
-      /* 이어받기 전 이 기기는 «새 기기» — 앞 uid 의 고친 시각이 남으면 못 읽었을 때 다음 맞추기에서 새 계정 목록을 덮는다
-         (옛 uid 주인이 없는 갈아타기는 _wipeAccountLocal 을 안 거친다) */
-      plMod.resetSync();
-      const r = await firebaseAPI.fetchMyPlaylistSets(uid);   // {sets,bio,homePublic,editTs} | null
-      const total = r && Array.isArray(r.sets) ? r.sets.reduce((n, s) => n + ((s && s.items) ? s.items.length : 0), 0) : 0;
-      if(total){
-        plMod.adoptServer(r);   // 앉히기 · 백업 · 고친 시각 · 지문 · 저장 · 그리기 — 부팅 맞추기와 한 벌(playlist.js)
-      } else if(r && pl.sets.some(ps => ps && ps.items && ps.items.length)){
-        // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
-        plMod.markSynced();
-        pl.pubSig = null;
-        plMod.publish();
-      } else if(r){
-        plMod.markSynced();   // 양쪽 다 비었다 — 맞춤 끝(안 하면 이 실행 동안 새로 넣은 곡이 안 올라간다)
-      } else {
-        plMod.bootSync();   // 못 읽었다 — 올리지 않고 새 기기처럼 다시 맞춘다(늘려 가는 간격)
-      }
-    } else if(window.firebaseAPI && firebaseAPI.fetchPlaylistOf){
-      const r = await firebaseAPI.fetchPlaylistOf(uid);   // 비어 있으면 null
-      if(r && r.items && r.items.length){
-        const items = r.items.filter(x => x && x.id).slice(0, plMod.PL_MAX).map(x => ({
-          id: x.id,
-          url: 'https://www.youtube.com/watch?v=' + x.id,
-          title: String(x.title || '').slice(0, 60)
-        }));
-        pl.sets[pl.cur].items = items;
-        pl.sel = -1; pl.now = -1; pl.nowSet = pl.cur; pl.view = null; pl.nowView = null;
-        try{ plMod.save(); }catch(_){}
-        pl.pubSig = plMod.pubSigOf(pl.sets.map(ps => ({
-          name: String((ps && ps.name) || '').slice(0, plMod.PL_TITLE_MAX),
-          items: (((ps && ps.items) || [])).map(x => ({ id:x.id, title:x.title || '' })),
-        })), { bio: pl.bio, homePublic: pl.homePublic, private: pl.private });
-        if(typeof plMod.render === 'function') plMod.render();
-      } else if(plMod.mine().length){
-        pl.pubSig = null;
-        if(typeof plMod.publish === 'function') plMod.publish();
-      }
+    /* 세 벌 전부 받는다(파도타기용 한 벌 고르기와 다른 길) — 로그아웃이 로컬 목록을 지우므로 «돌아오면 그대로» 가 성립하려면 세 벌이 다 와야 한다.
+       이어받기 전 이 기기는 «새 기기» — 앞 uid 의 고친 시각이 남으면 못 읽었을 때 다음 맞추기에서 새 계정 목록을 덮는다
+       (옛 uid 주인이 없는 갈아타기는 _wipeAccountLocal 을 안 거친다) */
+    plMod.resetSync();
+    let r = null;
+    try{ r = await plApi.fetchMine(uid); }catch(_){ r = null; }   // {sets,bio,homePublic,editTs} | null(못 읽음) — 빈 목록은 객체
+    const total = r ? r.sets.reduce((n, s) => n + s.items.length, 0) : 0;
+    if(total){
+      plMod.adoptServer(r);   // 앉히기 · 백업 · 고친 시각 · 지문 · 저장 · 그리기 — 부팅 맞추기와 한 벌(playlist.js)
+    } else if(r && pl.sets.some(ps => ps && ps.items && ps.items.length)){
+      // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
+      plMod.markSynced();
+      pl.pubSig = null;
+      plMod.publish();
+    } else if(r){
+      plMod.markSynced();   // 양쪽 다 비었다 — 맞춤 끝(안 하면 이 실행 동안 새로 넣은 곡이 안 올라간다)
+    } else {
+      plMod.bootSync();   // 못 읽었다 — 올리지 않고 새 기기처럼 다시 맞춘다(늘려 가는 간격)
     }
   }catch(e){ console.warn('[연동] 플레이리스트 복원 실패', e); }
   // ── 🎰 가챠 보유분 — 연동은 '저쪽 계정 것을 받아온다'가 맞으므로 ts 를 보지 않고 무조건 내려받는다.

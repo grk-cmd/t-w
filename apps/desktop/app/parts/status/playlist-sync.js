@@ -16,7 +16,7 @@ const RETRY_MAX_MS = 10 * 60000;   // 늘 실패하는 경우(권한 거부 등)
 const countItems = (sets) => (Array.isArray(sets) ? sets : []).reduce((n, s) => n + ((s && Array.isArray(s.items)) ? s.items.length : 0), 0);
 const tsOf = (x) => (typeof x === 'number' && isFinite(x) && x > 0) ? x : 0;
 
-/* srv: fetchMyPlaylistSets 결과({sets, editTs} · 읽기 실패면 null) · localTs: 이 기기 editTs · localHas: 이 기기 곡 수 > 0
+/* srv: playlistApi.fetchMine 결과({sets, editTs} · 읽기 실패면 null) · localTs: 이 기기 editTs · localHas: 이 기기 곡 수 > 0
    → 'retry'(못 읽음) · 'adopt'(서버 것으로) · 'push'(이 기기 것을 올림) · 'none'(그대로) */
 function decide(srv, localTs, localHas){
   if(!srv || typeof srv !== 'object') return 'retry';
