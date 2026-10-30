@@ -2140,7 +2140,6 @@ const plMod = TwPlaylist.createPlaylist({
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   escEditable: (...a)=>winStackMod._escEditable(...a),
-  playlistSync: TwPlaylistSync,
 });
 TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리스트 소리 진단 줄
 /* ═══ 🎵 프리셋 세 벌 ═══ */
@@ -7098,7 +7097,6 @@ const accountMod = TwAccount.createAccount({
   getMyUserId: (...a)=>getMyUserId(...a),
   acctStateMod: acctStateMod,
   plMod: plMod,
-  playlistApi: playlistApiMod,
   slotSyncMod: ()=>slotSyncMod,
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,

@@ -5,16 +5,15 @@
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth: true }) · put(path, body) → Promise<data>)
          random() → 0 이상 1 미만 수(친구 목록에서 곡 있는 벌을 고를 때) · warn(...a)(진단 로그)
    내보냄: createPlaylistApi(deps) → {
-     fetchMine(uid) → Promise<{ sets:[{name, items:[{id,title}]}], bio, homePublic, private, ts:0, editTs:0 }> — 목록이 비어도 객체(빈 목록 ≠ 못 읽음). 못 읽으면 던진다.
-     saveMine(uid, sets, meta) → Promise<boolean> — meta = { bio, homePublic, private }. 곡이 하나도 없는 세 벌을 보내면 «비움»(노드를 지우지 않고 빈 목록 저장).
+     fetchMine(uid) → Promise<{ sets:[{name, items:[{id,title}]}], bio, homePublic, private }> — 목록이 비어도 객체(빈 목록 ≠ 못 읽음). 못 읽으면 던진다.
+     saveMine(uid, sets, meta) → Promise<'ok'|'conflict'|'failed'> — meta = { bio, homePublic, private }. 곡이 하나도 없는 세 벌을 보내면 «비움»(노드를 지우지 않고 빈 목록 저장).
      fetchRandom(excludeUid) → Promise<목록 한 벌 | null(들을 것 없음)> — 못 읽으면 던진다.
      fetchOf(userCode) → Promise<목록 한 벌 | null(곡 있는 벌 없음 · 열어 주지 않음)> — 못 읽으면 던진다.
    }
      목록 한 벌 = { uid, name?(무작위만), items:[{id,title}], setName, setIdx, bio, homePublic }
      순수: mineOf(data) · pickOf(data) · publicOf(data, random) · bodyOf(version, sets, meta) · PATHS · LIMITS (TwPlaylistApi 위)
-   ⚠️ 서버에는 고친 시각(editTs)이 없고 판(version)이 있다 — 저장은 «마지막으로 읽은 판» 을 실어 보낸다. 다른 기기가 먼저 저장했으면(409)
-     판을 다시 읽어 한 번 더 보낸다(예전과 같이 마지막에 저장한 쪽이 이긴다). 그래서 읽은 결과의 editTs 는 늘 0(= 시각 모름).
-   ⚠️ 판은 계정(uid)별로 기억한다 — 계정이 바뀌어도 앞 계정의 판으로 저장하지 않게. 판을 모르면 저장 전에 한 번 읽는다.
+   ⚠️ 서버는 판(version)으로 겹친 고침을 가른다 — 저장은 «마지막으로 읽은 판» 을 실어 보내고, 다른 기기가 먼저 저장했으면(409) 'conflict' 를 돌려준다.
+   ⚠️ 판은 계정(uid)별로 기억한다 — 계정이 바뀌어도 앞 계정의 판으로 저장하지 않게. 읽은 판이 없으면(fetchMine 전) 저장하지 않는다.
    검사: checks/sim-playlist-api.js */
 (function(){
 'use strict';
@@ -55,7 +54,7 @@ function mineOf(d){
   if(!isObj(d)) return undefined;
   const sets = setsOf(d.sets);
   if(!sets || typeof d.listed !== 'boolean') return undefined;
-  return { sets, bio: str(d.bio), homePublic: d.homePublic === true, private: !d.listed, ts: 0, editTs: 0 };
+  return { sets, bio: str(d.bio), homePublic: d.homePublic === true, private: !d.listed };
 }
 const versionOf = (d) => (isObj(d) && typeof d.version === 'number' && isFinite(d.version) && d.version >= 0) ? d.version : undefined;
 
@@ -114,26 +113,22 @@ function createPlaylistApi(deps){
     return readMine(uid);
   }
 
-  /* 저장 한 번 — 판을 모르면 먼저 읽는다 */
-  async function putOnce(uid, sets, meta){
-    if(!versions.has(uid)) await readMine(uid);
-    const d = await authed.put(PATHS.mine, bodyOf(versions.get(uid), sets, meta));
-    const v = versionOf(d);
-    if(v === undefined) throw shapeError();
-    versions.set(uid, v);
-  }
-
+  /* 저장 — 마지막으로 읽은 판을 실어 보낸다. 'ok' | 'conflict'(409 — 다른 기기가 먼저 고쳤다) | 'failed'.
+     409 에 판을 다시 읽어 한 번 더 보내지 않는다(남이 먼저 고친 것을 덮어쓰게 된다) — 부른 쪽이 fetchMine 으로 서버 것을 다시 받는다. */
   async function saveMine(uid, sets, meta){
-    if(!uid) return false;
+    if(!uid) return 'failed';
     try{
-      try{ await putOnce(uid, sets, meta); }
-      catch(e){
-        if(!e || e.status !== CONFLICT_STATUS) throw e;
-        versions.delete(uid);          // 다른 기기가 먼저 저장했다 — 판을 다시 읽어 한 번만 더
-        await putOnce(uid, sets, meta);
-      }
-      return true;
-    }catch(e){ warn('[플레이리스트] 저장 실패', (e && (e.code || e.message)) || e); return false; }
+      if(!versions.has(uid)) throw Object.assign(new Error('읽은 판 없음'), { code: 'NO_VERSION' });   // 받기 전에는 올리지 않는다
+      const d = await authed.put(PATHS.mine, bodyOf(versions.get(uid), sets, meta));
+      const v = versionOf(d);
+      if(v === undefined) throw shapeError();
+      versions.set(uid, v);
+      return 'ok';
+    }catch(e){
+      if(e && e.status === CONFLICT_STATUS){ versions.delete(uid); return 'conflict'; }
+      warn('[플레이리스트] 저장 실패', (e && (e.code || e.message)) || e);
+      return 'failed';
+    }
   }
 
   async function fetchRandom(excludeUid){

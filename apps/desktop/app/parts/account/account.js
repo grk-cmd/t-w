@@ -50,7 +50,6 @@ const LOGIN_UID_KEY = deps.LOGIN_UID_KEY;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
-const plApi = deps.playlistApi;   // 🌐 서버 목록 provider(status/playlist-api.js)
 const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
@@ -296,7 +295,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      지우면 그것으로 끝이다. 남의 캐릭터를 주워 가는 길은 restoreSlotsBackup 의 uid 대조로 막는다.
      (빠뜨린 것으로 보고 넣지 말 것 — 제보 3-7) */
   EXTRA_SEAT_KEY,              // 슬롯 번호 목록 — 슬롯이 사라지면 가리키는 곳이 없다
-  /* 플레이리스트 — _restoreOwnedDataAfterTransfer 가 세 벌 전부(playlistApi.fetchMine) 받아온다.
+  /* 플레이리스트 — 원본은 서버라 이 기기 목록은 지운다(_restoreOwnedDataAfterTransfer 가 서버에서 다시 받는다).
      볼륨·반복·미니미·창 위치는 기기 설정이라 남긴다. */
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio',
   'tw.playlistHomePublic', 'tw.playlistPrivate',
@@ -420,7 +419,7 @@ function _wipeAccountLocal(){
   try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — gachaOwned = {} · _gachaTs = 0 · _gachaBonus = 0 (gacha.js)
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ slotSyncMod().setSlotsTs(0); slotSyncMod().setSlotsSeen(0); slotSyncMod().setSlotsConflict(null); setExtraSeatSlots([]); }catch(_){}
-  try{ const pl = plMod.st; pl.sets = plMod.blankSets(); pl.cur = 0; pl.bio = ''; pl.homePublic = false; pl.private = false; pl.pubSig = null; plMod.resetSync(); }catch(_){}   // 🎵 playlist.js — 상태 묶음 · ☁️ 맞춤 상태도 새 기기처럼
+  try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }
@@ -765,8 +764,7 @@ async function _applyTransferSnapshot(r, opts){
    [정책이 서로 다른 이유]
      · 플레이리스트 = **덮어쓰기**. 순서가 있는 목록이라 합치면 남의 순서와 뒤섞이고 상한(PL_MAX)도
        금방 넘는다. 연동은 "저쪽 계정으로 갈아탄다"는 뜻이므로 저쪽 목록이 정답이다.
-       ★ 단, 저쪽이 비어 있으면 이 기기 목록을 그대로 두고 **올려준다** — 서버 사본이 아직 없는
-         계정(파도타기용 공개를 한 번도 안 한 계정)에서 목록이 증발하는 사고를 막는다.
+       ★ 원본은 서버다 — 이 기기 목록을 저쪽 계정에 올리지 않는다. 저쪽이 비었으면 빈 목록이다.
      · 가챠 = **저쪽 계정 것을 그대로 받는다**(pull). 평소 동기화는 ts 로 최신 기기가 이기지만,
        연동은 "저쪽 계정으로 갈아탄다"는 뜻이라 이 기기가 더 최신이어도 그 계정 것이 정답이다.
        ★ 단, 저쪽 서버가 비어 있으면(한 번도 동기화 안 된 계정) 로컬을 지우지 않고 그대로 올린다 —
@@ -776,28 +774,10 @@ async function _applyTransferSnapshot(r, opts){
       (연동의 본체인 uid 교체는 이미 끝났고, 서버 사본은 다음 부팅 동기화에서도 다시 만난다) */
 async function _restoreOwnedDataAfterTransfer(){
   const uid = getMyUserId();
-  // ── 🎵 플레이리스트 — 상태는 playlist.js 안에 있다. pl(상태 묶음)로 읽고 쓴다(앱 FSD 16번).
+  // ── 🎵 플레이리스트 — 원본은 서버다. 목록을 비우고 저쪽 계정 것을 서버에서 받아 앉힌다(못 읽으면 playlist.js 가 늘려 가는 간격으로 다시 받는다).
   try{
-    const pl = plMod.st;
-    /* 세 벌 전부 받는다(파도타기용 한 벌 고르기와 다른 길) — 로그아웃이 로컬 목록을 지우므로 «돌아오면 그대로» 가 성립하려면 세 벌이 다 와야 한다.
-       이어받기 전 이 기기는 «새 기기» — 앞 uid 의 고친 시각이 남으면 못 읽었을 때 다음 맞추기에서 새 계정 목록을 덮는다
-       (옛 uid 주인이 없는 갈아타기는 _wipeAccountLocal 을 안 거친다) */
-    plMod.resetSync();
-    let r = null;
-    try{ r = await plApi.fetchMine(uid); }catch(_){ r = null; }   // {sets,bio,homePublic,editTs} | null(못 읽음) — 빈 목록은 객체
-    const total = r ? r.sets.reduce((n, s) => n + s.items.length, 0) : 0;
-    if(total){
-      plMod.adoptServer(r);   // 앉히기 · 백업 · 고친 시각 · 지문 · 저장 · 그리기 — 부팅 맞추기와 한 벌(playlist.js)
-    } else if(r && pl.sets.some(ps => ps && ps.items && ps.items.length)){
-      // 저쪽 계정에 사본이 없다 — 이 기기 목록을 새 uid 로 올려서 다음 기기에서도 보이게 한다.
-      plMod.markSynced();
-      pl.pubSig = null;
-      plMod.publish();
-    } else if(r){
-      plMod.markSynced();   // 양쪽 다 비었다 — 맞춤 끝(안 하면 이 실행 동안 새로 넣은 곡이 안 올라간다)
-    } else {
-      plMod.bootSync();   // 못 읽었다 — 올리지 않고 새 기기처럼 다시 맞춘다(늘려 가는 간격)
-    }
+    plMod.reset();
+    plMod.pull();
   }catch(e){ console.warn('[연동] 플레이리스트 복원 실패', e); }
   // ── 🎰 가챠 보유분 — 연동은 '저쪽 계정 것을 받아온다'가 맞으므로 ts 를 보지 않고 무조건 내려받는다.
   //    (평소 동기화는 최신 기기가 이기는 ts 비교지만, 연동만은 이 기기가 더 최신이어도 저쪽이 정답이다)
