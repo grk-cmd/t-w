@@ -2115,7 +2115,10 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
      _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 모듈이 window 고리로도 건다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v1/me/playlist · /v1/playlists/…)
 const plMod = TwPlaylist.createPlaylist({
+  playlistApi: playlistApiMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -2140,7 +2143,6 @@ const plMod = TwPlaylist.createPlaylist({
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   escEditable: (...a)=>winStackMod._escEditable(...a),
-  playlistSync: TwPlaylistSync,
 });
 TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리스트 소리 진단 줄
 /* ═══ 🎵 프리셋 세 벌 ═══ */
