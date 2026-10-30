@@ -3,8 +3,8 @@
      못 받아도 앞서 받은 판을 지우지 않고, 같은 실패는 한 번만 알려야 한다. 이 판단이 notice-feed.js 한 곳에 있어 실제로 불러서 판정한다.
    ・1절: 받기 — 상태 idle → loading → ready · 처음 받은 소식은 새 소식이 아니다 · 받는 중에 또 부르면 끝난 뒤 한 번 더 · 받으면 모든 받는 쪽에 알림 · 해제한 쪽과 던지는 쪽이 다른 쪽을 막지 않음
    ・2절: 알림 — notices 알림이 오면(바뀜 · 오래 끊겼다 붙음 모두) 다시 받음 · 새로 늘어난 소식 id 만 addedIds
-   ・3절: 못 받음 — error · 오류 번호 E-MH-05 는 이어지는 동안 한 번 · 못 받아도 앞서 받은 판은 그대로 · 한 번도 못 받았으면 ready 아님
-   ・4절: 관리자 쓰기 — 올리기(성공 → 다시 받음 · pinFailed → 다시 받고 번호 E-MH-08) · 고정 토글은 받은 판(version)으로 · 없는 id 는 요청 0 · 409 는 다시 받고 번호 · 실패는 번호
+   ・3절: 못 받음 — error · 오류 번호 E-MH-09 는 이어지는 동안 한 번 · 못 받아도 앞서 받은 판은 그대로 · 한 번도 못 받았으면 ready 아님
+   ・4절: 관리자 쓰기 — 올리기(성공 → 다시 받음 · pinFailed → 다시 받고 번호 E-MH-12) · 고정 토글은 받은 판(version)으로 · 없는 id 는 요청 0 · 409 는 다시 받고 번호 · 실패는 번호
    ・5절: 배선 — app.js 가 서버 길로 만듦 · 업데이트 공지 팝업은 처음 받았을 때 한 번 · 배너 · 확성기 · 소식이 같은 한 벌을 읽음 · html · smoke
    ・6절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
@@ -104,7 +104,7 @@ async function judge(S){
     const { env, feed } = mk(LIB);
     env.fail = new Error('x');
     feed.start(); await tick(); await tick();
-    chk(feed.status() === 'error' && !feed.ready() && env.errors.join() === 'E-MH-05', '못 받으면 error — 빈 소식으로 그리지 않고 오류 번호 E-MH-05');
+    chk(feed.status() === 'error' && !feed.ready() && env.errors.join() === 'E-MH-09', '못 받으면 error — 빈 소식으로 그리지 않고 오류 번호 E-MH-09');
     await feed.refresh(); await feed.refresh();
     chk(env.errors.length === 1, '  이어지는 실패는 한 번만');
     env.fail = null; env.board = boardOf(['a']);
@@ -122,9 +122,9 @@ async function judge(S){
     const before = env.fetches;
     chk(await feed.sendBroadcast({ tag: 'notice', title: 't', body: 'b', pinned: false }) === true && env.fetches === before + 1 && env.errors.length === 0, '올리기 성공 → 다시 받는다 · 번호 없음');
     env.wres = 'pinFailed';
-    chk(await feed.sendBroadcast({ tag: 'notice', title: 't', body: 'b', pinned: true }) === false && env.fetches === before + 2 && env.errors.join() === 'E-MH-08', '올라는 갔는데 고정 실패 → 다시 받고(올린 글은 보인다) 번호 E-MH-08');
+    chk(await feed.sendBroadcast({ tag: 'notice', title: 't', body: 'b', pinned: true }) === false && env.fetches === before + 2 && env.errors.join() === 'E-MH-12', '올라는 갔는데 고정 실패 → 다시 받고(올린 글은 보인다) 번호 E-MH-12');
     env.wres = 'failed'; env.errors.length = 0; const f0 = env.fetches;
-    chk(await feed.sendBroadcast({ tag: 'notice', title: 't', body: 'b' }) === false && env.fetches === f0 && env.errors.join() === 'E-MH-08', '실패 → 다시 받지 않고 번호');
+    chk(await feed.sendBroadcast({ tag: 'notice', title: 't', body: 'b' }) === false && env.fetches === f0 && env.errors.join() === 'E-MH-12', '실패 → 다시 받지 않고 번호');
     env.wres = 'ok';
     chk(await feed.togglePin('a') === true && env.writes.some((w) => w[0] === 'pin' && w[1] === 'a' && w[2] === 9 && w[3] === true), '고정 토글 — 받은 판(9)을 실어 반대로(꺼져 있었으니 켬)');
     env.board.broadcasts.a.pinned = true; env.board.broadcasts.a.version = 10; await feed.refresh();
@@ -134,7 +134,7 @@ async function judge(S){
     chk(await feed.togglePin('nope') === false && await feed.remove('nope') === false && env.writes.length === w0, '없는 id 는 요청 0');
     chk(await feed.remove('a') === true && env.writes[env.writes.length - 1].join() === 'del,a,10', '내리기 — 받은 판을 실어');
     env.wres = 'conflict'; env.errors.length = 0; const f1 = env.fetches;
-    chk(await feed.remove('a') === false && env.fetches === f1 + 1 && env.errors.join() === 'E-MH-08', '409 → 덮어쓰지 않고 다시 받아 그 값으로 + 번호');
+    chk(await feed.remove('a') === false && env.fetches === f1 + 1 && env.errors.join() === 'E-MH-12', '409 → 덮어쓰지 않고 다시 받아 그 값으로 + 번호');
   }
 
   say('── 5. 배선');
@@ -160,13 +160,13 @@ async function runAll(){
     ['처음 받은 판도 새 소식', F.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은'],
     ['받는 중 겹쳐 요청', F.replace("if(flying){ again = true; return false; }", ""), '요청은 하나'],
     ['받는 쪽 하나가 던지면 멈춤', F.replace("try{ fn({ addedIds }); }catch(e){ console.warn('[공지] 받는 쪽 처리 실패', e); }", "fn({ addedIds });"), '다른 쪽은 받는다'],
-    ['실패마다 알림', F.replace("if(!failStreak){ failStreak = true; notifyError('E-MH-05', e); }", "notifyError('E-MH-05', e);"), '한 번만'],
+    ['실패마다 알림', F.replace("if(!failStreak){ failStreak = true; notifyError('E-MH-09', e); }", "notifyError('E-MH-09', e);"), '한 번만'],
     ['notices 알림을 안 받음', F.replace("deps.rt.on('notices', () => { refresh(); });", "deps.rt.on('notices', () => {});"), 'notices 알림'],
     ['못 받으면 판을 비움', F.replace("status = STATUS.ERROR;\n", "status = STATUS.ERROR; board = { updateNotice: null, banner: [], broadcasts: {}, hasMore: false }; everReady = false;\n"), '그대로'],
     ['고정에 옛 판을 실음', F.replace("api.setPinned(id, m.version, !m.pinned)", "api.setPinned(id, 0, !m.pinned)"), '받은 판'],
     ['없는 id 도 보냄', F.replace("async function togglePin(id){\n    const m = board.broadcasts[id];\n    if(!m) return false;", "async function togglePin(id){\n    const m = board.broadcasts[id] || { version: 0, pinned: false };"), '요청 0'],
-    ['409 에 다시 안 받음', F.replace("if(r === 'conflict'){ await refresh(); notifyError('E-MH-08', null); return false; }", "if(r === 'conflict'){ notifyError('E-MH-08', null); return false; }"), '다시 받아'],
-    ['고정 실패에 다시 안 받음', F.replace("if(r === 'pinFailed'){ await refresh(); notifyError('E-MH-08', null); return false; }", "if(r === 'pinFailed'){ notifyError('E-MH-08', null); return false; }"), '올린 글은 보인다'],
+    ['409 에 다시 안 받음', F.replace("if(r === 'conflict'){ await refresh(); notifyError('E-MH-12', null); return false; }", "if(r === 'conflict'){ notifyError('E-MH-12', null); return false; }"), '다시 받아'],
+    ['고정 실패에 다시 안 받음', F.replace("if(r === 'pinFailed'){ await refresh(); notifyError('E-MH-12', null); return false; }", "if(r === 'pinFailed'){ notifyError('E-MH-12', null); return false; }"), '올린 글은 보인다'],
   ];
   for(const [name, src, what] of breaks){
     if(src === F){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }

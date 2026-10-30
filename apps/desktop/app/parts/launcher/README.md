@@ -94,7 +94,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
 쓰는 곳: 알림함 «소식» 칸(`myhome-inbox.js` · `myhome-init.js` 가 새 소식 토스트) · 런처 배너(`ad-banner.js` · 설정 패널 배너 `settings-panel.js`) · 업데이트 공지 팝업(app.js — 처음 받았을 때 한 번).
 확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
 
-**오류 번호** — `E-MH-05`(받기 실패 · 이어지는 동안 한 번) · `E-MH-08`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
+**오류 번호** — `E-MH-09`(받기 실패 · 이어지는 동안 한 번) · `E-MH-12`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
 
 **함정**
 - 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).

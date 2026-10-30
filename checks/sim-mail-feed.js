@@ -3,9 +3,9 @@
      같은 실패는 한 번만 알려야 한다. 이 판단이 mail-feed.js 한 곳에 있어 실제로 불러서 판정한다.
    ・1절: 받기 — 처음 받음(새 우편 아님) · 상태 loading → ready · 받는 중에 또 부르면 끝난 뒤 한 번 더(요청이 겹치지 않음) · 내 코드 없음은 요청 0
    ・2절: 알림 — 새 우편(MAIL) · 코드 없는 알림 · 오래 끊겼다 붙음(resync)이면 다시 받음 · 종(BELL)은 무시 · 로그인 전은 무시 · 새로 늘어난 id 만 addedIds
-   ・3절: 못 받음 — error 상태 · 오류 번호 E-MH-04 는 이어지는 동안 한 번 · 받으면 다시 알림 가능 · 못 받아도 앞서 받은 우편은 그대로(ready 유지)
+   ・3절: 못 받음 — error 상태 · 오류 번호 E-MH-08 는 이어지는 동안 한 번 · 받으면 다시 알림 가능 · 못 받아도 앞서 받은 우편은 그대로(ready 유지)
    ・4절: 계정 바뀜 — 바뀌면 비우고 새로 받음 · 늦게 끝난 앞 계정 응답은 버림(실패도 알리지 않음) · stop 은 비움
-   ・5절: 읽음 · 지우기 — 받기 전 잠금 · 서버가 됐다 한 뒤에만 고침(읽음 → 안 읽은 수 -1 · 모두 읽음 → 0 · 지우기 → 목록 · 안 읽은 수) · stale 은 조용히 버림 · 실패는 번호(E-MH-06 · 07)와 그대로 · 여러 통은 첫 실패에서 멈춤
+   ・5절: 읽음 · 지우기 — 받기 전 잠금 · 서버가 됐다 한 뒤에만 고침(읽음 → 안 읽은 수 -1 · 모두 읽음 → 0 · 지우기 → 목록 · 안 읽은 수) · stale 은 조용히 버림 · 실패는 번호(E-MH-10 · 07)와 그대로 · 여러 통은 첫 실패에서 멈춤
    ・6절: 배선 — app.js 가 서버 길로 만듦 · 옛 let 이 없음 · html · smoke
    ・7절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
@@ -109,7 +109,7 @@ async function judge(S){
     const { env, feed } = mk(LIB);
     env.fail = Object.assign(new Error('x'), { status: 503 });
     feed.start('ME01'); await tick(); await tick();
-    chk(feed.status() === 'error' && !feed.ready() && env.errors.join() === 'E-MH-04', '못 받으면 error — 빈 우편으로 그리지 않고 오류 번호 E-MH-04');
+    chk(feed.status() === 'error' && !feed.ready() && env.errors.join() === 'E-MH-08', '못 받으면 error — 빈 우편으로 그리지 않고 오류 번호 E-MH-08');
     await feed.refresh(); await feed.refresh();
     chk(env.errors.length === 1, '  이어지는 실패는 한 번만 알린다');
     env.fail = null; env.server = { a: mail(false) }; env.unread = 1;
@@ -159,14 +159,14 @@ async function judge(S){
     chk(await feed.markRead('nope') === false && env.writes.length === 1, '  없는 id 는 안 보낸다');
     chk(await feed.markRead('c') === true && feed.unread() === 1 && env.writes.length === 1, '  읽은 우편을 읽음 처리해도 안 읽은 수는 그대로');
     env.result = 'failed';
-    chk(await feed.markRead('b') === false && feed.items().b.read === false && feed.unread() === 1 && env.errors.join() === 'E-MH-06', '실패 — 그대로 두고 오류 번호 E-MH-06');
+    chk(await feed.markRead('b') === false && feed.items().b.read === false && feed.unread() === 1 && env.errors.join() === 'E-MH-10', '실패 — 그대로 두고 오류 번호 E-MH-10');
     env.result = 'stale'; env.errors.length = 0;
     chk(await feed.markRead('b') === false && feed.items().b.read === false && env.errors.length === 0, 'stale(계정이 바뀌는 중) — 그대로 두고 조용히 버린다(번호 없음)');
     env.result = 'ok';
     chk(await feed.markAllRead() === true && feed.unread() === 0 && Object.values(feed.items()).every((m) => m.read), '모두 읽음 — 전부 읽음 · 안 읽은 수 0');
     env.result = 'failed'; env.errors.length = 0;
     env.server = { a: mail(false) };
-    chk(await feed.markAllRead() === false && env.errors.join() === 'E-MH-06', '  모두 읽음 실패도 번호');
+    chk(await feed.markAllRead() === false && env.errors.join() === 'E-MH-10', '  모두 읽음 실패도 번호');
   }
   {
     const { env, feed } = mk(LIB);
@@ -175,7 +175,7 @@ async function judge(S){
     chk(await feed.remove('a') === true && !('a' in feed.items()) && feed.unread() === 1, '지우기 — 목록에서 빠지고 안 읽은 것이면 수 -1');
     chk(await feed.remove('b') === true && feed.unread() === 1, '  읽은 것을 지우면 안 읽은 수는 그대로');
     env.result = 'failed';
-    chk(await feed.remove('c') === false && 'c' in feed.items() && env.errors.join() === 'E-MH-07', '실패 — 목록에 남고 번호 E-MH-07');
+    chk(await feed.remove('c') === false && 'c' in feed.items() && env.errors.join() === 'E-MH-11', '실패 — 목록에 남고 번호 E-MH-11');
     env.result = (id) => (id === 'x' ? 'failed' : 'ok'); env.errors.length = 0; env.writes.length = 0;
     env.server = { w: mail(true), x: mail(true), y: mail(true) };
     await feed.refresh();
@@ -202,13 +202,13 @@ async function runAll(){
     ['처음 받은 판도 새 우편으로', S.FEED.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은 우편'],
     ['받는 중 겹쳐 요청', S.FEED.replace("if(flying){ again = true; return false; }", ""), '요청은 하나'],
     ['계정이 바뀌어도 앞 응답을 씀', S.FEED.replace("      if(mine !== uid) return false;   // 앞 계정에서 받은 우편 — 버린다\n", ""), '앞 계정'],
-    ['실패마다 알림', S.FEED.replace("if(!failStreak){ failStreak = true; notifyError('E-MH-04', e); }", "notifyError('E-MH-04', e);"), '한 번만'],
+    ['실패마다 알림', S.FEED.replace("if(!failStreak){ failStreak = true; notifyError('E-MH-08', e); }", "notifyError('E-MH-08', e);"), '한 번만'],
     ['못 받으면 우편을 비움', S.FEED.replace("status = STATUS.ERROR;", "status = STATUS.ERROR; items = {}; everReady = false;"), '그대로 둔다'],
     ['종 알림에도 받음', S.FEED.replace("n.section === SECTION_MAIL", "n.section === SECTION_MAIL || n.section === 'BELL'"), 'BELL'],
     ['받기 전에도 고침', S.FEED.replace("const usable = () => !!uid && everReady;", "const usable = () => !!uid;"), '받기 전'],
     ['서버 답 전에 고침', S.FEED.replace("    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)", "    if(items[id] && !items[id].read)"), '서버가 됐다'],
     ['여러 통이 실패해도 계속', S.FEED.replace("if(!(await remove(id))) break; n++;", "if(await remove(id)) n++;"), '첫 실패'],
-    ['stale 도 번호 알림', S.FEED.replace("if(r === 'failed') notifyError('E-MH-06', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)", "if(r !== 'ok') notifyError('E-MH-06', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)"), 'stale'],
+    ['stale 도 번호 알림', S.FEED.replace("if(r === 'failed') notifyError('E-MH-10', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)", "if(r !== 'ok') notifyError('E-MH-10', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)"), 'stale'],
     ['지워도 안 읽은 수 그대로', S.FEED.replace("if(!items[id].read) unread = Math.max(0, unread - 1);\n    delete items[id];", "delete items[id];"), '안 읽은 것이면 수'],
   ];
   for(const [name, src, what] of breaks){

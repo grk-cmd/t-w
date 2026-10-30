@@ -39,7 +39,7 @@ function createNoticeFeed(deps){
       try{ got = await api.fetchBoard(); }
       catch(e){
         status = STATUS.ERROR;
-        if(!failStreak){ failStreak = true; notifyError('E-MH-05', e); }   // 이어지는 실패는 한 번만
+        if(!failStreak){ failStreak = true; notifyError('E-MH-09', e); }   // 이어지는 실패는 한 번만
         emit([]);
         return false;
       }
@@ -61,13 +61,13 @@ function createNoticeFeed(deps){
   /* 관리자 쓰기 — 서버가 됐다 하면 다시 받는다. 실패는 한 번 알린다(409 는 «먼저 바뀌었다» 라 다시 받아 그 값으로) */
   async function done(r){
     if(r === 'ok'){ await refresh(); return true; }
-    if(r === 'conflict'){ await refresh(); notifyError('E-MH-08', null); return false; }
-    notifyError('E-MH-08', null);
+    if(r === 'conflict'){ await refresh(); notifyError('E-MH-12', null); return false; }
+    notifyError('E-MH-12', null);
     return false;
   }
   async function sendBroadcast(o){
     const r = await api.sendBroadcast(o);
-    if(r === 'pinFailed'){ await refresh(); notifyError('E-MH-08', null); return false; }   // 올라는 갔다 — 고정만 못 했다
+    if(r === 'pinFailed'){ await refresh(); notifyError('E-MH-12', null); return false; }   // 올라는 갔다 — 고정만 못 했다
     return done(r);
   }
   async function togglePin(id){

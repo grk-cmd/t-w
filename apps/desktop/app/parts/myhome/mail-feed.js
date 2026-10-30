@@ -45,7 +45,7 @@ function createMailFeed(deps){
       catch(e){
         if(mine !== uid) return false;   // 그 사이 계정이 바뀌었다 — 앞 계정의 실패는 알리지 않는다
         status = STATUS.ERROR;
-        if(!failStreak){ failStreak = true; notifyError('E-MH-04', e); }   // 이어지는 실패는 한 번만
+        if(!failStreak){ failStreak = true; notifyError('E-MH-08', e); }   // 이어지는 실패는 한 번만
         emit({ addedIds: [] });
         return false;
       }
@@ -84,7 +84,7 @@ function createMailFeed(deps){
     if(!usable() || !(id in items)) return false;
     if(items[id].read) return true;
     const r = await api.markRead(uid, id);
-    if(r === 'failed') notifyError('E-MH-06', null);
+    if(r === 'failed') notifyError('E-MH-10', null);
     if(r !== 'ok') return false;
     if(items[id] && !items[id].read){ items[id].read = true; unread = Math.max(0, unread - 1); }
     emit({ addedIds: [] });
@@ -93,7 +93,7 @@ function createMailFeed(deps){
   async function markAllRead(){
     if(!usable()) return false;
     const r = await api.markAllRead(uid);
-    if(r === 'failed') notifyError('E-MH-06', null);
+    if(r === 'failed') notifyError('E-MH-10', null);
     if(r !== 'ok') return false;
     for(const id of Object.keys(items)) items[id].read = true;
     unread = 0;
@@ -103,7 +103,7 @@ function createMailFeed(deps){
   async function remove(id){
     if(!usable() || !(id in items)) return false;
     const r = await api.remove(uid, id);
-    if(r === 'failed') notifyError('E-MH-07', null);
+    if(r === 'failed') notifyError('E-MH-11', null);
     if(r !== 'ok') return false;
     if(!items[id].read) unread = Math.max(0, unread - 1);
     delete items[id];

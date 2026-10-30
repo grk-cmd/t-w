@@ -39,11 +39,11 @@
 | `E-MH-01` | 도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `myhome/help-tab.js` — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(`LOAD_MS`) |
 | `E-MH-02` | 배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요 | `myhome/mh-bg-url.js` — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만) |
 | `E-MH-03` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(`savePresencePref` · `presencePref/{uid}`) |
-| `E-MH-04` | 우편을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `myhome/mail-feed.js` — 내 우편 받기 실패(`fetchMail` 던짐 — 켤 때 · 새 우편 알림 · 다시 시도 · 이어지는 동안 한 번만 알림) |
-| `E-MH-05` | 소식을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `launcher/notice-feed.js` — 공지 한 판(소식 · 업데이트 공지 · 배너) 받기 실패(`fetchBoard` 던짐 — 이어지는 동안 한 번만 알림) |
-| `E-MH-06` | 우편을 읽음으로 바꾸지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 읽음 · 모두 읽음 서버 쓰기 실패(`markRead` · `markAllRead` failed — 계정이 바뀌는 중(`stale`)은 조용히 버림) |
-| `E-MH-07` | 우편을 지우지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 우편 지우기 서버 쓰기 실패(`remove` · `removeMany` failed — 여러 통은 첫 실패에서 멈춤) |
-| `E-MH-08` | 소식을 올리거나 고치지 못했어요 — 관리자 권한과 연결을 확인해 주세요 | `launcher/notice-feed.js` — 관리자 소식 올리기 · 📌 고정 · 내리기 실패(`sendBroadcast` · `togglePin` · `remove` — 409 는 다시 받고 알림) |
+| `E-MH-08` | 우편을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `myhome/mail-feed.js` — 내 우편 받기 실패(`fetchMail` 던짐 — 켤 때 · 새 우편 알림 · 다시 시도 · 이어지는 동안 한 번만 알림) |
+| `E-MH-09` | 소식을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `launcher/notice-feed.js` — 공지 한 판(소식 · 업데이트 공지 · 배너) 받기 실패(`fetchBoard` 던짐 — 이어지는 동안 한 번만 알림) |
+| `E-MH-10` | 우편을 읽음으로 바꾸지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 읽음 · 모두 읽음 서버 쓰기 실패(`markRead` · `markAllRead` failed — 계정이 바뀌는 중(`stale`)은 조용히 버림) |
+| `E-MH-11` | 우편을 지우지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 우편 지우기 서버 쓰기 실패(`remove` · `removeMany` failed — 여러 통은 첫 실패에서 멈춤) |
+| `E-MH-12` | 소식을 올리거나 고치지 못했어요 — 관리자 권한과 연결을 확인해 주세요 | `launcher/notice-feed.js` — 관리자 소식 올리기 · 📌 고정 · 내리기 실패(`sendBroadcast` · `togglePin` · `remove` — 409 는 다시 받고 알림) |
 | `E-ROOM-01` | 방 목록을 불러오지 못했어요 | `room/room-entry.js` — 랜덤 참여 · 갈아타기(`findRandomRooms`) |
 | `E-ROOM-02` | 방을 옮기지 못했어요 | `room/room-entry.js` — 갈아타기 뒤 방 밖에 남음 |
 | `E-ROOM-03` | 방 목록을 불러오지 못했어요 | `room/room-lobby-ui.js` — 로비 목록 사본(roomLobby/{채널}) 읽기 실패 |
