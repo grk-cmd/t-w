@@ -44,6 +44,7 @@ const DDAY_CARD_IMG_MAX = 150;      // 카드 배경 이미지 리사이즈 상�
 /* 받는 상태 — 달력 · 내 보드 · 친구 보드가 각각 가진다. IDLE(아직 안 물음)은 화면에서 LOADING 과 같게 보인다 */
 const LOAD = Object.freeze({ IDLE: 'idle', LOADING: 'loading', READY: 'ready', ERROR: 'error' });
 const LOAD_TEXT = Object.freeze({ loading: '불러오는 중이에요', error: '불러오지 못했어요 — 눌러서 다시 시도' });
+const PUBLIC_TAG_HINT = '태그한 친구가 볼 수 있게 공개돼요';   // 서버 규칙: 친구를 태그한 일정 · 기념일은 공개로 저장된다
 const LOCK_TEXT = '아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요';   // 받기 전에 고치려 할 때(토스트)
 let _gen = 0;                       // reset 마다 오른다 — 앞 계정의 늦은 답이 새 계정 화면을 건드리지 않게
 let _schedTagTarget = 'sched';      // 지금 태그 팝업이 누구를 위한 것인지: 'sched'(일정) | 'dday'
@@ -83,6 +84,20 @@ function _loadFail(e){
   if(_loadFailing) return;
   _loadFailing = true;
   notifyError('E-MH-04', e);
+}
+
+/* 친구를 태그하면 서버가 공개로 바꾼다 — 앱이 몰래 바꾸지 않게 «공개» 체크를 켜고 잠그고 까닭을 보인다.
+   태그를 다 빼면 태그 전에 사용자가 둔 값으로 돌리고 잠금을 푼다 */
+function _syncPublicLock(chk, hint, tagCount){
+  if(!chk) return;
+  if(tagCount > 0){
+    if(!chk.disabled) chk.dataset.orig = chk.checked ? '1' : '';
+    chk.checked = true; chk.disabled = true;
+    if(hint) hint.textContent = PUBLIC_TAG_HINT;
+    return;
+  }
+  if(chk.disabled){ chk.checked = chk.dataset.orig === '1'; chk.disabled = false; }
+  if(hint) hint.textContent = '';
 }
 
 function _pad2(n){ return String(n).padStart(2,'0'); }
@@ -658,7 +673,8 @@ function _ddayOpenEdit(id, kind, prefillDate){
   if(b1In)  b1In.checked = isAnniv ? (id ? dd.base1 === true : true) : false;
   _ddaySyncBase1Hint();
   if(notifyIn) notifyIn.checked = !!dd.notify;
-  if(pubIn)    pubIn.checked    = !!dd.public;
+  if(pubIn){ pubIn.disabled = false; pubIn.dataset.orig = ''; pubIn.checked = !!dd.public; }   // 이전 태그의 잠금을 푼다
+  { const h = document.getElementById('mhDdayPublicHint'); if(h) h.textContent = ''; }
   if(delBtn)   delBtn.style.display = id ? '' : 'none';
   if(imgInfo)  imgInfo.textContent = _ddayEditImg ? '이미지 있음' : '';
   if(msgEl){ msgEl.style.display='none'; msgEl.textContent=''; }
@@ -787,6 +803,7 @@ function _applyAnnivHeight(px){
   });
 
   const refreshTagInfo = ()=>{
+    _syncPublicLock(pubChk, document.getElementById('mhSchedPublicHint'), _schedTagSel.length);
     if(!tagInfo) return;
     tagInfo.textContent = _schedTagSel.length ? `👥 ${_schedTagSel.length}명 태그됨` : '';
   };
@@ -822,20 +839,12 @@ function _applyAnnivHeight(px){
         _ddayTagSel = picked;
         const ddTagInfo2 = document.getElementById('mhDdayTagInfo');
         if(ddTagInfo2) ddTagInfo2.textContent = picked.length ? `👥 ${picked.length}명` : '';
-        const ddPub2 = document.getElementById('mhDdayPublic');
-        if(picked.length && ddPub2 && !ddPub2.checked){
-          ddPub2.checked = true;
-          toast('태그한 친구가 볼 수 있도록 공개로 설정했어요');
-        }
+        _syncPublicLock(document.getElementById('mhDdayPublic'), document.getElementById('mhDdayPublicHint'), picked.length);
         return;
       }
       // 📅 일정에서 연 경우
       _schedTagSel = picked;
       refreshTagInfo();
-      if(_schedTagSel.length && pubChk && !pubChk.checked){
-        pubChk.checked = true;
-        toast('태그한 친구가 볼 수 있도록 공개로 설정했어요');
-      }
     });
     if(tagCancel) tagCancel.addEventListener('click', ()=>{ tagPop.style.display='none'; });
   }
@@ -1414,6 +1423,7 @@ function reset(){
   _schedDdaysVisit = null; _visitBoardState = LOAD.IDLE;
   _bellNotices = {}; _bellTodayItems = [];
   _schedTagSel = []; _loadFailing = false; _schedAdding = false;
+  _syncPublicLock(document.getElementById('mhSchedPublic'), document.getElementById('mhSchedPublicHint'), 0);   // 앞 계정에서 태그하다 만 공개 잠금을 푼다
   scheduleApi.reset();
   const grid = document.getElementById('mhSchedGrid');
   if(grid) grid.innerHTML = '';   // renderSchedGrid 는 달이 없으면 아무것도 안 그린다 — 앞 계정 달력이 남지 않게 여기서 비운다

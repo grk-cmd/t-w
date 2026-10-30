@@ -187,7 +187,7 @@ function createScheduleApi(deps){
   async function createItem(uid, o){
     const read = readOf(uid);
     const tags = Array.isArray(o.tagFriends) ? o.tagFriends.slice(0, LIMITS.TAGS) : [];
-    const body = { requestId: newId(), date: o.date, text: str(o.text).slice(0, LIMITS.TEXT), visibility: (o.public || tags.length) ? 'PUBLIC' : 'PRIVATE' };
+    const body = { requestId: newId(), date: o.date, text: str(o.text).slice(0, LIMITS.TEXT), visibility: o.public ? 'PUBLIC' : 'PRIVATE' };   // 태그하면 서버가 공개로 바꾼다 — 화면이 이미 «공개» 를 켜 둔 채 보낸다(앱이 몰래 바꾸지 않는다)
     if(tags.length) body.tagFriends = tags;
     const it = itemOf(await authed.post(PATHS.create, body, { expectOwner: read.owner }));
     if(!it) throw shapeError();

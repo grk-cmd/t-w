@@ -106,17 +106,19 @@ say('── 2. 일정 쓰기');
   const r = await m.createItem('me1', { date: '2026-11-05', text: '병원', public: false, tagFriends: ['f1', 'f2'] });
   const p = authed.log.find((x) => x.method === 'POST');
   chk(p.path === '/v1/me/schedules' && p.body.requestId === 'req-1-abcdefgh' && p.body.date === '2026-11-05' && eq(p.body.tagFriends, ['f1', 'f2']), '일정 쓰기 — POST /v1/me/schedules { requestId · date · text · tagFriends }');
-  chk(p.body.visibility === 'PUBLIC', '  친구를 태그하면 공개로 보낸다(서버 규칙과 같다)');
+  chk(p.body.visibility === 'PRIVATE', '  화면 값(비공개) 그대로 보낸다 — 앱이 혼자 공개로 바꾸지 않는다(태그하면 서버가 공개로 바꾼다 · 화면은 «공개» 를 켜서 잠근다)');
   chk(p.opts.expectOwner === 'tokenA', '  ★ 읽은 토큰의 주인과 묶는다(expectOwner)');
   chk(r.id === 'n1' && r.public === true && r.version === 1 && r.date === '2026-11-05', '  돌려주는 값 — 서버가 만든 일정');
   await m.createItem('me1', { date: '2026-11-05', text: '홀로', public: false });
   const p2 = authed.log.filter((x) => x.method === 'POST')[1];
+  await m.createItem('me1', { date: '2026-11-05', text: '공개', public: true, tagFriends: ['f1'] });
+  chk(authed.log.filter((x) => x.method === 'POST')[2].body.visibility === 'PUBLIC', '  화면이 켠 공개는 그대로 PUBLIC');
   chk(p2.body.visibility === 'PRIVATE' && !('tagFriends' in p2.body) && p2.body.requestId === 'req-2-abcdefgh', '  태그 없고 비공개면 PRIVATE · tagFriends 칸 없음 · 요청 번호는 새로');
   await m.createItem('me1', { date: '2026-11-05', text: 'x'.repeat(60) });
-  chk(authed.log.filter((x) => x.method === 'POST')[2].body.text.length === 40, '  글자는 서버 상한(40)으로 깎는다');
+  chk(authed.log.filter((x) => x.method === 'POST')[3].body.text.length === 40, '  글자는 서버 상한(40)으로 깎는다');
   authed.state.who = 'tokenB';
   const stale = await rej(m.createItem('me1', { date: '2026-11-05', text: '남의 토큰' }));
-  chk(stale && stale.code === 'OWNER_CHANGED' && authed.log.filter((x) => x.method === 'POST').length === 3, '읽은 뒤 로그인한 사람이 바뀌면 보내지 않는다(OWNER_CHANGED)');
+  chk(stale && stale.code === 'OWNER_CHANGED' && authed.log.filter((x) => x.method === 'POST').length === 4, '읽은 뒤 로그인한 사람이 바뀌면 보내지 않는다(OWNER_CHANGED)');
   authed.state.who = 'tokenA';
   await m.deleteItem('me1', 'n1', 4);
   const d = authed.log.find((x) => x.method === 'DELETE');
@@ -341,11 +343,11 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
     await rej(m.createItem('me1', { date: '2026-11-05', text: 'a' }));
     chk(authed.log.length === 0, 'x');
   });
-  await broken('태그해도 PRIVATE 로 보낸다', (x) => x.replace("(o.public || tags.length) ? 'PUBLIC' : 'PRIVATE'", "o.public ? 'PUBLIC' : 'PRIVATE'"), async (src) => {
+  await broken('태그하면 앱이 혼자 PUBLIC 으로 바꿔 보낸다', (x) => x.replace("visibility: o.public ? 'PUBLIC' : 'PRIVATE' };", "visibility: (o.public || tags.length) ? 'PUBLIC' : 'PRIVATE' };"), async (src) => {
     const { m, authed } = mk(src, { 'GET /v1/me/schedules': [], 'POST /v1/me/schedules': it('n1', '2026-11-05', 'a') });
     await m.fetchMonth('me1', '2026-11');
-    await m.createItem('me1', { date: '2026-11-05', text: 'a', tagFriends: ['f1'] });
-    chk(authed.log.find((y) => y.method === 'POST').body.visibility === 'PUBLIC', 'x');
+    await m.createItem('me1', { date: '2026-11-05', text: 'a', public: false, tagFriends: ['f1'] });
+    chk(authed.log.find((y) => y.method === 'POST').body.visibility === 'PRIVATE', 'x');
   });
   await broken('다른 달 줄을 안 버린다', (x) => x.replace("if(it.date.slice(0, 7) !== ym) continue;", ''), async (src) => {
     const { m } = mk(src, { 'GET /v1/me/schedules': [it('a', '2026-11-03', 'a'), it('c', '2026-12-01', 'c')] });

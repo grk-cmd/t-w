@@ -314,10 +314,20 @@ await sec('── 4. 달력', async () => {
   chk(E.el('mhSchedTagList').children.length === 2, '태그 — 친구 목록이 뜬다');
   pickAll(E, E.el('mhSchedTagList'));
   E.el('mhSchedTagOk').fire('click');
-  chk(E.el('mhSchedPublic').checked === true && E.toasts.includes('태그한 친구가 볼 수 있도록 공개로 설정했어요'), '  태그하면 공개로 바뀐다(안내)');
+  const pub = E.el('mhSchedPublic'), hint = E.el('mhSchedPublicHint');
+  chk(pub.checked === true && pub.disabled === true && hint.textContent === '태그한 친구가 볼 수 있게 공개돼요', '  태그하면 «공개» 를 켜고 잠그고 까닭을 옆에 보인다(앱이 몰래 바꾸지 않는다)');
+  E.el('mhSchedTagBtn').fire('click'); E.el('mhSchedTagList').querySelectorAll = () => []; E.el('mhSchedTagOk').fire('click');
+  chk(pub.checked === false && pub.disabled === false && hint.textContent === '', '  태그를 다 빼면 원래 값(꺼짐)으로 돌리고 잠금 · 까닭을 걷는다');
+  pub.checked = true;
+  E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
+  E.el('mhSchedTagBtn').fire('click'); E.el('mhSchedTagList').querySelectorAll = () => []; E.el('mhSchedTagOk').fire('click');
+  chk(pub.checked === true && pub.disabled === false, '  원래 켜 둔 공개는 태그를 빼도 켜진 채');
+  pub.checked = false;
+  E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
   E.el('mhSchedInput').value = '회식'; E.el('mhSchedAddBtn').fire('click'); await tick();
   const p2 = E.calls('POST', /./)[1];
-  chk(eq(p2.body.tagFriends, ['f1', 'f2']) && p2.body.visibility === 'PUBLIC' && E.toasts.includes('일정을 추가하고 친구 2명에게 알렸어요'), '  같은 요청에 tagFriends(알림까지) — 토스트 «친구 2명에게 알렸어요»');
+  chk(eq(p2.body.tagFriends, ['f1', 'f2']) && p2.body.visibility === 'PUBLIC' && E.toasts.includes('일정을 추가하고 친구 2명에게 알렸어요'), '  같은 요청에 tagFriends(알림까지) — 화면이 켠 공개 그대로 PUBLIC · 토스트 «친구 2명에게 알렸어요»');
+  chk(pub.checked === false && pub.disabled === false && hint.textContent === '', '  쓰고 나면 태그가 비워지며 공개 체크는 태그 전 값으로 돌아오고 잠금이 풀린다');
   E.routes['POST /v1/me/schedules'] = apiErr(403, 'SCHEDULE_TAG_NOT_FRIEND');
   E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
   E.el('mhSchedInput').value = '실패할 일정'; E.el('mhSchedAddBtn').fire('click'); await tick();
@@ -443,9 +453,10 @@ await sec('── 5. 기념일 · D-day', async () => {
   T.el('mhDdaySaveBtn').fire('click'); await tick(30);
   const tp = T.calls('PUT', /ddays/)[0];
   chk(tp.body.tagFriends && tp.body.tagFriends.kind === 'BANNER' && tp.body.tagFriends.index === 1 && eq(tp.body.tagFriends.userCodes, ['f1']) && T.toasts.includes('D-day를 저장하고 친구 1명에게 알렸어요'), '친구 태그 — 같은 PUT 에 tagFriends(저장한 배너가 두 번째) · 토스트');
-  chk(T.el('mhDdayPublic').checked === true, '  태그하면 공개로 바뀐다');
+  chk(T.el('mhDdayPublic').checked === true && T.el('mhDdayPublic').disabled === true && T.el('mhDdayPublicHint').textContent === '태그한 친구가 볼 수 있게 공개돼요' && tp.body.banners[1].visibility === 'PUBLIC', '  태그하면 «공개» 를 켜고 잠그고 까닭을 보인다 — 보내는 값도 PUBLIC');
   T.routes['PUT /v1/me/ddays'] = apiErr(409, 'SCHEDULE_DDAY_FULL');
   dayCells(T)[4].fire('contextmenu');
+  chk(T.el('mhDdayPublic').disabled === false && T.el('mhDdayPublic').checked === false && T.el('mhDdayPublicHint').textContent === '', '  편집창을 새로 열면 앞의 태그 잠금이 풀려 있다');
   T.el('mhDdayText').value = '또'; T.el('mhDdaySaveBtn').fire('click'); await tick(30);
   chk(T.errs.includes('E-MH-07') && !T.errs.includes('E-NET-05'), '서버가 상한(SCHEDULE_DDAY_FULL)을 거절 → E-MH-07 (409 다시 받기와 다른 길)');
 
@@ -706,6 +717,18 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     gridCards(O)[0].fire('contextmenu'); O.el('mhDdaySaveBtn').fire('click'); await tick(30);
     chk(O.errs.length === 0, 'x');
   });
+  const tagScenario = async (src, untag) => {
+    const E = mkEnv({ src, friends: { f1: { name: 'A' } } });
+    await tick();
+    E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
+    const locked = E.el('mhSchedPublic').checked === true && E.el('mhSchedPublic').disabled === true && E.el('mhSchedPublicHint').textContent !== '';
+    if(!untag){ chk(locked, 'x'); return; }
+    E.el('mhSchedTagBtn').fire('click'); E.el('mhSchedTagList').querySelectorAll = () => []; E.el('mhSchedTagOk').fire('click');
+    chk(E.el('mhSchedPublic').checked === false && E.el('mhSchedPublic').disabled === false, 'x');
+  };
+  await broken('태그해도 공개 체크를 켜고 잠그지 않는다', (x) => x.replace("chk.checked = true; chk.disabled = true;", ""), async (src) => { await tagScenario(src, false); });
+  await broken('태그를 빼도 원래 값으로 안 돌린다', (x) => x.replace("chk.checked = chk.dataset.orig === '1'; ", ""), async (src) => { await tagScenario(src, true); });
+  await broken('까닭 글을 안 보인다', (x) => x.replace("if(hint) hint.textContent = PUBLIC_TAG_HINT;", ""), async (src) => { await tagScenario(src, false); });
   await broken('오늘 일정을 «오늘 열어 봤는가» 로 안 센다', (x) => x.replace("const newToday   = (seenDay === todayYMD) ? 0 : _bellTodayItems.length;", "const newToday   = _bellTodayItems.length;"), async (src) => {
     const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': [item('t1', TODAY, '병원')] } });
     await tick(); E.el('myBellBtn').fire('click');
