@@ -38,21 +38,22 @@
 
 ## playlist.js — 서버가 원본인 내 목록
 
-- **원본**: 내 세 벌 · 한마디 · 마이홈 공개 · 비공개는 서버(`GET` · `PUT /v1/me/playlist`)다. 이 기기 localStorage 에는 목록을 두지 않는다 — 기기 설정(보는 프리셋 `tw.playlistCur` · 반복 · 음량 · 미니미 · 창 자리)만 남는다.
-- **받기**: 앱을 켜자마자(`_plPull` — 로그인 전이면 2초마다 기기 안에서만 보다가 로그인되는 즉시, 토큰 `NO_TOKEN` 도 같음) · 계정 이어받기(account.js `plMod.reset()` → `plMod.pull()`) · 저장이 409 일 때. 받은 값을 그대로 앉힌다. 못 읽으면(던짐) 30초에서 두 배씩(10분 상한) 다시 받는다. 받는 중에는 창에 「불러오는 중…」, 못 받으면 「못 불러왔어요 · [다시 시도]」(누르면 바로 다시 받기)를 보이고, 빈 목록은 빈 화면이다. 받기 전(`_plLoaded` 거짓)에는 곡 넣기 · 지우기 · 순서 · 프리셋 이름 · 한마디 · 공개 · 비공개 · 남의 곡 담기가 잠긴다(듣기는 안 잠긴다). 듣는 중에는 목록을 바꾸지 않고 30초마다 미룬다.
-- **저장**: 고치면 3초 debounce 뒤 `saveMine`. 받기 전(`_plLoaded` 거짓)에는 올리지 않는다 — 빈 화면이 서버 목록을 덮지 않게. 안 바뀌었으면(지문 같음) 안 쓴다. 409 면 덮어쓰지 않고 서버 것을 다시 받아 화면을 그 값으로 바꾸고 「다른 기기에서 바뀐 목록을 불러왔어요」를 알린다.
-- **함정**: 계정을 놓거나 갈아탈 때 `reset()` 이 목록을 비우고 걸린 저장 예약도 없앤다 — 안 하면 앞 계정 목록이 새 계정에 올라간다. 옛 목록 키(`tw.playlistSets` 등)는 읽지도 지우지도 않는다.
-- **검사**: `checks/sim-playlist.js` 5-2절(받기 · 저장 · 409 · 실패 vs 빈 목록 · 계정 바뀜) · `checks/sim-account-switch.js`.
+- **원본**: 내 세 벌 · 한마디 · 마이홈 공개 · 비공개는 서버(`GET` · `PUT /v1/me/playlist`)다. 이 기기 localStorage 에는 목록을 두지 않는다 — 기기 설정(보는 프리셋 `tw.playlistCur` · 반복 · 음량 · 미니미 · 창 자리)만 남는다. 옛 목록 키(`tw.playlistSets` · `tw.playlist` · `tw.playlistBio` …)는 읽지도 쓰지도 않고, 로그아웃(account.js 지움 목록) 때 지워진다.
+- **받기**(`_plPull`): 앱을 켜자마자 · 계정 이어받기(account.js `plMod.reset()` → `plMod.pull()`) · 409 뒤 · [다시 시도] 를 눌렀을 때. 로그인 전(내 코드 없음 · `NO_TOKEN`)이면 서버를 부르지 않고 2초마다 기기 안에서만 확인한다. 못 읽으면(던짐) 30초에서 두 배씩(10분 상한) 다시 받는다. 받는 중에는 창에 「불러오는 중…」, 못 받으면 「못 불러왔어요 · [다시 시도]」, 빈 목록은 빈 화면이다. 같은 계정으로 받는 중에는 또 받지 않는다. 듣는 중에는 **서버를 부르기 전에** 미룬다(30초마다 다시 봄).
+- **잠금**(`_plCanEdit` — 남의 목록을 보는 중이 아니고 `_plLoaded` 참): 곡 넣기 · 지우기 · 순서 · 프리셋 이름 · 한마디 · 공개 · 비공개 · 남의 곡 담기가 이 하나로 막힌다. 받기 전과 409 로 다시 받는 동안 잠긴다. 듣기 · 재생 제어는 안 잠긴다.
+- **저장**(`_plPublishNow`): 고치면 3초 debounce 뒤 `saveMine`. 한 번에 하나만 보낸다 — 보내는 중에 또 고쳤으면 끝난 뒤 최신 상태로 한 번 더(같은 판으로 두 번 보내면 두 번째가 409). 안 바뀌었으면(지문 같음) 안 쓴다. 결과는 `'ok'` · `'conflict'`(409 — 덮어쓰지 않고 목록을 잠근 채 서버 것을 다시 받아 화면을 바꾸고 「다른 기기에서 바뀐 목록을 불러왔어요」) · `'failed'`(오류 `E-PL-01` 을 이어지는 동안 한 번만 알리고 고친 내용은 화면에 그대로 · 30초 뒤부터 간격을 늘려 다시 올림 · 성공하면 처음으로).
+- **함정**: 계정을 놓거나 갈아탈 때 `reset()` 이 목록 · 걸린 저장 예약 · 보내는 중 결과를 모두 버린다(세대 번호) — 안 하면 앞 계정 목록이 새 계정에 올라간다. `reset()` 은 듣는 중인 곡을 멈추지 않는다.
+- **검사**: `checks/sim-playlist.js` 5-2절 · `checks/sim-account-switch.js`.
 
 ## playlist-api.js — 🌐 플레이리스트 서버 길 provider
 - **책임**: 내 프리셋 세 벌 읽기 · 통째 저장(`GET` · `PUT /v1/me/playlist`) · 무작위 파도타기(`GET /v1/playlists/random`) · 남의 목록(`GET /v1/playlists/{userCode}`). 서버 모양(`tracks[{videoId,title}]` · 늘 3칸 · `listed`)을 화면 모양(`items[{id,title}]` · `private`)으로 맞추는 곳은 여기뿐이다. 신원은 토큰(내 것은 `/v1/me/…`) — 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐).
-- **만드는 법**: `window.TwPlaylistApi.createPlaylistApi({ authed, random, warn })` — app.js 가 플레이리스트보다 먼저 만들어 playlist.js · account.js 에 `playlistApi` deps 로 넘긴다.
+- **만드는 법**: `window.TwPlaylistApi.createPlaylistApi({ authed, random, warn })` — app.js 가 플레이리스트보다 먼저 만들어 playlist.js 에 `playlistApi` deps 로 넘긴다.
 - **deps**: `authed`(로그인 API 통로 `TwApi.authed` — `get(path, { auth: true })` · `put(path, body)`) · `random()`(곡 있는 벌을 고를 때) · `warn(...)`(진단 로그).
-- **내보내는 것**: `fetchMine(uid)`(빈 목록도 객체 · 못 읽으면 던짐) · `saveMine(uid, sets, meta)` → 성공 여부 · `fetchRandom(excludeUid)` → 한 벌 \| null(들을 것 없음) · `fetchOf(userCode)` → 한 벌 \| null(곡 있는 벌 없음 · 열어 주지 않음).
+- **내보내는 것**: `fetchMine(uid)`(빈 목록도 객체 · 못 읽으면 던짐) · `saveMine(uid, sets, meta)` → `'ok'` \| `'conflict'`(409) \| `'failed'` · `fetchRandom(excludeUid)` → 한 벌 \| null(들을 것 없음) · `fetchOf(userCode)` → 한 벌 \| null(곡 있는 벌 없음 · 열어 주지 않음 · 없는 사용자).
 - **함정**
-  - 서버엔 고친 시각이 없고 판(`version`)이 있다 — 저장은 마지막으로 읽은 판을 싣는다(계정별 기억 · 모르면 먼저 읽음). 409 면 판을 다시 읽어 **한 번만** 더 보낸다(예전처럼 마지막 저장이 이긴다). 그래서 읽은 결과의 `editTs` 는 늘 0 — 기기 간 «나중에 고친 쪽» 판단은 판 번호로 못 한다.
+  - 서버엔 고친 시각이 없고 판(`version`)이 있다 — 저장은 마지막으로 읽은 판을 싣는다(계정별 기억). 읽은 판이 없으면 보내지 않고 `'failed'`. 409 면 다시 보내지 않고 `'conflict'` 를 돌려주며 판을 버린다 — 부르는 쪽이 `fetchMine` 으로 서버 것을 다시 받는다(남의 고침을 덮어쓰지 않는다).
   - 목록을 전부 비워도 같은 저장이다(빈 세 벌 + 한마디) — 노드를 지우는 길은 없다.
-  - 저장은 서버 상한(세 벌 · 곡 20 · 이름 16 · 제목 60 · 한마디 140)으로 깎는다. 서버가 거절하면(400) 다시 보내지 않고 `false`.
-  - 파도타기 «없음»(`null`)과 «못 불러옴»(던짐)을 가른다 — 부르는 쪽(playlist.js)은 앞엣것에 «아직 파도탈 목록이 없어요» · 뒤엣것에 «인터넷 연결이 필요해요».
+  - 저장은 서버 상한(세 벌 · 곡 20 · 이름 16 · 제목 60 · 한마디 140)으로 깎는다. 서버가 거절하면(400) 다시 보내지 않고 `'failed'`.
+  - 파도타기 «없음»(`null`)과 «못 불러옴»(던짐)을 가른다 — 부르는 쪽(playlist.js)은 앞엣것에 «아직 파도탈 목록이 없어요» · 뒤엣것에 «인터넷 연결이 필요해요». 404 `USER_NOT_FOUND` 와 403 `PLAYLIST_FRIENDS_ONLY` 는 «없음» 쪽이다.
   - 명함(이름 · 레벨 · 사진)은 이 서버 길에 없다 — `firebaseAPI.fetchPlaylistCard`(공개 명함 읽기)가 그대로 맡는다.
 - **검사**: `checks/sim-playlist-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
