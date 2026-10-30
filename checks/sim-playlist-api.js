@@ -3,7 +3,7 @@
      늘 3칸 · listed · 판 version)을 화면 모양(items[{id,title}] · private)으로 맞추는 곳이 provider 하나라 그 맞춤을 실제로 불러서 판정한다.
    ・1절: 읽기 — 내 목록 모양 맞춤 · 빈 목록(객체)과 못 읽음(던짐)을 가름 · 무작위(경로 · exclude) · 들을 것 없음(null) ≠ 실패 · 모양 틀림은 던짐
    ・2절: 남의 목록 — 경로 · 곡 있는 벌만 무작위(경계: 0 · 1 미만) · 곡 없으면 null · 열어 주지 않음(PLAYLIST_FRIENDS_ONLY) · 없는 사용자(USER_NOT_FOUND)는 null · 그 밖 실패는 던짐
-   ・3절: 저장 — 본문 모양(version · tracks · listed) · 상한 깎기 · 판 기억(계정별) · 읽은 판 없으면 안 보냄 · 409 는 'conflict'(다시 보내지 않음) · 실패는 'failed'
+   ・3절: 저장 — 읽은 뒤 토큰 주인이 바뀌면 'stale'(진짜 api-client 로) · 본문 모양(version · tracks · listed) · 상한 깎기 · 판 기억(계정별) · 읽은 판 없으면 안 보냄 · 409 는 'conflict'(다시 보내지 않음) · 실패는 'failed'
    ・4절: 배선 — 부르는 곳이 firebaseAPI 로 플레이리스트를 안 부름 · firebase-init 에 옛 메서드가 없음 · html · smoke 순서
    ・5절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
@@ -23,6 +23,7 @@ const SRC0 = {
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
+  AC: pick(['api-client.js', 'parts/shared/api-client.js', 'app/parts/shared/api-client.js']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwPlaylistApi; };
@@ -51,6 +52,7 @@ const mkApi = (src, routes, rnd) => {
   const m = load(src).createPlaylistApi({ authed, random: () => (rnd == null ? 0 : rnd), warn: (...a) => warns.push(a.join(' ')) });
   return { m, authed, warns };
 };
+const LIB_CREATE = (src, deps) => load(src).createPlaylistApi(deps);
 const MINE = (over) => Object.assign({
   sets: [serverSet('A', tr('aaaaaaaaaaa', '가'), tr('bbbbbbbbbbb', '')), serverSet('', ), serverSet('C', tr('ccccccccccc', '다'))],
   bio: '안녕', listed: true, homePublic: true, version: 7,
@@ -185,6 +187,27 @@ async function judge(S){
     chk((await noV.m.saveMine('ME01', one, {})) === 'failed', '  저장 답에 판이 없으면(모양 틀림) failed');
   }
 
+  {
+    /* 읽은 뒤 로그인한 사람이 바뀌면 — 진짜 API 통로(api-client.js)로 보내기 직전에 막힌다 */
+    const AC = (() => { const mod = { exports: {} }; new Function('module', 'window', S.AC)(mod, undefined); return mod.exports; })();
+    const jwt = (sub) => 'h.' + Buffer.from(JSON.stringify({ sub })).toString('base64').replace(/=+$/, '').replace(/\+/g, '-').replace(/\//g, '_') + '.s';
+    const reply = (status, data) => ({ ok: status < 300, status, headers: { get: () => null }, json: async () => ({ success: true, data }) });
+    const methods = [], tk = { v: jwt('A') };
+    const client = AC.createApiClient({ baseUrl: 'https://api.test', getToken: async () => tk.v,
+      fetch: async (url, init) => { methods.push(init.method); return init.method === 'PUT' ? reply(200, MINE({ version: 8 })) : reply(200, MINE({ version: 7 })); } });
+    const warns = [];
+    const m = LIB_CREATE(LIB, { authed: client, random: () => 0, warn: (...a) => warns.push(a.join(' ')) });
+    await m.fetchMine('ME01');
+    const sets1 = [{ name: 'A', items: [{ id: 'aaaaaaaaaaa', title: '가' }] }];
+    chk((await m.saveMine('ME01', sets1, {})) === 'ok' && methods.join() === 'GET,PUT', '같은 사람이면 그대로 올라간다(읽은 토큰 주인과 같음)');
+    tk.v = jwt('B');
+    const r = await m.saveMine('ME01', sets1, {});
+    chk(r === 'stale' && methods.join() === 'GET,PUT' && warns.length === 0, '★ 읽은 뒤 토큰 주인이 바뀌면(A→B) PUT 을 보내지 않고 \'stale\' (진단 로그도 안 남김)');
+    chk((await m.saveMine('ME01', sets1, {})) === 'failed' && methods.length === 2, '  그 뒤엔 읽은 판이 없어 보내지 않는다(다시 받기 전까지)');
+    await m.fetchMine('ME01');
+    chk((await m.saveMine('ME01', sets1, {})) === 'ok' && methods.join() === 'GET,PUT,GET,PUT', '  새 주인(B)으로 다시 받으면 그 주인으로 올라간다');
+  }
+
   say('── 4. 배선');
   {
     const FI = strip(S.FI), PL = strip(S.PL), ACC = strip(S.ACC), PUB = strip(S.PUB), APP = strip(S.APP);
@@ -215,7 +238,7 @@ async function judge(S){
     ['API', "      if(!versions.has(uid)) throw Object.assign(new Error('읽은 판 없음'), { code: 'NO_VERSION' });   // 받기 전에는 올리지 않는다\n", "      if(!versions.has(uid)) versions.set(uid, 0);\n", '판을 모르면서 0 으로 보냄'],
     ['API', "      if(e && e.status === CONFLICT_STATUS){ versions.delete(uid); return 'conflict'; }", "      if(e && e.status === CONFLICT_STATUS){ return 'conflict'; }", '충돌 뒤에도 옛 판으로 보냄'],
     ['API', "      if(e && e.status === CONFLICT_STATUS){ versions.delete(uid); return 'conflict'; }", "      if(e && e.status === CONFLICT_STATUS){ versions.delete(uid); return 'failed'; }", '충돌을 일반 실패로 뭉갬'],
-    ['API', "  const versions = new Map();   // uid → 마지막으로 읽은(또는 저장한) 판", "  let single; const versions = { has: () => single !== undefined, get: () => single, set: (u, v) => { single = v; }, delete: () => { single = undefined; } };", '판을 계정별로 안 기억함'],
+    ['API', "  const versions = new Map();", "  let single; const versions = { has: () => single !== undefined, get: () => single, set: (u, v) => { single = v; }, delete: () => { single = undefined; } };", '판을 계정별로 안 기억함'],
     ['API', "    if(d === null) return null;\n    const out = pickOf(d);", "    const out = pickOf(d);", '들을 것 없음(null)을 실패로 봄'],
     ['API', "catch(e){ if(e && (e.code === FRIENDS_ONLY_CODE || e.code === USER_NOT_FOUND_CODE)) return null; throw e; }", "catch(e){ throw e; }", '열어 주지 않음을 실패로 던짐'],
     ['API', " || e.code === USER_NOT_FOUND_CODE", "", '없는 사용자를 연결 문제로 던짐'],
@@ -226,7 +249,10 @@ async function judge(S){
     ['API', "    if(!uid){ const e = new Error('내 코드 없음'); e.code = 'NO_USER'; throw e; }\n    return readMine(uid);", "    return readMine(uid);", '내 코드 없이도 읽음'],
     ['API', "    const path = PATHS.random + (excludeUid ? '?exclude=' + encodeURIComponent(excludeUid) : '');", "    const path = PATHS.random;", '방금 본 사람을 제외하지 않음'],
     ['API', "  of: (userCode) => '/v1/playlists/' + encodeURIComponent(userCode),", "  of: (userCode) => '/v1/playlists/' + userCode,", '남의 코드를 인코딩 없이 경로에'],
-    ['API', "    versions.set(uid, v);\n    return out;", "    return out;", '읽은 판을 기억하지 않음'],
+    ['API', "    versions.set(uid, { v, owner });\n    return out;", "    return out;", '읽은 판을 기억하지 않음'],
+    ['API', "{ expectOwner: read.owner }", "{}", '쓰기를 읽은 토큰 주인과 안 묶음'],
+    ['API', "      if(e && e.code === OWNER_CHANGED_CODE){ versions.delete(uid); return 'stale'; }", "", '주인이 바뀌어 막힌 것을 실패로 알림'],
+    ['API', "onOwner: (who) => { owner = who; }", "onOwner: () => {}", '읽을 때 토큰 주인을 기억하지 않음'],
     ['PL', "const plApi = deps.playlistApi;", "const plApi = { fetchMine: async () => null, saveMine: async () => true, fetchRandom: async () => null, fetchOf: async () => null };", '부르는 곳이 provider 를 안 씀'],
     ['FI', "    async lookupFriendCode(code){", "    async fetchPlaylistOf(uid){ return null; },\n    async lookupFriendCode(code){", 'firebase-init 에 옛 친구 파도타기가 되살아남'],
     ['HTML', '<script src="parts/status/playlist-api.js"></script>', '', 'html 에서 provider 를 안 실음'],

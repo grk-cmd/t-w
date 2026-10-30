@@ -534,6 +534,8 @@ async function _plPublishNow(uid0){
   if(r === 'ok'){
     _plPubSig = sig; _plSaveFailing = false; _plSaveTry = 0;
     if(again) _plPublishNow(uid0);
+  }else if(r === 'stale'){
+    // 읽은 뒤 로그인한 사람이 바뀌었다 — 알리지도 다시 올리지도 않는다(곧 reset · 다시 받기가 온다)
   }else if(r === 'conflict'){
     _plLoaded = false; _plPullMerged = true; _plPull();   // 다시 받을 때까지 고치기 잠김
     _plRender();

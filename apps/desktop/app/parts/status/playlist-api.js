@@ -6,7 +6,7 @@
          random() → 0 이상 1 미만 수(친구 목록에서 곡 있는 벌을 고를 때) · warn(...a)(진단 로그)
    내보냄: createPlaylistApi(deps) → {
      fetchMine(uid) → Promise<{ sets:[{name, items:[{id,title}]}], bio, homePublic, private }> — 목록이 비어도 객체(빈 목록 ≠ 못 읽음). 못 읽으면 던진다.
-     saveMine(uid, sets, meta) → Promise<'ok'|'conflict'|'failed'> — meta = { bio, homePublic, private }. 곡이 하나도 없는 세 벌을 보내면 «비움»(노드를 지우지 않고 빈 목록 저장).
+     saveMine(uid, sets, meta) → Promise<'ok'|'conflict'|'stale'|'failed'> — meta = { bio, homePublic, private }. 곡이 하나도 없는 세 벌을 보내면 «비움»(노드를 지우지 않고 빈 목록 저장).
      fetchRandom(excludeUid) → Promise<목록 한 벌 | null(들을 것 없음)> — 못 읽으면 던진다.
      fetchOf(userCode) → Promise<목록 한 벌 | null(곡 있는 벌 없음 · 열어 주지 않음)> — 못 읽으면 던진다.
    }
@@ -28,6 +28,7 @@ const LIMITS = Object.freeze({ SETS: 3, TRACKS: 20, NAME: 16, TITLE: 60, BIO: 14
 const FRIENDS_ONLY_CODE = 'PLAYLIST_FRIENDS_ONLY';
 const USER_NOT_FOUND_CODE = 'USER_NOT_FOUND';
 const CONFLICT_STATUS = 409;
+const OWNER_CHANGED_CODE = 'OWNER_CHANGED';   // api-client.js — 쓰기 직전 토큰 주인이 읽을 때와 달라졌다
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
@@ -98,14 +99,15 @@ function createPlaylistApi(deps){
   const authed = deps.authed;
   const random = deps.random;
   const warn = deps.warn;
-  const versions = new Map();   // uid → 마지막으로 읽은(또는 저장한) 판
+  const versions = new Map();   // uid → { v: 마지막으로 읽은(또는 저장한) 판, owner: 그 판을 읽을 때 쓴 토큰의 주인 }
 
   async function readMine(uid){
-    const d = await authed.get(PATHS.mine, { auth: true });
+    let owner;
+    const d = await authed.get(PATHS.mine, { auth: true, onOwner: (who) => { owner = who; } });
     const out = mineOf(d);
     const v = versionOf(d);
     if(!out || v === undefined) throw shapeError();
-    versions.set(uid, v);
+    versions.set(uid, { v, owner });
     return out;
   }
 
@@ -114,18 +116,21 @@ function createPlaylistApi(deps){
     return readMine(uid);
   }
 
-  /* 저장 — 마지막으로 읽은 판을 실어 보낸다. 'ok' | 'conflict'(409 — 다른 기기가 먼저 고쳤다) | 'failed'.
+  /* 저장 — 마지막으로 읽은 판을 실어 보낸다. 'ok' | 'conflict'(409 — 다른 기기가 먼저 고쳤다) | 'stale'(읽은 뒤 로그인한 사람이 바뀌어 보내지 않았다) | 'failed'.
+     ★ 쓰기는 읽은 토큰의 주인과 묶는다(expectOwner) — 로그인이 바뀌는 틈에 앞 계정의 판 · 목록이 새 계정 토큰으로 나가 덮어쓰지 않게.
      409 에 판을 다시 읽어 한 번 더 보내지 않는다(남이 먼저 고친 것을 덮어쓰게 된다) — 부른 쪽이 fetchMine 으로 서버 것을 다시 받는다. */
   async function saveMine(uid, sets, meta){
     if(!uid) return 'failed';
     try{
       if(!versions.has(uid)) throw Object.assign(new Error('읽은 판 없음'), { code: 'NO_VERSION' });   // 받기 전에는 올리지 않는다
-      const d = await authed.put(PATHS.mine, bodyOf(versions.get(uid), sets, meta));
+      const read = versions.get(uid);
+      const d = await authed.put(PATHS.mine, bodyOf(read.v, sets, meta), { expectOwner: read.owner });
       const v = versionOf(d);
       if(v === undefined) throw shapeError();
-      versions.set(uid, v);
+      versions.set(uid, { v, owner: read.owner });
       return 'ok';
     }catch(e){
+      if(e && e.code === OWNER_CHANGED_CODE){ versions.delete(uid); return 'stale'; }   // 계정이 바뀌는 중 — 곧 reset · 다시 받기가 온다
       if(e && e.status === CONFLICT_STATUS){ versions.delete(uid); return 'conflict'; }
       warn('[플레이리스트] 저장 실패', (e && (e.code || e.message)) || e);
       return 'failed';

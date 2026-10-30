@@ -661,6 +661,13 @@ async function behave(src){
       await e.advance(200000);
       chk(e.errors.length === 0 && e.count('publish') === 1, '  보내는 중에 계정을 놓으면 그 응답은 버린다(오류 안내 · 다시 올리기 없음)');
     }
+    {
+      /* 로그인한 사람이 바뀌는 틈(세션은 B · 내 코드는 아직 A)에 걸린 올리기 — provider 가 'stale' 로 막으면 알림 · 다시 올리기 없이 버린다 */
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      e.saveRes = 'stale'; oneMore(m); m.save(); await e.advance(3100);
+      await e.advance(300000);
+      chk(e.count('publish') === 1 && e.errors.length === 0 && e.toasts.length === 0 && m.state().sets[0].items.length === 3, '★ 보내려다 로그인한 사람이 바뀐 걸 알았다(stale) — 오류 안내도 다시 올리기도 없다(곧 reset · 다시 받기가 온다)');
+    }
     // ⑫ 올리는 중에 또 고쳤다 — 같은 판으로 두 번 보내지 않고, 첫 응답 뒤 최신 상태를 한 번 더
     {
       const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
@@ -881,6 +888,7 @@ async function runAll(PL, APP, HTML){
     ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    notifyError('E-PL-01');", '저장 실패를 이어지는 동안 되풀이해서 알림'],
     ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    _plSaveFailing = true;", '저장 실패를 알리지 않음'],
     ['PL', "    _plPublishIn(_plRetryDelay(_plSaveTry++));", "", '저장 실패 뒤 다시 안 올림'],
+    ['PL', "  }else if(r === 'stale'){", "  }else if(r === 'never'){", '로그인한 사람이 바뀐 것을 저장 실패로 알림 · 다시 올림'],
     ['PL', "    _plPublishIn(_plRetryDelay(_plSaveTry++));", "    _plPublishIn(PL_RETRY_MS);", '저장 실패가 이어져도 간격이 안 늘어남'],
     ['PL', "    _plPubSig = sig; _plSaveFailing = false; _plSaveTry = 0;", "    _plPubSig = sig;", '저장이 성공해도 실패 상태가 안 풀림'],
     ['PL', "  if(_plPubBusy){ _plPubAgain = true; return; }", "", '보내는 중에 또 보냄(같은 판 두 번)'],
