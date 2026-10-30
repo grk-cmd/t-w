@@ -280,7 +280,7 @@
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 602 | **2f88802194fc** |
 | **sim-playlist-api.js** | 248 | **a60440af1864** |
-| **sim-playlist.js** | 732 | **0959f7a32a49** |
+| **sim-playlist.js** | 828 | **1f5666ca70c5** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
