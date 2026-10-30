@@ -61,6 +61,7 @@
 | `E-CHAR-13` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `character/wardrobe.js` — 꾸미기 책상 탭에서 카탈로그 책상 고르기(모델 받기 실패) |
 | `E-CHAR-14` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `creator/desk-setup.js` — 생성기 책상 카드 고르기(모델 받기 실패) |
 | `E-PL-01` | 플레이리스트를 저장하지 못했어요 — 고친 내용은 그대로 두고 잠시 뒤 다시 올릴게요 | `status/playlist.js` — 내 목록 서버 저장 실패(`_plPublishNow` · `saveMine` failed — 이어지는 동안 한 번만 알림 · 30초부터 늘려 가며 다시 올림) |
+| `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
 | `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |
 | `E-NET-02` | 이 작업을 할 권한이 없어요 | `shared/api-errors.js` — 공통 `ACCESS_DENIED` |
 | `E-NET-03` | 프리미엄에서 쓸 수 있는 기능이에요 | `shared/api-errors.js` — 공통 `PREMIUM_REQUIRED`(이 기기 판정 — `X-Device-Id`) |

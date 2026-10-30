@@ -1093,7 +1093,7 @@ async function _plPeek(){
   try{
     let r;
     try{ r = await plApi.fetchRandom(_plView ? _plView.uid : null); }   // 나는 서버가 토큰으로 뺀다
-    catch(_){ toast('파도타기는 인터넷 연결이 필요해요'); return; }       // 못 불러옴 — «들을 목록 없음»(null)과 다르게 말한다
+    catch(e){ notifyError('E-PL-02', e); return; }       // 못 불러옴 — «들을 목록 없음»(null)과 다르게 말한다
     if(!r){ toast('아직 파도탈 목록이 없어요'); return; }
     /* 🎵 재생 위치(_plNow)는 **건드리지 않는다** — 듣던 곡은 계속 난다.
        고르기(_plSel)만 초기화한다. 새 목록의 몇 번째를 고르고 있었는지는 뜻이 없다. */
@@ -1164,7 +1164,7 @@ function _plRenderFriendPick(){
 async function _plPeekFriend(fid, name){
   let r;
   try{ r = await plApi.fetchOf(fid); }
-  catch(_){ toast('파도타기는 인터넷 연결이 필요해요'); return; }
+  catch(e){ notifyError('E-PL-02', e); return; }
   /* ★ "친구지만 목록이 비었다"를 그대로 말해준다 — 무작위 파도타기의 '아직 파도탈 목록이 없어요'와
      뭉뚱그리면 내 친구가 목록을 안 만든 건지 앱이 고장난 건지 구분이 안 된다. */
   if(!r){ toast(name + ' 님은 아직 공개한 목록이 없어요'); return; }

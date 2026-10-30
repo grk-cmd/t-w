@@ -78,7 +78,7 @@ const IDS = ['myPlBtn', 'myPlaylistBox', 'myPlHead', 'myPlTitle', 'myPlClose', '
 function mkEnv(o){
   o = o || {};
   const env = { refreshed: [], onRefresh: null, t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
-    titles: o.titles || {}, cards: {}, rand: 0.5, front: [], chipClosed: [], reposition: 0, home: [], friends: o.friends || {}, cb: {}, warns: [], errors: [] };
+    titles: o.titles || {}, cards: {}, rand: 0.5, front: [], chipClosed: [], reposition: 0, home: [], friends: o.friends || {}, cb: {}, warns: [], errors: [], errArgs: [] };
   const byId = {};
   const doc = {
     activeElement: null, _L: {},
@@ -158,7 +158,7 @@ function mkEnv(o){
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
-      playlistApi, notifyError: (c, err) => env.errors.push(c),
+      playlistApi, notifyError: (c, err) => { env.errors.push(c); env.errArgs.push(err); },
     }, extra || {}));
     return env.m;
   };
@@ -703,9 +703,12 @@ async function behave(src){
     }
   }
   {
-    const e = E({ noApi: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
+    const e = E({ noApi: true, friends: { F1: { name: '민서', online: true } }, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     e.byId.myPlPeek.fire('click'); await flush();
-    chk(e.toasts[0] === '파도타기는 인터넷 연결이 필요해요', '서버 길이 막히면(던짐) 파도타기는 안내만');
+    chk(e.errors.join() === 'E-PL-02' && e.errArgs[0] instanceof Error && e.toasts.length === 0, '서버 길이 막히면(던짐) 파도타기는 오류 E-PL-02 로 알린다(원인 오류를 넘긴다)');
+    e.byId.myPlPeek.fire('contextmenu'); await flush();
+    e.byId.myPlFriendPick.children[0].fire('click'); await flush();
+    chk(e.errors.join() === 'E-PL-02,E-PL-02' && e.errArgs[1] instanceof Error && e.toasts.length === 0, '  친구 지목 파도타기도 같은 번호로 알린다');
   }
 
   say('── 6. 🐕 재생 감시견');
@@ -888,6 +891,8 @@ async function runAll(PL, APP, HTML){
     ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    notifyError('E-PL-01');", '저장 실패를 이어지는 동안 되풀이해서 알림'],
     ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    _plSaveFailing = true;", '저장 실패를 알리지 않음'],
     ['PL', "    _plPublishIn(_plRetryDelay(_plSaveTry++));", "", '저장 실패 뒤 다시 안 올림'],
+    ['PL', "    catch(e){ notifyError('E-PL-02', e); return; }       // 못 불러옴", "    catch(e){ return; }       // 못 불러옴", '무작위 파도타기 실패를 알리지 않음'],
+    ['PL', "  catch(e){ notifyError('E-PL-02', e); return; }", "  catch(e){ notifyError('E-PL-02'); return; }", '친구 파도타기 실패의 원인 오류를 버림'],
     ['PL', "  }else if(r === 'stale'){", "  }else if(r === 'never'){", '로그인한 사람이 바뀐 것을 저장 실패로 알림 · 다시 올림'],
     ['PL', "    _plPublishIn(_plRetryDelay(_plSaveTry++));", "    _plPublishIn(PL_RETRY_MS);", '저장 실패가 이어져도 간격이 안 늘어남'],
     ['PL', "    _plPubSig = sig; _plSaveFailing = false; _plSaveTry = 0;", "    _plPubSig = sig;", '저장이 성공해도 실패 상태가 안 풀림'],
