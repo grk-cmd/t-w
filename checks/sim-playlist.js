@@ -78,7 +78,7 @@ const IDS = ['myPlBtn', 'myPlaylistBox', 'myPlHead', 'myPlTitle', 'myPlClose', '
 function mkEnv(o){
   o = o || {};
   const env = { refreshed: [], onRefresh: null, t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
-    titles: o.titles || {}, cards: {}, rand: 0.5, front: [], chipClosed: [], reposition: 0, home: [], friends: o.friends || {}, cb: {}, warns: [] };
+    titles: o.titles || {}, cards: {}, rand: 0.5, front: [], chipClosed: [], reposition: 0, home: [], friends: o.friends || {}, cb: {}, warns: [], errors: [] };
   const byId = {};
   const doc = {
     activeElement: null, _L: {},
@@ -124,7 +124,7 @@ function mkEnv(o){
   /* 🌐 서버 길 provider(playlist-api.js)의 가짜 — 모양은 진짜와 같다(내 목록 / 저장 / 무작위 / 남의 목록). 막히면(noApi) 던진다 */
   const down = async () => { throw new Error('서버 길 막힘'); };
   const playlistApi = o.noApi ? { fetchMine: down, saveMine: down, fetchRandom: down, fetchOf: down } : {
-    saveMine: async (uid, sets, meta) => { const empty = sets.every(s => !s.items.length); env.calls.push((empty ? 'removePl ' : 'publish ') + uid + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); return env.saveRes || 'ok'; },
+    saveMine: async (uid, sets, meta) => { const empty = sets.every(s => !s.items.length); env.calls.push((empty ? 'removePl ' : 'publish ') + uid + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); if(env.saveHold) await env.saveHold; return env.saveRes || 'ok'; },
     fetchRandom: async (ex) => { env.calls.push('random ' + ex); return env.randomPl || null; },
     fetchMine: async (uid) => { env.calls.push('fetchMine ' + uid); if(env.fetchHold) await env.fetchHold; if(env.srvThrow) throw Object.assign(new Error('끊김'), env.srvCode ? { code: env.srvCode } : {}); return env.srv === undefined ? { sets: [{ name: '', items: [] }, { name: '', items: [] }, { name: '', items: [] }], bio: '', homePublic: false, private: false } : env.srv; },
     fetchOf: async (uid) => { env.calls.push('of ' + uid); return env.plOf ? env.plOf[uid] || null : null; },
@@ -158,7 +158,7 @@ function mkEnv(o){
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
-      playlistApi,
+      playlistApi, notifyError: (c, err) => env.errors.push(c),
     }, extra || {}));
     return env.m;
   };
@@ -171,28 +171,25 @@ const setsOf = (a, b, c) => JSON.stringify([{ name: '', items: a || [] }, { name
 
 /* 2~7절 — 9절(일부러 깨 보기)이 망가뜨린 글로 다시 굴린다 */
 async function behave(src){
-  /* 목록이 미리 앉아 있는 상태로 시작하는 도우미 — store 의 'tw.playlistSets'(검사 안에서만 쓰는 이름)를 모듈 상태에 직접 앉히고 부팅 받기는 막는다.
-     모듈 자체는 그 키를 읽지 않는다(1절 · 5-2절이 진짜 모습으로 확인) */
+  /* 목록이 미리 앉아 있는 상태로 시작하는 도우미 — store 의 'tw.playlistSets'(검사 안에서만 쓰는 이름)를 «서버가 이미 가진 목록» 으로 바꿔
+     진짜 부팅 받기로 앉힌다(await 필요). 모듈 자체는 그 키를 읽지 않는다(1절 · 2절 · 5-2절이 확인) */
   const E = (o) => {
     const e = mkEnv(Object.assign({ src }, o || {}));
     const mk0 = e.mk;
     e.mk = (x) => {
       const seed = e.store.get('tw.playlistSets');
       if(seed == null) return mk0(x);
-      let booting = true; const base = (x && x.getMyUserId) || (() => 'ME01');
-      const m = mk0(Object.assign({}, x, { getMyUserId: () => booting ? null : base() }));   // 만드는 동안은 로그인 전 — 부팅 받기가 앉혀 둔 목록을 덮지 않게
-      booting = false;
       e.store.delete('tw.playlistSets');
-      e.timers = e.timers.filter(t => t.every);
-      m.st.sets = m.normalizeSets(JSON.parse(seed)); m.st.loaded = true;
-            return m;
+      if(e.srv === undefined) e.srv = { sets: JSON.parse(seed), bio: '', homePublic: false, private: false };
+      const m = mk0(x);
+      return flush().then(() => { m.st.pubSig = null; return m; });   // 받은 지문을 비워 첫 저장이 올라가게(저장 쪽 판정용)
     };
     return e;
   };
 
   say('── 2. 프리셋 저장값');
   {
-    const e = E(); const m = e.mk();
+    const e = E(); const m = await e.mk();
     const n = m.normalizeSets([{ name: '가나다라마바사아자차카타파하가나다', items: songs(25).map(s => ({ id: s.id, title: s.title })) }, { name: { x: 1 }, items: 'bad' }, null, { name: 'x', items: [] }]);
     chk(n.length === 3 && n[0].items.length === 20 && n[0].name.length === 16, '관문 — 세 벌 · 이름 16자 · 곡 20개로 깎는다');
     chk(n[0].items[0].url === 'https://www.youtube.com/watch?v=' + songs(1)[0].id && n[1].name === '' && n[1].items.length === 0 && n[2].name === '', '  url 없으면 id 로 복원 · 이름은 문자열만 · 깨진 벌은 빈 벌');
@@ -212,7 +209,7 @@ async function behave(src){
   }
   {
     const e = E({ store: { 'tw.playlistSets': setsOf(songs(1), songs(3, 'b')), 'tw.playlistCur': '1', 'tw.playlistLoopKind': '1', 'tw.playlistLoopOn': '1', 'tw.playlistMini': '1', 'tw.playlistPos': '{"x":10,"y":20}' } });
-    const m = e.mk(); const s = m.state();
+    const m = await e.mk(); const s = m.state();
     chk(s.cur === 1 && s.nowSet === 1 && s.kind === 1 && s.on && s.mini && s.pos.x === 10, '새 키 — 보는 프리셋 · 반복 · 미니미 · 창 자리');
     m.save();
     chk(!e.store.has('tw.playlist') && !e.store.has('tw.playlistSets') && !e.store.has('tw.playlistBio') && e.store.get('tw.playlistCur') === '1' && e.store.get('tw.playlistLoopMode') === '2' && e.store.get('tw.playlistLoop') === '1',
@@ -222,7 +219,7 @@ async function behave(src){
 
   say('── 3. 목록');
   {
-    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     e.byId.myPlBtn.fire('click');
     chk(!e.byId.myPlaylistBox.classList.contains('hidden') && e.chipClosed[0] === 'myPlaylistBox' && e.front[0] === 'myStatusChip' && e.reposition === 1, '[🎵] 누르면 열림 · 다른 칩 팝업 닫기 · 칩째 맨 앞 · 자리 계산');
     chk(e.count('card ME01') === 1 && e.byId.myPlList.children.length === 2 && e.byId.myPlCount.textContent === '2/20', '  내 명함은 처음 열 때 한 번 읽는다 · 행 2개 · «2/20»');
@@ -252,7 +249,7 @@ async function behave(src){
     chk(e.esc.length === 1 && e.esc[0].key === 'playlist' && e.esc[0].isOpen() === false, '⎋ ESC 스택에 «playlist» 로 올라가 있다');
   }
   {
-    const e = E({ store: { 'tw.playlistSets': setsOf(songs(20)) } }); const m = e.mk();
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(20)) } }); const m = await e.mk();
     e.byId.myPlAdd.fire('click'); await flush();
     chk(e.count('prompt') === 0 && e.toasts[0] === '프리셋 1 은 20곡까지예요', '상한 — 프리셋당 20곡이면 묻지도 않는다');
     e.byId.myPlSetBtn.fire('click');
@@ -272,7 +269,7 @@ async function behave(src){
 
   say('── 4. 재생');
   {
-    const e = E({ store: { 'tw.playlistSets': setsOf(songs(3), songs(2, 'b')), 'tw.playlistVol': '30' } }); const m = e.mk();
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(3), songs(2, 'b')), 'tw.playlistVol': '30' } }); const m = await e.mk();
     chk(e.last('vol') === 'vol 0.3' && e.count('setInterval 300') === 1, '만들 때 — 음량 한 번 · 재생 창 사각형 300ms 폴링');
     e.byId.myPlBtn.fire('click');
     e.byId.myPlPlay.fire('click');
@@ -330,14 +327,14 @@ async function behave(src){
     chk(m.state().now === -1 && e.last('closeBgm'), '■ — 창을 닫고 멈춤');
   }
   {
-    const e = E({ noCompanion: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+    const e = E({ noCompanion: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     m.playFrom(0);
     chk(m.state().now === -1 && e.toasts[0] === '이 기능은 앱을 재시작한 후에 사용할 수 있어요', 'companion 이 없으면(옛 preload) 재생하지 않고 알린다');
   }
 
   say('── 5. 파도타기 · 담기 · 비공개 · 서버 사본');
   {
-    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) }, friends: { F1: { name: '민서', online: true }, F2: { name: '가람' } } }); const m = e.mk();
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) }, friends: { F1: { name: '민서', online: true }, F2: { name: '가람' } } }); const m = await e.mk();
     e.byId.myPlBtn.fire('click');
     m.playFrom(1);
     e.randomPl = { uid: 'U9', name: '하늘', items: songs(4, 'h'), bio: '안녕하세요', homePublic: true, setName: '밤 노래' };
@@ -376,7 +373,7 @@ async function behave(src){
     chk(e.toasts.slice(-1)[0] === '가람 님은 아직 공개한 목록이 없어요', '  목록이 없는 친구는 그렇다고 말한다');
   }
   {
-    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     m.save(); m.save();
     await e.advance(2900);
     chk(e.count('publish') === 0, '☁️ 서버 사본 — 3초 debounce(그 전엔 안 올린다)');
@@ -415,7 +412,7 @@ async function behave(src){
     }
     // ② 서버가 비었다 = 빈 화면(못 읽음이 아니다) · 못 읽음 = 아무것도 안 하고 다시
     {
-      const e = E(); e.srv = srvOf(0, 'n', { sets: [{ name: '', items: [] }, { name: '', items: [] }, { name: '', items: [] }], bio: '', homePublic: false }); const m = e.mk();
+      const e = E(); e.srv = srvOf(0, 'n', { sets: [{ name: '', items: [] }, { name: '', items: [] }, { name: '', items: [] }], bio: '', homePublic: false }); const m = await e.mk();
       await e.advance(4300);
       chk(m.state().loaded && m.state().sets.every(x => !x.items.length) && e.count('fetchMine') === 1, '★ 빈 목록 — 받은 것으로 치고 빈 화면(다시 시도하지 않는다)');
       await e.advance(120000);
@@ -424,7 +421,7 @@ async function behave(src){
       chk(e.count('publish') === 1, '  받은 뒤 처음 넣은 곡은 서버에 올라간다');
     }
     {
-      const e = E(); e.srv = srvOf(2); e.srvThrow = true; const m = e.mk();
+      const e = E(); e.srv = srvOf(2); e.srvThrow = true; const m = await e.mk();
       await e.advance(4300);
       chk(!m.state().loaded && m.state().sets[0].items.length === 0 && e.count('fetchMine') === 1, '★ 못 읽음(던짐) — 앉히지 않고 loaded 도 서지 않는다');
       oneMore(m); m.save(); await e.advance(3100);
@@ -443,7 +440,7 @@ async function behave(src){
       chk(e.count('fetchMine') === 4, '  앉힌 뒤에는 다시 안 받는다');
     }
     {
-      const e = E(); e.srvThrow = true; e.mk();
+      const e = E(); e.srvThrow = true; await e.mk();
       await e.advance(4300);
       let last = e.count('fetchMine');
       const gaps = [];
@@ -455,7 +452,7 @@ async function behave(src){
     }
     // ③ 고치면 서버에 올린다 — 3초 debounce
     {
-      const e = E(); e.srv = srvOf(2, 'n'); const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       await e.advance(4300);
       oneMore(m); m.st.bio = '고친 한마디'; m.save();
       await e.advance(2900);
@@ -467,7 +464,7 @@ async function behave(src){
     }
     // ④ 409 — 다른 기기가 먼저 고쳤다: 덮어쓰지 않고 서버 것을 다시 받아 화면을 그 값으로
     {
-      const e = E(); e.srv = srvOf(2, 'n'); const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       await e.advance(4300);
       e.saveRes = 'conflict'; e.srv = srvOf(5, 'x', { bio: '다른 기기' });
       oneMore(m); m.save();
@@ -482,7 +479,7 @@ async function behave(src){
       chk(e.count('publish') === 2, '  다시 고치면 새 판 위에서 올라간다');
     }
     {
-      const e = E(); e.srv = srvOf(2, 'n'); const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       await e.advance(4300);
       e.saveRes = 'failed';
       oneMore(m); m.save(); await e.advance(3100);
@@ -492,7 +489,7 @@ async function behave(src){
     }
     // ⑤ 듣는 중에는 받은 목록으로 바꾸지 않는다
     {
-      const e = E(); e.srv = srvOf(2, 'n'); const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       await e.advance(4300);
       e.srv = srvOf(4, 'x');
       m.playFrom(0);
@@ -505,20 +502,20 @@ async function behave(src){
     }
     // ⑥ 관문 — 서버 값도 세 벌 · 16자 · 20곡 안으로
     {
-      const e = E(); e.srv = srvOf(25, 'n'); const m = e.mk();
+      const e = E(); e.srv = srvOf(25, 'n'); const m = await e.mk();
       await e.advance(4300);
       chk(m.state().sets[0].items.length === 20 && m.state().sets[0].items[0].url.indexOf('watch?v=') > 0, '받은 값도 같은 관문(20곡 · url 복원)을 지난다');
     }
     // ⑦ 계정 — 받는 사이 바뀜 · 놓음(reset) · 올리기 대기 중 바뀜
     {
       const e = E(); e.uid = 'ME01'; e.srv = srvOf(2, 'n'); let go; e.fetchHold = new Promise(r => { go = r; });
-      const m = e.mk({ getMyUserId: () => e.uid });
+      const m = await e.mk({ getMyUserId: () => e.uid });
       await e.advance(4300);
       e.uid = 'ME02'; go(); await flush(); await flush();
       chk(!m.state().loaded && m.state().sets[0].items.length === 0, '★ 받는 사이 계정이 바뀌면 앞 계정 응답을 앉히지 않는다');
     }
     {
-      const e = E(); e.uid = 'ME01'; e.srv = srvOf(2, 'n'); const m = e.mk({ getMyUserId: () => e.uid });
+      const e = E(); e.uid = 'ME01'; e.srv = srvOf(2, 'n'); const m = await e.mk({ getMyUserId: () => e.uid });
       await e.advance(4300);
       oneMore(m); m.save();
       e.uid = 'ME02';
@@ -526,7 +523,7 @@ async function behave(src){
       chk(e.count('publish') === 0, '★ 올리기를 기다리는 사이 계정이 바뀌면 앞 계정 목록을 새 계정에 올리지 않는다');
     }
     {
-      const e = E(); e.srv = srvOf(2, 'n'); const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       await e.advance(4300);
       oneMore(m); m.save();
       m.reset();
@@ -540,7 +537,7 @@ async function behave(src){
       chk(m.state().loaded && m.state().sets[0].items.length === 3 && e.count('publish') === 0, '  이어받기 — 새 계정 것을 받아 앉힌다(올리지 않는다)');
     }
     {
-      const e = E(); e.uid = ''; e.srv = srvOf(2, 'n'); const m = e.mk({ getMyUserId: () => e.uid });
+      const e = E(); e.uid = ''; e.srv = srvOf(2, 'n'); const m = await e.mk({ getMyUserId: () => e.uid });
       await e.advance(4300);
       chk(e.count('fetchMine') === 0 && !m.state().loaded, '로그인 전 — 서버를 부르지 않고 기다린다');
       e.uid = 'ME01'; await e.advance(2100);
@@ -548,7 +545,7 @@ async function behave(src){
     }
     // ⑧ 받는 상태를 화면에 — 받는 중 · 못 받음 · 다시 시도 · 빈 목록
     {
-      const e = E(); let go; e.fetchHold = new Promise(r => { go = r; }); e.srv = srvOf(2, 'n'); const m = e.mk();
+      const e = E(); let go; e.fetchHold = new Promise(r => { go = r; }); e.srv = srvOf(2, 'n'); const m = await e.mk();
       e.byId.myPlBtn.fire('click');
       const em = () => e.byId.myPlList.children[0];
       chk(em() && em().className === 'plEmpty' && em().textContent === '불러오는 중…', '★ 받는 중 — 「불러오는 중…」(빈 목록 문구가 아니다)');
@@ -556,7 +553,7 @@ async function behave(src){
       chk(m.state().loaded && e.byId.myPlList.children.length === 2 && em().className !== 'plEmpty', '  받으면 목록으로 바뀐다');
     }
     {
-      const e = E(); e.srv = srvOf(2, 'n'); e.srvThrow = true; const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); e.srvThrow = true; const m = await e.mk();
       await flush(); await flush();
       const em = () => e.byId.myPlList.children[0];
       chk(em().textContent.indexOf('못 불러왔어요 · ') === 0 && em().children.length === 1 && em().children[0].textContent === '다시 시도', '★ 못 받음 — 「못 불러왔어요 · 다시 시도」');
@@ -568,12 +565,12 @@ async function behave(src){
       chk(e.timers.filter(t => !t.every).length === 0, '  받으면 자동 다시 받기 예약도 없다');
     }
     {
-      const e = E(); e.srv = srvOf(0, 'n', { sets: [{ name: '', items: [] }, { name: '', items: [] }, { name: '', items: [] }] }); e.mk();
+      const e = E(); e.srv = srvOf(0, 'n', { sets: [{ name: '', items: [] }, { name: '', items: [] }, { name: '', items: [] }] }); await e.mk();
       await flush(); await flush();
       chk(e.byId.myPlList.children[0].textContent === '아직 비어 있어요.\n＋ 를 눌러 유튜브 링크를 넣어보세요.', '  빈 목록은 예전 빈 화면 그대로');
     }
     {
-      const e = E(); e.srv = srvOf(2, 'n'); e.srvThrow = true; e.srvCode = 'NO_TOKEN'; const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); e.srvThrow = true; e.srvCode = 'NO_TOKEN'; const m = await e.mk();
       e.byId.myPlBtn.fire('click');
       await flush(); await flush();
       chk(e.byId.myPlList.children[0].textContent === '불러오는 중…' && e.count('fetchMine') === 1, '  토큰이 아직 안 이어졌으면(NO_TOKEN) 실패로 보이지 않고 계속 «불러오는 중…»');
@@ -582,7 +579,7 @@ async function behave(src){
     }
     // ⑨ 받기 전에는 고치는 동작이 잠긴다 — 듣기는 안 잠긴다
     {
-      const e = E(); e.srv = srvOf(2, 'n'); e.srvThrow = true; const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); e.srvThrow = true; const m = await e.mk();
       await flush(); await flush();
       e.byId.myPlBtn.fire('click');
       m.st.sets[0].items.push({ id: 'qqqqqqqqqqq', url: 'u', title: '임시' });   // 잠금이 막는 것을 보려고 곡 하나를 둔다
@@ -608,26 +605,105 @@ async function behave(src){
     }
     // ⑩ 409 로 서버 것을 다시 받아 바꿨다 — 알린다
     {
-      const e = E(); e.srv = srvOf(2, 'n'); const m = e.mk();
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       await e.advance(4300);
       e.saveRes = 'conflict'; e.srv = srvOf(4, 'x');
       oneMore(m); m.save(); await e.advance(3100);
       chk(e.toasts.filter(t => t === '다른 기기에서 바뀐 목록을 불러왔어요').length === 1, '★ 409 로 바뀌었으면 토스트 «다른 기기에서 바뀐 목록을 불러왔어요»');
       chk(e.toasts.length === 1, '  다른 토스트는 없다');
-      const f = E(); f.srv = srvOf(2, 'n'); f.mk();
+      const f = E(); f.srv = srvOf(2, 'n'); await f.mk();
       await f.advance(4300);
       chk(f.toasts.length === 0, '  처음 받을 때는 토스트가 없다');
     }
+    // ⑪ 저장 실패 — 한 번만 알리고, 고친 내용은 화면에 두고, 30초 뒤부터 늘려 가며 다시 올린다
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      e.saveRes = 'failed';
+      oneMore(m); m.save(); await e.advance(3100);
+      chk(e.count('publish') === 1 && e.errors.join() === 'E-PL-01' && m.state().sets[0].items.length === 3, '★ 저장 실패 — 오류 E-PL-01 을 알리고 고친 내용(3곡)은 화면에 그대로');
+      await e.advance(29800);
+      chk(e.count('publish') === 1, '  30초가 되기 전에는 다시 안 올린다');
+      await e.advance(300);
+      chk(e.count('publish') === 2 && e.errors.length === 1, '  30초 뒤 고친 내용을 다시 올린다 · 실패가 이어져도 오류는 한 번만');
+      await e.advance(59700);
+      chk(e.count('publish') === 2, '  이어지면 간격이 늘어난다(두 번째는 60초 뒤)');
+      await e.advance(600);
+      chk(e.count('publish') === 3 && e.errors.length === 1, '  60초 뒤 세 번째 · 오류는 그대로 한 번');
+      e.saveRes = 'ok';
+      await e.advance(120500);
+      chk(e.count('publish') === 4 && m.state().pubSig !== null && e.errors.length === 1, '  성공하면 올린 것으로 친다(더 안 올림)');
+      await e.advance(600000);
+      chk(e.count('publish') === 4, '  성공 뒤에는 다시 올리지 않는다');
+      e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
+      chk(e.errors.length === 2 && e.count('publish') === 5, '  성공으로 풀렸으니 다음 실패는 다시 알린다');
+      await e.advance(30100);
+      chk(e.count('publish') === 6, '  간격도 30초부터 다시(초기화)');
+    }
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
+      m.reset();
+      await e.advance(300000);
+      chk(e.count('publish') === 1, '★ 계정을 놓으면(reset) 다시 올리기 예약이 취소된다');
+    }
+    {
+      const e = E(); e.uid = 'ME01'; e.srv = srvOf(2, 'n'); const m = await e.mk({ getMyUserId: () => e.uid });
+      e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
+      e.uid = 'ME02';
+      await e.advance(300000);
+      chk(e.count('publish') === 1, '  계정이 바뀌면 앞 계정 목록은 다시 올라가지 않는다');
+    }
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      let go; e.saveHold = new Promise(r => { go = r; }); e.saveRes = 'failed';
+      oneMore(m); m.save(); await e.advance(3100);
+      m.reset(); go(); await flush(); await flush(); await flush();
+      await e.advance(200000);
+      chk(e.errors.length === 0 && e.count('publish') === 1, '  보내는 중에 계정을 놓으면 그 응답은 버린다(오류 안내 · 다시 올리기 없음)');
+    }
+    // ⑫ 올리는 중에 또 고쳤다 — 같은 판으로 두 번 보내지 않고, 첫 응답 뒤 최신 상태를 한 번 더
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      let go; e.saveHold = new Promise(r => { go = r; });
+      oneMore(m); m.save(); await e.advance(3100);
+      oneMore(m); m.save(); await e.advance(3100);
+      chk(e.count('publish') === 1, '★ 보내는 중에는 두 번째를 보내지 않는다(같은 판으로 두 번 보내면 409 로 거절된다)');
+      go(); await flush(); await flush(); await flush();
+      chk(e.count('publish') === 2 && e.last('publish') === 'publish ME01 [4,0,0] {"bio":"안녕","homePublic":true,"private":false}', '  첫 응답 뒤 최신 상태(4곡)를 한 번 더 보낸다');
+      chk(e.count('fetchMine') === 1 && e.toasts.length === 0, '  다시 받기 · 알림은 없다');
+    }
+    // ⑬ 듣는 중에 409 — 받기를 미루는 동안은 고치기가 잠기고 서버도 안 부른다
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      m.playFrom(0);
+      e.saveRes = 'conflict'; e.srv = srvOf(4, 'x');
+      m.st.bio = '고침'; m.save(); await e.advance(3100);
+      chk(e.count('publish') === 1 && e.count('fetchMine') === 1 && !m.state().loaded, '★ 듣는 중 409 — 서버에서 받기는 미루고(헛 요청 없음) 고치기가 잠긴다');
+      chk(e.byId.myPlAdd.disabled === true, '  ＋ 도 꺼진다');
+      await e.advance(25000);
+      chk(e.count('fetchMine') === 1 && !e.toasts.includes('다른 기기에서 바뀐 목록을 불러왔어요'), '  듣는 동안은 계속 미룬다(요청 없음 · 알림 없음)');
+      e.byId.myPlStop.fire('click');
+      await e.advance(5100);
+      chk(e.count('fetchMine') === 2 && m.state().loaded && m.state().sets[0].items.length === 4 && e.toasts.slice(-1)[0] === '다른 기기에서 바뀐 목록을 불러왔어요' && e.byId.myPlAdd.disabled === false, '  멈추면 받아 앉히고 알린 뒤 잠금이 풀린다');
+    }
+    // ⑭ 받는 중에 또 받기를 눌러도 겹치지 않는다
+    {
+      const e = E(); let go; e.fetchHold = new Promise(r => { go = r; }); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      m.pull(); m.pull(); await flush();
+      chk(e.count('fetchMine') === 1, '받는 중에 받기를 또 불러도 요청은 하나');
+      go(); await flush(); await flush();
+      chk(m.state().loaded && e.count('fetchMine') === 1, '  받기가 끝나면 앉는다');
+    }
   }
   {
-    const e = E({ noApi: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+    const e = E({ noApi: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     e.byId.myPlPeek.fire('click'); await flush();
     chk(e.toasts[0] === '파도타기는 인터넷 연결이 필요해요', '서버 길이 막히면(던짐) 파도타기는 안내만');
   }
 
   say('── 6. 🐕 재생 감시견');
   {
-    const e = E({ store: { 'tw.playlistSets': setsOf(songs(3)), 'tw.playlistLoopKind': '0', 'tw.playlistLoopOn': '1' } }); const m = e.mk();
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(3)), 'tw.playlistLoopKind': '0', 'tw.playlistLoopOn': '1' } }); const m = await e.mk();
     m.playFrom(0);
     await e.advance(35000);
     chk(m.state().now === 1 && m.state().errStreak === 1 && e.warns.some(w => /신호없음/.test(w)), '신호가 한 번도 없이 30초 — 다음 곡 · 실패로 센다');
@@ -645,7 +721,7 @@ async function behave(src){
 
   say('── 7. 상태 묶음 · window 고리');
   {
-    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     m.st.cur = 2; m.st.bio = '한마디'; m.st.private = true; m.st.sets = m.blankSets();
     const s = m.state();
     chk(s.cur === 2 && s.bio === '한마디' && s.private === true && s.sets[0].items.length === 0 && m.st.cur === 2, 'st — 쓰면 모듈 상태가 바뀌고 읽으면 그 값');
@@ -670,7 +746,7 @@ async function behave(src){
     chk(m.ytVideoId('https://youtu.be/abcdefghijk?t=3') === 'abcdefghijk' && m.ytVideoId('https://www.youtube.com/shorts/abcdefghijk') === 'abcdefghijk' && m.ytVideoId('x') === null, '🔗 유튜브 id 파서(마이홈 BGM 과 한 벌)');
   }
   {
-    const e = E({ noDom: true }); const m = e.mk();
+    const e = E({ noDom: true }); const m = await e.mk();
     chk(m && e.esc.length === 0 && e.count('setInterval') === 0 && e.store.size === 0 && !e.cb.end, 'DOM 이 없으면 버튼 연결 없이 끝난다(예전 bindMyPlaylist 의 return 그대로)');
   }
 }
@@ -697,9 +773,9 @@ function wiring(PL, APP, HTML){
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 22 && !miss.length, 'deps 22개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 23 && !miss.length, 'deps 23개 — 함수 19는 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeLoaded', '_myHomeData', '_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeLoaded · _myHomeData · _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
@@ -761,12 +837,7 @@ async function runAll(PL, APP, HTML){
     ['PL', '  if(!_plOn){ _plStop();', '  if(false){ _plStop();', '반복 끔인데 마지막 곡에서 처음으로'],
     ['PL', "    _plView = r; _plSel = -1;", '    _plView = r; _plSel = -1; _plNow = -1;', '파도타기가 듣던 곡을 끊음'],
     ['PL', '  if(!_plReadOnly()) return;                       // 내 목록에서는', '  // 내 목록에서는', '내 목록에서 담기가 됨'],
-    ['PL', '      if(sig === _plPubSig) return;', '', '안 바뀌어도 서버에 씀'],
-    ['PL', '    if(!_plLoaded || getMyUserId() !== uid0) return;', '    if(getMyUserId() !== uid0) return;', '받기 전에 서버에 올림'],
-    ['PL', '    if(!_plLoaded || getMyUserId() !== uid0) return;', '    if(!_plLoaded) return;', '올리기 대기 중 계정이 바뀌어도 앞 목록을 올림'],
     ['PL', '  if(_plNow >= 0){ _plPullLater(PL_RETRY_MS); return; }', '', '듣는 중에 목록을 바꿈'],
-    ['PL', "      else if(r === 'conflict'){ _plPullMerged = true; _plPull(); }", "      else if(r === 'conflict') _plPubSig = sig;", '409 인데 서버 것을 다시 안 받고 올린 것으로 침'],
-    ['PL', "      else if(r === 'conflict'){ _plPullMerged = true; _plPull(); }", "      else if(r === 'conflict'){ _plPull(); }", '409 로 바뀌어도 알리지 않음'],
     ['PL', "  if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }", "  _plPullMerged = false;", '처음 받을 때도 알림이 뜨는 쪽으로 — 알림을 아예 뺌'],
     ['PL', "  if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }", "  if(true){ _plPullMerged = false; toast(PL_MSG.merged); }", '처음 받을 때도 «다른 기기에서…» 가 뜸'],
     ['PL', "    if(e && e.code === PL_NO_TOKEN){ _plPullLater(PL_LOGIN_WAIT_MS); return; }", "", '토큰 전을 실패로 보임'],
@@ -776,16 +847,8 @@ async function runAll(PL, APP, HTML){
     ['PL', "      em.textContent = _plPullFailed ? PL_MSG.failed : PL_MSG.loading;", "      em.textContent = '아직 비어 있어요.';", '받기 전에 빈 목록 문구가 보임'],
     ['PL', "        rb.addEventListener('click', e=>{ e.stopPropagation(); _plPull(); });", "", '[다시 시도] 가 안 눌림'],
     ['PL', "  if(_plPullFailed){ _plPullFailed = false; _plRender(); }", "", '다시 받는 동안 «불러오는 중…» 으로 안 돌아감'],
-    ['PL', "  if(_plReadOnly() || !_plLoaded) return;\n  /* ⚠️ 상한은", "  if(_plReadOnly()) return;\n  /* ⚠️ 상한은", '받기 전에 곡을 넣을 수 있음'],
-    ['PL', "  if(_plReadOnly() || !_plLoaded || _plSel < 0", "  if(_plReadOnly() || _plSel < 0", '받기 전에 곡을 지울 수 있음'],
-    ['PL', "  if(!_plLoaded) return false;\n  const n = _plSetIdx(i);", "  const n = _plSetIdx(i);", '받기 전에 프리셋 이름을 고칠 수 있음'],
-    ['PL', "function _plBioEditStart(){\n  if(_plReadOnly() || !_plLoaded) return;", "function _plBioEditStart(){\n  if(_plReadOnly()) return;", '받기 전에 한마디를 고칠 수 있음'],
-    ['PL', "      if(!_plLoaded){ pub.checked = _plHomePublic; return; }\n", "", '받기 전에 마이홈 공개를 바꿀 수 있음'],
-    ['PL', "      if(!_plLoaded){ box.checked = _plPrivate; return; }\n", "", '받기 전에 비공개를 바꿀 수 있음'],
     ['PL', "  if(!_plLoaded) return '내 목록을 불러온 뒤에 담을 수 있어요';\n", "", '받기 전에 남의 곡을 담을 수 있음'],
-    ['PL', "['myPlAdd', !ro && _plLoaded && _plMine().length < PL_MAX]", "['myPlAdd', !ro && _plMine().length < PL_MAX]", '받기 전에 ＋ 가 켜져 있음'],
     ['PL', "  _plLoaded = true; _plPullTry = 0; _plPullFailed = false;\n  _plRender();", "  _plLoaded = true; _plPullTry = 0; _plPullFailed = false;", '받아도 화면이 안 바뀜'],
-    ['PL', "      if(r === 'ok') _plPubSig = sig;", "      if(r !== 'failed') _plPubSig = sig;", '저장 실패를 올린 것으로 침'],
     ['PL', '  _plPubSig = _plServerShape().sig;\n  _plLoaded = true;', '  _plLoaded = true;', '받은 목록을 지문에 안 적어 곧바로 다시 올림'],
     ['PL', "    _plPullLater(_plRetryDelay(_plPullTry++));\n    return;", "    return;", '못 읽으면 다시 안 봄'],
     ['PL', 'function _plRetryDelay(n){ return Math.min(PL_RETRY_MAX_MS, ', 'function _plRetryDelay(n){ return (', '다시 보는 간격에 상한이 없음'],
@@ -799,8 +862,32 @@ async function runAll(PL, APP, HTML){
     ['PL', "    _plSets = _plBlankSets();\n    _plCur = _plSetIdx(localStorage.getItem('tw.playlistCur'));", "    _plSets = _plNormalizeSets(JSON.parse(localStorage.getItem('tw.playlistSets') || 'null'));\n    _plCur = _plSetIdx(localStorage.getItem('tw.playlistCur'));", '이 기기 옛 목록을 읽음'],
     ['APP', "  try{ plMod.st.cur = 0; plMod.reset(); }", "  try{ plMod.st.cur = 0; }", '로그아웃이 목록을 안 비움'],
     ['APP', '    plMod.pull();', '    ', '계정 이어받기가 서버에서 안 받음'],
-    ['PL', "  }, 3000);\n}", '  }, 0);\n}', '서버 사본 debounce 가 없음'],
-    ['PL', '      if(sig === _plPubSig) return;', '', '지문이 같아도 또 올림'],
+    ['PL', "  if(sig === _plPubSig) return;\n  const gen", "  const gen", '안 바뀌어도 서버에 씀'],
+    ['PL', "  if(!_plLoaded || getMyUserId() !== uid0) return;\n  if(_plPubBusy)", "  if(getMyUserId() !== uid0) return;\n  if(_plPubBusy)", '받기 전에 서버에 올림'],
+    ['PL', "  if(!_plLoaded || getMyUserId() !== uid0) return;\n  if(_plPubBusy)", "  if(!_plLoaded) return;\n  if(_plPubBusy)", '올리기 대기 중 계정이 바뀌어도 앞 목록을 올림'],
+    ['PL', "    _plLoaded = false; _plPullMerged = true; _plPull();", "    _plPubSig = sig;", '409 인데 서버 것을 다시 안 받고 올린 것으로 침'],
+    ['PL', "    _plLoaded = false; _plPullMerged = true; _plPull();", "    _plLoaded = false; _plPull();", '409 로 바뀌어도 알리지 않음'],
+    ['PL', "    _plLoaded = false; _plPullMerged = true; _plPull();", "    _plPullMerged = true; _plPull();", '409 로 다시 받는 동안 고치기가 안 잠김'],
+    ['PL', "  if(r === 'ok'){\n    _plPubSig = sig;", "  if(r !== 'failed'){\n    _plPubSig = sig;", '저장 실패를 올린 것으로 침'],
+    ['PL', "async function _plAdd(){\n  if(!_plCanEdit()) return;", "async function _plAdd(){\n  if(_plReadOnly()) return;", '받기 전에 곡을 넣을 수 있음'],
+    ['PL', "  if(!_plCanEdit() || _plSel < 0", "  if(_plReadOnly() || _plSel < 0", '받기 전에 곡을 지울 수 있음'],
+    ['PL', "  if(!_plCanEdit()) return false;\n  const n = _plSetIdx(i);", "  const n = _plSetIdx(i);", '받기 전에 프리셋 이름을 고칠 수 있음'],
+    ['PL', "function _plBioEditStart(){\n  if(!_plCanEdit()) return;", "function _plBioEditStart(){\n  if(_plReadOnly()) return;", '받기 전에 한마디를 고칠 수 있음'],
+    ['PL', "      if(!_plCanEdit()){ pub.checked = _plHomePublic; return; }\n", "", '받기 전에 마이홈 공개를 바꿀 수 있음'],
+    ['PL', "      if(!_plCanEdit()){ box.checked = _plPrivate; return; }\n", "", '받기 전에 비공개를 바꿀 수 있음'],
+    ['PL', "['myPlAdd', _plCanEdit() && _plMine().length < PL_MAX]", "['myPlAdd', !_plReadOnly() && _plMine().length < PL_MAX]", '받기 전에 ＋ 가 켜져 있음'],
+    ['PL', "  if(_plNow >= 0){ _plPullLater(PL_RETRY_MS); return; }   // 듣는 중이면 부르기 전에", "  if(false){ _plPullLater(PL_RETRY_MS); return; }   // 듣는 중이면 부르기 전에", '듣는 중에도 서버를 부름(헛 GET)'],
+    ['PL', "  if(_plPullBusyUid === uid) return;  ", "  if(false) return;  ", '받는 중에 다시 받기가 겹침'],
+    ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    notifyError('E-PL-01');", '저장 실패를 이어지는 동안 되풀이해서 알림'],
+    ['PL', "    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }", "    _plSaveFailing = true;", '저장 실패를 알리지 않음'],
+    ['PL', "    _plPublishIn(_plRetryDelay(_plSaveTry++));", "", '저장 실패 뒤 다시 안 올림'],
+    ['PL', "    _plPublishIn(_plRetryDelay(_plSaveTry++));", "    _plPublishIn(PL_RETRY_MS);", '저장 실패가 이어져도 간격이 안 늘어남'],
+    ['PL', "    _plPubSig = sig; _plSaveFailing = false; _plSaveTry = 0;", "    _plPubSig = sig;", '저장이 성공해도 실패 상태가 안 풀림'],
+    ['PL', "  if(_plPubBusy){ _plPubAgain = true; return; }", "", '보내는 중에 또 보냄(같은 판 두 번)'],
+    ['PL', "    if(again) _plPublishNow(uid0);", "", '보내는 중 고친 것을 끝난 뒤 안 올림'],
+    ['PL', "  _plGen++; _plPubBusy = false;", "  _plPubBusy = false;", '계정을 놓은 뒤 앞 계정 보내기가 새 상태를 건드림'],
+    ['PL', "  if(gen !== _plGen) return;", "", '계정을 놓은 뒤 앞 계정 보내기 결과가 반영됨'],
+    ['PL', "function _plPublish(){ _plPublishIn(3000); }", "function _plPublish(){ _plPublishIn(0); }", '서버 사본 debounce 가 없음'],
     ['PL', "  if(atEnd && _plWatchPlayed){", '  if(atEnd){', '끝에 선 채 재생 없음을 정상 종료로'],
     ['PL', "  if(typeof _plPlaying !== 'undefined' && _plPlaying === false){ _plWatchMoveAt = now; return; }", '', '일시정지 중에도 감시견이 판정'],
     ['PL', "try{ (window.__winPosResetters = window.__winPosResetters || []).push(()=>{ _plPos = null; }); }catch(_){}", '', '창 위치 초기화에 등록 안 함'],

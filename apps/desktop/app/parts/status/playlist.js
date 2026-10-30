@@ -11,7 +11,7 @@
        · _myHomeFriends → _myHomeFriends()                               (친구 목록 구독이 다시 대입 — 🌊 친구 파도타기 목록)
    ★ 상태(_plSets · _plCur · _plNowSet · _plSel · _plNow · _plView · _plNowView · _plBio · _plHomePublic · _plPrivate · _plPubSig ·
      _plPlaying · _plLastBoundsKey …)는 이 모듈 안에 둔다. 모듈 안에서 수백 번 읽고 쓰므로 app.js 에 남기면 바뀌는 줄이 훨씬 많다.
-     밖(계정 이어받기 복원 · 로그아웃 지우기 · 📷 스티커사진의 재생 재우기 · 화면 배율 바뀜)에서 쓰던 것은 상태 묶음 st 로 읽고 쓴다
+     밖(로그아웃 지우기 · 📷 스티커사진의 재생 재우기 · 화면 배율 바뀜)에서 쓰던 것은 상태 묶음 st 로 읽고 쓴다
      — st.sets = … 처럼 이름만 바뀌고 줄 모양은 그대로다(getter · setter).
    ★ 밖으로 내놓는 이름은 createPlaylist 의 반환값이다 — app.js 의 부르는 곳은 plMod.이름 으로 부른다. 전부 만드는 줄보다 늦게 돈다.
      예외 셋 — _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 예전처럼 **window 고리**로도 건다. 상태칩 팝업 자리 계산
@@ -30,6 +30,7 @@
 
 function createPlaylist(deps){
 const toast = deps.toast;
+const notifyError = deps.notifyError;   // 사용자에게 보이는 실패 — 번호 표(shared/error-codes.js)
 const getMyUserId = deps.getMyUserId;
 const getDisplayName = deps.getDisplayName;
 const asyncPrompt = deps.asyncPrompt;                // 🎵 링크 추가 · 곡 제목 묻기(window.prompt 는 Electron 에서 no-op)
@@ -237,6 +238,8 @@ function _plNowTitle(){
   return _plNowSet === 0 ? '🎵 플레이리스트' : ('🎵 ' + _plSetLabel(_plNowSet));
 }
 function _plReadOnly(){ return !!_plView; }
+/* 내 목록을 고칠 수 있나 — 남의 목록을 보는 중이 아니고, 서버에서 받은 뒤여야 한다(받기 전 · 409 로 다시 받는 중에는 잠김). 고치는 동작은 전부 이것 하나로 막는다. */
+function _plCanEdit(){ return !_plReadOnly() && _plLoaded; }
 /* 패널 타이틀바 문구 — 재생 창(companion.openBgm)의 제목에도 같은 걸 쓴다. */
 /* ✏️ 프리셋 이름 — 제목줄에서 바로 고친다(요청 ①). 값은 **보고 있는 프리셋**의 것이다.
    ★ 읽는 곳(_plSetName)과 쓰는 곳(bindPlTitle 의 end) 각각 한 곳뿐이라 프리셋으로 넘어오는 데
@@ -254,7 +257,7 @@ function _plSetName(i){ const s = _plSets[i]; return (s && s.name) || ''; }
    ⚠️ 빈 문자열은 "안 정했다"는 뜻이고 그때는 _plSetLabel 이 자리로 부른다("프리셋 2").
      공백만 넣어 저장하면 지워진다(trim). */
 function _plRenameSet(i, raw){
-  if(!_plLoaded) return false;
+  if(!_plCanEdit()) return false;
   const n = _plSetIdx(i);
   const v = String(raw == null ? '' : raw).trim().slice(0, PL_TITLE_MAX);
   if(v === _plSetName(n)) return false;
@@ -396,7 +399,7 @@ function _plLoad(){
   }catch(_){ _plSets = _plBlankSets(); _plCur = 0; _plNowSet = 0; }
 }
 /* 저장값을 **믿지 않고** 항상 세 벌 · 이름 16자 · 곡 20개 안으로 깎는다.
-   ★ 여기가 유일한 관문이다 — 부팅 로드와 계정 이어받기가 같은 함수를 지난다. 남이 만든 노드나
+   ★ 여기가 유일한 관문이다 — 서버에서 받은 목록(_plPull)은 반드시 이 함수를 지난다. 남이 만든 노드나
      옛 판본이 남긴 모양(길이가 둘, name 이 객체, items 가 문자열…)이 그대로 앱에 들어오면
      그 뒤로 모든 인덱스 계산이 조용히 어긋난다. */
 function _plNormalizeSets(raw){
@@ -452,6 +455,7 @@ const PL_LOGIN_WAIT_MS = 2000;
 const PL_NO_TOKEN = 'NO_TOKEN';   // api-client.js — 로그인 토큰이 아직 안 이어졌다
 const PL_MSG = Object.freeze({ loading: '불러오는 중…', failed: '못 불러왔어요 · ', retry: '다시 시도', merged: '다른 기기에서 바뀐 목록을 불러왔어요' });
 let _plPullTry = 0, _plPullT = null;
+let _plPullBusyUid = null;    // 이 계정으로 받는 중
 let _plPullFailed = false;    // 마지막 받기가 실패했다 — 창에 «못 불러왔어요» 를 보인다
 let _plPullMerged = false;    // 409 로 다시 받는 중이다 — 앉히고 나면 «다른 기기에서 바뀐…» 을 알린다
 function _plRetryDelay(n){ return Math.min(PL_RETRY_MAX_MS, PL_RETRY_MS * Math.pow(2, Math.min(n, 10))); }
@@ -460,18 +464,23 @@ async function _plPull(){
   clearTimeout(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만
   const uid = getMyUserId();
   if(!uid){ _plPullLater(PL_LOGIN_WAIT_MS); return; }   // 로그인 전
+  if(_plNow >= 0){ _plPullLater(PL_RETRY_MS); return; }   // 듣는 중이면 부르기 전에 미룬다(받아도 못 앉히는 헛 요청 없음)
+  if(_plPullBusyUid === uid) return;                         // 같은 계정으로 받는 중 — 겹치지 않는다
   if(_plPullFailed){ _plPullFailed = false; _plRender(); }   // 다시 받는 동안은 «불러오는 중…»
   let srv;
+  _plPullBusyUid = uid;
   try{ srv = await plApi.fetchMine(uid); }
   catch(e){
+    if(_plPullBusyUid === uid) _plPullBusyUid = null;
     if(getMyUserId() !== uid) return;
     if(e && e.code === PL_NO_TOKEN){ _plPullLater(PL_LOGIN_WAIT_MS); return; }   // 토큰이 곧 이어진다 — 실패로 치지 않는다
     _plPullFailed = true; _plRender();
     _plPullLater(_plRetryDelay(_plPullTry++));
     return;
   }
+  if(_plPullBusyUid === uid) _plPullBusyUid = null;
   if(getMyUserId() !== uid) return;   // 기다리는 사이 계정이 바뀌었다(새 계정이 새로 받는다)
-  if(_plNow >= 0){ _plPullLater(PL_RETRY_MS); return; }
+  if(_plNow >= 0){ _plPullLater(PL_RETRY_MS); return; }   // 받는 사이 듣기 시작했다
   _plSets = _plNormalizeSets(srv.sets);
   _plCur = _plSetIdx(_plCur); _plNowSet = _plCur; _plSel = -1; _plNow = -1; _plView = null; _plNowView = null;
   _plBio = String(srv.bio || '').slice(0, PL_BIO_MAX);
@@ -484,8 +493,9 @@ async function _plPull(){
 }
 /* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 목록을 비우고 새 계정 것을 받을 때까지 아무것도 올리지 않는다 */
 function _plReset(){
-  clearTimeout(_plPullT); _plPullT = null; clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기가 앞 계정 목록을 새 계정에 올리지 않게
-  _plLoaded = false; _plPullTry = 0; _plPubSig = null; _plPullFailed = false; _plPullMerged = false;
+  clearTimeout(_plPullT); _plPullT = null; clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기 · 다시 올리기가 앞 계정 목록을 새 계정에 올리지 않게
+  _plGen++; _plPubBusy = false; _plPubAgain = false; _plSaveFailing = false; _plSaveTry = 0;
+  _plLoaded = false; _plPullTry = 0; _plPubSig = null; _plPullFailed = false; _plPullMerged = false; _plPullBusyUid = null;
   _plSets = _plBlankSets(); _plBio = ''; _plHomePublic = false; _plPrivate = false;
   _plSel = -1; _plView = null; _plNowView = null;
   _plRender();
@@ -496,23 +506,41 @@ function _plPubSigOf(sets, meta){
   return JSON.stringify(sets) + '|' + JSON.stringify(meta);
 }
 /* 고친 것을 서버에 올린다 — 3초 debounce(드래그 한 번에 수십 번 저장되므로). 세 벌이 다 비어도 같은 저장(빈 목록 + 한마디).
-   409 면 다른 기기가 먼저 고친 것이다 — 그 위에 덮어쓰지 않고 서버 것을 다시 받아 화면을 그 값으로 바꾼다. */
-function _plPublish(){
-  if(_plPubTimer) clearTimeout(_plPubTimer);
+   ★ 한 번에 하나만 보낸다 — 보내는 중에 또 고쳤으면 끝난 뒤 최신 상태로 한 번 더(같은 판으로 두 번 보내면 두 번째가 409 로 거절돼 내 고침이 사라진다).
+   ★ 409 는 다른 기기가 먼저 고친 것이다 — 그 위에 덮어쓰지 않고 목록을 잠근 채 서버 것을 다시 받아 화면을 그 값으로 바꾼다.
+   ★ 실패하면 고친 내용은 화면(메모리)에 그대로 두고 오류를 한 번만 알린다(이어지는 동안 되풀이하지 않음). 30초 뒤 다시 올리고, 이어지면 간격을 늘린다(성공하면 처음으로). */
+let _plPubBusy = false, _plPubAgain = false;
+let _plSaveFailing = false, _plSaveTry = 0;
+let _plGen = 0;   // reset 마다 오른다 — 앞 계정의 보내기가 끝나도 새 계정 상태를 건드리지 않게
+function _plPublish(){ _plPublishIn(3000); }
+function _plPublishIn(ms){
+  clearTimeout(_plPubTimer);
   const uid0 = getMyUserId();
-  _plPubTimer = setTimeout(async ()=>{
-    _plPubTimer = null;
-    // 서버에서 받기 전이면 안 올린다 · 기다리는 사이 계정이 바뀌었으면 앞 계정 목록을 새 계정에 올리지 않는다
-    if(!_plLoaded || getMyUserId() !== uid0) return;
-    try{
-      const { sets, meta, sig } = _plServerShape();
-      if(sig === _plPubSig) return;
-      const r = await plApi.saveMine(uid0, sets, meta);
-      if(getMyUserId() !== uid0) return;
-      if(r === 'ok') _plPubSig = sig;
-      else if(r === 'conflict'){ _plPullMerged = true; _plPull(); }
-    }catch(_){}
-  }, 3000);
+  _plPubTimer = setTimeout(()=>{ _plPubTimer = null; _plPublishNow(uid0); }, ms);
+}
+async function _plPublishNow(uid0){
+  // 서버에서 받기 전이면 안 올린다 · 기다리는 사이 계정이 바뀌었으면 앞 계정 목록을 새 계정에 올리지 않는다
+  if(!_plLoaded || getMyUserId() !== uid0) return;
+  if(_plPubBusy){ _plPubAgain = true; return; }
+  const { sets, meta, sig } = _plServerShape();
+  if(sig === _plPubSig) return;
+  const gen = _plGen;
+  _plPubBusy = true;
+  let r = 'failed';
+  try{ r = await plApi.saveMine(uid0, sets, meta); }catch(_){}
+  if(gen !== _plGen) return;   // 기다리는 사이 계정을 놓았다(reset 이 상태를 이미 비웠다)
+  _plPubBusy = false;
+  const again = _plPubAgain; _plPubAgain = false;
+  if(r === 'ok'){
+    _plPubSig = sig; _plSaveFailing = false; _plSaveTry = 0;
+    if(again) _plPublishNow(uid0);
+  }else if(r === 'conflict'){
+    _plLoaded = false; _plPullMerged = true; _plPull();   // 다시 받을 때까지 고치기 잠김
+    _plRender();
+  }else{
+    if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }
+    _plPublishIn(_plRetryDelay(_plSaveTry++));
+  }
 }
 
 /* 선택 표시만 갱신 — 전체 재생성을 하면 그 자리에 있던 행 element가 사라져서
@@ -608,7 +636,7 @@ function _plRenderHead(){
   const pubWrap = document.getElementById('myPlPubWrap');
   if(pubWrap) pubWrap.style.display = ro ? 'none' : '';
   const pub = document.getElementById('myPlPub');
-  if(pub){ pub.checked = _plHomePublic; pub.disabled = !_plLoaded; }
+  if(pub){ pub.checked = _plHomePublic; pub.disabled = !_plCanEdit(); }
 
   const hint = document.getElementById('myPlHint');
   // 4번 요청: 마이홈 공개자에게 뜨던 '사진을 누르면 마이홈으로' 안내 문구 제거.
@@ -801,7 +829,7 @@ function _plRender(){
      으로 읽히고, 실제로는 내 설정이라 눌렀을 때 엉뚱한 곳이 바뀐 것처럼 보인다. */
   show('myPlPrivWrap', !ro);
   const privBox = document.getElementById('myPlPriv');
-  if(privBox){ privBox.checked = _plPrivate; privBox.disabled = !_plLoaded; }
+  if(privBox){ privBox.checked = _plPrivate; privBox.disabled = !_plCanEdit(); }
   /* 📌 🗑 는 목록에서 빠졌다 — 버튼이 없어지고 Delete 키가 그 일을 한다(_plDel 이 스스로
      읽기전용·선택범위를 검사하므로 '비활성' 이라는 상태가 필요 없다). */
   const dis = [['myPlPlay', items.length > 0],
@@ -809,7 +837,7 @@ function _plRender(){
                /* ⏭ 는 ■ 와 같은 조건이다 — 넘길 '지금 곡'이 있어야 뜻이 있다.
                   (멈춘 상태에서 누르면 무엇을 기준으로 다음인지 정할 수 없다) */
                ['myPlNext', _plNow >= 0],
-               ['myPlAdd', !ro && _plLoaded && _plMine().length < PL_MAX]];
+               ['myPlAdd', _plCanEdit() && _plMine().length < PL_MAX]];
                /* 📌 📥 담기에는 '비활성' 이라는 상태가 없다 — 고른 행에만 뜨므로 뜨는 것 자체가
                   '누를 수 있다' 는 뜻이다. 꽉 참·중복은 눌렀을 때 이유를 말해준다. */
   dis.forEach(p=>{ const b = document.getElementById(p[0]); if(b) b.disabled = !p[1]; });
@@ -898,7 +926,7 @@ function _plBioCount(){
   if(edit && hint) hint.textContent = (edit.value || '').length + '/' + PL_BIO_MAX;
 }
 function _plBioEditStart(){
-  if(_plReadOnly() || !_plLoaded) return;
+  if(!_plCanEdit()) return;
   const view = document.getElementById('myPlBioView'), edit = document.getElementById('myPlBioEdit');
   if(!view || !edit || edit.style.display !== 'none') return;
   edit.value = _plBio;
@@ -983,7 +1011,7 @@ function _plRowPointerDown(e, row, i){
   if(e.button !== 0) return;
   /* 🌊 남의 목록 — 순서는 못 바꾸지만 **고르기는 된다.** 담기 버튼이 고른 행에 뜨는 구조이므로
      여기서 고를 수 없으면 담을 방법이 더블클릭(=재생)뿐이 된다. 예전엔 실제로 그랬다. */
-  if(_plReadOnly() || !_plLoaded){ e.preventDefault(); _plSel = i; _plSyncSel(); return; }   // 받기 전에는 순서도 못 바꾼다
+  if(!_plCanEdit()){ e.preventDefault(); _plSel = i; _plSyncSel(); return; }   // 받기 전에는 순서도 못 바꾼다
   e.preventDefault();
   _plSel = i; _plSyncSel();
   const h = row.offsetHeight || 21;
@@ -1022,7 +1050,7 @@ function _plRowPointerDown(e, row, i){
 }
 
 async function _plAdd(){
-  if(_plReadOnly() || !_plLoaded) return;
+  if(!_plCanEdit()) return;
   /* ⚠️ 상한은 **프리셋당** 20곡이다 — 셋을 합쳐 60. 넣는 곳은 지금 보고 있는 프리셋이다. */
   const mine = _plMine();
   if(mine.length >= PL_MAX){ toast(_plSetLabel(_plCur) + ' 은 ' + PL_MAX + '곡까지예요'); return; }
@@ -1044,7 +1072,7 @@ async function _plAdd(){
 }
 function _plDel(){
   const mine = _plMine();
-  if(_plReadOnly() || !_plLoaded || _plSel < 0 || _plSel >= mine.length) return;
+  if(!_plCanEdit() || _plSel < 0 || _plSel >= mine.length) return;
   // confirm() 은 쓰지 않는다 — Electron에서 포커스가 멈추는 함정이 있고(audit 검사 4)
   //   한 줄 삭제는 되돌리기 비용이 낮다.
   mine.splice(_plSel, 1);
@@ -1736,7 +1764,7 @@ function _plApplyVolSoon(){
     if(!pub) return;
     pub.addEventListener('click', e=>e.stopPropagation());
     pub.addEventListener('change', ()=>{
-      if(!_plLoaded){ pub.checked = _plHomePublic; return; }
+      if(!_plCanEdit()){ pub.checked = _plHomePublic; return; }
       _plHomePublic = !!pub.checked;
       _plSave();
       _plRenderHead();
@@ -1808,7 +1836,7 @@ function _plApplyVolSoon(){
     const box = document.getElementById('myPlPriv');
     if(!box) return;
     box.addEventListener('change', ()=>{
-      if(!_plLoaded){ box.checked = _plPrivate; return; }
+      if(!_plCanEdit()){ box.checked = _plPrivate; return; }
       _plPrivate = !!box.checked;
       _plSave();
       /* 문구가 '파도타기에서 사라져요'로만 끝나면 친구도 못 듣는 줄 안다 — 남는 길을 같이 말해준다. */
@@ -1930,23 +1958,23 @@ const st = {
   get homePublic(){ return _plHomePublic; }, set homePublic(v){ _plHomePublic = v; },
   get private(){ return _plPrivate; },     set private(v){ _plPrivate = v; },
   get pubSig(){ return _plPubSig; },       set pubSig(v){ _plPubSig = v; },
-  get loaded(){ return _plLoaded; },       set loaded(v){ _plLoaded = v; },
+  get loaded(){ return _plLoaded; },
   get playing(){ return _plPlaying; },     set playing(v){ _plPlaying = v; },
   get lastBoundsKey(){ return _plLastBoundsKey; }, set lastBoundsKey(v){ _plLastBoundsKey = v; },
 };
 
 return {
-  st,                                              // 상태 묶음 — 계정 이어받기 복원 · 로그아웃 · 📷 재생 재우기 · 화면 배율
-  PL_MAX, PL_BIO_MAX, PL_TITLE_MAX,                // 상한 — 계정 이어받기 복원이 같은 값으로 깎는다
-  render: _plRender,                               // 🎵 창 다시 그리기 — 계정 이어받기 · 📷 재생 재우기/되살리기
+  st,                                              // 상태 묶음 — 로그아웃 · 📷 재생 재우기 · 화면 배율
+  PL_MAX, PL_BIO_MAX, PL_TITLE_MAX,                // 상한
+  render: _plRender,                               // 🎵 창 다시 그리기 — 📷 재생 재우기/되살리기
   save: _plSave,                                   // 💾 기기 설정 저장 + 서버 저장(3초 debounce)
   publish: _plPublish,                             // ☁️ 서버 저장만(3초 debounce)
   pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 스스로 다시 시도)
   reset: _plReset,                                 // ☁️ 계정을 놓을 때 · 이어받기 시작 — 목록을 비우고 받기 전까지 올리지 않음
-  normalizeSets: _plNormalizeSets,                 // 🎵 저장값 관문(세 벌 · 16자 · 20곡) — 계정 이어받기
-  setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정 — 계정 이어받기
+  normalizeSets: _plNormalizeSets,                 // 🎵 서버 값 관문(세 벌 · 16자 · 20곡)
+  setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정
   blankSets: _plBlankSets,                         // 🎵 빈 세 벌 — 로그아웃
-  mine: _plMine,                                   // 🎵 보고 있는 프리셋의 곡 — 계정 이어받기(옛 길) · 🎧 같이 듣기 DJ 목록
+  mine: _plMine,                                   // 🎵 보고 있는 프리셋의 곡 — 🎧 같이 듣기 DJ 목록
   fillLv: _plFillLv,                               // 🏅 레벨 배지 — 👤 내 정보 머리
   ytVideoId: _ytVideoId,                           // 🔗 유튜브 주소 → 영상 id — 🏠 마이홈 BGM(파서 한 벌)
   syncBgmBounds: _plSyncBgmBounds,                 // 🪟 재생 창 사각형 — 화면 배율 바뀜

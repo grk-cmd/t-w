@@ -2116,6 +2116,7 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
 const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v1/me/playlist · /v1/playlists/…)
 const plMod = TwPlaylist.createPlaylist({
   playlistApi: playlistApiMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
