@@ -404,7 +404,7 @@ const BREAKS = [
   ['FAPI', "    level: (typeof c.level === 'number' && c.level >= 1) ? c.level : null,", "    level: c.level,", '레벨 거르기 없음'],
   ['AC', "    h.Authorization = 'Bearer ' + tok;", "    h.Authorization = tok;", '토큰 형식이 틀림'],
   ['AC', "    if(!tok) throw new ApiError('auth', 0, 'NO_TOKEN', '로그인 토큰이 없어요');", "", '토큰 없이도 보냄'],
-  ['AC', "      const a = await Promise.race([authOf(o, o.force), timeout]);", "      const a = await authOf(o, o.force);", '토큰 받기가 멈추면 영영 기다림'],
+  ['AC', "      try{ tok = getToken ? await Promise.race([getToken(false), to]) : null; }", "      try{ tok = getToken ? await getToken(false) : null; }", '토큰 받기가 멈추면 영영 기다림'],
   ['RC', "  inviteGate: true,\n", "  inviteGate: true,\n  friendsApi: false,\n", '원격 설정에 친구 스위치가 되살아남'],
   ['PORT', "      apiProvider ? () => apiProvider.readFriend(fid) : null,", "      null,", '친구 한 명은 서버를 안 봄'],
   ['PORT', "      () => firebase.readFriend(fid),", "      () => null,", '친구 한 명 옛 길이 없음'],
