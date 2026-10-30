@@ -84,6 +84,27 @@ async function judge(S){
     chk(env.fetches.length === 2, '  끝난 뒤 한 번 더 받는다(그 사이 바뀐 것을 놓치지 않게)');
   }
 
+  say('── 1-2. busy() — 지금 받는 중인가');
+  {
+    const { env, feed } = mk(LIB);
+    chk(feed.busy() === false, '시작 전은 false');
+    const g = defer(); env.gate = g; g.value = () => ({ items: { a: mail(false) }, unread: 1, complete: true });
+    feed.start('ME01'); await tick();
+    chk(feed.busy() === true, '받는 중에는 true');
+    if(!feed.busy()) feed.refresh({ manual: true });   // 받는 중이면 건너뛴다(retryIfFailed 와 같은 판단)
+    g.release(); await tick(); await tick(); await tick();
+    chk(feed.busy() === false && env.fetches.length === 1, '성공 뒤 false · 받는 중 busy 를 보고 건너뛰면 끝난 뒤 fetch 는 1번(겹쳐 한 번 더 나가지 않는다)');
+    const e2 = mk(LIB); const g2 = defer(); e2.env.gate = g2; g2.fail = new Error('x');
+    e2.feed.start('ME01'); await tick();
+    const during = e2.feed.busy();
+    g2.release(); await tick(); await tick(); await tick();
+    chk(during === true && e2.feed.busy() === false && e2.feed.status() === 'error', 'fetch 가 던진 뒤에도 false(받는 중에 머물지 않는다)');
+    const e3 = mk(LIB); const g3 = defer(); e3.env.gate = g3; g3.value = (uid) => ({ items: { [uid]: mail(false) }, unread: 1, complete: true });
+    e3.feed.start('A01'); await tick(); e3.feed.start('B02'); await tick();
+    g3.release(); await tick(); await tick(); await tick(); await tick();
+    chk(e3.feed.busy() === false && Object.keys(e3.feed.items()).join() === 'B02', '받는 중 계정이 바뀌어 앞 계정 응답이 버려진 뒤에도 false(새 계정 우편만)');
+  }
+
   say('── 2. 알림');
   {
     const { env, feed } = mk(LIB);
@@ -292,6 +313,7 @@ async function runAll(){
   await judge(S);
   say('── 7. 일부러 깨 보기');
   const breaks = [
+    ['busy 가 늘 false', S.FEED.replace('busy: () => flying', 'busy: () => false'), 'busy()'],
     ['처음 받은 판도 새 우편으로', S.FEED.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은 우편'],
     ['받는 중 겹쳐 요청', S.FEED.replace("if(flying){ again = true; return false; }", ""), '요청은 하나'],
     ['계정이 바뀌어도 앞 응답을 씀', S.FEED.replace("      if(mine !== uid) return false;   // 앞 계정에서 받은 우편 — 버린다\n", ""), '앞 계정'],

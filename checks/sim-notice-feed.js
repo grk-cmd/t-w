@@ -87,6 +87,23 @@ async function judge(S){
     chk(seen === 2, '해제한 쪽에는 더 안 간다');
   }
 
+  say('── 1-2. busy() — 지금 받는 중인가');
+  {
+    const { env, feed } = mk(LIB);
+    chk(feed.busy() === false, '시작 전은 false');
+    const g = defer(); env.gate = g;
+    feed.start(); await tick();
+    chk(feed.busy() === true, '받는 중에는 true');
+    if(!feed.busy()) feed.refresh({ manual: true });   // 받는 중이면 건너뛴다(retryIfFailed 와 같은 판단)
+    env.gate = null; g.release(); await tick(); await tick(); await tick();
+    chk(feed.busy() === false && env.fetches === 1, '성공 뒤 false · 받는 중 busy 를 보고 건너뛰면 끝난 뒤 fetch 는 1번(겹쳐 한 번 더 나가지 않는다)');
+    const e2 = mk(LIB); const g2 = defer(); e2.env.gate = g2; e2.env.fail = new Error('x');
+    e2.feed.start(); await tick();
+    const during = e2.feed.busy();
+    g2.release(); await tick(); await tick(); await tick();
+    chk(during === true && e2.feed.busy() === false && e2.feed.status() === 'error', 'fetch 가 던진 뒤에도 false(받는 중에 머물지 않는다)');
+  }
+
   say('── 2. 알림');
   {
     const { env, feed } = mk(LIB);
@@ -210,6 +227,7 @@ async function runAll(){
   say('── 6. 일부러 깨 보기');
   const F = S.FEED;
   const breaks = [
+    ['busy 가 늘 false', F.replace('busy: () => flying', 'busy: () => false'), 'busy()'],
     ['처음 받은 판도 새 소식', F.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은'],
     ['받는 중 겹쳐 요청', F.replace("if(flying){ again = true; return false; }", ""), '요청은 하나'],
     ['받는 쪽 하나가 던지면 멈춤', F.replace("try{ fn({ addedIds }); }catch(e){ console.warn('[공지] 받는 쪽 처리 실패', e); }", "fn({ addedIds });"), '다른 쪽은 받는다'],
