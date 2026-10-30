@@ -36,7 +36,7 @@
    · focusLevelMod.getFocusLevel(), _focusTotalSec, getDisplayName()
    · firebaseAPI.uploadUserImage(), getMyUserId(), toast(), companion.dsHold()
 */
-(function(){
+function createMyHomeDesktop(deps){
 /* ══════════════════════════════════════════════════════════════════════════════
    ★ 좀아칼 중단 스위치 — 바탕화면은 남기고 '게임만' 끈다
    ADV_GAME_OFF = true 일 때:
@@ -61,8 +61,8 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) �
 'use strict';
 
 /* ─────────────────────────── 저장 ─────────────────────────── */
-/* 🗂️ 바탕화면 로컬 저장은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 그 계정의 바탕화면이 열린다. app.js 가 만든 한 벌을 전역 이름으로 쓴다. */
-const advStore = accountStoreMod;
+/* 🗂️ 바탕화면 로컬 저장은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 그 계정의 바탕화면이 열린다. 만드는 쪽(myhome-desktop-boot.js)이 넘긴 한 벌. */
+const advStore = deps.advStore;
 const ADV_KEY = 'tw.advZ.v2';
 const ADV_KEY_V1 = 'tw.advZ.v1';
 
@@ -6111,4 +6111,6 @@ window._advApplyVisitUI = function(visiting, ownerId){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', advInit);
 else advInit();
 
-})();
+}
+
+window.TwMyHomeDesktop = { createMyHomeDesktop };   // 만드는 줄은 myhome-desktop-boot.js(app.js 가 만든 계정 칸을 deps 로 넘긴다)

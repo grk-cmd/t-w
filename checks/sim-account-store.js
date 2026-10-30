@@ -20,6 +20,7 @@ const SRC0 = {
   TOTAL: pick(at('focus-total.js', 'focus')),
   LEVEL: pick(at('focus-level.js', 'focus')),
   MHD: pick(at('myhome-desktop.js', 'myhome')),
+  BOOT: pick(at('myhome-desktop-boot.js', 'myhome')),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
@@ -154,6 +155,10 @@ function judge(S){
     chk(!raw(S.TOTAL, ['FOCUS_TOTAL_KEY', 'FOCUS_TODAY_SEC_KEY', 'FOCUS_TODAY_DATE_KEY']).length, 'focus-total.js 는 누적 세 칸을 localStorage 로 직접 안 만진다');
     chk(!raw(S.LEVEL, ['FOCUS_TOTAL_KEY', 'FOCUS_TODAY_SEC_KEY', 'FOCUS_TODAY_DATE_KEY', 'FOCUS_SYNCED_KEY']).length, 'focus-level.js 는 누적 · 마크를 localStorage 로 직접 안 만진다');
     chk(!raw(S.MHD, ['ADV_KEY', 'ADV_KEY_V1']).length && /advStore\.set\(ADV_KEY/.test(S.MHD) && /advStore\.get\(ADV_KEY\)/.test(S.MHD), 'myhome-desktop.js 는 바탕화면 저장을 계정 칸으로만 한다');
+    chk(/const advStore = deps\.advStore;/.test(S.MHD) && !/accountStoreMod/.test(S.MHD.replace(/\/\*[\s\S]*?\*\//g, '')), 'myhome-desktop.js 는 계정 칸을 deps 로 받는다(전역 이름 accountStoreMod 를 읽지 않는다)');
+    chk(/createMyHomeDesktop\(\{ advStore: accountStoreMod \}\)/.test(S.BOOT), '만드는 줄(myhome-desktop-boot.js)이 계정 칸을 넘긴다');
+    const iD = S.HTML.indexOf('parts/myhome/myhome-desktop.js'), iB = S.HTML.indexOf('parts/myhome/myhome-desktop-boot.js');
+    chk(iD > 0 && iB > iD && S.HTML.slice(iD, iB).split('<script').length === 2, 'html — boot 는 myhome-desktop.js 바로 다음');
     chk(/const focusLevelStore = deps\.focusLevelStore;/.test(S.LEVEL) && /const focusTotalStore = deps\.focusTotalStore;/.test(S.TOTAL), '모듈은 계정 칸을 deps 로 받는다');
   }
 
@@ -186,6 +191,7 @@ const BREAKS = [
   ['LEVEL', "focusLevelStore.set(FOCUS_TOTAL_KEY,String(_focusTotalSec()));", "localStorage.setItem(FOCUS_TOTAL_KEY,String(_focusTotalSec()));", '레벨 모듈이 PC 칸에 씀'],
   ['MHD', "function advSave(){ try{ advStore.set(ADV_KEY,", "function advSave(){ try{ localStorage.setItem(ADV_KEY,", '바탕화면이 PC 칸에 저장'],
   ['APP', "getAccountCode: getMyUserId }", "getAccountCode: ()=>null }", '계정 코드를 안 넘김'],
+  ['BOOT', 'createMyHomeDesktop({ advStore: accountStoreMod })', 'createMyHomeDesktop({})', 'deps 를 안 넘김'],
   ['HTML', '<script src="parts/shared/account-store.js"></script>', '', 'html 에 안 실음'],
 ];
 const caught = [];
