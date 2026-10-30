@@ -4,9 +4,10 @@
      읽음 · 지우기는 서버가 «됐다» 한 뒤에 화면 값을 고친다(실패하면 그대로 두고 오류 번호). 한 번도 받지 못한 동안(받는 중 · 못 받음)에는 고치지 않는다.
      쓰는 동안 계정이 바뀌면(await 앞뒤 uid 가 다르면) 화면 · 수를 건드리지 않고 끝낸다 — 앞 계정 화면에서 누른 것의 늦은 «됐다» 가 새 계정 우편을 고치지 않게.
      못 받으면 스스로 다시 받는다(30초부터 두 배씩 10분 상한 — shared/retry-delay.js). 성공 · 계정 바뀜 · stop 이면 취소.
-     받기 실패의 오류 번호는 사용자가 알림함을 보고 있거나 «다시 시도» 를 눌렀을 때만 띄운다(켤 때 화면을 안 열었는데 뜨지 않게) — 화면 안 «불러오지 못했어요» 는 늘 그대로.
+     받기 실패의 오류 번호는 사용자가 알림함을 보고 있거나 «다시 시도» 를 눌렀을 때만 띄운다(켤 때 화면을 안 열었는데 뜨지 않게). 닫힌 동안 실패한 채(error) 알림함을 열면 화면(myhome-inbox.js)이 manual 로 한 번 다시 받는다.
+     한 번 받은 뒤의 실패는 앞서 받은 목록을 그대로 두고 status 만 error 로 바꾼다 — 화면 안 «불러오지 못했어요» + 다시 시도는 한 번도 못 받았을 때만 그려진다.
    deps: api — createInboxApi 가 돌려준 것(inbox-api.js) · rt — 알림 걸기(TwRtHub.store.on('notification', fn)) ·
-         notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · (알림함이 지금 보이나는 setViewing(fn) 으로 건다 — 기본은 «안 보임») ·
+         notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · isViewing() → 알림함이 지금 보이나(필수 — 없으면 만들 때 던진다) ·
          retryDelay(n) → 다시 받기까지 ms(TwRetryDelay.delay) · setTimer(fn, ms) → id · clearTimer(id)
    내보냄: createMailFeed(deps) → {
      onChange(fn) → 해제 함수 — fn({ addedIds })(화면 다시 그리기 · 새 우편 토스트 — 받은 뒤 · 고친 뒤 · 처음 받은 판의 우편은 새 우편이 아니다) ·
@@ -26,7 +27,8 @@ const SECTION_MAIL = 'MAIL';
 function createMailFeed(deps){
   const api = deps.api;
   const notifyError = deps.notifyError;
-  let viewing = () => false;   // 알림함이 보이나 — setViewing 으로 잇는다(알림함 모듈을 deps 로 받으면 서로를 부르는 순환이 된다)
+  const isViewing = deps.isViewing;
+  if(!isViewing) throw new Error('[우편] isViewing 이 필요해요 — 알림함이 보이는지 알려 주는 함수');
   const retryDelay = deps.retryDelay;
   const setTimer = deps.setTimer;
   const clearTimer = deps.clearTimer;
@@ -62,7 +64,7 @@ function createMailFeed(deps){
       catch(e){
         if(mine !== uid) return false;   // 그 사이 계정이 바뀌었다 — 앞 계정의 실패는 알리지 않는다
         status = STATUS.ERROR;
-        if(!failStreak && (manual || viewing())){ failStreak = true; notifyError('E-MH-08', e); }   // 이어지는 실패는 한 번만 · 화면을 안 보는 동안은 번호를 띄우지 않는다
+        if(!failStreak && (manual || isViewing())){ failStreak = true; notifyError('E-MH-08', e); }   // 이어지는 실패는 한 번만 · 화면을 안 보는 동안은 번호를 띄우지 않는다
         scheduleRetry();
         emit({ addedIds: [] });
         return false;
@@ -150,7 +152,6 @@ function createMailFeed(deps){
   }
 
   return {
-    setViewing: (fn) => { viewing = fn; },
     start, stop, refresh, markRead, markAllRead, remove, removeMany,
     onChange: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
     status: () => status, items: () => items, unread: () => unread, complete: () => complete, ready: () => everReady,

@@ -2688,10 +2688,17 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
 });
 /* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
+/* 📩 알림함 화면이 지금 보이나 — 받기 실패 오류 번호를 띄울지 가른다(mail-feed · notice-feed 의 isViewing).
+   알림함 모듈(inboxMod)을 deps 에서 읽으면 모듈끼리 서로 부르는 순환이 되어(sim-dep-cycles) 화면 칸(#mhInboxBody)이 보이는지만 본다. */
+function _mailboxVisible(){
+  const el = document.getElementById('mhInboxBody');
+  return !!el && el.offsetParent !== null;
+}
 const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/me/notifications
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  isViewing: _mailboxVisible,   // 알림함이 보이는 동안만 받기 실패 번호를 띄운다
   retryDelay: TwRetryDelay.delay, setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id),
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
@@ -2699,12 +2706,10 @@ const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/notices
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  isViewing: _mailboxVisible,
   retryDelay: TwRetryDelay.delay, setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id),
 });
 noticeFeed.onChange((e)=>mhInitMod.onNewsChanged(e));
-/* 받기 실패 오류 번호는 알림함이 보이는 동안에만 — 알림함 모듈을 deps 로 받으면 순환이라 만든 뒤에 잇는다 */
-mailFeed.setViewing(()=>inboxMod.isOpen());
-noticeFeed.setViewing(()=>inboxMod.isOpen());
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _myFriendRequests: ()=>_myFriendRequests,

@@ -367,3 +367,15 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.
 - **함정**: 최소 버전은 저장값을 쓰지 않는다(지난 값으로 막지 않게). 옛 판(평평한 칸)이 남긴 저장값은 판 표시가 없어 읽지 않는다. 칸 이름(`roomMaxPeople` 등)은 앱 안 이름이라 서버 이름과 다르다 — 풀기는 `fieldsOf` 한 곳.
 - 검사: `checks/sim-remote-config.js`.
+
+## `retry-delay.js` — 🔁 못 받은 뒤 다시 받기까지 쉬는 시간
+
+**책임** — 서버에서 못 받았을 때 스스로 다시 받기까지 기다릴 시간 한 곳. 30초부터 두 배씩 10분 상한. 순수 함수 하나(상태 · 타이머 없음 — 타이머는 부르는 쪽).
+
+**만드는 법** — 만들 것이 없다(`window.TwRetryDelay`). app.js 가 쓰는 모듈에 `retryDelay: TwRetryDelay.delay` 로 넘긴다(우편 `mail-feed.js` · 공지 `notice-feed.js`).
+
+**내놓는 것** — `delay(n)` → ms(`n` = 이어서 실패한 횟수, 0 부터 — 30000 · 60000 · … · 600000. 음수 · 숫자 아님 · 소수는 안전하게 처리) · `RETRY_MS`(30000) · `RETRY_MAX_MS`(600000).
+부르는 쪽은 성공하면 `n` 을 0 으로 되돌리고, 계정이 바뀌거나 멈추면 타이머를 거둔다.
+
+**함정** — `status/playlist.js` 에 같은 규칙(`PL_RETRY_MS` · `PL_RETRY_MAX_MS` · `_plRetryDelay`)이 따로 남아 있다 — 이 파일로 합치는 일은 #579 할 일. 값을 바꾸면 둘을 같이 봐야 한다.
+검사: `checks/sim-retry-delay.js`.

@@ -49,9 +49,8 @@ function mkEnv(){
 }
 function mk(src){
   const e = mkEnv();
-  const feed = load(src).createMailFeed({ api: e.api, rt: e.rt, notifyError: (c, err) => e.env.errors.push(c), 
+  const feed = load(src).createMailFeed({ api: e.api, rt: e.rt, notifyError: (c, err) => e.env.errors.push(c), isViewing: () => e.env.viewing, 
     retryDelay: (n) => load(RD).delay(n), setTimer: (fn, ms) => { const t = { ms, live: true }; t.fn = () => { t.live = false; fn(); }; e.env.timers.push(t); return e.env.timers.length - 1; }, clearTimer: (id) => { if(e.env.timers[id]) e.env.timers[id].live = false; e.env.cleared.push(id); } });
-  feed.setViewing(() => e.env.viewing);
   feed.onChange((x) => { e.env.changes.push(x.addedIds.join(',')); e.env.snaps.push(Object.keys(feed.items()).join('+')); });
   return Object.assign(e, { feed });
 }
@@ -229,6 +228,11 @@ async function judge(S){
     chk(env.errors.length === 0, '  앞 계정 쓰기의 늦은 실패도 새 계정에 오류 번호를 띄우지 않는다');
   }
 
+  {
+    const e = mkEnv();
+    let thrown = null; try{ load(LIB).createMailFeed({ api: e.api, rt: e.rt, notifyError: () => {} }); }catch(x){ thrown = x; }
+    chk(thrown && /isViewing/.test(thrown.message), 'isViewing 없이 만들면 던진다(조용히 «안 보임» 으로 두지 않는다)');
+  }
   say('── 5-3. 스스로 다시 받기 · 오류 번호는 보는 동안만');
   {
     const { env, feed } = mk(LIB);
@@ -272,7 +276,10 @@ async function judge(S){
   {
     const A = strip(S.APP);
     chk(/TwMailFeed\.createMailFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && /TwInboxApi\.createInboxApi\(\{ authed: TwApi\.authed/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다');
-    chk(/mailFeed\.setViewing\(\(\)=>inboxMod\.isOpen\(\)\)/.test(A) && /retryDelay: TwRetryDelay\.delay/.test(A), 'app.js — 알림함이 보이는지 · 다시 받기 시간은 잇는다(보이는지는 만든 뒤 setViewing — 순환 방지)');
+    chk(/isViewing: _mailboxVisible,/.test(A) && /retryDelay: TwRetryDelay\.delay/.test(A), 'app.js — 알림함이 보이는지 · 다시 받기 재료를 넘긴다');
+    const fnSrc = (String(S.APP).match(/function _mailboxVisible\(\)\{[\s\S]*?\n\}/) || [''])[0];
+    const vis = (el) => new Function('document', fnSrc + '\nreturn _mailboxVisible();')({ getElementById: () => el });
+    chk(fnSrc && vis(null) === false && vis({ offsetParent: null }) === false && vis({ offsetParent: {} }) === true, 'app.js — 알림함이 보이나: 칸이 없거나 숨어 있으면(offsetParent 없음) 거짓 · 보이면 참');
     chk(!/let _myInbox\b|let _myInboxReady\b|let _inboxBroadcast\b/.test(A), '옛 개인 수령함 · 공용 공지 let 이 app.js 에 없다(원본은 서버)');
     const h = S.HTML;
     chk(h.indexOf('<script src="parts/myhome/mail-feed.js"></script>') > 0 && h.indexOf('<script src="parts/myhome/mail-feed.js"></script>') < h.indexOf('<script src="parts/app.js"></script>'), 'html — mail-feed.js 를 app.js 보다 먼저');
@@ -299,8 +306,9 @@ async function runAll(){
     ['모두 읽음 늦은 응답이 새 계정을 고침', S.FEED.replace("    const r = await api.markAllRead(who);\n    if(who !== uid) return false;", "    const r = await api.markAllRead(who);"), '모두 읽음'],
     ['읽음 늦은 응답이 새 계정을 고침', S.FEED.replace("    const r = await api.markRead(who, id);\n    if(who !== uid) return false;", "    const r = await api.markRead(who, id);"), '읽음'],
     ['지우기 늦은 응답이 새 계정을 고침', S.FEED.replace("    const r = await api.remove(who, id);\n    if(who !== uid) return false;", "    const r = await api.remove(who, id);"), '지우기'],
-    ['안 보는 중에도 번호를 띄움', S.FEED.replace("(manual || viewing())", "true"), '보는 동안만'],
-    ['다시 시도에도 번호 안 띄움', S.FEED.replace("(manual || viewing())", "viewing()"), '다시 시도'],
+    ['isViewing 없어도 만들어짐', S.FEED.replace("if(!isViewing) throw new Error('[우편] isViewing 이 필요해요 — 알림함이 보이는지 알려 주는 함수');", ''), 'isViewing 없이'],
+    ['안 보는 중에도 번호를 띄움', S.FEED.replace("(manual || isViewing())", "true"), '보는 동안만'],
+    ['다시 시도에도 번호 안 띄움', S.FEED.replace("(manual || isViewing())", "isViewing()"), '다시 시도'],
     ['다시 받기 시간이 안 늘어남', S.FEED.replace("    failCount++;\n", ""), '두 배'],
     ['받아도 타이머를 안 거둠', S.FEED.replace("failStreak = false; failCount = 0; cancelRetry();\n      emit", "failStreak = false; failCount = 0;\n      emit"), '타이머를 거둔다'],
     ['계정이 바뀌어도 타이머가 남음', S.FEED.replace("failCount = 0; manualNext = false; cancelRetry(); }", "failCount = 0; manualNext = false; }"), '취소'],

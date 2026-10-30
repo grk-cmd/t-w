@@ -331,13 +331,15 @@ async function behave(src){
     m.renderInbox();
     chk(list.innerHTML === '<div class="mh-ibx-empty">받은 우편이 없어요</div>', '받기를 시작하지 않은 기기(내 코드 없음)는 «받은 우편이 없어요»');
     e.mailReady = true; e.mailStatus = 'ready'; e.noticeReady = true; e.noticeStatus = 'ready';
-    body.offsetParent = null;
-    chk(m.isOpen() === false, '우편함이 안 보이면(숨은 탭) isOpen 은 거짓 — 받기 실패 번호를 띄우지 않는 기준');
-    body.offsetParent = {};
-    chk(m.isOpen() === true, '  보이면 참');
-    e.byId.mhInboxBody = null; delete e.byId.mhInboxBody;
-    chk(m.isOpen() === false, '  우편함 칸이 없으면 거짓');
-    e.byId.mhInboxBody = body;
+    /* 한 번 받은 뒤 닫힌 동안 실패(error)한 채 열면 한 번 다시 받는다(manual) — 보는 중 실패면 번호가 뜬다 */
+    e.refreshed = []; e.mailStatus = 'error'; e.noticeStatus = 'ready';
+    m.inboxEnter();
+    chk(e.refreshed.join() === 'mail!', 'ready 뒤 error 인 채 알림함을 열면 우편을 manual 로 한 번 다시 받는다(소식은 정상이라 안 부름)');
+    e.refreshed = []; e.mailStatus = 'ready'; e.noticeStatus = 'error';
+    m.inboxEnter();
+    chk(e.refreshed.join() === 'news!', '  소식도 같다');
+    e.refreshed = []; e.noticeStatus = 'ready'; m.inboxEnter();
+    chk(e.refreshed.length === 0, '  둘 다 정상이면 열어도 다시 받지 않는다(요청 수 그대로)');
 
     say('── 3-3. 처음 칸');
     m.setInboxSec('help'); m.renderInbox();
@@ -613,7 +615,9 @@ async function runAll(MI, APP, HTML){
     ['MI', "if(_pendingNotice(listEl, noticeFeed, '소식')){ viewEl.innerHTML = ''; return; }", "", '소식을 못 받았는데 «소식이 없어요» 로 그림'],
     ['MI', "retry.onclick = ()=>{ feed.refresh({ manual: true }); };", "", '못 받음에 다시 시도 길이 없음'],
     ['MI', "retry.onclick = ()=>{ feed.refresh({ manual: true }); };", "retry.onclick = ()=>{ feed.refresh(); };", '다시 시도가 manual 이 아님(못 받아도 번호가 안 뜸)'],
-    ['MI', "return !!el && el.offsetParent !== null;", "return true;", '안 보이는데 보인다고 함(isOpen)'],
+    ['MI', "  if(mailFeed.status() === 'error') mailFeed.refresh({ manual: true });", '', '열 때 우편 error 를 다시 안 받음'],
+    ['MI', "  if(noticeFeed.status() === 'error') noticeFeed.refresh({ manual: true });", '', '열 때 소식 error 를 다시 안 받음'],
+    ['MI', "if(mailFeed.status() === 'error') mailFeed.refresh({ manual: true });", "if(mailFeed.status() === 'error') mailFeed.refresh();", '열 때 다시 받기가 manual 이 아님(번호가 안 뜸)'],
     ['MI', "merged[id].read && merged[id]._src === 'personal'", "merged[id]._src === 'personal'", '안 읽은 우편까지 지움'],
     ['MI', "  _mhAsk('읽은 우편 지우기',", "  ({ label:'지우기', run: async ()=>{ await mailFeed.removeMany(ids); } }).run(); (()=>0)('읽은 우편 지우기',", '확인창 없이 지움'],
     ['MI', "if(_newsOpenId && ids.indexOf(_newsOpenId) < 0) _newsOpenId = null;", '', '목록에서 빠진 글의 본문이 남음'],

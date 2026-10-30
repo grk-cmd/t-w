@@ -122,15 +122,18 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+  isViewing: _mailboxVisible,   // 알림함이 보이나(app.js 함수 — #mhInboxBody) — 필수, 없으면 만들 때 던진다
+  retryDelay: TwRetryDelay.delay, setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id),   // 스스로 다시 받기
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · 토스트(처음 받은 판은 새 우편이 아니다)
 ```
 
 **내놓는 것** — `inbox-api`: `fetchMail(uid)` → `{ items:{id: 우편}, unread, complete }` · `markRead` · `markAllRead` · `remove` → `'ok'|'stale'|'failed'`.
-`mail-feed`: `start(uid)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다) · `stop()` · `refresh()` · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeMany(ids)` · `onChange(fn)`.
+`mail-feed`: `start(uid)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다) · `stop()` · `refresh({ manual }?)`(`manual` = «다시 시도» — 못 받으면 보는 중이 아니어도 오류 번호) · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeMany(ids)` · `onChange(fn)`.
 부르는 곳: `myhome-init.js`(켜기 · 받은 뒤 화면) · `myhome-inbox.js`(그리기 · 누름) · `focus-level.js`(해금 안내를 이미 받았는지 — `_myInbox` · `_myInboxReady` 는 `mailFeed.items()` · `ready()`).
 
-**오류 번호** — `E-MH-08`(받기 실패 · 이어지는 동안 한 번) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.
+**오류 번호** — `E-MH-08`(받기 실패 · **알림함이 보이는 동안이거나 «다시 시도» 때만** · 이어지는 동안 한 번) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.
+못 받으면 **스스로 다시 받는다**(30초부터 두 배씩 10분 상한 — `shared/retry-delay.js`) · 받으면 · 계정이 바뀌면 · `stop()` 이면 거둔다. 한 번 받은 뒤 닫힌 동안 실패한 채 알림함을 열면 `myhome-inbox.js` 가 manual 로 한 번 다시 받는다.
 
 **함정**
 - 쓰기는 «읽은 토큰의 주인» 과 묶는다(`expectOwner`) — 읽은 적 없는 계정이나 주인이 바뀐 뒤에는 요청 0.

@@ -277,12 +277,12 @@
 | **sim-remote-config.js** | 530 | **449b5e150de7** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
-| **sim-myhome-inbox.js** | 667 | **d60b2f758060** |
+| **sim-myhome-inbox.js** | 671 | **80d6ad19d5ae** |
 | **sim-playlist-api.js** | 277 | **674fd3864893** |
 | **sim-inbox-api.js** | 184 | **db563d4fa6f1** |
-| **sim-mail-feed.js** | 319 | **4ad0337ea28a** |
+| **sim-mail-feed.js** | 327 | **b7abc04552ad** |
 | **sim-notice-api.js** | 159 | **39c7ae06eabd** |
-| **sim-notice-feed.js** | 229 | **f7f567608895** |
+| **sim-notice-feed.js** | 242 | **9578ebd1a547** |
 | **sim-retry-delay.js** | 35 | **9e158c94691f** |
 | **sim-playlist.js** | 928 | **0a979dfac4e1** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |

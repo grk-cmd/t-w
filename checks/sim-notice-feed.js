@@ -46,9 +46,8 @@ function mk(src){
     remove: async (id, v) => { env.writes.push(['del', id, v]); return env.wres; },
   };
   const rt = { on: (kind, fn) => { if(kind === 'notices') env.handler = fn; return () => {}; } };
-  const feed = load(src).createNoticeFeed({ api, rt, notifyError: (c) => env.errors.push(c), 
+  const feed = load(src).createNoticeFeed({ api, rt, notifyError: (c) => env.errors.push(c), isViewing: () => env.viewing, 
     retryDelay: (n) => load(RD).delay(n), setTimer: (fn, ms) => { const t = { ms, live: true }; t.fn = () => { t.live = false; fn(); }; env.timers.push(t); return env.timers.length - 1; }, clearTimer: (id) => { if(env.timers[id]) env.timers[id].live = false; } });
-  feed.setViewing(() => env.viewing);
   feed.onChange((e) => env.seen.push(e.addedIds.join(',')));
   return { env, feed };
 }
@@ -146,6 +145,18 @@ async function judge(S){
   }
   {
     const { env, feed } = mk(LIB);
+    env.board = boardOf(['a'], { updateNotice: { title: '이미 받음', body: 'b', ts: 9 } });
+    await feed.refresh();
+    const shown = [];
+    feed.onceReady((n) => shown.push(n && n.title));
+    chk(shown.join() === '이미 받음', '업데이트 공지 — 이미 받은 뒤에 걸어도 바로 한 번(기다리다 놓치지 않는다)');
+    await feed.refresh();
+    chk(shown.length === 1, '  그 뒤 다시 받아도 더 안 띄운다');
+    let thrown = null; try{ load(LIB).createNoticeFeed({ api: {}, rt: { on(){} }, notifyError(){} }); }catch(x){ thrown = x; }
+    chk(thrown && /isViewing/.test(thrown.message), 'isViewing 없이 만들면 던진다(조용히 «안 보임» 으로 두지 않는다)');
+  }
+  {
+    const { env, feed } = mk(LIB);
     const shown = [];
     feed.onceReady((n) => shown.push(n && n.title));
     env.fail = new Error('x'); env.board = boardOf(['a'], { updateNotice: { title: '새 판', body: 'b', ts: 9 } });
@@ -183,7 +194,7 @@ async function judge(S){
     const A = strip(S.APP);
     chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다');
     chk(/whenNetReady\(\(\)=>noticeFeed\.start\(\)\)/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 켤 때 받고 · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
-    chk(/noticeFeed\.setViewing\(\(\)=>inboxMod\.isOpen\(\)\)/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 알림함이 보이는지 잇고 · 업데이트 공지 팝업은 onceReady 한 번');
+    chk(/isViewing: _mailboxVisible,/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 알림함이 보이는지 잇고 · 업데이트 공지 팝업은 onceReady 한 번');
     const B = strip(S.BANNER);
     chk(/noticeFeed\.onChange\(/.test(B) && !/localStorage\.setItem\(AD_BANNER_KEY/.test(B) && !/subscribeAdBanner/.test(B), '배너 — 공지 한 판이 바뀔 때 그린다 · 이 PC 사본(localStorage)을 안 남긴다');
     const O = strip(S.OVER);
@@ -205,10 +216,12 @@ async function runAll(){
     ['실패마다 알림', F.replace("{ failStreak = true; notifyError('E-MH-09', e); }", "{ notifyError('E-MH-09', e); }"), '한 번만'],
     ['notices 알림을 안 받음', F.replace("deps.rt.on('notices', () => { refresh(); });", "deps.rt.on('notices', () => {});"), 'notices 알림'],
     ['못 받으면 판을 비움', F.replace("status = STATUS.ERROR;\n", "status = STATUS.ERROR; board = { updateNotice: null, banner: [], broadcasts: {}, hasMore: false }; everReady = false;\n"), '그대로'],
+    ['이미 받았는데 기다림', F.replace("if(everReady){ fn(board.updateNotice); return; }", ''), '이미 받은 뒤에 걸어도'],
+    ['isViewing 없어도 만들어짐', F.replace("if(!isViewing) throw new Error('[공지] isViewing 이 필요해요 — 알림함이 보이는지 알려 주는 함수');", ''), 'isViewing 없이'],
     ['업데이트 공지를 받을 때마다 띄움', F.replace("      off();\n      fn(board.updateNotice);", "      fn(board.updateNotice);"), '한 번'],
     ['못 받았는데 업데이트 공지를 띄움', F.replace("if(!everReady) return;\n      off();", "off();"), '못 받았으면'],
-    ['안 보는 중에도 번호를 띄움', F.replace("(manual || viewing())", "true"), '보는 동안만'],
-    ['다시 시도에도 번호 안 띄움', F.replace("(manual || viewing())", "viewing()"), '다시 시도'],
+    ['안 보는 중에도 번호를 띄움', F.replace("(manual || isViewing())", "true"), '보는 동안만'],
+    ['다시 시도에도 번호 안 띄움', F.replace("(manual || isViewing())", "isViewing()"), '다시 시도'],
     ['다시 받기 시간이 안 늘어남', F.replace("    failCount++;\n", ""), '두 배'],
     ['받아도 타이머를 안 거둠', F.replace("failCount = 0; cancelRetry();", "failCount = 0;"), '타이머를 거둔다'],
     ['고정에 옛 판을 실음', F.replace("api.setPinned(id, m.version, !m.pinned)", "api.setPinned(id, 0, !m.pinned)"), '받은 판'],

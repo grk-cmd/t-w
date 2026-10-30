@@ -5,11 +5,11 @@
      받기 실패의 오류 번호는 사용자가 알림함을 보고 있거나 «다시 시도» 를 눌렀을 때만 띄운다(켤 때 화면을 안 열었는데 뜨지 않게).
      쓰는 쪽(알림함 · 런처 배너 · 업데이트 공지 팝업)은 onChange 로 받아 각자 그린다. 관리자 소식 쓰기(올리기 · 고정 · 내리기)도 여기를 지난다 — 서버가 «됐다» 하면 다시 받는다.
    deps: api — createNoticeApi 가 돌려준 것(notice-api.js) · rt — 알림 걸기(TwRtHub.store.on('notices', fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) ·
-         (알림함이 지금 보이나는 setViewing(fn) 으로 건다 — 기본은 «안 보임») · retryDelay(n) → 다시 받기까지 ms(TwRetryDelay.delay) · setTimer(fn, ms) → id · clearTimer(id)
+         isViewing() → 알림함이 지금 보이나(필수 — 없으면 만들 때 던진다) · retryDelay(n) → 다시 받기까지 ms(TwRetryDelay.delay) · setTimer(fn, ms) → id · clearTimer(id)
    내보냄: createNoticeFeed(deps) → {
      start() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · ready() → 한 번이라도 받았나 · broadcasts() → { id: 소식 } · hasMore() ·
      updateNotice() → {title, body, ts}|null · banner() → [{img, link}] ·
-     onceReady(fn) → fn(처음 받은 판의 업데이트 공지) 를 처음 받았을 때 딱 한 번(못 받은 뒤 받아도 한 번) · onChange(fn) → 해제 함수 — fn({ addedIds }) : 받은 뒤(처음 받은 판의 소식은 «새 소식» 으로 치지 않는다)
+     onceReady(fn) → fn(업데이트 공지) 를 딱 한 번 — 이미 받았으면 바로, 아니면 처음 받았을 때(못 받은 뒤 받아도 한 번) · onChange(fn) → 해제 함수 — fn({ addedIds }) : 받은 뒤(처음 받은 판의 소식은 «새 소식» 으로 치지 않는다)
      sendBroadcast(o) → Promise<boolean> · togglePin(id) → Promise<boolean> · remove(id) → Promise<boolean>
    }
    ⚠️ broadcasts() 는 받을 때마다 새 객체다 — 받은 값을 고치지 말 것(고정은 togglePin).
@@ -23,7 +23,8 @@ const STATUS = Object.freeze({ IDLE: 'idle', LOADING: 'loading', READY: 'ready',
 function createNoticeFeed(deps){
   const api = deps.api;
   const notifyError = deps.notifyError;
-  let viewing = () => false;   // 알림함이 보이나 — setViewing 으로 잇는다(알림함 모듈을 deps 로 받으면 서로를 부르는 순환이 된다)
+  const isViewing = deps.isViewing;
+  if(!isViewing) throw new Error('[공지] isViewing 이 필요해요 — 알림함이 보이는지 알려 주는 함수');
   const retryDelay = deps.retryDelay;
   const setTimer = deps.setTimer;
   const clearTimer = deps.clearTimer;
@@ -56,7 +57,7 @@ function createNoticeFeed(deps){
       try{ got = await api.fetchBoard(); }
       catch(e){
         status = STATUS.ERROR;
-        if(!failStreak && (manual || viewing())){ failStreak = true; notifyError('E-MH-09', e); }   // 이어지는 실패는 한 번만 · 화면을 안 보는 동안은 번호를 띄우지 않는다
+        if(!failStreak && (manual || isViewing())){ failStreak = true; notifyError('E-MH-09', e); }   // 이어지는 실패는 한 번만 · 화면을 안 보는 동안은 번호를 띄우지 않는다
         scheduleRetry();
         emit([]);
         return false;
@@ -101,6 +102,7 @@ function createNoticeFeed(deps){
 
   /* 처음 받았을 때 한 번 — 못 받은 뒤 받아도 · 그 뒤 다시 받아도 한 번뿐 */
   function onceReady(fn){
+    if(everReady){ fn(board.updateNotice); return; }   // 이미 받았으면 바로 한 번
     const off = onChange((e) => {
       if(!everReady) return;
       off();
@@ -110,7 +112,6 @@ function createNoticeFeed(deps){
   function onChange(fn){ subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; }
 
   return {
-    setViewing: (fn) => { viewing = fn; },
     start, refresh, onceReady, sendBroadcast, togglePin, remove,
     status: () => status, ready: () => everReady, broadcasts: () => board.broadcasts, hasMore: () => board.hasMore,
     updateNotice: () => board.updateNotice, banner: () => board.banner,

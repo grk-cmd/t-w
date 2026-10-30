@@ -86,15 +86,18 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+  isViewing: _mailboxVisible,   // 알림함이 보이나(app.js 함수) — 필수, 없으면 만들 때 던진다
+  retryDelay: TwRetryDelay.delay, setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id),   // 스스로 다시 받기
 });
 TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
 ```
 
-**내놓는 것** — `notice-feed`: `start()` · `refresh()` · `status()` · `ready()` · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
+**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()` · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
 쓰는 곳: 알림함 «소식» 칸(`myhome-inbox.js` · `myhome-init.js` 가 새 소식 토스트) · 런처 배너(`ad-banner.js` · 설정 패널 배너 `settings-panel.js`) · 업데이트 공지 팝업(app.js — 처음 받았을 때 한 번).
 확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
 
-**오류 번호** — `E-MH-09`(받기 실패 · 이어지는 동안 한 번) · `E-MH-12`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
+**오류 번호** — `E-MH-09`(받기 실패 · **알림함이 보이는 동안이거나 «다시 시도» 때만** · 이어지는 동안 한 번) · `E-MH-12`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
+못 받으면 **스스로 다시 받는다**(30초부터 두 배씩 10분 상한 — `shared/retry-delay.js`) · 받으면 거둔다. 한 번 받은 뒤 닫힌 동안 실패한 채 알림함을 열면 `myhome-inbox.js` 가 manual 로 한 번 다시 받는다.
 
 **함정**
 - 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).
