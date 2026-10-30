@@ -137,6 +137,7 @@ function syncFriendsOpen(){
     _step('친구 목록', ()=>inboxMod.renderMyHomeFriendList());
     _step('마이홈 페이지', ()=>{ loadMyHomePage(); });   // ★ 마이홈 탭이 기본으로 열리므로 프로필 데이터도 같이 로드
     setMyHomeOpen(true);
+    _step('우편함 다시 받기', ()=>{ if(overlay.querySelector('.mh-tab.on')?.dataset.tab==='mail') inboxMod.retryIfFailed(); });   // 알림함 탭이 켜진 채 닫았다 다시 열면 탭 누르기를 안 거친다
     _step('창 크기', ()=>{ applyDesktopRunClass(); });   // 런처에서 열렸으면 창을 생성기처럼 넓게
     _step('방명록 뱃지', ()=>{ _mhGbStartWatch(); });   // 방명록 새 글 뱃지 감시 시작
     // ★ 마이홈4 후속: 창이 화면에 렌더된 뒤 한 프레임 기다렸다가 BGM 창에 좌표 전달(마이홈이 열리자마자
@@ -249,7 +250,7 @@ function syncFriendsOpen(){
       renderMyHomeStickers();
       // 📩 우편함 탭에 들어올 때 수령함을 그림 — 예전엔 친구 탭 옆에 늘 떠 있어서
       //   renderMhChat 이 대신 그려주고 있었다. 이제 자기 탭이 생겼으니 여기서 그린다.
-      if(tab.dataset.tab==='mail'){ inboxMod.inboxEnter(); inboxMod.renderInbox(); }   // 안 읽은 우편이 있으면 우편, 없으면 소식부터
+      if(tab.dataset.tab==='mail'){ inboxMod.inboxEnter(); inboxMod.retryIfFailed(); inboxMod.renderInbox(); }   // 안 읽은 우편이 있으면 우편, 없으면 소식부터
       if(tab.dataset.tab==='help') helpTab.enter();   // 📘 처음이면 틀을 열고, 테마가 바뀌었거나 못 불러왔으면 다시 연다
       // 👥 친구 탭에 들어올 때 오른쪽 '친구 관리' 칸을 그림 (받은 요청 / 선물함)
       if(tab.dataset.tab==='friend') friendManage.renderFriendManage();

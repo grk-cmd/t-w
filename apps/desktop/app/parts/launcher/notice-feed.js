@@ -7,7 +7,7 @@
    deps: api — createNoticeApi 가 돌려준 것(notice-api.js) · rt — 알림 걸기(TwRtHub.store.on('notices', fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) ·
          isViewing() → 알림함이 지금 보이나(필수 — 없으면 만들 때 던진다) · retryDelay(n) → 다시 받기까지 ms(TwRetryDelay.delay) · setTimer(fn, ms) → id · clearTimer(id)
    내보냄: createNoticeFeed(deps) → {
-     start() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · ready() → 한 번이라도 받았나 · broadcasts() → { id: 소식 } · hasMore() ·
+     start() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · ready() → 한 번이라도 받았나 · busy() → 지금 받는 중인가 · STATUS(상태 이름 상수) · broadcasts() → { id: 소식 } · hasMore() ·
      updateNotice() → {title, body, ts}|null · banner() → [{img, link}] ·
      onceReady(fn) → fn(업데이트 공지) 를 딱 한 번 — 이미 받았으면 바로, 아니면 처음 받았을 때(못 받은 뒤 받아도 한 번) · onChange(fn) → 해제 함수 — fn({ addedIds }) : 받은 뒤(처음 받은 판의 소식은 «새 소식» 으로 치지 않는다)
      sendBroadcast(o) → Promise<boolean> · togglePin(id) → Promise<boolean> · remove(id) → Promise<boolean>
@@ -113,7 +113,7 @@ function createNoticeFeed(deps){
 
   return {
     start, refresh, onceReady, sendBroadcast, togglePin, remove,
-    status: () => status, ready: () => everReady, broadcasts: () => board.broadcasts, hasMore: () => board.hasMore,
+    STATUS, busy: () => flying, status: () => status, ready: () => everReady, broadcasts: () => board.broadcasts, hasMore: () => board.hasMore,
     updateNotice: () => board.updateNotice, banner: () => board.banner,
     onChange,
   };

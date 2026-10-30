@@ -110,6 +110,7 @@ function mkEnv(o){
   /* 📩 우편 · 📢 소식 한 벌(mail-feed.js · notice-feed.js)의 가짜 — 서버 쓰기는 부른 것을 적고 됐다고 답한다. 상태는 손으로 */
   env.mailStatus = 'ready'; env.mailReady = true; env.noticeStatus = 'ready'; env.noticeReady = true; env.mailUnread = null; env.refreshed = [];
   env.mailFeed = {
+    STATUS: { ERROR: 'error' }, busy: () => !!env.mailBusy,
     items: () => env.myInbox, status: () => env.mailStatus, ready: () => env.mailReady,
     unread: () => (env.mailUnread == null ? Object.values(env.myInbox).filter((m) => !m.read).length : env.mailUnread),
     refresh: (o) => { env.refreshed.push('mail' + (o && o.manual ? '!' : '')); return Promise.resolve(true); },
@@ -119,6 +120,7 @@ function mkEnv(o){
     removeMany: async (ids) => { for(const id of ids) env.calls.push('deleteInboxMessage ME01 ' + id); return env.removeManyN == null ? ids.length : env.removeManyN; },
   };
   env.noticeFeed = {
+    STATUS: { ERROR: 'error' }, busy: () => !!env.noticeBusy,
     broadcasts: () => env.bc, status: () => env.noticeStatus, ready: () => env.noticeReady,
     refresh: (o) => { env.refreshed.push('news' + (o && o.manual ? '!' : '')); return Promise.resolve(true); },
     remove: async (id) => { env.calls.push('deleteInboxBroadcast ' + id); return true; },
@@ -333,13 +335,20 @@ async function behave(src){
     e.mailReady = true; e.mailStatus = 'ready'; e.noticeReady = true; e.noticeStatus = 'ready';
     /* 한 번 받은 뒤 닫힌 동안 실패(error)한 채 열면 한 번 다시 받는다(manual) — 보는 중 실패면 번호가 뜬다 */
     e.refreshed = []; e.mailStatus = 'error'; e.noticeStatus = 'ready';
-    m.inboxEnter();
-    chk(e.refreshed.join() === 'mail!', 'ready 뒤 error 인 채 알림함을 열면 우편을 manual 로 한 번 다시 받는다(소식은 정상이라 안 부름)');
+    m.retryIfFailed();
+    chk(e.refreshed.join() === 'mail!', 'ready 뒤 error 인 채 알림함이 나타나면 우편을 manual 로 한 번 다시 받는다(소식은 정상이라 안 부름)');
     e.refreshed = []; e.mailStatus = 'ready'; e.noticeStatus = 'error';
-    m.inboxEnter();
+    m.retryIfFailed();
     chk(e.refreshed.join() === 'news!', '  소식도 같다');
-    e.refreshed = []; e.noticeStatus = 'ready'; m.inboxEnter();
-    chk(e.refreshed.length === 0, '  둘 다 정상이면 열어도 다시 받지 않는다(요청 수 그대로)');
+    e.refreshed = []; e.noticeStatus = 'ready'; m.retryIfFailed();
+    chk(e.refreshed.length === 0, '  둘 다 정상이면 다시 받지 않는다(요청 수 그대로)');
+    e.refreshed = []; e.mailStatus = 'error'; e.noticeStatus = 'error'; e.mailBusy = true;
+    m.retryIfFailed();
+    chk(e.refreshed.join() === 'news!', '  이미 받는 중인 피드(자동 다시 받기가 날아가는 중)는 부르지 않는다 — 소식만');
+    e.mailBusy = false; e.mailStatus = 'error'; e.noticeStatus = 'error'; e.refreshed = [];
+    m.setInboxSec('news'); m.inboxEnter();
+    chk(e.refreshed.length === 0, '  칸 고르기(inboxEnter)는 다시 받기와 별개 — error 여도 부르지 않는다');
+    e.mailStatus = 'ready'; e.noticeStatus = 'ready';
 
     say('── 3-3. 처음 칸');
     m.setInboxSec('help'); m.renderInbox();
@@ -559,7 +568,9 @@ function wiring(MI, APP, HTML){
   const uses = ['inboxMod.renderMyHomeFriendList()', 'inboxMod.renderInbox()', 'inboxMod.renderGiftBox(', 'inboxMod.giftStat(', 'inboxMod.inboxTimeStr(', 'inboxMod.inboxTagLabel(',
     'inboxMod.inboxUnreadCount()', 'inboxMod.refreshFriendTabBadge()', 'inboxMod.markAllRead()', 'inboxMod.linkifyText(', 'inboxMod.bindExtLinks(', 'inboxMod.friendInRoom(',
     'inboxMod.friendSearchToggle(', 'inboxMod.setInboxFilter(', 'inboxMod.setInboxOpenId(null)', 'inboxMod.setFriendFilter(',
-    'inboxMod.inboxEnter(); inboxMod.renderInbox();', 'inboxMod.setInboxSec(', 'inboxMod.inboxClearRead()'];
+    'inboxMod.inboxEnter(); inboxMod.retryIfFailed(); inboxMod.renderInbox();', 'inboxMod.setInboxSec(', 'inboxMod.inboxClearRead()'];
+  const retryCalls = (A.match(/inboxMod\.retryIfFailed\(\)/g) || []).length;
+  chk(retryCalls === 2 && /_step\('우편함 다시 받기', \(\)=>\{ if\(overlay\.querySelector\('\.mh-tab\.on'\)\?\.dataset\.tab==='mail'\) inboxMod\.retryIfFailed\(\); \}\);/.test(A), '알림함 다시 받기는 탭 누르기와 마이홈 열기(open) 두 길에서 부른다(알림함 탭이 켜진 채 닫았다 열어도)');
   const lost = uses.filter(u => A.indexOf(u) < 0);
   chk(!lost.length, '부르는 곳 — 마이홈 열기 · 버튼 연결 · 공지 팝업 · 스케줄러 · 친구 관리 · 방 초대' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
   const iC = HTML.indexOf('<script src="parts/chat/chat-window.js"></script>'), iM = HTML.indexOf('<script src="parts/myhome/myhome-inbox.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
@@ -615,9 +626,12 @@ async function runAll(MI, APP, HTML){
     ['MI', "if(_pendingNotice(listEl, noticeFeed, '소식')){ viewEl.innerHTML = ''; return; }", "", '소식을 못 받았는데 «소식이 없어요» 로 그림'],
     ['MI', "retry.onclick = ()=>{ feed.refresh({ manual: true }); };", "", '못 받음에 다시 시도 길이 없음'],
     ['MI', "retry.onclick = ()=>{ feed.refresh({ manual: true }); };", "retry.onclick = ()=>{ feed.refresh(); };", '다시 시도가 manual 이 아님(못 받아도 번호가 안 뜸)'],
-    ['MI', "  if(mailFeed.status() === 'error') mailFeed.refresh({ manual: true });", '', '열 때 우편 error 를 다시 안 받음'],
-    ['MI', "  if(noticeFeed.status() === 'error') noticeFeed.refresh({ manual: true });", '', '열 때 소식 error 를 다시 안 받음'],
-    ['MI', "if(mailFeed.status() === 'error') mailFeed.refresh({ manual: true });", "if(mailFeed.status() === 'error') mailFeed.refresh();", '열 때 다시 받기가 manual 이 아님(번호가 안 뜸)'],
+    ['MI', "if(feed.status() === feed.STATUS.ERROR && !feed.busy()) feed.refresh({ manual: true });", '', 'error 인 피드를 다시 안 받음'],
+    ['MI', "if(feed.status() === feed.STATUS.ERROR && !feed.busy()) feed.refresh({ manual: true });", "if(feed.status() === feed.STATUS.ERROR && !feed.busy()) feed.refresh();", '다시 받기가 manual 이 아님(번호가 안 뜸)'],
+    ['MI', "if(feed.status() === feed.STATUS.ERROR && !feed.busy())", "if(feed.status() === feed.STATUS.ERROR)", '받는 중인데 또 부름(busy 확인 빼기)'],
+    ['MI', "  _inboxOpenId = null;\n}\n/* 📩 알림함이 눈앞에", "  _inboxOpenId = null; retryIfFailed();\n}\n/* 📩 알림함이 눈앞에", '칸 고르기가 다시 받기까지 함'],
+    ['APP', "_step('우편함 다시 받기', ()=>{ if(overlay.querySelector('.mh-tab.on')?.dataset.tab==='mail') inboxMod.retryIfFailed(); });", '', '창 열기 길에서 알림함 다시 받기를 안 부름'],
+    ['APP', "inboxMod.inboxEnter(); inboxMod.retryIfFailed(); inboxMod.renderInbox();", "inboxMod.inboxEnter(); inboxMod.renderInbox();", '탭 누르기 길에서 알림함 다시 받기를 안 부름'],
     ['MI', "merged[id].read && merged[id]._src === 'personal'", "merged[id]._src === 'personal'", '안 읽은 우편까지 지움'],
     ['MI', "  _mhAsk('읽은 우편 지우기',", "  ({ label:'지우기', run: async ()=>{ await mailFeed.removeMany(ids); } }).run(); (()=>0)('읽은 우편 지우기',", '확인창 없이 지움'],
     ['MI', "if(_newsOpenId && ids.indexOf(_newsOpenId) < 0) _newsOpenId = null;", '', '목록에서 빠진 글의 본문이 남음'],
@@ -651,7 +665,7 @@ async function runAll(MI, APP, HTML){
     ['APP', 'roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),', 'roomTagOf: f=>f.room,', '놀러 가기가 방 판정을 복사'],
     ['HTML', '<script src="parts/myhome/myhome-inbox.js"></script>', '', 'html 이 모듈을 안 실음'],
     ['HTML', '<script src="parts/myhome/inbox-sections.js"></script>', '', 'html 이 칸 나누기 규칙을 안 실음'],
-    ['APP', "inboxMod.inboxEnter(); inboxMod.renderInbox();", 'inboxMod.renderInbox();', '우편함 탭에 들어올 때 처음 칸을 안 고름'],
+    ['APP', "inboxMod.inboxEnter(); inboxMod.retryIfFailed(); inboxMod.renderInbox();", 'inboxMod.retryIfFailed(); inboxMod.renderInbox();', '우편함 탭에 들어올 때 처음 칸을 안 고름'],
   ];
   const caught = [];
   for(const [where, from, to, what] of BREAKS){

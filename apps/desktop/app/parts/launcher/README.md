@@ -97,7 +97,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
 확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
 
 **오류 번호** — `E-MH-09`(받기 실패 · **알림함이 보이는 동안이거나 «다시 시도» 때만** · 이어지는 동안 한 번) · `E-MH-12`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
-못 받으면 **스스로 다시 받는다**(30초부터 두 배씩 10분 상한 — `shared/retry-delay.js`) · 받으면 거둔다. 한 번 받은 뒤 닫힌 동안 실패한 채 알림함을 열면 `myhome-inbox.js` 가 manual 로 한 번 다시 받는다.
+못 받으면 **스스로 다시 받는다**(30초부터 두 배씩 10분 상한 — `shared/retry-delay.js`) · 받으면 거둔다. 한 번 받은 뒤 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
 
 **함정**
 - 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).

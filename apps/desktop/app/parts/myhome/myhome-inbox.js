@@ -98,8 +98,13 @@ let _newsOpenId = null;         // 📢 소식 칸에서 고른 글 id
 function _inboxEnter(){
   _inboxSec = inboxSec.firstSec(_inboxMerged(), mailFeed.unread());
   _inboxOpenId = null;
-  if(mailFeed.status() === 'error') mailFeed.refresh({ manual: true });       // 닫힌 동안 실패한 채 열면 한 번 다시 받는다(보는 중 실패면 오류 번호가 뜬다)
-  if(noticeFeed.status() === 'error') noticeFeed.refresh({ manual: true });
+}
+/* 📩 알림함이 눈앞에 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) — 닫힌 동안 실패한(error) 피드는 manual 로 한 번 다시 받는다(보는 중 실패면 오류 번호가 뜬다).
+   이미 받는 중이면 부르지 않는다(자동 다시 받기가 날아가는 중에 또 부르면 끝난 뒤 한 번 더 나간다). 칸 고르기(_inboxEnter)와 별개. */
+function retryIfFailed(){
+  for(const feed of [mailFeed, noticeFeed]){
+    if(feed.status() === feed.STATUS.ERROR && !feed.busy()) feed.refresh({ manual: true });
+  }
 }
 /* 🔒 친구 목록에 보여줄 방 표시 — 시크릿룸이면 빈 문자열(= 표시 없음).
    presence 의 room 값은 친구라면 누구나 읽으므로, 시크릿룸 코드는 애초에 올리지 않는다
@@ -583,7 +588,7 @@ function renderInbox(){
 
 /* 받는 중 · 못 받음 안내 — 받기 전에는 «없다» 로 그리지 않는다(빈 우편 ≠ 못 받음). 안내를 그렸으면 true.
    한 번도 못 받았을 때만 «불러오지 못했어요» + 다시 시도를 그린다. 한 번 받은 뒤의 실패는 앞서 받은 목록을 그대로 보여 준다 —
-   알림함이 닫힌 동안의 실패는 번호도 안 떴으니, 열 때(_inboxEnter) manual 로 한 번 다시 받아 번호가 뜨게 한다. 받기를 시작하지 않은(idle) 기기는 «없음» 으로 그린다. */
+   알림함이 닫힌 동안의 실패는 번호도 안 떴으니, 나타날 때(retryIfFailed — 탭 누르기 · 창 열기) manual 로 한 번 다시 받아 번호가 뜨게 한다. 받기를 시작하지 않은(idle) 기기는 «없음» 으로 그린다. */
 function _pendingNotice(el, feed, label){
   const st = feed.status();
   if(feed.ready() || (st !== 'loading' && st !== 'error')) return false;
@@ -746,6 +751,7 @@ return {
   friendRoomTag: _friendRoomTag,                   // 🔒 친구 방 코드(시크릿룸은 빈 값) — 친구 방 놀러 가기 연결
   friendInRoom: _friendInRoom,                     // 🏠 친구가 방에 있는가 — 방 초대 고르기 창
   renderInbox,                                     // 📩 우편함 그리기 — 수령함 · 공지 구독 · 우편함 탭 · 왼쪽 메뉴 · 종류 · 모두 읽음
+  retryIfFailed,                                   // 📩 닫힌 동안 못 받은 피드를 다시 받는다 — 우편함 탭 누르기 · 마이홈 열기
   inboxEnter: _inboxEnter,                         // 📩 우편함 탭에 들어올 때 처음 보일 칸 고르기 — 마이홈 탭 바꾸기
   setInboxSec: (v)=>{ _inboxSec = v; },            // 📩 왼쪽 세로 메뉴 — 우편 · 소식
   setInboxFilter: (v)=>{ _inboxFilter = v; },      // 📢 소식 종류 — 소식 목록 위 줄

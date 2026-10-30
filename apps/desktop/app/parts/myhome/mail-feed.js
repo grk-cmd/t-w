@@ -12,7 +12,7 @@
    내보냄: createMailFeed(deps) → {
      onChange(fn) → 해제 함수 — fn({ addedIds })(화면 다시 그리기 · 새 우편 토스트 — 받은 뒤 · 고친 뒤 · 처음 받은 판의 우편은 새 우편이 아니다) ·
      start(uid) · stop() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · items() → { id: 우편 } · unread() → 서버가 센 안 읽은 수 ·
-     complete() → 오래된 우편까지 다 받았나 · ready() → 한 번이라도 받았나 ·
+     complete() → 오래된 우편까지 다 받았나 · busy() → 지금 받는 중인가 · STATUS(상태 이름 상수) · ready() → 한 번이라도 받았나 ·
      markRead(id) · markAllRead() → Promise<boolean> · remove(id) → Promise<boolean> · removeMany(ids) → Promise<number>(지운 수)
    }
    ⚠️ items() 는 같은 객체를 돌려준다(받으면 새 객체로 바뀐다) — 고치지 말 것(읽음 · 지우기는 위 함수로).
@@ -154,7 +154,7 @@ function createMailFeed(deps){
   return {
     start, stop, refresh, markRead, markAllRead, remove, removeMany,
     onChange: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
-    status: () => status, items: () => items, unread: () => unread, complete: () => complete, ready: () => everReady,
+    STATUS, busy: () => flying, status: () => status, items: () => items, unread: () => unread, complete: () => complete, ready: () => everReady,
   };
 }
 
