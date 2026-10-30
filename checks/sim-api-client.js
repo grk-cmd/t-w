@@ -4,7 +4,7 @@
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
    3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 404 · 봉투 아님 → unavailable · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · shouldFallback
    4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 성공은 쉬지 않음
-   5. 캐시 · 같은 요청 하나로 · 주소 없음
+   5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
    7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
    8. ETag — 기억 · If-None-Match · 304 면 기억 값 · 계정이 다르면 따로 · 상한 · 오류 봉투(items · Retry-After · 자원 없음 404)
@@ -136,6 +136,21 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const p1 = c2.get('/same'), p2 = c2.get('/same');
     await new Promise((r) => setTimeout(r, 0)); release();
     chk((await p1) === 'x' && (await p2) === 'x' && g.calls.length === 1, '같은 경로를 동시에 부르면 요청은 하나');
+    {
+      /* 로그인 읽기는 누구의 것인지가 열쇠에 든다 — 계정이 바뀌는 사이 앞 계정의 응답에 합쳐지지 않는다 */
+      const rel = [];
+      const q = mkFetch((url, init) => new Promise((r) => { rel.push(() => r(res(200, { success: true, data: init.headers.Authorization }))); }));
+      const tk = { v: jwt('A') };
+      const cq = A.createApiClient({ baseUrl: PROD, fetch: q, getToken: async () => tk.v });
+      const a1 = cq.get('/me', { auth: true }), a2 = cq.get('/me', { auth: true });
+      await new Promise((r) => setTimeout(r, 0));
+      tk.v = jwt('B');
+      const b1 = cq.get('/me', { auth: true });
+      await new Promise((r) => setTimeout(r, 0));
+      rel.forEach((f2) => f2());
+      const [ra, rb, rc] = [await a1, await a2, await b1];
+      chk(q.calls.length === 2 && ra === rb && rc !== ra, '★ 로그인 읽기 — 같은 사람의 동시 요청은 하나로 · 계정이 바뀐 뒤 요청은 앞 계정 응답에 합쳐지지 않고 따로 간다');
+    }
     const e = await err(A.createApiClient({ baseUrl: '', fetch: f }).get('/x'));
     const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: null }).get('/x'));
     chk(e.kind === 'unavailable' && e.code === 'NO_API' && e2.code === 'NO_API', '주소 · fetch 가 없으면 곧장 unavailable(NO_API)');
@@ -171,7 +186,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const f = mkFetch((url, init) => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: init.headers.Authorization })));
     const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async (force) => { forces.push(force); return force ? 'fresh' : 'old'; }, deviceId: () => 'dev-0001' });
     const v = await c.get('/v1/me', { auth: true });
-    chk(v === 'Bearer fresh' && forces.join(',') === 'false,true' && f.calls.length === 2, '401 AUTH_REQUIRED(토큰이 막 끝남) → 새 토큰(force)으로 한 번만 다시');
+    chk(v === 'Bearer fresh' && forces.join(',') === 'false,false,true' && f.calls.length === 2, '401 AUTH_REQUIRED(토큰이 막 끝남) → 새 토큰(force)으로 한 번만 다시(첫 읽기는 «누구» 확인용)');
     chk(f.calls[0].init.headers['X-Device-Id'] === 'dev-0001' && A.DEVICE_HEADER === 'X-Device-Id', '  ↳ 로그인 요청에 이 기기 머리 X-Device-Id');
     const g = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
     const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: g, getToken: async () => 't' }).get('/x', { auth: true }));
@@ -289,7 +304,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         ok(f.calls[3].init.method === 'DELETE' && f.calls[3].init.body === undefined && f.calls[3].init.headers.Authorization === 'Bearer tk');
         let n = 0; const forces = [];
         const g = mkFetch(() => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: 1 })));
-        ok((await M.createApiClient({ baseUrl: PROD, fetch: g, getToken: async (x) => { forces.push(x); return 't'; } }).get('/r', { auth: true })) === 1 && forces[1] === true);
+        ok((await M.createApiClient({ baseUrl: PROD, fetch: g, getToken: async (x) => { forces.push(x); return 't'; } }).get('/r', { auth: true })) === 1 && forces[forces.length - 1] === true);
         const h = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
         await err(M.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/r', { auth: true }));
         ok(h.calls.length === 2);
@@ -308,6 +323,17 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         const cu = M.createApiClient({ baseUrl: PROD, fetch: u, getToken: async () => tk.v });
         await cu.get('/me', { auth: true }); tk.v = jwt('B');
         ok((await cu.get('/me', { auth: true })) === null);
+        const rel = [];
+        const q = mkFetch((url, init) => new Promise((r) => { rel.push(() => r(res(200, { success: true, data: init.headers.Authorization }))); }));
+        const tq = { v: jwt('A') };
+        const cq = M.createApiClient({ baseUrl: PROD, fetch: q, getToken: async () => tq.v });
+        const a1 = cq.get('/me', { auth: true });
+        await new Promise((r) => setTimeout(r, 0));
+        tq.v = jwt('B');
+        const b1 = cq.get('/me', { auth: true });
+        await new Promise((r) => setTimeout(r, 0));
+        rel.forEach((f2) => f2());
+        ok(q.calls.length === 2 && (await a1) !== (await b1));
         const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, fetch: async () => { throw new TypeError('x'); } };
         w.window = w;
         vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
@@ -328,6 +354,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ["    o.auth = o.auth !== false;", "", '쓰기가 로그인 없이 감'],
       ["    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0,", "    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch,", '로그인 통로가 쉬기를 씀'],
       ["if(method !== 'GET' && !(method === 'DELETE' && o.body === undefined)){", "if(method !== 'GET'){", '본문 없는 DELETE 에 null 본문'],
+      ["    if(o.auth) return whoOf().then((who) => joined('A ' + who + ' ' + path, path, o));", "    if(o.auth) return joined('A ' + path, path, o);", '같은 요청 합치기에 누구가 안 들어감'],
       ["        memoKey = a.who + ' ' + path;", "        memoKey = path;", 'ETag 기억을 계정끼리 섞음'],
     ];
     const missed = [];

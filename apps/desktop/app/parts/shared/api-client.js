@@ -96,7 +96,7 @@ function createApiClient(deps){
   const onRequest = d.onRequest || (() => {});
   const etagMax = d.etagMax || ETAG_MAX;
   const cache = new Map();      // path → { data, until }
-  const inflight = new Map();   // 'A '|'P ' + path → Promise
+  const inflight = new Map();   // 'A ' + 누구 + ' ' + path | 'P ' + path → Promise
   const etags = new Map();      // 누구 + ' ' + path → { etag, data } (넣은 차례 = 오래된 차례)
   let downUntil = 0;
 
@@ -181,6 +181,13 @@ function createApiClient(deps){
     });
   }
 
+  /* 로그인 읽기의 «누구» — 같은 요청 합치기 열쇠에 넣는다. 토큰이 없으면 '' (보내는 쪽이 NO_TOKEN 으로 거절) */
+  async function whoOf(){
+    let tok = null;
+    try{ tok = getToken ? await getToken(false) : null; }catch(_){ tok = null; }
+    return tok ? tokenOwner(tok) : '';
+  }
+
   /* opts: { cacheMs, timeoutMs, auth, headers } */
   function get(path, opts){
     const o = Object.assign({}, opts || {}, { method: 'GET' });
@@ -188,7 +195,11 @@ function createApiClient(deps){
     const c = o.auth ? null : cache.get(path);
     if(c && c.until > now()) return Promise.resolve(c.data);
     if(downUntil > now()) return Promise.reject(new ApiError('unavailable', 0, 'BACKOFF', 'API 를 잠깐 쉬는 중'));
-    const key = (o.auth ? 'A ' : 'P ') + path;
+    /* ★ 로그인 읽기는 «누구» 가 열쇠에 든다(ETag 기억 열쇠와 같게) — 계정이 바뀌는 사이 앞 계정의 응답에 합쳐지지 않게 */
+    if(o.auth) return whoOf().then((who) => joined('A ' + who + ' ' + path, path, o));
+    return joined('P ' + path, path, o);
+  }
+  function joined(key, path, o){
     if(inflight.has(key)) return inflight.get(key);
     onRequest();
     const p = send(path, o.timeoutMs || timeoutMs, o).then((data) => {
