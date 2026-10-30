@@ -228,3 +228,32 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 **함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
 
 검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).
+
+## `schedule-api.js` — 🌐 일정 · 디데이 · 일정 알림 서버 길 provider
+
+- **책임**: 내 달력 한 달 읽기 · 일정 쓰기 · 지우기(`GET` · `POST` · `DELETE /v1/me/schedules`) · 남의 공개 일정(`GET /v1/schedules/{userCode}`) · 디데이 보드 통째 읽기 · 통째 저장(`GET` · `PUT /v1/me/ddays`) · 남의 공개 보드(`GET /v1/ddays/{userCode}`) · 친구가 태그한 알림(`GET` · `DELETE /v1/me/notifications` 의 🔔 칸). 서버 모양(`visibility` · `countFromOne` · `bgImage` · `cards` / `banners` 두 목록)을 화면 모양(`public` · `base1` · `bgImg` · `kind` · `order`)으로 맞추는 곳은 여기뿐이다. 신원은 토큰(`/v1/me/…`) — 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐).
+- **만드는 법**: `TwScheduleApi.createScheduleApi({ authed, newId, uploadImage, warn })` — app.js 가 스케줄러보다 먼저 만들어 `scheduleApi` deps 로 넘긴다.
+- **deps**: `authed`(`TwApi.authed`) · `newId`(`TwRequestId.newId` — 일정 쓰기의 요청 번호) · `uploadImage(dataUrl)` → `{ ok, url }`(카드 그림을 우리 저장소에 올림 — 서버는 `users/{내 코드}/dday_…` 주소만 받는다) · `warn`.
+- **내보내는 것**: `fetchMonth(uid, ym)` · `fetchMonthOf(userCode, ym)` · `createItem(uid, { date, text, public, tagFriends })` · `deleteItem(uid, id, version)` · `fetchBoard(uid)` · `fetchBoardOf(userCode)` · `saveBoard(uid, ddays, tag)` · `fetchBell(uid)` · `deleteBell(uid, id)` · `orderedIds(ddays, kind)`(그리기와 저장이 같은 순서를 쓰는 순수 함수) · `reset()`. 모두 못 읽으면 던진다 — 빈 달 · 빈 보드 · 알림 없음은 `{}` 로 돌려줘 «못 읽음» 과 가른다.
+- **함정**
+  - 보드는 **통째**다 — 한 장을 고쳐도 두 목록(카드 · 배너)을 순서대로 다 보낸다. 새 장은 `ddayId` 를 싣지 않고(UUID 가 아닌 임시 열쇠) 서버가 정한 id · 순서로 돌려준 보드가 정답이다. 배너에는 셈법(`countFromOne`) · 배경이 없다.
+  - 저장은 마지막으로 읽은 판을 싣는다. **409 `CONCURRENT_UPDATE` 면 판을 버려** 다시 받기(`fetchBoard`) 전에는 쓰지 못한다(같은 판으로 다시 보내 남의 고침을 덮지 않게). 같은 409 라도 `SCHEDULE_DDAY_FULL`(상한)은 판이 그대로다.
+  - 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽은 뒤 로그인한 사람이 바뀌면 요청 0 으로 `OWNER_CHANGED`. 읽은 적이 없으면(받기 전) `NOT_RECEIVED` — 요청 0.
+  - 카드 그림은 `data:` 로 들고 있다가 저장할 때만 올린다. 하나라도 못 올리면 `IMAGE_UPLOAD` 로 던지고 보드를 보내지 않는다.
+  - 친구를 태그하면 서버가 공개로 바꾸고, **같은 요청이 알림까지 보낸다**(일정만 되고 알림만 빠지는 일이 없다). 보드는 «이번에 저장한 한 장이 속한 목록의 몇 번째» 로 태그를 싣는다.
+  - 서버 일정에는 만든 시각이 없다 — `ts` 는 서버가 준 차례를 잇는 번호일 뿐이다.
+- **검사**: `checks/sim-schedule-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
+
+## `scheduler.js` — 📅 스케줄러 · 🔔 일정 알림 (서버가 원본)
+
+- **책임**: 마이홈 [스케줄러] 탭(달력 · 📌 기념일 카드 · ⏳ D-day 배너) · 🔔 알림창(오늘 일정 · 이정표 기념일 · 친구 태그). 받기 · 쓰기는 `schedule-api.js` 로, 화면과 «오늘 날짜를 이 기기 시간대로 보는» 셈만 여기 있다.
+- **만드는 법**: app.js 가 `MhScheduler.createScheduler({ scheduleApi, apiErrors, notifyError, rtOn, getMyUserId, viewingUserId, myHomeFriends, toast, uiIconEl, escRegisterWindow, closeChipPopups, positionInputBelowChar, inboxUnreadCount, refreshFriendTabBadge, bellSeenKey, twNav })`. `rtOn(kind, fn)` 는 `TwRtHub.store.on` — 서버가 `schedule`(내 일정 · 보드가 다른 기기에서 바뀜) · `notification`(🔔 칸)이 바뀌었다고 알리면 다시 받는다.
+- **내놓는 것**: `renderSchedCalendar` · `renderDdays` · `loadBoard`(로그인 뒤 보드 받기) · `loadMine`(계정 이어받은 뒤 전부 다시 받기) · `reset`(계정을 놓을 때) · `startVisit(친구)` · `endVisit()`(👀 구경) · `refreshBellBadge` · `renderBellList` · `isBellOpen`.
+- **화면 상태**: 달력 · 내 보드 · 친구 보드 각각 받는 중 / 받음 / 못 받음. 받는 중·못 받음은 «빈 목록» 문구가 아니라 «불러오는 중이에요» / «불러오지 못했어요 — 눌러서 다시 시도» 를 그 자리에 보이고(탭을 다시 열어도 다시 받는다), **받기 전에는 쓰기 · 편집창을 잠근다**(받은 값이 덮어 고친 것을 지우지 않게). 받기 실패 알림은 `E-MH-04` 한 번(이어지는 동안).
+- **쓰기**: 일정은 한 번에 하나 — 서버가 돌려준 일정을 달력에 얹는다(달을 통째로 다시 받지 않는다). 보드는 받기와 저장을 `_boardChain` 한 줄로 세운다 — 보내는 중에 또 고쳐도 끝난 뒤의 최신 값에서 이어 보낸다. 409 면 보내지 않고 서버 값을 다시 받아 그린 뒤 `E-NET-05`. 친구 태그 거절은 `E-MH-06`, 상한 초과는 `E-MH-07`, 카드 그림 문제는 `E-MH-05`. 계정이 바뀌는 중(`OWNER_CHANGED`)은 조용히 버린다.
+- **함정**
+  - 서버 일정에 만든 시각이 없어 🔔 뱃지의 «오늘 내 일정» 은 «오늘 알림창을 열어 봤는가»(`tw.bellSeenTs` 의 날짜)로 센다. 친구 태그 알림은 서버 시각을 쓴다.
+  - 친구 구경 중 realtime 알림이 와도 달력은 건드리지 않는다(친구 것이라서) — 내 보드 · 오늘 일정 · 알림만 다시 받는다.
+  - `reset()` 은 세대 번호를 올려 늦게 오는 앞 계정 답을 버린다 — 새 계정 것은 `loadBoard` / `loadMine` 이 받는다.
+  - 계정별로 이 PC 에 남는 값: `tw.bellSeenTs`(app.js `BELL_SEEN_KEY` — 계정 전환 지움 목록). 기기 취향: `tw.annivAreaH`(구분선 높이) · `tw.bellWinPos`(알림창 자리).
+- **검사**: `checks/sim-scheduler.js`(진짜 provider + 가짜 authed 위에서 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 계정 바뀜 · 구경 · 깨 보기).

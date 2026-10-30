@@ -2566,10 +2566,18 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
    함수 deps 도 화살표로 감싼다(부를 때 찾게). ⚠️ 이름을 Scheduler · scheduler 로 짓지 말 것 — 크로미움(Electron) 내장 전역(작업 예약 API)과
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
-let _schedDdaysVisitUnsub = null;        // 👀 관람 중 친구 D-day 구독 끊기 — openFriendHomeView · closeFriendHomeView
+const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 길(/v1/me/schedules · /v1/me/ddays · /v1/me/notifications) — 원본은 서버
+  authed: TwApi.authed,
+  newId: ()=>TwRequestId.newId(),
+  uploadImage: (dataUrl)=>firebaseAPI.uploadDdayImage(getMyUserId(), dataUrl),   // 카드 그림은 우리 저장소에 올린 주소만 서버가 받는다
+  warn: (...a)=>console.warn(...a),
+});
 const mhScheduler = MhScheduler.createScheduler({
+  scheduleApi: scheduleApiMod,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
   getMyUserId: ()=>getMyUserId(),
-  getDisplayName: ()=>getDisplayName(),
   viewingUserId: ()=>mhStateMod._mhViewingUserId(),
   myHomeFriends: ()=>_myHomeFriends,
   toast: (...a)=>toast(...a),
@@ -2854,7 +2862,6 @@ const mhStateMod = TwMyHomeState.createMyHomeState({
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
-  _schedDdaysVisitUnsub: ()=>_schedDdaysVisitUnsub,
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
@@ -2862,7 +2869,6 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   myHomeOpen: ()=>myHomeOpen,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
-  setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
@@ -7098,6 +7104,7 @@ const accountMod = TwAccount.createAccount({
   getMyUserId: (...a)=>getMyUserId(...a),
   acctStateMod: acctStateMod,
   plMod: plMod,
+  mhScheduler: mhScheduler,
   slotSyncMod: ()=>slotSyncMod,
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,

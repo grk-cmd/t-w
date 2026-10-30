@@ -102,10 +102,8 @@ async function initMyHome(){
       catch(e){ _warnOwnerWriteDenied('프로필', e); }
       try{ await ensureMyFriendCode(); }
       catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
-      // 📌 D-day 구독 (스케줄러 우측 목록)
-      if(firebaseAPI.subscribeDdays){
-        firebaseAPI.subscribeDdays(myId, dd=>{ mhScheduler.setDdays(dd || {}); mhScheduler.renderDdays(); mhScheduler.refreshBellBadge(); });
-      }
+      // 📌 D-day 보드 받기 (스케줄러 우측 목록) — 서버가 바뀌었다고 알리면 스케줄러가 알아서 다시 받는다
+      mhScheduler.loadBoard();
       // 👋 나에게 온 친구 요청 구독 — 새 요청이 오면 목록에 뜨고, 처음 도착 시 토스트로 알림.
       //   ★ 이전에는 mhReqSection이 "친구 탭" 안에 있어서 유저가 그 탭을 열지 않으면 요청이 있는지도 모름.
       //     → 요청이 있으면 친구 탭 버튼에 (N) 뱃지 표시 + 마이홈 아이콘에도 자동 뱃지 → 눈에 띄게 함.

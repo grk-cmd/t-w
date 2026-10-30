@@ -50,6 +50,7 @@ const LOGIN_UID_KEY = deps.LOGIN_UID_KEY;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
+const mhScheduler = deps.mhScheduler;   // 📅 스케줄러 — 계정을 놓을 때 비우고 이어받은 계정 것을 서버에서 다시 받는다
 const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
@@ -420,6 +421,7 @@ function _wipeAccountLocal(){
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ slotSyncMod().setSlotsTs(0); slotSyncMod().setSlotsSeen(0); slotSyncMod().setSlotsConflict(null); setExtraSeatSlots([]); }catch(_){}
   try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
+  try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }
@@ -779,6 +781,11 @@ async function _restoreOwnedDataAfterTransfer(){
     plMod.reset();
     plMod.pull();
   }catch(e){ console.warn('[연동] 플레이리스트 복원 실패', e); }
+  // ── 📅 일정 · 디데이 · 일정 알림 — 원본은 서버다. 비우고 저쪽 계정 것을 서버에서 받는다.
+  try{
+    mhScheduler.reset();
+    mhScheduler.loadMine();
+  }catch(e){ console.warn('[연동] 일정 복원 실패', e); }
   // ── 🎰 가챠 보유분 — 연동은 '저쪽 계정 것을 받아온다'가 맞으므로 ts 를 보지 않고 무조건 내려받는다.
   //    (평소 동기화는 최신 기기가 이기는 ts 비교지만, 연동만은 이 기기가 더 최신이어도 저쪽이 정답이다)
   try{

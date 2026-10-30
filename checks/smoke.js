@@ -336,6 +336,7 @@ PRELOAD.push('img-retry.js');
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
    ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
+PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 · 알림 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
 PRELOAD.push('scheduler.js');
 /* weekly-challenge.js — 👑 달성표(앱 FSD 2번). 같은 까닭 — 만들 때 하는 일(로컬 기록 읽기 · 부팅 동기화 · 20초 tick · 버튼 연결)을 같이 굴린다. */
 PRELOAD.push('weekly-challenge.js');

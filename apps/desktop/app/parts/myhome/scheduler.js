@@ -1,29 +1,33 @@
 /* scheduler.js — 📅 스케줄러(마이홈 [스케줄러] 탭: 달력 · 📌 기념일 카드 · ⏳ D-day 배너) + 🔔 일정 알림(상태칩 알림창)
-   app.js 의 두 구역을 그대로 옮긴 모듈이다(앱 FSD 1번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
+   원본은 서버다 — 일정 · 디데이 보드 · 친구가 태그한 알림을 schedule-api.js(provider)로 읽고 쓴다(앱 FSD 1번 — docs/APP_FSD_MAP.md).
 
-   ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
-     바뀐 것은 셋뿐이다.
-       · _mhViewingUserId → viewingUserId() · _myHomeFriends → myHomeFriends()
-         두 값은 app.js 가 나중에 다시 대입하는 let 이라(마이홈 방문 · 친구 구독) 값이 아니라 읽는 함수로 받는다.
-       · BELL_SEEN_KEY 는 deps.bellSeenKey — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로 정의는 app.js 에 남겼다.
+   ★ 받는 동안 · 못 받음 · 받음을 가른다(달력 · 기념일 · D-day 각각). 받기 전에는 고치는 동작을 잠근다 — 받은 값이 덮어 고친 것으로 사라지지 않게.
+     못 받으면 그 자리를 눌러 다시 받는다(빈 목록과 다르게 말한다).
+   ★ 디데이 보드는 통째로 읽고 통째로 저장한다(판 version). 저장은 한 번에 하나씩 줄 세워 보낸다 — 보내는 중에 또 고쳐도 끝난 뒤 최신 값으로 이어 보낸다.
+     다른 기기가 먼저 고쳤으면(409) 덮어쓰지 않고 서버 값을 다시 받아 그리고 알린다.
+   ★ 서버가 바뀌었다고 알리면(realtime `schedule` · `notification`) 다시 받는다. 친구 일정 알림은 서버 알림함의 🔔 칸에서 읽는다.
+   ★ 앱에만 있는 것: 오늘 날짜를 이 기기 시간대로 보는 셈(그날이 1일 · 이정표) · 🔔 읽음 시각 · 창 자리 · 구분선 높이.
+   ★ 다른 구역이 다시 대입하던 상태는 읽는 함수 · 쓰는 함수로 받는다(_mhViewingUserId → viewingUserId() · _myHomeFriends → myHomeFriends()).
+     BELL_SEEN_KEY 는 deps.bellSeenKey — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로 정의는 app.js 에 남겼다.
    ★ createScheduler 는 app.js 의 원래 자리에서 부른다. 만들 때 바로 도는 것(달력 버튼 · D-day 편집창 연결 · 구분선 높이 복원 ·
-     🔔 알림 구독 · 자정 넘김 1분 타이머)이 예전과 같은 순서 · 같은 때에 돈다.
-   ★ 다른 구역이 다시 대입하던 상태(_schedDdays · _schedDdaysVisit)는 setDdays · setDdaysVisit 로 바꾼다.
-   ⚠️ firebaseAPI · localStorage · document 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
-   검사: checks/sim-scheduler.js — 셈(그날이 1일 · 이정표) · 🔔 뱃지 · 알림 목록 · 관람 모드 · app.js 배선. */
+     🔔 알림 받기 · 서버 알림 걸기 · 자정 넘김 1분 타이머)이 예전과 같은 순서 · 같은 때에 돈다.
+   ⚠️ localStorage · document 는 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
+   검사: checks/sim-scheduler.js — 셈 · 🔔 뱃지 · 알림 목록 · 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 관람 모드 · app.js 배선. */
 (function(){
 
 function createScheduler(deps){
 const twNav = deps.twNav;                       // 🧭 창 열기 통로(nav.js) — 🏠 마이홈 열기
+const scheduleApi = deps.scheduleApi;           // 🌐 일정 · 디데이 · 알림 서버 길(schedule-api.js)
+const apiErrors = deps.apiErrors;               // 🧭 서버 오류 → 할 일 · 오류 번호(TwApiErrors.store)
+const notifyError = deps.notifyError;           // 사용자에게 보이는 실패 — 번호 표(shared/error-codes.js)
+const rtOn = deps.rtOn;                         // 🛰 서버가 «바뀌었다» 고 알리는 길(TwRtHub.store.on) → 해제 함수
 const getMyUserId = deps.getMyUserId;
-const getDisplayName = deps.getDisplayName;
 const viewingUserId = deps.viewingUserId;      // 👀 지금 관람 중인 친구 uid(없으면 null) — app.js 의 _mhViewingUserId
 const myHomeFriends = deps.myHomeFriends;      // 👥 친구 목록 캐시 — app.js 의 _myHomeFriends
 const toast = deps.toast;
 const uiIconEl = deps.uiIconEl;
 const escRegisterWindow = deps.escRegisterWindow;
 const _closeChipPopups = deps.closeChipPopups;
-/* 아래 셋은 본문이 typeof 로 묻는다 — 예전과 같이 없으면 건너뛴다. */
 const _positionInputBelowChar = deps.positionInputBelowChar;
 const _inboxUnreadCount = deps.inboxUnreadCount;
 const _refreshFriendTabBadge = deps.refreshFriendTabBadge;
@@ -33,19 +37,52 @@ const _refreshFriendTabBadge = deps.refreshFriendTabBadge;
    우: D-day 목록 (기념일 카운트다운, 최대 5개)
    기본 비공개 — "친구에게 공개"를 체크해야 관람 모드에서 보임.
    친구를 태그하면 그 친구의 🔔 알림함에 기록이 들어감. */
-const ANNIV_MAX = 10;                // 📌 기념일 카드 최대 개수 — 6개 넘으면 3열로 바뀌며 카드가 작아짐
-const DDAY_MAX  = 10;                // ⏳ D-day 배너 최대 개수
+const ANNIV_MAX = scheduleApi.LIMITS.DDAY_PER_KIND;   // 📌 기념일 카드 최대 개수 — 6개 넘으면 3열로 바뀌며 카드가 작아짐
+const DDAY_MAX  = scheduleApi.LIMITS.DDAY_PER_KIND;   // ⏳ D-day 배너 최대 개수
+const KIND = scheduleApi.KIND;                        // 'anniv'(기념일 카드) | 'dday'(배너)
 const DDAY_CARD_IMG_MAX = 150;      // 카드 배경 이미지 리사이즈 상한 (정사각 cover)
+/* 받는 상태 — 달력 · 내 보드 · 친구 보드가 각각 가진다. IDLE(아직 안 물음)은 화면에서 LOADING 과 같게 보인다 */
+const LOAD = Object.freeze({ IDLE: 'idle', LOADING: 'loading', READY: 'ready', ERROR: 'error' });
+const LOAD_TEXT = Object.freeze({ loading: '불러오는 중이에요', error: '불러오지 못했어요 — 눌러서 다시 시도' });
+let _gen = 0;                       // reset 마다 오른다 — 앞 계정의 늦은 답이 새 계정 화면을 건드리지 않게
 let _schedTagTarget = 'sched';      // 지금 태그 팝업이 누구를 위한 것인지: 'sched'(일정) | 'dday'
 let _schedYM        = null;   // 지금 보고 있는 달 'YYYY-MM'
 let _schedSelDD     = null;   // 선택한 날짜 'DD'
-let _schedMonthData = {};     // { DD: { id: {text, public, ts} } }
-let _schedDdays     = {};     // { id: {text, date, public, ts} }
-/* 👀 관람 모드용 — 친구의 D-day 중 "친구에게 공개" 체크된 것만 (구독은 openFriendHomeView에서) */
-let _schedDdaysVisit = null, _schedDdaysVisitUnsub = null;
+let _schedMonthData = {};     // { DD: { id: {text, public, ts, version, date} } }
+let _monthState     = LOAD.IDLE;   // 지금 보는 달(내 것 또는 친구 것)을 받은 상태
+let _monthSeq       = 0;      // 달을 받을 때마다 오른다 — 늦게 온 앞 달 · 앞 사람 답은 버린다
+let _schedDdays     = {};     // { id: {kind, text, date, public, notify, base1, bgColor, bgImg, order, ts} } — 내 보드(서버 값)
+let _boardState     = LOAD.IDLE;
+let _boardChain     = Promise.resolve();   // 내 보드를 받고 · 저장하는 일을 한 줄로 세운다
+/* 👀 관람 모드용 — 친구의 D-day 중 "친구에게 공개" 한 것만 (서버가 공개한 것만 준다) */
+let _schedDdaysVisit = null, _visitBoardState = LOAD.IDLE, _visitSeq = 0;
 function _schedDdaySrc(){ return viewingUserId() ? (_schedDdaysVisit || {}) : _schedDdays; }
+function _ddayStateNow(){ return viewingUserId() ? _visitBoardState : _boardState; }
 let _schedTagSel    = [];     // 지금 등록할 일정에 태그할 친구 uid 목록
-let _schedUnsubMonth = null;
+let _schedAdding    = false;  // 일정 보내는 중 — 한 번에 하나
+let _loadFailing    = false;  // 받기 실패가 이어지는 동안 오류 번호는 한 번만
+
+/* 서버 오류 → 할 일. 기능 표가 공통 표보다 먼저다 */
+const ERR_TABLE = Object.freeze({
+  SCHEDULE_TAG_NOT_FRIEND: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-06', e) },
+  SCHEDULE_TAG_SELF: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-06', e) },
+  SCHEDULE_DDAY_FULL: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-07', e) },
+  SCHEDULE_INVALID_IMAGE_URL: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-05', e) },
+  IMAGE_UPLOAD: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-05', e) },
+  OWNER_CHANGED: { action: 'quiet', notice: null },        // 로그인한 사람이 바뀌는 중 — 곧 reset · 다시 받기가 온다
+  NOT_RECEIVED: { action: 'quiet', notice: null },         // 받기 전 잠금이 먼저 막는다 — 여기까지 오면 조용히
+});
+/* 쓰기 실패 알림. 돌려주는 값 = 다시 받아야 하는가(다른 기기가 먼저 고쳤다 — 409) */
+function _writeFail(e){
+  const t = apiErrors.notify(e, ERR_TABLE);
+  return t.action === 'refetch';
+}
+/* 받기 실패 알림 — 이어지는 동안 한 번만 */
+function _loadFail(e){
+  if(_loadFailing) return;
+  _loadFailing = true;
+  notifyError('E-MH-04', e);
+}
 
 function _pad2(n){ return String(n).padStart(2,'0'); }
 function _todayParts(){ const d=new Date(); return { y:d.getFullYear(), m:d.getMonth()+1, d:d.getDate() }; }
@@ -61,28 +98,34 @@ function _daysBetween(aYMD, bYMD){
   return Math.round((b - a) / 86400000);
 }
 
-/* 이번 달 일정 구독 — 달을 옮길 때마다 이전 구독을 끊고 다시 붙임 */
-function _schedSubscribeMonth(){
-  if(!window.firebaseAPI || !firebaseAPI.subscribeScheduleMonth) return;
-  if(_schedUnsubMonth){ try{ _schedUnsubMonth(); }catch(_){} _schedUnsubMonth = null; }
-  // 👀 관람 중이면 친구의 달력을 — 단 "친구에게 공개" 체크된 일정만 남김
-  const schedOwner = viewingUserId() || getMyUserId();
-  if(!schedOwner) return;   // 내 코드가 없으면 달력을 구독하지 않는다(users/null/schedule)
-  const viewingAtSub = viewingUserId();
-  _schedUnsubMonth = firebaseAPI.subscribeScheduleMonth(schedOwner, _schedYM, data=>{
-    let d = data || {};
-    if(viewingAtSub){
-      const filtered = {};
-      for(const dd in d){ for(const id in d[dd]){
-        const it = d[dd][id];
-        if(it && it.public){ (filtered[dd] = filtered[dd] || {})[id] = it; }
-      } }
-      d = filtered;
-    }
-    _schedMonthData = d;
-    renderSchedGrid();
-    renderSchedDay();
-  });
+/* 보는 달 받기 — 달을 옮길 때마다 다시 받는다. 👀 관람 중이면 친구의 달력(서버가 공개한 일정만).
+   quiet 는 서버가 «바뀌었다» 고 알려서 조용히 다시 받는 것 — 받는 동안 화면을 비우지 않고, 못 받아도 있던 값을 둔다. */
+async function loadMonth(quiet){
+  const friend = viewingUserId();
+  const owner = friend || getMyUserId();
+  if(!owner || !_schedYM) return;   // 내 코드가 없으면 달력을 받지 않는다
+  const seq = ++_monthSeq, ym = _schedYM, gen = _gen;
+  if(!quiet || _monthState !== LOAD.READY){ _monthState = LOAD.LOADING; renderSchedGrid(); renderSchedDay(); }
+  try{
+    const data = friend ? await scheduleApi.fetchMonthOf(friend, ym) : await scheduleApi.fetchMonth(owner, ym);
+    if(seq !== _monthSeq || gen !== _gen) return;
+    _schedMonthData = data; _monthState = LOAD.READY; _loadFailing = false;
+  }catch(e){
+    if(seq !== _monthSeq || gen !== _gen) return;
+    if(quiet && _monthState === LOAD.READY) return;
+    _schedMonthData = {}; _monthState = LOAD.ERROR; _loadFail(e);
+  }
+  renderSchedGrid();
+  renderSchedDay();
+}
+
+/* 받는 중 · 못 받음 안내 한 줄 — 못 받음은 눌러서 다시 받는다 */
+function _statusEl(cls, state, retry){
+  const e = document.createElement('div');
+  e.className = cls;
+  e.textContent = state === LOAD.ERROR ? LOAD_TEXT.error : LOAD_TEXT.loading;
+  if(state === LOAD.ERROR){ e.style.cursor = 'pointer'; e.onclick = retry; }
+  return e;
 }
 
 function renderSchedCalendar(){
@@ -90,8 +133,11 @@ function renderSchedCalendar(){
     const t = _todayParts();
     _schedYM = _ymOf(t.y, t.m);
     _schedSelDD = _pad2(t.d);
-    _schedSubscribeMonth();
+    loadMonth();
+  }else if(_monthState === LOAD.ERROR){
+    loadMonth();   // 탭을 다시 열면 못 받았던 것을 다시 받는다
   }
+  if(!viewingUserId() && (_boardState === LOAD.ERROR || _boardState === LOAD.IDLE) && getMyUserId()) _boardLoad(false);
   const title = document.getElementById('mhSchedTitle');
   const [y,m] = _schedYM.split('-').map(Number);
   if(title) title.textContent = `${y}년 ${m}월`;
@@ -150,6 +196,39 @@ function renderSchedGrid(){
   }
 }
 
+/* 서버가 돌려준 새 일정을 보는 달 · 오늘 목록에 얹는다 */
+function _schedPutItem(item){
+  const dd = item.date.slice(8, 10);
+  if(item.date.slice(0, 7) === _schedYM && !viewingUserId()){
+    const day = (_schedMonthData[dd] = _schedMonthData[dd] || {});
+    const top = Object.keys(_schedMonthData).reduce((m, k) => Object.keys(_schedMonthData[k]).reduce((n, id) => Math.max(n, _schedMonthData[k][id].ts || 0), m), 0);
+    day[item.id] = { text: item.text, public: item.public, ts: top + 1, version: item.version, date: item.date };
+    renderSchedGrid(); renderSchedDay();
+  }
+  if(item.date === _todayYMD()){
+    _bellTodayItems = _bellTodayItems.concat([{ id: item.id, text: item.text }]);
+    refreshBellBadge();
+  }
+}
+
+/* 일정 지우기 — 서버에서 지운 뒤 화면에서 뺀다. 다른 기기가 먼저 고쳤으면(409) 지우지 않고 달을 다시 받는다 */
+async function _schedDeleteItem(id){
+  if(viewingUserId() || _monthState !== LOAD.READY) return;
+  const dd = _schedSelDD, it = (_schedMonthData[dd] || {})[id], gen = _gen;
+  if(!it) return;
+  try{
+    await scheduleApi.deleteItem(getMyUserId(), id, it.version);
+  }catch(e){
+    if(gen !== _gen) return;
+    if(_writeFail(e)) loadMonth(true);
+    return;
+  }
+  if(gen !== _gen) return;
+  if(_schedMonthData[dd]){ delete _schedMonthData[dd][id]; if(!Object.keys(_schedMonthData[dd]).length) delete _schedMonthData[dd]; }
+  _bellTodayItems = _bellTodayItems.filter(x => x.id !== id);
+  renderSchedGrid(); renderSchedDay(); refreshBellBadge();
+}
+
 function renderSchedDay(){
   const titleEl = document.getElementById('mhSchedDayTitle');
   const listEl  = document.getElementById('mhSchedDayList');
@@ -161,6 +240,10 @@ function renderSchedDay(){
   const items = _schedMonthData[_schedSelDD] || {};
   const ids = Object.keys(items).sort((a,b)=> (items[a].ts||0) - (items[b].ts||0));
   listEl.innerHTML = '';
+  if(_monthState !== LOAD.READY){
+    listEl.appendChild(_statusEl('mh-si-empty', _monthState, ()=>loadMonth()));
+    return;
+  }
   if(!ids.length){
     const e = document.createElement('div');
     e.className='mh-si-empty'; e.textContent='등록된 일정이 없어요';
@@ -175,11 +258,7 @@ function renderSchedDay(){
     if(it.public){ const p=document.createElement('span'); p.className='pub'; p.textContent='공개'; row.appendChild(p); }
     if(viewingUserId()){ listEl.appendChild(row); return; }   // 👀 관람: 삭제 × 없이 표시만
     const x = document.createElement('span'); x.className='x'; x.textContent='×'; x.title='삭제';
-    x.onclick = async ()=>{
-      if(!window.firebaseAPI || !firebaseAPI.removeScheduleItem) return;
-      try{ await firebaseAPI.removeScheduleItem(getMyUserId(), _schedYM, _schedSelDD, id); }
-      catch(e){ toast('삭제에 실패했어요'); }
-    };
+    x.onclick = ()=>{ _schedDeleteItem(id); };
     row.appendChild(x);
     listEl.appendChild(row);
   });
@@ -200,14 +279,8 @@ function _shortYMD(ymd){
    ⚠️ 미래 날짜(D-N)에는 안 걸린다. D-N 은 «며칠 남았나»라 세는 방향이 반대다.
      체크를 켜도 D-3 은 D-3 그대로다 — 그래서 배너에는 이 체크박스를 아예 안 보여 준다. */
 function _ddayBase1(dd){
-  if(!dd) return false;
-  /* ⏳ 배너는 D-N 이 본체다. 지난 뒤의 경과일은 곁다리라 예전 셈법을 그대로 둔다. */
-  if(dd.kind === 'dday') return false;
-  /* ★ 필드가 없는 «예전 기념일»은 켜진 것으로 본다.
-     [왜] 그래야 이미 하루 모자란 채로 쓰던 사람이 아무것도 안 해도 고쳐진다. 대가는
-       업데이트 다음 접속에 기존 기념일 숫자가 일제히 하루 늘어난다는 것이다.
-       반대로 두면(꺼진 것으로 보면) 화면은 안 바뀌지만 제보한 사람은 직접 수정해야 고쳐진다. */
-  return dd.base1 !== false;
+  /* ⏳ 배너는 D-N 이 본체다. 지난 뒤의 경과일은 곁다리라 예전 셈법을 그대로 둔다. 기념일 카드의 값은 서버가 늘 정해서 준다(처음 만들 땐 켜짐). */
+  return !!dd && dd.kind !== KIND.BANNER && dd.base1 === true;
 }
 /* 오늘 화면에 나올 «며칠째». 음수면 아직 오지 않은 날이다. */
 function _ddayShownDays(dd, todayYMD){
@@ -230,7 +303,14 @@ function renderAnnivCards(){
   const grid = document.getElementById('mhDdayGrid');
   if(!grid) return;
   const today = _todayYMD();
-  const ids = _ddayOrderedIds('anniv');
+  const state = _ddayStateNow();
+  if(state !== LOAD.READY){
+    grid.className = 'cols3';
+    grid.innerHTML = '';
+    grid.appendChild(_statusEl('mh-dban-empty', state, _ddayRetry));
+    return;
+  }
+  const ids = _ddayOrderedIds(KIND.CARD);
 
   // 열 수 결정 — 카드 전체가 스크롤 없이 영역 안에 들어가는 최소 열 수를 찾음.
   //   구분선을 위로 끌어 영역이 낮아지면 열이 늘어나 카드가 실제로 작아짐(스크롤 대신).
@@ -317,8 +397,13 @@ function renderDdayBanners(){
   const wrap = document.getElementById('mhDdayBanners');
   if(!wrap) return;
   const today = _todayYMD();
-  const ids = _ddayOrderedIds('dday');
   wrap.innerHTML = '';
+  const state = _ddayStateNow();
+  if(state !== LOAD.READY){
+    wrap.appendChild(_statusEl('mh-dban-empty', state, _ddayRetry));
+    return;
+  }
+  const ids = _ddayOrderedIds(KIND.BANNER);
 
   ids.forEach(id=>{
     const dd = _schedDdaySrc()[id];
@@ -349,12 +434,7 @@ function renderDdayBanners(){
     cnt.textContent = lab.txt;
 
     const x = document.createElement('span'); x.className='db-x'; x.textContent='×'; x.title='삭제';
-    x.onclick = async (e)=>{
-      e.stopPropagation();
-      if(!window.firebaseAPI || !firebaseAPI.removeDday) return;
-      try{ await firebaseAPI.removeDday(getMyUserId(), id); toast('D-day를 삭제했어요'); }
-      catch(err){ toast('삭제에 실패했어요'); }
-    };
+    x.onclick = (e)=>{ e.stopPropagation(); _ddayDelete(id); };
 
     ban.appendChild(main); ban.appendChild(badges); ban.appendChild(cnt); ban.appendChild(x);
     ban.title = '우클릭: 수정 · 드래그: 순서 변경';
@@ -401,41 +481,82 @@ function _ddayBindDrag(el, id, kind){
   });
 }
 
-/* 카드 표시 순서 — 유저가 드래그로 정한 순서(order 필드)를 우선, 없으면 등록순 */
+/* 카드 표시 순서 — 서버가 준 순서(order), 같으면 만든 순. 저장도 같은 함수로 순서를 낸다 */
 function _ddayOrderedIds(kind){
-  // kind 미지정(옛 데이터)은 기념일로 간주 — 기존에 만들어둔 카드가 사라지지 않게
-  const src = _schedDdaySrc();
-  const ids = Object.keys(src||{}).filter(id=>{
-    const k = src[id].kind === 'dday' ? 'dday' : 'anniv';
-    return k === kind;
+  return scheduleApi.orderedIds(_schedDdaySrc(), kind);
+}
+
+/* ═══ 🎂 내 보드 받기 · 저장 — 한 줄로 세운다 ═══
+   받기와 저장이 겹치면 늦게 끝난 쪽이 최신 값을 덮을 수 있다. 그래서 둘 다 _boardChain 에 이어 붙여 한 번에 하나만 돈다 —
+   저장은 돌 차례가 되었을 때의 _schedDdays(그 사이 서버가 알려 받은 값 · 먼저 끝난 저장의 결과)에서 시작한다. */
+function _boardRun(fn){
+  const run = _boardChain.then(fn);
+  _boardChain = run.catch(()=>{});
+  return run;
+}
+async function _boardFetchNow(quiet){
+  const me = getMyUserId(), gen = _gen;
+  if(!me) return;
+  if(!quiet || _boardState !== LOAD.READY){ _boardState = LOAD.LOADING; renderDdays(); }
+  try{
+    const dd = await scheduleApi.fetchBoard(me);
+    if(gen !== _gen) return;
+    _schedDdays = dd; _boardState = LOAD.READY; _loadFailing = false;
+  }catch(e){
+    if(gen !== _gen) return;
+    if(quiet && _boardState === LOAD.READY) return;   // 조용히 다시 받다 못 받았다 — 있던 값을 둔다
+    _boardState = LOAD.ERROR; _loadFail(e);
+  }
+  renderDdays();
+  refreshBellBadge();
+}
+function _boardLoad(quiet){ return _boardRun(()=>_boardFetchNow(quiet)); }
+function _ddayRetry(){ if(viewingUserId()) loadVisit(viewingUserId()); else _boardLoad(false); }
+
+/* 내 보드를 고쳐 저장 — mutate(복사본) 이 고친 맵을 돌려주면 보낸다(null 이면 할 일 없음). tag = { id, userCodes } 이면 그 한 장에 대해 친구에게 알린다.
+   성공하면 서버가 돌려준 보드(새 장의 id · 순서)로 바꿔 그린다. true = 저장됨.
+   받기 전에는 보내지 않는다. 다른 기기가 먼저 고쳤으면(409) 보내지 않은 채 서버 값을 다시 받아 그리고 알린다. */
+function _boardSave(mutate, tag){
+  return _boardRun(async ()=>{
+    const gen = _gen, me = getMyUserId();
+    if(!me || _boardState !== LOAD.READY) return false;
+    const next = mutate(JSON.parse(JSON.stringify(_schedDdays)));
+    if(!next) return false;
+    try{
+      const out = await scheduleApi.saveBoard(me, next, tag);
+      if(gen !== _gen) return false;
+      _schedDdays = out;
+      renderDdays(); refreshBellBadge();
+      return true;
+    }catch(e){
+      if(gen !== _gen) return false;
+      if(_writeFail(e)) await _boardFetchNow(false);
+      return false;
+    }
   });
-  ids.sort((a,b)=>{
-    const oa = src[a].order, ob = src[b].order;
-    const va = (typeof oa === 'number') ? oa : Number.MAX_SAFE_INTEGER;
-    const vb = (typeof ob === 'number') ? ob : Number.MAX_SAFE_INTEGER;
-    if(va !== vb) return va - vb;
-    return (src[a].ts||0) - (src[b].ts||0);   // order가 없으면 등록순
-  });
-  return ids;
+}
+async function _ddayDelete(id){
+  if(viewingUserId()) return;
+  if(_boardState !== LOAD.READY){ toast('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }
+  const ok = await _boardSave(m=>{ if(!m[id]) return null; delete m[id]; return m; }, null);
+  if(ok) toast('D-day를 삭제했어요');
 }
 
 /* 드래그로 순서 변경 — from을 to 자리에 끼워넣고 그 종류(kind) 안에서 order를 다시 매김 */
 let _ddayDragId = null;
 let _ddayDragKind = null;
 async function _ddayReorder(fromId, toId, kind){
+  if(_boardState !== LOAD.READY) return;
   const ids = _ddayOrderedIds(kind);
   const fi = ids.indexOf(fromId), ti = ids.indexOf(toId);
   if(fi < 0 || ti < 0) return;
   ids.splice(fi, 1);
   ids.splice(ti, 0, fromId);
-  // 낙관적 갱신 — 서버 응답을 기다리지 않고 먼저 화면에 반영(끊김 없이 느껴지도록)
+  // 낙관적 갱신 — 서버 응답을 기다리지 않고 먼저 화면에 반영(끊김 없이 느껴지도록). 서버 값이 오면 그 값으로 바뀐다
   ids.forEach((id, i)=>{ if(_schedDdays[id]) _schedDdays[id].order = i; });
   renderDdays();
-  if(window.firebaseAPI && firebaseAPI.setDdayOrder){
-    const map = {}; ids.forEach((id,i)=>{ map[id] = i; });
-    try{ await firebaseAPI.setDdayOrder(getMyUserId(), map); }
-    catch(e){ toast('순서 저장에 실패했어요'); }
-  }
+  const ok = await _boardSave(m=>{ ids.forEach((id, i)=>{ if(m[id]) m[id].order = i; }); return m; }, null);
+  if(!ok) _boardLoad(true);   // 못 보냈으면 먼저 그린 순서를 서버 것으로 되돌린다
 }
 
 /* 카드를 클릭하면 하트가 뿜어짐 (캐릭터 쓰다듬기와 같은 느낌) */
@@ -482,12 +603,13 @@ function _ddayOpenEdit(id, kind, prefillDate){
   const msgEl   = document.getElementById('mhDdayEditMsg');
   const tagInfo = document.getElementById('mhDdayTagInfo');
   if(!modal) return;
+  if(_boardState !== LOAD.READY){ toast('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 받기 전에는 고치지 못하게 잠근다
 
   _ddayEditId = id;
   _ddayTagSel = [];
   const dd = id ? (_schedDdays[id] || {}) : {};
   // kind: 명시된 값 > 기존 데이터의 값 > 기념일(기본)
-  _ddayEditKind = kind || (dd.kind === 'dday' ? 'dday' : 'anniv');
+  _ddayEditKind = kind || (dd.kind === KIND.BANNER ? KIND.BANNER : KIND.CARD);
   _ddayEditImg = (_ddayEditKind === 'anniv') ? (dd.bgImg || null) : null;
 
   const isAnniv = _ddayEditKind === 'anniv';
@@ -521,12 +643,11 @@ function _ddayOpenEdit(id, kind, prefillDate){
   _ddayPrefillDate = prefillDate || null;
   if(colorIn) colorIn.value = dd.bgColor || '#ffffff';
   /* 📌 「그날이 1일」 — 기념일 카드에만 보인다. 배너는 D-N 이 본체라 켜도 표시가 안 바뀐다.
-     ★ 새로 만들 때와 «필드가 없는 예전 기념일» 둘 다 켜진 상태로 연다(_ddayBase1 과 같은 규칙).
-       여기만 다르게 두면 「카드는 100일인데 수정 창을 열면 체크가 꺼져 있다」가 된다. */
+     ★ 새로 만들 때는 켜진 상태로 연다. 고칠 때는 서버에 저장된 값 그대로(_ddayBase1 과 같은 값). */
   const b1Row = document.getElementById('mhDdayBase1Row');
   const b1In  = document.getElementById('mhDdayBase1');
   if(b1Row) b1Row.style.display = isAnniv ? '' : 'none';
-  if(b1In)  b1In.checked = isAnniv ? (dd.base1 !== false) : false;
+  if(b1In)  b1In.checked = isAnniv ? (id ? dd.base1 === true : true) : false;
   _ddaySyncBase1Hint();
   if(notifyIn) notifyIn.checked = !!dd.notify;
   if(pubIn)    pubIn.checked    = !!dd.public;
@@ -644,7 +765,7 @@ function _applyAnnivHeight(px){
     _schedYM = _ymOf(y,m);
     _schedSelDD = null;
     _schedMonthData = {};
-    _schedSubscribeMonth();
+    loadMonth();
     renderSchedCalendar();
   };
   if(prevBtn) prevBtn.addEventListener('click', ()=>shiftMonth(-1));
@@ -653,7 +774,7 @@ function _applyAnnivHeight(px){
     const t=_todayParts();
     _schedYM = _ymOf(t.y, t.m); _schedSelDD = _pad2(t.d);
     _schedMonthData = {};
-    _schedSubscribeMonth();
+    loadMonth();
     renderSchedCalendar();
   });
 
@@ -711,42 +832,29 @@ function _applyAnnivHeight(px){
     if(tagCancel) tagCancel.addEventListener('click', ()=>{ tagPop.style.display='none'; });
   }
 
-  /* 🩹 [2026-10-02 제보 #6] 일정·D-day 저장 실패 사유를 가른다. 예전엔 무엇이든 «추가에 실패했어요» 하나였다.
-     ★ permission_denied = 이 PC 의 로그인이 풀렸거나 다른 계정 세션이다(구글에 묶인 계정은 규칙이
-       auth.uid 일치를 요구한다). 읽기는 공개라 달력은 멀쩡히 보이고 쓰기만 거부돼서 «어느 순간부터
-       등록만 안 된다» 로 신고됐다. 고치는 길은 앱 재시작(부팅 때 로그인을 다시 받는다).
-     ⚠️ 원문 오류는 콘솔에 남긴다 — 제보를 받았을 때 이 줄이 근거다. */
-  const _schedFailMsg = (e, what)=>{
-    try{ console.warn('[일정] ' + what + ' 실패', e); }catch(_){}
-    const s = String((e && (e.code || e.message)) || e || '').toLowerCase();
-    if(s.indexOf('permission') >= 0) return '로그인이 풀려 ' + what + '할 수 없어요 — 앱을 다시 켜서 로그인해 주세요';
-    if(s.indexOf('network') >= 0 || s.indexOf('offline') >= 0 || s.indexOf('disconnect') >= 0) return '네트워크 연결을 확인해 주세요';
-    return what + '에 실패했어요';
-  };
-  // 일정 추가
+  // 일정 추가 — 서버에 쓰고, 서버가 돌려준 일정을 달력에 얹는다. 친구를 태그했으면 같은 요청이 알림까지 보낸다(일정만 되고 알림만 빠지는 일이 없다)
   const doAddSched = async ()=>{
+    if(viewingUserId() || _schedAdding) return;
     if(!_schedSelDD){ toast('날짜를 먼저 선택해 주세요'); return; }
     const text = (input ? input.value : '').trim();
     if(!text) return;
-    if(!window.firebaseAPI || !firebaseAPI.addScheduleItem){ toast('네트워크 연결이 필요해요'); return; }
+    if(_monthState !== LOAD.READY){ toast('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 받기 전에는 고치지 못하게 잠근다
     const isPublic = !!(pubChk && pubChk.checked);
+    const date = `${_schedYM}-${_schedSelDD}`, tags = _schedTagSel.slice(), gen = _gen;
+    _schedAdding = true;
+    let item;
     try{
-      await firebaseAPI.addScheduleItem(getMyUserId(), _schedYM, _schedSelDD, { text, public: isPublic });
-    }catch(e){ toast(_schedFailMsg(e, '일정 추가')); return; }
-    /* 🩹 #6 — 알림 발송은 **따로** 감싼다. 예전엔 같은 try 라서, 일정은 저장됐는데 알림만 실패해도
-       «추가에 실패했어요» 가 뜨고 입력칸·태그도 안 비워졌다(다시 누르면 같은 일정이 두 번 생긴다). */
-    let _tagN = _schedTagSel.length, _noticeOk = true;
-    if(_tagN && firebaseAPI.sendScheduleNotices){
-      try{
-        const [y,m] = _schedYM.split('-').map(Number);
-        const dateStr = `${y}-${_pad2(m)}-${_schedSelDD}`;
-        await firebaseAPI.sendScheduleNotices(getMyUserId(), getDisplayName(), _schedTagSel, text, dateStr);
-      }catch(e){ _noticeOk = false; try{ console.warn('[일정] 친구 알림 실패', e); }catch(_){} }
+      item = await scheduleApi.createItem(getMyUserId(), { date, text, public: isPublic, tagFriends: tags });
+    }catch(e){
+      _schedAdding = false;
+      if(gen === _gen) _writeFail(e);   // 입력칸 · 태그는 그대로 둔다 — 다시 누르면 된다
+      return;
     }
-    if(!_tagN) toast('일정을 추가했어요');
-    else if(_noticeOk) toast(`일정을 추가하고 친구 ${_tagN}명에게 알렸어요`);
-    else toast('일정은 추가했지만 친구 알림은 보내지 못했어요');
-    if(input) input.value='';
+    _schedAdding = false;
+    if(gen !== _gen) return;
+    _schedPutItem(item);
+    toast(tags.length ? `일정을 추가하고 친구 ${tags.length}명에게 알렸어요` : '일정을 추가했어요');
+    if(input && input.value.trim() === text) input.value = '';
     _schedTagSel = []; refreshTagInfo();
   };
   if(addBtn) addBtn.addEventListener('click', doAddSched);
@@ -873,81 +981,108 @@ function _applyAnnivHeight(px){
       if(!_ddayEditId && _ddayOrderedIds(_ddayEditKind).length >= limit){
         ddShowMsg(`${isAnnivSave?'기념일':'D-day'}는 최대 ${limit}개까지만 등록할 수 있어요`, true); return;
       }
-      if(!window.firebaseAPI || !firebaseAPI.saveDday){ toast('네트워크 연결이 필요해요'); return; }
+      if(_boardState !== LOAD.READY){ ddShowMsg('아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요', true); return; }   // 받기 전에는 고치지 못하게 잠근다
       ddSave.disabled = true; ddShowMsg('저장 중…', false);
-      try{
-        const isPublic = !!(ddPub && ddPub.checked);
-        await firebaseAPI.saveDday(getMyUserId(), _ddayEditId, {
-          kind: _ddayEditKind,
-          text, date,
-          public: isPublic,
-          notify: !!(ddNotify && ddNotify.checked),
-          /* 📌 셈법은 기념일 카드에만 — 배너는 언제나 꺼진 값으로 저장한다(_ddayBase1 과 같은 규칙).
-             ⚠️ 여기서 undefined 를 흘리면 firebase-init 이 그대로 쓰고, 다음에 읽을 때
-               «필드 없음»으로 보여 자동으로 켜진다. 배너가 그 길로 새면 D-N 이 하루 어긋난다. */
-          base1: isAnnivSave ? !!(ddBase1 && ddBase1.checked) : false,
-          // 배경은 기념일 카드에만 적용 — 배너는 항상 null
-          bgColor: (isAnnivSave && ddColor && ddColor.value !== '#ffffff') ? ddColor.value : null,
-          bgImg: isAnnivSave ? _ddayEditImg : null,
-          order: _ddayEditId ? (_schedDdays[_ddayEditId]||{}).order : null,   // 수정 시 순서 유지
-          ts: _ddayEditId ? (_schedDdays[_ddayEditId]||{}).ts : Date.now(),
-        });
-        // 👥 태그한 친구들에게 알림 — D-day 당일에 상대 🔔에도 뜸
-        if(_ddayTagSel.length && firebaseAPI.sendScheduleNotices){
-          await firebaseAPI.sendScheduleNotices(getMyUserId(), getDisplayName(), _ddayTagSel, text, date);
-          toast(`D-day를 저장하고 친구 ${_ddayTagSel.length}명에게 알렸어요`);
-        } else {
-          const what2 = isAnnivSave ? '기념일' : 'D-day';
-          toast(_ddayEditId ? `${what2}을 수정했어요` : `${what2}을 추가했어요`);
-        }
-        _ddayCloseEdit();
-      }catch(e){
-        ddShowMsg(_schedFailMsg(e, '저장'), true);   // 🩹 #6 — 로그인 풀림·네트워크를 구분해 알린다
-      }
+      const editId = _ddayEditId, kind = _ddayEditKind, tagSel = _ddayTagSel.slice();
+      const key = editId || ('new-' + Date.now().toString(36));   // 새 장의 임시 열쇠 — 서버가 진짜 id 를 정해 돌려준다
+      const dd = {
+        kind,
+        text, date,
+        public: !!(ddPub && ddPub.checked),
+        notify: !!(ddNotify && ddNotify.checked),
+        /* 📌 셈법 · 배경은 기념일 카드에만 — 배너는 늘 꺼진 값 · 없는 값으로 보낸다 */
+        base1: isAnnivSave ? !!(ddBase1 && ddBase1.checked) : false,
+        bgColor: (isAnnivSave && ddColor && ddColor.value !== '#ffffff') ? ddColor.value : null,
+        bgImg: isAnnivSave ? _ddayEditImg : null,
+      };
+      let gone = false;
+      const ok = await _boardSave(m=>{
+        if(editId && !m[editId]){ gone = true; return null; }   // 다른 기기에서 이미 지웠다
+        const prev = editId ? m[editId] : null;
+        const order = prev ? prev.order : scheduleApi.orderedIds(m, kind).length;
+        m[key] = Object.assign({}, dd, { order, ts: prev ? prev.ts : Date.now() });
+        return m;
+      }, tagSel.length ? { id: key, userCodes: tagSel } : null);
       ddSave.disabled = false;
+      if(ok){
+        const what2 = isAnnivSave ? '기념일' : 'D-day';
+        toast(tagSel.length ? `D-day를 저장하고 친구 ${tagSel.length}명에게 알렸어요` : (editId ? `${what2}을 수정했어요` : `${what2}을 추가했어요`));
+        _ddayCloseEdit();
+      }else{
+        ddShowMsg(gone ? '이미 지워진 항목이에요' : '', gone);
+      }
     });
   }
 
   if(ddDel){
     ddDel.addEventListener('click', async ()=>{
       if(!_ddayEditId) return;
-      if(!window.firebaseAPI || !firebaseAPI.removeDday) return;
-      try{
-        await firebaseAPI.removeDday(getMyUserId(), _ddayEditId);
-        toast('D-day를 삭제했어요');
-        _ddayCloseEdit();
-      }catch(e){ toast('삭제에 실패했어요'); }
+      await _ddayDelete(_ddayEditId);
+      if(_boardState === LOAD.READY && !_schedDdays[_ddayEditId]) _ddayCloseEdit();
     });
   }
 })();
 
 
 /* ═══════════════════════ 🔔 일정 알림 ═══════════════════════
-   내용: (1) 오늘 날짜인 내 일정  (2) 친구가 나를 태그해서 보낸 일정 알림(schedNotices)
+   내용: (1) 오늘 날짜인 내 일정  (2) 친구가 나를 태그해서 보낸 일정 알림(서버 알림함의 🔔 칸)
    당일에만 뜸. 창은 바깥을 눌러도 닫히지 않고 ✕ 로만 닫음(포커싱 기록창과 같은 방식).
    읽음 처리: 창을 한 번 열면 그때까지의 알림은 "본 것"으로 간주해 뱃지가 사라짐. */
 const BELL_SEEN_KEY = deps.bellSeenKey;   // 'tw.bellSeenTs' — 값은 app.js 에 있다(계정 전환 지움 목록 ACCOUNT_LOCAL_KEYS 가 같이 쓴다)
-let _bellNotices = {};        // 친구가 태그해서 온 알림 { id: {fromId, fromName, text, date, ts} }
-let _bellTodayItems = [];     // 오늘 날짜인 내 일정 [{text}]
-let _bellUnsubToday = null;
+let _bellNotices = {};        // 친구가 태그해서 온 알림 { id: {fromId, fromName, text, date, ts} } — 서버 알림함의 🔔 칸
+let _bellTodayItems = [];     // 오늘 날짜인 내 일정 [{id, text}]
 
 function _bellSeenTs(){ try{ return Number(localStorage.getItem(BELL_SEEN_KEY)||0) || 0; }catch(e){ return 0; } }
 function _bellMarkSeen(){ try{ localStorage.setItem(BELL_SEEN_KEY, String(Date.now())); }catch(e){} refreshBellBadge(); }
 
-/* 오늘 날짜인 내 일정을 따로 구독 — 스케줄러 탭을 안 열어도 알림이 떠야 하므로 별도 구독 */
-function _bellSubscribeToday(){
-  if(!window.firebaseAPI || !firebaseAPI.subscribeScheduleMonth) return;
+/* 오늘 날짜인 내 일정을 따로 받는다 — 스케줄러 탭을 안 열어도 알림이 떠야 하므로 달력과 별도로 이번 달을 받아 오늘 것만 고른다 */
+async function _bellLoadToday(){
+  const me = getMyUserId(), gen = _gen;
+  if(!me) return;   // 내 코드가 없으면 오늘 일정을 받지 않는다
   const t = _todayParts();
-  const ym = _ymOf(t.y, t.m);
-  const dd = _pad2(t.d);
-  if(_bellUnsubToday){ try{ _bellUnsubToday(); }catch(_){} }
-  if(!getMyUserId()) return;   // 내 코드가 없으면 오늘 일정을 구독하지 않는다
-  _bellUnsubToday = firebaseAPI.subscribeScheduleMonth(getMyUserId(), ym, data=>{
-    const dayObj = (data && data[dd]) || {};
-    _bellTodayItems = Object.keys(dayObj).map(id=>({ id, text: dayObj[id].text||'', ts: dayObj[id].ts||0 }));
-    refreshBellBadge();
-    if(_bellWinOpen()) renderBellList();
+  try{
+    const data = await scheduleApi.fetchMonth(me, _ymOf(t.y, t.m));
+    if(gen !== _gen) return;
+    const dayObj = data[_pad2(t.d)] || {};
+    _bellTodayItems = Object.keys(dayObj).map(id=>({ id, text: dayObj[id].text||'' }));
+    _loadFailing = false;
+  }catch(e){
+    if(gen !== _gen) return;
+    _loadFail(e);   // 있던 목록은 둔다
+  }
+  refreshBellBadge();
+  if(_bellWinOpen()) renderBellList();
+}
+
+/* 친구가 일정에 태그한 알림 받기. 새로 들어온 것만 토스트(앱을 켤 때 기존 알림이 우르르 뜨지 않게 «마지막으로 연 시각» 이후 것만) */
+async function _bellLoadNotices(){
+  const me = getMyUserId(), gen = _gen;
+  if(!me) return;   // 내 코드가 없으면 태그 알림을 받지 않는다
+  let notices;
+  try{ notices = await scheduleApi.fetchBell(me); }
+  catch(e){ if(gen === _gen) _loadFail(e); return; }
+  if(gen !== _gen) return;
+  _loadFailing = false;
+  const prevIds = Object.keys(_bellNotices||{});
+  _bellNotices = notices;
+  refreshBellBadge();
+  if(_bellWinOpen()) renderBellList();
+  const seen = _bellSeenTs();
+  Object.keys(_bellNotices).forEach(id=>{
+    const n = _bellNotices[id];
+    if(!prevIds.includes(id) && (n.ts||0) > seen){
+      toast('🔔 ' + (n.fromName||'친구') + ' 님이 일정에 태그했어요');
+    }
   });
+}
+async function _bellRemoveNotice(id){
+  const gen = _gen;
+  try{ await scheduleApi.deleteBell(getMyUserId(), id); }
+  catch(e){ if(gen === _gen) _writeFail(e); return; }
+  if(gen !== _gen) return;
+  delete _bellNotices[id];
+  refreshBellBadge();
+  if(_bellWinOpen()) renderBellList();
 }
 
 function _bellWinOpen(){
@@ -961,11 +1096,11 @@ function refreshBellBadge(){
   if(!badge) return;
   const seen = _bellSeenTs();
   const newNotices = Object.keys(_bellNotices||{}).filter(id => (_bellNotices[id].ts||0) > seen).length;
-  const newToday   = _bellTodayItems.filter(it => (it.ts||0) > seen).length;
-  // 📌 오늘이 이정표(당일/50일/100일 단위)인 D-day도 카운트.
-  //   ts 비교가 아니라 "오늘 해당하는가"로 판정하므로, 창을 열어 읽음 처리하면 그날은 다시 안 셈.
   const todayYMD = _todayYMD();
   const seenDay = seen ? _localYMD(seen) : '';   // ⚠️ toISOString 은 UTC 라 한국 0~9시엔 어제로 읽혀 «오늘 본 기념일» 을 다시 셌다
+  /* 오늘 내 일정 · 오늘이 이정표(당일/50일/100일 단위)인 D-day 는 ts 비교가 아니라 «오늘 해당하는가» 로 판정한다 —
+     서버 일정에는 만든 시각이 없다. 창을 열어 읽음 처리하면 그날은 다시 안 센다. */
+  const newToday   = (seenDay === todayYMD) ? 0 : _bellTodayItems.length;
   const ddayHits = (seenDay === todayYMD) ? 0 : Object.keys(_schedDdays||{}).filter(id=>{
     const dd = _schedDdays[id];
     if(!dd.notify || !dd.date) return false;
@@ -1049,10 +1184,7 @@ function renderBellList(){
     main.appendChild(t); main.appendChild(f);
     const meta = document.createElement('div'); meta.className='bmeta'; meta.textContent = 'D-DAY';
     const x = document.createElement('span'); x.className='bx'; x.textContent='×'; x.title='알림 지우기';
-    x.onclick = async ()=>{
-      if(!window.firebaseAPI || !firebaseAPI.removeSchedNotice) return;
-      try{ await firebaseAPI.removeSchedNotice(getMyUserId(), id); }catch(e){}
-    };
+    x.onclick = ()=>{ _bellRemoveNotice(id); };
     row.appendChild(main); row.appendChild(meta); row.appendChild(x);
     list.appendChild(row);
   });
@@ -1200,48 +1332,92 @@ function renderBellList(){
   });
   // ★ 바깥 클릭으로는 닫히지 않음 (포커싱 기록창과 동일) — document 클릭 핸들러를 일부러 두지 않음.
 
-  // 친구 태그 알림 구독
+  // 오늘 일정 · 친구 태그 알림 받기 — 네트워크가 준비되면 한 번
   const sub = ()=>{
-    if(!window.firebaseAPI) return;
-    if(!getMyUserId()) return;   // 내 코드가 없으면 태그 알림을 구독하지 않는다(users/null/schedNotices)
-    if(firebaseAPI.subscribeSchedNotices){
-      firebaseAPI.subscribeSchedNotices(getMyUserId(), notices=>{
-        const prevIds = Object.keys(_bellNotices||{});
-        _bellNotices = notices || {};
-        refreshBellBadge();
-        if(_bellWinOpen()) renderBellList();
-        // 새로 들어온 알림만 토스트 (앱 시작 시 기존 알림이 우르르 뜨지 않게 seen 이후 것만)
-        const seen = _bellSeenTs();
-        Object.keys(_bellNotices).forEach(id=>{
-          const n = _bellNotices[id];
-          if(!prevIds.includes(id) && (n.ts||0) > seen){
-            toast('🔔 ' + (n.fromName||'친구') + ' 님이 일정에 태그했어요');
-          }
-        });
-      });
-    }
-    _bellSubscribeToday();
+    if(!getMyUserId()) return;   // 내 코드가 없으면 받지 않는다
+    _bellLoadNotices();
+    _bellLoadToday();
   };
   TwNetReady.whenNetReady(sub);
 
-  // 날짜가 바뀌면(자정 넘김) 오늘 일정 구독을 새 날짜로 갱신
+  /* 서버가 «내 일정 · 보드가 바뀌었다»(다른 기기에서 고침) · «알림이 왔다» 고 알리면 다시 받는다. 오래 끊겼다 붙을 때(resync)도 같다.
+     알림은 데이터 없이 «바뀌었다» 만 온다 — 값은 우리가 다시 받는다. 관람 중이면 달력은 친구 것이라 건드리지 않는다. */
+  rtOn('schedule', ()=>{
+    if(!getMyUserId()) return;
+    _boardLoad(true);
+    if(!viewingUserId() && _schedYM) loadMonth(true);
+    _bellLoadToday();
+  });
+  rtOn('notification', (n)=>{
+    if(!getMyUserId()) return;
+    if(n && (n.resync || n.section === 'BELL')) _bellLoadNotices();
+  });
+
+  // 날짜가 바뀌면(자정 넘김) 오늘 일정을 새 날짜로 다시 받는다
   let _bellDay = _todayYMD();
   setInterval(()=>{
     const now = _todayYMD();
     if(now !== _bellDay){
       _bellDay = now;
-      _bellSubscribeToday();
-      if(_bellWinOpen()) renderBellList();
+      _bellLoadToday();
     }
   }, 60 * 1000);
 })();
 
+/* 👀 친구 홈 구경 — 달력(서버가 공개한 일정만) · 디데이 보드(공개한 장만)를 친구 것으로. 구경 중인 uid 가 정해진 뒤에 부른다 */
+async function loadVisit(friendId){
+  const seq = ++_visitSeq, gen = _gen;
+  _schedDdaysVisit = {}; _visitBoardState = LOAD.LOADING;
+  renderDdays();
+  loadMonth();
+  try{
+    const dd = await scheduleApi.fetchBoardOf(friendId);
+    if(seq !== _visitSeq || gen !== _gen) return;
+    _schedDdaysVisit = dd; _visitBoardState = LOAD.READY; _loadFailing = false;
+  }catch(e){
+    if(seq !== _visitSeq || gen !== _gen) return;
+    _visitBoardState = LOAD.ERROR; _loadFail(e);
+  }
+  renderDdays();
+}
+/* 구경 끝 — 내 달력 · 내 보드로. 늦게 오는 친구 답은 버린다 */
+function endVisit(){
+  _visitSeq++;
+  _schedDdaysVisit = null; _visitBoardState = LOAD.IDLE;
+  loadMonth();
+  renderDdays();
+}
+
+/* 내 것 전부 받기 — 계정을 이어받은 뒤(reset 다음). 보드 · 보는 달 · 오늘 일정 · 태그 알림 */
+function loadMine(){
+  _boardLoad(false);
+  if(_schedYM && !viewingUserId()) loadMonth();
+  _bellLoadToday();
+  _bellLoadNotices();
+}
+/* 계정을 놓을 때 · 이어받기 시작 — 앞 계정 값을 비우고 받기 전으로 돌린다(늦게 오는 앞 계정 답은 _gen 이 버린다) */
+function reset(){
+  _gen++; _monthSeq++; _visitSeq++;
+  _schedYM = null; _schedSelDD = null;   // 탭을 다시 열면 이번 달부터 새로 받는다
+  _schedMonthData = {}; _monthState = LOAD.IDLE;
+  _schedDdays = {}; _boardState = LOAD.IDLE;
+  _schedDdaysVisit = null; _visitBoardState = LOAD.IDLE;
+  _bellNotices = {}; _bellTodayItems = [];
+  _schedTagSel = []; _loadFailing = false; _schedAdding = false;
+  scheduleApi.reset();
+  const grid = document.getElementById('mhSchedGrid');
+  if(grid) grid.innerHTML = '';   // renderSchedGrid 는 달이 없으면 아무것도 안 그린다 — 앞 계정 달력이 남지 않게 여기서 비운다
+  renderSchedDay(); renderDdays(); refreshBellBadge();
+}
+
 return {
   renderSchedCalendar,                  // 마이홈 [스케줄러] 탭을 열 때
-  renderDdays,                          // D-day 가 바뀌었을 때 · 관람 시작/끝
-  subscribeMonth: _schedSubscribeMonth, // 관람 시작/끝 — 달력 구독을 친구 것 ↔ 내 것으로
-  setDdays(v){ _schedDdays = v; },          // 내 D-day 구독 결과 (app.js 친구 탭 구독)
-  setDdaysVisit(v){ _schedDdaysVisit = v; },// 관람 중 친구 D-day(공개만) — null 이면 관람 끝
+  renderDdays,                          // 관람 시작/끝 · 탭을 열 때
+  loadBoard: ()=>_boardLoad(false),     // 로그인 뒤 — 내 디데이 보드 받기
+  loadMine,                             // 계정 이어받기 뒤 — 내 것 전부 다시 받기
+  reset,                                // 계정을 놓을 때 · 이어받기 시작
+  startVisit: loadVisit,                // 친구 홈 구경 시작 — 달력 · 보드를 친구 것으로
+  endVisit,                             // 구경 끝 — 내 것으로
   refreshBellBadge,                     // 수령함 · 공지가 바뀌었을 때
   renderBellList,
   isBellOpen: _bellWinOpen,
