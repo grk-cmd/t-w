@@ -372,6 +372,11 @@ PRELOAD.push('input-diag.js');
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
 PRELOAD.push('myhome-inbox.js');
+/* inbox-api.js · mail-feed.js · notice-api.js · notice-feed.js — 📩 우편 · 📢 공지 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwInboxApi · TwMailFeed · TwNoticeApi · TwNoticeFeed 를 부른다. */
+PRELOAD.push('inbox-api.js');
+PRELOAD.push('mail-feed.js');
+PRELOAD.push('notice-api.js');
+PRELOAD.push('notice-feed.js');
 /* help-site.js · help-tab.js — 📘 도움말 탭. app.js 가 만들 때 TwHelpTab 을 부르고, 그 모듈이 TwHelpSite 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('help-site.js');
 PRELOAD.push('help-tab.js');

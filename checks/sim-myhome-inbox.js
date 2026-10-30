@@ -82,10 +82,6 @@ function mkEnv(o){
     removeFriend: async (u, f) => { env.calls.push('removeFriend ' + u + ' ' + f); },
     getMallangGifts: async (u) => { env.calls.push('getMallangGifts ' + u); return env.gifts; },
     setMallangGiftStarred: async (u, k, on) => { env.calls.push('star ' + k + ' ' + on); return { ok: env.starOk !== false }; },
-    deleteInboxBroadcast: async (id) => { env.calls.push('deleteInboxBroadcast ' + id); },
-    deleteInboxMessage: async (u, id) => { env.calls.push('deleteInboxMessage ' + u + ' ' + id); },
-    setInboxBroadcastPinned: async (id, on) => { env.calls.push('pin ' + id + ' ' + on); return { ok: true }; },
-    markInboxRead: (u, id) => { env.calls.push('markInboxRead ' + u + ' ' + id); },
   };
   const companion = { openBrowser: (u) => env.opened.push(u) };
   const win = {
@@ -111,9 +107,27 @@ function mkEnv(o){
     (sb.window, undefined, doc, ls, api, companion, nav, confirmFn, (fn) => fn(), hw.TwMyHomeHooks, sw.TwInboxSections);
   env.win = win;
   env.myInbox = {}; env.bc = {}; env.friends = {}; env.admin = false; env.notice = null;
+  /* 📩 우편 · 📢 소식 한 벌(mail-feed.js · notice-feed.js)의 가짜 — 서버 쓰기는 부른 것을 적고 됐다고 답한다. 상태는 손으로 */
+  env.mailStatus = 'ready'; env.mailReady = true; env.noticeStatus = 'ready'; env.noticeReady = true; env.mailUnread = null; env.refreshed = [];
+  env.mailFeed = {
+    items: () => env.myInbox, status: () => env.mailStatus, ready: () => env.mailReady,
+    unread: () => (env.mailUnread == null ? Object.values(env.myInbox).filter((m) => !m.read).length : env.mailUnread),
+    refresh: () => { env.refreshed.push('mail'); return Promise.resolve(true); },
+    markRead: async (id) => { env.calls.push('markInboxRead ME01 ' + id); return true; },
+    markAllRead: async () => { env.calls.push('markAllInboxRead ME01'); return env.markAllOk !== false; },
+    remove: async (id) => { env.calls.push('deleteInboxMessage ME01 ' + id); return true; },
+    removeMany: async (ids) => { for(const id of ids) env.calls.push('deleteInboxMessage ME01 ' + id); return env.removeManyN == null ? ids.length : env.removeManyN; },
+  };
+  env.noticeFeed = {
+    broadcasts: () => env.bc, status: () => env.noticeStatus, ready: () => env.noticeReady,
+    refresh: () => { env.refreshed.push('news'); return Promise.resolve(true); },
+    remove: async (id) => { env.calls.push('deleteInboxBroadcast ' + id); return true; },
+    togglePin: async (id) => { const next = !(env.bc[id] && env.bc[id].pinned); env.calls.push('pin ' + id + ' ' + next); if(env.pinOk === false) return false; env.bc[id].pinned = next; return true; },   // 서버가 됐다 하면 다시 받아 판이 바뀐다
+    sendBroadcast: async (o) => { env.calls.push('send ' + o.tag + ' ' + o.title + ' ' + !!o.pinned); return env.sendOk !== false; },
+  };
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({
     escHtml, toast: (m) => env.toasts.push(m), getMyUserId: () => 'ME01',
-    myInbox: () => env.myInbox, inboxBroadcast: () => env.bc, INBOX_BC_READ_KEY: 'tw.inboxBcRead', isAdmin: () => env.admin,
+    mailFeed: env.mailFeed, noticeFeed: env.noticeFeed, INBOX_BC_READ_KEY: 'tw.inboxBcRead', isAdmin: () => env.admin,
     mhScheduler: { refreshBellBadge: () => { env.bell++; } },
     myHomeFriends: () => env.friends, friendsNotice: () => env.notice, FRIEND_MAX: 100, friendVisit: o.noVisit ? null : { ask: (fid) => env.calls.push('visit ' + fid) },
     mhStripHtml: (h) => String(h || '').replace(/<[^>]*>/g, ''),
@@ -137,8 +151,11 @@ async function behave(src){
     const mg = m.inboxMerged();
     chk(mg.p1._src === 'personal' && mg.b1._src === 'broadcast' && mg.b1.read === true && mg.b2.read === false && Object.keys(mg).length === 4, '개인 + 공용 공지를 합친다 · 공지 읽음은 로컬 집합(tw.inboxBcRead)');
     chk(m.inboxUnreadCount() === 2, '안 읽은 수 2(우편 + 소식)');
-    e.myInbox = { p9: { tag: 'reward', ts: 1 } };   // 구독이 다시 대입한다
-    chk(m.inboxUnreadCount() === 2 && m.inboxMerged().p9 && !m.inboxMerged().p1, '  app.js 가 다시 대입한 수령함을 부를 때마다 읽는다');
+    e.myInbox = { p9: { tag: 'reward', ts: 1 } };   // 받아 둔 우편이 바뀐다
+    chk(m.inboxUnreadCount() === 2 && m.inboxMerged().p9 && !m.inboxMerged().p1, '  우편 한 벌(mailFeed)이 바뀐 우편을 부를 때마다 읽는다');
+    e.mailUnread = 9;
+    chk(m.inboxUnreadCount() === 10, '  개인 우편의 안 읽은 수는 서버가 센 값(9) — 받아 둔 쪽지 수(1)가 아니다 · 소식 1은 이 PC 읽음 그대로');
+    e.mailUnread = null;
     const tab = mkEl('span', e); e.q = { '.mh-tab[data-tab="mail"]': tab };
     m.refreshFriendTabBadge();
     let b = tab.children[0];
@@ -149,9 +166,14 @@ async function behave(src){
     e.myInbox = {}; e.bc = {};
     m.refreshFriendTabBadge();
     chk(b.style.display === 'none', '  없으면 숨긴다');
-    e.bc = { b1: {}, b3: {} };
-    m.inboxBcMarkAllRead();
+    e.bc = { b1: {}, b3: {} }; e.myInbox = { p1: { tag: 'reward', ts: 1, read: false } }; e.calls = []; e.toasts = [];
+    await m.markAllRead();
     chk(JSON.parse(e.store.get('tw.inboxBcRead')).sort().join() === 'b1,b3', '모두 읽음 — 공지 id 를 로컬 집합에 더한다');
+    chk(e.calls.join() === 'markAllInboxRead ME01' && e.toasts.join() === '모두 읽음 처리했어요', '  우편은 서버에(됐다 하면 알림 한 번)');
+    e.calls = []; e.toasts = []; e.markAllOk = false; await m.markAllRead(); e.markAllOk = true;
+    chk(e.toasts.length === 0, '  서버가 못 읽음 처리하면 «처리했어요» 를 띄우지 않는다(오류 번호는 우편 한 벌이 알린다)');
+    e.calls = []; e.toasts = []; e.mailStatus = 'loading'; await m.markAllRead(); e.mailStatus = 'ready';
+    chk(e.calls.length === 0 && e.toasts.length === 1 && /아직 불러오지 못했어요/.test(e.toasts[0]), '  우편을 아직 못 받았으면 서버를 부르지 않고 알린다(소식 읽음은 이 PC 에 남는다)');
     e.q = {};
     m.refreshFriendTabBadge();
     chk(true, '  탭이 없으면 조용히 지나간다');
@@ -273,7 +295,11 @@ async function behave(src){
     const metaKids = () => view.children[2].children;
     chk(metaKids().length === 3 && metaKids()[1].className === 'mh-ibx-pinbtn on' && metaKids()[2].className === 'mh-news-del', '관리자 — 본문 머리에 📌 · 🗑');
     await metaKids()[1].onclick({ stopPropagation(){} }); await flush();
-    chk(e.calls.includes('pin p false') && e.bc.p.pinned === undefined && e.toasts.includes('고정을 해제했어요') && nTitles()[0] === '새 공지', '  고정 풀기 — 서버 · app.js 의 공지 객체에서도 지우고 다시 정렬');
+    chk(e.calls.includes('pin p false') && e.toasts.includes('고정을 해제했어요'), '  고정 풀기 — 서버에 부탁하고 됐다 하면 알림');
+    e.toasts = []; e.pinOk = false; await metaKids()[1].onclick({ stopPropagation(){} }); await flush(); e.pinOk = true;
+    chk(e.toasts.length === 0, '  서버가 거절하면(실패는 오류 번호로 알림) 성공 문구를 띄우지 않는다');
+    m.renderInbox();
+    chk(nTitles()[0] === '새 공지', '  다시 받은 판으로 다시 정렬');
     nList.children[0].onclick(); e.calls = [];
     metaKids()[2].onclick({ stopPropagation(){} });
     const ask2 = R.myHomeWin.children[R.myHomeWin.children.length - 1];
@@ -283,6 +309,28 @@ async function behave(src){
     e.admin = false;
     e.bc = {}; m.renderInbox();
     chk(nList.innerHTML === '<div class="mh-ibx-empty">소식이 없어요</div>' && view.innerHTML === '', '소식이 없으면 안내 · 본문 칸 비움');
+
+    say('── 3-2b. 받는 중 · 못 받음 (빈 목록 ≠ 못 받음)');
+    e.myInbox = {}; e.bc = {}; e.mailReady = false; e.mailStatus = 'loading'; e.noticeReady = false; e.noticeStatus = 'loading'; e.refreshed = [];
+    m.setInboxSec('mail'); m.renderInbox();
+    chk(list.children.length === 1 && list.children[0].textContent === '우편을 불러오는 중…', '우편을 받는 중이면 «받은 우편이 없어요» 가 아니라 «불러오는 중»');
+    m.setInboxSec('news'); m.renderInbox();
+    chk(nList.children.length === 1 && nList.children[0].textContent === '소식을 불러오는 중…' && view.innerHTML === '', '소식도 마찬가지(오른쪽 본문은 비움)');
+    e.mailStatus = 'error'; e.noticeStatus = 'error';
+    m.setInboxSec('mail'); m.renderInbox();
+    chk(list.children[0].textContent === '우편을 불러오지 못했어요' && list.children[0].children.length === 2 && list.children[0].children[1].textContent === '다시 시도', '못 받으면 «불러오지 못했어요» + 다시 시도 단추 — 빈 우편으로 그리지 않는다');
+    list.children[0].children[1].onclick();
+    chk(e.refreshed.join() === 'mail', '  다시 시도 → 우편을 다시 받는다');
+    m.setInboxSec('news'); m.renderInbox();
+    nList.children[0].children[1].onclick();
+    chk(nList.children[0].textContent === '소식을 불러오지 못했어요' && e.refreshed.join() === 'mail,news', '  소식도 못 받음 안내 + 다시 시도');
+    e.myInbox = { z: { tag: 'reward', title: '앞서 받은 우편', ts: 1, read: false } }; e.mailReady = true;
+    m.setInboxSec('mail'); m.renderInbox();
+    chk(list.children.length === 1 && list.children[0].className === 'mh-ibx-card unread', '한 번 받은 뒤의 실패 — 받아 둔 우편은 그대로 보인다(오류 번호는 이미 알렸다)');
+    e.mailReady = false; e.mailStatus = 'idle'; e.myInbox = {}; e.noticeReady = false; e.noticeStatus = 'idle';
+    m.renderInbox();
+    chk(list.innerHTML === '<div class="mh-ibx-empty">받은 우편이 없어요</div>', '받기를 시작하지 않은 기기(내 코드 없음)는 «받은 우편이 없어요»');
+    e.mailReady = true; e.mailStatus = 'ready'; e.noticeReady = true; e.noticeStatus = 'ready';
 
     say('── 3-3. 처음 칸');
     m.setInboxSec('help'); m.renderInbox();
@@ -477,19 +525,19 @@ function wiring(MI, APP, HTML){
   chk(iSched > 0 && iHead > iSched && iKey > iHead && iStrip > iKey && iFHead > iStrip && iVisit > iFHead && iMk > iVisit && iGHead > iMk && iUI > iGHead,
     '원래 자리 — 수령함 let 은 📩 수령함 상태 머리 아래 · 만드는 줄은 👥 친구 목록 머리 아래(🏠 놀러 가기 연결 바로 다음) · 📩 그리기 머리는 남김');
   chk(/parts\/(?:myhome\/)?myhome-inbox\.js 로 옮겼다/.test(APP.slice(iGHead, iUI)) && !/^(?:function|const|let) /m.test(APP.slice(iGHead, iUI)), '  📩 그리기 머리 아래는 옮긴 곳 안내뿐(구역 번호가 밀리지 않게 머리만 남김)');
-  chk(/^let _myInbox = \{\};/m.test(APP) && /^let _myInboxReady = false;/m.test(APP) && /^let _inboxBroadcast = \{\};/m.test(APP) && /_myInbox = msgs \|\| \{\};/.test(A) && /_inboxBroadcast = bc \|\| \{\};/.test(A),
-    '  구독이 다시 대입하는 수령함 let 셋은 app.js 에(그래서 읽는 함수)');
+  chk(!/^let (_myInbox|_myInboxReady|_inboxBroadcast)\b/m.test(APP) && /^const mailFeed = TwMailFeed\.createMailFeed\(/m.test(APP) && /^const noticeFeed = TwNoticeFeed\.createNoticeFeed\(/m.test(APP),
+    '  개인 우편 · 공용 소식은 서버가 원본 — app.js 에 let 사본이 없고 우편 한 벌 · 공지 한 판이 들고 있다');
   const call = (APP.match(/TwMyHomeInbox\.createMyHomeInbox\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const want = [
     /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
-    /^myInbox: \(\)=>_myInbox,$/, /^inboxBroadcast: \(\)=>_inboxBroadcast,$/, /^INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,$/, /^isAdmin: \(\)=>isAdmin,$/, /^mhScheduler: mhScheduler,$/,
+    /^mailFeed: mailFeed,$/, /^noticeFeed: noticeFeed,$/, /^INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,$/, /^isAdmin: \(\)=>isAdmin,$/, /^mhScheduler: mhScheduler,$/,
     /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 19개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 19개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');
@@ -500,7 +548,7 @@ function wiring(MI, APP, HTML){
   const miss = rets.filter(n => !new RegExp('\\b' + n + '(\\(\\)\\{\\}|:)').test(off));
   chk(!/\bINBOX_OFF\b/.test(APP), '빈 껍데기 INBOX_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const uses = ['inboxMod.renderMyHomeFriendList()', 'inboxMod.renderInbox()', 'inboxMod.renderGiftBox(', 'inboxMod.giftStat(', 'inboxMod.inboxTimeStr(', 'inboxMod.inboxTagLabel(',
-    'inboxMod.inboxUnreadCount()', 'inboxMod.refreshFriendTabBadge()', 'inboxMod.inboxBcMarkAllRead()', 'inboxMod.linkifyText(', 'inboxMod.bindExtLinks(', 'inboxMod.friendInRoom(',
+    'inboxMod.inboxUnreadCount()', 'inboxMod.refreshFriendTabBadge()', 'inboxMod.markAllRead()', 'inboxMod.linkifyText(', 'inboxMod.bindExtLinks(', 'inboxMod.friendInRoom(',
     'inboxMod.friendSearchToggle(', 'inboxMod.setInboxFilter(', 'inboxMod.setInboxOpenId(null)', 'inboxMod.setFriendFilter(',
     'inboxMod.inboxEnter(); inboxMod.renderInbox();', 'inboxMod.setInboxSec(', 'inboxMod.inboxClearRead()'];
   const lost = uses.filter(u => A.indexOf(u) < 0);
@@ -549,15 +597,23 @@ async function runAll(MI, APP, HTML){
     ['MI', 'const ids = inboxSec.newsIds(merged, _inboxFilter);', 'const ids = Object.keys(merged);', '소식 칸이 칸 나누기 규칙을 안 부름'],
     ['MI', 'const ids = inboxSec.mailIds(merged);', 'const ids = Object.keys(merged);', '우편 칸에 소식이 섞임'],
     ['MI', "  if(m.read) return;\n  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", "  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", '읽은 것도 다시 읽음 표시'],
-    ['MI', '_inboxSec = inboxSec.firstSec(_inboxMerged());', "_inboxSec = 'mail';", '탭에 들어올 때 처음 칸을 안 고름'],
+    ['MI', '_inboxSec = inboxSec.firstSec(_inboxMerged(), mailFeed.unread());', "_inboxSec = 'mail';", '탭에 들어올 때 처음 칸을 안 고름'],
+    ['MI', 'return inboxSec.unread(_inboxMerged(), mailFeed.unread()).total;', 'return inboxSec.unread(_inboxMerged()).total;', '안 읽은 수를 서버 값 대신 받아 둔 쪽지에서 셈'],
+    ['MI', "  else mailFeed.markRead(id);", "  else { }", '개인 우편을 펼쳐도 서버에 읽음을 안 보냄'],
+    ['MI', "  await mailFeed.remove(id);\n}", "}", '× 개인 우편이 서버에서 안 지워짐'],
+    ['MI', "if(mailFeed.status() !== 'ready'){ toast('우편을 아직 불러오지 못했어요 — 불러온 뒤에 다시 눌러 주세요'); return; }", "", '우편을 못 받았는데 모두 읽음을 서버에 보냄'],
+    ['MI', "if(_pendingNotice(listEl, mailFeed, '우편')) return;", "", '우편을 받는 중에 «받은 우편이 없어요» 로 그림'],
+    ['MI', "if(_pendingNotice(listEl, noticeFeed, '소식')){ viewEl.innerHTML = ''; return; }", "", '소식을 못 받았는데 «소식이 없어요» 로 그림'],
+    ['MI', "retry.onclick = ()=>{ feed.refresh(); };", "", '못 받음에 다시 시도 길이 없음'],
     ['MI', "merged[id].read && merged[id]._src === 'personal'", "merged[id]._src === 'personal'", '안 읽은 우편까지 지움'],
-    ['MI', "  _mhAsk('읽은 우편 지우기',", "  ({ label:'지우기', run: async ()=>{ for(const id of ids){ await firebaseAPI.deleteInboxMessage(getMyUserId(), id); } } }).run(); (()=>0)('읽은 우편 지우기',", '확인창 없이 지움'],
+    ['MI', "  _mhAsk('읽은 우편 지우기',", "  ({ label:'지우기', run: async ()=>{ await mailFeed.removeMany(ids); } }).run(); (()=>0)('읽은 우편 지우기',", '확인창 없이 지움'],
     ['MI', "if(_newsOpenId && ids.indexOf(_newsOpenId) < 0) _newsOpenId = null;", '', '목록에서 빠진 글의 본문이 남음'],
     ['MI', "t.classList.toggle('new', (un[t.dataset.tag] || 0) > 0);", '', '종류 줄에 새 글 점이 없음'],
     ['MI', 'const n = _inboxUnreadCount();   // 우편 + 소식', 'const n = 0;   // 우편 + 소식', '탭 배지가 안 읽은 수를 안 셈'],
     ['MI', "if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", "if(m._src === 'broadcast'){ }", '공지 펼쳐도 읽음 안 됨'],
-    ['MI', "if(isAdmin() && firebaseAPI.deleteInboxBroadcast)", 'if(firebaseAPI.deleteInboxBroadcast)', '일반 사용자가 공지를 전체 삭제'],
-    ['MI', "if(!(isAdmin() && m._src === 'broadcast' && firebaseAPI.setInboxBroadcastPinned)) return null;", "if(!(m._src === 'broadcast' && firebaseAPI.setInboxBroadcastPinned)) return null;", '📌 단추가 누구에게나'],
+    ['MI', "    if(isAdmin()) await noticeFeed.remove(id);", "    if(true) await noticeFeed.remove(id);", '일반 사용자가 공지를 전체 삭제'],
+    ['MI', "  if(isAdmin()){\n    const del", "  if(true){\n    const del", '일반 사용자에게 «모두에게서 지우기» 단추'],
+    ['MI', "if(!(isAdmin() && m._src === 'broadcast')) return null;", "if(!(m._src === 'broadcast')) return null;", '📌 단추가 누구에게나'],
     ['MI', 'let esc = escHtml(text);', 'let esc = String(text);', '링크 글을 이스케이프 안 함'],
     ['MI', "const clean = u.replace(/[.,;:)\\]]+$/, '');", 'const clean = u;', '주소 끝 문장부호를 같이 링크'],
     ['MI', 'root._extLinkBound = true;', '', '링크 위임이 두 번 걸림'],
@@ -577,7 +633,7 @@ async function runAll(MI, APP, HTML){
     ['MI', 'setInboxFilter: (v)=>{ _inboxFilter = v; },', '', 'setInboxFilter 를 안 내놓음'],
     ['MI', "if(typeof window !== 'undefined') window.TwMyHomeInbox = api;", "if(typeof window !== 'undefined') window.MyHomeInbox = api;", '전역 이름에 Tw 가 없음'],
     ['APP', '  isAdmin: ()=>isAdmin,', '  isAdmin: isAdmin,', 'isAdmin 을 값으로(TDZ)'],
-    ['APP', '  myInbox: ()=>_myInbox,', '  myInbox: _myInbox,', '수령함을 값으로(구독이 다시 대입하면 옛 것)'],
+    ['APP', '  mailFeed: mailFeed,\n  noticeFeed: noticeFeed,', '  mailFeed: ()=>mailFeed,\n  noticeFeed: noticeFeed,', '우편 한 벌을 읽는 함수로(const 값이어야)'],
     ['APP', 'inboxMod.setFriendFilter(', '_friendFilter = (', '검색 입력이 옛 이름에 씀'],
     ['APP', 'roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),', 'roomTagOf: f=>f.room,', '놀러 가기가 방 판정을 복사'],
     ['HTML', '<script src="parts/myhome/myhome-inbox.js"></script>', '', 'html 이 모듈을 안 실음'],

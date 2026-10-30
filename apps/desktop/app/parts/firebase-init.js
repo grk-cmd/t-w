@@ -47,7 +47,6 @@
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
-  import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./shared/visit-ping.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
@@ -501,35 +500,6 @@
       if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
       await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
       console.warn('[catalog-cache] catalogMeta 규칙이 없어 버전 없이 카탈로그만 썼다 —', kinds.join(','));
-    }
-  }
-
-  /* 공용 공지 버전 확인 + 로컬 캐시 — 구조는 broadcast-cache.js 머리말. 경로를 여기 두는 이유는 위 카탈로그와 같다. */
-  const BROADCAST_OWN_WRITE_MS = 15000;   // 이 기기에서 쓴 뒤 이만큼은 공지 바뀜을 모으지 않는다(아래 liveNow)
-  let _broadcastWroteAt = 0;
-  const _subscribeBroadcast = createBroadcastSync({
-    metaRef:     () => ref(db, 'inboxBroadcastMeta'),
-    fullRef:     () => ref(db, 'inboxBroadcast'),
-    latestQuery: (n) => query(ref(db, 'inboxBroadcast'), orderByChild('ts'), limitToLast(n)),
-    pinnedQuery: () => query(ref(db, 'inboxBroadcast'), orderByChild('pinned'), equalTo(true)),
-    onValue, get,
-    scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
-    /* 이 기기에서 방금 쓴 바뀜은 모으지 않고 바로 받는다 — 관리자가 보낸 · 지운 공지가 자기 화면에 늦게 반영되지 않게 */
-    liveNow: () => Date.now() - _broadcastWroteAt < BROADCAST_OWN_WRITE_MS,
-  });
-  /* 공용 공지 쓰기(보내기 · 고정 · 삭제)는 전부 여기를 지난다 — 같은 다중 경로 update 로 inboxBroadcastMeta(서버 시각)도 올린다.
-     빠지면 사용자는 캐시해 둔 옛 공지를 캐시 수명(24시간)까지 본다. 웹 관리자는 broadcastCommit 이 같은 일을 한다.
-     규칙에 inboxBroadcastMeta 가 아직 없으면 update 가 통째로 거부된다 — 그때만 버전 없이 공지만 한 번 더 쓴다
-     (그 DB 를 쓰는 앱은 버전 구독이 거부돼 통째 구독으로 돌고 있으므로 바로 반영된다). */
-  async function _broadcastUpdate(updates){
-    _broadcastWroteAt = Date.now();   // update 를 부르는 순간 버전 구독이 (서버 시각 추정값으로) 먼저 울린다 — 그 전에 표시
-    try{
-      await update(ref(db), Object.assign({}, updates, { inboxBroadcastMeta: serverTimestamp() }));
-    }catch(e){
-      const code = String((e && (e.code || e.message)) || '');
-      if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
-      await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
-      console.warn('[broadcast-cache] inboxBroadcastMeta 규칙이 없어 버전 없이 공지만 썼다');
     }
   }
 
@@ -3474,11 +3444,6 @@
       await set(ref(db, 'catalog/adBanner'), slides);
       return { ok:true };
     },
-    subscribeAdBanner(onChange){
-      const r = ref(db, 'catalog/adBanner');
-      onValue(r, snap => onChange(snap.val() || []));
-      return () => off(r, 'value');
-    },
 
     /* ---- 게임 설정(관리자 전용) ----
        동물 해금 레벨처럼 '앱을 새로 배포하지 않고 바꾸고 싶은 값'을 서버에 둔다.
@@ -3714,12 +3679,6 @@
       await remove(ref(db, 'announce/current'));
       return { ok:true };
     },
-    // 전체 유저가 구독 — 초기 접속 시 즉시 1회 + 발행/삭제 시마다 호출. null이면 공지 없음.
-    subscribeAnnounce(onChange){
-      const r = ref(db, 'announce/current');
-      onValue(r, snap => onChange(snap.val() || null));
-      return () => off(r, 'value');
-    },
     // ===== 📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업) =====
     // updateNotice/current = { title, body, ts } — ts는 발행 시각(버전 구분자로도 씀).
     //   유저가 "다시 보지 않기" 체크하면 localStorage에 그 ts를 기록해서 같은 ts면 스킵.
@@ -3737,31 +3696,8 @@
       return snap.val() || null;
     },
     /* ═══════════ 📩 수령함 (구 DM 자리) ═══════════
-       스키마: inbox/{uid}/{msgId} = { tag, title, body, ts, read }
-       · tag: 'notice' | 'update' | 'reward'   ← [공지] [업데이트] [보상] 태그로 표시
-       · 관리자가 전체 유저에게 일괄 전송(sendInboxBroadcast)하거나,
-         시스템(보상 시스템·업데이트 등)에서 특정 유저에게 개별 전송(sendInboxMessage)
-       · 유저는 읽기 표시(markInboxRead)와 삭제(deleteInboxMessage)만 가능(작성 불가) */
-    subscribeInbox(myId, onChange){
-      const r = ref(db, `inbox/${myId}`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async markInboxRead(myId, msgId){
-      try{ await update(ref(db, `inbox/${myId}/${msgId}`), { read: true }); }catch(_){}
-    },
-    async markAllInboxRead(myId){
-      try{
-        const snap = await get(ref(db, `inbox/${myId}`));
-        const v = snap.val() || {};
-        const updates = {};
-        Object.keys(v).forEach(id=>{ if(!v[id].read) updates[`inbox/${myId}/${id}/read`] = true; });
-        if(Object.keys(updates).length) await update(ref(db), updates);
-      }catch(_){}
-    },
-    async deleteInboxMessage(myId, msgId){
-      try{ await remove(ref(db, `inbox/${myId}/${msgId}`)); }catch(_){}
-    },
+       받기 · 읽음 · 지우기 · 공지는 서버 API 로 옮겼다(myhome/inbox-api.js · launcher/notice-api.js).
+       여기엔 관리자 코드(admin/)가 아직 부르는 «개별 보내기» 만 남는다 — 관리자 묶음이 서버 길로 옮기면 같이 걷는다. */
     // 개별 유저에게 메시지 전송 — 시스템(보상 지급/업데이트 안내 등)이 호출
     /* extra.bugId — 🐞 답변 알림(tag 'bug')이 가리키는 글. 우편함에서 누르면 그 글을 연다. */
     async sendInboxMessage(toId, tag, title, body, extra){
@@ -3775,39 +3711,6 @@
       if(extra && extra.bugId) rec.bugId = String(extra.bugId).slice(0,40);
       await set(ref(db, `inbox/${toId}/${id}`), rec);
       return { ok:true, id };
-    },
-    // 관리자: 모든 유저에게 일괄 전송 — users 목록을 읽어서 각자의 inbox에 같은 메시지를 뿌림
-    async sendInboxBroadcast(tag, title, body, pinned){
-      // ★ 공용 공지 노드(inboxBroadcast)에 1회만 씀 — 모든 유저가 이 노드를 읽음.
-      //   (예전엔 users 전체를 읽어 개인 inbox마다 복사했는데, users 전체 읽기가 규칙상 막혀 실패했음.
-      //    공지는 내용이 모두 같으니 공용 노드 하나가 맞음. "읽음"은 각자 로컬에 저장.)
-      //   📌 pinned=true면 수령함에서 시간과 무관하게 항상 최상단 고정(관리자만 지정).
-      const now = Date.now();
-      const tagFinal = (tag==='update'||tag==='reward') ? tag : 'notice';
-      const id = 'b' + now.toString(36) + Math.random().toString(36).slice(2,6);
-      const rec = {
-        tag:tagFinal, title:String(title||'').slice(0,80), body:String(body||'').slice(0,600), ts: now
-      };
-      if(pinned) rec.pinned = true;   // 고정 아닐 땐 아예 키를 안 써서 기존 규칙/데이터와 호환
-      await _broadcastUpdate({ [`inboxBroadcast/${id}`]: rec });
-      return { ok:true, count:'전체' };
-    },
-    // 📌 관리자: 기존 공지의 고정 상태만 토글 (내용은 그대로 두고 pinned만 갱신)
-    async setInboxBroadcastPinned(msgId, pinned){
-      try{
-        await _broadcastUpdate({ [`inboxBroadcast/${msgId}/pinned`]: pinned ? true : null });
-        return { ok:true };
-      }catch(_){ return { ok:false }; }
-    },
-    // 공용 공지 구독 → onChange({ id:{tag,title,body,ts} }) — 버전 확인 + 로컬 캐시(broadcast-cache.js).
-    //   통째가 아니라 최근 30개 + 고정 공지만 온다. 콜백 모양은 예전 통째 onValue 때와 같다.
-    subscribeInboxBroadcast(onChange){
-      const unsub = _subscribeBroadcast(v => onChange(v || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // 관리자: 공용 공지 삭제
-    async deleteInboxBroadcast(msgId){
-      try{ await _broadcastUpdate({ [`inboxBroadcast/${msgId}`]: null }); }catch(_){}
     },
 
     /* ═══════════ 🔑 구글 로그인 — 계정과 유저 코드를 묶는다 ═══════════

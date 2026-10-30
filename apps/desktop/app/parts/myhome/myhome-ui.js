@@ -408,14 +408,7 @@ function syncFriendsOpen(){
   const INBOX_DRAG_SKIP = '.mh-ibx-body, a';
   ['mhInboxList', 'mhNewsList'].forEach(id=>TwDragScroll.attachDragScroll(document.getElementById(id), { skip: INBOX_DRAG_SKIP }));
   /* 전체 읽음 — 우편 · 소식 칸 아래에 하나씩(둘 다 우편 · 소식을 한꺼번에 읽음으로) */
-  document.querySelectorAll('#mhPageMail .mh-ibx-readall').forEach(btn=>btn.addEventListener('click', async ()=>{
-    inboxMod.inboxBcMarkAllRead();   // 공용 공지도 로컬 읽음 처리
-    mhScheduler.refreshBellBadge();
-    if(typeof inboxMod.renderInbox==='function') inboxMod.renderInbox();
-    if(!window.firebaseAPI || !firebaseAPI.markAllInboxRead){ toast('모두 읽음 처리했어요'); return; }
-    try{ await firebaseAPI.markAllInboxRead(getMyUserId()); toast('모두 읽음 처리했어요'); }
-    catch(e){ toast('처리에 실패했어요'); }
-  }));
+  document.querySelectorAll('#mhPageMail .mh-ibx-readall').forEach(btn=>btn.addEventListener('click', ()=>{ inboxMod.markAllRead(); }));
 
   // 관리자 작성 모달 — .admin-only 클래스로 숨김/표시가 자동 관리됨
   const composeBtn    = document.getElementById('mhInboxComposeBtn');
@@ -451,7 +444,6 @@ function syncFriendsOpen(){
   if(composeSend){
     composeSend.addEventListener('click', async ()=>{
       if(!isAdmin()){ toast('관리자만 전송할 수 있어요'); return; }
-      if(!window.firebaseAPI || !firebaseAPI.sendInboxBroadcast){ toast('네트워크 연결이 필요해요'); return; }
       const title = (composeTitle ? composeTitle.value : '').trim();
       const body  = (composeBody  ? composeBody.value  : '').trim();
       const tagInput = composeOv.querySelector('input[name="ibcTag"]:checked');
@@ -463,14 +455,11 @@ function syncFriendsOpen(){
       // 전체 유저에게 뿌리는 작업이라 명시적 확인
       if(!confirm(`전체 유저에게 [${inboxMod.inboxTagLabel(tag)}]${pinned?' 📌고정':''} "${title}" 메시지를 보낼까요?`)){ window.focus(); return; } window.focus();
       composeSend.disabled = true; showComposeMsg('전송 중…', false);
-      try{
-        const r = await firebaseAPI.sendInboxBroadcast(tag, title, body, pinned);
-        if(r && r.ok){
-          toast(`${r.count}명에게 전송했어요`);
-          composeOv.style.display = 'none';
-          if(pinEl) pinEl.checked = false;   // 다음 작성 때 기본값 복귀
-        } else showComposeMsg('전송에 실패했어요', true);
-      }catch(e){ showComposeMsg(_saveFailMsg(e, '전송에 실패했어요 — 네트워크 확인'), true); }
+      if(await inboxMod.sendBroadcast({ tag, title, body, pinned })){   // 실패는 오류 번호로 알렸다
+        toast('소식을 올렸어요');
+        composeOv.style.display = 'none';
+        if(pinEl) pinEl.checked = false;   // 다음 작성 때 기본값 복귀
+      } else showComposeMsg('올리지 못했어요 — 잠시 뒤 다시 눌러 주세요', true);
       composeSend.disabled = false;
     });
   }
