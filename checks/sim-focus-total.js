@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — focus-total.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = [];
-const VAL_DEPS = [];
+const VAL_DEPS = ["focusTotalStore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["DAY_START_HOUR","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","FOCUS_TOTAL_KEY","_dayShifted","_focusDayStr","_focusSessionSec","setFocusSessionSec","_focusTodaySec","setFocusTodaySec","_loadFocusTotalSec","_rolloverFocusToday","_todayStr"];
 const MOVED = ["FOCUS_TOTAL_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TODAY_DATE_KEY","FOCUS_LEVEL_CAP_HOURS","FOCUS_CYCLE_SEC","FOCUS_CYCLE_CAP","FOCUS_TOTAL_CAP_SEC","_todayStr","DAY_START_HOUR","_dayShifted","_focusDayStr","_focusMigrateDayKey","_loadFocusTotalSec","_loadFocusTodaySec","_focusTodaySec","_focusSessionSec","_rolloverFocusToday"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = [];
+const GLUE = ["  focusTotalStore: accountStoreMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

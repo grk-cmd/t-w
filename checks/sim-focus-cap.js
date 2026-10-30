@@ -100,7 +100,7 @@ function runAdd(start, add){
     const FOCUS_LEVEL_CAP_HOURS = 999, FOCUS_CYCLE_SEC = 999*3600;
     const FOCUS_CYCLE_CAP = ctx.n, FOCUS_TOTAL_CAP_SEC = ctx.cap;
     const FOCUS_TOTAL_KEY='a', FOCUS_TODAY_SEC_KEY='b', FOCUS_TODAY_DATE_KEY='c';
-    const localStorage = { getItem: () => null, setItem: () => {} };
+    const focusLevelStore = { get: () => null, set: () => true };
     const _focusDayStr = () => 'd';
     const _pushLevelIfChanged = () => {};
     ${fnAdd}
