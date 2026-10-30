@@ -344,9 +344,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `api-client.js` — 🌐 앱 공통 API 통로(`/v1`)
 
 - **책임**: fetch · 시간 제한 · 봉투 풀기 · 실패 한 모양(`ApiError` kind · code · items · retryAfterMs) · 토큰 · 기기 머리 · ETag(304) 를 한 곳에서. 앱 오류 번호로 바꾸는 표는 `api-errors.js`.
-- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
+- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true, onOwner? })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
 - **ETag**: 응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 `If-None-Match` — 304 면 기억한 값. 로그인 읽기는 토큰 주인(sub)마다 따로 기억한다. 계정을 놓을 때 `clearCache()`.
-- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
+- **서버 쓰기는 읽은 토큰 주인과 묶는다**: 읽은 값을 고쳐 올리는 provider 는 읽을 때 `get(path, { auth: true, onOwner })` 로 토큰 주인을 기억하고, 쓸 때 `put(path, body, { expectOwner })` 를 싣는다. 보내기 직전 쓸 토큰의 주인이 다르면(그 사이 로그인한 사람이 바뀜) 통로가 보내지 않고 `OWNER_CHANGED`(요청 0)로 끝낸다 — 앞 계정 값이 새 계정 토큰으로 나가 덮어쓰는 길을 막는다. 다른 묶음의 «읽고 고쳐 쓰기» 도 이 규칙을 따른다.
+- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 로그인 읽기는 토큰을 요청당 한 번만 받고(시간 제한과 겨룸 — 멈춰도 `TIMEOUT`) 그 토큰으로 보낸다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
 - **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
 - 검사: `checks/sim-api-client.js`.
 

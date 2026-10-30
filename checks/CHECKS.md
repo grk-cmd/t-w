@@ -272,7 +272,7 @@
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
-| **sim-api-client.js** | 370 | **fb7bf6e01345** |
+| **sim-api-client.js** | 415 | **85ac6da56da3** |
 | **sim-api-public-reads.js** | 168 | **c48baf3b40a5** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 530 | **449b5e150de7** |
