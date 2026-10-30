@@ -18,19 +18,21 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const pick = (names) => names.map(read).find(Boolean);
 const SRC0 = {
   FEED: pick(['mail-feed.js', 'parts/myhome/mail-feed.js', 'app/parts/myhome/mail-feed.js']),
+  RD: pick(['retry-delay.js', 'parts/shared/retry-delay.js', 'app/parts/shared/retry-delay.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
   SMOKE: pick(['smoke.js']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
-const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwMailFeed; };
+const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwMailFeed || w.TwRetryDelay; };
+const RD = SRC0.RD;
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const tick = () => new Promise((r) => setImmediate(r));
 const mail = (read, tag) => ({ tag: tag || 'reward', title: 't', body: 'b', ts: 1, read: !!read });
 
 /* 가짜 한 벌 — api 는 부른 것을 적고 정한 답을 낸다(손으로 풀 수 있는 답도). rt 는 건 함수를 모아 둔다. */
 function mkEnv(){
-  const env = { server: {}, unread: 0, fetches: [], writes: [], errors: [], changes: [], snaps: [], handlers: {}, result: 'ok', fail: null, gate: null };
+  const env = { server: {}, unread: 0, fetches: [], writes: [], errors: [], timers: [], cleared: [], viewing: true, wgate: null, changes: [], snaps: [], handlers: {}, result: 'ok', fail: null, gate: null };
   const api = {
     fetchMail: async (uid) => {
       env.fetches.push(uid);
@@ -38,16 +40,18 @@ function mkEnv(){
       if(env.fail) throw env.fail;
       return { items: JSON.parse(JSON.stringify(env.server)), unread: env.unread, complete: true };
     },
-    markRead: async (uid, id) => { env.writes.push(['read', uid, id]); return env.result; },
-    markAllRead: async (uid) => { env.writes.push(['all', uid]); return env.result; },
-    remove: async (uid, id) => { env.writes.push(['del', uid, id]); return typeof env.result === 'function' ? env.result(id) : env.result; },
+    markRead: async (uid, id) => { env.writes.push(['read', uid, id]); if(env.wgate) await env.wgate.promise; return env.result; },
+    markAllRead: async (uid) => { env.writes.push(['all', uid]); if(env.wgate) await env.wgate.promise; return env.result; },
+    remove: async (uid, id) => { env.writes.push(['del', uid, id]); if(env.wgate) await env.wgate.promise; return typeof env.result === 'function' ? env.result(id) : env.result; },
   };
   const rt = { on: (kind, fn) => { env.handlers[kind] = fn; return () => {}; } };
   return { env, api, rt };
 }
 function mk(src){
   const e = mkEnv();
-  const feed = load(src).createMailFeed({ api: e.api, rt: e.rt, notifyError: (c, err) => e.env.errors.push(c) });
+  const feed = load(src).createMailFeed({ api: e.api, rt: e.rt, notifyError: (c, err) => e.env.errors.push(c), 
+    retryDelay: (n) => load(RD).delay(n), setTimer: (fn, ms) => { const t = { ms, live: true }; t.fn = () => { t.live = false; fn(); }; e.env.timers.push(t); return e.env.timers.length - 1; }, clearTimer: (id) => { if(e.env.timers[id]) e.env.timers[id].live = false; e.env.cleared.push(id); } });
+  feed.setViewing(() => e.env.viewing);
   feed.onChange((x) => { e.env.changes.push(x.addedIds.join(',')); e.env.snaps.push(Object.keys(feed.items()).join('+')); });
   return Object.assign(e, { feed });
 }
@@ -183,10 +187,92 @@ async function judge(S){
     chk(n === 1 && !('w' in feed.items()) && 'x' in feed.items() && 'y' in feed.items() && env.writes.length === 2 && env.errors.length === 1, '여러 통 지우기 — 첫 실패(x)에서 멈춘다(y 는 보내지도 않음) · 지운 수 1 · 번호 한 번');
   }
 
+  say('── 5-2. 늦은 응답 (지우기 경쟁 · 계정 바뀜)');
+  {
+    /* 지우기 응답을 기다리는 사이 다시 받기가 끝나 그 우편이 이미 목록에서 빠졌다 → 던지지 않고 true · removeMany 도 끝까지 */
+    const { env, feed } = mk(LIB);
+    env.server = { a: mail(true), b: mail(true), c: mail(true) }; env.unread = 0;
+    feed.start('ME01'); await tick(); await tick();
+    const g = defer(); env.wgate = g;
+    const p = feed.removeMany(['a', 'b', 'c']);
+    await tick();
+    env.server = { c: mail(true) };   // 그 사이 서버 쪽에서 a · b 가 지워진 채 다시 받음
+    await feed.refresh();
+    env.wgate = null; g.release();
+    let thrown = null, n = -1;
+    try{ n = await p; }catch(e){ thrown = e; }
+    chk(!thrown && n === 3 && Object.keys(feed.items()).length === 0, '지우기 응답 전에 다시 받기가 그 우편을 뺐어도 던지지 않는다 — removeMany 가 끝까지(3통)');
+  }
+  for(const what of ['read', 'all', 'del']){
+    const { env, feed } = mk(LIB);
+    env.server = { a: mail(false), b: mail(false) }; env.unread = 2;
+    feed.start('U1'); await tick(); await tick();
+    const g = defer(); env.wgate = g;
+    const p = what === 'read' ? feed.markRead('a') : what === 'all' ? feed.markAllRead() : feed.remove('a');
+    await tick();
+    env.wgate = null; env.server = { a: mail(false), b: mail(false), z: mail(false) }; env.unread = 3;
+    feed.start('U2'); await tick(); await tick();
+    env.changes.length = 0; env.errors.length = 0;
+    g.release();
+    const r = await p;
+    chk(r === false && feed.unread() === 3 && Object.values(feed.items()).every((m) => m.read === false) && Object.keys(feed.items()).length === 3 && env.changes.length === 0,
+      '쓰는 사이 계정이 바뀌면(' + (what === 'read' ? '읽음' : what === 'all' ? '모두 읽음' : '지우기') + ') 새 계정 우편 · 안 읽은 수를 건드리지 않고 알리지도 않는다');
+  }
+  {
+    const { env, feed } = mk(LIB);
+    env.server = { a: mail(false) }; env.unread = 1;
+    feed.start('U1'); await tick(); await tick();
+    const g = defer(); env.wgate = g; env.result = 'failed';
+    const p = feed.markRead('a'); await tick();
+    env.wgate = null; feed.start('U2'); await tick(); await tick(); env.errors.length = 0;
+    g.release(); await p;
+    chk(env.errors.length === 0, '  앞 계정 쓰기의 늦은 실패도 새 계정에 오류 번호를 띄우지 않는다');
+  }
+
+  say('── 5-3. 스스로 다시 받기 · 오류 번호는 보는 동안만');
+  {
+    const { env, feed } = mk(LIB);
+    env.fail = new Error('x'); env.viewing = false;
+    feed.start('ME01'); await tick(); await tick();
+    chk(feed.status() === 'error' && env.errors.length === 0, '알림함을 안 보는 동안 못 받으면 상태만 error — 오류 번호는 안 띄운다(화면 안 안내는 그대로)');
+    chk(env.timers.length === 1 && env.timers[0].ms === 30000 && env.timers[0].live, '  30초 뒤 스스로 다시 받도록 건다');
+    env.timers[0].fn(); await tick(); await tick();
+    chk(env.fetches.length === 2 && env.timers.length === 2 && env.timers[1].ms === 60000, '  타이머가 돌면 다시 받고, 또 못 받으면 두 배(60초)');
+    for(let i = 2; i < 9; i++){ env.timers[i - 1].fn(); await tick(); await tick(); }
+    chk(env.timers[env.timers.length - 1].ms === 600000, '  10분이 상한');
+    env.viewing = true;
+    env.timers[env.timers.length - 1].fn(); await tick(); await tick();
+    chk(env.errors.join() === 'E-MH-08', '  알림함을 보는 중에 또 못 받으면 그때 번호를 한 번 띄운다');
+    env.timers[env.timers.length - 1].fn(); await tick(); await tick();
+    chk(env.errors.length === 1, '  이어지는 실패는 더 안 띄운다');
+    env.fail = null; env.server = { a: mail(false) }; env.unread = 1;
+    env.timers[env.timers.length - 1].fn(); await tick(); await tick();
+    chk(feed.status() === 'ready' && env.timers.filter((t) => t.live).length === 0, '  받으면 다시 받기 타이머를 거둔다');
+    env.fail = new Error('또'); await feed.refresh(); await tick();
+    chk(env.timers.filter((t) => t.live).length === 1, '  다시 실패하면 타이머가 다시 선다');
+    env.fail = null; await feed.refresh(); await tick();
+    chk(env.timers.filter((t) => t.live).length === 0, '  다른 길(알림 · 다시 시도)로 받아져도 기다리던 타이머를 거둔다');
+    env.fail = new Error('또'); await feed.refresh(); await tick();
+    chk(env.timers[env.timers.length - 1].ms === 30000, '  성공한 뒤의 첫 실패는 다시 30초부터(초기화)');
+  }
+  {
+    const { env, feed } = mk(LIB);
+    env.fail = new Error('x'); env.viewing = false;
+    feed.start('ME01'); await tick(); await tick();
+    await feed.refresh({ manual: true });
+    chk(env.errors.join() === 'E-MH-08', '«다시 시도» 를 눌러 못 받으면(화면을 안 봐도) 번호를 띄운다');
+    feed.start('OTHER'); await tick(); await tick();
+    chk(env.timers[0].live === false, '계정이 바뀌면 앞 계정의 다시 받기를 취소한다');
+    const live = env.timers.filter((t) => t.live).length;
+    feed.stop();
+    chk(env.timers.every((t) => !t.live) && live >= 1, 'stop 이면 다시 받기를 취소한다');
+  }
+
   say('── 6. 배선');
   {
     const A = strip(S.APP);
     chk(/TwMailFeed\.createMailFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && /TwInboxApi\.createInboxApi\(\{ authed: TwApi\.authed/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다');
+    chk(/mailFeed\.setViewing\(\(\)=>inboxMod\.isOpen\(\)\)/.test(A) && /retryDelay: TwRetryDelay\.delay/.test(A), 'app.js — 알림함이 보이는지 · 다시 받기 시간은 잇는다(보이는지는 만든 뒤 setViewing — 순환 방지)');
     chk(!/let _myInbox\b|let _myInboxReady\b|let _inboxBroadcast\b/.test(A), '옛 개인 수령함 · 공용 공지 let 이 app.js 에 없다(원본은 서버)');
     const h = S.HTML;
     chk(h.indexOf('<script src="parts/myhome/mail-feed.js"></script>') > 0 && h.indexOf('<script src="parts/myhome/mail-feed.js"></script>') < h.indexOf('<script src="parts/app.js"></script>'), 'html — mail-feed.js 를 app.js 보다 먼저');
@@ -202,14 +288,23 @@ async function runAll(){
     ['처음 받은 판도 새 우편으로', S.FEED.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은 우편'],
     ['받는 중 겹쳐 요청', S.FEED.replace("if(flying){ again = true; return false; }", ""), '요청은 하나'],
     ['계정이 바뀌어도 앞 응답을 씀', S.FEED.replace("      if(mine !== uid) return false;   // 앞 계정에서 받은 우편 — 버린다\n", ""), '앞 계정'],
-    ['실패마다 알림', S.FEED.replace("if(!failStreak){ failStreak = true; notifyError('E-MH-08', e); }", "notifyError('E-MH-08', e);"), '한 번만'],
+    ['실패마다 알림', S.FEED.replace("{ failStreak = true; notifyError('E-MH-08', e); }", "{ notifyError('E-MH-08', e); }"), '한 번만'],
     ['못 받으면 우편을 비움', S.FEED.replace("status = STATUS.ERROR;", "status = STATUS.ERROR; items = {}; everReady = false;"), '그대로 둔다'],
     ['종 알림에도 받음', S.FEED.replace("n.section === SECTION_MAIL", "n.section === SECTION_MAIL || n.section === 'BELL'"), 'BELL'],
     ['받기 전에도 고침', S.FEED.replace("const usable = () => !!uid && everReady;", "const usable = () => !!uid;"), '받기 전'],
     ['서버 답 전에 고침', S.FEED.replace("    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)", "    if(items[id] && !items[id].read)"), '서버가 됐다'],
-    ['여러 통이 실패해도 계속', S.FEED.replace("if(!(await remove(id))) break; n++;", "if(await remove(id)) n++;"), '첫 실패'],
+    ['여러 통이 실패해도 계속', S.FEED.replace("if(!(await remove(id))) break;\n      n++;", "if(await remove(id)) n++;"), '첫 실패'],
     ['stale 도 번호 알림', S.FEED.replace("if(r === 'failed') notifyError('E-MH-10', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)", "if(r !== 'ok') notifyError('E-MH-10', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)"), 'stale'],
-    ['지워도 안 읽은 수 그대로', S.FEED.replace("if(!items[id].read) unread = Math.max(0, unread - 1);\n    delete items[id];", "delete items[id];"), '안 읽은 것이면 수'],
+    ['지우기 응답 뒤 없는 id 를 만짐', S.FEED.replace("    if(items[id]){\n      if(!items[id].read) unread = Math.max(0, unread - 1);\n      delete items[id];\n    }", "    if(!items[id].read) unread = Math.max(0, unread - 1);\n    delete items[id];"), '던지지 않는다'],
+    ['모두 읽음 늦은 응답이 새 계정을 고침', S.FEED.replace("    const r = await api.markAllRead(who);\n    if(who !== uid) return false;", "    const r = await api.markAllRead(who);"), '모두 읽음'],
+    ['읽음 늦은 응답이 새 계정을 고침', S.FEED.replace("    const r = await api.markRead(who, id);\n    if(who !== uid) return false;", "    const r = await api.markRead(who, id);"), '읽음'],
+    ['지우기 늦은 응답이 새 계정을 고침', S.FEED.replace("    const r = await api.remove(who, id);\n    if(who !== uid) return false;", "    const r = await api.remove(who, id);"), '지우기'],
+    ['안 보는 중에도 번호를 띄움', S.FEED.replace("(manual || viewing())", "true"), '보는 동안만'],
+    ['다시 시도에도 번호 안 띄움', S.FEED.replace("(manual || viewing())", "viewing()"), '다시 시도'],
+    ['다시 받기 시간이 안 늘어남', S.FEED.replace("    failCount++;\n", ""), '두 배'],
+    ['받아도 타이머를 안 거둠', S.FEED.replace("failStreak = false; failCount = 0; cancelRetry();\n      emit", "failStreak = false; failCount = 0;\n      emit"), '타이머를 거둔다'],
+    ['계정이 바뀌어도 타이머가 남음', S.FEED.replace("failCount = 0; manualNext = false; cancelRetry(); }", "failCount = 0; manualNext = false; }"), '취소'],
+    ['지워도 안 읽은 수 그대로', S.FEED.replace("if(!items[id].read) unread = Math.max(0, unread - 1);\n      delete items[id];", "delete items[id];"), '안 읽은 것이면 수'],
   ];
   for(const [name, src, what] of breaks){
     if(src === S.FEED){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }

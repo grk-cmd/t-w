@@ -589,7 +589,7 @@ function _pendingNotice(el, feed, label){
   if(st === 'error'){
     box.textContent = label + '을 불러오지 못했어요';
     const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'mh-ibx-go'; retry.textContent = '다시 시도';
-    retry.onclick = ()=>{ feed.refresh(); };
+    retry.onclick = ()=>{ feed.refresh({ manual: true }); };
     box.appendChild(document.createElement('br')); box.appendChild(retry);
   } else box.textContent = label + '을 불러오는 중…';
   el.appendChild(box);
@@ -725,6 +725,11 @@ function _renderInboxNews(merged, un){
   viewEl.appendChild(_inboxBodyEl('mh-news-body', m));
 }
 
+/* 📩 우편함 화면이 지금 보이나 — 받기 실패 오류 번호는 보는 동안에만 띄운다(mail-feed · notice-feed 의 viewing) */
+function isOpen(){
+  const el = document.getElementById('mhInboxBody');
+  return !!el && el.offsetParent !== null;
+}
 /* 🔔 [모두 읽음] — 소식은 이 PC 에 읽음으로, 우편은 서버에. 우편을 아직 못 받았으면 서버 쪽은 건드리지 않는다 */
 async function markAllRead(){
   _inboxBcMarkAllRead();
@@ -747,6 +752,7 @@ return {
   setInboxSec: (v)=>{ _inboxSec = v; },            // 📩 왼쪽 세로 메뉴 — 우편 · 소식
   setInboxFilter: (v)=>{ _inboxFilter = v; },      // 📢 소식 종류 — 소식 목록 위 줄
   setInboxOpenId: (v)=>{ _inboxOpenId = v; },      // 📩 펼친 우편 — 칸 · 종류 바꾸면 비운다
+  isOpen,                                          // 📩 우편함이 보이나 — 우편 · 공지 받기 실패 알림
   markAllRead,                                     // 📩 모두 읽음 — [모두 읽음] 버튼
   sendBroadcast,                                   // 📢 관리자 소식 올리기 — 우편함 작성 창
   inboxClearRead: _inboxClearRead,                 // 🗑 읽은 우편 지우기 — 우편 칸 아래 버튼

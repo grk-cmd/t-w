@@ -17,6 +17,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const pick = (names) => names.map(read).find(Boolean);
 const SRC0 = {
   FEED: pick(['notice-feed.js', 'parts/launcher/notice-feed.js', 'app/parts/launcher/notice-feed.js']),
+  RD: pick(['retry-delay.js', 'parts/shared/retry-delay.js', 'app/parts/shared/retry-delay.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   BANNER: pick(['ad-banner.js', 'parts/launcher/ad-banner.js', 'app/parts/launcher/ad-banner.js']),
   OVER: pick(['overhead.js', 'parts/room/overhead.js', 'app/parts/room/overhead.js']),
@@ -24,14 +25,15 @@ const SRC0 = {
   SMOKE: pick(['smoke.js']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
-const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwNoticeFeed; };
+const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwNoticeFeed || w.TwRetryDelay; };
+const RD = SRC0.RD;
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const tick = () => new Promise((r) => setImmediate(r));
 const note = (pinned, version) => ({ tag: 'notice', title: 't', body: 'b', ts: 1, pinned: !!pinned, version: version || 1 });
 const boardOf = (ids, extra) => Object.assign({ updateNotice: null, banner: [], broadcasts: Object.fromEntries(ids.map((i) => [i, note(false)])), hasMore: false }, extra || {});
 
 function mk(src){
-  const env = { board: boardOf([]), fail: null, gate: null, fetches: 0, errors: [], writes: [], wres: 'ok', handler: null, seen: [] };
+  const env = { board: boardOf([]), fail: null, gate: null, fetches: 0, errors: [], writes: [], wres: 'ok', handler: null, seen: [], timers: [], viewing: true };
   const api = {
     fetchBoard: async () => {
       env.fetches++;
@@ -44,7 +46,9 @@ function mk(src){
     remove: async (id, v) => { env.writes.push(['del', id, v]); return env.wres; },
   };
   const rt = { on: (kind, fn) => { if(kind === 'notices') env.handler = fn; return () => {}; } };
-  const feed = load(src).createNoticeFeed({ api, rt, notifyError: (c) => env.errors.push(c) });
+  const feed = load(src).createNoticeFeed({ api, rt, notifyError: (c) => env.errors.push(c), 
+    retryDelay: (n) => load(RD).delay(n), setTimer: (fn, ms) => { const t = { ms, live: true }; t.fn = () => { t.live = false; fn(); }; env.timers.push(t); return env.timers.length - 1; }, clearTimer: (id) => { if(env.timers[id]) env.timers[id].live = false; } });
+  feed.setViewing(() => env.viewing);
   feed.onChange((e) => env.seen.push(e.addedIds.join(',')));
   return { env, feed };
 }
@@ -114,6 +118,43 @@ async function judge(S){
     chk(feed.status() === 'error' && feed.ready() && Object.keys(feed.broadcasts()).join() === 'a' && env.errors.length === 2, '  받은 뒤의 실패 — 다시 알리고 앞서 받은 소식은 그대로');
   }
 
+  say('── 3-2. 스스로 다시 받기 · 오류 번호는 보는 동안만 · 업데이트 공지 한 번');
+  {
+    const { env, feed } = mk(LIB);
+    env.fail = new Error('x'); env.viewing = false;
+    feed.start(); await tick(); await tick();
+    chk(feed.status() === 'error' && env.errors.length === 0 && env.timers.length === 1 && env.timers[0].ms === 30000, '알림함을 안 보는 동안 못 받으면 번호 없이 상태만 error · 30초 뒤 다시 받도록 건다');
+    env.timers[0].fn(); await tick(); await tick();
+    chk(env.fetches === 2 && env.timers[1].ms === 60000, '  타이머가 돌면 다시 받고 또 못 받으면 두 배');
+    for(let i = 2; i < 9; i++){ env.timers[i - 1].fn(); await tick(); await tick(); }
+    chk(env.timers[env.timers.length - 1].ms === 600000, '  10분이 상한');
+    env.viewing = true; env.timers[env.timers.length - 1].fn(); await tick(); await tick();
+    chk(env.errors.join() === 'E-MH-09', '  보는 중에 또 못 받으면 번호를 한 번');
+    env.timers[env.timers.length - 1].fn(); await tick(); await tick();
+    chk(env.errors.length === 1, '  이어지는 실패는 더 안 띄운다');
+    env.fail = null; await feed.refresh();
+    chk(feed.status() === 'ready' && env.timers.filter((t) => t.live).length === 0, '  받으면 타이머를 거둔다(다른 길로 받아져도)');
+    env.fail = new Error('또'); await feed.refresh(); await tick();
+    chk(env.timers[env.timers.length - 1].ms === 30000, '  성공한 뒤의 첫 실패는 다시 30초부터');
+  }
+  {
+    const { env, feed } = mk(LIB);
+    env.fail = new Error('x'); env.viewing = false;
+    feed.start(); await tick(); await tick();
+    await feed.refresh({ manual: true });
+    chk(env.errors.join() === 'E-MH-09', '«다시 시도» 로 못 받으면 화면을 안 봐도 번호를 띄운다');
+  }
+  {
+    const { env, feed } = mk(LIB);
+    const shown = [];
+    feed.onceReady((n) => shown.push(n && n.title));
+    env.fail = new Error('x'); env.board = boardOf(['a'], { updateNotice: { title: '새 판', body: 'b', ts: 9 } });
+    feed.start(); await tick(); await tick();
+    chk(shown.length === 0, '업데이트 공지 — 못 받았으면 팝업을 안 띄운다');
+    env.fail = null; await feed.refresh(); await feed.refresh(); env.handler({ kind: 'notices' }); await tick(); await tick();
+    chk(shown.join() === '새 판', '  실패 → 성공 → 다시 받기 여러 번에도 팝업은 한 번(받은 공지로)');
+  }
+
   say('── 4. 관리자 쓰기');
   {
     const { env, feed } = mk(LIB);
@@ -142,6 +183,7 @@ async function judge(S){
     const A = strip(S.APP);
     chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다');
     chk(/whenNetReady\(\(\)=>noticeFeed\.start\(\)\)/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 켤 때 받고 · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
+    chk(/noticeFeed\.setViewing\(\(\)=>inboxMod\.isOpen\(\)\)/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 알림함이 보이는지 잇고 · 업데이트 공지 팝업은 onceReady 한 번');
     const B = strip(S.BANNER);
     chk(/noticeFeed\.onChange\(/.test(B) && !/localStorage\.setItem\(AD_BANNER_KEY/.test(B) && !/subscribeAdBanner/.test(B), '배너 — 공지 한 판이 바뀔 때 그린다 · 이 PC 사본(localStorage)을 안 남긴다');
     const O = strip(S.OVER);
@@ -160,9 +202,15 @@ async function runAll(){
     ['처음 받은 판도 새 소식', F.replace("everReady ? Object.keys", "true ? Object.keys"), '처음 받은'],
     ['받는 중 겹쳐 요청', F.replace("if(flying){ again = true; return false; }", ""), '요청은 하나'],
     ['받는 쪽 하나가 던지면 멈춤', F.replace("try{ fn({ addedIds }); }catch(e){ console.warn('[공지] 받는 쪽 처리 실패', e); }", "fn({ addedIds });"), '다른 쪽은 받는다'],
-    ['실패마다 알림', F.replace("if(!failStreak){ failStreak = true; notifyError('E-MH-09', e); }", "notifyError('E-MH-09', e);"), '한 번만'],
+    ['실패마다 알림', F.replace("{ failStreak = true; notifyError('E-MH-09', e); }", "{ notifyError('E-MH-09', e); }"), '한 번만'],
     ['notices 알림을 안 받음', F.replace("deps.rt.on('notices', () => { refresh(); });", "deps.rt.on('notices', () => {});"), 'notices 알림'],
     ['못 받으면 판을 비움', F.replace("status = STATUS.ERROR;\n", "status = STATUS.ERROR; board = { updateNotice: null, banner: [], broadcasts: {}, hasMore: false }; everReady = false;\n"), '그대로'],
+    ['업데이트 공지를 받을 때마다 띄움', F.replace("      off();\n      fn(board.updateNotice);", "      fn(board.updateNotice);"), '한 번'],
+    ['못 받았는데 업데이트 공지를 띄움', F.replace("if(!everReady) return;\n      off();", "off();"), '못 받았으면'],
+    ['안 보는 중에도 번호를 띄움', F.replace("(manual || viewing())", "true"), '보는 동안만'],
+    ['다시 시도에도 번호 안 띄움', F.replace("(manual || viewing())", "viewing()"), '다시 시도'],
+    ['다시 받기 시간이 안 늘어남', F.replace("    failCount++;\n", ""), '두 배'],
+    ['받아도 타이머를 안 거둠', F.replace("failCount = 0; cancelRetry();", "failCount = 0;"), '타이머를 거둔다'],
     ['고정에 옛 판을 실음', F.replace("api.setPinned(id, m.version, !m.pinned)", "api.setPinned(id, 0, !m.pinned)"), '받은 판'],
     ['없는 id 도 보냄', F.replace("async function togglePin(id){\n    const m = board.broadcasts[id];\n    if(!m) return false;", "async function togglePin(id){\n    const m = board.broadcasts[id] || { version: 0, pinned: false };"), '요청 0'],
     ['409 에 다시 안 받음', F.replace("if(r === 'conflict'){ await refresh(); notifyError('E-MH-12', null); return false; }", "if(r === 'conflict'){ notifyError('E-MH-12', null); return false; }"), '다시 받아'],

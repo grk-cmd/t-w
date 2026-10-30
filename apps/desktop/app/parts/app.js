@@ -2692,14 +2692,19 @@ const mailFeed = TwMailFeed.createMailFeed({
   api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/me/notifications
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  retryDelay: TwRetryDelay.delay, setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id),
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/notices
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  retryDelay: TwRetryDelay.delay, setTimer: (fn, ms)=>setTimeout(fn, ms), clearTimer: (id)=>clearTimeout(id),
 });
 noticeFeed.onChange((e)=>mhInitMod.onNewsChanged(e));
+/* 받기 실패 오류 번호는 알림함이 보이는 동안에만 — 알림함 모듈을 deps 로 받으면 순환이라 만든 뒤에 잇는다 */
+mailFeed.setViewing(()=>inboxMod.isOpen());
+noticeFeed.setViewing(()=>inboxMod.isOpen());
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   _myFriendRequests: ()=>_myFriendRequests,
@@ -7341,13 +7346,7 @@ function _showUpdateNoticeOnce(notice){
   document.getElementById('updateNoticeOkBtn').onclick = close;
   document.getElementById('updateNoticeCloseX').onclick = close;
 }
-{
-  const off = noticeFeed.onChange(()=>{
-    if(!noticeFeed.ready()) return;   // 못 받았으면 다음에 받을 때 다시 본다
-    off();
-    _showUpdateNoticeOnce(noticeFeed.updateNotice());
-  });
-}
+noticeFeed.onceReady(_showUpdateNoticeOnce);   // 처음 받았을 때 한 번 — 못 받았으면 다음에 받을 때
 // 켤 때 공지를 받는다(이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js)
 TwNetReady.whenNetReady(()=>noticeFeed.start());
 

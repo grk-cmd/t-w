@@ -54,6 +54,52 @@ function build(src){
   return api.createOverhead(deps);
 }
 
+/* 📣 확성기 announce 메시지 — 진짜 모듈을 만들어 메시지를 쏴 본다(좌석 라벨 숨김 · 끝나는 때 타이머) */
+function announceRun(src){
+  const any = anything();
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  const log = { timers: [], cleared: 0, handler: null };
+  const el = { style: { display: 'block' } };
+  deps.seats = [{ announceEl: el }];
+  deps.rtHub = { store: { onMessage: (t, fn) => { if(t === 'announce') log.handler = fn; } } };
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
+  const st = (fn, ms) => { log.timers.push({ fn, ms }); return log.timers.length; };
+  new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
+    NET_PRE + src + '\nreturn window.TwOverhead;')(win, any, ls, any, any, any, st, () => 0, () => { log.cleared++; }, () => {}, () => 0, any, () => {}, () => {}, undefined).createOverhead(deps);
+  return { log, el, send: (m) => { el.style.display = 'block'; log.handler(m); } };
+}
+function judgeAnnounce(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  let a;
+  try{ a = announceRun(src); }catch(e){ return [[false, '확성기 — 만들 때 던짐 ' + String(e.message).slice(0, 60)]]; }
+  t(typeof a.log.handler === 'function', '확성기 — announce 메시지를 받도록 건다');
+  a.send({ text: '점검', until: Date.now() + 5000 });
+  const d1 = a.log.timers.length ? a.log.timers[a.log.timers.length - 1].ms : -1;
+  t(a.log.timers.length === 1 && d1 > 3000 && d1 <= 5000 && a.el.style.display === 'block', '확성기 — 서버가 정한 끝나는 때까지 남은 시간(5초 이내)만큼 보이고 그때 숨기려 타이머를 건다');
+  a.log.timers[0].fn();
+  t(a.el.style.display === 'none', '  타이머가 돌면 숨긴다');
+  a.send({ text: '긴 공지', until: Date.now() + 10 * 60000 });
+  t(a.log.timers[a.log.timers.length - 1].ms === 60000, '확성기 — 10분 뒤로 와도 60초로 자른다(이 PC 시계가 틀려도 오래 안 보임)');
+  const n0 = a.log.timers.length;
+  a.send({ text: '지난 공지', until: Date.now() - 1000 });
+  t(a.log.timers.length === n0 && a.el.style.display === 'none', '확성기 — 끝나는 때가 이미 지났으면 보이지 않고 타이머도 안 건다');
+  const n1 = a.log.timers.length;
+  for(const bad of [undefined, null, '9999999999999', NaN]){ a.send({ text: '이상', until: bad }); }
+  t(a.log.timers.length === n1 && a.el.style.display === 'none', '확성기 — 숫자가 아닌 until 은 보이지 않는다');
+  const c0 = a.log.cleared;
+  a.send({ text: null, until: null });
+  t(a.el.style.display === 'none' && a.log.cleared > c0, '확성기 — text:null 은 끈다(기다리던 타이머도 거둔다)');
+  const n2 = a.log.timers.length;
+  a.send({ text: null, until: Date.now() + 5000 });
+  t(a.el.style.display === 'none' && a.log.timers.length === n2, '확성기 — until 이 남아 있어도 text 가 없으면 보이지 않는다');
+  return r;
+}
+
 function judgeAll(mod, app, html){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
@@ -81,6 +127,8 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 📣 확성기 announce 메시지');
+judgeAnnounce(MOD).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/overhead.js"></script>', '')],
@@ -97,6 +145,17 @@ for(const [name, fm, fa, fh] of breaks){
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+for(const [name, from, to] of [
+  ['확성기가 60초로 안 자름', 'Math.min(m.until - Date.now(), ANNOUNCE_MAX_MS)', '(m.until - Date.now())'],
+  ['확성기가 지난 공지도 보임', 'if(remain > 0){', 'if(true){'],
+  ['확성기가 until 타입을 안 봄', "typeof m.until === 'number'", 'm.until'],
+  ['확성기 끄기가 타이머를 안 거둠', 'clearTimeout(_announceExpireTimer);\n  _activeAnnounceText = null;', '_activeAnnounceText = null;'],
+  ['확성기 끄기가 안 먹음', 'if(m && m.text && ', 'if(m && '],
+]){
+  const bad = MOD.replace(from, to);
+  let caught; try{ caught = bad !== MOD && judgeAnnounce(bad).some(([ok]) => !ok); }catch(_){ caught = true; }
+  chk(caught, name + ' → 빨강');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

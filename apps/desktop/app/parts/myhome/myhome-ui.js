@@ -19,7 +19,6 @@ const _mhCloseStickerAnim = deps._mhCloseStickerAnim;
 const _mhViewingUserId = deps._mhViewingUserId;   // 읽는 함수
 const _myFriendRequests = deps._myFriendRequests;   // 읽는 함수
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
-const _saveFailMsg = deps._saveFailMsg;
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const closeFriendHomeView = deps.closeFriendHomeView;
 const escRegisterWindow = deps.escRegisterWindow;
@@ -459,7 +458,7 @@ function syncFriendsOpen(){
         toast('소식을 올렸어요');
         composeOv.style.display = 'none';
         if(pinEl) pinEl.checked = false;   // 다음 작성 때 기본값 복귀
-      } else showComposeMsg('올리지 못했어요 — 잠시 뒤 다시 눌러 주세요', true);
+      } else showComposeMsg('', false);   // 실패는 오류 번호(E-MH-12) 알림 하나로 — 창 안 문구를 겹쳐 띄우지 않는다
       composeSend.disabled = false;
     });
   }

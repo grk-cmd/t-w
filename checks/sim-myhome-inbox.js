@@ -112,7 +112,7 @@ function mkEnv(o){
   env.mailFeed = {
     items: () => env.myInbox, status: () => env.mailStatus, ready: () => env.mailReady,
     unread: () => (env.mailUnread == null ? Object.values(env.myInbox).filter((m) => !m.read).length : env.mailUnread),
-    refresh: () => { env.refreshed.push('mail'); return Promise.resolve(true); },
+    refresh: (o) => { env.refreshed.push('mail' + (o && o.manual ? '!' : '')); return Promise.resolve(true); },
     markRead: async (id) => { env.calls.push('markInboxRead ME01 ' + id); return true; },
     markAllRead: async () => { env.calls.push('markAllInboxRead ME01'); return env.markAllOk !== false; },
     remove: async (id) => { env.calls.push('deleteInboxMessage ME01 ' + id); return true; },
@@ -120,7 +120,7 @@ function mkEnv(o){
   };
   env.noticeFeed = {
     broadcasts: () => env.bc, status: () => env.noticeStatus, ready: () => env.noticeReady,
-    refresh: () => { env.refreshed.push('news'); return Promise.resolve(true); },
+    refresh: (o) => { env.refreshed.push('news' + (o && o.manual ? '!' : '')); return Promise.resolve(true); },
     remove: async (id) => { env.calls.push('deleteInboxBroadcast ' + id); return true; },
     togglePin: async (id) => { const next = !(env.bc[id] && env.bc[id].pinned); env.calls.push('pin ' + id + ' ' + next); if(env.pinOk === false) return false; env.bc[id].pinned = next; return true; },   // 서버가 됐다 하면 다시 받아 판이 바뀐다
     sendBroadcast: async (o) => { env.calls.push('send ' + o.tag + ' ' + o.title + ' ' + !!o.pinned); return env.sendOk !== false; },
@@ -320,10 +320,10 @@ async function behave(src){
     m.setInboxSec('mail'); m.renderInbox();
     chk(list.children[0].textContent === '우편을 불러오지 못했어요' && list.children[0].children.length === 2 && list.children[0].children[1].textContent === '다시 시도', '못 받으면 «불러오지 못했어요» + 다시 시도 단추 — 빈 우편으로 그리지 않는다');
     list.children[0].children[1].onclick();
-    chk(e.refreshed.join() === 'mail', '  다시 시도 → 우편을 다시 받는다');
+    chk(e.refreshed.join() === 'mail!', '  다시 시도 → 우편을 다시 받는다(manual — 못 받으면 오류 번호를 띄운다)');
     m.setInboxSec('news'); m.renderInbox();
     nList.children[0].children[1].onclick();
-    chk(nList.children[0].textContent === '소식을 불러오지 못했어요' && e.refreshed.join() === 'mail,news', '  소식도 못 받음 안내 + 다시 시도');
+    chk(nList.children[0].textContent === '소식을 불러오지 못했어요' && e.refreshed.join() === 'mail!,news!', '  소식도 못 받음 안내 + 다시 시도');
     e.myInbox = { z: { tag: 'reward', title: '앞서 받은 우편', ts: 1, read: false } }; e.mailReady = true;
     m.setInboxSec('mail'); m.renderInbox();
     chk(list.children.length === 1 && list.children[0].className === 'mh-ibx-card unread', '한 번 받은 뒤의 실패 — 받아 둔 우편은 그대로 보인다(오류 번호는 이미 알렸다)');
@@ -331,6 +331,13 @@ async function behave(src){
     m.renderInbox();
     chk(list.innerHTML === '<div class="mh-ibx-empty">받은 우편이 없어요</div>', '받기를 시작하지 않은 기기(내 코드 없음)는 «받은 우편이 없어요»');
     e.mailReady = true; e.mailStatus = 'ready'; e.noticeReady = true; e.noticeStatus = 'ready';
+    body.offsetParent = null;
+    chk(m.isOpen() === false, '우편함이 안 보이면(숨은 탭) isOpen 은 거짓 — 받기 실패 번호를 띄우지 않는 기준');
+    body.offsetParent = {};
+    chk(m.isOpen() === true, '  보이면 참');
+    e.byId.mhInboxBody = null; delete e.byId.mhInboxBody;
+    chk(m.isOpen() === false, '  우편함 칸이 없으면 거짓');
+    e.byId.mhInboxBody = body;
 
     say('── 3-3. 처음 칸');
     m.setInboxSec('help'); m.renderInbox();
@@ -604,7 +611,9 @@ async function runAll(MI, APP, HTML){
     ['MI', "if(mailFeed.status() !== 'ready'){ toast('우편을 아직 불러오지 못했어요 — 불러온 뒤에 다시 눌러 주세요'); return; }", "", '우편을 못 받았는데 모두 읽음을 서버에 보냄'],
     ['MI', "if(_pendingNotice(listEl, mailFeed, '우편')) return;", "", '우편을 받는 중에 «받은 우편이 없어요» 로 그림'],
     ['MI', "if(_pendingNotice(listEl, noticeFeed, '소식')){ viewEl.innerHTML = ''; return; }", "", '소식을 못 받았는데 «소식이 없어요» 로 그림'],
-    ['MI', "retry.onclick = ()=>{ feed.refresh(); };", "", '못 받음에 다시 시도 길이 없음'],
+    ['MI', "retry.onclick = ()=>{ feed.refresh({ manual: true }); };", "", '못 받음에 다시 시도 길이 없음'],
+    ['MI', "retry.onclick = ()=>{ feed.refresh({ manual: true }); };", "retry.onclick = ()=>{ feed.refresh(); };", '다시 시도가 manual 이 아님(못 받아도 번호가 안 뜸)'],
+    ['MI', "return !!el && el.offsetParent !== null;", "return true;", '안 보이는데 보인다고 함(isOpen)'],
     ['MI', "merged[id].read && merged[id]._src === 'personal'", "merged[id]._src === 'personal'", '안 읽은 우편까지 지움'],
     ['MI', "  _mhAsk('읽은 우편 지우기',", "  ({ label:'지우기', run: async ()=>{ await mailFeed.removeMany(ids); } }).run(); (()=>0)('읽은 우편 지우기',", '확인창 없이 지움'],
     ['MI', "if(_newsOpenId && ids.indexOf(_newsOpenId) < 0) _newsOpenId = null;", '', '목록에서 빠진 글의 본문이 남음'],
