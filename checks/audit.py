@@ -851,6 +851,7 @@ _OK19 = {
     'class|lvBadgeClass(n)',      # 우리 함수가 돌려주는 고정 클래스 이름
     'data-url|clean',             # _linkifyText — 이미 이스케이프한 글자에서 잘라낸 조각
     'data-url|safe',              # _chatLinkify — 같음
+    'data-url|attr(url)',         # shared/safe-html.js linkify — safeUrl 을 지난 주소를 같은 파일 attr 로 씻는다(접두사 없이 불러 위 규칙이 못 알아본다)
     'data-c|c', 'style|c',        # 색 견본 — _MH_PALETTE(상수) · 최근색(내 localStorage)
     'style|cur',                  # 내가 고른 색
     'style|curColor', 'value|curColor',

@@ -316,6 +316,23 @@
     openPost(id);
   };
 
+  /* 상세 화면 안 바깥 주소 — 오픈카톡 버튼 · 글 속 주소 칸(linkify). 누른 것이 그 둘이면 기본 브라우저로 넘기고 true.
+     data-url 은 화면에 그린 값이라 열기 전에 safeUrl 로 한 번 더 거른다(main 도 http(s) 만 연다). */
+  function openDetailLink(e){
+    const k = e.target.closest('[data-kakao]');
+    if(k){
+      const url = k.dataset.kakao;
+      if(C().kakaoRe.test(url) && window.companion && companion.openBrowser) companion.openBrowser(url);
+      return true;
+    }
+    const ln = e.target.closest('.ext-link[data-url]');
+    if(ln){
+      const url = TwSafeHtml.safeUrl(ln.dataset.url, 'link');
+      if(url && window.companion && companion.openBrowser) companion.openBrowser(url);
+      return true;
+    }
+    return false;
+  }
   function bind(){
     const board = $('bbBoard'); if(!board) return;
     const tab = document.querySelector('#myHomeTabs .mh-tab[data-tab="bugreport"]');
@@ -336,18 +353,7 @@
       const row = e.target.closest('.bb-row[data-id]'); if(row) openPost(row.dataset.id);
     });
     $('bbDetailView').addEventListener('click', (e) => {
-      const k = e.target.closest('[data-kakao]');
-      if(k){
-        const url = k.dataset.kakao;
-        if(C().kakaoRe.test(url) && window.companion && companion.openBrowser) companion.openBrowser(url);
-        return;
-      }
-      const ln = e.target.closest('.ext-link[data-url]');
-      if(ln){
-        const url = TwSafeHtml.safeUrl(ln.dataset.url, 'link');
-        if(url && window.companion && companion.openBrowser) companion.openBrowser(url);
-        return;
-      }
+      if(openDetailLink(e)) return;
       const el = e.target.closest('[data-act]'); if(!el) return;
       const act = el.dataset.act;
       if(act === 'back'){ show('list'); loadList(); }

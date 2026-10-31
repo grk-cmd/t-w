@@ -192,10 +192,32 @@ chk(/const linked = \(s\) => TwSafeHtml\.linkify\(s\);/.test(UI) && /'<div class
   && (UI.match(/<div class="bb-ans-t">' \+ linked\(a\.text\)/g) || []).length === 2 && !/esc\(a\.text\)|esc\(ct \? ct\.body/.test(UI),
   '본문 · 운영자 답변 · 글쓴이 답글의 주소는 linkify 로 누를 수 있는 칸이 된다(esc 로만 그리는 곳 0)');
 {
-  const d0 = UI.indexOf("$('bbDetailView').addEventListener('click'"), d1 = UI.indexOf("const el = e.target.closest('[data-act]')", d0);
-  const h = d0 > 0 && d1 > d0 ? UI.slice(d0, d1) : '';
-  chk(/e\.target\.closest\('\.ext-link\[data-url\]'\)/.test(h) && /TwSafeHtml\.safeUrl\(ln\.dataset\.url, 'link'\)/.test(h) && /if\(url && window\.companion && companion\.openBrowser\) companion\.openBrowser\(url\)/.test(h),
-    '  누르면 data-url 을 safeUrl 로 다시 거른 뒤 기본 브라우저(openBrowser)로 — 앱 화면은 그대로');
+  /* 누르기 처리(openDetailLink)를 꺼내 실제로 부른다 — 가짜 companion · 진짜 safe-html */
+  const SH = (() => { const src = read('safe-html.js') || read('shared/safe-html.js'); if (!src) return null; const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; })();
+  const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return null; let k = src.indexOf('{', i), d = 0; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
+  const runLink = (uiSrc, target, hasCompanion = true) => {
+    const fn = grab(uiSrc, 'openDetailLink'); if (!fn || !SH) return null;
+    const opened = [];
+    const win = hasCompanion ? { companion: { openBrowser: (u) => opened.push(u) } } : {};
+    const C = () => ({ kakaoRe: /^https:\/\/open\.kakao\.com\// });
+    const f = new Function('window', 'companion', 'C', 'TwSafeHtml', fn + '\nreturn openDetailLink;')(win, win.companion, C, SH);
+    let handled, threw = false;
+    try { handled = f({ target: target }); } catch (_) { threw = true; }
+    return { opened, handled, threw };
+  };
+  const tgt = (sel, ds) => ({ closest: (q) => (q === sel ? { dataset: ds } : null) });
+  const link = (u) => tgt('.ext-link[data-url]', { url: u });
+  const ok = runLink(UI, link('https://x.example/a?b=1&c=2'));
+  chk(!!ok && ok.handled && ok.opened.join() === 'https://x.example/a?b=1&c=2', '주소 칸을 누르면 그 주소를 기본 브라우저(openBrowser)로 한 번 — 처리했다고 돌려준다(아래 버튼 처리로 안 넘어감)');
+  const bad = ['javascript:alert(1)', '', 'https://x.example/' + 'a'.repeat(2049), '//evil.example/x'].map(u => runLink(UI, link(u)));
+  chk(bad.every(r => r && r.handled && r.opened.length === 0), '  javascript: · 빈 값 · 상한 넘음 · 스킴 없는 주소는 열지 않는다(다시 거름)');
+  const kk = runLink(UI, tgt('[data-kakao]', { kakao: 'https://open.kakao.com/o/abc' })), kkBad = runLink(UI, tgt('[data-kakao]', { kakao: 'https://evil.example' }));
+  chk(!!kk && kk.opened.join() === 'https://open.kakao.com/o/abc' && kkBad.opened.length === 0, '  오픈카톡 버튼은 오픈카톡 주소만(그대로)');
+  const none = runLink(UI, { closest: () => null }), noComp = runLink(UI, link('https://x.example/a'), false);
+  chk(!!none && none.handled === false && !!noComp && !noComp.threw && noComp.handled, '  다른 곳을 누르면 false(버튼 처리로) · companion 이 없어도 던지지 않는다');
+  const broke = runLink(UI.replace("const url = TwSafeHtml.safeUrl(ln.dataset.url, 'link');", 'const url = ln.dataset.url;'), link('javascript:alert(1)'));
+  chk(!!broke && broke.opened.length === 1, '  깨 보기 — 다시 거르기를 빼면 javascript: 가 열린다 → 위 판정이 빨강');
+  chk(/\$\('bbDetailView'\)\.addEventListener\('click', \(e\) => \{\n\s*if\(openDetailLink\(e\)\) return;/.test(UI), '  상세 화면 누르기가 이 처리를 먼저 거친다');
 }
 chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link — 밑줄 · 손가락)은 공용 스타일');
 
