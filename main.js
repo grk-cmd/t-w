@@ -2791,6 +2791,13 @@ function createWindow() {
   // ★ 광고 소리 0초 누출 방지 — 페이지 내 스크립트는 로드 완료 후에야 주입돼서 첫 광고 소리가 잠깐
   //   새는데, Electron의 setAudioMuted(OS 레벨 음소거)를 로드 시작 순간부터 걸어두고 main에서 광고
   //   여부를 250ms마다 물어봐 광고가 아닐 때만 음소거를 풀면 광고 소리가 한 순간도 안 들림.
+  /* BGM 창에 글을 넣는 단 한 길 — 게이트 · 음량 · 감시 · 화질 · 일시정지 · 반복 모두 이것으로.
+     ⚠️ webContents.executeJavaScript 로 되돌리지 않는다 — 그쪽은 «페이지가 로딩을 마칠 때까지» 실행을 미룬다(Electron 설명서).
+       유튜브 페이지는 하위 요청 하나가 안 끝나면 로딩이 영영 안 끝나서, 음소거가 안 풀리고 감시도 안 붙은 채 곡만 넘어갔다(맥 무음).
+       mainFrame 은 기다리지 않고 지금 문서에서 바로 돈다. 렌더러가 없으면 기다리지 않고 거절한다. */
+  function bgmExec(code){
+    try{ return bgmView.webContents.mainFrame.executeJavaScript(code); }catch(e){ return Promise.reject(e); }
+  }
   /* ★ [2026-09-16 제보 7 후속 ②] «첫 소리는 맞는데 3초쯤 뒤 한 번 크게 튄다»의 정체.
        <video>.volume 을 우리가 넣어도 유튜브 플레이어(#movie_player)는 **자기 저장값**(localStorage
        `yt-player-volume`, 보통 100)을 초기화가 끝나는 시점에 다시 <video> 에 밀어 넣는다. 그 순간이 곡 시작
@@ -2824,6 +2831,10 @@ function createWindow() {
        남는데, 답에 얹어 보내면 그 경우를 못 보여 준다. 그래서 «답 없음 · 기다리는 확인 수» 도 같이 보낸다.
      ⚠️ 읽어서 보내기만 한다 — 음소거를 정하는 것은 아래 게이트 그대로다. */
   let bgmGateMutedSince = 0, bgmGateFail = 0, bgmGatePending = 0, bgmGateLastReply = 0, bgmGateStart = 0, bgmGateLastD = null, bgmDiagTick = 0;
+  /* 새 곡 문서가 열렸나(did-navigate). bgmExec 는 로딩을 기다리지 않아서, 열리기 전에 물으면 **앞 곡 문서**가 답한다 —
+     그 답으로 음소거를 풀면 새 곡 첫소리(광고 · 100% 음량)가 샌다. 열리기 전에는 묻지 않고 음소거를 그대로 둔다. */
+  let bgmGateReady = false, bgmGateGen = 0;   // gen — 앞 곡 때 보낸 확인의 답이 늦게 와도 버린다
+  function bgmGateCommitted(){ bgmGateReady = true; }
   function bgmSendDiag(){
     if(bgmMode !== 'playlist' || (++bgmDiagTick % 4)) return;
     try{
@@ -2841,12 +2852,15 @@ function createWindow() {
     if(!bgmView) return;
     bgmView.webContents.setAudioMuted(true);   // 로드 시작부터 무조건 음소거
     bgmGateMutedSince = bgmGateStart = Date.now(); bgmGateFail = 0; bgmGatePending = 0; bgmGateLastReply = 0; bgmGateLastD = null;
+    bgmGateReady = false;
+    const gen = ++bgmGateGen;
     if(bgmAdPoll) clearInterval(bgmAdPoll);
     bgmAdPoll = setInterval(()=>{
       if(!bgmView || bgmView.webContents.isDestroyed()){ clearInterval(bgmAdPoll); bgmAdPoll=null; return; }
       bgmSendDiag();
+      if(!bgmGateReady) return;
       bgmGatePending++;
-      bgmView.webContents.executeJavaScript(
+      bgmExec(
         '(function(){var p=document.querySelector("#movie_player,.html5-video-player");'+
         'var isAd=!!((p&&p.classList&&p.classList.contains("ad-showing"))||'+
         'document.querySelector(".ytp-ad-player-overlay,.ytp-ad-preview-container,.ytp-ad-text"));'+
@@ -2860,6 +2874,7 @@ function createWindow() {
         'try{ if(p&&typeof p.getVolume==="function") d.pVol=p.getVolume(); if(p&&typeof p.isMuted==="function") d.pMuted=p.isMuted(); }catch(_){}'+
         'return {isAd:isAd, volOk:volOk, d:d};})()'
       ).then(r=>{
+        if(gen !== bgmGateGen) return;
         bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now();
         if(!bgmView || bgmView.webContents.isDestroyed()) return;
         const isAd = !!(r && r.isAd), volOk = !!(r && r.volOk);
@@ -2867,7 +2882,7 @@ function createWindow() {
         bgmView.webContents.setAudioMuted(mute);   // 광고이거나 음량이 아직 안 맞으면 계속 음소거
         bgmGateFail = 0; bgmGateLastD = (r && r.d) || null;
         if(!mute) bgmGateMutedSince = 0; else if(!bgmGateMutedSince) bgmGateMutedSince = Date.now();
-      }).catch(()=>{ bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now(); bgmGateFail++; bgmGateLastD = null; });
+      }).catch(()=>{ if(gen !== bgmGateGen) return; bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now(); bgmGateFail++; bgmGateLastD = null; });
     }, 250);
   }
   /* 🔊 **음량 선점** — 곡이 바뀌는 순간의 "처음 2초만 원래 크기로 들린다"를 막는 자리.
@@ -2889,7 +2904,7 @@ function createWindow() {
          주인이라는 규칙은 그대로다. */
   function bgmPrimeVolume(){
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){ window.__bgmVol='+bgmVolume+';'+
       BGM_SET_VOL_JS+
       '  __twSetVol(window.__bgmVol);'+   // 저장값을 플레이어 초기화보다 먼저 써 둔다
@@ -2942,7 +2957,7 @@ function createWindow() {
      ⚠️ __twLowQ 로 한 번만 건다(dom-ready·did-finish-load 두 번 와도 interval 은 하나). */
   function bgmLowQuality(){
     if(!bgmView || !bgmView.webContents || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){'+
       '  try{ var now=Date.now(); localStorage.setItem("yt-player-quality", JSON.stringify({data:JSON.stringify({quality:144,previousQuality:144}),expiration:now+31536000000,creation:now})); }catch(e){}'+
       '  if(window.__twLowQ) return; window.__twLowQ=1;'+
@@ -2960,7 +2975,7 @@ function createWindow() {
   function bgmForcePlay(){
     if(!bgmView) return;
     const PL = (bgmMode === 'playlist');
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       /* 🔁 loop 여부는 **무장 검사보다 먼저** 심는다 — 이미 감시가 붙은 페이지에 다시 주입해도 값은 갱신돼야 한다.
          ★ 감시 루프는 이 값을 매 tick **읽는다**(주입 때 박지 않는다). 재생 중에 반복 종류를 바꾸면
            setBgmLoop IPC 가 이 전역만 바꾸고, 다음 tick 부터 따른다. */
@@ -3186,6 +3201,7 @@ function createWindow() {
     _twplArmRearm();    // 🐕 첫 곡도 같은 보루를 둔다
     /* 🔊 음량 선점이 먼저다 — dom-ready 는 did-finish-load 보다 이르고, 이 둘의 간격이 곧
        "다음 곡 초반에 소리가 커지는" 구간이었다. 이 자리는 곡을 바꿀 때마다(loadURL 마다) 다시 온다. */
+    bgmView.webContents.on('did-navigate', bgmGateCommitted);   // 곡마다(loadURL 마다) 새 문서가 열릴 때 온다
     bgmView.webContents.on('dom-ready', bgmPrimeVolume);
     /* 🐕 감시를 **두 이벤트 모두**에서 붙인다. did-finish-load 는 하위 리소스를 다 받아야 오므로
        하나만 걸려도 안 온다 — 그때 감시가 통째로 안 붙어 곡이 끝나도 아무도 모른다(이 제보의 원인).
@@ -3252,14 +3268,14 @@ function createWindow() {
   //     세워서 유저가 의도한 일시정지는 루프가 건드리지 않게 함.
   ipcMain.on('companion:pauseBgm', () => {
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){window.__bgmPaused=true; var v=document.querySelector("video"); if(v)v.pause();})()'
     ).catch(()=>{});
   });
   // ▶ (창이 이미 열려있는 상태): 일시정지된 영상 재개 — 새로 로드 안 함
   ipcMain.on('companion:resumeBgm', () => {
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){window.__bgmPaused=false; var v=document.querySelector("video"); if(v){v.muted=false;v.volume=(typeof window.__bgmVol==="number"?window.__bgmVol:'+bgmVolume+'); var p=v.play(); if(p&&p.catch)p.catch(function(){});}})()'
     ).catch(()=>{});
   });
@@ -3270,7 +3286,7 @@ function createWindow() {
     if(!isFinite(n)) return;
     bgmSliderVol = n; bgmRecalcVolume();   // 🏠 home 이면 60% 로 심긴다
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){window.__bgmVol='+bgmVolume+'; '+BGM_SET_VOL_JS+' __twSetVol('+bgmVolume+'); var v=document.querySelector("video"); if(v){ if('+bgmVolume+'>0) v.muted=false; }})()'
     ).catch(()=>{});
   });
@@ -3280,7 +3296,7 @@ function createWindow() {
   ipcMain.on('companion:setBgmLoop', (e, on) => {
     bgmPlLoop = !!on;
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript('window.__twplLoop=' + (bgmPlLoop ? 'true' : 'false') + ';').catch(()=>{});
+    bgmExec('window.__twplLoop=' + (bgmPlLoop ? 'true' : 'false') + ';').catch(()=>{});
   });
   // ✕ (BGM 창 닫힘) 또는 마이홈 종료: 실제로 창을 파괴
   ipcMain.on('companion:closeBgm', () => {

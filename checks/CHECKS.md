@@ -172,7 +172,7 @@
 | **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
 | **sim-pk-fit.js** | 170 | **354391f1f290** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
-| **sim-pl-loop.js** | 362 | **81c03fc00330** |
+| **sim-pl-loop.js** | 364 | **3269e02f156b** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
 | **sim-premium-desk.js** | 96 | **9911af6ac156** |
@@ -385,7 +385,7 @@
 | **sim-catalog-sync.js** | 282 | **d94edeb793ac** |
 | **sim-catalog-source.js** | 100 | **48a661048e45** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
-| **sim-bgm-diag.js** | 257 | **042268d4ec5b** |
+| **sim-bgm-diag.js** | 297 | **edb0457c9236** |
 | **sim-mobile-diag.js** | 147 | **5fbdf8d713ab** |
 | **sim-blink-timing.js** | 112 | **624e0321ea28** |
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** |
