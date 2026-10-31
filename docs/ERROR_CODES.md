@@ -32,7 +32,7 @@
 | 번호 | 사용자 문구 | 어디서 |
 |---|---|---|
 | `E-SYS-01` | 알 수 없는 오류가 났어요 | (예비) 표에 없는 번호를 불렀을 때 |
-| `E-ACC-01` | 이름을 서버에 저장하지 못했어요 — 이 PC 에는 저장했어요 | `account/user-name.js` — 닉네임 저장 뒤 서버 계정 이름(`PATCH /v1/me` — login-flow `patchMe`) 실패 |
+| `E-ACC-01` | 닉네임을 저장하지 못했어요 — 다시 해 주세요 | `account/user-name.js` — 닉네임 저장 뒤 서버 계정 이름(`PATCH /v1/me` — login-flow `patchMe`) 실패 |
 | `E-FR-01` | 친구 요청을 수락하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [수락] |
 | `E-FR-02` | 친구 요청을 거절하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [거절] |
 | `E-FR-03` | 보낸 친구 요청을 취소하지 못했어요 | `myhome/friend-manage.js` — 보낸 요청 [취소] |

@@ -26,18 +26,24 @@ function commitUserName(raw){
     toast('운영진과 헷갈리는 이름은 쓸 수 없어요');
     return;
   }
-  setUserName(v || '나');
-  toast('이름이 저장됐어요');
-  // ★ 이름의 원본은 서버 계정(0.13) — 친구 화면 · 명함이 거기서 읽는다. 이 PC 에는 먼저 적고, 서버가 거절하면 알린다.
-  if(getMyUserId()) Promise.resolve(saveNameOnServer(v || '나')).then((r) => {
-    if(r && r.ok) return;
+  const prev = getUserName();
+  const next = v || '나';
+  setUserName(next);
+  refreshNameViews();
+  // ★ 이름의 원본은 서버 계정(0.13) — 친구 화면 · 명함이 거기서 읽는다. 서버가 거절하면 이 PC 에도 남기지 않고 이전 이름으로 되돌린다(다음 켤 때 서버 이름으로 덮이므로).
+  if(!getMyUserId()){ toast('이름이 저장됐어요'); return; }
+  Promise.resolve(saveNameOnServer(next)).then((r) => {
+    if(r && r.ok){ toast('이름이 저장됐어요'); return; }
+    if(getUserName() === next){ setUserName(prev); refreshNameViews(); }   // 그 사이 또 고쳤으면 그쪽을 둔다
     const e = r && r.err;
     if(e && e.code === 'USER_RESERVED_NAME') toast('운영진과 헷갈리는 이름은 쓸 수 없어요');
     else notifyError('E-ACC-01', e);
   });
-  // 🏷️ 방에 들어가 있으면 친구 화면의 내 이름표도 즉시 갱신 — 예전엔 방을 다시 들어가야 바뀌었다.
+}
+// 🏷️ 방에 들어가 있으면 친구 화면의 내 이름표도 즉시 갱신 — 예전엔 방을 다시 들어가야 바뀌었다. 마이홈 페이지가 열려있으면 표시도 같이.
+function refreshNameViews(){
   try{ if(typeof Presence!=='undefined' && Presence.active() && Presence.setName) Presence.setName(getDisplayName()); }catch(_){}
-  const nameEl=document.getElementById('mhMyName'); if(nameEl) nameEl.textContent=getDisplayName();   // 마이홈 페이지가 열려있으면 표시도 즉시 갱신
+  const nameEl=document.getElementById('mhMyName'); if(nameEl) nameEl.textContent=getDisplayName();
 }
 window.commitUserName = commitUserName;
 

@@ -37,12 +37,12 @@ function judge(mod, html, app) {
     let b = build(mod, {});
     r.max = b.m.USER_NAME_MAX === 12;
     b.m.commitUserName('  가나다라마바사아자차카타파하  ');
-    r.cut = b.env.name === '가나다라마바사아자차카타' && b.env.toasts[0] === '이름이 저장됐어요';
+    r.cut = b.env.name === '가나다라마바사아자차카타';
     r.side = b.env.profiles.length === 1 && b.env.profiles[0].join() === '가나다라마바사아자차카타' && b.env.plates[0] === '가나다라마바사아자차카타' && b.nameEl.textContent === '가나다라마바사아자차카타';
     b.m.commitUserName('   '); r.empty = b.env.name === '나';
     b = build(mod, {}); b.m.commitUserName('운영자'); r.staff = b.env.name === '' && /운영진/.test(b.env.toasts[0] || '') && !b.env.profiles.length;
     b = build(mod, { admin: true }); b.m.commitUserName('운영자'); r.admin = b.env.name === '운영자';
-    b = build(mod, { name: '운영자' }); b.m.commitUserName('운영자'); r.same = b.env.toasts[0] === '이름이 저장됐어요';
+    b = build(mod, { name: '운영자', uid: null }); b.m.commitUserName('운영자'); r.same = b.env.toasts[0] === '이름이 저장됐어요';
     b = build(mod, { active: false }); b.m.commitUserName('아무개'); r.noRoom = b.env.plates.length === 0 && b.env.name === '아무개';
     r.win = typeof b.win.commitUserName === 'function';
     b = build(mod, { uid: null }); b.m.commitUserName('아무개'); r.noUid = b.env.profiles.length === 0 && b.env.name === '아무개' && b.env.toasts[0] === '이름이 저장됐어요';
@@ -59,7 +59,7 @@ function judge(mod, html, app) {
 const R = judge(MOD, HTML, APP);
 
 say('── 1. 저장');
-chk(!R.err && R.max && R.cut, '앞뒤 빈칸을 지우고 12자로 자른다 · «이름이 저장됐어요»' + (R.err ? ' — ' + R.err : ''));
+chk(!R.err && R.max && R.cut, '앞뒤 빈칸을 지우고 12자로 자른다' + (R.err ? ' — ' + R.err : ''));
 chk(R.side, '저장 뒤 서버 계정 이름(PATCH /v1/me) · 방 이름표 · 마이홈 표시를 같은 값으로 갱신');
 chk(R.empty, '비우면 «나»');
 chk(R.staff && R.admin && R.same, '운영진처럼 보이는 이름은 막는다 — 관리자 · 이미 그 이름인 사람은 예외(name-guard.js)');
@@ -72,11 +72,16 @@ const REJ = (async () => {
   process.on('unhandledRejection', onU);
   let b1, b2;
   try {
-    b1 = build(MOD, { reject: 'NETWORK' }); b1.m.commitUserName('아무개');
-    b2 = build(MOD, { reject: 'USER_RESERVED_NAME' }); b2.m.commitUserName('아무개');
+    b1 = build(MOD, { reject: 'NETWORK', name: '이전' }); b1.m.commitUserName('아무개');
+    b2 = build(MOD, { reject: 'USER_RESERVED_NAME', name: '이전' }); b2.m.commitUserName('아무개');
     await new Promise(r => setTimeout(r, 20));
   } finally { process.off('unhandledRejection', onU); }
-  chk(!caught.length && b1.env.errs.join() === 'E-ACC-01' && b1.env.name === '아무개', '서버 저장 실패 — 번호 토스트(E-ACC-01) · 이름은 이 PC 에 남음');
+  chk(!caught.length && b1.env.errs.join() === 'E-ACC-01' && b1.env.name === '이전' && !b1.env.toasts.includes('이름이 저장됐어요') && b1.env.plates[b1.env.plates.length - 1] === '이전', '★ 서버 저장 실패 — 번호 토스트(E-ACC-01) · 이 PC 에도 남기지 않고 이전 이름으로 되돌린다(저장됐다는 알림 없음)');
+  chk(b2.env.name === '이전', '  ↳ 쓸 수 없는 이름으로 거절돼도 이전 이름으로');
+  const ok = build(MOD, { name: '이전' }); ok.m.commitUserName('아무개'); await new Promise(r => setTimeout(r, 20));
+  chk(ok.env.name === '아무개' && ok.env.toasts.join() === '이름이 저장됐어요' && !ok.env.errs.length, '서버가 받으면 이 PC 이름 유지 · «이름이 저장됐어요» 는 서버가 받은 뒤');
+  const re = build(MOD, { name: '이전', reject: 'NETWORK' }); re.m.commitUserName('둘째'); re.env.name = '그 사이'; await new Promise(r => setTimeout(r, 20));
+  chk(re.env.name === '그 사이', '  ↳ 저장 중 또 고쳤으면 되돌리기가 그것을 덮지 않는다');
   chk(b2.env.errs.length === 0 && b2.env.toasts.some(t => /운영진/.test(t)), '서버가 쓸 수 없는 이름(USER_RESERVED_NAME)으로 거절 — 그 문구');
 })();
 
@@ -88,11 +93,15 @@ chk(R.callers >= 3 && R.old === 0, '부르는 곳은 userNameMod.이름(' + R.ca
 say('── 3. 일부러 깨 보기');
 chk(!judge(MOD.replace('.slice(0, USER_NAME_MAX)', ''), HTML, APP).cut, '자르기를 빼면 빨강');
 chk(!judge(MOD.replace("  if(isStaffName(v) && v !== getUserName().trim() && !(typeof isAdmin() !== 'undefined' && isAdmin())){", '  if(false){'), HTML, APP).staff, '운영진 이름 막기를 빼면 빨강');
-chk(!judge(MOD.replace('if(getMyUserId()) Promise.resolve(saveNameOnServer(', 'if(true) Promise.resolve(saveNameOnServer('), HTML, APP).noUid, '내 코드 확인을 빼면 빨강');
+chk(!judge(MOD.replace('if(!getMyUserId()){ toast', 'if(false){ toast'), HTML, APP).noUid, '내 코드 확인을 빼면 빨강');
 chk(!judge(MOD, HTML.replace('<script src="parts/account/user-name.js"></script>', ''), APP).order, 'html 줄이 빠지면 빨강');
 chk(judge(MOD, HTML, APP + '\nprogSettingsMod.commitUserName("x");\n').old > 0, '설정 창 이름으로 부르면 빨강');
 
-REJ.then(() => {
+REJ.then(async () => {
+  const bk = build(MOD.replace('setUserName(prev); refreshNameViews();', ''), { reject: 'NETWORK', name: '이전' }); bk.m.commitUserName('아무개'); await new Promise(r => setTimeout(r, 20));
+  chk(bk.env.name !== '이전', '되돌리기를 빼면 빨강(서버 실패인데 이 PC 에 남음)');
+  const bt = build(MOD.replace("if(r && r.ok){ toast('이름이 저장됐어요'); return; }", "if(r && r.ok) return;"), { name: '이전' }); bt.m.commitUserName('아무개'); await new Promise(r => setTimeout(r, 20));
+  chk(bt.env.toasts.length === 0, '성공 알림을 빼면 빨강');
   say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 닉네임 저장은 user-name.js 한 벌'));
   process.exit(fail ? 1 : 0);
 });

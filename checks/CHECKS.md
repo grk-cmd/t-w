@@ -391,7 +391,7 @@
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 77 | **0e8ccbe59d09** |
 | **sim-typeof-guards.js** | 133 | **1332b275f74a** |
-| **sim-user-name.js** | 98 | **485beb0533ee** |
+| **sim-user-name.js** | 107 | **1bc605f8c264** |
 | **sim-part-scene.js** | 209 | **4d4fc633d0be** |
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
