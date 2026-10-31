@@ -329,8 +329,7 @@ say('\n── 5. 왜 이렇게 됐는지가 파일에 남아 있다');
     '★ 세션 종료 예외의 정체가 남아 있다 — 이 근거가 없으면 session-end 처리가 군더더기로 보인다');
   chk(/CLICKED|mousedown/.test(mainSrc) && /드래그/.test(mainSrc),
     '  click 이 아니라 mousedown 을 듣는 이유(드래그 중 누락)가 남아 있다');
-  chk(/UIPI|관리자 권한/.test(mainSrc),
-    '  관리자 권한 창은 목록에도 안 나온다는 한계가 적혀 있다 — mac 권한 사안과 같은 자리다');
+  /* 경로를 못 읽는 창(관리자 권한 · 안티치트)이 창 목록에 드는지는 sim-winlist 1절이 실물로 돌려 본다. */
 }
 
 /* ══ 6. focus-apps.json 저장 포맷 — ★ 지금이 마지막 기회다 ════════════════

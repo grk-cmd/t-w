@@ -217,7 +217,7 @@
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
 | **sim-signup.js** | 1597 | **14f398af12e0** |
-| **sim-sysinput.js** | 398 | **5aee331494bb** |
+| **sim-sysinput.js** | 397 | **41919d14be24** |
 | **sim-winlist.js** | 117 | **264e376e72aa** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
@@ -1689,8 +1689,8 @@ node sim-keysof-twin.js --selftest    변이 9종 주입 → 전부 잡힘 · �
 **E 추가 제보** 「관리자 권한 게임 클라이언트를 등록했는데 캐릭터는 포커싱 포즈(움직이고 안 졸음)인데 **타이머가 안 쌓인다.**
 창모드도 같다. 인식 안 되는 게임클라 → 브라우저 클릭 → 다시 게임클라로 오면 캐릭터는 포커싱인데 카운팅 없음.」
 
-원인은 코드에서 확정됐다. node-window-manager 의 `path` 는 OpenProcess(QUERY_INFORMATION|VM_READ)+GetModuleFileNameEx 로 읽는데,
-일반 권한인 우리 앱은 **관리자 권한 프로세스를 못 열어** `path` 가 빈 문자열로 온다 → `sysinput.getActiveWindow` 가 null →
+원인은 코드에서 확정됐다. node-window-manager 의 `path` 는 OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)+QueryFullProcessImageNameW 로 읽는데,
+일반 권한인 우리 앱은 **관리자 권한 · 안티치트로 보호된 프로세스를 못 열 때가 있어** `path` 가 빈 문자열로 온다 → `sysinput.getActiveWindow` 가 null →
 main.js 폴링이 «활성 창 판정 실패» 로 일찍 return → `activeAppState` 가 안 나가 렌더러의 누적 tick(`_applyActiveAppState`)이 서는데,
 커서 이동 신호(`_reportCursorActivity`)는 finally 에서 계속 나가고 렌더러 상태는 직전 창(브라우저=등록)으로 굳어 있어 **캐릭터만 포커싱**.
 핸드오프 §9-2 의 «훅 미수신» 가설은 이것과 **별개로** 여전히 살아 있다(관리자 권한 창 앞에서 일반 권한 저수준 훅은 UIPI 에 막힌다) —
