@@ -70,9 +70,6 @@ function judgeAll(mod, app, html){
   t(!bare.length, '부르는 곳은 licenseGateMod.이름 — 옛 이름 그대로 부르는 자리 없음' + (bare.length ? ' — ' + bare.join(' · ') : ''));
   const iM = html.indexOf('<script src="parts/account/license-gate.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iM > 0 && iA > iM, 'html — parts/account/license-gate.js 를 app.js 보다 먼저 싣는다');
-  const body = (n) => { const i = mod.indexOf('function ' + n + '('); if(i < 0) return ''; const j = mod.indexOf('\n}\n', i); return mod.slice(i, j); };
-  t(/plMarkUnreachable\(\);\s*loginFlowMod\.enterLocal/.test(mod), '로컬 모드로 들어갈 때 플레이리스트를 «못 불러왔어요» 로 알린다(요청 없음)');
-  t(/\bplPull\(\)/.test(body('_goOnline')) && /state === 'in'[\s\S]*\bplPull\(\)/.test(body('_backOnline')), '서버 계정이 확인된 뒤(_goOnline · 로컬 모드에서 돌아온 _backOnline) 플레이리스트 받기를 한 번 부른다(playlist.js 는 로그인 전엔 타이머 없이 끝낸다)');
   return r;
 }
 
@@ -94,6 +91,69 @@ function callsWith(src, uid){
   return calls;
 }
 const judgeNoUid = (src) => !callsWith(src, null).includes('myInvites') && callsWith(src, 'ME').includes('myInvites');
+
+
+/* ── 켤 때 판정 갈래 — 진짜 checkInviteGate · _goOnline · _backOnline 을 돌려 불린 것을 센다 ── */
+async function gateRun(src, o){
+  const any = anything();
+  const ev = [];
+  let back = null;
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  Object.assign(deps, {
+    getMyUserId: () => o.uid || null,
+    toast: () => { ev.push('toast'); },
+    plPull: () => { ev.push('plPull'); }, plMarkUnreachable: () => { ev.push('mark'); },
+    _wipeAccountLocal: () => { ev.push('wipe'); },
+    _acctRelaunchAfterDetach: () => { ev.push('relaunch'); },
+    _enterAccount: () => { ev.push('enter'); return o.enter || { ok: true, switched: false }; },
+    firstRunMod: { run: () => { ev.push('firstRun'); return Promise.resolve(); } },
+    loginFlowMod: {
+      confirm: async () => ({ state: o.state, me: { userCode: 'u1' } }), identity: () => ({}),
+      goOnline: () => { ev.push('goOnline'); }, enterLocal: (cb) => { ev.push('enterLocal'); back = cb; },
+    },
+  });
+  const doc = { getElementById: (id) => { if(id === 'inviteGateOverlay') ev.push('gate'); return null; } };   // 마크업 없음 → 게이트는 false 로 끝난다
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem(){}, removeItem(){} };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'setTimeout', 'module', src + '\nreturn window.TwLicenseGate;')(win, doc, ls, any, () => 0, undefined);
+  const mod = api.createLicenseGate(deps);
+  const ret = o.back ? undefined : await mod.checkInviteGate();
+  if(o.back){ await mod.checkInviteGate(); ev.length = 0; back(o.back); await new Promise(r => setTimeout(r, 0)); }
+  return { ev: ev.join(','), ret };
+}
+async function gateRows(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const has = (x, n) => x.ev.split(',').includes(n);
+  let x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: true, switched: true } });
+  t(x.ret === true && has(x, 'relaunch') && !has(x, 'goOnline') && !has(x, 'plPull') && !has(x, 'firstRun') && !has(x, 'gate'), 'in · 계정이 바뀜(switched) → 다시 켜기 · realtime · 받기 · 첫 실행은 아직');
+  x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: true, switched: false } });
+  t(x.ret === true && x.ev === 'enter,goOnline,plPull,firstRun', 'in · 같은 계정 → goOnline → 플레이리스트 받기 → 첫 실행 차례로 한 번씩');
+  x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: false, reason: 'x' } });
+  t(x.ret === false && has(x, 'gate') && !has(x, 'goOnline') && !has(x, 'plPull'), 'in · 이 PC 를 못 맞추면(_enterAccount 실패) 게이트');
+  x = await gateRun(src, { state: 'local', uid: 'u1' });
+  t(x.ret === true && x.ev === 'mark,enterLocal,toast' && !has(x, 'plPull') && !has(x, 'gate'), 'local · 이 PC 에 계정 있음 → 못 불러왔어요 표시 + 로컬 모드(요청 0)');
+  x = await gateRun(src, { state: 'local', uid: null });
+  t(x.ret === false && has(x, 'gate') && !has(x, 'mark') && !has(x, 'enterLocal'), 'local · 처음 켠 PC(계정 없음) → 게이트(로컬 모드로 들어가지 않음)');
+  x = await gateRun(src, { state: 'signup', uid: 'u1' });
+  t(x.ret === false && x.ev.indexOf('wipe') >= 0 && x.ev.indexOf('wipe') < x.ev.indexOf('gate'), 'signup · 이 PC 에 계정 있음 → 이 PC 계정 몫을 지운 뒤 게이트');
+  x = await gateRun(src, { state: 'signup', uid: null });
+  t(x.ret === false && has(x, 'gate') && !has(x, 'wipe'), 'signup · 계정 없는 PC → 지울 것 없이 게이트');
+  x = await gateRun(src, { state: 'login', uid: 'u1' });
+  t(x.ret === false && x.ev === 'gate', 'login → 게이트뿐(지우지 않음)');
+  x = await gateRun(src, { state: 'local', uid: 'u1', back: { state: 'in', me: { userCode: 'u1' } }, enter: { ok: true, switched: true } });
+  t(has(x, 'relaunch') && !has(x, 'plPull') && !has(x, 'firstRun'), '돌아옴 · in(계정이 바뀜) → 다시 켜기');
+  x = await gateRun(src, { state: 'local', uid: 'u1', back: { state: 'in', me: { userCode: 'u1' } }, enter: { ok: true, switched: false } });
+  t(x.ev === 'enter,plPull,firstRun,toast', '돌아옴 · in(같음) → 플레이리스트 받기 · 첫 실행 · «다시 연결됐어요» 알림');
+  x = await gateRun(src, { state: 'local', uid: 'u1', back: { state: 'signup' } });
+  t(x.ev.indexOf('wipe') >= 0 && x.ev.indexOf('wipe') < x.ev.indexOf('relaunch'), '돌아옴 · signup → 이 PC 계정 몫을 지우고 다시 켜기');
+  x = await gateRun(src, { state: 'local', uid: 'u1', back: { state: 'login' } });
+  t(x.ev === 'toast' && !has(x, 'wipe') && !has(x, 'relaunch'), '돌아옴 · login → 알림뿐(지우지도 다시 켜지도 않음)');
+  return r;
+}
 
 /* 런처 초대장 버튼 — 진짜 refreshInviteBtn 을 돌려 버튼이 켜졌는지 본다.
    o: { uid, api: 서버 provider(user-api.js) 흉내 — myInvites } → 버튼 { disabled, text } */
@@ -146,6 +206,8 @@ chk(judgeNoUid(MOD), '내 코드 없음 → 내 초대 요청(myInvites) 0 · �
 (async () => {
 say('── 2-3. 런처 초대장 버튼');
 (await judgeInviteBtn(MOD, HTML)).forEach(([ok, msg]) => chk(ok, msg));
+say('── 2-4. 켤 때 판정 갈래 — 진짜 함수를 돌려 센다');
+(await gateRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace("  if(!getMyUserId()){ _setInviteBtn(btn,", "  if(false){ _setInviteBtn(btn,");
@@ -164,6 +226,10 @@ for(const [name, fm, fh] of btnBreaks){
 }
 const breaks = [
   ['로컬 모드 진입을 플레이리스트에 안 알림', m => m.replace('plMarkUnreachable(); loginFlowMod.enterLocal', 'loginFlowMod.enterLocal'), null, null],
+  ['로컬 모드 조건을 늘 참으로', m => m.replace('if(getMyUserId()){ plMarkUnreachable();', 'if(true){ plMarkUnreachable();'), null, null],
+  ['signup 이어도 이 PC 몫을 안 지움', m => m.replace("if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();", ''), null, null],
+  ['계정이 바뀌었는데 다시 켜지 않음', m => m.replace("if(r.ok && r.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return true; }", ''), null, null],
+  ['돌아온 signup 에서 안 지움', m => m.replace("if(r.state === 'signup'){ _wipeAccountLocal(); ", "if(r.state === 'signup'){ "), null, null],
   ['켠 뒤 플레이리스트 받기 안 부름', m => m.replace('  loginFlowMod.goOnline();\n  plPull();', '  loginFlowMod.goOnline();'), null, null],
   ['돌아온 뒤 플레이리스트 받기 안 부름', m => m.replace("    plPull();\n    firstRunMod.run()", "    firstRunMod.run()"), null, null],
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/account/license-gate.js"></script>', '')],
@@ -178,7 +244,7 @@ const breaks = [
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
-  let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2); if(m2 !== MOD) rows2 = rows2.concat(await gateRows(m2)); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

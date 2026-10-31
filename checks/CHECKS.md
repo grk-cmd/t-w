@@ -315,7 +315,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **514cfed75043** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
-| **sim-license-gate.js** | 186 | **3af3813e4318** |
+| **sim-license-gate.js** | 252 | **95600d56ecfb** |
 | **sim-account.js** | 174 | **7ae6cd2b9499** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **910c263320d1** |
