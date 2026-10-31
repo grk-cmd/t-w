@@ -114,8 +114,22 @@ for (const u of ['https://x.example/a")%3Bbackground:red', 'https://x.example/a\
   chk(c.startsWith('url("') && c.endsWith('")') && !/(^|[^\\])"/.test(inner) && !/[\n\r]/.test(inner), `cssUrl — 따옴표 · 역슬래시 · 줄바꿈으로 못 빠져나감 (${JSON.stringify(u).slice(0, 40)})`);
 }
 
+/* linkify — 글 속 주소만 누를 칸으로, 나머지는 text 로 */
+const L = (x) => SH.linkify(x);
+const linkOf = (h) => (h.match(/data-url="([^"]*)"/g) || []).map(x => x.slice(10, -1));
+chk(L('안녕 <b>') === '안녕 &lt;b&gt;' && L(null) === '' && L('') === '', 'linkify — 주소가 없으면 text 와 같다(빈 값 · null 포함)');
+chk(L('보세요 https://x.example/a?b=1&c=2') === '보세요 <span class="ext-link" data-url="https://x.example/a?b=1&amp;c=2">https://x.example/a?b=1&amp;c=2</span>', 'linkify — 주소를 ext-link 칸으로(& 는 씻는다)');
+chk(L('여기 https://x.example/a. 그리고') === '여기 <span class="ext-link" data-url="https://x.example/a">https://x.example/a</span>. 그리고', '  문장 끝 마침표는 주소에서 뺀다');
+chk(L('(https://x.example/a)') === '(<span class="ext-link" data-url="https://x.example/a">https://x.example/a</span>)', '  괄호 안 주소 — 닫는 괄호는 글로');
+chk(linkOf(L('http://a.example/1 그리고 https://b.example/2')).join() === 'http://a.example/1,https://b.example/2', '  여러 개 · http 도');
+chk(L('javascript:alert(1) ftp://x.example/a //evil.example') === SH.text('javascript:alert(1) ftp://x.example/a //evil.example'), '  http(s) 가 아닌 주소는 글 그대로(칸 안 만듦)');
+const evil = L('https://x.example/"onmouseover="alert(1) <img src=x onerror=alert(1)>');
+chk(evil === '<span class="ext-link" data-url="https://x.example/">https://x.example/</span>&quot;onmouseover=&quot;alert(1) &lt;img src=x onerror=alert(1)&gt;', '  따옴표 · 꺾쇠에서 주소가 끝나고 나머지는 글 — 칸 밖으로 못 빠져나간다');
+chk(!/<(?!\/?span\b)/.test(evil) && (evil.match(/<span /g) || []).length === 1, '  만든 태그는 ext-link span 하나뿐');
+chk(L('https://x.example/' + 'a'.repeat(2100)) === SH.text('https://x.example/' + 'a'.repeat(2100)), '  길이 상한을 넘는 주소는 글 그대로');
+
 /* ── 2절: 파서로 전부 훑기 ───────────────────────────────────── */
-const HTML_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:text|attr|cssColor|safeUrl|cssUrl)|(?:deps\.)?(?:escHtml|_chatEsc)|(?:richTextMod\.)?(?:_mhLoadRT|_mhSanitizeHtml|_mhPurify)|encodeURIComponent)$/;
+const HTML_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:text|attr|cssColor|safeUrl|cssUrl|linkify)|(?:deps\.)?(?:escHtml|_chatEsc)|(?:richTextMod\.)?(?:_mhLoadRT|_mhSanitizeHtml|_mhPurify)|encodeURIComponent)$/;
 const URL_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.safeUrl|URL\.createObjectURL|encodeURIComponent|[\w$.]*\.toDataURL)$/;
 const CSS_SAFE_FN = /^(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:cssUrl|cssColor)$/;
 const NUM_FN = /^(?:Number|parseInt|parseFloat|Math\.\w+|Date\.now|[\w$.\[\]()]*\.(?:toFixed|toLocaleString|getTime|getFullYear|getMonth|getDate|getDay|getHours|getMinutes|getSeconds|indexOf|lastIndexOf|charCodeAt|findIndex))$/;
@@ -710,5 +724,14 @@ green("function f(im, c){ im.src = c.toDataURL('image/png'); }", '캔버스 그�
 green("function f(el){ el.innerHTML = ''; }", '비우기');
 green("function f(el, t){ el.innerHTML = TwSafeHtml.text(t).replace(/\\n/g, '<br>'); }", '씻은 뒤 줄바꿈만 <br>');
 
+{
+  /* linkify 가 주소를 씻지 않고 붙이면 빨강 — safe-html.js 글을 바꿔 다시 싣는다 */
+  const src = fs.readFileSync(SAFE_PATH, 'utf8');
+  const load = (code) => { const m = { exports: {} }; new Function('module', 'window', code)(m, undefined); return m.exports; };
+  const raw = load(src.replace("attr(url) + '\">' + text(raw)", "url + '\">' + raw"));
+  chk(!raw.linkify('https://x.example/a?b=1&c=2').includes('&amp;'), '깨 보기 — linkify 가 주소를 안 씻으면 & 가 날로 들어감 → 위 «& 는 씻는다» 가 빨강');
+  const noFilter = load(src.replace("const url = safeUrl(raw, 'link');", 'const url = raw;'));
+  chk(noFilter.linkify('https://x.example/' + 'a'.repeat(2100)) !== SH.linkify('https://x.example/' + 'a'.repeat(2100)), '깨 보기 — safeUrl 을 빼면 상한 넘는 주소도 칸이 됨 → 위 판정이 빨강');
+}
 say(`\n결과: ${pass}·${fail}`);
 process.exit(fail ? 1 : 0);
