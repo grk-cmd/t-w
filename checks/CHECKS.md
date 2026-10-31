@@ -267,7 +267,7 @@
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
-| **sim-api-client.js** | 455 | **b95a9185c17b** |
+| **sim-api-client.js** | 469 | **6d6476fa0fd6** |
 | **sim-api-public-reads.js** | 168 | **c48baf3b40a5** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 530 | **5dcaa1ad29ca** |
@@ -447,7 +447,7 @@
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
-| **sim-login-flow.js** | 308 | **4734373b8f04** |
+| **sim-login-flow.js** | 336 | **5656c40dde1a** |
 | **sim-first-run-013.js** | 141 | **14d1b0e813d8** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |

@@ -419,6 +419,18 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         w.TwApi.bindToken(async () => 't');
         await err(w.TwApi.authed.get('/x', { auth: true }));
         ok(!w.TwApi.authed.resting());
+        /* 서버가 답했다는 알림(onReachable) — 2xx · 4xx 는 알리고, 네트워크 실패 · 5xx · 길 없음은 알리지 않는다 */
+        const rc = { n: 0 };
+        const answer = async (fn) => { const ff = mkFetch(fn); const cc = M.createApiClient({ baseUrl: PROD, fetch: ff, getToken: async () => 'tk', backoffMs: 0 }); let n = 0; cc.onReachable(() => { n++; }); await err(cc.get('/z', { auth: true })); return n; };
+        ok((await answer(() => res(200, { success: true, data: 1 }))) === 1);
+        ok((await answer(() => res(404, { success: false, code: 'SOMETHING_MISSING' }))) === 1);
+        ok((await answer(() => res(403, { success: false, code: 'OTHER_FORBIDDEN' }))) === 1);
+        ok((await answer(() => res(500, { success: false, code: 'X' }))) === 0);
+        ok((await answer(() => res(404, { success: false, code: M.NO_ROUTE_CODES[1] }))) === 0);
+        ok((await answer(() => { throw new TypeError('x'); })) === 0);
+        const f9 = mkFetch(() => res(200, { success: true, data: 1 })); const c9 = M.createApiClient({ baseUrl: PROD, fetch: f9, getToken: async () => 'tk', backoffMs: 0 });
+        const off = c9.onReachable(() => { rc.n++; }); await c9.get('/q', { auth: true }); off(); await c9.get('/q2', { auth: true });
+        ok(rc.n === 1);
       }catch(_){ bad++; }
       return bad;
     }
@@ -440,6 +452,8 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ["      try{ tok = getToken ? await Promise.race([getToken(false), to]) : null; }", "      try{ tok = getToken ? await getToken(false) : null; }", '토큰 받기가 시간 제한 밖'],
       ["return o.onOwner ? p.then((data) => { o.onOwner(a.who); return data; }) : p;", "return p;", 'onOwner 를 안 부름'],
       ["        memoKey = a.who + ' ' + path;", "        memoKey = path;", 'ETag 기억을 계정끼리 섞음'],
+      ["status > 0 && status < 500 && !(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0) && !/_NOT_READY$/.test(code)) emitReachable();", "status > 0) emitReachable();", '5xx 도 서버가 답한 것으로 알림'],
+      ["status > 0 && status < 500 && !(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0) && !/_NOT_READY$/.test(code)) emitReachable();", "false) emitReachable();", '서버가 답해도 알리지 않음'],
     ];
     const missed = [];
     for(const [from, to, what] of BREAKS){

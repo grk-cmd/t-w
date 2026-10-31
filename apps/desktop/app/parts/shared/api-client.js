@@ -99,6 +99,8 @@ function createApiClient(deps){
   const deviceId = d.deviceId || (() => null);
   const onRequest = d.onRequest || (() => {});
   const etagMax = d.etagMax || ETAG_MAX;
+  const reachFns = [];   // onReachable 구독
+  const emitReachable = () => { for(const fn of reachFns.slice()){ try{ fn(); }catch(_){} } };
   const cache = new Map();      // path → { data, until }
   const inflight = new Map();   // 'A ' + 누구 + ' ' + path | 'P ' + path → Promise
   const etags = new Map();      // 누구 + ' ' + path → { etag, data } (넣은 차례 = 오래된 차례)
@@ -165,12 +167,15 @@ function createApiClient(deps){
     }finally{ clearTimeout(timer); }
     const status = (res && res.status) || 0;
     if(status === 304){
+      emitReachable();
       if(memo) return memo.data;
       throw new ApiError('unavailable', status, 'NOT_MODIFIED', '기억한 값 없이 304 를 받았어요');
     }
     const code = (isObj(body) && typeof body.code === 'string') ? body.code : '';
     const msg = (isObj(body) && typeof body.message === 'string') ? body.message : '';
     const extra = { items: isObj(body) ? body.items : null, retryAfterMs: status === 429 ? retryAfterMsOf(headerOf(res, 'Retry-After')) : null };
+    /* 서버가 답했다(2xx · 4xx 포함) — 네트워크 실패 · 타임아웃 · 5xx · 길 없음(앞단 오류 페이지) · 준비 안 됨은 아니다 */
+    if(status > 0 && status < 500 && !(status === 404 && NO_ROUTE_CODES.indexOf(code) >= 0) && !/_NOT_READY$/.test(code)) emitReachable();
     if(/_NOT_READY$/.test(code)) throw new ApiError('notReady', status, code, msg, extra);
     if(status === 401 || status === 403) throw new ApiError('auth', status, code, msg, extra);
     if(status >= 500 || !status) throw new ApiError('unavailable', status, code, msg || ('API 오류 (' + status + ')'), extra);
@@ -255,6 +260,8 @@ function createApiClient(deps){
     del: (path, opts) => write('DELETE', path, undefined, opts),
     baseUrl: () => base || null,
     resting: () => downUntil > now(),
+    /* 서버가 답한 요청이 하나 끝날 때마다 fn() — 이름 없는 알림(누가 부르는지 이 모듈은 모른다). 돌려주는 것: 구독 끊기 */
+    onReachable: (fn) => { reachFns.push(fn); return () => { const i = reachFns.indexOf(fn); if(i >= 0) reachFns.splice(i, 1); }; },
     clearCache: () => { cache.clear(); etags.clear(); },
     /* 계정을 놓을 때(로그아웃 · 탈퇴 · 다른 계정) — 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않게 떼고, 계정별 ETag 기억도 지운다.
        떼인 요청은 그대로 끝나지만(부른 쪽은 앞 계정 답을 받는다) 새 요청은 새로 보낸다. */

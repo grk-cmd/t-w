@@ -16,8 +16,8 @@
 - 책임: 로그인(Auth) → 서버 가입 확인(`GET /v1/me`) → realtime 켜기(`TwRtHub.store.start({claim:true})`) · 로컬 모드 · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm()` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검).
 - deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · signInGoogle · signInPassword · signOut) ·
-  `googleWindow`(main 의 구글 창) · `rt`(rt-hub) · `pending`(request-id createPending) · `storage` · `onSessionLost` · `now`.
-- 내놓는 것: `confirm` · `goOnline` · `enterLocal(onBack)`(로컬 모드 — realtime 을 claim 없이 켜 두고 ready 신호가 오면 한 번 다시 묻는다 · 타이머 없음) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
+  `googleWindow`(main 의 구글 창) · `rt`(rt-hub) · `pending`(request-id createPending) · `storage` · `onSessionLost` · `now` · `onReachable`(TwApi.authed 의 «서버가 답했다» 알림).
+- 내놓는 것: `confirm` · `goOnline` · `enterLocal(onBack)`(로컬 모드 — realtime 을 claim 없이 켜 두고, ready 신호 또는 서버가 답한 아무 API 요청(`onReachable`)이 오면 한 번 다시 묻는다 · 타이머 없음) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout` · `meCache` · `premiumNow`(마지막 답 + `premiumGraceSec` — D8 이 쓴다) · `mode`.
 - 함정:
   - realtime 은 서버가 계정을 돌려준 뒤에만 켠다(가입 전 토큰으로 hello 하면 서버가 끊는다).

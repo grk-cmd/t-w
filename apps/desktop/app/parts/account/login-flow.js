@@ -5,7 +5,7 @@
      'in'     — 서버가 계정을 돌려줌. me 사본을 이 PC 에 적는다(tw.me — 로그인 계정과 묶음).
      'signup' — 로그인은 됐는데 계정이 없음(401 USER_CODE_NOT_BOUND — 가입 전 · 탈퇴 · 관리자가 지움). 가입 화면 · 이 PC 계정 몫 지움은 부르는 쪽.
      'login'  — 로그인이 없음(익명 세션 포함) · 토큰이 끝남. 로그인 화면.
-     'local'  — 서버에 닿지 못함 · 점검. 로컬 모드 — 이 PC 기능만 쓰고 me 는 마지막 사본(없으면 null). 다시 묻기는 realtime 이 다시 붙었다는 신호(ready)가 올 때 한 번 — 타이머로 되풀이하지 않는다(enterLocal).
+     'local'  — 서버에 닿지 못함 · 점검. 로컬 모드 — 이 PC 기능만 쓰고 me 는 마지막 사본(없으면 null). 다시 묻기는 서버가 살아 있다는 신호(realtime ready · 아무 API 요청이 서버 답을 받음)가 올 때 한 번 — 타이머로 되풀이하지 않는다(enterLocal).
    [가입] 비밀번호: POST /v1/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
      (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v1/users { inviteCode }.
    [realtime] goOnline() — 서버가 계정을 돌려준 뒤에만 켠다(hello claim:true · 이 기기가 지금 기기). 밀려나면(4004) onSessionLost ·.
@@ -46,7 +46,7 @@ function premiumNow(cache, now){
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
  *   onSessionLost: () => void,
  *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
- *   now: () => number,
+ *   now: () => number, onReachable: (fn: () => void) => Function,
  * }} deps */
 function createLoginFlow(deps){
   const userApi = deps.userApi;
@@ -98,9 +98,12 @@ function createLoginFlow(deps){
     stateHooked = true;
     deps.rt.onState((s) => {
       if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }
-      else if(s === RT_READY && mode === 'local') recheckLocal();
+      else if(s === RT_READY) onServerSign();
     });
+    deps.onReachable(onServerSign);
   }
+  /* 서버가 살아 있다는 신호 두 가지(realtime 이 다시 붙음 · 아무 API 요청이 서버 답을 받음) — 같은 한 함수. 로컬 모드일 때만 계정을 묻는다 */
+  function onServerSign(){ if(mode === 'local') recheckLocal(); }
   /* 서버가 계정을 돌려준 뒤 — realtime 켜기(이 기기가 지금 기기 · claim). 이미 켰으면 아무 일 없음. */
   function goOnline(){
     mode = 'in'; localBack = null;

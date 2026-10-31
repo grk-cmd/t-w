@@ -57,7 +57,7 @@ function mkEnv(S, o){
     signInPassword: async (code, pw) => { authLog.push('p:' + code + ':' + pw); if(opt.pFail && opt.pFail()) return { ok: false, reason: '비번 틀림' }; user = { uid: opt.pUid || 'auth1', anonymous: false }; return { ok: true }; },
     signOut: async () => { authLog.push('out'); user = null; },
   };
-  const rtLog = []; let stateFn = null;
+  const rtLog = []; let stateFn = null, reachFn = null;
   const rt = { start: (x) => rtLog.push('start:' + JSON.stringify(x)), stop: () => rtLog.push('stop'), onState: (fn) => { stateFn = fn; return () => {}; } };
   let lost = 0;
   const ids = RI.createPending();
@@ -65,14 +65,14 @@ function mkEnv(S, o){
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
     rt, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
-    now: () => clock.t,
+    now: () => clock.t, onReachable: (fn) => { reachFn = fn; return () => {}; },
   });
   const advance = async (ms) => {
     const end = clock.t + ms;
     for(;;){ await tick(); clock.q.sort((a, b) => a.at - b.at); const h = clock.q[0]; if(!h || h.at > end) break; clock.t = h.at; clock.q.shift(); h.fn(); }
     clock.t = end; await tick();
   };
-  return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, fireState: (s) => stateFn && stateFn(s),
+  return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, fireState: (s) => stateFn && stateFn(s), reach: () => reachFn && reachFn(),
     setUser: (u) => { user = u; } };
 }
 
@@ -138,6 +138,32 @@ async function judge(S){
     chk(back.join() === 'in' && e.rtLog.join() === 'start:{"claim":false},stop,start:{"claim":true}' && e.flow.mode() === 'in', '서버가 답하면 알림 한 번 · 로컬 연결을 끄고 claim 으로 다시 켬');
     e.fireState('ready'); await tick();
     chk(e.log.length === 2, '  ↳ 그 뒤 ready 로는 묻지 않는다(로컬 모드가 아님)');
+    {
+      const r = mkEnv(S);
+      r.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+      const bk = []; r.flow.enterLocal((x) => bk.push(x.state));
+      r.reach(); await tick(); await tick();
+      chk(r.log.length === 1 && bk.length === 0, '★ 로컬 모드 — 서버가 답한 요청이 하나 있으면 계정을 한 번 묻는다 · 아직 닿지 않으면 그대로(되풀이 없음)');
+      let rel; r.srv.me = () => new Promise((q) => { rel = q; });
+      r.reach(); r.reach(); r.reach(); await tick();
+      chk(r.log.length === 2, '  ↳ 성공 신호가 여러 개 겹쳐도 묻는 중이면 한 번');
+      rel(ME(2)); await tick(); await tick();
+      chk(bk.join() === 'in' && r.rtLog.join() === 'start:{"claim":false},stop,start:{"claim":true}', '  ↳ in 이면 돌아옴 알림 한 번 · realtime 을 claim 으로 켬');
+      r.reach(); await tick();
+      chk(r.log.length === 2, '  ↳ in 상태에서 성공 신호는 묻지 않는다');
+      const q = mkEnv(S);
+      q.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+      const bq = []; q.flow.enterLocal((x) => bq.push(x.state));
+      q.fireState('ready'); await tick(); await tick();
+      q.srv.me = () => ME(2); q.reach(); await tick(); await tick();
+      chk(q.log.length === 2 && bq.join() === 'in', '  ↳ realtime 이 먼저 ready 로 와서 아직 local 이었어도, 나중에 요청 성공 신호로 돌아온다');
+      q.flow.enterLocal(() => {});
+      const z = mkEnv(S);
+      z.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+      const bz = []; z.flow.enterLocal((x) => bz.push(x.state));
+      z.fireState('sessionLost'); z.srv.me = () => ME(2); z.reach(); await tick(); await tick();
+      chk(z.lost() === 0 && bz.join() === 'in', '  ↳ 로컬 모드의 realtime 이 4004 로 끊겨도 요청 성공 신호로 돌아온다(밀려남 화면은 안 띄움)');
+    }
     const e2 = mkEnv(S);
     e2.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
     e2.flow.enterLocal(() => {});
@@ -272,8 +298,10 @@ const BREAKS = [
   ['LF', "    if(online) return;\n    online = true;", "", 'realtime 을 두 번 켬'],
   ['LF', "      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }", "      if(false){ }", '밀려남을 화면에 안 알림'],
   ['LF', "      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }", "      if(s === RT_SESSION_LOST){ deps.onSessionLost(); }", '로컬 모드의 밀려남도 화면에 알림'],
-  ['LF', "      else if(s === RT_READY && mode === 'local') recheckLocal();", "      else if(mode === 'local') recheckLocal();", 'ready 아닌 신호에도 묻음'],
-  ['LF', "      else if(s === RT_READY && mode === 'local') recheckLocal();", "", '로컬 모드에서 신호가 와도 안 물음'],
+  ['LF', "      else if(s === RT_READY) onServerSign();", "      else onServerSign();", 'ready 아닌 신호에도 묻음'],
+  ['LF', "      else if(s === RT_READY) onServerSign();", "", 'realtime ready 신호가 와도 안 물음'],
+  ['LF', "    deps.onReachable(onServerSign);\n", "", '요청 성공 신호로는 안 물음'],
+  ['LF', "  function onServerSign(){ if(mode === 'local') recheckLocal(); }", "  function onServerSign(){ recheckLocal(); }", '로컬 모드가 아닐 때도 물음'],
   ['LF', "    if(localChecking) return;   // 신호가 겹쳐도 한 번\n", "", '신호가 겹치면 여러 번 물음'],
   ['LF', "    if(r.state === STATE.IN) goOnline();\n    else if(rtLocal)", "    if(false) goOnline();\n    else if(rtLocal)", '돌아와도 realtime 안 켬'],
   ['LF', "    if(!online && !rtLocal){ rtLocal = true; deps.rt.start({ claim: false }); }", "", '로컬 모드에서 realtime 을 안 켬(신호가 안 옴)'],
