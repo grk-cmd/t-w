@@ -161,6 +161,7 @@ function mkEnv(o){
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
       playlistApi, notifyError: (c, err) => { env.errors.push(c); env.errArgs.push(err); },
     }, extra || {}));
+    if(!o.noGatePull) env.m.pull();   // 서버 계정이 확인된 뒤 게이트(license-gate.js)가 deps 로 한 번 부르는 것과 같다 — 만들 때는 받지 않는다
     return env.m;
   };
   env.last = (p) => env.calls.filter(c => c.indexOf(p) === 0).slice(-1)[0];
@@ -542,11 +543,17 @@ async function behave(src){
       chk(m.state().loaded && m.state().sets[0].items.length === 3 && e.count('publish') === 0, '  이어받기 — 새 계정 것을 받아 앉힌다(올리지 않는다)');
     }
     {
+      const e0 = mkEnv({ src, noGatePull: true }); e0.srv = srvOf(1, 'n'); e0.mk(); await flush(); await e0.advance(60000);
+      chk(e0.count('fetchMine') === 0, '만들 때는 받지 않는다 — 서버 계정 확인 뒤 게이트가 부른다');
+    }
+    {
       const e = E(); e.uid = ''; e.srv = srvOf(2, 'n'); const m = await e.mk({ getMyUserId: () => e.uid });
       await e.advance(4300);
-      chk(e.count('fetchMine') === 0 && !m.state().loaded, '로그인 전 — 서버를 부르지 않고 기다린다');
-      e.uid = 'ME01'; await e.advance(2100);
-      chk(e.count('fetchMine') === 1 && m.state().loaded, '★ 로그인되면 2초 안에 곧바로 받는다(30초 기다리지 않는다)');
+      chk(e.count('fetchMine') === 0 && !m.state().loaded && e.timers.filter(t => !t.every).length === 0, '로그인 전 — 서버를 부르지 않고 타이머도 없다');
+      e.uid = 'ME01'; await e.advance(60000);
+      chk(e.count('fetchMine') === 0, '  로그인돼도 혼자 받으러 가지 않는다(신호는 게이트)');
+      await m.pull();
+      chk(e.count('fetchMine') === 1 && m.state().loaded, '★ 서버 계정이 확인돼 게이트가 부르면 곧바로 한 번 받는다')
     }
     // ⑧ 받는 상태를 화면에 — 받는 중 · 못 받음 · 다시 시도 · 빈 목록
     {
@@ -579,8 +586,11 @@ async function behave(src){
       e.byId.myPlBtn.fire('click');
       await flush(); await flush();
       chk(e.byId.myPlList.children[0].textContent === '불러오는 중…' && e.count('fetchMine') === 1, '  토큰이 아직 안 이어졌으면(NO_TOKEN) 실패로 보이지 않고 계속 «불러오는 중…»');
-      e.srvThrow = false; e.srvCode = null; await e.advance(2100);
-      chk(m.state().loaded && e.count('fetchMine') === 2, '  2초 뒤 다시 받아 앉힌다');
+      chk(e.timers.filter(t => !t.every).length === 0, '  기다렸다 다시 받는 타이머도 없다');
+      e.srvThrow = false; e.srvCode = null; await e.advance(60000);
+      chk(!m.state().loaded && e.count('fetchMine') === 1, '  시간이 지나도 혼자 다시 받지 않는다');
+      m.pull(); await flush(); await flush();
+      chk(m.state().loaded && e.count('fetchMine') === 2, '  서버 계정이 확인돼 게이트가 다시 부르면 받아 앉힌다');
     }
     // ⑨ 받기 전에는 고치는 동작이 잠긴다 — 듣기는 안 잠긴다
     {
@@ -863,10 +873,17 @@ async function runAll(PL, APP, HTML){
     const win = {};
     new Function('window', 'module', PL)(win, undefined);
     chk(Object.keys(win).join() === 'TwPlaylist' && typeof win.TwPlaylist.createPlaylist === 'function', '싣기만 하면 window.TwPlaylist 하나뿐');
-    const e = mkEnv({ store: { 'tw.playlistSets': setsOf(songs(1)) } }); e.mk();
+    const e = mkEnv({ noGatePull: true, store: { 'tw.playlistSets': setsOf(songs(1)) } }); e.mk();
     chk(e.esc.length === 1 && e.cb.end && e.cb.mode && e.cb.closed && e.count('setInterval 300') === 1 && e.count('vol') === 1 && e.count('publish') === 0 && e.timers.length === 1
-      && e.count('fetchMine ME01') === 1,
-      '만들 때 — ESC 등록 · BGM 신호 셋 구독 · 300ms 폴링 · 음량 한 번 · ☁️ 서버에서 받기를 곧바로 한 번(서버 쓰기 없음 · 기다리는 타이머 없음)');
+      && e.count('fetchMine') === 0,
+      '만들 때 — ESC 등록 · BGM 신호 셋 구독 · 300ms 폴링 · 음량 한 번 · 서버에서 받기는 하지 않는다(서버 쓰기 없음 · 기다리는 타이머 없음)');
+    {
+      const e2 = mkEnv({ noGatePull: true }); const m2 = e2.mk(); await flush();
+      m2.pull(); await flush(); await flush();
+      chk(e2.count('fetchMine ME01') === 1, '  서버 계정이 확인된 뒤 게이트가 부르면 그때 한 번 받는다');
+      const e3 = mkEnv({ noGatePull: true }); const m3 = e3.mk({ getMyUserId: () => null }); m3.pull(); await flush(); await e3.advance(60000);
+      chk(e3.count('fetchMine') === 0 && e3.timers.filter(t => !t.every).length === 0, '★ 로그인 전(내 코드 없음) — 서버를 안 부르고 타이머도 없다');
+    }
     chk(e.store.size === 1 && e.byId.myPlaylistBox.classList.contains('hidden') && e.toasts.length === 0 && e.front.length === 0, '  저장소를 안 쓰고 창은 닫힌 채 · 토스트 없음');
   }
   await runAll(PL, APP, HTML);
@@ -889,9 +906,10 @@ async function runAll(PL, APP, HTML){
     ['PL', '  if(_plNow >= 0){ _plPullLater(PL_PLAYING_DEFER_MS); return; }', '', '듣는 중에 목록을 바꿈'],
     ['PL', "  if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }", "  _plPullMerged = false;", '처음 받을 때도 알림이 뜨는 쪽으로 — 알림을 아예 뺌'],
     ['PL', "  if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }", "  if(true){ _plPullMerged = false; toast(PL_MSG.merged); }", '처음 받을 때도 «다른 기기에서…» 가 뜸'],
-    ['PL', "    if(e && e.code === PL_NO_TOKEN){ _plPullLater(PL_LOGIN_WAIT_MS); return; }", "", '토큰 전을 실패로 보임'],
-    ['PL', "  if(!uid){ _plPullLater(PL_LOGIN_WAIT_MS); return; }", "  if(!uid){ _plPullLater(PL_PLAYING_DEFER_MS); return; }", '로그인 뒤 30초나 기다림'],
-    ['PL', "  _plPull();   // ☁️ 서버에서 받기", "  // ☁️ 서버에서 받기", '켜도 서버에서 안 받음'],
+    ['PL', "    if(e && e.code === PL_NO_TOKEN) return;", "", '토큰 전을 실패로 보임'],
+    ['PL', "    if(e && e.code === PL_NO_TOKEN) return;", "    if(e && e.code === PL_NO_TOKEN){ _plPullLater(2000); return; }", '토큰 전이면 타이머로 다시 받음'],
+    ['PL', "  if(!uid) return;   // 로그인 전", "  if(!uid){ _plPullLater(2000); return; }   // 로그인 전", '로그인 전에 타이머로 기다림'],
+    ['PL', "(function bindMyPlaylist(){\n  const btn = document.getElementById('myPlBtn'), box = document.getElementById('myPlaylistBox');\n  if(!btn || !box) return;\n  _plLoad();\n", "(function bindMyPlaylist(){\n  const btn = document.getElementById('myPlBtn'), box = document.getElementById('myPlaylistBox');\n  if(!btn || !box) return;\n  _plLoad();\n  _plPull();\n", '만들 때 곧바로 받음(게이트 기다리지 않음)'],
     ['PL', "      em.textContent = _plPullFailed ? PL_MSG.failed : PL_MSG.loading;", "      em.textContent = PL_MSG.loading;", '못 받았는데 «불러오는 중…» 만 보임'],
     ['PL', "      em.textContent = _plPullFailed ? PL_MSG.failed : PL_MSG.loading;", "      em.textContent = '아직 비어 있어요.';", '받기 전에 빈 목록 문구가 보임'],
     ['PL', "        rb.addEventListener('click', e=>{ e.stopPropagation(); _plPull(); });", "", '[다시 시도] 가 안 눌림'],

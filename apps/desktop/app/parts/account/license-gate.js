@@ -16,6 +16,7 @@ const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;   // 읽는 함수
 const _loginDoFriendCode = deps._loginDoFriendCode;
 const _loginDoGoogle = deps._loginDoGoogle;
 const _enterAccount = deps._enterAccount;   // 서버 계정으로 이 PC 맞추기(account.js) → { ok, switched }
+const plPull = deps.plPull;   // 🎵 서버 계정이 확인된 뒤 플레이리스트 받기 한 번(playlist.js)
 const _wipeAccountLocal = deps._wipeAccountLocal;   // 이 PC 계정 몫 지우기(account.js)
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 켤 때 판정 · 가입 · realtime · 로컬 모드
 const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 초대 확인 · 내 초대 · 화면 문구
@@ -69,6 +70,7 @@ async function checkInviteGate(){
 /* 서버 계정이 맞춰진 뒤 — realtime 켜기(이 기기가 지금 기기) · 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) */
 function _goOnline(){
   loginFlowMod.goOnline();
+  plPull();
   firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e));
 }
 /* 로컬 모드에서 서버가 다시 답했을 때(login-flow enterLocal 의 onBack) */
@@ -76,6 +78,7 @@ function _backOnline(r){
   if(r.state === 'in'){
     const e = _enterAccount(r.me, loginFlowMod.identity());
     if(e.ok && e.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return; }
+    plPull();
     firstRunMod.run().catch((x)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', x));
     try{ toast('🔌 서버에 다시 연결됐어요'); }catch(_){}
     return;
