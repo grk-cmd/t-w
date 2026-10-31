@@ -1,9 +1,6 @@
 /* account.js — 🔑 계정 — 구글 로그인 · 친구코드 로그인 · 로그아웃 · 신원 지우기 · 서버 계정으로 이 PC 맞추기
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
-     accountLegacyStore · asyncPrompt · notifyError · CHAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   ★ 다시 대입되거나 뒤에서 선언되는 값은 deps 의 읽는 함수(…())로, 바꾸는 값은 쓰는 함수(setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots)로 받는다.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
    ★ «연동됨» 안내 창(_charsLinkedMaybeShow)은 보관함 화면이 있는 my-info.js 로 옮겼다 — 표시 키 CHARS_LINKED_KEY 는 쓰는 쪽(여기)에 두고 내놓는다.
@@ -333,7 +330,7 @@ async function _loginDoLogout(opt){
 
 /* 🗑️ 회원 탈퇴 — 서버(POST /v1/me/withdrawal · 202)가 계정을 지운 뒤 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
    ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없다.
-   ★ 서버는 5분 안 로그인을 요구한다 — 오래됐으면 구글로 다시 확인(_withRecentLogin).
+   ★ 서버는 5분 안 로그인을 요구한다 — 오래됐으면 다시 확인한다(_withRecentLogin — 구글 계정은 구글, 비밀번호만 있는 계정은 «비밀번호 확인» 창).
    @return { ok, reason } — ok=false 면 이 PC 는 그대로다. */
 const WITHDRAW_WORD = '탈퇴';   // 서버 확인 글자와 같다(user-api.js WITHDRAW_CONFIRM)
 async function _loginDoDeleteAccount(word){
@@ -353,7 +350,7 @@ async function _withdrawPreview(){
    ★ 모드는 Auth 세션의 제공자(providerData)가 정한다 — 로컬 키가 아니라. 로그인 표시(LOGIN_EMAIL_KEY)는 «탭을 로그인 얼굴로» 만 정한다.
        비밀번호 있음 → C2(바꾸기 · 구글 없으면 경고 + [연결하기]) · 구글만 → C3(만들기) · 세션 없음 → 한 줄(«다시 시작하면 로그인 화면» — 그게 K) · 익명 → 숨김.
    ★ C3 아이디 = 이 계정의 친구 코드(서버 계정) — 비밀번호 로그인은 서버가 붙인다(POST /v1/me/password-login).
-   ★ C2 는 지금 비밀번호를 묻지 않는다((가)) — 서버가 토큰으로 본인을 확인한다(5분 안 로그인 — 오래됐으면 구글로 다시 확인). 바꾸면 이 PC 는 새 비밀번호로 곧바로 다시 로그인.
+   ★ C2 는 지금 비밀번호를 묻지 않는다((가)) — 서버가 토큰으로 본인을 확인한다(5분 안 로그인 — 오래됐으면 구글 또는 «비밀번호 확인» 창으로 다시 확인). 바꾸면 이 PC 는 새 비밀번호로 곧바로 다시 로그인.
    ⚠️ 옛 계정 탭 안에 넣은 첫 조각이다 — 탭 전체를 C 로 바꾸는 건 화면 단계. */
 function _acctMethodsMode(pv){
   if(!pv) return { mode:'off' };
@@ -378,19 +375,20 @@ function _acctPwCode(){
   if(!code){ try{ code = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} }
   return (code && FRIEND_CODE_LOGIN_RE.test(code)) ? { ok:true, code } : { ok:false, reason:'내 친구 코드를 확인하지 못했어요 — 앱을 다시 시작한 뒤 다시 해 주세요' };
 }
-/* 서버가 «5분 안 로그인» 을 요구하는 일(비밀번호 붙이기 · 바꾸기 · 탈퇴) — USER_REAUTH_REQUIRED 면 구글로 다시 확인하고 한 번 더.
+/* 서버가 «5분 안 로그인» 을 요구하는 일(비밀번호 붙이기 · 바꾸기 · 탈퇴) — USER_REAUTH_REQUIRED 면 구글(구글이 있는 계정)로 다시 확인하고 한 번 더.
    구글이 없는 계정(친구 코드 + 비밀번호만)은 «비밀번호 확인» 창에서 지금 비밀번호를 한 번 더 받는다(틀리면 창 안에 알리고 다시 입력 · 취소면 조용히 끝).
    다시 확인이 되면 원래 요청을 **한 번만** 다시 보낸다 — 서버가 또 거절하면 그 이유를 알리고 멈춘다.
    돌려주는 것: { ok, value } · { ok:false, canceled } · { ok:false, reason } */
 const REAUTH_NO_METHOD = '다시 확인할 로그인 수단이 없어요 — 앱을 다시 시작해 로그인한 뒤 해 주세요';
 const REAUTH_WRONG = '비밀번호가 맞지 않아요';
+const REAUTH_PW_MAX = 128;   // 비밀번호 입력칸 글자 수 상한
 const REAUTH_PW_TITLE = '비밀번호 확인';
 const REAUTH_PW_MESSAGE = '안전을 위해 지금 비밀번호를 한 번 더 입력해 주세요';
 /* 비밀번호 다시 확인 — 맞으면 { ok:true } · 취소면 { ok:false, canceled:true } · 너무 많이 틀림 · 네트워크 실패는 오류 번호로 알리고 canceled(조용히 끝) */
 async function _reauthByPassword(){
   let fatal = null;
   const v = await asyncPrompt({
-    title:REAUTH_PW_TITLE, message:REAUTH_PW_MESSAGE, secret:true, maxLength:128,
+    title:REAUTH_PW_TITLE, message:REAUTH_PW_MESSAGE, secret:true, maxLength:REAUTH_PW_MAX,
     validate: async (pw) => {
       if(!pw) return REAUTH_WRONG;
       const a = await firebaseAPI.authReauthPassword(pw);
