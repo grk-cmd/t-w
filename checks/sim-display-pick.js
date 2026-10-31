@@ -74,10 +74,22 @@ function behave(src){
   // 흔한 이름(EDID 못 읽음) 둘 — 해상도가 달라도 고른 쪽을 빼면 확정하지 않는다
   const g1 = D(1, 0, 0, 1920, 1080, 'Generic PnP Monitor'), g2 = D(2, 1920, 0, 1280, 1024, 'Generic PnP Monitor');
   r.genericUnplug = !pick([g1], 1, g2, [g1, g2]).strong;
-  // 이름 하나뿐이었는데 해상도를 바꿈 — 그 모니터에 띄우되 저장은 덮지 않는다
-  const resized = D(3, 0, 0, 2560, 1440, 'Wacom Cintiq 16');
-  const pRs = pick([monA, resized], 1, tabB, [monA, tabB]);
+  // 이름 하나뿐이었는데 해상도를 바꿈 — id 가 같으면 확정(새 지문으로 갱신), id 도 다르면 띄우되 저장은 덮지 않는다
+  const resizedSameId = D(2, 1920, 0, 2560, 1440, 'Wacom Cintiq 16'), resized = D(3, 0, 0, 2560, 1440, 'Wacom Cintiq 16');
+  const pRsId = pick([monA, resizedSameId], 1, tabB, [monA, tabB]), pRs = pick([monA, resized], 1, tabB, [monA, tabB]);
   r.reshaped = pRs.display === resized && !pRs.strong;
+  r.reshapedId = pRsId.display === resizedSameId && pRsId.strong;
+  // 제보자 모양 — 주모니터인 액정(0,0)을 골라 둠 → 액정을 뺌 → 같은 해상도 DELL 이 0,0 주모니터로: 지문이 우연히 맞아도 확정하지 않는다
+  const tabMain = D(2, 0, 0, 1920, 1080, 'Wacom Cintiq 16'), dellSide = D(1, 1920, 0, 1920, 1080, 'DELL P2422H');
+  const dellMain = D(1, 0, 0, 1920, 1080, 'DELL P2422H');
+  const pGone = pick([dellMain], 1, tabMain, [tabMain, dellSide]);
+  r.mainUnplug = pGone.display === dellMain && !pGone.strong;
+  const tabBack2 = D(9, 1920, 0, 1920, 1080, 'Wacom Cintiq 16');
+  const pBack2 = pick([dellMain, tabBack2], 1, tabMain, [tabMain, dellSide]);
+  r.mainReplug = pBack2.display === tabBack2 && pBack2.strong;
+  // id 가 다른 모니터에 다시 쓰임(같은 크기 · 다른 이름) — 확정하지 않는다
+  const reusedId = D(2, 0, 0, 1920, 1080, 'DELL P2422H');
+  r.idReused = !M._pickRunDisplay([reusedId], 2, { id: 2, key: '1920x1080|1920,0|0|100', wasPrimary: false, name: 'Wacom Cintiq 16', nameUnique: true }).strong;
   r.nameCap = (M._displayName({ label: '  ' + 'x'.repeat(300) + '  ' }) || '').length === 200 && M._displayName({ label: '   ' }) === null && M._displayName(null) === null;
   return r;
 }
@@ -98,7 +110,11 @@ else {
   chk(b.twinUnplug, '★ 같은 모델 둘 중 고른 쪽을 빼면 남은 쪽으로 확정하지 않는다(저장 보존)');
   chk(b.twinReplug, '  다시 꽂으면(id 새로) 고른 쪽으로 돌아간다');
   chk(b.genericUnplug, '★ 흔한 이름(«Generic PnP Monitor») 둘 — 고른 쪽을 빼도 확정하지 않는다');
-  chk(b.reshaped, '이름은 하나뿐인데 해상도가 바뀜 — 그 모니터에 띄우되 저장은 덮지 않는다');
+  chk(b.reshaped, '이름은 하나뿐인데 해상도가 바뀌고 id 도 다름 — 그 모니터에 띄우되 저장은 덮지 않는다');
+  chk(b.reshapedId, '  해상도 · 배율만 바꿈(id 같음) — 확정해서 새 지문으로 갱신(약한 상태로 남지 않음)');
+  chk(b.mainUnplug, '★ 주모니터인 액정을 골라 둔 뒤 빼면 같은 해상도 DELL 이 0,0 으로 와도(지문 우연 일치) 확정하지 않는다 — 저장 보존');
+  chk(b.mainReplug, '  다시 꽂으면 액정으로');
+  chk(b.idReused, '  id 가 다른 모니터에 다시 쓰여도(이름 다름) 확정하지 않는다');
 }
 
 say('\n── 2절: 실물 getRunDisplay — 저장 갱신');
@@ -124,6 +140,9 @@ say('\n── 2절: 실물 getRunDisplay — 저장 갱신');
     chk(o3.d === a && o3.saves === 0 && o3.name === 'Wacom Cintiq 16' && o3.id === 2, '고른 모니터가 빠졌을 때 — 주 모니터로 대신 · 저장은 그대로(다시 꽂으면 돌아감)');
     const o4 = run([a, t], a, { id: 2, key: '1920x1080|1920,0|0|100', wasPrimary: false, name: 'Wacom Cintiq 16', nameUnique: true });
     const tw1 = D(1, 0, 0, 2560, 1440, 'LG 27GL850');
+    const dm = D(1, 0, 0, 1920, 1080, 'DELL P2422H');
+    const o6 = run([dm], dm, { id: 2, key: '1920x1080|0,0|0|100', wasPrimary: true, name: 'Wacom Cintiq 16', nameUnique: true });
+    chk(o6.d === dm && o6.saves === 0 && o6.name === 'Wacom Cintiq 16' && o6.id === 2, '★ 주모니터인 액정을 뺐을 때(DELL 이 0,0 · 지문 우연 일치) — 저장(이름 · id)을 덮지 않는다');
     const o5 = run([tw1], tw1, { id: 2, key: '2560x1440|2560,0|0|100', wasPrimary: false, name: 'LG 27GL850', nameUnique: false });
     chk(o5.saves === 0 && o5.id === 2 && o5.key === '2560x1440|2560,0|0|100', '★ 같은 모델 둘 중 고른 쪽이 빠졌을 때 — 저장(id · 지문)을 덮지 않는다');
     chk(o4.d === t && o4.saves === 0, '  이미 맞으면 저장하지 않는다(자주 불린다)');
@@ -143,6 +162,8 @@ const noNameFirst = behave(MAIN.replace("      if(!shape || _displayShape(byName
 chk(!!noNameFirst && (noNameFirst.keepA === false || noNameFirst.keepB === false), '이름 찾기를 빼면 1절 «주모니터를 바꿔도 고른 모니터» 가 빨강(제보 그대로)');
 const noUniq = behave(MAIN.replace("    if(byName.length === 1 && saved.nameUnique === true){", "    if(byName.length === 1){"));
 chk(!!noUniq && (noUniq.twinUnplug === false || noUniq.genericUnplug === false), '«하나뿐이었나» 조건을 빼면 1절 «같은 모델 · 흔한 이름 — 빼도 확정 안 함» 이 빨강(검증에서 잡힌 구멍)');
+const noNameGuard = behave(MAIN.replace("  const notOther = (d) => !(name && saved.nameUnique === true && _displayName(d) && _displayName(d) !== name);", "  const notOther = () => true;"));
+chk(!!noNameGuard && (noNameGuard.mainUnplug === false || noNameGuard.idReused === false), '지문 · id 일치에서 «이름 다름» 검사를 빼면 1절 «주모니터 액정을 빼도 확정 안 함» 이 빨강(검증에서 잡힌 구멍)');
 const looseTwin = behave(MAIN.replace("      const k = key && byName.find(d => _displayKey(d) === key);\n", "      const k = byName[0];\n"));
 chk(!!looseTwin && looseTwin.twinKey === false, '같은 이름 중 아무거나 고르면 1절 «같은 모델 둘» 이 빨강');
 

@@ -741,6 +741,7 @@ function _pickRunDisplay(all, primaryId, saved){
     if(byName.length === 1 && saved.nameUnique === true){
       const shape = _shapeOfKey(key);
       if(!shape || _displayShape(byName[0]) === shape) return { display: byName[0], stage: 'name', strong: true };
+      if(id != null && byName[0].id === id) return { display: byName[0], stage: 'name+id(모양 바뀜)', strong: true };   // 해상도 · 배율만 바꿈 — 새 지문으로 갱신
       return { display: byName[0], stage: 'name(모양 다름)', strong: false };
     }
     if(byName.length > 1){
@@ -752,13 +753,16 @@ function _pickRunDisplay(all, primaryId, saved){
       if(sh.length === 1) return { display: sh[0], stage: 'name+shape', strong: true };
     }
   }
+  /* 이름이 하나뿐이었는데 지문 · id 로 찾은 모니터가 이름이 다르면 «고른 그 모니터» 가 아니다 — 띄우되 저장은 덮지 않는다
+     (예: 주모니터였던 액정을 빼면 같은 해상도 다른 모니터가 0,0 으로 와 지문이 우연히 맞는다) */
+  const notOther = (d) => !(name && saved.nameUnique === true && _displayName(d) && _displayName(d) !== name);
   if(key){
     const k = all.find(d => _displayKey(d) === key);
-    if(k) return { display: k, stage: 'key', strong: true };
+    if(k) return { display: k, stage: notOther(k) ? 'key' : 'key(이름 다름)', strong: notOther(k) };
   }
   if(id != null){
     const byId = all.find(d => d.id === id);
-    if(byId && (!key || _displaySize(byId) === key.split('|')[0])) return { display: byId, stage: 'id', strong: true };
+    if(byId && (!key || _displaySize(byId) === key.split('|')[0])) return { display: byId, stage: notOther(byId) ? 'id' : 'id(이름 다름)', strong: notOther(byId) };
   }
   if(key){
     const wantSize = key.split('|')[0];
