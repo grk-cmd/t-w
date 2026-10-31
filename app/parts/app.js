@@ -2375,7 +2375,7 @@ try{
          정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
       companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
         moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined,
+        regions: window.__uiRegions ? window.__uiRegions() : undefined, others: statusChipMod.otherSeatCircles(),   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
         /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
            구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
         charBad: _charBadWhy || undefined });

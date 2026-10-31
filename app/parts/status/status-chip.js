@@ -274,6 +274,31 @@ let _lastChipPlaceRight = true;   // 상태칩 좌우 반전 히스테리시스 
 const _wpTmp=new THREE.Vector3();
 const _wpTmp2=new THREE.Vector3();
 const _wpTmp3=new THREE.Vector3();
+/* 🖊️ 남의 좌석 자리(화면 원) — main 이 펜 앱이 앞일 때 «우리 창 근처» 를 판단하는 재료(_checkCursorNearChar).
+   펜 앱에서는 forward 를 꺼서 렌더러가 mousemove 를 못 받으므로, 이 원이 없으면 남의 캐릭터 · 책상을 펜으로 눌러도 클릭이 펜 앱으로 샌다.
+   내 캐릭터 원과 같은 방식(발밑 · 머리 끝 투영 · 실측 키 캐시)이고 책상까지 덮게 반경은 키의 1.2배. 투영이 터진 좌석은 뺀다. */
+const OTHER_SEAT_MAX = 24;   // 하트비트(10Hz)에 싣는 수 상한
+const _osTmp = new THREE.Vector3(), _osTmp2 = new THREE.Vector3();
+function otherSeatCircles(){
+  if(!clickPolicy.charHittable({ officeHidden: _officeHidden() })) return [];
+  const rect = renderer.domElement.getBoundingClientRect();
+  const out = [];
+  for(let i = 0; i < seats.length && out.length < OTHER_SEAT_MAX; i++){
+    const s = seats[i];
+    if(s.isMe || !s.group || s.group.visible === false) continue;
+    _uiAnchorWorld(s, _osTmp);
+    const m = _chipCharMetrics(_uiAnchorSeat(s) || s);
+    _osTmp2.copy(_osTmp); _osTmp2.y += m.topY;
+    _osTmp.project(camera); _osTmp2.project(camera);
+    const x = rect.left + (_osTmp.x * 0.5 + 0.5) * rect.width;
+    const yFeet = rect.top + (-_osTmp.y * 0.5 + 0.5) * rect.height;
+    const yTop = rect.top + (-_osTmp2.y * 0.5 + 0.5) * rect.height;
+    const h = Math.abs(yFeet - yTop), y = (yFeet + yTop) / 2;
+    if(!_charProjSane(x, y, h)) continue;
+    out.push({ x: Math.round(x), y: Math.round(y), r: Math.round(Math.max(110, h * 1.2)) });
+  }
+  return out;
+}
 /* ★ 세로 배치 상태칩의 높이 조절점 — 이 값 하나.
    캐릭터 '머리 끝'에서 키의 몇 %를 내려온 지점을 툴바 맨 위로 삼는다.
    줄이면 올라가고(0 = 머리 끝과 같은 높이), 키우면 내려간다.
@@ -908,6 +933,7 @@ return {
   setTabHintTimer: (v)=>{ _tabHintTimer = v; },   // 쓰는 함수 — app.js 가 비운다
   _wpTmp3,
   hexToRgba,
+  otherSeatCircles,   // 🖊️ 하트비트(app.js)가 main 에 싣는다
   setSeatDeskEmoji,
   uiIconEl,
   updateMyStatusChipPosition,

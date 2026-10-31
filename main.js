@@ -1029,6 +1029,17 @@ let _mainWinScreenBounds = null;
    ⚠️ 렌더러가 이 값을 안 보내는 구버전이면 배열이 비고, 그때는 예전처럼 캐릭터만 본다
      (동작이 옛날로 돌아갈 뿐 깨지지 않는다). */
 let _lastRegions = [];
+/* 🖊️ 남의 좌석 원(클라이언트 DIP) — 펜 앱이 앞일 때만 «근처» 판단에 더한다(_checkCursorNearChar).
+   유령 감시 · 회수(ⓕ ⓖ) · 호버 감시의 공용 판정(_ptOnOurUI)에는 넣지 않는다 — 그쪽 동작은 그대로 둔다. */
+let _lastOtherSeats = [];
+const OTHER_SEAT_MAX = 24;
+function _ptOnOtherSeat(cx, cy){
+  for(let i = 0; i < _lastOtherSeats.length; i++){
+    const c = _lastOtherSeats[i], dx = cx - c.x, dy = cy - c.y;
+    if(dx*dx + dy*dy < c.r*c.r) return true;
+  }
+  return false;
+}
 /* 점이 '우리 UI' 위인가 — 캐릭터 원 또는 창 사각형 중 하나라도 걸리면 참.
    margin 은 경계에서 렌더러와 다투지 않으려는 여유다(기존 FGN_CHAR_MARGIN 과 같은 뜻). */
 function _ptOnOurUI(cx, cy, margin){
@@ -1155,7 +1166,7 @@ function _checkCursorNearChar(){
      ⚠️ 이게 없으면 **태블릿 펜으로 대화창 입력칸을 못 누른다.** 펜 앱이 앞이면 forward
        mousemove 가 끊겨서 렌더러가 스스로 판정할 기회가 이 penHitTest 뿐인데, 그 신호가
        캐릭터 반경 안에서만 왔기 때문이다. 실제 제보로 확인된 자리다. */
-  const near = _ptOnOurUI(cx, cy);
+  const near = _ptOnOurUI(cx, cy) || _ptOnOtherSeat(cx, cy);   // 남의 캐릭터 · 책상도 우리 창이다
   /* 🩹 [2026-10-08 제보 #5] 펜 앱 — 근처(원 안)에 계속 있는데 아직 통과 중이면, 커서가 움직였을 때 150ms 간격으로 다시 묻는다.
      [왜] 아래 분기는 near 가 **바뀔 때만** 묻는다. 원 안에 들어왔지만 메시 위가 아니었다가 메시 위로 옮겨 가면
        near 는 계속 참이라 다시 묻지 않았다 — 펜 앱은 mousemove 가 끊겨 렌더러가 스스로 알 길이 없다.
@@ -3721,6 +3732,11 @@ function createWindow() {
     // 📐 우리 창들의 사각형. 안 보내는 구버전이면 건드리지 않는다(예전처럼 캐릭터만 보게 된다).
     if(Array.isArray(bounds.regions))
       _lastRegions = bounds.regions.map(g => ({ x: _zoomIn(g.x), y: _zoomIn(g.y), w: _zoomIn(g.w), h: _zoomIn(g.h) }));   // 🔍 CSS px → DIP
+    // 🖊️ 남의 좌석 원 — 안 보내는 구버전 · 이유 전송(_pushIgnoreWhy)이면 그대로 둔다
+    if(Array.isArray(bounds.others))
+      _lastOtherSeats = bounds.others.slice(0, OTHER_SEAT_MAX)
+        .filter(c => c && Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.r) && c.r > 0)
+        .map(c => ({ x: _zoomIn(c.x), y: _zoomIn(c.y), r: _zoomIn(c.r) }));
   });
 
   // 창 이동/리사이즈 시 스크린 좌표 캐시 갱신 — 실제로는 전체화면 오버레이라 거의 안 바뀜.
