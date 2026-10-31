@@ -227,7 +227,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
                사용자가 할 일도 다르므로 나눠서 안내한다.
                ・self-active     — 우리 창이 활성이라 '직전에 쓰던 프로그램'을 못 집었다
                ・activeWin-*     — Windows 가 그 창 정보를 안 준다(안티치트 게임 등). 창 목록은
-                 tasklist 이름으로 그 창도 보여 주므로 우클릭 목록으로 보낸다.
+                 tasklist 가 이름을 주면 그 창도 보여 주므로 우클릭 목록으로 보낸다.
                ・no-owner        — 전체화면 독점 모드 게임 등, 창 소유 프로세스를 못 읽는 경우 */
             const d = String((res && res.diag) || '');
             let msg;
