@@ -61,6 +61,8 @@ const appMode = deps.appMode;                   // 'run' | … — app.js 의 ap
    ★ 저장 정책은 **가챠 쪽(ts 최신 승)** 을 베꼈다 — focus/totalSec 의 max+증분이 아니다.
      주간 상태는 눈금이 아니라 "지금 어떤 주를 어떤 조건으로 하고 있는가"라는 한 덩어리라서,
      두 기기 값을 합치면 (월은 A기기 조건, 화는 B기기 조건 같은) 말이 안 되는 주가 만들어진다.
+   ⚠️ 이번 실행에서 서버 기록을 받기 전엔 tick 이 판정하지 않는다(_chalSyncedUid) — ts 최신 승이라
+     받기 전에 이 기기의 옛 기록으로 하루 넘김 · 정산을 하면 그게 다른 기기의 오늘을 덮는다.
    ★ 초는 로컬에만 쌓는다. 서버 쓰기는 **판정이 실제로 바뀌는 순간**과 런처 복귀뿐이다.
      🎯집중의 누적 초를 매번 올리면 하루 수천 write 가 된다.
    ⚠️ _focusTotalSec(평생 누적)을 재사용하지 않는다. 그 값은 서버 max 병합이라 다른 기기 값이
@@ -158,6 +160,17 @@ function _chalBlank(){
 }
 let chalRec = _chalBlank();
 let _chalDirty = false, _chalSyncing = false, _chalPopOpen = false, _chalPrevMode = null;
+/* 이번 실행에서 서버 기록을 받아 온 계정. 받기 전에 tick 이 돌면 이 기기의 옛 기록으로 하루 넘김 · 정산을
+   하고 «지금 시각» 으로 올려, 다른 기기의 오늘 기록을 통째로 덮는다(ts 최신 승). 그래서 받기 전엔 판정하지 않는다. */
+let _chalSyncedUid = '';
+function _chalUnsynced(){ const uid = getMyUserId(); return !uid || _chalSyncedUid !== uid; }
+/* 사용자 버튼(시작 · 수정 · 체크 · 포기 · 자동)도 받기 전엔 막는다 — 누르면 ts 가 찍혀 같은 덮어쓰기가 된다. */
+function _chalBlockUnsynced(){
+  if(!_chalUnsynced()) return false;
+  try{ toast('달성표를 서버에서 불러오는 중이에요 — 잠시 뒤 다시 눌러 주세요'); }catch(_){}
+  try{ syncChalToServer('retry'); }catch(_){}
+  return true;
+}
 /* 세그먼트로 지금 **보고 있는** 페이즈. null = 진행 중인 트랙(라이브).
    ⚠️ chalRec 에 넣지 않는다 — 화면을 넘길 때마다 ts 가 찍혀 서버 쓰기와 기기 간 핑퐁이 생긴다.
      이건 저장할 상태가 아니라 지금 이 창의 시선이다. */
@@ -417,6 +430,12 @@ function _chalTick(){
     if(_chalActive() && !chalRec.paused){ chalRec.paused = true; _chalSave(); }
     return;
   }
+  /* 서버 기록을 받기 전엔 판정하지 않는다(_chalSyncedUid 주석). 못 받았으면 20초 tick 이 다시 받아 본다. */
+  if(_chalUnsynced()){
+    if(getMyUserId()) try{ syncChalToServer('retry').then(()=>{ if(!_chalUnsynced()) _chalTick(); }); }catch(_){}
+    _chalRender();
+    return;
+  }
   /* ⚠️ 대기줄은 **트랙이 없을 때도** 두드린다. 정산 지급이 실패한 경우가 정확히 이 상태다
      (정산이 트랙을 닫고 나가므로, 여기서 안 돌리면 그 뽑기는 영영 안 온다). */
   try{ _chalRetryDue(); }catch(_){}
@@ -621,11 +640,12 @@ async function syncChalToServer(reason, mode){
       if(!chalRec.ts) _chalSave(true);
       await firebaseAPI.saveChal(uid, chalRec);
     };
-    if(mode === 'pull'){ if(sHas) _adopt(); else await _push(); return; }
+    if(mode === 'pull'){ if(sHas) _adopt(); else await _push(); _chalSyncedUid = uid; return; }
     const myTs = Number(chalRec.ts) || 0;
     if(sTs > myTs)              _adopt();
     else if(myTs > sTs)         await _push();
     else if(!sHas && myTs)      await _push();
+    _chalSyncedUid = uid;
     /* 보상 합계는 chal 과 다른 노드에 있으므로 읽기가 한 번 더 든다.
        판정이 바뀔 때마다 읽을 이유는 없다 — 값이 변하는 건 정산 때뿐이다. */
     if(reason === 'boot' || reason === 'launcher' || reason === 'settle'){
@@ -1049,6 +1069,7 @@ function _chalRenderRuleList(){
        자동으로 켜져서, 쉬려던 사람에게 실패 도장이 찍힌다. */
     const we = (_chalPhaseOf() === 'we');
     if(!(we ? chalRec.lastWe : chalRec.last)) return;
+    if(_chalBlockUnsynced()) return;
     if(we) chalRec.autoWe = !chalRec.autoWe; else chalRec.auto = !chalRec.auto;
     _chalSave(true);
     try{ syncChalToServer('auto'); }catch(_){}
@@ -1150,6 +1171,7 @@ function _chalRenderRuleList(){
 
   on('chalStartBtn', ()=>{
     if(!_chalDraft) return;
+    if(_chalBlockUnsynced()) return;
     const k = _chalDraft.kind, c = _chalDraft.cfg;
     /* ⚠️ 마지막 안전망 — 숫자 칸을 비우거나 범위 밖으로 둔 채 바로 [시작]을 누르는 경로가 있다.
        (칸을 비우고 곧장 버튼을 누르면 blur 보정이 늦게 걸리거나 아예 안 걸리는 브라우저가 있다)
@@ -1195,11 +1217,13 @@ function _chalRenderRuleList(){
   on('chalEditBtn', ()=>{ if(_chalActive()) _chalOpenSetup(chalRec.kind, true); });
   on('chalGiveupBtn', ()=>{
     if(!_chalActive()) return;
+    if(_chalBlockUnsynced()) return;
     /* ⚠️ 포기는 반드시 한 번 묻는다 — 되돌릴 수 없다. */
     _chalPopup('👑 달성표 포기', '이번 ' + _chalCurPh().name + ' 달성 기록이 사라지고 남은 보상도 없어져요.'
       + '<br><span style="font-size:10px;color:var(--ink-soft);">이미 받은 뽑기는 그대로예요.</span><br>정말 포기할까요?',
       [{a:'ok',t:'포기하기'},{a:'no',t:'취소',ghost:true}]).then(a=>{
       if(a !== 'ok') return;
+      if(_chalBlockUnsynced()) return;
       _chalGiveUp(); _chalDraft = null; _chalTick();
     });
   });
@@ -1211,6 +1235,7 @@ function _chalRenderRuleList(){
     const row = e.target.closest && e.target.closest('[data-i]'); if(!row) return;
     const i = +row.getAttribute('data-i');
     const t = chalRec.today; if(!t) return;
+    if(_chalBlockUnsynced()) return;
     t.checks = t.checks || {};
     t.checks[i] = !t.checks[i];
     _chalSave(true);
@@ -1225,7 +1250,7 @@ return {
   isOpen: _chalIsOpen,
   focusTick: _chalFocusTick,              // _applyActiveAppState(500ms) — 🎯집중 초
   setKeyPlatform(v){ _chalKeyPlatform = v; },   // 활성 앱 상태가 알려 주는 이 기기 플랫폼('win' · 'mac')
-  resetMemory(){ chalRec = _chalBlank(); _chalDirty = false; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
+  resetMemory(){ chalRec = _chalBlank(); _chalDirty = false; _chalSyncedUid = ''; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-weekly-challenge.js */
   calc: { phaseOf:_chalPhaseOf, weekStr:_chalWeekStr, dayIdx:_chalDayIdx, ticketsFor:_chalTicketsFor,
           earlyKey:_chalEarlyKey, ruleItems:_chalRuleItems, rewardLine:_chalRewardLine, cfgLabel:_chalCfgLabel,
