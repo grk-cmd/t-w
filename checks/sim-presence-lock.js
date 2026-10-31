@@ -255,8 +255,14 @@ async function gate(fbi){
     const iL = H.indexOf('<script src="parts/myhome/presence-lock.js"></script>'), iA = H.indexOf('<script src="parts/app.js"></script>');
     chk(iL > 0 && iA > iL, 'html — presence-lock.js 가 app.js 보다 먼저');
     chk((AP.match(/const presenceLockMod = TwPresenceLock\.createPresenceLock\(\{/g) || []).length === 1 && AP.indexOf('const presenceLockMod') < AP.indexOf('const mhInitMod')
-      && /loadPref: \(\)=>userApiMod\.me\(\)/.test(AP) && /savePref: \(uid, p\)=>loginFlowMod\.patchMe\(\{ presencePref: \{ locked: p\.lock, online: p\.online \} \}\)\.then\(\(r\)=>\{ if\(!r\.ok\) throw r\.err; \}\),/.test(AP)
+      && /loadPref: \(\)=>\{ const c = loginFlowMod\.meCache\(\);/.test(AP) && !/loadPref: \(\)=>userApiMod/.test(AP) && /savePref: \(uid, p\)=>loginFlowMod\.patchMe\(\{ presencePref: \{ locked: p\.lock, online: p\.online \} \}\)\.then\(\(r\)=>\{ if\(!r\.ok\) throw r\.err; \}\),/.test(AP)
       && /setPresence: \(\.\.\.a\)=>firebaseAPI\.setMyPresenceState\(\.\.\.a\),/.test(AP) && /  presenceLock: presenceLockMod,\n/.test(AP), 'app.js — 마이홈 처음 준비보다 먼저 만들고 deps 로 넘긴다');
+    {
+      const line = (AP.match(/  loadPref: (\(\)=>\{ const c = loginFlowMod\.meCache\(\);[^\n]*?\}),   \/\//) || [])[1];
+      const run = (cache) => line ? new Function('loginFlowMod', 'return (' + line + ')();')({ meCache: () => cache }) : 'NOLINE';
+      const got = run({ me: { presencePref: { locked: true, online: false } }, at: 1 }), none = run(null);
+      chk(!!line && got && got.lock === true && got.online === false && none === null, '★ 접속 고정 읽기 — 켤 때 받아 둔 계정 사본에서(서버를 또 부르지 않는다) · 사본이 없으면 «못 읽음»(null)');
+    }
     chk(/firebaseAPI\.setMyPresenceOnline\(myId, presenceLock\.startOnlineFor\(myId\)\);/.test(INIT), 'myhome-init — 처음 온라인 여부(Promise)를 접속 표시 등록에 넘긴다');
     chk(!/mhPresenceToggle/.test(UI) && !/setMyPresenceState/.test(UI), 'myhome-ui — 옛 토글 연결을 걷었다(두 벌이면 한 번 누름에 두 번 바뀐다)');
     const ld = FBI.slice(FBI.indexOf('async loadPresencePref('), FBI.indexOf('async savePresencePref('));

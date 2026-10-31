@@ -2648,7 +2648,7 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  loadPref: ()=>userApiMod.me().then((me)=>(me ? { lock: me.presencePref.locked, online: me.presencePref.online } : null)),   // 서버 계정의 접속 고정(GET /v1/me)
+  loadPref: ()=>{ const c = loginFlowMod.meCache(); return c && c.me ? { lock: c.me.presencePref.locked, online: c.me.presencePref.online } : null; },   // 서버 계정의 접속 고정 — 켤 때 확인(GET /v1/me)이 받아 둔 계정 사본에서(두 번째 GET 없음)
   savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
   storage: localStorage,
