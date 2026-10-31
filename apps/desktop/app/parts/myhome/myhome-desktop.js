@@ -32,11 +32,12 @@
    · 이번 단계는 UI/규칙 자리만: 파티 바 + 협동 선택지 (0/3) 표시.
    · 실시간 연동(Firebase parties)은 다음 단계 — advPartyAdd에서 안내만.
 
+   ★ deps (createMyHomeDesktop) — advStore: 계정별 로컬 칸(shared/account-store.js · 바탕화면 저장 tw.advZ.v2 · v1). myhome-desktop-boot.js 가 넘긴다
    ★ app.js 전역 의존 (전부 typeof 가드)
    · focusLevelMod.getFocusLevel(), _focusTotalSec, getDisplayName()
    · firebaseAPI.uploadUserImage(), getMyUserId(), toast(), companion.dsHold()
 */
-(function(){
+function createMyHomeDesktop(deps){
 /* ══════════════════════════════════════════════════════════════════════════════
    ★ 좀아칼 중단 스위치 — 바탕화면은 남기고 '게임만' 끈다
    ADV_GAME_OFF = true 일 때:
@@ -61,6 +62,8 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) �
 'use strict';
 
 /* ─────────────────────────── 저장 ─────────────────────────── */
+/* 🗂️ 바탕화면 로컬 저장은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 그 계정의 바탕화면이 열린다. 만드는 쪽(myhome-desktop-boot.js)이 넘긴 한 벌. */
+const advStore = deps.advStore;
 const ADV_KEY = 'tw.advZ.v2';
 const ADV_KEY_V1 = 'tw.advZ.v1';
 
@@ -74,7 +77,7 @@ function blankSlot(){
 }
 function advLoad(){
   try{
-    const d = JSON.parse(localStorage.getItem(ADV_KEY) || 'null');
+    const d = JSON.parse(advStore.get(ADV_KEY) || 'null');
     if(d && Array.isArray(d.slots)){
       const slots = [0,1,2].map(i => Object.assign(blankSlot(), d.slots[i] || {},
         { faceImgs: (function(sd){ const f=Object.assign({a:null,b:null,c:null,d:null},(sd&&sd.faceImgs)||{});
@@ -122,7 +125,7 @@ function advLoad(){
   }catch(_){}
   // v1 마이그레이션
   try{
-    const o = JSON.parse(localStorage.getItem(ADV_KEY_V1) || 'null');
+    const o = JSON.parse(advStore.get(ADV_KEY_V1) || 'null');
     if(o){
       const s0 = blankSlot();
       s0.face = o.face || '🧑‍🚒';
@@ -135,7 +138,7 @@ function advLoad(){
   return { slots:[blankSlot(),blankSlot(),blankSlot()], active:0, st:100, stLevel:null, hp:100,
            inf:0, inv:{}, weapons:[], scene:'camp', bg:null };
 }
-function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }
+function advSave(){ try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }
 // 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
 //   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){
@@ -212,7 +215,7 @@ let advVisitBg = null;   // 방문 중일 때 표시할 "집주인의" 배경 ({
 let mhdFF = null;        // 📂 폴더 자유배치(folder-free.js) — advApplyFolderHide · mhdMountApp 가 이른 시점에도 보므로 위에 둔다
 const ADV = advLoad();
 let editSlot = ADV.active;
-try{ if(!localStorage.getItem(ADV_KEY)) advSave(); }catch(_){}
+try{ if(!advStore.get(ADV_KEY)) advSave(); }catch(_){}
 
 function curSlot(){ return ADV.slots[editSlot]; }
 function activeSlot(){ return ADV.slots[ADV.active]; }
@@ -6109,4 +6112,6 @@ window._advApplyVisitUI = function(visiting, ownerId){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', advInit);
 else advInit();
 
-})();
+}
+
+window.TwMyHomeDesktop = { createMyHomeDesktop };   // 만드는 줄은 myhome-desktop-boot.js(app.js 가 만든 계정 칸을 deps 로 넘긴다)

@@ -257,3 +257,18 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - `reset()` 은 세대 번호를 올려 늦게 오는 앞 계정 답을 버린다 — 새 계정 것은 `loadBoard` / `loadMine` 이 받는다.
   - 계정별로 이 PC 에 남는 값: `tw.bellSeenTs`(app.js `BELL_SEEN_KEY` — 계정 전환 지움 목록). 기기 취향: `tw.annivAreaH`(구분선 높이) · `tw.bellWinPos`(알림창 자리).
 - **검사**: `checks/sim-scheduler.js`(진짜 provider + 가짜 authed 위에서 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 계정 바뀜 · 구경 · 깨 보기).
+
+## `myhome-desktop.js` — 🖥️ 마이홈 바탕화면 · 캐릭터세팅 창
+
+- **책임**: 마이홈 우측 미니 바탕화면(배경 색 · 이미지 · 폴더 · 작업표시줄)과 서버 공유(`advBg`). 좀비 어드벤처 코드는 꺼진 채 남아 있다(`ADV_GAME_OFF`).
+- **만드는 법**: `window.TwMyHomeDesktop.createMyHomeDesktop(deps)` — 만드는 줄은 `myhome-desktop-boot.js` 한 줄.
+- **deps**: `advStore` — 계정별 로컬 칸(`shared/account-store.js`). 바탕화면 저장(`tw.advZ.v2`, 옛 `v1` 읽기)을 계정마다 따로 둔다. 코드가 없으면(로그인 전) 저장 0건 · 읽으면 기본 바탕화면. 계정을 놓은 틈에는 쓰기가 거절된다.
+- **내놓는 것**: `window.MYHOME_DESKTOP`(`addFolder` 등) — 북마크 책장 · 폴더 자유배치가 이걸로 붙는다. 나머지 app.js 전역(`getMyUserId` · `firebaseAPI` · `toast` · `FolderFree`)은 예전처럼 전역 이름으로 읽는다.
+- **함정**: 만들자마자 저장값을 읽고 `MYHOME_DESKTOP` 을 내놓아서, 다른 스크립트(`bookmark.js` 등)가 쓰기 전에 만들어져야 한다 → boot 는 `myhome-desktop.js` 바로 다음에 싣는다. boot 는 app.js 최상위 `accountStoreMod` 를 읽는다(app.js 가 먼저 실려야 한다).
+- 검사: `checks/sim-account-store.js`(저장 칸 고르기 — `advLoad` · `advSave` 를 떼어 계정 A/B 로 불러 본다), `sim-mhd-*` · `sim-folder-free.js`.
+
+## `myhome-desktop-boot.js` — 🖥️ 바탕화면을 만드는 한 줄
+
+- **책임**: `createMyHomeDesktop({ advStore: accountStoreMod })` 한 줄. 바탕화면은 app.js 뒤에 실리고 싣자마자 돌아야 해서, app.js 가 만든 계정 칸을 deps 로 넘기는 자리를 별도 파일로 둔다.
+- **함정**: 순서 — `app.js` → `myhome-desktop.js` → 이 파일 → `bookmark.js`. 사이에 다른 스크립트를 끼우지 않는다. html 에 `myhome-desktop-boot.js` 가 있는지는 `sim-account-store.js` 가 본다.
+

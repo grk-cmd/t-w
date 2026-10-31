@@ -153,14 +153,18 @@ if(!fApply){
   chk(!!fAdopt && !!reLogin, '  _adoptAccountFriendCode · FRIEND_CODE_LOGIN_RE 를 떼어 왔다');
   const mkApply = (noCode) => {
     const LS = mkLS();
-    LS.setItem('tw.focusTotalSec', '1000');
-    LS.setItem('tw.focusSyncedSec', '900');
+    /* 누적 · 마크는 계정 칸(shared/account-store.js)에 산다 — 진짜 계정 칸을 같은 저장소 위에 세운다 */
+    const AC = 'uacct1234abcd';
+    const store = require([__dirname, process.cwd()].flatMap(d => ['account-store.js', 'parts/shared/account-store.js', 'app/parts/shared/account-store.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p))).createAccountStore({ storage: LS, getAccountCode: () => AC, isWriteLocked: () => false });
+    store.set('tw.focusTotalSec', '1000');
+    store.set('tw.focusSyncedSec', '900');
     if(!noCode) LS.setItem('tw.myFriendCode', 'MATE-OLD1');
     const rec = { calls: [], premium: null };
-    const f = new Function('localStorage', 'rec', [
+    const f = new Function('localStorage', 'rec', 'accountAdoptStore', [
       "const console={ warn:()=>{}, log:()=>{}, info:()=>{} };",
-      "const LICENSE_KEY_STORAGE='tw.licenseKey', FOCUS_TOTAL_KEY='tw.focusTotalSec', FOCUS_SYNCED_KEY='tw.focusSyncedSec', USER_NAME_KEY='tw.userName', MY_FRIEND_CODE_KEY='tw.myFriendCode';",
-      "let _focusTotalSec=1000;",
+      "const LICENSE_KEY_STORAGE='tw.licenseKey', USER_NAME_KEY='tw.userName', MY_FRIEND_CODE_KEY='tw.myFriendCode';",
+      /* joinRenderer 가 모듈 글을 «옮기기 전 app.js 글» 로 되살려서 읽는 이름이 예전 모양이다(변수 · 문자열 키) */
+      "let _focusTotalSec=1000; const FOCUS_TOTAL_KEY='tw.focusTotalSec', FOCUS_SYNCED_KEY='tw.focusSyncedSec';",
       "const _setPremium=(v)=>{ rec.premium=v; };",
       "const _rememberOldFriendCode=(c)=>{ rec.calls.push('rememberOld:'+c); };",
       "const FRIEND_CODE_LOGIN_RE=" + (reLogin ? reLogin[1] : '/^$/') + ";",
@@ -170,7 +174,7 @@ if(!fApply){
       fApply,
       "return { apply:_applyTransferSnapshot, focus:()=>_focusTotalSec };",
     ].join('\n'));
-    return { LS, rec, m: f(LS, rec) };
+    return { LS, rec, store, m: f(LS, rec, store) };
   };
 
   let a = mkApply();
@@ -179,19 +183,19 @@ if(!fApply){
   chk(a.rec.calls.includes('syncFocus:transfer') && !a.rec.calls.includes('NO-ADOPT'), '  집중초 동기화도 같이 돈다(스냅샷과 무관한 셋)');
   chk(a.rec.calls.indexOf('rememberOld:MATE-OLD1') >= 0 && a.rec.calls.indexOf('rememberOld:MATE-OLD1') < a.rec.calls.indexOf('restoreOwned') && a.rec.calls.indexOf('restoreOwned') < a.rec.calls.indexOf('syncFocus:transfer'), '  순서 — 친추코드 → 소지품 → 집중초');
   chk(a.rec.premium === null && a.LS.getItem('tw.licenseKey') === null && a.LS.getItem('tw.userName') === null, '  스냅샷이 없으니 라이선스·이름은 안 건드린다');
-  chk(a.LS.getItem('tw.focusTotalSec') === '1000' && a.LS.getItem('tw.focusSyncedSec') === '900' && a.m.focus() === 1000, '  집중초·마크도 그대로(스냅샷 값이 없는데 맞출 수 없다)');
+  chk(a.store.get('tw.focusTotalSec') === '1000' && a.store.get('tw.focusSyncedSec') === '900' && a.m.focus() === 1000, '  집중초·마크도 그대로(스냅샷 값이 없는데 맞출 수 없다)');
   chk(a.LS.getItem('tw.myFriendCode') === null, '★ 계정에 코드 기록이 없고 입력한 코드도 없으면(구글) 이 기기 코드를 **내려놓는다** — 다음 부팅에 거울 → 첫 발급 (개정 56 (가))');
 
   a = mkApply();
   await (a.m.apply({ license: 'LIC', focusTotalSec: 5000, name: '연우', friendCode: 'MATE-NEW2' }));
   chk(a.rec.premium === true && a.LS.getItem('tw.licenseKey') === 'LIC' && a.LS.getItem('tw.userName') === '연우', '  스냅샷이 있으면 예전과 같다 — 라이선스·이름 적용');
-  chk(a.LS.getItem('tw.focusTotalSec') === '5000' && a.LS.getItem('tw.focusSyncedSec') === '5000' && a.m.focus() === 5000, '  집중초는 max 로 합치고 마크도 맞춘다(예전 그대로)');
+    chk(a.store.get('tw.focusTotalSec') === '5000' && a.store.get('tw.focusSyncedSec') === '5000' && a.m.focus() === 5000 && a.LS.getItem('tw.focusTotalSec') === null && a.LS.getItem('tw.focusSyncedSec') === null, '  집중초는 max 로 합치고 마크도 맞춘다 — **계정 칸**에 채택하고 PC 칸에는 안 쓴다(A2)');
   chk(a.LS.getItem('tw.myFriendCode') === 'MATE-NEW2' && a.rec.calls.includes('rememberOld:MATE-OLD1'), '  스냅샷 코드로 바꾸되 이 기기 코드는 기록해 둔다(예전 그대로)');
   chk(a.rec.calls.includes('restoreOwned') && a.rec.calls.includes('syncFocus:transfer'), '  소지품 복원 셋도 돈다');
 
   a = mkApply();
   await (a.m.apply({ focusTotalSec: 100 }));
-  chk(a.LS.getItem('tw.focusTotalSec') === '1000' && a.m.focus() === 1000, '  스냅샷 집중초가 더 작으면 이 기기 것을 지킨다(max — 레벨이 깎이지 않는다)');
+  chk(a.store.get('tw.focusTotalSec') === '1000' && a.store.get('tw.focusSyncedSec') === '1000' && a.m.focus() === 1000, '  스냅샷 집중초가 더 작으면 마크도 이 기기 값으로 맞추고(증분 0) 이 기기 것을 지킨다(max — 레벨이 깎이지 않는다)');
 
   /* 개정 56 (가) — 계정에 코드 기록이 없을 때 */
   a = mkApply();
