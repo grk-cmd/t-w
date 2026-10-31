@@ -3,7 +3,7 @@
      못 받아도 앞서 받은 판을 지우지 않고, 같은 실패는 한 번만 알려야 한다. 이 판단이 notice-feed.js 한 곳에 있어 실제로 불러서 판정한다.
    ・1절: 받기 — 상태 idle → loading → ready · 처음 받은 소식은 새 소식이 아니다 · 받는 중에 또 부르면 끝난 뒤 한 번 더 · 받으면 모든 받는 쪽에 알림 · 해제한 쪽과 던지는 쪽이 다른 쪽을 막지 않음
    ・2절: 알림 — notices 알림이 오면(바뀜 · 오래 끊겼다 붙음 모두) 다시 받음 · 새로 늘어난 소식 id 만 addedIds
-   ・3절: 못 받음 — error · 오류 번호 E-MH-09 는 이어지는 동안 한 번 · 못 받아도 앞서 받은 판은 그대로 · 한 번도 못 받았으면 ready 아님
+   ・3절: 못 받음 — error · 자동 받기(켤 때 · 알림)가 실패하면 번호 없이 상태만 · 혼자 다시 받지 않음(타이머 0) · 사용자가 연 · 누른 받기(manual)에서만 E-MH-09(이어지는 동안 한 번) · 못 받아도 앞서 받은 판은 그대로 · 한 번도 못 받았으면 ready 아님
    ・4절: 관리자 쓰기 — 올리기(성공 → 다시 받음 · pinFailed → 다시 받고 번호 E-MH-12) · 고정 토글은 받은 판(version)으로 · 없는 id 는 요청 0 · 409 는 다시 받고 번호 · 실패는 번호
    ・5절: 배선 — app.js 가 서버 길로 만듦 · 업데이트 공지 팝업은 처음 받았을 때 한 번 · 배너 · 확성기 · 소식이 같은 한 벌을 읽음 · html · smoke
    ・6절: 일부러 깨 보기
@@ -17,7 +17,6 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const pick = (names) => names.map(read).find(Boolean);
 const SRC0 = {
   FEED: pick(['notice-feed.js', 'parts/launcher/notice-feed.js', 'app/parts/launcher/notice-feed.js']),
-  RD: pick(['retry-delay.js', 'parts/shared/retry-delay.js', 'app/parts/shared/retry-delay.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
   BANNER: pick(['ad-banner.js', 'parts/launcher/ad-banner.js', 'app/parts/launcher/ad-banner.js']),
   OVER: pick(['overhead.js', 'parts/room/overhead.js', 'app/parts/room/overhead.js']),
@@ -25,7 +24,7 @@ const SRC0 = {
   SMOKE: pick(['smoke.js']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
-const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwNoticeFeed || w.TwRetryDelay; };
+const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwNoticeFeed; };
 const RD = SRC0.RD;
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const tick = () => new Promise((r) => setImmediate(r));
@@ -33,7 +32,7 @@ const note = (pinned, version) => ({ tag: 'notice', title: 't', body: 'b', ts: 1
 const boardOf = (ids, extra) => Object.assign({ updateNotice: null, banner: [], broadcasts: Object.fromEntries(ids.map((i) => [i, note(false)])), hasMore: false }, extra || {});
 
 function mk(src){
-  const env = { board: boardOf([]), fail: null, gate: null, fetches: 0, errors: [], writes: [], wres: 'ok', handler: null, seen: [], timers: [], viewing: true };
+  const env = { board: boardOf([]), fail: null, gate: null, fetches: 0, errors: [], writes: [], wres: 'ok', handler: null, seen: [] };
   const api = {
     fetchBoard: async () => {
       env.fetches++;
@@ -46,8 +45,7 @@ function mk(src){
     remove: async (id, v) => { env.writes.push(['del', id, v]); return env.wres; },
   };
   const rt = { on: (kind, fn) => { if(kind === 'notices') env.handler = fn; return () => {}; } };
-  const feed = load(src).createNoticeFeed({ api, rt, notifyError: (c) => env.errors.push(c), isViewing: () => env.viewing, 
-    retryDelay: (n) => load(RD).delay(n), setTimer: (fn, ms) => { const t = { ms, live: true }; t.fn = () => { t.live = false; fn(); }; env.timers.push(t); return env.timers.length - 1; }, clearTimer: (id) => { if(env.timers[id]) env.timers[id].live = false; } });
+  const feed = load(src).createNoticeFeed({ api, rt, notifyError: (c) => env.errors.push(c) });
   feed.onChange((e) => env.seen.push(e.addedIds.join(',')));
   return { env, feed };
 }
@@ -119,47 +117,30 @@ async function judge(S){
     chk(Object.keys(feed.broadcasts()).join() === 'n' && env.seen[env.seen.length - 1] === '', '내려간 소식은 목록에서 빠진다');
   }
 
-  say('── 3. 못 받음');
+  say('── 3. 못 받음 · 혼자 다시 받지 않음 · 오류 번호는 사용자가 연 · 누른 받기에서만');
   {
     const { env, feed } = mk(LIB);
     env.fail = new Error('x');
-    feed.start(); await tick(); await tick();
-    chk(feed.status() === 'error' && !feed.ready() && env.errors.join() === 'E-MH-09', '못 받으면 error — 빈 소식으로 그리지 않고 오류 번호 E-MH-09');
-    await feed.refresh(); await feed.refresh();
+    const timers = []; const realST = global.setTimeout; global.setTimeout = (...a) => { timers.push(a[1]); return realST(...a); };
+    try{
+      feed.start(); await tick(); await tick();
+      chk(feed.status() === 'error' && !feed.ready() && env.errors.length === 0, '켤 때(자동) 못 받으면 error 상태만 — 빈 소식으로 그리지 않고 오류 번호는 안 띄운다');
+      env.handler({ kind: 'notices' }); await tick(); await tick();
+      chk(env.errors.length === 0 && env.fetches === 2, '  알림으로 자동 받다 실패해도 번호 없음');
+      const f = env.fetches; await new Promise((r) => realST(r, 30)); await tick();
+      chk(timers.length === 0 && env.fetches === f, '  혼자 다시 받지 않는다(타이머 0개 · 요청이 늘지 않는다)');
+    }finally{ global.setTimeout = realST; }
+    await feed.refresh({ manual: true });
+    chk(env.errors.join() === 'E-MH-09', '«다시 시도» · 알림함 열기(manual)로 못 받으면 번호 E-MH-09');
+    await feed.refresh({ manual: true }); await feed.refresh();
     chk(env.errors.length === 1, '  이어지는 실패는 한 번만');
     env.fail = null; env.board = boardOf(['a']);
     await feed.refresh();
     chk(feed.status() === 'ready' && feed.ready(), '  다시 받으면 ready');
-    env.fail = new Error('또'); await feed.refresh();
-    chk(feed.status() === 'error' && feed.ready() && Object.keys(feed.broadcasts()).join() === 'a' && env.errors.length === 2, '  받은 뒤의 실패 — 다시 알리고 앞서 받은 소식은 그대로');
+    env.fail = new Error('또'); await feed.refresh({ manual: true });
+    chk(feed.status() === 'error' && feed.ready() && Object.keys(feed.broadcasts()).join() === 'a' && env.errors.length === 2, '  받은 뒤의 실패 — 다시 알리고(새 실패 줄) 앞서 받은 소식은 그대로');
   }
-
-  say('── 3-2. 스스로 다시 받기 · 오류 번호는 보는 동안만 · 업데이트 공지 한 번');
-  {
-    const { env, feed } = mk(LIB);
-    env.fail = new Error('x'); env.viewing = false;
-    feed.start(); await tick(); await tick();
-    chk(feed.status() === 'error' && env.errors.length === 0 && env.timers.length === 1 && env.timers[0].ms === 30000, '알림함을 안 보는 동안 못 받으면 번호 없이 상태만 error · 30초 뒤 다시 받도록 건다');
-    env.timers[0].fn(); await tick(); await tick();
-    chk(env.fetches === 2 && env.timers[1].ms === 60000, '  타이머가 돌면 다시 받고 또 못 받으면 두 배');
-    for(let i = 2; i < 9; i++){ env.timers[i - 1].fn(); await tick(); await tick(); }
-    chk(env.timers[env.timers.length - 1].ms === 600000, '  10분이 상한');
-    env.viewing = true; env.timers[env.timers.length - 1].fn(); await tick(); await tick();
-    chk(env.errors.join() === 'E-MH-09', '  보는 중에 또 못 받으면 번호를 한 번');
-    env.timers[env.timers.length - 1].fn(); await tick(); await tick();
-    chk(env.errors.length === 1, '  이어지는 실패는 더 안 띄운다');
-    env.fail = null; await feed.refresh();
-    chk(feed.status() === 'ready' && env.timers.filter((t) => t.live).length === 0, '  받으면 타이머를 거둔다(다른 길로 받아져도)');
-    env.fail = new Error('또'); await feed.refresh(); await tick();
-    chk(env.timers[env.timers.length - 1].ms === 30000, '  성공한 뒤의 첫 실패는 다시 30초부터');
-  }
-  {
-    const { env, feed } = mk(LIB);
-    env.fail = new Error('x'); env.viewing = false;
-    feed.start(); await tick(); await tick();
-    await feed.refresh({ manual: true });
-    chk(env.errors.join() === 'E-MH-09', '«다시 시도» 로 못 받으면 화면을 안 봐도 번호를 띄운다');
-  }
+  say('── 3-2. 업데이트 공지 한 번');
   {
     const { env, feed } = mk(LIB);
     env.board = boardOf(['a'], { updateNotice: { title: '이미 받음', body: 'b', ts: 9 } });
@@ -169,8 +150,6 @@ async function judge(S){
     chk(shown.join() === '이미 받음', '업데이트 공지 — 이미 받은 뒤에 걸어도 바로 한 번(기다리다 놓치지 않는다)');
     await feed.refresh();
     chk(shown.length === 1, '  그 뒤 다시 받아도 더 안 띄운다');
-    let thrown = null; try{ load(LIB).createNoticeFeed({ api: {}, rt: { on(){} }, notifyError(){} }); }catch(x){ thrown = x; }
-    chk(thrown && /isViewing/.test(thrown.message), 'isViewing 없이 만들면 던진다(조용히 «안 보임» 으로 두지 않는다)');
   }
   {
     const { env, feed } = mk(LIB);
@@ -211,7 +190,7 @@ async function judge(S){
     const A = strip(S.APP);
     chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다');
     chk(/whenNetReady\(\(\)=>noticeFeed\.start\(\)\)/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 켤 때 받고 · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
-    chk(/isViewing: _mailboxVisible,/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 알림함이 보이는지 잇고 · 업데이트 공지 팝업은 onceReady 한 번');
+    chk(!/isViewing|_mailboxVisible|retryDelay/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 안 넘기고 · 업데이트 공지 팝업은 onceReady 한 번');
     const B = strip(S.BANNER);
     chk(/noticeFeed\.onChange\(/.test(B) && !/localStorage\.setItem\(AD_BANNER_KEY/.test(B) && !/subscribeAdBanner/.test(B), '배너 — 공지 한 판이 바뀔 때 그린다 · 이 PC 사본(localStorage)을 안 남긴다');
     const O = strip(S.OVER);
@@ -235,13 +214,11 @@ async function runAll(){
     ['notices 알림을 안 받음', F.replace("deps.rt.on('notices', () => { refresh(); });", "deps.rt.on('notices', () => {});"), 'notices 알림'],
     ['못 받으면 판을 비움', F.replace("status = STATUS.ERROR;\n", "status = STATUS.ERROR; board = { updateNotice: null, banner: [], broadcasts: {}, hasMore: false }; everReady = false;\n"), '그대로'],
     ['이미 받았는데 기다림', F.replace("if(everReady){ fn(board.updateNotice); return; }", ''), '이미 받은 뒤에 걸어도'],
-    ['isViewing 없어도 만들어짐', F.replace("if(!isViewing) throw new Error('[공지] isViewing 이 필요해요 — 알림함이 보이는지 알려 주는 함수');", ''), 'isViewing 없이'],
     ['업데이트 공지를 받을 때마다 띄움', F.replace("      off();\n      fn(board.updateNotice);", "      fn(board.updateNotice);"), '한 번'],
     ['못 받았는데 업데이트 공지를 띄움', F.replace("if(!everReady) return;\n      off();", "off();"), '못 받았으면'],
-    ['안 보는 중에도 번호를 띄움', F.replace("(manual || isViewing())", "true"), '보는 동안만'],
-    ['다시 시도에도 번호 안 띄움', F.replace("(manual || isViewing())", "isViewing()"), '다시 시도'],
-    ['다시 받기 시간이 안 늘어남', F.replace("    failCount++;\n", ""), '두 배'],
-    ['받아도 타이머를 안 거둠', F.replace("failCount = 0; cancelRetry();", "failCount = 0;"), '타이머를 거둔다'],
+    ['자동 받기 실패에도 번호를 띄움', F.replace("!failStreak && manual", "!failStreak"), '자동'],
+    ['다시 시도에 번호 안 띄움', F.replace("!failStreak && manual", "false"), '다시 시도'],
+    ['혼자 다시 받음', F.replace("        emit([]);\n        return false;", "        setTimeout(() => refresh(), 5); emit([]);\n        return false;"), '혼자 다시 받지'],
     ['고정에 옛 판을 실음', F.replace("api.setPinned(id, m.version, !m.pinned)", "api.setPinned(id, 0, !m.pinned)"), '받은 판'],
     ['없는 id 도 보냄', F.replace("async function togglePin(id){\n    const m = board.broadcasts[id];\n    if(!m) return false;", "async function togglePin(id){\n    const m = board.broadcasts[id] || { version: 0, pinned: false };"), '요청 0'],
     ['409 에 다시 안 받음', F.replace("if(r === 'conflict'){ await refresh(); notifyError('E-MH-12', null); return false; }", "if(r === 'conflict'){ notifyError('E-MH-12', null); return false; }"), '다시 받아'],

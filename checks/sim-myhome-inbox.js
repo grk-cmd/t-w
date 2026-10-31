@@ -341,7 +341,7 @@ async function behave(src){
     m.renderInbox();
     chk(list.innerHTML === '<div class="mh-ibx-empty">받은 우편이 없어요</div>', '받기를 시작하지 않은 기기(내 코드 없음)는 «받은 우편이 없어요»');
     e.mailReady = true; e.mailStatus = 'ready'; e.noticeReady = true; e.noticeStatus = 'ready';
-    /* 한 번 받은 뒤 닫힌 동안 실패(error)한 채 열면 한 번 다시 받는다(manual) — 보는 중 실패면 번호가 뜬다 */
+    /* 한 번 받은 뒤 닫힌 동안 실패(error)한 채 열면 한 번 다시 받는다(manual) — manual 이라 못 받으면 번호가 뜬다 */
     e.refreshed = []; e.mailStatus = 'error'; e.noticeStatus = 'ready';
     m.retryIfFailed();
     chk(e.refreshed.join() === 'mail!', 'ready 뒤 error 인 채 알림함이 나타나면 우편을 manual 로 한 번 다시 받는다(소식은 정상이라 안 부름)');

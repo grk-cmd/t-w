@@ -373,7 +373,6 @@ PRELOAD.push('input-diag.js');
 PRELOAD.push('inbox-sections.js');
 PRELOAD.push('myhome-inbox.js');
 /* inbox-api.js · mail-feed.js · notice-api.js · notice-feed.js — 📩 우편 · 📢 공지 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwInboxApi · TwMailFeed · TwNoticeApi · TwNoticeFeed 를 부른다. */
-PRELOAD.push('retry-delay.js');   // 🔁 우편 · 공지가 못 받은 뒤 다시 받기까지 쉬는 시간 — app.js 가 만들 때 TwRetryDelay.delay 를 넘긴다
 PRELOAD.push('inbox-api.js');
 PRELOAD.push('mail-feed.js');
 PRELOAD.push('notice-api.js');

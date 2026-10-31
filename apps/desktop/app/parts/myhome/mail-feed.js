@@ -3,12 +3,11 @@
      받기는 한 번에 하나만(받는 중에 또 부르면 끝난 뒤 한 번 더). 계정이 바뀌면 앞 계정의 우편은 비우고 새로 받는다 — 늦게 끝난 앞 계정 응답은 버린다.
      읽음 · 지우기는 서버가 «됐다» 한 뒤에 화면 값을 고친다(실패하면 그대로 두고 오류 번호). 한 번도 받지 못한 동안(받는 중 · 못 받음)에는 고치지 않는다.
      쓰는 동안 계정이 바뀌면(await 앞뒤 uid 가 다르면) 화면 · 수를 건드리지 않고 끝낸다 — 앞 계정 화면에서 누른 것의 늦은 «됐다» 가 새 계정 우편을 고치지 않게.
-     못 받으면 스스로 다시 받는다(30초부터 두 배씩 10분 상한 — shared/retry-delay.js). 성공 · 계정 바뀜 · stop 이면 취소.
-     받기 실패의 오류 번호는 사용자가 알림함을 보고 있거나 «다시 시도» 를 눌렀을 때만 띄운다(켤 때 화면을 안 열었는데 뜨지 않게). 닫힌 동안 실패한 채(error) 알림함을 열면 화면(myhome-inbox.js)이 manual 로 한 번 다시 받는다.
+     못 받아도 혼자 다시 받지 않는다 — 다시 받는 길은 새 우편 알림 · 알림함을 열 때 실패 상태면 한 번(화면 myhome-inbox.js 의 retryIfFailed — manual) · «다시 시도» 누르기뿐.
+     받기 실패의 오류 번호는 사용자가 연 · 누른 받기(manual)에서만 띄운다 — 켤 때 · 알림으로 자동 받다 실패하면 오류 창 없이 못 받음 상태만(화면 안 «불러오지 못했어요» 가 그린다).
      한 번 받은 뒤의 실패는 앞서 받은 목록을 그대로 두고 status 만 error 로 바꾼다 — 화면 안 «불러오지 못했어요» + 다시 시도는 한 번도 못 받았을 때만 그려진다.
    deps: api — createInboxApi 가 돌려준 것(inbox-api.js) · rt — 알림 걸기(TwRtHub.store.on('notification', fn)) ·
-         notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · isViewing() → 알림함이 지금 보이나(필수 — 없으면 만들 때 던진다) ·
-         retryDelay(n) → 다시 받기까지 ms(TwRetryDelay.delay) · setTimer(fn, ms) → id · clearTimer(id)
+         notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify)
    내보냄: createMailFeed(deps) → {
      onChange(fn) → 해제 함수 — fn({ addedIds })(화면 다시 그리기 · 새 우편 토스트 — 받은 뒤 · 고친 뒤 · 처음 받은 판의 우편은 새 우편이 아니다) ·
      start(uid) · stop() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · items() → { id: 우편 } · unread() → 서버가 센 안 읽은 수 ·
@@ -27,27 +26,15 @@ const SECTION_MAIL = 'MAIL';
 function createMailFeed(deps){
   const api = deps.api;
   const notifyError = deps.notifyError;
-  const isViewing = deps.isViewing;
-  if(!isViewing) throw new Error('[우편] isViewing 이 필요해요 — 알림함이 보이는지 알려 주는 함수');
-  const retryDelay = deps.retryDelay;
-  const setTimer = deps.setTimer;
-  const clearTimer = deps.clearTimer;
   const subs = [];
   let uid = null;
   let status = STATUS.IDLE, items = {}, unread = 0, complete = true, everReady = false;
   let clearing = false, flying = false, again = false, failStreak = false, manualNext = false;
-  let retryTimer = null, failCount = 0;
 
   function emit(e){
     for(const fn of subs.slice()){ try{ fn(e); }catch(err){ console.warn('[우편] 받는 쪽 처리 실패', err); } }
   }
-  function cancelRetry(){ if(retryTimer !== null){ clearTimer(retryTimer); retryTimer = null; } }
-  function reset(){ items = {}; unread = 0; complete = true; everReady = false; status = STATUS.IDLE; failStreak = false; failCount = 0; manualNext = false; cancelRetry(); }
-  function scheduleRetry(){
-    cancelRetry();
-    retryTimer = setTimer(() => { retryTimer = null; refresh(); }, retryDelay(failCount));
-    failCount++;
-  }
+  function reset(){ items = {}; unread = 0; complete = true; everReady = false; status = STATUS.IDLE; failStreak = false; manualNext = false; }
 
   async function refresh(opts){
     if(!uid) return false;
@@ -64,8 +51,7 @@ function createMailFeed(deps){
       catch(e){
         if(mine !== uid) return false;   // 그 사이 계정이 바뀌었다 — 앞 계정의 실패는 알리지 않는다
         status = STATUS.ERROR;
-        if(!failStreak && (manual || isViewing())){ failStreak = true; notifyError('E-MH-08', e); }   // 이어지는 실패는 한 번만 · 화면을 안 보는 동안은 번호를 띄우지 않는다
-        scheduleRetry();
+        if(!failStreak && manual){ failStreak = true; notifyError('E-MH-08', e); }   // 이어지는 실패는 한 번만 · 자동 받기 실패는 번호 없이 상태만
         emit({ addedIds: [] });
         return false;
       }
@@ -73,7 +59,7 @@ function createMailFeed(deps){
       const before = items;
       const addedIds = everReady ? Object.keys(got.items).filter((id) => !(id in before)) : [];   // 처음 받은 판은 «새 우편» 이 아니다(우르르 안 뜨게)
       items = got.items; unread = got.unread; complete = got.complete;
-      everReady = true; status = STATUS.READY; failStreak = false; failCount = 0; cancelRetry();
+      everReady = true; status = STATUS.READY; failStreak = false;
       emit({ addedIds });
       ok = true;
     }finally{
