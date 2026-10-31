@@ -100,7 +100,7 @@ function _inboxEnter(){
   _inboxOpenId = null;
 }
 /* 📩 알림함이 눈앞에 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) — 닫힌 동안 실패한(error) 피드는 manual 로 한 번 다시 받는다(manual 이라 못 받으면 오류 번호가 뜬다).
-   이미 받는 중이면 부르지 않는다(자동 다시 받기가 날아가는 중에 또 부르면 끝난 뒤 한 번 더 나간다). 칸 고르기(_inboxEnter)와 별개. */
+   이미 받는 중(켤 때 · 새 알림으로 받는 중)이면 부르지 않는다(받는 중에 또 부르면 끝난 뒤 한 번 더 나간다). 칸 고르기(_inboxEnter)와 별개. */
 function retryIfFailed(){
   for(const feed of [mailFeed, noticeFeed]){
     if(feed.status() === feed.STATUS.ERROR && !feed.busy()) feed.refresh({ manual: true });
