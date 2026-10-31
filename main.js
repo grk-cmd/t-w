@@ -1029,6 +1029,17 @@ let _mainWinScreenBounds = null;
    ⚠️ 렌더러가 이 값을 안 보내는 구버전이면 배열이 비고, 그때는 예전처럼 캐릭터만 본다
      (동작이 옛날로 돌아갈 뿐 깨지지 않는다). */
 let _lastRegions = [];
+/* 🖊️ 남의 좌석 원(클라이언트 DIP) — 펜 앱이 앞일 때만 «근처» 판단에 더한다(_checkCursorNearChar).
+   유령 감시 · 회수(ⓕ ⓖ) · 호버 감시의 공용 판정(_ptOnOurUI)에는 넣지 않는다 — 그쪽 동작은 그대로 둔다. */
+let _lastOtherSeats = [];
+const OTHER_SEAT_MAX = 24;
+function _ptOnOtherSeat(cx, cy){
+  for(let i = 0; i < _lastOtherSeats.length; i++){
+    const c = _lastOtherSeats[i], dx = cx - c.x, dy = cy - c.y;
+    if(dx*dx + dy*dy < c.r*c.r) return true;
+  }
+  return false;
+}
 /* 점이 '우리 UI' 위인가 — 캐릭터 원 또는 창 사각형 중 하나라도 걸리면 참.
    margin 은 경계에서 렌더러와 다투지 않으려는 여유다(기존 FGN_CHAR_MARGIN 과 같은 뜻). */
 function _ptOnOurUI(cx, cy, margin){
@@ -1094,23 +1105,25 @@ function _ptOnOverlayWindow(pt){
   if(!b || !pt) return true;          // 알 수 없으면 예전처럼 동작한다(막지 않는다)
   return pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height;
 }
-/* ★ forward 결정 — '클릭 통과(ignore=true)' 중에는 forward를 절대 끄지 않는다.
-   [고착 버그] forward가 꺼지면 렌더러가 mousemove를 못 받는데, 렌더러의 통과/해제 판정은 오직
-   mousemove에만 걸려 있다. 그래서 'ignore=true + forward=false' 조합이 되는 순간 렌더러가 스스로
-   깨어날 방법이 사라져, 앱을 강제 종료하기 전까지 마우스가 영영 먹지 않았다
-   (키보드·렌더링·포커싱어플은 별개 경로라 정상 동작 — 제보된 증상과 정확히 일치).
-   ignore=true면 어차피 클릭이 창을 통과하므로 forward를 켜도 펜 앱 작업에 방해가 없다.
-   즉 이 한 줄로 고착 조합 자체가 성립 불가능해진다. */
-function _forwardFor(){
-  if(_lastIgnoreRequested) return true;              // 통과 중 → 무조건 forward 유지(복구 통로 확보)
-  return !_penAppActive || _penMouseNearChar;        // 클릭 받는 중 → 기존 로직 그대로
+/* ★ forward(마우스 이동을 렌더러로 넘기기) 결정. 통과(ignore=true) 중에만 뜻이 있다.
+   펜 앱이 앞이고 커서가 우리 창에서 멀면 끈다 — forward 가 켜져 있으면 펜 앱의 선 보정이 어긋난다(PEN_APPS 주석).
+   그 동안 렌더러를 깨우는 길은 50ms 커서 감시(_checkCursorNearChar)다 — 우리 창 근처면 forward 를 켜고 재판정을 찌른다.
+   ⚠️ 깨울 길이 없으면(감시가 안 돌거나 우리 창 자리를 모름) 끄지 않는다 — «통과 + forward 꺼짐» 이면 렌더러가 스스로
+     깨어날 길이 없어 마우스가 영영 안 먹는 고착이 된다. 예전엔 이 고착을 막으려 통과 중이면 무조건 켜서 펜 보호가 통째로 꺼져 있었다. */
+function _penWakeReady(){
+  return !!(_cursorWatchTimer && _mainWinScreenBounds && (_lastCharBounds || _lastRegions.length));
 }
+function _forwardFor(){
+  if(!_penAppActive || _penMouseNearChar) return true;
+  return !_penWakeReady();
+}
+let _fwdApplied = null;   // 마지막으로 건 forward — 커서 감시가 «바뀔 때만» 다시 걸게(반복해 걸면 영상이 깜빡인다)
 function _reapplyIgnoreMouse(){
   if(!mainWindow || mainWindow.isDestroyed()) return;
+  _syncCursorWatcher();   // 먼저 — forward 를 끌 수 있는지(_penWakeReady)가 감시가 도는지에 달렸다
   const forward = _forwardFor();
   mainWindow.setIgnoreMouseEvents(!!_lastIgnoreRequested, { forward });
-  // 펜 앱 활성 상태에 맞춰 커서 감시 타이머 시작/중지
-  _syncCursorWatcher();
+  _fwdApplied = forward;
   try{ _syncHoverWatcher(); }catch(_){}   // 일반 앱 호버 감시 — 통과로 넘어가는 순간 켜고, 클릭받기면 끈다
 }
 
@@ -1143,7 +1156,8 @@ function _checkCursorNearChar(){
      예전엔 여기서 통째로 물러났는데, 그러면 펜 앱에서의 유일한 복구 통로가 같이 죽는다 —
      판타블렛 제보가 정확히 그 상태였다(setCharBounds 의 '좌표 판정 보류' 주석). */
   if(!_mainWinScreenBounds || (!_lastCharBounds && !_lastRegions.length)){
-    if(_penMouseNearChar){ _penMouseNearChar = false; _applyForwardOnly(); }
+    _penMouseNearChar = false;
+    if(_fwdApplied !== _forwardFor()) _applyForwardOnly();   // 자리를 모르면 깨울 길이 없다 — forward 를 다시 켠다
     return;
   }
   const cx = pt.x - _mainWinScreenBounds.x;
@@ -1152,7 +1166,7 @@ function _checkCursorNearChar(){
      ⚠️ 이게 없으면 **태블릿 펜으로 대화창 입력칸을 못 누른다.** 펜 앱이 앞이면 forward
        mousemove 가 끊겨서 렌더러가 스스로 판정할 기회가 이 penHitTest 뿐인데, 그 신호가
        캐릭터 반경 안에서만 왔기 때문이다. 실제 제보로 확인된 자리다. */
-  const near = _ptOnOurUI(cx, cy);
+  const near = _ptOnOurUI(cx, cy) || _ptOnOtherSeat(cx, cy);   // 남의 캐릭터 · 책상도 우리 창이다
   /* 🩹 [2026-10-08 제보 #5] 펜 앱 — 근처(원 안)에 계속 있는데 아직 통과 중이면, 커서가 움직였을 때 150ms 간격으로 다시 묻는다.
      [왜] 아래 분기는 near 가 **바뀔 때만** 묻는다. 원 안에 들어왔지만 메시 위가 아니었다가 메시 위로 옮겨 가면
        near 는 계속 참이라 다시 묻지 않았다 — 펜 앱은 mousemove 가 끊겨 렌더러가 스스로 알 길이 없다.
@@ -1181,6 +1195,7 @@ function _checkCursorNearChar(){
       _sendHitTest(near ? { x: cx, y: cy } : { left: true });
     }catch(_){}
   }
+  if(_fwdApplied !== _forwardFor()) _applyForwardOnly();   // 자리를 다시 알게 됨 등 — 바뀔 때만
 }
 /* ═══ 🖊️ 펜 활동 감지 ═══════════════════════════════════════════════════
    [증상] WinTab 모드 태블릿으로 클립스튜디오에서 그리는 동안 포커스 기록이 안 쌓인다.
@@ -1255,7 +1270,9 @@ const _padActivity = GamepadActivity.createGamepadActivity({
 // forward 옵션만 재적용 (타이머 sync 없이 — _checkCursorNearChar 내부용, 재귀 방지)
 function _applyForwardOnly(){
   if(!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.setIgnoreMouseEvents(!!_lastIgnoreRequested, { forward: _forwardFor() });
+  const forward = _forwardFor();
+  mainWindow.setIgnoreMouseEvents(!!_lastIgnoreRequested, { forward });
+  _fwdApplied = forward;
 }
 
 /* 📮 [2026-08-31] 재판정 신호는 **반드시 이 함수로만** 보낸다 — `ig`(지금 main 이 통과 중인가)를
@@ -1642,7 +1659,7 @@ function _diagLog(msg){
     }catch(_){}
     const line = '[' + new Date().toISOString() + '] ' + msg
       + ' | config=' + _isConfigMode + ' ignore=' + _lastIgnoreRequested
-      + ' pen=' + _penAppActive + '\n';
+      + ' pen=' + _penAppActive + ' fwd=' + _fwdApplied + '\n';   // fwd — 펜 앱에서 forward 를 껐는지(펜 씹힘 제보 확인용)
     fs.appendFileSync(f, line, 'utf8');
     console.log('[클릭고착]', msg);
   }catch(_){}
@@ -3715,6 +3732,11 @@ function createWindow() {
     // 📐 우리 창들의 사각형. 안 보내는 구버전이면 건드리지 않는다(예전처럼 캐릭터만 보게 된다).
     if(Array.isArray(bounds.regions))
       _lastRegions = bounds.regions.map(g => ({ x: _zoomIn(g.x), y: _zoomIn(g.y), w: _zoomIn(g.w), h: _zoomIn(g.h) }));   // 🔍 CSS px → DIP
+    // 🖊️ 남의 좌석 원 — 안 보내는 구버전 · 이유 전송(_pushIgnoreWhy)이면 그대로 둔다
+    if(Array.isArray(bounds.others))
+      _lastOtherSeats = bounds.others.slice(0, OTHER_SEAT_MAX)
+        .filter(c => c && Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.r) && c.r > 0)
+        .map(c => ({ x: _zoomIn(c.x), y: _zoomIn(c.y), r: _zoomIn(c.r) }));
   });
 
   // 창 이동/리사이즈 시 스크린 좌표 캐시 갱신 — 실제로는 전체화면 오버레이라 거의 안 바뀜.

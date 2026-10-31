@@ -289,7 +289,7 @@ say('§5 호버해도 클릭이 바로 안 잡힘 — 일반 앱 첫 재판정 0
     chk(/if\(now - _ghostSince < \(_penAppActive \? GHOST_MS : GHOST_MS_PLAIN\)\) return;/.test(MAIN), '★ 첫 찌르기 문턱만 앱 종류로 가른다');
     chk(/const GHOST_REPOKE_MS = 3000;/.test(MAIN) && /const GHOST_MAX_POKES = 3;/.test(MAIN), '  찌르기 간격 · 포기 한도는 그대로 (렌더러 사다리와의 결합 유지)');
     const fwd = (MAIN.match(/function _forwardFor\(\)\{[\s\S]*?\n\}/) || [''])[0];
-    chk(/if\(_lastIgnoreRequested\) return true;/.test(fwd) && /return !_penAppActive \|\| _penMouseNearChar;/.test(fwd), '  _forwardFor(클립 스튜디오 보호) 그대로');
+    chk(/if\(!_penAppActive \|\| _penMouseNearChar\) return true;/.test(fwd) && /return !_penWakeReady\(\);/.test(fwd), '  _forwardFor(클립 스튜디오 보호 · 깨울 길 없으면 켬) 그대로 — 동작은 sim-pen-forward.js');
     const chkFn = (MAIN.match(/function _checkCursorNearChar\(\)\{[\s\S]*?\n\}/) || [''])[0];
     const re = chkFn.slice(chkFn.indexOf('if(near && _penMouseNearChar && _lastIgnoreRequested){'), chkFn.indexOf('if(near !== _penMouseNearChar){'));
     chk(re.length > 0 && /_now - _penRepokeAt >= PEN_REPOKE_MS/.test(re) && /_moved/.test(re) && /_sendHitTest\(\{ x: cx, y: cy \}\)/.test(re), '★ 펜 앱 — 근처 · 통과 중 · 움직였으면 150ms 간격으로 다시 묻는다');
