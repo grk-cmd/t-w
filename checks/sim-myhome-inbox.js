@@ -117,7 +117,8 @@ function mkEnv(o){
     markRead: async (id) => { env.calls.push('markInboxRead ME01 ' + id); return true; },
     markAllRead: async () => { env.calls.push('markAllInboxRead ME01'); return env.markAllOk !== false; },
     remove: async (id) => { env.calls.push('deleteInboxMessage ME01 ' + id); return true; },
-    removeMany: async (ids) => { for(const id of ids) env.calls.push('deleteInboxMessage ME01 ' + id); return env.removeManyN == null ? ids.length : env.removeManyN; },
+    clearing: () => !!env.clearing,
+    removeRead: async () => { env.calls.push('deleteRead'); return env.deleteReadN === undefined ? 3 : env.deleteReadN; },   // 서버가 읽은 우편을 한 번에 지운 수 · null 이면 실패
   };
   env.noticeFeed = {
     STATUS: { ERROR: 'error' }, busy: () => !!env.noticeBusy,
@@ -252,13 +253,20 @@ async function behave(src){
     e.calls = [];
     m.inboxClearRead();
     const ask = R.myHomeWin.children[0];
-    chk(ask && /읽은 우편 3통을 지울까요/.test(ask.innerHTML) && e.calls.length === 0, '읽은 우편 지우기 — 먼저 확인창(읽은 개인 우편 수)');
+    chk(ask && /읽은 우편 3통을 지울까요/.test(ask.innerHTML) && e.calls.length === 0, '읽은 우편 지우기 — 먼저 확인창(읽은 우편 수)');
     ask.fire('click', { target: { closest: (q) => q === 'button[data-i]' ? { dataset: { i: '0' } } : null } }); await flush(); await flush();
-    chk(e.calls.slice().sort().join() === 'deleteInboxMessage ME01 a,deleteInboxMessage ME01 b,deleteInboxMessage ME01 d' && e.toasts.includes('읽은 우편 3통을 지웠어요'),
-      '  «지우기» — 읽은 개인 우편만(안 읽은 답변 · 모두에게 보낸 우편은 남김)');
+    chk(e.calls.join() === 'deleteRead' && e.toasts.includes('읽은 우편 3통을 지웠어요'),
+      '  «지우기» — 요청 하나(서버가 읽은 우편을 한 번에) · 서버가 지운 수로 알림 · 통마다 되풀이하지 않는다');
+    e.calls = []; e.toasts = []; e.deleteReadN = null;
+    m.inboxClearRead(); R.myHomeWin.children[0].fire('click', { target: { closest: (q) => q === 'button[data-i]' ? { dataset: { i: '0' } } : null } }); await flush(); await flush();
+    chk(e.calls.join() === 'deleteRead' && e.toasts.length === 0, '  실패(null) — 지웠다는 알림 없음(오류 번호는 피드가 알림)');
+    e.deleteReadN = undefined; e.clearing = true; e.calls = [];
+    m.inboxClearRead();
+    chk(e.calls.length === 0 && R.myHomeWin.children.length === 0, '  지우는 중이면 확인창도 안 연다(보내는 중 잠금)');
+    e.clearing = false;
     e.myInbox = {}; e.calls = []; e.toasts = [];
     m.inboxClearRead();
-    chk(e.toasts.includes('지울 읽은 우편이 없어요') && R.myHomeWin.children.length === 0, '  읽은 개인 우편이 없으면 확인창 없이 안내');
+    chk(e.toasts.includes('지울 읽은 우편이 없어요') && R.myHomeWin.children.length === 0, '  읽은 우편이 없으면 확인창 없이 안내');
     const eU = E(); const mU = eU.mk({ getMyUserId: () => null }); eU.reg('myHomeWin'); eU.myInbox = { z: { read: true, ts: 1 } };
     mU.inboxClearRead();
     chk(eU.byId.myHomeWin.children.length === 0 && eU.calls.length === 0, '  내 코드가 없으면 아무것도 안 한다');
@@ -632,8 +640,10 @@ async function runAll(MI, APP, HTML){
     ['MI', "  _inboxOpenId = null;\n}\n/* 📩 알림함이 눈앞에", "  _inboxOpenId = null; retryIfFailed();\n}\n/* 📩 알림함이 눈앞에", '칸 고르기가 다시 받기까지 함'],
     ['APP', "_step('우편함 다시 받기', ()=>{ if(overlay.querySelector('.mh-tab.on')?.dataset.tab==='mail') inboxMod.retryIfFailed(); });", '', '창 열기 길에서 알림함 다시 받기를 안 부름'],
     ['APP', "inboxMod.inboxEnter(); inboxMod.retryIfFailed(); inboxMod.renderInbox();", "inboxMod.inboxEnter(); inboxMod.renderInbox();", '탭 누르기 길에서 알림함 다시 받기를 안 부름'],
-    ['MI', "merged[id].read && merged[id]._src === 'personal'", "merged[id]._src === 'personal'", '안 읽은 우편까지 지움'],
-    ['MI', "  _mhAsk('읽은 우편 지우기',", "  ({ label:'지우기', run: async ()=>{ await mailFeed.removeMany(ids); } }).run(); (()=>0)('읽은 우편 지우기',", '확인창 없이 지움'],
+    ['MI', "filter(m => m.read).length;   // 확인창에 보일 수", "filter(m => true).length;   // 확인창에 보일 수", '안 읽은 우편까지 센 수를 확인창에 보임'],
+    ['MI', "  _mhAsk('읽은 우편 지우기',", "  ({ label:'지우기', run: async ()=>{ await mailFeed.removeRead(); } }).run(); (()=>0)('읽은 우편 지우기',", '확인창 없이 지움'],
+    ['MI', "if(!getMyUserId() || mailFeed.clearing()) return;", "if(!getMyUserId()) return;", '지우는 중에도 또 열림'],
+    ['MI', "if(deleted === null) return;", "", '못 지웠는데 지웠다고 알림'],
     ['MI', "if(_newsOpenId && ids.indexOf(_newsOpenId) < 0) _newsOpenId = null;", '', '목록에서 빠진 글의 본문이 남음'],
     ['MI', "t.classList.toggle('new', (un[t.dataset.tag] || 0) > 0);", '', '종류 줄에 새 글 점이 없음'],
     ['MI', 'const n = _inboxUnreadCount();   // 우편 + 소식', 'const n = 0;   // 우편 + 소식', '탭 배지가 안 읽은 수를 안 셈'],

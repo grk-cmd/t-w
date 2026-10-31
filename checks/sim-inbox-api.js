@@ -3,7 +3,7 @@
      쪽 · 서버가 센 안 읽은 수)을 화면 모양({tag, title, body, ts, read, bugId})으로 맞추는 곳이 provider 하나라 그 맞춤을 실제로 불러서 판정한다.
    ・1절: 읽기 — 경로 · 질의(section=MAIL · limit) · 모양 맞춤(종류 → 태그 · 시각 · 읽음 · 버그 글 번호) · 빈 우편(객체)과 못 읽음(던짐)을 가름 · 모양 틀림은 던짐
    ・2절: 쪽 — nextCursor 를 따라 이어 받음 · 쪽 상한(오래된 것은 안 받고 complete:false) · 서버가 센 안 읽은 수를 쓴다(받은 쪽지 수와 달라도)
-   ・3절: 쓰기 — 읽음 · 모두 읽음 · 지우기의 경로 · 본문 · 읽은 토큰의 주인과 묶음(진짜 api-client 로: 주인이 바뀌면 요청 0 · 'stale') · 읽은 적 없으면 안 보냄 · 실패는 'failed'
+   ・3절: 쓰기 — 읽음 · 모두 읽음 · 지우기 · 읽은 우편 한꺼번에(POST delete-read · 지운 수)의 경로 · 본문 · 읽은 토큰의 주인과 묶음(진짜 api-client 로: 주인이 바뀌면 요청 0 · 'stale') · 읽은 적 없으면 안 보냄 · 실패는 'failed'
    ・4절: 배선 — firebase-init 에 옛 수령함 읽기 · 쓰기가 없음 · 부르는 곳이 firebaseAPI 로 우편을 안 부름 · html · smoke 순서
    ・5절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
@@ -117,6 +117,20 @@ async function judge(S){
     chk(p.path === '/v1/me/notifications/a' && JSON.stringify(p.body) === '{"read":true}', '  PATCH /v1/me/notifications/{id} { read: true }');
     chk(await m.markAllRead('ME01') === 'ok' && authed.log.find((x) => x.path === '/v1/me/notifications/read-all').method === 'POST', '모두 읽음 → POST …/read-all');
     chk(await m.remove('ME01', 'a') === 'ok' && authed.log.some((x) => x.method === 'DELETE' && x.path === '/v1/me/notifications/a'), '지우기 → DELETE …/{id}');
+    const rr = mk(LIB, Object.assign({}, routes, { 'POST /v1/me/notifications/delete-read': { deleted: 3 } }));
+    chk((await rr.m.removeRead('ME01')).status === 'stale' && rr.authed.log.length === 0, '읽은 우편 지우기 — 읽은 적 없는 계정은 보내지 않는다');
+    await rr.m.fetchMail('ME01');
+    const rd = await rr.m.removeRead('ME01');
+    const rq = rr.authed.log.find((x) => x.path === '/v1/me/notifications/delete-read');
+    chk(rd.status === 'ok' && rd.deleted === 3 && rq && rq.method === 'POST' && JSON.stringify(rq.body) === '{}' && rq.opts && 'expectOwner' in rq.opts, '  POST …/delete-read 본문 {} · 읽은 토큰 주인과 묶고 · 지운 수 3');
+    chk(rr.authed.log.filter((x) => x.method === 'DELETE').length === 0, '  통마다 DELETE 를 되풀이하지 않는다');
+    const rb = mk(LIB, Object.assign({}, routes, { 'POST /v1/me/notifications/delete-read': { deleted: -1 } }));
+    await rb.m.fetchMail('ME01');
+    chk((await rb.m.removeRead('ME01')).deleted === 0, '  지운 수가 이상하면 0');
+    const rf = mk(LIB, Object.assign({}, routes, { 'POST /v1/me/notifications/delete-read': apiErr(500, 'X') }));
+    await rf.m.fetchMail('ME01');
+    const rfr = await rf.m.removeRead('ME01');
+    chk(rfr.status === 'failed' && rfr.deleted === 0 && rf.warns.length === 1, '  서버 실패는 failed(던지지 않음 · 진단 로그 한 줄)');
     const odd = mk(LIB, Object.assign({}, routes, { 'PATCH /v1/me/notifications/a%2Fb': null }));
     await odd.m.fetchMail('ME01'); await odd.m.markRead('ME01', 'a/b');
     chk(odd.authed.log.some((x) => x.path === '/v1/me/notifications/a%2Fb'), '  id 는 경로에 인코딩해서 싣는다');
@@ -140,6 +154,8 @@ async function judge(S){
     chk(await m.remove('ME01', 'a') === 'stale' && calls.length === 2, '  stale 뒤에는 다시 읽기 전까지 계속 안 보낸다');
     await m.fetchMail('ME01');
     chk(await m.remove('ME01', 'a') === 'ok' && calls.length === 4, '  새 계정으로 다시 읽으면 그 계정으로 보낸다');
+    tk.v = jwt('C');
+    chk((await m.removeRead('ME01')).status === 'stale' && calls.length === 4, '  읽은 우편 한꺼번에도 주인이 바뀌면 요청 0 · stale');
   }
 
   say('── 4. 배선');
@@ -168,6 +184,9 @@ async function runAll(){
     ['쓰기가 주인을 안 묶음', S.API.replace("await send({ expectOwner: owners.get(uid) });", "await send({});"), '주인이 바뀌면 요청 0'],
     ['읽기 전에도 보냄', S.API.replace("if(!uid || !owners.has(uid)) return 'stale';", "if(!uid) return 'stale';"), '읽은 적 없는 계정'],
     ['실패를 던짐', S.API.replace("return 'failed';\n    }\n  }", "throw e;\n    }\n  }"), '던지지 않는다'],
+    ['한꺼번에 지우기가 주인을 안 묶음', S.API.replace("authed.post(PATHS.deleteRead, {}, o)", "authed.post(PATHS.deleteRead, {})"), 'delete-read'],
+    ['한꺼번에 지우기 경로 틀림', S.API.replace("deleteRead: '/v1/me/notifications/delete-read'", "deleteRead: '/v1/me/notifications/delete'"), 'delete-read'],
+    ['지운 수를 안 읽음', S.API.replace("Math.floor(d.deleted) : 0;", "0 : 0;"), '지운 수'],
     ['읽음 본문 틀림', S.API.replace("{ read: true }", "{ read: false }"), 'PATCH'],
     ['버그 번호 누락', S.API.replace("out.bugId = no;", ""), 'bugId'],
   ];

@@ -13,7 +13,7 @@
      onChange(fn) → 해제 함수 — fn({ addedIds })(화면 다시 그리기 · 새 우편 토스트 — 받은 뒤 · 고친 뒤 · 처음 받은 판의 우편은 새 우편이 아니다) ·
      start(uid) · stop() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · items() → { id: 우편 } · unread() → 서버가 센 안 읽은 수 ·
      complete() → 오래된 우편까지 다 받았나 · busy() → 지금 받는 중인가 · STATUS(상태 이름 상수) · ready() → 한 번이라도 받았나 ·
-     markRead(id) · markAllRead() → Promise<boolean> · remove(id) → Promise<boolean> · removeMany(ids) → Promise<number>(지운 수)
+     markRead(id) · markAllRead() → Promise<boolean> · remove(id) → Promise<boolean> · removeRead() → Promise<number|null>(서버가 한 번에 지운 통 수 — 못 지웠으면 null) · clearing() → 읽은 우편 지우는 중인가
    }
    ⚠️ items() 는 같은 객체를 돌려준다(받으면 새 객체로 바뀐다) — 고치지 말 것(읽음 · 지우기는 위 함수로).
    ⚠️ 못 받음이어도 이미 받아 둔 우편은 지우지 않는다(status 만 error) — 우편이 «없다» 와 «못 받았다» 를 화면이 가른다.
@@ -35,7 +35,7 @@ function createMailFeed(deps){
   const subs = [];
   let uid = null;
   let status = STATUS.IDLE, items = {}, unread = 0, complete = true, everReady = false;
-  let flying = false, again = false, failStreak = false, manualNext = false;
+  let clearing = false, flying = false, again = false, failStreak = false, manualNext = false;
   let retryTimer = null, failCount = 0;
 
   function emit(e){
@@ -140,21 +140,26 @@ function createMailFeed(deps){
     emit({ addedIds: [] });
     return true;
   }
-  /* 여러 통 지우기 — 하나라도 실패하면 거기서 멈춘다(남은 것은 그대로). 지운 수를 돌려준다 */
-  async function removeMany(ids){
-    let n = 0;
-    for(const id of ids){
-      if(!(id in items)){ n++; continue; }   // 그 사이 다시 받기로 이미 목록에서 빠졌다(서버에서 지워졌다) — 지운 것으로 치고 다음으로
-      if(!(await remove(id))) break;
-      n++;
-    }
-    return n;
+  /* 읽은 우편 한꺼번에 — 서버가 내 읽은 우편을 한 번에 지운다(고르는 쪽은 서버). 성공하면 목록을 서버에서 다시 받는다.
+     실패하면 아무것도 안 지운 그대로 두고 E-MH-11 을 한 번 알린다. 지우는 중에 또 부르면 건너뛴다. */
+  async function removeRead(){
+    if(!usable() || clearing) return null;
+    const who = uid;
+    clearing = true;
+    let r;
+    try{ r = await api.removeRead(who); }
+    finally{ clearing = false; }
+    if(who !== uid) return null;   // 그 사이 계정이 바뀌었다 — 조용히 버린다
+    if(r.status === 'failed') notifyError('E-MH-11', null);
+    if(r.status !== 'ok') return null;
+    await refresh();
+    return r.deleted;
   }
 
   return {
-    start, stop, refresh, markRead, markAllRead, remove, removeMany,
+    start, stop, refresh, markRead, markAllRead, remove, removeRead,
     onChange: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
-    STATUS, busy: () => flying, status: () => status, items: () => items, unread: () => unread, complete: () => complete, ready: () => everReady,
+    STATUS, busy: () => flying, clearing: () => clearing, status: () => status, items: () => items, unread: () => unread, complete: () => complete, ready: () => everReady,
   };
 }
 

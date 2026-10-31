@@ -650,18 +650,23 @@ function _renderInboxMail(merged){
     listEl.appendChild(card);
   });
 }
-/* 🗑 읽은 우편 지우기 — 이 PC 사용자의 개인 우편 중 읽은 것만(모두에게 보낸 우편은 서버 한 벌이라 못 지운다). 확인창을 거친다. */
+/* 🗑 읽은 우편 지우기 — 내 읽은 우편을 서버가 한 번에 지운다(모두에게 보낸 우편은 서버 한 벌이라 해당 없음). 확인창을 거친다. */
 function _inboxClearRead(){
-  if(!getMyUserId()) return;
-  const merged = _inboxMerged();
-  const ids = inboxSec.mailIds(merged).filter(id => merged[id].read && merged[id]._src === 'personal');
-  if(!ids.length){ toast('지울 읽은 우편이 없어요'); return; }
-  _mhAsk('읽은 우편 지우기', `읽은 우편 ${ids.length}통을 지울까요? 지운 우편은 되돌릴 수 없어요.`, [
+  if(!getMyUserId() || mailFeed.clearing()) return;
+  const n = Object.values(mailFeed.items()).filter(m => m.read).length;   // 확인창에 보일 수 — 지우는 건 서버
+  if(!n){ toast('지울 읽은 우편이 없어요'); return; }
+  _mhAsk('읽은 우편 지우기', `읽은 우편 ${n}통을 지울까요? 지운 우편은 되돌릴 수 없어요.`, [
     { label:'지우기', danger:true, run: async ()=>{
-      const n = await mailFeed.removeMany(ids);   // 하나라도 못 지우면 거기서 멈춘다(오류 번호로 알렸다)
-      if(_inboxOpenId && !(_inboxOpenId in mailFeed.items())) _inboxOpenId = null;
-      if(n === ids.length) toast(`읽은 우편 ${n}통을 지웠어요`);
-      else if(n > 0) toast(`읽은 우편 ${n}통만 지웠어요`);
+      const btn = document.getElementById('mhInboxClearRead');
+      if(btn) btn.disabled = true;
+      try{
+        const deleted = await mailFeed.removeRead();   // 못 지웠으면 null(오류 번호로 알렸다)
+        if(deleted === null) return;
+        if(_inboxOpenId && !(_inboxOpenId in mailFeed.items())) _inboxOpenId = null;
+        toast(deleted > 0 ? `읽은 우편 ${deleted}통을 지웠어요` : '지울 읽은 우편이 없어요');
+      }finally{
+        if(btn) btn.disabled = false;
+      }
     } },
     { label:'취소' },
   ]);

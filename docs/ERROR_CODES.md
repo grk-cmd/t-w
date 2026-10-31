@@ -42,7 +42,7 @@
 | `E-MH-08` | 우편을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `myhome/mail-feed.js` — 내 우편 받기 실패(`fetchMail` 던짐 — 켤 때 · 새 우편 알림 · 다시 시도 · 이어지는 동안 한 번만 알림) |
 | `E-MH-09` | 소식을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `launcher/notice-feed.js` — 공지 한 판(소식 · 업데이트 공지 · 배너) 받기 실패(`fetchBoard` 던짐 — 이어지는 동안 한 번만 알림) |
 | `E-MH-10` | 우편을 읽음으로 바꾸지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 읽음 · 모두 읽음 서버 쓰기 실패(`markRead` · `markAllRead` failed — 계정이 바뀌는 중(`stale`)은 조용히 버림) |
-| `E-MH-11` | 우편을 지우지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 우편 지우기 서버 쓰기 실패(`remove` · `removeMany` failed — 여러 통은 첫 실패에서 멈춤) |
+| `E-MH-11` | 우편을 지우지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 우편 지우기 서버 쓰기 실패(`remove` · `removeRead` failed — 읽은 우편 한꺼번에는 한 번에 실패하면 아무것도 안 지운 그대로) |
 | `E-MH-12` | 소식을 올리거나 고치지 못했어요 — 관리자 권한과 연결을 확인해 주세요 | `launcher/notice-feed.js` — 관리자 소식 올리기 · 📌 고정 · 내리기 실패(`sendBroadcast` · `togglePin` · `remove` — 409 는 다시 받고 알림) |
 | `E-ROOM-01` | 방 목록을 불러오지 못했어요 | `room/room-entry.js` — 랜덤 참여 · 갈아타기(`findRandomRooms`) |
 | `E-ROOM-02` | 방을 옮기지 못했어요 | `room/room-entry.js` — 갈아타기 뒤 방 밖에 남음 |

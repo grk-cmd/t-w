@@ -111,7 +111,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 
 ## `inbox-api.js` · `mail-feed.js` — 📩 내 우편(서버 원본)
 
-**책임** — 우편의 원본은 서버다(`GET /v1/me/notifications?section=MAIL` · 읽음 `PATCH …/{id}` · 모두 읽음 `POST …/read-all` · 지우기 `DELETE …/{id}`).
+**책임** — 우편의 원본은 서버다(`GET /v1/me/notifications?section=MAIL` · 읽음 `PATCH …/{id}` · 모두 읽음 `POST …/read-all` · 지우기 `DELETE …/{id}` · 읽은 우편 한꺼번에 `POST …/delete-read` — 서버가 내 읽은 우편을 한 번에 지우고 지운 수를 준다).
 `inbox-api.js` 는 서버 모양(종류 · `readAt` · `createdAt` · `payload` · 서버가 센 `unreadCount`)을 화면 모양(`{ tag, title, body, ts, read, bugId? }`)으로 맞추는 provider 한 곳.
 `mail-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음 상태, 새 우편 알림(realtime `notification`)이 오면 다시 받기, 읽음 · 지우기(서버가 됐다 한 뒤에만 화면 값을 고침).
 옛 장치는 걷었다: 앱이 세는 안 읽은 수 사본(서버 값을 쓴다) · Firebase 수령함 구독 · 앱이 고치던 읽음 표시.
@@ -129,7 +129,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 ```
 
 **내놓는 것** — `inbox-api`: `fetchMail(uid)` → `{ items:{id: 우편}, unread, complete }` · `markRead` · `markAllRead` · `remove` → `'ok'|'stale'|'failed'`.
-`mail-feed`: `start(uid)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다) · `stop()` · `refresh({ manual }?)`(`manual` = «다시 시도» — 못 받으면 보는 중이 아니어도 오류 번호) · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeMany(ids)` · `onChange(fn)`.
+`mail-feed`: `start(uid)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다) · `stop()` · `refresh({ manual }?)`(`manual` = «다시 시도» — 못 받으면 보는 중이 아니어도 오류 번호) · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeRead()`(서버가 읽은 우편을 한 번에 지운다 → 지운 수 · 못 지웠으면 null · 성공하면 서버에서 다시 받음 · 지우는 중 또 부르면 건너뜀) · `clearing()` · `onChange(fn)`.
 부르는 곳: `myhome-init.js`(켜기 · 받은 뒤 화면) · `myhome-inbox.js`(그리기 · 누름) · `focus-level.js`(해금 안내를 이미 받았는지 — `_myInbox` · `_myInboxReady` 는 `mailFeed.items()` · `ready()`).
 
 **오류 번호** — `E-MH-08`(받기 실패 · **알림함이 보이는 동안이거나 «다시 시도» 때만** · 이어지는 동안 한 번) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.

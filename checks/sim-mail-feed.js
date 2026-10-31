@@ -42,6 +42,7 @@ function mkEnv(){
     },
     markRead: async (uid, id) => { env.writes.push(['read', uid, id]); if(env.wgate) await env.wgate.promise; return env.result; },
     markAllRead: async (uid) => { env.writes.push(['all', uid]); if(env.wgate) await env.wgate.promise; return env.result; },
+    removeRead: async (uid) => { env.writes.push(['delread', uid]); if(env.wgate) await env.wgate.promise; return env.rr || { status: env.result, deleted: env.result === 'ok' ? 2 : 0 }; },
     remove: async (uid, id) => { env.writes.push(['del', uid, id]); if(env.wgate) await env.wgate.promise; return typeof env.result === 'function' ? env.result(id) : env.result; },
   };
   const rt = { on: (kind, fn) => { env.handlers[kind] = fn; return () => {}; } };
@@ -200,35 +201,37 @@ async function judge(S){
     chk(await feed.remove('b') === true && feed.unread() === 1, '  읽은 것을 지우면 안 읽은 수는 그대로');
     env.result = 'failed';
     chk(await feed.remove('c') === false && 'c' in feed.items() && env.errors.join() === 'E-MH-11', '실패 — 목록에 남고 번호 E-MH-11');
-    env.result = (id) => (id === 'x' ? 'failed' : 'ok'); env.errors.length = 0; env.writes.length = 0;
-    env.server = { w: mail(true), x: mail(true), y: mail(true) };
-    await feed.refresh();
-    const n = await feed.removeMany(['w', 'x', 'y']);
-    chk(n === 1 && !('w' in feed.items()) && 'x' in feed.items() && 'y' in feed.items() && env.writes.length === 2 && env.errors.length === 1, '여러 통 지우기 — 첫 실패(x)에서 멈춘다(y 는 보내지도 않음) · 지운 수 1 · 번호 한 번');
+    /* 읽은 우편 한꺼번에 — 서버 한 번 · 성공하면 서버에서 다시 받은 목록 */
+    env.result = 'ok'; env.errors.length = 0; env.writes.length = 0; env.fetches.length = 0;
+    env.server = { y: mail(true), z: mail(false) }; env.unread = 1; env.rr = { status: 'ok', deleted: 2 };
+    const n = await feed.removeRead();
+    chk(n === 2 && env.writes.length === 1 && env.writes[0].join() === 'delread,ME01' && env.fetches.length === 1 && Object.keys(feed.items()).join() === 'y,z' && env.errors.length === 0,
+      '읽은 우편 지우기 — 요청 한 번 · 서버가 지운 수(2)를 돌려준다 · 목록은 서버에서 다시 받은 값(앱이 고르지 않는다)');
+    env.rr = { status: 'failed', deleted: 0 }; env.fetches.length = 0;
+    chk(await feed.removeRead() === null && env.errors.join() === 'E-MH-11' && env.fetches.length === 0 && Object.keys(feed.items()).join() === 'y,z', '  실패 — null · 아무것도 안 지운 그대로(다시 받지 않음) · E-MH-11 한 번');
+    env.rr = { status: 'stale', deleted: 0 }; env.errors.length = 0;
+    chk(await feed.removeRead() === null && env.errors.length === 0, '  stale(계정이 바뀌는 중) — 조용히 버린다(번호 없음)');
+    env.rr = { status: 'ok', deleted: 0 };
+    chk(await feed.removeRead() === 0, '  지울 게 없으면 0');
+    const g = defer(); env.wgate = g; env.rr = { status: 'ok', deleted: 1 }; env.writes.length = 0;
+    const p1 = feed.removeRead(); await tick();
+    chk(feed.clearing() === true && await feed.removeRead() === null && env.writes.length === 1, '  지우는 중에는 clearing() · 또 불러도 요청이 늘지 않는다');
+    env.wgate = null; g.release(); await p1;
+    chk(feed.clearing() === false, '  끝나면 clearing() 풀림');
+    env.rr = null;
+  }
+  {
+    const { env, feed } = mk(LIB);
+    chk(await feed.removeRead() === null && env.writes.length === 0, '받기 전(내 코드 없음)에는 읽은 우편 지우기를 보내지 않는다');
   }
 
   say('── 5-2. 늦은 응답 (지우기 경쟁 · 계정 바뀜)');
-  {
-    /* 지우기 응답을 기다리는 사이 다시 받기가 끝나 그 우편이 이미 목록에서 빠졌다 → 던지지 않고 true · removeMany 도 끝까지 */
-    const { env, feed } = mk(LIB);
-    env.server = { a: mail(true), b: mail(true), c: mail(true) }; env.unread = 0;
-    feed.start('ME01'); await tick(); await tick();
-    const g = defer(); env.wgate = g;
-    const p = feed.removeMany(['a', 'b', 'c']);
-    await tick();
-    env.server = { c: mail(true) };   // 그 사이 서버 쪽에서 a · b 가 지워진 채 다시 받음
-    await feed.refresh();
-    env.wgate = null; g.release();
-    let thrown = null, n = -1;
-    try{ n = await p; }catch(e){ thrown = e; }
-    chk(!thrown && n === 3 && Object.keys(feed.items()).length === 0, '지우기 응답 전에 다시 받기가 그 우편을 뺐어도 던지지 않는다 — removeMany 가 끝까지(3통)');
-  }
-  for(const what of ['read', 'all', 'del']){
+  for(const what of ['read', 'all', 'del', 'clear']){
     const { env, feed } = mk(LIB);
     env.server = { a: mail(false), b: mail(false) }; env.unread = 2;
     feed.start('U1'); await tick(); await tick();
     const g = defer(); env.wgate = g;
-    const p = what === 'read' ? feed.markRead('a') : what === 'all' ? feed.markAllRead() : feed.remove('a');
+    const p = what === 'read' ? feed.markRead('a') : what === 'all' ? feed.markAllRead() : what === 'clear' ? feed.removeRead() : feed.remove('a');
     await tick();
     env.wgate = null; env.server = { a: mail(false), b: mail(false), z: mail(false) }; env.unread = 3;
     feed.start('U2'); await tick(); await tick();
@@ -236,7 +239,7 @@ async function judge(S){
     g.release();
     const r = await p;
     chk(r === false && feed.unread() === 3 && Object.values(feed.items()).every((m) => m.read === false) && Object.keys(feed.items()).length === 3 && env.changes.length === 0,
-      '쓰는 사이 계정이 바뀌면(' + (what === 'read' ? '읽음' : what === 'all' ? '모두 읽음' : '지우기') + ') 새 계정 우편 · 안 읽은 수를 건드리지 않고 알리지도 않는다');
+      '쓰는 사이 계정이 바뀌면(' + (what === 'read' ? '읽음' : what === 'all' ? '모두 읽음' : what === 'clear' ? '읽은 우편 지우기' : '지우기') + ') 새 계정 우편 · 안 읽은 수를 건드리지 않고 알리지도 않는다');
   }
   {
     const { env, feed } = mk(LIB);
@@ -322,7 +325,12 @@ async function runAll(){
     ['종 알림에도 받음', S.FEED.replace("n.section === SECTION_MAIL", "n.section === SECTION_MAIL || n.section === 'BELL'"), 'BELL'],
     ['받기 전에도 고침', S.FEED.replace("const usable = () => !!uid && everReady;", "const usable = () => !!uid;"), '받기 전'],
     ['서버 답 전에 고침', S.FEED.replace("    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)", "    if(items[id] && !items[id].read)"), '서버가 됐다'],
-    ['여러 통이 실패해도 계속', S.FEED.replace("if(!(await remove(id))) break;\n      n++;", "if(await remove(id)) n++;"), '첫 실패'],
+    ['지운 뒤 다시 안 받음', S.FEED.replace("    await refresh();\n    return r.deleted;", "    return r.deleted;"), '서버에서 다시 받은'],
+    ['실패해도 번호 없음', S.FEED.replace("if(r.status === 'failed') notifyError('E-MH-11', null);", ""), 'E-MH-11'],
+    ['stale 도 번호 알림(지우기)', S.FEED.replace("if(r.status === 'failed') notifyError('E-MH-11', null);", "if(r.status !== 'ok') notifyError('E-MH-11', null);"), 'stale'],
+    ['지우는 중 또 보냄', S.FEED.replace("if(!usable() || clearing) return null;", "if(!usable()) return null;"), '지우는 중'],
+    ['한꺼번에 늦은 응답이 새 계정을 건드림', S.FEED.replace("    if(who !== uid) return null;   // 그 사이 계정이 바뀌었다 — 조용히 버린다\n    if(r.status", "    if(r.status"), '읽은 우편 지우기'],
+    ['받기 전에도 지움', S.FEED.replace("async function removeRead(){\n    if(!usable() || clearing)", "async function removeRead(){\n    if(!uid || clearing)"), '받기 전'],
     ['stale 도 번호 알림', S.FEED.replace("if(r === 'failed') notifyError('E-MH-10', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)", "if(r !== 'ok') notifyError('E-MH-10', null);\n    if(r !== 'ok') return false;\n    if(items[id] && !items[id].read)"), 'stale'],
     ['지우기 응답 뒤 없는 id 를 만짐', S.FEED.replace("    if(items[id]){\n      if(!items[id].read) unread = Math.max(0, unread - 1);\n      delete items[id];\n    }", "    if(!items[id].read) unread = Math.max(0, unread - 1);\n    delete items[id];"), '던지지 않는다'],
     ['모두 읽음 늦은 응답이 새 계정을 고침', S.FEED.replace("    const r = await api.markAllRead(who);\n    if(who !== uid) return false;", "    const r = await api.markAllRead(who);"), '모두 읽음'],
