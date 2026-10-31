@@ -147,8 +147,8 @@ say('── 5. main.js 배선 · 보호 장치 그대로');
 {
   chk(/const HoverPoke = require\('\.\/hover-poke'\);/.test(MAIN), 'hover-poke 모듈을 부른다');
   const fwd = fnBody('_forwardFor');
-  chk(fwd === "function _forwardFor(){\n  if(_lastIgnoreRequested) return true;              // 통과 중 → 무조건 forward 유지(복구 통로 확보)\n  return !_penAppActive || _penMouseNearChar;        // 클릭 받는 중 → 기존 로직 그대로\n}",
-    '★ _forwardFor(클립 스튜디오 보호) 글자 하나 안 바뀜');
+  chk(fwd === "function _forwardFor(){\n  if(!_penAppActive || _penMouseNearChar) return true;\n  return !_penWakeReady();\n}",
+    '★ _forwardFor(클립 스튜디오 보호 · 깨울 길 없으면 켬) 글자 그대로 — 동작은 sim-pen-forward.js 가 실제로 돌린다');
   chk(/const shouldWatch = _penAppActive && mainWindow && !mainWindow\.isDestroyed\(\);/.test(MAIN) && /setInterval\(_checkCursorNearChar, 50\)/.test(MAIN), '  50ms 펜 감시는 펜 앱 전용 그대로');
   chk(/const GHOST_MS = 2000;/.test(MAIN) && /const GHOST_MS_PLAIN = 400;/.test(MAIN) && /const GHOST_REPOKE_MS = 3000;/.test(MAIN) && /const GHOST_MAX_POKES = 3;/.test(MAIN),
     '  유령 감시 상수 그대로(GHOST_REPOKE_MS ↔ 사다리 3초 결합 유지)');

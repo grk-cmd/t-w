@@ -94,7 +94,7 @@
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
 | **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
-| **sim-fix-1008.js** | 430 | **90c5eb44921a** |
+| **sim-fix-1008.js** | 430 | **6059c06bcf1c** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 80 | **8c117fa521be** |
@@ -232,7 +232,8 @@
 | **sim-creator-save.js** | 226 | **2c8803488689** |
 | **sim-commission-import.js** | 190 | **6c80a45a1abe** |
 | **sim-creator-preview.js** | 202 | **4fe93b90fa71** |
-| **sim-hover-poke.js** | 197 | **9fb43da458ac** |
+| **sim-hover-poke.js** | 197 | **b059ea08e1e1** |
+| **sim-pen-forward.js** | 101 | **95fd4bd5cedc** |
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
 | **sim-admin-active.js** | 154 | **015bbc6e3888** |
