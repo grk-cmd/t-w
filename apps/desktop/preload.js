@@ -102,7 +102,7 @@ contextBridge.exposeInMainWorld('companion', {
   // 📋 지금 떠 있는 창 목록 조회: Promise<{ok:true, list:[{name,path,title}]} | {ok:false, reason}>
   //   자동 등록(registerFocusApp)이 '방금 전 활성 창'을 집는 것과 달리, 이건 지금 열려 있는 창을
   //   전부 돌려준다. 게임처럼 등록 직전에 다른 창이 한 번 끼어드는 경우에 사람이 직접 고르라고 쓴다.
-  //   ⚠️ 관리자 권한으로 뜬 창은 목록에도 안 나온다(Windows UIPI) — 그건 OS 경계다.
+  //   경로를 못 읽는 창(관리자 권한 · 안티치트)도 tasklist 가 이름을 주면 목록에 든다.
   listWindows() {
     return ipcRenderer.invoke('companion:listWindows');
   },

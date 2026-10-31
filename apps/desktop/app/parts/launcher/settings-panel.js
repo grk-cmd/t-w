@@ -165,7 +165,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     else if(!res || !res.ok || !res.list || !res.list.length){
       box.innerHTML=head+'<div style="font-size:10px;color:var(--ink-soft);padding:6px;line-height:1.5;">'
         +'열려 있는 창을 찾지 못했어요.<br>등록할 프로그램을 <b>창 모드</b>로 띄운 뒤 다시 열어 주세요.<br>'
-        +'관리자 권한으로 실행 중인 프로그램은 목록에 나오지 않아요.</div>';
+        +'안티치트가 붙은 게임은 «(제목 없는 창)» 이나 실행 파일 이름으로 보일 수 있어요.</div>';
     }else{
       box.innerHTML=head+res.list.map((w,i)=>
         '<div class="fs-win-item" data-i="'+i+'" style="padding:4px 6px;font-size:11px;color:var(--ink);cursor:pointer;line-height:1.3;border-radius:3px;">'
@@ -226,14 +226,13 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
                그래서 "등록이 안 된다"는 제보가 와도 어느 경우인지 구분이 안 됐다. 경우가 다르면
                사용자가 할 일도 다르므로 나눠서 안내한다.
                ・self-active     — 우리 창이 활성이라 '직전에 쓰던 프로그램'을 못 집었다
-               ・activeWin-*     — Windows 가 그 창 정보를 안 준다. **관리자 권한으로 뜬 창**이
-                 대표적이다(권한이 낮은 프로세스는 높은 프로세스의 창을 조회할 수 없다 — UIPI).
-                 이 경우 투게더워킹도 같은 관리자 권한으로 실행해야 보인다.
+               ・activeWin-*     — Windows 가 그 창 정보를 안 준다(안티치트 게임 등). 창 목록은
+                 tasklist 가 이름을 주면 그 창도 보여 주므로 우클릭 목록으로 보낸다.
                ・no-owner        — 전체화면 독점 모드 게임 등, 창 소유 프로세스를 못 읽는 경우 */
             const d = String((res && res.diag) || '');
             let msg;
             if(d.indexOf('self-active') === 0)          msg = '등록할 프로그램을 한 번 클릭해 쓰신 뒤에 눌러 주세요';
-            else if(d.indexOf('activeWin') === 0)       msg = '그 창의 정보를 읽을 수 없어요 — 관리자 권한으로 실행 중인 프로그램이면 투게더워킹도 관리자 권한으로 실행해 주세요';
+            else if(d.indexOf('activeWin') === 0)       msg = '그 창의 정보를 읽을 수 없어요 — 슬롯을 우클릭해 창 목록에서 직접 골라 주세요';
             else if(d.indexOf('no-owner') === 0)        msg = '전체화면 게임은 창(테두리 없는 창) 모드로 바꾼 뒤 등록해 주세요';
             else                                       msg = '먼저 등록할 프로그램을 켜서 사용해 주세요';
             toast(msg);
