@@ -39,6 +39,10 @@
 | `E-MH-01` | 도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `myhome/help-tab.js` — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(`LOAD_MS`) |
 | `E-MH-02` | 배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요 | `myhome/mh-bg-url.js` — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만) |
 | `E-MH-03` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(`savePresencePref` · `presencePref/{uid}`) |
+| `E-MH-04` | 일정을 불러오지 못했어요 — 인터넷 연결을 확인하고 안내 글자를 눌러 다시 시도해 주세요 | `myhome/scheduler.js` — 달력 · 기념일 · D-day · 오늘 일정 · 친구 태그 알림 받기 실패(이어지는 동안 한 번만) |
+| `E-MH-05` | 카드 그림을 올리지 못해 저장하지 않았어요 — 다시 눌러 주세요 | `myhome/scheduler.js` — 기념일 카드 그림 올리기 실패 · 서버가 그림 주소를 거절(`IMAGE_UPLOAD` · `SCHEDULE_INVALID_IMAGE_URL`) |
+| `E-MH-06` | 친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요 | `myhome/scheduler.js` — 일정 · 기념일 저장의 그 밖의 태그 거절(`SCHEDULE_TAG_SELF` 등 — 아무것도 저장되지 않음). 친구가 아닌 사람 태그(`SCHEDULE_TAG_NOT_FRIEND`)는 번호 없이 안내 토스트 |
+| `E-MH-07` | 기념일 · D-day 는 각각 10개까지예요 | `myhome/scheduler.js` — 서버가 기념일 · D-day 상한 초과를 거절(`SCHEDULE_DDAY_FULL`) |
 | `E-MH-08` | 우편을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `myhome/mail-feed.js` — 내 우편 받기 실패(`fetchMail` 던짐 — 알림함을 열 때 · «다시 시도» 를 누를 때(연 · 누른 받기에서만) · 이어지는 동안 한 번만 알림) |
 | `E-MH-09` | 소식을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `launcher/notice-feed.js` — 공지 한 판(소식 · 업데이트 공지 · 배너) 받기 실패(`fetchBoard` 던짐 — 알림함을 열 때 · «다시 시도» 를 누를 때(연 · 누른 받기에서만) · 이어지는 동안 한 번만 알림) |
 | `E-MH-10` | 우편을 읽음으로 바꾸지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 읽음 · 모두 읽음 서버 쓰기 실패(`markRead` · `markAllRead` failed — 계정이 바뀌는 중(`stale`)은 조용히 버림) |
