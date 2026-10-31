@@ -166,7 +166,6 @@
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
 | **sim-ghost-heal.js** | 88 | **918a9097dda9** |
 | **sim-catalog-cache.js** | 391 | **4a3503b771b9** |
-| **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 222 | **91987f517eb4** |
 | **sim-google-login.js** | 670 | **dd21fb8c7cb4** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
