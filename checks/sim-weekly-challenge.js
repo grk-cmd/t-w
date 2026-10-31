@@ -349,16 +349,25 @@ await sec('── 6-2. 서버 기록을 받기 전엔 판정하지 않는다', a
   chk(e.loadChalCalls === n0 + 1 && e.saved.length === 0, '로그아웃 뒤 — 받은 표시도 지운다(다음 계정은 다시 받아야 판정)');
   /* (g) 받기 전 버튼 — 체크 · 포기 · 자동 · [시작] 은 막고 안내만, 받은 뒤 서버(다른 기기) 기록이 이긴다 */
   const staleRule = () => Object.assign(stale(), { kind: 'rule', cfg: { rules: [['a'], ['b'], ['c'], ['d'], ['e']] }, last: { kind: 'repeat', cfg: { text: '물', times: 1, gap: 1 } } });
+  const LOADING = /서버에서 불러오는 중/;
+  const msgs = (e) => e.toasts.filter(t => LOADING.test(t)).length;
   e = mkEnv({ now: wed, rec: staleRule(), srv: null });
   W = e.mk(); W.tick(); await flush();
   e.els.chalToday.fire('click', { target: target('data-i', '0') }); await flush();
+  const m1 = msgs(e);
   e.els.chalAutoBtn.click(); await flush();
+  const m2 = msgs(e);
   e.els.chalGiveupBtn.click(); await flush();
   const gp = e.popups[e.popups.length - 1]; if(gp) gp.children[0].querySelectorAll('[data-a]')[0].click(); await flush();
-  e.els.chalKindRepeat.click(); e.els.chalStartBtn.click(); await flush();
-  const msg = e.toasts.filter(t => /서버에서 불러오는 중/.test(t)).length;
-  chk(e.saved.length === 0 && W.state().ts === 5 && !(W.state().today.checks || {})[0] && W.state().auto !== true && W.state().kind === 'rule' && msg >= 3,
-    '받기 전 버튼(체크 · 자동 · 포기 · 시작) — 기록을 안 바꾸고 «불러오는 중» 안내만');
+  const m3 = msgs(e);
+  e.els.chalEditBtn.click(); e.els.chalStartBtn.click(); await flush();                  // [수정] — 지금 조건(빈 요일 없음)으로 바로 누름
+  const m4 = msgs(e);
+  e.els.chalKindRepeat.click(); e.els.chalRepeatText.value = '산책'; e.els.chalRepeatText.fire('input');
+  e.els.chalStartBtn.click(); await flush();                                                // [시작] — 지킬 일을 적고 누름
+  const m5 = msgs(e);
+  chk(m1 === 1 && m2 === 2 && m3 === 3 && m4 === 4 && m5 === 5, '받기 전 버튼 다섯(체크 · 자동 · 포기 · 수정 · 시작) — 누를 때마다 «불러오는 중» 안내 하나씩');
+  chk(e.saved.length === 0 && W.state().ts === 5 && !(W.state().today.checks || {})[0] && W.state().auto !== true && W.state().kind === 'rule' && !W.state().pendingCfg,
+    '  기록은 그대로(ts · 체크 · 자동 · 트랙 · 다음 날 조건) · 서버에 아무것도 안 올림');
   e.srv = fresh(); W.tick(); await flush();
   chk(!staleUp(e) && W.state().cfg.text === '책', '  읽기가 살아나면 서버(다른 기기) 기록을 받는다 — 앞서 누른 것이 서버를 덮지 않았다');
   /* (h) 깨 보기 — 받기 전 문턱을 빼면 옛 기록이 서버를 덮는다(제보 그대로) */
@@ -374,6 +383,14 @@ await sec('── 6-2. 서버 기록을 받기 전엔 판정하지 않는다', a
   e.els.chalToday.fire('click', { target: target('data-i', '0') }); await flush();
   e.srv = fresh(); W.tick(); await flush();
   chk(e.saved.some(r => r.kind === 'rule'), '깨 보기 — 버튼 문턱을 빼면 받기 전 체크가 옛 기록을 «지금 시각» 으로 올려 서버(책)를 덮는다');
+  /* [시작] 처리기의 문턱 하나만 빼 본다 — 수정 · 시작이 옛 기록을 올리는지 */
+  const START = "if(!_chalDraft) return;\n    if(_chalBlockUnsynced()) return;";
+  chk(MOD.includes(START), '[시작] 문턱 줄이 모듈에 있다(깨 보기 대상)');
+  e = mkEnv({ now: wed, rec: staleRule(), srv: null, src: MOD.replace(START, 'if(!_chalDraft) return;') });
+  W = e.mk(); W.tick(); await flush();
+  e.els.chalEditBtn.click(); e.els.chalStartBtn.click(); await flush();
+  e.srv = fresh(); W.tick(); await flush();
+  chk(e.saved.some(r => r.kind === 'rule'), '깨 보기 — [시작] 문턱을 빼면 받기 전 [수정] 이 옛 기록을 올려 서버(책)를 덮는다');
 });
 
 await sec('── 7. app.js 배선', () => {

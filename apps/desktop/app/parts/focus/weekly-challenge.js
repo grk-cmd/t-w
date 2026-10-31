@@ -1217,6 +1217,7 @@ function _chalRenderRuleList(){
   on('chalEditBtn', ()=>{ if(_chalActive()) _chalOpenSetup(chalRec.kind, true); });
   on('chalGiveupBtn', ()=>{
     if(!_chalActive()) return;
+    if(_chalBlockUnsynced()) return;
     /* ⚠️ 포기는 반드시 한 번 묻는다 — 되돌릴 수 없다. */
     _chalPopup('👑 달성표 포기', '이번 ' + _chalCurPh().name + ' 달성 기록이 사라지고 남은 보상도 없어져요.'
       + '<br><span style="font-size:10px;color:var(--ink-soft);">이미 받은 뽑기는 그대로예요.</span><br>정말 포기할까요?',
