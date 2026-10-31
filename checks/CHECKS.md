@@ -385,7 +385,7 @@
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 94 | **bf8fa1c1a4c5** |
-| **sim-nav.js** | 85 | **80768d997981** |
+| **sim-nav.js** | 91 | **b74d2aa1c684** |
 | **sim-app-boot.js** | 149 | **167c1b35b4a5** |
 | **sim-net-ready.js** | 145 | **e7eb45ad9e77** |
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |

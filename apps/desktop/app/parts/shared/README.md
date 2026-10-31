@@ -379,6 +379,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **`migrateLegacy(code)`**: 이미 깔린 사용자가 0.13 첫 실행 때 PC 칸 값을 그때 로그인한 계정 칸으로 한 번 옮긴다. `MOVED_KEYS` 만 옮기고(아직 옛 칸을 읽는 키를 옮기면 값이 사라진다) · 계정 칸에 값이 있으면 덮지 않고 · 처리한 키는 PC 칸에서 지우며 · `tw.accountStoreMigrated` 에 처리한 이름을 남겨 두 번 돌지 않는다. 쓰기에 실패한 키는 옛 칸을 지우지 않고 다음에 다시. **부르는 곳 둘**: ① app.js — `accountStoreMod` 를 만든 바로 뒤, 이 PC 에 적힌 계정 코드(`getMyUserId()`)로 한 번(계정 칸을 읽는 모듈을 만들기 전 — 서버 확인 뒤로 미루면 모듈이 «없음» 으로 읽고 저장해 옛 값이 «이미 있음» 으로 버려진다 · 코드 없는 PC 는 아무것도 안 함). ② account.js `_detachAccountLocal` — 로그아웃 올리기 · 검문 앞(①에서 못 옮긴 것만 일이 있다 · 두 번째부터는 아무 일도 안 함). 로그인 전 몫을 계정으로 합치는 길은 없다.
 - **새 키를 옮길 때**: 그 묶음이 ① 모듈이 `accountStore.get/set` 만 쓰게 ② `MOVED_KEYS` 에 이름 더하기 ③ 아래 표 «옮김» 으로 ④ `account.js` `ACCOUNT_LOCAL_KEYS` 에서 빼기(계정 칸은 지우지 않는다). deps 이름은 모듈마다 달리(`xxxStore`) — joinRenderer 가 한 범위로 합치므로 `accountStore` 같은 같은 이름이 둘이면 겹친다.
 - **함정**: 계정 코드를 정하는 값(`tw.myUserId` 등)은 여기 못 둔다(닭과 달걀). 계정 칸은 로그아웃해도 지우지 않는다 — 같은 계정으로 돌아오면 이어진다. `tw.accountStoreMigrated` 후에 `MOVED_KEYS` 에 키가 늘면 그 키만 새로 옮긴다(그 사이 다른 계정이 먼저 로그인했다면 그 계정이 받는다).
+- **열림**: 처음엔 닫혀 있다 — `get` 은 null, `set`/`remove` 는 false 를 돌려주고 키마다 한 번 `console.warn('[계정 칸] 계정 확인 전 접근', 키)`. 계정 확인을 통과한 뒤 `launcher/app-boot.js` 가 `migrateLegacy(그 코드)` 직후 `open(code)` 로 연다(열려는 코드가 지금 `getAccountCode()` 와 다르면 열지 않고 경고). 닫힘의 결과는 계정을 놓은 틈(`isWriteLocked`)과 같다. 기기 공용 키는 상관없다.
 - 검사: `checks/sim-account-store.js`.
 
 ### 키 갈래 표 (localStorage · `tw.` 접두사 — 옛 `deskFriends.*` · `tw_chat_*` 포함)
