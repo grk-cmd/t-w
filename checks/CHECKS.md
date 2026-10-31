@@ -274,7 +274,7 @@
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 700 | **14b44af915bd** |
-| **sim-playlist.js** | 991 | **b43678488c53** |
+| **sim-playlist.js** | 1002 | **e169790b3ae9** |
 | **sim-playlist-api.js** | 277 | **ac9a35ff6194** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-mail-feed.js** | 323 | **1b05d4407db7** |
@@ -315,7 +315,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **514cfed75043** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
-| **sim-license-gate.js** | 184 | **6c33d01c1540** |
+| **sim-license-gate.js** | 186 | **3af3813e4318** |
 | **sim-account.js** | 95 | **86ad869d1ef6** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **910c263320d1** |

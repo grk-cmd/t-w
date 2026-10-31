@@ -16,6 +16,7 @@ const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;   // 읽는 함수
 const _loginDoFriendCode = deps._loginDoFriendCode;
 const _loginDoGoogle = deps._loginDoGoogle;
 const _enterAccount = deps._enterAccount;   // 서버 계정으로 이 PC 맞추기(account.js) → { ok, switched }
+const plMarkUnreachable = deps.plMarkUnreachable;   // 🎵 로컬 모드로 들어갈 때 — 플레이리스트를 「못 불러왔어요」 로(요청 없음)
 const plPull = deps.plPull;   // 🎵 서버 계정이 확인된 뒤 플레이리스트 받기 한 번(playlist.js)
 const _wipeAccountLocal = deps._wipeAccountLocal;   // 이 PC 계정 몫 지우기(account.js)
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 켤 때 판정 · 가입 · realtime · 로컬 모드
@@ -61,7 +62,7 @@ async function checkInviteGate(){
     return await _showInviteGate();
   }
   if(c.state === 'local'){
-    if(getMyUserId()){ loginFlowMod.enterLocal(_backOnline); try{ toast('🔌 서버에 닿지 못해 이 PC 기능만 쓸 수 있어요 — 연결되면 이어서 해요'); }catch(_){} return true; }
+    if(getMyUserId()){ plMarkUnreachable(); loginFlowMod.enterLocal(_backOnline); try{ toast('🔌 서버에 닿지 못해 이 PC 기능만 쓸 수 있어요 — 연결되면 이어서 해요'); }catch(_){} return true; }
     return await _showInviteGate();
   }
   if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();   // 서버에 이 계정이 없다 — 이 PC 계정 몫을 지운다(로그인은 게이트에서 다시)

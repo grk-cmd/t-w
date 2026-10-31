@@ -5809,6 +5809,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _enterAccount: (...a)=>accountMod._enterAccount(...a),
   _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),
+  plMarkUnreachable: (...a)=>plMod.markUnreachable(...a),
   plPull: (...a)=>plMod.pull(...a),
   loginFlowMod: loginFlowMod,
   userApiMod: userApiMod,
