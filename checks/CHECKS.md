@@ -218,6 +218,7 @@
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
 | **sim-signup.js** | 1597 | **14f398af12e0** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
+| **sim-winlist.js** | 99 | **0de25d840b1e** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
 | **sim-zoom-window.js** | 68 | **c130cf5b9af3** |

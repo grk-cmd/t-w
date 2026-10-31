@@ -3447,6 +3447,7 @@ function createWindow() {
       }catch(err){
         diag = 'activeWin-error:' + (err && err.message || String(err)).slice(0, 60);
       }
+      _diagLog('[등록] 슬롯 ' + (idx + 1) + ' 자동 등록 실패 — ' + diag);   // 🩺 «등록조차 안 된다» 제보를 가르는 줄
       return { ok:false, reason:'no-window', diag, self: SELF_EXE };
     }
     /* 셸 창(작업표시줄 등)을 거쳐 왔으면 그 앞의 일반 창을 — 셸 창밖에 본 적이 없으면 예전처럼 그것을(lastRegistrableWindow 주석) */
@@ -3454,6 +3455,7 @@ function createWindow() {
     if(lastRegistrableWindow && lastRegistrableWindow !== lastForeignWindow)
       _diagLog('[등록] 셸 창(' + lastForeignWindow.name + ')을 건너뛰고 ' + lastRegistrableWindow.name + ' 를 등록');
     saveFocusApps();
+    _diagLog('[등록] 슬롯 ' + (idx + 1) + ' ← ' + focusApps[idx].key + ' «' + focusApps[idx].name + '» 자동(직전 창)');
     /* skipped — 건너뛴 셸 창 이름. 렌더러가 «무엇 대신 무엇을 등록했는지» 알린다(파일 탐색기 · UWP 앱처럼 셸 목록에 든 창을 등록하려던 경우) */
     const skipped = (lastRegistrableWindow && lastRegistrableWindow !== lastForeignWindow && lastForeignWindow) ? lastForeignWindow.name : null;
     return { ok:true, app: focusApps[idx], skipped };
@@ -3494,6 +3496,7 @@ function createWindow() {
       title: String(appInfo.title || ''),
     };
     saveFocusApps();
+    _diagLog('[등록] 슬롯 ' + (idx + 1) + ' ← ' + focusApps[idx].key + ' «' + focusApps[idx].name + '» 목록에서' + (pickedPath ? '' : ' (경로 못 읽음 — 이름으로)'));
     return { ok:true, app: focusApps[idx] };
   });
 
