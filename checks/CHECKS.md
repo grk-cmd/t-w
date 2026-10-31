@@ -170,7 +170,7 @@
 | **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
 | **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
-| **sim-pk-fit.js** | 170 | **354391f1f290** |
+| **sim-pk-fit.js** | 188 | **158c7cfabd07** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
 | **sim-pl-loop.js** | 364 | **3269e02f156b** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
