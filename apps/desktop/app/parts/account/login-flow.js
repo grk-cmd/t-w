@@ -56,7 +56,7 @@ function createLoginFlow(deps){
   let mode = 'off';           // 'off' · 'in' · 'local'
   let online = false;         // realtime 를 켰나
   let stateHooked = false;
-  let rtLocal = false;        // 로컬 모드에서 realtime 을 켜 둔 상태(다시 붙는 신호를 받으려고 — 계정 확인 전이라 claim 하지 않는다)
+  let rtLocal = false;        // 로컬 모드에서 realtime 을 켜 둔 상태(다시 붙는 신호를 받으려고 — 계정이 정해지면 그대로 쓴다)
   let localBack = null, localChecking = false;
 
   function readCache(){
@@ -97,7 +97,7 @@ function createLoginFlow(deps){
     if(stateHooked) return;
     stateHooked = true;
     deps.rt.onState((s) => {
-      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }
+      if(s === RT_SESSION_LOST){ if(mode !== 'off') deps.onSessionLost(); }   // 로컬 모드에서도 진짜 밀려남이다(다른 PC 가 나중에 claim) — 알리지 않으면 되돌아와도 연결이 죽은 채 조용하다
       else if(s === RT_READY) onServerSign();
     });
     deps.onReachable(onServerSign);
@@ -108,18 +108,18 @@ function createLoginFlow(deps){
   function goOnline(){
     mode = 'in'; localBack = null;
     hookState();
-    if(rtLocal){ rtLocal = false; try{ deps.rt.stop(); }catch(_){} }   // 로컬 모드의 연결은 claim 없이 켰다 — 끄고 claim 으로 다시
+    rtLocal = false;   // 로컬 모드에서 이미 claim 으로 켠 연결은 그대로 쓴다
     if(online) return;
     online = true;
     deps.rt.start({ claim: true });
   }
 
-  /* 로컬 모드 — 서버에 닿지 못했다. realtime(핵심 연결 — 혼자 다시 붙는다)을 claim 없이 켜 두고, 다시 붙었다는 신호(ready)가 오면
-     계정을 한 번 묻는다. 닿으면 onBack(confirm 결과) 한 번 · 'in' 이면 realtime 을 claim 으로 다시 켠다. 타이머로 되풀이하지 않는다. */
+  /* 로컬 모드 — 서버에 닿지 못했다. realtime(핵심 연결 — 혼자 다시 붙는다)을 켜 두고(claim — 앱을 켠 것이라 첫 hello 는 claim · 안 그러면 다른 기기 세션 때문에 4004 로 끊긴다),
+     다시 붙었다는 신호(ready) 또는 서버가 답한 요청이 오면 계정을 한 번 묻는다. 닿으면 onBack(confirm 결과) 한 번 · 'in' 이면 같은 연결을 그대로 쓴다. 타이머로 되풀이하지 않는다. */
   function enterLocal(onBack){
     mode = 'local'; localBack = onBack;
     hookState();
-    if(!online && !rtLocal){ rtLocal = true; deps.rt.start({ claim: false }); }
+    if(!online){ online = true; rtLocal = true; deps.rt.start({ claim: true }); }
   }
   async function recheckLocal(){
     if(localChecking) return;   // 신호가 겹쳐도 한 번
@@ -129,7 +129,7 @@ function createLoginFlow(deps){
     if(mode !== 'local' || r.state === STATE.LOCAL) return;
     const back = localBack; localBack = null;
     if(r.state === STATE.IN) goOnline();
-    else if(rtLocal){ rtLocal = false; try{ deps.rt.stop(); }catch(_){} }
+    else if(rtLocal){ rtLocal = false; online = false; try{ deps.rt.stop(); }catch(_){} }   // 계정이 없거나 로그인이 풀렸다 — 켜 둔 연결을 끈다
     try{ if(back) back(r); }catch(_){}
   }
 

@@ -141,7 +141,7 @@ say('── 5. 배선 — realtime 밀림이 이 화면을 부른다 · 옛 RTDB
   const FI = ['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js'].map(read).find(Boolean) || '';
   const LF = ['login-flow.js', 'parts/account/login-flow.js', 'app/parts/account/login-flow.js'].map(read).find(Boolean) || '';
   chk(!!FI && !/claimDeviceSession|releaseDeviceSession|deviceSessionLost\(\)|users\/\$\{userId\}\/session/.test(strip(FI)), 'firebase-init 에 RTDB 기기 세션(users/{uid}/session) 길이 없다');
-  chk(/onSessionLost: \(\)=>deviceLostMod\._onDeviceSessionLost\(\),/.test(SRC) && /if\(mode === 'in'\) deps\.onSessionLost\(\);/.test(LF), 'login-flow 가 realtime sessionLost 상태에서 이 화면을 부른다');
+  chk(/onSessionLost: \(\)=>deviceLostMod\._onDeviceSessionLost\(\),/.test(SRC) && /if\(mode !== 'off'\) deps\.onSessionLost\(\);/.test(LF), 'login-flow 가 realtime sessionLost 상태에서 이 화면을 부른다');
   chk(/deviceSessionLost: \(\)=>TwRtHub\.store\.state\(\) === TwRtHub\.STATE\.SESSION_LOST/.test(SRC), '접속 고정(presence-lock)은 realtime 상태로 «밀렸나» 를 본다');
   chk(/#deviceSessionOverlay/.test(['desktop-run.js', 'parts/launcher/desktop-run.js', 'app/parts/launcher/desktop-run.js'].map(read).find(Boolean) || ''), '화면이 클릭 통과 목록(UI_HIT_SEL)에 있다');
 }

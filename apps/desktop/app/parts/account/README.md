@@ -20,7 +20,7 @@
 - 내놓는 것: `confirm` · `goOnline` · `enterLocal(onBack)`(로컬 모드 — realtime 을 claim 없이 켜 두고, ready 신호 또는 서버가 답한 아무 API 요청(`onReachable`)이 오면 한 번 다시 묻는다 · 타이머 없음) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout` · `meCache` · `premiumNow`(마지막 답 + `premiumGraceSec` — D8 이 쓴다) · `mode`.
 - 함정:
-  - realtime 은 서버가 계정을 돌려준 뒤에만 켠다(가입 전 토큰으로 hello 하면 서버가 끊는다).
+  - realtime 은 서버가 계정을 돌려준 뒤(`goOnline`) 켜는 것이 기본이다 — 가입 전 토큰으로 hello 하면 서버가 끊는다. 예외는 로컬 모드: 계정이 확인된 로그인이라 `enterLocal` 이 `claim:true` 로 켜 두고(claim 없으면 다른 기기 세션 때문에 4004 로 끊긴다) ready 신호를 계정 다시 묻기에 쓴다. 계정이 없거나 로그인이 풀린 것으로 드러나면 끈다.
   - 비밀번호 가입은 답을 못 받아 다시 누르면 같은 요청 번호 — 비밀번호를 바꾸면 새 번호(같은 번호면 첫 비밀번호의 계정이 돌아온다).
   - 이 PC 계정 몫 지우기 · 다시 켜기는 부르는 쪽(account.js) 몫 — 여기는 화면 · 저장 키 목록을 모른다.
 - 검사: `checks/sim-login-flow.js`.
