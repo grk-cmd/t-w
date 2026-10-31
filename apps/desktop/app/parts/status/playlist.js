@@ -526,10 +526,15 @@ function _plPublishIn(ms){
   const uid0 = getMyUserId();
   _plPubTimer = setTimeout(()=>{ _plPubTimer = null; _plPublishNow(uid0); }, ms);
 }
-async function _plPublishNow(uid0){
+let _plPubDone = null;   // 보내는 중인 저장(+ 끝난 뒤 최신으로 한 번 더)이 끝나면 풀리는 약속 — 로그아웃 올리기가 기다린다
+function _plPublishNow(uid0){
   // 서버에서 받기 전이면 안 올린다 · 기다리는 사이 계정이 바뀌었으면 앞 계정 목록을 새 계정에 올리지 않는다
-  if(!_plLoaded || getMyUserId() !== uid0) return;
-  if(_plPubBusy){ _plPubAgain = true; return; }
+  if(!_plLoaded || getMyUserId() !== uid0) return Promise.resolve();
+  if(_plPubBusy){ _plPubAgain = true; return _plPubDone; }
+  _plPubDone = _plPublishRun(uid0);
+  return _plPubDone;
+}
+async function _plPublishRun(uid0){
   const { sets, meta, sig } = _plServerShape();
   if(sig === _plPubSig) return;
   const gen = _plGen;
@@ -541,7 +546,7 @@ async function _plPublishNow(uid0){
   const again = _plPubAgain; _plPubAgain = false;
   if(r === 'ok'){
     _plPubSig = sig; _plSaveFailing = false;
-    if(again) _plPublishNow(uid0);
+    if(again) await _plPublishNow(uid0);   // 보내는 중 고친 것 — 최신으로 한 번만(그 한 번이 또 밀리면 그 안에서 같은 규칙)
   }else if(r === 'stale'){
     // 읽은 뒤 로그인한 사람이 바뀌었다 — 알리지도 다시 올리지도 않는다(곧 reset · 다시 받기가 온다)
   }else if(r === 'conflict'){
@@ -554,10 +559,12 @@ async function _plPublishNow(uid0){
 
 /* 못 올린 고침(저장이 실패한 채이거나 고친 뒤 3초 모으기가 안 끝남)이 있으면 한 번만 올려 본다 — 되풀이 없음.
    부르는 때: 앱을 끌 때(beforeunload · 결과를 기다리지 않음) · 로그아웃 올리기(account.js — 결과를 기다림). 둘 다 와도 요청은 한 번(_plFlushSent).
+   보내는 중이면 그 저장이 끝나기를 기다리고, 그 사이 고친 것은 최신으로 한 번 더 보낸 뒤 끝난다(진행 중 1 + 마지막 1 · 409 · 실패면 거기서 멈춤). 로그아웃 올리기의 8초 상한(account.js)을 넘기면 기다림만 접히고 요청은 이미 나간 만큼이다 — 지우기(_plReset)가 뒤의 한 번은 버린다.
    내 코드가 없으면(로그인 전) 요청이 없다. 계정을 놓은 뒤 늦게 온 응답은 쓰기의 expectOwner 가 버린다. */
 let _plFlushSent = false;   // 새 고침(_plPublishIn) · 계정 놓음(_plReset)이 풀어 준다
 function _plFlushPending(uid){
-  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();
+  if(!uid || _plFlushSent) return Promise.resolve();
+  if(!_plSaveFailing && !_plPubTimer) return _plPubBusy ? _plPubDone : Promise.resolve();   // 새로 보낼 것은 없고 보내는 중인 것만 있으면 끝나기를 기다린다
   _plFlushSent = true;
   clearTimeout(_plPubTimer); _plPubTimer = null;
   return _plPublishNow(uid);

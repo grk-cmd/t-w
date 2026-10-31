@@ -274,7 +274,7 @@
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 700 | **14b44af915bd** |
-| **sim-playlist.js** | 1002 | **e169790b3ae9** |
+| **sim-playlist.js** | 1033 | **4cac8853ee8f** |
 | **sim-playlist-api.js** | 277 | **ac9a35ff6194** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-mail-feed.js** | 323 | **1b05d4407db7** |
