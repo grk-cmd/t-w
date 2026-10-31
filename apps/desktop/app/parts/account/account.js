@@ -2,7 +2,7 @@
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
-     accountLegacyStore · CHAL_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
+     accountLegacyStore · CHAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
@@ -22,7 +22,6 @@ const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
-const FOCUS_TOTAL_KEY = deps.FOCUS_TOTAL_KEY;   // 읽는 함수
 const GACHA_BONUS_KEY = deps.GACHA_BONUS_KEY;   // 읽는 함수
 const GACHA_OWNED_KEY = deps.GACHA_OWNED_KEY;   // 읽는 함수
 const GACHA_TS_KEY = deps.GACHA_TS_KEY;   // 읽는 함수
