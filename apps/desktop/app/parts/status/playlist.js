@@ -1987,7 +1987,7 @@ return {
   save: _plSave,                                   // 💾 기기 설정 저장 + 서버 저장(3초 debounce)
   flushPending: _plFlushPending,                   // 📤 못 올린 고침 한 번 올리기(uid) — 로그아웃 올리기(account.js)
   publish: _plPublish,                             // ☁️ 서버 저장만(3초 debounce)
-  pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 스스로 다시 시도)
+  pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 혼자 다시 하지 않음 — [다시 시도] · 창 열기)
   reset: _plReset,                                 // ☁️ 계정을 놓을 때 · 이어받기 시작 — 목록을 비우고 받기 전까지 올리지 않음
   normalizeSets: _plNormalizeSets,                 // 🎵 서버 값 관문(세 벌 · 16자 · 20곡)
   setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정
