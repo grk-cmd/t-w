@@ -44,6 +44,7 @@ const DDAY_CARD_IMG_MAX = 150;      // 카드 배경 이미지 리사이즈 상�
 /* 받는 상태 — 달력 · 내 보드 · 친구 보드가 각각 가진다. IDLE(아직 안 물음)은 화면에서 LOADING 과 같게 보인다 */
 const LOAD = Object.freeze({ IDLE: 'idle', LOADING: 'loading', READY: 'ready', ERROR: 'error' });
 const LOAD_TEXT = Object.freeze({ loading: '불러오는 중이에요', error: '불러오지 못했어요 — 눌러서 다시 시도' });
+const TAG_NOT_FRIEND_TEXT = '친구가 아닌 사람은 태그할 수 없어요';
 const PUBLIC_TAG_HINT = '태그한 친구가 볼 수 있게 공개돼요';   // 서버 규칙: 친구를 태그한 일정 · 기념일은 공개로 저장된다
 const LOCK_TEXT = '아직 불러오는 중이에요 — 잠시 뒤에 다시 눌러 주세요';   // 받기 전에 고치려 할 때(토스트)
 let _gen = 0;                       // reset 마다 오른다 — 앞 계정의 늦은 답이 새 계정 화면을 건드리지 않게
@@ -66,7 +67,7 @@ let _loadFailing    = false;  // 받기 실패가 이어지는 동안 오류 번
 
 /* 서버 오류 → 할 일. 기능 표가 공통 표보다 먼저다 */
 const ERR_TABLE = Object.freeze({
-  SCHEDULE_TAG_NOT_FRIEND: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-06', e) },
+  SCHEDULE_TAG_NOT_FRIEND: { action: 'notice', notice: () => toast(TAG_NOT_FRIEND_TEXT) },   // 안내만 — 오류 번호 없이
   SCHEDULE_TAG_SELF: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-06', e) },
   SCHEDULE_DDAY_FULL: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-07', e) },
   SCHEDULE_INVALID_IMAGE_URL: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-05', e) },

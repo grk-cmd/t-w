@@ -41,7 +41,7 @@
 | `E-MH-03` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(`savePresencePref` · `presencePref/{uid}`) |
 | `E-MH-04` | 일정을 불러오지 못했어요 — 인터넷 연결을 확인하고 안내 글자를 눌러 다시 시도해 주세요 | `myhome/scheduler.js` — 달력 · 기념일 · D-day · 오늘 일정 · 친구 태그 알림 받기 실패(이어지는 동안 한 번만) |
 | `E-MH-05` | 카드 그림을 올리지 못해 저장하지 않았어요 — 다시 눌러 주세요 | `myhome/scheduler.js` — 기념일 카드 그림 올리기 실패 · 서버가 그림 주소를 거절(`IMAGE_UPLOAD` · `SCHEDULE_INVALID_IMAGE_URL`) |
-| `E-MH-06` | 친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요 | `myhome/scheduler.js` — 일정 · 기념일 저장의 친구 태그 거절(`SCHEDULE_TAG_NOT_FRIEND` · `SCHEDULE_TAG_SELF` — 아무것도 저장되지 않음) |
+| `E-MH-06` | 친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요 | `myhome/scheduler.js` — 일정 · 기념일 저장의 그 밖의 태그 거절(`SCHEDULE_TAG_SELF` 등 — 아무것도 저장되지 않음). 친구가 아닌 사람 태그(`SCHEDULE_TAG_NOT_FRIEND`)는 번호 없이 안내 토스트 |
 | `E-MH-07` | 기념일 · D-day 는 각각 10개까지예요 | `myhome/scheduler.js` — 서버가 기념일 · D-day 상한 초과를 거절(`SCHEDULE_DDAY_FULL`) |
 | `E-ROOM-01` | 방 목록을 불러오지 못했어요 | `room/room-entry.js` — 랜덤 참여 · 갈아타기(`findRandomRooms`) |
 | `E-ROOM-02` | 방을 옮기지 못했어요 | `room/room-entry.js` — 갈아타기 뒤 방 밖에 남음 |

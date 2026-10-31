@@ -62,7 +62,7 @@ const CODES = {
   'E-CHAR-14': { msg: '책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요', where: 'creator/desk-setup.js — 생성기 책상 카드 고르기 (resolveCatalogGlb 실패 · rec.glb 없음)' },
   'E-MH-04': { msg: '일정을 불러오지 못했어요 — 인터넷 연결을 확인하고 안내 글자를 눌러 다시 시도해 주세요', where: 'myhome/scheduler.js — 달력 · 기념일 · D-day · 오늘 일정 · 친구 태그 알림 받기 실패(이어지는 동안 한 번만)' },
   'E-MH-05': { msg: '카드 그림을 올리지 못해 저장하지 않았어요 — 다시 눌러 주세요', where: 'myhome/scheduler.js — 기념일 카드 그림 올리기 실패 · 서버가 그림 주소를 거절(IMAGE_UPLOAD · SCHEDULE_INVALID_IMAGE_URL)' },
-  'E-MH-06': { msg: '친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요', where: 'myhome/scheduler.js — 일정 · 기념일 저장의 친구 태그 거절(SCHEDULE_TAG_NOT_FRIEND · SCHEDULE_TAG_SELF — 아무것도 저장되지 않음)' },
+  'E-MH-06': { msg: '친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요', where: 'myhome/scheduler.js — 일정 · 기념일 저장의 그 밖의 태그 거절(SCHEDULE_TAG_SELF 등 — 아무것도 저장되지 않음). 친구가 아닌 사람 태그(SCHEDULE_TAG_NOT_FRIEND)는 번호 없이 안내 토스트' },
   'E-MH-07': { msg: '기념일 · D-day 는 각각 10개까지예요', where: 'myhome/scheduler.js — 서버가 기념일 · D-day 상한 초과를 거절(SCHEDULE_DDAY_FULL)' },
   'E-PL-01': { msg: '플레이리스트를 저장하지 못했어요 — 고친 내용은 그대로 두고 잠시 뒤 다시 올릴게요', where: 'status/playlist.js — 내 목록 서버 저장 실패(_plPublishNow · saveMine failed — 이어지는 동안 한 번만 알림 · 30초부터 늘려 가며 다시 올림)' },
   'E-PL-02': { msg: '파도타기는 인터넷 연결이 필요해요', where: 'status/playlist.js — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(_plPeek · _plPeekFriend — fetchRandom · fetchOf 던짐)' },

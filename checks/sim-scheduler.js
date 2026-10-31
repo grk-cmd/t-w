@@ -330,8 +330,12 @@ await sec('── 4. 달력', async () => {
   chk(pub.checked === false && pub.disabled === false && hint.textContent === '', '  쓰고 나면 태그가 비워지며 공개 체크는 태그 전 값으로 돌아오고 잠금이 풀린다');
   E.routes['POST /v1/me/schedules'] = apiErr(403, 'SCHEDULE_TAG_NOT_FRIEND');
   E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
-  E.el('mhSchedInput').value = '실패할 일정'; E.el('mhSchedAddBtn').fire('click'); await tick();
-  chk(E.errs.includes('E-MH-06') && E.el('mhSchedInput').value === '실패할 일정' && !day.textContent.includes('실패할 일정'), '친구가 아닌 사람을 태그 → E-MH-06 · 일정은 만들어지지 않는다 · 입력칸은 그대로(다시 누르면 됨)');
+  E.el('mhSchedInput').value = '실패할 일정'; const errs0 = E.errs.length, toasts0 = E.toasts.length; E.el('mhSchedAddBtn').fire('click'); await tick();
+  chk(E.errs.length === errs0 && E.toasts.slice(toasts0).filter(m => m === '친구가 아닌 사람은 태그할 수 없어요').length === 1 && E.el('mhSchedInput').value === '실패할 일정' && !day.textContent.includes('실패할 일정'),
+      '친구가 아닌 사람을 태그 → 오류 번호 0 · 안내 토스트 1 · 일정은 만들어지지 않는다 · 입력칸은 그대로(다시 누르면 됨)');
+  E.routes['POST /v1/me/schedules'] = apiErr(403, 'SCHEDULE_TAG_SELF');
+  const toasts1 = E.toasts.length; E.el('mhSchedAddBtn').fire('click'); await tick();
+  chk(E.errs.includes('E-MH-06') && !E.toasts.slice(toasts1).includes('친구가 아닌 사람은 태그할 수 없어요'), '자기 자신을 태그 → 그대로 E-MH-06 (친구 아님 안내 토스트는 안 뜬다)');
   const slow = deferred();
   E.routes['POST /v1/me/schedules'] = () => slow.p;
   const before = E.calls('POST', /./).length;
@@ -672,6 +676,13 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': [item('a', TODAY, 'a', 'PRIVATE', 1, SEEN - 1)] } });
     E.ls.set('tw.bellSeenTs', String(SEEN)); await tick();
     chk(E.el('myBellBadge').textContent === '0', 'x');
+  });
+  await broken('친구 아님도 E-MH-06 번호를 띄운다', (x) => x.replace("notice: () => toast(TAG_NOT_FRIEND_TEXT)", "notice: (notifyError, e) => notifyError('E-MH-06', e)"), async (src) => {
+    const E = mkEnv({ src, routes: { 'POST /v1/me/schedules': apiErr(403, 'SCHEDULE_TAG_NOT_FRIEND') } });
+    await tick(); E.S.renderSchedCalendar();
+    E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
+    E.el('mhSchedInput').value = 'x'; E.el('mhSchedAddBtn').fire('click'); await tick();
+    chk(E.errs.length === 0, 'x');
   });
   await broken('받기 전 잠금을 빼면 일정을 쓴다', (x) => x.replace("if(_monthState !== LOAD.READY){ toast(LOCK_TEXT); return; }   // 받기 전에는 고치지 못하게 잠근다\n    const isPublic", 'const isPublic'), async (src) => {
     const d = deferred();
