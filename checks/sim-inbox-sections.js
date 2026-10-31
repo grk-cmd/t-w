@@ -56,7 +56,11 @@ function judge(mod){
     r.mailPin = J(S.mailIds(P)) === J(['a', 'b']);
     r.empty = J(S.mailIds({})) === '[]' && J(S.mailIds(null)) === '[]' && J(S.newsIds(undefined, 'all')) === '[]';
     r.unread = J(S.unread(M)) === J({ mail: 3, news: 2, notice: 1, update: 1, total: 5 }) && J(S.unread(null)) === J({ mail: 0, news: 0, notice: 0, update: 0, total: 0 });
-    r.first = S.firstSec(M) === 'mail' && S.firstSec({ x: { _src: 'personal', read: true }, y: { _src: 'broadcast', tag: 'notice' } }) === 'news' && S.firstSec({}) === 'news' && S.firstSec(null) === 'news';
+    /* 개인 우편의 안 읽은 수는 서버가 센 값 — 받아 둔 쪽지 수와 달라도(오래된 우편은 안 받았다) 그 값을 쓴다. 모두에게 보낸 우편 · 소식은 이 PC 읽음 그대로 */
+    r.unreadServer = J(S.unread(M, 7)) === J({ mail: 8, news: 2, notice: 1, update: 1, total: 10 }) && J(S.unread(M, 0)) === J({ mail: 1, news: 2, notice: 1, update: 1, total: 3 })
+      && [undefined, null, -1, NaN, '3'].every(v => J(S.unread(M, v)) === J(S.unread(M)));
+    r.first = S.firstSec(M) === 'mail' && S.firstSec(M, 0) === 'mail' && S.firstSec({ x: { _src: 'personal', read: false } }, 0) === 'news' && S.firstSec({ x: { _src: 'personal', read: true } }, 2) === 'mail'
+      && S.firstSec({ x: { _src: 'personal', read: true }, y: { _src: 'broadcast', tag: 'notice' } }) === 'news' && S.firstSec({}) === 'news' && S.firstSec(null) === 'news';
     r.pure = J(M) === before;
   } catch (e) { r.err = String(e && e.stack || e).split('\n').slice(0, 2).join(' / '); }
   return r;
@@ -88,6 +92,7 @@ chk(R.newsNotice && R.newsUpdate, '★ 공지 · 업데이트를 골라도 📌 
 chk(R.newsOld, '  옛 필터 값이면 전체로 본다');
 chk(R.empty, '빈 값 · null 도 선다(빈 목록)');
 chk(R.unread, '안 읽은 수 — 우편 · 소식 · 공지 · 업데이트 · 합계(빈 값은 0)');
+chk(R.unreadServer, '★ 개인 우편의 안 읽은 수는 서버가 센 값(0 도 그대로) — 모두에게 보낸 우편 · 소식은 이 PC 읽음 · 숫자가 아니면 받은 것을 센다');
 chk(R.first, '처음 칸 — 안 읽은 우편이 있으면 우편 · 없으면 소식(빈 값도)');
 chk(R.pure, '받은 값을 고치지 않는다');
 say('── 2. 연결');
@@ -103,8 +108,11 @@ const BREAKS = [
   ['MOD', "(m[id].pinned || c === 'all' || tagOf(m[id]) === c)", "(c === 'all' || tagOf(m[id]) === c)", '종류를 고르면 고정 소식이 사라짐', 'newsNotice'],
   ['MOD', 'if(pa !== pb) return pb - pa;', '', '📌 고정을 먼저 안 둠', 'mailPin'],
   ['MOD', "return CATS.indexOf(c) >= 0 ? c : 'all';", 'return c;', '옛 필터 값을 그대로 둠', 'norm'],
-  ['MOD', "return unread(merged).mail > 0 ? 'mail' : 'news';", "return 'mail';", '처음 칸을 늘 우편으로', 'first'],
-  ['MOD', "if(m[id].read) return;\n    out.total++;", 'out.total++;', '읽은 것도 셈', 'unread'],
+  ['MOD', "return unread(merged, personalUnread).mail > 0 ? 'mail' : 'news';", "return 'mail';", '처음 칸을 늘 우편으로', 'first'],
+  ['MOD', "return unread(merged, personalUnread).mail > 0", "return unread(merged).mail > 0", '처음 칸이 서버가 센 수를 안 봄', 'first'],
+  ['MOD', "if(m[id].read) return;", "", '읽은 것도 셈', 'unread'],
+  ['MOD', "if(server !== null && m[id]._src === 'personal') return;", "", '서버가 센 수에 받은 쪽지 수를 또 더함', 'unreadServer'],
+  ['MOD', "out.mail += server; out.total += server;", "", '서버가 센 수를 무시', 'unreadServer'],
   ['MOD', "return (t === 'update' || t === 'reward' || t === 'bug') ? t : 'notice';", 'return t;', '모르는 태그를 그대로', 'tagOf'],
   ['MOD', 'const SECS = Object.freeze(', 'const SECS = (', '칸 목록을 바꿀 수 있음', 'consts'],
   ['INBOX', 'const ids = inboxSec.newsIds(merged, _inboxFilter);', 'const ids = Object.keys(merged).filter(id=>merged[id]._src === \'broadcast\' && (merged[id].tag));', '수령함이 소식 판단을 다시 씀', 'W'],

@@ -100,7 +100,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 
 **내놓는 것** — `SECS`(['mail','news'] — 📘 도움말은 따로 탭 `help-tab.js` · 옛 'help' 값은 `normSec` 이 'mail' 로) · `CATS`(['all','notice','update']) · `tagOf(m)` · `sectionOf(m)` → 'mail' | 'news' ·
 `normSec(s)` · `normCat(c)`(옛 필터 값 'reward' · 'gift' → 'all') · `mailIds(merged)` · `newsIds(merged, cat)`(📌 고정은 종류와 상관없이 맨 위) ·
-`unread(merged)` → `{ mail, news, notice, update, total }` · `firstSec(merged)`(안 읽은 우편이 있으면 'mail', 없으면 'news').
+`unread(merged, personalUnread?)` → `{ mail, news, notice, update, total }`(개인 우편의 안 읽은 수는 서버가 센 값 `personalUnread` — 숫자가 아니면 받은 것을 센다) · `firstSec(merged, personalUnread?)`(안 읽은 우편이 있으면 'mail', 없으면 'news').
 `merged` 는 `myhome-inbox.js` 의 `_inboxMerged()` 모양(개인 `_src:'personal'` + 공용 `_src:'broadcast'` · 공용 읽음은 이 PC 집합).
 
 **확장할 때 고칠 자리** — 칸을 늘리면 `SECS` · html `#mhInboxRail` 버튼 · `#mhInboxPane-이름` 칸. 새 태그는 `tagOf` · `sectionOf`.
@@ -108,6 +108,37 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 **함정** — 서버 태그 키는 그대로다(`reward` 를 바꾸면 이미 보낸 우편이 전부 공지로 떨어진다). 보이는 글자만 `myhome-inbox.js` 표에서 바꾼다.
 우편함 탭 배지 · 🔔 벨 수는 `unread().total` 과 같아야 한다 — 따로 세지 말 것.
 검사: `checks/sim-inbox-sections.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
+
+## `inbox-api.js` · `mail-feed.js` — 📩 내 우편(서버 원본)
+
+**책임** — 우편의 원본은 서버다(`GET /v1/me/notifications?section=MAIL` · 읽음 `PATCH …/{id}` · 모두 읽음 `POST …/read-all` · 지우기 `DELETE …/{id}` · 읽은 우편 한꺼번에 `POST …/delete-read` — 서버가 내 읽은 우편을 한 번에 지우고 지운 수를 준다).
+`inbox-api.js` 는 서버 모양(종류 · `readAt` · `createdAt` · `payload` · 서버가 센 `unreadCount`)을 화면 모양(`{ tag, title, body, ts, read, bugId? }`)으로 맞추는 provider 한 곳.
+`mail-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음 상태, 새 우편 알림(realtime `notification`)이 오면 다시 받기, 읽음 · 지우기(서버가 됐다 한 뒤에만 화면 값을 고침).
+옛 장치는 걷었다: 앱이 세는 안 읽은 수 사본(서버 값을 쓴다) · Firebase 수령함 구독 · 앱이 고치던 읽음 표시.
+
+**만드는 법** — app.js 의 마이홈 처음 준비 만드는 줄 앞에서(그 줄이 `mailFeed` 를 값으로 받는다):
+
+```js
+const mailFeed = TwMailFeed.createMailFeed({
+  api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · 토스트(처음 받은 판은 새 우편이 아니다)
+```
+
+**내놓는 것** — `inbox-api`: `fetchMail(uid)` → `{ items:{id: 우편}, unread, complete }` · `markRead` · `markAllRead` · `remove` → `'ok'|'stale'|'failed'`.
+`mail-feed`: `start(uid)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다) · `stop()` · `refresh({ manual }?)`(`manual` = «다시 시도» · 알림함 열기 — 못 받으면 오류 번호) · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeRead()`(서버가 읽은 우편을 한 번에 지운다 → 지운 수 · 못 지웠으면 null · 성공하면 서버에서 다시 받음 · 지우는 중 또 부르면 건너뜀) · `clearing()` · `onChange(fn)`.
+부르는 곳: `myhome-init.js`(켜기 · 받은 뒤 화면) · `myhome-inbox.js`(그리기 · 누름) · `focus-level.js`(해금 안내를 이미 받았는지 — `_myInbox` · `_myInboxReady` 는 `mailFeed.items()` · `ready()`).
+
+**오류 번호** — `E-MH-08`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 새 우편 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.
+못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 새 우편 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
+
+**함정**
+- 쓰기는 «읽은 토큰의 주인» 과 묶는다(`expectOwner`) — 읽은 적 없는 계정이나 주인이 바뀐 뒤에는 요청 0.
+- 한 번에 4쪽(200통)까지만 받는다(`complete:false`) — 안 읽은 수는 그래도 서버 값이다. 더 보기 단추는 아직 없다.
+- 한 번도 못 받은 동안(받는 중 · 못 받음)은 «모두 읽음» · 읽음 · 지우기를 보내지 않는다. «받은 우편이 없어요» 는 받은 뒤 정말 비었을 때만 그린다.
+- 레벨 해금 · 버그 답변 우편은 서버가 만든다(앱이 자기 수령함에 쓰는 `sendInboxMessage` 는 관리자 코드와 옛 해금 안내가 아직 부르는 동안만 남는다).
+검사: `checks/sim-inbox-api.js` · `checks/sim-mail-feed.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
 
 ## `help-tab.js` — 📘 마이홈 «도움말» 탭
 

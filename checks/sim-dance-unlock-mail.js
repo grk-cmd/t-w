@@ -42,7 +42,9 @@ const probe = `
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
-try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
+/* 우편은 서버 원본이라 app.js 에는 let 사본이 없다(우편 한 벌 mailFeed 가 읽는 함수로 넘긴다). 옮기기 전 글로 되살린 모듈 본문은 _myInbox · _myInboxReady 를 이름으로 읽으므로
+   여기서 그 두 칸을 깔아 준다 — 이 검사는 «해금 안내를 보낼지 말지» 판단을 보는 것이라 우편을 어디서 받는지와 상관없다 */
+try { vm.runInThisContext('var _myInbox = {}, _myInboxReady = false;\n' + _joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
 catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
 console.log = say;
 
