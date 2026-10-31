@@ -92,57 +92,25 @@ async function judge(S){
     chk(seen === 2, '해제한 쪽에는 더 안 간다');
   }
 
-  say('── 1-3. 저장본 — 켜면 바로 그리고 · 응답이 통째로 덮고 · 계정이 섞이지 않는다');
+  say('── 1-3. 사본 없음 — 공지는 공용 데이터라 계정 칸에 남기지 않는다(받기는 계정 확인을 기다리지 않는다)');
   {
     const store = mkStore();
     const a = mk(LIB, store);
     a.env.board = boardOf(['a', 'b'], { hasMore: true });
     a.feed.start(); await tick(); await tick();
-    const savedRaw = store.get('tw.noticeBoard');
-    chk(!!savedRaw && Object.keys(JSON.parse(savedRaw).broadcasts).join() === 'a,b' && JSON.parse(savedRaw).hasMore === true, '받으면 소식 묶음(broadcasts · hasMore)을 계정 칸에 남긴다');
-    const b = mk(LIB, store);
-    const g = defer(); b.env.gate = g; b.env.board = boardOf(['c']);
+    chk(a.feed.confirmed() && Object.keys(store.cells).length === 0, '받아도 계정 칸에 아무것도 쓰지 않는다(계정 코드가 있어도)');
+    const b = mk(LIB, store); const g = defer(); b.env.gate = g; b.env.board = boardOf(['c']);
     b.feed.start(); await tick();
-    chk(b.feed.ready() && !b.feed.confirmed() && b.feed.status() === 'loading' && Object.keys(b.feed.broadcasts()).join() === 'a,b' && b.feed.hasMore() === true, '다시 켜면 서버 응답 전에 저장본을 바로 보여 준다(확정은 아직)');
-    chk(b.env.seen.join('|') === '', '저장본을 그린 것은 «새 소식» 이 아니다');
-    chk(await b.feed.togglePin('a') === false && await b.feed.remove('a') === false && b.env.writes.length === 0, '저장본을 보여 주는 동안 고정 · 내리기는 요청 0(서버 응답 뒤에만)');
+    chk(!b.feed.ready() && !b.feed.confirmed() && b.feed.status() === 'loading' && Object.keys(b.feed.broadcasts()).length === 0, '다시 켜면 서버 응답 전에는 받는 중(앞 판을 먼저 그리지 않는다)');
     g.release(); await tick(); await tick();
-    chk(b.feed.confirmed() && Object.keys(b.feed.broadcasts()).join() === 'c' && b.feed.hasMore() === false && b.env.seen.join('|') === '|', '응답이 오면 저장본에 맞추지 않고 통째로 갈아 끼운다(a · b 가 사라지고 새 소식 취급도 안 함)');
-    chk(Object.keys(JSON.parse(store.get('tw.noticeBoard')).broadcasts).join() === 'c', '응답을 다시 저장한다');
-    b.env.fetches = 0; await b.feed.togglePin('c');
-    chk(b.env.writes.length === 1, '확정 뒤에는 고칠 수 있다');
-  }
-  {
-    const store = mkStore();
-    const a = mk(LIB, store); a.env.board = boardOf(['a']); a.feed.start(); await tick(); await tick();
-    store.code = 'uBBBBBBBB';
-    const b = mk(LIB, store); const g = defer(); b.env.gate = g;
-    b.feed.start(); await tick();
-    chk(!b.feed.ready() && b.feed.status() === 'loading' && Object.keys(b.feed.broadcasts()).length === 0, '다른 계정은 앞 계정 저장본을 보지 못한다(없으면 받는 중)');
-    g.release(); await tick(); await tick();
-    store.code = 'uAAAAAAAA';
-    const c = mk(LIB, store); c.env.gate = defer();
-    c.feed.start(); await tick();
-    chk(Object.keys(c.feed.broadcasts()).join() === 'a', '앞 계정으로 돌아오면 그 계정 저장본이 이어진다(B 의 응답이 A 칸을 덮지 않았다)');
-  }
-  for(const bad of ['{not json', '[]', 'null', '"x"', '{"broadcasts":[],"hasMore":false}', '{"broadcasts":{"a":{"title":"t"}},"hasMore":false}',
-    '{"broadcasts":{"a":{"tag":"notice","title":"t","body":"b","ts":"1","pinned":false,"version":1}},"hasMore":false}', '{"broadcasts":{},"hasMore":"no"}']){
-    const store = mkStore(); store.set('tw.noticeBoard', bad);
-    const { env, feed } = mk(LIB, store); env.gate = defer();
-    feed.start(); await tick();
-    chk(!feed.ready() && Object.keys(feed.broadcasts()).length === 0, '깨진 저장본은 무시 — ' + bad.slice(0, 40));
-  }
-  {
-    const store = mkStore(); store.code = null;
-    const { env, feed } = mk(LIB, store); env.board = boardOf(['a']);
-    feed.start(); await tick(); await tick();
-    chk(feed.confirmed() && Object.keys(store.cells).length === 0, '로그인 전(계정 코드 없음)에는 받아도 저장하지 않는다');
-  }
-  {
-    const store = mkStore(); store.set('tw.noticeBoard', JSON.stringify({ broadcasts: { a: note(false, 3) }, hasMore: false }));
-    const { env, feed } = mk(LIB, store); env.fail = new Error('x');
-    feed.start(); await tick(); await tick();
-    chk(feed.status() === 'error' && feed.ready() && !feed.confirmed() && Object.keys(feed.broadcasts()).join() === 'a', '못 받아도 저장본은 그대로 보인다(확정은 아님)');
+    chk(b.feed.confirmed() && Object.keys(b.feed.broadcasts()).join() === 'c', '응답이 오면 그 판');
+    const noCode = mkStore(); noCode.code = null;
+    const c = mk(LIB, noCode); c.env.board = boardOf(['a']);
+    c.feed.start(); await tick(); await tick();
+    chk(c.feed.confirmed() && Object.keys(c.feed.broadcasts()).join() === 'a', '로그인 전(계정 코드 없음)에도 받는다 — 공지는 계정과 무관');
+    const bad = mk(LIB, store); bad.env.fail = new Error('x');
+    bad.feed.start(); await tick(); await tick();
+    chk(bad.feed.status() === 'error' && !bad.feed.ready() && Object.keys(bad.feed.broadcasts()).length === 0, '못 받으면 못 받음 — 보여 줄 낡은 사본이 없다');
   }
 
   say('── 1-2. busy() — 지금 받는 중인가');
@@ -248,8 +216,9 @@ async function judge(S){
   say('── 5. 배선');
   {
     const A = strip(S.APP);
-    chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?store: accountStoreMod[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림 · 계정 칸을 넘겨 만든다');
-    chk(/ notice: \(\)=>noticeFeed\.start\(\),/.test(A) && !/whenNetReady\(\(\)=>noticeFeed\.start\(\)\)/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 계정 확인 뒤 app-boot 가 받고(만들 때 안 받음) · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
+    chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && !/createNoticeFeed\(\{[\s\S]*?store: accountStoreMod[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다(계정 칸 사본은 없다)');
+    chk(/^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(A) && !/ notice: \(\)=>noticeFeed\.start\(\),/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 켤 때(계정 확인을 기다리지 않고) 받고 · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
+    chk(!/ notice: \(\)=>noticeFeed\.start\(\),/.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')) && !/^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')), '  깨 보기 — 켤 때 받기를 빼면 빨강(로그인 전에 공지가 안 뜬다)');
     chk(!/isViewing|_mailboxVisible|retryDelay/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 안 넘기고 · 업데이트 공지 팝업은 onceReady 한 번');
     const B = strip(S.BANNER);
     chk(/noticeFeed\.onChange\(/.test(B) && !/localStorage\.setItem\(AD_BANNER_KEY/.test(B) && !/subscribeAdBanner/.test(B), '배너 — 공지 한 판이 바뀔 때 그린다 · 이 PC 사본(localStorage)을 안 남긴다');
@@ -282,15 +251,6 @@ async function runAll(){
     ['고정에 옛 판을 실음', F.replace("api.setPinned(id, m.version, !m.pinned)", "api.setPinned(id, 0, !m.pinned)"), '받은 판'],
     ['없는 id 도 보냄', F.replace("async function togglePin(id){\n    const m = board.broadcasts[id];\n    if(!everReady || !m) return false;", "async function togglePin(id){\n    const m = board.broadcasts[id] || { version: 0, pinned: false };"), '요청 0'],
     ['409 에 다시 안 받음', F.replace("if(r === 'conflict'){ await refresh(); notifyError('E-MH-12', null); return false; }", "if(r === 'conflict'){ notifyError('E-MH-12', null); return false; }"), '다시 받아'],
-    ['저장본을 안 그림', F.replace("if(saved){ board =", "if(false){ board ="), '저장본을 바로'],
-    ['저장본이 확정 취급', F.replace("confirmed: () => everReady", "confirmed: () => everReady || savedShown"), '고정 · 내리기는 요청 0'],
-    ['저장본 위에서 고침', F.replace("if(!everReady || !m) return false;   // 저장본의", "if(!m) return false;   // 저장본의"), '고정 · 내리기는 요청 0'],
-    ['응답을 저장본에 합침', F.replace("board = got; everReady", "board = Object.assign({}, got, { broadcasts: Object.assign({}, board.broadcasts, got.broadcasts) }); everReady"), '통째로'],
-    ['응답을 저장 안 함', F.replace("store.set(SAVED_KEY,", "void (SAVED_KEY,"), '다시 저장'],
-    ['계정 상관없이 한 칸', F.replace("store.get(SAVED_KEY)", "(store.cells ? store.cells['uAAAAAAAA|tw.noticeBoard'] : null)"), '다른 계정'],
-    ['깨진 저장본을 그림', F.replace("try{ o = JSON.parse(raw); }catch(_){ return null; }", "try{ o = JSON.parse(raw); }catch(_){ return { broadcasts: {}, hasMore: false }; }"), '깨진 저장본'],
-    ['모양 검사 없음', F.replace("return Object.values(o.broadcasts).every(isNote) ?", "return true ?"), '깨진 저장본'],
-    ['저장본이 새 소식 취급', F.replace("savedShown = true; emit([]);", "savedShown = true; emit(Object.keys(saved.broadcasts));"), '새 소식'],
     ['고정 실패에 다시 안 받음', F.replace("if(r === 'pinFailed'){ await refresh(); notifyError('E-MH-12', null); return false; }", "if(r === 'pinFailed'){ notifyError('E-MH-12', null); return false; }"), '올린 글은 보인다'],
   ];
   for(const [name, src, what] of breaks){

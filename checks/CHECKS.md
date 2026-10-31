@@ -279,7 +279,7 @@
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-mail-feed.js** | 323 | **1b05d4407db7** |
 | **sim-notice-api.js** | 159 | **39c7ae06eabd** |
-| **sim-notice-feed.js** | 306 | **e75195906621** |
+| **sim-notice-feed.js** | 266 | **2e8f44ac38b2** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
@@ -386,7 +386,7 @@
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 94 | **bf8fa1c1a4c5** |
 | **sim-nav.js** | 85 | **80768d997981** |
-| **sim-app-boot.js** | 139 | **343980ac8f5a** |
+| **sim-app-boot.js** | 144 | **393d931fed7c** |
 | **sim-net-ready.js** | 145 | **e7eb45ad9e77** |
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |

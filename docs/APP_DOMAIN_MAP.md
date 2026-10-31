@@ -149,7 +149,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `settings-panel.js` · `program-settings.js` | 설정 패널 · 캐릭터 탭 · 닉네임 · 프로그램 설정(회사원 · 피규어 모드) | fb 2 |
 | `desktop-run.js` | 데스크탑 실행 화면 — 업데이트 배너 · 활성 앱 · 전역 입력 · 클릭 통과 · 하트비트 | — |
 | `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` | 런처 타이틀바 · 함수키 · 광고 배너(공지 한 판에서 그림) · 게임 설정 구독 | fb 5 |
-| `app-boot.js` | 🚀 켜는 순서 한 곳 — 계정 확인 뒤 옛 값 옮기기 → realtime → 계정 기능 열다섯 시작(차례 표 `STEPS`). 사용법은 `launcher/README.md` | — |
+| `app-boot.js` | 🚀 켜는 순서 한 곳 — 계정 확인 뒤 옛 값 옮기기 → realtime → 계정 기능 열넷 시작(차례 표 `STEPS`). 사용법은 `launcher/README.md` | — |
 
 ## 11. 🐞 `support/` — 제보 · 신고 ✅ 옮김(폴더 2번)
 

@@ -21,7 +21,6 @@ const STEPS = [
   'chars',           // 🧬 캐릭터 보관함 동기
   'mhInit',          // 🏠 마이홈 시작(접속 표시 · 프로필 · 친구 · 요청 · 우편)
   'scheduler',       // 📅 일정 알림 받기
-  'notice',          // 📢 공지 받기
   'roomInvite',      // 🙋 방 초대 받기
   'desktopBg',       // 🖥️ 마이홈 바탕화면 배경 맞추기
   'playlist',        // 🎵 플레이리스트 받기

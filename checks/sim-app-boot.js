@@ -2,7 +2,7 @@
    실행:  node sim-app-boot.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 기능마다 «계정 확인 전 · 실패 · 나중에 확인» 을 버티는 장치가 서른 개 생겼고, 검토 때마다 다른 갈래로 같은 구멍이 나왔다
      (접속 고정이 지난 사본을 읽음 · 가입 필요인데 마이홈이 이미 씀 · 옛 값 옮기기가 확인 전에 엉뚱한 칸으로). 시작을 «들어간 뒤» 한 곳으로 모았으니 그 한 곳을 실제로 돌려 본다.
-   ・1절: 만들기만 하면 아무것도 안 부른다 · 차례 표(열다섯) 그대로 · «계정에 들어감» 알림(nav)에 begin 을 건다
+   ・1절: 만들기만 하면 아무것도 안 부른다 · 차례 표(열넷 — 공지는 계정과 무관해 표에 없다) 그대로 · «계정에 들어감» 알림(nav)에 begin 을 건다
    ・2절: 들어감 알림 — 옛 값 옮기기(그 코드) → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)
    ・3절: 알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정) 시작 0번 · 계정 없음(빈 me)도 0번
    ・4절: 두 번 부르면 두 번째는 무시(시작 한 번뿐) · 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다 · 표와 starts 가 어긋나면 만들 때 던진다
@@ -20,7 +20,7 @@ const MOD = read('launcher/app-boot.js'), HTML = read('desk-companion-prototype.
 if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 
 /* 정본 차례 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
-const ORDER = ['focusTotal', 'focusLevel', 'weeklyChal', 'gacha', 'slotSync', 'chars', 'mhInit', 'scheduler', 'notice', 'roomInvite', 'desktopBg', 'playlist', 'licenseVerify', 'licenseRequest', 'firstRun'];
+const ORDER = ['focusTotal', 'focusLevel', 'weeklyChal', 'gacha', 'slotSync', 'chars', 'mhInit', 'scheduler', 'roomInvite', 'desktopBg', 'playlist', 'licenseVerify', 'licenseRequest', 'firstRun'];
 
 function build(src, o) {
   o = o || {};
@@ -103,7 +103,11 @@ async function judge(src) {
     const rest = APP.replace(body, '');
     const starters = ['startFocusTotal', 'startFocusSync', 'startChalSync', 'startGachaSync', 'startSlotsSync', 'startCharsSync', 'startSchedule', 'startReceive', 'startBgSync', 'startLicenseVerify', 'startWatch'];
     chk(starters.every((n) => body.split(n + '(').length === 2) && starters.every((n) => !new RegExp('\\.' + n + '\\(').test(rest)), '  기능 시작은 app.js 에서 이 표 한 곳에서만 부른다(만든 자리에서 바로 부르지 않음)');
-    chk(!/accountStoreMod\.migrateLegacy\(getMyUserId\(\)\)/.test(APP) && !/mhInitMod\.initMyHome\(\);/.test(rest) && !/noticeFeed\.start\(\)/.test(rest) && !/plMod\.pull\(\)/.test(rest.replace(/plPull[^\n]*\n/g, '')), '  확인 전에 돌던 자리(옮기기 줄 · initMyHome · 공지 받기 · 플레이리스트 받기)가 app.js 에 남지 않았다');
+    /* 공지는 모두에게 같은 공용 데이터 — 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너) */
+    const noticeAtBoot = (ap, bodyTxt) => /^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(ap) && !/noticeFeed\.start\(\)/.test(bodyTxt);
+    chk(noticeAtBoot(APP, body), '공지 받기는 계정 확인을 기다리지 않는다 — 켤 때(firebase-ready) 시작하고 차례 표에는 없다');
+    chk(!noticeAtBoot(APP.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', ''), body) && !noticeAtBoot(APP, body + '\n notice: ()=>noticeFeed.start(),'), '  깨 보기 — 로그인 전에 공지 받기가 안 돌거나 다시 차례 표에 넣으면 빨강');
+    chk(!/accountStoreMod\.migrateLegacy\(getMyUserId\(\)\)/.test(APP) && !/mhInitMod\.initMyHome\(\);/.test(rest) && !/plMod\.pull\(\)/.test(rest.replace(/plPull[^\n]*\n/g, '')), '  확인 전에 돌던 자리(옮기기 줄 · initMyHome · 플레이리스트 받기)가 app.js 에 남지 않았다');
     const order = [...HTML.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map((x) => x[1]);
     chk(order.indexOf('launcher/app-boot.js') > 0 && order.indexOf('launcher/app-boot.js') < order.indexOf('app.js'), 'html — app-boot.js 를 app.js 보다 먼저 싣는다');
     chk(!SMOKE || /PRELOAD\.push\('app-boot\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 app-boot.js');
@@ -118,6 +122,7 @@ async function judge(src) {
     ['두 번 불러도 또 시작', (m) => m.replace("if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '')],
     ['한 칸이 던지면 다음 칸이 멈춤', (m) => m.replace("catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); }", 'catch(e){ throw e; }')],
     ['비동기로 깨져도 경고가 없음', (m) => m.replace(".catch((e)=>console.warn('[app-boot] ' + label + ' 실패', e))", '.catch(()=>{})')],
+    ['공지를 다시 차례 표에 넣음', (m) => m.replace("  'scheduler',", "  'notice',\n  'scheduler',")],
     ['표에서 한 기능을 뺌(chars)', (m) => m.replace("  'chars',           // 🧬 캐릭터 보관함 동기\n", '')],
     ['표에 있는 시작이 빠져도 통과', (m) => m.replace("    if(typeof starts[name] !== 'function') throw new Error('[app-boot] 시작 함수가 없어요: ' + name);", '')],
     ['계정이 없는 me 로도 시작', (m) => m.replace('if(!me || !me.userCode) return false;', '')],

@@ -2660,7 +2660,6 @@ const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/notices
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  store: accountStoreMod,   // 마지막으로 받은 소식 묶음 — 켜면 바로 그린다
 });
 noticeFeed.onChange((e)=>mhInitMod.onNewsChanged(e));
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
@@ -7301,7 +7300,8 @@ function _showUpdateNoticeOnce(notice){
   document.getElementById('updateNoticeCloseX').onclick = close;
 }
 noticeFeed.onceReady(_showUpdateNoticeOnce);   // 처음 받았을 때 한 번 — 못 받았으면 다음에 받을 때
-// 공지 받기는 계정 확인 뒤 app-boot 의 notice 차례(이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js)
+// 켤 때 공지를 받는다 — 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않는다(로그인 화면 위에도 업데이트 공지가 뜬다). 이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js
+TwNetReady.whenNetReady(()=>noticeFeed.start());
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.
@@ -9141,7 +9141,6 @@ const appBoot = TwAppBoot.createAppBoot({
     chars: ()=>charsMod.startCharsSync(),
     mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
     scheduler: ()=>mhScheduler.startSchedule(),
-    notice: ()=>noticeFeed.start(),
     roomInvite: ()=>roomInviteUi.startReceive(),
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: ()=>plMod.pull(),
