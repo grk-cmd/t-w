@@ -38,6 +38,7 @@
 | `E-FR-02` | 친구 요청을 거절하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [거절] |
 | `E-FR-03` | 보낸 친구 요청을 취소하지 못했어요 | `myhome/friend-manage.js` — 보낸 요청 [취소] |
 | `E-FR-04` | 선택한 친구 요청 일부를 처리하지 못했어요 | `myhome/friend-manage.js` — 받은 요청 일괄 수락 · 거절 |
+| `E-ACC-03` | 서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `account/license-gate.js` — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음) |
 | `E-MH-01` | 도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `myhome/help-tab.js` — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(`LOAD_MS`) |
 | `E-MH-02` | 배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요 | `myhome/mh-bg-url.js` — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만) |
 | `E-MH-03` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(서버 계정 `presencePref` — `PATCH /v1/me`) |

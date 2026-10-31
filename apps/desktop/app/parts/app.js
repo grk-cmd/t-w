@@ -5765,7 +5765,7 @@ const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
   setIsPremium: (v)=>{ isPremium = v; },
 });
-/* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 로컬 모드. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
+/* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
 const userApiMod = TwUserApi.store;   // 🪪 계정 provider(account/user-api.js) — 서버 user · invite 길 · 화면 문구
 TwVisitPing.createVisitPing({ callPing: ()=>userApiMod.visit(), win: window }).start();   // 📈 방문 기록 — 켤 때 한 번(로그인과 상관없이 · 실패는 삼킴)
 const loginFlowMod = TwLoginFlow.createLoginFlow({
@@ -5787,7 +5787,6 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   onSessionLost: ()=>deviceLostMod._onDeviceSessionLost(),
   forgetSession: ()=>TwApi.authed.forgetSession(),
   now: ()=>Date.now(),
-  onReachable: (fn)=>TwApi.authed.onReachable(fn),   // 서버가 답한 요청이 하나라도 있으면(로컬 모드에서 돌아오는 계기)
 });
 /* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기. 캐릭터 · 라이선스 단계는 D1 · D8 묶음이 채운다(그 전엔 기다림 — 지우기도 안 돈다). */
 const firstRunMod = TwFirstRun013.createFirstRun({
@@ -5808,7 +5807,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _enterAccount: (...a)=>accountMod._enterAccount(...a),
   _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),
-  plMarkUnreachable: (...a)=>plMod.markUnreachable(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   plPull: (...a)=>plMod.pull(...a),
   loginFlowMod: loginFlowMod,
   userApiMod: userApiMod,

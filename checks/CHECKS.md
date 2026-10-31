@@ -315,7 +315,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **514cfed75043** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
-| **sim-license-gate.js** | 252 | **95600d56ecfb** |
+| **sim-license-gate.js** | 270 | **6979240425bb** |
 | **sim-account.js** | 174 | **7ae6cd2b9499** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **910c263320d1** |
@@ -354,7 +354,7 @@
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 150 | **51230ffd9ffb** |
+| **sim-device-lost.js** | 150 | **4741587d1de1** |
 | **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
 | **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
 | **sim-inbox-sections.js** | 134 | **7562fc1e8229** |
@@ -447,7 +447,7 @@
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
-| **sim-login-flow.js** | 390 | **5f5dd537a30e** |
+| **sim-login-flow.js** | 346 | **a8b8084f8d75** |
 | **sim-first-run-013.js** | 141 | **14d1b0e813d8** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |

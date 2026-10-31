@@ -38,6 +38,7 @@ const CODES = {
   'E-FR-04': { msg: '선택한 친구 요청 일부를 처리하지 못했어요', where: 'myhome/friend-manage.js — 받은 요청 일괄 수락 · 거절' },
   'E-ACC-01': { msg: '닉네임을 저장하지 못했어요 — 다시 해 주세요', where: 'account/user-name.js — 닉네임 저장 뒤 서버 계정 이름(PATCH /v1/me — login-flow patchMe) 실패' },
   'E-ACC-02': { msg: '비밀번호를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'account/account.js — 비밀번호 바꾸기 · 탈퇴 · 붙이기 전 «비밀번호 확인» 창에서 너무 많이 틀림(too-many-requests) · 네트워크 실패(틀린 비밀번호는 창 안에 알림)' },
+  'E-ACC-03': { msg: '서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'account/license-gate.js — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음)' },
   'E-MH-01': { msg: '도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'myhome/help-tab.js — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(LOAD_MS)' },
   'E-MH-02': { msg: '배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요', where: 'myhome/mh-bg-url.js — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만)' },
   'E-MH-03': { msg: '온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요', where: 'myhome/presence-lock.js — 🔒 고정 · 고정 중 토글 저장(서버 계정 presencePref — PATCH /v1/me)' },

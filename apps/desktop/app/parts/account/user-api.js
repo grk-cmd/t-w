@@ -9,7 +9,7 @@
 'use strict';
 
 const WITHDRAW_CONFIRM = '탈퇴';   // 서버 UserRequest.Withdrawal — 확인 글자(같아야 한다)
-const ME_TIMEOUT_MS = 8000;        // 켤 때 «이 로그인의 계정» 묻기 — 읽기 기본(2.5초)보다 넉넉히(로컬 모드로 떨어지는 문턱)
+const ME_TIMEOUT_MS = 8000;        // 켤 때 «이 로그인의 계정» 묻기 — 읽기 기본(2.5초)보다 넉넉히(서버에 닿지 못함으로 보는 문턱)
 const INVITE_RE = /^[A-Za-z0-9-]{4,32}$/;   // 입력칸 모양만 거른다(진짜 판정은 서버) — 경로에 실을 수 있는 글자만
 
 /* 서버 code → 화면 한 줄. 서버 message 로 가르지 않는다(code 가 계약). */

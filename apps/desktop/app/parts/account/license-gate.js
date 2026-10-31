@@ -16,7 +16,7 @@ const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;   // 읽는 함수
 const _loginDoFriendCode = deps._loginDoFriendCode;
 const _loginDoGoogle = deps._loginDoGoogle;
 const _enterAccount = deps._enterAccount;   // 서버 계정으로 이 PC 맞추기(account.js) → { ok, switched }
-const plMarkUnreachable = deps.plMarkUnreachable;   // 🎵 로컬 모드로 들어갈 때 — 플레이리스트를 「못 불러왔어요」 로(요청 없음)
+const notifyError = deps.notifyError;   // 번호 토스트(error-codes.js)
 const plPull = deps.plPull;   // 🎵 서버 계정이 확인된 뒤 플레이리스트 받기 한 번(playlist.js)
 const _wipeAccountLocal = deps._wipeAccountLocal;   // 이 PC 계정 몫 지우기(account.js)
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 켤 때 판정 · 가입 · realtime · 로컬 모드
@@ -49,43 +49,59 @@ const INVITE_GRANT_MAX = 3;                 // 관리자가 한 번에 지급할
 
 /* ═══ 🔑 켤 때 — 로그인 · 서버 가입 확인 (0.13 — login-flow.js 판정 · 설계 03-auth 3-3-1) ═══
    in     → 이 PC 를 서버 계정에 맞춘다(_enterAccount). uid 가 바뀌었으면 다시 켠다 · 아니면 realtime 켜기 · 0.13 첫 실행.
-   local  → 서버에 닿지 못함 · 점검 — 이 PC 에 계정이 있으면 로컬 모드로 들어가고 뒤에서 다시 묻는다(돌아오면 위와 같이).
-            계정이 없는 PC(처음 켠 PC)는 로그인할 수 없으니 게이트(로그인 버튼이 연결 안내를 낸다).
+   local  → 서버에 닿지 못함 · 점검 — «서버에 연결할 수 없어요» 화면(로컬 모드 없음 · 서버가 원본). [다시 시도] · realtime ready 가 계정을 다시 묻고, 닿으면 위와 같이.
    signup → 로그인은 됐는데 서버에 계정이 없다(가입 전 · 탈퇴 · 관리자가 지움) — 이 PC 계정 몫을 지우고 게이트.
    login  → 게이트(초대 코드 · 구글 · 친구 코드 로그인). 로그인 없이 쓰는 길은 없다(ADR-0006). */
 async function checkInviteGate(){
-  const c = await loginFlowMod.confirm();
+  return await _afterConfirm(await loginFlowMod.confirm());
+}
+async function _afterConfirm(c){
   if(c.state === 'in'){
     const r = _enterAccount(c.me, loginFlowMod.identity());
     if(r.ok && r.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return true; }
     if(r.ok){ _goOnline(); return true; }
     return await _showInviteGate();
   }
-  if(c.state === 'local'){
-    if(getMyUserId()){ plMarkUnreachable(); loginFlowMod.enterLocal(_backOnline); try{ toast('🔌 서버에 닿지 못해 이 PC 기능만 쓸 수 있어요 — 연결되면 이어서 해요'); }catch(_){} return true; }
-    return await _showInviteGate();
-  }
+  if(c.state === 'local') return await _showOfflineGate();   // 서버에 닿지 못하면 로컬 모드 없이 막는다(서버가 원본)
   if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();   // 서버에 이 계정이 없다 — 이 PC 계정 몫을 지운다(로그인은 게이트에서 다시)
   return await _showInviteGate();
 }
-/* 서버 계정이 맞춰진 뒤 — realtime 켜기(이 기기가 지금 기기) · 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) */
+/* 서버 계정이 맞춰진 뒤 — realtime 켜기(이 기기가 지금 기기) · 플레이리스트 받기 · 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) */
 function _goOnline(){
   loginFlowMod.goOnline();
   plPull();
   firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e));
 }
-/* 로컬 모드에서 서버가 다시 답했을 때(login-flow enterLocal 의 onBack) */
-function _backOnline(r){
-  if(r.state === 'in'){
-    const e = _enterAccount(r.me, loginFlowMod.identity());
-    if(e.ok && e.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return; }
-    plPull();
-    firstRunMod.run().catch((x)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', x));
-    try{ toast('🔌 서버에 다시 연결됐어요'); }catch(_){}
-    return;
-  }
-  if(r.state === 'signup'){ _wipeAccountLocal(); _relaunchSoon('🔑 이 계정을 서버에서 찾지 못했어요 — 앱을 다시 시작하는 중이에요…'); return; }
-  try{ toast('🔑 로그인이 풀렸어요 — 앱을 다시 시작하면 로그인 화면이 나와요'); }catch(_){}
+/* 🔌 서버에 연결할 수 없어요 — 같은 오버레이의 카드. [다시 시도] 를 누르거나 realtime 이 다시 붙으면(ready) 계정을 한 번 다시 묻는다(타이머 없음).
+   누른 [다시 시도] 가 또 닿지 못하면 오류 번호 E-ACC-03 한 번 · 화면은 그대로. 닿으면 평소 켜기 차례로 간다. */
+function _showOfflineGate(){
+  return new Promise(resolve=>{
+    const ov = document.getElementById('inviteGateOverlay');
+    const card = document.getElementById('offlineCard');
+    const btn = document.getElementById('offlineRetry');
+    const msg = document.getElementById('offlineMsg');
+    const hCard = document.getElementById('inviteGateCard'), aCard = document.getElementById('signupCard');
+    if(!ov || !card || !btn){ resolve(false); return; }   // 마크업이 없으면 못 들어간다
+    if(hCard) hCard.style.display = 'none';
+    if(aCard) aCard.style.display = 'none';
+    card.style.display = 'block';
+    ov.style.display = 'flex';
+    const say = (t)=>{ if(!msg) return; msg.textContent = t || ''; msg.style.display = t ? 'block' : 'none'; };
+    loginFlowMod.waitForServer((c)=>{
+      card.style.display = 'none'; ov.style.display = 'none'; if(hCard) hCard.style.display = '';
+      _afterConfirm(c).then(resolve, ()=>resolve(false));
+    });
+    btn.onclick = async ()=>{
+      btn.disabled = true; say('');
+      let r = null;
+      try{ r = await loginFlowMod.retryNow(); }catch(_){ r = null; }
+      btn.disabled = false;
+      if(r && r.state === 'local'){
+        say(r.limited ? '요청이 많아요 — 잠시 뒤 다시 눌러 주세요' : '아직 연결되지 않았어요');
+        notifyError('E-ACC-03', r.reason);
+      }
+    };
+  });
 }
 function _relaunchSoon(text){
   try{ toast(text); }catch(_){}

@@ -1,9 +1,9 @@
 /* sim-login-flow.js — 🔑 로그인 흐름(account/login-flow.js) 검사 — 가짜 서버(user-api 자리) · 가짜 Auth · 가짜 realtime · 가짜 시계로 그대로 돌린다
    진짜로 쓰는 것: api-errors.js(오류 → 할 일) · request-id.js(같은 일 다시 보내기 번호) · user-api.js(문구 표)
    ・1절: 판정 — 로그인 없음 · 익명은 login · 계정 있으면 in(사본은 로그인과 묶어 적음) · 가입 전은 signup(사본 지움) ·
-          닿지 못함은 local(같은 로그인의 마지막 사본 · 남의 사본은 안 읽음) · 토큰 끝남은 login · 모양이 틀린 답은 local
-   ・2절: realtime — goOnline 은 claim 으로 한 번 · 밀려나면 onSessionLost · «여기서 계속» 은 다시 claim
-   ・3절: 로컬 모드 — 15 · 30초 … 다시 묻고 · 서버가 답하면 realtime 켜고 알림 · 그 전엔 안 켬
+          닿지 못함은 local(me 는 늘 null — 로컬 모드 없음) · 토큰 끝남은 login · 모양이 틀린 답은 local
+   ・2절: realtime — goOnline 은 claim 으로 한 번 · 밀려나면 onSessionLost
+   ・3절: 서버에 닿지 못한 화면 — waitForServer(claim 으로 realtime) · ready 신호 / retryNow 가 한 번 묻고 · 닿으면 알림 한 번(같은 연결 유지) · 타이머 없음 · 429 는 limited
    ・4절: 로그인 — 구글 창 닫음은 조용히 · Auth 실패 문구 · 계정 있음 · 가입 전 · 친구코드 로그인에서 계정이 없으면 로그인을 놓음
    ・5절: 가입 — 비밀번호: 닿지 못해 다시 누르면 같은 요청 번호 · 서버가 거절하면 새 번호 · 비밀번호를 바꾸면 새 번호 · 받은 친구코드로 로그인 ·
           로그인을 못 하면 joined(번호 유지) · 구글: 이미 계정 · 가입 전이면 초대 코드로 가입 · 이미 가입(USER_ALREADY_JOINED)은 그 계정
@@ -57,7 +57,7 @@ function mkEnv(S, o){
     signInPassword: async (code, pw) => { authLog.push('p:' + code + ':' + pw); if(opt.pFail && opt.pFail()) return { ok: false, reason: '비번 틀림' }; user = { uid: opt.pUid || 'auth1', anonymous: false }; return { ok: true }; },
     signOut: async () => { authLog.push('out'); user = null; },
   };
-  const rtLog = []; let stateFn = null, reachFn = null;
+  const rtLog = []; let stateFn = null;
   /* 서버 규칙 흉내(realtime SessionTable admit) — 다른 기기가 지금 세션이면 claim 없는 hello 는 4004(sessionLost), claim 이면 ready */
   const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn(x && x.claim === true ? 'ready' : 'sessionLost'); }, stop: () => rtLog.push('stop'), onState: (fn) => { stateFn = fn; return () => {}; } };
   let lost = 0;
@@ -66,14 +66,14 @@ function mkEnv(S, o){
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
     rt, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
-    now: () => clock.t, onReachable: (fn) => { reachFn = fn; return () => {}; },
+    now: () => clock.t,
   });
   const advance = async (ms) => {
     const end = clock.t + ms;
     for(;;){ await tick(); clock.q.sort((a, b) => a.at - b.at); const h = clock.q[0]; if(!h || h.at > end) break; clock.t = h.at; clock.q.shift(); h.fn(); }
     clock.t = end; await tick();
   };
-  return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, fireState: (s) => stateFn && stateFn(s), reach: () => reachFn && reachFn(),
+  return { LF, flow, srv, store, storage, authLog, rtLog, log, clock, advance, lost: () => lost, fireState: (s) => stateFn && stateFn(s),
     setUser: (u) => { user = u; } };
 }
 
@@ -96,14 +96,17 @@ async function judge(S){
     await e3.flow.confirm();
     e3.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
     const r3 = await e3.flow.confirm();
-    chk(r3.state === 'local' && r3.me && r3.me.userCode === 'u1234567890' && /연결/.test(r3.reason), '닿지 못함 → local · 같은 로그인의 마지막 사본');
+    chk(r3.state === 'local' && r3.me === null && /연결/.test(r3.reason) && r3.limited === false, '닿지 못함 → local · me 없음(마지막 사본을 주지 않는다)');
     e3.setUser({ uid: 'auth2', anonymous: false });
     const r4 = await e3.flow.confirm();
-    chk(r4.state === 'local' && r4.me === null, '  ↳ 다른 로그인의 사본은 읽지 않는다');
+    chk(r4.state === 'local' && r4.me === null, '  ↳ 로그인이 바뀌어도 사본을 주지 않는다');
     e3.srv.me = () => { throw apiErr('unavailable', 'SERVER_ADMIN_ONLY'); };
-    chk((await e3.flow.confirm()).state === 'local', '  ↳ 점검(503 SERVER_ADMIN_ONLY)도 로컬 모드');
+    chk((await e3.flow.confirm()).state === 'local', '  ↳ 점검(503 SERVER_ADMIN_ONLY)도 local');
     e3.srv.me = () => { throw apiErr('auth', 'AUTH_REQUIRED'); };
     chk((await e3.flow.confirm()).state === 'login', '토큰이 끝남(AUTH_REQUIRED) → login');
+    e3.srv.me = () => { throw Object.assign(apiErr('request', 'TOO_MANY_REQUESTS'), { status: 429 }); };
+    const r429 = await e3.flow.confirm();
+    chk(r429.state === 'local' && r429.limited === true, '  ↳ 429 는 local · limited(화면이 문구로 알린다)');
     e3.srv.me = () => null;
     chk((await e3.flow.confirm()).state === 'local', '모양이 틀린 답 → local(믿지 않음)');
   }
@@ -139,87 +142,46 @@ async function judge(S){
     chk(e.lost() === 1, '밀려나면(4004) onSessionLost');
   }
 
-  say('── 3. 로컬 모드');
+  say('── 3. 서버에 닿지 못한 화면 (waitForServer · retryNow)');
   {
     const e = mkEnv(S);
     e.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
     const back = [];
-    e.flow.enterLocal((r) => back.push(r.state));
-    chk(e.flow.mode() === 'local' && e.rtLog.join() === 'start:{"claim":true}', 'mode local · realtime 을 claim 으로 켜 둠(앱을 켠 것 — 다시 붙는 신호를 받으려고)');
+    e.flow.waitForServer((r) => back.push(r.state));
+    chk(e.rtLog.join() === 'start:{"claim":true}' && e.log.length === 0, 'realtime 을 claim 으로 켜 둔다(앱을 켠 것 — 다시 붙는 신호를 받으려고) · 요청 0');
     await e.advance(3600000);
     chk(e.log.length === 0 && back.length === 0, '★ 시간이 아무리 지나도 혼자 묻지 않는다(타이머 없음)');
     e.fireState('retrying'); e.fireState('connecting'); await tick(); await tick();
     chk(e.log.length === 0, '  ↳ ready 가 아닌 상태 신호로는 묻지 않는다');
-    e.fireState('ready'); await tick();
-    chk(e.log.length === 1 && back.length === 0 && e.rtLog.length === 1, '서버가 다시 붙었다는 신호(ready) → 한 번 묻는다 · 아직 닿지 않으면 그대로(알림 없음 · 연결 그대로)');
+    e.fireState('ready'); await tick(); await tick();
+    chk(e.log.length === 1 && back.length === 0 && e.rtLog.length === 1, '★ ready 신호 → 한 번 묻는다 · 아직 닿지 않으면 그대로(알림 없음 · 연결 그대로)');
     let release; e.srv.me = () => new Promise((r) => { release = r; });
-    e.fireState('ready'); e.fireState('ready'); await tick();
-    chk(e.log.length === 2, '  ↳ 신호가 겹쳐도 묻는 중이면 한 번');
-    release(ME(2)); await tick(); await tick();
-    chk(back.join() === 'in' && e.rtLog.join() === 'start:{"claim":true}' && e.flow.mode() === 'in', '서버가 답하면 알림 한 번 · 이미 claim 한 연결을 그대로 쓴다(끄지도 다시 켜지도 않음)');
+    const p1 = e.flow.retryNow(); const p2 = e.flow.retryNow(); e.fireState('ready'); await tick();
+    chk((await p2) === null && e.log.length === 2, '  ↳ 묻는 중에 또 눌러도 · ready 가 와도 한 번');
+    release(ME(2)); const r1 = await p1; await tick();
+    chk(r1.state === 'in' && back.join() === 'in' && e.rtLog.join() === 'start:{"claim":true}' && e.flow.mode() === 'in', '★ 닿으면 알림 한 번 · 이미 claim 한 연결을 그대로 쓴다(끄지도 다시 켜지도 않음)');
     e.fireState('ready'); await tick();
-    chk(e.log.length === 2, '  ↳ 그 뒤 ready 로는 묻지 않는다(로컬 모드가 아님)');
-    {
-      const r = mkEnv(S);
-      r.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
-      const bk = []; r.flow.enterLocal((x) => bk.push(x.state));
-      r.reach(); await tick(); await tick();
-      chk(r.log.length === 1 && bk.length === 0, '★ 로컬 모드 — 서버가 답한 요청이 하나 있으면 계정을 한 번 묻는다 · 아직 닿지 않으면 그대로(되풀이 없음)');
-      let rel; r.srv.me = () => new Promise((q) => { rel = q; });
-      r.reach(); await tick();
-      chk(r.log.length === 1, '★ 마지막으로 물은 뒤 30초 안의 성공 신호는 무시한다(요청은 흔하다)');
-      await r.advance(30000);
-      r.reach(); r.reach(); r.reach(); await tick();
-      chk(r.log.length === 2, '  ↳ 성공 신호가 여러 개 겹쳐도 묻는 중이면 한 번');
-      rel(ME(2)); await tick(); await tick();
-      chk(bk.join() === 'in' && r.rtLog.join() === 'start:{"claim":true}', '  ↳ in 이면 돌아옴 알림 한 번 · realtime 은 그대로');
-      r.reach(); await tick();
-      chk(r.log.length === 2, '  ↳ in 상태에서 성공 신호는 묻지 않는다');
-      const q = mkEnv(S);
-      q.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
-      const bq = []; q.flow.enterLocal((x) => bq.push(x.state));
-      q.fireState('ready'); await tick(); await tick();
-      q.fireState('ready'); await tick(); await tick();
-      chk(q.log.length === 2, '  ↳ ready 신호에는 30초 문턱이 없다(연결이 새로 붙는 것은 드물고 확실한 신호)');
-      await q.advance(30000);
-      q.srv.me = () => ME(2); q.reach(); await tick(); await tick();
-      chk(q.log.length === 3 && bq.join() === 'in', '  ↳ realtime 이 먼저 ready 로 와서 아직 local 이었어도, 나중에 요청 성공 신호로 돌아온다');
-      q.flow.enterLocal(() => {});
-      const lim = mkEnv(S);
-      lim.srv.me = () => { throw Object.assign(apiErr('request', 'TOO_MANY_REQUESTS'), { status: 429, retryAfterMs: 90000 }); };
-      lim.flow.enterLocal(() => {});
-      lim.reach(); await tick(); await tick();
-      lim.srv.me = () => ME(2);
-      await lim.advance(31000); lim.reach(); await tick();
-      chk(lim.log.length === 1, '★ 서버가 429(천천히)라고 하면 retryAfter 동안은 30초가 지나도 무시한다');
-      lim.fireState('ready'); await tick();
-      chk(lim.log.length === 1, '  ↳ ready 신호도 그 동안은 묻지 않는다');
-      await lim.advance(60000); lim.reach(); await tick(); await tick();
-      chk(lim.log.length === 2 && lim.flow.mode() === 'in', '  ↳ retryAfter 가 지나면 다시 묻는다(타이머 없이 신호가 올 때 시각만 비교)');
-      const lim2 = mkEnv(S);
-      lim2.srv.me = () => { throw Object.assign(apiErr('request', 'TOO_MANY_REQUESTS'), { status: 429 }); };
-      lim2.flow.enterLocal(() => {}); lim2.reach(); await tick(); await tick();
-      lim2.srv.me = () => ME(2); await lim2.advance(29000); lim2.fireState('ready'); await tick();
-      chk(lim2.log.length === 1, '  ↳ retryAfter 가 없으면 30초 상수만큼 쉰다');
-      const z = mkEnv(S);
-      z.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
-      const bz = []; z.flow.enterLocal((x) => bz.push(x.state));
-      z.fireState('sessionLost'); z.srv.me = () => ME(2); z.reach(); await tick(); await tick();
-      chk(z.lost() === 1 && bz.join() === 'in', '  ↳ 로컬 모드 중 4004(다른 PC 가 나중에 claim)는 진짜 밀려남이라 화면에 알린다 · 그래도 요청 성공 신호로 돌아온다');
-    }
-    const e2 = mkEnv(S);
-    e2.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
-    e2.flow.enterLocal(() => {});
-    e2.fireState('sessionLost');
-    chk(e2.lost() === 1, '  ↳ 로컬 모드의 밀려남(4004)도 화면에 알린다 — 알리지 않으면 되돌아와도 연결이 죽은 채 조용하다');
-    const st = mkEnv(S, { otherSession: true });
-    st.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
-    const bs = []; st.flow.enterLocal((x) => bs.push(x.state)); await tick();
-    chk(st.lost() === 0 && st.log.length === 1, '★ 다른 기기가 지금 세션이어도(서버 규칙: claim 없는 hello 는 4004) claim 으로 켜므로 ready 가 와서 계정을 묻는다');
-    const e3 = mkEnv(S);
-    e3.srv.me = () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); };
-    const b3 = []; e3.flow.enterLocal((r) => b3.push(r.state)); e3.fireState('ready'); await tick(); await tick();
-    chk(b3.join() === 'signup' && e3.rtLog.join() === 'start:{"claim":true},stop', '  ↳ 돌아와 보니 계정이 없으면(signup) 알리고 로컬 연결을 끈다');
+    chk(e.log.length === 2, '  ↳ 그 뒤 ready 로는 묻지 않는다(기다리는 화면이 아님)');
+    const f = mkEnv(S);
+    f.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+    const bf = []; f.flow.waitForServer((r) => bf.push(r.state));
+    const rf = await f.flow.retryNow();
+    chk(rf.state === 'local' && bf.length === 0 && f.log.length === 1, '★ 「다시 시도」 가 또 닿지 못하면 결과(local)를 돌려준다 — 화면이 오류 번호를 한 번 띄운다 · 기다림은 그대로');
+    f.srv.me = () => { throw Object.assign(apiErr('request', 'TOO_MANY_REQUESTS'), { status: 429 }); };
+    chk((await f.flow.retryNow()).limited === true, '  ↳ 429 면 limited(문구로)');
+    const s1 = mkEnv(S, { otherSession: true });
+    s1.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+    s1.flow.waitForServer(() => {}); await tick();
+    chk(s1.lost() === 0 && s1.log.length === 1, '★ 다른 기기가 지금 세션이어도(서버 규칙: claim 없는 hello 는 4004) claim 으로 켜므로 ready 가 와서 계정을 묻는다');
+    const g = mkEnv(S);
+    g.srv.me = () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); };
+    const bg = []; g.flow.waitForServer((r) => bg.push(r.state));
+    g.fireState('ready'); await tick(); await tick();
+    chk(bg.join() === 'signup' && g.rtLog.join() === 'start:{"claim":true},stop', '  ↳ 돌아와 보니 계정이 없으면(signup) 알리고 켜 둔 연결을 끈다');
+    const h = mkEnv(S);
+    h.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+    h.flow.waitForServer(() => {}); h.fireState('sessionLost');
+    chk(h.lost() === 1, '  ↳ 밀려남(4004)은 늘 화면에 알린다(계정 확인 전이라고 따로 가르지 않는다)');
   }
 
   say('── 4. 로그인');
@@ -345,21 +307,15 @@ const BREAKS = [
   ['LF', "      if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }", "      if(t.action === 'signup'){ return { state: STATE.SIGNUP, me: null }; }", '탈퇴한 계정 사본을 남김'],
   ['LF', "      if(t.action === 'login') return { state: STATE.LOGIN, me: null, reason: deps.reasonOf(e) };", "", '끝난 토큰을 로컬 모드로'],
   ['LF', "    if(online) return;\n    online = true;", "", 'realtime 을 두 번 켬'],
-  ['LF', "      if(s === RT_SESSION_LOST){ if(mode !== 'off') deps.onSessionLost(); }", "      if(false){ }", '밀려남을 화면에 안 알림'],
-  ['LF', "      if(s === RT_SESSION_LOST){ if(mode !== 'off') deps.onSessionLost(); }", "      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }", '로컬 모드의 밀려남은 화면에 안 알림'],
-  ['LF', "      else if(s === RT_READY) onServerSign(false);", "      else onServerSign(false);", 'ready 아닌 신호에도 묻음'],
-  ['LF', "      else if(s === RT_READY) onServerSign(false);", "", 'realtime ready 신호가 와도 안 물음'],
-  ['LF', "    if(viaRequest && t - lastAskAt < LOCAL_RECHECK_MIN_MS) return;", "", '요청 성공 신호에 30초 문턱이 없음'],
-  ['LF', "    if(viaRequest && t - lastAskAt < LOCAL_RECHECK_MIN_MS) return;", "    if(t - lastAskAt < LOCAL_RECHECK_MIN_MS) return;", 'ready 신호에도 30초 문턱'],
-  ['LF', "    if(t < holdUntil) return; ", "    if(false) return; ", '429 로 쉬라는데도 물음'],
-  ['LF', "(e.retryAfterMs || LOCAL_RECHECK_MIN_MS)", "0", '429 에 retryAfter 가 없으면 안 쉼'],
-  ['LF', "    deps.onReachable(() => onServerSign(true));\n", "", '요청 성공 신호로는 안 물음'],
-  ['LF', "    if(mode !== 'local') return;\n    const t = now();", "    const t = now();", '로컬 모드가 아닐 때도 물음'],
-  ['LF', "    if(localChecking) return;   // 신호가 겹쳐도 한 번\n", "", '신호가 겹치면 여러 번 물음'],
-  ['LF', "    if(r.state === STATE.IN) goOnline();\n    else if(rtLocal)", "    if(false) goOnline();\n    else if(rtLocal)", '돌아와도 realtime 안 켬'],
-  ['LF', "    if(!online){ online = true; rtLocal = true; deps.rt.start({ claim: true }); }", "", '로컬 모드에서 realtime 을 안 켬(신호가 안 옴)'],
-  ['LF', "    if(!online){ online = true; rtLocal = true; deps.rt.start({ claim: true }); }", "    if(!online){ online = true; rtLocal = true; deps.rt.start({ claim: false }); }", '로컬 모드 연결을 claim 없이 켬(다른 기기 세션이면 4004)'],
-  ['LF', "    else if(rtLocal){ rtLocal = false; online = false; try{ deps.rt.stop(); }catch(_){} }", "", '계정이 없는데 켜 둔 연결을 안 끔'],
+  ['LF', "      if(s === RT_SESSION_LOST) deps.onSessionLost();", "      if(false){ }", '밀려남을 화면에 안 알림'],
+  ['LF', "      else if(s === RT_READY && waitBack) retryNow();", "      else if(waitBack) retryNow();", 'ready 아닌 신호에도 묻음'],
+  ['LF', "      else if(s === RT_READY && waitBack) retryNow();", "", 'realtime ready 신호가 와도 안 물음'],
+  ['LF', "    if(checking) return null;\n", "", '묻는 중에 또 물음'],
+  ['LF', "    if(r.state === STATE.IN) goOnline();\n    else if(rtWait)", "    if(false) goOnline();\n    else if(rtWait)", '닿아도 realtime 안 켬'],
+  ['LF', "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }", "", '기다리는 동안 realtime 을 안 켬(신호가 안 옴)'],
+  ['LF', "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: true }); }", "    if(!online){ online = true; rtWait = true; deps.rt.start({ claim: false }); }", '기다리는 연결을 claim 없이 켬(다른 기기 세션이면 4004)'],
+  ['LF', "    else if(rtWait){ rtWait = false; online = false; try{ deps.rt.stop(); }catch(_){} }", "", '계정이 없는데 켜 둔 연결을 안 끔'],
+  ['LF', "limited: !!(e && e.status === 429)", "limited: false", '429 를 못 알림'],
   ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup){ try{ await auth.signOut(); }catch(_){} }", "", '가입 전 구글 로그인을 남김'],
   ['LF', "      await dropLogin();\n      return { ok: false, reason: deps.reasonOf(e)", "      return { ok: false, reason: deps.reasonOf(e)", '거절된 구글 가입의 로그인을 남김'],
   ['LF', "      if(e && e.kind !== 'unavailable') deps.pending.settle(key);", "      deps.pending.settle(key);", '닿지 못한 가입을 새 요청으로(두 계정)'],

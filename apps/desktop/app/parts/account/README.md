@@ -13,14 +13,14 @@
 - 검사: `checks/sim-user-api.js`(진짜 api-client 위에서 · 깨 보기).
 
 ## login-flow.js — 로그인 흐름(classic script `window.TwLoginFlow`)
-- 책임: 로그인(Auth) → 서버 가입 확인(`GET /v1/me`) → realtime 켜기(`TwRtHub.store.start({claim:true})`) · 로컬 모드 · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
+- 책임: 로그인(Auth) → 서버 가입 확인(`GET /v1/me`) → realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm()` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검).
 - deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · signInGoogle · signInPassword · signOut) ·
-  `googleWindow`(main 의 구글 창) · `rt`(rt-hub) · `pending`(request-id createPending) · `storage` · `onSessionLost` · `now` · `onReachable`(TwApi.authed 의 «서버가 답했다» 알림).
-- 내놓는 것: `confirm` · `goOnline` · `enterLocal(onBack)`(로컬 모드 — realtime 을 claim 없이 켜 두고, ready 신호 또는 서버가 답한 아무 API 요청(`onReachable`)이 오면 한 번 다시 묻는다 · 타이머 없음) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
+  `googleWindow`(main 의 구글 창) · `rt`(rt-hub) · `pending`(request-id createPending) · `storage` · `onSessionLost` · `now`.
+- 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 `claim:true` 로 켜 두고 ready 신호 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
   `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout` · `meCache` · `premiumNow`(마지막 답 + `premiumGraceSec` — D8 이 쓴다) · `mode`.
 - 함정:
-  - realtime 은 서버가 계정을 돌려준 뒤(`goOnline`) 켜는 것이 기본이다 — 가입 전 토큰으로 hello 하면 서버가 끊는다. 예외는 로컬 모드: 계정이 확인된 로그인이라 `enterLocal` 이 `claim:true` 로 켜 두고(claim 없으면 다른 기기 세션 때문에 4004 로 끊긴다) ready 신호를 계정 다시 묻기에 쓴다. 계정이 없거나 로그인이 풀린 것으로 드러나면 끈다.
+  - realtime 은 서버가 계정을 돌려준 뒤(`goOnline`) 켜는 것이 기본이다 — 가입 전 토큰으로 hello 하면 서버가 끊는다. 예외는 서버에 닿지 못한 화면: `waitForServer` 가 `claim:true` 로 켜 두고(claim 없으면 다른 기기 세션 때문에 4004 로 끊긴다) ready 신호를 계정 다시 묻기에 쓴다. 계정이 없거나 로그인이 풀린 것으로 드러나면 끈다.
   - 비밀번호 가입은 답을 못 받아 다시 누르면 같은 요청 번호 — 비밀번호를 바꾸면 새 번호(같은 번호면 첫 비밀번호의 계정이 돌아온다).
   - 이 PC 계정 몫 지우기 · 다시 켜기는 부르는 쪽(account.js) 몫 — 여기는 화면 · 저장 키 목록을 모른다.
 - 검사: `checks/sim-login-flow.js`.
