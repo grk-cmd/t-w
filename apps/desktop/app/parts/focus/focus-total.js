@@ -13,6 +13,7 @@
 
 function createFocusTotal(deps){
 
+const focusTotalStore = deps.focusTotalStore;   // 🗂️ 누적 세 칸은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 다른 칸이 열린다
 const FOCUS_TOTAL_KEY='tw.focusTotalSec', FOCUS_TODAY_SEC_KEY='tw.focusTodaySec', FOCUS_TODAY_DATE_KEY='tw.focusTodayDate';
 const FOCUS_LEVEL_CAP_HOURS=999;
 /* 🔁 누적 상한과 레벨 상한을 가른다 (2026-09-18) ────────────────────────────
@@ -57,18 +58,18 @@ function _focusDayStr(when){ const d=_dayShifted(when); return d.getFullYear()+'
    ⚠️ 조건이 좁다 — 앞으로는 저장 날짜가 늘 새 기준이라 이 분기에 다시 들어오지 않는다. */
 function _focusMigrateDayKey(){
   try{
-    const saved = localStorage.getItem(FOCUS_TODAY_DATE_KEY);
+    const saved = focusTotalStore.get(FOCUS_TODAY_DATE_KEY);
     if(!saved || saved === _focusDayStr()) return;
     if(new Date().getHours() < DAY_START_HOUR && saved === _todayStr()){
-      localStorage.setItem(FOCUS_TODAY_DATE_KEY, _focusDayStr());
+      focusTotalStore.set(FOCUS_TODAY_DATE_KEY, _focusDayStr());
     }
   }catch(_){}
 }
-function _loadFocusTotalSec(){ try{ return parseFloat(localStorage.getItem(FOCUS_TOTAL_KEY))||0; }catch(e){ return 0; } }
+function _loadFocusTotalSec(){ try{ return parseFloat(focusTotalStore.get(FOCUS_TOTAL_KEY))||0; }catch(e){ return 0; } }
 function _loadFocusTodaySec(){
   try{
-    if(localStorage.getItem(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) return 0;   // 날짜 바뀌었으면 오늘치만 리셋
-    return parseFloat(localStorage.getItem(FOCUS_TODAY_SEC_KEY))||0;
+    if(focusTotalStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) return 0;   // 날짜 바뀌었으면 오늘치만 리셋
+    return parseFloat(focusTotalStore.get(FOCUS_TODAY_SEC_KEY))||0;
   }catch(e){ return 0; }
 }
 _focusMigrateDayKey();   // 🚚 6시 경계로 처음 켠 사람의 오늘치를 살린다 (아래 로드보다 먼저)
@@ -79,10 +80,10 @@ let _focusSessionSec=0;   // "현재 기록" — 이번 앱 실행 동안만 누
    화면 숫자가 어제 값 그대로 남아 있었다. 표시할 때도 이걸 불러 경계를 확인한다. */
 function _rolloverFocusToday(){
   try{
-    if(localStorage.getItem(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()){
+    if(focusTotalStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()){
       _focusTodaySec=0;
-      localStorage.setItem(FOCUS_TODAY_SEC_KEY,'0');
-      localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());
+      focusTotalStore.set(FOCUS_TODAY_SEC_KEY,'0');
+      focusTotalStore.set(FOCUS_TODAY_DATE_KEY,_focusDayStr());
     }
   }catch(e){}
   return _focusTodaySec;

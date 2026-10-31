@@ -24,6 +24,7 @@ const IDESK_ENABLED = deps.IDESK_ENABLED;
 const INTERACTION_DESKS = deps.INTERACTION_DESKS;
 const Presence = deps.Presence;
 const _acctDetached = deps._acctDetached;   // 읽는 함수
+const focusLevelStore = deps.focusLevelStore;   // 🗂️ 누적 · 마크는 계정별 칸(shared/account-store.js)
 const _totalSyncedFns = [];
 function onTotalSynced(fn){ _totalSyncedFns.push(fn); }
 const _focusDayStr = deps._focusDayStr;
@@ -181,14 +182,14 @@ function addFocusSeconds(sec){
   if(!(sec>0)) return;
   const capSec=FOCUS_TOTAL_CAP_SEC;   // ★ 레벨 상한이 아니라 **누적 상한**이다(999시간 → 100회차)
   if(_focusTotalSec()<capSec) setFocusTotalSec(Math.min(capSec,_focusTotalSec()+sec));   // 99,900시간에서 멈춤
-  if(localStorage.getItem(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) setFocusTodaySec(0);   // 오전 6시 넘겼으면 오늘치 리셋 후 이어 누적
+  if(focusLevelStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) setFocusTodaySec(0);   // 오전 6시 넘겼으면 오늘치 리셋 후 이어 누적
   setFocusTodaySec(_focusTodaySec() + (sec));
   setFocusSessionSec(_focusSessionSec() + (sec));
   _pushLevelIfChanged();   // 레벨이 올랐을 때만 프로필 갱신(친구 목록 배지용)
   try{
-    localStorage.setItem(FOCUS_TOTAL_KEY,String(_focusTotalSec()));
-    localStorage.setItem(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));
-    localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());
+    focusLevelStore.set(FOCUS_TOTAL_KEY,String(_focusTotalSec()));
+    focusLevelStore.set(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));
+    focusLevelStore.set(FOCUS_TODAY_DATE_KEY,_focusDayStr());
   }catch(e){}
 }
 /* ★ 해금 레벨 — **레벨 상한(999)에서 멈춘다.** 회차가 돼도 모듈로로 접지 않는다(개정 70 · 아래 myFocusShow 주석).
@@ -321,7 +322,7 @@ function _focusSyncFailed(reason, r, delta){
       const mark = _hasFocusSyncedMark() ? _getFocusSyncedMark() : mine;
       const pending = Math.max(0, mine - mark);
       setFocusTotalSec(Math.min(FOCUS_TOTAL_CAP_SEC, S + pending));
-      try{ localStorage.setItem(FOCUS_TOTAL_KEY, String(_focusTotalSec())); }catch(_){}
+      try{ focusLevelStore.set(FOCUS_TOTAL_KEY, String(_focusTotalSec())); }catch(_){}
       _setFocusSyncedMark(S);
       _pushLevelIfChanged();
       try{ if(typeof appMode()!=='undefined' && appMode()!=='run') renderLauncher(); }catch(_){}
@@ -336,10 +337,10 @@ function _focusSyncFailed(reason, r, delta){
    그렇게 썼다가 "안 일하는 기기가 남의 기록을 영영 안 받아온다"가 됐다(아래 주기 타이머 주석). */
 let _focusLastSyncedVal = -1;
 
-function _setFocusSyncedMark(v){ try{ localStorage.setItem(FOCUS_SYNCED_KEY, String(Math.max(0, Math.floor(v||0)))); }catch(_){} }
-function _getFocusSyncedMark(){ try{ return parseFloat(localStorage.getItem(FOCUS_SYNCED_KEY))||0; }catch(_){ return 0; } }
+function _setFocusSyncedMark(v){ try{ focusLevelStore.set(FOCUS_SYNCED_KEY, String(Math.max(0, Math.floor(v||0)))); }catch(_){} }
+function _getFocusSyncedMark(){ try{ return parseFloat(focusLevelStore.get(FOCUS_SYNCED_KEY))||0; }catch(_){ return 0; } }
 // 마크가 "0"인 것과 "아예 없는 것"은 다르다 — 후자만 증분 없이(0) 시작한다.
-function _hasFocusSyncedMark(){ try{ return localStorage.getItem(FOCUS_SYNCED_KEY) !== null; }catch(_){ return false; } }
+function _hasFocusSyncedMark(){ try{ return focusLevelStore.get(FOCUS_SYNCED_KEY) !== null; }catch(_){ return false; } }
 
 async function syncFocusTotalToServer(reason){
   if(_focusSyncing) return;
@@ -372,7 +373,7 @@ async function syncFocusTotalToServer(reason){
     const grew = Math.max(0, Math.floor(_focusTotalSec()) - mine);
     if(server > _focusTotalSec()){
       setFocusTotalSec(server);
-      try{ localStorage.setItem(FOCUS_TOTAL_KEY, String(_focusTotalSec())); }catch(_){}
+      try{ focusLevelStore.set(FOCUS_TOTAL_KEY, String(_focusTotalSec())); }catch(_){}
       _pushLevelIfChanged();   // 레벨이 올라갔으면 프로필 배지·해금 알림까지 반영
       // 런처 화면이면 다시 그려서 레벨 표시를 갱신(좌석 이름표는 상태 갱신 때 자동 반영됨)
       try{ if(typeof appMode()!=='undefined' && appMode()!=='run') renderLauncher(); }catch(_){}

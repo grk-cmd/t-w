@@ -2,7 +2,7 @@
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
-     CHAL_KEY · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
+     CHAL_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
@@ -19,8 +19,7 @@ const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
-const FOCUS_TODAY_DATE_KEY = deps.FOCUS_TODAY_DATE_KEY;   // 읽는 함수
-const FOCUS_TODAY_SEC_KEY = deps.FOCUS_TODAY_SEC_KEY;   // 읽는 함수
+const accountAdoptStore = deps.accountAdoptStore;   // 🗂️ 계정별 칸 — 연동으로 받은 누적 · 마크를 새 계정 칸에 채택(전환 틈에도 통과)
 const FOCUS_TOTAL_KEY = deps.FOCUS_TOTAL_KEY;   // 읽는 함수
 const GACHA_BONUS_KEY = deps.GACHA_BONUS_KEY;   // 읽는 함수
 const GACHA_OWNED_KEY = deps.GACHA_OWNED_KEY;   // 읽는 함수
@@ -273,10 +272,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
   /* 라이선스 — 다시 로그인하면 계정 스냅샷(_applyTransferSnapshot r.license)으로 돌아온다. 없으면 키 재입력. */
   acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), acctStateMod.LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
-  /* 누적 시간(레벨 원본) — 스냅샷 focusTotalSec + syncFocusTotalToServer 의 «서버가 크면 받아온다» 가지.
-     ⚠️ FOCUS_SYNCED_KEY 는 **removeItem** 이다. 값을 두면 «마크» 가 되고, 없으면 «한 번도 안 맞춰봄 = 증분 0 · max 바닥만».
-        빈 기기에 마크가 남아 있으면 다음 계정의 첫 동기화가 (0 − 옛마크) 로 꼬인다. */
-  FOCUS_TOTAL_KEY(), FOCUS_TODAY_SEC_KEY(), FOCUS_TODAY_DATE_KEY(), focusLevelMod().FOCUS_SYNCED_KEY,
+  /* 누적 시간 · 오늘치 · 서버 맞춤 마크는 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   focusLevelMod().DANCE_NOTIFIED_KEY, focusLevelMod().DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
   /* 가챠 — 연동 pull(syncGachaToServer 'transfer','pull') + 부팅 tick 이 서버 것을 받아온다. 보너스는 loadChalBonus. */
   GACHA_OWNED_KEY(), GACHA_TS_KEY(), GACHA_BONUS_KEY(),
@@ -714,12 +710,12 @@ async function _applyTransferSnapshot(r, opts){
          ⚠️ 대가: 연동 전 이 기기에 쌓여 있던 시간이 연동해 온 계정으로 합쳐진다.
             "기록은 항상 큰 쪽을 따라간다"는 요청의 직접적인 귀결이다. */
       const _merged = Math.max(Number(_focusTotalSec())||0, r.focusTotalSec);
-      localStorage.setItem(FOCUS_TOTAL_KEY(), String(_merged));
+      accountAdoptStore.adopt(FOCUS_TOTAL_KEY(), String(_merged));   // 새 계정 칸에 채택 — 아래 마크와 같은 칸
       /* 🕒 마크도 합친 값으로 맞춘다 — 안 맞추면 "이 기기의 옛 누적치 − 옛 마크"가 증분으로
          잡혀서, 연동해 온 계정에 이 기기 시간이 통째로 한 번 더 더해진다.
          마크 = 로컬이면 증분 0 이고, 아래 즉시 동기화는 max 바닥만 태운다(= 서버가 더 크면
          그 값을 받아오고, 이 기기가 더 크면 서버를 끌어올린다). */
-      localStorage.setItem(focusLevelMod().FOCUS_SYNCED_KEY, String(_merged));
+      accountAdoptStore.adopt(focusLevelMod().FOCUS_SYNCED_KEY, String(_merged));
       /* 메모리 값도 같이 맞춘다 — 즉시 동기화가 localStorage 가 아니라 이 값을 본다. */
       setFocusTotalSec(_merged);
     }
