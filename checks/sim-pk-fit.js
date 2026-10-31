@@ -31,12 +31,13 @@ function grabFn(src, name, kw){
   }
   return null;
 }
-let CHAR_H = 1.7, ANIMAL_H = 1.15, fromNet = false;
+let CHAR_H = 1.7, ANIMAL_H = 1.0, fromNet = false;
 try{
   const net = fs.readFileSync('purikura-net.js', 'utf8');
-  const a = net.match(/CHAR_H\s*:\s*([\d.]+)/), b = net.match(/ANIMAL_H\s*:\s*([\d.]+)/);
-  if(a){ CHAR_H = parseFloat(a[1]); fromNet = true; }
-  if(b) ANIMAL_H = parseFloat(b[1]);
+  /* 값은 계층 위쪽 «var 이름 = 숫자» 에 있다(내보내는 줄은 «이름: 이름» 이라 숫자가 없다 — 예전엔 그 줄을 찾다 늘 기본값으로 돌았다) */
+  const a = net.match(/\bvar\s+CHAR_H\s*=\s*([\d.]+)/), b = net.match(/\bvar\s+ANIMAL_H\s*=\s*([\d.]+)/);
+  if(a && b){ CHAR_H = parseFloat(a[1]); ANIMAL_H = parseFloat(b[1]); fromNet = true; }
+  else chk(false, 'purikura-net.js 에서 CHAR_H · ANIMAL_H 값을 못 읽었다 — «var 이름 = 숫자» 모양이 바뀌었나');
 }catch(_){}
 say('  · CHAR_H=' + CHAR_H + ' · ANIMAL_H=' + ANIMAL_H + (fromNet ? ' (purikura-net.js)' : ' (기본값 — purikura-net.js 없음)'));
 
@@ -99,7 +100,9 @@ else{
   }
   const mesh = (name, min, max, opt) => { const m = new Obj(name); m.isMesh = true; m.geometry = { boundingBox: { min: new V3(...min), max: new V3(...max) } }; Object.assign(m, opt || {}); return m; };
   const THREE = { Box3 };
-  const run = new Function('THREE', '_pkP', fBox + '\nreturn { box:_pkVisibleBox, fit:(g, seat)=>{ ' + fitSrc + ' return g; } };')(THREE, () => ({ CHAR_H, ANIMAL_H }));
+  const fBody = grabFn(SRC, '_pkBodyBox') || '';   // 원본 짝 표(__pkSrcOf)가 있으면 이쪽 — 귀(rigged) · 파츠를 뺀 몸
+  const mkRun = (aH) => new Function('THREE', '_pkP', fBody + '\n' + fBox + '\nreturn { box:_pkVisibleBox, fit:(g, seat)=>{ ' + fitSrc + ' return g; } };')(THREE, () => ({ CHAR_H, ANIMAL_H: aH }));
+  const run = mkRun(ANIMAL_H);
 
   /* 몸: 키 1.0 · 폭 0.4 — 피봇이 발바닥 */
   const body = () => { const g = new Obj('bodyWrap'); g.add(mesh('body', [-0.2,0,-0.2], [0.2,1.0,0.2])); return g; };
@@ -163,6 +166,21 @@ else{
   g = body(); { const w = g.add(new Obj('__partWrap_horn')); w.add(mesh('horn', [-0.05,0.9,-0.05], [0.05,1.6,0.05])); }
   run.fit(g, { charDef: { animal: true } });
   chk(near(g.scale.x, s0 * ANIMAL_H), '⑨ 동물 + 뿔: 배율 = 맨몸 × ANIMAL_H(' + ANIMAL_H + ') — 뿔은 여기서도 안 센다');
+  /* ⑩ 동물 귀 — 실제 무대 길(원본 짝 표)로 재면 귀(rigged)는 몸 키에서 빠진다. 그 몸에 «귀 보정» 배율을 또 곱하면
+     동물이 사람보다 크게 선다(제보 «스티커사진방에서 동물이 거대하게»). 귀를 뺀 몸이 사람 키의 105% 를 넘지 않아야 한다. */
+  const animal = () => {
+    const a = body(); const ear = a.add(new Obj('earWrap')); ear.userData = { rigged: true }; ear.add(mesh('ear', [-0.1,0.9,-0.05], [0.1,1.35,0.05]));
+    const m = new Map(); a.traverse(o => m.set(o, o)); a.__pkSrcOf = m; a.__pkPh = null; return a;   // 무대는 복제본 → 원본 짝(여기선 같은 것)
+  };
+  const earless = (r, a) => { const b = new Box3(); a.updateWorldMatrix(true,true); const tmp = new Box3(); a.traverse(o => { if(o.isMesh && o.name !== 'ear'){ tmp.copy(o.geometry.boundingBox).applyMatrix4(o.matrixWorld); b.union(tmp); } }); return b.max.y - b.min.y; };
+  const hum = body(); { const m = new Map(); hum.traverse(o => m.set(o, o)); hum.__pkSrcOf = m; } run.fit(hum, {});
+  const humH = hOf(hum).max.y - hOf(hum).min.y;
+  g = animal(); run.fit(g, { charDef: { animal: true } });
+  const aBody = earless(run, g), aAll = hOf(g).max.y - hOf(g).min.y;
+  chk(near(aBody, CHAR_H * ANIMAL_H, 1e-6) && aAll > aBody + 0.3, '⑩ 동물 귀는 몸 키에서 빠지고(귀를 뺀 몸 = CHAR_H × ANIMAL_H) 그 위에 그대로 그려진다');
+  chk(aBody <= humH * 1.05, '★ ⑩ 귀를 뺀 동물 몸이 사람 키의 105% 를 넘지 않는다 — 귀 보정이 두 번 걸리지 않는다 (동물 ' + aBody.toFixed(3) + ' · 사람 ' + humH.toFixed(3) + ')');
+  { const r130 = mkRun(1.30); const g2 = animal(); r130.fit(g2, { charDef: { animal: true } });
+    chk(earless(r130, g2) > humH * 1.05, '  깨 보기 — 옛 1.30 이면 위 판정이 빨강(동물 ' + earless(r130, g2).toFixed(3) + ')'); }
 }
 
 say('');
