@@ -90,6 +90,12 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     if(!bar) return;
     bar.style.cursor='move';
     let dragging=false, offX=0, offY=0;
+    /* 화면 안으로 — 머리 위 자동 배치(status-chip.js)와 같은 규칙. 끈 자리에 그대로 두면 긴 탭에서 제목줄이 화면 위로 나간다 */
+    const fitTo = (x, y)=>{
+      const f = TwPanelFit.fitBottomCenter(x, y, panel.offsetWidth, panel.offsetHeight, innerWidth, innerHeight, 8);
+      panel.style.left=f.x+'px';
+      panel.style.top =f.y+'px';
+    };
     bar.addEventListener('pointerdown', e=>{
       if(e.target.closest && e.target.closest('#fsPanelClose')) return;   // ✕ 버튼은 그대로 닫기
       dragging=true; window._fsPanelDragged=true;
@@ -99,11 +105,16 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     });
     document.addEventListener('pointermove', e=>{
       if(!dragging) return;
-      // transform:translate(-50%,-100%) 기준 좌표계를 그대로 쓰므로 left/top만 갱신하면 됨
-      panel.style.left=(e.clientX-offX)+'px';
-      panel.style.top =(e.clientY-offY)+'px';
+      fitTo(e.clientX-offX, e.clientY-offY);   // left/top 은 창의 아래 가운데(transform:translate(-50%,-100%))
     });
     document.addEventListener('pointerup', ()=>{ dragging=false; });
+    /* 탭을 바꾸거나 화면 크기가 바뀌면 창이 위로 자란다 — 끌어 옮긴 뒤에는 자동 배치가 쉬므로 여기서 다시 맞춘다 */
+    const refit = ()=>{
+      if(!window._fsPanelDragged || !panel.classList.contains('on')) return;
+      fitTo(parseFloat(panel.style.left)||0, parseFloat(panel.style.top)||0);
+    };
+    new ResizeObserver(refit).observe(panel);
+    window.addEventListener('resize', refit);
   })();
 
   const FOCUS_APP_SLOTS = 8;   // ★ 4 → 8칸으로 확장. .fs-slots가 flex-wrap이라 2줄로 자동 배치됨.

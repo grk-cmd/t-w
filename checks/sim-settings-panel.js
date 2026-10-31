@@ -43,7 +43,8 @@ function build(src){
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwMyHomeHooks',   // 🪝 마이홈 고리판(myhome-hooks.js) — 받는 줄이 던지지 않게 가짜로
-    src + '\nreturn window.TwSettingsPanel;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, any);
+    'ResizeObserver', 'TwPanelFit',   // 📐 설정창 크기가 바뀌면 화면 안으로(panel-fit.js — 실행 검사는 sim-panel-fit.js)
+    src + '\nreturn window.TwSettingsPanel;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, any, function(){ return { observe(){} }; }, any);
   return api.createSettingsPanel(deps);
 }
 
