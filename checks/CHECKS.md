@@ -377,7 +377,7 @@
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
 | **sim-myhome-init.js** | 165 | **2a0c11657b2b** |
 | **sim-presence-lock.js** | 245 | **77b2fb9a663e** |
-| **sim-parts-paths.js** | 84 | **2810fc3f9073** |
+| **sim-parts-paths.js** | 84 | **e46fa46f1c95** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
 | **sim-domain-calls.js** | 157 | **673fc5f9779a** |
