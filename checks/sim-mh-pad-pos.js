@@ -34,7 +34,7 @@ chk(J(P.rememberOf({ x: 5, y: 6 }, null)) === '{"x":5,"y":6}' && J(P.placeOf({ x
 /* main.js 의 _rememberPos 를 그대로 돌린다. 마이홈을 열어 둔 채 메뉴를 누를 때마다 여백이 다시 온다 — 그때 마이홈(창 x + 여백) 자리를 모은다 */
 function run(rememberSrc, place, movedFires){
   const st = { saved: {} };
-  const remember = new Function('MhPadPos', 'st', 'let savedPos = st.saved, _mhPadApplied; const saveSettings = () => {};\n' + rememberSrc
+  const remember = new Function('MhPadPos', 'st', 'let savedPos = st.saved, _mhPadApplied; const _saveLauncherPosSoon = () => {};\n' + rememberSrc
     + '\nreturn (m, b, applied) => { _mhPadApplied = applied; _rememberPos(m, b); };')(P, st);
   let win = { x: 300, y: 200 }, applied = { x: 0, y: 0 };
   remember('myhome', win, applied);                       // 사용자가 마이홈을 300,200 에 끌어 둠(여백 0)
@@ -117,7 +117,7 @@ if(REM){
   chk(steady(a), "★ 'moved' 가 안 오는 OS — 여백이 바뀌어도 마이홈이 제자리 (" + a.join(' ') + ')');
   chk(steady(b), "★ 'moved' 가 오는 OS — 같은 자리 (" + b.join(' ') + ')');
   const st = { saved: {} };
-  new Function('MhPadPos', 'st', 'let savedPos = st.saved, _mhPadApplied = { x: 120, y: 60 }; const saveSettings = () => {};\n' + REM + '\n_rememberPos("launcher", { x: 10, y: 20 });')(P, st);
+  new Function('MhPadPos', 'st', 'let savedPos = st.saved, _mhPadApplied = { x: 120, y: 60 }; const _saveLauncherPosSoon = () => {};\n' + REM + '\n_rememberPos("launcher", { x: 10, y: 20 });')(P, st);
   chk(J(st.saved.launcher) === '{"x":10,"y":20}', '  런처 · 생성기는 창 좌상단 그대로(여백은 마이홈만)');
 }
 /* 놓는 자리 · 기억하는 자리가 모두 이 규칙을 지나는가 — 창 자리를 직접 적는 곳은 creator(지금 창 자리 이어받기)뿐 */

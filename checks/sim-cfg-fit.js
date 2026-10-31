@@ -151,11 +151,35 @@ else{
   chk([null, undefined, 5, 'a', {}, { x: 1 }, { x: '1', y: 2 }, { x: NaN, y: 0 }, { x: Infinity, y: 0 }, { x: 0, y: 100001 }].every(v => P(v) === null),
     '  모양이 틀린 값 · 숫자 아님 · NaN · 무한 · 상한(100000) 넘음은 null — 손으로 고친 설정 파일');
   chk(eq(P({ x: 100000, y: -100000 }), { x: 100000, y: -100000 }), '  경계 — 상한 그대로는 받는다');
-  /* _rememberPos — 런처만 바로 저장(다른 모드는 메모리만) */
-  const saved = []; const sp = { launcher: null, creator: null };
-  const rem = new Function('savedPos', 'MhPadPos', '_mhPadApplied', 'saveSettings', remSrc + '\nreturn _rememberPos;')(sp, { rememberOf: (b) => ({ x: b.x, y: b.y }) }, {}, () => saved.push(JSON.stringify(sp.launcher)));
-  rem('launcher', { x: 300, y: 200 }); rem('creator', { x: 1, y: 2 });
-  chk(saved.length === 1 && saved[0] === '{"x":300,"y":200}', '런처를 옮기면 그 자리를 저장 · 생성기 등 다른 모드는 저장하지 않는다');
+  /* _rememberPos → 몰아서 저장 — 맥은 끄는 내내 'moved' 가 온다. 실제 함수들을 가짜 타이머 위에서 돌린다 */
+  const soonSrc = grabFn(MAIN, '_saveLauncherPosSoon'), flushSrc = grabFn(MAIN, '_flushLauncherPos');
+  const mkStage = (rSrc, fSrc) => {
+    const st = { saved: [], timers: new Map(), id: 0, sp: { launcher: null, creator: null } };
+    const env = new Function('savedPos', 'MhPadPos', '_mhPadApplied', 'saveSettings', 'setTimeout', 'clearTimeout', 'LAUNCHER_POS_SAVE_MS',
+      'let _launcherPosSaveT = null, _launcherPosSaved = null;\n' + soonSrc + '\n' + fSrc + '\n' + rSrc + '\nreturn { rem: _rememberPos, flush: _flushLauncherPos };')(
+      st.sp, { rememberOf: (b) => ({ x: b.x, y: b.y }) }, {}, () => { st.saved.push(JSON.stringify(st.sp.launcher)); return true; },
+      (fn) => { const i = ++st.id; st.timers.set(i, fn); return i; }, (i) => { st.timers.delete(i); }, 400);
+    st.fire = () => { const fs2 = [...st.timers.values()]; st.timers.clear(); fs2.forEach(f => f()); };
+    return Object.assign(st, env);
+  };
+  if(!soonSrc || !flushSrc) huh('_saveLauncherPosSoon / _flushLauncherPos 를 못 찾음');
+  else{
+    const S = mkStage(remSrc, flushSrc);
+    for(let i = 0; i < 30; i++) S.rem('launcher', { x: 100 + i, y: 200 });   // 맥 — 끄는 동안 30 번
+    S.rem('creator', { x: 1, y: 2 });
+    chk(S.saved.length === 0, '★ 끄는 동안(30 번 이동)은 아직 안 쓴다');
+    S.fire();
+    chk(S.saved.length === 1 && S.saved[0] === '{"x":129,"y":200}', '  멈추면 마지막 자리 한 번만 쓴다 · 생성기 이동은 저장하지 않는다');
+    S.rem('launcher', { x: 129, y: 200 }); S.fire();
+    chk(S.saved.length === 1, '  같은 자리면 다시 쓰지 않는다');
+    S.rem('launcher', { x: 5, y: 6 }); S.flush();
+    chk(S.saved.length === 2 && S.saved[1] === '{"x":5,"y":6}' && S.timers.size === 0, '  끌 때(flush) 몰아 두던 것을 바로 쓰고 타이머를 치운다');
+    const B = mkStage(remSrc.replace('_saveLauncherPosSoon();', 'saveSettings();'), flushSrc);
+    for(let i = 0; i < 30; i++) B.rem('launcher', { x: 100 + i, y: 200 });
+    chk(B.saved.length > 1, '  깨 보기 — 옮길 때마다 바로 쓰면 위 «아직 안 쓴다» 가 빨강(' + B.saved.length + ' 번)');
+  }
+  const exitSrc = grabFn(MAIN, '_exitNow') || '';
+  chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(\) => \{ try \{ _flushLauncherPos\(\); \}/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 남은 런처 자리를 쓴다');
   const load = MAIN.slice(MAIN.indexOf('function loadSettings(){'), MAIN.indexOf('function saveSettings(){'));
   chk(/savedPos\.launcher = _launcherPosOf\(data\.launcherPos\);/.test(load), '설정 파일을 읽을 때 launcherPos 를 그 함수로 거른다');
   chk(/launcherPos: savedPos\.launcher,/.test(grabFn(MAIN, 'saveSettings') || ''), '  저장할 때 launcherPos 를 같이 적는다');

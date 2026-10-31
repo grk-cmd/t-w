@@ -281,6 +281,21 @@ let savedPos = { launcher: null, creator: null };   // { x, y } | null
 /* 런처 자리만 tw-settings.json 에 남겨 다음 실행도 그 자리에서 뜬다(launcherPos). 파일 값은 남이 고칠 수 있는 글이라
    정수 좌표 둘만 받는다 — 화면 밖 좌표는 _fitConfigRect 가 그 자리에서 가까운 모니터 작업영역 안으로 당긴다. */
 const LAUNCHER_POS_MAX = 100000;
+/* 런처 자리 저장은 몰아서 한 번 — 맥에서는 'moved' 가 'move' 와 같아 끄는 내내 오므로(Electron 문서) 바로 쓰면
+   끌기마다 설정 파일을 동기로 수십 번 다시 쓴다. 마지막으로 움직이고 이만큼 지나면 쓰고, 끌 때(_exitNow · before-quit) 남은 것을 바로 쓴다. */
+const LAUNCHER_POS_SAVE_MS = 400;
+let _launcherPosSaveT = null;
+let _launcherPosSaved = null;   // 마지막으로 파일에 적은(또는 읽은) 자리 — 같으면 안 쓴다
+function _saveLauncherPosSoon(){
+  if(_launcherPosSaveT) clearTimeout(_launcherPosSaveT);
+  _launcherPosSaveT = setTimeout(_flushLauncherPos, LAUNCHER_POS_SAVE_MS);
+}
+function _flushLauncherPos(){
+  if(_launcherPosSaveT){ clearTimeout(_launcherPosSaveT); _launcherPosSaveT = null; }
+  const p = savedPos.launcher;
+  if(JSON.stringify(p) === JSON.stringify(_launcherPosSaved)) return;
+  if(saveSettings()) _launcherPosSaved = p ? { x: p.x, y: p.y } : null;
+}
 function _launcherPosOf(v){
   if(!v || typeof v !== 'object') return null;
   const ok = (n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= LAUNCHER_POS_MAX;
@@ -402,6 +417,7 @@ function loadSettings(){
     if(typeof data.runDisplayKey === 'string') runDisplayKey = data.runDisplayKey;
     if(typeof data.runDisplayWasPrimary === 'boolean') runDisplayWasPrimary = data.runDisplayWasPrimary;
     savedPos.launcher = _launcherPosOf(data.launcherPos);   // 🪟 지난 실행에서 런처를 둔 자리
+    _launcherPosSaved = savedPos.launcher;
     /* ★ 동영상 검어짐 틈 — 빌드 없이 조절하는 통로. 제보자에게 "이 파일의 이 숫자만 바꿔서
        다시 켜 보세요" 라고 할 수 있다. 값을 넣은 적이 없으면 위 기본값을 그대로 쓴다.
        (설정 UI 에 안 내놓는다 — 사용자가 만질 값이 아니라 진단용이다) */
@@ -505,7 +521,7 @@ let _mhPadApplied = { x: 0, y: 0 };   // DIP
 /* 창을 옮긴 뒤 그 모드의 자리를 기억한다 — 마이홈만 여백을 뺀 자리(놓는 쪽 _applyConfigMode 와 짝) */
 function _rememberPos(m, b){
   savedPos[m] = m === 'myhome' ? MhPadPos.rememberOf(b, _mhPadApplied) : { x: b.x, y: b.y };
-  if(m === 'launcher') saveSettings();   // 다음 실행도 이 자리에서 — 'moved' 는 끌기를 놓을 때 한 번이라 자주 쓰지 않는다
+  if(m === 'launcher') _saveLauncherPosSoon();   // 다음 실행도 이 자리에서
 }
 /* 지금 줌에서 창에 얹을 여백(DIP) — 크기(_modeSize)와 같은 식. 놓기 · 줌 맞춤이 같이 부른다 */
 function _mhPadDip(){
@@ -582,6 +598,7 @@ function _lockChildZoom(win){
 /* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
    ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다). quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
 function _exitNow(){
+  try{ _flushLauncherPos(); }catch(_){}   // 몰아 두던 런처 자리 — app.exit 는 before-quit 를 안 거친다
   try{ sysinput.stopGlobalHooks(); }catch(_){}
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
@@ -602,7 +619,7 @@ function saveSettings(){
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
       labVideoAsked: _labVideoAsked,          // 🎬 초기화로 꺼진 실험을 «다시 켤까요?» 로 이미 물었는가
-      launcherPos: savedPos.launcher,         // 🪟 런처 자리 — _rememberPos 가 바뀔 때 저장
+      launcherPos: savedPos.launcher,         // 🪟 런처 자리 — _rememberPos 가 몰아서 저장(_saveLauncherPosSoon)
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
     return true;
@@ -3848,7 +3865,7 @@ function createWindow() {
     wheel:     (e) => { _inputDiag.wheel++; _onGlobalWheel(e); },
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
-  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } });
+  app.on('before-quit', () => { try { _flushLauncherPos(); } catch (_) {} try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } });
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
        종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
