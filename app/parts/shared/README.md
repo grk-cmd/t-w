@@ -292,6 +292,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
 
+## `panel-fit.js` — 📐 아래 기준 창을 화면 안으로
+
+- **책임**: 기준점이 창의 아래 가운데인 창(`transform: translate(-50%,-100%)`)의 기준점을, 창 전체가 화면 안에 들도록 옮긴다. 순수 함수 · DOM 없음.
+- **쓰는 법**: `TwPanelFit.fitBottomCenter(x, y, 창너비, 창높이, 화면너비, 화면높이, 여유)` → `{ x, y }`. 화면보다 큰 창은 위(제목줄)를 살린다 — 아래는 창 안 스크롤로 보지만 제목줄이 잘리면 끌 수도 닫을 수도 없다.
+- **지금 쓰는 곳**: ⚙ 설정창 — 머리 위 자동 배치(`status-chip.js`) · 끌어 옮기기 · 끈 뒤 크기가 바뀔 때(`settings-panel.js` — 탭을 바꾸면 위로 자란다).
+- **함정**: 함수만으로는 화면보다 긴 창을 못 넣는다 — 창 높이 상한(css `max-height: calc(100vh - 16px)`)과 안쪽 스크롤(`.fs-body{overflow-y:auto}`)이 짝이다.
+- 검사: `checks/sim-panel-fit.js`.
+
 ## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
 
 - **책임**: crossOrigin 그림이 처음 실패했을 때 다시 받을 주소를 정하는 규칙 한 곳(순수 함수).
