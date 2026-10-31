@@ -415,8 +415,9 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(U.WITHDRAW_CONFIRM === m.SELF_CONFIRM_WORD, '확인 글자가 서버와 같다(user-api.js WITHDRAW_CONFIRM)');
     const A0 = strip(ACC);
     const take = (head) => { const i = A0.indexOf(head); if(i < 0) return ''; let k = A0.indexOf('{', i), d = 0; for(; k < A0.length; k++){ if(A0[k] === '{') d++; else if(A0[k] === '}' && --d === 0) return A0.slice(i, k + 1); } return ''; };
-    const fDel = take('async function _loginDoDeleteAccount('), fRe = take('async function _withRecentLogin('), fPrev = take('async function _withdrawPreview(');
-    chk(!!fDel && !!fRe && !!fPrev, '탈퇴 · 다시 확인 · 미리보기 함수를 떼어 왔다');
+    const fDel = take('async function _loginDoDeleteAccount('), fRe0 = take('async function _withRecentLogin('), fPrev = take('async function _withdrawPreview(');
+    const fRe = A0.slice(A0.indexOf('const REAUTH_NO_METHOD'), A0.indexOf(fRe0) + fRe0.length);   // 다시 확인 상수 · 비밀번호 · 구글 갈래 · 판단 함수 한 벌
+    chk(!!fDel && !!fRe0 && !!fPrev, '탈퇴 · 다시 확인 · 미리보기 함수를 떼어 왔다');
     const mk = (o) => {
       const log = [];
       const userApiMod = {
@@ -427,11 +428,12 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
       const env = {
         userApiMod, log,
         loginFlowMod: { logout: async () => log.push('logout') },
-        firebaseAPI: { authProviders: () => ({ google: !!o.google }), authReauthGoogle: async () => { log.push('reauth'); return { ok: true }; } },
+        firebaseAPI: { authProviders: () => ({ google: !!o.google, password: false }), authReauthGoogle: async () => { log.push('reauth'); return { ok: true }; } },
         companion: { signInWithGoogle: async () => ({ ok: true, idToken: 't' }) },
       };
       const f = new Function('env', `const { userApiMod, loginFlowMod, firebaseAPI, companion, log } = env;
-        const WITHDRAW_WORD = '탈퇴'; const REAUTH_PASSWORD_ONLY = '다시 로그인';
+        const asyncPrompt = async () => null; const notifyError = () => {};
+        const WITHDRAW_WORD = '탈퇴';
         const _wipeAccountLocal = () => log.push('wipe');
         ${fRe}\n${fDel}\n${fPrev}
         return { del: _loginDoDeleteAccount, prev: _withdrawPreview };`);
@@ -447,7 +449,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     t = mk({ fail: 'USER_REAUTH_REQUIRED', reauthOnce: true, google: true }); r = await t.del('탈퇴');
     chk(r.ok && t.log.join('|') === 'withdraw|reauth|withdraw|logout|wipe', '오래된 로그인 — 구글로 다시 확인하고 한 번 더');
     t = mk({ fail: 'USER_REAUTH_REQUIRED', google: false }); r = await t.del('탈퇴');
-    chk(!r.ok && r.reason === '다시 로그인' && !t.log.includes('wipe'), '  ↳ 구글이 없는 계정은 다시 로그인하라고 알린다(지우지 않음)');
+    chk(!r.ok && /다시 확인할 로그인 수단이 없어요/.test(r.reason) && !t.log.includes('wipe'), '  ↳ 다시 확인할 수단이 없는 계정은 안내하고 멈춘다(지우지 않음 · 비밀번호 계정의 창 흐름은 sim-account)');
     const p = await mk({}).prev();
     const p2 = await mk({ prevFail: true }).prev();
     chk(p.ok && p.items === 12 && p.files === null && p2.ok === false, '미리보기 — { items · files } · 못 읽으면 ok:false(안내 줄만 숨김)');

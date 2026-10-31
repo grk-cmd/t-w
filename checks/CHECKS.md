@@ -140,7 +140,7 @@
 | **sim-visit-ping.js** | 151 | **d198d3f37a4d** |
 | **sim-usage-snapshot.js** | 194 | **a2cfdf538af3** |
 | **sim-daily-summary.js** | 115 | **5362f8640c27** |
-| **sim-account-delete.js** | 494 | **626f7629117b** |
+| **sim-account-delete.js** | 496 | **a2f4044040e1** |
 | **sim-password-reset.js** | 154 | **5c0d85ec06ed** |
 | **sim-part-equip.js** | 134 | **2bfa1e861e1b** |
 | **sim-room-server-net.js** | 1017 | **dff7cccfa0aa** |
@@ -316,7 +316,7 @@
 | **sim-focus-level.js** | 119 | **514cfed75043** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
 | **sim-license-gate.js** | 186 | **3af3813e4318** |
-| **sim-account.js** | 95 | **86ad869d1ef6** |
+| **sim-account.js** | 174 | **7ae6cd2b9499** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **910c263320d1** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |

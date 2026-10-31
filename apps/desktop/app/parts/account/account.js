@@ -2,7 +2,7 @@
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
-     accountLegacyStore · CHAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
+     accountLegacyStore · asyncPrompt · notifyError · CHAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
@@ -17,6 +17,8 @@
 
 function createAccount(deps){
 const BELL_SEEN_KEY = deps.BELL_SEEN_KEY;
+const asyncPrompt = deps.asyncPrompt;   // 비밀번호 다시 확인 창(shared/async-prompt.js — secret · validate 옵션)
+const notifyError = deps.notifyError;
 const accountLegacyStore = deps.accountLegacyStore;   // 🗂️ 계정별 칸 — 로그아웃 때 아직 PC 칸에 남은 옛 값을 지우기 전에 옮기려고 migrateLegacy 만 부른다
 const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
@@ -377,20 +379,50 @@ function _acctPwCode(){
   return (code && FRIEND_CODE_LOGIN_RE.test(code)) ? { ok:true, code } : { ok:false, reason:'내 친구 코드를 확인하지 못했어요 — 앱을 다시 시작한 뒤 다시 해 주세요' };
 }
 /* 서버가 «5분 안 로그인» 을 요구하는 일(비밀번호 붙이기 · 바꾸기 · 탈퇴) — USER_REAUTH_REQUIRED 면 구글로 다시 확인하고 한 번 더.
-   구글이 없는 계정(친구 코드 + 비밀번호만)은 앱에 지금 비밀번호를 받을 화면이 없다 — 다시 로그인한 뒤 하라고 알린다.
+   구글이 없는 계정(친구 코드 + 비밀번호만)은 «비밀번호 확인» 창에서 지금 비밀번호를 한 번 더 받는다(틀리면 창 안에 알리고 다시 입력 · 취소면 조용히 끝).
+   다시 확인이 되면 원래 요청을 **한 번만** 다시 보낸다 — 서버가 또 거절하면 그 이유를 알리고 멈춘다.
    돌려주는 것: { ok, value } · { ok:false, canceled } · { ok:false, reason } */
-const REAUTH_PASSWORD_ONLY = '보안을 위해 다시 로그인한 뒤 해 주세요 — 로그아웃하고 친구 코드 + 비밀번호로 다시 로그인하면 5분 안에 할 수 있어요';
+const REAUTH_NO_METHOD = '다시 확인할 로그인 수단이 없어요 — 앱을 다시 시작해 로그인한 뒤 해 주세요';
+const REAUTH_WRONG = '비밀번호가 맞지 않아요';
+const REAUTH_PW_TITLE = '비밀번호 확인';
+const REAUTH_PW_MESSAGE = '안전을 위해 지금 비밀번호를 한 번 더 입력해 주세요';
+/* 비밀번호 다시 확인 — 맞으면 { ok:true } · 취소면 { ok:false, canceled:true } · 너무 많이 틀림 · 네트워크 실패는 오류 번호로 알리고 canceled(조용히 끝) */
+async function _reauthByPassword(){
+  let fatal = null;
+  const v = await asyncPrompt({
+    title:REAUTH_PW_TITLE, message:REAUTH_PW_MESSAGE, secret:true, maxLength:128,
+    validate: async (pw) => {
+      if(!pw) return REAUTH_WRONG;
+      const a = await firebaseAPI.authReauthPassword(pw);
+      if(a && a.ok) return null;
+      if(a && a.wrong) return REAUTH_WRONG;
+      fatal = a || {}; return null;   // 닫는다 — 오류 번호는 아래에서 한 번
+    },
+  });
+  if(v == null) return { ok:false, canceled:true };
+  if(fatal){ notifyError('E-ACC-02', fatal.reason); return { ok:false, canceled:true }; }
+  return { ok:true };
+}
+/* 구글 다시 확인 */
+async function _reauthByGoogle(){
+  let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
+  if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
+  let a = null; try{ a = await firebaseAPI.authReauthGoogle(g.idToken); }catch(_){}
+  if(!a || !a.ok) return { ok:false, reason:(a && a.reason) || '구글 확인에 실패했어요' };
+  return { ok:true };
+}
+/* 「최근 로그인 필요」 판단과 다시 확인 갈래(구글 · 비밀번호)는 여기 한 곳 — 비밀번호 붙이기 · 바꾸기 · 탈퇴가 모두 이것을 부른다 */
 async function _withRecentLogin(fn){
   try{ return { ok:true, value: await fn() }; }
   catch(e){
     if(!(e && e.code === 'USER_REAUTH_REQUIRED')) return { ok:false, reason:userApiMod.reasonOf(e), code:(e && e.code) || '' };
   }
   let pv = null; try{ pv = firebaseAPI.authProviders(); }catch(_){}
-  if(!(pv && pv.google)) return { ok:false, reason:REAUTH_PASSWORD_ONLY };
-  let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
-  if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
-  let a = null; try{ a = await firebaseAPI.authReauthGoogle(g.idToken); }catch(_){}
-  if(!a || !a.ok) return { ok:false, reason:(a && a.reason) || '구글 확인에 실패했어요' };
+  let re;
+  if(pv && pv.google) re = await _reauthByGoogle();
+  else if(pv && pv.password) re = await _reauthByPassword();
+  else return { ok:false, reason:REAUTH_NO_METHOD };
+  if(!re.ok) return re;
   try{ return { ok:true, value: await fn() }; }
   catch(e){ return { ok:false, reason:userApiMod.reasonOf(e), code:(e && e.code) || '' }; }
 }

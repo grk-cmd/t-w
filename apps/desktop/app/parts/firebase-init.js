@@ -29,7 +29,7 @@
        렌더러 CSP 와 무관하다. script-src 도 gstatic 이 이미 있다. */
   import {
     getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword,
-    linkWithCredential, reauthenticateWithCredential,
+    linkWithCredential, reauthenticateWithCredential, EmailAuthProvider,
     signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
@@ -3517,6 +3517,24 @@
     authProviders(){ return _providersOf(auth && auth.currentUser); },
     /* 서버가 로그인 수단을 바꾼 뒤(비밀번호 붙이기) 이 PC 의 Auth 사본을 다시 읽는다 */
     async authReload(){ if(auth && auth.currentUser){ try{ await auth.currentUser.reload(); }catch(_){} } },
+    /* 비밀번호로 다시 확인(구글 없는 계정 — 5분 안 로그인이 필요한 일) — 지금 세션을 바꾸지 않고 최근 로그인만 새로 한다.
+       이메일은 이 세션이 가진 비밀번호 로그인의 것(authProviders().passwordEmail — 친구 코드 로그인이 만드는 모양과 같다).
+       → { ok:true } | { ok:false, wrong:true }(비밀번호가 다름 — 창에서 다시 입력) | { ok:false, reason } */
+    async authReauthPassword(password){
+      if(!auth || !auth.currentUser) return { ok:false, reason:'로그인이 풀려 있어요 — 앱을 다시 시작해 주세요' };
+      const pv = _providersOf(auth.currentUser);
+      if(!pv || !pv.passwordEmail || !password) return { ok:false, reason:'비밀번호로 확인할 수 없는 계정이에요' };
+      try{
+        await reauthenticateWithCredential(auth.currentUser, EmailAuthProvider.credential(pv.passwordEmail, String(password)));
+        return { ok:true };
+      }catch(e){
+        const k = String((e && e.code) || e || '');
+        if(k.includes('wrong-password') || k.includes('invalid-credential') || k.includes('invalid-login')) return { ok:false, wrong:true };
+        if(k.includes('too-many-requests')) return { ok:false, reason:'시도가 너무 많았어요 — 잠시 뒤 다시 해 주세요' };
+        if(k.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' };
+        return { ok:false, reason:'비밀번호 확인에 실패했어요 (' + (k || '알 수 없음') + ')' };
+      }
+    },
     /* 구글로 다시 확인(5분 안 로그인이 필요한 일 — 비밀번호 붙이기 · 바꾸기 · 탈퇴) — 지금 세션을 **바꾸지 않고** 최근 로그인만 새로 한다.
        다른 구글을 고르면 user-mismatch */
     async authReauthGoogle(idToken){
