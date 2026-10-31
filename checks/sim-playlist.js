@@ -544,13 +544,7 @@ async function behave(src){
     }
     {
       const e1 = mkEnv({ src, noGatePull: true }); const m1 = e1.mk(); e1.byId.myPlBtn.fire('click'); await flush();
-      chk(e1.byId.myPlList.children[0].textContent === '불러오는 중…', '받기 전 — «불러오는 중…»');
-      m1.markUnreachable();
-      chk(e1.byId.myPlList.children[0].textContent.indexOf('못 불러왔어요 · ') === 0 && e1.count('fetchMine') === 0 && e1.errors.length === 0 && e1.timers.filter(t => !t.every).length === 0, '★ 서버에 닿지 못한 로컬 모드 — 요청 · 오류 번호 · 타이머 없이 «못 불러왔어요 · 다시 시도»');
-      m1.pull(); await flush(); await flush();
-      chk(m1.state().loaded && e1.count('fetchMine') === 1, '  돌아와 게이트가 부르면 받아 앉힌다');
-      m1.markUnreachable();
-      chk(m1.state().loaded, '  이미 받은 목록은 알림으로 지워지지 않는다');
+      chk(e1.byId.myPlList.children[0].textContent === '불러오는 중…' && e1.count('fetchMine') === 0, '받기 전(게이트가 아직 안 부름)에 창을 열어도 «불러오는 중…» 이고 요청은 없다 — 못 받은 것(실패)이 아니라서');
     }
     {
       const e0 = mkEnv({ src, noGatePull: true }); e0.srv = srvOf(1, 'n'); e0.mk(); await flush(); await e0.advance(60000);
@@ -946,7 +940,6 @@ async function runAll(PL, APP, HTML){
     ['PL', "  if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }", "  if(true){ _plPullMerged = false; toast(PL_MSG.merged); }", '처음 받을 때도 «다른 기기에서…» 가 뜸'],
     ['PL', "if(e && e.code === PL_NO_TOKEN){ _plPullFailed = true; _plRender(); return; }", "if(e && e.code === PL_NO_TOKEN) return;", '토큰 없음을 계속 «불러오는 중…» 으로 둠'],
     ['PL', "if(e && e.code === PL_NO_TOKEN){ _plPullFailed = true; _plRender(); return; }", "if(e && e.code === PL_NO_TOKEN){ _plPullLater(2000); return; }", '토큰 전이면 타이머로 다시 받음'],
-    ['PL', "  if(_plLoaded || _plPullFailed) return;\n  _plPullFailed = true; _plRender();", "  return;", '로컬 모드를 못 받음으로 알리지 않음'],
     ['PL', "  if(!uid) return;   // 로그인 전", "  if(!uid){ _plPullLater(2000); return; }   // 로그인 전", '로그인 전에 타이머로 기다림'],
     ['PL', "(function bindMyPlaylist(){\n  const btn = document.getElementById('myPlBtn'), box = document.getElementById('myPlaylistBox');\n  if(!btn || !box) return;\n  _plLoad();\n", "(function bindMyPlaylist(){\n  const btn = document.getElementById('myPlBtn'), box = document.getElementById('myPlaylistBox');\n  if(!btn || !box) return;\n  _plLoad();\n  _plPull();\n", '만들 때 곧바로 받음(게이트 기다리지 않음)'],
     ['PL', "      em.textContent = _plPullFailed ? PL_MSG.failed : PL_MSG.loading;", "      em.textContent = PL_MSG.loading;", '못 받았는데 «불러오는 중…» 만 보임'],

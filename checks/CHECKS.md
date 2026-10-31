@@ -267,14 +267,14 @@
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
-| **sim-api-client.js** | 469 | **6d6476fa0fd6** |
+| **sim-api-client.js** | 455 | **b95a9185c17b** |
 | **sim-api-public-reads.js** | 168 | **c48baf3b40a5** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 530 | **5dcaa1ad29ca** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 700 | **14b44af915bd** |
-| **sim-playlist.js** | 1033 | **4cac8853ee8f** |
+| **sim-playlist.js** | 1026 | **51911651f07c** |
 | **sim-playlist-api.js** | 277 | **ac9a35ff6194** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-mail-feed.js** | 323 | **1b05d4407db7** |

@@ -487,11 +487,6 @@ async function _plPull(){
   _plRender();
   if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }
 }
-/* ☁️ 서버에 닿지 못해 로컬 모드로 시작했다 — 요청 없이 「못 불러왔어요 · 다시 시도」 로 보인다(받는 중 ≠ 못 받음). 오류 번호는 사용자가 연 · 누른 받기에서만 */
-function _plMarkUnreachable(){
-  if(_plLoaded || _plPullFailed) return;
-  _plPullFailed = true; _plRender();
-}
 /* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 목록을 비우고 새 계정 것을 받을 때까지 아무것도 올리지 않는다 */
 function _plReset(){
   clearTimeout(_plPullT); _plPullT = null; clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기 · 다시 올리기가 앞 계정 목록을 새 계정에 올리지 않게
@@ -1998,7 +1993,6 @@ return {
   flushPending: _plFlushPending,                   // 📤 못 올린 고침 한 번 올리기(uid) — 로그아웃 올리기(account.js)
   publish: _plPublish,                             // ☁️ 서버 저장만(3초 debounce)
   pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 혼자 다시 하지 않음 — [다시 시도] · 창 열기)
-  markUnreachable: _plMarkUnreachable,             // ☁️ 서버에 닿지 못해 로컬 모드 — 「못 불러왔어요」 로 보임(요청 없음 · license-gate.js)
   reset: _plReset,                                 // ☁️ 계정을 놓을 때 · 이어받기 시작 — 목록을 비우고 받기 전까지 올리지 않음
   normalizeSets: _plNormalizeSets,                 // 🎵 서버 값 관문(세 벌 · 16자 · 20곡)
   setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정
