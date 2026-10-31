@@ -213,7 +213,7 @@ say('\n── 4. run 크기를 정하는 자리가 **전부** 이 함수를 거�
   for (const [where, label] of [
     ['setConfigMode',           'setConfigMode(런처 ↔ 실행 전환)'],
     ['moveToDisplay',           'moveToDisplay(모니터 변경)'],
-    ['display-metrics-changed', 'display-metrics-changed(해상도·배율 변경)'],
+    ['const _onDisplaysChanged', 'display-metrics-changed · added · removed(해상도·배율 · 모니터 연결 변경)'],
   ]) {
     let found = false, viaIt = false;
     for (let i = src.indexOf(where); i >= 0; i = src.indexOf(where, i + 1)) {
