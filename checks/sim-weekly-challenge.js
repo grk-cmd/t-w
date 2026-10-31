@@ -6,7 +6,7 @@
    ・4절: 정산 — 토요일 06:00 에 주중 트랙을 닫는다 · 남은 날 ✗ · 박제(arcWd) · 선지급분을 뺀 나머지 · 팝업 · 기록 보기
    ・5절: 🎯집중 · 🔁반복 — 판정 키 · 다른 플랫폼 조건은 안 셈 · keyAlt · 반복 알림 팝업 · 못 채우는 날 확정
    ・6절: 로그아웃 지우기(resetMemory) · 서버 동기화(ts 최신 승 · 읽기 실패면 아무것도 안 함)
-   ・6-2절: 서버 기록을 받기 전엔 판정하지 않는다 — 읽기 실패 · 로그인 전 · 옛 기록이 다른 기기의 오늘을 덮지 않음 · 다시 받기 · 로그아웃 뒤 · 깨 보기
+   ・6-2절: 서버 기록을 받기 전엔 판정하지 않는다 · 버튼(체크 · 자동 · 포기 · 시작)도 막고 안내 — 읽기 실패 · 로그인 전 · 옛 기록이 다른 기기의 오늘을 덮지 않음 · 다시 받기 · 로그아웃 뒤 · 깨 보기
    ・7절: app.js 배선 — 정의는 모듈에만 · createWeeklyChallenge 는 원래 자리 · 부르는 곳은 weeklyChal.이름 · CHAL_KEY 는 app.js · html 순서 · 전역 이름
    [실행] weekly-challenge.js · app.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
    ※ 🍅 뽀모 서랍은 parts/focus/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 쪽이 weeklyChal.open(false) 를 부르는 곳은 그 파일에서 본다. */
@@ -197,7 +197,7 @@ await sec('── 3. 📋규칙 트랙 — 체크 · 달성 · 3일째 선지급
     days: [1, 1, 0, -1, -1], today: { date: H._focusDayStr(now), dateMs: now, sec: 0, done: 0, checks: {}, anchor: 0, fail: false } };
   const e = mkEnv({ now, rec });
   const W = e.mk();
-  W.tick();
+  W.tick(); await flush();   // 서버 기록을 받은 뒤라야 체크가 먹는다(6-2절)
   chk(e.els.chalRun.style.display === 'block' && (e.els.chalWeek.innerHTML.match(/class="chal-day/g) || []).length === 5, '진행 화면 — 요일 5칸');
   chk(/class="chal-cell now">●/.test(e.els.chalWeek.innerHTML) && (e.els.chalWeek.innerHTML.match(/✓/g) || []).length === 2, '오늘 ● · 달성 ✓ 둘');
   chk(/📋 오늘 0 \/ 2/.test(e.els.chalToday.innerHTML) && /☐ 물 마시기/.test(e.els.chalToday.innerHTML), '오늘 항목 0/2');
@@ -347,12 +347,33 @@ await sec('── 6-2. 서버 기록을 받기 전엔 판정하지 않는다', a
   /* (f) 로그아웃(resetMemory) 뒤엔 다시 받아야 판정한다 */
   W.resetMemory(); e.srv = null; W.tick(); await flush();
   chk(e.loadChalCalls === n0 + 1 && e.saved.length === 0, '로그아웃 뒤 — 받은 표시도 지운다(다음 계정은 다시 받아야 판정)');
-  /* (g) 깨 보기 — 받기 전 문턱을 빼면 옛 기록이 서버를 덮는다(제보 그대로) */
-  const GATE = 'if(!uid || _chalSyncedUid !== uid){';
+  /* (g) 받기 전 버튼 — 체크 · 포기 · 자동 · [시작] 은 막고 안내만, 받은 뒤 서버(다른 기기) 기록이 이긴다 */
+  const staleRule = () => Object.assign(stale(), { kind: 'rule', cfg: { rules: [['a'], ['b'], ['c'], ['d'], ['e']] }, last: { kind: 'repeat', cfg: { text: '물', times: 1, gap: 1 } } });
+  e = mkEnv({ now: wed, rec: staleRule(), srv: null });
+  W = e.mk(); W.tick(); await flush();
+  e.els.chalToday.fire('click', { target: target('data-i', '0') }); await flush();
+  e.els.chalAutoBtn.click(); await flush();
+  e.els.chalGiveupBtn.click(); await flush();
+  const gp = e.popups[e.popups.length - 1]; if(gp) gp.children[0].querySelectorAll('[data-a]')[0].click(); await flush();
+  e.els.chalKindRepeat.click(); e.els.chalStartBtn.click(); await flush();
+  const msg = e.toasts.filter(t => /서버에서 불러오는 중/.test(t)).length;
+  chk(e.saved.length === 0 && W.state().ts === 5 && !(W.state().today.checks || {})[0] && W.state().auto !== true && W.state().kind === 'rule' && msg >= 3,
+    '받기 전 버튼(체크 · 자동 · 포기 · 시작) — 기록을 안 바꾸고 «불러오는 중» 안내만');
+  e.srv = fresh(); W.tick(); await flush();
+  chk(!staleUp(e) && W.state().cfg.text === '책', '  읽기가 살아나면 서버(다른 기기) 기록을 받는다 — 앞서 누른 것이 서버를 덮지 않았다');
+  /* (h) 깨 보기 — 받기 전 문턱을 빼면 옛 기록이 서버를 덮는다(제보 그대로) */
+  const GATE = 'return !uid || _chalSyncedUid !== uid;';
   chk(MOD.includes(GATE), '문턱 줄이 모듈에 있다(깨 보기 대상)');
-  e = mkEnv({ now: wed, rec: stale(), srv: fresh(), src: MOD.replace(GATE, 'if(false){') });
+  e = mkEnv({ now: wed, rec: stale(), srv: fresh(), src: MOD.replace(GATE, 'return false;') });
   W = e.mk(); W.tick(); await flush();
   chk(staleUp(e), '깨 보기 — 문턱을 빼면 어제 기록(물)이 «지금 시각» 으로 서버를 덮는다');
+  const BTN = 'if(!_chalUnsynced()) return false;';
+  chk(MOD.includes(BTN), '버튼 문턱 줄이 모듈에 있다(깨 보기 대상)');
+  e = mkEnv({ now: wed, rec: staleRule(), srv: null, src: MOD.replace(BTN, 'return false;') });
+  W = e.mk(); W.tick(); await flush();
+  e.els.chalToday.fire('click', { target: target('data-i', '0') }); await flush();
+  e.srv = fresh(); W.tick(); await flush();
+  chk(e.saved.some(r => r.kind === 'rule'), '깨 보기 — 버튼 문턱을 빼면 받기 전 체크가 옛 기록을 «지금 시각» 으로 올려 서버(책)를 덮는다');
 });
 
 await sec('── 7. app.js 배선', () => {

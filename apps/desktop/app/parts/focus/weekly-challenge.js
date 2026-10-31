@@ -163,6 +163,14 @@ let _chalDirty = false, _chalSyncing = false, _chalPopOpen = false, _chalPrevMod
 /* 이번 실행에서 서버 기록을 받아 온 계정. 받기 전에 tick 이 돌면 이 기기의 옛 기록으로 하루 넘김 · 정산을
    하고 «지금 시각» 으로 올려, 다른 기기의 오늘 기록을 통째로 덮는다(ts 최신 승). 그래서 받기 전엔 판정하지 않는다. */
 let _chalSyncedUid = '';
+function _chalUnsynced(){ const uid = getMyUserId(); return !uid || _chalSyncedUid !== uid; }
+/* 사용자 버튼(시작 · 수정 · 체크 · 포기 · 자동)도 받기 전엔 막는다 — 누르면 ts 가 찍혀 같은 덮어쓰기가 된다. */
+function _chalBlockUnsynced(){
+  if(!_chalUnsynced()) return false;
+  try{ toast('달성표를 서버에서 불러오는 중이에요 — 잠시 뒤 다시 눌러 주세요'); }catch(_){}
+  try{ syncChalToServer('retry'); }catch(_){}
+  return true;
+}
 /* 세그먼트로 지금 **보고 있는** 페이즈. null = 진행 중인 트랙(라이브).
    ⚠️ chalRec 에 넣지 않는다 — 화면을 넘길 때마다 ts 가 찍혀 서버 쓰기와 기기 간 핑퐁이 생긴다.
      이건 저장할 상태가 아니라 지금 이 창의 시선이다. */
@@ -423,9 +431,8 @@ function _chalTick(){
     return;
   }
   /* 서버 기록을 받기 전엔 판정하지 않는다(_chalSyncedUid 주석). 못 받았으면 20초 tick 이 다시 받아 본다. */
-  const uid = getMyUserId();
-  if(!uid || _chalSyncedUid !== uid){
-    if(uid) try{ syncChalToServer('retry').then(()=>{ if(_chalSyncedUid === uid) _chalTick(); }); }catch(_){}
+  if(_chalUnsynced()){
+    if(getMyUserId()) try{ syncChalToServer('retry').then(()=>{ if(!_chalUnsynced()) _chalTick(); }); }catch(_){}
     _chalRender();
     return;
   }
@@ -1062,6 +1069,7 @@ function _chalRenderRuleList(){
        자동으로 켜져서, 쉬려던 사람에게 실패 도장이 찍힌다. */
     const we = (_chalPhaseOf() === 'we');
     if(!(we ? chalRec.lastWe : chalRec.last)) return;
+    if(_chalBlockUnsynced()) return;
     if(we) chalRec.autoWe = !chalRec.autoWe; else chalRec.auto = !chalRec.auto;
     _chalSave(true);
     try{ syncChalToServer('auto'); }catch(_){}
@@ -1163,6 +1171,7 @@ function _chalRenderRuleList(){
 
   on('chalStartBtn', ()=>{
     if(!_chalDraft) return;
+    if(_chalBlockUnsynced()) return;
     const k = _chalDraft.kind, c = _chalDraft.cfg;
     /* ⚠️ 마지막 안전망 — 숫자 칸을 비우거나 범위 밖으로 둔 채 바로 [시작]을 누르는 경로가 있다.
        (칸을 비우고 곧장 버튼을 누르면 blur 보정이 늦게 걸리거나 아예 안 걸리는 브라우저가 있다)
@@ -1213,6 +1222,7 @@ function _chalRenderRuleList(){
       + '<br><span style="font-size:10px;color:var(--ink-soft);">이미 받은 뽑기는 그대로예요.</span><br>정말 포기할까요?',
       [{a:'ok',t:'포기하기'},{a:'no',t:'취소',ghost:true}]).then(a=>{
       if(a !== 'ok') return;
+      if(_chalBlockUnsynced()) return;
       _chalGiveUp(); _chalDraft = null; _chalTick();
     });
   });
@@ -1224,6 +1234,7 @@ function _chalRenderRuleList(){
     const row = e.target.closest && e.target.closest('[data-i]'); if(!row) return;
     const i = +row.getAttribute('data-i');
     const t = chalRec.today; if(!t) return;
+    if(_chalBlockUnsynced()) return;
     t.checks = t.checks || {};
     t.checks[i] = !t.checks[i];
     _chalSave(true);
