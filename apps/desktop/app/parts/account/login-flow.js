@@ -8,7 +8,7 @@
      'local'  — 서버에 닿지 못함 · 점검. 로컬 모드 — 이 PC 기능만 쓰고 me 는 마지막 사본(없으면 null). 다시 묻기는 서버가 살아 있다는 신호(realtime ready · 아무 API 요청이 서버 답을 받음)가 올 때 한 번 — 타이머로 되풀이하지 않는다(enterLocal).
    [가입] 비밀번호: POST /v1/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
      (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v1/users { inviteCode }.
-   [realtime] goOnline() — 서버가 계정을 돌려준 뒤에만 켠다(hello claim:true · 이 기기가 지금 기기). 밀려나면(4004) onSessionLost ·.
+   [realtime] goOnline() — 서버가 계정을 돌려준 뒤에만 켠다(hello claim:true · 이 기기가 지금 기기). 밀려나면(4004) onSessionLost 로 밀려난 기기 화면을 띄운다.
    classic script — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 싣는다(window.TwLoginFlow). Firebase 를 모른다 — Auth 원시는 deps.auth. */
 (function(){
 'use strict';
