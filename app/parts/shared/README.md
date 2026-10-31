@@ -299,6 +299,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **어떻게**: 올리면 `title` 을 `data-tw-tip` 으로 잠시 옮기고(OS 툴팁이 안 뜨게) 450ms 뒤 `#twMacTip`(토스트와 같은 «쪽지» 모양 · z-index 10000)에 같은 글을 그린다. 나가면 `title` 을 되돌린다. 누르기 · 휠 · 키 · 창 떠남은 말풍선만 접는다.
 - **함정**: 올려 둔 동안 그 요소의 `title` 은 비어 있다 — 그 사이 코드가 `title` 을 새로 쓰면 그 값을 살린다(되돌릴 때 덮지 않는다). 빈 `title` 은 건드리지 않는다.
 - 검사: `checks/sim-mac-tooltip.js`.
+## `panel-fit.js` — 📐 아래 기준 창을 화면 안으로
+
+- **책임**: 기준점이 창의 아래 가운데인 창(`transform: translate(-50%,-100%)`)의 기준점을, 창 전체가 화면 안에 들도록 옮긴다. 순수 함수 · DOM 없음.
+- **쓰는 법**: `TwPanelFit.fitBottomCenter(x, y, 창너비, 창높이, 화면너비, 화면높이, 여유)` → `{ x, y }`. 화면보다 큰 창은 위(제목줄)를 살린다 — 아래는 창 안 스크롤로 보지만 제목줄이 잘리면 끌 수도 닫을 수도 없다.
+- **지금 쓰는 곳**: ⚙ 설정창 — 머리 위 자동 배치(`status-chip.js`) · 끌어 옮기기 · 끈 뒤 크기가 바뀔 때(`settings-panel.js` — 탭을 바꾸면 위로 자란다).
+- **함정**: 함수만으로는 화면보다 긴 창을 못 넣는다 — 창 높이 상한(css `max-height: calc(100vh - 16px)`)과 안쪽 스크롤(`.fs-body{overflow-y:auto}`)이 짝이다.
+- 검사: `checks/sim-panel-fit.js`.
 
 ## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
 

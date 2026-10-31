@@ -479,15 +479,10 @@ function updateMyStatusChipPosition(){
     _uiAnchorWorld(me, _wpTmp2); _wpTmp2.y = 1.55; _wpTmp2.project(camera);   // 올라탄 동안엔 제자리 기준
     let cx=rect.left+(_wpTmp2.x*0.5+0.5)*rect.width;
     let cy=rect.top +(-_wpTmp2.y*0.5+0.5)*rect.height;
-    // ★ 화면 밖으로 잘리지 않게 clamp — transform:translate(-50%,-100%)이므로 실제 좌상단은 (cx-panelW/2, cy-panelH).
-    //   패널 크기를 실측해서 화면 안에 완전히 들어오도록 보정.
-    const panelW = panel.offsetWidth || 240;
-    const panelH = panel.offsetHeight || 260;
-    const EDGE = 8;   // 화면 가장자리 여유
-    cx = Math.max(panelW/2 + EDGE, Math.min(innerWidth - panelW/2 - EDGE, cx));
-    cy = Math.max(panelH + EDGE, Math.min(innerHeight - EDGE, cy));
-    panel.style.left=cx+'px';
-    panel.style.top =cy+'px';
+    // 화면 밖으로 잘리지 않게 — 끌어 옮길 때 · 크기가 바뀔 때와 같은 규칙(shared/panel-fit.js)
+    const fit = TwPanelFit.fitBottomCenter(cx, cy, panel.offsetWidth || 240, panel.offsetHeight || 260, innerWidth, innerHeight, 8);
+    panel.style.left=fit.x+'px';
+    panel.style.top =fit.y+'px';
   }
 }
 /* 칩 이벤트 바인딩 — 클릭하면 상태 메뉴 토글 (드래그 이동 기능은 설정 패널의 "프로그램 이동"으로 이전됨) */
