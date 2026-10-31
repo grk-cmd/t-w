@@ -136,7 +136,8 @@ function mkEnv(o){
     setPlBounds: (r) => env.calls.push('bounds ' + (r ? [r.x, r.y, r.w, r.h].join(',') : 'null')), openBrowser: (u) => env.calls.push('browser ' + u),
     onBgmTrackEnd: (cb) => { env.cb.end = cb; }, onBgmMode: (cb) => { env.cb.mode = cb; }, onBgmClosed: (cb) => { env.cb.closed = cb; },
   };
-  const win = { companion: comp, firebaseAPI: api };
+  env.winL = [];
+  const win = { companion: comp, firebaseAPI: api, addEventListener: (t, fn) => { if(t === 'beforeunload') env.winL.push(fn); } };
   const ls = { getItem: (k) => env.store.has(k) ? env.store.get(k) : null, setItem: (k, v) => env.store.set(k, String(v)), removeItem: (k) => env.store.delete(k) };
   const fetch_ = async (u) => { env.calls.push('fetch'); const m = /v%3D([\w-]{11})/.exec(u); const t = m && env.titles[m[1]]; if(t === 'throw') throw new Error('off'); return { ok: !!t, json: async () => ({ title: t }) }; };
   const MathX = Object.create(Math); MathX.random = () => env.rand;
@@ -637,6 +638,28 @@ async function behave(src){
       oneMore(m); m.save(); await e.advance(3100);
       chk(e.count('publish') === 4 && e.errors.length === 2, '★ 실패 뒤 다음 고침은 3초 뒤 다시 올린다 · 오류는 이어지는 동안 한 번');
     }
+    // ⑪-2 앱을 끌 때(beforeunload) — 실패한 채이거나 고친 뒤 3초 모으기가 안 끝났으면 한 번만 올려 본다
+    {
+      const quit = async (e) => { e.winL.forEach(fn => fn()); await flush(); await flush(); };
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
+      chk(e.count('publish') === 1, '  (끄기 준비) 저장 실패 상태');
+      await quit(e);
+      chk(e.count('publish') === 2, '★ 저장이 실패한 채 끄면 한 번 올려 본다');
+      await quit(e);
+      chk(e.count('publish') === 2, '★ 끄기 알림이 두 번 와도 요청은 1번');
+      const f = E(); f.srv = srvOf(2, 'n'); const n = await f.mk();
+      oneMore(n); n.save();
+      await quit(f);
+      chk(f.count('publish') === 1 && f.timers.filter(t => !t.every).length === 0, '★ 고친 뒤 3초 모으기가 안 끝났을 때 끄면 그 자리에서 한 번 올린다(예약은 지움)');
+      const g = E(); g.srv = srvOf(2, 'n'); await g.mk();
+      await quit(g);
+      chk(g.count('publish') === 0, '★ 올릴 게 없으면 요청 0');
+      const h = E(); h.uid = 'ME01'; h.srv = srvOf(2, 'n'); const k = await h.mk({ getMyUserId: () => h.uid });
+      oneMore(k); k.save(); h.uid = null;
+      await quit(h);
+      chk(h.count('publish') === 0, '★ 로그인 전(내 코드 없음)이면 요청 0');
+    }
     {
       const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
       e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
@@ -861,7 +884,11 @@ async function runAll(PL, APP, HTML){
     ['PL', "    _plPullFailed = true; _plRender();   // 혼자 다시 받지 않는다", "    _plPullFailed = true; _plRender(); _plPullLater(30000);   // ", '못 읽으면 혼자 다시 받음'],
     ['PL', "  if(!_plLoaded){ if(_plPullFailed) _plPull(); return; }", "  if(!_plLoaded){ return; }", '창을 열어도 못 받은 걸 다시 안 받음'],
     ['PL', "  if(!_plLoaded){ if(_plPullFailed) _plPull(); return; }", "  if(!_plLoaded){ _plPull(); return; }", '받는 중에도 창 열 때마다 받음'],
-    ['PL', "  if(_plSaveFailing) _plPublishNow(getMyUserId());", "", '창을 열어도 실패한 저장을 다시 안 올림'],
+    ['PL', "  if(_plSaveFailing) _plPublishNow(getMyUserId());", "", '창을 열어도 실패한 저장을 다시 안 올림'],    ['PL', "window.addEventListener('beforeunload', _plFlushOnQuit);", "", '끌 때 안 올려 봄'],
+    ['PL', "  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", "  if(_plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", '로그인 전에도 끌 때 요청'],
+    ['PL', "  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", "  if(!uid || (!_plSaveFailing && !_plPubTimer)) return;", '끄기 알림마다 또 올림'],
+    ['PL', "  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", "  if(!uid || _plQuitSent || !_plSaveFailing) return;", '고친 뒤 모으는 중에 끄면 안 올림'],
+
     ['PL', "_plLoadMyCard(); _plRetryOnOpen(); _plRender(); }", "_plLoadMyCard(); _plRender(); }", '창 열기가 다시 시도를 안 부름'],
     ['PL', '  if(getMyUserId() !== uid) return;   // 기다리는 사이 계정이 바뀌었다', '', '받는 사이 계정이 바뀌어도 앞 계정 것을 앉힘'],
     ['PL', '  _plLoaded = false; _plPubSig = null;', '  _plPubSig = null;', '계정을 놓아도 받은 상태가 남음'],

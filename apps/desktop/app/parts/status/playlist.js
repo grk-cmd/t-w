@@ -546,6 +546,18 @@ async function _plPublishNow(uid0){
   }
 }
 
+/* 앱을 끌 때 — 저장이 실패한 채이거나 고친 뒤 3초 모으기가 안 끝났으면 한 번만 올려 본다(되풀이 없음 · 결과를 기다려 끄기를 막지 않음).
+   로그인 전(내 코드 없음)이면 요청이 없다. 끌 때 서버로 올리는 모음 자리는 없어(account.js 의 _acctFlushToServer 는 로그아웃 길) 모듈마다 beforeunload 를 건다. */
+let _plQuitSent = false;
+function _plFlushOnQuit(){
+  const uid = getMyUserId();
+  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;
+  _plQuitSent = true;
+  clearTimeout(_plPubTimer); _plPubTimer = null;
+  _plPublishNow(uid);
+}
+window.addEventListener('beforeunload', _plFlushOnQuit);
+
 /* 선택 표시만 갱신 — 전체 재생성을 하면 그 자리에 있던 행 element가 사라져서
    더블클릭(두 번째 클릭이 다른 element에 떨어짐)과 드래그가 같이 깨진다.
    📌 예전엔 여기서 🗑 버튼의 disabled 도 같이 갱신했다. 버튼이 없어지고 Delete 키가 그 일을
