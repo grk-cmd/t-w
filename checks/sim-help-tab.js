@@ -100,23 +100,25 @@ function tabChecks(tabSrc, siteSrc){
   const f = e.frame();
   r.open = !!f && f.src === ORIGIN + '/?theme=bubble&embed=1' && f.attrs.sandbox === 'allow-scripts allow-same-origin' && f.attrs.referrerpolicy === 'no-referrer'
     && railText(e).length === 0 && !e.els.mhHelpFail.classList.contains('on');
-  e.post({ type: 'tw-help', v: 1, page: '3', toc: TOC });
+  // 편 번호는 목차(toc.json)에서 읽는다 — 도움말 편을 나누거나 옮겨도 검사가 따라간다
+  const P3 = TOC[2].pages[0], P2 = TOC[1].pages[1], PF = TOC[2].pages[TOC[2].pages.length - 1];
+  e.post({ type: 'tw-help', v: 1, page: P3.slug, toc: TOC });
   const rt = railText(e);
   r.toc = rt.length === TOC.length + TOC[2].pages.length && rt[2].startsWith('▾ ') && rt[0].startsWith('▸ ') && t.state().openGroup === 2
-    && e.els.mhHelpRail.children.some(c => c.className === 'mh-help-ep on' && c.textContent === '3' + TOC[2].pages[0].title) && e.timers.every(x => !x.on);
+    && e.els.mhHelpRail.children.some(c => c.className === 'mh-help-ep on' && c.textContent === P3.slug + P3.title) && e.timers.every(x => !x.on);
   e.els.mhHelpRail.children[0].click();
   r.toggle = t.state().openGroup === 0 && railText(e).length === TOC.length + TOC[0].pages.length;
   e.els.mhHelpRail.children[0].click();
   r.close = t.state().openGroup === -1 && railText(e).length === TOC.length;
   e.els.mhHelpRail.children[1].click();
-  const ep = e.els.mhHelpRail.children.find(c => c.title === '2-1. ' + TOC[1].pages[1].title);
+  const ep = e.els.mhHelpRail.children.find(c => c.title === P2.slug + '. ' + P2.title);
   ep.click();
-  r.go = f.src === ORIGIN + '/2-1?theme=bubble&embed=1' && t.state().page === '2-1' && e.frame() === f;
-  e.post({ type: 'tw-help', v: 1, page: '4-1', toc: TOC }, ORIGIN, { name: 'other' });
-  e.post({ type: 'tw-help', v: 1, page: '4-1', toc: TOC }, 'https://evil.example');
-  r.ignore = t.state().page === '2-1';
-  e.post({ type: 'tw-help', v: 1, page: '4-1', toc: TOC });
-  r.follow = t.state().page === '4-1' && t.state().openGroup === 2;
+  r.go = f.src === ORIGIN + '/' + P2.slug + '?theme=bubble&embed=1' && t.state().page === P2.slug && e.frame() === f;
+  e.post({ type: 'tw-help', v: 1, page: PF.slug, toc: TOC }, ORIGIN, { name: 'other' });
+  e.post({ type: 'tw-help', v: 1, page: PF.slug, toc: TOC }, 'https://evil.example');
+  r.ignore = t.state().page === P2.slug;
+  e.post({ type: 'tw-help', v: 1, page: PF.slug, toc: TOC });
+  r.follow = t.state().page === PF.slug && t.state().openGroup === 2 && PF !== P3;
   /* 목차 글은 textContent 로만 — 받은 글이 HTML 이어도 그대로 글자 */
   e.post({ type: 'tw-help', v: 1, page: '1', toc: [{ group: '<img src=x onerror=alert(1)>', pages: [{ slug: '1', title: '<b>t</b>' }] }] });
   r.text = e.els.mhHelpRail.children[0].textContent === '▾ <img src=x onerror=alert(1)>' && e.els.mhHelpRail.children[1].textContent === '1<b>t</b>'
