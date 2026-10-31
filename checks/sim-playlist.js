@@ -638,6 +638,24 @@ async function behave(src){
       oneMore(m); m.save(); await e.advance(3100);
       chk(e.count('publish') === 4 && e.errors.length === 2, '★ 실패 뒤 다음 고침은 3초 뒤 다시 올린다 · 오류는 이어지는 동안 한 번');
     }
+    // ⑪-3 로그아웃 올리기(account.js 가 flushPending 을 부른다) — 같은 판단 한 곳
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      e.saveRes = 'failed'; oneMore(m); m.save(); await e.advance(3100);
+      await m.flushPending('ME01');
+      chk(e.count('publish') === 2, '★ 로그아웃 올리기 — 저장이 실패한 채면 PUT 1(결과를 기다려 돌려준다)');
+      e.winL.forEach(fn => fn()); await flush(); await flush();
+      chk(e.count('publish') === 2, '★ 로그아웃과 끌 때가 둘 다 와도 1');
+      oneMore(m); m.save(); await m.flushPending('ME01');
+      chk(e.count('publish') === 3, '  새로 고치면 허락이 풀려 다음 올리기는 다시 한다');
+      const f = E(); f.srv = srvOf(2, 'n'); const n = await f.mk();
+      oneMore(n); n.save();
+      await n.flushPending('ME01');
+      chk(f.count('publish') === 1, '★ 고침 대기 중 로그아웃이면 그 자리에서 PUT 1');
+      const g = E(); g.srv = srvOf(2, 'n'); const k = await g.mk();
+      await k.flushPending('ME01'); await k.flushPending(null);
+      chk(g.count('publish') === 0, '★ 올릴 게 없거나 내 코드가 없으면 0');
+    }
     // ⑪-2 앱을 끌 때(beforeunload) — 실패한 채이거나 고친 뒤 3초 모으기가 안 끝났으면 한 번만 올려 본다
     {
       const quit = async (e) => { e.winL.forEach(fn => fn()); await flush(); await flush(); };
@@ -884,10 +902,12 @@ async function runAll(PL, APP, HTML){
     ['PL', "    _plPullFailed = true; _plRender();   // 혼자 다시 받지 않는다", "    _plPullFailed = true; _plRender(); _plPullLater(30000);   // ", '못 읽으면 혼자 다시 받음'],
     ['PL', "  if(!_plLoaded){ if(_plPullFailed) _plPull(); return; }", "  if(!_plLoaded){ return; }", '창을 열어도 못 받은 걸 다시 안 받음'],
     ['PL', "  if(!_plLoaded){ if(_plPullFailed) _plPull(); return; }", "  if(!_plLoaded){ _plPull(); return; }", '받는 중에도 창 열 때마다 받음'],
-    ['PL', "  if(_plSaveFailing) _plPublishNow(getMyUserId());", "", '창을 열어도 실패한 저장을 다시 안 올림'],    ['PL', "window.addEventListener('beforeunload', _plFlushOnQuit);", "", '끌 때 안 올려 봄'],
-    ['PL', "  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", "  if(_plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", '로그인 전에도 끌 때 요청'],
-    ['PL', "  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", "  if(!uid || (!_plSaveFailing && !_plPubTimer)) return;", '끄기 알림마다 또 올림'],
-    ['PL', "  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;", "  if(!uid || _plQuitSent || !_plSaveFailing) return;", '고친 뒤 모으는 중에 끄면 안 올림'],
+    ['PL', "  if(_plSaveFailing) _plPublishNow(getMyUserId());", "", '창을 열어도 실패한 저장을 다시 안 올림'],    ['PL', "window.addEventListener('beforeunload', ()=>{ _plFlushPending(getMyUserId()); });", "", '끌 때 안 올려 봄'],
+    ['PL', "  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", "  if(_plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", '로그인 전에도 끌 때 요청'],
+    ['PL', "  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", "  if(!uid || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", '끄기 알림마다 또 올림'],
+    ['PL', "  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", "  if(!uid || _plFlushSent || !_plSaveFailing) return Promise.resolve();", '고친 뒤 모으는 중에 끄면 안 올림(로그아웃 포함)'],
+    ['PL', "  _plFlushSent = false;\n  clearTimeout(_plPubTimer);", "  clearTimeout(_plPubTimer);", '새로 고쳐도 올리기 허락이 안 풀림'],
+    ['PL', "  flushPending: _plFlushPending,", "  flushPendingX: _plFlushPending,", '로그아웃이 부를 이름을 안 내놓음'],
 
     ['PL', "_plLoadMyCard(); _plRetryOnOpen(); _plRender(); }", "_plLoadMyCard(); _plRender(); }", '창 열기가 다시 시도를 안 부름'],
     ['PL', '  if(getMyUserId() !== uid) return;   // 기다리는 사이 계정이 바뀌었다', '', '받는 사이 계정이 바뀌어도 앞 계정 것을 앉힘'],

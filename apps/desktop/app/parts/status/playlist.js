@@ -491,6 +491,7 @@ async function _plPull(){
 /* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 목록을 비우고 새 계정 것을 받을 때까지 아무것도 올리지 않는다 */
 function _plReset(){
   clearTimeout(_plPullT); _plPullT = null; clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기 · 다시 올리기가 앞 계정 목록을 새 계정에 올리지 않게
+  _plFlushSent = false;
   _plGen++; _plPubBusy = false; _plPubAgain = false; _plSaveFailing = false;
   _plLoaded = false; _plPubSig = null; _plPullFailed = false; _plPullMerged = false; _plPullBusyUid = null;
   _plSets = _plBlankSets(); _plBio = ''; _plHomePublic = false; _plPrivate = false;
@@ -516,6 +517,7 @@ function _plRetryOnOpen(){
   if(_plSaveFailing) _plPublishNow(getMyUserId());
 }
 function _plPublishIn(ms){
+  _plFlushSent = false;
   clearTimeout(_plPubTimer);
   const uid0 = getMyUserId();
   _plPubTimer = setTimeout(()=>{ _plPubTimer = null; _plPublishNow(uid0); }, ms);
@@ -546,17 +548,17 @@ async function _plPublishNow(uid0){
   }
 }
 
-/* 앱을 끌 때 — 저장이 실패한 채이거나 고친 뒤 3초 모으기가 안 끝났으면 한 번만 올려 본다(되풀이 없음 · 결과를 기다려 끄기를 막지 않음).
-   로그인 전(내 코드 없음)이면 요청이 없다. 끌 때 서버로 올리는 모음 자리는 없어(account.js 의 _acctFlushToServer 는 로그아웃 길) 모듈마다 beforeunload 를 건다. */
-let _plQuitSent = false;
-function _plFlushOnQuit(){
-  const uid = getMyUserId();
-  if(!uid || _plQuitSent || (!_plSaveFailing && !_plPubTimer)) return;
-  _plQuitSent = true;
+/* 못 올린 고침(저장이 실패한 채이거나 고친 뒤 3초 모으기가 안 끝남)이 있으면 한 번만 올려 본다 — 되풀이 없음.
+   부르는 때: 앱을 끌 때(beforeunload · 결과를 기다리지 않음) · 로그아웃 올리기(account.js — 결과를 기다림). 둘 다 와도 요청은 한 번(_plFlushSent).
+   내 코드가 없으면(로그인 전) 요청이 없다. 계정을 놓은 뒤 늦게 온 응답은 쓰기의 expectOwner 가 버린다. */
+let _plFlushSent = false;   // 새 고침(_plPublishIn) · 계정 놓음(_plReset)이 풀어 준다
+function _plFlushPending(uid){
+  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();
+  _plFlushSent = true;
   clearTimeout(_plPubTimer); _plPubTimer = null;
-  _plPublishNow(uid);
+  return _plPublishNow(uid);
 }
-window.addEventListener('beforeunload', _plFlushOnQuit);
+window.addEventListener('beforeunload', ()=>{ _plFlushPending(getMyUserId()); });
 
 /* 선택 표시만 갱신 — 전체 재생성을 하면 그 자리에 있던 행 element가 사라져서
    더블클릭(두 번째 클릭이 다른 element에 떨어짐)과 드래그가 같이 깨진다.
@@ -1983,6 +1985,7 @@ return {
   PL_MAX, PL_BIO_MAX, PL_TITLE_MAX,                // 상한
   render: _plRender,                               // 🎵 창 다시 그리기 — 📷 재생 재우기/되살리기
   save: _plSave,                                   // 💾 기기 설정 저장 + 서버 저장(3초 debounce)
+  flushPending: _plFlushPending,                   // 📤 못 올린 고침 한 번 올리기(uid) — 로그아웃 올리기(account.js)
   publish: _plPublish,                             // ☁️ 서버 저장만(3초 debounce)
   pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 스스로 다시 시도)
   reset: _plReset,                                 // ☁️ 계정을 놓을 때 · 이어받기 시작 — 목록을 비우고 받기 전까지 올리지 않음

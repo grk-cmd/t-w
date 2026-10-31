@@ -315,6 +315,7 @@ async function _acctFlushToServer(){
   call(typeof focusLevelMod().syncFocusTotalToServer === 'function' ? focusLevelMod().syncFocusTotalToServer : null, 'logout');
   call(gachaMod().syncGachaToServer, 'logout');
   call(weeklyChal().syncChalToServer, 'logout');
+  call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
   /* 슬롯은 대기 중인 debounce push 가 있으면 그것부터 흘려보낸다(3초를 기다릴 이유가 없다). */
   try{ if(typeof slotSyncMod()._slotsPushTimer !== 'undefined' && slotSyncMod()._slotsPushTimer()){ clearTimeout(slotSyncMod()._slotsPushTimer()); slotSyncMod().setSlotsPushTimer(null); } }catch(_){}
   call(typeof slotSyncMod().syncSlotsToServer === 'function' ? slotSyncMod().syncSlotsToServer : null, 'logout');
