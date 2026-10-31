@@ -45,10 +45,12 @@ const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
 const setFocusSessionSec = deps.setFocusSessionSec;   // 쓰는 함수
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
 const setFocusTotalSec = deps.setFocusTotalSec;   // 쓰는 함수
+const _focusTotalStarted = deps._focusTotalStarted;   // 읽는 함수 — 계정 칸의 누적을 읽은 뒤에만 더하고 쓴다
 /* 레벨이 바뀐 순간에만 프로필을 갱신한다(친구 목록 레벨 배지용).
    매초 쓰면 비용이 커지므로, 값이 실제로 달라졌을 때만 1회 쓴다. */
 let _lastPushedLevel = 0, _lastPushedStar = '';
 function _pushLevelIfChanged(){
+  if(!_focusTotalStarted()) return;   // 누적을 읽기 전의 0 으로 프로필 레벨을 쓰지 않는다
   try{
     const lv = getFocusLevel();
     /* 🌟 회차에서는 해금 레벨이 999 에 머문다 — 그래도 이번 바퀴 레벨·회차·색이 바뀌면 프로필을 다시 쓴다(개정 70).
@@ -180,6 +182,7 @@ function _notifyDeskUnlocks(lv){
 }
 function addFocusSeconds(sec){
   if(!(sec>0)) return;
+  if(!_focusTotalStarted()) return;   // 계정 확인 전 — 누적에 더하지도 쓰지도 않는다
   const capSec=FOCUS_TOTAL_CAP_SEC;   // ★ 레벨 상한이 아니라 **누적 상한**이다(999시간 → 100회차)
   if(_focusTotalSec()<capSec) setFocusTotalSec(Math.min(capSec,_focusTotalSec()+sec));   // 99,900시간에서 멈춤
   if(focusLevelStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) setFocusTodaySec(0);   // 오전 6시 넘겼으면 오늘치 리셋 후 이어 누적
@@ -343,6 +346,7 @@ function _getFocusSyncedMark(){ try{ return parseFloat(focusLevelStore.get(FOCUS
 function _hasFocusSyncedMark(){ try{ return focusLevelStore.get(FOCUS_SYNCED_KEY) !== null; }catch(_){ return false; } }
 
 async function syncFocusTotalToServer(reason){
+  if(!_focusTotalStarted()) return;   // 누적을 읽기 전(계정 확인 전)에 런처 복귀 등이 불러도 서버를 부르지 않는다
   if(_focusSyncing) return;
   if(!(window.firebaseAPI && firebaseAPI.syncFocusTotal)) return;
   /* ★ uid 가 아직 없으면 조용히 넘긴다 — 예전엔 부팅 4초 시점에 계정이 안 잡혀 있으면
@@ -410,11 +414,13 @@ async function syncFocusTotalToServer(reason){
      이제 늘지 않았어도 매 주기 물어본다. **쓰기는 안 는다** — 서버가 want<=pre 면 쓰지 않고
      현재값만 돌려주도록 이미 돼 있어서(HTML syncFocusTotal), 이 경우 비용은 읽기 1회다. */
 const FOCUS_SYNC_INTERVAL_MS = 10*60*1000;   // 10분
-setTimeout(()=>{ try{ syncFocusTotalToServer('boot'); }catch(_){} }, 4000);
-setInterval(()=>{ try{ syncFocusTotalToServer('tick'); }catch(_){} }, FOCUS_SYNC_INTERVAL_MS);
-/* 창이 닫힐 때 마지막으로 한 번 — 비동기라 완료가 보장되진 않지만, 성공하면 위 주기의
-   최대 10분 공백을 메워 준다. 실패해도 다음 부팅에서 max 로 그대로 복구된다. */
-window.addEventListener('beforeunload', ()=>{ try{ syncFocusTotalToServer('quit'); }catch(_){} });
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 부팅 4초 조회 · 10분 주기 · 창이 닫힐 때 마지막 한 번.
+   'quit' 은 비동기라 완료가 보장되진 않지만 성공하면 주기의 최대 10분 공백을 메워 준다. 실패해도 다음 부팅에서 max 로 복구된다. */
+function startFocusSync(){
+  setTimeout(()=>{ try{ syncFocusTotalToServer('boot'); }catch(_){} }, 4000);
+  setInterval(()=>{ try{ syncFocusTotalToServer('tick'); }catch(_){} }, FOCUS_SYNC_INTERVAL_MS);
+  window.addEventListener('beforeunload', ()=>{ try{ syncFocusTotalToServer('quit'); }catch(_){} });
+}
 /* 💾 꾸미기를 연 채 앱을 끄면 — 닫는 것이 곧 저장이라 여기서 닫아 준다. 슬롯 저장은 파츠 받기를 기다리기 전에 도니
    종료 전에 끝난다(_commitWdDraftNow). 계정을 놓은 뒤(_wipeAccountLocal)에는 지운 칸을 도로 쓰지 않게 건너뛴다. */
 window.addEventListener('beforeunload', ()=>{
@@ -614,6 +620,7 @@ setInterval(()=>{
 }, 60*1000);
 
 return {
+  startFocusSync,
   DANCE_NOTIFIED_KEY,
   onTotalSynced,
   DANCE_REPAIR_KEY,

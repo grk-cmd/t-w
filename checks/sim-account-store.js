@@ -5,6 +5,7 @@
    ・4절: 기기 공용 키 · 모르는 키는 던진다(계정과 무관 — 계정 칸에 안 들어간다)
    ・5절: migrateLegacy — 한 번만 · 이미 있는 값 안 덮음 · 코드 없으면 PC 칸 그대로 · 못 쓰면 옛 칸 보존 · 나중에 더해진 키만 새로
    ・6절: 옮겨 쓰는 모듈 — 포커스 누적(focus-total.js 실물)이 계정마다 따로 · 바탕화면 · 포커스 레벨은 PC 칸을 더는 직접 안 읽음
+   ・6c절: migrateLegacy 를 부르는 곳 — 부팅 때 읽는 모듈보다 먼저(코드 없으면 안 함) · 로그아웃은 올리기 앞 · 플레이리스트 마지막 올리기 뒤 지우기
    ・7절: 배선 — app.js 가 getMyUserId 로 만든다 · html 차례 · smoke PRELOAD
    ・8절: 일부러 깨 보기 */
 'use strict';
@@ -19,6 +20,7 @@ const SRC0 = {
   STORE: pick(at('account-store.js', 'shared')),
   TOTAL: pick(at('focus-total.js', 'focus')),
   LEVEL: pick(at('focus-level.js', 'focus')),
+  SHARE: pick(at('focus-share.js', 'focus')),
   MHD: pick(at('myhome-desktop.js', 'myhome')),
   BOOT: pick(at('myhome-desktop-boot.js', 'myhome')),
   ACC: pick(at('account.js', 'account')),
@@ -39,7 +41,13 @@ async function judge(S){
   let M = null;
   try{ M = load(S.STORE); }catch(e){ chk(false, '싣다 던짐 — ' + e.message); return; }
   if(!M || typeof M.createAccountStore !== 'function'){ chk(false, 'window.TwAccountStore.createAccountStore 가 없다'); return; }
-  const mk = (st, codeRef, lock) => M.createAccountStore({ storage: st, getAccountCode: () => codeRef.v, isWriteLocked: () => !!(lock && lock.v) });
+  const mk = (st, codeRef, lock, closed) => {
+    const s0 = M.createAccountStore({ storage: st, getAccountCode: () => codeRef.v, isWriteLocked: () => !!(lock && lock.v) });
+    if(closed) return s0;
+    /* 계정 확인을 통과해 열린 뒤(app-boot)와 같게 — 이 검사들은 코드를 바꿔 가며 쓰므로 부를 때마다 지금 코드로 연다 */
+    const op = () => { const w0 = console.warn; console.warn = () => {}; const keep = codeRef.v; if(!keep) codeRef.v = A; s0.open(codeRef.v); codeRef.v = keep; console.warn = w0; };   // 코드가 아직 없는 PC 도 «연 뒤» 모양으로(코드 없음은 열림과 별개로 거절돼야 한다)
+    return Object.assign({}, s0, { get: (k) => { op(); return s0.get(k); }, set: (k, v) => { op(); return s0.set(k, v); }, remove: (k) => { op(); return s0.remove(k); } });
+  };
 
   say('── 1. 키 표');
   {
@@ -138,7 +146,7 @@ async function judge(S){
     // 실물 focus-total.js — 계정마다 다른 누적
     const st = mem(); const code = { v: A }; const store = mk(st, code);
     const totalApi = (() => { const w = {}; new Function('window', 'module', 'localStorage', S.TOTAL)(w, undefined, null); return w.TwFocusTotal; })();
-    const fresh = () => totalApi.createFocusTotal({ focusTotalStore: store });
+    const fresh = () => { const m = totalApi.createFocusTotal({ focusTotalStore: store }); m.startFocusTotal(); return m; };   // 계정 확인 뒤 app-boot 가 부르는 시작까지
     const a1 = fresh();
     chk(a1._loadFocusTotalSec() === 0, '새 계정 A 는 0 에서 시작');
     store.set(a1.FOCUS_TOTAL_KEY, 3600); store.set(a1.FOCUS_TODAY_DATE_KEY, a1._focusDayStr()); store.set(a1.FOCUS_TODAY_SEC_KEY, 60);
@@ -163,39 +171,147 @@ async function judge(S){
     chk(/const focusLevelStore = deps\.focusLevelStore;/.test(S.LEVEL) && /const focusTotalStore = deps\.focusTotalStore;/.test(S.TOTAL), '모듈은 계정 칸을 deps 로 받는다');
   }
 
-  say('── 6b. 계정을 놓은 틈(코드가 바뀐 뒤 재시작 전)');
+  say('── 5b. 열림 — 계정 확인 전(닫힘)에는 읽기 null · 쓰기 거절 · 키마다 경고 한 번 / 열린 뒤 정상');
   {
-    const st = mem(), code = { v: A }, lock = { v: false }, s = mk(st, code, lock);
-    s.set('tw.focusTotalSec', 100); s.set('tw.advZ.v2', '{"a":1}');
-    code.v = B; s.set('tw.focusTotalSec', 5); code.v = A;   // B 칸을 미리 하나 만들어 둔다
-    lock.v = true; code.v = B;   // 로그아웃(wipe)이 깃발을 세우고 새 코드가 기록된 상태
-    const b0 = st.o['tw.u.' + B + '.focusTotalSec'];
-    chk(s.set('tw.focusTotalSec', 999) === false && s.remove('tw.focusTotalSec') === false && st.o['tw.u.' + B + '.focusTotalSec'] === b0, '★ 놓은 틈에는 set · remove 가 거절된다(다른 계정 칸을 덮지 못한다)');
-    chk(s.get('tw.focusTotalSec') === b0, '  ↳ 읽기는 된다');
-    chk(s.adopt('tw.focusSyncedSec', 777) === true && st.o['tw.u.' + B + '.focusSyncedSec'] === '777', '채택(adopt)만 틈을 통과해 새 계정 칸에 쓴다');
-    code.v = null;
-    chk(s.adopt('tw.focusSyncedSec', 1) === false && !('tw.focusSyncedSec' in st.o), '채택도 코드가 없으면 거절 · PC 칸에 안 쓴다');
-    lock.v = false; code.v = B;
-    chk(s.set('tw.focusTotalSec', 6) === true, '틈이 끝나면(깃발 내림) 다시 쓴다');
+    const st = mem(); const code = { v: A };
+    st.o['tw.focusTotalSec'] = '1800000';
+    const warns = []; const w0 = console.warn; console.warn = (...a) => warns.push(a.join(' '));
+    const s = mk(st, code, null, true);
+    const g1 = s.get('tw.focusTotalSec'), g2 = s.get('tw.focusTotalSec'), w1 = s.set('tw.focusTotalSec', 3), w2 = s.set('tw.focusTotalSec', 4), rm = s.remove('tw.focusTotalSec'), g3 = s.get('tw.advZ.v2');
+    console.warn = w0;
+    chk(g1 === null && g2 === null && g3 === null && w1 === false && w2 === false && rm === false, '닫힘 — 읽기 null · set · remove 거절');
+    chk(Object.keys(st.o).join() === 'tw.focusTotalSec' && st.o['tw.focusTotalSec'] === '1800000', '  ↳ 아무것도 쓰지 않았고 옛 PC 값도 그대로');
+    chk(warns.length === 2 && warns.every((m) => /계정 확인 전 접근/.test(m)) && /focusTotalSec/.test(warns[0]) && /advZ\.v2/.test(warns[1]), '  ↳ 경고는 키마다 한 번(focusTotalSec · advZ.v2 — 두 번째부터는 조용)');
+    s.migrateLegacy(A);
+    chk(st.o['tw.u.' + A + '.focusTotalSec'] === '1800000' && !('tw.focusTotalSec' in st.o), '  ↳ 확인 전에 쓰려던 값이 없으니 옛 값이 그대로 옮겨진다(kept · 삭제 사고 없음)');
+    console.warn = () => {};
+    const opened = s.open(A);
+    console.warn = w0;
+    chk(opened === true && s.get('tw.focusTotalSec') === '1800000' && s.set('tw.focusTotalSec', 5) === true && s.get('tw.focusTotalSec') === '5', '열린 뒤 — 옮겨진 값을 읽고 쓴다');
+    const lock = { v: true };
+    const s2 = mk(mem(), code, lock, true); console.warn = () => {}; s2.open(A); console.warn = w0;
+    chk(s2.set('tw.focusTotalSec', 1) === false, '  ↳ 열린 뒤에도 계정을 놓은 틈(isWriteLocked)은 여전히 쓰기 거절');
+    const s3 = mk(mem(), { v: A }, null, true); const w3 = []; console.warn = (...a) => w3.push(a.join(' '));
+    const bad = s3.open(B) === false && s3.open('x') === false && s3.open(null) === false;
+    console.warn = w0;
+    chk(bad && w3.length === 3 && s3.get('tw.focusTotalSec') === null && s3.set('tw.focusTotalSec', 1) === false, '다른 코드 · 모양이 틀린 코드로는 열지 않고 경고(닫힌 채)');
+    const cr = { v: A }; const st4 = mem(); const s4 = mk(st4, cr, null, true); const w4 = console.warn; console.warn = () => {};
+    s4.open(A); const okA = s4.set('tw.focusTotalSec', 1) === true;
+    cr.v = B;   // 열린 뒤 계정 코드가 바뀌었다(앱은 다시 켜야 한다)
+    const closedB = s4.get('tw.focusTotalSec') === null && s4.set('tw.focusTotalSec', 2) === false && !Object.keys(st4.o).some((k) => k.includes(B));
+    cr.v = A; const backA = s4.get('tw.focusTotalSec') === '1';
+    console.warn = w4;
+    chk(okA && closedB && backA, '열린 뒤 계정 코드가 바뀌면 닫힘으로 돌아간다(다른 계정 칸에 읽기 · 쓰기 0) — 열린 코드는 불리언이 아니라 그 코드');
+    const dev = mk(mem(), { v: null }, null, true);
+    chk((() => { try{ dev.get('tw.deviceId'); return false; }catch(_){ return true; } })(), '기기 공용 키는 계정 칸이 아니라 이전처럼 던진다(열림과 상관없음)');
   }
+
+  say('── 6b. 확인 전 — 계정 칸 주인 모듈(포커스 누적 · 레벨 · 오늘 기록 전시 · 바탕화면)은 읽지도 쓰지도 않고, 확인 뒤에야 옛 PC 값이 화면 값이 된다');
   {
-    // 실제 흐름: 계정 칸 옛 마크 → 로그아웃(wipe) → _setMyUserId → _applyTransferSnapshot — 합친 값이 계정 칸에, delta 0
+    const A1 = 'uaaaaaaaa1';
+    const anyF = new Proxy(function(){}, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : anyF, apply: () => anyF, construct: () => anyF, has: () => true });
+    const quietly = (fn) => { const w0 = console.warn; console.warn = () => {}; try{ return fn(); }finally{ console.warn = w0; } };
+    const mkWorld = (openFirst) => quietly(() => {
+      const st = mem(); st.setItem('tw.focusTotalSec', '1800000'); st.setItem('tw.focusTodaySec', '600'); st.setItem('tw.advZ.v2', JSON.stringify({ slots: [{}, {}, {}], active: 1, bg: { color: '#123456' } }));
+      const io = [];
+      const spy = { getItem: (k) => { io.push('R ' + k); return st.getItem(k); }, setItem: (k, v) => { io.push('W ' + k); st.setItem(k, v); }, removeItem: (k) => { io.push('D ' + k); st.removeItem(k); } };
+      const store = load(S.STORE).createAccountStore({ storage: spy, getAccountCode: () => A1, isWriteLocked: () => false });
+      const T = (() => { const w = {}; new Function('window', 'module', 'localStorage', S.TOTAL)(w, undefined, null); return w.TwFocusTotal; })();
+      const total = T.createFocusTotal({ focusTotalStore: store });
+      st.setItem('tw.focusTodayDate', total._focusDayStr());
+      const W = { st, io, store, total, profiles: [], pushes: [], tot: 0, today: 0, intervals: 0 };
+      const levelDeps = new Proxy({
+        focusLevelStore: store, _focusTotalStarted: () => total._focusTotalStarted(),
+        FOCUS_TODAY_DATE_KEY: total.FOCUS_TODAY_DATE_KEY, FOCUS_TODAY_SEC_KEY: total.FOCUS_TODAY_SEC_KEY, FOCUS_TOTAL_KEY: total.FOCUS_TOTAL_KEY,
+        FOCUS_TOTAL_CAP_SEC: total.FOCUS_TOTAL_CAP_SEC, FOCUS_LEVEL_CAP_HOURS: total.FOCUS_LEVEL_CAP_HOURS, FOCUS_CYCLE_SEC: total.FOCUS_CYCLE_SEC, FOCUS_CYCLE_CAP: total.FOCUS_CYCLE_CAP,
+        _focusDayStr: (...a) => total._focusDayStr(...a), _focusTotalSec: () => W.tot, _focusTodaySec: () => W.today, _focusSessionSec: () => 0,
+        setFocusTotalSec: (v) => { W.tot = v; }, setFocusTodaySec: (v) => { W.today = v; }, setFocusSessionSec: () => {},
+        getMyUserId: () => A1, getDisplayName: () => 'n', _acctDetached: () => false,
+      }, { get: (t, k) => (k in t ? t[k] : anyF) });
+      W.syncs = [];
+      const fa = { setMyProfile: (...a) => { W.profiles.push(a); return Promise.resolve(); }, syncFocusTotal: async () => { W.syncs.push(1); return { ok: true, totalSec: 0 }; } };
+      const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => (k in t ? t[k] : anyF), set: (t, k, v) => { t[k] = v; return true; } });
+      const doc = { getElementById: () => null, addEventListener(){}, createElement: () => anyF, body: anyF };
+      W.lvl = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', 'setTimeout', 'setInterval', S.LEVEL + '\nreturn window.TwFocusLevel;')(win, doc, null, fa, undefined, () => 0, () => 0).createFocusLevel(levelDeps);
+      W.share = new Function('window', 'document', 'setInterval', 'Presence', S.SHARE + '\nreturn window.TwFocusShare;')(win, doc, () => { W.intervals++; return 0; }, undefined).createFocusShare({
+        Presence: { setFocusShow: (c) => W.pushes.push(c) }, _lsSet: () => {}, _rolloverFocusToday: () => total._rolloverFocusToday(),
+        officeMode: () => false, toast: () => {}, userStatus: () => '' });
+      if(openFirst){ store.migrateLegacy(A1); store.open(A1); }   // 열렸지만(옮김 뒤) 모듈은 아직 시작 전
+      io.length = 0;
+      return W;
+    });
+    const pre = (W) => quietly(() => { W.lvl.addFocusSeconds(5); W.lvl._pushLevelIfChanged(); W.total._rolloverFocusToday(); W.share._focusShowPush(true); W.lvl.syncFocusTotalToServer('launcher'); });   // + 런처 복귀가 부르는 서버 맞추기   // 활성 앱 신호 한 번 + 오늘 기록 전시 한 번
+    const W1 = mkWorld(false); pre(W1);
+    chk(W1.io.length === 0 && W1.profiles.length === 0 && W1.syncs.length === 0 && W1.tot === 0, '★ 확인 전 — 계정 칸이 닫혀 있다: 활성 앱 신호 · 오늘 기록 전시 한 번에 읽기 · 쓰기 0건 · 누적 0 · setMyProfile 0');
+    chk(W1.st.o['tw.focusTotalSec'] === '1800000' && Object.keys(W1.st.o).every((k) => !k.startsWith('tw.u.')), '  ↳ 옛 PC 칸 값은 그대로이고 계정 칸은 비어 있다');
+    const W2 = mkWorld(true); pre(W2);
+    chk(W2.io.length === 0 && W2.profiles.length === 0 && W2.syncs.length === 0 && W2.tot === 0, '★ 칸이 열렸어도 모듈이 시작 전이면 입구에서 끝낸다 — 읽기 · 쓰기 0건 · 누적 0 · setMyProfile 0 · 서버 맞추기 요청 0(활성 앱 판정 쪽 가드 없이 포커스 모듈 입구 한 곳)');
+    const W3 = mkWorld(false);
+    quietly(() => { W3.store.migrateLegacy(A1); W3.store.open(A1); W3.total.startFocusTotal(); W3.tot = W3.total._loadFocusTotalSec(); });   // app-boot begin: 옮기기 → 열기 → 시작
+    chk(W3.tot === 1800000 && W3.total._focusTodaySec() === 600 && W3.total._focusTotalStarted(), '★ begin 뒤 — 옛 PC 칸 값(누적 1800000 · 오늘 600)이 화면 값으로 보인다');
+    quietly(() => W3.lvl.addFocusSeconds(5));
+    chk(W3.tot === 1800005 && W3.st.o['tw.u.' + A1 + '.focusTotalSec'] === '1800005', '  ↳ 시작 뒤에는 누적에 더하고 계정 칸에 쓴다');
+    const grabF = (src, head) => { const i = src.indexOf(head); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0; for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
+    const advLine = (S.MHD.match(/^const ADV = [^\n]*$/m) || [''])[0];
+    const reads = [];
+    const advStore = { get: (k) => { reads.push(k); return W3.st.getItem('tw.u.' + A1 + '.' + k.replace(/^tw\./, '')); }, set: () => { reads.push('W'); return true; } };
+    let advRun = null;
+    try{ advRun = new Function('advStore', 'FolderFree', 'ADV_KEY', 'ADV_KEY_V1', 'localStorage',
+      grabF(S.MHD, 'function blankSlot(') + '\n' + grabF(S.MHD, 'function advDefault(') + '\n' + grabF(S.MHD, 'function advLoad(') + '\n' + advLine + '\nreturn ADV;')(advStore, undefined, 'tw.advZ.v2', 'tw.advZ.v1', null); }catch(_){}
+    chk(/advDefault\(\)/.test(advLine) && reads.length === 0 && !!advRun && advRun.bg === null, '★ 바탕화면 — 만들 때 계정 칸을 읽지 않고 빈 기본값(받는 중 상태)으로 선다');
+    /* 시작 전 advSave · 서버 advBg 올리기는 실제로 불러 센다 — 빈 기본 ADV 가 저장본(계정 칸)도 서버 advBg({cleared:true})도 덮지 못한다 */
+    const remote = []; const wrote = [];
+    const advFns = new Function('window', 'firebaseAPI', 'getMyUserId', 'advStore', 'ADV_KEY', 'FolderFree',
+      grabF(S.MHD, 'function blankSlot(') + '\n' + grabF(S.MHD, 'function advDefault(') + '\nlet advStarted = false;\nconst ADV = advDefault();\n' + grabF(S.MHD, 'function advSave(') + '\n' + grabF(S.MHD, 'function advSaveBgRemote(') +
+      '\nreturn { save: advSave, remote: advSaveBgRemote, start(){ advStarted = true; } };');
+    const fbApi = { saveAdvBg: (...a) => { remote.push(a); return Promise.resolve({ ok: true }); } };
+    const advFn = advFns({ firebaseAPI: fbApi }, fbApi, () => A1, { set: (k, v) => { wrote.push(k); return true; } }, 'tw.advZ.v2', undefined);
+    advFn.save(); advFn.remote();
+    chk(wrote.length === 0 && remote.length === 0, '  ↳ 시작 전에는 advSave · 서버 advBg 올리기가 0건(빈 기본값이 저장본도 서버 배경도 덮지 못한다 — 폴더 숨기기 · 배치 · 배경 고르기가 지나는 길)');
+    advFn.start(); advFn.save(); advFn.remote();
+    chk(wrote.length === 1 && remote.length === 1, '  ↳ 시작 뒤에는 둘 다 나간다');
+    const sf0 = quietly(() => mkWorld(false));
+    chk(sf0.pushes.length === 0 && sf0.intervals === 0, '  ↳ 오늘 기록 전시는 만들 때 보내지도 인터벌을 걸지도 않는다');
+    quietly(() => sf0.share.startFocusShare());
+    chk(sf0.pushes.length === 1 && sf0.intervals === 1, '  ↳ 시작 함수가 첫 보내기 한 번 + 15초 인터벌 하나를 건다');
+  }
+
+  say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
+  {
+    // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
+    /* 0.13 — 옮기기는 계정 확인 뒤 app-boot 가 서버가 돌려준 코드로 한다(읽는 모듈의 시작보다 앞 — 순서는 sim-app-boot.js). app.js 는 그 연결 한 줄만 둔다. */
+    const line = (S.APP.match(/^ {2}migrateLegacy: \(code\)=>accountStoreMod\.migrateLegacy\(code\),$/m) || [])[0];
+    chk(!!line && S.APP.split(line).length === 2, '① app.js 에 옮기기 연결이 한 줄 있다(app-boot 가 서버 계정 코드로 부른다)');
+    chk(!/^accountStoreMod\.migrateLegacy\(getMyUserId\(\)\);$/m.test(S.APP) && S.APP.indexOf('const accountStoreMod =') < S.APP.indexOf('const appBoot =') && S.APP.indexOf('const appBoot =') > S.APP.indexOf('const focusTotalMod ='), '  ↳ 확인 전(저장된 코드)으로 옮기는 줄은 없다 · 계정 칸을 만든 뒤에 연결한다');
+    const mkBoot = (code) => {
+      const st = mem(); st.setItem('tw.focusTotalSec', '7777'); st.setItem('tw.advZ.v2', '{"a":1}');
+      const M = load(S.STORE);
+      const store = M.createAccountStore({ storage: st, getAccountCode: () => code, isWriteLocked: () => false });
+      if(line) new Function('accountStoreMod', 'return ' + line.trim().replace(/^migrateLegacy: /, '').replace(/,$/, ''))(store)(code);
+      if(code){ const w0 = console.warn; console.warn = () => {}; store.open(code); console.warn = w0; }   // app-boot 가 옮긴 직후 여는 것까지
+      return { st, store };
+    };
+    let b = mkBoot(null);
+    chk(b.st.o['tw.focusTotalSec'] === '7777' && !(MIG(load(S.STORE)) in b.st.o) && Object.keys(b.st.o).every((k) => !k.startsWith('tw.u.')), '★ 로그인 전(코드 없는 PC) — 아무것도 옮기지 않고 PC 칸 그대로(다음에 코드가 생기면 그때)');
+    b = mkBoot(A);
+    chk(b.st.o['tw.u.' + A + '.focusTotalSec'] === '7777' && !('tw.focusTotalSec' in b.st.o) && b.st.o['tw.u.' + A + '.advZ.v2'] === '{"a":1}', '★ 코드가 있는 PC — 그 계정 칸으로 옮기고 PC 칸은 비운다');
+    chk(b.store.get('tw.focusTotalSec') === '7777', '  ↳ 읽는 모듈이 곧바로 옮긴 값을 본다');
+    b.st.setItem('tw.focusTotalSec', '1'); b.store.migrateLegacy(A);
+    chk(b.st.o['tw.u.' + A + '.focusTotalSec'] === '7777', '  ↳ 두 번째는 덮지 않는다');
+
+    // ② 로그아웃 — _loginDoLogout 을 실물 글로 돌려 부른 차례를 본다
     const any = (() => { const f = function(){ return P; }; const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true }); return P; })();
-    const st = mem(); let mem0 = 0, detached = false;
-    const store = M.createAccountStore({ storage: st, getAccountCode: () => st.getItem('tw.myUserId'), isWriteLocked: () => detached });
-    st.setItem('tw.myUserId', A);
-    store.set('tw.focusTotalSec', 360000); store.set('tw.focusSyncedSec', 360000);   // A: 100h · 마크 100h
-    mem0 = 360000;
+    const st = mem(); st.setItem('tw.myUserId', A);
+    const rec = [];
     const deps = {};
     (S.ACC.match(/deps\.([\w$]+)/g) || []).forEach((m) => { deps[m.slice(5)] = any; });
     Object.assign(deps, {
       MY_USER_ID_KEY: 'tw.myUserId', getMyUserId: () => st.getItem('tw.myUserId'),
-      _setMyUserId: (c) => { st.setItem('tw.myUserId', c); return true; },
-      setAcctDetached: (v) => { detached = v; }, accountAdoptStore: store,
-      _focusTotalSec: () => mem0, setFocusTotalSec: (v) => { mem0 = v; }, setFocusTodaySec: () => {},
-      FOCUS_TOTAL_KEY: () => 'tw.focusTotalSec',
-      focusLevelMod: () => ({ FOCUS_SYNCED_KEY: 'tw.focusSyncedSec', DANCE_NOTIFIED_KEY: 'x1', DANCE_REPAIR_KEY: 'x2' }),
-      acctStateMod: { INVITE_PASS_KEY: 'x3', LICENSE_KEY_STORAGE: 'x4', LICENSE_OPTOUT_KEY: 'x5', _markInvitePassed(){}, _setPremium(){} },
+      accountLegacyStore: { migrateLegacy: (c) => { rec.push('migrate:' + c); return {}; } },
+      plMod: { st: {}, reset(){}, flushPending: () => new Promise((r) => setTimeout(() => { rec.push('plFlushDone'); r(); }, 5)) },
+      setAcctDetached: (v) => { if(v) rec.push('wipe'); },
+      focusLevelMod: () => ({ DANCE_NOTIFIED_KEY: 'x1', DANCE_REPAIR_KEY: 'x2' }),
+      acctStateMod: { INVITE_PASS_KEY: 'x3', LICENSE_KEY_STORAGE: 'x4', LICENSE_OPTOUT_KEY: 'x5' },
       LOGIN_EMAIL_KEY: 'x6', LOGIN_UID_KEY: 'x7',
     });
     const win = { firebaseAPI: { deviceSessionLost: () => true, authSignOut(){}, chatHistory: { wipeAll(){} } } };
@@ -203,41 +319,19 @@ async function judge(S){
     try{
       acc = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'setTimeout', 'module',
         S.ACC + '\nreturn window.TwAccount;')(win, any, st, any, win.firebaseAPI, (f) => 0, undefined).createAccount(deps);
-    }catch(e){ chk(false, 'account.js 를 만들지 못했다 — ' + e.message); acc = null; }
+    }catch(e){ chk(false, 'account.js 를 만들지 못했다 — ' + e.message); }
     if(acc){
-      const done = (async () => {
-        const lo = await acc._loginDoLogout({ force: true });
-        chk(lo && lo.ok && detached === true && st.getItem('tw.myUserId') === null, '로그아웃(wipe) — 신원을 놓고 깃발이 선다');
-        chk(st.o['tw.u.' + A + '.focusSyncedSec'] === '360000', '  ↳ 계정 칸의 옛 마크는 지우지 않는다(같은 계정이 돌아오면 이어진다)');
-        st.setItem('tw.myUserId', A);   // _setMyUserId(새 코드)
-        await acc._applyTransferSnapshot({ focusTotalSec: 540000 });   // 다른 PC 에서 150h 가 서버에 올라 있었다
-        const tot = Number(st.o['tw.u.' + A + '.focusTotalSec']), mark = Number(st.o['tw.u.' + A + '.focusSyncedSec']);
-        chk(tot === 540000 && mark === 540000, '★ 합친 누적 · 마크가 계정 칸에 들어간다(깃발이 서 있어도)');
-        chk(Math.max(0, Math.floor(mem0) - mark) === 0, '★ 서버 맞춤 증분(delta)이 0 — 서버 누적이 두 번 더해지지 않는다(150h)');
-        chk(!('tw.focusTotalSec' in st.o) && !('tw.focusSyncedSec' in st.o), 'PC 칸에는 누적 · 마크를 안 쓴다');
-      })();
-      await done;
+      const lo = await acc._loginDoLogout({ force: true });
+      chk(lo && lo.ok, '로그아웃이 끝난다');
+      chk(rec.join() === 'migrate:' + A + ',plFlushDone,wipe', '★ 차례: 옛 값 옮기기 → 플레이리스트 마지막 올리기가 끝남 → 지우기(wipe)  [' + rec.join(' → ') + ']');
     }
-  }
-  {
-    // 바탕화면 저장 칸 고르기 — advLoad / advSave 를 실물 글에서 떼어 불러 본다
-    const grab = (src, head) => { const i = src.indexOf(head); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0; for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
-    const code = { v: null }, lock = { v: false }, st = mem(), store = mk(st, code, lock);
-    const run = (body) => new Function('advStore', 'FolderFree', 'ADV_KEY', 'ADV_KEY_V1', 'localStorage',
-      grab(S.MHD, 'function blankSlot(') + '\n' + grab(S.MHD, 'function advLoad(') + '\n' + grab(S.MHD, 'function advSave(') + '\n' + body)(store, undefined, 'tw.advZ.v2', 'tw.advZ.v1', st);
-    try{
-      run("const ADV = advLoad(); ADV.bg = { color:'#111' }; advSave();");
-      chk(!Object.keys(st.o).length, '★ 코드 null — 바탕화면 저장 0건');
-      code.v = A; run("const ADV = advLoad(); ADV.bg = { color:'#aaa' }; advSave();");
-      code.v = B; run("const ADV = advLoad(); ADV.bg = { color:'#bbb' }; advSave();");
-      const bgOf = (c) => { code.v = c; return JSON.parse(store.get('tw.advZ.v2')).bg.color; };
-      chk(bgOf(A) === '#aaa' && bgOf(B) === '#bbb', '★ 계정마다 칸이 갈려 바탕화면이 안 섞인다');
-      code.v = 'u99999999c'; const fresh = run("return advLoad().bg;");
-      chk(fresh === null, '새 계정 C 는 기본 바탕화면(A · B 것이 안 보인다)');
-      lock.v = true; code.v = A; run("const ADV = advLoad(); ADV.bg = { color:'#evil' }; advSave();");
-      lock.v = false; chk(bgOf(A) === '#aaa', '★ 계정을 놓은 틈의 advSave 는 A 칸을 못 덮는다');
-      chk(Object.keys(st.o).every((k) => k.startsWith('tw.u.')), 'PC 공용 칸에는 아무것도 안 썼다');
-    }catch(e){ chk(false, '바탕화면 저장 칸 실행 실패 — ' + e.message); }
+    st.o = {}; 
+    const accOut = async () => {
+      const r2 = []; deps.accountLegacyStore = { migrateLegacy: (c) => { r2.push('migrate:' + c); return {}; } };
+      const a2 = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'setTimeout', 'module', S.ACC + '\nreturn window.TwAccount;')(win, any, st, any, win.firebaseAPI, (f) => 0, undefined).createAccount(deps);
+      await a2._loginDoLogout({ force: true }); return r2;
+    };
+    chk((await accOut()).length === 0, '  ↳ 로그인 전(이 PC 에 코드 없음)의 로그아웃은 옮기기를 부르지 않는다');
   }
 
   say('── 7. 배선');
@@ -257,8 +351,12 @@ await judge(SRC0);
 
 say('── 8. 일부러 깨 보기');
 const BREAKS = [
+  ['APP', "  migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),\n", "  migrateLegacy: (code)=>{},\n", '부팅 때 옛 값을 안 옮김'],
+  ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n", "", '로그아웃이 옛 값을 안 옮김'],
+  ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n  if(uid){\n    const fl = await _acctFlushToServer();", "  if(uid){\n    const fl = await _acctFlushToServer();\n    accountLegacyStore.migrateLegacy(uid);", '로그아웃이 올린 뒤에 옮김(순서 뒤집기)'],
+  ['ACC', "const fl = await _acctFlushToServer();", "const fl = (_acctFlushToServer(), { timedOut:false });", '플레이리스트 마지막 올리기를 안 기다리고 지움'],
   ['STORE', "function cellName(code, key){ return CELL_PREFIX + code + '.' + key.replace(/^tw\\./, ''); }", "function cellName(code, key){ return key; }", '계정 코드를 칸 이름에 안 넣음(PC 한 칸)'],
-  ['STORE', "return validCode(code) ? cellName(code, key) : null;", "return validCode(code) ? cellName(code, key) : key;", '로그인 전에 PC 칸을 씀'],
+  ['STORE', "return validCode(code) ? cellName(code, key) : null;\n  }\n  function closedFor(key){\n    if(opened !== null && opened === getAccountCode()) return false;", "return validCode(code) ? cellName(code, key) : key;\n  }\n  function closedFor(key){\n    return false;", '로그인 전에 PC 칸을 씀(열림 장치도 없는 모양)'],
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],
   ['STORE', "if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);", "", '모르는 키 · 기기 공용 키를 받음'],
   ['STORE', "if(have !== null) res.kept.push(k);", "if(false) res.kept.push(k);", '계정 칸 값을 덮어씀'],
@@ -268,13 +366,24 @@ const BREAKS = [
   ['STORE', "'tw.focusSyncedSec', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 마크 빠짐'],
   ['TOTAL', "function _loadFocusTotalSec(){ try{ return parseFloat(focusTotalStore.get(FOCUS_TOTAL_KEY))||0; }", "function _loadFocusTotalSec(){ try{ return parseFloat(localStorage.getItem(FOCUS_TOTAL_KEY))||0; }", '누적을 다시 PC 칸에서 읽음'],
   ['LEVEL', "focusLevelStore.set(FOCUS_TOTAL_KEY,String(_focusTotalSec()));", "localStorage.setItem(FOCUS_TOTAL_KEY,String(_focusTotalSec()));", '레벨 모듈이 PC 칸에 씀'],
-  ['MHD', "function advSave(){ try{ advStore.set(ADV_KEY,", "function advSave(){ try{ localStorage.setItem(ADV_KEY,", '바탕화면이 PC 칸에 저장'],
+  ['MHD', "  try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){}\n}", "  try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){}\n}", '바탕화면이 PC 칸에 저장'],
   ['APP', "getAccountCode: getMyUserId, isWriteLocked", "getAccountCode: ()=>null, isWriteLocked", '계정 코드를 안 넘김'],
-  ['STORE', "if(!cell || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell) return false;\n    try{ storage.setItem", '놓은 틈에도 set 이 통과'],
-  ['STORE', "function adopt(key, value){\n    const cell = cellOf(key);\n    if(!cell) return false;", "function adopt(key, value){\n    const cell = cellOf(key);\n    if(!cell || isWriteLocked()) return false;", '채택도 틈에 막힘(연동 값이 안 들어감)'],
-  ['ACC', "accountAdoptStore.adopt(FOCUS_TOTAL_KEY(), String(_merged));", "localStorage.setItem(FOCUS_TOTAL_KEY(), String(_merged));", '연동 누적을 PC 칸에 씀'],
-  ['ACC', "accountAdoptStore.adopt(focusLevelMod().FOCUS_SYNCED_KEY, String(_merged));", "localStorage.setItem(focusLevelMod().FOCUS_SYNCED_KEY, String(_merged));", '연동 마크를 PC 칸에 씀'],
-  ['MHD', "function advSave(){ try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }", "function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }", '바탕화면 저장이 PC 칸(동작 판정)'],
+  ['STORE', "if(!cell || closedFor(key) || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell || closedFor(key)) return false;\n    try{ storage.setItem", '놓은 틈에도 set 이 통과'],
+  ['STORE', "if(!cell || closedFor(key) || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell || isWriteLocked()) return false;\n    try{ storage.setItem", '닫힌 동안에도 set 이 통과'],
+  ['STORE', "    if(!cell || closedFor(key)) return null;", "    if(!cell) return null;", '닫힌 동안에도 get 이 통과'],
+  ['STORE', "if(!validCode(code) || code !== getAccountCode()){", "if(!validCode(code)){", '다른 코드로도 열림'],
+  ['MHD', "  try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){}\n}", "  try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){}\n}", '바탕화면 저장이 PC 칸(동작 판정)'],
+  ['TOTAL', "  if(!_focusTotalStarted) return _focusTodaySec;   // 계정 칸이", "  // ", '오늘치 롤오버가 확인 전에도 계정 칸을 읽고 씀'],
+  ['LEVEL', "  if(!_focusTotalStarted()) return;   // 계정 확인 전", "  // ", '누적 더하기가 확인 전에도 돎'],
+  ['LEVEL', "  if(!_focusTotalStarted()) return;   // 누적을 읽기 전의 0 으로", "  // ", '레벨 올림이 확인 전에도 프로필을 씀'],
+  ['MHD', "const ADV = advDefault();", "const ADV = advLoad();", '바탕화면을 만들 때 읽음'],
+  ['MHD', "  if(!advStarted) return;\n  try{ advStore", "  try{ advStore", '시작 전에도 advSave'],
+  ['MHD', "  if(!advStarted) return;   // 시작 전의 빈 기본", "  // 시작 전의 빈 기본", '시작 전에도 서버 advBg 에 올림'],
+  ['LEVEL', "  if(!_focusTotalStarted()) return;   // 누적을 읽기 전(계정 확인 전)에 런처", "  // 누적을 읽기 전(계정 확인 전)에 런처", '런처 복귀가 확인 전에도 서버를 부름'],
+  ['SHARE', "function startFocusShare(){\n  _focusShowPush(true);", "function startFocusShare(){\n  ", '오늘 기록 전시 첫 보내기가 시작에서 빠짐'],
+  ['SHARE', "(function bindFocusShow(){", "_focusShowPush(true);\n(function bindFocusShow(){", '오늘 기록 전시 첫 보내기가 만들 때 나감'],
+  ['STORE', "    if(opened !== null && opened === getAccountCode()) return false;", "    return false;", '열림 장치를 끔(늘 열림)'],
+  ['STORE', "    if(opened !== null && opened === getAccountCode()) return false;", "    if(opened !== null) return false;", '열린 뒤 코드가 바뀌어도 열린 채'],
   ['BOOT', 'createMyHomeDesktop({ advStore: accountStoreMod })', 'createMyHomeDesktop({})', 'deps 를 안 넘김'],
   ['HTML', '<script src="parts/shared/account-store.js"></script>', '', 'html 에 안 실음'],
 ];

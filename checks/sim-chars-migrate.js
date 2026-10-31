@@ -615,7 +615,7 @@ async function sec8(){
   chk(["'deskFriends.chars.v1'", "'deskFriends.chars.desk'", "'deskFriends.chars.trashPend'"].every(k => ak.indexOf(k) > 0), '  로그아웃 목록에 보관함 · 책상 표 · 휴지통 대기 줄(설계 §9-5)');
   chk(/call\(typeof _charsSync === 'function' \? _charsSync : null, 'logout'\)/.test(fnSrc('async function _acctFlushToServer(')), '  로그아웃 flush 가 먼저 올린다');
   const after = SRC.slice(SRC.indexOf('try{ window.charsMigrateDryRun'), SRC.indexOf('try{ window.charsMigrateDryRun') + 600);
-  chk(/if\(CHARS_SYNC_ENABLED\)\{\s*setTimeout\(\(\)=>\{ try\{ _charsBoot\('boot'\)/.test(after) && /setInterval\(\(\)=>\{ try\{ _charsBoot\('tick'\)/.test(after),
+  chk(/function startCharsSync\(\)\{\s*if\(!CHARS_SYNC_ENABLED\) return;\s*setTimeout\(\(\)=>\{ try\{ _charsBoot\('boot'\)/.test(after) && /setInterval\(\(\)=>\{ try\{ _charsBoot\('tick'\)/.test(after),
     '★ 부팅·30분 배선은 스위치 안에서만 건다(꺼져 있으면 부팅에서 아무것도 안 부른다)');
   chk(/_charsDeleteWords\(\)\.ask/.test(SRC) && /d\.textContent=w\.btn/.test(SRC), '  런처 톱니 문구·되묻기는 열 때마다 _charsDeleteWords 를 읽는다');
 }

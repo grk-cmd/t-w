@@ -2,7 +2,7 @@
    app.js 의 🎟️ 초대장(앱 접근 제한) 구역 본문 을 parts/account/license-gate.js 로 옮겼다(글자 그대로 · 바뀐 줄 20 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(초대장 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(INVITE_GRANT_MAX · INVITE_PASS_KEY · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _existingSignupCheck · _genLicenseKey · _licenseSnapForPush · _markInvitePassed · _needLoginCheck · _rcStore · _setPremium · activateLicense · checkInviteGate · deactivateLicense · loadLicenseFromStorage · refreshInviteBtn · verifyLicense)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 33줄 그대로 · 부르는 곳은 licenseGateMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 32줄 그대로 · 부르는 곳은 licenseGateMod.이름 · html(app.js 앞)
    ・2-3절: 런처 초대장 버튼 — refreshInviteBtn 을 실제로 돌려 남은 장수를 읽어 1장 이상일 때만 켜지는지(못 읽음 · 0장 · 읽기 전엔 꺼짐)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · license-gate.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -18,13 +18,13 @@ const MOD = ["license-gate.js","parts/account/license-gate.js","app/parts/accoun
 if(!MOD){ say('  ? 원본 못 찾음 — license-gate.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyTransferSnapshot","_inventMyUserId","_loginDoFriendCode","_loginDoGoogle","_loginLocalSnapshot","_setMyUserId","applyDeskCatalogRefToSeat","applyDeskItemsTo","genFriendCodeCandidate","getMyLoginEmail","getMyUserId","pruneUnownedLicenseAssets","refreshAccountTab","refreshCustomStatusMenuItem","refreshLicenseUI","renderCrItems","restoreLicenseHeldAssets","setUserStatus","toast","_markInvitePassed","_setPremium","_acctRelaunchAfterDetach","_rcStore"];
-const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","HAD_USER_ID_AT_BOOT","MY_FRIEND_CODE_KEY","seats","INVITE_PASS_KEY","LICENSE_KEY_STORAGE","LICENSE_OPTOUT_KEY","onPremiumChanged"];
-const GET_DEPS = ["FRIEND_CODE_LOGIN_RE","LOGIN_EMAIL_KEY","LOGIN_UID_KEY","awayPicMod","creatorOpen","isAdmin","userStatus"];
+const FN_DEPS = ["_loginDoFriendCode","_loginDoGoogle","_enterAccount","_wipeAccountLocal","notifyError","applyDeskCatalogRefToSeat","applyDeskItemsTo","getMyUserId","pruneUnownedLicenseAssets","refreshAccountTab","refreshCustomStatusMenuItem","refreshLicenseUI","renderCrItems","restoreLicenseHeldAssets","setUserStatus","toast","_setPremium","_acctRelaunchAfterDetach","_rcStore"];
+const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","loginFlowMod","userApiMod","inviteIds","twNav","seats","LICENSE_KEY_STORAGE","LICENSE_OPTOUT_KEY","onPremiumChanged"];
+const GET_DEPS = ["FRIEND_CODE_LOGIN_RE","awayPicMod","creatorOpen","userStatus"];
 const SET_DEPS = [];
-const EXPORTS = ["INVITE_GRANT_MAX","_existingSignupCheck","_genLicenseKey","_licenseSnapForPush","_needLoginCheck","activateLicense","checkInviteGate","deactivateLicense","loadLicenseFromStorage","refreshInviteBtn","verifyLicense"];
+const EXPORTS = ["INVITE_GRANT_MAX","_genLicenseKey","activateLicense","checkInviteGate","deactivateLicense","loadLicenseFromStorage","refreshInviteBtn","verifyLicense"];
 const MOVED = ["_rcStore","inviteGateOn","INVITE_PASS_KEY","INVITE_TOKEN_KEY","_inviteTokenLoad","_inviteTokenFor","_inviteFinishPending","INVITE_GRANDFATHER_COUNT","INVITE_GRANT_MAX","_genInviteCode","SIGNUP_PENDING_KEY","_signupPendingLoad","_signupPendingSave","_signupPendingEnsure","_signupClaimCode","_signupFinishLocal","_signupDoPassword","_signupDoGoogle","existingSignupOn","_existingSignupCode","_existingSignupNeed","_existingSignupDoPassword","_existingSignupCheck","_showExistingSignup","_showSignupDone","_hideSignupDone","_needLoginNeed","_needLoginCheck","_showNeedLogin","checkInviteGate","_markInvitePassed","_showInviteGate","refreshInviteBtn","issueInviteAndShow","_inviteConfirmIssue","LICENSE_KEY_STORAGE","_setPremium","_genLicenseKey","verifyLicense","loadLicenseFromStorage","LICENSE_OPTOUT_KEY","_licenseSnapPushNow","_licenseSnapForPush","activateLicense","deactivateLicense","_refreshPremiumGatedUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,","  HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,","  LOGIN_EMAIL_KEY: ()=>acctStateMod.LOGIN_EMAIL_KEY,","  LOGIN_UID_KEY: ()=>acctStateMod.LOGIN_UID_KEY,","  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _applyTransferSnapshot: (...a)=>accountMod._applyTransferSnapshot(...a),","  _inventMyUserId: (...a)=>_inventMyUserId(...a),","  _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),","  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),","  _loginLocalSnapshot: (...a)=>accountMod._loginLocalSnapshot(...a),","  _setMyUserId: (...a)=>_setMyUserId(...a),","  applyDeskCatalogRefToSeat: (...a)=>applyDeskCatalogRefToSeat(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  awayPicMod: ()=>awayPicMod,","  creatorOpen: ()=>creatorOpen,","  genFriendCodeCandidate: (...a)=>genFriendCodeCandidate(...a),","  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  isAdmin: ()=>isAdmin,","  pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),","  refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),","  refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  renderCrItems: (...a)=>renderCrItems(...a),","  restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  INVITE_PASS_KEY: acctStateMod.INVITE_PASS_KEY,","  LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,","  LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,","  _markInvitePassed: (...a)=>acctStateMod._markInvitePassed(...a),","  _setPremium: (...a)=>acctStateMod._setPremium(...a),","  onPremiumChanged: acctStateMod.onPremiumChanged,","  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),"];
+const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,","  _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),","  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),","  _enterAccount: (...a)=>accountMod._enterAccount(...a),","  twNav: twNav,","  _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),","  loginFlowMod: loginFlowMod,","  userApiMod: userApiMod,","  inviteIds: TwRequestId.createPending(),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  awayPicMod: ()=>awayPicMod,","  creatorOpen: ()=>creatorOpen,","  getMyUserId: (...a)=>getMyUserId(...a),","  pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),","  refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),","  refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),","  restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),","  seats: seats,","  setUserStatus: (...a)=>setUserStatus(...a),","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,","  LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,","  LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,","  _setPremium: (...a)=>acctStateMod._setPremium(...a),","  onPremiumChanged: acctStateMod.onPremiumChanged,","  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),","  _rcStore: (...a)=>acctStateMod._rcStore(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -76,24 +76,104 @@ function judgeAll(mod, app, html){
 /* 내 코드(getMyUserId)가 없는 기기 — 런처 초대장 버튼(refreshInviteBtn) 가 부르는 firebaseAPI 이름들 */
 function callsWith(src, uid){
   const any = anything(), calls = [];
-  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
+  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });   // 서버 provider(user-api.js) 흉내 — 부른 이름을 적는다
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   deps.getMyUserId = () => uid;
-  deps.isAdmin = () => false;
+  deps.userApiMod = fa;
   const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwLicenseGate;')(win, any, ls, fa, undefined);
   try{ api.createLicenseGate(deps).refreshInviteBtn(); }catch(_){}
   return calls;
 }
-const judgeNoUid = (src) => !callsWith(src, null).includes('getInvitesLeft') && callsWith(src, 'ME').includes('getInvitesLeft');
+const judgeNoUid = (src) => !callsWith(src, null).includes('myInvites') && callsWith(src, 'ME').includes('myInvites');
+
+
+/* ── 켤 때 판정 갈래 — 진짜 checkInviteGate · _goOnline · 서버에 연결할 수 없어요 화면을 돌려 불린 것을 센다 ── */
+async function gateRun(src, o){
+  const any = anything();
+  const ev = [];
+  let waitCb = null;
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  let retryAns = o.retry || [];
+  Object.assign(deps, {
+    getMyUserId: () => o.uid || null,
+    toast: () => { ev.push('toast'); },
+    notifyError: (c) => { ev.push('err:' + c); },
+    _wipeAccountLocal: () => { ev.push('wipe'); },
+    _acctRelaunchAfterDetach: () => { ev.push('relaunch'); },
+    _enterAccount: () => { ev.push('enter'); return o.enter || { ok: true, switched: false }; },
+    twNav: { NAV: { ACCOUNT_ENTERED: 'accountEntered' }, go: (name, me) => { ev.push('entered:' + name + ':' + (me && me.userCode)); } },   // 계정에 들어감 알림 — 이후 차례는 app-boot(sim-app-boot.js)
+    loginFlowMod: {
+      confirm: async () => ({ state: o.state, me: { userCode: 'u1' } }), identity: () => ({}),
+      goOnline: () => { ev.push('goOnline'); },
+      waitForServer: (cb) => { ev.push('wait'); waitCb = cb; },
+      retryNow: async () => { ev.push('retry'); const r = retryAns.shift(); if(r && r.state !== 'local' && waitCb){ const cb = waitCb; waitCb = null; cb(r); } return r; },
+    },
+  });
+  const el = () => ({ style: {}, textContent: '', disabled: false });
+  const ov = el(), card = el(), btn = el(), msg = el();
+  const doc = { getElementById: (id) => {
+    if(id === 'inviteGateInput') ev.push('gate');   // 초대 게이트 — 마크업이 없는 척 → false 로 끝난다
+    if(id === 'inviteGateOverlay') return ov;
+    if(id === 'offlineCard') return card; if(id === 'offlineRetry') return btn; if(id === 'offlineMsg') return msg;
+    return null;
+  } };
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem(){}, removeItem(){} };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'setTimeout', 'module', src + '\nreturn window.TwLicenseGate;')(win, doc, ls, any, () => 0, undefined);
+  const mod = api.createLicenseGate(deps);
+  let settled = false, ret;
+  const p = mod.checkInviteGate().then((v) => { settled = true; ret = v; });
+  await new Promise(r => setTimeout(r, 0));
+  const out = { ev: () => ev.join(','), settled: () => settled, ret: () => ret, msg, card, ov, btn };
+  if(o.click){ for(let i = 0; i < o.click; i++){ await btn.onclick(); await new Promise(r => setTimeout(r, 0)); } }
+  if(!settled && o.click === undefined && o.state !== 'local') await p;
+  return out;
+}
+async function gateRows(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const has = (x, n) => x.ev().split(',').includes(n);
+  let x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: true, switched: true } });
+  t(x.ret() === true && has(x, 'relaunch') && !x.ev().includes('entered') && !has(x, 'gate'), 'in · 계정이 바뀜(switched) → 다시 켜기 · «들어감» 알림 없음(시작은 다시 켠 뒤)');
+  x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: true, switched: false } });
+  t(x.ret() === true && x.ev() === 'enter,entered:accountEntered:u1', 'in · 같은 계정 → 맞추기 한 번 → «계정에 들어감» 알림 한 번(그 계정 me) · 다시 켜기 · 게이트 없음');
+  x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: false, reason: 'x' } });
+  t(x.ret() === false && has(x, 'gate') && !x.ev().includes('entered'), 'in · 이 PC 를 못 맞추면(_enterAccount 실패) 게이트 · «들어감» 알림 없음');
+  for(const uid of ['u1', null]){
+    x = await gateRun(src, { state: 'local', uid });
+    t(!x.settled() && x.ev() === 'wait' && x.card.style.display === 'block' && x.ov.style.display === 'flex' && !has(x, 'gate'),
+      'local · ' + (uid ? '이 PC 에 계정 있음' : '처음 켠 PC') + ' → «서버에 연결할 수 없어요» 화면에서 기다린다(로컬 모드 없음 · 요청 0 · 받기 · 켜기 없음)');
+  }
+  x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'local', reason: 'x' }], click: 1 });
+  t(!x.settled() && x.ev() === 'wait,retry,err:E-ACC-03' && x.msg.style.display === 'block' && x.card.style.display === 'block', '  ↳ [다시 시도] 가 또 닿지 못하면 오류 번호 한 번 · 안내 글 · 화면 유지');
+  x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'local', reason: 'x', limited: true }], click: 1 });
+  t(/요청이 많아요/.test(x.msg.textContent), '  ↳ 429(limited)는 문구로 알린다');
+  x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'in', me: { userCode: 'u1' } }], click: 1 });
+  t(x.settled() && x.ret() === true && x.ev() === 'wait,retry,enter,entered:accountEntered:u1' && x.card.style.display === 'none' && x.ov.style.display === 'none', '  ↳ [다시 시도] 가 닿으면 화면을 닫고 평소 켜기 차례(맞추기 → 들어감 알림 한 번)');
+  x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'in', me: { userCode: 'u2' } }], click: 1, enter: { ok: true, switched: true } });
+  t(x.settled() && has(x, 'relaunch') && !x.ev().includes('entered'), '  ↳ 닿았는데 계정이 바뀌었으면 다시 켜기(들어감 알림 없음)');
+  x = await gateRun(src, { state: 'local', uid: 'u1', retry: [{ state: 'signup' }], click: 1 });
+  t(x.settled() && x.ev().indexOf('wipe') >= 0 && x.ev().indexOf('wipe') < x.ev().indexOf('gate'), '  ↳ 닿았는데 계정이 없으면(signup) 이 PC 몫을 지우고 초대·로그인 게이트');
+  x = await gateRun(src, { state: 'signup', uid: 'u1' });
+  t(x.ret() === false && x.ev().indexOf('wipe') >= 0 && x.ev().indexOf('wipe') < x.ev().indexOf('gate'), 'signup · 이 PC 에 계정 있음 → 이 PC 계정 몫을 지운 뒤 게이트');
+  x = await gateRun(src, { state: 'signup', uid: null });
+  t(x.ret() === false && has(x, 'gate') && !has(x, 'wipe'), 'signup · 계정 없는 PC → 지울 것 없이 게이트');
+  x = await gateRun(src, { state: 'login', uid: 'u1' });
+  t(x.ret() === false && x.ev() === 'gate', 'login → 게이트뿐(지우지 않음)');
+  return r;
+}
 
 /* 런처 초대장 버튼 — 진짜 refreshInviteBtn 을 돌려 버튼이 켜졌는지 본다.
-   o: { uid, admin, api: firebaseAPI 흉내(없으면 서버 준비 전) } → 버튼 { disabled, text } */
+   o: { uid, api: 서버 provider(user-api.js) 흉내 — myInvites } → 버튼 { disabled, text } */
 async function inviteBtnAfter(src, o){
   const any = anything();
   const btn = { textContent: '', disabled: false, title: '', style: {}, addEventListener: () => {} };
@@ -103,9 +183,8 @@ async function inviteBtnAfter(src, o){
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   deps.getMyUserId = () => o.uid;
-  deps.isAdmin = () => !!o.admin;
-  deps.HAD_USER_ID_AT_BOOT = false;
-  const win = { firebaseAPI: o.api };
+  deps.userApiMod = o.api;
+  const win = {};
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const quiet = { warn: () => {}, log: () => {} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'console', 'module', src + '\nreturn window.TwLicenseGate;')(win, doc, ls, o.api, quiet, undefined);
@@ -115,20 +194,22 @@ async function inviteBtnAfter(src, o){
 async function judgeInviteBtn(src, html){
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
-  const left = (n) => ({ getInvitesLeft: async () => n });
+  const left = (n) => ({ myInvites: async () => ({ invitesLeft: n, invites: [] }) });
   try{
     const b3 = await inviteBtnAfter(src, { uid: 'ME', api: left(3) });
     t(!b3.disabled && b3.text === '🎟️ 초대장 (3)', '3장 남음 — 켜짐 «🎟️ 초대장 (3)»');
     const b0 = await inviteBtnAfter(src, { uid: 'ME', api: left(0) });
     t(b0.disabled, '0장 — 꺼짐');
-    const bErr = await inviteBtnAfter(src, { uid: 'ME', api: { getInvitesLeft: async () => { throw new Error('permission_denied'); } } });
-    t(bErr.disabled, '★ 장수를 못 읽음(읽기 거부 · 네트워크) — 꺼짐');
-    const bNoApi = await inviteBtnAfter(src, { uid: 'ME', api: undefined });
-    t(bNoApi.disabled, '★ 서버 준비 전 — 꺼짐');
+    const bNeg = await inviteBtnAfter(src, { uid: 'ME', api: left(-1) });
+    t(bNeg.disabled && bNeg.text === '🎟️ 초대장 (0)', '회수로 음수 — 0 으로 보이고 꺼짐');
+    const bErr = await inviteBtnAfter(src, { uid: 'ME', api: { myInvites: async () => { throw Object.assign(new Error('x'), { kind: 'unavailable' }); } } });
+    t(bErr.disabled, '★ 장수를 못 읽음(닿지 못함 · 거부) — 꺼짐');
+    const bBad = await inviteBtnAfter(src, { uid: 'ME', api: { myInvites: async () => null } });
+    t(bBad.disabled, '★ 모양이 틀린 답 — 꺼짐');
     const bNoUid = await inviteBtnAfter(src, { uid: null, api: left(3) });
-    t(bNoUid.disabled, '★ 내 코드 없음 — 꺼짐');
-    const bAdm = await inviteBtnAfter(src, { uid: 'ME', admin: true, api: left(0) });
-    t(!bAdm.disabled && /무제한/.test(bAdm.text), '관리자 — 켜짐 «무제한»');
+    t(bNoUid.disabled, '★ 내 코드 없음(로그인 전) — 꺼짐');
+    const bAdm = await inviteBtnAfter(src, { uid: 'ME', api: left(null) });
+    t(!bAdm.disabled && /무제한/.test(bAdm.text), '관리자(서버가 null — 무제한) — 켜짐 «무제한»');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   const tag = (html.match(/<button id="lcInviteIssueBtn"[^>]*>/) || [''])[0];
   t(/\sdisabled[\s>]/.test(tag), '★ html — 처음(장수를 읽기 전)엔 꺼진 채 그린다');
@@ -138,13 +219,15 @@ async function judgeInviteBtn(src, html){
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 그 요청 0');
-chk(judgeNoUid(MOD), '내 코드 없음 → 초대장 남은 수 요청(getInvitesLeft) 0 · 코드 있으면 읽는다');
+chk(judgeNoUid(MOD), '내 코드 없음 → 내 초대 요청(myInvites) 0 · 코드 있으면 읽는다');
 (async () => {
 say('── 2-3. 런처 초대장 버튼');
 (await judgeInviteBtn(MOD, HTML)).forEach(([ok, msg]) => chk(ok, msg));
+say('── 2-4. 켤 때 판정 갈래 — 진짜 함수를 돌려 센다');
+(await gateRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
-  const m2 = MOD.replace('|| !firebaseAPI.getInvitesLeft || !getMyUserId()){', '|| !firebaseAPI.getInvitesLeft){');
+  const m2 = MOD.replace("  if(!getMyUserId()){ _setInviteBtn(btn,", "  if(false){ _setInviteBtn(btn,");
   chk(m2 !== MOD && !judgeNoUid(m2), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
 }
 const btnBreaks = [
@@ -159,6 +242,15 @@ for(const [name, fm, fh] of btnBreaks){
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 const breaks = [
+  ['서버에 못 닿아도 로컬 모드처럼 들임', m => m.replace("if(c.state === 'local') return await _showOfflineGate();", "if(c.state === 'local') return true;"), null, null],
+  ['오프라인 화면이 기다림을 안 검', m => m.replace("loginFlowMod.waitForServer((c)=>{", "(function(c){"), null, null],
+  ['다시 시도 실패에 오류 번호 없음', m => m.replace("notifyError('E-ACC-03', r.reason);", ""), null, null],
+  ['닿은 뒤 화면을 안 닫음', m => m.replace("card.style.display = 'none'; ov.style.display = 'none'; if(hCard) hCard.style.display = '';", ""), null, null],
+  ['signup 이어도 이 PC 몫을 안 지움', m => m.replace("if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();", ''), null, null],
+  ['계정이 바뀌었는데 다시 켜지 않음', m => m.replace("if(r.ok && r.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return true; }", ''), null, null],
+  ['게이트 로그인 뒤 «들어감» 을 안 알림', m => m.replace('close(); _entered(r.me); resolve(true);', 'close(); resolve(true);'), null, null],
+  ['계정 가입(이미 가입된 구글) 뒤 «들어감» 을 안 알림', m => m.replace("close(); _entered(r.me); resolve(true); return; }", "close(); resolve(true); return; }"), null, null],
+  ['켤 때 확인이 «들어감» 을 안 알림', m => m.replace('if(r.ok){ _entered(c.me); return true; }', 'if(r.ok) return true;'), null, null],
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/account/license-gate.js"></script>', '')],
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
   ['deps 하나 빠짐', null, a => { const i = a.indexOf("const licenseGateMod = TwLicenseGate.createLicenseGate({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }, null],
@@ -171,7 +263,7 @@ const breaks = [
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
-  let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2); if(m2 !== MOD) rows2 = rows2.concat(await gateRows(m2)); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

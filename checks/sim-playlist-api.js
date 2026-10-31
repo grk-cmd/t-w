@@ -215,7 +215,7 @@ async function judge(S){
     chk(OLD.every((n) => FI.indexOf(n) < 0), 'firebase-init.js 에 옛 플레이리스트 메서드(내 목록 · 무작위 · 친구)가 없다');
     chk(OLD.every((n) => PL.indexOf('firebaseAPI.' + n) < 0 && ACC.indexOf('firebaseAPI.' + n) < 0 && PUB.indexOf(n) < 0), '부르는 곳(playlist.js · account.js · api-public-reads.js)이 옛 메서드를 안 부른다');
     chk(/playlistApi:\s*TwPlaylistApi\.createPlaylistApi\(\{[^}]*authed:\s*TwApi\.authed/.test(APP.replace(/\s+/g, ' ')) || /createPlaylistApi\(\{[^}]*authed:\s*TwApi\.authed/.test(APP.replace(/\s+/g, ' ')), 'app.js 가 로그인 통로(TwApi.authed)로 provider 를 만든다');
-    chk(/const plApi = deps\.playlistApi;/.test(PL) && ['fetchMine(', 'saveMine(', 'fetchRandom(', 'fetchOf('].every((n) => PL.indexOf('plApi.' + n) > 0) && !/playlistApi|plApi/.test(ACC) && /plMod\.reset\(\);\s*plMod\.pull\(\);/.test(ACC), 'playlist.js 가 deps 로 받은 provider 를 부른다(받기 · 올리기 · 파도타기 둘) · account.js 는 provider 를 몰라서 plMod.reset → pull 만 부른다');
+    chk(/const plApi = deps\.playlistApi;/.test(PL) && ['fetchMine(', 'saveMine(', 'fetchRandom(', 'fetchOf('].every((n) => PL.indexOf('plApi.' + n) > 0) && !/playlistApi|plApi/.test(ACC) && /plMod\.reset\(\)/.test(ACC), 'playlist.js 가 deps 로 받은 provider 를 부른다(받기 · 올리기 · 파도타기 둘) · account.js 는 provider 를 몰라서 plMod.reset 만 부른다(받기는 로그인 뒤 다시 켠 부팅이)');
     chk(PL.indexOf('firebaseAPI.fetchPlaylistCard') >= 0 || PL.indexOf('fetchPlaylistCard') >= 0, '명함(fetchPlaylistCard)은 이번 묶음 밖 — 그대로 남아 있다');
     const h = S.HTML, i1 = h.indexOf('<script src="parts/status/playlist-api.js">'), i2 = h.indexOf('<script src="parts/status/playlist.js">'), i3 = h.indexOf('<script src="parts/app.js">');
     chk(i1 > 0 && i1 < i2 && i2 < i3, 'html — playlist-api.js 가 playlist.js · app.js 보다 먼저');

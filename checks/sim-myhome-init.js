@@ -20,12 +20,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — myhome-init.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_waitForFirebaseAPI","ensureMyFriendCode","getDisplayName","getMyUserId","toast"];
-const VAL_DEPS = ["MY_FRIEND_CODE_KEY","deviceLostMod","friendManage","friendsSub","mailFeed","mhScheduler","noticeFeed","presenceLock"];
+const VAL_DEPS = ["MY_FRIEND_CODE_KEY","friendManage","friendsSub","mailFeed","mhScheduler","noticeFeed","presenceLock"];
 const GET_DEPS = ["_myFriendRequests","_myHomeFriends","_myHomeReady","focusLevelMod","inboxMod","myHomeOpen"];
 const SET_DEPS = ["_myFriendRequests","_myHomeFriends","_myHomeReady"];
 const EXPORTS = ["initMyHome","onMailChanged","onNewsChanged"];
 const MOVED = ["_ownerWriteWarned","_warnOwnerWriteDenied","initMyHome","_myInbox","_myInboxReady","_inboxBroadcast"];   // 옮긴 꼭대기 선언 + 서버 원본이 되어 걷은 let 셋          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  deviceLostMod: deviceLostMod,","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
+const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -85,19 +85,20 @@ async function callsWith(src, uid){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   let done; const fin = new Promise(r => { done = r; });
   deps.getMyUserId = () => uid;
+  deps.presenceLock = { startOnlineFor: (id, me) => { calls.push('presence.me=' + (me && me.tag)); return true; } };
   deps.friendsSub = new Proxy({}, { get: (t, k) => (...a) => { calls.push('friendsSub.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps.mailFeed = new Proxy({}, { get: (t, k) => (...a) => { calls.push('mailFeed.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps._waitForFirebaseAPI = (cb) => { Promise.resolve(cb()).then(done, done); };
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwMyHomeInit;')(win, any, ls, fa, undefined);
-  api.createMyHomeInit(deps).initMyHome();
+  api.createMyHomeInit(deps).initMyHome(uid, { tag: 'ME-ANSWER' });   // app-boot 가 서버가 확인한 코드 · 그 확인의 me 를 넘긴다
   await Promise.race([fin, new Promise(r => setTimeout(r, 200))]);
   return calls;
 }
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
-  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.'))[0] === 'setMyPresenceOnline';   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
+  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.')).slice(0, 2).join() === 'presence.me=ME-ANSWER,setMyPresenceOnline';   // 접속 고정은 app-boot 가 넘긴 확인의 me 로   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
 };
 
 (async () => {

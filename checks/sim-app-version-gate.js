@@ -153,7 +153,7 @@ function fakeUi(){ const shown = []; return { shown, show: (v) => shown.push(v),
     chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null/.test(block) && /const MIN_APP_VER_WAIT_MS = (\d+);/.test(code) && +code.match(/const MIN_APP_VER_WAIT_MS = (\d+);/)[1] < 8000,
       '★ 원격 설정(API GET /v1/config)의 첫 답을 기다려 minVersion.app — 기다림은 게이트 시간 초과(8초)보다 짧게 · 못 받으면 null(막지 않음)');
     chk(/getVersion: \(\) => _appVer\.ready/.test(block) && /ui: createAppVersionGateDom\(document\)/.test(block) && /\.start\(\)$/.test(block), '  ↳ 앱 버전 · 화면 · 켤 때 시작');
-    chk(i > 0 && i < code.indexOf('createVisitPing({') && i < code.indexOf('window.firebaseAPI = {'), '  ↳ DB 가 생기자마자 — 다른 일보다 먼저');
+    chk(i > 0 && i < code.indexOf('window.TwRtHub.store.bind(') && i < code.indexOf('window.firebaseAPI = {'), '  ↳ DB 가 생기자마자 — 다른 일보다 먼저(realtime 잇기 · firebaseAPI 보다 앞)');
     chk(!/config\/minAppVer/.test(code), '  ↳ Firebase config/minAppVer 는 더 읽지 않는다');
     chk(/ipcMain\.on\('companion:checkUpdate', \(\) => \{ startUpdateCheck\(\); \}\);/.test(MAIN), '★ main — 다시 확인은 startUpdateCheck 한 입구(맥 갈래 그대로)');
     chk(/checkUpdate\(\) \{\s*ipcRenderer\.send\('companion:checkUpdate'\);/.test(PRE) && /installUpdate\(\) \{\s*ipcRenderer\.send\('companion:installUpdate'\);/.test(PRE), '  ↳ preload checkUpdate · installUpdate');

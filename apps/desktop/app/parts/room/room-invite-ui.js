@@ -324,10 +324,11 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="ok"]').onclick = ()=>done(true);
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
-// Firebase 준비되면 수신 구독 시작
-TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver());
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — Firebase 준비되면 수신 구독 시작 */
+function startReceive(){ TwNetReady.whenNetReady(()=>_bindRoomInviteReceiver()); }
 
 return {
+  startReceive,
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)
   busy: ()=>_roomInviteBusy,          // 팝업이 떠 있는 동안 true(검사용)
 };

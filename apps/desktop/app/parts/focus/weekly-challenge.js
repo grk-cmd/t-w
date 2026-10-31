@@ -639,9 +639,12 @@ async function syncChalToServer(reason, mode){
   }catch(e){ console.warn('[달성표] 동기화 실패', e); }
   finally{ _chalSyncing = false; }
 }
-setTimeout(()=>{ try{ syncChalToServer('boot').then(()=>_chalTick()); }catch(_){} }, 4400);
-setInterval(()=>{ try{ _chalTick(); }catch(_){} }, CHAL_TICK_MS);
-window.addEventListener('beforeunload', ()=>{ try{ if(_chalDirty) _chalSave(); }catch(_){} });
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 부팅 4.4초 동기 · 주기 tick · 닫힐 때 저장 */
+function startChalSync(){
+  setTimeout(()=>{ try{ syncChalToServer('boot').then(()=>_chalTick()); }catch(_){} }, 4400);
+  setInterval(()=>{ try{ _chalTick(); }catch(_){} }, CHAL_TICK_MS);
+  window.addEventListener('beforeunload', ()=>{ try{ if(_chalDirty) _chalSave(); }catch(_){} });
+}
 
 /* ═══ 👑 달성표 — 화면 ═══════════════════════════════════════════════════════
    서랍 하나에 화면 셋이 갈아 끼워진다: 종류 고르기(#chalPick) → 설정(#chalSetup) → 진행 중(#chalRun).
@@ -1220,6 +1223,7 @@ function _chalRenderRuleList(){
 })();
 
 return {
+  startChalSync,
   syncChalToServer,                       // 런처 복귀('launcher') · 로그아웃 직전('logout')
   open: _chalOpen,                        // 🍅 뽀모 서랍을 열면 open(false) — 둘 중 하나만
   isOpen: _chalIsOpen,

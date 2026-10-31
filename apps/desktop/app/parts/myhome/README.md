@@ -195,13 +195,12 @@ const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.
 
 **책임** — 친구 탭 하단 «■ 온라인» 토글 · 옆 🔒 버튼 · 앱을 켤 때 처음 온라인 여부. 🔒 를 켜 두면 고른 온라인 · 오프라인을 계정에 기억해(`presencePref/{uid}`) 다음 실행 · 다른 PC 에서도 그 값으로 시작한다. 끄면 예전처럼 늘 온라인으로 시작한다.
 
-**만드는 법** — app.js 가 마이홈 처음 준비보다 먼저 `TwPresenceLock.createPresenceLock(deps)` — deps: `getMyUserId` · `toast` · `notifyError` · `loadPref`(비어 있으면 `{}` · 못 읽으면 `null`) · `savePref` · `setPresence`(토글 — `setMyPresenceState`) · `storage`(localStorage) · `setTimer`(읽기 시한) · `deviceSessionLost`. 만들 때 토글 · 🔒 클릭을 건다.
+**만드는 법** — app.js 가 마이홈 처음 준비보다 먼저 `TwPresenceLock.createPresenceLock(deps)` — deps: `getMyUserId` · `toast` · `notifyError` · `savePref` · `setPresence`(토글 — `setMyPresenceState`). 만들 때 토글 · 🔒 클릭을 건다.
 
-**내놓는 것** — `startOnlineFor(uid)` → Promise<처음 온라인 여부>(던지지 않음). myhome-init 이 `firebaseAPI.setMyPresenceOnline(myId, 이것)` 으로 넘긴다. 순수 `normalize(v)` · `startOnline(pref)` · `CACHE_KEY`.
+**내놓는 것** — `startOnlineFor(uid, me)` → 처음 온라인 여부(동기). `me` 는 계정 확인(`GET /v1/me`)의 답이고 거기 `presencePref` 에서 고정값을 앉힌다. myhome-init 이 `firebaseAPI.setMyPresenceOnline(myId, 이것)` 으로 넘긴다. 순수 `normalize(v)` · `startOnline(pref)`.
 
-**함정** — 첫 접속 쓰기는 firebase-init `setMyPresenceOnline` 이 이 Promise 가 풀린 뒤에만 한다(재접속 신호가 먼저 와도) — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게. 등록(`_myPresenceRef`)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게.
-서버를 못 읽거나 5초(`LOAD_WAIT_MS`) 안에 안 오면 이 PC 값(`tw.presencePref` — 계정 uid 와 묶음), 없으면 온라인 — 첫 쓰기 · 재접속 복구가 이 읽기를 기다려서 시한을 둔다. 시한 뒤 늦게 온 서버 값도 받아 접속 표시 · 🔒 를 바로잡는다(로그인 복원이 느린 새 PC) — 단 그 사이 이 실행에서 저장했으면 버리고(읽기가 저장보다 먼저 줄에 서서 늦은 값은 옛것), 다른 기기에 밀렸으면 접속 표시는 쓰지 않는다(이긴 쪽 것). 읽기 전에 사용자가 누르면 누른 값은 지키고 고정 여부는 읽은 값을 따른다(서버 값이 고정이면 누른 값을 새 고정값으로 저장 — 이 PC 값만 읽었을 땐 이 PC 에만 남겨 서버를 덮지 않는다).
-고정을 안 써도 켤 때마다 이 읽기 한 번이 늘고, 첫 «온라인» 쓰기가 그 뒤로 미뤄진다.
+**함정** — 첫 접속 쓰기는 firebase-init `setMyPresenceOnline` 이 이 값이 정해진 뒤에만 한다(재접속 신호가 먼저 와도) — 오프라인 고정인데 «온라인» 이 한 번 보이지 않게. 등록(`_myPresenceRef`)은 바로 한다 — 기기 세션이 밀릴 때 놓는 순서가 그대로이게.
+계정 확인을 통과한 뒤에만 시작하니(`launcher/app-boot.js`) 고정값을 따로 읽거나 기다리지 않는다 — 이 PC 사본 · 읽기 시한 · 늦게 온 값 바로잡기는 없다. 받기 전에 사용자가 누르면 누른 값은 지키고 고정 여부는 받은 값을 따른다(받은 값이 고정이면 누른 값을 새 고정값으로 저장).
 고정 안 한 토글은 저장하지 않는다(예전과 같다). 다른 PC 에서 바꾼 고정값은 켜져 있는 PC 에 바로 오지 않는다(다음 실행부터).
 `presencePref` 는 `users/*`(공개 읽기) 밖 — 친구가 «숨긴 오프라인» 을 알아보지 않게 로그인한 본인만 읽고 쓴다.
 검사: `checks/sim-presence-lock.js`.
@@ -293,9 +292,9 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 - **책임**: 마이홈 우측 미니 바탕화면(배경 색 · 이미지 · 폴더 · 작업표시줄)과 서버 공유(`advBg`). 좀비 어드벤처 코드는 꺼진 채 남아 있다(`ADV_GAME_OFF`).
 - **만드는 법**: `window.TwMyHomeDesktop.createMyHomeDesktop(deps)` — 만드는 줄은 `myhome-desktop-boot.js` 한 줄.
-- **deps**: `advStore` — 계정별 로컬 칸(`shared/account-store.js`). 바탕화면 저장(`tw.advZ.v2`, 옛 `v1` 읽기)을 계정마다 따로 둔다. 코드가 없으면(로그인 전) 저장 0건 · 읽으면 기본 바탕화면. 계정을 놓은 틈에는 쓰기가 거절된다.
+- **deps**: `advStore` — 계정별 로컬 칸(`shared/account-store.js`). 바탕화면 저장(`tw.advZ.v2`, 옛 `v1` 읽기)을 계정마다 따로 둔다. 코드가 없거나 계정 확인 전(칸이 닫힘)이면 저장 0건 · 읽으면 기본 바탕화면. 계정을 놓은 틈에는 쓰기가 거절된다.
 - **내놓는 것**: `window.MYHOME_DESKTOP`(`addFolder` 등) — 북마크 책장 · 폴더 자유배치가 이걸로 붙는다. 나머지 app.js 전역(`getMyUserId` · `firebaseAPI` · `toast` · `FolderFree`)은 예전처럼 전역 이름으로 읽는다.
-- **함정**: 만들자마자 저장값을 읽고 `MYHOME_DESKTOP` 을 내놓아서, 다른 스크립트(`bookmark.js` 등)가 쓰기 전에 만들어져야 한다 → boot 는 `myhome-desktop.js` 바로 다음에 싣는다. boot 는 app.js 최상위 `accountStoreMod` 를 읽는다(app.js 가 먼저 실려야 한다).
+- **함정**: 만들 때는 계정 칸을 읽지 않는다 — `ADV` 는 빈 기본값(`advDefault`)으로 서고 `MYHOME_DESKTOP.startBgSync(uid)` 가 계정 확인 뒤 계정 칸에서 읽어 채운다(`launcher/app-boot.js` desktopBg 칸). 시작 전 `advSave` 와 서버 배경 올리기(`advSaveBgRemote`)는 아무것도 안 한다(빈 기본값이 저장본 · 서버 `advBg` 를 덮지 못하게). `MYHOME_DESKTOP` 은 만들자마자 내놓으므로 다른 스크립트(`bookmark.js` 등)가 쓰기 전에 만들어져야 한다 → boot 는 `myhome-desktop.js` 바로 다음에 싣는다. boot 는 app.js 최상위 `accountStoreMod` 를 읽는다(app.js 가 먼저 실려야 한다).
 - 검사: `checks/sim-account-store.js`(저장 칸 고르기 — `advLoad` · `advSave` 를 떼어 계정 A/B 로 불러 본다), `sim-mhd-*` · `sim-folder-free.js`.
 
 ## `myhome-desktop-boot.js` — 🖥️ 바탕화면을 만드는 한 줄

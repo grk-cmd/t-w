@@ -18,7 +18,6 @@ const _myFriendRequests = deps._myFriendRequests;   // 읽는 함수
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
 const _myHomeReady = deps._myHomeReady;   // 읽는 함수
 const _waitForFirebaseAPI = deps._waitForFirebaseAPI;
-const deviceLostMod = deps.deviceLostMod;
 const ensureMyFriendCode = deps.ensureMyFriendCode;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
@@ -75,9 +74,10 @@ function onNewsChanged(e){
   });
 }
 
-async function initMyHome(){
+/* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — code: 서버가 확인한 내 계정 코드 · me: 그 확인(GET /v1/me)의 답(접속 고정을 거기서 읽는다) */
+async function initMyHome(code, me){
   _waitForFirebaseAPI(async ()=>{
-    const myId = getMyUserId();
+    const myId = code;
     /* 내 코드가 없으면 내 경로(presence · 프로필 · 친구 · 요청 · 우편)는 걸지 않는다 — 공지는 코드와 상관없이 따로 받는다(notice-feed).
        ⚠️ 친구 목록은 «코드 없음» 으로 시작해 둔다(요청 없이 «받음 · 0명») — 안 부르면 친구 탭이 «불러오는 중» 에 멈춘다. */
     if(!myId){ friendsSub.start(null); mailFeed.stop(); return; }
@@ -90,12 +90,10 @@ async function initMyHome(){
         // 📖 방명록 쓰기 게이트는 이 목록으로 판정한다 — 목록이 도착/변경되면 열려 있는 창에 즉시 반영.
         window._mhGbRefreshWriteUI();
       }, ()=>{ try{ inboxMod().renderMyHomeFriendList(); }catch(_){} });
-      firebaseAPI.setMyPresenceOnline(myId, presenceLock.startOnlineFor(myId));   // 🔒 첫 쓰기는 고정값을 읽은 뒤(presence-lock.js)
+      firebaseAPI.setMyPresenceOnline(myId, presenceLock.startOnlineFor(myId, me));   // 🔒 첫 쓰기는 고정값을 앉힌 뒤(presence-lock.js)
       /* 📱 태블릿·폰 연결 — presence 등록 직후(§4-②). 키가 없는 사람은 아무 일도 안 한다. */
       try{ focusLevelMod()._mobileStart(); }catch(_){}
-      /* 🖥️ [2026-09-17 제보 3] 한 계정 한 기기 — 로그인 계정이면 이 기기를 «지금 쓰는 기기» 로 적는다.
-         다른 기기가 나중에 적으면 _onDeviceSessionLost 가 불린다. 규칙 미배포·미로그인이면 false 로 조용히 지나간다. */
-      try{ if(firebaseAPI.claimDeviceSession) firebaseAPI.claimDeviceSession(myId, deviceLostMod._onDeviceSessionLost); }catch(_){}
+      /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */
       /* 🧱 쓰기와 구독 사이에 벽을 세운다 — **이 두 줄이 예전에는 맨몸이었다.**
          [경위] 규칙 게시 직후 제보: "구글 연동한 유저만 친구 목록이 통째로 사라진다."
            데이터는 RTDB 에 멀쩡히 살아 있었고 읽기 규칙도 열려 있었다. 사라진 것은 목록이

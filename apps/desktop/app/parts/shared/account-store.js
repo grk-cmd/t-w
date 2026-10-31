@@ -48,7 +48,7 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate',
   'tw.playlistEditTs', 'tw.playlistBackup', 'tw.secretRoomMusic',
   'tw.userName', 'tw.customStatus', 'tw.userStatus', 'tw.awayKind', 'tw.awayImg', 'tw.awaySz', 'tw.myAdBannerImg',
-  'tw.bookmarks', 'tw.mallangGiftHidden', 'tw.inboxBcRead', 'tw.noticeBoard', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
+  'tw.bookmarks', 'tw.mallangGiftHidden', 'tw.inboxBcRead', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
 ]);
 /* 이름 뒤에 방 · 친구 · 종류가 붙는 키 */
 const ACCOUNT_KEY_PREFIXES = Object.freeze([
@@ -71,32 +71,43 @@ function createAccountStore(deps){
   const getAccountCode = deps.getAccountCode;
   const isWriteLocked = deps.isWriteLocked;   // 계정을 놓은 틈(코드가 바뀌었는데 앱은 재시작 전)에는 쓰기를 거절한다
 
+  /* 🔓 열림 — 서버가 계정을 확인해 준 뒤(launcher/app-boot.js begin, 옛 값 옮기기 직후)에만 열린다. 처음엔 닫힘:
+     읽기 null · 쓰기 거절 + 키마다 한 번 경고. 확인 전에 먼저 쓴 값이 옛 PC 값 옮기기를 «kept» 로 막고 옛 값을 지우던 일을 장치로 막는다.
+     닫힘의 결과는 isWriteLocked(계정을 놓은 틈)와 같다. 로그아웃의 지우기는 이 틈에서 isWriteLocked 가 거절한다. */
+  let opened = null;   // 열린 계정 코드 — 열린 뒤 계정 코드가 바뀌면(앱은 다시 켜야 한다) 닫힘으로 돌아간다
+  const warned = new Set();
+  function open(code){
+    if(!validCode(code) || code !== getAccountCode()){
+      console.warn('[계정 칸] 열지 않았다 — 열려는 코드와 지금 계정 코드가 다르거나 모양이 틀리다');
+      return false;
+    }
+    opened = code;
+    return true;
+  }
   function cellOf(key){
     if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);
     const code = getAccountCode();
     return validCode(code) ? cellName(code, key) : null;
   }
+  function closedFor(key){
+    if(opened !== null && opened === getAccountCode()) return false;
+    if(!warned.has(key)){ warned.add(key); console.warn('[계정 칸] 계정 확인 전 접근', key); }
+    return true;
+  }
   function get(key){
     const cell = cellOf(key);
-    if(!cell) return null;
+    if(!cell || closedFor(key)) return null;
     try{ return storage.getItem(cell); }catch(_){ return null; }
   }
-  /* 쓰기 거절 판단은 이 한 곳 — set · remove 가 본다. adopt 만 이 틈을 통과한다. */
+  /* 쓰기 거절 판단은 이 한 곳 — set · remove 가 본다. */
   function set(key, value){
     const cell = cellOf(key);
-    if(!cell || isWriteLocked()) return false;
-    try{ storage.setItem(cell, String(value)); return true; }catch(_){ return false; }
-  }
-  /* 계정 전환 중 연동 스냅샷을 새 계정 칸에 채택하는 단 하나의 길(account.js _applyTransferSnapshot). 신원을 놓은 틈에도 통과한다 —
-     그 함수가 _setMyUserId(새 코드) 뒤에 돌아 새 계정 칸에 쓰는 일이라서다. 다른 곳은 쓰지 않는다. */
-  function adopt(key, value){
-    const cell = cellOf(key);
-    if(!cell) return false;
+    if(!cell || closedFor(key) || isWriteLocked()) return false;
     try{ storage.setItem(cell, String(value)); return true; }catch(_){ return false; }
   }
   function remove(key){
     const cell = cellOf(key);
-    if(!cell || isWriteLocked()) return false;
+    if(!cell || closedFor(key) || isWriteLocked()) return false;
     try{ storage.removeItem(cell); return true; }catch(_){ return false; }
   }
 
@@ -135,7 +146,7 @@ function createAccountStore(deps){
     return res;
   }
 
-  return { get, set, remove, adopt, migrateLegacy };
+  return { get, set, remove, open, migrateLegacy };
 }
 
 const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, createAccountStore };

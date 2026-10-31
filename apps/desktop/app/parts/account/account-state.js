@@ -1,11 +1,11 @@
-/* account-state.js — 🪪 계정 핵심 상태: 로그인 이메일 · 저장 키 · 친구코드 모양 · 라이선스 저장 키 · 초대 통과 표시 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기 (검사 sim-account-state.js)
+/* account-state.js — 🪪 계정 핵심 상태: 로그인 이메일 · 저장 키 · 친구코드 모양 · 라이선스 저장 키 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기 (검사 sim-account-state.js)
    계정(로그인 · 로그아웃 · 이전) · 초대 게이트 · 내 정보 · 포커스 레벨이 같이 쓰는 값이라 계정 묶음 맨 아래 이 파일에 둔다.
    초대 게이트(license-gate.js) · 계정(account.js) · 내 정보(my-info.js)에 흩어져 있어서 계정 ↔ 게이트 ↔ 내 정보가 서로를 불렀다(checks/sim-dep-cycles.js).
-   ★ 아래 본문은 옮기기 전 글 그대로다(license-gate.js 의 키 셋 · _markInvitePassed · _setPremium, account.js 의 로그인 키 둘 · getMyLoginEmail · FRIEND_CODE_LOGIN_RE · _acctDetached, my-info.js 의 _acctRelaunchAfterDetach).
+   ★ 아래 본문은 옮기기 전 글 그대로다(license-gate.js 의 키 · _setPremium, account.js 의 로그인 키 둘 · getMyLoginEmail · FRIEND_CODE_LOGIN_RE · _acctDetached, my-info.js 의 _acctRelaunchAfterDetach).
      바뀐 것은 둘 — _setPremium 이 다시 그리기를 직접 부르지 않고 «프리미엄이 바뀌었다» 알림(onPremiumChanged)을 돌린다(게이트가 건다) ·
      _acctDetached 는 계정이 쓰는 함수(setAcctDetached)로 올린다.
    ★ 원격 설정 한 벌 읽기(_rcStore)도 여기 — 초대 게이트 · 방 입장 · app.js 가 같이 쓴다.
-   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · _rcStore · INVITE_PASS_KEY · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _markInvitePassed · _setPremium · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · _rcStore · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _setPremium · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
    ⚠️ 전역 이름은 TwAccountState — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    app.js · 쓰는 모듈보다 먼저 싣는 classic script. */
 (function(){
@@ -19,8 +19,6 @@ function _rcStore(){ return (typeof window !== 'undefined' && window.TwRemoteCon
 const _premiumFns = [];
 function onPremiumChanged(fn){ _premiumFns.push(fn); }
 function _premiumChanged(){ _premiumFns.forEach(fn=>fn()); }   // «프리미엄이 바뀌었다» — 초대 게이트가 _refreshPremiumGatedUI 를 건다
-const INVITE_PASS_KEY = 'tw.invitePassed';  // 한 번 통과하면 로컬에 기록 → 다음 실행부터 바로 통과
-function _markInvitePassed(){ try{ localStorage.setItem(INVITE_PASS_KEY, '1'); }catch(e){} }
 
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';
 /* 🔑 [2026-09-15 제보 3] isPremium 은 **이 함수로만** 바꾼다.
@@ -59,13 +57,11 @@ function _acctRelaunchAfterDetach(onFallback){
 return {
   FRIEND_CODE_LOGIN_RE,
   _rcStore,
-  INVITE_PASS_KEY,
   LOGIN_EMAIL_KEY,
   LOGIN_UID_KEY,
   getMyLoginEmail,
   LICENSE_KEY_STORAGE,
   LICENSE_OPTOUT_KEY,
-  _markInvitePassed,
   _setPremium,
   onPremiumChanged,
   _acctDetached: ()=>_acctDetached,   // 읽는 함수

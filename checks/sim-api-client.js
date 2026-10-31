@@ -7,7 +7,7 @@
    5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
    7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
-   8. ETag — 기억 · If-None-Match · 304 면 기억 값 · 계정이 다르면 따로 · 상한 · 오류 봉투(items · Retry-After · 자원 없음 404)
+   8. ETag — 기억 · If-None-Match · 304 면 기억 값 · 계정이 다르면 따로 · 계정을 놓을 때(forgetSession) 진행 중 로그인 읽기 · 기억을 뗌 · 상한 · 오류 봉투(items · Retry-After · 자원 없음 404)
    9. 모듈 — Firebase 모름 · window.TwApi · 앱 한 벌(client · authed · bindToken) 주소 · html 차례
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
@@ -256,6 +256,26 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     c.clearCache();
     await c.get('/v1/config');
     chk(!f.calls[f.calls.length - 1].init.headers['If-None-Match'], '  ↳ clearCache 는 ETag 기억도 지운다');
+    {
+      /* 계정을 놓을 때 — 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않는다 */
+      const gate = []; const who = { v: jwt('uA') };
+      const fs2 = mkFetch((url, init) => new Promise((r) => gate.push(() => r(res(200, { success: true, data: init.headers.Authorization }, { ETag: '"m"' })))));
+      const cs = A.createApiClient({ baseUrl: PROD, fetch: fs2, getToken: async () => who.v, backoffMs: 0 });
+      const pA = cs.get('/v1/me', { auth: true });
+      await new Promise((r) => setImmediate(r));
+      cs.forgetSession(); who.v = jwt('uB');
+      const pB = cs.get('/v1/me', { auth: true });
+      await new Promise((r) => setImmediate(r));
+      const pB2 = cs.get('/v1/me', { auth: true });
+      while(gate.length) gate.shift()();
+      const [a1, b1, b2] = await Promise.all([pA, pB, pB2]);
+      chk(fs2.calls.length === 2 && a1 === 'Bearer ' + jwt('uA') && b1 === 'Bearer ' + jwt('uB') && b2 === b1, 'forgetSession — 앞 계정의 진행 중 읽기에 묻어가지 않고 새로 보낸다 · 새 요청끼리는 하나로');
+      const n1 = fs2.calls.length; const pC = cs.get('/v1/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pC;
+      chk(fs2.calls.length === n1 + 1 && fs2.calls[n1].init.headers['If-None-Match'] === '"m"', '  ↳ 앞 계정 읽기가 늦게 끝나도 새 계정 요청 자리를 지우지 않는다 · 새 계정 ETag 는 그대로');
+      cs.forgetSession();
+      const n2 = fs2.calls.length; const pD = cs.get('/v1/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pD;
+      chk(!fs2.calls[n2].init.headers['If-None-Match'], '  ↳ forgetSession 은 계정별 ETag 기억도 지운다');
+    }
     const lost = mkFetch(() => res(304, null));
     const el = await err(A.createApiClient({ baseUrl: PROD, fetch: lost, backoffMs: 0 }).get('/z'));
     chk(el && el.kind === 'unavailable' && el.code === 'NOT_MODIFIED', '  ↳ 기억 없이 304 면 닿지 못함으로(빈 값을 돌려주지 않는다)');
@@ -354,6 +374,20 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         const cu = M.createApiClient({ baseUrl: PROD, fetch: u, getToken: async () => tk.v });
         await cu.get('/me', { auth: true }); tk.v = jwt('B');
         ok((await cu.get('/me', { auth: true })) === null);
+        {
+          const g = []; const t2 = { v: jwt('A') };
+          const ff = mkFetch((url, init) => new Promise((r) => g.push(() => r(res(200, { success: true, data: init.headers.Authorization })))));
+          const cf = M.createApiClient({ baseUrl: PROD, fetch: ff, getToken: async () => t2.v, backoffMs: 0 });
+          const q1 = cf.get('/me', { auth: true }); await new Promise((r) => setImmediate(r));
+          cf.forgetSession(); t2.v = jwt('B');
+          const q2 = cf.get('/me', { auth: true }); await new Promise((r) => setImmediate(r));
+          g.shift()();   // 앞 계정 읽기가 먼저 끝남
+          await q1;
+          const q3 = cf.get('/me', { auth: true });
+          while(g.length) g.shift()();
+          const [r2, r3] = await Promise.all([q2, q3]);
+          ok(r2 === 'Bearer ' + jwt('B') && r3 === r2 && ff.calls.length === 2);
+        }
         const rel = [];
         const q = mkFetch((url, init) => new Promise((r) => { rel.push(() => r(res(200, { success: true, data: init.headers.Authorization }))); }));
         const tq = { v: jwt('A') };

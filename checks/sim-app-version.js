@@ -117,35 +117,8 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
 
   say('── 4. accountSnap ver (부팅마다 쓰는 계정 요약)');
   {
-    const grab = (head) => { const i = FI.indexOf(head); if(i < 0) return null; let k = FI.indexOf('{', i), d = 0;
-      for(; k < FI.length; k++){ if(FI[k] === '{') d++; else if(FI[k] === '}' && --d === 0) return FI.slice(i, k + 1); } return null; };
-    const fClean = grab('function _acctSnapClean('), fSet = grab('async setAccountSnapshot(');
-    chk(!!fClean && !!fSet, '_acctSnapClean · setAccountSnapshot 을 찾았다');
-    const mk = (ver, deny) => {
-      const writes = [];
-      const c = { Date: { now: () => 5000 }, Number, db: {}, ref: (d, p) => ({ p: p || '/' }),
-        _appVer: { ready: Promise.resolve(ver), get: () => ver },
-        update: async (r, patch) => { const v = JSON.parse(JSON.stringify(patch)); writes.push(v);
-          if(deny(v)) throw new Error('PERMISSION_DENIED'); } };
-      vm.createContext(c);
-      vm.runInContext(fClean + '\nthis.api = {' + fSet + '};', c);
-      return { api: c.api, writes };
-    };
-    let t = mk('0.10.3', () => false);
-    let w = fClean && fSet ? await t.api.setAccountSnapshot('U1', { license: 'K', name: 'n' }) : {};
-    const s1 = t.writes[0] && t.writes[0]['accountSnap/U1'];
-    chk(w.ok && t.writes.length === 1 && s1 && s1.ver === '0.10.3' && s1.license === 'K', '★ setAccountSnapshot 이 accountSnap 에 ver 를 싣는다');
-    t = mk(null, () => false);
-    await t.api.setAccountSnapshot('U2', { license: 'K' });
-    chk(t.writes.length === 1 && t.writes[0]['accountSnap/U2'].ver === null, '  ↳ 버전을 모르면 ver 없이(null = 안 씀)');
-    // 규칙 배포 전($other:false) — ver 가 있으면 거절되는 서버
-    t = mk('0.10.3', (v) => !!(v['accountSnap/U3'] && v['accountSnap/U3'].ver));
-    w = await t.api.setAccountSnapshot('U3', { license: 'K' });
-    chk(w.ok && t.writes.length === 2 && t.writes[1]['accountSnap/U3'].ver === null && t.writes[1]['accountSnap/U3'].license === 'K',
-      '★ 규칙이 ver 를 모르는 서버면 ver 를 빼고 다시 써서 라이선스는 남긴다');
-    t = mk(null, () => true);
-    w = await t.api.setAccountSnapshot('U4', { license: 'K' });
-    chk(!w.ok && t.writes.length === 1, '  ↳ ver 가 없는데 거절되면 다시 쓰지 않는다(ok:false)');
+    /* 0.13 — 앱은 accountSnap 을 쓰지 않는다(계정 사본을 걷었다 · 서버가 원본). 규칙 칸은 옛 앱 몫으로 남아 있어 아래만 본다. */
+    chk(!/setAccountSnapshot|_acctSnapClean/.test(FI.replace(/\/\*[\s\S]*?\*\//g, '')), '0.13 앱은 accountSnap 에 쓰지 않는다(setAccountSnapshot 걷음)');
 
     const as = (RULES.accountSnap || {}).$userId || {};
     const vv = (as.ver || {})['.validate'];

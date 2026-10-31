@@ -135,13 +135,22 @@ function advLoad(){
                hp:(typeof o.hp==='number')?o.hp:100, inf:0, inv:{}, weapons:[], scene:'camp', bg:o.bg||null };
     }
   }catch(_){}
+  return advDefault();
+}
+/* 계정 칸에 저장본이 없을 때의 기본 — 시작(startBgSync) 전 화면도 이 빈 상태로 그린다 */
+function advDefault(){
   return { slots:[blankSlot(),blankSlot(),blankSlot()], active:0, st:100, stLevel:null, hp:100,
            inf:0, inv:{}, weapons:[], scene:'camp', bg:null };
 }
-function advSave(){ try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }
+let advStarted = false;   // 계정 확인을 통과해 계정 칸을 읽은 뒤 true — 그 전에는 저장하지 않는다(빈 기본값이 저장본을 덮지 않게)
+function advSave(){
+  if(!advStarted) return;
+  try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){}
+}
 // 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
 //   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){
+  if(!advStarted) return;   // 시작 전의 빈 기본 ADV 를 서버 advBg 에 올리면 {cleared:true} 가 모든 기기를 비운다
   try{
     if(!window.firebaseAPI || !firebaseAPI.saveAdvBg) return;
     const uid = getMyUserId(); if(!uid) return;
@@ -196,26 +205,10 @@ async function advPullBg(uid){
     advSave(); advSaveBgRemote();
   }
 }
-// 앱 시작 시 내 배경을 서버와 맞춤 — 사용자ID·firebase 준비가 늦을 수 있어 준비될 때까지 재시도.
-//   (예전엔 1회 플래그 방식이라, 저장이 실패해도 플래그가 찍혀 영영 재시도하지 않는 문제가 있었음)
-function advSyncBgOnStart(){
-  let tries = 0;
-  const tick = ()=>{
-    tries++;
-    const uid = getMyUserId();
-    if(window.firebaseAPI && firebaseAPI.saveAdvBg && uid){
-      advPullBg(uid);   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
-      return;
-    }
-    if(tries < 20) setTimeout(tick, 500);
-  };
-  tick();
-}
 let advVisitBg = null;   // 방문 중일 때 표시할 "집주인의" 배경 ({img}|{color}|null)
 let mhdFF = null;        // 📂 폴더 자유배치(folder-free.js) — advApplyFolderHide · mhdMountApp 가 이른 시점에도 보므로 위에 둔다
-const ADV = advLoad();
-let editSlot = ADV.active;
-try{ if(!advStore.get(ADV_KEY)) advSave(); }catch(_){}
+const ADV = advDefault();   // 계정 확인 뒤 startBgSync 가 계정 칸에서 채운다(만들 때 읽지 않는다)
+let editSlot = 0;
 
 function curSlot(){ return ADV.slots[editSlot]; }
 function activeSlot(){ return ADV.slots[ADV.active]; }
@@ -3612,6 +3605,19 @@ function mhdMountAllEnv(){ MHD_ENV.forEach(e=>{ try{ mhdMountEnv(e); }catch(err)
 window.MYHOME_DESKTOP = {
   version: 1,
 
+  /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 내 바탕화면 배경을 서버와 맞춘다(서버를 먼저 읽고 더 최근에 고른 쪽을 따른다). */
+  startBgSync(uid){
+    if(!uid) return;
+    const loaded = advLoad();   // 계정 칸에서 읽어 기본값 자리에 채운다(ADV 는 여러 곳이 잡고 있어 같은 객체를 유지)
+    for(const k of Object.keys(ADV)) delete ADV[k];
+    Object.assign(ADV, loaded);
+    editSlot = ADV.active;
+    advStarted = true;
+    try{ if(!advStore.get(ADV_KEY)) advSave(); }catch(_){}
+    if(!advVisiting) advApplyBg();
+    advPullBg(uid);   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
+  },
+
   /* 폴더 아이콘 등록. advInit 전에 불러도 되고(대기열에 쌓았다가 마운트), 후에 불러도 된다. */
   addFolder(o){
     if(!o || !o.id) return null;
@@ -3734,9 +3740,6 @@ function advInit(){
   const room = document.getElementById('mhRoomPreview');
   if(!room) return;
   if(document.getElementById('advDesktop')) return;
-
-  // 🖥️ 내 바탕화면을 서버와 동기화 — 예전엔 로컬에만 저장돼 방문자가 볼 수 없었음.
-  try{ advSyncBgOnStart(); }catch(_){}
 
   const style=document.createElement('style'); style.id='advStyle'; style.textContent=css;
   document.head.appendChild(style);

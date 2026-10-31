@@ -29,9 +29,8 @@
        렌더러 CSP 와 무관하다. script-src 도 gstatic 이 이미 있다. */
   import {
     getAuth, signInWithCredential, GoogleAuthProvider, signInWithEmailAndPassword,
-    signInAnonymously, linkWithCredential, EmailAuthProvider, reauthenticateWithCredential,
-    signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged,
-    getAdditionalUserInfo, deleteUser
+    linkWithCredential, reauthenticateWithCredential, EmailAuthProvider,
+    signOut as fbSignOut, setPersistence, browserLocalPersistence, onAuthStateChanged
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
   import { firebaseConfig } from "./firebase-config.js";
   import { createGhostHeal } from "./room/room-ghost-heal.js";
@@ -39,26 +38,16 @@
   import { recoverChannelFor, hostSuccession } from "./room/room-channel.js";
   import { createGachaTx } from "./character/gacha-tx.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
-  import { createInviteAccount } from "./account/invite-account.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
-  import { createGroupInvite } from "./account/group-invite.js";
   import { createAppVersion } from "./shared/app-version.js";
   import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
-  import { createVisitPing } from "./shared/visit-ping.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
   import { createRoomServerGate } from "./room/room-server-gate.js";
   import { createApiPublicReads } from "./shared/api-public-reads.js";
-  import { createAccountDelete } from "./account/account-delete-net.js";
-  /* 🔐 [회원가입 C2 · 개정 14] Cloud Functions — 함수 `changePassword` 의 리전. RTDB(databaseURL)와 같은 asia-southeast1.
-     ★ 함수 SDK 는 **위에서 import 하지 않는다** — 부를 때 동적으로 들여온다(authChangePassword). 모듈 머리에 두면
-       그 한 줄이 못 받아졌을 때(오프라인 첫 부팅 · 캐시 없음) 이 파일 전체가 안 돌고 로그인·동기화가 통째로 죽는다.
-     ⚠️ 리전을 바꾸면 HTML CSP connect-src 의 함수 호스트도 같이 바꾼다. */
-  const FUNCTIONS_REGION = 'asia-southeast1';
-  const FUNCTIONS_SDK_URL = 'https://www.gstatic.com/firebasejs/10.12.2/firebase-functions.js';   // 위 import 들과 같은 판
   /* 로그인 수단 읽기 — authProviders · authChangePassword 가 같이 쓴다. 세션이 없으면 null. */
   function _providersOf(cu){
     if(!cu) return null;
@@ -170,16 +159,6 @@
      이미 통과했으면 await 비용은 0이다(정착된 뒤엔 마이크로태스크 한 번). */
   const _whenAuthReady = ()=> _authSettled ? Promise.resolve() : _authReadyPromise;
 
-  /* 구글 로그인을 묶지 않고 물릴 때 — 이번 로그인으로 막 생긴 계정이면 지운다.
-     로그아웃만 하면 빈 계정이 그 구글을 붙잡아, 나중에 진짜 계정에 구글을 연결할 때 credential-already-in-use 가 난다.
-     ⚠️ 막 생긴 계정만 — 원래 있던 계정은 어딘가에 묶였을 수 있다. */
-  const _dropGoogleSession = async (cred)=>{
-    let fresh = false;
-    try{ fresh = !!(cred && getAdditionalUserInfo(cred)?.isNewUser); }catch(_){}
-    if(fresh){ try{ await deleteUser(cred.user); return; }catch(_){} }
-    try{ await fbSignOut(auth); }catch(_){}
-  };
-
   let _roomRef = null, _roomListener = null, _myMemberRef = null, _fbHeartbeat = null;
   /* 💰 방 리스너에서 chatLog를 떼어내기 위한 상태.
      rooms/{방} 아래 자식은 세 종류뿐이다 — `_meta`, `chatLog`, 그리고 멤버 노드(전부 'm'으로 시작:
@@ -276,7 +255,6 @@
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
   let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
-  let _sessionRef = null, _sessionId = null, _sessionUnsub = null, _sessionLost = false;   // 🖥️ 한 계정 한 기기(claimDeviceSession)
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
   /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
      [왜 화면에서 가리는 게 아니라 여기서 막나] presence 는 친구라면 누구나 읽는 노드다. 화면에서만
@@ -390,7 +368,6 @@
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
   const _gachaTx = createGachaTx({ db, ref, get, runTransaction, waitConnected: ms => window.firebaseAPI.waitConnected(ms), whenAuthReady: _whenAuthReady });
-  const _groupInvite = createGroupInvite({ db, ref, get, update });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
@@ -424,15 +401,6 @@
     ui: createAppVersionGateDom(document),
   }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
   onValue(ref(db, window.TwMaintenance.MAINTENANCE_PATH), (s) => _mt.onValue(s.val()), () => {});   // 🛠 서버 점검 표시 — 점검 중에도 규칙이 이 칸 읽기는 연다
-  /* IP 기준 일일 방문자(visit-ping.js) — 로그인과 상관없이 켤 때 한 번. 함수 SDK 는 위 FUNCTIONS_SDK_URL 주석대로 부를 때 들여온다.
-     ⚠️ CSP connect-src 에 운영 함수 호스트만 있어 dev(together-working-dev)에서는 막힌다 — 지표만 빠지고 앱은 그대로다. */
-  createVisitPing({
-    callPing: async (data) => {
-      const mod = await import(FUNCTIONS_SDK_URL);
-      return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), 'visitPing')(data);
-    },
-    getVersion: () => _appVer.ready,
-  }).start();
   /* 🛰 옛 방 서버(웹소켓 pv 1) — 문지기(room-server-gate.js)가 0.13 에선 늘 Firebase 를 돌려줘 _rsUrl 은 null 그대로(서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
   /* 🌐 로그인이 필요한 API 통로(api-client.js TwApi.authed — 쉬기 없음 · 기기 머리) — 토큰 출처만 여기서 잇는다. */
@@ -526,23 +494,6 @@
       console.warn('[storage] 이미지 업로드 실패 — DB에 그대로 저장합니다', path, e);
       return dataUrl;
     }
-  }
-
-  /* 🔐 계정 스냅샷 한 벌을 accountSnap 규칙 모양으로 — 범위 밖 항목은 **그 항목만** 뺀다(null = 쓰지 않음).
-     규칙(firebase-database-rules.json accountSnap)과 같은 값: license ≤40 · focusTotalSec 0..359640000 · name ≤40 · friendCode ≤12 · ts 숫자 · ver ≤20 · 그 밖 거절.
-     ver 는 스냅샷 값이 아니라 지금 앱 버전이다 — 웹 관리자가 사용자 수천 명의 버전을 이 모음 한 번으로 센다(presence 를 한 명씩 읽지 않게). */
-  function _acctSnapClean(snap, ts, ver){
-    const s = snap || {};
-    const str = (v, n) => (typeof v === 'string' && v && v.length <= n) ? v : null;
-    const f = Number(s.focusTotalSec);
-    return {
-      license: str(s.license, 40),
-      focusTotalSec: (s.focusTotalSec != null && Number.isFinite(f) && f >= 0 && f <= 359640000) ? f : null,
-      name: (typeof s.name === 'string' && s.name) ? s.name.slice(0, 40) : null,
-      friendCode: str(s.friendCode, 12),
-      ts: Number.isFinite(ts) ? ts : Date.now(),
-      ver: str(ver, 20)
-    };
   }
 
   window.firebaseAPI = {
@@ -2957,119 +2908,6 @@
       subscribeSince: (room, tab, since, onMsg, onReady) => window.firebaseAPI.subscribeChatSince(room, tab, since, onMsg, onReady),
       clearLog: (room, tab) => window.firebaseAPI.clearChatLog(room, tab),
       sendLog: (room, msg, tab) => window.firebaseAPI.sendChatLog(room, msg, tab) }),
-    /* 🗑️ 회원 탈퇴(함수 deleteMyAccount) — 순서 · 까닭은 account-delete-net.js. 여기는 연결만. */
-    accountDelete: createAccountDelete({
-      callFn: async (name, data) => { const mod = await import(FUNCTIONS_SDK_URL); return mod.httpsCallable(mod.getFunctions(fbApp, FUNCTIONS_REGION), name, { timeout: 300000 })(data); },
-      signedIn: () => { const u = auth && auth.currentUser; return !u ? 'none' : (u.isAnonymous ? 'anonymous' : 'ok'); },
-      cancelPresence: () => (_myPresenceRef ? onDisconnect(_myPresenceRef).cancel() : null),
-      goOffline: () => goOffline(db), goOnline: () => goOnline(db),
-      signOut: () => (auth ? fbSignOut(auth) : null) }),
-    getInviteAccount: createInviteAccount({ db, ref, get, databaseURL: db && db.app && db.app.options && db.app.options.databaseURL }),
-    // 기존 유저 grandfather 처리 — 초대 정보가 없으면 5장 부여하고 통과
-    async grandfatherInvite(userId, grantCount){
-      const inviteRef = ref(db, `users/${userId}/invite`);
-      const result = await runTransaction(inviteRef, cur=>{
-        if(cur) return cur;   // 이미 초대 정보가 있으면 그대로 (중복 지급 방지)
-        return { invitesLeft: grantCount, invitedBy: null, joinedAt: Date.now() };
-      });
-      return result && result.snapshot ? result.snapshot.val() : null;
-    },
-    /* 초대 코드 소진은 uid 가 아니라 기기 토큰으로 — uid 는 아직 없다. users/ · stats/ 쓰기는 finishInviteSignup 몫
-       (여기서 쓰면 users/t… 유령 노드가 생긴다). usedBy === token 이면 같은 기기의 재시도라 다시 통과. */
-    async redeemInvite(code, token){
-      try{
-        if(!token) return { ok:false, reason:'초대 코드를 확인하지 못했어요 — 다시 시도해 주세요' };
-        const codeRef = ref(db, `invites/${code}`);
-        // ⚠️ 트랜잭션 첫 cur 는 로컬 캐시(null) — 서버 값을 미리 읽어 기준으로 쓴다(issueInvite 와 같은 함정)
-        const preSnap = await get(codeRef);
-        const preVal = preSnap.val();
-        // 한 명짜리에 없으면 관리자가 만든 여러 명짜리 코드인지 본다(group-invite.js)
-        if(!preVal) return await _groupInvite.redeem(code, token);
-        let failReason = null;
-        const result = await runTransaction(codeRef, cur=>{
-          const v = cur || preVal;
-          if(!v){ failReason = '존재하지 않는 초대 코드예요'; return; }              // 중단
-          if(v.usedBy && v.usedBy !== token){ failReason = '이미 사용된 초대 코드예요'; return; }
-          if(v.usedBy === token) return v;                                          // 같은 기기의 재시도
-          return Object.assign({}, v, { usedBy: token, usedAt: Date.now() });
-        });
-        if(!result || !result.committed) return { ok:false, reason: failReason || '초대 코드를 사용할 수 없어요' };
-        const issuedBy = (result.snapshot.val() || {}).issuedBy || null;
-        return { ok:true, issuedBy };
-      }catch(e){
-        return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
-      }
-    },
-    /* uid 가 정해진 뒤 — 토큰 자리를 uid 로 바꾸고 users/{uid}/invite · 가입 카운터를 한 번만 쓴다(칸이 있으면 안 씀).
-       실패하면 { ok:false } — 부르는 쪽은 토큰을 남겨 다음 부팅에 다시 부른다. */
-    async finishInviteSignup(code, token, userId){
-      try{
-        if(!code || !token || !userId) return { ok:false, reason:'값이 비었어요' };
-        const codeRef = ref(db, `invites/${code}`);
-        const preVal = (await get(codeRef)).val();
-        let issuedBy = (preVal && preVal.issuedBy) || null;
-        if(!preVal){
-          const g = await _groupInvite.finish(code, token, userId);   // 여러 명짜리 코드(group-invite.js)
-          if(!g.ok) return g;
-          issuedBy = g.issuedBy;
-        }else{
-          const tr = await runTransaction(codeRef, cur=>{
-            const v = cur || preVal;
-            if(!v) return;                                             // 코드가 사라졌다 — 바꿀 것 없음
-            issuedBy = v.issuedBy || issuedBy;
-            if(v.usedBy === userId) return v;                          // 이미 바꿨다
-            if(v.usedBy !== token) return;                             // 남의 토큰 — 손대지 않는다
-            return Object.assign({}, v, { usedBy: userId });
-          });
-          const now = tr && tr.snapshot ? tr.snapshot.val() : null;
-          if(!now || now.usedBy !== userId) return { ok:false, reason:'초대 코드 기록을 바꾸지 못했어요' };
-        }
-        const invRef = ref(db, `users/${userId}/invite`);
-        const had = (await get(invRef)).exists();
-        if(!had){
-          await update(invRef, { invitesLeft: 0, invitedBy: issuedBy, joinedAt: Date.now() });   // 초대로 들어온 사람은 0장
-          // 전체 users 는 못 읽으니 가입 수는 따로 센다
-          try{ await runTransaction(ref(db, 'stats/userCount'), c => (typeof c==='number'?c:0) + 1); }catch(_){}
-        }
-        return { ok:true };
-      }catch(e){
-        return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
-      }
-    },
-    // 초대장 발급 — 유저는 invitesLeft를 1 차감(트랜잭션), 관리자(admin=true)는 차감 없이 무제한
-    async issueInvite(userId, code, admin){
-      try{
-        if(!admin){
-          const leftRef = ref(db, `users/${userId}/invite/invitesLeft`);
-          // ★ RTDB 트랜잭션은 첫 실행을 "로컬 캐시"로 돌림 — 이 경로를 읽은 적 없으면 cur=null.
-          //   null일 때 중단(return undefined)하면 서버 값으로 재시도할 기회 자체가 사라져서
-          //   실제로는 5장이 있어도 "없다"로 끝남. 미리 서버 값을 읽어 null의 기준값으로 쓰면,
-          //   추정이 틀려도 Firebase가 진짜 값으로 자동 재시도함.
-          const preSnap = await get(leftRef);
-          const preVal = preSnap.val();
-          let failReason = null;
-          const r = await runTransaction(leftRef, cur=>{
-            const n = (typeof cur === 'number') ? cur
-                    : (typeof preVal === 'number') ? preVal : 0;
-            if(n <= 0){ failReason = '남은 초대장이 없어요'; return; }   // 중단
-            return n - 1;
-          });
-          if(!r || !r.committed) return { ok:false, reason: failReason || '초대장을 발급할 수 없어요' };
-        }
-        await set(ref(db, `invites/${code}`), {
-          issuedBy: userId, createdAt: Date.now(), usedBy: null, usedAt: null
-        });
-        return { ok:true, code };
-      }catch(e){
-        return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
-      }
-    },
-    // 남은 초대장 수 조회
-    async getInvitesLeft(userId){
-      const snap = await get(ref(db, `users/${userId}/invite/invitesLeft`));
-      const v = snap.val();
-      return (typeof v === 'number') ? v : 0;
-    },
     // 관리자: 특정 유저에게 초대권 추가 지급 (기존 값에 더함)
     // 🎟️ 전체 유저 일괄 지급 — invite 노드가 "이미 있는" 유저에게만 count장씩 더함.
     //   노드 없는 계정(게이트 통과 전 유령 계정 등)에 지급하면 노드가 새로 생겨
@@ -3609,122 +3447,43 @@
       return { ok:true, id };
     },
 
-    /* ═══════════ 🔑 구글 로그인 — 계정과 유저 코드를 묶는다 ═══════════
-       [구조] 신원이 둘이고, 둘을 **줄 두 개로** 묶는다.
-         · 유저 코드(userCode) = 기존 `tw.myUserId`. 친구·마이홈·인박스가 전부 이 키에 매달려 있다.
-         · Auth uid           = 구글 계정으로 발급되는 계정 식별자.
-         묶는 줄:
-           authUsers/{authUid} = { userCode, ts }       ← (email 거울은 개정 54 에서 뺌 · §9-2) 로그인할 때 "내 유저 코드가 뭐였지"
-           userAuth/{userCode} = authUid               ← 선점 표시(한 유저 코드에 한 계정)
-       ★ 왜 유저 코드를 Auth uid 로 **갈아치우지 않는가** — 갈아치우면 친구 양방향 링크,
-         친추코드 소유권(friendCodes/{코드}.userId), 인박스, 마이홈, 방명록을 전부 이사시켜야 한다.
-         한 곳이라도 실패하면 친구 목록이 반쪽이 되는데 그 상태는 되돌릴 방법이 없다.
-         묶는 줄 하나면 데이터는 제자리에 두고 "이 유저 코드의 주인은 이 계정" 만 증명된다.
-       ★ 나중에 규칙을 잠글 때도 이 줄이 근거다:
-           ".write": "root.child('userAuth/'+$uid).val() === auth.uid"
-         지금은 규칙 파일이 이 폴더에 없어 손대지 않았다 — 그때까지 로그인은 '편의' 이고,
-         규칙을 바꾼 뒤부터 '자물쇠' 가 된다. 순서를 헷갈리지 말 것.
-       ⚠️ 그리고 그 순서를 거꾸로 하면 안 된다. 아직 로그인한 사람이 적을 때 규칙부터 잠그면
-         로그인 안 한 기존 유저 전원이 자기 마이홈에 못 쓰게 된다. */
+    /* ═══════════ 🔑 로그인(Firebase Auth) 원시 — 토큰 받기만 ═══════════
+       0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v1/me — account/login-flow.js).
+       여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.
+       ⚠️ 로그인 창은 여기서 열지 않는다(file:// + frame-src 'none') — main.js 가 연 창에서 받은 ID 토큰만 받는다. */
     authAvailable(){ return !!auth; },
 
-    /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다).
-       users/{코드} 아래 **소유권이 걸린 가지에 쓰기 전에** 부를 것. 읽기에는 필요 없다
-       — 규칙상 users/{코드} 는 누구나 읽을 수 있고, 읽기까지 늦추면 부팅만 느려진다. */
+    /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다). */
     authReady(){ return _whenAuthReady(); },
     authSettled(){ return _authSettled; },
-
-    /* 🔎 이 유저 코드의 주인이 있는가 → authUid | null.
-       [왜 필요한가] 규칙이 users/{코드} 의 자기 소유 가지를 "주인이 없거나 나일 때"로 잠근 뒤부터,
-         **묶여 있는 코드를 로그인 없이 쓰는 기기는 쓰기가 전부 거부된다.** 그런데 거부는 화면에
-         아무 표시를 남기지 않는다 — 마이홈을 고쳤는데 다음 부팅에 원래대로 돌아와 있는 식으로만
-         드러나고, 유저는 그걸 고장으로 읽는다. 그 침묵을 말로 바꾸려고 미리 물어본다.
-       ⚠️ 그래서 userAuth 의 .read 는 열려 있어야 한다(코드→계정 매핑일 뿐 비밀이 아니다).
-         auth 를 요구하면 정작 물어봐야 할 쪽 — 로그인 안 한 기기 — 이 못 읽는다.
-       ⚠️ 실패는 null 이 아니라 undefined 로 돌려준다. 둘을 섞으면 네트워크가 끊겼을 때
-         "주인 없음"으로 읽혀서, 있지도 않은 경고를 띄우거나 반대로 띄워야 할 경고를 삼킨다. */
-    async authOwnerOf(userCode){
-      if(!userCode) return null;
-      try{ const s = await get(ref(db, `userAuth/${userCode}`)); const v = s.val(); return v ? String(v) : null; }
-      catch(_){ return undefined; }
-    },
     authCurrentUid(){ return (auth && auth.currentUser) ? auth.currentUser.uid : null; },
     authCurrentEmail(){ return (auth && auth.currentUser) ? (auth.currentUser.email || null) : null; },
+    /* 지금 로그인 → { uid, anonymous } | null — login-flow.js 의 판정 재료 */
+    authUser(){ const u = auth && auth.currentUser; return u ? { uid: u.uid, anonymous: !!u.isAnonymous } : null; },
 
-    /* main.js 가 받아온 구글 ID 토큰으로 로그인하고, 유저 코드와 묶는다.
-       @param idToken   companion.signInWithGoogle() 이 돌려준 것
-       @param userCode  이 기기의 현재 유저 코드(getMyUserId())
-       @return { ok, uid, email, userCode, bound }
-               bound=true  → 이 계정이 이 기기 코드를 **새로 가져간** 경우(첫 로그인)
-               bound=false → 이미 묶여 있던 계정으로 들어온 경우(기기 이동) */
-    async authSignInWithGoogle(idToken, userCode){
+    /* 구글 ID 토큰으로 로그인 → { ok, uid, email } | { ok:false, reason } */
+    async authSignInWithGoogle(idToken){
       if(!auth) return { ok:false, reason:'로그인 기능을 쓸 수 없어요 (초기화 실패)' };
       if(!idToken) return { ok:false, reason:'구글 토큰이 없어요' };
-      let cred = null;
       try{
-        cred = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+        const cred = await signInWithCredential(auth, GoogleAuthProvider.credential(idToken));
+        return { ok:true, uid: cred.user.uid, email: cred.user.email || null };
       }catch(e){
         const c = String((e && e.code) || e || '');
         if(c.includes('operation-not-allowed')) return { ok:false, reason:'Firebase 콘솔에서 [Google] 로그인을 켜주세요' };
         if(c.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' };
         return { ok:false, reason:'구글 계정 확인에 실패했어요 (' + (c || '알 수 없음') + ')' };
       }
-      const uid = cred.user.uid;
-      const email = cred.user.email || null;
-      try{
-        // ① 이 계정에 이미 묶인 유저 코드가 있는가 — 있으면 그것이 정답이다(기기 이동).
-        const s = await get(ref(db, `authUsers/${uid}`));
-        const v = s.val();
-        if(v && v.userCode){
-          /* 📭 (회원가입 설계 §9-2 · CHECKS 개정 54) 서버에 이메일 거울을 두지 않는다 — 예전 판이 남긴 것은 여기서 걷는다.
-             userCode 는 절대 건드리지 않는다. 이메일은 돌려주기만 한다(이 PC 의 계정 표시용 · 로컬). */
-          if(v.email != null){ try{ await update(ref(db, `authUsers/${uid}`), { email: null }); }catch(_){} }
-          return { ok:true, uid, email, userCode:String(v.userCode), bound:false };
-        }
-        /* ② 이 계정의 첫 로그인 — 이 기기의 유저 코드를 가져간다.
-           ★ userCode 가 비어 있으면 **묶지 않고 물러난다.** 부르는 쪽(app.js _loginDoGoogle)이
-             "이 기기의 코드는 아직 계정이라고 부를 수 없다"고 판단해서 일부러 비워 보낸 것이다.
-           [경위] 예전에는 부르는 쪽이 getMyUserId() 를 그대로 넘겼는데, 그 함수는 코드가 없으면
-             **그 자리에서 새로 만들어낸다.** 그래서 초대 게이트에서 [구글 로그인]을 누른 새 기기는
-             방금 태어난 임시 코드를 이 계정에 영구히 묶어놓고, 화면에는 "연결된 기록이 없어요"라며
-             입장을 거부당했다. 그다음 원래 컴퓨터에서 로그인하면 서버가 그 빈 코드를 정답으로
-             돌려줘서 마이홈·친구가 통째로 사라졌다. 묶기를 거절하는 이 한 줄이 그 경로를 끊는다.
-           ⚠️ 로그아웃까지 해야 한다 — 세션만 남기면 "로그인은 됐는데 계정은 없는" 상태가 된다(규약 ⑤).
-             막 생긴 계정은 로그아웃 대신 지운다(_dropGoogleSession). */
-        if(!userCode){
-          await _dropGoogleSession(cred);
-          return { ok:false, needCode:true, reason:'이 구글 계정에 연결된 기록이 없어요' };
-        }
-        /* 선점은 runTransaction 으로. set 으로 덮으면 한 기기에서 두 계정으로 로그인한 사람이
-           먼저 묶인 계정의 데이터를 통째로 빼앗는다. */
-        const tr = await runTransaction(ref(db, `userAuth/${userCode}`), cur => (cur == null ? uid : undefined));
-        const owner = tr && tr.snapshot ? tr.snapshot.val() : null;
-        if(owner !== uid){
-          /* 이 기기 코드는 이미 남의 계정 것이다. 로그아웃시켜 되돌린다 —
-             로그인 상태로 남겨두면 "로그인은 됐는데 내 데이터가 아닌" 상태가 된다. */
-          await _dropGoogleSession(cred);
-          return { ok:false, reason:'이 기기의 계정은 이미 다른 구글 계정에 연결돼 있어요.' };
-        }
-        await set(ref(db, `authUsers/${uid}`), { userCode:String(userCode), ts: Date.now() });   // 이메일 거울 없음(§9-2)
-        return { ok:true, uid, email, userCode:String(userCode), bound:true };
-      }catch(e){
-        try{ await fbSignOut(auth); }catch(_){}
-        return { ok:false, reason:'계정 연결에 실패했어요 — 잠시 뒤 다시 시도해 주세요' };
-      }
     },
-    /* 🔑 [회원가입 설계 §3 H · §4 · 개정 8] 친구 코드 + 비밀번호 로그인 — 처음 쓰는 PC 의 기존 사용자.
-       아이디는 친구 코드, Auth 이메일은 `{코드 소문자}@tw.local`(§4 표). 가입(A · I)이 만든 계정만 여기로 들어온다.
-       ★ 결속은 하지 않는다 — 읽기만 한다. `authUsers/{authUid}.userCode` 가 없으면 로그아웃시키고 거절한다
-         (구글 쪽 «userCode=null 거절»과 같은 이유: 로그인은 됐는데 계정은 없는 상태를 남기지 않는다).
-       ⚠️ Firebase 콘솔에서 [이메일/비밀번호] 로그인을 켜야 한다 — 꺼져 있으면 operation-not-allowed. */
+    /* 친구 코드 + 비밀번호 로그인 — Auth 이메일은 `{코드 소문자}@tw.local`(계정은 서버가 가입 때 만든다) → { ok, uid, email } | { ok:false, reason } */
     async authSignInWithFriendCode(code, password){
       if(!auth) return { ok:false, reason:'로그인 기능을 쓸 수 없어요 (초기화 실패)' };
       const c = String(code || '').trim().toUpperCase();
       if(!c || !password) return { ok:false, reason:'친구 코드와 비밀번호를 입력해 주세요' };
       const email = c.toLowerCase() + '@tw.local';
-      let cred = null;
       try{
-        cred = await signInWithEmailAndPassword(auth, email, String(password));
+        const cred = await signInWithEmailAndPassword(auth, email, String(password));
+        return { ok:true, uid: cred.user.uid, email };
       }catch(e){
         const k = String((e && e.code) || e || '');
         if(k.includes('operation-not-allowed')) return { ok:false, reason:'Firebase 콘솔에서 [이메일/비밀번호] 로그인을 켜주세요' };
@@ -3734,80 +3493,9 @@
           return { ok:false, reason:'친구 코드나 비밀번호가 맞지 않아요' };
         return { ok:false, reason:'로그인에 실패했어요 (' + (k || '알 수 없음') + ')' };
       }
-      const uid = cred.user.uid;
-      try{
-        const v = (await get(ref(db, `authUsers/${uid}`))).val();
-        if(v && v.userCode) return { ok:true, uid, email, userCode:String(v.userCode) };
-        try{ await fbSignOut(auth); }catch(_){}
-        return { ok:false, reason:'이 친구 코드의 계정 기록을 찾지 못했어요' };
-      }catch(e){
-        try{ await fbSignOut(auth); }catch(_){}
-        return { ok:false, reason:'계정을 확인하지 못했어요 — 잠시 뒤 다시 시도해 주세요' };
-      }
     },
-    /* ✍️ [회원가입 설계 §3 A · §9-6 (a) · 개정 10] 가입 — 익명 로그인 → (앱: ② uid · ③ 코드 선점) → ④ 비밀번호 연결 → ⑤ 결속.
-       세 통로로 나눈 이유: ③ 은 앱이 한다(친구 코드 후보·재추첨이 app.js 몫) — 그 사이에 끊겨도 각 통로가 **다시 불러도 되게** 짰다.
-
-       ① authSignupEnsure(email) — 쓸 Auth 세션을 준비한다.
-          · 익명 세션이 있으면 그대로(같은 authUid 로 이어 간다 — 중단 뒤 재시도).
-          · 이미 그 이메일(`{코드}@tw.local`)로 승격된 세션이면 그대로(④ 는 됐고 ⑤ 에서 끊긴 판).
-          · 다른 세션(구글 등)이면 놓고 익명으로 — 남의 계정에 비밀번호를 붙이지 않는다.
-          ⚠️ 콘솔에서 [익명] 로그인이 꺼져 있으면 admin-restricted-operation. */
-    async authSignupEnsure(email){
-      if(!auth) return { ok:false, reason:'로그인 기능을 쓸 수 없어요 (초기화 실패)' };
-      try{ await _whenAuthReady(); }catch(_){}   // 저장된 세션을 다 읽은 뒤에 본다 — 안 그러면 이어 갈 익명 세션을 못 보고 새로 만든다
-      const cu = auth.currentUser;
-      if(cu && (cu.isAnonymous || (email && cu.email === email))) return { ok:true, authUid:cu.uid, anonymous:!!cu.isAnonymous };
-      if(cu){ try{ await fbSignOut(auth); }catch(_){} }
-      try{
-        const cred = await signInAnonymously(auth);
-        return { ok:true, authUid:cred.user.uid, anonymous:true };
-      }catch(e){
-        const k = String((e && e.code) || e || '');
-        if(k.includes('admin-restricted') || k.includes('operation-not-allowed')) return { ok:false, reason:'Firebase 콘솔에서 [익명] 로그인을 켜주세요' };
-        if(k.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' };
-        return { ok:false, reason:'가입을 시작하지 못했어요 (' + (k || '알 수 없음') + ')' };
-      }
-    },
-    /* ② authSignupLinkPassword(code, pw) — ④ 지금 세션(익명)에 `{코드}@tw.local` + 비밀번호를 붙여 승격한다. authUid 는 그대로.
-          · 이미 그 이메일이면 성공으로 친다(재시도). */
-    async authSignupLinkPassword(code, password){
-      if(!auth || !auth.currentUser) return { ok:false, reason:'가입 세션이 없어요 — 다시 시도해 주세요' };
-      const email = String(code || '').trim().toLowerCase() + '@tw.local';
-      const cu = auth.currentUser;
-      if(cu.email === email) return { ok:true, authUid:cu.uid, email };
-      try{
-        const cred = await linkWithCredential(cu, EmailAuthProvider.credential(email, String(password)));
-        return { ok:true, authUid:cred.user.uid, email };
-      }catch(e){
-        const k = String((e && e.code) || e || '');
-        if(k.includes('operation-not-allowed')) return { ok:false, reason:'Firebase 콘솔에서 [이메일/비밀번호] 로그인을 켜주세요' };
-        if(k.includes('weak-password')) return { ok:false, reason:'비밀번호가 너무 쉬워요 — 6자 이상으로 정해 주세요' };
-        if(k.includes('email-already-in-use') || k.includes('credential-already-in-use')) return { ok:false, taken:true, reason:'이 친구 코드는 이미 가입돼 있어요' };
-        if(k.includes('provider-already-linked')) return { ok:false, reason:'이미 비밀번호가 붙은 계정이에요' };
-        if(k.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' };
-        return { ok:false, reason:'계정을 만들지 못했어요 (' + (k || '알 수 없음') + ')' };
-      }
-    },
-    /* ③ authSignupBind(userCode) — ⑤ 결속: userAuth/{uid} = authUid 선점(runTransaction · authSignInWithGoogle 과 같은 규칙) → authUsers/{authUid}.
-          · 이미 내 것이면 그대로(재시도). 남의 것이면 거절(taken) — 부르는 쪽이 새 uid 로 다시 시작한다.
-          · 이메일 거울은 두지 않는다(§9-2 권고 — 친구 코드 계정의 이메일은 코드에서 나온다). */
-    async authSignupBind(userCode){
-      if(!auth || !auth.currentUser) return { ok:false, reason:'가입 세션이 없어요 — 다시 시도해 주세요' };
-      const authUid = auth.currentUser.uid;
-      try{
-        const tr = await runTransaction(ref(db, `userAuth/${userCode}`), cur => (cur == null || cur === authUid ? authUid : undefined));
-        const owner = tr && tr.snapshot ? tr.snapshot.val() : null;
-        if(owner !== authUid) return { ok:false, taken:true, reason:'이 아이디는 이미 다른 계정에 연결돼 있어요' };
-        await set(ref(db, `authUsers/${authUid}`), { userCode:String(userCode), ts: Date.now() });
-        return { ok:true, authUid };
-      }catch(e){
-        return { ok:false, reason:'계정 연결에 실패했어요 — 잠시 뒤 다시 시도해 주세요' };
-      }
-    },
-    /* 🔗 [회원가입 설계 §7-J · 개정 13] 지금 로그인한 계정(비밀번호로 막 가입)에 구글을 **붙인다** — 같은 authUid 그대로.
-       authSignInWithGoogle 과 다르다: 그쪽은 구글로 **로그인**(세션이 바뀐다), 이쪽은 지금 세션에 구글 자격을 더한다.
-       · 그 구글이 이미 다른 계정의 것이면 거절(자동 병합 없음 · 설계 §4 표). */
+    /* 🔗 지금 로그인(비밀번호로 가입)에 구글을 **붙인다** — 같은 authUid 그대로. 그 구글이 이미 다른 계정 것이면 거절(자동 병합 없음).
+       TODO: 서버 길이 없다(지도 6장 ⑧) — 생기면 서버 길로 옮긴다. */
     async authLinkGoogle(idToken){
       if(!auth || !auth.currentUser) return { ok:false, reason:'로그인 상태가 아니에요 — 다시 시도해 주세요' };
       try{
@@ -3824,38 +3512,30 @@
     },
     async authSignOut(){ if(auth){ try{ await fbSignOut(auth); }catch(_){} } },
 
-    /* 🔐 [회원가입 설계 §7-C2·C3 · 개정 14] 로그인 수단 — 계정 탭이 «구글 · 친구 코드+비밀번호» 를 보이고 비밀번호를 만들거나 바꾼다.
-       ★ 이 셋은 authSignOut **뒤**에 둔다 — sim-signup 5·6·9절이 authSignInWithFriendCode ~ authSignOut 을 떼어 본다(CHECKS §36 ★).
-       authProviders() → null(세션 없음) | { authUid, anonymous, google, googleEmail, password, passwordEmail } */
+    /* 🔐 로그인 수단 — 계정 탭이 «구글 · 친구 코드+비밀번호» 를 보인다. authProviders() → null(세션 없음) | { authUid, anonymous, google, googleEmail, password, passwordEmail } */
     authProviders(){ return _providersOf(auth && auth.currentUser); },
-    /* C3 · 비밀번호 만들기 — 구글만 있는 계정에 `{코드 소문자}@tw.local` + 비밀번호를 **붙인다**(같은 authUid · 함수 없음).
-       이 뒤로 H·K 의 [친구 코드로 로그인](authSignInWithFriendCode)이 이 계정으로 들어온다(authUsers/{authUid}.userCode 가 이미 있다).
-       · 로그인한 지 오래됐으면 Firebase 가 requires-recent-login 을 낸다 → needReauth — 부르는 쪽이 구글 재인증(authReauthGoogle) 뒤 다시 부른다.
-       · 이미 비밀번호가 있으면 already(C2 몫). 그 이메일이 이미 남의 계정이면 taken. */
-    async authLinkPassword(code, password){
+    /* 서버가 로그인 수단을 바꾼 뒤(비밀번호 붙이기) 이 PC 의 Auth 사본을 다시 읽는다 */
+    async authReload(){ if(auth && auth.currentUser){ try{ await auth.currentUser.reload(); }catch(_){} } },
+    /* 비밀번호로 다시 확인(구글 없는 계정 — 5분 안 로그인이 필요한 일) — 지금 세션을 바꾸지 않고 최근 로그인만 새로 한다.
+       이메일은 이 세션이 가진 비밀번호 로그인의 것(authProviders().passwordEmail — 친구 코드 로그인이 만드는 모양과 같다).
+       → { ok:true } | { ok:false, wrong:true }(비밀번호가 다름 — 창에서 다시 입력) | { ok:false, reason } */
+    async authReauthPassword(password){
       if(!auth || !auth.currentUser) return { ok:false, reason:'로그인이 풀려 있어요 — 앱을 다시 시작해 주세요' };
-      const cu = auth.currentUser;
-      if(cu.isAnonymous) return { ok:false, reason:'가입이 끝나지 않은 계정이에요' };
-      const c = String(code || '').trim();
-      if(!c) return { ok:false, reason:'친구 코드를 확인하지 못했어요' };
-      if((cu.providerData || []).some(p => p && p.providerId === 'password')) return { ok:false, already:true, reason:'이미 비밀번호가 있는 계정이에요' };
-      const email = c.toLowerCase() + '@tw.local';
+      const pv = _providersOf(auth.currentUser);
+      if(!pv || !pv.passwordEmail || !password) return { ok:false, reason:'비밀번호로 확인할 수 없는 계정이에요' };
       try{
-        await linkWithCredential(cu, EmailAuthProvider.credential(email, String(password)));
-        return { ok:true, email };
+        await reauthenticateWithCredential(auth.currentUser, EmailAuthProvider.credential(pv.passwordEmail, String(password)));
+        return { ok:true };
       }catch(e){
         const k = String((e && e.code) || e || '');
-        if(k.includes('requires-recent-login')) return { ok:false, needReauth:true, reason:'구글로 한 번 더 확인이 필요해요' };
-        if(k.includes('weak-password')) return { ok:false, reason:'비밀번호가 너무 쉬워요 — 6자 이상으로 정해 주세요' };
-        if(k.includes('email-already-in-use') || k.includes('credential-already-in-use')) return { ok:false, taken:true, reason:'이 친구 코드로 된 비밀번호 계정이 따로 있어요 — 알려 주세요' };
-        if(k.includes('provider-already-linked')) return { ok:false, already:true, reason:'이미 비밀번호가 있는 계정이에요' };
-        /* [이메일/비밀번호] 로그인은 A 가입 때문에 이미 켜져 있다 — 여기서 이게 나면 «이메일 바꾸기 전 확인» 정책에 걸린 것일 수 있다(실기기 확인 거리). */
-        if(k.includes('operation-not-allowed')) return { ok:false, reason:'이 계정에는 지금 비밀번호를 붙일 수 없어요 (operation-not-allowed) — 알려 주세요' };
+        if(k.includes('wrong-password') || k.includes('invalid-credential') || k.includes('invalid-login')) return { ok:false, wrong:true };
+        if(k.includes('too-many-requests')) return { ok:false, reason:'시도가 너무 많았어요 — 잠시 뒤 다시 해 주세요' };
         if(k.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' };
-        return { ok:false, reason:'비밀번호를 만들지 못했어요 (' + (k || '알 수 없음') + ')' };
+        return { ok:false, reason:'비밀번호 확인에 실패했어요 (' + (k || '알 수 없음') + ')' };
       }
     },
-    /* 구글 재인증 — 지금 세션을 **바꾸지 않고** 최근 로그인만 새로 한다(C3 의 requires-recent-login 뒤). 다른 구글을 고르면 user-mismatch. */
+    /* 구글로 다시 확인(5분 안 로그인이 필요한 일 — 비밀번호 붙이기 · 바꾸기 · 탈퇴) — 지금 세션을 **바꾸지 않고** 최근 로그인만 새로 한다.
+       다른 구글을 고르면 user-mismatch */
     async authReauthGoogle(idToken){
       if(!auth || !auth.currentUser) return { ok:false, reason:'로그인이 풀려 있어요 — 앱을 다시 시작해 주세요' };
       try{
@@ -3868,154 +3548,7 @@
         return { ok:false, reason:'구글 확인에 실패했어요 (' + (k || '알 수 없음') + ')' };
       }
     },
-    /* C2 · 비밀번호 바꾸기 — **지금 비밀번호를 묻지 않는다**((가)). 함수 `changePassword`(호출형)가 ID 토큰으로 본인을 확인하고
-       Admin SDK 로 바꾼 뒤 이 계정의 refresh token 을 끊는다 → 다른 PC 는 다음 부팅에 K.
-       ★ 이 PC 도 같이 끊기므로 함수가 돌아오면 **새 비밀번호로 곧바로 다시 로그인**한다(같은 authUid · 결속 그대로).
-         다시 로그인이 실패해도 바꾸기는 성공이다(relogged:false) — 부르는 쪽이 «다시 시작하면 로그인 화면» 을 말한다.
-       ★ 로그인 아이디는 친구 코드 거울이 아니라 **password 제공자의 이메일** 그대로 쓴다(그게 Auth 가 아는 아이디다). */
-    async authChangePassword(password){
-      const pv = _providersOf(auth && auth.currentUser);
-      if(!pv) return { ok:false, reason:'로그인이 풀려 있어요 — 앱을 다시 시작해 주세요' };
-      if(!pv.password || !pv.passwordEmail) return { ok:false, reason:'비밀번호가 없는 계정이에요 — 먼저 비밀번호를 만들어 주세요' };
-      const pw = String(password || '');
-      if(pw.length < 6) return { ok:false, reason:'비밀번호는 6자 이상으로 정해 주세요' };
-      let mod = null;
-      try{ mod = await import(FUNCTIONS_SDK_URL); }
-      catch(_){ return { ok:false, reason:'네트워크 오류 — 연결을 확인해주세요' }; }
-      try{
-        const fns = mod.getFunctions(fbApp, FUNCTIONS_REGION);
-        await mod.httpsCallable(fns, 'changePassword')({ password: pw });
-      }catch(e){
-        const k = String((e && e.code) || e || '');
-        if(k.includes('not-found')) return { ok:false, reason:'서버에 비밀번호 바꾸기 기능이 아직 없어요 (함수 배포 전)' };
-        if(k.includes('unauthenticated')) return { ok:false, reason:'로그인이 풀려 있어요 — 앱을 다시 시작해 주세요' };
-        if(k.includes('invalid-argument')) return { ok:false, reason:'비밀번호는 6자 이상으로 정해 주세요' };
-        if(k.includes('failed-precondition')) return { ok:false, reason:'비밀번호가 없는 계정이에요 — 먼저 비밀번호를 만들어 주세요' };
-        if(k.includes('resource-exhausted')) return { ok:false, reason:'시도가 너무 많았어요 — 잠시 뒤 다시 해 주세요' };
-        if(k.includes('unavailable') || k.includes('deadline') || k.includes('internal') || k.includes('network')) return { ok:false, reason:'서버에 닿지 못했어요 — 잠시 뒤 다시 시도해 주세요 (' + k + ')' };
-        return { ok:false, reason:'비밀번호를 바꾸지 못했어요 (' + (k || '알 수 없음') + ')' };
-      }
-      try{
-        const cred = await signInWithEmailAndPassword(auth, pv.passwordEmail, pw);
-        return { ok:true, relogged: !!(cred && cred.user && cred.user.uid === pv.authUid) };
-      }catch(_){ return { ok:true, relogged:false }; }
-    },
 
-    /* ═══════════ 🖥️ 한 계정 한 기기 — users/{uid}/session ═══════════ [2026-09-17 제보 3 · 시안 확정]
-       [제보] 서브 PC 와 기본 PC 둘 다 로그인해 두면 투게더룸·워킹룸에 다중 접속이 된다. 한쪽에 로그인하면
-         다른 쪽은 풀리거나 접속이 막혔으면 한다. 제보 ②(오프라인으로 둔 계정이 온라인으로 뜸)도 같은
-         뿌리다 — presence 는 계정당 한 노드인데 두 기기가 각자 쓰고 각자 onDisconnect 를 건다.
-       [구조] users/{uid}/session = { id, at }. 부팅 때 id 를 새로 뽑아 쓰고 그 노드를 구독한다.
-         내가 쓴 id 가 아닌 값이 오면 **이 기기는 밀려난 것** — 방에서 나오고 presence 쓰기를 멈추고
-         app.js 가 차단 화면을 띄운다. «여기서 계속 쓰기» 는 다시 claim 하는 것이고, 그러면 반대쪽이 밀린다.
-       ★ 로그아웃이 아니다. 로그아웃(_loginDoLogout)은 올리고→검문→지움이 도는 무거운 길이라 원격 신호로
-         돌리면 검문에 걸린 기기가 반쯤 남는다. 밀려난 기기는 신원·소지품 그대로, **방 접속과 presence 만** 놓는다.
-       ★ 로그인 계정만 대상이다. 로그인 없이는 두 기기가 같은 uid 를 가질 일이 없고, 규칙도 auth 로 잠근다.
-       ⚠️ 규칙 파일에 이 블록이 없으면 쓰기가 조용히 거부돼 **지금과 똑같이 둘 다 그대로**다(더 나빠지지 않는다).
-         필요한 규칙:  "session": {
-                       ".write": "root.child('userAuth/'+$uid).exists() && root.child('userAuth/'+$uid).val() === auth.uid",
-                       ".validate": "!newData.exists() || (newData.hasChildren(['id','at']) && ...)" }   ← 실제 문구는 규칙 파일
-       ⚠️ presence 를 여기서 false 로 쓰지 않는다 — 그 노드는 이제 이긴 쪽 것이다. 내 onDisconnect 만 거둔다. */
-    claimDeviceSession(userId, onLost){
-      if(!userId) return Promise.resolve(false);
-      return _whenAuthReady().then(async ()=>{
-        if(!(auth && auth.currentUser)) return false;           // 로그인 안 한 기기 — 대상 아님
-        const myId = 's' + _svNow().toString(36) + Math.random().toString(36).slice(2, 8);
-        _sessionId = myId; _sessionLost = false;
-        if(_sessionUnsub){ try{ _sessionUnsub(); }catch(_){} _sessionUnsub = null; }
-        _sessionRef = ref(db, `users/${userId}/session`);
-        try{ await set(_sessionRef, { id: myId, at: serverTimestamp() }); }
-        catch(e){ console.warn('[세션] 기기 세션 기록 실패(규칙 미배포?) — 다중 접속 차단 없이 계속', e); _sessionRef = null; return false; }
-        const lose = (v) => {
-          if(_sessionLost) return;
-          _sessionLost = true;
-          /* presence 를 놓는다 — 내 onDisconnect 가 남아 있으면 내가 꺼질 때 이긴 쪽을 오프라인으로 만든다. */
-          try{ if(_myPresenceRef) onDisconnect(_myPresenceRef).cancel(); }catch(_){}
-          _myPresenceRef = null;
-          try{ if(typeof onLost === 'function') onLost(v); }catch(_){}
-        };
-        /* 읽기 거부로 끊김도 밀림 — 같은 계정의 ≤0.10.2 는 presence(ver 없음)를 session 보다 먼저 써서 규칙(옛 앱 읽기 막기)이 이 구독부터 끊는다 */
-        _sessionUnsub = onValue(_sessionRef, snap => { const v = snap.val(); if(v && v.id && v.id !== _sessionId) lose(v); }, () => lose(null));
-        return true;
-      });
-    },
-    deviceSessionLost(){ return !!_sessionLost; },
-    /* 로그아웃·연동 해제 때 — 내 것일 때만 지운다(남의 세션을 지우면 그쪽이 밀린다). */
-    async releaseDeviceSession(){
-      if(_sessionUnsub){ try{ _sessionUnsub(); }catch(_){} _sessionUnsub = null; }
-      if(_sessionRef && _sessionId && !_sessionLost){
-        try{ await runTransaction(_sessionRef, cur => (cur && cur.id === _sessionId) ? null : undefined); }catch(_){}
-      }
-      _sessionRef = null; _sessionId = null; _sessionLost = false;
-    },
-
-    /* 🔁 (걷음 · 회원가입 설계 §6-⑧ · CHECKS 개정 52) 결속 고쳐 매기 `authRebindUserCode` — 되찾기 UI(§6-⑤ · 개정 45)가 유일한
-       호출자였다. 결속을 되돌릴 일(구글 로그인의 갈아타기)은 게이트(H · K)가 닫았다. */
-
-    /* 계정 스냅샷 — 로그인한 새 기기가 곧바로 받아가는 값들.
-       ★ 여기 담기는 건 '서버에 실시간 사본이 없는 것들'뿐이다 — 라이선스·이름·친추코드(·집중 누적초).
-         집중 누적초·플레이리스트·가챠·마이홈은 각자 users/{uid} 아래에 사본이 있어서
-         유저 코드만 갈아타면 저절로 따라온다.
-       ★ [회원가입 설계 §9-12 · 개정 23 · CHECKS 개정 55] 자리는 **accountSnap/{userCode}** — 주인만 읽고 쓴다.
-         예전 자리 users/{uid}/transferData 는 `users/$userId .read:true` 아래라 라이선스 키가 누구에게나 읽혔다
-         (RTDB 는 아래 가지에서 읽기를 거둘 수 없다). 규칙은 그 자리를 이제 **지우기만** 받는다.
-         옮기는 길은 둘: ① 여기(쓸 때 옛 자리를 같이 지움 · 읽을 때 옛 것만 있으면 옮기고 지움)
-                        ② 일회용 함수 moveAccountSnap 이 안 들어오는 사람 몫을 옮겼다(2026-09-22 left 0 확인 뒤 걷음).
-       ⚠️ 새 자리는 결속된 코드만 쓴다(userAuth/{코드} === 내 authUid). 부르는 셋(가입 끝 · 구글 첫 결속 · 부팅)은 다 결속 뒤다.
-       ⚠️ 값이 규칙 범위를 벗어나면 그 항목만 뺀다 — 하나가 틀려 통째로 거절되면 라이선스까지 못 남긴다. */
-    async setAccountSnapshot(userCode, snap){
-      if(!userCode || !snap) return { ok:false };
-      await _appVer.ready;
-      const ver = _appVer.get();
-      const write = (v) => update(ref(db), {
-        [`accountSnap/${userCode}`]: _acctSnapClean(snap, Date.now(), v),
-        [`users/${userCode}/transferData`]: null
-      });
-      try{ await write(ver); return { ok:true }; }
-      catch(e){
-        // 규칙에 accountSnap ver 가 아직 없으면($other:false) 통째로 거절된다 — 라이선스는 남기도록 ver 를 빼고 한 번 더.
-        if(ver){ try{ await write(null); return { ok:true }; }catch(_){} }
-        return { ok:false };
-      }
-    },
-    /* 로그인 직후 복원용 — 옛 verifyTransfer(개정 52 걷음)가 돌려주던 것과 **같은 모양**
-       { ok, license, focusTotalSec, name, friendCode } — app.js 의 _applyTransferSnapshot 이 이 모양 하나만 받는다(복원 규칙이 한 벌).
-       순서: 새 자리 → (없거나 못 읽으면) 옛 자리 — 옛 것이 있으면 새 자리로 옮기고 옛 자리를 지운다(실패해도 값은 돌려준다)
-             → 그래도 없는 이름·친추코드는 제자리(profile · friendCode)에서. */
-    async fetchAccountSnapshot(userCode){
-      const out = { ok:true, license:null, focusTotalSec:null, name:null, friendCode:null };
-      if(!userCode) return out;
-      let tv = null;
-      try{ const s = await get(ref(db, `accountSnap/${userCode}`)); tv = s.val(); }catch(_){ tv = null; }
-      if(!tv){
-        let old = null;
-        try{ const td = await get(ref(db, `users/${userCode}/transferData`)); old = td.val(); }catch(_){}
-        if(old && typeof old === 'object'){
-          tv = old;
-          try{
-            await update(ref(db), {
-              [`accountSnap/${userCode}`]: _acctSnapClean(old, Number.isFinite(old.ts) ? old.ts : Date.now()),
-              [`users/${userCode}/transferData`]: null
-            });
-          }catch(_){}   // 못 옮겨도 이번 복원은 한다 — 다음 부팅의 setAccountSnapshot 이 옮긴다
-        }
-      }
-      if(tv){
-        out.license = (typeof tv.license === 'string' && tv.license) ? tv.license : null;
-        out.focusTotalSec = Number.isFinite(tv.focusTotalSec) ? tv.focusTotalSec : null;
-        out.name = tv.name || null;
-        out.friendCode = tv.friendCode || null;
-      }
-      // 폴백 — 스냅샷을 한 번도 안 쓴 계정도 이름·친추코드는 제자리에 있다.
-      if(out.name == null){ try{ const pf = await get(ref(db, `users/${userCode}/profile`)); const pv = pf.val(); if(pv && pv.name) out.name = pv.name; }catch(_){} }
-      if(out.friendCode == null){ try{ const fc = await get(ref(db, `users/${userCode}/friendCode`)); const fv = fc.val(); if(typeof fv === 'string' && fv) out.friendCode = fv; }catch(_){} }
-      return out;
-    },
-
-    /* ===== 📤 계정 이전 (디바이스 이동) — 걷음 (회원가입 설계 §6-⑧ · CHECKS 개정 52) =====
-       `setTransferHash` · `verifyTransfer` 는 [설정 › 계정 › 계정 이전/연동](개정 45 에서 걷음)만 불렀다.
-       ★ 계정 스냅샷은 `accountSnap/{uid}` 로 옮겼다(개정 55 · 위). 옛 `users/{uid}/transferData` 는 규칙이 «지우기만» 받는다.
-         `transferHash` 는 규칙이 «지우기만» 받는다(개정 45). */
 
     /* ===== 🧟 좀비 어드벤처 파티 시스템 — 은퇴(stub) =====
        게임은 adventure-zombie.js(현 myhome-desktop.js)의 ADV_GAME_OFF 스위치로 이미 꺼져 있고,

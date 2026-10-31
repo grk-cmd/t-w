@@ -256,7 +256,7 @@ console.log('\n── 6. 관리자 작업 기록(adminLog) — 관리자만, 새
     chk(JSON.stringify(inv['.indexOn']) === '["issuedBy"]', '  ↳ .indexOn ["issuedBy"] — 한 사람이 낸 코드만 getEqual 로');
     chk(r('invites/$code') === true && /^!data\.exists\(\) \|\| \(data\.child\('issuedBy'\)\.val\(\) === newData\.child\('issuedBy'\)\.val\(\) && data\.child\('createdAt'\)\.val\(\) === newData\.child\('createdAt'\)\.val\(\)\)/.test(String(w('invites/$code'))),
         '코드 하나 읽기는 누구나 · 쓰기는 새 코드거나 발급자 · 발급 시각을 그대로 둔 소진만 (가입 게이트가 로그인 없이 확인 · 소진)');
-    chk(/ref\(db, *`invites\/\$\{code\}`\)/.test(fbSrc) && !/ref\(db, *['`]invites['`]\)/.test(fbSrc),'  ↳ 앱은 invites 모음을 읽지 않는다 (코드 하나 경로만)');
+    chk(!/ref\(db, *['`]invites['`]\)/.test(fbSrc),'  ↳ 앱은 invites 모음을 읽지 않는다(0.13 — 초대 확인은 서버 GET /v1/invites)');
   }
 }
 

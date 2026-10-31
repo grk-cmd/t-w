@@ -709,11 +709,14 @@ async function syncSlotsToServer(reason, mode){
     if(_pend){ try{ syncSlotsToServer(_pend.reason, _pend.mode); }catch(_){} }
   }
 }
-/* 부팅 뒤 1회(가챠 4.2초 다음) + 30분마다. 어느 쪽도 ts 한 값 읽기가 전부다. */
-setTimeout(()=>{ try{ syncSlotsToServer('boot'); }catch(_){} }, 4600);
-setInterval(()=>{ try{ syncSlotsToServer('tick'); }catch(_){} }, SLOTS_SYNC_INTERVAL_MS);
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 부팅 4.6초(가챠 4.2초 다음) + 30분마다. 어느 쪽도 ts 한 값 읽기가 전부다. */
+function startSlotsSync(){
+  setTimeout(()=>{ try{ syncSlotsToServer('boot'); }catch(_){} }, 4600);
+  setInterval(()=>{ try{ syncSlotsToServer('tick'); }catch(_){} }, SLOTS_SYNC_INTERVAL_MS);
+}
 
 return {
+  startSlotsSync,
   SLOTS_LASTSYNC_KEY,
   SLOTS_LOSS_KEY,
   SLOTS_PUSHFAIL_KEY,

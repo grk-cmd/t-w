@@ -1,6 +1,6 @@
 {
  "note": "sim-typeof-guards.js 기준선 — 파일별 «있으면 부르기» typeof 가드 개수(예외 빼고). 줄기만 한다: 걷었으면 같은 PR 에서 --write-baseline 으로 내리고, 새 가드는 넣지 말 것.",
- "total": 161,
+ "total": 160,
  "counts": {
   "account/account.js": 1,
   "account/license-gate.js": 1,
@@ -23,7 +23,7 @@
   "chat/chat-ui.js": 1,
   "creator/creator-xform.js": 2,
   "creator/paint-tools.js": 4,
-  "firebase-init.js": 2,
+  "firebase-init.js": 1,
   "focus/focus-level.js": 2,
   "focus/focus-share.js": 1,
   "launcher/fn-keys.js": 2,

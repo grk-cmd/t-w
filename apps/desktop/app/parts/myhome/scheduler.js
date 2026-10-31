@@ -1351,6 +1351,10 @@ function renderBellList(){
   });
   // ★ 바깥 클릭으로는 닫히지 않음 (포커싱 기록창과 동일) — document 클릭 핸들러를 일부러 두지 않음.
 
+})();
+
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 오늘 일정 · 알림 받기 · 서버 신호 걸기 · 자정 넘김 확인 */
+function startSchedule(){
   // 오늘 일정 · 친구 태그 알림 받기 — 네트워크가 준비되면 한 번
   const sub = ()=>{
     if(!getMyUserId()) return;   // 내 코드가 없으면 받지 않는다
@@ -1389,7 +1393,7 @@ function renderBellList(){
       _bellLoadToday();
     }
   }, 60 * 1000);
-})();
+}
 
 /* 👀 친구 홈 구경 — 달력(서버가 공개한 일정만) · 디데이 보드(공개한 장만)를 친구 것으로. 구경 중인 uid 가 정해진 뒤에 부른다 */
 async function loadVisit(friendId){
@@ -1465,6 +1469,7 @@ function reset(){
 }
 
 return {
+  startSchedule,
   renderSchedCalendar,                  // 마이홈 [스케줄러] 탭을 열 때
   renderDdays,                          // 관람 시작/끝 · 탭을 열 때
   loadBoard: ()=>_boardLoad(false),     // 로그인 뒤 — 내 디데이 보드 받기

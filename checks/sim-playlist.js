@@ -161,6 +161,7 @@ function mkEnv(o){
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
       playlistApi, notifyError: (c, err) => { env.errors.push(c); env.errArgs.push(err); },
     }, extra || {}));
+    if(!o.noGatePull) env.m.pull();   // 서버 계정이 확인된 뒤 게이트(license-gate.js)가 deps 로 한 번 부르는 것과 같다 — 만들 때는 받지 않는다
     return env.m;
   };
   env.last = (p) => env.calls.filter(c => c.indexOf(p) === 0).slice(-1)[0];
@@ -542,11 +543,21 @@ async function behave(src){
       chk(m.state().loaded && m.state().sets[0].items.length === 3 && e.count('publish') === 0, '  이어받기 — 새 계정 것을 받아 앉힌다(올리지 않는다)');
     }
     {
+      const e1 = mkEnv({ src, noGatePull: true }); const m1 = e1.mk(); e1.byId.myPlBtn.fire('click'); await flush();
+      chk(e1.byId.myPlList.children[0].textContent === '불러오는 중…' && e1.count('fetchMine') === 0, '받기 전(게이트가 아직 안 부름)에 창을 열어도 «불러오는 중…» 이고 요청은 없다 — 못 받은 것(실패)이 아니라서');
+    }
+    {
+      const e0 = mkEnv({ src, noGatePull: true }); e0.srv = srvOf(1, 'n'); e0.mk(); await flush(); await e0.advance(60000);
+      chk(e0.count('fetchMine') === 0, '만들 때는 받지 않는다 — 서버 계정 확인 뒤 게이트가 부른다');
+    }
+    {
       const e = E(); e.uid = ''; e.srv = srvOf(2, 'n'); const m = await e.mk({ getMyUserId: () => e.uid });
       await e.advance(4300);
-      chk(e.count('fetchMine') === 0 && !m.state().loaded, '로그인 전 — 서버를 부르지 않고 기다린다');
-      e.uid = 'ME01'; await e.advance(2100);
-      chk(e.count('fetchMine') === 1 && m.state().loaded, '★ 로그인되면 2초 안에 곧바로 받는다(30초 기다리지 않는다)');
+      chk(e.count('fetchMine') === 0 && !m.state().loaded && e.timers.filter(t => !t.every).length === 0, '로그인 전 — 서버를 부르지 않고 타이머도 없다');
+      e.uid = 'ME01'; await e.advance(60000);
+      chk(e.count('fetchMine') === 0, '  로그인돼도 혼자 받으러 가지 않는다(신호는 게이트)');
+      await m.pull();
+      chk(e.count('fetchMine') === 1 && m.state().loaded, '★ 서버 계정이 확인돼 게이트가 부르면 곧바로 한 번 받는다')
     }
     // ⑧ 받는 상태를 화면에 — 받는 중 · 못 받음 · 다시 시도 · 빈 목록
     {
@@ -578,9 +589,12 @@ async function behave(src){
       const e = E(); e.srv = srvOf(2, 'n'); e.srvThrow = true; e.srvCode = 'NO_TOKEN'; const m = await e.mk();
       e.byId.myPlBtn.fire('click');
       await flush(); await flush();
-      chk(e.byId.myPlList.children[0].textContent === '불러오는 중…' && e.count('fetchMine') === 1, '  토큰이 아직 안 이어졌으면(NO_TOKEN) 실패로 보이지 않고 계속 «불러오는 중…»');
-      e.srvThrow = false; e.srvCode = null; await e.advance(2100);
-      chk(m.state().loaded && e.count('fetchMine') === 2, '  2초 뒤 다시 받아 앉힌다');
+      chk(e.byId.myPlList.children[0].textContent.indexOf('못 불러왔어요 · ') === 0 && e.count('fetchMine') === 2 && e.errors.length === 0, '  토큰이 없어 못 받으면(NO_TOKEN) «못 불러왔어요 · 다시 시도» (창 열기 한 번 받기 · 오류 번호는 안 띄움 · 계속 «불러오는 중…» 아님)');
+      chk(e.timers.filter(t => !t.every).length === 0, '  기다렸다 다시 받는 타이머도 없다');
+      e.srvThrow = false; e.srvCode = null; await e.advance(60000);
+      chk(!m.state().loaded && e.count('fetchMine') === 2, '  시간이 지나도 혼자 다시 받지 않는다');
+      m.pull(); await flush(); await flush();
+      chk(m.state().loaded && e.count('fetchMine') === 3, '  서버 계정이 확인돼 게이트가 다시 부르면 받아 앉힌다');
     }
     // ⑨ 받기 전에는 고치는 동작이 잠긴다 — 듣기는 안 잠긴다
     {
@@ -655,6 +669,34 @@ async function behave(src){
       const g = E(); g.srv = srvOf(2, 'n'); const k = await g.mk();
       await k.flushPending('ME01'); await k.flushPending(null);
       chk(g.count('publish') === 0, '★ 올릴 게 없거나 내 코드가 없으면 0');
+    }
+    // ⑪-4 보내는 중에 또 고치고 3초 안에 로그아웃 — 두 번째 고침이 서버에 간다(진행 중 1 + 마지막 1)
+    {
+      const e = E(); e.srv = srvOf(2, 'n'); const m = await e.mk();
+      let go; e.saveHold = new Promise(r => { go = r; });
+      oneMore(m); m.save(); await e.advance(3100);   // 첫 저장이 보내는 중(응답 대기)
+      oneMore(m); m.save();                           // 보내는 중 또 고침 → 모으기 타이머
+      let done = false; const fp = m.flushPending('ME01').then(() => { done = true; });
+      await flush();
+      chk(!done && e.count('publish') === 1, '★ 로그아웃 올리기는 보내는 중인 저장이 끝나기를 기다린다(아직 안 끝남 · 요청 1)');
+      let goB; e.saveHold = new Promise(r => { goB = r; }); go(); await flush(); await flush();
+      chk(e.count('publish') === 2 && !done, '★ 첫 저장이 끝나면 보내는 중 고친 것이 최신으로 한 번 더 간다(요청 2) — 그것도 끝나야 올리기가 끝난다');
+      e.saveHold = null; goB(); await fp; await flush();
+      chk(done && e.count('publish') === 2, '  두 번째가 끝나면 올리기가 끝난다(되풀이 없이 2)');
+      e.winL.forEach(fn => fn()); await flush(); await flush();
+      chk(e.count('publish') === 2, '  끌 때가 겹쳐도 늘지 않는다');
+      const f = E(); f.srv = srvOf(2, 'n'); const n = await f.mk();
+      let go2; f.saveHold = new Promise(r => { go2 = r; });
+      oneMore(n); n.save(); await f.advance(3100);
+      let d2 = false; const fp2 = n.flushPending('ME01').then(() => { d2 = true; }); await flush();
+      chk(!d2, '  고친 게 없어도 보내는 중이면 끝나기를 기다린다');
+      f.saveHold = null; go2(); await fp2;
+      chk(d2 && f.count('publish') === 1, '  새로 보낼 것이 없으면 더 보내지 않는다');
+      const g = E(); g.srv = srvOf(2, 'n'); const k = await g.mk();
+      let go3; g.saveHold = new Promise(r => { go3 = r; }); g.saveRes = 'failed';
+      oneMore(k); k.save(); await g.advance(3100); oneMore(k); k.save();
+      const fp3 = k.flushPending('ME01'); await flush(); g.saveHold = null; go3(); await fp3; await flush();
+      chk(g.count('publish') === 1, '  첫 저장이 실패하면 거기서 멈춘다(혼자 다시 보내지 않음)');
     }
     // ⑪-2 앱을 끌 때(beforeunload) — 실패한 채이거나 고친 뒤 3초 모으기가 안 끝났으면 한 번만 올려 본다
     {
@@ -840,9 +882,9 @@ function wiring(PL, APP, HTML){
   chk(stUsed.every(n => new RegExp('get ' + n + '\\(\\)').test(stKeys) && new RegExp('set ' + n + '\\(v\\)').test(stKeys)), '  상태 묶음이 밖에서 쓰는 칸을 다 갖는다 (' + stUsed.join(' · ') + ')');
   const uses = ['plMod.st.lastBoundsKey = \'\'; plMod.syncBgmBounds();', 'ytVideoId: (...a)=>plMod.ytVideoId(...a),', 'plRender: (...a)=>plMod.render(...a),',
     'plPlaying: ()=>plMod.st.playing,', 'setPlPlaying: v=>{ plMod.st.playing = v; },', 'plMod.fillLv(lv, n, st);',
-    'plMod.pull();', 'plMod.reset();', 'plMod.st.cur = 0; plMod.reset();'];
+    'plMod.reset();', 'plMod.st.cur = 0; plMod.reset();'];
   const lost = uses.filter(u => A.indexOf(u) < 0);
-  chk(!lost.length, '부르는 곳 — 화면 배율 · 마이홈 BGM · 📷 스티커사진 · 로그아웃 · 내 정보 배지 · 계정 이어받기' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
+  chk(!lost.length, '부르는 곳 — 화면 배율 · 마이홈 BGM · 📷 스티커사진 · 로그아웃 · 내 정보 배지' + (lost.length ? ' (없음 ' + lost.join(' · ') + ')' : ''));
   chk(/if\(typeof _plHasSavedPos === 'function' && _plHasSavedPos\(\)\) _plApplyPos\(\);/.test(A) && /window\._plHasSavedPos = _plHasSavedPos; window\._plApplyPos = _plApplyPos; window\._plSyncBgmBounds = _plSyncBgmBounds;/.test(PL),
     '  상태칩 팝업 자리(만드는 줄보다 위에 선언)는 window 고리 + typeof 로');
   const iI = HTML.indexOf('<script src="parts/myhome/myhome-inbox.js"></script>'), iP = HTML.indexOf('<script src="parts/status/playlist.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>'),
@@ -863,10 +905,17 @@ async function runAll(PL, APP, HTML){
     const win = {};
     new Function('window', 'module', PL)(win, undefined);
     chk(Object.keys(win).join() === 'TwPlaylist' && typeof win.TwPlaylist.createPlaylist === 'function', '싣기만 하면 window.TwPlaylist 하나뿐');
-    const e = mkEnv({ store: { 'tw.playlistSets': setsOf(songs(1)) } }); e.mk();
+    const e = mkEnv({ noGatePull: true, store: { 'tw.playlistSets': setsOf(songs(1)) } }); e.mk();
     chk(e.esc.length === 1 && e.cb.end && e.cb.mode && e.cb.closed && e.count('setInterval 300') === 1 && e.count('vol') === 1 && e.count('publish') === 0 && e.timers.length === 1
-      && e.count('fetchMine ME01') === 1,
-      '만들 때 — ESC 등록 · BGM 신호 셋 구독 · 300ms 폴링 · 음량 한 번 · ☁️ 서버에서 받기를 곧바로 한 번(서버 쓰기 없음 · 기다리는 타이머 없음)');
+      && e.count('fetchMine') === 0,
+      '만들 때 — ESC 등록 · BGM 신호 셋 구독 · 300ms 폴링 · 음량 한 번 · 서버에서 받기는 하지 않는다(서버 쓰기 없음 · 기다리는 타이머 없음)');
+    {
+      const e2 = mkEnv({ noGatePull: true }); const m2 = e2.mk(); await flush();
+      m2.pull(); await flush(); await flush();
+      chk(e2.count('fetchMine ME01') === 1, '  서버 계정이 확인된 뒤 게이트가 부르면 그때 한 번 받는다');
+      const e3 = mkEnv({ noGatePull: true }); const m3 = e3.mk({ getMyUserId: () => null }); m3.pull(); await flush(); await e3.advance(60000);
+      chk(e3.count('fetchMine') === 0 && e3.timers.filter(t => !t.every).length === 0, '★ 로그인 전(내 코드 없음) — 서버를 안 부르고 타이머도 없다');
+    }
     chk(e.store.size === 1 && e.byId.myPlaylistBox.classList.contains('hidden') && e.toasts.length === 0 && e.front.length === 0, '  저장소를 안 쓰고 창은 닫힌 채 · 토스트 없음');
   }
   await runAll(PL, APP, HTML);
@@ -889,9 +938,10 @@ async function runAll(PL, APP, HTML){
     ['PL', '  if(_plNow >= 0){ _plPullLater(PL_PLAYING_DEFER_MS); return; }', '', '듣는 중에 목록을 바꿈'],
     ['PL', "  if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }", "  _plPullMerged = false;", '처음 받을 때도 알림이 뜨는 쪽으로 — 알림을 아예 뺌'],
     ['PL', "  if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }", "  if(true){ _plPullMerged = false; toast(PL_MSG.merged); }", '처음 받을 때도 «다른 기기에서…» 가 뜸'],
-    ['PL', "    if(e && e.code === PL_NO_TOKEN){ _plPullLater(PL_LOGIN_WAIT_MS); return; }", "", '토큰 전을 실패로 보임'],
-    ['PL', "  if(!uid){ _plPullLater(PL_LOGIN_WAIT_MS); return; }", "  if(!uid){ _plPullLater(PL_PLAYING_DEFER_MS); return; }", '로그인 뒤 30초나 기다림'],
-    ['PL', "  _plPull();   // ☁️ 서버에서 받기", "  // ☁️ 서버에서 받기", '켜도 서버에서 안 받음'],
+    ['PL', "if(e && e.code === PL_NO_TOKEN){ _plPullFailed = true; _plRender(); return; }", "if(e && e.code === PL_NO_TOKEN) return;", '토큰 없음을 계속 «불러오는 중…» 으로 둠'],
+    ['PL', "if(e && e.code === PL_NO_TOKEN){ _plPullFailed = true; _plRender(); return; }", "if(e && e.code === PL_NO_TOKEN){ _plPullLater(2000); return; }", '토큰 전이면 타이머로 다시 받음'],
+    ['PL', "  if(!uid) return;   // 로그인 전", "  if(!uid){ _plPullLater(2000); return; }   // 로그인 전", '로그인 전에 타이머로 기다림'],
+    ['PL', "(function bindMyPlaylist(){\n  const btn = document.getElementById('myPlBtn'), box = document.getElementById('myPlaylistBox');\n  if(!btn || !box) return;\n  _plLoad();\n", "(function bindMyPlaylist(){\n  const btn = document.getElementById('myPlBtn'), box = document.getElementById('myPlaylistBox');\n  if(!btn || !box) return;\n  _plLoad();\n  _plPull();\n", '만들 때 곧바로 받음(게이트 기다리지 않음)'],
     ['PL', "      em.textContent = _plPullFailed ? PL_MSG.failed : PL_MSG.loading;", "      em.textContent = PL_MSG.loading;", '못 받았는데 «불러오는 중…» 만 보임'],
     ['PL', "      em.textContent = _plPullFailed ? PL_MSG.failed : PL_MSG.loading;", "      em.textContent = '아직 비어 있어요.';", '받기 전에 빈 목록 문구가 보임'],
     ['PL', "        rb.addEventListener('click', e=>{ e.stopPropagation(); _plPull(); });", "", '[다시 시도] 가 안 눌림'],
@@ -903,10 +953,13 @@ async function runAll(PL, APP, HTML){
     ['PL', "  if(!_plLoaded){ if(_plPullFailed) _plPull(); return; }", "  if(!_plLoaded){ return; }", '창을 열어도 못 받은 걸 다시 안 받음'],
     ['PL', "  if(!_plLoaded){ if(_plPullFailed) _plPull(); return; }", "  if(!_plLoaded){ _plPull(); return; }", '받는 중에도 창 열 때마다 받음'],
     ['PL', "  if(_plSaveFailing) _plPublishNow(getMyUserId());", "", '창을 열어도 실패한 저장을 다시 안 올림'],    ['PL', "window.addEventListener('beforeunload', ()=>{ _plFlushPending(getMyUserId()); });", "", '끌 때 안 올려 봄'],
-    ['PL', "  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", "  if(_plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", '로그인 전에도 끌 때 요청'],
-    ['PL', "  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", "  if(!uid || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", '끄기 알림마다 또 올림'],
-    ['PL', "  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();", "  if(!uid || _plFlushSent || !_plSaveFailing) return Promise.resolve();", '고친 뒤 모으는 중에 끄면 안 올림(로그아웃 포함)'],
+    ['PL', "  if(!uid || _plFlushSent) return Promise.resolve();", "  if(_plFlushSent) return Promise.resolve();", '로그인 전에도 끌 때 요청'],
+    ['PL', "  if(!uid || _plFlushSent) return Promise.resolve();", "  if(!uid) return Promise.resolve();", '끄기 알림마다 또 올림'],
+    ['PL', "  if(!_plSaveFailing && !_plPubTimer) return", "  if(!_plSaveFailing) return", '고친 뒤 모으는 중에 끄면 안 올림(로그아웃 포함)'],
     ['PL', "  _plFlushSent = false;\n  clearTimeout(_plPubTimer);", "  clearTimeout(_plPubTimer);", '새로 고쳐도 올리기 허락이 안 풀림'],
+    ['PL', "return _plPubBusy ? _plPubDone : Promise.resolve();", "return Promise.resolve();", '로그아웃 올리기가 보내는 중인 저장을 안 기다림'],
+    ['PL', "if(again) await _plPublishNow(uid0);", "if(again) _plPublishNow(uid0);", '기다림이 보내는 중 고친 뒤 한 번을 안 기다림'],
+    ['PL', "  if(_plPubBusy){ _plPubAgain = true; return _plPubDone; }", "  if(_plPubBusy){ _plPubAgain = true; return Promise.resolve(); }", '보내는 중이면 기다림 약속을 안 돌려줌'],
     ['PL', "  flushPending: _plFlushPending,", "  flushPendingX: _plFlushPending,", '로그아웃이 부를 이름을 안 내놓음'],
 
     ['PL', "_plLoadMyCard(); _plRetryOnOpen(); _plRender(); }", "_plLoadMyCard(); _plRender(); }", '창 열기가 다시 시도를 안 부름'],
@@ -918,10 +971,9 @@ async function runAll(PL, APP, HTML){
     ['PL', "    localStorage.setItem('tw.playlistCur', String(_plCur));", "    localStorage.setItem('tw.playlistCur', String(_plCur)); localStorage.setItem('tw.playlistSets', JSON.stringify(_plSets));", '목록을 이 기기에도 씀'],
     ['PL', "    _plSets = _plBlankSets();\n    _plCur = _plSetIdx(localStorage.getItem('tw.playlistCur'));", "    _plSets = _plNormalizeSets(JSON.parse(localStorage.getItem('tw.playlistSets') || 'null'));\n    _plCur = _plSetIdx(localStorage.getItem('tw.playlistCur'));", '이 기기 옛 목록을 읽음'],
     ['APP', "  try{ plMod.st.cur = 0; plMod.reset(); }", "  try{ plMod.st.cur = 0; }", '로그아웃이 목록을 안 비움'],
-    ['APP', '    plMod.pull();', '    ', '계정 이어받기가 서버에서 안 받음'],
     ['PL', "  if(sig === _plPubSig) return;\n  const gen", "  const gen", '안 바뀌어도 서버에 씀'],
-    ['PL', "  if(!_plLoaded || getMyUserId() !== uid0) return;\n  if(_plPubBusy)", "  if(getMyUserId() !== uid0) return;\n  if(_plPubBusy)", '받기 전에 서버에 올림'],
-    ['PL', "  if(!_plLoaded || getMyUserId() !== uid0) return;\n  if(_plPubBusy)", "  if(!_plLoaded) return;\n  if(_plPubBusy)", '올리기 대기 중 계정이 바뀌어도 앞 목록을 올림'],
+    ['PL', "  if(!_plLoaded || getMyUserId() !== uid0) return Promise.resolve();\n  if(_plPubBusy)", "  if(getMyUserId() !== uid0) return Promise.resolve();\n  if(_plPubBusy)", '받기 전에 서버에 올림'],
+    ['PL', "  if(!_plLoaded || getMyUserId() !== uid0) return Promise.resolve();\n  if(_plPubBusy)", "  if(!_plLoaded) return Promise.resolve();\n  if(_plPubBusy)", '올리기 대기 중 계정이 바뀌어도 앞 목록을 올림'],
     ['PL', "    _plLoaded = false; _plPullMerged = true; _plPull();", "    _plPubSig = sig;", '409 인데 서버 것을 다시 안 받고 올린 것으로 침'],
     ['PL', "    _plLoaded = false; _plPullMerged = true; _plPull();", "    _plLoaded = false; _plPull();", '409 로 바뀌어도 알리지 않음'],
     ['PL', "    _plLoaded = false; _plPullMerged = true; _plPull();", "    _plPullMerged = true; _plPull();", '409 로 다시 받는 동안 고치기가 안 잠김'],
@@ -942,8 +994,8 @@ async function runAll(PL, APP, HTML){
     ['PL', "  catch(e){ notifyError('E-PL-02', e); return; }", "  catch(e){ notifyError('E-PL-02'); return; }", '친구 파도타기 실패의 원인 오류를 버림'],
     ['PL', "  }else if(r === 'stale'){", "  }else if(r === 'never'){", '로그인한 사람이 바뀐 것을 저장 실패로 알림 · 다시 올림'],
     ['PL', "    _plPubSig = sig; _plSaveFailing = false;", "    _plPubSig = sig;", '저장이 성공해도 실패 상태가 안 풀림'],
-    ['PL', "  if(_plPubBusy){ _plPubAgain = true; return; }", "", '보내는 중에 또 보냄(같은 판 두 번)'],
-    ['PL', "    if(again) _plPublishNow(uid0);", "", '보내는 중 고친 것을 끝난 뒤 안 올림'],
+    ['PL', "  if(_plPubBusy){ _plPubAgain = true; return _plPubDone; }\n", "", '보내는 중에 또 보냄(같은 판 두 번)'],
+    ['PL', "    if(again) await _plPublishNow(uid0);", "", '보내는 중 고친 것을 끝난 뒤 안 올림'],
     ['PL', "  _plGen++; _plPubBusy = false;", "  _plPubBusy = false;", '계정을 놓은 뒤 앞 계정 보내기가 새 상태를 건드림'],
     ['PL', "  if(gen !== _plGen) return;", "", '계정을 놓은 뒤 앞 계정 보내기 결과가 반영됨'],
     ['PL', "function _plPublish(){ _plPublishIn(3000); }", "function _plPublish(){ _plPublishIn(0); }", '서버 사본 debounce 가 없음'],

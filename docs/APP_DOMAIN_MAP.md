@@ -140,8 +140,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `license-gate.js` | 초대장 — 앱 접근 제한 | fb 60 |
 | `license-ui.js` · `license-key.js` · `license-request.js` | 라이선스 화면 · 키 등록 / 해제 · 요청 | fb 6 |
 | `device-lost.js` · `name-guard.js` | 한 계정 한 기기 · 운영진처럼 보이는 이름 막기 | fb 4 |
-| `invite-account.js` · `invite-revoke.js` (ES) | 초대 게이트용 계정 읽기 · 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
-| `group-invite.js` (ES) | 여러 명이 쓰는 초대 코드(관리자가 웹 관리자에서 만든 코드) 소진 · 가입 마무리 — 한 명짜리 `invites/` 에 없을 때만 | (firebase-init 이 연결) |
+| `invite-revoke.js` (ES) | 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
 
 ## 10. 🖥️ `launcher/` — 런처 · 앱 껍데기 ✅ 옮김(폴더 7번)
 
@@ -150,6 +149,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `settings-panel.js` · `program-settings.js` | 설정 패널 · 캐릭터 탭 · 닉네임 · 프로그램 설정(회사원 · 피규어 모드) | fb 2 |
 | `desktop-run.js` | 데스크탑 실행 화면 — 업데이트 배너 · 활성 앱 · 전역 입력 · 클릭 통과 · 하트비트 | — |
 | `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` | 런처 타이틀바 · 함수키 · 광고 배너(공지 한 판에서 그림) · 게임 설정 구독 | fb 5 |
+| `app-boot.js` | 🚀 켜는 순서 한 곳 — 계정 확인 뒤 옛 값 옮기기 → 계정 칸 열기 → realtime → 계정 기능 열다섯 시작(차례 표 `STEPS`). 사용법은 `launcher/README.md` | — |
 
 ## 11. 🐞 `support/` — 제보 · 신고 ✅ 옮김(폴더 2번)
 

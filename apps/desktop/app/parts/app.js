@@ -815,12 +815,6 @@ const CHAR_POS_KEY = 'tw.deskPan';        // {x, y}
 // ★ 마이홈/친구 시스템용 "영구" 사용자 ID — 방 접속용 memberId(매번 새로 생김)와 다르게, 이 값은
 //   한 번 만들어지면 이 기기에서 계속 유지됨. 친구 목록이 이 ID를 기준으로 저장되기 때문에 꼭 필요.
 const MY_USER_ID_KEY = 'tw.myUserId';
-/* 🎟️ 부팅 시점에 이 기기에 userId가 이미 있었는지 — 초대장 게이트의 신규/기존 판정 기준.
-   ★ users/{uid} DB 존재로 판정하면 안 됨: 신규 유저도 첫 실행 때 presence·프로필 등
-     초기화 코드가 게이트와 병렬로 users/{uid}를 만들어 버려서, 재시작하면
-     "기존 유저"로 오인 → 코드 없이 통과 + 초대권 5장 지급되는 구멍이 생김.
-   localStorage는 이 파일 최상단(어떤 쓰기보다 먼저)에서 캡처하므로 레이스가 없음. */
-const HAD_USER_ID_AT_BOOT = (()=>{ try{ return !!localStorage.getItem(MY_USER_ID_KEY); }catch(e){ return false; } })();
 const MY_FRIEND_CODE_KEY = 'tw.myFriendCode';
 /* 🔗 이 기기가 **버린** 친추 코드들 (최신 먼저, 최대 5개).
    [왜 필요한가] 되찾기가 코드 입력을 요구했는데, 정작 코드를 잃는 순간은 자기 치유
@@ -860,31 +854,18 @@ function getOldFriendCodes(){
   if(!Array.isArray(list)) list = [];
   return list.filter(c => typeof c === 'string' && c && c !== cur);
 }
-/* 🪪 [회원가입 설계 §6-① · 개정 8] **읽기만 한다 — 없으면 null.**
-   예전엔 «없으면 만든다» 였다. 그래서 처음 쓰는 PC 는 부팅하자마자(마이홈·동기화 타이머가 부르는 순간)
-   uid 를 얻었고, 초대 게이트·구글 로그인이 «이 기기엔 아직 아무도 없다» 를 알 길이 없었다(§3).
-   이제 uid 는 게이트가 정한다: 새 사람은 `_inventMyUserId`(한 곳) → `_setMyUserId`(한 곳) → 재시작.
-   ★ 기존 사용자는 부팅 때부터 키가 있으니 달라지는 것이 없다.
+/* 🪪 **읽기만 한다 — 없으면 null.** 0.13 — uid(userCode)는 서버가 가입 때 만들고, 로그인 뒤 서버가 돌려준 값을
+   `_setMyUserId` 한 곳으로 적는다(account.js _enterAccount). 앱은 uid 를 만들지 않는다.
    ★ uid 가 없는 동안 나가는 서버 요청은 firebase-init 의 빈 uid 안전망(`_noUidPath`)이 막는다. */
 function getMyUserId(){
   try{ return localStorage.getItem(MY_USER_ID_KEY) || null; }catch(e){ return null; }
 }
 /* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
 const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
-/* 🪪 uid 를 **만드는** 곳은 여기 하나다(설계 §3 ②). 부르는 곳도 게이트의 «새 사람» 갈래 하나. */
-function _inventMyUserId(){
-  return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
-}
-/* 🪪 uid 를 **기록하는** 새 입구(설계 §6-⑦). 옛 입구 넷(계정 이전·구글 갈아타기·되찾기·연동 화면)은
-   그 기계들을 걷어 낼 때 이리로 모이거나 함께 사라진다. 성공하면 true. */
+/* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
   try{ localStorage.setItem(MY_USER_ID_KEY, uid); return localStorage.getItem(MY_USER_ID_KEY) === uid; }catch(e){ return false; }
-}
-function genFriendCodeCandidate(){
-  // ★ 친구코드는 MATE- 접두어 — 방코드(COZY-)와 형식이 같아 유저가 헷갈리던 문제 해결.
-  //   (이미 발급된 COZY- 친구코드도 friendCodes 노드에 그대로 있어 조회는 계속 됨 → 하위호환)
-  const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s='MATE-'; for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)]; return s;
 }
 /* 🔗 친추코드 소유권 검증 플래그 — 세션당 1회(읽기 1회)만 확인한다.
    ⚠️ 이 값을 true로 만드는 것은 "확인을 마쳤다"는 뜻이다. 조회 자체가 실패했을 때는
@@ -929,22 +910,7 @@ async function ensureMyFriendCode(){
     if(!_fcOwnerChecked) await _healFriendCodeOwner(code);
     return localStorage.getItem(MY_FRIEND_CODE_KEY) || code;
   }
-  if(!window.firebaseAPI || !firebaseAPI.registerFriendCode) return null;
-  const myId = getMyUserId();
-  if(!myId) return null;     // 🪪 uid 가 정해지기 전(처음 쓰는 PC · 게이트 앞)에는 코드를 뽑지 않는다
-  _fcOwnerChecked = true;   // 지금 새로 발급하므로 소유자는 나 자신 — 검증 불필요
-  for(let i=0;i<8;i++){
-    const cand = genFriendCodeCandidate();
-    try{
-      const ok = await firebaseAPI.registerFriendCode(cand, myId);
-      if(ok){
-        try{ localStorage.setItem(MY_FRIEND_CODE_KEY, cand); }catch(e){}
-        // 🔗 계정에도 거울을 남긴다 — 새 PC에서 옛 코드를 알 수 있는 유일한 통로다.
-        try{ if(firebaseAPI.setUserFriendCode) await firebaseAPI.setUserFriendCode(myId, cand); }catch(_){}
-        return cand;
-      }
-    }catch(e){}
-  }
+  /* 0.13 — 친구 코드는 서버가 가입 때 정하고 로그인 때 이 PC 에 적는다(account.js _enterAccount). 앱이 새로 뽑아 등록하지 않는다. */
   return null;
 }
 /* 🔗 친추코드가 내 uid를 가리키지 않을 때 (읽기 1회, 세션당 1회)
@@ -952,8 +918,7 @@ async function ensureMyFriendCode(){
      둘 다 계정이 없던 시절(한 사람 = 기기마다 uid)의 장치였다. 지금 이 기기 코드의 주인이 내가 아니면 그 주인은
      **다른 계정**이다 — 가져가면 남의 아이디(코드 = 로그인 아이디)와 그 앞으로 온 친구 요청을 빼앗는다.
    남은 것: 내 것이면 끝 · 주인이 없으면(등록이 실패한 채 로컬에만 남은 코드) 선점 · 그 밖은 **그대로 두고 경고만**.
-   ★ 로그인해 계정을 바꿀 때 코드는 _applyTransferSnapshot 이 계정 것으로 맞추고(스냅샷 · 거울 · 입력한 코드),
-     부팅의 _friendCodeMirrorFix 가 한 번 더 맞춘다. 여기까지 떨어지는 것은 계정 이전 시절의 잔재뿐이다.
+   ★ 0.13 — 로그인 때 서버 계정의 코드를 적는다(account.js _enterAccount). 여기까지 떨어지는 것은 옛 판의 잔재뿐이다.
    친구 목록은 코드가 아니라 uid로 저장되므로, 코드 표시가 어긋나도 기존 친구관계는 끊기지 않는다. */
 async function _healFriendCodeOwner(code){
   if(!(window.firebaseAPI && firebaseAPI.lookupFriendCode && firebaseAPI.registerFriendCode)) return;
@@ -963,10 +928,6 @@ async function _healFriendCodeOwner(code){
   catch(e){ console.warn('[친추코드] 소유자 조회 실패 — 판단 보류', e); return; }   // 플래그 그대로(다음 기회에 재시도)
   _fcOwnerChecked = true;
   if(owner === myId) return;                    // 정상
-  if(owner === null){
-    // DB에 없는 코드(등록이 실패한 채 로컬에만 남은 경우) — 그대로 내 것으로 선점하면 된다
-    try{ if(await firebaseAPI.registerFriendCode(code, myId)) return; }catch(_){}
-  }
   /* 🔒 [2026-09-20 결정] **여기서 새 코드를 발급하지 않는다** — 처음 발급된 코드를 유지한다(제보 3-2 · 친구들이 적어 둔
      코드가 매번 죽는 쪽이 훨씬 큰 불편이다). 소유권도 손대지 않는다(개정 56 — 남의 계정 것이다). */
   _rememberOldFriendCode(code);   // 기록만 — F12 getOldFriendCodes() 진단용
@@ -977,8 +938,7 @@ async function _healFriendCodeOwner(code){
 const FC_NEVER_REISSUE = true;
 /* 🔗 [제거됨] 예전 친추 코드 되찾기 (reclaimMyFriendCode + 설정 UI)
    코드가 바뀌는 경로 자체를 없앴기 때문에 수동 되찾기가 할 일이 남지 않았다.
-     · 로그인    → _applyTransferSnapshot 이 계정의 코드로 맞춘다(스냅샷 · 거울 · 입력한 코드 · 없으면 지우고 첫 발급 — 개정 56)
-     · 주인 없음 → 그 자리에서 선점
+     · 로그인    → 서버 계정의 코드로 맞춘다(account.js _enterAccount · 0.13)
      (개정 56: «버린 uid» 되찾기 · 7일 되찾기 · 로그인 직후 소유자 강제 정정은 걷었다 — 전부 남의 계정 것을 가져오는 길이다)
    ⚠️ 되살릴 일이 생기면 lastSeen 판정을 반드시 함께 되살릴 것. 그 판정 없이 코드 문자열만으로
      소유권을 넘기면 4자리를 찍어서 남의 코드와 친구 요청을 가져갈 수 있다.
@@ -2625,16 +2585,13 @@ function _waitForFirebaseAPI(cb){
      "이름이 안 바뀐다 / 친구가 사라졌다"로만 보인다.
    ⚠️ 막지 않는다. 알려주기만 한다 — 고치는 방법은 재시작 한 번이다(부팅 게이트 K 가 로그인을 받는다 · 개정 16: 설정 › 계정 로그인은 걷었다). */
 /* ═══ 🖥️ 한 계정 한 기기 — 밀려난 기기의 처리 [2026-09-17 제보 3 · 시안 확정(왼쪽)] ═══════════════
-   firebase-init.js claimDeviceSession 주석이 구조다. 여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다:
-     방에서 나온다(doLeaveRoom) · 방 입장을 막는다(startRoom 첫 줄) · 차단 화면을 띄운다.
-   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. 로그아웃은 사람이 눌러야 도는 길이다(_loginDoLogout).
-   «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
+   0.13 — 지금 기기는 realtime 서버가 정한다(hello claim · 밀리면 sessionLost 4004 — rt-hub.js · login-flow.js). 여기는 «밀려난 뒤 이 기기가 하는 일» 뿐이다.
+   ★ 로그아웃하지 않는다 — 캐릭터·기록·신원 그대로. «여기서 계속 쓰기» = 다시 claim → 반대쪽이 이 화면을 본다. «앱 닫기» = quitApp. */
 /* 본문은 device-lost.js 로 옮겼다(앱 FSD 46번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deviceLostMod = TwDeviceLost.createDeviceLost({
-  getMyUserId: (...a)=>getMyUserId(...a),
   twNav: twNav,
-  _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
+  continueHere: ()=>TwRtHub.store.start({ claim: true }),   // realtime 연결 하나로 다시 claim(login-flow 를 부르지 않는다 — 그쪽이 이 화면을 부른다)
 });
 
 /* ═══ 🏠 마이홈 열기(initMyHome) · 소유자 쓰기 거부 안내 ═══ */
@@ -2683,17 +2640,13 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
 });
-/* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 start 로 부른다 */
+/* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  loadPref: (...a)=>firebaseAPI.loadPresencePref(...a),
-  savePref: (...a)=>firebaseAPI.savePresencePref(...a),
+  savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
-  storage: localStorage,
-  setTimer: (fn, ms)=>setTimeout(fn, ms),
-  deviceSessionLost: ()=>firebaseAPI.deviceSessionLost(),
 });
 /* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
@@ -2707,7 +2660,6 @@ const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/notices
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  store: accountStoreMod,   // 마지막으로 받은 소식 묶음 — 켜면 바로 그린다
 });
 noticeFeed.onChange((e)=>mhInitMod.onNewsChanged(e));
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
@@ -2716,7 +2668,6 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   _myHomeFriends: ()=>_myHomeFriends,
   _myHomeReady: ()=>_myHomeReady,
   _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),
-  deviceLostMod: deviceLostMod,
   ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),
   focusLevelMod: ()=>focusLevelMod,
   friendManage: friendManage,
@@ -5795,44 +5746,69 @@ let isAdmin = false;
 /* ============================================================ 라이선스 (직접 발급) — 프리미엄(꾸미기) 잠금 해제
    관리자가 관리자 모드에서 키를 직접 발급 → 구매자에게 전달(직거래) → 구매자가 앱에 입력하면
    Firebase(licenses/{key})에서 유효성 확인 → 통과 시 로컬(localStorage)에 저장. */
-/* ═══════════════════════ 🎟️ 초대장 (앱 접근 제한) ═══════════════════════
-   정책:
-     · 기존 유저(users/{uid}가 이미 있음) → 무조건 통과 + 초대권 5장 부여(최초 1회, grandfather)
-     · 초대 코드로 들어온 신규 유저 → 초대권 0장 → 확산이 1세대에서 멈춤
-     · 관리자 → 무제한 발급 + 유저에게 초대권 추가 지급 가능
-   ⚠️ 스위치는 원격 설정 flags.inviteGate(remote-config.js · API · 없으면 true). false면 게이트가 아예 안 뜬다.
-      부팅 때 한 번 정한다 — initInviteGate 가 첫 답을 잠깐 기다린 뒤 checkInviteGate 를 부른다(못 읽으면 true).
+/* ═══════════════════════ 🎟️ 게이트 — 로그인 · 가입 (앱 접근 제한) ═══════════════════════
+   0.13 — 로그인 없이 쓰는 길은 없다(ADR-0006). 가입 · 초대 코드 판정 · 초대권은 서버가 한다(초대 게이트 스위치는 서버 user.inviteGate —
+   꺼져 있으면 초대 코드 없이 가입). 켤 때 판정 순서는 license-gate.js checkInviteGate 머리말.
 ──────────────────────────────────────────────────────────────────── */
 let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 license-gate.js 의 _setPremium 하나
-/* 🪪 계정 핵심 상태(라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
+/* 🪪 계정 핵심 상태(라이선스 저장 키 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
    계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
 const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
   setIsPremium: (v)=>{ isPremium = v; },
+});
+/* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
+const userApiMod = TwUserApi.store;   // 🪪 계정 provider(account/user-api.js) — 서버 user · invite 길 · 화면 문구
+TwVisitPing.createVisitPing({ callPing: ()=>userApiMod.visit(), win: window }).start();   // 📈 방문 기록 — 켤 때 한 번(로그인과 상관없이 · 실패는 삼킴)
+const loginFlowMod = TwLoginFlow.createLoginFlow({
+  userApi: userApiMod,
+  translate: (e)=>TwApiErrors.translate(e),
+  reasonOf: (e)=>TwUserApi.reasonOf(e),
+  auth: {
+    ready: ()=>new Promise((res)=>TwNetReady.whenNetReady(res)).then(()=>firebaseAPI.authReady()),
+    user: ()=>(TwNetReady.isNetReady() ? firebaseAPI.authUser() : null),   // 준비 전엔 «로그인 모름» — 사본도 안 읽는다
+    signInGoogle: (tok)=>firebaseAPI.authSignInWithGoogle(tok),
+    signInPassword: (code, pw)=>firebaseAPI.authSignInWithFriendCode(code, pw),
+    signOut: ()=>firebaseAPI.authSignOut(),
+    identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
+  },
+  googleWindow: ()=>companion.signInWithGoogle(),
+  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), onState: (fn)=>TwRtHub.store.onState(fn) },
+  pending: TwRequestId.createPending(),
+  storage: localStorage,
+  onSessionLost: ()=>deviceLostMod._onDeviceSessionLost(),
+  forgetSession: ()=>TwApi.authed.forgetSession(),
+  now: ()=>Date.now(),
+});
+/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기. 캐릭터 · 라이선스 단계는 D1 · D8 묶음이 채운다(그 전엔 기다림 — 지우기도 안 돈다). */
+const firstRunMod = TwFirstRun013.createFirstRun({
+  steps: {
+    login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
+    legacySync: TwFirstRun013.pendingStep('캐릭터 올리기(legacy-sync)'),
+    licenseKey: TwFirstRun013.pendingStep('라이선스 키'),
+  },
+  storage: localStorage,
+  userCode: ()=>getMyUserId(),
 });
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseGateMod = TwLicenseGate.createLicenseGate({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,
-  HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,
-  LOGIN_EMAIL_KEY: ()=>acctStateMod.LOGIN_EMAIL_KEY,
-  LOGIN_UID_KEY: ()=>acctStateMod.LOGIN_UID_KEY,
-  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
-  _applyTransferSnapshot: (...a)=>accountMod._applyTransferSnapshot(...a),
-  _inventMyUserId: (...a)=>_inventMyUserId(...a),
   _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
-  _loginLocalSnapshot: (...a)=>accountMod._loginLocalSnapshot(...a),
-  _setMyUserId: (...a)=>_setMyUserId(...a),
+  _enterAccount: (...a)=>accountMod._enterAccount(...a),
+  twNav: twNav,
+  _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  loginFlowMod: loginFlowMod,
+  userApiMod: userApiMod,
+  inviteIds: TwRequestId.createPending(),
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   awayPicMod: ()=>awayPicMod,
   creatorOpen: ()=>creatorOpen,
-  genFriendCodeCandidate: (...a)=>genFriendCodeCandidate(...a),
-  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  isAdmin: ()=>isAdmin,
   pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
@@ -5843,10 +5819,8 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
   userStatus: ()=>userStatus,
-  INVITE_PASS_KEY: acctStateMod.INVITE_PASS_KEY,
   LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,
   LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,
-  _markInvitePassed: (...a)=>acctStateMod._markInvitePassed(...a),
   _setPremium: (...a)=>acctStateMod._setPremium(...a),
   onPremiumChanged: acctStateMod.onPremiumChanged,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
@@ -5870,7 +5844,7 @@ const adminUsers = TwAdminUsers.createAdminUsers({
        serializeDefForNetwork(Object.assign 통째 복사)를 타고 방으로 나간다. 받는 쪽은 remote 라
        게이트 없이 그린다. 저장값이라 재입장·재시작에도 남는다.
    [왜 지우지 않고 접어 두는가] 라이선스는 키 한 줄이면 다시 켜진다(activateLicense ·
-     _applyTransferSnapshot 의 r.license). 지워 버리면 재등록해도 책상이 안 돌아온다 — 그것이
+     서버 계정의 라이선스). 지워 버리면 재등록해도 책상이 안 돌아온다 — 그것이
      예전에 「charDef 는 손대지 않는다」로 결정한 이유였다. 그래서 값을 **옮겨 적는다**:
        deskCatalogId → deskLicenseHold · deskItems[id] → deskItemsLicenseHold[id]
        · 좌석은 기본 책상으로 떨어진다(내 화면에서 해제된다)
@@ -5889,16 +5863,16 @@ const adminUsers = TwAdminUsers.createAdminUsers({
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
 // 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
 // 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
-(function initLicense(){
-  const key = licenseGateMod.loadLicenseFromStorage();
-  if(key){
-    // firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다렸다 재검증
-    const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
-      if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
-    });
-    TwNetReady.whenNetReady(doVerify);
-  }
-})();
+licenseGateMod.loadLicenseFromStorage();
+/* 🚀 계정 확인 뒤(app-boot 의 licenseVerify 차례) — 저장된 키가 있으면 재검증. firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다린다 */
+function startLicenseVerify(){
+  let key = null; try{ key = localStorage.getItem(acctStateMod.LICENSE_KEY_STORAGE); }catch(_){}
+  if(!key) return;
+  const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
+    if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
+  });
+  TwNetReady.whenNetReady(doVerify);
+}
 
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
 //   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
@@ -5908,10 +5882,9 @@ const REMOTE_FLAGS_WAIT_MS = 3000;
 (function initInviteGate(){
   const run = async ()=>{
     const _s = acctStateMod._rcStore();
-    if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate','existingSignup'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
-    licenseGateMod.checkInviteGate()
-      .then(()=>{ licenseGateMod.refreshInviteBtn(); return licenseGateMod._existingSignupCheck(); })   // 🪪 I — 초대 게이트를 지난 뒤 한 번(설계 §3)
-      .then(shownI => (shownI ? true : licenseGateMod._needLoginCheck()))                 // 🔐 K — I 가 아니면(이미 묶인 uid) 로그인이 맞는지(§9-11)
+    if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
+    licenseGateMod.checkInviteGate()   // 🔑 로그인 · 서버 가입 확인 → 게이트(필요하면) · realtime · 0.13 첫 실행
+      .then(()=>{ licenseGateMod.refreshInviteBtn(); })
       .catch(err=>{ console.warn('[invite] 게이트 확인 실패', err); });
   };
   TwNetReady.whenNetReady(run);
@@ -7015,13 +6988,14 @@ function getDisplayName(){ const n=getUserName(); return (n==='나' || !n.trim()
 /* 🏷️ 닉네임 저장 — 본문은 account/user-name.js(모듈 순환 끊기 7 — 설정 창과 떼어 마이홈 편집 · 내 정보가 설정 창을 바라보지 않게). 원래 자리라 여기서 만든다 */
 const userNameMod = TwUserName.createUserName({
   Presence: Presence,
-  focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getUserName: (...a)=>getUserName(...a),
   isAdmin: ()=>isAdmin,
   setUserName: (...a)=>setUserName(...a),
   toast: (...a)=>toast(...a),
+  saveNameOnServer: (name)=>loginFlowMod.patchMe({ displayName: name }),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const progSettingsMod = TwProgramSettings.createProgramSettings({
   FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,
@@ -7051,34 +7025,10 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
 });
 TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementById('progOssLink'), document.getElementById('miOssLink')], openUrl: (u)=>companion.openBrowser(u), escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a) });
 
-/* ═══════════════════ 🔑 구글 로그인 (계정) ═══════════════════
-   [무엇을 만든 것인가] "다른 컴퓨터에서 구글로 로그인하면 내 계정 그대로" 한 줄.
-     지금까지 그 일은 [계정 이전]→유저 코드 22자리 받아적기→[계정 연동] 세 단계였고,
-     비밀번호를 잊으면 복구할 방법이 없었다. 구글 로그인에는 **비밀번호가 아예 없다.**
-
-   [기존 것을 지우지 않은 이유] 계정 이전/연동은 그대로 둔다.
-     · 이미 그 방식으로 쓰는 사람이 있고, 구글 계정이 없는 기기의 이사 수단이다.
-     · 복원 로직은 아래에서 보듯 **같은 함수**를 쓴다(_applyTransferSnapshot).
-       복원 규칙이 두 벌이 되면 한쪽만 고쳐지는 사고가 난다.
-     ⚠️ 다만 `users/{uid}/transferHash` 가 지금 **누구나 읽을 수 있다.** 소금도 반복도 없는
-       단일 SHA-256 이라 짧은 비밀번호는 그 해시만으로 풀린다. 이건 로그인과 별개로
-       규칙을 잠글 때 반드시 함께 손봐야 하는 자리다.
-
-   [무엇이 옮겨오는가 — '전부'의 실제 내용]
-     로그인은 localStorage 의 유저 코드를 그 계정 것으로 갈아끼운다. 그 한 번으로
-       · 마이홈·친구·인박스·방명록 → users/{uid} 아래라 자동으로 따라옴
-       · 집중 누적초(레벨)        → syncFocusTotalToServer 가 max 로 맞춤
-       · 플레이리스트·가챠 보유분 → _restoreOwnedDataAfterTransfer 가 서버 사본에서 당겨옴
-       · 라이선스·이름·친추코드   → 계정 스냅샷(accountSnap — 개정 55)에서 복원
-     ⚠️ **만든 캐릭터는 안 따라온다.** 캐릭터는 로컬 파일이고 복제 코드가 따로 있다.
-       로그인했는데 캐릭터가 없다는 제보가 오면 여기다.
-
-   [창은 여기서 열지 않는다] file:// + `frame-src 'none'` 이라 팝업·리다이렉트가 둘 다 막힌다.
-     창은 main.js 가 열고(companion.signInWithGoogle), 여기는 ID 토큰만 받아 넘긴다.
-
-   [지금 이것은 자물쇠가 아니다] DB 규칙에 아직 `auth` 조건이 없다(규칙 파일이 이 폴더에 없어
-     건드리지 못했다). 규칙에 `root.child('userAuth/'+$uid).val() === auth.uid` 를 넣는 순간부터
-     자물쇠가 된다. 그 전까지 "로그인했으니 안전하다"고 말하면 안 된다.
+/* ═══════════════════ 🔑 계정 — 로그인 · 로그아웃 · 이 PC 맞추기 ═══════════════════
+   0.13 — 로그인(토큰 받기)만 Firebase Auth, «이 로그인이 누구인가» 는 서버(GET /v1/me)가 정한다(login-flow.js).
+   다른 PC 이어받기는 같은 계정 로그인으로 끝난다 — 서버가 원본이라 옮길 사본이 없다(계정 이전 · accountSnap 은 걷었다).
+   창은 main.js 가 연다(companion.signInWithGoogle — file:// 이라 팝업이 막힌다).
 ──────────────────────────────────────────────────────────────────── */
 /* 본문은 account.js 로 옮겼다(앱 FSD 23번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -7088,12 +7038,12 @@ const accountMod = TwAccount.createAccount({
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
-  accountAdoptStore: accountStoreMod,
-  FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
+  accountLegacyStore: accountStoreMod,
+  asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
   GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
   GACHA_TS_KEY: ()=>GACHA_TS_KEY,
-  HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
   LICENSE_REQ_ID_KEY: ()=>licReqMod.LICENSE_REQ_ID_KEY,
   LS_KEY: ()=>slotSaveMod.LS_KEY,
@@ -7126,6 +7076,10 @@ const accountMod = TwAccount.createAccount({
   LOGIN_UID_KEY: acctStateMod.LOGIN_UID_KEY,
   getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   FRIEND_CODE_LOGIN_RE: acctStateMod.FRIEND_CODE_LOGIN_RE,
+  loginFlowMod: loginFlowMod,
+  ME_CACHE_KEY: TwLoginFlow.ME_CACHE_KEY,
+  userApiMod: userApiMod,
+  sessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,
 });
 /* ═══ 🧹 [2026-09-16 제보 4] 신원을 놓을 때 이 기기에서 지우는 것 — **한 벌뿐이다** ═══════
    [경위] 로그아웃이 지우던 것은 신원 6개뿐이었다(유저 코드·도장·친추코드·이메일·uid + 마크 정렬).
@@ -7171,7 +7125,6 @@ const myInfoMod = TwMyInfo.createMyInfo({
   FOCUS_CYCLE_SEC: ()=>focusTotalMod.FOCUS_CYCLE_SEC,
   FOCUS_LEVEL_CAP_HOURS: ()=>focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
-  MY_USER_ID_KEY: MY_USER_ID_KEY,
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
   USER_NAME_MAX: userNameMod.USER_NAME_MAX,
   _acctDetached: ()=>acctStateMod._acctDetached(),
@@ -7190,10 +7143,9 @@ const myInfoMod = TwMyInfo.createMyInfo({
   _charsSync: (...a)=>charsMod._charsSync(...a),
   _charsTrashView: (...a)=>charsMod._charsTrashView(...a),
   _focusTotalSec: ()=>_focusTotalSec,
-  _licenseSnapForPush: (...a)=>licenseGateMod._licenseSnapForPush(...a),
-  _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
   _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
+  _withdrawPreview: (...a)=>accountMod._withdrawPreview(...a),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
@@ -7203,7 +7155,6 @@ const myInfoMod = TwMyInfo.createMyInfo({
   focusCycleOf: (...a)=>focusLevelMod.focusCycleOf(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
-  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getStarColor: (...a)=>focusLevelMod.getStarColor(...a),
   getUserName: (...a)=>getUserName(...a),
@@ -7235,8 +7186,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
    비밀번호 로그인(H · K)이 기기 이동을 대신하고, 로그인 안 한 사람은 I 에서 반드시 가입한다.
    ★ 옛 이전 비밀번호(users/{uid}/transferHash — 공개 읽기 · 소금 없는 SHA-256 · 4자)는 로그인 비밀번호로 옮기지 않는다.
      규칙이 이제 지우기만 받고, 남은 값은 콘솔 일괄 삭제로 정리한다(핸드오프 09-22b).
-   ⚠️ 계정 스냅샷은 accountSnap/{uid}(주인만 · CHECKS 개정 55)로 옮겼다 — 옛 users/{uid}/transferData 는 규칙이 «지우기만» 받고
-     setAccountSnapshot · fetchAccountSnapshot 이 옮기며 지운다. 로그인 복원(_applyTransferSnapshot)은 그 두 통로로만 받는다.
+   ⚠️ 계정 스냅샷(accountSnap)도 0.13 에서 걷었다 — 서버가 계정의 원본이다.
    ★ _sha256Hex 는 관리자 암호 쪽 한 벌만 남았다(같은 이름이 두 벌이던 것 — 뒤의 것이 이기고 있었다). */
 
 /* (앱 FSD 23번) 이 자리의 본문도 account.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -7350,7 +7300,7 @@ function _showUpdateNoticeOnce(notice){
   document.getElementById('updateNoticeCloseX').onclick = close;
 }
 noticeFeed.onceReady(_showUpdateNoticeOnce);   // 처음 받았을 때 한 번 — 못 받았으면 다음에 받을 때
-// 켤 때 공지를 받는다(이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js)
+// 켤 때 공지를 받는다 — 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않는다(로그인 화면 위에도 업데이트 공지가 뜬다). 이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js
 TwNetReady.whenNetReady(()=>noticeFeed.start());
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
@@ -8670,7 +8620,7 @@ window.__officeDiag = function(){
 const focusTotalMod = TwFocusTotal.createFocusTotal({
   focusTotalStore: accountStoreMod,
 });
-let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
+let _focusTotalSec=0;   // 계정 확인 뒤 app-boot 의 focusTotal 차례가 계정 칸에서 읽는다
 
 /* ═══ 📊 오늘 기록 전시 (2026-09-23 · handoff-2026-09-21-features §3 · 사용자 확정: 🕒 를 눌러 켜고 끈다) ═══
    포커스 기록창 첫 줄(현재/누적 기록) 옆 🕒(#focusLogShowClock)를 누르면 켜짐/꺼짐.
@@ -8759,6 +8709,7 @@ const adminReport = TwAdminReport.createAdminReport({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusLevelMod = TwFocusLevel.createFocusLevel({
   focusLevelStore: accountStoreMod,
+  _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),
   DANCE_MOVES: iDeskMod.DANCE_MOVES,
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
@@ -8885,16 +8836,11 @@ let _srvDeniedWarned = false;
 async function _warnServerWriteDenied(what){
   if(_srvDeniedWarned) return;
   _srvDeniedWarned = true;                    // 판정하는 동안 또 불려도 두 번 뜨지 않게 먼저 세운다
-  const code = getMyUserId();
-  let owner;
-  try{
-    owner = (window.firebaseAPI && firebaseAPI.authOwnerOf) ? await firebaseAPI.authOwnerOf(code) : undefined;
-  }catch(_){ owner = undefined; }
-  if(owner === undefined || owner === null){ _srvDeniedWarned = false; return; }   // 조회 실패·주인 없음
+  /* 0.13 — 로그인 없이 쓰는 길이 없다. 로그인돼 있는데 거부됐다면 다른 원인(규칙 배포 누락 등) — 조용히 물러난다. */
   let mine = null;
-  try{ mine = (window.firebaseAPI && firebaseAPI.authCurrentUid) ? firebaseAPI.authCurrentUid() : null; }catch(_){}
-  if(mine && mine === owner){ _srvDeniedWarned = false; return; }                  // 주인이 맞다 = 다른 원인
-  try{ console.warn('[계정] ' + what + ' 서버 반영 거부 — 이 기기는 코드 ' + code + ' 의 주인이 아니다(주인 uid=' + owner + ')'); }catch(_){}
+  try{ mine = firebaseAPI.authCurrentUid(); }catch(_){}
+  if(mine){ _srvDeniedWarned = false; return; }
+  try{ console.warn('[계정] ' + what + ' 서버 반영 거부 — 이 PC 에 로그인이 없다(코드 ' + getMyUserId() + ')'); }catch(_){}
   try{ toast('🔑 ' + what + ' 기록이 서버에 저장되지 않았어요 — 이 PC의 로그인이 풀려 있어요. 앱을 다시 시작하면 로그인 화면이 나와요'); }catch(_){}
 }
 
@@ -9145,9 +9091,7 @@ seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); app
 { const ov=document.getElementById('inviteOverlay'); if(ov) new MutationObserver(()=>applyDesktopRunClass()).observe(ov, { attributes:true, attributeFilter:['class'] }); }
 if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
-/* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
-   첫 일이 «Firebase 붙을 때까지 기다리기» 라, 부팅 중 어디서 불러도 실제 시작은 firebaseAPI 가 생긴 뒤다. */
-mhInitMod.initMyHome();
+/* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독)은 계정 확인 뒤 app-boot 의 mhInit 차례다. */
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
   return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
 requestAnimationFrame(frame);
@@ -9181,6 +9125,32 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   friendsOpen: (...a)=>friendsSubMod.open(...a),
   friendsClose: (...a)=>friendsSubMod.close(...a),
   presence: Presence,
+});
+
+/* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
+   ⚠️ 차례 표는 app-boot.js STEPS — 여기 starts 는 그 이름마다 하나씩(빠지거나 남으면 만들 때 던진다). 계정 기능을 새로 만들면 만들 때 일하지 말고 여기에 건다. */
+const appBoot = TwAppBoot.createAppBoot({
+  twNav: twNav,
+  migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
+  openAccountStore: (code)=>accountStoreMod.open(code),
+  goOnline: ()=>loginFlowMod.goOnline(),
+  starts: {
+    focusTotal: ()=>{ focusTotalMod.startFocusTotal(); _focusTotalSec = focusTotalMod._loadFocusTotalSec(); },
+    focusShare: ()=>focusShareMod.startFocusShare(),
+    focusLevel: ()=>focusLevelMod.startFocusSync(),
+    weeklyChal: ()=>weeklyChal.startChalSync(),
+    gacha: ()=>gachaMod.startGachaSync(),
+    slotSync: ()=>slotSyncMod.startSlotsSync(),
+    chars: ()=>charsMod.startCharsSync(),
+    mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
+    scheduler: ()=>mhScheduler.startSchedule(),
+    roomInvite: ()=>roomInviteUi.startReceive(),
+    desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
+    playlist: ()=>plMod.pull(),
+    licenseVerify: ()=>startLicenseVerify(),
+    licenseRequest: ()=>licReqMod.startWatch(),
+    firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
+  },
 });
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════

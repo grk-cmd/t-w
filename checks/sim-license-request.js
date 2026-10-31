@@ -21,7 +21,7 @@ const FN_DEPS = ["_saveFailMsg","getDisplayName","refreshLicenseUI","toast"];
 const VAL_DEPS = ["licenseGateMod","twNav"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["LICENSE_REQ_ID_KEY","_showLicenseReqState"];
+const EXPORTS = ["startWatch","LICENSE_REQ_ID_KEY","_showLicenseReqState"];
 const MOVED = ["LICENSE_REQ_ID_KEY","_showLicenseReqState","watchMyLicenseRequest"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  _saveFailMsg: (...a)=>_saveFailMsg(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  licenseGateMod: licenseGateMod,","  twNav: twNav,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  toast: (...a)=>toast(...a),"];
 

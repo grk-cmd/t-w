@@ -1,8 +1,8 @@
-/* sim-account-state.js — 🪪 계정 핵심 상태(account-state.js — 로그인 이메일 · 저장 키 · 친구코드 모양 · 라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 · 신원 놓음 · 다시 켜기 · 원격 설정 한 벌)
+/* sim-account-state.js — 🪪 계정 핵심 상태(account-state.js — 로그인 이메일 · 저장 키 · 친구코드 모양 · 라이선스 저장 키 · 프리미엄 깃발 · 신원 놓음 · 다시 켜기 · 원격 설정 한 벌)
    실행:  node sim-account-state.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 이 값들이 초대 게이트(license-gate) · 계정(account) · 내 정보(my-info)에 흩어져 있어서
      계정 ↔ 게이트 ↔ 내 정보 ↔ 포커스 레벨이 서로를 불렀다(sim-dep-cycles). 맨 아래 한 파일에 두고, 쓰는 모듈보다 먼저 싣는다.
-   ・1절: 값 · 함수 — 저장 키 · 친구코드 모양 · 로그인 이메일 · 초대 통과 표시 · 프리미엄(같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번) · 신원 놓음 · 원격 설정
+   ・1절: 값 · 함수 — 저장 키 · 친구코드 모양 · 로그인 이메일 · 초대 통과 표시는 없음(0.13 — 서버가 가입을 판정) · 프리미엄(같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번) · 신원 놓음 · 원격 설정
    ・2절: HTML 순서(쓰는 모듈 · app.js 보다 먼저) · 알림을 거는 곳 · 바꾸는 곳
    ・3절: 일부러 깨 보기 */
 'use strict';
@@ -31,11 +31,11 @@ function judge(mod, html, files, app) {
   try {
     const win = {};
     const { st, store, prem } = build(mod, win);
-    r.keys = st.LICENSE_KEY_STORAGE === 'tw.licenseKey' && st.INVITE_PASS_KEY === 'tw.invitePassed' && st.LICENSE_OPTOUT_KEY === 'tw.licenseOptOut'
+    r.keys = st.LICENSE_KEY_STORAGE === 'tw.licenseKey' && st.LICENSE_OPTOUT_KEY === 'tw.licenseOptOut'
       && st.LOGIN_EMAIL_KEY === 'tw.loginEmail' && st.LOGIN_UID_KEY === 'tw.loginAuthUid';
     r.re = st.FRIEND_CODE_LOGIN_RE.test('MATE-AB12') && !st.FRIEND_CODE_LOGIN_RE.test('mate-ab12') && !st.FRIEND_CODE_LOGIN_RE.test('MATE-AB123');
     r.email = st.getMyLoginEmail() === null && (store['tw.loginEmail'] = 'a@b.c', st.getMyLoginEmail() === 'a@b.c');
-    st._markInvitePassed(); r.pass = store['tw.invitePassed'] === '1';
+    r.pass = !('INVITE_PASS_KEY' in st) && !('_markInvitePassed' in st);
     const got = []; st.onPremiumChanged(() => got.push('a')); st.onPremiumChanged(() => got.push('b'));
     st._setPremium(false); const quiet = got.length === 0;
     st._setPremium(1); r.prem = quiet && prem() === true && got.join() === 'a,b';
@@ -67,8 +67,8 @@ const FILES = ORDER.map(f => [f, f === 'app.js' ? APP : read(f)]).filter(([, t])
 const R = judge(MOD, HTML, FILES, APP);
 
 say('── 1. 값 · 함수');
-chk(!R.err && R.keys && R.re, '저장 키 다섯 · 친구코드 모양(MATE-XXXX)이 옮기기 전 값 그대로' + (R.err ? ' — ' + R.err : ''));
-chk(R.email && R.pass, '로그인 이메일은 저장 키에서 읽는다(없으면 null) · 초대 통과 표시를 적는다');
+chk(!R.err && R.keys && R.re, '저장 키 넷 · 친구코드 모양(MATE-XXXX)이 옮기기 전 값 그대로' + (R.err ? ' — ' + R.err : ''));
+chk(R.email && R.pass, '로그인 이메일은 저장 키에서 읽는다(없으면 null) · 초대 통과 표시는 걷었다(0.13)');
 chk(R.prem && R.premSame, '프리미엄 — 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 쓰는 함수로');
 chk(R.detach, '신원 놓음 — 처음 false · 쓰는 함수로 올린다');
 chk(R.rcNull && R.rc, '원격 설정 한 벌 — 없으면(검사 · 옛 html) null · 있으면 그 store');

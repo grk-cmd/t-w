@@ -78,7 +78,7 @@ say('── 3. 서버 기록');
     const window = { firebaseAPI: { saveAdvBg: (uid, rec) => { env.saved.push(rec); return { ok:true }; } } };
     const firebaseAPI = window.firebaseAPI; const getMyUserId = () => 'u1'; const console = { log(){}, warn(){} };
     const Promise = { resolve: (v) => ({ then: (f) => ({ catch(){} }) }) };
-    let ADV = env.ADV;
+    let ADV = env.ADV; const advStarted = true;   // 계정 확인 뒤 시작된 뒤의 모양(시작 전에는 서버에 올리지 않는다 — sim-account-store 6b)
     ${grabFn('advSaveBgRemote')}
     advSaveBgRemote();
   `);

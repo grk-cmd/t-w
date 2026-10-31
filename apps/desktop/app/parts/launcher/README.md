@@ -86,12 +86,11 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
-  store: accountStoreMod,   // 마지막으로 받은 소식 묶음(계정 칸 `tw.noticeBoard`)
 });
-TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
+TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정 확인을 기다리지 않는다(공용 데이터)
 ```
 
-**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()`(보여 줄 소식이 있나 — 받았거나 저장본) · `confirmed()`(서버에서 받았나) · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
+**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()`(보여 줄 소식이 있나 — 서버에서 받았다) · `confirmed()`(서버에서 받았나) · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
 쓰는 곳: 알림함 «소식» 칸(`myhome-inbox.js` · `myhome-init.js` 가 새 소식 토스트) · 런처 배너(`ad-banner.js` · 설정 패널 배너 `settings-panel.js`) · 업데이트 공지 팝업(app.js — 처음 받았을 때 한 번).
 확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
 
@@ -99,8 +98,43 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
 못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 공지 바뀜 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
 
 **함정**
-- **저장본**: 마지막으로 받은 소식 묶음(고정 + 최근 · `hasMore`)을 계정 칸에 남겨 켜면 바로 그린다. 응답이 오면 통째로 갈아 끼우고 다시 저장한다(맞추기 · 커서 없음). 계정이 바뀌면 그 계정 저장본만 보이고(없으면 «불러오는 중»), 깨진 저장본은 무시한다. 저장본을 보여 주는 동안은 낡은 값이라 관리자 📌 · 🗑 은 응답 뒤에만(`confirmed()`). 업데이트 공지 · 배너는 저장하지 않는다.
+- **사본 없음**: 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너가 뜬다). 서버가 원본이라 이 PC 에 사본을 남기지 않는다.
 - 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).
 - 업데이트 공지의 «다시 보지 않기» 는 공지 시각(ms)을 기억한다 — 서버 시각으로 바뀌어 Firebase 시절 기억값과는 달라 한 번 더 뜰 수 있다.
 - 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 길로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).
 검사: `checks/sim-notice-api.js` · `checks/sim-notice-feed.js`(입력 → 출력 · 상태 · 409 · 깨 보기) · `checks/sim-ad-banner.js`(배너 그리기).
+
+## `app-boot.js` — 🚀 켜는 순서 한 곳
+
+**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 계정 칸 열기(`accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → realtime 연결(`goOnline`) → 계정 기능 시작**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
+
+**만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤(`roomInviteUi` 다음) `TwAppBoot.createAppBoot({ twNav, migrateLegacy, openAccountStore, goOnline, starts })`. `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다 — 한 기능을 빼먹을 수 없다). 각 함수는 `(code, me)` 를 받는다.
+
+**차례 표(`STEPS`) — 이 순서가 정본이다**
+| # | 이름 | 시작하는 것 |
+|---|---|---|
+| 1 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) + 전체 누적 |
+| 2 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
+| 3 | focusLevel | 포커스 레벨 서버 맞추기(`startFocusSync`) |
+| 4 | weeklyChal | 👑 달성표(`startChalSync`) |
+| 5 | gacha | 🎰 가챠(`startGachaSync`) |
+| 6 | slotSync | ☁️ 슬롯 기기 간 동기(`startSlotsSync`) |
+| 7 | chars | 🧬 캐릭터 보관함 동기(`startCharsSync`) |
+| 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |
+| 9 | scheduler | 📅 일정 알림 받기(`startSchedule`) |
+| 10 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
+| 11 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
+| 12 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
+| 13 | licenseVerify | 🔑 저장된 라이선스 키 재검증 |
+| 14 | licenseRequest | 📨 보낸 라이선스 요청 지켜보기(`startWatch`) |
+| 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+
+**내놓는 것** — `begin(me)` 하나(보통은 nav 로 불린다). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
+
+**함정**
+- 게이트가 이 모듈을 직접 부르면 순환이다(이 모듈이 모든 계정 기능을 부르는 맨 위층) — 그래서 `nav.js` 로 알린다(`sim-dep-cycles`).
+- 기능 모듈은 `createXxx` 안에서 요청 · 구독 · 타이머 · 계정 칸 읽기를 하지 않는다. 시작은 `startXxx` 로 내놓고 이 표에만 건다. 시작 안의 4~5초 부팅 타이머(`setTimeout`)는 기능끼리 요청을 흩는 간격이라 그대로 있다.
+- 계정 칸은 열기 전까지 닫혀 있고, 계정 칸 주인 모듈(포커스 누적 · 레벨 · 오늘 기록 전시 · 바탕화면)은 시작 전이면 입구에서도 읽기 · 쓰기를 안 한다.
+- 확인을 통과하기 전(보통 1~2초)에는 마이홈 · 일정 · 공지 같은 계정 화면이 비어 있다가 채워진다.
+- 함수 안의 `if(!uid) return` 입구 확인은 다른 길에서 불릴 수 있어 남겨 둔다.
+검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · 깨 보기) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.

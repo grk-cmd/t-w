@@ -1,7 +1,7 @@
 {
  "note": "sim-dep-cycles.js 기준선 — 지금 있는 모듈 순환 간선. 줄기만 한다: 순환을 끊었으면 같은 PR 에서 --write-baseline 으로 내리고, 새 순환은 기준선에 넣지 말고 끊는다(콜백 · 구독 · 공용 부분을 아래 파일로).",
  "groups": [
-  34,
+  33,
   4,
   2,
   2
@@ -13,7 +13,6 @@
   "account/license-request.js > account/license-gate.js",
   "account/license-request.js > account/license-ui.js",
   "account/license-ui.js > account/license-request.js",
-  "account/user-name.js > focus/focus-level.js",
   "admin/admin-license-bulk.js > admin/admin-license.js",
   "admin/admin-license.js > admin/admin-license-bulk.js",
   "character/gacha.js > character/wardrobe.js",
@@ -49,7 +48,6 @@
   "myhome/friend-manage.js > myhome/myhome-inbox.js",
   "myhome/myhome-desktop.js > focus/focus-level.js",
   "myhome/myhome-desktop.js > myhome/bookmark.js",
-  "myhome/myhome-edit.js > account/user-name.js",
   "myhome/myhome-edit.js > myhome/myhome-page.js",
   "myhome/myhome-edit.js > myhome/myhome-sticker.js",
   "myhome/myhome-edit.js > myhome/myhome-visit.js",

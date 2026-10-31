@@ -18,7 +18,7 @@ if (!MOD || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — net-ready.js · de
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 /* TwNetReady 를 부르는 파일(묶을 때의 15곳 — app.js 넷 · room-entry 둘 · 나머지 하나씩) */
 const USERS = ['app.js', 'launcher/ad-banner.js', 'room/room-entry.js', 'room/room-invite-ui.js', 'room/room-sync.js',
-  'character/catalog-source.js', 'myhome/scheduler.js', 'account/license-request.js', 'support/bug-board-ui.js', 'account/my-info.js'];
+  'character/catalog-source.js', 'myhome/scheduler.js', 'account/license-request.js', 'support/bug-board-ui.js'];   // overhead.js · my-info.js 는 0.13 에서 기다릴 일이 없어졌다
 const EVT_RE = /addEventListener\(\s*['"`]firebase-ready['"`]/;
 
 /* 가짜 window — 귀(once 표시) · 타이머는 손으로 */

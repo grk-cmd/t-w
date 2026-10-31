@@ -103,6 +103,7 @@ function runAdd(start, add){
     const focusLevelStore = { get: () => null, set: () => true };
     const _focusDayStr = () => 'd';
     const _pushLevelIfChanged = () => {};
+    const _focusTotalStarted = () => true;
     ${fnAdd}
     addFocusSeconds(ctx.add);
     return _focusTotalSec;
@@ -186,7 +187,7 @@ t(/if\(lv\)\{ let n = 1, st = null; try\{ n = getFocusLevel\(\); st = myFocusSho
 /* 보내는 level 은 해금 레벨 그대로 — 받는 쪽 게이트(날리기 색)와 옛 판 */
 t(/level:myLevel, exp:_myExpCells\(\), \.\.\.myStarOut\(\),/.test(CODE4) && /myLevel=getFocusLevel\(\);/.test(CODE4), '★ 프리즌스 level 은 해금 레벨 · 표시는 cyc/clv/starC 로 따로');
 const setProfCalls = (CODE4.match(/setMyProfile\([^;]*\)/g) || []);
-t(setProfCalls.length >= 3 && setProfCalls.every(c => /myStarProfileOut\(\)|, so\)/.test(c)) && /const so = myStarProfileOut\(\)/.test(CODE4), `★ 프로필 쓰기는 매번 회차를 싣는다 — 고른 색이 없으면 비워서(서버 값 지킴 · 개정 71 · ${setProfCalls.length}곳)`);
+t(setProfCalls.length >= 2 && setProfCalls.every(c => /myStarProfileOut\(\)|, so\)/.test(c)) && /const so = myStarProfileOut\(\)/.test(CODE4), `★ 프로필 쓰기는 매번 회차를 싣는다 — 고른 색이 없으면 비워서(서버 값 지킴 · 개정 71 · ${setProfCalls.length}곳)`);
 /* 경험치 칸 — 999 에서 멈추던 분기가 없다 */
 const fnCells = grab(APP, 'function expCellsFromSec(');
 t(!!fnCells && !/FOCUS_LEVEL_CAP_HOURS/.test(strip(fnCells)), '경험치 칸은 이번 시간 안의 진행도 — 999 에서 가득 찬 채 멈추지 않는다');
@@ -293,8 +294,7 @@ console.log('\n[6] 색이 계정을 따라간다 — 받아 오기 · 비워 보
   /* 부르는 자리 · 로그아웃 목록 */
   const initMh = CODE4.slice(CODE4.indexOf('try{ await _adoptStarColorFromProfile(); }catch(_){}'), CODE4.indexOf('try{ await _adoptStarColorFromProfile(); }catch(_){}') + 400);
   t(/_adoptStarColorFromProfile\(\); \}catch\(_\)\{\}\s*try\{ await firebaseAPI\.setMyProfile\(myId,/.test(initMh), '★ 마이홈 초기화 — 받아 오기가 첫 프로필 쓰기보다 먼저');
-  const ats = grab(APP, 'async function _applyTransferSnapshot(') || '';
-  t(/await _adoptStarColorFromProfile\(\)/.test(strip(ats)), '  로그인 복원 끝에서도 받아 온다(로그아웃이 지웠으니)');
+  t(!/function _applyTransferSnapshot\(/.test(APP), '  로그인 복원(계정 사본)은 0.13 에서 걷었다 — 다시 로그인하면 마이홈 초기화가 받아 온다');
   const keys = (APP.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
   t(/'tw\.starColor'/.test(keys), '★ tw.starColor 는 로그아웃 목록에 — 돌아올 길(프로필 starC)이 생겼다');
   /* firebase-init — 비어 온 starC 는 서버 값을 지킨다 */

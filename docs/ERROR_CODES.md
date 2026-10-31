@@ -32,13 +32,16 @@
 | 번호 | 사용자 문구 | 어디서 |
 |---|---|---|
 | `E-SYS-01` | 알 수 없는 오류가 났어요 | (예비) 표에 없는 번호를 불렀을 때 |
+| `E-ACC-01` | 닉네임을 저장하지 못했어요 — 다시 해 주세요 | `account/user-name.js` — 닉네임 저장 뒤 서버 계정 이름(`PATCH /v1/me` — login-flow `patchMe`) 실패 |
+| `E-ACC-02` | 비밀번호를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/account.js` — 비밀번호 바꾸기 · 탈퇴 · 붙이기 전 «비밀번호 확인» 창에서 너무 많이 틀림(too-many-requests) · 네트워크 실패(틀린 비밀번호는 창 안에 알림) |
 | `E-FR-01` | 친구 요청을 수락하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [수락] |
 | `E-FR-02` | 친구 요청을 거절하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [거절] |
 | `E-FR-03` | 보낸 친구 요청을 취소하지 못했어요 | `myhome/friend-manage.js` — 보낸 요청 [취소] |
 | `E-FR-04` | 선택한 친구 요청 일부를 처리하지 못했어요 | `myhome/friend-manage.js` — 받은 요청 일괄 수락 · 거절 |
+| `E-ACC-03` | 서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `account/license-gate.js` — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음) |
 | `E-MH-01` | 도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요 | `myhome/help-tab.js` — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(`LOAD_MS`) |
 | `E-MH-02` | 배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요 | `myhome/mh-bg-url.js` — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만) |
-| `E-MH-03` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(`savePresencePref` · `presencePref/{uid}`) |
+| `E-MH-03` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(서버 계정 `presencePref` — `PATCH /v1/me`) |
 | `E-MH-04` | 일정을 불러오지 못했어요 — 인터넷 연결을 확인하고 안내 글자를 눌러 다시 시도해 주세요 | `myhome/scheduler.js` — 달력 · 기념일 · D-day · 오늘 일정 · 친구 태그 알림 받기 실패(이어지는 동안 한 번만) |
 | `E-MH-05` | 카드 그림을 올리지 못해 저장하지 않았어요 — 다시 눌러 주세요 | `myhome/scheduler.js` — 기념일 카드 그림 올리기 실패 · 서버가 그림 주소를 거절(`IMAGE_UPLOAD` · `SCHEDULE_INVALID_IMAGE_URL`) |
 | `E-MH-06` | 친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요 | `myhome/scheduler.js` — 일정 · 기념일 저장의 그 밖의 태그 거절(`SCHEDULE_TAG_SELF` 등 — 아무것도 저장되지 않음). 친구가 아닌 사람 태그(`SCHEDULE_TAG_NOT_FRIEND`)는 번호 없이 안내 토스트 |

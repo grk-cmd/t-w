@@ -10,7 +10,7 @@
             force 면 검문에 걸려도 목록 한 벌·메모리 전부 지우고 기기 세션도 놓는다.
             부르는 쪽은 정적으로 — [그래도 로그아웃] 은 두 번째 실패에서만 열리고 바로 실행한다.
    ・3절: 신원을 놓은 뒤 beforeunload 의 syncFocusTotalToServer('quit') 가 임시 uid 를 만들어 올리지 않는다.
-   ・4절: 플레이리스트 — 원본은 서버. _restoreOwnedDataAfterTransfer 는 목록을 비우고(plMod.reset) 서버에서 다시 받기(plMod.pull)만 부른다(이 기기 목록을 저쪽 계정에 올리지 않는다).
+   ・4절: 플레이리스트 — 원본은 서버(playlist-api.js). firebase-init 에 옛 읽기가 없고, 로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다.
    ・5절: 춤 해금 안내 — 기록이 지워져도 수령함에 우편이 있으면 다시 안 보낸다(새 계정이면 보낸다).
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
@@ -53,7 +53,7 @@ function constVal(name){
   const m = SRC.match(new RegExp('\\b' + name + '\\s*=\\s*\'([^\']+)\'')); return m ? m[1] : null;
 }
 const K = {};
-['MY_USER_ID_KEY','INVITE_PASS_KEY','MY_FRIEND_CODE_KEY','LOGIN_EMAIL_KEY','LOGIN_UID_KEY',   // (개정 56) MY_PREV_USER_IDS_KEY 걷음
+['MY_USER_ID_KEY','MY_FRIEND_CODE_KEY','LOGIN_EMAIL_KEY','LOGIN_UID_KEY',   // (개정 56) MY_PREV_USER_IDS_KEY 걷음
  'MY_FRIEND_CODE_PREV_KEY','LICENSE_KEY_STORAGE','LICENSE_REQ_ID_KEY','FOCUS_TOTAL_KEY','FOCUS_TODAY_SEC_KEY',
  'FOCUS_TODAY_DATE_KEY','FOCUS_SYNCED_KEY','DANCE_NOTIFIED_KEY','DANCE_REPAIR_KEY','GACHA_OWNED_KEY','GACHA_TS_KEY',
  'GACHA_BONUS_KEY','CHAL_KEY','LS_KEY','SLOTS_TS_KEY','LICENSE_OPTOUT_KEY',   // (개정 238) 목록에 들어온 뒤 여기 없어 2절이 «?» 로 통째 안 돌았다
@@ -92,8 +92,8 @@ chk(!/getElementById\('acctUnlinkYes'\)/.test(SRC), '★ 연동 해제 입구가
   chk(callers === 1 && /_detachAccountLocal\(opt\)/.test(fOut), '★ _detachAccountLocal 을 부르는 곳은 로그아웃 하나다 (' + callers + '곳) — 지움 목록이 두 벌이 될 입구가 없다');
 }
 {
-  const a = fOut.indexOf('_detachAccountLocal'), b = fOut.indexOf('authSignOut');
-  chk(a >= 0 && b > a, '★ signOut 은 검문 **뒤** — 앞이면 세션 없는 push 가 거부돼 로그아웃이 늘 막힌다');
+  const a = fOut.indexOf('_detachAccountLocal'), b = fOut.indexOf('loginFlowMod.logout()');
+  chk(a >= 0 && b > a, '★ 로그인 놓기(loginFlowMod.logout — realtime 끄기 · signOut)는 검문 **뒤** — 앞이면 세션 없는 push 가 거부돼 로그아웃이 늘 막힌다');
   chk(/if\(!r\.ok\) return r/.test(fOut), '  검문에 걸리면 signOut 도 안 한다 (세션도 로컬도 그대로)');
 }
 
@@ -131,7 +131,9 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       deviceSessionLost: () => !!env.lost,
     } : null;
     const window = { firebaseAPI };
-    const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' + [
+    const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + "\nconst ME_CACHE_KEY = 'tw.me';\n" + [
+      "const sessionLost=()=>!!env.lost;   /* 다른 기기에 밀렸나 */",
+      "const accountLegacyStore={ migrateLegacy:(c)=>{ env.calls.push('migrate:'+c); return {}; } };",
       "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); env.mark = env.total; env.hasMark = true; };",
       /* 🎰 가챠는 gacha.js 모듈(앱 FSD 8번) — app.js 는 gachaMod.syncGachaToServer · owned · resetMemory 로 부른다. 메모리 칸은 아래 let 이 대신한다 */
       "const gachaMod={ syncGachaToServer:async(r)=>{ env.calls.push('flush:gacha:'+r); }, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
@@ -160,7 +162,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     return env;
   }
   const fillA = e => {
-    e.LS.setItem(K.MY_USER_ID_KEY, 'uA'); e.LS.setItem(K.LOGIN_EMAIL_KEY, 'a@x'); e.LS.setItem(K.INVITE_PASS_KEY, '1');
+    e.LS.setItem(K.MY_USER_ID_KEY, 'uA'); e.LS.setItem(K.LOGIN_EMAIL_KEY, 'a@x'); e.LS.setItem('tw.me', '{}');
     e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-A'); e.LS.setItem(K.FOCUS_TOTAL_KEY, '3600'); e.LS.setItem(K.FOCUS_SYNCED_KEY, '3600');
     e.LS.setItem(K.GACHA_OWNED_KEY, '{"p1":1}'); e.LS.setItem(K.GACHA_TS_KEY, '9'); e.LS.setItem(K.LS_KEY, '[{"skin":1}]');
     e.LS.setItem(K.SLOTS_TS_KEY, '7'); e.LS.setItem('tw.roomFaceUrls', '{"face:h":"https://st/u/A"}'); e.LS.setItem('tw.playlistSets', '[]'); e.LS.setItem('tw.playlistEditTs', '9000');
@@ -214,6 +216,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **마크를 안 옮기는 flush**(쓰기가 거부된 기기)로 바꿔 끼운다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
+      "const accountLegacyStore={ migrateLegacy:()=>({}) }; const sessionLost=()=>false; const ME_CACHE_KEY='tw.me';\n" +
       "const syncFocusTotalToServer=async()=>{}; const gachaMod={ syncGachaToServer:async()=>{}, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
       "let _slotsPushTimer=null; const clearTimeout=()=>{}; const setTimeout=()=>0; const _slotsHasLocal=()=>false;\n" +
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
@@ -249,8 +252,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     say('· ⑥-2 로그아웃 전에 presence «꺼짐»');
     e = mkEnv(); fillA(e);
     await e.m.detach();
-    const iP = e.calls.indexOf('presence:uA:false'), iR = e.calls.indexOf('release');
-    chk(iP >= 0 && iR > iP && e.calls.indexOf('slotsTs') < iP, '★ 검문을 지난 뒤 · 기기 세션 놓기 전에 presence 를 «꺼짐» 으로 쓴다(로그인이 남아 있을 때)');
+    const iP = e.calls.indexOf('presence:uA:false');
+    chk(iP >= 0 && !e.calls.includes('release') && e.calls.indexOf('slotsTs') < iP, '★ 검문을 지난 뒤 presence 를 «꺼짐» 으로 쓴다(로그인이 남아 있을 때) — 기기 세션은 realtime 이 정하므로 따로 놓지 않는다');
     e = mkEnv({ slotsTs: 0 }); fillA(e);
     await e.m.detach();
     chk(!e.calls.some(c => c.startsWith('presence:')), '  막힌 로그아웃은 presence 를 안 건드린다');
@@ -259,7 +262,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(!e.calls.some(c => c.startsWith('presence:')), '★ 다른 기기에 밀려난 기기는 안 쓴다 — 그 칸은 이긴 쪽 것');
     e = mkEnv({ presenceHang: true, fastTimeout: true }); fillA(e);
     r = await e.m.detach();
-    chk(r && r.ok === true && e.calls.includes('release'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다');
+    chk(r && r.ok === true && e.calls.includes('chal:reset'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다(지우기까지 간다)');
     e = mkEnv({ apiOn: false }); fillA(e);
     r = await e.m.detach({ force: true });
     chk(r && r.ok === true && e.LS.getItem(K.MY_USER_ID_KEY) === null, '  firebaseAPI 가 없는 강제 로그아웃도 «꺼짐» 쓰기에서 던지지 않고 지운다');
@@ -306,7 +309,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     r = await e.m.detach({ force: true });
     chk(r && r.ok === true, '★ force 면 검문에 걸려도 지운다');
     chk(e.m.keys().filter(k => e.LS.getItem(k) !== null).length === 0 && e.m.mem().detached === true, '  강제로 지워도 목록 한 벌·메모리 전부 — 반쪽 로그아웃은 없다');
-    chk(e.calls.indexOf('release') >= 0 && e.calls.indexOf('release') > e.calls.indexOf('slotsTs'), '  강제로 지운 뒤에도 기기 세션을 놓는다(releaseDeviceSession) — 안 놓으면 다음 사람이 «다른 기기에서 사용 중» 에 걸린다');
+    chk(e.calls.indexOf('slotsTs') >= 0 && !e.calls.includes('release'), '  강제로 지울 때도 검문(slotsTs)은 한 번 해 본다 — 기기 세션은 realtime 이 정하므로 따로 놓지 않는다');
     chk(e.calls.filter(c => c.startsWith('flush:')).length === 5, '  강제여도 올리기는 한 번 더 해 본다(공짜다)');
     /* 부르는 쪽 — 정적 */
     const uiBlk = grabBlock(SRC, "let _logoutFails = 0;", "if(forceBtn) forceBtn.onclick") || '';
@@ -334,7 +337,7 @@ function part3(){
   try{
     const env = { minted: 0, calls: 0 };
     const run = new Function('env', 'window', 'localStorage',
-      "const firebaseAPI = window.firebaseAPI; let _acctDetached = env.detached; let _focusSyncing=false; const FOCUS_LEVEL_CAP_HOURS=999; const FOCUS_TOTAL_CAP_SEC=999*3600; let _focusTotalSec=5000;\n" +
+      "const firebaseAPI = window.firebaseAPI; let _acctDetached = env.detached; let _focusSyncing=false; const _focusTotalStarted=()=>true; const FOCUS_LEVEL_CAP_HOURS=999; const FOCUS_TOTAL_CAP_SEC=999*3600; let _focusTotalSec=5000;\n" +
       "const getMyUserId=()=>{ env.minted++; return 'uTMP'; };\n" +
       "const _hasFocusSyncedMark=()=>false, _getFocusSyncedMark=()=>0, _setFocusSyncedMark=()=>{}, _focusSyncFailed=()=>{}, _pushLevelIfChanged=()=>{}, _notifyDanceUnlocks=()=>{}, getFocusLevel=()=>1;\n" +
       "let _focusSyncFailStreak=0, _focusLastSyncedVal=-1; const console={warn(){},log(){}};\n" +
@@ -353,31 +356,9 @@ function part3(){
 
 /* ── 4. 플레이리스트 세 벌 복원 ── */
 function part4(){
-  say('── 4. 플레이리스트 — 세 벌 전부 받아온다 (한 벌 무작위가 아니다)');
+  say('── 4. 플레이리스트 — 옛 읽기 · 옛 이어받기가 없다');
   chk(!/fetchMyPlaylistSets|fetchPlaylistOf|_plPickSet/.test(FI), '★ firebase-init 에 옛 플레이리스트 읽기(한 벌 무작위 · 내 세 벌)가 없다 — 서버 길(playlist-api.js)로 옮겼다');
-  const fRestore = grabFn(SRC, '_restoreOwnedDataAfterTransfer', 'async function ') || '';
-  const plPart = fRestore.slice(fRestore.indexOf('플레이리스트'), fRestore.indexOf('가챠 보유분'));
-  chk(/plMod\.reset\(\);\s*plMod\.pull\(\);/.test(plPart) && !/firebaseAPI|plApi|adoptServer|markSynced|bootSync|plMod\.publish/.test(plPart), '★ 플레이리스트는 «비우고(reset) 서버에서 받기(pull)» 만 부른다 — 이 기기 목록을 저쪽 계정에 올리지 않는다');
-  try{
-    (async () => {
-      const mk = (pullThrows) => {
-        const env = { order: [], gachaPull: 0, slotsPull: 0 };
-        const run = new Function('env', 'window', 'firebaseAPI',
-          "const console={warn(){}};\n" +
-          "const plMod={ reset:()=>{ env.order.push('reset'); }, pull:()=>{ env.order.push('pull'); if(" + pullThrows + ") throw new Error('x'); } };\n" +
-          "const getMyUserId=()=>'uB'; const gachaMod={ syncGachaToServer:async()=>{ env.gachaPull++; }, isInvOpen:()=>false, renderGachaInv(){} }; const syncSlotsToServer=async()=>{ env.slotsPull++; };\n" +
-          fRestore + "\nreturn _restoreOwnedDataAfterTransfer;");
-        return { env, go: run(env, {}, {}) };
-      };
-      const a = mk(false);
-      await a.go();
-      chk(a.env.order.join() === 'reset,pull', '  이어받기 — 비우기가 받기보다 먼저(앞 계정 목록이 새 계정에 안 올라가게)');
-      chk(a.env.gachaPull === 1, '  가챠 pull 은 그대로 이어서 돈다');
-      const b = mk(true);
-      await b.go();
-      chk(b.env.order.join() === 'reset,pull' && b.env.gachaPull === 1, '  받기 호출이 던져도 이어받기는 계속된다');
-    })();
-  }catch(err){ huh('4절 실행 오류: ' + (err && err.message || err)); }
+  chk(!/function _restoreOwnedDataAfterTransfer\(/.test(SRC), '  로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다 — 서버에서 받는 길(plMod.pull)이 맡는다');
 }
 
 /* ── 5. 춤 해금 안내 — 수령함이 진짜다 ── */

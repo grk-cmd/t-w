@@ -4,12 +4,11 @@
      못 받아도 혼자 다시 받지 않는다 — 다시 받는 길은 공지 바뀜 알림 · 알림함을 열 때 실패 상태면 한 번(myhome-inbox.js 의 retryIfFailed — manual) · «다시 시도» 누르기뿐.
      받기 실패의 오류 번호는 사용자가 연 · 누른 받기(manual)에서만 띄운다 — 켤 때 · 알림으로 자동 받다 실패하면 오류 창 없이 못 받음 상태만.
      쓰는 쪽(알림함 · 런처 배너 · 업데이트 공지 팝업)은 onChange 로 받아 각자 그린다. 관리자 소식 쓰기(올리기 · 고정 · 내리기)도 여기를 지난다 — 서버가 «됐다» 하면 다시 받는다.
-   저장본: 마지막으로 받은 소식 묶음(고정 + 최근 — broadcasts · hasMore)을 계정 칸(deps.store = shared/account-store.js)에 남긴다. 켜면 저장본을 바로 보여 주고(ready() 참 · confirmed() 거짓),
-     서버 응답이 오면 통째로 갈아 끼우고 다시 저장한다 — 맞추기 · 커서 · 비교 없음. 계정 칸이라 다른 계정 저장본은 안 보인다(없으면 받는 중). 깨진 저장본은 무시.
-     저장본은 서버 응답 전의 낡은 값이라 관리자 고정 · 내리기는 confirmed() 가 참일 때만(저장본의 version 으로 쓰지 않는다).
-   deps: api — createNoticeApi 가 돌려준 것(notice-api.js) · rt — 알림 걸기(TwRtHub.store.on('notices', fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · store — { get(키), set(키, 값) } 계정 칸
+   계정과 무관하다 — 공지는 모두에게 같은 공용 데이터라(GET /v1/notices 는 로그인 없이 읽힌다) 계정 확인 전(로그인 화면 위)에도 받는다(app.js 가 firebase-ready 에 start 를 건다 — launcher/app-boot.js 차례 표에 없다).
+     서버가 원본이라 이 PC 에 사본을 두지 않는다(예전엔 마지막 묶음을 계정 칸에 남겨 켜면 바로 그렸다 — 받기가 계정 확인을 기다리지 않으니 필요 없다).
+   deps: api — createNoticeApi 가 돌려준 것(notice-api.js) · rt — 알림 걸기(TwRtHub.store.on('notices', fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify)
    내보냄: createNoticeFeed(deps) → {
-     start() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · ready() → 보여 줄 소식이 있나(받았거나 저장본) · confirmed() → 서버에서 한 번이라도 받았나 · busy() → 지금 받는 중인가 · STATUS(상태 이름 상수) · broadcasts() → { id: 소식 } · hasMore() ·
+     start() · refresh({ manual }?) → Promise<boolean>(받았나 — manual 은 «다시 시도» 를 눌렀다) · status() → 'idle'|'loading'|'ready'|'error' · ready() → 보여 줄 소식이 있나(서버에서 받았다) · confirmed() → 서버에서 한 번이라도 받았나 · busy() → 지금 받는 중인가 · STATUS(상태 이름 상수) · broadcasts() → { id: 소식 } · hasMore() ·
      updateNotice() → {title, body, ts}|null · banner() → [{img, link}] ·
      onceReady(fn) → fn(업데이트 공지) 를 딱 한 번 — 이미 받았으면 바로, 아니면 처음 받았을 때(못 받은 뒤 받아도 한 번) · onChange(fn) → 해제 함수 — fn({ addedIds }) : 받은 뒤(처음 받은 판의 소식은 «새 소식» 으로 치지 않는다)
      sendBroadcast(o) → Promise<boolean> · togglePin(id) → Promise<boolean> · remove(id) → Promise<boolean>
@@ -21,26 +20,14 @@
 'use strict';
 
 const STATUS = Object.freeze({ IDLE: 'idle', LOADING: 'loading', READY: 'ready', ERROR: 'error' });
-const SAVED_KEY = 'tw.noticeBoard';   // 계정 칸 이름(shared/account-store.js ACCOUNT_KEYS)
-
-const isNote = (m) => !!m && typeof m === 'object' && typeof m.title === 'string' && typeof m.body === 'string' && typeof m.tag === 'string'
-  && Number.isFinite(m.ts) && Number.isFinite(m.version) && typeof m.pinned === 'boolean';
-/* 저장본 읽기 — 모양이 하나라도 틀리면 통째로 버린다(반쯤 맞는 판을 보여 주지 않는다) */
-function parseSaved(raw){
-  if(typeof raw !== 'string') return null;
-  let o; try{ o = JSON.parse(raw); }catch(_){ return null; }
-  if(!o || typeof o !== 'object' || typeof o.hasMore !== 'boolean' || !o.broadcasts || typeof o.broadcasts !== 'object' || Array.isArray(o.broadcasts)) return null;
-  return Object.values(o.broadcasts).every(isNote) ? { broadcasts: o.broadcasts, hasMore: o.hasMore } : null;
-}
 
 function createNoticeFeed(deps){
   const api = deps.api;
   const notifyError = deps.notifyError;
-  const store = deps.store;
   const subs = [];
   let status = STATUS.IDLE;
   let board = { updateNotice: null, banner: [], broadcasts: {}, hasMore: false };
-  let everReady = false, savedShown = false, flying = false, again = false, failStreak = false, manualNext = false;
+  let everReady = false, flying = false, again = false, failStreak = false, manualNext = false;
 
   function emit(addedIds){
     for(const fn of subs.slice()){ try{ fn({ addedIds }); }catch(e){ console.warn('[공지] 받는 쪽 처리 실패', e); } }
@@ -65,7 +52,6 @@ function createNoticeFeed(deps){
       const before = board.broadcasts;
       const addedIds = everReady ? Object.keys(got.broadcasts).filter((id) => !(id in before)) : [];
       board = got; everReady = true; status = STATUS.READY; failStreak = false;
-      store.set(SAVED_KEY, JSON.stringify({ broadcasts: got.broadcasts, hasMore: got.hasMore }));   // 다음에 켤 때 바로 그리는 용 — 못 쓰면(false) 그냥 없는 것
       emit(addedIds);
       ok = true;
     }finally{
@@ -75,11 +61,7 @@ function createNoticeFeed(deps){
     return ok;
   }
 
-  function start(){
-    const saved = everReady ? null : parseSaved(store.get(SAVED_KEY));
-    if(saved){ board = Object.assign({}, board, saved); savedShown = true; emit([]); }
-    refresh();
-  }
+  function start(){ refresh(); }
   deps.rt.on('notices', () => { refresh(); });   // 바뀜 · 오래 끊겼다 붙음(resync) 모두 같은 일 — 다시 받기
 
   /* 관리자 쓰기 — 서버가 됐다 하면 다시 받는다. 실패는 한 번 알린다(409 는 «먼저 바뀌었다» 라 다시 받아 그 값으로) */
@@ -96,7 +78,7 @@ function createNoticeFeed(deps){
   }
   async function togglePin(id){
     const m = board.broadcasts[id];
-    if(!everReady || !m) return false;   // 저장본의 version 으로는 고치지 않는다
+    if(!everReady || !m) return false;   // 서버에서 받기 전의 version 으로는 고치지 않는다
     return done(await api.setPinned(id, m.version, !m.pinned));
   }
   async function remove(id){
@@ -118,7 +100,7 @@ function createNoticeFeed(deps){
 
   return {
     start, refresh, onceReady, sendBroadcast, togglePin, remove,
-    STATUS, busy: () => flying, status: () => status, ready: () => everReady || savedShown, confirmed: () => everReady, broadcasts: () => board.broadcasts, hasMore: () => board.hasMore,
+    STATUS, busy: () => flying, status: () => status, ready: () => everReady, confirmed: () => everReady, broadcasts: () => board.broadcasts, hasMore: () => board.hasMore,
     updateNotice: () => board.updateNotice, banner: () => board.banner,
     onChange,
   };
