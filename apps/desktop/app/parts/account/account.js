@@ -21,7 +21,6 @@ const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
-const accountAdoptStore = deps.accountAdoptStore;   // 🗂️ 계정별 칸 — 연동으로 받은 누적 · 마크를 새 계정 칸에 채택(전환 틈에도 통과)
 const FOCUS_TOTAL_KEY = deps.FOCUS_TOTAL_KEY;   // 읽는 함수
 const GACHA_BONUS_KEY = deps.GACHA_BONUS_KEY;   // 읽는 함수
 const GACHA_OWNED_KEY = deps.GACHA_OWNED_KEY;   // 읽는 함수

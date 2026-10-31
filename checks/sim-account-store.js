@@ -172,9 +172,8 @@ async function judge(S){
     const b0 = st.o['tw.u.' + B + '.focusTotalSec'];
     chk(s.set('tw.focusTotalSec', 999) === false && s.remove('tw.focusTotalSec') === false && st.o['tw.u.' + B + '.focusTotalSec'] === b0, '★ 놓은 틈에는 set · remove 가 거절된다(다른 계정 칸을 덮지 못한다)');
     chk(s.get('tw.focusTotalSec') === b0, '  ↳ 읽기는 된다');
-    chk(s.adopt('tw.focusSyncedSec', 777) === true && st.o['tw.u.' + B + '.focusSyncedSec'] === '777', '채택(adopt)만 틈을 통과해 새 계정 칸에 쓴다');
+    chk(!('adopt' in s), '★ 놓은 틈을 통과하는 쓰기 길(adopt — 로그인 전 몫을 계정으로 넘기기)이 없다');
     code.v = null;
-    chk(s.adopt('tw.focusSyncedSec', 1) === false && !('tw.focusSyncedSec' in st.o), '채택도 코드가 없으면 거절 · PC 칸에 안 쓴다');
     lock.v = false; code.v = B;
     chk(s.set('tw.focusTotalSec', 6) === true, '틈이 끝나면(깃발 내림) 다시 쓴다');
   }
@@ -230,7 +229,6 @@ const BREAKS = [
   ['MHD', "function advSave(){ try{ advStore.set(ADV_KEY,", "function advSave(){ try{ localStorage.setItem(ADV_KEY,", '바탕화면이 PC 칸에 저장'],
   ['APP', "getAccountCode: getMyUserId, isWriteLocked", "getAccountCode: ()=>null, isWriteLocked", '계정 코드를 안 넘김'],
   ['STORE', "if(!cell || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell) return false;\n    try{ storage.setItem", '놓은 틈에도 set 이 통과'],
-  ['STORE', "function adopt(key, value){\n    const cell = cellOf(key);\n    if(!cell) return false;", "function adopt(key, value){\n    const cell = cellOf(key);\n    if(!cell || isWriteLocked()) return false;", '채택도 틈에 막힘(연동 값이 안 들어감)'],
   ['MHD', "function advSave(){ try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }", "function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }", '바탕화면 저장이 PC 칸(동작 판정)'],
   ['BOOT', 'createMyHomeDesktop({ advStore: accountStoreMod })', 'createMyHomeDesktop({})', 'deps 를 안 넘김'],
   ['HTML', '<script src="parts/shared/account-store.js"></script>', '', 'html 에 안 실음'],

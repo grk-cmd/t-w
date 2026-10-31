@@ -81,17 +81,10 @@ function createAccountStore(deps){
     if(!cell) return null;
     try{ return storage.getItem(cell); }catch(_){ return null; }
   }
-  /* 쓰기 거절 판단은 이 한 곳 — set · remove 가 본다. adopt 만 이 틈을 통과한다. */
+  /* 쓰기 거절 판단은 이 한 곳 — set · remove 가 본다. */
   function set(key, value){
     const cell = cellOf(key);
     if(!cell || isWriteLocked()) return false;
-    try{ storage.setItem(cell, String(value)); return true; }catch(_){ return false; }
-  }
-  /* 계정 전환 중 연동 스냅샷을 새 계정 칸에 채택하는 단 하나의 길(account.js _applyTransferSnapshot). 신원을 놓은 틈에도 통과한다 —
-     그 함수가 _setMyUserId(새 코드) 뒤에 돌아 새 계정 칸에 쓰는 일이라서다. 다른 곳은 쓰지 않는다. */
-  function adopt(key, value){
-    const cell = cellOf(key);
-    if(!cell) return false;
     try{ storage.setItem(cell, String(value)); return true; }catch(_){ return false; }
   }
   function remove(key){
@@ -135,7 +128,7 @@ function createAccountStore(deps){
     return res;
   }
 
-  return { get, set, remove, adopt, migrateLegacy };
+  return { get, set, remove, migrateLegacy };
 }
 
 const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, createAccountStore };

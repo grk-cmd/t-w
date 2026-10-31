@@ -7044,7 +7044,6 @@ const accountMod = TwAccount.createAccount({
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
-  accountAdoptStore: accountStoreMod,
   FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
   GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
   GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
