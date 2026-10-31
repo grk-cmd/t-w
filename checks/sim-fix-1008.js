@@ -37,7 +37,8 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     const head = grab(/const SETTINGS_VER = \d+;[\s\S]*?\nfunction _settingsLegacyRisky\(data\)\{[\s\S]*?\n\}/);
     const load = grab(/function loadSettings\(\)\{[\s\S]*?\n\}/);
     const save = grab(/function saveSettings\(\)\{[\s\S]*?\n\}/);
-    chk(!!head && !!load && !!save, 'SETTINGS_VER · loadSettings · saveSettings 를 찾았다');
+    const posOf = grab(/const LAUNCHER_POS_MAX = \d+;[\s\S]*?\nfunction _launcherPosOf\(v\)\{[\s\S]*?\n\}/);   // 런처 자리(launcherPos)도 같은 파일에 산다
+    chk(!!head && !!load && !!save && !!posOf, 'SETTINGS_VER · loadSettings · saveSettings · _launcherPosOf 를 찾았다');
     const os = require('os'), path = require('path');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-set-'));
     const run = (fileObj) => {
@@ -48,8 +49,9 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
       const ov = { _g: 12, _a: 0, GAP_MAX: 64, GAP_VER: 2, GAP_LEGACY: [2, 6], GAP_DEFAULT: 12,
         setGap(v) { this._g = v; }, gap() { return this._g; }, setAlpha(v) { this._a = v; }, alpha() { return this._a; } };
       const body = 'let SETTINGS_PATH = P; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
-        + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + load + '\n' + save
-        + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice };'
+        + 'const savedPos = { launcher: null, creator: null };\n'   // _launcherPosSaved · 몰아 저장은 아래 posOf 덩이에 같이 온다
+        + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + posOf + '\n' + load + '\n' + save
+        + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice, launcher: savedPos.launcher };'
         + '\n_settingsReset = null; saveSettings(); r.saved = JSON.parse(fs.readFileSync(P, "utf8")); return r;';
       const out = new Function('fs', 'path', 'P', 'overlay', body)(fs, path, P, ov);
       out.backup = fs.existsSync(path.join(dir, 'tw-settings.before-reset.json'));
@@ -65,6 +67,9 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     chk(!c.reset && c.alpha === 252 && c.runDisplayId === 7, '새 빌드에서 일부러 켠 실험은 존중한다');
     const d = run(null);
     chk(!d.reset && d.saved.settingsVer === 1, '파일이 없으면(첫 실행) 초기화 없이 새 세대로');
+    chk(a.launcher === null && a.saved.launcherPos === null, '  초기화 길은 런처 자리도 읽지 않는다(전부 기본값 — 가운데)');
+    const e = run({ settingsVer: 1, launcherPos: { x: 340, y: -20 } });
+    chk(e.launcher && e.launcher.x === 340 && e.launcher.y === -20 && e.saved.launcherPos && e.saved.launcherPos.x === 340, '보통 파일의 런처 자리는 읽고 → 다시 저장해도 그대로');
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
     chk(/ipcMain\.handle\('companion:takeSettingsNotice'[\s\S]{0,200}_settingsResetNotice = false;/.test(MAIN), '안내는 한 번 돌려주면 끈다');
     chk(/takeSettingsNotice\(\) \{\s*return ipcRenderer\.invoke\('companion:takeSettingsNotice'\);/.test(PRE), 'preload 통로');

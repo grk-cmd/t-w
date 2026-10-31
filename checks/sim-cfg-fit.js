@@ -191,7 +191,7 @@ else{
   const exitSrc = grabFn(MAIN, '_exitNow') || '';
   chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('destroy()'),
     '  _exitNow 는 훅 · 타이머를 내린 뒤 · 창을 닫기 전에 쓴다(종료 순서)');
-  chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(\) => \{ try \{ _flushLauncherPos\(\); \}/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 남은 런처 자리를 쓴다');
+  chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(\) => \{ try \{ sysinput\.stopGlobalHooks\(\); \}[^\n]*try \{ _flushLauncherPos\(\); \} catch \(_\) \{\} \}\);/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 남은 런처 자리를 쓴다');
   const load = MAIN.slice(MAIN.indexOf('function loadSettings(){'), MAIN.indexOf('function saveSettings(){'));
   chk(/savedPos\.launcher = _launcherPosOf\(data\.launcherPos\);/.test(load), '설정 파일을 읽을 때 launcherPos 를 그 함수로 거른다');
   chk(/launcherPos: savedPos\.launcher,/.test(grabFn(MAIN, 'saveSettings') || ''), '  저장할 때 launcherPos 를 같이 적는다');
