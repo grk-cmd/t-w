@@ -2,7 +2,7 @@
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
-     CHAL_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
+     accountLegacyStore · CHAL_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
@@ -17,6 +17,7 @@
 
 function createAccount(deps){
 const BELL_SEEN_KEY = deps.BELL_SEEN_KEY;
+const accountLegacyStore = deps.accountLegacyStore;   // 🗂️ 계정별 칸 — 로그아웃 때 아직 PC 칸에 남은 옛 값을 지우기 전에 옮기려고 migrateLegacy 만 부른다
 const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
@@ -297,6 +298,9 @@ async function _detachAccountLocal(opt){
      복구 수단이다. 강제로 지워도 올리기는 한 번 더 해 본다(공짜다). 기기 세션도 놓는다(아래). */
   const force = !!(opt && opt.force);
   let uid = null; try{ uid = localStorage.getItem(MY_USER_ID_KEY); }catch(_){}
+  /* 올리기 · 검문이 계정 칸의 누적 · 마크를 읽으므로 그 **앞**에, 아직 옮기지 못한 옛 PC 칸 값을 이 계정 칸으로 옮긴다(부팅 때 못 옮겼을 때만 일이 있다 · 두 번째부터는 아무 일도 안 한다).
+     플레이리스트 마지막 올리기(plMod.flushPending)는 아래 _acctFlushToServer 안에서 끝나야 지우기(_wipeAccountLocal)가 돈다 — 그 순서가 한 곳에서 보장된다. */
+  if(uid) accountLegacyStore.migrateLegacy(uid);
   if(uid){
     const fl = await _acctFlushToServer();
     const pf = await _acctPreflight(uid, { timedOut: !!(fl && fl.timedOut) });

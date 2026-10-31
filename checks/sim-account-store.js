@@ -5,6 +5,7 @@
    ・4절: 기기 공용 키 · 모르는 키는 던진다(계정과 무관 — 계정 칸에 안 들어간다)
    ・5절: migrateLegacy — 한 번만 · 이미 있는 값 안 덮음 · 코드 없으면 PC 칸 그대로 · 못 쓰면 옛 칸 보존 · 나중에 더해진 키만 새로
    ・6절: 옮겨 쓰는 모듈 — 포커스 누적(focus-total.js 실물)이 계정마다 따로 · 바탕화면 · 포커스 레벨은 PC 칸을 더는 직접 안 읽음
+   ・6c절: migrateLegacy 를 부르는 곳 — 부팅 때 읽는 모듈보다 먼저(코드 없으면 안 함) · 로그아웃은 올리기 앞 · 플레이리스트 마지막 올리기 뒤 지우기
    ・7절: 배선 — app.js 가 getMyUserId 로 만든다 · html 차례 · smoke PRELOAD
    ・8절: 일부러 깨 보기 */
 'use strict';
@@ -198,6 +199,64 @@ async function judge(S){
     }catch(e){ chk(false, '바탕화면 저장 칸 실행 실패 — ' + e.message); }
   }
 
+  say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
+  {
+    // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
+    const line = (S.APP.match(/^accountStoreMod\.migrateLegacy\(getMyUserId\(\)\);$/m) || [])[0];
+    chk(!!line && S.APP.split(line).length === 2, '① app.js 에 부팅 때 옮기는 줄이 하나 있다(이 PC 에 적힌 계정 코드로)');
+    const iMake = S.APP.indexOf('const accountStoreMod ='), iCall = line ? S.APP.indexOf(line) : -1;
+    const iRead = Math.min(...['const focusTotalMod =', 'const focusLevelMod =', 'createMyHomeDesktop('].map((h) => { const i = S.APP.indexOf(h); return i < 0 ? 1e9 : i; }));
+    chk(iMake > 0 && iCall > iMake && iCall < iRead && S.APP.indexOf('_loadFocusTotalSec()') > iCall, '  ↳ 계정 칸을 만든 뒤 · 계정 칸을 읽는 모듈(포커스 누적 · 바탕화면)을 만들기 전에 부른다');
+    const mkBoot = (code) => {
+      const st = mem(); st.setItem('tw.focusTotalSec', '7777'); st.setItem('tw.advZ.v2', '{"a":1}');
+      const M = load(S.STORE);
+      const store = M.createAccountStore({ storage: st, getAccountCode: () => code, isWriteLocked: () => false });
+      if(line) new Function('accountStoreMod', 'getMyUserId', line)(store, () => code);
+      return { st, store };
+    };
+    let b = mkBoot(null);
+    chk(b.st.o['tw.focusTotalSec'] === '7777' && !(MIG(load(S.STORE)) in b.st.o) && Object.keys(b.st.o).every((k) => !k.startsWith('tw.u.')), '★ 로그인 전(코드 없는 PC) — 아무것도 옮기지 않고 PC 칸 그대로(다음에 코드가 생기면 그때)');
+    b = mkBoot(A);
+    chk(b.st.o['tw.u.' + A + '.focusTotalSec'] === '7777' && !('tw.focusTotalSec' in b.st.o) && b.st.o['tw.u.' + A + '.advZ.v2'] === '{"a":1}', '★ 코드가 있는 PC — 그 계정 칸으로 옮기고 PC 칸은 비운다');
+    chk(b.store.get('tw.focusTotalSec') === '7777', '  ↳ 읽는 모듈이 곧바로 옮긴 값을 본다');
+    b.st.setItem('tw.focusTotalSec', '1'); b.store.migrateLegacy(A);
+    chk(b.st.o['tw.u.' + A + '.focusTotalSec'] === '7777', '  ↳ 두 번째는 덮지 않는다');
+
+    // ② 로그아웃 — _loginDoLogout 을 실물 글로 돌려 부른 차례를 본다
+    const any = (() => { const f = function(){ return P; }; const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true }); return P; })();
+    const st = mem(); st.setItem('tw.myUserId', A);
+    const rec = [];
+    const deps = {};
+    (S.ACC.match(/deps\.([\w$]+)/g) || []).forEach((m) => { deps[m.slice(5)] = any; });
+    Object.assign(deps, {
+      MY_USER_ID_KEY: 'tw.myUserId', getMyUserId: () => st.getItem('tw.myUserId'),
+      accountLegacyStore: { migrateLegacy: (c) => { rec.push('migrate:' + c); return {}; } },
+      plMod: { st: {}, reset(){}, flushPending: () => new Promise((r) => setTimeout(() => { rec.push('plFlushDone'); r(); }, 5)) },
+      setAcctDetached: (v) => { if(v) rec.push('wipe'); },
+      focusLevelMod: () => ({ DANCE_NOTIFIED_KEY: 'x1', DANCE_REPAIR_KEY: 'x2' }),
+      acctStateMod: { INVITE_PASS_KEY: 'x3', LICENSE_KEY_STORAGE: 'x4', LICENSE_OPTOUT_KEY: 'x5' },
+      LOGIN_EMAIL_KEY: 'x6', LOGIN_UID_KEY: 'x7',
+    });
+    const win = { firebaseAPI: { deviceSessionLost: () => true, authSignOut(){}, chatHistory: { wipeAll(){} } } };
+    let acc = null;
+    try{
+      acc = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'setTimeout', 'module',
+        S.ACC + '\nreturn window.TwAccount;')(win, any, st, any, win.firebaseAPI, (f) => 0, undefined).createAccount(deps);
+    }catch(e){ chk(false, 'account.js 를 만들지 못했다 — ' + e.message); }
+    if(acc){
+      const lo = await acc._loginDoLogout({ force: true });
+      chk(lo && lo.ok, '로그아웃이 끝난다');
+      chk(rec.join() === 'migrate:' + A + ',plFlushDone,wipe', '★ 차례: 옛 값 옮기기 → 플레이리스트 마지막 올리기가 끝남 → 지우기(wipe)  [' + rec.join(' → ') + ']');
+    }
+    st.o = {}; 
+    const accOut = async () => {
+      const r2 = []; deps.accountLegacyStore = { migrateLegacy: (c) => { r2.push('migrate:' + c); return {}; } };
+      const a2 = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'setTimeout', 'module', S.ACC + '\nreturn window.TwAccount;')(win, any, st, any, win.firebaseAPI, (f) => 0, undefined).createAccount(deps);
+      await a2._loginDoLogout({ force: true }); return r2;
+    };
+    chk((await accOut()).length === 0, '  ↳ 로그인 전(이 PC 에 코드 없음)의 로그아웃은 옮기기를 부르지 않는다');
+  }
+
   say('── 7. 배선');
   {
     chk(/const accountStoreMod = TwAccountStore\.createAccountStore\(\{ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: \(\)=>acctStateMod\._acctDetached\(\) \}\);/.test(S.APP), 'app.js — getMyUserId(부를 때마다 읽는 함수)로 만든다');
@@ -215,6 +274,10 @@ await judge(SRC0);
 
 say('── 8. 일부러 깨 보기');
 const BREAKS = [
+  ['APP', "accountStoreMod.migrateLegacy(getMyUserId());\n", "", '부팅 때 옛 값을 안 옮김'],
+  ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n", "", '로그아웃이 옛 값을 안 옮김'],
+  ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n  if(uid){\n    const fl = await _acctFlushToServer();", "  if(uid){\n    const fl = await _acctFlushToServer();\n    accountLegacyStore.migrateLegacy(uid);", '로그아웃이 올린 뒤에 옮김(순서 뒤집기)'],
+  ['ACC', "const fl = await _acctFlushToServer();", "const fl = (_acctFlushToServer(), { timedOut:false });", '플레이리스트 마지막 올리기를 안 기다리고 지움'],
   ['STORE', "function cellName(code, key){ return CELL_PREFIX + code + '.' + key.replace(/^tw\\./, ''); }", "function cellName(code, key){ return key; }", '계정 코드를 칸 이름에 안 넣음(PC 한 칸)'],
   ['STORE', "return validCode(code) ? cellName(code, key) : null;", "return validCode(code) ? cellName(code, key) : key;", '로그인 전에 PC 칸을 씀'],
   ['STORE', "const CODE_RE = /^u[0-9a-z]{8,40}$/i;", "const CODE_RE = /^.*$/;", '코드 모양을 안 봄(점 · 슬래시)'],

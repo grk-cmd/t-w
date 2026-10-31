@@ -862,6 +862,9 @@ function getMyUserId(){
 }
 /* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
 const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
+/* 0.12 이 이 PC 에 남긴 값(PC 칸)을 이 PC 에 적힌 계정 칸으로 한 번 옮긴다 — 계정 칸을 읽는 모듈(포커스 누적 · 바탕화면)을 만들기 **전에** 해야 한다.
+   서버 확인 뒤로 미루면 그 사이 모듈이 «없음» 으로 읽고 저장해 버려 옛 값이 «이미 있음» 으로 버려진다. 코드가 없는 PC(처음 켠 PC)는 아무것도 안 한다. */
+accountStoreMod.migrateLegacy(getMyUserId());
 /* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
@@ -7044,6 +7047,7 @@ const accountMod = TwAccount.createAccount({
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
+  accountLegacyStore: accountStoreMod,
   FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
   GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
   GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
