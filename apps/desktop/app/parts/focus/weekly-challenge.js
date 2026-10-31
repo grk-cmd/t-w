@@ -61,6 +61,8 @@ const appMode = deps.appMode;                   // 'run' | … — app.js 의 ap
    ★ 저장 정책은 **가챠 쪽(ts 최신 승)** 을 베꼈다 — focus/totalSec 의 max+증분이 아니다.
      주간 상태는 눈금이 아니라 "지금 어떤 주를 어떤 조건으로 하고 있는가"라는 한 덩어리라서,
      두 기기 값을 합치면 (월은 A기기 조건, 화는 B기기 조건 같은) 말이 안 되는 주가 만들어진다.
+   ⚠️ 이번 실행에서 서버 기록을 받기 전엔 tick 이 판정하지 않는다(_chalSyncedUid) — ts 최신 승이라
+     받기 전에 이 기기의 옛 기록으로 하루 넘김 · 정산을 하면 그게 다른 기기의 오늘을 덮는다.
    ★ 초는 로컬에만 쌓는다. 서버 쓰기는 **판정이 실제로 바뀌는 순간**과 런처 복귀뿐이다.
      🎯집중의 누적 초를 매번 올리면 하루 수천 write 가 된다.
    ⚠️ _focusTotalSec(평생 누적)을 재사용하지 않는다. 그 값은 서버 max 병합이라 다른 기기 값이
@@ -158,6 +160,9 @@ function _chalBlank(){
 }
 let chalRec = _chalBlank();
 let _chalDirty = false, _chalSyncing = false, _chalPopOpen = false, _chalPrevMode = null;
+/* 이번 실행에서 서버 기록을 받아 온 계정. 받기 전에 tick 이 돌면 이 기기의 옛 기록으로 하루 넘김 · 정산을
+   하고 «지금 시각» 으로 올려, 다른 기기의 오늘 기록을 통째로 덮는다(ts 최신 승). 그래서 받기 전엔 판정하지 않는다. */
+let _chalSyncedUid = '';
 /* 세그먼트로 지금 **보고 있는** 페이즈. null = 진행 중인 트랙(라이브).
    ⚠️ chalRec 에 넣지 않는다 — 화면을 넘길 때마다 ts 가 찍혀 서버 쓰기와 기기 간 핑퐁이 생긴다.
      이건 저장할 상태가 아니라 지금 이 창의 시선이다. */
@@ -417,6 +422,13 @@ function _chalTick(){
     if(_chalActive() && !chalRec.paused){ chalRec.paused = true; _chalSave(); }
     return;
   }
+  /* 서버 기록을 받기 전엔 판정하지 않는다(_chalSyncedUid 주석). 못 받았으면 20초 tick 이 다시 받아 본다. */
+  const uid = getMyUserId();
+  if(!uid || _chalSyncedUid !== uid){
+    if(uid) try{ syncChalToServer('retry').then(()=>{ if(_chalSyncedUid === uid) _chalTick(); }); }catch(_){}
+    _chalRender();
+    return;
+  }
   /* ⚠️ 대기줄은 **트랙이 없을 때도** 두드린다. 정산 지급이 실패한 경우가 정확히 이 상태다
      (정산이 트랙을 닫고 나가므로, 여기서 안 돌리면 그 뽑기는 영영 안 온다). */
   try{ _chalRetryDue(); }catch(_){}
@@ -621,11 +633,12 @@ async function syncChalToServer(reason, mode){
       if(!chalRec.ts) _chalSave(true);
       await firebaseAPI.saveChal(uid, chalRec);
     };
-    if(mode === 'pull'){ if(sHas) _adopt(); else await _push(); return; }
+    if(mode === 'pull'){ if(sHas) _adopt(); else await _push(); _chalSyncedUid = uid; return; }
     const myTs = Number(chalRec.ts) || 0;
     if(sTs > myTs)              _adopt();
     else if(myTs > sTs)         await _push();
     else if(!sHas && myTs)      await _push();
+    _chalSyncedUid = uid;
     /* 보상 합계는 chal 과 다른 노드에 있으므로 읽기가 한 번 더 든다.
        판정이 바뀔 때마다 읽을 이유는 없다 — 값이 변하는 건 정산 때뿐이다. */
     if(reason === 'boot' || reason === 'launcher' || reason === 'settle'){
@@ -1225,7 +1238,7 @@ return {
   isOpen: _chalIsOpen,
   focusTick: _chalFocusTick,              // _applyActiveAppState(500ms) — 🎯집중 초
   setKeyPlatform(v){ _chalKeyPlatform = v; },   // 활성 앱 상태가 알려 주는 이 기기 플랫폼('win' · 'mac')
-  resetMemory(){ chalRec = _chalBlank(); _chalDirty = false; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
+  resetMemory(){ chalRec = _chalBlank(); _chalDirty = false; _chalSyncedUid = ''; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-weekly-challenge.js */
   calc: { phaseOf:_chalPhaseOf, weekStr:_chalWeekStr, dayIdx:_chalDayIdx, ticketsFor:_chalTicketsFor,
           earlyKey:_chalEarlyKey, ruleItems:_chalRuleItems, rewardLine:_chalRewardLine, cfgLabel:_chalCfgLabel,

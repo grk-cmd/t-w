@@ -261,7 +261,7 @@
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
 | **sim-scheduler.js** | 261 | **ded3144b895d** |
-| **sim-weekly-challenge.js** | 345 | **35279543c804** |
+| **sim-weekly-challenge.js** | 387 | **75af5509b25f** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 291 | **d7d424fc8974** |
