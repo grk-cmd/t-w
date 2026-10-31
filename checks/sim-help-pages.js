@@ -6,7 +6,7 @@
           ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
    ・4절: 깨 보기
    ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절)
-   ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 */
+   ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 · 사라진 옛 편(OLD_SLUGS)은 빠짐없이 넘긴다 */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -20,6 +20,8 @@ if (!fs.existsSync(path.join(DIR, 'index.html'))){ say('  ? 원본 못 찾음 �
 
 // 같은 사이트에 있지만 튜토리얼이 아닌 페이지 — 목차 · 이전/다음 · 칸 안 모양 규칙 밖(처리방침은 sim-bug-cleanup · sim-chat-history, 폰 연결은 sim-mobile-focus 가 본다)
 const OTHER_PAGES = ['privacy.html', 'link.html'];
+// 밖에 공유됐을 수 있는 옛 편 주소 — 편을 나누며 없앤 번호(지금 «묶음-편» 번호와 겹치지 않는 것). 편을 다시 없애면 여기에 더한다
+const OLD_SLUGS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10'];
 
 function load(){
   const pages = {};
@@ -81,6 +83,9 @@ function judge({ pages, files, sizes, fontCss, toc, redirects }){
     if (!pages[dst + '.html']) errs.push('옛 주소 /' + src + ' → /' + dst + ' 가 없는 편으로 간다');
     if (pages[src + '.html']) errs.push('옛 주소 넘기기 /' + src + ' 가 지금 있는 편을 가린다');
   }
+  /* 사라진 옛 편 주소는 빠짐없이 넘긴다 — 편도 없고 넘기기도 없으면 공유된 링크가 빈 페이지(404)가 된다 */
+  const sources = new Set(redirects.map(r => String(r.source || '').replace(/^\//, '')));
+  for (const o of OLD_SLUGS) if (!pages[o + '.html'] && !sources.has(o)) errs.push('옛 주소 /' + o + ' 가 편도 넘기기도 없다(404)');
   return errs;
 }
 
@@ -131,6 +136,7 @@ const breaks = [
   ['GIF 그림', (w) => { w.files.add('img/5/99.gif'); w.pages['7-1.html'] += '<figure><img src="/img/5/99.gif" alt=""></figure>'; }],
   ['2MB 넘는 그림', (w) => { const f = [...w.files].find(x => x.startsWith('img/')); w.sizes[f] = IMG_MAX + 1; }],
   ['옛 주소가 없는 편으로 감', (w) => { w.redirects[0].destination = '/99-9'; }],
+  ['사라진 옛 주소 넘기기가 빠짐', (w) => { w.redirects = w.redirects.filter(r => r.source !== '/5'); }],
   ['옛 주소가 지금 편을 가림', (w) => { w.redirects.push({ source: '/3-1', destination: '/3-2', type: 301 }); }],
   ['박아 넣은 그림', (w) => { w.pages['5-1.html'] += '<img src="data:image/png;base64,AA">'; }],
 ];
