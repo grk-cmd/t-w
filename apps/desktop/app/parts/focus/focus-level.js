@@ -45,10 +45,12 @@ const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
 const setFocusSessionSec = deps.setFocusSessionSec;   // 쓰는 함수
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
 const setFocusTotalSec = deps.setFocusTotalSec;   // 쓰는 함수
+const focusTotalStarted = deps.focusTotalStarted;   // 읽는 함수 — 계정 칸의 누적을 읽은 뒤에만 더하고 쓴다
 /* 레벨이 바뀐 순간에만 프로필을 갱신한다(친구 목록 레벨 배지용).
    매초 쓰면 비용이 커지므로, 값이 실제로 달라졌을 때만 1회 쓴다. */
 let _lastPushedLevel = 0, _lastPushedStar = '';
 function _pushLevelIfChanged(){
+  if(!focusTotalStarted()) return;   // 누적을 읽기 전의 0 으로 프로필 레벨을 쓰지 않는다
   try{
     const lv = getFocusLevel();
     /* 🌟 회차에서는 해금 레벨이 999 에 머문다 — 그래도 이번 바퀴 레벨·회차·색이 바뀌면 프로필을 다시 쓴다(개정 70).
@@ -180,6 +182,7 @@ function _notifyDeskUnlocks(lv){
 }
 function addFocusSeconds(sec){
   if(!(sec>0)) return;
+  if(!focusTotalStarted()) return;   // 계정 확인 전 — 누적에 더하지도 쓰지도 않는다
   const capSec=FOCUS_TOTAL_CAP_SEC;   // ★ 레벨 상한이 아니라 **누적 상한**이다(999시간 → 100회차)
   if(_focusTotalSec()<capSec) setFocusTotalSec(Math.min(capSec,_focusTotalSec()+sec));   // 99,900시간에서 멈춤
   if(focusLevelStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) setFocusTodaySec(0);   // 오전 6시 넘겼으면 오늘치 리셋 후 이어 누적

@@ -2,7 +2,7 @@
    실행:  node sim-app-boot.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 기능마다 «계정 확인 전 · 실패 · 나중에 확인» 을 버티는 장치가 서른 개 생겼고, 검토 때마다 다른 갈래로 같은 구멍이 나왔다
      (접속 고정이 지난 사본을 읽음 · 가입 필요인데 마이홈이 이미 씀 · 옛 값 옮기기가 확인 전에 엉뚱한 칸으로). 시작을 «들어간 뒤» 한 곳으로 모았으니 그 한 곳을 실제로 돌려 본다.
-   ・1절: 만들기만 하면 아무것도 안 부른다 · 차례 표(열넷 — 공지는 계정과 무관해 표에 없다) 그대로 · «계정에 들어감» 알림(nav)에 begin 을 건다
+   ・1절: 만들기만 하면 아무것도 안 부른다 · 차례 표(열다섯 — 공지는 계정과 무관해 표에 없다) 그대로 · «계정에 들어감» 알림(nav)에 begin 을 건다
    ・2절: 들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)
    ・3절: 알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정) 시작 0번 · 계정 없음(빈 me)도 0번
    ・4절: 두 번 부르면 두 번째는 무시(시작 한 번뿐) · 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다 · 표와 starts 가 어긋나면 만들 때 던진다
@@ -20,7 +20,7 @@ const MOD = read('launcher/app-boot.js'), HTML = read('desk-companion-prototype.
 if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 
 /* 정본 차례 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
-const ORDER = ['focusTotal', 'focusLevel', 'weeklyChal', 'gacha', 'slotSync', 'chars', 'mhInit', 'scheduler', 'roomInvite', 'desktopBg', 'playlist', 'licenseVerify', 'licenseRequest', 'firstRun'];
+const ORDER = ['focusTotal', 'focusShare', 'focusLevel', 'weeklyChal', 'gacha', 'slotSync', 'chars', 'mhInit', 'scheduler', 'roomInvite', 'desktopBg', 'playlist', 'licenseVerify', 'licenseRequest', 'firstRun'];
 
 function build(src, o) {
   o = o || {};

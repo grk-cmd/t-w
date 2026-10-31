@@ -21,7 +21,7 @@ const FN_DEPS = [];
 const VAL_DEPS = ["focusTotalStore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["startFocusTotal","DAY_START_HOUR","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","FOCUS_TOTAL_KEY","_dayShifted","_focusDayStr","_focusSessionSec","setFocusSessionSec","_focusTodaySec","setFocusTodaySec","_loadFocusTotalSec","_rolloverFocusToday","_todayStr"];
+const EXPORTS = ["startFocusTotal","started","DAY_START_HOUR","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","FOCUS_TOTAL_KEY","_dayShifted","_focusDayStr","_focusSessionSec","setFocusSessionSec","_focusTodaySec","setFocusTodaySec","_loadFocusTotalSec","_rolloverFocusToday","_todayStr"];
 const MOVED = ["FOCUS_TOTAL_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TODAY_DATE_KEY","FOCUS_LEVEL_CAP_HOURS","FOCUS_CYCLE_SEC","FOCUS_CYCLE_CAP","FOCUS_TOTAL_CAP_SEC","_todayStr","DAY_START_HOUR","_dayShifted","_focusDayStr","_focusMigrateDayKey","_loadFocusTotalSec","_loadFocusTodaySec","_focusTodaySec","_focusSessionSec","_rolloverFocusToday"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  focusTotalStore: accountStoreMod,"];
 

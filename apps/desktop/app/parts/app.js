@@ -8709,6 +8709,7 @@ const adminReport = TwAdminReport.createAdminReport({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusLevelMod = TwFocusLevel.createFocusLevel({
   focusLevelStore: accountStoreMod,
+  focusTotalStarted: ()=>focusTotalMod.started(),
   DANCE_MOVES: iDeskMod.DANCE_MOVES,
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
@@ -9135,6 +9136,7 @@ const appBoot = TwAppBoot.createAppBoot({
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     focusTotal: ()=>{ focusTotalMod.startFocusTotal(); _focusTotalSec = focusTotalMod._loadFocusTotalSec(); },
+    focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: ()=>focusLevelMod.startFocusSync(),
     weeklyChal: ()=>weeklyChal.startChalSync(),
     gacha: ()=>gachaMod.startGachaSync(),

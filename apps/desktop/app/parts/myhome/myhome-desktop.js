@@ -135,10 +135,18 @@ function advLoad(){
                hp:(typeof o.hp==='number')?o.hp:100, inf:0, inv:{}, weapons:[], scene:'camp', bg:o.bg||null };
     }
   }catch(_){}
+  return advDefault();
+}
+/* 계정 칸에 저장본이 없을 때의 기본 — 시작(startBgSync) 전 화면도 이 빈 상태로 그린다 */
+function advDefault(){
   return { slots:[blankSlot(),blankSlot(),blankSlot()], active:0, st:100, stLevel:null, hp:100,
            inf:0, inv:{}, weapons:[], scene:'camp', bg:null };
 }
-function advSave(){ try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }
+let advStarted = false;   // 계정 확인을 통과해 계정 칸을 읽은 뒤 true — 그 전에는 저장하지 않는다(빈 기본값이 저장본을 덮지 않게)
+function advSave(){
+  if(!advStarted) return;
+  try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){}
+}
 // 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
 //   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){
@@ -198,9 +206,8 @@ async function advPullBg(uid){
 }
 let advVisitBg = null;   // 방문 중일 때 표시할 "집주인의" 배경 ({img}|{color}|null)
 let mhdFF = null;        // 📂 폴더 자유배치(folder-free.js) — advApplyFolderHide · mhdMountApp 가 이른 시점에도 보므로 위에 둔다
-const ADV = advLoad();
-let editSlot = ADV.active;
-try{ if(!advStore.get(ADV_KEY)) advSave(); }catch(_){}
+const ADV = advDefault();   // 계정 확인 뒤 startBgSync 가 계정 칸에서 채운다(만들 때 읽지 않는다)
+let editSlot = 0;
 
 function curSlot(){ return ADV.slots[editSlot]; }
 function activeSlot(){ return ADV.slots[ADV.active]; }
@@ -3598,7 +3605,17 @@ window.MYHOME_DESKTOP = {
   version: 1,
 
   /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 내 바탕화면 배경을 서버와 맞춘다(서버를 먼저 읽고 더 최근에 고른 쪽을 따른다). */
-  startBgSync(uid){ advPullBg(uid); },   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
+  startBgSync(uid){
+    if(!uid) return;
+    const loaded = advLoad();   // 계정 칸에서 읽어 기본값 자리에 채운다(ADV 는 여러 곳이 잡고 있어 같은 객체를 유지)
+    for(const k of Object.keys(ADV)) delete ADV[k];
+    Object.assign(ADV, loaded);
+    editSlot = ADV.active;
+    advStarted = true;
+    try{ if(!advStore.get(ADV_KEY)) advSave(); }catch(_){}
+    if(!advVisiting) advApplyBg();
+    advPullBg(uid);   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
+  },
 
   /* 폴더 아이콘 등록. advInit 전에 불러도 되고(대기열에 쌓았다가 마운트), 후에 불러도 된다. */
   addFolder(o){
