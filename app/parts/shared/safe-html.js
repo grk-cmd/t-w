@@ -5,7 +5,7 @@
    ★ 새 escape 를 다른 파일에 만들지 않는다 — sim-safe-html.js 가 parts/ 전체를 파서로 훑어 빨강을 낸다.
    ★ 프로퍼티(`el.textContent` · `el.title` · `img.src`)에 넣을 때는 text/attr 을 쓰지 않는다 — `&lt;` 가 글자로 보인다.
      주소는 프로퍼티라도 safeUrl 을 거친다.
-   받는 것 없음(실릴 때 바로 쓴다). 내보냄: window.TwSafeHtml = { text, attr, safeUrl, cssUrl, cssColor }.
+   받는 것 없음(실릴 때 바로 쓴다). 내보냄: window.TwSafeHtml = { text, attr, safeUrl, cssUrl, cssColor, linkify }.
    app.js · 쓰는 모듈보다 먼저 싣는 classic script. */
 (function(){
 
@@ -58,7 +58,27 @@ function cssColor(c){
   return s;
 }
 
-const api = Object.freeze({ text, attr, safeUrl, cssUrl, cssColor });
+/* 글 속 http(s) 주소를 누를 수 있는 칸으로 — 나머지 글은 text 로 씻는다. 주소는 safeUrl('link') 를 지난 것만.
+   칸은 <span class="ext-link" data-url="…"> 다(<a href> 아님) — 누르면 앱 화면이 그 페이지로 넘어가지 않고,
+   부르는 쪽 클릭 처리가 data-url 을 다시 safeUrl 로 거른 뒤 기본 브라우저(companion.openBrowser)로 연다.
+   문장 끝 문장부호(. , ; : ! ? ) ])는 주소에 넣지 않는다. */
+const URL_IN_TEXT = /https?:\/\/[^\s<>"'`]+/gi;
+const URL_TAIL = /[.,;:!?)\]]+$/;
+function linkify(s){
+  const str = String(s == null ? '' : s);
+  let out = '', last = 0, m;
+  URL_IN_TEXT.lastIndex = 0;
+  while((m = URL_IN_TEXT.exec(str))){
+    const raw = m[0].replace(URL_TAIL, '');
+    const url = safeUrl(raw, 'link');
+    if(!url) continue;
+    out += text(str.slice(last, m.index)) + '<span class="ext-link" data-url="' + attr(url) + '">' + text(raw) + '</span>';
+    last = m.index + raw.length;
+  }
+  return out + text(str.slice(last));
+}
+
+const api = Object.freeze({ text, attr, safeUrl, cssUrl, cssColor, linkify });
 if(typeof window !== 'undefined') window.TwSafeHtml = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -272,6 +272,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - `safeUrl(u, kind)` → 허용 안 되면 `''`. `'image'` = `data:image/(png|jpeg|webp|gif);base64,` · `https:`(호스트는 아직 안 좁힘) / `'link'` = `https:` · `http:`(2048자 상한). `new URL` 로 읽어 `JaVaScRiPt:` · `\tjavascript:` · `//evil` · 상대 주소를 막는다. 돌려주는 값은 정규화한 주소.
   - `cssUrl(u)` → `url("…")` 통째로(`safeUrl(u,'image')` + 따옴표 · 역슬래시 막기), 안 되면 `''`.
   - `cssColor(c)` → 색 · 그라데이션 값 그대로, 주소를 부르는 글(`url(` · `image-set(` …)이나 다른 선언으로 넘어가는 글자(`; { } \ < >` 따옴표)가 있으면 `''`.
+  - `linkify(s)` → 글 속 `http(s)` 주소(`safeUrl(…,'link')` 를 지난 것)만 `<span class="ext-link" data-url="…">` 칸으로, 나머지는 `text`. `<a href>` 가 아니라 눌러도 앱 화면이 안 넘어간다 — 부르는 쪽 클릭 처리가 `data-url` 을 다시 `safeUrl` 로 거른 뒤 `companion.openBrowser`. 문장 끝 `. , ; : ! ? ) ]` 는 주소에서 뺀다. 지금 쓰는 곳: 🐞 버그제보 게시판 본문 · 답변 · 답글.
   ```js
   el.innerHTML = '<b title="' + TwSafeHtml.attr(m.memo) + '">' + TwSafeHtml.text(m.name) + '</b>';
   const src = TwSafeHtml.safeUrl(item.url, 'image'); if(src) img.src = src;

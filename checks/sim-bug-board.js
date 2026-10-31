@@ -187,6 +187,17 @@ chk(/prvOnly \? ' checked disabled'/.test(UI), '비공개 글이면 답변 공�
 const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
 chk(!/\b(alert|confirm|prompt)\(/.test(noC(UI)), 'alert · confirm · prompt 를 쓰지 않는다');
 chk(!/innerHTML[^;]*\+\s*(it|ct|a|post)\.(title|body|text|name|env|kakao)\b/.test(UI), '사용자 문자열은 esc() 를 거쳐 innerHTML 에 들어간다');
+/* 🔗 본문 · 답변 · 답글 속 주소 — 씻은 칸(TwSafeHtml.linkify — 실행 검사는 sim-safe-html.js)으로 그리고, 누르면 다시 거른 뒤 기본 브라우저로 */
+chk(/const linked = \(s\) => TwSafeHtml\.linkify\(s\);/.test(UI) && /'<div class="bb-body">' \+ linked\(ct \? ct\.body/.test(UI)
+  && (UI.match(/<div class="bb-ans-t">' \+ linked\(a\.text\)/g) || []).length === 2 && !/esc\(a\.text\)|esc\(ct \? ct\.body/.test(UI),
+  '본문 · 운영자 답변 · 글쓴이 답글의 주소는 linkify 로 누를 수 있는 칸이 된다(esc 로만 그리는 곳 0)');
+{
+  const d0 = UI.indexOf("$('bbDetailView').addEventListener('click'"), d1 = UI.indexOf("const el = e.target.closest('[data-act]')", d0);
+  const h = d0 > 0 && d1 > d0 ? UI.slice(d0, d1) : '';
+  chk(/e\.target\.closest\('\.ext-link\[data-url\]'\)/.test(h) && /TwSafeHtml\.safeUrl\(ln\.dataset\.url, 'link'\)/.test(h) && /if\(url && window\.companion && companion\.openBrowser\) companion\.openBrowser\(url\)/.test(h),
+    '  누르면 data-url 을 safeUrl 로 다시 거른 뒤 기본 브라우저(openBrowser)로 — 앱 화면은 그대로');
+}
+chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link — 밑줄 · 손가락)은 공용 스타일');
 
 say('§4 쪽 넘김 (가짜 RTDB)');
 {
