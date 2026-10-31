@@ -72,3 +72,35 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 프로그램 설정 바로 뒤에서 만들기만).
 - 목록 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(`window.TwOssNotices` · 손으로 고치지 않는다). 줄은 `VENDOR` + 앱이 직접 쓰는 npm 패키지, 하위 패키지는 그 줄 원문 안으로. 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 lock 운영 패키지를 다 덮지 않으면 빨강.
 - 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `shared/outside-close.js`. 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+
+## `notice-api.js` · `notice-feed.js` — 📢 공지 한 판(소식 · 업데이트 공지 · 런처 배너)
+
+**책임** — 공지의 원본은 서버다. `GET /v1/notices`(공개 · ETag — 같으면 304) 한 번에 소식(고정 + 최신 30) · 업데이트 공지 · 런처 배너를 받는다.
+`notice-api.js` 는 서버 모양(대문자 `tag` · `publishedAt` · `imageUrl` · `linkUrl`)을 화면 모양(소문자 tag · `ts` ms · `img` · `link`)으로 맞추는 provider 한 곳이고, 관리자 소식 쓰기(올리기 `POST /v1/admin/notices/broadcasts` · 📌 `PATCH` · 내리기 `DELETE`)도 여기다.
+`notice-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음, realtime `notices` 알림이 오면(오래 끊겼다 붙을 때 포함) 다시 받기, 받는 쪽마다 `onChange`.
+옛 장치는 걷었다: 버전 확인 + 이 PC 캐시(`broadcast-cache.js`) · 배너를 `localStorage('tw.adBanner')` 에 옮겨 적기 · 확성기의 `ts + duration` 계산.
+
+**만드는 법** — app.js 의 마이홈 처음 준비 만드는 줄 앞에서:
+
+```js
+const noticeFeed = TwNoticeFeed.createNoticeFeed({
+  api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),
+  rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+  store: accountStoreMod,   // 마지막으로 받은 소식 묶음(계정 칸 `tw.noticeBoard`)
+});
+TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
+```
+
+**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()`(보여 줄 소식이 있나 — 받았거나 저장본) · `confirmed()`(서버에서 받았나) · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
+쓰는 곳: 알림함 «소식» 칸(`myhome-inbox.js` · `myhome-init.js` 가 새 소식 토스트) · 런처 배너(`ad-banner.js` · 설정 패널 배너 `settings-panel.js`) · 업데이트 공지 팝업(app.js — 처음 받았을 때 한 번).
+확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
+
+**오류 번호** — `E-MH-09`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-12`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
+못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 공지 바뀜 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
+
+**함정**
+- **저장본**: 마지막으로 받은 소식 묶음(고정 + 최근 · `hasMore`)을 계정 칸에 남겨 켜면 바로 그린다. 응답이 오면 통째로 갈아 끼우고 다시 저장한다(맞추기 · 커서 없음). 계정이 바뀌면 그 계정 저장본만 보이고(없으면 «불러오는 중»), 깨진 저장본은 무시한다. 저장본을 보여 주는 동안은 낡은 값이라 관리자 📌 · 🗑 은 응답 뒤에만(`confirmed()`). 업데이트 공지 · 배너는 저장하지 않는다.
+- 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).
+- 업데이트 공지의 «다시 보지 않기» 는 공지 시각(ms)을 기억한다 — 서버 시각으로 바뀌어 Firebase 시절 기억값과는 달라 한 번 더 뜰 수 있다.
+- 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 길로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).
+검사: `checks/sim-notice-api.js` · `checks/sim-notice-feed.js`(입력 → 출력 · 상태 · 409 · 깨 보기) · `checks/sim-ad-banner.js`(배너 그리기).

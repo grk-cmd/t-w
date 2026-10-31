@@ -2,7 +2,8 @@
    app.js «🏠 마이홈 2단계 — 내 마이홈 데이터(_myHomeData) · 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 44번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 7줄 —
-     _myHomeFriends · _schedDdaysVisitUnsub · myHomeOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setSchedDdaysVisitUnsub · setMyHomeOpen(…).
+     _myHomeFriends · myHomeOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMyHomeOpen(…).
+     스케줄러(달력 · 디데이)는 mhScheduler.startVisit(친구) · endVisit() 하나씩 — 받기 · 끊기는 스케줄러가 한다.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 마이홈 공용 상태(데이터 · 불러옴 · 계정 · 관람 중 uid · 이름)는 myhome-state.js 로 옮겼다(모듈 순환 끊기 4) — 읽는 함수 · 쓰는 함수로 받는다.
@@ -14,7 +15,6 @@
 
 function createMyHomeVisit(deps){
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
-const _schedDdaysVisitUnsub = deps._schedDdaysVisitUnsub;   // 읽는 함수
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const getMyUserId = deps.getMyUserId;
 const loadMyHomePage = deps.loadMyHomePage;
@@ -22,7 +22,6 @@ const mhScheduler = deps.mhScheduler;
 const myHomeOpen = deps.myHomeOpen;   // 읽는 함수
 const renderMyHomePage = deps.renderMyHomePage;
 const toast = deps.toast;
-const setSchedDdaysVisitUnsub = deps.setSchedDdaysVisitUnsub;   // 쓰는 함수
 const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 닉네임 입력칸 취소는 편집 묶음이 열 때만 건다
 const setMyHomeOpen = deps.setMyHomeOpen;   // 쓰는 함수
 const _myHomeData = deps._myHomeData;   // 읽는 함수 — 마이홈 공용 상태(myhome-state.js)
@@ -93,17 +92,8 @@ async function openFriendHomeView(friendId, nameHint){
     });
     window._mhReSubscribeGuestbook();
     window._mhGbRefreshBadge();   // 관람 모드 → 자기 방명록 뱃지 숨김
-    // 👀 스케줄러도 친구 것으로 — 달력(공개 일정만) + D-day(공개만) 구독 전환
-    if(_schedDdaysVisitUnsub()){ try{ _schedDdaysVisitUnsub()(); }catch(_){} setSchedDdaysVisitUnsub(null); }
-    mhScheduler.setDdaysVisit({});
-    if(firebaseAPI.subscribeDdays){
-      setSchedDdaysVisitUnsub(firebaseAPI.subscribeDdays(friendId, dd=>{
-        const f = {}; for(const k in (dd||{})){ if(dd[k] && dd[k].public) f[k] = dd[k]; }
-        mhScheduler.setDdaysVisit(f); mhScheduler.renderDdays();
-      }));
-    }
-    mhScheduler.subscribeMonth();
-    mhScheduler.renderDdays();
+    // 👀 스케줄러도 친구 것으로 — 달력(공개 일정만) + D-day(공개만)
+    mhScheduler.startVisit(friendId);
   }catch(e){ console.warn('친구 마이홈 로드 실패', e); toast('불러오지 못했어요'); }
 }
 function closeFriendHomeView(){
@@ -124,10 +114,7 @@ function closeFriendHomeView(){
   window._mhReSubscribeGuestbook();
   window._mhGbRefreshBadge();   // 자기 홈 복귀 → 뱃지 다시 계산
   // 👀 스케줄러 원복 — 내 달력·내 D-day로
-  if(_schedDdaysVisitUnsub()){ try{ _schedDdaysVisitUnsub()(); }catch(_){} setSchedDdaysVisitUnsub(null); }
-  mhScheduler.setDdaysVisit(null);
-  mhScheduler.subscribeMonth();
-  mhScheduler.renderDdays();
+  mhScheduler.endVisit();
 }
 // 관람 모드 UI 갱신 — 타이틀 라벨/배지/버튼 + 편집 UI 잠금
 function _mhApplyVisitUI(){

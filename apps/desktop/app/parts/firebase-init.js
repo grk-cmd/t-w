@@ -47,7 +47,6 @@
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
-  import { createBroadcastSync } from "./myhome/broadcast-cache.js";
   import { createVisitPing } from "./shared/visit-ping.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
   import { createRoomServerNet } from "./room/room-server-net.js";
@@ -501,35 +500,6 @@
       if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
       await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
       console.warn('[catalog-cache] catalogMeta 규칙이 없어 버전 없이 카탈로그만 썼다 —', kinds.join(','));
-    }
-  }
-
-  /* 공용 공지 버전 확인 + 로컬 캐시 — 구조는 broadcast-cache.js 머리말. 경로를 여기 두는 이유는 위 카탈로그와 같다. */
-  const BROADCAST_OWN_WRITE_MS = 15000;   // 이 기기에서 쓴 뒤 이만큼은 공지 바뀜을 모으지 않는다(아래 liveNow)
-  let _broadcastWroteAt = 0;
-  const _subscribeBroadcast = createBroadcastSync({
-    metaRef:     () => ref(db, 'inboxBroadcastMeta'),
-    fullRef:     () => ref(db, 'inboxBroadcast'),
-    latestQuery: (n) => query(ref(db, 'inboxBroadcast'), orderByChild('ts'), limitToLast(n)),
-    pinnedQuery: () => query(ref(db, 'inboxBroadcast'), orderByChild('pinned'), equalTo(true)),
-    onValue, get,
-    scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
-    /* 이 기기에서 방금 쓴 바뀜은 모으지 않고 바로 받는다 — 관리자가 보낸 · 지운 공지가 자기 화면에 늦게 반영되지 않게 */
-    liveNow: () => Date.now() - _broadcastWroteAt < BROADCAST_OWN_WRITE_MS,
-  });
-  /* 공용 공지 쓰기(보내기 · 고정 · 삭제)는 전부 여기를 지난다 — 같은 다중 경로 update 로 inboxBroadcastMeta(서버 시각)도 올린다.
-     빠지면 사용자는 캐시해 둔 옛 공지를 캐시 수명(24시간)까지 본다. 웹 관리자는 broadcastCommit 이 같은 일을 한다.
-     규칙에 inboxBroadcastMeta 가 아직 없으면 update 가 통째로 거부된다 — 그때만 버전 없이 공지만 한 번 더 쓴다
-     (그 DB 를 쓰는 앱은 버전 구독이 거부돼 통째 구독으로 돌고 있으므로 바로 반영된다). */
-  async function _broadcastUpdate(updates){
-    _broadcastWroteAt = Date.now();   // update 를 부르는 순간 버전 구독이 (서버 시각 추정값으로) 먼저 울린다 — 그 전에 표시
-    try{
-      await update(ref(db), Object.assign({}, updates, { inboxBroadcastMeta: serverTimestamp() }));
-    }catch(e){
-      const code = String((e && (e.code || e.message)) || '');
-      if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
-      await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
-      console.warn('[broadcast-cache] inboxBroadcastMeta 규칙이 없어 버전 없이 공지만 썼다');
     }
   }
 
@@ -1272,110 +1242,6 @@
       try{ await remove(ref(db, `mobileKeys/${userId}`)); }catch(_){ ok = false; }
       return ok;
     },
-    /* ═══════════ 📅 스케줄러 ═══════════
-       users/{uid}/schedule/{YYYY-MM}/{DD}/{id} = { text, public, tags, ts }
-       users/{uid}/ddays/{id}                   = { text, date:'YYYY-MM-DD', public, ts }
-       users/{uid}/schedNotices/{id}            = { fromId, fromName, text, date, ts }
-       공개 여부: 기본 비공개(public=false). 친구를 태그하면 그 친구에게 알림이 감. */
-
-    // 한 달치 일정을 통째로 읽음 — 달력 한 화면 = 읽기 1회
-    async getScheduleMonth(userId, ym){
-      const snap = await get(ref(db, `users/${userId}/schedule/${ym}`));
-      return snap.val() || {};
-    },
-    // 실시간 구독 (내 달력용)
-    subscribeScheduleMonth(userId, ym, onChange){
-      const r = ref(db, `users/${userId}/schedule/${ym}`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async addScheduleItem(userId, ym, dd, item){
-      /* 🩹 [2026-10-02 제보 #6] «잘 쓰다가 어느 순간부터 일정 등록이 안 된다»
-         소유권이 걸린 쓰기(users/{코드}/schedule)인데 로그인 복원 대기선을 안 지나고 있었다 — 구글에 묶인 계정은
-         부팅 직후 토큰 없이 나간 쓰기가 permission_denied 로 떨어진다(위 auth barrier 주석). saveMyHome 이 같은
-         함정을 먼저 고친 자리다. 거부 사유 구분·안내는 app.js doAddSched 가 한다. */
-      await _whenAuthReady();
-      const id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-      await set(ref(db, `users/${userId}/schedule/${ym}/${dd}/${id}`), {
-        text: String(item.text||'').slice(0,40),
-        public: !!item.public,
-        ts: Date.now(),
-      });
-      return id;
-    },
-    async removeScheduleItem(userId, ym, dd, id){
-      await remove(ref(db, `users/${userId}/schedule/${ym}/${dd}/${id}`));
-    },
-    async setScheduleItemPublic(userId, ym, dd, id, isPublic){
-      await update(ref(db, `users/${userId}/schedule/${ym}/${dd}/${id}`), { public: !!isPublic });
-    },
-
-    // ── D-day (기념일 카운트다운) ──
-    subscribeDdays(userId, onChange){
-      const r = ref(db, `users/${userId}/ddays`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // D-day 카드 저장 (신규/수정 겸용). bgImg는 dataURL이면 Storage로 올려 URL만 저장.
-    async saveDday(userId, id, dd){
-      await _whenAuthReady();   // 🩹 #6 — 일정과 같은 함정(users/{코드}/ddays 도 소유권 쓰기다)
-      const did = id || ('d' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
-      let bgImg = dd.bgImg || null;
-      if(bgImg) bgImg = await _uploadDataUrlIfNeeded(`users/${userId}/dday_${did}.jpg`, bgImg);
-      await set(ref(db, `users/${userId}/ddays/${did}`), {
-        kind:   dd.kind === 'dday' ? 'dday' : 'anniv',   // 'anniv'=기념일 카드(정사각) | 'dday'=배너
-        text:   String(dd.text||'').slice(0,20),
-        date:   String(dd.date||''),          // 'YYYY-MM-DD'
-        public: !!dd.public,
-        notify: !!dd.notify,                  // 알림 체크 — 다가오면 🔔에 표시
-        /* 📌 한국식 셈법(그날이 1일). ⚠️ 없는 값을 undefined 로 흘리면 set 이 이 칸을 통째로
-           빼먹고, 읽는 쪽(_ddayBase1)은 «필드 없음»을 켜진 것으로 본다 — 배너까지 켜진다. */
-        base1: !!dd.base1,
-        bgColor: dd.bgColor || null,          // 카드 배경색
-        bgImg:  bgImg || null,                // 카드 배경 이미지 URL
-        order:  (typeof dd.order === 'number') ? dd.order : null,   // 드래그로 정한 표시 순서
-        ts: dd.ts || Date.now(),
-      });
-      return did;
-    },
-    async removeDday(userId, id){
-      await remove(ref(db, `users/${userId}/ddays/${id}`));
-      try{ await _tryDeleteStorage(`users/${userId}/dday_${id}.jpg`); }catch(_){}
-    },
-    // 카드 순서 저장 (드래그로 바꾼 결과) — { id: order } 를 한 번에 반영
-    async setDdayOrder(userId, orderMap){
-      const updates = {};
-      Object.keys(orderMap||{}).forEach(id=>{
-        updates[`users/${userId}/ddays/${id}/order`] = orderMap[id];
-      });
-      if(Object.keys(updates).length) await update(ref(db), updates);
-    },
-
-    // ── 🔔 친구 태그 알림 ──
-    // 일정에 태그된 친구들에게 알림을 보냄 (각자의 schedNotices에 기록)
-    async sendScheduleNotices(fromId, fromName, toIds, text, date){
-      const now = Date.now();
-      const updates = {};
-      (toIds||[]).forEach(toId=>{
-        const nid = 'n' + now.toString(36) + Math.random().toString(36).slice(2,6);
-        updates[`users/${toId}/schedNotices/${nid}`] = {
-          fromId, fromName: fromName||'(이름 없음)',
-          text: String(text||'').slice(0,40),
-          date: String(date||''), ts: now,
-        };
-      });
-      if(Object.keys(updates).length) await update(ref(db), updates);
-      return { ok:true };
-    },
-    subscribeSchedNotices(userId, onChange){
-      const r = ref(db, `users/${userId}/schedNotices`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async removeSchedNotice(userId, id){
-      await remove(ref(db, `users/${userId}/schedNotices/${id}`));
-    },
-
     /* 범용 이미지 업로드 — 디자인 스튜디오 등에서 파일로 고른 이미지를 Storage에 올리고 URL을 받음.
        slot: 'bg' | 'panel_xxx' 등 용도별 키. 같은 slot에 다시 올리면 덮어씀(용량 누적 방지). */
     // 🏊 방 입장용 얼굴/눈감기 PNG를 Storage에 올리고 URL 반환 — 방 payload 다이어트(가) 단계.
@@ -3474,11 +3340,6 @@
       await set(ref(db, 'catalog/adBanner'), slides);
       return { ok:true };
     },
-    subscribeAdBanner(onChange){
-      const r = ref(db, 'catalog/adBanner');
-      onValue(r, snap => onChange(snap.val() || []));
-      return () => off(r, 'value');
-    },
 
     /* ---- 게임 설정(관리자 전용) ----
        동물 해금 레벨처럼 '앱을 새로 배포하지 않고 바꾸고 싶은 값'을 서버에 둔다.
@@ -3714,12 +3575,6 @@
       await remove(ref(db, 'announce/current'));
       return { ok:true };
     },
-    // 전체 유저가 구독 — 초기 접속 시 즉시 1회 + 발행/삭제 시마다 호출. null이면 공지 없음.
-    subscribeAnnounce(onChange){
-      const r = ref(db, 'announce/current');
-      onValue(r, snap => onChange(snap.val() || null));
-      return () => off(r, 'value');
-    },
     // ===== 📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업) =====
     // updateNotice/current = { title, body, ts } — ts는 발행 시각(버전 구분자로도 씀).
     //   유저가 "다시 보지 않기" 체크하면 localStorage에 그 ts를 기록해서 같은 ts면 스킵.
@@ -3737,31 +3592,8 @@
       return snap.val() || null;
     },
     /* ═══════════ 📩 수령함 (구 DM 자리) ═══════════
-       스키마: inbox/{uid}/{msgId} = { tag, title, body, ts, read }
-       · tag: 'notice' | 'update' | 'reward'   ← [공지] [업데이트] [보상] 태그로 표시
-       · 관리자가 전체 유저에게 일괄 전송(sendInboxBroadcast)하거나,
-         시스템(보상 시스템·업데이트 등)에서 특정 유저에게 개별 전송(sendInboxMessage)
-       · 유저는 읽기 표시(markInboxRead)와 삭제(deleteInboxMessage)만 가능(작성 불가) */
-    subscribeInbox(myId, onChange){
-      const r = ref(db, `inbox/${myId}`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async markInboxRead(myId, msgId){
-      try{ await update(ref(db, `inbox/${myId}/${msgId}`), { read: true }); }catch(_){}
-    },
-    async markAllInboxRead(myId){
-      try{
-        const snap = await get(ref(db, `inbox/${myId}`));
-        const v = snap.val() || {};
-        const updates = {};
-        Object.keys(v).forEach(id=>{ if(!v[id].read) updates[`inbox/${myId}/${id}/read`] = true; });
-        if(Object.keys(updates).length) await update(ref(db), updates);
-      }catch(_){}
-    },
-    async deleteInboxMessage(myId, msgId){
-      try{ await remove(ref(db, `inbox/${myId}/${msgId}`)); }catch(_){}
-    },
+       받기 · 읽음 · 지우기 · 공지는 서버 API 로 옮겼다(myhome/inbox-api.js · launcher/notice-api.js).
+       여기엔 관리자 코드(admin/)가 아직 부르는 «개별 보내기» 만 남는다 — 관리자 묶음이 서버 길로 옮기면 같이 걷는다. */
     // 개별 유저에게 메시지 전송 — 시스템(보상 지급/업데이트 안내 등)이 호출
     /* extra.bugId — 🐞 답변 알림(tag 'bug')이 가리키는 글. 우편함에서 누르면 그 글을 연다. */
     async sendInboxMessage(toId, tag, title, body, extra){
@@ -3775,39 +3607,6 @@
       if(extra && extra.bugId) rec.bugId = String(extra.bugId).slice(0,40);
       await set(ref(db, `inbox/${toId}/${id}`), rec);
       return { ok:true, id };
-    },
-    // 관리자: 모든 유저에게 일괄 전송 — users 목록을 읽어서 각자의 inbox에 같은 메시지를 뿌림
-    async sendInboxBroadcast(tag, title, body, pinned){
-      // ★ 공용 공지 노드(inboxBroadcast)에 1회만 씀 — 모든 유저가 이 노드를 읽음.
-      //   (예전엔 users 전체를 읽어 개인 inbox마다 복사했는데, users 전체 읽기가 규칙상 막혀 실패했음.
-      //    공지는 내용이 모두 같으니 공용 노드 하나가 맞음. "읽음"은 각자 로컬에 저장.)
-      //   📌 pinned=true면 수령함에서 시간과 무관하게 항상 최상단 고정(관리자만 지정).
-      const now = Date.now();
-      const tagFinal = (tag==='update'||tag==='reward') ? tag : 'notice';
-      const id = 'b' + now.toString(36) + Math.random().toString(36).slice(2,6);
-      const rec = {
-        tag:tagFinal, title:String(title||'').slice(0,80), body:String(body||'').slice(0,600), ts: now
-      };
-      if(pinned) rec.pinned = true;   // 고정 아닐 땐 아예 키를 안 써서 기존 규칙/데이터와 호환
-      await _broadcastUpdate({ [`inboxBroadcast/${id}`]: rec });
-      return { ok:true, count:'전체' };
-    },
-    // 📌 관리자: 기존 공지의 고정 상태만 토글 (내용은 그대로 두고 pinned만 갱신)
-    async setInboxBroadcastPinned(msgId, pinned){
-      try{
-        await _broadcastUpdate({ [`inboxBroadcast/${msgId}/pinned`]: pinned ? true : null });
-        return { ok:true };
-      }catch(_){ return { ok:false }; }
-    },
-    // 공용 공지 구독 → onChange({ id:{tag,title,body,ts} }) — 버전 확인 + 로컬 캐시(broadcast-cache.js).
-    //   통째가 아니라 최근 30개 + 고정 공지만 온다. 콜백 모양은 예전 통째 onValue 때와 같다.
-    subscribeInboxBroadcast(onChange){
-      const unsub = _subscribeBroadcast(v => onChange(v || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // 관리자: 공용 공지 삭제
-    async deleteInboxBroadcast(msgId){
-      try{ await _broadcastUpdate({ [`inboxBroadcast/${msgId}`]: null }); }catch(_){}
     },
 
     /* ═══════════ 🔑 구글 로그인 — 계정과 유저 코드를 묶는다 ═══════════

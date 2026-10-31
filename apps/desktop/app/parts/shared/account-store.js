@@ -48,7 +48,7 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate',
   'tw.playlistEditTs', 'tw.playlistBackup', 'tw.secretRoomMusic',
   'tw.userName', 'tw.customStatus', 'tw.userStatus', 'tw.awayKind', 'tw.awayImg', 'tw.awaySz', 'tw.myAdBannerImg',
-  'tw.bookmarks', 'tw.mallangGiftHidden', 'tw.inboxBcRead', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
+  'tw.bookmarks', 'tw.mallangGiftHidden', 'tw.inboxBcRead', 'tw.noticeBoard', 'tw.bellSeenTs', 'tw.reportHidden', 'tw.mobileKey',
 ]);
 /* 이름 뒤에 방 · 친구 · 종류가 붙는 키 */
 const ACCOUNT_KEY_PREFIXES = Object.freeze([

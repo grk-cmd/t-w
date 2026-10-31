@@ -338,6 +338,7 @@ PRELOAD.push('img-retry.js');
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
    ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
+PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 · 알림 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
 PRELOAD.push('scheduler.js');
 /* weekly-challenge.js — 👑 달성표(앱 FSD 2번). 같은 까닭 — 만들 때 하는 일(로컬 기록 읽기 · 부팅 동기화 · 20초 tick · 버튼 연결)을 같이 굴린다. */
 PRELOAD.push('weekly-challenge.js');
@@ -374,6 +375,11 @@ PRELOAD.push('input-diag.js');
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
 PRELOAD.push('myhome-inbox.js');
+/* inbox-api.js · mail-feed.js · notice-api.js · notice-feed.js — 📩 우편 · 📢 공지 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwInboxApi · TwMailFeed · TwNoticeApi · TwNoticeFeed 를 부른다. */
+PRELOAD.push('inbox-api.js');
+PRELOAD.push('mail-feed.js');
+PRELOAD.push('notice-api.js');
+PRELOAD.push('notice-feed.js');
 /* help-site.js · help-tab.js — 📘 도움말 탭. app.js 가 만들 때 TwHelpTab 을 부르고, 그 모듈이 TwHelpSite 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('help-site.js');
 PRELOAD.push('help-tab.js');

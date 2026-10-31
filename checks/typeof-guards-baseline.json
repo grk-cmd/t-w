@@ -1,6 +1,6 @@
 {
  "note": "sim-typeof-guards.js 기준선 — 파일별 «있으면 부르기» typeof 가드 개수(예외 빼고). 줄기만 한다: 걷었으면 같은 PR 에서 --write-baseline 으로 내리고, 새 가드는 넣지 말 것.",
- "total": 163,
+ "total": 161,
  "counts": {
   "account/account.js": 1,
   "account/license-gate.js": 1,
@@ -26,7 +26,6 @@
   "firebase-init.js": 2,
   "focus/focus-level.js": 2,
   "focus/focus-share.js": 1,
-  "launcher/ad-banner.js": 1,
   "launcher/fn-keys.js": 2,
   "launcher/launcher-chrome.js": 1,
   "launcher/program-settings.js": 3,
@@ -35,7 +34,7 @@
   "myhome/myhome-desktop.js": 21,
   "myhome/myhome-inbox.js": 2,
   "myhome/myhome-page.js": 2,
-  "myhome/myhome-ui.js": 4,
+  "myhome/myhome-ui.js": 3,
   "purikura/purikura-ui.js": 2,
   "realtime/realtime-link.js": 1,
   "room/away-pic.js": 2,

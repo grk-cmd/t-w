@@ -172,11 +172,11 @@ async function judge(S){
       const st = load(S.MS, 'TwMyHomeState').createMyHomeState({ _myHomeFriends: () => friends.v });
       const label = { textContent: '' };
       const doc = { getElementById: (id) => id === 'mhTitleLabel' ? label : any, querySelectorAll: () => [] };
-      const fapi = { getMyHome: async () => ({}), getUserNameById: async () => { L.nameReads++; return '서버이름'; }, subscribeDdays: () => () => {} };
+      const fapi = { getMyHome: async () => ({}), getUserNameById: async () => { L.nameReads++; return '서버이름'; } };
       const w2 = {};
       new Function('window', 'document', 'firebaseAPI', 'TwMyHomeHooks', 'module', 'console', S.MV)(new Proxy(w2, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } }), doc, fapi, any, undefined, { warn(){}, log(){}, error(){} });
       const mod = w2.TwMyHomeVisit.createMyHomeVisit({
-        _myHomeFriends: () => friends.v, _schedDdaysVisitUnsub: () => null, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
+        _myHomeFriends: () => friends.v, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
         renderMyHomePage: () => { L.renders++; L.titles.push(label.textContent); }, toast(){}, setSchedDdaysVisitUnsub(){}, setMyHomeOpen(){},
         _myHomeData: () => st._myHomeData(), _myHomeLoaded: () => true, _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(),
         _mhHomeFromServer: (...x) => st._mhHomeFromServer(...x), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),

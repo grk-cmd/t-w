@@ -100,7 +100,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 
 **내놓는 것** — `SECS`(['mail','news'] — 📘 도움말은 따로 탭 `help-tab.js` · 옛 'help' 값은 `normSec` 이 'mail' 로) · `CATS`(['all','notice','update']) · `tagOf(m)` · `sectionOf(m)` → 'mail' | 'news' ·
 `normSec(s)` · `normCat(c)`(옛 필터 값 'reward' · 'gift' → 'all') · `mailIds(merged)` · `newsIds(merged, cat)`(📌 고정은 종류와 상관없이 맨 위) ·
-`unread(merged)` → `{ mail, news, notice, update, total }` · `firstSec(merged)`(안 읽은 우편이 있으면 'mail', 없으면 'news').
+`unread(merged, personalUnread?)` → `{ mail, news, notice, update, total }`(개인 우편의 안 읽은 수는 서버가 센 값 `personalUnread` — 숫자가 아니면 받은 것을 센다) · `firstSec(merged, personalUnread?)`(안 읽은 우편이 있으면 'mail', 없으면 'news').
 `merged` 는 `myhome-inbox.js` 의 `_inboxMerged()` 모양(개인 `_src:'personal'` + 공용 `_src:'broadcast'` · 공용 읽음은 이 PC 집합).
 
 **확장할 때 고칠 자리** — 칸을 늘리면 `SECS` · html `#mhInboxRail` 버튼 · `#mhInboxPane-이름` 칸. 새 태그는 `tagOf` · `sectionOf`.
@@ -108,6 +108,37 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 **함정** — 서버 태그 키는 그대로다(`reward` 를 바꾸면 이미 보낸 우편이 전부 공지로 떨어진다). 보이는 글자만 `myhome-inbox.js` 표에서 바꾼다.
 우편함 탭 배지 · 🔔 벨 수는 `unread().total` 과 같아야 한다 — 따로 세지 말 것.
 검사: `checks/sim-inbox-sections.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
+
+## `inbox-api.js` · `mail-feed.js` — 📩 내 우편(서버 원본)
+
+**책임** — 우편의 원본은 서버다(`GET /v1/me/notifications?section=MAIL` · 읽음 `PATCH …/{id}` · 모두 읽음 `POST …/read-all` · 지우기 `DELETE …/{id}` · 읽은 우편 한꺼번에 `POST …/delete-read` — 서버가 내 읽은 우편을 한 번에 지우고 지운 수를 준다).
+`inbox-api.js` 는 서버 모양(종류 · `readAt` · `createdAt` · `payload` · 서버가 센 `unreadCount`)을 화면 모양(`{ tag, title, body, ts, read, bugId? }`)으로 맞추는 provider 한 곳.
+`mail-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음 상태, 새 우편 알림(realtime `notification`)이 오면 다시 받기, 읽음 · 지우기(서버가 됐다 한 뒤에만 화면 값을 고침).
+옛 장치는 걷었다: 앱이 세는 안 읽은 수 사본(서버 값을 쓴다) · Firebase 수령함 구독 · 앱이 고치던 읽음 표시.
+
+**만드는 법** — app.js 의 마이홈 처음 준비 만드는 줄 앞에서(그 줄이 `mailFeed` 를 값으로 받는다):
+
+```js
+const mailFeed = TwMailFeed.createMailFeed({
+  api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · 토스트(처음 받은 판은 새 우편이 아니다)
+```
+
+**내놓는 것** — `inbox-api`: `fetchMail(uid)` → `{ items:{id: 우편}, unread, complete }` · `markRead` · `markAllRead` · `remove` → `'ok'|'stale'|'failed'`.
+`mail-feed`: `start(uid)`(계정이 바뀌면 앞 계정 우편을 비우고 새로 받는다) · `stop()` · `refresh({ manual }?)`(`manual` = «다시 시도» · 알림함 열기 — 못 받으면 오류 번호) · `status()` · `items()` · `unread()` · `ready()` · `complete()` · `markRead(id)` · `markAllRead()` · `remove(id)` · `removeRead()`(서버가 읽은 우편을 한 번에 지운다 → 지운 수 · 못 지웠으면 null · 성공하면 서버에서 다시 받음 · 지우는 중 또 부르면 건너뜀) · `clearing()` · `onChange(fn)`.
+부르는 곳: `myhome-init.js`(켜기 · 받은 뒤 화면) · `myhome-inbox.js`(그리기 · 누름) · `focus-level.js`(해금 안내를 이미 받았는지 — `_myInbox` · `_myInboxReady` 는 `mailFeed.items()` · `ready()`).
+
+**오류 번호** — `E-MH-08`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 새 우편 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-10`(읽음) · `E-MH-11`(지우기). 계정이 바뀌는 중(`stale`)은 번호 없이 버린다.
+못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 새 우편 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
+
+**함정**
+- 쓰기는 «읽은 토큰의 주인» 과 묶는다(`expectOwner`) — 읽은 적 없는 계정이나 주인이 바뀐 뒤에는 요청 0.
+- 한 번에 4쪽(200통)까지만 받는다(`complete:false`) — 안 읽은 수는 그래도 서버 값이다. 더 보기 단추는 아직 없다.
+- 한 번도 못 받은 동안(받는 중 · 못 받음)은 «모두 읽음» · 읽음 · 지우기를 보내지 않는다. «받은 우편이 없어요» 는 받은 뒤 정말 비었을 때만 그린다.
+- 레벨 해금 · 버그 답변 우편은 서버가 만든다(앱이 자기 수령함에 쓰는 `sendInboxMessage` 는 관리자 코드와 옛 해금 안내가 아직 부르는 동안만 남는다).
+검사: `checks/sim-inbox-api.js` · `checks/sim-mail-feed.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
 
 ## `help-tab.js` — 📘 마이홈 «도움말» 탭
 
@@ -228,6 +259,35 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 **함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
 
 검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).
+
+## `schedule-api.js` — 🌐 일정 · 디데이 · 일정 알림 서버 길 provider
+
+- **책임**: 내 달력 한 달 읽기 · 일정 쓰기 · 지우기(`GET` · `POST` · `DELETE /v1/me/schedules`) · 남의 공개 일정(`GET /v1/schedules/{userCode}`) · 디데이 보드 통째 읽기 · 통째 저장(`GET` · `PUT /v1/me/ddays`) · 남의 공개 보드(`GET /v1/ddays/{userCode}`) · 친구가 태그한 알림(`GET` · `DELETE /v1/me/notifications` 의 🔔 칸). 서버 모양(`visibility` · `countFromOne` · `bgImage` · `cards` / `banners` 두 목록)을 화면 모양(`public` · `base1` · `bgImg` · `kind` · `order`)으로 맞추는 곳은 여기뿐이다. 신원은 토큰(`/v1/me/…`) — 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐).
+- **만드는 법**: `TwScheduleApi.createScheduleApi({ authed, newId, warn })` — app.js 가 스케줄러보다 먼저 만들어 `scheduleApi` deps 로 넘긴다.
+- **deps**: `authed`(`TwApi.authed`) · `newId`(`TwRequestId.newId` — 일정 쓰기의 요청 번호) · `warn`.
+- **내보내는 것**: `fetchMonth(uid, ym)` · `fetchMonthOf(userCode, ym)` · `createItem(uid, { date, text, public, tagFriends })` · `deleteItem(uid, id, version)` · `fetchBoard(uid)` · `fetchBoardOf(userCode)` · `saveBoard(uid, ddays, tag)` · `fetchBell(uid)` · `deleteBell(uid, id)` · `orderedIds(ddays, kind)`(그리기와 저장이 같은 순서를 쓰는 순수 함수) · `reset()`. 모두 못 읽으면 던진다 — 빈 달 · 빈 보드 · 알림 없음은 `{}` 로 돌려줘 «못 읽음» 과 가른다.
+- **함정**
+  - 보드는 **통째**다 — 한 장을 고쳐도 두 목록(카드 · 배너)을 순서대로 다 보낸다. 새 장은 `ddayId` 를 싣지 않고(UUID 가 아닌 임시 열쇠) 서버가 정한 id · 순서로 돌려준 보드가 정답이다. 배너에는 셈법(`countFromOne`) · 배경이 없다.
+  - 저장은 마지막으로 읽은 판을 싣는다. **409 `CONCURRENT_UPDATE` 면 판을 버려** 다시 받기(`fetchBoard`) 전에는 쓰지 못한다(같은 판으로 다시 보내 남의 고침을 덮지 않게). 같은 409 라도 `SCHEDULE_DDAY_FULL`(상한)은 판이 그대로다.
+  - 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽은 뒤 로그인한 사람이 바뀌면 요청 0 으로 `OWNER_CHANGED`. 읽은 적이 없으면(받기 전) `NOT_RECEIVED` — 요청 0.
+  - 카드 그림은 `data:` 로 들고 있다가 저장할 때만 서버에 올린다(`POST /v1/me/images?purpose=dday` — 바이트 그대로 · `Content-Type` png / webp / jpeg · 1MB 이하 · 응답 `{ url }`, `authed` 의 `rawType` 길). 1MB 를 넘거나 형식이 아니면 요청 없이, 서버가 400 · 413 · 415 로 거절해도 `IMAGE_UPLOAD`(→ `E-MH-05`)로 던지고 보드를 보내지 않는다. 계정이 바뀐 것(`OWNER_CHANGED`)은 조용히 버린다.
+  - 친구를 태그하면 서버가 공개로 바꾸고(provider 는 화면 값 그대로 보낸다 — 스케줄러가 태그할 때 «공개» 체크를 켜고 잠그고 까닭을 보이며, 태그를 빼면 원래 값으로 돌린다), **같은 요청이 알림까지 보낸다**(일정만 되고 알림만 빠지는 일이 없다). 보드는 «이번에 저장한 한 장이 속한 목록의 몇 번째» 로 태그를 싣는다.
+  - 일정의 `ts` 는 서버가 준 `createdAt` 을 ms 로 옮긴 만든 시각이다(없거나 깨지면 0 = 오래된 것). 🔔 뱃지의 «오늘 내 일정» 은 `tw.bellSeenTs` 뒤에 만든 것만 센다.
+- **검사**: `checks/sim-schedule-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
+
+## `scheduler.js` — 📅 스케줄러 · 🔔 일정 알림 (서버가 원본)
+
+- **책임**: 마이홈 [스케줄러] 탭(달력 · 📌 기념일 카드 · ⏳ D-day 배너) · 🔔 알림창(오늘 일정 · 이정표 기념일 · 친구 태그). 받기 · 쓰기는 `schedule-api.js` 로, 화면과 «오늘 날짜를 이 기기 시간대로 보는» 셈만 여기 있다.
+- **만드는 법**: app.js 가 `MhScheduler.createScheduler({ scheduleApi, apiErrors, notifyError, rtOn, getMyUserId, viewingUserId, myHomeFriends, toast, uiIconEl, escRegisterWindow, closeChipPopups, positionInputBelowChar, inboxUnreadCount, refreshFriendTabBadge, bellSeenKey, twNav })`. `rtOn(kind, fn)` 는 `TwRtHub.store.on` — 서버가 `schedule`(내 일정 · 보드가 다른 기기에서 바뀜) · `notification`(🔔 칸) · `friendSchedule`(구경 중인 친구의 일정이 바뀜 — `subject` 가 그 친구 코드)이 바뀌었다고 알리면 다시 받는다.
+- **내놓는 것**: `renderSchedCalendar` · `renderDdays` · `loadBoard`(로그인 뒤 보드 받기) · `loadMine`(계정 이어받은 뒤 전부 다시 받기) · `reset`(계정을 놓을 때) · `startVisit(친구)` · `endVisit()`(👀 구경) · `refreshBellBadge` · `renderBellList` · `isBellOpen`.
+- **화면 상태**: 달력 · 내 보드 · 친구 보드 각각 받는 중 / 받음 / 못 받음. 받는 중·못 받음은 «빈 목록» 문구가 아니라 «불러오는 중이에요» / «불러오지 못했어요 — 눌러서 다시 시도» 를 그 자리에 보이고(탭을 다시 열어도 다시 받는다), **받기 전에는 쓰기 · 편집창을 잠근다**(받은 값이 덮어 고친 것을 지우지 않게). 받기 실패 알림은 `E-MH-04` 한 번(이어지는 동안).
+- **쓰기**: 일정은 한 번에 하나 — 서버가 돌려준 일정을 달력에 얹는다(달을 통째로 다시 받지 않는다). 보드는 받기와 저장을 `_boardChain` 한 줄로 세운다 — 보내는 중에 또 고쳐도 끝난 뒤의 최신 값에서 이어 보낸다. 409 면 보내지 않고 서버 값을 다시 받아 그린 뒤 `E-NET-05`. 친구가 아닌 사람 태그(`SCHEDULE_TAG_NOT_FRIEND`)는 오류 번호 없이 «친구가 아닌 사람은 태그할 수 없어요» 토스트만(편집창은 그대로), 그 밖의 태그 거절(자기 태그 등)은 `E-MH-06`, 상한 초과는 `E-MH-07`, 카드 그림 문제는 `E-MH-05`. 계정이 바뀌는 중(`OWNER_CHANGED`)은 조용히 버린다.
+- **함정**
+  - 🔔 뱃지는 «오늘 내 일정 · 친구 태그 알림» 모두 만든 시각이 `tw.bellSeenTs` 보다 뒤인 것만 센다. 오늘이 이정표인 D-day 만 «오늘 알림창을 열어 봤는가»(날짜)로 센다.
+  - 친구 구경 중 `schedule` 알림이 와도 달력은 건드리지 않는다(내 알림이라서) — 내 보드 · 오늘 일정 · 알림만 다시 받는다. 친구 것은 `friendSchedule` 의 `subject` 가 **지금 구경 중인 친구와 같을 때만** 보는 달 · 보드를 조용히 다시 받는다(아니면 요청 0 · 받는 중에 또 오면 끝난 뒤 한 번 더 · 실패하면 번호 없이 지금 화면 유지 · 구경을 끝냈거나 친구를 옮긴 뒤 늦게 온 답은 버림). 오래 끊겼다 붙을 때(`resync` — 친구 코드 없음)도 지금 구경 중인 친구를 같은 길로 한 번 다시 받는다(구경 중이 아니면 요청 0).
+  - `reset()` 은 세대 번호를 올려 늦게 오는 앞 계정 답을 버린다 — 새 계정 것은 `loadBoard` / `loadMine` 이 받는다.
+  - 계정별로 이 PC 에 남는 값: `tw.bellSeenTs`(app.js `BELL_SEEN_KEY` — 계정 전환 지움 목록). 기기 취향: `tw.annivAreaH`(구분선 높이) · `tw.bellWinPos`(알림창 자리).
+- **검사**: `checks/sim-scheduler.js`(진짜 provider + 가짜 authed 위에서 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 계정 바뀜 · 구경 · 깨 보기).
 
 ## `myhome-desktop.js` — 🖥️ 마이홈 바탕화면 · 캐릭터세팅 창
 
