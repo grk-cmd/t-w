@@ -27,7 +27,10 @@ function judge(mod, html, files) {
     r.names = Object.keys(N.NAV).sort().join() === Object.keys(OWNER).sort().join() && Object.isFrozen(N.NAV);
     let got = null; N.on(N.NAV.MY_HOME, (...a) => { got = a; return 'ret'; });
     r.go = N.go(N.NAV.MY_HOME, 1, 'b') === 'ret' && got && got.join() === '1,b';
-    r.unset = N.go(N.NAV.LEAVE_ROOM) === undefined && N.go('없는이름') === undefined;
+    const w0 = console.warn, warns = []; console.warn = (...a) => warns.push(a.join(' '));
+    try { r.unset = N.go(N.NAV.LEAVE_ROOM) === undefined && N.go('없는이름') === undefined; N.go('없는이름'); N.go('없는이름', 1); }
+    finally { console.warn = w0; }
+    r.warn = warns.length === 2 && /LEAVE_ROOM|leaveRoom/.test(warns[0]) && /없는이름/.test(warns[1]);   // 이름마다 한 번 — 같은 이름을 또 불러도 조용
   } catch (e) { r.err = String(e && e.message || e); }
   const NAVN = (() => { try { return Object.keys(load(mod).NAV); } catch (_) { return []; } })();
   r.table = {}; r.unknown = []; r.literal = [];
@@ -56,6 +59,7 @@ say('── 1. 통로');
 chk(!R.err && R.names, '이름 넷(설정 창 열기 · 닫기 · 마이홈 · 방 나가기) · 바꿀 수 없는 표' + (R.err ? ' — ' + R.err : ''));
 chk(R.go, '건 함수를 그 인자로 부르고 돌려준 값을 그대로 돌려준다');
 chk(R.unset, '안 걸린 이름 · 모르는 이름은 아무 일도 안 한다(예전 «typeof 함수면 부른다» 와 같다)');
+chk(R.warn, '  ↳ 대신 콘솔에 이름마다 한 번 경고를 남긴다(던지지는 않음)');
 
 say('── 2. 거는 곳 · 부르는 곳');
 chk(!R.badOwner.length, '이름마다 거는 곳은 정해진 한 파일' + (R.badOwner.length ? ' — 어긋남: ' + R.badOwner.map(n => n + '(' + R.table[n].on.join(' · ') + ')').join(', ') : ''));
@@ -79,7 +83,9 @@ chk(judge(MOD, HTML, lit).literal.length > 0, '글자 이름으로 부르면 빨
 const line = '<script src="parts/shared/nav.js"></script>';
 const lateHtml = HTML.indexOf(line) < 0 ? HTML : HTML.replace(line, '').replace('<script src="parts/app.js"></script>', '<script src="parts/app.js"></script>\n' + line);
 chk(judge(MOD, lateHtml, FILES).late.length > 0, 'nav.js 를 app.js 뒤로 옮기면 빨강');
-chk(!judge(MOD.replace('const fn = _fns[name]; return fn ? fn(...a) : undefined;', 'return _fns[name](...a);'), HTML, FILES).unset, '안 걸린 이름에서 던지게 바꾸면 빨강');
+chk(!judge(MOD.replace('  if(fn) return fn(...a);\n  if(!_warned.has(name)){', '  return _fns[name](...a);\n  if(!_warned.has(name)){'), HTML, FILES).unset, '안 걸린 이름에서 던지게 바꾸면 빨강');
+chk(!judge(MOD.replace("console.warn('[nav] 걸린 곳이 없는 이름 — ' + name);", ''), HTML, FILES).warn, '경고를 안 남기면 빨강');
+chk(!judge(MOD.replace('if(!_warned.has(name)){ _warned.add(name); ', 'if(true){ '), HTML, FILES).warn, '같은 이름에 경고를 매번 남기면 빨강');
 
 say('\n' + (fail ? '✗ 통과 ' + pass + ' · 실패 ' + fail : '전부 통과 ✅ ' + pass + ' — 창 열기는 nav.js 통로 한 곳'));
 process.exit(fail ? 1 : 0);

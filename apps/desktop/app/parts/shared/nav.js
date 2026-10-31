@@ -3,7 +3,7 @@
      방 입장 모듈을 직접 부르면, 그 창 모듈도 아래 기능을 쓰므로 서로를 부르는 순환이 된다(checks/sim-dep-cycles.js).
      창 모듈은 자기를 만들 때 여는 함수를 여기에 걸고(on), 부르는 쪽은 이름으로 부탁만 한다(go) — 부르는 쪽은 창 모듈을 모른다.
    ★ 이름은 아래 NAV 에만 둔다(글자로 쓰지 않는다). 이름마다 거는 곳은 정확히 한 곳 — sim-nav.js 가 센다.
-   ★ 아직 안 걸린 이름을 부르면 아무 일도 안 한다(undefined) — 예전 부르는 자리들이 «typeof 함수면 부른다» 로 건너뛰던 것과 같다.
+   ★ 아직 안 걸린 이름을 부르면 아무 일도 안 한다(undefined) — 예전 부르는 자리들이 «typeof 함수면 부른다» 로 건너뛰던 것과 같다. 다만 이름마다 한 번 콘솔에 경고를 남긴다(걸린 곳이 없는 줄 알 수 있게).
    app.js · 쓰는 모듈보다 먼저 싣는 classic script(window.TwNav). app.js 는 `twNav` 로 받아 모듈에 deps 로 넘긴다. */
 (function(){
 
@@ -18,7 +18,14 @@ const NAV = Object.freeze({
 });
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }
-function go(name, ...a){ const fn = _fns[name]; return fn ? fn(...a) : undefined; }
+const _warned = new Set();
+/* 안 걸린 이름을 부르면 아무 일도 안 하되 콘솔에 한 줄 남긴다(조용히 사라져 «왜 안 열리지» 가 되지 않게 — 이름마다 한 번). 던지지는 않는다. */
+function go(name, ...a){
+  const fn = _fns[name];
+  if(fn) return fn(...a);
+  if(!_warned.has(name)){ _warned.add(name); console.warn('[nav] 걸린 곳이 없는 이름 — ' + name); }
+  return undefined;
+}
 
 const api = { NAV, on, go };
 if(typeof window !== 'undefined') window.TwNav = api;
