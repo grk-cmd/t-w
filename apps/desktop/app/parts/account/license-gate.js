@@ -16,12 +16,11 @@ const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;   // 읽는 함수
 const _loginDoFriendCode = deps._loginDoFriendCode;
 const _loginDoGoogle = deps._loginDoGoogle;
 const _enterAccount = deps._enterAccount;   // 서버 계정으로 이 PC 맞추기(account.js) → { ok, switched }
+const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — «계정에 들어감» 을 켜는 순서 모듈(app-boot.js)에 알린다
 const notifyError = deps.notifyError;   // 번호 토스트(error-codes.js)
-const plPull = deps.plPull;   // 🎵 서버 계정이 확인된 뒤 플레이리스트 받기 한 번(playlist.js)
 const _wipeAccountLocal = deps._wipeAccountLocal;   // 이 PC 계정 몫 지우기(account.js)
 const loginFlowMod = deps.loginFlowMod;   // 🔑 로그인 흐름(login-flow.js) — 켤 때 판정 · 가입 · realtime · 로컬 모드
 const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 초대 확인 · 내 초대 · 화면 문구
-const firstRunMod = deps.firstRunMod;   // 🚚 0.13 첫 실행(first-run-013.js) — 서버 계정이 맞춰진 뒤 한 번
 const SIGNUP_CODE_PLACEHOLDER = 'MATE-····';   // 친구 코드는 서버가 가입 때 정한다 — 가입 전엔 자리 표시만
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
 const applyDeskItemsTo = deps.applyDeskItemsTo;
@@ -48,7 +47,7 @@ function inviteGateOn(){ const s = _rcStore(); return s ? s.inviteGate() : true;
 const INVITE_GRANT_MAX = 3;                 // 관리자가 한 번에 지급할 수 있는 최대 초대권 수
 
 /* ═══ 🔑 켤 때 — 로그인 · 서버 가입 확인 (0.13 — login-flow.js 판정 · 설계 03-auth 3-3-1) ═══
-   in     → 이 PC 를 서버 계정에 맞춘다(_enterAccount). uid 가 바뀌었으면 다시 켠다 · 아니면 realtime 켜기 · 0.13 첫 실행.
+   in     → 이 PC 를 서버 계정에 맞춘다(_enterAccount). uid 가 바뀌었으면 다시 켠다 · 아니면 «계정에 들어감» 을 알린다 — 옛 값 옮기기 → realtime → 계정 기능 시작 · 0.13 첫 실행은 app-boot.js 차례 표가 한다.
    local  → 서버에 닿지 못함 · 점검 — «서버에 연결할 수 없어요» 화면(로컬 모드 없음 · 서버가 원본). [다시 시도] · realtime ready 가 계정을 다시 묻고, 닿으면 위와 같이.
    signup → 로그인은 됐는데 서버에 계정이 없다(가입 전 · 탈퇴 · 관리자가 지움) — 이 PC 계정 몫을 지우고 게이트.
    login  → 게이트(초대 코드 · 구글 · 친구 코드 로그인). 로그인 없이 쓰는 길은 없다(ADR-0006). */
@@ -59,19 +58,15 @@ async function _afterConfirm(c){
   if(c.state === 'in'){
     const r = _enterAccount(c.me, loginFlowMod.identity());
     if(r.ok && r.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return true; }
-    if(r.ok){ _goOnline(); return true; }
+    if(r.ok){ _entered(c.me); return true; }
     return await _showInviteGate();
   }
   if(c.state === 'local') return await _showOfflineGate();   // 서버에 닿지 못하면 로컬 모드 없이 막는다(서버가 원본)
   if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();   // 서버에 이 계정이 없다 — 이 PC 계정 몫을 지운다(로그인은 게이트에서 다시)
   return await _showInviteGate();
 }
-/* 서버 계정이 맞춰진 뒤 — realtime 켜기(이 기기가 지금 기기) · 플레이리스트 받기 · 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) */
-function _goOnline(){
-  loginFlowMod.goOnline();
-  plPull();
-  firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e));
-}
+/* 이 PC 를 서버 계정에 맞췄고 앱을 다시 켤 일이 없다 — 계정 기능 시작을 부탁한다(차례는 app-boot.js) */
+function _entered(me){ twNav.go(twNav.NAV.ACCOUNT_ENTERED, me); }
 /* 🔌 서버에 연결할 수 없어요 — 같은 오버레이의 카드. [다시 시도] 를 누르거나 realtime 이 다시 붙으면(ready) 계정을 한 번 다시 묻는다(타이머 없음).
    누른 [다시 시도] 가 또 닿지 못하면 오류 번호 E-ACC-03 한 번 · 화면은 그대로. 닿으면 평소 켜기 차례로 간다. */
 function _showOfflineGate(){
@@ -174,7 +169,7 @@ function _showInviteGate(){
         _acctRelaunchAfterDetach(()=> say('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.'));
         return;
       }
-      close(); _goOnline(); resolve(true);
+      close(); _entered(r.me); resolve(true);
     };
     /* ✍️ A · 계정 만들기 — 같은 오버레이의 두 번째 카드. 초대 코드를 통과한 새 사람(초대 게이트가 꺼져 있으면 코드 없이)만 온다.
        친구 코드는 서버가 가입 때 정한다 — 가입이 끝나면 J · J2(_showSignupDone) → [시작하기] 에서 재시작. */
@@ -197,7 +192,7 @@ function _showInviteGate(){
         if(!e.ok){ say(e.reason, true); busy(false); return; }
         if(r.existing){
           /* 이미 가입된 구글이었다 — 새로 만든 게 없으니 완료 화면 없이 그 계정으로 */
-          if(!e.switched){ say('', false); close(); _goOnline(); resolve(true); return; }
+          if(!e.switched){ say('', false); close(); _entered(r.me); resolve(true); return; }
           say('✅ 이미 가입된 구글 계정이에요 — 그 계정으로 들어갈게요. 앱을 다시 시작하는 중이에요…', false);
           _acctRelaunchAfterDetach(()=> say('✅ 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
           return;

@@ -3612,6 +3612,9 @@ function mhdMountAllEnv(){ MHD_ENV.forEach(e=>{ try{ mhdMountEnv(e); }catch(err)
 window.MYHOME_DESKTOP = {
   version: 1,
 
+  /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 내 바탕화면 배경을 서버와 맞춘다(서버를 먼저 읽고 더 최근에 고른 쪽을 따른다). */
+  startBgSync(uid){ advPullBg(uid); },
+
   /* 폴더 아이콘 등록. advInit 전에 불러도 되고(대기열에 쌓았다가 마운트), 후에 불러도 된다. */
   addFolder(o){
     if(!o || !o.id) return null;
@@ -3734,9 +3737,6 @@ function advInit(){
   const room = document.getElementById('mhRoomPreview');
   if(!room) return;
   if(document.getElementById('advDesktop')) return;
-
-  // 🖥️ 내 바탕화면을 서버와 동기화 — 예전엔 로컬에만 저장돼 방문자가 볼 수 없었음.
-  try{ advSyncBgOnStart(); }catch(_){}
 
   const style=document.createElement('style'); style.id='advStyle'; style.textContent=css;
   document.head.appendChild(style);

@@ -249,7 +249,7 @@ async function judge(S){
   {
     const A = strip(S.APP);
     chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?store: accountStoreMod[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림 · 계정 칸을 넘겨 만든다');
-    chk(/whenNetReady\(\(\)=>noticeFeed\.start\(\)\)/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 켤 때 받고 · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
+    chk(/ notice: \(\)=>noticeFeed\.start\(\),/.test(A) && !/whenNetReady\(\(\)=>noticeFeed\.start\(\)\)/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 계정 확인 뒤 app-boot 가 받고(만들 때 안 받음) · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
     chk(!/isViewing|_mailboxVisible|retryDelay/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 안 넘기고 · 업데이트 공지 팝업은 onceReady 한 번');
     const B = strip(S.BANNER);
     chk(/noticeFeed\.onChange\(/.test(B) && !/localStorage\.setItem\(AD_BANNER_KEY/.test(B) && !/subscribeAdBanner/.test(B), '배너 — 공지 한 판이 바뀔 때 그린다 · 이 PC 사본(localStorage)을 안 남긴다');

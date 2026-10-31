@@ -862,9 +862,6 @@ function getMyUserId(){
 }
 /* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
 const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
-/* 0.12 이 이 PC 에 남긴 값(PC 칸)을 이 PC 에 적힌 계정 칸으로 한 번 옮긴다 — 계정 칸을 읽는 모듈(포커스 누적 · 바탕화면)을 만들기 **전에** 해야 한다.
-   서버 확인 뒤로 미루면 그 사이 모듈이 «없음» 으로 읽고 저장해 버려 옛 값이 «이미 있음» 으로 버려진다. 코드가 없는 PC(처음 켠 PC)는 아무것도 안 한다. */
-accountStoreMod.migrateLegacy(getMyUserId());
 /* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
@@ -2555,7 +2552,6 @@ const mhScheduler = MhScheduler.createScheduler({
   bellSeenKey: BELL_SEEN_KEY,
   twNav: twNav,
 });
-mhScheduler.startSchedule();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
      게시판 화면과 한 파일이다. 그 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다는 앞이라 구독 시작 때는 같다.
@@ -5807,13 +5803,12 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   _loginDoFriendCode: (...a)=>accountMod._loginDoFriendCode(...a),
   _loginDoGoogle: (...a)=>accountMod._loginDoGoogle(...a),
   _enterAccount: (...a)=>accountMod._enterAccount(...a),
+  twNav: twNav,
   _wipeAccountLocal: (...a)=>accountMod._wipeAccountLocal(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  plPull: (...a)=>plMod.pull(...a),
   loginFlowMod: loginFlowMod,
   userApiMod: userApiMod,
   inviteIds: TwRequestId.createPending(),
-  firstRunMod: firstRunMod,
   applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
   awayPicMod: ()=>awayPicMod,
@@ -5873,16 +5868,16 @@ const adminUsers = TwAdminUsers.createAdminUsers({
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
 // 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
 // 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
-(function initLicense(){
-  const key = licenseGateMod.loadLicenseFromStorage();
-  if(key){
-    // firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다렸다 재검증
-    const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
-      if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
-    });
-    TwNetReady.whenNetReady(doVerify);
-  }
-})();
+licenseGateMod.loadLicenseFromStorage();
+/* 🚀 계정 확인 뒤(app-boot 의 licenseVerify 차례) — 저장된 키가 있으면 재검증. firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다린다 */
+function startLicenseVerify(){
+  let key = null; try{ key = localStorage.getItem(acctStateMod.LICENSE_KEY_STORAGE); }catch(_){}
+  if(!key) return;
+  const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
+    if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
+  });
+  TwNetReady.whenNetReady(doVerify);
+}
 
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
 //   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
@@ -7267,7 +7262,6 @@ const licReqMod = TwLicenseRequest.createLicenseRequest({
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
 });
-licReqMod.startWatch();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
 /* 관리자 몫(라이선스 키 발급 · 목록 · 요청, 📣 확성기 공지 · 📰 업데이트 공지 편집)은 admin/admin-license.js · admin/admin-notice.js 로 옮겼다.
@@ -7311,8 +7305,7 @@ function _showUpdateNoticeOnce(notice){
   document.getElementById('updateNoticeCloseX').onclick = close;
 }
 noticeFeed.onceReady(_showUpdateNoticeOnce);   // 처음 받았을 때 한 번 — 못 받았으면 다음에 받을 때
-// 켤 때 공지를 받는다(이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js)
-TwNetReady.whenNetReady(()=>noticeFeed.start());
+// 공지 받기는 계정 확인 뒤 app-boot 의 notice 차례(이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js)
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.
@@ -7434,7 +7427,6 @@ const slotSyncMod = TwSlotSync.createSlotSync({
   onSaved: slotSaveMod.onSaved,
   slotsReplaced: slotSaveMod.slotsReplaced,
 });
-slotSyncMod.startSlotsSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* ═══ ☁️ [2026-09-20 · 3-7-2 시안 확정] 연동 UI — 띠(런처) · 기기 연동 구획(계정 탭) · ④ 충돌 대화상자 ═══
    [자리] A안 띠 = 캐릭터가 줄어든 것을 **보는 그 자리**(그림 위). B안 구획 = 띠를 놓쳐도 나중에 찾아갈 자리.
@@ -7495,7 +7487,6 @@ const charsMod = TwChars.createChars({
   setCharsActiveCheck: slotSyncMod.setCharsActiveCheck,
   slotsReplaced: slotSaveMod.slotsReplaced,
 });
-charsMod.startCharsSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 charsMod.onBootLinked(()=>myInfoMod._charsLinkedMaybeShow());   // 부팅 채택 뒤 «연동됨» 안내 — 내 정보가 보관함보다 먼저 만들어져 여기서 건다
 
 /* ═══════════ 🧬 이관 — slots → chars (회원가입 설계 §5-N-2 · 2026-09-21 · 개정 33 · 아직 아무도 안 부른다) ═══════════
@@ -8633,7 +8624,7 @@ window.__officeDiag = function(){
 const focusTotalMod = TwFocusTotal.createFocusTotal({
   focusTotalStore: accountStoreMod,
 });
-let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
+let _focusTotalSec=0;   // 계정 확인 뒤 app-boot 의 focusTotal 차례가 계정 칸에서 읽는다
 
 /* ═══ 📊 오늘 기록 전시 (2026-09-23 · handoff-2026-09-21-features §3 · 사용자 확정: 🕒 를 눌러 켜고 끈다) ═══
    포커스 기록창 첫 줄(현재/누적 기록) 옆 🕒(#focusLogShowClock)를 누르면 켜짐/꺼짐.
@@ -8753,7 +8744,6 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
-focusLevelMod.startFocusSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
@@ -8819,7 +8809,6 @@ const gachaMod = TwGacha.createGacha({
   gachaSource: ()=>TwSourceSwitch.store.pick('gacha'),   // 받는 곳 — 원격 설정 sources.gacha(없으면 옛 길) · 고르기는 shared/source-switch.js
   gachaServer: gachaServerMod,
 });
-gachaMod.startGachaSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({
   openPartRegister: (...a)=>adminPartReg.openPartRegister(...a),
@@ -9018,7 +9007,6 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   appMode: ()=>appMode,
   storageKey: CHAL_KEY,
 });
-weeklyChal.startChalSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* 🍅 뽀모도로(포커스 기록창 안쪽 서랍 · 집중 / 휴식 타이머)는 parts/pomodoro.js 로 옮겼다(앱 FSD 6번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(tw.pomo · tw.pomoRun 읽기 · 버튼 연결 · 첫 그리기 · 1초 tick)이
@@ -9106,9 +9094,7 @@ seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); app
 { const ov=document.getElementById('inviteOverlay'); if(ov) new MutationObserver(()=>applyDesktopRunClass()).observe(ov, { attributes:true, attributeFilter:['class'] }); }
 if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
-/* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.
-   첫 일이 «Firebase 붙을 때까지 기다리기» 라, 부팅 중 어디서 불러도 실제 시작은 firebaseAPI 가 생긴 뒤다. */
-mhInitMod.initMyHome();
+/* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독)은 계정 확인 뒤 app-boot 의 mhInit 차례다. */
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
   return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
 requestAnimationFrame(frame);
@@ -9143,7 +9129,31 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   friendsClose: (...a)=>friendsSubMod.close(...a),
   presence: Presence,
 });
-roomInviteUi.startReceive();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
+
+/* 🚀 켜는 순서 한 곳(launcher/app-boot.js) — 계정 확인(license-gate.js)이 nav 로 «계정에 들어감» 을 알리면 옛 PC 값 옮기기 → realtime → 아래 차례대로 계정 기능을 시작한다.
+   ⚠️ 차례 표는 app-boot.js STEPS — 여기 starts 는 그 이름마다 하나씩(빠지거나 남으면 만들 때 던진다). 계정 기능을 새로 만들면 만들 때 일하지 말고 여기에 건다. */
+const appBoot = TwAppBoot.createAppBoot({
+  twNav: twNav,
+  migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
+  goOnline: ()=>loginFlowMod.goOnline(),
+  starts: {
+    focusTotal: ()=>{ focusTotalMod.startFocusTotal(); _focusTotalSec = focusTotalMod._loadFocusTotalSec(); },
+    focusLevel: ()=>focusLevelMod.startFocusSync(),
+    weeklyChal: ()=>weeklyChal.startChalSync(),
+    gacha: ()=>gachaMod.startGachaSync(),
+    slotSync: ()=>slotSyncMod.startSlotsSync(),
+    chars: ()=>charsMod.startCharsSync(),
+    mhInit: ()=>mhInitMod.initMyHome(),
+    scheduler: ()=>mhScheduler.startSchedule(),
+    notice: ()=>noticeFeed.start(),
+    roomInvite: ()=>roomInviteUi.startReceive(),
+    desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
+    playlist: ()=>plMod.pull(),
+    licenseVerify: ()=>startLicenseVerify(),
+    licenseRequest: ()=>licReqMod.startWatch(),
+    firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
+  },
+});
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════
    [무엇을 고치는가] `parts/firebase-init.js` 는 Firebase SDK 를 gstatic 에서 **실행 시점에**

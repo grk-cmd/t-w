@@ -139,7 +139,7 @@ async function judge(S){
     // 실물 focus-total.js — 계정마다 다른 누적
     const st = mem(); const code = { v: A }; const store = mk(st, code);
     const totalApi = (() => { const w = {}; new Function('window', 'module', 'localStorage', S.TOTAL)(w, undefined, null); return w.TwFocusTotal; })();
-    const fresh = () => totalApi.createFocusTotal({ focusTotalStore: store });
+    const fresh = () => { const m = totalApi.createFocusTotal({ focusTotalStore: store }); m.startFocusTotal(); return m; };   // 계정 확인 뒤 app-boot 가 부르는 시작까지
     const a1 = fresh();
     chk(a1._loadFocusTotalSec() === 0, '새 계정 A 는 0 에서 시작');
     store.set(a1.FOCUS_TOTAL_KEY, 3600); store.set(a1.FOCUS_TODAY_DATE_KEY, a1._focusDayStr()); store.set(a1.FOCUS_TODAY_SEC_KEY, 60);
@@ -202,16 +202,15 @@ async function judge(S){
   say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
   {
     // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
-    const line = (S.APP.match(/^accountStoreMod\.migrateLegacy\(getMyUserId\(\)\);$/m) || [])[0];
-    chk(!!line && S.APP.split(line).length === 2, '① app.js 에 부팅 때 옮기는 줄이 하나 있다(이 PC 에 적힌 계정 코드로)');
-    const iMake = S.APP.indexOf('const accountStoreMod ='), iCall = line ? S.APP.indexOf(line) : -1;
-    const iRead = Math.min(...['const focusTotalMod =', 'const focusLevelMod =', 'createMyHomeDesktop('].map((h) => { const i = S.APP.indexOf(h); return i < 0 ? 1e9 : i; }));
-    chk(iMake > 0 && iCall > iMake && iCall < iRead && S.APP.indexOf('_loadFocusTotalSec()') > iCall, '  ↳ 계정 칸을 만든 뒤 · 계정 칸을 읽는 모듈(포커스 누적 · 바탕화면)을 만들기 전에 부른다');
+    /* 0.13 — 옮기기는 계정 확인 뒤 app-boot 가 서버가 돌려준 코드로 한다(읽는 모듈의 시작보다 앞 — 순서는 sim-app-boot.js). app.js 는 그 연결 한 줄만 둔다. */
+    const line = (S.APP.match(/^ {2}migrateLegacy: \(code\)=>accountStoreMod\.migrateLegacy\(code\),$/m) || [])[0];
+    chk(!!line && S.APP.split(line).length === 2, '① app.js 에 옮기기 연결이 한 줄 있다(app-boot 가 서버 계정 코드로 부른다)');
+    chk(!/^accountStoreMod\.migrateLegacy\(getMyUserId\(\)\);$/m.test(S.APP) && S.APP.indexOf('const accountStoreMod =') < S.APP.indexOf('const appBoot =') && S.APP.indexOf('const appBoot =') > S.APP.indexOf('const focusTotalMod ='), '  ↳ 확인 전(저장된 코드)으로 옮기는 줄은 없다 · 계정 칸을 만든 뒤에 연결한다');
     const mkBoot = (code) => {
       const st = mem(); st.setItem('tw.focusTotalSec', '7777'); st.setItem('tw.advZ.v2', '{"a":1}');
       const M = load(S.STORE);
       const store = M.createAccountStore({ storage: st, getAccountCode: () => code, isWriteLocked: () => false });
-      if(line) new Function('accountStoreMod', 'getMyUserId', line)(store, () => code);
+      if(line) new Function('accountStoreMod', 'return ' + line.trim().replace(/^migrateLegacy: /, '').replace(/,$/, ''))(store)(code);
       return { st, store };
     };
     let b = mkBoot(null);
@@ -274,7 +273,7 @@ await judge(SRC0);
 
 say('── 8. 일부러 깨 보기');
 const BREAKS = [
-  ['APP', "accountStoreMod.migrateLegacy(getMyUserId());\n", "", '부팅 때 옛 값을 안 옮김'],
+  ['APP', "  migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),\n", "  migrateLegacy: (code)=>{},\n", '부팅 때 옛 값을 안 옮김'],
   ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n", "", '로그아웃이 옛 값을 안 옮김'],
   ['ACC', "  if(uid) accountLegacyStore.migrateLegacy(uid);\n  if(uid){\n    const fl = await _acctFlushToServer();", "  if(uid){\n    const fl = await _acctFlushToServer();\n    accountLegacyStore.migrateLegacy(uid);", '로그아웃이 올린 뒤에 옮김(순서 뒤집기)'],
   ['ACC', "const fl = await _acctFlushToServer();", "const fl = (_acctFlushToServer(), { timedOut:false });", '플레이리스트 마지막 올리기를 안 기다리고 지움'],

@@ -72,8 +72,7 @@ function _loadFocusTodaySec(){
     return parseFloat(focusTotalStore.get(FOCUS_TODAY_SEC_KEY))||0;
   }catch(e){ return 0; }
 }
-_focusMigrateDayKey();   // 🚚 6시 경계로 처음 켠 사람의 오늘치를 살린다 (아래 로드보다 먼저)
-let _focusTodaySec=_loadFocusTodaySec();
+let _focusTodaySec=0;   // 계정 확인 뒤 startFocusTotal 이 계정 칸에서 읽는다
 let _focusSessionSec=0;   // "현재 기록" — 이번 앱 실행 동안만 누적. 메모리 전용이라 재시작하면 0부터 시작(의도된 동작).
 /* ★ 하루치 기록의 날짜 경계 확인 — **오전 6시~다음날 05:59:59** 기준(DAY_START_HOUR).
    예전엔 addFocusSeconds 안에서만 날짜를 봤다. 앱을 켜둔 채 자정을 넘기고 활동이 없으면
@@ -89,7 +88,14 @@ function _rolloverFocusToday(){
   return _focusTodaySec;
 }
 
+/* 🚀 계정 확인 · 옛 PC 값 옮기기 뒤 한 번(launcher/app-boot.js) — 계정 칸에서 오늘치를 읽는다. 전체 누적은 app.js 가 _loadFocusTotalSec 로 읽는다. */
+function startFocusTotal(){
+  _focusMigrateDayKey();   // 🚚 6시 경계로 처음 켠 사람의 오늘치를 살린다 (아래 로드보다 먼저)
+  _focusTodaySec=_loadFocusTodaySec();
+}
+
 return {
+  startFocusTotal,
   DAY_START_HOUR,
   FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC,
