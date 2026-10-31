@@ -146,6 +146,9 @@ async function judge(S){
       r.reach(); await tick(); await tick();
       chk(r.log.length === 1 && bk.length === 0, '★ 로컬 모드 — 서버가 답한 요청이 하나 있으면 계정을 한 번 묻는다 · 아직 닿지 않으면 그대로(되풀이 없음)');
       let rel; r.srv.me = () => new Promise((q) => { rel = q; });
+      r.reach(); await tick();
+      chk(r.log.length === 1, '★ 마지막으로 물은 뒤 30초 안의 성공 신호는 무시한다(요청은 흔하다)');
+      await r.advance(30000);
       r.reach(); r.reach(); r.reach(); await tick();
       chk(r.log.length === 2, '  ↳ 성공 신호가 여러 개 겹쳐도 묻는 중이면 한 번');
       rel(ME(2)); await tick(); await tick();
@@ -156,9 +159,28 @@ async function judge(S){
       q.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
       const bq = []; q.flow.enterLocal((x) => bq.push(x.state));
       q.fireState('ready'); await tick(); await tick();
+      q.fireState('ready'); await tick(); await tick();
+      chk(q.log.length === 2, '  ↳ ready 신호에는 30초 문턱이 없다(연결이 새로 붙는 것은 드물고 확실한 신호)');
+      await q.advance(30000);
       q.srv.me = () => ME(2); q.reach(); await tick(); await tick();
-      chk(q.log.length === 2 && bq.join() === 'in', '  ↳ realtime 이 먼저 ready 로 와서 아직 local 이었어도, 나중에 요청 성공 신호로 돌아온다');
+      chk(q.log.length === 3 && bq.join() === 'in', '  ↳ realtime 이 먼저 ready 로 와서 아직 local 이었어도, 나중에 요청 성공 신호로 돌아온다');
       q.flow.enterLocal(() => {});
+      const lim = mkEnv(S);
+      lim.srv.me = () => { throw Object.assign(apiErr('request', 'TOO_MANY_REQUESTS'), { status: 429, retryAfterMs: 90000 }); };
+      lim.flow.enterLocal(() => {});
+      lim.reach(); await tick(); await tick();
+      lim.srv.me = () => ME(2);
+      await lim.advance(31000); lim.reach(); await tick();
+      chk(lim.log.length === 1, '★ 서버가 429(천천히)라고 하면 retryAfter 동안은 30초가 지나도 무시한다');
+      lim.fireState('ready'); await tick();
+      chk(lim.log.length === 1, '  ↳ ready 신호도 그 동안은 묻지 않는다');
+      await lim.advance(60000); lim.reach(); await tick(); await tick();
+      chk(lim.log.length === 2 && lim.flow.mode() === 'in', '  ↳ retryAfter 가 지나면 다시 묻는다(타이머 없이 신호가 올 때 시각만 비교)');
+      const lim2 = mkEnv(S);
+      lim2.srv.me = () => { throw Object.assign(apiErr('request', 'TOO_MANY_REQUESTS'), { status: 429 }); };
+      lim2.flow.enterLocal(() => {}); lim2.reach(); await tick(); await tick();
+      lim2.srv.me = () => ME(2); await lim2.advance(29000); lim2.fireState('ready'); await tick();
+      chk(lim2.log.length === 1, '  ↳ retryAfter 가 없으면 30초 상수만큼 쉰다');
       const z = mkEnv(S);
       z.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
       const bz = []; z.flow.enterLocal((x) => bz.push(x.state));
@@ -303,10 +325,14 @@ const BREAKS = [
   ['LF', "    if(online) return;\n    online = true;", "", 'realtime 을 두 번 켬'],
   ['LF', "      if(s === RT_SESSION_LOST){ if(mode !== 'off') deps.onSessionLost(); }", "      if(false){ }", '밀려남을 화면에 안 알림'],
   ['LF', "      if(s === RT_SESSION_LOST){ if(mode !== 'off') deps.onSessionLost(); }", "      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }", '로컬 모드의 밀려남은 화면에 안 알림'],
-  ['LF', "      else if(s === RT_READY) onServerSign();", "      else onServerSign();", 'ready 아닌 신호에도 묻음'],
-  ['LF', "      else if(s === RT_READY) onServerSign();", "", 'realtime ready 신호가 와도 안 물음'],
-  ['LF', "    deps.onReachable(onServerSign);\n", "", '요청 성공 신호로는 안 물음'],
-  ['LF', "  function onServerSign(){ if(mode === 'local') recheckLocal(); }", "  function onServerSign(){ recheckLocal(); }", '로컬 모드가 아닐 때도 물음'],
+  ['LF', "      else if(s === RT_READY) onServerSign(false);", "      else onServerSign(false);", 'ready 아닌 신호에도 묻음'],
+  ['LF', "      else if(s === RT_READY) onServerSign(false);", "", 'realtime ready 신호가 와도 안 물음'],
+  ['LF', "    if(viaRequest && t - lastAskAt < LOCAL_RECHECK_MIN_MS) return;", "", '요청 성공 신호에 30초 문턱이 없음'],
+  ['LF', "    if(viaRequest && t - lastAskAt < LOCAL_RECHECK_MIN_MS) return;", "    if(t - lastAskAt < LOCAL_RECHECK_MIN_MS) return;", 'ready 신호에도 30초 문턱'],
+  ['LF', "    if(t < holdUntil) return; ", "    if(false) return; ", '429 로 쉬라는데도 물음'],
+  ['LF', "(e.retryAfterMs || LOCAL_RECHECK_MIN_MS)", "0", '429 에 retryAfter 가 없으면 안 쉼'],
+  ['LF', "    deps.onReachable(() => onServerSign(true));\n", "", '요청 성공 신호로는 안 물음'],
+  ['LF', "    if(mode !== 'local') return;\n    const t = now();", "    const t = now();", '로컬 모드가 아닐 때도 물음'],
   ['LF', "    if(localChecking) return;   // 신호가 겹쳐도 한 번\n", "", '신호가 겹치면 여러 번 물음'],
   ['LF', "    if(r.state === STATE.IN) goOnline();\n    else if(rtLocal)", "    if(false) goOnline();\n    else if(rtLocal)", '돌아와도 realtime 안 켬'],
   ['LF', "    if(!online){ online = true; rtLocal = true; deps.rt.start({ claim: true }); }", "", '로컬 모드에서 realtime 을 안 켬(신호가 안 옴)'],

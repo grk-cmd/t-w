@@ -16,6 +16,7 @@
 const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 로컬 모드 · 프리미엄 유예의 «마지막 답»
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
+const LOCAL_RECHECK_MIN_MS = 30000;   // 로컬 모드에서 요청 성공 신호로 다시 묻는 최소 간격(마지막으로 물은 뒤) · 429 에 retryAfter 가 없을 때 쉬는 시간
 const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost';   // rt-hub.js 상태 이름
 
 /* 비밀번호 가입의 요청 번호 열쇠 — 비밀번호를 바꿔 다시 누르면 새 요청(같은 번호면 서버가 처음 비밀번호의 계정을 돌려준다).
@@ -58,6 +59,7 @@ function createLoginFlow(deps){
   let stateHooked = false;
   let rtLocal = false;        // 로컬 모드에서 realtime 을 켜 둔 상태(다시 붙는 신호를 받으려고 — 계정이 정해지면 그대로 쓴다)
   let localBack = null, localChecking = false;
+  let lastAskAt = -Infinity, holdUntil = 0;   // 마지막으로 물은 시각 · 서버가 «천천히» 라고 한 동안(429) — 신호가 왔을 때 시각만 비교한다(타이머 없음)
 
   function readCache(){
     let o = null;
@@ -84,6 +86,7 @@ function createLoginFlow(deps){
       const t = deps.translate(e);
       if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }
       if(t.action === 'login') return { state: STATE.LOGIN, me: null, reason: deps.reasonOf(e) };
+      if(e && e.status === 429) holdUntil = now() + (e.retryAfterMs || LOCAL_RECHECK_MIN_MS);   // 서버가 천천히 하라고 했다 — 그 동안 다시 묻지 않는다
       const c = readCache();
       return { state: STATE.LOCAL, me: c ? c.me : null, reason: deps.reasonOf(e) };
     }
@@ -98,12 +101,18 @@ function createLoginFlow(deps){
     stateHooked = true;
     deps.rt.onState((s) => {
       if(s === RT_SESSION_LOST){ if(mode !== 'off') deps.onSessionLost(); }   // 로컬 모드에서도 진짜 밀려남이다(다른 PC 가 나중에 claim) — 알리지 않으면 되돌아와도 연결이 죽은 채 조용하다
-      else if(s === RT_READY) onServerSign();
+      else if(s === RT_READY) onServerSign(false);
     });
-    deps.onReachable(onServerSign);
+    deps.onReachable(() => onServerSign(true));
   }
   /* 서버가 살아 있다는 신호 두 가지(realtime 이 다시 붙음 · 아무 API 요청이 서버 답을 받음) — 같은 한 함수. 로컬 모드일 때만 계정을 묻는다 */
-  function onServerSign(){ if(mode === 'local') recheckLocal(); }
+  function onServerSign(viaRequest){
+    if(mode !== 'local') return;
+    const t = now();
+    if(t < holdUntil) return;                                   // 429 로 쉬라고 한 동안
+    if(viaRequest && t - lastAskAt < LOCAL_RECHECK_MIN_MS) return;   // 요청 성공은 흔하다 — 마지막으로 물은 뒤 일정 시간 안엔 무시(ready 는 드물고 확실한 신호라 문턱 없음)
+    recheckLocal();
+  }
   /* 서버가 계정을 돌려준 뒤 — realtime 켜기(이 기기가 지금 기기 · claim). 이미 켰으면 아무 일 없음. */
   function goOnline(){
     mode = 'in'; localBack = null;
@@ -123,7 +132,7 @@ function createLoginFlow(deps){
   }
   async function recheckLocal(){
     if(localChecking) return;   // 신호가 겹쳐도 한 번
-    localChecking = true;
+    localChecking = true; lastAskAt = now();
     let r;
     try{ r = await confirm(); }finally{ localChecking = false; }
     if(mode !== 'local' || r.state === STATE.LOCAL) return;
