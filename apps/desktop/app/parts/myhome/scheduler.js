@@ -217,12 +217,11 @@ function _schedPutItem(item){
   const dd = item.date.slice(8, 10);
   if(item.date.slice(0, 7) === _schedYM && !viewingUserId()){
     const day = (_schedMonthData[dd] = _schedMonthData[dd] || {});
-    const top = Object.keys(_schedMonthData).reduce((m, k) => Object.keys(_schedMonthData[k]).reduce((n, id) => Math.max(n, _schedMonthData[k][id].ts || 0), m), 0);
-    day[item.id] = { text: item.text, public: item.public, ts: top + 1, version: item.version, date: item.date };
+    day[item.id] = { text: item.text, public: item.public, ts: item.ts, version: item.version, date: item.date };
     renderSchedGrid(); renderSchedDay();
   }
   if(item.date === _todayYMD()){
-    _bellTodayItems = _bellTodayItems.concat([{ id: item.id, text: item.text }]);
+    _bellTodayItems = _bellTodayItems.concat([{ id: item.id, text: item.text, ts: item.ts }]);
     refreshBellBadge();
   }
 }
@@ -1049,7 +1048,7 @@ function _applyAnnivHeight(px){
    읽음 처리: 창을 한 번 열면 그때까지의 알림은 "본 것"으로 간주해 뱃지가 사라짐. */
 const BELL_SEEN_KEY = deps.bellSeenKey;   // 'tw.bellSeenTs' — 값은 app.js 에 있다(계정 전환 지움 목록 ACCOUNT_LOCAL_KEYS 가 같이 쓴다)
 let _bellNotices = {};        // 친구가 태그해서 온 알림 { id: {fromId, fromName, text, date, ts} } — 서버 알림함의 🔔 칸
-let _bellTodayItems = [];     // 오늘 날짜인 내 일정 [{id, text}]
+let _bellTodayItems = [];     // 오늘 날짜인 내 일정 [{id, text, ts(만든 시각)}]
 
 function _bellSeenTs(){ try{ return Number(localStorage.getItem(BELL_SEEN_KEY)||0) || 0; }catch(e){ return 0; } }
 function _bellMarkSeen(){ try{ localStorage.setItem(BELL_SEEN_KEY, String(Date.now())); }catch(e){} refreshBellBadge(); }
@@ -1063,7 +1062,7 @@ async function _bellLoadToday(){
     const data = await scheduleApi.fetchMonth(me, _ymOf(t.y, t.m));
     if(gen !== _gen) return;
     const dayObj = data[_pad2(t.d)] || {};
-    _bellTodayItems = Object.keys(dayObj).map(id=>({ id, text: dayObj[id].text||'' }));
+    _bellTodayItems = Object.keys(dayObj).map(id=>({ id, text: dayObj[id].text||'', ts: dayObj[id].ts }));
     _loadFailing = false;
   }catch(e){
     if(gen !== _gen) return;
@@ -1117,9 +1116,8 @@ function refreshBellBadge(){
   const newNotices = Object.keys(_bellNotices||{}).filter(id => (_bellNotices[id].ts||0) > seen).length;
   const todayYMD = _todayYMD();
   const seenDay = seen ? _localYMD(seen) : '';   // ⚠️ toISOString 은 UTC 라 한국 0~9시엔 어제로 읽혀 «오늘 본 기념일» 을 다시 셌다
-  /* 오늘 내 일정 · 오늘이 이정표(당일/50일/100일 단위)인 D-day 는 ts 비교가 아니라 «오늘 해당하는가» 로 판정한다 —
-     서버 일정에는 만든 시각이 없다. 창을 열어 읽음 처리하면 그날은 다시 안 센다. */
-  const newToday   = (seenDay === todayYMD) ? 0 : _bellTodayItems.length;
+  const newToday   = _bellTodayItems.filter(it => (it.ts||0) > seen).length;
+  /* 오늘이 이정표(당일/50일/100일 단위)인 D-day 는 ts 비교가 아니라 «오늘 해당하는가» 로 판정한다 — 창을 열어 읽음 처리하면 그날은 다시 안 센다. */
   const ddayHits = (seenDay === todayYMD) ? 0 : Object.keys(_schedDdays||{}).filter(id=>{
     const dd = _schedDdays[id];
     if(!dd.notify || !dd.date) return false;

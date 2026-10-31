@@ -60,19 +60,18 @@ const msOf = (iso) => { const t = Date.parse(iso); return isFinite(t) ? t : 0; }
 function itemOf(raw){
   if(!isObj(raw) || typeof raw.id !== 'string' || !raw.id || typeof raw.date !== 'string' || !DATE_RE.test(raw.date)
     || typeof raw.text !== 'string' || !isVis(raw.visibility) || !fin(raw.version)) return undefined;
-  return { id: raw.id, date: raw.date, text: raw.text, public: raw.visibility === 'PUBLIC', version: raw.version };
+  return { id: raw.id, date: raw.date, text: raw.text, public: raw.visibility === 'PUBLIC', version: raw.version, ts: msOf(raw.createdAt) };
 }
-/* 한 달 목록 → { DD: { id: 칸 } }. ts 는 서버가 준 차례(날짜 → 만든 순)를 그대로 잇는 번호 — 만든 시각이 아니다. 모양이 틀리면 undefined */
+/* 한 달 목록 → { DD: { id: 칸 } }. ts 는 서버가 준 만든 시각(ms) — 없거나 깨지면 0(오래된 것). 모양이 틀리면 undefined */
 function monthOf(list, ym){
   if(!Array.isArray(list)) return undefined;
   const byDay = {};
-  let n = 0;
   for(const raw of list){
     const it = itemOf(raw);
     if(!it) return undefined;
     if(it.date.slice(0, 7) !== ym) continue;
     const dd = it.date.slice(8, 10);
-    (byDay[dd] = byDay[dd] || {})[it.id] = { text: it.text, public: it.public, ts: ++n, version: it.version, date: it.date };
+    (byDay[dd] = byDay[dd] || {})[it.id] = { text: it.text, public: it.public, ts: it.ts, version: it.version, date: it.date };
   }
   return byDay;
 }

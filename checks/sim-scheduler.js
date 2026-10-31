@@ -64,7 +64,7 @@ const nextYM = (() => { const d = new Date(NOW.getFullYear(), NOW.getMonth() + 1
 const U1 = '11111111-1111-4111-8111-111111111111', U2 = '22222222-2222-4222-8222-222222222222', U3 = '33333333-3333-4333-8333-333333333333', U4 = '44444444-4444-4444-8444-444444444444';
 const card = (id, text, date, over) => Object.assign({ ddayId: id, text, date, visibility: 'PRIVATE', notify: false, countFromOne: true, bgColor: null, bgImage: null, createdAt: '2026-10-01T00:00:00Z' }, over || {});
 const BOARD = (over) => Object.assign({ version: 5, cards: [card(U1, '만난 날', daysAgo(10)), card(U2, '졸업', daysAgo(20), { countFromOne: false })], banners: [card(U3, '시험', '2999-01-01', { countFromOne: false })] }, over || {});
-const item = (id, date, text, vis, ver) => ({ id, date, text, visibility: vis || 'PRIVATE', version: ver == null ? 1 : ver });
+const item = (id, date, text, vis, ver, at) => ({ id, date, text, visibility: vis || 'PRIVATE', version: ver == null ? 1 : ver, createdAt: new Date(at == null ? Date.now() - 60000 : at).toISOString() });
 const bell = (id, fromName, text, date, at) => ({ id, kind: 'SCHEDULE_TAG', section: 'BELL', title: '', body: text, payload: { date, from: 'u-' + id, fromName }, createdAt: new Date(at).toISOString() });
 
 /* 가짜 authed — 길(routes)마다 답(값 · 던질 Error · 함수 · Promise)을 정한다. 쓰기는 실제 api-client 처럼 expectOwner 를 견준다 */
@@ -239,8 +239,8 @@ await sec('── 3. 🔔 뱃지 · 알림 목록', async () => {
   chk(!txt.includes('조용') && !txt.includes('지난 일정'), '  알림을 끈 기념일 · 오늘이 아닌 태그는 안 뜬다');
   chk(txt.includes('알림함 확인') && txt.includes('NEW 1'), '  아래 [📪 알림함 확인] · 안 읽은 수');
   chk(Number(E.ls.get('tw.bellSeenTs')) > 0, '  열면 읽음 시각을 tw.bellSeenTs 에 적는다');
-  /* 서버 일정에는 만든 시각이 없다 — 오늘 일정 · 기념일은 «오늘 열어 봤는가» 로 센다. 태그 알림은 시각(createdAt)이 서버 값이라 열기 전 것만 센다 */
-  chk(badge.textContent === '3', '  열고 나면 오늘 일정 · 기념일은 본 것으로 빠진다(수령함 1 + 아직 안 읽은 시각의 태그 2)');
+  /* 오늘 일정 · 태그 알림은 만든 시각이 읽음 시각보다 뒤인 것만, 기념일은 «오늘 열어 봤는가» 로 센다 */
+  chk(badge.textContent === '3', '  열고 나면 오늘 일정(1분 전에 만든 것) · 기념일은 본 것으로 빠진다(수령함 1 + 아직 안 읽은 시각의 태그 2)');
   chk(!/toISOString\(\)\.slice\(0,\s*10\)/.test(MOD) && /const seenDay = seen \? _localYMD\(seen\)/.test(MOD), '  본 날은 이 기기 시간대 날짜(_localYMD) — UTC 로 자르지 않는다');
   const x = list.children.find(c => c.className === 'bell-row today' && c.textContent.includes('같이 점심')).children.find(c => c.className === 'bx');
   x.click(); await tick();
@@ -637,6 +637,27 @@ await sec('── 8. app.js 배선 · html', async () => {
       '내장 전역 이름(Scheduler · scheduler)을 안 쓴다 — window.MhScheduler · mhScheduler');
 });
 
+await sec('── 3-2. 🔔 오늘 내 일정 — 만든 시각이 읽음 시각 뒤인 것만', async () => {
+  const SEEN = Date.now() - 3600 * 1000;
+  const mk = (list) => { const E = mkEnv({ routes: { 'GET /v1/me/schedules': list } }); E.ls.set('tw.bellSeenTs', String(SEEN)); return E; };
+  const rows = (...ats) => ats.map((at, i) => item('t' + i, TODAY, '일정' + i, 'PRIVATE', 1, at));
+  const badgeOf = async (list) => { const E = mk(list); await tick(); return E.el('myBellBadge').textContent; };
+  chk(await badgeOf(rows(SEEN + 1)) === '1', '읽음 시각보다 1ms 뒤에 만든 일정은 센다');
+  chk(await badgeOf(rows(SEEN)) === '0', '  읽음 시각과 같은 ms 에 만든 일정은 안 센다(뒤가 아님)');
+  chk(await badgeOf(rows(SEEN - 1)) === '0', '  1ms 앞에 만든 일정은 안 센다');
+  chk(await badgeOf(rows(SEEN - 5000, SEEN + 5000, SEEN + 9000)) === '2', '  여러 개면 뒤에 만든 것만 센다(2)');
+  const noAt = [Object.assign(item('x', TODAY, '시각 없음'), { createdAt: undefined }), Object.assign(item('y', TODAY, '깨진 시각'), { createdAt: 'not-a-date' })];
+  chk(await badgeOf(noAt) === '0', '  createdAt 이 없거나 깨진 일정은 오래된 것(0)으로 보아 안 센다');
+  chk(await badgeOf([item('o', YM + '-' + (DD === '01' ? '02' : '01'), '다른 날', 'PRIVATE', 1, SEEN + 5000)]) === '0', '  오늘이 아닌 날 일정은 만든 시각이 뒤여도 안 센다');
+  const E = mk(rows(SEEN + 1)); await tick();
+  E.el('myBellBtn').fire('click');
+  chk(E.el('myBellBadge').textContent === '0', '  알림창을 열어 읽음 시각이 갱신되면 그 일정은 더 안 센다');
+  E.routes['POST /v1/me/schedules'] = item('n9', TODAY, '방금 만듦', 'PRIVATE', 1, Date.now() + 10);
+  E.el('mhSchedInput').value = '방금 만듦'; E.S.renderSchedCalendar(); await tick();
+  E.el('mhSchedAddBtn').fire('click'); await tick();
+  chk(E.el('myBellBadge').textContent === '1', '  열어 본 뒤 오늘 날짜로 새로 만든 일정은 다시 센다');
+});
+
 await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () => {
   const broken = async (label, patch, scenario) => {
     const src = patch(MOD);
@@ -646,6 +667,12 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     quiet = false;
     chk(qfail > 0, '깨 보기 — ' + label + ' → 빨강');
   };
+  await broken('뱃지가 만든 시각 없이 오늘 일정 개수를 센다', (x) => x.replace("_bellTodayItems.filter(it => (it.ts||0) > seen).length", "_bellTodayItems.length"), async (src) => {
+    const SEEN = Date.now() - 3600 * 1000;
+    const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': [item('a', TODAY, 'a', 'PRIVATE', 1, SEEN - 1)] } });
+    E.ls.set('tw.bellSeenTs', String(SEEN)); await tick();
+    chk(E.el('myBellBadge').textContent === '0', 'x');
+  });
   await broken('받기 전 잠금을 빼면 일정을 쓴다', (x) => x.replace("if(_monthState !== LOAD.READY){ toast(LOCK_TEXT); return; }   // 받기 전에는 고치지 못하게 잠근다\n    const isPublic", 'const isPublic'), async (src) => {
     const d = deferred();
     let hold = false;
@@ -729,11 +756,6 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   await broken('태그해도 공개 체크를 켜고 잠그지 않는다', (x) => x.replace("chk.checked = true; chk.disabled = true;", ""), async (src) => { await tagScenario(src, false); });
   await broken('태그를 빼도 원래 값으로 안 돌린다', (x) => x.replace("chk.checked = chk.dataset.orig === '1'; ", ""), async (src) => { await tagScenario(src, true); });
   await broken('까닭 글을 안 보인다', (x) => x.replace("if(hint) hint.textContent = PUBLIC_TAG_HINT;", ""), async (src) => { await tagScenario(src, false); });
-  await broken('오늘 일정을 «오늘 열어 봤는가» 로 안 센다', (x) => x.replace("const newToday   = (seenDay === todayYMD) ? 0 : _bellTodayItems.length;", "const newToday   = _bellTodayItems.length;"), async (src) => {
-    const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': [item('t1', TODAY, '병원')] } });
-    await tick(); E.el('myBellBtn').fire('click');
-    chk(E.el('myBellBadge').textContent === '0', 'x');
-  });
   await broken('늦게 온 🔔 알림 답의 세대 확인을 뺀다', (x) => x.replace("  if(gen !== _gen) return;\n  _loadFailing = false;\n  const prevIds", "  _loadFailing = false;\n  const prevIds"), async (src) => { await staleBell(src); });
   await broken('늦게 온 오늘 일정 답의 세대 확인을 뺀다', (x) => x.replace("    if(gen !== _gen) return;\n    const dayObj", "    const dayObj"), async (src) => { await staleBell(src); });
   await broken('reset 이 서버 길의 «받음» 기억을 안 비운다', (x) => x.replace("  scheduleApi.reset();\n", ""), async (src) => { await staleBell(src); });

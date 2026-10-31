@@ -63,7 +63,7 @@ function mk(src, routes, extra){
   });
   return { m, authed, warns, ups };
 }
-const it = (id, date, text, vis, ver) => ({ id, date, text, visibility: vis || 'PRIVATE', version: ver == null ? 1 : ver });
+const it = (id, date, text, vis, ver, at) => Object.assign({ id, date, text, visibility: vis || 'PRIVATE', version: ver == null ? 1 : ver }, at === undefined ? {} : { createdAt: at });
 const card = (id, text, date, over) => Object.assign({ ddayId: id, text, date, visibility: 'PRIVATE', notify: false, countFromOne: true, bgColor: null, bgImage: null, createdAt: '2026-10-01T00:00:00Z' }, over || {});
 const BOARD = (over) => Object.assign({ version: 5, cards: [card(U1, '만난 날', '2026-01-01', { notify: true, bgColor: '#ffcc00' }), card(U2, '졸업', '2026-02-02', { countFromOne: false })],
   banners: [card(U3, '시험', '2026-12-25', { visibility: 'PUBLIC', countFromOne: false })] }, over || {});
@@ -75,12 +75,14 @@ const SRC = SRC0.API;
 
 say('── 1. 일정 읽기');
 {
-  const list = [it('a', '2026-11-03', '회의', 'PUBLIC', 4), it('b', '2026-11-03', '점심', 'PRIVATE', 1), it('c', '2026-12-01', '다른 달', 'PRIVATE', 1)];
+  const list = [it('a', '2026-11-03', '회의', 'PUBLIC', 4, '2026-10-30T01:00:00Z'), it('b', '2026-11-03', '점심', 'PRIVATE', 1, '2026-10-30T02:00:00.500Z'), it('c', '2026-12-01', '다른 달', 'PRIVATE', 1)];
   const { m, authed } = mk(SRC, { 'GET /v1/me/schedules': list });
   const d = await m.fetchMonth('me1', '2026-11');
   chk(authed.log[0].path === '/v1/me/schedules?month=2026-11' && authed.log[0].opts.auth === true, '내 달력 — GET /v1/me/schedules?month=YYYY-MM · 로그인 통로');
   chk(eq(Object.keys(d), ['03']) && d['03'].a.text === '회의' && d['03'].a.public === true && d['03'].a.version === 4 && d['03'].b.public === false, '  날짜(DD)별 · public ← visibility · 판 version 을 들고 있다');
-  chk(d['03'].a.ts === 1 && d['03'].b.ts === 2, '  ts 는 서버가 준 차례(날짜 → 만든 순)를 잇는 번호');
+  chk(d['03'].a.ts === Date.parse('2026-10-30T01:00:00Z') && d['03'].b.ts === Date.parse('2026-10-30T02:00:00.500Z'), '  ts 는 서버가 준 createdAt 을 ms 로 옮긴 만든 시각');
+  const tsOf = async (at) => (await mk(SRC, { 'GET /v1/me/schedules': [it('z', '2026-11-03', 'z', 'PRIVATE', 1, at)] }).m.fetchMonth('me1', '2026-11'))['03'].z.ts;
+  chk(await tsOf(undefined) === 0 && await tsOf('깨진 값') === 0 && await tsOf(null) === 0 && await tsOf('') === 0, '  createdAt 이 없거나 깨지면 0(오래된 것)');
   chk(!('02' in d) && Object.keys(d).length === 1, '  다른 달 줄은 버린다');
   const e = mk(SRC, { 'GET /v1/me/schedules': [] });
   chk(eq(await e.m.fetchMonth('me1', '2026-11'), {}), '일정이 없는 달은 빈 객체({}) — 못 읽음이 아니다');
