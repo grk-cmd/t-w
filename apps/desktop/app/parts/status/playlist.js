@@ -71,7 +71,7 @@ const plApi = deps.playlistApi;                      // 🌐 서버 목록 provi
        주입 방식은 광고 음소거·강제재생으로 앱 전체가 이미 의존하고 있다.
        재생할 수 없는 영상(비공개·삭제·지역차단)은 'err'로 와서 다음 곡으로 넘어간다.
 
-   저장: 내 목록 · 한마디 · 공개 · 비공개의 원본은 **서버**다(GET · PUT /v1/me/playlist). 서버 계정이 확인되면(게이트가 부른다) 서버에서 받아 앉히고(_plPull),
+   저장: 내 목록 · 한마디 · 공개 · 비공개의 원본은 **서버**다(GET · PUT /v1/me/playlist). 서버 계정이 확인되면(켜는 순서 모듈 app-boot.js 가 부른다) 서버에서 받아 앉히고(_plPull),
    고치면 서버에 올린다(_plPublish). 이 기기에는 목록을 두지 않는다 — 보는 프리셋 · 반복 · 음량 · 미니미 · 창 자리만 기기 설정으로 남긴다.
    */
 const PL_MAX = 20;          // 목록 상한. **프리셋당** 20곡이다(총 60) —
@@ -445,7 +445,7 @@ function _plServerShape(){
   return { sets, meta, sig: _plPubSigOf(sets, meta) };
 }
 /* ☁️ 서버에서 내 목록을 받아 그대로 앉힌다 — 앱을 켤 때 · 계정을 이어받을 때 · 저장이 409(다른 기기가 먼저 고침)로 거절됐을 때 · [다시 시도] 를 눌렀을 때.
-   로그인이 아직 안 됐으면(내 코드 없음 · 토큰 없음) 그냥 끝낸다 — 타이머로 기다리지 않는다. 서버 계정이 확인된 뒤 게이트(license-gate.js `_goOnline` · `_backOnline`)가 deps 로 한 번 부른다.
+   로그인이 아직 안 됐으면(내 코드 없음 · 토큰 없음) 그냥 끝낸다 — 타이머로 기다리지 않는다. 서버 계정이 확인된 뒤 켜는 순서 모듈(launcher/app-boot.js playlist 차례)이 한 번 부른다.
    못 읽으면(던짐) 혼자 다시 받지 않는다 — 창에 «못 불러왔어요 · 다시 시도» 를 보이고, 다시 받는 길은 [다시 시도] 를 누르는 것과 창을 여는 것(_plRetryOnOpen)뿐이다. 빈 목록은 «못 읽음» 이 아니라 빈 화면이다.
    받기 전(_plLoaded 거짓)에는 목록을 고치는 동작이 잠긴다 — 빈 화면에서 넣은 곡이 받는 순간 사라지지 않게.
    듣는 중에는 목록을 바꾸지 않고 고정 간격으로 미룬다(듣던 곡이 사라지지 않게). */
@@ -460,7 +460,7 @@ function _plPullLater(ms){ clearTimeout(_plPullT); _plPullT = setTimeout(_plPull
 async function _plPull(){
   clearTimeout(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만
   const uid = getMyUserId();
-  if(!uid) return;   // 로그인 전 — 서버 계정이 확인되면 게이트가 다시 부른다
+  if(!uid) return;   // 로그인 전 — 서버 계정이 확인되면 켜는 순서 모듈이 부른다
   if(_plNow >= 0){ _plPullLater(PL_PLAYING_DEFER_MS); return; }   // 듣는 중이면 부르기 전에 미룬다(받아도 못 앉히는 헛 요청 없음)
   if(_plPullBusyUid === uid) return;                         // 같은 계정으로 받는 중 — 겹치지 않는다
   if(_plPullFailed){ _plPullFailed = false; _plRender(); }   // 다시 받는 동안은 «불러오는 중…»
@@ -470,7 +470,7 @@ async function _plPull(){
   catch(e){
     if(_plPullBusyUid === uid) _plPullBusyUid = null;
     if(getMyUserId() !== uid) return;
-    if(e && e.code === PL_NO_TOKEN){ _plPullFailed = true; _plRender(); return; }   // 토큰이 없어 못 받았다 — 「못 불러왔어요」(오류 번호 없음). 서버 계정이 확인되면 게이트가 다시 부른다
+    if(e && e.code === PL_NO_TOKEN){ _plPullFailed = true; _plRender(); return; }   // 토큰이 없어 못 받았다 — 「못 불러왔어요」(오류 번호 없음). 서버 계정이 확인되면 켜는 순서 모듈이 다시 부른다
     _plPullFailed = true; _plRender();   // 혼자 다시 받지 않는다 — [다시 시도] · 창 열기가 다시 받는다
     return;
   }

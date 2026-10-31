@@ -3,7 +3,7 @@
   "files": {
     "app.js": {
       "cap": 9273,
-      "lines": 9160,
+      "lines": 9174,
       "sections": [
         "SETUP",
         "DRACO",
