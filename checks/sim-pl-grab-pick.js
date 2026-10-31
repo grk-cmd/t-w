@@ -13,9 +13,13 @@ smokeSrc = smokeSrc.slice(0, cut).split('\n')
   .filter(l => !/require\(|const FILE =|if \(!FILE\)|process\.exit/.test(l)).join('\n');
 vm.runInThisContext(smokeSrc, { filename: 'smoke-stubs.js' });
 
-globalThis.setTimeout = (fn)=>0;
+const _timers = [];   // 앱이 걸어 둔 «나중에» — 서버 목록 받기(_plPull)를 우리가 직접 돌리려고 모은다
+globalThis.setTimeout = (fn)=>{ _timers.push(fn); return 0; };
 globalThis.setInterval = () => 0;
 globalThis.clearInterval = () => {};
+
+/* ☁️ 원본은 서버다 — 받기 전에는 담기가 잠긴다(D10). 검사는 서버 응답(빈 목록 세 벌)을 흉내 내 받은 뒤 상태로 만든다. */
+globalThis.__srv = { ok: true };
 
 /* 🎵 플레이리스트는 parts/status/playlist.js 로 옮겼다(앱 FSD 16번) — 그 파일을 먼저 평가하고, app.js 가 원래 자리에서 만든 plMod 로 들여다본다.
    ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — 빈 껍데기(PLAYLIST_OFF)로 돌아 초록인 척하지 않게. */
@@ -37,6 +41,7 @@ const probe = `
   setView: v=>{ plMod.st.view = v; },
   setSel: i=>{ plMod.st.sel = i; },
   song: ()=>plMod.grabSong(),
+  loaded: ()=>plMod.st.loaded,
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
@@ -45,6 +50,12 @@ catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack 
 console.log = say;
 
 const P = globalThis.__P;
+const SRV_MINE = { version: 1, sets: [0, 1, 2].map(() => ({ name: '', tracks: [] })), bio: '', listed: true, homePublic: false };
+async function receiveFromServer(){
+  localStorage.setItem('tw.myUserId', 'uTest');
+  TwApi.authed.get = async () => SRV_MINE;
+  for(const fn of _timers.splice(0)) await fn();
+}
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 let toasts = [];
@@ -81,6 +92,15 @@ const menuRows = ()=>{
 const rowText = r => r.kids.map(k => k.textContent).join(' ');
 const btn = { getBoundingClientRect: ()=>({ top:100, bottom:120, left:50, right:200, width:150, height:20 }) };
 
+(async () => {
+say('\n── 0. 서버 목록을 받기 전에는 담을 수 없다 (잠금)');
+{
+  chk(!P.loaded(), '받기 전 — loaded 가 거짓');
+  chk(P.block(0, { id:'x' }) !== null, '★ 받기 전에는 어느 프리셋도 못 담는다 (사유가 돌아온다)');
+  await receiveFromServer();
+  chk(P.loaded(), '서버 목록을 받으면 loaded 가 선다');
+  chk(P.block(0, { id:'x' }) === null, '받은 뒤에는 빈 프리셋에 담을 수 있다');
+}
 say('\n── 1. 버튼을 누르면 프리셋 줄이 뜬다');
 {
   stage([[], [], []]);
@@ -185,3 +205,5 @@ say('\n── 9. 고른 곡이 없으면 메뉴를 안 연다');
 }
 
 say(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');
+
+})();
