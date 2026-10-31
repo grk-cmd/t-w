@@ -271,7 +271,7 @@
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
 | **sim-def-size.js** | 157 | **68d8b678409d** |
-| **sim-todo-cli.js** | 145 | **cea6fc0dd36b** |
+| **sim-todo-cli.js** | 157 | **a7469ac82852** |
 | **sim-folder-free.js** | 190 | **b48c8b4f9389** |
 | **sim-chat-sfx.js** | 153 | **fbc9c8b4eac6** |
 | **sim-mac-update.js** | 212 | **dda6802135c3** |

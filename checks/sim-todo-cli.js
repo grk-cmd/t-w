@@ -138,7 +138,19 @@ say('── 6. brief 는 관리자가 아니어도 조용히');
   const r3 = spawnSync(process.execPath, ['scripts/todo.js', 'list'], {
     encoding: 'utf8', timeout: 10000, env: { PATH: '', TW_TODO_DB: 'http://127.0.0.1:1' },
   });
-  chk(r3.status === 1 && /gcloud 가 없어요|관리자 계정만/.test(r3.stderr), 'brief 가 아닌 명령은 한국어로 이유를 말하고 1');
+  chk(r3.status === 1 && /gcloud 가 없어요/.test(r3.stderr), 'brief 가 아닌 명령은 한국어로 이유를 말하고 1 — gcloud 가 없으면 «gcloud 가 없어요»');
+}
+
+say('── 7. gcloud 가 없는지 가리기(한국어 Windows 포함)');
+{
+  const no = () => false, yes = () => true;
+  const korean = { status: 1, stderr: Buffer.from([0xbf, 0xdc, 0xba, 0xce]).toString('utf8') };   // cp949 글이 utf8 로 깨져 들어온 모양
+  chk(T.gcloudMissing({ code: 'ENOENT' }, 'linux', yes) === true, '맥 · 리눅스 — 실행 파일이 없으면(ENOENT) 없음');
+  chk(T.gcloudMissing({ stderr: "'gcloud' is not recognized as an internal or external command" }, 'win32', yes) === true, '영어 Windows 오류 글이면 없음');
+  chk(T.gcloudMissing(korean, 'win32', no) === true, '한국어 Windows — 글을 못 읽어도 where 가 못 찾으면 없음(«관리자 계정만» 으로 잘못 나오던 것)');
+  chk(T.gcloudMissing(korean, 'win32', yes) === false, '  where 가 찾으면 gcloud 는 있다 — 로그인 · 권한 문제로 본다');
+  chk(T.gcloudMissing({ status: 1, stderr: 'ERROR: (gcloud.auth.print-access-token) no credentialed accounts' }, 'linux', no) === false, '  맥 · 리눅스에서 로그인 안 됨은 «없음» 이 아니다(where 를 안 본다)');
+  chk(T.gcloudMissing(null, 'darwin', no) === false, '  빈 오류는 «없음» 이 아니다');
 }
 
 say(`\n결과: ${pass} 통과 · ${fail} 실패`);
