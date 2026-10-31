@@ -53,9 +53,9 @@ try{
   _bootErrors.push('uiohook-napi 로드 실패 — 전역 클릭/키 감지 없음: ' + (err && err.message || err) + ' | ' + peekUnpacked('uiohook-napi'));
   _nativeFailed.push('uiohook-napi');
 }
-let windowManager = null;
+let windowManager = null, nwmAddon = null, NwmWindow = null;
 try{
-  ({ windowManager } = require('node-window-manager'));
+  ({ windowManager, addon: nwmAddon, Window: NwmWindow } = require('node-window-manager'));
 }catch(err){
   _bootErrors.push('node-window-manager 로드 실패 — 활성 창 감지·창 목록 없음: ' + (err && err.message || err) + ' | ' + peekUnpacked('node-window-manager'));
   _nativeFailed.push('node-window-manager');
@@ -198,50 +198,78 @@ async function getActiveWindow(){
 }
 
 /* ── 창 목록 ───────────────────────────────────────────────────────────────
-   거르는 **순서가 뜻을 가진다**: 빈 값·비가시·빈 제목 → 자기/셸 → 너무 작은 창 →
-   같은 exe 중복(제목 긴 쪽). 순서를 바꾸면 같은 입력에 다른 답이 나온다.
+   거르는 **순서가 뜻을 가진다**: 비가시 · 제목 없는 작은 창 → 이름 못 읽음 → 자기/셸 → 너무 작은 창 →
+   같은 exe 중복(제목 긴 쪽 · 제목 없는 창은 길이 0). 순서를 바꾸면 같은 입력에 다른 답이 나온다(검사 sim-winlist.js).
    ⚠️ 실패를 빈 목록으로 삼키지 않는다 — enum-failed 로 돌려준다. mac 에서 권한을 거부하면
      title 이 빈 문자열로 와서 **조용한 빈 목록**이 되는데, 그 갈래를 나중에 가르려면
      실패 경로가 지금 살아 있어야 한다(핸드오프 §7-2). */
+/* 제목을 못 읽은 큰 창 — 안티치트가 붙은 게임은 관리자 권한으로도 제목(getTitle)이 빈 값으로 올 수 있다(제보 «게임만 등록 · 감지 안 됨»).
+   프로세스 이름을 알고 이만큼 크면 목록에 넣는다 — 작은 제목 없는 창은 대개 보조 창이라 예전처럼 뺀다. */
+const UNTITLED_MIN_W = 400, UNTITLED_MIN_H = 300;
+const UNTITLED_LABEL = '(제목 없는 창)';
+const SKIP_LOG_NAMES = 8;   // 진단 줄에 이름을 적는 상한
+/* 창 전부 — 경로를 못 읽은 창도. windowManager.getWindows() 는 안에서 `isWindow()` 로 거르는데 Windows 판은
+   **경로가 빈 창을 버린다**(path && addon.isWindow). 안티치트 · 보호 프로세스는 핸들 권한을 막아 경로가 비므로
+   그 창은 여기까지 오지도 못했고, 아래 tasklist 보조 통로가 한 번도 돌지 않았다. 라이브러리가 내보내는 addon · Window 로
+   경로 필터 없이 받는다(창인가는 addon.isWindow 로만). 둘이 없는 판이면 예전 길로. */
+function _allWindows(){
+  if(nwmAddon && typeof nwmAddon.getWindows === 'function' && typeof nwmAddon.isWindow === 'function' && NwmWindow){
+    return nwmAddon.getWindows().map(id => new NwmWindow(id)).filter(w => nwmAddon.isWindow(w.id));
+  }
+  return windowManager.getWindows() || [];
+}
 async function listWindows(){
   /* 로드 실패도 열거 실패다 — 빈 목록으로 내려보내면 "아무것도 안 떠 있음"과 구분이 안 된다. */
   if(!windowManager) return { ok:false, reason:'enum-failed', message:'node-window-manager 로드 실패' };
   const SELF_EXE = selfProcName();
   const out = [];
+  /* 🩺 왜 뺐는지 — 열 때마다 한 줄(제보에서 «목록에 게임이 안 나온다» 를 가르는 재료) */
+  const skip = { hidden: 0, untitledSmall: 0, noName: 0, shell: 0, small: 0 }, noNamePids = [];
+  let byTasklist = 0;   // 경로를 못 읽어 tasklist 이름으로 넣은 창
+  let total = 0;
   try{
-    const wins = windowManager.getWindows() || [];
+    const wins = _allWindows();
     const seen = new Map();   // exe 경로 → 항목 (같은 프로그램의 창이 여러 개여도 한 줄만)
     for(const w of wins){
+      total++;
       let p = '', title = '', vis = true, bounds = null;
       try{ p = w.path || ''; }catch(_){}
       try{ title = (w.getTitle() || '').trim(); }catch(_){}
       try{ vis = (typeof w.isVisible === 'function') ? w.isVisible() : true; }catch(_){}
       try{ bounds = (typeof w.getBounds === 'function') ? w.getBounds() : null; }catch(_){}
-      if(!vis || !title) continue;
-      /* 🛡️ 경로가 빈 창(관리자 권한)은 예전엔 여기서 통째로 빠졌다 — «목록에 게임이 안 뜬다».
-         getActiveWindow 와 같은 보조 통로로 이름만 받는다. 못 받으면 예전처럼 건너뛴다. */
+      if(!vis){ skip.hidden++; continue; }
+      const big = !!bounds && (bounds.width|0) >= UNTITLED_MIN_W && (bounds.height|0) >= UNTITLED_MIN_H;
+      if(!title && !big){ skip.untitledSmall++; continue; }
+      /* 경로가 빈 창(관리자 권한 · 안티치트) — getActiveWindow 와 같은 보조 통로(tasklist)로 이름만 받는다. 못 받으면 건너뛴다.
+         ⚠️ 이 창은 _allWindows 가 경로 필터 없이 열거할 때만 여기 온다(라이브러리 getWindows 는 미리 버린다). */
       let key = p;
       if(!p){
         let n = '';
-        try{ n = await _nameByPid(Number(w.processId) || 0); }catch(_){}
-        if(!n) continue;
-        p = n; key = 'name:' + n.toLowerCase();
+        const pid = Number(w.processId) || 0;
+        try{ n = await _nameByPid(pid); }catch(_){}
+        if(!n){ skip.noName++; if(noNamePids.length < SKIP_LOG_NAMES) noNamePids.push(pid); continue; }
+        p = n; key = 'name:' + n.toLowerCase(); byTasklist++;
       }
       const name = procNameOf(p);
-      if(name === SELF_EXE || WINLIST_SKIP.has(name)) continue;
+      if(name === SELF_EXE || WINLIST_SKIP.has(name)){ skip.shell++; continue; }
       // 크기가 0에 가까운 창은 실제 화면에 없는 보조 창(트레이·메시지 전용)이다.
-      if(bounds && ((bounds.width|0) < 80 || (bounds.height|0) < 60)) continue;
+      if(bounds && ((bounds.width|0) < 80 || (bounds.height|0) < 60)){ skip.small++; continue; }
       const prev = seen.get(key);
-      // 같은 exe 가 여러 창이면 제목이 긴 쪽을 남긴다 — 보통 그쪽이 본 창이다.
-      if(prev && prev.title.length >= title.length) continue;
+      // 같은 exe 가 여러 창이면 제목이 긴 쪽을 남긴다 — 보통 그쪽이 본 창이다. 제목 없는 창(표시 글만 있음)은 길이 0 으로 친다.
+      if(prev && (prev.title === UNTITLED_LABEL ? 0 : prev.title.length) >= title.length) continue;
       /* path: 경로를 못 읽은 창은 '' — main.js 등록부가 `path || name` 으로 읽는다(getActiveWindow 와 같은 규약). */
-      const item = { name, path: key === p ? p : '', title: title.slice(0, 80) };
+      const item = { name, path: key === p ? p : '', title: title ? title.slice(0, 80) : UNTITLED_LABEL };
       if(prev){ Object.assign(prev, item); } else { seen.set(key, item); out.push(item); }
     }
   }catch(err){
     return { ok:false, reason:'enum-failed', message: (err && err.message) || String(err) };
   }
   out.sort((a,b)=> a.name.localeCompare(b.name));
+  const untitledNames = out.filter(x => x.title === UNTITLED_LABEL).slice(0, SKIP_LOG_NAMES).map(x => x.name);   // 끝내 제목 없이 들어간 것만
+  _log('[목록] 창 ' + total + '개 → ' + out.length + '개(경로 못 읽어 이름으로 ' + byTasklist + ') | 뺀 것: 숨김 ' + skip.hidden + ' · 제목 없는 작은 창 ' + skip.untitledSmall
+    + ' · 이름 못 읽음 ' + skip.noName + (noNamePids.length ? '(pid ' + noNamePids.join(',') + ')' : '')
+    + ' · 셸/우리 앱 ' + skip.shell + ' · 작은 창 ' + skip.small
+    + (untitledNames.length ? ' | 제목 없이 넣음: ' + untitledNames.join(', ') : ''));
   return { ok:true, list: out };
 }
 

@@ -20,7 +20,7 @@
 | 검사 파일 수 | **82개** (§3 · 개정 38 에서 `sim-signup.js` 신설 · 개정 33 에서 `sim-chars-migrate.js` 신설 · 개정 32 에서 `sim-chars-merge.js` 신설 · 개정 31 에서 `sim-slot-sync-ui.js` 신설 · 개정 30 에서 `sim-slot-conflict.js` 신설 · 개정 27 에서 `sim-friend-code-keep.js` 신설 · 개정 24~26 은 `sim-slot-sync.js` 에 ⑨·⑩·⑪ 절 추가) |
 | 실기기 한 바퀴 | **초록 76 · 빨강 0 · 원본없음 1 · 시간초과 0** (개정 29 기대값 — 개정 22~27 의 «빨강 0» 은 `sim-account-switch.js` 스텁 탓에 실제로는 빨강 1 이었을 것, 개정 28 에서 해소 — 확인 전 · 저장소 러너 기준 — 프로젝트 사본 환경은 원본없음 7) |
 | `sim-sysinput.js` | **입수함.** 받은 것은 §2 표의 **58·1 판**. 6절 한 줄 고쳐 **60·0** |
-| `sysinput-win.js` 를 읽는 검사 | **2개** (`sim-sysinput.js` · `sim-admin-active.js`, 개정 16) |
+| `sysinput-win.js` 를 읽는 검사 | **3개** (`sim-sysinput.js` · `sim-admin-active.js` · `sim-winlist.js`) |
 | `overlay-win.js` 를 읽는 검사 | **2개** — §4-② 에서 메웠다 (개정 6 까지는 0개였다) |
 | `audit.py` | **끝까지 돈다.** 110초 → 7초 · 검사 7~19 가 실기기에서 처음 돌았다 (§4-⑤) |
 
@@ -217,7 +217,8 @@
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
 | **sim-signup.js** | 1597 | **14f398af12e0** |
-| **sim-sysinput.js** | 397 | **bdf06e31afdb** |
+| **sim-sysinput.js** | 398 | **5aee331494bb** |
+| **sim-winlist.js** | 117 | **264e376e72aa** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
 | **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
