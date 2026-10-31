@@ -44,7 +44,7 @@ function judge({ pages, files, sizes, fontCss, toc }){
   for (const [f, s] of Object.entries(pages)){
     for (const m of s.matchAll(/href="\/([^"#?]*)"/g)){
       const t = m[1].replace(/\.html$/, '');
-      if (t === '' ? !pages['index.html'] : !pages[t + '.html'] && !files.has(t)) errs.push(f + ' → /' + m[1] + ' 가 없다');
+      if (t === '' ? !pages['index.html'] : !pages[t + '.html'] && !files.has(t) && !files.has(t + '.html')) errs.push(f + ' → /' + m[1] + ' 가 없다');
     }
     for (const m of s.matchAll(/src="\/([^"]+)"/g)) if (!files.has(m[1])) errs.push(f + ' 그림 · 파일 /' + m[1] + ' 가 없다');
     const scripts = [...s.matchAll(/<script\b([^>]*)>/g)].map(m => m[1]);
