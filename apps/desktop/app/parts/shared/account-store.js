@@ -74,14 +74,14 @@ function createAccountStore(deps){
   /* 🔓 열림 — 서버가 계정을 확인해 준 뒤(launcher/app-boot.js begin, 옛 값 옮기기 직후)에만 열린다. 처음엔 닫힘:
      읽기 null · 쓰기 거절 + 키마다 한 번 경고. 확인 전에 먼저 쓴 값이 옛 PC 값 옮기기를 «kept» 로 막고 옛 값을 지우던 일을 장치로 막는다.
      닫힘의 결과는 isWriteLocked(계정을 놓은 틈)와 같다. 로그아웃의 지우기는 이 틈에서 isWriteLocked 가 거절한다. */
-  let opened = false;
+  let opened = null;   // 열린 계정 코드 — 열린 뒤 계정 코드가 바뀌면(앱은 다시 켜야 한다) 닫힘으로 돌아간다
   const warned = new Set();
   function open(code){
     if(!validCode(code) || code !== getAccountCode()){
       console.warn('[계정 칸] 열지 않았다 — 열려는 코드와 지금 계정 코드가 다르거나 모양이 틀리다');
       return false;
     }
-    opened = true;
+    opened = code;
     return true;
   }
   function cellOf(key){
@@ -90,7 +90,7 @@ function createAccountStore(deps){
     return validCode(code) ? cellName(code, key) : null;
   }
   function closedFor(key){
-    if(opened) return false;
+    if(opened !== null && opened === getAccountCode()) return false;
     if(!warned.has(key)){ warned.add(key); console.warn('[계정 칸] 계정 확인 전 접근', key); }
     return true;
   }

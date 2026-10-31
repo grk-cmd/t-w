@@ -103,7 +103,7 @@ function runAdd(start, add){
     const focusLevelStore = { get: () => null, set: () => true };
     const _focusDayStr = () => 'd';
     const _pushLevelIfChanged = () => {};
-    const focusTotalStarted = () => true;
+    const _focusTotalStarted = () => true;
     ${fnAdd}
     addFocusSeconds(ctx.add);
     return _focusTotalSec;

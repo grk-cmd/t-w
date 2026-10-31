@@ -37,7 +37,7 @@ function build(src, o) {
   const deps = {
     migrateLegacy: (code) => { ev.push('migrate:' + code); },
     twNav,
-    openAccountStore: (code) => { ev.push('open:' + code); },
+    openAccountStore: (code) => { ev.push('open:' + code); return o.openFail ? false : true; },
     goOnline: () => { ev.push('online'); },
     starts,
   };
@@ -70,6 +70,9 @@ async function judge(src) {
   t(iMig === 0 && iOpen === 1 && iOpen < iOn && iOn < iFirst, '  옛 값 옮기기 → 계정 칸 열기(옮긴 뒤에야 연다) → realtime → 모든 기능 시작');
   t(ORDER.every((n) => b.ev.filter((e) => e.startsWith('start:' + n + ':')).length === 1), '  각 기능은 정확히 한 번');
   /* 3 */
+  b = build(src, { openFail: true });
+  const of = await quiet(async () => b.notify(ME));
+  t(of[0] === false && b.ev.join() === 'migrate:u1,open:u1' && of[1].some((w) => /열지 못해/.test(w)), '계정 칸을 못 열면(false) realtime · 기능 시작 0번 + 경고');
   b = build(src);
   t(b.ev.length === 0, '알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정 → 게이트가 알리지 않음) 시작 0번');
   const e0 = await quiet(async () => [b.notify(null), b.notify({}), b.notify({ userCode: '' })]);
@@ -119,10 +122,11 @@ async function judge(src) {
   say('── 7. 일부러 깨 보기 — 빨강이 나야 한다');
   const breaks = [
     ['차례를 바꿈(가챠 ↔ 달성표)', (m) => m.replace("  'weeklyChal',", "  'TMP',").replace("  'gacha', ", "  'weeklyChal', ").replace("  'TMP',", "  'gacha',")],
-    ['옛 값 옮기기를 시작 뒤로', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n    guard('계정 칸 열기', () => openAccountStore(code));   // 옮긴 뒤에야 연다 — 먼저 쓴 값이 옛 값을 가리지 않게\n    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));", "    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));\n    guard('옛 값 옮기기', () => migrateLegacy(code));")],
+    ['옛 값 옮기기를 시작 뒤로', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n", '').replace("    for(const name of STEPS) guard(name, () => starts[name](code, me));", "    for(const name of STEPS) guard(name, () => starts[name](code, me));\n    guard('옛 값 옮기기', () => migrateLegacy(code));")],
     ['realtime 을 시작 뒤로', (m) => m.replace("    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));", "    for(const name of STEPS) guard(name, () => starts[name](code, me));\n    guard('realtime 연결', () => goOnline());")],
-    ['계정 칸을 안 엶', (m) => m.replace("    guard('계정 칸 열기', () => openAccountStore(code));   // 옮긴 뒤에야 연다 — 먼저 쓴 값이 옛 값을 가리지 않게\n", '')],
-    ['계정 칸을 옮기기 전에 엶', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n    guard('계정 칸 열기', () => openAccountStore(code));", "    guard('계정 칸 열기', () => openAccountStore(code));\n    guard('옛 값 옮기기', () => migrateLegacy(code));")],
+    ['못 열어도 기능을 시작', (m) => m.replace("    if(!opened){ console.warn('[app-boot] 계정 칸을 열지 못해 계정 기능을 시작하지 않아요'); return false; }\n", '')],
+    ['계정 칸을 안 엶', (m) => m.replace('    try{ opened = openAccountStore(code) === true; }catch(e){ console.warn(\'[app-boot] 계정 칸 열기 실패\', e); }\n', '')],
+    ['계정 칸을 옮기기 전에 엶', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n", '').replace("return false; }\n    guard('realtime", "return false; }\n    guard('옛 값 옮기기', () => migrateLegacy(code));\n    guard('realtime")],
     ['알림에 begin 을 안 검', (m) => m.replace('twNav.on(twNav.NAV.ACCOUNT_ENTERED, begin);', '')],
     ['두 번 불러도 또 시작', (m) => m.replace("if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '')],
     ['한 칸이 던지면 다음 칸이 멈춤', (m) => m.replace("catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); }", 'catch(e){ throw e; }')],

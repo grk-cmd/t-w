@@ -33,7 +33,7 @@ const STEPS = [
 /** @param {{
  *   twNav: { on: (name: string, fn: Function) => void, NAV: Record<string, string> },   // 창 열기 통로(shared/nav.js) — NAV.ACCOUNT_ENTERED 를 여기서 받는다
  *   migrateLegacy: (code: string) => unknown,                  // 옛 PC 값을 이 계정 칸으로(shared/account-store.js)
- *   openAccountStore: (code: string) => boolean,               // 계정 칸 열기(옮기기 직후 — 열기 전엔 읽기 null · 쓰기 거절)
+ *   openAccountStore: (code: string) => boolean,               // 계정 칸 열기(옮기기 직후 — 열기 전엔 읽기 null · 쓰기 거절). false 면 기능을 시작하지 않는다
  *   goOnline: () => void,                                      // realtime 연결(login-flow.js goOnline)
  *   starts: Record<string, (code: string, me: object) => unknown>,   // STEPS 이름마다 하나 — 계정 기능의 시작 함수(없거나 남으면 만들 때 던진다)
  * }} deps */
@@ -66,7 +66,9 @@ const starts = deps.starts;
     began = true;
     const code = me.userCode;
     guard('옛 값 옮기기', () => migrateLegacy(code));
-    guard('계정 칸 열기', () => openAccountStore(code));   // 옮긴 뒤에야 연다 — 먼저 쓴 값이 옛 값을 가리지 않게
+    let opened = false;   // 옮긴 뒤에야 연다 — 먼저 쓴 값이 옛 값을 가리지 않게. 못 열면(코드가 어긋남 — 정상 흐름에선 없다) 기능을 시작하지 않는다
+    try{ opened = openAccountStore(code) === true; }catch(e){ console.warn('[app-boot] 계정 칸 열기 실패', e); }
+    if(!opened){ console.warn('[app-boot] 계정 칸을 열지 못해 계정 기능을 시작하지 않아요'); return false; }
     guard('realtime 연결', () => goOnline());
     for(const name of STEPS) guard(name, () => starts[name](code, me));
     return true;

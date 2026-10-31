@@ -132,6 +132,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     } : null;
     const window = { firebaseAPI };
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + "\nconst ME_CACHE_KEY = 'tw.me';\n" + [
+      "const sessionLost=()=>!!env.lost;   /* 다른 기기에 밀렸나 */",
+      "const accountLegacyStore={ migrateLegacy:(c)=>{ env.calls.push('migrate:'+c); return {}; } };",
       "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); env.mark = env.total; env.hasMark = true; };",
       /* 🎰 가챠는 gacha.js 모듈(앱 FSD 8번) — app.js 는 gachaMod.syncGachaToServer · owned · resetMemory 로 부른다. 메모리 칸은 아래 let 이 대신한다 */
       "const gachaMod={ syncGachaToServer:async(r)=>{ env.calls.push('flush:gacha:'+r); }, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; } };",
@@ -214,6 +216,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
        여기선 **마크를 안 옮기는 flush**(쓰기가 거부된 기기)로 바꿔 끼운다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
+      "const accountLegacyStore={ migrateLegacy:()=>({}) }; const sessionLost=()=>false; const ME_CACHE_KEY='tw.me';\n" +
       "const syncFocusTotalToServer=async()=>{}; const gachaMod={ syncGachaToServer:async()=>{}, owned:()=>gachaOwned, unsynced:(srv)=>{ let n=0; for(const k in gachaOwned) n+=Math.max(0,(gachaOwned[k]|0)-((srv||{})[k]|0)); return n; }, resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const syncSlotsToServer=async()=>{};\n" +
       "let _slotsPushTimer=null; const clearTimeout=()=>{}; const setTimeout=()=>0; const _slotsHasLocal=()=>false;\n" +
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
@@ -249,8 +252,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     say('· ⑥-2 로그아웃 전에 presence «꺼짐»');
     e = mkEnv(); fillA(e);
     await e.m.detach();
-    const iP = e.calls.indexOf('presence:uA:false'), iR = e.calls.indexOf('release');
-    chk(iP >= 0 && iR > iP && e.calls.indexOf('slotsTs') < iP, '★ 검문을 지난 뒤 · 기기 세션 놓기 전에 presence 를 «꺼짐» 으로 쓴다(로그인이 남아 있을 때)');
+    const iP = e.calls.indexOf('presence:uA:false');
+    chk(iP >= 0 && !e.calls.includes('release') && e.calls.indexOf('slotsTs') < iP, '★ 검문을 지난 뒤 presence 를 «꺼짐» 으로 쓴다(로그인이 남아 있을 때) — 기기 세션은 realtime 이 정하므로 따로 놓지 않는다');
     e = mkEnv({ slotsTs: 0 }); fillA(e);
     await e.m.detach();
     chk(!e.calls.some(c => c.startsWith('presence:')), '  막힌 로그아웃은 presence 를 안 건드린다');
@@ -259,7 +262,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(!e.calls.some(c => c.startsWith('presence:')), '★ 다른 기기에 밀려난 기기는 안 쓴다 — 그 칸은 이긴 쪽 것');
     e = mkEnv({ presenceHang: true, fastTimeout: true }); fillA(e);
     r = await e.m.detach();
-    chk(r && r.ok === true && e.calls.includes('release'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다');
+    chk(r && r.ok === true && e.calls.includes('chal:reset'), '  쓰기가 끝나지 않아도(오프라인) 기다림 상한 뒤 로그아웃은 이어진다(지우기까지 간다)');
     e = mkEnv({ apiOn: false }); fillA(e);
     r = await e.m.detach({ force: true });
     chk(r && r.ok === true && e.LS.getItem(K.MY_USER_ID_KEY) === null, '  firebaseAPI 가 없는 강제 로그아웃도 «꺼짐» 쓰기에서 던지지 않고 지운다');
@@ -306,7 +309,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     r = await e.m.detach({ force: true });
     chk(r && r.ok === true, '★ force 면 검문에 걸려도 지운다');
     chk(e.m.keys().filter(k => e.LS.getItem(k) !== null).length === 0 && e.m.mem().detached === true, '  강제로 지워도 목록 한 벌·메모리 전부 — 반쪽 로그아웃은 없다');
-    chk(e.calls.indexOf('release') >= 0 && e.calls.indexOf('release') > e.calls.indexOf('slotsTs'), '  강제로 지운 뒤에도 기기 세션을 놓는다(releaseDeviceSession) — 안 놓으면 다음 사람이 «다른 기기에서 사용 중» 에 걸린다');
+    chk(e.calls.indexOf('slotsTs') >= 0 && !e.calls.includes('release'), '  강제로 지울 때도 검문(slotsTs)은 한 번 해 본다 — 기기 세션은 realtime 이 정하므로 따로 놓지 않는다');
     chk(e.calls.filter(c => c.startsWith('flush:')).length === 5, '  강제여도 올리기는 한 번 더 해 본다(공짜다)');
     /* 부르는 쪽 — 정적 */
     const uiBlk = grabBlock(SRC, "let _logoutFails = 0;", "if(forceBtn) forceBtn.onclick") || '';
@@ -334,7 +337,7 @@ function part3(){
   try{
     const env = { minted: 0, calls: 0 };
     const run = new Function('env', 'window', 'localStorage',
-      "const firebaseAPI = window.firebaseAPI; let _acctDetached = env.detached; let _focusSyncing=false; const FOCUS_LEVEL_CAP_HOURS=999; const FOCUS_TOTAL_CAP_SEC=999*3600; let _focusTotalSec=5000;\n" +
+      "const firebaseAPI = window.firebaseAPI; let _acctDetached = env.detached; let _focusSyncing=false; const _focusTotalStarted=()=>true; const FOCUS_LEVEL_CAP_HOURS=999; const FOCUS_TOTAL_CAP_SEC=999*3600; let _focusTotalSec=5000;\n" +
       "const getMyUserId=()=>{ env.minted++; return 'uTMP'; };\n" +
       "const _hasFocusSyncedMark=()=>false, _getFocusSyncedMark=()=>0, _setFocusSyncedMark=()=>{}, _focusSyncFailed=()=>{}, _pushLevelIfChanged=()=>{}, _notifyDanceUnlocks=()=>{}, getFocusLevel=()=>1;\n" +
       "let _focusSyncFailStreak=0, _focusLastSyncedVal=-1; const console={warn(){},log(){}};\n" +

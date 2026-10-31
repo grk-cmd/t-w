@@ -150,6 +150,7 @@ function advSave(){
 // 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
 //   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
 function advSaveBgRemote(){
+  if(!advStarted) return;   // 시작 전의 빈 기본 ADV 를 서버 advBg 에 올리면 {cleared:true} 가 모든 기기를 비운다
   try{
     if(!window.firebaseAPI || !firebaseAPI.saveAdvBg) return;
     const uid = getMyUserId(); if(!uid) return;
