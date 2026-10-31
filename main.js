@@ -285,7 +285,7 @@ const LAUNCHER_POS_MAX = 100000;
    끌기마다 설정 파일을 동기로 수십 번 다시 쓴다. 마지막으로 움직이고 이만큼 지나면 쓰고, 끌 때(_exitNow · before-quit) 남은 것을 바로 쓴다. */
 const LAUNCHER_POS_SAVE_MS = 400;
 let _launcherPosSaveT = null;
-let _launcherPosSaved = null;   // 마지막으로 파일에 적은(또는 읽은) 자리 — 같으면 안 쓴다
+let _launcherPosSaved = null;   // 파일에 있는 런처 자리 — 읽을 때 · saveSettings 가 쓸 때마다 맞춘다(같으면 안 쓴다)
 function _saveLauncherPosSoon(){
   if(_launcherPosSaveT) clearTimeout(_launcherPosSaveT);
   _launcherPosSaveT = setTimeout(_flushLauncherPos, LAUNCHER_POS_SAVE_MS);
@@ -294,7 +294,7 @@ function _flushLauncherPos(){
   if(_launcherPosSaveT){ clearTimeout(_launcherPosSaveT); _launcherPosSaveT = null; }
   const p = savedPos.launcher;
   if(JSON.stringify(p) === JSON.stringify(_launcherPosSaved)) return;
-  if(saveSettings()) _launcherPosSaved = p ? { x: p.x, y: p.y } : null;
+  saveSettings();
 }
 function _launcherPosOf(v){
   if(!v || typeof v !== 'object') return null;
@@ -596,13 +596,14 @@ function _lockChildZoom(win){
   wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
 }
 /* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
-   ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다). quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
+   ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다) — 예외 하나: 몰아 두던 런처 자리(옮기고 400ms 안에 껐을 때만 ·
+     작은 파일 한 번). 훅 · 타이머를 내린 뒤에 쓴다. quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
 function _exitNow(){
-  try{ _flushLauncherPos(); }catch(_){}   // 몰아 두던 런처 자리 — app.exit 는 before-quit 를 안 거친다
   try{ sysinput.stopGlobalHooks(); }catch(_){}
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
+  try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
 }
@@ -622,6 +623,7 @@ function saveSettings(){
       launcherPos: savedPos.launcher,         // 🪟 런처 자리 — _rememberPos 가 몰아서 저장(_saveLauncherPosSoon)
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
+    _launcherPosSaved = savedPos.launcher ? { x: savedPos.launcher.x, y: savedPos.launcher.y } : null;   // 어느 저장이든 파일과 같게
     return true;
   }catch(e){
     if(!_saveFailLogged){

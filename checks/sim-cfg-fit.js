@@ -155,8 +155,10 @@ else{
   const soonSrc = grabFn(MAIN, '_saveLauncherPosSoon'), flushSrc = grabFn(MAIN, '_flushLauncherPos');
   const mkStage = (rSrc, fSrc) => {
     const st = { saved: [], timers: new Map(), id: 0, sp: { launcher: null, creator: null } };
-    const env = new Function('savedPos', 'MhPadPos', '_mhPadApplied', 'saveSettings', 'setTimeout', 'clearTimeout', 'LAUNCHER_POS_SAVE_MS',
-      'let _launcherPosSaveT = null, _launcherPosSaved = null;\n' + soonSrc + '\n' + fSrc + '\n' + rSrc + '\nreturn { rem: _rememberPos, flush: _flushLauncherPos };')(
+    const env = new Function('savedPos', 'MhPadPos', '_mhPadApplied', '__save', 'setTimeout', 'clearTimeout', 'LAUNCHER_POS_SAVE_MS',
+      'let _launcherPosSaveT = null, _launcherPosSaved = null;\n'
+      + 'const saveSettings = () => { __save(); _launcherPosSaved = savedPos.launcher ? { x: savedPos.launcher.x, y: savedPos.launcher.y } : null; return true; };\n'   // 진짜 saveSettings 처럼 성공하면 파일 자리를 맞춘다
+      + soonSrc + '\n' + fSrc + '\n' + rSrc + '\nreturn { rem: _rememberPos, flush: _flushLauncherPos, save: saveSettings };')(
       st.sp, { rememberOf: (b) => ({ x: b.x, y: b.y }) }, {}, () => { st.saved.push(JSON.stringify(st.sp.launcher)); return true; },
       (fn) => { const i = ++st.id; st.timers.set(i, fn); return i; }, (i) => { st.timers.delete(i); }, 400);
     st.fire = () => { const fs2 = [...st.timers.values()]; st.timers.clear(); fs2.forEach(f => f()); };
@@ -177,8 +179,18 @@ else{
     const B = mkStage(remSrc.replace('_saveLauncherPosSoon();', 'saveSettings();'), flushSrc);
     for(let i = 0; i < 30; i++) B.rem('launcher', { x: 100 + i, y: 200 });
     chk(B.saved.length > 1, '  깨 보기 — 옮길 때마다 바로 쓰면 위 «아직 안 쓴다» 가 빨강(' + B.saved.length + ' 번)');
+    /* 다른 저장(줌 · 모니터 고르기)이 파일에 새 자리를 먼저 쓴 뒤 런처가 옛 자리로 돌아와도 그 자리를 쓴다 */
+    const C = mkStage(remSrc, flushSrc);
+    C.rem('launcher', { x: 1, y: 1 }); C.fire();              // 파일 = (1,1)
+    C.rem('launcher', { x: 2, y: 2 }); C.save();              // 몰아 두는 사이 줌 · 모니터 고르기가 저장 → 파일 = (2,2)
+    C.rem('launcher', { x: 1, y: 1 }); C.fire();              // 런처가 (1,1) 로 돌아옴
+    chk(C.saved.length === 3 && C.saved[2] === '{"x":1,"y":1}', '  파일 자리 기록은 저장마다 맞춘다 — 옛 자리로 돌아와도 건너뛰지 않는다');
+    const sv = grabFn(MAIN, 'saveSettings') || '';
+    chk(/_launcherPosSaved = savedPos\.launcher \?/.test(sv), '  saveSettings 가 성공하면 파일 자리 기록을 맞춘다(어느 저장이든)');
   }
   const exitSrc = grabFn(MAIN, '_exitNow') || '';
+  chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('destroy()'),
+    '  _exitNow 는 훅 · 타이머를 내린 뒤 · 창을 닫기 전에 쓴다(종료 순서)');
   chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(\) => \{ try \{ _flushLauncherPos\(\); \}/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 남은 런처 자리를 쓴다');
   const load = MAIN.slice(MAIN.indexOf('function loadSettings(){'), MAIN.indexOf('function saveSettings(){'));
   chk(/savedPos\.launcher = _launcherPosOf\(data\.launcherPos\);/.test(load), '설정 파일을 읽을 때 launcherPos 를 그 함수로 거른다');

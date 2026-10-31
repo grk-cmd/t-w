@@ -75,7 +75,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
-| **sim-cfg-fit.js** | 193 | **a45095d40750** |
+| **sim-cfg-fit.js** | 205 | **59630290e9b3** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 384 | **7edc054fab9a** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
