@@ -2700,6 +2700,7 @@ const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/notices
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
+  store: accountStoreMod,   // 마지막으로 받은 소식 묶음 — 켜면 바로 그린다
 });
 noticeFeed.onChange((e)=>mhInitMod.onNewsChanged(e));
 const mhInitMod = TwMyHomeInit.createMyHomeInit({

@@ -278,12 +278,12 @@
 | **sim-remote-config.js** | 530 | **449b5e150de7** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
-| **sim-myhome-inbox.js** | 695 | **f8dfb7c2b40d** |
+| **sim-myhome-inbox.js** | 700 | **14b44af915bd** |
 | **sim-playlist-api.js** | 277 | **674fd3864893** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-mail-feed.js** | 323 | **1b05d4407db7** |
 | **sim-notice-api.js** | 159 | **39c7ae06eabd** |
-| **sim-notice-feed.js** | 237 | **56903cc1525e** |
+| **sim-notice-feed.js** | 306 | **fa963430b5c1** |
 | **sim-playlist.js** | 928 | **0a979dfac4e1** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |

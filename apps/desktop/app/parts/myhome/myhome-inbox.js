@@ -535,7 +535,7 @@ async function _inboxDelete(id, m){
 }
 /* 📌 관리자 전용 고정 토글 — 공용 공지(broadcast)에만. 누르면 pinned 를 켜고 끄고 다시 정렬한다. */
 function _inboxPinBtn(id, m){
-  if(!(isAdmin() && m._src === 'broadcast')) return null;
+  if(!(isAdmin() && noticeFeed.confirmed() && m._src === 'broadcast')) return null;   // 저장본을 보여 주는 동안은 고치지 않는다
   const pinBtn = document.createElement('span');
   pinBtn.className = 'mh-ibx-pinbtn' + (m.pinned ? ' on' : '');
   pinBtn.textContent = '📌';
@@ -723,7 +723,7 @@ function _renderInboxNews(merged, un){
   const metaTxt = document.createElement('span'); metaTxt.textContent = _INBOX_CAT_NAME[tag] + (m.ts ? ' · ' + _inboxTimeStr(m.ts) : '') + (m.pinned ? ' · 📌 고정' : '');
   meta.appendChild(metaTxt);
   const pinBtn = _inboxPinBtn(id, m); if(pinBtn) meta.appendChild(pinBtn);
-  if(isAdmin()){
+  if(isAdmin() && noticeFeed.confirmed()){
     const del = document.createElement('span'); del.className = 'mh-news-del'; del.textContent = '🗑 모두에게서 지우기';
     del.onclick = (e)=>{
       e.stopPropagation();

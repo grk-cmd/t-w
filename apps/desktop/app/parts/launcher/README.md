@@ -86,11 +86,12 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+  store: accountStoreMod,   // 마지막으로 받은 소식 묶음(계정 칸 `tw.noticeBoard`)
 });
 TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
 ```
 
-**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()` · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
+**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()`(보여 줄 소식이 있나 — 받았거나 저장본) · `confirmed()`(서버에서 받았나) · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
 쓰는 곳: 알림함 «소식» 칸(`myhome-inbox.js` · `myhome-init.js` 가 새 소식 토스트) · 런처 배너(`ad-banner.js` · 설정 패널 배너 `settings-panel.js`) · 업데이트 공지 팝업(app.js — 처음 받았을 때 한 번).
 확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
 
@@ -98,6 +99,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번
 못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 공지 바뀜 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
 
 **함정**
+- **저장본**: 마지막으로 받은 소식 묶음(고정 + 최근 · `hasMore`)을 계정 칸에 남겨 켜면 바로 그린다. 응답이 오면 통째로 갈아 끼우고 다시 저장한다(맞추기 · 커서 없음). 계정이 바뀌면 그 계정 저장본만 보이고(없으면 «불러오는 중»), 깨진 저장본은 무시한다. 저장본을 보여 주는 동안은 낡은 값이라 관리자 📌 · 🗑 은 응답 뒤에만(`confirmed()`). 업데이트 공지 · 배너는 저장하지 않는다.
 - 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).
 - 업데이트 공지의 «다시 보지 않기» 는 공지 시각(ms)을 기억한다 — 서버 시각으로 바뀌어 Firebase 시절 기억값과는 달라 한 번 더 뜰 수 있다.
 - 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 길로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).

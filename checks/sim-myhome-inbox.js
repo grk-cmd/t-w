@@ -122,7 +122,7 @@ function mkEnv(o){
   };
   env.noticeFeed = {
     STATUS: { ERROR: 'error' }, busy: () => !!env.noticeBusy,
-    broadcasts: () => env.bc, status: () => env.noticeStatus, ready: () => env.noticeReady,
+    broadcasts: () => env.bc, status: () => env.noticeStatus, ready: () => env.noticeReady, confirmed: () => env.noticeConfirmed !== false,
     refresh: (o) => { env.refreshed.push('news' + (o && o.manual ? '!' : '')); return Promise.resolve(true); },
     remove: async (id) => { env.calls.push('deleteInboxBroadcast ' + id); return true; },
     togglePin: async (id) => { const next = !(env.bc[id] && env.bc[id].pinned); env.calls.push('pin ' + id + ' ' + next); if(env.pinOk === false) return false; env.bc[id].pinned = next; return true; },   // 서버가 됐다 하면 다시 받아 판이 바뀐다
@@ -303,6 +303,9 @@ async function behave(src){
     // 관리자 — 고정 · 지우기
     e.admin = true; m.setInboxFilter('all'); m.renderInbox(); nList.children[0].onclick(); e.calls = [];
     const metaKids = () => view.children[2].children;
+    e.noticeConfirmed = false; m.renderInbox(); nList.children[0].onclick();
+    chk(metaKids().length === 1, '  저장본을 보여 주는 동안(서버 응답 전)에는 관리자도 📌 · 🗑 단추가 없다');
+    e.noticeConfirmed = true; m.renderInbox(); nList.children[0].onclick(); e.calls = [];
     chk(metaKids().length === 3 && metaKids()[1].className === 'mh-ibx-pinbtn on' && metaKids()[2].className === 'mh-news-del', '관리자 — 본문 머리에 📌 · 🗑');
     await metaKids()[1].onclick({ stopPropagation(){} }); await flush();
     chk(e.calls.includes('pin p false') && e.toasts.includes('고정을 해제했어요'), '  고정 풀기 — 서버에 부탁하고 됐다 하면 알림');
@@ -649,8 +652,10 @@ async function runAll(MI, APP, HTML){
     ['MI', 'const n = _inboxUnreadCount();   // 우편 + 소식', 'const n = 0;   // 우편 + 소식', '탭 배지가 안 읽은 수를 안 셈'],
     ['MI', "if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", "if(m._src === 'broadcast'){ }", '공지 펼쳐도 읽음 안 됨'],
     ['MI', "    if(isAdmin()) await noticeFeed.remove(id);", "    if(true) await noticeFeed.remove(id);", '일반 사용자가 공지를 전체 삭제'],
-    ['MI', "  if(isAdmin()){\n    const del", "  if(true){\n    const del", '일반 사용자에게 «모두에게서 지우기» 단추'],
-    ['MI', "if(!(isAdmin() && m._src === 'broadcast')) return null;", "if(!(m._src === 'broadcast')) return null;", '📌 단추가 누구에게나'],
+    ['MI', "if(!(isAdmin() && noticeFeed.confirmed() && m._src === 'broadcast')) return null;", "if(!(isAdmin() && m._src === 'broadcast')) return null;", '저장본을 보여 주는 동안 📌 단추'],
+    ['MI', "  if(isAdmin() && noticeFeed.confirmed()){\n    const del", "  if(isAdmin()){\n    const del", '저장본을 보여 주는 동안 «모두에게서 지우기» 단추'],
+    ['MI', "  if(isAdmin() && noticeFeed.confirmed()){\n    const del", "  if(true){\n    const del", '일반 사용자에게 «모두에게서 지우기» 단추'],
+    ['MI', "if(!(isAdmin() && noticeFeed.confirmed() && m._src === 'broadcast')) return null;", "if(!(m._src === 'broadcast')) return null;", '📌 단추가 누구에게나'],
     ['MI', 'let esc = escHtml(text);', 'let esc = String(text);', '링크 글을 이스케이프 안 함'],
     ['MI', "const clean = u.replace(/[.,;:)\\]]+$/, '');", 'const clean = u;', '주소 끝 문장부호를 같이 링크'],
     ['MI', 'root._extLinkBound = true;', '', '링크 위임이 두 번 걸림'],
