@@ -7,7 +7,7 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 | target | Firebase 사이트 | 주소 | 폴더 | 들어 있는 것 | 누가 보나 |
 |---|---|---|---|---|---|
 | `main` | `together-working` | `together-working.web.app` | `firebase/hosting/`(`help/` 는 빼고 올림) | `/admin/` 웹 관리자(`apps/admin` 빌드 — 커밋 안 함) | 관리자 |
-| `help` | `together-working-help` | **`help.together-working.com`** | `firebase/hosting/help/` | 튜토리얼(`/` 목차 · `/1` …) · `/privacy` 개인정보 처리방침 · `/link` 폰 연결 안내 | 사용자 |
+| `help` | `together-working-help` | **`help.together-working.com`** | `firebase/hosting/help/` | 튜토리얼(`/` 목차 · `/1-1` … — 편 번호는 «묶음-편», 목록은 `toc.json` · 옛 `/1` ~ `/10` 은 `redirects` 가 새 편으로 넘긴다) · `/privacy` 개인정보 처리방침 · `/link` 폰 연결 안내 | 사용자 |
 | `home` | `tw-site` | **`together-working.com`**(도메인 붙이기 전엔 `tw-site.web.app` 에서 확인만) | `firebase/web-dist/`(`apps/web` 빌드 사본 — 커밋 안 함 · 올리기 전에 `predeploy` 가 빌드하고 `scripts/copy-web-dist.js` 가 옮긴다. firebase-tools 가 `firebase/` 밖 폴더를 받지 않아서) | 메인 홈페이지(`/` · `/en/` · `/ja/` — 안내 `apps/web/README.md`) | 사용자 |
 
 - 옛 앱이 여는 `together-working.web.app/privacy` · `/link` 는 `main` 의 `redirects` 가 `help.together-working.com` 으로 넘긴다(`#` 뒤 연결 정보는 브라우저가 그대로 들고 간다). 옛 앱이 다 사라질 때까지 지우지 않는다.
