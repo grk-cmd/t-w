@@ -588,6 +588,60 @@ await sec('── 6. 👀 관람', async () => {
   chk(grid.textContent.includes('불러오지 못했어요') && E.errs.includes('E-MH-04'), '친구 것을 못 받으면 «불러오지 못했어요» · E-MH-04 (빈 보드가 아니다)');
 });
 
+await sec('── 6-2. 👀 구경 중 친구 일정 알림 — friendSchedule', async () => {
+  const mk = (src) => mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(),
+    'GET /v1/schedules/f1': [item('p', YM + '-' + DD, '공개 일정', 'PUBLIC', 1)],
+    'GET /v1/ddays/f1': { cards: [card(U4, '친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] } } });
+  const sig = (E, subject) => (E.rt.friendSchedule || []).forEach(fn => fn({ kind: 'friendSchedule', subject, section: null, resync: false }));
+  const cnt = (E, f) => E.calls('GET', new RegExp('^/v1/(schedules|ddays)/' + f + '(\\?|$)')).length;
+  const E = mk();
+  E.S.renderSchedCalendar(); await tick(20);
+  chk((E.rt.friendSchedule || []).length === 1, '알림 종류 friendSchedule 을 한 번 건다');
+  sig(E, 'f1'); await tick(20);
+  chk(cnt(E, 'f1') === 0, '구경 중이 아니면 요청 0');
+  E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
+  const base = cnt(E, 'f1');
+  sig(E, 'f2'); await tick(20);
+  chk(cnt(E, 'f1') === base && cnt(E, 'f2') === 0, '다른 친구 알림은 요청 0');
+  E.routes['GET /v1/ddays/f1'] = { cards: [card(U4, '바뀐 친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
+  E.routes['GET /v1/schedules/f1'] = [item('p2', YM + '-' + DD, '새 공개 일정', 'PUBLIC', 2)];
+  sig(E, 'f1'); await tick(30);
+  chk(cnt(E, 'f1') === base + 2, '같은 친구 알림 — 보는 달 · 보드를 한 번씩 다시 받는다(GET 2)');
+  chk(E.el('mhDdayGrid').textContent.includes('바뀐 친구 기념') && E.el('mhSchedDayList').textContent.includes('새 공개 일정'), '  화면이 새 값으로');
+  chk(E.errs.length === 0, '  오류 번호 0');
+  /* 겹친 신호 — 받는 중 여러 번 와도 끝난 뒤 한 바퀴만 더 */
+  const dl = deferred(); let n = 0;
+  E.routes['GET /v1/ddays/f1'] = () => { n++; return n === 1 ? dl.p : { cards: [], banners: [] }; };
+  const b0 = E.calls('GET', /^\/v1\/ddays\/f1$/).length;
+  sig(E, 'f1'); sig(E, 'f1'); sig(E, 'f1'); await tick(20);
+  chk(E.calls('GET', /^\/v1\/ddays\/f1$/).length === b0 + 1, '받는 중 겹친 신호는 새 요청을 만들지 않는다');
+  dl.res({ cards: [], banners: [] }); await tick(40);
+  chk(E.calls('GET', /^\/v1\/ddays\/f1$/).length === b0 + 2, '  끝난 뒤 한 번만 더(세 신호 → 두 바퀴)');
+  /* 실패 — 번호 없이 지금 화면 유지 */
+  E.routes['GET /v1/ddays/f1'] = { cards: [card(U4, '남을 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
+  E.g.viewing = null; E.S.endVisit(); await tick(20);
+  E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
+  E.routes['GET /v1/ddays/f1'] = apiErr(503, 'X'); E.routes['GET /v1/schedules/f1'] = apiErr(503, 'X');
+  sig(E, 'f1'); await tick(30);
+  chk(E.errs.length === 0 && E.el('mhDdayGrid').textContent.includes('남을 기념') && E.el('mhSchedDayList').textContent.includes('새 공개 일정'), '다시 받기가 실패하면 오류 번호 0 · 지금 화면 그대로');
+  /* 늦은 응답 — 구경을 끝낸 뒤 */
+  const dl2 = deferred();
+  E.routes['GET /v1/ddays/f1'] = () => dl2.p; E.routes['GET /v1/schedules/f1'] = [];
+  E.routes['GET /v1/schedules/f2'] = []; E.routes['GET /v1/ddays/f2'] = { cards: [card(U4, 'f2 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
+  sig(E, 'f1'); await tick(10);
+  E.g.viewing = 'f2'; E.S.startVisit('f2'); await tick(30);
+  dl2.res({ cards: [card(U4, '늦게 온 갱신', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] }); await tick(30);
+  chk(!E.el('mhDdayGrid').textContent.includes('늦게 온 갱신') && E.el('mhDdayGrid').textContent.includes('f2 기념'), '다른 친구로 옮긴 뒤 늦게 온 갱신 답은 버린다');
+  E.g.viewing = 'f1'; E.routes['GET /v1/ddays/f1'] = () => dl2.p; E.S.startVisit('f1'); await tick(10);
+  sig(E, 'f2'); await tick(10);
+  chk(cnt(E, 'f2') === 2, '  옮긴 뒤엔 새 친구(f2) 알림만 받는다(옛 친구 신호는 요청 0)');
+  E.g.viewing = null; E.S.endVisit(); await tick(20);
+  /* 계정 바뀜(reset) 뒤에도 요청 0 */
+  E.g.viewing = 'f1'; E.routes['GET /v1/ddays/f1'] = { cards: [], banners: [] }; E.S.startVisit('f1'); await tick(30);
+  E.S.reset(); const c1 = cnt(E, 'f1'); sig(E, 'f1'); await tick(20);
+  chk(cnt(E, 'f1') === c1, 'reset 뒤 알림은 요청 0');
+});
+
 await sec('── 7. reset — 계정을 놓을 때', async () => {
   const dOld = deferred();
   const E = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
@@ -671,6 +725,37 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     quiet = false;
     chk(qfail > 0, '깨 보기 — ' + label + ' → 빨강');
   };
+  await broken('다른 친구 알림도 다시 받는다', (x) => x.replace("if(friendId !== _visitFriend || viewingUserId() !== friendId) return;", ""), async (src) => {
+    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] }, 'GET /v1/ddays/f2': { cards: [], banners: [] } } });
+    E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
+    E.rt.friendSchedule.forEach(fn => fn({ subject: 'f2' })); await tick(20);
+    chk(E.calls('GET', /f2/).length === 0, 'x');
+  });
+  await broken('받는 중 겹친 신호를 그대로 또 요청한다', (x) => x.replace("if(_visitRefreshing){ _visitAgain = true; return; }", ""), async (src) => {
+    const dl = deferred();
+    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] } } });
+    E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
+    E.routes['GET /v1/ddays/f1'] = () => dl.p;
+    E.rt.friendSchedule.forEach(fn => { fn({ subject: 'f1' }); fn({ subject: 'f1' }); }); await tick(20);
+    chk(E.calls('GET', /^\/v1\/ddays\/f1$/).length === 2, 'x');
+  });
+  await broken('늦은 갱신 답을 버리지 않는다', (x) => x.replace("const dd = await scheduleApi.fetchBoardOf(friendId);\n        if(seq !== _visitSeq || gen !== _gen) return;\n        _schedDdaysVisit = dd; renderDdays();", "const dd = await scheduleApi.fetchBoardOf(friendId);\n        _schedDdaysVisit = dd; renderDdays();"), async (src) => {
+    const dl = deferred();
+    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] }, 'GET /v1/schedules/f2': [], 'GET /v1/ddays/f2': { cards: [], banners: [] } } });
+    E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
+    E.routes['GET /v1/ddays/f1'] = () => dl.p;
+    E.rt.friendSchedule.forEach(fn => fn({ subject: 'f1' })); await tick(10);
+    E.g.viewing = 'f2'; E.S.startVisit('f2'); await tick(30);
+    dl.res({ cards: [card(U4, '늦게 온 갱신', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] }); await tick(30);
+    chk(!E.el('mhDdayGrid').textContent.includes('늦게 온 갱신'), 'x');
+  });
+  await broken('다시 받기 실패에 오류 번호를 띄운다', (x) => x.replace("}catch(_){ if(seq !== _visitSeq || gen !== _gen) return; }", "}catch(e){ if(seq !== _visitSeq || gen !== _gen) return; _loadFail(e); }"), async (src) => {
+    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] } } });
+    E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
+    E.routes['GET /v1/ddays/f1'] = apiErr(503, 'X');
+    E.rt.friendSchedule.forEach(fn => fn({ subject: 'f1' })); await tick(30);
+    chk(E.errs.length === 0, 'x');
+  });
   await broken('뱃지가 만든 시각 없이 오늘 일정 개수를 센다', (x) => x.replace("_bellTodayItems.filter(it => (it.ts||0) > seen).length", "_bellTodayItems.length"), async (src) => {
     const SEEN = Date.now() - 3600 * 1000;
     const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': [item('a', TODAY, 'a', 'PRIVATE', 1, SEEN - 1)] } });
@@ -770,7 +855,7 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   await broken('늦게 온 🔔 알림 답의 세대 확인을 뺀다', (x) => x.replace("  if(gen !== _gen) return;\n  _loadFailing = false;\n  const prevIds", "  _loadFailing = false;\n  const prevIds"), async (src) => { await staleBell(src); });
   await broken('늦게 온 오늘 일정 답의 세대 확인을 뺀다', (x) => x.replace("    if(gen !== _gen) return;\n    const dayObj", "    const dayObj"), async (src) => { await staleBell(src); });
   await broken('reset 이 서버 길의 «받음» 기억을 안 비운다', (x) => x.replace("  scheduleApi.reset();\n", ""), async (src) => { await staleBell(src); });
-  await broken('구경을 끝내도 늦게 온 친구 답을 받아 둔다', (x) => x.replace("function endVisit(){\n  _visitSeq++;", "function endVisit(){"), async (src) => {
+  await broken('구경을 끝내도 늦게 온 친구 답을 받아 둔다', (x) => x.replace("function _visitStop(){ _visitSeq++; ", "function _visitStop(){ "), async (src) => {
     const dl = deferred();
     const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': () => dl.p } });
     E.S.renderSchedCalendar(); await tick(20);

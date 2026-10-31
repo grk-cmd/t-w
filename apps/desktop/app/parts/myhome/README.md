@@ -247,13 +247,13 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ## `scheduler.js` — 📅 스케줄러 · 🔔 일정 알림 (서버가 원본)
 
 - **책임**: 마이홈 [스케줄러] 탭(달력 · 📌 기념일 카드 · ⏳ D-day 배너) · 🔔 알림창(오늘 일정 · 이정표 기념일 · 친구 태그). 받기 · 쓰기는 `schedule-api.js` 로, 화면과 «오늘 날짜를 이 기기 시간대로 보는» 셈만 여기 있다.
-- **만드는 법**: app.js 가 `MhScheduler.createScheduler({ scheduleApi, apiErrors, notifyError, rtOn, getMyUserId, viewingUserId, myHomeFriends, toast, uiIconEl, escRegisterWindow, closeChipPopups, positionInputBelowChar, inboxUnreadCount, refreshFriendTabBadge, bellSeenKey, twNav })`. `rtOn(kind, fn)` 는 `TwRtHub.store.on` — 서버가 `schedule`(내 일정 · 보드가 다른 기기에서 바뀜) · `notification`(🔔 칸)이 바뀌었다고 알리면 다시 받는다.
+- **만드는 법**: app.js 가 `MhScheduler.createScheduler({ scheduleApi, apiErrors, notifyError, rtOn, getMyUserId, viewingUserId, myHomeFriends, toast, uiIconEl, escRegisterWindow, closeChipPopups, positionInputBelowChar, inboxUnreadCount, refreshFriendTabBadge, bellSeenKey, twNav })`. `rtOn(kind, fn)` 는 `TwRtHub.store.on` — 서버가 `schedule`(내 일정 · 보드가 다른 기기에서 바뀜) · `notification`(🔔 칸) · `friendSchedule`(구경 중인 친구의 일정이 바뀜 — `subject` 가 그 친구 코드)이 바뀌었다고 알리면 다시 받는다.
 - **내놓는 것**: `renderSchedCalendar` · `renderDdays` · `loadBoard`(로그인 뒤 보드 받기) · `loadMine`(계정 이어받은 뒤 전부 다시 받기) · `reset`(계정을 놓을 때) · `startVisit(친구)` · `endVisit()`(👀 구경) · `refreshBellBadge` · `renderBellList` · `isBellOpen`.
 - **화면 상태**: 달력 · 내 보드 · 친구 보드 각각 받는 중 / 받음 / 못 받음. 받는 중·못 받음은 «빈 목록» 문구가 아니라 «불러오는 중이에요» / «불러오지 못했어요 — 눌러서 다시 시도» 를 그 자리에 보이고(탭을 다시 열어도 다시 받는다), **받기 전에는 쓰기 · 편집창을 잠근다**(받은 값이 덮어 고친 것을 지우지 않게). 받기 실패 알림은 `E-MH-04` 한 번(이어지는 동안).
 - **쓰기**: 일정은 한 번에 하나 — 서버가 돌려준 일정을 달력에 얹는다(달을 통째로 다시 받지 않는다). 보드는 받기와 저장을 `_boardChain` 한 줄로 세운다 — 보내는 중에 또 고쳐도 끝난 뒤의 최신 값에서 이어 보낸다. 409 면 보내지 않고 서버 값을 다시 받아 그린 뒤 `E-NET-05`. 친구가 아닌 사람 태그(`SCHEDULE_TAG_NOT_FRIEND`)는 오류 번호 없이 «친구가 아닌 사람은 태그할 수 없어요» 토스트만(편집창은 그대로), 그 밖의 태그 거절(자기 태그 등)은 `E-MH-06`, 상한 초과는 `E-MH-07`, 카드 그림 문제는 `E-MH-05`. 계정이 바뀌는 중(`OWNER_CHANGED`)은 조용히 버린다.
 - **함정**
   - 🔔 뱃지는 «오늘 내 일정 · 친구 태그 알림» 모두 만든 시각이 `tw.bellSeenTs` 보다 뒤인 것만 센다. 오늘이 이정표인 D-day 만 «오늘 알림창을 열어 봤는가»(날짜)로 센다.
-  - 친구 구경 중 realtime 알림이 와도 달력은 건드리지 않는다(친구 것이라서) — 내 보드 · 오늘 일정 · 알림만 다시 받는다.
+  - 친구 구경 중 `schedule` 알림이 와도 달력은 건드리지 않는다(내 알림이라서) — 내 보드 · 오늘 일정 · 알림만 다시 받는다. 친구 것은 `friendSchedule` 의 `subject` 가 **지금 구경 중인 친구와 같을 때만** 보는 달 · 보드를 조용히 다시 받는다(아니면 요청 0 · 받는 중에 또 오면 끝난 뒤 한 번 더 · 실패하면 번호 없이 지금 화면 유지 · 구경을 끝냈거나 친구를 옮긴 뒤 늦게 온 답은 버림).
   - `reset()` 은 세대 번호를 올려 늦게 오는 앞 계정 답을 버린다 — 새 계정 것은 `loadBoard` / `loadMine` 이 받는다.
   - 계정별로 이 PC 에 남는 값: `tw.bellSeenTs`(app.js `BELL_SEEN_KEY` — 계정 전환 지움 목록). 기기 취향: `tw.annivAreaH`(구분선 높이) · `tw.bellWinPos`(알림창 자리).
 - **검사**: `checks/sim-scheduler.js`(진짜 provider + 가짜 authed 위에서 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 계정 바뀜 · 구경 · 깨 보기).

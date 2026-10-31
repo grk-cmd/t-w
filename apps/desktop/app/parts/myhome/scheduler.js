@@ -59,6 +59,7 @@ let _boardState     = LOAD.IDLE;
 let _boardChain     = Promise.resolve();   // 내 보드를 받고 · 저장하는 일을 한 줄로 세운다
 /* 👀 관람 모드용 — 친구의 D-day 중 "친구에게 공개" 한 것만 (서버가 공개한 것만 준다) */
 let _schedDdaysVisit = null, _visitBoardState = LOAD.IDLE, _visitSeq = 0;
+let _visitFriend = null, _visitRound = 0, _visitRefreshing = false, _visitAgain = false;   // 구경 중인 친구 · 알림으로 다시 받는 한 바퀴(겹치면 끝난 뒤 한 번 더)
 function _schedDdaySrc(){ return viewingUserId() ? (_schedDdaysVisit || {}) : _schedDdays; }
 function _ddayStateNow(){ return viewingUserId() ? _visitBoardState : _boardState; }
 let _schedTagSel    = [];     // 지금 등록할 일정에 태그할 친구 uid 목록
@@ -1366,6 +1367,11 @@ function renderBellList(){
     if(!viewingUserId() && _schedYM) loadMonth(true);
     _bellLoadToday();
   });
+  /* 구경 중인 친구의 일정이 바뀌었다는 알림(내용 없음) — 지금 보는 친구일 때만 달력 · 보드를 다시 받는다 */
+  rtOn('friendSchedule', (n)=>{
+    if(!getMyUserId() || !n || !n.subject) return;
+    refreshVisit(n.subject);
+  });
   rtOn('notification', (n)=>{
     if(!getMyUserId()) return;
     if(n && (n.resync || n.section === 'BELL')) _bellLoadNotices();
@@ -1384,6 +1390,7 @@ function renderBellList(){
 
 /* 👀 친구 홈 구경 — 달력(서버가 공개한 일정만) · 디데이 보드(공개한 장만)를 친구 것으로. 구경 중인 uid 가 정해진 뒤에 부른다 */
 async function loadVisit(friendId){
+  _visitStop(); _visitFriend = friendId;
   const seq = ++_visitSeq, gen = _gen;
   _schedDdaysVisit = {}; _visitBoardState = LOAD.LOADING;
   renderDdays();
@@ -1398,9 +1405,34 @@ async function loadVisit(friendId){
   }
   renderDdays();
 }
+/* 구경 중 다시 받던 것을 멈춘다 — 늦게 오는 답은 _visitSeq · _visitRound 가 버린다 */
+function _visitStop(){ _visitSeq++; _visitRound++; _visitRefreshing = false; _visitAgain = false; _visitFriend = null; }
+
+/* 구경 중인 친구의 달력(보는 달) · 보드를 조용히 다시 받는다 — 사용자가 연 받기가 아니라서 실패해도 번호 없이 지금 화면을 둔다.
+   받는 중에 또 오면 끝난 뒤 한 번만 더 받는다(받는 중 값이 알림보다 먼저일 수 있어서). */
+async function refreshVisit(friendId){
+  if(friendId !== _visitFriend || viewingUserId() !== friendId) return;
+  if(_visitBoardState !== LOAD.READY) return;   // 처음 받는 중이거나 못 받은 상태는 «다시 시도» 길이 있다
+  if(_visitRefreshing){ _visitAgain = true; return; }
+  _visitRefreshing = true;
+  const round = ++_visitRound, gen = _gen;
+  try{
+    do{
+      _visitAgain = false;
+      const seq = ++_visitSeq;
+      const month = (_monthState === LOAD.READY && _schedYM) ? loadMonth(true) : null;
+      try{
+        const dd = await scheduleApi.fetchBoardOf(friendId);
+        if(seq !== _visitSeq || gen !== _gen) return;
+        _schedDdaysVisit = dd; renderDdays();
+      }catch(_){ if(seq !== _visitSeq || gen !== _gen) return; }
+      if(month) await month;
+    }while(_visitAgain && round === _visitRound);
+  }finally{ if(round === _visitRound) _visitRefreshing = false; }
+}
 /* 구경 끝 — 내 달력 · 내 보드로. 늦게 오는 친구 답은 버린다 */
 function endVisit(){
-  _visitSeq++;
+  _visitStop();
   _schedDdaysVisit = null; _visitBoardState = LOAD.IDLE;
   loadMonth();
   renderDdays();
@@ -1415,7 +1447,7 @@ function loadMine(){
 }
 /* 계정을 놓을 때 · 이어받기 시작 — 앞 계정 값을 비우고 받기 전으로 돌린다(늦게 오는 앞 계정 답은 _gen 이 버린다) */
 function reset(){
-  _gen++; _monthSeq++; _visitSeq++;
+  _gen++; _monthSeq++; _visitStop();
   _schedYM = null; _schedSelDD = null;   // 탭을 다시 열면 이번 달부터 새로 받는다
   _schedMonthData = {}; _monthState = LOAD.IDLE;
   _schedDdays = {}; _boardState = LOAD.IDLE;

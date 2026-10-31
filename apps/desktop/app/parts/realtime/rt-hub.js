@@ -20,7 +20,7 @@
 const PV = 2;
 /* 알림 종류 — 서버 규약 6장. 더할 땐 여기에 한 줄(서버는 종류를 더해도 pv 를 올리지 않는다) */
 const KINDS = Object.freeze(['friends', 'friendRequests', 'card', 'notification', 'guestbook', 'gifts', 'collection', 'avatars', 'schedule',
-  'license', 'photoQuota', 'notices', 'catalog', 'config', 'licenseRequests']);
+  'license', 'photoQuota', 'notices', 'catalog', 'config', 'licenseRequests', 'friendSchedule']);
 /* 방 안 · 방 목록 · 대화 · 스티커사진 메시지 — 방 포트(C 묶음)가 onMessage 로 받는다 */
 const ROOM_TYPES = Object.freeze(['welcome', 'joined', 'left', 'patch', 'def', 'chat', 'poked', 'meta', 'music', 'disband', 'random', 'peek',
   'chatSaid', 'chatLine', 'photoWelcome', 'photoSlots', 'photoMeta', 'photoFrames', 'photoStarted', 'photoPos', 'photoEvent', 'photoShot']);
