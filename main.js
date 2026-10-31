@@ -369,6 +369,9 @@ let runDisplayWasPrimary = null;   // 고를 때 주 모니터였는가 — 못 
 /* 고를 때 OS 가 준 모니터 이름(label — 예: 모델명). 주모니터를 바꾸면 좌표 원점이 옮겨가 지문(위치 포함)이 안 맞는데,
    이름은 그대로라 «고른 그 모니터» 를 다시 찾는 첫째 기준이다. 같은 모델 여럿이면 지문 · id · 모양으로 가른다. 없으면(옛 파일 · 빈 이름) null */
 let runDisplayName = null;
+/* 고를(또는 이름을 채울) 때 그 이름이 연결된 모니터 중 하나뿐이었나. 같은 모델 둘 · «Generic PnP Monitor» 처럼 흔한 이름이면 거짓 —
+   그때 이름 하나로 확정하면 고른 쪽을 뺐을 때 남은 쪽으로 저장이 덮여 다시 꽂아도 안 돌아온다. 없으면(옛 파일) 거짓 */
+let runDisplayNameUnique = false;
 const DISPLAY_NAME_MAX = 200;
 function _displayKey(d){
   if(!d) return null;
@@ -435,6 +438,7 @@ function loadSettings(){
     if(typeof data.runDisplayKey === 'string') runDisplayKey = data.runDisplayKey;
     if(typeof data.runDisplayWasPrimary === 'boolean') runDisplayWasPrimary = data.runDisplayWasPrimary;
     if(typeof data.runDisplayName === 'string' && data.runDisplayName.trim()) runDisplayName = data.runDisplayName.trim().slice(0, DISPLAY_NAME_MAX);
+    runDisplayNameUnique = data.runDisplayNameUnique === true;
     savedPos.launcher = _launcherPosOf(data.launcherPos);   // 🪟 지난 실행에서 런처를 둔 자리
     _launcherPosSaved = savedPos.launcher;
     /* ★ 동영상 검어짐 틈 — 빌드 없이 조절하는 통로. 제보자에게 "이 파일의 이 숫자만 바꿔서
@@ -634,7 +638,7 @@ function saveSettings(){
        두지만, 그 한 갈래 때문에 "파일이 왜 없나"를 또 못 가르는 일이 없도록 여기서 확정한다.
        (_diagLog 도 같은 폴더를 쓴다 — 폴더가 없으면 로그조차 안 남아 관찰 자체가 막힌다) */
     try{ fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true }); }catch(_){}
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey, runDisplayWasPrimary, runDisplayName,
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey, runDisplayWasPrimary, runDisplayName, runDisplayNameUnique,
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
@@ -727,12 +731,18 @@ function _ensureSettingsFile(){
    ★ strong(①②)일 때만 새 id · 지문으로 저장을 갱신한다. 약한 대체(③④)로는 저장을 덮지 않는다 —
      원래 모니터가 다시 연결되면 그쪽으로 돌아가야 한다.
    🖥 이름(saved.name)이 있으면 맨 먼저 이름으로 찾는다 — 주모니터를 바꿔 좌표가 밀려도 «고른 그 모니터» 에 남는다.
-     같은 이름이 여럿(같은 모델)이면 그 안에서 지문 → id → 모양(위치 뺀 지문) 이 하나로 가를 때만, 아니면 아래 옛 순서로. */
+     · 이름 하나로 확정(strong)은 고를 때도 그 이름이 하나뿐이었고(saved.nameUnique) 모양(위치 뺀 지문)도 같을 때만.
+       모양만 다르면(해상도 · 배율을 바꿈) 그 모니터에 띄우되 저장은 덮지 않는다.
+     · 같은 이름이 여럿이면 그 안에서 지문 → id → 모양이 하나로 가를 때만, 아니면 아래 옛 순서로. */
 function _pickRunDisplay(all, primaryId, saved){
   const id = saved && saved.id, key = saved && saved.key, wasPrimary = saved && saved.wasPrimary, name = saved && saved.name;
   if(name){
     const byName = all.filter(d => _displayName(d) === name);
-    if(byName.length === 1) return { display: byName[0], stage: 'name', strong: true };
+    if(byName.length === 1 && saved.nameUnique === true){
+      const shape = _shapeOfKey(key);
+      if(!shape || _displayShape(byName[0]) === shape) return { display: byName[0], stage: 'name', strong: true };
+      return { display: byName[0], stage: 'name(모양 다름)', strong: false };
+    }
     if(byName.length > 1){
       const k = key && byName.find(d => _displayKey(d) === key);
       if(k) return { display: k, stage: 'name+key', strong: true };
@@ -765,7 +775,7 @@ let _runDisplayLogged = '';
 function getRunDisplay(){
   const all = screen.getAllDisplays();
   const primary = screen.getPrimaryDisplay();
-  const r = _pickRunDisplay(all, primary.id, { id: runDisplayId, key: runDisplayKey, wasPrimary: runDisplayWasPrimary, name: runDisplayName });
+  const r = _pickRunDisplay(all, primary.id, { id: runDisplayId, key: runDisplayKey, wasPrimary: runDisplayWasPrimary, name: runDisplayName, nameUnique: runDisplayNameUnique });
   const found = r.display || primary;
   // 🩺 어느 단계에서 맞았는지 — 바뀔 때만 한 줄(이 함수는 자주 불린다)
   const sig = r.stage + '|' + found.id;
@@ -776,11 +786,12 @@ function getRunDisplay(){
   }
   if(!r.display) return primary;
   // ★ 확실히 찾았을 때만 새로 발급된 id · 지문으로 갱신해 저장 — 다음 실행부터는 ①에서 바로 걸린다.
-  /* 이름이 없던 옛 저장(지문 · id 로 찾음)이면 이름을 채운다 — 다음 주모니터 변경부터 이름으로 찾는다 */
+  /* 이름이 없던 옛 저장(지문 · id 로 찾음)이면 이름을 채운다 — 다음 주모니터 변경부터 이름으로 찾는다. 찾은 모니터가 이름이 없으면 비운다 */
   const _nm = _displayName(found);
-  if(r.strong && (found.id !== runDisplayId || _displayKey(found) !== runDisplayKey || (_nm && _nm !== runDisplayName))){
+  const _uniq = !!_nm && all.filter(d => _displayName(d) === _nm).length === 1;
+  if(r.strong && (found.id !== runDisplayId || _displayKey(found) !== runDisplayKey || _nm !== runDisplayName || _uniq !== runDisplayNameUnique)){
     runDisplayId = found.id; runDisplayKey = _displayKey(found);
-    if(_nm) runDisplayName = _nm;
+    runDisplayName = _nm; runDisplayNameUnique = _uniq;
     if(SETTINGS_PATH) saveSettings();
   }
   return found;
@@ -3571,6 +3582,7 @@ function createWindow() {
     runDisplayKey = _displayKey(target);   // ★ id가 재발급돼도 이 지문으로 같은 모니터를 다시 찾는다
     runDisplayWasPrimary = (target.id === screen.getPrimaryDisplay().id);
     runDisplayName = _displayName(target);   // 🖥 주모니터를 바꿔도 이 모니터를 이름으로 다시 찾는다
+    runDisplayNameUnique = !!runDisplayName && all.filter(d => _displayName(d) === runDisplayName).length === 1;
     try{ _diagLog('[화면] 모니터 선택 — id ' + displayId + ' ' + runDisplayKey + ' «' + (runDisplayName || '이름 없음') + '»' + (runDisplayWasPrimary ? ' (주)' : '')); }catch(_){}
     saveSettings();   // ★ 재시작해도 유지되도록 즉시 저장
     if(mainWindow && !mainWindow.isDestroyed()){

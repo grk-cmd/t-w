@@ -94,8 +94,8 @@
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
 | **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
-| **sim-fix-1008.js** | 433 | **d8b9d6a7accf** |
-| **sim-display-pick.js** | 125 | **f19919451b26** |
+| **sim-fix-1008.js** | 433 | **be18ae241576** |
+| **sim-display-pick.js** | 150 | **9795d7eb04d8** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 80 | **8c117fa521be** |

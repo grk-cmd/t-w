@@ -48,7 +48,7 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
       if (fileObj) fs.writeFileSync(P, JSON.stringify(fileObj));
       const ov = { _g: 12, _a: 0, GAP_MAX: 64, GAP_VER: 2, GAP_LEGACY: [2, 6], GAP_DEFAULT: 12,
         setGap(v) { this._g = v; }, gap() { return this._g; }, setAlpha(v) { this._a = v; }, alpha() { return this._a; } };
-      const body = 'let SETTINGS_PATH = P; const DISPLAY_NAME_MAX = 200; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, runDisplayName = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
+      const body = 'let SETTINGS_PATH = P; const DISPLAY_NAME_MAX = 200; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, runDisplayName = null, runDisplayNameUnique = false, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
         + 'const savedPos = { launcher: null, creator: null };\n'   // _launcherPosSaved · 몰아 저장은 아래 posOf 덩이에 같이 온다
         + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + posOf + '\n' + load + '\n' + save
         + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice, launcher: savedPos.launcher };'
