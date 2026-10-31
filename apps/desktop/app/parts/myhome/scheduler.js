@@ -1367,10 +1367,13 @@ function renderBellList(){
     if(!viewingUserId() && _schedYM) loadMonth(true);
     _bellLoadToday();
   });
-  /* 구경 중인 친구의 일정이 바뀌었다는 알림(내용 없음) — 지금 보는 친구일 때만 달력 · 보드를 다시 받는다 */
+  /* 구경 중인 친구의 일정이 바뀌었다는 알림(내용 없음) — 지금 보는 친구일 때만 달력 · 보드를 다시 받는다.
+     오래 끊겼다 붙을 때(resync)는 알림에 친구가 없다 — 지금 구경 중인 친구(없으면 요청 0)를 한 번 다시 받는다 */
   rtOn('friendSchedule', (n)=>{
-    if(!getMyUserId() || !n || !n.subject) return;
-    refreshVisit(n.subject);
+    if(!getMyUserId() || !n) return;
+    const friend = n.resync ? _visitFriend : n.subject;
+    if(!friend) return;
+    refreshVisit(friend);
   });
   rtOn('notification', (n)=>{
     if(!getMyUserId()) return;

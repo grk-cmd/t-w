@@ -608,6 +608,17 @@ await sec('── 6-2. 👀 구경 중 친구 일정 알림 — friendSchedule',
   chk(cnt(E, 'f1') === base + 2, '같은 친구 알림 — 보는 달 · 보드를 한 번씩 다시 받는다(GET 2)');
   chk(E.el('mhDdayGrid').textContent.includes('바뀐 친구 기념') && E.el('mhSchedDayList').textContent.includes('새 공개 일정'), '  화면이 새 값으로');
   chk(E.errs.length === 0, '  오류 번호 0');
+  /* 오래 끊겼다 붙음(resync) — 친구 없이 오는 신호. 지금 구경 중인 친구를 한 번 다시 받는다 */
+  const rsig = (E2) => (E2.rt.friendSchedule || []).forEach(fn => fn({ kind: 'friendSchedule', subject: null, section: null, resync: true }));
+  const b1 = cnt(E, 'f1');
+  rsig(E); await tick(30);
+  chk(cnt(E, 'f1') === b1 + 2 && E.errs.length === 0, '오래 끊겼다 붙으면(resync) 구경 중인 친구의 달력 · 보드를 한 번씩 다시 받는다(GET 2 · 오류 번호 0)');
+  {
+    const Q = mk(); Q.S.renderSchedCalendar(); await tick(20);
+    const q0 = Q.authed.log.length;
+    rsig(Q); await tick(20);
+    chk(Q.authed.log.length === q0, '  구경 중이 아니면 resync 에도 요청 0');
+  }
   /* 겹친 신호 — 받는 중 여러 번 와도 끝난 뒤 한 바퀴만 더 */
   const dl = deferred(); let n = 0;
   E.routes['GET /v1/ddays/f1'] = () => { n++; return n === 1 ? dl.p : { cards: [], banners: [] }; };
@@ -729,6 +740,13 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
     E.rt.friendSchedule.forEach(fn => fn({ subject: 'f2' })); await tick(20);
     chk(E.calls('GET', /f2/).length === 0, 'x');
+  });
+  await broken('resync 에 구경 중인 친구를 안 받는다', (x) => x.replace("const friend = n.resync ? _visitFriend : n.subject;", "const friend = n.subject;"), async (src) => {
+    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] } } });
+    E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
+    const c0 = E.calls('GET', /f1/).length;
+    E.rt.friendSchedule.forEach(fn => fn({ kind: 'friendSchedule', subject: null, resync: true })); await tick(30);
+    chk(E.calls('GET', /f1/).length === c0 + 2, 'x');
   });
   await broken('받는 중 겹친 신호를 그대로 또 요청한다', (x) => x.replace("if(_visitRefreshing){ _visitAgain = true; return; }", ""), async (src) => {
     const dl = deferred();
