@@ -66,8 +66,6 @@ function mkEnv(S, o){
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
     rt, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
     now: () => clock.t,
-    setTimer: (fn, ms) => { const h = { at: clock.t + ms, fn }; clock.q.push(h); return h; },
-    clearTimer: (h) => { const i = clock.q.indexOf(h); if(i >= 0) clock.q.splice(i, 1); },
   });
   const advance = async (ms) => {
     const end = clock.t + ms;
@@ -118,8 +116,6 @@ async function judge(S){
     chk(e.lost() === 0, '  ↳ 다른 상태는 밀려남이 아님');
     e.fireState('sessionLost');
     chk(e.lost() === 1, '밀려나면(4004) onSessionLost');
-    e.flow.continueHere();
-    chk(e.rtLog.length === 2 && e.rtLog[1] === 'start:{"claim":true}', '«여기서 계속» — 다시 claim');
   }
 
   say('── 3. 로컬 모드');
@@ -128,18 +124,29 @@ async function judge(S){
     e.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
     const back = [];
     e.flow.enterLocal((r) => back.push(r.state));
-    chk(e.flow.mode() === 'local', 'mode local');
-    await e.advance(14999);
-    chk(e.log.length === 0, '15초 전엔 묻지 않음');
-    await e.advance(1);
-    chk(e.log.length === 1 && e.rtLog.length === 0, '15초에 한 번 · 아직 닿지 않으면 realtime 안 켬');
-    await e.advance(29999);
-    chk(e.log.length === 1, '  ↳ 다음은 30초 뒤');
-    e.srv.me = () => ME(2);
-    await e.advance(1);
-    chk(e.log.length === 2 && back.join() === 'in' && e.rtLog.join() === 'start:{"claim":true}' && e.flow.mode() === 'in', '서버가 답하면 realtime 켜고 알림');
-    await e.advance(600000);
-    chk(e.log.length === 2, '  ↳ 그 뒤로는 묻지 않음');
+    chk(e.flow.mode() === 'local' && e.rtLog.join() === 'start:{"claim":false}', 'mode local · realtime 을 claim 없이 켜 둠(다시 붙는 신호를 받으려고)');
+    await e.advance(3600000);
+    chk(e.log.length === 0 && back.length === 0, '★ 시간이 아무리 지나도 혼자 묻지 않는다(타이머 없음)');
+    e.fireState('retrying'); e.fireState('connecting'); await tick(); await tick();
+    chk(e.log.length === 0, '  ↳ ready 가 아닌 상태 신호로는 묻지 않는다');
+    e.fireState('ready'); await tick();
+    chk(e.log.length === 1 && back.length === 0 && e.rtLog.length === 1, '서버가 다시 붙었다는 신호(ready) → 한 번 묻는다 · 아직 닿지 않으면 그대로(알림 없음 · 연결 그대로)');
+    let release; e.srv.me = () => new Promise((r) => { release = r; });
+    e.fireState('ready'); e.fireState('ready'); await tick();
+    chk(e.log.length === 2, '  ↳ 신호가 겹쳐도 묻는 중이면 한 번');
+    release(ME(2)); await tick(); await tick();
+    chk(back.join() === 'in' && e.rtLog.join() === 'start:{"claim":false},stop,start:{"claim":true}' && e.flow.mode() === 'in', '서버가 답하면 알림 한 번 · 로컬 연결을 끄고 claim 으로 다시 켬');
+    e.fireState('ready'); await tick();
+    chk(e.log.length === 2, '  ↳ 그 뒤 ready 로는 묻지 않는다(로컬 모드가 아님)');
+    const e2 = mkEnv(S);
+    e2.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+    e2.flow.enterLocal(() => {});
+    e2.fireState('sessionLost');
+    chk(e2.lost() === 0, '  ↳ 로컬 모드의 밀려남 신호는 화면에 알리지 않는다(계정 확인 전)');
+    const e3 = mkEnv(S);
+    e3.srv.me = () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); };
+    const b3 = []; e3.flow.enterLocal((r) => b3.push(r.state)); e3.fireState('ready'); await tick(); await tick();
+    chk(b3.join() === 'signup' && e3.rtLog.join() === 'start:{"claim":false},stop', '  ↳ 돌아와 보니 계정이 없으면(signup) 알리고 로컬 연결을 끈다');
   }
 
   say('── 4. 로그인');
@@ -157,7 +164,13 @@ async function judge(S){
     chk(r3.ok && r3.state === 'in' && e3.authLog.join() === 'g:gtok' && r3.email === 'a@b.c', '구글 로그인 → 계정 있음 → in');
     const e4 = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); } });
     const r4 = await e4.flow.loginGoogle();
-    chk(!r4.ok && r4.state === 'signup' && e4.authLog.indexOf('out') < 0, '  ↳ 가입 전 → signup(구글 로그인은 둠 — 초대 코드로 이어서 가입)');
+    chk(!r4.ok && r4.state === 'signup' && e4.authLog.join() === 'g:gtok,out', '★ 가입 전 → signup · 구글 로그인은 놓는다(껐다 켜도 켤 때 signup 으로 이 PC 몫이 지워지지 않게)');
+    const e4b = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); } });
+    const rj = await e4b.flow.joinGoogle({ inviteCode: 'ABC' });
+    chk(rj.ok && e4b.srv.joinG.length === 1 && e4b.authLog.join() === 'g:gtok', '  ↳ 가입으로 이어 가는 joinGoogle 은 그 로그인을 쓴다(구글 창을 다시 거쳐 POST /v1/users)');
+    const e4c = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); } }); e4c.srv.joinGAns = () => { throw Object.assign(new Error('x'), { kind: 'request', code: 'INVITE_INVALID' }); };
+    const rj2 = await e4c.flow.joinGoogle({ inviteCode: 'BAD' });
+    chk(!rj2.ok && e4c.authLog.join() === 'g:gtok,out', '  ↳ 가입이 거절되면 계정 없는 로그인을 남기지 않는다')
     const e5 = mkEnv(S, { user: null });
     const r5 = await e5.flow.loginPassword('MATE-AB12', 'pw1234');
     chk(r5.ok && e5.authLog[0] === 'p:MATE-AB12:pw1234', '친구코드 로그인 → in');
@@ -257,9 +270,16 @@ const BREAKS = [
   ['LF', "      if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }", "      if(t.action === 'signup'){ return { state: STATE.SIGNUP, me: null }; }", '탈퇴한 계정 사본을 남김'],
   ['LF', "      if(t.action === 'login') return { state: STATE.LOGIN, me: null, reason: deps.reasonOf(e) };", "", '끝난 토큰을 로컬 모드로'],
   ['LF', "    if(online) return;\n    online = true;", "", 'realtime 을 두 번 켬'],
-  ['LF', "      deps.rt.onState((s) => { if(s === 'sessionLost') deps.onSessionLost(); });", "", '밀려남을 화면에 안 알림'],
-  ['LF', "        if(r.state === STATE.LOCAL){ next(); return; }", "        if(r.state === STATE.LOCAL) return;", '로컬 모드에서 한 번만 묻고 끝'],
-  ['LF', "        if(r.state === STATE.IN) goOnline();", "", '돌아와도 realtime 안 켬'],
+  ['LF', "      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }", "      if(false){ }", '밀려남을 화면에 안 알림'],
+  ['LF', "      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }", "      if(s === RT_SESSION_LOST){ deps.onSessionLost(); }", '로컬 모드의 밀려남도 화면에 알림'],
+  ['LF', "      else if(s === RT_READY && mode === 'local') recheckLocal();", "      else if(mode === 'local') recheckLocal();", 'ready 아닌 신호에도 묻음'],
+  ['LF', "      else if(s === RT_READY && mode === 'local') recheckLocal();", "", '로컬 모드에서 신호가 와도 안 물음'],
+  ['LF', "    if(localChecking) return;   // 신호가 겹쳐도 한 번\n", "", '신호가 겹치면 여러 번 물음'],
+  ['LF', "    if(r.state === STATE.IN) goOnline();\n    else if(rtLocal)", "    if(false) goOnline();\n    else if(rtLocal)", '돌아와도 realtime 안 켬'],
+  ['LF', "    if(!online && !rtLocal){ rtLocal = true; deps.rt.start({ claim: false }); }", "", '로컬 모드에서 realtime 을 안 켬(신호가 안 옴)'],
+  ['LF', "    if(rtLocal){ rtLocal = false; try{ deps.rt.stop(); }catch(_){} }   // 로컬", "    if(false){ }   // 로컬", '로컬 연결을 끄지 않고 claim 없이 둠'],
+  ['LF', "    if(c.state === STATE.SIGNUP && !keepOnSignup){ try{ await auth.signOut(); }catch(_){} }", "", '가입 전 구글 로그인을 남김'],
+  ['LF', "      await dropLogin();\n      return { ok: false, reason: deps.reasonOf(e)", "      return { ok: false, reason: deps.reasonOf(e)", '거절된 구글 가입의 로그인을 남김'],
   ['LF', "      if(e && e.kind !== 'unavailable') deps.pending.settle(key);", "      deps.pending.settle(key);", '닿지 못한 가입을 새 요청으로(두 계정)'],
   ['LF', "      if(e && e.kind !== 'unavailable') deps.pending.settle(key);", "", '거절된 가입을 같은 요청으로'],
   ['LF', "    const a = await auth.signInPassword(me.friendCode, o.password);", "    const a = await auth.signInPassword('MATE-0000', o.password);", '받은 친구코드로 로그인 안 함'],

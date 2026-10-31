@@ -5787,8 +5787,6 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   onSessionLost: ()=>deviceLostMod._onDeviceSessionLost(),
   forgetSession: ()=>TwApi.authed.forgetSession(),
   now: ()=>Date.now(),
-  setTimer: (fn, ms)=>setTimeout(fn, ms),
-  clearTimer: (h)=>clearTimeout(h),
 });
 /* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기. 캐릭터 · 라이선스 단계는 D1 · D8 묶음이 채운다(그 전엔 기다림 — 지우기도 안 돈다). */
 const firstRunMod = TwFirstRun013.createFirstRun({

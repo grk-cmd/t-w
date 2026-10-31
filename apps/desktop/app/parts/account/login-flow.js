@@ -5,10 +5,10 @@
      'in'     — 서버가 계정을 돌려줌. me 사본을 이 PC 에 적는다(tw.me — 로그인 계정과 묶음).
      'signup' — 로그인은 됐는데 계정이 없음(401 USER_CODE_NOT_BOUND — 가입 전 · 탈퇴 · 관리자가 지움). 가입 화면 · 이 PC 계정 몫 지움은 부르는 쪽.
      'login'  — 로그인이 없음(익명 세션 포함) · 토큰이 끝남. 로그인 화면.
-     'local'  — 서버에 닿지 못함 · 점검. 로컬 모드 — 이 PC 기능만 쓰고 me 는 마지막 사본(없으면 null). 다시 묻기는 retryLocal.
+     'local'  — 서버에 닿지 못함 · 점검. 로컬 모드 — 이 PC 기능만 쓰고 me 는 마지막 사본(없으면 null). 다시 묻기는 realtime 이 다시 붙었다는 신호(ready)가 올 때 한 번 — 타이머로 되풀이하지 않는다(enterLocal).
    [가입] 비밀번호: POST /v1/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
      (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v1/users { inviteCode }.
-   [realtime] goOnline() — 서버가 계정을 돌려준 뒤에만 켠다(hello claim:true · 이 기기가 지금 기기). 밀려나면(4004) onSessionLost · «여기서 계속» 은 continueHere().
+   [realtime] goOnline() — 서버가 계정을 돌려준 뒤에만 켠다(hello claim:true · 이 기기가 지금 기기). 밀려나면(4004) onSessionLost ·.
    classic script — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 싣는다(window.TwLoginFlow). Firebase 를 모른다 — Auth 원시는 deps.auth. */
 (function(){
 'use strict';
@@ -16,7 +16,7 @@
 const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 로컬 모드 · 프리미엄 유예의 «마지막 답»
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
-const LOCAL_RETRY_MS = Object.freeze([15000, 30000, 60000, 120000, 300000]);   // 로컬 모드에서 다시 묻는 간격(끝 값을 되풀이)
+const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost';   // rt-hub.js 상태 이름
 
 /* 비밀번호 가입의 요청 번호 열쇠 — 비밀번호를 바꿔 다시 누르면 새 요청(같은 번호면 서버가 처음 비밀번호의 계정을 돌려준다).
    비밀번호 글을 그대로 들고 있지 않게 짧은 지문(FNV-1a)만. */
@@ -46,7 +46,7 @@ function premiumNow(cache, now){
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
  *   onSessionLost: () => void,
  *   forgetSession: () => void,   // 계정을 놓을 때 API 통로의 로그인 읽기 · 기억을 뗀다(TwApi.authed.forgetSession)
- *   now: () => number, setTimer: (fn: Function, ms: number) => any, clearTimer: (h: any) => void,
+ *   now: () => number,
  * }} deps */
 function createLoginFlow(deps){
   const userApi = deps.userApi;
@@ -56,7 +56,8 @@ function createLoginFlow(deps){
   let mode = 'off';           // 'off' · 'in' · 'local'
   let online = false;         // realtime 를 켰나
   let stateHooked = false;
-  let retryTimer = null, retryStep = 0;
+  let rtLocal = false;        // 로컬 모드에서 realtime 을 켜 둔 상태(다시 붙는 신호를 받으려고 — 계정 확인 전이라 claim 하지 않는다)
+  let localBack = null, localChecking = false;
 
   function readCache(){
     let o = null;
@@ -91,49 +92,56 @@ function createLoginFlow(deps){
     return { state: STATE.IN, me };
   }
 
+  /* realtime 상태 신호 — 밀려남(4004)은 계정이 정해진 뒤에만 화면에 알리고, 로컬 모드에서 ready(서버가 다시 답함)면 계정을 한 번 다시 묻는다 */
+  function hookState(){
+    if(stateHooked) return;
+    stateHooked = true;
+    deps.rt.onState((s) => {
+      if(s === RT_SESSION_LOST){ if(mode === 'in') deps.onSessionLost(); }
+      else if(s === RT_READY && mode === 'local') recheckLocal();
+    });
+  }
   /* 서버가 계정을 돌려준 뒤 — realtime 켜기(이 기기가 지금 기기 · claim). 이미 켰으면 아무 일 없음. */
   function goOnline(){
-    stopRetry();
-    mode = 'in';
-    if(!stateHooked){
-      stateHooked = true;
-      deps.rt.onState((s) => { if(s === 'sessionLost') deps.onSessionLost(); });
-    }
+    mode = 'in'; localBack = null;
+    hookState();
+    if(rtLocal){ rtLocal = false; try{ deps.rt.stop(); }catch(_){} }   // 로컬 모드의 연결은 claim 없이 켰다 — 끄고 claim 으로 다시
     if(online) return;
     online = true;
     deps.rt.start({ claim: true });
   }
-  /* «여기서 계속» — 밀려난 기기가 다시 지금 기기가 된다(같은 연결 하나로 claim). */
-  function continueHere(){ online = true; deps.rt.start({ claim: true }); }
 
-  /* 로컬 모드 — 다시 묻다가 서버가 답하면 onBack(confirm 결과). 'in' 이면 바로 realtime 도 켠다. */
-  function stopRetry(){ if(retryTimer != null){ deps.clearTimer(retryTimer); retryTimer = null; } }
+  /* 로컬 모드 — 서버에 닿지 못했다. realtime(핵심 연결 — 혼자 다시 붙는다)을 claim 없이 켜 두고, 다시 붙었다는 신호(ready)가 오면
+     계정을 한 번 묻는다. 닿으면 onBack(confirm 결과) 한 번 · 'in' 이면 realtime 을 claim 으로 다시 켠다. 타이머로 되풀이하지 않는다. */
   function enterLocal(onBack){
-    mode = 'local';
-    stopRetry();
-    const next = () => {
-      const ms = LOCAL_RETRY_MS[Math.min(retryStep, LOCAL_RETRY_MS.length - 1)];
-      retryStep++;
-      retryTimer = deps.setTimer(async () => {
-        retryTimer = null;
-        const r = await confirm();
-        if(r.state === STATE.LOCAL){ next(); return; }
-        retryStep = 0;
-        if(r.state === STATE.IN) goOnline();
-        try{ onBack(r); }catch(_){}
-      }, ms);
-    };
-    next();
+    mode = 'local'; localBack = onBack;
+    hookState();
+    if(!online && !rtLocal){ rtLocal = true; deps.rt.start({ claim: false }); }
+  }
+  async function recheckLocal(){
+    if(localChecking) return;   // 신호가 겹쳐도 한 번
+    localChecking = true;
+    let r;
+    try{ r = await confirm(); }finally{ localChecking = false; }
+    if(mode !== 'local' || r.state === STATE.LOCAL) return;
+    const back = localBack; localBack = null;
+    if(r.state === STATE.IN) goOnline();
+    else if(rtLocal){ rtLocal = false; try{ deps.rt.stop(); }catch(_){} }
+    try{ if(back) back(r); }catch(_){}
   }
 
-  /* 구글 로그인 → confirm. 창을 그냥 닫으면 canceled(조용히 끝낼 일). */
-  async function loginGoogle(){
+  /* 구글 로그인 → confirm. 창을 그냥 닫으면 canceled(조용히 끝낼 일). 서버에 계정이 없으면(signup) 로그인을 놓는다 —
+     «로그인은 됐는데 계정은 없는» 채로 껐다 켜면 켤 때 signup 으로 이 PC 계정 몫이 지워져 0.12 캐릭터가 올리기 전에 사라진다.
+     가입으로 이어 가는 joinGoogle 만 keepOnSignup 으로 로그인을 둔다(바로 POST /v1/users 에 그 로그인이 필요하다). */
+  async function loginGoogle(){ return googleSignInConfirm(false); }
+  async function googleSignInConfirm(keepOnSignup){
     let g = null;
     try{ g = await deps.googleWindow(); }catch(_){ return { ok: false, reason: '로그인 창을 열지 못했어요' }; }
     if(!g || !g.ok) return { ok: false, canceled: !!(g && (g.canceled || !g.reason || g.reason === CANCELED_TEXT)), reason: (g && g.reason) || '' };
     const a = await auth.signInGoogle(g.idToken);
     if(!a || !a.ok) return { ok: false, reason: (a && a.reason) || '구글 계정 확인에 실패했어요' };
     const c = await confirm();
+    if(c.state === STATE.SIGNUP && !keepOnSignup){ try{ await auth.signOut(); }catch(_){} }
     return { ok: c.state === STATE.IN, state: c.state, me: c.me, email: a.email || null, reason: c.reason || '' };
   }
   /* 친구코드 + 비밀번호 로그인 → confirm. 계정이 없으면(탈퇴 등) 로그인을 놓는다 — «로그인은 됐는데 계정은 없는» 상태를 남기지 않는다. */
@@ -164,16 +172,18 @@ function createLoginFlow(deps){
   }
   /* 구글 가입 — 구글 로그인 → 이미 계정이면 그 계정(existing) · 없으면 POST /v1/users { inviteCode }. */
   async function joinGoogle(o){
-    const l = await loginGoogle();
+    const l = await googleSignInConfirm(true);
     if(l.ok) return { ok: true, existing: true, me: l.me };
     if(l.state !== STATE.SIGNUP) return l;
+    const dropLogin = async () => { try{ await auth.signOut(); }catch(_){} };   // 가입이 안 됐으면 계정 없는 로그인을 남기지 않는다
     let me = null;
     try{ me = await userApi.joinWithGoogle({ inviteCode: (o && o.inviteCode) || null }); }
     catch(e){
       if(e && e.code === 'USER_ALREADY_JOINED'){ const c = await confirm(); if(c.state === STATE.IN) return { ok: true, existing: true, me: c.me }; }
+      await dropLogin();
       return { ok: false, reason: deps.reasonOf(e), code: (e && e.code) || '' };
     }
-    if(!me) return { ok: false, reason: '서버 답의 모양이 달라요' };
+    if(!me){ await dropLogin(); return { ok: false, reason: '서버 답의 모양이 달라요' }; }
     writeCache(me);
     return { ok: true, me };
   }
@@ -201,8 +211,7 @@ function createLoginFlow(deps){
 
   /* 로그아웃 · 계정을 놓을 때 — realtime 을 끄고 · API 통로의 로그인 읽기를 떼고 · 로그인을 놓고 사본을 지운다. */
   async function logout(){
-    stopRetry();
-    online = false; mode = 'off';
+    online = false; rtLocal = false; localBack = null; mode = 'off';
     try{ deps.rt.stop(); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다
     try{ deps.forgetSession(); }catch(_){}   // 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않게(api-client forgetSession)
     clearCache();
@@ -210,7 +219,7 @@ function createLoginFlow(deps){
   }
 
   return {
-    confirm, goOnline, continueHere, enterLocal, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout,
+    confirm, goOnline, enterLocal, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout,
     meCache: () => readCache(),
     identity: () => auth.identity(),   // 지금 Auth 로그인 { email, uid } — 이 PC 로그인 표시(계정 탭 얼굴 · 진단)
     premiumNow: () => premiumNow(readCache(), now()),
@@ -218,7 +227,7 @@ function createLoginFlow(deps){
   };
 }
 
-const api = { ME_CACHE_KEY, STATE, LOCAL_RETRY_MS, joinKey, premiumNow, createLoginFlow };
+const api = { ME_CACHE_KEY, STATE, joinKey, premiumNow, createLoginFlow };
 if(typeof window !== 'undefined') window.TwLoginFlow = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
