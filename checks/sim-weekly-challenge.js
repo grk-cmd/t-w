@@ -170,8 +170,10 @@ await sec('── 2. 만들 때', async () => {
   let e = mkEnv({ rec: { ts: 5, week: '', auto: true } });
   let W = e.mk();
   chk(W.state().phase === 'wd' && W.state().auto === true && W.state().ts === 5 && W.state().autoWe === false, '로컬 기록을 읽는다 — 옛 기록(phase 없음)은 주중 · 빠진 칸은 빈 값');
-  chk(e.timers.length === 1 && e.timers[0].ms === 4400 && e.intervals.length === 1 && e.intervals[0].ms === 20000, '부팅 동기화 4.4초 한 번 · 20초 tick');
-  chk((e.winL.beforeunload || []).length === 1, 'beforeunload 하나 — 쌓인 🎯 초를 내려 쓴다');
+  chk(!e.timers.length && !e.intervals.length && !(e.winL.beforeunload || []).length, '만들 때는 타이머 · beforeunload 가 없다 — 계정 확인 뒤 startChalSync 가 건다');
+  W.startChalSync();
+  chk(e.timers.length === 1 && e.timers[0].ms === 4400 && e.intervals.length === 1 && e.intervals[0].ms === 20000, 'startChalSync — 부팅 동기화 4.4초 한 번 · 20초 tick');
+  chk((e.winL.beforeunload || []).length === 1, 'startChalSync — beforeunload 하나 — 쌓인 🎯 초를 내려 쓴다');
   const btn = e.els.chalBtn;
   chk(typeof (btn && btn.onclick) === 'function', '[👑 달성표] 버튼 연결');
   e.premium = false; btn.click();
@@ -257,7 +259,7 @@ await sec('── 5. 🎯집중 · 🔁반복', async () => {
   const H = mkEnv({ now }).H;
   const today = () => ({ date: H._focusDayStr(now), dateMs: now, sec: 0, done: 0, checks: {}, anchor: 0, fail: false });
   let e = mkEnv({ now, rec: { ts: 1, phase: 'wd', week: wk, kind: 'focus', cfg: { key: 'win:chrome.exe', exe: 'chrome.exe', label: 'chrome', hours: 1 }, days: [-3, -3, 0, -1, -1], today: today() } });
-  let W = e.mk();
+  let W = e.mk(); W.startChalSync();
   W.setKeyPlatform('win');
   W.focusTick({ key: 'win:chrome.exe' }, 2); W.focusTick({ key: 'win:notepad.exe' }, 5); W.focusTick({ key: 'win:x', keyAlt: 'win:chrome.exe' }, 3);
   chk(W.state().today.sec === 5, '조건 앱일 때만 센다 · keyAlt(옛 키)도 인정 — 2+3초');
@@ -291,7 +293,7 @@ await sec('── 6. 로그아웃 지우기 · 서버 동기화', async () => {
   const H = mkEnv({ now }).H;
   let e = mkEnv({ now, rec: { ts: 9, phase: 'wd', week: isoWeek(now), kind: 'focus', cfg: { key: 'win:a.exe', hours: 1 }, days: [-3, -3, 0, -1, -1],
     today: { date: H._focusDayStr(now), dateMs: now, sec: 0, done: 0, checks: {}, anchor: 0, fail: false } } });
-  let W = e.mk();
+  let W = e.mk(); W.startChalSync();
   W.setKeyPlatform('win'); W.focusTick({ key: 'win:a.exe' }, 4);   // 🎯 초가 쌓여 dirty 인 채로
   e.ls.delete('tw.chal');
   W.resetMemory();

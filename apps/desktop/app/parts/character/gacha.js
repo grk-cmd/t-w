@@ -520,8 +520,6 @@ async function _syncFromServer(reason, mode){
     if(_pend){ try{ syncGachaToServer(_pend.reason, _pend.mode); }catch(_){} }
   }
 }
-// 부팅 직후 1회 — firebaseAPI와 계정 ID가 준비될 시간을 준다(집중 동기화와 같은 시점).
-setTimeout(()=>{ try{ syncGachaToServer('boot'); }catch(_){} }, 4200);
 /* ⏱️ 그 뒤로 주기적으로 — **이게 없어서 가챠만 사실상 동기화가 안 됐다.**
    [무엇이 문제였나] 예전 호출 시점은 '부팅 4.2초'와 '뽑을 때' 둘뿐이었다. 이 앱은 켜두고 쓰는
      앱이라 그 4.2초가 그 세션의 처음이자 마지막 조회였고, 게다가 그 시점에 firebaseAPI 가 아직
@@ -529,7 +527,11 @@ setTimeout(()=>{ try{ syncGachaToServer('boot'); }catch(_){} }, 4200);
      타이머가 다시 시도해 준다 — 그 차이 하나로 증상이 갈렸다).
    [비용] 읽기 1회/10분/기기. 쓰기는 이 PC 에만 있는 뽑기가 있을 때만이라 평소엔 0회다. */
 const GACHA_SYNC_INTERVAL_MS = 10*60*1000;   // 10분 — 집중 누적(FOCUS_SYNC_INTERVAL_MS)과 같은 박자
-setInterval(()=>{ try{ syncGachaToServer('tick'); }catch(_){} }, GACHA_SYNC_INTERVAL_MS);
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 부팅 4.2초 조회 · 10분 주기 */
+function startGachaSync(){
+  setTimeout(()=>{ try{ syncGachaToServer('boot'); }catch(_){} }, 4200);
+  setInterval(()=>{ try{ syncGachaToServer('tick'); }catch(_){} }, GACHA_SYNC_INTERVAL_MS);
+}
 
 /* ═══ 🎰 파츠 보관함 (T키) · 가챠 뽑기 창 ══════════════════════════════════
    ★ 착용은 꾸미기(F2)와 같은 배관을 그대로 탄다 — toggleEquip(cat, id).
@@ -1370,6 +1372,7 @@ function toggleGachaInv(){
 
 return {
   /* 밖에서 부르는 이름 — app.js 는 gachaMod.이름 */
+  startGachaSync,
   isGachaPart,                          // 꾸미기 창 · 카탈로그 · 라이선스 접기가 가챠 파츠를 거른다
   setPartEditor,                        // 🛠 관리자 등록 창을 건다(app.js)
   isGachaColorUnlocked,                 // 꾸미기 미리보기 색상 영역 — 🔒 게이트

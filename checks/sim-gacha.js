@@ -190,7 +190,9 @@ await sec('── 1. 만들 때', () => {
   const M = e.mk();
   chk(M.gachaCount('a') === 2 && M.bonus() === 3, '로컬 보유분 · 👑 보너스를 읽는다');
   chk(M.state.ts() === 0 && !e.ls.has('tw.gachaOwnedTs'), '시각을 새로 찍지 않는다 — 서버가 원본이라 판정에 안 쓴다(이 PC 에만 있는 뽑기는 합치기로 올라간다)');
-  chk(e.timers.some(t => t.ms === 4200) && e.intervals.some(t => t.ms === 10 * 60 * 1000), '부팅 4.2초 동기화 · 10분 tick');
+  chk(!e.timers.some(t => t.ms === 4200) && !e.intervals.some(t => t.ms === 10 * 60 * 1000), '만들 때는 부팅 동기화 · tick 이 없다 — 계정 확인 뒤 startGachaSync 가 건다');
+  M.startGachaSync();
+  chk(e.timers.some(t => t.ms === 4200) && e.intervals.some(t => t.ms === 10 * 60 * 1000), 'startGachaSync — 부팅 4.2초 동기화 · 10분 tick');
   chk(typeof e.els.gachaInvClose.onclick === 'function' && typeof e.els.gachaGoDraw.onclick === 'function' && typeof e.els.gachaDraw1.onclick === 'function'
       && typeof e.els.gachaDraw5.onclick === 'function' && typeof e.els.gachaBackInv.onclick === 'function' && typeof e.els.gachaDrawClose.onclick === 'function', '창 버튼 연결(✕ 둘 · 뽑으러 가기 · 1회 · 5연속 · 보관함으로)');
   chk(e.docL.keydown && e.docL.keydown.length === 1 && e.docL.mousedown && e.docL.mousedown.length === 1 && e.winL.blur && e.winL.blur.length === 1, 'ESC · 바깥 클릭 · blur 닫기 연결');

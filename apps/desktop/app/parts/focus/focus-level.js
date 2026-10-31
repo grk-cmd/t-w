@@ -410,11 +410,13 @@ async function syncFocusTotalToServer(reason){
      이제 늘지 않았어도 매 주기 물어본다. **쓰기는 안 는다** — 서버가 want<=pre 면 쓰지 않고
      현재값만 돌려주도록 이미 돼 있어서(HTML syncFocusTotal), 이 경우 비용은 읽기 1회다. */
 const FOCUS_SYNC_INTERVAL_MS = 10*60*1000;   // 10분
-setTimeout(()=>{ try{ syncFocusTotalToServer('boot'); }catch(_){} }, 4000);
-setInterval(()=>{ try{ syncFocusTotalToServer('tick'); }catch(_){} }, FOCUS_SYNC_INTERVAL_MS);
-/* 창이 닫힐 때 마지막으로 한 번 — 비동기라 완료가 보장되진 않지만, 성공하면 위 주기의
-   최대 10분 공백을 메워 준다. 실패해도 다음 부팅에서 max 로 그대로 복구된다. */
-window.addEventListener('beforeunload', ()=>{ try{ syncFocusTotalToServer('quit'); }catch(_){} });
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 부팅 4초 조회 · 10분 주기 · 창이 닫힐 때 마지막 한 번.
+   'quit' 은 비동기라 완료가 보장되진 않지만 성공하면 주기의 최대 10분 공백을 메워 준다. 실패해도 다음 부팅에서 max 로 복구된다. */
+function startFocusSync(){
+  setTimeout(()=>{ try{ syncFocusTotalToServer('boot'); }catch(_){} }, 4000);
+  setInterval(()=>{ try{ syncFocusTotalToServer('tick'); }catch(_){} }, FOCUS_SYNC_INTERVAL_MS);
+  window.addEventListener('beforeunload', ()=>{ try{ syncFocusTotalToServer('quit'); }catch(_){} });
+}
 /* 💾 꾸미기를 연 채 앱을 끄면 — 닫는 것이 곧 저장이라 여기서 닫아 준다. 슬롯 저장은 파츠 받기를 기다리기 전에 도니
    종료 전에 끝난다(_commitWdDraftNow). 계정을 놓은 뒤(_wipeAccountLocal)에는 지운 칸을 도로 쓰지 않게 건너뛴다. */
 window.addEventListener('beforeunload', ()=>{
@@ -614,6 +616,7 @@ setInterval(()=>{
 }, 60*1000);
 
 return {
+  startFocusSync,
   DANCE_NOTIFIED_KEY,
   onTotalSynced,
   DANCE_REPAIR_KEY,

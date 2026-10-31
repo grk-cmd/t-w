@@ -78,16 +78,17 @@ document.getElementById('licenseReqApplyBtn').onclick=async ()=>{
     setTimeout(()=>{ twNav.go(twNav.NAV.PROGRAM_SETTINGS_CLOSE); }, 900);
   } else { toast('적용 실패: '+(r.reason||'')); }
 };
-// 앱을 껐다 켜도 예전에 보낸 요청이 있으면 이어서 지켜봄(관리자가 그 사이 승인했을 수도 있으니)
-(function resumePendingLicenseRequest(){
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 앱을 껐다 켜도 예전에 보낸 요청이 있으면 이어서 지켜봄(관리자가 그 사이 승인했을 수도 있으니) */
+function startWatch(){
   let reqId=null; try{ reqId=localStorage.getItem(LICENSE_REQ_ID_KEY); }catch(e){}
   if(!reqId) return;
   TwNetReady.whenNetReady(()=>watchMyLicenseRequest(reqId));
-})();
+}
 
 /* --- 관리자 비밀번호 창 버튼 연결은 admin/admin-mode.js 로 옮겼다(관리자 모드 진입과 한 묶음) --- */
 
 return {
+  startWatch,
   LICENSE_REQ_ID_KEY,
   _showLicenseReqState,
 };

@@ -138,6 +138,7 @@ function mkEnv(opt){
     bellSeenKey: 'tw.bellSeenTs',
     twNav: opt.twNav || { go(){}, NAV: {} },
   });
+  if(!opt.noStart) S.startSchedule();   // 계정 확인 뒤 app-boot 가 한 번 부르는 시작(만들 때는 받기 · 신호 · 타이머가 없다)
   const calls = (m, re) => authed.log.filter(x => x.method === m && re.test(x.path));
   return { S, scheduleApi, win, els, ls, timers, toasts, errs, escWins, winListeners, g, st, routes, authed, rt, calls, el: id => document.getElementById(id) };
 }
@@ -197,9 +198,15 @@ await sec('── 2. 만들 때', async () => {
   const L = mkEnv({ noApi: true });
   await tick();
   chk(L.authed.log.length === 0 && (L.winListeners['firebase-ready'] || []).length === 1, '네트워크가 아직이면 firebase-ready 를 기다린다 — 그 전엔 요청 0');
-  const N = mkEnv({ only: [] });
+  const N = mkEnv({ only: [], noStart: true });
   await tick();
   chk(N.authed.log.length === 0 && N.timers.length === 0 && N.escWins.length === 0 && !N.rt.schedule, 'DOM 이 없으면(창 요소 없음) 아무것도 걸지 않는다 — 예전처럼 조용히');
+  const Z = mkEnv({ noStart: true });
+  await tick();
+  chk(Z.authed.log.length === 0 && Object.keys(Z.rt).length === 0 && Z.timers.length === 0 && (Z.winListeners['firebase-ready'] || []).length === 0,
+    '만들기만 하면 요청 0 · 서버 신호 0 · 타이머 0 · firebase-ready 기다림 0 — 계정 확인 뒤 startSchedule 이 건다');
+  Z.S.startSchedule(); await tick();
+  chk(Z.authed.log.length > 0 && Object.keys(Z.rt).sort().join() === 'friendSchedule,notification,schedule' && Z.timers.length === 1 && Z.timers[0].ms === 60000, 'startSchedule — 알림 · 일정 받기 · 서버 신호 셋 · 자정 확인 1분 타이머');
 });
 
 await sec('── 2-2. 내 코드 없음 — 요청 0', async () => {

@@ -2555,6 +2555,7 @@ const mhScheduler = MhScheduler.createScheduler({
   bellSeenKey: BELL_SEEN_KEY,
   twNav: twNav,
 });
+mhScheduler.startSchedule();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
      게시판 화면과 한 파일이다. 그 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다는 앞이라 구독 시작 때는 같다.
@@ -7266,6 +7267,7 @@ const licReqMod = TwLicenseRequest.createLicenseRequest({
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
 });
+licReqMod.startWatch();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
 /* 관리자 몫(라이선스 키 발급 · 목록 · 요청, 📣 확성기 공지 · 📰 업데이트 공지 편집)은 admin/admin-license.js · admin/admin-notice.js 로 옮겼다.
@@ -7432,6 +7434,7 @@ const slotSyncMod = TwSlotSync.createSlotSync({
   onSaved: slotSaveMod.onSaved,
   slotsReplaced: slotSaveMod.slotsReplaced,
 });
+slotSyncMod.startSlotsSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* ═══ ☁️ [2026-09-20 · 3-7-2 시안 확정] 연동 UI — 띠(런처) · 기기 연동 구획(계정 탭) · ④ 충돌 대화상자 ═══
    [자리] A안 띠 = 캐릭터가 줄어든 것을 **보는 그 자리**(그림 위). B안 구획 = 띠를 놓쳐도 나중에 찾아갈 자리.
@@ -7492,6 +7495,7 @@ const charsMod = TwChars.createChars({
   setCharsActiveCheck: slotSyncMod.setCharsActiveCheck,
   slotsReplaced: slotSaveMod.slotsReplaced,
 });
+charsMod.startCharsSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 charsMod.onBootLinked(()=>myInfoMod._charsLinkedMaybeShow());   // 부팅 채택 뒤 «연동됨» 안내 — 내 정보가 보관함보다 먼저 만들어져 여기서 건다
 
 /* ═══════════ 🧬 이관 — slots → chars (회원가입 설계 §5-N-2 · 2026-09-21 · 개정 33 · 아직 아무도 안 부른다) ═══════════
@@ -8749,6 +8753,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
+focusLevelMod.startFocusSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
@@ -8814,6 +8819,7 @@ const gachaMod = TwGacha.createGacha({
   gachaSource: ()=>TwSourceSwitch.store.pick('gacha'),   // 받는 곳 — 원격 설정 sources.gacha(없으면 옛 길) · 고르기는 shared/source-switch.js
   gachaServer: gachaServerMod,
 });
+gachaMod.startGachaSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({
   openPartRegister: (...a)=>adminPartReg.openPartRegister(...a),
@@ -9012,6 +9018,7 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   appMode: ()=>appMode,
   storageKey: CHAL_KEY,
 });
+weeklyChal.startChalSync();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* 🍅 뽀모도로(포커스 기록창 안쪽 서랍 · 집중 / 휴식 타이머)는 parts/pomodoro.js 로 옮겼다(앱 FSD 6번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(tw.pomo · tw.pomoRun 읽기 · 버튼 연결 · 첫 그리기 · 1초 tick)이
@@ -9136,6 +9143,7 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   friendsClose: (...a)=>friendsSubMod.close(...a),
   presence: Presence,
 });
+roomInviteUi.startReceive();   // 🚀 (commit 1 — 계정 확인 뒤로 옮기기 전 임시: 만든 바로 뒤)
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════
    [무엇을 고치는가] `parts/firebase-init.js` 는 Firebase SDK 를 gstatic 에서 **실행 시점에**

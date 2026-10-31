@@ -80,7 +80,7 @@ if(fs.existsSync('firebase-init.js') && fs.existsSync('firebase-database-rules.j
 
 /* ── 2. 본문 ── */
 say('── 2. app.js — 충돌 진리표');
-const block = grabBlock(SRC, "const SLOTS_TS_KEY = 'deskFriends.slots.ts';", 'SLOTS_SYNC_INTERVAL_MS);');
+const block = grabBlock(SRC, "const SLOTS_TS_KEY = 'deskFriends.slots.ts';", 'SLOTS_SYNC_INTERVAL_MS);\n}');
 const fSlotToObj = grabFn(SRC, 'slotToObj');
 const fImg = grabFn(SRC, '_slotImgToDataUrl');
 const fSave = grabFn(SRC, 'saveSlots');

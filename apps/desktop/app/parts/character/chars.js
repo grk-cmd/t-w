@@ -930,12 +930,15 @@ onSaved(_charsAfterSave);
 onBackupRestored(_charsRemapDesk);
 setCharsActiveCheck(_charsActive);
 /* 🧬 평상시 동기화 배선 — 스위치가 꺼져 있으면 아무것도 걸지 않는다(개정 36). 옛 slots 동기화(4.6초 · 30분) 다음 박자. */
-if(CHARS_SYNC_ENABLED){
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) */
+function startCharsSync(){
+  if(!CHARS_SYNC_ENABLED) return;
   setTimeout(()=>{ try{ _charsBoot('boot').then(r => { if(r && r.ok) _bootLinkedFns.forEach(fn=>fn()); }, ()=>{}); }catch(_){} }, 5200);   // F — 첫 채택이 끝난 뒤(개정 57)
   setInterval(()=>{ try{ _charsBoot('tick'); }catch(_){} }, SLOTS_SYNC_INTERVAL_MS);
 }
 
 return {
+  startCharsSync,
   CHARS_BOX_MAX,
   CHARS_SYNC_ENABLED,
   _charsActive,

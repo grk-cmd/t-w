@@ -77,7 +77,7 @@ chk(/SLOT_JSON_MAX = 150000/.test(SRC), '  app.js 상한(SLOT_JSON_MAX)이 규�
 
 /* ── 3. 본문 ── */
 say('── 3. app.js — 병합 진리표 · _imgBroken · dataURL 금지 · 되받기');
-const block = grabBlock(SRC, "const SLOTS_TS_KEY = 'deskFriends.slots.ts';", 'SLOTS_SYNC_INTERVAL_MS);');
+const block = grabBlock(SRC, "const SLOTS_TS_KEY = 'deskFriends.slots.ts';", 'SLOTS_SYNC_INTERVAL_MS);\n}');
 const fSlotToObj = grabFn(SRC, 'slotToObj');
 const fImg = grabFn(SRC, '_slotImgToDataUrl');
 const fSave = grabFn(SRC, 'saveSlots');
