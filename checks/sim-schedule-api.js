@@ -6,7 +6,7 @@
    ・2절: 일정 쓰기 — 본문(requestId · visibility · 태그하면 공개) · 읽은 토큰 주인 묶기(expectOwner) · 받기 전엔 요청 0 · 지우기 경로(판) · 글자 상한
    ・3절: 디데이 보드 읽기 — 두 목록 → 한 맵(order = 목록 순서 · kind · base1 · 그림) · 빈 보드 ≠ 못 읽음 · 남의 보드 · 순서 정렬(order → 만든 순)
    ・4절: 디데이 보드 저장 — 본문(판 · 두 목록 순서 · 새 장은 ddayId 없음 · 배너는 셈법 · 그림 없음) · 태그 위치 · 판 갱신 · 409 뒤엔 다시 받기 전 쓰기 막힘 · 계정 바뀜
-   ・5절: 카드 그림 — data: 만 올려 주소로 바꿈 · 올리기 실패면 보드를 보내지 않음
+   ・5절: 카드 그림 — data: 만 서버(POST /v1/me/images?purpose=dday · 바이트 그대로)에 올려 주소로 바꿈 · 1MB 넘음 · 형식 아님 · 400 / 413 / 415 → IMAGE_UPLOAD · 올리기 실패면 보드를 보내지 않음 · 계정 바뀜
    ・6절: 🔔 알림 — 일정 태그만 · 모양 · 지우기
    ・7절: 배선 — 부르는 곳이 firebaseAPI 로 일정을 안 부름 · firebase-init 에 옛 메서드가 없음 · html · smoke 순서
    ・8절: 일부러 깨 보기
@@ -54,11 +54,11 @@ function fake(routes, who){
     get: (p, o) => run('GET', p, undefined, o), post: (p, b, o) => run('POST', p, b, o), put: (p, b, o) => run('PUT', p, b, o), del: (p, o) => run('DELETE', p, undefined, o) };
 }
 function mk(src, routes, extra){
-  const authed = fake(routes, extra && extra.who), warns = [], ups = [];
+  const ups = [];   // 그림 올리기로 나간 본문(바이트)
+  const authed = fake(Object.assign({ 'POST /v1/me/images': (b) => { ups.push(b); return { url: 'https://storage.example/users/me/dday_x.jpg' }; } }, routes), extra && extra.who), warns = [];
   let n = 0;
   const m = load(src).createScheduleApi({
     authed, newId: () => 'req-' + (++n) + '-abcdefgh',
-    uploadImage: (extra && extra.uploadImage) || (async (d) => { ups.push(d); return { ok: true, url: 'https://storage.example/users/me/dday_x.jpg' }; }),
     warn: (...a) => warns.push(a.join(' ')),
   });
   return { m, authed, warns, ups };
@@ -240,14 +240,36 @@ say('── 5. 카드 그림');
   board[U3].bgImg = 'data:image/jpeg;base64,BBBB';   // 배너에는 그림이 없다 — 올리지도 보내지도 않는다
   await m.saveBoard('me1', board, null);
   const put = authed.log.find((x) => x.method === 'PUT');
-  chk(ups.length === 1 && ups[0] === 'data:image/jpeg;base64,AAAA', '새로 고른 그림(data:)만 올린다 — 이미 주소인 것 · 배너 것은 올리지 않는다');
-  chk(put.body.cards[0].bgImage === 'https://storage.example/users/me/dday_x.jpg' && put.body.cards[1].bgImage === 'https://storage.example/old.jpg' && !('bgImage' in put.body.banners[0]), '  저장 본문엔 data: 대신 올린 주소 · 있던 주소는 그대로');
+  const imgPost = authed.log.find((x) => x.method === 'POST' && x.path.startsWith('/v1/me/images'));
+  chk(ups.length === 1 && imgPost && imgPost.path === '/v1/me/images?purpose=dday' && ups[0] instanceof Uint8Array && ups[0].length === 3 && imgPost.opts.rawType === 'image/jpeg' && imgPost.opts.expectOwner === 'tokenA',
+    '새로 고른 그림(data:)만 올린다 — POST /v1/me/images?purpose=dday · 바이트 그대로 · Content-Type(rawType) · expectOwner · 이미 주소인 것 · 배너 것은 올리지 않는다');
+  chk(put.body.cards[0].bgImage === 'https://storage.example/users/me/dday_x.jpg' && put.body.cards[1].bgImage === 'https://storage.example/old.jpg' && !('bgImage' in put.body.banners[0]), '  저장 본문엔 data: 대신 서버가 돌려준 주소 · 있던 주소는 그대로');
   chk(board[U1].bgImg.startsWith('data:'), '  부른 쪽 값은 건드리지 않는다');
-  for(const [name, uploadImage] of [['실패(ok:false)', async () => ({ ok: false })], ['던짐', async () => { throw new Error('net'); }], ['주소 없음', async () => ({ ok: true, url: '' })]]){
-    const f = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() }, { uploadImage });
-    const b2 = await f.m.fetchBoard('me1'); b2[U1].bgImg = 'data:image/jpeg;base64,AAAA';
+  chk(!authed.log.some((x) => /firebase|storage\.googleapis/.test(x.path)), '  Firebase 저장소로는 가지 않는다 — 요청은 모두 /v1');
+  const fail = async (name, dataUrl, routes, check) => {
+    const f = mk(SRC, Object.assign({ 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() }, routes || {}));
+    const b2 = await f.m.fetchBoard('me1'); b2[U1].bgImg = dataUrl;
     const e = await rej(f.m.saveBoard('me1', b2, null));
-    chk(e && e.code === 'IMAGE_UPLOAD' && f.authed.log.filter((x) => x.method === 'PUT').length === 0, '그림 올리기 ' + name + ' → IMAGE_UPLOAD · 보드를 보내지 않는다');
+    chk(check(e, f), name);
+  };
+  const noPut = (f) => f.authed.log.filter((x) => x.method === 'PUT').length === 0;
+  const big = 'data:image/jpeg;base64,' + Buffer.alloc(1024 * 1024 + 1, 1).toString('base64');
+  const edge = 'data:image/png;base64,' + Buffer.alloc(1024 * 1024, 1).toString('base64');
+  await fail('1MB 를 넘는 그림 → 요청 0 · IMAGE_UPLOAD · 보드를 보내지 않는다', big, {}, (e, f) => e && e.code === 'IMAGE_UPLOAD' && f.ups.length === 0 && noPut(f));
+  await fail('  정확히 1MB 는 보낸다(경계)', edge, {}, (e, f) => !e && f.ups.length === 1);
+  await fail('  형식이 아닌 그림(gif · 깨진 data:) → 요청 0 · IMAGE_UPLOAD', 'data:image/gif;base64,AAAA', {}, (e, f) => e && e.code === 'IMAGE_UPLOAD' && f.ups.length === 0 && noPut(f));
+  await fail('  깨진 data: 도 같다', 'data:image/png;base64,@@@', {}, (e, f) => e && e.code === 'IMAGE_UPLOAD' && f.ups.length === 0);
+  for(const [st, code] of [[413, 'PAYLOAD_TOO_LARGE'], [415, 'UNSUPPORTED_MEDIA_TYPE'], [400, 'SCHEDULE_INVALID']]){
+    await fail('서버가 ' + st + ' ' + code + ' 로 거절 → IMAGE_UPLOAD · 보드를 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': apiErr(st, code) }, (e, f) => e && e.code === 'IMAGE_UPLOAD' && noPut(f));
+  }
+  await fail('서버 쉬는 중(503 STORAGE_UNAVAILABLE)은 그대로 던진다 — 보드는 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': apiErr(503, 'STORAGE_UNAVAILABLE') }, (e, f) => e && e.status === 503 && noPut(f));
+  await fail('답에 주소가 없으면 SHAPE · 보드를 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': { url: '' } }, (e, f) => e && e.code === 'SHAPE' && noPut(f));
+  {
+    const f = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });
+    const b3 = await f.m.fetchBoard('me1'); b3[U1].bgImg = 'data:image/jpeg;base64,AAAA';
+    f.authed.state.who = 'tokenB';
+    const e = await rej(f.m.saveBoard('me1', b3, null));
+    chk(e && e.code === 'OWNER_CHANGED' && f.ups.length === 0 && noPut(f), '계정이 바뀌면 OWNER_CHANGED(조용히 버릴 신호) · 그림도 보드도 요청 0');
   }
 }
 
@@ -275,7 +297,7 @@ say('── 7. 배선');
   const FI = strip(SRC0.FI), APP = strip(SRC0.APP);
   const OLD = ['getScheduleMonth', 'subscribeScheduleMonth', 'addScheduleItem', 'removeScheduleItem', 'setScheduleItemPublic', 'subscribeDdays', 'saveDday', 'removeDday', 'setDdayOrder', 'sendScheduleNotices', 'subscribeSchedNotices', 'removeSchedNotice'];
   chk(OLD.every((n) => !new RegExp('\\b' + n + '\\b').test(FI)), 'firebase-init.js 에 일정 · 디데이 옛 메서드가 없다');
-  chk(/async uploadDdayImage\(/.test(FI) && /dday_\$\{key\}\.jpg/.test(FI), '  카드 그림 올리기만 남았다(uploadDdayImage — 서버가 받는 dday_ 이름)');
+  chk(!/uploadDdayImage/.test(FI) && !/uploadDdayImage/.test(APP) && !/uploadImage/.test(APP.match(/TwScheduleApi\.createScheduleApi\(\{[\s\S]*?\}\);/)[0]), '  카드 그림 올리기도 서버 길로 옮겼다 — firebase-init 에 uploadDdayImage 없음 · app.js 가 provider 에 올리기 함수를 넘기지 않는다');
   const callers = [strip(SRC0.SCH), strip(SRC0.INIT), strip(SRC0.VISIT)].join('\n');
   chk(OLD.every((n) => !new RegExp('firebaseAPI\\.' + n + '\\b').test(callers)) && !/firebaseAPI/.test(strip(SRC0.SCH)), '부르는 곳(scheduler · myhome-init · myhome-visit)이 firebaseAPI 로 일정을 안 부른다');
   chk(/TwScheduleApi\.createScheduleApi\(\{\s*authed: TwApi\.authed,/.test(APP) && /scheduleApi: scheduleApiMod/.test(APP), 'app.js 가 로그인 통로(TwApi.authed)로 provider 를 만들어 스케줄러에 넘긴다');
@@ -334,10 +356,43 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
     await m.saveBoard('me1', board, null);
     chk(!('countFromOne' in authed.log.find((y) => y.method === 'PUT').body.banners[0]), 'x');
   });
-  await broken('그림 올리기가 실패해도 보드를 보낸다', (x) => x.replace("throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');", 'void 0;'), async (src) => {
-    const f = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() }, { uploadImage: async () => ({ ok: false }) });
+  await broken('그림 올리기가 실패해도 보드를 보낸다', (x) => x.replace("catch(e){ warn('[일정] 카드 그림 올리기 실패', (e && (e.code || e.message)) || e); throw e; }", "catch(e){ warn('x'); }"), async (src) => {
+    const f = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD(), 'POST /v1/me/images': apiErr(503, 'X') });
     const b = await f.m.fetchBoard('me1'); b[U1].bgImg = 'data:image/jpeg;base64,AAAA';
     await rej(f.m.saveBoard('me1', b, null));
+    chk(f.authed.log.filter((y) => y.method === 'PUT').length === 0, 'x');
+  });
+  const bigUrl = 'data:image/jpeg;base64,' + Buffer.alloc(1024 * 1024 + 1, 1).toString('base64');
+  const upOne = async (src, dataUrl, routes) => {
+    const f = mk(src, Object.assign({ 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() }, routes || {}));
+    const b = await f.m.fetchBoard('me1'); b[U1].bgImg = dataUrl;
+    const e = await rej(f.m.saveBoard('me1', b, null));
+    return { f, e };
+  };
+  await broken('1MB 를 넘어도 보낸다', (x) => x.replace('img.bytes.length > LIMITS.IMAGE_BYTES ||', ''), async (src) => {
+    const { f } = await upOne(src, bigUrl);
+    chk(f.ups.length === 0, 'x');
+  });
+  await broken('상한을 두 배로 느슨하게 잡는다', (x) => x.replace('IMAGE_BYTES: 1024 * 1024', 'IMAGE_BYTES: 2048 * 1024'), async (src) => {
+    const { f } = await upOne(src, bigUrl);
+    chk(f.ups.length === 0, 'x');
+  });
+  await broken('서버가 413 으로 거절해도 번호 없는 오류로 던진다', (x) => x.replace('[400, 413, 415]', '[400, 415]'), async (src) => {
+    const { e } = await upOne(src, 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': apiErr(413, 'PAYLOAD_TOO_LARGE') });
+    chk(e && e.code === 'IMAGE_UPLOAD', 'x');
+  });
+  await broken('그림을 JSON 이 아니라 rawType 없이 보낸다', (x) => x.replace(', rawType: img.type', ''), async (src) => {
+    const { f } = await upOne(src, 'data:image/jpeg;base64,AAAA');
+    chk(f.authed.log.find((y) => y.path.startsWith('/v1/me/images')).opts.rawType === 'image/jpeg', 'x');
+  });
+  await broken('그림 올릴 때 토큰 주인을 묶지 않는다', (x) => x.replace('{ expectOwner: owner, rawType: img.type }', '{ rawType: img.type }'), async (src) => {
+    const f = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });
+    const b = await f.m.fetchBoard('me1'); b[U1].bgImg = 'data:image/jpeg;base64,AAAA'; f.authed.state.who = 'tokenB';
+    await rej(f.m.saveBoard('me1', b, null));
+    chk(f.ups.length === 0, 'x');
+  });
+  await broken('올리기 답에 주소가 없어도 통과시킨다', (x) => x.replace("if(!isObj(d) || typeof d.url !== 'string' || !d.url) throw shapeError();", ''), async (src) => {
+    const { f } = await upOne(src, 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': { url: '' } });
     chk(f.authed.log.filter((y) => y.method === 'PUT').length === 0, 'x');
   });
   await broken('받기 전에도 일정을 쓴다', (x) => x.replace("if(!r) throw codeError(NOT_RECEIVED_CODE, '받기 전에는 쓰지 않아요');", 'if(!r) return {};'), async (src) => {

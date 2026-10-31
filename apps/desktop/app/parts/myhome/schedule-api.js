@@ -4,7 +4,7 @@
      서버 모양(visibility · countFromOne · bgImage · cards / banners 두 목록)을 화면이 쓰던 모양(public · base1 · bgImg · kind · order)으로 맞추는 곳은 여기뿐이다.
    신원: 내 것은 토큰(/v1/me/…) · 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐). 내 코드(uid)는 «읽은 판 · 토큰 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · del(path, …, { expectOwner }) → Promise<data>)
-         newId() → 요청 번호(TwRequestId.newId) · uploadImage(dataUrl) → Promise<{ ok, url }>(카드 그림을 우리 저장소에 올림 — 서버는 그 주소만 받는다) · warn(...a)
+         newId() → 요청 번호(TwRequestId.newId) · warn(...a)
    내보냄: createScheduleApi(deps) → {
      fetchMonth(uid, ym) → Promise<{ DD: { id: { text, public, ts, version, date } } }> — 일정이 없어도 {}(빈 달 ≠ 못 읽음). 못 읽으면 던진다.
      fetchMonthOf(userCode, ym) → 같은 모양(공개한 일정만). 못 읽으면 던진다.
@@ -21,7 +21,7 @@
      순수: itemOf · monthOf · ddayOf · boardOf · bellOf · boardBody · orderedIds · PATHS · LIMITS (TwScheduleApi 위)
    ⚠️ 보드는 판(version)으로 겹친 고침을 가른다 — 저장은 «마지막으로 읽은 판» 을 실어 보내고, 다른 기기가 먼저 저장했으면(409 CONCURRENT_UPDATE) 판을 버려 다시 받기 전엔 쓰지 못하게 한다. 409 에 판을 다시 읽어 한 번 더 보내지 않는다.
    ⚠️ 쓰기는 읽은 토큰의 주인과 묶는다(expectOwner) — 계정이 바뀌는 틈에 앞 계정의 값이 새 계정 토큰으로 나가지 않게. 읽은 적 없으면(받기 전) 쓰지 않는다.
-   ⚠️ 카드 그림은 data: 로 들고 있다가 저장할 때만 올린다 — 올리기를 못 하면 보드를 보내지 않는다(그림이 빠진 채 저장되지 않게).
+   ⚠️ 카드 그림은 data: 로 들고 있다가 저장할 때만 올린다(POST /v1/me/images?purpose=dday — 바이트 그대로 · 1MB 이하 png / webp / jpeg, 응답 { url }). 올리기를 못 하면 보드를 보내지 않는다(그림이 빠진 채 저장되지 않게).
    검사: checks/sim-schedule-api.js */
 (function(){
 'use strict';
@@ -34,10 +34,13 @@ const PATHS = Object.freeze({
   board: '/v1/me/ddays',
   boardOf: (userCode) => '/v1/ddays/' + encodeURIComponent(userCode),
   bell: '/v1/me/notifications?section=BELL&limit=50',
+  image: '/v1/me/images?purpose=dday',
   bellOne: (id) => '/v1/me/notifications/' + encodeURIComponent(id),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 거절한다 */
-const LIMITS = Object.freeze({ TEXT: 40, DDAY_TEXT: 20, DDAY_PER_KIND: 10, TAGS: 100 });
+const LIMITS = Object.freeze({ TEXT: 40, DDAY_TEXT: 20, DDAY_PER_KIND: 10, TAGS: 100, IMAGE_BYTES: 1024 * 1024 });
+const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp', 'image/jpeg']);
+const IMAGE_REJECT_STATUS = Object.freeze([400, 413, 415]);   // 서버가 이 그림을 안 받는다(형식 · 크기 · 모양) — 같은 오류 번호로
 const KIND = Object.freeze({ CARD: 'anniv', BANNER: 'dday' });   // 화면이 쓰는 종류 이름 — 기념일 카드 · 디데이 배너
 const BELL_KIND = 'SCHEDULE_TAG';
 const OWNER_CHANGED_CODE = 'OWNER_CHANGED';   // api-client.js — 쓰기 직전 토큰 주인이 읽을 때와 달라졌다
@@ -47,6 +50,17 @@ const NOT_RECEIVED_CODE = 'NOT_RECEIVED';
 const IMAGE_UPLOAD_CODE = 'IMAGE_UPLOAD';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+/* data:image/…;base64,… → { type, bytes }. 형식이 아니면 null */
+function parseDataUrl(u){
+  const m = /^data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]*)$/.exec(typeof u === 'string' ? u : '');
+  if(!m) return null;
+  let bin;
+  try{ bin = atob(m[2]); }catch(_){ return null; }
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { type: m[1], bytes };
+}
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
@@ -147,7 +161,6 @@ function bellOf(raw){
 function createScheduleApi(deps){
   const authed = deps.authed;
   const newId = deps.newId;
-  const uploadImage = deps.uploadImage;
   const warn = deps.warn;
   const reads = new Map();   // uid → { owner: 마지막으로 읽을 때 쓴 토큰의 주인, v: 보드 판(없으면 undefined) }
   let epoch = 0;             // reset 마다 오른다 — reset 전에 시작한 읽기가 늦게 끝나도 기억을 되살리지 않게
@@ -214,16 +227,29 @@ function createScheduleApi(deps){
     return out;
   }
 
+  /* 그림 한 장 올리기 → 주소. 형식 · 1MB 를 넘으면 요청 없이 IMAGE_UPLOAD. 서버가 안 받으면(400 · 413 · 415) IMAGE_UPLOAD,
+     계정이 바뀐 것(OWNER_CHANGED) · 닿지 못함 등은 그대로 던진다 */
+  async function uploadImage(dataUrl, owner){
+    const img = parseDataUrl(dataUrl);
+    if(!img || IMAGE_TYPES.indexOf(img.type) < 0 || img.bytes.length > LIMITS.IMAGE_BYTES || img.bytes.length === 0) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
+    let d;
+    try{ d = await authed.post(PATHS.image, img.bytes, { expectOwner: owner, rawType: img.type }); }
+    catch(e){
+      if(e && e.kind === 'request' && IMAGE_REJECT_STATUS.indexOf(e.status) >= 0) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
+      throw e;
+    }
+    if(!isObj(d) || typeof d.url !== 'string' || !d.url) throw shapeError();
+    return d.url;
+  }
+
   /* 새로 고른 그림(data:)만 올려 주소로 바꾼 사본 — 하나라도 못 올리면 던진다(보드를 보내지 않는다) */
-  async function withUploadedImages(ddays){
+  async function withUploadedImages(ddays, owner){
     const out = {};
     for(const id of Object.keys(ddays)){
       const d = Object.assign({}, ddays[id]);
       if(d.kind !== KIND.BANNER && typeof d.bgImg === 'string' && d.bgImg.startsWith('data:')){
-        let res = null;
-        try{ res = await uploadImage(d.bgImg); }catch(e){ warn('[일정] 카드 그림 올리기 실패', (e && (e.code || e.message)) || e); }
-        if(!res || !res.ok || typeof res.url !== 'string' || !res.url) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
-        d.bgImg = res.url;
+        try{ d.bgImg = await uploadImage(d.bgImg, owner); }
+        catch(e){ warn('[일정] 카드 그림 올리기 실패', (e && (e.code || e.message)) || e); throw e; }
       }
       out[id] = d;
     }
@@ -236,7 +262,7 @@ function createScheduleApi(deps){
     const read = readOf(uid);
     if(read.v === undefined) throw codeError(NOT_RECEIVED_CODE, '받기 전에는 쓰지 않아요');
     try{
-      const ready = await withUploadedImages(ddays);
+      const ready = await withUploadedImages(ddays, read.owner);
       const out = boardOf(await authed.put(PATHS.board, boardBody(read.v, ready, tag), { expectOwner: read.owner }));
       if(!out) throw shapeError();
       reads.set(uid, { owner: read.owner, v: out.version });

@@ -2571,7 +2571,6 @@ const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 �
 const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 길(/v1/me/schedules · /v1/me/ddays · /v1/me/notifications) — 원본은 서버
   authed: TwApi.authed,
   newId: ()=>TwRequestId.newId(),
-  uploadImage: (dataUrl)=>firebaseAPI.uploadDdayImage(getMyUserId(), dataUrl),   // 카드 그림은 우리 저장소에 올린 주소만 서버가 받는다
   warn: (...a)=>console.warn(...a),
 });
 const mhScheduler = MhScheduler.createScheduler({

@@ -1272,17 +1272,6 @@
       try{ await remove(ref(db, `mobileKeys/${userId}`)); }catch(_){ ok = false; }
       return ok;
     },
-    /* ═══════════ 📅 스케줄러 ═══════════
-       일정 · 디데이 · 일정 알림의 원본은 서버다(myhome/schedule-api.js 가 /v1 로 읽고 쓴다). 여기에는 카드 그림을 우리 저장소에 올리는 길만 남았다 —
-       서버는 users/{내 코드}/ 아래 dday_ 로 시작하는 파일의 주소만 카드 그림으로 받고, 저장에서 빠진 그림은 서버가 지운다. */
-    async uploadDdayImage(userId, dataUrl){
-      if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false, reason:'이미지가 아니에요' };
-      const key = Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-      const url = await _uploadDataUrlIfNeeded(`users/${userId}/dday_${key}.jpg`, dataUrl);
-      if(!url || url.startsWith('data:')) return { ok:false, reason:'업로드에 실패했어요' };   // 업로드 실패 시 원본이 돌아옴
-      return { ok:true, url };
-    },
-
     /* 범용 이미지 업로드 — 디자인 스튜디오 등에서 파일로 고른 이미지를 Storage에 올리고 URL을 받음.
        slot: 'bg' | 'panel_xxx' 등 용도별 키. 같은 slot에 다시 올리면 덮어씀(용량 누적 방지). */
     // 🏊 방 입장용 얼굴/눈감기 PNG를 Storage에 올리고 URL 반환 — 방 payload 다이어트(가) 단계.

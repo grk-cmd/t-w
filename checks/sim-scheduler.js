@@ -98,7 +98,7 @@ function mkEnv(opt){
   const els = {};
   els.bellWin = mkEl('div', 'bellWin'); els.bellWin.style.display = 'none';
   const ls = new Map();
-  const timers = [], toasts = [], errs = [], escWins = [], winListeners = {}, rt = {}, ups = [];
+  const timers = [], toasts = [], errs = [], escWins = [], winListeners = {}, rt = {};
   const win = {
     firebaseAPI: opt.noApi ? undefined : {},
     addEventListener: (t, fn) => { (winListeners[t] = winListeners[t] || []).push(fn); },
@@ -120,7 +120,6 @@ function mkEnv(opt){
   const apiMod = {}; new Function('window', 'module', opt.apiSrc || SRC['schedule-api.js'])(apiMod, undefined);
   const scheduleApi = apiMod.TwScheduleApi.createScheduleApi({
     authed, newId: () => 'req-abcdefgh-' + authed.log.length,
-    uploadImage: async (d) => { ups.push(d); return { ok: true, url: 'https://storage.example/users/me1/dday_x.jpg' }; },
     warn: noop,
   });
   const errMod = {}; new Function('window', 'module', SRC['api-errors.js'])(errMod, undefined);
@@ -140,7 +139,7 @@ function mkEnv(opt){
     twNav: opt.twNav || { go(){}, NAV: {} },
   });
   const calls = (m, re) => authed.log.filter(x => x.method === m && re.test(x.path));
-  return { S, scheduleApi, win, els, ls, timers, toasts, errs, escWins, winListeners, g, st, routes, authed, rt, ups, calls, el: id => document.getElementById(id) };
+  return { S, scheduleApi, win, els, ls, timers, toasts, errs, escWins, winListeners, g, st, routes, authed, rt, calls, el: id => document.getElementById(id) };
 }
 const gridCards = (E) => E.el('mhDdayGrid').children.filter(c => c.classList.contains('mh-dcard') && !c.classList.contains('add'));
 const dayCells = (E) => E.el('mhSchedGrid').children.filter(c => !c.classList.contains('out'));
@@ -677,7 +676,7 @@ await sec('── 8. app.js 배선 · html', async () => {
   chk(/viewingUserId: \(\)=>(?:mhStateMod\.)?_mhViewingUserId/.test(APP) && /myHomeFriends: \(\)=>_myHomeFriends/.test(APP), '  다시 대입되는 값은 읽는 함수로 넘긴다');
   const mk = (APP.match(/const mhScheduler = MhScheduler\.createScheduler\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   chk(/scheduleApi: scheduleApiMod/.test(mk) && /apiErrors: TwApiErrors\.store/.test(mk) && /rtOn: \(kind, fn\)=>TwRtHub\.store\.on\(kind, fn\)/.test(mk) && /notifyError: /.test(mk), '  provider · 오류 번역 · 서버 알림 길 · 오류 번호 알림을 deps 로 받는다');
-  chk(/TwScheduleApi\.createScheduleApi\(\{[^}]*authed: TwApi\.authed/.test(APP) && /firebaseAPI\.uploadDdayImage\(getMyUserId\(\), dataUrl\)/.test(APP), 'provider 는 로그인 통로(TwApi.authed)로 · 카드 그림 올리기만 저장소 길');
+  chk(/TwScheduleApi\.createScheduleApi\(\{[^}]*authed: TwApi\.authed/.test(APP) && !/uploadDdayImage|uploadImage/.test(APP), 'provider 는 로그인 통로(TwApi.authed)로 — 카드 그림 올리기도 같은 길(app.js 가 올리기 함수를 따로 넘기지 않는다)');
   chk(!/firebaseAPI/.test(strip(MOD)), '모듈은 firebaseAPI 를 직접 부르지 않는다');
   chk(/const BELL_SEEN_KEY = 'tw\.bellSeenTs';/.test(APP) && /bellSeenKey: BELL_SEEN_KEY/.test(APP) && !/'tw\.bellSeenTs';/.test(MOD.replace(/\/\/.*$/gm, '')),
       'BELL_SEEN_KEY 는 app.js 한 곳(계정 전환 지움 목록이 같이 쓴다) — 모듈은 deps 로 받는다');

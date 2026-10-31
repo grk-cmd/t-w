@@ -13,6 +13,7 @@
      onOwner(who): 로그인 읽기에 쓴 토큰의 주인을 응답과 함께 알려 준다.
    [쓰기] post · put · patch(path, body, opts) · del(path, opts) — 로그인이 기본(opts.auth === false 일 때만 토큰 없이).
      opts.expectOwner: 보내기 직전 쓸 토큰의 주인과 견줘 다르면 보내지 않고 code OWNER_CHANGED 로 끝낸다(요청 0) — 읽은 계정의 값을 다른 계정 토큰으로 쓰지 않게.
+     opts.rawType: 본문(Uint8Array 등)을 JSON 으로 바꾸지 않고 이 Content-Type 으로 바이트 그대로 보낸다(그림 올리기).
      캐시 · 합치기 · 쉬기는 하지 않는다(쓰기는 매번 다르다). 다시 보내도 되는 쓰기는 본문 requestId 를 같은 값으로(request-id.js).
    [로그인] 토큰은 deps.getToken(force). 없으면 보내지 않고 'auth'(code NO_TOKEN). 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 다시.
      로그인 요청에는 이 기기 id 머리 X-Device-Id(device-id.js — 프리미엄은 «이 기기» 판정)를 싣는다.
@@ -142,8 +143,13 @@ function createApiClient(deps){
       const init = { method, headers, credentials: 'omit', signal: ctl ? ctl.signal : undefined };
       // 본문은 GET 이 아니면 JSON — 본문 없는 DELETE 만 안 싣는다(POST · PUT · PATCH 의 빈 본문은 null)
       if(method !== 'GET' && !(method === 'DELETE' && o.body === undefined)){
-        headers['Content-Type'] = 'application/json';
-        init.body = JSON.stringify(o.body === undefined ? null : o.body);
+        if(o.rawType){   // 파일 바이트 그대로 — 그림 올리기(Content-Type 은 부르는 쪽이 정한다)
+          headers['Content-Type'] = o.rawType;
+          init.body = o.body;
+        }else{
+          headers['Content-Type'] = 'application/json';
+          init.body = JSON.stringify(o.body === undefined ? null : o.body);
+        }
       }
       try{
         res = await Promise.race([fetchFn(base + path, init), timeout]);
@@ -231,7 +237,7 @@ function createApiClient(deps){
     return p;
   }
 
-  /* 쓰기 한 벌 — 로그인이 기본. opts: { auth, headers, timeoutMs } */
+  /* 쓰기 한 벌 — 로그인이 기본. opts: { auth, headers, timeoutMs, expectOwner, rawType } */
   function write(method, path, body, opts){
     const o = Object.assign({}, opts || {}, { method, body });
     o.auth = o.auth !== false;
