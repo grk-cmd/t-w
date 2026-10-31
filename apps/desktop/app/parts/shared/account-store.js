@@ -71,25 +71,43 @@ function createAccountStore(deps){
   const getAccountCode = deps.getAccountCode;
   const isWriteLocked = deps.isWriteLocked;   // 계정을 놓은 틈(코드가 바뀌었는데 앱은 재시작 전)에는 쓰기를 거절한다
 
+  /* 🔓 열림 — 서버가 계정을 확인해 준 뒤(launcher/app-boot.js begin, 옛 값 옮기기 직후)에만 열린다. 처음엔 닫힘:
+     읽기 null · 쓰기 거절 + 키마다 한 번 경고. 확인 전에 먼저 쓴 값이 옛 PC 값 옮기기를 «kept» 로 막고 옛 값을 지우던 일을 장치로 막는다.
+     닫힘의 결과는 isWriteLocked(계정을 놓은 틈)와 같다. 로그아웃의 지우기는 이 틈에서 isWriteLocked 가 거절한다. */
+  let opened = false;
+  const warned = new Set();
+  function open(code){
+    if(!validCode(code) || code !== getAccountCode()){
+      console.warn('[계정 칸] 열지 않았다 — 열려는 코드와 지금 계정 코드가 다르거나 모양이 틀리다');
+      return false;
+    }
+    opened = true;
+    return true;
+  }
   function cellOf(key){
     if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);
     const code = getAccountCode();
     return validCode(code) ? cellName(code, key) : null;
   }
+  function closedFor(key){
+    if(opened) return false;
+    if(!warned.has(key)){ warned.add(key); console.warn('[계정 칸] 계정 확인 전 접근', key); }
+    return true;
+  }
   function get(key){
     const cell = cellOf(key);
-    if(!cell) return null;
+    if(!cell || closedFor(key)) return null;
     try{ return storage.getItem(cell); }catch(_){ return null; }
   }
   /* 쓰기 거절 판단은 이 한 곳 — set · remove 가 본다. */
   function set(key, value){
     const cell = cellOf(key);
-    if(!cell || isWriteLocked()) return false;
+    if(!cell || closedFor(key) || isWriteLocked()) return false;
     try{ storage.setItem(cell, String(value)); return true; }catch(_){ return false; }
   }
   function remove(key){
     const cell = cellOf(key);
-    if(!cell || isWriteLocked()) return false;
+    if(!cell || closedFor(key) || isWriteLocked()) return false;
     try{ storage.removeItem(cell); return true; }catch(_){ return false; }
   }
 
@@ -128,7 +146,7 @@ function createAccountStore(deps){
     return res;
   }
 
-  return { get, set, remove, migrateLegacy };
+  return { get, set, remove, open, migrateLegacy };
 }
 
 const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, createAccountStore };

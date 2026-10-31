@@ -40,7 +40,13 @@ async function judge(S){
   let M = null;
   try{ M = load(S.STORE); }catch(e){ chk(false, '싣다 던짐 — ' + e.message); return; }
   if(!M || typeof M.createAccountStore !== 'function'){ chk(false, 'window.TwAccountStore.createAccountStore 가 없다'); return; }
-  const mk = (st, codeRef, lock) => M.createAccountStore({ storage: st, getAccountCode: () => codeRef.v, isWriteLocked: () => !!(lock && lock.v) });
+  const mk = (st, codeRef, lock, closed) => {
+    const s0 = M.createAccountStore({ storage: st, getAccountCode: () => codeRef.v, isWriteLocked: () => !!(lock && lock.v) });
+    if(closed) return s0;
+    /* 계정 확인을 통과해 열린 뒤(app-boot)와 같게 — 이 검사들은 코드를 바꿔 가며 쓰므로 부를 때마다 지금 코드로 연다 */
+    const op = () => { const w0 = console.warn; console.warn = () => {}; const keep = codeRef.v; if(!keep) codeRef.v = A; s0.open(codeRef.v); codeRef.v = keep; console.warn = w0; };   // 코드가 아직 없는 PC 도 «연 뒤» 모양으로(코드 없음은 열림과 별개로 거절돼야 한다)
+    return Object.assign({}, s0, { get: (k) => { op(); return s0.get(k); }, set: (k, v) => { op(); return s0.set(k, v); }, remove: (k) => { op(); return s0.remove(k); } });
+  };
 
   say('── 1. 키 표');
   {
@@ -199,6 +205,34 @@ async function judge(S){
     }catch(e){ chk(false, '바탕화면 저장 칸 실행 실패 — ' + e.message); }
   }
 
+  say('── 5b. 열림 — 계정 확인 전(닫힘)에는 읽기 null · 쓰기 거절 · 키마다 경고 한 번 / 열린 뒤 정상');
+  {
+    const st = mem(); const code = { v: A };
+    st.o['tw.focusTotalSec'] = '1800000';
+    const warns = []; const w0 = console.warn; console.warn = (...a) => warns.push(a.join(' '));
+    const s = mk(st, code, null, true);
+    const g1 = s.get('tw.focusTotalSec'), g2 = s.get('tw.focusTotalSec'), w1 = s.set('tw.focusTotalSec', 3), w2 = s.set('tw.focusTotalSec', 4), rm = s.remove('tw.focusTotalSec'), g3 = s.get('tw.advZ.v2');
+    console.warn = w0;
+    chk(g1 === null && g2 === null && g3 === null && w1 === false && w2 === false && rm === false, '닫힘 — 읽기 null · set · remove 거절');
+    chk(Object.keys(st.o).join() === 'tw.focusTotalSec' && st.o['tw.focusTotalSec'] === '1800000', '  ↳ 아무것도 쓰지 않았고 옛 PC 값도 그대로');
+    chk(warns.length === 2 && warns.every((m) => /계정 확인 전 접근/.test(m)) && /focusTotalSec/.test(warns[0]) && /advZ\.v2/.test(warns[1]), '  ↳ 경고는 키마다 한 번(focusTotalSec · advZ.v2 — 두 번째부터는 조용)');
+    s.migrateLegacy(A);
+    chk(st.o['tw.u.' + A + '.focusTotalSec'] === '1800000' && !('tw.focusTotalSec' in st.o), '  ↳ 확인 전에 쓰려던 값이 없으니 옛 값이 그대로 옮겨진다(kept · 삭제 사고 없음)');
+    console.warn = () => {};
+    const opened = s.open(A);
+    console.warn = w0;
+    chk(opened === true && s.get('tw.focusTotalSec') === '1800000' && s.set('tw.focusTotalSec', 5) === true && s.get('tw.focusTotalSec') === '5', '열린 뒤 — 옮겨진 값을 읽고 쓴다');
+    const lock = { v: true };
+    const s2 = mk(mem(), code, lock, true); console.warn = () => {}; s2.open(A); console.warn = w0;
+    chk(s2.set('tw.focusTotalSec', 1) === false, '  ↳ 열린 뒤에도 계정을 놓은 틈(isWriteLocked)은 여전히 쓰기 거절');
+    const s3 = mk(mem(), { v: A }, null, true); const w3 = []; console.warn = (...a) => w3.push(a.join(' '));
+    const bad = s3.open(B) === false && s3.open('x') === false && s3.open(null) === false;
+    console.warn = w0;
+    chk(bad && w3.length === 3 && s3.get('tw.focusTotalSec') === null && s3.set('tw.focusTotalSec', 1) === false, '다른 코드 · 모양이 틀린 코드로는 열지 않고 경고(닫힌 채)');
+    const dev = mk(mem(), { v: null }, null, true);
+    chk((() => { try{ dev.get('tw.deviceId'); return false; }catch(_){ return true; } })(), '기기 공용 키는 계정 칸이 아니라 이전처럼 던진다(열림과 상관없음)');
+  }
+
   say('── 6c. migrateLegacy 를 부르는 곳 — 읽는 모듈보다 먼저 · 코드 없으면 안 함 · 로그아웃은 올리기 앞 · 지우기보다 앞');
   {
     // ① 부팅 — app.js 의 그 줄을 실물 글로 뽑아 진짜 계정 칸 위에서 돌린다
@@ -211,6 +245,7 @@ async function judge(S){
       const M = load(S.STORE);
       const store = M.createAccountStore({ storage: st, getAccountCode: () => code, isWriteLocked: () => false });
       if(line) new Function('accountStoreMod', 'return ' + line.trim().replace(/^migrateLegacy: /, '').replace(/,$/, ''))(store)(code);
+      if(code){ const w0 = console.warn; console.warn = () => {}; store.open(code); console.warn = w0; }   // app-boot 가 옮긴 직후 여는 것까지
       return { st, store };
     };
     let b = mkBoot(null);
@@ -290,7 +325,10 @@ const BREAKS = [
   ['LEVEL', "focusLevelStore.set(FOCUS_TOTAL_KEY,String(_focusTotalSec()));", "localStorage.setItem(FOCUS_TOTAL_KEY,String(_focusTotalSec()));", '레벨 모듈이 PC 칸에 씀'],
   ['MHD', "function advSave(){ try{ advStore.set(ADV_KEY,", "function advSave(){ try{ localStorage.setItem(ADV_KEY,", '바탕화면이 PC 칸에 저장'],
   ['APP', "getAccountCode: getMyUserId, isWriteLocked", "getAccountCode: ()=>null, isWriteLocked", '계정 코드를 안 넘김'],
-  ['STORE', "if(!cell || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell) return false;\n    try{ storage.setItem", '놓은 틈에도 set 이 통과'],
+  ['STORE', "if(!cell || closedFor(key) || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell || closedFor(key)) return false;\n    try{ storage.setItem", '놓은 틈에도 set 이 통과'],
+  ['STORE', "if(!cell || closedFor(key) || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell || isWriteLocked()) return false;\n    try{ storage.setItem", '닫힌 동안에도 set 이 통과'],
+  ['STORE', "    if(!cell || closedFor(key)) return null;", "    if(!cell) return null;", '닫힌 동안에도 get 이 통과'],
+  ['STORE', "if(!validCode(code) || code !== getAccountCode()){", "if(!validCode(code)){", '다른 코드로도 열림'],
   ['MHD', "function advSave(){ try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }", "function advSave(){ try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){} }", '바탕화면 저장이 PC 칸(동작 판정)'],
   ['BOOT', 'createMyHomeDesktop({ advStore: accountStoreMod })', 'createMyHomeDesktop({})', 'deps 를 안 넘김'],
   ['HTML', '<script src="parts/shared/account-store.js"></script>', '', 'html 에 안 실음'],

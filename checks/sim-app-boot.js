@@ -3,7 +3,7 @@
    ★ 왜 이 검사가 있는가 — 기능마다 «계정 확인 전 · 실패 · 나중에 확인» 을 버티는 장치가 서른 개 생겼고, 검토 때마다 다른 갈래로 같은 구멍이 나왔다
      (접속 고정이 지난 사본을 읽음 · 가입 필요인데 마이홈이 이미 씀 · 옛 값 옮기기가 확인 전에 엉뚱한 칸으로). 시작을 «들어간 뒤» 한 곳으로 모았으니 그 한 곳을 실제로 돌려 본다.
    ・1절: 만들기만 하면 아무것도 안 부른다 · 차례 표(열넷 — 공지는 계정과 무관해 표에 없다) 그대로 · «계정에 들어감» 알림(nav)에 begin 을 건다
-   ・2절: 들어감 알림 — 옛 값 옮기기(그 코드) → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)
+   ・2절: 들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)
    ・3절: 알림이 없으면(로그인 필요 · 가입 필요 · 서버 안 됨 · 바뀐 계정) 시작 0번 · 계정 없음(빈 me)도 0번
    ・4절: 두 번 부르면 두 번째는 무시(시작 한 번뿐) · 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다 · 표와 starts 가 어긋나면 만들 때 던진다
    ・5절: 같은 알림이 또 와도 시작은 한 번 · 로그아웃 차례는 account.js 한 곳(이 모듈은 건드리지 않음)
@@ -37,6 +37,7 @@ function build(src, o) {
   const deps = {
     migrateLegacy: (code) => { ev.push('migrate:' + code); },
     twNav,
+    openAccountStore: (code) => { ev.push('open:' + code); },
     goOnline: () => { ev.push('online'); },
     starts,
   };
@@ -63,9 +64,10 @@ async function judge(src) {
   /* 2 */
   b = build(src);
   const r1 = await quiet(async () => b.notify(ME));
-  t(r1[0] === true && b.ev.join() === ['migrate:u1', 'online'].concat(ORDER.map((n) => 'start:' + n + ':u1:u1')).join(), '들어감 알림 — 옛 값 옮기기(그 코드) → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)');
+  t(r1[0] === true && b.ev.join() === ['migrate:u1', 'open:u1', 'online'].concat(ORDER.map((n) => 'start:' + n + ':u1:u1')).join(), '들어감 알림 — 옛 값 옮기기(그 코드) → 계정 칸 열기 → realtime → 표 순서대로 한 번씩(코드 · me 를 받음)');
   const iMig = b.ev.indexOf('migrate:u1'), iOn = b.ev.indexOf('online'), iFirst = b.ev.findIndex((e) => e.startsWith('start:'));
-  t(iMig === 0 && iMig < iOn && iOn < iFirst, '  옛 값 옮기기가 realtime 보다, realtime 이 모든 기능 시작보다 먼저');
+  const iOpen = b.ev.indexOf('open:u1');
+  t(iMig === 0 && iOpen === 1 && iOpen < iOn && iOn < iFirst, '  옛 값 옮기기 → 계정 칸 열기(옮긴 뒤에야 연다) → realtime → 모든 기능 시작');
   t(ORDER.every((n) => b.ev.filter((e) => e.startsWith('start:' + n + ':')).length === 1), '  각 기능은 정확히 한 번');
   /* 3 */
   b = build(src);
@@ -108,6 +110,7 @@ async function judge(src) {
     chk(noticeAtBoot(APP, body), '공지 받기는 계정 확인을 기다리지 않는다 — 켤 때(firebase-ready) 시작하고 차례 표에는 없다');
     chk(!noticeAtBoot(APP.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', ''), body) && !noticeAtBoot(APP, body + '\n notice: ()=>noticeFeed.start(),'), '  깨 보기 — 로그인 전에 공지 받기가 안 돌거나 다시 차례 표에 넣으면 빨강');
     chk(!/accountStoreMod\.migrateLegacy\(getMyUserId\(\)\)/.test(APP) && !/mhInitMod\.initMyHome\(\);/.test(rest) && !/plMod\.pull\(\)/.test(rest.replace(/plPull[^\n]*\n/g, '')), '  확인 전에 돌던 자리(옮기기 줄 · initMyHome · 플레이리스트 받기)가 app.js 에 남지 않았다');
+    chk(/^  openAccountStore: \(code\)=>accountStoreMod\.open\(code\),$/m.test(APP) && !/accountStoreMod\.open\(/.test(APP.replace(/^  openAccountStore:.*$/m, '')), '  계정 칸 열기는 app-boot 연결 한 곳뿐(다른 길에서 열지 않는다)');
     const order = [...HTML.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map((x) => x[1]);
     chk(order.indexOf('launcher/app-boot.js') > 0 && order.indexOf('launcher/app-boot.js') < order.indexOf('app.js'), 'html — app-boot.js 를 app.js 보다 먼저 싣는다');
     chk(!SMOKE || /PRELOAD\.push\('app-boot\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 app-boot.js');
@@ -116,8 +119,10 @@ async function judge(src) {
   say('── 7. 일부러 깨 보기 — 빨강이 나야 한다');
   const breaks = [
     ['차례를 바꿈(가챠 ↔ 달성표)', (m) => m.replace("  'weeklyChal',", "  'TMP',").replace("  'gacha', ", "  'weeklyChal', ").replace("  'TMP',", "  'gacha',")],
-    ['옛 값 옮기기를 시작 뒤로', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));", "    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));\n    guard('옛 값 옮기기', () => migrateLegacy(code));")],
+    ['옛 값 옮기기를 시작 뒤로', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n    guard('계정 칸 열기', () => openAccountStore(code));   // 옮긴 뒤에야 연다 — 먼저 쓴 값이 옛 값을 가리지 않게\n    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));", "    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));\n    guard('옛 값 옮기기', () => migrateLegacy(code));")],
     ['realtime 을 시작 뒤로', (m) => m.replace("    guard('realtime 연결', () => goOnline());\n    for(const name of STEPS) guard(name, () => starts[name](code, me));", "    for(const name of STEPS) guard(name, () => starts[name](code, me));\n    guard('realtime 연결', () => goOnline());")],
+    ['계정 칸을 안 엶', (m) => m.replace("    guard('계정 칸 열기', () => openAccountStore(code));   // 옮긴 뒤에야 연다 — 먼저 쓴 값이 옛 값을 가리지 않게\n", '')],
+    ['계정 칸을 옮기기 전에 엶', (m) => m.replace("    guard('옛 값 옮기기', () => migrateLegacy(code));\n    guard('계정 칸 열기', () => openAccountStore(code));", "    guard('계정 칸 열기', () => openAccountStore(code));\n    guard('옛 값 옮기기', () => migrateLegacy(code));")],
     ['알림에 begin 을 안 검', (m) => m.replace('twNav.on(twNav.NAV.ACCOUNT_ENTERED, begin);', '')],
     ['두 번 불러도 또 시작', (m) => m.replace("if(began){ console.warn('[app-boot] 이미 시작했어요 — 두 번째 시작은 무시해요'); return false; }", '')],
     ['한 칸이 던지면 다음 칸이 멈춤', (m) => m.replace("catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); }", 'catch(e){ throw e; }')],

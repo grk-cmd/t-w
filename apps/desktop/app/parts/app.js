@@ -9131,6 +9131,7 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
 const appBoot = TwAppBoot.createAppBoot({
   twNav: twNav,
   migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
+  openAccountStore: (code)=>accountStoreMod.open(code),
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     focusTotal: ()=>{ focusTotalMod.startFocusTotal(); _focusTotalSec = focusTotalMod._loadFocusTotalSec(); },

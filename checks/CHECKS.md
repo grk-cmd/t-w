@@ -386,7 +386,7 @@
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 94 | **bf8fa1c1a4c5** |
 | **sim-nav.js** | 85 | **80768d997981** |
-| **sim-app-boot.js** | 144 | **393d931fed7c** |
+| **sim-app-boot.js** | 149 | **ef3a7b445210** |
 | **sim-net-ready.js** | 145 | **e7eb45ad9e77** |
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
@@ -444,7 +444,7 @@
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 312 | **d9644ce6f3a1** |
+| **sim-account-store.js** | 350 | **acc7551461b4** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
