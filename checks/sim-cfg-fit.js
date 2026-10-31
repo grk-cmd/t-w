@@ -140,6 +140,30 @@ chk(!!lRule && /overflow-y\s*:\s*auto/.test(lRule[1]), '#launcher 가 세로 스
 chk(!!cRule && /margin\s*:\s*auto/.test(cRule[1]), '.lc-card 가 margin:auto 로 센터링한다 (자리가 남으면 중앙, 넘치면 위부터)');
 chk(!!cRule && /flex\s*:\s*none/.test(cRule[1]), '.lc-card 가 flex:none — 카드가 창 높이에 눌려 찌그러지지 않는다');
 
+/* ── 5. 런처 자리 기억(launcherPos) ── */
+say('── 5. 런처 자리를 다음 실행에도 — 저장 · 읽기 · 첫 창');
+const posSrc = grabFn(MAIN, '_launcherPosOf'), remSrc = grabFn(MAIN, '_rememberPos');
+if(!posSrc || !remSrc){ huh('_launcherPosOf / _rememberPos 를 못 찾음'); }
+else{
+  const mkPos = (src) => new Function('LAUNCHER_POS_MAX', src + '\nreturn _launcherPosOf;')(100000);
+  const P = mkPos(posSrc), eq = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+  chk(eq(P({ x: 120, y: -40 }), { x: 120, y: -40 }) && eq(P({ x: 10.6, y: 3.2 }), { x: 11, y: 3 }), '좌표 둘이면 정수로 받는다(음수 — 왼쪽 · 위 모니터 — 포함)');
+  chk([null, undefined, 5, 'a', {}, { x: 1 }, { x: '1', y: 2 }, { x: NaN, y: 0 }, { x: Infinity, y: 0 }, { x: 0, y: 100001 }].every(v => P(v) === null),
+    '  모양이 틀린 값 · 숫자 아님 · NaN · 무한 · 상한(100000) 넘음은 null — 손으로 고친 설정 파일');
+  chk(eq(P({ x: 100000, y: -100000 }), { x: 100000, y: -100000 }), '  경계 — 상한 그대로는 받는다');
+  /* _rememberPos — 런처만 바로 저장(다른 모드는 메모리만) */
+  const saved = []; const sp = { launcher: null, creator: null };
+  const rem = new Function('savedPos', 'MhPadPos', '_mhPadApplied', 'saveSettings', remSrc + '\nreturn _rememberPos;')(sp, { rememberOf: (b) => ({ x: b.x, y: b.y }) }, {}, () => saved.push(JSON.stringify(sp.launcher)));
+  rem('launcher', { x: 300, y: 200 }); rem('creator', { x: 1, y: 2 });
+  chk(saved.length === 1 && saved[0] === '{"x":300,"y":200}', '런처를 옮기면 그 자리를 저장 · 생성기 등 다른 모드는 저장하지 않는다');
+  const load = MAIN.slice(MAIN.indexOf('function loadSettings(){'), MAIN.indexOf('function saveSettings(){'));
+  chk(/savedPos\.launcher = _launcherPosOf\(data\.launcherPos\);/.test(load), '설정 파일을 읽을 때 launcherPos 를 그 함수로 거른다');
+  chk(/launcherPos: savedPos\.launcher,/.test(grabFn(MAIN, 'saveSettings') || ''), '  저장할 때 launcherPos 를 같이 적는다');
+  chk(/_fitConfigRect\('launcher', _modeSize\('launcher'\), primaryDisplay, savedPos\.launcher\)/.test(grabFn(MAIN, 'createWindow') || ''), '첫 창은 기억한 자리로 — _fitConfigRect 가 그 자리의 모니터 작업영역 안으로 당긴다(1절)');
+  const broke = mkPos(posSrc.replace('Math.abs(n) <= LAUNCHER_POS_MAX', 'true'));
+  chk(broke({ x: 0, y: 100001 }) !== null, '  깨 보기 — 상한 검사를 빼면 위 «모양이 틀린 값»(상한 넘음)이 빨강');
+}
+
 say('');
 say('통과 ' + pass + ' · 실패 ' + fail + ' · 검사못함 ' + huhs);
 process.exit(fail ? 1 : 0);

@@ -278,6 +278,14 @@ function startUpdateCheck(){
 // 사용자가 타이틀바를 드래그해서 옮긴 창 위치 — 모드(launcher/creator)별로 각각 기억해뒀다가
 // 다음에 같은 모드로 돌아올 때 재사용. (run 모드는 항상 화면을 꽉 채우므로 대상 아님)
 let savedPos = { launcher: null, creator: null };   // { x, y } | null
+/* 런처 자리만 tw-settings.json 에 남겨 다음 실행도 그 자리에서 뜬다(launcherPos). 파일 값은 남이 고칠 수 있는 글이라
+   정수 좌표 둘만 받는다 — 화면 밖 좌표는 _fitConfigRect 가 그 자리에서 가까운 모니터 작업영역 안으로 당긴다. */
+const LAUNCHER_POS_MAX = 100000;
+function _launcherPosOf(v){
+  if(!v || typeof v !== 'object') return null;
+  const ok = (n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= LAUNCHER_POS_MAX;
+  return (ok(v.x) && ok(v.y)) ? { x: Math.round(v.x), y: Math.round(v.y) } : null;
+}
 
 // 현재 창 크기가 어느 모드에 해당하는지 판별 (launcher/creator 크기가 다르므로 크기로 구분 가능)
 // ★ 정확히 같은 픽셀이 아니라 오차범위(TOL) 안이면 매칭 — 디스플레이 배율(125%/150% 등)에서
@@ -307,7 +315,7 @@ function sizeToMode(w, h){
        ① 중앙 계산 (wa.height − 680)/2 가 음수 → y 가 작업영역 위로 나가 위가 잘리고,
        ② 그게 아니어도 OS 가 창 높이를 깎아 아래가 잘린다(_noteApplied 주석의 «OS 가 크기를 깎아도»).
      주모니터를 배율이 다른 모니터로 바꾸면 같은 조건이 되고, 실행 모드는 전체화면이라 거기서 풀린다.
-     ⚠️ savedPos 는 메모리 변수라 «지난 세션 좌표가 남았다» 는 원인이 아니다 — 첫 부팅은 늘 중앙이다.
+     ⚠️ 런처 자리는 지난 실행 것을 쓸 수 있다(launcherPos) — 그 모니터가 없거나 작업영역이 줄었으면 이 함수가 안으로 당긴다.
    [대응] 크기를 정하는 자리는 전부 이 함수를 지난다.
      ・크기: min(MODE_SIZE, 작업영역). 배율이 몇이든 조건은 하나(작업영역 < 창)라 배율별 분기가 없다.
      ・위치: 기억한 자리가 있으면 그 자리가 **있는 모니터**(getDisplayMatching)의 작업영역 안으로
@@ -393,6 +401,7 @@ function loadSettings(){
     if(typeof data.runDisplayId === 'number') runDisplayId = data.runDisplayId;
     if(typeof data.runDisplayKey === 'string') runDisplayKey = data.runDisplayKey;
     if(typeof data.runDisplayWasPrimary === 'boolean') runDisplayWasPrimary = data.runDisplayWasPrimary;
+    savedPos.launcher = _launcherPosOf(data.launcherPos);   // 🪟 지난 실행에서 런처를 둔 자리
     /* ★ 동영상 검어짐 틈 — 빌드 없이 조절하는 통로. 제보자에게 "이 파일의 이 숫자만 바꿔서
        다시 켜 보세요" 라고 할 수 있다. 값을 넣은 적이 없으면 위 기본값을 그대로 쓴다.
        (설정 UI 에 안 내놓는다 — 사용자가 만질 값이 아니라 진단용이다) */
@@ -496,6 +505,7 @@ let _mhPadApplied = { x: 0, y: 0 };   // DIP
 /* 창을 옮긴 뒤 그 모드의 자리를 기억한다 — 마이홈만 여백을 뺀 자리(놓는 쪽 _applyConfigMode 와 짝) */
 function _rememberPos(m, b){
   savedPos[m] = m === 'myhome' ? MhPadPos.rememberOf(b, _mhPadApplied) : { x: b.x, y: b.y };
+  if(m === 'launcher') saveSettings();   // 다음 실행도 이 자리에서 — 'moved' 는 끌기를 놓을 때 한 번이라 자주 쓰지 않는다
 }
 /* 지금 줌에서 창에 얹을 여백(DIP) — 크기(_modeSize)와 같은 식. 놓기 · 줌 맞춤이 같이 부른다 */
 function _mhPadDip(){
@@ -592,6 +602,7 @@ function saveSettings(){
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
       labVideoAsked: _labVideoAsked,          // 🎬 초기화로 꺼진 실험을 «다시 켤까요?» 로 이미 물었는가
+      launcherPos: savedPos.launcher,         // 🪟 런처 자리 — _rememberPos 가 바뀔 때 저장
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
     return true;
@@ -2048,7 +2059,7 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
      예전엔 workAreaSize 만 보고 (0,0) 기준으로 중앙을 잡았다 — 작업표시줄이 위에 있으면 그만큼 어긋난다. */
-  const initRect = _fitConfigRect('launcher', _modeSize('launcher'), primaryDisplay, null);   // 📐 저장된 줌이 이미 실려 있다(loadSettings 가 먼저 돈다)
+  const initRect = _fitConfigRect('launcher', _modeSize('launcher'), primaryDisplay, savedPos.launcher);   // 📐 저장된 줌 · 런처 자리가 이미 실려 있다(loadSettings 가 먼저 돈다)
 
   mainWindow = new BrowserWindow({
     width: initRect.width,      // 시작은 config 모드 크기로 (런처가 먼저 뜨니까)
