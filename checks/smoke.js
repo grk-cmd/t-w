@@ -329,6 +329,8 @@ let failed = null;
    (스텁이 아니라 진짜 파일이다. 빠지면 app.js 가 첫 줄에서 «정의 안 됨» 으로 서는데, 그건 앱의 버그가 아니다) */
 const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* safe-html.js — 🛡️ 화면에 넣는 값 씻기(window.TwSafeHtml). app.js escHtml · 모듈들이 부를 때 읽는다 — 맨 먼저. */
+/* mac-tooltip.js — 💬 맥 설명 말풍선. 싣기만 하면 맥에서 스스로 건다(smoke 무대는 맥이 아니라 안 건다). */
+PRELOAD.push('mac-tooltip.js');
 PRELOAD.push('safe-html.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');

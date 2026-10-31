@@ -293,6 +293,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
 
+## `mac-tooltip.js` — 💬 맥 설명 말풍선
+
+- **책임**: 맥에서 마우스를 올리면 뜨는 설명(`title`)을 앱이 직접 그린다. 실행 화면 창이 «화면 보호기» 단계(`setAlwaysOnTop('screen-saver')`)라 맥 OS 툴팁이 그 뒤로 깔려 안 보이기 때문이다. 윈도우는 OS 툴팁이 맨 위라 걸지 않는다.
+- **쓰는 법**: 없다 — 싣기만 하면 맥에서 스스로 건다(`install(document, window)`). 화면 코드는 예전처럼 `title=` · `.title =` 를 쓴다. 내놓는 것 `TwMacTooltip.isMac(navigator)` · `place(…)` · `install(doc, win)`.
+- **어떻게**: 올리면 `title` 을 `data-tw-tip` 으로 잠시 옮기고(OS 툴팁이 안 뜨게) 450ms 뒤 `#twMacTip`(토스트와 같은 «쪽지» 모양 · z-index 10000)에 같은 글을 그린다. 나가면 `title` 을 되돌린다. 누르기 · 휠 · 키 · 창 떠남은 말풍선만 접는다.
+- **함정**: 올려 둔 동안 그 요소의 `title` 은 비어 있다 — 그 사이 코드가 `title` 을 새로 쓰면 그 값을 살린다(되돌릴 때 덮지 않는다). 빈 `title` 은 건드리지 않는다.
+- 검사: `checks/sim-mac-tooltip.js`.
 ## `panel-fit.js` — 📐 아래 기준 창을 화면 안으로
 
 - **책임**: 기준점이 창의 아래 가운데인 창(`transform: translate(-50%,-100%)`)의 기준점을, 창 전체가 화면 안에 들도록 옮긴다. 순수 함수 · DOM 없음.
