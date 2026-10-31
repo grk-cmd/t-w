@@ -446,25 +446,23 @@ function _plServerShape(){
 }
 /* ☁️ 서버에서 내 목록을 받아 그대로 앉힌다 — 앱을 켤 때 · 계정을 이어받을 때 · 저장이 409(다른 기기가 먼저 고침)로 거절됐을 때 · [다시 시도] 를 눌렀을 때.
    로그인이 아직 안 됐으면(내 코드 없음 · 토큰 없음) 서버를 부르지 않고 짧게 기다렸다 다시 본다(PL_LOGIN_WAIT_MS — 기기 안에서 보는 것뿐).
-   못 읽으면(던짐) 늘려 가는 간격으로 다시 — 그동안 창에 «못 불러왔어요 · 다시 시도» 를 보인다. 빈 목록은 «못 읽음» 이 아니라 빈 화면이다.
+   못 읽으면(던짐) 혼자 다시 받지 않는다 — 창에 «못 불러왔어요 · 다시 시도» 를 보이고, 다시 받는 길은 [다시 시도] 를 누르는 것과 창을 여는 것(_plRetryOnOpen)뿐이다. 빈 목록은 «못 읽음» 이 아니라 빈 화면이다.
    받기 전(_plLoaded 거짓)에는 목록을 고치는 동작이 잠긴다 — 빈 화면에서 넣은 곡이 받는 순간 사라지지 않게.
    듣는 중에는 목록을 바꾸지 않고 고정 간격으로 미룬다(듣던 곡이 사라지지 않게). */
-const PL_RETRY_MS = 30000;
-const PL_RETRY_MAX_MS = 10 * 60000;
+const PL_PLAYING_DEFER_MS = 30000;   // 듣는 중 미루기 — 실패 재시도가 아니라 듣던 곡 보호
 const PL_LOGIN_WAIT_MS = 2000;
 const PL_NO_TOKEN = 'NO_TOKEN';   // api-client.js — 로그인 토큰이 아직 안 이어졌다
 const PL_MSG = Object.freeze({ loading: '불러오는 중…', failed: '못 불러왔어요 · ', retry: '다시 시도', merged: '다른 기기에서 바뀐 목록을 불러왔어요' });
-let _plPullTry = 0, _plPullT = null;
+let _plPullT = null;
 let _plPullBusyUid = null;    // 이 계정으로 받는 중
 let _plPullFailed = false;    // 마지막 받기가 실패했다 — 창에 «못 불러왔어요» 를 보인다
 let _plPullMerged = false;    // 409 로 다시 받는 중이다 — 앉히고 나면 «다른 기기에서 바뀐…» 을 알린다
-function _plRetryDelay(n){ return Math.min(PL_RETRY_MAX_MS, PL_RETRY_MS * Math.pow(2, Math.min(n, 10))); }
 function _plPullLater(ms){ clearTimeout(_plPullT); _plPullT = setTimeout(_plPull, ms); }
 async function _plPull(){
   clearTimeout(_plPullT); _plPullT = null;   // 다시 시도 사슬은 하나만
   const uid = getMyUserId();
   if(!uid){ _plPullLater(PL_LOGIN_WAIT_MS); return; }   // 로그인 전
-  if(_plNow >= 0){ _plPullLater(PL_RETRY_MS); return; }   // 듣는 중이면 부르기 전에 미룬다(받아도 못 앉히는 헛 요청 없음)
+  if(_plNow >= 0){ _plPullLater(PL_PLAYING_DEFER_MS); return; }   // 듣는 중이면 부르기 전에 미룬다(받아도 못 앉히는 헛 요청 없음)
   if(_plPullBusyUid === uid) return;                         // 같은 계정으로 받는 중 — 겹치지 않는다
   if(_plPullFailed){ _plPullFailed = false; _plRender(); }   // 다시 받는 동안은 «불러오는 중…»
   let srv;
@@ -474,28 +472,28 @@ async function _plPull(){
     if(_plPullBusyUid === uid) _plPullBusyUid = null;
     if(getMyUserId() !== uid) return;
     if(e && e.code === PL_NO_TOKEN){ _plPullLater(PL_LOGIN_WAIT_MS); return; }   // 토큰이 곧 이어진다 — 실패로 치지 않는다
-    _plPullFailed = true; _plRender();
-    _plPullLater(_plRetryDelay(_plPullTry++));
+    _plPullFailed = true; _plRender();   // 혼자 다시 받지 않는다 — [다시 시도] · 창 열기가 다시 받는다
     return;
   }
   if(_plPullBusyUid === uid) _plPullBusyUid = null;
   if(getMyUserId() !== uid) return;   // 기다리는 사이 계정이 바뀌었다(새 계정이 새로 받는다)
-  if(_plNow >= 0){ _plPullLater(PL_RETRY_MS); return; }   // 받는 사이 듣기 시작했다
+  if(_plNow >= 0){ _plPullLater(PL_PLAYING_DEFER_MS); return; }   // 받는 사이 듣기 시작했다
   _plSets = _plNormalizeSets(srv.sets);
   _plCur = _plSetIdx(_plCur); _plNowSet = _plCur; _plSel = -1; _plNow = -1; _plView = null; _plNowView = null;
   _plBio = String(srv.bio || '').slice(0, PL_BIO_MAX);
   _plHomePublic = !!srv.homePublic;
   _plPrivate = !!srv.private;
   _plPubSig = _plServerShape().sig;
-  _plLoaded = true; _plPullTry = 0; _plPullFailed = false;
+  _plLoaded = true; _plPullFailed = false;
   _plRender();
   if(_plPullMerged){ _plPullMerged = false; toast(PL_MSG.merged); }
 }
 /* ☁️ 계정을 놓았다 · 다른 계정으로 이어받는다 — 목록을 비우고 새 계정 것을 받을 때까지 아무것도 올리지 않는다 */
 function _plReset(){
   clearTimeout(_plPullT); _plPullT = null; clearTimeout(_plPubTimer); _plPubTimer = null;   // 걸려 있던 올리기 · 다시 올리기가 앞 계정 목록을 새 계정에 올리지 않게
-  _plGen++; _plPubBusy = false; _plPubAgain = false; _plSaveFailing = false; _plSaveTry = 0;
-  _plLoaded = false; _plPullTry = 0; _plPubSig = null; _plPullFailed = false; _plPullMerged = false; _plPullBusyUid = null;
+  _plFlushSent = false;
+  _plGen++; _plPubBusy = false; _plPubAgain = false; _plSaveFailing = false;
+  _plLoaded = false; _plPubSig = null; _plPullFailed = false; _plPullMerged = false; _plPullBusyUid = null;
   _plSets = _plBlankSets(); _plBio = ''; _plHomePublic = false; _plPrivate = false;
   _plSel = -1; _plView = null; _plNowView = null;
   _plRender();
@@ -508,12 +506,18 @@ function _plPubSigOf(sets, meta){
 /* 고친 것을 서버에 올린다 — 3초 debounce(드래그 한 번에 수십 번 저장되므로). 세 벌이 다 비어도 같은 저장(빈 목록 + 한마디).
    ★ 한 번에 하나만 보낸다 — 보내는 중에 또 고쳤으면 끝난 뒤 최신 상태로 한 번 더(같은 판으로 두 번 보내면 두 번째가 409 로 거절돼 내 고침이 사라진다).
    ★ 409 는 다른 기기가 먼저 고친 것이다 — 그 위에 덮어쓰지 않고 목록을 잠근 채 서버 것을 다시 받아 화면을 그 값으로 바꾼다.
-   ★ 실패하면 고친 내용은 화면(메모리)에 그대로 두고 오류를 한 번만 알린다(이어지는 동안 되풀이하지 않음). 30초 뒤 다시 올리고, 이어지면 간격을 늘린다(성공하면 처음으로). */
+   ★ 실패하면 고친 내용은 화면(메모리)에 그대로 두고 오류를 한 번만 알린다(이어지는 동안 되풀이하지 않음). 혼자 다시 올리지 않는다 — 다음에 고치거나 창을 열면 그때 다시 올린다. */
 let _plPubBusy = false, _plPubAgain = false;
-let _plSaveFailing = false, _plSaveTry = 0;
+let _plSaveFailing = false;   // 마지막 저장이 실패했다 — 다음 고침 · 창 열기가 다시 올린다
 let _plGen = 0;   // reset 마다 오른다 — 앞 계정의 보내기가 끝나도 새 계정 상태를 건드리지 않게
 function _plPublish(){ _plPublishIn(3000); }
+/* 창을 열 때 — 못 받은 상태면 한 번 다시 받고(받는 중이면 _plPull 이 건너뜀), 저장이 실패한 채면 한 번 다시 올린다 */
+function _plRetryOnOpen(){
+  if(!_plLoaded){ if(_plPullFailed) _plPull(); return; }
+  if(_plSaveFailing) _plPublishNow(getMyUserId());
+}
 function _plPublishIn(ms){
+  _plFlushSent = false;
   clearTimeout(_plPubTimer);
   const uid0 = getMyUserId();
   _plPubTimer = setTimeout(()=>{ _plPubTimer = null; _plPublishNow(uid0); }, ms);
@@ -532,7 +536,7 @@ async function _plPublishNow(uid0){
   _plPubBusy = false;
   const again = _plPubAgain; _plPubAgain = false;
   if(r === 'ok'){
-    _plPubSig = sig; _plSaveFailing = false; _plSaveTry = 0;
+    _plPubSig = sig; _plSaveFailing = false;
     if(again) _plPublishNow(uid0);
   }else if(r === 'stale'){
     // 읽은 뒤 로그인한 사람이 바뀌었다 — 알리지도 다시 올리지도 않는다(곧 reset · 다시 받기가 온다)
@@ -541,9 +545,20 @@ async function _plPublishNow(uid0){
     _plRender();
   }else{
     if(!_plSaveFailing){ _plSaveFailing = true; notifyError('E-PL-01'); }
-    _plPublishIn(_plRetryDelay(_plSaveTry++));
   }
 }
+
+/* 못 올린 고침(저장이 실패한 채이거나 고친 뒤 3초 모으기가 안 끝남)이 있으면 한 번만 올려 본다 — 되풀이 없음.
+   부르는 때: 앱을 끌 때(beforeunload · 결과를 기다리지 않음) · 로그아웃 올리기(account.js — 결과를 기다림). 둘 다 와도 요청은 한 번(_plFlushSent).
+   내 코드가 없으면(로그인 전) 요청이 없다. 계정을 놓은 뒤 늦게 온 응답은 쓰기의 expectOwner 가 버린다. */
+let _plFlushSent = false;   // 새 고침(_plPublishIn) · 계정 놓음(_plReset)이 풀어 준다
+function _plFlushPending(uid){
+  if(!uid || _plFlushSent || (!_plSaveFailing && !_plPubTimer)) return Promise.resolve();
+  _plFlushSent = true;
+  clearTimeout(_plPubTimer); _plPubTimer = null;
+  return _plPublishNow(uid);
+}
+window.addEventListener('beforeunload', ()=>{ _plFlushPending(getMyUserId()); });
 
 /* 선택 표시만 갱신 — 전체 재생성을 하면 그 자리에 있던 행 element가 사라져서
    더블클릭(두 번째 클릭이 다른 element에 떨어짐)과 드래그가 같이 깨진다.
@@ -1714,7 +1729,7 @@ function _plApplyVolSoon(){
     e.stopPropagation();
     const willOpen = box.classList.contains('hidden');
     // 👤 내 사진·레벨은 창을 처음 열 때 한 번만 읽는다(마이홈을 안 열어본 세션에도 소개칸이 채워지게)
-    if(willOpen){ _closeChipPopups('myPlaylistBox'); box._cascadeFlipped = false; _plLoadMyCard(); _plRender(); }   // 새로 열 땐 항상 우측부터 판정
+    if(willOpen){ _closeChipPopups('myPlaylistBox'); box._cascadeFlipped = false; _plLoadMyCard(); _plRetryOnOpen(); _plRender(); }   // 새로 열 땐 항상 우측부터 판정
     box.classList.toggle('hidden', !willOpen);
     btn.classList.toggle('on', willOpen);
     // 🪟 열 때는 맨 앞으로 — 채팅창이 이미 떠 있으면 그 뒤에서 열려 "안 열렸다"로 보인다.
@@ -1970,8 +1985,9 @@ return {
   PL_MAX, PL_BIO_MAX, PL_TITLE_MAX,                // 상한
   render: _plRender,                               // 🎵 창 다시 그리기 — 📷 재생 재우기/되살리기
   save: _plSave,                                   // 💾 기기 설정 저장 + 서버 저장(3초 debounce)
+  flushPending: _plFlushPending,                   // 📤 못 올린 고침 한 번 올리기(uid) — 로그아웃 올리기(account.js)
   publish: _plPublish,                             // ☁️ 서버 저장만(3초 debounce)
-  pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 스스로 다시 시도)
+  pull: _plPull,                                   // ☁️ 서버에서 내 목록 받기 — 계정 이어받기(못 읽으면 혼자 다시 하지 않음 — [다시 시도] · 창 열기)
   reset: _plReset,                                 // ☁️ 계정을 놓을 때 · 이어받기 시작 — 목록을 비우고 받기 전까지 올리지 않음
   normalizeSets: _plNormalizeSets,                 // 🎵 서버 값 관문(세 벌 · 16자 · 20곡)
   setIdx: _plSetIdx,                               // 🎵 프리셋 번호 보정
