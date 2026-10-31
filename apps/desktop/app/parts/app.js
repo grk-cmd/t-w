@@ -869,6 +869,8 @@ function getOldFriendCodes(){
 function getMyUserId(){
   try{ return localStorage.getItem(MY_USER_ID_KEY) || null; }catch(e){ return null; }
 }
+/* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
+const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
 /* 🪪 uid 를 **만드는** 곳은 여기 하나다(설계 §3 ②). 부르는 곳도 게이트의 «새 사람» 갈래 하나. */
 function _inventMyUserId(){
   return 'u'+Date.now().toString(36)+Math.random().toString(36).slice(2,10);
@@ -7080,8 +7082,7 @@ const accountMod = TwAccount.createAccount({
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
-  FOCUS_TODAY_DATE_KEY: ()=>focusTotalMod.FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: ()=>focusTotalMod.FOCUS_TODAY_SEC_KEY,
+  accountAdoptStore: accountStoreMod,
   FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
   GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
   GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
@@ -8660,6 +8661,7 @@ window.__officeDiag = function(){
 /* 본문은 focus-total.js 로 옮겼다(앱 FSD 45번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusTotalMod = TwFocusTotal.createFocusTotal({
+  focusTotalStore: accountStoreMod,
 });
 let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
 
@@ -8749,6 +8751,7 @@ const adminReport = TwAdminReport.createAdminReport({
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusLevelMod = TwFocusLevel.createFocusLevel({
+  focusLevelStore: accountStoreMod,
   DANCE_MOVES: iDeskMod.DANCE_MOVES,
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,

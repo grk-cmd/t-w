@@ -65,6 +65,8 @@ const P = globalThis.__P, LS = globalThis.localStorage;
    예전엔 app.js getMyUserId() 가 첫 호출에서 uid 를 만들어 줘서 준비가 필요 없었다(회원가입 설계 §6-①).
    판정은 한 글자도 안 바꿨다. */
 globalThis.localStorage.setItem('tw.myUserId', 'usimdevice0001');
+/* 🗂️ 마크는 계정별 칸(shared/account-store.js)에 산다 — 이 계정(usimdevice0001)의 칸 이름으로 만지고 읽는다. */
+const MARK_CELL = 'tw.u.usimdevice0001.focusSyncedSec';
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 const H = 3600, h = n => (n / H) + 'h';
@@ -73,10 +75,10 @@ const H = 3600, h = n => (n / H) + 'h';
    mark===null 이면 '이 기기는 서버와 한 번도 안 맞춰봤다'(마크 키 자체가 없음). */
 function device(localSec, mark){
   P.total = localSec;
-  if (mark === null || mark === undefined) LS.removeItem(P.MARK);
-  else LS.setItem(P.MARK, String(mark));
+  if (mark === null || mark === undefined) LS.removeItem(MARK_CELL);
+  else LS.setItem(MARK_CELL, String(mark));
 }
-const markNow = () => parseFloat(LS.getItem(P.MARK));
+const markNow = () => parseFloat(LS.getItem(MARK_CELL));
 
 (async () => {
   say('=== 🕒 포커스 누적 동기화 — 증분 + max 바닥 ===');
@@ -166,6 +168,18 @@ const markNow = () => parseFloat(LS.getItem(P.MARK));
   await P.sync('sim');
   chk(SERVER.totalSec === CAP, '999시간에서 멈춘다 (' + h(SERVER.totalSec) + ')');
 
+  say('');
+
+  /* ══ 8. 계정이 바뀌면 마크도 다른 칸이다(#582) ══ */
+  say('【8】 같은 PC 에서 계정을 바꾸면');
+  SERVER.totalSec = 50 * H; device(50 * H, 50 * H);     // 계정 A: 마크 50h
+  LS.setItem('tw.myUserId', 'usimdevice0002');          // 계정 B 로 바꿈(앱은 재시작하지만 칸은 부를 때마다 읽는다)
+  chk(LS.getItem('tw.u.usimdevice0002.focusSyncedSec') === null, '★ B 에겐 A 의 마크가 없다(칸이 다르다)');
+  P.total = 0; SERVER.totalSec = 3 * H;
+  await P.sync('sim');
+  chk(LS.getItem(MARK_CELL) === String(50 * H), 'B 가 동기화해도 A 칸의 마크는 그대로 (' + LS.getItem(MARK_CELL) + ')');
+  chk(LS.getItem('tw.u.usimdevice0002.focusSyncedSec') !== null, 'B 의 마크는 B 칸에 생긴다');
+  LS.setItem('tw.myUserId', 'usimdevice0001');
   say('');
   say('서버 호출 ' + calls + '회 · 그중 쓰기 ' + writes + '회');
   if (fail) { say('문제 ' + fail + '건'); process.exit(1); }

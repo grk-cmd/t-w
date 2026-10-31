@@ -129,8 +129,22 @@ if (F_OUT){
   ['MY_USER_ID_KEY','INVITE_PASS_KEY','MY_FRIEND_CODE_KEY'].forEach(k =>
     chk(new RegExp('\\b' + k + '\\b').test(KEYLIST), '로그아웃이 ' + k + ' 를 지운다 (ACCOUNT_LOCAL_KEYS)'));
   chk(F_OUT.includes('authSignOut'), '로그아웃이 Auth 세션도 끊는다');
-  chk(/\bFOCUS_SYNCED_KEY\b/.test(KEYLIST),
-      '로그아웃이 집중 누적 마크를 지운다 (다음 계정으로 증분이 밀려들어가지 않게 — 마크 없음 = 증분 0)');
+  /* 집중 누적 · 마크는 계정 칸(shared/account-store.js `tw.u.<코드>.<키>`)으로 옮겼다 — 로그아웃이 지우는 대신 다음 계정이 **다른 칸**을 연다.
+     같은 뜻(다음 계정으로 증분이 새지 않음 · 마크 없음 = 증분 0)을 실제 칸으로 판정한다. 상세 흐름은 sim-account-store.js. */
+  const AS = require([__dirname, process.cwd()].flatMap(d => ['account-store.js', 'parts/shared/account-store.js', 'app/parts/shared/account-store.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));
+  const mem = new Map();
+  const st = { getItem: k => (mem.has(k) ? mem.get(k) : null), setItem: (k, v) => mem.set(k, String(v)), removeItem: k => mem.delete(k) };
+  let who = 'uaaaa11112222';
+  const store = AS.createAccountStore({ storage: st, getAccountCode: () => who, isWriteLocked: () => false });
+  store.set('tw.focusTotalSec', 360000); store.set('tw.focusSyncedSec', 360000);
+  who = 'ubbbb33334444';
+  chk(AS.isAccountKey('tw.focusSyncedSec') && AS.isAccountKey('tw.focusTotalSec'), '집중 누적 · 마크가 계정 칸 키다');
+  chk(store.get('tw.focusSyncedSec') === null && store.get('tw.focusTotalSec') === null,
+      '다음 계정은 앞 계정의 누적 · 마크를 못 본다 (마크 없음 = 증분 0 — 증분이 밀려들어가지 않는다)');
+  who = 'uaaaa11112222';
+  chk(store.get('tw.focusSyncedSec') === '360000', '앞 계정으로 돌아오면 자기 마크가 그대로 있다');
+  chk(!/\bFOCUS_SYNCED_KEY\b|\bFOCUS_TOTAL_KEY\b/.test(KEYLIST),
+      '로그아웃 지움 목록(ACCOUNT_LOCAL_KEYS)에 누적 · 마크가 없다 — PC 칸에 남는 값이 없어 지울 것도 없다');
 }
 /* 부팅 스냅샷은 로그인된 기기에서만 — 조건 없이 돌리면 남의 유저 코드로 쓰기가 나갈 수 있다 */
 chk(/if\(!getMyLoginEmail\(\)\)\s*return/.test(UI),
