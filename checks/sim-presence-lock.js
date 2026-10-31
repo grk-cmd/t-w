@@ -239,6 +239,24 @@ async function gate(fbi){
   const R = await behave(MOD);
   report(R);
 
+  say('── 2-2. 접속 고정 읽기 — 이번 켤 때 확인(confirm)의 me 를 받는다 (app.js 의 loadPref 줄을 실제로 돌린다)');
+  {
+    const AP = SRC[A + 'parts/app.js'];
+    const loadLine = (ap) => (ap.match(/  loadPref: (\(\)=>loginFlowMod\.firstConfirm\(\)[^\n]*?\)\)),   \/\//) || [])[1];
+    const run = async (ap, lf) => { const l = loadLine(ap); return l ? new Function('loginFlowMod', 'return (' + l + ')();')(lf) : 'NOLINE'; };
+    let release; const pending = new Promise((r) => { release = r; });
+    const lf = { meCache: () => ({ me: { presencePref: { locked: true, online: true } } }), firstConfirm: () => pending };
+    let settled = false; const p = run(AP, lf).then((v) => { settled = true; return v; });
+    await new Promise((r) => setTimeout(r, 5));
+    chk(!settled, '★ 이번 confirm 이 안 끝났으면 기다린다 — 지난 사본(meCache)을 서버 값으로 받지 않는다');
+    release({ presencePref: { locked: false, online: false } });
+    const got = await p;
+    chk(got && got.lock === false && got.online === false, '  ↳ 끝나면 이번 confirm 의 me 를 받는다(지난 사본의 값이 아님)');
+    chk((await run(AP, { firstConfirm: async () => null })) === null, '  ↳ confirm 이 local · login 이면 null(못 읽음)');
+    const old = AP.replace('loadPref: ()=>loginFlowMod.firstConfirm().then(', 'loadPref: ()=>Promise.resolve(loginFlowMod.meCache() && loginFlowMod.meCache().me).then(');
+    chk((await run(old, lf)) === 'NOLINE', '깨 보기 — 지난 사본을 바로 읽는 모양으로 되돌리면 빨강');
+  }
+
   say('── 3. 첫 쓰기 미루기 (setMyPresenceOnline 을 실제로 돌린다)');
   const G = await gate(FBI);
   chk(!!G, 'setMyPresenceOnline(userId, startOnline) · setMyPresenceState 를 찾았다');
@@ -255,14 +273,8 @@ async function gate(fbi){
     const iL = H.indexOf('<script src="parts/myhome/presence-lock.js"></script>'), iA = H.indexOf('<script src="parts/app.js"></script>');
     chk(iL > 0 && iA > iL, 'html — presence-lock.js 가 app.js 보다 먼저');
     chk((AP.match(/const presenceLockMod = TwPresenceLock\.createPresenceLock\(\{/g) || []).length === 1 && AP.indexOf('const presenceLockMod') < AP.indexOf('const mhInitMod')
-      && /loadPref: \(\)=>\{ const c = loginFlowMod\.meCache\(\);/.test(AP) && !/loadPref: \(\)=>userApiMod/.test(AP) && /savePref: \(uid, p\)=>loginFlowMod\.patchMe\(\{ presencePref: \{ locked: p\.lock, online: p\.online \} \}\)\.then\(\(r\)=>\{ if\(!r\.ok\) throw r\.err; \}\),/.test(AP)
+      && /loadPref: \(\)=>loginFlowMod\.firstConfirm\(\)/.test(AP) && !/loadPref: \(\)=>userApiMod/.test(AP) && /savePref: \(uid, p\)=>loginFlowMod\.patchMe\(\{ presencePref: \{ locked: p\.lock, online: p\.online \} \}\)\.then\(\(r\)=>\{ if\(!r\.ok\) throw r\.err; \}\),/.test(AP)
       && /setPresence: \(\.\.\.a\)=>firebaseAPI\.setMyPresenceState\(\.\.\.a\),/.test(AP) && /  presenceLock: presenceLockMod,\n/.test(AP), 'app.js — 마이홈 처음 준비보다 먼저 만들고 deps 로 넘긴다');
-    {
-      const line = (AP.match(/  loadPref: (\(\)=>\{ const c = loginFlowMod\.meCache\(\);[^\n]*?\}),   \/\//) || [])[1];
-      const run = (cache) => line ? new Function('loginFlowMod', 'return (' + line + ')();')({ meCache: () => cache }) : 'NOLINE';
-      const got = run({ me: { presencePref: { locked: true, online: false } }, at: 1 }), none = run(null);
-      chk(!!line && got && got.lock === true && got.online === false && none === null, '★ 접속 고정 읽기 — 켤 때 받아 둔 계정 사본에서(서버를 또 부르지 않는다) · 사본이 없으면 «못 읽음»(null)');
-    }
     chk(/firebaseAPI\.setMyPresenceOnline\(myId, presenceLock\.startOnlineFor\(myId\)\);/.test(INIT), 'myhome-init — 처음 온라인 여부(Promise)를 접속 표시 등록에 넘긴다');
     chk(!/mhPresenceToggle/.test(UI) && !/setMyPresenceState/.test(UI), 'myhome-ui — 옛 토글 연결을 걷었다(두 벌이면 한 번 누름에 두 번 바뀐다)');
     const ld = FBI.slice(FBI.indexOf('async loadPresencePref('), FBI.indexOf('async savePresencePref('));

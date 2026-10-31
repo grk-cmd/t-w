@@ -108,6 +108,26 @@ async function judge(S){
     chk((await e3.flow.confirm()).state === 'local', '모양이 틀린 답 → local(믿지 않음)');
   }
 
+  say('── 1-2. 첫 confirm 의 me 를 약속으로 (firstConfirm)');
+  {
+    const e = mkEnv(S);
+    let got; let settled = false;
+    e.flow.firstConfirm().then((m) => { got = m; settled = true; });
+    await tick();
+    chk(!settled, '★ 첫 confirm 이 끝나기 전엔 약속이 안 풀린다(지난 사본을 주지 않는다)');
+    const r = await e.flow.confirm(); await tick();
+    chk(settled && got && got.userCode === r.me.userCode && e.log.length === 1, '  ↳ 끝나면 이번 confirm 의 me(요청은 1번)');
+    e.srv.me = () => ME(9); await e.flow.confirm();
+    const again = await e.flow.firstConfirm();
+    chk(again.userCode === r.me.userCode && again.version === r.me.version, '  ↳ 첫 confirm 의 것만 — 나중 confirm 이 바꾸지 않는다');
+    const l = mkEnv(S); l.srv.me = () => { throw apiErr('unavailable', 'NETWORK'); };
+    await l.flow.confirm();
+    chk((await l.flow.firstConfirm()) === null, '  ↳ local 이면 null(마지막 사본이 있어도 주지 않는다)');
+    const n = mkEnv(S, { user: null });
+    await n.flow.confirm();
+    chk((await n.flow.firstConfirm()) === null, '  ↳ login 이어도 null');
+  }
+
   say('── 2. realtime');
   {
     const e = mkEnv(S);
@@ -318,6 +338,8 @@ await judge(SRC0);
 
 say('── 9. 일부러 깨 보기');
 const BREAKS = [
+  ['LF', "    firstDone(r);\n", "", '첫 confirm 약속이 안 풀림'],
+  ['LF', "firstP.then((r) => (r.state === STATE.IN ? r.me : null))", "firstP.then((r) => r.me)", 'local 인데 지난 사본을 줌'],
   ['LF', "    if(!u || u.anonymous) return { state: STATE.LOGIN, me: null };", "    if(!u) return { state: STATE.LOGIN, me: null };", '익명 세션을 로그인으로 봄'],
   ['LF', "    if(!o || !o.me || typeof o.at !== 'number' || !u || o.authUid !== u.uid) return null;", "    if(!o || !o.me) return null;", '남의 로그인 사본을 읽음'],
   ['LF', "      if(t.action === 'signup'){ clearCache(); return { state: STATE.SIGNUP, me: null }; }", "      if(t.action === 'signup'){ return { state: STATE.SIGNUP, me: null }; }", '탈퇴한 계정 사본을 남김'],

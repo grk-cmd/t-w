@@ -75,8 +75,17 @@ function createLoginFlow(deps){
   }
   function clearCache(){ try{ storage.removeItem(ME_CACHE_KEY); }catch(_){} }
 
+  /* 이 실행의 첫 confirm 결과를 약속으로 내놓는다 — 켤 때 한 번 하는 확인(GET /v1/me)의 me 를 따로 또 묻지 않고 받아 쓰려는 곳이 기다린다.
+     firstConfirm() → 서버가 돌려준 me | null(local · login · signup — 지난 사본은 주지 않는다). 첫 confirm 이 영영 안 오면 약속도 안 풀린다(부르는 쪽이 시간 제한을 둔다). */
+  let firstDone = null;
+  const firstP = new Promise((res) => { firstDone = res; });
   /* 이 로그인은 누구인가 — 위 [판정]. 던지지 않는다. */
   async function confirm(){
+    const r = await confirmNow();
+    firstDone(r);
+    return r;
+  }
+  async function confirmNow(){
     try{ await auth.ready(); }catch(_){}
     const u = auth.user();
     if(!u || u.anonymous) return { state: STATE.LOGIN, me: null };
@@ -233,6 +242,7 @@ function createLoginFlow(deps){
   return {
     confirm, goOnline, enterLocal, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout,
     meCache: () => readCache(),
+    firstConfirm: () => firstP.then((r) => (r.state === STATE.IN ? r.me : null)),
     identity: () => auth.identity(),   // 지금 Auth 로그인 { email, uid } — 이 PC 로그인 표시(계정 탭 얼굴 · 진단)
     premiumNow: () => premiumNow(readCache(), now()),
     mode: () => mode,
