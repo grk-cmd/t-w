@@ -17,9 +17,22 @@ const SRC = read('sysinput-win.js'), MAIN = read('main.js');
 if (!SRC || !MAIN) { say('  ? 원본 못 찾음 — sysinput-win.js · main.js'); process.exit(2); }
 
 /* 모듈을 가짜 네이티브로 싣는다 — node-window-manager 의 창 목록 · tasklist 출력은 시험마다 바꾼다 */
-function loadMod(src, wins, tasklist){
+/* 가짜 node-window-manager — 실제처럼 windowManager.getWindows() 는 **경로 빈 창을 버리고**(isWindow: path && addon.isWindow),
+   addon.getWindows() 는 창 id 를 다 준다. Window(id) 는 id 로 창을 찾는다 */
+function fakeNwm(wins){
+  const byId = new Map(wins.map((w, i) => { w.id = i + 1; return [w.id, w]; }));
+  function Window(id){ return byId.get(id); }
+  return {
+    windowManager: { getWindows: () => wins.filter(w => w.path) },
+    addon: { getWindows: () => wins.map(w => w.id), isWindow: () => true },
+    Window,
+  };
+}
+function loadMod(src, wins, tasklist, noAddon){
+  const nwm = fakeNwm(wins);
+  if (noAddon) { delete nwm.addon; delete nwm.Window; }
   const fake = {
-    'node-window-manager': { windowManager: { getWindows: () => wins } },
+    'node-window-manager': nwm,
     'uiohook-napi': { uIOhook: { on(){}, start(){}, stop(){} }, UiohookKey: {} },
     './native-peek': { peekUnpacked: () => '' },
     'child_process': { execFile: (cmd, args, opt, cb) => setImmediate(() => cb(null, tasklist || '')) },
@@ -38,7 +51,7 @@ const W = (p, title, w, h, opt) => Object.assign({ path: p, processId: (opt && o
   getTitle(){ if (opt && opt.titleThrows) throw new Error('access denied'); return title; },
   isVisible(){ return !(opt && opt.hidden); }, getBounds(){ return { x: 0, y: 0, width: w, height: h }; } }, {});
 
-async function behave(src){
+async function behave(src, noAddon){
   const r = {};
   const wins = [
     W('C:\\Games\\VALORANT-Win64-Shipping.exe', '', 1920, 1080),                 // 안티치트 게임 — 제목 빈 값
@@ -52,7 +65,7 @@ async function behave(src){
     W('C:\\d\\tray.exe', 't', 40, 20),
     W('C:\\e\\locked.exe', '', 1600, 900, { titleThrows: true }),                 // 제목 읽기가 던짐
   ];
-  const { M, logs } = loadMod(src, wins, '"EasyAntiCheat_Game.exe","4242","Console","1","100 K"\r\n');
+  const { M, logs } = loadMod(src, wins, '"EasyAntiCheat_Game.exe","4242","Console","1","100 K"\r\n', noAddon);
   const res = await M.listWindows();
   const by = (n) => (res.list || []).find(x => x.name === n);
   r.ok = res.ok === true;
@@ -64,7 +77,7 @@ async function behave(src){
   r.throws = !!by('locked.exe');
   r.rest = !by('explorer.exe') && !by('hidden.exe') && !by('tray.exe');
   const line = logs.find(l => l.indexOf('[목록]') === 0) || '';
-  r.log = /창 12개 → \d+개/.test(line) && /숨김 1/.test(line) && /제목 없는 작은 창 1/.test(line) && /이름 못 읽음 1\(pid 5151\)/.test(line)
+  r.log = /창 12개 → \d+개\(경로 못 읽어 이름으로 1\)/.test(line) && /숨김 1/.test(line) && /제목 없는 작은 창 1/.test(line) && /이름 못 읽음 1\(pid 5151\)/.test(line)
     && /셸\/우리 앱 1/.test(line) && /작은 창 1/.test(line) && /제목 없이 넣음: .*valorant-win64-shipping\.exe/.test(line) && !/제목 없이 넣음: .*(chrome|notepad)/.test(line);   // 제목 있는 창이 이긴 것은 안 적는다
   r.line = line;
   return r;
@@ -77,7 +90,9 @@ async function behave(src){
   chk(b.game, '★ 제목을 못 읽은 큰 창(안티치트 게임)도 목록에 — 제목 자리는 «(제목 없는 창)»');
   chk(b.smallOut, '  제목 없는 작은 창(400×300 미만 — 보조 창)은 예전처럼 뺀다');
   chk(b.titledWins, '  같은 exe 에 제목 있는 창이 있으면 그쪽(짧아도) — 한 줄만');
-  chk(b.tasklist, '경로 · 제목 둘 다 못 읽은 큰 창도 tasklist 이름으로(경로는 빈 채)');
+  chk(b.tasklist, '★ 경로 · 제목 둘 다 못 읽은 큰 창(안티치트 · 보호 프로세스)도 tasklist 이름으로(경로는 빈 채) — 라이브러리 getWindows 는 이 창을 버린다');
+  const noAddon = await behave(SRC, true);
+  chk(noAddon.ok && noAddon.game && !noAddon.tasklist, '  addon 이 없는 판은 옛 길(경로 빈 창은 라이브러리가 버림) — 던지지 않는다');
   chk(b.noName, '  tasklist 에도 없으면 뺀다');
   chk(b.throws, '  제목 읽기가 던져도 큰 창이면 넣는다');
   chk(b.rest, '셸 · 숨김 · 작은 창은 그대로 뺀다');
@@ -93,6 +108,9 @@ async function behave(src){
   chk(old.game === false, '제목 없는 창을 통째로 빼면(옛 동작) 1절 «안티치트 게임도 목록에» 가 빨강');
   const noLen = await behave(SRC.replace("(prev.title === UNTITLED_LABEL ? 0 : prev.title.length)", "prev.title.length"));
   chk(noLen.titledWins === false, '표시 글 길이로 비교하면 1절 «제목 있는 창이 이김» 이 빨강');
+
+  const libOnly = await behave(SRC.replace("  if(nwmAddon && typeof nwmAddon.getWindows === 'function'", "  if(false && nwmAddon && typeof nwmAddon.getWindows === 'function'"));
+  chk(libOnly.tasklist === false, '라이브러리 getWindows 로 되돌리면(경로 빈 창을 버림) 1절 «경로 못 읽은 큰 창도» 가 빨강 — 검증에서 잡힌 구멍');
 
   say(`\n결과: ${pass}·${fail}`);
   process.exit(fail ? 1 : 0);
