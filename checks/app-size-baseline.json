@@ -177,7 +177,7 @@
     },
     "firebase-init.js": {
       "cap": 3779,
-      "lines": 3697,
+      "lines": 3696,
       "sections": [
         "🚧 로그인 복원 대기선 (auth barrier)",
         "마이홈 친구 시스템",
