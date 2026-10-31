@@ -121,12 +121,12 @@ async function gateCheck(MAIN){
   const r = {};
   const g0 = MAIN.indexOf('function bgmStartAdGate(){'), g1 = MAIN.indexOf('\n  }\n', g0);
   const gate = g0 > 0 ? MAIN.slice(g0, g1) : '';
-  const e0 = gate.indexOf('executeJavaScript(\n'), e1 = gate.indexOf('\n      ).then(');
+  const e0 = gate.indexOf('bgmExec(\n'), e1 = gate.indexOf('\n      ).then(');
   const v0 = MAIN.indexOf('const BGM_SET_VOL_JS ='), v1 = MAIN.indexOf("'}';", v0);
   let run = null;
   try{
     const BGM_SET_VOL_JS = new Function('return ' + MAIN.slice(v0 + 'const BGM_SET_VOL_JS ='.length, v1 + 3).trim())();
-    const js = new Function('bgmVolume', 'BGM_SET_VOL_JS', 'return ' + gate.slice(e0 + 'executeJavaScript('.length, e1).trim())(0.8, BGM_SET_VOL_JS);
+    const js = new Function('bgmVolume', 'BGM_SET_VOL_JS', 'return ' + gate.slice(e0 + 'bgmExec('.length, e1).trim())(0.8, BGM_SET_VOL_JS);
     run = (page) => new Function('document', 'window', 'localStorage', 'return ' + js)(page.doc, page.win, { setItem(){} });
   }catch(err){ say('  · 게이트 글을 못 꺼냄 — ' + err.message); }
   const mkPage = (o) => {
@@ -155,18 +155,28 @@ async function gateCheck(MAIN){
   r.mute = /const mute = isAd \|\| !volOk;\s*\n\s*bgmView\.webContents\.setAudioMuted\(mute\);/.test(gate) && (gate.match(/setAudioMuted\(/g) || []).length === 2;
   /* 게이트 · 보내기를 꺼내 가짜 창으로 돌린다 — 페이지가 답을 안 할 때도 1초마다 보내는가 */
   const b0 = MAIN.indexOf('  let bgmAdPoll = null;'), b1 = MAIN.indexOf('\n  }\n', MAIN.indexOf('function bgmStartAdGate(){')) + 4;
+  /* 페이지에 글을 넣는 길(bgmExec)도 main.js 실물을 쓴다 — o.exec 는 깨 보기용 바꿔 끼우기 */
+  const x0 = MAIN.indexOf('  function bgmExec(code){'), x1 = MAIN.indexOf('\n  }\n', x0) + 4;
+  const EXEC = x0 > 0 ? MAIN.slice(x0, x1) : '';
+  /* 가짜 창 — Electron 처럼 webContents.executeJavaScript 는 로딩이 안 끝나면 답이 없다(o.loading).
+     mainFrame.executeJavaScript 는 기다리지 않는다. o.reply: 페이지 값 · 'never' · 'fail' · 'hold'(손으로 풀기) */
   const mkRig = async (o) => {
-    const t = { now: 1000, timers: [], sent: [], muted: null };
+    const t = { now: 1000, timers: [], sent: [], muted: null, asked: 0, held: [] };
+    const answer = () => { t.asked++; return o.reply === 'never' ? new Promise(() => {}) : o.reply === 'fail' ? Promise.reject(new Error('x'))
+      : o.reply === 'hold' ? new Promise(res => t.held.push(res)) : Promise.resolve(o.reply); };
     const wc = { isDestroyed: () => false, setAudioMuted: (m) => { t.muted = m; }, isAudioMuted: () => t.muted, isCurrentlyAudible: () => false,
-      executeJavaScript: () => o.reply === 'never' ? new Promise(() => {}) : o.reply === 'fail' ? Promise.reject(new Error('x')) : Promise.resolve(o.reply) };
+      executeJavaScript: () => o.loading ? new Promise(() => {}) : answer(), mainFrame: { executeJavaScript: answer } };
     const view = { webContents: wc };
     const win = o.noWin ? null : { isDestroyed: () => false, webContents: { isDestroyed: () => false, send: (ch, d) => t.sent.push({ ch, d }) } };
     const BGM_SET_VOL_JS = '';
     const f = new Function('bgmView', 'mainWindow', 'bgmMode', 'bgmVolume', 'BGM_SET_VOL_JS', 'setInterval', 'clearInterval', 'Date',
-      MAIN.slice(b0, b1) + '\nreturn bgmStartAdGate;');
-    const start = f(view, win, o.mode || 'playlist', 0.8, BGM_SET_VOL_JS, (fn) => { t.timers.push(fn); return 1; }, () => {}, { now: () => t.now });
-    start();
-    for(let i = 0; i < (o.ticks || 8); i++){ t.now += 250; t.timers.forEach(fn => fn()); await new Promise(r => setImmediate(r)); }
+      (o.exec || EXEC) + MAIN.slice(b0, b1) + '\nreturn { start: bgmStartAdGate, committed: bgmGateCommitted };');
+    const g = f(view, win, o.mode || 'playlist', 0.8, BGM_SET_VOL_JS, (fn) => { t.timers.splice(0, t.timers.length, fn); return 1; }, () => {}, { now: () => t.now });
+    t.tick = async (k) => { for(let i = 0; i < k; i++){ t.now += 250; t.timers.forEach(fn => fn()); await new Promise(r => setImmediate(r)); } };
+    t.g = g;
+    g.start();
+    if(!o.noNav) g.committed();   // 새 곡 문서가 열렸다(did-navigate)
+    await t.tick(o.ticks || 8);
     return t;
   };
   try{
@@ -186,6 +196,24 @@ async function gateCheck(MAIN){
     const home = await mkRig({ reply: page, mode: 'home' });
     let noWinOk = true; try{ await mkRig({ reply: page, noWin: true }); }catch(_){ noWinOk = false; }
     r.onlyPl = home.sent.length === 0 && noWinOk;
+    /* 로딩이 영영 안 끝나는 페이지(B-1022-6 맥) — 그래도 확인이 돌아 음소거가 풀린다 */
+    const slow = await mkRig({ reply: page, loading: true, ticks: 9 });
+    r.stuckLoad = slow.muted === false && slow.asked >= 8;
+    const brokeExec = await mkRig({ reply: page, loading: true, ticks: 9,
+      exec: 'function bgmExec(code){ return bgmView.webContents.executeJavaScript(code); }\n' });
+    r.stuckLoadBreak = brokeExec.muted === true && brokeExec.asked === 0;
+    /* 새 곡 문서가 열리기 전 — 앞 곡 문서에 묻지 않고 음소거 그대로 · 진단은 답 없음으로 계속 보낸다 */
+    const pre = await mkRig({ reply: page, noNav: true, ticks: 9 });
+    const pd = pre.sent.length ? pre.sent[pre.sent.length - 1].d : {};
+    r.preNav = pre.asked === 0 && pre.muted === true && pre.sent.length === 2 && pd.pending === 0 && pd.noReplyMs >= 2000;
+    pre.g.committed(); await pre.tick(2);
+    r.preNavThen = pre.asked >= 1 && pre.muted === false;
+    /* 앞 곡 때 보낸 확인의 답이 새 곡이 시작된 뒤에 와도 음소거를 풀지 않는다 */
+    const late = await mkRig({ reply: 'hold', ticks: 1 });
+    const n0 = late.held.length;
+    late.g.start();                                   // 다음 곡(음소거 · 아직 안 열림)
+    late.held.forEach(res => res(page)); await new Promise(r => setImmediate(r));
+    r.stale = n0 >= 1 && late.muted === true;
   }catch(err){ say('  · 게이트를 못 돌림 — ' + err.message); }
   return r;
 }
@@ -201,6 +229,11 @@ function gateReport(r){
   chk(r.okSend, '  정상 — 음소거 풀림 · 페이지 값 실림 · 답 없음 1초 아래 · 줄은 안 뜸');
   chk(r.failSend, '  확인이 실패하면 실패 수 · 음소거 지속이 오른다');
   chk(r.onlyPl, '  마이홈 BGM 일 땐 안 보낸다 · 메인 창이 없어도 안 깨진다');
+  chk(r.stuckLoad, '로딩이 안 끝나는 페이지(webContents.executeJavaScript 가 답 없음)에서도 확인이 돌아 음소거가 풀린다(B-1022-6)');
+  chk(r.stuckLoadBreak, '  깨 보기 — 글 넣는 길을 webContents.executeJavaScript 로 되돌리면 한 번도 못 묻고 음소거 그대로');
+  chk(r.preNav, '새 곡 문서가 열리기(did-navigate) 전엔 묻지 않는다 — 음소거 그대로 · 진단은 «답 없음» (기다리는 확인 0)');
+  chk(r.preNavThen, '  열리면 바로 묻고 음소거가 풀린다');
+  chk(r.stale, '앞 곡 때 보낸 확인의 답이 늦게 와도 새 곡의 음소거를 풀지 않는다');
 }
 
 /* 4. 배선 */
@@ -215,6 +248,9 @@ function wiring(){
   chk((A.match(/TwBgmDiag\.createBgmDiag\(/g) || []).length === 1 && /TwBgmDiag\.createBgmDiag\(\{ companion: window\.companion \}\);/.test(A), 'app.js — 만드는 곳은 한 곳(companion 을 deps 로)');
   const sm = SRC['checks/smoke.js'];
   chk(sm.indexOf("PRELOAD.push('bgm-diag.js');") > 0, 'smoke PRELOAD 에 bgm-diag.js');
+  const MJ = SRC['main.js'];
+  chk(/bgmView\.webContents\.on\('did-navigate', bgmGateCommitted\)/.test(MJ), 'main.js — 새 곡 문서가 열리면(did-navigate) 게이트가 묻기 시작한다');
+  chk(!/bgmView\.webContents\.executeJavaScript\(/.test(MJ) && (MJ.match(/\bbgmExec\(/g) || []).length >= 9, '  BGM 창에 글을 넣는 곳은 모두 bgmExec(로딩을 안 기다리는 mainFrame) — webContents.executeJavaScript 직접 호출 0');
 }
 
 const MOD = SRC['app/parts/status/bgm-diag.js'];
@@ -243,8 +279,12 @@ say('── 5. 깨 보기');
   const M = SRC['main.js'];
   const g1 = await gateCheck(M.replace("if(bgmMode !== 'playlist' || (++bgmDiagTick % 4)) return;", 'if(++bgmDiagTick % 4) return;'));
   chk(!g1.onlyPl, '마이홈 BGM 에도 보내면 3절이 빨강');
-  const g4 = await gateCheck(M.replace('      bgmSendDiag();\n      bgmGatePending++;', '      bgmGatePending++;').replace("bgmGateFail = 0; bgmGateLastD = (r && r.d) || null;", "bgmGateFail = 0; bgmGateLastD = (r && r.d) || null; bgmSendDiag();"));
+  const g4 = await gateCheck(M.replace('      bgmSendDiag();\n      if(!bgmGateReady) return;\n', '      if(!bgmGateReady) return;\n').replace("bgmGateFail = 0; bgmGateLastD = (r && r.d) || null;", "bgmGateFail = 0; bgmGateLastD = (r && r.d) || null; bgmSendDiag();"));
   chk(!g4.never, '답이 올 때만 보내면 3절(답 안 함)이 빨강');
+  const g5 = await gateCheck(M.replace('      if(!bgmGateReady) return;\n', ''));
+  chk(g5.preNav === false, '새 곡 문서가 열리기 전에도 물으면 3절(열리기 전)이 빨강');
+  const g6 = await gateCheck(M.replace('        if(gen !== bgmGateGen) return;\n', ''));
+  chk(g6.stale === false, '앞 곡 답을 안 버리면 3절(늦은 답)이 빨강');
   const g2 = await gateCheck(M.replace('const mute = isAd || !volOk;', 'const mute = isAd;'));
   chk(!g2.mute, '음소거 판정을 바꾸면 3절이 빨강');
   const g3 = await gateCheck(M.replace("'if(v){ d.vol=v.volume; d.vMuted=v.muted; d.paused=v.paused; }'+", "''+"));

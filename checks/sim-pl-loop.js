@@ -132,17 +132,19 @@ function makePage(dur){
 
 /* main 쪽 무대 — bgmForcePlay 와 setBgmLoop IPC 를 실물로 싣는다. */
 const FORCE = cutFn(MAIN, 'bgmForcePlay');
+const EXEC = cutFn(MAIN, 'bgmExec');   // 페이지에 글을 넣는 길도 실물로
 const IPC_LOOP = cutIpc(MAIN, 'companion:setBgmLoop');
 function makeMain(page, { mode = 'playlist', loop = false } = {}){
   const handlers = {};
   const st = {
     bgmMode: mode, bgmVolume: 0.5, bgmPlLoop: loop, console: { log(){}, warn(){} },
-    bgmView: page ? { webContents: { isDestroyed: () => false,
-      executeJavaScript: code => { page.run(code); return Promise.resolve(); } } } : null,
+    /* webContents.executeJavaScript 는 로딩이 안 끝나면 답이 없는 Electron 처럼 — 주입은 mainFrame 으로 가야 돈다 */
+    bgmView: page ? { webContents: { isDestroyed: () => false, executeJavaScript: () => new Promise(() => {}),
+      mainFrame: { executeJavaScript: code => { page.run(code); return Promise.resolve(); } } } } : null,
     ipcMain: { on: (ch, fn) => { handlers[ch] = fn; }, handle(){} },
   };
   vm.createContext(st);
-  vm.runInContext(FORCE + '\n' + (IPC_LOOP || ''), st, { filename: 'main.js:bgm' });
+  vm.runInContext((EXEC || '') + '\n' + FORCE + '\n' + (IPC_LOOP || ''), st, { filename: 'main.js:bgm' });
   st.handlers = handlers;
   return st;
 }
