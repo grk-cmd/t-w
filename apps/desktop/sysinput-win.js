@@ -108,8 +108,8 @@ const WINLIST_SKIP = new Set([
 /* ── 🛡️ [2026-09-17 · E 추가 제보] 경로를 못 읽는 창의 이름 — tasklist 보조 통로 ───────
    [제보] 「관리자 권한 게임 클라이언트를 등록했는데, 캐릭터는 포커싱 포즈인데 **타이머가 안 쌓인다.**
      창모드도 같다. 브라우저를 눌렀다가 돌아와도 그대로.」
-   [코드로 본 갈래] node-window-manager 의 `path` 는 OpenProcess(PROCESS_QUERY_INFORMATION|VM_READ)
-     + GetModuleFileNameEx 로 읽는다. 우리 앱은 일반 권한이라 **관리자 권한 프로세스는 열지 못해**
+   [코드로 본 갈래] node-window-manager 의 `path` 는 OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)
+     + QueryFullProcessImageNameW 로 읽는다. 일반 권한인 우리 앱은 **관리자 권한 · 안티치트로 보호된 프로세스를 못 열 때가 있어**
      `path` 가 빈 문자열로 온다. 그러면 여기가 `null` 을 돌려주고 → main.js 폴링이 «활성 창 판정
      실패» 로 **일찍 return** → `activeAppState` 가 안 나간다 → 렌더러의 `_applyActiveAppState`
      (누적 tick) 가 500ms 마다 안 돈다 = 타이머 정지. 그런데 커서 이동(_reportCursorActivity)은
