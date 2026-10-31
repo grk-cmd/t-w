@@ -383,8 +383,8 @@ await sec('── 7. 런처에서도 창 밖 스티커가 그 자리에 보이�
     '★ 그리기 · 크기 · 회전은 안으로 당기지 않는다 — 저장된 자리 그대로');
   chk((rd.match(/_mhFitWindowSafe\(\)/g) || []).length === 2 && /window\._mhFitWindow\(\)/.test(rz) && /window\._mhFitWindow\(\)/.test(rt),
     '★ 다시 그릴 때(두 갈래) · 크기 · 회전 핸들을 놓을 때 창 크기를 다시 맞춘다');
-  chk(/const extra = \(mode === 'myhome'\) \? _mhStickerOverhang\(\) : null;/.test(APP) && /companion\.setConfigMode\(config, mode, extra\)/.test(APP),
-    '  런처 마이홈일 때만 넘친 만큼을 같이 보낸다');
+  chk(/const extra = \(mode === 'myhome' && mhOn\) \? _mhStickerOverhang\(\) : null;/.test(APP) && /companion\.setConfigMode\(config, mode, extra\)/.test(APP),
+    '  런처 마이홈일 때만 넘친 만큼을 같이 보낸다(같은 크기를 쓰는 로비에는 안 보낸다 — sim-lobby-window)');
   // main.js — 받은 만큼 양쪽으로 넓히고 마이홈을 제자리에
   const MAIN = read('main.js'), PRE = read('preload.js');
   if(!MAIN || !PRE){ chk(false, 'main.js · preload.js 를 찾았다'); return; }

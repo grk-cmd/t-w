@@ -344,9 +344,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `api-client.js` — 🌐 앱 공통 API 통로(`/v1`)
 
 - **책임**: fetch · 시간 제한 · 봉투 풀기 · 실패 한 모양(`ApiError` kind · code · items · retryAfterMs) · 토큰 · 기기 머리 · ETag(304) 를 한 곳에서. 앱 오류 번호로 바꾸는 표는 `api-errors.js`.
-- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
+- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true, onOwner? })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
 - **ETag**: 응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 `If-None-Match` — 304 면 기억한 값. 로그인 읽기는 토큰 주인(sub)마다 따로 기억한다. 계정을 놓을 때 `clearCache()`.
-- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
+- **서버 쓰기는 읽은 토큰 주인과 묶는다**: 읽은 값을 고쳐 올리는 provider 는 읽을 때 `get(path, { auth: true, onOwner })` 로 토큰 주인을 기억하고, 쓸 때 `put(path, body, { expectOwner })` 를 싣는다. 보내기 직전 쓸 토큰의 주인이 다르면(그 사이 로그인한 사람이 바뀜) 통로가 보내지 않고 `OWNER_CHANGED`(요청 0)로 끝낸다 — 앞 계정 값이 새 계정 토큰으로 나가 덮어쓰는 길을 막는다. 다른 묶음의 «읽고 고쳐 쓰기» 도 이 규칙을 따른다.
+- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 로그인 읽기는 토큰을 요청당 한 번만 받고(시간 제한과 겨룸 — 멈춰도 `TIMEOUT`) 그 토큰으로 보낸다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
 - **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
 - 검사: `checks/sim-api-client.js`.
 
@@ -366,3 +367,31 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.
 - **함정**: 최소 버전은 저장값을 쓰지 않는다(지난 값으로 막지 않게). 옛 판(평평한 칸)이 남긴 저장값은 판 표시가 없어 읽지 않는다. 칸 이름(`roomMaxPeople` 등)은 앱 안 이름이라 서버 이름과 다르다 — 풀기는 `fieldsOf` 한 곳.
 - 검사: `checks/sim-remote-config.js`.
+
+## `account-store.js` — 🗂️ 계정별 로컬 칸(`tw.u.<계정코드>.<이름>`)
+
+- **책임**: 이 PC 에 남기는 값 중 «그 계정의 것» 을 계정별 칸에 둔다. 같은 PC 에서 계정을 바꾸면 다른 칸이 열릴 뿐이라 계정 전환 때 지우기 · 넘기기 판단이 없다(#582). 계정 데이터 자체는 0.13 부터 서버가 원본 — 여기는 PC 에 남는 값(미러 · 오늘치 · 마크 · 취향 · 캐시)만.
+- **만드는 법**: `const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });` (app.js `getMyUserId` 바로 뒤). 계정 코드는 **부를 때마다** `getAccountCode()` 로 읽는다 — 값으로 받으면 계정이 바뀐 뒤에도 옛 칸을 쓴다. 쓰는 모듈은 deps 로 받는다(`focusTotalStore` · `focusLevelStore`), 마이홈 바탕화면(`myhome-desktop.js`)은 app.js 의 전역 이름 `accountStoreMod` 를 `advStore` 로 받는다.
+- **내놓는 것**: `get(key)`(글자 또는 null) · `set(key, value)`(true / false) · `remove(key)`(true / false) · `adopt(key, value)`(연동 스냅샷 채택 전용) · `migrateLegacy(code)` · 표 상수 `DEVICE_KEYS` · `ACCOUNT_KEYS` · `ACCOUNT_KEY_PREFIXES` · `MOVED_KEYS` · `isAccountKey`.
+- **로그인 전(코드 없음 · 모양 밖)**: 읽기 null · 쓰기 false · 지우기 false. PC 공용 칸으로 돌려 쓰면 그게 섞임의 뿌리다. 쓰는 쪽은 false 를 «저장 안 됨» 으로 본다(로그인 전엔 남길 계정 값이 없다).
+- **계정을 놓은 틈**: 로그아웃(wipe)이 `_acctDetached` 를 세운 뒤 재시작 전까지 `set` · `remove` 는 거절된다(코드가 바뀐 뒤에도 앱이 도는 동안 다른 계정 칸을 덮지 못하게 — 판단은 `isWriteLocked` 한 곳). 읽기는 된다. `adopt` 만 이 틈을 통과한다 — `_applyTransferSnapshot` 이 `_setMyUserId(새 코드)` 뒤에 새 계정 칸에 합친 누적 · 마크를 채택하는 단 하나의 길(다른 곳은 쓰지 않는다).
+- **기기 공용 키 · 모르는 키는 던진다** — 잘못 쓴 코드를 조용히 넘기지 않는다.
+- **`migrateLegacy(code)`**: 이미 깔린 사용자가 0.13 첫 실행 때 PC 칸 값을 그때 로그인한 계정 칸으로 한 번 옮긴다. `MOVED_KEYS` 만 옮기고(아직 옛 칸을 읽는 키를 옮기면 값이 사라진다) · 계정 칸에 값이 있으면 덮지 않고 · 처리한 키는 PC 칸에서 지우며 · `tw.accountStoreMigrated` 에 처리한 이름을 남겨 두 번 돌지 않는다. 쓰기에 실패한 키는 옛 칸을 지우지 않고 다음에 다시. **부르는 곳은 #580(첫 실행 순서) — 계정 코드가 정해진 뒤, 아래 «옮긴 모듈» 이 읽기 전에 불러야 한다.**
+- **새 키를 옮길 때**: 그 묶음이 ① 모듈이 `accountStore.get/set` 만 쓰게 ② `MOVED_KEYS` 에 이름 더하기 ③ 아래 표 «옮김» 으로 ④ `account.js` `ACCOUNT_LOCAL_KEYS` 에서 빼기(계정 칸은 지우지 않는다). deps 이름은 모듈마다 달리(`xxxStore`) — joinRenderer 가 한 범위로 합치므로 `accountStore` 같은 같은 이름이 둘이면 겹친다.
+- **함정**: 계정 코드를 정하는 값(`tw.myUserId` 등)은 여기 못 둔다(닭과 달걀). 계정 칸은 로그아웃해도 지우지 않는다 — 같은 계정으로 돌아오면 이어진다. `tw.accountStoreMigrated` 후에 `MOVED_KEYS` 에 키가 늘면 그 키만 새로 옮긴다(그 사이 다른 계정이 먼저 로그인했다면 그 계정이 받는다).
+- 검사: `checks/sim-account-store.js`.
+
+### 키 갈래 표 (localStorage · `tw.` 접두사 — 옛 `deskFriends.*` · `tw_chat_*` 포함)
+
+| 갈래 | 키 | 비고 |
+|---|---|---|
+| (a) 기기 공용 | `tw.deviceId` · `apiBaseUrl` · `realtimeUrl` · `remoteConfig` · `glReloads` · `renderQuality` · `dotRender` · `figureMode` · `officeMode` · `deskPan` · `focusCharScale` · `chipHorz` · `chipCollapsed` · `nameplate` · `nameplateSize` · `theme` · `accent` · `mockRoom` · `updateNoticeDismissedTs` · `chatFontSize` · `chatOpacity` · `chatSfx` · `chatSfxId` · `listenMute` · `listenVol` · `noise.*` · `pkBgmMuted` · `gapSolo` · `gapMulti` · `roomSeatMode` · `focusLogMini` · `annivAreaH` · `adBanner` · `thumbSigs` · `playlistVol/Mini/Loop*/Pos` · `tw_chat_win_pos` · `bellWinPos` · `gachaWinPos` · `wdPreviewPos` · `ideskInvPos` | 이 PC 의 성질(창 자리 · 화질 · 소리 · 모양 취향). 계정을 바꿔도 그대로 |
+| (a') 신원 · 로그인 | `tw.myUserId` · `loginEmail` · `loginAuthUid` · `myFriendCode` · `myFriendCodePrev` · `myPrevUserIds` · `invitePassed` · `inviteToken` · `signupPending` · `licenseKey` · `licenseOptOut` · `licenseReqId` | 계정 코드를 정하는 쪽이라 계정 칸에 둘 수 없다. 0.13 에서 서버 로그인 토큰으로 대체될 것은 계정 묶음(B) 몫 |
+| (b) 계정별 — **옮김(이번 PR)** | `focusTotalSec` · `focusTodaySec` · `focusTodayDate` · `focusSyncedSec` · `advZ.v2`(마이홈 바탕화면) · `advZ.v1`(옛 판 읽기 전용) | #582 에서 섞이던 것. 모듈: `focus-total.js` · `focus-level.js` · `myhome-desktop.js` |
+| (b) 계정별 — 포커스 | `focusShow` · `danceNotified` · `danceNotifiedFix` · `ideskNotified` · `starColor` · `pomo` · `pomoRun` · `bonkDay` · `dailyPlay.*` | 포커스 · 뽀모 묶음이 옮김 |
+| (b)+(c) 계정별 · 서버 원본이 될 것 | `chal`(D 달성표) · `gachaOwned` · `gachaOwnedTs` · `gachaBonus`(D 가챠) · `curSlot` · `extraSeatSlots` · `roomFaceUrls` · `slotGlbUrls` · `deskFriends.slots.*`(v1 · ts · seen · loss · lastsync · pushfail · bak · bak.meta) · `deskFriends.chars.*`(v1 · desk · trashPend) · `charsLinked` · `charsMoveFails`(D 캐릭터) · `savedDesks` · `savedItems` · `savedParts` · `decoParts` · `deskPresets` · `animalPresets` · `animalEverUnlocked` · `animalCheatUnlock` · `charColorHistory` · `seatEq` · `activeInteractionDesk` · `emojiReactions` | 서버가 원본이 되면 PC 사본이 필요 없어질 것 — 그 D 묶음이 «지움» 이든 «계정 칸으로 옮김» 이든 정한다 |
+| (b)+(c) 플레이리스트 | `playlist` · `playlistSets` · `playlistCur` · `playlistTitle` · `playlistBio` · `playlistHomePublic` · `playlistPrivate` · `playlistEditTs` · `playlistBackup` · `secretRoomMusic` | D10(playlist) — 서버 원본이면 `playlistEditTs` · `playlistBackup` 은 걷는다 |
+| (b) 프로필 · 마이홈 | `userName` · `customStatus` · `userStatus` · `awayKind` · `awayImg` · `awaySz` · `myAdBannerImg` · `bookmarks` · `mallangGiftHidden` · `inboxBcRead` · `noticeBoard`(마지막으로 받은 소식 묶음 — `launcher/notice-feed.js`) · `bellSeenTs` · `reportHidden` · `mobileKey` · `mhRecentColors.<종류>` · `mhGbLastRead:<uid>` · `mallang.<…>` | 마이홈 · 프로필 · 알림함 묶음이 옮김 |
+| (b) 대화 | `chatTab.<…>` · `tw_chat_read:<방>` · `tw_chat_join:<방>` · IndexedDB 대화 기록(`chat/chat-history.js` — 지금 scope 가 프로젝트라 계정 구분 없음) | 채팅 묶음 — IDB scope 에 계정 코드를 넣거나 서버 3일 보관으로 걷는다 |
+
+- `ACCOUNT_LOCAL_KEYS`(`account/account.js`) 대조: 이번에 옮긴 포커스 누적 네 줄, 곧 그 목록의 `focusTotalSec` · `focusTodaySec` · `focusTodayDate` · `focusSyncedSec` 을 빼도 된다(계정 칸은 로그아웃해도 안 지우는 게 맞다 — 같은 계정이 돌아오면 이어진다). `advZ` 는 원래 목록에 없었다(그래서 바탕화면이 섞였다). 지우기 · 넘기기 로직을 걷는 것은 #580.

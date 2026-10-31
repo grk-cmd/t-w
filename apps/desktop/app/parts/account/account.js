@@ -2,7 +2,7 @@
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 3개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 49줄 —
-     CHAL_KEY · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
+     CHAL_KEY · FOCUS_TOTAL_KEY · GACHA_BONUS_KEY · GACHA_OWNED_KEY · GACHA_TS_KEY · LICENSE_REQ_ID_KEY · LS_KEY · _focusTodaySec · _focusTotalSec · charsMod · extraSeatSlots · focusLevelMod · gachaMod · slotSyncMod · weeklyChal 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
@@ -21,8 +21,7 @@ const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
-const FOCUS_TODAY_DATE_KEY = deps.FOCUS_TODAY_DATE_KEY;   // 읽는 함수
-const FOCUS_TODAY_SEC_KEY = deps.FOCUS_TODAY_SEC_KEY;   // 읽는 함수
+const accountAdoptStore = deps.accountAdoptStore;   // 🗂️ 계정별 칸 — 연동으로 받은 누적 · 마크를 새 계정 칸에 채택(전환 틈에도 통과)
 const FOCUS_TOTAL_KEY = deps.FOCUS_TOTAL_KEY;   // 읽는 함수
 const GACHA_BONUS_KEY = deps.GACHA_BONUS_KEY;   // 읽는 함수
 const GACHA_OWNED_KEY = deps.GACHA_OWNED_KEY;   // 읽는 함수
@@ -51,6 +50,7 @@ const LOGIN_UID_KEY = deps.LOGIN_UID_KEY;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
+const mhScheduler = deps.mhScheduler;   // 📅 스케줄러 — 계정을 놓을 때 비운다(다음 계정 것은 로그인 뒤 다시 켠 부팅이 받는다)
 const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
@@ -129,10 +129,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
   /* 라이선스 — 이 PC 키 · 해제 표시도 계정 것이다(0.13 은 서버가 계정의 라이선스를 안다 — D8). */
   acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), acctStateMod.LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
-  /* 누적 시간(레벨 원본) — 스냅샷 focusTotalSec + syncFocusTotalToServer 의 «서버가 크면 받아온다» 가지.
-     ⚠️ FOCUS_SYNCED_KEY 는 **removeItem** 이다. 값을 두면 «마크» 가 되고, 없으면 «한 번도 안 맞춰봄 = 증분 0 · max 바닥만».
-        빈 기기에 마크가 남아 있으면 다음 계정의 첫 동기화가 (0 − 옛마크) 로 꼬인다. */
-  FOCUS_TOTAL_KEY(), FOCUS_TODAY_SEC_KEY(), FOCUS_TODAY_DATE_KEY(), focusLevelMod().FOCUS_SYNCED_KEY,
+  /* 누적 시간 · 오늘치 · 서버 맞춤 마크는 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   focusLevelMod().DANCE_NOTIFIED_KEY, focusLevelMod().DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
   /* 가챠 — 연동 pull(syncGachaToServer 'transfer','pull') + 부팅 tick 이 서버 것을 받아온다. 보너스는 loadChalBonus. */
   GACHA_OWNED_KEY(), GACHA_TS_KEY(), GACHA_BONUS_KEY(),
@@ -175,6 +172,7 @@ async function _acctFlushToServer(){
   call(typeof focusLevelMod().syncFocusTotalToServer === 'function' ? focusLevelMod().syncFocusTotalToServer : null, 'logout');
   call(gachaMod().syncGachaToServer, 'logout');
   call(weeklyChal().syncChalToServer, 'logout');
+  call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
   /* 슬롯은 대기 중인 debounce push 가 있으면 그것부터 흘려보낸다(3초를 기다릴 이유가 없다). */
   try{ if(typeof slotSyncMod()._slotsPushTimer !== 'undefined' && slotSyncMod()._slotsPushTimer()){ clearTimeout(slotSyncMod()._slotsPushTimer()); slotSyncMod().setSlotsPushTimer(null); } }catch(_){}
   call(typeof slotSyncMod().syncSlotsToServer === 'function' ? slotSyncMod().syncSlotsToServer : null, 'logout');
@@ -275,7 +273,8 @@ function _wipeAccountLocal(){
   try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — gachaOwned = {} · _gachaTs = 0 · _gachaBonus = 0 (gacha.js)
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ slotSyncMod().setSlotsTs(0); slotSyncMod().setSlotsSeen(0); slotSyncMod().setSlotsConflict(null); setExtraSeatSlots([]); }catch(_){}
-  try{ const pl = plMod.st; pl.sets = plMod.blankSets(); pl.cur = 0; pl.bio = ''; pl.homePublic = false; pl.private = false; pl.pubSig = null; plMod.resetSync(); }catch(_){}   // 🎵 playlist.js — 상태 묶음 · ☁️ 맞춤 상태도 새 기기처럼
+  try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
+  try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }

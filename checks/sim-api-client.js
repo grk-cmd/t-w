@@ -4,7 +4,7 @@
    2. 성공 — 봉투 { success, data } 의 data · 토큰 · 쿠키 없이 · 주소 = 기본 + 경로
    3. 실패 한 모양 — 네트워크 · 시간 초과 · 5xx · 404 · 봉투 아님 → unavailable · *_NOT_READY → notReady · 401/403 → auth · 그 밖 4xx → request · shouldFallback
    4. 쉬기 — unavailable 뒤 BACKOFF_MS 동안 묻지 않고 곧장 실패(BACKOFF) · 지나면 다시 · notReady · 성공은 쉬지 않음
-   5. 캐시 · 같은 요청 하나로 · 주소 없음
+   5. 캐시 · 같은 요청 하나로(로그인 읽기는 누구별) · 주소 없음
    6. 쓰기 — post · put · patch · del 방법 · 본문 · 로그인 기본 · 쓰기 시간 제한 · 204 · 쉬지 않음
    7. 로그인 — 토큰 · X-Device-Id 머리 · 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 · 가입 전(NOT_BOUND)은 다시 안 함 · 토큰 없음
    8. ETag — 기억 · If-None-Match · 304 면 기억 값 · 계정이 다르면 따로 · 계정을 놓을 때(forgetSession) 진행 중 로그인 읽기 · 기억을 뗌 · 상한 · 오류 봉투(items · Retry-After · 자원 없음 404)
@@ -136,6 +136,52 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const p1 = c2.get('/same'), p2 = c2.get('/same');
     await new Promise((r) => setTimeout(r, 0)); release();
     chk((await p1) === 'x' && (await p2) === 'x' && g.calls.length === 1, '같은 경로를 동시에 부르면 요청은 하나');
+    {
+      /* 로그인 읽기는 누구의 것인지가 열쇠에 든다 — 계정이 바뀌는 사이 앞 계정의 응답에 합쳐지지 않는다 */
+      const rel = [];
+      const q = mkFetch((url, init) => new Promise((r) => { rel.push(() => r(res(200, { success: true, data: init.headers.Authorization }))); }));
+      const tk = { v: jwt('A') };
+      const cq = A.createApiClient({ baseUrl: PROD, fetch: q, getToken: async () => tk.v });
+      const a1 = cq.get('/me', { auth: true }), a2 = cq.get('/me', { auth: true });
+      await new Promise((r) => setTimeout(r, 0));
+      tk.v = jwt('B');
+      const b1 = cq.get('/me', { auth: true });
+      await new Promise((r) => setTimeout(r, 0));
+      rel.forEach((f2) => f2());
+      const [ra, rb, rc] = [await a1, await a2, await b1];
+      chk(q.calls.length === 2 && ra === rb && rc !== ra, '★ 로그인 읽기 — 같은 사람의 동시 요청은 하나로 · 계정이 바뀐 뒤 요청은 앞 계정 응답에 합쳐지지 않고 따로 간다');
+    }
+    {
+      /* 토큰 받기가 멈춰도 시간 제한 안에서 끝난다 · 토큰은 요청당 한 번만 받는다 */
+      const hf = mkFetch(() => res(200, { success: true, data: 1 }));
+      const t0 = Date.now();
+      const eh = await err(A.createApiClient({ baseUrl: PROD, fetch: hf, timeoutMs: 40, getToken: () => new Promise(() => {}) }).get('/me', { auth: true }));
+      chk(eh && eh.code === 'TIMEOUT' && eh.kind === 'unavailable' && hf.calls.length === 0 && Date.now() - t0 < 1500, '★ 토큰 받기가 안 끝나도 timeoutMs 안에 TIMEOUT(요청 0)');
+      let n = 0;
+      const once1 = mkFetch(() => res(200, { success: true, data: 1 }));
+      const cg = A.createApiClient({ baseUrl: PROD, fetch: once1, timeoutMs: 40, getToken: () => (++n === 1 ? Promise.resolve(jwt('A')) : new Promise(() => {})) });
+      chk((await cg.get('/me', { auth: true })) === 1 && n === 1, '  로그인 읽기는 토큰을 한 번만 받는다(두 번째 받기가 멈춰도 상관없다)');
+    }
+    {
+      /* 쓰기 — 읽은 토큰의 주인과 묶는다 */
+      const wf = mkFetch(() => res(200, { success: true, data: 7 }));
+      const tk = { v: jwt('A') };
+      const cw = A.createApiClient({ baseUrl: PROD, fetch: wf, getToken: async () => tk.v });
+      tk.v = jwt('B');
+      const ew = await err(cw.put('/me/x', { a: 1 }, { expectOwner: 'A' }));
+      chk(ew && ew.code === 'OWNER_CHANGED' && ew.status === 0 && wf.calls.length === 0, '★ 쓰기 — 토큰 주인이 읽을 때(A)와 달라지면(B) 보내지 않고 OWNER_CHANGED(요청 0)');
+      chk((await cw.put('/me/x', { a: 1 }, { expectOwner: 'B' })) === 7 && wf.calls.length === 1, '  주인이 같으면 그대로 보낸다');
+      chk((await cw.put('/me/x', { a: 1 })) === 7 && wf.calls.length === 2, '  expectOwner 를 안 주면 지금과 같다(다른 기능 무변경)');
+      const bytes = new Uint8Array([1, 2, 3]);
+      const rf = mkFetch(() => res(200, { success: true, data: { url: 'u' } }));
+      const cr = A.createApiClient({ baseUrl: PROD, fetch: rf, getToken: async () => jwt('A') });
+      await cr.post('/v1/me/images?purpose=dday', bytes, { rawType: 'image/png', expectOwner: 'A' });
+      const ri = rf.calls[0].init;
+      chk(ri.body === bytes && ri.headers['Content-Type'] === 'image/png' && ri.method === 'POST' && ri.headers.Authorization === 'Bearer ' + jwt('A'), '  rawType — 바이트 본문을 JSON 으로 바꾸지 않고 그 Content-Type 으로 그대로 보낸다');
+      const owners = [];
+      tk.v = jwt('C');
+      chk((await cw.get('/me/x', { auth: true, onOwner: (w) => owners.push(w) })) === 7 && owners.join() === 'C', '  읽기 onOwner — 그 요청에 쓴 토큰의 주인을 알려 준다');
+    }
     const e = await err(A.createApiClient({ baseUrl: '', fetch: f }).get('/x'));
     const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: null }).get('/x'));
     chk(e.kind === 'unavailable' && e.code === 'NO_API' && e2.code === 'NO_API', '주소 · fetch 가 없으면 곧장 unavailable(NO_API)');
@@ -171,7 +217,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     const f = mkFetch((url, init) => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: init.headers.Authorization })));
     const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async (force) => { forces.push(force); return force ? 'fresh' : 'old'; }, deviceId: () => 'dev-0001' });
     const v = await c.get('/v1/me', { auth: true });
-    chk(v === 'Bearer fresh' && forces.join(',') === 'false,true' && f.calls.length === 2, '401 AUTH_REQUIRED(토큰이 막 끝남) → 새 토큰(force)으로 한 번만 다시');
+    chk(v === 'Bearer fresh' && forces.join(',') === 'false,true' && f.calls.length === 2, '401 AUTH_REQUIRED(토큰이 막 끝남) → 새 토큰(force)으로 한 번만 다시(첫 토큰은 요청당 한 번만 받는다)');
     chk(f.calls[0].init.headers['X-Device-Id'] === 'dev-0001' && A.DEVICE_HEADER === 'X-Device-Id', '  ↳ 로그인 요청에 이 기기 머리 X-Device-Id');
     const g = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
     const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: g, getToken: async () => 't' }).get('/x', { auth: true }));
@@ -309,7 +355,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         ok(f.calls[3].init.method === 'DELETE' && f.calls[3].init.body === undefined && f.calls[3].init.headers.Authorization === 'Bearer tk');
         let n = 0; const forces = [];
         const g = mkFetch(() => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: 1 })));
-        ok((await M.createApiClient({ baseUrl: PROD, fetch: g, getToken: async (x) => { forces.push(x); return 't'; } }).get('/r', { auth: true })) === 1 && forces[1] === true);
+        ok((await M.createApiClient({ baseUrl: PROD, fetch: g, getToken: async (x) => { forces.push(x); return 't'; } }).get('/r', { auth: true })) === 1 && forces.join() === 'false,true');
         const h = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
         await err(M.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/r', { auth: true }));
         ok(h.calls.length === 2);
@@ -342,6 +388,31 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
           const [r2, r3] = await Promise.all([q2, q3]);
           ok(r2 === 'Bearer ' + jwt('B') && r3 === r2 && ff.calls.length === 2);
         }
+        const rel = [];
+        const q = mkFetch((url, init) => new Promise((r) => { rel.push(() => r(res(200, { success: true, data: init.headers.Authorization }))); }));
+        const tq = { v: jwt('A') };
+        const cq = M.createApiClient({ baseUrl: PROD, fetch: q, getToken: async () => tq.v });
+        const a1 = cq.get('/me', { auth: true });
+        await new Promise((r) => setTimeout(r, 0));
+        tq.v = jwt('B');
+        const b1 = cq.get('/me', { auth: true });
+        await new Promise((r) => setTimeout(r, 0));
+        rel.forEach((f2) => f2());
+        ok(q.calls.length === 2 && (await a1) !== (await b1));
+        const hf = mkFetch(() => res(200, { success: true, data: 1 }));
+        const eh = await err(M.createApiClient({ baseUrl: PROD, fetch: hf, timeoutMs: 30, getToken: () => new Promise(() => {}) }).get('/me', { auth: true }));
+        ok(eh && eh.code === 'TIMEOUT' && hf.calls.length === 0);
+        let gn = 0;
+        const g1 = mkFetch(() => res(200, { success: true, data: 1 }));
+        ok((await M.createApiClient({ baseUrl: PROD, fetch: g1, timeoutMs: 30, getToken: () => (++gn === 1 ? Promise.resolve(jwt('A')) : new Promise(() => {})) }).get('/me', { auth: true })) === 1);
+        const wf = mkFetch(() => res(200, { success: true, data: 7 }));
+        const wt = { v: jwt('A') };
+        const cw = M.createApiClient({ baseUrl: PROD, fetch: wf, getToken: async () => wt.v });
+        wt.v = jwt('B');
+        const ew = await err(cw.put('/m', {}, { expectOwner: 'A' }));
+        ok(ew && ew.code === 'OWNER_CHANGED' && wf.calls.length === 0);
+        ok((await cw.put('/m', {}, { expectOwner: 'B' })) === 7 && (await cw.put('/m', {})) === 7 && wf.calls.length === 2);
+        const ow = []; await cw.get('/m', { auth: true, onOwner: (x) => ow.push(x) }); ok(ow.join() === 'B');
         const w = { localStorage: memStore({}), TwMaintenance: { store: { touch(){} } }, TwDeviceId: { store: { get: () => 'dev-0001' } }, fetch: async () => { throw new TypeError('x'); } };
         w.window = w;
         vm.runInNewContext(src, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
@@ -362,14 +433,19 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       ["    o.auth = o.auth !== false;", "", '쓰기가 로그인 없이 감'],
       ["    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch, backoffMs: 0,", "    authed = createApiClient({ baseUrl, fetch: fetchFn, onRequest: touch,", '로그인 통로가 쉬기를 씀'],
       ["if(method !== 'GET' && !(method === 'DELETE' && o.body === undefined)){", "if(method !== 'GET'){", '본문 없는 DELETE 에 null 본문'],
+      ["joined('A ' + a.who + ' ' + path, path,", "joined('A ' + path, path,", '같은 요청 합치기에 누구가 안 들어감'],
+      ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(false) throw", '쓰기 직전 토큰 주인을 안 견줌'],
+      ["    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw", "    if(o.expectOwner && tokenOwner(tok) === o.expectOwner) throw", '토큰 주인 견줌이 거꾸로'],
+      ["    if(!force && 'tok' in o) tok = o.tok;", "    if(false) tok = o.tok;", '이미 받은 토큰을 또 받음'],
+      ["      try{ tok = getToken ? await Promise.race([getToken(false), to]) : null; }", "      try{ tok = getToken ? await getToken(false) : null; }", '토큰 받기가 시간 제한 밖'],
+      ["return o.onOwner ? p.then((data) => { o.onOwner(a.who); return data; }) : p;", "return p;", 'onOwner 를 안 부름'],
       ["        memoKey = a.who + ' ' + path;", "        memoKey = path;", 'ETag 기억을 계정끼리 섞음'],
-      ["for(const k of Array.from(inflight.keys())) if(k.indexOf('A ') === 0) inflight.delete(k);", "", '계정을 놓아도 진행 중 로그인 읽기를 안 뗌'],
-      ["if(inflight.get(key) === p) inflight.delete(key);", "inflight.delete(key);", '늦게 끝난 앞 계정 읽기가 새 계정 자리를 지움'],
     ];
     const missed = [];
     for(const [from, to, what] of BREAKS){
       if(SRC.indexOf(from) < 0){ missed.push('글 못 찾음: ' + what); continue; }
-      if((await probe(SRC.split(from).join(to))) === 0) missed.push(what);
+      const bad = await Promise.race([probe(SRC.split(from).join(to)), new Promise((r) => setTimeout(() => r(99), 2500))]);   // 멈추면(시간 제한 밖 토큰 받기) 빨강
+      if(bad === 0) missed.push(what);
     }
     chk(!missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
   }

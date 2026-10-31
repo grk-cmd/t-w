@@ -1684,13 +1684,21 @@
   .race-card.disabled .race-preview{filter:grayscale(1) opacity(.65);}
 
   /* 방 목록 로비(room-lobby-ui.js) — 모달을 넓혀 카드 3 × 4. 베젤 없음(audit 검사 12 대상 아님) · 색은 토큰만. */
-  #inviteModal{width:720px;}
-  #lobbyMain .lb-secret{display:flex;align-items:center;gap:10px;padding:7px 10px;margin-bottom:10px;border:1px solid var(--win-select);border-radius:var(--win-radius-el);background:var(--win-face-2);font-size:12px;color:var(--ink);}
+  /* 높이: 런처에서 열면 창이 마이홈 크기(800 × 580)라 그 안에 스크롤 없이 들어가게 여백 · 칸을 조인다.
+     max-height 는 그래도 넘칠 때(줌 · 작은 화면) 위아래가 잘리지 않게 하는 보험 */
+  #inviteModal{width:720px;max-height:calc(100vh - 12px);overflow-y:auto;padding-bottom:12px;}
+  /* 닫기는 제목줄 ✕(설정 창과 같은 모양) */
+  #inviteModal h2{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+  #inviteModal .lb-x{width:16px;height:14px;padding:0;font-family:inherit;font-size:10px;line-height:1;cursor:pointer;color:var(--ink);
+    display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  #inviteModal > p{margin-bottom:6px;}
+  #lobbyMain .lb-secret{display:flex;align-items:center;gap:10px;padding:2px 10px;margin-bottom:4px;border:1px solid var(--win-select);border-radius:var(--win-radius-el);background:var(--win-face-2);font-size:12px;color:var(--ink);}
   #lobbyMain .lb-secret[hidden]{display:none;}
   #lobbyMain .lb-secret-tag{color:var(--win-select);}
   #lobbyMain .lb-secret-name{flex:1;min-width:0;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lobbyMain .lb-secret-count{font-size:11px;color:var(--ink-soft);}
-  #lobbyMain .lb-secret .lc-btn{width:auto;padding:5px 10px;}
+  #lobbyMain .lb-secret .lc-btn{width:auto;margin-top:0;padding:3px 10px;}
   #lobbyMain .lb-bar{display:flex;align-items:flex-end;gap:6px;}
   #lobbyMain .lb-tabs{display:flex;gap:2px;flex:1;}
   #lobbyMain .lb-tab{padding:6px 16px;font-family:var(--tw-font-legacy);font-size:12px;color:var(--ink);cursor:pointer;background:var(--win-face);border:1px solid var(--ink-soft);border-bottom:none;border-radius:var(--win-radius-el) var(--win-radius-el) 0 0;}
@@ -1700,10 +1708,10 @@
   #lobbyMain .lb-seg button.on{background:var(--tw-bg-select);color:var(--tw-ink);font-weight:bold;}
   #lobbyMain .lb-icon{min-width:26px;height:24px;margin-bottom:4px;font-size:13px;color:var(--ink);background:var(--win-face-2);border:1px solid var(--ink-soft);border-radius:var(--win-radius-el);cursor:pointer;}
   #lobbyMain .lb-icon:disabled{opacity:.4;cursor:not-allowed;}
-  #lobbyMain .lb-panel{border:1px solid var(--ink-soft);border-radius:0 var(--win-radius-el) var(--win-radius-el) var(--win-radius-el);background:var(--win-face-2);padding:8px;}
-  #lobbyMain .lb-info{display:flex;gap:8px;font-size:11px;color:var(--ink-soft);margin-bottom:6px;min-height:14px;}
+  #lobbyMain .lb-panel{border:1px solid var(--ink-soft);border-radius:0 var(--win-radius-el) var(--win-radius-el) var(--win-radius-el);background:var(--win-face-2);padding:6px 8px;}
+  #lobbyMain .lb-info{display:flex;gap:8px;font-size:11px;color:var(--ink-soft);margin-bottom:4px;min-height:14px;}
   #lobbyMain .lb-note{color:var(--tw-ink-danger);}
-  #lobbyMain .lb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:70px;gap:6px;min-height:298px;}
+  #lobbyMain .lb-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));grid-auto-rows:56px;gap:6px;min-height:242px;}
   /* 카드 위 띠 — 입장 가능은 타이틀바 색 · 가득 참은 회색(오류가 아니라 «지금은 못 들어감»). 늘 낱말과 같이(색만으로 가르지 않는다) */
   #lobbyMain .lb-card{display:flex;flex-direction:column;padding:0;overflow:hidden;min-width:0;text-align:left;font-family:var(--tw-font-legacy);color:var(--tw-ink);background:var(--tw-bg-face);border:1px solid var(--tw-accent);border-radius:var(--win-radius-el);cursor:pointer;}
   #lobbyMain .lb-card:hover:not(:disabled){outline:2px solid var(--tw-accent);outline-offset:-1px;}
@@ -1711,19 +1719,19 @@
   #lobbyMain .lb-band{flex:none;display:flex;justify-content:space-between;align-items:center;gap:6px;height:20px;padding:0 6px;background:var(--tw-title-a);}
   #lobbyMain .lb-code{font-family:var(--win-font-num);font-size:11px;font-weight:bold;letter-spacing:1px;color:var(--tw-title-ink);}
   #lobbyMain .lb-card.full .lb-band{background:var(--tw-line);}
-  #lobbyMain .lb-body{flex:1;display:flex;align-items:center;gap:8px;padding:4px 8px;min-width:0;}
+  #lobbyMain .lb-body{flex:1;display:flex;align-items:center;gap:8px;padding:3px 8px;min-width:0;}
   #lobbyMain .lb-card.full .lb-body{opacity:.55;}
-  #lobbyMain .lb-no{flex:none;width:30px;height:30px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:var(--tw-ink-accent);background:var(--tw-bg-select);border-radius:var(--win-radius-el);}
-  #lobbyMain .lb-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:3px;}
+  #lobbyMain .lb-no{flex:none;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:bold;color:var(--tw-ink-accent);background:var(--tw-bg-select);border-radius:var(--win-radius-el);}
+  #lobbyMain .lb-mid{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px;}
   #lobbyMain .lb-top{display:flex;align-items:center;gap:4px;min-width:0;}
   #lobbyMain .lb-tag{flex:none;font-size:10px;font-weight:bold;padding:0 5px;border-radius:999px;background:var(--tw-pop);color:var(--tw-on-pop);}
   #lobbyMain .lb-title-box{flex:1;min-width:0;overflow:hidden;}
-  #lobbyMain .lb-title{display:block;font-size:12px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lobbyMain .lb-title{display:block;font-size:12px;line-height:15px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lobbyMain .lb-title.dim{color:var(--ink-soft);font-weight:normal;}
   #lobbyMain .lb-card:hover .lb-title.long,#lobbyMain .lb-card:focus-visible .lb-title.long{overflow:visible;text-overflow:clip;width:max-content;animation:lb-flow 6s ease-in-out .4s infinite;}
   @keyframes lb-flow{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--lb-d))}100%{transform:translateX(0)}}
   @media (prefers-reduced-motion: reduce){#lobbyMain .lb-card:hover .lb-title.long{animation:none;overflow:hidden;text-overflow:ellipsis;width:auto;}}
-  #lobbyMain .lb-host{font-size:11px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lobbyMain .lb-host{font-size:11px;line-height:14px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lobbyMain .lb-count{flex:none;font-size:12px;font-weight:bold;}
   #lobbyMain .lb-card.full .lb-count{color:var(--tw-ink-soft);}
   #lobbyMain .lb-state{font-size:10px;font-weight:bold;line-height:14px;padding:0 7px;border-radius:999px;background:var(--tw-bg-face-2);border:1px solid var(--tw-ink-accent);color:var(--tw-ink-accent);}
@@ -1731,8 +1739,8 @@
   #lobbyMain .lb-state-box{grid-column:1/-1;align-self:center;display:flex;flex-direction:column;align-items:center;gap:8px;font-size:12px;color:var(--ink-soft);text-align:center;}
   #lobbyMain .lb-state-box .lc-btn{width:auto;padding:6px 12px;}
   #lobbyMain .lb-err{color:var(--tw-ink-danger);}
-  #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:8px;}
-  #lobbyMain .lb-foot .lc-btn{width:auto;padding:8px 14px;}
+  #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:4px;}
+  #lobbyMain .lb-foot .lc-btn{width:auto;margin-top:0;padding:5px 14px;}
   #lobbyMain .lb-grow{flex:1;}
   #lobbyMain .lb-page{min-width:44px;text-align:center;font-size:12px;color:var(--ink);}
   #lobbyMain[hidden]{display:none;}
@@ -5844,6 +5852,7 @@
               <label><input id="mhSchedPublic" type="checkbox"> 친구에게 공개</label>
               <button id="mhSchedTagBtn" type="button" class="mh-txtbtn">👥 친구 태그</button>
               <span id="mhSchedTagInfo"></span>
+              <span id="mhSchedPublicHint"></span>
             </div>
           </div>
         </div>
@@ -5905,6 +5914,7 @@
             <button id="mhDdayTagBtn" type="button">👥 친구 태그</button>
             <span id="mhDdayTagInfo"></span>
           </div>
+          <div class="mh-dde-hint" id="mhDdayPublicHint"></div>
           <div id="mhDdayEditMsg"></div>
         </div>
         <div class="mh-dde-foot">
@@ -8142,7 +8152,7 @@
 
 <div id="inviteOverlay">
   <div id="inviteModal">
-    <h2>방 찾기 · 만들기</h2>
+    <h2><span>방 찾기 · 만들기</span><button type="button" class="lb-x" id="inviteClose" aria-label="닫기" title="닫기">✕</button></h2>
     <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)</p>
     <div id="inviteIdle">
       <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 서버 함수가 1분마다 만드는 사본(roomLobby)을 모달을 열 때 · 새로 고침 · 60초마다 읽는다 -->
@@ -8178,7 +8188,7 @@
           <button type="button" class="lb-icon" id="lobbyNext" aria-label="다음 쪽">›</button>
         </div>
         <!-- 💝 후원 링크 — 투게더룸은 라이선스가 필요해서 로비 아래에 둔다. 시스템 브라우저로 열림(app.js에서 처리). -->
-        <div style="text-align:center;margin-top:8px;">
+        <div style="text-align:center;margin-top:4px;">
           <a id="donateLink" href="https://litt.ly/togetherworking" title="후원 페이지로 이동해요"><span class="donate-shine">후원하러 가기 ››</span></a>
         </div>
       </div>
@@ -8219,14 +8229,14 @@
       </div>
 
       <!-- 참여 코드 입력 (늘 로비 아래에 보인다 — 시크릿룸은 «1234*» 로 넣거나 로비 맨 위 «내 시크릿룸» 줄로) -->
-      <div id="inviteJoinPanel" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--win-lo-2);">
-        <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 8px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 랜덤 참여를 허용한 방에 들어가요 🎲</div>
+      <div id="inviteJoinPanel" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--win-lo-2);">
+        <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 6px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 랜덤 참여를 허용한 방에 들어가요 🎲</div>
         <div style="display:flex;gap:8px;align-items:center;">
           <div class="room-code-group" style="margin-bottom:0;flex:1;">
             <span class="room-code-prefix">COZY-</span>
             <input id="inviteCode" class="room-code-in" type="text" placeholder="예: 7Q2K" maxlength="5" autocomplete="off" spellcheck="false">
           </div>
-          <button class="lc-btn ghost" id="inviteJoin" style="width:auto;padding:10px 14px;">참여</button>
+          <button class="lc-btn ghost" id="inviteJoin" style="width:auto;margin-top:0;padding:6px 14px;">참여</button>
         </div>
       </div>
     </div>
@@ -8257,7 +8267,6 @@
            워킹룸에서만 보인다(refreshInviteUI가 _activeChannel로 판단). -->
       <button class="lc-btn ghost" id="inviteHopRandom" style="margin-bottom:6px;display:none;">🎲 다른 랜덤룸 참여하기</button>
     </div>
-    <div class="code-btns"><button id="inviteClose">닫기</button></div>
   </div>
 </div>
 
@@ -8431,6 +8440,7 @@
 <script src="parts/shared/blink-timing.js"></script>   <!-- 👁 깜빡임 시간표(좌석 · 런처 미리보기) — app.js 보다 먼저 -->
 <script src="parts/shared/maintenance-gate.js"></script>   <!-- 🛠 서버 점검 창(window.TwMaintenance — config/maintenance · 서버 기능을 누르면 창) — error-codes.js · api-client.js 보다 먼저 -->
 <script src="parts/shared/error-codes.js"></script>   <!-- ⚠️ 에러코드 표 · 실패 토스트에 번호 붙이기(window.TwErrorCodes) — 부르는 모듈 · app.js 보다 먼저 -->
+<script src="parts/shared/account-store.js"></script>   <!-- 🗂️ 계정별 로컬 칸(window.TwAccountStore — tw.u.<계정코드>.이름) — 포커스 누적 · 마이홈 바탕화면 · app.js 보다 먼저 -->
 <script src="parts/shared/json-store.js"></script>   <!-- 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳(window.TwJsonStore) — 책상 프리셋 저장 · animal.js · app.js 보다 먼저 -->
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
 <script src="parts/room/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
@@ -8456,6 +8466,7 @@
 <script src="parts/shared/net-ready.js"></script>   <!-- 🛰 «네트워크(provider) 준비됨» 기다리기 한 곳(window.TwNetReady) — 쓰는 모듈(스케줄러 · 방 · 계정 · 카탈로그 · 버그 게시판) · app.js 보다 먼저 -->
 <script src="parts/shared/upload-cache.js"></script>   <!-- 🗂️ 업로드 캐시 상한 규칙 한 곳(window.TwUploadCache) — 방 동기화 · 슬롯 동기화가 deps 로 받음 · app.js 보다 먼저 -->
 <script src="parts/shared/win-stack.js"></script>   <!-- 🪟 창 겹침 · ESC 스택 — 창 자리 되돌리기 목록(__winPosResetters)을 거는 모듈(스케줄러 · 플레이리스트 · 가챠 · 설정)보다 먼저 · app.js 보다 먼저(app.js 가 원래 자리에서 TwWinStack.createWinStack 로 만든다) -->
+<script src="parts/myhome/schedule-api.js"></script>   <!-- 🌐 일정 · 디데이 · 일정 알림 서버 길 provider — scheduler.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
 <script src="parts/myhome/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
 <script src="parts/focus/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
 <script src="parts/purikura/pk-bgm.js"></script>   <!-- 🎵 스티커사진 창 BGM(재생 · 멈춤 · 끄기 기억) — purikura-ui.js 보다 먼저(만들 때 TwPkBgm 을 부른다) -->
@@ -8476,7 +8487,11 @@
 <script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/shared/drag-scroll.js"></script>   <!-- 🖱 목록 끌어 움직이기 — myhome-inbox.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
-<script src="parts/status/playlist-sync.js"></script>   <!-- ☁️ 플레이리스트 기기 간 맞추기 규칙(순수) — app.js 보다 먼저(app.js 가 deps 로 playlist.js 에 넘긴다) -->
+<script src="parts/myhome/inbox-api.js"></script>   <!-- 📩 우편 서버 길(/v1/me/notifications — 읽기 · 읽음 · 지우기) provider — mail-feed.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
+<script src="parts/myhome/mail-feed.js"></script>   <!-- 📩 내 우편 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기) — app.js 보다 먼저(app.js 가 inbox-api 와 realtime 알림을 넘겨 만든다) -->
+<script src="parts/launcher/notice-api.js"></script>   <!-- 📢 공지 서버 길(/v1/notices — 소식 · 업데이트 공지 · 런처 배너 · 관리자 소식 쓰기) provider — notice-feed.js · app.js 보다 먼저 -->
+<script src="parts/launcher/notice-feed.js"></script>   <!-- 📢 공지 한 판(소식 · 업데이트 공지 · 배너를 받아 들고 알림에 다시 받기) — app.js 보다 먼저 -->
+<script src="parts/status/playlist-api.js"></script>   <!-- 🌐 플레이리스트 서버 길(내 목록 · 파도타기) provider — playlist.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
 <script src="parts/status/bgm-diag.js"></script>   <!-- 🔍 플레이리스트 소리 진단 줄 — app.js 보다 먼저(app.js 가 TwBgmDiag.createBgmDiag 로 만든다) -->
 <script src="parts/status/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
 <script src="parts/admin/admin-license-bulk.js"></script>   <!-- 🛠️ 관리자: 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 — 관리자 코드는 parts/admin/ 에 모은다 · app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicenseBulk.createAdminLicenseBulk 로 만든다) -->
@@ -8626,6 +8641,7 @@
 <script src="parts/app.js"></script>
 <script src="parts/myhome/folder-free.js"></script>   <!-- 📂 마이홈 바탕화면 «폴더 자유배치» — myhome-desktop.js 보다 먼저 -->
 <script src="parts/myhome/myhome-desktop.js"></script>
+<script src="parts/myhome/myhome-desktop-boot.js"></script>   <!-- 🖥️ 바탕화면을 만드는 줄(계정 칸을 deps 로) — myhome-desktop.js 바로 다음 -->
 <script src="parts/myhome/mallang.js"></script>
 <!-- 📚 마이홈 북마크 책장 — MYHOME_DESKTOP.addFolder 로만 붙는다(myhome-desktop.js 는 host:'side' 한 항목만 늘었다). -->
 <script src="parts/myhome/bookmark.js"></script>

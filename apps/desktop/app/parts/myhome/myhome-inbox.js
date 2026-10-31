@@ -6,11 +6,11 @@
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게). 구역 머리 주석 둘은
      app.js 에 남겼다(구역 번호가 밀리지 않게 — 그 아래에 연결 · 옮긴 곳 안내만 있다).
      바뀐 것은 열네 줄뿐이다 — 모두 app.js 가 다시 대입하는 let 을 읽는 함수로 읽는다.
-       · _myInbox → _myInbox() · _inboxBroadcast → _inboxBroadcast()   (수령함 · 공용 공지 구독이 다시 대입 — 마이홈 열기)
+       · _myInbox → 우편 한 벌(mailFeed.items()) · _inboxBroadcast → 공지 한 판(noticeFeed.broadcasts())   (서버 원본 — 0.13)
        · _myHomeFriends → _myHomeFriends()                             (친구 목록 구독이 다시 대입)
        · isAdmin → isAdmin()                                           (로그인할 때 다시 대입 · 만드는 줄보다 뒤에 선언 — 값이면 TDZ)
-     구독이 쓰는 _myInbox · _myInboxReady · _inboxBroadcast 와 로그아웃 지움 목록이 같이 쓰는 INBOX_BC_READ_KEY 는
-     app.js 에 남겼다(_myHomeFriends 와 같은 방식 — 쓰는 곳이 app.js 라 쓰는 함수를 새로 낼 까닭이 없다).
+     우편 · 소식의 원본은 서버다(0.13) — 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js)을 deps 로 받아 읽고 누른다. 예전 let 사본(_myInbox · _inboxBroadcast)은 없다.
+     로그아웃 지움 목록이 같이 쓰는 INBOX_BC_READ_KEY(소식 읽음 — 이 PC)는 app.js 에 남겼다.
    ★ 이 모듈의 상태는 _mhSelectedFriend · _friendFilter · _inboxFilter · _inboxOpenId 넷이다. 밖(🏠 마이홈 창 버튼 연결)에서
      쓰던 셋은 setInboxFilter · setInboxOpenId · setFriendFilter 로 쓴다.
    ★ 밖으로 내놓는 이름은 createMyHomeInbox 의 반환값이다 — app.js 의 부르는 곳(마이홈 열기의 구독 · 마이홈 창 버튼 연결 ·
@@ -34,8 +34,10 @@ const escHtml = deps.escHtml;
 const toast = deps.toast;
 const getMyUserId = deps.getMyUserId;
 // 📩 수령함 — app.js 의 let(구독이 다시 대입)과 저장 키
-const _myInbox = deps.myInbox;                       // 읽는 함수 — 개인 수령함(마이홈 열기의 subscribeInbox 가 다시 대입)
-const _inboxBroadcast = deps.inboxBroadcast;         // 읽는 함수 — 공용 공지(subscribeInboxBroadcast 가 다시 대입)
+const mailFeed = deps.mailFeed;                      // 📩 내 우편 한 벌 — 받는 중 · 못 받음 · 읽음 · 지우기(mail-feed.js)
+const noticeFeed = deps.noticeFeed;                  // 📢 공지 한 판 — 소식 · 관리자 올리기 · 고정 · 내리기(notice-feed.js)
+const _myInbox = () => mailFeed.items();             // 개인 우편 { id: {tag, title, body, ts, read, bugId?} } — 원본은 서버
+const _inboxBroadcast = () => noticeFeed.broadcasts();   // 공용 소식 { id: {tag, title, body, ts, pinned, version} } — 읽음만 이 PC(INBOX_BC_READ_KEY)
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;    // 공용 공지 읽음 id 집합(로컬) — 로그아웃 지움 목록이 같이 쓴다
 const isAdmin = deps.isAdmin;                        // 읽는 함수 — app.js 의 let(로그인할 때 다시 대입 · 이 줄보다 뒤에 선언)
 const mhScheduler = deps.mhScheduler;                // 🔔 벨 뱃지 — 만드는 줄보다 앞에서 만들어지는 const
@@ -69,8 +71,7 @@ function _inboxMerged(){
 }
 // 📩 안 읽은 메시지 개수 — 벨 뱃지/버튼 표시에 사용 (개인 + 공용 공지)
 function _inboxUnreadCount(){
-  const m = _inboxMerged();
-  return Object.keys(m).filter(id => !m[id].read).length;
+  return inboxSec.unread(_inboxMerged(), mailFeed.unread()).total;
 }
 /* 📩 우편함 탭에 안 읽은 보상이 있으면 배지 표시.
    ⚠️ 예전엔 이 배지가 **친구 탭**에 붙어 있었다 — 수령함이 친구 탭 오른쪽 칸에 얹혀 있었기 때문이다.
@@ -95,8 +96,15 @@ let _inboxOpenId = null;        // 📩 우편 칸에서 펼친 카드 id
 let _newsOpenId = null;         // 📢 소식 칸에서 고른 글 id
 /* 우편함 탭에 들어올 때 — 안 읽은 우편이 있으면 우편, 없으면 소식부터(펼침은 접는다) */
 function _inboxEnter(){
-  _inboxSec = inboxSec.firstSec(_inboxMerged());
+  _inboxSec = inboxSec.firstSec(_inboxMerged(), mailFeed.unread());
   _inboxOpenId = null;
+}
+/* 📩 알림함이 눈앞에 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) — 닫힌 동안 실패한(error) 피드는 manual 로 한 번 다시 받는다(manual 이라 못 받으면 오류 번호가 뜬다).
+   이미 받는 중(켤 때 · 새 알림으로 받는 중)이면 부르지 않는다(받는 중에 또 부르면 끝난 뒤 한 번 더 나간다). 칸 고르기(_inboxEnter)와 별개. */
+function retryIfFailed(){
+  for(const feed of [mailFeed, noticeFeed]){
+    if(feed.status() === feed.STATUS.ERROR && !feed.busy()) feed.refresh({ manual: true });
+  }
 }
 /* 🔒 친구 목록에 보여줄 방 표시 — 시크릿룸이면 빈 문자열(= 표시 없음).
    presence 의 room 값은 친구라면 누구나 읽으므로, 시크릿룸 코드는 애초에 올리지 않는다
@@ -513,22 +521,21 @@ function _mhAsk(title, text, btns){
 function _inboxMarkRead(id, m){
   if(m.read) return;
   if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }
-  else if(window.firebaseAPI && firebaseAPI.markInboxRead){ firebaseAPI.markInboxRead(getMyUserId(), id); }
+  else mailFeed.markRead(id);   // 서버가 됐다 하면 화면이 읽음으로 바뀐다(실패는 오류 번호)
   mhScheduler.refreshBellBadge();
 }
 /* × 지우기 — 공용 공지는 관리자면 모두에게서, 일반 사용자는 이 PC 에서 읽음으로만 */
 async function _inboxDelete(id, m){
   if(m._src === 'broadcast'){
-    if(isAdmin() && firebaseAPI.deleteInboxBroadcast){ try{ await firebaseAPI.deleteInboxBroadcast(id); }catch(err){} }
+    if(isAdmin()) await noticeFeed.remove(id);
     else { _inboxBcMarkRead(id); renderInbox(); mhScheduler.refreshBellBadge(); }
     return;
   }
-  if(!window.firebaseAPI || !firebaseAPI.deleteInboxMessage) return;
-  try{ await firebaseAPI.deleteInboxMessage(getMyUserId(), id); }catch(err){}
+  await mailFeed.remove(id);
 }
 /* 📌 관리자 전용 고정 토글 — 공용 공지(broadcast)에만. 누르면 pinned 를 켜고 끄고 다시 정렬한다. */
 function _inboxPinBtn(id, m){
-  if(!(isAdmin() && m._src === 'broadcast' && firebaseAPI.setInboxBroadcastPinned)) return null;
+  if(!(isAdmin() && noticeFeed.confirmed() && m._src === 'broadcast')) return null;   // 저장본을 보여 주는 동안은 고치지 않는다
   const pinBtn = document.createElement('span');
   pinBtn.className = 'mh-ibx-pinbtn' + (m.pinned ? ' on' : '');
   pinBtn.textContent = '📌';
@@ -536,14 +543,7 @@ function _inboxPinBtn(id, m){
   pinBtn.onclick = async (e)=>{
     e.stopPropagation();
     const next = !m.pinned;
-    try{
-      const r = await firebaseAPI.setInboxBroadcastPinned(id, next);
-      if(r && r.ok){
-        if(_inboxBroadcast()[id]){ if(next) _inboxBroadcast()[id].pinned = true; else delete _inboxBroadcast()[id].pinned; }
-        toast(next ? '📌 상단에 고정했어요' : '고정을 해제했어요');
-        renderInbox();
-      } else toast('변경에 실패했어요');
-    }catch(_){ toast('변경에 실패했어요'); }
+    if(await noticeFeed.togglePin(id)) toast(next ? '📌 상단에 고정했어요' : '고정을 해제했어요');   // 실패는 오류 번호로 알렸다
   };
   return pinBtn;
 }
@@ -568,7 +568,7 @@ function renderInbox(){
   _inboxSec = inboxSec.normSec(_inboxSec);
   _inboxFilter = inboxSec.normCat(_inboxFilter);   // 옛 필터 값('reward' · 'gift')이 남아 있으면 목록이 통째로 빈다
   const merged = _inboxMerged();
-  const un = inboxSec.unread(merged);
+  const un = inboxSec.unread(merged, mailFeed.unread());
 
   document.querySelectorAll('#mhInboxRail .mh-ibx-sec').forEach(b=>{
     b.classList.toggle('on', b.dataset.sec === _inboxSec);
@@ -586,10 +586,29 @@ function renderInbox(){
   else if(_inboxSec === 'news') _renderInboxNews(merged, un);
 }
 
+/* 받는 중 · 못 받음 안내 — 받기 전에는 «없다» 로 그리지 않는다(빈 우편 ≠ 못 받음). 안내를 그렸으면 true.
+   한 번도 못 받았을 때만 «불러오지 못했어요» + 다시 시도를 그린다. 한 번 받은 뒤의 실패는 앞서 받은 목록을 그대로 보여 준다 —
+   알림함이 닫힌 동안의 실패는 번호도 안 떴으니, 나타날 때(retryIfFailed — 탭 누르기 · 창 열기) manual 로 한 번 다시 받아 번호가 뜨게 한다. 받기를 시작하지 않은(idle) 기기는 «없음» 으로 그린다. */
+function _pendingNotice(el, feed, label){
+  const st = feed.status();
+  if(feed.ready() || (st !== 'loading' && st !== 'error')) return false;
+  el.innerHTML = '';
+  const box = document.createElement('div'); box.className = 'mh-ibx-empty';
+  if(st === 'error'){
+    box.textContent = label + '을 불러오지 못했어요';
+    const retry = document.createElement('button'); retry.type = 'button'; retry.className = 'mh-ibx-go'; retry.textContent = '다시 시도';
+    retry.onclick = ()=>{ feed.refresh({ manual: true }); };
+    box.appendChild(document.createElement('br')); box.appendChild(retry);
+  } else box.textContent = label + '을 불러오는 중…';
+  el.appendChild(box);
+  return true;
+}
+
 /* 📩 우편 칸 — 카드(아이콘 · 제목 · 종류 · 시각 · 보기). 누르면 본문을 펼치고 읽음. 🛠️ 답변은 버그제보 글로 간다. */
 function _renderInboxMail(merged){
   const listEl = document.getElementById('mhInboxList');
   if(!listEl) return;
+  if(_pendingNotice(listEl, mailFeed, '우편')) return;
   const ids = inboxSec.mailIds(merged);
   if(!ids.length){
     listEl.innerHTML = '<div class="mh-ibx-empty">받은 우편이 없어요</div>';
@@ -631,18 +650,23 @@ function _renderInboxMail(merged){
     listEl.appendChild(card);
   });
 }
-/* 🗑 읽은 우편 지우기 — 이 PC 사용자의 개인 우편 중 읽은 것만(모두에게 보낸 우편은 서버 한 벌이라 못 지운다). 확인창을 거친다. */
+/* 🗑 읽은 우편 지우기 — 내 읽은 우편을 서버가 한 번에 지운다(모두에게 보낸 우편은 서버 한 벌이라 해당 없음). 확인창을 거친다. */
 function _inboxClearRead(){
-  if(!getMyUserId()) return;
-  const merged = _inboxMerged();
-  const ids = inboxSec.mailIds(merged).filter(id => merged[id].read && merged[id]._src === 'personal');
-  if(!ids.length){ toast('지울 읽은 우편이 없어요'); return; }
-  _mhAsk('읽은 우편 지우기', `읽은 우편 ${ids.length}통을 지울까요? 지운 우편은 되돌릴 수 없어요.`, [
+  if(!getMyUserId() || mailFeed.clearing()) return;
+  const n = Object.values(mailFeed.items()).filter(m => m.read).length;   // 확인창에 보일 수 — 지우는 건 서버
+  if(!n){ toast('지울 읽은 우편이 없어요'); return; }
+  _mhAsk('읽은 우편 지우기', `읽은 우편 ${n}통을 지울까요? 지운 우편은 되돌릴 수 없어요.`, [
     { label:'지우기', danger:true, run: async ()=>{
-      if(!window.firebaseAPI || !firebaseAPI.deleteInboxMessage) return;
-      for(const id of ids){ await firebaseAPI.deleteInboxMessage(getMyUserId(), id); }
-      if(_inboxOpenId && ids.indexOf(_inboxOpenId) >= 0) _inboxOpenId = null;
-      toast(`읽은 우편 ${ids.length}통을 지웠어요`);
+      const btn = document.getElementById('mhInboxClearRead');
+      if(btn) btn.disabled = true;
+      try{
+        const deleted = await mailFeed.removeRead();   // 못 지웠으면 null(오류 번호로 알렸다)
+        if(deleted === null) return;
+        if(_inboxOpenId && !(_inboxOpenId in mailFeed.items())) _inboxOpenId = null;
+        toast(deleted > 0 ? `읽은 우편 ${deleted}통을 지웠어요` : '지울 읽은 우편이 없어요');
+      }finally{
+        if(btn) btn.disabled = false;
+      }
     } },
     { label:'취소' },
   ]);
@@ -657,6 +681,7 @@ function _renderInboxNews(merged, un){
   const listEl = document.getElementById('mhNewsList');
   const viewEl = document.getElementById('mhNewsView');
   if(!listEl || !viewEl) return;
+  if(_pendingNotice(listEl, noticeFeed, '소식')){ viewEl.innerHTML = ''; return; }
   const ids = inboxSec.newsIds(merged, _inboxFilter);
   if(_newsOpenId && ids.indexOf(_newsOpenId) < 0) _newsOpenId = null;   // 지워졌거나 · 종류를 바꿔 목록에서 빠졌으면 본문도 비운다
 
@@ -698,7 +723,7 @@ function _renderInboxNews(merged, un){
   const metaTxt = document.createElement('span'); metaTxt.textContent = _INBOX_CAT_NAME[tag] + (m.ts ? ' · ' + _inboxTimeStr(m.ts) : '') + (m.pinned ? ' · 📌 고정' : '');
   meta.appendChild(metaTxt);
   const pinBtn = _inboxPinBtn(id, m); if(pinBtn) meta.appendChild(pinBtn);
-  if(isAdmin() && firebaseAPI.deleteInboxBroadcast){
+  if(isAdmin() && noticeFeed.confirmed()){
     const del = document.createElement('span'); del.className = 'mh-news-del'; del.textContent = '🗑 모두에게서 지우기';
     del.onclick = (e)=>{
       e.stopPropagation();
@@ -713,6 +738,17 @@ function _renderInboxNews(merged, un){
   viewEl.appendChild(_inboxBodyEl('mh-news-body', m));
 }
 
+/* 🔔 [모두 읽음] — 소식은 이 PC 에 읽음으로, 우편은 서버에. 우편을 아직 못 받았으면 서버 쪽은 건드리지 않는다 */
+async function markAllRead(){
+  _inboxBcMarkAllRead();
+  mhScheduler.refreshBellBadge();
+  renderInbox();
+  if(mailFeed.status() !== 'ready'){ toast('우편을 아직 불러오지 못했어요 — 불러온 뒤에 다시 눌러 주세요'); return; }
+  if(await mailFeed.markAllRead()) toast('모두 읽음 처리했어요');   // 실패는 오류 번호로 알렸다
+}
+/* 📢 관리자 소식 올리기 — 서버가 받으면 true(실패는 오류 번호로 알렸다) */
+const sendBroadcast = (o)=>noticeFeed.sendBroadcast(o);
+
 return {
   renderMyHomeFriendList,                          // 👥 친구 목록 그리기 — 친구 구독 · 마이홈 열기 · 검색 입력
   friendSearchToggle: _mhFriendSearchToggle,       // 🔍 검색줄 열고 닫기 — Ctrl+F · Esc · ✕ · 탭 바꾸기 · 마이홈 닫기
@@ -720,15 +756,17 @@ return {
   friendRoomTag: _friendRoomTag,                   // 🔒 친구 방 코드(시크릿룸은 빈 값) — 친구 방 놀러 가기 연결
   friendInRoom: _friendInRoom,                     // 🏠 친구가 방에 있는가 — 방 초대 고르기 창
   renderInbox,                                     // 📩 우편함 그리기 — 수령함 · 공지 구독 · 우편함 탭 · 왼쪽 메뉴 · 종류 · 모두 읽음
+  retryIfFailed,                                   // 📩 닫힌 동안 못 받은 피드를 다시 받는다 — 우편함 탭 누르기 · 마이홈 열기
   inboxEnter: _inboxEnter,                         // 📩 우편함 탭에 들어올 때 처음 보일 칸 고르기 — 마이홈 탭 바꾸기
   setInboxSec: (v)=>{ _inboxSec = v; },            // 📩 왼쪽 세로 메뉴 — 우편 · 소식
   setInboxFilter: (v)=>{ _inboxFilter = v; },      // 📢 소식 종류 — 소식 목록 위 줄
   setInboxOpenId: (v)=>{ _inboxOpenId = v; },      // 📩 펼친 우편 — 칸 · 종류 바꾸면 비운다
+  markAllRead,                                     // 📩 모두 읽음 — [모두 읽음] 버튼
+  sendBroadcast,                                   // 📢 관리자 소식 올리기 — 우편함 작성 창
   inboxClearRead: _inboxClearRead,                 // 🗑 읽은 우편 지우기 — 우편 칸 아래 버튼
   inboxTagLabel: _inboxTagLabel,                   // 📩 태그 이름 — 새 우편 토스트 · 관리자 공지 보내기 확인
   inboxTimeStr: _inboxTimeStr,                     // 📩 시각 글자 — 친구 관리(요청 · 보낸 요청)
   inboxUnreadCount: _inboxUnreadCount,             // 📩 안 읽은 수 — 🔔 벨 뱃지(스케줄러)
-  inboxBcMarkAllRead: _inboxBcMarkAllRead,         // 📢 공용 공지 모두 읽음 — [모두 읽음]
   refreshFriendTabBadge: _refreshFriendTabBadge,   // 📩 우편함 탭 보상 배지 — 마이홈 열기 · 스케줄러
   linkifyText: _linkifyText,                       // 🔗 본문 주소 · 라이선스 키 — 업데이트 공지 팝업
   bindExtLinks: _bindExtLinks,                     // 🔗 링크 · 키 누르기(위임) — 업데이트 공지 팝업

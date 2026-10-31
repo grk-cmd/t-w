@@ -7,10 +7,13 @@
      err.code 는 서버 봉투의 code(기계가 읽는 이름 — 문구 message 로 가르지 않는다) · err.items 는 실패에 걸린 줄(있을 때만 · 없으면 null).
      앱 오류 번호 · 할 일(로그인 화면 · 점검 창 · 다시 받기)로 바꾸는 표는 api-errors.js 한 곳.
      shouldFallback 은 옛 Firebase 길이 남은 동안만 쓴다(닿지 못함 · 사본 없음이면 옛 길로) — 그 길을 걷는 묶음이 같이 걷는다.
-   [읽기] get(path, { cacheMs, auth, headers, timeoutMs }) — 같은 경로를 동시에 부르면 요청은 하나. cacheMs 는 로그인 없는 읽기만.
+   [읽기] get(path, { cacheMs, auth, headers, timeoutMs, onOwner }) — 같은 경로를 동시에 부르면 요청은 하나. cacheMs 는 로그인 없는 읽기만.
      응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 If-None-Match — 304 면 기억한 값을 돌려준다(ETAG_MAX 개까지 · 오래된 것부터 버림).
-     로그인 읽기는 «누구의 토큰인가»(토큰 sub)까지 열쇠에 넣는다 — 계정을 바꿔도 남의 기억 값을 돌려주지 않게.
+     로그인 읽기는 «누구의 토큰인가»(토큰 sub)까지 열쇠에 넣는다 — 계정을 바꿔도 남의 기억 값을 돌려주지 않게. 토큰은 요청당 한 번만 받고(시간 제한과 겨룸) 그 토큰으로 보낸다.
+     onOwner(who): 로그인 읽기에 쓴 토큰의 주인을 응답과 함께 알려 준다.
    [쓰기] post · put · patch(path, body, opts) · del(path, opts) — 로그인이 기본(opts.auth === false 일 때만 토큰 없이).
+     opts.expectOwner: 보내기 직전 쓸 토큰의 주인과 견줘 다르면 보내지 않고 code OWNER_CHANGED 로 끝낸다(요청 0) — 읽은 계정의 값을 다른 계정 토큰으로 쓰지 않게.
+     opts.rawType: 본문(Uint8Array 등)을 JSON 으로 바꾸지 않고 이 Content-Type 으로 바이트 그대로 보낸다(그림 올리기).
      캐시 · 합치기 · 쉬기는 하지 않는다(쓰기는 매번 다르다). 다시 보내도 되는 쓰기는 본문 requestId 를 같은 값으로(request-id.js).
    [로그인] 토큰은 deps.getToken(force). 없으면 보내지 않고 'auth'(code NO_TOKEN). 401 AUTH_REQUIRED 면 새 토큰으로 한 번만 다시.
      로그인 요청에는 이 기기 id 머리 X-Device-Id(device-id.js — 프리미엄은 «이 기기» 판정)를 싣는다.
@@ -97,7 +100,7 @@ function createApiClient(deps){
   const onRequest = d.onRequest || (() => {});
   const etagMax = d.etagMax || ETAG_MAX;
   const cache = new Map();      // path → { data, until }
-  const inflight = new Map();   // 'A '|'P ' + path → Promise
+  const inflight = new Map();   // 'A ' + 누구 + ' ' + path | 'P ' + path → Promise
   const etags = new Map();      // 누구 + ' ' + path → { etag, data } (넣은 차례 = 오래된 차례)
   let downUntil = 0;
 
@@ -106,8 +109,11 @@ function createApiClient(deps){
     const h = Object.assign({}, o.headers || {});
     if(!o.auth) return { headers: h, who: '' };
     let tok = null;
-    try{ tok = getToken ? await getToken(!!force) : null; }catch(_){ tok = null; }
+    if(!force && 'tok' in o) tok = o.tok;   // get 이 이미 받은 토큰 — 다시 받지 않는다(받기는 요청당 한 번)
+    else{ try{ tok = getToken ? await getToken(!!force) : null; }catch(_){ tok = null; } }
     if(!tok) throw new ApiError('auth', 0, 'NO_TOKEN', '로그인 토큰이 없어요');
+    /* 쓰기에 expectOwner 가 있으면 보내기 직전 쓸 토큰의 주인과 견준다 — 다르면(그 사이 로그인한 사람이 바뀜) 보내지 않고 끝낸다 */
+    if(o.expectOwner && tokenOwner(tok) !== o.expectOwner) throw new ApiError('auth', 0, 'OWNER_CHANGED', '로그인한 사람이 바뀌어 보내지 않았어요');
     h.Authorization = 'Bearer ' + tok;
     let dev = null; try{ dev = deviceId(); }catch(_){ dev = null; }
     if(typeof dev === 'string' && dev) h[DEVICE_HEADER] = dev;
@@ -138,8 +144,13 @@ function createApiClient(deps){
       const init = { method, headers, credentials: 'omit', signal: ctl ? ctl.signal : undefined };
       // 본문은 GET 이 아니면 JSON — 본문 없는 DELETE 만 안 싣는다(POST · PUT · PATCH 의 빈 본문은 null)
       if(method !== 'GET' && !(method === 'DELETE' && o.body === undefined)){
-        headers['Content-Type'] = 'application/json';
-        init.body = JSON.stringify(o.body === undefined ? null : o.body);
+        if(o.rawType){   // 파일 바이트 그대로 — 그림 올리기(Content-Type 은 부르는 쪽이 정한다)
+          headers['Content-Type'] = o.rawType;
+          init.body = o.body;
+        }else{
+          headers['Content-Type'] = 'application/json';
+          init.body = JSON.stringify(o.body === undefined ? null : o.body);
+        }
       }
       try{
         res = await Promise.race([fetchFn(base + path, init), timeout]);
@@ -182,6 +193,20 @@ function createApiClient(deps){
     });
   }
 
+  /* 로그인 읽기에 쓸 토큰을 한 번 받는다 — 시간 제한과 겨룬다(토큰 갱신이 멈춰도 요청이 끝나지 않는 일이 없게).
+     «누구»(who)는 같은 요청 합치기 열쇠에 들어간다. 토큰이 없으면 tok null · who '' (보내는 쪽이 NO_TOKEN 으로 거절) */
+  async function acquire(ms){
+    let timer = null;
+    const to = new Promise((_, rej) => { timer = setTimeout(() => rej(new ApiError('unavailable', 0, 'TIMEOUT', 'API 응답이 늦어요')), ms); });
+    to.catch(() => {});
+    try{
+      let tok = null;
+      try{ tok = getToken ? await Promise.race([getToken(false), to]) : null; }
+      catch(e){ if(e instanceof ApiError) throw e; tok = null; }
+      return { tok: tok || null, who: tok ? tokenOwner(tok) : '' };
+    }finally{ clearTimeout(timer); }
+  }
+
   /* opts: { cacheMs, timeoutMs, auth, headers } */
   function get(path, opts){
     const o = Object.assign({}, opts || {}, { method: 'GET' });
@@ -189,7 +214,16 @@ function createApiClient(deps){
     const c = o.auth ? null : cache.get(path);
     if(c && c.until > now()) return Promise.resolve(c.data);
     if(downUntil > now()) return Promise.reject(new ApiError('unavailable', 0, 'BACKOFF', 'API 를 잠깐 쉬는 중'));
-    const key = (o.auth ? 'A ' : 'P ') + path;
+    /* ★ 로그인 읽기는 «누구» 가 열쇠에 든다(ETag 기억 열쇠와 같게) — 계정이 바뀌는 사이 앞 계정의 응답에 합쳐지지 않게 */
+    if(o.auth){
+      return acquire(o.timeoutMs || timeoutMs).then((a) => {
+        const p = joined('A ' + a.who + ' ' + path, path, Object.assign({}, o, { tok: a.tok }));
+        return o.onOwner ? p.then((data) => { o.onOwner(a.who); return data; }) : p;   // onOwner: 이 응답에 쓴 토큰의 주인
+      });
+    }
+    return joined('P ' + path, path, o);
+  }
+  function joined(key, path, o){
     if(inflight.has(key)) return inflight.get(key);
     onRequest();
     const p = send(path, o.timeoutMs || timeoutMs, o).then((data) => {
@@ -204,7 +238,7 @@ function createApiClient(deps){
     return p;
   }
 
-  /* 쓰기 한 벌 — 로그인이 기본. opts: { auth, headers, timeoutMs } */
+  /* 쓰기 한 벌 — 로그인이 기본. opts: { auth, headers, timeoutMs, expectOwner, rawType } */
   function write(method, path, body, opts){
     const o = Object.assign({}, opts || {}, { method, body });
     o.auth = o.auth !== false;

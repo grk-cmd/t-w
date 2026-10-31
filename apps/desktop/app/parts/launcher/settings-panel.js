@@ -20,6 +20,7 @@ const MULTIPLAYER_SPACING = deps.MULTIPLAYER_SPACING;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const SPACING = deps.SPACING;   // 읽는 함수
 const _chatEsc = deps._chatEsc;
+const adBannerSlides = deps.adBannerSlides;   // 서버가 준 배너 슬라이드(공지 한 판 — notice-feed.js)
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
 const allDeskItems = deps.allDeskItems;
 const applyCharToSeat = deps.applyCharToSeat;
@@ -580,16 +581,9 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
    라이선스 보유자(isPremium)는 배너 우클릭 시 파일 선택창이 떠서 자기 이미지(로컬 저장, 이 기기 한정)로 바꿀 수 있음.
    라이선스 없으면 우클릭해도 아무 반응 없음. */
 const MY_AD_BANNER_KEY = 'tw.myAdBannerImg';
-// 공용: 저장된 배너 슬라이드 배열 읽기(빈 슬롯/이미지 없는 항목 제외). 예전 단일 객체 저장 방식과도 호환.
+// 공용: 서버가 준 배너 슬라이드(런처 배너와 같은 한 벌 — ad-banner.js 가 공지 한 판에서 읽는다). 아직 못 받았으면 빈 배열.
 function loadAdBannerSlides(){
-  // ★ AD_BANNER_KEY는 파일 뒷부분(11346줄)에 선언된 전역 const — 이 함수가 그보다 먼저 호출되면
-  //   TDZ(Temporal Dead Zone) ReferenceError로 죽어 배너가 안 보이는 유저가 생김.
-  //   문자열 리터럴을 직접 써서 TDZ를 우회. (뒤의 상수 값과 정확히 일치해야 함)
-  try{
-    const raw = JSON.parse(localStorage.getItem('tw.adBanner')||'null');
-    const arr = Array.isArray(raw) ? raw : (raw && raw.img ? [raw] : []);
-    return arr.filter(s=>s && s.img);
-  }catch(e){ return []; }
+  return adBannerSlides();
 }
 let _fsAdSlides=[], _fsAdIdx=0, _fsAdTimer=null;
 function refreshFsAdBanner(){

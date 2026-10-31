@@ -145,7 +145,7 @@ console.log('\n── 4. 앱이 거부를 조용히 넘기지 않는가');
   const src = require('./sim-renderer-src.js').joinRenderer(fs.readFileSync('app.js', 'utf8'));   // 옮긴 모듈(shared/toast.js)을 «옮기기 전 app.js 글» 로 되살려 읽는다
   chk(/function _saveFailMsg/.test(src), '권한 거부와 네트워크 오류를 가르는 헬퍼가 있다');
   chk(/permission\[_-\]\?denied/i.test(src), 'PERMISSION_DENIED 를 알아본다');
-  chk((src.match(/_saveFailMsg\(/g) || []).length >= 5,
+  chk((src.match(/_saveFailMsg\(/g) || []).length >= 4,   // 소식 올리기는 서버 길의 오류 번호(E-MH-12)로 알리게 되어 한 곳이 줄었다(5 → 4)
       '관리자 저장 자리들이 그 헬퍼를 쓴다 (' + (src.match(/_saveFailMsg\(/g) || []).length + '곳)');
 }
 

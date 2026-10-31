@@ -860,6 +860,8 @@ function getOldFriendCodes(){
 function getMyUserId(){
   try{ return localStorage.getItem(MY_USER_ID_KEY) || null; }catch(e){ return null; }
 }
+/* 🗂️ 계정별 로컬 칸 한 벌 — 계정 코드는 부를 때마다 getMyUserId 로 읽는다(shared/account-store.js). 쓰는 모듈에는 deps 로, 마이홈 바탕화면(myhome-desktop.js)은 이 전역 이름으로 받는다. */
+const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });
 /* 🪪 uid 를 **기록하는** 한 입구 — 서버가 돌려준 계정 코드만 적는다(account.js _enterAccount). 성공하면 true. */
 function _setMyUserId(uid){
   if(typeof uid !== 'string' || !/^u[0-9a-z]{8,40}$/i.test(uid)) return false;
@@ -2073,7 +2075,10 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
      _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 모듈이 window 고리로도 건다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v1/me/playlist · /v1/playlists/…)
 const plMod = TwPlaylist.createPlaylist({
+  playlistApi: playlistApiMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -2098,7 +2103,6 @@ const plMod = TwPlaylist.createPlaylist({
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   escEditable: (...a)=>winStackMod._escEditable(...a),
-  playlistSync: TwPlaylistSync,
 });
 TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리스트 소리 진단 줄
 /* ═══ 🎵 프리셋 세 벌 ═══ */
@@ -2218,6 +2222,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   SPACING: ()=>SPACING,
   _chatEsc: (...a)=>_chatEsc(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
+  adBannerSlides: ()=>noticeFeed.banner(),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
   applyChipOrientation: (...a)=>overheadMod.applyChipOrientation(...a),
@@ -2524,10 +2529,17 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
    함수 deps 도 화살표로 감싼다(부를 때 찾게). ⚠️ 이름을 Scheduler · scheduler 로 짓지 말 것 — 크로미움(Electron) 내장 전역(작업 예약 API)과
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
-let _schedDdaysVisitUnsub = null;        // 👀 관람 중 친구 D-day 구독 끊기 — openFriendHomeView · closeFriendHomeView
+const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 길(/v1/me/schedules · /v1/me/ddays · /v1/me/notifications) — 원본은 서버
+  authed: TwApi.authed,
+  newId: ()=>TwRequestId.newId(),
+  warn: (...a)=>console.warn(...a),
+});
 const mhScheduler = MhScheduler.createScheduler({
+  scheduleApi: scheduleApiMod,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
   getMyUserId: ()=>getMyUserId(),
-  getDisplayName: ()=>getDisplayName(),
   viewingUserId: ()=>mhStateMod._mhViewingUserId(),
   myHomeFriends: ()=>_myHomeFriends,
   toast: (...a)=>toast(...a),
@@ -2640,14 +2652,26 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   deviceSessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,   // 밀려났으면 접속 표시는 이긴 쪽 것
 });
+/* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
+   받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
+const mailFeed = TwMailFeed.createMailFeed({
+  api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/me/notifications
+  rt: TwRtHub.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
+const noticeFeed = TwNoticeFeed.createNoticeFeed({
+  api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/notices
+  rt: TwRtHub.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  store: accountStoreMod,   // 마지막으로 받은 소식 묶음 — 켜면 바로 그린다
+});
+noticeFeed.onChange((e)=>mhInitMod.onNewsChanged(e));
 const mhInitMod = TwMyHomeInit.createMyHomeInit({
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
-  _inboxBroadcast: ()=>_inboxBroadcast,
   _myFriendRequests: ()=>_myFriendRequests,
   _myHomeFriends: ()=>_myHomeFriends,
   _myHomeReady: ()=>_myHomeReady,
-  _myInbox: ()=>_myInbox,
-  _myInboxReady: ()=>_myInboxReady,
   _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),
   ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),
   focusLevelMod: ()=>focusLevelMod,
@@ -2656,23 +2680,19 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   inboxMod: ()=>inboxMod,
+  mailFeed: mailFeed,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
+  noticeFeed: noticeFeed,
   presenceLock: presenceLockMod,
   toast: (...a)=>toast(...a),
-  setInboxBroadcast: (v)=>{ _inboxBroadcast = v; },
   setMyFriendRequests: (v)=>{ _myFriendRequests = v; },
   setMyHomeFriends: (v)=>{ _myHomeFriends = v; },
   setMyHomeReady: (v)=>{ _myHomeReady = v; },
-  setMyInbox: (v)=>{ _myInbox = v; },
-  setMyInboxReady: (v)=>{ _myInboxReady = v; },
 });
 /* ═══ 📩 수령함 상태 · 안 읽은 수 · 친구 탭 배지 ═══ */
-let _myInbox = {};              // 📩 개인 수령함(보상 등) { id: {tag, title, body, ts, read} }
-/* 수령함이 서버에서 **한 번이라도 도착했는가.** 빈 객체는 '비었다'와 '아직 안 왔다'를 구분하지
-   못하므로, 수령함을 근거로 판단하는 곳(_danceUnlockPending 의 구제 분기)은 이 값을 먼저 본다. */
-let _myInboxReady = false;
-let _inboxBroadcast = {};       // 📢 공용 공지(전체 대상) { id: {tag, title, body, ts} } — 읽음은 로컬
+/* 개인 우편 · 공용 소식은 서버가 원본이다 — 받아 들고 있는 곳은 mailFeed · noticeFeed(위, 마이홈 처음 준비 만드는 줄 앞).
+   수령함이 서버에서 **한 번이라도 도착했는가**(mailFeed.ready())는 «비었다» 와 «아직 안 왔다» 를 가른다 — 수령함을 근거로 판단하는 곳(_danceUnlockPending 의 구제 분기)이 먼저 본다. */
 const INBOX_BC_READ_KEY = 'tw.inboxBcRead';   // 공용 공지 읽음 id 집합(로컬)
 /* ═══ 🛡️ 공용 HTML 이스케이프(escHtml) ═══ */
 /* 🛡️ 공용 HTML 이스케이프 — 본문은 `shared/safe-html.js` 의 `TwSafeHtml.text`(다섯 글자 전부). 이 이름은 옛 호출부가 쓰는 별칭.
@@ -2720,8 +2740,8 @@ const richTextMod = TwRichText.createRichText({
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
 /* 👥 마이홈 친구 목록(Ctrl+F 검색) · 📩 수령함 · 💝 선물함 그리기 · 수령함 함수(안 읽은 수 · 배지 · 공지 읽음) · 친구 방 표시 둘은
      parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일은 없다(상태 초기값뿐).
-   부르는 곳은 inboxMod.이름(전부 이 줄보다 늦게 돈다). 📩 수령함 상태 머리 아래 _myInbox · _myInboxReady · _inboxBroadcast 는 마이홈 열기의
-     구독이 다시 대입해서 app.js 에 두고 읽는 함수로 넘긴다(_myHomeFriends 와 같은 방식). INBOX_BC_READ_KEY 는 로그아웃 지움 목록이 같이 써서
+   부르는 곳은 inboxMod.이름(전부 이 줄보다 늦게 돈다). 개인 우편 · 공용 소식은 mailFeed · noticeFeed(서버 원본)가 들고 있어
+     읽는 함수 대신 그 한 벌을 넘긴다. INBOX_BC_READ_KEY 는 로그아웃 지움 목록이 같이 써서
      app.js 에 두고 값으로. isAdmin 은 이 줄보다 뒤에 선언되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 🏠 친구 방에 놀러 가기 — 방 코드 누르기 · 묻는 창 · 이동은 friend-visit.js. 여기는 연결만. */
@@ -2736,8 +2756,8 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   // 📩 수령함
-  myInbox: ()=>_myInbox,
-  inboxBroadcast: ()=>_inboxBroadcast,
+  mailFeed: mailFeed,
+  noticeFeed: noticeFeed,
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
   isAdmin: ()=>isAdmin,
   mhScheduler: mhScheduler,
@@ -2769,7 +2789,6 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _myFriendRequests: ()=>_myFriendRequests,
   _myHomeFriends: ()=>_myHomeFriends,
-  _saveFailMsg: (...a)=>_saveFailMsg(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
@@ -2808,7 +2827,6 @@ const mhStateMod = TwMyHomeState.createMyHomeState({
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
-  _schedDdaysVisitUnsub: ()=>_schedDdaysVisitUnsub,
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
@@ -2816,7 +2834,6 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   myHomeOpen: ()=>myHomeOpen,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
-  setSchedDdaysVisitUnsub: (v)=>{ _schedDdaysVisitUnsub = v; },
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
@@ -3539,6 +3556,7 @@ const overheadMod = TwOverhead.createOverhead({
   getDisplayName: (...a)=>getDisplayName(...a),
   officeMode: ()=>officeMode,
   renderer: renderer,
+  rtHub: TwRtHub,
   seatScale: (...a)=>seatEqMod.seatScale(...a),
   seats: seats,
   tricksMod: tricksMod,
@@ -7026,8 +7044,7 @@ const accountMod = TwAccount.createAccount({
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
-  FOCUS_TODAY_DATE_KEY: ()=>focusTotalMod.FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: ()=>focusTotalMod.FOCUS_TODAY_SEC_KEY,
+  accountAdoptStore: accountStoreMod,
   FOCUS_TOTAL_KEY: ()=>focusTotalMod.FOCUS_TOTAL_KEY,
   GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
   GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
@@ -7051,6 +7068,7 @@ const accountMod = TwAccount.createAccount({
   getMyUserId: (...a)=>getMyUserId(...a),
   acctStateMod: acctStateMod,
   plMod: plMod,
+  mhScheduler: mhScheduler,
   slotSyncMod: ()=>slotSyncMod,
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
@@ -7201,6 +7219,7 @@ const launcherChromeMod = TwLauncherChrome.createLauncherChrome({
 /* 본문은 ad-banner.js 로 옮겼다(앱 FSD 43번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const adBannerMod = TwAdBanner.createAdBanner({
+  noticeFeed: noticeFeed,
   settingsMod: settingsMod,
 });
 /* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 편집 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
@@ -7260,37 +7279,34 @@ const adminNotice = TwAdminNotice.createAdminNotice({
 });
 
 
-// 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업
-async function _checkUpdateNoticeOnStartup(){
-  if(!(window.firebaseAPI && firebaseAPI.getUpdateNotice)) return;
-  try{
-    const notice = await firebaseAPI.getUpdateNotice();
-    if(!notice || !notice.ts) return;
-    // "다시 보지 않기" 체크한 ts와 같으면 스킵
-    const dismissedTs = parseInt(localStorage.getItem('tw.updateNoticeDismissedTs')||'0', 10);
-    if(dismissedTs === notice.ts) return;
-    // 팝업 표시
-    const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov) return;
-    document.getElementById('updateNoticeViewTitle').textContent = notice.title || '업데이트 안내';
-    { const _nb = document.getElementById('updateNoticeViewBody');
-      _nb.innerHTML = inboxMod.linkifyText(notice.body || '');   // 본문 속 주소를 클릭 가능하게
-      inboxMod.bindExtLinks(_nb); }
-    document.getElementById('updateNoticeDontShow').checked = false;
-    ov.style.display = 'flex';
-    // 닫기 로직
-    const close = ()=>{
-      const dontShow = document.getElementById('updateNoticeDontShow').checked;
-      if(dontShow){
-        try{ localStorage.setItem('tw.updateNoticeDismissedTs', String(notice.ts)); }catch(_){}
-      }
-      ov.style.display = 'none';
-    };
-    document.getElementById('updateNoticeOkBtn').onclick = close;
-    document.getElementById('updateNoticeCloseX').onclick = close;
-  }catch(_){}
+// 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업. 공지 한 판(noticeFeed)을 처음 받았을 때 한 번만 본다.
+function _showUpdateNoticeOnce(notice){
+  if(!notice || !notice.ts) return;
+  // "다시 보지 않기" 체크한 ts와 같으면 스킵
+  const dismissedTs = parseInt(localStorage.getItem('tw.updateNoticeDismissedTs')||'0', 10);
+  if(dismissedTs === notice.ts) return;
+  // 팝업 표시
+  const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov) return;
+  document.getElementById('updateNoticeViewTitle').textContent = notice.title || '업데이트 안내';
+  { const _nb = document.getElementById('updateNoticeViewBody');
+    _nb.innerHTML = inboxMod.linkifyText(notice.body || '');   // 본문 속 주소를 클릭 가능하게
+    inboxMod.bindExtLinks(_nb); }
+  document.getElementById('updateNoticeDontShow').checked = false;
+  ov.style.display = 'flex';
+  // 닫기 로직
+  const close = ()=>{
+    const dontShow = document.getElementById('updateNoticeDontShow').checked;
+    if(dontShow){
+      try{ localStorage.setItem('tw.updateNoticeDismissedTs', String(notice.ts)); }catch(_){}
+    }
+    ov.style.display = 'none';
+  };
+  document.getElementById('updateNoticeOkBtn').onclick = close;
+  document.getElementById('updateNoticeCloseX').onclick = close;
 }
-// firebase 준비되면 한 번 실행
-TwNetReady.whenNetReady(()=>_checkUpdateNoticeOnStartup());
+noticeFeed.onceReady(_showUpdateNoticeOnce);   // 처음 받았을 때 한 번 — 못 받았으면 다음에 받을 때
+// 켤 때 공지를 받는다(이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js)
+TwNetReady.whenNetReady(()=>noticeFeed.start());
 
 // ===== Phase 3: 관리자 카테고리 관리 =====
 /* 카테고리 관리 본문은 admin/admin-category.js, 뒤쪽의 라이선스 요청 · 발급 버튼 · 친구코드로 발급은 admin/admin-license.js 로 옮겼다.
@@ -8607,6 +8623,7 @@ window.__officeDiag = function(){
 /* 본문은 focus-total.js 로 옮겼다(앱 FSD 45번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusTotalMod = TwFocusTotal.createFocusTotal({
+  focusTotalStore: accountStoreMod,
 });
 let _focusTotalSec=focusTotalMod._loadFocusTotalSec();
 
@@ -8696,6 +8713,7 @@ const adminReport = TwAdminReport.createAdminReport({
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusLevelMod = TwFocusLevel.createFocusLevel({
+  focusLevelStore: accountStoreMod,
   DANCE_MOVES: iDeskMod.DANCE_MOVES,
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
@@ -8712,8 +8730,8 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
   _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
   _focusTotalSec: ()=>_focusTotalSec,
-  _myInbox: ()=>_myInbox,
-  _myInboxReady: ()=>_myInboxReady,
+  _myInbox: ()=>mailFeed.items(),
+  _myInboxReady: ()=>mailFeed.ready(),
   appMode: ()=>appMode,
   findMySeat: (...a)=>findMySeat(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
@@ -9018,7 +9036,10 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
      ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것. */
   const mhOv = document.getElementById('myHomeOverlay');
   const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
-  const showMyHomeSized = mhOn && launcherOn;
+  /* 🗂️ 방 찾기 · 만들기(로비)도 런처의 좁은 창에 갇히지 않게 마이홈 크기로 연다(창 자리도 마이홈과 같이 기억) */
+  const lobbyOv = document.getElementById('inviteOverlay');
+  const lobbyOn = !!(lobbyOv && lobbyOv.classList.contains('on'));
+  const showMyHomeSized = (mhOn || lobbyOn) && launcherOn;
   const config = launcherOn || creatorOpen;
   const runOverlay = appMode==='run' && !config;
   document.body.classList.toggle('runmode', runOverlay);
@@ -9027,7 +9048,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
-  const extra = (mode === 'myhome') ? mhStLayoutMod._mhStickerOverhang() : null;
+  const extra = (mode === 'myhome' && mhOn) ? mhStLayoutMod._mhStickerOverhang() : null;
   if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
 }
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -9070,6 +9091,8 @@ layoutSeats=function(){ _layoutSeats();
 
 /* ============================================================ INIT */
 seatPanelMod.renderSeatTabs(); seatPanelMod.setManual(null); applyAppMode(); applyDesktopRunClass();
+/* 🗂️ 로비는 여닫는 길이 여럿(런처 · F1 · ✕ · 방 나간 뒤 다시 열기)이라 길마다 부르지 않고 .on 이 바뀔 때 창 크기를 다시 맞춘다 */
+{ const ov=document.getElementById('inviteOverlay'); if(ov) new MutationObserver(()=>applyDesktopRunClass()).observe(ov, { attributes:true, attributeFilter:['class'] }); }
 if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminVisibility();   // 관리자 전용 UI는 기본 숨김 (관리자 모드 진입 시 노출)
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
 /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독) — 모듈을 다 만든 뒤 여기서 한 번.

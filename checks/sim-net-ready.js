@@ -17,8 +17,8 @@ const MOD = read('shared/net-ready.js'), HTML = read('desk-companion-prototype.h
 if (!MOD || !HTML || !SMOKE) { say('  ? 원본 못 찾음 — net-ready.js · desk-companion-prototype.html · smoke.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 /* TwNetReady 를 부르는 파일(묶을 때의 15곳 — app.js 넷 · room-entry 둘 · 나머지 하나씩) */
-const USERS = ['app.js', 'launcher/ad-banner.js', 'room/room-entry.js', 'room/room-invite-ui.js', 'room/overhead.js', 'room/room-sync.js',
-  'character/catalog-source.js', 'myhome/scheduler.js', 'account/license-request.js', 'support/bug-board-ui.js'];   // my-info.js 는 0.13 에서 기다릴 일이 없어졌다(계정 사본 올리기 · 묶임 경고를 걷음)
+const USERS = ['app.js', 'launcher/ad-banner.js', 'room/room-entry.js', 'room/room-invite-ui.js', 'room/room-sync.js',
+  'character/catalog-source.js', 'myhome/scheduler.js', 'account/license-request.js', 'support/bug-board-ui.js'];   // overhead.js · my-info.js 는 0.13 에서 기다릴 일이 없어졌다
 const EVT_RE = /addEventListener\(\s*['"`]firebase-ready['"`]/;
 
 /* 가짜 window — 귀(once 표시) · 타이머는 손으로 */
@@ -128,8 +128,8 @@ b = await bk(MOD.replace('window.addEventListener(NET_READY_EVENT, cb);\n', 'win
 chk(!b.onTwice, 'onNetReady 에 once 를 붙이면 빨강(동작 무변경 — overhead 는 CONFIRM 결정 전까지 그대로)');
 b = await bk(MOD.replace('const fin = ()=>{ if(done) return; done = true; res(!!window.firebaseAPI); };', 'const fin = ()=>{ res(false); };'));
 chk(!b.waitSignal, 'waitNetReady 가 신호에도 false 면 빨강');
-b = await bk(null, FILES.map(([f, t]) => [f, f === 'room/overhead.js' ? t + "\nwindow.addEventListener('firebase-ready', ()=>{});\n" : t]));
-chk(b.direct.includes('room/overhead.js'), '다른 파일이 firebase-ready 에 직접 귀를 대면 빨강');
+b = await bk(null, FILES.map(([f, t]) => [f, f === 'room/room-sync.js' ? t + "\nwindow.addEventListener('firebase-ready', ()=>{});\n" : t]));
+chk(b.direct.includes('room/room-sync.js'), '다른 파일이 firebase-ready 에 직접 귀를 대면 빨강');
 b = await bk(null, FILES.map(([f, t]) => [f, f === 'myhome/scheduler.js' ? t.split('TwNetReady.').join('XNetReady.') : t]));
 chk(b.notUsing.includes('myhome/scheduler.js'), '쓰는 파일이 TwNetReady 를 안 부르면 빨강');
 const line = '<script src="parts/shared/net-ready.js"></script>';

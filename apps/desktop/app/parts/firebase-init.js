@@ -472,35 +472,6 @@
     }
   }
 
-  /* 공용 공지 버전 확인 + 로컬 캐시 — 구조는 broadcast-cache.js 머리말. 경로를 여기 두는 이유는 위 카탈로그와 같다. */
-  const BROADCAST_OWN_WRITE_MS = 15000;   // 이 기기에서 쓴 뒤 이만큼은 공지 바뀜을 모으지 않는다(아래 liveNow)
-  let _broadcastWroteAt = 0;
-  const _subscribeBroadcast = createBroadcastSync({
-    metaRef:     () => ref(db, 'inboxBroadcastMeta'),
-    fullRef:     () => ref(db, 'inboxBroadcast'),
-    latestQuery: (n) => query(ref(db, 'inboxBroadcast'), orderByChild('ts'), limitToLast(n)),
-    pinnedQuery: () => query(ref(db, 'inboxBroadcast'), orderByChild('pinned'), equalTo(true)),
-    onValue, get,
-    scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
-    /* 이 기기에서 방금 쓴 바뀜은 모으지 않고 바로 받는다 — 관리자가 보낸 · 지운 공지가 자기 화면에 늦게 반영되지 않게 */
-    liveNow: () => Date.now() - _broadcastWroteAt < BROADCAST_OWN_WRITE_MS,
-  });
-  /* 공용 공지 쓰기(보내기 · 고정 · 삭제)는 전부 여기를 지난다 — 같은 다중 경로 update 로 inboxBroadcastMeta(서버 시각)도 올린다.
-     빠지면 사용자는 캐시해 둔 옛 공지를 캐시 수명(24시간)까지 본다. 웹 관리자는 broadcastCommit 이 같은 일을 한다.
-     규칙에 inboxBroadcastMeta 가 아직 없으면 update 가 통째로 거부된다 — 그때만 버전 없이 공지만 한 번 더 쓴다
-     (그 DB 를 쓰는 앱은 버전 구독이 거부돼 통째 구독으로 돌고 있으므로 바로 반영된다). */
-  async function _broadcastUpdate(updates){
-    _broadcastWroteAt = Date.now();   // update 를 부르는 순간 버전 구독이 (서버 시각 추정값으로) 먼저 울린다 — 그 전에 표시
-    try{
-      await update(ref(db), Object.assign({}, updates, { inboxBroadcastMeta: serverTimestamp() }));
-    }catch(e){
-      const code = String((e && (e.code || e.message)) || '');
-      if(!/permission|PERMISSION_DENIED/i.test(code)) throw e;
-      await update(ref(db), updates);   // 이것도 거부면(관리자 아님 · 형식 오류) 그 오류를 그대로 던진다
-      console.warn('[broadcast-cache] inboxBroadcastMeta 규칙이 없어 버전 없이 공지만 썼다');
-    }
-  }
-
   /* ★ Storage Phase 2: 유저 이미지(프로필/배경/스티커/박수)를 Realtime DB의 base64 대신 Storage에 저장.
      dataURL("data:image/...;base64,...")이 들어오면 Storage에 올리고 다운로드 URL을 돌려줌.
      이미 URL(https://...)이면 그대로 통과 — 재저장 시 중복 업로드 방지.
@@ -608,66 +579,7 @@
       catch(_){ return null; }
     },
     /* ===== 🎵 플레이리스트 =====
-       저장 구조를 둘로 나눈다. 합치면 "파도타기" 한 번이 전원의 곡 목록을 통째로 끌어온다.
-         users/{uid}/playlist  = {items:[{id,title}], ts}   — 고른 사람 것만 1회 읽음
-         playlistIndex/{uid}   = {name, n, ts}              — 무작위로 고르기 위한 가벼운 색인(1인 약 60바이트)
-       색인도 전체를 읽지 않고 ts 최신 60명만 훑는다(limitToLast) — 인원이 늘어도 읽는 양이 안 늘어난다.
-       ★ 이 상한은 규칙에도 박아뒀다: playlistIndex 의 .read 가 "query.limitToLast <= 60" 이다.
-         limitToLast 를 떼면 query.limitToLast 가 null 이 되어 조건이 거짓 → 조용히 비싸지는 대신 거부된다.
-         (규칙 파일에는 주석을 달 수 없다 — 경로 키의 값은 반드시 객체여야 해서 "_note":"…" 를 넣으면
-          'Expected {' 로 저장이 거부된다. 그래서 규칙 설명은 여기에 적는다.)
-       ⚠️ audit 검사 9의 정규식은 get(ref(db,'…')) 형태만 본다. 아래는 get(query(ref(db,…)))라
-          검사에 안 걸리지만 **의도적으로 상한이 걸린 읽기**다. limitToLast를 떼면 그 보호가 사라진다. */
-    /* meta = { bio, homePublic, private } — bio·homePublic 은 목록과 **같은 노드**에 얹는다.
-       파도타기는 어차피 이 노드를 한 번 읽으므로 한마디와 공개 여부를 보여주는 데 읽기가 늘지 않는다.
-       ⚠️ 프로필(users/{uid}/profile)에 넣지 않는 이유: setMyProfile 이 set() 으로 통째로 덮어써서
-          레벨이 오를 때마다 한마디가 조용히 지워진다.
-       🔒 meta.private 는 **노드에 저장하지 않는다.** 이건 서버가 알아야 할 값이 아니라
-          "색인에 올릴지 말지"를 정하는 내 기기 설정이고, 효과는 아래 색인 분기 하나로 끝난다.
-          노드에 남기면 남이 읽어갈 수 있는 값이 하나 늘 뿐 하는 일이 없다. */
-    /* 🎵 프리셋 세 벌을 통째로 올린다(sets). 예전에는 «보고 있는 프리셋» 하나만 올렸다.
-       ★ **items 거울을 같이 쓴다.** 옛 빌드의 fetchRandomPlaylist 는 pv.items 만 읽으므로,
-         sets 만 쓰면 아직 업데이트 안 한 사람들 화면에서 이 사람이 통째로 사라진다.
-         거울에는 **비지 않은 첫 프리셋**을 넣는다 — 옛 빌드에서도 뭔가는 들린다.
-       ⚠️ 이 거울은 «한시적»이다. 옛 빌드가 충분히 빠진 뒤 지울 것 —
-         남겨두면 같은 곡 목록을 두 벌 쓰게 되어 쓰기가 계속 두 배다.
-       ⚠️ n(색인)은 **세 벌 합계**다. fetchRandomPlaylist 가 n > 0 으로 사람을 거르므로,
-         활성 프리셋만 세면 «빈 프리셋을 열어 둔 사람이 파도타기에서 사라지는» 옛 옆효과가 남는다. */
-    async publishMyPlaylist(uid, name, sets, meta, editTs){
-      try{
-        const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();   // 고친 시각 — 다른 기기가 «어느 쪽이 나중인가» 를 가른다(editTs 칸 · 옛 앱은 이 칸을 안 써서 «모름» 이 된다)
-        const m = meta || {};
-        const ss = (Array.isArray(sets) ? sets : []).map(s => ({
-          name: String((s && s.name) || ''),
-          items: (s && s.items) || [],
-        }));
-        const total = ss.reduce((n, s) => n + s.items.length, 0);
-        const mirror = (ss.find(s => s.items.length) || { items: [] }).items;
-        await set(ref(db, `users/${uid}/playlist`), { sets: ss, items: mirror, ts, editTs: ts,
-          bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
-        /* 🔒 비공개 — 색인에서만 뺀다. 무작위 파도타기는 이 색인에서 사람을 고르므로 안 걸리고,
-           친구 지목 파도타기(fetchPlaylistOf)는 노드를 직접 읽으므로 **그대로 들린다.**
-           ★ 그게 의도다 — 모르는 사람에게는 안 열고, 친구에게는 연다.
-           ⚠️ 노드의 곡 목록을 비우는 방식으로 막지 말 것. 그러면 친구 지목까지 같이 막힌다. */
-        if(m.private) await remove(ref(db, `playlistIndex/${uid}`));
-        else await set(ref(db, `playlistIndex/${uid}`), { name: String(name || '').slice(0, 20), n: total, ts });
-        return true;
-      }catch(e){ console.warn('[플레이리스트] 공개 실패', e); return false; }
-    },
-    /* 목록을 비웠다 — 색인에서는 지워 파도타기에 안 걸리게 하되, 노드 자체는 한마디·공개 여부를
-       담아 남긴다. 통째로 지우면 곡을 전부 뺐다가 다시 넣는 사이에 써둔 한마디가 사라진다. */
-    async removeMyPlaylist(uid, meta, editTs){
-      try{
-        const m = meta || {};
-        /* 노드는 지우지 않고 빈 목록 + 고친 시각으로 남긴다 — 지우면 다른 기기가 «서버에 없다» 로 읽고 옛 목록을 다시 올린다.
-           ⚠️ sets 도 같이 비운다(옛 프리셋이 남으면 친구 지목 파도타기에 계속 걸린다). */
-        const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();
-        await set(ref(db, `users/${uid}/playlist`), { sets: [], items: [], ts, editTs: ts,
-          bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
-        await remove(ref(db, `playlistIndex/${uid}`));
-        return true;
-      }catch(e){ console.warn('[플레이리스트] 공개 해제 실패', e); return false; }
-    },
+       내 목록 · 파도타기는 서버 API 로 옮겼다(status/playlist-api.js). 여기엔 명함 읽기(아래)만 남는다. */
     /* 👤 목록 주인의 명함 — 이름·레벨·프로필 사진. 파도타기로 **건너간 순간에만** 1회 읽는다.
        ★ 친구 목록이 이미 구독 중인 경로 둘을 그대로 쓴다(users/{uid}/profile, users/{uid}/home/avatar).
          home 을 통째로 읽으면 게시글·테마·스티커까지 딸려 와서 파도탈 때마다 수백 KB가 나간다.
@@ -693,88 +605,6 @@
     async fetchMyRank(){ return undefined; },
     /* 👥 명함 날것은 API 에만 있다 — api-public-reads.js 가 바꿔 끼운다. 그 전엔 거절(친구 포트가 옛 길 카드로). */
     fetchUserCardApi(){ return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' })); },
-    /* 🎲 남의 목록에서 **비지 않은 프리셋 하나를 무작위로** 고른다.
-       [왜 여기 한 곳인가] 무작위 파도타기와 친구 지목 파도타기가 같은 규칙을 써야 한다.
-         두 곳에서 각각 뽑으면 «친구 것은 늘 1번만 뜬다» 같은 어긋남이 조용히 생긴다.
-       ★ 옛 사람 호환 — `sets` 가 없고 `items` 만 있는 사본(업데이트 안 한 기기가 올린 것)은
-         **한 벌짜리 프리셋**으로 읽는다. 그래야 그 사람도 계속 파도타기에 걸린다.
-       ★ 빈 프리셋은 후보에서 뺀다 — 눌러도 빈 목록인 것을 보여주지 않는다.
-       ⚠️ RTDB 는 배열을 객체로 돌려줄 수 있어 Object.values 로 받는다(items 쪽과 같은 이유).
-         그래서 **순서를 신뢰하지 않는다** — 프리셋 번호는 name 이 없을 때만 쓰는 보조값이다. */
-    _plPickSet(pv){
-      let cand = [];
-      const raw = (pv && pv.sets) ? Object.values(pv.sets) : null;
-      if(raw && raw.length){
-        cand = raw.map((s, i)=>({
-          idx: i,
-          name: (s && s.name) ? String(s.name) : '',
-          items: (s && s.items) ? Object.values(s.items).filter(x => x && x.id) : [],
-        })).filter(s => s.items.length);
-      }else{
-        const it = (pv && pv.items) ? Object.values(pv.items).filter(x => x && x.id) : [];
-        if(it.length) cand = [{ idx:0, name:'', items:it }];
-      }
-      if(!cand.length) return null;
-      return cand[Math.floor(Math.random() * cand.length)];
-    },
-    // 최근 갱신 60명 중 나를 뺀 무작위 1명. 곡이 없는 사람은 색인에서 지워지므로 여기 안 나온다.
-    async fetchRandomPlaylist(myUid, excludeUid){
-      try{
-        const snap = await get(query(ref(db, 'playlistIndex'), orderByChild('ts'), limitToLast(60)));
-        const all = snap.val() || {};
-        const uids = Object.keys(all).filter(u => u !== myUid && u !== excludeUid && (all[u] && all[u].n > 0));
-        if(!uids.length) return null;
-        const pick = uids[Math.floor(Math.random() * uids.length)];
-        const ps = await get(ref(db, `users/${pick}/playlist`));
-        const pv = ps.val();
-        const set = this._plPickSet(pv);
-        if(!set) return null;
-        return { uid: pick, name: (all[pick] && all[pick].name) || '(이름 없음)', items: set.items,
-          setName: set.name, setIdx: set.idx,
-          bio: (pv && pv.bio) ? String(pv.bio) : '', homePublic: !!(pv && pv.homePublic) };
-      }catch(e){ console.warn('[플레이리스트] 파도타기 실패', e); return null; }
-    },
-    /* 🌊 친구 파도타기 — 지목한 uid 의 목록 하나만 읽는다(읽기 1회).
-       ⚠️ playlistIndex/{uid} 는 절대 직접 읽지 않는다. 그 노드의 .read 는 "query.limitToLast <= 60" 이라
-         쿼리 없는 단건 읽기는 query.limitToLast 가 null 이 되어 **거부**된다(무작위 파도타기가
-         limitToLast(60) 을 쓰는 이유와 같은 규칙).
-       ★ 이름은 여기서 안 읽는다 — 부르는 쪽이 이미 친구 목록의 이름을 갖고 있다.
-         profile 을 한 번 더 읽으면 읽기만 늘고, 내가 보는 이름과 어긋날 수도 있다. */
-    /* 🎵 [2026-09-16 제보 4] **내 계정의 프리셋 세 벌 전부** — 계정을 이어받을 때 쓴다.
-       fetchPlaylistOf 는 파도타기용이라 한 벌만 **무작위로** 고른다(_plPickSet). 그걸로 복원하면
-       프리셋 2·3 이 사라지고, 로그아웃이 로컬 목록을 지우게 된 지금은 그게 곧 손실이다.
-       ★ 노드에 sets 가 없는 옛 판(items 만)은 items 를 0번 프리셋으로 돌려준다.
-       @return { sets:[{name, items:[{id,title}]}…], bio, homePublic } | null(노드 없음·읽기 실패) */
-    async fetchMyPlaylistSets(uid){
-      try{
-        const ps = await get(ref(db, `users/${uid}/playlist`));
-        const pv = ps.val();
-        if(!pv) return { sets: [], bio: '', homePublic: false, ts: 0, editTs: 0 };   // 비어 있음 ≠ 못 읽음(null) — 기기 간 맞추기가 가른다
-        const raw = pv.sets ? Object.values(pv.sets) : null;
-        let sets;
-        if(raw && raw.length){
-          sets = raw.map(s => ({
-            name: (s && typeof s.name === 'string') ? s.name : '',
-            items: (s && s.items) ? Object.values(s.items).filter(x => x && x.id) : [],
-          }));
-        }else{
-          const it = pv.items ? Object.values(pv.items).filter(x => x && x.id) : [];
-          sets = [{ name:'', items: it }];
-        }
-        return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic, ts: Number(pv.ts) || 0, editTs: Number(pv.editTs) || 0 };   // editTs 없음(옛 앱이 쓴 노드) = 고친 시각 모름
-      }catch(e){ console.warn('[플레이리스트] 내 프리셋 읽기 실패', e); return null; }
-    },
-    async fetchPlaylistOf(uid){
-      try{
-        const ps = await get(ref(db, `users/${uid}/playlist`));
-        const pv = ps.val();
-        /* 무작위 파도타기와 **같은 규칙**으로 고른다. 여기만 다르면 «친구 것은 늘 1번만 뜬다»가 된다. */
-        const set = this._plPickSet(pv);
-        if(!set) return null;
-        return { uid, items: set.items, setName: set.name, setIdx: set.idx,
-          bio: (pv && pv.bio) ? String(pv.bio) : '', homePublic: !!(pv && pv.homePublic) };
-      }catch(e){ console.warn('[플레이리스트] 친구 파도타기 실패', e); return null; }
-    },
     async lookupFriendCode(code){
       const snap = await get(ref(db, `friendCodes/${code}`));
       const v = snap.val();
@@ -1364,110 +1194,6 @@
       try{ await remove(ref(db, `mobileKeys/${userId}`)); }catch(_){ ok = false; }
       return ok;
     },
-    /* ═══════════ 📅 스케줄러 ═══════════
-       users/{uid}/schedule/{YYYY-MM}/{DD}/{id} = { text, public, tags, ts }
-       users/{uid}/ddays/{id}                   = { text, date:'YYYY-MM-DD', public, ts }
-       users/{uid}/schedNotices/{id}            = { fromId, fromName, text, date, ts }
-       공개 여부: 기본 비공개(public=false). 친구를 태그하면 그 친구에게 알림이 감. */
-
-    // 한 달치 일정을 통째로 읽음 — 달력 한 화면 = 읽기 1회
-    async getScheduleMonth(userId, ym){
-      const snap = await get(ref(db, `users/${userId}/schedule/${ym}`));
-      return snap.val() || {};
-    },
-    // 실시간 구독 (내 달력용)
-    subscribeScheduleMonth(userId, ym, onChange){
-      const r = ref(db, `users/${userId}/schedule/${ym}`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async addScheduleItem(userId, ym, dd, item){
-      /* 🩹 [2026-10-02 제보 #6] «잘 쓰다가 어느 순간부터 일정 등록이 안 된다»
-         소유권이 걸린 쓰기(users/{코드}/schedule)인데 로그인 복원 대기선을 안 지나고 있었다 — 구글에 묶인 계정은
-         부팅 직후 토큰 없이 나간 쓰기가 permission_denied 로 떨어진다(위 auth barrier 주석). saveMyHome 이 같은
-         함정을 먼저 고친 자리다. 거부 사유 구분·안내는 app.js doAddSched 가 한다. */
-      await _whenAuthReady();
-      const id = 's' + Date.now().toString(36) + Math.random().toString(36).slice(2,6);
-      await set(ref(db, `users/${userId}/schedule/${ym}/${dd}/${id}`), {
-        text: String(item.text||'').slice(0,40),
-        public: !!item.public,
-        ts: Date.now(),
-      });
-      return id;
-    },
-    async removeScheduleItem(userId, ym, dd, id){
-      await remove(ref(db, `users/${userId}/schedule/${ym}/${dd}/${id}`));
-    },
-    async setScheduleItemPublic(userId, ym, dd, id, isPublic){
-      await update(ref(db, `users/${userId}/schedule/${ym}/${dd}/${id}`), { public: !!isPublic });
-    },
-
-    // ── D-day (기념일 카운트다운) ──
-    subscribeDdays(userId, onChange){
-      const r = ref(db, `users/${userId}/ddays`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // D-day 카드 저장 (신규/수정 겸용). bgImg는 dataURL이면 Storage로 올려 URL만 저장.
-    async saveDday(userId, id, dd){
-      await _whenAuthReady();   // 🩹 #6 — 일정과 같은 함정(users/{코드}/ddays 도 소유권 쓰기다)
-      const did = id || ('d' + Date.now().toString(36) + Math.random().toString(36).slice(2,6));
-      let bgImg = dd.bgImg || null;
-      if(bgImg) bgImg = await _uploadDataUrlIfNeeded(`users/${userId}/dday_${did}.jpg`, bgImg);
-      await set(ref(db, `users/${userId}/ddays/${did}`), {
-        kind:   dd.kind === 'dday' ? 'dday' : 'anniv',   // 'anniv'=기념일 카드(정사각) | 'dday'=배너
-        text:   String(dd.text||'').slice(0,20),
-        date:   String(dd.date||''),          // 'YYYY-MM-DD'
-        public: !!dd.public,
-        notify: !!dd.notify,                  // 알림 체크 — 다가오면 🔔에 표시
-        /* 📌 한국식 셈법(그날이 1일). ⚠️ 없는 값을 undefined 로 흘리면 set 이 이 칸을 통째로
-           빼먹고, 읽는 쪽(_ddayBase1)은 «필드 없음»을 켜진 것으로 본다 — 배너까지 켜진다. */
-        base1: !!dd.base1,
-        bgColor: dd.bgColor || null,          // 카드 배경색
-        bgImg:  bgImg || null,                // 카드 배경 이미지 URL
-        order:  (typeof dd.order === 'number') ? dd.order : null,   // 드래그로 정한 표시 순서
-        ts: dd.ts || Date.now(),
-      });
-      return did;
-    },
-    async removeDday(userId, id){
-      await remove(ref(db, `users/${userId}/ddays/${id}`));
-      try{ await _tryDeleteStorage(`users/${userId}/dday_${id}.jpg`); }catch(_){}
-    },
-    // 카드 순서 저장 (드래그로 바꾼 결과) — { id: order } 를 한 번에 반영
-    async setDdayOrder(userId, orderMap){
-      const updates = {};
-      Object.keys(orderMap||{}).forEach(id=>{
-        updates[`users/${userId}/ddays/${id}/order`] = orderMap[id];
-      });
-      if(Object.keys(updates).length) await update(ref(db), updates);
-    },
-
-    // ── 🔔 친구 태그 알림 ──
-    // 일정에 태그된 친구들에게 알림을 보냄 (각자의 schedNotices에 기록)
-    async sendScheduleNotices(fromId, fromName, toIds, text, date){
-      const now = Date.now();
-      const updates = {};
-      (toIds||[]).forEach(toId=>{
-        const nid = 'n' + now.toString(36) + Math.random().toString(36).slice(2,6);
-        updates[`users/${toId}/schedNotices/${nid}`] = {
-          fromId, fromName: fromName||'(이름 없음)',
-          text: String(text||'').slice(0,40),
-          date: String(date||''), ts: now,
-        };
-      });
-      if(Object.keys(updates).length) await update(ref(db), updates);
-      return { ok:true };
-    },
-    subscribeSchedNotices(userId, onChange){
-      const r = ref(db, `users/${userId}/schedNotices`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async removeSchedNotice(userId, id){
-      await remove(ref(db, `users/${userId}/schedNotices/${id}`));
-    },
-
     /* 범용 이미지 업로드 — 디자인 스튜디오 등에서 파일로 고른 이미지를 Storage에 올리고 URL을 받음.
        slot: 'bg' | 'panel_xxx' 등 용도별 키. 같은 slot에 다시 올리면 덮어씀(용량 누적 방지). */
     // 🏊 방 입장용 얼굴/눈감기 PNG를 Storage에 올리고 URL 반환 — 방 payload 다이어트(가) 단계.
@@ -3453,11 +3179,6 @@
       await set(ref(db, 'catalog/adBanner'), slides);
       return { ok:true };
     },
-    subscribeAdBanner(onChange){
-      const r = ref(db, 'catalog/adBanner');
-      onValue(r, snap => onChange(snap.val() || []));
-      return () => off(r, 'value');
-    },
 
     /* ---- 게임 설정(관리자 전용) ----
        동물 해금 레벨처럼 '앱을 새로 배포하지 않고 바꾸고 싶은 값'을 서버에 둔다.
@@ -3693,12 +3414,6 @@
       await remove(ref(db, 'announce/current'));
       return { ok:true };
     },
-    // 전체 유저가 구독 — 초기 접속 시 즉시 1회 + 발행/삭제 시마다 호출. null이면 공지 없음.
-    subscribeAnnounce(onChange){
-      const r = ref(db, 'announce/current');
-      onValue(r, snap => onChange(snap.val() || null));
-      return () => off(r, 'value');
-    },
     // ===== 📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업) =====
     // updateNotice/current = { title, body, ts } — ts는 발행 시각(버전 구분자로도 씀).
     //   유저가 "다시 보지 않기" 체크하면 localStorage에 그 ts를 기록해서 같은 ts면 스킵.
@@ -3716,31 +3431,8 @@
       return snap.val() || null;
     },
     /* ═══════════ 📩 수령함 (구 DM 자리) ═══════════
-       스키마: inbox/{uid}/{msgId} = { tag, title, body, ts, read }
-       · tag: 'notice' | 'update' | 'reward'   ← [공지] [업데이트] [보상] 태그로 표시
-       · 관리자가 전체 유저에게 일괄 전송(sendInboxBroadcast)하거나,
-         시스템(보상 시스템·업데이트 등)에서 특정 유저에게 개별 전송(sendInboxMessage)
-       · 유저는 읽기 표시(markInboxRead)와 삭제(deleteInboxMessage)만 가능(작성 불가) */
-    subscribeInbox(myId, onChange){
-      const r = ref(db, `inbox/${myId}`);
-      const unsub = onValue(r, snap => onChange(snap.val() || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    async markInboxRead(myId, msgId){
-      try{ await update(ref(db, `inbox/${myId}/${msgId}`), { read: true }); }catch(_){}
-    },
-    async markAllInboxRead(myId){
-      try{
-        const snap = await get(ref(db, `inbox/${myId}`));
-        const v = snap.val() || {};
-        const updates = {};
-        Object.keys(v).forEach(id=>{ if(!v[id].read) updates[`inbox/${myId}/${id}/read`] = true; });
-        if(Object.keys(updates).length) await update(ref(db), updates);
-      }catch(_){}
-    },
-    async deleteInboxMessage(myId, msgId){
-      try{ await remove(ref(db, `inbox/${myId}/${msgId}`)); }catch(_){}
-    },
+       받기 · 읽음 · 지우기 · 공지는 서버 API 로 옮겼다(myhome/inbox-api.js · launcher/notice-api.js).
+       여기엔 관리자 코드(admin/)가 아직 부르는 «개별 보내기» 만 남는다 — 관리자 묶음이 서버 길로 옮기면 같이 걷는다. */
     // 개별 유저에게 메시지 전송 — 시스템(보상 지급/업데이트 안내 등)이 호출
     /* extra.bugId — 🐞 답변 알림(tag 'bug')이 가리키는 글. 우편함에서 누르면 그 글을 연다. */
     async sendInboxMessage(toId, tag, title, body, extra){
@@ -3754,39 +3446,6 @@
       if(extra && extra.bugId) rec.bugId = String(extra.bugId).slice(0,40);
       await set(ref(db, `inbox/${toId}/${id}`), rec);
       return { ok:true, id };
-    },
-    // 관리자: 모든 유저에게 일괄 전송 — users 목록을 읽어서 각자의 inbox에 같은 메시지를 뿌림
-    async sendInboxBroadcast(tag, title, body, pinned){
-      // ★ 공용 공지 노드(inboxBroadcast)에 1회만 씀 — 모든 유저가 이 노드를 읽음.
-      //   (예전엔 users 전체를 읽어 개인 inbox마다 복사했는데, users 전체 읽기가 규칙상 막혀 실패했음.
-      //    공지는 내용이 모두 같으니 공용 노드 하나가 맞음. "읽음"은 각자 로컬에 저장.)
-      //   📌 pinned=true면 수령함에서 시간과 무관하게 항상 최상단 고정(관리자만 지정).
-      const now = Date.now();
-      const tagFinal = (tag==='update'||tag==='reward') ? tag : 'notice';
-      const id = 'b' + now.toString(36) + Math.random().toString(36).slice(2,6);
-      const rec = {
-        tag:tagFinal, title:String(title||'').slice(0,80), body:String(body||'').slice(0,600), ts: now
-      };
-      if(pinned) rec.pinned = true;   // 고정 아닐 땐 아예 키를 안 써서 기존 규칙/데이터와 호환
-      await _broadcastUpdate({ [`inboxBroadcast/${id}`]: rec });
-      return { ok:true, count:'전체' };
-    },
-    // 📌 관리자: 기존 공지의 고정 상태만 토글 (내용은 그대로 두고 pinned만 갱신)
-    async setInboxBroadcastPinned(msgId, pinned){
-      try{
-        await _broadcastUpdate({ [`inboxBroadcast/${msgId}/pinned`]: pinned ? true : null });
-        return { ok:true };
-      }catch(_){ return { ok:false }; }
-    },
-    // 공용 공지 구독 → onChange({ id:{tag,title,body,ts} }) — 버전 확인 + 로컬 캐시(broadcast-cache.js).
-    //   통째가 아니라 최근 30개 + 고정 공지만 온다. 콜백 모양은 예전 통째 onValue 때와 같다.
-    subscribeInboxBroadcast(onChange){
-      const unsub = _subscribeBroadcast(v => onChange(v || {}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // 관리자: 공용 공지 삭제
-    async deleteInboxBroadcast(msgId){
-      try{ await _broadcastUpdate({ [`inboxBroadcast/${msgId}`]: null }); }catch(_){}
     },
 
     /* ═══════════ 🔑 로그인(Firebase Auth) 원시 — 토큰 받기만 ═══════════

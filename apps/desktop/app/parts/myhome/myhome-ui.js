@@ -19,7 +19,6 @@ const _mhCloseStickerAnim = deps._mhCloseStickerAnim;
 const _mhViewingUserId = deps._mhViewingUserId;   // 읽는 함수
 const _myFriendRequests = deps._myFriendRequests;   // 읽는 함수
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
-const _saveFailMsg = deps._saveFailMsg;
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const closeFriendHomeView = deps.closeFriendHomeView;
 const escRegisterWindow = deps.escRegisterWindow;
@@ -138,6 +137,7 @@ function syncFriendsOpen(){
     _step('친구 목록', ()=>inboxMod.renderMyHomeFriendList());
     _step('마이홈 페이지', ()=>{ loadMyHomePage(); });   // ★ 마이홈 탭이 기본으로 열리므로 프로필 데이터도 같이 로드
     setMyHomeOpen(true);
+    _step('우편함 다시 받기', ()=>{ if(overlay.querySelector('.mh-tab.on')?.dataset.tab==='mail') inboxMod.retryIfFailed(); });   // 알림함 탭이 켜진 채 닫았다 다시 열면 탭 누르기를 안 거친다
     _step('창 크기', ()=>{ applyDesktopRunClass(); });   // 런처에서 열렸으면 창을 생성기처럼 넓게
     _step('방명록 뱃지', ()=>{ _mhGbStartWatch(); });   // 방명록 새 글 뱃지 감시 시작
     // ★ 마이홈4 후속: 창이 화면에 렌더된 뒤 한 프레임 기다렸다가 BGM 창에 좌표 전달(마이홈이 열리자마자
@@ -250,7 +250,7 @@ function syncFriendsOpen(){
       renderMyHomeStickers();
       // 📩 우편함 탭에 들어올 때 수령함을 그림 — 예전엔 친구 탭 옆에 늘 떠 있어서
       //   renderMhChat 이 대신 그려주고 있었다. 이제 자기 탭이 생겼으니 여기서 그린다.
-      if(tab.dataset.tab==='mail'){ inboxMod.inboxEnter(); inboxMod.renderInbox(); }   // 안 읽은 우편이 있으면 우편, 없으면 소식부터
+      if(tab.dataset.tab==='mail'){ inboxMod.inboxEnter(); inboxMod.retryIfFailed(); inboxMod.renderInbox(); }   // 안 읽은 우편이 있으면 우편, 없으면 소식부터
       if(tab.dataset.tab==='help') helpTab.enter();   // 📘 처음이면 틀을 열고, 테마가 바뀌었거나 못 불러왔으면 다시 연다
       // 👥 친구 탭에 들어올 때 오른쪽 '친구 관리' 칸을 그림 (받은 요청 / 선물함)
       if(tab.dataset.tab==='friend') friendManage.renderFriendManage();
@@ -408,14 +408,7 @@ function syncFriendsOpen(){
   const INBOX_DRAG_SKIP = '.mh-ibx-body, a';
   ['mhInboxList', 'mhNewsList'].forEach(id=>TwDragScroll.attachDragScroll(document.getElementById(id), { skip: INBOX_DRAG_SKIP }));
   /* 전체 읽음 — 우편 · 소식 칸 아래에 하나씩(둘 다 우편 · 소식을 한꺼번에 읽음으로) */
-  document.querySelectorAll('#mhPageMail .mh-ibx-readall').forEach(btn=>btn.addEventListener('click', async ()=>{
-    inboxMod.inboxBcMarkAllRead();   // 공용 공지도 로컬 읽음 처리
-    mhScheduler.refreshBellBadge();
-    if(typeof inboxMod.renderInbox==='function') inboxMod.renderInbox();
-    if(!window.firebaseAPI || !firebaseAPI.markAllInboxRead){ toast('모두 읽음 처리했어요'); return; }
-    try{ await firebaseAPI.markAllInboxRead(getMyUserId()); toast('모두 읽음 처리했어요'); }
-    catch(e){ toast('처리에 실패했어요'); }
-  }));
+  document.querySelectorAll('#mhPageMail .mh-ibx-readall').forEach(btn=>btn.addEventListener('click', ()=>{ inboxMod.markAllRead(); }));
 
   // 관리자 작성 모달 — .admin-only 클래스로 숨김/표시가 자동 관리됨
   const composeBtn    = document.getElementById('mhInboxComposeBtn');
@@ -451,7 +444,6 @@ function syncFriendsOpen(){
   if(composeSend){
     composeSend.addEventListener('click', async ()=>{
       if(!isAdmin()){ toast('관리자만 전송할 수 있어요'); return; }
-      if(!window.firebaseAPI || !firebaseAPI.sendInboxBroadcast){ toast('네트워크 연결이 필요해요'); return; }
       const title = (composeTitle ? composeTitle.value : '').trim();
       const body  = (composeBody  ? composeBody.value  : '').trim();
       const tagInput = composeOv.querySelector('input[name="ibcTag"]:checked');
@@ -463,14 +455,11 @@ function syncFriendsOpen(){
       // 전체 유저에게 뿌리는 작업이라 명시적 확인
       if(!confirm(`전체 유저에게 [${inboxMod.inboxTagLabel(tag)}]${pinned?' 📌고정':''} "${title}" 메시지를 보낼까요?`)){ window.focus(); return; } window.focus();
       composeSend.disabled = true; showComposeMsg('전송 중…', false);
-      try{
-        const r = await firebaseAPI.sendInboxBroadcast(tag, title, body, pinned);
-        if(r && r.ok){
-          toast(`${r.count}명에게 전송했어요`);
-          composeOv.style.display = 'none';
-          if(pinEl) pinEl.checked = false;   // 다음 작성 때 기본값 복귀
-        } else showComposeMsg('전송에 실패했어요', true);
-      }catch(e){ showComposeMsg(_saveFailMsg(e, '전송에 실패했어요 — 네트워크 확인'), true); }
+      if(await inboxMod.sendBroadcast({ tag, title, body, pinned })){   // 실패는 오류 번호로 알렸다
+        toast('소식을 올렸어요');
+        composeOv.style.display = 'none';
+        if(pinEl) pinEl.checked = false;   // 다음 작성 때 기본값 복귀
+      } else showComposeMsg('', false);   // 실패는 오류 번호(E-MH-12) 알림 하나로 — 창 안 문구를 겹쳐 띄우지 않는다
       composeSend.disabled = false;
     });
   }

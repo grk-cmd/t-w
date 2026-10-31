@@ -144,7 +144,7 @@ async function judgeAll(m, app, html){
   const A = strip(app);
   t(!/function renderLicenseGenList|function renderLicenseReqList|function renderCategoryManager|bindLicenseGrantByCode|publishAnnounce\(|publishUpdateNotice\(|publishCustomCat\(/.test(A),
     'app.js 에 옮긴 본문이 남지 않았다');
-  t(/function _checkUpdateNoticeOnStartup\(\)/.test(A) && /licenseReqBtn/.test(A), '사용자 쪽(앱을 켤 때 업데이트 공지 팝업 · 라이선스 요청 보내기)은 app.js 에 남았다');
+  t(/function _showUpdateNoticeOnce\(/.test(A) && /licenseReqBtn/.test(A), '사용자 쪽(공지 한 판을 처음 받았을 때 업데이트 공지 팝업 · 라이선스 요청 보내기)은 app.js 에 남았다');
   t(!/\bADMIN_LICENSE_OFF\b/.test(app) && !/\bADMIN_NOTICE_OFF\b/.test(app) && !/\bADMIN_CATEGORY_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const deps = (name) => ((app.match(new RegExp('const ' + name + ' = (?:\\(typeof \\w+ === \'undefined\'\\) \\? \\w+ : )?\\w+\\.create\\w+\\(\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '')
     .split('\n').map(l => l.trim()).filter(Boolean);

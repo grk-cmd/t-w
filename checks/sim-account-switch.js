@@ -10,7 +10,7 @@
             force 면 검문에 걸려도 목록 한 벌·메모리 전부 지우고 기기 세션도 놓는다.
             부르는 쪽은 정적으로 — [그래도 로그아웃] 은 두 번째 실패에서만 열리고 바로 실행한다.
    ・3절: 신원을 놓은 뒤 beforeunload 의 syncFocusTotalToServer('quit') 가 임시 uid 를 만들어 올리지 않는다.
-   ・4절: 플레이리스트 세 벌 읽기 — fetchMyPlaylistSets(firebase-init)가 세 벌 그대로(옛 이어받기 _restoreOwnedDataAfterTransfer 는 0.13 에서 걷음).
+   ・4절: 플레이리스트 — 원본은 서버(playlist-api.js). firebase-init 에 옛 읽기가 없고, 로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다.
    ・5절: 춤 해금 안내 — 기록이 지워져도 수령함에 우편이 있으면 다시 안 보낸다(새 계정이면 보낸다).
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
@@ -70,12 +70,12 @@ const listSrc = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/)
 chk(!!listSrc, '★ ACCOUNT_LOCAL_KEYS 가 있다 (지움 목록은 코드 한 벌이어야 한다 — 주석으로 «같은 목록» 이면 또 새는 자리)');
 const has = n => new RegExp('\\b' + n + '\\b').test(listSrc);
 chk(has('LICENSE_KEY_STORAGE'), '① 라이선스 키 — 남으면 미보유자에게 프리미엄이 열린다');
-chk(has('FOCUS_TOTAL_KEY') && has('FOCUS_SYNCED_KEY'), '③ 누적 시간 + 마크 — 남으면 max 바닥이 다음 계정 서버를 끌어올린다');
+chk(!has('FOCUS_TOTAL_KEY') && !has('FOCUS_SYNCED_KEY') && !has('FOCUS_TODAY_SEC_KEY'), '③ 누적 시간 + 마크는 계정별 칸(shared/account-store.js)이라 지움 목록에 없다 — 계정을 바꾸면 다른 칸이 열려 다음 계정 서버를 안 끌어올린다(흐름은 sim-account-store 6b절)');
 chk(has('GACHA_OWNED_KEY') && has('GACHA_TS_KEY') && has('GACHA_BONUS_KEY'), '④ 가챠 보유·시각·보너스');
 chk(has('LS_KEY') && has('SLOTS_TS_KEY'), '② 캐릭터 슬롯 + ts — 남으면 슬롯 동기화가 다음 계정으로 push 한다');
 chk(/'tw\.roomFaceUrls'/.test(listSrc) && has('SLOT_GLB_CACHE_KEY'), '  업로드 캐시 둘 — users/{uid}/ 경로라 다른 uid 가 물려받으면 남의 Storage 를 가리킨다');
 chk(/'tw\.playlistSets'/.test(listSrc) && /'tw\.playlist'/.test(listSrc), '  플레이리스트 세 벌 + 옛 거울');
-chk(/'tw\.playlistEditTs'/.test(listSrc) && /'tw\.playlistBackup'/.test(listSrc), '  플레이리스트 고친 시각 · 백업 — 고친 시각이 남으면 다음 계정 서버 목록을 «이 기기가 나중» 으로 비운다');
+chk(/'tw\.playlistEditTs'/.test(listSrc) && /'tw\.playlistBackup'/.test(listSrc), '  플레이리스트 옛 고친 시각 · 백업 키 — 예전 판이 남긴 것도 로그아웃에서 지운다');
 /* 개정 56 (회원가입 설계 §6-②) — «버린 uid» 목록을 걷었다. 목록에서 빠지고, 예전 판이 남긴 값은 부팅에 한 번 지운다. */
 chk(!/MY_PREV_USER_IDS_KEY/.test(listSrc) && !/\bMY_PREV_USER_IDS_KEY\s*=/.test(SRC), '  «버린 uid» 목록은 걷었다 — 상수도 목록 항목도 없다 (개정 56)');
 chk(/try\{ localStorage\.removeItem\('tw\.myPrevUserIds'\); \}catch\(_\)\{\}/.test(SRC), '  ↳ 예전 판이 남긴 tw.myPrevUserIds 는 부팅에 한 번 지운다');
@@ -150,7 +150,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let _slotsTs = 7, extraSeatSlots = [1,2];",
       "let _plSets = [{name:'a',items:[{id:'x'}]}], _plCur = 1, _plBio = 'hi', _plHomePublic = true, _plPrivate = true, _plPubSig = 'sig';",
       /* 🎵 플레이리스트는 playlist.js 모듈(앱 FSD 16번) — app.js 는 plMod.st(상태 묶음) · plMod.blankSets 로 쓴다. 메모리 칸은 위 let 이 대신한다 */
-      "const plMod={ blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], resetSync:()=>{ env.plReset = (env.plReset || 0) + 1; }, st:" + PL_ST_MEM + " };",
+      "const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}], reset:()=>{ env.plReset = (env.plReset || 0) + 1; _plSets = [{name:'',items:[]},{name:'',items:[]},{name:'',items:[]}]; _plBio = ''; _plHomePublic = false; _plPrivate = false; _plPubSig = null; }, st:" + PL_ST_MEM + " };",
     ].join('\n');
     const body = [tmo, fList, fPref, fFlush, fPre, fWipe, env.det || fDet].join('\n');
     const f = new Function('env', 'localStorage', 'window', decl + '\n' + body +
@@ -177,7 +177,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     let r = await e.m.detach();
     chk(r && r.ok === true, '★ 검문 통과');
     const flushed = e.calls.filter(c => c.startsWith('flush:')).map(c => c.split(':')[1]).sort().join(',');
-    chk(flushed === 'chal,focus,gacha,slots', '  지우기 **전에** 넷을 올렸다 (' + flushed + ')');
+    chk(flushed === 'chal,focus,gacha,pl,slots', '  지우기 **전에** 다섯(목록 포함)을 올렸다 (' + flushed + ')');
     chk(e.calls.indexOf('slotsTs') > e.calls.lastIndexOf('flush:slots:logout') , '  검문 읽기는 올린 뒤에 온다');
     const left = e.m.keys().filter(k => e.LS.getItem(k) !== null);
     chk(left.length === 0, '★ 목록의 키가 하나도 안 남았다' + (left.length ? ' — 남음: ' + left.join(' ') : ''));
@@ -188,7 +188,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(m.total === 0 && Object.keys(m.gacha).length === 0 && m.gts === 0 && m.bonus === 0, '★ 메모리도 비웠다 — 누적·가챠·시각·보너스 = 0');
     chk(m.chalDirty === false && m.chalTs === 0 && e.calls.includes('chal:reset'), '  달성표 dirty=false (beforeunload 의 _chalSave 가 지운 키를 도로 안 쓴다 · weeklyChal.resetMemory)');
     chk(m.slotsTs === 0 && m.extra.length === 0 && m.sig === null && m.sets.every(s => !s.items.length), '  슬롯 ts·추가 좌석·플레이리스트 지문 초기화');
-    chk(e.plReset === 1 && e.LS.getItem('tw.playlistEditTs') === null, '  ☁️ 플레이리스트 고친 시각 · 맞춤 상태도 새 기기처럼(plMod.resetSync · 키 지움)');
+    chk(e.plReset === 1 && e.LS.getItem('tw.playlistEditTs') === null, '  ☁️ 플레이리스트를 비우고 받기 전까지 안 올림(plMod.reset) · 옛 고친 시각 키도 지움');
     chk(m.detached === true, '  _acctDetached 가 섰다 (3절의 근거)');
 
     /* ② 슬롯 push 가 거부된 기기 — 아무것도 안 지운다 */
@@ -219,7 +219,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "let gachaOwned={}; let _gachaTs=0; let _gachaBonus=0; let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
       "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;\n" +
       "let chalRec={ts:0}, _chalDirty=false; const _chalBlank=()=>({ts:0}); let _slotsTs=0, extraSeatSlots=[];\n" +
-      "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const plMod={ blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
+      "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
       [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
     const FB_MIN = { deviceSessionLost: () => false, setMyPresenceState: () => Promise.resolve() };   // 늘 있는 둘 — 검문 뒤 presence «꺼짐» 이 부른다
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
@@ -307,7 +307,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(r && r.ok === true, '★ force 면 검문에 걸려도 지운다');
     chk(e.m.keys().filter(k => e.LS.getItem(k) !== null).length === 0 && e.m.mem().detached === true, '  강제로 지워도 목록 한 벌·메모리 전부 — 반쪽 로그아웃은 없다');
     chk(e.calls.indexOf('release') >= 0 && e.calls.indexOf('release') > e.calls.indexOf('slotsTs'), '  강제로 지운 뒤에도 기기 세션을 놓는다(releaseDeviceSession) — 안 놓으면 다음 사람이 «다른 기기에서 사용 중» 에 걸린다');
-    chk(e.calls.filter(c => c.startsWith('flush:')).length === 4, '  강제여도 올리기는 한 번 더 해 본다(공짜다)');
+    chk(e.calls.filter(c => c.startsWith('flush:')).length === 5, '  강제여도 올리기는 한 번 더 해 본다(공짜다)');
     /* 부르는 쪽 — 정적 */
     const uiBlk = grabBlock(SRC, "let _logoutFails = 0;", "if(forceBtn) forceBtn.onclick") || '';
     chk(!!uiBlk && /_logoutFails >= 2\) showForce\(true\)/.test(uiBlk), '★ [그래도 로그아웃] 은 **두 번째 실패에서만** 열린다 — 첫 실패엔 «다시 시도» 뿐');
@@ -353,28 +353,9 @@ function part3(){
 
 /* ── 4. 플레이리스트 세 벌 복원 ── */
 function part4(){
-  say('── 4. 플레이리스트 — 세 벌 전부 받아온다 (한 벌 무작위가 아니다)');
-  const fSets = grabFn(FI, 'fetchMyPlaylistSets', 'async ');
-  chk(!!fSets, '★ firebase-init 에 fetchMyPlaylistSets 가 있다');
-  chk(fSets && /users\/\$\{uid\}\/playlist`/.test(fSets) && !/_plPickSet/.test(fSets), '  노드를 그대로 읽고 _plPickSet(무작위 한 벌)을 거치지 않는다');
-  chk(!/function _restoreOwnedDataAfterTransfer\(/.test(SRC), '  로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다 — 부팅 맞추기가 받는다');
-  if(!fSets) return;
-  /* firebase-init 쪽 실행 — get/ref 스텁 */
-  try{
-    const node = { sets: { 0:{ name:'A', items:{ 0:{id:'v1',title:'one'} } }, 1:{ name:'', items:{} }, 2:{ name:'C', items:{ 0:{id:'v3',title:'three'}, 1:{id:'v4'} } } }, bio:'hey', homePublic:true, items:{ 0:{id:'v1'} } };
-    const mk = (val) => new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => ({ val: () => val }), () => null, null, { warn(){} });
-    (async () => {
-      const r = await mk(node)('uB');
-      chk(r && r.sets.length === 3 && r.sets[0].items[0].id === 'v1' && r.sets[2].items.length === 2 && r.sets[1].items.length === 0, '★ 세 벌 그대로 (0:1곡 · 1:빈 · 2:2곡)');
-      chk(r.bio === 'hey' && r.homePublic === true, '  한마디·공개 여부도 실린다');
-      const r2 = await mk({ items: { 0:{id:'old'} } })('uB');
-      chk(r2 && r2.sets.length === 1 && r2.sets[0].items[0].id === 'old', '  sets 없는 옛 노드는 items 를 0번으로');
-      const r0 = await mk(null)('uB');
-      chk(r0 && r0.sets.length === 0 && r0.ts === 0, '  노드 없음 → 빈 목록(ts 0) — 못 읽음(null)과 가른다');
-      const rf = await new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => { throw new Error('x'); }, () => null, null, { warn(){} })('uB');
-      chk(rf === null, '  못 읽음 → null');
-    })();
-  }catch(err){ huh('4절 실행 오류: ' + (err && err.message || err)); }
+  say('── 4. 플레이리스트 — 옛 읽기 · 옛 이어받기가 없다');
+  chk(!/fetchMyPlaylistSets|fetchPlaylistOf|_plPickSet/.test(FI), '★ firebase-init 에 옛 플레이리스트 읽기(한 벌 무작위 · 내 세 벌)가 없다 — 서버 길(playlist-api.js)로 옮겼다');
+  chk(!/function _restoreOwnedDataAfterTransfer\(/.test(SRC), '  로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다 — 서버에서 받는 길(plMod.pull)이 맡는다');
 }
 
 /* ── 5. 춤 해금 안내 — 수령함이 진짜다 ── */
