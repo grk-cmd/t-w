@@ -48,7 +48,7 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
       if (fileObj) fs.writeFileSync(P, JSON.stringify(fileObj));
       const ov = { _g: 12, _a: 0, GAP_MAX: 64, GAP_VER: 2, GAP_LEGACY: [2, 6], GAP_DEFAULT: 12,
         setGap(v) { this._g = v; }, gap() { return this._g; }, setAlpha(v) { this._a = v; }, alpha() { return this._a; } };
-      const body = 'let SETTINGS_PATH = P; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
+      const body = 'let SETTINGS_PATH = P; const DISPLAY_NAME_MAX = 200; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, runDisplayName = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
         + 'const savedPos = { launcher: null, creator: null };\n'   // _launcherPosSaved · 몰아 저장은 아래 posOf 덩이에 같이 온다
         + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + posOf + '\n' + load + '\n' + save
         + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice, launcher: savedPos.launcher };'
@@ -68,6 +68,8 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     const d = run(null);
     chk(!d.reset && d.saved.settingsVer === 1, '파일이 없으면(첫 실행) 초기화 없이 새 세대로');
     chk(a.launcher === null && a.saved.launcherPos === null, '  초기화 길은 런처 자리도 읽지 않는다(전부 기본값 — 가운데)');
+    const nm = run({ settingsVer: 1, runDisplayId: 3, runDisplayName: '  Wacom Cintiq 16  ' }), nm2 = run({ settingsVer: 1, runDisplayName: 123 });
+    chk(nm.saved.runDisplayName === 'Wacom Cintiq 16' && nm2.saved.runDisplayName === null, '🖥 고른 모니터 이름은 읽고(공백 뗌) → 다시 저장해도 그대로 · 문자열이 아니면 버림(sim-display-pick.js)');
     const e = run({ settingsVer: 1, launcherPos: { x: 340, y: -20 } });
     chk(e.launcher && e.launcher.x === 340 && e.launcher.y === -20 && e.saved.launcherPos && e.saved.launcherPos.x === 340, '보통 파일의 런처 자리는 읽고 → 다시 저장해도 그대로');
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
@@ -193,7 +195,8 @@ say('§10 듀얼 모니터 — 위치순 이름 · 저장 모니터 다시 찾�
   if (!MAIN) chk(false, 'main.js 를 찾았다');
   else {
     const g = (re) => (MAIN.match(re) || [''])[0];
-    const src = [g(/function _displayKey\(d\)\{[\s\S]*?\n\}/), g(/function _displaySize\(d\)\{[^\n]*\}/),
+    const src = ['const DISPLAY_NAME_MAX = 200;', g(/function _displayName\(d\)\{[\s\S]*?\n\}/), g(/function _displayShape\(d\)\{[\s\S]*?\n\}/), g(/function _shapeOfKey\(key\)\{[\s\S]*?\n\}/),   // 🖥 이름 · 모양(sim-display-pick.js)
+                 g(/function _displayKey\(d\)\{[\s\S]*?\n\}/), g(/function _displaySize\(d\)\{[^\n]*\}/),
                  g(/function _displaysByPosition\(all\)\{[\s\S]*?\n\}/), g(/function _pickRunDisplay\(all, primaryId, saved\)\{[\s\S]*?\n\}/)].join('\n');
     const M = new Function(src + '\nreturn { _displayKey, _pickRunDisplay, _displaysByPosition };')();
     const D = (id, x, w, h, sf) => ({ id, bounds: { x, y: 0, width: w, height: h }, rotation: 0, scaleFactor: sf || 1 });

@@ -119,7 +119,7 @@ const scmBody = grabFn(MAIN, '_applyConfigMode') || '';
 chk(/const cfgRect = _fitConfigRect\(/.test(scmBody), 'setConfigMode 의 cfgRect 가 이 함수에서 나온다');
 chk(/ipcMain\.on\('companion:setConfigMode', \(e, isConfig, mode, extra\) => \{ _applyConfigMode\(isConfig, mode, extra\); \}\);/.test(MAIN), '  IPC 는 _applyConfigMode 를 그대로 부른다');
 chk(!/const useX = remembered/.test(scmBody), '★ 예전 «remembered ? 그대로 : 중앙» 직접 계산이 setConfigMode 에 없다');
-const dm = MAIN.slice(MAIN.indexOf("screen.on('display-metrics-changed'"));
+const dm = MAIN.slice(MAIN.indexOf('const _onDisplaysChanged = () => {'));   // display-metrics-changed · added · removed 가 같이 부르는 처리기
 const dmBody = dm.slice(0, dm.indexOf('}, 400);'));
 chk(!/if\(_isConfigMode\) return;/.test(dmBody), '★ display-metrics-changed 가 config 모드에서 그냥 return 하지 않는다 (제보 2 — 세션 중 주모니터 변경)');
 chk(/if\(_isConfigMode\)\{[\s\S]*_fitConfigRect\(m,/.test(dmBody), '  config 분기가 현재 모드를 다시 맞춘다');

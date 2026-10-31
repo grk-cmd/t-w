@@ -75,7 +75,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
-| **sim-cfg-fit.js** | 205 | **a16ebcc6835b** |
+| **sim-cfg-fit.js** | 205 | **8cbd0ffb44a9** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 417 | **f215f4b8d963** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
@@ -94,7 +94,8 @@
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
 | **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
-| **sim-fix-1008.js** | 430 | **6059c06bcf1c** |
+| **sim-fix-1008.js** | 433 | **d8b9d6a7accf** |
+| **sim-display-pick.js** | 125 | **f19919451b26** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 80 | **8c117fa521be** |
@@ -167,7 +168,7 @@
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
-| **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
+| **sim-overlay-gap.js** | 343 | **174f9cc83500** |
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
 | **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
 | **sim-pk-fit.js** | 188 | **158c7cfabd07** |
