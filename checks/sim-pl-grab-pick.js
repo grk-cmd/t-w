@@ -55,6 +55,7 @@ async function receiveFromServer(){
   localStorage.setItem('tw.myUserId', 'uTest');
   TwApi.authed.get = async () => SRV_MINE;
   for(const fn of _timers.splice(0)) await fn();
+  await plMod.pull();   // 계정 확인 뒤 app-boot 의 playlist 차례가 부르는 것과 같은 함수(만들 때는 받지 않는다)
 }
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };

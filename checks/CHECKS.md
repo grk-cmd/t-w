@@ -182,7 +182,7 @@
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
 | **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
 | **sim-pk-fit.js** | 170 | **354391f1f290** |
-| **sim-pl-grab-pick.js** | 209 | **682d3c357650** |
+| **sim-pl-grab-pick.js** | 210 | **182b962be898** |
 | **sim-pl-loop.js** | 508 | **131a502c88a2** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
@@ -354,7 +354,7 @@
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
-| **sim-device-lost.js** | 150 | **4741587d1de1** |
+| **sim-device-lost.js** | 150 | **81f2e0f0bd03** |
 | **sim-myhome-page.js** | 126 | **b5ca916c06e5** |
 | **sim-myhome-preset.js** | 158 | **931f2c50a7b0** |
 | **sim-inbox-sections.js** | 134 | **7562fc1e8229** |
