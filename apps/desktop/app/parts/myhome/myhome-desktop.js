@@ -196,21 +196,6 @@ async function advPullBg(uid){
     advSave(); advSaveBgRemote();
   }
 }
-// 앱 시작 시 내 배경을 서버와 맞춤 — 사용자ID·firebase 준비가 늦을 수 있어 준비될 때까지 재시도.
-//   (예전엔 1회 플래그 방식이라, 저장이 실패해도 플래그가 찍혀 영영 재시도하지 않는 문제가 있었음)
-function advSyncBgOnStart(){
-  let tries = 0;
-  const tick = ()=>{
-    tries++;
-    const uid = getMyUserId();
-    if(window.firebaseAPI && firebaseAPI.saveAdvBg && uid){
-      advPullBg(uid);   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
-      return;
-    }
-    if(tries < 20) setTimeout(tick, 500);
-  };
-  tick();
-}
 let advVisitBg = null;   // 방문 중일 때 표시할 "집주인의" 배경 ({img}|{color}|null)
 let mhdFF = null;        // 📂 폴더 자유배치(folder-free.js) — advApplyFolderHide · mhdMountApp 가 이른 시점에도 보므로 위에 둔다
 const ADV = advLoad();
@@ -3613,7 +3598,7 @@ window.MYHOME_DESKTOP = {
   version: 1,
 
   /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 내 바탕화면 배경을 서버와 맞춘다(서버를 먼저 읽고 더 최근에 고른 쪽을 따른다). */
-  startBgSync(uid){ advPullBg(uid); },
+  startBgSync(uid){ advPullBg(uid); },   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
 
   /* 폴더 아이콘 등록. advInit 전에 불러도 되고(대기열에 쌓았다가 마운트), 후에 불러도 된다. */
   addFolder(o){

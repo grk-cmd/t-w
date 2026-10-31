@@ -85,19 +85,20 @@ async function callsWith(src, uid){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   let done; const fin = new Promise(r => { done = r; });
   deps.getMyUserId = () => uid;
+  deps.presenceLock = { startOnlineFor: (id, me) => { calls.push('presence.me=' + (me && me.tag)); return true; } };
   deps.friendsSub = new Proxy({}, { get: (t, k) => (...a) => { calls.push('friendsSub.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps.mailFeed = new Proxy({}, { get: (t, k) => (...a) => { calls.push('mailFeed.' + String(k) + '(' + (a.length ? String(a[0]) : '') + ')'); return any; } });
   deps._waitForFirebaseAPI = (cb) => { Promise.resolve(cb()).then(done, done); };
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwMyHomeInit;')(win, any, ls, fa, undefined);
-  api.createMyHomeInit(deps).initMyHome();
+  api.createMyHomeInit(deps).initMyHome(uid, { tag: 'ME-ANSWER' });   // app-boot 가 서버가 확인한 코드 · 그 확인의 me 를 넘긴다
   await Promise.race([fin, new Promise(r => setTimeout(r, 200))]);
   return calls;
 }
 const judgeNoUid = async (src) => {
   const none = await callsWith(src, null), mine = await callsWith(src, 'ME');
-  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.'))[0] === 'setMyPresenceOnline';   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
+  return none.join() === 'friendsSub.start(null),mailFeed.stop()' && mine.filter(c => !c.startsWith('friendsSub.')).slice(0, 2).join() === 'presence.me=ME-ANSWER,setMyPresenceOnline';   // 접속 고정은 app-boot 가 넘긴 확인의 me 로   // 친구 목록은 «코드 없음» 으로 시작해 둬야 친구 탭이 «불러오는 중» 에 안 멈춘다   // 코드 있으면 첫 요청은 예전처럼 presence(가짜 await 는 안 풀려 그 뒤는 안 본다)
 };
 
 (async () => {

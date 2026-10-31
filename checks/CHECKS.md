@@ -93,7 +93,7 @@
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-friends-sub.js** | 618 | **6664bb6aad56** |
+| **sim-friends-sub.js** | 618 | **a0ff92d11e0c** |
 | **sim-friends-port.js** | 434 | **bcaa5c7fc5b9** |
 | **sim-friend-profile-live.js** | 241 | **e41a21eb3c9e** |
 | **sim-second-instance.js** | 226 | **65e5433c9fed** |
@@ -375,8 +375,8 @@
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
 | **sim-license-key.js** | 95 | **9b2c72d7fa60** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 164 | **7deae0aaa1d6** |
-| **sim-presence-lock.js** | 328 | **e1a1ff6f3ab5** |
+| **sim-myhome-init.js** | 165 | **2a0c11657b2b** |
+| **sim-presence-lock.js** | 245 | **77b2fb9a663e** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
@@ -448,7 +448,7 @@
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
-| **sim-login-flow.js** | 346 | **a8b8084f8d75** |
+| **sim-login-flow.js** | 330 | **001d6e859b87** |
 | **sim-first-run-013.js** | 141 | **14d1b0e813d8** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |

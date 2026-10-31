@@ -498,7 +498,7 @@ async function judge(S){
 
   /* ── 5. myhome-init.js — 구독이 쓰기보다 먼저 ── */
   say('── 5. myhome-init.js — 친구 구독이 await 쓰기보다 먼저');
-  const body = ((S.MI.match(/async function initMyHome\(\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
+  const body = ((S.MI.match(/async function initMyHome\(code, me\)\{([\s\S]*?)\nreturn \{/) || [])[1] || '').replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');   // 주석 속 «await» 글자는 빼고
   const iStart = body.indexOf('friendsSub.start('), iAwait = body.search(/\bawait\b/);
   chk(iStart > 0 && iAwait > 0 && iStart < iAwait, 'friendsSub.start 가 첫 await 보다 앞');
   chk(!/firebaseAPI\.(subscribeMyFriends|watchMyFriendList)\(/.test(S.MI), '  친구 목록 구독은 friends-sub 로만 건다(두 벌로 걸지 않음)');
@@ -517,7 +517,7 @@ async function judge(S){
       inboxMod: () => ({ renderMyHomeFriendList: () => renders.push('list') }), mhScheduler: any, myHomeOpen: () => false, toast: () => {},
       setInboxBroadcast(){}, setMyFriendRequests(){}, setMyHomeFriends: (v) => renders.push(['set', v]), setMyHomeReady(){}, setMyInbox(){}, setMyInboxReady(){},
     });
-    m.initMyHome();
+    m.initMyHome('ME', {});
     chk(starts.length === 1 && starts[0].id === 'ME', '프로필 쓰기 · 코드 확보가 영영 안 끝나고 presence 가 던져도 친구 구독은 걸린다');
     if(starts[0]){
       starts[0].onF({ f1: {} });

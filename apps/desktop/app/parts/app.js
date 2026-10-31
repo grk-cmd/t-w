@@ -2640,17 +2640,13 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
 });
-/* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 start 로 부른다 */
+/* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  loadPref: ()=>loginFlowMod.firstConfirm().then((me)=>(me ? { lock: me.presencePref.locked, online: me.presencePref.online } : null)),   // 서버 계정의 접속 고정 — 이번에 켤 때 한 확인(GET /v1/me)의 me(두 번째 GET 없음 · 지난 사본은 아님)
   savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
-  storage: localStorage,
-  setTimer: (fn, ms)=>setTimeout(fn, ms),
-  deviceSessionLost: ()=>TwRtHub.store.state() === TwRtHub.STATE.SESSION_LOST,   // 밀려났으면 접속 표시는 이긴 쪽 것
 });
 /* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
@@ -9143,7 +9139,7 @@ const appBoot = TwAppBoot.createAppBoot({
     gacha: ()=>gachaMod.startGachaSync(),
     slotSync: ()=>slotSyncMod.startSlotsSync(),
     chars: ()=>charsMod.startCharsSync(),
-    mhInit: ()=>mhInitMod.initMyHome(),
+    mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
     scheduler: ()=>mhScheduler.startSchedule(),
     notice: ()=>noticeFeed.start(),
     roomInvite: ()=>roomInviteUi.startReceive(),
