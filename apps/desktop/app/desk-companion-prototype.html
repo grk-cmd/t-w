@@ -2806,6 +2806,14 @@
   #myDemojiBox .dmBtn:hover{background:var(--win-select-bg);}
   #myDemojiBox .dmBtn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
   #myDemojiBox .dmBtn img{max-width:30px;max-height:30px;pointer-events:none;}
+  /* 🔔 받은 이모티콘 소리 — 팔레트 맨 위 한 줄(제목 + 단추). 그리드 다섯 칸을 가로지른다 */
+  #myDemojiBox .dmHead{grid-column:1 / -1;display:flex;align-items:center;justify-content:space-between;
+    padding:0 1px 3px;margin-bottom:1px;border-bottom:1px solid var(--win-lo);
+    font-family:var(--tw-font-legacy);font-size:10.5px;color:var(--ink-soft);}
+  #myDemojiBox #myDemojiSfxBtn{width:24px;height:20px;padding:0;font-size:12px;line-height:1;cursor:pointer;
+    background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  #myDemojiBox #myDemojiSfxBtn.on{background:var(--win-select-bg);border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  #myDemojiBox #myDemojiSfxBtn:disabled{opacity:.45;cursor:default;}
   #myChatBox input, #myCustomStatusBox input{
     flex:1;min-width:0;font-family:var(--tw-font-legacy);font-size:11.5px;padding:4px 6px;
     background:#fff;border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
