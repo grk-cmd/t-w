@@ -1022,17 +1022,6 @@ function _bindChatCopy(){
   }
 }
 
-// 이스케이프된 텍스트 안의 이모티콘 마커를 <img>로. 마커는 [emoji:URL] 형태(URL은 이스케이프되어 &amp; 등 포함 가능).
-// (구) 이모티콘 마커 렌더 — 지금은 _renderChatText 파이프라인이 대체(URL 링크화 충돌 방지). 참고용 보존.
-function _renderEmojiMarkers(escapedText){
-  return escapedText.replace(/\[emoji:(https?:[^\]]+)\]/g, (m, url)=>{
-    return `<img class="cm-emoji" src="${url}" alt="이모티콘">`;
-  });
-}
-// [dice:N] → SVG 점주사위 (1~6만 허용)
-function _renderDiceMarkers(escapedText){
-  return escapedText.replace(/\[dice:([1-6])\]/g, (m, n)=> _diceSvg(parseInt(n,10), 26));
-}
 // 메시지 텍스트 렌더 파이프라인 — 이모티콘/주사위 마커의 URL이 링크화에 먹히지 않도록
 // 마커를 토큰(\u0000i\u0000)으로 먼저 대피시키고, 남은 글을 공용 linkify(씻기 + 주소 칸)에 넘긴 뒤 토큰을 최종 HTML로 복원한다.
 // ⚠️ 받은 글의 \u0000 은 먼저 지운다 — 남겨 두면 보낸 사람이 토큰을 흉내 내 다른 마커 HTML 을 끼울 수 있다.

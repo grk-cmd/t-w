@@ -853,7 +853,6 @@ _OK19 = {
     'data-c|c', 'style|c',        # 색 견본 — _MH_PALETTE(상수) · 최근색(내 localStorage)
     'style|cur',                  # 내가 고른 색
     'style|curColor', 'value|curColor',
-    'src|url',                    # chat-ui.js 옛 _renderEmojiMarkers(안 부름 — 씻은 글에서 꺼낸 마커 주소)
     'src|d.file', 'style|d.w', 'style|d.h', 'style|bw', 'style|bhh',   # DEMOJI 정적 표
     'value|val',                  # HSV 슬라이더 숫자
     'placeholder|st.totalUsers',  # 관리자 통계 숫자
