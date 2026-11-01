@@ -18,7 +18,7 @@ const _glbUrlCache = new Map();   // url → base64 (세션 메모리 1차 캐�
 /* url → 마지막 받기 실패 이유. 부르는 쪽(책상 카드 E-CHAR-14)이 진단 기록에 싣는다 — 실패를 null 로만 돌려주면
    «막힘 · 몇 번 응답 · 연결 없음» 을 가를 수 없다. 주소(토큰이 든)는 남기지 않는다. 받으면 지운다. */
 const _glbFailWhy = new Map();
-/* fetch 가 응답 없이 끊기면 TypeError(차단 · DNS · 연결 끊김) — net-fail. 응답이 오면 상태 번호가 든 Error. 걸린 시간도 싣는다(바로 끊김 ↔ 오래 기다림) */
+/* fetch 가 연결이 안 되거나 받는 도중 끊기면 TypeError(차단 · DNS · 연결) — net-fail. 응답이 오면 상태 번호가 든 Error. 걸린 시간도 싣는다(바로 끊김 ↔ 오래 기다림) */
 function _glbFailText(e, ms){
   const net = !!(e && e.name === 'TypeError');
   const msg = String((e && e.message) || e || '').replace(/\s+/g, ' ').slice(0, 40);

@@ -326,7 +326,7 @@
 | **sim-chat-ui.js** | 123 | **8cb619c64968** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
-| **sim-wardrobe.js** | 95 | **ee1777e686b8** |
+| **sim-wardrobe.js** | 95 | **2731e6b08415** |
 | **sim-settings-panel.js** | 96 | **4b7ac46943e3** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **e1fdfef1a3ca** |
@@ -404,7 +404,7 @@
 | **sim-part-scene.js** | 209 | **4d4fc633d0be** |
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
-| **sim-catalog-glb.js** | 191 | **14ea921fb1ee** |
+| **sim-catalog-glb.js** | 194 | **1359df4e891c** |
 | **sim-catalog-sync.js** | 282 | **d94edeb793ac** |
 | **sim-catalog-source.js** | 100 | **48a661048e45** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |

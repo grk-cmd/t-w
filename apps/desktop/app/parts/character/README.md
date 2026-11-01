@@ -70,7 +70,7 @@
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
   - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
-  - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(응답 없이 끊김 — 차단 · DNS) · `fail … 403 Nms`(응답 번호) · `no-src`(받을 길 없음) · 실패한 적 없으면 빈 글). 책상 카드가 E-CHAR-14 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
+  - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(연결이 안 되거나 받는 도중 끊김 — 차단 · DNS · 연결) · `fail … 403 Nms`(응답 번호) · `no-src`(받을 길 없음) · 실패한 적 없으면 빈 글). 책상 카드(만들기 E-CHAR-14 · 꾸미기 책상 탭 E-CHAR-13)가 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
   ```js
   catalogSourceMod.catalogSrcSubscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
   ```
