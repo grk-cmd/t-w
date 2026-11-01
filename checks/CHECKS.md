@@ -258,7 +258,7 @@
 | **sim-gacha.js** | 510 | **9491aa00bd7b** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
-| **sim-focus-log.js** | 288 | **9cc9add827c7** |
+| **sim-focus-log.js** | 309 | **d8430d3d3ae0** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
 | **sim-api-public-reads.js** | 196 | **f5a6835717fb** |
