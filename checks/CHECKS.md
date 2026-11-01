@@ -238,7 +238,7 @@
 | **sim-frame-budget.js** | 188 | **6a026ddad3c9** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 167 | **07b35ebdfd76** |
-| **sim-help-search.js** | 174 | **a2d5ac54ad0d** |
+| **sim-help-search.js** | 174 | **6bf3c53eea80** |
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** |
@@ -439,7 +439,7 @@
 | **sim-safe-html.js** | 741 | **6e1c0f9fc709** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-native-peek.js** | 168 | **10af633f27f9** |
-| **sim-seat-regions.js** | 170 | **eaf9165aed2b** |
+| **sim-seat-regions.js** | 170 | **4664178b0a43** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |
 | **sim-room-face-load.js** | 217 | **ea63c4cecbda** |
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |

@@ -1,4 +1,4 @@
-/* sim-help-search.js — 🔍 도움말 검색(hosting/help/search.js · search.json · scripts/build-help-search.js)
+/* sim-help-search.js — 🔍 도움말 검색(firebase/hosting/help/search.js · search.json · scripts/build-help-search.js)
    ・1절: 검색표가 최신 — 원본(편 · docs/help-search/words.json · faq.json)에서 다시 만든 것과 커밋된 것이 같다 · 소제목 id · FAQ 자리가 실제로 있다
    ・2절: 질문 → 답 — 실제 검색표로 사람이 칠 만한 질문을 돌려 맞는 편 · 소제목이 맨 위에 오는가
    ・3절: 낱말 다루기 — 말끝 떼기 · 군말 빼기 · 띄어쓰기 합치기 · 거미줄 무게 · 토막 · 주소
@@ -11,13 +11,13 @@ const path = require('path');
 
 // 스테이징(checks/run.js)에선 검사와 원본이 한 폴더, 저장소에서 바로 돌리면 한 층 위가 루트다.
 const ROOT = fs.existsSync(path.join(__dirname, 'scripts', 'build-help-search.js')) ? __dirname : path.join(__dirname, '..');
-const DIR = path.join(ROOT, 'hosting', 'help');
+const DIR = path.join(ROOT, 'firebase', 'hosting', 'help');   // 러너 무대에도 firebase/ 가 한 벌 펼쳐진다(run.js stage)
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { if (ok){ pass++; say('  ✓ ' + msg); } else { fail++; say('  ✗ ' + msg); } };
 
 const GEN = path.join(ROOT, 'scripts', 'build-help-search.js');
-if (!fs.existsSync(GEN) || !fs.existsSync(path.join(DIR, 'search.js'))){ say('  ? 원본 못 찾음 — scripts/build-help-search.js · hosting/help/search.js'); process.exit(2); }
+if (!fs.existsSync(GEN) || !fs.existsSync(path.join(DIR, 'search.js'))){ say('  ? 원본 못 찾음 — scripts/build-help-search.js · firebase/hosting/help/search.js'); process.exit(2); }
 const { build, withIds } = require(GEN);
 const SRC = fs.readFileSync(path.join(DIR, 'search.js'), 'utf8');
 /* search.js 를 화면 없이 불러 규칙(core)만 받는다 — 고친 글로도 불러 깨 보기에 쓴다 */
@@ -155,7 +155,7 @@ chk(capHit, '  한 편 상한을 빼면 4절이 잡는다');
 /* FAQ 소제목 오타는 만들 때 멈춘다 — 임시 폴더에 원본 한 벌을 두고 faq 만 틀리게 */
 const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'help-search-'));
 try {
-  const H = path.join(tmp, 'hosting', 'help'); fs.mkdirSync(H, { recursive: true });
+  const H = path.join(tmp, 'firebase', 'hosting', 'help'); fs.mkdirSync(H, { recursive: true });
   const D = path.join(tmp, 'docs', 'help-search'); fs.mkdirSync(D, { recursive: true });
   for (const f of ['toc.json', 'index.html'].concat(slugs.map(s => s + '.html'))) fs.copyFileSync(path.join(DIR, f), path.join(H, f));
   fs.copyFileSync(path.join(ROOT, 'docs', 'help-search', 'words.json'), path.join(D, 'words.json'));
@@ -165,7 +165,7 @@ try {
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { section: '없는 소제목' }))), '  FAQ 소제목 오타 — 만들 때 멈춘다');
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { page: '99' }))), '  FAQ 편 오타 — 만들 때 멈춘다');
   fs.writeFileSync(path.join(D, 'faq.json'), JSON.stringify(faq.map((f, i) => i ? f : Object.assign({}, f, { a: '<img src=x onerror=alert(1)>' }))));
-  const evil = build(tmp)['hosting/help/faq.html'];
+  const evil = build(tmp)['firebase/hosting/help/faq.html'];
   chk(!evil.includes('<img src=x') && evil.includes('&lt;img src=x'), '  FAQ 답에 HTML 을 적어도 글자로만 나온다');
 } finally { fs.rmSync(tmp, { recursive: true, force: true }); }
 

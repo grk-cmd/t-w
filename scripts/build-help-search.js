@@ -14,11 +14,9 @@
 const fs = require('fs');
 const path = require('path');
 
-/* 도움말 폴더 — 저장소는 firebase/hosting/help, 검사 러너의 옛 평면 무대는 hosting/help(sim-help-search 가 그 자리에서 부른다) */
-const HELP_DIRS = ['firebase/hosting/help', 'hosting/help'];
-const helpDirOf = (root) => HELP_DIRS.find(d => fs.existsSync(path.join(root, d))) || HELP_DIRS[0];
-const OUT = HELP_DIRS[0] + '/search.json';
-const FAQ_PAGE = HELP_DIRS[0] + '/faq.html';
+const HELP = 'firebase/hosting/help';
+const OUT = HELP + '/search.json';
+const FAQ_PAGE = HELP + '/faq.html';
 const WORDS = 'docs/help-search/words.json';
 const FAQ = 'docs/help-search/faq.json';
 
@@ -91,7 +89,6 @@ function chunksOf(slug, html){
 
 function build(root = process.cwd()){
   const read = (rel) => fs.readFileSync(path.join(root, rel), 'utf8');
-  const HELP = helpDirOf(root);
   const toc = JSON.parse(read(HELP + '/toc.json'));
   const files = {};
   const pages = [], chunks = [];
@@ -117,9 +114,9 @@ function build(root = process.cwd()){
     return { q: f.q, t: f.a, p: f.page, a };
   });
   files[HELP + '/index.html'] = withHeader(read(HELP + '/index.html'), 'help');
-  files[HELP + '/faq.html'] = faqPage(faq, pages, chunks);
+  files[FAQ_PAGE] = faqPage(faq, pages, chunks);
   pages.push({ s: 'faq', t: '자주 묻는 질문', g: '' });
-  files[HELP + '/search.json'] = JSON.stringify({ v: 1, pages, chunks, faq, words }) + '\n';
+  files[OUT] = JSON.stringify({ v: 1, pages, chunks, faq, words }) + '\n';
   return files;
 }
 
