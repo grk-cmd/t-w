@@ -6945,7 +6945,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
 // 🕘 최근 들어간 방 — 연결되면 기록하고, 로비 코드 칸을 누르면 펼친다(room/recent-rooms*.js)
-const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId: (...a)=>getMyUserId(...a), now: ()=>Date.now() });
+const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId: (...a)=>getMyUserId(...a), now: ()=>Date.now(), isRoomCode: roomEntryMod.isRoomCode });
 roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName).text));
 TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now: ()=>Date.now(), joinRoom: (code)=>roomEntryMod.startRoom(code) });
 // 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)

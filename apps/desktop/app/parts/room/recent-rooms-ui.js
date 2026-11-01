@@ -11,7 +11,7 @@
  *   recent: { list(): { code: string, title: string, at: number }[] },
  *   agoText: (ms: number) => string,
  *   now: () => number,
- *   joinRoom: (code: string) => void,
+ *   joinRoom: (code: string) => Promise<void>,
  * }} deps
  */
 function createRecentRoomsUi(deps){
@@ -23,6 +23,8 @@ function createRecentRoomsUi(deps){
 
   const input = doc.getElementById('inviteCode');
   const box = doc.getElementById('lobbyRecent');
+
+  let joining = false;   // 연결을 기다리는 사이 다른 줄을 또 눌러 입장이 겹치지 않게(로비 카드와 같은 막기)
 
   function hide(){ box.hidden = true; }
 
@@ -46,7 +48,12 @@ function createRecentRoomsUi(deps){
       b.title = r.code + (r.title ? ' · ' + r.title : '');
       // 누르는 동안 칸이 포커스를 잃어 목록이 먼저 닫히지 않게
       b.addEventListener('mousedown', (e) => e.preventDefault());
-      b.addEventListener('click', () => { hide(); joinRoom(r.code); });
+      b.addEventListener('click', async () => {
+        hide();
+        if(joining) return;
+        joining = true;
+        try{ await joinRoom(r.code); }finally{ joining = false; }
+      });
       box.appendChild(b);
     }
     box.hidden = false;

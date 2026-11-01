@@ -592,6 +592,11 @@ const ROOM_PREFIX = { workingroom:'WORK-', togetherroom:'PLAY-' };
 const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;
 /* 코드 본문(접두어 뺀 4자리) — 규칙 rooms/$room 이 XXXX-XXXX 만 받는다. 다른 길이로 들어가면 쓰기가 전부 조용히 거절돼 아무도 없는 방이 된다. */
 const ROOM_CODE_BODY_RE = /^[A-Z0-9]{4}$/;
+/* 들어갈 수 있는 방 코드 모양인가 — 공개 방(ROOM_CODE_RE) · 시크릿룸(SCRT- + 4자리). 최근 방(recent-rooms.js)이 기록 · 저장본을 거를 때 deps 로 받는다. */
+function isRoomCode(code){
+  if(typeof code !== 'string') return false;
+  return ROOM_CODE_RE.test(code) || (code.startsWith('SCRT-') && ROOM_CODE_BODY_RE.test(code.slice(5)));
+}
 function _roomPrefixFor(channel){ return ROOM_PREFIX[channel] || ROOM_PREFIX.workingroom; }
 /* 빈 방을 열 때 내가 갖게 될 채널의 접두어 — 빈 방 승격 규칙(보유자=투게더룸)과 **같은 판정**이어야 한다. */
 function _myRoomPrefix(){
@@ -1383,6 +1388,7 @@ return {
   syncFriendSeats,
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
   onRoomJoined,    // 🔔 «방에 연결됨» 알림 걸기 — 🕘 최근 방
+  isRoomCode,      // 방 코드 모양 판정(공개 방 · 시크릿룸) — 🕘 최근 방
   roomServerCheck: _roomServerCheck,   // 새 방이 방 서버로 갈 것인가(«내 서버» 를 다시 확인) — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }
