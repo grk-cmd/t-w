@@ -178,7 +178,7 @@
   function visForm(it, answers){
     const to = it.vis === 'pub' ? 'prv' : 'pub';
     const can = api().canChangeVis(it, myUid(), answers);
-    return '<div class="bb-row2 bb-vis"><button class="bb-btn" type="button" data-act="vis" data-vis="' + to + '"' + (can ? '' : ' disabled') + '>' +
+    return '<div class="bb-row2 bb-vis"><button class="bb-btn" type="button" data-act="vis" data-vis="' + esc(to) + '"' + (can ? '' : ' disabled') + '>' +
       (to === 'prv' ? '🔒 비공개로 바꾸기' : '🌐 공개로 바꾸기') + '</button>' +
       '<span class="bb-hint">' + esc(can ? C().visNote : C().visLocked) + '</span></div><div class="bb-err" id="bbVErr"></div>';
   }
