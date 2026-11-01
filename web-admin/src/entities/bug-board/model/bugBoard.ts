@@ -146,6 +146,22 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
 /** 🛡 운영진 글 — byAdmin 또는 공지(공지는 관리자만 쓴다). 이름으로 가르지 않는다. */
 export const isStaffPost = (item: Pick<BugItem, 'byAdmin' | 'notice'>) => !!item.byAdmin || !!item.notice;
 
+/** 비공개 글이라 닉네임을 따로 읽어야 하는가 — 목록 칸 이름이 «익명» 이라 관리자는 글쓴이 코드로 지금 닉네임을 읽는다. */
+export const needsAuthorLookup = (item: Pick<BugItem, 'vis' | 'code'>) => item.vis === 'prv' && !!item.code;
+
+/**
+ * 관리자 화면의 글쓴이 이름 — 비공개 글은 «익명 (지금 닉네임)». 닉네임을 아직 못 읽었거나 없으면 목록 칸 이름 그대로.
+ * 닉네임은 글 쓸 때가 아니라 지금 이름이다(목록 칸에는 비공개 글 이름을 남기지 않는다).
+ */
+export function bugAuthorName(
+  item: Pick<BugItem, 'vis' | 'name'>,
+  nickname: string | null | undefined,
+): string {
+  const base = item.name || '이름 없음';
+  const nick = typeof nickname === 'string' ? nickname.trim() : '';
+  return item.vis === 'prv' && nick ? `${base} (${nick})` : base;
+}
+
 // 하루 제보 상한 — 앱이 config/bugDailyMax 를 읽는다(없으면 기본값). 규칙 .validate 와 같은 범위.
 export const BUG_DAILY_MAX_PATH = 'config/bugDailyMax';
 export const BUG_DAILY_MAX_DEFAULT = 5;
