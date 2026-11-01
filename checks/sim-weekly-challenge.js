@@ -6,6 +6,7 @@
    ・4절: 정산 — 토요일 06:00 에 주중 트랙을 닫는다 · 남은 날 ✗ · 박제(arcWd) · 선지급분을 뺀 나머지 · 팝업 · 기록 보기
    ・5절: 🎯집중 · 🔁반복 — 판정 키 · 다른 플랫폼 조건은 안 셈 · keyAlt · 반복 알림 팝업 · 못 채우는 날 확정
    ・6절: 로그아웃 지우기(resetMemory) · 서버 동기화(ts 최신 승 · 읽기 실패면 아무것도 안 함)
+   ・6-2절: 서버 기록을 받기 전엔 판정하지 않는다 · 버튼(체크 · 자동 · 포기 · 시작)도 막고 안내 — 읽기 실패 · 로그인 전 · 옛 기록이 다른 기기의 오늘을 덮지 않음 · 다시 받기 · 로그아웃 뒤 · 깨 보기
    ・7절: app.js 배선 — 정의는 모듈에만 · createWeeklyChallenge 는 원래 자리 · 부르는 곳은 weeklyChal.이름 · CHAL_KEY 는 app.js · html 순서 · 전역 이름
    [실행] weekly-challenge.js · app.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
    ※ 🍅 뽀모 서랍은 parts/focus/pomodoro.js 로 옮겼다(앱 FSD 6번) — 뽀모 쪽이 weeklyChal.open(false) 를 부르는 곳은 그 파일에서 본다. */
@@ -73,7 +74,7 @@ function mkEnv(opt){
   const env = { now: opt.now || at(2026, 10, 14, 10), premium: opt.premium !== false, toasts: [], timers: [], intervals: [],
     winL: {}, ls: new Map(), saved: [], paidTags: new Set(), bonusCalls: [], bonus: 0, bonusLocal: [], popups: [],
     srv: opt.srv === undefined ? {} : opt.srv, focusApps: opt.focusApps || [{ key: 'win:chrome.exe', name: 'chrome.exe', title: '크롬' }],
-    appMode: opt.appMode || 'run', loadChalCalls: 0 };
+    appMode: opt.appMode || 'run', loadChalCalls: 0, uid: opt.uid === undefined ? 'uA' : opt.uid };
   if(opt.rec) env.ls.set('tw.chal', JSON.stringify(opt.rec));
   const els = new Proxy({}, { get: (t, k) => (typeof k === "string" ? (t[k] || (t[k] = mkEl("div", k))) : undefined) });
   const getEl = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl('div', id))));
@@ -101,11 +102,11 @@ function mkEnv(opt){
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
   vm.runInContext(HELP.join('\n') + '\nthis.__help = { _dayShifted, _focusDayStr, escHtml, formatHMS, DAY_START_HOUR };', ctx);
-  vm.runInContext(MOD, ctx, { filename: 'weekly-challenge.js' });
+  vm.runInContext(opt.src || MOD, ctx, { filename: 'weekly-challenge.js' });
   const H = ctx.__help;
   env.ctx = ctx; env.els = els; env.H = H;
   env.mk = () => ctx.TwWeeklyChallenge.createWeeklyChallenge({
-    getMyUserId: () => 'uA',
+    getMyUserId: () => env.uid,
     toast: (m) => env.toasts.push(m),
     escHtml: (...a) => H.escHtml(...a),
     formatHMS: (...a) => H.formatHMS(...a),
@@ -196,7 +197,7 @@ await sec('── 3. 📋규칙 트랙 — 체크 · 달성 · 3일째 선지급
     days: [1, 1, 0, -1, -1], today: { date: H._focusDayStr(now), dateMs: now, sec: 0, done: 0, checks: {}, anchor: 0, fail: false } };
   const e = mkEnv({ now, rec });
   const W = e.mk();
-  W.tick();
+  W.tick(); await flush();   // 서버 기록을 받은 뒤라야 체크가 먹는다(6-2절)
   chk(e.els.chalRun.style.display === 'block' && (e.els.chalWeek.innerHTML.match(/class="chal-day/g) || []).length === 5, '진행 화면 — 요일 5칸');
   chk(/class="chal-cell now">●/.test(e.els.chalWeek.innerHTML) && (e.els.chalWeek.innerHTML.match(/✓/g) || []).length === 2, '오늘 ● · 달성 ✓ 둘');
   chk(/📋 오늘 0 \/ 2/.test(e.els.chalToday.innerHTML) && /☐ 물 마시기/.test(e.els.chalToday.innerHTML), '오늘 항목 0/2');
@@ -311,6 +312,95 @@ await sec('── 6. 로그아웃 지우기 · 서버 동기화', async () => {
   e = mkEnv({ now, rec: { ts: 3 }, srv: {} });
   W = e.mk(); await W.syncChalToServer('launcher', 'pull');
   chk(e.saved.length === 1, 'pull · 서버가 비었으면 올린다');
+});
+
+await sec('── 6-2. 서버 기록을 받기 전엔 판정하지 않는다', async () => {
+  /* 제보: 다음 날 다른 기기(맥)를 켜자 달성표가 사라지고, 원래 기기(윈도우)의 오늘 기록도 리셋됐다.
+     받기 전 tick 이 이 기기의 어제 기록으로 하루 넘김을 하고 «지금 시각» 으로 올려 서버를 덮던 길이다. */
+  const wed = at(2026, 10, 14, 10), wk = isoWeek(wed), H = mkEnv({ now: wed }).H;
+  const day = (ms) => ({ date: H._focusDayStr(ms), dateMs: ms, sec: 0, done: 0, checks: {}, anchor: 0, fail: false });
+  const stale = () => ({ ts: 5, phase: 'wd', week: wk, kind: 'repeat', cfg: { text: '물', times: 1, gap: 1 }, days: [1, 0, -1, -1, -1], today: day(wed - 86400000) });
+  const fresh = () => ({ ts: 9, phase: 'wd', week: wk, kind: 'repeat', cfg: { text: '책', times: 1, gap: 1 }, days: [1, 1, 0, -1, -1], today: day(wed) });
+  const staleUp = (e) => e.saved.some(r => r.cfg && r.cfg.text === '물');
+  /* (a) 읽기 실패 — 옛 기록 그대로 · 아무것도 안 올림 */
+  let e = mkEnv({ now: wed, rec: stale(), srv: null });
+  let W = e.mk(); W.tick(); await flush();
+  chk(e.loadChalCalls === 1 && e.saved.length === 0 && W.state().ts === 5 && W.state().today.date === H._focusDayStr(wed - 86400000),
+    '읽기 실패 — 하루 넘김을 안 하고(ts · 오늘 칸 그대로) 아무것도 안 올린다 · 다시 받아 본다');
+  /* (b) 로그인 전 — 서버를 부르지도 않는다 */
+  e = mkEnv({ now: wed, rec: stale(), uid: '' });
+  W = e.mk(); W.tick(); await flush();
+  chk(e.loadChalCalls === 0 && e.saved.length === 0 && W.state().ts === 5, '로그인 전 — 서버를 안 부르고 판정도 안 한다');
+  /* (c) 다른 기기의 오늘 기록이 서버에 있다 — 받은 뒤에 판정한다 */
+  e = mkEnv({ now: wed, rec: stale(), srv: fresh() });
+  W = e.mk(); W.tick(); await flush();
+  chk(!staleUp(e) && W.state().cfg.text === '책' && W.state().today.date === H._focusDayStr(wed) && JSON.stringify(W.state().days) === '[1,1,0,-1,-1]',
+    '★ 받기 전 tick — 서버(다른 기기)의 오늘 기록을 받고, 이 기기의 어제 기록으로 덮지 않는다');
+  /* (d) 실패한 뒤 다음 tick 에 다시 받는다 */
+  e = mkEnv({ now: wed, rec: stale(), srv: null });
+  W = e.mk(); W.tick(); await flush();
+  e.srv = fresh(); W.tick(); await flush();
+  chk(e.loadChalCalls === 2 && !staleUp(e) && W.state().cfg.text === '책', '읽기 실패 뒤 다음 tick 이 다시 받아 이어 간다');
+  /* (e) 받은 뒤엔 tick 마다 서버를 읽지 않는다 */
+  const n0 = e.loadChalCalls; W.tick(); await flush();
+  chk(e.loadChalCalls === n0, '받은 뒤 tick 은 서버를 더 읽지 않는다(판정이 바뀔 때만 동기화)');
+  /* (f) 로그아웃(resetMemory) 뒤엔 다시 받아야 판정한다 */
+  W.resetMemory(); e.srv = null; W.tick(); await flush();
+  chk(e.loadChalCalls === n0 + 1 && e.saved.length === 0, '로그아웃 뒤 — 받은 표시도 지운다(다음 계정은 다시 받아야 판정)');
+  /* (g) 받기 전 버튼 — 체크 · 포기 · 자동 · [시작] 은 막고 안내만, 받은 뒤 서버(다른 기기) 기록이 이긴다 */
+  const staleRule = () => Object.assign(stale(), { kind: 'rule', cfg: { rules: [['a'], ['b'], ['c'], ['d'], ['e']] }, last: { kind: 'repeat', cfg: { text: '물', times: 1, gap: 1 } } });
+  const LOADING = /서버에서 불러오는 중/;
+  const msgs = (e) => e.toasts.filter(t => LOADING.test(t)).length;
+  e = mkEnv({ now: wed, rec: staleRule(), srv: null });
+  W = e.mk(); W.tick(); await flush();
+  e.els.chalToday.fire('click', { target: target('data-i', '0') }); await flush();
+  const m1 = msgs(e);
+  e.els.chalAutoBtn.click(); await flush();
+  const m2 = msgs(e);
+  const p0 = e.popups.length;
+  e.els.chalGiveupBtn.click(); await flush();
+  const m3 = msgs(e), noPop = (e.popups.length === p0);
+  e.els.chalEditBtn.click(); e.els.chalStartBtn.click(); await flush();                  // [수정] — 지금 조건(빈 요일 없음)으로 바로 누름
+  const m4 = msgs(e);
+  e.els.chalKindRepeat.click(); e.els.chalRepeatText.value = '산책'; e.els.chalRepeatText.fire('input');
+  e.els.chalStartBtn.click(); await flush();                                                // [시작] — 지킬 일을 적고 누름
+  const m5 = msgs(e);
+  chk(m1 === 1 && m2 === 2 && m3 === 3 && m4 === 4 && m5 === 5, '받기 전 버튼 다섯(체크 · 자동 · 포기 · 수정 · 시작) — 누를 때마다 «불러오는 중» 안내 하나씩');
+  chk(noPop, '  받기 전 포기 — 확인창을 띄우지 않고 안내만');
+  chk(e.saved.length === 0 && W.state().ts === 5 && !(W.state().today.checks || {})[0] && W.state().auto !== true && W.state().kind === 'rule' && !W.state().pendingCfg,
+    '  기록은 그대로(ts · 체크 · 자동 · 트랙 · 다음 날 조건) · 서버에 아무것도 안 올림');
+  e.srv = fresh(); W.tick(); await flush();
+  chk(!staleUp(e) && W.state().cfg.text === '책', '  읽기가 살아나면 서버(다른 기기) 기록을 받는다 — 앞서 누른 것이 서버를 덮지 않았다');
+  /* 포기 확인창이 떠 있는 동안 로그아웃되면(받은 표시가 풀림) [포기하기] 도 막는다 */
+  e = mkEnv({ now: wed, rec: staleRule(), srv: fresh() });
+  W = e.mk(); W.tick(); await flush();
+  e.els.chalGiveupBtn.click(); await flush();
+  const gp = e.popups[e.popups.length - 1];
+  W.resetMemory(); e.srv = null;
+  const mg = msgs(e);
+  if(gp) gp.children[0].querySelectorAll('[data-a]')[0].click(); await flush();
+  chk(!!gp && W.state().ts === 0 && msgs(e) === mg + 1, '포기 창이 뜬 사이 로그아웃 — [포기하기] 도 막고 안내(빈 기록에 ts 를 안 찍음)');
+  /* (h) 깨 보기 — 받기 전 문턱을 빼면 옛 기록이 서버를 덮는다(제보 그대로) */
+  const GATE = 'return !uid || _chalSyncedUid !== uid;';
+  chk(MOD.includes(GATE), '문턱 줄이 모듈에 있다(깨 보기 대상)');
+  e = mkEnv({ now: wed, rec: stale(), srv: fresh(), src: MOD.replace(GATE, 'return false;') });
+  W = e.mk(); W.tick(); await flush();
+  chk(staleUp(e), '깨 보기 — 문턱을 빼면 어제 기록(물)이 «지금 시각» 으로 서버를 덮는다');
+  const BTN = 'if(!_chalUnsynced()) return false;';
+  chk(MOD.includes(BTN), '버튼 문턱 줄이 모듈에 있다(깨 보기 대상)');
+  e = mkEnv({ now: wed, rec: staleRule(), srv: null, src: MOD.replace(BTN, 'return false;') });
+  W = e.mk(); W.tick(); await flush();
+  e.els.chalToday.fire('click', { target: target('data-i', '0') }); await flush();
+  e.srv = fresh(); W.tick(); await flush();
+  chk(e.saved.some(r => r.kind === 'rule'), '깨 보기 — 버튼 문턱을 빼면 받기 전 체크가 옛 기록을 «지금 시각» 으로 올려 서버(책)를 덮는다');
+  /* [시작] 처리기의 문턱 하나만 빼 본다 — 수정 · 시작이 옛 기록을 올리는지 */
+  const START = "if(!_chalDraft) return;\n    if(_chalBlockUnsynced()) return;";
+  chk(MOD.includes(START), '[시작] 문턱 줄이 모듈에 있다(깨 보기 대상)');
+  e = mkEnv({ now: wed, rec: staleRule(), srv: null, src: MOD.replace(START, 'if(!_chalDraft) return;') });
+  W = e.mk(); W.tick(); await flush();
+  e.els.chalEditBtn.click(); e.els.chalStartBtn.click(); await flush();
+  e.srv = fresh(); W.tick(); await flush();
+  chk(e.saved.some(r => r.kind === 'rule'), '깨 보기 — [시작] 문턱을 빼면 받기 전 [수정] 이 옛 기록을 올려 서버(책)를 덮는다');
 });
 
 await sec('── 7. app.js 배선', () => {
