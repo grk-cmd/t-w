@@ -3,7 +3,7 @@
      예전엔 startRoom('WORK-AB') 로 가서 쓰기가 전부 조용히 거절된 채 «연결됐어요» 만 뜨는 빈 방에 들어갔다.
    ・1절: doJoinRoom · doJoinSecretRoom 을 떼어 실제로 돌린다 — 4자리 · 접두어 붙여넣기 · 별표 시크릿 · 빈 칸(랜덤)은 그대로,
           1~3자 · 5자는 안내만 하고 방에 안 간다 · 로비 모달 칸(randomOnEmpty: false)은 빈 칸이면 안내만(랜덤은 [빠른시작])
-   ・1-1절: 입장 중 막기 — 로비 카드(joinRoom) · 코드 칸 · 시크릿룸 칸 · 랜덤 참여가 깃발 하나를 같이 본다 · 던져도 풀린다
+   ・1-1절: 입장 중 막기 — 로비 카드(joinRoom) · 코드 칸 · 시크릿룸 칸 · 랜덤 참여가 깃발 하나를 같이 본다 · 막힌 누름은 안내 토스트 · 던져도 풀린다
    ・2절: 일부러 깨 보기 — 길이 검사를 빼면 빨강
    [실행] node checks/run.js sim-room-code-len */
 'use strict';
@@ -38,10 +38,10 @@ const grabLine = (src, head) => { const i = src.indexOf(head); return i < 0 ? nu
 /* 입장 함수들을 진짜 글로 싣는다 — startRoom · 랜덤 참여는 가짜(기다리게 할 수 있음) */
 function loadJoin(src, startRoom, o){
   o = o || {};
-  const parts = [grabLine(src, 'const ROOM_CODE_BODY_RE ='), grabLine(src, 'let _joiningRoom = false;'), grabFn(src, 'async function _whileJoining(fn){'), grabLine(src, 'function joinRoom(code){'),
+  const parts = [grabLine(src, 'const ROOM_CODE_BODY_RE ='), grabLine(src, 'let _joiningRoom = false;'), grabLine(src, 'const JOINING_MSG ='), grabFn(src, 'function _joinBusy(){'), grabFn(src, 'async function _whileJoining(fn){'), grabLine(src, 'function joinRoom(code){'),
     grabLine(src, 'const RANDOM_JOIN_TRIES ='), grabFn(src, 'async function doJoinRandomRoom(){'),
     grabFn(src, 'async function doJoinRoom(codeInputEl, opts){'), grabFn(src, 'async function doJoinSecretRoom(codeInputEl){')];
-  if(parts.some(p => !p)) throw new Error('room-entry.js 에서 ROOM_CODE_BODY_RE · _joiningRoom · _whileJoining · joinRoom · RANDOM_JOIN_TRIES · doJoinRandomRoom · doJoinRoom · doJoinSecretRoom 을 못 찾음');
+  if(parts.some(p => !p)) throw new Error('room-entry.js 에서 ROOM_CODE_BODY_RE · _joiningRoom · JOINING_MSG · _joinBusy · _whileJoining · joinRoom · RANDOM_JOIN_TRIES · doJoinRandomRoom · doJoinRoom · doJoinSecretRoom 을 못 찾음');
   const out = { room: null, rooms: [], toasts: [], random: 0 };
   /* 랜덤 참여는 진짜 doJoinRandomRoom — 후보 찾기만 가짜(서버 후보 o.srv · Firebase 후보 하나 · 사람 1명) */
   const api = { findRandomRooms: async () => { out.random++; return o.fbCands || ['WORK-RR77']; }, checkRoomCapacity: async () => 1 };
@@ -72,9 +72,11 @@ async function guard(src){
   await settle(fns.doJoinRoom({ value: 'CC33', dataset: {} }, { randomOnEmpty: false }));
   await settle(fns.doJoinSecretRoom({ value: 'DD44', dataset: {} }));
   t(out.rooms.join() === 'WORK-AA11', '★ 로비 카드(joinRoom)로 연결을 기다리는 사이 — 카드 · 코드 칸 [입장] · 시크릿룸 칸을 또 눌러도 안 겹친다');
+  const BUSY = '방에 들어가는 중이에요 — 잠시만 기다려 주세요';
+  t(out.toasts.length === 3 && out.toasts.every((m) => m === BUSY), '★ 막힌 누름마다 «방에 들어가는 중이에요» 안내(세 번 눌러 세 번)');
   release(); await settle(p1);
   await (async () => { const p = fns.doJoinRoom({ value: 'CC33', dataset: {} }, { randomOnEmpty: false }); await tick(); await settle(fns.joinRoom('WORK-EE55')); release(); await settle(p); })();
-  t(out.rooms.join() === 'WORK-AA11,WORK-CC33', '  연결이 끝나면 다시 누를 수 있고 · 코드 칸으로 기다리는 사이 카드도 막힌다');
+  t(out.rooms.join() === 'WORK-AA11,WORK-CC33' && out.toasts.length === 4, '  연결이 끝나면 다시 누를 수 있고(안내 없음) · 코드 칸으로 기다리는 사이 카드도 막힌다(안내 한 번)');
   await (async () => { const p = fns.doJoinRoom({ value: '', dataset: {} }); await tick(); await tick(); await settle(fns.joinRoom('WORK-FF66')); release(); await settle(p); })();
   t(out.random === 1 && out.rooms.join() === 'WORK-AA11,WORK-CC33,WORK-RR77', '★ 랜덤 참여(진짜 doJoinRandomRoom)로 연결을 기다리는 사이도 막힌다');
   const { fns: f3, out: o3 } = loadJoin(src, pending, { srv: ['PLAY-SV88'] });
@@ -154,9 +156,10 @@ async function judge(src){
     ['후원 링크가 남음', MOD, H.replace('<div class="lb-foot">', '<a id="donateLink"></a><div class="lb-foot">')],
   ];
   for(const [name, a, b] of [
-    ['_whileJoining 이 깃발을 안 봄', '  if(_joiningRoom) return;\n  _joiningRoom = true;\n  try{ await fn(); }', '  _joiningRoom = true;\n  try{ await fn(); }'],
+    ['_whileJoining 이 깃발을 안 봄', '  if(_joinBusy()) return;\n  _joiningRoom = true;\n  try{ await fn(); }', '  _joiningRoom = true;\n  try{ await fn(); }'],
     ['깃발을 finally 로 안 풂', 'try{ await fn(); }finally{ _joiningRoom = false; }', 'await fn(); _joiningRoom = false;'],
     ['코드 칸이 막기 밖에서 startRoom', "await _whileJoining(async () => { await startRoom(await _resolveRoomCode(c, _explicit || _myRoomPrefix())); });", "startRoom(await _resolveRoomCode(c, _explicit || _myRoomPrefix()));"],
+    ['막힌 누름에 안내가 없음', '  toast(JOINING_MSG);\n', ''],
     ['joinRoom 이 막기를 안 거침', 'function joinRoom(code){ return _whileJoining(() => startRoom(code)); }', 'function joinRoom(code){ return startRoom(code); }'],
     ['랜덤 참여가 연결을 안 기다림(Firebase 후보)', '    await startRoom(code);\n    return;', '    startRoom(code);\n    return;'],
     ['랜덤 참여가 연결을 안 기다림(방 서버 후보)', '  if(_srv.length){ await startRoom(_srv[0]); return; }', '  if(_srv.length){ startRoom(_srv[0]); return; }'],
