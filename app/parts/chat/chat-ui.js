@@ -19,7 +19,6 @@ const Presence = deps.Presence;   // 읽는 함수
 const _chatDelClose = deps._chatDelClose;
 const _chatEsc = deps._chatEsc;
 const _chatIsHost = deps._chatIsHost;
-const _chatLinkify = deps._chatLinkify;
 const _chatLogCache = deps._chatLogCache;   // 읽는 함수
 const _chatLogUnsub = deps._chatLogUnsub;   // 읽는 함수
 const _chatOffOn = deps._chatOffOn;
@@ -1035,15 +1034,16 @@ function _renderDiceMarkers(escapedText){
   return escapedText.replace(/\[dice:([1-6])\]/g, (m, n)=> _diceSvg(parseInt(n,10), 26));
 }
 // 메시지 텍스트 렌더 파이프라인 — 이모티콘/주사위 마커의 URL이 링크화에 먹히지 않도록
-// 마커를 토큰(\u0000i\u0000)으로 먼저 대피시키고, 남은 텍스트만 링크화한 뒤 토큰을 최종 HTML로 복원한다.
+// 마커를 토큰(\u0000i\u0000)으로 먼저 대피시키고, 남은 글을 공용 linkify(씻기 + 주소 칸)에 넘긴 뒤 토큰을 최종 HTML로 복원한다.
+// ⚠️ 받은 글의 \u0000 은 먼저 지운다 — 남겨 두면 보낸 사람이 토큰을 흉내 내 다른 마커 HTML 을 끼울 수 있다.
 function _renderChatText(rawText){
-  let t=_chatEsc(rawText);
+  let t=String(rawText == null ? '' : rawText).replace(/\u0000/g, '');
   const tokens=[];
-  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${TwSafeHtml.safeUrl(u, 'image')}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
+  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${TwSafeHtml.attr(TwSafeHtml.safeUrl(u, 'image'))}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; if(!d) return m;
     tokens.push(`<img class="cm-emoji" style="width:${d.w}px;height:${d.h}px" src="${DEMOJI_DIR}${d.file}" alt="${_chatEsc(d.cmd)}">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[dice:([1-6])\]/g, (m,n)=>{ tokens.push(_diceSvg(parseInt(n,10),26)); return `\u0000${tokens.length-1}\u0000`; });
-  t=_chatLinkify(t);   // 남은 http URL만 링크로
+  t=TwSafeHtml.linkify(t);   // 남은 글 — 씻고 주소만 누를 칸으로(알림함 · 버그 제보와 한 벌)
   t=t.replace(/\u0000(\d+)\u0000/g, (m,i)=> tokens[+i] || '');   // 토큰 복원
   return t;
 }

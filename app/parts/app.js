@@ -3215,6 +3215,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
@@ -3252,6 +3253,7 @@ const guestbook = TwGuestbook.createGuestbook({
   escHtml: (...a)=>escHtml(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
   myHomeFriends: ()=>_myHomeFriends,
@@ -3286,7 +3288,6 @@ const chatUiMod = TwChatUi.createChatUi({
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
-  _chatLinkify: (...a)=>_chatLinkify(...a),
   _chatLogCache: ()=>_chatLogCache,
   _chatLogUnsub: ()=>_chatLogUnsub,
   _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
@@ -3330,13 +3331,6 @@ let _chatLogCache = [];        // 화면에 그린 마지막 메시지 목록(�
    ⚠️ `const` 가 아니라 **함수 선언**이다. 여기보다 앞줄에서 부르는 자리가 있어서
      호이스팅이 필요하다(const 로 바꾸면 TDZ 로 조용히 죽는다). */
 function _chatEsc(str){ return escHtml(str); }
-// 링크 감지 → 클릭 시 외부 열기. 이스케이프된 텍스트에서 http(s) URL만 <a>로 변환.
-function _chatLinkify(escapedText){
-  return escapedText.replace(/(https?:\/\/[^\s<]+)/g, (m)=>{
-    const safe = m.replace(/"/g,'&quot;');
-    return `<a href="#" data-url="${safe}" class="cm-link">${m}</a>`;
-  });
-}
 
 const CHAT_WIN_POS_KEY = 'tw_chat_win_pos';
 
