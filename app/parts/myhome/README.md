@@ -175,6 +175,21 @@ const mhBgUrl = TwMhBgUrl;   // myhome-edit.js 머리 — myhome-desktop.js(옛 
 **함정** — 안내는 **내 배경일 때만** 부른다(바탕화면 `advApplyBg` 는 `!advVisiting`, 창 바깥 `applyMyHomeBg` 는 `!_mhViewingUserId()`) — 친구 홈 구경에서 남의 배경 오류를 띄우지 않는다. 진단 줄에 주소를 싣지 않는다.
 검사: `checks/sim-mh-bg-url.js`(입력 → 출력 · 불러 보기 · 그리는 곳 두 군데를 떼어 돌림 · 깨 보기).
 
+## `gift-save.js` — 💾 받은 말랑이 선물 그림 저장
+
+**책임** — 선물함 칸 우클릭 [저장] 에서 선물 그림을 받아 그대로(다시 그리지 않음 — GIF 움직임 유지) `말랑이_보낸사람_받은날짜.확장자` 로 내려받기. 실패하면 `E-MH-03`.
+
+**만드는 법** — app.js 가 수령함 모듈(`createMyHomeInbox`)을 만드는 줄에서 deps `giftSave` 로 넘긴다. error-codes.js · safe-html.js 뒤, `myhome-inbox.js` · app.js 보다 먼저 싣는다:
+
+```js
+giftSave: TwGiftSave.createGiftSave({ fetch, document, URL, setTimeout, safeUrl: TwSafeHtml.safeUrl, now: ()=>new Date(), notifyFail: e=>TwErrorCodes.notify('E-MH-03', e) }),
+```
+
+**내놓는 것** — `fileName(fromName, when, type)`(순수 — 못 쓰는 글자는 `_` · 빈 이름은 «친구») · `extOf(type)` · `createGiftSave(deps)` → `save(gift)`(`'ok'` · `'fail'`).
+
+**함정** — 저장 위치는 Electron 기본 저장 창이 묻는다(스티커사진 저장과 같다 — main.js 에 다운로드 처리 없음). 사용자가 창에서 취소할 수 있어 «저장했어요» 알림은 띄우지 않는다. 그림 주소는 친구가 정한 값이라 `safeUrl(…, 'image')` 를 거친 주소만 받는다.
+검사: `checks/sim-gift-save.js`(파일 이름 경계값 · 저장 흐름 · 실패 · 수령함 우클릭 버튼 · 연결 · 깨 보기).
+
 ## `myhome-sticker-rules.js` — 🔒 스티커 잠금 · 그리는 순서
 
 **책임** — 마이홈 스티커의 잠금 판단과 그리는 순서(뒤 → 앞) 한 벌. 순수 함수만 — DOM · firebase 를 모른다(받은 스티커 묶음의 `z` · `locked` 칸만 고친다).
