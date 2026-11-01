@@ -60,6 +60,10 @@ const paintRoomInfo = deps.paintRoomInfo;   // 방 안 정보 칸 제목 · [방
 const _roomChangedFns = [];
 function onRoomChanged(fn){ _roomChangedFns.push(fn); }
 function _roomChanged(){ paintRoomInfo(); _roomChangedFns.forEach(f => f()); }
+/* 🔔 «방에 연결됨» 알림 — 위층(🕘 최근 방 recent-rooms.js)이 onRoomJoined 로 건다. meta 는 그때 아는 방 meta(없으면 null). */
+const _roomJoinedFns = [];
+function onRoomJoined(fn){ _roomJoinedFns.push(fn); }
+function _roomJoined(code){ const meta = window._roomMetaCache || null; _roomJoinedFns.forEach(f => f(code, meta)); }
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 function _roomServerNet(){
@@ -252,6 +256,7 @@ async function _startRoomOnServer(code, ctx){
   }
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   _clearPendingCreate();
+  _roomJoined(code);
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();
   return 'done';
 }
@@ -911,6 +916,7 @@ async function startRoom(code){
   await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });
   if(_markWhy) firebaseAPI.markRoomFallback(code, _markWhy);   // 진단 한 줄 — 기다리지 않고 실패도 무시(입장과 무관)
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
+  _roomJoined(code);
   window._pendingRoomChannel = null;
   window._pendingRoomOpen = false;   // 🎲 소비 완료 — 다음 '참여'가 이 값을 물려받지 않게
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();   // 멀티모드 진입 — 자리추가 좌석은 자동으로 뺌
@@ -1376,6 +1382,7 @@ return {
   startRoom,
   syncFriendSeats,
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
+  onRoomJoined,    // 🔔 «방에 연결됨» 알림 걸기 — 🕘 최근 방
   roomServerCheck: _roomServerCheck,   // 새 방이 방 서버로 갈 것인가(«내 서버» 를 다시 확인) — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }

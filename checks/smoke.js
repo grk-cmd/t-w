@@ -459,6 +459,8 @@ PRELOAD.push('room-info-ui.js');   // 🏷️ 방 안 제목 줄 · [방 설정]
 PRELOAD.push('room-lobby-model.js');   // 🗂️ 방 목록 로비 규칙(TwRoomLobbyModel)
 PRELOAD.push('room-lobby-provider.js');   // 🗂️ 로비가 읽는 것(TwRoomLobbyProvider)
 PRELOAD.push('room-lobby-ui.js');   // 🗂️ 방 목록 로비 화면(TwRoomLobbyUi)
+PRELOAD.push('recent-rooms.js');      // 🕘 최근 방 규칙 · 저장(TwRecentRooms) — app.js 가 만든다
+PRELOAD.push('recent-rooms-ui.js');   // 🕘 로비 코드 칸 최근 방 목록(TwRecentRoomsUi)
 PRELOAD.push('room-entry.js');
 /* label-measure.js — 📐 라벨 잰 값 기억. overhead.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('label-measure.js');
