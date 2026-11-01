@@ -1109,8 +1109,15 @@ async function doHopRandomRoom(){
    연결을 기다리는 몇 초 사이 다른 것을 또 누르면 startRoom 이 겹쳐 돈다.
    ⚠️ startRoom 안에서 다시 부르는 startRoom(빈 방 접두어 옮김)은 이 막기를 거치지 않는다 — 막으면 스스로 막힌다. */
 let _joiningRoom = false;
+const JOINING_MSG = '방에 들어가는 중이에요 — 잠시만 기다려 주세요';
+/* 입장 중이면 안내하고 true — 막힌 누름이 아무 일 없이 넘어가 «눌렀는데 반응이 없다» 로 보이지 않게 */
+function _joinBusy(){
+  if(!_joiningRoom) return false;
+  toast(JOINING_MSG);
+  return true;
+}
 async function _whileJoining(fn){
-  if(_joiningRoom) return;
+  if(_joinBusy()) return;
   _joiningRoom = true;
   try{ await fn(); }finally{ _joiningRoom = false; }
 }
@@ -1133,7 +1140,7 @@ async function _resolveRoomCode(body, chosen){
 }
 /* opts.randomOnEmpty — 빈 코드면 랜덤 참여(F1 멀티모드 탭). 로비 모달은 false — 랜덤은 [⚡ 빠른시작] 하나로 둔다. */
 async function doJoinRoom(codeInputEl, opts){
-  if(_joiningRoom) return;
+  if(_joinBusy()) return;
   let c=((codeInputEl&&codeInputEl.value)||'').trim().toUpperCase();
   if(!c && !(opts && opts.randomOnEmpty === false)){ await _whileJoining(doJoinRandomRoom); return; }   // 🎲 빈 코드 = 랜덤 참여
   if(!c){ toast('방 코드를 입력하세요'); return; }
@@ -1393,7 +1400,7 @@ return {
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
   onRoomJoined,    // 🔔 «방에 연결됨» 알림 걸기 — 🕘 최근 방
   isRoomCode,      // 방 코드 모양 판정(공개 방 · 시크릿룸) — 🕘 최근 방
-  joinRoom,        // 사람이 누른 입장(겹치면 넘김 · _joiningRoom 한 깃발) — 로비 카드 · 🕘 최근 방
+  joinRoom,        // 사람이 누른 입장(겹치면 안내하고 넘김 · _joiningRoom 한 깃발) — 로비 카드 · 🕘 최근 방
   roomServerCheck: _roomServerCheck,   // 새 방이 방 서버로 갈 것인가(«내 서버» 를 다시 확인) — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }
