@@ -1467,11 +1467,6 @@
     background:#FFFFE1;color:#000;font-weight:normal;font-size:12px;padding:8px 16px;pointer-events:none;white-space:pre-line;
     border:1px solid #000;box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));font-family:var(--tw-font-legacy);}
   .toast.on{opacity:1;transform:translateX(-50%) translateY(0);pointer-events:auto;cursor:pointer;}
-  /* 💬 맥 설명 말풍선 — OS 툴팁이 «항상 위» 앱 창 뒤로 깔려서 맥에서만 앱이 그린다(shared/mac-tooltip.js). 토스트와 같은 «쪽지» 모양 · 모든 창 위 */
-  #twMacTip{position:fixed;z-index:10000;display:none;pointer-events:none;max-width:320px;padding:3px 7px;white-space:pre-line;word-break:break-word;
-    background:#FFFFE1;color:#000;border:1px solid #000;font-size:12px;line-height:1.45;font-family:var(--tw-font-legacy);
-    box-shadow:var(--win-drop-el, 2px 2px 0 rgba(0,0,0,.3));}
-  #twMacTip.on{display:block;}
 
   #codeOverlay{position:fixed;inset:0;z-index:var(--z-dialog-code);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);}
   #codeOverlay.on{display:flex;}
