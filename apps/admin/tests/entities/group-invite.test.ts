@@ -118,14 +118,15 @@ describe('여러 명 초대 코드 — 쓰기', () => {
 
   it('만든 뒤 기록 — 코드 대신 메모 · 인원 · 마지막 날', async () => {
     const { db, writes } = fakeDb();
-    await createGroupInviteCode(db, { maxUses: 500, expiresAt: endOfDay('2026-10-31'), note: '10월 모집' });
+    // 마감은 먼 미래로 — 만들기는 실제 시계(Date.now)와 비교해서 지난 날짜를 박으면 그날부터 깨진다
+    await createGroupInviteCode(db, { maxUses: 500, expiresAt: endOfDay('2099-12-31'), note: '10월 모집' });
     expect(auditsOf(writes)).toEqual([
       {
         at: NOW,
         by: 'admin-uid',
         action: 'invite.groupCreate',
         target: '10월 모집',
-        detail: '500명 · 2026-10-31까지',
+        detail: '500명 · 2099-12-31까지',
       },
     ]);
     expect(JSON.stringify(auditsOf(writes))).not.toContain('INVT-');
