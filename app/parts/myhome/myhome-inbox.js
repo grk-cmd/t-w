@@ -338,20 +338,9 @@ function _inboxTimeStr(ts){
      원하는 걸 심을 수 있다(XSS). 주소는 http/https만 인정한다.
    클릭하면 companion.openBrowser로 시스템 기본 브라우저(크롬·웨일 등)에서 열린다. */
 function _linkifyText(text){
-  /* 🛡️ 이스케이프는 공용 `escHtml` 하나로 한다 — 예전엔 여기에 네 문자를 손으로 적어 뒀는데
-       `'` 가 빠져 있었다(홑따옴표 속성 안에서 뚫린다). 손으로 적은 목록은 반드시 한 개가 빠진다. */
-  let esc = escHtml(text);
-  // 1) 주소를 클릭 가능한 링크로
-  esc = esc.replace(/(https?:\/\/[^\s<]+)/g, u=>{
-    const clean = u.replace(/[.,;:)\]]+$/, '');            // 문장 끝 문장부호는 주소에서 제외
-    const tail  = u.slice(clean.length);
-    return '<span class="ext-link" data-url="'+clean+'">'+clean+'</span>'+tail;
-  });
-  // 2) 라이선스 키(XXXX-XXXX-XXXX-XXXX)를 클릭하면 복사되는 요소로 (수령함에서 받은 키를 쉽게 복사)
-  esc = esc.replace(/\b([A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4})\b/g, k=>{
-    return '<span class="lic-key" data-key="'+k+'" title="클릭하면 복사돼요">'+k+'</span>';
-  });
-  return esc;
+  /* 주소 칸은 공용 linkify(채팅 · 버그 제보와 한 벌). 라이선스 키 칸은 주소가 아닌 조각에만 — 주소 속 글자에 끼면 data-url 이 깨진다 */
+  return TwSafeHtml.linkify(text, seg => escHtml(seg).replace(/\b([A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4})\b/g,
+    k => '<span class="lic-key" data-key="'+k+'" title="클릭하면 복사돼요">'+k+'</span>'));
 }
 /* 링크 클릭을 한 곳에서 처리 — 본문이 다시 그려져도 계속 동작하도록 위임 방식. */
 function _bindExtLinks(root){
@@ -371,10 +360,11 @@ function _bindExtLinks(root){
       return;
     }
     const a = e.target && e.target.closest ? e.target.closest('.ext-link') : null;
-    if(!a || !a.dataset.url) return;
+    const url = a ? TwSafeHtml.safeUrl(a.dataset.url, 'link') : '';   // 화면에 그린 값 — 열기 전에 한 번 더
+    if(!url) return;
     e.preventDefault();
     e.stopPropagation();   // 알림 항목이 접히거나 창이 닫히지 않게
-    try{ if(window.companion && companion.openBrowser) companion.openBrowser(a.dataset.url); }catch(_){}
+    try{ if(window.companion && companion.openBrowser) companion.openBrowser(url); }catch(_){}
   });
 }
 /* 💝 선물함 — 받은 말랑이 선물 목록. 마이홈에서 클릭해 없앨 때까지 여기 남아있음.

@@ -264,7 +264,7 @@ async function behave(src){
     nList.children[1].onclick();
     chk(m.state().newsOpenId === 'q' && JSON.parse(e.store.get('tw.inboxBcRead')).includes('q') && e.calls.length === 0 && e.bell === 1, '글을 고르면 본문 · 로컬 읽음(서버 안 부름) · 🔔 갱신');
     chk(/mh-news-item read sel/.test(nList.children[1].className) && view.children[0].className === 'mh-news-banner notice' && view.children[1].textContent === '새 공지'
-      && /<span class="ext-link" data-url="https:\/\/y\.io">/.test(view.children[3].innerHTML) && view.children[3]._extLinkBound === true, '  오른쪽 — 색 띠 · 제목 · 본문(링크)');
+      && /<span class="ext-link" data-url="https:\/\/y\.io\/?">/.test(view.children[3].innerHTML) && view.children[3]._extLinkBound === true, '  오른쪽 — 색 띠 · 제목 · 본문(링크)');
     chk(view.children[2].children.length === 1, '  관리자가 아니면 고정 · 지우기 단추가 없다');
     m.setInboxFilter('update'); m.renderInbox();
     chk(m.state().newsOpenId === null && /왼쪽 목록에서/.test(view.innerHTML), '  종류를 바꿔 목록에서 빠지면 본문도 비운다');
@@ -305,6 +305,10 @@ async function behave(src){
     chk(out.indexOf('&lt;b&gt;&quot;&#39;x&lt;/b&gt;') === 0, '이스케이프를 먼저 한다(다섯 문자)');
     chk(/<span class="ext-link" data-url="https:\/\/a\.b\/c\?d=1&amp;e=2">https:\/\/a\.b\/c\?d=1&amp;e=2<\/span>\),/.test(out), '주소는 링크로 · 끝 문장부호는 빼고');
     chk(/<span class="lic-key" data-key="ABCD-1234-WXYZ-0000" title="클릭하면 복사돼요">ABCD-1234-WXYZ-0000<\/span>/.test(out), '라이선스 키는 누르면 복사되는 칸');
+    chk(out === TwSafeHtml.linkify('<b>"\'x</b> https://a.b/c?d=1&e=2), 키 ', TwSafeHtml.text) + m.linkifyText('ABCD-1234-WXYZ-0000') + ' 끝', '  주소 칸은 공용 linkify 와 한 벌(채팅 · 버그 제보와 같은 규칙)');
+    const inUrl = m.linkifyText('https://x.io/k/ABCD-1234-WXYZ-0000 키');
+    chk(!/lic-key/.test(inUrl) && /data-url="https:\/\/x\.io\/k\/ABCD-1234-WXYZ-0000"/.test(inUrl), '  주소 속 키 모양 글자는 키 칸으로 안 바꾼다(data-url 이 안 깨짐)');
+    chk(m.linkifyText('javascript:alert(1) https://ok.io/x') === TwSafeHtml.text('javascript:alert(1) ') + '<span class="ext-link" data-url="https://ok.io/x">https://ok.io/x</span>', '  http(s) 가 아닌 주소는 칸이 안 된다');
     const root = mkEl('div', e);
     m.bindExtLinks(root); m.bindExtLinks(root); m.bindExtLinks(null);
     chk((root._L.click || []).length === 1, '위임은 한 번만 건다');
@@ -315,6 +319,9 @@ async function behave(src){
     ev = { target: tgt('.lic-key', { key: 'ABCD-1234-WXYZ-0000' }) };
     root.fire('click', ev);
     chk(e.copied.join() === 'ABCD-1234-WXYZ-0000' && e.toasts.includes('라이선스 키를 복사했어요') && e.opened.length === 1, '키 누르면 클립보드 · 안내');
+    ev = { target: tgt('.ext-link', { url: 'javascript:alert(1)' }) };
+    root.fire('click', ev);
+    chk(e.opened.length === 1, '  화면에 그린 주소도 열기 전에 다시 거른다(http(s) 만)');
   }
 
   say('── 5. 선물함');
@@ -558,8 +565,8 @@ async function runAll(MI, APP, HTML){
     ['MI', "if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", "if(m._src === 'broadcast'){ }", '공지 펼쳐도 읽음 안 됨'],
     ['MI', "if(isAdmin() && firebaseAPI.deleteInboxBroadcast)", 'if(firebaseAPI.deleteInboxBroadcast)', '일반 사용자가 공지를 전체 삭제'],
     ['MI', "if(!(isAdmin() && m._src === 'broadcast' && firebaseAPI.setInboxBroadcastPinned)) return null;", "if(!(m._src === 'broadcast' && firebaseAPI.setInboxBroadcastPinned)) return null;", '📌 단추가 누구에게나'],
-    ['MI', 'let esc = escHtml(text);', 'let esc = String(text);', '링크 글을 이스케이프 안 함'],
-    ['MI', "const clean = u.replace(/[.,;:)\\]]+$/, '');", 'const clean = u;', '주소 끝 문장부호를 같이 링크'],
+    ['MI', 'return TwSafeHtml.linkify(text, seg => escHtml(seg)', 'return TwSafeHtml.linkify(text, seg => String(seg)', '링크 바깥 글을 이스케이프 안 함'],
+    ['MI', "const url = a ? TwSafeHtml.safeUrl(a.dataset.url, 'link') : '';", "const url = a ? a.dataset.url : '';", '열기 전에 주소를 다시 안 거름'],
     ['MI', 'root._extLinkBound = true;', '', '링크 위임이 두 번 걸림'],
     ['MI', "badge.textContent = n > 9 ? '9+' : String(n);", 'badge.textContent = String(n);', '배지 9+ 없음'],
     ['MI', 'if(on && starN >= lim.starMax){', 'if(false){', '⭐ 상한 없음'],

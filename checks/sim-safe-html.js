@@ -50,7 +50,8 @@ allow('fx-preview.html', '개발용 효과 미리보기 페이지 — 고정 표
 allow('help-tab.js', '📘 도움말 틀 주소 — help-site.js pageUrl 이 고정 출처(HELP_ORIGIN) + 편 이름 정규식(SLUG_RE)으로 거른 값 + 앱 테마 표로만 만든다(페이지 알림의 편 이름도 readMessage 가 같은 정규식으로 거른다)', ['helpSite.pageUrl(page, _theme)']);
 allow('purikura-ui.js', '📷 판 모양 고정 표(세로형 · 가로형 · 컷 수 — purikura-net.js 숫자)', ['g.cols', 'g.rows', 'hint', 'label', 'n']);
 allow('purikura-ui.js', '이 기기 카메라로 찍은 사진(canvas data:)', ['d']);
-allow('chat-ui.js', '다른 파일의 씻은 마크업 도우미 — overhead.js _officeDemojiHtml(씻은 글에서 아는 이모티콘만 그림) · 주사위 SVG(숫자) · _chatLinkify(씻은 글에서 주소만 a)', ['_officeDemojiHtml(html)', '_diceSvg(parseInt(n,10),26)', '_chatLinkify(t)']);
+allow('chat-ui.js', '다른 파일의 씻은 마크업 도우미 — overhead.js _officeDemojiHtml(씻은 글에서 아는 이모티콘만 그림) · 주사위 SVG(숫자)', ['_officeDemojiHtml(html)', '_diceSvg(parseInt(n,10),26)']);
+allow('chat-ui.js', '채팅 글 — _renderChatText 가 마커를 토큰으로 빼고 남은 글을 TwSafeHtml.linkify(씻기 + 주소 칸)로 만든다(sim-chat-ui 에서 굴려 봄)', ['m.text']);
 allow('overhead.js', '주사위 SVG — 1~6 숫자로 만든 고정 그림', ['_diceSvg(parseInt(n,10), 30)']);
 allow('overhead.js', '회사원 모드 라벨 — _officeLabelHtml 이 이스케이프해 만든 HTML(닉네임 span)', ['text']);
 allow('seat-panel.js', '다른 파일이 만든 좌석 안내 마크업(내 캐릭터 정보)', ['html']);
@@ -63,7 +64,7 @@ allow('noise.js', '소리 노드(.src 라는 이름의 칸일 뿐 주소 아님)
 allow('app.js', 'loadImg — 얼굴 · 피부 캔버스 저장본(data:) · 앱 안 그림을 그리는 공용 로더(img 는 스크립트를 안 돌린다 · 상대 경로가 있어 safeUrl 불가)', ['src']);
 allow('room-sync.js', '얼굴 그림 로더 — 이 기기가 만든 data: 얼굴 · 앱 안 그림(app.js loadImg 와 같은 까닭)', ['src']);
 allow('commission.js', '커미션 zip 에서 이 기기가 풀어 만든 blob: 주소', ['faceUrl', 'blinkUrl']);
-allow('app.js', '수령함 공지 본문 — inboxMod.linkifyText 가 먼저 escHtml 로 씻은 글에서 주소만 a 로 감싼다(myhome-inbox.js)', ["inboxMod.linkifyText(notice.body || '')"]);
+allow('app.js', '수령함 공지 본문 — inboxMod.linkifyText 가 TwSafeHtml.linkify(주소 칸 · 나머지는 escHtml 뒤 라이선스 키 칸)로 만든다(myhome-inbox.js)', ["inboxMod.linkifyText(notice.body || '')"]);
 allow('mallang.js', '이 기기 사용자가 방금 고른 파일(FileReader · 파일 창)', ['dataUrl', 'inp.files[0]']);
 
 /* ── 1절: 함수 실행 ───────────────────────────────────────────── */
@@ -118,6 +119,9 @@ for (const u of ['https://x.example/a")%3Bbackground:red', 'https://x.example/a\
 const L = (x) => SH.linkify(x);
 const linkOf = (h) => (h.match(/data-url="([^"]*)"/g) || []).map(x => x.slice(10, -1));
 chk(L('안녕 <b>') === '안녕 &lt;b&gt;' && L(null) === '' && L('') === '', 'linkify — 주소가 없으면 text 와 같다(빈 값 · null 포함)');
+chk(SH.linkify('키 A-B https://x.io/A-B 끝', (s) => SH.text(s).replace(/A-B/g, '<i>A-B</i>')) === '키 <i>A-B</i> <span class="ext-link" data-url="https://x.io/A-B">https://x.io/A-B</span> 끝',
+  'linkify(글, plain) — 주소가 아닌 조각만 plain 으로(주소 속 글자는 안 건드림)');
+chk(SH.linkify('https://x.io/a\u0000b') === '<span class="ext-link" data-url="https://x.io/a">https://x.io/a</span>\u0000b', 'linkify — 제어 문자에서 주소를 끊는다(채팅 토큰 \\u0000 이 주소에 안 먹힘)');
 chk(L('보세요 https://x.example/a?b=1&c=2') === '보세요 <span class="ext-link" data-url="https://x.example/a?b=1&amp;c=2">https://x.example/a?b=1&amp;c=2</span>', 'linkify — 주소를 ext-link 칸으로(& 는 씻는다)');
 chk(L('여기 https://x.example/a. 그리고') === '여기 <span class="ext-link" data-url="https://x.example/a">https://x.example/a</span>. 그리고', '  문장 끝 마침표는 주소에서 뺀다');
 chk(L('(https://x.example/a)') === '(<span class="ext-link" data-url="https://x.example/a">https://x.example/a</span>)', '  괄호 안 주소 — 닫는 괄호는 글로');
