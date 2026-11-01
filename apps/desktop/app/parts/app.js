@@ -6948,7 +6948,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 
 const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId: (...a)=>getMyUserId(...a), now: ()=>Date.now(), isRoomCode: roomEntryMod.isRoomCode });
 roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName,
   TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));   // 제목은 방 안 제목 칸과 같은 판단(금칙어면 «○○ 님의 방»)
-TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now: ()=>Date.now(), joinRoom: (code)=>roomEntryMod.startRoom(code) });
+TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now: ()=>Date.now(), joinRoom: (code)=>roomEntryMod.joinRoom(code) });
 // 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
 const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   roomSettings: TwRoomSettings,
@@ -6967,7 +6967,7 @@ TwRoomLobbyUi.createRoomLobbyUi({
   twNav: twNav,
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
-  joinRoom: (code)=>roomEntryMod.startRoom(code),
+  joinRoom: (code)=>roomEntryMod.joinRoom(code),   // 입장 중 막기는 room-entry 한 깃발(코드 칸 · 최근 방과 같이)
   openCreate: (ch)=>roomCreateUi.open(ch),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),

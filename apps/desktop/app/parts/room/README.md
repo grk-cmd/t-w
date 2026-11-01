@@ -290,7 +290,7 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings,
 
 ## recent-rooms.js · recent-rooms-ui.js — 🕘 최근 들어간 방
 
-**책임** — 방에 연결되면 코드 · 제목 · 시각을 이 PC 에 남기고(최대 3개 · 같은 방은 맨 앞으로), 로비 코드 칸을 비운 채 누르면 위로 펼쳐 보여 준다. 줄을 누르면 로비 카드와 같은 길(`startRoom`)로 들어간다. 시크릿룸도 남긴다(사용자 결정).
+**책임** — 방에 연결되면 코드 · 제목 · 시각을 이 PC 에 남기고(최대 3개 · 같은 방은 맨 앞으로), 로비 코드 칸을 비운 채 누르면 위로 펼쳐 보여 준다. 줄을 누르면 로비 카드와 같은 길(`roomEntryMod.joinRoom` — 입장 중이면 넘김)로 들어간다. 시크릿룸도 남긴다(사용자 결정).
 
 **만드는 법** — app.js 가 방 입장 모듈 바로 뒤에서:
 
@@ -298,7 +298,7 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings,
 const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId, now, isRoomCode: roomEntryMod.isRoomCode });
 roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName,
   TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));
-TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now, joinRoom: (code)=>roomEntryMod.startRoom(code) });
+TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now, joinRoom: (code)=>roomEntryMod.joinRoom(code) });
 ```
 
 room-entry 는 이 모듈을 모른다 — «방에 연결됨» 알림(`onRoomJoined`)에 위층이 건다(`onRoomChanged` 와 같은 방식).
@@ -324,7 +324,7 @@ const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=
 TwRoomLobbyUi.createRoomLobbyUi({
   model: TwRoomLobbyModel, provider: roomLobbyProvider, inRoom: ()=>Presence.active(), twNav,
   maxPeople: ()=>maxPeople(), isLicensed: ()=>roomEntryMod._myRoomLicensed(),
-  joinRoom: (code)=>roomEntryMod.startRoom(code), openCreate: (ch)=>roomCreateUi.open(ch),
+  joinRoom: (code)=>roomEntryMod.joinRoom(code), openCreate: (ch)=>roomCreateUi.open(ch),
   toast, notifyError: (...a)=>TwErrorCodes.notify(...a), now: ()=>Date.now(), random: ()=>Math.random(),
 });
 ```
@@ -338,6 +338,8 @@ TwRoomLobbyUi.createRoomLobbyUi({
 - 목록 숫자는 최대 1분 늦다 — 들어갈 때는 입장 검사가 정원을 다시 본다(목록으로 막지 않는다).
 - 60초 타이머는 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 다음 차례에 스스로 멈춘다 — 닫기 버튼에만 기대지 않는다.
 - 방 안에서 모달을 열면 로비는 안 읽는다. 모달이 열린 채 방을 나오면(나가기 · 해산 · 정원 초과) room-entry `refreshInviteUI` 가 «방 안 → 밖» 순간에 `twNav.go(NAV.ROOM_LOBBY)` 로 알리고, 로비가 그때 읽는다 — 서로의 모듈을 부르지 않게 창 열기 통로를 쓴다.
+
+- 카드 · [빠른시작] · «내 시크릿룸» 입장은 room-entry `joinRoom` 으로 — «입장 중» 깃발(`_joiningRoom`) 하나를 코드 칸 [입장] · F1 칸 · 🕘 최근 방과 같이 쓴다. 로비에 따로 깃발을 두지 않는다(두면 서로를 못 막는다).
 
 검사: `checks/sim-room-lobby-ui.js`.
 
