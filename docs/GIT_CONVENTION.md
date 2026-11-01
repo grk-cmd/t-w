@@ -104,7 +104,8 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 - 긴급 운영 수정은 `hotfix/<설명>`으로 만들고, 합친 뒤 바로 패치 버전을 릴리스합니다.
 
 ### 2.3 합치기
-- 작업 → 판 브랜치는 **Squash merge**. PR 제목이 그대로 판 브랜치의 커밋 제목이 되므로 1장 형식을 지킵니다. 판 브랜치 → `main` 만 merge commit.
+- 작업 → 판 브랜치는 **Squash merge**. PR 제목이 그대로 판 브랜치의 커밋 제목이 되므로 1장 형식을 지킵니다. 판 브랜치 → `main` 은 merge commit.
+- **앞 판을 다음 판에 합쳐 받는 PR**(예: `release/0.12.2` → `release/0.13.0` · `main` → 열린 판 브랜치)도 **«Create a merge commit»** 으로 합칩니다. 다음 판에서 작업 브랜치를 따 `git merge --no-ff origin/release/<앞 판>` 으로 합친 뒤 PR 합니다. squash 로 합치면 앞 판과의 내력이 끊겨, 다음에 합쳐 받을 때 같은 충돌이 다시 납니다.
 - 합친 브랜치는 지웁니다.
 - 충돌은 그 판 브랜치를 rebase해서 해결합니다(`git pull --rebase origin release/X.Y.Z`).
 
