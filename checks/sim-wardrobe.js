@@ -91,5 +91,35 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+/* ── 4. 꾸미기 책상 카드 — 못 받으면 E-CHAR-13 진단 줄에 받기 실패 이유(catalog-glb.js glbFailWhy) */
+say('── 4. 책상 카드 E-CHAR-13 진단 줄');
+const deskClickOf = (src) => {
+  const i = src.indexOf('card.onclick=async()=>{\n      if(def.deskCatalogId===rec.id) return;'), j = src.indexOf('\n    };', i);
+  return i < 0 || j < 0 ? null : src.slice(i + 'card.onclick='.length, j + 6);
+};
+const runDeskClick = async (body, o) => {
+  const calls = [];
+  const fn = new Function('def', 'rec', 'resolveCatalogGlb', 'glbFailWhy', 'TwErrorCodes', '_wdApplyDeskChange', 'renderWardrobe', 'return ' + body)(
+    { deskCatalogId: null }, o.rec, async (r) => { if(o.throwE) throw o.throwE; if(o.ok) r.glb = 'G'; }, () => o.why || '',
+    { notify: (...a) => calls.push(a) }, () => calls.push(['apply']), () => calls.push(['render']));
+  await fn();
+  return calls;
+};
+(async () => {
+  const body = deskClickOf(MOD);
+  chk(!!body, '책상 카드 누름 처리기를 모듈 글에서 떼어 왔다');
+  if(body){
+    const c1 = await runDeskClick(body, { rec: { id: 'a', glbUrl: 'u' }, why: 'net-fail Failed to fetch 12ms' });
+    chk(JSON.stringify(c1) === '[["E-CHAR-13","net-fail Failed to fetch 12ms"]]', '못 받음 — 받기 실패 이유(glbFailWhy)를 진단 줄에 싣는다');
+    const c2 = await runDeskClick(body, { rec: { id: 'a', glbUrl: 'u' } });
+    const c3 = await runDeskClick(body, { rec: { id: 'a' } });
+    chk(JSON.stringify(c2) === '[["E-CHAR-13","no-glb"]]' && JSON.stringify(c3) === '[["E-CHAR-13","no-url"]]', '  이유를 모르면 no-glb · 주소가 없으면 no-url');
+    const c4 = await runDeskClick(body, { rec: { id: 'a', glbUrl: 'u' }, ok: true });
+    chk(JSON.stringify(c4) === '[["apply"],["render"]]', '  받으면 알림 없이 적용 · 다시 그림');
+    const bb = deskClickOf(MOD.replace("(glbFailWhy(rec.glbUrl) || 'no-glb')", "'no-glb'"));
+    const cb = bb ? await runDeskClick(bb, { rec: { id: 'a', glbUrl: 'u' }, why: 'net-fail X 1ms' }) : [];
+    chk(bb && JSON.stringify(cb) !== JSON.stringify([['E-CHAR-13', 'net-fail X 1ms']]), '깨 보기 — 이유를 안 실으면 위 판정이 빨강');
+  }
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})();

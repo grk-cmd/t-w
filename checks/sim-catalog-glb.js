@@ -157,9 +157,17 @@ say('── 4. 동작 — 카탈로그 GLB 해결(메모리 → 영구 캐시 �
       ({ api, log } = load({ fetchErr: new Error('storage fetch failed 403') }));
       await api.resolveCatalogGlb({ id: 'i', glbUrl: 'v1' });
       chk(/^fail storage fetch failed 403 \d+ms$/.test(api.glbFailWhy('v1')), '  응답이 오면 상태 번호가 남는다(fail … 403)');
-      ({ api, log } = load({ fetchErr: new TypeError("Failed to execute 'fetch' on 'Window': Failed to parse URL from https://x/o/desk.glb?token=SECRET") }));
-      await api.resolveCatalogGlb({ id: 'i2', glbUrl: 'v5' });
-      chk(!/SECRET|https|token/.test(api.glbFailWhy('v5')), '  오류 메시지에 주소가 섞여 와도 이유 글엔 안 남는다(메시지 앞 40자만)');
+      /* 주소를 41번째 글자부터 둔다 — 자르는 길이를 하나만 늘려도 아래 판정이 빨강 */
+      const P40 = 'x'.repeat(40), URLMSG = P40 + 'https://x/o/desk.glb?token=SECRET';
+      const failOf = (src) => { const w = {}; const fb = { fetchCatalogGlb: async () => { throw new TypeError(URLMSG); } };
+        new Function('window', 'module', 'firebaseAPI', 'console', src)(w, undefined, fb, { warn(){}, log(){} });
+        const fns = { _glbIdbGet: async () => null, _glbIdbPut: () => Promise.resolve(), _glbIdbPrune: () => {} };
+        const a = w.TwCatalogGlb.createCatalogGlb({ glbIdbMod: fns, catalogSourceMod: mkSource(Object.assign(w, { firebaseAPI: fb })) });
+        return a.resolveCatalogGlb({ id: 'i2', glbUrl: 'v5' }).then(() => a.glbFailWhy('v5')); };
+      const w5 = await failOf(MOD);
+      chk(new RegExp('^net-fail ' + P40 + ' \\d+ms$').test(w5), '  오류 메시지에 주소가 섞여 와도 이유 글엔 메시지 앞 40자만(주소 · 토큰 안 남음)');
+      const B41 = MOD.replace('.slice(0, 40)', '.slice(0, 41)');
+      chk(B41 !== MOD && !new RegExp('^net-fail ' + P40 + ' \\d+ms$').test(await failOf(B41)), '깨 보기 — 자르는 길이를 41 로 늘리면 위 판정이 빨강(주소 첫 글자가 들어옴)');
       ({ api, log } = load({ noApi: true }));
       await api.resolveCatalogGlb({ id: 'j', glbUrl: 'v2' });
       chk(api.glbFailWhy('v2') === 'no-src' && api.glbFailWhy('없는주소') === '', '  받을 길이 없으면 no-src · 실패한 적 없는 주소는 빈 글');
