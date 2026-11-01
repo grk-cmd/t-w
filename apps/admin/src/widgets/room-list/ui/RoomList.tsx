@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react';
 import {
   CHANNEL_LABEL,
+  countRoomStates,
   filterRooms,
   formatAgo,
   mergeLiveRooms,
+  ROOM_STATES,
   roomRows,
   roomStateOf,
   roomStatsSummary,
@@ -15,6 +17,7 @@ import {
   useRoomStats,
   useSnapshotNow,
   type RoomRow,
+  type RoomState,
 } from '@/entities/room';
 import { CloseRoomButton, CloseSelectedRoomsButton } from '@/features/room/close-room';
 import { errorMessage, formatDate, usePaging, useSelection } from '@/shared/lib';
@@ -34,36 +37,58 @@ function People({ row, pending }: { row: RoomRow; pending: boolean }) {
   return <span title={all}>{more > 0 ? `${shown} 외 ${more}명` : shown}</span>;
 }
 
-function RoomStateCell({ row }: { row: RoomRow }) {
-  switch (roomStateOf(row)) {
+// 상태 이름 — 상태 칸과 위 개수 줄이 같은 이름을 쓴다. warn 은 손볼 방(노란 글씨).
+const STATE_LABEL: Record<RoomState, string> = {
+  alive: '🟢 살아 있음',
+  server: '🛰 방 서버',
+  unlisted: '⚠️ 목록에 없음',
+  serverLost: '🛰 방 서버 · 신호 끊김',
+  ghost: '👻 유령',
+  secretServer: '🔒 시크릿룸 · 🛰 방 서버',
+  secret: '🔒 시크릿룸',
+};
+const STATE_WARN: ReadonlySet<RoomState> = new Set(['unlisted', 'serverLost', 'ghost']);
+
+function stateTitle(state: RoomState, row: RoomRow): string | undefined {
+  switch (state) {
     case 'secretServer':
-      return <span title="방 서버에 열린 시크릿룸 — roomIndex 에는 안 적힌다">🔒 시크릿룸 · 🛰 방 서버</span>;
+      return '방 서버에 열린 시크릿룸 — roomIndex 에는 안 적힌다';
     case 'secret':
-      return <span title="roomIndex 에 안 적혀 신호를 모름 · 유령 방 청소 대상 아님">🔒 시크릿룸</span>;
+      return 'roomIndex 에 안 적혀 신호를 모름 · 유령 방 청소 대상 아님';
     case 'server':
-      return (
-        <span title={`방 서버(${row.server})에 열린 방 — Firebase 에 멤버가 없어도 정상`}>🛰 방 서버</span>
-      );
+      return `방 서버(${row.server})에 열린 방 — Firebase 에 멤버가 없어도 정상`;
     case 'serverLost':
-      return (
-        <span className="warn" title="방 서버 신호가 90초 넘게 끊김 — 함수가 10분 뒤 줄을 걷는다">
-          🛰 방 서버 · 신호 끊김
-        </span>
-      );
-    case 'alive':
-      return <>🟢 살아 있음</>;
+      return '방 서버 신호가 90초 넘게 끊김 — 함수가 10분 뒤 줄을 걷는다';
     case 'unlisted':
-      return (
-        <span
-          className="warn"
-          title="사람이 있는데 roomIndex 에 줄이 없음 — 방 개수 · 랜덤 입장에 안 잡힌다(주로 옛 앱)"
-        >
-          ⚠️ 목록에 없음
-        </span>
-      );
-    case 'ghost':
-      return <span className="warn">👻 유령</span>;
+      return '사람이 있는데 roomIndex 에 줄이 없음 — 방 개수 · 랜덤 입장에 안 잡힌다(주로 옛 앱)';
+    default:
+      return undefined;
   }
+}
+
+function RoomStateCell({ row }: { row: RoomRow }) {
+  const state = roomStateOf(row);
+  return (
+    <span className={STATE_WARN.has(state) ? 'warn' : undefined} title={stateTitle(state, row)}>
+      {STATE_LABEL[state]}
+    </span>
+  );
+}
+
+// 상태마다 몇 개 — 0 인 상태는 뺀다. 표가 여러 쪽이라 상태 칸만으로는 세기 어렵다.
+function StateCounts({ rows }: { rows: readonly RoomRow[] }) {
+  const counts = countRoomStates(rows);
+  const shown = ROOM_STATES.filter((s) => counts[s] > 0);
+  if (!shown.length) return null;
+  return (
+    <div className={styles.states} aria-label="상태별 개수">
+      {shown.map((s) => (
+        <span key={s} className={STATE_WARN.has(s) ? 'warn' : undefined}>
+          {STATE_LABEL[s]} <b>{counts[s]}</b>
+        </span>
+      ))}
+    </div>
+  );
 }
 
 export function RoomList() {
@@ -129,6 +154,8 @@ export function RoomList() {
           <span className="soft">{stats.isLoading ? '집계 불러오는 중…' : '서버 집계 없음'}</span>
         )}
       </div>
+
+      {rows && <StateCounts rows={rows} />}
 
       <div className={styles.search}>
         <input
