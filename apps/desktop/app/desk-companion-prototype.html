@@ -3224,7 +3224,7 @@
   #mhDdayGrid.cols5 .mh-dcard.add .plus{font-size:16px;}
   #mhDdayGrid.cols6 .mh-dcard.add .plus{font-size:14px;}
   .mh-dcard{position:relative;aspect-ratio:1/1;cursor:grab;overflow:hidden;
-    border:1px solid #1a1a1a;border-radius:18px !important;   /* 전역 *{border-radius:0 !important} 리셋을 뚫어야 함 */
+    border:1px solid var(--tw-ink);border-radius:18px !important;   /* 전역 *{border-radius:0 !important} 리셋을 뚫어야 함 */
     background-color:#fff;background-size:cover;background-position:center;background-repeat:no-repeat;
     display:flex;flex-direction:column;padding:8px;box-sizing:border-box;
     transition:transform .14s ease, box-shadow .14s ease, opacity .14s ease;}
@@ -3234,12 +3234,12 @@
   .mh-dcard.dragover{outline:2px dashed var(--win-select);outline-offset:-3px;}
 
   .mh-dcard .dc-face{display:flex;flex-direction:column;height:100%;position:relative;z-index:1;overflow:hidden;}
-  .mh-dcard .dc-cnt{font-size:16px;font-weight:bold;color:#1a1a1a;line-height:1.1;
+  .mh-dcard .dc-cnt{font-size:16px;font-weight:bold;color:var(--tw-ink);line-height:1.1;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;transition:opacity .2s ease;}
   .mh-dcard .dc-cnt.today{color:#c0504d;}
-  .mh-dcard .dc-date{font-size:8.5px;color:#555;margin-top:1px;
+  .mh-dcard .dc-date{font-size:8.5px;color:var(--tw-ink-soft);margin-top:1px;
     opacity:0;transform:translateY(-3px);transition:opacity .2s ease, transform .2s ease;}
-  .mh-dcard .dc-info{margin-top:auto;font-size:10px;font-weight:bold;color:#1a1a1a;
+  .mh-dcard .dc-info{margin-top:auto;font-size:10px;font-weight:bold;color:var(--tw-ink);
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
     opacity:0;transform:translateY(6px);transition:opacity .2s ease, transform .2s ease;}
   .mh-dcard:hover .dc-date, .mh-dcard:hover .dc-info{opacity:1;transform:translateY(0);}
@@ -3268,7 +3268,7 @@
   .mh-dcard.hasimg .dc-info{text-align:right;}
 
   .mh-dcard.add{align-items:center;justify-content:center;background-color:#fff;cursor:pointer;}
-  .mh-dcard.add .plus{font-size:24px;font-weight:bold;color:#1a1a1a;line-height:1;}
+  .mh-dcard.add .plus{font-size:24px;font-weight:bold;color:var(--tw-ink);line-height:1;}
   .mh-dcard.add:hover{background-color:#f4f7ff;}
   #mhDdayGrid.cols4 .mh-dcard{padding:6px;border-radius:14px !important;}
   #mhDdayGrid.cols4 .mh-dcard .dc-cnt{font-size:13px;}
@@ -3277,19 +3277,19 @@
   /* ⌛ D-day 배너 — 제목 옆에 짧은 날짜(26-07-24)를 붙여 한 줄로. 세로 폭이 얇아짐. */
   #mhDdayBanners{display:flex;flex-direction:column;gap:4px;}
   .mh-dban{display:flex;align-items:center;gap:6px;padding:5px 8px;box-sizing:border-box;
-    border:1px solid #1a1a1a;border-radius:8px !important;cursor:grab;background:#fff;
+    border:1px solid var(--tw-ink);border-radius:8px !important;cursor:grab;background:#fff;
     transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;}
   .mh-dban:hover{transform:translateY(-1px);box-shadow:0 2px 5px rgba(0,0,0,.16);}
   .mh-dban:active{cursor:grabbing;}
   .mh-dban.dragging{opacity:.45;transform:none;box-shadow:none;}
   .mh-dban.dragover{outline:2px dashed var(--win-select);outline-offset:-3px;}
   .mh-dban .db-main{flex:1;min-width:0;display:flex;align-items:baseline;gap:5px;}
-  .mh-dban .db-title{font-size:11px;font-weight:bold;color:#1a1a1a;line-height:1.3;
+  .mh-dban .db-title{font-size:11px;font-weight:bold;color:var(--tw-ink);line-height:1.3;
     white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;}
-  .mh-dban .db-date{font-size:8.5px;color:#888;line-height:1.3;flex-shrink:0;white-space:nowrap;}
+  .mh-dban .db-date{font-size:8.5px;color:var(--tw-ink-soft);line-height:1.3;flex-shrink:0;white-space:nowrap;}
   .mh-dban .db-cnt{font-size:12px;font-weight:bold;color:var(--win-select);flex-shrink:0;white-space:nowrap;}
   .mh-dban .db-cnt.today{color:#c0504d;}
-  .mh-dban .db-cnt.past{color:#999;}
+  .mh-dban .db-cnt.past{color:var(--tw-ink-soft);}
   .mh-dban .db-badges{display:flex;gap:2px;flex-shrink:0;font-size:8.5px;}
   .mh-dban .db-x{cursor:pointer;color:#bbb;font-size:12px;flex-shrink:0;line-height:1;padding:0 1px;}
   .mh-dban .db-x:hover{color:var(--win-error);}
