@@ -253,7 +253,7 @@
 | **sim-app-size.js** | 127 | **f4d91c399857** |
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
-| **sim-scheduler.js** | 925 | **dfc0fb61281f** |
+| **sim-scheduler.js** | 983 | **bd5c93e788da** |
 | **sim-schedule-api.js** | 436 | **abb513f99b07** |
 | **sim-weekly-challenge.js** | 347 | **bdfa406a2778** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |

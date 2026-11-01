@@ -315,11 +315,35 @@ function renderDdays(){
   renderDdayBanners();
 }
 
-/* 📌 기념일 카드 (정사각, 배경 색/이미지 지정 가능) */
+/* 📌 기념일 보기 — 'tile'(정사각 카드) | 'list'(제목이 다 보이는 줄).
+   보는 사람의 취향이라 이 PC 에만 둔다 — 친구 마이홈을 구경할 때도 내가 고른 보기로 보인다. */
+const ANNIV_VIEW_KEY = 'tw.annivView';
+/* 모르는 값 · 빈 값은 타일형 — 고른 적 없는 사람은 화면이 예전 그대로다. */
+function _annivViewOf(raw){ return raw === 'list' ? 'list' : 'tile'; }
+function _annivView(){
+  try{ return _annivViewOf(localStorage.getItem(ANNIV_VIEW_KEY)); }catch(e){ return 'tile'; }
+}
+function _setAnnivView(v){
+  try{ localStorage.setItem(ANNIV_VIEW_KEY, _annivViewOf(v)); }catch(e){}
+  renderAnnivCards();
+}
+function _syncAnnivViewBtns(view){
+  const box = document.getElementById('mhAnnivView');
+  if(!box) return;
+  box.querySelectorAll('button[data-view]').forEach(b=>{
+    const on = b.dataset.view === view;
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-pressed', on ? 'true' : 'false');
+  });
+}
+
+/* 📌 기념일 카드 (정사각, 배경 색/이미지 지정 가능) — 목록형이면 _renderAnnivList */
 function renderAnnivCards(){
   const grid = document.getElementById('mhDdayGrid');
   if(!grid) return;
   const today = _todayYMD();
+  const view = _annivView();
+  _syncAnnivViewBtns(view);
   const state = _ddayStateNow();
   if(state !== LOAD.READY){
     grid.className = 'cols3';
@@ -328,6 +352,7 @@ function renderAnnivCards(){
     return;
   }
   const ids = _ddayOrderedIds(KIND.CARD);
+  if(view === 'list'){ _renderAnnivList(grid, ids, today); return; }
 
   // 열 수 결정 — 카드 전체가 스크롤 없이 영역 안에 들어가는 최소 열 수를 찾음.
   //   구분선을 위로 끌어 영역이 낮아지면 열이 늘어나 카드가 실제로 작아짐(스크롤 대신).
@@ -394,6 +419,57 @@ function renderAnnivCards(){
     grid.appendChild(add);
   }
   _ddayApplyTiny();
+}
+
+/* 📌 기념일 목록형 — 카드와 같은 동작(클릭 하트 · 우클릭 수정 · 끌어 순서 · [+])에 이름을 끝까지 보여 준다.
+   타일형과 달리 지난 날도 숫자를 숨기지 않는다(목록에선 숫자가 줄의 본체다). */
+function _renderAnnivList(grid, ids, today){
+  grid.className = 'list';
+  grid.innerHTML = '';
+
+  ids.forEach(id=>{
+    const dd = _schedDdaySrc()[id];
+    const diff = _daysBetween(today, dd.date || today);
+    const lab = _ddayCountLabel(diff, _ddayBase1(dd));
+
+    const row = document.createElement('div');
+    row.className = 'mh-dlist';
+    row.draggable = true;
+    row.dataset.id = id;
+
+    const chip = document.createElement('div'); chip.className = 'dl-chip';
+    if(dd.bgImg) chip.style.backgroundImage = TwSafeHtml.cssUrl(dd.bgImg);   // 허용된 그림 주소만
+    else if(dd.bgColor) chip.style.backgroundColor = dd.bgColor;
+
+    const main = document.createElement('div'); main.className = 'dl-main';
+    const t = document.createElement('div'); t.className = 'dl-title'; t.textContent = dd.text || '';
+    const dt = document.createElement('div'); dt.className = 'dl-date'; dt.textContent = dd.date || '';
+    main.appendChild(t); main.appendChild(dt);
+
+    const badges = document.createElement('div'); badges.className = 'dl-badges';
+    if(dd.notify){ const b=uiIconEl('bell', 11, '알림 켜짐'); b.title='알림 켜짐'; badges.appendChild(b); }
+    if(dd.public){ const b=document.createElement('span'); b.textContent='👁'; b.title='친구에게 공개'; badges.appendChild(b); }
+
+    const cnt = document.createElement('div');
+    cnt.className = 'dl-cnt' + (lab.today ? ' today' : '');
+    cnt.textContent = lab.txt;
+
+    row.appendChild(chip); row.appendChild(main); row.appendChild(badges); row.appendChild(cnt);
+    row.title = '클릭: 하트 · 우클릭: 수정 · 드래그: 순서 변경';
+    row.addEventListener('click', e=>{ _ddaySpawnHearts(row, e); });
+    row.addEventListener('contextmenu', e=>{ e.preventDefault(); _ddayOpenEdit(id, 'anniv'); });
+    _ddayBindDrag(row, id, 'anniv');
+    grid.appendChild(row);
+  });
+
+  if(!viewingUserId() && ids.length < ANNIV_MAX){   // 👀 관람: + 줄 없음
+    const add = document.createElement('div');
+    add.className = 'mh-dlist add';
+    add.textContent = '+';
+    add.title = '기념일 추가';
+    add.onclick = ()=> _ddayOpenEdit(null, 'anniv');
+    grid.appendChild(add);
+  }
 }
 
 /* 카드가 작아져서 글자가 카드 밖으로 넘칠 지경이면 .tiny를 붙여 hover 정보를 아예 숨김.
@@ -742,8 +818,16 @@ function _applyAnnivHeight(px){
     }
   }catch(e){}
 
+  /* 📌 보기 바꾸기 단추는 끌기 핸들 줄 안에 있다 — 단추를 누를 땐 끌기를 시작하지 않는다. */
+  const viewBox = document.getElementById('mhAnnivView');
+  if(viewBox) viewBox.addEventListener('click', e=>{
+    const b = e.target && e.target.closest ? e.target.closest('button[data-view]') : null;
+    if(b) _setAnnivView(b.dataset.view);
+  });
+
   let dragging = false, startY = 0, startH = 0;
   split.addEventListener('mousedown', e=>{
+    if(viewBox && e.target && viewBox.contains(e.target)) return;
     e.preventDefault();
     dragging = true;
     startY = e.clientY;
@@ -1482,7 +1566,7 @@ return {
   isBellOpen: _bellWinOpen,
   /* 화면 없이 검사하는 셈 — sim-scheduler.js */
   calc: { daysBetween:_daysBetween, ddayBase1:_ddayBase1, ddayShownDays:_ddayShownDays,
-          ddayCountLabel:_ddayCountLabel, ddayMilestoneDays:_ddayMilestoneDays },
+          ddayCountLabel:_ddayCountLabel, ddayMilestoneDays:_ddayMilestoneDays, annivViewOf:_annivViewOf },
 };
 }
 
