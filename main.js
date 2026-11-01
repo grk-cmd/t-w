@@ -1440,7 +1440,7 @@ function _noteForeignWindow(exeName, ownerPath, w){
 
 // uiohook 전역 클릭/키 이벤트에 실어 보낼, 매 순간의 "활성 프로세스 판정" 캐시.
 // (500ms 폴링에서 갱신 — uiohook 이벤트마다 activeWin()을 새로 부르면 느리므로 캐시 재사용)
-let lastActiveState = { exeName:'', isFocusedAppRegistered:false, hasAnyRegistered:false, isPenApp:false };
+let lastActiveState = { exeName:'', isFocusedAppRegistered:false, hasAnyRegistered:false, isPenApp:false, isSelf:false };
 
 // 현재 활성 창이 우리 앱이 아니면 lastForeignWindow를 갱신 — 500ms 주기로 폴링.
 // (active-win 자체가 폴링 기반 API라 이벤트 리스너가 없음)
@@ -1508,7 +1508,8 @@ function startActiveWinPolling(){
       //   렌더러의 1.5초(FOCUS_MS) 기록 창이 너무 좁다. 펜 앱일 때만 그 창을 넓히는 데 쓴다.
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
-      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow };
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow,
+        isSelf: !!exeName && exeName === SELF_EXE };   // 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
       if(penNow !== _penAppActive){
         _penAppActive = penNow;
         if(!_penAppActive){
