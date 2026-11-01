@@ -118,7 +118,7 @@
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
 | **sim-desk-preset.js** | 251 | **3ed07bb98346** |
 | **sim-json-store.js** | 209 | **05d6cff00a2f** |
-| **sim-desk-setup.js** | 229 | **c6aca6da921a** |
+| **sim-desk-setup.js** | 233 | **b4e115ae7815** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
 | **sim-face-loss.js** | 317 | **921e471b80b1** |
@@ -404,7 +404,7 @@
 | **sim-part-scene.js** | 209 | **4d4fc633d0be** |
 | **sim-admin-thumbs.js** | 152 | **a364b1c70728** |
 | **sim-glb-idb-cache.js** | 172 | **fda2ba697435** |
-| **sim-catalog-glb.js** | 165 | **17abfb9c9515** |
+| **sim-catalog-glb.js** | 191 | **14ea921fb1ee** |
 | **sim-catalog-sync.js** | 282 | **d94edeb793ac** |
 | **sim-catalog-source.js** | 100 | **48a661048e45** |
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |

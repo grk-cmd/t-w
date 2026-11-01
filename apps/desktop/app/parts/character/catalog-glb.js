@@ -1,7 +1,7 @@
 /* catalog-glb.js — 🔗 카탈로그 GLB 해결 — glbUrl 만 있는 레코드에 rec.glb 채우기(메모리 → 영구 캐시 → 서버)
    책임: 카탈로그 인덱스에는 glbUrl 만 오고(GLB 본체는 Storage) 앱 곳곳은 rec.glb(base64)를 보므로, 쓰는 때에 glbUrl → rec.glb 로 채운다. 같은 url 은 세션 메모리 · 영구 캐시(IndexedDB)로 두 번 안 받는다.
    받는 deps: glbIdbMod(영구 캐시 — shared/glb-idb-cache.js 의 _glbIdbGet · _glbIdbPut · _glbIdbPrune). catalogSourceMod(서버 받기 — character/catalog-source.js 의 Firebase 판).
-   내보내는 것: resolveCatalogGlb(rec) · resolveCatalogGlbAll(catalogObj).
+   내보내는 것: resolveCatalogGlb(rec) · resolveCatalogGlbAll(catalogObj) · glbFailWhy(url)(마지막 실패 이유 — 오류 진단 기록용).
    app.js «💾 카탈로그 GLB 영구 캐시(IndexedDB) · URL 해결» 구역의 뒤쪽(URL 해결 몫)을 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 0줄(영구 캐시를 부르는 세 줄 «glbIdbMod._glbIdb…(» 은 같은 커밋에서 앞 모듈로 옮기며 바뀐 자리).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
@@ -15,6 +15,15 @@ function createCatalogGlb(deps){
 const catalogSourceMod = deps.catalogSourceMod;
 const glbIdbMod = deps.glbIdbMod;
 const _glbUrlCache = new Map();   // url → base64 (세션 메모리 1차 캐시)
+/* url → 마지막 받기 실패 이유. 부르는 쪽(책상 카드 E-CHAR-14)이 진단 기록에 싣는다 — 실패를 null 로만 돌려주면
+   «막힘 · 몇 번 응답 · 연결 없음» 을 가를 수 없다. 주소(토큰이 든)는 남기지 않는다. 받으면 지운다. */
+const _glbFailWhy = new Map();
+/* fetch 가 응답 없이 끊기면 TypeError(차단 · DNS · 연결 끊김) — net-fail. 응답이 오면 상태 번호가 든 Error. 걸린 시간도 싣는다(바로 끊김 ↔ 오래 기다림) */
+function _glbFailText(e, ms){
+  const net = !!(e && e.name === 'TypeError');
+  const msg = String((e && e.message) || e || '').replace(/\s+/g, ' ').slice(0, 40);
+  return (net ? 'net-fail ' : 'fail ') + msg + ' ' + ms + 'ms';
+}
 async function resolveCatalogGlb(rec){
   if(!rec) return null;
   if(rec.glb) return rec.glb;                          // 구버전(base64 그대로) 호환
@@ -31,14 +40,16 @@ async function resolveCatalogGlb(rec){
     rec.glb = hit;
     return hit;
   }
-  if(!catalogSourceMod.catalogSrcCan('fetchGlb')) return null;
+  if(!catalogSourceMod.catalogSrcCan('fetchGlb')){ _glbFailWhy.set(rec.glbUrl, 'no-src'); return null; }
+  const t0 = Date.now();
   try{
     const b64 = await catalogSourceMod.catalogSrcFetchGlb(rec.glbUrl);
+    _glbFailWhy.delete(rec.glbUrl);
     _glbUrlCache.set(rec.glbUrl, b64);
     glbIdbMod._glbIdbPut(rec.glbUrl, b64);   // 기다리지 않는다 — 저장 실패해도 이번 실행에는 지장이 없다
     rec.glb = b64;    // 이후 rec.glb 참조 시 재fetch 없음
     return b64;
-  }catch(e){ console.warn('카탈로그 GLB 로드 실패', rec.id, e); return null; }
+  }catch(e){ _glbFailWhy.set(rec.glbUrl, _glbFailText(e, Date.now() - t0)); console.warn('카탈로그 GLB 로드 실패', rec.id, e); return null; }
 }
 // 카탈로그 스냅샷 전체를 병렬로 해결 — 각 rec에 .glb 채워서 반환.
 async function resolveCatalogGlbAll(catalogObj){
@@ -51,6 +62,7 @@ async function resolveCatalogGlbAll(catalogObj){
 return {
   resolveCatalogGlb,
   resolveCatalogGlbAll,
+  glbFailWhy: (url)=>_glbFailWhy.get(url) || '',
 };
 }
 

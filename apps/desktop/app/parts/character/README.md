@@ -70,13 +70,14 @@
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
   - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
+  - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(응답 없이 끊김 — 차단 · DNS) · `fail … 403 Nms`(응답 번호) · `no-src`(받을 길 없음) · 실패한 적 없으면 빈 글). 책상 카드가 E-CHAR-14 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
   ```js
   catalogSourceMod.catalogSrcSubscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
   ```
 - **확장할 때 고칠 자리**: 받는 길이 바뀌면 provider(`catalog-source.js`) 쪽 — 이 모듈은 그대로.
 - **함정**
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
-  - 실패는 기억하지 않는다(다음에 다시 받는다) · 영구 캐시 넣기는 기다리지 않는다.
+  - 실패는 기억하지 않는다(다음에 다시 받는다 — `glbFailWhy` 는 이유만 적어 둘 뿐 막지 않고, 받으면 지운다) · 영구 캐시 넣기는 기다리지 않는다.
   - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부).
 
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
