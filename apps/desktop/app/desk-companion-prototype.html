@@ -3192,6 +3192,12 @@
   #mhSchedSplit .ss-line{flex:1;height:1px;background:#cfcfcf;}
   #mhSchedSplit:hover .ss-line{background:var(--win-select);}
   #mhSchedSplit.dragging .ss-line{background:var(--win-select);height:2px;}
+  #mhSchedSplit .ss-view{display:flex;flex-shrink:0;cursor:default;}
+  #mhSchedSplit .ss-view button{font-family:var(--tw-font-legacy);font-size:10px;line-height:1;width:20px;height:16px;padding:0;
+    border:1px solid #999;background:#fff;color:#555;cursor:pointer;}
+  #mhSchedSplit .ss-view button + button{border-left:none;}
+  #mhSchedSplit .ss-view button:hover{background:#f4f7ff;}
+  #mhSchedSplit .ss-view button.on{background:var(--win-select);border-color:var(--win-select);color:#fff;}
 
   /* 📌 기념일 카드 — 기본 3열. 개수가 많아지면 4열로 더 작아짐. */
   #mhDdayGrid{display:grid;gap:7px;align-content:start;}
@@ -3277,6 +3283,28 @@
   .mh-dban .db-x:hover{color:var(--win-error);}
   /* D-day는 달력 날짜를 우클릭해서 추가 — 별도 추가 버튼 없음 */
   .mh-dban-empty{font-size:10px;color:#bbb;text-align:center;padding:8px 4px;line-height:1.5;}
+
+  /* 📌 기념일 목록형 — 타일형에선 마우스를 올려야 보이던 이름을 끝까지(길면 두 줄) 보여 준다.
+     왼쪽 작은 칩에 카드 색 · 그림. 칸이 모자라면 카드를 줄이지 않고 스크롤한다. */
+  #mhDdayGrid.list{display:flex;flex-direction:column;gap:4px;}
+  .mh-dlist{display:flex;align-items:center;gap:7px;padding:5px 7px;box-sizing:border-box;
+    border:1px solid #1a1a1a;border-radius:10px !important;background:#fff;cursor:grab;
+    transition:transform .12s ease, box-shadow .12s ease, opacity .12s ease;}
+  .mh-dlist:hover{transform:translateY(-1px);box-shadow:0 2px 5px rgba(0,0,0,.16);}
+  .mh-dlist:active{cursor:grabbing;}
+  .mh-dlist.dragging{opacity:.45;transform:none;box-shadow:none;}
+  .mh-dlist.dragover{outline:2px dashed var(--win-select);outline-offset:-3px;}
+  .mh-dlist .dl-chip{width:24px;height:24px;flex-shrink:0;box-sizing:border-box;border:1px solid #1a1a1a;border-radius:7px !important;
+    background-color:#fff;background-size:cover;background-position:center;background-repeat:no-repeat;}
+  .mh-dlist .dl-main{flex:1;min-width:0;}
+  .mh-dlist .dl-title{font-size:11px;font-weight:bold;color:#1a1a1a;line-height:1.3;word-break:keep-all;overflow-wrap:anywhere;}
+  .mh-dlist .dl-date{font-size:8.5px;color:#888;line-height:1.3;}
+  .mh-dlist .dl-badges{display:flex;gap:2px;flex-shrink:0;font-size:8.5px;}
+  .mh-dlist .dl-cnt{font-size:12px;font-weight:bold;color:#1a1a1a;flex-shrink:0;white-space:nowrap;}
+  .mh-dlist .dl-cnt.today{color:#c0504d;}
+  .mh-dlist.add{justify-content:center;padding:3px;border-style:dashed;cursor:pointer;
+    font-size:14px;font-weight:bold;color:#1a1a1a;}
+  .mh-dlist.add:hover{background:#f4f7ff;}
 
   /* D-day 편집 모달 */
   #mhDdayEdit{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:6;
@@ -5867,6 +5895,10 @@
           <div id="mhSchedSplit">
             <span class="ss-label">⌛ D-day</span>
             <span class="ss-line"></span>
+            <!-- 📌 기념일 보기 바꾸기 — 끌기 핸들 줄 안에 있지만 누르면 끌기가 시작되지 않는다(scheduler.js) -->
+            <span class="ss-view" id="mhAnnivView" title="기념일 보기">
+              <button type="button" data-view="tile" title="타일형" aria-label="타일형">▦</button><button type="button" data-view="list" title="목록형 — 제목이 다 보여요" aria-label="목록형">☰</button>
+            </span>
           </div>
           <div id="mhDdayArea">
             <div id="mhDdayBanners"></div>
