@@ -17,6 +17,7 @@ const EXP_CELLS = deps.EXP_CELLS;   // 읽는 함수
 const FLOATER_BURST = deps.FLOATER_BURST;
 const Presence = deps.Presence;
 const _chatNotifyIncoming = deps._chatNotifyIncoming;
+const _demojiNotifyIncoming = deps._demojiNotifyIncoming;
 const _clearHiddenSeats = deps._clearHiddenSeats;
 const _onDeviceSessionLost = deps._onDeviceSessionLost;
 const _pokeFresh = deps._pokeFresh;
@@ -548,9 +549,10 @@ function syncFriendSeats(friends){
       }
       else if((window._activeChannel === 2 || _demojiOnly)){ showChatBubble(s, chat.text); _chatShown = true; }
       /* 🔔 알림음 — 상대 채팅이 **화면에 뜬 경우에만** 울린다. 워킹룸에서 걸러진 글자처럼 안 뜬 것은 조용하다.
-         ★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 조용하다 — 일에 집중하는 방이라 소리로 끊지 않는다.
+         ★ 워킹룸(채널1)은 이모티콘 창의 🔔 를 켠 사람에게만 운다(처음엔 꺼짐 — 일에 집중하는 방).
          ⚠ 여기가 유일한 자리다. chatLog 구독(대화창)에도 걸면 한 줄에 두 번 울린다. */
       if(_chatShown && window._activeChannel === 2) _chatNotifyIncoming();
+      else if(_chatShown && window._activeChannel === 1) _demojiNotifyIncoming();
     }
     /* 💬 채팅 탭 말풍선 — **내 탭과 같을 때만** 띄운다(sim-chat-tabs ②). 투게더룸 · 시크릿룸에서만.
        ⚠️ 날리기 · 말풍선 · 알림음 분기는 위 `chat` 과 같은 규칙이다 — 한쪽만 고치지 말 것. */

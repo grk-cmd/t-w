@@ -17,13 +17,13 @@ const MOD = ["demoji-palette.js","parts/chat/demoji-palette.js","app/parts/chat/
 if(!MOD){ say('  ? 원본 못 찾음 — demoji-palette.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_closeChipPopups","findMySeat","showChatBubble"];
+const FN_DEPS = ["_closeChipPopups","findMySeat","showChatBubble","demojiSfxOn","setDemojiSfxOn","sfxOfficeLock"];
 const VAL_DEPS = ["statusChipMod"];
 const GET_DEPS = ["Presence","chatUiMod"];
 const SET_DEPS = [];
 const EXPORTS = [];
 const MOVED = ["_demojiPaletteBuilt","_lastDemojiSentAt","_buildDemojiPalette","sendMyDemoji"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  Presence: ()=>Presence,","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  chatUiMod: ()=>chatUiMod,","  findMySeat: (...a)=>findMySeat(...a),","  showChatBubble: (...a)=>showChatBubble(...a),","  statusChipMod: statusChipMod,"];
+const GLUE = ["  Presence: ()=>Presence,","  _closeChipPopups: (...a)=>_closeChipPopups(...a),","  chatUiMod: ()=>chatUiMod,","  findMySeat: (...a)=>findMySeat(...a),","  showChatBubble: (...a)=>showChatBubble(...a),","  statusChipMod: statusChipMod,","  demojiSfxOn: (...a)=>demojiSfxOn(...a),","  setDemojiSfxOn: (...a)=>setDemojiSfxOn(...a),","  sfxOfficeLock: (...a)=>sfxOfficeLock(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
