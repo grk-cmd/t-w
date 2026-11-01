@@ -66,7 +66,7 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
   `gh api -X PUT $R/pulls/<번호>/merge -f merge_method=squash -f sha=$SHA -f commit_title='<PR 제목> (#<번호>)'`
   단 **앞 판 · main 을 판 브랜치에 합쳐 받는 PR** 은 `merge_method=merge` — squash 면 내력이 끊긴다(정본 `docs/GIT_CONVENTION.md` 2.3).
   알아보는 법은 머리 커밋 모양이 아니라 **PR 의 목적**이다: 제목 · 본문이 합쳐 받기이고, PR 커밋 가운데 둘째 부모가 base 에 없는 merge commit 이 있다(`git merge-base --is-ancestor <그 커밋>^2 origin/<base>` 가 거짓). 일반 작업 PR 이 충돌을 풀려고 base 를 합쳐 머리가 merge commit 이 된 것은 해당하지 않는다 — squash 그대로.
-  확인: `for c in $(git rev-list --merges origin/<base>..<머리>); do git merge-base --is-ancestor $c^2 origin/<base> || echo "$c 합쳐 받기"; done`. 목적은 합쳐 받기인데 아무것도 안 나오면(앞 판 브랜치 · main 을 머리로 바로 연 PR · 앞 판에서 딴 브랜치) squash 하지 말고 멈춰 사용자에게 묻는다 — 2.3 절차(다음 판에서 따서 `git merge --no-ff`)로 다시 만든다.
+  확인(먼저 `git fetch origin <base> <머리 브랜치>`): `for c in $(git rev-list --merges origin/<base>..origin/<머리 브랜치>); do git merge-base --is-ancestor "$c^2" origin/<base> || echo "$c 합쳐 받기"; done`. 목적은 합쳐 받기인데 아무것도 안 나오면(앞 판에서 딴 브랜치 · merge 가 하나도 없는 앞 판을 머리로 바로 연 PR 등) squash 하지 말고 멈춰 사용자에게 묻는다 — 2.3 절차(다음 판에서 따서 `git merge --no-ff`)로 다시 만든다.
 - 브랜치 지우기는 클라우드에서 막힐 수 있다 — 막히면 그대로 둔다.
 
 ## 6. 끝
