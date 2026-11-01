@@ -44,6 +44,7 @@ export const BUG_CATS: Record<string, string> = {
   room: '방 · 접속',
   chat: '채팅',
   myhome: '마이홈',
+  suggest: '건의',
   etc: '기타',
 };
 
