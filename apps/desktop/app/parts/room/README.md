@@ -296,7 +296,8 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings,
 
 ```js
 const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId, now, isRoomCode: roomEntryMod.isRoomCode });
-roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName).text));
+roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName,
+  TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));
 TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now, joinRoom: (code)=>roomEntryMod.startRoom(code) });
 ```
 
@@ -304,7 +305,7 @@ room-entry 는 이 모듈을 모른다 — «방에 연결됨» 알림(`onRoomJo
 
 **내놓는 것** — `parse(raw, isCode)` · `add(list, code, title, at, isCode)` · `agoText(ms)`(순수 — 방 코드 모양은 room-entry `isRoomCode` 한 곳을 받는다) · `createRecentRooms(deps)` → `{ list(), record(code, title) }` · `createRecentRoomsUi(deps)` → `{ show(), hide() }`.
 
-**함정** — 저장 키는 계정마다(`tw.recentRooms.<내 id>`) — 한 PC 를 둘이 써도 앞 사람의 방 코드가 안 보인다 · 내 id 가 없으면 기록 · 목록 없음. 서버에 올리지 않는다(읽기 · 쓰기 0). 방 제목은 남이 정한 값이라 textContent 로만 그린다. 줄을 눌러 연결을 기다리는 사이엔 다른 줄을 눌러도 입장이 겹치지 않는다. 목록은 칸이 비었을 때만 — 글자를 치면 접힌다.
+**함정** — 저장 키는 계정마다(`tw.recentRooms.<내 id>`) — 한 PC 를 둘이 써도 앞 사람의 방 코드가 안 보인다 · 내 id 가 없으면 기록 · 목록 없음. 서버에 올리지 않는다(읽기 · 쓰기 0). 방 제목은 남이 정한 값이라 textContent 로만 그리고, 기록할 때 방 안 제목 칸과 같이 금칙어를 거른다. 계정마다 3줄씩 이 PC 에 남는다(로그아웃 지움 목록에는 안 넣었다 — 키가 계정마다라 섞이지 않는다). 목록은 칸이 비었을 때만 — 글자를 치면 접힌다.
 검사: `checks/sim-recent-rooms.js`.
 
 ## room-lobby-model.js · room-lobby-provider.js · room-lobby-ui.js — 방 목록 로비

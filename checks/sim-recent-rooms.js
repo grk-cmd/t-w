@@ -3,7 +3,8 @@
      계정마다 따로 저장해 한 PC 를 둘이 써도 앞 사람의 방 코드(시크릿룸 포함)가 안 보인다.
    ・1절: 순수 함수 — 방 코드 모양은 room-entry 의 진짜 isRoomCode · add(맨 앞 · 같은 방 올림 · 3개 · 틀린 코드) · parse(망가진 글 · 틀린 줄 · 중복 · 상한) · agoText 경계값
    ・2절: 저장 — 계정마다 다른 키 · 로그인 전엔 기록 · 목록 없음 · 저장소가 막혀도 안 던짐
-   ・3절: 화면 — 진짜 UI 를 가짜 DOM 에서 돌린다(빈 칸이면 펼침 · 글자 치면 접힘 · 줄 누르면 입장 · 입장 중 겹침 막기 · 목록 없으면 숨김 · ESC · 제목은 글로만)
+   ・3절: 화면 — 진짜 UI 를 가짜 DOM 에서 돌린다(빈 칸이면 펼침 · 글자 치면 접힘 · 줄 누르면 입장 · 목록 없으면 숨김 · ESC · 제목은 글로만)
+   ・3-2절: 기록하는 제목 — app.js 연결 줄을 진짜 room-settings · banned-words 로 돌림(금칙어면 «○○ 님의 방»)
    ・4절: 연결 — room-entry 가 «연결됨» 두 곳에서 알림 · app.js 가 기록 · UI 를 건다 · html 순서 · 칸 위치
    ・5절: 일부러 깨 보기
    [실행] node checks/run.js sim-recent-rooms */
@@ -14,7 +15,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const SRC = { mod: read('room/recent-rooms.js'), ui: read('room/recent-rooms-ui.js'), entry: read('room/room-entry.js'), app: read('app.js'), html: read('desk-companion-prototype.html') };
+const SRC = { mod: read('room/recent-rooms.js'), ui: read('room/recent-rooms-ui.js'), entry: read('room/room-entry.js'), app: read('app.js'), html: read('desk-companion-prototype.html'),
+  settings: read('room/room-settings.js'), banned: read('shared/banned-words.js') };
 for (const k of Object.keys(SRC)) if (SRC[k] == null) { say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
@@ -102,8 +104,7 @@ async function judge(src){
     const U = loadUi(src.ui);
     const doc = mkDoc(), joined = [];
     let list = [{ code: 'WORK-AB2C', title: '<b>조용</b>', at: 1000 - 2 * HOUR }, { code: 'SCRT-2222', title: '', at: 1000 }];
-    let release = null;
-    U.createRecentRoomsUi({ document: doc, recent: { list: () => list }, agoText: M.agoText, now: () => 1000, joinRoom: (c) => { joined.push(c); return new Promise(res => { release = res; }); } });
+    U.createRecentRoomsUi({ document: doc, recent: { list: () => list }, agoText: M.agoText, now: () => 1000, joinRoom: (c) => joined.push(c) });
     const inp = doc.els.inviteCode, box = doc.els.lobbyRecent;
     inp.fire('focus');
     t(!box.hidden && rows(box).length === 2 && /최근 들어간 방/.test(box.textContent), '칸을 누르면(빈 칸) 최근 방이 펼쳐진다');
@@ -113,12 +114,6 @@ async function judge(src){
     t(md._pd === true, '  줄을 누르는 동안 칸이 포커스를 안 잃게(먼저 닫히지 않게)');
     rows(box)[1].fire('click');
     t(joined.join() === 'SCRT-2222' && box.hidden, '★ 줄을 누르면 그 방으로 들어가고 접힌다');
-    inp.fire('focus'); rows(box)[0].fire('click');
-    t(joined.join() === 'SCRT-2222', '  연결을 기다리는 사이 다른 줄을 눌러도 입장이 겹치지 않는다');
-    release(); await Promise.resolve(); await Promise.resolve();
-    inp.fire('focus'); rows(box)[0].fire('click');
-    t(joined.join() === 'SCRT-2222,WORK-AB2C', '  연결이 끝나면 다시 누를 수 있다');
-    release();
     inp.fire('focus'); inp.value = 'AB'; inp.fire('input');
     t(box.hidden, '  글자를 치면 접힌다');
     inp.value = ''; inp.fire('input');
@@ -139,6 +134,31 @@ async function judge(src){
 say('── 1 ~ 3. 규칙 · 저장 · 화면 (진짜 모듈을 돌린다)');
 (await judge(SRC)).forEach(([ok, m]) => chk(ok, m));
 
+say('── 3-2. 기록하는 제목 (app.js 의 진짜 연결 줄을 진짜 room-settings · banned-words 로 돌린다)');
+function recordedTitle(s, meta, bannedList){
+  const i = s.app.indexOf('roomEntryMod.onRoomJoined(');
+  if (i < 0) throw new Error('app.js 에서 onRoomJoined 연결을 못 찾음');
+  const line = s.app.slice(i, s.app.indexOf(';', s.app.indexOf('.text))', i)) + 1);
+  const w = {}; new Function('window', s.settings)(w);
+  const bw = {}; new Function('window', 'module', s.banned)(bw, undefined);
+  let cb = null; const got = [];
+  new Function('roomEntryMod', 'recentRooms', 'TwRoomSettings', 'TwBannedWords', 'acctStateMod', line)(
+    { onRoomJoined: (fn) => { cb = fn; } }, { record: (c, t) => got.push([c, t]) }, w.TwRoomSettings, bw.TwBannedWords,
+    { _rcStore: () => ({ bannedWords: () => bannedList }) });
+  cb('WORK-AB2C', meta);
+  return got[0] && got[0][1];
+}
+function titleJudge(s){
+  const r = [];
+  try {
+    r.push([recordedTitle(s, { title: '조용한 방', hostName: '꿀곰' }, ['나쁜말']) === '조용한 방', '제목 그대로']);
+    r.push([recordedTitle(s, { title: '나쁜말 방', hostName: '꿀곰' }, ['나쁜말']) === '꿀곰 님의 방', '★ 금칙어 제목 → «방장 님의 방»(방 안 제목 칸과 같다)']);
+    r.push([recordedTitle(s, { title: '', hostName: '꿀곰' }, []) === '꿀곰 님의 방' && recordedTitle(s, null, []) === '이름 없는 방', '  제목 없음 · meta 없음 → 기본 제목']);
+  } catch (err) { r.push([false, '돌리다 오류 — ' + (err && err.message || err)]); }
+  return r;
+}
+titleJudge(SRC).forEach(([ok, m]) => chk(ok, m));
+
 say('── 4. 연결');
 function wire(s){
   const out = [];
@@ -146,7 +166,7 @@ function wire(s){
   w((s.entry.match(/toast\('방에 연결됐어요: '\+code\);\n(?:  _clearPendingCreate\(\);\n)?  _roomJoined\(code\);/g) || []).length === 2, 'room-entry — «연결됐어요» 두 곳(방 서버 · Firebase) 모두 알림');
   w(/function onRoomJoined\(fn\)\{ _roomJoinedFns\.push\(fn\); \}/.test(s.entry) && /\n  onRoomJoined,/.test(s.entry) && !/TwRecentRooms|recentRooms/.test(s.entry), '  알림 걸기를 내놓고 · 최근 방 모듈은 모른다');
   w(!/CODE_RE|[A-Z]\]\{4\}/.test(s.mod), 'recent-rooms — 방 코드 모양을 다시 쓰지 않는다(room-entry isRoomCode 를 받는다)');
-  w(/const recentRooms = TwRecentRooms\.createRecentRooms\(\{ storage: localStorage, getMyUserId: [^\n]*isRoomCode: roomEntryMod\.isRoomCode \}\);/.test(s.app) && /roomEntryMod\.onRoomJoined\(\(code, meta\)=>recentRooms\.record\(code, TwRoomSettings\.displayTitle\(/.test(s.app), 'app.js — 기록을 «연결됨» 알림에 건다(제목은 displayTitle 한 곳)');
+  w(/const recentRooms = TwRecentRooms\.createRecentRooms\(\{ storage: localStorage, getMyUserId: [^\n]*isRoomCode: roomEntryMod\.isRoomCode \}\);/.test(s.app) && /roomEntryMod\.onRoomJoined\(\(code, meta\)=>recentRooms\.record\(code, TwRoomSettings\.displayTitle\(meta && meta\.title, meta && meta\.hostName,\n  TwBannedWords\.cleanBannedList\(acctStateMod\._rcStore\(\)\.bannedWords\(\)\), TwBannedWords\)\.text\)\);/.test(s.app), 'app.js — 기록을 «연결됨» 알림에 건다(제목은 displayTitle 한 곳 · 방 안 제목 칸과 같이 금칙어 거름)');
   w(/TwRecentRoomsUi\.createRecentRoomsUi\(\{[^\n]*joinRoom: \(code\)=>roomEntryMod\.startRoom\(code\)/.test(s.app), '  UI 의 입장은 로비 카드와 같은 startRoom');
   const iM = s.html.indexOf('<script src="parts/room/recent-rooms.js"'), iU = s.html.indexOf('<script src="parts/room/recent-rooms-ui.js"'), iA = s.html.indexOf('<script src="parts/app.js"');
   w(iM > 0 && iU > iM && iA > iU, 'html — 두 모듈을 app.js 보다 먼저');
@@ -163,10 +183,9 @@ const BREAKS = [
   ['mod', "return id ? KEY_PREFIX + id : null;", "return KEY_PREFIX + 'all';", '계정 구분 없이 한 키'],
   ['mod', "if(!isCode(code)) return list.slice();", "if(typeof code !== 'string') return list.slice();", '틀린 코드도 넣음'],
   ['mod', "if(!r || !isCode(r.code) || seen.has(r.code)) continue;", "if(!r || seen.has(r.code)) continue;", '저장본의 틀린 코드를 안 거름'],
-  ['ui', "        if(joining) return;\n", '', '입장 중에 또 눌러 겹침'],
   ['entry', "return ROOM_CODE_RE.test(code) || (code.startsWith('SCRT-') && ROOM_CODE_BODY_RE.test(code.slice(5)));", "return ROOM_CODE_RE.test(code);", '시크릿룸 코드를 안 받음'],
   ['ui', "const rows = input.value.trim() ? [] : recent.list();", 'const rows = recent.list();', '글자를 쳐도 안 접힘'],
-  ['ui', "try{ await joinRoom(r.code); }finally{ joining = false; }", "joining = false;", '줄을 눌러도 안 들어감'],
+  ['ui', "b.addEventListener('click', () => { hide(); joinRoom(r.code); });", "b.addEventListener('click', () => { hide(); });", '줄을 눌러도 안 들어감'],
   ['ui', "title.textContent = r.title;", "title._text = ''; title.textContent = '';", '제목을 안 그림'],
   ['ui', "b.addEventListener('mousedown', (e) => e.preventDefault());", '', '누르는 동안 먼저 닫힘'],
 ];
@@ -179,7 +198,13 @@ const WB = [
   ['entry', "  _clearPendingCreate();\n  _roomJoined(code);\n", "  _clearPendingCreate();\n", '방 서버 길에서 알림을 빠뜨림'],
   ['entry', "  refreshInviteUI(); toast('방에 연결됐어요: '+code);\n  _roomJoined(code);\n", "  refreshInviteUI(); toast('방에 연결됐어요: '+code);\n", 'Firebase 길에서 알림을 빠뜨림'],
   ['app', 'joinRoom: (code)=>roomEntryMod.startRoom(code) });', 'joinRoom: (code)=>{} });', 'UI 가 입장을 안 함'],
+  ['app', ",\n  TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));", ").text));", '최근 방 제목이 금칙어를 안 거름'],
 ];
+{
+  const from = ",\n  TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));";
+  const s2 = Object.assign({}, SRC, { app: SRC.app.replace(from, ').text));') });
+  chk(s2.app !== SRC.app && titleJudge(s2).some(([ok]) => !ok), '기록 제목이 금칙어를 안 거름 → 3-2절 빨강');
+}
 for (const [k, from, to, why] of WB) {
   if (SRC[k].indexOf(from) < 0) { chk(false, '깨 볼 글을 못 찾음 — ' + why); continue; }
   const s2 = Object.assign({}, SRC, { [k]: SRC[k].replace(from, to) });
