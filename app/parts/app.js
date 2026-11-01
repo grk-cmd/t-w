@@ -2913,6 +2913,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  giftSave: TwGiftSave.createGiftSave({ fetch: (...a)=>fetch(...a), document, URL, setTimeout: (...a)=>setTimeout(...a), safeUrl: TwSafeHtml.safeUrl, now: ()=>new Date(), notifyFail: e=>TwErrorCodes.notify('E-MH-03', e) }),
   // 📩 수령함
   myInbox: ()=>_myInbox,
   inboxBroadcast: ()=>_inboxBroadcast,

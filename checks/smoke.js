@@ -371,6 +371,8 @@ PRELOAD.push('input-diag.js');
 /* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
+/* gift-save.js — 💾 선물 그림 저장. app.js 가 수령함 모듈을 만들 때 TwGiftSave.createGiftSave 를 부르므로 진짜가 먼저 있게. */
+PRELOAD.push('gift-save.js');
 PRELOAD.push('myhome-inbox.js');
 /* help-site.js · help-tab.js — 📘 도움말 탭. app.js 가 만들 때 TwHelpTab 을 부르고, 그 모듈이 TwHelpSite 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('help-site.js');

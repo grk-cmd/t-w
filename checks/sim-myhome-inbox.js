@@ -65,7 +65,7 @@ function mkEl(tag, env){
 }
 function mkEnv(o){
   o = o || {};
-  const env = { calls: [], toasts: [], store: new Map(), domCalls: 0, confirmAns: true, focused: 0, opened: [], copied: [], bell: 0, profileRail: 0, homeView: [], bugOpen: [], respawn: [] };
+  const env = { calls: [], toasts: [], store: new Map(), domCalls: 0, confirmAns: true, focused: 0, opened: [], copied: [], bell: 0, profileRail: 0, homeView: [], bugOpen: [], respawn: [], saved: [] };
   const byId = {};
   const doc = {
     body: mkEl('body', env),
@@ -113,6 +113,7 @@ function mkEnv(o){
   env.myInbox = {}; env.bc = {}; env.friends = {}; env.admin = false; env.notice = null;
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({
     escHtml, toast: (m) => env.toasts.push(m), getMyUserId: () => 'ME01',
+    giftSave: { save: (g) => { env.saved.push(g.fromName + '|' + g.imgUrl); return Promise.resolve('ok'); } },
     myInbox: () => env.myInbox, inboxBroadcast: () => env.bc, INBOX_BC_READ_KEY: 'tw.inboxBcRead', isAdmin: () => env.admin,
     mhScheduler: { refreshBellBadge: () => { env.bell++; } },
     myHomeFriends: () => env.friends, friendsNotice: () => env.notice, FRIEND_MAX: 100, friendVisit: o.noVisit ? null : { ask: (fid) => env.calls.push('visit ' + fid) },
@@ -372,13 +373,17 @@ async function behave(src){
     ev = { target: tg('g2', false), preventDefault(){ ev._pd = true; }, stopPropagation(){} };
     list.oncontextmenu(ev);
     const ov = homeWin.children[0];
-    chk(ev._pd && ov && ov.id === 'mhAskOv' && /⭐를 먼저 풀어 주세요/.test(ov.innerHTML) && (ov.innerHTML.match(/<button/g) || []).length === 1, '⭐ 선물 우클릭 — 삭제 대신 안내(확인 단추 하나)');
+    const btnLabels = (o) => (o.innerHTML.match(/<button[^>]*>([^<]*)<\/button>/g) || []).map(b => b.replace(/<[^>]*>/g, '')).join(',');
+    chk(ev._pd && ov && ov.id === 'mhAskOv' && /⭐를 먼저 풀어 주세요/.test(ov.innerHTML) && btnLabels(ov) === '저장,취소' && !/class="danger"/.test(ov.innerHTML), '⭐ 선물 우클릭 — [저장] [취소] 만(삭제 없음) · ⭐ 안내');
+    e.calls = [];
+    ov.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '0' } } : null } }); await flush();
+    chk(e.saved.join() === '다|https://i/2.png?alt=media' && ov.removed && e.calls.length === 0, '  [저장] — 선물 그림 저장을 부르고 닫는다(지우지 않음)');
     chk(e.doc.body.children.length === 0, '  확인창은 #myHomeWin 안에 붙는다(body 로 빼지 않는다)');
     e.calls = []; e.gifts['g-out'].fromName = '라<마';
     list.oncontextmenu({ target: tg('g-out', false), preventDefault(){}, stopPropagation(){} });
     const ov2 = homeWin.children[0];
-    chk(homeWin.children.length === 1 && ov2 !== ov && /라&lt;마 님의 선물을 삭제할까요\?/.test(ov2.innerHTML) && /class="danger"/.test(ov2.innerHTML), '삭제 확인창 — 앞 창은 치우고 · 이름은 escHtml · 삭제는 위험 단추');
-    ov2.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '0' } } : null } }); await flush(); await flush();
+    chk(homeWin.children.length === 1 && /라&lt;마 님의 선물을 저장하거나 삭제할 수 있어요/.test(ov2.innerHTML) && btnLabels(ov2) === '저장,삭제,취소' && (ov2.innerHTML.match(/class="danger"/g) || []).length === 1 && /class="danger">삭제</.test(ov2.innerHTML), '저장 · 삭제 창 — [저장] [삭제] [취소] · 이름은 escHtml · 삭제만 위험 단추');
+    ov2.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '1' } } : null } }); await flush(); await flush();
     chk(e.calls.join() === 'deleteGift g-out' && ov2.removed && e.toasts.includes('🗑 선물을 삭제했어요') && !/data-gid="g-out"/.test(list.innerHTML) && /data-gid="g1"/.test(list.innerHTML), '  [삭제] — 지우고 닫고 다시 그림');
     const ov3 = (list.oncontextmenu({ target: tg('g2', false), preventDefault(){}, stopPropagation(){} }), homeWin.children[0]);
     ov3.fire('click', { target: ov3 });
@@ -490,13 +495,14 @@ function wiring(MI, APP, HTML){
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const want = [
     /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
+    /^giftSave: TwGiftSave\.createGiftSave\(\{ fetch: \(\.\.\.a\)=>fetch\(\.\.\.a\), document, URL, setTimeout: \(\.\.\.a\)=>setTimeout\(\.\.\.a\), safeUrl: TwSafeHtml\.safeUrl, now: \(\)=>new Date\(\), notifyFail: e=>TwErrorCodes\.notify\('E-MH-03', e\) \}\),$/,
     /^myInbox: \(\)=>_myInbox,$/, /^inboxBroadcast: \(\)=>_inboxBroadcast,$/, /^INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,$/, /^isAdmin: \(\)=>isAdmin,$/, /^mhScheduler: mhScheduler,$/,
     /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 19개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 20개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');
@@ -553,6 +559,8 @@ async function runAll(MI, APP, HTML){
   say('── 8. 일부러 깨 보기');
   const BREAKS = [
     ['MI', '_inboxFilter = inboxSec.normCat(_inboxFilter);', '', "옛 'gift' 필터를 안 되돌림"],
+    ['MI', "[saveBtn, { label:'취소' }]);", "[saveBtn, { label:'삭제', danger:true }, { label:'취소' }]);", '⭐ 선물 우클릭에 삭제 단추가 붙음'],
+    ['MI', "const saveBtn = { label:'저장', run: ()=>giftSave.save(g) };", "const saveBtn = { label:'저장' };", '[저장] 이 아무것도 안 함'],
     ['MI', 'const ids = inboxSec.newsIds(merged, _inboxFilter);', 'const ids = Object.keys(merged);', '소식 칸이 칸 나누기 규칙을 안 부름'],
     ['MI', 'const ids = inboxSec.mailIds(merged);', 'const ids = Object.keys(merged);', '우편 칸에 소식이 섞임'],
     ['MI', "  if(m.read) return;\n  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", "  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", '읽은 것도 다시 읽음 표시'],
