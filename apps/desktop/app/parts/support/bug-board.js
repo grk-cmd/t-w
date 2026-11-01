@@ -28,7 +28,7 @@ export const BUG_NOTICE_MAX = 5;
 /* 분류 — 규칙(cat 정규식)과 짝이다. 하나 늘리면 firebase-database-rules.json 의 bugBoard/list/$id .validate 도. */
 export const BUG_CATS = [
   ['bug', '오류 · 멈춤'], ['ui', '화면 · 표시'], ['room', '방 · 접속'],
-  ['chat', '채팅'], ['myhome', '마이홈'], ['etc', '기타'],
+  ['chat', '채팅'], ['myhome', '마이홈'], ['suggest', '건의'], ['etc', '기타'],
 ];
 /* 상태 — 규칙(status 정규식)과 짝이다. unfixed 는 글쓴이가 «해결 안 됨» 으로 되돌린 글(미해결 목록에 낀다). */
 export const BUG_STATUS = { new: '접수', checking: '확인 중', fixed: '수정 완료', norepro: '재현 안 됨', unfixed: '해결 안 됨' };
