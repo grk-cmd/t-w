@@ -260,7 +260,7 @@
 | **sim-device-session.js** | 144 | **bff537b6265c** |
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
-| **sim-font-hangul.js** | 54 | **1e0479f9fce5** |
+| **sim-font-hangul.js** | 54 | **1124dfc9f983** |
 | **sim-app-size.js** | 127 | **f4d91c399857** |
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
@@ -288,7 +288,8 @@
 | **sim-myhome-inbox.js** | 609 | **da754a0a191d** |
 | **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |
 | **sim-playlist.js** | 743 | **9c64891954bf** |
-| **sim-ui-tokens.js** | 137 | **dfb3a5f591fc** |
+| **sim-ui-tokens.js** | 135 | **bf0abb5744a6** |
+| **sim-strip-comments.js** | 82 | **7ae5874e1745** |
 | **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |

@@ -26,10 +26,8 @@ const partsDir = ['parts', path.join('app', 'parts'), path.join('apps', 'desktop
 if(!htmlPath || !partsDir){ say('  ? 원본 없음 — ' + (!htmlPath ? 'desk-companion-prototype.html ' : '') + (!partsDir ? 'parts/app.js' : '')); process.exit(2); }
 const BASE_FILE = path.join(__dirname, 'ui-tokens-baseline.json');
 
-/* 주석을 같은 길이의 공백으로 — 줄 번호를 지키려고 */
-const blank = (m) => m.replace(/[^\n]/g, ' ');
-const stripCss = (s) => s.replace(/<!--[\s\S]*?-->/g, blank).replace(/\/\*[\s\S]*?\*\//g, blank);
-const stripJs = (s) => stripCss(s).replace(/(^|[^:\\'"])(\/\/[^\n]*)/g, (m, a, b) => a + blank(b));
+/* 주석 지우기(따옴표 안 건너뜀 · 줄 번호 그대로)는 검사끼리 한 벌 — sim-strip-comments.js */
+const { stripCss, stripJs } = require('./sim-strip-comments.js');
 
 const files = [['desk-companion-prototype.html', stripCss(fs.readFileSync(htmlPath, 'utf8'))]];
 /* parts/ 아래 도메인 폴더(myhome/ · room/ · admin/ …)까지 모두 본다 — 이름은 parts 기준 상대 경로('myhome/파일').

@@ -1,7 +1,7 @@
 {
   "note": "sim-ui-tokens.js 기준선 — 아직 토큰으로 못 바꾼 자리 수. 늘리지 않는다. 줄였으면 --write-baseline 으로 내린다.",
   "fonts": {
-    "desk-companion-prototype.html": 24,
+    "desk-companion-prototype.html": 25,
     "admin/admin-license-bulk.js": 1,
     "admin/admin-license.js": 1,
     "admin/admin-report.js": 1,
@@ -17,7 +17,7 @@
     "shared/maintenance-gate.js": 1
   },
   "greys": {
-    "desk-companion-prototype.html": 133,
+    "desk-companion-prototype.html": 135,
     "admin/admin-category.js": 9,
     "admin/admin-license-bulk.js": 6,
     "admin/admin-report.js": 1,
@@ -34,7 +34,7 @@
     "myhome/mallang.js": 20,
     "myhome/myhome-desktop.js": 134,
     "myhome/myhome-edit.js": 66,
-    "myhome/scheduler.js": 1,
+    "myhome/scheduler.js": 2,
     "purikura/purikura-net.js": 2,
     "purikura/purikura-ui.js": 2,
     "room/dice-games.js": 2,
