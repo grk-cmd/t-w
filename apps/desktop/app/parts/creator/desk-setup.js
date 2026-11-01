@@ -121,7 +121,7 @@ function renderCrItems(){
       if(!rec.glb && rec.glbUrl){
         try{ await catalogGlbMod().resolveCatalogGlb(rec); }catch(e){ glbErr = e; }
       }
-      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-14', glbErr || (rec.glbUrl ? 'no-glb' : 'no-url')); return; }
+      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-14', glbErr || (rec.glbUrl ? (catalogGlbMod().glbFailWhy(rec.glbUrl) || 'no-glb') : 'no-url')); return; }
       /* 📦 코드로 넣은 책상만 GLB 가 def 에 실린다(카탈로그 책상은 id 만) — crDone 과 같은 갈래. */
       if(!rec.fromCatalog){
         const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });

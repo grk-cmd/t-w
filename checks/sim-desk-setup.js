@@ -52,7 +52,7 @@ function world(src, o = {}) {
     _creatorSizeGrow: (fn) => { const d = {}; fn(d); log.calls.push(['grow', d]); return o.sizeFail ? { ok: false, message: '용량' } : { ok: true }; },
     _syncCrColorSwatches: call('sync'), applyDeskColorToCustom: call('color'), assetCardsMod,
     assetCodeMod: () => ({ parseGlbBytes: (b) => (o.parseFail ? Promise.reject(new Error('x')) : Promise.resolve({ scene: b })) }), autoSaveDeskItemsNow: call('autosave'), b64ToBuf: (s) => 'B:' + s,
-    catalogGlbMod: () => ({ resolveCatalogGlb: async (rec) => { log.calls.push(['resolve', rec.id]); if (!o.resolveFail) rec.glb = 'RGLB'; } }),
+    catalogGlbMod: () => ({ resolveCatalogGlb: async (rec) => { log.calls.push(['resolve', rec.id]); if (!o.resolveFail) rec.glb = 'RGLB'; }, glbFailWhy: (u) => (o.failWhy && u ? o.failWhy : '') }),
     catalogNet: () => net, clampDeskScale: (v) => Math.max(0.05, Math.min(0.3, v)),
     commissionMod: () => ({ savedDesks: () => desks, savedItems: () => items, setSavedDesks: (a) => { desks = a; }, setSavedItems: (a) => { items = a; }, persistSavedAssets: call('persist'), MAX_CUSTOM_ASSETS: 2, MAX_CUSTOM_ITEMS: 3 }),
     crState: st, creatorOpen: () => o.open !== false, customItems: () => customItems,
@@ -93,6 +93,9 @@ async function behave(src) {
   w = world(src, { desks: D }); w.out.renderCrItems(); await deskCards(w)[2].onclick(); await flush();
   t(w.calls('resolve')[0][1] === 'd3' && w.st.activeCustomDeskId === 'd3' && !w.calls('grow').length, '카탈로그 책상 — URL 이면 받아서 · 용량은 안 잼(id 만 실림)');
   w = world(src, { desks: D, resolveFail: true }); w.out.renderCrItems(); await deskCards(w)[2].onclick(); await flush();
+  t((w.log.toasts[w.log.toasts.length - 1] || [])[1] === 'no-glb', '  못 받음 — 이유를 모르면 진단 기록에 no-glb');
+  const wf = world(src, { desks: D, resolveFail: true, failWhy: 'net-fail Failed to fetch 12ms' }); wf.out.renderCrItems(); await deskCards(wf)[2].onclick(); await flush();
+  t(JSON.stringify(wf.log.toasts[wf.log.toasts.length - 1]) === '["E-CHAR-14","net-fail Failed to fetch 12ms"]', '  못 받음 — 받기 실패 이유(glbFailWhy)를 진단 기록에 싣는다');
   const w2 = world(src, { desks: D, sizeFail: true }); w2.out.renderCrItems(); await deskCards(w2)[1].onclick(); await flush();
   const w3 = world(src, { desks: D, parseFail: true }); w3.out.renderCrItems(); await deskCards(w3)[1].onclick(); await flush();
   t(lastT(w) === 'E-CHAR-14' && w2.log.toasts[0][0] === '용량' && w2.log.toasts[0][2] === 5000 && !w2.st.activeCustomDeskId && lastT(w3) === '책상 적용 실패', '못 받음(오류 E-CHAR-14) · 용량 초과 · 못 읽음 — 알리고 그대로');
@@ -206,6 +209,7 @@ function wire(app, html) {
     ['잠긴 책상도 골라짐', (m) => m.replace("if(deskLocked){ toast('🔒 ", "if(false){ toast('🔒 "), null, null],
     ['카탈로그 책상도 용량 잼', (m) => m.replace('      if(!rec.fromCatalog){\n        const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb;', '      if(true){\n        const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb;'), null, null],
     ['회수 확인 없앰', (m) => m.replace("if(!confirm('\"'+(rec.name||'책상')+'\"을(를) 모든 사용자에게서 회수할까요?')){ window.focus(); return; }", ''), null, null],
+    ['못 받은 이유를 안 실음', (m) => m.replace("(catalogGlbMod().glbFailWhy(rec.glbUrl) || 'no-glb')", "'no-glb'"), null, null],
     ['쪽당 5 → 6', (m) => m.replace('const CR_ITEM_PAGE_SIZE = 5;', 'const CR_ITEM_PAGE_SIZE = 6;'), null, null],
     ['쪽 번호 넘침 안 잡음', (m) => m.replace('if(crState.crItemPage >= _totalPages) crState.crItemPage = _totalPages-1;', ''), null, null],
     ['관리자 교체분 무시', (m) => m.replace('const eff=deskItemsMod().deskItemDef(def.id)||def;', 'const eff=def;'), null, null],

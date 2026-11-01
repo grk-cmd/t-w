@@ -2474,6 +2474,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
+  glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
 });

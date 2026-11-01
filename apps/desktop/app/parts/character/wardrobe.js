@@ -93,6 +93,7 @@ const applyDeskDotThumb = deps.applyDeskDotThumb;
 const clampDeskScale = deps.clampDeskScale;
 const humanEar = deps.humanEar;
 const resolveCatalogGlb = deps.resolveCatalogGlb;
+const glbFailWhy = deps.glbFailWhy;   // 책상 받기 실패 이유 — E-CHAR-13 진단 줄(catalog-glb.js)
 const setDeskScale = deps.setDeskScale;
 const swThumb = deps.swThumb;
 /* 🎨 꾸미기 미리보기 — 꾸미기 패널 옆에 뜨는 정적 3D 미리보기.
@@ -176,7 +177,7 @@ function renderWdDeskSection(wrap){
       if(!rec.glb && rec.glbUrl){
         try{ await resolveCatalogGlb(rec); }catch(e){ glbErr = e; }
       }
-      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-13', glbErr || (rec.glbUrl ? 'no-glb' : 'no-url')); return; }
+      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-13', glbErr || (rec.glbUrl ? (glbFailWhy(rec.glbUrl) || 'no-glb') : 'no-url')); return; }
       _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });
       renderWardrobe();
     };
