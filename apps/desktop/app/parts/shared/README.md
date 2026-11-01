@@ -260,6 +260,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - `safeUrl(u, kind)` → 허용 안 되면 `''`. `'image'` = `data:image/(png|jpeg|webp|gif);base64,` · `https:`(호스트는 아직 안 좁힘) / `'link'` = `https:` · `http:`(2048자 상한). `new URL` 로 읽어 `JaVaScRiPt:` · `\tjavascript:` · `//evil` · 상대 주소를 막는다. 돌려주는 값은 정규화한 주소.
   - `cssUrl(u)` → `url("…")` 통째로(`safeUrl(u,'image')` + 따옴표 · 역슬래시 막기), 안 되면 `''`.
   - `cssColor(c)` → 색 · 그라데이션 값 그대로, 주소를 부르는 글(`url(` · `image-set(` …)이나 다른 선언으로 넘어가는 글자(`; { } \ < >` 따옴표)가 있으면 `''`.
+  - `linkify(s)` → 글 속 `http(s)` 주소(`safeUrl(…,'link')` 를 지난 것)만 `<span class="ext-link" data-url="…">` 칸으로, 나머지는 `text`. `<a href>` 가 아니라 눌러도 앱 화면이 안 넘어간다 — 부르는 쪽 클릭 처리가 `data-url` 을 다시 `safeUrl` 로 거른 뒤 `companion.openBrowser`. 문장 끝 `. , ; : ! ? ) ]` 는 주소에서 뺀다. 지금 쓰는 곳: 🐞 버그제보 게시판 본문 · 답변 · 답글.
   ```js
   el.innerHTML = '<b title="' + TwSafeHtml.attr(m.memo) + '">' + TwSafeHtml.text(m.name) + '</b>';
   const src = TwSafeHtml.safeUrl(item.url, 'image'); if(src) img.src = src;
@@ -279,6 +280,21 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **빼는 곳**: `attachDragScroll(el, { skip: '선택자' })` — 거기서 누르면 끌기를 시작하지 않는다(우편함은 펼친 본문 `.mh-ibx-body` · 링크 `a` — 글자를 끌어 골라 복사할 수 있게).
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
+
+## `mac-tooltip.js` — 💬 맥 설명 말풍선
+
+- **책임**: 맥에서 마우스를 올리면 뜨는 설명(`title`)을 앱이 직접 그린다. 실행 화면 창이 «화면 보호기» 단계(`setAlwaysOnTop('screen-saver')`)라 맥 OS 툴팁이 그 뒤로 깔려 안 보이기 때문이다. 윈도우는 OS 툴팁이 맨 위라 걸지 않는다.
+- **쓰는 법**: 메인 창은 없다 — 싣기만 하면 맥에서 스스로 건다(`install(document, window)`). 화면 코드는 예전처럼 `title=` · `.title =` 를 쓴다. 따로 여는 창(방명록 · 디자인 스튜디오)은 `d.write` · `d.close` 뒤에 `installChild(창 문서, 창)` — 같은 «화면 보호기» 단계라 같은 일이 생긴다(맥 창이 아니면 안 건다 · app.js 가 deps `installMacTip` 으로 넘긴다). 내놓는 것 `TwMacTooltip.isMac(navigator)` · `place(…)` · `install(doc, win)` · `installChild(doc, win)`.
+- **어떻게**: 올리면 `title` 을 `data-tw-tip` 으로 잠시 옮기고(OS 툴팁이 안 뜨게) 450ms 뒤 `#twMacTip`(토스트와 같은 «쪽지» 모양 · z-index 10000)에 같은 글을 그린다. 말풍선 css 는 이 모듈 한 곳에 두고 거는 문서마다 `<style id="twMacTipCss">` 로 넣는다(자식 창은 메인 HTML 의 style 을 못 본다). 나가면 `title` 을 되돌린다. 누르기 · 휠 · 키 · 창 떠남은 말풍선만 접는다.
+- **함정**: 올려 둔 동안 그 요소의 `title` 은 비어 있다 — 그 사이 코드가 `title` 을 새로 쓰면 그 값을 살린다(되돌릴 때 덮지 않는다). 빈 `title` 은 건드리지 않는다.
+- 검사: `checks/sim-mac-tooltip.js`.
+## `panel-fit.js` — 📐 아래 기준 창을 화면 안으로
+
+- **책임**: 기준점이 창의 아래 가운데인 창(`transform: translate(-50%,-100%)`)의 기준점을, 창 전체가 화면 안에 들도록 옮긴다. 순수 함수 · DOM 없음.
+- **쓰는 법**: `TwPanelFit.fitBottomCenter(x, y, 창너비, 창높이, 화면너비, 화면높이, 여유)` → `{ x, y }`. 화면보다 큰 창은 위(제목줄)를 살린다 — 아래는 창 안 스크롤로 보지만 제목줄이 잘리면 끌 수도 닫을 수도 없다.
+- **지금 쓰는 곳**: ⚙ 설정창 — 머리 위 자동 배치(`status-chip.js`) · 끌어 옮기기 · 끈 뒤 크기가 바뀔 때(`settings-panel.js` — 탭을 바꾸면 위로 자란다).
+- **함정**: 함수만으로는 화면보다 긴 창을 못 넣는다 — 창 높이 상한(css `max-height: calc(100vh - 16px)`)과 안쪽 스크롤(`.fs-body{overflow-y:auto}`)이 짝이다.
+- 검사: `checks/sim-panel-fit.js`.
 
 ## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
 

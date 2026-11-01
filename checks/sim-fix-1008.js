@@ -37,7 +37,8 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     const head = grab(/const SETTINGS_VER = \d+;[\s\S]*?\nfunction _settingsLegacyRisky\(data\)\{[\s\S]*?\n\}/);
     const load = grab(/function loadSettings\(\)\{[\s\S]*?\n\}/);
     const save = grab(/function saveSettings\(\)\{[\s\S]*?\n\}/);
-    chk(!!head && !!load && !!save, 'SETTINGS_VER · loadSettings · saveSettings 를 찾았다');
+    const posOf = grab(/const LAUNCHER_POS_MAX = \d+;[\s\S]*?\nfunction _launcherPosOf\(v\)\{[\s\S]*?\n\}/);   // 런처 자리(launcherPos)도 같은 파일에 산다
+    chk(!!head && !!load && !!save && !!posOf, 'SETTINGS_VER · loadSettings · saveSettings · _launcherPosOf 를 찾았다');
     const os = require('os'), path = require('path');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-set-'));
     const run = (fileObj) => {
@@ -47,9 +48,10 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
       if (fileObj) fs.writeFileSync(P, JSON.stringify(fileObj));
       const ov = { _g: 12, _a: 0, GAP_MAX: 64, GAP_VER: 2, GAP_LEGACY: [2, 6], GAP_DEFAULT: 12,
         setGap(v) { this._g = v; }, gap() { return this._g; }, setAlpha(v) { this._a = v; }, alpha() { return this._a; } };
-      const body = 'let SETTINGS_PATH = P; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
-        + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + load + '\n' + save
-        + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice };'
+      const body = 'let SETTINGS_PATH = P; const DISPLAY_NAME_MAX = 200; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, runDisplayName = null, runDisplayNameUnique = false, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
+        + 'const savedPos = { launcher: null, creator: null };\n'   // _launcherPosSaved · 몰아 저장은 아래 posOf 덩이에 같이 온다
+        + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + posOf + '\n' + load + '\n' + save
+        + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice, launcher: savedPos.launcher };'
         + '\n_settingsReset = null; saveSettings(); r.saved = JSON.parse(fs.readFileSync(P, "utf8")); return r;';
       const out = new Function('fs', 'path', 'P', 'overlay', body)(fs, path, P, ov);
       out.backup = fs.existsSync(path.join(dir, 'tw-settings.before-reset.json'));
@@ -65,6 +67,11 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     chk(!c.reset && c.alpha === 252 && c.runDisplayId === 7, '새 빌드에서 일부러 켠 실험은 존중한다');
     const d = run(null);
     chk(!d.reset && d.saved.settingsVer === 1, '파일이 없으면(첫 실행) 초기화 없이 새 세대로');
+    chk(a.launcher === null && a.saved.launcherPos === null, '  초기화 길은 런처 자리도 읽지 않는다(전부 기본값 — 가운데)');
+    const nm = run({ settingsVer: 1, runDisplayId: 3, runDisplayName: '  Wacom Cintiq 16  ' }), nm2 = run({ settingsVer: 1, runDisplayName: 123 });
+    chk(nm.saved.runDisplayName === 'Wacom Cintiq 16' && nm2.saved.runDisplayName === null, '🖥 고른 모니터 이름은 읽고(공백 뗌) → 다시 저장해도 그대로 · 문자열이 아니면 버림(sim-display-pick.js)');
+    const e = run({ settingsVer: 1, launcherPos: { x: 340, y: -20 } });
+    chk(e.launcher && e.launcher.x === 340 && e.launcher.y === -20 && e.saved.launcherPos && e.saved.launcherPos.x === 340, '보통 파일의 런처 자리는 읽고 → 다시 저장해도 그대로');
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
     chk(/ipcMain\.handle\('companion:takeSettingsNotice'[\s\S]{0,200}_settingsResetNotice = false;/.test(MAIN), '안내는 한 번 돌려주면 끈다');
     chk(/takeSettingsNotice\(\) \{\s*return ipcRenderer\.invoke\('companion:takeSettingsNotice'\);/.test(PRE), 'preload 통로');
@@ -188,7 +195,8 @@ say('§10 듀얼 모니터 — 위치순 이름 · 저장 모니터 다시 찾�
   if (!MAIN) chk(false, 'main.js 를 찾았다');
   else {
     const g = (re) => (MAIN.match(re) || [''])[0];
-    const src = [g(/function _displayKey\(d\)\{[\s\S]*?\n\}/), g(/function _displaySize\(d\)\{[^\n]*\}/),
+    const src = ['const DISPLAY_NAME_MAX = 200;', g(/function _displayName\(d\)\{[\s\S]*?\n\}/), g(/function _displayShape\(d\)\{[\s\S]*?\n\}/), g(/function _shapeOfKey\(key\)\{[\s\S]*?\n\}/),   // 🖥 이름 · 모양(sim-display-pick.js)
+                 g(/function _displayKey\(d\)\{[\s\S]*?\n\}/), g(/function _displaySize\(d\)\{[^\n]*\}/),
                  g(/function _displaysByPosition\(all\)\{[\s\S]*?\n\}/), g(/function _pickRunDisplay\(all, primaryId, saved\)\{[\s\S]*?\n\}/)].join('\n');
     const M = new Function(src + '\nreturn { _displayKey, _pickRunDisplay, _displaysByPosition };')();
     const D = (id, x, w, h, sf) => ({ id, bounds: { x, y: 0, width: w, height: h }, rotation: 0, scaleFactor: sf || 1 });
@@ -284,7 +292,7 @@ say('§5 호버해도 클릭이 바로 안 잡힘 — 일반 앱 첫 재판정 0
     chk(/if\(now - _ghostSince < \(_penAppActive \? GHOST_MS : GHOST_MS_PLAIN\)\) return;/.test(MAIN), '★ 첫 찌르기 문턱만 앱 종류로 가른다');
     chk(/const GHOST_REPOKE_MS = 3000;/.test(MAIN) && /const GHOST_MAX_POKES = 3;/.test(MAIN), '  찌르기 간격 · 포기 한도는 그대로 (렌더러 사다리와의 결합 유지)');
     const fwd = (MAIN.match(/function _forwardFor\(\)\{[\s\S]*?\n\}/) || [''])[0];
-    chk(/if\(_lastIgnoreRequested\) return true;/.test(fwd) && /return !_penAppActive \|\| _penMouseNearChar;/.test(fwd), '  _forwardFor(클립 스튜디오 보호) 그대로');
+    chk(/if\(!_penAppActive \|\| _penMouseNearChar\) return true;/.test(fwd) && /return !_penWakeReady\(\);/.test(fwd), '  _forwardFor(클립 스튜디오 보호 · 깨울 길 없으면 켬) 그대로 — 동작은 sim-pen-forward.js');
     const chkFn = (MAIN.match(/function _checkCursorNearChar\(\)\{[\s\S]*?\n\}/) || [''])[0];
     const re = chkFn.slice(chkFn.indexOf('if(near && _penMouseNearChar && _lastIgnoreRequested){'), chkFn.indexOf('if(near !== _penMouseNearChar){'));
     chk(re.length > 0 && /_now - _penRepokeAt >= PEN_REPOKE_MS/.test(re) && /_moved/.test(re) && /_sendHitTest\(\{ x: cx, y: cy \}\)/.test(re), '★ 펜 앱 — 근처 · 통과 중 · 움직였으면 150ms 간격으로 다시 묻는다');

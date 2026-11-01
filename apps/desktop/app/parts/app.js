@@ -2232,7 +2232,7 @@ try{
          정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
       companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
         moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined,
+        regions: window.__uiRegions ? window.__uiRegions() : undefined, others: statusChipMod.otherSeatCircles(),   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
         /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
            구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
         charBad: _charBadWhy || undefined });
@@ -2760,6 +2760,7 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const richTextMod = TwRichText.createRichText({
   escHtml: (...a)=>escHtml(...a),
+  DOMPurify: () => window.DOMPurify,
 });
 
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
@@ -3082,6 +3083,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
@@ -3119,6 +3121,7 @@ const guestbook = TwGuestbook.createGuestbook({
   escHtml: (...a)=>escHtml(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
   myHomeFriends: ()=>_myHomeFriends,
@@ -3153,7 +3156,6 @@ const chatUiMod = TwChatUi.createChatUi({
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
-  _chatLinkify: (...a)=>_chatLinkify(...a),
   _chatLogCache: ()=>_chatLogCache,
   _chatLogUnsub: ()=>_chatLogUnsub,
   _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
@@ -3197,13 +3199,6 @@ let _chatLogCache = [];        // 화면에 그린 마지막 메시지 목록(�
    ⚠️ `const` 가 아니라 **함수 선언**이다. 여기보다 앞줄에서 부르는 자리가 있어서
      호이스팅이 필요하다(const 로 바꾸면 TDZ 로 조용히 죽는다). */
 function _chatEsc(str){ return escHtml(str); }
-// 링크 감지 → 클릭 시 외부 열기. 이스케이프된 텍스트에서 http(s) URL만 <a>로 변환.
-function _chatLinkify(escapedText){
-  return escapedText.replace(/(https?:\/\/[^\s<]+)/g, (m)=>{
-    const safe = m.replace(/"/g,'&quot;');
-    return `<a href="#" data-url="${safe}" class="cm-link">${m}</a>`;
-  });
-}
 
 const CHAT_WIN_POS_KEY = 'tw_chat_win_pos';
 

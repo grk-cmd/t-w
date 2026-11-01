@@ -14,6 +14,7 @@
   const api = () => (window.firebaseAPI && firebaseAPI.bugBoard) || null;
   const C = () => (api() && api().C) || { cats: [], status: {}, page: 8, anon: '익명', kakaoRe: /^https:\/\/open\.kakao\.com\//, answerNoticeBody: () => '버그제보 탭에서 확인해 주세요' };
   const esc = (s) => escHtml(String(s == null ? '' : s));
+  const linked = (s) => TwSafeHtml.linkify(s);   // 본문 · 답변 · 답글 — 주소는 눌러서 기본 브라우저로(아래 bbDetailView 클릭)
   const myUid = () => { try{ return firebaseAPI.authCurrentUid(); }catch(_){ return null; } };
   const admin = () => (typeof isAdmin !== 'undefined') && !!isAdmin;
   const who = () => ({ name: getDisplayName(), code: getMyUserId(), isAdmin: admin() });
@@ -136,7 +137,7 @@
     // 고정 번호(B-MMDD-n · 서버 함수가 붙인다)는 관리자에게만 — 커밋 · PR 에서 제보를 가리키는 번호다.
     h.push('<div class="bb-dmeta">' + ((admin() && it.no) ? '<span class="bb-no">' + esc(it.no) + '</span> · ' : '') +
       whoName(it) + ' · ' + fmtDate(it.ts, true) + (it.notice ? '' : ' · ' + esc(catName(it.cat))) + '</div>');
-    h.push('<div class="bb-body">' + esc(ct ? ct.body : '(내용을 불러오지 못했어요)') + '</div>');
+    h.push('<div class="bb-body">' + linked(ct ? ct.body : '(내용을 불러오지 못했어요)') + '</div>');
     if(ct && ct.env) h.push('<div class="bb-env">🖥 ' + esc(ct.env) + '</div>');
     if(it.vis === 'pub' && !it.notice){
       h.push('<button class="bb-btn bb-like' + (d.liked ? ' on' : '') + '" type="button" data-act="like"' + (d.liked ? ' disabled' : '') + '>👍 나도 겪었어요 ' + Number(it.likeN || 0) + '</button>');
@@ -145,11 +146,11 @@
       if(a.byAuthor){
         const stName = a.st && C().authorStatus ? (C().authorStatus.find(x => x[0] === a.st) || [])[1] : '';
         h.push('<div class="bb-ans mine"><div class="bb-ans-h">✍ 글쓴이 답글<span class="bb-ans-v">' + fmtDate(a.ts, true) + '</span>' +
-          (stName ? '<span class="bb-ans-st">상태 → <b>' + esc(stName) + '</b></span>' : '') + '</div><div class="bb-ans-t">' + esc(a.text) + '</div></div>');
+          (stName ? '<span class="bb-ans-st">상태 → <b>' + esc(stName) + '</b></span>' : '') + '</div><div class="bb-ans-t">' + linked(a.text) + '</div></div>');
         return;
       }
       h.push('<div class="bb-ans' + (a.vis === 'prv' ? ' prv' : '') + '"><div class="bb-ans-h">🛡 운영자 답변<span class="bb-ans-v">' +
-        (a.vis === 'prv' ? '🔒 비공개' : '공개') + ' · ' + fmtDate(a.ts, true) + '</span></div><div class="bb-ans-t">' + esc(a.text) + '</div>' +
+        (a.vis === 'prv' ? '🔒 비공개' : '공개') + ' · ' + fmtDate(a.ts, true) + '</span></div><div class="bb-ans-t">' + linked(a.text) + '</div>' +
         ((a.kakao && C().kakaoRe.test(a.kakao)) ? '<div class="bb-kakao"><button type="button" data-kakao="' + esc(a.kakao) + '">💬 오픈카톡으로 이야기하기</button><small>' + esc(a.kakao) + '</small></div>' : '') +
         '</div>');
     });
@@ -315,6 +316,23 @@
     openPost(id);
   };
 
+  /* 상세 화면 안 바깥 주소 — 오픈카톡 버튼 · 글 속 주소 칸(linkify). 누른 것이 그 둘이면 기본 브라우저로 넘기고 true.
+     data-url 은 화면에 그린 값이라 열기 전에 safeUrl 로 한 번 더 거른다(main 도 http(s) 만 연다). */
+  function openDetailLink(e){
+    const k = e.target.closest('[data-kakao]');
+    if(k){
+      const url = k.dataset.kakao;
+      if(C().kakaoRe.test(url) && window.companion && companion.openBrowser) companion.openBrowser(url);
+      return true;
+    }
+    const ln = e.target.closest('.ext-link[data-url]');
+    if(ln){
+      const url = TwSafeHtml.safeUrl(ln.dataset.url, 'link');
+      if(url && window.companion && companion.openBrowser) companion.openBrowser(url);
+      return true;
+    }
+    return false;
+  }
   function bind(){
     const board = $('bbBoard'); if(!board) return;
     const tab = document.querySelector('#myHomeTabs .mh-tab[data-tab="bugreport"]');
@@ -335,12 +353,7 @@
       const row = e.target.closest('.bb-row[data-id]'); if(row) openPost(row.dataset.id);
     });
     $('bbDetailView').addEventListener('click', (e) => {
-      const k = e.target.closest('[data-kakao]');
-      if(k){
-        const url = k.dataset.kakao;
-        if(C().kakaoRe.test(url) && window.companion && companion.openBrowser) companion.openBrowser(url);
-        return;
-      }
+      if(openDetailLink(e)) return;
       const el = e.target.closest('[data-act]'); if(!el) return;
       const act = el.dataset.act;
       if(act === 'back'){ show('list'); loadList(); }
