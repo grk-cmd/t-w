@@ -117,7 +117,7 @@ function runOverlayHeight(h, display){ return Math.max(100, h - overlayGapFor(di
    ⇒ `setOpacity(252/255)` 를 여기서 부르면 **효과는 0 이고 캐릭터만 1.2% 흐려진다.**
      그래서 부르지 않는다. 빈 함수인 것이 이 파일의 답이다.
 
-   ⚠️ 설정 → 시스템 → '영상 겹침 실험' 토글은 mac 에서 **켜지지 않는다**(눌러도 꺼짐으로 돌아온다).
+   ⚠️ 설정 → 디스플레이 → '영상 겹침 실험' 토글은 mac 에서 **켜지지 않는다**(눌러도 꺼짐으로 돌아온다).
      `LAYERED_ALPHA_ON` 이 0 이라 main.js 의 `setAlpha(on ? LAYERED_ALPHA_ON : 0)` 이
      어느 쪽이든 0 을 넣고, 그 다음 줄 `alpha()>0 && alpha()<255` 가 false 를 돌려주기 때문이다.
      ★ **이건 고장이 아니라 정직한 답이다.** mac 에 없는 장치를 켜진 것처럼 보여 주면,

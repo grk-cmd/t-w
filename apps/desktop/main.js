@@ -408,7 +408,7 @@ function loadSettings(){
         overlay.setGap(fileGap);
       }
     }
-    /* 🎬 레이어드 알파 — 설정 → 시스템 → '영상 겹침 실험' 토글이 쓰는 값(켜짐 252 / 꺼짐 0).
+    /* 🎬 레이어드 알파 — 설정 → 디스플레이 → '영상 겹침 실험' 토글이 쓰는 값(켜짐 252 / 꺼짐 0).
        ⚠️ 갭과 **별개 통로**다. 토글은 갭을 건드리지 않는다 — 갭 0 은 "최대화 방어를 끈다"는
          뜻이라 제보자에게는 순손해이고, 우리가 갈래를 가를 때만 파일로 직접 넣는 값이다. */
     if(typeof data.overlayLayeredAlpha === 'number' && isFinite(data.overlayLayeredAlpha)){
@@ -3666,12 +3666,11 @@ function createWindow() {
     _reapplyIgnoreMouse();
   });
 
-  /* 🎬 '영상 겹침 실험' 토글 — 설정 → 시스템.
+  /* 🎬 '영상 겹침 실험' 토글 — 설정 → 디스플레이.
      읽기: Promise<{on:boolean, alpha:number}>  ·  쓰기: Promise<{ok, on}>
      ⚠️ **알파만** 다룬다. 갭(overlayBottomGap)은 절대 건드리지 않는다 — 이유는 loadSettings 주석.
-     ⚠️ 이 토글은 **성공하면 지운다.** 레이어드 알파가 실기기에서 효과가 확인되면 기본 동작으로
-       올리고 이 통로와 UI 를 함께 걷어낼 것. 한 번 내보낸 토글은 켜 둔 사용자가 생겨서
-       나중에 지우기 어려워진다 — 폐기된 🔀 실험실 칸이 정확히 그 이유로 위험해졌다. */
+     ⚠️ 지우지 말 것 — 영상 · 화면공유가 검어지는 사람이 켜야 하는 해결책이다(도움말 5-1 «🎬 영상 겹침 실험»).
+       기본이 꺼짐인 까닭은 overlay-win.js 주석. 기본 동작으로 올리기로 하면 이 통로 · preload · 설정 칸을 함께 정리한다. */
   /* 🧹 옛 설정 초기화 안내 — 렌더러가 부팅 때 한 번 묻는다. 한 번 돌려주면 끈다(창을 다시 불러도 두 번 안 뜬다). */
   ipcMain.handle('companion:takeSettingsNotice', () => {
     const r = { reset: _settingsResetNotice };

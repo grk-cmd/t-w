@@ -85,5 +85,5 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **책임**: 설정 창 안의 테마 · 실행 화면 화질 · 자동 실행 · 회사원 · 피규어 모드 · 영상 겹침 실험 · 라이선스 · 프로그램 정보 칸 동작. 창 · 탭은 settings-panel.js 하나다.
 - **deps**: `openSettings` · `closeSettings` · `onTabShown`(settings-panel.js) 외 목록은 `checks/sim-program-settings.js` 의 `GLUE`.
 - **내놓는 것**: `refreshTab(탭)` — 탭을 보일 때 그 탭의 칸을 다시 그린다(만들 때 `onTabShown` 에 건다) · `openProgramSettings(탭?)` · `closeProgramSettings()` — 옛 탭 이름(`license` → 정보 · `display` · `system` → 디스플레이)도 받는다. twNav `PROGRAM_SETTINGS` · `PROGRAM_SETTINGS_CLOSE` 를 여기서 건다.
-- **함정**: 영상 겹침 실험 칸은 통로가 있는 앱에서만 보인다 — 실험이 성공하면 칸 · 배선 · preload · main IPC 를 함께 걷는다.
+- **함정**: 영상 겹침 실험 칸은 통로가 있는 앱에서만 보인다 — 영상 · 화면공유가 검어지는 사람이 켜야 하는 해결책이라 지우지 않는다(도움말 5-1).
 - **검사**: `checks/sim-program-settings.js` — 모듈 모양 · 옛 탭 이름 · 탭 다시 그리기 · 버전 칸 · 깨 보기.
