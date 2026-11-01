@@ -2324,6 +2324,7 @@ const focusLog = TwFocusLog.createFocusLog({
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   focusTotalSec: ()=>_focusTotalSec,
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
+  figureMode: ()=>figureMode,
 });
 /* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
