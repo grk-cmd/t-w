@@ -293,6 +293,24 @@ export function roomStateOf(row: RoomRow): RoomState {
   return row.kind === 'orphan' ? 'unlisted' : 'alive';
 }
 
+/** 상태 개수 줄에 보이는 순서 — 산 방 · 서버 방 · 손볼 방 · 시크릿룸. */
+export const ROOM_STATES: readonly RoomState[] = [
+  'alive',
+  'server',
+  'unlisted',
+  'serverLost',
+  'ghost',
+  'secretServer',
+  'secret',
+];
+
+/** 상태마다 몇 개인가 — 판정은 roomStateOf 하나(상태 칸과 갈라지지 않게). 없는 상태는 0. */
+export function countRoomStates(rows: readonly RoomRow[]): Record<RoomState, number> {
+  const out = Object.fromEntries(ROOM_STATES.map((s) => [s, 0])) as Record<RoomState, number>;
+  for (const row of rows) out[roomStateOf(row)] += 1;
+  return out;
+}
+
 export interface RoomStatsSummary {
   total: number;
   workingroom: number;
