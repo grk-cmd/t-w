@@ -2065,6 +2065,9 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
   findMySeat: (...a)=>findMySeat(...a),
   showChatBubble: (...a)=>showChatBubble(...a),
   statusChipMod: statusChipMod,
+  demojiSfxOn: (...a)=>chatPrefsMod._demojiSfxOn(...a),
+  setDemojiSfxOn: (...a)=>chatPrefsMod._setDemojiSfxOn(...a),
+  sfxOfficeLock: (...a)=>chatPrefsMod._chatSfxOfficeLock(...a),
 });
 /* ═══ 🎵 상태칩 플레이리스트 ═══ */
 /* 🎵 플레이리스트(데이터 · 화면 · 프리셋 고르기 · 🐕 재생 감시견 · 재생 제어 · 버튼 연결)는 parts/playlist.js 로 옮겼다(앱 FSD 16번 · docs/APP_FSD_MAP.md).
@@ -6892,6 +6895,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   Presence: Presence,
   _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),
   _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),
+  _demojiNotifyIncoming: (...a)=>chatPrefsMod._demojiNotifyIncoming(...a),
   _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),
   _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
