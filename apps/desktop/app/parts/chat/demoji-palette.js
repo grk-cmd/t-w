@@ -18,12 +18,23 @@ const chatUiMod = deps.chatUiMod;   // 읽는 함수
 const findMySeat = deps.findMySeat;
 const showChatBubble = deps.showChatBubble;
 const statusChipMod = deps.statusChipMod;
+const demojiSfxOn = deps.demojiSfxOn;       // 받은 이모티콘 소리 켜짐?(채팅 알림음이 꺼져 있으면 꺼짐) — chat-prefs.js
+const setDemojiSfxOn = deps.setDemojiSfxOn; // 켜면 채팅 알림음도 같이 켠다
+const sfxOfficeLock = deps.sfxOfficeLock;   // 회사원 모드 — 소리가 다 꺼진 동안 단추를 잠근다
 let _demojiPaletteBuilt = false;
 let _lastDemojiSentAt = 0;
 function _buildDemojiPalette(){
   const box=document.getElementById('myDemojiBox');
   if(!box || _demojiPaletteBuilt || typeof chatUiMod().DEMOJI_LIST==='undefined') return;
   _demojiPaletteBuilt = true;
+  const head=document.createElement('div');
+  head.className='dmHead';
+  const ttl=document.createElement('span'); ttl.textContent='이모티콘';
+  const sfx=document.createElement('button');
+  sfx.type='button'; sfx.id='myDemojiSfxBtn';
+  sfx.onclick=(e)=>{ e.stopPropagation(); if(sfxOfficeLock()) return; setDemojiSfxOn(!demojiSfxOn()); _syncDemojiSfxBtn(); };
+  head.appendChild(ttl); head.appendChild(sfx);
+  box.appendChild(head);
   chatUiMod().DEMOJI_LIST.forEach(d=>{
     const b=document.createElement('button');
     b.type='button'; b.className='dmBtn'; b.title=d.cmd;
@@ -33,6 +44,18 @@ function _buildDemojiPalette(){
     b.onclick=(e)=>{ e.stopPropagation(); sendMyDemoji(d.id); };
     box.appendChild(b);
   });
+}
+/* 🔔/🔕 — 채팅 알림음 · 회사원 모드는 다른 창에서 바뀌므로 팔레트를 열 때마다 다시 그린다. */
+function _syncDemojiSfxBtn(){
+  const b=document.getElementById('myDemojiSfxBtn');
+  if(!b) return;
+  const lock=sfxOfficeLock(), on=!lock && demojiSfxOn();
+  b.textContent = on ? '🔔' : '🔕';
+  b.classList.toggle('on', on);
+  b.disabled = lock;
+  b.title = lock ? '회사원 모드에서는 소리가 꺼져 있어요'
+        : on ? '받은 이모티콘 소리 — 켜짐 (누르면 꺼요)'
+        : '받은 이모티콘 소리 — 꺼짐 (누르면 채팅 알림음과 함께 켜요)';
 }
 function sendMyDemoji(id){
   if(!(typeof Presence()!=='undefined' && Presence().active())) return;      // 방 안에서만
@@ -54,7 +77,7 @@ function sendMyDemoji(id){
   btn.addEventListener('click', e=>{
     e.stopPropagation();
     const willOpen = box.classList.contains('hidden');
-    if(willOpen){ _closeChipPopups('myDemojiBox'); _buildDemojiPalette(); box._cascadeFlipped = false; }   // 새로 열 땐 항상 우측부터 판정
+    if(willOpen){ _closeChipPopups('myDemojiBox'); _buildDemojiPalette(); _syncDemojiSfxBtn(); box._cascadeFlipped = false; }   // 새로 열 땐 항상 우측부터 판정
     box.classList.toggle('hidden', !willOpen);
     btn.classList.toggle('on', willOpen);
     if(willOpen) statusChipMod._repositionOpenChipPopups();   // 첫 프레임 위치 즉시 계산(깜빡임 방지)
