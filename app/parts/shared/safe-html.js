@@ -61,21 +61,23 @@ function cssColor(c){
 /* 글 속 http(s) 주소를 누를 수 있는 칸으로 — 나머지 글은 text 로 씻는다. 주소는 safeUrl('link') 를 지난 것만.
    칸은 <span class="ext-link" data-url="…"> 다(<a href> 아님) — 누르면 앱 화면이 그 페이지로 넘어가지 않고,
    부르는 쪽 클릭 처리가 data-url 을 다시 safeUrl 로 거른 뒤 기본 브라우저(companion.openBrowser)로 연다.
-   문장 끝 문장부호(. , ; : ! ? ) ])는 주소에 넣지 않는다. */
-const URL_IN_TEXT = /https?:\/\/[^\s<>"'`]+/gi;
+   문장 끝 문장부호(. , ; : ! ? ) ])는 주소에 넣지 않는다. 제어 문자에서 주소를 끊는다(채팅이 \u0000 표식을 끼워 둔다).
+   plain — 주소가 아닌 조각을 HTML 로 만드는 함수(기본 text). 알림함은 씻은 뒤 라이선스 키 칸을 덧붙인다 — 반드시 씻은 글을 돌려줄 것. */
+const URL_IN_TEXT = /https?:\/\/[^\s<>"'`\x00-\x1F\x7F]+/gi;
 const URL_TAIL = /[.,;:!?)\]]+$/;
-function linkify(s){
+function linkify(s, plain){
   const str = String(s == null ? '' : s);
+  const seg = (typeof plain === 'function') ? plain : text;
   let out = '', last = 0, m;
   URL_IN_TEXT.lastIndex = 0;
   while((m = URL_IN_TEXT.exec(str))){
     const raw = m[0].replace(URL_TAIL, '');
     const url = safeUrl(raw, 'link');
     if(!url) continue;
-    out += text(str.slice(last, m.index)) + '<span class="ext-link" data-url="' + attr(url) + '">' + text(raw) + '</span>';
+    out += seg(str.slice(last, m.index)) + '<span class="ext-link" data-url="' + attr(url) + '">' + text(raw) + '</span>';
     last = m.index + raw.length;
   }
-  return out + text(str.slice(last));
+  return out + seg(str.slice(last));
 }
 
 const api = Object.freeze({ text, attr, safeUrl, cssUrl, cssColor, linkify });

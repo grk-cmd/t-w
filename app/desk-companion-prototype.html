@@ -758,6 +758,7 @@
   .chat-messages .cm-unread-sep::before,
   .chat-messages .cm-unread-sep::after{content:"";flex:1;height:0;border-top:1px dashed #e0a0a0;}
   .chat-messages a{color:#0a3;text-decoration:underline;}
+  .chat-messages .ext-link,.chat-messages .ext-link:hover{color:#0a3;}   /* 채팅 주소 칸은 예전 초록 그대로(공용 .ext-link 는 파랑) */
   /* 📋 대화 칸만 글자를 고를 수 있다 — body 의 user-select:none 을 여기서만 푼다.
      이름표·탭·메뉴·툴바는 그대로 못 고른다. 시각·구분선은 위 규칙의 none 이 이긴다(더 구체적). */
   .chat-messages, .chat-messages *{user-select:text;-webkit-user-select:text;}
