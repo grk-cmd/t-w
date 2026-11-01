@@ -1346,9 +1346,7 @@ function _pkCloneChar(seat, out){
      실행 화면(measureCharBox)과 같은 규칙. 파츠 없는 캐릭터는 두 상자가 같으므로 한 픽셀도 안 바뀐다. */
   const bb = _pkVisibleBox(g, true);              // ⚠️ setFromObject 를 쓰면 숨은 placeholder 가 섞인다
   const h = Math.max(0.2, bb.max.y - bb.min.y);
-  /* 🐾 동물은 조금 더 크게 세운다 — 귀 끝까지 1.7 에 맞춰지는 바람에 얼굴과 몸이 사람보다
-     작게 남기 때문이다. 배율은 계층(P.ANIMAL_H)이 정한다. 여기에 숫자를 적으면 «무대에서
-     보이는 크기»가 두 곳에서 정해져서, 나중에 한쪽만 고쳐진다. */
+  /* 🐾 동물 배율은 계층(P.ANIMAL_H)이 정한다 — 여기에 숫자를 적으면 무대 크기가 두 곳에서 정해진다. */
   const grow = (seat.charDef && seat.charDef.animal) ? _pkP().ANIMAL_H : 1;
   const s = _pkP().CHAR_H * grow / h;
   g.scale.multiplyScalar(s);

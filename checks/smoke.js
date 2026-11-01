@@ -330,6 +330,8 @@ let failed = null;
    (스텁이 아니라 진짜 파일이다. 빠지면 app.js 가 첫 줄에서 «정의 안 됨» 으로 서는데, 그건 앱의 버그가 아니다) */
 const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* safe-html.js — 🛡️ 화면에 넣는 값 씻기(window.TwSafeHtml). app.js escHtml · 모듈들이 부를 때 읽는다 — 맨 먼저. */
+/* mac-tooltip.js — 💬 맥 설명 말풍선. 싣기만 하면 맥에서 스스로 건다(smoke 무대는 맥이 아니라 안 건다). */
+PRELOAD.push('mac-tooltip.js');
 PRELOAD.push('safe-html.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
@@ -439,6 +441,8 @@ PRELOAD.push('account.js');
 /* wardrobe.js — 🎨 꾸미기 창(앱 FSD 29번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobe 를 같이 굴린다. */
 PRELOAD.push('wardrobe.js');
 /* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
+/* panel-fit.js — 📐 아래 기준 창을 화면 안으로. settings-panel.js · status-chip.js 가 부른다. */
+PRELOAD.push('panel-fit.js');
 PRELOAD.push('settings-panel.js');
 /* desktop-run.js — 🖥️ 데스크탑 실행 화면(앱 FSD 32번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDesktopRun 를 같이 굴린다. */
 /* click-through-policy.js — 클릭 통과 판단 규칙(순수 함수). desktop-run.js 가 deps.clickPolicy 로 받으므로 먼저 싣는다. */

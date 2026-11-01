@@ -278,9 +278,9 @@ const purikuraUi = deps.purikuraUi;                    // 📷 창 모듈(만드
   const msgs=document.getElementById('chatMessages');
   if(msgs){
     msgs.addEventListener('click', e=>{
-      const a=e.target.closest('.cm-link'); if(!a) return;
+      const a=e.target.closest('.ext-link'); if(!a) return;
       e.preventDefault();
-      const url=a.getAttribute('data-url'); if(!url) return;
+      const url=TwSafeHtml.safeUrl(a.getAttribute('data-url'), 'link'); if(!url) return;   // 화면에 그린 값 — 열기 전에 한 번 더
       try{
         if(window.companion && window.companion.openBrowser) window.companion.openBrowser(url);   // Electron: 외부 브라우저
         else window.open(url, '_blank', 'noopener');                                              // 웹 폴백

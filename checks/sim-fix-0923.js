@@ -90,7 +90,7 @@ say('── 3. 🎨 서식 태그의 배경색');
     chk(['B', 'STRONG', 'I', 'EM', 'U'].every(t => A[t] && A[t].includes('style')), 'B · STRONG · I · EM · U — style');
     chk(!A.A.includes('style') && !A.IMG.includes('style'), 'A · IMG 는 그대로(style 없음)');
   }
-  const sn = strip(grab(SRC, '_mhSanitizeNode'));
+  const sn = (CODE.match(/const _MH_STYLE_OK = [^\n]*/) || [''])[0];
   chk(/\^\(color\|background-color\|font-size\|font-weight\|font-style\)\\s\*:/.test(sn), 'style 값은 여전히 다섯 속성만(position 등은 지워진다)');
 }
 

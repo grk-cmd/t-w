@@ -14,6 +14,7 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 - 홈페이지 머리(CSP)는 우리 주소만 · 인라인 코드 없음 — `apps/web/tests/hosting-config.test.ts` 가 지킨다. 바깥 주소를 넣어야 하면 먼저 사용자에게 묻는다.
 - Firebase 사이트 이름(`tw-site` 등)은 바꿀 수 없다 — 바꾸려면 새 사이트를 만들고 `.firebaserc` 한 줄을 고친 뒤 도메인을 옮긴다(DNS 다시). 사용자에게는 도메인만 보인다.
 - 도움말 페이지의 색은 디자인 시스템 토큰 — `npm run design:build` 가 `firebase/hosting/help/tokens.css` 를 만든다(손으로 고치지 않는다).
+- 도움말 편(`firebase/hosting/help/*.html`) · FAQ(`docs/help-search/faq.json`) · 연관어(`docs/help-search/words.json`)를 고쳤으면 `npm run help:build` 를 다시 돌린다 — 검색표(`search.json`) · 위 띠 · 소제목 id · FAQ 페이지(`faq.html`)를 만든다(이 넷은 손으로 고치지 않는다).
 
 ## 배포
 `firebase/` 폴더에서 친다(`firebase.json` 이 거기 있다).

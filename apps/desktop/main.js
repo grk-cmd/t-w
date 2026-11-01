@@ -278,6 +278,29 @@ function startUpdateCheck(){
 // 사용자가 타이틀바를 드래그해서 옮긴 창 위치 — 모드(launcher/creator)별로 각각 기억해뒀다가
 // 다음에 같은 모드로 돌아올 때 재사용. (run 모드는 항상 화면을 꽉 채우므로 대상 아님)
 let savedPos = { launcher: null, creator: null };   // { x, y } | null
+/* 런처 자리만 tw-settings.json 에 남겨 다음 실행도 그 자리에서 뜬다(launcherPos). 파일 값은 남이 고칠 수 있는 글이라
+   정수 좌표 둘만 받는다 — 화면 밖 좌표는 _fitConfigRect 가 그 자리에서 가까운 모니터 작업영역 안으로 당긴다. */
+const LAUNCHER_POS_MAX = 100000;
+/* 런처 자리 저장은 몰아서 한 번 — 맥에서는 'moved' 가 'move' 와 같아 끄는 내내 오므로(Electron 문서) 바로 쓰면
+   끌기마다 설정 파일을 동기로 수십 번 다시 쓴다. 마지막으로 움직이고 이만큼 지나면 쓰고, 끌 때(_exitNow · before-quit) 남은 것을 바로 쓴다. */
+const LAUNCHER_POS_SAVE_MS = 400;
+let _launcherPosSaveT = null;
+let _launcherPosSaved = null;   // 파일에 있는 런처 자리 — 읽을 때 · saveSettings 가 쓸 때마다 맞춘다(같으면 안 쓴다)
+function _saveLauncherPosSoon(){
+  if(_launcherPosSaveT) clearTimeout(_launcherPosSaveT);
+  _launcherPosSaveT = setTimeout(_flushLauncherPos, LAUNCHER_POS_SAVE_MS);
+}
+function _flushLauncherPos(){
+  if(_launcherPosSaveT){ clearTimeout(_launcherPosSaveT); _launcherPosSaveT = null; }
+  const p = savedPos.launcher;
+  if(JSON.stringify(p) === JSON.stringify(_launcherPosSaved)) return;
+  saveSettings();
+}
+function _launcherPosOf(v){
+  if(!v || typeof v !== 'object') return null;
+  const ok = (n) => typeof n === 'number' && Number.isFinite(n) && Math.abs(n) <= LAUNCHER_POS_MAX;
+  return (ok(v.x) && ok(v.y)) ? { x: Math.round(v.x), y: Math.round(v.y) } : null;
+}
 
 // 현재 창 크기가 어느 모드에 해당하는지 판별 (launcher/creator 크기가 다르므로 크기로 구분 가능)
 // ★ 정확히 같은 픽셀이 아니라 오차범위(TOL) 안이면 매칭 — 디스플레이 배율(125%/150% 등)에서
@@ -307,7 +330,7 @@ function sizeToMode(w, h){
        ① 중앙 계산 (wa.height − 680)/2 가 음수 → y 가 작업영역 위로 나가 위가 잘리고,
        ② 그게 아니어도 OS 가 창 높이를 깎아 아래가 잘린다(_noteApplied 주석의 «OS 가 크기를 깎아도»).
      주모니터를 배율이 다른 모니터로 바꾸면 같은 조건이 되고, 실행 모드는 전체화면이라 거기서 풀린다.
-     ⚠️ savedPos 는 메모리 변수라 «지난 세션 좌표가 남았다» 는 원인이 아니다 — 첫 부팅은 늘 중앙이다.
+     ⚠️ 런처 자리는 지난 실행 것을 쓸 수 있다(launcherPos) — 그 모니터가 없거나 작업영역이 줄었으면 이 함수가 안으로 당긴다.
    [대응] 크기를 정하는 자리는 전부 이 함수를 지난다.
      ・크기: min(MODE_SIZE, 작업영역). 배율이 몇이든 조건은 하나(작업영역 < 창)라 배율별 분기가 없다.
      ・위치: 기억한 자리가 있으면 그 자리가 **있는 모니터**(getDisplayMatching)의 작업영역 안으로
@@ -343,6 +366,13 @@ let runDisplayId = null;
    그래서 id와 별개로 "해상도·위치·회전·배율" 지문을 함께 저장해두고, id가 안 맞으면 지문으로 찾는다. */
 let runDisplayKey = null;
 let runDisplayWasPrimary = null;   // 고를 때 주 모니터였는가 — 못 찾았을 때 대체 방향(제보 #10). 없으면(옛 파일) null
+/* 고를 때 OS 가 준 모니터 이름(label — 예: 모델명). 주모니터를 바꾸면 좌표 원점이 옮겨가 지문(위치 포함)이 안 맞는데,
+   이름은 그대로라 «고른 그 모니터» 를 다시 찾는 첫째 기준이다. 같은 모델 여럿이면 지문 · id · 모양으로 가른다. 없으면(옛 파일 · 빈 이름) null */
+let runDisplayName = null;
+/* 고를(또는 이름을 채울) 때 그 이름이 연결된 모니터 중 하나뿐이었나. 같은 모델 둘 · «Generic PnP Monitor» 처럼 흔한 이름이면 거짓 —
+   그때 이름 하나로 확정하면 고른 쪽을 뺐을 때 남은 쪽으로 저장이 덮여 다시 꽂아도 안 돌아온다. 없으면(옛 파일) 거짓 */
+let runDisplayNameUnique = false;
+const DISPLAY_NAME_MAX = 200;
 function _displayKey(d){
   if(!d) return null;
   const b = d.bounds || {};
@@ -350,6 +380,20 @@ function _displayKey(d){
           d.rotation || 0, Math.round((d.scaleFactor || 1) * 100)].join('|');
 }
 function _displaySize(d){ const b = (d && d.bounds) || {}; return b.width + 'x' + b.height; }
+function _displayName(d){
+  const s = (d && typeof d.label === 'string') ? d.label.trim() : '';
+  return s ? s.slice(0, DISPLAY_NAME_MAX) : null;
+}
+/* 위치를 뺀 지문(해상도 · 회전 · 배율) — 주모니터를 바꿔도 안 바뀐다. 지문(_displayKey)에서도 뽑는다 */
+function _displayShape(d){
+  if(!d) return null;
+  const b = d.bounds || {};
+  return [b.width + 'x' + b.height, d.rotation || 0, Math.round((d.scaleFactor || 1) * 100)].join('|');
+}
+function _shapeOfKey(key){
+  const p = typeof key === 'string' ? key.split('|') : [];
+  return p.length === 4 ? [p[0], p[2], p[3]].join('|') : null;
+}
 /* 모니터 목록을 화면 위치 순서로 — 왼쪽부터, x 가 같으면 위쪽부터. */
 function _displaysByPosition(all){
   return all.slice().sort((a, b) => ((a.bounds.x - b.bounds.x) || (a.bounds.y - b.bounds.y)));
@@ -393,6 +437,10 @@ function loadSettings(){
     if(typeof data.runDisplayId === 'number') runDisplayId = data.runDisplayId;
     if(typeof data.runDisplayKey === 'string') runDisplayKey = data.runDisplayKey;
     if(typeof data.runDisplayWasPrimary === 'boolean') runDisplayWasPrimary = data.runDisplayWasPrimary;
+    if(typeof data.runDisplayName === 'string' && data.runDisplayName.trim()) runDisplayName = data.runDisplayName.trim().slice(0, DISPLAY_NAME_MAX);
+    runDisplayNameUnique = data.runDisplayNameUnique === true;
+    savedPos.launcher = _launcherPosOf(data.launcherPos);   // 🪟 지난 실행에서 런처를 둔 자리
+    _launcherPosSaved = savedPos.launcher;
     /* ★ 동영상 검어짐 틈 — 빌드 없이 조절하는 통로. 제보자에게 "이 파일의 이 숫자만 바꿔서
        다시 켜 보세요" 라고 할 수 있다. 값을 넣은 적이 없으면 위 기본값을 그대로 쓴다.
        (설정 UI 에 안 내놓는다 — 사용자가 만질 값이 아니라 진단용이다) */
@@ -496,6 +544,7 @@ let _mhPadApplied = { x: 0, y: 0 };   // DIP
 /* 창을 옮긴 뒤 그 모드의 자리를 기억한다 — 마이홈만 여백을 뺀 자리(놓는 쪽 _applyConfigMode 와 짝) */
 function _rememberPos(m, b){
   savedPos[m] = m === 'myhome' ? MhPadPos.rememberOf(b, _mhPadApplied) : { x: b.x, y: b.y };
+  if(m === 'launcher') _saveLauncherPosSoon();   // 다음 실행도 이 자리에서
 }
 /* 지금 줌에서 창에 얹을 여백(DIP) — 크기(_modeSize)와 같은 식. 놓기 · 줌 맞춤이 같이 부른다 */
 function _mhPadDip(){
@@ -570,12 +619,14 @@ function _lockChildZoom(win){
   wc.on('before-input-event', (event, input) => { if(_zoomKeyOp(input)) event.preventDefault(); });
 }
 /* 바로 끝내기 — 네이티브 훅 · 타이머를 먼저 내리고 → 창 destroy → app.exit(0). 끝내는 길은 이 함수 하나로 모은다(순서를 한 곳에서).
-   ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다). quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
+   ⚠️ 저장하지 않는다(설정은 바뀔 때마다 이미 쓴다 · 쓰기를 넣으면 느려져 종료를 막는다) — 예외 하나: 몰아 두던 런처 자리(옮기고 400ms 안에 껐을 때만 ·
+     작은 파일 한 번). 훅 · 타이머를 내린 뒤에 쓴다. quit() 이 아니라 exit(0) — 창을 하나씩 닫는 시간이 곧 «종료를 막는 앱»이다. */
 function _exitNow(){
   try{ sysinput.stopGlobalHooks(); }catch(_){}
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
+  try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
 }
@@ -587,13 +638,15 @@ function saveSettings(){
        두지만, 그 한 갈래 때문에 "파일이 왜 없나"를 또 못 가르는 일이 없도록 여기서 확정한다.
        (_diagLog 도 같은 폴더를 쓴다 — 폴더가 없으면 로그조차 안 남아 관찰 자체가 막힌다) */
     try{ fs.mkdirSync(path.dirname(SETTINGS_PATH), { recursive: true }); }catch(_){}
-    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey, runDisplayWasPrimary,
+    fs.writeFileSync(SETTINGS_PATH, JSON.stringify({ settingsVer: SETTINGS_VER, runDisplayId, runDisplayKey, runDisplayWasPrimary, runDisplayName, runDisplayNameUnique,
       overlayBottomGap: overlay.gap(),
       overlayGapVer: overlay.GAP_VER,          // 🚚 이 값을 적어야 승격이 두 번 일어나지 않는다
       overlayLayeredAlpha: overlay.alpha(),
       labVideoAsked: _labVideoAsked,          // 🎬 초기화로 꺼진 실험을 «다시 켤까요?» 로 이미 물었는가
+      launcherPos: savedPos.launcher,         // 🪟 런처 자리 — _rememberPos 가 몰아서 저장(_saveLauncherPosSoon)
       uiZoom }));                              // 🔍 전체 화면 크기 — applyUiZoom 만 바꾼다
     _saveFailLogged = false;
+    _launcherPosSaved = savedPos.launcher ? { x: savedPos.launcher.x, y: savedPos.launcher.y } : null;   // 어느 저장이든 파일과 같게
     return true;
   }catch(e){
     if(!_saveFailLogged){
@@ -676,16 +729,40 @@ function _ensureSettingsFile(){
    [지금] ① 지문(해상도 · 위치 · 회전 · 배율) 정확 일치 → ② id 일치는 **크기가 같을 때만** → ③ 같은 크기가 하나뿐
      → ④ 저장한 게 «주 아님» 이었으면 주 아닌 모니터가 하나뿐일 때 그쪽 → ⑤ 주 모니터.
    ★ strong(①②)일 때만 새 id · 지문으로 저장을 갱신한다. 약한 대체(③④)로는 저장을 덮지 않는다 —
-     원래 모니터가 다시 연결되면 그쪽으로 돌아가야 한다. */
+     원래 모니터가 다시 연결되면 그쪽으로 돌아가야 한다.
+   🖥 이름(saved.name)이 있으면 맨 먼저 이름으로 찾는다 — 주모니터를 바꿔 좌표가 밀려도 «고른 그 모니터» 에 남는다.
+     · 이름 하나로 확정(strong)은 고를 때도 그 이름이 하나뿐이었고(saved.nameUnique) 모양(위치 뺀 지문)도 같을 때만.
+       모양만 다르면(해상도 · 배율을 바꿈) 그 모니터에 띄우되 저장은 덮지 않는다.
+     · 같은 이름이 여럿이면 그 안에서 지문 → id → 모양이 하나로 가를 때만, 아니면 아래 옛 순서로. */
 function _pickRunDisplay(all, primaryId, saved){
-  const id = saved && saved.id, key = saved && saved.key, wasPrimary = saved && saved.wasPrimary;
+  const id = saved && saved.id, key = saved && saved.key, wasPrimary = saved && saved.wasPrimary, name = saved && saved.name;
+  if(name){
+    const byName = all.filter(d => _displayName(d) === name);
+    if(byName.length === 1 && saved.nameUnique === true){
+      const shape = _shapeOfKey(key);
+      if(!shape || _displayShape(byName[0]) === shape) return { display: byName[0], stage: 'name', strong: true };
+      if(id != null && byName[0].id === id) return { display: byName[0], stage: 'name+id(모양 바뀜)', strong: true };   // 해상도 · 배율만 바꿈 — 새 지문으로 갱신
+      return { display: byName[0], stage: 'name(모양 다름)', strong: false };
+    }
+    if(byName.length > 1){
+      const k = key && byName.find(d => _displayKey(d) === key);
+      if(k) return { display: k, stage: 'name+key', strong: true };
+      const i = id != null && byName.find(d => d.id === id);
+      if(i) return { display: i, stage: 'name+id', strong: true };
+      const shape = _shapeOfKey(key), sh = shape ? byName.filter(d => _displayShape(d) === shape) : [];
+      if(sh.length === 1) return { display: sh[0], stage: 'name+shape', strong: true };
+    }
+  }
+  /* 이름이 하나뿐이었는데 지문 · id 로 찾은 모니터가 이름이 다르면 «고른 그 모니터» 가 아니다 — 띄우되 저장은 덮지 않는다
+     (예: 주모니터였던 액정을 빼면 같은 해상도 다른 모니터가 0,0 으로 와 지문이 우연히 맞는다) */
+  const notOther = (d) => !(name && saved.nameUnique === true && _displayName(d) && _displayName(d) !== name);
   if(key){
     const k = all.find(d => _displayKey(d) === key);
-    if(k) return { display: k, stage: 'key', strong: true };
+    if(k) return { display: k, stage: notOther(k) ? 'key' : 'key(이름 다름)', strong: notOther(k) };
   }
   if(id != null){
     const byId = all.find(d => d.id === id);
-    if(byId && (!key || _displaySize(byId) === key.split('|')[0])) return { display: byId, stage: 'id', strong: true };
+    if(byId && (!key || _displaySize(byId) === key.split('|')[0])) return { display: byId, stage: notOther(byId) ? 'id' : 'id(이름 다름)', strong: notOther(byId) };
   }
   if(key){
     const wantSize = key.split('|')[0];
@@ -702,18 +779,23 @@ let _runDisplayLogged = '';
 function getRunDisplay(){
   const all = screen.getAllDisplays();
   const primary = screen.getPrimaryDisplay();
-  const r = _pickRunDisplay(all, primary.id, { id: runDisplayId, key: runDisplayKey, wasPrimary: runDisplayWasPrimary });
+  const r = _pickRunDisplay(all, primary.id, { id: runDisplayId, key: runDisplayKey, wasPrimary: runDisplayWasPrimary, name: runDisplayName, nameUnique: runDisplayNameUnique });
   const found = r.display || primary;
   // 🩺 어느 단계에서 맞았는지 — 바뀔 때만 한 줄(이 함수는 자주 불린다)
   const sig = r.stage + '|' + found.id;
   if(sig !== _runDisplayLogged){
     _runDisplayLogged = sig;
-    try{ _diagLog('[화면] 실행 모니터 — ' + r.stage + ' → id ' + found.id + ' ' + _displayKey(found) + ' | 저장 id ' + runDisplayId + ' · 지문 ' + runDisplayKey); }catch(_){}
+    try{ _diagLog('[화면] 실행 모니터 — ' + r.stage + ' → id ' + found.id + ' ' + _displayKey(found) + ' «' + (_displayName(found) || '이름 없음') + '»'
+      + ' | 저장 id ' + runDisplayId + ' · 지문 ' + runDisplayKey + ' · 이름 ' + (runDisplayName || '없음')); }catch(_){}
   }
   if(!r.display) return primary;
   // ★ 확실히 찾았을 때만 새로 발급된 id · 지문으로 갱신해 저장 — 다음 실행부터는 ①에서 바로 걸린다.
-  if(r.strong && (found.id !== runDisplayId || _displayKey(found) !== runDisplayKey)){
+  /* 이름이 없던 옛 저장(지문 · id 로 찾음)이면 이름을 채운다 — 다음 주모니터 변경부터 이름으로 찾는다. 찾은 모니터가 이름이 없으면 비운다 */
+  const _nm = _displayName(found);
+  const _uniq = !!_nm && all.filter(d => _displayName(d) === _nm).length === 1;
+  if(r.strong && (found.id !== runDisplayId || _displayKey(found) !== runDisplayKey || _nm !== runDisplayName || _uniq !== runDisplayNameUnique)){
     runDisplayId = found.id; runDisplayKey = _displayKey(found);
+    runDisplayName = _nm; runDisplayNameUnique = _uniq;
     if(SETTINGS_PATH) saveSettings();
   }
   return found;
@@ -1043,6 +1125,17 @@ let _mainWinScreenBounds = null;
    ⚠️ 렌더러가 이 값을 안 보내는 구버전이면 배열이 비고, 그때는 예전처럼 캐릭터만 본다
      (동작이 옛날로 돌아갈 뿐 깨지지 않는다). */
 let _lastRegions = [];
+/* 🖊️ 남의 좌석 원(클라이언트 DIP) — 펜 앱이 앞일 때만 «근처» 판단에 더한다(_checkCursorNearChar).
+   유령 감시 · 회수(ⓕ ⓖ) · 호버 감시의 공용 판정(_ptOnOurUI)에는 넣지 않는다 — 그쪽 동작은 그대로 둔다. */
+let _lastOtherSeats = [];
+const OTHER_SEAT_MAX = 24;
+function _ptOnOtherSeat(cx, cy){
+  for(let i = 0; i < _lastOtherSeats.length; i++){
+    const c = _lastOtherSeats[i], dx = cx - c.x, dy = cy - c.y;
+    if(dx*dx + dy*dy < c.r*c.r) return true;
+  }
+  return false;
+}
 /* 점이 '우리 UI' 위인가 — 캐릭터 원 또는 창 사각형 중 하나라도 걸리면 참.
    margin 은 경계에서 렌더러와 다투지 않으려는 여유다(기존 FGN_CHAR_MARGIN 과 같은 뜻). */
 function _ptOnOurUI(cx, cy, margin){
@@ -1108,23 +1201,25 @@ function _ptOnOverlayWindow(pt){
   if(!b || !pt) return true;          // 알 수 없으면 예전처럼 동작한다(막지 않는다)
   return pt.x >= b.x && pt.x < b.x + b.width && pt.y >= b.y && pt.y < b.y + b.height;
 }
-/* ★ forward 결정 — '클릭 통과(ignore=true)' 중에는 forward를 절대 끄지 않는다.
-   [고착 버그] forward가 꺼지면 렌더러가 mousemove를 못 받는데, 렌더러의 통과/해제 판정은 오직
-   mousemove에만 걸려 있다. 그래서 'ignore=true + forward=false' 조합이 되는 순간 렌더러가 스스로
-   깨어날 방법이 사라져, 앱을 강제 종료하기 전까지 마우스가 영영 먹지 않았다
-   (키보드·렌더링·포커싱어플은 별개 경로라 정상 동작 — 제보된 증상과 정확히 일치).
-   ignore=true면 어차피 클릭이 창을 통과하므로 forward를 켜도 펜 앱 작업에 방해가 없다.
-   즉 이 한 줄로 고착 조합 자체가 성립 불가능해진다. */
-function _forwardFor(){
-  if(_lastIgnoreRequested) return true;              // 통과 중 → 무조건 forward 유지(복구 통로 확보)
-  return !_penAppActive || _penMouseNearChar;        // 클릭 받는 중 → 기존 로직 그대로
+/* ★ forward(마우스 이동을 렌더러로 넘기기) 결정. 통과(ignore=true) 중에만 뜻이 있다.
+   펜 앱이 앞이고 커서가 우리 창에서 멀면 끈다 — forward 가 켜져 있으면 펜 앱의 선 보정이 어긋난다(PEN_APPS 주석).
+   그 동안 렌더러를 깨우는 길은 50ms 커서 감시(_checkCursorNearChar)다 — 우리 창 근처면 forward 를 켜고 재판정을 찌른다.
+   ⚠️ 깨울 길이 없으면(감시가 안 돌거나 우리 창 자리를 모름) 끄지 않는다 — «통과 + forward 꺼짐» 이면 렌더러가 스스로
+     깨어날 길이 없어 마우스가 영영 안 먹는 고착이 된다. 예전엔 이 고착을 막으려 통과 중이면 무조건 켜서 펜 보호가 통째로 꺼져 있었다. */
+function _penWakeReady(){
+  return !!(_cursorWatchTimer && _mainWinScreenBounds && (_lastCharBounds || _lastRegions.length));
 }
+function _forwardFor(){
+  if(!_penAppActive || _penMouseNearChar) return true;
+  return !_penWakeReady();
+}
+let _fwdApplied = null;   // 마지막으로 건 forward — 커서 감시가 «바뀔 때만» 다시 걸게(반복해 걸면 영상이 깜빡인다)
 function _reapplyIgnoreMouse(){
   if(!mainWindow || mainWindow.isDestroyed()) return;
+  _syncCursorWatcher();   // 먼저 — forward 를 끌 수 있는지(_penWakeReady)가 감시가 도는지에 달렸다
   const forward = _forwardFor();
   mainWindow.setIgnoreMouseEvents(!!_lastIgnoreRequested, { forward });
-  // 펜 앱 활성 상태에 맞춰 커서 감시 타이머 시작/중지
-  _syncCursorWatcher();
+  _fwdApplied = forward;
   try{ _syncHoverWatcher(); }catch(_){}   // 일반 앱 호버 감시 — 통과로 넘어가는 순간 켜고, 클릭받기면 끈다
 }
 
@@ -1157,7 +1252,8 @@ function _checkCursorNearChar(){
      예전엔 여기서 통째로 물러났는데, 그러면 펜 앱에서의 유일한 복구 통로가 같이 죽는다 —
      판타블렛 제보가 정확히 그 상태였다(setCharBounds 의 '좌표 판정 보류' 주석). */
   if(!_mainWinScreenBounds || (!_lastCharBounds && !_lastRegions.length)){
-    if(_penMouseNearChar){ _penMouseNearChar = false; _applyForwardOnly(); }
+    _penMouseNearChar = false;
+    if(_fwdApplied !== _forwardFor()) _applyForwardOnly();   // 자리를 모르면 깨울 길이 없다 — forward 를 다시 켠다
     return;
   }
   const cx = pt.x - _mainWinScreenBounds.x;
@@ -1166,7 +1262,7 @@ function _checkCursorNearChar(){
      ⚠️ 이게 없으면 **태블릿 펜으로 대화창 입력칸을 못 누른다.** 펜 앱이 앞이면 forward
        mousemove 가 끊겨서 렌더러가 스스로 판정할 기회가 이 penHitTest 뿐인데, 그 신호가
        캐릭터 반경 안에서만 왔기 때문이다. 실제 제보로 확인된 자리다. */
-  const near = _ptOnOurUI(cx, cy);
+  const near = _ptOnOurUI(cx, cy) || _ptOnOtherSeat(cx, cy);   // 남의 캐릭터 · 책상도 우리 창이다
   /* 🩹 [2026-10-08 제보 #5] 펜 앱 — 근처(원 안)에 계속 있는데 아직 통과 중이면, 커서가 움직였을 때 150ms 간격으로 다시 묻는다.
      [왜] 아래 분기는 near 가 **바뀔 때만** 묻는다. 원 안에 들어왔지만 메시 위가 아니었다가 메시 위로 옮겨 가면
        near 는 계속 참이라 다시 묻지 않았다 — 펜 앱은 mousemove 가 끊겨 렌더러가 스스로 알 길이 없다.
@@ -1195,6 +1291,7 @@ function _checkCursorNearChar(){
       _sendHitTest(near ? { x: cx, y: cy } : { left: true });
     }catch(_){}
   }
+  if(_fwdApplied !== _forwardFor()) _applyForwardOnly();   // 자리를 다시 알게 됨 등 — 바뀔 때만
 }
 /* ═══ 🖊️ 펜 활동 감지 ═══════════════════════════════════════════════════
    [증상] WinTab 모드 태블릿으로 클립스튜디오에서 그리는 동안 포커스 기록이 안 쌓인다.
@@ -1269,7 +1366,9 @@ const _padActivity = GamepadActivity.createGamepadActivity({
 // forward 옵션만 재적용 (타이머 sync 없이 — _checkCursorNearChar 내부용, 재귀 방지)
 function _applyForwardOnly(){
   if(!mainWindow || mainWindow.isDestroyed()) return;
-  mainWindow.setIgnoreMouseEvents(!!_lastIgnoreRequested, { forward: _forwardFor() });
+  const forward = _forwardFor();
+  mainWindow.setIgnoreMouseEvents(!!_lastIgnoreRequested, { forward });
+  _fwdApplied = forward;
 }
 
 /* 📮 [2026-08-31] 재판정 신호는 **반드시 이 함수로만** 보낸다 — `ig`(지금 main 이 통과 중인가)를
@@ -1656,7 +1755,7 @@ function _diagLog(msg){
     }catch(_){}
     const line = '[' + new Date().toISOString() + '] ' + msg
       + ' | config=' + _isConfigMode + ' ignore=' + _lastIgnoreRequested
-      + ' pen=' + _penAppActive + '\n';
+      + ' pen=' + _penAppActive + ' fwd=' + _fwdApplied + '\n';   // fwd — 펜 앱에서 forward 를 껐는지(펜 씹힘 제보 확인용)
     fs.appendFileSync(f, line, 'utf8');
     console.log('[클릭고착]', msg);
   }catch(_){}
@@ -2092,7 +2191,7 @@ function createWindow() {
   const primaryDisplay = screen.getPrimaryDisplay();
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
      예전엔 workAreaSize 만 보고 (0,0) 기준으로 중앙을 잡았다 — 작업표시줄이 위에 있으면 그만큼 어긋난다. */
-  const initRect = _fitConfigRect('launcher', _modeSize('launcher'), primaryDisplay, null);   // 📐 저장된 줌이 이미 실려 있다(loadSettings 가 먼저 돈다)
+  const initRect = _fitConfigRect('launcher', _modeSize('launcher'), primaryDisplay, savedPos.launcher);   // 📐 저장된 줌 · 런처 자리가 이미 실려 있다(loadSettings 가 먼저 돈다)
 
   mainWindow = new BrowserWindow({
     width: initRect.width,      // 시작은 config 모드 크기로 (런처가 먼저 뜨니까)
@@ -2843,6 +2942,13 @@ function createWindow() {
   // ★ 광고 소리 0초 누출 방지 — 페이지 내 스크립트는 로드 완료 후에야 주입돼서 첫 광고 소리가 잠깐
   //   새는데, Electron의 setAudioMuted(OS 레벨 음소거)를 로드 시작 순간부터 걸어두고 main에서 광고
   //   여부를 250ms마다 물어봐 광고가 아닐 때만 음소거를 풀면 광고 소리가 한 순간도 안 들림.
+  /* BGM 창에 글을 넣는 단 한 길 — 게이트 · 음량 · 감시 · 화질 · 일시정지 · 반복 모두 이것으로.
+     ⚠️ webContents.executeJavaScript 로 되돌리지 않는다 — 그쪽은 «페이지가 로딩을 마칠 때까지» 실행을 미룬다(Electron 설명서).
+       유튜브 페이지는 하위 요청 하나가 안 끝나면 로딩이 영영 안 끝나서, 음소거가 안 풀리고 감시도 안 붙은 채 곡만 넘어갔다(맥 무음).
+       mainFrame 은 기다리지 않고 지금 문서에서 바로 돈다. 렌더러가 없으면 기다리지 않고 거절한다. */
+  function bgmExec(code){
+    try{ return bgmView.webContents.mainFrame.executeJavaScript(code); }catch(e){ return Promise.reject(e); }
+  }
   /* ★ [2026-09-16 제보 7 후속 ②] «첫 소리는 맞는데 3초쯤 뒤 한 번 크게 튄다»의 정체.
        <video>.volume 을 우리가 넣어도 유튜브 플레이어(#movie_player)는 **자기 저장값**(localStorage
        `yt-player-volume`, 보통 100)을 초기화가 끝나는 시점에 다시 <video> 에 밀어 넣는다. 그 순간이 곡 시작
@@ -2880,6 +2986,10 @@ function createWindow() {
        남는데, 답에 얹어 보내면 그 경우를 못 보여 준다. 그래서 «답 없음 · 기다리는 확인 수» 도 같이 보낸다.
      ⚠️ 읽어서 보내기만 한다 — 음소거를 정하는 것은 아래 게이트 그대로다. */
   let bgmGateMutedSince = 0, bgmGateFail = 0, bgmGatePending = 0, bgmGateLastReply = 0, bgmGateStart = 0, bgmGateLastD = null, bgmDiagTick = 0;
+  /* 새 곡 문서가 열렸나(did-navigate). bgmExec 는 로딩을 기다리지 않아서, 열리기 전에 물으면 **앞 곡 문서**가 답한다 —
+     그 답으로 음소거를 풀면 새 곡 첫소리(광고 · 100% 음량)가 샌다. 열리기 전에는 묻지 않고 음소거를 그대로 둔다. */
+  let bgmGateReady = false, bgmGateGen = 0;   // gen — 앞 곡 때 보낸 확인의 답이 늦게 와도 버린다
+  function bgmGateCommitted(){ bgmGateReady = true; }
   function bgmSendDiag(){
     if(bgmMode !== 'playlist' || (++bgmDiagTick % 4)) return;
     try{
@@ -2897,12 +3007,15 @@ function createWindow() {
     if(!bgmView) return;
     bgmView.webContents.setAudioMuted(true);   // 로드 시작부터 무조건 음소거
     bgmGateMutedSince = bgmGateStart = Date.now(); bgmGateFail = 0; bgmGatePending = 0; bgmGateLastReply = 0; bgmGateLastD = null;
+    bgmGateReady = false;
+    const gen = ++bgmGateGen;
     if(bgmAdPoll) clearInterval(bgmAdPoll);
     bgmAdPoll = setInterval(()=>{
       if(!bgmView || bgmView.webContents.isDestroyed()){ clearInterval(bgmAdPoll); bgmAdPoll=null; return; }
       bgmSendDiag();
+      if(!bgmGateReady) return;
       bgmGatePending++;
-      bgmView.webContents.executeJavaScript(
+      bgmExec(
         '(function(){'+BGM_IS_AD_JS+'var isAd=__twIsAd();'+
         'var want=(typeof window.__bgmVol==="number")?window.__bgmVol:'+bgmVolume+';'+
         BGM_SET_VOL_JS+
@@ -2915,6 +3028,7 @@ function createWindow() {
         'try{ if(p&&typeof p.getVolume==="function") d.pVol=p.getVolume(); if(p&&typeof p.isMuted==="function") d.pMuted=p.isMuted(); }catch(_){}'+
         'return {isAd:isAd, volOk:volOk, d:d};})()'
       ).then(r=>{
+        if(gen !== bgmGateGen) return;
         bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now();
         if(!bgmView || bgmView.webContents.isDestroyed()) return;
         const isAd = !!(r && r.isAd), volOk = !!(r && r.volOk);
@@ -2922,7 +3036,7 @@ function createWindow() {
         bgmView.webContents.setAudioMuted(mute);   // 광고이거나 음량이 아직 안 맞으면 계속 음소거
         bgmGateFail = 0; bgmGateLastD = (r && r.d) || null;
         if(!mute) bgmGateMutedSince = 0; else if(!bgmGateMutedSince) bgmGateMutedSince = Date.now();
-      }).catch(()=>{ bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now(); bgmGateFail++; bgmGateLastD = null; });
+      }).catch(()=>{ if(gen !== bgmGateGen) return; bgmGatePending = Math.max(0, bgmGatePending - 1); bgmGateLastReply = Date.now(); bgmGateFail++; bgmGateLastD = null; });
     }, 250);
   }
   /* 🔊 **음량 선점** — 곡이 바뀌는 순간의 "처음 2초만 원래 크기로 들린다"를 막는 자리.
@@ -2944,7 +3058,7 @@ function createWindow() {
          주인이라는 규칙은 그대로다. */
   function bgmPrimeVolume(){
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){ window.__bgmVol='+bgmVolume+';'+
       BGM_SET_VOL_JS+
       '  __twSetVol(window.__bgmVol);'+   // 저장값을 플레이어 초기화보다 먼저 써 둔다
@@ -2997,7 +3111,7 @@ function createWindow() {
      ⚠️ __twLowQ 로 한 번만 건다(dom-ready·did-finish-load 두 번 와도 interval 은 하나). */
   function bgmLowQuality(){
     if(!bgmView || !bgmView.webContents || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){'+
       '  try{ var now=Date.now(); localStorage.setItem("yt-player-quality", JSON.stringify({data:JSON.stringify({quality:144,previousQuality:144}),expiration:now+31536000000,creation:now})); }catch(e){}'+
       '  if(window.__twLowQ) return; window.__twLowQ=1;'+
@@ -3016,7 +3130,7 @@ function createWindow() {
     if(!bgmView) return;
     // PL = 곡 끝 신호를 쓰는 주인(플레이리스트 · 🎧 같이 듣기) — 끝난 영상을 되살리지 않고 신호를 보낸다
     const PL = bgmSignalChannel(bgmMode) !== null;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       /* 🔁 loop 여부는 **무장 검사보다 먼저** 심는다 — 이미 감시가 붙은 페이지에 다시 주입해도 값은 갱신돼야 한다.
          ★ 감시 루프는 이 값을 매 tick **읽는다**(주입 때 박지 않는다). 재생 중에 반복 종류를 바꾸면
            setBgmLoop IPC 가 이 전역만 바꾸고, 다음 tick 부터 따른다. */
@@ -3150,7 +3264,7 @@ function createWindow() {
     const n = Math.floor(Number(sec));
     if(bgmMode !== 'listen' || !isFinite(n) || n < 0) return;
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){ '+BGM_IS_AD_JS+' if(__twIsAd()) return; var v=document.querySelector("video"); if(v){ try{ v.currentTime=' + n + '; }catch(_){} } })()'
     ).catch(()=>{});
   });
@@ -3264,6 +3378,7 @@ function createWindow() {
     _twplArmRearm();    // 🐕 첫 곡도 같은 보루를 둔다
     /* 🔊 음량 선점이 먼저다 — dom-ready 는 did-finish-load 보다 이르고, 이 둘의 간격이 곧
        "다음 곡 초반에 소리가 커지는" 구간이었다. 이 자리는 곡을 바꿀 때마다(loadURL 마다) 다시 온다. */
+    bgmView.webContents.on('did-navigate', bgmGateCommitted);   // 곡마다(loadURL 마다) 새 문서가 열릴 때 온다
     bgmView.webContents.on('dom-ready', bgmPrimeVolume);
     /* 🐕 감시를 **두 이벤트 모두**에서 붙인다. did-finish-load 는 하위 리소스를 다 받아야 오므로
        하나만 걸려도 안 온다 — 그때 감시가 통째로 안 붙어 곡이 끝나도 아무도 모른다(이 제보의 원인).
@@ -3331,14 +3446,14 @@ function createWindow() {
   //     세워서 유저가 의도한 일시정지는 루프가 건드리지 않게 함.
   ipcMain.on('companion:pauseBgm', () => {
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){window.__bgmPaused=true; var v=document.querySelector("video"); if(v)v.pause();})()'
     ).catch(()=>{});
   });
   // ▶ (창이 이미 열려있는 상태): 일시정지된 영상 재개 — 새로 로드 안 함
   ipcMain.on('companion:resumeBgm', () => {
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){window.__bgmPaused=false; var v=document.querySelector("video"); if(v){v.muted=false;v.volume=(typeof window.__bgmVol==="number"?window.__bgmVol:'+bgmVolume+'); var p=v.play(); if(p&&p.catch)p.catch(function(){});}})()'
     ).catch(()=>{});
   });
@@ -3349,7 +3464,7 @@ function createWindow() {
     if(!isFinite(n)) return;
     bgmSliderVol = n; bgmRecalcVolume();   // 🏠 home 이면 60% 로 심긴다
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript(
+    bgmExec(
       '(function(){window.__bgmVol='+bgmVolume+'; '+BGM_SET_VOL_JS+' __twSetVol('+bgmVolume+'); var v=document.querySelector("video"); if(v){ if('+bgmVolume+'>0) v.muted=false; }})()'
     ).catch(()=>{});
   });
@@ -3359,7 +3474,7 @@ function createWindow() {
   ipcMain.on('companion:setBgmLoop', (e, on) => {
     bgmPlLoop = !!on;
     if(!bgmView || bgmView.webContents.isDestroyed()) return;
-    bgmView.webContents.executeJavaScript('window.__twplLoop=' + (bgmLoopOn() ? 'true' : 'false') + ';').catch(()=>{});
+    bgmExec('window.__twplLoop=' + (bgmLoopOn() ? 'true' : 'false') + ';').catch(()=>{});
   });
   // ✕ (BGM 창 닫힘) 또는 마이홈 종료: 실제로 창을 파괴
   ipcMain.on('companion:closeBgm', () => {
@@ -3552,7 +3667,9 @@ function createWindow() {
     runDisplayId = displayId;
     runDisplayKey = _displayKey(target);   // ★ id가 재발급돼도 이 지문으로 같은 모니터를 다시 찾는다
     runDisplayWasPrimary = (target.id === screen.getPrimaryDisplay().id);
-    try{ _diagLog('[화면] 모니터 선택 — id ' + displayId + ' ' + runDisplayKey + (runDisplayWasPrimary ? ' (주)' : '')); }catch(_){}
+    runDisplayName = _displayName(target);   // 🖥 주모니터를 바꿔도 이 모니터를 이름으로 다시 찾는다
+    runDisplayNameUnique = !!runDisplayName && all.filter(d => _displayName(d) === runDisplayName).length === 1;
+    try{ _diagLog('[화면] 모니터 선택 — id ' + displayId + ' ' + runDisplayKey + ' «' + (runDisplayName || '이름 없음') + '»' + (runDisplayWasPrimary ? ' (주)' : '')); }catch(_){}
     saveSettings();   // ★ 재시작해도 유지되도록 즉시 저장
     if(mainWindow && !mainWindow.isDestroyed()){
       const b = mainWindow.getBounds();
@@ -3751,6 +3868,11 @@ function createWindow() {
     // 📐 우리 창들의 사각형. 안 보내는 구버전이면 건드리지 않는다(예전처럼 캐릭터만 보게 된다).
     if(Array.isArray(bounds.regions))
       _lastRegions = bounds.regions.map(g => ({ x: _zoomIn(g.x), y: _zoomIn(g.y), w: _zoomIn(g.w), h: _zoomIn(g.h) }));   // 🔍 CSS px → DIP
+    // 🖊️ 남의 좌석 원 — 안 보내는 구버전 · 이유 전송(_pushIgnoreWhy)이면 그대로 둔다
+    if(Array.isArray(bounds.others))
+      _lastOtherSeats = bounds.others.slice(0, OTHER_SEAT_MAX)
+        .filter(c => c && Number.isFinite(c.x) && Number.isFinite(c.y) && Number.isFinite(c.r) && c.r > 0)
+        .map(c => ({ x: _zoomIn(c.x), y: _zoomIn(c.y), r: _zoomIn(c.r) }));
   });
 
   // 창 이동/리사이즈 시 스크린 좌표 캐시 갱신 — 실제로는 전체화면 오버레이라 거의 안 바뀜.
@@ -3774,7 +3896,8 @@ function createWindow() {
          2) 400ms 로 묶는다 — 배율 변경 한 번에 이 이벤트가 여러 발 온다
          3) `_winAlreadyIs` 로 이미 그 크기면 아무것도 안 한다 */
   let _dmTimer = null;
-  screen.on('display-metrics-changed', () => {
+  /* 🖥 모니터를 연결 · 해제할 때도 같은 일을 한다 — 고른 모니터가 돌아오면 그리로, 빠지면 대체로(getRunDisplay) */
+  const _onDisplaysChanged = () => {
     if(_dmTimer) return;
     _dmTimer = setTimeout(() => {
       _dmTimer = null;
@@ -3810,7 +3933,10 @@ function createWindow() {
         overlay.logGeometry('표시설정 변경');
       }catch(_){}
     }, 400);
-  });
+  };
+  screen.on('display-metrics-changed', _onDisplaysChanged);
+  screen.on('display-added', _onDisplaysChanged);
+  screen.on('display-removed', _onDisplaysChanged);
 
   // ---- 전역 입력 감지 (uiohook-napi) ----
   // 창에 포커스가 없어도(다른 앱 사용 중이어도) 마우스 클릭/키보드 입력을 감지해 renderer로 전달.
@@ -3904,7 +4030,7 @@ function createWindow() {
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
   if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
-  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } });
+  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
        종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
