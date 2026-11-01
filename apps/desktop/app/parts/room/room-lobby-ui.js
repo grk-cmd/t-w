@@ -166,7 +166,7 @@ async function paintSecret(){
 }
 
 // 연달아 눌러도 한 번 — 막기는 room-entry joinRoom 한 곳(코드 칸 · 최근 방과 같은 깃발)
-function join(code){ joinRoom(code); }
+function join(code){ return joinRoom(code); }
 
 // 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 스스로 멈춘다 · 만들기 창이 덮었거나 방 안이면 이번 차례만 건너뛴다
 function startTimer(){

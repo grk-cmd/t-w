@@ -1022,7 +1022,7 @@ async function doJoinRandomRoom(){
   if(!(window.firebaseAPI && firebaseAPI.findRandomRooms)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
   /* 🛰 서버 방이 먼저(켜져 있을 때만). 서버가 정원 · 생존을 알고 고른 후보라 따로 확인하지 않는다. */
   const _srv = await _serverRandomRooms(12);
-  if(_srv.length){ startRoom(_srv[0]); return; }
+  if(_srv.length){ await startRoom(_srv[0]); return; }   // 기다린다 — 연결이 끝날 때까지 «입장 중» 깃발이 서 있게(doJoinRoom 의 _whileJoining)
   const none = ()=>toast('지금은 참여할 수 있는 방이 없어요. 방을 만들어 보세요 🎲');
   let cands = null;
   let listErr = null;
@@ -1038,7 +1038,7 @@ async function doJoinRandomRoom(){
     if(typeof cnt !== 'number') continue;   // 확인 실패 — 다음 후보로
     if(cnt === 0) continue;                 // 유령 방(인덱스만 남음)
     if(cnt >= maxPeople()) continue;         // 그새 꽉 찼다
-    startRoom(code);
+    await startRoom(code);
     return;
   }
   none();
