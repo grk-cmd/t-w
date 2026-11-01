@@ -180,6 +180,7 @@
 | **sim-fix-0923.js** | 297 | **9f338dfa790b** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
+| **sim-figure-mode.js** | 123 | **3bd2a96bf9de** |
 | **sim-focus-gate-self.js** | 116 | **19283b4c764a** |
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
@@ -271,7 +272,7 @@
 | **sim-gacha.js** | 573 | **158e5e7830be** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 371 | **a1751a4aebda** |
-| **sim-focus-log.js** | 288 | **9cc9add827c7** |
+| **sim-focus-log.js** | 309 | **d8430d3d3ae0** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
 | **sim-api-client.js** | 343 | **434141fb839f** |
 | **sim-api-public-reads.js** | 191 | **b6f0a07d333f** |
