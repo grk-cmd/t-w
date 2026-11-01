@@ -1105,10 +1105,17 @@ async function doHopRandomRoom(){
    같은 4자리를 쓰는 두 방이 공존할 때 한쪽이 가려진다. 별표는 입력에 명시적으로 담기므로
    COZY-1234와 SCRT-1234가 아무 문제 없이 공존한다(추가 조회도 필요 없다).
    허용 문자는 영숫자 + 맨 뒤 별표 하나뿐 — 나머지 특수문자는 _setupRoomCodeInput이 지운다. */
-/* ★ 중복 입장 방지 — 빈 코드일 때 타는 랜덤 참여(doJoinRandomRoom)가 방 목록·정원을 조회하느라
-   몇백 ms 걸린다. 그 사이 [참여]를 두 번 누르면 입장이 두 번 돈다.
-   (코드를 직접 넣는 경로는 이제 조회 없이 즉시 startRoom 이라 이 가드에 걸릴 일이 없다.) */
+/* ★ 사람이 누른 입장은 한 번에 하나 — 로비 카드 · 최근 방 · 코드 칸 [입장] · F1 칸이 모두 이 깃발 하나를 본다.
+   연결을 기다리는 몇 초 사이 다른 것을 또 누르면 startRoom 이 겹쳐 돈다.
+   ⚠️ startRoom 안에서 다시 부르는 startRoom(빈 방 접두어 옮김)은 이 막기를 거치지 않는다 — 막으면 스스로 막힌다. */
 let _joiningRoom = false;
+async function _whileJoining(fn){
+  if(_joiningRoom) return;
+  _joiningRoom = true;
+  try{ await fn(); }finally{ _joiningRoom = false; }
+}
+/** 사람이 누른 입장(로비 카드 · 최근 방) — 겹치면 뒤의 것은 그냥 넘긴다. @param {string} code */
+function joinRoom(code){ return _whileJoining(() => startRoom(code)); }
 /* 🏷️ [2026-10-02 #9] 4자리 + 고른 접두어(WORK-/PLAY-)로 갈 방을 정한다.
    ★ WORK-1234 와 PLAY-1234 는 **서로 다른 방으로 공존한다.** 어느 쪽인지는 입력칸 앞 라벨을 눌러 사람이
      고른다(_setupRoomCodeInput). 그래서 여기서 두 쪽을 조회해 추측하지 않는다 — 추측하면 같은 4자리의
@@ -1128,7 +1135,7 @@ async function _resolveRoomCode(body, chosen){
 async function doJoinRoom(codeInputEl, opts){
   if(_joiningRoom) return;
   let c=((codeInputEl&&codeInputEl.value)||'').trim().toUpperCase();
-  if(!c && !(opts && opts.randomOnEmpty === false)){ _joiningRoom = true; try{ await doJoinRandomRoom(); } finally{ _joiningRoom = false; } return; }   // 🎲 빈 코드 = 랜덤 참여
+  if(!c && !(opts && opts.randomOnEmpty === false)){ await _whileJoining(doJoinRandomRoom); return; }   // 🎲 빈 코드 = 랜덤 참여
   if(!c){ toast('방 코드를 입력하세요'); return; }
   /* 접두어 전체("COZY-XXXX" / "SCRT-XXXX")를 붙여넣어도 정상 처리(하위호환).
      ⚠️ 길이 검사가 **판정과 제거 양쪽에** 필요하다 — genSecretCode 의 알파벳에 S·C·R·T 가 전부
@@ -1167,17 +1174,14 @@ async function doJoinRoom(codeInputEl, opts){
      ⚠️ 여기서 SCRT 를 조회하지 않는 것 자체가 규칙이다. 조회로 추측하는 순간 두 코드 공간의
        공존이 깨진다. 입력에 담긴 표시 하나만 보고 가른다.
      🏷️ [#9] 공개 방 쪽(WORK/PLAY/COZY) 안에서의 조회는 _resolveRoomCode 가 한다 — SCRT 와 무관하다. */
-  if(secret){ startRoom('SCRT-' + c); return; }
-  _joiningRoom = true;
-  let _code = null;
-  try{ _code = await _resolveRoomCode(c, _explicit || _myRoomPrefix()); } finally{ _joiningRoom = false; }
-  startRoom(_code);
+  if(secret){ await _whileJoining(() => startRoom('SCRT-' + c)); return; }
+  await _whileJoining(async () => { await startRoom(await _resolveRoomCode(c, _explicit || _myRoomPrefix())); });
 }
 /* 🔒 시크릿룸 입장 — 코드 공간이 분리돼 있어(SCRT-) 일반 방 코드와 섞이지 않는다.
    미발급 코드 차단은 startRoom 안에서 secretRooms 조회로 한다.
    ★ 이 칸은 '별표를 아는 사람'이 쓰는 전용 입구다. 일반 코드 칸에서 별표 없이 들어오는 길은
      없다(doJoinRoom 의 사양 주석 참고) — 그쪽에 구제 분기를 만들지 말 것. */
-function doJoinSecretRoom(codeInputEl){
+async function doJoinSecretRoom(codeInputEl){
   /* ★ 별표(*)를 비롯한 특수문자는 여기서 지운다. 이 칸은 이미 SCRT- 프리픽스가 붙어 있어서
      별표가 필요 없는데, "시크릿룸은 뒤에 별표"만 듣고 여기에 치는 사람이 많았다.
      예전엔 maxlength=4 라 다섯 번째 글자가 브라우저에서 막혀 **글자가 아예 안 찍혔고**,
@@ -1189,7 +1193,7 @@ function doJoinSecretRoom(codeInputEl){
   c = c.replace(/[^A-Z0-9]/g, '');
   if(!c){ toast('시크릿룸 코드를 입력하세요'); return; }
   if(!ROOM_CODE_BODY_RE.test(c)){ toast('시크릿룸 코드는 4자리예요'); return; }
-  startRoom('SCRT-'+c);
+  await _whileJoining(() => startRoom('SCRT-'+c));
 }
 /* ★ 방장 승계 결과 알림 — HTML 리스너의 _maybeSucceedHost가 승계에 성공하면 부른다. */
 window._onHostSucceeded = function(meta){
@@ -1389,6 +1393,7 @@ return {
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
   onRoomJoined,    // 🔔 «방에 연결됨» 알림 걸기 — 🕘 최근 방
   isRoomCode,      // 방 코드 모양 판정(공개 방 · 시크릿룸) — 🕘 최근 방
+  joinRoom,        // 사람이 누른 입장(겹치면 넘김 · _joiningRoom 한 깃발) — 로비 카드 · 🕘 최근 방
   roomServerCheck: _roomServerCheck,   // 새 방이 방 서버로 갈 것인가(«내 서버» 를 다시 확인) — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }

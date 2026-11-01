@@ -3,6 +3,7 @@
      예전엔 startRoom('WORK-AB') 로 가서 쓰기가 전부 조용히 거절된 채 «연결됐어요» 만 뜨는 빈 방에 들어갔다.
    ・1절: doJoinRoom · doJoinSecretRoom 을 떼어 실제로 돌린다 — 4자리 · 접두어 붙여넣기 · 별표 시크릿 · 빈 칸(랜덤)은 그대로,
           1~3자 · 5자는 안내만 하고 방에 안 간다 · 로비 모달 칸(randomOnEmpty: false)은 빈 칸이면 안내만(랜덤은 [빠른시작])
+   ・1-1절: 입장 중 막기 — 로비 카드(joinRoom) · 코드 칸 · 시크릿룸 칸 · 랜덤 참여가 깃발 하나를 같이 본다 · 던져도 풀린다
    ・2절: 일부러 깨 보기 — 길이 검사를 빼면 빨강
    [실행] node checks/run.js sim-room-code-len */
 'use strict';
@@ -20,6 +21,7 @@ function findUp(name){
 }
 const f = findUp('room-entry.js');
 const MOD = f ? fs.readFileSync(f, 'utf8') : '';
+process.exitCode = 1;   // 끝까지 못 가고 조용히 끝나면(기다림이 안 풀림 등) 초록으로 읽히지 않게 — 맨 끝에서만 0
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -33,16 +35,50 @@ function grabFn(src, head){
 }
 const grabLine = (src, head) => { const i = src.indexOf(head); return i < 0 ? null : src.slice(i, src.indexOf('\n', i)); };
 
+/* 입장 함수들을 진짜 글로 싣는다 — startRoom · 랜덤 참여는 가짜(기다리게 할 수 있음) */
+function loadJoin(src, startRoom, randomJoin){
+  const parts = [grabLine(src, 'const ROOM_CODE_BODY_RE ='), grabLine(src, 'let _joiningRoom = false;'), grabFn(src, 'async function _whileJoining(fn){'), grabLine(src, 'function joinRoom(code){'),
+    grabFn(src, 'async function doJoinRoom(codeInputEl, opts){'), grabFn(src, 'async function doJoinSecretRoom(codeInputEl){')];
+  if(parts.some(p => !p)) throw new Error('room-entry.js 에서 ROOM_CODE_BODY_RE · _joiningRoom · _whileJoining · joinRoom · doJoinRoom · doJoinSecretRoom 을 못 찾음');
+  const out = { room: null, rooms: [], toasts: [], random: 0 };
+  const fns = new Function('toast', 'startRoom', '_resolveRoomCode', 'doJoinRandomRoom', '_myRoomPrefix',
+    parts.join('\n') + '\nreturn { doJoinRoom, doJoinSecretRoom, joinRoom };')(
+    (m) => out.toasts.push(m), (code) => { out.room = code; out.rooms.push(code); return startRoom ? startRoom(code) : undefined; },
+    async (body, pre) => pre + body, async () => { out.random++; if(randomJoin) await randomJoin(); }, () => 'WORK-');
+  return { fns, out };
+}
 /* 코드 칸에 v 를 넣고 입장 — 간 방(없으면 null) · 안내 · 랜덤 참여 횟수 */
 async function join(src, fnName, v, opts){
-  const parts = [grabLine(src, 'const ROOM_CODE_BODY_RE ='), grabFn(src, 'async function doJoinRoom(codeInputEl, opts){'), grabFn(src, 'function doJoinSecretRoom(codeInputEl){')];
-  if(parts.some(p => !p)) throw new Error('room-entry.js 에서 ROOM_CODE_BODY_RE · doJoinRoom · doJoinSecretRoom 을 못 찾음');
-  const out = { room: null, toasts: [], random: 0 };
-  const fns = new Function('toast', 'startRoom', '_resolveRoomCode', 'doJoinRandomRoom', '_myRoomPrefix',
-    'let _joiningRoom = false;\n' + parts.join('\n') + '\nreturn { doJoinRoom, doJoinSecretRoom };')(
-    (m) => out.toasts.push(m), (code) => { out.room = code; }, async (body, pre) => pre + body, async () => { out.random++; }, () => 'WORK-');
+  const { fns, out } = loadJoin(src);
   await fns[fnName]({ value: v, dataset: {} }, opts);
   return out;
+}
+/* 입장 중 막기 — 연결을 기다리는 동안(startRoom 이 안 끝남) 다른 길로 또 눌러 본다 */
+async function guard(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  let release = null;
+  const pending = () => new Promise((res) => { release = res; });
+  const { fns, out } = loadJoin(src, pending, pending);
+  const tick = () => new Promise((res) => setImmediate(res));
+  /* 막히지 않으면 가짜 startRoom 이 영영 안 끝난다 — 기다림에 시간 제한(안 그러면 할 일이 없어진 node 가 조용히 끝난다) */
+  const settle = (p) => Promise.race([p, new Promise((res) => setTimeout(res, 20))]);
+  const p1 = fns.joinRoom('WORK-AA11'); await tick();
+  await settle(fns.joinRoom('WORK-BB22'));
+  await settle(fns.doJoinRoom({ value: 'CC33', dataset: {} }, { randomOnEmpty: false }));
+  await settle(fns.doJoinSecretRoom({ value: 'DD44', dataset: {} }));
+  t(out.rooms.join() === 'WORK-AA11', '★ 로비 카드(joinRoom)로 연결을 기다리는 사이 — 카드 · 코드 칸 [입장] · 시크릿룸 칸을 또 눌러도 안 겹친다');
+  release(); await settle(p1);
+  await (async () => { const p = fns.doJoinRoom({ value: 'CC33', dataset: {} }, { randomOnEmpty: false }); await tick(); await settle(fns.joinRoom('WORK-EE55')); release(); await settle(p); })();
+  t(out.rooms.join() === 'WORK-AA11,WORK-CC33', '  연결이 끝나면 다시 누를 수 있고 · 코드 칸으로 기다리는 사이 카드도 막힌다');
+  await (async () => { const p = fns.doJoinRoom({ value: '', dataset: {} }); await tick(); await settle(fns.joinRoom('WORK-FF66')); release(); await settle(p); })();
+  t(out.random === 1 && out.rooms.length === 2, '  랜덤 참여를 기다리는 사이도 막힌다');
+  let threw = false;
+  const { fns: f2, out: o2 } = loadJoin(src, () => { throw new Error('입장 실패'); });
+  try{ await f2.joinRoom('WORK-AA11'); }catch(_){ threw = true; }
+  await f2.joinRoom('WORK-BB22').catch(() => {});
+  t(threw && o2.rooms.join() === 'WORK-AA11,WORK-BB22', '  입장이 던져도 깃발이 풀린다(다음 입장이 막히지 않는다)');
+  return r;
 }
 async function judge(src){
   const r = [];
@@ -78,6 +114,8 @@ async function judge(src){
 (async () => {
   say('── 1. 코드 칸에 넣어 본다');
   (await judge(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+  say('── 1-1. 입장 중 막기 — 깃발 한 곳(진짜 _whileJoining · joinRoom · doJoinRoom)');
+  try{ (await guard(MOD)).forEach(([ok, msg]) => chk(ok, msg)); }catch(e){ chk(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   say('── 1-2. 로비 모달 칸 연결');
   const H = (() => { const h = findUp('desk-companion-prototype.html'); return h ? fs.readFileSync(h, 'utf8') : ''; })();
   const wire = (src, html) => {
@@ -108,6 +146,17 @@ async function judge(src){
     ['Enter 가 설정을 안 넘김', MOD.replace('doJoinRoom(inputEl, joinOpts)', 'doJoinRoom(inputEl)'), H],
     ['후원 링크가 남음', MOD, H.replace('<div class="lb-foot">', '<a id="donateLink"></a><div class="lb-foot">')],
   ];
+  for(const [name, a, b] of [
+    ['_whileJoining 이 깃발을 안 봄', '  if(_joiningRoom) return;\n  _joiningRoom = true;\n  try{ await fn(); }', '  _joiningRoom = true;\n  try{ await fn(); }'],
+    ['깃발을 finally 로 안 풂', 'try{ await fn(); }finally{ _joiningRoom = false; }', 'await fn(); _joiningRoom = false;'],
+    ['코드 칸이 막기 밖에서 startRoom', "await _whileJoining(async () => { await startRoom(await _resolveRoomCode(c, _explicit || _myRoomPrefix())); });", "startRoom(await _resolveRoomCode(c, _explicit || _myRoomPrefix()));"],
+    ['joinRoom 이 막기를 안 거침', 'function joinRoom(code){ return _whileJoining(() => startRoom(code)); }', 'function joinRoom(code){ return startRoom(code); }'],
+  ]){
+    const m2 = MOD.replace(a, b);
+    let rows = [];
+    if(m2 !== MOD){ try{ rows = await guard(m2); }catch(_){ rows = [[false, 'x']]; } }
+    chk(m2 !== MOD && rows.some(([ok]) => !ok), name + (m2 !== MOD ? ' → 빨강' : ' — 바꿀 글을 못 찾음'));
+  }
   for(const [name, m2, h2] of wb){
     const changed = m2 !== MOD || h2 !== H;
     chk(changed && wire(m2, h2).some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
