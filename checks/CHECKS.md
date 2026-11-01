@@ -280,7 +280,7 @@
 | **sim-api-client.js** | 343 | **434141fb839f** |
 | **sim-api-public-reads.js** | 191 | **b6f0a07d333f** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 530 | **449b5e150de7** |
+| **sim-remote-config.js** | 532 | **ed0e69ed1799** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-mac-tooltip.js** | 140 | **0b77b54c00e1** |

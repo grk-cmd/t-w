@@ -299,6 +299,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
       'let _pendingExtra = null;',
       'function _secretMusicOn(){ return false; }',
+      'function _roomJoined(){}',   // 🕘 «방에 연결됨» 알림(최근 방) — 이 검사가 보는 일과 무관
       ...need.map((h) => takeFn(a, h)),
       'return _startRoomOnServer;',
     ].join('\n');
@@ -383,6 +384,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
       'let _pendingExtra = null;',
       'function _secretMusicOn(){ return false; }',
+      'function _roomJoined(){}',   // 🕘 «방에 연결됨» 알림(최근 방) — 이 검사가 보는 일과 무관
       ...['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed(',
         'function _secretOpenFields(', 'function _clearPendingCreate('].map((h) => takeFn(a, h)),
       'return _startRoomOnServer;',
