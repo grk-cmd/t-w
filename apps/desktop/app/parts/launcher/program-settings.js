@@ -172,7 +172,7 @@ if(document.getElementById('progOfficeModeToggle')){
      (창 스타일이라 renderer 가 들고 있어 봐야 쓸 데가 없고, 두 곳에 두면 어긋난다).
    ⚠️ 통로가 없는 구버전에서는 **칸 자체를 숨긴다.** 눌러도 아무 일이 없는 토글을 보여주면
      "고장났다"는 제보가 온다.
-   ⚠️ **성공하면 이 블록도 같이 지운다** — HTML 주석 참조. */
+   ⚠️ 지우지 말 것 — 영상이 검어지는 사람이 켜는 해결책이다(HTML 주석 · main.js IPC 주석). */
 /* 🧹 옛 빌드 설정을 기본값으로 되돌렸으면 한 번 알린다(main.js SETTINGS_VER 주석). 부팅 화면이 자리 잡은 뒤에. */
 setTimeout(()=>{
   try{

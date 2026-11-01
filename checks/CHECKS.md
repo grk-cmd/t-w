@@ -185,7 +185,7 @@
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **0fc0435f4b6f** |
-| **sim-overlay-layered.js** | 361 | **d9b483ece5e7** |
+| **sim-overlay-layered.js** | 364 | **b3fb160b66ce** |
 | **sim-part-color-entry.js** | 154 | **7d76cd1674ff** |
 | **sim-pk-fit.js** | 170 | **354391f1f290** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |
