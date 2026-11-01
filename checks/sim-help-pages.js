@@ -3,7 +3,7 @@
    ・1절: 목차 · 편마다 — / 링크가 가리키는 편 · 그림 파일이 실제로 있다 · 이전 / 다음이 목차 순서와 같다
    ・2절: 바깥 것 — 나눔고딕(fonts/)을 싣고 글꼴 파일이 다 있다 · 스크립트는 /theme.js 하나 · 시안용 글(원본 그림 · 점선 · data: 그림)이 안 남았다 · 그림은 모두 사이트 안(/img/) · GIF 없이(움직이는 그림은 mp4) · 하나 2MB 까지
    ・3절: theme.js — 앱 테마(default · bubble)를 토큰 테마(classic · light)로 바꿔 걸고, 모르는 값 · 없음은 앱 기본(classic) ·
-          ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다
+          ?embed=1 이면 우편함 칸 모양 · 편을 옮겨도 둘이 이어진다(자리 #… 가 든 링크는 # 앞에)
    ・4절: 깨 보기
    ・5절: embed.js — 칸 안에서만 지금 편 · 목차(toc.json)를 앱에 알린다 · toc.json 은 목차 페이지와 같다(1절)
    ・1절 끝: 옛 편 주소 넘기기(firebase.json help 칸 redirects) — 넘겨 갈 편이 있다 · 지금 있는 편을 가리지 않는다 · 사라진 옛 편(OLD_SLUGS)은 빠짐없이 넘긴다 */
@@ -116,6 +116,7 @@ const emb = run(THEME, '?theme=bubble&embed=1');
 chk(emb.embed && !run(THEME, '?theme=bubble').embed && !run(THEME, '?embed=yes').embed, '?embed=1 일 때만 우편함 칸 모양(data-embed)');
 chk(emb.links.join() === '/3?theme=bubble&embed=1,/?theme=bubble&embed=1', '  편을 옮겨도 테마 · 칸 모양이 이어진다(/ 링크에 붙임)');
 chk(run(THEME, '').links.join() === '/3,/' && run(THEME, '?theme=evil').links.join() === '/3,/', '  웹에서 그냥 열면 링크를 건드리지 않는다(모르는 테마도 안 실어 나름)');
+chk(run(THEME, '?theme=bubble&embed=1', ['/5-2#figure-mode']).links.join() === '/5-2?theme=bubble&embed=1#figure-mode', '  자리(#…)가 든 링크는 # 앞에 붙인다(3-4 의 «피규어 모드» 링크)');
 const HCSS = fs.readFileSync(path.join(DIR, 'help.css'), 'utf8');
 chk(/\[data-embed\] body\{background:transparent/.test(HCSS), '  우편함 칸 안에서는 바탕을 비운다(우편함 · 디자인 스튜디오 바탕이 비침)');
 
@@ -145,6 +146,8 @@ const T2 = THEME.replace("theme ? MAP[theme] : 'classic'", "MAP[t] || t || 'clas
 chk(theme(T2, '?theme=dark') !== 'classic', '  theme.js 가 모르는 값을 그대로 씀');
 const T3 = THEME.replace("if(embed) carry.push('embed=1');", '');
 chk(run(T3, '?theme=bubble&embed=1').links[0] !== '/3?theme=bubble&embed=1', '  편을 옮기면 칸 모양이 풀림');
+const T4 = THEME.replace("at < 0 ? h + '?' + carry.join('&') : h.slice(0, at) + '?' + carry.join('&') + h.slice(at)", "h + '?' + carry.join('&')");
+chk(T4 !== THEME && run(T4, '?theme=bubble&embed=1', ['/5-2#figure-mode']).links[0] !== '/5-2?theme=bubble&embed=1#figure-mode', '  # 뒤에 붙이면 자리 링크가 깨짐');
 
 say('── 5. embed.js — 칸 안에서만 지금 편 · 목차를 앱에 알린다');
 const EMBED = fs.readFileSync(path.join(DIR, 'embed.js'), 'utf8');
