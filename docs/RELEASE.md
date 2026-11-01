@@ -11,6 +11,13 @@
 
 **0-1. 공지 글 쓰기(정식만)**: 판 브랜치에 `docs/release-notes/X.Y.Z.md` 를 넣는다 — 사용자가 읽는 말로 몇 줄(무엇이 생겼고 · 나아졌고 · 고쳐졌나). 이 글이 Releases 본문이 되고, PR 목록은 그 아래 «자세한 변경» 접기 안에 자동으로 붙는다. **없으면 정식 릴리스는 태그 전에 멈춘다**(release-start · release.yml 둘 다 `scripts/release-notes.js check`). 베타는 보지 않는다.
 
+**0-2. 도움말 사이트 배포(정식 · 도움말이 바뀐 판만)**: 앱 마이홈 «도움말» 탭은 도움말 사이트(`help.together-working.com`)를 그대로 불러오고, 그 사이트는 **모든 버전이 같이 쓴다** — 그래서 앱이 **공개된 뒤에** 사람이 직접 배포한다(먼저 올리면 옛 버전 사용자가 자기 화면과 다른 설명을 본다). 워크플로는 Hosting 을 다루지 않는다. 베타는 배포하지 않는다.
+```bash
+git diff --stat v<이전 판> vX.Y.Z -- firebase/hosting/help hosting/help   # 바뀐 것이 있는가(비면 건너뜀 · 옛 판은 hosting/help 자리)
+cd firebase && firebase deploy --only hosting:help --project together-working   # 공개 확인 뒤
+```
+배포 뒤 이미 켜 둔 앱은 다시 켜야 새 도움말이 보인다(도움말 탭은 한 번 연 화면을 실행 중에 다시 불러오지 않는다).
+
 **버튼으로 (추천)**: GitHub → **Actions** → 왼쪽 **release-start** → **Run workflow** → 버전 종류(`patch` · `minor` · `beta`)와 공개 방식 고르기 → **Run workflow**.
 검사 · 버전 올리기 · 태그 · 빌드 · 설치 파일 검사 · **공개까지 자동**입니다. 10분쯤 뒤 Releases 에 올라옵니다(아래 5번).
 
