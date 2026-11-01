@@ -969,7 +969,7 @@ function _kbShowGuide(){
     detail: '타이핑해도 캐릭터가 작업 중으로 인식하지 못해요.\n\n'
       + '・키보드 보안 프로그램(TouchEn nxKey · AhnLab Safe Transaction 등 은행·공공기관용)이 켜져 있으면 키 입력을 막을 수 있어요. 잠시 꺼 보거나 PC 를 다시 시작해 확인해 주세요.\n'
       + '・작업 중인 프로그램을 «관리자 권한으로 실행» 했다면, Together Working 도 관리자 권한으로 실행해야 키를 볼 수 있어요. (관리자 권한으로 실행하면 컴퓨터 켤 때 자동 실행은 Windows 가 막아요)\n'
-      + '・둘 다 아닌데도 계속 이 알림이 뜨면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
+      + '・둘 다 아닌데도 계속 이 알림이 뜨면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 정보 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
     buttons: ['확인'], defaultId: 0, cancelId: 0,
     checkboxLabel: '다시 보지 않기',
   };
@@ -2052,8 +2052,8 @@ function _showLabBlockedGuide(){
     type: 'warning', title: 'Together Working',
     message: '«영상 겹침 실험» 이 켜져 있지만 적용되지 못했어요',
     detail: '그래서 유튜브 · 디스코드 · 트위치 화면이 검어지거나 깜빡일 수 있어요.\n\n'
-      + '① 설정 › 시스템 › 영상 겹침 실험 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
-      + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 시스템 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
+      + '① 설정 › 디스플레이 › 영상 겹침 실험 버튼을 눌러 끈 뒤, 한 번 더 눌러 다시 켜 주세요.\n'
+      + '② 그래도 «적용 안 됨» 이면 마이홈 › 버그제보 탭에 알려 주세요. 설정 › 정보 › «진단 기록 폴더 열기» 의 tw-mouse-diag.log 를 함께 보내 주시면 빨리 볼 수 있어요.',
     buttons: ['확인'], defaultId: 0, cancelId: 0,
     checkboxLabel: '다시 보지 않기',
   }).then(r=>{
@@ -2078,7 +2078,7 @@ function _askLabVideoRestore(){
     message: '«영상 겹침 실험» 을 다시 켤까요?',
     detail: '업데이트하면서 화면 설정을 기본값으로 되돌려 이 실험이 꺼졌어요.\n\n'
       + '이전에 켜서 유튜브 · 디스코드 · 트위치 화면이 검어지거나 깜빡이는 것을 막았다면 [다시 켜기] 를 눌러 주세요.\n'
-      + '나중에 설정 › 시스템 › 영상 겹침 실험 에서도 켜고 끌 수 있어요.',
+      + '나중에 설정 › 디스플레이 › 영상 겹침 실험 에서도 켜고 끌 수 있어요.',
     buttons: ['다시 켜기', '그대로 두기'], defaultId: 0, cancelId: 1,
   }).then(r=>{
     if(!r || r.response !== 0 || !mainWindow || mainWindow.isDestroyed()) return;
