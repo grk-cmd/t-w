@@ -154,7 +154,7 @@
         '</div>');
     });
     if(admin()) h.push(adminForm(it));
-    else if(it.authUid === myUid() && !it.notice) h.push(authorForm(it));
+    else if(it.authUid === myUid() && !it.notice) h.push(visForm(it, d.answers) + authorForm(it));
     box.innerHTML = h.join('');
     box._post = { id, it, title };
   }
@@ -172,6 +172,26 @@
       (prvOnly ? '<div class="bb-hint">비공개 글이라 답변도 비공개로만 달려요.</div>' : '') +
       '<div class="bb-kk" id="bbAKk">💬 답변 아래에 오픈카톡 버튼이 붙어요 · 링크 <input id="bbAKakao" type="text" maxlength="300"><span class="bb-kk-x" data-act="kakaoX" title="취소">✕</span></div>' +
       '<div class="bb-err" id="bbAErr"></div><div class="bb-hint">등록하면 글쓴이 알림함에 알림이 가요.</div></div>';
+  }
+  /* 공개 범위 바꾸기 — 운영자 답변 · 내 답글 전까지만(bug-board.js canChangeVis · 규칙 같은 조건). 못 바꾸면 버튼을 흐리게 두고 까닭을 적는다. */
+  function visForm(it, answers){
+    const to = it.vis === 'pub' ? 'prv' : 'pub';
+    const can = api().canChangeVis(it, myUid(), answers);
+    return '<div class="bb-row2 bb-vis"><button class="bb-btn" type="button" data-act="vis" data-vis="' + to + '"' + (can ? '' : ' disabled') + '>' +
+      (to === 'prv' ? '🔒 비공개로 바꾸기' : '🌐 공개로 바꾸기') + '</button>' +
+      '<span class="bb-hint">' + esc(can ? C().visNote : C().visLocked) + '</span></div><div class="bb-err" id="bbVErr"></div>';
+  }
+  async function submitVis(btn){
+    const box = $('bbDetailView'), post = box._post; if(!post) return;
+    const err = $('bbVErr');
+    btn.disabled = true; err.textContent = '';
+    let r = null;
+    try{ r = await api().setVis(post.id, btn.dataset.vis, who()); }
+    catch(_){ r = { ok: false, reason: '바꾸지 못했어요 — 네트워크를 확인해 주세요' }; }
+    if(!r || !r.ok){ btn.disabled = false; err.textContent = (r && r.reason) || '바꾸지 못했어요'; return; }
+    mineCache = null;   // «내 글» 목록의 공개 표시가 바뀌었다
+    toast(r.item.vis === 'prv' ? '비공개로 바꿨어요' : '공개로 바꿨어요');
+    openPost(post.id);
   }
   /* 글쓴이 답글 칸 — 상태는 늘 하나를 고른다(기본 «해결 안 됨» — 답글을 다는 건 대개 아직 안 고쳐져서다).
      «그대로» 버튼은 해결 안 됨과 같은 뜻으로 읽혀 뺐다. 고른 버튼은 눌린 모양(.on). */
@@ -347,6 +367,7 @@
       else if(act === 'like') likePost(el);
       else if(act === 'answer') submitAnswer(el);
       else if(act === 'reply') submitReply(el);
+      else if(act === 'vis') submitVis(el);
       else if(act === 'rst'){ el.parentNode.querySelectorAll('.bb-rst').forEach(b => b.classList.toggle('on', b === el)); }
       else if(act === 'kakao'){
         const kk = $('bbAKk'), on = !kk.classList.contains('on');

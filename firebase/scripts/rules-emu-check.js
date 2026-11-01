@@ -501,6 +501,34 @@ const BOT_CASES = [
 ];
 
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
+/* 🔁 버그제보 공개 범위 바꾸기 — 글쓴이가 운영자 답변 · 글쓴이 답글 전에만, 본문은 그대로 옮기기만(앱 bug-board.js setVis 와 같은 묶음).
+   한 번에 여러 칸을 쓰는 묶음이라 루트 PATCH 로 보낸다. */
+const VU = 'authVis', VX = 'authVisX';
+const B = 'bugBoard/';
+const VBODY = { title: '제목', body: '본문', env: 'v0.12.2' };
+const toPrv = (uid, extra) => Object.assign({ [B + 'list/v1/vis']: 'prv', [B + 'list/v1/name']: '익명', [B + 'prv/' + uid + '/v1']: VBODY, [B + 'pub/v1']: null }, extra || {});
+const toPub = (extra) => Object.assign({ [B + 'list/v1/vis']: 'pub', [B + 'list/v1/name']: '민수2', [B + 'pub/v1']: VBODY, [B + 'prv/' + VU + '/v1']: null }, extra || {});
+const BUG_VIS_CASES = [
+  ['준비: 로그인 연결(userAuth)', 'PUT', 'userAuth/uvisnew0001', VU, true, OWNER],
+  ['글쓴이 — 새 공개 글(목록 + 본문 한 묶음)은 그대로 된다', 'PATCH', '', { [B + 'list/n1']: { vis: 'pub', status: 'new', cat: 'bug', name: '민수', authUid: VU, code: 'uvisnew0001', ts: TS, openTs: TS, title: '새 글' }, [B + 'pub/n1']: { title: '새 글', body: '내용' } }, true, VU],
+  ['  ↳ 새 비공개 글(이름 익명 · 본문은 prv)', 'PATCH', '', { [B + 'list/n2']: { vis: 'prv', status: 'new', cat: 'bug', name: '익명', authUid: VU, code: 'uvisnew0001', ts: TS, openTs: TS, title: '새 글' }, [B + 'prv/' + VU + '/n2']: { title: '새 글', body: '내용' } }, true, VU],
+  ['준비: 공개 제보 한 줄 · 본문', 'PATCH', '', { [B + 'list/v1']: { vis: 'pub', status: 'new', cat: 'bug', name: '민수', authUid: VU, code: 'UVIS1', ts: 1, openTs: 1, title: '제목' }, [B + 'pub/v1']: VBODY }, true, OWNER],
+  ['남의 글 — 공개 범위 바꾸기는 막힘', 'PATCH', '', toPrv(VX), false, VX],
+  ['글쓴이 — 본문을 고쳐서 옮기기는 막힘(이 길로 글을 못 고친다)', 'PATCH', '', toPrv(VU, { [B + 'prv/' + VU + '/v1']: { title: '제목', body: '고친 본문', env: 'v0.12.2' } }), false, VU],
+  ['글쓴이 — 비공개로 가면서 이름을 남기기는 막힘(«익명» 만)', 'PATCH', '', toPrv(VU, { [B + 'list/v1/name']: '민수' }), false, VU],
+  ['글쓴이 — 본문은 두고 공개 범위만 바꾸기는 막힘', 'PATCH', '', { [B + 'list/v1/vis']: 'prv', [B + 'list/v1/name']: '익명' }, false, VU],
+  ['글쓴이 — 공개 본문만 지우기는 막힘', 'DELETE', B + 'pub/v1', null, false, VU],
+  ['글쓴이 — 이름만 바꾸기는 막힘', 'PUT', B + 'list/v1/name', '다른이름', false, VU],
+  ['글쓴이 — 공개 → 비공개(답변 · 답글 전)', 'PATCH', '', toPrv(VU), true, VU],
+  ['  ↳ 비공개 → 공개(지금 이름)', 'PATCH', '', toPub(), true, VU],
+  ['준비: 운영자 답변 하나', 'PUT', B + 'ans/pub/v1/a1', { text: '확인할게요', ts: 2 }, true, OWNER],
+  ['글쓴이 — 운영자 답변이 있으면 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  ['준비: 답변 지우고 글쓴이 답글 하나', 'PATCH', '', { [B + 'ans/pub/v1']: null, [B + 'rep/pub/v1/r1']: { text: '아직이에요', ts: 3 } }, true, OWNER],
+  ['글쓴이 — 내 답글이 있으면 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  ['준비: 답글 지우고 공지로', 'PATCH', '', { [B + 'rep/pub/v1']: null, [B + 'list/v1/notice']: true }, true, OWNER],
+  ['글쓴이 — 공지는 막힘', 'PATCH', '', toPrv(VU), false, VU],
+];
+
 const CASES = [
   ['준비: 폰 연결 키', 'PUT', `mobileKeys/${GOOD_U}`, KEY, true],
   ['준비: 신고하는 사람을 로그인에 묶기', 'PUT', `userAuth/${OWNED_U}`, 'authA', true, 'authA'],
@@ -562,6 +590,7 @@ const CASES = [
   ['지우기는 형식과 상관없음(잘못 들어간 것을 치울 수 있게)', 'DELETE', 'users/null/profile', null, true],
   ...LIMIT_CASES,
   ...BOT_CASES,
+  ...BUG_VIS_CASES,
 ];
 
 async function inner(){

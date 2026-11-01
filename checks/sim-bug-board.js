@@ -15,6 +15,7 @@
      §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
         (예전엔 min-height 만 있어 [전체] 한 쪽 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
      §6 글쓴이 답글 — rep 노드 규칙(글쓴이만 · 서버 시각 · userReplyTs 짝 · 10초) · 글쓴이 상태 셋 · addReply 실행 · 화면
+     §7 공개 범위 바꾸기 — 답변 · 답글 전 · 글쓴이만 · 본문은 그대로 옮기기만(규칙) · canChangeVis · setVis 실행 · 화면 · 깨 보기
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -94,7 +95,7 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard };')();
+  '\nreturn { BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard, canChangeVis, BUG_VIS_NOTE, BUG_VIS_LOCKED };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
 chk(prv.title === '비밀 제목' && prv.name === M.BUG_ANON && M.BUG_ANON === '익명' && !JSON.stringify(prv).includes('에이'), '⑤ 비공개 글의 목록 줄 — 제목은 보이고 이름은 «익명»(실명 없음)');
@@ -369,12 +370,95 @@ say('§6 글쓴이 답글');
     await t.bb.getPost('p1');
     chk(!t.reads.some(p => /rep\//.test(p)), '  ↳ 답글을 단 적 없는 글(userReplyTs 없음)은 rep 를 읽지 않는다');
   })());
-  chk(/else if\(it\.authUid === myUid\(\) && !it\.notice\) h\.push\(authorForm\(it\)\)/.test(UI) && /if\(admin\(\)\) h\.push\(adminForm\(it\)\);\n\s*else if/.test(UI), '§6 답글 칸은 내 글 · 공지 아님 · 관리자가 아닐 때(관리자는 답변 칸)');
+  chk(/else if\(it\.authUid === myUid\(\) && !it\.notice\) h\.push\((visForm\(it, d\.answers\) \+ )?authorForm\(it\)\)/.test(UI) && /if\(admin\(\)\) h\.push\(adminForm\(it\)\);\n\s*else if/.test(UI), '§6 답글 칸은 내 글 · 공지 아님 · 관리자가 아닐 때(관리자는 답변 칸)');
   chk(/class="bb-new mine">✍ 글쓴이 답글/.test(UI) && /admin\(\) && C\(\)\.hasAuthorReply/.test(UI), '§6 관리자 목록 줄에 «✍ 글쓴이 답글»');
   chk(/✍ 글쓴이 답글<span class="bb-ans-v">/.test(UI) && /if\(a\.byAuthor\)/.test(UI), '§6 상세의 글쓴이 답글은 «🛡 운영자 답변» 과 따로 그린다');
   chk(!/'그대로'/.test(UI) && /const AUTHOR_DEFAULT_ST = 'unfixed';/.test(UI) && /const sts = C\(\)\.authorStatus \|\| \[\];/.test(UI) && /s\[0\] === AUTHOR_DEFAULT_ST \? ' on'/.test(UI),
     '§6 상태 버튼은 셋(확인 중 · 해결 안 됨 · 해결 완료) · «그대로» 없음 · 기본은 해결 안 됨');
   chk(/\.bb-chip\.unfixed\{/.test(HTML) && /\.bb-ans\.mine\{/.test(HTML) && /\.bb-row2 \.bb-rst\.on\{/.test(HTML), '§6 CSS — 해결 안 됨 칩 · 글쓴이 답글 · 고른 상태 버튼(오픈카톡 .bb-btn.on 보다 강하게)');
+}
+
+
+say('§7 공개 범위 바꾸기');
+{
+  const S7 = (x) => S(x || '');
+  const vw = S7((at('bugBoard/list/$id/vis') || {})['.write']);
+  const nw = S7((at('bugBoard/list/$id/name') || {})['.write']);
+  const pw = S7((at('bugBoard/pub/$id') || {})['.write']);
+  const qw = S7((at('bugBoard/prv/$authUid/$id') || {})['.write']);
+  const GATE = ['bugBoard/ans/pub/', 'bugBoard/ans/prv/', 'bugBoard/rep/pub/', 'bugBoard/rep/prv/'];
+  chk(/data\.parent\(\)\.child\('authUid'\)\.val\(\) === auth\.uid/.test(vw) && /!data\.parent\(\)\.child\('notice'\)\.exists\(\)/.test(vw)
+    && GATE.every(g => vw.includes("!root.child('" + g + "'+$id).exists()")) && /!data\.parent\(\)\.child\('lastReplyTs'\)\.exists\(\)/.test(vw) && /!data\.parent\(\)\.child\('userReplyTs'\)\.exists\(\)/.test(vw),
+    '§7 규칙 vis 쓰기 — 글쓴이 · 공지 아님 · 운영자 답변 · 글쓴이 답글(pub · prv 둘 다) 없음');
+  chk(vw.includes("newData.parent().child('name').val() === '" + M.BUG_ANON + "'") && /newData\.val\(\) === 'prv' && .*child\('prv\/'\+auth\.uid\+'\/'\+\$id\)\.exists\(\) && !.*child\('pub\/'\+\$id\)\.exists\(\)/.test(vw)
+    && /newData\.val\(\) === 'pub' && .*child\('pub\/'\+\$id\)\.exists\(\) && !.*child\('prv\/'\+auth\.uid\+'\/'\+\$id\)\.exists\(\)/.test(vw),
+    '  ↳ 비공개로 가면 이름은 «익명»(앱 BUG_ANON 과 같은 글자) · 본문이 반대쪽 칸으로 옮겨진 묶음일 때만');
+  chk(/newData\.parent\(\)\.child\('vis'\)\.val\(\) !== data\.parent\(\)\.child\('vis'\)\.val\(\)/.test(nw) && /authUid'\)\.val\(\) === auth\.uid/.test(nw),
+    '§7 규칙 name 쓰기 — 글쓴이가 공개 범위를 함께 바꿀 때만(이름만 따로 못 바꾼다)');
+  const eq = (w, src) => ['title', 'body', 'env'].every(k => w.includes("newData.child('" + k + "').val() === root.child('" + src + "+'/" + k + "').val()"));
+  chk(eq(pw, "bugBoard/prv/'+auth.uid+'/'+$id") && eq(qw, "bugBoard/pub/'+$id") && pw.includes("!root.child('bugBoard/list/'+$id).exists() ||") && qw.includes("!root.child('bugBoard/list/'+$id).exists() ||"),
+    '§7 규칙 본문 — 바꿀 때 새 칸은 옛 칸과 제목 · 본문 · 환경이 같아야(이 길로 글을 못 고친다) · 처음 쓸 때는 그대로');
+  chk(/data\.exists\(\) && !newData\.exists\(\) && root\.child\('bugBoard\/list\/'\+\$id\+'\/authUid'\)\.val\(\) === auth\.uid && root\.child\('bugBoard\/list\/'\+\$id\+'\/vis'\)\.val\(\) === 'pub' && newData\.parent\(\)\.parent\(\)\.child\('list\/'\+\$id\+'\/vis'\)\.val\(\) === 'prv'/.test(pw)
+    && /auth\.uid === \$authUid && data\.exists\(\) && !newData\.exists\(\) && .*vis'\)\.val\(\) === 'prv' && newData\.parent\(\)\.parent\(\)\.parent\(\)\.child\('list\/'\+\$id\+'\/vis'\)\.val\(\) === 'pub'/.test(qw),
+    '  ↳ 옛 칸 지우기는 글쓴이가 그 묶음에서 공개 범위를 반대로 바꿀 때만');
+  chk(/ADMIN|admins/.test(S7((at('bugBoard/ans/pub/$id') || {})['.write'])) && /admins/.test(S7((at('bugBoard/ans/prv/$id') || {})['.write'])),
+    '  ↳ 운영자 답변 칸 쓰기는 그대로 관리자만(글쓴이가 옮기지 못하게 — 그래서 답변 전까지만)');
+
+  const it0 = { vis: 'pub', authUid: 'uA', ts: 5 };
+  chk(M.canChangeVis(it0, 'uA', []) && !M.canChangeVis(it0, 'uB', []) && !M.canChangeVis(it0, null, []) && !M.canChangeVis(null, 'uA', [])
+    && !M.canChangeVis(Object.assign({}, it0, { notice: true }), 'uA', []) && !M.canChangeVis(Object.assign({}, it0, { lastReplyTs: 9 }), 'uA', [])
+    && !M.canChangeVis(Object.assign({}, it0, { ansN: 1 }), 'uA', []) && !M.canChangeVis(Object.assign({}, it0, { userReplyTs: 9 }), 'uA', [])
+    && !M.canChangeVis(it0, 'uA', [{ text: 'x' }]),
+    '§7 canChangeVis — 내 글 · 공지 아님 · 답변(lastReplyTs · ansN · 상세 답변) · 내 답글(userReplyTs) 없을 때만');
+  chk(/운영자 답변이나 내 답글이 달리기 전까지만/.test(M.BUG_VIS_NOTE) && /바꿀 수 없어요/.test(M.BUG_VIS_LOCKED), '  ↳ 안내 · 잠김 문구');
+
+  const mkV = (item, me, content, fail) => {
+    const writes = [];
+    const bb = M.createBugBoard({ db: {}, ref: (_, p) => p || '',
+      get: async (p) => ({ val: () => (p === 'bugBoard/list/v1' ? item : (p === 'bugBoard/pub/v1' || p === 'bugBoard/prv/uA/v1') ? content : null) }),
+      update: async (_, w) => { if(fail) throw new Error(fail); writes.push(w); }, push: () => ({ key: 'k' }), runTransaction: async () => {},
+      query: () => null, orderByChild: () => null, limitToLast: () => null, endBefore: () => null, equalTo: () => null,
+      authUid: () => me, now: () => 1000, serverTs: () => ({ '.sv': 'timestamp' }) });
+    return { bb, writes };
+  };
+  const C1 = { title: '제목', body: '본문', env: 'v0.12.2 · win' };
+  pending.push((async () => {
+    let t = mkV({ vis: 'pub', authUid: 'uA', name: '에이', ts: 5 }, 'uA', C1);
+    let r = await t.bb.setVis('v1', 'prv', who);
+    chk(r.ok && r.item.vis === 'prv' && JSON.stringify(t.writes[0]) === JSON.stringify({ 'bugBoard/list/v1/vis': 'prv', 'bugBoard/list/v1/name': M.BUG_ANON, 'bugBoard/prv/uA/v1': C1, 'bugBoard/pub/v1': null }),
+      '§7 setVis(공개→비공개) — vis · 이름 «익명» · 본문을 prv 로 그대로 · pub 지움 한 묶음');
+    t = mkV({ vis: 'prv', authUid: 'uA', name: '익명', ts: 5 }, 'uA', { title: '제목', body: '본문' });
+    r = await t.bb.setVis('v1', 'pub', { name: '에이가 바꾼 이름이 이십 자를 넘게 길어요', code: 'CA' });
+    const w2 = t.writes[0] || {};
+    chk(r.ok && w2['bugBoard/list/v1/name'] === '에이가 바꾼 이름이 이십 자를 넘게 길어요'.slice(0, 20) && JSON.stringify(w2['bugBoard/pub/v1']) === JSON.stringify({ title: '제목', body: '본문' }) && w2['bugBoard/prv/uA/v1'] === null,
+      '§7 setVis(비공개→공개) — 지금 이름(20자) · 본문을 pub 로 · prv 지움(환경 없으면 env 칸 없음)');
+    for (const [extra, why] of [[{ lastReplyTs: 9 }, '운영자 답변이 있으면'], [{ userReplyTs: 9 }, '내 답글이 있으면'], [{ notice: true }, '공지면']]) {
+      t = mkV(Object.assign({ vis: 'pub', authUid: 'uA', ts: 5 }, extra), 'uA', C1);
+      r = await t.bb.setVis('v1', 'prv', who);
+      chk(!r.ok && !t.writes.length, '§7 ' + why + ' 안 바꾼다(쓰기 없음)');
+    }
+    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uB', C1);
+    r = await t.bb.setVis('v1', 'prv', who);
+    chk(!r.ok && !t.writes.length, '§7 남의 글은 못 바꾼다');
+    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uA', C1);
+    r = await t.bb.setVis('v1', 'pub', who);
+    chk(r.ok && !t.writes.length, '  ↳ 같은 공개 범위면 쓰지 않는다');
+    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uA', null);
+    r = await t.bb.setVis('v1', 'prv', who);
+    chk(!r.ok && !t.writes.length, '  ↳ 본문을 못 읽으면 쓰지 않는다(빈 글로 옮기지 않게)');
+    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uA', C1, 'PERMISSION_DENIED');
+    r = await t.bb.setVis('v1', 'prv', who);
+    chk(!r.ok && r.reason === M.BUG_VIS_LOCKED, '  ↳ 규칙이 거부하면(그사이 답변이 달림) 잠김 문구');
+    // 깨 보기 — 잠김 조건 하나를 빼면 위 검사가 빨강이 나는지(답글 조건)
+    const broken = new Function('return ' + M.canChangeVis.toString().replace('&& !it.userReplyTs ', ''))();
+    chk(broken(Object.assign({}, it0, { userReplyTs: 9 }), 'uA', []) === true, '  ↳ 깨 보기 — 답글 조건을 빼면 잠긴 글이 바뀌게 된다(검사가 그 조건을 본다)');
+  })());
+
+  chk(/else if\(it\.authUid === myUid\(\) && !it\.notice\) h\.push\(visForm\(it, d\.answers\) \+ authorForm\(it\)\)/.test(UI), '§7 화면 — 바꾸기 버튼은 내 글 · 공지 아님 · 관리자 아닐 때(답글 칸 위)');
+  chk(/data-act="vis"/.test(UI) && /else if\(act === 'vis'\) submitVis\(el\)/.test(UI) && /\(can \? '' : ' disabled'\)/.test(UI) && /C\(\)\.visNote : C\(\)\.visLocked/.test(UI),
+    '  ↳ 못 바꾸면 버튼을 흐리게 · 안내 / 잠김 문구를 옆에');
+  chk(/name="bbWVis" value="prv"> 비공개 \(나와 관리자만\)<\/label>\s*<div class="bb-hint">공개 범위는 운영자 답변이나 내 답글이 달리기 전까지만 바꿀 수 있어요\.<\/div>/.test(HTML),
+    '  ↳ 제보 쓰기 창 «공개 범위» 아래에도 같은 안내');
 }
 
 Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
