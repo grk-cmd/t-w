@@ -60,6 +60,10 @@ const paintRoomInfo = deps.paintRoomInfo;   // 방 안 정보 칸 제목 · [방
 const _roomChangedFns = [];
 function onRoomChanged(fn){ _roomChangedFns.push(fn); }
 function _roomChanged(){ paintRoomInfo(); _roomChangedFns.forEach(f => f()); }
+/* 🔔 «방에 연결됨» 알림 — 위층(🕘 최근 방 recent-rooms.js)이 onRoomJoined 로 건다. meta 는 그때 아는 방 meta(없으면 null). */
+const _roomJoinedFns = [];
+function onRoomJoined(fn){ _roomJoinedFns.push(fn); }
+function _roomJoined(code){ const meta = window._roomMetaCache || null; _roomJoinedFns.forEach(f => f(code, meta)); }
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 function _roomServerNet(){
@@ -252,6 +256,7 @@ async function _startRoomOnServer(code, ctx){
   }
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   _clearPendingCreate();
+  _roomJoined(code);
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();
   return 'done';
 }
@@ -587,6 +592,11 @@ const ROOM_PREFIX = { workingroom:'WORK-', togetherroom:'PLAY-' };
 const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;
 /* 코드 본문(접두어 뺀 4자리) — 규칙 rooms/$room 이 XXXX-XXXX 만 받는다. 다른 길이로 들어가면 쓰기가 전부 조용히 거절돼 아무도 없는 방이 된다. */
 const ROOM_CODE_BODY_RE = /^[A-Z0-9]{4}$/;
+/* 들어갈 수 있는 방 코드 모양인가 — 공개 방(ROOM_CODE_RE) · 시크릿룸(SCRT- + 4자리). 최근 방(recent-rooms.js)이 기록 · 저장본을 거를 때 deps 로 받는다. */
+function isRoomCode(code){
+  if(typeof code !== 'string') return false;
+  return ROOM_CODE_RE.test(code) || (code.startsWith('SCRT-') && ROOM_CODE_BODY_RE.test(code.slice(5)));
+}
 function _roomPrefixFor(channel){ return ROOM_PREFIX[channel] || ROOM_PREFIX.workingroom; }
 /* 빈 방을 열 때 내가 갖게 될 채널의 접두어 — 빈 방 승격 규칙(보유자=투게더룸)과 **같은 판정**이어야 한다. */
 function _myRoomPrefix(){
@@ -911,6 +921,7 @@ async function startRoom(code){
   await Presence.start(code, myDef, getDisplayName(), presenceChanged, { hooks: _firebaseRoomHooks() });
   if(_markWhy) firebaseAPI.markRoomFallback(code, _markWhy);   // 진단 한 줄 — 기다리지 않고 실패도 무시(입장과 무관)
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
+  _roomJoined(code);
   window._pendingRoomChannel = null;
   window._pendingRoomOpen = false;   // 🎲 소비 완료 — 다음 '참여'가 이 값을 물려받지 않게
   if(typeof settingsMod.applyExtraSeatForMode==='function') settingsMod.applyExtraSeatForMode();   // 멀티모드 진입 — 자리추가 좌석은 자동으로 뺌
@@ -1376,6 +1387,8 @@ return {
   startRoom,
   syncFriendSeats,
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
+  onRoomJoined,    // 🔔 «방에 연결됨» 알림 걸기 — 🕘 최근 방
+  isRoomCode,      // 방 코드 모양 판정(공개 방 · 시크릿룸) — 🕘 최근 방
   roomServerCheck: _roomServerCheck,   // 새 방이 방 서버로 갈 것인가(«내 서버» 를 다시 확인) — 방 만들기 창이 같이 듣기 칸을 숨긴다
 };
 }

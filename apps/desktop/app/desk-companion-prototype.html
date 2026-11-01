@@ -1743,7 +1743,16 @@
   #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:4px;}
   #lobbyMain .lb-foot .lc-btn{width:auto;margin-top:0;padding:5px 14px;}
   #lobbyMain .lb-grow{flex:1;}
-  #lobbyMain .lb-code-in{flex:0 0 150px;margin-bottom:0;}
+  #lobbyMain .lb-code-wrap{position:relative;flex:0 0 150px;min-width:0;}
+  #lobbyMain .lb-code-in{margin-bottom:0;}
+  #lobbyMain .lb-recent{position:absolute;left:0;bottom:calc(100% + 4px);width:280px;z-index:2;background:var(--tw-bg-face-2);border:1px solid var(--tw-ink-accent);border-radius:var(--win-radius-el);padding:4px;}
+  #lobbyMain .lb-recent[hidden]{display:none;}
+  #lobbyMain .lb-recent-head{font-size:11px;color:var(--ink-soft);padding:2px 6px 4px;}
+  #lobbyMain .lb-recent-row{display:flex;align-items:center;gap:8px;width:100%;padding:5px 6px;border:none;background:none;text-align:left;cursor:pointer;font-size:12px;color:var(--ink);border-radius:var(--win-radius-el);}
+  #lobbyMain .lb-recent-row:hover{background:var(--tw-bg-face);}
+  #lobbyMain .lb-recent-code{flex:none;font-family:var(--tw-font-legacy);letter-spacing:.5px;}
+  #lobbyMain .lb-recent-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lobbyMain .lb-recent-ago{flex:none;font-size:11px;color:var(--ink-soft);}
   #lobbyMain .lb-code-in .room-code-in{padding:5px 6px;}
   #lobbyMain .lb-page{min-width:44px;text-align:center;font-size:12px;color:var(--ink);}
   #lobbyMain[hidden]{display:none;}
@@ -8188,9 +8197,13 @@
           <button type="button" class="lc-btn" id="lobbyCreate">＋ 방 만들기</button>
           <button type="button" class="lc-btn lb-quick" id="lobbyQuick">⚡ 빠른시작</button>
           <!-- 받은 방 코드로 입장 — 비운 채 누르면 안내만(랜덤 입장은 [빠른시작] 하나) · 시크릿룸은 «1234*» 로 넣거나 맨 위 «내 시크릿룸» 줄로 -->
-          <div class="room-code-group lb-code-in" title="받은 방 코드 4자리 · 시크릿룸은 끝에 *">
-            <span class="room-code-prefix">COZY-</span>
-            <input id="inviteCode" class="room-code-in" type="text" placeholder="방 코드" maxlength="5" autocomplete="off" spellcheck="false">
+          <div class="lb-code-wrap">
+            <div class="room-code-group lb-code-in" title="받은 방 코드 4자리 · 시크릿룸은 끝에 *">
+              <span class="room-code-prefix">COZY-</span>
+              <input id="inviteCode" class="room-code-in" type="text" placeholder="방 코드" maxlength="5" autocomplete="off" spellcheck="false">
+            </div>
+            <!-- 🕘 칸이 비어 있을 때 누르면 위로 펼쳐지는 최근 방(room/recent-rooms-ui.js) -->
+            <div id="lobbyRecent" class="lb-recent" hidden></div>
           </div>
           <button type="button" class="lc-btn ghost" id="inviteJoin">입장</button>
           <span class="lb-grow"></span>
@@ -8523,6 +8536,8 @@
 <script src="parts/room/room-lobby-model.js"></script>   <!-- 🗂️ 방 목록 로비 규칙(window.TwRoomLobbyModel — 카드 · 정렬 · 쪽 · 빠른시작) -->
 <script src="parts/room/room-lobby-provider.js"></script>   <!-- 🗂️ 로비가 읽는 것(window.TwRoomLobbyProvider — 지금은 Firebase 옛 길) -->
 <script src="parts/room/room-lobby-ui.js"></script>   <!-- 🗂️ 방 목록 로비 화면(window.TwRoomLobbyUi) — app.js 가 방 만들기 창 뒤에서 만든다 -->
+<script src="parts/room/recent-rooms.js"></script>   <!-- 🕘 최근 들어간 방 규칙 · 이 PC 저장(window.TwRecentRooms) — app.js 보다 먼저 -->
+<script src="parts/room/recent-rooms-ui.js"></script>   <!-- 🕘 로비 코드 칸의 최근 방 목록(window.TwRecentRoomsUi) — app.js 가 방 입장 모듈 뒤에서 만든다 -->
 <script src="parts/room/room-entry.js"></script>   <!-- 🛰 방 서버 · 입장 · 방 개수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomEntry.createRoomEntry 로 만든다) -->
 <script src="parts/room/seat-label-drag.js"></script>   <!-- 🏷️ 이름표 · 경험치 바 끌어 자리 바꾸기(window.TwSeatLabelDrag) — app.js 보다 먼저 -->
 <script src="parts/room/label-measure.js"></script>   <!-- 📐 라벨 잰 값 기억 — overhead.js 보다 먼저(만들 때 TwLabelMeasure 를 부른다) -->
