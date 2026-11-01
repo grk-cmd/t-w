@@ -290,7 +290,6 @@
 | **sim-playlist.js** | 743 | **9c64891954bf** |
 | **sim-ui-tokens.js** | 135 | **bf0abb5744a6** |
 | **sim-strip-comments.js** | 82 | **7ae5874e1745** |
-| **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
 | **sim-def-size.js** | 157 | **68d8b678409d** |
