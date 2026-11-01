@@ -1743,6 +1743,8 @@
   #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:4px;}
   #lobbyMain .lb-foot .lc-btn{width:auto;margin-top:0;padding:5px 14px;}
   #lobbyMain .lb-grow{flex:1;}
+  #lobbyMain .lb-code-in{flex:0 0 150px;margin-bottom:0;}
+  #lobbyMain .lb-code-in .room-code-in{padding:5px 6px;}
   #lobbyMain .lb-page{min-width:44px;text-align:center;font-size:12px;color:var(--ink);}
   #lobbyMain[hidden]{display:none;}
   /* 방 만들기 창(room-create-ui.js) · 방 안 [방 설정](room-info-ui.js) 공용 칸(.rc-form) — 입력칸 · 버튼은 .code-pass · .code-btns 를 쓰고, 여기는 배치와 글자만(베젤 없음 · audit 검사 12 대상 아님). */
@@ -2034,9 +2036,6 @@
   @keyframes donateShine{from{background-position:0 0;} to{background-position:220% 0;}}
   /* 움직임에 민감한 사용자는 흐르지 않게 — 색은 그대로 남아 링크로 읽힌다 */
   @media (prefers-reduced-motion:reduce){ .donate-shine{animation:none;} }
-  #donateLink{text-decoration:none;cursor:pointer;font:bold 12px var(--tw-font-classic);}
-  #donateLink:hover .donate-shine{filter:brightness(1.12);}
-  #donateLink:hover{text-decoration:underline;}
   #lcDonateBtn:hover:not(:disabled) .donate-shine{filter:brightness(1.12);}
 
   /* ===== 본인 활동 상태 칩 + 🎨 꾸미기 버튼 (자기 캐릭터 발 밑) ===== */
@@ -8188,14 +8187,16 @@
         <div class="lb-foot">
           <button type="button" class="lc-btn" id="lobbyCreate">＋ 방 만들기</button>
           <button type="button" class="lc-btn lb-quick" id="lobbyQuick">⚡ 빠른시작</button>
+          <!-- 받은 방 코드로 입장 — 비운 채 누르면 안내만(랜덤 입장은 [빠른시작] 하나) · 시크릿룸은 «1234*» 로 넣거나 맨 위 «내 시크릿룸» 줄로 -->
+          <div class="room-code-group lb-code-in" title="받은 방 코드 4자리 · 시크릿룸은 끝에 *">
+            <span class="room-code-prefix">COZY-</span>
+            <input id="inviteCode" class="room-code-in" type="text" placeholder="방 코드" maxlength="5" autocomplete="off" spellcheck="false">
+          </div>
+          <button type="button" class="lc-btn ghost" id="inviteJoin">입장</button>
           <span class="lb-grow"></span>
           <button type="button" class="lb-icon" id="lobbyPrev" aria-label="이전 쪽">‹</button>
           <span id="lobbyPage" class="lb-page">1 / 1</span>
           <button type="button" class="lb-icon" id="lobbyNext" aria-label="다음 쪽">›</button>
-        </div>
-        <!-- 💝 후원 링크 — 투게더룸은 라이선스가 필요해서 로비 아래에 둔다. 시스템 브라우저로 열림(app.js에서 처리). -->
-        <div style="text-align:center;margin-top:4px;">
-          <a id="donateLink" href="https://litt.ly/togetherworking" title="후원 페이지로 이동해요"><span class="donate-shine">후원하러 가기 ››</span></a>
         </div>
       </div>
 
@@ -8232,18 +8233,6 @@
           <div class="rc-hint rc-pub-hint">방장이 DJ 가 되어 자기 플레이리스트를 다 같이 들어요 · 만든 뒤엔 못 바꿔요</div>
         </div>
         <div class="code-btns"><button type="button" id="rcCancel">취소</button><button type="button" id="rcCreate">방 만들기</button></div>
-      </div>
-
-      <!-- 참여 코드 입력 (늘 로비 아래에 보인다 — 시크릿룸은 «1234*» 로 넣거나 로비 맨 위 «내 시크릿룸» 줄로) -->
-      <div id="inviteJoinPanel" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--win-lo-2);">
-        <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 6px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 랜덤 참여를 허용한 방에 들어가요 🎲</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div class="room-code-group" style="margin-bottom:0;flex:1;">
-            <span class="room-code-prefix">COZY-</span>
-            <input id="inviteCode" class="room-code-in" type="text" placeholder="예: 7Q2K" maxlength="5" autocomplete="off" spellcheck="false">
-          </div>
-          <button class="lc-btn ghost" id="inviteJoin" style="width:auto;margin-top:0;padding:6px 14px;">참여</button>
-        </div>
       </div>
     </div>
     <div id="inviteActive" style="display:none;">

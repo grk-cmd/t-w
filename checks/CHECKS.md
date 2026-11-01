@@ -135,7 +135,7 @@
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 132 | **a39451c59791** |
 | **sim-listen-ui.js** | 440 | **aa6563bcf73d** |
-| **sim-room-settings.js** | 273 | **fb2f993f9ce8** |
+| **sim-room-settings.js** | 273 | **c75316ffb381** |
 | **sim-room-alive.js** | 144 | **336563eb0dcb** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 163 | **0dcfbf2bd263** |
@@ -446,7 +446,7 @@
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
 | **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
-| **sim-room-code-len.js** | 87 | **f0578d075c5e** |
+| **sim-room-code-len.js** | 117 | **b6f5a8a8b898** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
