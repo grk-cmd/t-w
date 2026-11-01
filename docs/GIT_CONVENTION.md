@@ -105,9 +105,9 @@ release/0.12.1    ●──●──●── …           ← 다음 판. 앞 
 
 ### 2.3 합치기
 - 작업 → 판 브랜치는 **Squash merge**. PR 제목이 그대로 판 브랜치의 커밋 제목이 되므로 1장 형식을 지킵니다. 판 브랜치 → `main` 은 merge commit.
-- **앞 판을 다음 판에 합쳐 받는 PR**(예: `release/0.12.2` → `release/0.13.0` · `main` → 열린 판 브랜치)도 **«Create a merge commit»** 으로 합칩니다. 다음 판에서 작업 브랜치를 따 `git merge --no-ff origin/<받을 브랜치>`(앞 판이면 `origin/release/<앞 판>` · main 이면 `origin/main`)로 합친 뒤 PR 합니다. squash 로 합치면 앞 판과의 내력이 끊겨, 다음에 합쳐 받을 때 같은 충돌이 다시 납니다. 일반 작업 PR 이 충돌을 풀려고 판 브랜치를 합친 것은 «합쳐 받는 PR» 이 아니다 — 그대로 squash.
+- **앞 판을 다음 판에 합쳐 받는 PR**(예: `release/0.12.2` → `release/0.13.0` · `main` → 열린 판 브랜치)도 **«Create a merge commit»** 으로 합칩니다. 다음 판에서 작업 브랜치를 따 `git merge --no-ff origin/<받을 브랜치>`(앞 판이면 `origin/release/<앞 판>` · main 이면 `origin/main`)로 합친 뒤 PR 합니다. squash 로 합치면 앞 판과의 내력이 끊겨, 다음에 합쳐 받을 때 같은 충돌이 다시 납니다. 일반 작업 PR 이 충돌을 풀려고 판 브랜치를 합친 것은 «합쳐 받는 PR» 이 아닙니다 — 그대로 squash 합니다.
 - 합친 브랜치는 지웁니다.
-- 작업 브랜치가 판 브랜치와 어긋나면 판 브랜치를 **합쳐서**(`git merge origin/release/X.Y.Z`) 풉니다 — rebase 는 하지 않습니다(합쳐 받는 브랜치의 merge commit 이 버려지고, push 에 force 가 필요해진다).
+- 작업 브랜치가 판 브랜치와 어긋나면 판 브랜치를 **합쳐서**(`git merge origin/release/X.Y.Z`) 풉니다 — rebase 는 하지 않습니다(합쳐 받는 브랜치의 merge commit 이 버려지고, push 에 force 가 필요해집니다).
 
 ---
 
