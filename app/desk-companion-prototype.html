@@ -2914,6 +2914,7 @@
   /* 시계 아이콘은 미니미에선 안 쓴다 — 118px 안에서 시간 숫자가 밀려 잘렸다. */
   #focusLogWin.mini .flt-row .flt-clock{display:none;}
   #focusLogWin.mini #focusLogOk{display:none;}
+  #focusLogWin.mini #focusLogFigureNote{display:none;}
   /* 👑 달성표 버튼·서랍도 미니미(118px)에선 자리가 없다 — 같이 감춘다.
      ⚠️ 서랍이 열린 채로 최소화하면 창이 118px 폭에 세로로 길게 늘어진다. 그래서 display:none 이다.
         (열림 상태 자체는 .chal-on 으로 남아 있어서 □로 복귀하면 그대로 다시 보인다) */
@@ -3918,6 +3919,8 @@
   /* 기록 한 줄 — 라벨 폭을 고정해서 '누적 기록'/'오늘 기록' 두 줄의 시계·숫자가 세로로 딱 맞게 정렬된다. */
   .flt-row{display:flex;align-items:center;gap:8px;}
   .flt-row .flt-label{font-size:11px;color:var(--ink-soft);font-weight:bold;width:52px;text-align:right;flex:none;}
+  /* ⚠️ display 를 여기서 정하지 않는다 — 정하면 hidden 속성을 이겨 늘 보인다 */
+  #focusLogFigureNote{margin-top:6px;font-size:11px;line-height:1.4;color:var(--ink-soft);text-align:center;}
   .flt-row .flt-clock{font-size:15px;line-height:1;flex:none;}
   /* 📊 오늘 기록 전시 토글 — 꺼짐은 예전 모양 그대로, 켜지면 머리 위 말풍선과 같은 크림색 동그라미 안에 든다. */
   #focusLogShowClock{cursor:pointer;border-radius:50%;padding:2px;border:1px solid transparent;}
@@ -5378,6 +5381,8 @@
         <span class="flt-clock">🕒</span>
         <span class="flt-time" id="focusLogTime2">00:00:00</span>
       </div>
+      <!-- 피규어 모드가 켜져 있을 때만 보인다(focus-log.js refreshTime) · 미니미에서는 숨김 -->
+      <div id="focusLogFigureNote" hidden>피규어 모드에서는 포커스 기록이 쌓이지 않아요</div>
       <!-- 🍅 미니미일 때만, 뽀모가 돌고 있으면 나타나는 둘째 줄(pomodoro.js _pomoRender 가 켠다) -->
       <div class="flt-row" id="pomoMiniRow" style="display:none;">
         <span class="flt-label" id="pomoMiniLbl">🍅 1/4</span>
