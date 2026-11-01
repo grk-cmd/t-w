@@ -28,8 +28,28 @@ const BASE_FILE = path.join(__dirname, 'ui-tokens-baseline.json');
 
 /* 주석을 같은 길이의 공백으로 — 줄 번호를 지키려고 */
 const blank = (m) => m.replace(/[^\n]/g, ' ');
-const stripCss = (s) => s.replace(/<!--[\s\S]*?-->/g, blank).replace(/\/\*[\s\S]*?\*\//g, blank);
-const stripJs = (s) => stripCss(s).replace(/(^|[^:\\'"])(\/\/[^\n]*)/g, (m, a, b) => a + blank(b));
+/* 주석 지우기 — 따옴표('…' "…" `…`) 안은 건너뛴다. 정규식으로 블록 주석을 지우면 'image/*' · accept="image/*" 의
+   «슬래시 별» 을 주석 시작으로 읽어 다음 «별 슬래시» 까지 통째로 지워 그 사이 손 색을 못 셌다.
+   ⚠️ '…' "…" 는 줄이 바뀌면 끝난 것으로 본다 — 정규식 안의 따옴표(/'/g) · 글 속 작은따옴표에 읽기가 꼬여도 그 줄에서 멈춘다.
+   lineComments — JS 의 한 줄 주석(슬래시 둘)도 지운다(HTML · CSS 는 url(http:…) 이 있어 안 지운다). */
+function stripComments(src, lineComments){
+  let out = '', q = null;
+  for(let i = 0; i < src.length; ){
+    const c = src[i], d = src[i + 1];
+    if(q){
+      if(c === '\\'){ out += c + (d === undefined ? '' : d); i += 2; continue; }
+      if(c === q || (c === '\n' && q !== '`')) q = null;
+      out += c; i++; continue;
+    }
+    if(c === "'" || c === '"' || c === '`'){ q = c; out += c; i++; continue; }
+    if(c === '/' && d === '*'){ const e = src.indexOf('*/', i + 2), end = e < 0 ? src.length : e + 2; out += blank(src.slice(i, end)); i = end; continue; }
+    if(lineComments && c === '/' && d === '/'){ const e = src.indexOf('\n', i), end = e < 0 ? src.length : e; out += blank(src.slice(i, end)); i = end; continue; }
+    out += c; i++;
+  }
+  return out;
+}
+const stripCss = (s) => stripComments(s.replace(/<!--[\s\S]*?-->/g, blank), false);
+const stripJs = (s) => stripComments(s, true);
 
 const files = [['desk-companion-prototype.html', stripCss(fs.readFileSync(htmlPath, 'utf8'))]];
 /* parts/ 아래 도메인 폴더(myhome/ · room/ · admin/ …)까지 모두 본다 — 이름은 parts 기준 상대 경로('myhome/파일').
@@ -106,6 +126,18 @@ for(const [name, code] of files) for(const m of code.matchAll(/var\(\s*(--tw-[\w
 chk(undef.length === 0, '쓰는 --tw-* 가 모두 정의된 이름' + (undef.length ? ' — ' + undef.slice(0, 5).join(' · ') : ''));
 
 chk(partFiles.some((r) => r.indexOf('/') > 0 && !r.startsWith('admin/')) && partFiles.includes('app.js'), 'parts/ 의 도메인 폴더까지 센다(' + partFiles.length + '개 파일 · 하위 폴더 ' + new Set(partFiles.filter((r) => r.includes('/')).map((r) => r.split('/')[0])).size + '곳)');
+
+{
+  // 주석 지우기를 실제로 돌려 본다 — 따옴표 안의 «슬래시 별» 은 주석이 아니다
+  const t1 = stripJs("fi.accept='image/*';\nel.style.color='#777';\n/* #888 */ x = 1; // #999\n");
+  const t2 = stripCss('<input accept="image/*">\n<style>.a{color:#666;} /* #555 */</style><!-- #444 -->');
+  const t3 = stripJs("a = 'it\\'s /* not */ #777';\nb = `x /* y */ #666`;");
+  const t4 = stripCss('.b{background:url(http://x/a.png);color:#333}');
+  chk(t1.includes('#777') && !t1.includes('#888') && !t1.includes('#999') && t1.split('\n').length === 4, '주석 지우기 — \'image/*\' 뒤의 손 색도 센다 · 진짜 주석(/* */ · //)은 지운다 · 줄 수 그대로');
+  chk(t2.includes('#666') && !t2.includes('#555') && !t2.includes('#444'), '  HTML — accept="image/*" 뒤도 센다 · <!-- --> · /* */ 는 지운다');
+  chk(t3.includes('#777') && t3.includes('#666'), '  따옴표 안(이스케이프 · 템플릿 포함)의 /* */ 는 지우지 않는다');
+  chk(t4.includes('#333'), '  HTML · CSS 는 // 를 주석으로 안 본다(url(http://…))');
+}
 
 say('── 2. 글꼴 토큰의 한글');
 const KOR = /Malgun Gothic|맑은 고딕|Dotum|돋움/;

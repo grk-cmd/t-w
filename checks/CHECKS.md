@@ -288,7 +288,7 @@
 | **sim-myhome-inbox.js** | 609 | **da754a0a191d** |
 | **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |
 | **sim-playlist.js** | 743 | **9c64891954bf** |
-| **sim-ui-tokens.js** | 137 | **dfb3a5f591fc** |
+| **sim-ui-tokens.js** | 169 | **c86fb37b7de4** |
 | **sim-playlist-sync.js** | 98 | **a5b5c75741b5** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
