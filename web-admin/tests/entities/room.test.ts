@@ -21,6 +21,8 @@ import {
   roomRows,
   roomStateOf,
   roomStatsSummary,
+  ROOM_STATES,
+  countRoomStates,
   serverOf,
 } from '@/entities/room';
 import { fakeDb, withoutAudits } from '../shared/fakeDb';
@@ -431,5 +433,31 @@ describe('상태 칸 — 사람이 있는 고아만 «목록에 없음»', () =>
       ],
     });
     expect(rows.map(roomStateOf)).toEqual(['secretServer']);
+  });
+  it('상태별 개수 — 상태 칸 판정(roomStateOf)과 같고, 없는 상태는 0', () => {
+    const rows = mergeLiveRooms(roomRows(index, NOW, { codes, probes }), {
+      at: NOW,
+      rooms: [
+        { code: 'WORK-NEW1', channel: 'workingroom', secret: false, open: true, host: null, members: [] },
+        { code: 'SCRT-ZZ99', channel: 'togetherroom', secret: true, open: false, host: null, members: [] },
+      ],
+    });
+    const counts = countRoomStates(rows);
+    expect(counts).toEqual({
+      alive: 1,
+      server: 2,
+      unlisted: 1,
+      serverLost: 1,
+      ghost: 2,
+      secretServer: 1,
+      secret: 1,
+    });
+    // 깨 보기: 개수를 다 더하면 줄 수 — 한 줄도 빠지거나 두 번 세지 않는다
+    expect(ROOM_STATES.reduce((n, s) => n + counts[s], 0)).toBe(rows.length);
+    for (const r of rows) expect(ROOM_STATES).toContain(roomStateOf(r));
+  });
+
+  it('빈 목록이면 모든 상태가 0', () => {
+    expect(Object.values(countRoomStates([]))).toEqual(ROOM_STATES.map(() => 0));
   });
 });
