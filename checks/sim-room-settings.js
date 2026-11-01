@@ -92,7 +92,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   }
   let t = mk({ cap: 8 });
   t.ui.open('workingroom');
-  chk(!t.el('roomCreatePanel').hidden && t.el('lobbyMain').hidden && t.el('inviteJoinPanel').hidden, '로비 [방 만들기] → 창이 열리고 로비 · 코드 칸은 숨는다');
+  chk(!t.el('roomCreatePanel').hidden && t.el('lobbyMain').hidden, '로비 [방 만들기] → 창이 열리고 로비(아래 줄 코드 칸 포함)는 숨는다');
   chk(t.el('rcMax').textContent === '8명' && t.el('rcOpen').checked === true && t.el('rcMusic').checked === false && t.el('rcChWorking').classList.contains('on'), '  처음 값: 최대 인원 = 정원 · 공개 켬 · 같이 듣기 끔 · 워킹룸');
   chk(t.el('rcChTogether').disabled === true, '  라이선스가 없으면 투게더룸 버튼은 막혀 있다');
   t.el('rcMaxUp').onclick();

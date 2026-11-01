@@ -938,7 +938,6 @@ function _bindDonate(el){
     else { try{ window.open(url, '_blank', 'noopener'); }catch(_){} }
   });
 }
-_bindDonate(document.getElementById('donateLink'));    // 방 만들기 / 참여하기 모달
 _bindDonate(document.getElementById('lcDonateBtn'));   // 런처 (예전 [공사중] 자리)
 _bindDonate(document.getElementById('progIconCredit')); // 설정 → 시스템 → 프로그램 정보 (아이콘 출처 @Miraclelife_CM)
 _bindDonate(document.getElementById('progPrivacyLink')); // 설정 → 시스템 → 프로그램 정보 (개인정보 처리방침)
@@ -1114,10 +1113,12 @@ async function _resolveRoomCode(body, chosen){
   if(a === 0 && z > 0) return 'COZY-' + body;
   return pre + body;
 }
-async function doJoinRoom(codeInputEl){
+/* opts.randomOnEmpty — 빈 코드면 랜덤 참여(F1 멀티모드 탭). 로비 모달은 false — 랜덤은 [⚡ 빠른시작] 하나로 둔다. */
+async function doJoinRoom(codeInputEl, opts){
   if(_joiningRoom) return;
   let c=((codeInputEl&&codeInputEl.value)||'').trim().toUpperCase();
-  if(!c){ _joiningRoom = true; try{ await doJoinRandomRoom(); } finally{ _joiningRoom = false; } return; }   // 🎲 빈 코드 = 랜덤 참여
+  if(!c && !(opts && opts.randomOnEmpty === false)){ _joiningRoom = true; try{ await doJoinRandomRoom(); } finally{ _joiningRoom = false; } return; }   // 🎲 빈 코드 = 랜덤 참여
+  if(!c){ toast('방 코드를 입력하세요'); return; }
   /* 접두어 전체("COZY-XXXX" / "SCRT-XXXX")를 붙여넣어도 정상 처리(하위호환).
      ⚠️ 길이 검사가 **판정과 제거 양쪽에** 필요하다 — genSecretCode 의 알파벳에 S·C·R·T 가 전부
        있어서 코드가 통째로 "SCRT" 로 뽑히는 일이 실제로 가능하다. 예전에는 판정에만 길이 검사가
@@ -1246,7 +1247,8 @@ async function doCopyRoomCode(){
   catch(err){ toast('복사에 실패했어요'); }
 }
 // 채널 카드 클릭은 방 만들기 창(room-create-ui.js)이 받는다 — 창의 [방 만들기] 가 doCreateRoomInChannel 로 넘긴다.
-document.getElementById('inviteJoin').onclick=()=>doJoinRoom(document.getElementById('inviteCode'));
+const INVITE_JOIN_OPTS = { randomOnEmpty: false };   // 로비 모달 코드 칸
+document.getElementById('inviteJoin').onclick=()=>doJoinRoom(document.getElementById('inviteCode'), INVITE_JOIN_OPTS);
 document.getElementById('inviteLeave').onclick=()=>doLeaveRoom({ wipeChat: true });
 { const b=document.getElementById('inviteHopRandom'); if(b) b.onclick=doHopRandomRoom; }
 document.getElementById('inviteRoomCopy').addEventListener('click', e=>{ e.preventDefault(); doCopyRoomCode(); });
@@ -1270,7 +1272,7 @@ const fsInviteRoomCopyBtn=document.getElementById('fsInviteRoomCopy'); if(fsInvi
      그 외 특수문자(하이픈·공백 등)는 전부 제거
    ・별표가 붙으면 라벨도 COZY- → SCRT- 로 바꿔서 어디로 들어가는지 눈에 보이게 한다
    ・Enter로 즉시 참여 */
-function _setupRoomCodeInput(inputEl){
+function _setupRoomCodeInput(inputEl, joinOpts){
   if(!inputEl) return;
   const preEl = inputEl.closest && inputEl.closest('.room-code-group')
     ? inputEl.closest('.room-code-group').querySelector('.room-code-prefix') : null;
@@ -1329,10 +1331,10 @@ function _setupRoomCodeInput(inputEl){
   });
   _paintPre(false);
   inputEl.addEventListener('keydown', e=>{
-    if(e.key === 'Enter'){ e.preventDefault(); doJoinRoom(inputEl); }
+    if(e.key === 'Enter'){ e.preventDefault(); doJoinRoom(inputEl, joinOpts); }
   });
 }
-_setupRoomCodeInput(document.getElementById('inviteCode'));
+_setupRoomCodeInput(document.getElementById('inviteCode'), INVITE_JOIN_OPTS);
 _setupRoomCodeInput(document.getElementById('fsInviteCode'));
 
 /* 🔒 시크릿룸 전용 칸(SCRT- 프리픽스가 이미 붙어 있는 칸) 정리기.
