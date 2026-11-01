@@ -1,7 +1,7 @@
 /* sim-figure-mode.js — 🧸 피규어 모드: 입력이 없어도 잠들지 않는다 · 포커스 시간은 쌓지 않는다
    ・1절: 진짜 seatState 를 가짜 환경에서 돌린다 — 피규어 모드면 입력이 8초 넘게 없어도 'idle'(잠 안 듦) ·
           꺼져 있으면 예전처럼 'sleep' · 자리비움 · 데스크톱 모드가 아닐 때는 예전 그대로.
-   ・2절: 진짜 _applyActiveAppState 를 돌린다 — 피규어 모드면 등록한 포커싱 어플을 써도 · 폰이 켜져 있어도 안 쌓인다 ·
+   ・2절: 진짜 _applyActiveAppState 를 돌린다 — 피규어 모드면 등록한 포커싱 어플을 써도 · 폰이 켜져 있어도 안 쌓인다(👑 달성표 🎯집중도) ·
           켠 순간(직전 폴링이 «쌓는 중» 이어도)부터 멈춘다 · 끄면 예전처럼 쌓인다.
    ・3절: 깨 보기 — 고친 줄을 옛 모양으로 되돌리면 1 · 2절이 빨강이 되는지. */
 'use strict';
@@ -44,7 +44,7 @@ function seatEnv(fnSrc){
 
 /* _applyActiveAppState 를 돌릴 판 — 쌓인 초는 env.added */
 function applyEnv(fnSrc){
-  const env = { now: 100000, added: 0, mob: false };
+  const env = { now: 100000, added: 0, chal: 0, mob: false };
   const ctx = { env, performance: { now: () => env.now } };
   vm.createContext(ctx);
   vm.runInContext(`
@@ -52,7 +52,7 @@ function applyEnv(fnSrc){
     function focusWindowMs(){ return 1500; }
     const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
     const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;
-    const weeklyChal = { focusTick(){}, setKeyPlatform(){} };
+    const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(){} };
     let _focusLastTick = performance.now(), _focusWasActive = false;
     ${fnSrc}
     this.api = { apply: _applyActiveAppState, act: (t) => { lastActivity = t; }, fig: (v) => { figureMode = v; },
@@ -88,6 +88,7 @@ function sec2(fnSrc, quiet){
   { const { A, E } = applyEnv(fnSrc);
     A.fig(true); A.apply(REG); poll(A, E, REG, 5);
     r.push(['피규어 모드 · 등록한 포커싱 어플을 계속 씀 → 한 초도 안 쌓인다', E.added === 0]);
+    r.push(['  👑 달성표 🎯집중도 안 센다', E.chal === 0]);
     r.push(['  게이트는 예전처럼 열림(깨어 있음)', A.gate() === false]); }
   { const { A, E } = applyEnv(fnSrc);
     A.fig(true); E.mob = true; A.apply(NOT_REG); poll(A, E, NOT_REG, 3);
@@ -95,10 +96,11 @@ function sec2(fnSrc, quiet){
   { const { A, E } = applyEnv(fnSrc);
     A.apply(REG); poll(A, E, REG, 2);
     r.push(['피규어 모드 꺼짐 · 등록 앱 사용 → 예전처럼 쌓인다(2초)', Math.abs(E.added - 2) < 1e-6]);
+    r.push(['  👑 달성표 🎯집중도 예전처럼 센다(2초)', Math.abs(E.chal - 2) < 1e-6]);
     A.fig(true); poll(A, E, REG, 3);
-    r.push(['  쌓던 중에 켜면 바로 다음 폴링부터 멈춘다', Math.abs(E.added - 2) < 1e-6]);
+    r.push(['  쌓던 중에 켜면 바로 다음 폴링부터 멈춘다', Math.abs(E.added - 2) < 1e-6 && Math.abs(E.chal - 2) < 1e-6]);
     A.fig(false); poll(A, E, REG, 2);
-    r.push(['  다시 끄면 다시 쌓인다', Math.abs(E.added - 4) < 1e-6]); }
+    r.push(['  다시 끄면 다시 쌓인다', Math.abs(E.added - 4) < 1e-6 && Math.abs(E.chal - 4) < 1e-6]); }
   if(!quiet){ say('── 2. _applyActiveAppState (진짜 함수를 돌린다)'); r.forEach(([m, ok]) => chk(ok, m)); }
   return r.every(x => x[1]);
 }
@@ -113,6 +115,8 @@ if(SS && AP && SLEEP_M){
   chk(ssOld !== SS && !sec1(ssOld, true), '피규어 모드 조건을 빼면(옛 모양) 1절이 빨강');
   const apOld = AP.replace(/if\(!figureMode && _focusWasActive/, 'if(_focusWasActive');
   chk(apOld !== AP && !sec2(apOld, true), '쌓기 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
+  const apChal = AP.replace(/if\(!figureMode && dt>0 && dt<30 && !pcNotFocusing\) weeklyChal/, 'if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal');
+  chk(apChal !== AP && !sec2(apChal, true), '달성표 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
