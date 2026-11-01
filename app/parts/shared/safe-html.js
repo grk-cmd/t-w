@@ -65,19 +65,18 @@ function cssColor(c){
    plain — 주소가 아닌 조각을 HTML 로 만드는 함수(기본 text). 알림함은 씻은 뒤 라이선스 키 칸을 덧붙인다 — 반드시 씻은 글을 돌려줄 것. */
 const URL_IN_TEXT = /https?:\/\/[^\s<>"'`\x00-\x1F\x7F]+/gi;
 const URL_TAIL = /[.,;:!?)\]]+$/;
-function linkify(s, plain){
+function linkify(s, plain = text){
   const str = String(s == null ? '' : s);
-  const seg = (typeof plain === 'function') ? plain : text;
   let out = '', last = 0, m;
   URL_IN_TEXT.lastIndex = 0;
   while((m = URL_IN_TEXT.exec(str))){
     const raw = m[0].replace(URL_TAIL, '');
     const url = safeUrl(raw, 'link');
     if(!url) continue;
-    out += seg(str.slice(last, m.index)) + '<span class="ext-link" data-url="' + attr(url) + '">' + text(raw) + '</span>';
+    out += plain(str.slice(last, m.index)) + '<span class="ext-link" data-url="' + attr(url) + '">' + text(raw) + '</span>';
     last = m.index + raw.length;
   }
-  return out + seg(str.slice(last));
+  return out + plain(str.slice(last));
 }
 
 const api = Object.freeze({ text, attr, safeUrl, cssUrl, cssColor, linkify });
