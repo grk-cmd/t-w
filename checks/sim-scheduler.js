@@ -229,6 +229,57 @@ sec('── 4. 달력 · D-day · 👀 관람', () => {
   chk(E.el('mhDdayEdit').style.display === 'block' && E.el('mhDdayEditTitle').textContent === '📌 기념일 수정', '  내 것은 우클릭 → «📌 기념일 수정»');
 });
 
+sec('── 4-2. 📌 기념일 보기 — 타일형 · 목록형(이 PC 에만 · 보는 사람 취향)', () => {
+  const V = mkEnv().S.calc.annivViewOf;
+  chk(V('list') === 'list' && V('tile') === 'tile' && V(null) === 'tile' && V('') === 'tile' && V('grid') === 'tile',
+      '저장값 읽기 — list 만 목록형 · 빈 값 · 모르는 값은 타일형(고른 적 없으면 예전 그대로)');
+  const LONG = '대학교 졸업식 드디어 끝난 날';
+  const DATA = { a1: { kind: 'anniv', text: LONG, date: daysAgo(10), ts: 1, public: true } };
+  const run = (src) => {
+    const E = mkEnv({ src });
+    E.S.setDdays(DATA); E.S.renderDdays();
+    const grid = E.el('mhDdayGrid');
+    const r = { E, grid, tileFirst: grid.className.startsWith('cols') && grid.children[0].classList.contains('mh-dcard') };
+    E.ls.set('tw.annivView', 'list'); E.S.renderDdays();
+    const row = grid.children[0], cnt = row && row.children[3];
+    r.list = grid.className === 'list' && row.classList.contains('mh-dlist') && grid.children.length === 2 && grid.children[1].classList.contains('add');
+    r.title = !!(row && row.children[1] && row.children[1].children[0]) && row.children[1].children[0].textContent === LONG;
+    r.cnt = !!cnt && cnt.textContent === '11일';
+    r.badge = !!(row && row.children[2]) && row.children[2].textContent.includes('👁');
+    E.el('mhDdayEdit').style.display = 'none'; row.fire('contextmenu');
+    r.edit = E.el('mhDdayEdit').style.display === 'block';
+    /* 단추로 바꾸기 — 끌기 핸들 줄 안에 있어도 끌기가 시작되지 않는다 */
+    const box = E.el('mhAnnivView'), split = E.el('mhSchedSplit');
+    const btn = mkEl('button'); btn.dataset.view = 'tile'; btn.closest = () => btn;
+    box.contains = (t) => t === btn;
+    split.fire('mousedown', { target: btn });
+    r.noDrag = !split.classList.contains('dragging');
+    box.fire('click', { target: btn });
+    r.toTile = E.ls.get('tw.annivView') === 'tile' && grid.className.startsWith('cols');
+    split.fire('mousedown', { target: mkEl('span'), clientY: 10 });
+    r.drag = split.classList.contains('dragging');
+    /* 👀 관람 — 보는 사람이 고른 목록형 그대로 · [+] 줄 없음 */
+    E.ls.set('tw.annivView', 'list'); E.g.viewing = 'f1';
+    E.S.setDdaysVisit({ v1: { kind: 'anniv', text: '친구 기념', date: daysAgo(3), public: true } }); E.S.renderDdays();
+    r.visit = grid.className === 'list' && grid.children.length === 1 && grid.children[0].textContent.includes('친구 기념');
+    return r;
+  };
+  const R = run();
+  chk(R.tileFirst, '처음엔 타일형(카드) — 고른 적 없는 사람은 그대로');
+  chk(R.list, '목록형을 고르면 줄(mh-dlist) + 맨 아래 [+] 줄');
+  chk(R.title && R.cnt && R.badge, '  줄에 이름 전체 · «그날이 1일» 숫자(11일 — 지난 날도 숨기지 않음) · 👁 표시');
+  chk(R.edit, '  우클릭 → 기념일 수정창(카드와 같은 동작)');
+  chk(R.noDrag && R.toTile, '보기 단추 — 눌러도 구분선 끌기가 시작되지 않고, 고른 보기를 tw.annivView 에 저장해 다시 그린다');
+  chk(R.drag, '  단추 밖을 누르면 구분선 끌기는 예전처럼');
+  chk(R.visit, '👀 관람 — 보는 사람이 고른 보기 그대로 · [+] 줄 없음');
+  const noList = MOD.replace("if(view === 'list'){ _renderAnnivList(grid, ids, today); return; }", '');
+  chk(noList !== MOD && !run(noList).list, '  깨 보기 — 목록형 분기를 빼면 빨강');
+  const noGuard = MOD.replace('if(viewBox && e.target && viewBox.contains(e.target)) return;', '');
+  chk(noGuard !== MOD && !run(noGuard).noDrag, '  깨 보기 — 단추 누름 예외를 빼면 빨강(단추가 끌기를 시작)');
+  const iS = HTML.indexOf('<div id="mhSchedSplit">'), iV = HTML.indexOf('id="mhAnnivView"'), iA = HTML.indexOf('<div id="mhDdayArea">');
+  chk(iS > 0 && iS < iV && iV < iA && /data-view="tile"/.test(HTML) && /data-view="list"/.test(HTML), 'html — ⌛ D-day 구분선 줄 안에 ▦ · ☰ 단추');
+});
+
 sec('── 5. app.js 배선 · html', () => {
   const NAMES = ['renderSchedCalendar', 'renderSchedGrid', 'renderSchedDay', 'renderDdays', 'renderAnnivCards', 'renderDdayBanners',
     '_ddayOpenEdit', '_ddayCloseEdit', '_schedSubscribeMonth', 'refreshBellBadge', 'renderBellList', '_bellWinOpen', '_bellSubscribeToday',
