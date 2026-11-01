@@ -64,6 +64,7 @@ gh api $R/statuses/$SHA -f state=success -f context=tw/verify  -f description='�
 - base 와 충돌(`gh api $R/pulls/<번호> --jq .mergeable` 이 false)이면 base 를 합쳐(`git merge origin/<base>` — rebase · force 금지) 풀고 push → 3 의 «합치기만 한 커밋» 대로(`--same` 이 true 면 다시 묻지 않고 CI 만 기다려 머지).
 - 머지: 작업 → 판 브랜치 · hotfix → main 은 squash.
   `gh api -X PUT $R/pulls/<번호>/merge -f merge_method=squash -f sha=$SHA -f commit_title='<PR 제목> (#<번호>)'`
+  단 **앞 판 · main 을 판 브랜치에 합쳐 받는 PR**(머리 커밋이 `git merge --no-ff` 로 만든 merge commit)은 `merge_method=merge` — squash 면 내력이 끊긴다(정본 `docs/GIT_CONVENTION.md` 2.3).
 - 브랜치 지우기는 클라우드에서 막힐 수 있다 — 막히면 그대로 둔다.
 
 ## 6. 끝
