@@ -5,7 +5,7 @@
      Presence · _chatLogCache · chatUiMod · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 9개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _applyChatFontSize · _applyChatOpacity · _applyChatSfxUI · _chatDelClose · _chatDelOpen · _chatDelRefreshUI · _chatDelRun · _chatNotifyIncoming · _chatOffToggleClick · _chatSfxOfficeLock · _chatSfxOn · _chatSfxPreview · _clampChatOpacity · _refreshChatMembers · _setChatFontSize · _setChatOpacity · _setChatSfxId · _setChatSfxOn — app.js 는 chatPrefsMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _applyChatFontSize · _applyChatOpacity · _applyChatSfxUI · _chatDelClose · _chatDelOpen · _chatDelRefreshUI · _chatDelRun · _chatNotifyIncoming · _chatOffToggleClick · _demojiNotifyIncoming · _demojiSfxOn · _chatSfxOfficeLock · _chatSfxOn · _chatSfxPreview · _clampChatOpacity · _refreshChatMembers · _setChatFontSize · _setChatOpacity · _setChatSfxId · _setChatSfxOn · _setDemojiSfxOn — app.js 는 chatPrefsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwChatPrefs — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-chat-prefs.js */
@@ -123,6 +123,7 @@ function _chatSfxOfficeLock(){
 }
 function _setChatSfxOn(on){
   try{ localStorage.setItem(CHAT_SFX_ON_KEY, on ? '1' : '0'); }catch(_){}
+  if(!on){ try{ localStorage.setItem(DEMOJI_SFX_ON_KEY, '0'); }catch(_){} }   // 채팅 알림음을 끄면 이모티콘 소리도 끈다(다시 켤 땐 따로)
   _applyChatSfxUI();
 }
 function _setChatSfxId(id){
@@ -171,6 +172,30 @@ function _chatNotifyIncoming(){
   if(now - _chatSfxLast < CHAT_SFX_GAP_MS) return;
   _chatSfxLast = now;
   _chatSfxPreview(_chatSfxId());   // 회사원 모드 게이트는 풀(_mkSndPool.play) 안에 있다
+}
+
+/* 🔔 워킹룸 받은 이모티콘 소리 — 😊 이모티콘 창의 🔔/🔕 단추. 처음엔 꺼짐(워킹룸은 조용한 방).
+   켜짐은 «이모티콘 소리 켬 + 채팅 알림음 켬» 둘 다일 때다 — 채팅 알림음을 끄면 이것도 꺼진다(_setChatSfxOn 이 같이 끈다).
+   켜면 채팅 알림음도 같이 켠다(한 단추로 소리가 나게). 끄면 이모티콘 소리만 끈다.
+   소리는 채팅에서 고른 것과 상관없이 알림음 1 · 간격(_chatSfxLast)은 채팅과 같이 쓴다. */
+const DEMOJI_SFX_ON_KEY = 'tw.demojiSfx';
+const DEMOJI_SFX_ID = 1;
+function _demojiSfxOn(){
+  let v = null;
+  try{ v = localStorage.getItem(DEMOJI_SFX_ON_KEY); }catch(_){}
+  return v === '1' && _chatSfxOn();
+}
+function _setDemojiSfxOn(on){
+  try{ localStorage.setItem(DEMOJI_SFX_ON_KEY, on ? '1' : '0'); }catch(_){}
+  if(on && !_chatSfxOn()) _setChatSfxOn(true);
+}
+/* 워킹룸에는 대화창이 없어서 «창이 열려 있으면 조용» 게이트는 두지 않는다. */
+function _demojiNotifyIncoming(){
+  if(!_demojiSfxOn() || _chatSfxOfficeLock()) return;
+  const now = Date.now();
+  if(now - _chatSfxLast < CHAT_SFX_GAP_MS) return;
+  _chatSfxLast = now;
+  _chatSfxPreview(DEMOJI_SFX_ID);
 }
 
 function _chatDelRefreshUI(){
@@ -294,6 +319,8 @@ return {
   _chatDelRun,
   _chatNotifyIncoming,
   _chatOffToggleClick,
+  _demojiNotifyIncoming,
+  _demojiSfxOn,
   _chatSfxOfficeLock,
   _chatSfxOn,
   _chatSfxPreview,
@@ -303,6 +330,7 @@ return {
   _setChatOpacity,
   _setChatSfxId,
   _setChatSfxOn,
+  _setDemojiSfxOn,
 };
 }
 
