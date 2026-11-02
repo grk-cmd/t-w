@@ -1663,6 +1663,10 @@
   /* 방 목록 로비(room-lobby-ui.js) — 모달을 넓혀 카드 3 × 4. 베젤 없음(audit 검사 12 대상 아님) · 색은 토큰만.
      두 칸: 왼쪽 방 목록 · 오른쪽 만들기 · 참여. 폭은 마이홈 창(#myHomeWin)과 같다 — 런처에서 열면 창도 마이홈 크기(app.js applyDesktopRunClass). */
   #inviteModal{width:760px;}
+  /* 런처에서 열면 창이 마이홈 크기라 뒤 런처 카드(680 높이)가 모달 위아래로 비친다 — 런처 바탕색으로 덮고, 덮은 칸을 눌러도 뒤 카드가 눌리지 않게 받는다.
+     카드 제목줄로 창을 끌 수 없게 되니 모달 제목이 그 일을 한다(마이홈 #myHomeTitle 과 같다). 실행 화면(body.config 아님)은 그대로 투명. */
+  body.desktop.config #inviteOverlay{background:var(--win-accent) !important;pointer-events:auto;}
+  body.config #inviteModal h2{-webkit-app-region:drag;cursor:move;}
   #lobbyMain{display:flex;gap:12px;align-items:stretch;}
   #lobbyMain[hidden]{display:none;}
   #lobbyMain .lb-main{flex:1;min-width:0;display:flex;flex-direction:column;}
