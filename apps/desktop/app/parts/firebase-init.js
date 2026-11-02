@@ -600,8 +600,6 @@
     async fetchAvatar(uid){
       try{ return (await get(ref(db, `users/${uid}/home/avatar`))).val() || null; }catch(_){ return null; }
     },
-    /* 🏆 내 순위 한 줄은 API 에만 있다 — Firebase 길은 undefined(부르는 쪽이 100줄 + rankOf). */
-    async fetchMyRank(){ return undefined; },
     /* 👥 명함 날것은 API 에만 있다 — api-public-reads.js 가 바꿔 끼운다. 그 전엔 거절(친구 포트가 옛 길 카드로). */
     fetchUserCardApi(){ return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' })); },
     async lookupFriendCode(code){
@@ -964,35 +962,6 @@
            옛 레벨에 영영 머물렀다. 읽어 둔 서버 값(serverSec)을 같이 돌려준다 — 받아올지는 app.js 가 정한다. */
         return { ok:false, reason, denied, authed: !!(auth && auth.currentUser), serverSec: _readSec };
       }
-    },
-    /* ═══════════ 🏆 전체 랭킹 (개정 73 · handoff-ranking.md) ═══════════
-         leaderboard/{userId} = { sec: 누적초, ts: 서버 시각 }
-       ★ 이름·사진을 싣지 않는다 — 화면은 **내 순위 하나**만 보여준다. 표에 남는 건 코드와 시간뿐.
-       ★ 값은 syncFocusTotal 이 돌려준 **서버 총합**이다(여러 기기 합산이 끝난 값). 로컬 누적을 여기 쓰지 않는다.
-       ⚠️ 규칙: 목록 읽기는 «sec 정렬 + limitToLast ≤ 100» 쿼리만(playlistIndex 와 같은 방식 · 표 통째 읽기 거부).
-         한 줄 읽기(leaderboard/{코드})는 열려 있다 — 아래 «같은 값이면 안 씀» 이 그걸 쓴다.
-       ★ 같은 sec 를 다시 쓰지 않는 이유: ts 가 동점 순서(먼저 도달한 사람이 위)다. 부팅마다·기기마다 같은 값을
-         새 ts 로 덮으면 동점에서 뒤로 밀린다. 그래서 서버 줄의 sec 가 같으면 쓰지 않는다(읽기 1회). */
-    async setLeaderboardSec(userId, sec){
-      await _whenAuthReady();   // 소유권 쓰기 — syncFocusTotal 과 같은 대기선
-      try{
-        const CAP = 999*3600*100;   // ⚠️ focus/totalSec 과 같은 상한(규칙 leaderboard/sec 도 같은 값 · sim-focus-cap 3절)
-        const v = Math.min(CAP, Math.max(0, Math.floor(Number(sec) || 0)));
-        const r = ref(db, `leaderboard/${userId}`);
-        let cur = null; try{ const s0 = await get(r); cur = s0.val(); }catch(_){}
-        if(cur && Number(cur.sec) === v) return { ok:true, sec: v, same:true };
-        await set(r, { sec: v, ts: serverTimestamp() });
-        return { ok:true, sec: v };
-      }catch(e){ return { ok:false, reason: String((e && e.message) || e) }; }
-    },
-    /* 상위 100줄 — [{ uid, sec, ts }]. 순서는 부르는 쪽(rankOf)이 다시 매긴다. 실패 = null(«없음» 과 구분). */
-    async fetchLeaderboardTop(){
-      try{
-        const snap = await get(query(ref(db, 'leaderboard'), orderByChild('sec'), limitToLast(100)));
-        const out = [];
-        snap.forEach(ch => { const v = ch.val() || {}; out.push({ uid: ch.key, sec: Number(v.sec) || 0, ts: Number(v.ts) || 0 }); });
-        return out;
-      }catch(e){ console.warn('[랭킹] 읽기 실패', e); return null; }
     },
     /* ═══════════ 👑 달성표 (주간 5일 달성) ═══════════
          users/{uid}/chal = { ts, week, kind, cfg, pendingCfg, auto, days, today }
@@ -3690,7 +3659,7 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
-  /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 랭킹 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
+  /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
   createApiPublicReads({ api: (window.TwApi && window.TwApi.client) || null, readCell: (path) => get(ref(db, path)).then(s => s.val()) }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));
