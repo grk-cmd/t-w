@@ -1660,14 +1660,22 @@
   .race-card.disabled:hover{background:var(--win-face);}
   .race-card.disabled .race-preview{filter:grayscale(1) opacity(.65);}
 
-  /* 방 목록 로비(room-lobby-ui.js) — 모달을 넓혀 카드 3 × 4. 베젤 없음(audit 검사 12 대상 아님) · 색은 토큰만. */
-  #inviteModal{width:720px;}
-  #lobbyMain .lb-secret{display:flex;align-items:center;gap:10px;padding:7px 10px;margin-bottom:10px;border:1px solid var(--win-select);border-radius:var(--win-radius-el);background:var(--win-face-2);font-size:12px;color:var(--ink);}
+  /* 방 목록 로비(room-lobby-ui.js) — 모달을 넓혀 카드 3 × 4. 베젤 없음(audit 검사 12 대상 아님) · 색은 토큰만.
+     두 칸: 왼쪽 방 목록 · 오른쪽 만들기 · 참여. 폭은 마이홈 창(#myHomeWin)과 같다 — 런처에서 열면 창도 마이홈 크기(app.js applyDesktopRunClass). */
+  #inviteModal{width:760px;}
+  #lobbyMain{display:flex;gap:12px;align-items:stretch;}
+  #lobbyMain[hidden]{display:none;}
+  #lobbyMain .lb-main{flex:1;min-width:0;display:flex;flex-direction:column;}
+  #lobbyMain .lb-side{flex:none;width:210px;display:flex;flex-direction:column;gap:8px;padding-left:12px;border-left:1px solid var(--win-lo-2);}
+  #lobbyMain .lb-side > .lc-btn{margin-top:0;}
+  #lobbyMain #inviteJoinPanel{margin-top:4px;padding-top:10px;border-top:1px solid var(--win-lo-2);}
+  #lobbyMain .lb-donate{margin-top:auto;text-align:center;}
+  #lobbyMain .lb-secret{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;padding:7px 10px;border:1px solid var(--win-select);border-radius:var(--win-radius-el);background:var(--win-face-2);font-size:12px;color:var(--ink);}
   #lobbyMain .lb-secret[hidden]{display:none;}
   #lobbyMain .lb-secret-tag{color:var(--win-select);}
   #lobbyMain .lb-secret-name{flex:1;min-width:0;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   #lobbyMain .lb-secret-count{font-size:11px;color:var(--ink-soft);}
-  #lobbyMain .lb-secret .lc-btn{width:auto;padding:5px 10px;}
+  #lobbyMain .lb-secret .lc-btn{margin-top:2px;padding:5px 10px;}
   #lobbyMain .lb-bar{display:flex;align-items:flex-end;gap:6px;}
   #lobbyMain .lb-tabs{display:flex;gap:2px;flex:1;}
   #lobbyMain .lb-tab{padding:6px 16px;font-family:var(--tw-font-legacy);font-size:12px;color:var(--ink);cursor:pointer;background:var(--win-face);border:1px solid var(--ink-soft);border-bottom:none;border-radius:var(--win-radius-el) var(--win-radius-el) 0 0;}
@@ -1709,7 +1717,6 @@
   #lobbyMain .lb-state-box .lc-btn{width:auto;padding:6px 12px;}
   #lobbyMain .lb-err{color:var(--tw-ink-danger);}
   #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:8px;}
-  #lobbyMain .lb-foot .lc-btn{width:auto;padding:8px 14px;}
   #lobbyMain .lb-grow{flex:1;}
   #lobbyMain .lb-page{min-width:44px;text-align:center;font-size:12px;color:var(--ink);}
   #lobbyMain[hidden]{display:none;}
@@ -8140,41 +8147,58 @@
     <h2>방 찾기 · 만들기</h2>
     <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)</p>
     <div id="inviteIdle">
-      <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 서버 함수가 1분마다 만드는 사본(roomLobby)을 모달을 열 때 · 새로 고침 · 60초마다 읽는다 -->
+      <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 서버 함수가 1분마다 만드는 사본(roomLobby)을 모달을 열 때 · 새로 고침 · 60초마다 읽는다
+           두 칸: 왼쪽 방 목록(.lb-main) · 오른쪽 내 시크릿룸 · 만들기 · 빠른시작 · 코드 입력 · 후원(.lb-side).
+           ⚠️ 코드 칸(#inviteJoinPanel)도 로비 안에 둔다 — [방 만들기] 창(room-create-ui.js)이 둘을 같이 숨긴다. -->
       <div id="lobbyMain">
-        <!-- 내 시크릿룸 — 방장 본인에게만(발급 칸 + secretRooms pub.owner 가 나일 때) -->
-        <div id="lobbySecret" class="lb-secret" hidden>
-          <b class="lb-secret-tag">내 시크릿룸</b>
-          <span id="lobbySecretName" class="lb-secret-name"></span>
-          <span id="lobbySecretCount" class="lb-secret-count"></span>
-          <button type="button" class="lc-btn ghost" id="lobbySecretJoin">바로 들어가기</button>
-        </div>
-        <div class="lb-bar">
-          <div class="lb-tabs" role="tablist">
-            <button type="button" class="lb-tab" id="lobbyTabWorking" role="tab">워킹룸</button>
-            <button type="button" class="lb-tab" id="lobbyTabTogether" role="tab">투게더룸</button>
+        <div class="lb-main">
+          <div class="lb-bar">
+            <div class="lb-tabs" role="tablist">
+              <button type="button" class="lb-tab" id="lobbyTabWorking" role="tab">워킹룸</button>
+              <button type="button" class="lb-tab" id="lobbyTabTogether" role="tab">투게더룸</button>
+            </div>
+            <div class="lb-seg" role="group" aria-label="방 거르기">
+              <button type="button" id="lobbyAll">전체</button>
+              <button type="button" id="lobbyOpen">빈자리 있는 방</button>
+            </div>
+            <button type="button" class="lb-icon" id="lobbyRefresh" aria-label="새로 고침" title="새로 고침">↻</button>
           </div>
-          <div class="lb-seg" role="group" aria-label="방 거르기">
-            <button type="button" id="lobbyAll">전체</button>
-            <button type="button" id="lobbyOpen">빈자리 있는 방</button>
+          <div class="lb-panel">
+            <div class="lb-info"><span id="lobbyInfo"></span><span id="lobbyNote" class="lb-note"></span></div>
+            <div id="lobbyGrid" class="lb-grid"></div>
           </div>
-          <button type="button" class="lb-icon" id="lobbyRefresh" aria-label="새로 고침" title="새로 고침">↻</button>
+          <div class="lb-foot">
+            <span class="lb-grow"></span>
+            <button type="button" class="lb-icon" id="lobbyPrev" aria-label="이전 쪽">‹</button>
+            <span id="lobbyPage" class="lb-page">1 / 1</span>
+            <button type="button" class="lb-icon" id="lobbyNext" aria-label="다음 쪽">›</button>
+          </div>
         </div>
-        <div class="lb-panel">
-          <div class="lb-info"><span id="lobbyInfo"></span><span id="lobbyNote" class="lb-note"></span></div>
-          <div id="lobbyGrid" class="lb-grid"></div>
-        </div>
-        <div class="lb-foot">
+        <div class="lb-side">
+          <!-- 내 시크릿룸 — 방장 본인에게만(발급 칸 + secretRooms pub.owner 가 나일 때) -->
+          <div id="lobbySecret" class="lb-secret" hidden>
+            <b class="lb-secret-tag">내 시크릿룸</b>
+            <span id="lobbySecretName" class="lb-secret-name"></span>
+            <span id="lobbySecretCount" class="lb-secret-count"></span>
+            <button type="button" class="lc-btn ghost" id="lobbySecretJoin">바로 들어가기</button>
+          </div>
           <button type="button" class="lc-btn" id="lobbyCreate">＋ 방 만들기</button>
           <button type="button" class="lc-btn lb-quick" id="lobbyQuick">⚡ 빠른시작</button>
-          <span class="lb-grow"></span>
-          <button type="button" class="lb-icon" id="lobbyPrev" aria-label="이전 쪽">‹</button>
-          <span id="lobbyPage" class="lb-page">1 / 1</span>
-          <button type="button" class="lb-icon" id="lobbyNext" aria-label="다음 쪽">›</button>
-        </div>
-        <!-- 💝 후원 링크 — 투게더룸은 라이선스가 필요해서 로비 아래에 둔다. 시스템 브라우저로 열림(app.js에서 처리). -->
-        <div style="text-align:center;margin-top:8px;">
-          <a id="donateLink" href="https://litt.ly/togetherworking" title="후원 페이지로 이동해요"><span class="donate-shine">후원하러 가기 ››</span></a>
+          <!-- 참여 코드 입력 (로비 오른쪽 칸 — 시크릿룸은 «1234*» 로 넣거나 로비 맨 위 «내 시크릿룸» 줄로) -->
+          <div id="inviteJoinPanel">
+            <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 8px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 랜덤 참여를 허용한 방에 들어가요 🎲</div>
+            <div style="display:flex;gap:8px;align-items:center;">
+              <div class="room-code-group" style="margin-bottom:0;flex:1;">
+                <span class="room-code-prefix">COZY-</span>
+                <input id="inviteCode" class="room-code-in" type="text" placeholder="예: 7Q2K" maxlength="5" autocomplete="off" spellcheck="false">
+              </div>
+              <button class="lc-btn ghost" id="inviteJoin" style="width:auto;padding:10px 14px;">참여</button>
+            </div>
+          </div>
+          <!-- 💝 후원 링크 — 투게더룸은 라이선스가 필요해서 로비 곁에 둔다. 시스템 브라우저로 열림(app.js에서 처리). -->
+          <div class="lb-donate">
+            <a id="donateLink" href="https://litt.ly/togetherworking" title="후원 페이지로 이동해요"><span class="donate-shine">후원하러 가기 ››</span></a>
+          </div>
         </div>
       </div>
 
@@ -8211,18 +8235,6 @@
           <div class="rc-hint rc-pub-hint">방장이 DJ 가 되어 자기 플레이리스트를 다 같이 들어요 · 만든 뒤엔 못 바꿔요</div>
         </div>
         <div class="code-btns"><button type="button" id="rcCancel">취소</button><button type="button" id="rcCreate">방 만들기</button></div>
-      </div>
-
-      <!-- 참여 코드 입력 (늘 로비 아래에 보인다 — 시크릿룸은 «1234*» 로 넣거나 로비 맨 위 «내 시크릿룸» 줄로) -->
-      <div id="inviteJoinPanel" style="margin-top:14px;padding-top:12px;border-top:1px solid var(--win-lo-2);">
-        <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 8px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 랜덤 참여를 허용한 방에 들어가요 🎲</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div class="room-code-group" style="margin-bottom:0;flex:1;">
-            <span class="room-code-prefix">COZY-</span>
-            <input id="inviteCode" class="room-code-in" type="text" placeholder="예: 7Q2K" maxlength="5" autocomplete="off" spellcheck="false">
-          </div>
-          <button class="lc-btn ghost" id="inviteJoin" style="width:auto;padding:10px 14px;">참여</button>
-        </div>
       </div>
     </div>
     <div id="inviteActive" style="display:none;">
