@@ -150,14 +150,6 @@ else {
   if (!m) bad("규칙 파일에서 users/$userId/focus 의 totalSec 상한을 못 찾았다");
   else t(!!C && Number(m[1]) === C.total,
     `규칙의 totalSec 상한이 app.js 와 같다 (${num(Number(m[1]))}) ★ 낮으면 쓰기가 통째로 거부된다`);
-  /* 랭킹(leaderboard)이 생기면 sec 상한도 같은 값이어야 한다 — 아직 없으면 알림만. */
-  const lb = RULES.indexOf('"leaderboard"');
-  if (lb < 0) console.log('  · 규칙에 leaderboard 블록이 아직 없다 (핸드오프 B §1) — 넣을 때 sec 상한을 같은 값으로');
-  else {
-    const seg = RULES.slice(lb, lb + 1200);
-    const s2 = seg.match(/newData\.val\(\)\s*<=\s*(\d+)/);
-    t(!!s2 && !!C && Number(s2[1]) === C.total, '랭킹 sec 상한도 같은 값이다');
-  }
 }
 
 /* ═══ 4절. 해금 레벨과 표시 레벨은 갈린다 · 표시와 별은 같이 간다 (개정 70 에서 다시 씀) ═══════════════

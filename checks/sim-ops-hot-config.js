@@ -2,7 +2,7 @@
  * 운영 원격 설정 규칙 검사 — 서버(t-w-server)가 새로 읽는 config 칸을 규칙식을 실제로 굴려 본다.
  *   쓰는 곳은 웹 관리자 ⚙️ 설정, 읽는 곳은 API(봇 계정) · 방 서버(키 없이 공개 읽기). 앱은 읽지 않는다.
  * 1. config/apiCors — 출처 목록(0..19 키 · https://호스트만) · 관리자 쓰기 · 읽기는 관리자 · 봇만
- * 2. config/apiCache/{config,count,card,leaderboard} — 정수 0~600 · 관리자 쓰기 · 봇 읽기
+ * 2. config/apiCache/{config,count,card} — 정수 0~600 · 걷은 leaderboard 칸은 거절 · 관리자 쓰기 · 봇 읽기
  * 3. config/logLevel/{api,realtime} — error|warn|info|debug · realtime 만 공개 읽기
  * 4. config/roomServer/frame — maxBytes 65536~1048576 · maxSmallBytes 1024~65536 · 공개 읽기
  * 5. config/roomServer/timing — roomStatsRefreshMs 5000~600000 · statsLogMs 5000~3600000 · 옛 칸 그대로 · 공개 읽기
@@ -103,10 +103,11 @@ say('── 1. config/apiCors — 출처 목록');
 
 say('── 2. config/apiCache — 공개 캐시 초');
 {
-  const P = C + '/apiCache', KEYS = ['config', 'count', 'card', 'leaderboard'];
-  chk(KEYS.every((k) => [0, 1, 30, 600].every((v) => canWrite(P + '/' + k, v, ADMIN))), '★ 네 칸 — 정수 0~600');
+  const P = C + '/apiCache', KEYS = ['config', 'count', 'card'];
+  chk(KEYS.every((k) => [0, 1, 30, 600].every((v) => canWrite(P + '/' + k, v, ADMIN))), '★ 세 칸 — 정수 0~600');
   chk(KEYS.every((k) => [-1, 601, 1.5, '30', true].every((v) => !canWrite(P + '/' + k, v, ADMIN))), '  ↳ -1 · 601 · 소수 · 문자열 · 불리언 거절');
-  chk(canWrite(P, { config: 30, count: 15, card: 60, leaderboard: 60 }, ADMIN), '  ↳ 네 칸을 한 객체로 써도 된다');
+  chk(canWrite(P, { config: 30, count: 15, card: 60 }, ADMIN), '  ↳ 세 칸을 한 객체로 써도 된다');
+  chk(!canWrite(P + '/leaderboard', 60, ADMIN) && !canWrite(P, { config: 30, leaderboard: 60 }, ADMIN), '  ↳ 랭킹 캐시 칸(leaderboard)은 걷었다 — 거절');
   chk(!canWrite(P + '/other', 30, ADMIN) && !canWrite(P, { config: 30, extra: 1 }, ADMIN), '★ 모르는 칸 거절');
   chk(!canWrite(P + '/config', 30, USER) && !canWrite(P + '/config', 30, BOT) && !canWrite(P + '/config', 30, null), '★ 관리자만 쓰기');
   chk(canRead(P + '/config', BOT) && canRead(P, ADMIN) && !canRead(P + '/config', USER) && !canRead(P + '/config', null), '★ 읽기는 관리자 · 봇만');

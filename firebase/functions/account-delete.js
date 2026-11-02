@@ -172,7 +172,7 @@ async function planAccountDelete(db, code, deps, viaFc){
 
   // 이 사람 이름의 한 칸짜리 노드들.
   const single = [
-    ['inbox', 'inbox/' + code], ['public', 'leaderboard/' + code], ['public', 'playlistIndex/' + code],
+    ['inbox', 'inbox/' + code], ['public', 'playlistIndex/' + code],
     ['public', 'bookmarksPub/' + code], ['bookmarks', 'bookmarks/' + code], ['mobile', 'mobileKeys/' + code],
     ['mobile', 'mobileLink/' + code],
   ];
