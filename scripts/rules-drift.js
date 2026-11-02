@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-/* 🔀 판끼리 DB 규칙 어긋남 — 앞 판(먼저 나갈 판 · main)에서 바꾼 규칙이 뒤 판에도 들어갔는가.
+/* 판끼리 DB 규칙 어긋남 — 앞 판(먼저 나갈 판 · main)에서 바꾼 규칙이 뒤 판에도 들어갔는가.
    여러 세션이 판마다 따로 규칙을 고치고 «다음 판으로 옮기는 PR» 을 손으로 올려서, 옮기기를 잊으면
-   뒤 판 규칙을 운영에 배포하는 순간 앞 판 기능이 막힌다(예: 0.12.2 의 버그제보 «검토중» 이 0.13.0 에 없던 것).
+   뒤 판 규칙을 운영에 배포하는 순간 앞 판 기능이 막힌다.
 
    판정(세 갈래) — 두 판이 갈라진 지점(merge-base)을 기준으로, 앞 판 A 가 바꾼 규칙 칸마다:
      · 뒤 판 B 도 A 와 같은 값      → 통과
@@ -118,7 +118,8 @@ function rulesAt(git, rev){
   for(const p of RULES_PATHS){
     let text;
     try{ text = git('show', `${rev}:${p}`); }catch(_){ continue; }
-    return flatten(parseRules(text));
+    try{ return flatten(parseRules(text)); }
+    catch(e){ throw new Error(`규칙 파일이 JSON 으로 안 읽힘 — ${rev}:${p} (${e.message})`); }
   }
   return null;
 }
