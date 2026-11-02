@@ -5,7 +5,7 @@
    ・1절: 순수 함수 — 펴기 · 주석 · 세 갈래 판정(빠짐 · 확인 필요 · 통과 · 지운 칸 · 뒤 판만 더한 칸) · 묶음 · 판 이름 · 짝 고르기
    ・2절: 진짜 git 저장소(임시 · 원격 하나) — 자리 옮긴 규칙 파일 · main · 다른 판에 들어간 판 · --ref(PR 머지 결과) · 판 없음
    ・3절: 알리기 — GitHub 경고 줄(% · 줄바꿈) · 요약 표
-   ・4절: 일부러 깨 보기 — 두 갈래 판정 · 지운 칸 못 봄 · 곁가지끼리 짝 · 들어간 판 안 뺌 */
+   ・4절: 일부러 깨 보기 — 두 갈래 판정 · 지운 칸 못 봄 · 곁가지끼리 짝 · 들어간 판 안 뺌 · 짝과 상관없이 판째로 빼기 */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -50,6 +50,9 @@ function fixture() {
   g('git checkout -q -b release/0.12.2 main');
   put('firebase-database-rules.json', '// 주석 줄\n' + JSON.stringify({ rules: { a: { '.read': true, '.write': 'auth.uid != null' }, y: { '.read': true } } }, null, 2));
   commit('0.12.2');
+  g('git checkout -q -b release/0.14.0');                         // 0.12.2 가 더 높은 판에만 들어감 — 0.13.0 의 빠짐은 그대로 잡혀야 한다
+  put('apps/desktop/package.json', { version: '0.14.0' });
+  commit('0.14');
   g('git checkout -q main');
   const clone = path.join(d, 'c');
   g(`git clone -q "${up}" "${clone}"`, d);
@@ -77,12 +80,16 @@ const M = load(SRC);
   chk(same(M.parseRelease('release/0.13.0-server'), { name: 'release/0.13.0-server', core: [0, 13, 0], tag: 'server' }), '판 이름 — 꼬리 붙은 곁가지');
   chk(M.parseRelease('release/0.13') === null && M.parseRelease('hotfix/x') === null && M.parseRelease('') === null, '판 이름 아님 — 두 자리 · 다른 접두사 · 빈 값');
   chk(M.cmpCore([0, 12, 10], [0, 13, 0]) < 0 && M.cmpCore([0, 9, 0], [0, 10, 0]) < 0, '버전 비교는 숫자로(0.12.10 < 0.13.0 · 0.9 < 0.10)');
-  const B = [{ name: 'main', core: [0, 12, 1] }, { name: 'release/0.12.2', core: [0, 12, 2] }, { name: 'release/0.12.0', core: [0, 12, 0], superseded: true },
+  const B = [{ name: 'main', core: [0, 12, 1] }, { name: 'release/0.12.2', core: [0, 12, 2] }, { name: 'release/0.12.0', core: [0, 12, 0], inside: ['main'] },
     { name: 'release/0.13.0', core: [0, 13, 0] }, { name: 'release/0.13.0-server', core: [0, 13, 0] }];
   const P = M.pairs(B).map(p => p.join('>'));
   chk(!P.includes('release/0.13.0>release/0.13.0-server') && !P.includes('release/0.13.0-server>release/0.13.0'), '같은 판 곁가지끼리는 짝 안 지음');
-  chk(!P.some(p => p.startsWith('release/0.12.0>')), '다른 판에 들어간 판은 앞 판으로 안 씀');
-  chk(P.includes('main>release/0.12.2') && P.includes('release/0.12.2>release/0.13.0-server') && !P.some(p => p.endsWith('>main')), '앞(낮은 버전 · main) → 뒤로만');
+  chk(!P.some(p => p.startsWith('release/0.12.0>release/0.1')), '낮은 판(main)에 들어간 판은 그 뒤 판으로 가는 짝에서 뺌(main 이 대신 말함)');
+  chk(P.includes('main>release/0.12.2') && P.includes('release/0.12.2>release/0.13.0-server') && !P.some(p => p.endsWith('>main') && !p.startsWith('release/0.12.0')), '앞(낮은 버전 · main) → 뒤로만');
+  const H = [{ name: 'release/0.12.2', core: [0, 12, 2], inside: ['release/0.14.0', 'release/0.13.0-server'] }, { name: 'release/0.13.0', core: [0, 13, 0] },
+    { name: 'release/0.13.0-server', core: [0, 13, 0] }, { name: 'release/0.14.0', core: [0, 14, 0] }];
+  chk(same(M.pairs(H, 'release/0.13.0'), [['release/0.12.2', 'release/0.13.0']]), '더 높은 판 · 곁가지에만 들어간 판은 그대로 봄(대신 말할 짝이 없다)');
+  chk(M.pairs(H, 'release/0.14.0').every(p => p[0] !== 'release/0.12.2'), '받는 판에 이미 들어간 판은 짝 안 지음(볼 것이 없다)');
   chk(same(M.pairs(B, 'release/0.13.0').map(p => p[0]), ['main', 'release/0.12.2']), '--target — 그 판으로 들어올 짝만');
 }
 
@@ -91,13 +98,15 @@ let fx = null;
 try {
   fx = fixture();
   const r = M.scan({ cwd: fx.clone });
-  const names = r.branches.map(b => b.name + (b.superseded ? '(들어감)' : ''));
+  const names = r.branches.map(b => b.name + (b.inside.length ? '(들어감)' : ''));
   chk(names.includes('main') && names.includes('release/0.12.1(들어감)'), `판 목록 — main(앱 버전 자리) · main 에 들어간 0.12.1 → ${names.join(' · ')}`);
   const pr = (from, to) => r.results.find(x => x.from === from && x.to === to);
   const a = pr('release/0.12.2', 'release/0.13.0');
   chk(!!a && same(a.missing, ['/rules/y/.read', '/rules/z/.read']), `옮긴 자리(firebase/)에서도 — 더한 y · 걷은 z 가 빠짐 → ${a && a.missing}`);
   chk(!!a && same(a.diverged, ['/rules/a/.write']), `양쪽이 다르게 고친 a/.write → 확인 필요 → ${a && a.diverged}`);
-  chk(!r.results.some(x => x.from === 'release/0.12.1'), '들어간 판(0.12.1)은 앞 판으로 안 씀');
+  chk(!r.results.some(x => x.from === 'release/0.12.1' && x.to !== 'main'), 'main 에 들어간 판(0.12.1)은 그 뒤 판으로 가는 짝에서 뺌');
+  const h = pr('release/0.12.2', 'release/0.13.0');
+  chk(!!h && h.missing.length === 2, '0.12.2 가 더 높은 판(0.14.0)에만 들어갔어도 0.13.0 의 빠짐을 잡음');
   chk(!pr('release/0.13.0', 'release/0.13.0-server') && !pr('release/0.13.0-server', 'release/0.13.0'), '곁가지끼리 짝 없음');
   const m = pr('main', 'release/0.13.0');
   chk(!!m && m.missing.length === 0 && m.diverged.length === 0, 'main 이 갈라진 뒤 규칙을 안 바꿨으면 통과');
@@ -148,16 +157,18 @@ function broken(label, from, to) {
   try {
     const r = B.drift({ k3: '3', k4: '4', z: '1' }, { k3: 'A', k4: 'A' }, { k3: '3', k4: 'B', z: '1' });
     if (!same(r, { missing: ['k3', 'z'], diverged: ['k4'] })) caught = true;
-    const P = B.pairs([{ name: 'release/0.13.0', core: [0, 13, 0] }, { name: 'release/0.13.0-server', core: [0, 13, 0] },
-      { name: 'release/0.12.0', core: [0, 12, 0], superseded: true }]);
-    if (P.length) caught = true;
+    const P = B.pairs([{ name: 'main', core: [0, 12, 1] }, { name: 'release/0.12.0', core: [0, 12, 0], inside: ['main'] },
+      { name: 'release/0.12.2', core: [0, 12, 2], inside: ['release/0.14.0'] }, { name: 'release/0.13.0', core: [0, 13, 0] },
+      { name: 'release/0.13.0-server', core: [0, 13, 0] }, { name: 'release/0.14.0', core: [0, 14, 0] }], 'release/0.13.0');
+    if (!same(P.map(p => p[0]), ['main', 'release/0.12.2'])) caught = true;
   } catch (_) { caught = true; }
   chk(caught, `깨 보기 «${label}» → 빨강`);
 }
 broken('두 갈래 판정(따로 고친 것도 빠짐으로)', '(dst[k] === base[k] ? missing : diverged).push(k);', 'missing.push(k);');
 broken('지운 칸 못 봄(앞 판 칸만 훑음)', 'new Set([...Object.keys(base), ...Object.keys(src)])', 'new Set(Object.keys(src))');
 broken('곁가지끼리 짝', 'cmpCore(a.core, b.core) >= 0', 'cmpCore(a.core, b.core) > 0');
-broken('들어간 판 안 뺌', 'if(a.superseded) continue;', '');
+broken('들어간 판 안 뺌', 'if(covered) continue;', '');
+broken('짝과 상관없이 판째로 빼기', 'c !== b && cmpCore(c.core, b.core) < 0', 'c !== b');
 
 say(`\n통과 ${pass} · 실패 ${fail}`);
 say(fail ? `✗ 실패 ${fail}건` : '✓ 전부 통과');
