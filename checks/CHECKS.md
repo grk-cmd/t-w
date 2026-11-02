@@ -457,6 +457,7 @@
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |
+| **sim-install-desktop.js** | 116 | **0043224c7d5f** |
 
 ### `sim-sysinput.js` 판 계보
 
