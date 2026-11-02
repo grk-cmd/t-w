@@ -391,6 +391,16 @@ const LIMIT_CASES = [
   ['온라인 고정 — 모르는 칸', 'PUT', `presencePref/${NEW_U}`, { lock: true, online: false, ts: TS, x: 1 }, false, 'authN'],
   ['온라인 고정 — 칸 빠짐', 'PUT', `presencePref/${NEW_U}`, { lock: true }, false, 'authN'],
   ['온라인 고정 — 글자 lock', 'PUT', `presencePref/${NEW_U}`, { lock: 'yes', online: false, ts: TS }, false, 'authN'],
+  /* 🔒 플레이리스트 잠근 프리셋(나만 보기) 본인 칸 — 본인만 읽고 쓴다 · 자리 0~2 · 이름 16자 · 곡 칸 모양은 공개 노드와 같다 */
+  ['🔒 잠근 프리셋 — 본인 칸 쓰기', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 1: { name: '비밀', items: { 0: { id: 'abcdefghijk', title: '곡' } } } }, editTs: TS }, true, 'authN'],
+  ['  ↳ 본인은 읽는다', 'GET', `playlistPriv/${NEW_U}`, null, true, 'authN'],
+  ['  ↳ 남은 못 읽는다', 'GET', `playlistPriv/${NEW_U}`, null, false, 'authA'],
+  ['  ↳ 로그인 없이도 못 읽는다', 'GET', `playlistPriv/${NEW_U}`, null, false],
+  ['  ↳ 남은 못 쓴다', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 0: { name: 'x', items: {} } }, editTs: TS }, false, 'authA'],
+  ['  ↳ 자리 0~2 밖은 막힘', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 3: { name: 'x' } }, editTs: TS }, false, 'authN'],
+  ['  ↳ 모르는 칸은 막힘', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 0: { name: 'x' } }, editTs: TS, junk: 1 }, false, 'authN'],
+  ['  ↳ 이름 17자는 막힘', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 0: { name: '가'.repeat(17) } }, editTs: TS }, false, 'authN'],
+  ['  ↳ 비우기(지우기)', 'DELETE', `playlistPriv/${NEW_U}`, null, true, 'authN'],
   ['새 계정 ⑫ 신고(쓰는 사람 = 나)', 'PUT', `reports/${GOOD_U2}/${NEW_U}`, { kind: 'etc', nick: 'a', code4: 'AB12', ts: 1 }, true, 'authN'],
   /* 🚧 ≤0.10.2 읽기 막기 — 읽는 사람의 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐 · ver 없음» 이면 거절.
      로그인 안 함(auth null) · 이어진 코드 없음(익명 가입 중 · 봇)은 막지 않는다 — 0.11 의 로그인 없는 REST 읽기 · 가입 중 읽기가 산다. */
@@ -528,6 +538,10 @@ const BUG_VIS_CASES = [
   ['글쓴이 — 내 답글이 있으면 막힘', 'PATCH', '', toPrv(VU), false, VU],
   ['준비: 답글 지우고 공지로', 'PATCH', '', { [B + 'rep/pub/v1']: null, [B + 'list/v1/notice']: true }, true, OWNER],
   ['글쓴이 — 공지는 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  /* 🔎 상태 «검토중»(review) — 관리자가 건의에 다는 상태. 미해결이라 openTs 를 그대로 둔다. 글쓴이 버튼엔 없다. */
+  ['관리자 — 상태를 «검토중»(review)으로', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/openTs']: 1 }, true, ADMIN_A],
+  ['  ↳ 목록에 없는 상태는 막힘', 'PUT', B + 'list/v1/status', 'reviewing', false, ADMIN_A],
+  ['글쓴이 — 상태를 «검토중» 으로 바꾸기는 막힘', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/userReplyTs']: { '.sv': 'timestamp' } }, false, VU],
 ];
 
 const CASES = [

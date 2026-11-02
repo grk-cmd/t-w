@@ -325,6 +325,8 @@ say('§6 글쓴이 답글');
   chk(Object.keys(M.BUG_STATUS).sort().join('|') === ruleSt, '§6 상태 목록이 규칙과 같다 (' + ruleSt + ')');
   chk(M.BUG_AUTHOR_STATUS.map(x => x[0]).join('|') === 'checking|unfixed|fixed' && M.BUG_AUTHOR_STATUS.find(x => x[0] === 'fixed')[1] === '해결 완료', '§6 글쓴이 버튼 — 확인 중 · 해결 안 됨 · 해결 완료(= fixed)');
   chk(M.isOpenStatus('unfixed') && M.isOpenStatus('new') && M.isOpenStatus('checking') && !M.isOpenStatus('fixed') && !M.isOpenStatus('norepro'), '§6 «해결 안 됨» 은 미해결 목록에 낀다');
+  chk(M.BUG_STATUS.review === '검토중' && M.isOpenStatus('review') && !M.BUG_AUTHOR_STATUS.some(x => x[0] === 'review') && /\.bb-chip\.review\{/.test(HTML),
+      '§6 «검토중»(review) — 관리자 상태 · 미해결 목록에 낀다 · 글쓴이 버튼엔 없다 · 칩 색');
   chk(M.hasAuthorReply({ userReplyTs: 9, lastReplyTs: 5 }) && M.hasAuthorReply({ userReplyTs: 9 }) && !M.hasAuthorReply({ userReplyTs: 5, lastReplyTs: 9 }) && !M.hasAuthorReply({}),
     '§6 관리자 «✍ 글쓴이 답글» = 운영자 마지막 답변보다 뒤');
 
