@@ -19,6 +19,7 @@ import {
   commentSummary,
   hasAuthorReply,
   isOpen,
+  BUG_STATUS,
   listBugPage,
   shortNo,
   statusWrite,
@@ -269,6 +270,16 @@ describe('글쓴이 답글 · 해결 안 됨', () => {
     expect(toBugItem('p1', row(DAY, { status: 'unfixed' }))?.status).toBe('unfixed');
     expect(statusWrite(item({ status: 'fixed', openTs: undefined }), 'unfixed')).toEqual({
       'bugBoard/list/p1/status': 'unfixed',
+      'bugBoard/list/p1/openTs': DAY + 1000,
+      'bugBoard/list/p1/doneTs': null,
+    });
+  });
+
+  it('«검토중»(review) 은 관리자 상태 · 미해결 — openTs 를 되살리고 해결 시각을 지운다', () => {
+    expect(BUG_STATUS.review).toBe('검토중');
+    expect(isOpen('review')).toBe(true);
+    expect(statusWrite(item({ status: 'fixed', openTs: undefined }), 'review')).toEqual({
+      'bugBoard/list/p1/status': 'review',
       'bugBoard/list/p1/openTs': DAY + 1000,
       'bugBoard/list/p1/doneTs': null,
     });
