@@ -1,4 +1,4 @@
-/* sim-rules-drift.js — 🔀 판끼리 DB 규칙 어긋남(scripts/rules-drift.js · 워크플로 checks.yml 의 «판끼리 DB 규칙»)
+/* sim-rules-drift.js — 판끼리 DB 규칙 어긋남(scripts/rules-drift.js · 워크플로 checks.yml 의 «판끼리 DB 규칙»)
    실행:  node checks/run.js rules-drift   (git 이 있어야 한다)
    ★ 왜 — 판마다 따로 고친 규칙을 다음 판으로 손으로 옮기다 잊으면, 뒤 판 규칙을 배포하는 순간 앞 판 기능이 막힌다.
      이 비교가 «빠짐» 을 놓치거나 «뒤 판이 일부러 다시 고친 것» 을 빠짐으로 잘못 잡으면 경고를 믿을 수 없게 된다.
@@ -114,6 +114,11 @@ try {
   const nw = M.scan({ cwd: fx.clone, target: 'release/0.14.0', ref: 'HEAD' });
   chk(nw.results.length > 0 && nw.results.every(x => x.to === 'release/0.14.0'), '원격에 아직 없는 새 판 이름도 --ref 로 본다');
   chk(throws(() => M.scan({ cwd: fx.clone, target: 'feat/x', ref: 'HEAD' })), '판 이름이 아닌 --target 은 거절');
+  fx.put('firebase/firebase-database-rules.json', '{ "rules": { 깨짐', fx.clone);
+  fx.commit('broken', fx.clone);
+  let msg = '';
+  try { M.rulesAt((...a) => require('child_process').execFileSync('git', a, { cwd: fx.clone, encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'] }), 'HEAD'); } catch (e) { msg = e.message; }
+  chk(msg.includes('HEAD:firebase/firebase-database-rules.json'), `규칙 파일이 깨졌으면 «어느 판 · 어느 파일» 을 말하고 던진다 → ${msg.slice(0, 60)}`);
   const empty = path.join(fx.d, 'e');
   fx.g(`git init -q "${empty}"`, fx.d);
   chk(throws(() => M.scan({ cwd: empty })), '판 브랜치가 하나도 없으면 «보지 못함»(빈 결과로 통과시키지 않음)');

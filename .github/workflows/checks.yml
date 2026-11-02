@@ -181,7 +181,7 @@ jobs:
 
   # 판끼리 DB 규칙 — 앞 판(먼저 나갈 판 · main)에서 바꾼 규칙이 이 판에도 들어갔는가(scripts/rules-drift.js · 검사 sim-rules-drift.js).
   # 어긋나도 막지 않고 경고 · 요약으로 알린다: 앞 판 규칙을 옮기는 PR 이 머지되기 전엔 늘 잠깐 어긋나서, 막으면 그 판의 상관없는 PR 이 모두 빨강이 된다.
-  # 다른 판 머리를 읽어야 해서 «바뀐 폴더» 와 상관없이 판 브랜치 push · 판 브랜치로 가는 PR 마다 돈다(1분 안쪽). 보지 못했으면(판 없음 · 규칙 못 읽음) 빨강.
+  # 다른 판 머리를 읽어야 해서 «바뀐 폴더» 와 상관없이 판 브랜치 push · 판 브랜치로 가는 PR 마다 돈다. 보지 못했으면(판 없음 · 규칙 못 읽음) 빨강.
   rules-drift:
     name: 판끼리 DB 규칙
     if: (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')) || (github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/'))
