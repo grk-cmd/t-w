@@ -9059,7 +9059,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
      실제로 openFriendHomeView 가 이 함수를 안 불러서 마이홈이 380px 창 밖으로 나갔다(제보).
      오버레이의 .on 이 곧 "지금 마이홈이 떠 있다"이므로 그걸 직접 본다 — 새 진입 경로가 생겨도
      플래그를 세우는 것을 잊었다는 이유로 창 크기가 틀리는 일이 없어진다.
-     ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것. */
+     ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것(방 찾기 창은 아래 클래스 감시가 부른다). */
   const mhOv = document.getElementById('myHomeOverlay');
   const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
   /* 🚪 방 찾기 · 만들기 창도 마이홈 창 크기를 같이 쓴다(두 칸 배치 · 창 자리 기억도 같이) — 스티커 여백은 마이홈만 */

@@ -385,6 +385,28 @@ await sec('── 7. 런처에서도 창 밖 스티커가 그 자리에 보이�
     '★ 다시 그릴 때(두 갈래) · 크기 · 회전 핸들을 놓을 때 창 크기를 다시 맞춘다');
   chk(/const extra = \(mode === 'myhome' && mhOn\) \? _mhStickerOverhang\(\) : null;/.test(APP) && /companion\.setConfigMode\(config, mode, extra\)/.test(APP),
     '  런처 마이홈일 때만 넘친 만큼을 같이 보낸다(같은 크기를 빌려 쓰는 방 찾기 창은 여백 0)');
+  // 🚪 방 찾기 창(#inviteOverlay)도 런처에서는 마이홈 크기 — applyDesktopRunClass 를 떼어 가짜 DOM 위에서 부른다
+  const runCls = (body, st) => {
+    const el = (on) => ({ classList: { contains: (c) => c === 'on' && !!on } });
+    const els = { launcher: el(st.launcher), myHomeOverlay: el(st.mh), inviteOverlay: el(st.inv) };
+    const calls = [], companion = { setConfigMode: (...a) => calls.push(a) };
+    const f = new Function('document', 'window', 'companion', 'desktopMode', 'myHomeOpen', 'creatorOpen', 'appMode', '_mhStickerOverhang', 'mhStLayoutMod',
+      body + '\napplyDesktopRunClass();');
+    const over = () => ({ x: 30, y: 0 });
+    f({ getElementById: (id) => els[id], body: { classList: { toggle(){} } } }, { companion }, companion, true, false, !!st.creator, 'run', over, { _mhStickerOverhang: over });
+    return calls[0] || [];
+  };
+  const dr = (APP.match(/function applyDesktopRunClass\(\)\{[\s\S]*?\n\}/) || [''])[0];
+  const modeOf = (body, st) => { try{ const c = runCls(body, st); return c[1] + (c[2] ? '+여백' : ''); }catch(e){ return '던짐 ' + e.message; } };
+  const cases = [[{ launcher: 1 }, 'launcher'], [{ launcher: 1, inv: 1 }, 'myhome'], [{ launcher: 1, mh: 1 }, 'myhome+여백'],
+    [{ launcher: 1, mh: 1, inv: 1 }, 'myhome+여백'], [{ inv: 1 }, 'run'], [{ launcher: 1, inv: 1, creator: 1 }, 'creator']];
+  const got = cases.map(([st]) => modeOf(dr, st));
+  chk(!!dr && cases.every(([, want], i) => got[i] === want),
+    '★ 창 모드 — 런처 · 방 찾기는 myhome(여백 없음) · 마이홈만 여백 · 실행 화면은 run · 생성기 우선 (' + got.join(' / ') + ')');
+  const broken = dr.replace('(mhOn || inviteOn) && launcherOn', 'mhOn && launcherOn');
+  chk(broken !== dr && modeOf(broken, { launcher: 1, inv: 1 }) === 'launcher', '  깨 보기 — inviteOn 을 빼면 방 찾기 창이 런처 크기로 돌아간다(빨강이 난다)');
+  const obsRe = /new MutationObserver\(applyDesktopRunClass\)\.observe\(document\.getElementById\('inviteOverlay'\), \{ attributes:true, attributeFilter:\['class'\] \}\);/;
+  chk(obsRe.test(APP) && !obsRe.test(APP.replace(obsRe, '')), '★ 방 찾기 창을 여닫으면(클래스 변화) 창 크기를 다시 맞춘다 — 감시 한 줄 · 깨 보기: 지우면 빨강');
   // main.js — 받은 만큼 양쪽으로 넓히고 마이홈을 제자리에
   const MAIN = read('main.js'), PRE = read('preload.js');
   if(!MAIN || !PRE){ chk(false, 'main.js · preload.js 를 찾았다'); return; }

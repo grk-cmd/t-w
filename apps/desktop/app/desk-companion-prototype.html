@@ -1719,7 +1719,6 @@
   #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:8px;}
   #lobbyMain .lb-grow{flex:1;}
   #lobbyMain .lb-page{min-width:44px;text-align:center;font-size:12px;color:var(--ink);}
-  #lobbyMain[hidden]{display:none;}
   /* 방 만들기 창(room-create-ui.js) · 방 안 [방 설정](room-info-ui.js) 공용 칸(.rc-form) — 입력칸 · 버튼은 .code-pass · .code-btns 를 쓰고, 여기는 배치와 글자만(베젤 없음 · audit 검사 12 대상 아님). */
   .rc-form .rc-row{margin-bottom:10px;}
   .rc-form .rc-lbl{display:block;font-size:12px;font-weight:bold;color:var(--ink);margin-bottom:5px;}
@@ -8148,7 +8147,6 @@
     <p>같은 방 코드로 연결하면, 서로의 시메지가 옆자리에 나타나 상태를 실시간으로 공유해요.(최대 <span data-tw-max-people>10</span>명)</p>
     <div id="inviteIdle">
       <!-- 🗂️ 방 목록 로비(room/room-lobby-ui.js) — 목록은 서버 함수가 1분마다 만드는 사본(roomLobby)을 모달을 열 때 · 새로 고침 · 60초마다 읽는다
-           두 칸: 왼쪽 방 목록(.lb-main) · 오른쪽 내 시크릿룸 · 만들기 · 빠른시작 · 코드 입력 · 후원(.lb-side).
            ⚠️ 코드 칸(#inviteJoinPanel)도 로비 안에 둔다 — [방 만들기] 창(room-create-ui.js)이 둘을 같이 숨긴다. -->
       <div id="lobbyMain">
         <div class="lb-main">
