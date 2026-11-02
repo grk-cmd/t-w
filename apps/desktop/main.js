@@ -4100,6 +4100,9 @@ if (!gotLock) {
     }
   });
 
+  /* 맥 Dock 클릭(activate)은 whenReady 가 웹 캐시 비우기를 기다리는 동안에도 온다 — 그때 창을 만들면
+     설정 · 메뉴 전에 창이 서고 whenReady 가 또 만들어 창이 둘이 된다. 첫 창은 whenReady 만 만든다. */
+  let _bootDone = false;
   app.whenReady().then(async () => {
     /* 🧹 창을 띄우기 전에 — 깨진 웹 캐시가 남아 있어도 업데이트하면 풀리게(http-cache-reset.js) */
     await createHttpCacheReset({ fs, path, dir: app.getPath('userData'), version: app.getVersion(), session: session.defaultSession, log: _diagLog }).run();
@@ -4111,6 +4114,7 @@ if (!gotLock) {
     FOCUS_APPS_FILE = path.join(app.getPath('userData'), 'focus-apps.json');
     focusApps = loadFocusApps();   // ★ 이전에 등록해둔 포커싱 어플 복원
     _applyAppMenu();   // 기본 메뉴 걷기 — 창보다 먼저(APP_MENU_TEMPLATE 주석)
+    _bootDone = true;
     createWindow();
     /* 🖥️ 화면 구성을 한 줄 남긴다 — createWindow 뒤에 부른다(그래야 오버레이가 어디에 뜨는지 함께 나온다).
        제보자마다 배율·화면 수를 물어보지 않아도 되게 하는 것이 목적이다. */
@@ -4122,6 +4126,7 @@ if (!gotLock) {
   });
 
   app.on('activate', () => {
+    if (!_bootDone) return;
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 }

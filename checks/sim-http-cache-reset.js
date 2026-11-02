@@ -2,7 +2,7 @@
    [왜] 웹 캐시에 깨진 응답이 남으면 앱이 서버에 다시 묻지 않고 그것만 꺼내 책상 · 장신구(E-CHAR-14)와 썸네일이 계속 안 떴다.
    ・1절: 버전이 바뀐 뒤 첫 실행에만 비운다 · 같은 버전이면 안 비운다 · 표시 파일 · 못 비우면 표시를 안 남김 · 오래 걸리면 기다리기를 그만둠
    ・2절: 책상 · 장신구 GLB 받기는 웹 캐시를 거치지 않는다(fetch cache: 'no-store') — firebase-init.js 의 함수를 떼어 돌린다
-   ・3절: 배선 — main.js 가 창을 띄우기 전에 부른다 · 설치 목록(package.json files)
+   ・3절: 배선 — main.js 가 창을 띄우기 전에 부른다 · 그동안 맥 activate 가 창을 먼저 만들지 않는다 · 설치 목록(package.json files)
    ・4절: 깨 보기
    [실행] 러너 스테이징(평평한 폴더) 또는 checks/ 에서. */
 'use strict';
@@ -63,6 +63,20 @@ async function glbFetch(src){
   const b64 = await api.fetchCatalogGlb('https://x/o/a.glb?alt=media');
   return { b64, calls };
 }
+/* main.js 의 activate 처리기를 떼어 «부팅 끝났나» 에 따라 창을 만드는지 돌린다 */
+function activateOf(src){
+  const m = /app\.on\('activate', \(\) => \{\n([\s\S]*?)\n  \}\);/.exec(src);
+  if(!m) return null;
+  return (bootDone, nWin) => { let made = 0;
+    new Function('_bootDone', 'BrowserWindow', 'createWindow', m[1])(bootDone, { getAllWindows: () => new Array(nWin) }, () => { made++; });
+    return made; };
+}
+/* whenReady 안에서 _bootDone = true 가 await 뒤 · createWindow 바로 앞에 있는가 */
+function bootOrderOk(src){
+  const i = src.indexOf('app.whenReady().then('); if(i < 0) return false;
+  const iAwait = src.indexOf('await createHttpCacheReset(', i), iSet = src.indexOf('_bootDone = true;', i), iWin = src.indexOf('createWindow();', i);
+  return /let _bootDone = false;/.test(src) && iAwait > i && iSet > iAwait && iWin > iSet;
+}
 
 (async () => {
   say('── 1. 버전이 바뀐 뒤 첫 실행에만 웹 캐시 비우기');
@@ -82,6 +96,9 @@ async function glbFetch(src){
   say('── 3. 배선');
   const iRun = MAIN.indexOf('createHttpCacheReset({'), iWin = MAIN.indexOf('createWindow();', MAIN.indexOf('app.whenReady().then('));
   chk(/require\('\.\/http-cache-reset'\)/.test(MAIN) && iRun > 0 && iWin > iRun && /await createHttpCacheReset\(\{[^\n]*session: session\.defaultSession[^\n]*\}\)\.run\(\);/.test(MAIN), 'main.js — 창을 띄우기 전에 기다려 부른다(기본 세션 · userData · 앱 버전)');
+  const act = activateOf(MAIN);
+  chk(!!act && act(false, 0) === 0 && act(true, 0) === 1 && act(true, 1) === 0, '★ 맥 Dock 클릭(activate) — 첫 창 전(웹 캐시 비우는 중)엔 창을 안 만든다 · 그 뒤 창이 없으면 만든다');
+  chk(bootOrderOk(MAIN), '  whenReady — 웹 캐시 비우기를 기다린 뒤 · createWindow 바로 앞에서 «부팅 끝» 표시');
   chk(/"http-cache-reset\.js"/.test(PKG), '설치 목록(package.json files)에 http-cache-reset.js — 빠지면 설치본이 켜지지 않는다');
 
   say('── 4. 깨 보기');
@@ -91,6 +108,10 @@ async function glbFetch(src){
   chk(!b2.fail, '비우기 전에 표시를 남기면 위 «못 비우면 표시를 안 남긴다» 가 빨강');
   const g2 = await glbFetch(FB.replace("await fetch(url, { cache: 'no-store' })", 'await fetch(url)'));
   chk(!!g2 && !(g2.calls[0][1] && g2.calls[0][1].cache === 'no-store'), "fetch 에서 cache: 'no-store' 를 빼면 위 2절이 빨강");
+  const act2 = activateOf(MAIN.replace("    if (!_bootDone) return;\n", ''));
+  chk(!!act2 && act2(false, 0) === 1, 'activate 의 «부팅 전엔 그만» 을 빼면 위 3절 ★ 가 빨강');
+  const early = MAIN.replace('    _bootDone = true;\n', '').replace(/(app\.whenReady\(\)\.then\(async \(\) => \{\n)/, '$1    _bootDone = true;\n');
+  chk(!bootOrderOk(early), '«부팅 끝» 을 웹 캐시 비우기 앞에 두면 위 3절이 빨강');
 
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
