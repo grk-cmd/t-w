@@ -845,6 +845,25 @@
         "$other": { ".validate": false }
       }
     },
+    "playlistPriv": {
+      "$userId": {
+        ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+        ".validate": "$userId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $userId !== 'undefined' && (!newData.exists() || (newData.hasChildren(['sets','editTs']) && newData.child('editTs').isNumber()))",
+        "editTs": { ".validate": true },
+        "sets": {
+          "$s": {
+            ".validate": "$s.matches(/^[0-2]$/)",
+            "name": { ".validate": "newData.isString() && newData.val().length <= 16" },
+            "items": {
+              "$i": { ".validate": "!$i.matches(/^(null|undefined|NaN)$/) && !$i.beginsWith(' ') && !$i.endsWith(' ') && (newData.hasChildren(['id']) && newData.child('id').isString() && newData.child('id').val().length <= 16 && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length <= 60)))" }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
     "mobileKeys": {
       "$userId": {
         ".read": false,

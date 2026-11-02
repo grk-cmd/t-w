@@ -729,15 +729,41 @@
          남겨두면 같은 곡 목록을 두 벌 쓰게 되어 쓰기가 계속 두 배다.
        ⚠️ n(색인)은 **세 벌 합계**다. fetchRandomPlaylist 가 n > 0 으로 사람을 거르므로,
          활성 프리셋만 세면 «빈 프리셋을 열어 둔 사람이 파도타기에서 사라지는» 옛 옆효과가 남는다. */
+    /* 🔒 잠근 프리셋(나만 보기) — 공개 노드에는 빈 자리(이름 · 곡 없음)로 두고, 이름 · 곡은 본인만 읽는 playlistPriv/{uid} 에.
+       users/{uid} 는 누구나 읽어서 그 아래에는 비밀 칸을 둘 수 없다(규칙 .read 는 위에서 내려온다).
+       @return { pub:[{name, items}…3], priv:{ "1":{name, items} } | null } */
+    _plSplitLocked(sets){
+      const pub = [], priv = {};
+      (Array.isArray(sets) ? sets : []).forEach((s, i)=>{
+        const name = String((s && s.name) || ''), items = (s && s.items) || [];
+        if(s && s.locked === true){ pub.push({ name: '', items: [] }); priv[i] = { name, items }; }
+        else pub.push({ name, items });
+      });
+      return { pub, priv: Object.keys(priv).length ? priv : null };
+    },
+    /* 받은 공개 세 벌 + 본인 칸(playlistPriv/{uid} 값) → 잠근 자리에 이름 · 곡을 되돌리고 locked 표시 */
+    _plMergeLocked(sets, privVal){
+      const out = (Array.isArray(sets) ? sets : []).slice();
+      const ps = (privVal && privVal.sets && typeof privVal.sets === 'object') ? privVal.sets : null;
+      if(!ps) return out;
+      Object.keys(ps).forEach(k=>{
+        const i = Number(k), s = ps[k];
+        if(!(i >= 0 && i <= 2) || !s) return;
+        while(out.length <= i) out.push({ name: '', items: [] });
+        out[i] = { name: (typeof s.name === 'string') ? s.name : '', items: s.items ? Object.values(s.items).filter(x => x && x.id) : [], locked: true };
+      });
+      return out;
+    },
     async publishMyPlaylist(uid, name, sets, meta, editTs){
       try{
         const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();   // 고친 시각 — 다른 기기가 «어느 쪽이 나중인가» 를 가른다(editTs 칸 · 옛 앱은 이 칸을 안 써서 «모름» 이 된다)
         const m = meta || {};
-        const ss = (Array.isArray(sets) ? sets : []).map(s => ({
-          name: String((s && s.name) || ''),
-          items: (s && s.items) || [],
-        }));
-        const total = ss.reduce((n, s) => n + s.items.length, 0);
+        const { pub: ss, priv } = this._plSplitLocked(sets);
+        /* 🔒 본인 칸을 먼저 쓴다 — 못 쓰면 공개 노드도 안 쓴다(잠근 곡이 «빈 자리» 로 사라지지 않게 · 다음 저장 때 다시).
+           잠근 프리셋이 없으면 본인 칸을 지운다 — 규칙이 아직 없는 서버면 지우기가 거절돼도 공개 노드는 예전처럼 쓴다. */
+        if(priv) await set(ref(db, `playlistPriv/${uid}`), { sets: priv, editTs: ts });
+        else { try{ await remove(ref(db, `playlistPriv/${uid}`)); }catch(_){} }
+        const total = ss.reduce((n, s) => n + s.items.length, 0);   // 공개 곡만 — 잠근 프리셋은 색인 · 거울에 안 낀다
         const mirror = (ss.find(s => s.items.length) || { items: [] }).items;
         await set(ref(db, `users/${uid}/playlist`), { sets: ss, items: mirror, ts, editTs: ts,
           bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
@@ -745,7 +771,7 @@
            친구 지목 파도타기(fetchPlaylistOf)는 노드를 직접 읽으므로 **그대로 들린다.**
            ★ 그게 의도다 — 모르는 사람에게는 안 열고, 친구에게는 연다.
            ⚠️ 노드의 곡 목록을 비우는 방식으로 막지 말 것. 그러면 친구 지목까지 같이 막힌다. */
-        if(m.private) await remove(ref(db, `playlistIndex/${uid}`));
+        if(m.private || !total) await remove(ref(db, `playlistIndex/${uid}`));   // 공개 곡이 없으면(전부 잠금) 무작위 파도타기에 안 건다
         else await set(ref(db, `playlistIndex/${uid}`), { name: String(name || '').slice(0, 20), n: total, ts });
         return true;
       }catch(e){ console.warn('[플레이리스트] 공개 실패', e); return false; }
@@ -761,6 +787,7 @@
         await set(ref(db, `users/${uid}/playlist`), { sets: [], items: [], ts, editTs: ts,
           bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
         await remove(ref(db, `playlistIndex/${uid}`));
+        try{ await remove(ref(db, `playlistPriv/${uid}`)); }catch(_){}   // 🔒 잠근 프리셋도 비었다
         return true;
       }catch(e){ console.warn('[플레이리스트] 공개 해제 실패', e); return false; }
     },
@@ -857,6 +884,12 @@
           const it = pv.items ? Object.values(pv.items).filter(x => x && x.id) : [];
           sets = [{ name:'', items: it }];
         }
+        /* 🔒 잠근 프리셋 — 본인 칸을 읽어 그 자리에 되돌린다. 거절(규칙이 아직 없는 서버)은 «잠근 것 없음».
+           그 밖의 실패는 못 읽음(null) — 빈 자리를 받아 이 기기의 잠근 곡을 덮지 않게 다시 시도한다. */
+        let privVal = null;
+        try{ privVal = (await get(ref(db, `playlistPriv/${uid}`))).val(); }
+        catch(e){ if(!/permission/i.test(String((e && (e.code || e.message)) || ''))) return null; }
+        sets = this._plMergeLocked(sets, privVal);
         return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic, ts: Number(pv.ts) || 0, editTs: Number(pv.editTs) || 0 };   // editTs 없음(옛 앱이 쓴 노드) = 고친 시각 모름
       }catch(e){ console.warn('[플레이리스트] 내 프리셋 읽기 실패', e); return null; }
     },

@@ -68,6 +68,75 @@ say('── 2. firebase-init');
     '비우기 — 노드를 지우지 않고 빈 목록 + 고친 시각 · 색인만 지운다(다른 기기가 옛 목록을 되살리지 않게)');
 }
 
+/* 2-2절은 비동기라 끝까지 기다린 뒤 결과를 적는다(아래 맨 끝) */
+const lockDone = (async () => {
+say('── 2-2. 🔒 잠근 프리셋(나만 보기) — 공개 노드엔 빈 자리 · 이름 · 곡은 본인 칸');
+{
+  const F = SRC['app/parts/firebase-init.js'];
+  const grab = (name, kw) => { const i = F.indexOf(kw + name + '('); if(i < 0) return ''; let k = F.indexOf('{', i), d = 0; for(; k < F.length; k++){ if(F[k] === '{') d++; else if(F[k] === '}' && --d === 0) return F.slice(i, k + 1).trim(); } return ''; };
+  const mkApi = (src, db) => {
+    const parts = [grab('_plSplitLocked', '    '), grab('_plMergeLocked', '    '), grab('publishMyPlaylist', '    async '), grab('removeMyPlaylist', '    async '), grab('fetchMyPlaylistSets', '    async ')];
+    if(parts.some(x => !x)) return null;
+    let code = parts.join(',\n');
+    if(src) code = src(code);
+    return new Function('set', 'remove', 'get', 'ref', 'db', 'console', 'return {' + code + '};')(db.set, db.remove, db.get, (_d, p) => p, null, { warn(){} });
+  };
+  const fakeDb = (o) => {
+    const w = [], data = Object.assign({}, (o && o.data) || {});
+    return { w, data,
+      set: async (p, v) => { if(o && o.denyPriv && /^playlistPriv\//.test(p)) throw Object.assign(new Error('PERMISSION_DENIED'), { code: 'PERMISSION_DENIED' }); w.push(['set', p, v]); data[p] = v; },
+      remove: async (p) => { if(o && o.denyPriv && /^playlistPriv\//.test(p)) throw Object.assign(new Error('PERMISSION_DENIED'), { code: 'PERMISSION_DENIED' }); w.push(['remove', p]); delete data[p]; },
+      get: async (p) => { if(/^playlistPriv\//.test(p) && o && o.privErr) throw Object.assign(new Error(o.privErr), { code: o.privErr }); return { val: () => (p in data ? data[p] : null) }; } };
+  };
+  const S3 = [{ name: '공개', items: [{ id: 'a1', title: '하나' }] }, { name: '비밀', items: [{ id: 'b1', title: '둘' }, { id: 'b2' }], locked: true }, { name: '', items: [] }];
+  const run = async (src) => {
+    const r = {};
+    const db = fakeDb(); const A = mkApi(src, db); if(!A) return null;
+    r.ok = await A.publishMyPlaylist('U1', '나나', S3, { bio: '', homePublic: false, private: false }, 50);
+    const pubNode = db.data['users/U1/playlist'], priv = db.data['playlistPriv/U1'], idx = db.data['playlistIndex/U1'];
+    r.pubBlank = !!pubNode && pubNode.sets[1].name === '' && pubNode.sets[1].items.length === 0 && pubNode.sets[0].items.length === 1 && !JSON.stringify(pubNode).includes('b1') && !JSON.stringify(pubNode).includes('비밀');
+    r.priv = !!priv && priv.editTs === 50 && priv.sets[1].name === '비밀' && priv.sets[1].items.length === 2 && !priv.sets[0];
+    r.privFirst = db.w.findIndex(x => x[1] === 'playlistPriv/U1') < db.w.findIndex(x => x[1] === 'users/U1/playlist');
+    r.idx = !!idx && idx.n === 1;
+    const back = await A.fetchMyPlaylistSets('U1');
+    r.merge = !!back && back.sets[1].locked === true && back.sets[1].name === '비밀' && back.sets[1].items.length === 2 && back.sets[0].items.length === 1 && !back.sets[0].locked;
+    /* 잠근 것이 없으면 본인 칸을 지운다 · 규칙이 아직 없는 서버(거절)여도 공개 노드는 예전처럼 쓴다 */
+    const db2 = fakeDb({ denyPriv: true }); const B = mkApi(src, db2);
+    r.noLockDenied = (await B.publishMyPlaylist('U1', '나나', [S3[0], { name: '', items: [] }, { name: '', items: [] }], {}, 60)) === true && !!db2.data['users/U1/playlist'];
+    /* 잠근 것이 있는데 본인 칸을 못 쓰면 공개 노드도 안 쓴다(잠근 곡이 빈 자리로 사라지지 않게) */
+    const db3 = fakeDb({ denyPriv: true }); const C = mkApi(src, db3);
+    r.lockDenied = (await C.publishMyPlaylist('U1', '나나', S3, {}, 70)) === false && !db3.data['users/U1/playlist'];
+    /* 전부 잠금 → 무작위 파도타기 색인에서 뺀다 */
+    const db4 = fakeDb({ data: { 'playlistIndex/U1': { n: 3 } } }); const D = mkApi(src, db4);
+    await D.publishMyPlaylist('U1', '나나', [{ name: 'x', items: [{ id: 'z' }], locked: true }, { name: '', items: [] }, { name: '', items: [] }], {}, 80);
+    r.allLockedNoIdx = !db4.data['playlistIndex/U1'] && !!db4.data['playlistPriv/U1'];
+    /* 읽기 — 본인 칸 거절(규칙 없음)은 «잠근 것 없음», 그 밖의 실패는 못 읽음(null) */
+    const pubOnly = { 'users/U1/playlist': pubNode };
+    r.readDenied = !!(await mkApi(src, fakeDb({ data: pubOnly, privErr: 'PERMISSION_DENIED' })).fetchMyPlaylistSets('U1'));
+    r.readFail = (await mkApi(src, fakeDb({ data: pubOnly, privErr: 'NETWORK_ERROR' })).fetchMyPlaylistSets('U1')) === null;
+    return r;
+  };
+  const R = await run();
+  chk(!!R, '_plSplitLocked · _plMergeLocked · 올리기 · 비우기 · 읽기가 있다');
+  if(R){
+    chk(R.ok && R.pubBlank, '★ 공개 노드엔 잠근 프리셋이 빈 자리 — 이름 · 곡이 안 실린다(무작위 · 친구 파도타기 · 옛 앱 모두 못 본다)');
+    chk(R.priv && R.privFirst, '★ 이름 · 곡은 본인 칸(playlistPriv)에 — 공개 노드보다 먼저 쓴다');
+    chk(R.idx, '  색인 곡 수는 공개 곡만');
+    chk(R.merge, '★ 내 사본 읽기 — 본인 칸을 그 자리에 되돌리고 잠금 표시(다른 PC · 계정 이어받기도 세 벌 그대로)');
+    chk(R.noLockDenied, '  잠근 것이 없으면 본인 칸 지우기가 거절돼도(규칙 배포 전) 예전처럼 올린다');
+    chk(R.lockDenied, '★ 잠근 것이 있는데 본인 칸을 못 쓰면 공개 노드도 안 쓴다');
+    chk(R.allLockedNoIdx, '  전부 잠금이면 무작위 파도타기 색인에서 빠진다');
+    chk(R.readDenied && R.readFail, '  읽기 — 본인 칸 거절은 «잠근 것 없음» · 다른 실패는 못 읽음(null · 다시 시도)');
+    const b1 = await run(c => c.replace("if(s && s.locked === true){ pub.push({ name: '', items: [] }); priv[i] = { name, items }; }", "if(false){}"));
+    chk(b1 && !b1.pubBlank, '  깨 보기 — 잠근 프리셋을 공개 노드에 그대로 올리면 빨강');
+    const b2 = await run(c => c.replace("if(priv) await set(ref(db, `playlistPriv/${uid}`), { sets: priv, editTs: ts });", "if(priv) try{ await set(ref(db, `playlistPriv/${uid}`), { sets: priv, editTs: ts }); }catch(_){}"));
+    chk(b2 && !b2.lockDenied, '  깨 보기 — 본인 칸 실패를 삼키고 공개 노드를 쓰면 빨강');
+    const b3 = await run(c => c.replace('sets = this._plMergeLocked(sets, privVal);', ''));
+    chk(b3 && !b3.merge, '  깨 보기 — 읽을 때 본인 칸을 안 합치면 빨강');
+  }
+}
+})();
+
 say('── 3. 배선');
 {
   const H = SRC['app/desk-companion-prototype.html'], A = SRC['app/parts/app.js'];
@@ -93,6 +162,8 @@ say('── 4. 깨 보기');
   chk(b5 && !b5.delay, '다시 시도 간격에 상한이 없으면 1절이 빨강');
 }
 
-say('');
-say('결과 ' + pass + ' · ' + fail);
-process.exit(fail ? 1 : 0);
+lockDone.catch(e => chk(false, '2-2절을 못 돌았다 — ' + (e && e.message))).then(() => {
+  say('');
+  say('결과 ' + pass + ' · ' + fail);
+  process.exit(fail ? 1 : 0);
+});
