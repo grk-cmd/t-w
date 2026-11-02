@@ -261,7 +261,7 @@
 | **sim-focus-log.js** | 309 | **d8430d3d3ae0** |
 | **sim-chat-window.js** | 565 | **78283f58fb1c** |
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
-| **sim-api-public-reads.js** | 167 | **edfe9c42d20f** |
+| **sim-api-public-reads.js** | 189 | **20c9249609be** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 522 | **64a4ff6d3b5e** |
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
@@ -280,7 +280,7 @@
 | **sim-folder-free.js** | 190 | **b48c8b4f9389** |
 | **sim-chat-sfx.js** | 221 | **a989e31ff068** |
 | **sim-mac-update.js** | 212 | **dda6802135c3** |
-| **sim-focus-cap.js** | 335 | **a290c42c1e85** |
+| **sim-focus-cap.js** | 327 | **215d5e4b9868** |
 | **sim-focus-show.js** | 86 | **94e634cb488e** |
 | **sim-win-front.js** | 110 | **946f2d7cde7c** |
 | **sim-win-layers.js** | 203 | **cab1b61e089c** |

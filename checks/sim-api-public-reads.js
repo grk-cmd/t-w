@@ -128,6 +128,28 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     chk(!('fetchMyRank' in bare.fb) && !('fetchLeaderboardTop' in bare.fb), '  ↳ 없던 순위 함수를 새로 달지 않는다');
   }
 
+  say('── 4. 방 개수 · 랜덤 참여 후보');
+  {
+    const api = mkApi((p) => p === '/v1/rooms/count' ? { total: 9, workingroom: 6, togetherroom: 3, inclServer: true, source: 'roomStats', at: 1 }
+      : p.startsWith('/v1/rooms/random') ? { rooms: ['WORK-AAAA', 'SCRT-BBBB', 7, 'WORK-CCCC'] } : new Error('?'));
+    const { fb, log } = mkFb();
+    M.createApiPublicReads({ api }).wrap(fb);
+    const q = await fb.getRoomCounts({ quick: true });
+    chk(q.total === 9 && q.workingroom === 6 && q.togetherroom === 3 && q.inclServer === true && !('source' in q) && log.length === 0, '★ 화면 표시용(quick) — GET /v1/rooms/count → { total · workingroom · togetherroom · inclServer }');
+    const full = await fb.getRoomCounts();
+    const full2 = await fb.getRoomCounts({});
+    chk(full.FB === 1 && full2.FB === 1 && api.calls.filter((p) => p === '/v1/rooms/count').length === 1 && log.length === 2, '★ 정원 · 만들기 상한 검사(quick 아님)는 API 를 묻지 않고 늘 Firebase');
+    const r = await fb.findRandomRooms(12);
+    chk(api.calls.includes('/v1/rooms/random?channel=workingroom&limit=12') && r.join() === 'WORK-AAAA,WORK-CCCC', '★ 랜덤 참여 후보 — 워킹룸만 · limit · SCRT- · 이상한 값 빼기(들어가기 전 확인은 app.js 그대로)');
+    const e = mkFb(); M.createApiPublicReads({ api: mkApi(() => ({ rooms: [] })) }).wrap(e.fb);
+    chk((await e.fb.findRandomRooms(12)).length === 0 && e.log.length === 0, '  ↳ 빈 배열 = 후보 없음(Firebase 로 다시 가지 않음)');
+    const bad = mkFb(); M.createApiPublicReads({ api: mkApi(() => ({ total: 1, workingroom: -1, togetherroom: 0 })) }).wrap(bad.fb);
+    chk((await bad.fb.getRoomCounts({ quick: true })).FB === 1, '  ↳ 숫자가 이상하면 원래 함수');
+    const d = mkFb(); M.createApiPublicReads({ api: mkApi(() => ERR('request', 400, 'BAD_CHANNEL')) }).wrap(d.fb);
+    chk((await d.fb.findRandomRooms(12))[0] === 'WORK-FBFB' && d.log[0][1] === 12, '  ↳ 못 받으면(400 포함) 원래 함수(roomIndex)');
+  }
+
+  say('── 5. 실패 종류 — 모두 Firebase 길');
   {
     const kinds = [ERR('unavailable', 0, 'NETWORK'), ERR('unavailable', 0, 'TIMEOUT'), ERR('unavailable', 0, 'BACKOFF'), ERR('notReady', 503, 'CONFIG_NOT_READY'),
       ERR('unavailable', 503, 'RTDB_UNAVAILABLE'), ERR('request', 400, 'BAD_REQUEST'), ERR('auth', 401, ''), new TypeError('x')];
