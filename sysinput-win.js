@@ -180,7 +180,10 @@ async function getActiveWindow(){
     const p = w.path || '';
     let title = '';
     try{ title = w.getTitle() || ''; }catch(_){}
-    if(p) return { owner: { path: p, name: path.basename(p) }, title };
+    /* bounds — 앞 창이 모니터를 꽉 채웠는지(main 의 앞 창 진단 · shared/front-diag.js). 못 읽으면 null */
+    let bounds = null;
+    try{ bounds = w.getBounds() || null; }catch(_){}
+    if(p) return { owner: { path: p, name: path.basename(p) }, title, bounds };
     /* 경로가 비었다 — 관리자 권한 창이 앞에 있을 때의 모양(위 주석). 이름만 받아 온다. */
     const pid = Number(w.processId) || 0;
     const name = await _nameByPid(pid);
@@ -189,7 +192,7 @@ async function getActiveWindow(){
       _pidTold.add(pid);
       _log('[활성] 경로 못 읽음(관리자 권한 창) → tasklist 이름으로 판정: pid=' + pid + ' 이름=' + name);
     }
-    return { owner: { path: '', name }, title };
+    return { owner: { path: '', name }, title, bounds };
   }catch(_){ return null; }
 }
 

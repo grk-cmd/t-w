@@ -270,7 +270,9 @@ async function getActiveWindow(){
     const p = w.path || '';
     if(!p) return null;
     const title = _titleOf(p);   // 🛡️ w.getTitle() 금지 — 위 _titleOf 주석(크래시)
-    return { owner: { path: p, name: path.basename(p) }, title };
+    let bounds = null;   // 앞 창 진단(win 판과 같은 모양) — 못 읽으면 null
+    try{ bounds = w.getBounds() || null; }catch(_){}
+    return { owner: { path: p, name: path.basename(p) }, title, bounds };
   }catch(_){ return null; }
 }
 
