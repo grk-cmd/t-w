@@ -82,7 +82,7 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 145 | **26df0415ed74** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 468 | **fda03d8b0c1e** |
+| **sim-bug-board.js** | 470 | **c56f025940b8** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
@@ -274,8 +274,8 @@
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 700 | **14b44af915bd** |
-| **sim-playlist.js** | 1026 | **51911651f07c** |
-| **sim-playlist-api.js** | 277 | **ac9a35ff6194** |
+| **sim-playlist.js** | 1062 | **3f0b76cd410d** |
+| **sim-playlist-api.js** | 307 | **f8441a9d1075** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-mail-feed.js** | 323 | **1b05d4407db7** |
 | **sim-notice-api.js** | 159 | **39c7ae06eabd** |
@@ -410,7 +410,7 @@
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** |
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
-| **sim-seat-layout.js** | 172 | **6f339dcee0bc** |
+| **sim-seat-layout.js** | 191 | **642f582b8ae0** |
 | **sim-seat-refit.js** | 182 | **864d3b36827b** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 159 | **7ee3787c0a8c** |
