@@ -14,6 +14,12 @@
   color: var(--accent);
 }
 
+/* 관리자가 건의를 검토 중 — 확인 중과 갈리게 점선 */
+.review {
+  color: var(--accent);
+  border-style: dashed;
+}
+
 .fixed {
   color: var(--ok);
 }

@@ -120,7 +120,7 @@ function mkEnv(o){
     env.t = end;
   };
   const api = o.noApi ? undefined : {
-    publishMyPlaylist: async (uid, name, sets, meta, ts) => { env.pubTs = ts; env.calls.push('publish ' + uid + ' ' + name + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); return true; },
+    publishMyPlaylist: async (uid, name, sets, meta, ts) => { env.pubTs = ts; env.lastSets = sets; env.calls.push('publish ' + uid + ' ' + name + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); return true; },
     removeMyPlaylist: async (uid, meta, ts) => { env.pubTs = ts; env.calls.push('removePl ' + uid + ' ' + JSON.stringify(meta)); return true; },
     fetchPlaylistCard: async (uid) => { env.calls.push('card ' + uid); return env.cards[uid] || null; },
     fetchRandomPlaylist: async (me, ex) => { env.calls.push('random ' + me + ' ' + ex); return env.randomPl || null; },
@@ -310,6 +310,35 @@ async function behave(src){
     const e = E({ noCompanion: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
     m.playFrom(0);
     chk(m.state().now === -1 && e.toasts[0] === '이 기능은 앱을 재시작한 후에 사용할 수 있어요', 'companion 이 없으면(옛 preload) 재생하지 않고 알린다');
+  }
+
+  say('── 4-2. 🔒 프리셋 나만 보기');
+  {
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(2), songs(1, 'b')) } }); const m = e.mk();
+    m.markSynced();
+    e.byId.myPlBtn.fire('click');
+    e.byId.myPlSetBtn.fire('click');
+    const rows = () => e.byId.myPlSetPick.children;
+    const lk = (i) => rows()[i] && rows()[i].querySelector('lk');
+    chk(rows().length === 3 && lk(1) && lk(1).textContent === '🔓' && !lk(1).classList.contains('on'), '프리셋 줄마다 자물쇠 — 처음엔 공개(🔓)');
+    lk(1).fire('click');
+    const saved = JSON.parse(e.store.get('tw.playlistSets'));
+    chk(m.state().sets[1].locked === true && m.state().cur === 0 && lk(1).textContent === '🔒' && lk(1).classList.contains('on'),
+        '  누르면 나만 보기(🔒) · 줄 클릭(프리셋 갈아타기)은 같이 안 먹는다');
+    chk(saved[1].locked === true && !('locked' in saved[0]) && !('locked' in saved[2]), '  저장값 — 잠근 프리셋에만 locked 칸(안 쓰는 사람 저장값은 그대로)');
+    await e.advance(3100);
+    chk(e.count('publish') === 1 && e.lastSets[1].locked === true && e.lastSets[1].items.length === 1 && !('locked' in e.lastSets[0]),
+        '  올리기 — 잠금 표시와 곡을 같이 넘긴다(공개 · 본인 칸 나누기는 firebase-init)');
+    lk(1).fire('click');
+    chk(!m.state().sets[1].locked && lk(1).textContent === '🔓', '  다시 누르면 공개');
+    await e.advance(3100);
+    chk(e.count('publish') === 2 && !('locked' in e.lastSets[1]), '  공개로 돌리면 다시 올린다(지문에 잠금이 낀다)');
+    const n = m.normalizeSets ? m.normalizeSets([{ name: 'a', items: [], locked: true }, { name: 'b', items: [], locked: 'yes' }]) : null;
+    if(n) chk(n[0].locked === true && !('locked' in n[1]), '  정규화 — true 만 잠금으로 받는다');
+    e.randomPl = { uid: 'U9', name: '하늘', items: songs(2, 'h'), setName: '' };
+    e.byId.myPlPeek.fire('click'); await flush(); await flush();
+    e.byId.myPlSetBtn.fire('click');
+    chk(!rows().some(r => r.querySelector('lk')), '  남의 목록(파도타기)에서는 자물쇠가 없다');
   }
 
   say('── 5. 파도타기 · 담기 · 비공개 · 서버 사본');
