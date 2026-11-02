@@ -1453,9 +1453,9 @@ let _pollTimer = null;
 let _activeWinFailStreak = 0;
 /* 🩺 메인 멈춤 · 활성 창 조회 시간을 1분에 한 줄(느린 것이 있을 때만 — shared/input-diag.js).
    맥 전역 키 훅은 키마다 main 스레드에 묻고 기다리므로, 여기서 잰 멈춤이 곧 키가 밀린 시간이다. */
-const _frontWatch = FrontDiag.createFrontWatch();
 const _lagWatch = InputDiag.createLagWatch({ now: () => Date.now(), log: (m) => _diagLog(m), front: () => lastActiveState.exeName });
 let _lagTimer = null;
+const _frontWatch = FrontDiag.createFrontWatch();   // 🩺 앞 창 · 전체화면 비율 — 1분 [프레임] 줄 꼬리(shared/front-diag.js)
 function startActiveWinPolling(){
   if(_pollTimer) return;
   _lagTimer = setInterval(() => _lagWatch.tick(), InputDiag.LAG_TICK_MS);
