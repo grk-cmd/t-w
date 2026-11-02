@@ -25,7 +25,7 @@ export const BUG_NO_RE = /^B-\d{4}-\d{1,4}$/;
 
 export type BugVis = 'pub' | 'prv';
 export type BugStatus = 'new' | 'checking' | 'review' | 'fixed' | 'norepro' | 'unfixed';
-export type BugFilter = 'open' | 'all' | 'notice';
+export type BugFilter = 'open' | 'suggest' | 'all' | 'notice';
 
 export const BUG_STATUS: Record<BugStatus, string> = {
   new: '접수',
@@ -52,11 +52,18 @@ export const BUG_CATS: Record<string, string> = {
 
 export const BUG_FILTERS: { id: BugFilter; label: string; key: 'openTs' | 'ts' | 'nts' }[] = [
   { id: 'open', label: '미해결', key: 'openTs' },
+  // 미해결 중 «건의» 만 — 규칙이 분류로 거르는 쿼리를 안 받아 미해결 쪽을 받아 거른다(api listSuggestPage)
+  { id: 'suggest', label: '미해결 건의', key: 'openTs' },
   { id: 'all', label: '전체', key: 'ts' },
   { id: 'notice', label: '공지', key: 'nts' },
 ];
 
 export const filterKey = (filter: BugFilter) => BUG_FILTERS.find((f) => f.id === filter)?.key ?? 'ts';
+
+export const BUG_SUGGEST_CAT = 'suggest';
+export const isSuggestion = (it: BugItem) => it.cat === BUG_SUGGEST_CAT;
+/** «미해결 건의» 한 화면에서 거슬러 받을 미해결 쪽 수 상한 — 한 쪽 20줄이라 최대 100줄을 본다. */
+export const SUGGEST_SCAN_PAGES = 5;
 
 export interface BugItem {
   id: string;
@@ -101,7 +108,8 @@ export interface BugAnswer {
   st?: BugStatus;
 }
 
-export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
+export const isOpen = (st: BugStatus) =>
+  st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
 
 /** 운영자의 마지막 답변 뒤에 글쓴이 답글이 있다 — 관리자가 볼 차례. */
 export const hasAuthorReply = (item: Pick<BugItem, 'userReplyTs' | 'lastReplyTs'>) =>

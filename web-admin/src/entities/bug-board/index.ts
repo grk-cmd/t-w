@@ -65,6 +65,8 @@ export {
   commentSummary,
   hasAuthorReply,
   isOpen,
+  isSuggestion,
+  SUGGEST_SCAN_PAGES,
   KAKAO_RE,
   shortNo,
   statusWrite,
