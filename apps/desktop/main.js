@@ -1,4 +1,4 @@
-const { app, BrowserWindow, BrowserView, Menu, screen, ipcMain, shell, powerMonitor, dialog } = require('electron');
+const { app, BrowserWindow, BrowserView, Menu, screen, ipcMain, shell, powerMonitor, dialog, session } = require('electron');
 const path = require('path');
 const fs = require('fs');
 // ── 전역 입력 훅·활성 창 감지는 sysinput-win.js 로 옮겼다 ──
@@ -26,6 +26,7 @@ function _pkgFirebaseEnv(){ try{ return require('./package.json').twFirebase || 
 if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-working-dev)로 실행');
 // 🔒 개발자 도구 — 설치본에서는 막고 관리자 모드 창에서만 연다(devtools-gate.js). 개발 실행 · dev 빌드는 늘 연다.
 const { createDevtoolsGate } = require('./devtools-gate');
+const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
 const devtoolsGate = createDevtoolsGate({ packaged: app.isPackaged, env: FIREBASE_ENV });
 // 렌더러(admin/admin-mode.js)가 관리자 모드를 켜고 끌 때 알린다 — 메인 창이 보낸 것만 받는다
 ipcMain.on('companion:setAdminMode', (e, on) => {
@@ -4099,7 +4100,9 @@ if (!gotLock) {
     }
   });
 
-  app.whenReady().then(() => {
+  app.whenReady().then(async () => {
+    /* 🧹 창을 띄우기 전에 — 깨진 웹 캐시가 남아 있어도 업데이트하면 풀리게(http-cache-reset.js) */
+    await createHttpCacheReset({ fs, path, dir: app.getPath('userData'), version: app.getVersion(), session: session.defaultSession, log: _diagLog }).run();
     SETTINGS_PATH = path.join(app.getPath('userData'), 'tw-settings.json');
     loadSettings();   // ★ 이전에 선택해둔 모니터 등 복원
     /* 📄 없으면 지금 만든다 — 반드시 loadSettings **뒤**에 부를 것. 앞에서 부르면 파일에 들어

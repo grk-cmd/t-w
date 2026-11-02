@@ -39,6 +39,7 @@
       "pad-xinput.js",
       "hover-poke.js",
       "devtools-gate.js",
+      "http-cache-reset.js",
       "oauth-config.js",
       "app/**/*"
     ],
