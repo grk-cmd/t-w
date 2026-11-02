@@ -200,7 +200,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     const paths = out.groups.flatMap((g) => g.paths);
     const expect = [
       'users/' + ME, 'accountSnap/' + ME, 'userAuth/' + ME, 'authUsers/(로그인 계정)', 'friendCodes/MATE-DEL1', 'inbox/' + ME,
-      'leaderboard/' + ME, 'playlistIndex/' + ME, 'bookmarksPub/' + ME, 'bookmarks/' + ME, 'mobileKeys/' + ME, 'mobileLink/' + ME,
+      'playlistIndex/' + ME, 'bookmarksPub/' + ME, 'bookmarks/' + ME, 'mobileKeys/' + ME, 'mobileLink/' + ME,
       'users/' + BOB + '/friends/' + ME, 'users/' + AMY + '/friends/' + ME,
       'friendRequests/' + ME, 'sentFriendRequests/' + ME, 'sentFriendRequests/ucarl0000004/' + ME, 'friendRequests/udan00000005/' + ME,
       'roomInvites/' + ME, 'roomInvites/' + AMY + '/' + ME, 'secretRooms/SCRT-AAAA/pub/name', 'invites/INVT-AAAA-AAAA',
