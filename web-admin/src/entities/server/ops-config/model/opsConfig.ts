@@ -28,7 +28,6 @@ export const API_CACHE: IntGroup = {
     { key: 'config', label: '원격 설정 /v1/config', min: 0, max: 600, def: 30, unit: '초' },
     { key: 'count', label: '방 개수 /v1/rooms/count', min: 0, max: 600, def: 15, unit: '초' },
     { key: 'card', label: '명함 /v1/users/…/card', min: 0, max: 600, def: 60, unit: '초' },
-    { key: 'leaderboard', label: '랭킹 /v1/leaderboard', min: 0, max: 600, def: 60, unit: '초' },
   ],
 };
 
