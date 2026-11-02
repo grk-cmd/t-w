@@ -4488,6 +4488,10 @@
   #myPlSetPick .psRow .nm{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;}
   #myPlSetPick .psRow .nm.empty{color:var(--ink-soft);}
   #myPlSetPick .psRow.cur .nm.empty{color:#fff;opacity:.8;}
+  /* 🔒 나만 보기 — 잠긴 줄은 자물쇠가 또렷하고, 공개 줄은 흐린 🔓(누를 수 있다는 표시만) */
+  #myPlSetPick .psRow .lk{flex:none;font-size:10px;line-height:1;cursor:pointer;opacity:.35;}
+  #myPlSetPick .psRow .lk:hover{opacity:.8;}
+  #myPlSetPick .psRow .lk.on{opacity:1;}
   /* ✏️ [수정] — 버튼 테두리를 주지 않는다(요청). 세 줄짜리 좁은 목록에 상자가
      셋 더 생기면 답답해진다 — 점선 밑줄이 유일한 신호다.
      ⚠️ 고른 줄(.cur)은 바탕이 진한 테마색이라 글자·밑줄을 흰색으로 뒤집는다. */
