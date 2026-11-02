@@ -729,8 +729,7 @@
          남겨두면 같은 곡 목록을 두 벌 쓰게 되어 쓰기가 계속 두 배다.
        ⚠️ n(색인)은 **세 벌 합계**다. fetchRandomPlaylist 가 n > 0 으로 사람을 거르므로,
          활성 프리셋만 세면 «빈 프리셋을 열어 둔 사람이 파도타기에서 사라지는» 옛 옆효과가 남는다. */
-    /* 🔒 잠근 프리셋(나만 보기) — 공개 노드에는 빈 자리(이름 · 곡 없음)로 두고, 이름 · 곡은 본인만 읽는 playlistPriv/{uid} 에.
-       users/{uid} 는 누구나 읽어서 그 아래에는 비밀 칸을 둘 수 없다(규칙 .read 는 위에서 내려온다).
+    /* 🔒 잠근 프리셋(나만 보기)은 공개 노드에 빈 자리로, 이름 · 곡은 본인만 읽는 playlistPriv/{uid} 에 — users/{uid} 는 누구나 읽는다.
        @return { pub:[{name, items}…3], priv:{ "1":{name, items} } | null } */
     _plSplitLocked(sets){
       const pub = [], priv = {};
@@ -759,8 +758,7 @@
         const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();   // 고친 시각 — 다른 기기가 «어느 쪽이 나중인가» 를 가른다(editTs 칸 · 옛 앱은 이 칸을 안 써서 «모름» 이 된다)
         const m = meta || {};
         const { pub: ss, priv } = this._plSplitLocked(sets);
-        /* 🔒 본인 칸을 먼저 쓴다 — 못 쓰면 공개 노드도 안 쓴다(잠근 곡이 «빈 자리» 로 사라지지 않게 · 다음 저장 때 다시).
-           잠근 프리셋이 없으면 본인 칸을 지운다 — 규칙이 아직 없는 서버면 지우기가 거절돼도 공개 노드는 예전처럼 쓴다. */
+        // 🔒 본인 칸 먼저 — 못 쓰면 공개 노드도 안 쓴다(잠근 곡이 빈 자리로 사라지지 않게). 지우기 거절(규칙 없는 서버)은 무시.
         if(priv) await set(ref(db, `playlistPriv/${uid}`), { sets: priv, editTs: ts });
         else { try{ await remove(ref(db, `playlistPriv/${uid}`)); }catch(_){} }
         const total = ss.reduce((n, s) => n + s.items.length, 0);   // 공개 곡만 — 잠근 프리셋은 색인 · 거울에 안 낀다
@@ -882,8 +880,7 @@
           const it = pv.items ? Object.values(pv.items).filter(x => x && x.id) : [];
           sets = [{ name:'', items: it }];
         }
-        /* 🔒 잠근 프리셋 — 본인 칸을 읽어 그 자리에 되돌린다. 거절(규칙이 아직 없는 서버)은 «잠근 것 없음».
-           그 밖의 실패는 못 읽음(null) — 빈 자리를 받아 이 기기의 잠근 곡을 덮지 않게 다시 시도한다. */
+        // 🔒 본인 칸을 되돌린다 — 거절(규칙 없는 서버)은 «잠근 것 없음», 그 밖의 실패는 null(빈 자리로 이 기기 잠근 곡을 덮지 않게).
         let privVal = null;
         try{ privVal = (await get(ref(db, `playlistPriv/${uid}`))).val(); }
         catch(e){ if(!/permission/i.test(String((e && (e.code || e.message)) || ''))) return null; }
