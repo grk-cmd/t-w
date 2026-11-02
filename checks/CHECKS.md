@@ -447,6 +447,7 @@
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-wardrobe-place.js** | 54 | **6da1bc166c3c** |
+| **sim-install-desktop.js** | 116 | **0043224c7d5f** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
