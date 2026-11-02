@@ -30,12 +30,12 @@ export const BUG_CATS = [
   ['bug', '오류 · 멈춤'], ['ui', '화면 · 표시'], ['room', '방 · 접속'],
   ['chat', '채팅'], ['myhome', '마이홈'], ['suggest', '건의'], ['etc', '기타'],
 ];
-/* 상태 — 규칙(status 정규식)과 짝이다. unfixed 는 글쓴이가 «해결 안 됨» 으로 되돌린 글(미해결 목록에 낀다). */
-export const BUG_STATUS = { new: '접수', checking: '확인 중', fixed: '수정 완료', norepro: '재현 안 됨', unfixed: '해결 안 됨' };
+/* 상태 — 규칙(status 정규식)과 짝이다. unfixed 는 글쓴이가 «해결 안 됨» 으로 되돌린 글 · review 는 관리자가 건의를 «검토중» 으로 둔 글(둘 다 미해결 목록에 낀다). */
+export const BUG_STATUS = { new: '접수', checking: '확인 중', review: '검토중', fixed: '수정 완료', norepro: '재현 안 됨', unfixed: '해결 안 됨' };
 /* 글쓴이가 답글과 함께 고를 수 있는 상태 — 규칙 rep · list/status 의 글쓴이 갈래와 짝. 버튼 이름은 글쓴이 말투로. */
 export const BUG_AUTHOR_STATUS = [['checking', '확인 중'], ['unfixed', '해결 안 됨'], ['fixed', '해결 완료']];
 export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
-export const isOpenStatus = (st) => st === 'new' || st === 'checking' || st === 'unfixed';
+export const isOpenStatus = (st) => st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
 const OPEN = isOpenStatus;
 /* 관리자 목록 «✍ 글쓴이 답글» — 글쓴이 답글이 운영자의 마지막 답변보다 뒤. */
 export const hasAuthorReply = (it) => !!it && (it.userReplyTs || 0) > (it.lastReplyTs || 0);
