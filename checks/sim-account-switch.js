@@ -365,7 +365,9 @@ function part4(){
   /* firebase-init 쪽 실행 — get/ref 스텁 */
   try{
     const node = { sets: { 0:{ name:'A', items:{ 0:{id:'v1',title:'one'} } }, 1:{ name:'', items:{} }, 2:{ name:'C', items:{ 0:{id:'v3',title:'three'}, 1:{id:'v4'} } } }, bio:'hey', homePublic:true, items:{ 0:{id:'v1'} } };
-    const mk = (val) => new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => ({ val: () => val }), () => null, null, { warn(){} });
+    /* ref 는 경로를 그대로 돌려주고, get 은 공개 노드에만 val 을 준다 — 🔒 잠근 프리셋 본인 칸(playlistPriv)은 비어 있다 */
+    const fMerge = grabFn(FI, '_plMergeLocked', '    ');   // 객체 메서드라 들여쓰기로 찾는다
+    const mk = (val) => new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + ',' + fMerge + '}; return o.fetchMyPlaylistSets.bind(o);')(async (p) => ({ val: () => (/^playlistPriv\//.test(p) ? null : val) }), (_db, p) => p, null, { warn(){} });
     (async () => {
       const r = await mk(node)('uB');
       chk(r && r.sets.length === 3 && r.sets[0].items[0].id === 'v1' && r.sets[2].items.length === 2 && r.sets[1].items.length === 0, '★ 세 벌 그대로 (0:1곡 · 1:빈 · 2:2곡)');
@@ -374,7 +376,7 @@ function part4(){
       chk(r2 && r2.sets.length === 1 && r2.sets[0].items[0].id === 'old', '  sets 없는 옛 노드는 items 를 0번으로');
       const r0 = await mk(null)('uB');
       chk(r0 && r0.sets.length === 0 && r0.ts === 0, '  노드 없음 → 빈 목록(ts 0) — 못 읽음(null)과 가른다');
-      const rf = await new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + '}; return o.fetchMyPlaylistSets;')(async () => { throw new Error('x'); }, () => null, null, { warn(){} })('uB');
+      const rf = await new Function('get', 'ref', 'db', 'console', 'const o = {' + fSets + ',' + fMerge + '}; return o.fetchMyPlaylistSets.bind(o);')(async () => { throw new Error('x'); }, (_db, p) => p, null, { warn(){} })('uB');
       chk(rf === null, '  못 읽음 → null');
       /* app.js 쪽 실행 — 복원 함수 전체를 스텁 위에서 돌린다 */
       const fNorm = grabFn(SRC, '_plNormalizeSets'), fBlank = grabFn(SRC, '_plBlankSets'), fIdx = grabFn(SRC, '_plSetIdx'), fSig = grabFn(SRC, '_plPubSigOf');
