@@ -202,7 +202,7 @@
 | **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
-| **sim-signup.js** | 1597 | **0005d55d27d4** |
+| **sim-signup.js** | 1514 | **914630c6e225** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
@@ -261,7 +261,7 @@
 | **sim-focus-log.js** | 309 | **d8430d3d3ae0** |
 | **sim-chat-window.js** | 565 | **78283f58fb1c** |
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
-| **sim-api-public-reads.js** | 196 | **f5a6835717fb** |
+| **sim-api-public-reads.js** | 194 | **aa7403f3dfd3** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 522 | **64a4ff6d3b5e** |
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
@@ -296,7 +296,7 @@
 | **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 139 | **144912a9daf0** |
-| **sim-my-info.js** | 98 | **654e796c28d9** |
+| **sim-my-info.js** | 98 | **26deeed2c2b4** |
 | **sim-renderer-src.js** | 225 | **aaccee516bfd** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |

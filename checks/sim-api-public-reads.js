@@ -130,9 +130,7 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     chk(api.calls.includes('/v1/leaderboard/top?n=100') && top.length === 2 && top[1].sec === 40 && top[0].uid === 'uA' && !('rank' in top[0]) && log.length === 0, '  ↳ 100줄 — GET /v1/leaderboard/top?n=100 → [{uid,sec,ts}](원래 모양)');
     const f2 = mkFb(); M.createApiPublicReads({ api: mkApi(() => ERR('unavailable', 0, 'BACKOFF')) }).wrap(f2.fb);
     chk((await f2.fb.fetchLeaderboardTop())[0].FB === 1, '  ↳ 못 받으면 원래 함수(sec 정렬 100줄)');
-    const lf = takeFn(APP, 'async function _lbFetchRank('), rr = takeFn(APP, 'function _miRenderRank(');
-    chk(!!lf && /if\(firebaseAPI\.fetchMyRank\)\{ const r = await firebaseAPI\.fetchMyRank\(uid\); if\(r !== undefined\) return r; \}/.test(lf) && /rankOf\(rows, uid\)/.test(lf) && /_lbFetchRank\(uid\)/.test(rr || ''),
-      'app.js — 내 순위는 _lbFetchRank(API 한 줄 → 못 받으면 100줄 + rankOf) · 화면 함수는 그대로');
+    chk(!/async function _lbFetchRank\(|function _miRenderRank\(/.test(APP), 'app.js — [내 정보] 순위 칸은 걷었다(순위를 읽는 함수 없음 · 어댑터는 서버 정리 때 같이 걷는다)');
   }
 
   say('── 4. 방 개수 · 랜덤 참여 후보');

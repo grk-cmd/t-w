@@ -7737,12 +7737,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
 });
 /* ═══ 🏆 [내 정보] 전체 랭킹 1~100위 (시안 v2 B안 + 후광 ② 확정 · 2026-09-23 · CHECKS 개정 73 · handoff-ranking.md) ═══
-   ★ 기준은 누적 집중 시간 하나(회차 포함). 표시 레벨(myFocusShow)·해금 레벨(getFocusLevel)로 매기지 않는다 —
-     그렇게 하면 2회차 Lv.5 가 1회차 Lv.900 아래로 간다.
-   ★ 동점은 먼저 도달한 사람이 위(ts 오름). 서버는 같은 sec 를 키 순으로 주므로 받은 100줄을 여기서 다시 정렬한다.
-     100위 경계의 동점은 서버가 자른 대로다(허용).
-   ★ 100위 밖이면 자리를 비운다 — «100위 밖» 같은 글자도 쓰지 않는다(사용자 결정).
-   ★ 읽기는 [내 정보]를 열 때 한 번 · 60초 캐시. 실패하면 조용히 비운다. 내 기록은 10분 동기화에 실려 몇 분 늦을 수 있다. */
+   ★ [내 정보] 화면의 순위 칸은 걷었다 — 동기화 뒤 서버 총합을 leaderboard 에 올리는 일(_lbPush)만 남았다(서버 정리는 따로). */
 /* (앱 FSD 17번) 이 자리의 본문도 my-info.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 📤 계정 이전 / 연동 / 연동 해제 — [회원가입 설계 개정 15 · 16] 걷었다 ═══════════════════
@@ -9300,7 +9295,7 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
-focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
+focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 leaderboard 에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
 /* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다

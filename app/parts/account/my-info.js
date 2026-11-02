@@ -1,4 +1,4 @@
-/* my-info.js — 🪪 [내 정보] 화면 — 머리(사진 · 닉네임 · 레벨 별 색) · 🏆 전체 랭킹 · 보관함 · 휴지통 · 계정 탭 연결
+/* my-info.js — 🪪 [내 정보] 화면 — 머리(사진 · 닉네임 · 레벨 별 색) · 🏆 랭킹 누적초 올리기(화면은 걷음) · 보관함 · 휴지통 · 계정 탭 연결
    app.js «🪪 [내 정보] — 런처 화면 전환» · «🏆 [내 정보] 전체 랭킹 1~100위» 두 구역의 본문을 그대로 옮긴 모듈이다(앱 FSD 17번 — docs/APP_FSD_MAP.md).
    동작은 옮기기 전과 같다. 두 구역은 한 화면([내 정보] 페이지 — 머리 · 별 색 · 보관함 · 휴지통 · 이름 바꾸기 · 랭킹)이라 한 파일에 둔다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 15줄 —
@@ -118,26 +118,8 @@ function _miSetTab(tab){
   else _miRenderBox();
 }
 
-const LB_TOP_N = 100, LB_CACHE_MS = 60*1000;
-/* 순수 — rows: [{uid, sec, ts}] → 내 순위(1~100) | null */
-function rankOf(rows, uid){
-  if(!Array.isArray(rows) || !uid) return null;
-  const ok = rows.filter(r => r && typeof r.uid === 'string' && isFinite(Number(r.sec)));
-  const tsOf = r => { const t = Number(r.ts); return (isFinite(t) && t > 0) ? t : Infinity; };
-  ok.sort((a, b) => (Number(b.sec) - Number(a.sec)) || (tsOf(a) - tsOf(b)) || (a.uid < b.uid ? -1 : a.uid > b.uid ? 1 : 0));
-  const i = ok.slice(0, LB_TOP_N).findIndex(r => r.uid === uid);
-  return i < 0 ? null : i + 1;
-}
-/* 순수 — 순위 → 보일 모양. null = 자리 비움. 1~3위는 메달 + 큰 글자 · 1위만 왕관·후광. */
-function rankLabel(rank){
-  const n = Number(rank);
-  if(!Number.isInteger(n) || n < 1 || n > LB_TOP_N) return null;
-  const MED = { 1:'🥇', 2:'🥈', 3:'🥉' };
-  return { text: (MED[n] ? MED[n] + ' ' : '') + n + '위', top: n <= 3, crown: n === 1 };
-}
+/* 🏆 전체 랭킹 화면은 걷었다 — 서버 줄(leaderboard)은 아직 그대로라 누적초만 올린다(서버 정리는 따로). */
 let _lbSent = null;              // {uid, sec} — 이번 부팅에서 올렸거나 서버와 같다고 확인한 값(같으면 다시 안 부름)
-let _miRankCache = null;         // {uid, at, rank}
-let _miRankSeq = 0;
 function _lbPush(uid, sec){
   if(!uid || !(window.firebaseAPI && firebaseAPI.setLeaderboardSec)) return;
   const v = Math.floor(Number(sec) || 0);
@@ -146,42 +128,7 @@ function _lbPush(uid, sec){
   if(p && p.then) p.then(r => {
     if(!r || !r.ok) return;                                   // 다음 동기화가 다시 시도한다
     _lbSent = { uid, sec: v };
-    if(!r.same) _miRankCache = null;                          // 내 값이 바뀌었다 — 다음에 열 때 새로 읽는다
   }).catch(()=>{});
-}
-function _miApplyRank(rank){
-  const $e = id => document.getElementById(id);
-  const L = rankLabel(rank);
-  const box = $e('miRank'), v = $e('miRankV');
-  if(box) box.style.display = L ? '' : 'none';
-  if(v){ v.textContent = L ? L.text : ''; v.classList.toggle('top', !!(L && L.top)); }
-  const halo = $e('miHalo'), crown = $e('miCrown');
-  if(halo) halo.style.display = (L && L.crown) ? '' : 'none';
-  if(crown) crown.style.display = (L && L.crown) ? '' : 'none';
-  const bar = $e('miTopBar'); if(bar) bar.style.marginBottom = (L && L.crown) ? '22px' : '8px';   // 후광이 사진 위로 삐져나오는 만큼 — 1위일 때만
-}
-/* 🌐 내 순위 — API 한 줄(fetchMyRank) 먼저, 못 받으면(undefined) 예전처럼 100줄 받아 rankOf. 실패 = undefined. */
-async function _lbFetchRank(uid){
-  if(firebaseAPI.fetchMyRank){ const r = await firebaseAPI.fetchMyRank(uid); if(r !== undefined) return r; }
-  const rows = await firebaseAPI.fetchLeaderboardTop();
-  return Array.isArray(rows) ? rankOf(rows, uid) : undefined;
-}
-function _miRenderRank(){
-  let uid = null; try{ uid = (typeof _acctDetached() !== 'undefined' && _acctDetached()) ? null : getMyUserId(); }catch(_){}
-  const c = _miRankCache;
-  const same = !!(c && uid && c.uid === uid);
-  _miApplyRank(same ? c.rank : null);                        // 같은 계정이면 옛 값을 먼저 그대로(깜빡임 없음)
-  if(!uid || !(window.firebaseAPI && firebaseAPI.fetchLeaderboardTop)) return;
-  if(same && Date.now() - c.at < LB_CACHE_MS) return;
-  const seq = ++_miRankSeq;
-  let p; try{ p = _lbFetchRank(uid); }catch(_){ p = null; }
-  if(!(p && p.then)) return;
-  p.then(rank => {
-    if(seq !== _miRankSeq) return;
-    if(rank === undefined){ _miRankCache = null; if(_miIsOpen()) _miApplyRank(null); return; }   // 실패 — 조용히 비움
-    _miRankCache = { uid, at: Date.now(), rank };
-    if(_miIsOpen()) _miApplyRank(rank);
-  }).catch(() => { if(seq === _miRankSeq && _miIsOpen()) _miApplyRank(null); });
 }
 function _miRenderHead(){
   const $e = id => document.getElementById(id);
@@ -191,7 +138,6 @@ function _miRenderHead(){
   const code = $e('miCode'); if(code){ let c = null; try{ c = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} code.textContent = c || '—'; }
   const p = _miRenderAvatar(); if(p && p.catch) p.catch(()=>{});
   _miRenderStar();                                  // 🌟 별 색 구획 — 이름표 미리보기에 닉네임이 들어간다(개정 69)
-  _miRenderRank();                                  // 🏆 전체 랭킹 — 비동기 · 60초 캐시 · 실패하면 비움(개정 73)
 }
 /* 🌟 별 색 구획 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69) — 머리의 레벨 배지(#miLvBtn)를 누르면 머리 아래에 열린다.
      · 999시간 전: 잠긴 상자 — «N시간 남았어요» + 막대. 배지를 누를 이유가 999 전에도 생긴다.
