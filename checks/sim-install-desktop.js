@@ -1,7 +1,7 @@
 /* ═══ 📦 sim-install-desktop.js — 루트 postinstall 이 앱 의존성을 한 번만 깐다(scripts/install-desktop.js) ═══
    [왜] `npm --prefix apps/desktop install` 이 Windows 에서 루트를 다시 깔아 postinstall 이 끝없이 되풀이됐다.
    1. 부르는 모양 — 가짜 npm(npm_execpath)을 실제로 불러: cwd = apps/desktop · 인자 install · 표시(GUARD) · local_prefix 지움 · 종료 코드 그대로
-   2. 한 번만 — 표시가 있으면 npm 을 부르지 않고 끝 · 가짜 npm 이 «루트를 다시 까는»(Windows 증상) 흉내를 내도 한 번에 멈춘다
+   2. 한 번만 — 표시가 있으면 npm 을 부르지 않고 알아볼 문구와 함께 실패 · 가짜 npm 이 «루트를 다시 까는»(Windows 증상) 흉내를 내도 한 번에 멈추고 설치 전체가 실패로 끝난다
    3. 실제 npm 으로 — 의존성 없는 가짜 저장소에서 루트 → 앱 postinstall 이 한 번씩만 돈다
    4. 깨 보기 — 표시를 빼거나 cwd 를 루트로 바꾼 사본은 위 판정에 걸린다
    [실행] 러너 스테이징 또는 저장소 루트에서(`scripts/install-desktop.js` 를 cwd 상대로 찾는다). */
@@ -69,11 +69,11 @@ function judge(src){
     const root = mkRepo('guard-' + Math.random().toString(36).slice(2), src);
     const { fake, log } = mkFakeNpm(root, 'ok', 0);
     const r = runScript(root, { ...baseEnv(), npm_execpath: fake, TW_DESKTOP_INSTALL: '1' });
-    t(r.status === 0 && readLog(log).length === 0, '★ 표시가 있으면 npm 을 부르지 않고 바로 끝난다');
+    t(r.status === 1 && readLog(log).length === 0 && /\[install-desktop\] 앱 설치가 루트를 다시 깔았다/.test(r.stderr || ''), '★ 표시가 있으면 npm 을 부르지 않고 «루트를 다시 깔았다» 문구와 함께 실패(1) — 조용히 성공하지 않음');
     const root2 = mkRepo('rerun-' + Math.random().toString(36).slice(2), src);
     const f2 = mkFakeNpm(root2, 'rerun', 0);
     const r2 = runScript(root2, { ...baseEnv(), npm_execpath: f2.fake });
-    t(r2.status === 0 && readLog(f2.log).length === 1, '★ 자식이 루트 postinstall 을 다시 불러도(Windows 증상) npm 은 한 번만 — 되풀이 없음');
+    t(r2.status !== 0 && readLog(f2.log).length === 1 && /루트를 다시 깔았다/.test(r2.stderr || ''), '★ 자식이 루트 postinstall 을 다시 불러도(Windows 증상) npm 은 한 번만 — 되풀이 없이 실패로 알린다');
   }
   return out;
 }
@@ -100,7 +100,7 @@ say('── 3. 실제 npm 으로 — 루트 → 앱 postinstall 이 한 번씩')
 
 say('── 4. 깨 보기 — 하나라도 못 잡으면 빨강');
 {
-  const noGuard = SRC.replace(/if\s*\(process\.env\[GUARD\]\)\s*return 0;/, '');
+  const noGuard = SRC.replace(/if\s*\(process\.env\[GUARD\]\)\s*\{[^}]*\}/, '');
   const atRoot = SRC.replace(/cwd: DESKTOP/g, "cwd: path.join(__dirname, '..')").replace(/\['install'\]/g, "['--prefix', 'apps/desktop', 'install']");
   const keepLp = SRC.replace(/delete out\[k\];/, '');
   const cases = [['표시 확인을 뺀 사본', noGuard], ['루트에서 --prefix 로 부르는 사본', atRoot], ['local_prefix 를 남기는 사본', keepLp]];
