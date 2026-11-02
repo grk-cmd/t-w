@@ -1,5 +1,5 @@
 /*
- * 🌐 공개 읽기를 API 사본에서 먼저 (검사 sim-api-public-reads.js) — 파도타기 · 명함 · 프로필 사진 · 랭킹 · 랜덤 참여 후보.
+ * 🌐 공개 읽기를 API 사본에서 먼저 (검사 sim-api-public-reads.js) — 파도타기 · 명함 · 프로필 사진 · 랜덤 참여 후보.
  *
  * [왜] Firebase 요금은 내려받은 바이트다. t-w-server 가 같은 데이터의 읽기 전용 사본을 두고 «필요한 한 줄» 모양으로 내준다
  *   (예: 파도타기 = 색인 60줄 + 남의 목록 통째 → 고른 한 벌만). 쓰기 원본은 그대로 Firebase.
@@ -11,19 +11,16 @@
  *   랜덤 참여 후보도 들어가기 전 확인(checkRoomCapacity)은 app.js 그대로.
  *
  * deps: api(TwApi.client — get(path)) · readCell(path) → Promise<값>(Firebase 한 칸 · 사진이 사본에 없을 때만) · now
- * wrap(firebaseAPI) — 위 함수들(fetchAvatar · fetchMyRank 포함)을 «API 먼저» 판으로 바꿔 끼운다. 원래 함수는 대체 길로 남는다.
+ * wrap(firebaseAPI) — 위 함수들(fetchAvatar 포함)을 «API 먼저» 판으로 바꿔 끼운다. 원래 함수는 대체 길로 남는다.
  *   fetchUserCardApi(uid) 는 명함 날것만 단다(대체 길 없음 — 친구 포트가 넘어가기를 정한다).
  */
 export const API_PATHS = Object.freeze({
   randomPlaylist: '/v1/playlists/random',
   userPlaylist: (uid) => '/v1/users/' + encodeURIComponent(uid) + '/playlist',
   card: (uid) => '/v1/users/' + encodeURIComponent(uid) + '/card',
-  rank: (uid) => '/v1/leaderboard/rank/' + encodeURIComponent(uid),
-  top: '/v1/leaderboard/top',
   randomRooms: '/v1/rooms/random',
 });
 export const EXCLUDE_MAX = 10;          // 서버 상한(exclude ≤ 10)
-export const TOP_MAX = 100;             // 서버 상한(n ≤ 100)
 export const RANDOM_ROOMS_MAX = 50;
 export const CARD_KEEP_MS = 60 * 1000;  // 파도타기 응답에 실려 온 명함을 이만큼 기억 — 바로 뒤 fetchPlaylistCard 가 다시 묻지 않게
 export const avatarPath = (uid) => 'users/' + uid + '/home/avatar';
@@ -75,7 +72,7 @@ export function createApiPublicReads(deps){
   function wrap(fb){
     if(!fb) return fb;
     const orig = {};
-    for(const k of ['fetchRandomPlaylist', 'fetchPlaylistOf', 'fetchPlaylistCard', 'fetchAvatar', 'fetchMyRank', 'fetchLeaderboardTop', 'findRandomRooms']){
+    for(const k of ['fetchRandomPlaylist', 'fetchPlaylistOf', 'fetchPlaylistCard', 'fetchAvatar', 'findRandomRooms']){
       orig[k] = (typeof fb[k] === 'function') ? fb[k].bind(fb) : null;
     }
 
@@ -124,25 +121,6 @@ export function createApiPublicReads(deps){
         if(isObj(d)) return await avatarFrom(uid, d);
       }catch(e){ warn('프로필 사진', e); }
       return avatarFb(uid);
-    };
-
-    /* 🏆 내 순위 한 줄 — 1.. | null(표 밖 · 기록 없음). API 를 못 받으면 원래 함수(undefined) → 부르는 쪽이 예전처럼 100줄 받아 rankOf. */
-    fb.fetchMyRank = async (uid) => {
-      try{
-        const d = await ask(API_PATHS.rank(uid));
-        if(isObj(d) && (d.rank === null || (Number.isInteger(d.rank) && d.rank >= 1))) return d.rank;
-      }catch(e){ warn('순위', e); }
-      return orig.fetchMyRank ? orig.fetchMyRank(uid) : undefined;
-    };
-
-    if(orig.fetchLeaderboardTop) fb.fetchLeaderboardTop = async () => {
-      try{
-        const d = await ask(API_PATHS.top + '?n=' + TOP_MAX);
-        if(isObj(d) && Array.isArray(d.items)){
-          return d.items.filter((x) => isObj(x) && typeof x.uid === 'string').map((x) => ({ uid: x.uid, sec: Number(x.sec) || 0, ts: Number(x.ts) || 0 }));
-        }
-      }catch(e){ warn('랭킹 100줄', e); }
-      return orig.fetchLeaderboardTop();
     };
 
     /* 🎲 랜덤 참여 후보 — 워킹룸만(투게더룸은 서버도 400). 들어가기 전 확인은 app.js 그대로. 빈 배열 = 후보 없음. */
