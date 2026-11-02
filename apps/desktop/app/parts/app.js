@@ -9062,7 +9062,10 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
      ⚠️ 그래도 이 함수는 **누군가 불러줘야** 한다. 오버레이를 여는 새 경로를 만들면 여기도 부를 것. */
   const mhOv = document.getElementById('myHomeOverlay');
   const mhOn = !!(mhOv && mhOv.classList.contains('on')) || myHomeOpen;
-  const showMyHomeSized = mhOn && launcherOn;
+  /* 🚪 방 찾기 · 만들기 창도 마이홈 창 크기를 같이 쓴다(두 칸 배치 · 창 자리 기억도 같이) — 스티커 여백은 마이홈만 */
+  const inviteOv = document.getElementById('inviteOverlay');
+  const inviteOn = !!(inviteOv && inviteOv.classList.contains('on'));
+  const showMyHomeSized = (mhOn || inviteOn) && launcherOn;
   const config = launcherOn || creatorOpen;
   const runOverlay = appMode==='run' && !config;
   document.body.classList.toggle('runmode', runOverlay);
@@ -9071,9 +9074,11 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
-  const extra = (mode === 'myhome') ? mhStLayoutMod._mhStickerOverhang() : null;
+  const extra = (mode === 'myhome' && mhOn) ? mhStLayoutMod._mhStickerOverhang() : null;
   if(window.companion&&companion.setConfigMode) companion.setConfigMode(config, mode, extra);
 }
+/* 방 찾기 창은 여는 · 닫는 길이 여럿(런처 버튼 · 창 열기 통로 · 방 나가기 · 설정 패널)이라 클래스 변화를 한 곳에서 본다 */
+new MutationObserver(applyDesktopRunClass).observe(document.getElementById('inviteOverlay'), { attributes:true, attributeFilter:['class'] });
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({
