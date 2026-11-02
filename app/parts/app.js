@@ -1820,6 +1820,7 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
   roomSeatMode: ()=>roomSeatMode,
   seatCameraMod: ()=>seatCameraMod,
   seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
   seats: seats,
   syncSeatEqualize: (...a)=>seatEqMod.syncSeatEqualize(...a),
   setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },
