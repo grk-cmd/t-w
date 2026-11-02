@@ -87,18 +87,22 @@ function cmpCore(a, b){
 }
 
 /** 어느 짝을 볼지 — 앞 판(버전 낮음 · main)에서 뒤 판(버전 높음)으로만. 같은 판 곁가지끼리(0.13.0 ↔ 0.13.0-server)는
- * 서로 앞뒤가 없어서 보지 않는다. 다른 판에 통째로 들어간 앞 판(superseded)은 그 판이 대신 말하므로 뺀다
- * (빼지 않으면 그 뒤에 일부러 걷은 규칙이 «빠짐» 으로 다시 잡힌다).
- * @param {Array<{ name: string, core: number[], superseded?: boolean }>} branches
+ * 서로 앞뒤가 없어서 보지 않는다. 앞 판 A 가 다른 판 B 에 통째로 들어갔고 B 도 같은 뒤 판 T 로 가는 짝이면(B 가 T 보다 낮음)
+ * A → T 는 B → T 가 대신 말하므로 뺀다 — 빼지 않으면 B 에서 일부러 걷은 규칙이 «빠짐» 으로 다시 잡힌다.
+ * 짝마다 본다: B 가 T 보다 높거나 T 의 곁가지면 B → T 짝이 없어서, A 를 빼면 A 의 변경을 아무도 알리지 않는다.
+ * @param {Array<{ name: string, core: number[], inside?: string[] }>} branches inside = 이 판이 통째로 들어간 판 이름들
  * @param {string} [target] 이 판으로 들어올 짝만
  * @returns {Array<[string, string]>} [앞, 뒤] */
 function pairs(branches, target){
   const out = [];
+  const byName = new Map(branches.map(b => [b.name, b]));
   for(const a of branches){
-    if(a.superseded) continue;
     for(const b of branches){
       if(a === b || cmpCore(a.core, b.core) >= 0) continue;
       if(target && b.name !== target) continue;
+      if((a.inside || []).includes(b.name)) continue;   // 받는 판에 이미 통째로 들어감 — 갈라진 곳이 A 머리라 볼 것이 없다
+      const covered = (a.inside || []).some(n => { const c = byName.get(n); return !!c && c !== b && cmpCore(c.core, b.core) < 0; });
+      if(covered) continue;
       out.push([a.name, b.name]);
     }
   }
@@ -159,11 +163,10 @@ function scan(o){
     const core = mainCore(git, `${remote}/${MAIN}`);
     if(core) branches.push({ name: MAIN, core, tag: '' });
   }
-  /* 다른 판(또는 main)에 통째로 들어간 판은 그쪽이 대신 말한다 */
+  /* 다른 판(또는 main)에 통째로 들어간 판 — 짝마다 «대신 말할 판» 이 있는지 pairs 가 본다 */
   const isAnc = (a, b) => { try{ git('merge-base', '--is-ancestor', a, b); return true; }catch(_){ return false; } };
   for(const a of branches){
-    if(a.name === MAIN) continue;
-    a.superseded = branches.some(b => b !== a && isAnc(refOf(a.name), refOf(b.name)));
+    a.inside = a.name === MAIN ? [] : branches.filter(b => b !== a && isAnc(refOf(a.name), refOf(b.name))).map(b => b.name);
   }
   branches.sort((a, b) => cmpCore(a.core, b.core) || (a.name < b.name ? -1 : 1));
   const results = [];
