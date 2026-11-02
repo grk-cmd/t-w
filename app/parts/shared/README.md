@@ -349,6 +349,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **쓰는 법**: `createFrontWatch()` — 활성 창 폴링(500ms)마다 `note(t, exe, coversDisplay(앞창 bounds, 우리 창 모니터 bounds))`, `companion:diagNote` 가 `isFrameLine(줄)` 이면 `줄 + suffix(take(t))`. 예) `… · 앞 창 Discord.exe · 전체화면 85%` · 표본이 없으면 ` · 앞 창 모름`.
 - **함정**
   - 창 제목은 적지 않는다(영상 제목 · 대화 상대 이름) — 실행 파일 이름만.
+  - 맥은 앞 창 크기를 안 읽는다(`bounds: null` — node-window-manager 맥 `getBounds` 가 창 목록을 통째로 다시 받고 사전을 놓아주지 않아 0.5초 폴링에 못 쓴다). 크기를 못 읽은 표본은 비율 분모에서 빠지고, 그것만 있으면 `전체화면 모름`.
   - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
   - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
 - 검사: `checks/sim-front-diag.js`(깨 보기 열).

@@ -37,7 +37,7 @@ function runWatch(F){
   r.push(m.samples === 100 && Math.abs(m.fullShare - 0.8) < 1e-9);                     // 0 비율
   r.push(m.exe === 'Discord.exe');                                                      // 1 가장 많이 앞에 있던 것
   const m2 = w.take(60000);
-  r.push(m2.samples === 0 && m2.fullShare === 0 && m2.exe === '');                     // 2 take 뒤 새로 셈
+  r.push(m2.samples === 0 && m2.fullShare === null && m2.exe === '');                     // 2 take 뒤 새로 셈
   const ws = F.createFrontWatch();
   ws.note(0, 'old.exe', true);
   ws.note(F.STALE_MS + 1, 'new.exe', false);
@@ -48,10 +48,17 @@ function runWatch(F){
   w.note(0, '', true); w.note(1, '', true);
   const m5 = w.take(2);
   r.push(m5.samples === 2 && m5.fullShare === 1 && m5.exe === '');                     // 5 이름 못 읽은 표본도 분모
+  for (let i = 0; i < 4; i++) w.note(i, 'a.exe', null);
+  w.note(5, 'a.exe', true);
+  const m6 = w.take(6);
+  r.push(m6.samples === 5 && m6.fullShare === 1);                                      // 6 크기 못 읽은 표본은 분모에서 빠짐
+  w.note(0, 'mac.app', null); w.note(1, 'mac.app', null);
+  const m7 = w.take(2);
+  r.push(m7.samples === 2 && m7.fullShare === null && F.suffix(m7) === ' · 앞 창 mac.app · 전체화면 모름');   // 7 크기를 하나도 못 읽음 → 모름
   return r;
 }
 const COVER_MSG = ['꽉 채운 창(전체화면 게임 · 영상) → 전체화면', '최대화(작업표시줄만큼 작음) → 아님', '배율 나눗셈 반올림(-1px) → 전체화면', '모니터보다 큰 창 → 전체화면', '빈 값 → 아님', '0 크기(최소화) → 아님'];
-const WATCH_MSG = ['1분 100표본 중 80 전체화면 → 80%', 'exe 는 가장 오래 앞에 있던 것', 'take 뒤 새로 센다', '[프레임] 줄이 안 오면 2분 넘은 표본은 버린다', 'exe 이름 길이 상한', '이름 못 읽은 표본도 비율 분모에 든다'];
+const WATCH_MSG = ['1분 100표본 중 80 전체화면 → 80%', 'exe 는 가장 오래 앞에 있던 것', 'take 뒤 새로 센다', '[프레임] 줄이 안 오면 2분 넘은 표본은 버린다', 'exe 이름 길이 상한', '이름 못 읽은 표본도 비율 분모에 든다', '크기를 못 읽은 표본(null)은 비율 분모에서 빠진다', '크기를 하나도 못 읽으면(맥) «전체화면 모름» — 0% 로 속이지 않는다'];
 
 const F = load(MOD);
 say('── 1. coversDisplay');
@@ -61,7 +68,7 @@ runWatch(F).forEach((ok, i) => chk(ok, WATCH_MSG[i]));
 
 say('── 3. suffix · isFrameLine');
 chk(F.suffix({ samples: 100, fullShare: 0.85, exe: 'Discord.exe' }) === ' · 앞 창 Discord.exe · 전체화면 85%', '꼬리 모양: « · 앞 창 Discord.exe · 전체화면 85%»');
-chk(F.suffix({ samples: 0, fullShare: 0, exe: '' }) === ' · 앞 창 모름' && F.suffix(null) === ' · 앞 창 모름', '표본 없음 → « · 앞 창 모름»(0% 로 속이지 않는다)');
+chk(F.suffix({ samples: 0, fullShare: null, exe: '' }) === ' · 앞 창 모름' && F.suffix(null) === ' · 앞 창 모름', '표본 없음 → « · 앞 창 모름»(0% 로 속이지 않는다)');
 chk(F.suffix({ samples: 3, fullShare: 0, exe: '' }) === ' · 앞 창 모름 · 전체화면 0%', '이름만 못 읽음 → 비율은 적는다');
 chk(F.isFrameLine('[프레임] 60초 1200장 20fps') === true, '[프레임] 줄 → 붙인다');
 chk(F.isFrameLine('[GL] 복구') === false && F.isFrameLine('x [프레임]') === false && F.isFrameLine(null) === false, '다른 줄 · 중간에 든 것 · 빈 값 → 안 붙인다');
@@ -81,6 +88,7 @@ const breaks = [
   ['take 가 새로 세지 않음', MOD.replace('    reset(t);\n    return out;', '    return out;'), 'watch'],
   ['오래된 표본을 안 버림', MOD.replace('if(since == null || t - since > STALE_MS) reset(t);', 'if(since == null) reset(t);'), 'watch'],
   ['이름 길이 상한 없음', MOD.replace('.slice(0, EXE_MAX)', ''), 'watch'],
+  ['크기 못 읽음을 «아님» 으로 셈', MOD.replace("if(isFull === true || isFull === false){ sized++; if(isFull) full++; }", 'sized++; if(isFull) full++;'), 'watch'],
 ];
 for (const [name, src, which] of breaks) {
   if (src === MOD) { chk(false, '깨 보기 «' + name + '» — 바꿀 글을 못 찾음(모듈이 바뀌었다)'); continue; }
@@ -92,7 +100,7 @@ say('── 5. 배선');
 chk(/const FrontDiag = require\('\.\/app\/parts\/shared\/front-diag'\);/.test(MAIN), 'main 이 front-diag 를 싣는다');
 chk(/const _frontWatch = FrontDiag\.createFrontWatch\(\);/.test(MAIN), 'main — 감시 하나');
 const poll = (MAIN.match(/function startActiveWinPolling\(\)\{[\s\S]*?\n\}/) || [''])[0];
-chk(/FrontDiag\.coversDisplay\(w\.bounds, /.test(poll) && /_frontWatch\.note\(Date\.now\(\), exeName, frontFull\);/.test(poll), '활성 창 폴링에서 앞 창 크기 · exe 를 센다');
+chk(/let frontFull = null;/.test(poll) && /if\(w\.bounds && mainWindow/.test(poll) && /FrontDiag\.coversDisplay\(w\.bounds, /.test(poll) && /_frontWatch\.note\(Date\.now\(\), exeName, frontFull\);/.test(poll), '활성 창 폴링에서 앞 창 크기 · exe 를 센다');
 chk(!/getRunDisplay\(\)/.test(poll), '폴링에서 getRunDisplay 를 안 부른다(저장 · 로그가 딸림)');
 const dn = (MAIN.match(/ipcMain\.on\('companion:diagNote'[\s\S]*?\n  \}\);/) || [''])[0];
 chk(/if\(FrontDiag\.isFrameLine\(line\)\) line \+= FrontDiag\.suffix\(_frontWatch\.take\(Date\.now\(\)\)\);/.test(dn), 'diagNote — [프레임] 줄에만 꼬리');
@@ -100,7 +108,8 @@ chk(/e\.sender !== mainWindow\.webContents\) return;/.test(dn) && /_diagLog\('\[
 chk(!/title/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '')) && !/_frontWatch\.note\([^)]*title/.test(MAIN), '창 제목은 진단에 안 들어간다(실행 파일 이름만)');
 const gaw = (src) => (src.match(/async function getActiveWindow\(\)\{[\s\S]*?\n\}/) || [''])[0];
 chk(/bounds = w\.getBounds\(\)/.test(gaw(SWIN)) && (gaw(SWIN).match(/title, bounds \}/g) || []).length === 2, 'sysinput-win — 두 갈래(경로 있음 · 관리자 권한) 모두 bounds');
-chk(/bounds = w\.getBounds\(\)/.test(gaw(SMAC)) && /title, bounds \}/.test(gaw(SMAC)) && !/w\.getTitle\(/.test(gaw(SMAC).replace(/\/\/.*$/gm, '')), 'sysinput-mac — bounds(getTitle 금지는 그대로)');
+{ const mac = gaw(SMAC).replace(/\/\/.*$/gm, '').replace(/\/\*[\s\S]*?\*\//g, '');
+  chk(/title, bounds: null \}/.test(mac) && !/getBounds\(/.test(mac) && !/w\.getTitle\(/.test(mac), 'sysinput-mac — bounds 는 null · getBounds 를 0.5초 폴링에서 안 부른다(창 목록 다시 받기 · 누수) · getTitle 금지 그대로'); }
 
 say('\n' + (fail ? '✗' : '✓') + ' sim-front-diag: ' + pass + ' 통과 · ' + fail + ' 실패');
 process.exit(fail ? 1 : 0);

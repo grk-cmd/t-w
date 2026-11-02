@@ -1512,9 +1512,9 @@ function startActiveWinPolling(){
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
       lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow,
         isSelf: !!exeName && exeName === SELF_EXE };   // 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
-      let frontFull = false;
+      let frontFull = null;   // null = 크기를 못 읽음(맥 · 실패) — 비율 분모에서 뺀다
       /* 우리 창이 있는 모니터와 견준다(실행 화면이면 실행 모니터) — getRunDisplay 는 저장 · 로그가 딸려 있어 0.5초마다 부르지 않는다 */
-      try{ if(mainWindow && !mainWindow.isDestroyed()) frontFull = FrontDiag.coversDisplay(w.bounds, screen.getDisplayMatching(mainWindow.getBounds()).bounds); }catch(_){}
+      try{ if(w.bounds && mainWindow && !mainWindow.isDestroyed()) frontFull = FrontDiag.coversDisplay(w.bounds, screen.getDisplayMatching(mainWindow.getBounds()).bounds); }catch(_){}
       _frontWatch.note(Date.now(), exeName, frontFull);
       if(penNow !== _penAppActive){
         _penAppActive = penNow;

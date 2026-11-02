@@ -431,7 +431,7 @@
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-gift-save.js** | 137 | **f7be455180d5** |
-| **sim-front-diag.js** | 106 | **0df7e34ece5f** |
+| **sim-front-diag.js** | 115 | **2585d0146d44** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

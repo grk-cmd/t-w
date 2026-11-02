@@ -21,13 +21,14 @@ function coversDisplay(win, disp){
 }
 
 function createFrontWatch(){
-  let since = null, samples = 0, full = 0, counts = new Map();
-  function reset(t){ since = t; samples = 0; full = 0; counts = new Map(); }
-  /* 활성 창 폴링(500ms)마다. exe 를 못 읽은 표본도 센다(전체화면 비율의 분모) */
+  let since = null, samples = 0, sized = 0, full = 0, counts = new Map();
+  function reset(t){ since = t; samples = 0; sized = 0; full = 0; counts = new Map(); }
+  /* 활성 창 폴링(500ms)마다. isFull: true · false · null(크기를 못 읽음 — 맥 · 실패).
+     exe 를 못 읽은 표본도 비율 분모에 들고, 크기를 못 읽은 표본은 빠진다(0% 로 속이지 않게) */
   function note(t, exe, isFull){
     if(since == null || t - since > STALE_MS) reset(t);
     samples++;
-    if(isFull) full++;
+    if(isFull === true || isFull === false){ sized++; if(isFull) full++; }
     const k = String(exe || '').slice(0, EXE_MAX);
     if(k) counts.set(k, (counts.get(k) || 0) + 1);
   }
@@ -35,17 +36,18 @@ function createFrontWatch(){
   function take(t){
     let exe = '', best = 0;
     counts.forEach((n, k) => { if(n > best){ best = n; exe = k; } });
-    const out = { samples, fullShare: samples > 0 ? full / samples : 0, exe };
+    const out = { samples, fullShare: sized > 0 ? full / sized : null, exe };
     reset(t);
     return out;
   }
   return { note, take };
 }
 
-/* 덧붙일 꼬리 — 예) « · 앞 창 Discord.exe · 전체화면 85%» · 표본이 없으면 « · 앞 창 모름» */
+/* 덧붙일 꼬리 — 예) « · 앞 창 Discord.exe · 전체화면 85%» · 표본이 없으면 « · 앞 창 모름» · 크기를 못 읽었으면 «전체화면 모름» */
 function suffix(m){
   if(!m || !(m.samples > 0)) return ' · 앞 창 모름';
-  return ' · 앞 창 ' + (m.exe || '모름') + ' · 전체화면 ' + Math.round((m.fullShare || 0) * 100) + '%';
+  const share = (typeof m.fullShare === 'number') ? Math.round(m.fullShare * 100) + '%' : '모름';
+  return ' · 앞 창 ' + (m.exe || '모름') + ' · 전체화면 ' + share;
 }
 function isFrameLine(msg){ return typeof msg === 'string' && msg.indexOf(FRAME_TAG) === 0; }
 
