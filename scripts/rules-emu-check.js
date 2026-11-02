@@ -307,7 +307,8 @@ const LIMIT_CASES = [
   ['새 계정 ⑧ presence(ver)', 'PUT', `users/${NEW_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false, ver: '0.11.3' }, true, 'authN'],
   ['새 계정 ⑨ 프로필', 'PUT', `users/${NEW_U}/profile`, { name: '새사람', updatedAt: 1, level: 1 }, true, 'authN'],
   ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
-  ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 ⑪ 포커스 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 — 랭킹 쓰기(걷음)', 'PUT', `leaderboard/${NEW_U}`, { sec: 5, ts: TS }, false, 'authN'],
   /* 🔒 플레이리스트 잠근 프리셋(나만 보기) 본인 칸 — 본인만 읽고 쓴다 · 자리 0~2 · 이름 16자 · 곡 칸 모양은 공개 노드와 같다 */
   ['🔒 잠근 프리셋 — 본인 칸 쓰기', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 1: { name: '비밀', items: { 0: { id: 'abcdefghijk', title: '곡' } } } }, editTs: TS }, true, 'authN'],
   ['  ↳ 본인은 읽는다', 'GET', `playlistPriv/${NEW_U}`, null, true, 'authN'],
@@ -358,7 +359,7 @@ const LIMIT_CASES = [
   ['옛 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, false, 'authOld'],
   ['새 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, true, 'authNew2'],
   ['옛 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authOld'],
-  ['새 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, true, 'authNew2'],
+  ['새 앱 — 랭킹 쿼리(걷음)', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authNew2'],
   ['옛 앱 — 우편함 공용', 'GET', 'inboxBroadcast', null, false, 'authOld'],
   ['옛 앱 — 관리자 칸은 원래 막힘(시험 도구 확인)', 'GET', 'adminTodos', null, false, 'authOld'],
   ['관리자(이음 없음) — 관리자 읽기 그대로', 'GET', 'rooms', null, true, ADMIN_A],
@@ -443,6 +444,10 @@ const BUG_VIS_CASES = [
   ['글쓴이 — 내 답글이 있으면 막힘', 'PATCH', '', toPrv(VU), false, VU],
   ['준비: 답글 지우고 공지로', 'PATCH', '', { [B + 'rep/pub/v1']: null, [B + 'list/v1/notice']: true }, true, OWNER],
   ['글쓴이 — 공지는 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  /* 🔎 상태 «검토중»(review) — 관리자가 건의에 다는 상태. 미해결이라 openTs 를 그대로 둔다. 글쓴이 버튼엔 없다. */
+  ['관리자 — 상태를 «검토중»(review)으로', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/openTs']: 1 }, true, ADMIN_A],
+  ['  ↳ 목록에 없는 상태는 막힘', 'PUT', B + 'list/v1/status', 'reviewing', false, ADMIN_A],
+  ['글쓴이 — 상태를 «검토중» 으로 바꾸기는 막힘', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/userReplyTs']: { '.sv': 'timestamp' } }, false, VU],
 ];
 
 const CASES = [

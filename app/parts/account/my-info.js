@@ -1,11 +1,10 @@
-/* my-info.js — 🪪 [내 정보] 화면 — 머리(사진 · 닉네임 · 레벨 별 색) · 🏆 랭킹 누적초 올리기(화면은 걷음) · 보관함 · 휴지통 · 계정 탭 연결
-   app.js «🪪 [내 정보] — 런처 화면 전환» · «🏆 [내 정보] 전체 랭킹 1~100위» 두 구역의 본문을 그대로 옮긴 모듈이다(앱 FSD 17번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다. 두 구역은 한 화면([내 정보] 페이지 — 머리 · 별 색 · 보관함 · 휴지통 · 이름 바꾸기 · 랭킹)이라 한 파일에 둔다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 15줄 —
+/* my-info.js — 🪪 [내 정보] 화면 — 머리(사진 · 닉네임 · 레벨 별 색) · 보관함 · 휴지통 · 계정 탭 연결
+   app.js «🪪 [내 정보] — 런처 화면 전환» 구역 본문을 옮긴 모듈이다(앱 FSD 17번 — docs/APP_FSD_MAP.md). 함께 옮겼던 🏆 전체 랭킹은 걷었다.
+   ★ app.js 에서 받는 값 —
      CHARS_BOX_MAX · EXP_CELLS · EXP_SEC_PER_CELL · EXP_SEC_PER_LEVEL · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · STAR_PALETTE · _acctDetached · _focusTotalSec · _myHomeData · curSlot 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 36개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _charsLinkedMaybeShow · _lbPush · _miIsOpen · _miSlotThumb · closeMyInfo · openMyInfo — app.js 는 myInfoMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _charsLinkedMaybeShow · _miIsOpen · _miSlotThumb · closeMyInfo · openMyInfo — app.js 는 myInfoMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyInfo — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-my-info.js */
@@ -118,18 +117,6 @@ function _miSetTab(tab){
   else _miRenderBox();
 }
 
-/* 🏆 전체 랭킹 화면은 걷었다 — 서버 줄(leaderboard)은 아직 그대로라 누적초만 올린다(서버 정리는 따로). */
-let _lbSent = null;              // {uid, sec} — 이번 부팅에서 올렸거나 서버와 같다고 확인한 값(같으면 다시 안 부름)
-function _lbPush(uid, sec){
-  if(!uid || !(window.firebaseAPI && firebaseAPI.setLeaderboardSec)) return;
-  const v = Math.floor(Number(sec) || 0);
-  if(_lbSent && _lbSent.uid === uid && _lbSent.sec === v) return;
-  const p = firebaseAPI.setLeaderboardSec(uid, v);
-  if(p && p.then) p.then(r => {
-    if(!r || !r.ok) return;                                   // 다음 동기화가 다시 시도한다
-    _lbSent = { uid, sec: v };
-  }).catch(()=>{});
-}
 function _miRenderHead(){
   const $e = id => document.getElementById(id);
   const nick = $e('miNick'); if(nick){ let n = ''; try{ n = getDisplayName(); }catch(_){} nick.textContent = n; }
@@ -838,7 +825,6 @@ function _charsLinkedMaybeShow(){
 
 return {
   _charsLinkedMaybeShow,
-  _lbPush,
   _miIsOpen,
   _miSlotThumb,
   closeMyInfo,
