@@ -7,7 +7,7 @@
     "packages/*"
   ],
   "scripts": {
-    "postinstall": "npm --prefix apps/desktop install",
+    "postinstall": "node scripts/install-desktop.js",
     "start": "npm --prefix apps/desktop start",
     "start:dev": "npm --prefix apps/desktop run start:dev",
     "check": "node checks/run.js",
