@@ -4,6 +4,7 @@
    ・1절: 읽기 — 내 목록 모양 맞춤 · 빈 목록(객체)과 못 읽음(던짐)을 가름 · 무작위(경로 · exclude) · 들을 것 없음(null) ≠ 실패 · 모양 틀림은 던짐
    ・2절: 남의 목록 — 경로 · 곡 있는 벌만 무작위(경계: 0 · 1 미만) · 곡 없으면 null · 열어 주지 않음(PLAYLIST_FRIENDS_ONLY) · 없는 사용자(USER_NOT_FOUND)는 null · 그 밖 실패는 던짐
    ・3절: 저장 — 읽은 뒤 토큰 주인이 바뀌면 'stale'(진짜 api-client 로) · 본문 모양(version · tracks · listed) · 상한 깎기 · 판 기억(계정별) · 읽은 판 없으면 안 보냄 · 409 는 'conflict'(다시 보내지 않음) · 실패는 'failed'
+   ・3-2절: 🔒 프리셋 나만 보기 — 세 벌 모두 locked 를 주는 서버만 «안다»(lockable) · 아는 서버에만 locked 를 싣는다 · 남의 목록의 잠긴 벌은 고르지 않는다
    ・4절: 배선 — 부르는 곳이 firebaseAPI 로 플레이리스트를 안 부름 · firebase-init 에 옛 메서드가 없음 · html · smoke 순서
    ・5절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
@@ -208,6 +209,31 @@ async function judge(S){
     chk((await m.saveMine('ME01', sets1, {})) === 'ok' && methods.join() === 'GET,PUT,GET,PUT', '  새 주인(B)으로 다시 받으면 그 주인으로 올라간다');
   }
 
+  say('── 3-2. 🔒 프리셋 나만 보기(서버가 알 때만)');
+  {
+    const lockSets = [{ name: 'A', items: [{ id: 'aaaaaaaaaaa', title: '가' }], locked: true }, { name: 'B', items: [] }, { name: '', items: [] }];
+    const L = (lk) => MINE({ sets: [Object.assign(serverSet('A', tr('aaaaaaaaaaa', '가')), lk[0]), Object.assign(serverSet(''), lk[1]), Object.assign(serverSet(''), lk[2])] });
+    const lib = load(LIB);
+    const mine0 = lib.mineOf(MINE()), mine1 = lib.mineOf(L([{ locked: true }, { locked: false }, { locked: false }]));
+    chk(mine0.lockable === false && !('locked' in mine0.sets[0]), '★ locked 칸이 없는 서버 → lockable false · 잠금 없음');
+    chk(mine1.lockable === true && mine1.sets[0].locked === true && !('locked' in mine1.sets[1]), '  세 벌 모두 locked(참/거짓)를 주면 lockable · 참인 벌만 locked');
+    chk(lib.mineOf(L([{ locked: true }, {}, { locked: false }])).lockable === false && lib.mineOf(L([{ locked: 'yes' }, { locked: false }, { locked: false }])).lockable === false, '  경계 — 한 벌이라도 빠지거나 참/거짓이 아니면 모르는 서버로 본다');
+    chk(lib.mineOf(MINE({ sets: [] })).lockable === false, '  경계 — 빈 세트 목록은 모름');
+    const b0 = lib.bodyOf(1, lockSets, {}, false), b1 = lib.bodyOf(1, lockSets, {}, true);
+    chk(b0.sets.every((s) => !('locked' in s)), '★ 모르는 서버엔 locked 를 안 싣는다(400 · 저장 막힘 방지)');
+    chk(b1.sets[0].locked === true && b1.sets[1].locked === false && b1.sets[2].locked === false, '  아는 서버엔 벌마다 참/거짓을 싣는다');
+    const pub = lib.publicOf({ userCode: 'U1', sets: [Object.assign(serverSet('A', tr('aaaaaaaaaaa', '가')), { locked: true }), serverSet('B', tr('bbbbbbbbbbb', '나'))] }, () => 0);
+    const pubAll = lib.publicOf({ userCode: 'U1', sets: [Object.assign(serverSet('A', tr('aaaaaaaaaaa', '가')), { locked: true })] }, () => 0);
+    chk(pub.setIdx === 1 && pub.setName === 'B' && pubAll === null, '★ 남의 목록에 잠긴 벌이 실려 와도 고르지 않는다 · 전부 잠기면 null(들을 것 없음)');
+    const x0 = await readyApi({ 'GET /v1/me/playlist': MINE(), 'PUT /v1/me/playlist': MINE({ version: 8 }) });
+    await x0.m.saveMine('ME01', lockSets, {});
+    const x1 = await readyApi({ 'GET /v1/me/playlist': L([{ locked: false }, { locked: false }, { locked: false }]), 'PUT /v1/me/playlist': L([{ locked: true }, { locked: false }, { locked: false }]) });
+    await x1.m.saveMine('ME01', lockSets, {}); await x1.m.saveMine('ME01', lockSets, {});
+    const p1 = x1.authed.log.filter((x) => x.method === 'PUT');
+    chk(x0.authed.log[0].body.sets.every((s) => !('locked' in s)) && p1[0].body.sets[0].locked === true && p1[1].body.sets[0].locked === true,
+      '  저장 — 읽을 때 서버가 알았으면 싣고(저장 뒤에도 기억) · 몰랐으면 안 싣는다');
+  }
+
   say('── 4. 배선');
   {
     const FI = strip(S.FI), PL = strip(S.PL), ACC = strip(S.ACC), PUB = strip(S.PUB), APP = strip(S.APP);
@@ -229,7 +255,7 @@ async function judge(S){
 
   say('── 5. 일부러 깨 보기');
   const BREAKS = [
-    ['API', "  return { sets, bio: str(d.bio), homePublic: d.homePublic === true, private: !d.listed };", "  return { sets, bio: str(d.bio), homePublic: d.homePublic === true, private: !!d.listed };", 'listed 를 거꾸로 읽음'],
+    ['API', "private: !d.listed, lockable", "private: !!d.listed, lockable", 'listed 를 거꾸로 읽음'],
     ['API', "  return { version, sets: ss, bio: str(m.bio).slice(0, LIMITS.BIO), listed: !m.private, homePublic: !!m.homePublic };", "  return { version, sets: ss, bio: str(m.bio).slice(0, LIMITS.BIO), listed: !!m.private, homePublic: !!m.homePublic };", 'private 를 거꾸로 저장'],
     ['API', "    .map((x) => ({ videoId: x.id, title: str(x.title).slice(0, LIMITS.TITLE) })),", "    .map((x) => ({ id: x.id, title: str(x.title).slice(0, LIMITS.TITLE) })),", '저장에 tracks.videoId 대신 id'],
     ['API', "((s && Array.isArray(s.items)) ? s.items : []).slice(0, LIMITS.TRACKS)", "((s && Array.isArray(s.items)) ? s.items : [])", '곡 20개 상한을 안 깎음'],
@@ -243,13 +269,17 @@ async function judge(S){
     ['API', "catch(e){ if(e && (e.code === FRIENDS_ONLY_CODE || e.code === USER_NOT_FOUND_CODE)) return null; throw e; }", "catch(e){ throw e; }", '열어 주지 않음을 실패로 던짐'],
     ['API', " || e.code === USER_NOT_FOUND_CODE", "", '없는 사용자를 연결 문제로 던짐'],
     ['API', "      warn('[플레이리스트] 저장 실패', (e && (e.code || e.message)) || e);\n      return 'failed';", "      return 'ok';", '저장 실패를 성공으로 알림'],
-    ['API', "  sets.forEach((s, i) => { if(s.items.length) cand.push({ idx: i, name: s.name, items: s.items }); });", "  sets.forEach((s, i) => { cand.push({ idx: i, name: s.name, items: s.items }); });", '빈 벌도 후보에 넣음'],
+    ['API', "  sets.forEach((s, i) => { if(s.items.length && !s.locked) cand.push({ idx: i, name: s.name, items: s.items }); });", "  sets.forEach((s, i) => { if(!s.locked) cand.push({ idx: i, name: s.name, items: s.items }); });", '빈 벌도 후보에 넣음'],
+    ['API', "if(s.items.length && !s.locked) cand.push(", "if(s.items.length) cand.push(", '잠긴 벌도 남에게 틂'],
+    ['API', "sets.every((s) => isObj(s) && typeof s.locked === 'boolean')", "sets.some((s) => isObj(s))", '잠금을 모르는 서버도 안다고 봄'],
+    ['API', "    ...(lockable ? { locked: !!(s && s.locked) } : {}),", "    locked: !!(s && s.locked),", '잠금을 모르는 서버에도 locked 를 보냄'],
+    ['API', "    if(s.locked === true) one.locked = true;", "", '받은 잠금을 버림'],
     ['API', "Math.min(cand.length - 1, Math.floor(random() * cand.length))", "Math.floor(random() * cand.length) + 1", '고르는 번호가 범위 밖'],
     ['API', "  return { uid: d.userCode, name: str(d.displayName) || '(이름 없음)'", "  return { uid: d.userCode, name: str(d.displayName)", '이름이 비면 빈 칸'],
     ['API', "    if(!uid){ const e = new Error('내 코드 없음'); e.code = 'NO_USER'; throw e; }\n    return readMine(uid);", "    return readMine(uid);", '내 코드 없이도 읽음'],
     ['API', "    const path = PATHS.random + (excludeUid ? '?exclude=' + encodeURIComponent(excludeUid) : '');", "    const path = PATHS.random;", '방금 본 사람을 제외하지 않음'],
     ['API', "  of: (userCode) => '/v1/playlists/' + encodeURIComponent(userCode),", "  of: (userCode) => '/v1/playlists/' + userCode,", '남의 코드를 인코딩 없이 경로에'],
-    ['API', "    versions.set(uid, { v, owner });\n    return out;", "    return out;", '읽은 판을 기억하지 않음'],
+    ['API', "    versions.set(uid, { v, owner, lockable: out.lockable });\n    return out;", "    return out;", '읽은 판을 기억하지 않음'],
     ['API', "{ expectOwner: read.owner }", "{}", '쓰기를 읽은 토큰 주인과 안 묶음'],
     ['API', "      if(e && e.code === OWNER_CHANGED_CODE){ versions.delete(uid); return 'stale'; }", "", '주인이 바뀌어 막힌 것을 실패로 알림'],
     ['API', "onOwner: (who) => { owner = who; }", "onOwner: () => {}", '읽을 때 토큰 주인을 기억하지 않음'],

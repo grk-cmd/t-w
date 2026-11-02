@@ -5,7 +5,8 @@
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth: true }) · put(path, body) → Promise<data>)
          random() → 0 이상 1 미만 수(친구 목록에서 곡 있는 벌을 고를 때) · warn(...a)(진단 로그)
    내보냄: createPlaylistApi(deps) → {
-     fetchMine(uid) → Promise<{ sets:[{name, items:[{id,title}]}], bio, homePublic, private }> — 목록이 비어도 객체(빈 목록 ≠ 못 읽음). 못 읽으면 던진다.
+     fetchMine(uid) → Promise<{ sets:[{name, items:[{id,title}], locked?}], bio, homePublic, private, lockable }> — 목록이 비어도 객체(빈 목록 ≠ 못 읽음). 못 읽으면 던진다.
+      lockable = 서버가 프리셋 🔒 나만 보기를 안다(세 벌 모두 locked 칸을 돌려줌). 모르는 서버면 false — 앱은 자물쇠를 안 보이고 locked 를 보내지 않는다.
      saveMine(uid, sets, meta) → Promise<'ok'|'conflict'|'stale'|'failed'> — meta = { bio, homePublic, private }. 곡이 하나도 없는 세 벌을 보내면 «비움»(노드를 지우지 않고 빈 목록 저장).
      fetchRandom(excludeUid) → Promise<목록 한 벌 | null(들을 것 없음)> — 못 읽으면 던진다.
      fetchOf(userCode) → Promise<목록 한 벌 | null(곡 있는 벌 없음 · 열어 주지 않음)> — 못 읽으면 던진다.
@@ -46,17 +47,21 @@ function setsOf(sets){
     if(!isObj(s)) return null;
     const items = itemsOf(s.tracks);
     if(!items) return null;
-    out.push({ name: str(s.name), items });
+    const one = { name: str(s.name), items };
+    if(s.locked === true) one.locked = true;
+    out.push(one);
   }
   return out;
 }
+/* 서버가 🔒 나만 보기를 아는가 — 세 벌 모두 locked(참/거짓)를 돌려줄 때만. 모르는 서버에 locked 를 보내면 400, 아는 척하면 잠근 곡이 남에게 보인다 */
+const lockableOf = (sets) => Array.isArray(sets) && sets.length > 0 && sets.every((s) => isObj(s) && typeof s.locked === 'boolean');
 
 /* GET /v1/me/playlist 의 data → 화면 모양. 모양이 틀리면 undefined. private 는 «목록에 올리지 않음» (listed 의 반대) */
 function mineOf(d){
   if(!isObj(d)) return undefined;
   const sets = setsOf(d.sets);
   if(!sets || typeof d.listed !== 'boolean') return undefined;
-  return { sets, bio: str(d.bio), homePublic: d.homePublic === true, private: !d.listed };
+  return { sets, bio: str(d.bio), homePublic: d.homePublic === true, private: !d.listed, lockable: lockableOf(d.sets) };
 }
 const versionOf = (d) => (isObj(d) && typeof d.version === 'number' && isFinite(d.version) && d.version >= 0) ? d.version : undefined;
 
@@ -77,20 +82,21 @@ function publicOf(d, random){
   const sets = setsOf(d.sets);
   if(!sets) return undefined;
   const cand = [];
-  sets.forEach((s, i) => { if(s.items.length) cand.push({ idx: i, name: s.name, items: s.items }); });
+  sets.forEach((s, i) => { if(s.items.length && !s.locked) cand.push({ idx: i, name: s.name, items: s.items }); });   // 🔒 서버가 걸러 주지만 잠긴 벌이 실려 와도 틀지 않는다
   if(!cand.length) return null;
   const pick = cand[Math.min(cand.length - 1, Math.floor(random() * cand.length))];
   return { uid: d.userCode, items: pick.items, setName: pick.name, setIdx: pick.idx, bio: str(d.bio), homePublic: d.homePublic === true };
 }
 
-/* 저장 본문 — 서버 상한으로 깎는다(화면이 이미 지키는 값이라 보통은 그대로) */
-function bodyOf(version, sets, meta){
+/* 저장 본문 — 서버 상한으로 깎는다(화면이 이미 지키는 값이라 보통은 그대로). lockable 일 때만 벌마다 locked 를 싣는다 */
+function bodyOf(version, sets, meta, lockable){
   const m = meta || {};
   const ss = (Array.isArray(sets) ? sets : []).slice(0, LIMITS.SETS).map((s) => ({
     name: str(s && s.name).slice(0, LIMITS.NAME),
     tracks: ((s && Array.isArray(s.items)) ? s.items : []).slice(0, LIMITS.TRACKS)
       .filter((x) => x && typeof x.id === 'string' && x.id)
       .map((x) => ({ videoId: x.id, title: str(x.title).slice(0, LIMITS.TITLE) })),
+    ...(lockable ? { locked: !!(s && s.locked) } : {}),
   }));
   return { version, sets: ss, bio: str(m.bio).slice(0, LIMITS.BIO), listed: !m.private, homePublic: !!m.homePublic };
 }
@@ -99,7 +105,7 @@ function createPlaylistApi(deps){
   const authed = deps.authed;
   const random = deps.random;
   const warn = deps.warn;
-  const versions = new Map();   // uid → { v: 마지막으로 읽은(또는 저장한) 판, owner: 그 판을 읽을 때 쓴 토큰의 주인 }
+  const versions = new Map();   // uid → { v: 마지막으로 읽은(또는 저장한) 판, owner: 그 판을 읽을 때 쓴 토큰의 주인, lockable: 그때 서버가 🔒 를 알았나 }
 
   async function readMine(uid){
     let owner;
@@ -107,7 +113,7 @@ function createPlaylistApi(deps){
     const out = mineOf(d);
     const v = versionOf(d);
     if(!out || v === undefined) throw shapeError();
-    versions.set(uid, { v, owner });
+    versions.set(uid, { v, owner, lockable: out.lockable });
     return out;
   }
 
@@ -124,10 +130,10 @@ function createPlaylistApi(deps){
     try{
       if(!versions.has(uid)) throw Object.assign(new Error('읽은 판 없음'), { code: 'NO_VERSION' });   // 받기 전에는 올리지 않는다
       const read = versions.get(uid);
-      const d = await authed.put(PATHS.mine, bodyOf(read.v, sets, meta), { expectOwner: read.owner });
+      const d = await authed.put(PATHS.mine, bodyOf(read.v, sets, meta, read.lockable), { expectOwner: read.owner });
       const v = versionOf(d);
       if(v === undefined) throw shapeError();
-      versions.set(uid, { v, owner: read.owner });
+      versions.set(uid, { v, owner: read.owner, lockable: read.lockable });
       return 'ok';
     }catch(e){
       if(e && e.code === OWNER_CHANGED_CODE){ versions.delete(uid); return 'stale'; }   // 계정이 바뀌는 중 — 곧 reset · 다시 받기가 온다
