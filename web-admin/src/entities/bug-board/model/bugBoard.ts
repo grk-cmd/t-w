@@ -108,7 +108,8 @@ export interface BugAnswer {
   st?: BugStatus;
 }
 
-export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
+export const isOpen = (st: BugStatus) =>
+  st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
 
 /** 운영자의 마지막 답변 뒤에 글쓴이 답글이 있다 — 관리자가 볼 차례. */
 export const hasAuthorReply = (item: Pick<BugItem, 'userReplyTs' | 'lastReplyTs'>) =>
