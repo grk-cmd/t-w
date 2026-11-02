@@ -307,7 +307,8 @@ const LIMIT_CASES = [
   ['새 계정 ⑧ presence(ver)', 'PUT', `users/${NEW_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false, ver: '0.11.3' }, true, 'authN'],
   ['새 계정 ⑨ 프로필', 'PUT', `users/${NEW_U}/profile`, { name: '새사람', updatedAt: 1, level: 1 }, true, 'authN'],
   ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
-  ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 ⑪ 포커스 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 — 랭킹 쓰기(걷음)', 'PUT', `leaderboard/${NEW_U}`, { sec: 5, ts: TS }, false, 'authN'],
   ['새 계정 ⑫ 신고(쓰는 사람 = 나)', 'PUT', `reports/${GOOD_U2}/${NEW_U}`, { kind: 'etc', nick: 'a', code4: 'AB12', ts: 1 }, true, 'authN'],
   /* 🚧 ≤0.10.2 읽기 막기 — 읽는 사람의 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐 · ver 없음» 이면 거절.
      로그인 안 함(auth null) · 이어진 코드 없음(익명 가입 중 · 봇)은 막지 않는다 — 0.11 의 로그인 없는 REST 읽기 · 가입 중 읽기가 산다. */
@@ -348,7 +349,7 @@ const LIMIT_CASES = [
   ['옛 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, false, 'authOld'],
   ['새 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, true, 'authNew2'],
   ['옛 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authOld'],
-  ['새 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, true, 'authNew2'],
+  ['새 앱 — 랭킹 쿼리(걷음)', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authNew2'],
   ['옛 앱 — 우편함 공용', 'GET', 'inboxBroadcast', null, false, 'authOld'],
   ['옛 앱 — 관리자 칸은 원래 막힘(시험 도구 확인)', 'GET', 'adminTodos', null, false, 'authOld'],
   ['관리자(이음 없음) — 관리자 읽기 그대로', 'GET', 'rooms', null, true, ADMIN_A],
