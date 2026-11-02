@@ -434,6 +434,10 @@ const BUG_VIS_CASES = [
   ['글쓴이 — 내 답글이 있으면 막힘', 'PATCH', '', toPrv(VU), false, VU],
   ['준비: 답글 지우고 공지로', 'PATCH', '', { [B + 'rep/pub/v1']: null, [B + 'list/v1/notice']: true }, true, OWNER],
   ['글쓴이 — 공지는 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  /* 🔎 상태 «검토중»(review) — 관리자가 건의에 다는 상태. 미해결이라 openTs 를 그대로 둔다. 글쓴이 버튼엔 없다. */
+  ['관리자 — 상태를 «검토중»(review)으로', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/openTs']: 1 }, true, ADMIN_A],
+  ['  ↳ 목록에 없는 상태는 막힘', 'PUT', B + 'list/v1/status', 'reviewing', false, ADMIN_A],
+  ['글쓴이 — 상태를 «검토중» 으로 바꾸기는 막힘', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/userReplyTs']: { '.sv': 'timestamp' } }, false, VU],
 ];
 
 const CASES = [
