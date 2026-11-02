@@ -430,6 +430,7 @@
 | **sim-chip-popups.js** | 128 | **e58ffad1803b** |
 | **sim-rules-keys.js** | 321 | **541b1719bba8** |
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
+| **sim-rules-drift.js** | 159 | **9327c212e28e** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 234 | **ce652588740d** |
 | **sim-safe-html.js** | 715 | **0e7f5b0bbac1** |
