@@ -8,7 +8,7 @@ import { kstDateKey } from '@/shared/lib';
  *   bugBoard/prv/{authUid}/{id}   비공개 글 — 글쓴이 · 관리자만
  *   bugBoard/ans/{pub|prv}/{id}   운영자 답변
  *   bugBoard/rep/{pub|prv}/{id}   글쓴이 답글(글쓴이만 쓴다 · 글의 공개 범위 갈래에 둔다). userReplyTs = 마지막 글쓴이 답글 시각
- * openTs = 미해결(new · checking · unfixed)일 때만 ts, nts = 공지면 ts — 목록 쿼리가 이 칸으로 미해결 · 공지만 집는다.
+ * openTs = 미해결(new · checking · review · unfixed)일 때만 ts, nts = 공지면 ts — 목록 쿼리가 이 칸으로 미해결 · 공지만 집는다.
  */
 
 export const BUG_ROOT = 'bugBoard';
@@ -24,12 +24,14 @@ export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
 export const BUG_NO_RE = /^B-\d{4}-\d{1,4}$/;
 
 export type BugVis = 'pub' | 'prv';
-export type BugStatus = 'new' | 'checking' | 'fixed' | 'norepro' | 'unfixed';
+export type BugStatus = 'new' | 'checking' | 'review' | 'fixed' | 'norepro' | 'unfixed';
 export type BugFilter = 'open' | 'suggest' | 'all' | 'notice';
 
 export const BUG_STATUS: Record<BugStatus, string> = {
   new: '접수',
   checking: '확인 중',
+  // 관리자가 건의를 «검토중» 으로 둔 글 — 미해결에 낀다
+  review: '검토중',
   fixed: '수정 완료',
   norepro: '재현 안 됨',
   // 글쓴이가 답글로 «해결 안 됨» 을 고른 글 — 미해결에 낀다(앱 BUG_STATUS · 규칙 status 정규식과 짝)
@@ -106,7 +108,7 @@ export interface BugAnswer {
   st?: BugStatus;
 }
 
-export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking' || st === 'unfixed';
+export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
 
 /** 운영자의 마지막 답변 뒤에 글쓴이 답글이 있다 — 관리자가 볼 차례. */
 export const hasAuthorReply = (item: Pick<BugItem, 'userReplyTs' | 'lastReplyTs'>) =>

@@ -38,7 +38,6 @@ describe('정수 칸 묶음 — 범위는 규칙 .validate · 서버와 같다',
       config: [0, 600, 30],
       count: [0, 600, 15],
       card: [0, 600, 60],
-      leaderboard: [0, 600, 60],
     });
     expect(ROOM_FRAME.path).toBe('config/roomServer/frame');
     expect(range(ROOM_FRAME)).toEqual({
@@ -56,10 +55,11 @@ describe('정수 칸 묶음 — 범위는 규칙 .validate · 서버와 같다',
   });
 
   it('서버 값 — 범위 밖 · 정수 아님 · 문자열은 없는 것으로', async () => {
-    expect(parseIntGroup(API_CACHE, { config: 0, count: 600, card: 601, leaderboard: 1.5 })).toEqual({
+    expect(parseIntGroup(API_CACHE, { config: 0, count: 600, card: 601 })).toEqual({
       config: 0,
       count: 600,
     });
+    expect(parseIntGroup(API_CACHE, { card: 1.5, leaderboard: 60 })).toEqual({});
     expect(parseIntGroup(ROOM_FRAME, { maxBytes: 65_535, maxSmallBytes: '2048' })).toEqual({});
     expect(parseIntGroup(ROOM_TIMING, null)).toEqual({});
     const db = fakeDb({ 'config/roomServer/timing': { statsLogMs: 30_000, joinWaitMs: 10_000 } }).db;

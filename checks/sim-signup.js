@@ -17,8 +17,8 @@
   12절 휴지통    (개정 49 · 69) 탭 순서 보관함 · 휴지통 · 계정 · 보관함이 열린 PC 에서만 · E 줄(옮김/연동 교체 · 사라지는 날 · [복원] 폭 고정) · 20 이면 붉은 상자 · 보관함 줄 붉은 아이콘 + 줄 안 되묻기 · 가짜 DOM 그리기
   13절 D2        (개정 51) 보관함 가득 참 — 20 이상일 때만 경고(n/20 · 몇 개) · 체크칸 · 고른 수 · [선택한 캐릭터 휴지통으로 (k)] → 되묻기 → 한꺼번에 · 19 면 다 접힘
   15절 별 색     (개정 69) [내 정보] 레벨 배지 = 버튼 · 누르면 머리 아래 «별 색» 구획 · 999 전 잠김(남은 시간) · 회차면 미리보기 + 16칸 · 열 때마다 닫힘 · 재료 함수(별 문자열 · 회차 파생 · 팔레트만 받음)
-  16절 랭킹      [내 정보] 순위 칸 · 왕관 · 후광 · 순위 읽기는 걷었다(남으면 빨강 · 깨 보기) ·
-                 남은 올리기 — 동기화 성공 뒤 서버 총합 · 같은 값 안 씀 · 규칙(소유권 · $other · 목록 읽기 제한)
+  16절 랭킹      [내 정보] 순위 칸 · 왕관 · 후광 · 순위 올리기 · 읽기 · leaderboard 규칙을 걷었다(남으면 빨강 · 깨 보기) ·
+                 포커스 누적 동기화는 그대로
 
    실행: node sim-signup.js   (app.js · firebase-init.js · desk-companion-prototype.html 과 같은 폴더에서 — run.js 가 맞춰 준다)
 */
@@ -1438,73 +1438,44 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     }
   }
 
-  /* ══ 16. 🏆 [내 정보] 전체 랭킹 — 화면은 걷었다 · 누적초 올리기(_lbPush)만 남는다(서버 줄은 그대로) ══ */
+  /* ══ 16. 🏆 전체 랭킹 — 화면 · 올리기 · 읽기 · 규칙을 모두 걷었다(되살아나면 빨강) ══ */
   say('');
-  say('【16】 전체 랭킹 — [내 정보] 순위 칸 · 왕관 · 후광 없음 · 순위 읽기 없음 · 올리기는 그대로');
+  say('【16】 전체 랭킹 — [내 정보] 순위 칸 · 왕관 · 후광 · 순위 올리기 · 읽기 · leaderboard 규칙 없음');
   {
     const noCm = x => String(x || '').replace(/<!--[\s\S]*?-->/g, '');
     const H = noCm(HTML), A = APP;
     const iPg = H.indexOf('<div id="lcMyInfo"');
     const MI = H.slice(iPg, iPg + 20000);
     const css = (HTML.match(/<style>([\s\S]*?)<\/style>/) || [])[1] || '';
+    let RU = null; try { RU = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'))).rules; } catch (_){}
     /* 걷은 것 — 한 군데라도 남으면 빨강 */
     const gone = (src) => [
       [/id="miRank"|id="miRankV"|전체 랭킹<\/span>/.test(src.mi), '순위 칸(#miRank)'],
       [/id="miHalo"|id="miCrown"|mi-ava-wrap/.test(src.mi), '왕관 · 후광 · 감싸개'],
       [/\.mi-rank|\.mi-halo|\.mi-crown|\.mi-ava-wrap/.test(src.css), '순위 CSS'],
-      [/function (rankOf|rankLabel|_miApplyRank|_miRenderRank|_lbFetchRank)\(|_miRankCache|LB_CACHE_MS/.test(src.app), '순위 읽기 · 그리기 함수'],
-      [/fetchLeaderboardTop|fetchMyRank/.test(takeFn(src.app, 'function _miRenderHead(') || '') || /firebaseAPI\.(fetchLeaderboardTop|fetchMyRank)\(/.test(src.app), '앱이 순위를 읽는 자리'],
+      [/function (rankOf|rankLabel|_miApplyRank|_miRenderRank|_lbFetchRank|_lbPush)\(|_miRankCache|LB_CACHE_MS|onTotalSynced/.test(src.app), '순위 그리기 · 올리기 함수'],
+      [/(fetchLeaderboardTop|fetchMyRank|setLeaderboardSec)\b/.test(src.app + '\n' + src.fi), '순위 읽기 · 쓰기 통로(firebaseAPI)'],
+      [/['"`]leaderboard\b/.test(src.app + '\n' + src.fi), 'leaderboard 경로'],
+      [!!(src.rules && src.rules.leaderboard), '규칙 leaderboard 블록'],
     ].filter(x => x[0]).map(x => x[1]);
-    const left = gone({ mi: MI, css, app: A });
-    chk(iPg >= 0 && !left.length, '★ 순위 칸 · 왕관 · 후광 · CSS · 순위 읽기가 없다' + (left.length ? ' — 남음: ' + left.join(' · ') : ''));
+    const cur = { mi: MI, css, app: A, fi: FI, rules: RU };
+    const left = gone(cur);
+    chk(iPg >= 0 && !!RU && !left.length, '★ 순위 칸 · 왕관 · 후광 · CSS · 올리기 · 읽기 · 규칙이 없다' + (left.length ? ' — 남음: ' + left.join(' · ') : '') + (RU ? '' : ' — 규칙 파일을 못 읽음'));
     chk(/<div id="miAvatar"/.test(MI) && /<span id="miAvatarPh">사진<\/span><\/div>/.test(MI), '  사진 칸은 그대로');
     /* 깨 보기 — 걷은 것을 하나씩 되살리면 잡혀야 한다 */
     const back = [
-      { mi: MI + '<div id="miRank" class="mi-rank"></div>', css, app: A },
-      { mi: MI + '<span id="miCrown"></span>', css, app: A },
-      { mi: MI, css: css + '\n  .mi-halo{top:0}', app: A },
-      { mi: MI, css, app: A + '\nfunction _miRenderRank(){}' },
-      { mi: MI, css, app: A + '\nfirebaseAPI.fetchMyRank(uid);' },
+      Object.assign({}, cur, { mi: MI + '<div id="miRank" class="mi-rank"></div>' }),
+      Object.assign({}, cur, { mi: MI + '<span id="miCrown"></span>' }),
+      Object.assign({}, cur, { css: css + '\n  .mi-halo{top:0}' }),
+      Object.assign({}, cur, { app: A + '\nfunction _lbPush(){}' }),
+      Object.assign({}, cur, { fi: FI + '\n    async setLeaderboardSec(userId, sec){}' }),
+      Object.assign({}, cur, { fi: FI + "\n    get(ref(db, 'leaderboard'));" }),
+      Object.assign({}, cur, { rules: Object.assign({}, RU, { leaderboard: { '.read': true } }) }),
     ];
-    chk(back.every(b => gone(b).length === 1), '  ↳ 깨 보기 — 칸 · 왕관 · CSS · 함수 · 읽기를 하나씩 되살리면 각각 잡힌다');
-    /* 남은 것 — 동기화 성공 뒤 서버 총합을 올린다 */
+    chk(back.every(b => gone(b).length === 1), '  ↳ 깨 보기 — 칸 · 왕관 · CSS · 올리기 · 통로 · 경로 · 규칙을 하나씩 되살리면 각각 잡힌다');
+    /* 포커스 누적 동기화는 그대로 — 랭킹 알림 자리만 빠졌다 */
     const sy = takeFn(A, 'async function syncFocusTotalToServer(') || '';
-    const iOk = sy.indexOf("if(!r || !r.ok){ _focusSyncFailed(reason, r, delta); return; }"), iPush = sy.indexOf('fn(uid, server)');
-    chk(iOk > 0 && iPush > iOk && !/fn\([^)]*(_focusTotalSec|mine)/.test(sy) && /onTotalSynced\(\(uid, sec\)=>(myInfoMod\.)?_lbPush\(uid, sec\)\);/.test(A), '★ 동기화가 **성공한 뒤** · 서버 총합(server)을 올린다(«맞췄다» 알림에 _lbPush 가 걸려 있다)');
-    chk((A.match(/_lbPush\(/g) || []).length === 2, '  올리는 곳은 한 곳(정의 + 동기화 뒤 한 줄)');
-    const lp = takeFn(A, 'function _lbPush(') || '';
-    chk(lp && !/myFocusShow|getFocusLevel|focusCycleOf/.test(lp), '  올리는 값은 누적초 하나 — 표시 레벨·해금 레벨·회차를 안 쓴다');
-    /* firebase-init — 서버 줄은 그대로(정리는 따로) */
-    const sl = takeFn(FI, 'async setLeaderboardSec(') || '';
-    chk(/await _whenAuthReady\(\);/.test(sl) && /set\(r, \{ sec: v, ts: serverTimestamp\(\) \}\)/.test(sl) && !/name|photo|nick/.test(sl.replace(/\/\*[\s\S]*?\*\//g, '')),
-      '★ setLeaderboardSec — 대기선 뒤 · {sec, ts} 만(이름·사진 없음) · ts 는 서버 시각');
-    chk(/Number\(cur\.sec\) === v\) return \{ ok:true, sec: v, same:true \}/.test(sl), '★ 서버 줄과 같은 sec 면 안 쓴다 — 부팅·기기마다 ts 가 새로 찍혀 동점에서 밀리지 않게');
-    chk(/const CAP = 999\*3600\*100;/.test(sl), '  어댑터 상한 = 누적 상한');
-    /* 규칙 */
-    let RU = null; try { RU = JSON.parse(stripReadGate(fs.readFileSync('firebase-database-rules.json', 'utf8'))).rules; } catch (_){}
-    if (!RU) say('  · 규칙 파일이 없다 — 규칙 대조 건너뜀');
-    else {
-      const lb = RU.leaderboard || {}, row = lb.$userId || {};
-      const own = ((RU.users || {}).$userId || {}).focus || {};
-      chk(lb['.read'] === "(query.orderByChild == 'sec' && query.limitToLast <= 100) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)" && lb['.indexOn'] === 'sec', '★ 목록 읽기는 sec 정렬 · 100줄 이하만(서버 봇 apiBots 는 사본용 통째 읽기) · 색인 sec');
-      chk(!!row['.write'] && row['.write'] === String(own['.write'] || '').replace(/\$userId/g, '$userId'), '★ 쓰기는 본인만 — users/$userId/focus 와 같은 소유권 식');
-      chk(row.$other && row.$other['.validate'] === false && /hasChildren\(\['sec','ts'\]\)/.test(row['.validate'] || ''), '  sec·ts 둘 다 · 다른 키 거부($other)');
-      chk(/<= 359640000$/.test((row.sec || {})['.validate'] || '') && /newData\.val\(\) >= 0/.test((row.sec || {})['.validate'] || ''), '  sec 0 ~ 누적 상한');
-      chk(/newData\.val\(\) <= now \+ 60000/.test((row.ts || {})['.validate'] || ''), '  ts ≤ now + 60초');
-    }
-    /* 떼어 와 돌린다 — 올리기 */
-    if (lp){
-      const env = { sets: [] };
-      const fb = { setLeaderboardSec(u, v){ env.sets.push([u, v]); return Promise.resolve({ ok: true, same: false }); } };
-      const push = new Function('window', `const firebaseAPI = window.firebaseAPI; let _lbSent = null;\n${lp}\nreturn _lbPush;`)({ firebaseAPI: fb });
-      const flush = () => new Promise(r => setImmediate(r));
-      push('uMe', 3600.7); await flush(); push('uMe', 3600); await flush();
-      chk(env.sets.length === 1 && env.sets[0][0] === 'uMe' && env.sets[0][1] === 3600, '★ 같은 값은 한 번만 올린다(정수 초)');
-      push('uMe', 4000); await flush(); push('uOther', 4000); await flush();
-      chk(env.sets.length === 3, '  값이 바뀌거나 계정이 바뀌면 다시 올린다');
-      push(null, 5); await flush();
-      chk(env.sets.length === 3, '  uid 없으면 안 올린다');
-    }
+    chk(/if\(!r \|\| !r\.ok\)\{ _focusSyncFailed\(reason, r, delta\); return; \}/.test(sy) && /_setFocusSyncedMark\(newMark\);/.test(sy), '  포커스 누적 동기화(성공 · 실패 처리)는 그대로');
   }
 
   say('');
