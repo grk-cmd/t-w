@@ -152,6 +152,8 @@ let _plHomePublic = false;
    ⚠️ 기본은 반드시 꺼짐(공개)이다. 저장값이 없을 때 켜짐으로 떨어지면 업데이트 한 번에
      전원이 무작위 파도타기에서 사라진다(마이홈 공개 체크박스와 같은 이유). */
 let _plPrivate = false;
+/* 🔒 서버가 프리셋 나만 보기를 아는가 — 받기(_plPull) 때만 정한다. 계정을 놓으면 다시 모름 */
+let _plLockable = false;
 /* 🔽 미니미(최소화) — 폭은 그대로, 높이만 접힌 상태. 창을 닫았다 열어도 유지한다. */
 let _plMini = false;
 let _plPubTimer = null;
@@ -269,6 +271,16 @@ function _plRenameSet(i, raw){
    제목줄은 이름이 없으면 예전 문구('🎵 플레이리스트')를 그대로 쓰고(옛 사용자에게 변화가 없다),
    여기는 셋을 **구별**해야 하는 자리라 반드시 번호가 보여야 한다. */
 function _plSetLabel(i){ return _plSetName(i) || ('프리셋 ' + (i + 1)); }
+/* 🔒 프리셋 나만 보기 — 켜면 이 프리셋은 무작위 · 친구 파도타기 모두에 안 뜬다(서버가 거른다).
+   서버가 잠금을 알 때만(_plLockable — fetchMine 의 lockable) 자물쇠를 보인다 — 모르는 서버에서 걸면 남에게 그대로 보인다. */
+function _plSetLocked(i){ const s = _plSets[i]; return !!(s && s.locked); }
+function _plToggleLock(i){
+  if(_plReadOnly() || !_plLockable) return;
+  const s = _plSets[_plSetIdx(i)]; if(!s) return;
+  if(s.locked) delete s.locked; else s.locked = true;
+  _plSave();
+  _plRender();
+}
 function _plWindowTitle(){
   /* 미니미는 폭 236px 에 제목·버튼 세 개가 같이 들어가므로 "[아무개]의 플레이리스트"가 통째로 잘린다.
      접혔을 때는 이름만 남긴다 — 사진은 제목 앞(.plHeadAva)에 따로 붙는다. */
@@ -418,6 +430,7 @@ function _plNormalizeSets(raw){
           title: String(x.title || '').slice(0, 60),
         }))
       : [];
+    if(s.locked === true) out[i].locked = true;   // 🔒 나만 보기 — 켠 것만 칸이 생긴다(안 쓰는 사람의 저장값 · 지문은 그대로)
   }
   return out;
 }
@@ -437,10 +450,10 @@ function _plSave(){
 }
 /* 서버에 올리는 모양과 그 지문 — 올리기 · 고친 시각 · 맞추기가 같은 한 벌을 본다 */
 function _plServerShape(){
-  const sets = _plSets.map(s => ({
+  const sets = _plSets.map(s => Object.assign({
     name: String((s && s.name) || '').slice(0, PL_TITLE_MAX),
     items: (((s && s.items) || [])).map(x => ({ id: x.id, title: x.title || '' })),
-  }));
+  }, (s && s.locked) ? { locked: true } : {}));   // 🔒 잠금은 서버가 알 때만 실린다(playlist-api bodyOf)
   const meta = { bio: _plBio, homePublic: _plHomePublic, private: _plPrivate };
   return { sets, meta, sig: _plPubSigOf(sets, meta) };
 }
@@ -482,6 +495,7 @@ async function _plPull(){
   _plBio = String(srv.bio || '').slice(0, PL_BIO_MAX);
   _plHomePublic = !!srv.homePublic;
   _plPrivate = !!srv.private;
+  _plLockable = srv.lockable === true;
   _plPubSig = _plServerShape().sig;
   _plLoaded = true; _plPullFailed = false;
   _plRender();
@@ -493,7 +507,7 @@ function _plReset(){
   _plFlushSent = false;
   _plGen++; _plPubBusy = false; _plPubAgain = false; _plSaveFailing = false;
   _plLoaded = false; _plPubSig = null; _plPullFailed = false; _plPullMerged = false; _plPullBusyUid = null;
-  _plSets = _plBlankSets(); _plBio = ''; _plHomePublic = false; _plPrivate = false;
+  _plSets = _plBlankSets(); _plBio = ''; _plHomePublic = false; _plPrivate = false; _plLockable = false;
   _plSel = -1; _plView = null; _plNowView = null;
   _plRender();
 }
@@ -1236,6 +1250,16 @@ function _plRenderSetPick(){
     nm.className = 'nm' + (s.name ? '' : ' empty');
     nm.textContent = _plSetLabel(i);           // 이름이 없으면 자리로 부른다("프리셋 2")
     row.appendChild(nm);
+    /* 🔒 나만 보기 — 남의 목록(파도타기)에서는 안 붙인다(남의 프리셋이다). */
+    if(!_plReadOnly() && _plLockable){
+      const lk = document.createElement('span');
+      const on = _plSetLocked(i);
+      lk.className = 'lk' + (on ? ' on' : '');
+      lk.textContent = on ? '🔒' : '🔓';
+      lk.title = on ? _plSetLabel(i) + ' — 나만 보기(누르면 공개)' : _plSetLabel(i) + ' — 공개(누르면 나만 보기)';
+      lk.addEventListener('click', e=>{ e.stopPropagation(); _plToggleLock(i); });   // 줄 클릭(_plSwitchSet)이 같이 먹지 않게
+      row.appendChild(lk);
+    }
     /* ✏️ [수정] — 점선 밑줄 텍스트 하나다(요청). 버튼 테두리를 주면 세 줄짜리 좁은 목록에
          상자가 셋 더 생겨 답답해진다.
        ★ **지금 보고 있지 않은 프리셋도 그 자리에서 고친다.** 3번 이름을 고치려고 3번으로

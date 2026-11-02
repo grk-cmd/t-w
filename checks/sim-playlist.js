@@ -124,7 +124,7 @@ function mkEnv(o){
   /* 🌐 서버 길 provider(playlist-api.js)의 가짜 — 모양은 진짜와 같다(내 목록 / 저장 / 무작위 / 남의 목록). 막히면(noApi) 던진다 */
   const down = async () => { throw new Error('서버 길 막힘'); };
   const playlistApi = o.noApi ? { fetchMine: down, saveMine: down, fetchRandom: down, fetchOf: down } : {
-    saveMine: async (uid, sets, meta) => { const empty = sets.every(s => !s.items.length); env.calls.push((empty ? 'removePl ' : 'publish ') + uid + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); if(env.saveHold) await env.saveHold; return env.saveRes || 'ok'; },
+    saveMine: async (uid, sets, meta) => { env.lastSets = sets; const empty = sets.every(s => !s.items.length); env.calls.push((empty ? 'removePl ' : 'publish ') + uid + ' ' + JSON.stringify(sets.map(s => s.items.length)) + ' ' + JSON.stringify(meta)); if(env.saveHold) await env.saveHold; return env.saveRes || 'ok'; },
     fetchRandom: async (ex) => { env.calls.push('random ' + ex); return env.randomPl || null; },
     fetchMine: async (uid) => { env.calls.push('fetchMine ' + uid); if(env.fetchHold) await env.fetchHold; if(env.srvThrow) throw Object.assign(new Error('끊김'), env.srvCode ? { code: env.srvCode } : {}); return env.srv === undefined ? { sets: [{ name: '', items: [] }, { name: '', items: [] }, { name: '', items: [] }], bio: '', homePublic: false, private: false } : env.srv; },
     fetchOf: async (uid) => { env.calls.push('of ' + uid); return env.plOf ? env.plOf[uid] || null : null; },
@@ -332,6 +332,42 @@ async function behave(src){
     const e = E({ noCompanion: true, store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = await e.mk();
     m.playFrom(0);
     chk(m.state().now === -1 && e.toasts[0] === '이 기능은 앱을 재시작한 후에 사용할 수 있어요', 'companion 이 없으면(옛 preload) 재생하지 않고 알린다');
+  }
+
+  say('── 4-2. 🔒 프리셋 나만 보기(서버가 잠금을 알 때만)');
+  {
+    const srv2 = (extra) => Object.assign({ sets: [{ name: '메인', items: songs(2) }, { name: 'b', items: songs(1, 'b') }, { name: '', items: [] }], bio: '', homePublic: false, private: false }, extra || {});
+    const open = async (e) => { await e.advance(4300); e.byId.myPlBtn.fire('click'); e.byId.myPlSetBtn.fire('click'); };
+    const rows = (e) => e.byId.myPlSetPick.children;
+    const lk = (e, i) => rows(e)[i] && rows(e)[i].querySelector('lk');
+    {
+      const e = E({}); e.srv = srv2(); const m = e.mk(); await open(e);
+      chk(m.state().loaded && rows(e).length === 3 && !rows(e).some(r => r.querySelector('lk')), '★ 서버가 잠금을 모르면(lockable 없음) 자물쇠가 없다 — 걸어도 남에게 보이므로');
+    }
+    {
+      const e = E({}); e.srv = srv2({ lockable: true }); const m = e.mk(); await open(e);
+      chk(lk(e, 1) && lk(e, 1).textContent === '🔓' && !lk(e, 1).classList.contains('on'), '서버가 알면 프리셋 줄마다 자물쇠 — 처음엔 공개(🔓)');
+      lk(e, 1).fire('click');
+      chk(m.state().sets[1].locked === true && m.state().cur === 0 && lk(e, 1).textContent === '🔒' && lk(e, 1).classList.contains('on'),
+          '  누르면 나만 보기(🔒) · 줄 클릭(프리셋 갈아타기)은 같이 안 먹는다');
+      await e.advance(3100);
+      chk(e.count('publish') === 1 && e.lastSets[1].locked === true && e.lastSets[1].items.length === 1 && !('locked' in e.lastSets[0]),
+          '  올리기 — 잠금 표시와 곡을 같이 넘긴다(본문에 싣는 것은 playlist-api bodyOf)');
+      lk(e, 1).fire('click');
+      chk(!m.state().sets[1].locked && lk(e, 1).textContent === '🔓', '  다시 누르면 공개');
+      await e.advance(3100);
+      chk(e.count('publish') === 2 && !('locked' in e.lastSets[1]), '  공개로 돌리면 다시 올린다(지문에 잠금이 낀다)');
+      const n = m.normalizeSets([{ name: 'a', items: [], locked: true }, { name: 'b', items: [], locked: 'yes' }]);
+      chk(n[0].locked === true && !('locked' in n[1]), '  정규화 — true 만 잠금으로 받는다');
+      e.randomPl = { uid: 'U9', name: '하늘', items: songs(2, 'h'), setName: '' };
+      e.byId.myPlPeek.fire('click'); await flush(); await flush();
+      e.byId.myPlSetBtn.fire('click');
+      chk(!rows(e).some(r => r.querySelector('lk')), '  남의 목록(파도타기)에서는 자물쇠가 없다');
+    }
+    {
+      const e = E({}); e.srv = srv2({ sets: [{ name: '메인', items: songs(1), locked: true }, { name: '', items: [] }, { name: '', items: [] }] }); const m = e.mk(); await open(e);
+      chk(m.state().sets[0].locked === true && !rows(e).some(r => r.querySelector('lk')), '  잠긴 벌이 와도 서버가 모르면 단추는 안 보인다(잠금 표시는 그대로 지닌다)');
+    }
   }
 
   say('── 5. 파도타기 · 담기 · 비공개 · 서버 사본');
