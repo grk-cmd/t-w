@@ -27,6 +27,8 @@ import {
   BUG_ROOT,
   dayOrder,
   filterKey,
+  isSuggestion,
+  SUGGEST_SCAN_PAGES,
   toAnswers,
   toBugItem,
   toBugPage,
@@ -47,6 +49,7 @@ const DAY_PAGES_MAX = 10;
 
 /** 목록 한 쪽(≤ 20) — 규칙이 limitToLast ≤ 20 쿼리만 받는다. 통째로 받지 않는다. */
 export async function listBugPage(db: Db, filter: BugFilter, before: BugCursor | null): Promise<BugPage> {
+  if (filter === 'suggest') return listSuggestPage(db, before);
   const key = filterKey(filter);
   const raw = await db.getLast<unknown>(
     BUG_LIST,
@@ -55,6 +58,22 @@ export async function listBugPage(db: Db, filter: BugFilter, before: BugCursor |
     before ? { endBefore: { value: before.value, key: before.key } } : undefined,
   );
   return toBugPage(raw, key);
+}
+
+/**
+ * 미해결 건의 — 미해결 쪽을 차례로 받아 건의만 남긴다. 건의가 한 쪽(20) 넘게 모이거나 미해결이 끝나거나
+ * SUGGEST_SCAN_PAGES 쪽을 보면 멈추고, [다음] 은 마지막으로 본 미해결 자리부터 잇는다.
+ */
+async function listSuggestPage(db: Db, before: BugCursor | null): Promise<BugPage> {
+  const items: BugItem[] = [];
+  let cur = before;
+  for (let i = 0; i < SUGGEST_SCAN_PAGES; i++) {
+    const p = await listBugPage(db, 'open', cur);
+    items.push(...p.items.filter(isSuggestion));
+    cur = p.next;
+    if (!cur || items.length >= BUG_PAGE) break;
+  }
+  return { items, next: cur };
 }
 
 export interface BugListQuery {
@@ -77,6 +96,8 @@ export function fetchBugList(api: Api | null, db: Db, query: BugListQuery): Prom
     ...(await listBugPage(db, query.filter, query.before)),
   });
   if (query.before) return fromRtdb(api ? 'unavailable' : 'no-api');
+  // TODO: 서버 API(/v1/admin/bugs)가 filter=suggest 를 알면 이 줄을 걷는다 — 그 전까지 미해결 건의는 RTDB 로만 읽는다.
+  if (query.filter === 'suggest') return fromRtdb('no-api');
   return viaApiOr(
     api,
     async (a) =>
