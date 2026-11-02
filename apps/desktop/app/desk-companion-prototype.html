@@ -1373,21 +1373,6 @@
   .mi-star-ghost{font-size:22px;line-height:1;color:#c8c8c8;text-shadow:0 1px 0 #fff,0 -1px 0 #999;}
   .mi-star-meter{height:6px;margin-top:4px;padding:1px;border:1px solid var(--win-lo-2);background:var(--win-face);box-sizing:content-box;}
   .mi-star-meter i{display:block;height:100%;width:0;background:var(--win-select);}
-  /* 🏆 [내 정보] 전체 랭킹 1~100위 (시안 v2 B안 + 후광 ② 확정 · 2026-09-23 · CHECKS 개정 73) — 값은 시안 그대로.
-     ★ 칸 없이 글자만. 100위 밖이면 #miRank 를 통째로 숨긴다(글자도 없음). 1~3위는 메달 + 큰 글자(.top).
-     ★ 왕관·후광은 #miAvatar(overflow:hidden) 밖 · 감싸개 .mi-ava-wrap 의 자식이다 — 안에 넣으면 잘린다.
-     ⚠️ 후광 색은 테마 토큰이 아니라 고정 금빛이다(날리기 «무지개» 와 같은 태도). 방사형 · 베젤 없음이라 검사 12·13 과 무관.
-       전역 *{border-radius:0 !important} 가 50% 를 이기지만, closest-side 그라데이션이 가장자리에서 이미 투명이라 모양은 같다.
-     ⚠️ 움직임 없음 — 만들면 prefers-reduced-motion 목록에 넣을 것. */
-  .mi-ava-wrap{position:relative;flex-shrink:0;overflow:visible;}
-  .mi-rank{margin-left:auto;align-self:center;flex-shrink:0;text-align:right;line-height:1.25;}
-  .mi-rank .t{font-size:9.5px;color:var(--ink-soft);display:block;}
-  .mi-rank .v{font-size:15px;font-weight:bold;white-space:nowrap;}
-  .mi-rank .v.top{font-size:17px;}
-  .mi-halo{position:absolute;left:50%;top:-30px;width:54px;height:46px;transform:translateX(-50%);pointer-events:none;border-radius:50%;
-    background:radial-gradient(closest-side, rgba(255,250,200,1), rgba(255,226,80,.9) 35%, rgba(255,200,40,.45) 65%, rgba(255,200,40,0) 100%);}
-  .mi-crown{position:absolute;left:50%;top:-15px;transform:translateX(-50%) rotate(-12deg);font-size:20px;line-height:1;pointer-events:none;
-    filter:drop-shadow(0 0 2px #fff3a0) drop-shadow(0 0 4px rgba(255,200,40,.9));}
   .lc-card{position:relative;width:320px;max-width:92vw;padding:14px 18px 18px;margin:auto;flex:none;
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);border-radius:var(--win-radius-el) !important;}
@@ -6148,14 +6133,11 @@
         <button id="miBack" class="lc-btn" type="button" aria-label="런처로" style="width:auto;margin:0;padding:2px 9px;font-size:11px;">&#9664;</button>
         <b style="font-size:12px;">내 정보</b></div>
       <div style="display:flex;gap:9px;align-items:center;padding-bottom:9px;border-bottom:1px solid var(--win-lo-2);box-shadow:0 1px 0 var(--win-hi);">
-        <!-- 🏆 사진 감싸개(개정 73) — 1위 왕관·후광이 #miAvatar(overflow:hidden) 밖으로 삐져나오게. 순서: 사진 → 후광 → 왕관. -->
-        <div class="mi-ava-wrap">
         <div id="miAvatar" style="width:44px;height:44px;flex-shrink:0;background:var(--win-select-bg);border:1px solid;
           border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);color:var(--ink-soft);display:flex;align-items:center;justify-content:center;
           text-align:center;font-size:9px;line-height:1.3;overflow:hidden;"><!-- 틀은 마이홈 프로필 사진(#mhAvatarBig)과 같은 한 줄 베벨 -->
           <img id="miAvatarImg" alt="" draggable="false" style="display:none;width:100%;height:100%;object-fit:cover;">
           <span id="miAvatarPh">사진</span></div>
-          <span id="miHalo" class="mi-halo" aria-hidden="true" style="display:none;"></span><span id="miCrown" class="mi-crown" aria-hidden="true" style="display:none;">&#128081;</span></div>
         <div style="display:flex;flex-direction:column;gap:4px;min-width:0;flex:1;">
           <div id="miNameRow" style="display:flex;align-items:center;gap:5px;flex-wrap:wrap;">
             <span id="miNick" style="font-size:12.5px;font-weight:bold;word-break:break-all;"></span>
@@ -6172,8 +6154,6 @@
           <div style="display:flex;align-items:center;gap:6px;"><span id="miCode" style="font-size:11px;font-weight:bold;font-family:'Courier New',monospace;letter-spacing:.3px;">—</span>
             <button id="miCopy" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">복사</button></div>
         </div>
-        <!-- 🏆 전체 랭킹 (시안 v2 B안 · 개정 73) — 머리 줄 오른쪽. 1~100위만 · 밖이면 통째로 숨김. 글자는 app.js _miApplyRank(rankLabel)가 채운다. -->
-        <div id="miRank" class="mi-rank" style="display:none;"><span class="t">전체 랭킹</span><span id="miRankV" class="v"></span></div>
       </div>
       <!-- 🌟 별 색 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69) — 머리의 레벨 배지(#miLvBtn)를 누를 때만 열린다. [내 정보]를 열 때마다 닫힌 채 시작.
            ★ 999시간 전: #miStarLock (남은 시간 + 막대). 회차: #miStarOn (왼쪽 실제 이름표·바 미리보기 + 오른쪽 16칸).
@@ -6358,7 +6338,7 @@
                 <li>캐릭터 · 파츠(뽑은 파츠 포함) · 꾸미기 · 휴지통</li>
                 <li>마이홈(자기소개 · 게시글 · 스티커 · 사진 · BGM) · 내 마이홈 방명록</li>
                 <li>친구 목록 · 친구 요청 · 방 초대 — <b>친구들의 목록에서도 빠져요</b></li>
-                <li>포커스 기록 · 레벨 · 랭킹 · 달성표 · 일정 · 플레이리스트 · 책갈피</li>
+                <li>포커스 기록 · 레벨 · 달성표 · 일정 · 플레이리스트 · 책갈피</li>
                 <li>받은 편지 · 선물함 · 폰 연결 · 아직 안 쓴 초대 코드</li>
                 <li>올린 사진 · 이모티콘 · 자리비움 그림 · 스티커사진 파일</li>
                 <li>로그인 계정(구글 연결 · 친구 코드 · 비밀번호)과 라이선스 신청 기록</li>
@@ -8558,7 +8538,7 @@
 <script src="parts/admin/admin-mode.js"></script>   <!-- 🛠️ 관리자: 🔐 관리자 모드 진입 · 비밀번호 창 · Ctrl+E · 관리자 버튼 보이기 — key-input.js 뒤 · app.js 보다 먼저(TwAdminMode.createAdminMode) -->
 <script src="parts/support/report.js"></script>   <!-- 🚩 신고하기(신고 창 · 공용 도우미 · 팝업 칸) — app.js 보다 먼저(app.js 가 원래 자리에서 TwReport.createReport 로 만든다) -->
 <script src="parts/admin/admin-report.js"></script>   <!-- 🛠️ 관리자: 🚩 신고 목록 — report.js 뒤 · app.js 보다 먼저(TwAdminReport.createAdminReport) -->
-<script src="parts/account/my-info.js"></script>   <!-- 🪪 [내 정보] 화면 · 🏆 랭킹 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyInfo.createMyInfo 로 만든다) -->
+<script src="parts/account/my-info.js"></script>   <!-- 🪪 [내 정보] 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyInfo.createMyInfo 로 만든다) -->
 <script src="parts/character/chars.js"></script>   <!-- 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 조율 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChars.createChars 로 만든다) -->
 <script src="parts/character/slot-sync.js"></script>   <!-- ☁️ 슬롯 기기 간 동기화 · 연동 UI — app.js 보다 먼저(app.js 가 원래 자리에서 TwSlotSync.createSlotSync 로 만든다) -->
 <script src="parts/room/away-pic.js"></script>   <!-- 🫧 자리비움 그림 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAwayPic.createAwayPic 로 만든다) -->

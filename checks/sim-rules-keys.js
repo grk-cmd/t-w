@@ -98,7 +98,6 @@ const KIND = {
   '/playlistIndex/$uid': 'user',
   '/mobileKeys/$userId': 'user',
   '/mobileLink/$userId': 'userPadded',
-  '/leaderboard/$userId': 'user',
   '/invites/$code': 'invite',
   '/groupInvites/$code': 'invite',
   '/groupInviteUses/$code': 'invite',

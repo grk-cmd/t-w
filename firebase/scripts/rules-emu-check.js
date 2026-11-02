@@ -380,7 +380,8 @@ const LIMIT_CASES = [
   ['새 계정 ⑧ presence(ver)', 'PUT', `users/${NEW_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false, ver: '0.11.3' }, true, 'authN'],
   ['새 계정 ⑨ 프로필', 'PUT', `users/${NEW_U}/profile`, { name: '새사람', updatedAt: 1, level: 1 }, true, 'authN'],
   ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
-  ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 ⑪ 포커스 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 — 랭킹 쓰기(걷음)', 'PUT', `leaderboard/${NEW_U}`, { sec: 5, ts: TS }, false, 'authN'],
   /* 🔒 온라인 고정 — 본인만 읽고 쓴다(친구가 «숨긴 오프라인» 을 못 알아보게) · 세 칸 */
   ['온라인 고정 — 켤 때 읽기', 'GET', `presencePref/${NEW_U}`, null, true, 'authN'],
   ['온라인 고정 — 본인 쓰기', 'PUT', `presencePref/${NEW_U}`, { lock: true, online: false, ts: TS }, true, 'authN'],
@@ -434,7 +435,7 @@ const LIMIT_CASES = [
   ['옛 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, false, 'authOld'],
   ['새 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, true, 'authNew2'],
   ['옛 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authOld'],
-  ['새 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, true, 'authNew2'],
+  ['새 앱 — 랭킹 쿼리(걷음)', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authNew2'],
   ['옛 앱 — 우편함 공용', 'GET', 'inboxBroadcast', null, false, 'authOld'],
   ['옛 앱 — 관리자 칸은 원래 막힘(시험 도구 확인)', 'GET', 'adminTodos', null, false, 'authOld'],
   ['관리자(이음 없음) — 관리자 읽기 그대로', 'GET', 'rooms', null, true, ADMIN_A],

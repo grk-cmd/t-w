@@ -25,8 +25,6 @@ const INTERACTION_DESKS = deps.INTERACTION_DESKS;
 const Presence = deps.Presence;
 const _acctDetached = deps._acctDetached;   // 읽는 함수
 const focusLevelStore = deps.focusLevelStore;   // 🗂️ 누적 · 마크는 계정별 칸(shared/account-store.js)
-const _totalSyncedFns = [];
-function onTotalSynced(fn){ _totalSyncedFns.push(fn); }
 const _focusDayStr = deps._focusDayStr;
 const _focusSessionSec = deps._focusSessionSec;   // 읽는 함수
 const _focusTodaySec = deps._focusTodaySec;   // 읽는 함수
@@ -390,9 +388,6 @@ async function syncFocusTotalToServer(reason){
          올라 있어서 _pushLevelIfChanged 는 다시 안 불린다. 그 경우를 여는 것이 이 한 줄이다. */
     try{ _notifyDanceUnlocks(getFocusLevel()); }catch(_){}
     _focusLastSyncedVal = newMark;
-    /* 🏆 전체 랭킹(개정 73) — **서버 총합**(server)을 올린다. 여러 기기 합산이 끝난 값이라서. 기다리지 않는다(실패해도 동기화는 성공이다).
-       올리는 일은 내 정보(my-info.js _lbPush)가 «서버와 맞췄다» 알림(onTotalSynced)으로 받는다 — 포커스 레벨은 내 정보를 부르지 않는다. */
-    _totalSyncedFns.forEach(fn=>{ try{ fn(uid, server); }catch(_){} });
   }catch(_){}
   finally{ _focusSyncing = false; }
 }
@@ -622,7 +617,6 @@ setInterval(()=>{
 return {
   startFocusSync,
   DANCE_NOTIFIED_KEY,
-  onTotalSynced,
   DANCE_REPAIR_KEY,
   FOCUS_SYNCED_KEY,
   STAR_PALETTE,
