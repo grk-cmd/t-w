@@ -342,3 +342,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 크로미움(Electron 44 실측)은 칸을 옮기면 compositionend → blur → focusout(같은 틱), 다른 앱이 앞으로 오면 focusout(창 포커스 없음) → window blur → compositionend, 칸을 다시 그리면 compositionend 없이 focusout(그때는 아직 붙어 있음 — 그래서 `defer` 뒤에 `isConnected` 를 본다). 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
 - **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
 - 검사: `checks/sim-input-diag.js`(깨 보기 열).
+
+## `front-diag.js` — 🩺 앞 창 진단(1분 `[프레임]` 줄 끝에 앞 창 · 전체화면 비율)
+
+- **책임**: «앱을 켜 두면 게임 · 영상이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 렌더러가 1분마다 보내는 `[프레임]` 줄 끝에 그 1분 동안 가장 오래 앞에 있던 실행 파일과 그 창이 모니터를 꽉 채운 비율을 붙인다. main 만 싣는다(`module.exports` — 렌더러는 앞 창을 모른다).
+- **쓰는 법**: `createFrontWatch()` — 활성 창 폴링(500ms)마다 `note(t, exe, coversDisplay(앞창 bounds, 우리 창 모니터 bounds))`, `companion:diagNote` 가 `isFrameLine(줄)` 이면 `줄 + suffix(take(t))`. 예) `… · 앞 창 Discord.exe · 전체화면 85%` · 표본이 없으면 ` · 앞 창 모름`.
+- **함정**
+  - 창 제목은 적지 않는다(영상 제목 · 대화 상대 이름) — 실행 파일 이름만.
+  - 맥은 앞 창 크기를 안 읽는다(`bounds: null` — node-window-manager 맥 `getBounds` 가 창 목록을 통째로 다시 받고 사전을 놓아주지 않아 0.5초 폴링에 못 쓴다). 크기를 못 읽은 표본은 비율 분모에서 빠지고, 그것만 있으면 `전체화면 모름`.
+  - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
+  - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
+- 검사: `checks/sim-front-diag.js`(깨 보기 열).
