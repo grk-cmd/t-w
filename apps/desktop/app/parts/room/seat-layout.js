@@ -1,6 +1,6 @@
 /* seat-layout.js — 🪑 좌석 줄 배치 — 책상 폭을 재서 좌석마다 자리(targetX)를 잡고 줄 가운데 · 폭을 카메라에 넘긴다
-   책임: 좌석 줄 자리 계산 하나 — 평준화 반영 → 맨 오른쪽 고정 → 이동 오프셋 다시 검사 → 책상과 책상 사이 여백을 일정하게 targetX → 줄 가운데 · 폭을 캐시하고 카메라 모듈에 넘김.
-   받는 deps: seats(값) · _rideBottom(ride-chain.js) · syncSeatEqualize · renderSeatTabs · clampDeskPan · seatDeskHalfWidth(함수) · roomSeatMode · deskPanX/Y · SPACING · MULTIPLAYER_SPACING · seatCameraMod(읽는 함수) · setDeskPanX/Y · setCachedRowCenter/Span(쓰는 함수).
+   책임: 좌석 줄 자리 계산 하나 — 평준화 반영 → 맨 오른쪽 고정 → 이동 오프셋 다시 검사 → 책상(작거나 없으면 캐릭터 몸 + 여유)과 책상 사이 여백을 일정하게 targetX → 줄 가운데 · 폭을 캐시하고 카메라 모듈에 넘김.
+   받는 deps: seats(값) · _rideBottom(ride-chain.js) · syncSeatEqualize · renderSeatTabs · clampDeskPan · seatDeskHalfWidth · measureCharBox(함수) · roomSeatMode · deskPanX/Y · SPACING · MULTIPLAYER_SPACING · seatCameraMod(읽는 함수) · setDeskPanX/Y · setCachedRowCenter/Span(쓰는 함수).
    내보내는 것: layoutSeatRow() — app.js 의 layoutSeats() 가 부른다.
    ⚠️ 이름이 layoutSeats 가 아닌 까닭: app.js 맨 아래 «데스크탑 창 크기» 가 layoutSeats 를 감싸 다시 대입한다(앱 FSD 32번). 그래서 app.js 에 같은 이름의 얇은 함수를 남겨 두고,
       모든 부르는 곳 · 다른 모듈 deps 는 예전처럼 그 이름을 본다 — 감싼 판이 그대로 불린다.
@@ -32,7 +32,19 @@ const setCachedRowCenter = deps.setCachedRowCenter;   // 쓰는 함수
 const setCachedRowSpan = deps.setCachedRowSpan;   // 쓰는 함수
 const setDeskPanX = deps.setDeskPanX;   // 쓰는 함수
 const setDeskPanY = deps.setDeskPanY;   // 쓰는 함수
+const measureCharBox = deps.measureCharBox;   // 캐릭터 몸 박스(파츠 제외 · 월드 좌표) — character/char-measure.js
 const ROW_SPAN_MIN = 1.2;   // 카메라 줌용 줄 폭 하한 — 혼자일 때도 이만큼은 비춘다
+/* 🧍 자리 반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유» 중 넓은 쪽 — 책상이 작거나 없는 좌석의 캐릭터가 옆 책상과 겹치지 않게.
+   책상 있는 좌석은 책상이 더 넓어 지금과 같다. 여유는 기본 책상 반폭(0.85)보다 훨씬 작게 — 살짝만 띄운다. */
+const BODY_ROOM = 0.15;
+function seatBodyHalfWidth(s){
+  if(!s || !s.gltfRoot) return 0;
+  const b = measureCharBox(s.gltfRoot);
+  if(!b || b.isEmpty()) return 0;
+  const cx = s.group ? s.group.position.x : 0;
+  return Math.max(Math.abs(b.max.x - cx), Math.abs(b.min.x - cx));
+}
+function seatRoomHalf(deskHalf, bodyHalf){ return Math.max(deskHalf, bodyHalf > 0 ? bodyHalf + BODY_ROOM : 0); }
 function layoutSeatRow(){
   /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
      작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
@@ -47,7 +59,8 @@ function layoutSeatRow(){
   /* 🐾 남의 머리에 올라탄 좌석(탑 사슬 전체)은 자리 계산에서 뺀다 — 숨긴 책상이 기본 폭 0.85 로 빈자리를 잡지 않게.
      실제 위치는 _positionRideSeat 이 매 프레임 덮어쓴다.
      ⚠️ seats 배열의 순서 · 내용은 건드리지 않는다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 카메라 줌도 같은 placed 목록을 본다. */
-  const halfWidths = seats.map(seatDeskHalfWidth);
+  const bodyHalf = new Map(seats.map(s=>[s, seatBodyHalfWidth(s)]));
+  const halfWidths = seats.map((s,i)=>seatRoomHalf(seatDeskHalfWidth(s, i), bodyHalf.get(s)));   // ⚠️ 두 번째 인자 i 는 옛 map 그대로(줌 상한이 1번부터 걸리는 지금 동작 — sim-seat-layout 4절)
   const _hwOf = new Map(seats.map((s,i)=>[s, halfWidths[i]]));
   const placed = seats.filter(s=>!s.ridingOn);
   placed.forEach((s,i)=>{
@@ -62,7 +75,7 @@ function layoutSeatRow(){
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const rowCenter = (minX+maxX)/2;
   const leftIdx = xs.indexOf(minX), rightIdx = xs.indexOf(maxX);
-  const halfWidthsForZoom = placed.map(s=>seatDeskHalfWidth(s, true));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
+  const halfWidthsForZoom = placed.map(s=>seatRoomHalf(seatDeskHalfWidth(s, true), bodyHalf.get(s)));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
   const rowSpan = Math.max(ROW_SPAN_MIN, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
   setCachedRowCenter(rowCenter); setCachedRowSpan(rowSpan);   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
   seatCameraMod().applyCameraAndCanvas(rowCenter, rowSpan);

@@ -91,13 +91,14 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **함정**: 순환 방어로 `RIDE_CHAIN_MAX_HOPS`(16)번에서 멈춘다(`_rideDepth` 와 같은 상한) — 바꾸면 둘을 같이. 검사: `checks/sim-ride-chain.js`.
 ## seat-layout.js — 🪑 좌석 줄 배치
 
-- **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 반폭 + 여백 + 내 반폭» 씩 `targetX` → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로.
+- **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 반폭 + 여백 + 내 반폭» 씩 `targetX`(반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유 `BODY_ROOM` 0.15» 중 넓은 쪽 — 책상이 작거나 없는 캐릭터가 옆 책상과 안 겹치게) → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로.
 - **만드는 법**(app.js «🪑 좌석 배치» 구역 자리):
   ```js
   const seatLayoutMod = TwSeatLayout.createSeatLayout({
     seats,                                                                // 값
     _rideBottom: (...a)=>rideChainMod._rideBottom(...a),                  // 탑 바닥(ride-chain.js — ride-bench 를 부르면 순환)
     syncSeatEqualize, renderSeatTabs, clampDeskPan, seatDeskHalfWidth,   // 함수(화살표로)
+    measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),         // 캐릭터 몸 박스(파츠 제외 · 월드)
     roomSeatMode: ()=>roomSeatMode, deskPanX: ()=>deskPanX, deskPanY: ()=>deskPanY,
     SPACING: ()=>SPACING, MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, seatCameraMod: ()=>seatCameraMod,
     setDeskPanX: (v)=>{ deskPanX = v; }, setDeskPanY: (v)=>{ deskPanY = v; },
@@ -110,8 +111,8 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **함정**
   - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
-  - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seats.map(seatDeskHalfWidth)` 가 인덱스를 forZoom 으로 넘김).
-  - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록).
+  - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seatDeskHalfWidth(s, i)` 가 인덱스를 forZoom 으로 넘김 — 몸 폭 규칙을 넣으면서도 그대로 뒀다).
+  - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록 · 책상 없는 좌석 몸 자리).
 
 ## label-measure.js — 📐 좌석 라벨 잰 값 기억
 
