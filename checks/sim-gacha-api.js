@@ -19,7 +19,7 @@ const SRC = fs.readFileSync(FILE, 'utf8');
 const load = (src) => { const ctx = { window: {}, Math, JSON, Object, Array, Number, String, Error, Promise, isFinite }; vm.createContext(ctx); vm.runInContext(src, ctx); return ctx.window.TwGachaApi; };
 
 const ITEMS = { items: [{ partId: 'a', count: 2, colorUnlocked: false }, { partId: 'b', count: 0 }, { partId: 'c', count: 4, colorUnlocked: true }, { partId: '', count: 1 }, { partId: 'd', count: -1 }, { partId: 'e', count: 1.5 }] };
-const GACHA = { earned: 4, bonus: 1, left: 1, season: 'winter' };
+const GACHA = { earned: 4, bonus: 1, left: 1, season: 'WINTER' };   // 서버 실물 모양(대문자)
 const apiErr = (kind, code, status) => Object.assign(new Error(kind), { kind, code: code || '', status: status || 0 });
 
 /* 가짜 로그인 통로 — 부른 것을 적고, reply 가 정한 값을 돌려주거나 던진다. 읽을 때 onOwner 로 주인을 알린다 */
@@ -44,6 +44,7 @@ await sec('── 1. 순수', () => {
   chk(st && JSON.stringify(st.owned) === '{"a":2,"c":4,"e":1}' && JSON.stringify(st.unlocked) === '{"c":true}' && st.earned === 4 && st.bonus === 1 && st.left === 1 && st.season === 'winter',
       'stateOf — 0 · 음수 · 빈 id 는 안 가짐으로 · 소수는 내림 · 해금은 서버 값 (' + JSON.stringify(st) + ')');
   chk(M.stateOf([], { earned: 0, bonus: 0, left: 0 }).season === null && M.stateOf([], { earned: 0, bonus: 0, left: 0, season: 'fall' }).season === null, '  모르는 시즌 · 없음은 null');
+  chk(M.stateOf([], { earned: 0, bonus: 0, left: 0, season: 'SPRING' }).season === 'spring' && M.stateOf([], { earned: 0, bonus: 0, left: 0, season: 'spring' }).season === 'spring' && M.stateOf([], { earned: 0, bonus: 0, left: 0, season: 7 }).season === null, '  대문자(SPRING)도 소문자 앱 키로 — 서버가 대문자로 준다');
   chk(M.stateOf(null, GACHA) === null && M.stateOf([], null) === null && M.stateOf([], { earned: -1, bonus: 0, left: 0 }) === null && M.stateOf([], { earned: 1, left: 0 }) === null
       && M.stateOf([], { earned: 1, bonus: 0, left: 'x' }) === null, '  모양이 틀리면 null — 목록 아님 · 음수 · 빠진 칸');
   chk(M.stateOf([], GACHA).owned && Object.keys(M.stateOf([], GACHA).owned).length === 0, '  빈 목록은 빈 보유분(성공)');

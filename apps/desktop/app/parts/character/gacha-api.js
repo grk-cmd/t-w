@@ -40,13 +40,16 @@ function itemsOf(list){
   return { owned, unlocked };
 }
 
+/* 시즌 — 서버는 대문자(SPRING · SUMMER · AUTUMN · WINTER)로 준다. 앱 키(소문자)로 바꾸고 모르는 값은 null */
+function seasonOf(v){ const k = typeof v === 'string' ? v.toLowerCase() : ''; return SEASONS.indexOf(k) >= 0 ? k : null; }
+
 /* 서버 두 응답 → 상태. 모양이 틀리면 null(그 응답은 쓰지 않는다). */
 function stateOf(items, gacha){
   const it = itemsOf(items);
   if(!it || !isObj(gacha)) return null;
   const earned = nonNeg(gacha.earned), left = nonNeg(gacha.left), bonus = nonNeg(gacha.bonus);
   if(earned === null || left === null || bonus === null) return null;
-  return { owned: it.owned, unlocked: it.unlocked, earned, bonus, left, season: SEASONS.indexOf(gacha.season) >= 0 ? gacha.season : null };
+  return { owned: it.owned, unlocked: it.unlocked, earned, bonus, left, season: seasonOf(gacha.season) };
 }
 
 /* 뽑기 결과 줄 → [{ id, count, isNew, unlockedColor }]. 모양이 틀린 줄은 버린다. */

@@ -157,7 +157,7 @@
 | **sim-friend-manage.js** | 274 | **73c11c84c96b** |
 | **sim-gift-star.js** | 127 | **09dec0581403** |
 | **sim-gacha-prune.js** | 163 | **9f889fd941a7** |
-| **sim-gacha-api.js** | 132 | **8fdc6ba0fd0e** |
+| **sim-gacha-api.js** | 133 | **3e2c42ea11c4** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
 | **sim-ghost-cache-sync.js** | 365 | **62c744f5861c** |
 | **sim-click-through-policy.js** | 312 | **c8a07dca8eaa** |
