@@ -209,8 +209,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/_rc\.start\(\{\s*api: \(window\.TwApi && window\.TwApi\.client\) \|\| null,\s*storage: _lsOrNull\(\),\s*win: window,\s*rt: window\.TwRtHub\.store,/.test(fi),
       'firebase-init.js 가 store.start 로 앱 공통 API 통로(TwApi.client) · realtime 알림(TwRtHub.store)을 잇는다');
     chk(!/fallbackRead/.test(fi) && !/store\.watch/.test(fi) && !/'config\/(?!maintenance)/.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 비상 읽기 · 구독 · 박힌 경로 없음(점검 칸만 — maintenance-gate.js)');
-    chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null,/.test(fi) && fi.indexOf('_rc.start(') < fi.indexOf('createAppVersionGate({'),
-      '  ↳ 앱 최소 버전은 원격 설정의 첫 답(API 값만) — start 다음에 게이트');
+    chk(!/createAppVersionGate|MIN_APP_VER_WAIT_MS/.test(fi), '  ↳ 앱 최소 버전 판정은 firebase-init 에 없다 — 켜는 흐름(shared/update-flow.js)이 원격 설정 첫 답으로 한다(sim-update-flow.js)');
     chk(/async getMinRoomVer\(\)\{\s*if\(!_rc\) return null;\s*try\{ await _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\); \}catch\(_\)\{\}\s*return _rc\.minRoomVer\(\);/.test(fi),
       '  ↳ 방 입장 최소 버전 — 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
     chk(/getDailyMax: \(\) => _rc \? _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\)\.then\(\(\) => _rc\.bugDailyMax\(\)\) : null,/.test(fi), '  ↳ 제보 하루 상한도 원격 설정');

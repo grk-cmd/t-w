@@ -63,8 +63,8 @@ t(calls === 1, `checkForUpdates() 호출이 한 곳뿐이다 (지금 ${calls}곳
 t(!!fnStart && /autoUpdater\s*\.\s*checkForUpdates\s*\(/.test(fnStart),
   '그 한 곳이 startUpdateCheck() 안이다');
 
-const timer = mainBody.match(/setTimeout\(\s*\(\)\s*=>\s*\{\s*startUpdateCheck\(\)\s*;?\s*\}\s*,\s*\d+\s*\)/);
-t(!!timer, '창이 뜬 뒤 부르는 자리가 startUpdateCheck() 를 쓴다 (autoUpdater 를 직접 안 부른다)');
+t(!/setTimeout\(\s*\(\)\s*=>\s*\{\s*startUpdateCheck\(\)/.test(mainBody), '켜고 몇 초 뒤 혼자 확인하지 않는다 — 렌더러가 켤 때 checkUpdate 로 묻는다 (update-flow.js)');
+t(/ipcMain\.on\('companion:checkUpdate',\s*\(\)\s*=>\s*\{\s*startUpdateCheck\(\)/.test(mainBody), '확인 요청(companion:checkUpdate)이 startUpdateCheck() 를 쓴다 (autoUpdater 를 직접 안 부른다)');
 
 /* ★ 말이 아니라 **실행**으로 가른다. process 를 인자로 받는 껍데기에 넣어 platform 을 갈아 끼운다. */
 function runGate(platform){
@@ -137,8 +137,8 @@ console.log('\n[3] app.js — 안내 배너');
 
 const appBody = strip(APP);
 t(/status\s*===\s*'mac-available'/.test(appBody), "onUpdateStatus 가 'mac-available' 을 처리한다");
-t(/status\s*===\s*'mac-available'\s*\)\s*showUpdateReadyBanner\(/.test(appBody),
-  '그 처리가 기존 showUpdateReadyBanner() 로 간다');
+t(/status\s*===\s*'mac-available'\s*\)\s*whenUpdateStageDone\(\(\)=>showUpdateReadyBanner\(/.test(appBody),
+  '그 처리가 기존 showUpdateReadyBanner() 로 간다 (업데이트 창 단계가 끝난 뒤 — update-flow.js)');
 t(!/id\s*=\s*['"]macUpdate/.test(appBody) && (appBody.match(/updateReadyBanner/g) || []).length >= 2,
   '맥 전용 오버레이를 새로 만들지 않았다 (#updateReadyBanner 재활용)');
 

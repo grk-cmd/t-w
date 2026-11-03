@@ -25,7 +25,7 @@ const MAX_PEOPLE_MIN = 2, MAX_PEOPLE_MAX = 50;
 const BUG_DAILY_MIN = 1, BUG_DAILY_MAX = 100;
 const CLAP_DAILY_MIN = 1, CLAP_DAILY_MAX = 100;
 const GIFT_DAILY_MIN = 1, GIFT_DAILY_MAX = 100;
-const VER_MAX = 20;                                     // 버전 문자열 길이 상한(app-version-gate.js MIN_APP_VER_MAX 와 같다)
+const VER_MAX = 20;                                     // 버전 문자열 길이 상한(update-flow.js VER_MAX 와 같다)
 /* 방 연결 시간(서버 room.timing 의 앱 쪽 칸) — 이름 → [최소, 최대, 기본]. 서버 설정 키 표 · room-server-net.js TIMING_DEFAULTS 와 같다. */
 const TIMING_RANGES = Object.freeze({
   joinWaitMs: Object.freeze([3000, 60000, 10000]),

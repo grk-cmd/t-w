@@ -37,6 +37,7 @@ const ray = deps.ray;
 const renderer = deps.renderer;
 const seats = deps.seats;
 const setTwMoveSeenAt = deps.setTwMoveSeenAt;   // 쓰는 함수
+const whenUpdateStageDone = deps.whenUpdateStageDone;   // 업데이트 창 단계가 끝난 뒤 한 번(shared/update-flow.js)
 const setLastActivity = deps.setLastActivity;   // 쓰는 함수
 const setLastAnyInput = deps.setLastAnyInput;   // 쓰는 함수
 if(desktopMode){
@@ -57,10 +58,10 @@ if(desktopMode){
       //   업데이트가 왜 안 뜨는지 개발자도 확인할 방법이 없었다. main 프로세스 이벤트라 F12로도 안 보였음.
       try{ console.log('[업데이트]', status, JSON.stringify(info||{})); }catch(_){ console.log('[업데이트]', status); }
       if(status==='error') console.warn('[업데이트] 실패:', (info&&info.message)||'(메시지 없음)');
-      if(status==='downloaded') showUpdateReadyBanner(version);
+      if(status==='downloaded') whenUpdateStageDone(()=>showUpdateReadyBanner(version));   // 업데이트 창이 떠 있는 동안은 띠를 미룬다
       // 🍎 맥은 서명이 없어 자동 설치가 안 된다(main.js 의 맥 갈래 주석). 내려받기만 사람이 한다 —
       //   같은 배너에 «받으러 가기» 만 달아서 릴리즈 페이지를 시스템 브라우저로 연다.
-      if(status==='mac-available') showUpdateReadyBanner(version, info&&info.url);
+      if(status==='mac-available') whenUpdateStageDone(()=>showUpdateReadyBanner(version, info&&info.url));
     });
   }
   /* downloadUrl 이 있으면 «받으러 가기»(맥 — 브라우저로 릴리즈 페이지), 없으면 «지금 재시작»(윈도우 — 자동 설치).

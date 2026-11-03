@@ -10,7 +10,7 @@
      잡는 문은 범용 통로 · API 통로 둘뿐 — runTransaction 직접 호출 · 함수 호출 · 방 서버 웹소켓으로만 닿는 기능은 창 없이 실패한다.
    [끝나면] 권한이 거부된 onValue 구독은 다시 붙지 않아서 앱을 다시 켜야 친구 · 우편 · 방이 이어진다.
      로컬 기능을 쓰는 중일 수 있으니 저절로 끄지 않고 [지금 다시 켜기] [나중에] 를 묻는다. 이번 실행에 점검을 본 적이 없으면 묻지 않는다.
-   [못 읽음] 모르는 모양은 «점검 아님» — 잘못 막는 쪽이 못 막는 쪽보다 크다(app-version-gate.js 와 같다).
+   [못 읽음] 모르는 모양은 «점검 아님» — 잘못 막는 쪽이 못 막는 쪽보다 크다(update-flow.js 와 같다).
    deps: userActive() · ui({ show(view, onPress) · hide() }) · relaunch() · now()
    내놓는 것: createMaintenance(deps) → { onValue(값) · touch() · on() } · createInputClock({ now }) → { note(안쪽인가) · active() }
      · 앱 한 벌 store(firebase-init 이 onValue 를 잇고, 요청 문 · api-client 가 touch · 자식 창을 여는 모듈이 watchInput(doc))
@@ -97,7 +97,7 @@ function createMaintenance(deps){
 }
 
 /* 창 — 바탕을 덮지 않는 작은 창(로컬 기능은 계속 쓴다). 관리자가 쓴 문구는 textContent 로만 넣는다.
-   z-index 는 업데이트 화면(app-version-gate.js 100000)보다 아래 — 둘 다 뜨면 할 수 있는 일(업데이트)이 위. */
+   z-index 는 업데이트 화면(update-flow.js 100000)보다 아래 — 둘 다 뜨면 할 수 있는 일(업데이트)이 위. */
 function createMaintenanceDom(doc){
   let els = null;
   function build(){

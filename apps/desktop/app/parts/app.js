@@ -5883,10 +5883,24 @@ function startLicenseVerify(){
 //   ★ 이 PC 저장값이 있으면 기다리지 않는다 — 저장값으로 바로 판단하고, 새 값은 뒤에서 받아 다음 부팅부터.
 //     저장값이 없을 때(처음 켠 PC)만 두 스위치의 첫 답을 최대 3초 기다린다 — 못 받으면 기본값(true · 예전 동작).
 const REMOTE_FLAGS_WAIT_MS = 3000;
+const MIN_APP_VER_WAIT_MS = 7000;   // 최소 버전 첫 답을 이만큼만 기다린다(update-flow.js 읽기 상한 8초보다 짧게) — 넘으면 막지 않는다
+/* 🔄 켤 때 업데이트 흐름(update-flow.js) — 업데이트 창 → 공지 창 → 로그인. 강제 창이 뜨면 로그인으로 넘어가지 않는다. */
+const updateFlowMod = TwUpdateFlow.createUpdateFlow({
+  readMin: ()=>{ const s = acctStateMod._rcStore(); return s ? s.ready(null, MIN_APP_VER_WAIT_MS).then(()=>s.minAppVer()) : null; },
+  getMin: ()=>{ const s = acctStateMod._rcStore(); return s ? s.minAppVer() : null; },
+  onMinChange: (fn)=>{ const s = acctStateMod._rcStore(); return s ? s.onChange((cur, key)=>{ if(key === 'minVersion') fn(); }) : ()=>{}; },
+  getVersion: ()=>window.companion ? window.companion.getAppVersion() : null,
+  companion: window.companion || null,
+  ui: TwUpdateFlow.createUpdateDom(document),
+  noticeOnce: (fn)=>noticeFeed.onceReady(fn),
+  showNotice: (n, done)=>_showUpdateNoticeOnce(n, done),
+});
 (function initInviteGate(){
   const run = async ()=>{
     const _s = acctStateMod._rcStore();
     if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
+    const flow = await updateFlowMod.runBeforeLogin();
+    if(!flow.proceed) return;   // 강제 업데이트 — 창이 앱을 막고 있다
     licenseGateMod.checkInviteGate()   // 🔑 로그인 · 서버 가입 확인 → 게이트(필요하면) · realtime · 0.13 첫 실행
       .then(()=>{ licenseGateMod.refreshInviteBtn(); })
       .catch(err=>{ console.warn('[invite] 게이트 확인 실패', err); });
@@ -7273,13 +7287,13 @@ const adminNotice = TwAdminNotice.createAdminNotice({
 
 
 // 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업. 공지 한 판(noticeFeed)을 처음 받았을 때 한 번만 본다.
-function _showUpdateNoticeOnce(notice){
-  if(!notice || !notice.ts) return;
+function _showUpdateNoticeOnce(notice, done){   // done — 창이 닫히거나 보일 게 없을 때 한 번(켜는 흐름이 다음 단계로)
+  if(!notice || !notice.ts){ done(); return; }
   // "다시 보지 않기" 체크한 ts와 같으면 스킵
   const dismissedTs = parseInt(localStorage.getItem('tw.updateNoticeDismissedTs')||'0', 10);
-  if(dismissedTs === notice.ts) return;
+  if(dismissedTs === notice.ts){ done(); return; }
   // 팝업 표시
-  const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov) return;
+  const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov){ done(); return; }
   document.getElementById('updateNoticeViewTitle').textContent = notice.title || '업데이트 안내';
   { const _nb = document.getElementById('updateNoticeViewBody');
     _nb.innerHTML = inboxMod.linkifyText(notice.body || '');   // 본문 속 주소를 클릭 가능하게
@@ -7293,11 +7307,12 @@ function _showUpdateNoticeOnce(notice){
       try{ localStorage.setItem('tw.updateNoticeDismissedTs', String(notice.ts)); }catch(_){}
     }
     ov.style.display = 'none';
+    done();
   };
   document.getElementById('updateNoticeOkBtn').onclick = close;
   document.getElementById('updateNoticeCloseX').onclick = close;
 }
-noticeFeed.onceReady(_showUpdateNoticeOnce);   // 처음 받았을 때 한 번 — 못 받았으면 다음에 받을 때
+// 공지 창은 켜는 흐름(updateFlowMod — 업데이트 창 다음)이 처음 받았을 때 한 번 띄운다
 // 켤 때 공지를 받는다 — 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않는다(로그인 화면 위에도 업데이트 공지가 뜬다). 이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js
 TwNetReady.whenNetReady(()=>noticeFeed.start());
 
@@ -9047,6 +9062,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({
+  whenUpdateStageDone: (...a)=>updateFlowMod.whenStageDone(...a),
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
   _charBoundsLatest: ()=>_charBoundsLatest,
   _officeHidden: ()=>_officeHidden,

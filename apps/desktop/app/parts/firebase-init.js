@@ -40,7 +40,6 @@
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./shared/app-version.js";
-  import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
   import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
@@ -384,7 +383,6 @@
   /* ⚙️ 원격 설정(remote-config.js — 읽는 차례 · 주기는 그 머리 주석) */
   const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
   const _rc = (window.TwRemoteConfig && window.TwRemoteConfig.store) || null;
-  const MIN_APP_VER_WAIT_MS = 7000;   // 첫 답을 이만큼만 기다린다(API 시간 제한 + 여유 · 게이트 8초보다 짧게) — 넘으면 막지 않는다
   if(_rc){
     _rc.start({
       api: (window.TwApi && window.TwApi.client) || null,   // 앱 공통 API 통로(api-client.js) — 운영/dev 주소는 거기서
@@ -393,13 +391,6 @@
       rt: window.TwRtHub.store,   // realtime 알림 config — 서버가 바꿨을 때 · 오래 끊겼다 붙었을 때 다시 묻는다
     });
   }
-  /* 앱 최소 버전(app-version-gate.js) — 원격 설정의 첫 답(이번 실행에 받은 값만)으로 «업데이트해 주세요» · 못 받으면 막지 않는다. */
-  createAppVersionGate({
-    readMin: () => _rc ? _rc.ready(null, MIN_APP_VER_WAIT_MS).then(() => _rc.minAppVer()) : null,
-    getVersion: () => _appVer.ready,
-    companion: window.companion || null,
-    ui: createAppVersionGateDom(document),
-  }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
   onValue(ref(db, window.TwMaintenance.MAINTENANCE_PATH), (s) => _mt.onValue(s.val()), () => {});   // 🛠 서버 점검 표시 — 점검 중에도 규칙이 이 칸 읽기는 연다
   /* 🛰 옛 방 서버(웹소켓 pv 1) — 문지기(room-server-gate.js)가 0.13 에선 늘 Firebase 를 돌려줘 _rsUrl 은 null 그대로(서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);

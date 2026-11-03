@@ -2617,15 +2617,13 @@ function createWindow() {
 
   startActiveWinPolling();
 
-  // 창이 뜨고 나서 업데이트 확인 시작 (초기 로딩과 겹치지 않게 살짝 지연).
-  // 개발 중(npm start)엔 electron-updater가 "패키징 안 된 앱"이라며 에러를 내는 게 정상이라 무시해도 됨 —
-  // 실제 설치된 exe에서만 정상 동작함.
+  // 업데이트 확인은 렌더러가 켤 때(로그인 전 — shared/update-flow.js) companion:checkUpdate 로 묻는다 — 창이 구독을 건 뒤라 답을 놓치지 않는다.
+  // 개발 중(npm start)엔 electron-updater가 "패키징 안 된 앱"이라며 에러를 내는 게 정상이라 무시해도 됨.
   // 🍎 맥은 autoUpdater 를 안 탄다 — 갈래는 startUpdateCheck() 안에 있다(위 주석).
-  setTimeout(() => { startUpdateCheck(); }, 3000);
 
   // 렌더러가 "지금 재시작해서 설치" 버튼을 눌렀을 때 — 다운로드 완료된 업데이트를 설치하며 앱 재시작
   ipcMain.on('companion:installUpdate', () => { autoUpdater.quitAndInstall(); });
-  // 앱 최소 버전 화면(app-version-gate.js)의 «다시 시도» — 처음 확인이 실패했을 때 한 번 더. 갈래는 startUpdateCheck 한 곳.
+  // 업데이트 흐름(update-flow.js)의 확인 · 강제 창 «다시 시도». 갈래는 startUpdateCheck 한 곳.
   ipcMain.on('companion:checkUpdate', () => { startUpdateCheck(); });
 
   // 광고 배너 클릭 등 — 시스템 기본 브라우저(크롬/웨일 등 사용자가 설정한 기본 브라우저)로 URL 열기.
