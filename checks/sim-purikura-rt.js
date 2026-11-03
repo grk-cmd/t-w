@@ -266,6 +266,7 @@ async function judge(S){
   e = mk(S); let o1r = null; e.sess.open('ROOM1', { userCode: 'uA' }).then((r) => { o1r = r; }); await e.sess.close(); await tick();
   e.emit(WELCOME()); await tick();
   chk(o1r && o1r.ok === false && e.sess.mySlot() === -1 && !e.sess.isHost(), '★ 자리 잡는 중 닫으면 기다리던 open 은 풀리고, 뒤늦은 welcome 이 세션을 다시 켜지 않는다');
+  chk(e.sent.filter((m) => m.t === 'photoLeave').length === 1, '★ 자리 잡는 중 닫으면 서버에 photoLeave 를 보내 자리가 남지 않게 한다(한 번)');
   e = await opened(S); const lg6 = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); await lg6; e.emit({ t: 'error', code: 'notInRoom', ref: 'photoPos' }); await tick();
   const lg7 = e.sess.open('ROOM1', { userCode: 'uA' }); e.emit(WELCOME()); await lg7;
   e.emit({ t: 'photoMeta', meta: META({ state: 'shooting' }) });
@@ -391,6 +392,7 @@ process.on('exit', (c) => { if(!finished && c === 0){ console.log('✗ 검사가
     ['RT', "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs === 0 ? 0 : 1 }); }", "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs }); }", '앱 시계를 서버에 실음'],
     ['RT', "if(liveOf(startQ)) return Promise.resolve(startFail('error'));", "", '촬영 시작을 겹쳐 보냄'],
     ['RT', "if(!o || o.stale) return;", "if(!o) return;", '늦은 welcome 을 다음 요청의 답으로 받음'],
+    ['RT', "const was = inSession || !!liveOf(openQ);", "const was = inSession;", '자리 잡는 중 닫아도 photoLeave 를 안 보냄'],
     ['RT', "    for(const e of startQ.slice()) if(!e.stale) settle(startQ, e, startFail('error'));\n    startQ.length = 0;", "", 'close 가 시작 줄을 안 비움'],
     ['RT', "    for(const e of openQ) if(!e.stale){ e.stale = true;", "    for(const e of openQ) if(false){ e.stale = true;", 'close 가 기다리던 open 을 stale 로 안 돌림'],
     ['RT', "  function lose(){\n    dropWaiting();", "  function lose(){", '자리를 잃어도 시작 줄을 안 비움'],

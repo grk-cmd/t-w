@@ -118,8 +118,8 @@ function createPhotoSession(deps){
     return { ok: false, left: 0, reason, reopenAt: P.reopenAt(now), message: reason === 'closed' ? P.closedMessage(now) : (START_MESSAGES[reason] || START_MESSAGES.error) };
   }
   /* 자리를 잃었다 — 세션을 버리고 화면에 «자리 없음» 을 알린다(혼자 다시 들어가지 않는다) */
-  /* 세션을 놓거나 잃을 때 — 기다리던 요청을 접는다. 서버는 세션이 지워졌거나 방을 나가면 start 에 아무 답도 안 주니
-     start 줄은 통째로 비운다(stale 이 남아 다음 열기의 photoMeta · photoStarted · 거절을 가로채지 않게).
+  /* 세션을 놓거나 잃을 때 — 기다리던 요청을 접는다. 서버는 세션이 지워졌거나 방을 나가면 start 에 답을 못 줄 수 있다(성공 답은 없을 수 있고, 실패는
+     서버 API 시간 제한 5초가 앱 대기 8초보다 짧아 대기 안에 온다) — 그래서 start 줄은 통째로 비운다(stale 이 남아 다음 열기의 photoMeta · photoStarted · 거절을 가로채지 않게).
      open 은 서버가 답을 주므로 기다리던 것만 stale 로 돌려 그 늦은 welcome 이 세션을 다시 켜지 못하게 한다. */
   function dropWaiting(){
     for(const e of openQ) if(!e.stale){ e.stale = true; tClear(e.timer); e.res({ ok: false, reason: 'error' }); }
@@ -240,7 +240,7 @@ function createPhotoSession(deps){
   }
   /* 창을 닫을 때 · 꾸미기로 넘어갈 때(자리를 놓아야 다음 사람이 방장이 된다) — 마지막 사람이 나가면 서버가 세션을 지운다 */
   function close(){
-    const was = inSession;
+    const was = inSession || !!liveOf(openQ);   // 자리 잡는 중이었어도 서버에는 자리가 생겼을 수 있다 — 놓는다
     dropWaiting();
     reset();
     if(was) hub.send({ t: 'photoLeave' });
