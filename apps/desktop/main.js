@@ -2043,10 +2043,9 @@ function _applyConfigMode(isConfig, mode, extra){
     mainWindow.setBounds(runRect);
     overlay.logGeometry('run 진입' + (_ovSkipped ? ' (같은 요청 ' + _ovSkipped + '건 생략 후)' : ''));   // 🩺 실제 틈이 생겼는지 기록(제보 재확인용)
     _ovSkipped = 0;
-    // 실행 중엔 캐릭터가 항상 보여야 하니 항상위 유지 — level을 'screen-saver'(가장 높은 단계)로
-    // 줘서, 다른 프로그램(게임 오버레이, RGB 제어 소프트웨어 등)이 자기도 "항상 위"로 떠 있으려 할 때
-    // 그쪽이 우리보다 더 높은 단계를 쓰면 우리 캐릭터가 가려질 수 있음 — 최고 단계를 써서 그런 경우를 최소화.
-    mainWindow.setAlwaysOnTop(true, 'screen-saver');
+    // 실행 중엔 캐릭터가 항상 보여야 하니 항상위 유지 — 단계는 플랫폼 모듈이 정한다(overlay-*.js TOP_LEVEL:
+    // 윈도우는 다른 «항상 위» 프로그램에 가려지지 않게 맨 위 · 맥은 메뉴 막대 메뉴를 덮지 않게 그 아래).
+    mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);
     _noteApplied(runRect, true);        // 🩺 위와 같은 이유. 실측 417회/9분을 만든 자리다
   }
 }
@@ -2297,11 +2296,11 @@ function createWindow() {
              ⇒ roundedCorners 를 건드리지 않는다(기본값 = OS 라운드). 타이틀바 디자인(여백 제거·그림자·
                위 모서리)은 그대로 살아 있고, 창 바닥만 OS 가 깎는다. */
         // ★ 실행 모드에선 메인 창이 alwaysOnTop:true라 자식창이 그 뒤로 가려짐 → 방명록 창도 alwaysOnTop 켬
-        //   ⚠️ 여기 alwaysOnTop:true 는 기본 단계('floating')다. 메인은 'screen-saver'라 이것만으로는
-        //      부족하고, 실제 단계 승격은 did-create-window 에서 setAlwaysOnTop(true,'screen-saver')로 한다.
+        //   ⚠️ 여기 alwaysOnTop:true 는 기본 단계('floating')다. 메인은 overlay.TOP_LEVEL 이라 이것만으로는
+        //      부족하고, 실제 단계 승격은 did-create-window 에서 setAlwaysOnTop(true, overlay.TOP_LEVEL)로 한다.
         skipTaskbar: true, backgroundColor: '#c0c0c0', alwaysOnTop: true,
         /* ★ parent — "방명록을 드래그·클릭·입력창 클릭만 해도 마이홈 뒤로 들어간다"의 해결.
-           단계('screen-saver')를 맞춰도 같은 단계 안에서의 순서는 OS가 그때그때 다시 정하는데,
+           단계(overlay.TOP_LEVEL)를 맞춰도 같은 단계 안에서의 순서는 OS가 그때그때 다시 정하는데,
            메인 오버레이는 setAlwaysOnTop 재적용·스타일 토글 등으로 수시로 밴드 맨 위로 다시 올라온다.
            그때마다 형제 창인 방명록이 그 밑으로 깔렸다(포커스는 방명록에 남아 있어 blur-닫힘도 안 걸리고,
            "열려는 있는데 마이홈에 가려진" 상태 — 제보 증상). Windows는 owned window(자식)를 owner(메인)보다
@@ -2361,7 +2360,7 @@ function createWindow() {
   /* 🎨 OS 색 선택 대화상자 동안 '항상 위'를 잠시 비켜준다 ─────────────────────────────
      [증상] 👑 디자인 스튜디오에서 '직접 선택'을 누르면 색 선택 대화상자가 창 뒤로 깔려 안 보인다.
      [원인] 창 순서 문제다. 스튜디오 창은 alwaysOnTop(=WS_EX_TOPMOST)이고 mainWindow는 run 모드에서
-            'screen-saver' 레벨까지 올려둔다. 그런데 <input type="color">가 띄우는 대화상자는
+            overlay.TOP_LEVEL 단계까지 올려둔다. 그런데 <input type="color">가 띄우는 대화상자는
             평범한 창이라, Windows가 topmost 창들을 무조건 그 위에 유지한다.
             말랑이 파일 다이얼로그와 같은 종류지만, 그건 부모 창을 넘겨 모달로 붙일 수 있었고
             이건 렌더러가 만드는 대화상자라 부모를 지정할 방법이 없다.
@@ -2389,10 +2388,10 @@ function createWindow() {
       lowered.forEach(w=>{
         try{
           if(!w || w.isDestroyed()) return;
-          // ★ 전부 'screen-saver'로 되돌린다. 예전엔 mainWindow만 최고 단계로, 나머지는 기본 단계로
+          // ★ 전부 overlay.TOP_LEVEL 로 되돌린다. 예전엔 mainWindow만 최고 단계로, 나머지는 기본 단계로
           //   복원했는데, 그러면 색을 한 번 고른 뒤부터 스튜디오·방명록이 메인 뒤로 깔린다
           //   (= 여기서 고친 것과 똑같은 증상이 대화상자를 쓴 뒤에만 재발한다).
-          w.setAlwaysOnTop(true, 'screen-saver');
+          w.setAlwaysOnTop(true, overlay.TOP_LEVEL);
         }catch(_){}
       });
     };
@@ -2519,9 +2518,9 @@ function createWindow() {
           devTools: devtoolsGate.always,     // 보조 창은 관리자 예외 없이 설치본에서 막는다
         },
       });
-      /* run 모드의 메인 창은 alwaysOnTop('screen-saver') 이라, 같은 단계로 올리지 않으면
+      /* run 모드의 메인 창은 alwaysOnTop(overlay.TOP_LEVEL) 이라, 같은 단계로 올리지 않으면
          로그인 창이 그 뒤로 깔려 '버튼을 눌렀는데 아무 일도 없다'가 된다(방명록 창의 선례와 같다). */
-      try{ googleAuthWin.setAlwaysOnTop(true, 'screen-saver'); }catch(_){}
+      try{ googleAuthWin.setAlwaysOnTop(true, overlay.TOP_LEVEL); }catch(_){}
 
       const handle = (e, url)=>{
         if(!url || url.indexOf(GOOGLE_OAUTH_REDIRECT) !== 0) return;
@@ -2600,14 +2599,14 @@ function createWindow() {
       gbWin = win;
       /* ★ 창 레벨을 메인과 같은 단계까지 올린다 — 이게 "방명록이 마이홈 뒤로 숨는다"의 원인이었다.
          생성 옵션의 alwaysOnTop:true 는 기본 단계('floating')다. 반면 mainWindow는 run 모드에서
-         setAlwaysOnTop(true,'screen-saver')로 최고 단계를 쓴다. OS는 단계를 먼저 정렬하고 그 안에서만
+         setAlwaysOnTop(true, overlay.TOP_LEVEL)로 높은 단계를 쓴다. OS는 단계를 먼저 정렬하고 그 안에서만
          포커스 순서를 보므로, 단계가 낮은 자식 창은 renderer에서 focus()를 몇 번 부르든 앞으로 못 온다
          (실제로 app.js의 open()에는 focus()가 두 번 들어가 있었는데 소용이 없었다).
          메인 오버레이는 투명이라 '뒤에 있어도' 대개는 보이지만, 마이홈 패널처럼 불투명한 DOM이
          그려진 자리에서는 그 픽셀이 방명록 창을 그대로 덮는다 — 제보된 증상이 정확히 이것이다.
          ⚠️ 색 선택 대화상자(companion:colorDialog)가 topmost를 잠시 내렸다 되돌리므로,
             그쪽 복원도 같은 단계로 맞춰야 한다(아래 restore 참고). */
-      try{ win.setAlwaysOnTop(true, 'screen-saver'); }catch(_){}
+      try{ win.setAlwaysOnTop(true, overlay.TOP_LEVEL); }catch(_){}
       // 옮긴 위치 기억 — 다음에 열 때 같은 자리에 뜨게. ('moved'는 이동 완료 시 1회, 'move'는 연속 발생 —
       //  둘 다 걸어서 어느 환경에서든 확실히 기록)
       const remember = ()=>{ try{ const b=win.getBounds(); savedGbPos={ x:b.x, y:b.y }; }catch(e){} };
@@ -2628,7 +2627,7 @@ function createWindow() {
     if(details && details.frameName && details.frameName.startsWith('mhDesign')){
       dsWin = win;
       // 방명록과 같은 이유 — 기본 'floating' 단계로는 마이홈 패널이 그려진 자리에서 뒤로 깔린다.
-      try{ win.setAlwaysOnTop(true, 'screen-saver'); }catch(_){}
+      try{ win.setAlwaysOnTop(true, overlay.TOP_LEVEL); }catch(_){}
       const rememberDs = ()=>{ try{ const b=win.getBounds(); savedDsPos={ x:b.x, y:b.y }; }catch(e){} };
       win.on('moved', rememberDs);
       win.on('move', rememberDs);
@@ -2793,7 +2792,7 @@ function createWindow() {
   }
   /* 플레이리스트 모드 배치 — 마이홈이 #myHomeWin 뒤에 숨는 것과 **같은 방식**으로
      상태칩 플레이리스트 패널(#myPlaylistBox) 뒤에 숨는다.
-     ⚠️ alwaysOnTop을 켜면 안 된다 — run 모드의 mainWindow가 alwaysOnTop:'screen-saver'라서,
+     ⚠️ alwaysOnTop을 켜면 안 된다 — run 모드의 mainWindow가 alwaysOnTop(overlay.TOP_LEVEL)이라서,
         이 창이 그 위로 올라가면 패널에 가려지지 않고 그대로 보인다. 아래에 둬야 가려진다.
      ⚠️ 패널이 닫히면 숨을 곳이 없다. 패널은 display:none이 아니라 opacity:0으로 닫히므로
         '패널 뒤'라는 자리 자체가 안 가려준다 → 그때는 창을 투명(setOpacity 0)하게 만든다.

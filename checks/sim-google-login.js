@@ -200,7 +200,7 @@ else {
         'state 를 대조한다 (응답 바꿔치기 방지)');
     chk(/e\.preventDefault\(\)/.test(body),
         '리디렉션을 이동 전에 가로챈다 (127.0.0.1 오류 페이지가 안 뜬다)');
-    chk(/setAlwaysOnTop\(true, 'screen-saver'\)/.test(body),
+    chk(/setAlwaysOnTop\(true, overlay\.TOP_LEVEL\)/.test(body),
         '로그인 창이 메인 오버레이 뒤로 깔리지 않는다');
     chk(/googleAuthWin && !googleAuthWin\.isDestroyed\(\)/.test(body),
         '창이 둘 열리지 않는다 (먼저 연 invoke 가 미아가 되지 않는다)');

@@ -1,5 +1,5 @@
 /* mac-tooltip.js — 💬 맥에서 마우스를 올리면 뜨는 설명(title)을 앱이 직접 그린다 (검사 sim-mac-tooltip.js)
-   [왜] 실행 화면 창은 캐릭터가 늘 보이게 «화면 보호기» 단계(main.js setAlwaysOnTop 'screen-saver')에 뜨는데, 맥 OS 툴팁은
+   [왜] 실행 화면 창은 캐릭터가 늘 보이게 «항상 위»(overlay-mac.js TOP_LEVEL)로 뜨는데, 맥 OS 툴팁은
      그보다 낮은 단계의 창이라 앱 창 뒤로 깔려 안 보인다. 윈도우는 OS 툴팁이 맨 위라 손대지 않는다(맥에서만 건다).
    [어떻게] 마우스가 [title] 요소에 들어가면 title 을 잠시 data-tw-tip 으로 옮겨(OS 툴팁이 안 뜨게) 같은 글을 화면 안 말풍선(#twMacTip)으로
      그리고, 나가면 title 을 되돌린다 — 화면 코드(title= · .title =)는 그대로 쓴다.

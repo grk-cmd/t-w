@@ -204,8 +204,15 @@ function _logDisplayLayout(){
    ⚠️ **`overlay-win.js` 의 목록과 한 글자도 다르면 안 된다.** main.js 는 어느 쪽이 실렸는지
      모르는 채로 이 이름들을 부른다. 하나라도 빠지면 darwin 에서 undefined 호출로 죽는다.
      (handoff-platform-split.md §1-④ 의 표가 이 목록이다) */
+/* 실행 화면 · 따라 올리는 자식 창의 «항상 위» 단계. 맥은 'screen-saver' 면 메뉴 막대에서 펼친 메뉴 ·
+   제어 센터까지 덮는다 — 'status' 는 일반 앱 창 위 · 시스템 메뉴 아래다. */
+const TOP_LEVEL = 'status';
+
 module.exports = {
   init,
+
+  /* ── 항상 위 단계 ── */
+  TOP_LEVEL,
 
   /* ── 갭 ── */
   GAP_DEFAULT: OVERLAY_GAP_DEFAULT,
