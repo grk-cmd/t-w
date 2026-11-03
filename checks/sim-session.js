@@ -8,7 +8,7 @@
    ・4절: 두 번 dispose · 끝난 뒤 등록(바로 풀고 경고) · 하나가 던져도 나머지는 돈다 · dispose 도중 등록
    ・5절: 세션 A 를 버리고 새 세션 B — B 는 A 의 것에 영향 없음 · A 의 늦은 답은 막힘(alive · ifAlive)
    ・6절: 계정 칸 열기 — 한 번만 · 못 열면 false · 열었을 때만 닫음 · 끝난 세션은 안 염
-   ・7절: 연결 — html · smoke PRELOAD · typeof 가드 없음
+   ・7절: 연결 — html · smoke PRELOAD · app.js 의 newSession · typeof 가드 없음
    ・8절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -172,6 +172,8 @@ function judge(src) {
     const iS = order.indexOf('shared/session.js');
     chk(iS > 0 && iS < order.indexOf('launcher/app-boot.js') && iS < order.indexOf('app.js'), 'html — session.js 를 app-boot.js · app.js 보다 먼저 싣는다');
     chk(!SMOKE || /PRELOAD\.push\('session\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 session.js');
+    const m = APP.match(/ {2}newSession: \(me\)=>TwSession\.createSession\(\{([\s\S]*?)\n {2}\}\),/);
+    chk(!!m && /me: me,/.test(m[1]) && /openAccountStore: \(code\)=>accountStoreMod\.open\(code\),/.test(m[1]) && /closeAccountStore: \(\)=>accountStoreMod\.close\(\),/.test(m[1]) && /timers: \{ setInterval/.test(m[1]), 'app.js — app-boot 에 넘기는 newSession 이 me · 계정 칸 열기 / 닫기 · 타이머를 세션에 준다');
     chk(!/typeof [\w.]+ *[!=]==? *'function'/.test(MOD), 'session.js — 새 typeof 함수 가드가 없다');
     chk(!/\b(?:window\.)?(?:getMyUserId|localStorage|firebaseAPI)\b/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')), 'session.js — 도메인 · 저장소를 모른다(deps 로만 받는다)');
   }
