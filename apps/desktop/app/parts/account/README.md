@@ -12,13 +12,26 @@
   - 화면 문구는 `reasonOf` 표로 — 서버 message 를 그대로 보여 주지 않는다.
 - 검사: `checks/sim-user-api.js`(진짜 api-client 위에서 · 깨 보기).
 
+## license-api.js · license-premium.js — 프리미엄 판정(classic script `window.TwLicenseApi` · `window.TwLicensePremium`)
+- 책임: 프리미엄은 서버가 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 로 판정한다. `license-api.js` 는 내 라이선스 · 기기 · 라이선스 요청 길(`/v1/me/license*`) 한 벌,
+  `license-premium.js` 는 서버 확인(`GET /v1/me` 의 `premium`)을 `isPremium` 에 반영하고 키 등록 · 이 기기 해제를 한다. 이 PC 의 키(`tw.licenseKey`)로 미리 켜지도, 24시간 유예로 버티지도 않는다.
+- deps(license-premium): `userApi` · `licenseApi` · `deviceId` · `deviceName` · `setPremium`(account-state `_setPremium` — 바꾸는 곳은 이 한 곳) · `isPremium` · `storage` · `releasedKey` · `rtOn` · `notifyError` · `reasonOf` · `resetCustomStatus`.
+- 내놓는 것: `start(me)`(켜는 차례 licensePremium — 받아 둔 확인으로 반영 + `license` 알림 걸기) · `refresh()` · `activate(key)` · `deactivate()` → `{ ok, reason? }`.
+- 함정:
+  - 프리미엄은 **GET /v1/me 응답에서만** 반영한다. `PATCH /v1/me` 같은 쓰기 응답은 기기 머리 없이 `premium:false` 일 수 있어 따르지 않는다.
+  - 확인 전의 `isPremium=false` 는 «모름» — `acctStateMod.premiumKnown()` 이 참이 된 뒤에야 전용 자산 접기(`pruneUnownedLicenseAssets`)가 돈다. 첫 확인은 값이 그대로여도 알림을 돌려 건너뛴 접기를 돌린다.
+  - 서버가 «아님» 이라도 라이선스가 있고 이 기기만 목록에 없으면 기기를 등록하고 다시 확인한다(한 번). 가득 찼으면(`LICENSE_DEVICE_FULL`) 조용히 «아님». «이 기기에서 해제» 한 PC 는 `tw.licenseOptOut` 표시로 자동 등록하지 않는다(키를 직접 넣으면 풀림).
+  - 쓰기는 `mine()` 으로 읽은 토큰 주인과 묶는다 — 읽기 전에는 요청 0(`NOT_READ`).
+  - 확인은 한 줄로만 돈다(겹치면 끝난 뒤 한 번 더). 실패해도 혼자 다시 하지 않는다 — E-LIC-01.
+- 검사: `checks/sim-license-api.js` · `checks/sim-license-premium.js`.
+
 ## login-flow.js — 로그인 흐름(classic script `window.TwLoginFlow`)
 - 책임: 로그인(Auth) → 서버 가입 확인(`GET /v1/me`) → realtime 켜기(`TwRtHub.store.start({claim:true})`) · 서버에 닿지 못한 화면에서 기다리기(로컬 모드 없음) · 내 계정 사본(`tw.me` — 로그인 계정과 묶음).
   판정 `confirm()` → `in`(계정 있음) · `signup`(로그인은 됐는데 계정 없음 — 가입 전 · 탈퇴) · `login`(로그인 없음 · 익명 · 토큰 끝남) · `local`(닿지 못함 · 점검).
 - deps: `userApi`(user-api.js) · `translate`(api-errors.js) · `reasonOf` · `auth`(Firebase Auth 원시 — ready · user · signInGoogle · signInPassword · signOut) ·
   `googleWindow`(main 의 구글 창) · `rt`(rt-hub) · `pending`(request-id createPending) · `storage` · `onSessionLost` · `now`.
 - 내놓는 것: `confirm` · `goOnline` · `waitForServer(onBack)` · `retryNow()`(서버에 닿지 못한 화면 — realtime 을 `claim:true` 로 켜 두고 ready 신호 또는 «다시 시도» 가 계정을 한 번 묻는다 · 타이머 없음 · 이 PC 기능만 쓰는 로컬 모드는 없다) · `loginGoogle` · `loginPassword` · `joinPassword` · `joinGoogle` ·
-  `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout` · `meCache` · `premiumNow`(마지막 답 + `premiumGraceSec` — D8 이 쓴다) · `mode`.
+  `patchMe(fields)`(사본 version · 먼저 바뀌었으면 다시 받아 한 번 더) · `logout` · `meCache` · `mode`.
 - 함정:
   - realtime 은 서버가 계정을 돌려준 뒤(`goOnline`) 켜는 것이 기본이다 — 가입 전 토큰으로 hello 하면 서버가 끊는다. 예외는 서버에 닿지 못한 화면: `waitForServer` 가 `claim:true` 로 켜 두고(claim 없으면 다른 기기 세션 때문에 4004 로 끊긴다) ready 신호를 계정 다시 묻기에 쓴다. 계정이 없거나 로그인이 풀린 것으로 드러나면 끈다.
   - 비밀번호 가입은 답을 못 받아 다시 누르면 같은 요청 번호 — 비밀번호를 바꾸면 새 번호(같은 번호면 첫 비밀번호의 계정이 돌아온다).

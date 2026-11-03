@@ -58,6 +58,7 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold){
     const c = {
       console: { warn(){}, log(){} },
       isPremium: !!opts.premium,
+      premiumKnown: opts.known !== false,   // 서버가 프리미엄을 확인해 줬나 — 기본 «확인함»
       isAdmin: !!opts.admin,
       savedDesks: opts.desks || [],
       savedItems: opts.items || [],
@@ -90,6 +91,22 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold){
     const n = vm.runInContext('pruneUnownedLicenseAssets()', c);
     chk(n === 0 && d.deskCatalogId === 'desk_gaming',
       '★ 카탈로그 미도착 → 아무것도 안 접는다 (조회 실패를 «전용 아님»으로도 «전용»으로도 단정하지 않는다)');
+  }
+  /* (가-2) 서버가 아직 프리미엄을 확인해 주지 않았으면(모름) 접지 않는다 — 켤 때마다 프리미엄 사용자의 책상이 잠깐 기본으로 떨어지는 것을 막는다 */
+  {
+    const d = mkDef();
+    const c = makeCtx({ known: false, desks: LOCKED, items: LOCKI, seats: [{ isMe: true, charDef: d }], slots: [d] });
+    const n = vm.runInContext('pruneUnownedLicenseAssets()', c);
+    chk(n === 0 && d.deskCatalogId === 'desk_gaming' && c._saved === 0 && c._redrawn.length === 0 && c._pushed === 0,
+      '★ 프리미엄 «모름» → 접지도 · 저장도 · 다시 그리기도 · 방에 내보내기도 없다(프리미엄 사용자의 책상이 깜빡이지 않게)');
+    c.premiumKnown = true;   // 확인이 와서 «아님» 으로 정해지면 그때 접는다
+    chk(vm.runInContext('pruneUnownedLicenseAssets()', c) === 2 && d.deskCatalogId === null, '  ↳ 확인이 «아님» 으로 오면 그때 접는다(모르는 동안 건너뛴 것이 사라지지 않는다)');
+    /* 깨 보기 — «모름» 가드를 지우면 위 판정이 빨강이어야 한다 */
+    const brokenSrc = fnPrune.replace('if(!premiumKnown) return 0;', '');
+    const d2 = mkDef();
+    const cb = makeCtx({ known: false, desks: LOCKED, items: LOCKI, slots: [d2] });
+    vm.runInContext(brokenSrc.replace('function pruneUnownedLicenseAssets', 'function brokenPrune'), cb);
+    chk(brokenSrc !== fnPrune && vm.runInContext('brokenPrune()', cb) > 0 && d2.deskCatalogId === null, '  ↳ 깨 보기: 가드를 지우면 모르는 동안에도 접는다(= 위 검사가 빨강이 된다)');
   }
   /* (나) 라이선스 보유자·관리자는 통째로 건너뛴다 */
   {

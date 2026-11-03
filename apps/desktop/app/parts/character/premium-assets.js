@@ -22,6 +22,7 @@ const equipDeskItem = deps.equipDeskItem;
 const findMySeat = deps.findMySeat;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
+const premiumKnown = deps.premiumKnown;   // 읽는 함수 — 서버가 프리미엄을 확인해 준 적이 있나(account-state.js)
 const saveSlots = deps.saveSlots;
 const savedDesks = deps.savedDesks;   // 읽는 함수
 const savedItems = deps.savedItems;   // 읽는 함수
@@ -56,7 +57,10 @@ function _licenseLockedItemId(id){
 function pruneUnownedLicenseAssets(){
   /* ★ 전제 검사는 **호출부가 아니라 여기** 있어야 한다 — pruneUnownedGachaParts 와 같은 이유다.
      호출 지점이 여럿이고(라이선스 변경 · 카탈로그 도착 · 코드 불러오기 · 슬롯 복원 · 프리셋),
-     그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다. */
+     그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다.
+     ★ 서버가 프리미엄을 확인해 주기 전(모름)에는 접지 않는다 — isPremium 의 false 는 «아님» 이 아니다.
+       안 그러면 프리미엄 사용자의 책상이 켤 때마다 잠깐 기본으로 떨어졌다 돌아온다(방으로도 나간다). 확인이 오면 알림이 한 번 돌아 그때 접는다. */
+  if(!premiumKnown()) return 0;
   if(typeof isPremium() !== 'undefined' && isPremium()) return 0;
   if(typeof isAdmin() !== 'undefined' && isAdmin()) return 0;
   let _desks = null; try{ _desks = savedDesks(); }catch(_){ return 0; }

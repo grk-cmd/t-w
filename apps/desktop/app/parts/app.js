@@ -3477,6 +3477,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   findMySeat: (...a)=>findMySeat(...a),
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
@@ -5749,7 +5750,7 @@ let isAdmin = false;
 
 /* ============================================================ 라이선스 (직접 발급) — 프리미엄(꾸미기) 잠금 해제
    관리자가 관리자 모드에서 키를 직접 발급 → 구매자에게 전달(직거래) → 구매자가 앱에 입력하면
-   Firebase(licenses/{key})에서 유효성 확인 → 통과 시 로컬(localStorage)에 저장. */
+   서버(POST /v1/me/license)에 계정과 이 기기로 등록 → 프리미엄 여부는 서버 확인(GET /v1/me)만 따른다(account/license-premium.js). */
 /* ═══════════════════════ 🎟️ 게이트 — 로그인 · 가입 (앱 접근 제한) ═══════════════════════
    0.13 — 로그인 없이 쓰는 길은 없다(ADR-0006). 가입 · 초대 코드 판정 · 초대권은 서버가 한다(초대 게이트 스위치는 서버 user.inviteGate —
    꺼져 있으면 초대 코드 없이 가입). 켤 때 판정 순서는 license-gate.js checkInviteGate 머리말.
@@ -5820,12 +5821,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
   seats: seats,
-  setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
-  LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,
-  LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,
-  _setPremium: (...a)=>acctStateMod._setPremium(...a),
   onPremiumChanged: acctStateMod.onPremiumChanged,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
@@ -5836,6 +5832,22 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
 const adminUsers = TwAdminUsers.createAdminUsers({
   toast: (...a)=>toast(...a),
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
+});
+/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v1/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
+   키 등록 · 이 기기 해제 버튼(license-key.js · license-request.js)도 여기를 부른다. */
+const licensePremiumMod = TwLicensePremium.createLicensePremium({
+  userApi: userApiMod,
+  licenseApi: TwLicenseApi.store,
+  deviceId: ()=>TwDeviceId.store.get(),
+  deviceName: ()=>TwLicenseApi.deviceNameOf(navigator.userAgent),
+  setPremium: (v)=>acctStateMod._setPremium(v),
+  isPremium: ()=>isPremium,
+  storage: localStorage,
+  releasedKey: acctStateMod.LICENSE_OPTOUT_KEY,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  reasonOf: (e)=>TwUserApi.reasonOf(e),
+  resetCustomStatus: ()=>{ if(userStatus==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로
 });
 
 /* ═══ 🪑 [2026-09-18 제보 2] 라이선스 없는 기기에 남은 전용 자산을 **접어 둔다** ═══════════
@@ -5857,7 +5869,7 @@ const adminUsers = TwAdminUsers.createAdminUsers({
    ⚠️ **카탈로그가 도착하기 전에는 아무것도 안 한다.** licenseOnly 는 savedDesks/savedItems 의
      레코드에만 있다. 조회 실패를 「전용 아님」으로도 「전용」으로도 단정하지 않는다 —
      pruneUnownedGachaParts 가 savedParts 조회 실패를 다루는 관례와 같다.
-   ⚠️ **위조 방어가 아니다.** 라이선스는 localStorage 에 있고 계정에 안 묶인다(_setPremium 위 주석).
+   ⚠️ **위조 방어가 아니다.** 이 접기는 화면 · 방 전파만 막는다 — 앱을 고쳐 켜는 것은 서버 권한 검사로 막을 일이다.
      이것은 «남은 저장값 청소» 이고, 서버 규칙으로 막는 일과 섞지 말 것.
    ★ 조용히 돈다 — 토스트가 없다. 못 쓰는 것을 원래대로 되돌리는 일이라 사용자에게 알릴 사건이
      아니라는 결정(2026-09-18). 콘솔에는 남겨서 다음 제보 때 읽을 수 있게 한다.
@@ -5865,19 +5877,6 @@ const adminUsers = TwAdminUsers.createAdminUsers({
      — sim-license-leak.js 가 그 짝을 본다. */
 /* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
-// 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
-// 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
-licenseGateMod.loadLicenseFromStorage();
-/* 🚀 계정 확인 뒤(app-boot 의 licenseVerify 차례) — 저장된 키가 있으면 재검증. firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다린다 */
-function startLicenseVerify(){
-  let key = null; try{ key = localStorage.getItem(acctStateMod.LICENSE_KEY_STORAGE); }catch(_){}
-  if(!key) return;
-  const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
-    if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
-  });
-  TwNetReady.whenNetReady(doVerify);
-}
-
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
 //   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
 //   ★ 이 PC 저장값이 있으면 기다리지 않는다 — 저장값으로 바로 판단하고, 새 값은 뒤에서 받아 다음 부팅부터.
@@ -7232,7 +7231,7 @@ const adminLauncher = TwAdminLauncher.createAdminLauncher({
 /* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseKeyMod = TwLicenseKey.createLicenseKey({
-  licenseGateMod: licenseGateMod,
+  licensePremiumMod: licensePremiumMod,
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
@@ -7250,7 +7249,7 @@ const outsideCloseMod = TwOutsideClose.createOutsideClose({
 const licReqMod = TwLicenseRequest.createLicenseRequest({
   _saveFailMsg: (...a)=>_saveFailMsg(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  licenseGateMod: licenseGateMod,
+  licensePremiumMod: licensePremiumMod,
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
@@ -9144,7 +9143,7 @@ const appBoot = TwAppBoot.createAppBoot({
     roomInvite: ()=>roomInviteUi.startReceive(),
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: ()=>plMod.pull(),
-    licenseVerify: ()=>startLicenseVerify(),
+    licensePremium: (code, me)=>licensePremiumMod.start(me),
     licenseRequest: ()=>licReqMod.startWatch(),
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
   },

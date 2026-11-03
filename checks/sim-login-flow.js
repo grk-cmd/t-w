@@ -258,14 +258,11 @@ async function judge(S){
     chk(!r3.ok && r3.err.code === 'USER_RESERVED_NAME' && e.srv.updates.length === 4, '그 밖 실패 → ok:false(다시 안 보냄)');
   }
 
-  say('── 7. 로그아웃 · 프리미엄 유예');
+  say('── 7. 로그아웃 · 프리미엄 유예 없음');
   {
     const e = mkEnv(S);
     await e.flow.confirm();
-    chk(e.flow.premiumNow() === true, '방금 받은 프리미엄 — 유예 안');
-    e.clock.t += 3600 * 1000 + 1;
-    chk(e.flow.premiumNow() === false, '유예(premiumGraceSec)가 지나면 아님');
-    chk(e.LF.premiumNow({ me: ME(1, { premium: false }), at: 0 }, 0) === false, '프리미엄이 아니면 아님');
+    chk(!('premiumNow' in e.flow) && !('premiumNow' in e.LF), '프리미엄은 이 사본에서 읽지 않는다 — 24시간 유예를 걷었다(서버 확인 license-premium.js 만 따른다)');
     e.flow.goOnline();
     await e.flow.logout();
     chk(e.rtLog.join() === 'start:{"claim":true},stop,forget' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off', '로그아웃 — realtime 끔(안 끄면 토큰 없이 끝없이 다시 붙음) · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움');
