@@ -107,8 +107,11 @@ async function suite(M, label){
   t = make({ my: '0.13.0', min: null, notice: null });
   p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'none' });
   chk((await p).proceed, '  ↳ 보여 줄 공지가 없어도(null) 바로 로그인');
-  t = make({ my: '0.13.0', min: '0.12.0' });
+  t = make({ my: '0.13.0', min: '0.12.0', updateWaitMs: 80 });
+  const t0 = Date.now();
   r = await t.f.runBeforeLogin();
+  const waited = Date.now() - t0;
+  chk(waited >= 70 && waited < 400, '  ↳ checkUpdate 를 불러도 답이 없으면 상한(updateWaitMs) 만큼만 기다린다(' + waited + 'ms)');
   chk(r.proceed && t.ui.log.length === 0, '★ 새 판 확인 답이 시간 안에 안 오면 «없음» 으로 보고 넘어간다(혼자 다시 묻지 않는다)');
   chk(t.comp.calls.filter(c => c[0] === 'check').length === 1, '  ↳ 확인 요청은 한 번뿐');
   t = make({ my: '0.13.0', min: '0.12.0' });
@@ -180,6 +183,31 @@ async function suite(M, label){
   t.setMin('0.14.0'); r = await p;
   chk(r.proceed === false && t.f.current() === STAGE.FORCE, '★ 선택 창이 떠 있을 때 최소가 올라가면 강제 창으로 바뀌고 로그인은 안 풀린다');
   chk(!/setInterval|setTimeout\([^)]*\b(check|refresh)/.test(strip(SRC)) && !/setInterval/.test(strip(SRC)), '★ 새 주기 요청(setInterval)이 없다');
+
+  say('── 4-b. 공지 기다리는 사이 · 켜 둔 동안 강제로 바뀜');
+  t = make({ my: '0.13.0', min: null, noticeStays: true });
+  p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'none' }); await sleep(20);
+  chk(t.order.includes('notice'), '  (공지 창이 열려 있다)');
+  t.setMin('0.14.0'); t.o.release(); r = await p;
+  chk(r.proceed === false && r.stage === STAGE.FORCE && t.f.current() === STAGE.FORCE, '★ 공지를 기다리는 사이 최소 버전이 올라 강제 창이 뜨면 로그인으로 넘기지 않는다');
+  for(const st of ['none', 'error', null]){
+    t = make({ my: '0.13.0', min: null });
+    p = t.f.runBeforeLogin(); await sleep(5); t.comp.push(st ? { status: st } : { status: 'none' }); await p;
+    if(!st) t.comp.push(null);
+    const n0 = checks(t.comp);
+    t.setMin('0.14.0');
+    chk(checks(t.comp) === n0 + 1, '★ 켜 둔 동안 강제로 바뀔 때 업데이트 상태가 «' + (st || '모름') + '» 이면 checkUpdate 를 한 번 더 부른다');
+    t.setMin('0.15.0');
+    chk(checks(t.comp) === n0 + 1, '  ↳ 이미 강제 창이면 또 묻지 않는다');
+  }
+  for(const st of ['downloading', 'downloaded', 'available', 'checking']){
+    t = make({ my: '0.13.0', min: null, updateWaitMs: 20 });
+    p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'none' }); await p;
+    t.comp.push({ status: st, version: '0.14.0', percent: 5 });
+    const n0 = checks(t.comp);
+    t.setMin('0.14.0');
+    chk(checks(t.comp) === n0, '  ↳ 업데이트 상태가 «' + st + '» 이면 강제로 바뀌어도 다시 묻지 않는다(받기가 이미 돌고 있다)');
+  }
 
   say('── 5. 단추');
   t = make({ my: '0.12.0', min: '0.13.0' });
@@ -260,13 +288,23 @@ async function suite(M, label){
     chk(buttons[1].style.display === 'none', '  ↳ 다시 강제로 바뀌면 둘째 단추는 숨긴다');
     ui.hide(); ui.show(viewOf(STAGE.FORCE, '0.12.0', '0.13.0', null, null), () => {});
     chk(doc.body.children.length === 1 && ov.style.display === 'flex', '  ↳ 닫았다 다시 띄워도 한 장');
-    chk(!/innerHTML/.test(strip(SRC)), '★ innerHTML 을 안 쓴다 — 서버 값(버전 문자열)을 HTML 로 해석하지 않는다');
+    {
+      // 실제로 그려 본다 — 서버 값(버전 문자열)에 태그가 들어 있어도 글자 그대로 들어가고 innerHTML 은 한 번도 안 쓰인다
+      const htmlSets = [];
+      const el2 = (tag) => { const e = { tag, style: {}, children: [], appendChild(c){ this.children.push(c); return c; }, textContent: '' }; Object.defineProperty(e, 'innerHTML', { set(v){ htmlSets.push(v); }, get(){ return ''; } }); return e; };
+      const doc2 = { createElement: el2, body: el2('body') };
+      const ui2 = createUpdateDom(doc2);
+      ui2.show(viewOf(STAGE.FORCE, '0.1.0', '<img src=x onerror=alert(1)>', null, null), () => {});
+      const bodyEl = doc2.body.children[0].children[0].children[1].children[0];
+      chk(htmlSets.length === 0 && /<img src=x/.test(bodyEl.textContent), '★ 서버 값(버전)에 태그가 있어도 글자 그대로(textContent) — innerHTML 을 안 쓴다');
+    }
     const hit = (APP.match(/const UI_HIT_SEL = '([^']*)'/) || [])[1] || '';
     chk(hit.split(',').map(s => s.trim()).includes('#' + OVERLAY_ID), '★ app.js UI_HIT_SEL 에 #' + OVERLAY_ID + ' — 투명 창에서도 클릭을 받는다');
   }
 
   say('── 7. 연결');
   {
+    // 아래 7절 정규식은 app.js · main.js · preload.js 의 «배선»(어디서 무엇을 부르나)이라 실제로 불러 볼 수 없어 글자로 본다. 동작은 2~5절이 맡는다.
     const code = strip(FI);
     chk(!/app-version-gate|createAppVersionGate/.test(code), 'firebase-init 에 옛 게이트가 없다');
     const app = strip(APP);
@@ -317,15 +355,50 @@ async function suite(M, label){
       }catch(_){ n = -1; }
       chk(m3 !== SRC && n !== 1, '깨 보기 — 버전을 모를 때 새 판 확인이 빠지면 빨강(checkUpdate ' + n + '번)');
     }
-    // 흐름 깨 보기 — 강제인데 proceed:true 를 돌려주면 빨강
-    const m2 = SRC.split('return { proceed: false, stage: STAGE.FORCE };').join('return { proceed: true, stage: STAGE.FORCE };');
-    let red = false;
-    try{
-      const X = load(m2); const ui = fakeUi();
-      const f = X.createUpdateFlow({ readMin: () => '0.13.0', getMin: () => '0.13.0', onMinChange: () => () => {}, getVersion: () => '0.12.0', companion: null, ui, noticeOnce: (fn) => fn(null), showNotice: (n, d) => d(), updateWaitMs: 10, noticeWaitMs: 10 });
-      red = (await f.runBeforeLogin()).proceed === true;
-    }catch(_){ red = true; }
-    chk(m2 !== SRC && red, '깨 보기 — 강제인데 로그인으로 넘기면 빨강');
+    // 흐름 깨 보기 — 사본을 만들어 같은 시나리오를 돌린다
+    const flowOf = (src, o) => {
+      const X = load(src), comp = fakeCompanion(), ui = fakeUi(), order = [], hold = {}; let minNow = o.min;
+      const subs = [];
+      const f = X.createUpdateFlow({ readMin: () => minNow, getMin: () => minNow, onMinChange: (fn) => { subs.push(fn); return () => {}; }, getVersion: () => o.my, companion: comp, ui,
+        noticeOnce: (fn) => fn({ ts: 1 }), showNotice: (n, d) => { order.push('notice'); if(o.stay) hold.d = d; else d(); }, updateWaitMs: 10, noticeWaitMs: 10, timeoutMs: 50 });
+      return { f, comp, ui, order, hold, setMin: (v) => { minNow = v; subs.forEach(g => g()); } };
+    };
+    const mutate = (from, to) => { const m = SRC.split(from).join(to); return m === SRC ? null : m; };
+    const redIf = (name, m, probe) => { if(!m){ chk(false, '깨 보기 — ' + name + ' — 바꿀 자리를 못 찾음'); return; } let red = false; return probe(m).then(ok => { red = !ok; chk(red, '깨 보기 — ' + name + ' → 빨강'); }, () => chk(true, '깨 보기 — ' + name + ' → 빨강(던짐)')); };
+    // 강제면 공지 안 돎 (판정: 강제인데 공지 창이 한 번도 안 뜬다)
+    await redIf('강제인데 공지가 돈다', mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);') && mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);').split('if(forced) return { proceed: false, stage: STAGE.FORCE };   // 기다리는 사이 최소 버전이 올랐다').join(''),
+      async (m) => { const x = flowOf(m, { my: '0.12.0', min: '0.13.0' }); await x.f.runBeforeLogin(); return !x.order.includes('notice'); });
+    // 켤 때 checkUpdate 1번 (판정: 두 번 부르면 빨강)
+    await redIf('checkUpdate 를 두 번 부른다', mutate('companion.checkUpdate();\n    });', 'companion.checkUpdate(); companion.checkUpdate();\n    });'),
+      async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); await x.f.runBeforeLogin(); return x.comp.calls.filter(c => c[0] === 'check').length === 1; });
+    // [업데이트] 눌러 뒀으면 받기 끝에 설치
+    await redIf('받기가 끝나도 설치하지 않는다', mutate('if(up && up.status === \'downloaded\' && wantUpdate && shown && !forced) companion.installUpdate();', ''),
+      async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'available', version: '0.13.1' }); await sleep(2);
+        x.f.press('update'); x.comp.calls.length = 0; x.comp.push({ status: 'downloaded', version: '0.13.1' }); const ok = x.comp.calls.some(c => c[0] === 'install'); x.f.press('later'); await p; return ok; });
+    // 공지 뒤 강제 확인
+    await redIf('공지 뒤 강제를 안 본다', mutate('function end(stage){ return forced ?', 'function end(stage){ return false ?'),
+      async (m) => { const x = flowOf(m, { my: '0.13.0', min: null, stay: true }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'none' }); await sleep(20); x.setMin('0.14.0'); x.hold.d(); const r2 = await p; return r2.proceed === false; });
+    // 켜 둔 동안 강제 → 한 번 묻기
+    await redIf('켜 둔 동안 강제로 바뀔 때 묻지 않는다', mutate('if(companion && !BUSY_OR_READY.includes(st)) companion.checkUpdate();', ''),
+      async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'none' }); await p; const n = x.comp.calls.length; x.setMin('0.14.0'); return x.comp.calls.length === n + 1; });
+    // 갈래에서 checkUpdate 를 빼면 빨강 (위 2-b 와 같은 사본)
+    {
+      const m3 = SRC.replace('const answer = askUpdate();', 'const answer = Promise.resolve();').replace('await answer;', 'await askUpdate();');
+      let n = -1;
+      try{
+        const X = load(m3); const c = fakeCompanion();
+        const f = X.createUpdateFlow({ readMin: () => '9.9.9', getMin: () => '9.9.9', onMinChange: () => () => {}, getVersion: () => null, companion: c, ui: fakeUi(), noticeOnce: (fn) => fn(null), showNotice: (n2, d) => d(), updateWaitMs: 10, noticeWaitMs: 10 });
+        await f.runBeforeLogin(); n = c.calls.filter(x => x[0] === 'check').length;
+      }catch(_){ n = -1; }
+      chk(m3 !== SRC && n !== 1, '깨 보기 — 버전을 모를 때 새 판 확인이 빠지면 빨강(checkUpdate ' + n + '번)');
+    }
+    // 강제인데 로그인으로 넘기기
+    {
+      const m2 = SRC.split('return { proceed: false, stage: STAGE.FORCE };').join('return { proceed: true, stage: STAGE.FORCE };');
+      let red = false;
+      try{ const x = flowOf(m2, { my: '0.12.0', min: '0.13.0' }); red = (await x.f.runBeforeLogin()).proceed === true; }catch(_){ red = true; }
+      chk(m2 !== SRC && red, '깨 보기 — 강제인데 로그인으로 넘기면 빨강');
+    }
   }
 
   say(`\n판정: 통과 ${pass} · 실패 ${fail}`);

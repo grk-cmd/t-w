@@ -93,7 +93,7 @@ console.log('\n[2] main.js — 맥 안내(릴리즈 확인)');
 const fnMac = grab(MAIN, 'function checkMacUpdate(');
 const macBody = fnMac ? strip(fnMac) : '';
 t(!!fnMac, 'checkMacUpdate() 가 있다');
-t(/sendUpdateStatus\(\s*'mac-available'/.test(macBody),
+t(/done\(\s*'mac-available'/.test(macBody) && /sendUpdateStatus\(status, extra\)/.test(macBody),
   "렌더러에 'mac-available' 로 알린다 (설치는 안 한다)");
 t(!/quitAndInstall/.test(macBody), 'quitAndInstall 을 안 부른다 — 서명이 없어 설치가 안 되는 판이다');
 t(!/new\s+BrowserWindow/.test(macBody), '새 창을 만들지 않는다 (기존 배너 재활용 — 규칙 3)');
@@ -131,6 +131,61 @@ else {
     }
   }
 }
+
+
+/* ═══ 2-b절. checkMacUpdate — 어떻게 끝나든 상태를 정확히 한 번 보낸다 ═══════
+   켤 때 업데이트 창이 이 답을 기다린다 — 말없이 끝나면 시간 초과(6초)까지 로그인이 늦어진다. 가짜 https 로 갈래마다 실제로 돌린다. */
+console.log('\n[2-b] checkMacUpdate — 갈래마다 상태 한 번');
+function runMac(src, scenario, repoInfo){
+  const sent = [];
+  const EventEmitter = require('events');
+  const fakeHttps = { get(opt, cb){
+    const req = new EventEmitter();
+    req.destroy = (err) => { if(err) setImmediate(() => req.emit('error', err)); };
+    setImmediate(() => scenario(req, cb, EventEmitter));
+    return req;
+  } };
+  const fakeRequire = (n) => n === 'https' ? fakeHttps : require(n);
+  const body = grab(src, 'function checkMacUpdate(') + '\n' + grab(src, 'function isNewerVersion(');
+  const f = new Function('require', 'app', 'sendUpdateStatus', 'githubRepoInfo', body + '\nreturn checkMacUpdate;')(
+    fakeRequire, { getVersion: () => '0.9.7' }, (s, x) => sent.push([s, x]), () => repoInfo === undefined ? { owner: 'o', repo: 'r' } : repoInfo);
+  f();
+  return new Promise((res) => setTimeout(() => res(sent), 30));
+}
+const resp = (status, bodyText, extra) => (req, cb, EE) => {
+  const res = new EE(); res.statusCode = status; res.setEncoding = () => {}; res.resume = () => {}; if(extra) extra(res);
+  cb(res);
+  if(bodyText != null) setImmediate(() => { res.emit('data', bodyText); res.emit('end'); res.emit('close'); });
+};
+const rel = (tag, url) => JSON.stringify({ tag_name: tag, html_url: url });
+const SCEN = [
+  ['새 판 있음', resp(200, rel('v0.9.8', 'https://github.com/o/r/releases/tag/v0.9.8')), 'mac-available'],
+  ['새 판 없음(같은 버전)', resp(200, rel('v0.9.7', 'https://github.com/o/r/releases/tag/v0.9.7')), 'none'],
+  ['새 판인데 주소가 https 아님', resp(200, rel('v0.9.8', 'http://x')), 'none'],
+  ['200 아님(404)', resp(404, null), 'error'],
+  ['본문이 JSON 아님', resp(200, 'not json'), 'error'],
+  ['태그 칸 없음', resp(200, '{}'), 'error'],
+  ['네트워크 오류', (req) => req.emit('error', new Error('ECONNRESET')), 'error'],
+  ['시간 초과', (req) => req.emit('timeout'), 'error'],
+  ['받다가 끊김(end 없이 close)', resp(200, null, (res) => setImmediate(() => res.emit('close'))), 'error'],
+];
+const macSrc = MAIN;
+(async () => {
+  for(const [name, sc, want] of SCEN){
+    let sent = null; try{ sent = await runMac(macSrc, sc); }catch(e){ bad(name + ' 실행 실패 — ' + e.message); continue; }
+    t(sent.length === 1 && sent[0][0] === want, name + ' → ' + want + ' 한 번 (실제: ' + sent.map(x => x[0]).join(',') + ')');
+  }
+  { const sent = await runMac(macSrc, () => {}, null); t(sent.length === 1 && sent[0][0] === 'error', '저장소 정보를 못 읽으면 error 한 번'); }
+  { const sent = await runMac(macSrc, resp(200, rel('v0.9.8', 'https://github.com/o/r/releases/tag/v0.9.8')), undefined); t(sent[0][1].url === 'https://github.com/o/r/releases/tag/v0.9.8' && sent[0][1].version === '0.9.8', '새 판 — 버전 · 응답의 주소 그대로'); }
+  // 깨 보기 — 아무 상태도 안 보내는 옛 구조(새 판 없음에서 return 만)로 되돌리면 빨강
+  const old = macSrc.replace("if(!isNewerVersion(tag, app.getVersion())){ done('none'); return; }", "if(!isNewerVersion(tag, app.getVersion())) return;");
+  const oldSent = old === macSrc ? null : await runMac(old, SCEN[1][1]);
+  t(oldSent !== null && !(oldSent.length === 1 && oldSent[0][0] === 'none'), '깨 보기 — 새 판 없음에서 none 을 안 보내면 위 판정(none 한 번)이 빨강이 된다(실제: ' + (oldSent || []).map(x => x[0]).join(',') + ')');
+  const old2 = macSrc.replace("req.on('error', (e) => done('error', { message: String(e && e.message || e) }));", "req.on('error', () => {});");
+  const old2Sent = old2 === macSrc ? null : await runMac(old2, SCEN[6][1]);
+  t(old2Sent !== null && old2Sent.length === 0, '깨 보기 — 네트워크 오류에서 error 를 안 보내면 상태 0번 → 위 판정이 빨강이 된다');
+  judge();
+})();
 
 /* ═══ 3절. app.js — 배너 한 칸을 같이 쓴다 ══════════════════════════════════ */
 console.log('\n[3] app.js — 안내 배너');
@@ -205,8 +260,10 @@ else {
 }
 
 /* ── 판정 ─────────────────────────────────────────────────────────────────── */
-console.log('');
+function judge(){
+  console.log('');
 console.log(`통과 ${pass} · 실패 ${fail}`);
 if (fail) console.log(`실패 ${fail}건`);
 else console.log('전부 통과 ✅');
 process.exit(fail ? 1 : 0);
+}

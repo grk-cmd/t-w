@@ -148,7 +148,7 @@
 | **sim-room-server-gate.js** | 122 | **1c353957601a** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 281 | **e23038c4544b** |
-| **sim-update-flow.js** | 333 | **7a197151c39d** |
+| **sim-update-flow.js** | 406 | **f03202019130** |
 | **sim-maintenance-gate.js** | 209 | **ff4f5d5fba53** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-room-invite-wait.js** | 44 | **6d9e289acbd7** |
@@ -287,7 +287,7 @@
 | **sim-todo-cli.js** | 145 | **cea6fc0dd36b** |
 | **sim-folder-free.js** | 190 | **b48c8b4f9389** |
 | **sim-chat-sfx.js** | 221 | **a989e31ff068** |
-| **sim-mac-update.js** | 212 | **640cd6055504** |
+| **sim-mac-update.js** | 269 | **ba778f7eaae1** |
 | **sim-focus-cap.js** | 327 | **74a911d3c5cb** |
 | **sim-focus-show.js** | 86 | **94e634cb488e** |
 | **sim-win-front.js** | 110 | **946f2d7cde7c** |

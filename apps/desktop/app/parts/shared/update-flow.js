@@ -24,6 +24,8 @@ const NOTICE_WAIT_MS = 4000;
 const RELEASES_URL = 'https://github.com/grk-cmd/t-w/releases/latest';
 const OVERLAY_ID = 'appVerGateOverlay';             // app.js UI_HIT_SEL 에도 있어야 클릭을 받는다
 const STAGE = Object.freeze({ NONE: 'none', OPTIONAL: 'optional', FORCE: 'force' });
+// 이미 받는 중이거나 받았거나 새 판을 알고 있는 상태 — 강제로 바뀌어도 다시 묻지 않는다
+const BUSY_OR_READY = Object.freeze(['checking', 'available', 'downloading', 'downloaded', 'mac-available']);
 const ACT = Object.freeze({ INSTALL: 'install', OPEN: 'open', RETRY: 'retry', WAIT: 'wait', UPDATE: 'update', LATER: 'later' });
 
 // "0.10.3" · "v0.10.3" · "0.10.3-beta.1" → [0,10,3]. 모양이 아니면 null — 모르는 값으로는 막지 않는다.
@@ -168,7 +170,14 @@ function createUpdateFlow(deps){
   }
 
   /* 켜 둔 동안 — 최소 버전이 올라가면 바로 강제 창. 버전을 읽기 전(켜는 중)에는 켜는 흐름이 보므로 건너뛴다. */
-  onMinChange(() => { if(my) enforce(getMin()); });
+  onMinChange(() => {
+    if(!my) return;
+    const was = forced;
+    if(!enforce(getMin()) || was) return;
+    /* 켜 둔 동안 강제로 바뀜 — 받기가 안 돌고 있으면(윈도우 자동 받기가 이미 끝났거나 안 시작됨) 한 번 묻는다 */
+    const st = up && up.status;
+    if(companion && !BUSY_OR_READY.includes(st)) companion.checkUpdate();
+  });
 
   /* 새 판 확인 — 켤 때 정확히 한 번 묻는다(버전 · 최소 버전을 읽는 일과 따로 — 못 읽어도 업데이트 받기는 막지 않는다).
      답(또는 시간 초과)을 기다리는 Promise 를 돌려준다. 판단 자리는 main 의 startUpdateCheck 한 곳. */
@@ -201,7 +210,7 @@ function createUpdateFlow(deps){
     const answer = askUpdate();
     const [ver, min] = await Promise.all([readOr(getVersion), readOr(readMin)]);
     my = ver;
-    if(!parseVer(my)){ finish(); await waitNotice(); return { proceed: true, stage: STAGE.NONE }; }   // 버전을 모르면(웹 · 검사) 업데이트 창 없이 공지부터 — 새 판 확인은 이미 물었다
+    if(!parseVer(my)){ finish(); await waitNotice(); return end(STAGE.NONE); }   // 버전을 모르면(웹 · 검사) 업데이트 창 없이 공지부터 — 새 판 확인은 이미 물었다
     if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };
     await answer;
     if(forced) return { proceed: false, stage: STAGE.FORCE };   // 기다리는 사이 최소 버전이 올랐다
@@ -213,8 +222,10 @@ function createUpdateFlow(deps){
     }
     finish();
     await waitNotice();
-    return { proceed: true, stage };
+    return end(stage);
   }
+  /* 로그인 직전 — 공지를 기다리는 사이 최소 버전이 올라 강제 창이 떴으면 로그인으로 넘기지 않는다 */
+  function end(stage){ return forced ? { proceed: false, stage: STAGE.FORCE } : { proceed: true, stage }; }
 
   return {
     runBeforeLogin,

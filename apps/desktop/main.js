@@ -231,12 +231,14 @@ function isNewerVersion(tag, cur){
   return false;
 }
 
-/* 맥: 최신 릴리즈 태그만 한 번 읽는다. 실패하면 조용히 넘어간다(안내가 없을 뿐, 앱은 그대로 돈다).
-   ⚠️ 주기적으로 다시 읽지 않는다 — 새 타이머를 만들면 그것대로 관리 대상이 하나 는다.
-     켤 때 한 번이면 «새 버전 나왔다» 를 알리기에 충분하다. */
+/* 맥: 최신 릴리즈 태그만 한 번 읽는다. 어떻게 끝나든 렌더러에 상태를 정확히 한 번 보낸다 —
+   새 판 있음 'mac-available' · 없음 'none' · 못 읽음 'error'(켤 때 업데이트 창이 답을 기다리므로 말없이 끝내면 시간 초과까지 로그인이 늦어진다).
+   앱은 그대로 돈다(안내가 없을 뿐). ⚠️ 주기적으로 다시 읽지 않는다 — 켤 때 한 번이면 «새 버전 나왔다» 를 알리기에 충분하다. */
 function checkMacUpdate(){
+  let sent = false;
+  const done = (status, extra) => { if(sent) return; sent = true; sendUpdateStatus(status, extra); };
   const info = githubRepoInfo();
-  if(!info) return;
+  if(!info){ done('error', { message: 'no repo info' }); return; }
   const opt = {
     host: 'api.github.com',
     path: `/repos/${info.owner}/${info.repo}/releases/latest`,
@@ -246,26 +248,29 @@ function checkMacUpdate(){
   let req;
   try{
     req = require('https').get(opt, (res) => {
-      if(res.statusCode !== 200){ res.resume(); return; }
+      if(res.statusCode !== 200){ res.resume(); done('error', { message: 'HTTP ' + res.statusCode }); return; }
       let body = '';
       res.setEncoding('utf8');
-      res.on('data', (c) => { body += c; if(body.length > 262144) req.destroy(); });
+      res.on('data', (c) => { body += c; if(body.length > 262144) req.destroy(new Error('too large')); });
+      res.on('error', (e) => done('error', { message: String(e && e.message || e) }));
+      res.on('close', () => done('error', { message: 'closed' }));   // 'end' 가 먼저 오면 이미 보냈으니 무시된다
       res.on('end', () => {
         try{
           const j = JSON.parse(body);
           const tag = j && (j.tag_name || j.name);
-          if(!tag || !isNewerVersion(tag, app.getVersion())) return;
+          if(!tag){ done('error', { message: 'no tag' }); return; }
+          if(!isNewerVersion(tag, app.getVersion())){ done('none'); return; }
           /* 주소도 응답에서 받은 것만 쓴다(직접 조립하지 않는다). https 가 아니면 안 보낸다 —
              렌더러는 이 값을 그대로 openBrowser 에 넘긴다. */
           const url = (j.html_url && /^https:\/\//i.test(j.html_url)) ? j.html_url : null;
-          if(!url) return;
-          sendUpdateStatus('mac-available', { version: String(tag).replace(/^v/i, ''), url });
-        }catch(_){}
+          if(!url){ done('none'); return; }
+          done('mac-available', { version: String(tag).replace(/^v/i, ''), url });
+        }catch(e){ done('error', { message: 'parse' }); }
       });
     });
-  }catch(_){ return; }
-  req.on('timeout', () => { try{ req.destroy(); }catch(_){} });
-  req.on('error', () => {});
+  }catch(e){ done('error', { message: 'request' }); return; }
+  req.on('timeout', () => { try{ req.destroy(new Error('timeout')); }catch(_){} });
+  req.on('error', (e) => done('error', { message: String(e && e.message || e) }));
 }
 
 /* 업데이트 확인의 **유일한 입구.** 플랫폼 갈래를 여기 한 곳에만 둔다 —
