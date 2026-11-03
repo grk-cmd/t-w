@@ -81,7 +81,7 @@
 ## friends-presence-rt.js — 접속 상태 provider(realtime 연결 하나 · `TwRtHub.store`)
 - 책임: 친구 접속 상태를 realtime 으로. 한 번 읽기 `readPresence(ids)` = `presenceGet`(한 번에 100명 — `PRESENCE_IDS_MAX` — 넘으면 나눠 보내고 합친다). 듣기 `watchPresence(ids, onChange, onStatus)` = `watch` 하나(처음 전체 → 그 뒤 **바뀐 친구만** 서버가 알려 줌 — 친구마다 구독하지 않는다) · 풀면 `unwatch`.
 - 만드는 법(app.js): `TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store, STATE: TwRtHub.STATE })` — 포트의 `presence` 로 넘긴다. 만들 때 요청 · 구독 없음.
-- 상태(`onStatus`): `live`(처음 전체를 받음) · `waiting`(연결을 붙이는 중 — rt 가 스스로 계속 붙인다) · `down`(연결이 멈춤: 로그아웃 · 다른 기기가 차지 · 업데이트 필요 · 인증 실패). friends-sub 는 `down` 일 때만 오류 번호(E-FR-05)를 한 번 알린다.
+- 상태(`onStatus`): `live`(처음 전체를 받음) · `waiting`(연결을 붙이는 중 · 켜기 전 — rt 가 스스로 붙인다) · `down`(스스로 안 붙고 멈춤: 다른 기기가 차지 · 업데이트 필요 · 인증 실패). friends-sub 는 `down` 일 때만 오류 번호(E-FR-05)를 한 번 알린다.
 - 함정:
   - 서버의 듣기는 **연결에 묶여** 있다 — 끊겼다 다시 붙으면 `watch` 를 다시 보낸다(연결 상태 알림으로. 타이머 되풀이 아님).
   - `rid` 가 붙은 presence 는 `presenceGet` 의 답이다 — 시간 초과 뒤 늦게 온 것은 듣기 값이 아니라 버린다.

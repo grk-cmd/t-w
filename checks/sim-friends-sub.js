@@ -400,26 +400,24 @@ async function judge(S){
   {
     /* 듣기 상태 — live / waiting 은 알리지 않고, down 은 한 번 알린다. live 로 돌아오면 다시 알릴 수 있다 */
     const E = mk(); E.start(); await flush(); E.last().ok({ f1: {} });
-    chk(E.mod.presenceState() === 'idle', '듣기 전 — presenceState idle');
     E.mod.open('myhome', () => {});
     const w = E.pres[0];
     w.st('waiting');
-    chk(E.mod.presenceState() === 'waiting' && E.errs.length === 0, '★ 연결을 붙이는 중(waiting) — 알리지 않는다(스스로 붙는다)');
+    chk(E.errs.length === 0, '★ 연결을 붙이는 중(waiting) — 알리지 않는다(스스로 붙는다)');
     w.st('down');
-    chk(E.mod.presenceState() === 'down' && E.errs.join() === 'E-FR-05', '★ 연결이 멈춤(down) — E-FR-05 한 번');
+    chk(E.errs.join() === 'E-FR-05', '★ 연결이 멈춤(down) — E-FR-05 한 번');
     w.st('down');
     chk(E.errs.length === 1, '  이어지는 동안 또 알리지 않는다');
     w.st('live'); w.st('down');
-    chk(E.mod.presenceState() === 'down' && E.errs.length === 2, '  받았다가(live) 다시 멈추면 다시 알린다');
+    chk(E.errs.length === 2, '  받았다가(live) 다시 멈추면 다시 알린다');
     w.st('live');
-    chk(E.mod.presenceState() === 'live', '  live — 처음 전체를 받음');
+    w.st('live');
     E.mod.close('myhome');
-    chk(E.mod.presenceState() === 'idle', '  닫으면 idle');
     E.mod.open('myhome', () => {});
     const old = E.pres[E.pres.length - 1];
     E.mod.close('myhome');
     old.st('down');
-    chk(E.errs.length === 2 && E.mod.presenceState() === 'idle', '  풀린 듣기의 늦은 상태는 버린다');
+    chk(E.errs.length === 2, '  풀린 듣기의 늦은 상태는 버린다');
   }
 
   {

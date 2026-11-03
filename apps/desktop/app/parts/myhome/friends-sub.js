@@ -13,9 +13,8 @@
          listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · readFriend(fid) → Promise<친구 | null>(새 친구 한 명) ·
          watchPresence(myId, ids, onChange, onStatus('live' | 'waiting' | 'down')) → 해제 함수 · readPresence(ids) → Promise<{친구id: 접속 상태}>(못 받으면 던짐) · watchProfile(myId, ids, onChange) → 해제 함수 · readProfile(fid) → Promise<프로필> · current() → 지금 목록 ·
          setFriends(v) · getMyUserId() · toast(msg) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · setTimer(fn, ms) → id · clearTimer(id) · onUnload(fn)(앱 종료 · 로그아웃 뒤 재시작 때 정리)
-   내보냄: start(myId, onFriends, onStatus) · stop() · status() · presenceState() · notice() · retryIfFailed() · friendsForCheck() ·
+   내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck() ·
          open(key, onUpdate)(목록을 열 때 — 다시 걸기 · 이름 받기 · 접속 상태 듣기 · 열려 있는 동안 바뀌면 onUpdate) · close(key) ·
-         presenceState() → 'idle' | 'live' | 'waiting' | 'down'(접속 상태 듣기가 지금 어떤가 — 화면이 «모름» 과 «오프라인» 을 가를 때) ·
          refreshPresence(ids) → Promise(듣고 있지 않은 친구만 한 번 읽기) · refreshProfile(fid) → Promise<bool>(친구면 이름 · 레벨을 새로 — 듣는 중이면 그대로 true)
      순수: noticeFor(status) · friendOf(entry, card, pres) · mergeFriends(ids, details, presence) · NOTICE · STATUS · PRES · SUB_WAIT_MS (TwFriendsSub 위)
    ⚠️ 구독이 연결 시도 중이면 따로 읽지 않고 그 결과를 SUB_WAIT_MS 까지 기다린다 — 같은 경로를 두 번 읽지 않게.
@@ -344,7 +343,6 @@ function refreshProfile(fid){
     }, e=>{ console.warn('[친구 목록] 친구 프로필 새로 읽기 실패', fid, e); return false; });
 }
 function status(){ return _status; }
-function presenceState(){ return _presState; }
 /* 받은 뒤라도 첫 이름 받기가 끝나기 전에는 «불러오는 중» — 이름 없는 목록('...')을 잠깐 보여 주지 않게. */
 function notice(){
   if(_status === STATUS.READY && _detailsP && !_detailsTried) return NOTICE.loading;
@@ -357,7 +355,6 @@ return {
   start,
   stop,
   status,
-  presenceState,
   notice,
   retryIfFailed,
   friendsForCheck,

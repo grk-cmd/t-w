@@ -83,6 +83,8 @@ async function readyOn(e){
   await tick();
   return ws;
 }
+/* 서버 realtime/src/protocol/parse.ts(origin/dev)의 status 판정을 그대로 흉내 — 칸은 t · visible 뿐, visible 은 불리언. 어긋나면 서버는 badRequest 로 거절한다. */
+const serverAcceptsStatus = (m) => !!m && m.t === 'status' && Object.keys(m).every((k) => k === 't' || k === 'visible') && typeof m.visible === 'boolean';
 const ids = (n, p) => Array.from({ length: n }, (_, i) => (p || 'u') + i);
 
 async function judge(S){
@@ -186,8 +188,9 @@ async function judge(S){
     const e = mkHub(S);
     const prt = M.createFriendsPresenceRt({ rt: e.hub, STATE: e.H.STATE });
     const st = [];
-    prt.watchPresence(['f1'], () => {}, (s) => st.push(s));
-    chk(st.join() === 'down' && e.socks.length === 0, '연결을 켜지 않았으면(로그인 전) down · 요청 0');
+    const offW = prt.watchPresence(['f1'], () => {}, (s) => st.push(s));
+    chk(st.join() === 'waiting' && e.socks.length === 0, '★ 연결을 켜기 전(꺼짐)이면 waiting — 알리지 않는다(켜지면 그때 watch) · 요청 0');
+    offW();
     e.hub.start();
     await tick();
     chk(e.hub.state() === 'connecting', '  (켬 — connecting)');
@@ -211,13 +214,14 @@ async function judge(S){
     me.setVisible(false);
     chk(ws.all('status').length === 0, '★ 시작(start) 전엔 아무것도 안 보낸다(계정 확인 전에는 접속 표시를 알리지 않음)');
     me.start(false);
+    chk(ws.all('status').every(serverAcceptsStatus) && ws.all('status').length === 1, '★ 보낸 status 는 서버 파서(칸 t · visible 뿐 · 불리언)가 받는 모양');
     chk(JSON.stringify(ws.all('status')) === '[{"t":"status","visible":false}]', 'start(false) — 오프라인 고정으로 시작하면 처음부터 visible:false');
     me.setVisible(true);
     chk(ws.all('status').length === 2 && ws.all('status')[1].visible === true, '값이 바뀌면 바로');
     ws.kill(1006); await tick();
     await e.clock.advance(1000);
     const ws2 = await readyOn(e);
-    chk(JSON.stringify(ws2.all('status')) === '[{"t":"status","visible":true}]', '★ 다시 붙으면 지금 값을 다시 알린다(서버의 내 상태는 연결에 묶여 있다)');
+    chk(ws2.all('status').every(serverAcceptsStatus) && JSON.stringify(ws2.all('status')) === '[{"t":"status","visible":true}]', '★ 다시 붙으면 지금 값을 다시 알린다(서버의 내 상태는 연결에 묶여 있다)');
     me.start(undefined);
     chk(ws2.all('status').length === 2 && ws2.all('status')[1].visible === true, '  ↳ start 를 또 불러도 구독은 하나 · 값이 없으면 보이기');
     ws2.kill(1006); await tick();
@@ -255,12 +259,13 @@ const BREAKS = [
   ['PRT', 'if(m.full === true) status(LIVE);', '', '처음 전체를 받아도 live 가 안 됨'],
   ['PRT', "if(rt.isReady()) rt.send({ t: 'unwatch' });", '', '풀어도 unwatch 를 안 보냄'],
   ['PRT', 'if(_cur) _stop(_cur);\n', '', '새로 걸어도 앞의 듣기가 남음'],
-  ['PRT', "(s === STATE.CONNECTING || s === STATE.RETRYING) ? WAITING : DOWN", 'DOWN', '붙이는 중도 멈춤으로 봄'],
   ['PRT', 'for(const id of Object.keys(u)) if(!want || want.has(id)) out[id]', 'for(const id of Object.keys(u)) out[id]', '묻지 않은 id 를 넘김'],
   ['PRT', "const online = p.online === true;", "const online = !!p.online;", '온라인 판정이 느슨함'],
   ['PRT', "room: (online && typeof p.room === 'string' && p.room) ? p.room : null,", "room: (typeof p.room === 'string' && p.room) ? p.room : null,", '오프라인인데 방이 남음'],
   ['SELF', "if(!_off) _off = rt.onState(_send);", "", '다시 붙어도 안 알림'],
   ['SELF', "    if(_visible === null) return;\n    _visible = visible !== false;", "    _visible = visible !== false;", 'start 전 setVisible 이 시작시킴'],
+  ['SELF', "rt.send({ t: 'status', visible: _visible });", "rt.send({ t: 'status', visible: _visible, inRoom: false });", '서버가 모르는 칸을 실어 보냄'],
+  ['PRT', 'status(stopped.indexOf(rt.state()) >= 0 ? DOWN : WAITING);', 'status(DOWN);', '꺼짐 · 붙이는 중도 멈춤으로 봄'],
   ['SELF', "_visible = visible !== false;\n    if(!_off)", "_visible = !!visible;\n    if(!_off)", '값 없이 시작하면 숨김'],
 ];
 const caught = [];
