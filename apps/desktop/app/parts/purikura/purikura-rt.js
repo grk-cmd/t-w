@@ -3,7 +3,7 @@
      · 보내기: photoOpen{ fx } · photoLeave · photoConfig · photoFilter · photoCam · photoStart · photoCut{ i, at } · photoDone · photoFrame{ i, url } · photoPos · photoEvent · photoShutter
      · 받기: photoWelcome{ slot, slots, meta, frames } · photoSlots · photoMeta · photoFrames · photoStarted{ nth, left } · photoPos{ slot, p } · photoEvent{ slot, k, v, ts } · photoShot{ n, at }
      · 정원: GET /v1/rooms/photo-quota → { day, used, cap, left, reopenAt } · 바뀌면 알림 photoQuota(사진 세션에 든 연결만) → 다시 GET.
-   [방장] 살아 있는 자리 중 가장 작은 번호(서버와 같은 식). 방장 일은 방장이 아니면 보내지 않고, 보냈는데 서버가 거절하면(ROOM_PHOTO_NOT_HOST 등) onRefused 로 알린다.
+   [방장] 서버가 정한다 — 판(meta)의 host(방장 userCode)가 원본이고, 방장이 바뀌면 서버가 photoMeta 를 다시 보낸다. 앱은 번호를 다시 계산하지 않는다. 방장 일은 방장이 아니면 보내지 않고, 보냈는데 서버가 거절하면(ROOM_PHOTO_NOT_HOST 등) onRefused 로 알린다.
    [자리를 잃는 때] 연결이 끊기거나 · 서버가 «방 밖» 이라고 답하면 세션을 버리고 onSlots({}) 로 알린다 — 화면이 «자리를 잃었어요» 를 한 번 띄운다.
      혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다).
    [서버 답] photoOpen 은 photoWelcome(성공) 또는 오류(ref photoOpen) · photoStart 는 photoStarted 또는 오류(ref photoStart) — 두 요청은 한 번에 하나씩 기다린다.
@@ -89,17 +89,16 @@ function createPhotoSession(deps){
   let opening = null, starting = null;   // 답을 기다리는 open · start 하나씩
   const quotaFns = [];
 
-  function adoptSlots(o){
-    slots = o || {};
-    let host = -1, mine = -1;
+  /* 내 자리 · 방장 자리 — 방장은 서버가 보낸 meta.host(userCode)가 앉은 자리다(없거나 자리에 없으면 -1) */
+  function resolve(){
+    slot = -1; hostSlot = -1;
+    const host = meta && meta.host;
     for(let i = 0; i < P.MAX_SLOTS; i++){
       const v = slots[i];
       if(!v || !v.uid) continue;
-      if(host < 0) host = i;
-      if(v.uid === myCode) mine = i;
+      if(v.uid === myCode) slot = i;
+      if(host && v.uid === host) hostSlot = i;
     }
-    hostSlot = host;
-    slot = mine;
     for(const k of Object.keys(peers)) if(!slots[k]) delete peers[k];
   }
   function isHost(){ return inSession && slot >= 0 && hostSlot >= 0 && slot === hostSlot; }
@@ -121,14 +120,20 @@ function createPhotoSession(deps){
   hub.onMessage('photoWelcome', (m) => {
     if(!opening) return;
     inSession = true; peers = {}; meta = metaFromWire(m.meta);
-    adoptSlots(slotsFromWire(m.slots));
-    if(typeof m.slot === 'number') slot = m.slot;
+    slots = slotsFromWire(m.slots); resolve();
+    if(slot < 0 && typeof m.slot === 'number') slot = m.slot;
     frames = framesFromWire(m.frames);
     onSlots(slots); onMeta(meta); onFrames(frames);
     finishOpen({ ok: true, slot, host: isHost() });
   });
-  hub.onMessage('photoSlots', (m) => { if(!inSession) return; adoptSlots(slotsFromWire(m.slots)); onSlots(slots); onPeers(peers); });
-  hub.onMessage('photoMeta', (m) => { if(!inSession) return; meta = metaFromWire(m.meta); onMeta(meta); });
+  hub.onMessage('photoSlots', (m) => { if(!inSession) return; slots = slotsFromWire(m.slots); resolve(); onSlots(slots); onPeers(peers); });
+  hub.onMessage('photoMeta', (m) => {
+    if(!inSession) return;
+    const before = hostSlot;
+    meta = metaFromWire(m.meta); resolve();
+    onMeta(meta);
+    if(hostSlot !== before) onSlots(slots);   // 방장이 바뀌었다 — 화면이 방장 표시 · 단추를 다시 그린다
+  });
   hub.onMessage('photoFrames', (m) => { if(!inSession) return; frames = framesFromWire(m.frames); onFrames(frames); });
   hub.onMessage('photoPos', (m) => {
     if(!inSession || m.slot === slot || !slots[m.slot]) return;

@@ -257,7 +257,7 @@
 | **sim-scheduler.js** | 261 | **ded3144b895d** |
 | **sim-weekly-challenge.js** | 345 | **35279543c804** |
 | **sim-purikura-ui.js** | 349 | **39d88765ecac** |
-| **sim-purikura-rt.js** | 361 | **1ae7b245930d** |
+| **sim-purikura-rt.js** | 371 | **90c75448f38b** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 291 | **d7d424fc8974** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |

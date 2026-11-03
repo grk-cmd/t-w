@@ -208,7 +208,7 @@ const PK_OPEN_REFUSED = Object.freeze({
   full: '자리가 다 찼어요 (4명까지)',
   notInRoom: '방에 들어간 뒤에 쓸 수 있어요',
 });
-/* 🪑 자리 배치가 바뀌었다(세션 포트가 통째로 보낸다) — 방장 판정은 세션 포트가 이미 했다(살아 있는 자리 중 가장 작은 번호) */
+/* 🪑 자리 배치가 바뀌었다(세션 포트가 통째로 보낸다) — 방장은 서버가 정한 meta.host 를 세션 포트가 자리에 맞춰 둔다 */
 function _pkOnSlots(o){
   if(!PK.listening) return;
   PK.members = o || {};
@@ -601,11 +601,7 @@ function _pkBgStr(){ return _pkP().bgJoin(PK.bgSel); }
    ★ 0.13 — 서버가 거절하면(방장이 바뀜 등) 약속이 아니라 세션 포트의 onRefused 로 온다(_pkOnRefused). 여기는 «보내지 않았다(false)» 만 본다. */
 function _pkWriteGuard(p, whenFalse){
   if(!p || typeof p.then !== 'function') return;
-  p.then(ok=>{ if(!ok && whenFalse) toast(whenFalse); })
-   .catch(e=>{
-     console.warn('[스티커사진] 방 설정 보내기가 실패했어요', e);
-     TwErrorCodes.notify('E-PK-04', e);
-   });
+  p.then(ok=>{ if(!ok && whenFalse) toast(whenFalse); });   // 세션 포트의 보내기는 reject 하지 않는다 — 서버 거절은 onRefused
 }
 /* 서버가 방장 일을 거절했다(세션 포트 onRefused) — 방장이 바뀌었는데 화면이 아직 모르는 때. 프레임은 따로 알린다(나한테만 보이는 상태) */
 function _pkOnRefused(o){
@@ -826,7 +822,7 @@ function _pkPaintSlots(){
       + '<div class="pk-rl">' + (m ? (i===_pkHostSlot() ? '👑 시작 권한' : '참가') : '먼저 온 순서') + '</div>';
     el.appendChild(d);
   }
-  /* 👑 방장 판정은 **계층 하나에서만** 나온다(isHost = 살아 있는 자리 중 가장 작은 번호).
+  /* 👑 방장 판정은 **계층 하나에서만** 나온다(isHost = 서버가 보낸 meta.host 가 내 코드).
      [옛 버그] 예전에는 여기서 slots[0].uid 를, 계층에서는 slot===0 을 각각 봤다. 근거가 둘이라
        자리가 재배치되면 갈렸고, 그때 화면은 「방장」이라는데 서버는 거부하는 상태가 됐다.
        그 거부가 조용해서(_pkWriteGuard 이전) 「내가 고른 배경이 남한테 적용이 안 된다」로 나왔다. */

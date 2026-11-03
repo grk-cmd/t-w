@@ -1,6 +1,6 @@
 /* sim-purikura-rt.js — 📷 스티커사진 세션 포트(purikura/purikura-rt.js) 검사 — 가짜 연결 · 가짜 정원 API 로 그대로 돌린다
    ・1절: 자리 잡기 — photoOpen{ fx } · photoWelcome 의 자리 · 방장 · 프레임 · 거절 코드마다 화면 까닭 · 시간 초과(자리 놓기) · 연결 없음
-   ・2절: 자리가 바뀔 때 — 방장 승계(가장 작은 번호) · 떠난 사람 좌표 치움 · 좌표 · 사건 · 셔터 받기
+   ・2절: 자리가 바뀔 때 — 방장은 서버가 보낸 meta.host(작은 번호가 아니어도 따른다) · 승계 · 떠난 사람 좌표 치움 · 좌표 · 사건 · 셔터 받기
    ・3절: 방장 일 — 방장만 보낸다 · 보낸 모양이 서버 규약(허용 목록 · 범위)을 지킨다 · 서버 거절 알림(onRefused)
    ・4절: 촬영 시작 — photoStarted · 거절 코드마다 까닭 문구 · 정원 숫자 갱신 · 시간 초과 · 한 번에 하나
    ・5절: 좌표 · 사건 보내기 — 안 움직이면 안 보냄 · 10Hz · force · 못 보냈으면 기억하지 않음
@@ -110,7 +110,7 @@ async function judge(S){
   e.emit(WELCOME({ slot: 1, slots: [{ userCode: 'uB', name: '방장', fx: 1 }, { userCode: 'uA', name: '나', fx: 0 }, null, null],
     meta: META({ host: 'uB', cuts: 2, orient: 'l' }), frames: ['https://x/0.webp', null, 'https://x/2.webp', null] }));
   const r1 = await p1;
-  chk(r1.ok === true && r1.slot === 1 && r1.host === false, 'photoWelcome → ok · 내 자리 1번 · 방장 아님(가장 작은 번호가 방장)');
+  chk(r1.ok === true && r1.slot === 1 && r1.host === false, 'photoWelcome → ok · 내 자리 1번 · 방장 아님(방장은 meta.host)');
   chk(JSON.stringify(e.sess.slotsNow()) === '{"0":{"uid":"uB","name":"방장","fx":1},"1":{"uid":"uA","name":"나","fx":0}}', '  자리 칸은 { uid(=userCode), name, fx } — 빈 자리는 싣지 않는다');
   chk(e.sess.mySlot() === 1 && e.sess.hostSlot() === 0 && e.sess.isHost() === false, '  mySlot · hostSlot · isHost');
   chk(JSON.stringify(e.sess.framesNow()) === '{"0":"https://x/0.webp","2":"https://x/2.webp"}' && e.sess.metaNow().cuts === 2, '  프레임(빈 칸 빼고) · 판이 손에 있다');
@@ -136,17 +136,26 @@ async function judge(S){
   chk((await e.sess.open('', { userCode: 'uA' })).reason === 'notInRoom' && (await e.sess.open('R', {})).reason === 'notInRoom' && (await e.sess.open('R')).reason === 'notInRoom' && e.sent.length === 0, '방 코드 · 내 코드가 없으면 보내지 않고 notInRoom');
 
   say('── 2. 자리가 바뀔 때');
+  e = await opened(S, { me: 'uA', welcome: { slot: 0, slots: [{ userCode: 'uA', name: '나', fx: 1 }, { userCode: 'uB', name: '방장', fx: 1 }, null, null], meta: META({ host: 'uB' }) } });
+  chk(e.sess.mySlot() === 0 && e.sess.hostSlot() === 1 && e.sess.isHost() === false && e.openRes.host === false, '★ 서버가 큰 번호(1번)를 방장으로 보내면 따른다 — 내가 0번이어도 방장이 아니다');
+  await e.sess.close();
   e = await opened(S, { me: 'uB', welcome: { slot: 1, slots: [{ userCode: 'uA', name: '방장', fx: 1 }, { userCode: 'uB', name: '나', fx: 1 }, null, null], meta: META({ host: 'uA' }) } });
   e.emit({ t: 'photoPos', slot: 0, p: '-42,131' }); e.emit({ t: 'photoPos', slot: 3, p: '5,5' });
   chk(JSON.stringify(Object.keys(e.sess.peersNow())) === '["0"]' && e.sess.peersNow()[0].wx === -0.42 && e.sess.peersNow()[0].d === 1.31, '남의 좌표 photoPos → peers(자리 번호로) · 빈 자리의 좌표는 버린다');
   e.emit({ t: 'photoPos', slot: 1, p: '1,1' }); e.emit({ t: 'photoPos', slot: 0, p: 'rubbish' });
   chk(!e.sess.peersNow()[1] && e.sess.peersNow()[0].wx === -0.42, '  내 자리 번호의 좌표 · 읽을 수 없는 값은 버린다');
   e.emit({ t: 'photoSlots', slots: [null, { userCode: 'uB', name: '나', fx: 1 }, { userCode: 'uC', name: '새', fx: 1 }, null] });
-  chk(e.sess.hostSlot() === 1 && e.sess.isHost() === true && e.sess.mySlot() === 1, '방장이 나가면 남은 자리 중 가장 작은 번호가 방장 — 내가 승계');
+  chk(e.sess.hostSlot() === -1 && e.sess.isHost() === false, '방장이 나간 직후 photoMeta 가 오기 전에는 앱이 방장을 지어내지 않는다(옛 meta.host 가 자리에 없음)');
+  const nSl = e.cb.slots.length;
+  e.emit({ t: 'photoMeta', meta: META({ host: 'uB' }) });
+  chk(e.sess.hostSlot() === 1 && e.sess.isHost() === true && e.sess.mySlot() === 1, '서버가 photoMeta 로 새 방장(meta.host)을 보내면 내가 승계');
+  chk(e.cb.slots.length === nSl + 1, '  방장이 바뀌면 onSlots 를 한 번 더 불러 화면이 다시 그린다');
+  e.emit({ t: 'photoMeta', meta: META({ host: 'uB', filter: 'soft' }) });
+  chk(e.cb.slots.length === nSl + 1, '  방장이 그대로면 onSlots 를 또 부르지 않는다');
   chk(!e.sess.peersNow()[0], '  나간 사람의 좌표는 치운다');
   const nPeers = e.cb.peers.length;
   e.emit({ t: 'photoMeta', meta: META({ host: 'uB', filter: 'fish' }) });
-  chk(e.sess.metaNow().filter === 'fish' && e.cb.meta.length === 2 && e.cb.meta[1].filter === 'fish', 'photoMeta 통째로 갈아 끼움 → onMeta');
+  chk(e.sess.metaNow().filter === 'fish' && e.cb.meta.length === 4 && e.cb.meta[3].filter === 'fish', 'photoMeta 통째로 갈아 끼움 → onMeta');
   e.emit({ t: 'photoFrames', frames: [null, 'https://x/1.webp', null, null] });
   chk(JSON.stringify(e.sess.framesNow()) === '{"1":"https://x/1.webp"}' && e.cb.frames.length === 2, 'photoFrames 통째로 → onFrames');
   e.emit({ t: 'photoEvent', slot: 2, k: 'jump', v: undefined, ts: 77 }); e.emit({ t: 'photoEvent', slot: 1, k: 'pose', v: 2, ts: 78 });
@@ -324,7 +333,8 @@ process.on('exit', (c) => { if(!finished && c === 0){ console.log('✗ 검사가
     ['RT', "        hub.send({ t: 'photoLeave' });\n      }, OPEN_WAIT_MS)", "      }, OPEN_WAIT_MS)", '시간 초과 때 자리를 안 놓음'],
     ['RT', "ROOM_PHOTO_FULL: 'full'", "ROOM_PHOTO_FULL: 'busy'", '자리 다 찬 까닭이 틀림'],
     ['RT', "ROOM_PHOTO_BUSY: 'busy'", "ROOM_PHOTO_BUSY: 'full'", '촬영 중 까닭이 틀림'],
-    ['RT', "if(host < 0) host = i;", "if(host < 0 && v.uid !== myCode) host = i;", '방장이 가장 작은 번호가 아님'],
+    ['RT', "if(host && v.uid === host) hostSlot = i;", "if(hostSlot < 0) hostSlot = i;", '앱이 다시 작은 번호를 방장으로 계산'],
+    ['RT', "    if(hostSlot !== before) onSlots(slots);", "", '방장이 바뀌어도 화면에 안 알림'],
     ['RT', "const hostSend = (msg) => Promise.resolve(isHost() ? !!hub.send(msg) : false);", "const hostSend = (msg) => Promise.resolve(!!hub.send(msg));", '방장 아니어도 보냄'],
     ['RT', "if(!P.cutAllowed(cfg.orient, cfg.cuts)) return Promise.resolve(false);", "", '세로 2컷을 안 거름'],
     ['RT', "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs === 0 ? 0 : 1 }); }", "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs }); }", '앱 시계를 서버에 실음'],
