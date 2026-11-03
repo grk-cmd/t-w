@@ -101,7 +101,7 @@
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
 | **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
-| **sim-fix-1008.js** | 403 | **84294640bda8** |
+| **sim-fix-1008.js** | 402 | **6b5950b681c7** |
 | **sim-fix-1016b.js** | 59 | **77a024839b06** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 88 | **e3705358c7eb** |

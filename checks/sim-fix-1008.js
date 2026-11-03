@@ -389,8 +389,7 @@ say('§9 보관함 이동 — 연타 (동기화 경쟁은 서버 원본으로 �
 {
   /* 옛 §9 는 슬롯을 새로 까는 동기화(loadSlots)와 보관함 이동이 겹치는 경쟁을 지켰다. 이제 서버가 칸을 당기고 앱은 된 뒤에만 당기므로(closet.moveToBox)
      그 경쟁이 없다 — 판정은 sim-closet(한 번에 하나 · 서버가 된 뒤 당김) · sim-launcher-controls(연타 막기 · 실패하면 칸 그대로)가 한다. 여기서는 연타 흉내만 남긴다. */
-  const mv = ((read('launcher-controls.js') || '').match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/if\(_slotOpBusy\)\{ toast\(/.test(mv) && /finally\{ _slotOpBusy = false; \}/.test(mv) && /await closetMod\(\)\.moveToBox\(i\)/.test(mv), '★ 진행 중이면 다시 안 들어간다 (연타 방지 · 실패해도 풀린다) · 서버에 옮긴 뒤에만 칸을 당긴다');
+  /* 연타 막기 · 서버가 된 뒤에만 당김은 글자 대신 실행으로 판정한다 — sim-launcher-controls(busy 로 막기) · sim-closet(한 번에 하나). */
   // 흉내 — 연타 두 번이 겹쳐도 한 번만 옮긴다
   let busy = false, moved = 0;
   const press = async () => { if (busy) return 'busy'; busy = true; try { await new Promise(r => setTimeout(r, 5)); moved++; } finally { busy = false; } return 'ok'; };
