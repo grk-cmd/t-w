@@ -225,7 +225,7 @@
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
 | **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
 | **sim-z-layers.js** | 168 | **75e6e7bd9f39** |
-| **sim-no-default-menu.js** | 95 | **0f1c5f7e0d75** |
+| **sim-no-default-menu.js** | 95 | **75dc9981d8fb** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
@@ -280,6 +280,7 @@
 | **sim-api-client.js** | 343 | **434141fb839f** |
 | **sim-api-public-reads.js** | 184 | **f3a68560ff15** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
+| **sim-http-cache-reset.js** | 118 | **2533326cdf66** |
 | **sim-remote-config.js** | 532 | **ed0e69ed1799** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |

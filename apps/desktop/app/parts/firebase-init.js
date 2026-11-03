@@ -3835,7 +3835,9 @@
     //   앱은 로컬(localStorage/IndexedDB)에서 캐싱을 담당해서 같은 파츠는 두 번 안 받게 함(호출 측).
     async fetchCatalogGlb(url){
       if(!url) throw new Error('empty url');
-      const res = await fetch(url);
+      /* 웹 캐시를 거치지 않는다 — 깨진 응답이 캐시에 남으면 서버에 다시 묻지 않고 그것만 계속 꺼낸다(E-CHAR-14).
+         받은 GLB 는 부르는 쪽이 IndexedDB 에 저장하므로(glb-idb-cache.js) 요청 수는 그대로다. */
+      const res = await fetch(url, { cache: 'no-store' });
       if(!res.ok) throw new Error('storage fetch failed '+res.status);
       const buf = await res.arrayBuffer();
       // ArrayBuffer → base64 (한 번에 큰 배열 대상으로 fromCharCode 하면 stack overflow — 청크로 처리)
