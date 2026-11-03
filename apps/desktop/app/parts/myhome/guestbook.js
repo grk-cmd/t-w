@@ -401,7 +401,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     d.open(); d.write(GB_HTML); d.close();
     applyThemeToChildDoc(d);   // 🎨 [제보 5] 별도 창 = 별도 document — 메인의 data-theme 이 안 온다
     watchMaintenanceInput(d);  // d.close() 뒤에 — document.open 이 리스너를 지운다
-    installMacTip(d, _gbWin);  // 이 창도 «화면 보호기» 단계라 맥 OS 툴팁이 뒤로 깔린다
+    installMacTip(d, _gbWin);  // 이 창도 메인과 같은 «항상 위» 단계라 맥 OS 툴팁이 뒤로 깔린다
     d.getElementById('gbTitleText').textContent = (_mhViewingUserId() ? _mhViewingDisplayName() : getDisplayName())+' 님의 방명록';
     d.getElementById('gbClose').onclick=()=>{ try{ _gbWin.close(); }catch(_){} };
     // ⎋ ESC로도 닫힘(요청사항). 마이홈 클릭으로 닫히는 건 별도 코드가 아니라 main.js의 blur-닫힘이 담당 —
