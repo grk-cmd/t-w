@@ -93,9 +93,9 @@ const errorText = deps.errorText;                         // 오류 번호 → �
   }
   window._mhReSubscribeGuestbook = _gbSubscribeIfNeeded;
   feed.onChange((e)=>{
+    if(e.kind === 'off'){ if(_gbAlive()){ try{ _gbWin.close(); }catch(_){} } return; }   // 연결을 껐다(로그아웃) — 열린 창도 닫는다. owner 가 비었다고 짐작하지 않는다(열면서 계정을 비울 때도 비므로)
     if(e.kind !== 'book') return;
     if(!_gbAlive()){ if(_gbWin){ _gbWin = null; feed.closeBook(); } return; }   // 창이 이미 죽었다(main.js 의 blur 닫기) — 받아 둔 것·«보는 중» 을 거둔다
-    if(feed.owner() === null){ try{ _gbWin.close(); }catch(_){} return; }   // feed 가 방명록을 거뒀다(로그아웃 — 연결을 끔) — 열린 창도 닫는다
     renderClap(); renderList(); _gbApplyWriteUI(gbDoc());
   });
 

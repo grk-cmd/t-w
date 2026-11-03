@@ -91,7 +91,7 @@ function mkEnv(opt){
   };
   const ids = new Map();
   const pending = { idFor: (k) => { if(!ids.has(k)) ids.set(k, 'rid-' + (++env.ids)); return ids.get(k); }, settle: (k) => { ids.delete(k); } };
-  const FEED = loadWin(opt.feedSrc || SRC['guestbook-feed.js'], 'TwGuestbookFeed');
+  const FEED = loadWin(opt.feedSrc || CUR_FEED || SRC['guestbook-feed.js'], 'TwGuestbookFeed');
   env.feed = FEED.createGuestbookFeed({
     api, rt, rtState: RT, pending, lastRead: FEED.createLastReadStore({ getItem: k => (k in env.ls ? env.ls[k] : null), setItem: (k, v) => { env.ls[k] = String(v); } }),
     notifyError: (code, err) => { env.notes.push(code); env.toasts.push(TwErrorCodes.toastText(code)); return true; },
@@ -130,8 +130,10 @@ const HOOKS = ['_mhGbStartWatch', '_mhGbStopWatch', '_mhGbRefreshBadge', '_mhGbM
 const ent = (id, o) => Object.assign({ id, name: '이름' + id, text: '글' + id, ts: 1.7e12, mine: false }, o || {});
 const bookOf = (o) => Object.assign({ entries: [], clap: { count: 0, img: null, emoji: '', todayLeft: 5, dailyMax: 5 }, canWrite: true, version: 1 }, o || {});
 
+let CUR_FEED = null;
 async function judge(S){
   const MOD = S.MOD;
+  CUR_FEED = S.FEED || null;
   await sec('── 1. 만들 때 — 버튼 연결 · window 고리', () => {
     const e = mkEnv({ src: MOD }); const gb = e.mk();
     chk(HOOKS.every(n => typeof e.ctx[n] === 'function') && !('_mhGbRefreshWriteUI' in e.ctx), 'window 고리 여섯 — 부르는 곳(마이홈 열기 · 닫기 · 관람 · 런처)이 부른다 · 친구 목록으로 쓰기를 판정하던 고리는 없다');
@@ -242,6 +244,12 @@ async function judge(S){
     /* 로그아웃(연결을 끔) — 열린 창도 닫는다 */
     e2.states.forEach(fn => fn(RT.OFF));
     chk(wt.closed && e2.feed.owner() === null, '로그아웃(연결을 끔)이면 열린 방명록 창도 닫는다');
+    /* 배지를 켠 적 없이 열기 · 로그아웃 뒤 다른 계정으로 열기 — 열면서 비우는 것이 «로그아웃» 으로 읽혀 방금 연 창을 닫지 않는다 */
+    const ns = mkEnv({ src: MOD }); ns.mk(); ns.ctx.openMyGuestbook(); await flush();
+    chk(ns.wins.length === 1 && !ns.wins[0].closed && ns.calls.filter(c => c.startsWith('view')).length === 1, 'startWatch 없이 열어도 창이 열려 있다 · 방명록 요청 1');
+    const sw = mkEnv({ src: MOD }); sw.mk(); sw.ctx._mhGbStartWatch(); await flush(); sw.states.forEach(fn => fn(RT.OFF)); sw.me = 'uB'; sw.calls.length = 0;
+    sw.ctx.openMyGuestbook(); await flush();
+    chk(sw.wins.length === 1 && !sw.wins[0].closed && sw.calls.join() === 'view:uB|uB', '켠 뒤 로그아웃(OFF) → 다른 계정(uB)으로 열어도 창이 열려 있다 · view:uB|uB');
     const eb = mkEnv({ blocked: true, src: MOD }); eb.mk(); eb.ctx._mhGbStartWatch(); eb.ctx.openMyGuestbook();
     chk(eb.toasts[0] === '방명록 창을 열 수 없어요' && eb.feed.owner() === null, '창이 막히면 안내 · 방명록도 안 연다');
     const en = mkEnv({ me: null, src: MOD }); en.mk(); en.ctx.openMyGuestbook(); await flush();
@@ -355,15 +363,16 @@ async function judge(S){
     ['박수 하루 횟수를 앱이 적음', M.replace("const r=await feed.clap();", "try{ localStorage.setItem('gbClap:x', '1'); }catch(_){}\n      const r=await feed.clap();"), '박수 횟수를 적지'],
     ['박수 중 또 눌러도 보냄', M.replace("if(feed.clapBusy()){ toast('박수를 보내는 중이에요 — 잠시만요 👏'); return; }", ""), '또 안 보낸다'],
     ['하루 몫 남은 수를 앱이 셈', M.replace("(r.dailyMax - r.todayLeft)", "1"), '하루 몫은 서버가 준 남은 수'],
+    ['owner 가 비면 로그아웃으로 읽고 창을 닫음(옛 모양 + 열면서 알림)', M.replace("if(e.kind === 'off'){ if(_gbAlive()){ try{ _gbWin.close(); }catch(_){} } return; }", "if(e.kind === 'book' && feed.owner() === null && _gbAlive()){ try{ _gbWin.close(); }catch(_){} return; }"), '창이 열려 있다', SRC['guestbook-feed.js'].replace("reset(true); me = uid; }   // 알리지 않는다", "reset(); me = uid; }   // 알리지 않는다")],
     ['박수 칸 설명에 하루 5번을 박음', M.replace("하루 '+clap.dailyMax+'번까지'", "하루 5번까지'"), '하루 n번'],
-    ['로그아웃에도 창을 안 닫음', M.replace("if(feed.owner() === null){ try{ _gbWin.close(); }catch(_){} return; }", ""), '열린 방명록 창도 닫는다'],
+    ['로그아웃에도 창을 안 닫음', M.replace("if(e.kind === 'off'){ if(_gbAlive()){ try{ _gbWin.close(); }catch(_){} } return; }", ""), '열린 방명록 창도 닫는다'],
     ['폭죽 저장 실패 때 입력칸을 안 되돌림', M.replace("    renderClap();   // 저장하지 못했다", "    // renderClap();   // 저장하지 못했다"), '서버 값으로 되돌린다'],
     ['실패를 창 안에 안 보임', M.replace("if(r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다\n    // closed", "// closed"), '창 안 안내줄'],
   ];
-  for(const [name, src, what] of breaks){
-    if(src === M){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
+  for(const [name, src, what, feedSrc] of breaks){
+    if(src === M && !feedSrc){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
     quiet = true; qfail = 0; const cw = console.warn; console.warn = () => {};   // 깨 본 모듈이 내는 경고는 소리 없이
-    try{ await judge({ MOD: src }); }catch(_){ qfail++; }
+    try{ await judge({ MOD: src, FEED: feedSrc }); }catch(_){ qfail++; }
     quiet = false; console.warn = cw;
     chk(qfail > 0, name + ' → 빨강(' + what + ')');
   }

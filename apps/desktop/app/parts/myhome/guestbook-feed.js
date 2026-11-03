@@ -17,7 +17,7 @@
      startBadge(uid) · stopBadge() · refreshBadge() · badgeCount() · markRead() — 배지(markRead = 지금까지 다 읽음)
      openBook(uid, owner) → boolean · closeBook() · refreshBook({ manual }?) → Promise<boolean> · view() · status() · owner() — 열어 둔 방명록
      write(text) · remove(id) · clap() · setEmoji(v) · setImage(dataUrl) → Promise<{ ok, reason?, code?, ... }> — clapBusy() = 박수 답을 기다리는 중인가
-     onChange(fn) → 해제 함수 — fn({ kind:'badge'|'book' })
+     onChange(fn) → 해제 함수 — fn({ kind:'badge'|'book'|'off' }) — 'off' = 연결을 끈 것(로그아웃)에서만
      STATUS · ERRORS(이 묶음이 아는 서버 오류 → 오류 번호 표)
    }
      순수: createLastReadStore(storage) (TwGuestbookFeed 위)
@@ -100,6 +100,7 @@ function createGuestbookFeed(deps){
       if(owner){ syncWatch(); refreshBook(); }
     }else if(s === RT.OFF){
       reset();   // 연결을 끈 것(로그아웃 · 계정을 놓음) — 모두 비운다. 보낼 길이 없으니 떼기 메시지도 없다
+      emit('off');   // 화면이 열린 창을 닫는 신호 — 이것만이 «연결을 껐다» 는 뜻이다(owner 가 비었다고 짐작하지 말 것)
     }else if(s === RT.AUTH_FAILED || s === RT.SESSION_LOST || s === RT.UPDATE){
       release();   // 연결만 끊겼다 — 다시 붙을 수 있으니 받은 것만 거두고 «누구 것을 보는 중인가» 와 알림 걸기는 둔다
     }
@@ -122,12 +123,13 @@ function createGuestbookFeed(deps){
     emit('book'); emit('badge');
   }
 
-  function reset(){
+  /* silent = 알리지 않는다 — 열면서 다른 계정 것을 비울 때(openBook 이 곧 받는 중을 알린다). 화면이 «비워졌다» 를 «로그아웃» 으로 읽지 않게 */
+  function reset(silent){
     bookGen++; badgeGen++;
     owner = null; view = null; status = STATUS.IDLE; failStreak = false; manualNext = false; watching = false;
     badgeOn = false; badgeNum = 0; me = null;
     unhookIfIdle();
-    emit('book'); emit('badge');
+    if(!silent){ emit('book'); emit('badge'); }
   }
 
   /* ── 새 글 배지 ── */
@@ -208,7 +210,7 @@ function createGuestbookFeed(deps){
   /* 내 코드(uid)는 입구에서 받는다 — 배지를 켠 적이 없어도(연결이 끊겼다 이어진 뒤 포함) 열 수 있다. 다른 계정이면 앞 계정 것을 비우고 시작 */
   function openBook(uid, ow){
     if(!uid || !ow) return false;
-    if(uid !== me){ reset(); me = uid; }
+    if(uid !== me){ reset(true); me = uid; }   // 알리지 않는다 — 바로 아래에서 받는 중을 알린다
     if(owner !== ow){
       bookGen++;
       owner = ow; view = null; status = STATUS.LOADING; failStreak = false; manualNext = false;

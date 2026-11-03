@@ -274,8 +274,14 @@ async function judge(S){
     e.state(RT.OFF); await flush();
     chk(e.feed.view() === null && e.feed.owner() === null && e.feed.badgeCount() === 0 && e.hooked() === 0, '연결이 끝나면(로그아웃 등) 배지 · 방명록 · 알림 걸기를 모두 비운다');
     chk(e.sent.length === 0, '  끝난 연결에는 떼기 메시지를 보내지 않는다');
+    const offs = []; const qo = mkEnv(F, { answers: { view: book() } }); qo.feed.onChange((x) => offs.push(x.kind)); qo.feed.openBook('ME', 'uOWN'); await flush(); chk(!offs.includes('off'), '  열기(계정을 비우며 시작해도)는 off 신호를 내지 않는다'); qo.state(RT.OFF); chk(offs.includes('off'), '  연결을 끈 것(OFF)에서만 off 신호를 낸다');
     e.calls.length = 0; e.notify({ subject: 'ME' }); await flush();
     chk(e.calls.length === 0, '  비운 뒤엔 알림이 와도 안 받는다');
+    // 다른 계정으로 열면서 앞 계정을 비울 때 «owner 가 빈 book 알림» 을 내지 않는다(화면이 로그아웃으로 읽지 않게)
+    const so = mkEnv(F, { answers: { view: book() } }); const evs = [];
+    so.feed.startBadge('ME'); await flush(); so.feed.onChange((x) => evs.push(x.kind + ':' + so.feed.owner()));
+    so.feed.openBook('YOU', 'uOWN'); await flush();
+    chk(!evs.includes('book:null') && evs.includes('book:uOWN') && so.feed.status() === 'ready', '다른 계정으로 열면서 앞 계정을 비워도 «비어 있음» 알림은 내지 않는다(곧바로 받는 중부터 알림)');
     // 연결만 끊김(OFF 아님) — 받은 것만 거두고 걸기는 둔다. 다시 붙으면(«여기서 계속») 받는다
     for(const st of [RT.SESSION_LOST, RT.AUTH_FAILED, RT.UPDATE]){
       const q = mkEnv(F, { answers: { count: 4, view: book({ entries: [{ id: 'k' }] }) } });
@@ -353,9 +359,10 @@ async function runAll(){
     ['올리기 실패에도 겉모습을 보냄', S.FEED.replace("if(r.status === 'ok' && same(who, ow) && view) r = await api.changeLook", "if(same(who, ow) && view) r = await api.changeLook"), '올리기에 실패하면'],
     ['413 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-07', e)", "notifyError('E-NET-06', e)"), '413'],
     ['남의 방명록 그림을 바꿈', S.FEED.replace("if(owner !== me || !view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload", "if(!view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload"), '내 것만'],
+    ['열면서 비울 때도 알림', S.FEED.replace("reset(true); me = uid; }   // 알리지 않는다", "reset(); me = uid; }   // 알리지 않는다"), '비우며 열기'],
     ['끊김(OFF 아님)에도 모두 비움', S.FEED.replace("      release();   // 연결만 끊겼다", "      reset();   // 연결만 끊겼다"), '다시 붙으면'],
     ['다시 붙어도 배지를 안 받음', S.FEED.replace("      if(badgeOn) refreshBadge();\n      if(owner){ syncWatch(); refreshBook(); }", "      if(owner){ syncWatch(); refreshBook(); }"), '배지 · 열린 방명록'],
-    ['열 때 내 코드를 배지에서만 앎', S.FEED.replace("    if(!uid || !ow) return false;\n    if(uid !== me){ reset(); me = uid; }", "    if(!me || !ow) return false;"), '입구에서 받는다'],
+    ['열 때 내 코드를 배지에서만 앎', S.FEED.replace("    if(!uid || !ow) return false;\n    if(uid !== me){ reset(true); me = uid; }   // 알리지 않는다 — 바로 아래에서 받는 중을 알린다", "    if(!me || !ow) return false;"), '입구에서 받는다'],
     ['받은 글 시각을 안 올림', S.FEED.replace("if(newest > lastRead.get(who)){", "if(false){"), '최신 시각'],
     ['다 읽음이 시각을 내림', S.FEED.replace("Math.max(now(), lastRead.get(me))", "now()"), '(max)'],
     ['오류 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-03', e)", "notifyError('E-GB-99', e)"), 'error-codes.js 표'],
