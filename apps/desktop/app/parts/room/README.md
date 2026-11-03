@@ -353,7 +353,7 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 같은 곡은 열쇠 `id|at` 로 가린다 — 길이만 적힌 쓰기(at 그대로)는 다시 안 열고, 다시 틀기(at 이 바뀜)는 멈춘 자리에서 새로 연다.
 - 창(`#listenBox`)은 상태칩 팝업 규칙표(`status/chip-popups.js`)에 플레이리스트 창처럼 `keep` 으로 든다 — 드롭메뉴를 열어도 남고 회사원 모드 숨김(force)에만 닫힌다 · 열 때는 드롭메뉴를 닫는다(deps `closeChipPopups`).
 - 방 만들기 창의 «🎧 같이 듣기 방» 칸은 늘 보인다(방은 서버 하나라 같이 듣기를 받는다).
-- 실패 번호: `E-ROOM-05` 쓰기 실패(DJ) · `E-ROOM-06` 못 트는 곡(곡마다 한 번) · `E-ROOM-07` 구독 거부.
+- 실패 번호: `E-ROOM-05` 쓰기 실패(DJ) · `E-ROOM-06` 못 트는 곡(곡마다 한 번) (`E-ROOM-07` 구독 거부는 realtime 으로 옮기며 걷음 — 구독이 거부될 길이 없다).
 
 검사: `checks/sim-listen-model.js` · `checks/sim-listen-provider.js` · `checks/sim-listen-ui.js`.
 

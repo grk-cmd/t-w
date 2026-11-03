@@ -44,7 +44,6 @@
 | `E-ROOM-04` | 방 설정을 저장하지 못했어요 | `room/room-info-ui.js` — 방 안 [방 설정] 제목 · 공개 쓰기(`setRoomInfo`) 실패 |
 | `E-ROOM-05` | 같이 듣기 곡을 바꾸지 못했어요 | `room/listen-ui.js` — DJ 의 곡 칸(`rooms/{방}/_music`) 쓰기 실패 |
 | `E-ROOM-06` | 이 곡은 여기서 틀 수 없어요 | `room/listen-ui.js` — 재생 창이 곡을 못 틂(유튜브 재생 불가 · 지역 제한) |
-| `E-ROOM-07` | 같이 듣기를 불러오지 못했어요 | `room/listen-ui.js` — 곡 칸(`rooms/{방}/_music`) 구독 거부 |
 | `E-CHAR-01` | 프리셋을 저장하지 못했어요 | `creator/desk-preset.js` — 생성기 📐 책상 프리셋 저장 · 비우기(`tw.deskPresets`) |
 | `E-CHAR-02` | 프리셋을 읽지 못했어요 | `creator/desk-preset-store.js` — 책상 프리셋 읽기 해석 실패 |
 | `E-CHAR-03` | 프리셋의 책상 모델을 불러오지 못했어요 | `creator/desk-preset.js` — 프리셋 적용 중 책상 GLB 해석 실패 |
@@ -75,3 +74,4 @@
 | `E-DATA-02` | 요청 모양이 맞지 않아 처리하지 못했어요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 `INVALID_REQUEST` |
 | `E-DATA-03` | 다른 곳에서 먼저 바뀌었어요 — 다시 시도해 주세요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 `CONCURRENT_UPDATE` |
 | `E-DATA-04` | 서버에서 처리하지 못했어요 — 잠시 후 다시 시도해 주세요 | 0.13 · 범용 데이터 통로(`data-gateway.js`)를 걷음 — 서버 오류는 `api-errors.js`(E-NET) · 옛: 서버 범용 통로 모르는 code |
+| `E-ROOM-07` | 같이 듣기를 불러오지 못했어요 — 방에 다시 들어와 주세요 | 0.13 · 같이 듣기 곡 칸을 realtime 으로 옮겨 구독 거부 길이 없어짐 · 옛: `room/listen-ui.js` 곡 칸 구독 거부 |

@@ -53,7 +53,7 @@ function mk(o, src){
   comp.onBgmMode = (f) => { comp.cb.mode = f; };
   comp.onBgmClosed = (f) => { comp.cb.closed = f; };
   const prov = { subs: [], writes: [], unsubs: 0,
-    subscribe(room, cb, onErr){ cb(undefined); prov.subs.push({ room, cb, onErr }); return () => { prov.unsubs++; }; },
+    subscribe(room, cb){ cb(undefined); prov.subs.push({ room, cb }); return () => { prov.unsubs++; }; },
     async write(room, m){
       prov.writes.push([room, m]);
       /* 방 서버 흉내(o.srvSeq) — realtime Room.ts 처럼 마지막으로 받은 차례를 기억하고(지워도 남음) 그보다 크지 않으면 stale */
@@ -324,12 +324,6 @@ say('── 6. 실패 번호');
   t.push(null);
   await flush();
   chk(t.errs.indexOf('E-ROOM-05') >= 0, '★ DJ 의 쓰기가 막히면 E-ROOM-05');
-  t = mk();
-  t.ui.sync();
-  t.prov.subs[0].onErr('denied');
-  t.el('listenBox').classList.remove('hidden');
-  t.ui.sync();
-  chk(t.errs.indexOf('E-ROOM-07') >= 0 && t.el('lsMsg').textContent === '같이 듣기를 불러오지 못했어요', '★ 구독이 거부되면 E-ROOM-07 · 창에도 «못 불러옴»(«틀 곡 없음» 과 다르다)');
 }
 
 say('── 7. 창 글 · DJ 딱지');

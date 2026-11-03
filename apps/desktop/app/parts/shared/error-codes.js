@@ -44,7 +44,6 @@ const CODES = {
   'E-ROOM-04': { msg: '방 설정을 저장하지 못했어요 — 잠시 후 다시 눌러 주세요', where: 'room/room-info-ui.js — 방 안 [방 설정] 제목 · 공개 쓰기(setRoomInfo) 실패' },
   'E-ROOM-05': { msg: '같이 듣기 곡을 바꾸지 못했어요 — 잠시 후 다시 눌러 주세요', where: 'room/listen-ui.js — DJ 의 곡 칸(rooms/{방}/_music) 쓰기 실패' },
   'E-ROOM-06': { msg: '이 곡은 여기서 틀 수 없어요 — 다음 곡을 기다려 주세요', where: 'room/listen-ui.js — 재생 창이 곡을 못 틂(유튜브 재생 불가 · 지역 제한)' },
-  'E-ROOM-07': { msg: '같이 듣기를 불러오지 못했어요 — 방에 다시 들어와 주세요', where: 'room/listen-ui.js — 곡 칸(rooms/{방}/_music) 구독 거부' },
   'E-CHAR-01': { msg: '프리셋을 저장하지 못했어요', where: 'creator/desk-preset.js — 생성기 📐 책상 프리셋 저장 · 비우기 (saveDeskPresets · tw.deskPresets)' },
   'E-CHAR-02': { msg: '프리셋을 읽지 못했어요', where: 'creator/desk-preset-store.js — 생성기 📐 책상 프리셋 읽기 해석 실패 (loadDeskPresets · tw.deskPresets)' },
   'E-CHAR-03': { msg: '프리셋의 책상 모델을 불러오지 못했어요', where: 'creator/desk-preset.js — applyDeskPreset 책상 GLB 해석 실패' },
@@ -70,6 +69,7 @@ const CODES = {
 };
 /* 걷은 번호 — { 번호: '언제 · 왜' }. 다시 쓰지 않으려고 남긴다. */
 const RETIRED = {
+  'E-ROOM-07': '0.13 · 같이 듣기 곡 칸을 realtime 으로 옮겨 구독 거부 길이 없어짐(listen-ui.js 의 «못 불러옴» 갈래도 걷음)',
   'E-DATA-01': '0.13 · 범용 데이터 통로(data-gateway.js)를 걷음 — 서버 오류는 api-errors.js(E-NET)',
   'E-DATA-02': '0.13 · 범용 데이터 통로(data-gateway.js)를 걷음 — 서버 오류는 api-errors.js(E-NET)',
   'E-DATA-03': '0.13 · 범용 데이터 통로(data-gateway.js)를 걷음 — 서버 오류는 api-errors.js(E-NET)',
