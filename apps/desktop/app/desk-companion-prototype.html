@@ -6017,7 +6017,7 @@
           <div class="bb-lbl">제목</div>
           <input id="bbWTitle" type="text" maxlength="60" placeholder="어떤 문제인지 한 줄로">
           <div class="bb-lbl">내용</div>
-          <textarea id="bbWBody" maxlength="2000" placeholder="언제, 무엇을 했을 때, 어떻게 됐는지 적어 주세요"></textarea>
+          <textarea id="bbWBody" maxlength="2000" placeholder="어떤 상황에서 무엇을 했을 때 오류가 났는지 적어 주세요.&#10;예) 투게더룸에서 꾸미기 창을 닫았더니 캐릭터가 사라졌어요.&#10;&#10;제보는 운영자가 한 건씩 직접 읽고 답변드려요.&#10;불편하셨을 마음은 충분히 이해합니다. 다만 더 나은 서비스 제공을 위해 서로 존중하는 말투로 적어 주시면 감사하겠습니다."></textarea>
           <div class="bb-lbl">공개 범위</div>
           <label><input type="radio" name="bbWVis" value="pub" checked> 공개</label>
           <label><input type="radio" name="bbWVis" value="prv"> 비공개 (나와 관리자만)</label>
@@ -8515,6 +8515,7 @@
 <script src="parts/chat/chat-window.js"></script>   <!-- 💬 대화창 배선(닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 · 입력 · 이모티콘) — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatWindow.createChatWindow 로 만든다) -->
 <script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/shared/drag-scroll.js"></script>   <!-- 🖱 목록 끌어 움직이기 — myhome-inbox.js 보다 먼저 -->
+<script src="parts/myhome/gift-save.js"></script>   <!-- 💾 받은 말랑이 선물 그림 저장(window.TwGiftSave) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
 <script src="parts/status/playlist-sync.js"></script>   <!-- ☁️ 플레이리스트 기기 간 맞추기 규칙(순수) — app.js 보다 먼저(app.js 가 deps 로 playlist.js 에 넘긴다) -->
 <script src="parts/status/bgm-diag.js"></script>   <!-- 🔍 플레이리스트 소리 진단 줄 — app.js 보다 먼저(app.js 가 TwBgmDiag.createBgmDiag 로 만든다) -->
