@@ -7272,6 +7272,8 @@ const adminLicense = TwAdminLicense.createAdminLicense({
 });
 const adminNotice = TwAdminNotice.createAdminNotice({
   toast: (...a)=>toast(...a),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
 });
 
 
