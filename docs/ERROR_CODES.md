@@ -24,6 +24,7 @@
 | `CHAR` | 캐릭터 · 꾸미기 · 가챠 |
 | `FOCUS` | 포커스 · 레벨 |
 | `PL` | 플레이리스트 |
+| `ADM` | 앱 관리자 창 |
 | `DATA` | (걷음) 범용 데이터 통로 — 걷은 번호만 |
 | `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
 | `SYS` | 그 밖 |
@@ -74,6 +75,11 @@
 | `E-CHAR-14` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `creator/desk-setup.js` — 생성기 책상 카드 고르기(모델 받기 실패) |
 | `E-PL-01` | 플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요 | `status/playlist.js` — 내 목록 서버 저장 실패(`_plPublishNow` · `saveMine` failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음 — 다음 고침 · 창 열기 · 끌 때 · 로그아웃 때 한 번) |
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
+| `E-ADM-01` | 배너 주소가 올바르지 않아요 — 그림은 https 주소, 링크는 http(s) 주소를 넣어 주세요 | `admin/admin-api.js` — 📢 런처 배너 저장 거절(`NOTICE_INVALID_URL` — 그림 칸이 있으면 링크 칸도 비우면 안 됨) |
+| `E-ADM-02` | 배너는 3장까지 올릴 수 있어요 | `admin/admin-api.js` — 📢 런처 배너 저장 거절(`NOTICE_TOO_MANY_SLIDES`) |
+| `E-ADM-03` | 이미 내려갔거나 없는 공지예요 — 창을 닫고 다시 열어 주세요 | `admin/admin-api.js` — 📰 업데이트 공지 내리기 거절(`NOTICE_NOT_FOUND`) |
+| `E-ADM-04` | 실시간 서버에서 방 정보를 받지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `admin/admin-api.js` — 🛑 전체 방 종료 거절(`ROOM_REALTIME_UNAVAILABLE`) |
+| `E-ADM-05` | 이 계정은 서버에 관리자로 등록돼 있지 않아요 — 관리자 계정으로 로그인해 주세요 | `admin/admin-api.js` — 관리자 모드 켤 때 서버 확인 · 관리자 쓰기가 403(`ACCESS_DENIED`) |
 | `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |
 | `E-NET-02` | 이 작업을 할 권한이 없어요 | `shared/api-errors.js` — 공통 `ACCESS_DENIED` |
 | `E-NET-03` | 프리미엄에서 쓸 수 있는 기능이에요 | `shared/api-errors.js` — 공통 `PREMIUM_REQUIRED`(이 기기 판정 — `X-Device-Id`) |

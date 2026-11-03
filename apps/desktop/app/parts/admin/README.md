@@ -19,3 +19,15 @@
   - 올리기(`catalogSourceMod.catalogSrcPublishPart` → Firebase `publishPart`)는 `set()`(노드 통째 교체) — 필드를 손으로 나열하지 말 것(빠진 `gacha` 로 뽑기 파츠가 꾸미기 창에 뜬 적 있다).
   - 카드는 `thumbUrl` 을 `thumbnail` 보다 먼저 읽는다 — force 때 `thumbUrl` 을 지우는 줄을 빼면 다시 구워도 안 바뀐다.
   - 검사: `checks/sim-admin-thumbs.js`(4절 — 관리자 아님 · 없는 것만 · force · 실패 건너뛰기 · 0개 · 서버 연결 없음).
+
+## admin-api.js — 🛠️ 앱 관리자 서버 길 provider
+
+- **책임**: 앱 관리자 창이 쓰는 서버 관리자 API(`/v1/admin/...`) 요청 모양 한 곳. 지금: 관리자 확인(`me`) · 📣 확성기 · 📰 업데이트 공지 · 📢 런처 배너 · 🛑 전체 방 종료. 화면 · 알림은 모른다 — 실패는 `ApiError` 를 던진다.
+- **만드는 법**: app.js `noticeApi` 바로 뒤에서 `const adminApi = TwAdminApi.createAdminApi({ authed, pending, fetchBoard })`
+  - `authed` = `TwApi.authed` · `pending` = `TwRequestId.createPending()` · `fetchBoard` = `()=>noticeApi.fetchBoard()`(지금 업데이트 공지의 id 를 공지 한 판에서 받는다)
+- **내보내는 것**: `me` · `announce` · `clearAnnouncement` · `currentUpdateNotice` · `publishUpdateNotice` · `withdrawUpdateNotice` · `fetchBanner` · `replaceBanner` · `closeAllRooms` · `ERRORS`(서버 code → 오류 번호 `E-ADM-*` 기능 표 — `TwApiErrors.store.notify(err, adminApi.ERRORS)`)
+- **함정**
+  - 관리자 판정은 서버가 한다(`ACCESS_DENIED` → `E-ADM-05`). 앱은 «누가 했는지» 를 보내지 않는다.
+  - 배너 저장은 읽은 판(`version`)을 싣는다 — 409 면 덮어쓰지 않고 다시 받는다. 링크 칸이 비면 서버가 거절한다(`E-ADM-01`).
+  - 서버에 길이 없어 멈춘 것: ⚙️ 게임 설정(동물 해금 레벨) · 🧹 유령 방 청소 — 여기서 메우지 않는다.
+  - 검사: `checks/sim-admin-api.js`(요청 모양 · 요청 번호 · 오류 표 · 배선 · 깨 보기).

@@ -8532,6 +8532,7 @@
 <script src="parts/status/playlist-api.js"></script>   <!-- 🌐 플레이리스트 서버 길(내 목록 · 파도타기) provider — playlist.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
 <script src="parts/status/bgm-diag.js"></script>   <!-- 🔍 플레이리스트 소리 진단 줄 — app.js 보다 먼저(app.js 가 TwBgmDiag.createBgmDiag 로 만든다) -->
 <script src="parts/status/playlist.js"></script>   <!-- 🎵 상태칩 플레이리스트(프리셋 · 화면 · 고르기 · 파도타기 · 재생 감시견 · 재생 제어) — app.js 보다 먼저(app.js 가 원래 자리에서 TwPlaylist.createPlaylist 로 만든다) -->
+<script src="parts/admin/admin-api.js"></script>   <!-- 🛠️ 관리자: 앱 관리자 창의 서버 길(/v1/admin — 관리자 확인 · 확성기 · 업데이트 공지 · 런처 배너 · 방 종료) provider — app.js 보다 먼저(app.js 가 TwAdminApi.createAdminApi) -->
 <script src="parts/admin/admin-license-bulk.js"></script>   <!-- 🛠️ 관리자: 📄 엑셀 라이선스 일괄 발급 · 🔒 시크릿룸 발급 — 관리자 코드는 parts/admin/ 에 모은다 · app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicenseBulk.createAdminLicenseBulk 로 만든다) -->
 <script src="parts/admin/admin-console.js"></script>   <!-- 🛠️ 관리자: 🧹 F12 콘솔 도구 일곱(카탈로그 정리 · 진단 · 유령 방 · 초대권 회수 · 이관) — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminConsole.createAdminConsole 로 만든다) -->
 <script src="parts/admin/admin-license.js"></script>   <!-- 🛠️ 관리자: 🎟️ 라이선스 키 발급 · 목록 · 대기 요청 · 친구코드로 발급 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminLicense.createAdminLicense 로 만든다) -->

@@ -2660,8 +2660,11 @@ const mailFeed = TwMailFeed.createMailFeed({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
+const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v1/notices
+/* 🛠️ 앱 관리자 창의 서버 길(/v1/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
+const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard() });
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
-  api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/notices
+  api: noticeApi,
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });

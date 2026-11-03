@@ -6,7 +6,7 @@
          write — 관리자 쓰기 통로(TwApi.authed — post · patch · del(…) → Promise<data>)
          pending — 요청 번호 기억(TwRequestId.createPending() — 같은 일을 다시 보내면 같은 번호) · warn(...a)(진단 로그)
    내보냄: createNoticeApi(deps) → {
-     fetchBoard() → Promise<{ updateNotice:{title, body, ts}|null, banner:[{img, link}], broadcasts:{id: 소식}, hasMore:boolean }> — 못 읽으면 던진다.
+     fetchBoard() → Promise<{ updateNotice:{id, title, body, ts}|null, banner:[{img, link}], broadcasts:{id: 소식}, hasMore:boolean }> — 못 읽으면 던진다.
        소식 = { tag:'notice'|'update'|'reward', title, body, ts, pinned, version } — 고정 + 최신 한 쪽을 합친 것(고정은 오래돼도 들어 있다).
      sendBroadcast({ tag, title, body, pinned }) → Promise<'ok'|'pinFailed'|'failed'> — 올리고, 고정이 켜져 있으면 이어서 고정한다.
      setPinned(id, version, pinned) · remove(id, version) → Promise<'ok'|'conflict'|'failed'>
@@ -53,7 +53,7 @@ function boardOf(d){
   const broadcasts = {};
   if(!broadcastsOf(d.broadcasts.pinned, broadcasts) || !broadcastsOf(d.broadcasts.latest, broadcasts)) return undefined;
   const u = d.updateNotice;
-  const updateNotice = isObj(u) ? { title: str(u.title), body: str(u.body), ts: msOf(u.publishedAt) } : null;
+  const updateNotice = isObj(u) ? { id: str(u.id), title: str(u.title), body: str(u.body), ts: msOf(u.publishedAt) } : null;
   const banner = d.launcherBanner.filter((s) => isObj(s) && typeof s.imageUrl === 'string' && s.imageUrl)
     .map((s) => ({ img: s.imageUrl, link: str(s.linkUrl) }));
   return { updateNotice, banner, broadcasts, hasMore: typeof d.broadcasts.nextCursor === 'string' && !!d.broadcasts.nextCursor };
