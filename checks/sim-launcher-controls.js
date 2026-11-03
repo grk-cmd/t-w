@@ -21,7 +21,7 @@ const FN_DEPS = ["launchApp","openCreator","renderLauncher","saveCurSlot","toast
 const VAL_DEPS = ["CHAR_SLOT_MAX","settingsMod","slots"];
 const GET_DEPS = ["closetMod","curSlot","racePickerMod"];
 const SET_DEPS = ["curSlot"];
-const EXPORTS = ["closeGearMenu"];
+const EXPORTS = ["closeGearMenu","renderEmptyState"];
 const MOVED = ["gearMenu","closeGearMenu","lcDeleteAskEnd","lcDeleteAskStart","previewWrap","doDeleteCurSlot","_moveToBoxBusy","doMoveCurSlotToBox"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  closetMod: ()=>closetMod,","  curSlot: ()=>curSlot,","  launchApp: (...a)=>launchApp(...a),","  openCreator: (...a)=>openCreator(...a),","  racePickerMod: ()=>racePickerMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  settingsMod: settingsMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
 
@@ -132,7 +132,7 @@ function rig(slotsInit, cur, extra, opt){
   const log = (n) => (...a) => { st.calls.push([n, ...a]); };
   /* 서버 원본 옷장 가짜 — 동작이 되면 서버처럼 뒤 칸을 당기고 { ok, slot } 을 돌려준다(closet.js 의 pullForward 와 같은 모양). 안 되면 칸은 그대로 */
   const pull = (i) => { for(let k = i; k < st.slots.length - 1; k++) st.slots[k] = st.slots[k + 1]; st.slots[st.slots.length - 1] = null; };
-  const closet = { deleteWords: () => ({ ask: '정말 지울까요?', btn: '삭제', gear: '톱니', done: '휴지통으로 옮겼어요' }),
+  const closet = { state: () => opt.state || 'ready', requireReady: () => { st.calls.push(['requireReady']); return !opt.notReady; }, deleteWords: () => ({ ask: '정말 지울까요?', btn: '삭제', gear: '톱니', done: '휴지통으로 옮겼어요' }),
     /* 실제 옷장처럼 한 번에 하나 — 도는 중에 또 부르면 why:'busy' (겹침 막기는 옷장 한 곳 · 런처가 따로 막지 않는다) */
     trashSlot: (i) => guardBusy(opt.trashSlot || (async (j) => { st.calls.push(['trashSlot', j]); pull(j); return { ok: true, slot: j }; }), i),
     moveToBox: (i) => guardBusy(opt.toBox || (async (j) => { st.calls.push(['moveToBox', j]); pull(j); return { ok: true, slot: j }; }), i),
@@ -163,6 +163,18 @@ const tick = () => new Promise(r => setImmediate(r));
     const boxFree = rig(['a', null], 1); boxFree.el('lcEmpty').click(); chk(boxFree.n('race') === 1, '[＋] — 보관함이 가득 차 있어도 막지 않는다(새 캐릭터는 슬롯에 만든다 — 서버가 보관함 문턱을 보지 않는다)'); }
   { const r = rig(['a', null], 1); r.st.slots[0] = 'a'; r.st.slots[1] = null;
     const z = rig([null, null], 0); z.st.slots[0] = null; z.el('lcEmpty').click(); chk(z.last('race') === 0, '[＋] — 전부 빈 칸이면 0번 칸'); }
+  /* 옷장을 받기 전 · 못 받은 채로는 만들기 · 편집을 막는다 — 빈 칸 표시도 «불러오는 중 / 못 불러왔어요» 로 가른다 */
+  { const r = rig(['a', null], 1, null, { notReady: true });
+    r.el('lcEmpty').click(); chk(r.n('race') === 0 && r.n('requireReady') === 1, '[＋] — 옷장을 받기 전엔 만들기를 열지 않는다(requireReady)');
+    const r2 = rig(['a', null], 0, null, { notReady: true });
+    r2.el('lcEdit').click(); chk(r2.n('creator') === 0 && r2.n('requireReady') === 1, '[수정] — 받기 전엔 편집을 열지 않는다');
+    const r3 = rig(['a', null], 0); r3.el('lcEdit').click(); chk(r3.n('creator') === 1, '  받은 뒤엔 열린다');
+    const lo = rig([null, null], 0, null, { state: 'loading' }); lo.api.renderEmptyState();
+    chk(/불러오는 중/.test(lo.el('lcEmpty').textContent), '빈 칸 표시 — 받는 중이면 «불러오는 중…»');
+    const fa = rig([null, null], 0, null, { state: 'failed' }); fa.api.renderEmptyState();
+    chk(/못 불러왔어요/.test(fa.el('lcEmpty').textContent) && /다시 시도/.test(fa.el('lcEmpty').textContent), '  못 받았으면 «못 불러왔어요 — 눌러서 다시 시도» (빈 슬롯 «캐릭터 만들기» 와 다르다)');
+    const ok = rig([null, null], 0); ok.api.renderEmptyState();
+    chk(!ok.el('lcEmpty').dataset.closet, '  받았으면 손대지 않는다(진짜 빈 슬롯)'); }
   /* 삭제 — 되묻고 [네] 일 때만 당긴다 · 자리 추가 번호도 같이 당긴다 */
   { const r = rig(['a', 'b', 'c', 'd', null], 1, [1, 2, 3]);
     r.el('lcDelete').click();

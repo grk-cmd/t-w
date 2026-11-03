@@ -440,6 +440,7 @@ async function _miBoxUp(avatarId, btn){
 /* 옷장이 바뀌었다(받기 · 옮기기 · 저장) — [내 정보]가 열려 있으면 보관함 줄을 다시 그린다 */
 function _miBoxChanged(){ if(_miIsOpen() && _miTab === 'box') _miRenderBox(); _miRenderTrashTab(); }
 function _miCodeLoad(){
+  if(!closetMod().requireReady()) return;   // 옷장을 받기 전엔 저장 자리를 모른다
   if(slots.every(s => s)){ toast('캐릭터가 모두 찼습니다'); return; }   // 옛 런처 [캐릭터 불러오기]의 판정 그대로
   openCodeModal();
 }

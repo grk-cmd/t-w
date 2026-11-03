@@ -157,7 +157,7 @@ async function _acctFlushToServer(){
   call(weeklyChal().syncChalToServer, 'logout');
   call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
   /* 슬롯은 아직 못 올린 고침만 올린다(3초 묶음을 기다릴 이유가 없다). 받기 전이면 쓴 것이 없어 즉시 돌아온다. */
-  call(closetMod().flushSlots);
+  call(async () => { await closetMod().waitFlush(); return closetMod().flushSlots(); });   // 도는 쓰기가 있으면 끝난 뒤 남은 고침을 올린다
   if(!jobs.length) return { timedOut:false };
   /* [2026-09-20 · §2] 상한에 걸렸는지 돌려준다 — 검문이 «아직 올리는 중» 과 «서버가 거부» 를 다른 말로 하기 위해.
      둘은 사용자에게 다른 뜻이다: 전자는 기다리면 되고, 후자는 기다려도 안 된다. */

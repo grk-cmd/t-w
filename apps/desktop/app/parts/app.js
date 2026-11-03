@@ -6297,6 +6297,7 @@ function renderLauncher(){
   const def=slots[curSlot];
   document.getElementById('lcCount').textContent='('+(curSlot+1)+'/'+CHAR_SLOT_MAX+')';
   document.getElementById('lcEmpty').style.display=def?'none':'flex';
+  launcherCtlMod.renderEmptyState();
   document.getElementById('lcGear').style.display=def?'block':'none';
   document.getElementById('lcPreview').style.display=def?'block':'none';
   /* #lcLoad([내 정보]) · lcCreate(HTML 에서 늘 disabled)는 여기서 토글하지 않는다. */
@@ -7378,7 +7379,9 @@ const closetMod = TwCloset.createCloset({
   creatorOpen: ()=>creatorOpen,
   storage: localStorage,
 });
-closetMod.onChange(()=>myInfoMod._miBoxChanged());   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
+closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });
+/* 앱을 끌 때 못 올린 캐릭터 고침을 한 번 올려 본다(결과를 기다리지 않는다 — 🎵 플레이리스트 · 포커스 누적과 같은 방식). 옷장을 받기 전 · 로그아웃 뒤(idle)에는 쓰지 않는다 */
+window.addEventListener('beforeunload', ()=>{ closetMod.flushSlots(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
 
 /* --- 복제 코드 (현재 base64. 다음 단계에서 AES 암호화로 교체) --- */
 /* ★ onload 가 떴다고 그림이 있는 것은 아니다 — 잘린 dataURL, 0바이트 PNG 는 브라우저에 따라

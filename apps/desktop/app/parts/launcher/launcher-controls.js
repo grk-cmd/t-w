@@ -57,6 +57,7 @@ document.getElementById('lcNext').onclick=()=>{setCurSlot((curSlot()+1)%CHAR_SLO
 // ★ 빈 슬롯의 [＋] — "지금 보고 있는 이 칸"을 저장 대상으로 확정해 넘긴다(저장 때 칸을 추측하면 다른 칸을 덮어쓴다).
 document.getElementById('lcEmpty').onclick=()=>{
   if(slots[curSlot()]) return;                       // 캐릭터가 있는 칸이면 [＋]가 아니므로 무시
+  if(!closetMod().requireReady()) return;            // 옷장을 받기 전 · 못 받은 채로는 만들지 않는다(저장 자리를 모른다)
   if(slots.every(s=>s)){toast('캐릭터가 모두 찼습니다');return;}
   racePickerMod().openRacePicker(curSlot());
 };
@@ -69,7 +70,7 @@ document.getElementById('lcGear').onclick=e=>{e.stopPropagation();
   gearMenu.classList.toggle('on');};
 document.addEventListener('click',()=>closeGearMenu());
 gearMenu.addEventListener('click',e=>e.stopPropagation());
-document.getElementById('lcEdit').onclick=()=>{closeGearMenu();if(slots[curSlot()])openCreator({kind:'slot',edit:true,slot:curSlot()});};
+document.getElementById('lcEdit').onclick=()=>{closeGearMenu();if(slots[curSlot()] && closetMod().requireReady())openCreator({kind:'slot',edit:true,slot:curSlot()});};
 document.getElementById('lcDelete').onclick=()=>{ lcDeleteAskStart(); };   // 🗑️ 바로 지우지 않고 되묻는다
 /* 🧰 [보관함 이동] — 되묻지 않는다. 지우는 게 아니라 슬롯에서 내려 보관함에 둔다. */
 document.getElementById('lcToBox').onclick=()=>{ closeGearMenu(); doMoveCurSlotToBox(); };
@@ -105,8 +106,21 @@ async function doMoveCurSlotToBox(){
   toast('보관함으로 옮겼어요');
 }
 
+/* 빈 칸 표시 — 옷장을 받기 전엔 «불러오는 중», 못 받았으면 «못 불러왔어요 · 다시 시도» (진짜 빈 슬롯 «캐릭터 만들기» 와 가른다). 받은 뒤엔 원래 문구로 되돌린다. */
+let _emptyOrig = null;
+function renderEmptyState(){
+  const em = document.getElementById('lcEmpty'); if(!em) return;
+  const st = closetMod().state();
+  if(_emptyOrig === null) _emptyOrig = em.innerHTML;
+  if(st === 'ready'){ if(em.dataset.closet){ em.innerHTML = _emptyOrig; em.dataset.closet = ''; em.title = '이 칸에 캐릭터 만들기'; } return; }
+  em.dataset.closet = st;
+  em.textContent = st === 'failed' ? '못 불러왔어요 — 눌러서 다시 시도' : '캐릭터를 불러오는 중…';
+  em.title = em.textContent;
+}
+
 return {
   closeGearMenu,
+  renderEmptyState,
 };
 }
 

@@ -136,7 +136,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       /* 👑 달성표는 weekly-challenge.js 모듈 — app.js 는 weeklyChal.syncChalToServer · resetMemory 로 부른다. 메모리 칸은 여기 let 이 대신한다 */
       "const weeklyChal={ syncChalToServer:async(r)=>{ env.calls.push('flush:chal:'+r); }, resetMemory(){ env.calls.push('chal:reset'); chalRec = _chalBlank(); _chalDirty = false; } };",
       /* 🧬 옷장은 closet.js 모듈 — 못 올린 고침만 올리고(flushSlots) 검문에서 센다(unsavedCount) · 로그아웃은 메모리를 비운다(resetCloset) */
-      "const closetMod=()=>({ flushSlots:async()=>{ env.calls.push('flush:slots:logout'); }, unsavedCount:()=>{ env.calls.push('unsaved'); return env.unsaved; }, resetCloset(){ env.calls.push('closet:reset'); } });",
+      "const closetMod=()=>({ flushSlots:async()=>{ env.calls.push('flush:slots:logout'); }, waitFlush:async()=>{}, unsavedCount:()=>{ env.calls.push('unsaved'); return env.unsaved; }, resetCloset(){ env.calls.push('closet:reset'); } });",
       "const setTimeout=(fn,ms)=>{ if(env.fastTimeout && typeof fn==='function') fn(); return 0; };",
       "const firebaseAPI = window.firebaseAPI;   /* 본문이 bare 이름으로도 부른다(releaseDeviceSession) */",
       "let _focusTotalSec = env.total, _focusTodaySec = 100;",
