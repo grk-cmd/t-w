@@ -205,8 +205,8 @@
 | **sim-seat-hide.js** | 84 | **4e8d2348e282** |
 | **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
-| **sim-closet-api.js** | 168 | **8e0bc73ba91a** |
-| **sim-closet.js** | 447 | **6bc5f0a37512** |
+| **sim-closet-api.js** | 171 | **6564acaab0b8** |
+| **sim-closet.js** | 473 | **22c1995a60ea** |
 | **sim-slot-codec.js** | 133 | **6995ea14e489** |
 | **sim-signup.js** | 378 | **91e800d83770** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
@@ -259,7 +259,7 @@
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **412082771903** |
-| **sim-gacha.js** | 469 | **328c8d1700e4** |
+| **sim-gacha.js** | 471 | **446a05178827** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 377 | **524ffec85237** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
@@ -302,7 +302,7 @@
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 139 | **144912a9daf0** |
 | **sim-my-info.js** | 98 | **7b87ffa6fb50** |
-| **sim-my-info-box.js** | 208 | **e5c3789bd5eb** |
+| **sim-my-info-box.js** | 208 | **a80135e14b2c** |
 | **sim-renderer-src.js** | 227 | **d944b65b64fb** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **0aaf6b13537c** |
@@ -358,7 +358,7 @@
 | **sim-myhome-links.js** | 95 | **6d53e7c2d7fd** |
 | **sim-async-prompt.js** | 112 | **298066b0cef9** |
 | **sim-launcher-chrome.js** | 95 | **ed62fec910ad** |
-| **sim-launcher-controls.js** | 214 | **275b92245b11** |
+| **sim-launcher-controls.js** | 217 | **9b1c601e4db3** |
 | **sim-launcher-preview.js** | 159 | **046bc6923a36** |
 | **sim-mat-tone.js** | 179 | **1ed9ca399291** |
 | **sim-oss-licenses.js** | 176 | **4b8e6195aaab** |
@@ -446,7 +446,7 @@
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
 | **sim-login-flow.js** | 330 | **001d6e859b87** |
-| **sim-first-run-013.js** | 141 | **14d1b0e813d8** |
+| **sim-first-run-013.js** | 144 | **c0544d9c503e** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |
 | **sim-install-desktop.js** | 116 | **9ea4923a007b** |

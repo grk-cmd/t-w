@@ -12,7 +12,7 @@
    deps: closetApi · codec(slot-codec.js) · roomFaceCache{ load, save } · slots · CHAR_SLOT_MAX · slotSave{ applySlotObjs, lastOut, onSaved, pullForward, _relinkSeatsToSlots, slotsReplaced } ·
          getMyUserId · rtOn · toast · notifyError · renderLauncher · creatorOpen(읽는 함수) · migrate 에 쓰는 storage(localStorage)
    내놓는 것: startCloset · pullCloset(notify) · state() · boxItems() · boxCount() · boxFull() · moveToBox(i) · boxToSlot(avatarId) · trashSlot(i) · trashBox(ids) ·
-     trashRows() · restore(trashId) · onChange(fn) · resetCloset() · legacyStep() · unsavedCount() · flushSlots() · BOX_MAX · deleteWords() · moveMsg(r)
+     trashRows() · restore(trashId) · onChange(fn) · resetCloset() · legacyStep() · unsavedCount() · flushSlots() · BOX_MAX · deleteWords() · reportFail(r)
    ⚠️ 전역 이름은 TwCloset. 만들 때는 요청 · 구독 · 타이머를 하지 않는다 — 시작은 startCloset 한 번(app-boot).
    검사: checks/sim-closet.js */
 (function(){
@@ -41,10 +41,13 @@ const DELETE_WORDS = Object.freeze({ btn: '휴지통 이동', ask: '휴지통으
 let heads = [];                                          // 서버 머리 전부(슬롯 + 보관함)
 const known = new Array(CHAR_SLOT_MAX).fill(null);       // 칸마다 마지막으로 서버와 맞춘 { avatarId, version, sig }
 let load = 'idle';                                       // 'idle' | 'loading' | 'ready' | 'failed'
+let unsubRt = null;   // 서버 신호 구독 해제 함수 — 계정이 바뀌면 풀어 구독이 겹치지 않게
 let started = false, pulling = false, pullAgain = false, gen = 0;
 let saveTimer = null, flushing = false, flushAgain = false, saveFailShown = false, busy = false;
 const changeFns = [];
 let pullWaiters = [];   // 도는 받기가 끝나기를 기다리는 약속들(첫 실행 올리기가 받기 뒤에 도는 데 쓴다)
+let flushWaiters = [];   // 도는 쓰기가 끝나기를 기다리는 약속들(보관함 이동이 고침을 먼저 올릴 때)
+const waitFlush = () => (flushing ? new Promise(res => { flushWaiters.push(res); }) : Promise.resolve());
 const waitPull = () => (pulling ? new Promise(res => { pullWaiters.push(res); }) : Promise.resolve());
 function onChange(fn){ changeFns.push(fn); }
 function changed(){ changeFns.forEach(fn => { try{ fn(); }catch(e){ console.warn('[옷장] 알림 실패', e); } }); }
@@ -209,6 +212,7 @@ async function flushSlots(){
     return failed;
   }finally{
     flushing = false;
+    const fw = flushWaiters; flushWaiters = []; fw.forEach(fn => fn());
     const again = flushAgain; flushAgain = false;
     if(again && !failed) scheduleSave();                              // 올리는 중에 또 고쳤다 — 최신으로 한 번 더
     changed();
@@ -237,7 +241,7 @@ function checkLayout(c){
 async function settleSlot(i){
   if(!isDirty(i)) return true;
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
-  if(flushing){ for(let t = 0; flushing && t < 100; t++) await new Promise(r => setTimeout(r, 100)); }
+  if(flushing) await waitFlush();
   await flushSlots();
   return !isDirty(i) && !!known[i];
 }
@@ -342,27 +346,31 @@ async function restore(trashId){
   try{
     let r;
     try{ r = await closetApi.restore(trashId); }catch(e){ return failOp(e); }
-    let one = null;
-    try{ one = await closetApi.fetchOne(r.avatarId); }catch(_){ one = null; }
-    heads = heads.filter(h => h.avatarId !== r.avatarId).concat([{ avatarId: r.avatarId, place: 'BOX', slot: null, version: one ? one.version : 1,
-      thumbUrl: (one && typeof one.def.thumbUrl === 'string') ? one.def.thumbUrl : null, faceUrl: (one && typeof one.def.faceUrl === 'string') ? one.def.faceUrl : null, updatedAt: Date.now(), legacyCid: null }]);
-    changed();
+    /* 서버가 옷장을 같이 돌려주면 그대로 앉히고, avatarId 만 주는 모양이면 옷장을 한 번 다시 받는다 — 판 · 시각을 앱이 지어 넣지 않는다 */
+    if(r.closet){ heads = r.closet.avatars; checkLayout(r.closet); changed(); }
+    else pullCloset(false);
     return { ok: true, avatarId: r.avatarId };
   }finally{ busy = false; }
 }
 
-/* 옮기기 실패 문구 한 벌 — 런처 톱니와 [내 정보]가 같이 쓴다. */
-function moveMsg(r){
+/* 동작 실패 알림 한 곳 — 런처 톱니와 [내 정보]가 같이 쓴다.
+   · 사용자가 할 수 있는 안내(받기 전 · 앞 동작 도는 중 · 보관함/슬롯 가득 · 못 올린 고침 · 이미 바뀜)는 토스트 그대로.
+   · 요청이 실패한 것(서버에 닿지 못함 E-CHAR-20 · 서버가 못 함 E-CHAR-21 · 그림 받기 E-CHAR-22)은 오류 번호로. */
+const MSG = Object.freeze({
+  off: '보관함을 아직 불러오지 못했어요 — 잠시 뒤 다시 눌러 주세요',
+  busy: '앞의 옮기기가 끝나는 중이에요 — 잠시만요',
+  full: '보관함이 가득 찼어요 (' + BOX_MAX + '/' + BOX_MAX + ')',
+  dirty: '방금 고친 모습을 계정에 올리지 못했어요 — 잠시 뒤 다시 눌러 주세요',
+  slotsfull: '슬롯이 꽉 차서 이동할 수 없어요. 슬롯을 먼저 비워 주세요 — 런처 톱니 [보관함 이동]',
+  gone: '이미 다른 곳에서 바뀌었거나 기한이 지났어요 — 목록을 새로 받아 올게요',
+  nocid: '옮길 캐릭터를 찾지 못했어요',
+});
+function reportFail(r){
   const w = r && r.why;
-  if(w === 'off') return '보관함을 아직 불러오지 못했어요 — 잠시 뒤 다시 눌러 주세요';
-  if(w === 'busy') return '앞의 옮기기가 끝나는 중이에요 — 잠시만요';
-  if(w === 'full') return '보관함이 가득 찼어요 (' + BOX_MAX + '/' + BOX_MAX + ')';
-  if(w === 'dirty') return '방금 고친 모습을 계정에 올리지 못했어요 — 잠시 뒤 다시 눌러 주세요';
-  if(w === 'slotsfull') return '슬롯이 꽉 차서 이동할 수 없어요. 슬롯을 먼저 비워 주세요 — 런처 톱니 [보관함 이동]';
-  if(w === 'img') return '캐릭터 그림을 받지 못했어요 — 네트워크를 확인하고 다시 눌러 주세요';
-  if(w === 'gone') return '이미 다른 곳에서 옮겨졌어요 — 목록을 새로 받아 올게요';
-  if(w === 'net') return '서버에 닿지 않아 옮기지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요';
-  return '옮기지 못했어요 — 다시 눌러 주세요';
+  if(MSG[w]){ toast(MSG[w]); return; }
+  if(w === 'net') notifyError('E-CHAR-20', r);
+  else if(w === 'img') notifyError('E-CHAR-22', r);
+  else notifyError('E-CHAR-21', r);
 }
 
 /* ── 시작 · 비우기 ── */
@@ -370,14 +378,15 @@ function moveMsg(r){
 function startCloset(){
   if(started) return;
   started = true;
-  rtOn('avatars', () => { pullCloset(false); });
+  unsubRt = rtOn('avatars', () => { pullCloset(false); });
   pullCloset(false);
 }
-/* 로그아웃 · 계정 바뀜 — 메모리를 비운다(이 PC 에 남는 캐릭터 저장본은 없다). 구독은 앱을 다시 켜며 풀린다. */
+/* 로그아웃 · 계정 바뀜 — 메모리를 비운다(이 PC 에 남는 캐릭터 저장본은 없다). 구독은 여기서 푼다. */
 function resetCloset(){
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   heads = []; known.fill(null); load = 'idle'; gen++;
   pullAgain = false; flushAgain = false; saveFailShown = false; started = false; busy = false;
+  if(unsubRt){ unsubRt(); unsubRt = null; }
   closetApi.reset();
   changed();
 }
@@ -388,7 +397,7 @@ const LEGACY_SLOTS_KEY = 'deskFriends.slots.v1';
 const LEGACY_BOX_KEY = 'deskFriends.chars.v1';
 const LEGACY_DESK_KEY = 'deskFriends.chars.desk';
 const LEGACY_TS_KEY = 'deskFriends.slots.ts';
-const LEGACY_KEY_PREFIXES = Object.freeze(['deskFriends.slots.', 'deskFriends.chars.', 'tw.charsLinked', 'tw.charsMoveFails', 'tw.gachaOwned', 'tw.gachaBonus', 'tw.gachaOwnedTs']);
+const LEGACY_KEY_PREFIXES = Object.freeze(['deskFriends.slots.', 'deskFriends.chars.', 'tw.charsLinked', 'tw.charsMoveFails']);   // 캐릭터 몫만 — 가챠 옛 키는 first-run-013.js 의 gacha 단계가 맡는다
 function readJson(k, dflt){ try{ const v = JSON.parse(storage.getItem(k) || 'null'); return v == null ? dflt : v; }catch(_){ return dflt; } }
 function legacyKeys(){
   const out = [];
@@ -446,7 +455,7 @@ return {
   startCloset, pullCloset, resetCloset, onChange,
   state: () => load,
   boxItems, boxCount, boxFull, BOX_MAX,
-  moveToBox, boxToSlot, trashSlot, trashBox, trashRows, restore, moveMsg,
+  moveToBox, boxToSlot, trashSlot, trashBox, trashRows, restore, reportFail,
   deleteWords: () => DELETE_WORDS,
   legacyStep, flushSlots, unsavedCount,
   test: { known: () => known.slice(), heads: () => heads.slice(), isDirty },

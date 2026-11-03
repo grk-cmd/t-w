@@ -331,7 +331,7 @@ async function _miBoxTrashBulk(){
   let r;
   try{ r = await closetMod().trashBox(Array.from(_miPick)); }finally{ _miBusy = false; }
   _miPick.clear(); _miBulkAsk = false;
-  if(!r.ok){ toast(r.why === 'full' || r.why === 'net' || r.why === 'off' ? closetMod().moveMsg(r) : '휴지통으로 옮기지 못했어요 — 다시 눌러 주세요'); _miRenderBox(); return; }
+  if(!r.ok){ closetMod().reportFail(r); _miRenderBox(); return; }
   toast('휴지통으로 옮겼어요 (' + r.n + ')' + (r.fail ? ' · 못 옮긴 것 ' + r.fail : ''));
   _miRenderBox();
   _miTrashLoad();
@@ -343,7 +343,7 @@ async function _miBoxTrash(avatarId){
   _miBusy = true;
   let r;
   try{ r = await closetMod().trashBox([avatarId]); }finally{ _miBusy = false; }
-  if(!r.ok){ toast(r.why === 'net' || r.why === 'off' ? closetMod().moveMsg(r) : '휴지통으로 옮기지 못했어요 — 다시 눌러 주세요'); _miRenderBox(); return; }
+  if(!r.ok){ closetMod().reportFail(r); _miRenderBox(); return; }
   toast(closetMod().deleteWords().done);
   _miRenderBox();
   _miTrashLoad();
@@ -421,7 +421,7 @@ async function _miTrashRestore(row, btn){
   _miBusy = false;
   if(r.ok) toast('보관함으로 복원했어요');
   else if(r.why === 'full'){ if(full) full.style.display = 'block'; _miTrashFullShown = true; }
-  else toast(r.why === 'gone' ? '휴지통 기한이 지나 복원할 수 없어요' : (r.why === 'off' || r.why === 'net') ? closetMod().moveMsg(r) : '복원하지 못했어요 — 네트워크를 확인하고 다시 눌러 주세요');
+  else closetMod().reportFail(r);
   await _miTrashLoad();
   if(!r.ok && btn){ btn.disabled = false; btn.textContent = '복원'; }
 }
@@ -434,7 +434,7 @@ async function _miBoxUp(avatarId, btn){
   try{ r = await closetMod().boxToSlot(avatarId); }catch(_){ r = { ok: false, why: 'err' }; }
   _miBusy = false;
   if(r.ok){ setCurSlot(r.slot); try{ saveCurSlot(); renderLauncher(); }catch(_){} toast('슬롯에 올렸어요'); }
-  else toast(closetMod().moveMsg(r));
+  else closetMod().reportFail(r);
   _miRenderBox();
 }
 /* 옷장이 바뀌었다(받기 · 옮기기 · 저장) — [내 정보]가 열려 있으면 보관함 줄을 다시 그린다 */

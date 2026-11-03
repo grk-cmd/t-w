@@ -77,6 +77,9 @@
 | `E-CHAR-17` | 캐릭터를 서버에 저장하지 못했어요 — 고친 모습은 화면에 그대로 있어요 | `character/closet.js` — 고친 칸 쓰기 실패(닿지 못함 · 서버 오류 · 그림 올리기 실패) · 이어지는 같은 실패는 한 번만 · 혼자 다시 보내지 않고 다음 고침에 다시 시도 |
 | `E-CHAR-18` | 캐릭터가 너무 커서 저장하지 못했어요 — 파츠나 그림을 줄여 주세요 | `character/closet.js` — def 크기 초과(JSON 150000자 · 서버 `AVATAR_DEF_TOO_LARGE`) |
 | `E-CHAR-19` | 입을 수 없는 물건이 있어 저장하지 못했어요 — 그 파츠를 벗어 주세요 | `character/closet.js` — 서버 착용 검사에 걸림(`AVATAR_ITEM_NOT_USABLE`) |
+| `E-CHAR-20` | 서버에 닿지 않아 옮기지 못했어요 — 인터넷을 확인해 주세요 | `character/closet.js` — 슬롯 · 보관함 · 휴지통 · 복원 요청이 서버에 닿지 못함 |
+| `E-CHAR-21` | 옮기지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `character/closet.js` — 같은 요청을 서버가 못 함(그 밖의 오류) |
+| `E-CHAR-22` | 캐릭터 그림을 받지 못했어요 — 네트워크를 확인해 주세요 | `character/closet.js` — 보관함에서 슬롯에 올릴 때 그림 받기 실패 |
 | `E-PL-01` | 플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요 | `status/playlist.js` — 내 목록 서버 저장 실패(`_plPublishNow` · `saveMine` failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음 — 다음 고침 · 창 열기 · 끌 때 · 로그아웃 때 한 번) |
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
 | `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |

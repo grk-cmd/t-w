@@ -103,6 +103,7 @@ let _gachaPullAgain = false;          // 받는 중에 온 요청 — 끝난 뒤
 let _gachaPullGen = 0;                // 뽑기 · 비우기가 일어날 때마다 올린다 — 그 전에 나간 받기가 늦게 와 새 값을 덮지 않게
 let _gachaDrawing = false;
 let _gachaStarted = false;
+let _unsubRt = null;   // 서버 신호 구독 해제 함수 — 계정이 바뀌면 풀어 구독이 겹치지 않게
 
 const GACHA_SEASON_KEYS = Object.freeze({ spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' });
 /* 지금 가챠 중인 시즌 — 서버가 정한다(서울 시계). 받기 전엔 null(시즌 파츠를 풀에 넣지 않는다). */
@@ -283,13 +284,14 @@ async function pullGacha(notify){
 function startGacha(){
   if(_gachaStarted) return;
   _gachaStarted = true;
-  rtOn('collection', ()=>{ pullGacha(false); });
+  _unsubRt = rtOn('collection', ()=>{ pullGacha(false); });
   pullGacha(false);
 }
 /* 로그아웃 · 계정 바뀜 — 메모리를 비운다(이 PC 에 남는 가챠 값은 없다). 구독은 앱을 다시 켜며 풀린다. */
 function resetGacha(){
   gachaOwned = {}; _gachaUnlocked = {}; _srvState = null; _gachaLoad = 'idle';
   _gachaPullGen++; _gachaPullAgain = false; _gachaStarted = false;
+  if(_unsubRt){ _unsubRt(); _unsubRt = null; }
 }
 
 /* ═══ 🎰 파츠 보관함 (T키) · 가챠 뽑기 창 ══════════════════════════════════

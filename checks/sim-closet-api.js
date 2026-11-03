@@ -112,7 +112,10 @@ await sec('── 3. 쓰기', async () => {
   a.calls.length = 0; r = await c.trash([]);
   chk(r.length === 0 && a.calls.length === 0, '  빈 목록은 요청 0');
   r = await c.restore('t1');
-  chk(a.calls[0].path === '/v1/me/avatars/trash/t1/restore' && a.calls[0].body.requestId === 'rid-3' && r.avatarId === 'r1', 'restore — 새 요청 이름');
+  chk(a.calls[0].path === '/v1/me/avatars/trash/t1/restore' && a.calls[0].body.requestId === 'rid-3' && r.avatarId === 'r1' && r.closet === null, 'restore — 새 요청 이름 · avatarId 만 오면 closet 은 null(판 · 시각을 지어내지 않는다)');
+  const q2 = await ready((x) => x.kind === 'post' ? Object.assign({ avatarId: 'r2' }, CLOSET) : CLOSET);
+  const r2 = await q2.c.restore('t2');
+  chk(r2.avatarId === 'r2' && r2.closet && r2.closet.avatars.length === 3, '  서버가 move 처럼 옷장을 같이 주면 씻어서 돌려준다')
   r = await c.fetchOne('c');
   chk(a.calls[1].path === '/v1/me/avatars/c' && r.def.skin === 9 && r.version === 3 && r.place === 'BOX', 'fetchOne');
   /* 실패는 그대로 던지고 한 번만 */

@@ -85,29 +85,22 @@ function afterSlotRemoved(at){
   renderLauncher();
 }
 /* 실제 삭제(휴지통 이동) — [네]를 눌렀을 때만 불린다. 서버에 옮기고 된 뒤에만 칸을 당긴다(서버가 같은 규칙으로 뒤 칸을 당긴다 — 예: 1번 삭제하면 2번→1번). 못 하면 칸은 그대로. */
-let _slotOpBusy = false;
 async function doDeleteCurSlot(){
   if(!slots[curSlot()]) return;   // 되묻는 사이 비었으면(다른 경로로 삭제 등) 아무 것도 안 한다
-  if(_slotOpBusy){ toast('옮기는 중이에요 — 잠시만요'); return; }
-  _slotOpBusy = true;
   let r;
-  try{ r = await closetMod().trashSlot(curSlot()); }catch(e){ r = { ok: false, why: 'err' }; }
-  finally{ _slotOpBusy = false; }
-  if(!r.ok){ toast(closetMod().moveMsg(r)); return; }
+  try{ r = await closetMod().trashSlot(curSlot()); }catch(e){ r = { ok: false, why: 'err' }; }   // 겹친 누름은 옷장이 busy 로 막는다
+  if(!r.ok){ closetMod().reportFail(r); return; }
   afterSlotRemoved(r.slot);
   toast(closetMod().deleteWords().done);
 }
 /* 🧰 [보관함 이동] — 되묻지 않는다. 지우는 게 아니라 슬롯에서 내려 보관함에 둔다. 서버에 옮기고 된 뒤에만 칸을 당긴다.
    ★ 진행 중이면 다시 안 들어간다(연타 때 겹친 호출이 엉뚱한 칸을 당겼다). */
 async function doMoveCurSlotToBox(){
-  if(_slotOpBusy){ toast('보관함으로 옮기는 중이에요 — 잠시만요'); return; }
   const i = curSlot();
   if(!slots[i]) return;
-  _slotOpBusy = true;
   let r;
   try{ r = await closetMod().moveToBox(i); }catch(e){ r = { ok: false, why: 'err' }; }
-  finally{ _slotOpBusy = false; }
-  if(!r.ok){ toast(closetMod().moveMsg(r)); return; }
+  if(!r.ok){ closetMod().reportFail(r); return; }
   afterSlotRemoved(r.slot);
   toast('보관함으로 옮겼어요');
 }

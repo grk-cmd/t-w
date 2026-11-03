@@ -133,9 +133,12 @@ function rig(slotsInit, cur, extra, opt){
   /* 서버 원본 옷장 가짜 — 동작이 되면 서버처럼 뒤 칸을 당기고 { ok, slot } 을 돌려준다(closet.js 의 pullForward 와 같은 모양). 안 되면 칸은 그대로 */
   const pull = (i) => { for(let k = i; k < st.slots.length - 1; k++) st.slots[k] = st.slots[k + 1]; st.slots[st.slots.length - 1] = null; };
   const closet = { deleteWords: () => ({ ask: '정말 지울까요?', btn: '삭제', gear: '톱니', done: '휴지통으로 옮겼어요' }),
-    trashSlot: opt.trashSlot || (async (i) => { st.calls.push(['trashSlot', i]); pull(i); return { ok: true, slot: i }; }),
-    moveToBox: opt.toBox || (async (i) => { st.calls.push(['moveToBox', i]); pull(i); return { ok: true, slot: i }; }),
-    moveMsg: (r) => '못 옮김:' + r.why };
+    /* 실제 옷장처럼 한 번에 하나 — 도는 중에 또 부르면 why:'busy' (겹침 막기는 옷장 한 곳 · 런처가 따로 막지 않는다) */
+    trashSlot: (i) => guardBusy(opt.trashSlot || (async (j) => { st.calls.push(['trashSlot', j]); pull(j); return { ok: true, slot: j }; }), i),
+    moveToBox: (i) => guardBusy(opt.toBox || (async (j) => { st.calls.push(['moveToBox', j]); pull(j); return { ok: true, slot: j }; }), i),
+    reportFail: (r) => { st.calls.push(['toast', '못 옮김:' + r.why]); } };
+  let _busy = false;
+  const guardBusy = async (fn, i) => { if(_busy) return { ok: false, why: 'busy' }; _busy = true; try{ return await fn(i); }finally{ _busy = false; } };
   const settings = { extraSeatSlots: () => st.extra, setExtraSeatSlots: (v) => { st.extra = v; }, _saveExtraSeatSlots: log('saveExtra') };
   const over = { CHAR_SLOT_MAX: st.slots.length, slots: st.slots, curSlot: () => st.cur, setCurSlot: (v) => { st.cur = v; }, settingsMod: settings,
     closetMod: () => closet, racePickerMod: () => ({ openRacePicker: log('race') }),
@@ -181,8 +184,8 @@ const tick = () => new Promise(r => setImmediate(r));
   { const r = rig(['a', 'b'], 0, [0, 1], { trashSlot: async () => ({ ok: false, why: 'net' }) }); r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
     chk(r.st.slots.join() === 'a,b' && JSON.stringify(r.st.extra) === '[0,1]' && r.last('toast') === '못 옮김:net' && r.n('saveCur') === 0, '서버가 못 하면 — 칸 · 자리 추가 번호 그대로 · 이유 문구(되돌릴 것 없음)'); }
   { let release; const r = rig(['a', 'b'], 0, null, { trashSlot: () => new Promise(res => { release = res; }) });
-    r.el('lcDelete').click(); r.el('lcDelYes').click(); r.el('lcDelete').click(); r.el('lcDelYes').click();
-    chk(r.last('toast') === '옮기는 중이에요 — 잠시만요', '삭제 중에 또 누르면 막는다 — 서버에 두 번 가지 않는다');
+    r.el('lcDelete').click(); r.el('lcDelYes').click(); r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
+    chk(r.last('toast') === '못 옮김:busy', '삭제 중에 또 누르면 옷장이 busy 로 막는다 — 서버에 두 번 가지 않는다');
     release({ ok: false, why: 'err' }); await tick(); await tick(); }
   /* 톱니 — 메뉴 토글 · 문서 클릭이면 닫히며 되묻기도 취소 */
   { const r = rig(['a'], 0); r.el('lcGear').click();
@@ -194,8 +197,8 @@ const tick = () => new Promise(r => setImmediate(r));
     r.el('lcPreview').fire('click'); chk(JSON.stringify(r.last('launch')) === '{"mode":"run"}', '미리보기 클릭 — 실행'); }
   /* 보관함 이동 — 서버에 옮기고 된 뒤에만 당긴다 · 실패면 이유 문구 · 진행 중이면 다시 안 들어간다 */
   { let release; const r = rig(['a', 'b', 'c'], 0, [0, 2], { toBox: (i) => new Promise(res => { release = () => { for(let k = i; k < 2; k++) r.st.slots[k] = r.st.slots[k + 1]; r.st.slots[2] = null; res({ ok: true, slot: i }); }; }) });
-    r.el('lcToBox').click(); r.el('lcToBox').click();
-    chk(r.last('toast') === '보관함으로 옮기는 중이에요 — 잠시만요' && r.st.slots.join() === 'a,b,c', '보관함 이동 — 진행 중에 또 누르면 막는다 · 서버가 되기 전엔 칸 그대로');
+    r.el('lcToBox').click(); r.el('lcToBox').click(); await tick(); await tick();
+    chk(r.last('toast') === '못 옮김:busy' && r.st.slots.join() === 'a,b,c', '보관함 이동 — 진행 중에 또 누르면 옷장이 busy 로 막는다 · 서버가 되기 전엔 칸 그대로');
     release(); await tick(); await tick();
     chk(r.st.slots.join() === 'b,c,' && JSON.stringify(r.st.extra) === '[1]', '서버가 된 뒤 칸을 당긴다(a 이동 → b,c · 자리 추가 [0,2] → [1])');
     chk(r.last('toast') === '보관함으로 옮겼어요', '«보관함으로 옮겼어요»'); }

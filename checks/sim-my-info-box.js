@@ -50,7 +50,7 @@ function mkWorld(src, opt){
     boxItems: () => (w.state === 'ready' ? w.box : null),
     boxCount: () => w.box.length,
     deleteWords: () => ({ ask: '휴지통으로 옮길까요? 3일 뒤 사라져요', done: '휴지통으로 옮겼어요' }),
-    moveMsg: (r) => '문구:' + r.why,
+    reportFail: (r) => { w.toasts.push('문구:' + r.why); },
     pullCloset: (n) => { w.calls.push(['pull', n]); },
     boxToSlot: async (id) => { w.calls.push(['boxToSlot', id]); if(w.ops.boxToSlot) return w.ops.boxToSlot(id); return { ok: true, slot: 2 }; },
     trashBox: async (ids) => { w.calls.push(['trashBox', ids.slice()]); if(w.ops.trashBox) return w.ops.trashBox(ids); w.box = w.box.filter(b => !ids.includes(b.avatarId)); return { ok: true, n: ids.length, fail: 0 }; },
@@ -147,7 +147,7 @@ async function behave(src){
   const c0 = all(w.els.miBoxList, (e) => e.tag === 'input')[0]; c0.checked = true; c0.onchange();
   w.ops.trashBox = async () => ({ ok: false, why: 'err', n: 0, fail: 1 });
   w.els.miBoxBulkBtn.click(); w.els.miBoxBulkYes.click(); await flush(); await flush(); await flush();
-  t(w.toasts.includes('휴지통으로 옮기지 못했어요 — 다시 눌러 주세요') && w.box.length === 20, '  한꺼번에 실패 — 안내 · 목록 그대로');
+  t(w.toasts.includes('문구:err') && w.box.length === 20, '  한꺼번에 실패 — 옷장의 실패 알림(reportFail) · 목록 그대로');
   /* 4. 휴지통 탭 */
   const T = (id, why, exp) => ({ trashId: id, avatarId: 'a-' + id, why, thumbUrl: 'https://st/tt-' + id + '.png', faceUrl: null, trashedAt: 1, expiresAt: exp });
   w = mkWorld(src, { box: [], rows: [T('t1', 'deleted', Date.UTC(2026, 8, 25, 3)), T('t2', 'overwritten', Date.UTC(2026, 9, 1, 3))] });
@@ -168,7 +168,7 @@ async function behave(src){
   w.els.miTabTrash.click(); await flush(); await flush();
   w.ops.restore = async () => ({ ok: false, why: 'gone' });
   btn(w.els.miTrashList.children[0], '복원').click(); await flush(); await flush(); await flush();
-  t(w.toasts.includes('휴지통 기한이 지나 복원할 수 없어요'), '  기한이 지났으면(gone) 그 문구');
+  t(w.toasts.includes('문구:gone'), '  기한이 지났으면(gone) 옷장의 실패 알림 한 곳으로(my-info 가 문구를 따로 고르지 않는다)');
   w = mkWorld(src, { box: [], rows: [] }); await w.openBox();
   w.els.miTabTrash.click(); await flush(); await flush();
   t(w.els.miTrashEmpty.style.display === 'block' && /3일/.test(w.els.miTrashEmpty.textContent) && /10일/.test(w.els.miTrashEmpty.textContent), '비었을 때 — 기한 안내(옮김 3일 · 연동 교체 10일)');

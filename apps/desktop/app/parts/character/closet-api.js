@@ -10,7 +10,7 @@
      fetchOne(avatarId) → Promise<{ def, version, place }>
      create(slot, def) → Promise<{ avatarId, version }>      update(avatarId, baseVersion, def) → Promise<{ version }>
      move(avatarId, 'BOX' | 'SLOT') → Promise<옷장>           trash(avatarIds) → Promise<[{ id, ok, code }]>
-     trashPage({ cursor, limit }) → Promise<{ items:[휴지통 줄], nextCursor }>      restore(trashId) → Promise<{ avatarId }>
+     trashPage({ cursor, limit }) → Promise<{ items:[휴지통 줄], nextCursor }>      restore(trashId) → Promise<{ avatarId, closet|null }>
      legacySync(items) → Promise<옷장>(첫 실행 1회 — 서버가 이미 받았으면 AVATAR_LEGACY_SYNC_DONE)
      reset() — 읽은 주인 기억을 비운다(계정을 놓을 때)
    }
@@ -146,7 +146,8 @@ function createClosetApi(deps){
   async function restore(trashId){
     const d = await authed.post(PATHS.restore(trashId), { requestId: newRequestId() }, writeOpts());
     if(!isObj(d) || typeof d.avatarId !== 'string') throw bad('되살리기');
-    return { avatarId: d.avatarId };
+    /* 서버가 move 처럼 옷장을 같이 주면(closet) 그대로 쓴다. avatarId 만 주는 모양이면 closet 은 null — 부르는 쪽이 옷장을 다시 받는다(판 · 시각을 지어내지 않는다) */
+    return { avatarId: d.avatarId, closet: closetOf(d) };
   }
   /* items: [{ legacyCid, def, editedAt(ms), slot }] ≤25 — editedAt 은 서버가 ISO 시각으로 받는다 */
   async function legacySync(items){

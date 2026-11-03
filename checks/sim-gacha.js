@@ -141,7 +141,7 @@ function mkEnv(opt){
       load: async () => { env.gsLoads++; const snap = JSON.parse(JSON.stringify(env.gs)); if(env.gsHold) await env.gsHold; if(env.gsLoadFail) throw Object.assign(new Error('x'), { kind: 'unavailable' }); return snap; },
       draw: async (n) => { env.gsDraws.push(n); if(env.gsThrows) throw new Error('깨짐'); if(env.gsFail) return { ok: false, reason: env.gsFail }; return { ok: true, out: env.gsOut, state: JSON.parse(JSON.stringify(env.gs)) }; },
     },
-    rtOn: (kind, fn) => { (env.rt[kind] = env.rt[kind] || []).push(fn); return () => {}; },
+    rtOn: (kind, fn) => { (env.rt[kind] = env.rt[kind] || []).push(fn); return () => { env.unsubs = (env.unsubs || 0) + 1; }; },
   });
   /* 🛠 관리자 등록 · 삭제 — app.js 가 만든 뒤 setPartEditor 로 건다 */
   m.setPartEditor({
@@ -277,6 +277,8 @@ await sec('── 4. 받기 — 상태 · 실패 · 경합 · 신호 · 회수',
   chk(e.gsLoads === 2 && M.gachaCount('a') === 3, '서버 신호(collection) — 다시 받아 그 값으로');
   M.refreshAfterReward(); await flush();
   chk(e.gsLoads === 3, '달성표 보상 뒤 — 서버에서 다시 받는다(보너스를 값으로 받아 적지 않음)');
+  M.resetMemory(); chk(e.unsubs === 1, '로그아웃 지우기 — 서버 신호 구독을 푼다(계정이 바뀌면 구독이 겹치지 않는다)');
+  M.startGacha(); chk(e.rt.collection.length === 2, '  다시 시작하면 새로 건다');
   /* 미보유 파츠 회수 — 받은 뒤에만 */
   e = mkEnv({ saved: [G('g'), { id: 'n', cat: 'hat' }] });
   const seat = { remote: false, charDef: { equippedParts: { hat: [{ id: 'g' }, { id: 'n' }] } }, stackedPartObjs: { hat: { g: {} } } };

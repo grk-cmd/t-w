@@ -56,8 +56,6 @@ const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
 const setFocusTotalSec = deps.setFocusTotalSec;   // 쓰는 함수
 const setExtraSeatSlots = deps.setExtraSeatSlots;   // 쓰는 함수
 
-/* «연동됨» 안내 창 표시 키 — my-info.js 가 읽는다(쓰던 계정 이전 갈래는 0.13 에서 걷었다 — 캐릭터 올리기는 첫 실행 legacy-sync). */
-
 /* 🪪 서버가 돌려준 계정(me)으로 이 PC 를 맞춘다 — 켤 때 확인 · 로그인 · 가입이 같이 부르는 한 곳.
    login: { email, uid } — 이 PC 의 로그인 표시(계정 탭 얼굴 · 진단). 친구코드 · 이름은 서버 값이 정본이다.
    돌려주는 것: { ok, switched } — switched 면 이번 실행은 다른 uid 로 돌았다 = 부르는 쪽이 앱을 다시 켠다.

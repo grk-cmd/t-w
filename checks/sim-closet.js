@@ -101,7 +101,7 @@ function mkEnv(opt){
   const Mod = loadMod(SRC, env);
   env.mk = () => Mod.createCloset({
     CHAR_SLOT_MAX: 5, closetApi: srv.api, codec: env.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots, slotSave: env.slotSave,
-    getMyUserId: () => env.uid, rtOn: (k, fn) => { (env.rt[k] = env.rt[k] || []).push(fn); }, toast: (m) => env.toasts.push(m),
+    getMyUserId: () => env.uid, rtOn: (k, fn) => { (env.rt[k] = env.rt[k] || []).push(fn); env.subs = (env.subs || 0) + 1; return () => { env.rt[k] = env.rt[k].filter(x => x !== fn); env.unsubs = (env.unsubs || 0) + 1; }; }, toast: (m) => env.toasts.push(m),
     notifyError: (c, e) => env.errs.push(c), renderLauncher: () => { env.renders++; }, creatorOpen: () => env.creator,
     storage: { getItem: (k) => env.ls.has(k) ? env.ls.get(k) : null, setItem: (k, v) => env.ls.set(k, String(v)), removeItem: (k) => env.ls.delete(k), key: (i) => [...env.ls.keys()][i] || null, get length(){ return env.ls.size; } },
   });
@@ -267,6 +267,15 @@ await sec('── 4. 동작', async () => {
   e.edit(0, { skin: 'a-new' }); e.srv.fail.update = apiErr('unavailable', 'NETWORK'); e.srv.calls.length = 0;
   r = await C.moveToBox(0);
   chk(!r.ok && r.why === 'dirty' && !e.srv.calls.includes('move:a:BOX') && e.slots[0], '올리지 못하면 옮기지 않는다(why=dirty) · 칸은 그대로');
+  /* 올리는 중에 보관함 이동 — 약속으로 기다렸다가(돌기 없음) 옮긴다 */
+  ({ e, C } = await ready({ slots: ['a', 'b'] }));
+  { let rl; const hold = new Promise(rs => { rl = rs; }); const ou = e.srv.api.update; e.srv.api.update = async (...a2) => { await hold; return ou(...a2); };
+    e.edit(0, { skin: 'a-new' }); e.srv.calls.length = 0;
+    const run = e.runTimers(); await flush(); await flush();
+    const mv = C.moveToBox(0); await flush();
+    chk(!e.srv.calls.includes('move:a:BOX'), '올리는 중에 보관함 이동 — 올리기가 끝나기를 기다린다(먼저 옮기지 않는다)');
+    rl(); await run; r = await mv;
+    chk(r.ok && e.srv.calls.join() === 'update:a:1,move:a:BOX' && e.timers.every(t => !t), '  끝난 뒤 옮긴다 — 올리기 한 번 · 이동 한 번'); }
   /* 20 문턱 */
   const box20 = []; for(let i = 0; i < 20; i++) box20.push('bx' + i);
   ({ e, C } = await ready({ slots: ['a'], box: box20 }));
@@ -284,7 +293,11 @@ await sec('── 4. 동작', async () => {
     r = await C.moveToBox(0);
     chk(!r.ok && r.why === why && e.slots[0], '이동 실패 ' + (code || kind) + ' → ' + why + ' · 칸은 그대로');
   }
-  chk(typeof C.moveMsg({ why: 'full' }) === 'string' && /가득/.test(C.moveMsg({ why: 'full' })) && /닿지/.test(C.moveMsg({ why: 'net' })), 'moveMsg — 이유별 문구');
+  e.toasts.length = 0; e.errs.length = 0;
+  C.reportFail({ why: 'full' }); C.reportFail({ why: 'busy' }); C.reportFail({ why: 'off' }); C.reportFail({ why: 'dirty' });
+  chk(e.toasts.length === 4 && /가득/.test(e.toasts[0]) && e.errs.length === 0, 'reportFail — 가득 참 · 바쁨 · 받기 전 · 못 올린 고침은 안내(토스트) 그대로');
+  C.reportFail({ why: 'net' }); C.reportFail({ why: 'err' }); C.reportFail({ why: 'img' }); C.reportFail({ why: 'zzz' });
+  chk(e.errs.join() === 'E-CHAR-20,E-CHAR-21,E-CHAR-22,E-CHAR-21' && e.toasts.length === 4, '  요청 실패(닿지 못함 · 못 함 · 그림 받기 · 모르는 이유)는 오류 번호(E-CHAR-20~22)로 — 토스트가 아니다');
   /* 휴지통 */
   ({ e, C } = await ready({ slots: ['a', 'b'] }));
   r = await C.trashSlot(0);
@@ -329,7 +342,14 @@ await sec('── 4. 동작', async () => {
   chk(th && th.kind === 'unavailable', '  못 받으면 던진다(빈 휴지통 ≠ 못 읽음)');
   e.srv.calls.length = 0;
   r = await C.restore('t9');
-  chk(r.ok && r.avatarId === 'r-t9' && C.boxCount() === 1 && e.srv.calls.join() === 'restore:t9,fetchOne:r-t9', '되살리기 — 보관함으로(섬네일은 캐릭터 하나만 받아 머리에 붙인다)');
+  await flush(); await flush();
+  chk(r.ok && r.avatarId === 'r-t9' && C.boxCount() === 1 && e.srv.calls.join() === 'restore:t9,load', '되살리기 — 서버가 avatarId 만 주면 옷장을 한 번 다시 받는다(판 · 시각 · 섬네일을 앱이 지어 넣지 않는다)');
+  chk(C.test.heads().find(h => h.avatarId === 'r-t9').version === 1 && C.test.heads().find(h => h.avatarId === 'r-t9').thumbUrl === 't-r-t9', '  머리는 서버가 준 값 그대로');
+  /* 서버가 move 처럼 옷장을 같이 돌려주는 모양 */
+  { const q = await ready({ slots: [], box: ['x'] }); const orig = q.e.srv.api.restore;
+    q.e.srv.api.restore = async (tid) => { const r0 = await orig(tid); return Object.assign(r0, { closet: { slots: [null, null, null, null, null], avatars: q.e.srv.avatars.map(a => clone(a)), defs: {} } }); };
+    q.e.srv.calls.length = 0; const rr = await q.C.restore('t5'); await flush();
+    chk(rr.ok && q.C.boxCount() === 2 && q.e.srv.calls.join() === 'restore:t5', '  서버가 옷장을 같이 주면 그대로 앉힌다 — 추가 요청 0'); }
   ({ e, C } = await ready({ slots: [], box: box20 })); e.srv.calls.length = 0;
   r = await C.restore('t1');
   chk(!r.ok && r.why === 'full' && e.srv.calls.length === 0, '  보관함이 20 이면 요청 없이 막는다');
@@ -360,6 +380,8 @@ await sec('── 5. 계정 바뀜', async () => {
   chk(e.timers.filter(Boolean).length === 0, '비운 뒤에는 쓰기를 예약하지 않는다(다시 받기 전)');
   C.startCloset(); await flush(); await flush();
   chk(C.state() === 'ready' && e.rt.avatars.length === 1, '다시 시작하면 받고 서버 신호를 건다');
+  C.resetCloset(); C.startCloset(); await flush(); await flush();
+  chk(e.rt.avatars.length === 1 && e.subs === 2 && e.unsubs === 1, '★ 계정이 바뀌면(reset) 서버 신호 구독을 풀고 새로 건다 — 구독이 겹치지 않는다');
 });
 
 await sec('── 6. 0.13 첫 실행 올리기', async () => {
@@ -372,7 +394,7 @@ await sec('── 6. 0.13 첫 실행 올리기', async () => {
   chk(r.ok && e.srv.calls.some(c => c === 'legacySync:4') && items.length === 4, '슬롯 둘 + 보관함 둘(묘비 · 깨진 def · 슬롯에도 있는 것은 뺀다)을 한 번에 올린다 (' + (items && items.length) + ')');
   chk(items[0].slot === 0 && items[0].legacyCid === 'cD0' && items[0].editedAt === 777 && items[0].def.via === 'srv' && items[1].slot === 2 && items[1].legacyCid === 'cD2', '  슬롯은 칸 번호 · 옛 cid(책상 표) · 서버 모양 def · 옛 고친 시각');
   chk(items[2].slot === null && items[2].legacyCid === 'cB2' && items[3].legacyCid === 'cB1', '  보관함은 칸 없이 최근 고친 순');
-  chk(r.wipe.indexOf('deskFriends.slots.v1') >= 0 && r.wipe.indexOf('deskFriends.chars.v1') >= 0 && r.wipe.indexOf('tw.gachaOwned') >= 0 && r.wipe.indexOf('tw.theme') < 0, '  올린 뒤 지울 키 — 옛 캐릭터 · 보관함 · 가챠 키만(기기 설정은 안 건드린다)');
+  chk(r.wipe.indexOf('deskFriends.slots.v1') >= 0 && r.wipe.indexOf('deskFriends.chars.v1') >= 0 && r.wipe.indexOf('tw.gachaOwned') < 0 && r.wipe.indexOf('tw.theme') < 0, '  올린 뒤 지울 키 — 옛 캐릭터 · 보관함 키만(가챠 키는 first-run 의 gacha 단계 몫 · 기기 설정은 안 건드린다)');
   chk(e.slots[0].skin === 1 && e.slots[2].skin === 3 && C.boxCount() === 2 && e.ls.get('tw.legacyCloset013') === 'u1', '  올린 결과를 바로 앉힌다 · 이 계정은 끝냈다고 적는다');
   e.srv.calls.length = 0;
   r = await C.legacyStep();
@@ -415,7 +437,7 @@ await sec('── 6. 0.13 첫 실행 올리기', async () => {
 await sec('── 7. 깨 보기', async () => {
   const broke = (from, to) => { const s = SRC.replace(from, to); return s === SRC ? null : s; };
   const run = async (src, fn) => { const e = mkEnv({ slots: ['a', 'b'], box: ['x'] }); const M = loadMod(src, e); e.mk = () => M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave,
-    getMyUserId: () => e.uid, rtOn: (k, f) => { (e.rt[k] = e.rt[k] || []).push(f); }, toast: (m) => e.toasts.push(m), notifyError: (c) => e.errs.push(c), renderLauncher: () => {}, creatorOpen: () => e.creator,
+    getMyUserId: () => e.uid, rtOn: (k, f) => { (e.rt[k] = e.rt[k] || []).push(f); return () => {}; }, toast: (m) => e.toasts.push(m), notifyError: (c) => e.errs.push(c), renderLauncher: () => {}, creatorOpen: () => e.creator,
     storage: { getItem: (k) => e.ls.has(k) ? e.ls.get(k) : null, setItem: (k, v) => e.ls.set(k, String(v)), removeItem: (k) => e.ls.delete(k), key: (i) => [...e.ls.keys()][i] || null, get length(){ return e.ls.size; } } }); return fn(e); };
   let S = broke("if(load !== 'ready') return false;\n  if(flushing)", "if(flushing)");
   chk(S && await run(S, async (e) => { const C = e.mk(); e.edit(0, { skin: 'q' }); await C.flushSlots(); return e.srv.calls.some(c => c.startsWith('create') || c.startsWith('update')); }), '받기 전 쓰기 막이를 빼면 3절이 빨강이 된다');
@@ -425,13 +447,17 @@ await sec('── 7. 깨 보기', async () => {
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(0, { skin: 'mine' }); e.srv.avatars.find(a => a.avatarId === 'a').version = 3; e.srv.defs.a = { skin: 'a3' }; await C.pullCloset(false); return e.slots[0].skin === 'a3'; }), '내 고침 보호를 빼면 2절이 빨강이 된다');
   S = broke("if(boxCount() >= BOX_MAX) return { ok: false, why: 'full' };\n  busy = true;\n  try{\n    if(!(await settleSlot(i)))", "busy = true;\n  try{\n    if(!(await settleSlot(i)))");
   chk(S && await run(S, async (e) => { const box20 = []; for(let i = 0; i < 20; i++) box20.push('bx' + i); const e2 = mkEnv({ slots: ['a'], box: box20 }); const M = loadMod(S, e2);
-    const C = M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e2.srv.api, codec: e2.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e2.slots, slotSave: e2.slotSave, getMyUserId: () => 'u1', rtOn(){}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+    const C = M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e2.srv.api, codec: e2.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e2.slots, slotSave: e2.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } });
     await C.pullCloset(false); e2.srv.calls.length = 0; await C.moveToBox(0); return e2.srv.calls.some(c => c.startsWith('move:')); }), '20 문턱을 빼면(요청이 나가면) 4절이 빨강이 된다');
   S = broke("if(g !== gen){ res = 'skipped'; return res; }", "");
   chk(S && await run(S, async (e) => { const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); const p = C.pullCloset(false); await flush(); C.resetCloset(); rel(); await p; await flush(); return C.state() !== 'idle'; }), '계정 바뀜 막이를 빼면 5절이 빨강이 된다');
   S = broke("if(again && res !== 'failed') pullCloset(false);", "if(again) pullCloset(false);");
   chk(S && await run(S, async (e) => { const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); e.srv.fail.load = apiErr('unavailable'); const p = C.pullCloset(false); await flush(); await C.pullCloset(false); rel(); await p; await flush(); await flush(); return e.srv.calls.filter(c => c === 'load').length > 1; }), '실패 뒤 되풀이 금지를 빼면 2절이 빨강이 된다');
+  S = broke("if(unsubRt){ unsubRt(); unsubRt = null; }", "");
+  chk(S && await run(S, async (e) => { const C = e.mk(); C.startCloset(); await flush(); C.resetCloset(); C.startCloset(); await flush(); return e.rt.avatars.length > 1; }), '구독을 안 풀면 계정이 바뀔 때 구독이 겹친다 — 5절이 빨강이 된다');
+  S = broke("    else pullCloset(false);\n    return { ok: true, avatarId: r.avatarId };", "    return { ok: true, avatarId: r.avatarId };");
+  chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.srv.calls.length = 0; await C.restore('t9'); await flush(); return !e.srv.calls.includes('load'); }), '복원 뒤 옷장을 다시 받지 않으면(머리가 없다) 4절이 빨강이 된다');
   S = broke("if(load !== 'ready') await waitPull();", "");
   chk(S && await run(S, async (e) => { e.ls.set('deskFriends.slots.v1', JSON.stringify([{ skin: 1 }])); const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); C.startCloset(); const p = C.legacyStep(); await flush(); e.srv.loadHold = null; rel(); const rr = await p; return rr.ok === false; }), '받기를 기다리지 않으면 첫 실행 올리기가 영영 멈춘다 — 6절이 빨강이 된다');
   S = broke("setTimeout(() => { saveTimer = null; flushSlots(); }, SAVE_DEBOUNCE_MS)", "setTimeout(() => { saveTimer = null; flushSlots(); }, 0)");
