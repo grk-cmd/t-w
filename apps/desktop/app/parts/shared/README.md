@@ -396,3 +396,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 | (b) 대화 | `chatTab.<…>` · `tw_chat_read:<방>` · `tw_chat_join:<방>` · IndexedDB 대화 기록(`chat/chat-history.js` — 지금 scope 가 프로젝트라 계정 구분 없음) | 채팅 묶음 — IDB scope 에 계정 코드를 넣거나 서버 3일 보관으로 걷는다 |
 
 - `ACCOUNT_LOCAL_KEYS`(`account/account.js`) 대조: 이번에 옮긴 포커스 누적 네 줄, 곧 그 목록의 `focusTotalSec` · `focusTodaySec` · `focusTodayDate` · `focusSyncedSec` 을 빼도 된다(계정 칸은 로그아웃해도 안 지우는 게 맞다 — 같은 계정이 돌아오면 이어진다). `advZ` 는 원래 목록에 없었다(그래서 바탕화면이 섞였다). 지우기 · 넘기기 로직을 걷는 것은 #580.
+
+## `session.js` — 🔐 로그인 세션 하나
+
+- **책임**: 로그인(계정 확인 통과)마다 세션을 새로 만들어, 그 로그인에 딸린 타이머 · 구독 · 비우기 훅 · 계정 칸 열림을 한 곳에 쥔다. 로그아웃 · 계정 바뀜은 `dispose()` 한 번 — 전부 멈추고 비운다. 다음 로그인은 새 세션이라 앞 세션의 것을 하나도 이어받지 않는다(껐다 켜지 않고 «앞 사람 것이 안 남는다» 를 장치로 지킨다).
+- **만드는 법**: `launcher/app-boot.js` 가 계정 확인 뒤 `deps.newSession(me)` 로 만들어 들고 있다(app.js 가 `TwSession.createSession({ me, openAccountStore, closeAccountStore, timers })` 를 넘긴다). 기능 모듈이 직접 만들지 않는다 — 시작 함수가 `(code, me, session)` 의 세 번째 인자로 받는다(**지금은 받아 쓰는 기능이 없다** — 모양만).
+- **내놓는 것**: `id`(세션 번호) · `code` · `me` · `alive()` · `openStore()`(계정 칸 열기 — 한 번만, 못 열면 false) · `setInterval(fn, ms)` / `setTimeout(fn, ms)`(손잡이, 끝난 세션이면 null) · `clearInterval(h)` / `clearTimeout(h)` · `on(unsub)`(구독 해제 함수 맡기기 — 돌려주는 함수로 먼저 풀 수도 있다) · `onReset(fn)`(메모리 비우기 훅) · `ifAlive(fn)`(끝난 뒤엔 안 부르고 undefined 를 돌려주는 래퍼 — 늦게 도착한 답 막이) · `dispose()` · `counts()`(남은 개수 — 검사 · 진단용).
+- **dispose**: 먼저 `alive` 를 내리고 → 타이머 clear → 구독 해제(나중에 등록한 것부터) → 비우기 훅(나중 것부터) → 계정 칸 닫기(열었을 때만). 하나가 던져도 나머지는 돈다(경고만). 두 번째부터는 아무 일 없이 false.
+- **끝난 뒤 등록**: 타이머는 거절(null), 구독 · 비우기 훅은 바로 한 번 풀고, 모두 콘솔 경고 — 늦은 콜백이 끝난 세션에 쌓이지 않는다.
+- **함정**: ① 올릴 것이 남았으면(서버 맞추기 · 검문) `dispose()` 전에 끝낸다 — 이 모듈은 올리지 않는다. ② 타이머 콜백은 `alive` 를 한 번 더 본다(clear 가 먹기 전에 이미 큐에 올라간 콜백도 막기 위해). ③ `await` 뒤에는 `session.alive()` 를 보거나 `ifAlive` 로 감싼다 — 세션 번호(`id`)를 값으로 쥐고 비교해도 된다. ④ 도메인 · 저장소를 모른다(deps 로만) — 계정 칸은 `account-store.js` 가 `open` / `close` 를 내놓는다.
+- 검사: `checks/sim-session.js`.
