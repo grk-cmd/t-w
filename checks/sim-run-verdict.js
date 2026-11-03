@@ -23,6 +23,10 @@ const SIMS = {
   'sim-t-ok-short.js': "console.log('  ✓ a'); console.log('결과 5 · 0');",
   'sim-t-ok-line.js': "console.log('  ✓ a'); console.log('✓ 통과 7 · 실패 0');",
   'sim-t-ok-exit.js': "console.log('  ✓ a'); console.log('통과 2 · 실패 0'); process.exit(0);",
+  'sim-t-section-stall.js': "console.log('  ✓ a'); console.log('1절: 통과 3 · 실패 0'); (async()=>{ for(const n of ['b','c','d','e','f','g']) console.log('  ✓ ' + n); await new Promise(()=>{}); })();",   // 절 요약만 찍고 멈춤 — 최종 요약이 아니다
+  'sim-t-body-stall.js': "console.log('  ✓ 3 · 0'); (async()=>{ for(const n of ['b','c','d','e','f','g']) console.log('  ✓ ' + n); await new Promise(()=>{}); })();",   // 줄 전체가 ✓ 3 · 0 인 본문 뒤 멈춤
+  'sim-t-ok-old.js': "console.log('  ✓ a'); console.log('sim-t-ok-old.js: 74 통과 · 0 실패');",
+  'sim-t-ok-verdict.js': "console.log('  ✓ a'); console.log('판정: 초록 35 · 빨강 0 · 검사못함 0');",
   'sim-t-body-nums.js': "console.log('  ✓ 3 · 0 은 본문에 든 숫자'); console.log('  ✓ a');",   // 요약이 아님 → 조용한 종료
 };
 function runner(src){
@@ -40,7 +44,7 @@ function runner(src){
 
 say('── 1. 판정');
 const real = runner(RUN_SRC);
-const GREEN = ['sim-t-ok-short.js', 'sim-t-ok-line.js', 'sim-t-ok-exit.js'];
+const GREEN = ['sim-t-ok-old.js', 'sim-t-ok-verdict.js', 'sim-t-ok-short.js', 'sim-t-ok-line.js', 'sim-t-ok-exit.js'];
 chk(real.mark['sim-t-stall.js'] === '✗', '끝나지 않는 await 에 걸려 종료코드 0 으로 조용히 끝난 sim → 빨강');
 chk(real.mark['sim-t-stall-clean.js'] === '✗', '✗ 줄도 없이 멈춘 sim → 빨강(조용한 종료 판정)');
 chk(real.mark['sim-t-xexit0.js'] === '✗', '✗ 줄이 찍혔는데 종료코드 0 · 요약 «실패 0» → 빨강');
@@ -48,6 +52,8 @@ chk(real.mark['sim-t-nosummary.js'] === '✗', '요약 줄 없이 조용히 끝�
 chk(GREEN.every(n => real.mark[n] === '✓'), '정상 sim(요약 모양 `결과 5 · 0` · `✓ 통과 7 · 실패 0` · process.exit(0)) → 초록');
 chk(real.code === 1, '빨강이 있으면 러너 종료코드 1');
 say('── 2. 요약 모양');
+chk(real.mark['sim-t-section-stall.js'] === '✗', '절 요약(`1절: 통과 3 · 실패 0`)만 찍고 멈춘 sim → 빨강(앞쪽 요약은 최종이 아니다)');
+chk(real.mark['sim-t-body-stall.js'] === '✗', '줄 전체가 `✓ 3 · 0` 인 본문 뒤 멈춘 sim → 빨강');
 chk(real.mark['sim-t-body-nums.js'] === '✗', '본문 속 «3 · 0» 은 요약이 아니다(줄 전체가 그 모양일 때만)');
 say('── 3. 일부러 깨 보기 — 판정을 빼면 놓친다');
 const cut = (from, to) => { const s = RUN_SRC.replace(from, to); return s === RUN_SRC ? null : s; };
@@ -55,5 +61,7 @@ const noQuiet = cut("fs.existsSync(mark) && !sum && !end", "false");
 const noX = cut("const xmarks = out.split('\\n').filter(l => /^\\s*✗/.test(l)).length;", "const xmarks = 0;");
 chk(noQuiet && runner(noQuiet).mark['sim-t-stall-clean.js'] !== '✗' || false, '조용한 종료 판정을 빼면 멈춘 sim 이 초록으로 샌다' + (noQuiet ? '' : ' — 바꿀 글을 못 찾음'));
 chk(noX && runner(noX).mark['sim-t-xexit0.js'] !== '✗' || false, '✗ 줄 판정을 빼면 «✗ 뒤 종료코드 0» 이 초록으로 샌다' + (noX ? '' : ' — 바꿀 글을 못 찾음'));
+const noTail = cut(".slice(-SUMMARY_TAIL)", ".slice(0)");
+chk(noTail && runner(noTail).mark['sim-t-section-stall.js'] !== '✗' || false, '끝 몇 줄만 보는 제한을 빼면 앞쪽 절 요약을 최종으로 주워 멈춘 sim 이 초록으로 샌다' + (noTail ? '' : ' — 바꿀 글을 못 찾음'));
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -291,8 +291,13 @@ const GUARD_SRC = "process.on('beforeExit', function(){ try{ require('fs').write
    (CHECKS.md §3) 하나씩 맞추면 흩어지므로 러너가 같은 뜻으로 읽는다.
    ⚠️ 새 모양은 **줄 전체**가 그 모양일 때만 센다(앞에 `✓`·`검사이름:`·`결과:` 만 허용) —
      본문 속 «3 · 0» 같은 글을 요약으로 잘못 줍지 않게. */
+const SUMMARY_TAIL = 5;   // 요약은 끝에서 이만큼 줄 안에서만 찾는다(빈 줄 제외)
 function findSummary(out){
-  const old = [...out.matchAll(/통과\s*(\d+)\s*·\s*실패\s*(\d+)(?:\s*·\s*검사못함\s*(\d+))?/g)].pop();
+  /* ⚠️ 끝 몇 줄만 본다. 멈춘 sim 이 앞에서 찍은 `✓ 0 · 0` · 절 요약(`1절: 통과 3 · 실패 0`)을 최종 요약으로 줍거나,
+     끝난 sim 의 본문 숫자 줄을 요약으로 줍지 않게. */
+  const lines = out.split('\n').filter(l => l.trim()).slice(-SUMMARY_TAIL);
+  const tail = lines.join('\n');
+  const old = [...tail.matchAll(/통과\s*(\d+)\s*·\s*실패\s*(\d+)(?:\s*·\s*검사못함\s*(\d+))?/g)].pop();
   if (old) return { pass: +old[1], fail: +old[2], huh: old[3] ? +old[3] : 0 };
   const lead = '^\\s*[✓✗]?\\s*(?:[\\w.\\-]+:\\s*)?(?:결과:?\\s*|판정:?\\s*)?';
   const shapes = [
@@ -300,7 +305,6 @@ function findSummary(out){
     [new RegExp(lead + '초록\\s*(\\d+)\\s*·\\s*빨강\\s*(\\d+)(?:\\s*·\\s*검사못함\\s*(\\d+))?\\s*$'), 1, 2, 3],
     [new RegExp(lead + '(\\d+)\\s*·\\s*(\\d+)\\s*$'), 1, 2, 0],
   ];
-  const lines = out.split('\n').filter(l => l.trim());
   for (let i = lines.length - 1; i >= 0; i--){
     for (const [re, a, b, c] of shapes){
       const m = lines[i].match(re);
