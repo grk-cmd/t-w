@@ -6,7 +6,7 @@
    [켜 둔 동안] 새 판을 다 받으면 런처 작은 띠(desktop-run.js updateReadyBanner)가 그대로 — 이 모듈은 «나중에» 를 누른 사람에게도 띠가 보이도록 단계가 끝난 뒤(whenStageDone)에 건다.
      관리자가 최소 버전을 올리면 원격 설정 바뀜 알림(deps.onMinChange)에서 바로 강제 창 — 새 주기 요청 없음.
    [못 받으면] 최소 버전을 못 읽거나(오프라인 · 시간 초과) 버전을 모르면(웹 · 검사) 막지 않는다 — 잘못 막는 쪽이 못 막는 쪽보다 크다.
-     새 판 확인 답이 시간 안에 안 오면 «없음» 으로 보고 넘어간다. 실패 뒤 혼자 다시 묻지 않는다 — 강제 창의 [다시 시도] 를 누를 때만 다시 확인한다.
+     새 판 확인은 버전 · 최소 버전을 읽는 일과 따로, 켤 때 한 번은 늘 묻는다. 답이 시간 안에 안 오면 «없음» 으로 보고 넘어간다. 실패 뒤 혼자 다시 묻지 않는다 — 강제 창의 [다시 시도] 를 누를 때만 다시 확인한다.
    [맥] 자동 설치가 없다 — [업데이트] 는 main 이 알려 준 릴리스 주소를 시스템 브라우저로 연다(강제는 창 유지 · 선택은 열고 다음 단계로).
    deps: readMin() 최소 버전 문자열(또는 그 Promise) · 없으면 null / getMin() 지금 값(동기) / onMinChange(fn) → 해제 함수 / getVersion() 이 앱 버전(Promise 가능) /
      companion preload 의 window.companion(onUpdateStatus · installUpdate · checkUpdate · openBrowser) · 없으면 null / ui { show(view, press), update(view), hide() } (createUpdateDom) /
@@ -170,15 +170,18 @@ function createUpdateFlow(deps){
   /* 켜 둔 동안 — 최소 버전이 올라가면 바로 강제 창. 버전을 읽기 전(켜는 중)에는 켜는 흐름이 보므로 건너뛴다. */
   onMinChange(() => { if(my) enforce(getMin()); });
 
-  function waitUpdateAnswer(){
+  /* 새 판 확인 — 켤 때 정확히 한 번 묻는다(버전 · 최소 버전을 읽는 일과 따로 — 못 읽어도 업데이트 받기는 막지 않는다).
+     답(또는 시간 초과)을 기다리는 Promise 를 돌려준다. 판단 자리는 main 의 startUpdateCheck 한 곳. */
+  function askUpdate(){
     if(!companion) return Promise.resolve();
     return new Promise((resolve) => {
       const t = setTimeout(() => { updateAnswer = null; resolve(); }, updateWaitMs);
       updateAnswer = () => { clearTimeout(t); resolve(); };
-      if(up && answered(up.status)){ updateAnswer = null; clearTimeout(t); resolve(); return; }
       companion.checkUpdate();
     });
   }
+  /* 읽기 하나 — 실패 · 시간 초과는 null (하나가 늦어도 다른 하나는 산다) */
+  const readOr = (fn) => withTimeout(Promise.resolve().then(fn), timeoutMs).catch(() => null);
 
   function waitNotice(){
     return new Promise((resolve) => {
@@ -195,13 +198,12 @@ function createUpdateFlow(deps){
 
   /* 로그인 시작 전 — 풀리면 { proceed:true }. 강제 창이 떴으면 { proceed:false } (로그인으로 넘어가지 않는다) */
   async function runBeforeLogin(){
-    let min = null;
-    try{
-      [my, min] = await withTimeout(Promise.all([getVersion(), readMin()]), timeoutMs);
-    }catch(_){ my = null; }
-    if(!parseVer(my)){ finish(); await waitNotice(); return { proceed: true, stage: STAGE.NONE }; }   // 버전을 모르면(웹 · 검사) 업데이트 단계 없이 공지부터
+    const answer = askUpdate();
+    const [ver, min] = await Promise.all([readOr(getVersion), readOr(readMin)]);
+    my = ver;
+    if(!parseVer(my)){ finish(); await waitNotice(); return { proceed: true, stage: STAGE.NONE }; }   // 버전을 모르면(웹 · 검사) 업데이트 창 없이 공지부터 — 새 판 확인은 이미 물었다
     if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };
-    await waitUpdateAnswer();
+    await answer;
     if(forced) return { proceed: false, stage: STAGE.FORCE };   // 기다리는 사이 최소 버전이 올랐다
     let stage = STAGE.NONE;
     if(stageOf(my, null, latest) === STAGE.OPTIONAL){

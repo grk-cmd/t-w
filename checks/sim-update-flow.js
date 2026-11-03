@@ -86,7 +86,7 @@ async function suite(M, label){
   chk(r.proceed === false && r.stage === STAGE.FORCE && t.f.isForced() && t.ui.log.length === 1, '★ 강제 — 로그인으로 안 넘어가고 창을 한 번 띄운다');
   chk(t.ui.log[0].title === '업데이트가 필요해요' && /0\.12\.0/.test(t.ui.log[0].body) && /0\.13\.0/.test(t.ui.log[0].body) && t.ui.log[0].buttons.length === 1, '  ↳ 문구 · 단추는 [업데이트] 하나(닫기 없음)');
   chk(!t.order.includes('notice') && !t.order.includes('noticeWait'), '★ 강제면 공지 창도 안 띄운다');
-  chk(t.comp.calls.length === 0, '  ↳ 강제는 새 판 확인을 따로 묻지 않는다(상태는 main 이 보낸다)');
+  chk(t.comp.calls.length === 1 && t.comp.calls[0][0] === 'check', '  ↳ 강제여도 새 판 확인은 켤 때 한 번 묻는다(받기를 막지 않는다)');
 
   t = make({ my: '0.13.0', min: '0.12.0' });
   let p = t.f.runBeforeLogin();
@@ -128,6 +128,31 @@ async function suite(M, label){
   t = make({ my: '0.13.0', min: null, noComp: true });
   chk((await t.f.runBeforeLogin()).proceed, '  ↳ companion 이 없어도(웹) 깨지지 않는다');
 
+  say('── 2-b. 새 판 확인은 읽기와 따로 — 어느 갈래든 켤 때 정확히 한 번');
+  const checks = (c) => c.calls.filter(x => x[0] === 'check').length;
+  const never = () => new Promise(() => {});
+  const cases = [
+    ['버전 모름', { my: null, min: '9.9.9' }],
+    ['최소 버전 못 읽음(실패)', { my: '0.12.0', readMin: () => Promise.reject(new Error('net')) }],
+    ['최소 버전 시간 초과', { my: '0.12.0', readMin: never, timeoutMs: 30 }],
+    ['버전 조회 시간 초과', { my: '0.12.0', min: null, getVersion: never, timeoutMs: 30 }],
+    ['둘 다 시간 초과', { my: '0.12.0', readMin: never, getVersion: never, timeoutMs: 30 }],
+    ['버전 조회가 던짐', { my: '0.12.0', min: null, getVersion: () => { throw new Error('ipc'); } }],
+    ['정상(강제 아님)', { my: '0.13.0', min: '0.12.0' }],
+    ['정상(강제)', { my: '0.12.0', min: '0.13.0' }],
+  ];
+  for(const [name, o] of cases){
+    t = make(o); await t.f.runBeforeLogin();
+    chk(checks(t.comp) === 1, name + ' — checkUpdate 정확히 1번');
+  }
+  t = make({ my: '0.12.0', readMin: never, getVersion: () => '0.13.0', timeoutMs: 30, min: null });
+  r = await t.f.runBeforeLogin();
+  chk(r.proceed && t.f.current() === null, '★ 최소 버전 읽기가 늦어도 버전 읽기는 산다(상한이 따로) — 막지 않고 넘어감');
+  t = make({ my: '0.13.0', min: null });
+  p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'available', version: '0.13.1' }); await sleep(5);
+  chk(t.f.current() === STAGE.OPTIONAL, '  ↳ 읽기와 따로 물어도 선택 창은 그대로 뜬다');
+  t.f.press('later'); await p;
+
   say('── 3. 순서 · 공지');
   t = make({ my: '0.13.0', min: null, noticeStays: true });
   p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'none' });
@@ -159,6 +184,7 @@ async function suite(M, label){
   say('── 5. 단추');
   t = make({ my: '0.12.0', min: '0.13.0' });
   await t.f.runBeforeLogin();
+  t.comp.calls.length = 0;
   chk(t.ui.log[0].buttons[0].action === 'open' && t.ui.log[0].buttons[0].url === RELEASES_URL, '★ 상태를 아직 모르면 — 다운로드 페이지 열기');
   t.f.press('open');
   chk(t.comp.calls[0][0] === 'open' && t.comp.calls[0][1] === RELEASES_URL, '  ↳ 시스템 브라우저로 연다');
@@ -250,7 +276,7 @@ async function suite(M, label){
     const run = app.slice(j, app.indexOf('TwNetReady.whenNetReady(run)', j));
     chk(/const flow = await updateFlowMod\.runBeforeLogin\(\);\s*if\(!flow\.proceed\) return;/.test(run) && run.indexOf('runBeforeLogin') < run.indexOf('checkInviteGate()'), '★ 로그인(checkInviteGate) 앞에서 흐름을 기다리고 · 강제면 로그인하지 않는다');
     const blk = app.slice(i, j);
-    chk(/readMin: \(\)=>\{ const s = (?:acctStateMod\.)?_rcStore\(\); return s \? s\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\)=>s\.minAppVer\(\)\) : null; \}/.test(blk) && /key === 'minVersion'/.test(blk), '★ 최소 버전 = 원격 설정 첫 답(API 값만) · 바뀜은 minVersion 칸 알림');
+    chk(/readMin: \(\)=> _updRc \? _updRc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\)=>_updRc\.minAppVer\(\)\) : null/.test(blk) && /key === 'minVersion'/.test(blk) && /const _updRc = (?:acctStateMod\.)?_rcStore\(\);/.test(app), '★ 최소 버전 = 원격 설정 첫 답(API 값만) · 바뀜은 minVersion 칸 알림 · 원격 설정 한 벌은 한 번만 받는다');
     const w = +(app.match(/const MIN_APP_VER_WAIT_MS = (\d+);/) || [])[1];
     chk(w > 0 && w < M.MIN_READ_TIMEOUT_MS, '  ↳ 첫 답 기다림은 읽기 상한(8초)보다 짧게');
     chk(/noticeOnce: \(fn\)=>noticeFeed\.onceReady\(fn\)/.test(blk) && !/noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(app), '★ 공지 창은 흐름 한 곳에서만 띄운다(따로 띄우지 않는다)');
@@ -280,6 +306,17 @@ async function suite(M, label){
     chkBroken('if(a[i] !== b[i]) return a[i] < b[i];', 'if(a[i] !== b[i]) return a[i] > b[i];', '비교 방향을 거꾸로', (X) => X.isBelow('0.9.8', '0.10.0') && !X.isBelow('0.10.0', '0.9.8'));
     chkBroken("if(min != null && min !== '' && isBelow(my, String(min))) return STAGE.FORCE;", '', '강제 판정을 지움', (X) => X.stageOf('0.12.0', '0.13.0', null) === 'force');
     chkBroken("if(latest != null && isBelow(my, String(latest))) return STAGE.OPTIONAL;", '', '선택 판정을 지움', (X) => X.stageOf('0.13.0', null, '0.13.1') === 'optional');
+    // 갈래에서 checkUpdate 를 빼면 빨강 — 버전을 모를 때 새 판 확인을 건너뛰는 옛 구조
+    {
+      const m3 = SRC.replace('const answer = askUpdate();', 'const answer = Promise.resolve();').replace('await answer;', 'await askUpdate();');
+      let n = -1;
+      try{
+        const X = load(m3); const c = fakeCompanion();
+        const f = X.createUpdateFlow({ readMin: () => '9.9.9', getMin: () => '9.9.9', onMinChange: () => () => {}, getVersion: () => null, companion: c, ui: fakeUi(), noticeOnce: (fn) => fn(null), showNotice: (n2, d) => d(), updateWaitMs: 10, noticeWaitMs: 10 });
+        await f.runBeforeLogin(); n = c.calls.filter(x => x[0] === 'check').length;
+      }catch(_){ n = -1; }
+      chk(m3 !== SRC && n !== 1, '깨 보기 — 버전을 모를 때 새 판 확인이 빠지면 빨강(checkUpdate ' + n + '번)');
+    }
     // 흐름 깨 보기 — 강제인데 proceed:true 를 돌려주면 빨강
     const m2 = SRC.split('return { proceed: false, stage: STAGE.FORCE };').join('return { proceed: true, stage: STAGE.FORCE };');
     let red = false;

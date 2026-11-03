@@ -5885,10 +5885,11 @@ function startLicenseVerify(){
 const REMOTE_FLAGS_WAIT_MS = 3000;
 const MIN_APP_VER_WAIT_MS = 7000;   // 최소 버전 첫 답을 이만큼만 기다린다(update-flow.js 읽기 상한 8초보다 짧게) — 넘으면 막지 않는다
 /* 🔄 켤 때 업데이트 흐름(update-flow.js) — 업데이트 창 → 공지 창 → 로그인. 강제 창이 뜨면 로그인으로 넘어가지 않는다. */
+const _updRc = acctStateMod._rcStore();
 const updateFlowMod = TwUpdateFlow.createUpdateFlow({
-  readMin: ()=>{ const s = acctStateMod._rcStore(); return s ? s.ready(null, MIN_APP_VER_WAIT_MS).then(()=>s.minAppVer()) : null; },
-  getMin: ()=>{ const s = acctStateMod._rcStore(); return s ? s.minAppVer() : null; },
-  onMinChange: (fn)=>{ const s = acctStateMod._rcStore(); return s ? s.onChange((cur, key)=>{ if(key === 'minVersion') fn(); }) : ()=>{}; },
+  readMin: ()=> _updRc ? _updRc.ready(null, MIN_APP_VER_WAIT_MS).then(()=>_updRc.minAppVer()) : null,
+  getMin: ()=> _updRc ? _updRc.minAppVer() : null,
+  onMinChange: (fn)=> _updRc ? _updRc.onChange((cur, key)=>{ if(key === 'minVersion') fn(); }) : ()=>{},
   getVersion: ()=>window.companion ? window.companion.getAppVersion() : null,
   companion: window.companion || null,
   ui: TwUpdateFlow.createUpdateDom(document),

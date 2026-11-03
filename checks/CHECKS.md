@@ -148,7 +148,7 @@
 | **sim-room-server-gate.js** | 122 | **1c353957601a** |
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 281 | **e23038c4544b** |
-| **sim-update-flow.js** | 296 | **b8a2b3a030ea** |
+| **sim-update-flow.js** | 333 | **7a197151c39d** |
 | **sim-maintenance-gate.js** | 209 | **ff4f5d5fba53** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-room-invite-wait.js** | 44 | **6d9e289acbd7** |
