@@ -729,15 +729,39 @@
          남겨두면 같은 곡 목록을 두 벌 쓰게 되어 쓰기가 계속 두 배다.
        ⚠️ n(색인)은 **세 벌 합계**다. fetchRandomPlaylist 가 n > 0 으로 사람을 거르므로,
          활성 프리셋만 세면 «빈 프리셋을 열어 둔 사람이 파도타기에서 사라지는» 옛 옆효과가 남는다. */
+    /* 🔒 잠근 프리셋(나만 보기)은 공개 노드에 빈 자리로, 이름 · 곡은 본인만 읽는 playlistPriv/{uid} 에 — users/{uid} 는 누구나 읽는다.
+       @return { pub:[{name, items}…3], priv:{ "1":{name, items} } | null } */
+    _plSplitLocked(sets){
+      const pub = [], priv = {};
+      (Array.isArray(sets) ? sets : []).forEach((s, i)=>{
+        const name = String((s && s.name) || ''), items = (s && s.items) || [];
+        if(s && s.locked === true){ pub.push({ name: '', items: [] }); priv[i] = { name, items }; }
+        else pub.push({ name, items });
+      });
+      return { pub, priv: Object.keys(priv).length ? priv : null };
+    },
+    /* 받은 공개 세 벌 + 본인 칸(playlistPriv/{uid} 값) → 잠근 자리에 이름 · 곡을 되돌리고 locked 표시 */
+    _plMergeLocked(sets, privVal){
+      const out = (Array.isArray(sets) ? sets : []).slice();
+      const ps = (privVal && privVal.sets && typeof privVal.sets === 'object') ? privVal.sets : null;
+      if(!ps) return out;
+      Object.keys(ps).forEach(k=>{
+        const i = Number(k), s = ps[k];
+        if(!(i >= 0 && i <= 2) || !s) return;
+        while(out.length <= i) out.push({ name: '', items: [] });
+        out[i] = { name: (typeof s.name === 'string') ? s.name : '', items: s.items ? Object.values(s.items).filter(x => x && x.id) : [], locked: true };
+      });
+      return out;
+    },
     async publishMyPlaylist(uid, name, sets, meta, editTs){
       try{
         const ts = Number(editTs) > 0 ? Number(editTs) : Date.now();   // 고친 시각 — 다른 기기가 «어느 쪽이 나중인가» 를 가른다(editTs 칸 · 옛 앱은 이 칸을 안 써서 «모름» 이 된다)
         const m = meta || {};
-        const ss = (Array.isArray(sets) ? sets : []).map(s => ({
-          name: String((s && s.name) || ''),
-          items: (s && s.items) || [],
-        }));
-        const total = ss.reduce((n, s) => n + s.items.length, 0);
+        const { pub: ss, priv } = this._plSplitLocked(sets);
+        // 🔒 본인 칸 먼저 — 못 쓰면 공개 노드도 안 쓴다(잠근 곡이 빈 자리로 사라지지 않게). 지우기 거절(규칙 없는 서버)은 무시.
+        if(priv) await set(ref(db, `playlistPriv/${uid}`), { sets: priv, editTs: ts });
+        else { try{ await remove(ref(db, `playlistPriv/${uid}`)); }catch(_){} }
+        const total = ss.reduce((n, s) => n + s.items.length, 0);   // 공개 곡만 — 잠근 프리셋은 색인 · 거울에 안 낀다
         const mirror = (ss.find(s => s.items.length) || { items: [] }).items;
         await set(ref(db, `users/${uid}/playlist`), { sets: ss, items: mirror, ts, editTs: ts,
           bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
@@ -745,7 +769,7 @@
            친구 지목 파도타기(fetchPlaylistOf)는 노드를 직접 읽으므로 **그대로 들린다.**
            ★ 그게 의도다 — 모르는 사람에게는 안 열고, 친구에게는 연다.
            ⚠️ 노드의 곡 목록을 비우는 방식으로 막지 말 것. 그러면 친구 지목까지 같이 막힌다. */
-        if(m.private) await remove(ref(db, `playlistIndex/${uid}`));
+        if(m.private || !total) await remove(ref(db, `playlistIndex/${uid}`));   // 공개 곡이 없으면(전부 잠금) 무작위 파도타기에 안 건다
         else await set(ref(db, `playlistIndex/${uid}`), { name: String(name || '').slice(0, 20), n: total, ts });
         return true;
       }catch(e){ console.warn('[플레이리스트] 공개 실패', e); return false; }
@@ -761,6 +785,7 @@
         await set(ref(db, `users/${uid}/playlist`), { sets: [], items: [], ts, editTs: ts,
           bio: String(m.bio || '').slice(0, 140), homePublic: !!m.homePublic });
         await remove(ref(db, `playlistIndex/${uid}`));
+        try{ await remove(ref(db, `playlistPriv/${uid}`)); }catch(_){}   // 🔒 잠근 프리셋도 비었다
         return true;
       }catch(e){ console.warn('[플레이리스트] 공개 해제 실패', e); return false; }
     },
@@ -785,8 +810,6 @@
     async fetchAvatar(uid){
       try{ return (await get(ref(db, `users/${uid}/home/avatar`))).val() || null; }catch(_){ return null; }
     },
-    /* 🏆 내 순위 한 줄은 API 에만 있다 — Firebase 길은 undefined(부르는 쪽이 100줄 + rankOf). */
-    async fetchMyRank(){ return undefined; },
     /* 👥 명함 날것은 API 에만 있다 — api-public-reads.js 가 바꿔 끼운다. 그 전엔 거절(친구 포트가 옛 길 카드로). */
     fetchUserCardApi(){ return Promise.reject(Object.assign(new Error('API 통로 없음'), { code: 'NO_API' })); },
     /* 🎲 남의 목록에서 **비지 않은 프리셋 하나를 무작위로** 고른다.
@@ -857,6 +880,11 @@
           const it = pv.items ? Object.values(pv.items).filter(x => x && x.id) : [];
           sets = [{ name:'', items: it }];
         }
+        // 🔒 본인 칸을 되돌린다 — 거절(규칙 없는 서버)은 «잠근 것 없음», 그 밖의 실패는 null(빈 자리로 이 기기 잠근 곡을 덮지 않게).
+        let privVal = null;
+        try{ privVal = (await get(ref(db, `playlistPriv/${uid}`))).val(); }
+        catch(e){ if(!/permission/i.test(String((e && (e.code || e.message)) || ''))) return null; }
+        sets = this._plMergeLocked(sets, privVal);
         return { sets, bio: pv.bio ? String(pv.bio) : '', homePublic: !!pv.homePublic, ts: Number(pv.ts) || 0, editTs: Number(pv.editTs) || 0 };   // editTs 없음(옛 앱이 쓴 노드) = 고친 시각 모름
       }catch(e){ console.warn('[플레이리스트] 내 프리셋 읽기 실패', e); return null; }
     },
@@ -1231,35 +1259,6 @@
            옛 레벨에 영영 머물렀다. 읽어 둔 서버 값(serverSec)을 같이 돌려준다 — 받아올지는 app.js 가 정한다. */
         return { ok:false, reason, denied, authed: !!(auth && auth.currentUser), serverSec: _readSec };
       }
-    },
-    /* ═══════════ 🏆 전체 랭킹 (개정 73 · handoff-ranking.md) ═══════════
-         leaderboard/{userId} = { sec: 누적초, ts: 서버 시각 }
-       ★ 이름·사진을 싣지 않는다 — 화면은 **내 순위 하나**만 보여준다. 표에 남는 건 코드와 시간뿐.
-       ★ 값은 syncFocusTotal 이 돌려준 **서버 총합**이다(여러 기기 합산이 끝난 값). 로컬 누적을 여기 쓰지 않는다.
-       ⚠️ 규칙: 목록 읽기는 «sec 정렬 + limitToLast ≤ 100» 쿼리만(playlistIndex 와 같은 방식 · 표 통째 읽기 거부).
-         한 줄 읽기(leaderboard/{코드})는 열려 있다 — 아래 «같은 값이면 안 씀» 이 그걸 쓴다.
-       ★ 같은 sec 를 다시 쓰지 않는 이유: ts 가 동점 순서(먼저 도달한 사람이 위)다. 부팅마다·기기마다 같은 값을
-         새 ts 로 덮으면 동점에서 뒤로 밀린다. 그래서 서버 줄의 sec 가 같으면 쓰지 않는다(읽기 1회). */
-    async setLeaderboardSec(userId, sec){
-      await _whenAuthReady();   // 소유권 쓰기 — syncFocusTotal 과 같은 대기선
-      try{
-        const CAP = 999*3600*100;   // ⚠️ focus/totalSec 과 같은 상한(규칙 leaderboard/sec 도 같은 값 · sim-focus-cap 3절)
-        const v = Math.min(CAP, Math.max(0, Math.floor(Number(sec) || 0)));
-        const r = ref(db, `leaderboard/${userId}`);
-        let cur = null; try{ const s0 = await get(r); cur = s0.val(); }catch(_){}
-        if(cur && Number(cur.sec) === v) return { ok:true, sec: v, same:true };
-        await set(r, { sec: v, ts: serverTimestamp() });
-        return { ok:true, sec: v };
-      }catch(e){ return { ok:false, reason: String((e && e.message) || e) }; }
-    },
-    /* 상위 100줄 — [{ uid, sec, ts }]. 순서는 부르는 쪽(rankOf)이 다시 매긴다. 실패 = null(«없음» 과 구분). */
-    async fetchLeaderboardTop(){
-      try{
-        const snap = await get(query(ref(db, 'leaderboard'), orderByChild('sec'), limitToLast(100)));
-        const out = [];
-        snap.forEach(ch => { const v = ch.val() || {}; out.push({ uid: ch.key, sec: Number(v.sec) || 0, ts: Number(v.ts) || 0 }); });
-        return out;
-      }catch(e){ console.warn('[랭킹] 읽기 실패', e); return null; }
     },
     /* ═══════════ 👑 달성표 (주간 5일 달성) ═══════════
          users/{uid}/chal = { ts, week, kind, cfg, pendingCfg, auto, days, today }
@@ -4538,7 +4537,7 @@
      ★ 2026-09-23: 쓰는 사람이 없음을 확인하고 **서버 규칙에서도 `mysRooms` 를 내렸다**(개정 63).
         남은 것은 콘솔의 옛 데이터뿐 — 규칙이 내려간 뒤에 지운다(순서가 반대면 지우자마자 다시 생길 수 있다). */
 
-  /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 랭킹 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
+  /* 🌐 공개 읽기(파도타기 · 명함 · 사진 · 방 개수 표시 · 랜덤 참여 후보)는 API 사본 먼저 → 실패면 위 함수 그대로(api-public-reads.js). */
   createApiPublicReads({ api: (window.TwApi && window.TwApi.client) || null, readCell: (path) => get(ref(db, path)).then(s => s.val()) }).wrap(window.firebaseAPI);
   try{ window.firebaseAPI.chatHistory.bindSettings(document, (m) => { window.toast(m); }); }catch(_){}   // 설정 › 시스템 [저장된 대화 지우기]
   window.dispatchEvent(new Event('firebase-ready'));

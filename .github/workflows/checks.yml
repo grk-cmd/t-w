@@ -120,3 +120,24 @@ jobs:
       - run: npm run format:check
       - run: npm test
       - run: npm run build         # tsc(strict) 포함
+
+  # 판끼리 DB 규칙 — 앞 판(먼저 나갈 판 · main)에서 바꾼 규칙이 이 판에도 들어갔는가(scripts/rules-drift.js · 검사 sim-rules-drift.js).
+  # 어긋나도 막지 않고 경고 · 요약으로 알린다: 앞 판 규칙을 옮기는 PR 이 머지되기 전엔 늘 잠깐 어긋나서, 막으면 그 판의 상관없는 PR 이 모두 빨강이 된다.
+  # 다른 판 머리를 읽어야 해서 «바뀐 폴더» 와 상관없이 판 브랜치 push · 판 브랜치로 가는 PR 마다 돈다. 보지 못했으면(판 없음 · 규칙 못 읽음) 빨강.
+  rules-drift:
+    name: 판끼리 DB 규칙
+    if: (github.event_name == 'push' && startsWith(github.ref, 'refs/heads/release/')) || (github.event_name == 'pull_request' && startsWith(github.base_ref, 'release/'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0   # 다른 판 브랜치 머리 · 갈라진 곳(merge-base)까지
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+      # PR 이면 판 이름은 받는 판 · 규칙은 HEAD(PR 머지 결과) — 옮기는 PR 은 자기 실행에서 경고가 사라진다
+      - name: 앞 판 규칙이 이 판에 있나
+        env:
+          TARGET: ${{ github.base_ref || github.ref_name }}
+        run: node scripts/rules-drift.js --github --target "$TARGET" --ref HEAD

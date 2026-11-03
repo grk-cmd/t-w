@@ -36,6 +36,8 @@ export {
   roomChannel,
   roomRows,
   roomStateOf,
+  ROOM_STATES,
+  countRoomStates,
   roomStatsSummary,
   SECRET_ROOM_PREFIX,
   serverOf,

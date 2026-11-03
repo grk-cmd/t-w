@@ -845,6 +845,25 @@
         "$other": { ".validate": false }
       }
     },
+    "playlistPriv": {
+      "$userId": {
+        ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+        ".write": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+        ".validate": "$userId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $userId !== 'undefined' && (!newData.exists() || (newData.hasChildren(['sets','editTs']) && newData.child('editTs').isNumber()))",
+        "editTs": { ".validate": true },
+        "sets": {
+          "$s": {
+            ".validate": "$s.matches(/^[0-2]$/)",
+            "name": { ".validate": "newData.isString() && newData.val().length <= 16" },
+            "items": {
+              "$i": { ".validate": "!$i.matches(/^(null|undefined|NaN)$/) && !$i.beginsWith(' ') && !$i.endsWith(' ') && (newData.hasChildren(['id']) && newData.child('id').isString() && newData.child('id').val().length <= 16 && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length <= 60)))" }
+            },
+            "$other": { ".validate": false }
+          }
+        },
+        "$other": { ".validate": false }
+      }
+    },
     "mobileKeys": {
       "$userId": {
         ".read": false,
@@ -871,24 +890,6 @@
           "$other": { ".validate": false }
         },
         "$other": { ".validate": false }
-      }
-    },
-    "leaderboard": {
-      ".read": "(query.orderByChild == 'sec' && query.limitToLast <= 100) && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true) || (auth != null && root.child('apiBots').child(auth.uid).val() === true)",
-      ".indexOn": "sec",
-      "$userId": {
-        ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
-        ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
-        ".validate": "$userId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $userId !== 'undefined' && (newData.hasChildren(['sec','ts']))",
-        "sec": {
-          ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 359640000"
-        },
-        "ts": {
-          ".validate": "newData.isNumber() && newData.val() <= now + 60000"
-        },
-        "$other": {
-          ".validate": false
-        }
       }
     },
     "announce": {
@@ -1004,7 +1005,6 @@
         "config": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
         "count": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
         "card": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
-        "leaderboard": { ".validate": "newData.isNumber() && newData.val() % 1 === 0 && newData.val() >= 0 && newData.val() <= 600" },
         "$other": { ".validate": false }
       },
       "logLevel": {
@@ -1250,12 +1250,13 @@
         "$id": {
           ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
           ".write": "(auth != null && !data.exists() && newData.child('authUid').val() === auth.uid && root.child('userAuth/'+newData.child('code').val()).val() === auth.uid && newData.child('status').val() === 'new' && !newData.child('notice').exists() && !newData.child('nts').exists() && !newData.child('lastReplyTs').exists() && !newData.child('likeN').exists() && !newData.child('ansN').exists() && !newData.child('no').exists() && newData.child('ts').val() === now && newData.child('openTs').val() === now) || (auth != null && root.child('admins').child(auth.uid).val() === true)",
-          ".validate": "!$id.matches(/^(null|undefined|NaN)$/) && !$id.beginsWith(' ') && !$id.endsWith(' ') && (newData.hasChildren(['vis','status','cat','name','authUid','code','ts']) && newData.child('vis').isString() && newData.child('vis').val().matches(/^(pub|prv)$/) && newData.child('status').isString() && newData.child('status').val().matches(/^(new|checking|fixed|norepro|unfixed)$/) && newData.child('cat').isString() && newData.child('cat').val().matches(/^(bug|ui|room|chat|myhome|etc)$/) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('authUid').isString() && newData.child('authUid').val().length <= 128 && newData.child('code').isString() && newData.child('code').val().length <= 40 && newData.child('ts').isNumber() && (!newData.child('notice').exists() || (newData.child('notice').val() === true && newData.child('vis').val() === 'pub')) && (!newData.child('lastReplyTs').exists() || (newData.child('lastReplyTs').isNumber())) && (!newData.child('openTs').exists() || (newData.child('openTs').isNumber())) && (!newData.child('nts').exists() || (newData.child('nts').isNumber())) && (!newData.child('ansN').exists() || (newData.child('ansN').isNumber() && newData.child('ansN').val() >= 0)) && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length >= 1 && newData.child('title').val().length <= 60)) && (!newData.child('no').exists() || (newData.child('no').isString() && newData.child('no').val().matches(/^B-[0-9]{4}-[0-9]{1,4}$/))))",
+          ".validate": "!$id.matches(/^(null|undefined|NaN)$/) && !$id.beginsWith(' ') && !$id.endsWith(' ') && (newData.hasChildren(['vis','status','cat','name','authUid','code','ts']) && newData.child('vis').isString() && newData.child('vis').val().matches(/^(pub|prv)$/) && newData.child('status').isString() && newData.child('status').val().matches(/^(new|checking|review|fixed|norepro|unfixed)$/) && newData.child('cat').isString() && newData.child('cat').val().matches(/^(bug|ui|room|chat|myhome|suggest|etc)$/) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('authUid').isString() && newData.child('authUid').val().length <= 128 && newData.child('code').isString() && newData.child('code').val().length <= 40 && newData.child('ts').isNumber() && (!newData.child('notice').exists() || (newData.child('notice').val() === true && newData.child('vis').val() === 'pub')) && (!newData.child('lastReplyTs').exists() || (newData.child('lastReplyTs').isNumber())) && (!newData.child('openTs').exists() || (newData.child('openTs').isNumber())) && (!newData.child('nts').exists() || (newData.child('nts').isNumber())) && (!newData.child('ansN').exists() || (newData.child('ansN').isNumber() && newData.child('ansN').val() >= 0)) && (!newData.child('title').exists() || (newData.child('title').isString() && newData.child('title').val().length >= 1 && newData.child('title').val().length <= 60)) && (!newData.child('no').exists() || (newData.child('no').isString() && newData.child('no').val().matches(/^B-[0-9]{4}-[0-9]{1,4}$/))))",
           "likeN": {
             ".write": "auth != null && newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && root.child('bugBoard/list/'+$id+'/vis').val() === 'pub' && !root.child('bugBoard/likes/'+$id+'/'+auth.uid).exists() && newData.parent().parent().parent().child('likes/'+$id+'/'+auth.uid).val() === true",
             ".validate": "newData.isNumber() && newData.val() >= 0"
           },
           "vis": {
+            ".write": "auth != null && data.parent().child('authUid').val() === auth.uid && !data.parent().child('notice').exists() && newData.isString() && newData.val() !== data.val() && !data.parent().child('lastReplyTs').exists() && !data.parent().child('userReplyTs').exists() && !root.child('bugBoard/ans/pub/'+$id).exists() && !root.child('bugBoard/ans/prv/'+$id).exists() && !root.child('bugBoard/rep/pub/'+$id).exists() && !root.child('bugBoard/rep/prv/'+$id).exists() && ((newData.val() === 'prv' && newData.parent().child('name').val() === '익명' && newData.parent().parent().parent().child('prv/'+auth.uid+'/'+$id).exists() && !newData.parent().parent().parent().child('pub/'+$id).exists()) || (newData.val() === 'pub' && newData.parent().parent().parent().child('pub/'+$id).exists() && !newData.parent().parent().parent().child('prv/'+auth.uid+'/'+$id).exists()))",
             ".validate": "true"
           },
           "notice": {
@@ -1269,6 +1270,7 @@
             ".validate": "true"
           },
           "name": {
+            ".write": "auth != null && data.parent().child('authUid').val() === auth.uid && !data.parent().child('notice').exists() && newData.isString() && newData.parent().child('vis').val() !== data.parent().child('vis').val()",
             ".validate": "true"
           },
           "authUid": {
@@ -1322,7 +1324,7 @@
       "pub": {
         "$id": {
           ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
-          ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (!data.exists() && newData.parent().parent().child('list/'+$id+'/authUid').val() === auth.uid && newData.parent().parent().child('list/'+$id+'/vis').val() === 'pub' && !newData.parent().parent().child('list/'+$id+'/notice').exists()))",
+          ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (!data.exists() && newData.parent().parent().child('list/'+$id+'/authUid').val() === auth.uid && newData.parent().parent().child('list/'+$id+'/vis').val() === 'pub' && !newData.parent().parent().child('list/'+$id+'/notice').exists() && (!root.child('bugBoard/list/'+$id).exists() || (newData.child('title').val() === root.child('bugBoard/prv/'+auth.uid+'/'+$id+'/title').val() && newData.child('body').val() === root.child('bugBoard/prv/'+auth.uid+'/'+$id+'/body').val() && newData.child('env').val() === root.child('bugBoard/prv/'+auth.uid+'/'+$id+'/env').val()))) || (data.exists() && !newData.exists() && root.child('bugBoard/list/'+$id+'/authUid').val() === auth.uid && root.child('bugBoard/list/'+$id+'/vis').val() === 'pub' && newData.parent().parent().child('list/'+$id+'/vis').val() === 'prv'))",
           ".validate": "!$id.matches(/^(null|undefined|NaN)$/) && !$id.beginsWith(' ') && !$id.endsWith(' ') && (newData.hasChildren(['title','body']) && newData.child('title').isString() && newData.child('title').val().length <= 60 && newData.child('title').val().length >= 1 && newData.child('body').isString() && newData.child('body').val().length <= 2000 && newData.child('body').val().length >= 1 && (!newData.child('env').exists() || (newData.child('env').isString() && newData.child('env').val().length <= 120)))",
           "title": {
             ".validate": "true"
@@ -1342,7 +1344,7 @@
         "$authUid": {
           ".read": "auth != null && (auth.uid === $authUid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true) || root.child('admins').child(auth.uid).val() === true)",
           "$id": {
-            ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $authUid && !data.exists() && newData.parent().parent().parent().child('list/'+$id+'/authUid').val() === auth.uid && newData.parent().parent().parent().child('list/'+$id+'/vis').val() === 'prv'))",
+            ".write": "auth != null && (root.child('admins').child(auth.uid).val() === true || (auth.uid === $authUid && !data.exists() && newData.parent().parent().parent().child('list/'+$id+'/authUid').val() === auth.uid && newData.parent().parent().parent().child('list/'+$id+'/vis').val() === 'prv' && (!root.child('bugBoard/list/'+$id).exists() || (newData.child('title').val() === root.child('bugBoard/pub/'+$id+'/title').val() && newData.child('body').val() === root.child('bugBoard/pub/'+$id+'/body').val() && newData.child('env').val() === root.child('bugBoard/pub/'+$id+'/env').val()))) || (auth.uid === $authUid && data.exists() && !newData.exists() && root.child('bugBoard/list/'+$id+'/authUid').val() === auth.uid && root.child('bugBoard/list/'+$id+'/vis').val() === 'prv' && newData.parent().parent().parent().child('list/'+$id+'/vis').val() === 'pub'))",
             ".validate": "!$id.matches(/^(null|undefined|NaN)$/) && !$id.beginsWith(' ') && !$id.endsWith(' ') && (newData.hasChildren(['title','body']) && newData.child('title').isString() && newData.child('title').val().length <= 60 && newData.child('title').val().length >= 1 && newData.child('body').isString() && newData.child('body').val().length <= 2000 && newData.child('body').val().length >= 1 && (!newData.child('env').exists() || (newData.child('env').isString() && newData.child('env').val().length <= 120)))",
             "title": {
               ".validate": "true"

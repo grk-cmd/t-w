@@ -28,14 +28,14 @@ export const BUG_NOTICE_MAX = 5;
 /* 분류 — 규칙(cat 정규식)과 짝이다. 하나 늘리면 firebase-database-rules.json 의 bugBoard/list/$id .validate 도. */
 export const BUG_CATS = [
   ['bug', '오류 · 멈춤'], ['ui', '화면 · 표시'], ['room', '방 · 접속'],
-  ['chat', '채팅'], ['myhome', '마이홈'], ['etc', '기타'],
+  ['chat', '채팅'], ['myhome', '마이홈'], ['suggest', '건의'], ['etc', '기타'],
 ];
-/* 상태 — 규칙(status 정규식)과 짝이다. unfixed 는 글쓴이가 «해결 안 됨» 으로 되돌린 글(미해결 목록에 낀다). */
-export const BUG_STATUS = { new: '접수', checking: '확인 중', fixed: '수정 완료', norepro: '재현 안 됨', unfixed: '해결 안 됨' };
+/* 상태 — 규칙(status 정규식)과 짝이다. unfixed 는 글쓴이가 «해결 안 됨» 으로 되돌린 글 · review 는 관리자가 건의를 «검토중» 으로 둔 글(둘 다 미해결 목록에 낀다). */
+export const BUG_STATUS = { new: '접수', checking: '확인 중', review: '검토중', fixed: '수정 완료', norepro: '재현 안 됨', unfixed: '해결 안 됨' };
 /* 글쓴이가 답글과 함께 고를 수 있는 상태 — 규칙 rep · list/status 의 글쓴이 갈래와 짝. 버튼 이름은 글쓴이 말투로. */
 export const BUG_AUTHOR_STATUS = [['checking', '확인 중'], ['unfixed', '해결 안 됨'], ['fixed', '해결 완료']];
 export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
-export const isOpenStatus = (st) => st === 'new' || st === 'checking' || st === 'unfixed';
+export const isOpenStatus = (st) => st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
 const OPEN = isOpenStatus;
 /* 관리자 목록 «✍ 글쓴이 답글» — 글쓴이 답글이 운영자의 마지막 답변보다 뒤. */
 export const hasAuthorReply = (it) => !!it && (it.userReplyTs || 0) > (it.lastReplyTs || 0);
@@ -82,6 +82,13 @@ export function contentEntry(p){
   const env = String(p.env || '').trim().slice(0, BUG_ENV_MAX);
   if(env) c.env = env;
   return c;
+}
+/* 공개 범위 바꾸기 — 운영자 답변 · 글쓴이 답글이 달리기 전까지만(규칙 bugBoard/list/$id/vis 와 같은 조건).
+   답글은 규칙상 쓰는 순간의 서버 시각으로만 써져 반대쪽 칸으로 옮길 수 없어서 답글이 있어도 막는다. */
+export const BUG_VIS_NOTE = '공개 범위는 운영자 답변이나 내 답글이 달리기 전까지만 바꿀 수 있어요.';
+export const BUG_VIS_LOCKED = '운영자 답변이나 내 답글이 달린 글은 공개 범위를 바꿀 수 없어요.';
+export function canChangeVis(it, me, answers){
+  return !!it && !!me && it.authUid === me && !it.notice && !it.lastReplyTs && !it.ansN && !it.userReplyTs && !(answers && answers.length);
 }
 /* 탭 배지 — 내 글 중 마지막 답변이 내가 마지막으로 본 때보다 뒤인 것. */
 export function unseenCount(mine, seen){
@@ -243,6 +250,32 @@ export function createBugBoard(deps){
     }
     return { ok: true, item: Object.assign({}, it, st ? { status: st } : {}) };
   }
+  /* 공개 ↔ 비공개 — 목록 줄(vis · 이름)과 본문 칸 옮기기를 한 묶음으로. 본문은 그대로 옮기기만 한다(규칙이 옛 칸과 같은지 본다 —
+     이 길로 글을 고칠 수 없다). 비공개로 가면 이름은 «익명», 공개로 가면 지금 이름. 👍 칸은 그대로 둔다(비공개 동안은 못 누른다). */
+  async function setVis(id, vis, who){
+    if(vis !== 'pub' && vis !== 'prv') return { ok: false, reason: '공개 범위를 골라 주세요' };
+    const it = await getItem(id); if(!it) return { ok: false, reason: '글을 찾지 못했어요' };
+    const me = uid();
+    if(!me || it.authUid !== me) return { ok: false, reason: '글쓴이만 바꿀 수 있어요' };
+    if(it.vis === vis) return { ok: true, item: it };
+    if(!canChangeVis(it, me)) return { ok: false, reason: BUG_VIS_LOCKED };
+    const pathOf = (v) => v === 'pub' ? 'bugBoard/pub/' + id : 'bugBoard/prv/' + me + '/' + id;
+    const c = (await get(ref(db, pathOf(it.vis)))).val();
+    if(!c || !c.title || !c.body) return { ok: false, reason: '글 내용을 찾지 못했어요' };
+    const moved = { title: c.title, body: c.body }; if(c.env) moved.env = c.env;
+    const name = vis === 'prv' ? BUG_ANON : String((who && who.name) || '').slice(0, 20);
+    const w = {};
+    w[L + '/' + id + '/vis'] = vis;
+    w[L + '/' + id + '/name'] = name;
+    w[pathOf(vis)] = moved;
+    w[pathOf(it.vis)] = null;
+    try{ await update(ref(db), w); }
+    catch(e){
+      // 규칙이 거부하는 흔한 경우는 그사이 운영자 답변이 달린 것이다
+      return { ok: false, reason: /permission|denied/i.test(String((e && e.message) || e)) ? BUG_VIS_LOCKED : '바꾸지 못했어요 — 네트워크를 확인해 주세요' };
+    }
+    return { ok: true, item: Object.assign({}, it, { vis, name }) };
+  }
   /* 👍 — likes/{id}/{나} 와 likeN +1 을 한 묶음으로(규칙이 짝을 본다). 동시에 누르면 한쪽이 거부되니 한 번 더. */
   async function like(id){
     const me = uid(); if(!me) return { ok: false };
@@ -285,6 +318,6 @@ export function createBugBoard(deps){
   }
   const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, anon: BUG_ANON, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
               bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody,
-              authorStatus: BUG_AUTHOR_STATUS, hasAuthorReply };
-  return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, addReply, like, getSeen, setSeen, unseen, migrateNotice };
+              authorStatus: BUG_AUTHOR_STATUS, hasAuthorReply, visNote: BUG_VIS_NOTE, visLocked: BUG_VIS_LOCKED };
+  return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, addReply, setVis, canChangeVis, like, getSeen, setSeen, unseen, migrateNotice };
 }

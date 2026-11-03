@@ -11,6 +11,7 @@ Firebase Hosting 사이트 여럿을 한 저장소에서 올린다. 사이트마
 
 - 옛 앱이 여는 `together-working.web.app/privacy` · `/link` 는 `main` 의 `redirects` 가 `help.together-working.com` 으로 넘긴다(`#` 뒤 연결 정보는 브라우저가 그대로 들고 간다). 옛 앱이 다 사라질 때까지 지우지 않는다.
 - 도움말 페이지의 색은 디자인 시스템 토큰 — `npm run design:build` 가 `hosting/help/tokens.css` 를 만든다(손으로 고치지 않는다).
+- 도움말 편(`hosting/help/*.html`) · FAQ(`docs/help-search/faq.json`) · 연관어(`docs/help-search/words.json`)를 고쳤으면 `npm run help:build` 를 다시 돌린다 — 검색표(`search.json`) · 위 띠 · 소제목 id · FAQ 페이지(`faq.html`)를 만든다(이 넷은 손으로 고치지 않는다).
 
 ## 배포
 ```bash

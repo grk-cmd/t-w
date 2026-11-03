@@ -256,8 +256,10 @@ function runOne(file, cwd){
        파이썬은 stdout 이 터미널이 아닐 때(=여기처럼 파일일 때) 블록 버퍼로 돈다. SIGKILL 은
        버퍼를 안 비우므로 audit.py 가 19절을 다 찍고 섰든 1절에서 섰든 **로그가 0바이트**다 —
        실제로 `(한 줄도 못 찍고 섰다)` 로 왔다. 그 한 줄이 "어디서 섰나" 의 유일한 단서다. */
+  /* 검사는 저장소 밖 임시 폴더에서 돈다 — 저장소 devDependencies(jsdom 등)를 찾게 NODE_PATH 로 저장소 node_modules 를 넘긴다. */
+  const nodeEnv = Object.assign({}, process.env, { NODE_PATH: [path.join(ROOT, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter) });
   const env = py ? Object.assign({}, process.env,
-    { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }) : process.env;
+    { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }) : nodeEnv;
   const tries = py ? [['python3', [file]], ['python', [file]]] : [[process.execPath, [file]]];
   /* ★ 출력을 파이프가 아니라 **파일**로 받는다.
        파이프로 받으면 시간초과로 죽일 때 아직 안 비워진 버퍼가 통째로 날아간다. Windows 에서

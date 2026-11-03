@@ -3,6 +3,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   bugListFromApi,
   fetchBugList,
+  listBugPage,
+  SUGGEST_SCAN_PAGES,
   refreshBugBoard,
   toBugItem,
   type ApiBugPage,
@@ -111,6 +113,55 @@ describe('제보 목록 — API 쪽 번호', () => {
     expect(calls).toEqual([['/v1/admin/bugs', { page: 2, size: 50, filter: 'open' }]]);
     expect(view.via).toBe('api');
     expect(read).not.toHaveBeenCalled();
+  });
+});
+
+describe('제보 목록 — 미해결 건의', () => {
+  // 미해결 n 줄 중 every 번째마다 건의 · 해결된 건의 하나(openTs 없음)는 끼지 않는다
+  function mixed(n: number, every: number) {
+    const list: Record<string, unknown> = {};
+    for (let i = 0; i < n; i++)
+      list[`k${String(i).padStart(3, '0')}`] = row(DAY + i, { cat: i % every === 0 ? 'suggest' : 'bug' });
+    list.done = row(DAY + 999, { cat: 'suggest', status: 'fixed', openTs: undefined });
+    return fakeDb({ 'bugBoard/list': list }).db;
+  }
+
+  it('미해결 중 건의만 — API 를 묻지 않고 RTDB 로 · 해결된 건의는 빠진다', async () => {
+    const { api, calls } = fakeApi(() => PAGE);
+    const view = await fetchBugList(api, mixed(10, 2), {
+      filter: 'suggest',
+      page: 1,
+      size: 50,
+      before: null,
+    });
+    expect(calls).toEqual([]);
+    expect(view).toMatchObject({ via: 'rtdb' });
+    if (view.via !== 'rtdb') throw new Error('rtdb');
+    expect(view.items.map((it) => it.id)).toEqual(['k008', 'k006', 'k004', 'k002', 'k000']);
+    expect(view.items.every((it) => it.cat === 'suggest' && typeof it.openTs === 'number')).toBe(true);
+    expect(view.next).toBeNull();
+  });
+
+  it('건의가 드문드문이면 미해결 쪽을 이어 받고, 다섯 쪽(100줄)을 보면 멈춰 [다음] 을 남긴다', async () => {
+    const db = mixed(150, 30); // 150줄 중 건의 5개(k000 · k030 · …) — 한 화면에 다 못 모은다
+    const read = vi.spyOn(db, 'getLast');
+    const first = await listBugPage(db, 'suggest', null);
+    expect(read).toHaveBeenCalledTimes(SUGGEST_SCAN_PAGES);
+    expect(read.mock.calls.every((c) => c[1] === 'openTs' && c[2] === 20)).toBe(true);
+    expect(first.items.map((it) => it.id)).toEqual(['k120', 'k090', 'k060']);
+    expect(first.next).toEqual({ value: DAY + 50, key: 'k050' });
+    const second = await listBugPage(db, 'suggest', first.next);
+    expect(second.items.map((it) => it.id)).toEqual(['k030', 'k000']);
+    expect(second.next).toBeNull();
+  });
+
+  it('건의가 한 쪽(20)을 채우면 더 받지 않는다', async () => {
+    const db = mixed(60, 1); // 전부 건의
+    const read = vi.spyOn(db, 'getLast');
+    const page = await listBugPage(db, 'suggest', null);
+    expect(read).toHaveBeenCalledTimes(1);
+    expect(page.items).toHaveLength(20);
+    expect(page.next).not.toBeNull();
   });
 });
 

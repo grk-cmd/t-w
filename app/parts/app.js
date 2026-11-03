@@ -1820,6 +1820,7 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
   roomSeatMode: ()=>roomSeatMode,
   seatCameraMod: ()=>seatCameraMod,
   seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
   seats: seats,
   syncSeatEqualize: (...a)=>seatEqMod.syncSeatEqualize(...a),
   setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },
@@ -2246,6 +2247,9 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
   findMySeat: (...a)=>findMySeat(...a),
   showChatBubble: (...a)=>showChatBubble(...a),
   statusChipMod: statusChipMod,
+  demojiSfxOn: (...a)=>chatPrefsMod._demojiSfxOn(...a),
+  setDemojiSfxOn: (...a)=>chatPrefsMod._setDemojiSfxOn(...a),
+  sfxOfficeLock: (...a)=>chatPrefsMod._chatSfxOfficeLock(...a),
 });
 /* ═══ 🎵 상태칩 플레이리스트 ═══ */
 /* 🎵 플레이리스트(데이터 · 화면 · 프리셋 고르기 · 🐕 재생 감시견 · 재생 제어 · 버튼 연결)는 parts/playlist.js 로 옮겼다(앱 FSD 16번 · docs/APP_FSD_MAP.md).
@@ -2375,7 +2379,7 @@ try{
          정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
       companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
         moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined,
+        regions: window.__uiRegions ? window.__uiRegions() : undefined, others: statusChipMod.otherSeatCircles(),   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
         /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
            구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
         charBad: _charBadWhy || undefined });
@@ -2469,6 +2473,7 @@ const focusLog = TwFocusLog.createFocusLog({
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   focusTotalSec: ()=>_focusTotalSec,
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
+  figureMode: ()=>figureMode,
 });
 /* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
@@ -2891,6 +2896,7 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const richTextMod = TwRichText.createRichText({
   escHtml: (...a)=>escHtml(...a),
+  DOMPurify: () => window.DOMPurify,
 });
 
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
@@ -2911,6 +2917,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  giftSave: TwGiftSave.createGiftSave({ fetch: (...a)=>fetch(...a), document, URL, setTimeout: (...a)=>setTimeout(...a), safeUrl: TwSafeHtml.safeUrl, now: ()=>new Date(), notifyFail: e=>TwErrorCodes.notify('E-MH-03', e) }),
   // 📩 수령함
   myInbox: ()=>_myInbox,
   inboxBroadcast: ()=>_inboxBroadcast,
@@ -3213,6 +3220,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
@@ -3250,6 +3258,7 @@ const guestbook = TwGuestbook.createGuestbook({
   escHtml: (...a)=>escHtml(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
   myHomeFriends: ()=>_myHomeFriends,
@@ -3284,7 +3293,6 @@ const chatUiMod = TwChatUi.createChatUi({
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
-  _chatLinkify: (...a)=>_chatLinkify(...a),
   _chatLogCache: ()=>_chatLogCache,
   _chatLogUnsub: ()=>_chatLogUnsub,
   _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
@@ -3328,13 +3336,6 @@ let _chatLogCache = [];        // 화면에 그린 마지막 메시지 목록(�
    ⚠️ `const` 가 아니라 **함수 선언**이다. 여기보다 앞줄에서 부르는 자리가 있어서
      호이스팅이 필요하다(const 로 바꾸면 TDZ 로 조용히 죽는다). */
 function _chatEsc(str){ return escHtml(str); }
-// 링크 감지 → 클릭 시 외부 열기. 이스케이프된 텍스트에서 http(s) URL만 <a>로 변환.
-function _chatLinkify(escapedText){
-  return escapedText.replace(/(https?:\/\/[^\s<]+)/g, (m)=>{
-    const safe = m.replace(/"/g,'&quot;');
-    return `<a href="#" data-url="${safe}" class="cm-link">${m}</a>`;
-  });
-}
 
 const CHAT_WIN_POS_KEY = 'tw_chat_win_pos';
 
@@ -3886,6 +3887,8 @@ const FOCUS_MS=1500,SLEEP_MS=8000,PET_MS=2200;
    (main.js가 activeAppState.isPenApp으로 알려줌 — 목록은 main.js의 PEN_APPS 한 곳에만 둔다) */
 const PEN_FOCUS_MS=4000;
 let _penAppFocused=false;
+/* 투게더워킹 창 자신이 맨 앞인가(main.js activeAppState.isSelf) — 등록 앱이 아니어도 잠들지 않게 seatState 가 본다. */
+let _selfAppActive=false;
 function focusWindowMs(){ return _penAppFocused ? PEN_FOCUS_MS : FOCUS_MS; }
 let lastActivity=performance.now(),windowFocused=!document.hidden,lastZ=0;
 function activity(){lastActivity=performance.now();}
@@ -3915,10 +3918,16 @@ function seatState(seat,now){
   if(!desktopMode && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
+  /* 투게더워킹 창을 쓰는 중이면 등록 앱이 아니어도 깨어 있는다(평소 자세). 손을 뗀 지 SLEEP_MS 가 넘으면 예전처럼 잔다.
+     ⚠️ lastActivity 만 보면 안 된다 — 전역 키 · 클릭은 게이트가 닫혀 있으면 lastAnyInput 만 올린다. */
+  if(desktopMode && focusGateSleep && _selfAppActive) return (now-Math.max(lastActivity,lastAnyInput)>SLEEP_MS) ? 'sleep' : 'idle';
   if(desktopMode && focusGateSleep) return 'sleep';
   if(seat.isMe && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
   const idle=now-lastActivity;
-  if(idle<focusWindowMs())return 'focus'; if(idle>SLEEP_MS)return 'sleep'; return 'idle'; }
+  if(idle<focusWindowMs())return 'focus';
+  /* 🧸 피규어 모드는 «항상 깨어 있음» 이다 — 입력이 끊겨도(생각하는 동안 · 키 훅이 막힌 앱) 잠들지 않고 쉬는 자세. 자리비움은 위에서 잔다. */
+  if(idle>SLEEP_MS && !(desktopMode && figureMode))return 'sleep';
+  return 'idle'; }
 function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(seat.blink) seat.blink.pulses.push({start:now,dur:240}); }
 
 /* ============================================================ DRAG / PET */
@@ -7452,6 +7461,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   Presence: Presence,
   _chatNotifyIncoming: (...a)=>chatPrefsMod._chatNotifyIncoming(...a),
   _clearHiddenSeats: (...a)=>hiddenSeatsMod._clearHiddenSeats(...a),
+  _demojiNotifyIncoming: (...a)=>chatPrefsMod._demojiNotifyIncoming(...a),
   _onDeviceSessionLost: (...a)=>deviceLostMod._onDeviceSessionLost(...a),
   _pokeFresh: (...a)=>roomSyncMod._pokeFresh(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
@@ -7727,13 +7737,6 @@ const myInfoMod = TwMyInfo.createMyInfo({
   charsMod: ()=>charsMod,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
 });
-/* ═══ 🏆 [내 정보] 전체 랭킹 1~100위 (시안 v2 B안 + 후광 ② 확정 · 2026-09-23 · CHECKS 개정 73 · handoff-ranking.md) ═══
-   ★ 기준은 누적 집중 시간 하나(회차 포함). 표시 레벨(myFocusShow)·해금 레벨(getFocusLevel)로 매기지 않는다 —
-     그렇게 하면 2회차 Lv.5 가 1회차 Lv.900 아래로 간다.
-   ★ 동점은 먼저 도달한 사람이 위(ts 오름). 서버는 같은 sec 를 키 순으로 주므로 받은 100줄을 여기서 다시 정렬한다.
-     100위 경계의 동점은 서버가 자른 대로다(허용).
-   ★ 100위 밖이면 자리를 비운다 — «100위 밖» 같은 글자도 쓰지 않는다(사용자 결정).
-   ★ 읽기는 [내 정보]를 열 때 한 번 · 60초 캐시. 실패하면 조용히 비운다. 내 기록은 10분 동기화에 실려 몇 분 늦을 수 있다. */
 /* (앱 FSD 17번) 이 자리의 본문도 my-info.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 📤 계정 이전 / 연동 / 연동 해제 — [회원가입 설계 개정 15 · 16] 걷었다 ═══════════════════
@@ -9046,8 +9049,8 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
 
 /* ============================================================ 데스크탑(Electron) 모드 */
 const desktopMode = !!window.companion || /[?&]desktop=1/.test(location.search);
-/* ★ 피규어 모드 — 켜져 있으면 포커싱 어플 등록 여부와 무관하게 항상 깨어있는 겉모습만 유지.
-   포커스 시간(레벨) 누적에는 영향 안 줌 — _focusWasActive는 실제 등록된 앱 사용 여부만 그대로 추적. */
+/* ★ 피규어 모드 — 켜져 있으면 포커싱 어플 등록 여부 · 입력 유무와 무관하게 항상 깨어 있다(seatState).
+   대신 포커스 시간(레벨) · 👑 달성표 🎯집중은 쌓지 않는다(_applyActiveAppState) — 설정 화면 · 도움말이 그렇게 약속한다. */
 /* 💾 설정을 저장하고 **실제로 남았는지 확인한다** — 조용한 실패를 없애기 위한 것이다.
 
    [왜 필요한가] localStorage 쓰기는 이 파일에서 99곳이고 그중 58곳이 `catch(e){}` 로 비어 있다.
@@ -9291,7 +9294,6 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
-focusLevelMod.onTotalSynced((uid, sec)=>myInfoMod._lbPush(uid, sec));   // 🏆 서버 총합을 맞추면 전체 랭킹에 올린다 — 내 정보가 포커스 레벨보다 먼저 만들어져 여기서 건다
 
 /* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
 /* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다
@@ -9513,16 +9515,18 @@ function _applyActiveAppState(state){
   const mobOn = focusLevelMod._mobileOn();
   const pcNotFocusing = (now - lastActivity) > focusWindowMs();
   const notFocusingNow = mobOn ? false : pcNotFocusing;
-  if(_focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
+  /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
+  if(!figureMode && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
   /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
      ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
        같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
      ★ _focusWasActive(=등록된 포커스 앱이 활성)를 조건에 안 거는 이유: 그건 평생 누적치용 게이트다.
        달성표는 사용자가 고른 exe 하나만 보므로, 그 앱이 포커싱 어플 슬롯에서 빠져도 계속 세야 한다. */
-  if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
+  if(!figureMode && dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
   /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
      구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
   if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
+  _selfAppActive = !!state.isSelf;   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
   _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
   focusGateSleep = figureMode ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
   _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
