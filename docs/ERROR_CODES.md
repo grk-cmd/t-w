@@ -22,6 +22,7 @@
 | `ROOM` | 방 입장 · 나가기 · 방 목록 |
 | `CHAT` | 채팅 |
 | `CHAR` | 캐릭터 · 꾸미기 · 가챠 |
+| `PK` | 스티커사진 |
 | `FOCUS` | 포커스 · 레벨 |
 | `DATA` | (걷음) 범용 데이터 통로 — 걷은 번호만 |
 | `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
@@ -58,6 +59,11 @@
 | `E-CHAR-12` | 뽑기를 저장하지 못했어요 — 잠시 후 다시 시도해 주세요(횟수는 그대로예요) | `character/gacha.js` — 뽑기 트랜잭션 오류 · 서버 길 서버 바쁨 · 카탈로그 준비 중 · 그 밖 4xx(`gacha-server.js` reasonOf) |
 | `E-CHAR-13` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `character/wardrobe.js` — 꾸미기 책상 탭에서 카탈로그 책상 고르기(모델 받기 실패) |
 | `E-CHAR-14` | 책상 모델을 받지 못했어요 — 인터넷 연결을 확인하고 다시 눌러 주세요 | `creator/desk-setup.js` — 생성기 책상 카드 고르기(모델 받기 실패) |
+| `E-PK-01` | 스티커사진 정원을 확인하지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — 📷 를 눌렀을 때 `GET /v1/rooms/photo-quota` 실패(닿지 못함 · 답 모양이 틀림) |
+| `E-PK-02` | 스티커사진 자리를 잡지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — 자리 잡기(`photoOpen`) 시간 초과 · 연결 없음 · 서버 오류(촬영 중 · 자리 없음 · 방 밖은 안내만) |
+| `E-PK-03` | 촬영을 시작하지 못했어요 — 잠시 뒤에 다시 눌러 주세요 | `purikura/purikura-ui.js` — [촬영 시작](`photoStart`) 실패: 정원을 못 물음 · 방장이 바뀜 · 방 밖 · 연결 없음 · 시간 초과(정원을 다 쓴 것은 안내만 — 까닭 문구는 `purikura-rt.js` `START_MESSAGES`) |
+| `E-PK-04` | 방 설정을 바꾸지 못했어요 — 방장이 바뀌었을 수 있어요 | `purikura/purikura-ui.js` — 방장 일(설정 · 필터 · 카메라 · 컷 · 셔터)을 서버가 거절(`ROOM_PHOTO_NOT_HOST` 등 · 세션 포트 `onRefused`) |
+| `E-PK-05` | 프레임을 방에 알리지 못했어요 — 나한테만 보여요 | `purikura/purikura-ui.js` — 프레임 주소(`photoFrame`)를 서버가 거절(우리 버킷 · `purikura/{방}/{방장 userCode}/` 경로가 아님) |
 | `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |
 | `E-NET-02` | 이 작업을 할 권한이 없어요 | `shared/api-errors.js` — 공통 `ACCESS_DENIED` |
 | `E-NET-03` | 프리미엄에서 쓸 수 있는 기능이에요 | `shared/api-errors.js` — 공통 `PREMIUM_REQUIRED`(이 기기 판정 — `X-Device-Id`) |
