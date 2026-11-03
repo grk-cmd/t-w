@@ -419,8 +419,8 @@ await sec('── 7. app.js 배선', () => {
   const code2 = code.replace(/const GACHA_OFF = \{[\s\S]*?\};/, '').replace(/\brenderGachaInv: \(\)=>/, '');   // 빈 껍데기 · 👑 달성표 deps 의 이름 칸은 뺀다
   chk(!/(?<![\w$.])(isGachaColorUnlocked|gachaCount|sceneHasColorGroup|syncGachaToServer|pruneUnownedGachaParts|renderGachaInv|toggleGachaInv|_gachaInvOpen|_gachaDrawOpen|_gachaSelId|gachaOwned|_gachaTs|_gachaBonus|_setGachaBonusLocal|GACHA_DUPES_FOR_COLOR)\b/.test(code2), '  app.js 는 옛 이름을 부르지 않는다(gachaMod.이름)');
   chk(/window\.TwGacha = api/.test(MOD) && (code.match(/TwGacha\.createGacha\(/g) || []).length === 1, '모듈은 window.TwGacha · 만드는 곳은 한 곳');
-  const iMk = APP.indexOf('TwGacha.createGacha('), iPrev = APP.indexOf('function _starColorOk('), iWarn = APP.indexOf('async function _warnServerWriteDenied('), iTheme = APP.indexOf('/* ═══ 🎨 디자인 테마');
-  chk(iPrev > 0 && iMk > iPrev && iWarn > iMk && iTheme > iWarn, '원래 자리 — 🚩 신고 · 별 색 뒤 · 🔑 쓰기 거부 안내 · 🎨 디자인 테마 앞');
+  const iMk = APP.indexOf('TwGacha.createGacha('), iPrev = APP.indexOf('function _starColorOk('), iTheme = APP.indexOf('/* ═══ 🎨 디자인 테마');
+  chk(iPrev > 0 && iMk > iPrev && iTheme > iMk, '원래 자리 — 🚩 신고 · 별 색 뒤 · 🎨 디자인 테마 앞');
   chk(!/GACHA_(OWNED|TS|BONUS)_KEY/.test(APP) && !/'tw\.gacha(Owned|OwnedTs|Bonus)'/.test(strip(MOD)) && !/localStorage\.(get|set)Item\([^)]*gacha(Owned|Bonus)/i.test(strip(MOD)),
       '이 PC 저장 키(tw.gachaOwned · Ts · Bonus)는 app.js · 모듈 어디에도 없다 — 서버가 원본');
   const call = (APP.match(/TwGacha\.createGacha\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';

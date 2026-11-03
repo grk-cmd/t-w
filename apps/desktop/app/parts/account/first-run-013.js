@@ -6,7 +6,7 @@
      ④ 는 앞 단계들이 «이제 지워도 된다» 고 돌려준 키(wipe)만 지운다.
    [다시 해도 같게] 단계마다 서버 답으로 «이미 했다» 를 알아 같은 결과를 낸다(예: AVATAR_LEGACY_SYNC_DONE) — 여기는 차례만 지킨다.
      다 끝나면 이 PC 에 «이 계정으로 끝냈다»(DONE_KEY = userCode)를 적어 다음 실행엔 건너뛴다(지워져도 다시 돌 뿐 — 정본은 서버).
-   [자리] 캐릭터 · 라이선스 단계는 아직 «기다림»(pendingStep) — D1 · D8 묶음이 app.js 의 이 모듈 만드는 줄에서 진짜 함수로 바꾼다.
+   [자리] 캐릭터 단계는 옷장(closet.js legacyStep)이 채웠다. 라이선스 단계는 아직 «기다림»(pendingStep) — D8 묶음이 app.js 의 이 모듈 만드는 줄에서 진짜 함수로 바꾼다.
      기다림이 있는 동안 ④ 는 돌지 않는다(그래서 로그인 단계의 키도 아직 안 지운다).
    classic script — app.js 보다 먼저 싣는다(window.TwFirstRun013). 서버 · DOM 을 모른다. */
 (function(){

@@ -3,10 +3,10 @@
    ★ 다시 대입되거나 뒤에서 선언되는 값은 deps 의 읽는 함수(…())로, 바꾸는 값은 쓰는 함수(setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots)로 받는다.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
-   ★ «연동됨» 안내 창(_charsLinkedMaybeShow)은 보관함 화면이 있는 my-info.js 로 옮겼다 — 표시 키 CHARS_LINKED_KEY 는 쓰는 쪽(여기)에 두고 내놓는다.
+   ★ 캐릭터(슬롯 · 보관함)와 가챠는 서버가 원본이다 — 로그아웃은 못 올린 캐릭터 고침만 올리고(closet.flushSlots) 메모리를 비운다(이 PC 에 지울 캐릭터 저장본이 없다).
    ★ 0.13 — 로그인 · 가입 판정은 login-flow.js(서버 GET /v1/me), 여기는 그 결과로 이 PC 를 맞춘다(_enterAccount). 계정 이전 사본(accountSnap)으로 복원하던 길은 걷었다 —
      다른 PC 이어받기는 같은 계정 로그인으로 끝난다(서버가 원본).
-   ★ 밖에서 부르는 이름: CHARS_LINKED_KEY · _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAccount — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-account.js */
@@ -23,7 +23,6 @@ const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;
 const LICENSE_REQ_ID_KEY = deps.LICENSE_REQ_ID_KEY;   // 읽는 함수
-const LS_KEY = deps.LS_KEY;   // 읽는 함수
 const MY_AD_BANNER_KEY = deps.MY_AD_BANNER_KEY;
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const MY_FRIEND_CODE_PREV_KEY = deps.MY_FRIEND_CODE_PREV_KEY;
@@ -33,7 +32,7 @@ const _focusTodaySec = deps._focusTodaySec;   // 읽는 함수
 const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
 const _rememberOldFriendCode = deps._rememberOldFriendCode;
 const _setMyUserId = deps._setMyUserId;
-const charsMod = deps.charsMod;   // 읽는 함수
+const closetMod = deps.closetMod;   // 읽는 함수 — 서버 원본 옷장(character/closet.js)
 const extraSeatSlots = deps.extraSeatSlots;   // 읽는 함수
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const gachaMod = deps.gachaMod;   // 읽는 함수
@@ -46,7 +45,6 @@ const getMyLoginEmail = deps.getMyLoginEmail;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
 const mhScheduler = deps.mhScheduler;   // 📅 스케줄러 — 계정을 놓을 때 비운다(다음 계정 것은 로그인 뒤 다시 켠 부팅이 받는다)
-const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
@@ -59,7 +57,6 @@ const setFocusTotalSec = deps.setFocusTotalSec;   // 쓰는 함수
 const setExtraSeatSlots = deps.setExtraSeatSlots;   // 쓰는 함수
 
 /* «연동됨» 안내 창 표시 키 — my-info.js 가 읽는다(쓰던 계정 이전 갈래는 0.13 에서 걷었다 — 캐릭터 올리기는 첫 실행 legacy-sync). */
-const CHARS_LINKED_KEY = 'tw.charsLinked';
 
 /* 🪪 서버가 돌려준 계정(me)으로 이 PC 를 맞춘다 — 켤 때 확인 · 로그인 · 가입이 같이 부르는 한 곳.
    login: { email, uid } — 이 PC 의 로그인 표시(계정 탭 얼굴 · 진단). 친구코드 · 이름은 서버 값이 정본이다.
@@ -128,13 +125,9 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   focusLevelMod().DANCE_NOTIFIED_KEY, focusLevelMod().DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
   /* 달성표 — syncChalToServer 가 서버 ts 가 크면 통째로 받아온다. */
   CHAL_KEY(),
-  /* 캐릭터 슬롯 — 연동 pull(syncSlotsToServer 'transfer','pull'). 업로드 캐시 둘은 users/{uid}/ 경로의 URL 이라
+  /* 캐릭터는 서버가 원본이라 이 PC 에 지울 저장본이 없다. 올리기 캐시 둘은 users/{uid}/ 경로의 URL 이라
      **다른 uid 가 물려받으면 남의 Storage 를 가리킨다** — 반드시 같이 지운다. */
-  LS_KEY(), slotSyncMod().SLOTS_TS_KEY, slotSyncMod().SLOTS_SEEN_KEY, slotSyncMod().SLOTS_LOSS_KEY, slotSyncMod().SLOTS_LASTSYNC_KEY, slotSyncMod().SLOTS_PUSHFAIL_KEY, CUR_SLOT_KEY, slotSyncMod().SLOT_GLB_CACHE_KEY, 'tw.roomFaceUrls',
-  /* 🧬 보관함 · 책상 표 · 못 올린 휴지통 줄(설계 §9-5 · 개정 36) — 서버 chars 가 원본이라 다음 로그인의 첫 채택이 다시 만든다.
-     문자열로 적는다: 상수는 이 목록보다 뒤에 선언된다(검사가 이 함수만 떼어 돌린다). flush 가 먼저 올린다. */
-  'deskFriends.chars.v1', 'deskFriends.chars.desk', 'deskFriends.chars.trashPend',
-  'tw.charsLinked',            // F 안내 표시(개정 57) — 옮긴 cid 목록 · 다음 사람에게 띄울 것이 아니다
+  CUR_SLOT_KEY, 'tw.slotGlbUrls', 'tw.roomFaceUrls',
   'tw.starColor',              // 🌟 회차 별 색(개정 71) — 프로필 starC 가 돌아올 길이다(_adoptStarColorFromProfile). 남으면 다음 계정 프로필에 앞 사람 색이 실린다
   /* ⚠️ SLOTS_BAK_KEY(덮어쓰기 직전 백업)는 **일부러 빼 두었다.** 위 ⚠️ 의 「돌아오는 길이 없는
      항목을 여기 넣으면 로그아웃이 곧 삭제」가 그 이유다 — 백업은 정의상 서버에 없는 것이라
@@ -165,10 +158,8 @@ async function _acctFlushToServer(){
   call(typeof focusLevelMod().syncFocusTotalToServer === 'function' ? focusLevelMod().syncFocusTotalToServer : null, 'logout');
   call(weeklyChal().syncChalToServer, 'logout');
   call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
-  /* 슬롯은 대기 중인 debounce push 가 있으면 그것부터 흘려보낸다(3초를 기다릴 이유가 없다). */
-  try{ if(typeof slotSyncMod()._slotsPushTimer !== 'undefined' && slotSyncMod()._slotsPushTimer()){ clearTimeout(slotSyncMod()._slotsPushTimer()); slotSyncMod().setSlotsPushTimer(null); } }catch(_){}
-  call(typeof slotSyncMod().syncSlotsToServer === 'function' ? slotSyncMod().syncSlotsToServer : null, 'logout');
-  call(typeof charsMod()._charsSync === 'function' ? charsMod()._charsSync : null, 'logout');   // 🧬 켜져 있지 않으면 즉시 돌아온다
+  /* 슬롯은 아직 못 올린 고침만 올린다(3초 묶음을 기다릴 이유가 없다). 받기 전이면 쓴 것이 없어 즉시 돌아온다. */
+  call(closetMod().flushSlots);
   if(!jobs.length) return { timedOut:false };
   /* [2026-09-20 · §2] 상한에 걸렸는지 돌려준다 — 검문이 «아직 올리는 중» 과 «서버가 거부» 를 다른 말로 하기 위해.
      둘은 사용자에게 다른 뜻이다: 전자는 기다리면 되고, 후자는 기다려도 안 된다. */
@@ -197,23 +188,17 @@ async function _acctPreflight(uid, opt){
   const items = [];
   const push = (label, reason, kind) => items.push({ label, reason, kind });
   /* 로컬 개수부터 — 오프라인이어도 «무엇이 사라지는지» 는 말할 수 있어야 한다. */
-  let nSlots = 0, gapMin = 0, hasSlots = false;
-  try{ hasSlots = (typeof slotSyncMod()._slotsHasLocal === 'function') && slotSyncMod()._slotsHasLocal(); }catch(_){}
-  try{ nSlots = (hasSlots && typeof slotSyncMod()._slotsFilledCount === 'function') ? slotSyncMod()._slotsFilledCount(localStorage.getItem(LS_KEY())) : 0; }catch(_){}
-  const lblSlots = '캐릭터' + (nSlots ? ' ' + nSlots + '개' : '');
+  let nSlots = 0, gapMin = 0;
+  try{ nSlots = closetMod().unsavedCount(); }catch(_){}   // 서버에 아직 못 올린 고침이 있는 캐릭터 수(받기 전이면 0 — 쓴 것이 없다)
+  const hasSlots = nSlots > 0;
+  const lblSlots = '캐릭터 ' + nSlots + '개';
   const api = window.firebaseAPI;
   if(!api){
     if(hasSlots) push(lblSlots, '네트워크 연결이 필요해요', 'offline');
     return { ok:false, reason:'네트워크 연결이 필요해요', kind:'offline', items, timedOut };
   }
-  /* 🧍 캐릭터 — 로컬에 있으면 서버 ts 가 있어야 한다. */
-  try{
-    if(hasSlots && api.loadSlotsTs){
-      const ts = await api.loadSlotsTs(uid);
-      if(ts === null || ts === undefined) push(lblSlots, '캐릭터 저장 상태를 확인하지 못했어요', 'unknown');
-      else if(!(typeof ts === 'number' && ts > 0)) push(lblSlots, '캐릭터를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
-    }
-  }catch(_){ push(lblSlots, '캐릭터 저장 상태를 확인하지 못했어요', 'unknown'); }
+  /* 🧍 캐릭터 — 못 올린 고침이 남아 있으면 막는다(올리기를 이미 한 번 해 본 뒤라 «올리지 못했어요»). */
+  if(hasSlots) push(lblSlots, '캐릭터 고침을 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
   /* 🕒 누적 시간 — 마크가 로컬 누적을 따라잡았어야 한다(2분은 왕복 사이에 쌓이는 폭). */
   try{
     const total = Math.floor(Number(_focusTotalSec()) || 0);
@@ -252,7 +237,7 @@ function _wipeAccountLocal(){
   try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)
   try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — 서버에서 받아 온 보유분 · 뽑기 수 · 구독 표시를 비운다(gacha.js)
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
-  try{ slotSyncMod().setSlotsTs(0); slotSyncMod().setSlotsSeen(0); slotSyncMod().setSlotsConflict(null); setExtraSeatSlots([]); }catch(_){}
+  try{ closetMod().resetCloset(); setExtraSeatSlots([]); }catch(_){}   // 🧬 옷장 — 메모리 · 받은 판 기억을 비우고 진행 중인 받기 · 쓰기의 답을 버린다(closet.js)
   try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
   try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
@@ -480,7 +465,6 @@ function refreshAccountTab(){
   const lb = document.getElementById('acctLogoutBtn');     if(lb) lb.style.display = 'block';
   const fb = document.getElementById('acctLogoutForce');   if(fb) fb.style.display = 'none';   // §2 강제 갈래도 접는다
   const msg = document.getElementById('acctLoginMsg');     if(msg) msg.style.display = 'none';
-  try{ slotSyncMod()._slotsRenderAcctSync(); }catch(_){}                 // ☁️ 기기 연동 구획(3-7-2 B안)
   try{ const p = _acctMethodsRender(); if(p && p.catch) p.catch(()=>{}); }catch(_){}   // 🔐 로그인 수단 · C2 · C3
 }
 
@@ -549,7 +533,6 @@ function refreshAccountTab(){
 })();
 
 return {
-  CHARS_LINKED_KEY,
   _enterAccount,
   _loginDoFriendCode,
   _loginDoGoogle,

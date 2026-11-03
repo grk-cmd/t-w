@@ -40,7 +40,7 @@ const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
 /* gacha.js 가 없으면 «못 찾음» 으로 멈춘다 — app.js 만 굴리면 빈 껍데기(GACHA_OFF)라 아무것도 안 지킨 채 초록이 된다. */
 if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
 try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
-catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
+catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,14).join(' | ')); process.exit(1); }
 console.log = say;
 
 const P = globalThis.__P;

@@ -190,7 +190,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `upload-cache.js` — 🗂️ 업로드 캐시 규칙 · 같은 그림 다시 안 올리기
 
 - **책임**: 업로드 캐시(`«종류:내용해시» → URL`)를 다루는 규칙 하나 — 넘칠 때 무엇을 버리나 · 쓴 것 표시 · 저장 때 사본 합치기 · 같은 업로드 한 번 · 올린 자리를 URL 로 바꿔 넣기. 읽기 · 쓰기(localStorage) · 업로드는 쓰는 모듈이 한다.
-- **쓰는 곳**: 얼굴 캐시 `room/room-sync.js`(`tw.roomFaceUrls` · `faceUploadCache`) · 슬롯 GLB 캐시 `character/slot-sync.js`(`tw.slotGlbUrls` · `glbUploadCache`) · 마이홈 저장 뒤 `myhome/myhome-edit.js`(`homeUploadCache.applyUrlSwaps`).
+- **쓰는 곳**: 얼굴 캐시 `room/room-sync.js`(`tw.roomFaceUrls` · `faceUploadCache`) · 슬롯 GLB 캐시 `character/slot-codec.js`(`tw.slotGlbUrls` · `glbUploadCache`) · 마이홈 저장 뒤 `myhome/myhome-edit.js`(`homeUploadCache.applyUrlSwaps`).
 - **만드는 법**: app.js 가 `const uploadCacheMod = TwUploadCache.createUploadCache();` 로 하나 만들어 위 세 모듈에 deps 로 넘긴다(받는 deps 없음 · 진행 중 업로드 표는 이 하나에 있다).
 - **내놓는 것**: `trim(st, max)` — 넘치면 옛 해시 → 섬네일 `THUMB_CACHE_MAX`(10) → 오래 안 쓴 것부터 버림(통째로 비우지 않는다) · `touch(st, key)` · `merge(stored, mine)` · `once(key, run)` · `applyUrlSwaps(obj, swaps)` · `FACE_CACHE_MAX`(100) · `GLB_CACHE_MAX`(40).
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.

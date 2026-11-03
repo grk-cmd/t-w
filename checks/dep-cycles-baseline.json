@@ -17,7 +17,6 @@
   "admin/admin-license.js > admin/admin-license-bulk.js",
   "character/gacha.js > character/wardrobe.js",
   "character/gacha.js > focus/focus-level.js",
-  "character/gacha.js > room/room-sync.js",
   "character/part-paint.js > character/wardrobe.js",
   "character/part-paint.js > room/room-sync.js",
   "character/wardrobe-panel.js > character/wardrobe.js",

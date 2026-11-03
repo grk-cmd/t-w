@@ -353,6 +353,37 @@
   - 서버 신호 `collection`(본인)이 오면 `gacha.js` 가 다시 받는다 — 달성표 보상(`bonus`)도 이 길로 온다.
   - 검사: `checks/sim-gacha-api.js`(요청 모양 · 응답 씻기 · 실패 · 계정 묶기 · 깨 보기) · `checks/sim-gacha.js`(받기 · 뽑기 · 보관함).
 
+## closet-api.js — 🧬 옷장 api provider
+
+- **책임**: 내 캐릭터 옷장(슬롯 5칸 · 보관함 20 · 휴지통)의 서버 길(`/v1/me/avatars…`) — 옷장 받기(슬롯 캐릭터 def 까지 한 번에) · 캐릭터 하나 읽기 · 만들기 · 고치기 · 슬롯 ↔ 보관함 옮기기 · 휴지통 보내기 · 휴지통 목록 · 되살리기 · 첫 실행 올리기(legacy-sync). 칸 수 · 상한 · 휴지통 기한은 서버가 정한다.
+- **deps**: `authed`(`TwApi.authed`) · `newRequestId`.
+- **내보내는 것**: `createClosetApi(deps)` → `{ load, fetchOne, create, update, move, trash, trashPage, restore, legacySync, reset }` · 순수 `headOf` · `closetOf` · `trashOf` · `failOf`.
+- **함정**: 읽은 토큰 주인과 쓰기를 묶는다(읽기 전엔 쓰지 않음) · 고치기는 받은 판(baseVersion)을 싣는다 — 낡은 판이어도 서버가 받고 앞 모습을 휴지통 «연동 교체» 로 남긴다(409 가 아니다) · 실패는 서버 code 그대로 던지고 혼자 다시 보내지 않는다 · 옷장 응답은 슬롯 칸과 def 짝이 맞아야 쓴다(모자라면 «못 읽음»). 검사: `checks/sim-closet-api.js`.
+
+## closet.js — 🧬 옷장 (서버 원본)
+
+- **책임**: 화면의 `slots[]` 를 서버 옷장과 잇는다. 시작할 때(`startCloset` — 계정 확인 뒤 app-boot) 받아 앉히고, 서버 신호 `avatars` 에 다시 받고, 고치면 3초 묶음으로 바뀐 칸만 쓰고(새 칸은 만들기 · 있는 칸은 고치기), 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 0.13 첫 실행의 옛 캐릭터 올리기(`legacyStep`)도 여기.
+- **이 PC 에 없는 것**: 캐릭터 저장본 · 보관함 사본 · 고친 시각 · 백업 · 충돌 판정 · 주기 맞추기 · 부팅 지연 타이머(0.12 의 `slot-sync.js` · `chars.js` 를 걷었다).
+- **deps**: `closetApi` · `codec`(slot-codec) · `roomFaceCache` · `slots` · `slotSave`(applySlotObjs · lastOut · onSaved · pullForward · _relinkSeatsToSlots · slotsReplaced) · `getMyUserId` · `rtOn` · `toast` · `notifyError` · `renderLauncher` · `creatorOpen` · `storage`.
+- **내놓는 것**: `startCloset` · `pullCloset(notify)` · `resetCloset` · `state()`(`idle|loading|ready|failed`) · `boxItems()`(받기 전 null) · `boxCount` · `boxFull` · `moveToBox` · `boxToSlot` · `trashSlot` · `trashBox` · `trashRows` · `restore` · `moveMsg` · `deleteWords` · `unsavedCount` · `flushSlots` · `legacyStep` · `onChange`.
+- **함정**
+  - 받기 전(idle · loading · failed)에는 아무것도 쓰지 않는다. 실패 뒤 혼자 되풀이하지 않는다(다시 받는 길 = «다시 시도» · 서버 신호). 오류 번호 E-CHAR-16 은 사용자가 누른 받기에서만, 저장 실패(17~19)는 같은 실패를 한 번만.
+  - 내가 아직 못 올린 고침이 있는 칸은 받기가 덮지 않는다(올릴 때 서버가 앞 모습을 남긴다). 생성기가 열려 있으면 칸 갈아 끼우기를 건너뛴다.
+  - 화면에서 칸이 비었다고 서버 캐릭터를 지우지 않는다 — 지우기는 휴지통 이동(`trashSlot`)뿐. 서버가 된 뒤에만 `pullForward` 로 칸을 당긴다.
+  - 새 캐릭터는 보관함이 가득 차 있어도 슬롯에 만든다(서버가 보관함 문턱을 보지 않는다 — 20 은 보관함으로 옮길 때 · 복원할 때).
+  - 계정 바뀜: `resetCloset` 이 세대를 올려 진행 중인 받기 · 쓰기의 답을 버린다.
+  - 검사: `checks/sim-closet.js` · 화면 쪽 `checks/sim-my-info-box.js` · `checks/sim-launcher-controls.js`.
+
+## slot-codec.js — 🧬 캐릭터 한 칸 ↔ 서버 def
+
+- **책임**: 화면의 저장 모양(그림 dataURL · GLB base64)을 서버 def(그림 · GLB 는 우리 Storage 주소)로, 그 반대로 바꾼다. 올리는 이름은 «종류_내용해시» 라 같은 그림은 한 번만 올라가고 올린 주소는 이 PC 올리기 캐시(`tw.slotGlbUrls`)에 기억한다 — 맞추기 사본이 아니라 중복 올리기 막이다.
+- **내놓는 것**: `_slotToServerObj`(하나라도 못 올리면 null) · `_slotFromServerObj`(얼굴 · 감은눈이 없으면 던짐) · GLB 캐시 읽기 · 쓰기 · `SLOT_JSON_MAX`(150000자). 검사: `checks/sim-slot-codec.js`.
+
+## slot-save.js — 💾 슬롯 저장 · 받아 앉히기
+
+- **책임**: 서버에서 받은 칸을 화면 캐릭터로 앉히고(`applySlotObjs(arr, which)`), `saveSlots` 가 «지금 화면 → 저장 모양» 직렬화 결과(`lastOut`)와 달라졌는지를 알린다(`onSaved`). 이 PC 에 저장하지 않는다. 빈 그림 방어 · 이미지 복원 실패 칸(`_imgBroken`) 저장 제외는 직전 직렬화 결과 기준.
+- **함정**: `which` 로 고른 칸만 앉히면 나머지 칸의 캐릭터 객체는 그대로다(책상 위 좌석이 붙들고 있다). `pullForward(i)` 는 서버가 휴지통 · 보관함 이동 뒤 당기는 것과 같은 규칙. 검사: `checks/sim-slot-save.js`.
+
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 
 - **책임**: 그래픽 리셋 등으로 캔버스가 비면 같은 캔버스에 다시 그린다. `repairBlankFaces` — 내 사람 칸(저장본 `LS_KEY` 로). `repairSeatTextures` — 남의 사람 좌석(방 동기화가 남긴 `faceUrl` · `blinkUrl`)과 동물 좌석(내 것 포함 · `animal.js` 가 텍스처에 남긴 `userData.twSrc` · `twFill`). `reportGlReset` — WebGL 이 돌아온 직후(`gl-recover.js` `afterRestore`) 빈 좌석 그림 수를 진단 기록에 한 줄 남기고 바로 고친다.

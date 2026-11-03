@@ -413,10 +413,8 @@ PRELOAD.push('admin-mode.js');
 PRELOAD.push('report.js', 'admin-report.js');
 /* my-info.js — 🪪 [내 정보] 화면 · 🏆 랭킹(앱 FSD 17번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyInfo 를 같이 굴린다. */
 PRELOAD.push('my-info.js');
-/* chars.js — 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 조율(앱 FSD 18번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChars 를 같이 굴린다. */
-PRELOAD.push('chars.js');
-/* slot-sync.js — ☁️ 슬롯 기기 간 동기화 · 연동 UI(앱 FSD 19번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSlotSync 를 같이 굴린다. */
-PRELOAD.push('slot-sync.js');
+/* slot-codec.js · closet-api.js · closet.js — 🧬 옷장(서버 원본). 같은 까닭 — 만들 때 하는 일(없음)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
+PRELOAD.push('slot-codec.js', 'closet-api.js', 'closet.js');
 /* away-pic.js — 🫧 자리비움 그림(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAwayPic 를 같이 굴린다. */
 PRELOAD.push('away-pic.js');
 /* myhome-ui.js — 🏠 마이홈 창 버튼 연결(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeUi 를 같이 굴린다. */

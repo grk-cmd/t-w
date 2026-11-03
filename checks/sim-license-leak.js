@@ -187,8 +187,8 @@ const around = (needle, span) => {
   const i = SRC.indexOf(needle);
   return i < 0 ? '' : SRC.slice(i, i + span);
 };
-chk(/pruneUnownedLicenseAssets/.test(around('function loadSlots()', 6000)),
-  '★ 슬롯 복원 — 저장값에 남아 있던 전용 자산을 접는다');
+chk(/_loadedFns\.forEach/.test(around('async function applySlotObjs(', 6000)) && /onLoaded\(\(\)=>(premiumMod\.)?pruneUnownedLicenseAssets\(\)\)/.test(SRC),
+  '★ 슬롯 받아 앉히기 — 끝나면 onLoaded 알림이 돌고, 그 알림에 전용 자산 접기가 걸려 있다');
 chk(/pruneUnownedLicenseAssets[\s\S]{0,400}saveSlots\(\);saveCurSlot\(\)/.test(SRC),
   '★ 공유 코드 불러오기 — **저장 전에** 접는다 (받는 쪽에 라이선스 검사가 없었다)');
 chk(/pruneUnownedLicenseAssets/.test(around('function mergeCatalogIntoSavedDesks', 4000)),

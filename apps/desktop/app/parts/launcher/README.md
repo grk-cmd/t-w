@@ -118,16 +118,15 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 3 | focusLevel | 포커스 레벨 서버 맞추기(`startFocusSync`) |
 | 4 | weeklyChal | 👑 달성표(`startChalSync`) |
 | 5 | gacha | 🎰 가챠(`startGacha`) |
-| 6 | slotSync | ☁️ 슬롯 기기 간 동기(`startSlotsSync`) |
-| 7 | chars | 🧬 캐릭터 보관함 동기(`startCharsSync`) |
-| 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |
-| 9 | scheduler | 📅 일정 알림 받기(`startSchedule`) |
-| 10 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
-| 11 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
-| 12 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
-| 13 | licenseVerify | 🔑 저장된 라이선스 키 재검증 |
-| 14 | licenseRequest | 📨 보낸 라이선스 요청 지켜보기(`startWatch`) |
-| 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+| 6 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset`) |
+| 7 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |
+| 8 | scheduler | 📅 일정 알림 받기(`startSchedule`) |
+| 9 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
+| 10 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
+| 11 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
+| 12 | licenseVerify | 🔑 저장된 라이선스 키 재검증 |
+| 13 | licenseRequest | 📨 보낸 라이선스 요청 지켜보기(`startWatch`) |
+| 14 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 
 **내놓는 것** — `begin(me)` 하나(보통은 nav 로 불린다). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
 
