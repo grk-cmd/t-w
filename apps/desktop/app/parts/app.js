@@ -5906,6 +5906,8 @@ const adminMode = TwAdminMode.createAdminMode({
   isAdmin: ()=>isAdmin,
   setIsAdmin: (v)=>{ isAdmin = v; },
   savedParts: ()=>premiumMod.savedParts(),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
 });
 /* ═══ 💡 얼굴 텍스처 갈아끼우기 · 생성기 조명 ═══ */
 /* 본문(setFaceMap · applyLightPresetToInstance)은 character/mat-tone.js 로 옮겼다(C 구역 떼기 · w3).

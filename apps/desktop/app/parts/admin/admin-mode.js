@@ -4,10 +4,12 @@
    ★ 아래 본문은 app.js 에 있던 글 그대로다(두 덩이를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 6줄 —
      isAdmin 은 이름() 으로 읽고 isAdmin = … 은 setIsAdmin(…) 으로, savedParts 는 이름() 으로. 둘 다 app.js 의 let 이고(isAdmin 은
      이 모듈이 바꾸는 값 · savedParts 는 뒤에서 선언되고 다시 대입) 값이 아니라 읽는 함수 · 쓰는 함수로 받는다. 자리는 파서로 찾았다.
-   ★ 이 모듈이 isAdmin 을 바꾸는 단 한 곳이다(켜기 · 끄기). 권한의 진짜 근거는 서버 규칙(admins/$uid)이다 — 본문 주석 그대로.
+   ★ 이 모듈이 isAdmin 을 바꾸는 단 한 곳이다(켜기 · 끄기). 권한의 진짜 근거는 서버다 — 비밀번호가 맞고 로그인이 있어도 서버가 이 계정을
+     관리자로 알아야(GET /v1/admin/admins/me) 켠다. 아니면 «모드는 켜졌는데 저장이 전부 403» 이 된다.
    ★ 밖에서 부르는 이름은 refreshAdminVisibility 하나 — 부팅 때 관리자 전용 UI 를 숨길 때 app.js 가 adminMode.refreshAdminVisibility 로 부른다.
    ⚠️ document · window · companion · firebaseAPI · crypto · TextEncoder · hotkeyLetter(key-input.js) · navigator 는 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞 · key-input.js 뒤에 싣는 classic script).
+   deps: adminApi — 서버 길(admin-api.js, 켜기 전 관리자 확인) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
    ⚠️ 전역 이름은 TwAdminMode — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-admin-mode.js */
 (function(){
@@ -19,6 +21,9 @@ const ADMIN_PASS_HASH = deps.adminPassHash;       // 비밀번호 SHA-256(앞에
 const isAdmin = deps.isAdmin;                     // 읽는 함수 — 관리자 모드(app.js 의 let)
 const setIsAdmin = deps.setIsAdmin;               // 쓰는 함수 — 켜기 · 끄기는 여기서만
 const savedParts = deps.savedParts;               // 읽는 함수 — 카탈로그 파츠(뒤에서 선언 · 다시 대입되는 let)
+const adminApi = deps.adminApi;
+const apiErrors = deps.apiErrors;
+let checking = false;                              // 서버에 관리자 확인 중 — 확인 버튼을 또 눌러도 한 번
 async function _sha256Hex(s){
   /* ★ 실패하면 null — 계정 이전 쪽 같은 이름 함수(뒤에 있어 이기고 있던 판)와 동작을 맞췄다(개정 16 에서 그쪽을 걷음). */
   try{
@@ -71,16 +76,27 @@ async function _submitAdminPass(){
     const h = await _sha256Hex(pass);
     if(h === ADMIN_PASS_HASH){
       /* 🔐 비밀번호가 맞아도 **구글 로그인이 없으면 켜지 않는다.**
-         [왜] 실제 권한은 서버 규칙(admins/$uid)이 auth.uid 로 판정한다. 로그인이 없으면 저장이
+         [왜] 실제 권한은 서버가 로그인 토큰의 uid 로 판정한다. 로그인이 없으면 저장이
            전부 거부되는데, 관리자 모드만 켜지면 화면에는 버튼이 다 보인다 — 파츠를 등록하고
            "됐겠지" 하고 창을 닫는 사고가 여기서 난다. 화면과 실제 권한을 어긋나지 않게 맞춘다.
          ⚠️ 이건 **편의를 위한 확인이지 보안이 아니다.** 이 검사는 우회할 수 있고, 막는 것은
-           어디까지나 규칙이다. 여기를 강화한다고 서버 쪽을 느슨하게 하지 말 것. */
+           어디까지나 서버다. 여기를 강화한다고 서버 쪽을 느슨하게 하지 말 것. */
       if(!_myAuthUid()){
         err.innerHTML = '구글 로그인이 필요해요<br>프로그램 설정 › 내 계정에서 로그인해 주세요';
         err.style.display='block';
         return;
       }
+      /* 🛡️ 서버가 이 계정을 관리자로 아는가 — 모르면 켜지 않는다(켜 봐야 모든 저장이 403). 닿지 못했을 때도 켜지 않는다: 권한을 확인하지 못했다. */
+      if(checking) return;
+      checking = true;
+      try{ await adminApi.me(); }
+      catch(e){
+        const t = apiErrors.notify(e, adminApi.ERRORS);
+        err.textContent = (t.code === 'ACCESS_DENIED') ? '이 계정은 관리자로 등록돼 있지 않아요' : '서버에서 관리자 권한을 확인하지 못했어요';
+        err.style.display='block';
+        return;
+      }
+      finally{ checking = false; }
       setIsAdmin(true);
       document.body.classList.add('admin');
       if(window.companion && companion.setAdminMode) companion.setAdminMode(true);
