@@ -451,7 +451,7 @@
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
-| **sim-login-flow.js** | 327 | **808a5a8d5654** |
+| **sim-login-flow.js** | 343 | **9023d110a3c6** |
 | **sim-first-run-013.js** | 141 | **14d1b0e813d8** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |
