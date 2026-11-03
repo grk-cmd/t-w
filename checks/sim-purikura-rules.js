@@ -2,6 +2,10 @@
    실행: node sim-purikura-rules.js
         (firebase-database-rules.json · purikura-net.js 와 같은 폴더에서)
 
+   ⚠️ 0.13 — 앱은 이 규칙 노드(photoQuota · rooms/$room/_photo)를 더 쓰지 않는다. 세션 · 정원은 서버(realtime · API)가 가지고,
+     앱의 pk* 어댑터는 프레임 올리기(pkUploadFrame) 하나만 남았다(§6 이 그걸 지킨다). 규칙 파일에서 두 노드를 걷는 묶음(E)이
+     §1~§5 와 이 파일을 같이 걷는다 — 그때까지는 «옛 앱이 쓰던 규칙이 안 깨졌다» 를 지킨다.
+
    [왜 이 검사가 따로 필요한가]
      sim-purikura-net.js 는 purikura-net.js 만 본다. 가짜 서버를 쓰기 때문에 **규칙은 안 탄다.**
      그래서 그 검사가 전부 통과해도, 규칙이 병합되면서 어긋나면 실제 서버에서는
@@ -109,7 +113,7 @@ say('· §2 하루 정원 규칙을 실제로 굴려본다 (요금을 정하는 
 
   const now = Date.UTC(2026, 7, 29, 3, 0, 0);          // 2026-08-29 12:00 KST
   const day = Purikura.kstDay(now);
-  const CAP = Purikura.CAP_PER_DAY;
+  const CAP = 400;   // 규칙 파일의 상한(서버 정원과 같은 값 — 규칙을 걷으면 이 검사도 걷는다)
 
   chk(run(V, { day, n: 1 }, null, now), '아무도 안 찍었을 때 첫 장이 통과한다');
   chk(run(V, { day, n: 6 }, { day, n: 5 }, now), '정확히 1 증가는 통과한다');
@@ -120,7 +124,7 @@ say('· §2 하루 정원 규칙을 실제로 굴려본다 (요금을 정하는 
   chk(run(V, { day, n: CAP }, { day, n: CAP - 1 }, now),
       '마지막 ' + CAP + '번째 한 장은 통과한다');
   chk(!run(V, { day, n: CAP + 1 }, { day, n: CAP }, now),
-      '★ ' + CAP + '을 넘기는 쓰기는 거부된다 — 규칙의 상한과 purikura-net.js 의 CAP_PER_DAY 가 같다');
+      '★ ' + CAP + '을 넘기는 쓰기는 거부된다 — 규칙의 상한이 서버 정원(400)과 같다');
 
   chk(run(V, { day, n: 1 }, { day: day - 86400000, n: CAP }, now),
       '★ 어제 다 썼어도 오늘은 1 부터 다시 시작한다 (자정에 되살아난다)');
@@ -219,31 +223,16 @@ say('· §5 기존 앱이 쓰던 길이 안 막혔는가 (잠그는 사고가 �
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
-say('· §6 어댑터 경계 — null 을 삭제로 읽지 않는가');
+say('· §6 Firebase 길이 줄었는가 — 프레임 올리기 하나만 남는다');
 {
-  /* purikura-net.js 는 "쓰지 않는다"를 null 로 돌려준다. firebase 의 runTransaction 은
-     null 을 **삭제**로 읽고 커밋한다(중단은 undefined). 그대로 넘기면 200번째 다음 사람이
-     photoQuota 를 지우고 카운터가 0 부터 다시 시작한다 — 규칙도 못 막는다(.validate 는
-     삭제에 안 돈다). 화면에는 아무 표시가 안 나고 오히려 "잘 찍힌다".
-     firebase-init.js 는 ESM 이라 node 에서 못 굴리므로, 아래 둘을 각각 확인한다. */
-  const day = Purikura.kstDay(Date.now());
-  chk(Purikura.quotaNext({ day, n: Purikura.CAP_PER_DAY }, day) === null,
-      '★ 정원이 다 찼을 때 계층이 null 을 돌려준다 (= 위험이 살아 있다)');
-
+  /* 세션 · 정원은 realtime · API 로 갔다(purikura-rt.js). firebase-init.js 에 pk* 어댑터가 되살아나면 앱이 다시 옛 길을 부를 수 있다. */
   const src = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : '';
-  const i = src.indexOf('pkTransaction(');
-  const body = i >= 0 ? src.slice(i, i + 900) : '';
-  chk(i >= 0, 'firebase-init.js 에 pkTransaction 어댑터가 있다');
-  chk(/===\s*null\s*\)\s*\?\s*undefined/.test(body),
-      '★ 어댑터가 null 을 undefined(중단)로 바꿔서 넘긴다 — 이 한 줄이 하루 정원을 지킨다');
-  chk(/committed/.test(body) && /snapshot/.test(body),
-      '  ↳ {committed, value} 모양으로 돌려준다 (계층이 그 모양만 본다)');
-
-  const need = ['pkGet', 'pkSet', 'pkUpdate', 'pkRemove', 'pkTransaction', 'pkOnValue', 'pkOnDisconnectRemove'];
-  const miss = need.filter(n => src.indexOf(n + '(') < 0);
-  chk(miss.length === 0, '어댑터 7개가 전부 있다' + (miss.length ? ' — 빠짐: ' + miss.join(', ') : ''));
-  chk(/return \(\) => \{ try\{ un\(\); \}/.test(src),
-      '★ pkOnValue 가 해제 함수를 돌려준다 (삼키면 구독이 영영 안 끊긴다)');
+  chk(!!src, 'firebase-init.js 를 읽었다');
+  const left = [...src.matchAll(/^\s{4}(?:async\s+)?(pk[A-Z]\w*)\(/gm)].map(m => m[1]);
+  chk(left.length === 1 && left[0] === 'pkUploadFrame', '★ pk* 어댑터는 pkUploadFrame 하나뿐이다' + (left.length === 1 ? '' : ' — 지금: ' + left.join(', ')));
+  const i = src.indexOf('async pkUploadFrame(');
+  const up = i >= 0 ? src.slice(i, i + 600) : '';
+  chk(/startsWith\('data:'\)/.test(up) && /getDownloadURL/.test(up) && !/return dataUrl/.test(up), '  pkUploadFrame 은 dataURL 을 받아 Storage 주소만 돌려준다(실패를 삼켜 dataURL 을 돌려주지 않는다)');
 }
 
 console.log(fail ? '\n✗ ' + fail + '곳 실패' : '\n전부 통과 ✅ — 병합된 규칙이 요금과 앱 둘 다 지키고 있다');

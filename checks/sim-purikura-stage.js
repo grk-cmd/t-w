@@ -179,8 +179,8 @@ say('· §3 규칙 — 세로 2컷을 서버가 거부하는가 (식을 실제�
       '★ cutAt 을 미래로 못 쓴다 (미리 적어두고 셔터를 당기는 길)');
 
   /* 계층이 화면보다 먼저 막는지도 같이 본다 — 안 막으면 쓰기가 조용히 실패하고 화면은 무반응이 된다. */
-  chk(/cutAllowed\(cfg\.orient,\s*cfg\.cuts\)/.test(fs.readFileSync('purikura-net.js','utf8')),
-      '★ setConfig 가 허용되지 않는 조합을 먼저 거른다 (규칙에만 맡기면 화면이 무반응이 된다)');
+  chk(/cutAllowed\(cfg\.orient,\s*cfg\.cuts\)/.test(fs.readFileSync('purikura-rt.js','utf8')),
+      '★ setConfig 가 허용되지 않는 조합을 먼저 거른다 (서버는 통째로 거부하니 화면이 무반응이 되지 않게 먼저 거른다)');
 }
 say('');
 

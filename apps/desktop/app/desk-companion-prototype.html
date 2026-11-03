@@ -8403,11 +8403,9 @@
 <!-- 투게더룸(Firebase Realtime Database) — 이 기능은 인터넷 연결이 필요해서 공식 CDN(gstatic) ESM을 사용.
      window.firebaseReady(Promise)로 app.js가 준비 여부를 기다릴 수 있게 함. -->
 <script type="module" src="parts/firebase-init.js"></script>
-<!-- 📷 스티커사진의 «요금을 정하는 계층» — 반드시 parts/app.js **앞**에 둔다(classic script, window.Purikura).
-     ⚠️ THREE 도 DOM 도 firebase SDK 도 안 본다. 실제 통신은 firebaseAPI 의 pk* 어댑터 7개로만 나간다
-       (parts/firebase-init.js 끝부분). 그래서 node 로 따로 검사할 수 있다 — sim-purikura-net.js.
-     ⚠️ firebase-init.js 는 type="module" 이라 이 classic 스크립트들보다 **늦게** 돈다.
-       그래서 app.js 는 firebaseAPI.pkGet 이 아직 없을 수 있다고 보고 쓴다(_purikura() 참고). -->
+<!-- 📷 스티커사진의 순수 계산 계층 — 반드시 parts/app.js **앞**에 둔다(classic script, window.Purikura).
+     ⚠️ THREE 도 DOM 도 통신도 안 본다(시트 기하 · 필터 · 좌표 인코딩 · 하루 경계 문구). 세션 · 정원은 서버가 맡고
+       말을 주고받는 곳은 parts/purikura/purikura-rt.js(세션 포트) — node 로 따로 검사한다(sim-purikura-net.js · sim-purikura-rt.js). -->
 <script src="parts/shared/safe-html.js"></script>   <!-- 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳(window.TwSafeHtml — text · attr · safeUrl · cssUrl · cssColor) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/img-retry.js"></script>   <!-- 🖼 남의 그림을 한 번 더 받을 주소(window.TwImgRetry) — room-sync.js · animal.js · myhome-inbox.js · mallang.js 보다 먼저 -->
 <script src="parts/shared/ps1-dither.js"></script>   <!-- 🕹️ PS1 디더 규칙(색 단계 · Bayer 표) — 스티커사진 PS1 필터와 도트 모드가 같이 읽는다 · 둘보다 먼저 -->
