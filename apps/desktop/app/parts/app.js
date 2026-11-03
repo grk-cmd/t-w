@@ -1352,7 +1352,7 @@ let _flyActive = 0;
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
 const twNav = TwNav;
 const demojiCatalog = TwDemojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js — 채팅 · 마이홈 바탕화면이 같이 읽는 맨 아래 표)
-const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-sync)가 같이 쓴다
+const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-codec)가 같이 쓴다
 const roomSyncMod = TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
@@ -5071,18 +5071,15 @@ async function applyEquippedPartsToSeat(seat, def){
 
 /* ============================================================ CREATOR + LAUNCHER */
 /* 🧍 캐릭터 저장 슬롯 개수. 3 → 5 (요청).
-   ★ 여기 하나만 고치면 되도록 아래 네 곳(loadSlots 순회 · 런처 (n/N) 라벨 · ◀▶ 순환)이
+   ★ 여기 하나만 고치면 되도록 서버에서 받아 앉히는 순회(applySlotObjs) · 런처 (n/N) 라벨 · ◀▶ 순환이
      전부 이 상수를 본다. 숫자를 다시 흩뿌리지 말 것 — 한 곳만 빠뜨리면 "칸은 보이는데
-     저장이 안 되는" 종류의 사고가 난다.
-   ⚠️ 옛 저장값(3칸)과의 호환: loadSlots 는 `arr[i]` 가 없으면 그 칸을 건너뛰므로 4·5번 칸이
-     null 로 남는다(패딩됨). 반대로 5칸으로 저장된 값을 옛 판본이 읽어도 앞 3칸만 읽고 지나간다.
-     즉 양방향 모두 안전하다.
+     저장이 안 되는" 종류의 사고가 난다(서버 슬롯 칸 수도 5 — 바꾸려면 서버 규격과 같이).
    ⚠️ extraSeatSlots(솔로모드 자리추가)는 슬롯 번호 목록이라 자동으로 최대 4석까지 늘어난다.
      layoutSeats 는 인원 수 상한이 없고(방은 이미 10명) 간격·줌을 실측으로 잡으므로 그대로 돈다. */
 const CHAR_SLOT_MAX=5;
 const slots=new Array(CHAR_SLOT_MAX).fill(null);
 /* 🛡️ [얼굴 영구 소실 방어 · 기억] 칸마다 «이 캐릭터는 그림을 가진 적이 있다».
-   켜지는 곳은 둘뿐이다 — loadSlots(부팅에 그림이 있었다) · saveSlots(멀쥰한 그림을 저장했다).
+   켜지는 곳은 둘뿐이다 — applySlotObjs(서버에서 받을 때 그림이 있었다) · saveSlots(멀쥰한 그림을 저장했다).
    꺼지는 곳은 하나뿐이다 — 생성기에서 사용자가 «비운 채 저장»을 직접 확인했을 때.
    이 값이 true 인 칸에 빈 그림이 저장되려 하면 그건 사용자의 뜻이 아니라 사고다. */
 const _faceEverDrawn  = new Array(CHAR_SLOT_MAX).fill(false);
@@ -7318,7 +7315,7 @@ const addFriendMod = TwAddFriend.createAddFriend({
   toast: (...a)=>toast(...a),
 });
 
-/* ═══ 💾 슬롯 저장 · 복원(saveSlots · loadSlots) ═══ */
+/* ═══ 💾 슬롯 저장 · 받아 앉히기(saveSlots · applySlotObjs) ═══ */
 /* 본문은 slot-save.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const slotSaveMod = TwSlotSave.createSlotSave({
@@ -7336,7 +7333,7 @@ const slotSaveMod = TwSlotSave.createSlotSave({
   setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
 });
 /* 슬롯 저장 · 복원 뒤 할 일 — 이 모듈보다 먼저 만들어지는 위층(프리미엄 · 꾸미기 · 설정 화면)은 여기서 건다.
-   동기화 · 보관함은 자기를 만들 때 스스로 건다(slot-sync.js · chars.js). */
+   서버 원본 옷장(closet.js)은 자기를 만들 때 스스로 건다(onSaved). */
 slotSaveMod.onLoaded(()=>premiumMod.pruneUnownedLicenseAssets());
 slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
 slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
@@ -7403,7 +7400,7 @@ function loadImg(src){return new Promise((res,rej)=>{
      JS 는 def.face 에 손댄 적이 없다(대입하는 곳은 친구 전용 네트워크 경로 두 줄뿐이다).
    [saveSlots 의 공백 방어와 무엇이 다른가]
      · saveSlots 쪽은 **저장을 막는다** — 원본이 빈 그림으로 덮이지 않게 한다(영구 소실 차단).
-     · 여기는 **화면을 되돌린다** — 비어 버린 캔버스에 localStorage 원본을 다시 그려 넣는다.
+     · 여기는 **화면을 되돌린다** — 비어 버린 캔버스에 직전 저장 모양(서버에 올린 원본)을 다시 그려 넣는다.
      저장이 한 번도 안 도는 동안에는 saveSlots 쪽이 아예 실행되지 않으므로, 화면 복구는
      별도의 주기 점검이어야 한다. 그래서 둘 다 필요하다.
    [무엇을 안 건드리나]

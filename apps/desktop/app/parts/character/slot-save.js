@@ -121,8 +121,7 @@ function saveSlots(){
   let _str = null;
   try{ _str = JSON.stringify(out); }catch(_){ _str = null; }
   if(_str !== null) _lastOut = out;
-  /* 달라졌을 때만 동기화가 시각을 찍고 올리기를 예약한다(slot-sync.js). 보관함(chars.js)은 안 달라진 저장에서도 받는다 —
-     기준(h)이 빈 항목을 잡는 데만 쓴다(_charsAfterSave 주석). */
+  /* 달라졌을 때만 옷장(closet.js)이 쓰기를 예약한다 — onSaved 의 changed 로 가른다. */
   const _changed = _str !== null && _str !== prevRaw;
   _savedFns.forEach(fn=>{ try{ fn(out, _changed); }catch(_){} });
   if(_rescued.length){

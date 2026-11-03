@@ -287,7 +287,7 @@ function startGacha(){
   _unsubRt = rtOn('collection', ()=>{ pullGacha(false); });
   pullGacha(false);
 }
-/* 로그아웃 · 계정 바뀜 — 메모리를 비운다(이 PC 에 남는 가챠 값은 없다). 구독은 앱을 다시 켜며 풀린다. */
+/* 로그아웃 · 계정 바뀜 — 메모리를 비우고 서버 신호 구독을 푼다(이 PC 에 남는 가챠 값은 없다). */
 function resetGacha(){
   gachaOwned = {}; _gachaUnlocked = {}; _srvState = null; _gachaLoad = 'idle';
   _gachaPullGen++; _gachaPullAgain = false; _gachaStarted = false;

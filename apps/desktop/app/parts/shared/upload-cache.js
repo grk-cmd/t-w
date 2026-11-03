@@ -1,5 +1,5 @@
 /* upload-cache.js — 🗂️ 업로드 캐시(«종류:내용해시 → URL») 규칙 한 곳 (검사 sim-upload-cache.js)
-   [왜] 얼굴 캐시(room-sync.js · tw.roomFaceUrls)와 슬롯 GLB 캐시(slot-sync.js · tw.slotGlbUrls)가 «넘치면 어떻게 버리나» 를
+   [왜] 얼굴 캐시(room-sync.js · tw.roomFaceUrls)와 슬롯 GLB 캐시(slot-codec.js · tw.slotGlbUrls)가 «넘치면 어떻게 버리나» 를
      따로 들고 있었다. 같은 판단이라 여기로 모으고, 같은 그림을 여러 번 올리던 길(통째 비움 · 사본끼리 덮어쓰기 · 동시 업로드)도 여기서 막는다.
    받는 deps 없음. 내놓는 것: createUploadCache() → { trim · touch · merge · once · applyUrlSwaps · FACE_CACHE_MAX · GLB_CACHE_MAX · THUMB_CACHE_MAX }
      · 같은 이름의 순수 함수.
