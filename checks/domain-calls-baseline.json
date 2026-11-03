@@ -1,8 +1,7 @@
 {
  "note": "sim-domain-calls.js 기준선 — 파일별 «다른 도메인 모듈 직접 부름» 개수(예외 빼고). 줄기만 한다: 걷었으면 같은 PR 에서 --write-baseline 으로 내리고, 새 직접 호출은 넣지 말 것(app.js 가 deps 로 잇는다).",
- "total": 34,
+ "total": 33,
  "counts": {
-  "admin/admin-launcher.js": 1,
   "admin/admin-mode.js": 1,
   "character/animal.js": 6,
   "creator/creator-preview.js": 2,

@@ -7218,16 +7218,15 @@ const adBannerMod = TwAdBanner.createAdBanner({
   noticeFeed: noticeFeed,
   settingsMod: settingsMod,
 });
-/* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 편집 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
-   isAdmin · _gameCfg 는 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
+/* 관리자 쪽(🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 · 📢 광고 배너 편집)은 admin/admin-launcher.js 로 옮겼다 — 관리자 코드는 app/parts/admin/ 에.
+   isAdmin 은 다시 대입되는 let 이라 읽는 함수로 넘긴다. 사용자 쪽(배너 그리기 · 구독)은 바로 위 ad-banner.js(앱 FSD 43번).
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const adminLauncher = TwAdminLauncher.createAdminLauncher({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
-  refreshAdBanner: (...a)=>adBannerMod.refreshAdBanner(...a),
-  adBannerKey: adBannerMod.AD_BANNER_KEY,
   isAdmin: ()=>isAdmin,
-  gameCfg: ()=>adBannerMod._gameCfg(),
+  adminApi: adminApi,
+  apiErrors: TwApiErrors.store,
 });
 /* (앱 FSD 43번) 이 자리의 본문도 ad-banner.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
