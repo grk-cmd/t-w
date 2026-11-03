@@ -9,7 +9,7 @@
        · Presence → Presence() · SPINE_AXIS · HEAD_AXIS · HAND_REST · SHAKE_ARM_DROOP → 이름()
          app.js 에서 createPurikuraUi 를 부르는 줄보다 **뒤에** 선언되는 const 라 만들 때 값을 읽으면 TDZ 로 선다 — 읽는 함수로 받는다.
    ★ 세션 입구 _purikura() 는 app.js 에 남겼다(🎲 주사위 · 📷 버튼도 쓴다 — 입구가 하나여야 세션 · 구독이 하나다).
-     그 세션 콜백(onPeers · onMeta · onEvent · onShot · onSlots · onFrames · onRefused)은 이 모듈이 내놓는 onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused 로 들어온다.
+     그 세션 콜백(onPeers · onMeta · onEvent · onShot · onSlots · onFrames · onRefused · onLateStart)은 이 모듈이 내놓는 onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused · onLateStart 로 들어온다.
    ★ createPurikuraUi 는 app.js 의 원래 자리에서 부른다. 만들 때 바로 도는 것(맨 끝 _pkWire — 버튼 · 창 끌기 · ⎋ 사다리 등록)이
      예전과 같은 순서 · 같은 때에 돈다.
    ⚠️ THREE · Purikura · firebaseAPI(프레임 올리기 pkUploadFrame 만) · companion · document 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
@@ -1900,6 +1900,14 @@ async function _pkStart(){
   _pkEnterShooting();
   _pkWaitCut(0);              // ★ 바로 세지 않는다 — 방장이 구도를 맞추고 📷 를 누를 때 시작한다
 }
+/* 시간 초과로 접었던 촬영 시작이 서버에서는 됐다(세션 포트 onLateStart) — 방장 화면이 시작한 것처럼 이어 간다. 서버가 원본이다.
+   ⚠️ 이미 이어 가는 중(기다리는 컷 · 세는 중)이면 건드리지 않는다 — 정상 시작은 이 길을 안 지난다. */
+function _pkOnLateStart(){
+  if(!PK.open || !PK.host || PK.cutIdx >= 0 || PK.waitCut >= 0) return;
+  PK.shots = [];
+  _pkEnterShooting();
+  _pkWaitCut(0);
+}
 function _pkEnterShooting(){
   PK.state = 'shooting';
   const ov = _pkEl('pkOverlay'); ov.classList.add('shooting');
@@ -2667,6 +2675,7 @@ return {
   onSlots: _pkOnSlots,
   onFrames: (o)=>{ if(PK.listening) _pkOnFrames(o || {}); },
   onRefused: _pkOnRefused,
+  onLateStart: _pkOnLateStart,
   onMeta: _pkOnMeta,
   onPeerEvent: _pkOnPeerEvent,
   onShot: _pkOnShot,

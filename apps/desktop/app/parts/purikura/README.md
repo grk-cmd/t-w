@@ -15,12 +15,13 @@ const session = TwPurikuraRt.createPhotoSession({
   onPeers, onMeta, onEvent, onShot,       // 남의 좌표 · 판 · 사건 · 셔터
   onSlots, onFrames,                      // 자리 배치 · 프레임 목록 — 서버가 통째로 보내 준다
   onRefused,                              // 서버가 방장 일을 거절했다({ ref, code })
+  onLateStart,                            // 시간 초과로 접은 촬영 시작이 서버에서는 됐다 — 방장 화면이 이어 간다
 });
 ```
 
 **내놓는 것** — `open(방, { userCode })` → `{ ok, slot, host }` | `{ ok:false, reason }`(`busy` 촬영 중 · `full` 넷이 참 · `notInRoom` 방 밖 · `notReady` 연결 없음 · `timeout` · `error`) · `close()` · `release()`(꾸미기로 넘어갈 때 — 같은 일) · `isHost()` · `mySlot()` · `hostSlot()` · `setConfig` · `setFilter` · `setCam` · `setCut(i, 0|시각)` · `setDone` · `setFrameUrl(i, url|null)` · `fireShutter(n)`(방장 일 — 방장이 아니면 `false`) · `start()` → `{ ok, n, left, nth }` | `{ ok:false, reason, message }`(`closed` 정원 다 씀 · `unavailable` 정원을 못 물음 · `not-host` · `notInRoom` · `notReady` · `timeout` · `error`) · `sendPos` · `sendEvent` · `checkQuota()`(`GET /v1/rooms/photo-quota` — 못 읽으면 던짐) · `watchQuota(cb)`(창이 열려 있는 동안만 — 알림 `photoQuota`가 오면 다시 GET) · `slotsNow` · `framesNow` · `metaNow` · `peersNow` · `serverNow`.
 
-**함정** — ① 자리 칸은 `{ uid, name, fx }` 이고 `uid` 는 userCode(연결의 나 · 방 포트 `myCode`) — 좌석의 `friendUserId` 와 견준다. ② 연결이 끊기거나 서버가 «방 밖» 이라고 답하면 세션을 버리고 `onSlots({})` 로 알린다 — 혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다). ③ 방 코드는 싣지 않는다 — 서버가 지금 방으로 정한다. ④ `setCut` 의 시각은 서버가 찍는다(앱 시계를 싣지 않는다). ⑤ 프레임 그림은 Storage 에 올리고 주소만 `setFrameUrl` — 경로는 `purikura/{방}/{방장 userCode}/{i}.webp` 여야 서버가 받는다.
+**함정** — ⓪ 요청마다 답은 보낸 순서대로 하나다 — 시간 초과된 open · start 는 줄에 stale 로 남겨, 그 늦은 답이 다음 요청의 답으로 읽히지 않게 한다(끊기면 줄을 비운다). ① 자리 칸은 `{ uid, name, fx }` 이고 `uid` 는 userCode(연결의 나 · 방 포트 `myCode`) — 좌석의 `friendUserId` 와 견준다. ② 연결이 끊기거나 서버가 «방 밖» 이라고 답하면 세션을 버리고 `onSlots({})` 로 알린다 — 혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다). ③ 방 코드는 싣지 않는다 — 서버가 지금 방으로 정한다. ④ `setCut` 의 시각은 서버가 찍는다(앱 시계를 싣지 않는다). ⑤ 프레임 그림은 Storage 에 올리고 주소만 `setFrameUrl` — 경로는 `purikura/{방}/{방장 userCode}/{i}.webp` 여야 서버가 받는다.
 검사: `checks/sim-purikura-rt.js`(가짜 연결 · 서버 규약 대조 · 깨 보기).
 
 ## `purikura-ui.js` — 화면에 넣는 값

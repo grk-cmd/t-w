@@ -3300,6 +3300,7 @@ function _purikura(){
     onSlots: o => { purikuraUi.onSlots(o); },
     onFrames: o => { purikuraUi.onFrames(o); },
     onRefused: o => { purikuraUi.onRefused(o); },
+    onLateStart: () => { purikuraUi.onLateStart(); },
   });
   return _pkSession;
 }
@@ -3308,7 +3309,7 @@ function _purikura(){
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)이 예전과 같은 때 돈다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). officeMode · _plPlaying(playlist.js 상태 — plMod.st.playing) 은 다시 대입되는 let 이고, Presence · SPINE_AXIS · HEAD_AXIS ·
    HAND_REST · SHAKE_ARM_DROOP 은 이 줄보다 뒤에 선언되는 const 라(지금 읽으면 TDZ) 읽는 함수로 넘긴다.
-   세션 입구 _purikura() 는 위에 그대로 — 콜백은 purikuraUi.onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused 로 들어간다.
+   세션 입구 _purikura() 는 위에 그대로 — 콜백은 purikuraUi.onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused · onLateStart 로 들어간다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const purikuraUi = TwPurikuraUi.createPurikuraUi({
   purikura: ()=>_purikura(),

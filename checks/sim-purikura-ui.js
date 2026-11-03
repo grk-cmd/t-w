@@ -143,7 +143,7 @@ await sec('── 1. 만들 때 — 배선 _pkWire', () => {
   const e = mkEnv(); const ui = e.mk();
   chk(typeof ui.open === 'function' && typeof ui.close === 'function' && typeof ui.isOpen === 'function' && typeof ui.phase === 'function',
     '내놓는 이름 — open · close · isOpen · phase');
-  chk(['onPeers', 'onMeta', 'onPeerEvent', 'onShot', 'onSlots', 'onFrames', 'onRefused'].every(n => typeof ui[n] === 'function'), '세션 콜백 일곱 — onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused');
+  chk(['onPeers', 'onMeta', 'onPeerEvent', 'onShot', 'onSlots', 'onFrames', 'onRefused', 'onLateStart'].every(n => typeof ui[n] === 'function'), '세션 콜백 여덟 — onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused · onLateStart');
   chk(e.esc.length === 1 && e.esc[0].key === 'purikura' && e.esc[0].el === e.els.pkOverlay, '⎋ 사다리에 한 번 태운다(key purikura · #pkOverlay)');
   chk(e.esc[0].isOpen() === false, '  isOpen 은 DOM(.on)을 읽는다 — 처음엔 닫힘');
   chk(typeof e.els.pkCloseBtn.onclick === 'function' && typeof e.els.pkStartBtn.onclick === 'function' && typeof e.els.pkSaveBtn.onclick === 'function',
@@ -246,7 +246,7 @@ await sec('── 4. 세션 콜백 — 창이 닫혀 있어도 안 터진다', (
   ui.onPeers(null);
   chk(JSON.stringify(ui.state().peers) === '{}', '  null 이면 빈 것');
   let ok = true;
-  try{ ui.onMeta({ state: 'lobby' }); ui.onPeerEvent(1, { k: 'j', at: 1 }); ui.onShot({ i: 0, at: 1 }); ui.onSlots({ 0: { uid: 'uB', name: 'b', fx: 1 } }); ui.onFrames({ 0: 'https://x' }); ui.onRefused({ ref: 'photoConfig', code: 'ROOM_PHOTO_NOT_HOST' }); }catch(err){ ok = false; say('    ' + err.message); }
+  try{ ui.onMeta({ state: 'lobby' }); ui.onPeerEvent(1, { k: 'j', at: 1 }); ui.onShot({ i: 0, at: 1 }); ui.onSlots({ 0: { uid: 'uB', name: 'b', fx: 1 } }); ui.onFrames({ 0: 'https://x' }); ui.onRefused({ ref: 'photoConfig', code: 'ROOM_PHOTO_NOT_HOST' }); ui.onLateStart(); }catch(err){ ok = false; say('    ' + err.message); }
   chk(ok && !ui.isOpen() && e.errors.length === 0, 'onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused — 닫혀 있으면 조용히 흘린다(번호도 안 띄운다)');
   const st0 = ui.state();
   chk(Object.keys(st0.members || {}).length === 0 && Object.keys(st0.frameSrc || {}).length === 0, '  닫혀 있을 때 온 자리 · 프레임으로 상태가 바뀌지 않는다(듣는 동안만 받는다)');
@@ -294,6 +294,17 @@ await sec('── 4-2. 서버 소식 — 열려 있는 동안', async () => {
     chk(e.errors.length === 1 && e.errors[0][0] === 'E-PK-03' && e.errors[0][1] === reason && e.errors[0][2] === message && ui.phase() === 'lobby',
       '시작 거절(' + reason + ') → E-PK-03 + 까닭 문구 · 로비에 남는다');
   }
+  /* 시간 초과로 접은 촬영 시작이 서버에서 됐다 — 방장 화면이 이어 간다 */
+  e = mkEnv(); ui = e.mk(); await ui.open(); e.cuts = [];
+  ui.onLateStart();
+  chk(ui.phase() === 'shooting' && JSON.stringify(e.cuts) === '[[0,0]]', '★ 늦게 알려 온 촬영 시작(onLateStart)이면 방장 화면이 촬영 국면으로 — 첫 컷은 «기다리는 중»');
+  ui.onLateStart();
+  chk(JSON.stringify(e.cuts) === '[[0,0]]', '  이미 이어 가는 중이면 또 시작하지 않는다');
+  ui.close(true);
+  e = mkEnv({ openRes: { ok: true, slot: 1, host: false }, slots: { 0: { uid: 'uB', name: 'b', fx: 1 }, 1: { uid: 'uA', name: '나', fx: 1 } } }); e.mySlot = 1; e.host = false; ui = e.mk(); await ui.open(); e.cuts = [];
+  ui.onLateStart();
+  chk(ui.phase() === 'lobby' && e.cuts.length === 0, '  방장이 아니면 하지 않는다');
+  ui.close(true);
   [e, ui] = await start({ ok: true, n: 1, left: 399, nth: '1번째 · 399회 남음' });
   chk(e.errors.length === 0 && ui.phase() === 'shooting' && JSON.stringify(e.cuts) === '[[0,0]]', '시작이 되면 촬영 국면으로 — 첫 컷은 «기다리는 중»(setCut(0, 0))');
 });
@@ -312,8 +323,8 @@ await sec('── 5. app.js 배선', () => {
   chk(!/makeSession|firebaseAPI|pkGet|pkOnValue/.test(entry) && !/Purikura\.makeSession|firebaseAPI\.pk(?!UploadFrame)/.test(APP), '  Firebase 길(makeSession · pk*)이 app.js 에 없다');
   chk(/onPeers: p => \{ purikuraUi\.onPeers\(p\); \}/.test(entry) && /onMeta : m => \{ purikuraUi\.onMeta\(m\); \}/.test(entry)
     && /onEvent: \(slot, ev\) => \{ purikuraUi\.onPeerEvent\(slot, ev\); \}/.test(entry) && /onShot : s => \{ purikuraUi\.onShot\(s\); \}/.test(entry)
-    && /onSlots: o => \{ purikuraUi\.onSlots\(o\); \}/.test(entry) && /onFrames: o => \{ purikuraUi\.onFrames\(o\); \}/.test(entry) && /onRefused: o => \{ purikuraUi\.onRefused\(o\); \}/.test(entry),
-    '세션 콜백 일곱이 모듈로 들어간다');
+    && /onSlots: o => \{ purikuraUi\.onSlots\(o\); \}/.test(entry) && /onFrames: o => \{ purikuraUi\.onFrames\(o\); \}/.test(entry) && /onRefused: o => \{ purikuraUi\.onRefused\(o\); \}/.test(entry) && /onLateStart: \(\) => \{ purikuraUi\.onLateStart\(\); \}/.test(entry),
+    '세션 콜백 여덟이 모듈로 들어간다');
   chk(/try\{ if\(purikuraUi\.isOpen\(\)\) return; \}catch\(_\)\{\}/.test(code) && /try\{ await purikuraUi\.open\(\); \}/.test(strip(CW))
     && /if\(purikuraUi\.isOpen\(\)\)\{\s*if\(purikuraUi\.phase\(\) === 'shooting'\)[^\n]*\n\s*else if\(purikuraUi\.close\(true\)\)/.test(code),
     '부르는 곳 — 때리기 조준 키 · 📷 버튼(chat-window.js) · 회사원 모드 켜기');

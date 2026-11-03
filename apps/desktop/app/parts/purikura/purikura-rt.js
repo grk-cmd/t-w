@@ -6,6 +6,8 @@
    [방장] 서버가 정한다 — 판(meta)의 host(방장 userCode)가 원본이고, 방장이 바뀌면 서버가 photoMeta 를 다시 보낸다. 앱은 번호를 다시 계산하지 않는다. 방장 일은 방장이 아니면 보내지 않고, 보냈는데 서버가 거절하면(ROOM_PHOTO_NOT_HOST 등) onRefused 로 알린다.
    [자리를 잃는 때] 연결이 끊기거나 · 서버가 «방 밖» 이라고 답하면 세션을 버리고 onSlots({}) 로 알린다 — 화면이 «자리를 잃었어요» 를 한 번 띄운다.
      혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다).
+   [늦은 답] 요청마다 답은 순서대로 하나 — 시간 초과된 요청은 줄에 stale 로 남겨 그 늦은 답이 다음 요청의 답으로 읽히지 않게 한다.
+     촬영 시작이 시간 초과 뒤에 서버에서 됐으면(photoMeta 의 shooting · photoStarted) 방장 화면이 onLateStart 로 이어 간다(서버가 원본).
    [서버 답] photoOpen 은 photoWelcome(성공) 또는 오류(ref photoOpen) · photoStart 는 photoStarted 또는 오류(ref photoStart) — 두 요청은 한 번에 하나씩 기다린다.
      그 밖의 요청은 성공 답이 없다(바뀐 값이 photoMeta · photoFrames 로 돌아온다).
    classic script(window.TwPurikuraRt) — rt-hub.js · purikura-net.js(순수 계산) 다음 · app.js 보다 먼저. 만드는 곳은 app.js _purikura() 한 곳. */
@@ -71,7 +73,7 @@ function quotaView(d, P, nowMs){
 
 /** @param {{ hub: { onMessage: Function, on: Function, onState: Function, send: Function, isReady: () => boolean },
  *    api: { get: Function }, P: object, serverNow: () => number, clock?: () => number, setTimeout?: Function, clearTimeout?: Function,
- *    onPeers?: Function, onMeta?: Function, onEvent?: Function, onShot?: Function, onSlots?: Function, onFrames?: Function, onRefused?: Function,
+ *    onPeers?: Function, onMeta?: Function, onEvent?: Function, onShot?: Function, onSlots?: Function, onFrames?: Function, onRefused?: Function, onLateStart?: Function,
  *    warn?: Function }} deps */
 function createPhotoSession(deps){
   const hub = deps.hub, api = deps.api, P = deps.P;
@@ -81,12 +83,15 @@ function createPhotoSession(deps){
   const warn = deps.warn || ((...a) => console.warn(...a));
   const noop = () => {};
   const onPeers = deps.onPeers || noop, onMeta = deps.onMeta || noop, onEvent = deps.onEvent || noop,
-    onShot = deps.onShot || noop, onSlots = deps.onSlots || noop, onFrames = deps.onFrames || noop, onRefused = deps.onRefused || noop;
+    onShot = deps.onShot || noop, onSlots = deps.onSlots || noop, onFrames = deps.onFrames || noop, onRefused = deps.onRefused || noop, onLateStart = deps.onLateStart || noop;
 
   let inSession = false, slot = -1, hostSlot = -1, slots = {}, meta = null, peers = {}, frames = {};
   let lastSent = { wx: null, d: null, t: 0 };
   let myCode = null;
-  let opening = null, starting = null;   // 답을 기다리는 open · start 하나씩
+  /* 보낸 순서대로 줄 세운 open · start 요청 — 서버는 요청 하나에 답 하나(photoWelcome · photoStarted 아니면 오류)를 순서대로 준다.
+     시간 초과된 요청은 stale 로 줄에 남겨 둔다: 그 요청의 늦은 답이 다음 요청의 답으로 읽히지 않게(답이 오면 줄 맨 앞과 짝지어 stale 이면 버린다) */
+  const openQ = [], startQ = [];
+  const liveOf = (q) => q.find((e) => !e.stale) || null;
   const quotaFns = [];
 
   /* 내 자리 · 방장 자리 — 방장은 서버가 보낸 meta.host(userCode)가 앉은 자리다(없거나 자리에 없으면 -1) */
@@ -104,8 +109,10 @@ function createPhotoSession(deps){
   function isHost(){ return inSession && slot >= 0 && hostSlot >= 0 && slot === hostSlot; }
   function reset(){ inSession = false; slot = -1; hostSlot = -1; slots = {}; meta = null; peers = {}; frames = {}; lastSent = { wx: null, d: null, t: 0 }; }
 
-  function finishOpen(r){ const o = opening; if(!o) return; opening = null; tClear(o.timer); o.res(r); }
-  function finishStart(r){ const s = starting; if(!s) return; starting = null; tClear(s.timer); s.res(r); }
+  /* 답을 받았거나 보내지 못한 요청을 줄에서 빼고 약속을 푼다 */
+  function settle(q, e, r){ const i = q.indexOf(e); if(i >= 0) q.splice(i, 1); tClear(e.timer); e.res(r); }
+  /* 보낸 순서의 답 하나 — 줄 맨 앞(없으면 null). stale 이면 답만 버린다 */
+  const nextAnswer = (q) => q.shift() || null;
   function startFail(reason){
     const now = serverNow();
     return { ok: false, left: 0, reason, reopenAt: P.reopenAt(now), message: reason === 'closed' ? P.closedMessage(now) : (START_MESSAGES[reason] || START_MESSAGES.error) };
@@ -118,13 +125,14 @@ function createPhotoSession(deps){
   }
 
   hub.onMessage('photoWelcome', (m) => {
-    if(!opening) return;
+    const o = nextAnswer(openQ);
+    if(!o || o.stale) return;   // 시간 초과된 요청의 늦은 답 — 그때 이미 자리를 놓았다
     inSession = true; peers = {}; meta = metaFromWire(m.meta);
     slots = slotsFromWire(m.slots); resolve();
     if(slot < 0 && typeof m.slot === 'number') slot = m.slot;
     frames = framesFromWire(m.frames);
     onSlots(slots); onMeta(meta); onFrames(frames);
-    finishOpen({ ok: true, slot, host: isHost() });
+    tClear(o.timer); o.res({ ok: true, slot, host: isHost() });
   });
   hub.onMessage('photoSlots', (m) => { if(!inSession) return; slots = slotsFromWire(m.slots); resolve(); onSlots(slots); onPeers(peers); });
   hub.onMessage('photoMeta', (m) => {
@@ -133,6 +141,8 @@ function createPhotoSession(deps){
     meta = metaFromWire(m.meta); resolve();
     onMeta(meta);
     if(hostSlot !== before) onSlots(slots);   // 방장이 바뀌었다 — 화면이 방장 표시 · 단추를 다시 그린다
+    /* 시간 초과로 접은 촬영 시작이 서버에서는 됐다(shooting) — 서버가 원본이니 방장 화면이 이어 간다 */
+    if(meta && meta.state === 'shooting' && isHost()) lateStart();
   });
   hub.onMessage('photoFrames', (m) => { if(!inSession) return; frames = framesFromWire(m.frames); onFrames(frames); });
   hub.onMessage('photoPos', (m) => {
@@ -146,15 +156,30 @@ function createPhotoSession(deps){
   hub.onMessage('photoStarted', (m) => {
     const nth = Math.max(0, m.nth | 0), left = Math.max(0, m.left | 0);
     if(inSession && nth + left > 0) quotaFns.slice().forEach((f) => f(quotaFromStart(nth, left)));
-    finishStart({ ok: true, n: nth, left, nth: P.startedText(nth, left) });
+    const h = nextAnswer(startQ);
+    if(!h) return;
+    if(h.stale){ if(inSession && isHost()) lateStart(h); return; }
+    tClear(h.timer); h.res({ ok: true, n: nth, left, nth: P.startedText(nth, left) });
   });
+  /* 시간 초과로 접은 촬영 시작을 이어 간다 — 한 요청에 한 번만 */
+  function lateStart(h){
+    const e = h || startQ.find((x) => x.stale && !x.fired);
+    if(!e || e.fired) return;
+    e.fired = true;
+    onLateStart();
+  }
   hub.onMessage('error', (m) => {
     if(!m || PHOTO_REFS.indexOf(m.ref) < 0) return;
-    if(m.ref === 'photoOpen'){ finishOpen({ ok: false, reason: OPEN_REFUSED[m.code] || 'error' }); return; }
+    if(m.ref === 'photoOpen'){
+      const o = nextAnswer(openQ);
+      if(o && !o.stale){ tClear(o.timer); o.res({ ok: false, reason: OPEN_REFUSED[m.code] || 'error' }); }
+      return;
+    }
     if(m.ref === 'photoStart'){
       const reason = START_REFUSED[m.code] || 'error';
       if(reason === 'notInRoom') lose();
-      finishStart(startFail(reason));
+      const h = nextAnswer(startQ);
+      if(h && !h.stale){ tClear(h.timer); h.res(startFail(reason)); }
       return;
     }
     if(m.code === 'notInRoom'){ lose(); return; }
@@ -163,8 +188,9 @@ function createPhotoSession(deps){
   /* 연결이 끊기면 서버는 이 연결의 자리를 비운다(유예 뒤) — 기다리던 요청도 접는다 */
   hub.onState(() => {
     if(hub.isReady()) return;
-    finishOpen({ ok: false, reason: 'notReady' });
-    finishStart(startFail('notReady'));
+    for(const e of openQ.slice()) if(!e.stale) settle(openQ, e, { ok: false, reason: 'notReady' });
+    for(const e of startQ.slice()) if(!e.stale) settle(startQ, e, startFail('notReady'));
+    openQ.length = 0; startQ.length = 0;   // 끊긴 연결에는 답이 오지 않는다
     lose();
   });
 
@@ -188,17 +214,19 @@ function createPhotoSession(deps){
 
   /* 자리 잡기 — 촬영 중이면 busy · 넷이 차면 full · 방 밖이면 notInRoom(서버가 정한다) */
   function open(roomCode, me){
-    if(opening) return Promise.resolve({ ok: false, reason: 'error' });
+    if(liveOf(openQ)) return Promise.resolve({ ok: false, reason: 'error' });
     const code = (me && typeof me.userCode === 'string' && me.userCode) || null;
     if(!roomCode || !code) return Promise.resolve({ ok: false, reason: 'notInRoom' });
     myCode = code;
     return new Promise((res) => {
-      opening = { res, timer: tSet(() => {
-        /* 늦게 도착한 welcome 은 버려지니 서버에 자리가 남지 않게 놓는다 */
-        finishOpen({ ok: false, reason: 'timeout' });
+      const e = { res, stale: false, timer: null };
+      openQ.push(e);
+      e.timer = tSet(() => {
+        /* 늦게 도착할 welcome 은 버려지니 서버에 자리가 남지 않게 놓는다 */
+        e.stale = true; e.res({ ok: false, reason: 'timeout' });
         hub.send({ t: 'photoLeave' });
-      }, OPEN_WAIT_MS) };
-      if(!hub.send({ t: 'photoOpen', fx: P.FILTER_REV })) finishOpen({ ok: false, reason: 'notReady' });
+      }, OPEN_WAIT_MS);
+      if(!hub.send({ t: 'photoOpen', fx: P.FILTER_REV })) settle(openQ, e, { ok: false, reason: 'notReady' });
     });
   }
   /* 창을 닫을 때 · 꾸미기로 넘어갈 때(자리를 놓아야 다음 사람이 방장이 된다) — 마지막 사람이 나가면 서버가 세션을 지운다 */
@@ -231,10 +259,12 @@ function createPhotoSession(deps){
   /* 촬영 시작 — 정원 한 칸은 서버가 이 순간에 쓴다 */
   function start(){
     if(!isHost()) return Promise.resolve(startFail('not-host'));
-    if(starting) return Promise.resolve(startFail('error'));
+    if(liveOf(startQ)) return Promise.resolve(startFail('error'));
     return new Promise((res) => {
-      starting = { res, timer: tSet(() => finishStart(startFail('timeout')), START_WAIT_MS) };
-      if(!hub.send({ t: 'photoStart' })) finishStart(startFail('notReady'));
+      const e = { res, stale: false, fired: false, timer: null };
+      startQ.push(e);
+      e.timer = tSet(() => { e.stale = true; e.res(startFail('timeout')); }, START_WAIT_MS);
+      if(!hub.send({ t: 'photoStart' })) settle(startQ, e, startFail('notReady'));
     });
   }
 
