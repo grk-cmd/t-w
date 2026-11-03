@@ -86,8 +86,11 @@ async function btnRows(mod){
   const boom = new Error('x');
   const bad = await pressDeactivate(mod, { ok: false, err: boom, reason: '서버 문구' });
   const good = await pressDeactivate(mod, { ok: true });
+  const authErr = Object.assign(new Error('a'), { kind: 'auth', code: 'AUTH_REQUIRED' });
+  const lost = await pressDeactivate(mod, { ok: false, err: authErr, reason: '로그인' });
   return [
     [bad.notes.length === 1 && bad.notes[0][0] === 'E-LIC-02' && bad.notes[0][1] === boom && bad.toasts.length === 0, '해제 실패 → 오류 번호 E-LIC-02 한 번(오류를 같이 넘김) · 토스트 글은 없다'],
+    [lost.notes.length === 0 && lost.toasts.length === 0, '로그인이 풀린 실패(kind auth)는 번호도 토스트도 없다 — 로그인 흐름 몫'],
     [good.notes.length === 0 && good.toasts.length === 1 && /해제/.test(good.toasts[0]), '해제 성공 → 토스트 · 오류 번호 없음'],
   ];
 }
@@ -106,6 +109,7 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwLicenseKey = api;', ''), null, null],
 
 
+  ['로그인 풀림도 번호로 알림', m => m.replace("else if(!(r.err && r.err.kind === 'auth')) notifyError", "else notifyError"), null, null],
   ['해제 실패를 번호 대신 문구로', m => m.replace("notifyError('E-LIC-02', r.err);", "toast(r.reason);"), null, null],
   ['만들 때 던짐', m => m.replace('function createLicenseKey(deps){', 'function createLicenseKey(deps){ throw new Error("깨 봄");'), null, null],
 ];

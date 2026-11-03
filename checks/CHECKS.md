@@ -375,7 +375,7 @@
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
-| **sim-license-key.js** | 120 | **16fe6650febc** |
+| **sim-license-key.js** | 124 | **132df15b9b32** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
 | **sim-myhome-init.js** | 165 | **2a0c11657b2b** |
 | **sim-presence-lock.js** | 245 | **77b2fb9a663e** |

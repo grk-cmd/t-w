@@ -35,7 +35,7 @@ document.getElementById('licenseDeactivateBtn').onclick=async ()=>{
   const r=await licensePremiumMod.deactivate();
   refreshLicenseUI();
   if(r.ok) toast('이 기기에서 라이선스가 해제됐어요');
-  else notifyError('E-LIC-02', r.err);
+  else if(!(r.err && r.err.kind === 'auth')) notifyError('E-LIC-02', r.err);   // 로그인이 풀린 실패는 로그인 흐름 몫(license-premium.js fail 과 같다)
 };
 document.getElementById('licenseKeyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('licenseSubmitBtn').click(); });
 
