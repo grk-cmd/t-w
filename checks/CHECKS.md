@@ -327,7 +327,7 @@
 | **sim-room-sync.js** | 99 | **a352bc22d8ac** |
 | **sim-status-chip.js** | 102 | **6cb3c48e161a** |
 | **sim-premium-assets.js** | 95 | **4c3977211ec4** |
-| **sim-char-code.js** | 95 | **9bc8b1717f50** |
+| **sim-char-code.js** | 126 | **d959eba5dff3** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
 | **sim-program-settings.js** | 148 | **ca3242f94e17** |
 | **sim-chat-prefs.js** | 95 | **5fe8258dc973** |

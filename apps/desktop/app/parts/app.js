@@ -7796,6 +7796,7 @@ const charCodeMod = TwCharCode.createCharCode({
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   layoutSeats: (...a)=>layoutSeats(...a),
   loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),
   overheadMod: overheadMod,
