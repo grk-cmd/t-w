@@ -25,6 +25,7 @@ const applyThemeToChildDoc = deps.applyThemeToChildDoc;   // 🎨 별도 창 = �
 const watchMaintenanceInput = deps.watchMaintenanceInput; // 🛠 이 창에서 누른 서버 동작에도 점검 창(maintenance-gate.js)
 const _mhViewingUserId = deps.mhViewingUserId;            // 👀 친구 홈 관람 중이면 그 사람 uid — app.js 의 let(다시 대입된다)
 const _mhViewingDisplayName = deps.mhViewingDisplayName;
+const FALLBACK_ERROR = 'E-SYS-01';                        // feed 가 번호를 못 줬을 때(표에 있는 예비 번호)
 const feed = deps.feed;                                   // 📖 받기 · 쓰기 · 알림 한 벌(guestbook-feed.js)
 const errorText = deps.errorText;                         // 오류 번호 → 사용자에게 보이는 글(TwErrorCodes.toastText) — 창 안 안내줄용
 
@@ -94,6 +95,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
   feed.onChange((e)=>{
     if(e.kind !== 'book') return;
     if(!_gbAlive()){ if(_gbWin){ _gbWin = null; feed.closeBook(); } return; }   // 창이 이미 죽었다(main.js 의 blur 닫기) — 받아 둔 것·«보는 중» 을 거둔다
+    if(feed.owner() === null){ try{ _gbWin.close(); }catch(_){} return; }   // feed 가 방명록을 거뒀다(로그아웃 — 연결을 끔) — 열린 창도 닫는다
     renderClap(); renderList(); _gbApplyWriteUI(gbDoc());
   });
 
@@ -187,7 +189,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     '</style></head><body>'+
     '<div id="gbTitle"><span id="gbTitleText">방명록</span><button id="gbClose">\u2715</button></div>'+
     '<div id="gbBody">'+
-    '<div id="gbClapBox" title="클릭하면 박수(TOTAL CLAP)가 1 올라가요 — 하루 5번까지">'+
+    '<div id="gbClapBox" title="클릭하면 박수(TOTAL CLAP)가 1 올라가요">'+
     '<span id="gbClapHint">웹박수 이미지<br>클릭하면 total 누적</span><img id="gbClapImg" style="display:none;" draggable="false"></div>'+
     '<div id="gbClapRow"><div id="gbClapTotal">TOTAL CLAP : 0</div>'+
     '<div id="gbClapRight"><span id="gbClapFwLbl">폭죽</span>'+
@@ -236,6 +238,8 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     if(_gbMsgTimer){ try{ clearTimeout(_gbMsgTimer); }catch(_){} }
     _gbMsgTimer = setTimeout(gbClearMsg, 8000);   // 계속 남아 목록을 좁히지 않게
   }
+  /* 실패한 쓰기의 창 안 안내줄 글 — 번호 토스트는 feed 가 이미 띄웠다 */
+  const failText = (r) => errorText(r.code || FALLBACK_ERROR);
   function gbClearMsg(){
     if(_gbMsgTimer){ try{ clearTimeout(_gbMsgTimer); }catch(_){} _gbMsgTimer=null; }
     const d=gbDoc(); if(!d) return;
@@ -280,6 +284,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     const clapSrc = clap && TwSafeHtml.safeUrl(clap.img, 'image');   // 그 집 주인이 올린 웹박수 그림 — 허용된 그림 주소만
     if(clapSrc){ if(img){img.src=clapSrc; img.style.display='block';} if(hint) hint.style.display='none'; }
     else { if(img) img.style.display='none'; if(hint) hint.style.display='block'; }
+    const box=d.getElementById('gbClapBox'); if(box && clap) box.title='클릭하면 박수(TOTAL CLAP)가 1 올라가요 — 하루 '+clap.dailyMax+'번까지';   // 하루 몫은 서버 값
     const t=d.getElementById('gbClapTotal'); if(t) t.textContent='TOTAL CLAP : '+((clap&&clap.count)||0);
     /* 🎆 폭죽 이모지 동기화. ⚠️ 지금 그 칸에 타이핑 중이면 건드리지 않는다 — 서버 알림으로 다시 받은 값이
        방금 친 글자를 옛 값으로 덮어써서 "입력이 씹힌다"가 된다. */
@@ -312,7 +317,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
         const del=d.createElement('span'); del.className='gb-del'; del.textContent='삭제';
         del.onclick=async ()=>{
           const r=await feed.remove(en.id);
-          if(!r.ok && r.reason==='failed') gbShow(errorText(r.code || 'E-SYS-01'));   // 오류 번호 알림은 feed 가 이미 띄웠다
+          if(!r.ok && r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다
         };
         row.querySelector('.gb-meta').appendChild(del);
       }
@@ -327,8 +332,8 @@ const errorText = deps.errorText;                         // 오류 번호 → �
        진짜 막는 곳은 서버다(canWrite 가 아니면 NOT_FRIEND 로 거절). */
     const r=await feed.write(text);   // 마이홈2-B: 친구 마이홈 관람 중이면 그 친구 방명록에 남김. 아니면 내 방명록에.
     if(r.ok){ if(inp) inp.value=''; gbClearMsg(); return; }
-    if(r.reason==='blocked'){ gbSay('친구만 방명록을 남길 수 있어요'); if(inp) inp.value=''; return; }
-    if(r.reason==='failed') gbShow(errorText(r.code || 'E-SYS-01'));   // 오류 번호 알림은 feed 가 이미 띄웠다
+    if(r.reason==='blocked'){ gbSay(errorText('E-GB-03')); if(inp) inp.value=''; return; }
+    if(r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다
     // closed · gone · stale — 창이 닫혔거나 계정이 바뀌는 중이다 — 조용히
   };
   function open(){
@@ -387,7 +392,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
         if(v) gbBurst(null, null, v);
         const r=await feed.setEmoji(v);
         if(r.ok){ toast(v ? (v+' 폭죽으로 바꿨어요') : '폭죽을 껐어요'); return; }
-        if(r.reason==='failed') gbShow(errorText(r.code || 'E-SYS-01'));   // 오류 번호 알림은 feed 가 이미 띄웠다
+        if(r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다
         renderClap();   // 저장하지 못했다 — 입력칸을 서버 값으로 되돌린다
       };
       // Enter로도 확정되게 — 입력 상자에 커서를 둔 채 창을 닫으면 change가 안 나는 경우가 있다
@@ -404,7 +409,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
       const r=await feed.clap();
       if(r.ok){ toast('👏 박수! ('+(r.dailyMax - r.todayLeft)+'/'+r.dailyMax+')'); return; }
       if(r.reason==='limit') toast('오늘은 이 홈에 박수를 다 쳤어요 👏');
-      else if(r.reason==='failed') gbShow(errorText(r.code || 'E-SYS-01'));   // 오류 번호 알림은 feed 가 이미 띄웠다
+      else if(r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다
     };
     d.getElementById('gbImgSet').onclick=()=>{
       if(window.companion && companion.gbHold) companion.gbHold();   // 파일 다이얼로그로 포커스가 빠져도 방명록이 안 닫히게 유예
@@ -425,7 +430,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
         const data=c.toDataURL('image/jpeg',0.85);
         feed.setImage(data).then((r)=>{
           if(r.ok) toast('웹박수 이미지를 등록했어요');
-          else if(r.reason==='failed') gbShow(errorText(r.code || 'E-SYS-01'));   // 오류 번호 알림은 feed 가 이미 띄웠다
+          else if(r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다
         });
       }; img.src=e.target.result; };
       reader.readAsDataURL(file);
@@ -437,7 +442,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     /* 서버에서 받는다 — 받는 중에는 입력칸 · 안내줄이 모두 숨고, 받으면 feed 알림이 그린다(🚪 친구가 아니면 입력칸 대신 안내줄) */
     _gbApplyWriteUI(d);
     renderClap();
-    if(!feed.openBook(_gbTargetId())) renderList();   // 내 코드가 없으면 받을 수 없다 — «불러오지 못했어요»
+    if(!feed.openBook(getMyUserId(), _gbTargetId())) renderList();   // 내 코드가 없으면 받을 수 없다 — «불러오지 못했어요»
   }
   window.openMyGuestbook=open;   // 다른 곳(친구 홈 방문 등)에서 재사용 가능
   document.getElementById('mhGuestbookBtn')?.addEventListener('click', open);

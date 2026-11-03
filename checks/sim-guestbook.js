@@ -232,6 +232,16 @@ async function judge(S){
     e.ctx.openMyGuestbook(); await flush();
     const d3 = e.wins[3].document;
     chk(d3.getElementById('gbInputRow').style.display === 'none' && d3.getElementById('gbGuestNote').style.display === 'block', '🚪 서버가 canWrite:false 라 하면 입력칸 대신 안내줄 (친구 목록을 안 본다)');
+    /* 박수 칸 설명의 하루 몫은 서버 값 */
+    const e2 = mkEnv({ src: MOD, answers: { view: bookOf({ clap: { count: 0, img: null, emoji: '', todayLeft: 5, dailyMax: 5 } }) } }); e2.mk(); e2.ctx._mhGbStartWatch(); await flush();
+    e2.ctx.openMyGuestbook(); await flush();
+    const wt = e2.wins[0];
+    chk(/하루 5번까지/.test(wt.document.getElementById('gbClapBox').title) && !/하루 5번/.test(MOD.replace(/title="클릭하면[^"]*"/, '')), '박수 칸 설명 — «하루 n번» 은 서버가 준 dailyMax 로 쓴다(글에 박혀 있지 않다)');
+    e2.answers.view = bookOf({ clap: { count: 0, img: null, emoji: '', todayLeft: 9, dailyMax: 9 } }); e2.notify({ subject: 'uA' }); await flush();
+    chk(/하루 9번까지/.test(wt.document.getElementById('gbClapBox').title), '  서버 값이 바뀌면 따라 바뀐다');
+    /* 로그아웃(연결을 끔) — 열린 창도 닫는다 */
+    e2.states.forEach(fn => fn(RT.OFF));
+    chk(wt.closed && e2.feed.owner() === null, '로그아웃(연결을 끔)이면 열린 방명록 창도 닫는다');
     const eb = mkEnv({ blocked: true, src: MOD }); eb.mk(); eb.ctx._mhGbStartWatch(); eb.ctx.openMyGuestbook();
     chk(eb.toasts[0] === '방명록 창을 열 수 없어요' && eb.feed.owner() === null, '창이 막히면 안내 · 방명록도 안 연다');
     const en = mkEnv({ me: null, src: MOD }); en.mk(); en.ctx.openMyGuestbook(); await flush();
@@ -345,8 +355,10 @@ async function judge(S){
     ['박수 하루 횟수를 앱이 적음', M.replace("const r=await feed.clap();", "try{ localStorage.setItem('gbClap:x', '1'); }catch(_){}\n      const r=await feed.clap();"), '박수 횟수를 적지'],
     ['박수 중 또 눌러도 보냄', M.replace("if(feed.clapBusy()){ toast('박수를 보내는 중이에요 — 잠시만요 👏'); return; }", ""), '또 안 보낸다'],
     ['하루 몫 남은 수를 앱이 셈', M.replace("(r.dailyMax - r.todayLeft)", "1"), '하루 몫은 서버가 준 남은 수'],
+    ['박수 칸 설명에 하루 5번을 박음', M.replace("하루 '+clap.dailyMax+'번까지'", "하루 5번까지'"), '하루 n번'],
+    ['로그아웃에도 창을 안 닫음', M.replace("if(feed.owner() === null){ try{ _gbWin.close(); }catch(_){} return; }", ""), '열린 방명록 창도 닫는다'],
     ['폭죽 저장 실패 때 입력칸을 안 되돌림', M.replace("    renderClap();   // 저장하지 못했다", "    // renderClap();   // 저장하지 못했다"), '서버 값으로 되돌린다'],
-    ['실패를 창 안에 안 보임', M.replace("if(r.reason==='failed') gbShow(errorText(r.code || 'E-SYS-01'));   // 오류 번호 알림은 feed 가 이미 띄웠다\n    // closed", "// closed"), '창 안 안내줄'],
+    ['실패를 창 안에 안 보임', M.replace("if(r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다\n    // closed", "// closed"), '창 안 안내줄'],
   ];
   for(const [name, src, what] of breaks){
     if(src === M){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }

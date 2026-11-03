@@ -103,14 +103,21 @@ async function judge(S){
     e.calls.length = 0; e.notify({ subject: 'ME' }); await flush();
     chk(e.calls.length === 0, '  뗀 뒤엔 알림이 와도 안 받는다');
     f.startBadge(''); chk(e.hooked() === 0 && e.calls.length === 0, '내 코드가 없으면 켜지 않는다(요청 0)');
+    // 내 방명록을 받으면 받은 글 중 최신 시각까지 읽은 것 — PC 시계가 늦어도 새 글로 남지 않는다
+    const lr = mkEnv(F, { answers: { view: book({ entries: [{ id: 'a', ts: 9e12 }, { id: 'b', ts: 3 }] }), count: 1 } });
+    lr.feed.startBadge('ME'); await flush(); lr.feed.openBook('ME', 'ME'); await flush();
+    chk(lr.lastRead.ME === 9e12 && lr.feed.badgeCount() === 0, '내 방명록을 받으면 마지막 읽은 때를 받은 글 중 최신 시각(지금보다 앞이어도)까지 올린다');
+    lr.feed.markRead(); chk(lr.lastRead.ME === 9e12, '  다 읽음이 더 이른 시각으로 내리지 않는다(max)');
+    const lo = mkEnv(F, { answers: { view: book({ entries: [{ id: 'a', ts: 9e12 }] }) } }); lo.feed.startBadge('ME'); await flush(); lo.feed.openBook('ME', 'uOWN'); await flush();
+    chk(!lo.lastRead.ME, '  남의 방명록을 봐도 내 마지막 읽은 때는 안 바뀐다');
   });
 
   await sec('── 2. 열어 둔 방명록', async () => {
     const e = mkEnv(F, { answers: { view: book({ entries: [{ id: 'e1' }] }) } });
     const f = e.feed;
-    chk(f.openBook('uOWN') === false && e.calls.length === 0, '내 코드를 모를 때(켜기 전)는 열 수 없다 — 요청 0');
+    chk(f.openBook('', 'uOWN') === false && e.calls.length === 0, '내 코드를 모르면 열 수 없다 — 요청 0');
     f.startBadge('ME'); await flush(); e.calls.length = 0;
-    chk(f.openBook('uOWN') === true && f.status() === 'loading' && f.view() === null, '열면 받는 중 — 아직 받은 것이 없다(빈 목록이 아니다)');
+    chk(f.openBook('ME', 'uOWN') === true && f.status() === 'loading' && f.view() === null, '열면 받는 중 — 아직 받은 것이 없다(빈 목록이 아니다)');
     await flush();
     chk(f.status() === 'ready' && f.view().entries.length === 1 && e.calls[0] === 'view:ME|uOWN', '받으면 ready · 그 주인의 방명록을 달라고 했다');
     chk(e.sent.join() === '{"t":"guestbookWatch","owner":"uOWN"}', '남의 방명록은 «보는 중» 을 서버에 알린다(그래야 그 방명록이 바뀌었다는 알림이 온다)');
@@ -125,28 +132,28 @@ async function judge(S){
 
     // 내 방명록 — 보는 중을 알리지 않는다
     const m = mkEnv(F); m.feed.startBadge('ME'); await flush();
-    m.feed.openBook('ME'); await flush();
+    m.feed.openBook('ME', 'ME'); await flush();
     chk(!m.sent.some((x) => /guestbookWatch/.test(x)), '내 방명록은 «보는 중» 을 알리지 않는다(주인이라 알림이 원래 온다)');
-    m.feed.openBook('uOWN'); await flush();
+    m.feed.openBook('ME', 'uOWN'); await flush();
     chk(m.sent.join() === '{"t":"guestbookWatch","owner":"uOWN"}', '  내 것 → 남의 것으로 갈아타면 그때 알린다');
-    m.feed.openBook('ME'); await flush();
+    m.feed.openBook('ME', 'ME'); await flush();
     chk(m.sent[m.sent.length - 1] === '{"t":"guestbookUnwatch"}', '  남의 것 → 내 것으로 돌아오면 뗀다');
 
     // 갈아타기 — 앞 것의 늦은 답
     const g = mkEnv(F); g.feed.startBadge('ME'); await flush();
     const da = deferred(), db = deferred();
     g.answers.view = (u, o) => (o === 'uA' ? da.p : db.p);
-    g.feed.openBook('uA'); g.feed.openBook('uB');
+    g.feed.openBook('ME', 'uA'); g.feed.openBook('ME', 'uB');
     db.res(book({ entries: [{ id: 'B' }] })); da.res(book({ entries: [{ id: 'A' }] })); await flush();
     chk(g.feed.owner() === 'uB' && g.feed.view().entries[0].id === 'B', '주인을 갈아타면 앞 방명록의 늦은 답은 버린다(친구 방명록 자리에 내 것이 섞이지 않는다)');
     // 닫은 뒤 늦은 답
     const h = mkEnv(F); h.feed.startBadge('ME'); await flush();
-    const dc = deferred(); h.answers.view = () => dc.p; h.feed.openBook('uA'); h.feed.closeBook(); dc.res(book()); await flush();
+    const dc = deferred(); h.answers.view = () => dc.p; h.feed.openBook('ME', 'uA'); h.feed.closeBook(); dc.res(book()); await flush();
     chk(h.feed.view() === null && h.feed.status() === 'idle', '닫은 뒤에 도착한 답은 버린다');
 
     // 못 받음
     const x = mkEnv(F, { answers: { view: apiErr(503, 'X') } }); x.feed.startBadge('ME'); await flush();
-    x.feed.openBook('uOWN'); await flush();
+    x.feed.openBook('ME', 'uOWN'); await flush();
     chk(x.feed.status() === 'error' && x.feed.view() === null && x.notes.join() === 'E-GB-01:X', '창을 열어 받다 실패 → error(빈 목록이 아니다) + 오류 번호 한 번');
     x.feed.refreshBook({ manual: true }); await flush();
     chk(x.notes.length === 1, '  이어지는 실패는 번호를 또 띄우지 않는다');
@@ -158,9 +165,9 @@ async function judge(S){
 
     // 연결이 끊겼다 붙음
     const r = mkEnv(F); r.connected = false; r.feed.startBadge('ME'); await flush();
-    r.feed.openBook('uOWN'); await flush(); r.calls.length = 0;
+    r.feed.openBook('ME', 'uOWN'); await flush(); r.calls.length = 0;
     r.connected = true; r.state(RT.READY); await flush();
-    chk(r.sent.filter((s) => /guestbookWatch/.test(s)).length === 2 && r.calls.join() === 'view:ME|uOWN', '연결이 없을 때 연 방명록은 다시 붙으면 «보는 중» 을 알리고 한 번 받는다');
+    chk(r.sent.filter((s) => /guestbookWatch/.test(s)).length === 2 && r.calls.join() === 'count:ME|0,view:ME|uOWN', '연결이 없을 때 연 방명록은 다시 붙으면 «보는 중» 을 알리고 한 번 받는다');
     r.state(RT.RETRYING); r.calls.length = 0; await flush();
     chk(r.calls.length === 0, '  재시도 중 상태에서는 아무것도 안 한다');
   });
@@ -170,14 +177,14 @@ async function judge(S){
     const f = e.feed;
     f.startBadge('ME'); await flush();
     chk((await f.write('hi')).reason === 'closed' && e.calls.filter((c) => c.startsWith('write')).length === 0, '열어 둔 방명록이 없으면 보내지 않는다');
-    f.openBook('uOWN'); await flush(); e.calls.length = 0;
+    f.openBook('ME', 'uOWN'); await flush(); e.calls.length = 0;
     const w = await f.write('  안녕  '); await flush();
     chk(w.ok && e.calls[0] === 'write:ME|uOWN|안녕|rid-1', '글 쓰기 — 앞뒤 공백을 자르고 같은 방명록에 · 요청 번호를 실어');
     chk(e.calls[1] === 'view:ME|uOWN', '  서버가 됐다 한 뒤 다시 받아 맞춘다(앱이 글을 정리하지 않는다)');
     chk((await f.write('   ')).reason === 'empty', '빈 글은 보내지 않는다');
     // canWrite
     const b = mkEnv(F, { answers: { view: book({ canWrite: false }) } });
-    b.feed.startBadge('ME'); await flush(); b.feed.openBook('uFRIEND'); await flush(); b.calls.length = 0;
+    b.feed.startBadge('ME'); await flush(); b.feed.openBook('ME', 'uFRIEND'); await flush(); b.calls.length = 0;
     chk((await b.feed.write('hi')).reason === 'blocked' && b.calls.length === 0, '서버가 준 canWrite 가 아니면 보내지 않는다(친구 판정은 서버 한 곳)');
     // 서버 거절
     e.answers.write = { status: 'failed', err: apiErr(403, 'GUESTBOOK_NOT_FRIEND') }; e.notes.length = 0; e.calls.length = 0;
@@ -224,7 +231,7 @@ async function judge(S){
     chk((await f.clap()).code === 'E-NET-07', '  닿지 못한 박수는 공통 번호');
     // 폭죽 — 남의 방명록에서는 막힘 · 내 것에서만
     chk((await f.setEmoji('🔥')).reason === 'blocked', '폭죽 — 남의 방명록의 폭죽은 못 바꾼다(내 것만)');
-    f.openBook('ME'); await flush(); e.calls.length = 0; e.answers.look = undefined;
+    f.openBook('ME', 'ME'); await flush(); e.calls.length = 0; e.answers.look = undefined;
     const em = await f.setEmoji('🔥'); await flush();
     chk(em.ok && e.calls[0] === 'look:ME|2|{"clapEmoji":"🔥"}' && e.calls[1] === 'view:ME|ME', '  내 것은 받은 판(version)으로 보내고 다시 받아 새 판을 맞춘다');
     e.calls.length = 0;
@@ -238,9 +245,9 @@ async function judge(S){
 
   await sec('── 3-2. 박수 그림 — 올리고 → 주소를 겉모습에', async () => {
     const e = mkEnv(F, { answers: { view: book({ version: 5 }) } }); const f = e.feed;
-    f.startBadge('ME'); await flush(); f.openBook('uOWN'); await flush();
+    f.startBadge('ME'); await flush(); f.openBook('ME', 'uOWN'); await flush();
     chk((await f.setImage('d')).reason === 'blocked', '남의 방명록 그림은 못 바꾼다(내 것만)');
-    f.openBook('ME'); await flush(); e.calls.length = 0;
+    f.openBook('ME', 'ME'); await flush(); e.calls.length = 0;
     const ok = await f.setImage('data:X'); await flush();
     chk(ok.ok && e.calls[0] === 'upload:ME|data:X' && e.calls[1] === 'look:ME|5|{"clapImageUrl":"https://img/u.png"}' && e.calls[2] === 'view:ME|ME', '올리기 → 받은 주소를 받은 판(version)으로 PATCH → 다시 받아 맞춘다');
     e.answers.upload = { status: 'failed', err: apiErr(413, 'PAYLOAD_TOO_LARGE') }; e.calls.length = 0; e.notes.length = 0;
@@ -263,22 +270,35 @@ async function judge(S){
 
   await sec('── 4. 끝 — 연결이 끝남 · 계정이 바뀜', async () => {
     const e = mkEnv(F, { answers: { count: 2, view: book() } });
-    e.feed.startBadge('ME'); await flush(); e.feed.openBook('uOWN'); await flush(); e.sent.length = 0;
+    e.feed.startBadge('ME'); await flush(); e.feed.openBook('ME', 'uOWN'); await flush(); e.sent.length = 0;
     e.state(RT.OFF); await flush();
     chk(e.feed.view() === null && e.feed.owner() === null && e.feed.badgeCount() === 0 && e.hooked() === 0, '연결이 끝나면(로그아웃 등) 배지 · 방명록 · 알림 걸기를 모두 비운다');
     chk(e.sent.length === 0, '  끝난 연결에는 떼기 메시지를 보내지 않는다');
     e.calls.length = 0; e.notify({ subject: 'ME' }); await flush();
     chk(e.calls.length === 0, '  비운 뒤엔 알림이 와도 안 받는다');
-    for(const s of [RT.AUTH_FAILED, RT.SESSION_LOST, RT.UPDATE]){
-      const z = mkEnv(F); z.feed.startBadge('ME'); await flush(); z.state(s);
-      chk(z.hooked() === 0 && z.feed.badgeCount() === 0, '  ' + s + ' 도 같다');
+    // 연결만 끊김(OFF 아님) — 받은 것만 거두고 걸기는 둔다. 다시 붙으면(«여기서 계속») 받는다
+    for(const st of [RT.SESSION_LOST, RT.AUTH_FAILED, RT.UPDATE]){
+      const q = mkEnv(F, { answers: { count: 4, view: book({ entries: [{ id: 'k' }] }) } });
+      q.feed.startBadge('ME'); await flush(); q.feed.openBook('ME', 'uOWN'); await flush();
+      q.state(st); await flush();
+      chk(q.feed.view() === null && q.feed.badgeCount() === 0 && q.feed.status() === 'error' && q.feed.owner() === 'uOWN' && q.hooked() === 2, '  ' + st + ' — 받은 값만 거둔다(열린 방명록은 «못 받음» · 알림 걸기 · 내 코드는 그대로)');
+      q.calls.length = 0; q.sent.length = 0; q.state(RT.READY); await flush();
+      chk(q.calls.join() === 'count:ME|0,view:ME|uOWN' && q.feed.badgeCount() === 4 && q.feed.view().entries.length === 1 && q.sent.join() === '{"t":"guestbookWatch","owner":"uOWN"}', '    다시 붙으면 배지 · 열린 방명록을 받고 «보는 중» 을 다시 알린다');
+      q.feed.closeBook(); q.calls.length = 0;
+      q.state(st); q.state(RT.READY); await flush();
+      q.calls.length = 0;
+      chk(q.feed.openBook('ME', 'uOWN') === true, '    다시 붙은 뒤에도 방명록을 열 수 있다(내 코드는 입구에서 받는다)');
+      await flush();
+      chk(q.feed.status() === 'ready', '      받는다');
+      q.state(st); q.calls.length = 0; q.feed.refreshBook({ manual: true }); await flush();
+      chk(q.calls.join() === 'view:ME|uOWN', '    끊긴 채 «다시 시도» 도 요청을 낸다(무반응이 아니다)');
     }
-    const s = mkEnv(F); s.feed.startBadge('ME'); await flush(); s.feed.openBook('uOWN'); await flush(); s.sent.length = 0;
-    s.feed.stop();
-    chk(s.sent.join() === '{"t":"guestbookUnwatch"}' && s.hooked() === 0 && s.feed.owner() === null, 'stop() — 연결이 살아 있으면 «보는 중» 을 떼고 모두 비운다');
+    // 배지만 켜 둔 채 끊겼다 붙음 · 배지를 안 켜고 방명록만 연 경우
+    const bo = mkEnv(F, { answers: { view: book() } }); bo.feed.openBook('ME', 'uOWN'); await flush();
+    chk(bo.feed.status() === 'ready' && bo.hooked() === 2, '배지를 켠 적 없어도 입구에서 내 코드를 받아 방명록이 열린다');
     // 계정이 바뀜
     const a = mkEnv(F); const dv = deferred(); a.answers.view = () => dv.p;
-    a.feed.startBadge('ME'); await flush(); a.feed.openBook('uOWN');
+    a.feed.startBadge('ME'); await flush(); a.feed.openBook('ME', 'uOWN');
     a.feed.startBadge('YOU'); dv.res(book({ entries: [{ id: 'old' }] })); await flush();
     chk(a.feed.owner() === null && a.feed.view() === null, '다른 계정으로 켜면 앞 계정의 열린 방명록을 비우고 · 늦게 온 앞 계정의 답은 버린다');
     a.answers.view = book(); const wr = await a.feed.write('hi');
@@ -326,13 +346,18 @@ async function runAll(){
     ['박수 수를 앱이 셈', S.FEED.replace("count: r.count, todayLeft: r.todayLeft, dailyMax: r.dailyMax }) });", "count: (view.clap.count || 0) + 1, todayLeft: r.todayLeft, dailyMax: r.dailyMax }) });"), '서버 답의 수'],
     ['남의 방명록 폭죽을 바꿈', S.FEED.replace("if(owner !== me || !view) return { ok: false, reason: 'blocked' };", "if(!view) return { ok: false, reason: 'blocked' };"), '내 것만'],
     ['폭죽 끄기를 빈 글로 보냄', S.FEED.replace("v === '' ? null : v", "v"), 'null'],
-    ['409 를 다시 받지 않음', S.FEED.replace("if(t.action === deps.ACTION.REFETCH || (err && err.code === 'GUESTBOOK_NOT_FRIEND')) refreshBook();", ""), '다시 받고'],
-    ['연결 끝나도 안 비움', S.FEED.replace("      reset();   // 연결이 끝났다", "      // reset();   // 연결이 끝났다"), '연결이 끝나면'],
+    ['409 를 다시 받지 않음', S.FEED.replace("if(t.action === deps.ACTION.REFETCH || (err && err.code === NOT_FRIEND_CODE)) refreshBook();", ""), '다시 받고'],
+    ['연결 끝나도 안 비움', S.FEED.replace("      reset();   // 연결을 끈 것", "      // reset();   // 연결이 끝났다"), '연결이 끝나면'],
     ['다시 붙어도 보는 중을 안 알림', S.FEED.replace("if(owner){ syncWatch(); refreshBook(); }", "if(owner){ refreshBook(); }"), '다시 붙으면'],
     ['계정이 바뀌어도 안 비움', S.FEED.replace("if(uid !== me){ reset(); me = uid; }", "me = uid;"), '다른 계정으로 켜면'],
     ['올리기 실패에도 겉모습을 보냄', S.FEED.replace("if(r.status === 'ok' && same(who, ow) && view) r = await api.changeLook", "if(same(who, ow) && view) r = await api.changeLook"), '올리기에 실패하면'],
     ['413 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-07', e)", "notifyError('E-NET-06', e)"), '413'],
     ['남의 방명록 그림을 바꿈', S.FEED.replace("if(owner !== me || !view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload", "if(!view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload"), '내 것만'],
+    ['끊김(OFF 아님)에도 모두 비움', S.FEED.replace("      release();   // 연결만 끊겼다", "      reset();   // 연결만 끊겼다"), '다시 붙으면'],
+    ['다시 붙어도 배지를 안 받음', S.FEED.replace("      if(badgeOn) refreshBadge();\n      if(owner){ syncWatch(); refreshBook(); }", "      if(owner){ syncWatch(); refreshBook(); }"), '배지 · 열린 방명록'],
+    ['열 때 내 코드를 배지에서만 앎', S.FEED.replace("    if(!uid || !ow) return false;\n    if(uid !== me){ reset(); me = uid; }", "    if(!me || !ow) return false;"), '입구에서 받는다'],
+    ['받은 글 시각을 안 올림', S.FEED.replace("if(newest > lastRead.get(who)){", "if(false){"), '최신 시각'],
+    ['다 읽음이 시각을 내림', S.FEED.replace("Math.max(now(), lastRead.get(me))", "now()"), '(max)'],
     ['오류 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-03', e)", "notifyError('E-GB-99', e)"), 'error-codes.js 표'],
   ];
   for(const [name, src, what] of breaks){

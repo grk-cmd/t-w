@@ -148,12 +148,12 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 
 **받는 때** — 배지: 마이홈을 열 때 `GET /v1/me/guestbook/summary?since=<마지막으로 연 때>` 한 번, 그 뒤 realtime `guestbook` 알림(`subject` = 내 코드) · 오래 끊겼다 붙을 때만. 방명록: 창을 열 때 `GET`, 열려 있는 동안 알림이 오면 다시 `GET`(ETag).
 남의 방명록은 열 때 realtime `guestbookWatch{ owner }` 로 «보는 중» 을 알려야 알림이 오고, 창을 닫으면 `guestbookUnwatch`. 혼자 되풀이해서 받지 않는다 — 못 받으면 창의 «다시 시도» 뿐.
-알림 걸기(`rt.on` · `rt.onState`)는 배지나 방명록이 켜져 있는 동안만이고 둘 다 꺼지면 뗀다. 연결이 끝나면(로그아웃 등) feed 가 스스로 `stop`.
+알림 걸기(`rt.on` · `rt.onState`)는 배지나 방명록이 켜져 있는 동안만이고 둘 다 꺼지면 뗀다. 연결 상태가 비우기를 맡는다 — 연결을 끈 것(OFF · 로그아웃)이면 모두 비우고(열린 창도 닫음), 인증 실패 · 다른 기기에 밀림 · 업데이트로 끊긴 것은 받은 것만 거두고 걸기는 둔다(다시 붙으면 배지 · 열린 방명록을 한 번씩 다시 받는다).
 
 **deps** — feed: `api`(guestbook-api) · `rt`(`TwRtHub.store`) · `rtState` · `pending`(`TwRequestId.createPending()`) · `lastRead`(`createLastReadStore(localStorage)` — `tw.mhGbLastRead:<코드>`) · `notifyError` · `translate` · `ACTION` · `now`.
 화면: `feed` · `errorText` · `getMyUserId` · `getDisplayName` · `toast` · `escHtml` · `applyThemeToChildDoc` · `watchMaintenanceInput` · `mhViewingUserId` · `mhViewingDisplayName`.
 
-**내놓는 것** — feed: `startBadge(uid)` · `stopBadge()` · `refreshBadge()` · `badgeCount()` · `markRead()` · `openBook(owner)` · `closeBook()` · `refreshBook({ manual }?)` · `view()` · `status()` · `owner()` · `write(text)` · `remove(id)` · `clap()` · `clapBusy()` · `setEmoji(v)` · `setImage(dataUrl)` · `stop()` · `onChange(fn)`.
+**내놓는 것** — feed: `startBadge(uid)` · `stopBadge()` · `refreshBadge()` · `badgeCount()` · `markRead()` · `openBook(uid, owner)` · `closeBook()` · `refreshBook({ manual }?)` · `view()` · `status()` · `owner()` · `write(text)` · `remove(id)` · `clap()` · `clapBusy()` · `setEmoji(v)` · `setImage(dataUrl)` · `onChange(fn)`.
 쓰기는 `{ ok, reason?, code? }` — `reason`: `closed` · `blocked`(`canWrite` 아님) · `empty` · `gone`(그 사이 창을 닫음) · `stale`(로그인이 바뀌는 중 — 조용히) · `busy` · `limit`(하루 몫을 다 씀 — 오류 번호 없는 안내) · `failed`(`code` = 띄운 오류 번호).
 화면의 window 고리(`_mhGbStartWatch` · `_mhGbStopWatch` · `_mhGbRefreshBadge` · `_mhGbMarkAllRead` · `_mhReSubscribeGuestbook` · `openMyGuestbook`)는 예전 이름 그대로.
 

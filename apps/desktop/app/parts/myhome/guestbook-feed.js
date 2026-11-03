@@ -15,14 +15,13 @@
          now() — 시각(ms)
    내보냄: createGuestbookFeed(deps) → {
      startBadge(uid) · stopBadge() · refreshBadge() · badgeCount() · markRead() — 배지(markRead = 지금까지 다 읽음)
-     openBook(owner) → boolean · closeBook() · refreshBook({ manual }?) → Promise<boolean> · view() · status() · owner() — 열어 둔 방명록
+     openBook(uid, owner) → boolean · closeBook() · refreshBook({ manual }?) → Promise<boolean> · view() · status() · owner() — 열어 둔 방명록
      write(text) · remove(id) · clap() · setEmoji(v) · setImage(dataUrl) → Promise<{ ok, reason?, code?, ... }> — clapBusy() = 박수 답을 기다리는 중인가
-     stop() — 로그아웃 · 계정 바뀜: 배지 · 방명록 · 알림 걸기를 모두 뗀다
      onChange(fn) → 해제 함수 — fn({ kind:'badge'|'book' })
      STATUS · ERRORS(이 묶음이 아는 서버 오류 → 오류 번호 표)
    }
      순수: createLastReadStore(storage) (TwGuestbookFeed 위)
-   ⚠️ 알림 걸기(rt.on · rt.onState)는 배지나 방명록이 켜져 있는 동안만 — 둘 다 꺼지면 뗀다(stop 이 빠진 채 남지 않게). 연결이 끝나면(로그아웃 등) 스스로 stop.
+   ⚠️ 알림 걸기(rt.on · rt.onState)는 배지나 방명록이 켜져 있는 동안만 — 둘 다 꺼지면 뗀다(stop 이 빠진 채 남지 않게). 연결을 끈 것(OFF — 로그아웃 등)이면 스스로 모두 비운다. 인증 실패 · 다른 기기에 밀림 · 업데이트로 끊긴 것은 받은 것만 거두고 걸기는 둔다(다시 붙으면 READY 가 받는다).
    ⚠️ 박수를 보내는 중에 또 누르면 보내지 않는다('busy') — 같은 번호로 서버가 한 번만 세지만, 화면이 «눌렀는데 안 올라간다» 가 되지 않게.
    검사: checks/sim-guestbook-feed.js */
 (function(){
@@ -32,6 +31,7 @@ const STATUS = Object.freeze({ IDLE: 'idle', LOADING: 'loading', READY: 'ready',
 const MSG = Object.freeze({ WATCH: 'guestbookWatch', UNWATCH: 'guestbookUnwatch' });   // realtime 규약 4-4 «방명록 보는 중»
 const LAST_READ_PREFIX = 'tw.mhGbLastRead:';
 const CLAP_LIMIT_CODE = 'GUESTBOOK_CLAP_DAILY_LIMIT';
+const NOT_FRIEND_CODE = 'GUESTBOOK_NOT_FRIEND';
 
 /* «마지막으로 방명록을 연 때» — 이 PC 에 계정별로 기억한다(서버가 «그 뒤 글 수» 를 센다) */
 function createLastReadStore(storage){
@@ -55,7 +55,7 @@ function createGuestbookFeed(deps){
   const NOTICE = deps.ACTION.NOTICE;
   const ERRORS = Object.freeze({
     GUESTBOOK_TEXT_INVALID: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-02', e) },
-    GUESTBOOK_NOT_FRIEND: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-03', e) },
+    [NOT_FRIEND_CODE]: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-03', e) },
     GUESTBOOK_NOT_AUTHOR: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-04', e) },
     GUESTBOOK_EMOJI_INVALID: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-05', e) },
     GUESTBOOK_IMAGE_INVALID: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-06', e) },
@@ -95,10 +95,13 @@ function createGuestbookFeed(deps){
   }
   function onState(s){
     if(s === RT.READY){
-      /* 다시 붙으면 «보는 중» 이 풀려 있다 — 다시 알리고, 끊긴 동안 놓친 알림을 메우려 한 번 받는다 */
+      /* 다시 붙으면(«여기서 계속» 포함) «보는 중» 이 풀려 있고 끊긴 동안 알림을 놓쳤다 — 배지 · 열린 방명록을 한 번씩 다시 받고 «보는 중» 을 다시 알린다 */
+      if(badgeOn) refreshBadge();
       if(owner){ syncWatch(); refreshBook(); }
-    }else if(s === RT.OFF || s === RT.AUTH_FAILED || s === RT.SESSION_LOST || s === RT.UPDATE){
-      reset();   // 연결이 끝났다(로그아웃 · 다른 기기 · 업데이트) — 보낼 길이 없으니 떼기 메시지 없이 비운다
+    }else if(s === RT.OFF){
+      reset();   // 연결을 끈 것(로그아웃 · 계정을 놓음) — 모두 비운다. 보낼 길이 없으니 떼기 메시지도 없다
+    }else if(s === RT.AUTH_FAILED || s === RT.SESSION_LOST || s === RT.UPDATE){
+      release();   // 연결만 끊겼다 — 다시 붙을 수 있으니 받은 것만 거두고 «누구 것을 보는 중인가» 와 알림 걸기는 둔다
     }
   }
   /* «보는 중» 알리기 — 남의 방명록만(내 것은 주인이라 원래 온다). 연결이 아직 없으면 붙을 때 다시(onState) */
@@ -109,6 +112,14 @@ function createGuestbookFeed(deps){
       rt.send({ t: MSG.UNWATCH });
       watching = false;
     }
+  }
+
+  /* 연결이 끊겨 받은 것을 믿을 수 없다 — 받은 값 · 늦은 답만 거둔다. 내 코드 · 배지 켜짐 · 열어 둔 주인 · 알림 걸기는 그대로(다시 붙으면 READY 가 받는다) */
+  function release(){
+    bookGen++; badgeGen++;
+    view = null; failStreak = false; manualNext = false; watching = false; badgeNum = 0;
+    status = owner ? STATUS.ERROR : STATUS.IDLE;   // 열어 둔 창은 «불러오지 못했어요 · 다시 시도» 로
+    emit('book'); emit('badge');
   }
 
   function reset(){
@@ -154,7 +165,7 @@ function createGuestbookFeed(deps){
   /* 지금까지 다 읽음 — 숫자를 내리고, 이미 날아간 옛 숫자가 되살리지 못하게 한다 */
   function markRead(){
     if(!me) return;
-    lastRead.set(me, now());
+    lastRead.set(me, Math.max(now(), lastRead.get(me)));
     badgeGen++; badgeNum = 0;
     emit('badge');
   }
@@ -181,6 +192,11 @@ function createGuestbookFeed(deps){
       }
       if(gen !== bookGen) return false;   // 앞 방명록에서 받은 것 — 버린다
       view = got; status = STATUS.READY; failStreak = false;
+      /* 내 방명록을 보고 있으면 받은 글까지는 읽은 것 — 글 시각은 서버 시계라 PC 시계가 늦어도 «새 글» 로 남지 않게 마지막 읽은 때를 최신 글 시각까지 올린다 */
+      if(ow === who && got.entries.length){
+        const newest = got.entries.reduce((m, en) => Math.max(m, en.ts), 0);
+        if(newest > lastRead.get(who)){ lastRead.set(who, newest); badgeGen++; badgeNum = 0; emit('badge'); }
+      }
       emit('book');
       ok = true;
     }finally{
@@ -189,8 +205,10 @@ function createGuestbookFeed(deps){
     }
     return ok;
   }
-  function openBook(ow){
-    if(!me || !ow) return false;
+  /* 내 코드(uid)는 입구에서 받는다 — 배지를 켠 적이 없어도(연결이 끊겼다 이어진 뒤 포함) 열 수 있다. 다른 계정이면 앞 계정 것을 비우고 시작 */
+  function openBook(uid, ow){
+    if(!uid || !ow) return false;
+    if(uid !== me){ reset(); me = uid; }
     if(owner !== ow){
       bookGen++;
       owner = ow; view = null; status = STATUS.LOADING; failStreak = false; manualNext = false;
@@ -219,7 +237,7 @@ function createGuestbookFeed(deps){
     let code = null;
     const raise = notifyError;   // 표의 notice 가 고른 번호를 받아 띄우고 기억한다(번호는 표 쪽에 글자 그대로 있다)
     if(t.notice) t.notice((c, e, x) => { code = c; return raise(c, e, x); }, err);
-    if(t.action === deps.ACTION.REFETCH || (err && err.code === 'GUESTBOOK_NOT_FRIEND')) refreshBook();
+    if(t.action === deps.ACTION.REFETCH || (err && err.code === NOT_FRIEND_CODE)) refreshBook();
     return { ok: false, reason: 'failed', code };
   }
   /* 쓰는 동안 계정 · 방명록이 바뀌었으면 화면을 건드리지 않는다 */
@@ -304,15 +322,10 @@ function createGuestbookFeed(deps){
     return { ok: true };
   }
 
-  function stop(){
-    if(watching){ rt.send({ t: MSG.UNWATCH }); watching = false; }
-    reset();
-  }
-
   return {
     startBadge, stopBadge, refreshBadge, markRead, badgeCount: () => badgeNum,
     openBook, closeBook, refreshBook, view: () => view, status: () => status, owner: () => owner,
-    write, remove, clap, setEmoji, setImage, stop, clapBusy: () => clapping,
+    write, remove, clap, setEmoji, setImage, clapBusy: () => clapping,
     onChange: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
     STATUS, ERRORS,
   };
