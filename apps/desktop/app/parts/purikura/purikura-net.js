@@ -834,6 +834,9 @@ function quotaLabel(cur, day){
 function nthLabel(n){
   return n + '번째 · ' + Math.max(0, CAP_PER_DAY - n) + '회 남음';   // 예: "5번째 · 195회 남음"
 }
+/* 서버가 정원을 센다(세션 포트 purikura-rt.js) — 아래 둘은 서버 답의 숫자를 문구로만 옮긴다. 상한은 서버 답의 cap · nth + left 에서 온다. */
+function quotaText(left, cap){ return Math.max(0, left | 0) + ' / ' + (cap | 0); }                       // 예: "395 / 400"
+function startedText(nth, left){ return (nth | 0) + '번째 · ' + Math.max(0, left | 0) + '회 남음'; }      // 예: "5번째 · 395회 남음"
 
 /* ══ 세션 ══════════════════════════════════════════════════════════════ */
 function makeSession(api, opts){
@@ -1294,6 +1297,7 @@ return {
   kstDay: kstDay, reopenAt: reopenAt, closedMessage: closedMessage,
   quotaNext: quotaNext, quotaLeft: quotaLeft, quotaUsed: quotaUsed,
   quotaLabel: quotaLabel, nthLabel: nthLabel,
+  quotaText: quotaText, startedText: startedText,
   encPos: encPos, decPos: decPos,
   /* 시트 기하 — 화면·검사기·규칙이 같은 숫자를 보게 하는 유일한 출처 */
   cutsFor: cutsFor, cutAllowed: cutAllowed, fallbackCut: fallbackCut,

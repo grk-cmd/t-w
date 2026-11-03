@@ -1,6 +1,27 @@
 # 📷 `purikura/` — 스티커사진 모듈 사용 안내
 
-스티커사진 모듈의 쓰는 법을 모듈마다 한 절씩 적는다. 통신 · 요금은 `purikura-net.js`(`window.Purikura`), 화면은 `purikura-ui.js`(`window.TwPurikuraUi` — app.js 가 원래 자리에서 `createPurikuraUi(deps)`).
+스티커사진 모듈의 쓰는 법을 모듈마다 한 절씩 적는다. 순수 계산(시트 기하 · 필터 · 좌표 인코딩 · 하루 경계 문구)은 `purikura-net.js`(`window.Purikura`), 서버와의 통신(세션 · 정원)은 `purikura-rt.js`(`window.TwPurikuraRt`), 화면은 `purikura-ui.js`(`window.TwPurikuraUi` — app.js 가 원래 자리에서 `createPurikuraUi(deps)`).
+
+## `purikura-rt.js` — 📷 스티커사진 세션 포트(realtime 연결 하나)
+
+**책임** — 세션(자리 넷 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터)과 하루 정원은 서버가 가진다. 이 모듈은 `photo*` 메시지를 보내고 받아 화면이 읽던 모양으로 옮긴다. 방장은 «살아 있는 자리 중 가장 작은 번호»(서버와 같은 식).
+
+**만드는 법** — app.js `_purikura()` 한 곳(세션 하나 · 콜백 한 벌):
+
+```js
+const session = TwPurikuraRt.createPhotoSession({
+  hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
+  serverNow: ()=>…,                       // 방 포트의 서버 시각 — 카운트다운 · 필터 잠금이 여기서 센다
+  onPeers, onMeta, onEvent, onShot,       // 남의 좌표 · 판 · 사건 · 셔터
+  onSlots, onFrames,                      // 자리 배치 · 프레임 목록 — 서버가 통째로 보내 준다
+  onRefused,                              // 서버가 방장 일을 거절했다({ ref, code })
+});
+```
+
+**내놓는 것** — `open(방, { userCode })` → `{ ok, slot, host }` | `{ ok:false, reason }`(`busy` 촬영 중 · `full` 넷이 참 · `notInRoom` 방 밖 · `notReady` 연결 없음 · `timeout` · `error`) · `close()` · `release()`(꾸미기로 넘어갈 때 — 같은 일) · `isHost()` · `mySlot()` · `hostSlot()` · `setConfig` · `setFilter` · `setCam` · `setCut(i, 0|시각)` · `setDone` · `setFrameUrl(i, url|null)` · `fireShutter(n)`(방장 일 — 방장이 아니면 `false`) · `start()` → `{ ok, n, left, nth }` | `{ ok:false, reason, message }`(`closed` 정원 다 씀 · `unavailable` 정원을 못 물음 · `not-host` · `notInRoom` · `notReady` · `timeout` · `error`) · `sendPos` · `sendEvent` · `checkQuota()`(`GET /v1/rooms/photo-quota` — 못 읽으면 던짐) · `watchQuota(cb)`(창이 열려 있는 동안만 — 알림 `photoQuota`가 오면 다시 GET) · `slotsNow` · `framesNow` · `metaNow` · `peersNow` · `serverNow`.
+
+**함정** — ① 자리 칸은 `{ uid, name, fx }` 이고 `uid` 는 userCode(연결의 나 · 방 포트 `myCode`) — 좌석의 `friendUserId` 와 견준다. ② 연결이 끊기거나 서버가 «방 밖» 이라고 답하면 세션을 버리고 `onSlots({})` 로 알린다 — 혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다). ③ 방 코드는 싣지 않는다 — 서버가 지금 방으로 정한다. ④ `setCut` 의 시각은 서버가 찍는다(앱 시계를 싣지 않는다). ⑤ 프레임 그림은 Storage 에 올리고 주소만 `setFrameUrl` — 경로는 `purikura/{방}/{방장 userCode}/{i}.webp` 여야 서버가 받는다.
+검사: `checks/sim-purikura-rt.js`(가짜 연결 · 서버 규약 대조 · 깨 보기).
 
 ## `purikura-ui.js` — 화면에 넣는 값
 
