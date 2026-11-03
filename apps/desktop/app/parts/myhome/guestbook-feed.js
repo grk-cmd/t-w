@@ -16,7 +16,7 @@
    내보냄: createGuestbookFeed(deps) → {
      startBadge(uid) · stopBadge() · refreshBadge() · badgeCount() · markRead() — 배지(markRead = 지금까지 다 읽음)
      openBook(owner) → boolean · closeBook() · refreshBook({ manual }?) → Promise<boolean> · view() · status() · owner() — 열어 둔 방명록
-     write(text) · remove(id) · clap() · setEmoji(v) → Promise<{ ok, reason?, code?, ... }> — clapBusy() = 박수 답을 기다리는 중인가
+     write(text) · remove(id) · clap() · setEmoji(v) · setImage(dataUrl) → Promise<{ ok, reason?, code?, ... }> — clapBusy() = 박수 답을 기다리는 중인가
      stop() — 로그아웃 · 계정 바뀜: 배지 · 방명록 · 알림 걸기를 모두 뗀다
      onChange(fn) → 해제 함수 — fn({ kind:'badge'|'book' })
      STATUS · ERRORS(이 묶음이 아는 서버 오류 → 오류 번호 표)
@@ -58,6 +58,10 @@ function createGuestbookFeed(deps){
     GUESTBOOK_NOT_FRIEND: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-03', e) },
     GUESTBOOK_NOT_AUTHOR: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-04', e) },
     GUESTBOOK_EMOJI_INVALID: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-05', e) },
+    GUESTBOOK_IMAGE_INVALID: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-06', e) },
+    IMAGE_INVALID: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-06', e) },
+    UNSUPPORTED_MEDIA_TYPE: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-06', e) },
+    PAYLOAD_TOO_LARGE: { action: NOTICE, notice: (notifyError, e) => notifyError('E-GB-07', e) },
   });
   const subs = [];
   let me = null;
@@ -281,6 +285,25 @@ function createGuestbookFeed(deps){
     return { ok: true };
   }
 
+  /* 박수 그림 — 내 방명록만. 올리고(url) → 그 주소를 받은 판(version)으로 겉모습에 넣는다. 올리기에 실패하면 겉모습은 건드리지 않는다 */
+  async function setImage(dataUrl){
+    if(!me || !owner) return { ok: false, reason: 'closed' };
+    if(owner !== me || !view) return { ok: false, reason: 'blocked' };
+    if(looking) return { ok: false, reason: 'busy' };
+    const who = me, ow = owner;
+    looking = true;
+    let r;
+    try{
+      r = await api.uploadImage(who, dataUrl);
+      if(r.status === 'ok' && same(who, ow) && view) r = await api.changeLook(who, view.version, { clapImageUrl: r.url });
+    }finally{ looking = false; }
+    if(!same(who, ow)) return { ok: false, reason: 'gone' };
+    if(r.status === 'stale') return { ok: false, reason: 'stale' };
+    if(r.status === 'failed') return fail(r.err);
+    refreshBook();
+    return { ok: true };
+  }
+
   function stop(){
     if(watching){ rt.send({ t: MSG.UNWATCH }); watching = false; }
     reset();
@@ -289,7 +312,7 @@ function createGuestbookFeed(deps){
   return {
     startBadge, stopBadge, refreshBadge, markRead, badgeCount: () => badgeNum,
     openBook, closeBook, refreshBook, view: () => view, status: () => status, owner: () => owner,
-    write, remove, clap, setEmoji, stop, clapBusy: () => clapping,
+    write, remove, clap, setEmoji, setImage, stop, clapBusy: () => clapping,
     onChange: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
     STATUS, ERRORS,
   };

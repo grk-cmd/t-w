@@ -81,6 +81,7 @@ function mkEnv(opt){
     write: async (uid, owner, text, rid) => (await ans('write', [uid, owner, text, rid])) || { status: 'ok', entry: { id: 'n1' } },
     remove: async (uid, owner, id) => (await ans('remove', [uid, owner, id])) || { status: 'ok' },
     clap: async (uid, owner, rid) => (await ans('clap', [uid, owner, rid])) || { status: 'ok', count: 1, todayLeft: 4, dailyMax: 5 },
+    uploadImage: async (uid, data) => (await ans('upload', [uid, data])) || { status: 'ok', url: 'https://img/u.png' },
     changeLook: async (uid, version, patch) => (await ans('look', [uid, version, JSON.stringify(patch)])) || { status: 'ok' },
   };
   const rt = {
@@ -113,8 +114,6 @@ function mkEnv(opt){
   env.mk = () => ctx.TwGuestbook.createGuestbook({
     feed: env.feed,
     errorText: (code) => TwErrorCodes.toastText(code),
-    notifyError: (code) => { env.notes.push(code); env.toasts.push(TwErrorCodes.toastText(code)); },
-    setClapImage: async (uid, data) => { env.images.push(uid + ':' + data); if(env.failImage) throw new Error('denied'); },
     getMyUserId: () => env.me,
     getDisplayName: () => env.name,
     toast: (m) => env.toasts.push(m),
@@ -297,7 +296,7 @@ async function judge(S){
     /* 그림 — 서버에 길이 생길 때까지 옛 길 */
     d.getElementById('gbImgSet').onclick();
     chk(e.held === 1 && d.getElementById('gbClapImgFile').clicked === 1, '이미지 등록 — 창이 안 닫히게 유예하고 자식 창의 파일 칸을 누른다');
-    chk(!/firebaseAPI/.test(strip(MOD)) && /setClapImage\(getMyUserId\(\), data\)/.test(MOD), '  그림 올리기는 app.js 가 연결한 옛 길(setClapImage)을 부른다 — 모듈이 firebaseAPI 를 직접 안 만진다');
+    chk(!/firebaseAPI|setClapImage/.test(strip(MOD)) && /feed\.setImage\(data\)/.test(MOD), '  그림 올리기는 feed.setImage(서버 그림 길 → PATCH)를 부른다 — 모듈이 Firebase 를 안 만진다');
   });
 
   await sec('── 5. app.js 배선', () => {
@@ -311,7 +310,7 @@ async function judge(S){
     chk(/function showChatBubble\(seat, text\)/.test(APP) && !/showChatBubble/.test(strip(MOD)), '💬 showChatBubble 은 app.js 에 남는다');
     const call = (APP.match(/TwGuestbook\.createGuestbook\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
     const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-    chk(deps.length === 12 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|\(\w+(, \w+)?\)=>|guestbookFeed,)/.test(l)), 'deps 12개 — feed 말고는 전부 화살표로 감싼다(부를 때 찾게) (' + deps.length + ')');
+    chk(deps.length === 10 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|\(\w+(, \w+)?\)=>|guestbookFeed,)/.test(l)), 'deps 10개 — feed 말고는 전부 화살표로 감싼다(부를 때 찾게) (' + deps.length + ')');
     chk(/mhViewingUserId: \(\)=>_mhViewingUserId,/.test(call) && !/myHomeFriends/.test(call), '다시 대입되는 값은 읽는 함수로 · 친구 목록은 더 안 받는다(쓰기 판정은 서버 canWrite)');
     const m = strip(MOD);
     chk(!/_mhViewingUserId(?!\s*\(|!==|\s*===)/.test(m.replace(/const _mhViewingUserId = deps\.mhViewingUserId;/, '')), '모듈 본문은 읽는 함수만 부른다(값으로 쓰면 함수가 늘 참이 된다)');

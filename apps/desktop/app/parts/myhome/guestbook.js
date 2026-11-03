@@ -27,8 +27,6 @@ const _mhViewingUserId = deps.mhViewingUserId;            // 👀 친구 홈 관
 const _mhViewingDisplayName = deps.mhViewingDisplayName;
 const feed = deps.feed;                                   // 📖 받기 · 쓰기 · 알림 한 벌(guestbook-feed.js)
 const errorText = deps.errorText;                         // 오류 번호 → 사용자에게 보이는 글(TwErrorCodes.toastText) — 창 안 안내줄용
-const notifyError = deps.notifyError;                     // TwErrorCodes.notify — 박수 그림 올리기 실패(옛 길)에만 직접 쓴다
-const setClapImage = deps.setClapImage;                   // 🖼 박수 그림 올리기 — 서버에 그림 길이 생길 때까지 옛 길 그대로(app.js 가 연결)
 
 /* ============================================================ 📖 방명록 새 글 뱃지 (자기 홈 관점)
    ── 마이홈이 열려있을 때만 «마지막으로 방명록 창을 연 뒤 새 글 수» 를 서버에서 받아 방명록 버튼(#mhGuestbookBtn)
@@ -425,10 +423,10 @@ const setClapImage = deps.setClapImage;                   // 🖼 박수 그림 
         c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
         c.getContext('2d').drawImage(img,0,0,c.width,c.height);
         const data=c.toDataURL('image/jpeg',0.85);
-        /* TODO: 박수 그림 올리기는 서버에 그림 길이(Storage 주소를 PATCH /v1/me/guestbook 의 clapImageUrl 로)가 생길 때까지 옛 길이다. */
-        Promise.resolve(setClapImage(getMyUserId(), data))
-          .then(()=>{ toast('웹박수 이미지를 등록했어요'); feed.refreshBook(); })
-          .catch((e)=>{ notifyError('E-GB-06', e); gbShow(errorText('E-GB-06')); });
+        feed.setImage(data).then((r)=>{
+          if(r.ok) toast('웹박수 이미지를 등록했어요');
+          else if(r.reason==='failed') gbShow(errorText(r.code || 'E-SYS-01'));   // 오류 번호 알림은 feed 가 이미 띄웠다
+        });
       }; img.src=e.target.result; };
       reader.readAsDataURL(file);
     });

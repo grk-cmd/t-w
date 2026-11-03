@@ -42,6 +42,7 @@ function mkEnv(src, opt){
     write: async (uid, owner, text, rid) => (await ans('write', [uid, owner, text, rid])) || { status: 'ok', entry: { id: 'n1' } },
     remove: async (uid, owner, id) => (await ans('remove', [uid, owner, id])) || { status: 'ok' },
     clap: async (uid, owner, rid) => (await ans('clap', [uid, owner, rid])) || { status: 'ok', count: 9, todayLeft: 1, dailyMax: 5 },
+    uploadImage: async (uid, data) => (await ans('upload', [uid, data])) || { status: 'ok', url: 'https://img/u.png' },
     changeLook: async (uid, version, patch) => (await ans('look', [uid, version, JSON.stringify(patch)])) || { status: 'ok' },
   };
   const rt = {
@@ -235,6 +236,31 @@ async function judge(S){
     chk((await f.setEmoji('ab')).code === 'E-GB-05', '  이모지가 아니라는 거절 → E-GB-05');
   });
 
+  await sec('── 3-2. 박수 그림 — 올리고 → 주소를 겉모습에', async () => {
+    const e = mkEnv(F, { answers: { view: book({ version: 5 }) } }); const f = e.feed;
+    f.startBadge('ME'); await flush(); f.openBook('uOWN'); await flush();
+    chk((await f.setImage('d')).reason === 'blocked', '남의 방명록 그림은 못 바꾼다(내 것만)');
+    f.openBook('ME'); await flush(); e.calls.length = 0;
+    const ok = await f.setImage('data:X'); await flush();
+    chk(ok.ok && e.calls[0] === 'upload:ME|data:X' && e.calls[1] === 'look:ME|5|{"clapImageUrl":"https://img/u.png"}' && e.calls[2] === 'view:ME|ME', '올리기 → 받은 주소를 받은 판(version)으로 PATCH → 다시 받아 맞춘다');
+    e.answers.upload = { status: 'failed', err: apiErr(413, 'PAYLOAD_TOO_LARGE') }; e.calls.length = 0; e.notes.length = 0;
+    const big = await f.setImage('d');
+    chk(!big.ok && big.code === 'E-GB-07' && e.calls.length === 1 && e.notes.join() === 'E-GB-07:PAYLOAD_TOO_LARGE', '413 → E-GB-07 · 올리기에 실패하면 겉모습은 건드리지 않는다');
+    e.answers.upload = { status: 'failed', err: apiErr(400, 'IMAGE_INVALID') };
+    chk((await f.setImage('d')).code === 'E-GB-06', '400 IMAGE_INVALID → E-GB-06');
+    e.answers.upload = { status: 'failed', err: apiErr(415, 'UNSUPPORTED_MEDIA_TYPE') };
+    chk((await f.setImage('d')).code === 'E-GB-06', '415 → E-GB-06');
+    e.answers.upload = { status: 'failed', err: apiErr(503, 'X') };
+    chk((await f.setImage('d')).code === 'E-NET-07', '503 (저장소 장애) → 닿지 못함 번호(그림 문제가 아니라고 구분)');
+    e.answers.upload = undefined; e.answers.look = { status: 'failed', err: apiErr(409, 'CONCURRENT_UPDATE') }; e.calls.length = 0;
+    const cu = await f.setImage('d'); await flush();
+    chk(!cu.ok && e.calls.some((c) => c.startsWith('view:')), '둘째가 409 면 다시 받는다');
+    e.answers.look = { status: 'failed', err: apiErr(400, 'GUESTBOOK_IMAGE_INVALID') };
+    chk((await f.setImage('d')).code === 'E-GB-06', '서버가 주소를 거절(GUESTBOOK_IMAGE_INVALID) → E-GB-06');
+    e.answers.look = undefined; e.answers.upload = { status: 'stale' };
+    chk((await f.setImage('d')).reason === 'stale', '로그인이 바뀌는 중이면 조용히');
+  });
+
   await sec('── 4. 끝 — 연결이 끝남 · 계정이 바뀜', async () => {
     const e = mkEnv(F, { answers: { count: 2, view: book() } });
     e.feed.startBadge('ME'); await flush(); e.feed.openBook('uOWN'); await flush(); e.sent.length = 0;
@@ -304,6 +330,9 @@ async function runAll(){
     ['연결 끝나도 안 비움', S.FEED.replace("      reset();   // 연결이 끝났다", "      // reset();   // 연결이 끝났다"), '연결이 끝나면'],
     ['다시 붙어도 보는 중을 안 알림', S.FEED.replace("if(owner){ syncWatch(); refreshBook(); }", "if(owner){ refreshBook(); }"), '다시 붙으면'],
     ['계정이 바뀌어도 안 비움', S.FEED.replace("if(uid !== me){ reset(); me = uid; }", "me = uid;"), '다른 계정으로 켜면'],
+    ['올리기 실패에도 겉모습을 보냄', S.FEED.replace("if(r.status === 'ok' && same(who, ow) && view) r = await api.changeLook", "if(same(who, ow) && view) r = await api.changeLook"), '올리기에 실패하면'],
+    ['413 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-07', e)", "notifyError('E-NET-06', e)"), '413'],
+    ['남의 방명록 그림을 바꿈', S.FEED.replace("if(owner !== me || !view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload", "if(!view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload"), '내 것만'],
     ['오류 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-03', e)", "notifyError('E-GB-99', e)"), 'error-codes.js 표'],
   ];
   for(const [name, src, what] of breaks){

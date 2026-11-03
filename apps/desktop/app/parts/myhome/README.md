@@ -151,16 +151,16 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 알림 걸기(`rt.on` · `rt.onState`)는 배지나 방명록이 켜져 있는 동안만이고 둘 다 꺼지면 뗀다. 연결이 끝나면(로그아웃 등) feed 가 스스로 `stop`.
 
 **deps** — feed: `api`(guestbook-api) · `rt`(`TwRtHub.store`) · `rtState` · `pending`(`TwRequestId.createPending()`) · `lastRead`(`createLastReadStore(localStorage)` — `tw.mhGbLastRead:<코드>`) · `notifyError` · `translate` · `ACTION` · `now`.
-화면: `feed` · `errorText` · `notifyError` · `setClapImage` · `getMyUserId` · `getDisplayName` · `toast` · `escHtml` · `applyThemeToChildDoc` · `watchMaintenanceInput` · `mhViewingUserId` · `mhViewingDisplayName`.
+화면: `feed` · `errorText` · `getMyUserId` · `getDisplayName` · `toast` · `escHtml` · `applyThemeToChildDoc` · `watchMaintenanceInput` · `mhViewingUserId` · `mhViewingDisplayName`.
 
-**내놓는 것** — feed: `startBadge(uid)` · `stopBadge()` · `refreshBadge()` · `badgeCount()` · `markRead()` · `openBook(owner)` · `closeBook()` · `refreshBook({ manual }?)` · `view()` · `status()` · `owner()` · `write(text)` · `remove(id)` · `clap()` · `clapBusy()` · `setEmoji(v)` · `stop()` · `onChange(fn)`.
+**내놓는 것** — feed: `startBadge(uid)` · `stopBadge()` · `refreshBadge()` · `badgeCount()` · `markRead()` · `openBook(owner)` · `closeBook()` · `refreshBook({ manual }?)` · `view()` · `status()` · `owner()` · `write(text)` · `remove(id)` · `clap()` · `clapBusy()` · `setEmoji(v)` · `setImage(dataUrl)` · `stop()` · `onChange(fn)`.
 쓰기는 `{ ok, reason?, code? }` — `reason`: `closed` · `blocked`(`canWrite` 아님) · `empty` · `gone`(그 사이 창을 닫음) · `stale`(로그인이 바뀌는 중 — 조용히) · `busy` · `limit`(하루 몫을 다 씀 — 오류 번호 없는 안내) · `failed`(`code` = 띄운 오류 번호).
 화면의 window 고리(`_mhGbStartWatch` · `_mhGbStopWatch` · `_mhGbRefreshBadge` · `_mhGbMarkAllRead` · `_mhReSubscribeGuestbook` · `openMyGuestbook`)는 예전 이름 그대로.
 
-**오류 번호** — `E-GB-01`(방명록 받기 실패 — 연 · 누른 받기만) · `E-GB-02`~`05`(서버 거절) · `E-GB-06`(박수 그림 올리기 — 옛 길). 그 밖의 실패는 공통 `E-NET-*`.
+**오류 번호** — `E-GB-01`(방명록 받기 실패 — 연 · 누른 받기만) · `E-GB-02`~`05`(서버 거절) · `E-GB-06`(박수 그림을 쓸 수 없음) · `E-GB-07`(512KB 초과). 그 밖의 실패는 공통 `E-NET-*`.
 
 **함정** — 글 쓰기 · 박수는 `requestId` 를 싣는다. 닿지 못한 일은 같은 번호로 다시(서버가 한 번만 반영), 서버가 답한 일(거절 포함)은 번호를 놓는다.
-방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림 올리기(Storage)는 서버에 그림 길이 생길 때까지 옛 길(`firebaseAPI.setClapImage` — app.js 가 연결)이고, 서버 방명록 `clap.imageUrl` 에는 아직 반영되지 않는다.
+방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림은 요청 둘이다 — `POST /v1/me/images?purpose=clap`(바이트 그대로 · 512KB 이하 png/webp/jpeg → `{ url }`) 다음 `PATCH /v1/me/guestbook { version, clapImageUrl }`. 첫째가 실패하면 겉모습은 그대로, 둘째가 409 면 다시 받는다. `setImage(dataUrl)`.
 
 검사: `checks/sim-guestbook-api.js` · `checks/sim-guestbook-feed.js` · `checks/sim-guestbook.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
 

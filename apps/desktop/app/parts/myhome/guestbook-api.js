@@ -12,13 +12,14 @@
      write(uid, owner, text, requestId) → Promise<{ status, entry?, err? }>
      remove(uid, owner, id) → Promise<{ status, err? }>
      clap(uid, owner, requestId) → Promise<{ status, count?, todayLeft?, dailyMax?, err? }>
+     uploadImage(uid, dataUrl) → Promise<{ status, url?, err? }> — 512KB 이하 png/webp/jpeg 만(넘으면 요청 없이 failed)
      changeLook(uid, version, { clapEmoji?, clapImageUrl? }) → Promise<{ status, err? }> — 칸이 null 이면 지움 · 칸이 없으면 그대로
        status = 'ok' | 'stale'(읽은 뒤 로그인한 사람이 바뀌었거나 읽은 적이 없어 보내지 않았다) | 'failed'(err = 서버가 준 오류)
    }
      순수: entryOf · viewOf · PATHS (TwGuestbookApi 위)
    ⚠️ 쓰기는 «읽은 토큰의 주인» 과 묶는다(expectOwner) — 로그인이 바뀌는 틈에 앞 계정의 화면에서 누른 것이 새 계정 토큰으로 나가지 않게.
    ⚠️ 글 쓰기 · 박수는 requestId 를 실어 보낸다(같은 일을 다시 보내도 한 번만 — 번호를 만드는 쪽은 feed).
-   ⚠️ 박수 그림 올리기(Storage)는 이 provider 에 없다 — 서버에 그림 길이 생길 때까지 옛 길(app.js 의 setClapImage 연결)이 그대로다.
+   ⚠️ 박수 그림은 먼저 uploadImage(POST /v1/me/images?purpose=clap → { url }) 한 뒤 그 url 을 changeLook 의 clapImageUrl 로 보낸다(두 요청 · 서버가 우리 Storage 주소만 받는다).
    검사: checks/sim-guestbook-api.js */
 (function(){
 'use strict';
@@ -31,7 +32,25 @@ const PATHS = Object.freeze({
   claps: (owner) => '/v1/guestbooks/' + enc(owner) + '/claps',
   summary: (since) => '/v1/me/guestbook/summary?since=' + enc(String(since)),
   look: '/v1/me/guestbook',
+  image: '/v1/me/images?purpose=clap',
 });
+/* 서버 상한과 같은 값 — 넘기면 서버가 413 으로 거절한다 */
+const LIMITS = Object.freeze({ IMAGE_BYTES: 512 * 1024 });
+const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp', 'image/jpeg']);
+const IMAGE_INVALID_CODE = 'IMAGE_INVALID';
+const TOO_LARGE_CODE = 'PAYLOAD_TOO_LARGE';
+const localError = (code) => Object.assign(new Error(code), { code, kind: 'request' });
+
+/* data:image/…;base64,… → { type, bytes }. 형식이 아니면 null */
+function parseDataUrl(u){
+  const m = /^data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]*)$/.exec(typeof u === 'string' ? u : '');
+  if(!m) return null;
+  let bin;
+  try{ bin = atob(m[2]); }catch(_){ return null; }
+  const bytes = new Uint8Array(bin.length);
+  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { type: m[1], bytes };
+}
 const OWNER_CHANGED_CODE = 'OWNER_CHANGED';   // api-client.js — 쓰기 직전 토큰 주인이 읽을 때와 달라졌다
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -117,6 +136,17 @@ function createGuestbookApi(deps){
       if(n === undefined || left === undefined || max === undefined) return { status: 'failed', err: shapeError() };
       return { status: 'ok', count: n, todayLeft: left, dailyMax: max };
     },
+    /* 박수 그림 올리기 — data: 그림 → POST /v1/me/images?purpose=clap(바이트 그대로) → { status, url?, err? }.
+       형식 · 512KB 를 넘으면 요청 없이 failed(IMAGE_INVALID · PAYLOAD_TOO_LARGE). 서버 거절(400 IMAGE_INVALID · 413 · 415)·503 은 err 그대로 */
+    async uploadImage(uid, dataUrl){
+      const img = parseDataUrl(dataUrl);
+      if(!img || IMAGE_TYPES.indexOf(img.type) < 0 || img.bytes.length === 0) return { status: 'failed', err: localError(IMAGE_INVALID_CODE) };
+      if(img.bytes.length > LIMITS.IMAGE_BYTES) return { status: 'failed', err: localError(TOO_LARGE_CODE) };
+      const r = await write(uid, '박수 그림 올리기', (o) => authed.post(PATHS.image, img.bytes, Object.assign({ rawType: img.type }, o)));
+      if(r.status !== 'ok') return r;
+      const url = isObj(r.data) && typeof r.data.url === 'string' ? r.data.url : '';
+      return url ? { status: 'ok', url } : { status: 'failed', err: shapeError() };
+    },
     async changeLook(uid, version, patch){
       const body = { version };
       if(patch && 'clapEmoji' in patch) body.clapEmoji = patch.clapEmoji;
@@ -127,7 +157,7 @@ function createGuestbookApi(deps){
   };
 }
 
-const api = { createGuestbookApi, entryOf, viewOf, PATHS };
+const api = { createGuestbookApi, entryOf, viewOf, PATHS, LIMITS };
 if(typeof window !== 'undefined') window.TwGuestbookApi = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

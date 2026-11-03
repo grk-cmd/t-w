@@ -3096,8 +3096,6 @@ const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 
 const guestbook = TwGuestbook.createGuestbook({
   feed: guestbookFeed,
   errorText: (code)=>TwErrorCodes.toastText(code),
-  notifyError: (...a)=>TwErrorCodes.notify(...a),
-  setClapImage: (uid, data)=>firebaseAPI.setClapImage(uid, data),   // 🖼 박수 그림 올리기 — 서버에 그림 길이 생길 때까지 옛 길
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
   toast: (...a)=>toast(...a),

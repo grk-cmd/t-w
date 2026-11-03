@@ -1748,13 +1748,7 @@
       }
     },
     // ===== 방명록 / 웹박수 =====
-    // 읽기 · 글 쓰기 · 지우기 · 박수 · 폭죽은 서버 API(guestbook-api.js)로 옮겼다. 그림 올리기만 서버에 그림 길이 생길 때까지 이 옛 길이 남았다.
-    // 홈 주인이 웹박수 이미지 등록/변경 (400px 이하로 리사이즈된 base64)
-    async setClapImage(userId, img){
-      // ★ Storage Phase 2 — 박수 이미지도 Storage로
-      const url = img ? await _uploadDataUrlIfNeeded(`users/${userId}/clap.jpg`, img) : null;
-      await update(ref(db, `users/${userId}/clap`), { img: url });
-    },
+    // 읽기 · 쓰기 · 박수 · 폭죽 · 그림은 서버 API(myhome/guestbook-api.js)로 옮겼다 — 여기 남은 길 없음.
     // ===== (기존) 방/좌석 시스템 =====
     // 방 입장 전 현재 인원수 확인 — STALE(5분 이상 응답없음) 멤버는 제외하고 셈. 입장 정원 제한에 사용.
     async checkRoomCapacity(room){
