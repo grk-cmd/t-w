@@ -38,9 +38,9 @@ const load = (src, name, extra) => {
 };
 const flush = async () => { for(let i = 0; i < 3; i++) await new Promise(r => setImmediate(r)); };   // 걸려 있는 약속을 다 끝낸다
 
-/* firebase-init 의 친구 함수(목록 한 번 · 목록 구독 ~ 접속 상태 한 번)를 떼어 가짜 SDK 위에서 돌린다 */
+/* firebase-init 의 친구 함수(목록 한 번 · 목록 구독 ~ 프로필 한 번)를 떼어 가짜 SDK 위에서 돌린다 */
 function fakeFirebase(S, N){
-  const i0 = S.FI.indexOf('    watchMyFriendList(myId, onChange, onError){'), i1 = S.FI.indexOf('    async getFriendPresence(fid){', i0), i2 = i1 < 0 ? -1 : S.FI.indexOf('\n    },\n', i1);
+  const i0 = S.FI.indexOf('    watchMyFriendList(myId, onChange, onError){'), i1 = S.FI.indexOf('    async getFriendProfile(fid){', i0), i2 = i1 < 0 ? -1 : S.FI.indexOf('\n    },\n', i1);
   const g0 = S.FI.indexOf('    async getMyFriendList(myId){'), g1 = g0 < 0 ? -1 : S.FI.indexOf('\n    },\n', g0);
   if(!(i0 > 0 && i2 > i1 && g1 > g0)) return null;
   const db = { list: {}, profile: {}, presence: {} };
@@ -74,10 +74,9 @@ function wire(S, F, opts){
   const clock = { t: 0 };
   const a = F.api;
   const fbp = FB.createFriendsFirebase({ getList: (...x) => a.getMyFriendList(...x), watchList: (...x) => a.watchMyFriendList(...x), getCard: (...x) => a.getFriendCard(...x),
-    watchPresence: (...x) => a.watchFriendPresence(...x), getPresence: (...x) => a.getFriendPresence(...x),
     watchProfile: (...x) => a.watchFriendProfile(...x), getProfile: (...x) => a.getFriendProfile(...x),
     setTimer: (fn) => { T.q.push(fn); return T.q.length; }, clearTimer: (id) => { T.q[id - 1] = null; }, now: () => clock.t });
-  const port = P.createFriendsPort({ firebase: fbp, api: null, source: () => 'firebase', serverFirst: SW.serverFirst, warn(){} });
+  const port = P.createFriendsPort({ firebase: fbp, presence: { watchPresence: () => () => {}, readPresence: async () => ({}) }, api: null, source: () => 'firebase', serverFirst: SW.serverFirst, warn(){} });
   const box = { cur: {}, emits: 0 };
   const listFriends = (opts && opts.listFriends) ? opts.listFriends(port) : (...x) => port.listFriends(...x);
   const sub = FSM.createFriendsSub({ subscribe: (...x) => port.watchList(...x), fetchOnce: (id) => port.listFriends(id, { idsOnly: true }), listFriends,
@@ -102,11 +101,11 @@ async function judge(S){
     chk(F.on() === 1 && box.cur.f1 && box.cur.f1.name === '옛이름1', '★ 평소(목록 닫힘) 상시 구독 1개 · 이름은 한 번 읽어 얹음 (지금 ' + F.on() + ')');
     sub.open('myhome', () => {});
     await flush(); T.run(); await flush();
-    chk(F.on() === 1 + 2 * N && F.on(/\/presence$/) === N && F.on(/\/profile$/) === N, '★ 목록을 열면 1 + 2×' + N + ' = ' + (1 + 2 * N) + '개 — 접속 상태 ' + N + ' · 프로필 ' + N + ' (지금 ' + F.on() + ')');
+    chk(F.on() === 1 + N && F.on(/\/presence$/) === 0 && F.on(/\/profile$/) === N, '★ 목록을 열면 1 + ' + N + ' = ' + (1 + N) + '개 — 프로필 ' + N + '(접속 상태는 Firebase 구독 0 — realtime 하나) (지금 ' + F.on() + ')');
     chk(F.everOn(/\/home\//) === 0, '★ 소개 · 사진(home/bio · home/avatar)은 구독 0 — 열 때 한 번 읽기만 (구독 ' + F.everOn(/\/home\//) + ')');
     sub.open('invite', () => {});
     await flush();   // 초대 목록 첫 열기의 목록 받기까지 끝낸 뒤에 이름을 바꾼다 — 바뀐 이름은 듣기로만 와야 한다
-    chk(F.on() === 1 + 2 * N, '  초대 목록까지 열어도 겹쳐 걸지 않음 (지금 ' + F.on() + ')');
+    chk(F.on() === 1 + N, '  초대 목록까지 열어도 겹쳐 걸지 않음 (지금 ' + F.on() + ')');
     const before = box.emits;
     F.write('f2', { name: '새이름2', level: 7, cyc: 2, clv: 3, starC: '#112233', updatedAt: 2 });
     T.run(); await flush();

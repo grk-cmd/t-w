@@ -8626,6 +8626,8 @@
 <script src="parts/focus/lv-tier.js"></script>   <!-- 레벨 티어 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLvTier.createLvTier 로 만든다) -->
 <script src="parts/friends/friends-firebase.js"></script>   <!-- 친구 데이터 옛 길 provider(Firebase) — app.js 보다 먼저(app.js 가 TwFriendsFirebase.createFriendsFirebase 로 만든다) -->
 <script src="parts/friends/friends-api.js"></script>   <!-- 친구 데이터 api provider(GET /v1/me/friends · 다시 묻기 규칙) — app.js 보다 먼저(app.js 가 TwFriendsApi.createFriendsApi 로 만든다) -->
+<script src="parts/friends/friends-presence-rt.js"></script>   <!-- 친구 접속 상태 realtime provider(presenceGet · watch) — rt-hub.js 다음 · friends-port.js 보다 먼저(app.js 가 TwFriendsPresenceRt.createFriendsPresenceRt 로 만든다) -->
+<script src="parts/friends/presence-self.js"></script>   <!-- 내 접속 표시를 realtime 에 알림(status) — app.js 보다 먼저(app.js 가 TwPresenceSelf.createPresenceSelf 로 만든다) -->
 <script src="parts/friends/friends-port.js"></script>   <!-- 친구 데이터 포트 — app.js 보다 먼저(app.js 가 TwFriendsPort.createFriendsPort 로 만든다) -->
 <script src="parts/myhome/friends-sub.js"></script>   <!-- 친구 목록 구독 한 벌(상태 · 자동 다시 걸기) — app.js 보다 먼저(app.js 가 TwFriendsSub.createFriendsSub 로 만든다) -->
 <script src="parts/myhome/presence-lock.js"></script>   <!-- 🔒 친구 탭 온라인 고정 — app.js 보다 먼저(app.js 가 TwPresenceLock.createPresenceLock 로 만든다) -->

@@ -577,6 +577,8 @@ PRELOAD.push('lv-tier.js');
 /* friends-firebase.js · friends-api.js · friends-port.js — 친구 데이터 provider · 포트. 같은 까닭 — app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
 PRELOAD.push('friends-firebase.js');
 PRELOAD.push('friends-api.js');
+PRELOAD.push('friends-presence-rt.js');
+PRELOAD.push('presence-self.js');
 PRELOAD.push('friends-port.js');
 /* source-switch.js — 기능별 받는 곳 고르기(서버 / 파이어베이스). app.js 가 친구 포트를 만들 때 TwSourceSwitch.serverFirst 를 넘긴다. */
 PRELOAD.push('source-switch.js');

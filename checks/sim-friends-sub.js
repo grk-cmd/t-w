@@ -71,7 +71,7 @@ async function judge(S){
   const mk = (o) => {
     o = o || {};
     const T = mkTimers();
-    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], ones: [], pres: [], presLive: 0, reads: [], friends: {}, toasts: [], sets: 0 };
+    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], ones: [], pres: [], presLive: 0, reads: [], friends: {}, toasts: [], errs: [], sets: 0 };
     E.mod = FS.createFriendsSub({
       subscribe: (id, ok, err) => {
         const s = { id, ok, err, on: true };
@@ -83,12 +83,13 @@ async function judge(S){
       fetchOnce: (id) => new Promise((res, rej) => { E.fetches.push({ id, res, rej }); }),
       listFriends: (id) => new Promise((res, rej) => { const l = { id, res, rej }; E.lists.push(l); if(o.failList) rej(new Error('offline')); else if(!o.holdList) res(Object.assign({}, o.details)); }),   // 받을 때마다 새 객체(서버가 주는 것처럼)
       readFriend: (fid) => new Promise((res, rej) => { E.ones.push({ fid, res, rej }); }),
-      watchPresence: (id, ids, cb) => { const w = { id, ids: ids.slice(), cb, on: true }; E.pres.push(w); E.presLive++; return () => { if(w.on){ w.on = false; E.presLive--; } }; },
-      readPresence: (fid) => { E.reads.push(fid); if(o.readFail) return Promise.reject(new Error('offline')); return Promise.resolve({ online: true, room: 'R-' + fid }); },
+      watchPresence: (id, ids, cb, st) => { const w = { id, ids: ids.slice(), cb, st, on: true }; E.pres.push(w); E.presLive++; return () => { if(w.on){ w.on = false; E.presLive--; } }; },
+      readPresence: (ids) => { E.reads.push(ids.join()); if(o.readFail) return Promise.reject(new Error('offline')); const m = {}; ids.forEach(fid => { m[fid] = { online: true, room: 'R-' + fid }; }); return Promise.resolve(m); },
       current: () => E.friends,
       setFriends: (v) => { E.sets++; E.friends = v; },
       getMyUserId: () => (o.noUid ? null : 'ME'),
       toast: (m) => E.toasts.push(m),
+      notifyError: (c, e) => E.errs.push(c),
       setTimer: T.set, clearTimer: T.clear,
       onUnload: (fn) => E.unload.push(fn),
     });
@@ -385,6 +386,40 @@ async function judge(S){
     await E.mod.refreshPresence(['f1']);
     chk(E.reads.join() === 'f1' && E.got.length === before + 1 && E.got[E.got.length - 1][1].f1.online === false, '한 번 읽기가 실패해도 — 끝나고 지난 값으로 다시 넘긴다');
     chk((await E.mod.refreshPresence([])) === undefined && E.reads.length === 1, '  빈 목록이면 안 읽는다');
+    chk(E.errs.join() === 'E-FR-05', '★ 한 번 읽기 실패 — 오류 번호 E-FR-05 로 알린다');
+    await E.mod.refreshPresence(['f1']);
+    chk(E.errs.length === 1, '  이어서 또 실패해도 다시 알리지 않는다(이어지는 동안 한 번)');
+  }
+  {
+    /* 읽기가 성공하면 알림도 타이머도 없다 — 혼자 다시 읽지 않는다 */
+    const E = mk(); E.start(); await flush(); E.last().ok({ f1: {} });
+    E.mod.refreshPresence(['f1']);
+    await flush();
+    chk(E.errs.length === 0 && E.reads.length === 1 && E.T.pending() === 0, '읽기가 성공하면 알림 없음 · 타이머 없음(혼자 다시 받지 않는다)');
+  }
+  {
+    /* 듣기 상태 — live / waiting 은 알리지 않고, down 은 한 번 알린다. live 로 돌아오면 다시 알릴 수 있다 */
+    const E = mk(); E.start(); await flush(); E.last().ok({ f1: {} });
+    chk(E.mod.presenceState() === 'idle', '듣기 전 — presenceState idle');
+    E.mod.open('myhome', () => {});
+    const w = E.pres[0];
+    w.st('waiting');
+    chk(E.mod.presenceState() === 'waiting' && E.errs.length === 0, '★ 연결을 붙이는 중(waiting) — 알리지 않는다(스스로 붙는다)');
+    w.st('down');
+    chk(E.mod.presenceState() === 'down' && E.errs.join() === 'E-FR-05', '★ 연결이 멈춤(down) — E-FR-05 한 번');
+    w.st('down');
+    chk(E.errs.length === 1, '  이어지는 동안 또 알리지 않는다');
+    w.st('live'); w.st('down');
+    chk(E.mod.presenceState() === 'down' && E.errs.length === 2, '  받았다가(live) 다시 멈추면 다시 알린다');
+    w.st('live');
+    chk(E.mod.presenceState() === 'live', '  live — 처음 전체를 받음');
+    E.mod.close('myhome');
+    chk(E.mod.presenceState() === 'idle', '  닫으면 idle');
+    E.mod.open('myhome', () => {});
+    const old = E.pres[E.pres.length - 1];
+    E.mod.close('myhome');
+    old.st('down');
+    chk(E.errs.length === 2 && E.mod.presenceState() === 'idle', '  풀린 듣기의 늦은 상태는 버린다');
   }
 
   {
@@ -405,11 +440,11 @@ async function judge(S){
       '내 코드 없음 · 시작 전 판정 — 요청 0 · 빈 목록 · 토스트 0');
   }
   /* ── 3. firebase-init.js 친구 함수(옛 길) ── */
-  say('── 3. firebase-init.js — 목록 구독 하나(친구별 구독 없음) · 카드 한 번 읽기 · 접속 상태 구독 · 한 번 읽기');
+  say('── 3. firebase-init.js — 목록 구독 하나(친구별 구독 없음) · 카드 한 번 읽기 · 프로필 구독 · 한 번 읽기 (접속 상태는 realtime)');
   const i0 = S.FB.indexOf('    watchMyFriendList(myId, onChange, onError){');
-  const i1 = i0 < 0 ? -1 : S.FB.indexOf('    async getFriendPresence(fid){', i0);
+  const i1 = i0 < 0 ? -1 : S.FB.indexOf('    async getFriendProfile(fid){', i0);
   const i2 = i1 < 0 ? -1 : S.FB.indexOf('\n    },\n', i1);
-  chk(i0 > 0 && i1 > i0 && i2 > i1 && S.FB.indexOf('    subscribeMyFriends(') < 0, 'watchMyFriendList · getFriendCard · watchFriendPresence · getFriendPresence — 친구별 4개 구독(subscribeMyFriends)은 없앴다');
+  chk(i0 > 0 && i1 > i0 && i2 > i1 && S.FB.indexOf('    subscribeMyFriends(') < 0, 'watchMyFriendList · getFriendCard · 프로필 구독 · 한 번 — 친구별 4개 구독(subscribeMyFriends)은 없앴다');
   if(i0 > 0 && i2 > i1){
     const method = S.FB.slice(i0, i2 + 6);
     const R = { live: [], gets: [] };
@@ -444,16 +479,14 @@ async function judge(S){
       const c = await fb.getFriendCard('F');
       chk(R.gets.join() === 'users/F/profile,users/F/home/bio,users/F/home/avatar' && c.profile.name === 'N' && c.bio === 'B' && c.avatar === 'A',
         '카드 한 번 읽기 — 프로필 · 소개 · 사진 세 칸만(home 통째 아님) · 날것 그대로');
-      const pres = [];
-      const offP = fb.watchFriendPresence('F', (v) => pres.push(v));
-      const pl = on('users/F/presence')[0];
-      chk(pl && on().length === 1, '접속 상태 구독 — users/{친구}/presence 1개');
-      pl.cb({ val: () => ({ online: true }) });
+      chk(!('watchFriendPresence' in fb) && !('getFriendPresence' in fb), '접속 상태 구독 · 한 번 읽기는 옛 길에 없다(realtime 으로 옮겼다)');
+      const profs = [];
+      const offP = fb.watchFriendProfile('F', (v) => profs.push(v));
+      const pl = on('users/F/profile')[0];
+      chk(pl && on().length === 1, '프로필 구독 — users/{친구}/profile 1개');
+      pl.cb({ val: () => ({ name: 'N' }) });
       offP();
-      chk(pres.length === 1 && pres[0].online === true && on().length === 0, '  날것을 넘긴다 · 해제하면 0개');
-      R.gets.length = 0;
-      const p1 = await fb.getFriendPresence('F');
-      chk(R.gets.join() === 'users/F/presence' && p1.online === true && on().length === 0, '접속 상태 한 번 읽기 — 그 친구 presence 한 칸 · 구독 안 남김');
+      chk(profs.length === 1 && profs[0].name === 'N' && on().length === 0, '  날것을 넘긴다 · 해제하면 0개');
     }
   }
   {
@@ -580,7 +613,12 @@ const BREAKS = [
   ['FS', "fid && watching.indexOf(fid) < 0", "fid", '듣고 있는 친구도 또 읽음'],
   ['FS', "  _stopPresence();\n  _status = STATUS.IDLE;", "  _status = STATUS.IDLE;", '멈춰도 접속 상태 구독이 남음'],
   ['FS', "mergeFriends(_ids, _details, _presence)", "mergeFriends(_ids, _details)", '접속 상태를 목록에 안 얹음'],
-  ['FS', "p=>{ if(run !== _run) return; Object.assign(_presence, p); _emit(); }", "p=>{ Object.assign(_presence, p); _emit(); }", '지난 실행의 늦은 접속 상태를 받아 씀'],
+  ['FS', "p=>{ if(run !== _run || _presKey !== want) return; Object.assign(_presence, p); _emit(); }", "p=>{ Object.assign(_presence, p); _emit(); }", '지난 실행의 늦은 접속 상태를 받아 씀'],
+  ['FS', "s=>{ if(run !== _run || _presKey !== want) return; _setPresState(s); }", "s=>{ _setPresState(s); }", '풀린 듣기의 늦은 상태를 받아 씀'],
+  ['FS', "  else if(s === PRES.DOWN) _presFailed(new Error('realtime 연결이 멈춰 접속 상태를 받지 못해요'));", "", '연결이 멈춰도 알리지 않음'],
+  ['FS', "  else if(s === PRES.DOWN) _presFailed(new Error('realtime 연결이 멈춰 접속 상태를 받지 못해요'));", "  else if(s !== PRES.LIVE) _presFailed(new Error('x'));", '붙이는 중에도 알림'],
+  ['FS', "  if(_presFailShown) return;\n  _presFailShown = true;", "  _presFailShown = true;", '이어지는 실패를 되풀이 알림'],
+  ['FS', "  if(s === PRES.LIVE) _presOk();", "  if(false) _presOk();", '받아도 알림 상태를 안 되돌림'],
   ['FS', "  _wake();\n  _syncPresence();\n}\nfunction _attach", "  _wake();\n}\nfunction _attach", '목록 구독이 끊겨도 접속 상태가 남음'],
   ['FS', "  if(_status === STATUS.READY) return Promise.resolve(current() || {});", "", 'ready 여도 읽음'],
   ['FS', "  if(prev) _loadNew(Object.keys(_ids).filter(fid=>!(fid in prev)));\n", '', '새 친구 이름을 안 받음(재시작 전까지 \'...\')'],
