@@ -1748,66 +1748,12 @@
       }
     },
     // ===== 방명록 / 웹박수 =====
-    /* ★ 반드시 해지 함수를 돌려줘야 한다 —
-       app.js의 _gbSubscribeIfNeeded는 홈 주인이 바뀔 때 이전 구독을 끊으려고 반환값을 보관해뒀다가
-       호출한다. 그런데 여기서 아무것도 안 돌려주니 그 해지가 통째로 no-op이 되어, 친구 홈을 구경하면
-       그 친구의 리스너가 영영 살아남았다. 내 홈으로 돌아와 다시 구독해도 친구 쪽 리스너가 그대로
-       살아 있어서, 둘 중 나중에 도착한 스냅샷이 화면을 덮어썼다(= 내 방명록 자리에 친구 방명록).
-       "가끔" 그랬던 건 두 리스너의 도착 순서가 매번 달랐기 때문. */
-    subscribeGuestbook(userId, onChange){
-      const r = ref(db, `users/${userId}/guestbook`);
-      const unsub = onValue(r, snap=> onChange(snap.val()||{}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // 글 등록 후 30개 초과분은 오래된 것(ts 기준)부터 자동 삭제
-    async addGuestbookEntry(userId, entry){
-      const gid = 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
-      await set(ref(db, `users/${userId}/guestbook/${gid}`), entry);
-      const snap = await get(ref(db, `users/${userId}/guestbook`));
-      const all = snap.val()||{};
-      const ids = Object.keys(all).sort((a,b)=>(all[a].ts||0)-(all[b].ts||0));
-      if(ids.length>30){
-        const updates={};
-        ids.slice(0, ids.length-30).forEach(id=>{ updates[`users/${userId}/guestbook/${id}`]=null; });
-        await update(ref(db), updates);
-      }
-    },
-    // 웹박수도 방명록과 같은 짝 — 해지 함수가 없으면 친구 홈의 박수 수/이미지가 내 홈에 남는다.
-    /* ⚠️ 해지는 onValue 가 돌려준 함수를 그대로 부른다. 예전엔 그 반환값을 off(ref,'value',…) 의
-       세 번째 인자로 넘겼는데, 거기에는 '등록할 때 준 콜백'이 들어가야 한다. 반환된 해지 함수는
-       어떤 콜백과도 안 맞아서 off 가 조용히 아무것도 안 지웠다 — 구독이 영영 살아 있었다.
-       그래서 친구 홈을 보고 돌아와도 친구의 clap 리스너가 계속 스냅샷을 쏘고, 나중에 도착한 쪽이
-       화면을 덮어써서 "웹박수 이미지가 안 돌아온다"가 됐다(제보 증상).
-       콜백을 따로 변수에 담아 onValue(r, cb) 로 등록한 경우에만 off(r,'value',cb) 가 맞다. */
-    subscribeClap(userId, onChange){
-      const r = ref(db, `users/${userId}/clap`);
-      const unsub = onValue(r, snap=> onChange(snap.val()||{count:0,img:null}));
-      return ()=>{ try{ unsub(); }catch(_){} };
-    },
-    // 자기가 쓴 방명록 글 삭제 (entry.uid가 내 uid인 글만 renderer에서 삭제 버튼 노출)
-    async deleteGuestbookEntry(userId, entryId){
-      await remove(ref(db, `users/${userId}/guestbook/${entryId}`));
-    },
-    // 손님이 웹박수 이미지를 클릭 → total 1 누적 (트랜잭션으로 동시 클릭도 안전)
-    async clapOnce(userId){
-      await runTransaction(ref(db, `users/${userId}/clap/count`), cur=> (cur||0)+1);
-    },
+    // 읽기 · 글 쓰기 · 지우기 · 박수 · 폭죽은 서버 API(guestbook-api.js)로 옮겼다. 그림 올리기만 서버에 그림 길이 생길 때까지 이 옛 길이 남았다.
     // 홈 주인이 웹박수 이미지 등록/변경 (400px 이하로 리사이즈된 base64)
     async setClapImage(userId, img){
       // ★ Storage Phase 2 — 박수 이미지도 Storage로
       const url = img ? await _uploadDataUrlIfNeeded(`users/${userId}/clap.jpg`, img) : null;
       await update(ref(db, `users/${userId}/clap`), { img: url });
-    },
-    /* 🎆 웹박수 폭죽 이모지 — 박수를 누를 때 터질 이모지 한 글자. ''(=null)이면 폭죽 없음.
-       손님 화면에서도 터져야 하므로 홈 주인의 clap 노드에 같이 둔다(subscribeClap이 통째로 받아온다).
-       ⚠️ clap 아래에 **새로 생긴 키**다. 규칙이 clap 하위를 count/img 로 열거하는 형태라면
-         이 쓰기만 조용히 거부된다(핸드오프 §4의 그 함정과 같은 종류). 규칙에 emoji 를 함께 넣을 것. */
-    async setClapEmoji(userId, emoji){
-      /* ⚠️ 8자로 자르면 👨‍👩‍👧‍👦(UTF-16 11칸)처럼 ZWJ로 이어붙인 이모지가 반쪽만 저장돼 깨진다.
-         renderer(gbFirstGrapheme)가 이미 '한 글자'로 줄여서 보내므로, 여기 상한은 그 한 글자가
-         아무리 길어도 통과할 만큼만 넉넉하면 된다 — 잘라내기가 아니라 방어선이다. */
-      const e = String(emoji||'').slice(0, 32);
-      await update(ref(db, `users/${userId}/clap`), { emoji: e || null });
     },
     // ===== (기존) 방/좌석 시스템 =====
     // 방 입장 전 현재 인원수 확인 — STALE(5분 이상 응답없음) 멤버는 제외하고 셈. 입장 정원 제한에 사용.

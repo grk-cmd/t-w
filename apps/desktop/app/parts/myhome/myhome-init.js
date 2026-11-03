@@ -87,8 +87,6 @@ async function initMyHome(code, me){
       friendsSub.start(myId, friends=>{
         setMyHomeFriends(friends);
         inboxMod().renderMyHomeFriendList();
-        // 📖 방명록 쓰기 게이트는 이 목록으로 판정한다 — 목록이 도착/변경되면 열려 있는 창에 즉시 반영.
-        window._mhGbRefreshWriteUI();
       }, ()=>{ try{ inboxMod().renderMyHomeFriendList(); }catch(_){} });
       firebaseAPI.setMyPresenceOnline(myId, presenceLock.startOnlineFor(myId, me));   // 🔒 첫 쓰기는 고정값을 앉힌 뒤(presence-lock.js)
       /* 📱 태블릿·폰 연결 — presence 등록 직후(§4-②). 키가 없는 사람은 아무 일도 안 한다. */

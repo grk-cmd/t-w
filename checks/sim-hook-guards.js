@@ -27,7 +27,7 @@ const HOOKS = {
   _mhSyncBgmBounds: 'myhome/myhome-ui.js', openMyHome: 'myhome/myhome-ui.js',
   _mhFitWindow: 'myhome/myhome-sticker-layout.js',
   _mhGbStartWatch: 'myhome/guestbook.js', _mhGbStopWatch: 'myhome/guestbook.js', _mhGbRefreshBadge: 'myhome/guestbook.js',
-  _mhGbRefreshWriteUI: 'myhome/guestbook.js', _mhGbMarkAllRead: 'myhome/guestbook.js', _mhReSubscribeGuestbook: 'myhome/guestbook.js',
+  _mhGbMarkAllRead: 'myhome/guestbook.js', _mhReSubscribeGuestbook: 'myhome/guestbook.js',
   _mallangOnOpen: 'myhome/mallang.js', _mallangOnClose: 'myhome/mallang.js', _mallangSeenGifts: 'myhome/mallang.js',
   _mallangOpenGift: 'myhome/mallang.js', _mallangGiftOrder: 'myhome/mallang.js', _mallangIsGiftHidden: 'myhome/mallang.js',
   _mallangDeleteGift: 'myhome/mallang.js',

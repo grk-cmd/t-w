@@ -507,7 +507,7 @@ async function judge(S){
     const hang = new Promise(() => {});
     const starts = [], renders = [];
     const fbApi = new Proxy({}, { get: (t, k) => k === 'setMyPresenceOnline' ? (() => { throw new Error('presence 던짐'); }) : (() => hang) });
-    const win = { _mhGbRefreshWriteUI: () => renders.push('gb') };
+    const win = {};
     const mod = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'console', S.MI + '\nreturn window.TwMyHomeInit;')(win, any, { getItem: () => null }, fbApi, { warn(){}, log(){} });
     const m = mod.createMyHomeInit({
       MY_FRIEND_CODE_KEY: 'k', _inboxBroadcast: () => ({}), _myFriendRequests: () => ({}), _myHomeFriends: () => ({}), _myHomeReady: () => false,
@@ -521,7 +521,7 @@ async function judge(S){
     chk(starts.length === 1 && starts[0].id === 'ME', '프로필 쓰기 · 코드 확보가 영영 안 끝나고 presence 가 던져도 친구 구독은 걸린다');
     if(starts[0]){
       starts[0].onF({ f1: {} });
-      chk(JSON.stringify(renders) === JSON.stringify([['set', { f1: {} }], 'list', 'gb']), '  받으면 — 목록 저장 → 친구 탭 그리기 → 방명록 게이트 (예전 순서 그대로)');
+      chk(JSON.stringify(renders) === JSON.stringify([['set', { f1: {} }], 'list']), '  받으면 — 목록 저장 → 친구 탭 그리기 (방명록 쓰기 게이트는 서버 canWrite 라 이 목록을 안 본다)');
       renders.length = 0; starts[0].onS('error');
       chk(renders.join() === 'list', '  상태가 바뀌면 친구 탭을 다시 그린다(«못 불러옴» 안내)');
     }

@@ -346,6 +346,9 @@ PRELOAD.push('weekly-challenge.js');
 PRELOAD.push('pk-bgm.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
 PRELOAD.push('purikura-ui.js');
+/* guestbook-api.js · guestbook-feed.js — 📖 방명록 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwGuestbookApi · TwGuestbookFeed 를 부른다. */
+PRELOAD.push('guestbook-api.js');
+PRELOAD.push('guestbook-feed.js');
 /* guestbook.js — 📖 방명록(앱 FSD 4번). 같은 까닭 — 만들 때 하는 일(#mhGuestbookBtn 연결 · window 고리 등록)을 같이 굴린다. */
 PRELOAD.push('guestbook.js');
 /* friend-manage.js — 👥 친구 관리 · 👋 새 친구 요청 팝업(앱 FSD 5번). 같은 까닭 — 만들 때 하는 일은 없지만(상태 초기값뿐) 부르는 곳이 빈 껍데기가 아닌 진짜를 부르게 같이 싣는다. */
