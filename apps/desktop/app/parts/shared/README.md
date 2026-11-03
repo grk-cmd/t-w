@@ -372,7 +372,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**: 이 PC 에 남기는 값 중 «그 계정의 것» 을 계정별 칸에 둔다. 같은 PC 에서 계정을 바꾸면 다른 칸이 열릴 뿐이라 계정 전환 때 지우기 · 넘기기 판단이 없다(#582). 계정 데이터 자체는 0.13 부터 서버가 원본 — 여기는 PC 에 남는 값(미러 · 오늘치 · 마크 · 취향 · 캐시)만.
 - **만드는 법**: `const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });` (app.js `getMyUserId` 바로 뒤). 계정 코드는 **부를 때마다** `getAccountCode()` 로 읽는다 — 값으로 받으면 계정이 바뀐 뒤에도 옛 칸을 쓴다. 쓰는 모듈은 deps 로 받는다(`focusTotalStore` · `focusLevelStore`), 마이홈 바탕화면(`myhome-desktop.js`)은 app.js 의 전역 이름 `accountStoreMod` 를 `advStore` 로 받는다.
-- **내놓는 것**: `get(key)`(글자 또는 null) · `set(key, value)`(true / false) · `remove(key)`(true / false) · `migrateLegacy(code)` · 표 상수 `DEVICE_KEYS` · `ACCOUNT_KEYS` · `ACCOUNT_KEY_PREFIXES` · `MOVED_KEYS` · `isAccountKey`.
+- **내놓는 것**: `get(key)`(글자 또는 null) · `set(key, value)`(true / false) · `remove(key)`(true / false) · `open(code)` · `close()` · `migrateLegacy(code)` · 표 상수 `DEVICE_KEYS` · `ACCOUNT_KEYS` · `ACCOUNT_KEY_PREFIXES` · `MOVED_KEYS` · `isAccountKey`.
 - **로그인 전(코드 없음 · 모양 밖)**: 읽기 null · 쓰기 false · 지우기 false. PC 공용 칸으로 돌려 쓰면 그게 섞임의 뿌리다. 쓰는 쪽은 false 를 «저장 안 됨» 으로 본다(로그인 전엔 남길 계정 값이 없다).
 - **계정을 놓은 틈**: 로그아웃(wipe)이 `_acctDetached` 를 세운 뒤 재시작 전까지 `set` · `remove` 는 거절된다(코드가 바뀐 뒤에도 앱이 도는 동안 다른 계정 칸을 덮지 못하게 — 판단은 `isWriteLocked` 한 곳). 읽기는 된다. 틈을 통과하는 쓰기 길은 없다 — 0.13 은 로그인해야 쓰므로 «로그인 전 몫을 계정 칸으로 넘기기» 가 없다(옛 PC 칸의 값은 `migrateLegacy` 가 한 번만 옮긴다).
 - **기기 공용 키 · 모르는 키는 던진다** — 잘못 쓴 코드를 조용히 넘기지 않는다.

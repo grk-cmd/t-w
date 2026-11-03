@@ -445,7 +445,7 @@
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 404 | **f9ee42e0cafe** |
+| **sim-account-store.js** | 413 | **73887493bf5c** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |

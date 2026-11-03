@@ -84,6 +84,8 @@ function createAccountStore(deps){
     opened = code;
     return true;
   }
+  /* 로그인 세션이 끝날 때(shared/session.js dispose) 닫는다 — 다시 열기 전까지 읽기 null · 쓰기 거절. 안 열려 있으면 아무 일 없음 */
+  function close(){ opened = null; }
   function cellOf(key){
     if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);
     const code = getAccountCode();
@@ -146,7 +148,7 @@ function createAccountStore(deps){
     return res;
   }
 
-  return { get, set, remove, open, migrateLegacy };
+  return { get, set, remove, open, close, migrateLegacy };
 }
 
 const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, createAccountStore };
