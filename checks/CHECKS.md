@@ -280,7 +280,7 @@
 | **sim-mail-feed.js** | 323 | **1b05d4407db7** |
 | **sim-notice-api.js** | 159 | **62050562c439** |
 | **sim-admin-notice.js** | 178 | **cb266b3dc22f** |
-| **sim-admin-api.js** | 183 | **abc3e5c20447** |
+| **sim-admin-api.js** | 188 | **24b73026ad99** |
 | **sim-notice-feed.js** | 266 | **2e8f44ac38b2** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |

@@ -144,6 +144,10 @@ async function judge(S){
     chk(/PRELOAD\.push\('admin-api\.js'\)/.test(S.SMOKE), 'smoke PRELOAD');
     const A = strip(S.APP);
     chk(/const adminApi = TwAdminApi\.createAdminApi\(\{ authed: TwApi\.authed, pending: TwRequestId\.createPending\(\), fetchBoard: \(\)=>noticeApi\.fetchBoard\(\) \}\);/.test(A), 'app.js — 로그인 통로(authed) · 요청 번호 · 공지 한 판 읽기를 넘겨 만든다');
+    const FI = strip(S.FI);
+    chk(!/\b(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\s*\(/.test(FI), 'firebase-init 에 걷은 관리자 쓰기(확성기 · 업데이트 공지 · 배너 · 게임 설정 · 방 종료)가 없다');
+    chk(!/\bfirebaseAPI\.(publishAnnounce|clearAnnounce|publishUpdateNotice|clearUpdateNotice|getUpdateNotice|publishAdBanner|publishGameConfig|closeAllRooms)\b/.test(A), 'app.js 가 걷은 Firebase 관리자 쓰기를 안 부른다');
+    chk(/subscribeGameConfig\s*\(/.test(FI), '  게임 설정 읽기(subscribeGameConfig)는 남았다 — 사용자 앱이 아직 거기서 읽는다');
   }
 }
 
@@ -167,6 +171,7 @@ async function runAll(){
     ['거절돼도 번호 유지', { API: S.API.replace("if(e && e.status) ids.settle(key); throw e;", "throw e;") }, '번호는 버린다'],
     ['닿지 못해도 번호 버림', { API: S.API.replace("if(e && e.status) ids.settle(key); throw e;", "ids.settle(key); throw e;") }, '번호를 남긴다'],
     ['ACCESS_DENIED 가 공통 번호로', { API: S.API.replace("'E-ADM-05'", "'E-NET-02'") }, 'E-ADM-05'],
+    ['걷은 Firebase 쓰기가 남음', { FI: S.FI + "\n    async publishAnnounce(text){ return 1; }," }, '걷은 관리자 쓰기'],
     ['html 순서 틀림', { HTML: S.HTML.replace('<script src="parts/admin/admin-api.js"></script>', '') }, 'html'],
   ];
   for(const [name, over, what] of breaks){
