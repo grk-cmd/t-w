@@ -161,8 +161,9 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
-| `purikura-ui.js` | 촬영 창 · 로비 · 전용 씬 · 촬영 · 꾸미기 | fb 10 |
-| `purikura-net.js` | 하루 정원 · 방 통신(`window.Purikura`) | fb 7 |
+| `purikura-ui.js` | 촬영 창 · 로비 · 전용 씬 · 촬영 · 꾸미기 | fb 1 (프레임 Storage 올리기 `pkUploadFrame`) |
+| `purikura-rt.js` | 세션 포트 — 자리 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터(realtime `photo*`) · 하루 정원(`GET /v1/rooms/photo-quota`) (`window.TwPurikuraRt`) | realtime + API |
+| `purikura-net.js` | 순수 계산 — 시트 기하 · 필터 · 좌표 인코딩 · 하루 경계 문구(`window.Purikura`) | 없음 |
 
 ## 13. 🛠️ `admin/` — 관리자 (이미 폴더)
 
