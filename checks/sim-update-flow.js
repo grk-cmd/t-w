@@ -209,6 +209,24 @@ async function suite(M, label){
     chk(checks(t.comp) === n0, '  ↳ 업데이트 상태가 «' + st + '» 이면 강제로 바뀌어도 다시 묻지 않는다(받기가 이미 돌고 있다)');
   }
 
+  // 켤 때 묻고 답을 기다리는 중에 최소 버전이 오르면 — 또 묻지 않는다(이미 물었다)
+  t = make({ my: '0.13.0', min: null, updateWaitMs: 200 });
+  p = t.f.runBeforeLogin(); await sleep(10);
+  t.setMin('0.14.0');
+  chk(checks(t.comp) === 1 && t.f.current() === STAGE.FORCE, '★ 켤 때 새 판 답을 기다리는 중에 최소 버전이 올라도 checkUpdate 는 1번뿐(강제 창은 뜬다)');
+  r = await p;
+  chk(r.proceed === false, '  ↳ 로그인은 안 풀린다');
+  t = make({ my: '0.13.0', min: null, updateWaitMs: 20 });
+  p = t.f.runBeforeLogin(); await p;   // 답 없이 시간 초과로 넘어감
+  const n1 = checks(t.comp); t.setMin('0.14.0');
+  chk(n1 === 1 && checks(t.comp) === 2, '  ↳ 시간 초과로 넘어간 뒤에 올라가면 받기 확인을 한 번 더 한다');
+  // 강제 창은 checking · available 에서도 누를 곳이 없다 — 받는 중으로 그린다
+  for(const st of ['checking', 'available']){
+    const vv = viewOf(STAGE.FORCE, '0.12.0', '0.13.0', null, { status: st, version: '0.13.0' });
+    chk(vv.buttons.length === 1 && vv.buttons[0].action === 'wait' && /받는 중/.test(vv.buttons[0].label), '★ 강제 창은 «' + st + '» 에서 «받는 중…»(누를 수 없음) — 반응 없는 [업데이트] 를 안 그린다');
+  }
+  chk(viewOf(STAGE.OPTIONAL, '0.13.0', null, '0.13.1', { status: 'available', version: '0.13.1' }).buttons[0].action === 'update', '  ↳ 선택 창은 available 에서 [업데이트](누르면 받는 중)');
+
   say('── 5. 단추');
   t = make({ my: '0.12.0', min: '0.13.0' });
   await t.f.runBeforeLogin();
@@ -344,17 +362,6 @@ async function suite(M, label){
     chkBroken('if(a[i] !== b[i]) return a[i] < b[i];', 'if(a[i] !== b[i]) return a[i] > b[i];', '비교 방향을 거꾸로', (X) => X.isBelow('0.9.8', '0.10.0') && !X.isBelow('0.10.0', '0.9.8'));
     chkBroken("if(min != null && min !== '' && isBelow(my, String(min))) return STAGE.FORCE;", '', '강제 판정을 지움', (X) => X.stageOf('0.12.0', '0.13.0', null) === 'force');
     chkBroken("if(latest != null && isBelow(my, String(latest))) return STAGE.OPTIONAL;", '', '선택 판정을 지움', (X) => X.stageOf('0.13.0', null, '0.13.1') === 'optional');
-    // 갈래에서 checkUpdate 를 빼면 빨강 — 버전을 모를 때 새 판 확인을 건너뛰는 옛 구조
-    {
-      const m3 = SRC.replace('const answer = askUpdate();', 'const answer = Promise.resolve();').replace('await answer;', 'await askUpdate();');
-      let n = -1;
-      try{
-        const X = load(m3); const c = fakeCompanion();
-        const f = X.createUpdateFlow({ readMin: () => '9.9.9', getMin: () => '9.9.9', onMinChange: () => () => {}, getVersion: () => null, companion: c, ui: fakeUi(), noticeOnce: (fn) => fn(null), showNotice: (n2, d) => d(), updateWaitMs: 10, noticeWaitMs: 10 });
-        await f.runBeforeLogin(); n = c.calls.filter(x => x[0] === 'check').length;
-      }catch(_){ n = -1; }
-      chk(m3 !== SRC && n !== 1, '깨 보기 — 버전을 모를 때 새 판 확인이 빠지면 빨강(checkUpdate ' + n + '번)');
-    }
     // 흐름 깨 보기 — 사본을 만들어 같은 시나리오를 돌린다
     const flowOf = (src, o) => {
       const X = load(src), comp = fakeCompanion(), ui = fakeUi(), order = [], hold = {}; let minNow = o.min;
@@ -368,6 +375,12 @@ async function suite(M, label){
     // 강제면 공지 안 돎 (판정: 강제인데 공지 창이 한 번도 안 뜬다)
     await redIf('강제인데 공지가 돈다', mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);') && mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);').split('if(forced) return { proceed: false, stage: STAGE.FORCE };   // 기다리는 사이 최소 버전이 올랐다').join(''),
       async (m) => { const x = flowOf(m, { my: '0.12.0', min: '0.13.0' }); await x.f.runBeforeLogin(); return !x.order.includes('notice'); });
+    // 켤 때 답을 기다리는 중 강제로 바뀌면 또 묻는 옛 구조
+    await redIf('답을 기다리는 중에도 또 묻는다', mutate('    if(updateAnswer) return;   // 켤 때 이미 묻고 답을 기다리는 중이다 — 또 묻지 않는다\n', ''),
+      async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.setMin('0.14.0'); await p; return x.comp.calls.filter(c => c[0] === 'check').length === 1; });
+    // 강제 창이 checking 에서 [업데이트] 를 그린다
+    await redIf('강제 창이 checking 에서 [업데이트] 를 그린다', mutate('buttons: [mainButton(u, true)],', 'buttons: [mainButton(u, false)],'),
+      async (m) => { const X = load(m); return X.viewOf(X.STAGE.FORCE, '0.12.0', '0.13.0', null, { status: 'checking' }).buttons[0].action === 'wait'; });
     // 켤 때 checkUpdate 1번 (판정: 두 번 부르면 빨강)
     await redIf('checkUpdate 를 두 번 부른다', mutate('companion.checkUpdate();\n    });', 'companion.checkUpdate(); companion.checkUpdate();\n    });'),
       async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); await x.f.runBeforeLogin(); return x.comp.calls.filter(c => c[0] === 'check').length === 1; });
