@@ -251,6 +251,25 @@ async function judge(S){
   e = await opened(S, { me: 'uB', welcome: { slot: 1, slots: [{ userCode: 'uA', name: 'a', fx: 1 }, { userCode: 'uB', name: 'b', fx: 1 }, null, null], meta: META({ host: 'uA' }) } });
   e.emit({ t: 'photoMeta', meta: META({ host: 'uA', state: 'shooting' }) }); e.emit({ t: 'photoStarted', nth: 1, left: 399 });
   chk(e.cb.late.length === 0, '  방장이 아닌 사람은 부르지 않는다');
+  /* 혼자 있던 방장이 시작 시간 초과 뒤 창을 닫았다 — 서버는 세션을 지워 그 start 에 답을 안 준다. 줄에 남은 stale 이 다음 열기를 가로채면 안 된다 */
+  e = await opened(S); const lg = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); await lg; await e.sess.close();
+  const lg2 = e.sess.open('ROOM1', { userCode: 'uA' }); e.emit(WELCOME()); await lg2;
+  let lgRes = null; e.sess.start().then((r) => { lgRes = r; });
+  e.emit({ t: 'photoMeta', meta: META({ state: 'shooting' }) }); e.emit({ t: 'photoStarted', nth: 2, left: 398 }); await tick();
+  chk(e.cb.late.length === 0 && lgRes && lgRes.ok === true && lgRes.n === 2, '★ 시작 시간 초과 → 창 닫기 → 다시 열기 → 시작: 새 요청이 photoStarted 를 받고 onLateStart 는 0번(옛 stale 이 가로채지 않는다)');
+  e = await opened(S); const lg3 = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); await lg3; await e.sess.close();
+  const lg4 = e.sess.open('ROOM1', { userCode: 'uA' }); e.emit(WELCOME()); await lg4;
+  let lgEx = null; e.sess.start().then((r) => { lgEx = r; }); e.emit({ t: 'error', code: 'ROOM_PHOTO_QUOTA_EXHAUSTED', ref: 'photoStart' }); await tick();
+  chk(lgEx && lgEx.reason === 'closed' && /문을 닫았어요/.test(lgEx.message), '  같은 흐름에서 정원 소진 거절은 새 요청이 «문 닫음» 으로 받는다');
+  e = await opened(S); const lg5 = e.sess.start(); let lg5r = null; lg5.then((r) => { lg5r = r; }); await e.sess.close(); await tick();
+  chk(lg5r && lg5r.ok === false, '  기다리던 시작은 창을 닫으면 실패로 풀린다(영영 안 끝나지 않는다)');
+  e = mk(S); let o1r = null; e.sess.open('ROOM1', { userCode: 'uA' }).then((r) => { o1r = r; }); await e.sess.close(); await tick();
+  e.emit(WELCOME()); await tick();
+  chk(o1r && o1r.ok === false && e.sess.mySlot() === -1 && !e.sess.isHost(), '★ 자리 잡는 중 닫으면 기다리던 open 은 풀리고, 뒤늦은 welcome 이 세션을 다시 켜지 않는다');
+  e = await opened(S); const lg6 = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); await lg6; e.emit({ t: 'error', code: 'notInRoom', ref: 'photoPos' }); await tick();
+  const lg7 = e.sess.open('ROOM1', { userCode: 'uA' }); e.emit(WELCOME()); await lg7;
+  e.emit({ t: 'photoMeta', meta: META({ state: 'shooting' }) });
+  chk(e.cb.late.length === 0, '  자리를 잃은(방 밖 답) 뒤 다시 열어도 옛 시작 stale 이 남아 이어 가지 않는다');
   e = await opened(S); const ps5 = e.sess.start(); e.fireTimer(e.R.START_WAIT_MS); await ps5;
   const ps6 = e.sess.start(); e.emit({ t: 'error', code: 'ROOM_PHOTO_NOT_HOST', ref: 'photoStart' });
   e.emit({ t: 'photoStarted', nth: 4, left: 396 });
@@ -372,6 +391,9 @@ process.on('exit', (c) => { if(!finished && c === 0){ console.log('✗ 검사가
     ['RT', "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs === 0 ? 0 : 1 }); }", "function setCut(i, atMs){ return hostSend({ t: 'photoCut', i: i | 0, at: atMs }); }", '앱 시계를 서버에 실음'],
     ['RT', "if(liveOf(startQ)) return Promise.resolve(startFail('error'));", "", '촬영 시작을 겹쳐 보냄'],
     ['RT', "if(!o || o.stale) return;", "if(!o) return;", '늦은 welcome 을 다음 요청의 답으로 받음'],
+    ['RT', "    for(const e of startQ.slice()) if(!e.stale) settle(startQ, e, startFail('error'));\n    startQ.length = 0;", "", 'close 가 시작 줄을 안 비움'],
+    ['RT', "    for(const e of openQ) if(!e.stale){ e.stale = true;", "    for(const e of openQ) if(false){ e.stale = true;", 'close 가 기다리던 open 을 stale 로 안 돌림'],
+    ['RT', "  function lose(){\n    dropWaiting();", "  function lose(){", '자리를 잃어도 시작 줄을 안 비움'],
     ['RT', "const nextAnswer = (q) => q.shift() || null;", "const nextAnswer = (q) => q.find((e) => !e.stale) || null;", '늦은 답을 보낸 순서로 짝짓지 않음'],
     ['RT', "if(h.stale){ if(inSession && isHost()) lateStart(h); return; }", "if(h.stale) return;", '늦은 photoStarted 로 이어 가지 않음'],
     ['RT', "if(meta && meta.state === 'shooting' && isHost()) lateStart();", "", 'shooting 판으로 이어 가지 않음'],

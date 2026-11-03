@@ -1896,17 +1896,19 @@ async function _pkStart(){
     else TwErrorCodes.notify('E-PK-03', r && r.reason, r && r.message);
     return;
   }
+  _pkBeginShooting();         // ★ 바로 세지 않는다 — 방장이 구도를 맞추고 📷 를 누를 때 시작한다
+}
+/* 촬영 국면으로 — 찍은 컷을 비우고 첫 컷을 «기다리는 중» 으로(정상 시작 · 늦게 알려 온 시작이 같이 부른다) */
+function _pkBeginShooting(){
   PK.shots = [];
   _pkEnterShooting();
-  _pkWaitCut(0);              // ★ 바로 세지 않는다 — 방장이 구도를 맞추고 📷 를 누를 때 시작한다
+  _pkWaitCut(0);
 }
 /* 시간 초과로 접었던 촬영 시작이 서버에서는 됐다(세션 포트 onLateStart) — 방장 화면이 시작한 것처럼 이어 간다. 서버가 원본이다.
    ⚠️ 이미 이어 가는 중(기다리는 컷 · 세는 중)이면 건드리지 않는다 — 정상 시작은 이 길을 안 지난다. */
 function _pkOnLateStart(){
   if(!PK.open || !PK.host || PK.cutIdx >= 0 || PK.waitCut >= 0) return;
-  PK.shots = [];
-  _pkEnterShooting();
-  _pkWaitCut(0);
+  _pkBeginShooting();
 }
 function _pkEnterShooting(){
   PK.state = 'shooting';

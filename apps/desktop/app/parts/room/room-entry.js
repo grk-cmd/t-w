@@ -225,7 +225,7 @@ function _deskStateFingerprint(def){
    ★ 각자 '바로 아래'만 보내므로, 이 연결만으로 다층 탑이 자동 재구성된다. */
 /* 🪑 친구들이 보내온 seatedOn({host,slot})을 실제 벤치 슬롯 관계로 잇는다.
    host는 상대의 userCode(또는 'self'). 'self'는 자기 벤치에 자기가 앉은 경우 — 방에선 표현 대상이 없어 무시.
-   host가 나(myUid)면 내 벤치, 아니면 그 userId를 가진 친구 좌석의 벤치. */
+   host가 나(myUid=myCode)면 내 벤치, 아니면 그 userCode를 가진 친구 좌석의 벤치. */
 function _applyRemoteBenchSeats(){
   try{
     const me = seats.find(x=>x.isMe);

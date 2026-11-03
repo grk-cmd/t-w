@@ -118,7 +118,16 @@ function createPhotoSession(deps){
     return { ok: false, left: 0, reason, reopenAt: P.reopenAt(now), message: reason === 'closed' ? P.closedMessage(now) : (START_MESSAGES[reason] || START_MESSAGES.error) };
   }
   /* 자리를 잃었다 — 세션을 버리고 화면에 «자리 없음» 을 알린다(혼자 다시 들어가지 않는다) */
+  /* 세션을 놓거나 잃을 때 — 기다리던 요청을 접는다. 서버는 세션이 지워졌거나 방을 나가면 start 에 아무 답도 안 주니
+     start 줄은 통째로 비운다(stale 이 남아 다음 열기의 photoMeta · photoStarted · 거절을 가로채지 않게).
+     open 은 서버가 답을 주므로 기다리던 것만 stale 로 돌려 그 늦은 welcome 이 세션을 다시 켜지 못하게 한다. */
+  function dropWaiting(){
+    for(const e of openQ) if(!e.stale){ e.stale = true; tClear(e.timer); e.res({ ok: false, reason: 'error' }); }
+    for(const e of startQ.slice()) if(!e.stale) settle(startQ, e, startFail('error'));
+    startQ.length = 0;
+  }
   function lose(){
+    dropWaiting();
     if(!inSession) return;
     reset();
     onPeers(peers); onSlots(slots);
@@ -177,9 +186,9 @@ function createPhotoSession(deps){
     }
     if(m.ref === 'photoStart'){
       const reason = START_REFUSED[m.code] || 'error';
-      if(reason === 'notInRoom') lose();
       const h = nextAnswer(startQ);
       if(h && !h.stale){ tClear(h.timer); h.res(startFail(reason)); }
+      if(reason === 'notInRoom') lose();
       return;
     }
     if(m.code === 'notInRoom'){ lose(); return; }
@@ -232,6 +241,7 @@ function createPhotoSession(deps){
   /* 창을 닫을 때 · 꾸미기로 넘어갈 때(자리를 놓아야 다음 사람이 방장이 된다) — 마지막 사람이 나가면 서버가 세션을 지운다 */
   function close(){
     const was = inSession;
+    dropWaiting();
     reset();
     if(was) hub.send({ t: 'photoLeave' });
     return Promise.resolve();
