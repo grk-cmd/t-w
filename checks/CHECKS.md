@@ -169,7 +169,7 @@
 | **sim-catalog-cache.js** | 391 | **4a3503b771b9** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
-| **sim-google-login.js** | 656 | **99e6d39cc736** |
+| **sim-google-login.js** | 656 | **825a227266b5** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
@@ -281,6 +281,7 @@
 | **sim-api-public-reads.js** | 184 | **f3a68560ff15** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-http-cache-reset.js** | 118 | **2533326cdf66** |
+| **sim-top-level.js** | 57 | **2ec16fa26434** |
 | **sim-remote-config.js** | 532 | **ed0e69ed1799** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
