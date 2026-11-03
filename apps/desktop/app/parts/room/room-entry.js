@@ -28,7 +28,7 @@ const deserializeDefFromNetwork = deps.deserializeDefFromNetwork;
 const retryDefAfter = deps.retryDefAfter;   // 얼굴 못 받은 def 를 다시 풀 때까지 기다릴 ms(room-sync.js)
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
-const getMyUserId = deps.getMyUserId;
+const myCode = deps.myCode;   // 방 서버의 내 코드 — 남이 보낸 seatedOn.host · ridingOn(userCode)과 견주는 값
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
 const layoutSeats = deps.layoutSeats;
@@ -224,12 +224,12 @@ function _deskStateFingerprint(def){
      그대로 있으므로 받는 쪽에서 직접 실측하는 편이 정확하고 데이터도 안 늘어난다.
    ★ 각자 '바로 아래'만 보내므로, 이 연결만으로 다층 탑이 자동 재구성된다. */
 /* 🪑 친구들이 보내온 seatedOn({host,slot})을 실제 벤치 슬롯 관계로 잇는다.
-   host는 상대의 userId(또는 'self'). 'self'는 자기 벤치에 자기가 앉은 경우 — 방에선 표현 대상이 없어 무시.
+   host는 상대의 userCode(또는 'self'). 'self'는 자기 벤치에 자기가 앉은 경우 — 방에선 표현 대상이 없어 무시.
    host가 나(myUid)면 내 벤치, 아니면 그 userId를 가진 친구 좌석의 벤치. */
 function _applyRemoteBenchSeats(){
   try{
     const me = seats.find(x=>x.isMe);
-    const myUid = getMyUserId();
+    const myUid = myCode();
     const byUser = {};
     seats.filter(x=>x.remote && x.friendUserId).forEach(x=>{ byUser[x.friendUserId]=x; });
     seats.filter(x=>x.remote).forEach(seat=>{
@@ -246,7 +246,7 @@ function _applyRemoteBenchSeats(){
 function _applyRemoteRides(){
   try{
     const me = seats.find(x=>x.isMe);
-    const myUid = getMyUserId();
+    const myUid = myCode();
     const byUser = {}, byFriend = {};
     seats.filter(x=>x.remote).forEach(x=>{ byFriend[x.friendId]=x; if(x.friendUserId) byUser[x.friendUserId]=x; });
     seats.filter(x=>x.remote).forEach(seat=>{
