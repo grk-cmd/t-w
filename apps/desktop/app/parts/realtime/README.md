@@ -5,16 +5,16 @@
   다시 붙기 백오프(1 · 2 · 4 · 8 · 15초) · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 1분 쉬기.
   무엇을 주고받는지(방 · 친구 접속 상태)는 모른다 — 연결 위의 메시지는 `hooks.onMessage`, 끊김은 `hooks.onClosed(wasReady, fatal)` 로 넘긴다.
   다시 붙을지 · 언제 포기할지는 부르는 쪽이 정한다(`scheduleReconnect()` 를 부르면 그때 백오프로 붙는다).
-- 쓰는 곳: `realtime/rt-hub.js`(pv 2 — 로그인 뒤 늘 붙는 연결 하나). 방은 그 위의 방 포트(`room/room-rt.js`)로 — 옛 방 연결(pv 1 · room-server-net.js)은 걷었다. pv 1 갈래(`userId` · `ridless` · `reflessKind`)는 쓰는 곳이 없어 다음에 걷는다.
-- pv 2 부터 hello 에 `userId` 를 싣지 않는다(서버는 모르는 칸을 `badRequest` 로 거절 · 신원은 토큰뿐). 연결마다 · 갱신마다 달라지는 칸은 `helloFields(phase)`(`'open'` · `'refresh'`).
+- 쓰는 곳: `realtime/rt-hub.js`(pv 2 — 로그인 뒤 늘 붙는 연결 하나). 방은 그 위의 방 포트(`room/room-rt.js`)로 — 옛 방 연결(pv 1 · room-server-net.js)과 pv 1 갈래(`userId` · `ridless` · `reflessKind`)는 걷었다.
+- hello 에 `userId` 를 싣지 않는다(서버는 모르는 칸을 `badRequest` 로 거절 · 신원은 토큰뿐). 연결마다 · 갱신마다 달라지는 칸은 `helloFields(phase)`(`'open'` · `'refresh'`).
 - `hooks.onReady(readyMsg)` · `hooks.onClosed(wasReady, fatal, closeCode)` — 닫힘 번호(4001 · 4003 · 4004 · 4005)는 부르는 쪽이 판단한다.
-- 만드는 법: 아무것도 import 하지 않는다. firebase-init.js 가 `createRealtimeLink` 를 import 해 토큰 · 버전 · userId 와 함께 넘긴다.
+- 만드는 법: 아무것도 import 하지 않는다. firebase-init.js 가 `createRealtimeLink` 를 import 해 토큰 · 버전과 함께 넘긴다.
   ```js
   const link = createRealtimeLink({
     WebSocket, enabled: () => true, target: () => url, switchOk: () => true,
-    getToken: (force) => …, getUserId: () => …, getVersion: () => …,
-    pv: 1, helloExtra: { scope: 'presence' },                 // hello 선택 칸(없으면 안 싣는다)
-    requestKinds: ['presenceGet'], answers: { presence: 'presenceGet' }, reflessKind: null, ridless: false,
+    getToken: (force) => …, getVersion: () => …,
+    pv: 2, helloExtra: { scope: 'presence' },                 // hello 선택 칸(없으면 안 싣는다)
+    requestKinds: ['presenceGet'], answers: { presence: 'presenceGet' },
     idleCloseMs: 0, busy: () => false, reconnectWanted: () => true,
     hooks: { onReady(){}, onMessage(m){}, onClosed(wasReady, fatal){} },
   });
@@ -24,7 +24,7 @@
   순수: `jwtExpMs(token)` · `LINK_TIMING`(연결 5초 · rid 답 4초 · 백오프 · 토큰 · 쉬기 1분).
 - 확장할 때: 새 rid 요청은 부르는 쪽 `requestKinds` · `answers` 에 더한다(이 파일은 안 고친다). 답의 t 가 요청과 다르면 answers 로 잇는다(presenceGet → presence).
 - 함정:
-  - `ridless` 를 켜면 rid 없는 답을 같은 종류의 가장 먼저 보낸 요청이 가져간다(rid 를 모르는 옛 방 서버용). 밀어 주는 메시지와 답의 t 가 같은 연결(presence)은 꼭 끈다.
+  - rid 없는 답은 요청이 가져가지 않고 `hooks.onMessage` 로 간다(밀어 주는 메시지와 답의 t 가 같은 연결이 있어서).
   - ready 전의 `error` auth · version · protocol 은 서버가 곧 끊는 신호라 바로 닫고 `onClosed(false, fatal)` — auth 를 한 번 더 시도할지는 부르는 쪽(`markAuthRetry`).
   - 검사: `checks/sim-realtime-link.js`(공통부) · `checks/sim-rt-hub.js` · `checks/sim-room-rt.js`(연결 하나 · 방 포트가 이 위에서 그대로 도는지).
 

@@ -119,14 +119,14 @@ function createRtHub(deps){
   function makeLink(){
     return deps.createLink({
       WebSocket: deps.WebSocket, enabled: () => started, target: () => deps.url(), switchOk: () => true,
-      getToken: (force) => deps.getToken(force), getUserId: () => null, getVersion: () => deps.getVersion(),
+      getToken: (force) => deps.getToken(force), getVersion: () => deps.getVersion(),
       pv: PV,
       helloFields: (phase) => {
         const o = { deviceId: deps.deviceId(), session: deps.session };
         if(phase === 'open' && claimNext) o.claim = true;
         return o;
       },
-      requestKinds: REQUEST_KINDS.slice(), answers: Object.assign({}, ANSWERS), reflessKind: null, ridless: false,
+      requestKinds: REQUEST_KINDS.slice(), answers: Object.assign({}, ANSWERS),
       idleCloseMs: 0, busy: () => true, reconnectWanted: () => started,
       hooks: { onReady, onMessage: onServerMessage, onClosed },
       now: deps.now, setTimeout: deps.setTimeout, clearTimeout: deps.clearTimeout, random: deps.random, log: deps.log,

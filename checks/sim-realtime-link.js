@@ -3,7 +3,7 @@
  * 방 연결(room-server-net.js)이 이것 위에서 그대로 도는지는 sim-room-server-net.js 가 본다. 여기는 공통부만:
  * 1. 순수 — jwtExpMs · LINK_TIMING · import 없음
  * 2. 열기 · hello(선택 칸 helloExtra) · ready · 토큰 없음 → auth
- * 3. rid 요청 — answers 로 답 짝짓기 · rid 없는 답(ridless 켬/끔) · badRequest(ref · ref 없음) · 시간 초과 · 끊기면 null
+ * 3. rid 요청 — answers 로 답 짝짓기 · rid 없는 답 · badRequest(ref · ref 없음) · 시간 초과 · 끊기면 null
  * 4. 끊김 → onClosed(wasReady, fatal) · 다시 붙기 백오프(reconnectWanted) · markAuthRetry → getToken(true)
  * 5. 토큰 갱신 hello 에도 선택 칸 · 쉬면 닫기(idleCloseMs · busy) · 못 붙은 주소 1분 쉼 · retry · 주소 바뀜(switchOk)
  * 6. firebase-init 연결 — import 하고 realtime 연결 하나(rt-hub)에 createLink 로 넘긴다
@@ -69,15 +69,12 @@ function mk(o = {}){
     target: () => url,
     switchOk: () => st.switchOk,
     getToken: async (force) => { log.tokens.push(!!force); return ('token' in o) ? o.token : 'tok' + log.tokens.length; },
-    getUserId: () => ('uid' in o) ? o.uid : 'u1',
     getVersion: async () => '0.11.4',
-    pv: o.pv || 1,
+    pv: 2,
     helloExtra: o.helloExtra,
     helloFields: o.helloFields,
     requestKinds: o.requestKinds || ['presenceGet'],
     answers: o.answers || { presence: 'presenceGet' },
-    reflessKind: o.reflessKind || null,
-    ridless: o.ridless,
     idleCloseMs: o.idleCloseMs || 0,
     busy: () => st.busy,
     reconnectWanted: () => st.want,
@@ -120,7 +117,7 @@ async function up(env){
     const { ws, r } = await up(e);
     const h = ws.last('hello');
     chk(r.ok === true && e.link.isReady() && e.log.ready === 1, 'ready 가 오면 ensureReady → ok · onReady 한 번');
-    chk(h && h.pv === 1 && h.token === 'tok1' && h.userId === 'u1' && h.ver === '0.11.4' && h.scope === 'presence', 'hello — pv · token · userId · ver + 선택 칸 scope');
+    chk(h && h.pv === 2 && h.token === 'tok1' && !('userId' in h) && h.ver === '0.11.4' && h.scope === 'presence', 'hello — pv 2 · token · ver + 선택 칸 scope (userId 는 싣지 않는다)');
     const e2 = mk();
     const { ws: w2 } = await up(e2);
     chk(!('scope' in w2.last('hello')), '  ↳ helloExtra 가 없으면 선택 칸을 싣지 않는다(방 연결 모양 그대로)');
@@ -135,7 +132,7 @@ async function up(env){
 
   say('── 3. rid 요청');
   {
-    const e = mk({ ridless: false });
+    const e = mk();
     const { ws } = await up(e);
     const p1 = e.link.request({ t: 'presenceGet', ids: ['a'] }, (m) => m.users);
     await tick();
@@ -143,32 +140,23 @@ async function up(env){
     chk(q && typeof q.rid === 'string' && /^[A-Za-z0-9_.:-]{1,16}$/.test(q.rid), '요청에 rid(서버가 받는 모양)');
     ws.msg({ t: 'presence', users: { z: {} } });   // rid 없는 presence = 밀어 준 변화 — 요청 답으로 먹지 않는다
     await tick();
-    chk(e.log.msgs.some((m) => m.t === 'presence' && m.users.z), 'ridless 끔 — rid 없는 답은 요청이 가져가지 않고 onMessage 로');
+    chk(e.log.msgs.some((m) => m.t === 'presence' && m.users.z), 'rid 없는 답은 요청이 가져가지 않고 onMessage 로');
     ws.msg({ t: 'presence', users: { a: { online: true } }, full: true, rid: q.rid });
     const v1 = await p1;
     chk(v1 && v1.a && v1.a.online === true, '  ↳ rid 가 맞는 답은 그 요청으로(answers: presence → presenceGet)');
     chk(e.log.msgs.filter((m) => m.t === 'presence').length === 1, '  ↳ 짝지어진 답은 onMessage 로 다시 안 간다');
 
-    const e2 = mk({ ridless: true, answers: { stats: 'stats' }, requestKinds: ['stats'] });
-    const { ws: w2 } = await up(e2);
-    const p2 = e2.link.request({ t: 'stats' }, (m) => m.total);
-    await tick();
-    w2.msg({ t: 'stats', total: 7 });
-    chk(await p2 === 7, 'ridless 켬(옛 서버) — rid 없는 답을 같은 종류의 가장 먼저 보낸 요청에');
-
     const p3 = e.link.request({ t: 'presenceGet', ids: ['b'] }, (m) => m);
     await tick();
     ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });
     chk(await p3 === null, 'badRequest(ref) → 그 종류 가장 먼저 보낸 요청이 null');
-    const e3 = mk({ ridless: false, reflessKind: 'presenceGet' });
-    const { ws: w3 } = await up(e3);
-    const p4 = e3.link.request({ t: 'presenceGet', ids: ['c'] }, (m) => m);
+    const p4 = e.link.request({ t: 'presenceGet', ids: ['c'] }, (m) => m);
     await tick();
-    w3.msg({ t: 'error', code: 'badRequest' });
-    chk(await p4 === null && !e3.log.msgs.length, 'ref 없는 badRequest(새 요청을 모르는 옛 서버) → reflessKind 의 요청이 null');
-    w3.msg({ t: 'error', code: 'badRequest' });
+    ws.msg({ t: 'error', code: 'badRequest' });   // ref 없는 오류는 어느 요청의 것인지 모른다 — 요청을 끝내지 않고 onMessage 로
     await tick();
-    chk(e3.log.msgs.length === 1 && e3.log.msgs[0].t === 'error', '  ↳ 기다리는 요청이 없으면 onMessage 로');
+    chk(e.log.msgs.some((m) => m.t === 'error' && m.code === 'badRequest'), 'ref 없는 badRequest 는 요청이 가져가지 않고 onMessage 로');
+    ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });
+    chk(await p4 === null, '  ↳ 그 요청은 ref 가 있는 오류로만 끝난다');
 
     const p5 = e.link.request({ t: 'presenceGet', ids: ['d'] }, (m) => m);
     await e.clock.advance(4001);
@@ -315,29 +303,23 @@ async function up(env){
   say('── 5-2. 통신 규약 2판(pv 2) · 닫힘 번호');
   {
     const phases = [];
-    const e = mk({ pv: 2, uid: null, helloFields: (ph) => { phases.push(ph); return { deviceId: 'dev-1', session: 's1', ...(ph === 'open' ? { claim: true } : {}) }; } });
+    const e = mk({ helloFields: (ph) => { phases.push(ph); return { deviceId: 'dev-1', session: 's1', ...(ph === 'open' ? { claim: true } : {}) }; } });
     const { ws, r } = await up(e);
     const h = ws.all('hello')[0];
     chk(r.ok && h && h.pv === 2 && !('userId' in h) && h.deviceId === 'dev-1' && h.session === 's1' && h.claim === true && h.ver === '0.11.4',
-      'pv 2 — hello 에 userId 를 싣지 않는다(신원은 토큰뿐) · helloFields(open) 칸 · userId 가 없어도 연다');
+      'pv 2 — hello 에 userId 를 싣지 않는다(신원은 토큰뿐) · helloFields(open) 칸');
     chk(e.log.readyMsg && e.log.readyMsg.t === 'ready', '  ↳ onReady 에 ready 메시지를 넘긴다(userCode 를 읽게)');
     const exp = Math.floor(e.clock.t / 1000) + 3600;
-    const e2 = mk({ pv: 2, uid: null, token: jwt(exp), helloFields: (ph) => ({ deviceId: 'dev-1', session: 's1', ...(ph === 'open' ? { claim: true } : {}) }) });
+    const e2 = mk({ token: jwt(exp), helloFields: (ph) => ({ deviceId: 'dev-1', session: 's1', ...(ph === 'open' ? { claim: true } : {}) }) });
     const { ws: w2 } = await up(e2);
     await e2.clock.advance(3600 * 1000 - 5 * 60 * 1000 + 10);
     const hs = w2.all('hello');
     chk(hs.length === 2 && !('claim' in hs[1]) && hs[1].session === 's1' && hs[1].deviceId === 'dev-1', '  ↳ 토큰 갱신 hello(refresh)는 같은 기기 · 세션 · claim 없음');
-    const p1 = mk({ uid: 'u1' });
-    const { ws: w3 } = await up(p1);
-    chk(w3.all('hello')[0].userId === 'u1' && w3.all('hello')[0].pv === 1, '  ↳ 옛 판(pv 1)은 그대로 userId 를 싣는다');
-    const p0 = mk({ uid: null });
-    const pr0 = p0.link.ensureReady(); await tick();
-    chk((await pr0).ok === false && p0.socks.length === 0, '  ↳ 옛 판은 userId 가 없으면 열지 않는다(auth)');
-    const c = mk({ pv: 2, uid: null, helloFields: () => ({}) });
+    const c = mk({ helloFields: () => ({}) });
     const { ws: w4 } = await up(c);
     w4.closed = true; w4.onclose({ code: 4004 });
     chk(c.log.codes && c.log.codes[c.log.codes.length - 1] === 4004 && c.log.closed[c.log.closed.length - 1][0] === true, 'onClosed 셋째 인자로 닫힘 번호(4004)');
-    const c2 = mk({ pv: 2, uid: null, helloFields: () => ({}) });
+    const c2 = mk({ helloFields: () => ({}) });
     const { ws: w5 } = await up(c2);
     w5.close();
     chk(c2.log.codes[c2.log.codes.length - 1] === null, '  ↳ 번호가 없으면 null');

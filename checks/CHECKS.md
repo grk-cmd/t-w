@@ -366,7 +366,7 @@
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |
-| **sim-realtime-link.js** | 355 | **cace80469da2** |
+| **sim-realtime-link.js** | 337 | **02d7948c4b50** |
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
@@ -441,7 +441,7 @@
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
-| **sim-rt-hub.js** | 317 | **e6925fc1e131** |
+| **sim-rt-hub.js** | 317 | **c1a6c05297ef** |
 | **sim-room-rt.js** | 357 | **1f746cdeb8d6** |
 | **sim-chat-rt.js** | 194 | **0709638f2177** |
 | **sim-room-invite-rt.js** | 73 | **05182e7f4355** |
