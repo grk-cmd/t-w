@@ -5817,6 +5817,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
+  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),

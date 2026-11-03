@@ -129,13 +129,13 @@ say('── 4. 동작 — 책상 모양');
       b64ToBuf: (b) => 'buf:' + b,
       commissionMod: { savedDesks: () => o.desks || [] },
       toast: (m) => log.toast.push(m),
-      isPremium: !!o.premium, isAdmin: !!o.admin,
+      isPremium: !!o.premium, isAdmin: !!o.admin, premiumKnown: o.known !== false,
     };
     let api;
     if(!PREMOVE){
       const w = {}; new Function('window', 'module', 'THREE', MOD)(w, undefined, THREE_);
       /* 판단 함수는 account-state.js(sim-premium-desk 가 진리표로 본다) — 여기서는 이 모듈이 그 함수의 결과로 움직이는지만 본다 */
-      api = w.TwDeskVisual.createDeskVisual(Object.assign({}, raw, { licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && !raw.isPremium && !raw.isAdmin }));
+      api = w.TwDeskVisual.createDeskVisual(Object.assign({}, raw, { licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && raw.premiumKnown && !raw.isPremium && !raw.isAdmin }));
     } else {
       const a1 = SRC.indexOf('// 좌석의 charDef.deskCatalogId를 보고'), b1 = SRC.indexOf('\n/* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js', a1);
       const a2 = SRC.indexOf('/* 커스텀 책상: 기본 책상 메쉬'), b2 = SRC.indexOf('// ★ 어플 3-1: 책상 길이(X축)', a2);
@@ -190,6 +190,11 @@ say('── 4. 동작 — 책상 모양');
     ({ api, log } = load({ desks: lic }));
     s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
     chk(!s.desk.getObjectByName('customDesk') && log.toast[0] === '🔒 "금책상"은(는) 라이선스 보유자만 사용할 수 있어요' && !log.parsed, '라이선스 전용 책상 — 내 좌석 · 라이선스 없음이면 기본 책상 + 안내');
+    if(!PREMOVE){
+      ({ api, log } = load({ desks: lic, known: false })); s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
+      chk(s.desk.getObjectByName('customDesk') && !log.toast.length, '★ 판단 함수가 «막지 않는다» 고 답하면(서버 확인 전) 기본 책상으로 바꾸지도 안내를 띄우지도 않는다 — 확인이 오면 내 좌석을 다시 적용한다');
+      ({ api, log } = load({ desks: lic })); s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
+    }
     s = seat({ isMe: false }); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L' });
     chk(log.toast.length === 1, '  내 좌석이 아니면 안내는 안 띄운다');
     s = seat({ remote: true, isMe: false }); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L' });

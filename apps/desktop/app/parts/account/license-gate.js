@@ -31,6 +31,7 @@ const pruneUnownedLicenseAssets = deps.pruneUnownedLicenseAssets;
 const refreshAccountTab = deps.refreshAccountTab;
 const refreshCustomStatusMenuItem = deps.refreshCustomStatusMenuItem;
 const refreshLicenseUI = deps.refreshLicenseUI;
+const refreshLauncherPreview = deps.refreshLauncherPreview;   // 런처가 열려 있으면 미리보기(전용 책상 · 아이템)를 다시 그린다
 const renderCrItems = deps.renderCrItems;
 const restoreLicenseHeldAssets = deps.restoreLicenseHeldAssets;
 const seats = deps.seats;
@@ -438,6 +439,7 @@ function _refreshPremiumGatedUI(){
       });
     }
   }catch(_){}
+  try{ refreshLauncherPreview(); }catch(e){ console.warn('[라이선스] 런처 미리보기 다시 그리기 실패', e); }   // 확인이 오기 전에 그려진 미리보기도 지금 값으로
   // 생성기가 열려 있으면 책상 카드의 🔒 도 지금 값으로 다시 그린다
   try{ if(typeof creatorOpen()!=='undefined' && creatorOpen()) renderCrItems(); }catch(_){}
 }

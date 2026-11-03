@@ -188,7 +188,7 @@
 | **sim-pl-loop.js** | 508 | **131a502c88a2** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 119 | **a9fed734d4d5** |
+| **sim-premium-desk.js** | 129 | **852e572df523** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
 | **sim-light-tone.js** | 135 | **a299cf337216** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
@@ -317,7 +317,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **dcef7d6522e5** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
-| **sim-license-gate.js** | 271 | **a35d5f06cf54** |
+| **sim-license-gate.js** | 271 | **4537a3decdc3** |
 | **sim-account.js** | 174 | **7ae6cd2b9499** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **910c263320d1** |
@@ -405,7 +405,7 @@
 | **sim-bgm-diag.js** | 260 | **b16b4f888b77** |
 | **sim-mobile-diag.js** | 147 | **5fbdf8d713ab** |
 | **sim-blink-timing.js** | 112 | **624e0321ea28** |
-| **sim-desk-visual.js** | 215 | **4b72eca7bfa3** |
+| **sim-desk-visual.js** | 220 | **7735abfb36fc** |
 | **sim-desk-place.js** | 187 | **2de2d6fa296b** |
 | **sim-toast.js** | 174 | **25bd36f5c6a5** |
 | **sim-dot-render.js** | 223 | **ed34e53f22dd** |

@@ -40,21 +40,30 @@ function buildPA(src, st){
 say('── 1. 전용 자산을 지금 막아야 하나 — 판단 함수 한 벌');
 if(!PASRC){ huh('account-state.js 를 못 읽음'); }
 else{
-  const st = { premium: false, admin: false };
-  const pa = buildPA(PASRC, st);
-  const blocked = (item, prem, admin) => { st.premium = !!prem; st.admin = !!admin; return pa.licenseAssetBlocked(item); };
-  chk(blocked({ licenseOnly: true }, false, false) === true, '전용 · 라이선스 없음 · 관리자 아님 → 막는다');
+  /* known=false 는 서버가 아직 프리미엄을 확인해 주지 않은 상태(_setPremium 을 부른 적 없음) — isPremium 의 false 는 «모름» */
+  const blocked = (item, prem, admin, known) => {
+    const st = { premium: !!prem, admin: !!admin };
+    const pa = buildPA(PASRC, st);
+    if(known !== false) pa._setPremium(!!prem);
+    return pa.licenseAssetBlocked(item);
+  };
+  chk(blocked({ licenseOnly: true }, false, false) === true, '전용 · 라이선스 없음 · 관리자 아님 · 확인됨 → 막는다');
+  chk(blocked({ licenseOnly: true }, false, false, false) === false, '★ 같은 경우라도 서버가 확인해 주기 전(모름)이면 막지 않는다 — 프리미엄 사용자의 책상이 깜빡이지 않게(확인이 오면 알림이 다시 그린다)');
   chk(blocked({ licenseOnly: true }, true, false) === false, '전용 · 라이선스 있음 → 안 막는다');
   chk(blocked({ licenseOnly: true }, false, true) === false, '전용 · 관리자 → 안 막는다(등록 · 검수는 보유 없이 쓴다)');
   chk(blocked({ licenseOnly: false }, false, false) === false && blocked({}, false, false) === false, '일반 자산은 막지 않는다');
   chk(blocked(null, false, false) === false && blocked(undefined, false, false) === false, '경계: 레코드가 없으면(null · undefined) 막지 않는다');
   chk(blocked({ licenseOnly: 1 }, false, false) === true && blocked({ licenseOnly: 0 }, false, false) === false, '경계: licenseOnly 는 참 · 거짓으로만 읽는다');
-  chk(typeof blocked({ licenseOnly: true }, false, false) === 'boolean', '돌려주는 값은 true · false');
-  /* 깨 보기 — 관리자 예외를 빼거나 전용 확인을 빼면 위 판정이 빨강이어야 한다 */
-  const brk = (f) => { try{ const p2 = buildPA(f(PASRC), st); st.premium = false; st.admin = true; const a1 = p2.licenseAssetBlocked({ licenseOnly: true }); st.premium = false; st.admin = false; const a2 = p2.licenseAssetBlocked({ licenseOnly: false }); st.premium = true; const a3 = p2.licenseAssetBlocked({ licenseOnly: true }); return a1 !== false || a2 !== false || a3 !== false; }catch(_){ return true; } };
-  chk(brk(t => t.replace('&& !isPremium() && !isAdmin();\n}', '&& !isPremium();\n}')), '  ↳ 깨 보기: 관리자 예외를 빼면 빨강');
-  chk(brk(t => t.replace('!!(item && item.licenseOnly) && ', '')), '  ↳ 깨 보기: 전용인지 안 보면 빨강');
-  chk(brk(t => t.replace('&& !isPremium() && !isAdmin();', '&& !isAdmin();')), '  ↳ 깨 보기: 프리미엄 예외를 빼면 빨강');
+  chk(typeof blocked({ licenseOnly: true }, false, false) === 'boolean' && typeof blocked({ licenseOnly: true }, false, false, false) === 'boolean', '돌려주는 값은 true · false');
+  /* 깨 보기 — 각 조건을 빼면 위 판정이 빨강이어야 한다(진리표 전체를 다시 돌려 한 칸이라도 달라지면 잡음) */
+  const table = (src) => { const out = []; for(const it of [{ licenseOnly: true }, { licenseOnly: false }, null]) for(const pr of [false, true]) for(const ad of [false, true]) for(const kn of [true, false]){
+    try{ const st = { premium: pr, admin: ad }; const pa = buildPA(src, st); if(kn) pa._setPremium(pr); out.push(pa.licenseAssetBlocked(it)); }catch(_){ out.push('x'); } } return out.join(); };
+  const base = table(PASRC);
+  const brk = (a, b) => PASRC.includes(a) && table(PASRC.replace(a, b)) !== base;
+  chk(brk('&& !isPremium() && !isAdmin();', '&& !isPremium();'), '  ↳ 깨 보기: 관리자 예외를 빼면 빨강');
+  chk(brk('&& !isPremium() && !isAdmin();', '&& !isAdmin();'), '  ↳ 깨 보기: 프리미엄 예외를 빼면 빨강');
+  chk(brk('!!(item && item.licenseOnly) && _premiumKnown', '_premiumKnown'), '  ↳ 깨 보기: 전용인지 안 보면 빨강');
+  chk(brk('&& _premiumKnown && !isPremium()', '&& !isPremium()'), '  ↳ 깨 보기: «모름» 을 안 보면 빨강');
 }
 say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수를 부른다');
 {
@@ -97,6 +106,7 @@ chk(/DEFAULT_DESK_OVERRIDE_ID/.test(refresh), '기본 책상 오버라이드도 
 chk(/applyDeskItemsTo\(s, s\.charDef\.deskItems\)/.test(refresh), '전용 아이템도 다시 장착한다 (equipDeskItem 게이트가 같은 isPremium 을 본다)');
 chk(/creatorOpen[\s\S]{0,60}renderCrItems\(\)/.test(refresh), '생성기가 열려 있으면 🔒 카드도 다시 그린다');
 chk(/refreshCustomStatusMenuItem/.test(refresh), '원래 하던 일(커스텀 상태 메뉴)은 그대로다');
+chk(/refreshLauncherPreview\(\)/.test(refresh), '★ 런처 미리보기도 다시 그린다 — 서버 확인 전에 그려진 전용 책상 · 아이템을 지금 값으로');
 
 /* ── 4. 고르지 못한다 ── */
 say('── 4. 생성기에서 라이선스 없이는 전용 책상을 고르지 못한다');
