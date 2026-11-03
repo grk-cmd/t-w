@@ -106,7 +106,7 @@ async function judge(src) {
     chk(!!m && JSON.stringify(keys) === JSON.stringify(ORDER), 'app.js 의 starts 가 표와 같은 이름 · 같은 차례(' + keys.length + '칸)');
     const body = m ? m[1] : '';
     const rest = APP.replace(body, '');
-    const starters = ['startFocusTotal', 'startFocusSync', 'startChalSync', 'startGachaSync', 'startSlotsSync', 'startCharsSync', 'startSchedule', 'startReceive', 'startBgSync', 'startLicenseVerify', 'startWatch'];
+    const starters = ['startFocusTotal', 'startFocusSync', 'startChalSync', 'startGacha', 'startSlotsSync', 'startCharsSync', 'startSchedule', 'startReceive', 'startBgSync', 'startLicenseVerify', 'startWatch'];
     chk(starters.every((n) => body.split(n + '(').length === 2) && starters.every((n) => !new RegExp('\\.' + n + '\\(').test(rest)), '  기능 시작은 app.js 에서 이 표 한 곳에서만 부른다(만든 자리에서 바로 부르지 않음)');
     /* 공지는 모두에게 같은 공용 데이터 — 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너) */
     const noticeAtBoot = (ap, bodyTxt) => /^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(ap) && !/noticeFeed\.start\(\)/.test(bodyTxt);

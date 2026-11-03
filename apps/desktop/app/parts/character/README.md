@@ -342,28 +342,16 @@
   - 옛 규칙을 지키느라 판정이 조금씩 다르다 — 런처는 `'__part'` 접두(`__part_` 도)를 빼고 숨은 것은 센다 · 진단 · 머리 여유 · 검증 로그는 표식 `__twPartWrap` 을 안 본다(`isPartByRigOrName`). 지금은 이름 · 표식이 함께 붙어 결과가 같다. 하나로 맞추려면 동작 변경이라 따로 승인받는다.
   - `skipBranch` · `partTest` 는 순수 함수만 넘긴다(던지면 measureBodyBox 밖으로 나간다 — `_boxExcluding` 은 던지면 빈 박스).
 
-## gacha-tx.js — 🎰 가챠 트랜잭션 한 길
+## gacha-api.js — 🎰 가챠 api provider
 
-- **책임**: 가챠 노드(`users/{uid}/gacha`)를 트랜잭션으로 고치는 단 한 길. 뽑기 · 합치기(`gacha.js`)가 «지금 서버 값 → 새 값» 함수(apply)를 넘긴다. 통째 set 은 없다(다른 PC 의 뽑기를 지운다).
-- **만드는 법**: ESM — `firebase-init.js` 가 `import { createGachaTx } from "./character/gacha-tx.js"` 로 들이고 `createGachaTx({ db, ref, get, runTransaction, waitConnected, whenAuthReady })` 로 만든다. Firebase 를 직접 import 하지 않는다.
-- **내보내는 것**: `updateGacha(uid, apply, opt)` → `{ ok:true, committed, value }` | `{ ok:false, reason:'offline'|'timeout'|'denied'|'error' }`(firebase-init 의 `firebaseAPI.updateGacha` 가 그대로 건넨다) · `gachaFailReason(e)` · 상수 `GACHA_TX_TIMEOUT_MS`(10초) · `GACHA_CONNECT_WAIT_MS`(3초).
+- **책임**: 서버가 원본인 가챠의 읽기 · 뽑기(`GET /v1/me/collection` · `GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수 · 색 해금(다 모았나)은 서버가 정한다. 이 PC 에 보유분 사본을 두지 않는다(0.12 의 `gacha-tx.js` 트랜잭션 · 합치기 · 10분 맞추기는 걷었다).
+- **deps**: `authed`(로그인 API 통로 `TwApi.authed`) · `newRequestId`(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게).
+- **내보내는 것**: `createGachaApi(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason }, reset() }` · 상태 = `{ owned, unlocked, earned, bonus, left, season }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
 - **함정**
-  - 첫 시도의 `cur=null` 은 «빈 노드» 가 아닐 수 있다 — 사전 get 값(pre)으로 센다.
-  - 시간 상한은 사전 get 부터 저장까지 덮는다. 넘긴 뒤 늦게 committed 되면 `opt.onLate(값)` 로만 알린다(부르는 쪽이 사본에 합친다).
-  - apply 는 재시도마다 다시 불린다 — 부작용 없이 값만 돌려줄 것(gacha.js 는 마지막 실행의 결과만 쓴다).
-  - 검사: `checks/sim-gacha-tx.js`(연결 · 가짜 SDK · 깨 보기).
-
-## gacha-server.js — 🎰 가챠 서버 길
-
-- **책임**: 서버가 뽑고 서버가 저장하는 길(`GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수는 서버가 정한다. 이 PC 에만 있는 뽑기는 올리지 않는다(서버 값만 원본).
-- **고르기**: `gacha.js` 가 `deps.gachaSource()`(원격 설정 `sources.gacha` · `shared/source-switch.js`)가 `'server'` 일 때만 이 길을 탄다. 칸이 없으면 옛 길(`gacha-tx.js` 트랜잭션 · 앱이 뽑기).
-- **deps**: `get` · `post`(로그인 API 통로 — `firebaseAPI.apiGetAuthed` · `apiPostAuthed`) · `newRequestId`(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게 · 앱은 시간 초과면 다시 보내지 않고 상태를 다시 받는다).
-- **내보내는 것**: `createGachaServer(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason } }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
-- **함정**
-  - 실패해도 옛 길로 넘기지 않는다 — 넘기면 서버가 정하는 뜻이 없어진다. 실패하면 `gacha.js` 가 서버 값을 다시 받는다(시간 초과 뒤 서버엔 들어갔을 수 있다).
-  - 서버 길에서 보유분은 **갈아 끼운다**(합치지 않음). 못 받으면 아무것도 안 바꾸고 착용도 안 벗긴다.
-  - 컷오버 전까지 옛 앱이 `users/*/gacha` 를 직접 쓴다 — 조작을 막는 건 규칙을 닫는 날이다.
-  - 검사: `checks/sim-gacha-server.js`(요청 모양 · 응답 씻기 · 실패 · 깨 보기) · `checks/sim-gacha.js` 3-2절(서버 길로 굴리기).
+  - 읽기가 실패하면 던진다(못 읽음 ≠ 빈 보유분). 뽑기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽기 전에는 보내지 않는다.
+  - 뽑기가 시간 초과여도 같은 요청을 다시 보내지 않는다. 서버엔 들어갔을 수 있어 사용자가 보관함을 여는 때 다시 받는다.
+  - 서버 신호 `collection`(본인)이 오면 `gacha.js` 가 다시 받는다 — 달성표 보상(`bonus`)도 이 길로 온다.
+  - 검사: `checks/sim-gacha-api.js`(요청 모양 · 응답 씻기 · 실패 · 계정 묶기 · 깨 보기) · `checks/sim-gacha.js`(받기 · 뽑기 · 보관함).
 
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 

@@ -117,7 +117,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 2 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
 | 3 | focusLevel | 포커스 레벨 서버 맞추기(`startFocusSync`) |
 | 4 | weeklyChal | 👑 달성표(`startChalSync`) |
-| 5 | gacha | 🎰 가챠(`startGachaSync`) |
+| 5 | gacha | 🎰 가챠(`startGacha`) |
 | 6 | slotSync | ☁️ 슬롯 기기 간 동기(`startSlotsSync`) |
 | 7 | chars | 🧬 캐릭터 보관함 동기(`startCharsSync`) |
 | 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |

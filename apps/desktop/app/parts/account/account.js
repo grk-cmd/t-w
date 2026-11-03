@@ -21,9 +21,6 @@ const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
-const GACHA_BONUS_KEY = deps.GACHA_BONUS_KEY;   // 읽는 함수
-const GACHA_OWNED_KEY = deps.GACHA_OWNED_KEY;   // 읽는 함수
-const GACHA_TS_KEY = deps.GACHA_TS_KEY;   // 읽는 함수
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;
 const LICENSE_REQ_ID_KEY = deps.LICENSE_REQ_ID_KEY;   // 읽는 함수
 const LS_KEY = deps.LS_KEY;   // 읽는 함수
@@ -129,8 +126,6 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), acctStateMod.LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
   /* 누적 시간 · 오늘치 · 서버 맞춤 마크는 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   focusLevelMod().DANCE_NOTIFIED_KEY, focusLevelMod().DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
-  /* 가챠 — 연동 pull(syncGachaToServer 'transfer','pull') + 부팅 tick 이 서버 것을 받아온다. 보너스는 loadChalBonus. */
-  GACHA_OWNED_KEY(), GACHA_TS_KEY(), GACHA_BONUS_KEY(),
   /* 달성표 — syncChalToServer 가 서버 ts 가 크면 통째로 받아온다. */
   CHAL_KEY(),
   /* 캐릭터 슬롯 — 연동 pull(syncSlotsToServer 'transfer','pull'). 업로드 캐시 둘은 users/{uid}/ 경로의 URL 이라
@@ -168,7 +163,6 @@ async function _acctFlushToServer(){
   const jobs = [];
   const call = (fn, ...a) => { try{ if(typeof fn === 'function') jobs.push(Promise.resolve(fn(...a))); }catch(_){} };
   call(typeof focusLevelMod().syncFocusTotalToServer === 'function' ? focusLevelMod().syncFocusTotalToServer : null, 'logout');
-  call(gachaMod().syncGachaToServer, 'logout');
   call(weeklyChal().syncChalToServer, 'logout');
   call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
   /* 슬롯은 대기 중인 debounce push 가 있으면 그것부터 흘려보낸다(3초를 기다릴 이유가 없다). */
@@ -203,16 +197,13 @@ async function _acctPreflight(uid, opt){
   const items = [];
   const push = (label, reason, kind) => items.push({ label, reason, kind });
   /* 로컬 개수부터 — 오프라인이어도 «무엇이 사라지는지» 는 말할 수 있어야 한다. */
-  let nSlots = 0, nGacha = 0, gapMin = 0, hasSlots = false;
+  let nSlots = 0, gapMin = 0, hasSlots = false;
   try{ hasSlots = (typeof slotSyncMod()._slotsHasLocal === 'function') && slotSyncMod()._slotsHasLocal(); }catch(_){}
   try{ nSlots = (hasSlots && typeof slotSyncMod()._slotsFilledCount === 'function') ? slotSyncMod()._slotsFilledCount(localStorage.getItem(LS_KEY())) : 0; }catch(_){}
-  try{ nGacha = (typeof gachaMod().owned() === 'object' && gachaMod().owned()) ? Object.keys(gachaMod().owned()).length : 0; }catch(_){}
   const lblSlots = '캐릭터' + (nSlots ? ' ' + nSlots + '개' : '');
-  const lblGacha = '뽑은 파츠' + (nGacha ? ' ' + nGacha + '개' : '');
   const api = window.firebaseAPI;
   if(!api){
     if(hasSlots) push(lblSlots, '네트워크 연결이 필요해요', 'offline');
-    if(nGacha) push(lblGacha, '네트워크 연결이 필요해요', 'offline');
     return { ok:false, reason:'네트워크 연결이 필요해요', kind:'offline', items, timedOut };
   }
   /* 🧍 캐릭터 — 로컬에 있으면 서버 ts 가 있어야 한다. */
@@ -223,15 +214,6 @@ async function _acctPreflight(uid, opt){
       else if(!(typeof ts === 'number' && ts > 0)) push(lblSlots, '캐릭터를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
     }
   }catch(_){ push(lblSlots, '캐릭터 저장 상태를 확인하지 못했어요', 'unknown'); }
-  /* 🎰 가챠 — 이 PC 의 뽑기가 서버에 다 있어야 한다(파츠마다 개수까지). ⚠️ «서버에 하나라도 있나» 로 줄이지 말 것 —
-     서버에 못 올라간 뽑기가 있어도 통과해 로그아웃이 지운다. */
-  try{
-    if(nGacha && api.loadGachaOwned){
-      const srv = await api.loadGachaOwned(uid);
-      if(srv === null || srv === undefined) push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown');
-      else if(gachaMod().unsynced(srv.owned) > 0) push(lblGacha, '뽑은 파츠를 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
-    }
-  }catch(_){ push(lblGacha, '파츠 저장 상태를 확인하지 못했어요', 'unknown'); }
   /* 🕒 누적 시간 — 마크가 로컬 누적을 따라잡았어야 한다(2분은 왕복 사이에 쌓이는 폭). */
   try{
     const total = Math.floor(Number(_focusTotalSec()) || 0);
@@ -268,7 +250,7 @@ function _wipeAccountLocal(){
   /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
   try{ setFocusTotalSec(0); setFocusTodaySec(0); }catch(_){}
   try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)
-  try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — gachaOwned = {} · _gachaTs = 0 · _gachaBonus = 0 (gacha.js)
+  try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — 서버에서 받아 온 보유분 · 뽑기 수 · 구독 표시를 비운다(gacha.js)
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ slotSyncMod().setSlotsTs(0); slotSyncMod().setSlotsSeen(0); slotSyncMod().setSlotsConflict(null); setExtraSeatSlots([]); }catch(_){}
   try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
