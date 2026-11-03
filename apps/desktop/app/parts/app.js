@@ -2786,6 +2786,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  giftSave: TwGiftSave.createGiftSave({ fetch: (...a)=>fetch(...a), document, URL, setTimeout: (...a)=>setTimeout(...a), safeUrl: TwSafeHtml.safeUrl, now: ()=>new Date(), notifyFail: e=>TwErrorCodes.notify('E-MH-03', e) }),
   // 📩 수령함
   myInbox: ()=>_myInbox,
   inboxBroadcast: ()=>_inboxBroadcast,
@@ -3664,6 +3665,8 @@ const FOCUS_MS=1500,SLEEP_MS=8000,PET_MS=2200;
    (main.js가 activeAppState.isPenApp으로 알려줌 — 목록은 main.js의 PEN_APPS 한 곳에만 둔다) */
 const PEN_FOCUS_MS=4000;
 let _penAppFocused=false;
+/* 투게더워킹 창 자신이 맨 앞인가(main.js activeAppState.isSelf) — 등록 앱이 아니어도 잠들지 않게 seatState 가 본다. */
+let _selfAppActive=false;
 function focusWindowMs(){ return _penAppFocused ? PEN_FOCUS_MS : FOCUS_MS; }
 let lastActivity=performance.now(),windowFocused=!document.hidden,lastZ=0;
 function activity(){lastActivity=performance.now();}
@@ -3693,6 +3696,9 @@ function seatState(seat,now){
   if(!desktopMode && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
+  /* 투게더워킹 창을 쓰는 중이면 등록 앱이 아니어도 깨어 있는다(평소 자세). 손을 뗀 지 SLEEP_MS 가 넘으면 예전처럼 잔다.
+     ⚠️ lastActivity 만 보면 안 된다 — 전역 키 · 클릭은 게이트가 닫혀 있으면 lastAnyInput 만 올린다. */
+  if(desktopMode && focusGateSleep && _selfAppActive) return (now-Math.max(lastActivity,lastAnyInput)>SLEEP_MS) ? 'sleep' : 'idle';
   if(desktopMode && focusGateSleep) return 'sleep';
   if(seat.isMe && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
   const idle=now-lastActivity;
@@ -9015,6 +9021,7 @@ function _applyActiveAppState(state){
   /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
      구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
   if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
+  _selfAppActive = !!state.isSelf;   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
   _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
   /* 투게더워킹 창이 앞이면(isSelf) 직전 상태를 둔다 — 포커싱 어플 목록에 없어 «등록 안 된 앱» 으로 보면 앱을 만지는 동안 잠든다 */
   const keepGate = state.isSelf === true && !state.isFocusedAppRegistered && !figureMode && !mobOn;   // 자기를 포커싱 어플로 등록했으면 예전대로

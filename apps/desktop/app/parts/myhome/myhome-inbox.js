@@ -33,6 +33,7 @@ function createMyHomeInbox(deps){
 const escHtml = deps.escHtml;
 const toast = deps.toast;
 const getMyUserId = deps.getMyUserId;
+const giftSave = deps.giftSave;                     // 💾 선물 그림 저장(gift-save.js) — 우클릭 [저장]
 // 📩 수령함 — app.js 의 let(구독이 다시 대입)과 저장 키
 const _myInbox = deps.myInbox;                       // 읽는 함수 — 개인 수령함(마이홈 열기의 subscribeInbox 가 다시 대입)
 const _inboxBroadcast = deps.inboxBroadcast;         // 읽는 함수 — 공용 공지(subscribeInboxBroadcast 가 다시 대입)
@@ -441,19 +442,21 @@ function _giftBoxPaint(listEl, gifts){
     else if(r === 'already') toast('이미 마이홈에 나와 있어요');
     else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
   };
-  // 우클릭 → 영구 삭제 (⭐ 는 막음). 확인은 창 안 확인창으로 — confirm() 금지(audit 검사 4).
+  // 우클릭 → [저장] [삭제] [취소]. ⭐ 는 삭제를 막아 [저장] [취소] 만. 확인은 창 안 확인창으로 — confirm() 금지(audit 검사 4).
   listEl.oncontextmenu = (ev)=>{
     const it = ev.target && ev.target.closest ? ev.target.closest('.gift-item') : null;
     if(!it || !it.dataset.gid) return;
     ev.preventDefault(); ev.stopPropagation();
     const k = it.dataset.gid, g = gifts[k]; if(!g) return;
+    const saveBtn = { label:'저장', run: ()=>giftSave.save(g) };
     if(g.starred === true){
-      _mhAsk('선물 삭제', '즐겨찾기한 선물이에요. ⭐를 먼저 풀어 주세요.', [{ label:'확인' }]);
+      _mhAsk('선물 저장', '즐겨찾기한 선물이에요. 내 컴퓨터에 저장할 수 있어요.\n삭제하려면 ⭐를 먼저 풀어 주세요.', [saveBtn, { label:'취소' }]);
       return;
     }
-    _mhAsk('선물 삭제',
-      (g.fromName||'친구')+' 님의 선물을 삭제할까요?\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
-      [{ label:'삭제', danger:true, run: async ()=>{
+    _mhAsk('선물 저장 · 삭제',
+      (g.fromName||'친구')+' 님의 선물을 저장하거나 삭제할 수 있어요.\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
+      [saveBtn,
+       { label:'삭제', danger:true, run: async ()=>{
           const r = await window._mallangDeleteGift(k, g);
           if(r === 'ok'){ delete gifts[k]; repaint(); toast('🗑 선물을 삭제했어요'); }
           else toast('삭제하지 못했어요 — 네트워크를 확인해 주세요');

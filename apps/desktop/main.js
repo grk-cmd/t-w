@@ -92,6 +92,7 @@ const HoverPoke = require('./hover-poke');
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
 const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
+const FrontDiag = require('./app/parts/shared/front-diag');   // 🩺 1분 [프레임] 줄 끝에 앞 창 · 전체화면 비율(게임 · 영상 버벅임 제보)
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
@@ -1485,7 +1486,7 @@ function _noteForeignWindow(exeName, ownerPath, w){
 
 // uiohook 전역 클릭/키 이벤트에 실어 보낼, 매 순간의 "활성 프로세스 판정" 캐시.
 // (500ms 폴링에서 갱신 — uiohook 이벤트마다 activeWin()을 새로 부르면 느리므로 캐시 재사용)
-let lastActiveState = { exeName:'', isFocusedAppRegistered:false, hasAnyRegistered:false, isPenApp:false };
+let lastActiveState = { exeName:'', isFocusedAppRegistered:false, hasAnyRegistered:false, isPenApp:false, isSelf:false };
 
 // 현재 활성 창이 우리 앱이 아니면 lastForeignWindow를 갱신 — 500ms 주기로 폴링.
 // (active-win 자체가 폴링 기반 API라 이벤트 리스너가 없음)
@@ -1499,6 +1500,7 @@ let _activeWinFailStreak = 0;
    맥 전역 키 훅은 키마다 main 스레드에 묻고 기다리므로, 여기서 잰 멈춤이 곧 키가 밀린 시간이다. */
 const _lagWatch = InputDiag.createLagWatch({ now: () => Date.now(), log: (m) => _diagLog(m), front: () => lastActiveState.exeName });
 let _lagTimer = null;
+const _frontWatch = FrontDiag.createFrontWatch();   // 🩺 앞 창 · 전체화면 비율 — 1분 [프레임] 줄 꼬리(shared/front-diag.js)
 function startActiveWinPolling(){
   if(_pollTimer) return;
   _lagTimer = setInterval(() => _lagWatch.tick(), InputDiag.LAG_TICK_MS);
@@ -1553,7 +1555,11 @@ function startActiveWinPolling(){
       //   렌더러의 1.5초(FOCUS_MS) 기록 창이 너무 좁다. 펜 앱일 때만 그 창을 넓히는 데 쓴다.
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
-      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };
+      lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };   // isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
+      let frontFull = null;   // null = 크기를 못 읽음(맥 · 실패) — 비율 분모에서 뺀다
+      /* 우리 창이 있는 모니터와 견준다(실행 화면이면 실행 모니터) — getRunDisplay 는 저장 · 로그가 딸려 있어 0.5초마다 부르지 않는다 */
+      try{ if(w.bounds && mainWindow && !mainWindow.isDestroyed()) frontFull = FrontDiag.coversDisplay(w.bounds, screen.getDisplayMatching(mainWindow.getBounds()).bounds); }catch(_){}
+      _frontWatch.note(Date.now(), exeName, frontFull);
       if(penNow !== _penAppActive){
         _penAppActive = penNow;
         if(!_penAppActive){
@@ -3817,7 +3823,9 @@ function createWindow() {
   /* 🩺 렌더러가 보내는 진단 한 줄 — 렌더러에서 났는지 보이게 머리표를 붙이고, 줄바꿈을 지워 한 줄로 묶는다. */
   ipcMain.on('companion:diagNote', (e, msg) => {
     if(!mainWindow || mainWindow.isDestroyed() || e.sender !== mainWindow.webContents) return;
-    _diagLog('[렌더러] ' + String(msg == null ? '' : msg).replace(/[\r\n]+/g, ' ').slice(0, 200));
+    let line = String(msg == null ? '' : msg).replace(/[\r\n]+/g, ' ').slice(0, 200);
+    if(FrontDiag.isFrameLine(line)) line += FrontDiag.suffix(_frontWatch.take(Date.now()));   // 그 1분의 앞 창 — 렌더러는 모른다
+    _diagLog('[렌더러] ' + line);
   });
   ipcMain.handle('companion:openDiagFolder', () => {
     try{
