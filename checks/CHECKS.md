@@ -133,7 +133,7 @@
 | **sim-room-info-ui.js** | 189 | **84c0a6c5cdd0** |
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 86 | **221f5a4eb987** |
-| **sim-listen-ui.js** | 431 | **4d19bf96b210** |
+| **sim-listen-ui.js** | 431 | **a9fe373d4b6b** |
 | **sim-room-settings.js** | 222 | **325b89402352** |
 | **sim-room-alive.js** | 128 | **7d710942c7e7** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
@@ -307,7 +307,7 @@
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **8d2f056f3589** |
-| **sim-tricks.js** | 94 | **06bc03aff176** |
+| **sim-tricks.js** | 94 | **0d7b8a1c2080** |
 | **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **3e7fcbc11472** |
@@ -325,7 +325,7 @@
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1debed57a729** |
 | **sim-program-settings.js** | 148 | **ca3242f94e17** |
-| **sim-chat-prefs.js** | 95 | **ec9c1369226f** |
+| **sim-chat-prefs.js** | 95 | **ff2cc5651c4c** |
 | **sim-chat-read-on-send.js** | 213 | **0f57e0394a96** |
 | **sim-rich-text.js** | 95 | **e2857c0faa2d** |
 | **sim-win-stack.js** | 96 | **e7f9bf9ab745** |
@@ -347,7 +347,7 @@
 | **sim-focus-total.js** | 96 | **8cffe6294bd4** |
 | **sim-focus-share.js** | 96 | **18932a701a4c** |
 | **sim-demoji-palette.js** | 95 | **24cf9fe4f0b6** |
-| **sim-chat-lock.js** | 96 | **75b069f43f16** |
+| **sim-chat-lock.js** | 104 | **df97e531e109** |
 | **sim-roulette.js** | 96 | **a75ac3bfd7dd** |
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |

@@ -269,7 +269,7 @@ TwRoomCreateUi.createRoomCreateUi({
 
 ```js
 const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({ roomSettings: TwRoomSettings, bannedWords: TwBannedWords, rcStore: ()=>acctStateMod._rcStore(),
-  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, getMyUserId()), isSecretRoom: ()=>TwRoomState.isSecretCode(…),   // 채팅 잠금과 같은 판정(room-state.js)
+  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, TwRoomRt.store.myCode()), isSecretRoom: ()=>TwRoomState.isSecretCode(…),   // 채팅 잠금과 같은 판정(room-state.js)
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), meta: ()=>window._roomMetaCache,
   saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : Promise.resolve({ ok:false, code:'notInRoom' })),
   notifyError: (...a)=>TwErrorCodes.notify(...a) });

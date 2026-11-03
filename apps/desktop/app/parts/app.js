@@ -1507,7 +1507,7 @@ const tricksMod = TwTricks.createTricks({
   creatorOpen: ()=>creatorOpen,
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   chatNet: TwChatRt.store,
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   ndc: ()=>ndc,
@@ -2746,7 +2746,7 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
   _chatSfxPools: sfxMod._chatSfxPools,
   chatUiMod: ()=>chatUiMod,
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   officeMode: ()=>officeMode,
   seats: seats,
   toast: (...a)=>toast(...a),
@@ -3233,7 +3233,7 @@ const chatLockMod = TwChatLock.createChatLock({
   Presence: ()=>Presence,
   chatPrefsMod: chatPrefsMod,
   chatUiMod: chatUiMod,
-  getMyUserId: (...a)=>getMyUserId(...a),
+  myCode: ()=>TwRoomRt.store.myCode(),
   roomState: TwRoomState,
 });
 /* ═══ 🗑 대화 기록 삭제 (방장) ══════════════════════════════════════════════
@@ -6863,10 +6863,10 @@ const listenUi = TwListenUi.createListenUi({
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
-  myId: ()=>getMyUserId(),
-  memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== getMyUserId()),
+  myId: ()=>TwRoomRt.store.myCode(),
+  memberIds: ()=>Object.values(Presence.friendsObj() || {}).map(f=>f && f.userId).filter(u=>u && u !== TwRoomRt.store.myCode()),
   nameOf: (uid)=>{
-    if(uid === getMyUserId()) return getDisplayName();
+    if(uid === TwRoomRt.store.myCode()) return getDisplayName();
     const f = Object.values(Presence.friendsObj() || {}).find(x=>x && x.userId === uid);
     return (f && f.name) || '(이름 없음)';
   },
@@ -6882,7 +6882,7 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
   roomSettings: TwRoomSettings,
   bannedWords: TwBannedWords,
   rcStore: ()=>acctStateMod._rcStore(),
-  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, getMyUserId()),   // 판정은 채팅 잠금과 같은 한 곳(room-state.js)
+  isHost: ()=>TwRoomState.isHost(window._roomMetaCache, TwRoomRt.store.myCode()),   // 판정은 채팅 잠금과 같은 한 곳(room-state.js)
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
@@ -8286,6 +8286,7 @@ function frame(now, manual){
   updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
   seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
+  const _myRoomCode = TwRoomRt.store.myCode();   // 방 서버의 내 코드 — 프레임에 한 번
   const _djNow = listenUi.djId();   // 🎧 이름표 «DJ» 딱지 — 프레임에 한 번(좌석마다 방 사람 목록을 다시 만들지 않게)
   seats.forEach(seat=>{
     const state=seatState(seat,now);
@@ -8472,7 +8473,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     else if(seat.isMe){
       const st = focusLevelMod.myFocusShow(), lv = st ? st.lv : focusLevelMod.getFocusLevel();
       expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
-      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!getMyUserId() && _djNow === getMyUserId());
+      overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!_myRoomCode && _djNow === _myRoomCode);
     }
     else if(seat.namePlateEl){ seat.namePlateEl.style.display='none'; if(seat.expBarEl) seat.expBarEl.style.display='none'; }   // 주캐릭터였다가 자리추가로 바뀐 좌석 — 이전 이름표가 남아있지 않게 숨김
     /* 💬 말풍선 — ★ 반드시 이름표·경험치 바 **뒤에** 갱신한다.

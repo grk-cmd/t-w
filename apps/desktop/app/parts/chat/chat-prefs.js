@@ -29,7 +29,7 @@ const _chatRoomCode = deps._chatRoomCode;
 const _chatSfxPools = deps._chatSfxPools;
 const chatUiMod = deps.chatUiMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
-const getMyUserId = deps.getMyUserId;
+const myCode = deps.myCode;   // 방 서버의 내 코드 — 방장 · 내 좌석 · 내가 때린 것 판정은 이 값(TwRoomRt.store.myCode)
 const officeMode = deps.officeMode;   // 읽는 함수
 const seats = deps.seats;
 const toast = deps.toast;
@@ -269,7 +269,7 @@ function _refreshChatMembers(){
       // 💬 「이 채널」 — 내 탭에 있는 사람만(구버전 · 탭 칸이 없는 사람은 #일반)
       if(!st.isMe && chatUiMod()._chatTabResolve(st.chatTabId || 'general') !== chatUiMod()._chatMyTabId()) continue;
       if(st.isMe){
-        names.push({ name:getDisplayName(), isHost:(hostUserId && getMyUserId()===hostUserId) });
+        names.push({ name:getDisplayName(), isHost:(hostUserId && myCode()===hostUserId) });
       }else if(st.friendName){
         names.push({ name:st.friendName, isHost:(hostUserId && st.friendUserId===hostUserId) });
       }

@@ -376,7 +376,7 @@ say('── 8. 이어 붙인 곳');
   const iDj = fr.indexOf('const _djNow = listenUi.djId();'), iLoop = fr.indexOf('  seats.forEach(seat=>{');
   chk(iDj > 0 && iLoop > iDj && (fr.match(/listenUi\.djId\(\)/g) || []).length === 1, '이름표 «🎧 DJ» — DJ 판정은 프레임에 한 번, 좌석 줄 앞에서(좌석마다 방 사람 목록을 다시 만들지 않게)');
   chk(/setSeatNamePlate\(seat, lv, seat\.friendName\|\|'\(이름 없음\)', st, !!seat\.friendUserId && _djNow === seat\.friendUserId\)/.test(APP)
-    && /setSeatNamePlate\(seat, lv, getDisplayName\(\), st, !!getMyUserId\(\) && _djNow === getMyUserId\(\)\)/.test(APP), '  남 · 나 둘 다 그 값으로(내 코드가 없으면 null===null 로 켜지지 않게)');
+    && /setSeatNamePlate\(seat, lv, getDisplayName\(\), st, !!_myRoomCode && _djNow === _myRoomCode\)/.test(APP), '  남 · 나 둘 다 그 값으로(내 코드가 없으면 null===null 로 켜지지 않게)');
   chk(/function setSeatNamePlate\(seat, level, name, star, dj\)/.test(OH) && /\+ \(dj \? '\|dj' : ''\)/.test(OH) && /b\.className = 'np-dj'; b\.textContent = '🎧 DJ';/.test(OH), '  overhead.js: 딱지는 열쇠에 들어가 바뀔 때만 다시 그린다');
   const chip = HTML.slice(HTML.indexOf('<div id="myStatusChip"'), HTML.indexOf('<!-- 캐릭터 머리 위 설정 패널'));
   chk(['listenBox', 'lsClose', 'lsTitle', 'lsDj', 'lsBar', 'lsNow', 'lsLen', 'lsMsg', 'lsRetry', 'lsCtl', 'lsPrev', 'lsPlay', 'lsSkip', 'lsNext', 'lsVol', 'lsMute', 'lsEdit', 'lsHint'].every(id => chip.indexOf('id="' + id + '"') > 0),
