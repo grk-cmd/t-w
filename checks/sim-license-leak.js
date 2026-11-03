@@ -287,7 +287,7 @@ else{
   chk(f({ id: '__default_desk__' }, '__default_desk__', false) === false, '기본 책상 오버라이드는 따로 그린다(중복 방지)');
 }
 const rcAll = grabFn('renderCrItems') || '';
-chk(/const deskLocked = !!\(rec\.licenseOnly && !isPremium && !isAdmin\)/.test(rcAll),
+chk(/const deskLocked = (?:premiumMod\.)?licenseAssetBlocked\(rec\)/.test(rcAll),
   '★ deskLocked 갈래는 **지우지 않았다** — 관리자 화면과, 카탈로그가 늦어 licenseOnly 를 아직 모르는 순간의 안전망');
 chk(/crDeskLicenseHint/.test(rcAll), '5단계에 «어디로 갔는지» 안내 줄을 켠다');
 let HTML = '';

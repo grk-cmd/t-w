@@ -523,7 +523,7 @@ function equipDeskItem(holder,def,on){
   let _siCat = null; try{ _siCat = commissionMod.savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
   const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
-  if(on && _itemLicenseOnly && !isPremium && !isAdmin && !(holder && holder.remote)){
+  if(on && !(holder && holder.remote) && acctStateMod.licenseAssetBlocked({ licenseOnly: _itemLicenseOnly })){
     toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
     return;
   }
@@ -5172,6 +5172,7 @@ const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
 /* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetMod = TwDeskPreset.createDeskPreset({
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
@@ -5192,8 +5193,6 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   fitCreator: (...a)=>creatorPrevMod.fitCreator(...a),
   frameDeskCam: (...a)=>creatorPrevMod.frameDeskCam(...a),
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
   premiumMod: premiumMod,
   setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
@@ -5593,7 +5592,7 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   deskItemsMod: ()=>deskItemsMod,
   equipDeskItem: (...a)=>equipDeskItem(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   lightToneMod: ()=>lightToneMod,
   ndc: ndc,
   premiumMod: premiumMod,
@@ -5760,6 +5759,7 @@ let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.
    계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
 const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
+  isAdmin: ()=>isAdmin,
   setIsPremium: (v)=>{ isPremium = v; },
 });
 /* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
@@ -6107,7 +6107,7 @@ function openCreator(mode){
         const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
         /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
            deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
-        if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
+        if(m && acctStateMod.licenseAssetBlocked(m)){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
         else if(m){
           if(!m.glb && m.glbUrl){
             try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
@@ -7728,8 +7728,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   commissionMod: commissionMod,
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });

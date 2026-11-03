@@ -31,20 +31,45 @@ function grabFn(name){
 }
 const lineOf = (i) => SRC.slice(0, i).split('\n').length;
 
-/* ── 1. 그리기 게이트 진리표 ── */
-say('── 1. 그리기 게이트 — 내 좌석만 막고, 남의 좌석은 라이선스와 무관하게 보인다');
-const gateM = /if\((rec\.licenseOnly[^)]*)\)\{\s*\n\s*swapDeskVisual\(seat\.desk,null\)/.exec(SRC);
-if(!gateM){ huh('applyDeskCatalogRefToSeat 의 게이트 조건을 못 찾음'); }
+/* ── 1. 전용 자산 막기 판단 — 한 함수(account-state.js licenseAssetBlocked)를 진짜로 불러 진리표로 본다 ── */
+const PASRC = ['account-state.js', 'parts/account/account-state.js', 'app/parts/account/account-state.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+function buildPA(src, st){
+  const mod = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', src + '\nreturn window.TwAccountState;')({}, {}, { getItem: () => null, setItem(){}, removeItem(){} }, (f) => f(), undefined);
+  return mod.createAccountState({ isPremium: () => st.premium, isAdmin: () => st.admin, setIsPremium: (v) => { st.premium = v; } });
+}
+say('── 1. 전용 자산을 지금 막아야 하나 — 판단 함수 한 벌');
+if(!PASRC){ huh('account-state.js 를 못 읽음'); }
 else{
-  const cond = new Function('rec', 'seat', 'isPremium', 'isAdmin', 'return !!(' + gateM[1] + ');');
-  const blocked = (lic, remote, prem, admin) => cond({ licenseOnly: lic }, { remote, isMe: !remote }, prem, admin);
-  chk(blocked(true,  false, false, false) === true,  '전용 책상 · 내 좌석 · 라이선스 없음 → 기본 책상');
-  chk(blocked(true,  true,  false, false) === false, '★ 전용 책상 · 남의 좌석 · 내 라이선스 없음 → 그대로 보인다 (예전 제보)');
-  chk(blocked(true,  false, true,  false) === false, '전용 책상 · 내 좌석 · 라이선스 있음 → 보인다');
-  chk(blocked(true,  false, false, true)  === false, '관리자는 라이선스 없이도 보인다');
-  chk(blocked(false, false, false, false) === false, '일반 책상은 게이트를 안 탄다');
-  const gateBody = SRC.slice(gateM.index, SRC.indexOf('return;', gateM.index));
-  chk(!/deskCatalogId\s*=\s*null/.test(gateBody), '★ 게이트가 charDef.deskCatalogId 를 지우지 않는다 — 나중에 라이선스가 오면 같은 참조로 돌아와야 한다');
+  const st = { premium: false, admin: false };
+  const pa = buildPA(PASRC, st);
+  const blocked = (item, prem, admin) => { st.premium = !!prem; st.admin = !!admin; return pa.licenseAssetBlocked(item); };
+  chk(blocked({ licenseOnly: true }, false, false) === true, '전용 · 라이선스 없음 · 관리자 아님 → 막는다');
+  chk(blocked({ licenseOnly: true }, true, false) === false, '전용 · 라이선스 있음 → 안 막는다');
+  chk(blocked({ licenseOnly: true }, false, true) === false, '전용 · 관리자 → 안 막는다(등록 · 검수는 보유 없이 쓴다)');
+  chk(blocked({ licenseOnly: false }, false, false) === false && blocked({}, false, false) === false, '일반 자산은 막지 않는다');
+  chk(blocked(null, false, false) === false && blocked(undefined, false, false) === false, '경계: 레코드가 없으면(null · undefined) 막지 않는다');
+  chk(blocked({ licenseOnly: 1 }, false, false) === true && blocked({ licenseOnly: 0 }, false, false) === false, '경계: licenseOnly 는 참 · 거짓으로만 읽는다');
+  chk(typeof blocked({ licenseOnly: true }, false, false) === 'boolean', '돌려주는 값은 true · false');
+  /* 깨 보기 — 관리자 예외를 빼거나 전용 확인을 빼면 위 판정이 빨강이어야 한다 */
+  const brk = (f) => { try{ const p2 = buildPA(f(PASRC), st); st.premium = false; st.admin = true; const a1 = p2.licenseAssetBlocked({ licenseOnly: true }); st.premium = false; st.admin = false; const a2 = p2.licenseAssetBlocked({ licenseOnly: false }); st.premium = true; const a3 = p2.licenseAssetBlocked({ licenseOnly: true }); return a1 !== false || a2 !== false || a3 !== false; }catch(_){ return true; } };
+  chk(brk(t => t.replace('&& !isPremium() && !isAdmin();\n}', '&& !isPremium();\n}')), '  ↳ 깨 보기: 관리자 예외를 빼면 빨강');
+  chk(brk(t => t.replace('!!(item && item.licenseOnly) && ', '')), '  ↳ 깨 보기: 전용인지 안 보면 빨강');
+  chk(brk(t => t.replace('&& !isPremium() && !isAdmin();', '&& !isAdmin();')), '  ↳ 깨 보기: 프리미엄 예외를 빼면 빨강');
+}
+say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수를 부른다');
+{
+  const strip2 = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
+  const FILES = [['character/desk-visual.js', 'desk-visual.js'], ['creator/desk-setup.js', 'desk-setup.js'], ['creator/desk-preset.js', 'desk-preset.js']].map(([f, g]) => [f, ['parts/' + f, 'app/parts/' + f, g].map(x => { try{ return fs.readFileSync(x, 'utf8'); }catch(_){ return null; } }).find(Boolean)]);
+  const copies = [];
+  for(const [f, t] of FILES.concat([['app.js', fs.readFileSync('app.js', 'utf8')]])){ if(!t) { huh(f + ' 를 못 읽음'); continue; } if(/licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/.test(strip2(t))) copies.push(f); }
+  chk(!copies.length, '★ 「전용 && !isPremium && !isAdmin」 복사본이 없다' + (copies.length ? ' — ' + copies.join(' · ') : ''));
+  const COPY_RE = /licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/;
+  chk(COPY_RE.test('if(rec.licenseOnly && !isPremium() && !isAdmin()){') && COPY_RE.test('if(on && x && !isPremium && !isAdmin){') && !COPY_RE.test('if(licenseAssetBlocked(rec)){'), '  ↳ 깨 보기: 옛 조건을 다시 쓰면 위 검사가 빨강이 된다');
+  const T = Object.fromEntries(FILES);
+  chk(/!seat\.remote && licenseAssetBlocked\(rec\)/.test(strip2(T['character/desk-visual.js'] || '')), '책상 그리기 — 내 좌석(!remote)만 · 판단 함수');
+  chk(/licenseAssetBlocked\(rec\)/.test(strip2(T['creator/desk-setup.js'] || '')) && /if\(licenseAssetBlocked\(def\)\)\{/.test(strip2(T['creator/desk-setup.js'] || '')), '생성기 — 책상 카드 · 아이템 카드');
+  chk(/licenseAssetBlocked\(\{ licenseOnly: premiumMod\._licenseLockedDeskId/.test(strip2(T['creator/desk-preset.js'] || '')), '프리셋 — 전용 책상');
+  chk(/(?:premiumMod\.)?licenseAssetBlocked\(m\)/.test(SRC) && /!\(holder && holder\.remote\) && (?:premiumMod\.)?licenseAssetBlocked\(\{ licenseOnly: _itemLicenseOnly \}\)/.test(SRC), '슬롯 불러오기 · 아이템 장착(친구 좌석은 안 막음)');
 }
 
 /* ── 2. 대입 한 통로 ── */
@@ -77,16 +102,16 @@ chk(/refreshCustomStatusMenuItem/.test(refresh), '원래 하던 일(커스텀 �
 say('── 4. 생성기에서 라이선스 없이는 전용 책상을 고르지 못한다');
 const rc = grabFn('renderCrItems') || '';
 const deskPart = rc.slice(0, rc.indexOf("document.getElementById('deskColor').value"));   // 책상 카드 부분 = 색 칸에 값 넣는 줄 앞까지(머리의 입구 가드에도 deskColor 가 있다)
-chk(/const deskLocked = !!\(rec\.licenseOnly && !isPremium && !isAdmin\)/.test(deskPart), '★ 책상 카드에 잠금 조건이 있다 (아이템 카드와 같은 조건)');
+chk(/const deskLocked = (?:premiumMod\.)?licenseAssetBlocked\(rec\)/.test(deskPart), '★ 책상 카드에 잠금 조건이 있다 (아이템 카드와 같은 조건)');
 chk(/if\(deskLocked\)\{[\s\S]*?textContent='🔒'/.test(deskPart), '잠긴 책상에 🔒 표시');
 chk(/card\.onclick=async\(\)=>\{[\s\S]*?if\(deskLocked\)\{[^}]*return; \}/.test(deskPart), '★ 잠긴 책상은 클릭해도 활성 책상이 안 된다 (toast 후 return)');
 const clickIdx = deskPart.indexOf('card.onclick=');
 const lockIdx  = deskPart.indexOf('if(deskLocked){ toast');
 const fetchIdx = deskPart.indexOf('resolveCatalogGlb(rec)');
 chk(clickIdx > 0 && lockIdx > clickIdx && lockIdx < fetchIdx, '  차단이 GLB fetch **앞**이다 (막을 책상을 내려받지 않는다)');
-const loadGate = /m && m\.licenseOnly && !isPremium && !isAdmin[\s\S]{0,200}else if\(m\)\{/.exec(SRC);
+const loadGate = /m && (?:premiumMod\.)?licenseAssetBlocked\(m\)[\s\S]{0,200}else if\(m\)\{/.exec(SRC);
 chk(!!loadGate, '★ 슬롯을 생성기로 불러올 때 라이선스 없는 전용 책상 참조는 안 싣는다 (저장 때 참조가 다시 굳는 것을 막는다)');
-const itemGate = /if\(def\.licenseOnly && !isPremium && !isAdmin\)\{\s*\n\s*const lock=/.test(rc);
+const itemGate = /if\((?:premiumMod\.)?licenseAssetBlocked\(def\)\)\{\s*\n\s*const lock=/.test(rc);
 chk(itemGate, '아이템 카드의 기존 🔒 는 그대로다');
 
 say('');

@@ -22,9 +22,9 @@ function build(mod, win) {
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const companion = new Proxy({}, { get: (t, k) => win.companion && win.companion[k] });   // 진짜 앱처럼 전역 companion = window.companion
   const api = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', mod + '\nreturn window.TwAccountState;')(win, companion, ls, (fn) => fn(), undefined);
-  let prem = false;
-  const st = api.createAccountState({ isPremium: () => prem, setIsPremium: (v) => { prem = v; } });
-  return { st, store, prem: () => prem };
+  let prem = false, adm = false;
+  const st = api.createAccountState({ isPremium: () => prem, isAdmin: () => adm, setIsPremium: (v) => { prem = v; } });
+  return { st, store, prem: () => prem, setAdmin: (v) => { adm = v; } };
 }
 function judge(mod, html, files, app) {
   const r = {};
@@ -59,7 +59,7 @@ function judge(mod, html, files, app) {
   const glue = (name) => { const i = app.indexOf('.' + name + '({'); return i < 0 ? '' : app.slice(i, app.indexOf('\n});', i)); };
   r.detachWriters = [...app.matchAll(/acctStateMod\.setAcctDetached\(/g)].length === 1 && /setAcctDetached: \(v\)=>\{ acctStateMod\.setAcctDetached\(v\); \}/.test(glue('createAccount'))
     && /^\s*setAcctDetached\(true\);/m.test(t('account/account.js'));
-  r.made = /const acctStateMod = TwAccountState\.createAccountState\(\{\n  isPremium: \(\)=>isPremium,\n  setIsPremium: \(v\)=>\{ isPremium = v; \},\n\}\);/.test(app)
+  r.made = /const acctStateMod = TwAccountState\.createAccountState\(\{\n  isPremium: \(\)=>isPremium,\n  isAdmin: \(\)=>isAdmin,\n  setIsPremium: \(v\)=>\{ isPremium = v; \},\n\}\);/.test(app)
     && app.indexOf('const acctStateMod =') > app.search(/^let isPremium = false;/m) && app.indexOf('const acctStateMod =') < app.indexOf('const licenseGateMod =');
   return r;
 }

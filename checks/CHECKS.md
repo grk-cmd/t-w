@@ -115,9 +115,9 @@
 | **sim-def-send.js** | 211 | **e16ae6963145** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
-| **sim-desk-preset.js** | 251 | **3ed07bb98346** |
+| **sim-desk-preset.js** | 250 | **e9d63758ae60** |
 | **sim-json-store.js** | 209 | **05d6cff00a2f** |
-| **sim-desk-setup.js** | 229 | **c6aca6da921a** |
+| **sim-desk-setup.js** | 229 | **d14a77d8ef9d** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
 | **sim-face-loss.js** | 317 | **921e471b80b1** |
@@ -168,7 +168,7 @@
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
-| **sim-license-leak.js** | 305 | **55c99ca0afd6** |
+| **sim-license-leak.js** | 305 | **9ee18fdca803** |
 | **sim-license-api.js** | 159 | **4bcfb148e5f4** |
 | **sim-license-premium.js** | 228 | **fd145831d4e0** |
 | **sim-mh-sanitize.js** | 274 | **b840325c6768** |
@@ -188,7 +188,7 @@
 | **sim-pl-loop.js** | 508 | **131a502c88a2** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 94 | **2a5ff9840553** |
+| **sim-premium-desk.js** | 119 | **a9fed734d4d5** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
 | **sim-light-tone.js** | 135 | **a299cf337216** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
@@ -386,7 +386,7 @@
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
-| **sim-account-state.js** | 99 | **4f03f83ef998** |
+| **sim-account-state.js** | 99 | **f15e0c15e7f6** |
 | **sim-nav.js** | 91 | **b74d2aa1c684** |
 | **sim-app-boot.js** | 154 | **5a998676fd66** |
 | **sim-net-ready.js** | 145 | **e7eb45ad9e77** |
@@ -405,7 +405,7 @@
 | **sim-bgm-diag.js** | 260 | **b16b4f888b77** |
 | **sim-mobile-diag.js** | 147 | **5fbdf8d713ab** |
 | **sim-blink-timing.js** | 112 | **624e0321ea28** |
-| **sim-desk-visual.js** | 214 | **2428c62e17b8** |
+| **sim-desk-visual.js** | 215 | **4b72eca7bfa3** |
 | **sim-desk-place.js** | 187 | **2de2d6fa296b** |
 | **sim-toast.js** | 174 | **25bd36f5c6a5** |
 | **sim-dot-render.js** | 223 | **ed34e53f22dd** |
