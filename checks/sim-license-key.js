@@ -17,13 +17,13 @@ const MOD = ["license-key.js","parts/account/license-key.js","app/parts/account/
 if(!MOD){ say('  ? 원본 못 찾음 — license-key.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["refreshLicenseUI","toast"];
+const FN_DEPS = ["refreshLicenseUI","toast","notifyError"];
 const VAL_DEPS = ["licensePremiumMod","twNav"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  licensePremiumMod: licensePremiumMod,","  twNav: twNav,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  licensePremiumMod: licensePremiumMod,","  twNav: twNav,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  toast: (...a)=>toast(...a),","  notifyError: (...a)=>TwErrorCodes.notify(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -72,8 +72,31 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* 이 기기에서 해제 버튼 — 진짜로 눌러 본다: 실패는 토스트 글이 아니라 오류 번호(E-LIC-02) · 성공은 토스트 */
+async function pressDeactivate(mod, result){
+  const els = {}; const el = (id) => els[id] || (els[id] = { style: {}, addEventListener(){}, value: '', click(){} });
+  const notes = [], toasts = [];
+  const api = new Function('window', 'document', mod + '\nreturn window.TwLicenseKey;')({}, { getElementById: el });
+  api.createLicenseKey({ licensePremiumMod: { activate: async () => ({ ok: true }), deactivate: async () => result }, twNav: { go(){}, NAV: {} },
+    refreshLicenseUI(){}, toast: (m) => toasts.push(m), notifyError: (c, e) => notes.push([c, e]) });
+  await els.licenseDeactivateBtn.onclick();
+  return { notes, toasts };
+}
+async function btnRows(mod){
+  const boom = new Error('x');
+  const bad = await pressDeactivate(mod, { ok: false, err: boom, reason: '서버 문구' });
+  const good = await pressDeactivate(mod, { ok: true });
+  return [
+    [bad.notes.length === 1 && bad.notes[0][0] === 'E-LIC-02' && bad.notes[0][1] === boom && bad.toasts.length === 0, '해제 실패 → 오류 번호 E-LIC-02 한 번(오류를 같이 넘김) · 토스트 글은 없다'],
+    [good.notes.length === 0 && good.toasts.length === 1 && /해제/.test(good.toasts[0]), '해제 성공 → 토스트 · 오류 번호 없음'],
+  ];
+}
+
+(async () => {
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 이 기기에서 해제 버튼');
+(await btnRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/account/license-key.js"></script>', '')],
@@ -83,13 +106,15 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwLicenseKey = api;', ''), null, null],
 
 
+  ['해제 실패를 번호 대신 문구로', m => m.replace("notifyError('E-LIC-02', r.err);", "toast(r.reason);"), null, null],
   ['만들 때 던짐', m => m.replace('function createLicenseKey(deps){', 'function createLicenseKey(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
-  let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2).concat(m2 !== MOD ? await btnRows(m2) : []); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
+})().catch((e) => { say('  ✗ 검사가 던졌다: ' + (e && e.stack || e)); process.exit(1); });

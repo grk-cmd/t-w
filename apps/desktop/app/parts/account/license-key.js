@@ -13,6 +13,7 @@ const licensePremiumMod = deps.licensePremiumMod;   // 🔑 프리미엄 판정(
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 설정 창 닫기
 const refreshLicenseUI = deps.refreshLicenseUI;
 const toast = deps.toast;
+const notifyError = deps.notifyError;   // 번호 토스트(error-codes.js)
 document.getElementById('licenseSubmitBtn').onclick=async ()=>{
   const input=document.getElementById('licenseKeyInput');
   const err=document.getElementById('licenseErrorMsg');
@@ -33,7 +34,8 @@ document.getElementById('licenseSubmitBtn').onclick=async ()=>{
 document.getElementById('licenseDeactivateBtn').onclick=async ()=>{
   const r=await licensePremiumMod.deactivate();
   refreshLicenseUI();
-  toast(r.ok ? '이 기기에서 라이선스가 해제됐어요' : (r.reason || '해제에 실패했어요'));
+  if(r.ok) toast('이 기기에서 라이선스가 해제됐어요');
+  else notifyError('E-LIC-02', r.err);
 };
 document.getElementById('licenseKeyInput').addEventListener('keydown', e=>{ if(e.key==='Enter') document.getElementById('licenseSubmitBtn').click(); });
 

@@ -60,7 +60,7 @@ chk(/if\(isPremium === v && wasKnown\) return;/.test(setSrc), '같은 값이면 
 chk(/_premiumChanged\(\)/.test(setSrc) && /^onPremiumChanged\(_refreshPremiumGatedUI\);/m.test(SRC), '바뀌면 _refreshPremiumGatedUI 가 돈다(계정 핵심 상태의 «프리미엄이 바뀌었다» 알림에 초대 게이트가 건다 — 모듈 순환 끊기 5)');
 chk(!grabFn('_applyTransferSnapshot'), '계정 이전 복원(키만 저장하던 통로)은 0.13 에서 걷었다 — isPremium 을 바꾸는 통로는 서버 확인 하나');
 const LP = ['license-premium.js', 'parts/account/license-premium.js', 'app/parts/account/license-premium.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';
-chk(!!LP && /setPremium\(true\)/.test(LP) && /setPremium\(me\.premium === true\)/.test(LP), '서버가 «아님» 이라고 해도(회수된 키 → 내 책상도 기본으로) 같은 통로로 알린다 — 판정은 sim-license-premium 이 돌려 본다');
+chk(!!LP && /setPremium\(me\.premium === true\)/.test(LP), '서버가 «아님» 이라고 해도(회수된 키 → 내 책상도 기본으로) 같은 통로로 알린다 — 판정은 sim-license-premium 이 돌려 본다');
 
 /* ── 3. 다시 그리기 ── */
 say('── 3. 바뀌면 내 좌석을 다시 그린다');

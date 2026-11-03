@@ -15,12 +15,12 @@
 ## license-api.js · license-premium.js — 프리미엄 판정(classic script `window.TwLicenseApi` · `window.TwLicensePremium`)
 - 책임: 프리미엄은 서버가 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 로 판정한다. `license-api.js` 는 내 라이선스 · 기기 · 라이선스 요청 길(`/v1/me/license*`) 한 벌,
   `license-premium.js` 는 서버 확인(`GET /v1/me` 의 `premium`)을 `isPremium` 에 반영하고 키 등록 · 이 기기 해제를 한다. 이 PC 의 키(`tw.licenseKey`)로 미리 켜지도, 24시간 유예로 버티지도 않는다.
-- deps(license-premium): `userApi` · `licenseApi` · `deviceId` · `deviceName` · `setPremium`(account-state `_setPremium` — 바꾸는 곳은 이 한 곳) · `isPremium` · `storage` · `releasedKey` · `rtOn` · `notifyError` · `reasonOf` · `resetCustomStatus`.
+- deps(license-premium): `userApi` · `licenseApi` · `deviceId` · `deviceName` · `setPremium`(account-state `_setPremium` — 바꾸는 곳은 이 한 곳) · `isPremium` · `rtOn` · `notifyError` · `reasonOf` · `resetCustomStatus`.
 - 내놓는 것: `start(me)`(켜는 차례 licensePremium — 받아 둔 확인으로 반영 + `license` 알림 걸기) · `refresh()` · `activate(key)` · `deactivate()` → `{ ok, reason? }`.
 - 함정:
   - 프리미엄은 **GET /v1/me 응답에서만** 반영한다. `PATCH /v1/me` 같은 쓰기 응답은 기기 머리 없이 `premium:false` 일 수 있어 따르지 않는다.
   - 확인 전의 `isPremium=false` 는 «모름» — `acctStateMod.premiumKnown()` 이 참이 된 뒤에야 전용 자산 접기(`pruneUnownedLicenseAssets`)가 돈다. 첫 확인은 값이 그대로여도 알림을 돌려 건너뛴 접기를 돌린다.
-  - 서버가 «아님» 이라도 라이선스가 있고 이 기기만 목록에 없으면 기기를 등록하고 다시 확인한다(한 번). 가득 찼으면(`LICENSE_DEVICE_FULL`) 조용히 «아님». «이 기기에서 해제» 한 PC 는 `tw.licenseOptOut` 표시로 자동 등록하지 않는다(키를 직접 넣으면 풀림).
+  - **기기 등록은 앱이 알아서 하지 않는다** — «키를 직접 넣을 때» 만 등록되고, 프리미엄은 «이미 목록에 있는 기기» 만 켜진다. 라이선스는 있는데 이 기기만 목록에 없는 새 PC 는 «아님» 으로 둔다(기기 관리 화면에서 등록 — D8-2). 켤 때 `GET /v1/me/license` 는 부르지 않는다(프리미엄이 아닌 사용자의 요청 0).
   - 쓰기는 `mine()` 으로 읽은 토큰 주인과 묶는다 — 읽기 전에는 요청 0(`NOT_READ`).
   - 확인은 한 줄로만 돈다(겹치면 끝난 뒤 한 번 더). 실패해도 혼자 다시 하지 않는다 — E-LIC-01.
 - 검사: `checks/sim-license-api.js` · `checks/sim-license-premium.js`.

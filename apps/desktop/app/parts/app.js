@@ -5842,8 +5842,6 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
   deviceName: ()=>TwLicenseApi.deviceNameOf(navigator.userAgent),
   setPremium: (v)=>acctStateMod._setPremium(v),
   isPremium: ()=>isPremium,
-  storage: localStorage,
-  releasedKey: acctStateMod.LICENSE_OPTOUT_KEY,
   rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   reasonOf: (e)=>TwUserApi.reasonOf(e),
@@ -5859,7 +5857,7 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
      · 그런데 게이트에 걸린 쪽은 charDef.deskCatalogId 를 **그대로 들고 있고**, 그 값이
        serializeDefForNetwork(Object.assign 통째 복사)를 타고 방으로 나간다. 받는 쪽은 remote 라
        게이트 없이 그린다. 저장값이라 재입장·재시작에도 남는다.
-   [왜 지우지 않고 접어 두는가] 라이선스는 키 한 줄이면 다시 켜진다(activateLicense ·
+   [왜 지우지 않고 접어 두는가] 라이선스는 키 한 줄이면 다시 켜진다(키를 다시 넣으면 ·
      서버 계정의 라이선스). 지워 버리면 재등록해도 책상이 안 돌아온다 — 그것이
      예전에 「charDef 는 손대지 않는다」로 결정한 이유였다. 그래서 값을 **옮겨 적는다**:
        deskCatalogId → deskLicenseHold · deskItems[id] → deskItemsLicenseHold[id]
@@ -7235,6 +7233,7 @@ const licenseKeyMod = TwLicenseKey.createLicenseKey({
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
