@@ -125,8 +125,8 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   /* 신원 */
   MY_USER_ID_KEY, MY_FRIEND_CODE_KEY, LOGIN_EMAIL_KEY, LOGIN_UID_KEY, ME_CACHE_KEY,
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
-  /* 라이선스 — 이 PC 키 · 해제 표시도 계정 것이다(0.13 은 서버가 계정의 라이선스를 안다 — D8). */
-  acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), acctStateMod.LICENSE_OPTOUT_KEY,   // 🎫 «이 기기만 해제» 표시도 계정 것이다
+  /* 라이선스 — 0.12 옛 값(이 PC 에 적어 둔 키 · 해제 표시). 로그아웃 때 지운다. */
+  acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(), acctStateMod.LICENSE_OPTOUT_KEY,   // 🎫 옛 값 지움
   /* 누적 시간 · 오늘치 · 서버 맞춤 마크는 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   focusLevelMod().DANCE_NOTIFIED_KEY, focusLevelMod().DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
   /* 가챠 — 연동 pull(syncGachaToServer 'transfer','pull') + 부팅 tick 이 서버 것을 받아온다. 보너스는 loadChalBonus. */

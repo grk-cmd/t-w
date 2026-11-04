@@ -258,14 +258,17 @@ async function judge(S){
     chk(!r3.ok && r3.err.code === 'USER_RESERVED_NAME' && e.srv.updates.length === 4, '그 밖 실패 → ok:false(다시 안 보냄)');
   }
 
-  say('── 7. 로그아웃 · 프리미엄 유예');
+  say('── 7. 로그아웃 · 프리미엄 유예 없음');
   {
     const e = mkEnv(S);
     await e.flow.confirm();
-    chk(e.flow.premiumNow() === true, '방금 받은 프리미엄 — 유예 안');
-    e.clock.t += 3600 * 1000 + 1;
-    chk(e.flow.premiumNow() === false, '유예(premiumGraceSec)가 지나면 아님');
-    chk(e.LF.premiumNow({ me: ME(1, { premium: false }), at: 0 }, 0) === false, '프리미엄이 아니면 아님');
+    chk(!('premiumNow' in e.flow) && !('premiumNow' in e.LF), '프리미엄은 이 사본에서 읽지 않는다 — 24시간 유예를 걷었다(서버 확인 license-premium.js 만 따른다)');
+    chk(!!e.flow.meCache() && e.flow.meCache().me.userCode === ME(1).userCode, '내 로그인의 사본은 읽는다(patchMe 가 version 을 읽는다)');
+    e.setUser({ uid: 'authOther', anonymous: false });
+    chk(e.flow.meCache() === null, '★ 다른 로그인의 사본은 읽지 않는다 — 남의 version 으로 내 계정을 고치지 않게');
+    e.setUser(null);
+    chk(e.flow.meCache() === null, '  로그인이 없으면 사본도 없다');
+    e.setUser({ uid: 'auth1', anonymous: false });
     e.flow.goOnline();
     await e.flow.logout();
     chk(e.rtLog.join() === 'start:{"claim":true},stop,forget' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off', '로그아웃 — realtime 끔(안 끄면 토큰 없이 끝없이 다시 붙음) · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움');
@@ -309,22 +312,32 @@ const BREAKS = [
   ['LF', "        if(!(e && e.code === 'CONCURRENT_UPDATE')) throw e;", "        throw e;", '먼저 바뀌면 그냥 실패'],
   ['LF', "    try{ deps.rt.stop(); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다\n", "", '로그아웃에 realtime 안 끔'],
   ['LF', "    try{ deps.forgetSession(); }catch(_){}", "", '로그아웃에 API 로그인 읽기를 안 뗌'],
-  ['LF', "  return (now - cache.at) <= cache.me.premiumGraceSec * 1000;", "  return true;", '유예가 끝없음'],
+  ['LF', "const api = { ME_CACHE_KEY, STATE, joinKey, createLoginFlow };", "function premiumNow(){ return true; }\nconst api = { ME_CACHE_KEY, STATE, joinKey, premiumNow, createLoginFlow };", 'premiumNow(24시간 유예)를 되살림'],
   ['LF', "  return 'join:' + String(inviteCode || '') + ':' + h.toString(36);", "  return 'join:' + String(inviteCode || '');", '비밀번호를 바꿔도 같은 요청'],
   ['HTML', '<script src="parts/account/login-flow.js"></script>', '', 'html 에 안 실음'],
 ];
+let finished = false;
+process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 돌지 못하고 멈췄다(깨 보기 ' + ran + '/' + BREAKS.length + ')'); process.exitCode = 1; } });   // 약속이 안 끝나 node 가 조용히 0 으로 끝나는 것을 막는다
+const BREAK_MS = 5000;
+let ran = 0;
 const caught = [];
 for(const [where, from, to, what] of BREAKS){
-  if(SRC0[where].indexOf(from) < 0){ chk(false, '깨 볼 글을 못 찾음 — ' + what); continue; }
+  if(SRC0[where].indexOf(from) < 0){ chk(false, '깨 볼 글을 못 찾음 — ' + what); ran++; continue; }
   const S = Object.assign({}, SRC0); S[where] = S[where].split(from).join(to);
   quiet = true; qfail = 0;
-  try{ await judge(S); }catch(_){ qfail++; }
+  /* 깨 본 글이 끝나지 않는 약속을 기다리면(멈춤) 그것도 «잡음» 이다 — 안 그러면 node 가 조용히 종료코드 0 으로 끝나 뒤 깨 보기가 검사되지 않는다 */
+  let timer;
+  try{ await Promise.race([judge(S), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('멈춤')), BREAK_MS); })]); }catch(_){ qfail++; }
+  clearTimeout(timer);
   quiet = false;
+  ran++;
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
 chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
+chk(ran === BREAKS.length, '깨 보기 ' + BREAKS.length + '가지를 끝까지 돌았다(' + ran + ')');
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+finished = true;
 process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

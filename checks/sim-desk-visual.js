@@ -18,13 +18,13 @@ const MOD = ["desk-visual.js","parts/character/desk-visual.js","app/parts/charac
 if(!MOD){ say('  ? 원본 못 찾음 — desk-visual.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyItemMatTone","_setDeskMatColor","b64ToBuf","setDeskScale","toast"];
+const FN_DEPS = ["_applyItemMatTone","_setDeskMatColor","b64ToBuf","setDeskScale","toast","licenseAssetBlocked"];
 const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","_idleItemPivots","activeItemMixers","assetCodeMod","commissionMod"];
-const GET_DEPS = ["isAdmin","isPremium"];
+const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColorToCustom","swapDeskVisual"];
 const MOVED = ["applyDeskCatalogRefToSeat","normalizeDeskObj","swapDeskVisual","applyDeskColorToCustom"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  setDeskScale: (...a)=>setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  licenseAssetBlocked: (...a)=>premiumMod.licenseAssetBlocked(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -129,12 +129,13 @@ say('── 4. 동작 — 책상 모양');
       b64ToBuf: (b) => 'buf:' + b,
       commissionMod: { savedDesks: () => o.desks || [] },
       toast: (m) => log.toast.push(m),
-      isPremium: !!o.premium, isAdmin: !!o.admin,
+      isPremium: !!o.premium, isAdmin: !!o.admin, premiumKnown: o.known !== false,
     };
     let api;
     if(!PREMOVE){
       const w = {}; new Function('window', 'module', 'THREE', MOD)(w, undefined, THREE_);
-      api = w.TwDeskVisual.createDeskVisual(Object.assign({}, raw, { isPremium: () => raw.isPremium, isAdmin: () => raw.isAdmin }));
+      /* 판단 함수는 account-state.js(sim-premium-desk 가 진리표로 본다) — 여기서는 이 모듈이 그 함수의 결과로 움직이는지만 본다 */
+      api = w.TwDeskVisual.createDeskVisual(Object.assign({}, raw, { licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && raw.premiumKnown && !raw.isPremium && !raw.isAdmin }));
     } else {
       const a1 = SRC.indexOf('// 좌석의 charDef.deskCatalogId를 보고'), b1 = SRC.indexOf('\n/* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js', a1);
       const a2 = SRC.indexOf('/* 커스텀 책상: 기본 책상 메쉬'), b2 = SRC.indexOf('// ★ 어플 3-1: 책상 길이(X축)', a2);
@@ -189,6 +190,11 @@ say('── 4. 동작 — 책상 모양');
     ({ api, log } = load({ desks: lic }));
     s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
     chk(!s.desk.getObjectByName('customDesk') && log.toast[0] === '🔒 "금책상"은(는) 라이선스 보유자만 사용할 수 있어요' && !log.parsed, '라이선스 전용 책상 — 내 좌석 · 라이선스 없음이면 기본 책상 + 안내');
+    if(!PREMOVE){
+      ({ api, log } = load({ desks: lic, known: false })); s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
+      chk(s.desk.getObjectByName('customDesk') && !log.toast.length, '★ 판단 함수가 «막지 않는다» 고 답하면(서버 확인 전) 기본 책상으로 바꾸지도 안내를 띄우지도 않는다 — 확인이 오면 내 좌석을 다시 적용한다');
+      ({ api, log } = load({ desks: lic })); s = seat(); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L', deskScale: 0.3 });
+    }
     s = seat({ isMe: false }); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L' });
     chk(log.toast.length === 1, '  내 좌석이 아니면 안내는 안 띄운다');
     s = seat({ remote: true, isMe: false }); await api.applyDeskCatalogRefToSeat(s, { deskCatalogId: 'L' });
