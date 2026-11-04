@@ -11,7 +11,8 @@
    이걸 막지 않으면 승인이 사람 확인이 아니게 된다(사람은 GitHub 화면에서 단다).
 3. 판 브랜치 밖에서 새 브랜치 따기 — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 `release/X.Y.Z` 에서.
    예외: `hotfix/*` · `harness/*`(하네스 · 작업 규칙) · `admin/*`(웹 관리자만 — 앱과 나눔)는 main 에서.
-   `admin/*` PR 이 web-admin/ 밖을 바꾸면 머지를 막는다(앱 코드가 판을 건너뛰고 main 으로 새지 않게).
+   main 으로 가는 PR 중 `hotfix/*` · `harness/*` · `release/*` 가 아닌 것은 web-admin/ 안만 바꿀 수 있다 — 밖을 바꾸면 머지를 막는다
+   (브랜치 이름이 아니라 base 로 본다 · 앱 코드가 판을 건너뛰고 main 으로 새지 않게 · risk.admin_outside).
 가드가 스스로 깨지면 막지 않고 알린다.
 """
 import json, os, re, shlex, subprocess, sys
@@ -27,7 +28,7 @@ sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를
 
 REPO = 'grk-cmd/t-w'
 PROTECTED = re.compile(r'^(main|release/.+)$')
-FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(web-admin/ 밖을 바꾸면 머지를 막는다 · risk.admin_outside)
+FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(main 으로 가는 PR 의 범위는 머지 때 risk.admin_outside 가 본다)
 GATES = ('tw/confirm', 'tw/verify')
 
 
@@ -99,8 +100,8 @@ def check_merge(toks):
         except Exception as e:
             deny(f'#{pr} 바뀐 파일 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
         if outside:
-            deny(f'#{pr} 은 admin/* (웹 관리자만 — main 으로 바로) 인데 web-admin/ 밖을 바꾼다({", ".join(outside[:5])}). '
-                 f'앱 · 규칙 · 검사는 판 브랜치(release/X.Y.Z)로 따로 PR 한다.')
+            deny(f'#{pr} 은 main 으로 가는 웹 관리자 길(admin/*)인데 web-admin/ 밖을 바꾼다({", ".join(outside[:5])}). '
+                 f'앱 · 규칙 · 검사는 판 브랜치(release/X.Y.Z)로 따로 PR 한다(main 으로 무엇이든 가는 것은 hotfix/* · harness/* · 판 내기뿐).')
         if not approved:
             deny(f'#{pr} 은 가드 자리({risk.GUARD_LABEL})를 바꾼다 — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
                  f'`/ship` 이 PR 에 설계 요약을 남기고 승인을 기다린다(risk.py --wait).')
@@ -263,7 +264,7 @@ def check_new_branch(cwd, name, start):
     if base.startswith('release/') or (name.startswith(FROM_MAIN) and base == 'main'):
         return
     deny(f'새 브랜치 «{name}» 의 시작점이 판 브랜치가 아니다({base}). 먼저 사용자에게 «이 작업은 어느 버전에 릴리스될 작업인가요?» 를 묻고 '
-         f'답한 판의 `origin/release/X.Y.Z` 에서 딴다. 그 판 브랜치가 없으면 만들지 말고 사용자에게 알린다. 긴급 수정 `hotfix/*` · 웹 관리자만 바꾸는 `admin/*` 는 main 에서.')
+         f'답한 판의 `origin/release/X.Y.Z` 에서 딴다. 그 판 브랜치가 없으면 만들지 말고 사용자에게 알린다. 긴급 수정 `hotfix/*` · 하네스 `harness/*` · 웹 관리자만 바꾸는 `admin/*` 는 main 에서.')
 
 
 def main():

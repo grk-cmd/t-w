@@ -162,15 +162,18 @@ def is_guard(path):
     return path.startswith(GUARD_PREFIXES) or path in GUARD_FILES or bool(GUARD_SETTINGS.match(path))
 
 
-ADMIN_PREFIX = 'admin/'      # 웹 관리자만 바꾸는 브랜치 — 앱 판과 나눠 main 에서 따서 main 으로(ship-gate.py FROM_MAIN)
-ADMIN_DIR = 'web-admin/'
+MAIN_OK = ('hotfix/', 'harness/', 'release/')   # main 으로 무엇이든 가져갈 수 있는 PR — 긴급 수정 · 하네스 · 판 내기
+ADMIN_DIR = 'web-admin/'                          # 그 밖에 main 으로 가는 PR(웹 관리자 길 admin/*)은 이 안만
 
 
 def admin_outside(pr):
-    """admin/* PR 이 web-admin/ 밖에서 바꾼 파일(옮긴 옛 이름도). admin/* 가 아니면 [].
-    파일 목록이 다 안 왔으면(API 는 3000개에서 끊긴다) 못 본 것이라 그 사실을 돌려준다 — 앱 코드가 main 으로 새지 않게."""
+    """main 으로 가는 PR 중 hotfix/ · harness/ · release/ 가 아닌 것(웹 관리자 길)이 web-admin/ 밖에서 바꾼 파일(옮긴 옛 이름도).
+    브랜치 이름(admin/*)이 아니라 base 로 본다 — 이름을 바꿔 올려도 앱 코드가 판을 건너뛰고 main 으로 새지 않게.
+    파일 목록이 다 안 왔으면(API 는 3000개에서 끊긴다) 못 본 것이라 그 사실을 돌려준다. 읽기 실패는 던진다(가드가 막는다)."""
     info = get(f'repos/{REPO}/pulls/{pr}')
-    if not str((info.get('head') or {}).get('ref') or '').startswith(ADMIN_PREFIX):
+    base = str((info.get('base') or {}).get('ref') or '')
+    head = str((info.get('head') or {}).get('ref') or '')
+    if base != 'main' or head.startswith(MAIN_OK):
         return []
     files = [f for page in api(f'repos/{REPO}/pulls/{pr}/files?per_page=100') for f in (page if isinstance(page, list) else [page]) if isinstance(f, dict)]
     if len(files) < int(info.get('changed_files') or 0):

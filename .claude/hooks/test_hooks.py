@@ -200,7 +200,7 @@ def files(code, row='aaaaaaaaaaaa', extra=()):
             {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW(row)}'}, *extra]
 CMP = {O: files('new'), H: files('new', row='bbbbbbbbbbbb'), H2: files('new2')}
 GUARD = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified'}]   # 가드 파일을 바꾸는 PR 모양 — 승인이 필요하다
-def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD, head_ref='work/x'):
+def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD, head_ref='harness/x'):   # 기본은 main 으로 가는 하네스 PR 모양
     risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [list(files)] if '/files' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
     def get(p):
         if '/compare/' in p:
@@ -337,26 +337,39 @@ def gate_case(name, fl, approved_comment, want_deny):
 gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase-database-rules.json'}], False, False)
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
-# admin/* (웹 관리자만 — main 으로 바로) — web-admin/ 밖을 바꾸면 머지를 막는다
-for name, ref, fl, want in (
-        ('admin/* · web-admin 만', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'web-admin/tests/a.test.ts'}], []),
-        ('admin/* · 앱 파일이 섞임', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}], ['app/parts/app.js']),
-        ('admin/* · 밖에서 web-admin 으로 옮김', 'admin/x', [{'filename': 'web-admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
-        ('admin/* 아님 · 앱 파일', 'fix/x', [{'filename': 'app/parts/app.js'}], [])):
-    fake(files=fl, head_ref=ref)
+# main 으로 가는 웹 관리자 길 — hotfix/ · harness/ · release/ 가 아니면 web-admin/ 안만(브랜치 이름이 아니라 base 로)
+WA, APP = [{'filename': 'web-admin/src/a.tsx'}], [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}]
+for name, base, ref, fl, want in (
+        ('admin/* → main · web-admin 만', 'main', 'admin/x', WA + [{'filename': 'web-admin/tests/a.test.ts'}], []),
+        ('admin/* → main · 앱 파일이 섞임', 'main', 'admin/x', APP, ['app/parts/app.js']),
+        ('이름을 바꿔 올림(fix/*) → main · 앱 파일', 'main', 'fix/y', APP, ['app/parts/app.js']),
+        ('밖에서 web-admin 으로 옮김', 'main', 'admin/x', [{'filename': 'web-admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
+        ('hotfix/* → main · 앱 파일', 'main', 'hotfix/x', APP, []),
+        ('harness/* → main', 'main', 'harness/x', [{'filename': '.claude/hooks/ship-gate.py'}], []),
+        ('판 내기 release/* → main', 'main', 'release/0.12.3', APP, []),
+        ('판으로 가는 PR · 앱 파일', 'release/0.12.3', 'fix/x', APP, [])):
+    fake(files=fl, head_ref=ref, base=base)
     got = risk.admin_outside(395)
     if got == want:
         ok += 1
     else:
         bad += 1
-        print(f'  ✗ admin 범위 {name}: {got}')
+        print(f'  ✗ main 범위 {name}: {got}')
 fake(files=[{'filename': 'web-admin/a.tsx'}], head_ref='admin/x')
 risk.get = lambda p, g=risk.get: dict(g(p), changed_files=3001) if p.endswith('/pulls/395') else g(p)
 if risk.admin_outside(395) == ['(파일 목록을 다 못 봄)']:
     ok += 1
 else:
     bad += 1
-    print('  ✗ admin 범위 파일 목록이 잘림(3000개) → 못 봄')
+    print('  ✗ main 범위 파일 목록이 잘림(3000개) → 못 봄')
+fake(files=WA, head_ref='admin/x')
+risk.get = lambda p: (_ for _ in ()).throw(RuntimeError('gh api 실패(시험)'))
+try:
+    risk.admin_outside(395)
+    bad += 1
+    print('  ✗ main 범위: PR 을 못 읽었는데 빈 목록(통과)으로 돌려줌 — 던져야 가드가 막는다')
+except RuntimeError:
+    ok += 1
 def admin_case(name, ref, fl, want_deny):
     global ok, bad
     fake(commits=(O, H), files=fl, head_ref=ref)
@@ -376,6 +389,7 @@ def admin_case(name, ref, fl, want_deny):
         print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
 admin_case('admin/* · web-admin 만 → 통과', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], False)
 admin_case('admin/* · 앱 파일 섞임 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True)
+admin_case('이름 바꿔 올림 · 앱 파일 → 막음', 'chore/y', [{'filename': 'main.js'}], True)
 # 브랜치 따기 — admin/* 는 main 에서 딸 수 있고, 다른 이름은 여전히 판 브랜치에서만
 for name, br, start, want_deny in (('admin/* · main 에서', 'admin/x', 'origin/main', False), ('fix/* · main 에서', 'fix/x', 'origin/main', True),
                                     ('admin/* · 판에서', 'admin/x', 'origin/release/0.12.3', False)):
@@ -668,7 +682,7 @@ elif a.endswith('.head.sha'):
 elif '/status' in a:
     w(json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])); sys.exit(0)
 elif a.rstrip().endswith('/pulls/403'):
-    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, 'state': 'open'}
+    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'ref': 'harness/x'}, 'state': 'open'}
 else:
     out = {}
 w(json.dumps(out, ensure_ascii=False))
