@@ -37,9 +37,19 @@ const ROW_SPAN_MIN = 1.2;   // 카메라 줌용 줄 폭 하한 — 혼자일 때
 /* 🧍 자리 반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유» 중 넓은 쪽 — 책상이 작거나 없는 좌석의 캐릭터가 옆 책상과 겹치지 않게.
    책상 있는 좌석은 책상이 더 넓어 지금과 같다. 여유는 기본 책상 반폭(0.85)보다 훨씬 작게 — 살짝만 띄운다. */
 const BODY_ROOM = 0.15;
+/* 몸 폭은 앉은 자세(rig 가로 0 · 기울기 0)로 잰다 — 날아가기 · 끌기 · 흔들기는 rig 만 옮기고 돌려서,
+   그 자세로 재면 몸 폭이 날아간 거리만큼 커져 카메라가 멀어지고 모두 작아진다(B-1104-9). 재고 바로 되돌린다(그리기 전이라 화면엔 안 보인다). */
+function measureAtRest(s){
+  const rig = s.rig;
+  if(!rig) return measureCharBox(s.gltfRoot);
+  const px = rig.position.x, rz = rig.rotation.z;
+  rig.position.x = 0; rig.rotation.z = 0; rig.updateMatrixWorld(true);
+  try{ return measureCharBox(s.gltfRoot); }
+  finally{ rig.position.x = px; rig.rotation.z = rz; rig.updateMatrixWorld(true); }
+}
 function seatBodyHalfWidth(s){
   if(!s || !s.gltfRoot) return 0;
-  const b = measureCharBox(s.gltfRoot);
+  const b = measureAtRest(s);
   if(!b || b.isEmpty()) return 0;
   const cx = s.group ? s.group.position.x : 0;
   return Math.max(Math.abs(b.max.x - cx), Math.abs(b.min.x - cx));
