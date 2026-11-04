@@ -3,7 +3,7 @@
   "files": {
     "app.js": {
       "cap": 9273,
-      "lines": 9172,
+      "lines": 9151,
       "sections": [
         "SETUP",
         "DRACO",
@@ -175,8 +175,8 @@
       ]
     },
     "firebase-init.js": {
-      "cap": 3765,
-      "lines": 3665,
+      "cap": 3748,
+      "lines": 3648,
       "sections": [
         "🚧 로그인 복원 대기선 (auth barrier)",
         "마이홈 친구 시스템",

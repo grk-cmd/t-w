@@ -26,7 +26,7 @@ const STEPS = [
   'roomInvite',      // 🙋 방 초대 받기
   'desktopBg',       // 🖥️ 마이홈 바탕화면 배경 맞추기
   'playlist',        // 🎵 플레이리스트 받기
-  'licenseVerify',   // 🔑 저장된 라이선스 키 재검증
+  'licensePremium',  // 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기
   'licenseRequest',  // 📨 보낸 라이선스 요청 지켜보기
   'firstRun',        // 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기)
 ];

@@ -125,7 +125,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 10 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
 | 11 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
 | 12 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
-| 13 | licenseVerify | 🔑 저장된 라이선스 키 재검증 |
+| 13 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
 | 14 | licenseRequest | 📨 보낸 라이선스 요청 지켜보기(`startWatch`) |
 | 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 
