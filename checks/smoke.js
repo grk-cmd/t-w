@@ -333,6 +333,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 PRELOAD.push('safe-html.js');
 /* account-store.js — 🗂️ 계정별 로컬 칸(window.TwAccountStore). app.js 가 getMyUserId 바로 뒤에서 만들므로 그보다 먼저. */
 PRELOAD.push('account-store.js');
+/* session.js — 🔐 로그인 세션 하나(window.TwSession). app.js 가 app-boot 에 넘기는 newSession 이 부를 때 읽는다 — app-boot.js 보다 먼저. */
+PRELOAD.push('session.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
@@ -441,6 +443,8 @@ PRELOAD.push('account-state.js');
 /* request-id.js · user-api.js · login-flow.js · first-run-013.js — 🔑 0.13 로그인 흐름. app.js 가 계정 핵심 상태 바로 뒤에서 createLoginFlow · createFirstRun 을 부르고
    게이트 · 계정 모듈에 TwUserApi.store · TwRequestId.createPending() 을 넘긴다(서버 통로 · realtime 은 부를 때 찾는다). */
 PRELOAD.push('request-id.js', 'user-api.js', 'login-flow.js', 'first-run-013.js', 'visit-ping.js');
+/* license-api.js · license-premium.js — 🔑 프리미엄 판정. app.js 가 계정 핵심 상태 · 초대 게이트 뒤에서 createLicensePremium 을 부르므로 그보다 먼저. */
+PRELOAD.push('license-api.js', 'license-premium.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
 PRELOAD.push('license-gate.js');
 /* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */
