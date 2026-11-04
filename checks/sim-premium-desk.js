@@ -68,7 +68,7 @@ else{
 say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수를 부른다');
 {
   const strip2 = (t) => t.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
-  const FILES = [['character/desk-visual.js', 'desk-visual.js'], ['creator/desk-setup.js', 'desk-setup.js'], ['creator/desk-preset.js', 'desk-preset.js']].map(([f, g]) => [f, ['parts/' + f, 'app/parts/' + f, g].map(x => { try{ return fs.readFileSync(x, 'utf8'); }catch(_){ return null; } }).find(Boolean)]);
+  const FILES = [['character/desk-visual.js', 'desk-visual.js'], ['creator/desk-setup.js', 'desk-setup.js'], ['creator/desk-preset.js', 'desk-preset.js'], ['character/premium-assets.js', 'premium-assets.js']].map(([f, g]) => [f, ['parts/' + f, 'app/parts/' + f, g].map(x => { try{ return fs.readFileSync(x, 'utf8'); }catch(_){ return null; } }).find(Boolean)]);
   const copies = [];
   for(const [f, t] of FILES.concat([['app.js', fs.readFileSync('app.js', 'utf8')]])){ if(!t) { huh(f + ' 를 못 읽음'); continue; } if(/licenseOnly[^\n]{0,80}!\s*isPremium|!\s*isPremium\(?\)?\s*&&\s*!\s*isAdmin/.test(strip2(t))) copies.push(f); }
   chk(!copies.length, '★ 「전용 && !isPremium && !isAdmin」 복사본이 없다' + (copies.length ? ' — ' + copies.join(' · ') : ''));
@@ -78,6 +78,7 @@ say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수�
   chk(/!seat\.remote && licenseAssetBlocked\(rec\)/.test(strip2(T['character/desk-visual.js'] || '')), '책상 그리기 — 내 좌석(!remote)만 · 판단 함수');
   chk(/licenseAssetBlocked\(rec\)/.test(strip2(T['creator/desk-setup.js'] || '')) && /if\(licenseAssetBlocked\(def\)\)\{/.test(strip2(T['creator/desk-setup.js'] || '')), '생성기 — 책상 카드 · 아이템 카드');
   chk(/licenseAssetBlocked\(\{ licenseOnly: premiumMod\._licenseLockedDeskId/.test(strip2(T['creator/desk-preset.js'] || '')), '프리셋 — 전용 책상');
+  chk(/function pruneUnownedLicenseAssets\(\)\{[\s\S]{0,40}if\(!licenseAssetBlocked\(\{ licenseOnly: true \}\)\) return 0;/.test(strip2(T['character/premium-assets.js'] || '')), '전용 자산 접기 — 맨 앞에서 판단 함수(모름 · 보유자 · 관리자면 접지 않음)');
   chk(/(?:premiumMod\.)?licenseAssetBlocked\(m\)/.test(SRC) && /!\(holder && holder\.remote\) && (?:premiumMod\.)?licenseAssetBlocked\(\{ licenseOnly: _itemLicenseOnly \}\)/.test(SRC), '슬롯 불러오기 · 아이템 장착(친구 좌석은 안 막음)');
 }
 

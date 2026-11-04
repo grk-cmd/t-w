@@ -152,7 +152,7 @@ async function judge(S){
     const boot = async (o) => {
       const world = { premium: false, saves: 0, pushes: 0, redraws: [] };
       const win = {};
-      const asApi = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', S.AS + '\nreturn window.TwAccountState;')(win, any, any, (f) => f(), undefined).createAccountState({ isPremium: () => world.premium, setIsPremium: (v) => { world.premium = v; } });
+      const asApi = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', S.AS + '\nreturn window.TwAccountState;')(win, any, any, (f) => f(), undefined).createAccountState({ isPremium: () => world.premium, isAdmin: () => false, setIsPremium: (v) => { world.premium = v; } });
       const desk = { id: 'desk_gaming', licenseOnly: true };
       const def = { deskCatalogId: 'desk_gaming', deskScale: 1, deskLenX: 1, deskColor: 0 };
       const seat = { isMe: true, charDef: def };
@@ -160,7 +160,7 @@ async function judge(S){
         o.paSrc + '\nreturn window.TwPremiumAssets;')({}, any, { getItem: () => null, setItem(){}, removeItem(){} }, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined).createPremiumAssets({
         DEFAULT_DESK_OVERRIDE_ID: '__d__', Presence: () => ({ active: () => true, updateDef: () => { world.pushes++; } }),
         applyDeskCatalogRefToSeat: (s, d) => { world.redraws.push(d.deskCatalogId); }, cBase: () => null, deskItemDef: () => ({}), deskPartAnchorOf: () => null, equipDeskItem: () => {},
-        findMySeat: () => seat, isAdmin: () => false, isPremium: () => world.premium, premiumKnown: () => asApi.premiumKnown(), saveSlots: () => { world.saves++; },
+        findMySeat: () => seat, isAdmin: () => false, isPremium: () => world.premium, licenseAssetBlocked: (it) => asApi.licenseAssetBlocked(it), saveSlots: () => { world.saves++; },
         savedDesks: () => [desk], savedItems: () => [], seats: [seat], slots: () => [def], toast: () => {},
       });
       asApi.onPremiumChanged(() => { PA.restoreLicenseHeldAssets(); PA.pruneUnownedLicenseAssets(); });   // license-gate.js _refreshPremiumGatedUI 와 같은 순서
@@ -184,8 +184,8 @@ async function judge(S){
     const none = await boot({ premium: false, paSrc: S.PA });
     t(none.early.join() === '0,0' && none.def.deskCatalogId === null && none.def.deskLicenseHold === 'desk_gaming' && none.world.saves === 1,
       '프리미엄이 아닌 사용자 — 모르는 동안은 그대로, 확인이 «아님» 이면 그때 접는다(건너뛴 접기가 사라지지 않는다)');
-    const broken = await boot({ premium: true, paSrc: S.PA.replace('if(!premiumKnown()) return 0;', '') });
-    t(S.PA.includes('if(!premiumKnown()) return 0;') && (broken.world.pushes > 0 || broken.def.deskCatalogId === null), '  ↳ 깨 보기: 모름 가드를 지우면 프리미엄 사용자도 접힌다(= 위 판정이 빨강이 된다)');
+    const broken = await boot({ premium: true, paSrc: S.PA.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', '') });
+    t(S.PA.includes('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;') && (broken.world.pushes > 0 || broken.def.deskCatalogId === null), '  ↳ 깨 보기: 모름 가드를 지우면 프리미엄 사용자도 접힌다(= 위 판정이 빨강이 된다)');
   }
 
   /* 5. 배선 */
@@ -216,7 +216,7 @@ async function judge(S){
     ['해제가 서버를 안 부름', mut('LP', (s) => s.replace("await licenseApi.removeDevice(deps.deviceId());", ""))],
     ['쓰기 응답 사본(meCache)으로 프리미엄 판정', mut('LP', (s) => s.replace("let me = given || null;", "let me = given || (deps.meCache && deps.meCache()) || null;").replace("setPremium(me.premium === true);", "setPremium(me.premium === true || deps.meCache);"))],
     ['첫 확인이 같은 값이면 조용', mut('AS', (s) => s.replace('isPremium() === v && wasKnown', 'isPremium() === v'))],
-    ['전용 자산 접기가 «모름» 을 안 봄', mut('PA', (s) => s.replace('if(!premiumKnown()) return 0;', ''))],
+    ['전용 자산 접기가 «모름» 을 안 봄', mut('PA', (s) => s.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', ''))],
   ];
   for(const [name, S2] of breaks){
     let r2; try{ r2 = await judge(S2); }catch(_){ r2 = [[false, '던짐']]; }
