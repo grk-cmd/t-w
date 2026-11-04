@@ -4,7 +4,8 @@
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
    둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
-   (세션이 가드를 스스로 풀지 못하게). 나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
+   (세션이 가드를 스스로 풀지 못하게). 웹 관리자 길(main 으로 가는 admin/*)의 위험도 높은 PR 도 승인 — 판을 거치지 않아 내보내기 전 한 장에 안 나온다.
+   나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
    판정 · 승인 뒤 판 브랜치를 합치기만 한 머리(PR 자체 변경이 같음 — risk.same_change)는 앞 커밋의 것을 이어 받는다.
 2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외 없음(현황판은 파일이 아니라 열린 PR · 이슈 — role-start.py).
 2-1. 승인을 세션이 대신 남기기 — Approve 리뷰 · «승인 <커밋>» 코멘트. 세션도 승인자 계정으로 GitHub 를 쓰니
@@ -95,15 +96,18 @@ def check_merge(toks):
         import risk
         try:   # 바뀐 파일 · 승인을 못 읽으면 막는다 — 맨 아래 «가드 오류면 통과» 로 새면 승인 없이 머지된다
             sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
-            approved = not risk.needs_owner(pr) or risk.owner_approved(pr, sha)   # 승인은 가드 자리를 바꾸는 PR 만
+            guard = risk.needs_owner(pr)
+            admin_high = not guard and risk.admin_needs_owner(pr)   # 웹 관리자 길 · 높음 — 내보내기 전 한 장 대신 머지 전 승인
+            approved = not (guard or admin_high) or risk.owner_approved(pr, sha)   # 승인은 가드 자리를 바꾸는 PR · 웹 관리자 길의 높음만
             outside = risk.admin_outside(pr)
         except Exception as e:
             deny(f'#{pr} 바뀐 파일 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
         if outside:
-            deny(f'#{pr} 은 main 으로 가는 웹 관리자 길(admin/*)인데 web-admin/ 밖을 바꾼다({", ".join(outside[:5])}). '
+            deny(f'#{pr} 은 main 으로 가는 PR(hotfix/* · harness/* · 판 내기가 아니면 웹 관리자 길)인데 web-admin/ 밖을 바꾼다({", ".join(outside[:5])}). '
                  f'앱 · 규칙 · 검사는 판 브랜치(release/X.Y.Z)로 따로 PR 한다(main 으로 무엇이든 가는 것은 hotfix/* · harness/* · 판 내기뿐).')
         if not approved:
-            deny(f'#{pr} 은 가드 자리({risk.GUARD_LABEL})를 바꾼다 — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
+            what = f'가드 자리({risk.GUARD_LABEL})를 바꾼다' if guard else '웹 관리자 길(main 에서 바로 내보냄)인데 위험도가 높다(risk.py)'
+            deny(f'#{pr} 은 {what} — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
                  f'`/ship` 이 PR 에 설계 요약을 남기고 승인을 기다린다(risk.py --wait).')
         return
     if not ok:

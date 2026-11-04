@@ -370,9 +370,9 @@ try:
     print('  ✗ main 범위: PR 을 못 읽었는데 빈 목록(통과)으로 돌려줌 — 던져야 가드가 막는다')
 except RuntimeError:
     ok += 1
-def admin_case(name, ref, fl, want_deny):
+def admin_case(name, ref, fl, want_deny, approved=False):
     global ok, bad
-    fake(commits=(O, H), files=fl, head_ref=ref)
+    fake(commits=(O, H), files=fl, head_ref=ref, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved else [])
     gate.gate_ok = lambda pr: (True, '')
     gate.run = lambda *a, **k: H
     buf = io.StringIO()
@@ -390,6 +390,21 @@ def admin_case(name, ref, fl, want_deny):
 admin_case('admin/* · web-admin 만 → 통과', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], False)
 admin_case('admin/* · 앱 파일 섞임 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True)
 admin_case('이름 바꿔 올림 · 앱 파일 → 막음', 'chore/y', [{'filename': 'main.js'}], True)
+# 웹 관리자 길의 위험도 높음(데이터 접근)은 머지 전 승인 — 판을 거치지 않아 «내보내기 전 한 장» 에 안 나온다
+DB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]
+admin_case('admin/* · 데이터 접근(높음) · 승인 없음 → 막음', 'admin/x', DB, True)
+admin_case('admin/* · 데이터 접근(높음) · 승인 → 통과', 'admin/x', DB, False, approved=True)
+admin_case('admin/* · 화면만(낮음) · 승인 없음 → 통과', 'admin/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
+for name, ref, base, fl, want in (('admin/* · 높음', 'admin/x', 'main', DB, True), ('admin/* · 낮음', 'admin/x', 'main', [{'filename': 'web-admin/src/a.tsx'}], False),
+                                  ('판으로 가는 PR · 높음(내보내기 전 한 장이 본다)', 'fix/x', 'release/0.12.3', DB, False),
+                                  ('하네스 · 가드 파일', 'harness/x', 'main', GUARD, True)):
+    fake(files=fl, head_ref=ref, base=base)
+    got = risk.must_approve(395)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 승인 필요 {name}: {got}')
 # 브랜치 따기 — admin/* 는 main 에서 딸 수 있고, 다른 이름은 여전히 판 브랜치에서만
 for name, br, start, want_deny in (('admin/* · main 에서', 'admin/x', 'origin/main', False), ('fix/* · main 에서', 'fix/x', 'origin/main', True),
                                     ('admin/* · 판에서', 'admin/x', 'origin/release/0.12.3', False)):
