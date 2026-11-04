@@ -162,6 +162,22 @@ def is_guard(path):
     return path.startswith(GUARD_PREFIXES) or path in GUARD_FILES or bool(GUARD_SETTINGS.match(path))
 
 
+ADMIN_PREFIX = 'admin/'      # 웹 관리자만 바꾸는 브랜치 — 앱 판과 나눠 main 에서 따서 main 으로(ship-gate.py FROM_MAIN)
+ADMIN_DIR = 'web-admin/'
+
+
+def admin_outside(pr):
+    """admin/* PR 이 web-admin/ 밖에서 바꾼 파일(옮긴 옛 이름도). admin/* 가 아니면 [].
+    파일 목록이 다 안 왔으면(API 는 3000개에서 끊긴다) 못 본 것이라 그 사실을 돌려준다 — 앱 코드가 main 으로 새지 않게."""
+    info = get(f'repos/{REPO}/pulls/{pr}')
+    if not str((info.get('head') or {}).get('ref') or '').startswith(ADMIN_PREFIX):
+        return []
+    files = [f for page in api(f'repos/{REPO}/pulls/{pr}/files?per_page=100') for f in (page if isinstance(page, list) else [page]) if isinstance(f, dict)]
+    if len(files) < int(info.get('changed_files') or 0):
+        return ['(파일 목록을 다 못 봄)']
+    return [n for f in files for n in (f.get('filename'), f.get('previous_filename')) if n and not n.startswith(ADMIN_DIR)]
+
+
 def needs_owner(pr):
     """머지 전 승인이 필요한 PR 인가 — 가드 자리를 바꿀 때만(base 와 상관없이 · 옮겨도).
     파일 목록이 다 안 왔으면(API 는 3000개에서 끊긴다) 못 본 것이라 승인을 받는다."""

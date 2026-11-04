@@ -200,14 +200,14 @@ def files(code, row='aaaaaaaaaaaa', extra=()):
             {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW(row)}'}, *extra]
 CMP = {O: files('new'), H: files('new', row='bbbbbbbbbbbb'), H2: files('new2')}
 GUARD = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified'}]   # 가드 파일을 바꾸는 PR 모양 — 승인이 필요하다
-def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD):
+def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD, head_ref='work/x'):
     risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [list(files)] if '/files' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
     def get(p):
         if '/compare/' in p:
             return {'files': cmp[p.rsplit('...', 1)[1]]}
         if '/check-runs' in p:
             return {'check_runs': runs if runs is not None else [{'name': 'npm run check', 'status': 'completed', 'conclusion': 'success'}]}
-        return {'base': {'ref': base}, 'head': {'sha': commits[-1]}, 'state': state}
+        return {'base': {'ref': base}, 'head': {'sha': commits[-1], 'ref': head_ref}, 'state': state}
     risk.get = get
 carry = [
     ('합치기만 · 옛 커밋 코멘트 승인', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}]), H, True),
@@ -337,6 +337,60 @@ def gate_case(name, fl, approved_comment, want_deny):
 gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase-database-rules.json'}], False, False)
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
+# admin/* (웹 관리자만 — main 으로 바로) — web-admin/ 밖을 바꾸면 머지를 막는다
+for name, ref, fl, want in (
+        ('admin/* · web-admin 만', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'web-admin/tests/a.test.ts'}], []),
+        ('admin/* · 앱 파일이 섞임', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}], ['app/parts/app.js']),
+        ('admin/* · 밖에서 web-admin 으로 옮김', 'admin/x', [{'filename': 'web-admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
+        ('admin/* 아님 · 앱 파일', 'fix/x', [{'filename': 'app/parts/app.js'}], [])):
+    fake(files=fl, head_ref=ref)
+    got = risk.admin_outside(395)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ admin 범위 {name}: {got}')
+fake(files=[{'filename': 'web-admin/a.tsx'}], head_ref='admin/x')
+risk.get = lambda p, g=risk.get: dict(g(p), changed_files=3001) if p.endswith('/pulls/395') else g(p)
+if risk.admin_outside(395) == ['(파일 목록을 다 못 봄)']:
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ admin 범위 파일 목록이 잘림(3000개) → 못 봄')
+def admin_case(name, ref, fl, want_deny):
+    global ok, bad
+    fake(commits=(O, H), files=fl, head_ref=ref)
+    gate.gate_ok = lambda pr: (True, '')
+    gate.run = lambda *a, **k: H
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_merge(['gh', 'pr', 'merge', '395'])
+    except SystemExit:
+        pass
+    denied = '"deny"' in buf.getvalue()
+    if denied == want_deny:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
+admin_case('admin/* · web-admin 만 → 통과', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], False)
+admin_case('admin/* · 앱 파일 섞임 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True)
+# 브랜치 따기 — admin/* 는 main 에서 딸 수 있고, 다른 이름은 여전히 판 브랜치에서만
+for name, br, start, want_deny in (('admin/* · main 에서', 'admin/x', 'origin/main', False), ('fix/* · main 에서', 'fix/x', 'origin/main', True),
+                                    ('admin/* · 판에서', 'admin/x', 'origin/release/0.12.3', False)):
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_new_branch('.', br, start)
+    except SystemExit:
+        pass
+    denied = '"deny"' in buf.getvalue()
+    if denied == want_deny:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 브랜치 따기 {name}: {"막음" if denied else "통과"}')
 gate.gate_ok = real_gate_ok
 
 # 릴리스 직전 한 장 — 판에 머지된 PR 중 높음만
