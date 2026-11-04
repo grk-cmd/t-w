@@ -14,7 +14,7 @@
 function createLicenseRequest(deps){
 const _saveFailMsg = deps._saveFailMsg;
 const getDisplayName = deps.getDisplayName;
-const licenseGateMod = deps.licenseGateMod;
+const licensePremiumMod = deps.licensePremiumMod;   // 🔑 프리미엄 판정(license-premium.js) — 승인된 키 적용(activate)
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js)
 const refreshLicenseUI = deps.refreshLicenseUI;
 const toast = deps.toast;
@@ -70,7 +70,7 @@ document.getElementById('licenseReqBtn').onclick=async ()=>{
 };
 document.getElementById('licenseReqApplyBtn').onclick=async ()=>{
   const key=document.getElementById('licenseReqKeyText').textContent; if(!key) return;
-  const r=await licenseGateMod.activateLicense(key);
+  const r=await licensePremiumMod.activate(key);
   if(r.ok){
     toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
     try{ localStorage.removeItem(LICENSE_REQ_ID_KEY); }catch(e){}

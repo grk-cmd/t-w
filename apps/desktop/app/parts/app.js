@@ -523,7 +523,7 @@ function equipDeskItem(holder,def,on){
   let _siCat = null; try{ _siCat = commissionMod.savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
   const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
-  if(on && _itemLicenseOnly && !isPremium && !isAdmin && !(holder && holder.remote)){
+  if(on && !(holder && holder.remote) && acctStateMod.licenseAssetBlocked({ licenseOnly: _itemLicenseOnly })){
     toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
     return;
   }
@@ -3477,6 +3477,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   findMySeat: (...a)=>findMySeat(...a),
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
@@ -5171,6 +5172,7 @@ const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
 /* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetMod = TwDeskPreset.createDeskPreset({
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
@@ -5191,8 +5193,6 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   fitCreator: (...a)=>creatorPrevMod.fitCreator(...a),
   frameDeskCam: (...a)=>creatorPrevMod.frameDeskCam(...a),
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
   premiumMod: premiumMod,
   setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
@@ -5592,7 +5592,7 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   deskItemsMod: ()=>deskItemsMod,
   equipDeskItem: (...a)=>equipDeskItem(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   lightToneMod: ()=>lightToneMod,
   ndc: ndc,
   premiumMod: premiumMod,
@@ -5749,16 +5749,17 @@ let isAdmin = false;
 
 /* ============================================================ 라이선스 (직접 발급) — 프리미엄(꾸미기) 잠금 해제
    관리자가 관리자 모드에서 키를 직접 발급 → 구매자에게 전달(직거래) → 구매자가 앱에 입력하면
-   Firebase(licenses/{key})에서 유효성 확인 → 통과 시 로컬(localStorage)에 저장. */
+   서버(POST /v1/me/license)에 계정과 이 기기로 등록 → 프리미엄 여부는 서버 확인(GET /v1/me)만 따른다(account/license-premium.js). */
 /* ═══════════════════════ 🎟️ 게이트 — 로그인 · 가입 (앱 접근 제한) ═══════════════════════
    0.13 — 로그인 없이 쓰는 길은 없다(ADR-0006). 가입 · 초대 코드 판정 · 초대권은 서버가 한다(초대 게이트 스위치는 서버 user.inviteGate —
    꺼져 있으면 초대 코드 없이 가입). 켤 때 판정 순서는 license-gate.js checkInviteGate 머리말.
 ──────────────────────────────────────────────────────────────────── */
-let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 license-gate.js 의 _setPremium 하나
+let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 account-state.js 의 _setPremium 하나
 /* 🪪 계정 핵심 상태(라이선스 저장 키 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
    계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
 const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
+  isAdmin: ()=>isAdmin,
   setIsPremium: (v)=>{ isPremium = v; },
 });
 /* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
@@ -5816,16 +5817,12 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
+  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
   seats: seats,
-  setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
-  LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,
-  LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,
-  _setPremium: (...a)=>acctStateMod._setPremium(...a),
   onPremiumChanged: acctStateMod.onPremiumChanged,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
@@ -5837,47 +5834,27 @@ const adminUsers = TwAdminUsers.createAdminUsers({
   toast: (...a)=>toast(...a),
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
 });
+/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v1/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
+   키 등록 · 이 기기 해제 버튼(license-key.js · license-request.js)도 여기를 부른다. */
+const licensePremiumMod = TwLicensePremium.createLicensePremium({
+  userApi: userApiMod,
+  licenseApi: TwLicenseApi.store,
+  deviceId: ()=>TwDeviceId.store.get(),
+  deviceName: ()=>TwLicenseApi.deviceNameOf(navigator.userAgent),
+  setPremium: (v)=>acctStateMod._setPremium(v),
+  isPremium: ()=>isPremium,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  reasonOf: (e)=>TwUserApi.reasonOf(e),
+  resetCustomStatus: ()=>{ if(userStatus==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로
+});
 
 /* ═══ 🪑 [2026-09-18 제보 2] 라이선스 없는 기기에 남은 전용 자산을 **접어 둔다** ═══════════
-   [증상] 제보자(보유자) 화면에서 친구(미보유)가 가판대 책상을 착용한 것으로 보인다. 친구 화면에는
-     안 보이고, 방을 나갔다 들어오거나 런처를 껐다 켜도 유지된다.
-   [원인] 게이트가 **그리기만 막고 저장·전파는 안 막는다.**
-     · applyDeskCatalogRefToSeat 의 게이트는 `!seat.remote` 라 내 좌석에만 걸린다(그것은 의도이고 옳다 —
-       빼면 보유자 친구의 책상이 미보유자 화면에서만 기본 책상으로 보인다. 옛 제보다).
-     · 그런데 게이트에 걸린 쪽은 charDef.deskCatalogId 를 **그대로 들고 있고**, 그 값이
-       serializeDefForNetwork(Object.assign 통째 복사)를 타고 방으로 나간다. 받는 쪽은 remote 라
-       게이트 없이 그린다. 저장값이라 재입장·재시작에도 남는다.
-   [왜 지우지 않고 접어 두는가] 라이선스는 키 한 줄이면 다시 켜진다(activateLicense ·
-     서버 계정의 라이선스). 지워 버리면 재등록해도 책상이 안 돌아온다 — 그것이
-     예전에 「charDef 는 손대지 않는다」로 결정한 이유였다. 그래서 값을 **옮겨 적는다**:
-       deskCatalogId → deskLicenseHold · deskItems[id] → deskItemsLicenseHold[id]
-       · 좌석은 기본 책상으로 떨어진다(내 화면에서 해제된다)
-       · serializeDefForNetwork 가 이 두 필드를 빼므로 **친구 화면에서도 사라진다**
-       · 라이선스가 켜지면 restoreLicenseHeldAssets 가 그대로 되돌린다
-   ⚠️ **카탈로그가 도착하기 전에는 아무것도 안 한다.** licenseOnly 는 savedDesks/savedItems 의
-     레코드에만 있다. 조회 실패를 「전용 아님」으로도 「전용」으로도 단정하지 않는다 —
-     pruneUnownedGachaParts 가 savedParts 조회 실패를 다루는 관례와 같다.
-   ⚠️ **위조 방어가 아니다.** 라이선스는 localStorage 에 있고 계정에 안 묶인다(_setPremium 위 주석).
-     이것은 «남은 저장값 청소» 이고, 서버 규칙으로 막는 일과 섞지 말 것.
-   ★ 조용히 돈다 — 토스트가 없다. 못 쓰는 것을 원래대로 되돌리는 일이라 사용자에게 알릴 사건이
-     아니라는 결정(2026-09-18). 콘솔에는 남겨서 다음 제보 때 읽을 수 있게 한다.
-   ★ 이 둘은 **한 쌍**이다. 접기만 두고 되돌리기를 빠뜨리면 라이선스를 등록해도 책상이 안 돌아온다
-     — sim-license-leak.js 가 그 짝을 본다. */
+   왜: 게이트는 그리기만 막아 charDef.deskCatalogId 가 그대로 방으로 나갔다. 지우지 않고 deskLicenseHold · deskItemsLicenseHold 로
+     옮겨 적는다 — 라이선스가 켜지면 restoreLicenseHeldAssets 가 되돌린다(접기 · 되돌리기는 한 쌍 · sim-license-leak.js).
+   ⚠️ 카탈로그가 오기 전 · 프리미엄 «모름» 동안엔 아무것도 안 한다. 위조 방어가 아니다(화면 · 방 전파만 — 권한은 서버). */
 /* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
-// 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
-// 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
-licenseGateMod.loadLicenseFromStorage();
-/* 🚀 계정 확인 뒤(app-boot 의 licenseVerify 차례) — 저장된 키가 있으면 재검증. firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다린다 */
-function startLicenseVerify(){
-  let key = null; try{ key = localStorage.getItem(acctStateMod.LICENSE_KEY_STORAGE); }catch(_){}
-  if(!key) return;
-  const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
-    if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
-  });
-  TwNetReady.whenNetReady(doVerify);
-}
-
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
 //   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
 //   ★ 이 PC 저장값이 있으면 기다리지 않는다 — 저장값으로 바로 판단하고, 새 값은 뒤에서 받아 다음 부팅부터.
@@ -6110,7 +6087,7 @@ function openCreator(mode){
         const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
         /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
            deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
-        if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
+        if(m && acctStateMod.licenseAssetBlocked(m)){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
         else if(m){
           if(!m.glb && m.glbUrl){
             try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
@@ -7232,10 +7209,11 @@ const adminLauncher = TwAdminLauncher.createAdminLauncher({
 /* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseKeyMod = TwLicenseKey.createLicenseKey({
-  licenseGateMod: licenseGateMod,
+  licensePremiumMod: licensePremiumMod,
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
@@ -7250,7 +7228,7 @@ const outsideCloseMod = TwOutsideClose.createOutsideClose({
 const licReqMod = TwLicenseRequest.createLicenseRequest({
   _saveFailMsg: (...a)=>_saveFailMsg(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  licenseGateMod: licenseGateMod,
+  licensePremiumMod: licensePremiumMod,
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
@@ -7730,8 +7708,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   commissionMod: commissionMod,
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });
@@ -7798,6 +7775,7 @@ const charCodeMod = TwCharCode.createCharCode({
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   layoutSeats: (...a)=>layoutSeats(...a),
   loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),
   overheadMod: overheadMod,
@@ -9144,7 +9122,7 @@ const appBoot = TwAppBoot.createAppBoot({
     roomInvite: ()=>roomInviteUi.startReceive(),
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: ()=>plMod.pull(),
-    licenseVerify: ()=>startLicenseVerify(),
+    licensePremium: (code, me)=>licensePremiumMod.start(me),
     licenseRequest: ()=>licReqMod.startWatch(),
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
   },

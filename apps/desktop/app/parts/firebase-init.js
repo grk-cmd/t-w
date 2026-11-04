@@ -2838,23 +2838,6 @@
       return { ok:true };
     },
 
-    // 사용자: 키 검증 + 등록(redeemed 처리). 이미 등록된 키도 "같은 기기 재설치" 허용을 위해 valid하면 통과시킴.
-    async redeemLicense(key){
-      try{
-        const snap = await get(ref(db, `licenses/${key}`));
-        const data = snap.val();
-        if(!data) return { ok:false, reason:'존재하지 않는 라이선스 키예요' };
-        if(data.valid === false) return { ok:false, reason:'비활성화된 라이선스 키예요' };
-        // 처음 등록되는 거면 redeemedAt 기록(통계용, 재사용 막지는 않음 — 재설치 시나리오 고려)
-        if(!data.redeemedAt){
-          await update(ref(db, `licenses/${key}`), { redeemedAt: serverTimestamp() });
-        }
-        return { ok:true };
-      }catch(e){
-        return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
-      }
-    },
-
     /* ═══════════════════ 🎟️ 초대장 (앱 접근 제한) ═══════════════════
        스키마:
          users/{uid}/invite = { invitesLeft, invitedBy, joinedAt }
