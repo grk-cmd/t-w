@@ -40,11 +40,14 @@ function build(src){
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
-  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const winT = {};
+  const win = new Proxy(winT, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'module',
     src + '\nreturn window.TwLicenseGate;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, undefined);
+  /* 전역 이름을 안 걸었으면 api 는 «아무거나 받아 주는 가짜» 가 되고, 그걸 await 하면 영영 안 풀려 검사가 조용히 끝난다 → 여기서 던진다 */
+  if(!('TwLicenseGate' in winT)) throw new Error('window.TwLicenseGate 를 안 걺');
   return api.createLicenseGate(deps);
 }
 
@@ -126,9 +129,11 @@ async function gateRun(src, o){
     if(id === 'offlineCard') return card; if(id === 'offlineRetry') return btn; if(id === 'offlineMsg') return msg;
     return null;
   } };
-  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const winT = {};
+  const win = new Proxy(winT, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem(){}, removeItem(){} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'setTimeout', 'module', src + '\nreturn window.TwLicenseGate;')(win, doc, ls, any, () => 0, undefined);
+  if(!('TwLicenseGate' in winT)) throw new Error('window.TwLicenseGate 를 안 걺');   // 가짜(any)를 await 하면 안 풀려 검사가 조용히 끝난다
   const mod = api.createLicenseGate(deps);
   let settled = false, ret;
   const p = mod.checkInviteGate().then((v) => { settled = true; ret = v; });
@@ -169,6 +174,64 @@ async function gateRows(src){
   t(x.ret() === false && has(x, 'gate') && !has(x, 'wipe'), 'signup · 계정 없는 PC → 지울 것 없이 게이트');
   x = await gateRun(src, { state: 'login', uid: 'u1' });
   t(x.ret() === false && x.ev() === 'gate', 'login → 게이트뿐(지우지 않음)');
+  return r;
+}
+
+/* ── 초대 게이트 안에서 로그인 · 가입이 끝난 뒤 «들어감» 알림 — 진짜 _showInviteGate 를 가짜 DOM 위에서 돌려 센다 ──
+   how: 'google'(게이트 구글 로그인) · 'fc'(친구 코드 로그인) · 'signup-existing'(초대 코드 → 계정 만들기 → 이미 가입된 구글)
+   같은 계정(switched:false)이면 «들어감» 한 번 · 게이트 닫음 · 약속 true, 계정이 바뀌면(switched:true) 알림 없이 다시 켜기 */
+async function gateLoginRun(src, how, switched){
+  const any = anything();
+  const ev = [];
+  const els = {};
+  const el = (id) => els[id] || (els[id] = { id, style: {}, value: '', textContent: '', disabled: false, focus(){}, innerHTML: '', addEventListener(){}, removeEventListener(){} });
+  const doc = { getElementById: (id) => el(id) };
+  const me = { userCode: 'u1', friendCode: 'MATE-AAAA' };
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  const ok = { ok: true, me, switched: !!switched };
+  Object.assign(deps, {
+    getMyUserId: () => null,
+    FRIEND_CODE_LOGIN_RE: () => /^MATE-[A-Z0-9]{4}$/,
+    _loginDoGoogle: async () => ok,
+    _loginDoFriendCode: async () => ok,
+    _enterAccount: () => ({ ok: true, switched: !!switched }),
+    _acctRelaunchAfterDetach: () => { ev.push('relaunch'); },
+    twNav: { NAV: { ACCOUNT_ENTERED: 'accountEntered' }, go: (name, m) => { ev.push('entered:' + name + ':' + (m && m.userCode)); } },
+    userApiMod: { checkInvite: async () => ({ usable: true, code: 'INV' }), inviteReasonOf: () => '', reasonOf: () => '' },
+    loginFlowMod: {
+      confirm: async () => ({ state: 'login' }), identity: () => ({}),
+      joinGoogle: async () => ({ ok: true, existing: true, me }), joinPassword: async () => ({ ok: true, existing: true, me }),
+      waitForServer: () => {}, retryNow: async () => null, goOnline: () => {},
+    },
+  });
+  const winT = {};
+  const win = new Proxy(winT, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const ls = { getItem: () => null, setItem(){}, removeItem(){} };
+  const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'setTimeout', 'module', src + '\nreturn window.TwLicenseGate;')(win, doc, ls, any, () => 0, undefined);
+  if(!('TwLicenseGate' in winT)) throw new Error('window.TwLicenseGate 를 안 걺');
+  const mod = api.createLicenseGate(deps);
+  let settled = false, ret;
+  mod.checkInviteGate().then((v) => { settled = true; ret = v; });
+  const tick = () => new Promise(r => setImmediate(r));
+  for(let i = 0; i < 5; i++) await tick();
+  if(how === 'google') await els.inviteGateGoogleBtn.onclick();
+  else if(how === 'fc'){ el('inviteGateFc').value = 'MATE-AAAA'; el('inviteGatePw').value = 'secret1'; await els.inviteGateFcBtn.onclick(); }
+  else { el('inviteGateInput').value = 'INV'; await els.inviteGateOk.onclick(); for(let i = 0; i < 3; i++) await tick(); await els.signupGoogleBtn.onclick(); }
+  for(let i = 0; i < 5; i++) await tick();
+  return { ev: ev.join(','), settled, ret, closed: els.inviteGateOverlay.style.display === 'none' };
+}
+async function gateLoginRows(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  for(const [how, name] of [['google', '게이트 구글 로그인'], ['fc', '게이트 친구 코드 로그인'], ['signup-existing', '계정 가입(이미 가입된 구글)']]){
+    const same = await gateLoginRun(src, how, false);
+    t(same.settled && same.ret === true && same.closed && same.ev === 'entered:accountEntered:u1', name + ' · 같은 계정 → 게이트 닫음 · «들어감» 알림 한 번(그 계정 me)');
+    const sw = await gateLoginRun(src, how, true);
+    t(!sw.ev.includes('entered') && sw.ev.includes('relaunch') && !sw.settled, name + ' · 계정이 바뀜 → 다시 켜기 · «들어감» 알림 없음');
+  }
   return r;
 }
 
@@ -225,6 +288,8 @@ say('── 2-3. 런처 초대장 버튼');
 (await judgeInviteBtn(MOD, HTML)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 2-4. 켤 때 판정 갈래 — 진짜 함수를 돌려 센다');
 (await gateRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
+say('── 2-5. 초대 게이트 로그인 · 가입 뒤 «들어감» — 진짜 _showInviteGate 를 돌려 센다');
+(await gateLoginRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace("  if(!getMyUserId()){ _setInviteBtn(btn,", "  if(false){ _setInviteBtn(btn,");
@@ -263,7 +328,7 @@ const breaks = [
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
-  let rows2; try{ rows2 = judgeAll(m2, a2, h2); if(m2 !== MOD) rows2 = rows2.concat(await gateRows(m2)); }catch(_){ rows2 = [[false, '던짐']]; }
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2); if(m2 !== MOD) rows2 = rows2.concat(await gateRows(m2), await gateLoginRows(m2)); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

@@ -279,7 +279,7 @@
 | **sim-playlist.js** | 1062 | **3f0b76cd410d** |
 | **sim-playlist-api.js** | 307 | **f8441a9d1075** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
-| **sim-mail-feed.js** | 323 | **1b05d4407db7** |
+| **sim-mail-feed.js** | 341 | **59150658f261** |
 | **sim-notice-api.js** | 159 | **39c7ae06eabd** |
 | **sim-notice-feed.js** | 266 | **2e8f44ac38b2** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |
@@ -317,7 +317,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **dcef7d6522e5** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
-| **sim-license-gate.js** | 271 | **4537a3decdc3** |
+| **sim-license-gate.js** | 336 | **438c3aff5ef2** |
 | **sim-account.js** | 174 | **7ae6cd2b9499** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **910c263320d1** |
@@ -450,6 +450,7 @@
 | **sim-account-store.js** | 404 | **f9ee42e0cafe** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 316 | **51b1a6739613** |
+| **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
 | **sim-login-flow.js** | 343 | **9023d110a3c6** |
 | **sim-first-run-013.js** | 141 | **14d1b0e813d8** |
@@ -476,7 +477,7 @@
 해시만 여기 적는다. 검사 개수(54)에는 안 넣는다.
 
 ```
-run.js                         574줄   336f6f5e1b55   ← apps/desktop · firebase 로 옮긴 원본을 옛 평면 모양으로 되살려 스테이징
+run.js                         623줄   b07bb8c09c59   ← apps/desktop · firebase 로 옮긴 원본을 옛 평면 모양으로 되살려 스테이징
 tools/trapscan.js              267줄   71a7d91b4979
 tools/mac-bundleid-probe.js    415줄   cb30d59cf85a   ← 2026-09-30 6절에 `.app` 폴더 경로 · 옛 규칙 (개정 75)
 CHECKS.md           (이 파일 · 자기 해시는 안 적는다)
