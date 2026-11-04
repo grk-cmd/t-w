@@ -5850,30 +5850,9 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
 });
 
 /* ═══ 🪑 [2026-09-18 제보 2] 라이선스 없는 기기에 남은 전용 자산을 **접어 둔다** ═══════════
-   [증상] 제보자(보유자) 화면에서 친구(미보유)가 가판대 책상을 착용한 것으로 보인다. 친구 화면에는
-     안 보이고, 방을 나갔다 들어오거나 런처를 껐다 켜도 유지된다.
-   [원인] 게이트가 **그리기만 막고 저장·전파는 안 막는다.**
-     · applyDeskCatalogRefToSeat 의 게이트는 `!seat.remote` 라 내 좌석에만 걸린다(그것은 의도이고 옳다 —
-       빼면 보유자 친구의 책상이 미보유자 화면에서만 기본 책상으로 보인다. 옛 제보다).
-     · 그런데 게이트에 걸린 쪽은 charDef.deskCatalogId 를 **그대로 들고 있고**, 그 값이
-       serializeDefForNetwork(Object.assign 통째 복사)를 타고 방으로 나간다. 받는 쪽은 remote 라
-       게이트 없이 그린다. 저장값이라 재입장·재시작에도 남는다.
-   [왜 지우지 않고 접어 두는가] 라이선스는 키 한 줄이면 다시 켜진다(키를 다시 넣으면 ·
-     서버 계정의 라이선스). 지워 버리면 재등록해도 책상이 안 돌아온다 — 그것이
-     예전에 「charDef 는 손대지 않는다」로 결정한 이유였다. 그래서 값을 **옮겨 적는다**:
-       deskCatalogId → deskLicenseHold · deskItems[id] → deskItemsLicenseHold[id]
-       · 좌석은 기본 책상으로 떨어진다(내 화면에서 해제된다)
-       · serializeDefForNetwork 가 이 두 필드를 빼므로 **친구 화면에서도 사라진다**
-       · 라이선스가 켜지면 restoreLicenseHeldAssets 가 그대로 되돌린다
-   ⚠️ **카탈로그가 도착하기 전에는 아무것도 안 한다.** licenseOnly 는 savedDesks/savedItems 의
-     레코드에만 있다. 조회 실패를 「전용 아님」으로도 「전용」으로도 단정하지 않는다 —
-     pruneUnownedGachaParts 가 savedParts 조회 실패를 다루는 관례와 같다.
-   ⚠️ **위조 방어가 아니다.** 이 접기는 화면 · 방 전파만 막는다 — 앱을 고쳐 켜는 것은 서버 권한 검사로 막을 일이다.
-     이것은 «남은 저장값 청소» 이고, 서버 규칙으로 막는 일과 섞지 말 것.
-   ★ 조용히 돈다 — 토스트가 없다. 못 쓰는 것을 원래대로 되돌리는 일이라 사용자에게 알릴 사건이
-     아니라는 결정(2026-09-18). 콘솔에는 남겨서 다음 제보 때 읽을 수 있게 한다.
-   ★ 이 둘은 **한 쌍**이다. 접기만 두고 되돌리기를 빠뜨리면 라이선스를 등록해도 책상이 안 돌아온다
-     — sim-license-leak.js 가 그 짝을 본다. */
+   왜: 게이트는 그리기만 막아 charDef.deskCatalogId 가 그대로 방으로 나갔다. 지우지 않고 deskLicenseHold · deskItemsLicenseHold 로
+     옮겨 적는다 — 라이선스가 켜지면 restoreLicenseHeldAssets 가 되돌린다(접기 · 되돌리기는 한 쌍 · sim-license-leak.js).
+   ⚠️ 카탈로그가 오기 전 · 프리미엄 «모름» 동안엔 아무것도 안 한다. 위조 방어가 아니다(화면 · 방 전파만 — 권한은 서버). */
 /* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
