@@ -2,7 +2,8 @@
 """PR 위험도 판정 — 세션의 판단이 아니라 diff 로 기계적으로 정한다. /ship 과 가드(ship-gate.py)가 같이 쓴다.
 
 높음 = 데이터 경로 · 권한 · 서버 · 빌드에 닿는 변경 — 머지 전 승인은 받지 않는다(앱 · 규칙 · 함수 · Hosting 은 사람이 내보낸다 ·
-승인자는 내보내기 전 `--release` 한 장으로 본다). 머지 전 승인자(OWNER) 승인은 **가드 자리(is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 지침 · /ship 안내서)를 바꾸는 PR 만** —
+승인자는 내보내기 전 `--release` 한 장으로 본다). 단 웹 관리자 길(main 으로 가는 admin/*)은 판을 거치지 않아 그 한 장에 안 나오므로 높으면 머지 전 승인.
+머지 전 승인자(OWNER) 승인은 **가드 자리(is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 지침 · /ship 안내서)를 바꾸는 PR · 웹 관리자 길의 높음** — 판단은 approval_reason 한 곳 ·
 가드가 «컨펌 · 검증 없이 머지 못 함» 을 지키는 마지막 자리라, 세션이 가드를 스스로 풀지 못하게. 승인은 GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 이상>»(GitHub 은 작성자가 자기 PR 을 Approve 못 하는데
 이 PC 세션들은 OWNER 계정으로 PR 을 올린다). 커밋 번호를 받는 까닭: 시각으로 가리면 승인 뒤 옛 날짜 커밋을 올려도 통과한다.
 낮음 = 문구 · 화면 배치 · 스타일 · 데이터 경로가 그대로인 수정 · 문서 — 컨펌자 · 검증자 통과로 머지.
@@ -192,9 +193,16 @@ def admin_outside(pr):
     return [n for f in files for n in (f.get('filename'), f.get('previous_filename')) if n and not n.startswith(ADMIN_DIR)]
 
 
+def approval_reason(pr):
+    """머지 전에 승인자 승인이 필요한 까닭 — 'guard'(가드 자리를 바꿈) · 'admin'(웹 관리자 길에서 위험도 높음) · ''(필요 없음).
+    가드 · --owner · --wait 가 이 한 곳을 쓴다. 읽기 실패는 던진다(가드가 막는다)."""
+    if needs_owner(pr):
+        return 'guard'
+    return 'admin' if admin_needs_owner(pr) else ''
+
+
 def must_approve(pr):
-    """머지 전에 승인자 승인이 필요한가 — 가드 자리를 바꾸거나 · 웹 관리자 길에서 위험도가 높을 때. 가드 · --owner · --wait 가 같이 쓴다."""
-    return needs_owner(pr) or admin_needs_owner(pr)
+    return bool(approval_reason(pr))
 
 
 def needs_owner(pr):

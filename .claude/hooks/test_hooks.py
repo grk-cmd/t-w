@@ -370,7 +370,7 @@ try:
     print('  ✗ main 범위: PR 을 못 읽었는데 빈 목록(통과)으로 돌려줌 — 던져야 가드가 막는다')
 except RuntimeError:
     ok += 1
-def admin_case(name, ref, fl, want_deny, approved=False):
+def admin_case(name, ref, fl, want_deny, approved=False, word=''):
     global ok, bad
     fake(commits=(O, H), files=fl, head_ref=ref, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved else [])
     gate.gate_ok = lambda pr: (True, '')
@@ -381,20 +381,26 @@ def admin_case(name, ref, fl, want_deny, approved=False):
             gate.check_merge(['gh', 'pr', 'merge', '395'])
     except SystemExit:
         pass
-    denied = '"deny"' in buf.getvalue()
-    if denied == want_deny:
+    out = buf.getvalue()
+    denied = '"deny"' in out
+    if denied == want_deny and (not word or word in out):
         ok += 1
     else:
         bad += 1
-        print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}')
+        print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}{" · 문구에 «" + word + "» 없음" if word and word not in out else ""}')
 admin_case('admin/* · web-admin 만 → 통과', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], False)
-admin_case('admin/* · 앱 파일 섞임 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True)
+admin_case('admin/* · 앱 파일 섞임 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True, word='web-admin/ 밖을 바꾼다')
 admin_case('이름 바꿔 올림 · 앱 파일 → 막음', 'chore/y', [{'filename': 'main.js'}], True)
 # 웹 관리자 길의 위험도 높음(데이터 접근)은 머지 전 승인 — 판을 거치지 않아 «내보내기 전 한 장» 에 안 나온다
 DB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]
-admin_case('admin/* · 데이터 접근(높음) · 승인 없음 → 막음', 'admin/x', DB, True)
+admin_case('admin/* · 데이터 접근(높음) · 승인 없음 → 막음', 'admin/x', DB, True, word='웹 관리자 길')
 admin_case('admin/* · 데이터 접근(높음) · 승인 → 통과', 'admin/x', DB, False, approved=True)
 admin_case('admin/* · 화면만(낮음) · 승인 없음 → 통과', 'admin/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
+admin_case('하네스 · 가드 파일 · 승인 없음 → 막음(가드 문구)', 'harness/x', GUARD, True, word='가드 자리(')
+real_assess3 = risk.assess
+risk.assess = lambda pr: (_ for _ in ()).throw(RuntimeError('assess 실패(시험)'))   # 파일 · PR 은 읽히고 위험도만 못 읽음
+admin_case('admin/* · 위험도를 못 읽음 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='읽지 못해')
+risk.assess = real_assess3
 for name, ref, base, fl, want in (('admin/* · 높음', 'admin/x', 'main', DB, True), ('admin/* · 낮음', 'admin/x', 'main', [{'filename': 'web-admin/src/a.tsx'}], False),
                                   ('판으로 가는 PR · 높음(내보내기 전 한 장이 본다)', 'fix/x', 'release/0.12.3', DB, False),
                                   ('하네스 · 가드 파일', 'harness/x', 'main', GUARD, True)):
@@ -465,7 +471,8 @@ def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high = �
     fake(**kw)
     risk._same.clear()
     real_needs = risk.needs_owner
-    risk.needs_owner = lambda pr: high(risk.get('pulls')['head']['sha']) if callable(high) else high
+    if high is not None:   # None 이면 진짜 판정(웹 관리자 길 높음까지) 그대로
+        risk.needs_owner = lambda pr: high(risk.get('pulls')['head']['sha']) if callable(high) else high
     code, msg = risk.wait(395, limit=60, every=15, sleep=nap)
     risk.needs_owner = real_needs
     global ok, bad
@@ -479,6 +486,10 @@ waiting('승인 · CI 초록', 0, '머지할 차례', commits=(O, H), comments=A
 waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), steps=[dict(commits=(O, H)), dict(commits=(O, H), comments=APPR)])
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
 waiting('가드 파일을 안 바꾸면 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
+ADB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]   # 웹 관리자 길 · 데이터 접근(높음)
+waiting('웹 관리자 길 높음 · 승인 없음 — 시간 끝', 1, '끝나지 않음', high=None, commits=(O, H), files=ADB, head_ref='admin/x')
+waiting('웹 관리자 길 높음 · 승인 → 머지할 차례', 0, '머지할 차례', high=None, commits=(O, H), files=ADB, head_ref='admin/x', comments=APPR)
+waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='admin/x')
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])

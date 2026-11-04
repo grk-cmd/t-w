@@ -96,9 +96,8 @@ def check_merge(toks):
         import risk
         try:   # 바뀐 파일 · 승인을 못 읽으면 막는다 — 맨 아래 «가드 오류면 통과» 로 새면 승인 없이 머지된다
             sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
-            guard = risk.needs_owner(pr)
-            admin_high = not guard and risk.admin_needs_owner(pr)   # 웹 관리자 길 · 높음 — 내보내기 전 한 장 대신 머지 전 승인
-            approved = not (guard or admin_high) or risk.owner_approved(pr, sha)   # 승인은 가드 자리를 바꾸는 PR · 웹 관리자 길의 높음만
+            why = risk.approval_reason(pr)   # 'guard' · 'admin'(웹 관리자 길 높음 — 내보내기 전 한 장 대신 머지 전 승인) · ''
+            approved = not why or risk.owner_approved(pr, sha)
             outside = risk.admin_outside(pr)
         except Exception as e:
             deny(f'#{pr} 바뀐 파일 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
@@ -106,7 +105,7 @@ def check_merge(toks):
             deny(f'#{pr} 은 main 으로 가는 PR(hotfix/* · harness/* · 판 내기가 아니면 웹 관리자 길)인데 web-admin/ 밖을 바꾼다({", ".join(outside[:5])}). '
                  f'앱 · 규칙 · 검사는 판 브랜치(release/X.Y.Z)로 따로 PR 한다(main 으로 무엇이든 가는 것은 hotfix/* · harness/* · 판 내기뿐).')
         if not approved:
-            what = f'가드 자리({risk.GUARD_LABEL})를 바꾼다' if guard else '웹 관리자 길(main 에서 바로 내보냄)인데 위험도가 높다(risk.py)'
+            what = f'가드 자리({risk.GUARD_LABEL})를 바꾼다' if why == 'guard' else '웹 관리자 길(main 에서 바로 내보냄)인데 위험도가 높다(risk.py)'
             deny(f'#{pr} 은 {what} — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
                  f'`/ship` 이 PR 에 설계 요약을 남기고 승인을 기다린다(risk.py --wait).')
         return
