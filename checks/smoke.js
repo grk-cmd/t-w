@@ -333,6 +333,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 PRELOAD.push('safe-html.js');
 /* account-store.js — 🗂️ 계정별 로컬 칸(window.TwAccountStore). app.js 가 getMyUserId 바로 뒤에서 만들므로 그보다 먼저. */
 PRELOAD.push('account-store.js');
+/* session.js — 🔐 로그인 세션 하나(window.TwSession). app.js 가 app-boot 에 넘기는 newSession 이 부를 때 읽는다 — app-boot.js 보다 먼저. */
+PRELOAD.push('session.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일

@@ -9107,7 +9107,12 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
 const appBoot = TwAppBoot.createAppBoot({
   twNav: twNav,
   migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
-  openAccountStore: (code)=>accountStoreMod.open(code),
+  newSession: (me)=>TwSession.createSession({
+    me: me,
+    openAccountStore: (code)=>accountStoreMod.open(code),
+    closeAccountStore: ()=>accountStoreMod.close(),
+    timers: { setInterval: (f, ms)=>setInterval(f, ms), clearInterval: (h)=>clearInterval(h), setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h) },
+  }),
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     focusTotal: ()=>{ focusTotalMod.startFocusTotal(); _focusTotalSec = focusTotalMod._loadFocusTotalSec(); },

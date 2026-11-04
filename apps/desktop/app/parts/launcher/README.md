@@ -106,9 +106,9 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 
 ## `app-boot.js` — 🚀 켜는 순서 한 곳
 
-**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 계정 칸 열기(`accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → realtime 연결(`goOnline`) → 계정 기능 시작**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
+**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 로그인 세션 만들기 + 계정 칸 열기(`session.openStore()` → `accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → realtime 연결(`goOnline`) → 계정 기능 시작**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
 
-**만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤(`roomInviteUi` 다음) `TwAppBoot.createAppBoot({ twNav, migrateLegacy, openAccountStore, goOnline, starts })`. `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다 — 한 기능을 빼먹을 수 없다). 각 함수는 `(code, me)` 를 받는다.
+**만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤(`roomInviteUi` 다음) `TwAppBoot.createAppBoot({ twNav, migrateLegacy, newSession, goOnline, starts })`(`newSession(me)` 는 `TwSession.createSession` — `shared/session.js`). `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다 — 한 기능을 빼먹을 수 없다). 각 함수는 `(code, me, session)` 을 받는다 — `session` 은 이번 로그인의 세션(**지금은 받아 쓰는 기능이 없다**).
 
 **차례 표(`STEPS`) — 이 순서가 정본이다**
 | # | 이름 | 시작하는 것 |
@@ -129,7 +129,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 14 | licenseRequest | 📨 보낸 라이선스 요청 지켜보기(`startWatch`) |
 | 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 
-**내놓는 것** — `begin(me)` 하나(보통은 nav 로 불린다). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
+**내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
 
 **함정**
 - 게이트가 이 모듈을 직접 부르면 순환이다(이 모듈이 모든 계정 기능을 부르는 맨 위층) — 그래서 `nav.js` 로 알린다(`sim-dep-cycles`).
