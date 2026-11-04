@@ -7,7 +7,7 @@
      관리자가 최소 버전을 올리면 원격 설정 바뀜 알림(deps.onMinChange)에서 바로 강제 창 — 새 주기 요청 없음.
    [못 받으면] 최소 버전을 못 읽거나(오프라인 · 시간 초과) 버전을 모르면(웹 · 검사) 막지 않는다 — 잘못 막는 쪽이 못 막는 쪽보다 크다.
      새 판 확인은 버전 · 최소 버전을 읽는 일과 따로, 켤 때 한 번은 늘 묻는다. 답이 시간 안에 안 오면 «없음» 으로 보고 넘어간다. 실패 뒤 혼자 다시 묻지 않는다 — 강제 창의 [다시 시도] 를 누를 때만 다시 확인한다.
-   [맥] 자동 설치가 없다 — [업데이트] 는 main 이 알려 준 릴리스 주소를 시스템 브라우저로 연다(강제는 창 유지 · 선택은 열고 다음 단계로).
+   [맥] 자동 설치가 없다 — 주 단추는 [다운로드 페이지 열기](main 이 알려 준 릴리스 주소를 시스템 브라우저로 · 강제는 창 유지 · 선택은 열고 다음 단계로), 선택 창 본문은 «받아 설치해 주세요».
    deps: readMin() 최소 버전 문자열(또는 그 Promise) · 없으면 null / getMin() 지금 값(동기) / onMinChange(fn) → 해제 함수 / getVersion() 이 앱 버전(Promise 가능) /
      companion preload 의 window.companion(onUpdateStatus · installUpdate · checkUpdate · openBrowser) · 없으면 null / ui { show(view, press), update(view), hide() } (createUpdateDom) /
      noticeOnce(fn) 공지를 처음 받았을 때 fn(공지) 한 번 · showNotice(공지, done) 보여 주고 닫히면 done() — 보일 게 없어도 done() /
@@ -57,7 +57,7 @@ function stageOf(my, min, latest){
 function mainButton(up, wantUpdate){
   const u = up || {};
   if(u.status === 'downloaded') return { label: '지금 재시작해서 업데이트', action: ACT.INSTALL };
-  if(u.status === 'mac-available' && u.url) return { label: '새 버전 받으러 가기', action: ACT.OPEN, url: u.url };
+  if(u.status === 'mac-available' && u.url) return { label: '다운로드 페이지 열기', action: ACT.OPEN, url: u.url };
   if(u.status === 'downloading') return { label: '새 버전 받는 중… ' + (Number(u.percent) || 0) + '%', action: ACT.WAIT };
   if(u.status === 'checking' || u.status === 'available') return wantUpdate ? { label: '새 버전 받는 중…', action: ACT.WAIT } : { label: '업데이트', action: ACT.UPDATE };
   if(u.status === 'error') return { label: '다시 시도', action: ACT.RETRY };
@@ -77,10 +77,12 @@ function viewOf(kind, my, min, latest, up, wantUpdate){
     };
   }
   const main = mainButton(u, wantUpdate);
+  // 맥은 앱이 설치해 주지 않는다 — «업데이트할까요?» 대신 직접 받아 설치하라고 쓴다
+  const ask = u.status === 'mac-available' ? '다운로드 페이지에서 받아 설치해 주세요.' : '지금 업데이트할까요?';
   return {
     kind,
     title: '새 버전 ' + latest,
-    body: '새 버전 ' + latest + '이 나왔어요. 지금 업데이트할까요? (지금 버전 ' + my + ')',
+    body: '새 버전 ' + latest + '이 나왔어요. ' + ask + ' (지금 버전 ' + my + ')',
     buttons: [main, { label: '나중에', action: ACT.LATER }],
     note: u.status === 'error' ? '자동 업데이트가 안 되면 아래 링크에서 직접 받아 설치해 주세요.' : '',
     linkUrl: null,

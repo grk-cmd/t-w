@@ -95,6 +95,7 @@ async function suite(M, label){
   chk(t.f.current() === STAGE.OPTIONAL && t.comp.calls[0][0] === 'check', '★ 선택 — 새 판 확인을 묻고 «새 버전» 창');
   const v = t.ui.log[t.ui.log.length - 1];
   chk(v.title === '새 버전 0.13.1' && v.buttons.length === 2 && v.buttons[1].label === '나중에' && !/공지/.test(v.body), '  ↳ 버전만 보인다 · [업데이트] [나중에]');
+  chk(/지금 업데이트할까요/.test(v.body) && v.buttons[0].label === '업데이트', '  ↳ 윈도우는 «지금 업데이트할까요?» · [업데이트]');
   chk(!t.order.includes('notice'), '★ 업데이트 창이 떠 있는 동안은 공지를 안 띄운다 (로그인도 안 풀림)');
   t.f.press('later');
   r = await p;
@@ -271,6 +272,8 @@ async function suite(M, label){
   // 선택 창 맥
   t = make({ my: '0.13.0', min: null });
   p = t.f.runBeforeLogin(); await sleep(5); t.comp.push({ status: 'mac-available', version: '0.13.1', url: 'https://github.com/x/y/releases/tag/v0.13.1' }); await sleep(5);
+  last = t.ui.log[t.ui.log.length - 1];
+  chk(/받아 설치해 주세요/.test(last.body) && !/업데이트할까요/.test(last.body) && last.buttons[0].label === '다운로드 페이지 열기', '★ 선택(맥) — 앱이 설치하지 않으니 «받아 설치해 주세요» · [다운로드 페이지 열기]');
   t.f.press('open'); r = await p;
   chk(t.comp.calls.some(c => c[0] === 'open') && r.proceed, '★ 선택(맥) — [업데이트] 는 브라우저로 열고 다음 단계(공지)로');
   let called = 0; t.f.whenStageDone(() => called++);
@@ -381,6 +384,9 @@ async function suite(M, label){
     // 강제 창이 checking 에서 [업데이트] 를 그린다
     await redIf('강제 창이 checking 에서 [업데이트] 를 그린다', mutate('buttons: [mainButton(u, true)],', 'buttons: [mainButton(u, false)],'),
       async (m) => { const X = load(m); return X.viewOf(X.STAGE.FORCE, '0.12.0', '0.13.0', null, { status: 'checking' }).buttons[0].action === 'wait'; });
+    // 맥 선택 창이 «업데이트할까요?» 로 묻는다
+    await redIf('맥 선택 창이 «업데이트할까요?» 로 묻는다', mutate("u.status === 'mac-available' ? '다운로드 페이지에서 받아 설치해 주세요.' :", "false ? '' :"),
+      async (m) => { const X = load(m); return !/업데이트할까요/.test(X.viewOf(X.STAGE.OPTIONAL, '0.13.0', null, '0.13.1', { status: 'mac-available', version: '0.13.1', url: 'u' }).body); });
     // 켤 때 checkUpdate 1번 (판정: 두 번 부르면 빨강)
     await redIf('checkUpdate 를 두 번 부른다', mutate('companion.checkUpdate();\n    });', 'companion.checkUpdate(); companion.checkUpdate();\n    });'),
       async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); await x.f.runBeforeLogin(); return x.comp.calls.filter(c => c[0] === 'check').length === 1; });
