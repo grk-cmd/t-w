@@ -353,3 +353,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
   - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
 - 검사: `checks/sim-front-diag.js`(깨 보기 열).
+
+## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
+
+- **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
+- **까닭**: 맥은 확인 창을 다른 앱 창이 덮으면 보안 때문에 그 칸(Touch ID · 암호 · «받기»)을 비워 보여 준다. 실행 화면은 모니터 전체를 덮는 투명 창이라 늘 덮는다(B-1104-10).
+- **쓰는 법**: `isSystemPrompt(activeKey)` — 활성 창 폴링(500ms)의 `focusKeyOf` 키(소문자 · `mac:<번들 id>`).
+- **함정**
+  - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
+  - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분)도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다.
+- 검사: `checks/sim-system-prompt.js`(깨 보기 셋).
