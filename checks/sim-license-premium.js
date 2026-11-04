@@ -88,6 +88,18 @@ async function judge(S){
     await tick(); await tick(); await tick(); await tick();
     t(n <= 2, '★ 알림이 몰려 와도 확인 요청이 쌓이지 않는다(도는 중에는 끝난 뒤 한 번 더 — 열 번 → ' + n + '번)');
 
+    /* 도는 중에 온 알림은 버리지 않는다 — 첫 확인(옛 답 true)이 도는 사이 키가 회수되면, 끝난 뒤 최신(false)으로 한 번 더 받아야 한다 */
+    {
+      let release; const slow = new Promise((r) => { release = r; });
+      e = env(LP, { me: [slow, ME(false)], mine: null });
+      await e.mod.start(ME(true));
+      e.push(); await tick();
+      e.push(); await tick();
+      release(ME(true)); await tick(); await tick(); await tick(); await tick();
+      t(e.premium === false && e.calls.filter((c) => c === 'me').length === 2 && e.sets.join() === 'true,true,false',
+        '★ 확인이 도는 중에 온 알림 → 끝난 뒤 최신으로 한 번 더 받는다(옛 답 «참» 에 머물지 않음 — me 2번 · ' + e.sets.join() + ')');
+    }
+
     e = env(LP, { me: [apiErr(0, '', 'unavailable')], mine: null });
     await e.mod.start(ME(true));
     e.push(); await tick(); await tick(); await tick();
@@ -212,6 +224,7 @@ async function judge(S){
     ['켤 때 새 PC 를 자동 등록함', mut('LP', (s) => s.replace("function settle(me){\n    setPremium", "function settle(me){\n    if(me.premium !== true) licenseApi.mine().then(() => licenseApi.putDevice(deps.deviceId(), deps.deviceName()));\n    setPremium"))],
     ['로그인 풀림도 오류 번호로 알림', mut('LP', (s) => s.replace("if(e && e.kind === 'auth') return;", ""))],
     ['알림이 겹치면 요청이 쌓임', mut('LP', (s) => s.replace("if(running){ again = true; return running; }", ""))],
+    ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again){ again = false; r = await once(null); }", ""))],
     ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true } : { ok: false, reason: NOT_CONFIRMED };", "return { ok: true };"))],
     ['해제가 서버를 안 부름', mut('LP', (s) => s.replace("await licenseApi.removeDevice(deps.deviceId());", ""))],
     ['쓰기 응답 사본(meCache)으로 프리미엄 판정', mut('LP', (s) => s.replace("let me = given || null;", "let me = given || (deps.meCache && deps.meCache()) || null;").replace("setPremium(me.premium === true);", "setPremium(me.premium === true || deps.meCache);"))],
