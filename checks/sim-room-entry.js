@@ -46,10 +46,13 @@ function build(src, o){
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   if(o.firebaseAPI) win.firebaseAPI = o.firebaseAPI;   // 모듈은 window.firebaseAPI 로 부른다
+  if(o.companion) win.companion = o.companion;
+  if(o.deps) Object.assign(deps, o.deps);
+  if(o.win) Object.assign(win, o.win);
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, o.document || any, ls, any, o.firebaseAPI || any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+    NET_PRE + src + '\nreturn window.TwRoomEntry;')(win, o.document || any, ls, any, o.firebaseAPI || any, o.companion || any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
   return api.createRoomEntry(deps);
 }
 
@@ -123,30 +126,58 @@ for(const [name, fm, fa, fh] of breaks){
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say('── 4. 방 만들기 카드 두 번 — 입장이 끝날 때까지 다음 누름은 버린다');
-async function createClicks(src){
-  /* 카드만 진짜 객체(onclick 을 받아 둔다) · 방 개수 조회는 50ms 뒤에 0 — 그 사이 두 번째 누름이 들어온다 */
-  const els = {};
-  const doc = new Proxy({}, { get: (t, k) => k === 'getElementById' ? (id => (id === 'chCardWorking' ? (els[id] = els[id] || {}) : anything())) : anything() });
-  let asked = 0;
-  const fb = new Proxy({}, { get: (t, k) => k === 'getRoomCount' ? (() => { asked++; return new Promise(r => setTimeout(() => r(0), 50)); }) : anything() });
-  build(src, { document: doc, firebaseAPI: fb });
-  const card = els.chCardWorking;
-  if(!card || typeof card.onclick !== 'function') return null;
-  const p1 = card.onclick(), p2 = card.onclick();
-  await Promise.all([p1, p2]);
-  const afterDouble = asked;
-  await card.onclick();
-  return { afterDouble, afterThird: asked };
+/* 카드만 진짜 객체 · 방 개수 조회는 50ms 뒤 0 · 입장(startRoom)은 버전 확인에서 150ms 기다린 뒤 «구버전» 으로 끝난다(그 뒤 길은 안 탄다).
+   o.throwOnce 면 첫 만들기 도중(랜덤 참여 토글을 읽는 자리) 한 번 던진다 */
+function cardRig(src, o){
+  o = o || {};
+  const els = {}; let asked = 0, threw = false;
+  const doc = new Proxy({}, { get: (t, k) => k === 'getElementById' ? (id => {
+    if(id === 'chCardWorking') return (els[id] = els[id] || {});
+    if(id === 'chRandOpen' && o.throwOnce && !threw){ threw = true; throw new Error('깨 봄'); }
+    return anything(); }) : anything() });
+  const fb = new Proxy({}, { get: (t, k) => k === 'getRoomCount' ? (() => { asked++; return new Promise(r => setTimeout(() => r(0), 50)); })
+    : k === 'getMinRoomVer' ? (() => '99.0.0') : anything() });
+  const companion = { getAppVersion: () => new Promise(r => setTimeout(() => r('0.1.0'), 150)) };
+  build(src, { document: doc, firebaseAPI: fb, companion, win: { _deviceSessionLost: false }, deps: { _rcStore: () => null } });   // 원격 설정 없음 → 상한 300(가짜 값이면 «꽉 참» 으로 입장까지 안 간다)
+  return { card: els.chCardWorking, asked: () => asked };
+}
+const wait = (ms) => new Promise(r => setTimeout(r, ms));
+async function scenario(src){
+  const out = {};
+  let r = cardRig(src);
+  if(!r.card || typeof r.card.onclick !== 'function') return null;
+  await Promise.all([r.card.onclick(), r.card.onclick()]);            // ① 빨리 두 번(조회 중)
+  out.double = r.asked();
+  await r.card.onclick(); out.after = r.asked();                      // ② 끝난 뒤 다시
+  r = cardRig(src);
+  const p1 = r.card.onclick(); await wait(90);                        // ③ 조회는 끝나고 입장(150ms)이 도는 중에 누름
+  const p2 = r.card.onclick(); await Promise.all([p1, p2]);
+  out.during = r.asked();
+  r = cardRig(src, { throwOnce: true });
+  await r.card.onclick().catch(() => {});                             // ④ 도중에 던짐 → 다음 누름은 다시 된다
+  await r.card.onclick().catch(() => {});
+  out.afterThrow = r.asked();
+  return out;
+}
+/* 깨 보기 — 바꿀 글을 못 찾으면 «못 찾음» 으로 따로 알린다(진짜 실패와 섞이지 않게) */
+async function breakWith(label, from, to, judge){
+  const src = MOD.replace(from, to);
+  if(src === MOD){ chk(false, '  깨 보기 — ' + label + ': 바꿀 글을 못 찾음(검사를 고칠 것)'); return; }
+  const b = await scenario(src);
+  chk(!!b && judge(b), '  깨 보기 — ' + label + ' → 빨강');
 }
 process.exitCode = 1;   // 아래가 끝까지 못 돌고 멈추면(기다림이 안 풀림) 초록으로 새지 않게
-const _watch = setTimeout(() => { say('  ✗ 4절이 5초 안에 안 끝남 — 기다림이 풀리지 않는다'); process.exit(1); }, 5000);
+const _watch = setTimeout(() => { say('  ✗ 4절이 10초 안에 안 끝남 — 기다림이 풀리지 않는다'); process.exit(1); }, 10000);
 (async () => {
-  const r = await createClicks(MOD);
-  chk(!!r && r.afterDouble === 1, '빨리 두 번 누르면 방 개수 조회 · 방 만들기는 한 번' + (r ? ' (조회 ' + r.afterDouble + '번)' : ' — 카드를 못 찾음'));
-  chk(!!r && r.afterThird === 2, '  ↳ 앞 입장이 끝난 뒤 누르면 다시 만든다(가드가 풀린다)');
-  const broken = MOD.replace('  if(_joiningRoom) return;\n  _joiningRoom = true;\n  try{ await _createRoomInChannel(channel); }', '  try{ await _createRoomInChannel(channel); }');
-  const rb = broken !== MOD ? await createClicks(broken) : null;
-  chk(!!rb && rb.afterDouble === 2, '  깨 보기 — 가드를 빼면 두 번 만든다');
+  const r = await scenario(MOD);
+  chk(!!r, '카드를 찾았다');
+  chk(!!r && r.double === 1, '① 빨리 두 번 누르면(조회 중) 만들기는 한 번' + (r ? ' (조회 ' + r.double + '번)' : ''));
+  chk(!!r && r.after === 2, '② 앞 입장이 끝난 뒤 누르면 다시 만든다');
+  chk(!!r && r.during === 1, '③ 입장이 도는 중에 누른 것도 버린다');
+  chk(!!r && r.afterThrow === 2, '④ 도중에 던져도 가드가 풀려 다음 누름은 다시 된다');
+  await breakWith('가드를 뺌', '  if(_joiningRoom) return;\n  _joiningRoom = true;\n  try{ await _createRoomInChannel(channel); }', '  try{ await _createRoomInChannel(channel); }', b => b.double === 2);
+  await breakWith('입장을 안 기다림(await 뺌)', '  await startRoom(c);\n}', '  startRoom(c);\n}', b => b.during === 2);
+  await breakWith('성공했을 때만 풂(finally 뺌)', '  try{ await _createRoomInChannel(channel); } finally{ _joiningRoom = false; }', '  await _createRoomInChannel(channel); _joiningRoom = false;', b => b.afterThrow === 1);
   clearTimeout(_watch);
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
