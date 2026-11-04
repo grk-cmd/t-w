@@ -2371,7 +2371,8 @@ function createWindow() {
           // ★ 전부 'screen-saver'로 되돌린다. 예전엔 mainWindow만 최고 단계로, 나머지는 기본 단계로
           //   복원했는데, 그러면 색을 한 번 고른 뒤부터 스튜디오·방명록이 메인 뒤로 깔린다
           //   (= 여기서 고친 것과 똑같은 증상이 대화상자를 쓴 뒤에만 재발한다).
-          w.setAlwaysOnTop(true, 'screen-saver');
+          if(w === mainWindow) _setRunTop(!_sysPromptFront);   // 🔐 그사이 시스템 확인 창이 맨 앞이면 덮지 않게 내려 둔다
+          else w.setAlwaysOnTop(true, 'screen-saver');
         }catch(_){}
       });
     };
@@ -3870,9 +3871,9 @@ function createWindow() {
         const d = getRunDisplay();
         const wa = d.workArea;
         const rect = { x: wa.x, y: wa.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, d) };
-        if(_winAlreadyIs(rect, true)) return;   // 이미 맞다 — 건드리지 않는다
+        if(_winAlreadyIs(rect, !_sysPromptFront)) return;   // 이미 맞다 — 건드리지 않는다(확인 창이 맨 앞이면 내려 둔 것이 맞다)
         mainWindow.setBounds(rect);
-        _noteApplied(rect, true);
+        _noteApplied(rect, !_sysPromptFront);
         _refreshMainWinBounds();
         overlay.logGeometry('표시설정 변경');
       }catch(_){}

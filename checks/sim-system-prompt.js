@@ -61,6 +61,10 @@ const runBranch = (MAIN.match(/const wantTop = !_sysPromptFront;[\s\S]*?_noteApp
 chk(/_winAlreadyIs\(runRect, wantTop\)/.test(runBranch) && /_setRunTop\(wantTop\);/.test(runBranch), '창 배치(run)도 같은 깃발로 맨 위를 정한다 — 확인 창 위로 되돌리지 않음');
 chk(!/mainWindow\.setAlwaysOnTop\(true, 'screen-saver'\);\s*\n\s*_noteApplied\(runRect/.test(MAIN), '  ↳ run 갈래에 맨 위 고정 줄이 남지 않음');
 
+chk(/if\(w === mainWindow\) _setRunTop\(!_sysPromptFront\);/.test(MAIN), '색 고르기 창을 닫을 때 메인 창도 같은 깃발로 되돌린다');
+chk(/_winAlreadyIs\(rect, !_sysPromptFront\)\) return;/.test(MAIN) && /_noteApplied\(rect, !_sysPromptFront\);/.test(MAIN), '표시 설정이 바뀔 때도 같은 깃발로 판정 · 기록');
+chk(!/_winAlreadyIs\(rect, true\)/.test(MAIN), '  ↳ 실행 화면을 «늘 맨 위» 로 판정하는 자리가 남지 않음');
+
 say('§4 깨 보기');
 const b1 = MAIN.replace("  if(top) mainWindow.setAlwaysOnTop(true, 'screen-saver');\n  else mainWindow.setAlwaysOnTop(false);", "  mainWindow.setAlwaysOnTop(true, 'screen-saver');");
 const r1 = b1 !== MAIN ? run(b1) : null;

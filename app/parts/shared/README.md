@@ -361,5 +361,5 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **쓰는 법**: `isSystemPrompt(activeKey)` — 활성 창 폴링(500ms)의 `focusKeyOf` 키(소문자 · `mac:<번들 id>`).
 - **함정**
   - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
-  - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분)도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다.
+  - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
 - 검사: `checks/sim-system-prompt.js`(깨 보기 셋).
