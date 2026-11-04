@@ -116,7 +116,9 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       deps.seats = V.seats; deps._rideBottom = V.rideBenchMod._rideBottom;
       for(const k of ['syncSeatEqualize', 'renderSeatTabs', 'clampDeskPan', 'seatDeskHalfWidth']) deps[k] = V[k];
       /* 몸 박스 — 좌석의 gltfRoot.bw(몸 반폭)로 만든 가짜. gltfRoot 없는 좌석은 0(지금까지의 판정이 그대로 돈다) */
-      deps.measureCharBox = (root) => ({ isEmpty: () => !(root && root.bw > 0), min: { x: -(root.bw || 0) }, max: { x: (root.bw || 0) } });
+      /* rig 가 옮겨져(날아가기 · 끌기) 있으면 박스도 그만큼 옮겨지고, 기울어 있으면 그만큼 넓어진다 — 재는 순간의 자세를 읽는다 */
+      deps.measureCharBox = (root) => { const rg = root && root.rig, off = rg ? rg.position.x : 0, ex = rg ? Math.abs(rg.rotation.z) : 0;
+        return { isEmpty: () => !(root && root.bw > 0), min: { x: off - (root.bw || 0) - ex }, max: { x: off + (root.bw || 0) + ex } }; };
       for(const k of ['roomSeatMode', 'deskPanX', 'deskPanY', 'MULTIPLAYER_SPACING', 'SPACING', 'seatCameraMod']) deps[k] = () => V[k];
       deps.setDeskPanX = (v) => { V.deskPanX = v; }; deps.setDeskPanY = (v) => { V.deskPanY = v; };
       deps.setCachedRowCenter = (v) => { V._cachedRowCenter = v; }; deps.setCachedRowSpan = (v) => { V._cachedRowSpan = v; };
@@ -179,6 +181,16 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     chk(J(r.log[r.log.length - 1]) === J(['cam', 0, 1.5]), '  카메라 폭에도 몸 자리가 든다(0.75 × 2)');
     r = runLayout([{ isMe: true, hw: 0.85 }, { hw: 0.15, gltfRoot: body(0) }], {});
     chk(J(r.xs) === J([0, -1.4]), '  경계 — 몸을 못 재면(빈 박스) 책상 폭만(예전 그대로)');
+    /* 🚀 날아가는 · 끌리는 좌석(B-1104-9) — rig 가 옮겨지고 돌아 있어도 앉은 자세 폭으로 잰다 · 잰 뒤 자세는 그대로 */
+    const flying = () => { const rg = { position: { x: 6, y: 2 }, rotation: { z: 2.5 }, n: 0, updateMatrixWorld(){ this.n++; } }; const g = body(0.3); g.rig = rg; return { hw: 0.15, gltfRoot: g, rig: rg }; };
+    const fs1 = flying();
+    const rest = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.3) }], {});
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, fs1], {});
+    chk(J(r.xs) === J([0, -1.7]) && J(r.cache) === J(rest.cache) && J(rest.cache) === J([-0.85, 3]), '★ 날아가는 좌석도 앉은 자세 폭(0.45)으로 자리 · 카메라 폭 3 — 앉아 있을 때와 같다(예전엔 몸 폭이 날아간 거리만큼 커져 모두 작아졌다)');
+    chk(fs1.rig.position.x === 6 && fs1.rig.rotation.z === 2.5 && fs1.rig.n === 2, '  잰 뒤 날아가는 자세는 그대로 되돌린다(행렬도 다시 맞춤)');
+    const noRest = MOD.replace('const b = measureAtRest(s);', 'const b = measureCharBox(s.gltfRoot);');
+    const rn = noRest !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, flying()], { src: noRest }) : null;
+    chk(!!rn && J(rn.cache) !== J(rest.cache), '  깨 보기 — 날아가는 자세 그대로 재면 위 판정이 빨강');
     const broken = MOD.replace('function seatRoomHalf(deskHalf, bodyHalf){ return Math.max(deskHalf, bodyHalf > 0 ? bodyHalf + BODY_ROOM : 0); }', 'function seatRoomHalf(deskHalf){ return deskHalf; }');
     const rb = broken !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.3) }], { src: broken }) : null;
     chk(!!rb && J(rb.xs) !== J([0, -1.7]), '  깨 보기 — 몸 폭을 안 보면(책상 폭만) 위 판정이 빨강');
