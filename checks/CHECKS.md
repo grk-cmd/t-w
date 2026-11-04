@@ -434,7 +434,7 @@
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-gift-save.js** | 137 | **f7be455180d5** |
 | **sim-front-diag.js** | 115 | **2585d0146d44** |
-| **sim-system-prompt.js** | 82 | **f31ea432b4ff** |
+| **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다

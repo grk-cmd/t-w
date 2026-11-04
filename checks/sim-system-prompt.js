@@ -18,9 +18,27 @@ say('§1 system-prompt.js (실행)');
 const mod = { exports: {} };
 new Function('module', 'exports', SP)(mod, mod.exports);
 const { isSystemPrompt } = mod.exports;
-chk(['mac:com.apple.appstore', 'mac:com.apple.securityagent', 'mac:com.apple.coreautha', 'mac:com.apple.systempreferences', 'mac:com.apple.installer'].every(isSystemPrompt), '앱스토어 · 암호 · Touch ID · 시스템 설정 · 설치 프로그램 → 참');
+/* 실제 키는 main 의 focusKeyOf(sysinput.procNameOf(경로)) 로 만든다 — 같은 길로 만들어 넣는다.
+   ⚠️ `.app` 은 Info.plist 로 번들 id 를 읽어 기기마다 다르니(CI 리눅스엔 없음) 맥에서 실제로 찍힌 키를 쓰고(진단 기록 [활성] 줄),
+      `.bundle`(암호 · Touch ID)은 plist 를 안 읽어 어디서나 같으니 procNameOf 를 실제로 돌린다. */
+const SYS = read('sysinput-mac.js');
+let procNameOf = null;
+if (SYS) {
+  const Module = require('module'), orig = Module._load;
+  Module._load = function(r, ...x){ if (/uiohook|electron|node-window|\.node$/.test(r)) return new Proxy({}, { get: () => () => {} }); return orig.call(this, r, ...x); };
+  try { const m = { exports: {} }; new Function('module', 'exports', 'require', '__dirname', SYS)(m, m.exports, require, __dirname); procNameOf = m.exports.procNameOf; } catch (_) {}
+  Module._load = orig;
+}
+const keyOf = (p) => 'mac:' + String(procNameOf(p) || '').trim().toLowerCase();   // main.js focusKeyOf 와 같은 모양
+chk(typeof procNameOf === 'function', 'sysinput-mac.js 의 procNameOf 를 불렀다(네이티브 모듈만 가짜)');
+/* 활성 창 경로는 node-window-manager 맥이 주는 번들 폴더(app.bundleURL.path) — 실행 파일 경로가 아니다 */
+const AUTH = ['/System/Library/Frameworks/Security.framework/Versions/A/MachServices/SecurityAgent.bundle',
+              '/System/Library/Frameworks/LocalAuthentication.framework/Support/coreautha.bundle'];
+chk(!!procNameOf && AUTH.every(p => isSystemPrompt(keyOf(p))), '★ 실제 경로로 만든 키 — 관리자 암호(SecurityAgent) · Touch ID(coreautha) → 참' + (procNameOf ? ' (' + AUTH.map(keyOf).join(' · ') + ')' : ''));
+chk(['mac:com.apple.appstore', 'mac:com.apple.systempreferences', 'mac:com.apple.installer'].every(isSystemPrompt), '앱스토어 · 시스템 설정 · 설치 프로그램(맥에서 찍힌 번들 id 키) → 참');
 chk(isSystemPrompt('MAC:COM.APPLE.APPSTORE') && isSystemPrompt(' mac:com.apple.appstore '), '  ↳ 대소문자 · 앞뒤 공백 무시');
-chk(!['mac:com.google.chrome', 'win:discord.exe', 'mac:app store.app', '', null, undefined].some(isSystemPrompt), '다른 앱 · 옛 이름 키 · 빈 값 → 거짓');
+chk(!['mac:com.google.chrome', 'win:discord.exe', 'mac:app store.app', 'mac:com.apple.securityagent', '', null, undefined].some(isSystemPrompt), '다른 앱 · 옛 이름 키 · 빈 값 → 거짓');
+chk(!!procNameOf && !isSystemPrompt(keyOf('/Library/Some/Other.bundle')), '  ↳ 다른 .bundle 은 거짓');
 
 /* main.js 에서 «let _sysPromptFront» 부터 _onSysPromptFront 끝까지 꺼낸다 */
 function block(src){
