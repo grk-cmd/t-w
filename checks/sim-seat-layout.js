@@ -100,7 +100,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   function runLayout(seats, o){
     const log = [];
     const V = {
-      seats, roomSeatMode: o.mode || 'row', deskPanX: o.panX || 0, deskPanY: o.panY || 0, MULTIPLAYER_SPACING: 0.15, SPACING: 0.4,
+      seats, roomSeatMode: o.mode || 'row', deskPanX: o.panX || 0, deskPanY: o.panY || 0, MULTIPLAYER_SPACING: 0.15, SPACING: o.spacing !== undefined ? o.spacing : 0.4,
       _cachedRowCenter: 0, _cachedRowSpan: 1.2,
       syncSeatEqualize: () => log.push('sync'),
       renderSeatTabs: () => log.push('tabs'),
@@ -170,6 +170,20 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   /* 경계 — 책상 폭 0 · 빈 좌석 목록 */
   r = runLayout([{ isMe: true, hw: 0 }, { hw: 0 }], {});
   chk(J(r.xs) === J([0, -0.4]) && J(r.log[r.log.length - 1]) === J(['cam', -0.2, 1.2]), '경계 — 책상 폭 0 이면 여백만큼 · 폭 하한 1.2');
+  /* 좌석 간격 최소값(app.js GAP_MIN)은 음수 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다. 앱이 쓰는 값으로 그대로 돌린다 */
+  {
+    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SRC);
+    const gmin = m ? +m[1] : NaN;
+    chk(m && gmin < 0 && gmin > -0.85 && +m[2] > 0, '좌석 간격 최소값 — 음수(겹쳐 붙기)이되 기본 책상 반폭(0.85)보다 덜 겹친다 · 최대는 양수' + (m ? ' (' + m[1] + ' ~ ' + m[2] + ')' : ' — 못 찾음'));
+    if(m){
+      r = runLayout([{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }], { spacing: gmin });
+      const step = 1.7 + gmin;
+      chk(J(r.xs) === J([0, -step, -2 * step].map(v => +v.toFixed(6))) && step > 0, '  최소값으로 — 기본 책상 셋이 (1.7 + 최소값)씩 당겨져 붙는다 · 순서는 그대로');
+      const body = (bw) => ({ bw });
+      r = runLayout([{ isMe: true, hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }, { hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }], { spacing: gmin });
+      chk(-r.xs[1] >= 0.5 - 1e-9, '  책상 없는 좌석끼리는 최소값에서도 몸(0.25 + 0.25)이 겹치지 않는다');
+    }
+  }
   /* 🧍 책상이 없거나 작은 좌석 — 몸 반폭 + 여유(0.15)만큼 자리를 잡아 옆 책상과 안 겹친다(건의). 책상 있는 좌석끼리는 그대로 */
   {
     const body = (bw) => ({ bw });

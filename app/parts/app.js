@@ -906,9 +906,10 @@ const seats=[]; let selected=null;
 //   자리 추가(솔로)/멀티플레이어 친구 좌석 모두 이 값 하나로 공통 적용됨(layoutSeats에서 재사용).
 //   더 좁히고 싶으면 값을 줄이고(단, 너무 작으면 책상끼리 겹쳐 보일 수 있음), 넓히고 싶으면 늘리세요.
 // ★ 좌석(책상) 간 여백 — 예전엔 고정 상수였는데, 사용자가 설정 패널에서 직접 조절할 수 있게 변경.
-//   솔로/멀티 각각 따로 저장되고(모드 전환해도 서로 기억), 최소값(GAP_MIN)은 책상끼리 겹치지 않을
-//   정도로 낮게 잡아둬서 아무리 좁혀도 실제로 겹쳐지진 않음.
-const GAP_MIN = 0.02, GAP_MAX = 1.2, GAP_STEPS = 15;
+//   솔로/멀티 각각 따로 저장되고(모드 전환해도 서로 기억)
+//   GAP_MIN 이 음수인 까닭: 책상 GLB 는 보이는 판보다 박스가 넓은 것이 많아 «끝끼리 0» 이어도 벌어져 보인다 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다.
+//   책상 없는 좌석은 몸 + 여유(0.15)씩이라 -0.3 이면 몸끼리 맞닿는다(seat-layout.js).
+const GAP_MIN = -0.3, GAP_MAX = 1.2, GAP_STEPS = 15;
 const GAP_KEY_SOLO='tw.gapSolo', GAP_KEY_MULTI='tw.gapMulti';
 function _loadGap(key, def){ try{ const v=parseFloat(localStorage.getItem(key)); if(!isNaN(v)) return Math.max(GAP_MIN,Math.min(GAP_MAX,v)); }catch(e){} return def; }
 let SPACING = _loadGap(GAP_KEY_SOLO, 0.3);
