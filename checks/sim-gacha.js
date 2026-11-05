@@ -441,8 +441,8 @@ await sec('── 7. app.js 배선', () => {
     'setGachaBonusLocal: ()=>gachaMod.refreshAfterReward(),', 'renderGachaInv: ()=>gachaMod.renderGachaInv(),', 'gachaBonus: ()=>gachaMod.bonus(),'];
   const callCode = code + '\n' + strip(PREG).replace(/gachaMod\(\)/g, 'gachaMod');   // 파츠 등록 창(admin-part-register.js)이 부르는 곳까지
   const miss = calls.filter(c => !callCode.includes(c));
-  chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 5 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 3,
-      '부르는 곳 — T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 런처 · 로그아웃 · 👑 달성표(연동 pull 은 0.13 에서 걷음) (' + (miss[0] || '다 있음') + ')');
+  chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 5 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 4,
+      '부르는 곳 — T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 옷장 받은 뒤 · 런처 · 로그아웃 · 👑 달성표(연동 pull 은 0.13 에서 걷음) (' + (miss[0] || '다 있음') + ')');
   const off = (APP.match(/const GACHA_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/gachaMod\.(\w+)/g) || []).map(s => s.split('.')[1]))];
   chk(!/\bGACHA_OFF\b/.test(APP), '빈 껍데기 GACHA_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');

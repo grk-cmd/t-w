@@ -103,7 +103,8 @@ async function applyCloset(c){
   if(!which.size) return false;
   const oldSlots = slots.slice();
   await slotSave.applySlotObjs(objs, which);
-  for(const i of which) if(known[i]){ const o = slotSave.lastOut()[i]; known[i].sig = sigOf(o); }
+  // 서버 판은 받은 모양으로 적는다 — 앉히는 중 onLoaded(가챠 회수 등)가 칸을 고쳤으면 그 칸은 «고침» 으로 남아 올라간다
+  for(const i of which) if(known[i]) known[i].sig = sigOf(objs[i]);
   slotSave._relinkSeatsToSlots(oldSlots, skipRelink);
   return true;
 }
@@ -134,6 +135,7 @@ async function pullCloset(notify){
     catch(e){ if(load === 'loading') load = 'failed'; if(notify) notifyError('E-CHAR-16', e); return res; }
     load = 'ready';
     res = 'ready';
+    if(did && !wasReady){ for(let i = 0; i < CHAR_SLOT_MAX; i++) if(isDirty(i)){ scheduleSave(); break; } }   // 첫 받기 중의 고침은 그때 저장 예약이 물러났다 — 받은 뒤 한 번
     if(did){
       try{ renderLauncher(); }catch(_){}
       try{ slotSave.slotsReplaced(); }catch(_){}

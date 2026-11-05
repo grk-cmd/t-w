@@ -85,7 +85,7 @@ function mkEnv(opt){
   env.slotSave = {
     lastOut: () => last,
     onSaved: (fn) => savedFns.push(fn),
-    applySlotObjs: async (arr, which) => { env.applied = (env.applied || []).concat([[...(which || [0, 1, 2, 3, 4])]]); const nl = last.slice(); for(const i of (which || [0, 1, 2, 3, 4])){ slots[i] = arr[i] ? clone(arr[i]) : null; nl[i] = arr[i] ? clone(arr[i]) : null; } last = nl; },
+    applySlotObjs: async (arr, which) => { env.applied = (env.applied || []).concat([[...(which || [0, 1, 2, 3, 4])]]); const nl = last.slice(); for(const i of (which || [0, 1, 2, 3, 4])){ slots[i] = arr[i] ? clone(arr[i]) : null; nl[i] = arr[i] ? clone(arr[i]) : null; } last = nl; if(env.afterApply) env.afterApply(); },
     pullForward: (i) => { last = last.slice(); for(let k = i; k < 4; k++){ slots[k] = slots[k + 1]; last[k] = last[k + 1]; } slots[4] = null; last[4] = null; },
     _relinkSeatsToSlots: (old, skip) => { env.relinked.push([...skip]); },
     slotsReplaced: () => { env.replaced++; },
@@ -251,6 +251,21 @@ await sec('── 3. 쓰기', async () => {
   chk(n.timers.filter(Boolean).length === 0 && n.srv.calls.length === 0, '받기 전(idle)에는 쓰기를 예약하지도 않는다');
   const fl = await CN.flushSlots();
   chk(fl === false && n.srv.calls.length === 0, '  flushSlots 를 직접 불러도 보내지 않는다');
+});
+
+await sec('── 3-2. 앉히는 중 고친 칸(가챠 회수 등)', async () => {
+  const strip = (e) => { e.afterApply = () => { if(e.slots[0] && e.slots[0].gacha){ e.afterApply = null; e.edit(0, { skin: 'a' }); } }; };
+  const e = mkEnv({ slots: ['a'] }); e.srv.defs.a = { skin: 'a', gacha: 'g1' }; strip(e);
+  const C = e.mk(); await C.pullCloset(false); await e.runTimers(); await flush();
+  chk(e.srv.calls.filter(c => c.startsWith('update:a')).length === 1 && !e.srv.defs.a.gacha, '첫 받기 — 앉히며 벗긴 모습을 서버에 한 번 올린다(받은 모양을 서버 판으로 적고 받은 뒤 저장 예약)');
+  e.srv.calls.length = 0; await C.pullCloset(false); await e.runTimers(); await flush();
+  chk(!e.srv.calls.some(c => c.startsWith('update')), '  다음 받기에서 다시 쓰지 않는다(되풀이 없음)');
+  const e2 = mkEnv({ slots: ['a'] }); const C2 = e2.mk(); await C2.pullCloset(false);
+  e2.srv.avatars.find(a => a.avatarId === 'a').version = 2; e2.srv.defs.a = { skin: 'a', gacha: 'g1' }; strip(e2);
+  await C2.pullCloset(false); await e2.runTimers(); await flush();
+  chk(e2.srv.calls.filter(c => c.startsWith('update:a:2')).length === 1 && !e2.srv.defs.a.gacha, '  이미 받은 뒤 다시 받을 때도 벗긴 모습을 올린다');
+  const e3 = mkEnv({ slots: ['a'] }); const C3 = e3.mk(); await C3.pullCloset(false); await e3.runTimers(); await flush();
+  chk(!e3.srv.calls.some(c => c.startsWith('update') || c.startsWith('create')), '  고친 것이 없으면 받은 뒤 쓰지 않는다');
 });
 
 await sec('── 4. 동작', async () => {
@@ -516,6 +531,14 @@ await sec('── 7. 깨 보기', async () => {
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.srv.calls.length = 0; await C.restore('t9'); await flush(); return !e.srv.calls.includes('load'); }), '복원 뒤 옷장을 다시 받지 않으면(머리가 없다) 4절이 빨강이 된다');
   S = broke("if(load !== 'ready') await waitPull();", "");
   chk(S && await run(S, async (e) => { e.ls.set('deskFriends.slots.v1', JSON.stringify([{ skin: 1 }])); const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); C.startCloset(); const p = C.legacyStep(); await flush(); e.srv.loadHold = null; rel(); const rr = await p; return rr.ok === false; }), '받기를 기다리지 않으면 첫 실행 올리기가 영영 멈춘다 — 6절이 빨강이 된다');
+  const stripRun = async (src) => { const e = mkEnv({ slots: ['a'] }); e.srv.defs.a = { skin: 'a', gacha: 'g1' }; e.afterApply = () => { if(e.slots[0] && e.slots[0].gacha){ e.afterApply = null; e.edit(0, { skin: 'a' }); } };
+    const M = loadMod(src, e); const C = M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+      storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } });
+    await C.pullCloset(false); await e.runTimers(); await flush(); return !e.srv.calls.some(c => c.startsWith('update:a')); };
+  S = broke("known[i].sig = sigOf(objs[i]);", "known[i].sig = sigOf(slotSave.lastOut()[i]);");
+  chk(S && await stripRun(S), '앉힌 뒤 모양을 서버 판으로 적으면 벗긴 것이 안 올라간다 — 3-2절이 빨강이 된다');
+  S = broke("if(did && !wasReady){ for(let i = 0; i < CHAR_SLOT_MAX; i++) if(isDirty(i)){ scheduleSave(); break; } }", "");
+  chk(S && await stripRun(S), '첫 받기 뒤 저장 예약을 빼면 3-2절이 빨강이 된다');
   S = broke("setTimeout(() => { saveTimer = null; flushSlots(); }, SAVE_DEBOUNCE_MS)", "setTimeout(() => { saveTimer = null; flushSlots(); }, 0)");
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(0, { skin: 'q' }); return e.timers.filter(Boolean)[0].ms !== 3000; }), '묶음 시간을 없애면 3절이 빨강이 된다');
 });

@@ -209,7 +209,7 @@
 | **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
 | **sim-closet-api.js** | 171 | **6564acaab0b8** |
-| **sim-closet.js** | 529 | **701aae32a973** |
+| **sim-closet.js** | 552 | **4ea1d9362154** |
 | **sim-slot-codec.js** | 133 | **6995ea14e489** |
 | **sim-signup.js** | 378 | **91e800d83770** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
@@ -262,7 +262,7 @@
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **412082771903** |
-| **sim-gacha.js** | 471 | **446a05178827** |
+| **sim-gacha.js** | 471 | **72703fe818a8** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
 | **sim-room-invite-ui.js** | 377 | **524ffec85237** |
 | **sim-focus-log.js** | 288 | **9cc9add827c7** |
