@@ -254,6 +254,7 @@ import importlib.util, io, contextlib
 spec = importlib.util.spec_from_file_location('ship_gate', G)
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
+gate.origin_repo = lambda cwd: gate.REPO
 sys.modules['risk'] = risk
 GOOD = json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])
 for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, True), ('합치며 달라짐 · 앞 커밋 통과', H2, O, False),
@@ -522,6 +523,7 @@ import importlib.util, io, contextlib
 spec = importlib.util.spec_from_file_location('ship_gate', G)
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
+gate.origin_repo = lambda cwd: gate.REPO
 gate.gate_ok = lambda pr: (True, '')
 gate.run = lambda *a, **k: S
 def boom(pr):
@@ -720,7 +722,7 @@ if CPL:
     env = dict(os.environ, LC_ALL=CPL, LANG=CPL, PATH=FAKE + os.pathsep + os.environ['PATH'])
     env.pop('PYTHONIOENCODING', None); env.pop('PYTHONUTF8', None)
     RK = os.path.join(HERE, 'risk.py')
-    merge = json.dumps({'tool_input': {'command': 'gh pr merge 403'}, 'cwd': CWD})
+    merge = json.dumps({'tool_input': {'command': 'gh api -X PUT repos/grk-cmd/t-w/pulls/403/merge'}, 'cwd': CWD})
     for name, args, stdin, extra, check in (
             ('위험도 판정', [RK, '403'], '', {}, lambda o: json.loads(o)['high'] is True),
             ('머지 가드 — 승인 없음 → 막음', [G], merge, {}, lambda o: '"deny"' in o and '가드 자리' in o and '읽지 못해' not in o),
@@ -787,34 +789,49 @@ else:
 
 # 머지할 PR 의 저장소 — 앱 저장소 밖(서버)도 그 저장소의 상태값으로 막고, 문서 저장소는 막지 않는다
 SV = 'mihioon/t-w-server'
-C = lambda cmd: gate.gate_class(gate.merge_repo(cmd))
+def T(raw, origin='grk-cmd/t-w'):
+    real_o, real_r = gate.origin_repo, gate.run
+    gate.origin_repo = lambda cwd: origin
+    gate.run = lambda *a, **k: '42'   # gh pr view 번호
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            r = gate.merge_target(raw, CWD)
+    except SystemExit:
+        r = 'deny'
+    finally:
+        gate.origin_repo, gate.run = real_o, real_r
+    return 'deny' if '"deny"' in buf.getvalue() else r
 API = lambda path, *opts: ['gh', 'api', '-X', 'PUT', *opts, path]
 for name, got, want in (
-        ('api 경로의 서버 저장소', gate.merge_repo(API('repos/mihioon/t-w-server/pulls/169/merge', '-f', 'merge_method=squash')), SV),
-        ('api 경로 대문자 서버도 서버', gate.merge_repo(API('repos/MIHIOON/T-W-Server/pulls/169/merge')), SV),
-        ('api 경로 문서 저장소는 가드 밖', C(API('/repos/mihioon/tw-docs/pulls/3/merge')), 'free'),
-        ('api 경로 앱', C(API('repos/grk-cmd/t-w/pulls/5/merge')), 'app'),
-        ('gh pr merge 는 언제나 앱(-R 서버여도)', C(['gh', 'pr', 'merge', '5', '-R', SV]), 'app'),
-        ('gh pr merge -R 문서여도 앱', C(['gh', 'pr', 'merge', '1', '-R', 'mihioon/tw-docs']), 'app'),
-        ('gh pr merge URL 도 앱', C(['gh', 'pr', 'merge', 'https://github.com/mihioon/tw-docs/pull/1']), 'app'),
-        ('본문에 문서 URL — 앱', C(['gh', 'pr', 'merge', '5', '--body', 'https://github.com/mihioon/tw-docs/pull/1']), 'app'),
-        ('제목에 -R — 앱', C(['gh', 'pr', 'merge', '5', '--subject', '-R mihioon/tw-docs']), 'app'),
-        ('-t 값의 -Rx — 앱', C(['gh', 'pr', 'merge', '5', '-t', '-Rmihioon/tw-docs']), 'app'),
-        ('VAR= 값 URL — 앱', C(['X=https://github.com/mihioon/tw-docs/pull/1', 'gh', 'pr', 'merge', '5']), 'app'),
-        ('GH_REPO= — 앱', C(['GH_REPO=mihioon/tw-docs', 'gh', 'pr', 'merge', '5']), 'app'),
-        ('자리표시자 {owner}/{repo} — 앱', C(API('repos/{owner}/{repo}/pulls/5/merge')), 'app'),
-        ('점 마디 경로 — 앱', C(API('repos/mihioon/tw-docs/pulls/1/merge/../../../../../grk-cmd/t-w/pulls/5/merge')), 'app'),
-        ('인코딩 경로 — 앱', C(API('repos/mihioon/tw-docs%2f..%2fgrk-cmd/t-w/pulls/5/merge')), 'app'),
-        ('위치 인자 둘 — 앱', C(['gh', 'api', '-X', 'PUT', 'repos/mihioon/tw-docs/pulls/1/merge', 'repos/grk-cmd/t-w/pulls/5/merge']), 'app'),
-        ('옵션 값 속 미끼 경로는 안 봄', C(['gh', 'api', '-f', 'x=repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge']), 'app'),
-        ('모르는 저장소 — 앱', C(API('repos/someone/else/pulls/5/merge')), 'app'),
+        ('api 서버', T(API('repos/mihioon/t-w-server/pulls/169/merge', '-f', 'merge_method=squash')), (SV, '169')),
+        ('api 서버 대문자', T(API('repos/MIHIOON/T-W-Server/pulls/169/merge')), (SV, '169')),
+        ('api 문서', T(API('/repos/mihioon/tw-docs/pulls/3/merge')), ('mihioon/tw-docs', '3')),
+        ('api 앱', T(API('repos/grk-cmd/t-w/pulls/5/merge')), ('grk-cmd/t-w', '5')),
+        ('api 모르는 저장소 — 막음', T(API('repos/someone/else/pulls/5/merge')), 'deny'),
+        ('api 자리표시자 — 막음', T(API('repos/{owner}/{repo}/pulls/5/merge')), 'deny'),
+        ('GH_REPO + 자리표시자 — 막음', T(['GH_REPO=mihioon/t-w-server', 'gh', 'api', '-X', 'PUT', 'repos/{owner}/{repo}/pulls/169/merge']), 'deny'),
+        ('api 점 마디 — 막음', T(API('repos/mihioon/tw-docs/pulls/1/merge/../../../../../grk-cmd/t-w/pulls/5/merge')), 'deny'),
+        ('api 인코딩 — 막음', T(API('repos/mihioon/tw-docs%2f..%2fgrk-cmd/t-w/pulls/5/merge')), 'deny'),
+        ('api 위치 인자 둘 — 막음', T(['gh', 'api', '-X', 'PUT', 'repos/mihioon/tw-docs/pulls/1/merge', 'repos/grk-cmd/t-w/pulls/5/merge']), 'deny'),
+        ('api 옵션 값 속 미끼는 안 봄', T(['gh', 'api', '-f', 'x=repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge']), ('grk-cmd/t-w', '5')),
+        ('pr merge 앱 폴더 번호', T(['gh', 'pr', 'merge', '5', '--squash']), ('grk-cmd/t-w', '5')),
+        ('pr merge 옵션 값 숫자는 번호 아님', T(['gh', 'pr', 'merge', '--subject', '700']), ('grk-cmd/t-w', '42')),
+        ('pr merge -R 서버 — 막음', T(['gh', 'pr', 'merge', '169', '-R', SV]), 'deny'),
+        ('pr merge --repo= — 막음', T(['gh', 'pr', 'merge', '--repo=' + SV, '5']), 'deny'),
+        ('pr merge -Rx — 막음', T(['gh', 'pr', 'merge', '5', '-Rgrk-cmd/t-w']), 'deny'),
+        ('pr merge GH_REPO — 막음', T(['GH_REPO=mihioon/tw-docs', 'gh', 'pr', 'merge', '5']), 'deny'),
+        ('pr merge URL — 막음', T(['gh', 'pr', 'merge', 'https://github.com/mihioon/t-w-server/pull/169']), 'deny'),
+        ('pr merge 본문 URL — 막음', T(['gh', 'pr', 'merge', '5', '--body', 'https://github.com/mihioon/tw-docs/pull/1']), 'deny'),
+        ('pr merge 서버 폴더 — 막음', T(['gh', 'pr', 'merge', '169'], origin=SV), 'deny'),
+        ('pr merge 폴더를 모름 — 막음', T(['gh', 'pr', 'merge', '5'], origin=None), 'deny'),
         ('이름 맞춤(URL · .git)', gate.norm_repo('https://github.com/MIHIOON/t-w-server.git'), SV),
         ('-Rx 는 gh_norm 이 뗀다', gate.gh_norm(['gh', 'pr', 'merge', '-Rgrk-cmd/t-w', '5']), ['gh', 'pr', 'merge', '5'])):
     if got == want:
         ok += 1
     else:
         bad += 1
-        print(f'  ✗ 머지 저장소 {name}: {got!r}(기대 {want!r})')
+        print(f'  ✗ 머지 대상 {name}: {got!r}(기대 {want!r})')
 def repo_case(name, repo, statuses, want_deny):
     global ok, bad
     calls = []
@@ -830,7 +847,7 @@ def repo_case(name, repo, statuses, want_deny):
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            gate.check_merge(['gh', 'api', f'repos/{repo}/pulls/169/merge'], repo)
+            gate.check_merge(['gh', 'api', '-X', 'PUT', f'repos/{repo}/pulls/169/merge'], CWD)
     except SystemExit:
         pass
     denied = '"deny"' in buf.getvalue()
