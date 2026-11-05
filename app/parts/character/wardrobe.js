@@ -127,16 +127,20 @@ const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.c
 /* 🛠 관리자 파츠 등록 · 삭제 — 관리자 모듈(admin-part-register.js)이 자기를 만들 때 건다. 꾸미기는 관리자 모듈을 부르지 않는다 */
 let _adminPartActions = null;
 function setAdminPartActions(a){ _adminPartActions = a; }
-/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다. */
-function _wdApplyDeskChange(mutate){
+/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다.
+   relayout: 책상을 바꾸는 카드(기본 · 책상 없음 · 전용)는 책상 폭이 크게 바뀐다 — 책상을 다 그린 **뒤에** 좌석 줄을 다시 잡는다
+   (기본 책상 교체본 · 전용 책상은 GLB 를 풀고서야 noDesk 가 내려가서, 바로 잡으면 좁은 자리가 남는다). */
+function _wdApplyDeskChange(mutate, relayout){
   const seat = findMySeat();
   if(!seat || !seat.charDef) return null;
   const def = seat.charDef;
   mutate(def);
+  let drawn = null;
   try{
-    if(def.deskCatalogId) applyDeskCatalogRefToSeat(seat, def);
-    else applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
+    if(def.deskCatalogId) drawn = applyDeskCatalogRefToSeat(seat, def);
+    else drawn = applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
   }catch(_){}
+  if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());
   try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
   // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
   try{ if(wdDraftDef && wdDraftDef._srcDef === def){ wdDraftDef.deskCatalogId=def.deskCatalogId; wdDraftDef.deskScale=def.deskScale; wdDraftDef.deskLenX=def.deskLenX; wdDraftDef.deskColor=def.deskColor; wdDraftDef[DESK_LICENSE_HOLD()]=def[DESK_LICENSE_HOLD()]; } }catch(_){}
@@ -166,12 +170,12 @@ function renderWdDeskSection(wrap){
   /* «쓰지 않음» — 전용 책상을 벗고 기본으로 돌아가는 길. 이 칸이 없으면 한 번 고른 사람이 갇힌다. */
   const none=swThumb('기본 책상', !def.deskCatalogId, '↺');
   none.classList.add('none-card');
-  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }); layoutSeats(); renderWardrobe(); };
+  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }, true); renderWardrobe(); };
   grid.appendChild(none);
   /* 🚫 책상 없음 — 책상 몸만 숨긴다(책상 위 아이템은 그대로) · 좌석은 캐릭터 몸 폭만큼만 자리를 잡는다(seat-layout.js). */
   const noDesk=swThumb('책상 없음', def.deskCatalogId===NO_DESK_ID, '🚫');
   noDesk.classList.add('none-card');
-  noDesk.onclick=()=>{ if(def.deskCatalogId===NO_DESK_ID) return; _wdApplyDeskChange(d=>{ d.deskCatalogId=NO_DESK_ID; d.deskGlb=null; }); layoutSeats(); renderWardrobe(); };
+  noDesk.onclick=()=>{ if(def.deskCatalogId===NO_DESK_ID) return; _wdApplyDeskChange(d=>{ d.deskCatalogId=NO_DESK_ID; d.deskGlb=null; }, true); renderWardrobe(); };
   grid.appendChild(noDesk);
   list.forEach(rec=>{
     const on=(def.deskCatalogId===rec.id);
@@ -184,7 +188,7 @@ function renderWdDeskSection(wrap){
         try{ await resolveCatalogGlb(rec); }catch(e){ glbErr = e; }
       }
       if(!rec.glb){ TwErrorCodes.notify('E-CHAR-13', glbErr || (rec.glbUrl ? 'no-glb' : 'no-url')); return; }
-      _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });
+      _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; }, true);
       renderWardrobe();
     };
     grid.appendChild(card);

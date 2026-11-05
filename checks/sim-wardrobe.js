@@ -92,49 +92,67 @@ for(const [name, fm, fa, fh] of breaks){
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 
-/* ── 4. 동작 — 🪑 꾸미기 › 책상 탭의 «🚫 책상 없음» 칸(책상 탭 두 함수만 떼어 가짜 위에서 누른다) */
-say('── 4. 동작 — 책상 탭 «책상 없음»');
+/* ── 4. 동작 — 🪑 꾸미기 › 책상 탭의 «🚫 책상 없음» 칸(책상 탭 두 함수만 떼어 가짜 위에서 누른다)
+   책상 그리기(applyDeskCatalogRefToSeat)는 GLB 를 풀어야 끝나는 일이라 가짜도 «나중에 끝나는» Promise — 좌석 줄은 그 뒤에 잡아야 한다 */
+say('── 4. 동작 — 책상 탭 «책상 없음» · 좌석 줄 다시 잡기');
+const tick = () => new Promise((r) => setImmediate(r));
 function deskTab(mod){
   const a = mod.indexOf('function _wdApplyDeskChange('), b = mod.indexOf('let wdRenderer=null', a);
   if(a < 0 || b < 0) return null;
-  const log = { apply: [], layout: 0, save: 0, render: 0 };
+  const log = { apply: [], layout: 0, save: 0, render: 0, pending: [] };
   const seat = { isMe: true, desk: {}, charDef: { deskCatalogId: 'd1', deskGlb: 'G' } };
   const el = () => ({ style: {}, classList: { add(){} }, children: [], appendChild(c){ this.children.push(c); return c; }, set innerHTML(v){}, textContent: '' });
   const cards = [];
   const env = {
     NO_DESK_ID: '__no_desk__', DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', DESK_LICENSE_HOLD: () => 'hold', DESK_SCALE_DEFAULT: () => 0.2, DESK_SCALE_MIN: () => 0.05, DESK_SCALE_MAX: () => 0.3,
-    findMySeat: () => seat, wdDraftDef: null, _wdLicenseDesks: () => [],
+    findMySeat: () => seat, wdDraftDef: null, _wdLicenseDesks: () => [{ id: 'L1', name: '전용', glb: 'LG' }],
     swThumb: (label, on, icon) => { const c = el(); c.label = label; c.on = on; c.icon = icon; cards.push(c); return c; },
-    applyDeskCatalogRefToSeat: (s, d) => log.apply.push(d.deskCatalogId), setDeskScale: () => {}, applyDeskColorToCustom: () => {}, clampDeskScale: (v) => v,
+    applyDeskCatalogRefToSeat: (s, d) => { log.apply.push(d.deskCatalogId); return new Promise((r) => log.pending.push(r)); },
+    setDeskScale: () => {}, applyDeskColorToCustom: () => {}, clampDeskScale: (v) => v,
     saveSlots: () => { log.save++; }, Presence: () => ({ active: () => false }), refreshWdPreviewChar: () => {}, layoutSeats: () => { log.layout++; }, renderWardrobe: () => { log.render++; },
-    openAssetImport: () => {}, applyDeskDotThumb: () => {}, document: { createElement: el },
+    openAssetImport: () => {}, applyDeskDotThumb: () => {}, resolveCatalogGlb: async () => {}, TwErrorCodes: { notify(){} }, document: { createElement: el },
   };
   const names = Object.keys(env);
   const f = new Function(...names, mod.slice(a, b) + '\nreturn renderWdDeskSection;');
-  return { render: f(...names.map(n => env[n])), seat, log, cards, el };
+  const render = f(...names.map(n => env[n]));
+  const settle = async () => { log.pending.splice(0).forEach((r) => r()); await tick(); await tick(); };
+  return { render, seat, log, cards, el, settle, again(){ cards.length = 0; render(el()); } };
 }
-{
+(async () => {
   const T = deskTab(MOD);
   chk(!!T, '책상 탭 함수를 떼어 냈다(_wdApplyDeskChange · renderWdDeskSection)');
   if(T){
     T.render(T.el());
     const nd = T.cards.find(c => c.label === '책상 없음');
     chk(nd && T.cards[0].label === '기본 책상' && T.cards[1] === nd && nd.on === false && nd.icon === '🚫', '«기본 책상» 바로 뒤에 «책상 없음» 칸 · 다른 책상을 쓰면 꺼짐');
-    nd.onclick();
-    chk(T.seat.charDef.deskCatalogId === '__no_desk__' && T.seat.charDef.deskGlb === null && T.log.apply[0] === '__no_desk__' && T.log.layout === 1 && T.log.save === 1 && T.log.render === 1,
-      '  누르면 — def 에 예약 id · GLB 비움 · 좌석 책상 다시 그림 · 좌석 줄 다시 잡기 · 저장 · 창 다시 그림');
-    T.cards.length = 0; T.render(T.el());
+    nd.onclick(); await tick();
+    chk(T.seat.charDef.deskCatalogId === '__no_desk__' && T.seat.charDef.deskGlb === null && T.log.apply[0] === '__no_desk__' && T.log.save === 1 && T.log.render === 1 && T.log.layout === 0,
+      '  누르면 — def 에 예약 id · GLB 비움 · 좌석 책상 다시 그림 · 저장 · 창 다시 그림 · 그리기가 끝나기 전엔 좌석 줄을 안 잡는다');
+    await T.settle();
+    chk(T.log.layout === 1, '  책상을 다 그린 뒤 좌석 줄을 한 번 다시 잡는다');
+    T.again();
     const nd2 = T.cards.find(c => c.label === '책상 없음');
     chk(nd2.on === true && T.cards[0].on === false, '  다시 그리면 «책상 없음» 만 켜짐');
-    nd2.onclick();
+    nd2.onclick(); await T.settle();
     chk(T.log.apply.length === 1 && T.log.layout === 1, '  이미 책상 없음이면 다시 눌러도 아무 일 없음');
-    T.cards[0].onclick();
-    chk(T.seat.charDef.deskCatalogId === null && T.log.apply[1] === '__default_desk__' && T.log.layout === 2, '  «기본 책상» 을 누르면 풀리고 좌석 줄도 다시 잡는다');
+    T.cards[0].onclick(); await tick();
+    chk(T.seat.charDef.deskCatalogId === null && T.log.apply[1] === '__default_desk__' && T.log.layout === 1, '  «기본 책상» — 교체본 GLB 를 푸는 동안은 좌석 줄을 안 잡고');
+    await T.settle();
+    chk(T.log.layout === 2, '    다 그린 뒤 한 번 잡는다');
+    T.again(); await T.cards.find(c => c.label === '전용').onclick(); await tick();
+    chk(T.seat.charDef.deskCatalogId === 'L1' && T.log.layout === 2, '  전용 책상 카드도 그리기가 끝나기 전엔 안 잡고');
+    await T.settle();
+    chk(T.log.layout === 3, '    다 그린 뒤 한 번 잡는다(책상 없음 → 진짜 책상의 큰 폭 차이)');
   }
-  const B = deskTab(MOD.replace("_wdApplyDeskChange(d=>{ d.deskCatalogId=NO_DESK_ID; d.deskGlb=null; }); layoutSeats();", "_wdApplyDeskChange(d=>{ d.deskCatalogId=NO_DESK_ID; d.deskGlb=null; });"));
+  /* 깨 보기 — 그리기를 안 기다리고 바로 잡으면(옛 순서) · 전용 책상 카드가 안 잡으면 위 판정이 빨강 */
+  const early = deskTab(MOD.replace('if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());', 'if(relayout) layoutSeats();'));
   let caught = false;
-  if(B){ B.render(B.el()); B.cards.find(c => c.label === '책상 없음').onclick(); caught = B.log.layout === 0; }
-  chk(caught, '  깨 보기 — 좌석 줄 다시 잡기를 빼면 위 판정이 빨강');
-}
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+  if(early){ early.render(early.el()); early.cards.find(c => c.label === '책상 없음').onclick(); await tick(); caught = early.log.layout === 1; }
+  chk(caught, '  깨 보기 — 그리기가 끝나기 전에 좌석 줄을 잡으면 잡힌다');
+  const noLic = deskTab(MOD.replace('_wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; }, true);', '_wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });'));
+  caught = false;
+  if(noLic){ noLic.render(noLic.el()); await noLic.cards.find(c => c.label === '전용').onclick(); await noLic.settle(); caught = noLic.log.layout === 0; }
+  chk(caught, '  깨 보기 — 전용 책상 카드가 좌석 줄을 안 잡으면 잡힌다');
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})();
