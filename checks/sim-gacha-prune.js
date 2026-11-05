@@ -34,6 +34,7 @@ const probe = `
   catIds: (d,c)=>catEquippedIds(d,c),
   addEntry: (d,c,e)=>addEntryToCat(d,c,e),
   setAdmin: v=>{ isAdmin = v; },
+  closetLoaded: ()=>applySlotObjs([], new Set()),
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
@@ -146,6 +147,18 @@ say('\n── 6. gacha 플래그가 지워진 파츠 (migrate 사고 흔적) —
   await P.sync();
   await new Promise(r=>realST(r, 30));
   say((wearing(seat) ? '  · ' : '  ✓ ') + 'gacha 플래그를 잃은 파츠 — 같은 이유로 남는다(카탈로그 완료 신호가 생기면 열 수 있다)');
+}
+
+say('\n── 6-2. 옷장 받기가 가챠 받기보다 늦게 끝남 — 받아 앉힌 뒤에도 회수');
+{
+  P.setSaved([REC]); P.setOwned({}); P.setAdmin(false);
+  P.seats.length = 0;
+  serverStub({ owned:{} });
+  await P.sync();
+  await new Promise(r=>realST(r, 30));
+  const seat = freshWorld();   // 가챠는 이미 받았고, 이제서야 서버 옷장의 캐릭터가 앉는다
+  await P.closetLoaded();
+  chk(!wearing(seat), '옷장을 받아 앉힌 뒤 미보유 가챠 파츠를 벗긴다(가챠가 먼저 끝나 빈 슬롯을 보고 지나간 경우)');
 }
 
 say('\n── 7. 서버가 «가졌다» 고 하는 파츠 — 내 파츠를 벗기면 안 된다');

@@ -7314,6 +7314,8 @@ const slotSaveMod = TwSlotSave.createSlotSave({
 /* 슬롯 저장 · 복원 뒤 할 일 — 이 모듈보다 먼저 만들어지는 위층(프리미엄 · 꾸미기 · 설정 화면)은 여기서 건다.
    서버 원본 옷장(closet.js)은 자기를 만들 때 스스로 건다(onSaved). */
 slotSaveMod.onLoaded(()=>premiumMod.pruneUnownedLicenseAssets());
+// 옷장은 보통 가챠보다 늦게 받아진다 — 가챠가 끝날 때의 회수는 빈 슬롯을 보고 지나가므로 받아 앉힌 뒤 한 번 더(보유분을 모르면 회수 쪽이 물러난다)
+slotSaveMod.onLoaded(()=>gachaMod.pruneUnownedGachaParts());
 slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
 slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
 
