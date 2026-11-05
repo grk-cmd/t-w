@@ -68,38 +68,44 @@ function seatHalfWidth(s){
   const body = _bodyHalfMemo.has(s) ? _bodyHalfMemo.get(s) : seatBodyHalfWidth(s);
   return seatRoomHalf(seatDeskHalf(s, false, body), body);
 }
+/* 줄 배치 규칙 한 벌 — layoutSeatRow(실제 자리)와 slotIndexAt(끌기 — 넣으면 설 자리)가 같이 쓴다.
+   ⚠️ 두 곳이 따로 셈하면 한쪽만 고쳤을 때 끌기가 두 칸을 오가며 떨린다.
+   반폭은 [0번 자리 · 1번부터] 두 값 — 옛 map 이 번호를 forZoom 으로 넘겨 1번부터 줌 상한이 걸리는 지금 동작 그대로(sim-seat-layout 4절). */
+const _halfMemo = new WeakMap();   // 마지막 줄 배치에서 잰 반폭 — 끌기 중 pointermove 마다 책상을 다시 재지 않게
+function measureRowHalf(s, body){
+  return [seatRoomHalf(seatDeskHalf(s, false, body), body), seatRoomHalf(seatDeskHalf(s, true, body), body)];
+}
+function rowHalf(s, i){
+  let v = _halfMemo.get(s);
+  if(!v){ v = measureRowHalf(s, _bodyHalfMemo.has(s) ? _bodyHalfMemo.get(s) : seatBodyHalfWidth(s)); _halfMemo.set(s, v); }
+  return v[i ? 1 : 0];
+}
+function rowSpacing(){ return seats.some(s=>s.remote) ? MULTIPLAYER_SPACING() : SPACING(); }   // 실제 친구가 있으면(멀티모드) 그쪽 간격
+/* row 순서대로 좌석 x — 0번(맨 오른쪽)이 0, 다음은 «앞 자리 − (앞 반폭 + 간격 + 내 반폭)». 올라탄 좌석은 자리가 없어 건너뛴다(Map 에 없음). */
+function rowTargets(row, spacing){
+  const out = new Map();
+  let prevX = 0, prevH = 0, first = true;
+  row.forEach((s, i)=>{
+    if(s.ridingOn) return;
+    const h = rowHalf(s, i);
+    const tx = first ? 0 : prevX - (prevH + spacing + h);
+    out.set(s, tx); first = false; prevX = tx; prevH = h;
+  });
+  return out;
+}
 /* 책상을 끌어 자리 바꾸기 — 끄는 좌석을 seats 몇 번에 넣을지(빼고 다시 넣는 splice 번호).
-   끄는 좌석을 뺀 나머지 순서는 끄는 동안 그대로라, 칸 k 마다 «k 번에 넣으면 끄는 좌석이 설 자리» 를 layoutSeatRow 와 같은 셈으로 내고
-   x 에서 가장 가까운 칸을 고른다 — 답이 x 로만 정해져 왔다갔다하지 않는다.
+   끄는 좌석을 뺀 나머지 순서는 끄는 동안 그대로라, 칸 k 마다 «k 번에 넣으면 설 자리» 를 rowTargets 로 내고 x 에서 가장 가까운 칸을 고른다
+   — 답이 x 로만 정해져 왔다갔다하지 않는다.
    ⚠️ 지금 targetX 중 가장 가까운 것을 고르면 안 된다: 폭이 다른 책상이 섞이면 옮길 때마다 다른 자리들도 움직여 두 칸을 끝없이 오간다.
-   ⚠️ 간격으로 나누면 안 된다: 한 칸 너비는 책상마다 다르고 간격은 음수도 된다(나누면 끄는 방향이 뒤집힌다).
-   반폭은 줄 배치와 같은 규칙(seats 1번부터 줌 상한 — layoutSeatRow 의 옛 map 그대로) · 몸 폭은 마지막 배치에서 잰 값. 올라탄 좌석은 자리가 없어 건너뛴다. */
+   ⚠️ 간격으로 나누면 안 된다: 한 칸 너비는 책상마다 다르고 간격은 음수도 된다(나누면 끄는 방향이 뒤집힌다). */
 function slotIndexAt(x, dragSeat){
   if(!dragSeat || seats.indexOf(dragSeat) < 0) return 0;
   const rest = seats.filter(s=>s!==dragSeat);
-  const spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING() : SPACING();
-  const halfMemo = new Map();   // 좌석마다 [0번 자리일 때 · 1번부터] 반폭 — 칸마다 책상을 다시 재지 않게
-  const halfOf = (s, i)=>{
-    let v = halfMemo.get(s);
-    if(!v){
-      const body = _bodyHalfMemo.has(s) ? _bodyHalfMemo.get(s) : seatBodyHalfWidth(s);
-      v = [seatRoomHalf(seatDeskHalf(s, false, body), body), seatRoomHalf(seatDeskHalf(s, true, body), body)];
-      halfMemo.set(s, v);
-    }
-    return v[i ? 1 : 0];
-  };
+  const spacing = rowSpacing();
   let best = 0, bestD = Infinity;
   for(let k = 0; k <= rest.length; k++){
-    const row = rest.slice(0, k).concat([dragSeat], rest.slice(k));
-    let prevX = 0, prevH = 0, first = true, at = null;
-    row.forEach((s, i)=>{
-      if(s.ridingOn) return;
-      const h = halfOf(s, i);
-      const tx = first ? 0 : prevX - (prevH + spacing + h);
-      if(s === dragSeat) at = tx;
-      first = false; prevX = tx; prevH = h;
-    });
-    if(at === null) continue;
+    const at = rowTargets(rest.slice(0, k).concat([dragSeat], rest.slice(k)), spacing).get(dragSeat);
+    if(at === undefined) continue;
     const d = Math.abs(at - x);
     if(d < bestD){ bestD = d; best = k; }
   }
@@ -113,22 +119,17 @@ function layoutSeatRow(){
   if(window.TwSeatPin && TwSeatPin.pinFirst(seats, roomSeatMode())) renderSeatTabs();
   // ★ 인원이 바뀔 때마다 이동 오프셋을 안전 범위로 다시 당긴다 — 구석에 걸어 둔 채 인원이 늘면 화면 밖으로 밀린다.
   { const _c = clampDeskPan(deskPanX(), deskPanY()); setDeskPanX(_c.x); setDeskPanY(_c.y); }
-  const hasRemote = seats.some(s=>s.remote);   // 실제 친구가 있으면(멀티모드) 더 좁은 간격 사용
-  const spacing = hasRemote ? MULTIPLAYER_SPACING() : SPACING();
   // ★ SPACING · MULTIPLAYER_SPACING 은 «책상과 책상 사이 여백» — 책상 반폭을 실측해 크기가 달라도 여백이 일정하다.
   /* 🐾 남의 머리에 올라탄 좌석(탑 사슬 전체)은 자리 계산에서 뺀다 — 숨긴 책상이 기본 폭 0.85 로 빈자리를 잡지 않게.
      실제 위치는 _positionRideSeat 이 매 프레임 덮어쓴다.
      ⚠️ seats 배열의 순서 · 내용은 건드리지 않는다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 카메라 줌도 같은 placed 목록을 본다. */
-  const bodyHalf = new Map(seats.map(s=>[s, seatBodyHalfWidth(s)]));
-  bodyHalf.forEach((v, s)=>_bodyHalfMemo.set(s, v));
-  const halfWidths = seats.map((s,i)=>seatRoomHalf(seatDeskHalf(s, i, bodyHalf.get(s)), bodyHalf.get(s)));   // ⚠️ 두 번째 인자 i 는 옛 map 그대로(줌 상한이 1번부터 걸리는 지금 동작 — sim-seat-layout 4절)
-  const _hwOf = new Map(seats.map((s,i)=>[s, halfWidths[i]]));
-  const placed = seats.filter(s=>!s.ridingOn);
-  placed.forEach((s,i)=>{
-    if(i===0){ s.targetX = 0; return; }   // 맨 오른쪽 고정
-    const prev = placed[i-1];
-    s.targetX = prev.targetX - (_hwOf.get(prev) + spacing + _hwOf.get(s));
+  seats.forEach(s=>{
+    const body = seatBodyHalfWidth(s);
+    _bodyHalfMemo.set(s, body); _halfMemo.set(s, measureRowHalf(s, body));   // 배치마다 새로 잰다 — 끌기 · 가두기는 이 값을 다시 쓴다
   });
+  const placed = seats.filter(s=>!s.ridingOn);
+  const tx = rowTargets(seats, rowSpacing());
+  placed.forEach(s=>{ s.targetX = tx.get(s); });
   /* 올라탄 좌석에는 자기 탑 바닥의 자리를 그대로 물려준다 — 옛 값이 남으면
      _positionRideSeat 의 UI 앵커(host.targetX 를 읽는다)가 엉뚱한 자리를 가리킨다. */
   seats.forEach(s=>{ if(s.ridingOn){ const b=_rideBottom(s); s.targetX = (b && b.targetX) || 0; } });
@@ -136,7 +137,7 @@ function layoutSeatRow(){
   const minX = Math.min(...xs), maxX = Math.max(...xs);
   const rowCenter = (minX+maxX)/2;
   const leftIdx = xs.indexOf(minX), rightIdx = xs.indexOf(maxX);
-  const halfWidthsForZoom = placed.map(s=>seatRoomHalf(seatDeskHalf(s, true, bodyHalf.get(s)), bodyHalf.get(s)));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
+  const halfWidthsForZoom = placed.map(s=>rowHalf(s, 1));   // 카메라 줌은 상한선 적용된 값 사용(유난히 큰 책상 하나가 전체를 과하게 줌아웃시키지 않게)
   const rowSpan = Math.max(ROW_SPAN_MIN, (maxX-minX) + halfWidthsForZoom[leftIdx] + halfWidthsForZoom[rightIdx]);   // 카메라 줌 계산용 전체 폭(책상 폭까지 포함)
   setCachedRowCenter(rowCenter); setCachedRowSpan(rowSpan);   // 다음번 updateCameraOnly()가 재사용할 수 있게 캐시
   seatCameraMod().applyCameraAndCanvas(rowCenter, rowSpan);
