@@ -225,6 +225,30 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       rr.api.slotIndexAt(-1, fresh);
       chk(rr.deskCalls() > before, '  아직 줄 배치에 없던 좌석은 그때 잰다');
     }
+    /* 줄 배치는 할 때마다 반폭을 새로 잰다(기억은 끌기 · 가두기용) — 책상을 바꾸거나 평준화로 크기가 바뀐 뒤 옛 폭으로 자리를 잡지 않게 */
+    const remeasure = (src) => {
+      const ss = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
+      const rr = runLayout(ss, { spacing: 0.3, src });
+      ss[1].hw = 1.05; rr.api.layoutSeatRow();
+      const xs = ss.map(x => +x.targetX.toFixed(6));
+      return { xs, slot: rr.api.slotIndexAt(-4.6, ss[2]) };
+    };
+    {
+      const o = remeasure();
+      chk(J(o.xs) === J([0, -2.2, -4.4]) && o.slot === 2, '  책상 폭이 바뀐 뒤 줄 배치는 새 폭으로(0 · -2.2 · -4.4) · 끌기도 새 폭 기준 칸');
+      const once = MOD.replace('_bodyHalfMemo.set(s, body); _halfMemo.set(s, measureRowHalf(s, body));', '_bodyHalfMemo.set(s, body); if(!_halfMemo.has(s)) _halfMemo.set(s, measureRowHalf(s, body));');
+      const b = once !== MOD ? remeasure(once) : null;
+      chk(!!b && J(b.xs) !== J(o.xs), '  깨 보기 — 한 번 잰 반폭을 다시 쓰면(새로 안 잼) 위 판정이 빨강');
+    }
+    /* 0번(맨 오른쪽) 좌석은 줌 상한 없이 실제 반폭 · 1번부터 상한 1.1(옛 map 그대로) */
+    {
+      const ss = [{ isMe: true, hw: 1.5 }, { hw: 1.5 }];
+      const rr = runLayout(ss, { spacing: 0.3 });
+      chk(J(rr.xs) === J([0, -2.9]), '  0번 큰 책상은 실제 반폭(1.5) · 1번은 상한(1.1) — 1.5 + 0.3 + 1.1');
+      const cap0 = MOD.replace('  return v[i ? 1 : 0];', '  return v[1];');
+      const rb = cap0 !== MOD ? runLayout([{ isMe: true, hw: 1.5 }, { hw: 1.5 }], { spacing: 0.3, src: cap0 }) : null;
+      chk(!!rb && J(rb.xs) !== J([0, -2.9]), '  깨 보기 — 0번에도 상한을 걸면 빨강');
+    }
     const ride = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
     ride[2].ridingOn = ride[1];
     const rr = runLayout(ride, {});
