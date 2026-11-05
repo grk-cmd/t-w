@@ -22,7 +22,7 @@ const FN_DEPS = ["_rideBottom","clampDeskPan","renderSeatTabs","seatDeskHalfWidt
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["MULTIPLAYER_SPACING","SPACING","deskPanX","deskPanY","roomSeatMode","seatCameraMod"];
 const SET_DEPS = ["deskPanX","deskPanY"];
-const EXPORTS = ["layoutSeatRow"];
+const EXPORTS = ["layoutSeatRow","seatHalfWidth"];
 const MOVED = ["layoutSeatRow"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  SPACING: ()=>SPACING,","  _rideBottom: (...a)=>_rideBottom(...a),","  clampDeskPan: (...a)=>clampDeskPan(...a),","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSeatMode: ()=>roomSeatMode,","  seatCameraMod: ()=>seatCameraMod,","  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),","  measureCharBox: (...a)=>measureCharBox(...a),","  seats: seats,","  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),","  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },","  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },","  setDeskPanX: (v)=>{ deskPanX = v; },","  setDeskPanY: (v)=>{ deskPanY = v; },"];
 
@@ -111,6 +111,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     };
     const W = { TwSeatPin: { pinFirst: (ss, mode) => { log.push('pin:' + mode); if(mode !== 'right') return false; const i = ss.findIndex(s => s.isMe); if(i <= 0) return false; const [m] = ss.splice(i, 1); ss.unshift(m); return true; } } };
     const st = {};
+    let modApi = null;
     if(typeof MOD === 'string' && MOD){
       const deps = {};
       deps.seats = V.seats; deps._rideBottom = V.rideBenchMod._rideBottom;
@@ -125,6 +126,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       const win = Object.assign({}, W);
       new Function('window', 'module', 'TwSeatPin', o.src || MOD)(win, undefined, W.TwSeatPin);
       const api = win.TwSeatLayout.createSeatLayout(deps);
+      modApi = api;
       api[Object.keys(api).find(k => /^layoutSeat/.test(k))]();
     } else {
       const a = SRC.indexOf('function layoutSeats(){'), b = SRC.indexOf('\n}\n', a) + 3;
@@ -132,7 +134,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       const f = new Function(...names, 'window', 'TwSeatPin', '__V', SRC.slice(a, b) + '\nlayoutSeats(); __V.deskPanX = deskPanX; __V.deskPanY = deskPanY; __V._cachedRowCenter = _cachedRowCenter; __V._cachedRowSpan = _cachedRowSpan;');
       f(...names.map(n => V[n]), W, W.TwSeatPin, V);
     }
-    return { log, xs: seats.map(s => +(s.targetX || 0).toFixed(6)), pan: [V.deskPanX, V.deskPanY], cache: [+V._cachedRowCenter.toFixed(6), +V._cachedRowSpan.toFixed(6)] };
+    return { api: modApi, log, xs: seats.map(s => +(s.targetX || 0).toFixed(6)), pan: [V.deskPanX, V.deskPanY], cache: [+V._cachedRowCenter.toFixed(6), +V._cachedRowSpan.toFixed(6)] };
   }
   const J = (x) => JSON.stringify(x);
   /* 혼자 — 0번은 맨 오른쪽(0) · 폭은 하한 1.2 */
@@ -194,6 +196,32 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     const broken = MOD.replace('function seatRoomHalf(deskHalf, bodyHalf){ return Math.max(deskHalf, bodyHalf > 0 ? bodyHalf + BODY_ROOM : 0); }', 'function seatRoomHalf(deskHalf){ return deskHalf; }');
     const rb = broken !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.3) }], { src: broken }) : null;
     chk(!!rb && J(rb.xs) !== J([0, -1.7]), '  깨 보기 — 몸 폭을 안 보면(책상 폭만) 위 판정이 빨강');
+    /* 🚫 «책상 없음»(desk.userData.noDesk) — 잴 책상이 없어 seatDeskHalfWidth 가 기본 폭 0.85 를 내도 몸 자리만 쓴다 */
+    const nd = (bw) => ({ hw: 0.85, gltfRoot: body(bw), desk: { userData: { noDesk: true } } });
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], {});
+    chk(J(r.xs) === J([0, -1.65, -2.85]), '★ 책상 없음 — 몸 0.25 + 여유 0.15 = 0.4 만큼(0 · -1.65 · -2.85 — 예전엔 기본 책상 폭 0.85 로 0 · -2.1 · -4.2)');
+    chk(J(r.cache) === J([-1.425, 4.1]), '  카메라 폭도 몸 자리(0.85 + 2.85 + 0.4)');
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0)], {});
+    chk(J(r.xs) === J([0, -2.1]), '  경계 — 몸을 아직 못 쟀으면 예전처럼 기본 폭(0.85)');
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.85, gltfRoot: body(0.25), desk: { userData: {} } }], {});
+    chk(J(r.xs) === J([0, -2.1]), '  표시가 없는 좌석(책상 있음)은 그대로');
+    const brokenNd = MOD.replace('if(bodyHalf > 0 && s && s.desk && s.desk.userData && s.desk.userData.noDesk) return 0;', '');
+    const rnd = brokenNd !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], { src: brokenNd }) : null;
+    chk(!!rnd && J(rnd.xs) !== J([0, -1.65, -2.85]), '  깨 보기 — 책상 없음 표시를 안 보면 위 판정이 빨강');
+    /* 좌석 반폭(seatHalfWidth) — 평준화 가두기가 받는 값. 줄 배치와 같은 규칙 · 마지막 배치에서 잰 몸 폭을 다시 쓴다 */
+    if(!process.env.TW_PREMOVE){
+      const seatsH = [{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), { hw: 1.4, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.5) }];
+      r = runLayout(seatsH, {});
+      const hs = seatsH.map(x => +r.api.seatHalfWidth(x).toFixed(6));
+      chk(J(hs) === J([0.85, 0.4, 1.4, 0.65]), '좌석 반폭 — 책상 0.85 · 책상 없음 몸 0.25+0.15 · 큰 책상 1.4(줌 상한 안 걺) · 작은 책상 몸 0.5+0.15');
+      seatsH[1].gltfRoot.bw = 0.9;
+      chk(+r.api.seatHalfWidth(seatsH[1]).toFixed(6) === 0.4, '  마지막 줄 배치에서 잰 몸 폭을 쓴다(가두기마다 다시 재지 않는다)');
+      const fresh = nd(0.2);
+      chk(+r.api.seatHalfWidth(fresh).toFixed(6) === 0.35, '  아직 줄 배치에 없던 좌석은 지금 잰다');
+      const bh = MOD.replace('  return seatRoomHalf(seatDeskHalf(s, false, body), body);', '  return seatDeskHalfWidth(s, false);');
+      const rh = bh !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25)], { src: bh }) : null;
+      chk(!!rh && +rh.api.seatHalfWidth(nd(0.25)).toFixed(6) !== 0.4, '  깨 보기 — 책상 폭만 보면(옛 가두기) 위 판정이 빨강');
+    }
   }
   let threw = null; try{ r = runLayout([], {}); }catch(e){ threw = e; }
   chk(!threw && J(r.log[r.log.length - 1]) === J(['cam', null, null]) || (!threw && r.log.some(l => l[0] === 'cam')), '경계 — 좌석이 없어도 던지지 않는다(옮기기 전과 같은 값을 카메라에 넘긴다)');

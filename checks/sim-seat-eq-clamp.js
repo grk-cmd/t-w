@@ -18,13 +18,13 @@ const MOD = ["seat-eq-clamp.js","parts/character/seat-eq-clamp.js","app/parts/ch
 if(!MOD){ say('  ? 원본 못 찾음 — seat-eq-clamp.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["seatDeskHalfWidth"];
+const FN_DEPS = ["seatHalfWidth"];
 const VAL_DEPS = ["DESK_PART_ANCHOR_NAME","seatEqMod","seats"];
 const GET_DEPS = ["MULTIPLAYER_SPACING","SPACING","seatSlot"];
 const SET_DEPS = [];
 const EXPORTS = ["_clampSeatDeskParts"];
 const MOVED = ["SEAT_SLOT_EVERY_MS","_seatSlotNext","_clampSeatDeskParts"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DESK_PART_ANCHOR_NAME: DESK_PART_ANCHOR_NAME,","  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  SPACING: ()=>SPACING,","  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),","  seatEqMod: seatEqMod,","  seatSlot: ()=>seatSlot,","  seats: seats,"];
+const GLUE = ["  DESK_PART_ANCHOR_NAME: DESK_PART_ANCHOR_NAME,","  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  SPACING: ()=>SPACING,","  seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),","  seatEqMod: seatEqMod,","  seatSlot: ()=>seatSlot,","  seats: seats,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -107,7 +107,7 @@ say('── 4. 동작 — 평준화 가두기');
     let now = 0;
     const fakeSlot = { clampParts: (parts, x, half, on) => log.clamp.push([parts.length, x, half, on]) };
     const raw = { seats: o.seats || [], SPACING: 2, MULTIPLAYER_SPACING: 3, seatEqMod: { seatEqualizeOn: () => !!o.eq },
-      seatDeskHalfWidth: (s) => s.__half || 1, DESK_PART_ANCHOR_NAME: PIN };
+      seatDeskHalfWidth: (s) => s.__half || 1, seatHalfWidth: (s) => s.__half || 1, DESK_PART_ANCHOR_NAME: PIN };   // 옛 글(PREMOVE)은 seatDeskHalfWidth 를 본다
     const perf = { now: () => now };
     const cons = { warn: () => { log.warned = (log.warned || 0) + 1; } };
     let api;
@@ -129,7 +129,7 @@ say('── 4. 동작 — 평준화 가두기');
   let { api, log, setNow } = load({ eq: true, seats });
   seats.push(mkSeat({ x: 4, parts: 2, __half: 1.5 }), mkSeat({ x: 0, parts: 0 }), mkSeat({ x: 8, parts: 1, ridingOn: {} }), { deskAnchor: null });
   setNow(1000); api._clampSeatDeskParts();
-  chk(log.clamp.length === 2 && log.clamp[0].join() === '2,4,2.5,true' && log.clamp[1][3] === false && log.clamp[1][2] === 0, '가두기 — 평준화가 켜지면 파츠만(감싼 것) 자리 반폭 = 책상 반폭 + 간격/2 · 올라탄 좌석은 끈 채로 · 파츠 · 핀 없는 좌석은 건너뜀');
+  chk(log.clamp.length === 2 && log.clamp[0].join() === '2,4,2.5,true' && log.clamp[1][3] === false && log.clamp[1][2] === 0, '가두기 — 평준화가 켜지면 파츠만(감싼 것) 자리 반폭 = 좌석 반폭(seatHalfWidth) + 간격/2 · 올라탄 좌석은 끈 채로 · 파츠 · 핀 없는 좌석은 건너뜀');
   setNow(1200); api._clampSeatDeskParts();
   chk(log.clamp.length === 2, '  500ms 안에 다시 부르면 안 돈다');
   setNow(1499); api._clampSeatDeskParts();
