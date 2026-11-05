@@ -72,7 +72,7 @@ function viewOf(kind, my, min, latest, up, wantUpdate){
       title: '업데이트가 필요해요',
       body: '이 버전(' + my + ')은 더 이상 쓸 수 없어요. ' + min + ' 이상으로 업데이트하면 그대로 이어서 쓸 수 있어요 — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.',
       buttons: [mainButton(u, true)],   // 강제 창엔 «나중에» 가 없다 — 확인 중 · 새 판 있음은 눌러도 할 일이 없으니 받는 중으로
-      note: u.status === 'error' ? '자동 업데이트가 안 되면 아래 링크에서 직접 받아 설치해 주세요.' : '',
+      note: u.status === 'error' ? '업데이트를 받지 못하면 아래 링크에서 직접 받아 설치해 주세요.' : '',
       linkUrl: RELEASES_URL,
     };
   }
@@ -84,7 +84,7 @@ function viewOf(kind, my, min, latest, up, wantUpdate){
     title: '새 버전 ' + latest,
     body: '새 버전 ' + latest + '이 나왔어요. ' + ask + ' (지금 버전 ' + my + ')',
     buttons: [main, { label: '나중에', action: ACT.LATER }],
-    note: u.status === 'error' ? '자동 업데이트가 안 되면 아래 링크에서 직접 받아 설치해 주세요.' : '',
+    note: u.status === 'error' ? '업데이트를 받지 못하면 아래 링크에서 직접 받아 설치해 주세요.' : '',
     linkUrl: null,
   };
 }
