@@ -79,8 +79,8 @@ async function objOf(def){ return codec._slotFromServerObj(def); }
    @return 화면이 바뀌었나 */
 async function applyCloset(c, g){
   while(flushing) await waitFlush();                               // 도는 쓰기가 끝난 뒤 앉힌다(칸 번호 · 받은 판이 쓰기와 엇갈리지 않게)
-  heads = c.avatars;
-  if(creatorOpen()) return false;                                  // 생성기가 열려 있으면 이번 판의 칸 갈아 끼우기는 건너뛴다(편집 중인 칸을 뺏지 않는다) — 다음 받기에 앉힌다
+  if(g !== gen) return false;                                      // 쓰기를 기다리는 사이 계정을 놓았다
+  if(creatorOpen()){ heads = c.avatars; return false; }            // 생성기가 열려 있으면 이번 판의 칸 갈아 끼우기는 건너뛴다(편집 중인 칸을 뺏지 않는다) — 다음 받기에 앉힌다
   const which = new Set(), objs = new Array(CHAR_SLOT_MAX).fill(null), skipRelink = new Set();
   const dropped = [];
   // 새 서버 판은 모아 두었다가 다 앉힌 뒤 한 번에 적는다 — 한 칸 그림이라도 못 받으면 아무 칸의 판도 바꾸지 않는다(다시 받기에서 그 칸을 건너뛰거나 옛 모습을 새 판으로 올리지 않게)
@@ -91,20 +91,20 @@ async function applyCloset(c, g){
       if(k){ which.add(i); nextKnown.set(i, null); dropped.push(i); skipRelink.add(i); }    // 다른 기기에서 지웠다 — 이 칸도 비운다
       continue;                                                                      // k 가 없고 here 면 아직 못 올린 새 캐릭터 — 그대로 둔다
     }
-    const head = heads.find(h => h.avatarId === id);
+    const head = c.avatars.find(h => h.avatarId === id);
     if(k && k.avatarId === id && k.version >= head.version) continue;                // 같은 판 · 늦게 온 낮은 판(방금 올린 고침보다 옛것) — 할 일 없음
     if(k && k.avatarId === id && isDirty(i)) continue;                               // 내 고침이 아직 안 올라갔다 — 덮지 않는다(올릴 때 서버가 앞 모습을 남긴다)
     if(!k && here && !taken.has(i)) continue;                                        // 이 칸에 아직 못 올린 새 캐릭터가 있다 — 올릴 때 칸이 차 있으면 서버가 거절한다(그때는 taken — 서버 것으로 앉힌다)
-    taken.delete(i);
     try{ objs[i] = await objOf(c.defs[id]); }
     catch(e){ console.warn('[옷장] ' + (i + 1) + '번 칸 그림을 받지 못했어요', e); throw e; }
     which.add(i);
     if(!(k && k.avatarId === id)) skipRelink.add(i);                                 // 다른 캐릭터가 됐다 — 책상 위 좌석은 다음 실행에 바뀐다
     nextKnown.set(i, { avatarId: id, version: head.version, sig: sigOf(objs[i]) });   // 받은 모양으로 적는다 — 앉히는 중 onLoaded(가챠 회수 등)가 고친 칸은 «고침» 으로 남아 올라간다
   }
-  if(!which.size) return false;
   if(g !== gen) return false;                                      // 그림을 받는 사이 계정을 놓았다 — 옛 계정 캐릭터를 앉히지 않는다
-  for(const [i, v] of nextKnown) known[i] = v;
+  heads = c.avatars;
+  if(!which.size) return false;
+  for(const [i, v] of nextKnown){ known[i] = v; taken.delete(i); }   // SLOT_TAKEN 표시도 다 받은 뒤에 지운다(못 받으면 다음 받기에서 서버 것으로 다시 앉힌다)
   const oldSlots = slots.slice();
   await slotSave.applySlotObjs(objs, which);
   slotSave._relinkSeatsToSlots(oldSlots, skipRelink);
