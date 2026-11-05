@@ -6,7 +6,7 @@
    ★ 캐릭터(슬롯 · 보관함)와 가챠는 서버가 원본이다 — 로그아웃은 못 올린 캐릭터 고침만 올리고(closet.flushSlots) 메모리를 비운다(이 PC 에 지울 캐릭터 저장본이 없다).
    ★ 0.13 — 로그인 · 가입 판정은 login-flow.js(서버 GET /v1/me), 여기는 그 결과로 이 PC 를 맞춘다(_enterAccount). 계정 이전 사본(accountSnap)으로 복원하던 길은 걷었다 —
      다른 PC 이어받기는 같은 계정 로그인으로 끝난다(서버가 원본).
-   ★ 밖에서 부르는 이름: _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · withdrawing · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAccount — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-account.js */
@@ -298,10 +298,13 @@ async function _loginDoLogout(opt){
    ★ 서버는 5분 안 로그인을 요구한다 — 오래됐으면 다시 확인한다(_withRecentLogin — 구글 계정은 구글, 비밀번호만 있는 계정은 «비밀번호 확인» 창).
    @return { ok, reason } — ok=false 면 이 PC 는 그대로다. */
 const WITHDRAW_WORD = '탈퇴';   // 서버 확인 글자와 같다(user-api.js WITHDRAW_CONFIRM)
+/* 탈퇴 흐름이 도는 중 — 서버가 탈퇴 뒤 realtime 을 4007 로 닫아도 «로그아웃됐어요» 안내를 따로 띄우지 않게(rt-status-ui.js) */
+let _withdrawing = false;
 async function _loginDoDeleteAccount(word){
   if(String(word == null ? '' : word).trim() !== WITHDRAW_WORD) return { ok:false, reason:'확인 글자 «' + WITHDRAW_WORD + '» 를 그대로 입력해 주세요' };
+  _withdrawing = true;
   const r = await _withRecentLogin(() => userApiMod.withdraw());
-  if(!r.ok) return r;
+  if(!r.ok){ _withdrawing = false; return r; }
   try{ await loginFlowMod.logout({ why:'withdraw' }); }catch(_){}   // 방 나가기 · realtime 작별(withdraw) · 로그인 놓기(로그인 계정은 서버가 뒤에서 지운다)
   _wipeAccountLocal();
   return { ok:true };
@@ -538,6 +541,7 @@ return {
   _loginDoDeleteAccount,
   _withdrawPreview,
   _wipeAccountLocal,
+  withdrawing: () => _withdrawing,   // 읽는 함수 — 탈퇴 흐름이 도는 중
   refreshAccountTab,
 };
 }

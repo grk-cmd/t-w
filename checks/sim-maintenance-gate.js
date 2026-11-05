@@ -1,6 +1,7 @@
 /* ═══ 🛠 sim-maintenance-gate.js — 서버 점검 창(maintenance-gate.js) ═══════════════
    ・1절: 순수 — maintenanceOf(on 이 정확히 true 일 때만 · 시각 · 문구 상한) · endsAtText(오늘 / 다른 날) · viewOf(단추)
    ・2-1절: 사람이 누른 동작 — 입력 시각 1초 판정(로컬 클릭 3초 뒤 뒤쪽 요청 · «확인» 뒤 요청은 창 없음 · 클릭 직후 요청은 창) · 자식 창(방명록 · 디자인)에서 누르면 그 창에 그림
+   ・2-2절: realtime 점검(4006) — serverClosed: 점검 창 + [다시 시도] · 누름 · 점검 해제 때만 한 번 다시 붙기 · 그동안 on()
    ・2절: 창 — 점검 중이어도 사람이 누른 동작일 때만 · 뒤에서 혼자 낸 요청은 조용히 · 떠 있는 창은 바뀐 끝 시각으로 다시 · 끝나면 다시 켜기를 묻는다(본 적 없으면 안 물음) · 단추
    ・3절: 고리 — Firebase 기본 동작(firebase-init.js _touched)이 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
@@ -85,6 +86,28 @@ function run(M, label){
   chk(r3.shows.length === 1 && r3.shows[0].title === '점검이 끝났어요', '끝남 창이 떠 있고');
   r3.g.onValue({ on: true, message: '다시 점검' });
   chk(r3.shows.length === 2 && r3.shows[1].title === '서버 점검 중', '  ↳ 그 사이 점검이 다시 켜지면 점검 글로 바꿔 그린다(끝남 창이 남지 않게)');
+
+  say('── 2-2. realtime 점검(4006) — 다시 시도 · 해제 때만 다시 붙기' + label);
+  {
+    let q = rig(M, false); let n = 0;
+    q.g.serverClosed(() => { n++; });
+    const sv = q.shows[q.shows.length - 1];
+    chk(sv && sv.title === '서버 점검 중' && sv.buttons.map(b => b.action).join() === 'retry,close' && q.g.on() === true,
+      'serverClosed — 점검 칸을 못 봤어도 점검 창 · 단추 «다시 시도» «확인» · 그동안 on()(오류 토스트 조용히)');
+    q.press('close');
+    chk(n === 0 && q.g.on() === true, '  ↳ «확인» 은 닫기만 — 다시 붙지 않는다(자동 재시도 없음)');
+    q.g.onValue({ on: true }); q.g.onValue({ on: false });
+    chk(n === 1 && q.g.on() === false, '  ↳ 점검 칸이 풀리면 한 번 다시 붙는다');
+    q.g.onValue({ on: true }); q.g.onValue({ on: false });
+    chk(n === 1, '  ↳ 두 번 부르지 않는다');
+    q = rig(M, false); n = 0;
+    q.g.serverClosed(() => { n++; }); q.press('retry');
+    chk(n === 1 && q.hidden() === 1 && q.g.on() === false, '«다시 시도» — 창을 닫고 한 번 다시 붙는다');
+    q.press('retry');
+    chk(n === 1, '  ↳ 다시 눌러도 또 안 부른다(다시 닫히면 새 창)');
+    q = rig(M, true); q.g.onValue({ on: true, message: '공지' }); q.g.serverClosed(() => {});
+    chk(q.shows[q.shows.length - 1].body.indexOf('공지') === 0, '  ↳ 점검 칸을 봤으면 그 문구로');
+  }
 
   say('── 2-1. 사람이 누른 동작' + label);
   let t = 0; const clock = M.createInputClock({ now: () => t });
@@ -200,6 +223,14 @@ say('── 3. 고리');
   { const E = b4 && asModule(b4); const t = []; const w = console.warn; console.warn = () => {};
     const s = E && E.createErrorNotice({ now: () => 1, toast: (m) => t.push(m), muted: () => true }).notify('E-FR-01'); console.warn = w;
     chk(b4 && s === true, '오류 토스트 조용히를 빼면 빨강'); }
+  const b8 = broke(SRC, "    if(action === 'retry'){ const f = takeRetry(); if(f) f(); }\n", '');
+  chk(b8 && !quietRun(asModule(b8)), '«다시 시도» 가 다시 붙지 않으면 빨강');
+  const b9 = broke(SRC, '    if(f) f();   // 점검이 풀렸다', '    // 점검이 풀렸다');
+  chk(b9 && !quietRun(asModule(b9)), '점검이 풀려도 다시 붙지 않으면 빨강');
+  const b10 = broke(SRC, 'on: () => !!(cur || rtRetry)', 'on: () => !!cur');
+  chk(b10 && !quietRun(asModule(b10)), 'realtime 점검 동안 오류 토스트가 나면 빨강');
+  const b11 = broke(SRC, "  const buttons = retry ? [{ label: '다시 시도', action: 'retry' }, { label: '확인', action: 'close' }] : ", "  const buttons = ");
+  chk(b11 && !quietRun(asModule(b11)), '점검 창에 «다시 시도» 가 없으면 빨강');
   void saved;
 
   say('');

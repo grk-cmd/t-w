@@ -71,7 +71,11 @@ function viewOf(kind, my, min, latest, up, wantUpdate){
     return {
       kind,
       title: '업데이트가 필요해요',
-      body: '이 버전(' + my + ')은 더 이상 쓸 수 없어요. ' + min + ' 이상으로 업데이트하면 그대로 이어서 쓸 수 있어요 — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.',
+      // min 이 없으면 서버가 통신 판이 다르다고 끊은 것(realtime 4003) — 몇 이상인지 모른다
+      body: (min
+        ? '이 버전(' + my + ')은 더 이상 쓸 수 없어요. ' + min + ' 이상으로 업데이트하면 그대로 이어서 쓸 수 있어요'
+        : '이 버전' + (my ? '(' + my + ')' : '') + '은 서버와 맞지 않아 더 이상 쓸 수 없어요. 새 버전으로 업데이트하면 그대로 이어서 쓸 수 있어요')
+        + ' — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.',
       buttons: [mainButton(u, true)],   // 강제 창엔 «나중에» 가 없다 — 확인 중 · 새 판 있음은 눌러도 할 일이 없으니 받는 중으로
       note: u.status === 'error' ? FAIL_NOTE : '',
       linkUrl: RELEASES_URL,
@@ -173,15 +177,28 @@ function createUpdateFlow(deps){
     return true;
   }
 
+  /* 켜 둔 동안 강제로 바뀜 — 받기가 안 돌고 있으면(윈도우 자동 받기가 이미 끝났거나 안 시작됨) 한 번 묻는다. 켤 때 답을 기다리는 중이면 또 묻지 않는다. */
+  function askIfIdle(){
+    if(updateAnswer) return;
+    const st = up && up.status;
+    if(companion && !BUSY_OR_READY.includes(st)) companion.checkUpdate();
+  }
+
+  /* realtime 서버가 통신 판(pv)이 다르다고 끊었다(4003) — 최소 버전을 몰라도 강제 창(설계 04-realtime-disconnect V4). 이미 강제 창이면 그대로. */
+  function forceProtocol(){
+    if(forced && shown && shown.kind === STAGE.FORCE) return;
+    forced = true;
+    if(laterResolve){ const f = laterResolve; laterResolve = null; f(); }
+    showWindow(STAGE.FORCE, null);
+    askIfIdle();
+  }
+
   /* 켜 둔 동안 — 최소 버전이 올라가면 바로 강제 창. 버전을 읽기 전(켜는 중)에는 켜는 흐름이 보므로 건너뛴다. */
   onMinChange(() => {
     if(!my) return;
     const was = forced;
     if(!enforce(getMin()) || was) return;
-    if(updateAnswer) return;   // 켤 때 이미 묻고 답을 기다리는 중이다 — 또 묻지 않는다
-    /* 켜 둔 동안 강제로 바뀜 — 받기가 안 돌고 있으면(윈도우 자동 받기가 이미 끝났거나 안 시작됨) 한 번 묻는다 */
-    const st = up && up.status;
-    if(companion && !BUSY_OR_READY.includes(st)) companion.checkUpdate();
+    askIfIdle();
   });
 
   /* 새 판 확인 — 켤 때 정확히 한 번 묻는다(버전 · 최소 버전을 읽는 일과 따로 — 못 읽어도 업데이트 받기는 막지 않는다).
@@ -235,6 +252,7 @@ function createUpdateFlow(deps){
   return {
     runBeforeLogin,
     press,
+    forceProtocol,
     /* 업데이트 창 단계가 끝난 뒤 한 번 — 끝났으면 바로 */
     whenStageDone(fn){ if(stageDone) fn(); else doneWaiters.push(fn); },
     isForced: () => forced,

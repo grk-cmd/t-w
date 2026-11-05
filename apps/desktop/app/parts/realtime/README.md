@@ -41,3 +41,10 @@
 - 만드는 법: 연결 공통부(ES 모듈)와 토큰 · 버전은 firebase-init.js 가 `TwRtHub.store.bind({ createLink, getToken, getVersion })` 로 잇는다 — bind 전 `start()` 는 던진다. 주소는 운영 `wss://realtime.together-working.com` · dev `wss://realtime-dev.together-working.com`(dev 앱만 `tw.realtimeUrl` 시험 주소).
 - 함정: 다시 받기는 GET 몰림을 만들 수 있다 — 함수 안에서 또 흩지 말고(서버가 ready 를 0~30초 흩는다) ETag GET 한 번만. 방 안 90초 포기 · 방 자리 이어 붙기(`resume`)는 방 포트 몫. 옛 pv 1 방 연결(room-server-net.js)은 pv 3 서버에 붙으면 4003 으로 끊긴다(C 묶음이 걷는다).
 - 검사: `checks/sim-rt-hub.js`(진짜 realtime-link 위에서 · 깨 보기).
+
+## rt-status-ui.js — realtime 끊김 화면(classic script `window.TwRtStatusUi`)
+- 책임: rt-hub 상태 → 사용자에게 보이는 것(설계 04-realtime-disconnect 4-D-7). `retrying` 이 15초 넘고 방 밖이면 런처 위 띠 «서버에 다시 연결하는 중…»(V1 · 한 번 붙은 뒤에만 · 붙으면 사라짐) · `authFailed` → E-RT-01 · 로그인 화면(V2) · `accountGone` → E-RT-02 · 로그아웃 처리 · 로그인 화면(V3 · 탈퇴 흐름 중엔 건너뜀) · `update` → 업데이트 강제 창(V4) · `maintenance` → 점검 창 + [다시 시도](V5) · `closed` → E-RT-03 · 띠 [다시 연결](V6). `sessionLost` 는 로그인 흐름 몫.
+- deps: `rt`(TwRtHub.store — onState · state · start) · `inRoom()` · `band`(`createRtBandDom(document)`) · `notifyError` · `toLogin()`(강제 로그아웃 뒤 다시 켜기 — 게이트가 로그인 화면) · `withdrawing()` · `forceUpdate()`(update-flow `forceProtocol`) · `maintenance(retry)`(maintenance-gate `serverClosed`) · `setTimeout` · `clearTimeout`.
+- 내놓는 것: `createRtStatusUi(deps)` → `{ dispose }` · `createRtBandDom(doc)` → `{ show(view, onPress), hide }` · `RETRY_BAND_MS` · `BAND_ID`(`#rtBand` — desktop-run.js `UI_HIT_SEL` 에 있어야 단추를 누른다).
+- 함정: 멈춘 뒤 다시 붙기는 사용자 누름 · 점검 해제 때만이고 `claim:false`(이 기기가 이미 지금 세션 — 남을 밀지 않는다). 띠 글은 고정 문구만 textContent.
+- 검사: `checks/sim-rt-status-ui.js`(상태마다 · 진짜 rt-hub 위 · 띠 화면 · 배선 · 깨 보기).

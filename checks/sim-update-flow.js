@@ -6,6 +6,7 @@
  * 4. 켜 둔 동안 — 최소 버전이 올라가면 바로 강제 창 · 내 버전 이하면 아무 일 없음 · 새 요청(폴링)을 만들지 않는다
  * 5. 단추 — 받기 끝(재시작 설치) · 받는 중 · 실패(다시 시도 = 사용자가 누를 때만 확인) · 맥(릴리스 열기) · 링크
  * 6. 화면 — 강제는 단추 하나·닫기 없음 · 선택은 둘 · textContent 만 · id 가 UI_HIT_SEL 에 있음
+ * 6-2. 통신 판이 다름(realtime 4003) — forceProtocol: 최소 버전 없이 강제 창 · 한 번 묻기 · 선택 창을 강제로
  * 7. 연결 — app.js(초대 게이트 앞에서 흐름 → 강제면 로그인 안 함) · firebase-init 에 옛 게이트 없음 · main 이 타이머로 혼자 확인하지 않음 · 규칙 config/minAppVer
  * 8. 깨 보기 — 일부러 틀린 사본이 빨강이 나는가
  */
@@ -325,6 +326,26 @@ async function suite(M, label){
     chk(hit.split(',').map(s => s.trim()).includes('#' + OVERLAY_ID), '★ app.js UI_HIT_SEL 에 #' + OVERLAY_ID + ' — 투명 창에서도 클릭을 받는다');
   }
 
+  say('── 6-2. 통신 판이 다름(realtime 4003) — forceProtocol');
+  {
+    let t2 = make({ my: '0.13.0', min: null });
+    let p2 = t2.f.runBeforeLogin(); await sleep(5); t2.comp.push({ status: 'none' }); await p2;
+    const n0 = t2.comp.calls.length;
+    t2.f.forceProtocol();
+    const fv = t2.ui.log[t2.ui.log.length - 1];
+    chk(t2.f.isForced() && t2.f.current() === STAGE.FORCE && fv.title === '업데이트가 필요해요' && fv.buttons.length === 1 && /서버와 맞지 않아/.test(fv.body) && !/null/.test(fv.body),
+      '★ 최소 버전을 몰라도 강제 창(«서버와 맞지 않아» · 단추 하나 · 닫기 없음) — ' + fv.body);
+    chk(t2.comp.calls.length === n0 + 1 && t2.comp.calls[n0][0] === 'check', '  ↳ 받기가 안 돌고 있으면 새 판 확인을 한 번 묻는다');
+    t2.f.forceProtocol();
+    chk(t2.comp.calls.length === n0 + 1, '  ↳ 이미 강제 창이면 다시 묻지 않는다');
+    t2 = make({ my: '0.13.0', min: '0.12.0' });
+    p2 = t2.f.runBeforeLogin(); await sleep(5); t2.comp.push({ status: 'available', version: '0.13.1' }); await sleep(5);
+    t2.f.forceProtocol();
+    const r2 = await p2;
+    chk(r2.proceed === false && t2.f.current() === STAGE.FORCE, '  ↳ 선택 창이 떠 있어도 강제 창으로 바뀌고 로그인으로 안 넘긴다');
+    chk(t2.comp.calls.filter(c => c[0] === 'check').length === 1, '  ↳ 받는 중(available)이면 또 묻지 않는다');
+  }
+
   say('── 7. 연결');
   {
     // 아래 7절 정규식은 app.js · main.js · preload.js 의 «배선»(어디서 무엇을 부르나)이라 실제로 불러 볼 수 없어 글자로 본다. 동작은 2~5절이 맡는다.
@@ -383,7 +404,7 @@ async function suite(M, label){
     await redIf('강제인데 공지가 돈다', mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);') && mutate('if(enforce(min)) return { proceed: false, stage: STAGE.FORCE };', 'enforce(min);').split('if(forced) return { proceed: false, stage: STAGE.FORCE };   // 기다리는 사이 최소 버전이 올랐다').join(''),
       async (m) => { const x = flowOf(m, { my: '0.12.0', min: '0.13.0' }); await x.f.runBeforeLogin(); return !x.order.includes('notice'); });
     // 켤 때 답을 기다리는 중 강제로 바뀌면 또 묻는 옛 구조
-    await redIf('답을 기다리는 중에도 또 묻는다', mutate('    if(updateAnswer) return;   // 켤 때 이미 묻고 답을 기다리는 중이다 — 또 묻지 않는다\n', ''),
+    await redIf('답을 기다리는 중에도 또 묻는다', mutate('    if(updateAnswer) return;\n    const st', '    const st'),
       async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.setMin('0.14.0'); await p; return x.comp.calls.filter(c => c[0] === 'check').length === 1; });
     // 강제 창이 checking 에서 [업데이트] 를 그린다
     await redIf('강제 창이 checking 에서 [업데이트] 를 그린다', mutate('buttons: [mainButton(u, true)],', 'buttons: [mainButton(u, false)],'),
@@ -415,6 +436,10 @@ async function suite(M, label){
       }catch(_){ n = -1; }
       chk(m3 !== SRC && n !== 1, '깨 보기 — 버전을 모를 때 새 판 확인이 빠지면 빨강(checkUpdate ' + n + '번)');
     }
+    await redIf('4003 에 강제 창을 안 띄운다', mutate('    showWindow(STAGE.FORCE, null);\n', ''),
+      async (m) => { const x = flowOf(m, { my: '0.13.0', min: null }); const p = x.f.runBeforeLogin(); await sleep(2); x.comp.push({ status: 'none' }); await p; x.f.forceProtocol(); return x.f.current() === 'force'; });
+    await redIf('4003 강제 창 글에 최소 버전 자리(null)', mutate("        : '이 버전' + (my ? '(' + my + ')' : '') + '은 서버와 맞지 않아", "        : '이 버전(' + my + ')은 ' + min + ' 서버와 맞지 않아"),
+      async (m) => { const X = load(m); return !/null/.test(X.viewOf(X.STAGE.FORCE, '0.13.0', null, null, null).body); });
     // 강제인데 로그인으로 넘기기
     {
       const m2 = SRC.split('return { proceed: false, stage: STAGE.FORCE };').join('return { proceed: true, stage: STAGE.FORCE };');
