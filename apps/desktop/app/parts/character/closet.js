@@ -77,16 +77,18 @@ async function objOf(def){ return codec._slotFromServerObj(def); }
 
 /* 받은 옷장을 화면 slots[] 에 앉힌다. 같은 캐릭터 · 같은 판이면 그대로 두고, 내가 못 올린 고침이 있는 칸은 덮지 않는다.
    @return 화면이 바뀌었나 */
-async function applyCloset(c){
+async function applyCloset(c, g){
   while(flushing) await waitFlush();                               // 도는 쓰기가 끝난 뒤 앉힌다(칸 번호 · 받은 판이 쓰기와 엇갈리지 않게)
   heads = c.avatars;
   if(creatorOpen()) return false;                                  // 생성기가 열려 있으면 이번 판의 칸 갈아 끼우기는 건너뛴다(편집 중인 칸을 뺏지 않는다) — 다음 받기에 앉힌다
   const which = new Set(), objs = new Array(CHAR_SLOT_MAX).fill(null), skipRelink = new Set();
   const dropped = [];
+  // 새 서버 판은 모아 두었다가 다 앉힌 뒤 한 번에 적는다 — 한 칸 그림이라도 못 받으면 아무 칸의 판도 바꾸지 않는다(다시 받기에서 그 칸을 건너뛰거나 옛 모습을 새 판으로 올리지 않게)
+  const nextKnown = new Map();
   for(let i = 0; i < CHAR_SLOT_MAX; i++){
     const id = c.slots[i], k = known[i], here = !!slots[i];
     if(!id){
-      if(k){ which.add(i); known[i] = null; dropped.push(i); skipRelink.add(i); }    // 다른 기기에서 지웠다 — 이 칸도 비운다
+      if(k){ which.add(i); nextKnown.set(i, null); dropped.push(i); skipRelink.add(i); }    // 다른 기기에서 지웠다 — 이 칸도 비운다
       continue;                                                                      // k 가 없고 here 면 아직 못 올린 새 캐릭터 — 그대로 둔다
     }
     const head = heads.find(h => h.avatarId === id);
@@ -98,13 +100,13 @@ async function applyCloset(c){
     catch(e){ console.warn('[옷장] ' + (i + 1) + '번 칸 그림을 받지 못했어요', e); throw e; }
     which.add(i);
     if(!(k && k.avatarId === id)) skipRelink.add(i);                                 // 다른 캐릭터가 됐다 — 책상 위 좌석은 다음 실행에 바뀐다
-    known[i] = { avatarId: id, version: head.version, sig: null };
+    nextKnown.set(i, { avatarId: id, version: head.version, sig: sigOf(objs[i]) });   // 받은 모양으로 적는다 — 앉히는 중 onLoaded(가챠 회수 등)가 고친 칸은 «고침» 으로 남아 올라간다
   }
   if(!which.size) return false;
+  if(g !== gen) return false;                                      // 그림을 받는 사이 계정을 놓았다 — 옛 계정 캐릭터를 앉히지 않는다
+  for(const [i, v] of nextKnown) known[i] = v;
   const oldSlots = slots.slice();
   await slotSave.applySlotObjs(objs, which);
-  // 서버 판은 받은 모양으로 적는다 — 앉히는 중 onLoaded(가챠 회수 등)가 칸을 고쳤으면 그 칸은 «고침» 으로 남아 올라간다
-  for(const i of which) if(known[i]) known[i].sig = sigOf(objs[i]);
   slotSave._relinkSeatsToSlots(oldSlots, skipRelink);
   return true;
 }
@@ -131,8 +133,9 @@ async function pullCloset(notify){
     if(g !== gen){ res = 'skipped'; return res; }                 // 받는 사이 옮기기 · 비우기가 끝났다 — 이 답은 옛 상태
     const wasReady = load === 'ready';
     let did = false;
-    try{ did = await applyCloset(c); }
+    try{ did = await applyCloset(c, g); }
     catch(e){ if(load === 'loading') load = 'failed'; if(notify) notifyError('E-CHAR-16', e); return res; }
+    if(g !== gen){ res = 'skipped'; return res; }
     load = 'ready';
     res = 'ready';
     if(did && !wasReady){ for(let i = 0; i < CHAR_SLOT_MAX; i++) if(isDirty(i)){ scheduleSave(); break; } }   // 첫 받기 중의 고침은 그때 저장 예약이 물러났다 — 받은 뒤 한 번
@@ -472,13 +475,14 @@ async function legacyStep(){
   boxRows.sort((a, b) => b.editedAt - a.editedAt);
   for(const r of boxRows){ if(items.length >= 25) break; items.push(r); }
   let c = null;
+  const g = gen;
   try{ c = await closetApi.legacySync(items); }
   catch(e){
     if(e && e.code === 'AVATAR_LEGACY_SYNC_DONE'){ try{ storage.setItem(LEGACY_DONE_KEY, uc); }catch(_){} return { ok: true, wipe }; }
     return { ok: false, reason: String((e && (e.code || e.message)) || e) };
   }
   try{ storage.setItem(LEGACY_DONE_KEY, uc); }catch(_){}
-  try{ await applyCloset(c); renderLauncher(); slotSave.slotsReplaced(); changed(); }catch(e){ console.warn('[옷장] 올린 뒤 받아 앉히기 실패', e); }
+  try{ await applyCloset(c, g); renderLauncher(); slotSave.slotsReplaced(); changed(); }catch(e){ console.warn('[옷장] 올린 뒤 받아 앉히기 실패', e); }
   return { ok: true, wipe };
 }
 
