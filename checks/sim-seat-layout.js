@@ -194,6 +194,18 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
     const broken = MOD.replace('function seatRoomHalf(deskHalf, bodyHalf){ return Math.max(deskHalf, bodyHalf > 0 ? bodyHalf + BODY_ROOM : 0); }', 'function seatRoomHalf(deskHalf){ return deskHalf; }');
     const rb = broken !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.15, gltfRoot: body(0.3) }], { src: broken }) : null;
     chk(!!rb && J(rb.xs) !== J([0, -1.7]), '  깨 보기 — 몸 폭을 안 보면(책상 폭만) 위 판정이 빨강');
+    /* 🚫 «책상 없음»(desk.userData.noDesk) — 잴 책상이 없어 seatDeskHalfWidth 가 기본 폭 0.85 를 내도 몸 자리만 쓴다 */
+    const nd = (bw) => ({ hw: 0.85, gltfRoot: body(bw), desk: { userData: { noDesk: true } } });
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], {});
+    chk(J(r.xs) === J([0, -1.65, -2.85]), '★ 책상 없음 — 몸 0.25 + 여유 0.15 = 0.4 만큼(0 · -1.65 · -2.85 — 예전엔 기본 책상 폭 0.85 로 0 · -2.1 · -4.2)');
+    chk(J(r.cache) === J([-1.425, 4.1]), '  카메라 폭도 몸 자리(0.85 + 2.85 + 0.4)');
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0)], {});
+    chk(J(r.xs) === J([0, -2.1]), '  경계 — 몸을 아직 못 쟀으면 예전처럼 기본 폭(0.85)');
+    r = runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, { hw: 0.85, gltfRoot: body(0.25), desk: { userData: {} } }], {});
+    chk(J(r.xs) === J([0, -2.1]), '  표시가 없는 좌석(책상 있음)은 그대로');
+    const brokenNd = MOD.replace('if(bodyHalf > 0 && s && s.desk && s.desk.userData && s.desk.userData.noDesk) return 0;', '');
+    const rnd = brokenNd !== MOD ? runLayout([{ isMe: true, hw: 0.85, gltfRoot: body(0.3) }, nd(0.25), nd(0.25)], { src: brokenNd }) : null;
+    chk(!!rnd && J(rnd.xs) !== J([0, -1.65, -2.85]), '  깨 보기 — 책상 없음 표시를 안 보면 위 판정이 빨강');
   }
   let threw = null; try{ r = runLayout([], {}); }catch(e){ threw = e; }
   chk(!threw && J(r.log[r.log.length - 1]) === J(['cam', null, null]) || (!threw && r.log.some(l => l[0] === 'cam')), '경계 — 좌석이 없어도 던지지 않는다(옮기기 전과 같은 값을 카메라에 넘긴다)');

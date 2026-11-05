@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — creator-save.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_isBlankDraw","applyCharToSeat","applyDesktopRunClass","charDef","clampCharY","clearStampState","collectDeskItems","createSeat","layoutSeats","renderLauncher","renderSeatTabs","saveCurSlot","selectSeat","snapCanvas","toast"];
-const VAL_DEPS = ["CHAR_SLOT_MAX","blinkC","creatorFlowMod","faceC","roomSyncMod","slots"];
+const VAL_DEPS = ["NO_DESK_ID","CHAR_SLOT_MAX","blinkC","creatorFlowMod","faceC","roomSyncMod","slots"];
 const GET_DEPS = ["Presence","_blankFaceConfirmed","activeCustomDeskId","cBase","cBotColor","cCam","cDeskColor","cDeskGlbB64","cDeskLenX","cDeskPos","cDeskScale","cRenderer","cScene","cTopColor","cXform","charsMod","commissionMod","creatorMode","creatorOpen","curSlot","currentCreatorDef","customItems","skinIndex","slotSaveMod"];
 const SET_DEPS = ["_blankFaceConfirmed","creatorOpen","curSlot"];
 const EXPORTS = ["DEF_SIZE_TOAST_MS","_creatorBuildDef","_creatorSizeGrow","_defSizeFile"];
 const MOVED = ["_creatorBuildDef","DEF_SIZE_TOAST_MS","_creatorSizeGrow","_defSizeFile"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  Presence: ()=>Presence,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  activeCustomDeskId: ()=>activeCustomDeskId,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  blinkC: blinkC,","  cBase: ()=>cBase,","  cBotColor: ()=>cBotColor,","  cCam: ()=>cCam,","  cDeskColor: ()=>cDeskColor,","  cDeskGlbB64: ()=>cDeskGlbB64,","  cDeskLenX: ()=>cDeskLenX,","  cDeskPos: ()=>cDeskPos,","  cDeskScale: ()=>cDeskScale,","  cRenderer: ()=>cRenderer,","  cScene: ()=>cScene,","  cTopColor: ()=>cTopColor,","  cXform: ()=>cXform,","  charDef: (...a)=>charDef(...a),","  charsMod: ()=>charsMod,","  clampCharY: (...a)=>clampCharY(...a),","  clearStampState: (...a)=>clearStampState(...a),","  collectDeskItems: (...a)=>collectDeskItems(...a),","  commissionMod: ()=>commissionMod,","  createSeat: (...a)=>createSeat(...a),","  creatorFlowMod: creatorFlowMod,","  creatorMode: ()=>creatorMode,","  creatorOpen: ()=>creatorOpen,","  curSlot: ()=>curSlot,","  currentCreatorDef: ()=>currentCreatorDef,","  customItems: ()=>customItems,","  faceC: faceC,","  layoutSeats: (...a)=>layoutSeats(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSyncMod: roomSyncMod,","  saveCurSlot: (...a)=>saveCurSlot(...a),","  selectSeat: (...a)=>selectSeat(...a),","  skinIndex: ()=>skinIndex,","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  snapCanvas: (...a)=>snapCanvas(...a),","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },","  setCreatorOpen: (v)=>{ creatorOpen = v; },","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  NO_DESK_ID: NO_DESK_ID,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  Presence: ()=>Presence,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  activeCustomDeskId: ()=>activeCustomDeskId,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  blinkC: blinkC,","  cBase: ()=>cBase,","  cBotColor: ()=>cBotColor,","  cCam: ()=>cCam,","  cDeskColor: ()=>cDeskColor,","  cDeskGlbB64: ()=>cDeskGlbB64,","  cDeskLenX: ()=>cDeskLenX,","  cDeskPos: ()=>cDeskPos,","  cDeskScale: ()=>cDeskScale,","  cRenderer: ()=>cRenderer,","  cScene: ()=>cScene,","  cTopColor: ()=>cTopColor,","  cXform: ()=>cXform,","  charDef: (...a)=>charDef(...a),","  charsMod: ()=>charsMod,","  clampCharY: (...a)=>clampCharY(...a),","  clearStampState: (...a)=>clearStampState(...a),","  collectDeskItems: (...a)=>collectDeskItems(...a),","  commissionMod: ()=>commissionMod,","  createSeat: (...a)=>createSeat(...a),","  creatorFlowMod: creatorFlowMod,","  creatorMode: ()=>creatorMode,","  creatorOpen: ()=>creatorOpen,","  curSlot: ()=>curSlot,","  currentCreatorDef: ()=>currentCreatorDef,","  customItems: ()=>customItems,","  faceC: faceC,","  layoutSeats: (...a)=>layoutSeats(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSyncMod: roomSyncMod,","  saveCurSlot: (...a)=>saveCurSlot(...a),","  selectSeat: (...a)=>selectSeat(...a),","  skinIndex: ()=>skinIndex,","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  snapCanvas: (...a)=>snapCanvas(...a),","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },","  setCreatorOpen: (v)=>{ creatorOpen = v; },","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -134,7 +134,7 @@ function rigS(o){
   const calls = [];
   const log = (n) => (...a) => { calls.push([n, ...a]); };
   const savedDesks = o.savedDesks || [], savedItems = o.savedItems || [];
-  const over = { CHAR_SLOT_MAX: slots.length, slots, faceC: { id: 'face' }, blinkC: { id: 'blink' },
+  const over = { NO_DESK_ID: '__no_desk__', CHAR_SLOT_MAX: slots.length, slots, faceC: { id: 'face' }, blinkC: { id: 'blink' },
     charDef: (skin, f, b, top, bot) => ({ skin, face: f, blink: b, top, bot }), snapCanvas: (c) => ({ snap: c.id }),
     skinIndex: () => 2, cTopColor: () => '#111', cBotColor: () => '#222', cXform: () => st.xf, clampCharY: (y) => Math.max(0, Math.min(1, +y || 0)),
     cDeskColor: () => '#c9a36a', cDeskGlbB64: () => st.glb, activeCustomDeskId: () => st.activeDesk, cDeskScale: () => st.deskScale, cDeskPos: () => st.deskPos, cDeskLenX: () => st.lenX,
@@ -175,7 +175,11 @@ function rigS(o){
 { const r = rigS({ glb: 'B64', activeDesk: 'd1', savedDesks: [{ id: 'd1', fromCatalog: true }] }); const d = r.api._creatorBuildDef(false);
   chk(d.deskCatalogId === 'd1' && !('deskGlb' in d), '카탈로그 책상 — GLB 대신 참조 id 만(나중에 바뀐 GLB 를 따라간다)');
   const d2 = rigS({ glb: 'B64', activeDesk: 'd2', savedDesks: [{ id: 'd2' }] }).api._creatorBuildDef(false);
-  chk(d2.deskGlb === 'B64' && !('deskCatalogId' in d2), '로컬 책상(코드로 추가) — GLB 를 그대로'); }
+  chk(d2.deskGlb === 'B64' && !('deskCatalogId' in d2), '로컬 책상(코드로 추가) — GLB 를 그대로');
+  const d3 = rigS({ glb: null, activeDesk: '__no_desk__' }).api._creatorBuildDef(false);
+  chk(d3.deskCatalogId === '__no_desk__' && !('deskGlb' in d3), '🚫 책상 없음 — 예약 id 를 deskCatalogId 에(GLB 없음)');
+  const d4 = rigS({ glb: 'B64', activeDesk: '__no_desk__' }).api._creatorBuildDef(false);
+  chk(d4.deskCatalogId === '__no_desk__' && !('deskGlb' in d4), '  남은 GLB 가 있어도 책상 없음이 이긴다'); }
 { const r = rigS({ items: { cup: 1, cat: 1, gone: 1 }, custom: { cup: { name: 'C', glb: 'g1' }, cat: { name: 'K', glb: 'g2' } }, savedItems: [{ id: 'cat', fromCatalog: true }] });
   const d = r.api._creatorBuildDef(false);
   chk(JSON.stringify(d.customItems) === '{"cup":{"name":"C","glb":"g1"}}', '커스텀 아이템 — 로컬 것만 GLB 를 박는다(카탈로그 · 세션에 없는 것은 뺀다)'); }

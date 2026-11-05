@@ -81,6 +81,8 @@ const slots = deps.slots;   // 읽는 함수
 const toast = deps.toast;
 const unequipStackablePart = deps.unequipStackablePart;
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
+const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id(desk-visual.js 가 그린다)
+const layoutSeats = deps.layoutSeats;   // 책상이 생기거나 없어지면 좌석 줄 자리를 다시 잡는다
 const DESK_LICENSE_HOLD = deps.DESK_LICENSE_HOLD;   // 읽는 함수
 const DESK_SCALE_DEFAULT = deps.DESK_SCALE_DEFAULT;   // 읽는 함수
 const DESK_SCALE_MAX = deps.DESK_SCALE_MAX;   // 읽는 함수
@@ -164,8 +166,13 @@ function renderWdDeskSection(wrap){
   /* «쓰지 않음» — 전용 책상을 벗고 기본으로 돌아가는 길. 이 칸이 없으면 한 번 고른 사람이 갇힌다. */
   const none=swThumb('기본 책상', !def.deskCatalogId, '↺');
   none.classList.add('none-card');
-  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }); renderWardrobe(); };
+  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }); layoutSeats(); renderWardrobe(); };
   grid.appendChild(none);
+  /* 🚫 책상 없음 — 책상 몸만 숨긴다(책상 위 아이템은 그대로) · 좌석은 캐릭터 몸 폭만큼만 자리를 잡는다(seat-layout.js). */
+  const noDesk=swThumb('책상 없음', def.deskCatalogId===NO_DESK_ID, '🚫');
+  noDesk.classList.add('none-card');
+  noDesk.onclick=()=>{ if(def.deskCatalogId===NO_DESK_ID) return; _wdApplyDeskChange(d=>{ d.deskCatalogId=NO_DESK_ID; d.deskGlb=null; }); layoutSeats(); renderWardrobe(); };
+  grid.appendChild(noDesk);
   list.forEach(rec=>{
     const on=(def.deskCatalogId===rec.id);
     const card=swThumb(rec.name||'책상', on, rec.icon||'🪑');

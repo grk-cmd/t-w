@@ -58,7 +58,7 @@ function world(src, o = {}) {
   const timers = [];
   const T = new Function('window', 'document', 'localStorage', 'setTimeout', 'Event', 'module', src + '\nreturn window.TwDeskPreset;')({}, doc, ls, (f) => timers.push(f), class { constructor(t) { this.type = t; } }, undefined);
   const out = T.createDeskPreset({
-    DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', crState: st, deskPresetStoreMod: store,
+    DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', NO_DESK_ID: '__no_desk__', hideDeskBody: call('hide'), crState: st, deskPresetStoreMod: store,
     premiumMod: { _licenseLockedDeskId: (id) => !!(o.locked && id) },
     applyCreatorXform: call('xform'), applyDeskColorToCustom: call('color'), applyDeskItemsTo: call('items'), autoSaveDeskItemsNow: call('autosave'),
     assetCodeMod: () => ({ parseGlbBytes: (b) => { log.parsed.push(b); return o.parseFail || (o.overrideFail && b === 'B:OVGLB') ? Promise.reject(new Error('x')) : Promise.resolve({ scene: b }); } }),
@@ -138,6 +138,10 @@ async function behave(src, storeSrc) {
   t(w.calls('fit')[0][1] === 'edit' && !w.calls('frame').length, '4단계 이하면 편집 카메라 · 책상 프레이밍 안 함');
   w = await apply({ parseFail: true }, P({ deskCatalogId: 'D9', deskGlb: 'PGLB' }));
   t(w.log.toasts.includes('E-CHAR-03') && w.calls('autosave').length === 1 && w.calls('fit').length === 1, '책상 모델을 못 읽으면 번호(E-CHAR-03)로 알리고 아이템 · 카메라는 그대로 진행');
+  /* 🚫 책상 없음 프리셋 — GLB 를 안 찾고(못 찾음 오류 없이) 책상 몸만 숨긴 채 아이템 · 카메라는 그대로 진행 */
+  w = await apply({}, P({ deskCatalogId: '__no_desk__' }));
+  t(w.st.activeCustomDeskId === '__no_desk__' && w.st.cDeskTemplate === null && w.st.cDeskGlbB64 === null && w.calls('hide')[0][1] === w.st.cDesk && !w.log.parsed.length && !w.log.toasts.some((x) => /^E-/.test(x)) && w.calls('autosave').length === 1 && w.calls('fit').length === 1,
+    '🚫 책상 없음 프리셋 — 책상 몸 숨기기 · 저장할 id 그대로 · GLB 를 안 읽고 오류 없이 아이템 · 카메라 진행');
   w = await apply({ locked: true }, P({ deskCatalogId: 'L1', deskGlb: 'PGLB' }));
   const w2 = await apply({ locked: true, premium: true }, P({ deskCatalogId: 'L1', deskGlb: 'PGLB' }));
   t(!w.log.parsed.length && w.st.activeCustomDeskId === null && w.st.cDeskTemplate === null && w2.st.activeCustomDeskId === 'L1', '라이선스 전용 책상 — 라이선스 · 관리자가 아니면 안 쓰고 기본 책상으로(있으면 씀)');
@@ -209,7 +213,7 @@ function wire(app, html) {
   t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n  isCatalogDesk: \(id\)=>commissionMod\.catalogBacked\(commissionMod\.savedDesks\(\)\.find\(d=>d\.id===id\)\),\n\}\);/.test(app),
     '저장 만드는 줄(가드 없이) · deps 는 jsonStore · notifyError · isCatalogDesk(카탈로그 판단은 commission.js catalogBacked 한 곳)');
   const mk = (app.match(/const deskPresetMod = TwDeskPreset\.createDeskPreset\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(mk.split('\n').length === 28 && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 27 · 저장 모듈을 먼저 만든다');
+  t(mk.split('\n').length === 30 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 27 · 저장 모듈을 먼저 만든다');
   const iS = html.indexOf('<script src="parts/creator/desk-preset-store.js"></script>'), iM = html.indexOf('<script src="parts/creator/desk-preset.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iS > 0 && iM > 0 && iA > iS && iA > iM, 'html — 두 파일을 app.js 보다 먼저 싣는다');
   return r;

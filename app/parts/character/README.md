@@ -119,16 +119,18 @@
 ## desk-visual.js — 🪑 책상 모양(바꿔 끼기 · 색 · 좌석 책상)
 
 - **책임**: 책상 그룹(`deskGroup`)의 모양만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼기(톤 · `_col` 색 메쉬 모으기 · 애니메이션 재생 모드), `_col` 색, 좌석 def 의 카탈로그 책상을 찾아 그리기. 크기 · 자리는 `setDeskScale`(deps)이 맡는다.
-- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 12: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
+- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 13: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` · `NO_DESK_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
 - **내보내는 것**
   - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
   - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
-  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상.
+  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상. `NO_DESK_ID`(`'__no_desk__'`)면 `hideDeskBody`.
+  - `hideDeskBody(deskGroup)` — 🚫 책상 없음: 책상 몸(기본 · 커스텀)만 숨기고 `deskAnchor`(책상 위 아이템)는 그대로 · `userData.noDesk = true`(좌석 간격이 몸 폭으로 — `room/seat-layout.js`). `swapDeskVisual` 이 부르면 표시를 내린다.
   ```js
   deskVisualMod.swapDeskVisual(cDesk, sc); deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
   await deskVisualMod.applyDeskCatalogRefToSeat(seat, seat.charDef);
   ```
 - **확장할 때 고칠 자리**: 새 재생 모드는 `swapDeskVisual` 의 `playMode` 분기 · 자리 맞춤(바닥 + 0.15 · 앞뒤 0.6)은 `normalizeDeskObj`.
+- **함정**: «책상 없음» 은 새 칸이 아니라 `deskCatalogId` 의 예약 값이다 — 옛 앱 · 방 서버는 모르는 책상으로 보고 기본 책상을 그린다(깨지지 않음). 고르는 곳은 꾸미기 › 책상(`wardrobe.js`) · 생성기 5단계(`creator/desk-setup.js`), 저장은 `creator/creator-save.js` · 프리셋 `creator/desk-preset.js`.
 - **함정**
   - 라이선스 전용 책상은 **내 좌석에서만** 막는다(`!seat.remote`) — 친구 좌석에서 막으면 남이 쓴 책상이 기본 책상으로 보인다.
   - 크기를 GLB 에 굽지 않는다(원본 그대로 · 슬라이더만) — 새 책상만 자동 크기를 걸던 옛 코드는 지웠다. 다시 넣지 말 것(기본 책상과 크기가 갈린다).
