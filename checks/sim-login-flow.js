@@ -59,13 +59,16 @@ function mkEnv(S, o){
   };
   const rtLog = []; let stateFn = null;
   /* 서버 규칙 흉내(realtime SessionTable admit) — 다른 기기가 지금 세션이면 claim 없는 hello 는 4004(sessionLost), claim 이면 ready */
-  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn(x && x.claim === true ? 'ready' : 'sessionLost'); }, stop: () => rtLog.push('stop'), onState: (fn) => { stateFn = fn; return () => {}; } };
+  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn(x && x.claim === true ? 'ready' : 'sessionLost'); }, stop: () => rtLog.push('stop'),
+    bye: async (why) => { rtLog.push('bye:' + why); await tick(); rtLog.push('closed'); }, onState: (fn) => { stateFn = fn; return () => {}; } };
+  /* 방 나가기 흉내 — leave 를 보내고 left 를 기다렸다 풀린다(방 밖이면 바로) */
+  const leaveRoom = async () => { rtLog.push('leave'); await tick(); rtLog.push('left'); };
   let lost = 0;
   const ids = RI.createPending();
   const flow = LF.createLoginFlow({
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
-    rt, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
+    rt, leaveRoom, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
     now: () => clock.t,
   });
   const advance = async (ms) => {
@@ -270,8 +273,18 @@ async function judge(S){
     chk(e.flow.meCache() === null, '  로그인이 없으면 사본도 없다');
     e.setUser({ uid: 'auth1', anonymous: false });
     e.flow.goOnline();
+    let outAt = null; const au = e.authLog; const push0 = au.push.bind(au);
+    au.push = (x) => { if(x === 'out') outAt = e.rtLog.join(); return push0(x); };
     await e.flow.logout();
-    chk(e.rtLog.join() === 'start:{"claim":true},stop,forget' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off', '로그아웃 — realtime 끔(안 끄면 토큰 없이 끝없이 다시 붙음) · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움');
+    chk(e.rtLog.join() === 'start:{"claim":true},leave,left,bye:logout,closed,forget' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off',
+      '★ 로그아웃 차례 — 방 leave → left 기다림 → bye{logout} → 닫힘 기다림 → API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움 — ' + e.rtLog.join());
+    chk(outAt && outAt.endsWith('forget'), '  ↳ 로그인은 작별 · 닫힘 뒤에 놓는다');
+    e.rtLog.length = 0;
+    await e.flow.logout({ why: 'withdraw' });
+    chk(e.rtLog.join() === 'leave,left,bye:withdraw,closed,forget', '  ↳ 탈퇴는 bye{withdraw}');
+    e.rtLog.length = 0; e.authLog.length = 0; e.setUser({ uid: 'auth1', anonymous: false });
+    await e.flow.release('switch');
+    chk(e.rtLog.join() === 'leave,left,bye:switch,closed' && e.authLog.length === 0 && e.flow.mode() === 'off', 'release(switch) — 계정 바꾸기: 방 leave → bye{switch} · 로그인은 그대로(새 계정)');
   }
 
   say('── 8. 배선');
@@ -310,7 +323,11 @@ const BREAKS = [
   ['LF', "    const a = await auth.signInPassword(me.friendCode, o.password);", "    const a = await auth.signInPassword('MATE-0000', o.password);", '받은 친구코드로 로그인 안 함'],
   ['LF', "    if(c.state === STATE.SIGNUP){ try{ await auth.signOut(); }catch(_){} return", "    if(c.state === STATE.SIGNUP){ return", '계정 없는 로그인을 남김'],
   ['LF', "        if(!(e && e.code === 'CONCURRENT_UPDATE')) throw e;", "        throw e;", '먼저 바뀌면 그냥 실패'],
-  ['LF', "    try{ deps.rt.stop(); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다\n", "", '로그아웃에 realtime 안 끔'],
+  ['LF', "    try{ await deps.rt.bye(why); }catch(_){}", "", '로그아웃에 realtime 작별 안 함'],
+  ['LF', "    try{ await deps.leaveRoom(); }catch(_){}\n    try{ await deps.rt.bye(why); }catch(_){}", "    try{ await deps.rt.bye(why); }catch(_){}\n    try{ await deps.leaveRoom(); }catch(_){}", '작별 뒤 방 leave(연결이 먼저 닫힘 — 방 사람은 20초 뒤에야 봄)'],
+  ['LF', "    try{ await deps.leaveRoom(); }catch(_){}\n", "", '로그아웃에 방 안 나감'],
+  ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    await release(BYE_LOGOUT);", '탈퇴도 logout 으로 작별'],
+  ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    release((o && o.why) || BYE_LOGOUT);", '작별을 안 기다리고 로그인을 놓음'],
   ['LF', "    try{ deps.forgetSession(); }catch(_){}", "", '로그아웃에 API 로그인 읽기를 안 뗌'],
   ['LF', "const api = { ME_CACHE_KEY, STATE, joinKey, createLoginFlow };", "function premiumNow(){ return true; }\nconst api = { ME_CACHE_KEY, STATE, joinKey, premiumNow, createLoginFlow };", 'premiumNow(24시간 유예)를 되살림'],
   ['LF', "  return 'join:' + String(inviteCode || '') + ':' + h.toString(36);", "  return 'join:' + String(inviteCode || '');", '비밀번호를 바꿔도 같은 요청'],

@@ -314,7 +314,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **dcef7d6522e5** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
-| **sim-license-gate.js** | 336 | **438c3aff5ef2** |
+| **sim-license-gate.js** | 340 | **78de89e312a3** |
 | **sim-account.js** | 174 | **05e5153214e2** |
 | **sim-wardrobe.js** | 95 | **ee1777e686b8** |
 | **sim-settings-panel.js** | 95 | **910c263320d1** |
@@ -449,7 +449,7 @@
 | **sim-rt-hub.js** | 499 | **d969dad39c36** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
-| **sim-login-flow.js** | 343 | **9023d110a3c6** |
+| **sim-login-flow.js** | 360 | **3cdafbc61b89** |
 | **sim-first-run-013.js** | 144 | **c0544d9c503e** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |

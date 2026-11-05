@@ -272,7 +272,7 @@ async function _detachAccountLocal(opt){
   }
   if(uid) await _presenceOff(uid);
   _wipeAccountLocal();
-  /* 🖥️ 지금 기기 자리는 realtime 서버가 쥔다 — 로그아웃(loginFlowMod.logout)이 연결을 끊으면 놓인다. */
+  /* 🖥️ 지금 기기 자리는 realtime 서버가 쥔다 — 로그아웃(loginFlowMod.logout)의 작별(bye{logout})로 놓인다. */
   return { ok:true };
 }
 
@@ -289,7 +289,7 @@ async function _detachAccountLocal(opt){
 async function _loginDoLogout(opt){
   const r = await _detachAccountLocal(opt);
   if(!r.ok) return r;
-  try{ await loginFlowMod.logout(); }catch(_){}   // realtime 끄기 · 로그인 놓기 · 내 계정 사본 지우기
+  try{ await loginFlowMod.logout(); }catch(_){}   // 방 나가기 · realtime 작별(logout) · 로그인 놓기 · 내 계정 사본 지우기
   return { ok:true };
 }
 
@@ -302,7 +302,7 @@ async function _loginDoDeleteAccount(word){
   if(String(word == null ? '' : word).trim() !== WITHDRAW_WORD) return { ok:false, reason:'확인 글자 «' + WITHDRAW_WORD + '» 를 그대로 입력해 주세요' };
   const r = await _withRecentLogin(() => userApiMod.withdraw());
   if(!r.ok) return r;
-  try{ await loginFlowMod.logout(); }catch(_){}   // realtime 끄기 · 로그인 놓기(로그인 계정은 서버가 뒤에서 지운다)
+  try{ await loginFlowMod.logout({ why:'withdraw' }); }catch(_){}   // 방 나가기 · realtime 작별(withdraw) · 로그인 놓기(로그인 계정은 서버가 뒤에서 지운다)
   _wipeAccountLocal();
   return { ok:true };
 }

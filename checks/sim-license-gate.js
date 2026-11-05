@@ -116,6 +116,7 @@ async function gateRun(src, o){
     twNav: { NAV: { ACCOUNT_ENTERED: 'accountEntered' }, go: (name, me) => { ev.push('entered:' + name + ':' + (me && me.userCode)); } },   // 계정에 들어감 알림 — 이후 차례는 app-boot(sim-app-boot.js)
     loginFlowMod: {
       confirm: async () => ({ state: o.state, me: { userCode: 'u1' } }), identity: () => ({}),
+      release: async (why) => { ev.push('bye:' + why); },   // 계정 바꾸기 — 다시 켜기 전에 realtime 작별
       goOnline: () => { ev.push('goOnline'); },
       waitForServer: (cb) => { ev.push('wait'); waitCb = cb; },
       retryNow: async () => { ev.push('retry'); const r = retryAns.shift(); if(r && r.state !== 'local' && waitCb){ const cb = waitCb; waitCb = null; cb(r); } return r; },
@@ -149,6 +150,7 @@ async function gateRows(src){
   const has = (x, n) => x.ev().split(',').includes(n);
   let x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: true, switched: true } });
   t(x.ret() === true && has(x, 'relaunch') && !x.ev().includes('entered') && !has(x, 'gate'), 'in · 계정이 바뀜(switched) → 다시 켜기 · «들어감» 알림 없음(시작은 다시 켠 뒤)');
+  { const e = x.ev().split(','); t(e.indexOf('bye:switch') >= 0 && e.indexOf('bye:switch') < e.indexOf('relaunch'), '  ↳ 다시 켜기 전에 realtime 작별(bye{switch}) — ' + x.ev()); }
   x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: true, switched: false } });
   t(x.ret() === true && x.ev() === 'enter,entered:accountEntered:u1', 'in · 같은 계정 → 맞추기 한 번 → «계정에 들어감» 알림 한 번(그 계정 me) · 다시 켜기 · 게이트 없음');
   x = await gateRun(src, { state: 'in', uid: 'u1', enter: { ok: false, reason: 'x' } });
@@ -203,6 +205,7 @@ async function gateLoginRun(src, how, switched){
     userApiMod: { checkInvite: async () => ({ usable: true, code: 'INV' }), inviteReasonOf: () => '', reasonOf: () => '' },
     loginFlowMod: {
       confirm: async () => ({ state: 'login' }), identity: () => ({}),
+      release: async (why) => { ev.push('bye:' + why); },
       joinGoogle: async () => ({ ok: true, existing: true, me }), joinPassword: async () => ({ ok: true, existing: true, me }),
       waitForServer: () => {}, retryNow: async () => null, goOnline: () => {},
     },
@@ -313,6 +316,7 @@ const breaks = [
   ['닿은 뒤 화면을 안 닫음', m => m.replace("card.style.display = 'none'; ov.style.display = 'none'; if(hCard) hCard.style.display = '';", ""), null, null],
   ['signup 이어도 이 PC 몫을 안 지움', m => m.replace("if(c.state === 'signup' && getMyUserId()) _wipeAccountLocal();", ''), null, null],
   ['계정이 바뀌었는데 다시 켜지 않음', m => m.replace("if(r.ok && r.switched){ _relaunchSoon('🔑 계정을 맞췄어요 — 앱을 다시 시작하는 중이에요…'); return true; }", ''), null, null],
+  ['계정 바꾸기에 realtime 작별 없이 다시 켬', m => m.replace("  Promise.resolve(loginFlowMod.release(BYE_SWITCH)).catch(()=>{}).then(()=>_acctRelaunchAfterDetach(onFallback));", "  _acctRelaunchAfterDetach(onFallback);"), null, null],
   ['게이트 로그인 뒤 «들어감» 을 안 알림', m => m.replace('close(); _entered(r.me); resolve(true);', 'close(); resolve(true);'), null, null],
   ['계정 가입(이미 가입된 구글) 뒤 «들어감» 을 안 알림', m => m.replace("close(); _entered(r.me); resolve(true); return; }", "close(); resolve(true); return; }"), null, null],
   ['켤 때 확인이 «들어감» 을 안 알림', m => m.replace('if(r.ok){ _entered(c.me); return true; }', 'if(r.ok) return true;'), null, null],

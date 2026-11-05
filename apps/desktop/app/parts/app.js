@@ -5775,7 +5775,8 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
     identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
   },
   googleWindow: ()=>companion.signInWithGoogle(),
-  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), onState: (fn)=>TwRtHub.store.onState(fn) },
+  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn) },
+  leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
   pending: TwRequestId.createPending(),
   storage: localStorage,
   onSessionLost: ()=>deviceLostMod._onDeviceSessionLost(),
