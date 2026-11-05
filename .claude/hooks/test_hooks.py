@@ -785,5 +785,50 @@ if CPL:
 else:
     print('  - cp949 로캘이 없어 «gh · git 출력 해독» 시험 4칸은 건너뜀(맥: ko_KR.CP949)')
 
+# 머지할 PR 의 저장소 — 앱 저장소 밖(서버)도 그 저장소의 상태값으로 막고, 문서 저장소는 막지 않는다
+SV = 'mihioon/t-w-server'
+for name, got, want in (
+        ('api 경로의 저장소', gate.merge_repo(['gh', 'api', '-X', 'PUT', 'repos/mihioon/t-w-server/pulls/169/merge'], None, CWD), SV),
+        ('-R 값', gate.merge_repo(['gh', 'pr', 'merge', '5'], SV, CWD), SV),
+        ('-R 읽기(떼기 전)', gate.flag_repo_of(['gh', 'pr', 'merge', '-R', SV, '5']), SV),
+        ('--repo= 읽기', gate.flag_repo_of(['gh', 'pr', 'merge', '--repo=' + SV, '5']), SV),
+        ('origin https', gate.repo_of_url('https://github.com/mihioon/t-w-server.git'), SV),
+        ('origin ssh', gate.repo_of_url('git@github.com:mihioon/t-w-server.git'), SV),
+        ('github 아님', gate.repo_of_url('https://example.com/x/y.git'), None)):
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 머지 저장소 {name}: {got!r}(기대 {want!r})')
+def repo_case(name, repo, statuses, want_deny):
+    global ok, bad
+    calls = []
+    def fake_run(*a, **k):
+        calls.append(a)
+        path = a[2] if len(a) > 2 else ''
+        if path.endswith('/pulls/169'):
+            return 'f' * 40
+        if '/status' in path:
+            return json.dumps([{'context': c, 'state': st} for c, st in statuses])
+        return None
+    gate.run = fake_run
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_merge(['gh', 'api', f'repos/{repo}/pulls/169/merge'], repo)
+    except SystemExit:
+        pass
+    denied = '"deny"' in buf.getvalue()
+    asked_right = all(repo in ' '.join(map(str, c)) for c in calls)
+    if denied == want_deny and asked_right:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 머지 저장소 판정 {name}: {"막음" if denied else "통과"}(기대 {"막음" if want_deny else "통과"}) · 그 저장소에 물었나 {asked_right}')
+repo_case('서버 — 둘 다 통과면 머지', SV, [('tw/confirm', 'success'), ('tw/verify', 'success')], False)
+repo_case('서버 — 검증 없으면 막음', SV, [('tw/confirm', 'success')], True)
+repo_case('서버 — 아무것도 없으면 막음', SV, [], True)
+repo_case('문서 저장소는 이 가드 몫이 아님', 'mihioon/tw-docs', [], False)
+
 print(f'{"✓" if not bad else "✗"} 통과 {ok} · 실패 {bad}')
 sys.exit(1 if bad else 0)

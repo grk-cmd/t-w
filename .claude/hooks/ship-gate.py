@@ -2,7 +2,8 @@
 """하네스 가드(PreToolUse · Bash) — 터미널 · 클라우드(웹) 세션 모두에서 돈다. 막는 것:
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
-   둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
+   둘 다 success 가 아니면 막는다. 어느 저장소의 PR 인지는 명령(`repos/<주인>/<이름>/…` · `-R`)이나 그 폴더의 origin 으로 정한다 —
+   앱 저장소(REPO)는 아래 전부, 서버 저장소(GATED_REPOS)는 그 저장소의 두 상태값만 본다. 그 밖(문서 저장소 등)은 막지 않는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
    (세션이 가드를 스스로 풀지 못하게). 웹 관리자 길(main 으로 가는 admin/*)의 위험도 높은 PR 도 승인 — 판을 거치지 않아 내보내기 전 한 장에 안 나온다.
    나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
@@ -28,6 +29,7 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
 
 REPO = 'grk-cmd/t-w'
+GATED_REPOS = ('mihioon/t-w-server',)   # 앱 밖에서 컨펌 · 검증 상태값을 받아야 머지하는 저장소(승인 · 판 규칙은 앱 저장소 몫)
 PROTECTED = re.compile(r'^(main|release/.+)$')
 FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(main 으로 가는 PR 의 범위는 머지 때 risk.admin_outside 가 본다)
 GATES = ('tw/confirm', 'tw/verify')
@@ -54,8 +56,8 @@ def segments(cmd):
             yield toks
 
 
-def gate_missing(sha):
-    raw = run('gh', 'api', f'repos/{REPO}/commits/{sha}/status', '--jq',
+def gate_missing(sha, repo=REPO):
+    raw = run('gh', 'api', f'repos/{repo}/commits/{sha}/status', '--jq',
               '[.statuses[] | {context, state}]')
     states = {s['context']: s['state'] for s in json.loads(raw or '[]')[::-1]}  # 같은 context 는 최신이 앞
     return [g for g in GATES if states.get(g) != 'success']
@@ -75,7 +77,33 @@ def gate_ok(pr):
     return not missing, ', '.join(missing)
 
 
-def check_merge(toks):
+def repo_of_url(url):
+    """git remote 주소 → '주인/이름' (github 이 아니면 None)"""
+    m = re.search(r'github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$', url or '')
+    return m and f'{m.group(1)}/{m.group(2)}'
+
+
+def merge_repo(toks, flag_repo, cwd):
+    """머지하려는 PR 의 저장소 — api 경로 · -R 값 · 그 폴더 origin 차례. 모르면 앱 저장소로 본다(막는 쪽)."""
+    m = re.search(r'repos/([^/\s]+/[^/\s]+)/pulls/\d+/merge', ' '.join(toks))
+    if m:
+        return m.group(1)
+    if flag_repo:
+        return flag_repo
+    return repo_of_url(run('git', 'remote', 'get-url', 'origin', cwd=cwd)) or REPO
+
+
+def flag_repo_of(toks):
+    """gh 명령의 -R / --repo 값(gh_norm 이 떼기 전에 읽는다)"""
+    for j, t in enumerate(toks):
+        if t in ('-R', '--repo') and j + 1 < len(toks):
+            return toks[j + 1]
+        if t.startswith('--repo='):
+            return t.split('=', 1)[1]
+    return None
+
+
+def check_merge(toks, repo=REPO):
     joined = ' '.join(toks)
     pr = None
     if toks[1:3] == ['pr', 'merge']:
@@ -87,6 +115,17 @@ def check_merge(toks):
         pr = m and m.group(1)
     if not pr:
         deny('머지할 PR 번호를 알 수 없다 — `/ship` 으로 머지한다.')
+    if repo != REPO:
+        if repo not in GATED_REPOS:
+            return   # 문서 저장소 등 — 이 가드의 몫이 아니다
+        sha = run('gh', 'api', f'repos/{repo}/pulls/{pr}', '--jq', '.head.sha')
+        if not sha:
+            deny(f'{repo}#{pr} 머리 커밋을 읽지 못해 머지를 막았다 — 잠시 뒤 다시.')
+        missing = gate_missing(sha, repo)
+        if missing:
+            deny(f'{repo}#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({", ".join(missing)}). 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 돌려 '
+                 f'둘 다 통과하면 그 저장소의 머리 커밋에 상태값을 남긴 뒤 머지한다.')
+        return
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))   # 뒤에 — 표준 모듈이 먼저(이 폴더에 같은 이름 파일을 둬도 가려지지 않게)
     try:   # 이어 받기를 읽다 API 가 실패하면 판정 없음으로 — 맨 아래 «가드 오류면 통과» 로 새지 않게
         ok, missing = gate_ok(pr)
@@ -281,7 +320,7 @@ def main():
             continue
         g = gh_norm(toks)
         if g and (g[1:3] == ['pr', 'merge'] or (g[1:2] == ['api'] and re.search(r'/pulls/\d+/merge', ' '.join(g)))):
-            check_merge(g)
+            check_merge(g, merge_repo(g, flag_repo_of(toks), cwd))
             continue
         if toks[0] != 'git':
             continue
