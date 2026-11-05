@@ -2,8 +2,11 @@
 """하네스 가드(PreToolUse · Bash) — 터미널 · 클라우드(웹) 세션 모두에서 돈다. 막는 것:
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
-   둘 다 success 가 아니면 막는다. 어느 저장소의 PR 인지는 명령(`repos/<주인>/<이름>/…` · `-R`)이나 그 폴더의 origin 으로 정한다 —
-   앱 저장소(REPO)는 아래 전부, 서버 저장소(GATED_REPOS)는 그 저장소의 두 상태값만 본다. 그 밖(문서 저장소 등)은 막지 않는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
+   둘 다 success 가 아니면 막는다. 어느 저장소의 PR 인지는 **명령에 밝힌 값으로만** 정한다(api 경로 `repos/<주인>/<이름>/…` ·
+   `-R`/`--repo` · `GH_REPO=` · PR URL — 폴더의 origin 으로 짐작하지 않는다). 밝힌 값이 모두 같은 하나일 때만 그 저장소로 보고,
+   없거나 · 둘 이상이 다르거나 · 표(GATED_REPOS · UNGATED_REPOS)에 없으면 앱 저장소(REPO)로 본다(막는 쪽).
+   앱 저장소는 아래 전부, 서버 저장소(GATED_REPOS)는 그 저장소의 두 상태값만, 문서 저장소(UNGATED_REPOS)는 막지 않는다.
+   못 보는 것(실수 막기 범위 밖): `env -i gh …` · `bash -c "gh …"` · GraphQL mergePullRequest. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
    (세션이 가드를 스스로 풀지 못하게). 웹 관리자 길(main 으로 가는 admin/*)의 위험도 높은 PR 도 승인 — 판을 거치지 않아 내보내기 전 한 장에 안 나온다.
    나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
@@ -90,13 +93,6 @@ def norm_repo(v):
     return m and f'{m.group(1)}/{m.group(2)}'
 
 
-def repo_of_url(url):
-    """git remote 주소 → '주인/이름' (github 이 아니면 None)"""
-    if not re.search(r'github\.com[:/]', url or ''):
-        return None
-    return norm_repo(url)
-
-
 def gate_class(repo):
     """판정 갈래 — 'app' · 'gated' · 'free'. 모르는 이름은 앱(막는 쪽)."""
     r = norm_repo(repo)
@@ -124,33 +120,41 @@ def api_path(toks):
     return ''
 
 
-def merge_repo(toks, flag_repo, cwd):
-    """머지하려는 PR 의 저장소 — api 경로 · -R/GH_REPO 값 · PR URL · 그 폴더 origin 차례. 모르면 앱 저장소(막는 쪽)."""
-    if toks[1:2] == ['api']:
-        m = re.match(r'^/?repos/([^/]+/[^/]+)/pulls/\d+/merge', api_path(toks))
-        return (m and norm_repo(m.group(1))) or REPO
-    if flag_repo:
-        return norm_repo(flag_repo) or REPO
-    url = next((t for t in toks[3:] if '/pull/' in t), None)
-    if url:
-        m = re.search(r'github\.com/([^/]+/[^/]+)/pull/', url)
-        return (m and norm_repo(m.group(1))) or REPO
-    return repo_of_url(run('git', 'remote', 'get-url', 'origin', cwd=cwd)) or REPO
-
-
-def flag_repo_of(toks):
-    """gh 명령의 -R / --repo 값, 없으면 앞에 붙은 GH_REPO= (gh_norm 이 떼기 전에 읽는다)"""
-    for j, t in enumerate(toks):
-        if t in ('-R', '--repo') and j + 1 < len(toks):
-            return toks[j + 1]
+def repo_mentions(raw):
+    """명령(gh_norm 이 떼기 전 낱말)에 밝힌 저장소 값 전부 — 앞의 GH_REPO= · -R/--repo(붙여 쓴 -Rx · -R=x 포함) · PR URL · api 첫 위치 인자 경로."""
+    out = []
+    i = 0
+    while i < len(raw) and (re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', raw[i]) or raw[i] in ('env', 'command')):
+        if raw[i].startswith('GH_REPO='):
+            out.append(raw[i].split('=', 1)[1])
+        i += 1
+    j = 0
+    while j < len(raw):
+        t = raw[j]
+        if t in ('-R', '--repo') and j + 1 < len(raw):
+            out.append(raw[j + 1]); j += 2; continue
         if t.startswith('--repo='):
-            return t.split('=', 1)[1]
-    for t in toks:
-        if t.startswith('GH_REPO='):
-            return t.split('=', 1)[1]
-        if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', t) and t not in ('env', 'command'):
-            break
-    return None
+            out.append(t.split('=', 1)[1])
+        elif t.startswith('-R') and len(t) > 2:
+            out.append(t[3:] if t.startswith('-R=') else t[2:])
+        elif '/pull/' in t:
+            m = re.search(r'github\.com/([^/]+/[^/]+)/pull/', t)
+            out.append(m.group(1) if m else '?')
+        j += 1
+    g = gh_norm(raw)
+    if g and g[1:2] == ['api']:
+        path = api_path(g)
+        m = None if re.search(r'\.\.|%2e|%2f', path, re.I) else re.match(r'^/?repos/([^/]+/[^/]+)/pulls/\d+/merge/?$', path)   # 점 마디 · 인코딩으로 다른 저장소를 가리키는 경로는 모름
+        out.append(m.group(1) if m else '?')
+    return out
+
+
+def merge_repo(raw):
+    """머지하려는 PR 의 저장소 — 밝힌 값이 모두 같은 하나이고 이름 모양이면 그것, 아니면 앱 저장소(막는 쪽)."""
+    names = {norm_repo(v) for v in repo_mentions(raw)}
+    if len(names) == 1 and None not in names:
+        return names.pop()
+    return REPO
 
 
 def check_merge(toks, repo=REPO):
@@ -227,7 +231,7 @@ def gh_norm(toks):
         if t in ('-R', '--repo'):
             j += 2
             continue
-        if t.startswith('--repo='):
+        if t.startswith('--repo=') or (t.startswith('-R') and len(t) > 2):
             j += 1
             continue
         out.append(t)
@@ -376,7 +380,7 @@ def main():
             continue
         g = gh_norm(toks)
         if g and (g[1:3] == ['pr', 'merge'] or (g[1:2] == ['api'] and re.search(r'/pulls/\d+/merge', ' '.join(g)))):
-            check_merge(g, merge_repo(g, flag_repo_of(toks), cwd))
+            check_merge(g, merge_repo(toks))
             continue
         if toks[0] != 'git':
             continue

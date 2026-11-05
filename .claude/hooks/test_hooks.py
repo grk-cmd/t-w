@@ -787,24 +787,29 @@ else:
 
 # 머지할 PR 의 저장소 — 앱 저장소 밖(서버)도 그 저장소의 상태값으로 막고, 문서 저장소는 막지 않는다
 SV = 'mihioon/t-w-server'
+C = lambda cmd: gate.gate_class(gate.merge_repo(cmd))
 for name, got, want in (
-        ('api 경로의 저장소', gate.merge_repo(['gh', 'api', '-X', 'PUT', 'repos/mihioon/t-w-server/pulls/169/merge'], None, CWD), SV),
-        ('-R 값', gate.merge_repo(['gh', 'pr', 'merge', '5'], SV, CWD), SV),
-        ('-R 읽기(떼기 전)', gate.flag_repo_of(['gh', 'pr', 'merge', '-R', SV, '5']), SV),
-        ('--repo= 읽기', gate.flag_repo_of(['gh', 'pr', 'merge', '--repo=' + SV, '5']), SV),
-        ('origin https', gate.repo_of_url('https://github.com/mihioon/t-w-server.git'), SV),
-        ('origin ssh', gate.repo_of_url('git@github.com:mihioon/t-w-server.git'), SV),
-        ('github 아님', gate.repo_of_url('https://example.com/x/y.git'), None),
-        ('자리표시자 {owner}/{repo} 는 앱(막는 쪽)', gate.gate_class(gate.merge_repo(['gh', 'api', '-X', 'PUT', 'repos/{owner}/{repo}/pulls/5/merge'], None, CWD)), 'app'),
-        ('대문자 저장소 이름도 앱', gate.gate_class(gate.merge_repo(['gh', 'api', 'repos/GRK-CMD/t-w/pulls/5/merge'], None, CWD)), 'app'),
-        ('-R URL 모양도 앱', gate.gate_class(gate.merge_repo(['gh', 'pr', 'merge', '5'], 'https://github.com/grk-cmd/t-w', CWD)), 'app'),
-        ('-R github.com/ 모양도 앱', gate.gate_class(gate.merge_repo(['gh', 'pr', 'merge', '5'], 'github.com/grk-cmd/t-w', CWD)), 'app'),
-        ('옵션 값 속 미끼 경로는 안 봄', gate.gate_class(gate.merge_repo(['gh', 'api', '-f', 'x=repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None, CWD)), 'app'),
-        ('GH_REPO= 읽기', gate.flag_repo_of(['GH_REPO=grk-cmd/t-w', 'gh', 'pr', 'merge', '5']), 'grk-cmd/t-w'),
-        ('PR URL 의 저장소', gate.gate_class(gate.merge_repo(['gh', 'pr', 'merge', 'https://github.com/grk-cmd/t-w/pull/5'], None, CWD)), 'app'),
-        ('모르는 저장소는 앱(막는 쪽)', gate.gate_class('someone/else'), 'app'),
-        ('문서 저장소는 가드 밖', gate.gate_class('MihiOon/TW-docs'), 'free'),
-        ('서버 저장소(대문자)', gate.gate_class('https://github.com/MIHIOON/t-w-server.git'), 'gated')):
+        ('api 경로의 서버 저장소', gate.merge_repo(['gh', 'api', '-X', 'PUT', 'repos/mihioon/t-w-server/pulls/169/merge']), SV),
+        ('-R 서버', gate.merge_repo(['gh', 'pr', 'merge', '5', '-R', SV]), SV),
+        ('--repo= 서버', gate.merge_repo(['gh', 'pr', 'merge', '--repo=' + SV, '5']), SV),
+        ('-R URL 모양 서버(대문자 · .git)', gate.merge_repo(['gh', 'pr', 'merge', '5', '-R', 'https://github.com/MIHIOON/t-w-server.git']), SV),
+        ('밝힌 값 없으면 앱(폴더 origin 으로 짐작 안 함)', C(['gh', 'pr', 'merge', '5']), 'app'),
+        ('자리표시자 {owner}/{repo} 는 앱', C(['gh', 'api', '-X', 'PUT', 'repos/{owner}/{repo}/pulls/5/merge']), 'app'),
+        ('대문자 앱 이름도 앱', C(['gh', 'api', 'repos/GRK-CMD/t-w/pulls/5/merge']), 'app'),
+        ('-R github.com/ 앱', C(['gh', 'pr', 'merge', '5', '-R', 'github.com/grk-cmd/t-w']), 'app'),
+        ('옵션 값 속 미끼 경로는 안 봄', C(['gh', 'api', '-f', 'x=repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge']), 'app'),
+        ('GH_REPO= 앱', C(['GH_REPO=grk-cmd/t-w', 'gh', 'pr', 'merge', '5']), 'app'),
+        ('PR URL 앱', C(['gh', 'pr', 'merge', 'https://github.com/grk-cmd/t-w/pull/5']), 'app'),
+        ('겹친 -R(문서 · 앱)은 앱', C(['gh', 'pr', 'merge', '5', '-R', 'mihioon/tw-docs', '-R', 'grk-cmd/t-w']), 'app'),
+        ('겹친 --repo= 는 앱', C(['gh', 'pr', 'merge', '5', '--repo=mihioon/tw-docs', '--repo=grk-cmd/t-w']), 'app'),
+        ('겹친 GH_REPO 는 앱', C(['GH_REPO=mihioon/tw-docs', 'GH_REPO=grk-cmd/t-w', 'gh', 'pr', 'merge', '5']), 'app'),
+        ('URL 과 -R 이 다르면 앱', C(['gh', 'pr', 'merge', 'https://github.com/grk-cmd/t-w/pull/5', '-R', 'mihioon/tw-docs']), 'app'),
+        ('붙여 쓴 -Rx 읽기', C(['gh', 'pr', 'merge', '5', '-Rgrk-cmd/t-w']), 'app'),
+        ('-R= 읽기', C(['gh', 'pr', 'merge', '5', '-R=mihioon/tw-docs', '-Rgrk-cmd/t-w']), 'app'),
+        ('-Rx 는 gh_norm 이 뗀다', gate.gh_norm(['gh', 'pr', 'merge', '-Rgrk-cmd/t-w', '5']), ['gh', 'pr', 'merge', '5']),
+        ('모르는 저장소는 앱', gate.gate_class('someone/else'), 'app'),
+        ('문서 저장소를 밝히면 가드 밖', C(['gh', 'pr', 'merge', '3', '-R', 'MihiOon/TW-docs']), 'free'),
+        ('서버 저장소(대문자 URL)', gate.gate_class('https://github.com/MIHIOON/t-w-server.git'), 'gated')):
     if got == want:
         ok += 1
     else:
