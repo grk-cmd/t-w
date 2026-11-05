@@ -62,7 +62,8 @@ function mkEnv(S, o){
   const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn(x && x.claim === true ? 'ready' : 'sessionLost'); }, stop: () => rtLog.push('stop'),
     bye: async (why) => { rtLog.push('bye:' + why); await tick(); rtLog.push('closed'); }, onState: (fn) => { stateFn = fn; return () => {}; } };
   /* 방 나가기 흉내 — leave 를 보내고 left 를 기다렸다 풀린다(방 밖이면 바로) */
-  const leaveRoom = async () => { rtLog.push('leave'); await tick(); rtLog.push('left'); };
+  const leaveRoom = opt.leaveHang ? () => { rtLog.push('leave'); return new Promise(() => {}); }   // 오프라인 — 방 나가기 쓰기가 끝나지 않음
+    : async () => { rtLog.push('leave'); await tick(); rtLog.push('left'); };
   let lost = 0;
   const ids = RI.createPending();
   const flow = LF.createLoginFlow({
@@ -286,6 +287,13 @@ async function judge(S){
     await e.flow.release('switch');
     chk(e.rtLog.join() === 'leave,left,bye:switch,closed' && e.authLog.length === 0 && e.flow.mode() === 'off', 'release(switch) — 계정 바꾸기: 방 leave → bye{switch} · 로그인은 그대로(새 계정)');
   }
+  {
+    const e = mkEnv(S, { leaveHang: true });
+    e.flow.goOnline(); e.rtLog.length = 0;
+    const done = await Promise.race([e.flow.logout().then(() => true), new Promise((r) => setTimeout(() => r(false), 3000))]);
+    chk(done && e.rtLog.join() === 'leave,bye:logout,closed,forget' && e.authLog.join() === 'out',
+      '★ 방 나가기가 끝나지 않아도(오프라인) 상한 뒤 작별 · 로그인 놓기까지 간다 — ' + e.rtLog.join());
+  }
 
   say('── 8. 배선');
   {
@@ -324,8 +332,9 @@ const BREAKS = [
   ['LF', "    if(c.state === STATE.SIGNUP){ try{ await auth.signOut(); }catch(_){} return", "    if(c.state === STATE.SIGNUP){ return", '계정 없는 로그인을 남김'],
   ['LF', "        if(!(e && e.code === 'CONCURRENT_UPDATE')) throw e;", "        throw e;", '먼저 바뀌면 그냥 실패'],
   ['LF', "    try{ await deps.rt.bye(why); }catch(_){}", "", '로그아웃에 realtime 작별 안 함'],
-  ['LF', "    try{ await deps.leaveRoom(); }catch(_){}\n    try{ await deps.rt.bye(why); }catch(_){}", "    try{ await deps.rt.bye(why); }catch(_){}\n    try{ await deps.leaveRoom(); }catch(_){}", '작별 뒤 방 leave(연결이 먼저 닫힘 — 방 사람은 20초 뒤에야 봄)'],
-  ['LF', "    try{ await deps.leaveRoom(); }catch(_){}\n", "", '로그아웃에 방 안 나감'],
+  ['LF', "    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}\n    try{ await deps.rt.bye(why); }catch(_){}", "    try{ await deps.rt.bye(why); }catch(_){}\n    try{ await deps.leaveRoom(); }catch(_){}", '작별 뒤 방 leave(연결이 먼저 닫힘 — 방 사람은 20초 뒤에야 봄)'],
+  ['LF', "    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}\n", "", '로그아웃에 방 안 나감'],
+  ['LF', "    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}", "    try{ await deps.leaveRoom(); }catch(_){}", '방 나가기 기다림에 상한 없음(오프라인이면 로그아웃이 멈춤)'],
   ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    await release(BYE_LOGOUT);", '탈퇴도 logout 으로 작별'],
   ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    release((o && o.why) || BYE_LOGOUT);", '작별을 안 기다리고 로그인을 놓음'],
   ['LF', "    try{ deps.forgetSession(); }catch(_){}", "", '로그아웃에 API 로그인 읽기를 안 뗌'],

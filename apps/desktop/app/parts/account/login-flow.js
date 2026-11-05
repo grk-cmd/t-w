@@ -19,6 +19,7 @@ const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL:
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
 const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost';   // rt-hub.js 상태 이름
 const BYE_LOGOUT = 'logout';   // rt-hub.js BYE_WHY
+const LEAVE_WAIT_MS = 1500;    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
 
 /* 비밀번호 가입의 요청 번호 열쇠 — 비밀번호를 바꿔 다시 누르면 새 요청(같은 번호면 서버가 처음 비밀번호의 계정을 돌려준다).
    비밀번호 글을 그대로 들고 있지 않게 짧은 지문(FNV-1a)만. */
@@ -214,7 +215,7 @@ function createLoginFlow(deps){
      ⚠️ 차례: leave 가 작별보다 먼저 — 연결을 먼저 닫으면 방 사람들은 유예(20초) 뒤에야 나간 것을 본다. */
   async function release(why){
     online = false; rtWait = false; waitBack = null; mode = 'off';
-    try{ await deps.leaveRoom(); }catch(_){}
+    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}
     try{ await deps.rt.bye(why); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다 · 서버는 작별을 받으면 유예 없이 오프라인
   }
   /* 로그아웃 · 계정을 놓을 때 — 연결을 놓고(release) → API 통로의 로그인 읽기를 떼고 · 로그인을 놓고 사본을 지운다. o.why: 'logout'(기본) · 'withdraw' */

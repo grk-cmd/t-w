@@ -450,7 +450,7 @@
 | **sim-rt-status-ui.js** | 242 | **5ebda45d86dc** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
-| **sim-login-flow.js** | 360 | **3cdafbc61b89** |
+| **sim-login-flow.js** | 369 | **6c335399fcd8** |
 | **sim-first-run-013.js** | 144 | **c0544d9c503e** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |
