@@ -28,6 +28,7 @@ const STAGE = Object.freeze({ NONE: 'none', OPTIONAL: 'optional', FORCE: 'force'
 const BUSY_OR_READY = Object.freeze(['checking', 'available', 'downloading', 'downloaded', 'mac-available']);
 // 새 판 확인의 «답» 이 된 상태 — 이게 오면 켤 때 기다림이 끝난다(checking 은 답이 아니다)
 const ANSWERED = Object.freeze(['available', 'downloading', 'downloaded', 'mac-available', 'none', 'error']);
+const FAIL_NOTE = '업데이트를 받지 못하면 아래 링크에서 직접 받아 설치해 주세요.';   // 강제 · 선택 창 공통 — 링크는 RELEASES_URL
 const ACT = Object.freeze({ INSTALL: 'install', OPEN: 'open', RETRY: 'retry', WAIT: 'wait', UPDATE: 'update', LATER: 'later' });
 
 // "0.10.3" · "v0.10.3" · "0.10.3-beta.1" → [0,10,3]. 모양이 아니면 null — 모르는 값으로는 막지 않는다.
@@ -72,7 +73,7 @@ function viewOf(kind, my, min, latest, up, wantUpdate){
       title: '업데이트가 필요해요',
       body: '이 버전(' + my + ')은 더 이상 쓸 수 없어요. ' + min + ' 이상으로 업데이트하면 그대로 이어서 쓸 수 있어요 — 캐릭터 · 친구 · 기록은 계정에 남아 있어요.',
       buttons: [mainButton(u, true)],   // 강제 창엔 «나중에» 가 없다 — 확인 중 · 새 판 있음은 눌러도 할 일이 없으니 받는 중으로
-      note: u.status === 'error' ? '업데이트를 받지 못하면 아래 링크에서 직접 받아 설치해 주세요.' : '',
+      note: u.status === 'error' ? FAIL_NOTE : '',
       linkUrl: RELEASES_URL,
     };
   }
@@ -84,8 +85,8 @@ function viewOf(kind, my, min, latest, up, wantUpdate){
     title: '새 버전 ' + latest,
     body: '새 버전 ' + latest + '이 나왔어요. ' + ask + ' (지금 버전 ' + my + ')',
     buttons: [main, { label: '나중에', action: ACT.LATER }],
-    note: u.status === 'error' ? '업데이트를 받지 못하면 아래 링크에서 직접 받아 설치해 주세요.' : '',
-    linkUrl: null,
+    note: u.status === 'error' ? FAIL_NOTE : '',
+    linkUrl: u.status === 'error' ? RELEASES_URL : null,   // 안내가 가리키는 링크를 같이 보인다
   };
 }
 

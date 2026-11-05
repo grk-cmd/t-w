@@ -246,6 +246,8 @@ async function suite(M, label){
   t.comp.push({ status: 'error', message: 'x' });
   last = t.ui.log[t.ui.log.length - 1];
   chk(last.buttons[0].action === 'retry' && !!last.note, '★ 실패 — «다시 시도» · 직접 받기 안내');
+  { const ov = viewOf(STAGE.OPTIONAL, '0.13.0', null, '0.13.1', { status: 'error', message: 'x' });
+    chk(!!ov.note && ov.linkUrl === RELEASES_URL && viewOf(STAGE.OPTIONAL, '0.13.0', null, '0.13.1', { status: 'available', version: '0.13.1' }).linkUrl === null, '  ↳ 선택 창도 실패면 안내가 가리키는 링크(다운로드 페이지)를 같이 보인다 · 실패가 아니면 링크 없음'); }
   t.comp.calls.length = 0; t.f.press('retry');
   chk(t.comp.calls.length === 1 && t.comp.calls[0][0] === 'check', '  ↳ 다시 시도는 사용자가 누를 때만 checkUpdate');
   t.comp.calls.length = 0; t.f.press('link');
@@ -333,7 +335,9 @@ async function suite(M, label){
     const j = app.indexOf('(function initInviteGate(){');
     chk(i > 0 && j > i, 'app.js 가 초대 게이트 앞에서 흐름을 만든다');
     const run = app.slice(j, app.indexOf('TwNetReady.whenNetReady(run)', j));
-    chk(/const flow = await updateFlowMod\.runBeforeLogin\(\);\s*if\(!flow\.proceed\) return;/.test(run) && run.indexOf('runBeforeLogin') < run.indexOf('checkInviteGate()'), '★ 로그인(checkInviteGate) 앞에서 흐름을 기다리고 · 강제면 로그인하지 않는다');
+    const runBody = run.slice(run.indexOf('const run = async'));
+    chk(/const flowP = updateFlowMod\.runBeforeLogin\(\);\s*const run = async/.test(run), '★ 흐름은 Firebase 준비(whenNetReady) 밖에서 바로 시작한다 — firebase-init 이 깨져도 새 판 확인 · 받기가 돈다');
+    chk(/const flow = await flowP;\s*if\(!flow\.proceed\) return;/.test(runBody) && runBody.indexOf('flowP') < runBody.indexOf('checkInviteGate()') && !/runBeforeLogin/.test(runBody), '★ 로그인(checkInviteGate) 앞에서 흐름을 기다리고 · 강제면 로그인하지 않는다');
     const blk = app.slice(i, j);
     chk(/readMin: \(\)=> _updRc \? _updRc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\)=>_updRc\.minAppVer\(\)\) : null/.test(blk) && /key === 'minVersion'/.test(blk) && /const _updRc = (?:acctStateMod\.)?_rcStore\(\);/.test(app), '★ 최소 버전 = 원격 설정 첫 답(API 값만) · 바뀜은 minVersion 칸 알림 · 원격 설정 한 벌은 한 번만 받는다');
     const w = +(app.match(/const MIN_APP_VER_WAIT_MS = (\d+);/) || [])[1];

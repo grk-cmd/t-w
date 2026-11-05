@@ -5872,10 +5872,12 @@ const updateFlowMod = TwUpdateFlow.createUpdateFlow({
   showNotice: (n, done)=>_showUpdateNoticeOnce(n, done),
 });
 (function initInviteGate(){
+  // 업데이트 흐름은 Firebase 준비를 기다리지 않고 바로 시작한다 — firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게. 로그인만 둘 다 기다린다.
+  const flowP = updateFlowMod.runBeforeLogin();
   const run = async ()=>{
     const _s = acctStateMod._rcStore();
     if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
-    const flow = await updateFlowMod.runBeforeLogin();
+    const flow = await flowP;
     if(!flow.proceed) return;   // 강제 업데이트 — 창이 앱을 막고 있다
     licenseGateMod.checkInviteGate()   // 🔑 로그인 · 서버 가입 확인 → 게이트(필요하면) · realtime · 0.13 첫 실행
       .then(()=>{ licenseGateMod.refreshInviteBtn(); })
