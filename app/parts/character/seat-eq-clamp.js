@@ -2,10 +2,8 @@
    책임: 평준화가 켜졌을 때 좌석마다 «책상 위» 파츠 핀의 파츠를 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나(_clampSeatDeskParts) — 500ms 마다 · 꺼지면 되돌림. 계산은 seat-slot.js(seatSlot.clampParts).
    받는 deps: seats · 좌석 간격(SPACING · MULTIPLAYER_SPACING, 읽는 함수) · usesRoomGap(방용 간격을 쓰는가 — seat-layout.js) · seatEqMod(평준화 깃발) · seatHalfWidth(좌석 반폭 — seat-layout.js) · seatSlot(가두기 계산 — app.js 가 만든다, 읽는 함수) · DESK_PART_ANCHOR_NAME(파츠 핀 이름).
    내보내는 것: _clampSeatDeskParts(now).
-   app.js «📌 책상 위 파츠 앵커 · 책상 위치 · 배율» 구역 안의 평준화 가두기 몫을 그대로 옮겼다(desk-place 가 seat-equalize 를 모르게 — 순환 끊기 · wAC). 동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 3줄 —
-     MULTIPLAYER_SPACING · SPACING · seatSlot 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   app.js «📌 책상 위 파츠 앵커 · 책상 위치 · 배율» 구역 안의 평준화 가두기 몫을 옮겼다(desk-place 가 seat-equalize 를 모르게 — 순환 끊기 · wAC). 간격 종류는 줄 배치와 같은 usesRoomGap(#749).
+   ★ MULTIPLAYER_SPACING · SPACING · seatSlot 은 읽는 함수로 받는다(app.js 가 다시 대입하거나 뒤에서 만드는 값).
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: _clampSeatDeskParts — app.js 는 seatEqClampMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).

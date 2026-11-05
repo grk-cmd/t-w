@@ -79,10 +79,10 @@ const EVERY = +(/SEAT_SLOT_EVERY_MS\s*=\s*(\d+)/.exec(A) || [])[1];
 const CL = (o) => {
   const calls = [], touched = [];
   const spy = { clampParts: (parts, x, half, on) => calls.push({ ids: parts.map(p => p.id).join(), x, half, on }) };
-  const run = new Function('seats', 'seatSlot', 'seatEqualizeOn', 'seatHalfWidth', 'SPACING', 'MULTIPLAYER_SPACING', 'DESK_PART_ANCHOR_NAME', 'SEAT_SLOT_EVERY_MS',
+  const run = new Function('seats', 'seatSlot', 'seatEqualizeOn', 'seatHalfWidth', 'usesRoomGap', 'SPACING', 'MULTIPLAYER_SPACING', 'DESK_PART_ANCHOR_NAME', 'SEAT_SLOT_EVERY_MS',
     'performance', 'console', 'saveSlots', 'setPartEntryInstanceXf',
     'let _seatSlotNext = 0;\n' + grab(APP, '_clampSeatDeskParts') + '\nreturn _clampSeatDeskParts;')(
-    o.seats, o.noSlot ? null : spy, !!o.eq, (s) => s.half, 2, 3, PIN, EVERY,
+    o.seats, o.noSlot ? null : spy, !!o.eq, (s) => s.half, () => o.seats.some(s => s.remote), 2, 3, PIN, EVERY,   // usesRoomGap — 줄 배치(seat-layout.js)와 같은 판단
     { now: () => 0 }, { warn: () => {} }, () => touched.push('saveSlots'), () => touched.push('xf'));
   return { run, calls, touched };
 };

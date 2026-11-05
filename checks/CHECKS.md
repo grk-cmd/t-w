@@ -217,7 +217,7 @@
 | **sim-uv-fill.js** | 102 | **f4cb774248be** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
-| **sim-seat-slot.js** | 114 | **aea78fc86038** |
+| **sim-seat-slot.js** | 114 | **ce0258f5b3d0** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
 | **sim-frame-budget.js** | 188 | **6a026ddad3c9** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
@@ -401,8 +401,8 @@
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** |
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
-| **sim-seat-extent.js** | 143 | **be5db5a36d6a** |
-| **sim-seat-layout.js** | 249 | **223cb3652264** |
+| **sim-seat-extent.js** | 158 | **9e0390a53b1d** |
+| **sim-seat-layout.js** | 256 | **cd433d4f0d1e** |
 | **sim-seat-refit.js** | 182 | **864d3b36827b** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 163 | **bdc4bd948bfe** |

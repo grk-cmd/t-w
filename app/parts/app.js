@@ -1771,7 +1771,10 @@ const iDeskMod = TwInteractionDesk.createInteractionDesk({
 /* 본문은 room/seat-layout.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 /* 좌석 겉면 자리(보이는 책상 · 몸 · 파츠의 왼쪽 · 오른쪽 끝) — 줄 배치 · 평준화 가두기가 같은 값을 본다(#755) */
-const seatExtentMod = TwSeatExtent.createSeatExtent({ THREE });
+const seatExtentMod = TwSeatExtent.createSeatExtent({
+  THREE,
+  seatScale: (...a)=>seatEqMod.seatScale(...a),
+});
 const seatLayoutMod = TwSeatLayout.createSeatLayout({
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   SPACING: ()=>SPACING,
@@ -7236,11 +7239,12 @@ function applyCharToSeat(seat,def){
   
   (async()=>{  
     if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-    if(def.deskCatalogId){ await deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
+    let deskDrawn = null;   // 책상 3D 를 다 그리면 풀리는 약속 — 아래 아이템 적용은 기다리지 않는다(예전 순서 그대로)
+    if(def.deskCatalogId){ deskDrawn = deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
     else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod.swapDeskVisual(seat.desk,sc); deskPlaceMod.setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod.applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
-    else { await deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
-    // 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — 다 그린 뒤 줄을 다시 잡아야 바뀐 겉면으로 자리가 잡힌다(꾸미기 창 wardrobe.js 와 같은 까닭)
-    if(seats.includes(seat)) layoutSeats();
+    else { deskDrawn = deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
+    // 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — 다 그린 뒤 줄을 다시 잡아야 바뀐 겉면으로 자리가 잡힌다(꾸미기 창 wardrobe.js 와 같은 모양)
+    Promise.resolve(deskDrawn).catch(()=>{}).then(()=>{ if(seats.includes(seat)) layoutSeats(); });
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
     //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).

@@ -138,10 +138,17 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   /* 간격 0 = 겉면이 맞닿는다 */
   r = runLayout([{ isMe: true, hw: 0.85 }, { hw: 0.2 }, { hw: 0.85 }], { spacing: 0 });
   chk(J(r.xs) === J([0, -1.05, -2.1]), '간격 0 — 이웃 겉면이 맞닿는다(0 · -1.05 · -2.1) · 덧댄 여유 없음');
-  /* 좌석 간격 막대 범위(app.js) — 0 부터(겉면끼리 맞닿음) · 덧댄 음수 하한 없음 */
+  /* 저장된 간격 읽기(app.js _loadGap) — 진짜 함수를 돌려 본다: 하한 0(겉면 맞닿음 · 덧댄 음수 없음) · 옛 음수 저장값은 0 · 상한 넘으면 상한 · 없으면 기본 */
   {
-    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SRC);
-    chk(m && +m[1] === 0 && +m[2] > 0, '좌석 간격 막대 — 최소 0(맞닿음) · 최대 양수' + (m ? ' (' + m[1] + ' ~ ' + m[2] + ')' : ' — 못 찾음'));
+    const i = SRC.indexOf('const GAP_MIN'), j = SRC.indexOf('\n', SRC.indexOf('function _loadGap(', i));
+    const loadGapOf = (src) => { const a = src.indexOf('const GAP_MIN'), b = src.indexOf('\n', src.indexOf('function _loadGap(', a)); const store = {};
+      const f = new Function('localStorage', src.slice(a, b) + '\nreturn { _loadGap, GAP_MIN, GAP_MAX };')({ getItem: (k) => (k in store ? store[k] : null) });
+      return (v) => { if(v === undefined) delete store.k; else store.k = String(v); return f._loadGap('k', 0.3); }; };
+    const run = (src) => { try{ const L = loadGapOf(src); return [L(-0.3), L(-5), L(0.5), L(99), L(undefined)]; }catch(_){ return null; } };
+    const got = i >= 0 && j > i ? run(SRC) : null;
+    chk(got && J(got) === J([0, 0, 0.5, 1.2, 0.3]), '저장된 간격 읽기 — 옛 음수(-0.3 · -5)는 0(맞닿음) · 0.5 그대로 · 상한 넘으면 1.2 · 없으면 기본 0.3' + (got ? ' ' + J(got) : ' — 못 찾음'));
+    const neg = SRC.replace('const GAP_MIN = 0,', 'const GAP_MIN = -0.3,');
+    chk(neg !== SRC && J(run(neg)) !== J([0, 0, 0.5, 1.2, 0.3]), '  깨 보기 — 하한을 음수로 되돌리면 빨강');
   }
   /* 간격 종류 — 친구 좌석이 있으면 방용(설정 막대 · 평준화 가두기가 같은 함수를 부른다 · #749) */
   r = runLayout([{ isMe: true, hw: 1 }, { remote: true, hw: 1 }], {});

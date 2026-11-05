@@ -21,7 +21,7 @@ const near = (a, b, e) => Math.abs(a - b) < (e || 1e-4);
 function load(src){
   const win = {};
   new Function('window', 'module', src)(win, undefined);
-  return win.TwSeatExtent.createSeatExtent({ THREE });
+  return win.TwSeatExtent.createSeatExtent({ THREE, seatScale: (s) => s.eqK || 1 });   // 평준화 배율 — 가짜 좌석의 eqK
 }
 const box = (w, h, d, x) => { const m = new THREE.Mesh(new THREE.BoxGeometry(w, h || 0.1, d || 0.1), new THREE.MeshBasicMaterial()); if(x) m.position.x = x; return m; };
 /* 뼈대 메시 — 처음 저장된 자세는 팔 끝 점이 x = ±1(팔 벌림) · 몸 점은 ±0.2. 팔 뼈를 z 로 90° 돌리면 팔 끝이 위아래로 가서 가로 폭은 몸(0.2)만 남는다 */
@@ -86,6 +86,12 @@ s.rig.position.x = 4; s.rig.rotation.z = 1.2;
 e = E.measure(s);
 chk(near(e.left, 0.2, 1e-3) && near(e.right, 0.2, 1e-3), '날기 · 끌기(rig 옮김 · 기울임) 중에도 앉은 자리로 잰다');
 chk(s.rig.position.x === 4 && s.rig.rotation.z === 1.2, '  잰 뒤 rig 는 그대로 돌려놓는다');
+s.bodyWrap.scale.set(2.5, 0.6, 1); s.bodyWrap.rotation.z = 1;
+e = E.measure(s);
+chk(near(e.left, 0.2, 1e-3) && s.bodyWrap.scale.x === 2.5 && s.bodyWrap.rotation.z === 1, '숨쉬기 · 스쿼시 · 누움(몸 감싸개 크기 · 회전)도 쉬는 자세로 재고 돌려놓는다');
+s.eqK = 2; s.bodyWrap.scale.set(2, 2, 2); s.bodyWrap.rotation.z = 0;
+e = E.measure(s);
+chk(near(e.left, 0.4, 1e-3), '  쉬는 크기는 평준화 배율(2 → 몸 0.4)');
 
 say('── 3. 기억');
 E = load(MOD);
@@ -97,7 +103,12 @@ s.desk.scale.x = 2;
 const a2 = E.extentOf(s);
 chk(a2 !== a1 && near(a2.right, 4), '책상 크기가 바뀌면 다시 잰다');
 s.arm.rotation.z = 0.7;
-chk(E.extentOf(s) === a2, '  뼈대만 움직이면(타이핑 · 숨쉬기) 다시 안 잰다');
+chk(E.extentOf(s) === a2, '  뼈대만 움직이면(타이핑) 다시 안 잰다');
+s.bodyWrap.scale.set(1.03, 0.97, 1); s.bodyWrap.position.y = 0.05; s.bodyWrap.rotation.x = -1.5;
+chk(E.extentOf(s) === a2, '  몸 감싸개만 움직이면(숨쉬기 · 춤 · 누움) 다시 안 잰다');
+s.eqK = 1.5;
+const a2b = E.extentOf(s);
+chk(a2b !== a2, '  평준화 배율이 바뀌면 다시 잰다');
 s.gltfRoot.add(box(1));
 chk(E.extentOf(s) !== a2, '  메시가 늘면(파츠 · 책상 바뀜) 다시 잰다');
 const w = new THREE.Group(); w.name = '__partWrap_hat'; w.add(box(0.5)); s.gltfRoot.add(w);
@@ -122,6 +133,8 @@ function judge(src){
     q = seatOf({ armsOut: true }); q.desk.children[0].visible = false; q.arm.rotation.z = Math.PI / 2; r.push(near(X.measure(q).left, 0.2, 1e-3));
     q.rig.position.x = 4; q.rig.rotation.z = 1.2; const m = X.measure(q); r.push(near(m.left, 0.2, 1e-3) && q.rig.position.x === 4);
     q = seatOf(); const b1 = X.extentOf(q); q.desk.scale.x = 2; r.push(X.extentOf(q) !== b1);
+    q = seatOf({ armsOut: true }); q.desk.children[0].visible = false; q.arm.rotation.z = Math.PI / 2; q.bodyWrap.scale.set(2.5, 1, 1); r.push(near(X.measure(q).left, 0.2, 1e-3));
+    q = seatOf(); const b2 = X.extentOf(q); q.bodyWrap.scale.set(1.03, 0.97, 1); r.push(X.extentOf(q) === b2);
   }catch(_){ r.push(false); }
   return r.every(Boolean);
 }
@@ -132,7 +145,9 @@ const breaks = [
   ['책상 위 아이템 셈', m => m.replace('if(skipItems && _inDeskItems(o, root)) return;', '')],
   ['rig 안 되돌림', m => m.replace('if(rig){ rig.position.x = 0; rig.rotation.z = 0; }', '')],
   ['뼈대 되돌림 행렬 안 맞춤', m => m.replace('    g.updateMatrixWorld(true);', '    g.updateWorldMatrix(true, true);')],
-  ['열쇠에 책상 크기 빠짐', m => m.replace('[seat.desk, seat.bodyWrap, seat.gltfRoot].map(_tf)', '[seat.bodyWrap, seat.gltfRoot].map(_tf)')],
+  ['열쇠에 책상 크기 빠짐', m => m.replace('[seat.desk, seat.gltfRoot].map(_tf)', '[seat.gltfRoot].map(_tf)')],
+  ['열쇠에 몸 감싸개(매 프레임 바뀜)', m => m.replace('[seat.desk, seat.gltfRoot].map(_tf)', '[seat.desk, seat.bodyWrap, seat.gltfRoot].map(_tf)')],
+  ['몸 감싸개 안 되돌림', m => m.replace('if(bw){ const k = +seatScale(seat) || 1; bw.rotation.set(0, 0, 0); bw.scale.set(k, k, k); }', '')],
 ];
 for(const [name, f] of breaks){
   const m2 = f(MOD);
