@@ -111,8 +111,8 @@ let _emptyOrig = null;
 function renderEmptyState(){
   const em = document.getElementById('lcEmpty'); if(!em) return;
   const st = closetMod().state();
-  if(_emptyOrig === null) _emptyOrig = em.innerHTML;
-  if(st === 'ready'){ if(em.dataset.closet){ em.innerHTML = _emptyOrig; em.dataset.closet = ''; em.title = '이 칸에 캐릭터 만들기'; } return; }
+  if(_emptyOrig === null) _emptyOrig = Array.from(em.childNodes, n => n.cloneNode(true));   // 원래 마크업을 노드로 들고 있다가 그대로 되돌린다
+  if(st === 'ready'){ if(em.dataset.closet){ em.replaceChildren(..._emptyOrig.map(n => n.cloneNode(true))); em.dataset.closet = ''; em.title = '이 칸에 캐릭터 만들기'; } return; }
   em.dataset.closet = st;
   em.textContent = st === 'failed' ? '못 불러왔어요 — 눌러서 다시 시도' : '캐릭터를 불러오는 중…';
   em.title = em.textContent;

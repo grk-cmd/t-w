@@ -137,8 +137,8 @@ function gachaSeasonParts(){
   return savedParts().filter(p => isGachaPart(p) && (!p.season || p.season === season));
 }
 function gachaTicketsEarned(){ return _srvState ? _srvState.earned : 0; }
-function gachaTicketsLeft(){ return _srvState ? _srvState.left : 0; }
-function gachaBonusNow(){ return _srvState ? _srvState.bonus : 0; }
+function gachaTicketsLeft(){ return _srvState ? Number(_srvState.left) : 0; }
+function gachaBonusNow(){ return _srvState ? Number(_srvState.bonus) : 0; }
 
 /* 서버 상태를 그대로 받는다(갈아 끼움) — 이 PC 에만 있는 뽑기는 없다. */
 function _adoptServerState(st){
@@ -1175,7 +1175,7 @@ return {
   openGachaInv, closeGachaInv, runDraw: _gachaRunDraw, renderGachaDraw,
   state: {
     load: ()=>_gachaLoad, page: ()=>_gachaPage, tab: ()=>_gachaTab, cat: ()=>_gachaCat, season: ()=>_gachaSeason,
-    setOwned(v){ gachaOwned = v; }, setSelId(v){ _gachaSelId = v; },
+    setOwned(v){ gachaOwned = v; }, setUnlocked(v){ _gachaUnlocked = v; }, setSelId(v){ _gachaSelId = v; },
   },
 };
 }

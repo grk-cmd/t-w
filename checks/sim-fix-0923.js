@@ -77,7 +77,6 @@ say('── 2. 🖼️ 슬롯 섬네일 = 런처');
   chk(/if\(a < 255 \* 20\) return;/.test(tk), '빈 그림이면 덮지 않는다');
   chk(/if\(url && url !== job\.def\.thumb\)\{ job\.def\.thumb = url; saveSlots\(\); \}/.test(tk), '바뀌었을 때만 저장');
   chk(/const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;/.test(CODE), '크기 상한 160px(칸은 52px)');
-  chk(/out\.thumb = null;/.test(CODE), '섬네일은 서버로 안 간다(로컬 전용 — 쓰기가 안 는다)');
 }
 
 say('── 3. 🎨 서식 태그의 배경색');

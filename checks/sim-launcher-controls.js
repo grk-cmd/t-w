@@ -105,6 +105,9 @@ function fakeDom(absent){   // absent: 처음엔 없는(코드가 만들어 붙�
       classList: { add: (...c) => c.forEach(x => cls.add(x)), remove: (...c) => c.forEach(x => cls.delete(x)), contains: (c) => cls.has(c), toggle: (c, on) => { const v = on === undefined ? !cls.has(c) : !!on; v ? cls.add(c) : cls.delete(c); return v; } },
       addEventListener: (t, f) => { (ev[t] = ev[t] || []).push(f); }, removeEventListener: () => {},
       appendChild: (c) => { el.children.push(c); c.parentElement = el; if(c.id) els[c.id] = c; return c; },
+      get childNodes(){ return el.children; },
+      replaceChildren: (...n) => { el.children = n; el.textContent = n.map(c => c.textContent).join(''); },
+      cloneNode: () => Object.assign(mkEl(el.id, el.tagName), { textContent: el.textContent }),
       getContext: () => new Proxy({}, { get: () => () => {} }), querySelector: () => null, querySelectorAll: () => [],
       fire: (t, e) => { (ev[t] || []).forEach(f => f(Object.assign({ stopPropagation(){}, preventDefault(){}, currentTarget: el }, e || {}))); },
       click: () => { if(typeof el.onclick === 'function') el.onclick({ stopPropagation(){}, preventDefault(){}, currentTarget: el }); el.fire('click'); },
@@ -144,7 +147,7 @@ function rig(slotsInit, cur, extra, opt){
     closetMod: () => closet, racePickerMod: () => ({ openRacePicker: log('race') }),
     saveCurSlot: log('saveCur'), renderLauncher: log('render'), toast: log('toast'), openCreator: log('creator'), launchApp: log('launch') };
   const api = build(MOD, over, { document: D.document });
-  return { D, st, api, el: (id) => D.document.getElementById(id), n: (k) => st.calls.filter(c => c[0] === k).length, last: (k) => (st.calls.filter(c => c[0] === k).pop() || [])[1] };
+  return { D, st, api, mkEl: D.mkEl, el: (id) => D.document.getElementById(id), n: (k) => st.calls.filter(c => c[0] === k).length, last: (k) => (st.calls.filter(c => c[0] === k).pop() || [])[1] };
 }
 const tick = () => new Promise(r => setImmediate(r));
 (async () => {
@@ -174,7 +177,13 @@ const tick = () => new Promise(r => setImmediate(r));
     const fa = rig([null, null], 0, null, { state: 'failed' }); fa.api.renderEmptyState();
     chk(/못 불러왔어요/.test(fa.el('lcEmpty').textContent) && /다시 시도/.test(fa.el('lcEmpty').textContent), '  못 받았으면 «못 불러왔어요 — 눌러서 다시 시도» (빈 슬롯 «캐릭터 만들기» 와 다르다)');
     const ok = rig([null, null], 0); ok.api.renderEmptyState();
-    chk(!ok.el('lcEmpty').dataset.closet, '  받았으면 손대지 않는다(진짜 빈 슬롯)'); }
+    chk(!ok.el('lcEmpty').dataset.closet, '  받았으면 손대지 않는다(진짜 빈 슬롯)');
+    const bo = { state: 'loading' }; const back = rig([null, null], 0, null, bo);
+    const orig = back.mkEl('', 'span'); orig.textContent = '캐릭터 만들기'; back.el('lcEmpty').appendChild(orig);
+    back.api.renderEmptyState(); bo.state = 'ready'; back.api.renderEmptyState();
+    const em = back.el('lcEmpty');
+    chk(em.textContent === '캐릭터 만들기' && em.children.length === 1 && em.children[0].tagName === 'SPAN' && em.children[0] !== orig && !em.dataset.closet,
+      '  받는 중 → 받음 — 원래 마크업(노드)을 그대로 되돌린다(innerHTML 을 안 씀)'); }
   /* 삭제 — 되묻고 [네] 일 때만 당긴다 · 자리 추가 번호도 같이 당긴다 */
   { const r = rig(['a', 'b', 'c', 'd', null], 1, [1, 2, 3]);
     r.el('lcDelete').click();
