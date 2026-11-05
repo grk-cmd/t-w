@@ -796,6 +796,9 @@ for name, toks, want in (
         ('옵션 값 속 서버 경로는 안 봄', ['gh', 'api', '-f', 'x=repos/mihioon/t-w-server/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
         ('점 마디 꼬리는 앱 판정', ['gh', 'api', '-X', 'PUT', 'repos/mihioon/tw-docs/pulls/1/merge/../../../grk-cmd/t-w/pulls/5/merge'], None),
         ('표에 없는 저장소는 앱 판정', ['gh', 'api', '-X', 'PUT', 'repos/someone/else/pulls/5/merge'], None),
+        ('-p 값 미끼는 앱 판정', ['gh', 'api', '-p', 'repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
+        ('--preview 값 미끼(서버)는 앱 판정', ['gh', 'api', '--preview', 'repos/mihioon/t-w-server/pulls/169/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
+        ('모르는 옵션 값 미끼는 앱 판정', ['gh', 'api', '--zzz', 'repos/mihioon/tw-docs/pulls/1/merge', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
         ('gh pr merge 는 앱 판정', ['gh', 'pr', 'merge', '5'], None)):
     got = gate.other_repo_merge(toks)
     if got == want:

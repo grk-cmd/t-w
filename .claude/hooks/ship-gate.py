@@ -80,14 +80,14 @@ def gate_ok(pr):
 
 
 def other_repo_merge(toks):
-    """`gh api` 의 첫 위치 인자가 서버 · 문서 저장소의 `repos/주인/이름/pulls/N/merge` 그대로면 (저장소, 번호), 아니면 None(앱 저장소 판정으로)."""
+    """`gh api` 명령에 저장소 · PR 을 가리키는 낱말이 하나뿐이고 그것이 서버 · 문서 저장소의 `repos/주인/이름/pulls/N/merge` 그대로면
+    (저장소, 번호), 아니면 None(앱 저장소 판정으로). 옵션을 풀어 읽지 않는다 — 다른 낱말(옵션 값 포함)에 repos/ · pulls 가 또 있으면 None."""
     if toks[1:2] != ['api']:
         return None
-    takes = {'-X', '--method', '-f', '-F', '--field', '--raw-field', '-H', '--header', '--input', '-q', '--jq', '-t', '--template'}
-    j = 2
-    while j < len(toks) and toks[j].startswith('-'):
-        j += 2 if toks[j] in takes else 1
-    m = j < len(toks) and re.match(r'^/?repos/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/pulls/(\d+)/merge$', toks[j])
+    hits = [t for t in toks[2:] if re.search(r'repos/|pulls', t, re.I)]
+    if len(hits) != 1:
+        return None
+    m = re.match(r'^/?repos/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/pulls/(\d+)/merge$', hits[0])
     if m and m.group(1).lower() in GATED_REPOS + UNGATED_REPOS:
         return m.group(1).lower(), m.group(2)
     return None
