@@ -794,7 +794,17 @@ for name, got, want in (
         ('--repo= 읽기', gate.flag_repo_of(['gh', 'pr', 'merge', '--repo=' + SV, '5']), SV),
         ('origin https', gate.repo_of_url('https://github.com/mihioon/t-w-server.git'), SV),
         ('origin ssh', gate.repo_of_url('git@github.com:mihioon/t-w-server.git'), SV),
-        ('github 아님', gate.repo_of_url('https://example.com/x/y.git'), None)):
+        ('github 아님', gate.repo_of_url('https://example.com/x/y.git'), None),
+        ('자리표시자 {owner}/{repo} 는 앱(막는 쪽)', gate.gate_class(gate.merge_repo(['gh', 'api', '-X', 'PUT', 'repos/{owner}/{repo}/pulls/5/merge'], None, CWD)), 'app'),
+        ('대문자 저장소 이름도 앱', gate.gate_class(gate.merge_repo(['gh', 'api', 'repos/GRK-CMD/t-w/pulls/5/merge'], None, CWD)), 'app'),
+        ('-R URL 모양도 앱', gate.gate_class(gate.merge_repo(['gh', 'pr', 'merge', '5'], 'https://github.com/grk-cmd/t-w', CWD)), 'app'),
+        ('-R github.com/ 모양도 앱', gate.gate_class(gate.merge_repo(['gh', 'pr', 'merge', '5'], 'github.com/grk-cmd/t-w', CWD)), 'app'),
+        ('옵션 값 속 미끼 경로는 안 봄', gate.gate_class(gate.merge_repo(['gh', 'api', '-f', 'x=repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None, CWD)), 'app'),
+        ('GH_REPO= 읽기', gate.flag_repo_of(['GH_REPO=grk-cmd/t-w', 'gh', 'pr', 'merge', '5']), 'grk-cmd/t-w'),
+        ('PR URL 의 저장소', gate.gate_class(gate.merge_repo(['gh', 'pr', 'merge', 'https://github.com/grk-cmd/t-w/pull/5'], None, CWD)), 'app'),
+        ('모르는 저장소는 앱(막는 쪽)', gate.gate_class('someone/else'), 'app'),
+        ('문서 저장소는 가드 밖', gate.gate_class('MihiOon/TW-docs'), 'free'),
+        ('서버 저장소(대문자)', gate.gate_class('https://github.com/MIHIOON/t-w-server.git'), 'gated')):
     if got == want:
         ok += 1
     else:

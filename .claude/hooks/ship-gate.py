@@ -30,6 +30,7 @@ sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를
 
 REPO = 'grk-cmd/t-w'
 GATED_REPOS = ('mihioon/t-w-server',)   # 앱 밖에서 컨펌 · 검증 상태값을 받아야 머지하는 저장소(승인 · 판 규칙은 앱 저장소 몫)
+UNGATED_REPOS = ('mihioon/tw-docs',)    # 가드 밖(문서). 이 두 표에 없는 이름 · 모르는 이름은 앱 저장소로 본다(막는 쪽)
 PROTECTED = re.compile(r'^(main|release/.+)$')
 FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(main 으로 가는 PR 의 범위는 머지 때 risk.admin_outside 가 본다)
 GATES = ('tw/confirm', 'tw/verify')
@@ -77,29 +78,78 @@ def gate_ok(pr):
     return not missing, ', '.join(missing)
 
 
-def repo_of_url(url):
-    """git remote 주소 → '주인/이름' (github 이 아니면 None)"""
-    m = re.search(r'github\.com[:/]([^/\s]+)/([^/\s]+?)(?:\.git)?/?$', url or '')
+def norm_repo(v):
+    """저장소 값 → 소문자 '주인/이름' — URL · github.com/ 머리 · .git 꼬리를 뗀다. 모양이 아니면(자리표시자 {owner} 등) None."""
+    if not v:
+        return None
+    v = v.strip().lower()
+    v = re.sub(r'^(https?://|ssh://|git@)', '', v)
+    v = re.sub(r'^(www\.)?github\.com[:/]', '', v)
+    v = re.sub(r'(\.git)?/?$', '', v)
+    m = re.match(r'^([a-z0-9][a-z0-9-]*)/([a-z0-9._-]+)$', v)
     return m and f'{m.group(1)}/{m.group(2)}'
 
 
+def repo_of_url(url):
+    """git remote 주소 → '주인/이름' (github 이 아니면 None)"""
+    if not re.search(r'github\.com[:/]', url or ''):
+        return None
+    return norm_repo(url)
+
+
+def gate_class(repo):
+    """판정 갈래 — 'app' · 'gated' · 'free'. 모르는 이름은 앱(막는 쪽)."""
+    r = norm_repo(repo)
+    if r in GATED_REPOS:
+        return 'gated'
+    if r in UNGATED_REPOS:
+        return 'free'
+    return 'app'
+
+
+def api_path(toks):
+    """`gh api` 의 첫 위치 인자(경로) — 값을 받는 옵션 뒤 글은 건너뛴다(-f x=repos/… 미끼)."""
+    takes = {'-X', '--method', '-f', '-F', '--field', '--raw-field', '-H', '--header', '--input', '-q', '--jq', '-t', '--template',
+             '--hostname', '--cache', '-p', '--preview'}
+    j = 2
+    while j < len(toks):
+        t = toks[j]
+        if t in takes:
+            j += 2
+            continue
+        if t.startswith('-'):
+            j += 1
+            continue
+        return t
+    return ''
+
+
 def merge_repo(toks, flag_repo, cwd):
-    """머지하려는 PR 의 저장소 — api 경로 · -R 값 · 그 폴더 origin 차례. 모르면 앱 저장소로 본다(막는 쪽)."""
-    m = re.search(r'repos/([^/\s]+/[^/\s]+)/pulls/\d+/merge', ' '.join(toks))
-    if m:
-        return m.group(1)
+    """머지하려는 PR 의 저장소 — api 경로 · -R/GH_REPO 값 · PR URL · 그 폴더 origin 차례. 모르면 앱 저장소(막는 쪽)."""
+    if toks[1:2] == ['api']:
+        m = re.match(r'^/?repos/([^/]+/[^/]+)/pulls/\d+/merge', api_path(toks))
+        return (m and norm_repo(m.group(1))) or REPO
     if flag_repo:
-        return flag_repo
+        return norm_repo(flag_repo) or REPO
+    url = next((t for t in toks[3:] if '/pull/' in t), None)
+    if url:
+        m = re.search(r'github\.com/([^/]+/[^/]+)/pull/', url)
+        return (m and norm_repo(m.group(1))) or REPO
     return repo_of_url(run('git', 'remote', 'get-url', 'origin', cwd=cwd)) or REPO
 
 
 def flag_repo_of(toks):
-    """gh 명령의 -R / --repo 값(gh_norm 이 떼기 전에 읽는다)"""
+    """gh 명령의 -R / --repo 값, 없으면 앞에 붙은 GH_REPO= (gh_norm 이 떼기 전에 읽는다)"""
     for j, t in enumerate(toks):
         if t in ('-R', '--repo') and j + 1 < len(toks):
             return toks[j + 1]
         if t.startswith('--repo='):
             return t.split('=', 1)[1]
+    for t in toks:
+        if t.startswith('GH_REPO='):
+            return t.split('=', 1)[1]
+        if not re.match(r'^[A-Za-z_][A-Za-z0-9_]*=', t) and t not in ('env', 'command'):
+            break
     return None
 
 
@@ -111,13 +161,19 @@ def check_merge(toks, repo=REPO):
         if not pr:
             pr = run('gh', 'pr', 'view', '--json', 'number', '--jq', '.number')
     else:
-        m = re.search(r'/pulls/(\d+)/merge', joined)
+        m = re.search(r'/pulls/(\d+)/merge', api_path(toks))   # 첫 위치 인자(경로)에서만 — 옵션 값 속 미끼 경로를 집지 않게
         pr = m and m.group(1)
+    if toks[1:3] == ['pr', 'merge'] and not any(t.isdigit() for t in toks[3:]):
+        u = next((t for t in toks[3:] if '/pull/' in t), None)   # PR 을 URL 로 준 모양
+        m = u and re.search(r'/pull/(\d+)', u)
+        pr = (m and m.group(1)) or pr
     if not pr:
         deny('머지할 PR 번호를 알 수 없다 — `/ship` 으로 머지한다.')
-    if repo != REPO:
-        if repo not in GATED_REPOS:
-            return   # 문서 저장소 등 — 이 가드의 몫이 아니다
+    kind = gate_class(repo)
+    if kind == 'free':
+        return   # 문서 저장소 — 이 가드의 몫이 아니다
+    if kind == 'gated':
+        repo = norm_repo(repo)
         sha = run('gh', 'api', f'repos/{repo}/pulls/{pr}', '--jq', '.head.sha')
         if not sha:
             deny(f'{repo}#{pr} 머리 커밋을 읽지 못해 머지를 막았다 — 잠시 뒤 다시.')
