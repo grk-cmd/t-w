@@ -219,7 +219,7 @@ async function judge(S){
     chk(/TwNoticeFeed\.createNoticeFeed\(\{[\s\S]*?rt: TwRtHub\.store[\s\S]*?\}\);/.test(A) && !/createNoticeFeed\(\{[\s\S]*?store: accountStoreMod[\s\S]*?\}\);/.test(A), 'app.js — 서버 길과 realtime 알림을 넘겨 만든다(계정 칸 사본은 없다)');
     chk(/^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(A) && !/ notice: \(\)=>noticeFeed\.start\(\),/.test(A) && /function _showUpdateNoticeOnce/.test(A) && !/firebaseAPI\.getUpdateNotice/.test(A), 'app.js — 켤 때(계정 확인을 기다리지 않고) 받고 · 업데이트 공지 팝업은 공지 한 판에서(옛 getUpdateNotice 읽기가 없다)');
     chk(!/ notice: \(\)=>noticeFeed\.start\(\),/.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')) && !/^TwNetReady\.whenNetReady\(\(\)=>noticeFeed\.start\(\)\);$/m.test(A.replace('TwNetReady.whenNetReady(()=>noticeFeed.start());', '')), '  깨 보기 — 켤 때 받기를 빼면 빨강(로그인 전에 공지가 안 뜬다)');
-    chk(!/isViewing|_mailboxVisible|retryDelay/.test(A) && /noticeFeed\.onceReady\(_showUpdateNoticeOnce\)/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 안 넘기고 · 업데이트 공지 팝업은 onceReady 한 번');
+    chk(!/isViewing|_mailboxVisible|retryDelay/.test(A) && /noticeOnce: \(fn\)=>noticeFeed\.onceReady\(fn\)/.test(A) && /showNotice: \(n, done\)=>_showUpdateNoticeOnce\(n, done\)/.test(A), 'app.js — 보는 중 거르기 · 다시 받기 재료를 안 넘기고 · 업데이트 공지 팝업은 onceReady 한 번');
     const B = strip(S.BANNER);
     chk(/noticeFeed\.onChange\(/.test(B) && !/localStorage\.setItem\(AD_BANNER_KEY/.test(B) && !/subscribeAdBanner/.test(B), '배너 — 공지 한 판이 바뀔 때 그린다 · 이 PC 사본(localStorage)을 안 남긴다');
     const O = strip(S.OVER);

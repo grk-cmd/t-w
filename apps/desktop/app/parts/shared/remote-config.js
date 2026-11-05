@@ -6,7 +6,7 @@
      못 받으면 이 PC 저장값(CACHE_KEY · 마지막으로 받은 값) → 그것도 없으면 DEFAULTS. Firebase config 칸은 읽지 않는다(0.13 · 서버가 원본).
      ★ 최소 버전(minVersion)은 저장값을 쓰지 않는다 — 이번 실행에 받은 값으로만 막는다(못 받으면 막지 않는다).
      범위 밖 · 타입이 다른 값은 그 칸만 기본값. 범위는 서버 설정 키 표와 같다.
-   [언제] 켤 때 한 번 + REFRESH_MS 마다 · 창이 다시 보일 때(STALE_MS 넘었으면) · realtime 알림 config(rt-hub.js — 서버가 바꿨다고 알림 · 오래 끊겼다 붙음).
+   [언제] 켤 때 한 번 · 창이 다시 보일 때(STALE_MS 넘었으면) · realtime 알림 config(rt-hub.js — 서버가 바꿨다고 알림 · 오래 끊겼다 붙음). 주기 다시 읽기는 없다(0.13 — 바뀌면 서버가 알린다).
      방 입장 · 제보 전에는 STALE_MS 넘었을 때만(refresh({ maxAgeMs })). 같은 값이면 API 통로가 ETag 304 로 받는다(api-client.js).
    API 는 앱 공통 통로(api-client.js · window.TwApi.client — 시간 제한 · 봉투 · 실패 한 모양 · 죽었을 때 쉬기)로 부른다.
    classic script — api-client.js 다음 · app.js 보다 먼저 싣고(window.TwRemoteConfig), firebase-init.js(module)가 store.start 로 API 통로 · 알림을 잇는다. */
@@ -16,7 +16,6 @@
 const CONFIG_PATH = '/v1/config';
 const CACHE_KEY = 'tw.remoteConfig';
 const CACHE_VERSION = 2;                 // 저장값 모양 — 0.13(서버 묶음 모양). 옛 판(평평한 칸)이 남긴 저장값은 읽지 않는다
-const REFRESH_MS = 5 * 60 * 1000;
 const STALE_MS = 60 * 1000;
 
 const CHANNELS = ['workingroom', 'togetherroom'];
@@ -25,7 +24,7 @@ const MAX_PEOPLE_MIN = 2, MAX_PEOPLE_MAX = 50;
 const BUG_DAILY_MIN = 1, BUG_DAILY_MAX = 100;
 const CLAP_DAILY_MIN = 1, CLAP_DAILY_MAX = 100;
 const GIFT_DAILY_MIN = 1, GIFT_DAILY_MAX = 100;
-const VER_MAX = 20;                                     // 버전 문자열 길이 상한(app-version-gate.js MIN_APP_VER_MAX 와 같다)
+const VER_MAX = 20;                                     // 버전 문자열 길이 상한(update-flow.js VER_MAX 와 같다)
 /* 방 연결 시간(서버 room.timing 의 앱 쪽 칸) — 이름 → [최소, 최대, 기본]. 서버 설정 키 표 · room-server-net.js TIMING_DEFAULTS 와 같다. */
 const TIMING_RANGES = Object.freeze({
   joinWaitMs: Object.freeze([3000, 60000, 10000]),
@@ -106,7 +105,7 @@ function createRemoteConfig(){
   let answered = false;         // 첫 답(값이든 실패든)을 받았는가 — ready() 가 본다
   let src = 'default';          // 지금 값의 출처 — 'api' | 'cache' | 'default'
   let opts = null;              // start 가 받은 것 { api, storage, now, win, rt }
-  let lastTry = 0, inflight = null, timer = null;
+  let lastTry = 0, inflight = null;
   const listeners = [], waiters = [];
   const now = () => (opts && opts.now) ? opts.now() : Date.now();
   const warn = (...a) => { try{ console.warn('[원격 설정]', ...a); }catch(_){} };
@@ -170,7 +169,6 @@ function createRemoteConfig(){
     if(!opts.api) opts.api = null;
     loadCache();
     const p = refresh();
-    timer = setInterval(() => { refresh(); }, REFRESH_MS);
     const w = opts.win;
     const again = () => { refresh({ maxAgeMs: STALE_MS }); };
     try{
@@ -180,7 +178,6 @@ function createRemoteConfig(){
     if(opts.rt) opts.rt.on('config', () => { refresh(); });   // 서버가 바꿨다는 알림 · 오래 끊겼다 붙음 — 기다리지 않고 묻는다(304 면 그대로)
     return p;
   }
-  function stop(){ if(timer){ clearInterval(timer); timer = null; } }
 
   function onChange(fn){
     listeners.push(fn);
@@ -198,7 +195,7 @@ function createRemoteConfig(){
   }
   return {
     get: () => cur,
-    set, apply, start, stop, refresh, onChange, ready,
+    set, apply, start, refresh, onChange, ready,
     answered: () => answered,
     source: () => src,
     roomLimitOf: (ch) => cur.roomLimits[ch] || cur.roomLimits.workingroom,
@@ -214,7 +211,7 @@ function createRemoteConfig(){
   };
 }
 
-const api = { CONFIG_PATH, CACHE_KEY, CACHE_VERSION, REFRESH_MS, STALE_MS,
+const api = { CONFIG_PATH, CACHE_KEY, CACHE_VERSION, STALE_MS,
   KEYS, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
   CLAP_DAILY_MIN, CLAP_DAILY_MAX, GIFT_DAILY_MIN, GIFT_DAILY_MAX,
   cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanClapDailyMax, cleanGiftDailySendMax, cleanMinVersion, cleanTiming,
