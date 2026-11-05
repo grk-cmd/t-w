@@ -81,6 +81,7 @@
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-chat-history.js** | 244 | **9bbbfd7c28fc** |
+| **sim-chat-last-by-ts.js** | 84 | **175e88989b35** |
 | **sim-gamepad-activity.js** | 131 | **320f86854007** |
 | **sim-mallang-hide.js** | 124 | **86040d19c645** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
@@ -109,9 +110,9 @@
 | **sim-def-send.js** | 211 | **e16ae6963145** |
 | **sim-desk-floor-clamp.js** | 206 | **b59a0d2a44b2** |
 | **sim-desk-part-scale.js** | 83 | **8a0a59ffb09a** |
-| **sim-desk-preset.js** | 251 | **3ed07bb98346** |
+| **sim-desk-preset.js** | 255 | **5fc9adc1798a** |
 | **sim-json-store.js** | 209 | **05d6cff00a2f** |
-| **sim-desk-setup.js** | 229 | **c6aca6da921a** |
+| **sim-desk-setup.js** | 245 | **41a20643d835** |
 | sim-dom-boot.js | 83 | 927ab53ecc44 |
 | sim-exp-bar-color.js | 135 | 4142ee5559d6 |
 | **sim-face-loss.js** | 317 | **921e471b80b1** |
@@ -216,7 +217,7 @@
 | **sim-uv-fill.js** | 102 | **f4cb774248be** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** |
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
-| **sim-seat-slot.js** | 114 | **bf05469a5050** |
+| **sim-seat-slot.js** | 114 | **aea78fc86038** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
 | **sim-frame-budget.js** | 188 | **6a026ddad3c9** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
@@ -231,7 +232,7 @@
 | **sim-creator-state.js** | 105 | **4e0daf68f5c8** |
 | **sim-paint-stroke.js** | 194 | **d25ac9eb8388** |
 | **sim-creator-flow.js** | 196 | **24a3d06e5a4e** |
-| **sim-creator-save.js** | 226 | **2c8803488689** |
+| **sim-creator-save.js** | 230 | **ade3bb959cfc** |
 | **sim-commission-import.js** | 190 | **6c80a45a1abe** |
 | **sim-creator-preview.js** | 202 | **4fe93b90fa71** |
 | **sim-hover-poke.js** | 197 | **b059ea08e1e1** |
@@ -263,7 +264,7 @@
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
 | **sim-api-public-reads.js** | 189 | **20c9249609be** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 522 | **64a4ff6d3b5e** |
+| **sim-remote-config.js** | 522 | **afc466faf554** |
 | **sim-source-switch.js** | 177 | **9296d9c0d494** |
 | **sim-data-gateway.js** | 273 | **b1301dd1fb44** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
@@ -309,10 +310,10 @@
 | **sim-chat-ui.js** | 123 | **8cb619c64968** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
-| **sim-wardrobe.js** | 95 | **ee1777e686b8** |
+| **sim-wardrobe.js** | 158 | **e5a9a4132bcf** |
 | **sim-settings-panel.js** | 96 | **ca06fbe0742a** |
 | **sim-desktop-run.js** | 94 | **742b11531096** |
-| **sim-room-entry.js** | 124 | **1b81565769d1** |
+| **sim-room-entry.js** | 184 | **7cbc599f4032** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **a352bc22d8ac** |
 | **sim-status-chip.js** | 102 | **a2671ab087a1** |
@@ -393,17 +394,17 @@
 | **sim-bgm-diag.js** | 297 | **edb0457c9236** |
 | **sim-mobile-diag.js** | 147 | **5fbdf8d713ab** |
 | **sim-blink-timing.js** | 112 | **624e0321ea28** |
-| **sim-desk-visual.js** | 214 | **2428c62e17b8** |
+| **sim-desk-visual.js** | 242 | **ad22ac4f318d** |
 | **sim-desk-place.js** | 187 | **2de2d6fa296b** |
 | **sim-toast.js** | 174 | **25bd36f5c6a5** |
 | **sim-dot-render.js** | 223 | **ed34e53f22dd** |
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** |
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
-| **sim-seat-layout.js** | 191 | **642f582b8ae0** |
+| **sim-seat-layout.js** | 325 | **6c7399f5a30d** |
 | **sim-seat-refit.js** | 182 | **864d3b36827b** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
-| **sim-seat-eq-clamp.js** | 159 | **7ee3787c0a8c** |
+| **sim-seat-eq-clamp.js** | 162 | **cfd9c27f1fd8** |
 | **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |
 | **sim-ride-measure.js** | 188 | **83e35751526e** |
 | **sim-ride-tuning.js** | 124 | **6889f9df66be** |
@@ -433,6 +434,8 @@
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-gift-save.js** | 137 | **f7be455180d5** |
 | **sim-front-diag.js** | 115 | **2585d0146d44** |
+| **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |
+| **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 

@@ -1039,7 +1039,14 @@ function startRoomCountWatch(){
 }
 
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다. */
+/* 카드를 빨리 두 번 누르면 방 개수 조회를 기다리는 사이 두 번째가 들어와 방 코드가 둘 생기고 입장이 두 번 돈다.
+   [참여] 와 같은 가드(_joiningRoom)를 입장이 끝날 때까지 쥔다. */
 async function doCreateRoomInChannel(channel){
+  if(_joiningRoom) return;
+  _joiningRoom = true;
+  try{ await _createRoomInChannel(channel); } finally{ _joiningRoom = false; }
+}
+async function _createRoomInChannel(channel){
   channel = channel || 'workingroom';
   const limit = roomLimitOf(channel);
   // 해당 채널의 현재 방 개수만 확인(참여는 방 개수가 안 늘어나므로 만들 때만 검사)
@@ -1055,7 +1062,7 @@ async function doCreateRoomInChannel(channel){
   const _randEl = document.getElementById('chRandOpen');
   window._pendingRoomOpen = (channel === 'workingroom') && !!(_randEl && _randEl.checked);
   const c=genRoomCode(channel);   // 🏷️ #9 — 채널대로 WORK-/PLAY-
-  startRoom(c);
+  await startRoom(c);
 }
 /* 🎲 랜덤 참여 — 코드 없이 '참여'를 누르면 여기로 온다.
    인덱스는 최대 90초 낡을 수 있어 후보가 이미 꽉 찼거나 사라졌을 수 있다 — 순서대로 확인하며 넘어간다.
@@ -1202,9 +1209,8 @@ async function _refreshChannelPickUI(){
    같은 4자리를 쓰는 두 방이 공존할 때 한쪽이 가려진다. 별표는 입력에 명시적으로 담기므로
    COZY-1234와 SCRT-1234가 아무 문제 없이 공존한다(추가 조회도 필요 없다).
    허용 문자는 영숫자 + 맨 뒤 별표 하나뿐 — 나머지 특수문자는 _setupRoomCodeInput이 지운다. */
-/* ★ 중복 입장 방지 — 빈 코드일 때 타는 랜덤 참여(doJoinRandomRoom)가 방 목록·정원을 조회하느라
-   몇백 ms 걸린다. 그 사이 [참여]를 두 번 누르면 입장이 두 번 돈다.
-   (코드를 직접 넣는 경로는 이제 조회 없이 즉시 startRoom 이라 이 가드에 걸릴 일이 없다.) */
+/* ★ 중복 입장 방지 — 랜덤 참여(doJoinRandomRoom)는 방 목록·정원을, 방 만들기는 방 개수를 조회하느라 몇백 ms 걸린다.
+   그 사이 두 번 누르면 입장이 두 번 돈다. [참여] 는 조회 동안, 방 만들기(doCreateRoomInChannel)는 입장이 끝날 때까지 쥔다. */
 let _joiningRoom = false;
 /* 🏷️ [2026-10-02 #9] 4자리 + 고른 접두어(WORK-/PLAY-)로 갈 방을 정한다.
    ★ WORK-1234 와 PLAY-1234 는 **서로 다른 방으로 공존한다.** 어느 쪽인지는 입력칸 앞 라벨을 눌러 사람이

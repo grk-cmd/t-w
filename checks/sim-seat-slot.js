@@ -3,7 +3,7 @@
    ・1절: clampShift 표 — 안쪽 · 왼쪽 넘침 · 오른쪽 넘침 · 자리보다 넓음(가운데) · 잘못된 값
    ・2절: clampParts 를 실제 three 로 — 배율 있는 부모 사슬(책상 그룹 · 앵커 · 핀) · 끄면 되돌림 ·
           밖에서 자리를 다시 잡으면(applyPartXf) 민 값을 두 번 빼지 않음 · 여러 번 돌려도 그대로
-   ・3절: 가두기 동작 — 진짜 _clampSeatDeskParts 를 가짜 좌석 위에서: 평준화일 때만 · 자리 = 책상이 뻗은 거리 + 여백 절반 · 올라탄 좌석 제외 · 띄엄띄엄 · 저장값 안 건드림 · 프레임 루프 배선
+   ・3절: 가두기 동작 — 진짜 _clampSeatDeskParts 를 가짜 좌석 위에서: 평준화일 때만 · 자리 = 좌석 반폭(seatHalfWidth) + 여백 절반 · 올라탄 좌석 제외 · 띄엄띄엄 · 저장값 안 건드림 · 프레임 루프 배선
    ・4절: html 로드
    ⚠️ 실제 좌석은 2026-10-08 헤드리스 크로미움에서 확인했다(넓은 파츠 -4~-2 → 평준화 켜면 자리 안 · 끄면 -4~-2 로 복귀).
    [실행] seat-slot.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. three 는 vendor/three/three.min.js. */
@@ -79,7 +79,7 @@ const EVERY = +(/SEAT_SLOT_EVERY_MS\s*=\s*(\d+)/.exec(A) || [])[1];
 const CL = (o) => {
   const calls = [], touched = [];
   const spy = { clampParts: (parts, x, half, on) => calls.push({ ids: parts.map(p => p.id).join(), x, half, on }) };
-  const run = new Function('seats', 'seatSlot', 'seatEqualizeOn', 'seatDeskHalfWidth', 'SPACING', 'MULTIPLAYER_SPACING', 'DESK_PART_ANCHOR_NAME', 'SEAT_SLOT_EVERY_MS',
+  const run = new Function('seats', 'seatSlot', 'seatEqualizeOn', 'seatHalfWidth', 'SPACING', 'MULTIPLAYER_SPACING', 'DESK_PART_ANCHOR_NAME', 'SEAT_SLOT_EVERY_MS',
     'performance', 'console', 'saveSlots', 'setPartEntryInstanceXf',
     'let _seatSlotNext = 0;\n' + grab(APP, '_clampSeatDeskParts') + '\nreturn _clampSeatDeskParts;')(
     o.seats, o.noSlot ? null : spy, !!o.eq, (s) => s.half, 2, 3, PIN, EVERY,
@@ -92,7 +92,7 @@ const seat = (o) => { const pin = { name: PIN, children: o.kids || [{ id: 'p1', 
 let R = CL({ eq: true, seats: [seat({ x: 4, half: 1.5 }), seat({ ridingOn: {} }), seat({ hidden: true }), seat({ kids: [] })] });
 R.run(1000);
 chk(R.calls.length === 3 && R.calls[0].ids === 'p1' && R.calls[0].on === true && R.calls[1].on === false && R.calls[2].on === false, '평준화일 때만 · 올라탄 좌석 · 책상 숨은 좌석은 제외(끈 채로 넘겨 되돌린다) · 파츠 없는 좌석은 건너뜀 · wrapper 만 넘긴다');
-chk(R.calls[0].x === 4 && R.calls[0].half === 1.5 + 2 / 2 && R.calls[1].half === 0, '자리 = 좌석 x · 책상이 뻗은 거리 + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반');
+chk(R.calls[0].x === 4 && R.calls[0].half === 1.5 + 2 / 2 && R.calls[1].half === 0, '자리 = 좌석 x · 좌석 반폭(seatHalfWidth — 줄 배치와 같은 규칙) + 좌석 사이 여백(layoutSeats 와 같은 값)의 절반');
 R = CL({ eq: true, seats: [seat({}), seat({ remote: true })] });
 R.run(1000);
 chk(R.calls[0].half === 1 + 3 / 2, '  친구가 있으면 멀티 간격으로');

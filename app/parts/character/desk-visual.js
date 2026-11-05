@@ -1,7 +1,7 @@
 /* desk-visual.js — 🪑 책상 모양 — 커스텀 · 카탈로그 책상 GLB 로 바꿔 끼기 · 색 · 좌석 책상 그리기
    책임: 책상 그룹(deskGroup)의 «모양» 만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼우며(swapDeskVisual — 톤 · _col 색 메쉬 · 애니메이션 재생 모드), 바닥 · 가운데 맞춤(normalizeDeskObj), _col 색(applyDeskColorToCustom), 좌석 def 의 카탈로그 책상을 찾아 그리기(applyDeskCatalogRefToSeat — 라이선스 전용은 내 좌석에서만 막는다).
    받는 deps: 저장 책상(commissionMod) · GLB 풀기(assetCodeMod · b64ToBuf) · 톤(_applyItemMatTone · _setDeskMatColor) · 재생 목록(activeItemMixers · _idleItemPivots) · 크기(setDeskScale) · 라이선스(isPremium · isAdmin · toast) · DEFAULT_DESK_OVERRIDE_ID.
-   내보내는 것: swapDeskVisual · applyDeskColorToCustom · applyDeskCatalogRefToSeat(normalizeDeskObj 는 안에서만).
+   내보내는 것: swapDeskVisual · applyDeskColorToCustom · applyDeskCatalogRefToSeat · hideDeskBody(🚫 책상 없음 — deskCatalogId 가 NO_DESK_ID)(normalizeDeskObj 는 안에서만).
    app.js «🔄 카탈로그 실시간 동기화» 사이의 applyDeskCatalogRefToSeat 와 «🪑 책상 · 아이템 등록 · 책상 모양 바꾸기 · 크기» 구역 가운데(모양 몫)를 그대로 옮겼다(구역 떼기 C · w2). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 1줄 —
      isAdmin · isPremium 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
@@ -15,6 +15,7 @@
 
 function createDeskVisual(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
+const NO_DESK_ID = deps.NO_DESK_ID;   // «책상 없음» 예약 id — 옛 앱은 모르는 책상으로 보고 기본 책상을 그린다
 const _applyItemMatTone = deps._applyItemMatTone;
 const _idleItemPivots = deps._idleItemPivots;
 const _setDeskMatColor = deps._setDeskMatColor;
@@ -29,6 +30,11 @@ const toast = deps.toast;
 // 좌석의 charDef.deskCatalogId를 보고 지금 카탈로그에 있는 최신 GLB로 책상을 그려줌(없으면 기본 책상)
 async function applyDeskCatalogRefToSeat(seat, def){
   if(!seat || !seat.desk) return;
+  if(def.deskCatalogId===NO_DESK_ID){
+    hideDeskBody(seat.desk);
+    setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1);   // 책상 위 아이템 자리는 크기를 따른다
+    return;
+  }
   const rec = commissionMod.savedDesks().find(d=>d.id===def.deskCatalogId);
   if(!rec){
     swapDeskVisual(seat.desk,null);
@@ -64,6 +70,7 @@ function normalizeDeskObj(obj){ obj.scale.set(1,1,1); obj.position.set(0,0,0); o
   obj.position.y+=(0-box.min.y) + DESK_LIFT_Y; 
   return obj; }
 function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode){ if(!deskGroup)return;
+  deskGroup.userData.noDesk=false;
   const prev=deskGroup.getObjectByName('customDesk'); if(prev)deskGroup.remove(prev);
   // 이전 책상에 애니메이션 mixer가 있었으면 해제
   if(deskGroup.userData.deskMixer){ activeItemMixers.delete(deskGroup.userData.deskMixer); deskGroup.userData.deskMixer=null; }
@@ -110,6 +117,12 @@ function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode
       }
     }
   } else { deskGroup.userData.customMats=null; defaults.forEach(m=>m.visible=true); } }
+/* 🚫 책상 없음 — 책상 몸만 숨기고 책상 위 아이템(deskAnchor)은 그대로 둔다. 좌석 간격은 userData.noDesk 를 보고 몸 폭으로 잡는다(seat-layout.js). */
+function hideDeskBody(deskGroup){ if(!deskGroup) return;
+  swapDeskVisual(deskGroup,null);
+  deskGroup.children.forEach(ch=>{ if(ch.name!=='deskAnchor') ch.visible=false; });
+  deskGroup.userData.noDesk=true;
+}
 function applyDeskColorToCustom(deskGroup,color){ const mats=deskGroup&&deskGroup.userData&&deskGroup.userData.customMats;
   // ⚠️ color.set 만 하면 emissive 가 옛 색으로 남아 밝고 뿌옇게 나온다 — _setDeskMatColor 주석 참고.
   if(mats)mats.forEach(m=>_setDeskMatColor(m, color)); }
@@ -117,6 +130,7 @@ function applyDeskColorToCustom(deskGroup,color){ const mats=deskGroup&&deskGrou
 return {
   applyDeskCatalogRefToSeat,
   applyDeskColorToCustom,
+  hideDeskBody,
   swapDeskVisual,
 };
 }
