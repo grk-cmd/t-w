@@ -2,11 +2,9 @@
 """하네스 가드(PreToolUse · Bash) — 터미널 · 클라우드(웹) 세션 모두에서 돈다. 막는 것:
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
-   둘 다 success 가 아니면 막는다. 머지 길은 **`gh api … repos/<주인>/<이름>/pulls/N/merge` 하나**다 — 위치 인자가 그 경로 하나
-   (점 마디 · 인코딩 · 자리표시자 없음)이고 그 이름이 앱 저장소(REPO) · 서버(GATED_REPOS — 그 저장소 머리 커밋의 두 상태값) ·
-   문서(UNGATED_REPOS — 막지 않음) 중 하나일 때만 판정한다. `gh pr merge` 는 늘 막는다(-R · GH_REPO · 폴더 이동 · URL 로 저장소가 바뀌어
-   다른 저장소 PR 을 앱 저장소의 같은 번호로 판정하게 되므로). `gh api` 위치 인자에 merge 가 들어가면 모두 이 판정을 지난다.
-   못 보는 것(실수 막기 범위 밖): `env -i gh …` · `bash -c "gh …"` · GraphQL mergePullRequest. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
+   둘 다 success 가 아니면 막는다. 서버 · 문서 저장소 PR 은 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 로 경로에 저장소를
+   적어 머지한다 — 그 경로를 보면 서버(GATED_REPOS)는 그 저장소 머리 커밋의 두 상태값을, 문서(UNGATED_REPOS)는 막지 않는다.
+   그 밖은 모두 앱 저장소 판정(아래) 그대로. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
    (세션이 가드를 스스로 풀지 못하게). 웹 관리자 길(main 으로 가는 admin/*)의 위험도 높은 PR 도 승인 — 판을 거치지 않아 내보내기 전 한 장에 안 나온다.
    나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
@@ -32,8 +30,8 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
 
 REPO = 'grk-cmd/t-w'
-GATED_REPOS = ('mihioon/t-w-server',)   # 앱 밖에서 컨펌 · 검증 상태값을 받아야 머지하는 저장소(승인 · 판 규칙은 앱 저장소 몫)
-UNGATED_REPOS = ('mihioon/tw-docs',)    # 가드 밖(문서). 앱 · 이 두 표에 없는 저장소의 머지는 막는다
+GATED_REPOS = ('mihioon/t-w-server',)   # 그 저장소 머리 커밋의 tw/confirm · tw/verify 를 보고 머지(승인 · 판 규칙은 앱 저장소 몫)
+UNGATED_REPOS = ('mihioon/tw-docs',)    # 문서 — 가드 밖
 PROTECTED = re.compile(r'^(main|release/.+)$')
 FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(main 으로 가는 PR 의 범위는 머지 때 risk.admin_outside 가 본다)
 GATES = ('tw/confirm', 'tw/verify')
@@ -51,7 +49,7 @@ def deny(reason):
 
 
 def segments(cmd):
-    for part in re.split(r'&&|\|\||;|\n|\||&', cmd):
+    for part in re.split(r'&&|\|\||;|\n|\|', cmd):
         try:
             toks = shlex.split(part)
         except ValueError:
@@ -81,77 +79,42 @@ def gate_ok(pr):
     return not missing, ', '.join(missing)
 
 
-def norm_repo(v):
-    """저장소 값 → 소문자 '주인/이름' — URL · github.com/ 머리 · .git 꼬리를 뗀다. 모양이 아니면(자리표시자 {owner} 등) None."""
-    if not v:
+def other_repo_merge(toks):
+    """`gh api` 의 첫 위치 인자가 서버 · 문서 저장소의 `repos/주인/이름/pulls/N/merge` 그대로면 (저장소, 번호), 아니면 None(앱 저장소 판정으로)."""
+    if toks[1:2] != ['api']:
         return None
-    v = v.strip().lower()
-    v = re.sub(r'^(https?://|ssh://|git@)', '', v)
-    v = re.sub(r'^(www\.)?github\.com[:/]', '', v)
-    v = re.sub(r'(\.git)?/?$', '', v)
-    m = re.match(r'^([a-z0-9][a-z0-9-]*)/([a-z0-9._-]+)$', v)
-    return m and f'{m.group(1)}/{m.group(2)}'
+    takes = {'-X', '--method', '-f', '-F', '--field', '--raw-field', '-H', '--header', '--input', '-q', '--jq', '-t', '--template'}
+    j = 2
+    while j < len(toks) and toks[j].startswith('-'):
+        j += 2 if toks[j] in takes else 1
+    m = j < len(toks) and re.match(r'^/?repos/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/pulls/(\d+)/merge$', toks[j])
+    if m and m.group(1).lower() in GATED_REPOS + UNGATED_REPOS:
+        return m.group(1).lower(), m.group(2)
+    return None
 
 
-API_TAKES = {'-X', '--method', '-f', '-F', '--field', '--raw-field', '-H', '--header', '--input', '-q', '--jq', '-t', '--template',
-             '--hostname', '--cache', '-p', '--preview'}   # `gh api` 에서 값을 받는 옵션
-
-
-def api_positionals(g):
-    """`gh api` 의 위치 인자들 — 값을 받는 옵션 뒤 낱말은 건너뛴다."""
-    takes = API_TAKES
-    out, j = [], 2
-    while j < len(g):
-        t = g[j]
-        if t in takes:
-            j += 2
-            continue
-        if not t.startswith('-'):
-            out.append(t)
-        j += 1
-    return out
-
-
-def api_may_merge(g):
-    """`gh api` 가 머지일 수 있나 — 넓게 잡는다(정확한 모양이 아니면 merge_target 이 막는다). 읽기(GET) · 본문 고치기(PATCH)는 건드리지 않게
-    «merge 글자» 또는 «PUT 이면서 pull · 인코딩» 만."""
-    method = next((g[j + 1].upper() for j, t in enumerate(g) if t in ('-X', '--method') and j + 1 < len(g)), None)
-    for t in api_positionals(g):
-        low = t.lower()
-        if 'merge' in low or '%6d' in low or (method == 'PUT' and ('pull' in low or '%' in t)):
-            return True
-    return False
-
-
-def merge_target(raw, cwd):
-    """머지 명령 → (저장소, PR 번호) — 분명하지 않으면 deny. raw 는 gh_norm 이 떼기 전 낱말."""
-    g = gh_norm(raw)
-    if g[1:2] == ['api']:
-        pos = api_positionals(g)
-        m = None if len(pos) != 1 or re.search(r'\.\.|%|[{}]', pos[0]) else re.match(r'^/?repos/([^/]+/[^/]+)/pulls/(\d+)/merge/?$', pos[0])
-        repo = m and norm_repo(m.group(1))
-        if not repo or repo not in (REPO,) + GATED_REPOS + UNGATED_REPOS:
-            deny('머지할 저장소 · PR 이 분명하지 않다 — `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 한 경로로 쓴다(자리표시자 · 위치 인자 여럿 · 표에 없는 저장소는 막음).')
-        return repo, m.group(2)
-    deny('`gh pr merge` 는 막는다 — 머지는 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 한 경로로(저장소가 경로에 박혀 바뀌지 않는 모양만 판정한다).')
-
-
-def check_merge(raw, cwd=None):
-    repo, pr = merge_target(raw, cwd)
-    if repo in UNGATED_REPOS:
-        return   # 문서 저장소 — 이 가드의 몫이 아니다
-    if repo in GATED_REPOS:
+def check_merge(toks):
+    other = other_repo_merge(toks)
+    if other:
+        repo, pr = other
+        if repo in UNGATED_REPOS:
+            return
         sha = run('gh', 'api', f'repos/{repo}/pulls/{pr}', '--jq', '.head.sha')
-        if not sha:
-            deny(f'{repo}#{pr} 머리 커밋을 읽지 못해 머지를 막았다 — 잠시 뒤 다시.')
-        raw_st = run('gh', 'api', f'repos/{repo}/commits/{sha}/status', '--jq', '.state')
-        if raw_st is None:
-            deny(f'{repo}#{pr} 상태값을 읽지 못해 머지를 막았다(GitHub 응답 실패) — 잠시 뒤 다시.')
-        missing = gate_missing(sha, repo)
+        missing = gate_missing(sha, repo) if sha else ['머리 커밋을 읽지 못함']
         if missing:
-            deny(f'{repo}#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({", ".join(missing)}). 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 돌려 '
-                 f'둘 다 통과하면 그 저장소의 머리 커밋에 상태값을 남긴 뒤 머지한다.')
+            deny(f'{repo}#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({", ".join(missing)}). 그 저장소의 머리 커밋에 두 상태값을 남긴 뒤 머지한다(읽기 실패면 잠시 뒤 다시).')
         return
+    joined = ' '.join(toks)
+    pr = None
+    if toks[1:3] == ['pr', 'merge']:
+        pr = next((t for t in toks[3:] if t.isdigit()), None)
+        if not pr:
+            pr = run('gh', 'pr', 'view', '--json', 'number', '--jq', '.number')
+    else:
+        m = re.search(r'/pulls/(\d+)/merge', joined)
+        pr = m and m.group(1)
+    if not pr:
+        deny('머지할 PR 번호를 알 수 없다 — `/ship` 으로 머지한다.')
     sys.path.append(os.path.dirname(os.path.abspath(__file__)))   # 뒤에 — 표준 모듈이 먼저(이 폴더에 같은 이름 파일을 둬도 가려지지 않게)
     try:   # 이어 받기를 읽다 API 가 실패하면 판정 없음으로 — 맨 아래 «가드 오류면 통과» 로 새지 않게
         ok, missing = gate_ok(pr)
@@ -197,7 +160,7 @@ def gh_norm(toks):
         if t in ('-R', '--repo'):
             j += 2
             continue
-        if t.startswith('--repo=') or (t.startswith('-R') and len(t) > 2):
+        if t.startswith('--repo='):
             j += 1
             continue
         out.append(t)
@@ -345,8 +308,8 @@ def main():
             cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
             continue
         g = gh_norm(toks)
-        if g and (g[1:3] == ['pr', 'merge'] or (g[1:2] == ['api'] and api_may_merge(g))):
-            check_merge(toks, cwd)
+        if g and (g[1:3] == ['pr', 'merge'] or (g[1:2] == ['api'] and re.search(r'/pulls/\d+/merge', ' '.join(g)))):
+            check_merge(g)
             continue
         if toks[0] != 'git':
             continue

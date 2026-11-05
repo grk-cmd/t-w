@@ -11,7 +11,7 @@ description: 작업 끝내기 — PR 을 올리고 컨펌자(tw-confirmer) · �
 **사용자가 `/ship` 을 다시 치게 하지 않는다** — 사용자 몫은 승인 명령 한 줄뿐이고, 승인 · CI 는 세션이 뒤에서 기다렸다가(`risk.py --wait`) 머지까지 이어 간다. 승인 · 판정 뒤 판 브랜치를 합치기만 한 머리는 앞 커밋의 승인 · 판정을 이어 받는다(가드가 «PR 자체 변경이 같은가» 를 본다 — 다시 묻지 않는다).
 
 **클라우드 세션에서는 `gh pr …` 이 막혀 있다(GraphQL). 모든 GitHub 일은 `gh api`(REST)로 한다.** 아래 `R=repos/grk-cmd/t-w`.
-서버 저장소(`mihioon/t-w-server`) PR 도 같은 흐름이다 — `R=repos/mihioon/t-w-server`, 두 상태값은 **그 저장소의 머리 커밋**에 남기고, 판 · 승인 · 위험도 규칙은 앱 저장소 몫이라 건너뛴다. 문서 저장소(tw-docs)는 가드 밖. **머지는 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 모양으로만**(앱 · 서버 · 문서 모두) — `gh pr merge` 는 가드가 늘 막는다.
+서버 저장소(`mihioon/t-w-server`) PR 도 같은 흐름이다 — 두 상태값은 그 저장소의 머리 커밋에 남기고(`gh api repos/mihioon/t-w-server/statuses/<SHA> …`), 머지는 `gh api -X PUT repos/mihioon/t-w-server/pulls/<번호>/merge …` 처럼 **경로에 저장소를 적어** 한다(가드가 그 경로를 보고 그 저장소 상태값을 본다). 판 · 승인 · 위험도 규칙은 앱 저장소 몫이라 건너뛴다. 문서 저장소(`mihioon/tw-docs`) 머지는 가드 밖.
 
 ## 0. 확인
 - 판: 이 작업이 어느 버전에 나가는지 정해져 있어야 한다(브랜치를 딸 때 사용자에게 물었다). base = `release/X.Y.Z`. 모르면 **묻고 멈춘다**. 긴급 수정 `hotfix/*` · 하네스 `harness/*` · 웹 관리자만 바꾸는 `admin/*`(판을 묻지 않음 · main 으로 가는 PR 이 `web-admin/` 밖을 바꾸면 가드가 머지를 막는다) 만 base = `main`.
