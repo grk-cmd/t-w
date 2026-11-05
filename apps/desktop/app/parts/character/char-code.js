@@ -14,7 +14,6 @@
 function createCharCode(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
 const applyCharToSeat = deps.applyCharToSeat;
-const charsMod = deps.charsMod;
 const closeGearMenu = deps.closeGearMenu;
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
@@ -134,9 +133,7 @@ async function importCloneCode(v, p, forceSlot){
   const _forced = (typeof forceSlot==='number' && forceSlot>=0 && forceSlot<CHAR_SLOT_MAX && !slots[forceSlot]) ? forceSlot : null;
   const target = (_forced!=null) ? _forced : (slots[curSlot()]?slots.findIndex(s=>!s):curSlot());
   if(target<0){toast('캐릭터가 모두 찼습니다');return false;}
-  if(typeof charsMod._charsBoxFull==='function' && charsMod._charsBoxFull()) return false;   // 🧬 보관함 20 문턱
   slots[target]=def;setCurSlot(target);
-  try{ if(typeof charsMod._charsOnNew==='function') charsMod._charsOnNew(target); }catch(_){}
   /* 🪑 [제보 2] 공유 코드에 실려 온 전용 책상·아이템을 **저장 전에** 접는다. 받는 쪽(decryptCode)에는
      라이선스 검사가 없어서 deskCatalogId·deskItems 가 그대로 들어온다 — 친구에게 코드를 받은
      미보유자가 전용 책상을 «착용한 것으로 전파되던» 가장 유력한 경로였다.

@@ -1,15 +1,14 @@
-/* slot-save.js — 💾 슬롯 저장 · 복원(localStorage)
-   app.js «💾 슬롯 저장 · 복원(localStorage)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 43번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 4줄 —
-     _blankFaceConfirmed 를 이름() 으로 읽는다(app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setBlankFaceConfirmed(…).
+/* slot-save.js — 💾 슬롯 저장 · 받아 앉히기 (검사 sim-slot-save.js)
+   서버가 원본이다(0.13) — 이 PC 에 캐릭터 저장본(localStorage)을 두지 않는다. 서버에서 받은 칸을 화면 캐릭터로 앉히고(applySlotObjs),
+   saveSlots 가 불릴 때마다 «지금 화면 → 저장 모양» 으로 직렬화해 달라진 것을 알린다(onSaved) — 서버에 쓰는 것은 closet.js 몫이다.
+   ★ 직전 직렬화 결과(_lastOut)는 이 모듈 메모리에만 있다. 빈 그림 방어(실행 중에 캔버스가 비면 그 필드만 직전 값으로) · 이미지 복원에 실패한 칸(_imgBroken)은
+     저장에서 제외하는 방어가 이것을 기준으로 한다 — 서버에 빈 그림이 굳지 않게.
    ★ 저장 · 복원 뒤 할 일은 위층(동기화 · 보관함 · 꾸미기 · 프리미엄 · 설정 화면)을 직접 부르지 않고 알림으로 내보낸다(모듈 순환 끊기 3) —
      onSaved(fn(out, changed)) · onLoaded(fn) · onSeatRelinked(fn(old, cur)) · onSlotsReplaced(fn) 에 위층이 건다. 거는 차례대로 부른다.
-     slotsReplaced() 는 동기화 · 보관함이 서버 것으로 칸을 갈아 끼운 뒤 부른다(캐릭터 탭 다시 그리기).
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+     slotsReplaced() 는 서버 것으로 칸을 갈아 끼운 뒤 부른다(캐릭터 탭 다시 그리기).
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: LS_KEY · _relinkSeatsToSlots · loadSlots · onLoaded · onSaved · onSeatRelinked · onSlotsReplaced · saveSlots · slotToObj · slotsReplaced — app.js 는 slotSaveMod.이름 으로 부른다.
-   ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
+   ★ 밖에서 부르는 이름: _relinkSeatsToSlots · applySlotObjs · onLoaded · onSaved · onSeatRelinked · onSlotsReplaced · saveSlots · slotToObj · slotsReplaced · lastOut — app.js 는 slotSaveMod.이름 으로 부른다.
+   ⚠️ document · window 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwSlotSave — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-slot-save.js */
 (function(){
@@ -32,9 +31,16 @@ function onSaved(fn){ _savedFns.push(fn); }
 function onLoaded(fn){ _loadedFns.push(fn); }
 function onSeatRelinked(fn){ _relinkFns.push(fn); }
 function onSlotsReplaced(fn){ _replacedFns.push(fn); }
+/* 칸 i 를 비우고 뒤 칸을 한 칸씩 앞으로 — 서버가 휴지통 · 보관함 이동 뒤 같은 규칙으로 당긴다(closet.js 가 서버 답을 받은 뒤 부른다). 직전 저장 모양 · 그림 기억도 같이 당긴다. */
+function pullForward(i){
+  _lastOut = _lastOut.slice();
+  for(let k=i;k<CHAR_SLOT_MAX-1;k++){ slots[k]=slots[k+1]; _lastOut[k]=_lastOut[k+1]; _faceEverDrawn[k]=_faceEverDrawn[k+1]; _blinkEverDrawn[k]=_blinkEverDrawn[k+1]; }
+  slots[CHAR_SLOT_MAX-1]=null; _lastOut[CHAR_SLOT_MAX-1]=null; _faceEverDrawn[CHAR_SLOT_MAX-1]=false; _blinkEverDrawn[CHAR_SLOT_MAX-1]=false;
+}
+function lastOut(){ return _lastOut; }
 function slotsReplaced(){ _replacedFns.forEach(fn=>{ try{ fn(); }catch(_){} }); }
-/* --- 저장/복원 (localStorage). 로컬 실행·Electron에선 동작, 챗 미리보기 샌드박스에선 무시됨 --- */
-const LS_KEY='deskFriends.slots.v1';
+/* 직전 직렬화 결과(칸마다 저장 모양 | null) — 서버에서 받아 앉힐 때와 saveSlots 때 갱신한다. 이 PC 에 저장하지 않는다. */
+let _lastOut = new Array(CHAR_SLOT_MAX).fill(null);
 /* 캔버스 → dataURL. 이미 dataURL 문자열이면 그대로 통과시킨다(네트워크에서 온 def 등).
    둘 다 아니면 던진다 — saveSlots 가 그 칸을 '직전 저장값 유지'로 처리한다. */
 function _slotImgToDataUrl(c, what){
@@ -45,7 +51,7 @@ function _slotImgToDataUrl(c, what){
 function slotToObj(d){return d?{skin:d.skin||0,top:d.top,bot:d.bot,xf:d.xf||null,decor:d.decor||null,deskColor:d.deskColor||null,deskItems:d.deskItems||null,deskGlb:d.deskGlb||null,deskCatalogId:d.deskCatalogId||null,deskScale:d.deskScale||null,deskLenX:d.deskLenX||null,deskPos:d.deskPos||null,customItems:d.customItems||null,isCommission:d.isCommission||false,commName:d.commName||null,commGlb:d.commGlb||null,equippedParts:d.equippedParts||null,partXfMemory:d.partXfMemory||null,thumb:d.thumb||null,...(d.thumbUrl?{thumbUrl:d.thumbUrl}:{}),face:_slotImgToDataUrl(d.face,'얼굴'),blink:_slotImgToDataUrl(d.blink,'감은눈'),
   // 🐾 동물 캐릭터 확장 필드 — 구버전은 이 키들을 무시하고 기본 인간으로 폴백
   animal:d.animal||false,animalFace:d.animalFace||0,animalScl:d.animalScl||null,animalEarL:d.animalEarL||null,animalEarR:d.animalEarR||null,animalEarAdj:d.animalEarAdj||null,animalBody:d.animalBody||null,animalEarPaintL:d.animalEarPaintL||null,animalEarPaintR:d.animalEarPaintR||null,animalEarBlinkL:d.animalEarBlinkL||null,animalEarBlinkR:d.animalEarBlinkR||null,animalBlink:d.animalBlink||null,
-  // 👂 사람 귀(꾸미기 › 머리 › 귀 — wd-ear.js) — 이 다섯 칸이 빠져 있어서 귀를 고르고 껐다 켜면 사라졌다(제보). loadSlots 와 1:1
+  // 👂 사람 귀(꾸미기 › 머리 › 귀 — wd-ear.js) — 이 다섯 칸이 빠져 있어서 귀를 고르고 껐다 켜면 사라졌다(제보). applySlotObjs 와 1:1
   //   ⚠️ thumbUrl 처럼 **있을 때만** 싣는다 — 늘 실으면 귀가 없는 옛 칸까지 첫 저장이 «달라짐» 이 되어 slots ts 가 일제히 오른다
   ...(d.earL?{earL:d.earL}:{}),...(d.earR?{earR:d.earR}:{}),...(d.earAdj?{earAdj:d.earAdj}:{}),
   ...(typeof d.earPicL==='string'&&d.earPicL?{earPicL:d.earPicL}:{}),...(typeof d.earPicR==='string'&&d.earPicR?{earPicR:d.earPicR}:{})}:null;}
@@ -69,18 +75,19 @@ function _relinkSeatsToSlots(oldSlots, skip){
      **하나만** 있어도 map 이 그 자리에서 던지고 **세 칸 전부**가 저장되지 않는다. 그것도 조용히 —
      이 빈 catch 때문에 "작업한 게 껐다 켜면 없다"가 아무 흔적도 안 남겼다.
    그래서 (ㄱ) 칸마다 따로 감싸고 (ㄴ) 실패한 칸은 **직전 저장값을 그대로 살려 두고**
-     (ㄷ) 콘솔에 남긴다. 실패한 칸을 null 로 적으면 loadSlots 의 loadImg 가 실패해
+     (ㄷ) 콘솔에 남긴다. 실패한 칸을 null 로 적으면 받아 앉힐 때 loadImg 가 실패해
      그 캐릭터가 통째로 사라지므로, null 로 덮는 것은 절대 안 된다. */
 function saveSlots(){
-  let prev = null, prevRaw = null;
-  try{ prevRaw = localStorage.getItem(LS_KEY); prev = JSON.parse(prevRaw || 'null'); }catch(_){ prev = null; }
+  const prev = _lastOut;
+  let prevRaw = null;
+  try{ prevRaw = JSON.stringify(prev); }catch(_){ prevRaw = null; }
   /* 🛡️ «비운 채 저장» 허가는 **이번 한 번만** 유효하다 — 여기서 바로 소비한다.
      남겨 두면 그 뒤에 우연히 도는 자동 저장(가챠 정리·책상 아이템 등)까지 함께 통과해 버린다. */
   const _allowBlank = _blankFaceConfirmed(); setBlankFaceConfirmed(false);
   const _rescued = [];
   const out = slots.map((d, i)=>{
     /* 🖼️ 부팅 때 이미지 복원에 실패한 칸은 **저장에서 통째로 제외**하고 직전 저장값을 그대로 남긴다.
-       여기서 그냥 저장하면 빈 캔버스가 dataURL 로 굳어 localStorage 의 멀쩡한 원본까지
+       여기서 그냥 저장하면 빈 캔버스가 dataURL 로 굳어 직전 저장 모양(서버에 올라간 멀쩡한 원본)까지
        덮어써진다 — 그게 "껐다 켜도 얼굴이 지워진 채 피부색만" 의 정체다.
        (원인이 일시적이었다면 다음 부팅에서 저절로 정상 복원된다) */
     if(d && d._imgBroken && prev && prev[i] !== undefined){
@@ -109,19 +116,12 @@ function saveSlots(){
     }
     return o;
   });
-  /* ☁️ [2026-09-16 제보 6-b] 저장본이 **실제로 달라졌을 때만** 시각을 찍고 서버 push 를 예약한다.
-     saveSlots 는 가챠 정리·책상 아이템 토글 등 수십 군데서 내용 변화 없이도 불린다 — 그때마다
-     ts 를 올리면 부팅마다 이 기기가 «최신»이 되어 다른 기기의 편집을 덮는다(핑퐁의 씨앗).
-     ★ 문자열 비교다. 칸 하나만 달라도 전체가 다르므로 어느 칸이 바뀌었는지는 볼 필요가 없다.
-     ★ 비교 대상은 prevRaw(직전 저장 문자열). 서버에서 받아 적은 직후(_slotsAdoptFromServer)는
-       그 문자열이 곧 서버 내용이라, 되받아 저장해도 «달라짐»이 아니어서 ts 가 안 올라간다 —
-       받은 것을 도로 올리는 핑퐁이 여기서 막힌다. */
+  /* 저장본이 **실제로 달라졌을 때만** 서버에 쓴다(closet.js 가 onSaved 를 받아 3초 묶음 1회). saveSlots 는 가챠 정리·책상 아이템 토글 등
+     수십 군데서 내용 변화 없이도 불린다. 비교 대상은 직전 직렬화(prevRaw) — 서버에서 받아 앉힌 직후(applySlotObjs)는 그것이 곧 서버 내용이라 달라짐이 아니다. */
   let _str = null;
   try{ _str = JSON.stringify(out); }catch(_){ _str = null; }
-  try{ if(_str !== null) localStorage.setItem(LS_KEY, _str); }
-  catch(e){ console.warn('[슬롯] 저장 실패', e); }
-  /* 달라졌을 때만 동기화가 시각을 찍고 올리기를 예약한다(slot-sync.js). 보관함(chars.js)은 안 달라진 저장에서도 받는다 —
-     기준(h)이 빈 항목을 잡는 데만 쓴다(_charsAfterSave 주석). */
+  if(_str !== null) _lastOut = out;
+  /* 달라졌을 때만 옷장(closet.js)이 쓰기를 예약한다 — onSaved 의 changed 로 가른다. */
   const _changed = _str !== null && _str !== prevRaw;
   _savedFns.forEach(fn=>{ try{ fn(out, _changed); }catch(_){} });
   if(_rescued.length){
@@ -137,13 +137,14 @@ function saveSlots(){
        삭제**된다. 실패는 빈 catch 로 삼켜져 흔적도 없었다.
      [지금] (ㄱ) 실패한 그림만 비워 두고 칸 자체는 살린다
             (ㄴ) _imgBroken 표식을 달아 saveSlots 가 그 칸을 **절대 덮어쓰지 않게** 한다
-                 → localStorage 에 남아 있는 멀쩡한 원본이 보존되고, 원인이 사라지면 다음
+                 → 직전 저장 모양(서버 원본)이 보존되고, 원인이 사라지면 다음
                    부팅에서 저절로 되살아난다
             (ㄷ) 콘솔과 토스트로 알린다 */
-async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e){return;}
-  if(!raw)return;let arr;try{arr=JSON.parse(raw);}catch(e){return;}
+async function applySlotObjs(arr, which){
+  if(!Array.isArray(arr))return;
   let _brokenSlots=0;
-  for(let i=0;i<CHAR_SLOT_MAX;i++){const o=arr[i];if(!o){continue;}   // 🧍 옛 저장값(3칸)이면 arr[3]·arr[4] 가 없어 그 칸은 null 로 남는다(패딩)
+  for(let i=0;i<CHAR_SLOT_MAX;i++){if(which && !which.has(i)) continue;   // which 가 있으면 그 칸만(나머지 칸의 캐릭터 객체는 그대로 둔다)
+    const o=arr[i];if(!o){ slots[i]=null; continue; }   // 🧍 옛 저장값(3칸)이면 arr[3]·arr[4] 가 없어 그 칸은 null 로 남는다(패딩)
     let f=null,b=null;const _bad=[];
     try{ f=await loadImg(o.face); }catch(e){ _bad.push('얼굴'); console.warn('[슬롯] '+(i+1)+'번 얼굴 이미지 복원 실패', e); }
     try{ b=await loadImg(o.blink); }catch(e){ _bad.push('감은눈'); console.warn('[슬롯] '+(i+1)+'번 감은눈 이미지 복원 실패', e); }
@@ -175,6 +176,7 @@ async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e
           _d.animalEarBlinkL=o.animalEarBlinkL||o.animalEarPaintL||null; _d.animalEarBlinkR=o.animalEarBlinkR||o.animalEarPaintR||null;
           _d.animalBlink=o.animalBlink||null; }
         slots[i]=_d;}}catch(e){ console.warn('[슬롯] '+(i+1)+'번 복원 실패', e); }}
+  _lastOut = Array.from({length:CHAR_SLOT_MAX}, (_,k)=>(!which || which.has(k)) ? (arr[k]||null) : _lastOut[k]);   // 방금 앉힌 모습이 «직전 저장» — 받은 것을 되받아 저장해도 «달라짐» 이 아니다
   if(_brokenSlots){ try{ toast('얼굴 이미지를 못 불러온 캐릭터가 있어요 — 저장된 원본은 그대로 지켜뒀어요'); }catch(_){} }
   /* 🪑 [제보 2] 저장값에 남아 있던 전용 책상·아이템을 여기서 접는다. 복원(32179)은 예전부터
      deskCatalogId 를 조건 없이 그대로 싣는다 — 라이선스 검사가 없던 세 입구 중 하나다.
@@ -183,9 +185,10 @@ async function loadSlots(){let raw;try{raw=localStorage.getItem(LS_KEY);}catch(e
 }
 
 return {
-  LS_KEY,
   _relinkSeatsToSlots,
-  loadSlots,
+  applySlotObjs,
+  pullForward,
+  lastOut,
   onLoaded,
   onSaved,
   onSeatRelinked,

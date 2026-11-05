@@ -3,7 +3,7 @@
 
    ★ 제보 재현 — "켜뒀더니 얼굴이 사라지고, 껐다 켜니 피부색만 남았다"
      경로는 이렇다:
-       (1) 부팅 loadSlots 에서 face 이미지 로드가 실패한다
+       (1) 서버에서 받아 앉힐 때 face 이미지 로드가 실패한다
        (2) 예전 코드는 그 칸을 통째로 버렸다(slots[i] 미할당)
        (3) 그 뒤 아무 saveSlots() — 파츠 장착·슬라이더·책상 아이템 등 수십 군데 —
            가 한 번 돌면 그 칸이 빈/null 로 저장되어 **원본이 영구 소실**된다
@@ -78,7 +78,7 @@ const INK_URL = 'data:image/png;base64,INK', BLANK_URL = 'data:image/png;base64,
 /* __P.allowBlankOnce 는 «생성기에서 사용자가 비운 채 저장을 확인했다»를 흉내 낸다.
    _blankFaceConfirmed 는 let 이라 밖에서 못 건드린다 — 같은 스코프인 이 probe 안에서만 대입할 수 있다. */
 const probe = `
-;globalThis.__P = { loadSlots, saveSlots, slots, LS_KEY, loadImg, MAX: CHAR_SLOT_MAX,
+;globalThis.__P = { applySlotObjs, saveSlots, slots, lastOut: ()=>_lastOut, loadImg, MAX: CHAR_SLOT_MAX,
   isBlank: _isBlankDraw, faceMem: _faceEverDrawn,
   allowBlankOnce: ()=>{ _blankFaceConfirmed = true; },
   /* 진짜 THREE.CanvasTexture 는 tex.image 에 원본 캔버스를 담는다 — 복구가 그 자리에 다시 그린다.
@@ -91,11 +91,16 @@ const say = console.log;
 let warns = [];
 console.log = () => {}; console.warn = (...a) => { warns.push(a.map(String).join(' ')); };
 try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
-catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
+catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + String(e && e.stack || e).split('\n').slice(0, 12).join(' | ')); process.exit(1); }
 console.log = say;
 
 const P = globalThis.__P;
-const LS = globalThis.localStorage;
+/* 0.13 — 이 PC 에 저장본(localStorage)이 없다. «저장본» 은 서버에서 받아 앉힌 모습(applySlotObjs) 과 직전 저장 모양(lastOut)이다.
+   예전 검증 흐름(심기 → 받아 앉히기 → 저장 → 저장본 읽기)을 그대로 두려고 같은 이름의 얇은 가짜를 둔다. */
+let _seedArr = [];
+P.LS_KEY = 'slots';
+P.loadSlots = () => P.applySlotObjs(_seedArr);
+const LS = { getItem: (k) => (k === 'slots' ? JSON.stringify(P.lastOut()) : null), setItem: (k, v) => { if(k === 'slots') _seedArr = JSON.parse(v); }, removeItem: () => {} };
 let fail = 0;
 const chk = (c, m) => { say((c ? '  ✓ ' : '  ✗ ') + m); if (!c) fail++; };
 

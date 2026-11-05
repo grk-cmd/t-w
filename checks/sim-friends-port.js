@@ -364,8 +364,8 @@ async function judge(S){
     const bad = ALL_JS.filter(([f, src]) => f !== 'firebase-init.js' && f !== 'app.js'
       && FRIEND_FB_FNS.some(n => new RegExp('firebaseAPI\\s*\\.\\s*' + n + '\\b').test(strip(src))));
     chk(!bad.length, '화면 · 도메인 파일이 친구 데이터 firebaseAPI 함수(' + FRIEND_FB_FNS.join(' · ') + ')를 직접 안 부른다' + (bad.length ? ' — ' + bad.map(b => b[0]).join(' · ') : ''));
-    /* 🎰 가챠 서버 길(gachaServerMod) · 🗂️ 방 로비 provider 도 로그인 통로(apiGetAuthed)를 쓴다 — 친구 provider 몫이 아니라 빼고 센다 */
-    const aFriends = a.replace(/const gachaServerMod = TwGachaServer\.createGachaServer\(\{[\s\S]*?\n\}\);/, '')
+    /* 🗂️ 방 로비 provider 도 로그인 통로(apiGetAuthed)를 쓴다 — 친구 provider 몫이 아니라 빼고 센다 */
+    const aFriends = a
       .replace(/^const roomLobbyProvider = TwRoomLobbyProvider\.createRoomLobbyProvider\(.*$/m, '');
     const appCalls = (aFriends.match(/firebaseAPI\.(subscribeMyFriends|getMyFriendList|watchMyFriendList|getFriendCard|watchFriendPresence|getFriendPresence|watchFriendProfile|getFriendProfile|apiGetAuthed)\(/g) || []).length;
     chk(appCalls === 8, '  ↳ app.js 도 provider deps 여덟 줄에서만 (' + appCalls + ')');

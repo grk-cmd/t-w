@@ -19,11 +19,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ["launchApp","openCreator","renderLauncher","saveCurSlot","toast"];
 const VAL_DEPS = ["CHAR_SLOT_MAX","settingsMod","slots"];
-const GET_DEPS = ["charsMod","curSlot","racePickerMod","slotSaveMod"];
+const GET_DEPS = ["closetMod","curSlot","racePickerMod"];
 const SET_DEPS = ["curSlot"];
-const EXPORTS = ["closeGearMenu"];
+const EXPORTS = ["closeGearMenu","renderEmptyState"];
 const MOVED = ["gearMenu","closeGearMenu","lcDeleteAskEnd","lcDeleteAskStart","previewWrap","doDeleteCurSlot","_moveToBoxBusy","doMoveCurSlotToBox"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  charsMod: ()=>charsMod,","  curSlot: ()=>curSlot,","  launchApp: (...a)=>launchApp(...a),","  openCreator: (...a)=>openCreator(...a),","  racePickerMod: ()=>racePickerMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  settingsMod: settingsMod,","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  closetMod: ()=>closetMod,","  curSlot: ()=>curSlot,","  launchApp: (...a)=>launchApp(...a),","  openCreator: (...a)=>openCreator(...a),","  racePickerMod: ()=>racePickerMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  settingsMod: settingsMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -105,6 +105,9 @@ function fakeDom(absent){   // absent: 처음엔 없는(코드가 만들어 붙�
       classList: { add: (...c) => c.forEach(x => cls.add(x)), remove: (...c) => c.forEach(x => cls.delete(x)), contains: (c) => cls.has(c), toggle: (c, on) => { const v = on === undefined ? !cls.has(c) : !!on; v ? cls.add(c) : cls.delete(c); return v; } },
       addEventListener: (t, f) => { (ev[t] = ev[t] || []).push(f); }, removeEventListener: () => {},
       appendChild: (c) => { el.children.push(c); c.parentElement = el; if(c.id) els[c.id] = c; return c; },
+      get childNodes(){ return el.children; },
+      replaceChildren: (...n) => { el.children = n; el.textContent = n.map(c => c.textContent).join(''); },
+      cloneNode: () => Object.assign(mkEl(el.id, el.tagName), { textContent: el.textContent }),
       getContext: () => new Proxy({}, { get: () => () => {} }), querySelector: () => null, querySelectorAll: () => [],
       fire: (t, e) => { (ev[t] || []).forEach(f => f(Object.assign({ stopPropagation(){}, preventDefault(){}, currentTarget: el }, e || {}))); },
       click: () => { if(typeof el.onclick === 'function') el.onclick({ stopPropagation(){}, preventDefault(){}, currentTarget: el }); el.fire('click'); },
@@ -130,14 +133,21 @@ function rig(slotsInit, cur, extra, opt){
   const D = fakeDom(['lcDeleteAsk', 'lcDelYes', 'lcDelNo']); opt = opt || {};
   const st = { slots: slotsInit.slice(), cur, extra: extra ? extra.slice() : extra, calls: [] };
   const log = (n) => (...a) => { st.calls.push([n, ...a]); };
-  const chars = { _charsBoxFull: () => !!opt.boxFull, _charsDeleteWords: () => ({ ask: '정말 지울까요?', btn: '삭제', gear: '톱니' }), _charsTrashMove: () => !!opt.trash,
-    _charsDeskToBox: opt.toBox || (async () => ({ ok: true })), _charsMoveFailLog: log('failLog'), _charsMoveMsg: (r) => '못 옮김:' + r.why };
+  /* 서버 원본 옷장 가짜 — 동작이 되면 서버처럼 뒤 칸을 당기고 { ok, slot } 을 돌려준다(closet.js 의 pullForward 와 같은 모양). 안 되면 칸은 그대로 */
+  const pull = (i) => { for(let k = i; k < st.slots.length - 1; k++) st.slots[k] = st.slots[k + 1]; st.slots[st.slots.length - 1] = null; };
+  const closet = { state: () => opt.state || 'ready', requireReady: () => { st.calls.push(['requireReady']); return !opt.notReady; }, deleteWords: () => ({ ask: '정말 지울까요?', btn: '삭제', gear: '톱니', done: '휴지통으로 옮겼어요' }),
+    /* 실제 옷장처럼 한 번에 하나 — 도는 중에 또 부르면 why:'busy' (겹침 막기는 옷장 한 곳 · 런처가 따로 막지 않는다) */
+    trashSlot: (i) => guardBusy(opt.trashSlot || (async (j) => { st.calls.push(['trashSlot', j]); pull(j); return { ok: true, slot: j }; }), i),
+    moveToBox: (i) => guardBusy(opt.toBox || (async (j) => { st.calls.push(['moveToBox', j]); pull(j); return { ok: true, slot: j }; }), i),
+    reportFail: (r) => { st.calls.push(['toast', '못 옮김:' + r.why]); } };
+  let _busy = false;
+  const guardBusy = async (fn, i) => { if(_busy) return { ok: false, why: 'busy' }; _busy = true; try{ return await fn(i); }finally{ _busy = false; } };
   const settings = { extraSeatSlots: () => st.extra, setExtraSeatSlots: (v) => { st.extra = v; }, _saveExtraSeatSlots: log('saveExtra') };
   const over = { CHAR_SLOT_MAX: st.slots.length, slots: st.slots, curSlot: () => st.cur, setCurSlot: (v) => { st.cur = v; }, settingsMod: settings,
-    charsMod: () => chars, racePickerMod: () => ({ openRacePicker: log('race') }), slotSaveMod: () => ({ saveSlots: log('save') }),
+    closetMod: () => closet, racePickerMod: () => ({ openRacePicker: log('race') }),
     saveCurSlot: log('saveCur'), renderLauncher: log('render'), toast: log('toast'), openCreator: log('creator'), launchApp: log('launch') };
   const api = build(MOD, over, { document: D.document });
-  return { D, st, api, el: (id) => D.document.getElementById(id), n: (k) => st.calls.filter(c => c[0] === k).length, last: (k) => (st.calls.filter(c => c[0] === k).pop() || [])[1] };
+  return { D, st, api, mkEl: D.mkEl, el: (id) => D.document.getElementById(id), n: (k) => st.calls.filter(c => c[0] === k).length, last: (k) => (st.calls.filter(c => c[0] === k).pop() || [])[1] };
 }
 const tick = () => new Promise(r => setImmediate(r));
 (async () => {
@@ -153,48 +163,72 @@ const tick = () => new Promise(r => setImmediate(r));
     full.st.cur = 1; full.st.slots[1] = null; full.st.slots.fill('x'); full.st.slots[1] = null;
     full.el('lcEmpty').click(); chk(full.n('race') === 1, '[＋] — 빈 칸이 하나라도 있으면 연다');
     const all = rig(['a', 'b'], 0); all.el('lcEmpty').click(); chk(all.n('race') === 0 && all.n('toast') === 0, '[＋] — 꽉 찬 칸에선 아무것도 안 함(그 칸은 캐릭터가 있다)');
-    const boxFull = rig(['a', null], 1, null, { boxFull: true }); boxFull.el('lcEmpty').click(); chk(boxFull.n('race') === 0, '[＋] — 보관함 문턱이 차면 막는다'); }
+    const boxFree = rig(['a', null], 1); boxFree.el('lcEmpty').click(); chk(boxFree.n('race') === 1, '[＋] — 보관함이 가득 차 있어도 막지 않는다(새 캐릭터는 슬롯에 만든다 — 서버가 보관함 문턱을 보지 않는다)'); }
   { const r = rig(['a', null], 1); r.st.slots[0] = 'a'; r.st.slots[1] = null;
     const z = rig([null, null], 0); z.st.slots[0] = null; z.el('lcEmpty').click(); chk(z.last('race') === 0, '[＋] — 전부 빈 칸이면 0번 칸'); }
+  /* 옷장을 받기 전 · 못 받은 채로는 만들기 · 편집을 막는다 — 빈 칸 표시도 «불러오는 중 / 못 불러왔어요» 로 가른다 */
+  { const r = rig(['a', null], 1, null, { notReady: true });
+    r.el('lcEmpty').click(); chk(r.n('race') === 0 && r.n('requireReady') === 1, '[＋] — 옷장을 받기 전엔 만들기를 열지 않는다(requireReady)');
+    const r2 = rig(['a', null], 0, null, { notReady: true });
+    r2.el('lcEdit').click(); chk(r2.n('creator') === 0 && r2.n('requireReady') === 1, '[수정] — 받기 전엔 편집을 열지 않는다');
+    const r3 = rig(['a', null], 0); r3.el('lcEdit').click(); chk(r3.n('creator') === 1, '  받은 뒤엔 열린다');
+    const lo = rig([null, null], 0, null, { state: 'loading' }); lo.api.renderEmptyState();
+    chk(/불러오는 중/.test(lo.el('lcEmpty').textContent), '빈 칸 표시 — 받는 중이면 «불러오는 중…»');
+    const fa = rig([null, null], 0, null, { state: 'failed' }); fa.api.renderEmptyState();
+    chk(/못 불러왔어요/.test(fa.el('lcEmpty').textContent) && /다시 시도/.test(fa.el('lcEmpty').textContent), '  못 받았으면 «못 불러왔어요 — 눌러서 다시 시도» (빈 슬롯 «캐릭터 만들기» 와 다르다)');
+    const ok = rig([null, null], 0); ok.api.renderEmptyState();
+    chk(!ok.el('lcEmpty').dataset.closet, '  받았으면 손대지 않는다(진짜 빈 슬롯)');
+    const bo = { state: 'loading' }; const back = rig([null, null], 0, null, bo);
+    const orig = back.mkEl('', 'span'); orig.textContent = '캐릭터 만들기'; back.el('lcEmpty').appendChild(orig);
+    back.api.renderEmptyState(); bo.state = 'ready'; back.api.renderEmptyState();
+    const em = back.el('lcEmpty');
+    chk(em.textContent === '캐릭터 만들기' && em.children.length === 1 && em.children[0].tagName === 'SPAN' && em.children[0] !== orig && !em.dataset.closet,
+      '  받는 중 → 받음 — 원래 마크업(노드)을 그대로 되돌린다(innerHTML 을 안 씀)'); }
   /* 삭제 — 되묻고 [네] 일 때만 당긴다 · 자리 추가 번호도 같이 당긴다 */
   { const r = rig(['a', 'b', 'c', 'd', null], 1, [1, 2, 3]);
     r.el('lcDelete').click();
     const ask = r.el('lcDeleteAsk');
-    chk(ask.style.display === 'flex' && r.el('lcEdit').style.display === 'none' && r.el('lcDelAskText').textContent === '정말 지울까요?', '[삭제] — 바로 지우지 않고 메뉴 안에서 되묻는다(문구는 보관함 스위치에서)');
-    chk(r.st.slots.join() === 'a,b,c,d,', '되묻는 동안 슬롯은 그대로');
+    chk(ask.style.display === 'flex' && r.el('lcEdit').style.display === 'none' && r.el('lcDelAskText').textContent === '정말 지울까요?', '[삭제] — 바로 지우지 않고 메뉴 안에서 되묻는다(문구는 옷장이 준다)');
+    chk(r.st.slots.join() === 'a,b,c,d,' && r.n('trashSlot') === 0, '되묻는 동안 슬롯은 그대로 · 서버 요청 0');
     r.el('lcDelNo').click(); chk(ask.style.display === 'none' && r.el('lcEdit').style.display === '', '[아니오] — 묻기를 닫고 메뉴 버튼을 되살린다');
-    r.el('lcDelete').click(); r.el('lcDelYes').click();
-    chk(r.st.slots.join() === 'a,c,d,,' && r.st.slots.length === 5, '[네] — 지운 칸 뒤를 앞으로 당기고 끝은 빈 칸(b 삭제 → a,c,d)');
+    r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
+    chk(r.n('trashSlot') === 1 && r.last('trashSlot') === 1, '[네] — 서버에 그 칸(1번)을 휴지통으로 부탁한다');
+    chk(r.st.slots.join() === 'a,c,d,,' && r.st.slots.length === 5, '  서버가 된 뒤에 칸을 당긴다(b 삭제 → a,c,d)');
     chk(JSON.stringify(r.st.extra) === '[1,2]' && r.n('saveExtra') === 1, '자리 추가 번호 — 지운 번호는 빼고 뒤 번호는 하나씩 당긴다([1,2,3] → [1,2])');
-    chk(r.st.cur === 1 && r.n('save') === 1 && r.n('saveCur') === 1 && r.last('toast') === '삭제했어요', '현재 칸은 당겨진 캐릭터(c) · 저장 · «삭제했어요»'); }
-  { const r = rig(['a', 'b', null], 1, null, { trash: true }); r.el('lcDelete').click(); r.el('lcDelYes').click();
-    chk(r.st.slots.join() === 'a,,' && r.st.cur === 0 && r.last('toast') === '휴지통으로 옮겼어요', '마지막 캐릭터를 지우면 현재 칸은 남은 마지막 캐릭터로 · 휴지통 켜짐이면 «휴지통으로»'); }
-  { const r = rig(['a', null], 0); r.el('lcDelete').click(); r.el('lcDelYes').click();
+    chk(r.st.cur === 1 && r.n('saveCur') === 1 && r.last('toast') === '휴지통으로 옮겼어요', '현재 칸은 당겨진 캐릭터(c) · 저장 · «휴지통으로 옮겼어요»'); }
+  { const r = rig(['a', 'b', null], 1); r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
+    chk(r.st.slots.join() === 'a,,' && r.st.cur === 0, '마지막 캐릭터를 지우면 현재 칸은 남은 마지막 캐릭터로'); }
+  { const r = rig(['a', null], 0); r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
     chk(r.st.slots.join() === ',' && r.st.cur === 0, '하나뿐인 캐릭터를 지우면 현재 칸 0'); }
-  { const r = rig([null, 'b'], 0); r.el('lcDelete').click(); r.el('lcDelYes').click();
-    chk(r.n('save') === 0 && r.st.slots.join() === ',b', '빈 칸에서 [네] — 아무것도 안 한다'); }
+  { const r = rig([null, 'b'], 0); r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
+    chk(r.n('trashSlot') === 0 && r.st.slots.join() === ',b', '빈 칸에서 [네] — 아무것도 안 한다(서버 요청 0)'); }
+  { const r = rig(['a', 'b'], 0, [0, 1], { trashSlot: async () => ({ ok: false, why: 'net' }) }); r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
+    chk(r.st.slots.join() === 'a,b' && JSON.stringify(r.st.extra) === '[0,1]' && r.last('toast') === '못 옮김:net' && r.n('saveCur') === 0, '서버가 못 하면 — 칸 · 자리 추가 번호 그대로 · 이유 문구(되돌릴 것 없음)'); }
+  { let release; const r = rig(['a', 'b'], 0, null, { trashSlot: () => new Promise(res => { release = res; }) });
+    r.el('lcDelete').click(); r.el('lcDelYes').click(); r.el('lcDelete').click(); r.el('lcDelYes').click(); await tick(); await tick();
+    chk(r.last('toast') === '못 옮김:busy', '삭제 중에 또 누르면 옷장이 busy 로 막는다 — 서버에 두 번 가지 않는다');
+    release({ ok: false, why: 'err' }); await tick(); await tick(); }
   /* 톱니 — 메뉴 토글 · 문서 클릭이면 닫히며 되묻기도 취소 */
   { const r = rig(['a'], 0); r.el('lcGear').click();
-    chk(r.el('lcGearMenu').classList.contains('on') && r.el('lcDelete').textContent === '삭제', '톱니 — 메뉴를 열고 삭제 버튼 문구를 스위치에 맞춘다');
+    chk(r.el('lcGearMenu').classList.contains('on') && r.el('lcDelete').textContent === '삭제', '톱니 — 메뉴를 열고 삭제 버튼 문구를 옷장이 준 글로');
     r.el('lcDelete').click(); r.D.document.fire('click');
     chk(!r.el('lcGearMenu').classList.contains('on') && r.el('lcDeleteAsk').style.display === 'none', '바깥 클릭 — 메뉴를 닫고 되묻기도 취소');
     r.el('lcGear').click(); r.api.closeGearMenu(); chk(!r.el('lcGearMenu').classList.contains('on'), 'closeGearMenu — 밖에서 불러도 닫힌다');
     r.el('lcEdit').click(); chk(JSON.stringify(r.last('creator')) === '{"kind":"slot","edit":true,"slot":0}', '[수정] — 지금 칸을 수정 모드로 생성기에');
     r.el('lcPreview').fire('click'); chk(JSON.stringify(r.last('launch')) === '{"mode":"run"}', '미리보기 클릭 — 실행'); }
-  /* 보관함 이동 — 성공이면 그 캐릭터 자리를 다시 찾아 당긴다 · 실패면 이유 문구 · 진행 중이면 다시 안 들어간다 */
-  { let release; const r = rig(['a', 'b', 'c'], 0, [0, 2], { toBox: () => new Promise(res => { release = res; }) });
-    r.el('lcToBox').click(); r.el('lcToBox').click();
-    chk(r.last('toast') === '보관함으로 옮기는 중이에요 — 잠시만요', '보관함 이동 — 진행 중에 또 누르면 막는다');
-    r.st.slots.splice(0, 0, 'z'); r.st.slots.length = 3;   // 기다리는 사이 칸이 밀렸다(a 가 1번으로)
-    release({ ok: true }); await tick(); await tick();
-    chk(r.st.slots.join() === 'z,b,' && JSON.stringify(r.st.extra) === '[0,1]', '기다린 뒤엔 번호가 아니라 그 캐릭터로 칸을 다시 찾아 당긴다(a 가 1번 → z,b · 자리 추가 [0,2] → [0,1])');
+  /* 보관함 이동 — 서버에 옮기고 된 뒤에만 당긴다 · 실패면 이유 문구 · 진행 중이면 다시 안 들어간다 */
+  { let release; const r = rig(['a', 'b', 'c'], 0, [0, 2], { toBox: (i) => new Promise(res => { release = () => { for(let k = i; k < 2; k++) r.st.slots[k] = r.st.slots[k + 1]; r.st.slots[2] = null; res({ ok: true, slot: i }); }; }) });
+    r.el('lcToBox').click(); r.el('lcToBox').click(); await tick(); await tick();
+    chk(r.last('toast') === '못 옮김:busy' && r.st.slots.join() === 'a,b,c', '보관함 이동 — 진행 중에 또 누르면 옷장이 busy 로 막는다 · 서버가 되기 전엔 칸 그대로');
+    release(); await tick(); await tick();
+    chk(r.st.slots.join() === 'b,c,' && JSON.stringify(r.st.extra) === '[1]', '서버가 된 뒤 칸을 당긴다(a 이동 → b,c · 자리 추가 [0,2] → [1])');
     chk(r.last('toast') === '보관함으로 옮겼어요', '«보관함으로 옮겼어요»'); }
-  { const r = rig(['a', 'b'], 0, null, { toBox: async () => ({ ok: false, why: 'nocid' }) });
+  { const r = rig(['a', 'b'], 0, null, { toBox: async () => ({ ok: false, why: 'full' }) });
     r.el('lcToBox').click(); await tick(); await tick();
-    chk(r.st.slots.join() === 'a,b' && r.last('toast') === '못 옮김:nocid' && r.n('failLog') === 1, '보관함 이동 실패 — 칸은 그대로 · 이유 문구 · 실패 기록'); }
+    chk(r.st.slots.join() === 'a,b' && r.last('toast') === '못 옮김:full', '보관함 이동 실패 — 칸은 그대로 · 이유 문구'); }
   { const r = rig(['a', 'b'], 0, null, { toBox: async () => { throw new Error('x'); } });
     r.el('lcToBox').click(); await tick(); await tick();
-    chk(r.last('toast') === '못 옮김:err', '보관함 이동 중 던짐 — err 로 받아 안내'); }
+    chk(r.st.slots.join() === 'a,b' && r.last('toast') === '못 옮김:err', '보관함 이동 중 던짐 — err 로 받아 안내'); }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
 })();

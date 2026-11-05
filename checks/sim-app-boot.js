@@ -20,7 +20,7 @@ const MOD = read('launcher/app-boot.js'), HTML = read('desk-companion-prototype.
 if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 
 /* 정본 차례 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
-const ORDER = ['focusTotal', 'focusShare', 'focusLevel', 'weeklyChal', 'gacha', 'slotSync', 'chars', 'mhInit', 'scheduler', 'roomInvite', 'desktopBg', 'playlist', 'licensePremium', 'licenseRequest', 'firstRun'];
+const ORDER = ['focusTotal', 'focusShare', 'focusLevel', 'weeklyChal', 'gacha', 'closet', 'mhInit', 'scheduler', 'roomInvite', 'desktopBg', 'playlist', 'licensePremium', 'licenseRequest', 'firstRun'];
 
 function build(src, o) {
   o = o || {};
@@ -92,12 +92,12 @@ async function judge(src) {
   t(dbl[0][0] === true && dbl[0][1] === false && dbl[0][2] === false && b.ev.filter((e) => e.startsWith('start:')).length === ORDER.length && b.ev.filter((e) => e === 'migrate:u1').length === 1 && b.ev.filter((e) => e === 'online').length === 1,
     '두 번 부르면 두 번째부터 무시 — 옮기기 · realtime · 시작이 한 번씩뿐');
   t(dbl[1].some((w) => /이미 시작했어요/.test(w)), '  무시할 때 콘솔에 경고 한 줄');
-  b = build(src, { throwAt: 'gacha', rejectAt: 'chars' });
+  b = build(src, { throwAt: 'gacha', rejectAt: 'closet' });
   const th = await quiet(async () => { const v = b.notify(ME); await flush(); return v; });
-  t(th[0] === true && ORDER.every((n) => b.ev.some((e) => e.startsWith('start:' + n + ':'))) && th[1].some((w) => /gacha 실패/.test(w)) && th[1].some((w) => /chars 실패/.test(w)),
-    '한 칸이 던져도(동기 gacha · 비동기 chars) 다음 칸은 돈다 · 어느 칸이 깨졌는지 경고');
-  const miss = build(src, { omit: 'chars' });
-  t(miss.err && /chars/.test(miss.err.message), '표에 있는 시작이 빠지면 만들 때 던진다(한 기능을 빼먹을 수 없다)');
+  t(th[0] === true && ORDER.every((n) => b.ev.some((e) => e.startsWith('start:' + n + ':'))) && th[1].some((w) => /gacha 실패/.test(w)) && th[1].some((w) => /closet 실패/.test(w)),
+    '한 칸이 던져도(동기 gacha · 비동기 closet) 다음 칸은 돈다 · 어느 칸이 깨졌는지 경고');
+  const miss = build(src, { omit: 'closet' });
+  t(miss.err && /closet/.test(miss.err.message), '표에 있는 시작이 빠지면 만들 때 던진다(한 기능을 빼먹을 수 없다)');
   const extra = build(src, { extra: '없는기능' });
   t(extra.err && /없는기능/.test(extra.err.message), '표에 없는 시작이 남으면 만들 때 던진다');
   return r;
@@ -115,7 +115,7 @@ async function judge(src) {
     chk(!!m && JSON.stringify(keys) === JSON.stringify(ORDER), 'app.js 의 starts 가 표와 같은 이름 · 같은 차례(' + keys.length + '칸)');
     const body = m ? m[1] : '';
     const rest = APP.replace(body, '');
-    const starters = ['startFocusTotal', 'startFocusSync', 'startChalSync', 'startGachaSync', 'startSlotsSync', 'startCharsSync', 'startSchedule', 'startReceive', 'startBgSync', 'startWatch'];
+    const starters = ['startFocusTotal', 'startFocusSync', 'startChalSync', 'startGacha', 'startCloset', 'startSchedule', 'startReceive', 'startBgSync', 'startWatch'];
     chk(starters.every((n) => body.split(n + '(').length === 2) && starters.every((n) => !new RegExp('\\.' + n + '\\(').test(rest)), '  기능 시작은 app.js 에서 이 표 한 곳에서만 부른다(만든 자리에서 바로 부르지 않음)');
     chk(body.split('licensePremiumMod.start(').length === 2 && !/licensePremiumMod\.start\(/.test(rest), '  프리미엄 판정 시작(license-premium.js start — 받아 둔 확인을 반영하고 알림을 건다)도 이 표 한 곳에서만 부른다');
     /* 공지는 모두에게 같은 공용 데이터 — 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너) */
@@ -144,7 +144,7 @@ async function judge(src) {
     ['한 칸이 던지면 다음 칸이 멈춤', (m) => m.replace("catch(e){ console.warn('[app-boot] ' + label + ' 실패', e); }", 'catch(e){ throw e; }')],
     ['비동기로 깨져도 경고가 없음', (m) => m.replace(".catch((e)=>console.warn('[app-boot] ' + label + ' 실패', e))", '.catch(()=>{})')],
     ['공지를 다시 차례 표에 넣음', (m) => m.replace("  'scheduler',", "  'notice',\n  'scheduler',")],
-    ['표에서 한 기능을 뺌(chars)', (m) => m.replace("  'chars',           // 🧬 캐릭터 보관함 동기\n", '')],
+    ['표에서 한 기능을 뺌(closet)', (m) => m.replace("  'closet',          // 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기\n", '')],
     ['표에 있는 시작이 빠져도 통과', (m) => m.replace("    if(typeof starts[name] !== 'function') throw new Error('[app-boot] 시작 함수가 없어요: ' + name);", '')],
     ['계정이 없는 me 로도 시작', (m) => m.replace('if(!me || !me.userCode) return false;', '')],
   ];
