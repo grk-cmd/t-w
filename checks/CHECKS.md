@@ -401,9 +401,9 @@
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** |
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
-| **sim-seat-extent.js** | 158 | **9e0390a53b1d** |
+| **sim-seat-extent.js** | 167 | **2e5f6d965886** |
 | **sim-seat-layout.js** | 256 | **cd433d4f0d1e** |
-| **sim-seat-refit.js** | 182 | **864d3b36827b** |
+| **sim-seat-refit.js** | 183 | **eb55c31fb10b** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 163 | **bdc4bd948bfe** |
 | **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |

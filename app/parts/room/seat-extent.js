@@ -5,7 +5,7 @@
    [왜 점으로 재나] 상자(Box3.setFromObject)는 three r128 에서 뼈대 메시를 처음 저장된 자세(팔 벌림)로, 숨은 메시까지 넣어 잰다 —
      실제보다 넓게 나와서 그 오차를 여유 · 음수 간격으로 덧대 왔다(#755). 뼈대 메시는 boneTransform 으로 지금 자세의 점을 잰다.
    ⚠️ 책상 위 아이템 · 파츠 핀(deskAnchor)은 안 센다 — 평준화 가두기가 그 자리 안으로 민다(character/seat-eq-clamp.js).
-   ⚠️ 날기 · 끌기 · 흔들기는 rig 를, 숨쉬기 · 춤 · 누움 · 스쿼시는 몸 감싸개(bodyWrap)를 매 프레임 바꾼다 — 잴 때만 쉬는 자세(rig 가로 0 · 기울기 0 · 감싸개 회전 0 · 크기 = 평준화 배율)로 되돌렸다가 돌려놓는다(B-1104-9).
+   ⚠️ 날기 · 끌기 · 흔들기는 rig 를, 숨쉬기 · 춤 · 누움 · 스쿼시는 몸 감싸개(bodyWrap)를 매 프레임 바꾼다 — 잴 때만 쉬는 자세(rig 가로 0 · 기울기 0 · 제자리 회전 0 · 감싸개 회전 0 · 크기 = 평준화 배율)로 되돌렸다가 돌려놓는다(B-1104-9).
    ⚠️ 모습 열쇠(shapeKey)에는 매 프레임 안 바뀌는 값만 넣는다(감싸개 대신 평준화 배율) — 타이핑 · 숨쉬기마다 다시 재지 않게.
    검사: checks/sim-seat-extent.js */
 (function(){
@@ -63,9 +63,9 @@ function measure(seat){
   const g = seat && seat.group;
   if(!g) return { left: DEFAULT_HALF, right: DEFAULT_HALF };
   const rig = seat.rig, bw = seat.bodyWrap;
-  const px = rig ? rig.position.x : 0, rz = rig ? rig.rotation.z : 0;
+  const px = rig ? rig.position.x : 0, rz = rig ? rig.rotation.z : 0, ry = rig ? rig.rotation.y : 0;   // y — 묘기 회전 · 오르골 춤은 제자리에서 돈다(돈 채로 재면 옆 폭 대신 앞뒤 깊이)
   const bRot = bw ? bw.rotation.clone() : null, bScale = bw ? bw.scale.clone() : null;
-  if(rig){ rig.position.x = 0; rig.rotation.z = 0; }
+  if(rig){ rig.position.x = 0; rig.rotation.z = 0; rig.rotation.y = 0; }
   if(bw){ const k = +seatScale(seat) || 1; bw.rotation.set(0, 0, 0); bw.scale.set(k, k, k); }
   try{
     /* 남이 남긴 행렬에 기대지 않는다 — 조상부터 자손까지 여기서 세운다(fitModel 이 group 을 옮겼다 값만 되돌린 직후도 있다).
@@ -89,7 +89,7 @@ function measure(seat){
     return { left: Math.max(0, -lo), right: Math.max(0, hi) };
   }finally{
     if(bw){ bw.rotation.copy(bRot); bw.scale.copy(bScale); }
-    if(rig){ rig.position.x = px; rig.rotation.z = rz; }
+    if(rig){ rig.position.x = px; rig.rotation.z = rz; rig.rotation.y = ry; }
     if(rig || bw) g.updateMatrixWorld(true);
   }
 }

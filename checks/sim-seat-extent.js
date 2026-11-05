@@ -86,6 +86,13 @@ s.rig.position.x = 4; s.rig.rotation.z = 1.2;
 e = E.measure(s);
 chk(near(e.left, 0.2, 1e-3) && near(e.right, 0.2, 1e-3), '날기 · 끌기(rig 옮김 · 기울임) 중에도 앉은 자리로 잰다');
 chk(s.rig.position.x === 4 && s.rig.rotation.z === 1.2, '  잰 뒤 rig 는 그대로 돌려놓는다');
+{
+  const q = seatOf(); q.desk.children[0].visible = false;
+  const wing = box(2.4); wing.name = '__partWrap_wing'; q.gltfRoot.add(wing);
+  q.rig.rotation.y = Math.PI / 2;
+  const w = E.measure(q);
+  chk(near(w.left, 1.2) && near(w.right, 1.2) && q.rig.rotation.y === Math.PI / 2, '제자리 회전(묘기 · 오르골 — rig y) 중에도 옆 폭(날개 1.2)으로 재고 회전은 돌려놓는다(돈 채로 재면 앞뒤 깊이 0.05)');
+}
 s.bodyWrap.scale.set(2.5, 0.6, 1); s.bodyWrap.rotation.z = 1;
 e = E.measure(s);
 chk(near(e.left, 0.2, 1e-3) && s.bodyWrap.scale.x === 2.5 && s.bodyWrap.rotation.z === 1, '숨쉬기 · 스쿼시 · 누움(몸 감싸개 크기 · 회전)도 쉬는 자세로 재고 돌려놓는다');
@@ -134,6 +141,7 @@ function judge(src){
     q.rig.position.x = 4; q.rig.rotation.z = 1.2; const m = X.measure(q); r.push(near(m.left, 0.2, 1e-3) && q.rig.position.x === 4);
     q = seatOf(); const b1 = X.extentOf(q); q.desk.scale.x = 2; r.push(X.extentOf(q) !== b1);
     q = seatOf({ armsOut: true }); q.desk.children[0].visible = false; q.arm.rotation.z = Math.PI / 2; q.bodyWrap.scale.set(2.5, 1, 1); r.push(near(X.measure(q).left, 0.2, 1e-3));
+    q = seatOf(); q.desk.children[0].visible = false; const wg = box(2.4); wg.name = '__partWrap_w'; q.gltfRoot.add(wg); q.rig.rotation.y = Math.PI / 2; r.push(near(X.measure(q).left, 1.2));
     q = seatOf(); const b2 = X.extentOf(q); q.bodyWrap.scale.set(1.03, 0.97, 1); r.push(X.extentOf(q) === b2);
   }catch(_){ r.push(false); }
   return r.every(Boolean);
@@ -143,7 +151,8 @@ const breaks = [
   ['뼈대 자세 무시(처음 자세 점)', m => m.replace('if(skin) o.boneTransform(i, _v); else _v.fromBufferAttribute(pos, i);', '_v.fromBufferAttribute(pos, i);')],
   ['숨김 안 봄', m => m.replace('if(!_shown(o, seat.group)) return;', '')],
   ['책상 위 아이템 셈', m => m.replace('if(skipItems && _inDeskItems(o, root)) return;', '')],
-  ['rig 안 되돌림', m => m.replace('if(rig){ rig.position.x = 0; rig.rotation.z = 0; }', '')],
+  ['rig 안 되돌림', m => m.replace('if(rig){ rig.position.x = 0; rig.rotation.z = 0; rig.rotation.y = 0; }', '')],
+  ['제자리 회전 안 되돌림', m => m.replace('if(rig){ rig.position.x = 0; rig.rotation.z = 0; rig.rotation.y = 0; }', 'if(rig){ rig.position.x = 0; rig.rotation.z = 0; }')],
   ['뼈대 되돌림 행렬 안 맞춤', m => m.replace('    g.updateMatrixWorld(true);', '    g.updateWorldMatrix(true, true);')],
   ['열쇠에 책상 크기 빠짐', m => m.replace('[seat.desk, seat.gltfRoot].map(_tf)', '[seat.gltfRoot].map(_tf)')],
   ['열쇠에 몸 감싸개(매 프레임 바뀜)', m => m.replace('[seat.desk, seat.gltfRoot].map(_tf)', '[seat.desk, seat.bodyWrap, seat.gltfRoot].map(_tf)')],

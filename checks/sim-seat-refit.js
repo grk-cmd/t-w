@@ -69,10 +69,10 @@ async function judge(src) {
     b = build(src.MOD, list);
     b.m.requestRefit(A); b.m.requestRefit(A); b.m.requestRefit(B); b.m.requestRefit(A);
     r.oneFrame = b.frames.length === 1 && b.log.length === 0;   // 부른 자리에서는 바로 안 잰다(기본 메쉬가 돌아온 뒤)
-    await b.frame(); r.once = b.log.join(',') === 'fit:A,ride:A,fit:B,ride:B';
-    b.m.requestRefit(A); r.again = b.frames.length === 1; await b.frame(); r.againRun = b.log.join(',') === 'fit:A,ride:A,fit:B,ride:B,fit:A,ride:A';
+    await b.frame(); r.once = b.log.join(',') === 'fit:A,ride:A,fit:B,ride:B,layout';   // 뗀 파츠는 좌석 겉면에서 빠진다 — 줄은 좌석 수와 상관없이 한 번
+    b.m.requestRefit(A); r.again = b.frames.length === 1; await b.frame(); r.againRun = b.log.join(',') === 'fit:A,ride:A,fit:B,ride:B,layout,fit:A,ride:A,layout';
     b = build(src.MOD, list); b.m.requestRefit(P); b.m.requestRefit(null); r.onlySeats = b.frames.length === 0; await b.frame(); r.onlySeatsRun = b.log.length === 0;
-    b = build(src.MOD, list); b.m.requestRefit(A); await b.m.refitSeatAfterParts(A); await b.frame(); r.dropPending = b.log.join(',') === 'fit:A,ride:A';
+    b = build(src.MOD, list); b.m.requestRefit(A); await b.m.refitSeatAfterParts(A); await b.frame(); r.dropPending = b.log.join(',') === 'fit:A,ride:A';   // 지금 맞췄으면 다음 프레임 몫(줄 다시 잡기 포함)도 없다
     const list2 = [A]; b = build(src.MOD, list2); b.m.requestRefit(A); list2.length = 0; await b.frame(); r.leftSeat = b.log.length === 0;
     /* 진짜 app.js 떼기 함수 */
     const body = ['_refitAfterUnequip', 'unequipPartFromSeat', 'unequipStackablePart'].map(n => grabFn(src.APP, n)).join('\n');
@@ -91,8 +91,8 @@ async function judge(src) {
   const CALL = /refitSeatAfterParts\(\s*(\w+)\s*,\s*\{\s*wait:\s*([^\n]*)/g;
   const calls = (t) => [...t.matchAll(CALL)].map(m => ({ seat: m[1], rest: m[2] }));
   const wd = calls(src.WD);
-  r.wdNow = wd.some(c => c.seat === 'mySeat' && /^applyEquippedPartsToSeat\(mySeat, def\)/.test(c.rest)) && /await refitSeatAfterParts\(mySeat,/.test(src.WD);
-  r.wdOwner = wd.some(c => c.seat === 'seat' && /^applyEquippedPartsToSeat\(seat, src\)/.test(c.rest)) && /await refitSeatAfterParts\(seat,/.test(src.WD);
+  r.wdNow = wd.some(c => c.seat === 'mySeat' && /^applyEquippedPartsToSeat\(mySeat, def\), layout: true/.test(c.rest)) && /await refitSeatAfterParts\(mySeat,/.test(src.WD);   // 파츠도 좌석 겉면에 든다 — 줄 다시 잡기
+  r.wdOwner = wd.some(c => c.seat === 'seat' && /^applyEquippedPartsToSeat\(seat, src\), layout: true/.test(c.rest)) && /await refitSeatAfterParts\(seat,/.test(src.WD);
   r.re = calls(src.RE).some(c => c.seat === 's' && /^applyEquippedPartsToSeat\(s, fdef\), layout: true, isCurrent: \(\)=>s\.charDef===fdef/.test(c.rest));
   r.app = calls(src.APP).some(c => c.seat === 'seat' && /^applyEquippedPartsToSeat\(seat, def\), layout: true, isCurrent: \(\)=>seat\.charDef===def/.test(c.rest));
   r.cs = calls(src.CS).some(c => c.seat === 's' && /^Promise\.all\(_pending\./.test(c.rest) && /layout: true/.test(c.rest));
@@ -161,12 +161,13 @@ async function judge(src) {
     ['탄 대상 높이 다시 재기 빠짐', { MOD: SRC.MOD.replace('  if(seat.ridingOn) _notifyRefitted(seat.ridingOn);\n', '') }, 'riding'],
     ['같은 프레임 여러 번 → 여러 번', { MOD: SRC.MOD.replace('  if(_frameAsked) return;\n', '') }, 'oneFrame'],
     ['떼자마자 바로 잼(다음 프레임 아님)', { MOD: SRC.MOD.replace('  requestFrame(_runPending);', '  _runPending();') }, 'oneFrame'],
-    ['미리보기 좌석도 맞춤', { MOD: SRC.MOD.replace("  if(!seat || !seats.includes(seat)) return;", "  if(!seat) return;").replace("  list.forEach(seat => { if(seats.includes(seat)) refitSeatAfterParts(seat); });", "  list.forEach(seat => refitSeatAfterParts(seat));") }, 'onlySeats'],
+    ['미리보기 좌석도 맞춤', { MOD: SRC.MOD.replace("  if(!seat || !seats.includes(seat)) return;", "  if(!seat) return;").replace("  const live = list.filter(seat => seats.includes(seat));", "  const live = list;") }, 'onlySeats'],
     ['겹쳐 단 파츠를 떼도 안 부름', { APP: SRC.APP.replace('  _sweepOrphanPartWrappers(seat);\n  _refitAfterUnequip(seat);\n}', '  _sweepOrphanPartWrappers(seat);\n}') }, 'uStack'],
     ['카테고리를 떼도 안 부름', { APP: SRC.APP.replace('  if(removed) _refitAfterUnequip(seat);\n', '') }, 'uPart'],
     ['모듈이 없을 때 떼기가 던짐', { APP: SRC.APP.replace('  try{ seatRefitMod.requestRefit(seat); }catch(_){}', '  seatRefitMod.requestRefit(seat);') }, 'uSafe'],
     ['app.js 가 높이 다시 재기를 안 검', { APP: SRC.APP.replace(/\nseatRefitMod\.onRefitted\([^\n]*/, '') }, 'hook'],
-    ['꾸미기 저장이 옛 줄로', { WD: SRC.WD.replace('await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def) });', 'await applyEquippedPartsToSeat(mySeat, def);\n  try{ if(mySeat && mySeat.gltfRoot) fitModel(mySeat); }catch(_){}') }, 'wdNow'],
+    ['꾸미기 저장이 줄을 안 다시 잡음', { WD: SRC.WD.replace('applyEquippedPartsToSeat(mySeat, def), layout: true });', 'applyEquippedPartsToSeat(mySeat, def) });') }, 'wdNow'],
+    ['꾸미기 저장이 옛 줄로', { WD: SRC.WD.replace('await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def), layout: true });', 'await applyEquippedPartsToSeat(mySeat, def);\n  try{ if(mySeat && mySeat.gltfRoot) fitModel(mySeat); }catch(_){}') }, 'wdNow'],
     ['친구 파츠 변경이 옛 .then 으로', { RE: SRC.RE.replace(/refitSeatAfterParts\(s, \{ wait: applyEquippedPartsToSeat\(s, fdef\)[^\n]*/, 'applyEquippedPartsToSeat(s, fdef).then(()=>{ try{ if(s && s.charDef===fdef && s.gltfRoot){ fitModel(s); layoutSeats(); } }catch(_){} });') }, 're'],
     ['관리자 다시 등록이 함수를 안 부름', { AP: SRC.AP.replace(/refitSeatAfterParts\(s, \{ wait: Promise\.resolve\(equipPartOnSeat\(s, c, rec, \{ stackableXf \}\)\) \}\);/, 'Promise.resolve(equipPartOnSeat(s, c, rec, { stackableXf })).then(()=>{ try{ if(s && s.gltfRoot) fitModel(s); }catch(_){} }).catch(()=>{});') }, 'ap'],
     ['html 줄 빠짐', { HTML: SRC.HTML.replace(/<script src="parts\/room\/seat-refit\.js"><\/script>/, '') }, 'html'],

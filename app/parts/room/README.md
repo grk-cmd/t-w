@@ -94,7 +94,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **책임**: 좌석 하나가 차지하는 가로 자리 — 보이는 겉면(책상 몸 · 캐릭터 몸 · 꾸미기 파츠)이 좌석 원점에서 왼쪽 · 오른쪽으로 얼마나 뻗었나(`{ left, right }`). 모습이 그대로면 다시 재지 않는다.
 - **deps**: `THREE` · `seatScale`(평준화 배율 — 몸 감싸개의 쉬는 크기). app.js 가 줄 배치보다 먼저 `const seatExtentMod = TwSeatExtent.createSeatExtent({ THREE, seatScale: (...a)=>seatEqMod.seatScale(...a) })`.
 - **내놓는 것**: `extentOf(seat)`(모습 열쇠가 같으면 기억한 값) · `measure(seat)`(늘 새로 잼) · `shapeKey(seat)` · `DEFAULT_HALF`(잴 것이 없을 때 0.85).
-- **재는 법**: 책상(`deskAnchor` — 책상 위 아이템 · 파츠 핀 — 빼고)과 몸 감싸개(`bodyWrap`) 아래에서 **보이는** 메시의 점을 하나하나. 뼈대 메시는 `boneTransform` 으로 **지금 자세**의 점. 날기 · 끌기(rig 가로 · 기울기) · 숨쉬기 · 춤 · 누움 · 스쿼시(감싸개 회전 · 크기)는 잴 때만 쉬는 자세로 되돌린다.
+- **재는 법**: 책상(`deskAnchor` — 책상 위 아이템 · 파츠 핀 — 빼고)과 몸 감싸개(`bodyWrap`) 아래에서 **보이는** 메시의 점을 하나하나. 뼈대 메시는 `boneTransform` 으로 **지금 자세**의 점. 날기 · 끌기(rig 가로 · 기울기) · 묘기 회전 · 오르골(rig 제자리 회전) · 숨쉬기 · 춤 · 누움 · 스쿼시(감싸개 회전 · 크기)는 잴 때만 쉬는 자세로 되돌린다.
 - **함정**
   - 상자(`Box3.setFromObject`)로 재지 않는다 — three r128 은 뼈대 메시를 처음 저장된 자세(팔 벌림)로, 숨은 메시까지 넣어 잰다(#755: 사람 14% · 동물 25% 넓었다).
   - 자손 행렬은 `updateMatrixWorld` 로 세운다 — 뼈대 메시의 `bindMatrixInverse` 는 그 안에서만 맞춰진다(`updateWorldMatrix` 는 건너뛴다).
@@ -131,6 +131,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
   - 자리 폭에 여유 · 하한 같은 숫자를 덧대지 않는다 — 겉면이 틀리면 `seat-extent.js` 를 고친다(#755).
   - 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — app.js `applyCharToSeat` 는 책상을 다 그린 뒤 `layoutSeats` 를 다시 부른다(꾸미기 창 `wardrobe.js` 와 같은 까닭).
+  - 파츠도 겉면에 든다 — 파츠가 바뀌면 줄을 다시 잡는다(꾸미기 저장 `layout: true` · 떼기는 `seat-refit.js` 다음 프레임에 한 번 · 설정 «꾸미기 파츠 표시»).
   - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 치우친 자리 · 간격 0 · 간격 종류 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 끌기 · 빈 목록).
 
 ## label-measure.js — 📐 좌석 라벨 잰 값 기억

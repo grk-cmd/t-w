@@ -1,6 +1,6 @@
 /* seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 자리 다시 맞추기 — 길마다 따로 쓰던 «장착 끝 → fitModel → layoutSeats → 올라탄 사람 높이» 한 벌
    책임: 파츠를 붙이거나 뗀 좌석을 같은 순서로 다시 맞춘다 — ① 끝난 장착 기다리기(실패해도 다시 맞추기는 한다) ② 아직 그 좌석 · 그 캐릭터인지 ③ fitModel(발밑 깊이 · 리깅 파츠)
-     ④ layoutSeats(부르는 쪽이 원할 때만) ⑤ 다시 맞춘 뒤 할 일 알림(onRefitted — 그 좌석 위에 탄 사람 · 그 좌석이 탄 대상 위에 탄 사람의 머리 꼭대기 값 다시 재기).
+     ④ layoutSeats(부르는 쪽이 원할 때 · 다음 프레임 떼기 몫은 늘 — 파츠는 좌석 겉면에 든다) ⑤ 다시 맞춘 뒤 할 일 알림(onRefitted — 그 좌석 위에 탄 사람 · 그 좌석이 탄 대상 위에 탄 사람의 머리 꼭대기 값 다시 재기).
    받는 deps: fitModel · layoutSeats(함수 — app.js 가 다시 대입하므로 화살표로) · seats(실행 화면 좌석 배열 — 다음 프레임 맞추기는 여기 있는 좌석만) · requestFrame(requestAnimationFrame).
    내보내는 것: refitSeatAfterParts(seat, opts) — opts: { wait: 기다릴 장착 Promise · layout: layoutSeats 도 부를지 · isCurrent: 기다린 뒤에도 같은 좌석 상태인지(아니면 아무것도 안 함) }
      · requestRefit(seat) — 파츠를 뗀 자리(unequipStackablePart · unequipPartFromSeat)가 부른다. 다음 프레임에 한 번 다시 맞춘다 — 같은 프레임에 여러 번 불러도 좌석마다 한 번.
@@ -30,7 +30,9 @@ let _frameAsked = false;
 function _runPending(){
   _frameAsked = false;
   const list = [..._pending]; _pending.clear();
-  list.forEach(seat => { if(seats.includes(seat)) refitSeatAfterParts(seat); });
+  const live = list.filter(seat => seats.includes(seat));
+  live.forEach(seat => refitSeatAfterParts(seat));
+  if(live.length){ try{ layoutSeats(); }catch(_){} }   // 뗀 파츠는 좌석 겉면에서 빠진다 — 줄은 좌석 수와 상관없이 한 번
 }
 function requestRefit(seat){
   if(!seat || !seats.includes(seat)) return;

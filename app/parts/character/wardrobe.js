@@ -898,7 +898,7 @@ async function _commitWdDraftNow(silent){
   pruneSeatPartsAgainstDef(mySeat, def);
   /* 남아있는/새로 생긴 파츠는 적용(같은 카테고리 교체도 내부에서 처리됨) → 🦶 발밑 깊이 · 올라탄 사람 높이를 다시 맞춘다.
      ⚠️ 빠지면 욕조를 벗은 뒤에도 그 깊이만큼 뜬 채로 남아 있다가 다음 실행에서야 제자리로 돌아온다. */
-  await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def) });
+  await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def), layout: true });   // 파츠도 좌석 겉면에 든다 — 줄 다시 잡기
   saveSlots();   // 적용 중 def 가 정리됐으면(옷 겹침 등) 한 번 더 — 그대로면 아무 일 없다
   if(mySeat.isMe && typeof Presence()!=='undefined' && Presence().active()){
     Presence().updateDef(def);
@@ -931,7 +931,7 @@ async function _commitWdDraftToOwner(draft, silent){
   if(seat){
     if(_earChanged) _attachHumanEars(seat.modelRoot, src);
     pruneSeatPartsAgainstDef(seat, src);
-    await refitSeatAfterParts(seat, { wait: applyEquippedPartsToSeat(seat, src) });
+    await refitSeatAfterParts(seat, { wait: applyEquippedPartsToSeat(seat, src), layout: true });
     saveSlots();
   }
   if(seat && seat.isMe && typeof Presence()!=='undefined' && Presence().active()) Presence().updateDef(src);

@@ -462,6 +462,7 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
     try{ localStorage.setItem('tw.decoParts', decoPartsVisible()?'1':'0'); }catch(_){}
     refreshToggleBtns();
     try{ seats.forEach(s => applyClothVisibility(s)); }catch(_){}
+    layoutSeats();   // 숨긴 파츠는 좌석 겉면에서 빠진다(room/seat-extent.js) — 줄 다시 잡기
   };
   const coBtn=document.getElementById('fsChipOrientToggle');
   if(coBtn) coBtn.onclick=()=>{
