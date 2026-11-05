@@ -8344,7 +8344,7 @@ const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
   DESK_PART_ANCHOR_NAME: deskPlaceMod.DESK_PART_ANCHOR_NAME,
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   SPACING: ()=>SPACING,
-  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),
   seatEqMod: seatEqMod,
   seatSlot: ()=>seatSlot,
   seats: seats,

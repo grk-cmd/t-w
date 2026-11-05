@@ -192,14 +192,14 @@
 
 ## seat-eq-clamp.js — 🪑 평준화 가두기
 
-- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 책상이 뻗은 거리(`seatDeskHalfWidth`) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
+- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 좌석 반폭(`seatHalfWidth` — `room/seat-layout.js` 가 내놓는 줄 배치와 같은 규칙: 책상 · 🚫 책상 없음 · 몸 폭) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
 - **왜 따로**: 책상 자리 · 크기(desk-place)가 평준화 깃발을 읽으면 desk-place ↔ seat-equalize 순환이 생긴다. 가두기는 평준화 몫이라 여기로 떼어 desk-place 는 seat-equalize 를 모른다(의존: seat-eq-clamp → seat-equalize · 파츠 핀 이름).
 - **만드는 법**(app.js «📌 책상 위 파츠 앵커» 자리, `DESK_PART_ANCHOR_NAME` 바로 뒤):
   ```js
   const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
     DESK_PART_ANCHOR_NAME, seatEqMod, seats,                   // 값
     MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, SPACING: ()=>SPACING, seatSlot: ()=>seatSlot,   // 읽는 함수(다시 대입 · 뒤에서 선언)
-    seatDeskHalfWidth,                                         // 함수(화살표로)
+    seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),  // 좌석 반폭 — 줄 배치와 같은 규칙
   });
   ```
 - **내보내는 것**

@@ -92,6 +92,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 ## seat-layout.js — 🪑 좌석 줄 배치
 
 - **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 반폭 + 여백 + 내 반폭» 씩 `targetX`(반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유 `BODY_ROOM` 0.15» 중 넓은 쪽 — 책상이 작거나 없는 캐릭터가 옆 책상과 안 겹치게 · 🚫 «책상 없음»(`desk.userData.noDesk`)이면 몸을 잰 뒤엔 책상 폭을 안 센다) → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로.
+- **좌석 반폭** `seatHalfWidth(s)` — 줄 배치와 같은 규칙(책상 · 🚫 책상 없음 · 몸 폭, 줌 상한 없음)을 좌석 하나에. 평준화 가두기(`character/seat-eq-clamp.js`)가 deps 로 받는다 — 두 곳이 자리 폭을 따로 재면 «책상 없음» 좌석의 파츠가 옆으로 넘어간다. 몸 폭은 마지막 줄 배치에서 잰 값.
 - **만드는 법**(app.js «🪑 좌석 배치» 구역 자리):
   ```js
   const seatLayoutMod = TwSeatLayout.createSeatLayout({
