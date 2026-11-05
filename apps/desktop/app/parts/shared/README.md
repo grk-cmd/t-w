@@ -238,6 +238,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **내놓는 것**
 - `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).
+- `store.serverClosed(retry, onDismiss)` — realtime 서버가 점검(4006)으로 닫았다(`realtime/rt-status-ui.js` 가 부름). 점검 창에 [다시 시도] 를 더해 띄우고, 누르거나 `config/maintenance` 가 풀리면 `retry()` 한 번(자동 재시도 없음). 창이 떠 있는 동안 `on()` 도 참. «확인» 으로 닫으면 같은 `retry` 를 `onDismiss` 에도 넘긴다(띠 [다시 연결] · 점검 해제와 띠 중 먼저 온 쪽 한 번만) — ⚠️ 닫은 뒤에도 `on()` 이 참이면 이 실행의 오류 알림이 다 꺼진다.
 - 순수: `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
 
 **함정**
@@ -248,7 +249,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 점검 때 Firebase 를 잠그는 규칙도 `config/maintenance` **읽기는 열어 둬야** 한다 — 닫으면 구독이 끊겨 끝난 것을 모른다.
 - 창이 떠 있는 동안 관리자가 끝 시각 · 문구를 바꾸면 바로 다시 그린다.
 
-검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 7).
+검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 2-2절 realtime 점검 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 11).
 
 ## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
 
@@ -373,7 +374,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **책임**: 로그인보다 먼저(계정 없이) 최소 버전(`minVersion.app` — `GET /v1/config`)과 새 판(main.js electron-updater)을 보고 창을 띄운다. 강제(내 버전 < 최소)는 [업데이트] 만 · 닫기 없음 · 로그인으로 넘어가지 않음. 선택(새 판 있음)은 [업데이트] [나중에](버전만 보임). 그 뒤 안 본 업데이트 공지 창, 그 뒤 로그인. 아무것도 없으면 바로 로그인.
 - **만드는 법**: `TwUpdateFlow.createUpdateFlow({ readMin, getMin, onMinChange, getVersion, companion, ui: TwUpdateFlow.createUpdateDom(document), noticeOnce, showNotice })` — app.js 가 초대 게이트(`initInviteGate`) 앞에서 만든다. 오류 번호 없음(못 읽으면 막지 않고 넘어간다).
 - **내놓는 것**: `runBeforeLogin()`(→ `{ proceed, stage }` — 강제면 `proceed:false`) · `press(action)` · `whenStageDone(fn)`(런처 «재시작하면 업데이트» 띠를 단계가 끝난 뒤에 걸기) · `isForced()` · `current()` / 순수 함수 `parseVer` · `isBelow` · `stageOf(my, min, latest)` · `viewOf`.
-- **켜 둔 동안**: 원격 설정이 `minVersion` 이 바뀌었다고 알리면(`onMinChange` — 서버 신호) 바로 강제 창. 새 주기 요청은 없다.
+- **켜 둔 동안**: 원격 설정이 `minVersion` 이 바뀌었다고 알리면(`onMinChange` — 서버 신호) 바로 강제 창. 새 주기 요청은 없다. realtime 서버가 통신 판이 다르다고 닫으면(4003) `forceProtocol()` — 최소 버전 없이 «서버와 맞지 않아» 강제 창(`realtime/rt-status-ui.js` 가 부름).
 - **함정**: 새 판 확인은 main 이 혼자 3초 뒤 하지 않고 이 모듈이 켤 때 `companion.checkUpdate()` 로 묻는다(구독을 건 뒤라 답을 놓치지 않음). 답이 `UPDATE_WAIT_MS` 안에 없으면 «없음». 실패 뒤 혼자 되풀이하지 않고 강제 창 [다시 시도] 를 누를 때만 다시 묻는다. 맥은 자동 설치가 없어 [업데이트] 가 릴리스 주소를 연다.
 - 검사: `checks/sim-update-flow.js`.
 

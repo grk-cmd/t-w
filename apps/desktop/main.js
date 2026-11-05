@@ -3983,6 +3983,10 @@ if (!gotLock) {
     focusApps = loadFocusApps();   // ★ 이전에 등록해둔 포커싱 어플 복원
     _applyAppMenu();   // 기본 메뉴 걷기 — 창보다 먼저(APP_MENU_TEMPLATE 주석)
     createWindow();
+    /* 💤 절전 · 잠금에서 돌아옴 — 렌더러의 realtime 연결이 살아 있는지 한 번 확인한다(rt-hub checkAlive · 끊겼으면 다시 붙음) */
+    for(const ev of ['resume', 'unlock-screen']){
+      powerMonitor.on(ev, () => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('companion:wake', ev); });
+    }
     /* 🖥️ 화면 구성을 한 줄 남긴다 — createWindow 뒤에 부른다(그래야 오버레이가 어디에 뜨는지 함께 나온다).
        제보자마다 배율·화면 수를 물어보지 않아도 되게 하는 것이 목적이다. */
     overlay.logDisplayLayout();

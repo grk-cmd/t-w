@@ -41,6 +41,7 @@ const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;
 const _rcStore = deps._rcStore;   // 원격 설정 한 벌(account-state.js)
 function inviteGateOn(){ const s = _rcStore(); return s ? s.inviteGate() : true; }
 const INVITE_GRANT_MAX = 3;                 // 관리자가 한 번에 지급할 수 있는 최대 초대권 수
+const BYE_SWITCH = 'switch';                // realtime 작별 까닭(rt-hub.js BYE_WHY) — 계정을 바꿔 다시 켤 때
 
 /* ═══ 🔑 켤 때 — 로그인 · 서버 가입 확인 (0.13 — login-flow.js 판정 · 설계 03-auth 3-3-1) ═══
    in     → 이 PC 를 서버 계정에 맞춘다(_enterAccount). uid 가 바뀌었으면 다시 켠다 · 아니면 «계정에 들어감» 을 알린다 — 옛 값 옮기기 → realtime → 계정 기능 시작 · 0.13 첫 실행은 app-boot.js 차례 표가 한다.
@@ -94,9 +95,13 @@ function _showOfflineGate(){
     };
   });
 }
+/* 계정을 바꿔 다시 켠다 — 켜 둔 realtime 연결이 있으면 작별(bye{switch}) 뒤에(못 닿으면 앱 끄기의 quit 이 한 번 더) */
+function _switchRelaunch(onFallback){
+  Promise.resolve(loginFlowMod.release(BYE_SWITCH)).catch(()=>{}).then(()=>_acctRelaunchAfterDetach(onFallback));
+}
 function _relaunchSoon(text){
   try{ toast(text); }catch(_){}
-  _acctRelaunchAfterDetach(()=>{ try{ toast('앱을 완전히 종료했다가 다시 실행해 주세요'); }catch(_){} });
+  _switchRelaunch(()=>{ try{ toast('앱을 완전히 종료했다가 다시 실행해 주세요'); }catch(_){} });
 }
 
 /* 🎉 [회원가입 설계 §7-J · §4 (가) · 개정 13] 가입 완료 — J(비밀번호) · J2(구글).
@@ -162,7 +167,7 @@ function _showInviteGate(){
     const finish = (r, say)=>{
       if(r.switched){
         say('✅ 로그인됐어요. 앱을 다시 시작하는 중이에요…');
-        _acctRelaunchAfterDetach(()=> say('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.'));
+        _switchRelaunch(()=> say('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.'));
         return;
       }
       close(); _entered(r.me); resolve(true);
@@ -190,7 +195,7 @@ function _showInviteGate(){
           /* 이미 가입된 구글이었다 — 새로 만든 게 없으니 완료 화면 없이 그 계정으로 */
           if(!e.switched){ say('', false); close(); _entered(r.me); resolve(true); return; }
           say('✅ 이미 가입된 구글 계정이에요 — 그 계정으로 들어갈게요. 앱을 다시 시작하는 중이에요…', false);
-          _acctRelaunchAfterDetach(()=> say('✅ 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
+          _switchRelaunch(()=> say('✅ 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
           return;
         }
         if(codeEl) codeEl.textContent = r.me.friendCode;

@@ -18,6 +18,8 @@ const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 마지막 /v1/me 답(
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
 const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost';   // rt-hub.js 상태 이름
+const BYE_LOGOUT = 'logout';   // rt-hub.js BYE_WHY
+const LEAVE_WAIT_MS = 1500;    // 방 나가기 기다림 상한(설계 4-D-3) — 오프라인이면 방 나가기 쓰기가 끝나지 않아 로그아웃이 멈춘다
 
 /* 비밀번호 가입의 요청 번호 열쇠 — 비밀번호를 바꿔 다시 누르면 새 요청(같은 번호면 서버가 처음 비밀번호의 계정을 돌려준다).
    비밀번호 글을 그대로 들고 있지 않게 짧은 지문(FNV-1a)만. */
@@ -37,7 +39,8 @@ function joinKey(inviteCode, password){
  *           signInPassword: (code: string, pw: string) => Promise<{ ok: boolean, email?: string, reason?: string }>,
  *           signOut: () => Promise<void>, identity: () => ({ email: string | null, uid: string | null }) },
  *   googleWindow: () => Promise<{ ok: boolean, idToken?: string, canceled?: boolean, reason?: string }>,
- *   rt: { start: (o: { claim: boolean }) => void, stop: () => void, onState: (fn: (s: string) => void) => Function },
+ *   rt: { start: (o: { claim: boolean }) => void, stop: () => void, bye: (why: string) => Promise<void>, onState: (fn: (s: string) => void) => Function },
+ *   leaveRoom: () => Promise<void>,   // 방 안이면 나가기(leave → left 기다림) · 방 밖이면 바로 풀린다
  *   pending: { idFor: (k: string) => string, settle: (k: string) => void },
  *   storage: { getItem: Function, setItem: Function, removeItem: Function },
  *   onSessionLost: () => void,
@@ -207,17 +210,24 @@ function createLoginFlow(deps){
     }catch(e){ return { ok: false, err: e }; }
   }
 
-  /* 로그아웃 · 계정을 놓을 때 — realtime 을 끄고 · API 통로의 로그인 읽기를 떼고 · 로그인을 놓고 사본을 지운다. */
-  async function logout(){
+  /* 이 연결을 놓는다 — 방을 나가고(leave → left 기다림) → realtime 에 작별(bye{why}) → 서버 닫힘 기다림(설계 04-realtime-disconnect 4-D-3).
+     why: 'logout' · 'withdraw'(서버가 이 기기 세션 칸을 지운다) · 'switch'(계정 바꾸기 — 로그인은 새 계정 그대로 · 다시 켜기 전에).
+     ⚠️ 차례: leave 가 작별보다 먼저 — 연결을 먼저 닫으면 방 사람들은 유예(20초) 뒤에야 나간 것을 본다. */
+  async function release(why){
     online = false; rtWait = false; waitBack = null; mode = 'off';
-    try{ deps.rt.stop(); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다
+    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}
+    try{ await deps.rt.bye(why); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다 · 서버는 작별을 받으면 유예 없이 오프라인
+  }
+  /* 로그아웃 · 계정을 놓을 때 — 연결을 놓고(release) → API 통로의 로그인 읽기를 떼고 · 로그인을 놓고 사본을 지운다. o.why: 'logout'(기본) · 'withdraw' */
+  async function logout(o){
+    await release((o && o.why) || BYE_LOGOUT);
     try{ deps.forgetSession(); }catch(_){}   // 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않게(api-client forgetSession)
     clearCache();
     try{ await auth.signOut(); }catch(_){}
   }
 
   return {
-    confirm, goOnline, waitForServer, retryNow, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout,
+    confirm, goOnline, waitForServer, retryNow, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout, release,
     meCache: () => readCache(),
     identity: () => auth.identity(),   // 지금 Auth 로그인 { email, uid } — 이 PC 로그인 표시(계정 탭 얼굴 · 진단)
     mode: () => mode,

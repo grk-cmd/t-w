@@ -7,6 +7,7 @@
  * 4. 끊김 → onClosed(wasReady, fatal) · 다시 붙기 백오프(reconnectWanted) · markAuthRetry → getToken(true)
  * 5. 토큰 갱신 hello 에도 선택 칸 · 쉬면 닫기(idleCloseMs · busy) · 못 붙은 주소 1분 쉼 · retry · 주소 바뀜(switchOk)
  * 6. firebase-init 연결 — import 하고 방 연결에 createLink 로 넘긴다
+ * 7. 끊김 정책 몫 — ready 전 error auth · protocol 의 닫힘 번호(4001 · 4003) · scheduleReconnect({ delayMs, readyWaitMs }) · reconnectNow
  */
 'use strict';
 const fs = require('fs');
@@ -341,6 +342,44 @@ async function up(env){
     const { ws: w5 } = await up(c2);
     w5.close();
     chk(c2.log.codes[c2.log.codes.length - 1] === null, '  ↳ 번호가 없으면 null');
+  }
+
+  say('── 7. 끊김 정책 몫 — ready 전 error 의 닫힘 번호 · 정한 시간 뒤 다시 붙기 · 지금 다시 붙기');
+  {
+    const preReady = async (code) => {
+      const e = mk({ pv: 3, uid: null, helloFields: () => ({}) });
+      const p = e.link.ensureReady(); await tick();
+      e.socks[0].open(); e.socks[0].msg({ t: 'error', code });
+      await p;
+      return e.log.codes[e.log.codes.length - 1];
+    };
+    chk(await preReady('auth') === 4001, 'ready 전 error auth → 먼저 끊어도 닫힘 번호 4001(부르는 쪽이 서버 4001 과 같이 센다)');
+    chk(await preReady('protocol') === 4003, '  ↳ error protocol → 4003');
+    chk(await preReady('version') === null, '  ↳ error version(옛 방 서버) → 번호 없음(4002 는 걷은 번호)');
+    { /* 토큰을 못 받아 열지 못함(이 PC 사정) — 서버 번호가 아니다 */
+      const e = mk({ pv: 3, uid: null, token: null, helloFields: () => ({}) });
+      await e.link.ensureReady();
+      chk(e.log.codes[0] === null && e.log.closed[0][1] === 'auth', '  ↳ 토큰 없음은 번호 없음(fatal auth 만)');
+    }
+    const d = mk();
+    d.link.scheduleReconnect({ delayMs: 12345, readyWaitMs: 35000 });
+    await d.clock.advance(12344);
+    chk(d.socks.length === 0, 'scheduleReconnect({ delayMs }) — 백오프 대신 그 시간까지 안 붙는다');
+    await d.clock.advance(1); await tick();
+    chk(d.socks.length === 1, '  ↳ 그 시간에 연다');
+    d.socks[0].open();
+    await d.clock.advance(34000);
+    chk(!d.socks[0].closed, '  ↳ readyWaitMs — 그 연결은 ready 를 35초까지 기다린다(기본 5초에 끊지 않음)');
+    await d.clock.advance(1001);
+    chk(d.socks[0].closed && d.log.closed.length === 1 && d.log.closed[0][1] === 'timeout', '  ↳ 35초가 지나면 끊는다(timeout)');
+    d.link.scheduleReconnect(); await d.clock.advance(1); await tick();
+    const n0 = d.socks.length;
+    const rn = d.link.reconnectNow(); await tick();
+    chk(rn === true && d.socks.length === n0 + 1, 'reconnectNow — 다시 붙기를 기다리는 중이면 기다림을 건너뛰고 지금 연다');
+    chk(d.link.reconnectNow() === false, '  ↳ 기다리는 중이 아니면 아무 일 없음(false)');
+    d.socks[d.socks.length - 1].open();
+    await d.clock.advance(5001);
+    chk(d.socks[d.socks.length - 1].closed, '  ↳ 다음 연결의 ready 기다림은 다시 기본 5초');
   }
 
   say('── 6. 연결');

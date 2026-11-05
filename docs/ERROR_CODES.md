@@ -27,6 +27,7 @@
 | `LIC` | 라이선스 · 프리미엄 |
 | `DATA` | (걷음) 범용 데이터 통로 — 걷은 번호만 |
 | `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
+| `RT` | realtime 연결이 끊겨 멈춤(로그인 풀림 · 계정 로그아웃 · 모르는 닫힘) — 다시 붙는 끊김엔 번호 없음 |
 | `SYS` | 그 밖 |
 
 ## 번호
@@ -94,6 +95,9 @@
 | `E-NET-06` | 요청 모양이 맞지 않아 처리하지 못했어요 | `shared/api-errors.js` — 공통 `INVALID_REQUEST` · `METHOD_NOT_ALLOWED` · `UNSUPPORTED_MEDIA_TYPE` · `PAYLOAD_TOO_LARGE` |
 | `E-NET-07` | 서버에 닿지 못했어요 — 인터넷 연결을 확인하고 다시 해 주세요 | `shared/api-errors.js` — 닿지 못함(네트워크 · 시간 초과 · 5xx · 사본 없음) |
 | `E-NET-08` | 서버에서 처리하지 못했어요 — 잠시 뒤 다시 해 주세요 | `shared/api-errors.js` — 표에 없는 code(기능 표 · 공통 표 둘 다 없음) |
+| `E-RT-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `realtime/rt-status-ui.js` — realtime 서버가 4001(토큰)로 두 번 닫음(ready 전 error auth 포함) → 로그인 화면 |
+| `E-RT-02` | 계정이 이 기기에서 로그아웃됐어요 | `realtime/rt-status-ui.js` — realtime 서버가 4007(탈퇴 · 정지 · 관리자 강제 로그아웃)로 닫음 → 로그아웃 처리 · 로그인 화면 |
+| `E-RT-03` | 서버 연결이 끊겼어요 | `realtime/rt-status-ui.js` — realtime 서버가 모르는 4000번대 번호로 닫음(멈춤) — 런처 위 띠에 [다시 연결] |
 
 ## 걷은 번호
 | 번호 | 사용자 문구 | 언제 · 왜 |

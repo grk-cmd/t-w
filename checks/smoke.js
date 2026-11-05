@@ -455,6 +455,8 @@ PRELOAD.push('wardrobe.js');
 PRELOAD.push('settings-panel.js');
 /* update-flow.js — 🔄 켤 때 업데이트 흐름. app.js 가 초대 게이트 앞에서 createUpdateFlow 를 만들고 desktop-run.js 가 whenStageDone 을 받으므로 먼저 싣는다. */
 PRELOAD.push('update-flow.js');
+/* rt-status-ui.js — 🛰 realtime 끊김 화면. app.js 가 업데이트 흐름 바로 뒤에서 createRtStatusUi 를 부르므로 먼저 싣는다. */
+PRELOAD.push('rt-status-ui.js');
 /* desktop-run.js — 🖥️ 데스크탑 실행 화면(앱 FSD 32번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDesktopRun 를 같이 굴린다. */
 /* click-through-policy.js — 클릭 통과 판단 규칙(순수 함수). desktop-run.js 가 deps.clickPolicy 로 받으므로 먼저 싣는다. */
 PRELOAD.push('click-through-policy.js');

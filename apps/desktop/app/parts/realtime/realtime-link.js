@@ -1,5 +1,5 @@
 /*
- * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 옛 방 연결(room/room-server-net.js · pv 1)과 늘 붙는 연결 하나(realtime/rt-hub.js · pv 2)가 같이 쓴다.
+ * realtime-link.js — realtime 서버(웹소켓) 연결 공통부. 옛 방 연결(room/room-server-net.js · pv 1)과 늘 붙는 연결 하나(realtime/rt-hub.js · pv 3)가 같이 쓴다.
  * 책임: 열기 · hello(인증) · ready 기다리기 · 토큰 갱신 · 다시 붙기 백오프 · rid 요청과 답 짝짓기 · 쉬면 닫기 · 못 붙은 주소 잠깐 쉬기.
  *   방 · 친구처럼 «무엇을 주고받는지» 는 모른다 — 연결 위의 메시지는 hooks.onMessage 로 넘기고, 끊기면 hooks.onClosed 로 알린다.
  *   다시 붙을지 · 언제 포기할지도 부르는 쪽이 정한다(scheduleReconnect 를 부르면 그때 백오프로 붙는다).
@@ -14,7 +14,7 @@
  *       idleCloseMs(0 이면 쉬어도 안 닫음) · busy() → 쉬면 닫기를 미룰까 · reconnectWanted() → 다시 붙기 타이머가 울렸을 때 붙을까,
  *       hooks: { onReady(readyMsg), onMessage(m), onClosed(wasReady, fatal, closeCode) } — closeCode 는 웹소켓 닫힘 번호(4001 · 4004 …) | null,
  *       now · setTimeout · clearTimeout · random · log 는 검사용(기본 전역).
- * 내보냄: createRealtimeLink(deps) → { enabled, ensureReady(ms, o), request(msg, map), send(o), close(), drop(), scheduleReconnect(),
+ * 내보냄: createRealtimeLink(deps) → { enabled, ensureReady(ms, o), request(msg, map), send(o), close(), drop(), scheduleReconnect(o), reconnectNow(),
  *       scheduleIdle(), cancelIdle(), markAuthRetry(), markFailed(), isReady(), state() }
  *   순수: jwtExpMs(token) · LINK_TIMING
  */
@@ -29,6 +29,8 @@ export const LINK_TIMING = Object.freeze({
   TOKEN_MIN_MS: 60 * 1000,
   FAIL_COOLDOWN_MS: 60 * 1000,
 });
+/* ready 전 error 뒤 서버가 닫을 번호(서버 PROTOCOL 7-1 «error 를 먼저 보내는 닫힘») — 앱이 먼저 끊어도 부르는 쪽이 같은 번호로 판단하게 */
+const PRE_READY_ERROR_CLOSE = Object.freeze({ auth: 4001, protocol: 4003 });
 
 // Firebase ID 토큰의 만료 시각(ms). 못 읽으면 null.
 export function jwtExpMs(token){
@@ -142,17 +144,33 @@ export function createRealtimeLink(deps){
     try{ if(hooks.onClosed) hooks.onClosed(wasReady, fatal, closeCode); }catch(e){ try{ (deps.log || console).warn('[realtime] 끊김 처리 실패', e); }catch(_){} }
   }
 
-  function scheduleReconnect(){
+  /* o.delayMs: 백오프 대신 이 시간 뒤(서버 재시작 흩기) · o.readyWaitMs: 그 연결이 ready 를 기다릴 시간(기본 CONNECT_TIMEOUT_MS) */
+  let reconnectWait = 0;
+  function reconnectFire(){
+    reconnectTimer = null;
+    const waitMs = reconnectWait; reconnectWait = 0;
+    let want = false;
+    try{ want = !!deps.reconnectWanted(); }catch(_){ want = false; }
+    if(want && !ws) open(waitMs);
+  }
+  function scheduleReconnect(o){
     if(reconnectTimer) return;
-    const base = T.BACKOFF_MS[Math.min(attempt, T.BACKOFF_MS.length - 1)];
-    const delay = Math.round(base * (1 + T.BACKOFF_JITTER * (2 * random() - 1)));
+    let delay;
+    if(o && typeof o.delayMs === 'number') delay = Math.max(0, Math.round(o.delayMs));
+    else{
+      const base = T.BACKOFF_MS[Math.min(attempt, T.BACKOFF_MS.length - 1)];
+      delay = Math.round(base * (1 + T.BACKOFF_JITTER * (2 * random() - 1)));
+    }
     attempt++;
-    reconnectTimer = tSet(() => {
-      reconnectTimer = null;
-      let want = false;
-      try{ want = !!deps.reconnectWanted(); }catch(_){ want = false; }
-      if(want && !ws) open();
-    }, delay);
+    reconnectWait = (o && o.readyWaitMs) || 0;
+    reconnectTimer = tSet(reconnectFire, delay);
+  }
+  /* 다시 붙기를 기다리는 중이면 기다림을 건너뛰고 지금 한 번(네트워크가 돌아옴). 기다리는 중이 아니면 아무 일 없음. */
+  function reconnectNow(){
+    if(!reconnectTimer) return false;
+    tClear(reconnectTimer);
+    reconnectFire();
+    return true;
   }
 
   function scheduleToken(){
@@ -258,7 +276,8 @@ export function createRealtimeLink(deps){
     }
     if(m.t === 'error'){
       if(!ready && (m.code === 'auth' || m.code === 'version' || m.code === 'protocol')){
-        fatal = m.code;     // 서버가 곧 끊는다(4001 · 4002 · 4003). 기다리는 쪽은 closed() 에서 이 코드를 받는다.
+        fatal = m.code;     // 서버가 곧 끊는다 — 기다리지 않고 먼저 끊되 닫힘 번호는 서버가 실을 번호로(version 은 옛 방 서버 pv 1 몫 · 번호 없음)
+        closeCode = PRE_READY_ERROR_CLOSE[m.code] || null;
         drop();
         return;
       }
@@ -283,7 +302,7 @@ export function createRealtimeLink(deps){
   }
 
   return {
-    enabled, ensureReady, request, send, close, drop, scheduleReconnect, scheduleIdle, cancelIdle,
+    enabled, ensureReady, request, send, close, drop, scheduleReconnect, reconnectNow, scheduleIdle, cancelIdle,
     // auth 로 끊긴 뒤 한 번만 새 토큰으로 다시 — 다음 open 이 getToken(true)
     markAuthRetry(){ authRetried = true; forceToken = true; },
     // 이 주소를 «방금 못 붙음» 으로 — FAIL_COOLDOWN_MS 동안 ensureReady 가 바로 실패
