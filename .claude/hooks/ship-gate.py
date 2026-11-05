@@ -2,7 +2,9 @@
 """하네스 가드(PreToolUse · Bash) — 터미널 · 클라우드(웹) 세션 모두에서 돈다. 막는 것:
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
-   둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
+   둘 다 success 가 아니면 막는다. 서버 · 문서 저장소 PR 은 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 로 경로에 저장소를
+   적어 머지한다 — 그 경로를 보면 서버(GATED_REPOS)는 그 저장소 머리 커밋의 두 상태값을, 문서(UNGATED_REPOS)는 막지 않는다.
+   그 밖은 모두 앱 저장소 판정(아래) 그대로. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
    (세션이 가드를 스스로 풀지 못하게). 웹 관리자 길(main 으로 가는 admin/*)의 위험도 높은 PR 도 승인 — 판을 거치지 않아 내보내기 전 한 장에 안 나온다.
    나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
@@ -28,6 +30,8 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
 
 REPO = 'grk-cmd/t-w'
+GATED_REPOS = ('mihioon/t-w-server',)   # 그 저장소 머리 커밋의 tw/confirm · tw/verify 를 보고 머지(승인 · 판 규칙은 앱 저장소 몫)
+UNGATED_REPOS = ('mihioon/tw-docs',)    # 문서 — 가드 밖
 PROTECTED = re.compile(r'^(main|release/.+)$')
 FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(main 으로 가는 PR 의 범위는 머지 때 risk.admin_outside 가 본다)
 GATES = ('tw/confirm', 'tw/verify')
@@ -54,8 +58,8 @@ def segments(cmd):
             yield toks
 
 
-def gate_missing(sha):
-    raw = run('gh', 'api', f'repos/{REPO}/commits/{sha}/status', '--jq',
+def gate_missing(sha, repo=REPO):
+    raw = run('gh', 'api', f'repos/{repo}/commits/{sha}/status', '--jq',
               '[.statuses[] | {context, state}]')
     states = {s['context']: s['state'] for s in json.loads(raw or '[]')[::-1]}  # 같은 context 는 최신이 앞
     return [g for g in GATES if states.get(g) != 'success']
@@ -75,7 +79,31 @@ def gate_ok(pr):
     return not missing, ', '.join(missing)
 
 
+def other_repo_merge(toks):
+    """`gh api` 명령에 저장소 · PR 을 가리키는 낱말이 하나뿐이고 그것이 서버 · 문서 저장소의 `repos/주인/이름/pulls/N/merge` 그대로면
+    (저장소, 번호), 아니면 None(앱 저장소 판정으로). 옵션을 풀어 읽지 않는다 — 다른 낱말(옵션 값 포함)에 repos/ · pulls 가 또 있으면 None."""
+    if toks[1:2] != ['api']:
+        return None
+    hits = [t for t in toks[2:] if re.search(r'repos/|pulls', t, re.I)]
+    if len(hits) != 1:
+        return None
+    m = re.match(r'^/?repos/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/pulls/(\d+)/merge$', hits[0])
+    if m and m.group(1).lower() in GATED_REPOS + UNGATED_REPOS:
+        return m.group(1).lower(), m.group(2)
+    return None
+
+
 def check_merge(toks):
+    other = other_repo_merge(toks)
+    if other:
+        repo, pr = other
+        if repo in UNGATED_REPOS:
+            return
+        sha = run('gh', 'api', f'repos/{repo}/pulls/{pr}', '--jq', '.head.sha')
+        missing = gate_missing(sha, repo) if sha else ['머리 커밋을 읽지 못함']
+        if missing:
+            deny(f'{repo}#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({", ".join(missing)}). 그 저장소의 머리 커밋에 두 상태값을 남긴 뒤 머지한다(읽기 실패면 잠시 뒤 다시).')
+        return
     joined = ' '.join(toks)
     pr = None
     if toks[1:3] == ['pr', 'merge']:
