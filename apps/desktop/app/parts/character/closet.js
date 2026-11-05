@@ -6,7 +6,9 @@
    받는 때: 시작할 때(startCloset — 계정 확인 뒤 app-boot) · 서버 신호 `avatars` · 사용자가 «다시 시도» 를 누를 때. 주기도 대기 타이머도 없고 실패 뒤 혼자 되풀이하지 않는다.
    쓰는 때: saveSlots 가 «달라졌다» 고 알린 뒤 3초 묶음 1회(바뀐 칸만 — 새 칸은 만들기 · 있는 칸은 고치기) · 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 누른 즉시.
      받기 전(idle · loading · failed)에는 아무것도 쓰지 않는다. 지우는 것은 명시한 동작(휴지통 이동)뿐 — 화면에서 칸이 비었다고 서버 캐릭터를 지우지 않는다.
-   저장 한 번에 하나: 올리는 중에 또 고치면 끝난 뒤 최신으로 한 번 더. 같이 고친 충돌은 409 가 아니다 — 받은 판(known.version)을 실어 보내면 서버가 받는다.
+   서버 일은 한 줄(lane)로 하나씩: 받기 · 쓰기 · 옮기기 · 휴지통 · 되살리기 · 첫 실행 올리기는 앞 일이 끝난 뒤에 돈다 — 받는 사이 칸이 당겨지거나 쓰는 사이 받은 판이 바뀌는 엇갈림이 없다.
+     일마다 시작할 때의 gen 을 쥐고, 계정을 놓으면(gen 이 바뀜) 그 일은 아무것도 적지 않고 끝난다. 계정을 놓으면 줄도 새로 시작한다.
+     같이 고친 충돌은 409 가 아니다 — 받은 판(known.version)을 실어 보내면 서버가 받는다.
      받기 중 내가 아직 못 올린 고침이 있는 칸은 덮지 않는다(그 칸은 올릴 때 서버가 앞 모습을 휴지통에 남긴다).
    실패(저장 · 옮기기 · 받기)는 오류 번호로 한 번만 알린다(E-CHAR-16~19) — 이어지는 같은 실패는 다시 안 띄운다.
    deps: closetApi · codec(slot-codec.js) · roomFaceCache{ load, save } · slots · CHAR_SLOT_MAX · slotSave{ applySlotObjs, lastOut, onSaved, pullForward, _relinkSeatsToSlots, slotsReplaced } ·
@@ -43,17 +45,15 @@ const known = new Array(CHAR_SLOT_MAX).fill(null);       // 칸마다 마지막�
 let load = 'idle';                                       // 'idle' | 'loading' | 'ready' | 'failed'
 const taken = new Set();   // 새 캐릭터를 올리려다 «그 칸에 이미 있다»(AVATAR_SLOT_TAKEN)고 거절당한 칸 — 다음 받기가 서버 캐릭터로 앉힌다
 let unsubRt = null;   // 서버 신호 구독 해제 함수 — 계정이 바뀌면 풀어 구독이 겹치지 않게
-let started = false, pulling = false, pullAgain = false, gen = 0;
-let saveTimer = null, flushing = false, flushAgain = false, saveFailShown = false, busy = false;
+let started = false, gen = 0;
+let saveTimer = null, flushing = false, saveFailShown = false, busy = false;
 const changeFns = [];
-let pullWaiters = [];   // 도는 받기가 끝나기를 기다리는 약속들(첫 실행 올리기가 받기 뒤에 도는 데 쓴다)
-let idleWaiters = [];   // 옮기기 · 휴지통 같은 동작이 끝나기를 기다리는 약속들(쓰기가 칸 번호가 당겨지는 동안 돌지 않게)
-const waitIdle = () => (busy ? new Promise(res => { idleWaiters.push(res); }) : Promise.resolve());
-function endBusy(){ busy = false; const w = idleWaiters; idleWaiters = []; w.forEach(fn => fn()); }
-let flushWaiters = [];   // 도는 쓰기가 끝나기를 기다리는 약속들(보관함 이동이 고침을 먼저 올릴 때)
-const waitFlush = () => (flushing ? new Promise(res => { flushWaiters.push(res); }) : Promise.resolve());
-const quiet = async () => { while(flushing) await waitFlush(); };   // 칸 번호가 바뀌는 동작은 도는 쓰기가 끝난 뒤에 시작한다
-const waitPull = () => (pulling ? new Promise(res => { pullWaiters.push(res); }) : Promise.resolve());
+/* 서버 일 한 줄 — 앞 일이 끝난 뒤에 다음 일을 돌린다(실패해도 줄은 이어진다) */
+let laneTail = Promise.resolve();
+function inLane(job){ const p = laneTail.then(job); laneTail = p.catch(() => {}); return p; }
+const waitFlush = () => laneTail;   // 줄에 선 일(쓰기 포함)이 다 끝나기를 기다린다 — 로그아웃 올리기가 쓴다
+let queuedPull = null, queuedNotify = false;   // 줄에 서서 아직 시작하지 않은 받기 — 그 사이 또 부르면 그 받기 하나로 합친다
+let pullRunning = false, pullAgain = false;    // 받는 중에 또 부르면 끝난 뒤 한 번 더(실패 뒤에는 되풀이하지 않는다)
 function onChange(fn){ changeFns.push(fn); }
 function changed(){ changeFns.forEach(fn => { try{ fn(); }catch(e){ console.warn('[옷장] 알림 실패', e); } }); }
 
@@ -78,8 +78,7 @@ async function objOf(def){ return codec._slotFromServerObj(def); }
 /* 받은 옷장을 화면 slots[] 에 앉힌다. 같은 캐릭터 · 같은 판이면 그대로 두고, 내가 못 올린 고침이 있는 칸은 덮지 않는다.
    @return 화면이 바뀌었나 */
 async function applyCloset(c, g){
-  while(flushing) await waitFlush();                               // 도는 쓰기가 끝난 뒤 앉힌다(칸 번호 · 받은 판이 쓰기와 엇갈리지 않게)
-  if(g !== gen) return false;                                      // 쓰기를 기다리는 사이 계정을 놓았다
+  if(g !== gen) return false;
   if(creatorOpen()){ heads = c.avatars; return false; }            // 생성기가 열려 있으면 이번 판의 칸 갈아 끼우기는 건너뛴다(편집 중인 칸을 뺏지 않는다) — 다음 받기에 앉힌다
   const which = new Set(), objs = new Array(CHAR_SLOT_MAX).fill(null), skipRelink = new Set();
   const dropped = [];
@@ -113,45 +112,58 @@ async function applyCloset(c, g){
 
 /* ── 받기 ── */
 /* 서버 옷장 받기 — 시작 · 서버 신호 · 다시 시도. notify=true(사용자가 누른 받기)면 실패에 오류 번호를 띄운다.
+   줄에 서서 돈다. 이미 줄에 선(아직 시작 안 한) 받기가 있으면 그 하나로 합친다 — 받는 중에 또 부르면 바로 'skipped' 이고 끝난 뒤 한 번 더 받는다.
    @return 'ready' | 'failed' | 'skipped' */
-async function pullCloset(notify){
-  if(!getMyUserId()) return 'skipped';
-  if(pulling){ pullAgain = true; return 'skipped'; }
-  pulling = true;
+function pullCloset(notify){
+  if(!getMyUserId()) return Promise.resolve('skipped');
+  if(notify) queuedNotify = true;
+  if(queuedPull) return queuedPull;
+  if(pullRunning){ pullAgain = true; return Promise.resolve('skipped'); }
   if(load !== 'ready'){ load = 'loading'; changed(); }
-  let res = 'failed';
-  try{
-    const g = gen;
-    let c;
-    try{ c = await closetApi.load(); }
-    catch(e){
-      console.warn('[옷장] 서버에서 받기 실패', e && (e.code || e.kind));
-      if(load === 'loading') load = 'failed';
-      if(notify) notifyError('E-CHAR-16', e);
-      return res;
+  const g = gen;
+  queuedPull = inLane(async () => {
+    const n = queuedNotify;
+    queuedPull = null; queuedNotify = false;
+    if(g !== gen) return 'skipped';
+    pullRunning = true;
+    let res = 'failed';
+    try{ res = await pullNow(n, g); return res; }
+    finally{
+      if(g === gen){
+        pullRunning = false;
+        const again = pullAgain; pullAgain = false;
+        if(again && res !== 'failed') pullCloset(false);
+      }
     }
-    if(g !== gen){ res = 'skipped'; return res; }                 // 받는 사이 옮기기 · 비우기가 끝났다 — 이 답은 옛 상태
-    const wasReady = load === 'ready';
-    let did = false;
-    try{ did = await applyCloset(c, g); }
-    catch(e){ if(load === 'loading') load = 'failed'; if(notify) notifyError('E-CHAR-16', e); return res; }
-    if(g !== gen){ res = 'skipped'; return res; }
-    load = 'ready';
-    res = 'ready';
-    if(did && !wasReady){ for(let i = 0; i < CHAR_SLOT_MAX; i++) if(isDirty(i)){ scheduleSave(); break; } }   // 첫 받기 중의 고침은 그때 저장 예약이 물러났다 — 받은 뒤 한 번
-    if(did){
-      try{ renderLauncher(); }catch(_){}
-      try{ slotSave.slotsReplaced(); }catch(_){}
-      if(wasReady) try{ toast('☁️ 다른 기기에서 바꾼 캐릭터를 받아왔어요 — 책상 위 캐릭터는 앱을 다시 실행하면 바뀌어요'); }catch(_){}
-    }
-    return res;
-  }finally{
-    pulling = false;
+  });
+  return queuedPull;
+}
+async function pullNow(notify, g){
+  const failed = (e) => {
+    if(g !== gen) return 'skipped';
+    if(load === 'loading') load = 'failed';
+    if(notify) notifyError('E-CHAR-16', e);
     changed();
-    const ws = pullWaiters; pullWaiters = []; ws.forEach(fn => fn());
-    const again = pullAgain; pullAgain = false;
-    if(again && res !== 'failed') pullCloset(false);                // 실패 뒤에는 되풀이하지 않는다
+    return 'failed';
+  };
+  let c;
+  try{ c = await closetApi.load(); }
+  catch(e){ console.warn('[옷장] 서버에서 받기 실패', e && (e.code || e.kind)); return failed(e); }
+  if(g !== gen) return 'skipped';                                   // 받는 사이 계정을 놓았다 — 이 답은 옛 계정
+  const wasReady = load === 'ready';
+  let did = false;
+  try{ did = await applyCloset(c, g); }
+  catch(e){ return failed(e); }
+  if(g !== gen) return 'skipped';
+  load = 'ready';
+  if(did && !wasReady){ for(let i = 0; i < CHAR_SLOT_MAX; i++) if(isDirty(i)){ scheduleSave(); break; } }   // 첫 받기 중의 고침은 그때 저장 예약이 물러났다 — 받은 뒤 한 번
+  if(did){
+    try{ renderLauncher(); }catch(_){}
+    try{ slotSave.slotsReplaced(); }catch(_){}
+    if(wasReady) try{ toast('☁️ 다른 기기에서 바꾼 캐릭터를 받아왔어요 — 책상 위 캐릭터는 앱을 다시 실행하면 바뀌어요'); }catch(_){}
   }
+  changed();
+  return 'ready';
 }
 
 /* 서버에 아직 못 올린 고침이 있는 캐릭터 수 — 로그아웃 검문이 센다. 받기 전이면 쓴 것이 없어 0. 이미지 복원에 실패한 칸은 올리지 않으니 세지 않는다. */
@@ -174,18 +186,15 @@ function failNotice(e, onceKey){
 }
 function scheduleSave(){
   if(load !== 'ready') return;
-  if(flushing){ flushAgain = true; return; }
   if(saveTimer) clearTimeout(saveTimer);
   saveTimer = setTimeout(() => { saveTimer = null; flushSlots(); }, SAVE_DEBOUNCE_MS);
 }
 /* 바뀐 칸만 올린다. 빈 칸은 지우지 않는다(지우기는 휴지통 이동뿐). 이미지 복원에 실패한 칸은 건너뛴다(빈 그림이 서버에 굳지 않게).
-   @return 못 올린 칸이 있었나 */
-async function flushSlots(inner){
+   줄에 서서 돈다 — 옮기기 · 받기와 엇갈리지 않는다. @return 못 올린 칸이 있었나 */
+function flushSlots(){ return inLane(() => flushNow()); }
+/* 줄 안에서만 부른다(flushSlots · 동작 안의 settleSlot) */
+async function flushNow(){
   if(load !== 'ready') return false;
-  /* 옮기기 · 휴지통 · 받아 앉히기가 도는 동안은 기다린다 — 칸 번호가 당겨지는 중에 쓰면 엉뚱한 칸에 적힌다. 그 동작 안에서 부르는 길(inner)은 기다리지 않는다 */
-  if(!inner) while(busy || pulling){ if(busy) await waitIdle(); else await waitPull(); }
-  if(load !== 'ready') return false;
-  if(flushing){ flushAgain = true; return false; }
   const uid = getMyUserId();
   if(!uid) return false;
   flushing = true;
@@ -216,9 +225,7 @@ async function flushSlots(inner){
           const id = k.avatarId;
           const r = await closetApi.update(id, k.version, so);
           if(g !== gen) return failed;
-          const at = known.findIndex(x => x && x.avatarId === id);   // 기다리는 사이 칸이 당겨졌어도 캐릭터(id)로 자리를 다시 찾아 적는다
-          if(at < 0){ needPull = true; continue; }                  // 그 캐릭터가 이 옷장에서 빠졌다 — 적지 않고 다시 받는다
-          known[at] = { avatarId: id, version: r.version, sig };
+          known[i] = { avatarId: id, version: r.version, sig };
         }
         saveFailShown = false;
       }catch(e){
@@ -232,9 +239,6 @@ async function flushSlots(inner){
     return failed;
   }finally{
     flushing = false;
-    const fw = flushWaiters; flushWaiters = []; fw.forEach(fn => fn());
-    const again = flushAgain; flushAgain = false;
-    if(again && !failed) scheduleSave();                              // 올리는 중에 또 고쳤다 — 최신으로 한 번 더
     changed();
   }
 }
@@ -261,96 +265,115 @@ function checkLayout(c){
 async function settleSlot(i){
   if(!isDirty(i)) return true;
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
-  if(flushing) await waitFlush();
-  await flushSlots(true);
+  await flushNow();
   return !isDirty(i) && !!known[i];
 }
 function guard(){
   if(load !== 'ready') return { ok: false, why: 'off' };
-  if(busy) return { ok: false, why: 'busy' };
+  if(busy) return { ok: false, why: 'busy' };                      // 앞 동작이 줄에 서 있다 — 칸 번호가 그 동작 뒤에 달라지니 받지 않는다
   return null;
 }
-
-async function moveToBox(i){
-  await quiet();
-  const g = guard(); if(g) return g;
-  if(!(i >= 0 && i < CHAR_SLOT_MAX) || !slots[i]) return { ok: false, why: 'nocid' };
-  if(boxCount() >= BOX_MAX) return { ok: false, why: 'full' };
+/* 명시한 동작 하나 — 누른 때 막을 것을 보고, 줄에 서서 돈다. fn(g) 는 줄 안에서 gen 을 쥐고 돈다(계정을 놓으면 'off'). */
+function action(fn, extra){
+  const bad = guard(); if(bad) return Promise.resolve(Object.assign({}, extra, bad));
   busy = true;
-  try{
+  const g = gen;
+  return inLane(async () => {
+    try{
+      if(g !== gen || load !== 'ready') return Object.assign({}, extra, { ok: false, why: 'off' });
+      return await fn(g);
+    }finally{ if(g === gen) busy = false; }
+  });
+}
+
+function moveToBox(i){
+  if(load === 'ready' && !busy){
+    if(!(i >= 0 && i < CHAR_SLOT_MAX) || !slots[i]) return Promise.resolve({ ok: false, why: 'nocid' });
+    if(boxCount() >= BOX_MAX) return Promise.resolve({ ok: false, why: 'full' });
+  }
+  return action(async (g) => {
+    if(!slots[i]) return { ok: false, why: 'nocid' };
     if(!(await settleSlot(i))) return { ok: false, why: 'dirty' };
-    const id = known[i].avatarId, gg = gen;
+    if(g !== gen) return { ok: false, why: 'off' };
+    const id = known[i].avatarId;
     let c;
     try{ c = await closetApi.move(id, 'BOX'); }catch(e){ return failOp(e); }
-    if(gg !== gen) return { ok: false, why: 'off' };
+    if(g !== gen) return { ok: false, why: 'off' };
     heads = c.avatars;
     pullForward(i);
     checkLayout(c);
     changed();
     return { ok: true, slot: i };
-  }finally{ endBusy(); }
+  });
 }
-async function trashSlot(i){
-  await quiet();
-  const g = guard(); if(g) return g;
-  if(!(i >= 0 && i < CHAR_SLOT_MAX) || !slots[i]) return { ok: false, why: 'nocid' };
-  busy = true;
-  try{
+function trashSlot(i){
+  if(load === 'ready' && !busy && (!(i >= 0 && i < CHAR_SLOT_MAX) || !slots[i])) return Promise.resolve({ ok: false, why: 'nocid' });
+  return action(async (g) => {
+    if(!slots[i]) return { ok: false, why: 'nocid' };
     const k = known[i];
     if(k){
       let r;
       try{ r = await closetApi.trash([k.avatarId]); }catch(e){ return failOp(e); }
+      if(g !== gen) return { ok: false, why: 'off' };
       if(!r.length || (!r[0].ok && r[0].code !== 'AVATAR_NOT_FOUND')) return { ok: false, why: 'err' };   // 이미 없다면 같은 결과(이 칸을 비운다)
       heads = heads.filter(h => h.avatarId !== k.avatarId);
     }
     pullForward(i);                                                  // 서버에 올린 적 없는 새 캐릭터는 화면에서만 지운다
     changed();
     return { ok: true, slot: i };
-  }finally{ endBusy(); }
+  });
 }
-async function boxToSlot(avatarId){
-  await quiet();
-  const g = guard(); if(g) return g;
-  if(!boxHeads().some(h => h.avatarId === avatarId)) return { ok: false, why: 'gone' };
-  if(slots.every(s => s)) return { ok: false, why: 'slotsfull' };
-  busy = true;
-  try{
-    const gg = gen;
+const hasUnsentNew = () => slots.some((s, k) => s && !known[k] && !s._imgBroken);
+function boxToSlot(avatarId){
+  if(load === 'ready' && !busy){
+    if(!boxHeads().some(h => h.avatarId === avatarId)) return Promise.resolve({ ok: false, why: 'gone' });
+    if(slots.every(s => s)) return Promise.resolve({ ok: false, why: 'slotsfull' });
+  }
+  return action(async (g) => {
+    if(!boxHeads().some(h => h.avatarId === avatarId)) return { ok: false, why: 'gone' };
+    if(slots.every(s => s)) return { ok: false, why: 'slotsfull' };
+    /* 아직 못 올린 새 캐릭터가 있으면 먼저 올린다 — 서버는 자기 배치의 첫 빈 칸에 넣는데, 그 칸이 화면의 새 캐릭터 칸일 수 있다 */
+    if(hasUnsentNew()){
+      if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
+      await flushNow();
+      if(g !== gen) return { ok: false, why: 'off' };
+      if(hasUnsentNew()) return { ok: false, why: 'dirty' };
+    }
     let c;
     try{ c = await closetApi.move(avatarId, 'SLOT'); }catch(e){ return failOp(e); }
-    if(gg !== gen) return { ok: false, why: 'off' };
+    if(g !== gen) return { ok: false, why: 'off' };
     const at = c.slots.indexOf(avatarId);
     if(at < 0) return { ok: false, why: 'err' };
     let obj;
     try{ obj = await objOf(c.defs[avatarId]); }catch(e){ pullCloset(false); return { ok: false, why: 'img' }; }   // 서버에서는 옮겨졌다 — 그림만 못 받았다
+    if(g !== gen) return { ok: false, why: 'off' };
     heads = c.avatars;
     const objs = new Array(CHAR_SLOT_MAX).fill(null); objs[at] = obj;
     const head = heads.find(h => h.avatarId === avatarId);
-    known[at] = { avatarId, version: head.version, sig: null };
+    known[at] = { avatarId, version: head.version, sig: sigOf(obj) };
     await slotSave.applySlotObjs(objs, new Set([at]));
-    known[at].sig = sigOf(slotSave.lastOut()[at]);
     try{ renderLauncher(); }catch(_){}
     try{ slotSave.slotsReplaced(); }catch(_){}
     checkLayout(c);
     changed();
     return { ok: true, slot: at };
-  }finally{ endBusy(); }
+  });
 }
 /* 보관함 캐릭터 여러 개를 한 번에 휴지통으로 — 요청 하나(25개까지) */
-async function trashBox(ids){
-  await quiet();
-  const g = guard(); if(g) return Object.assign({ n: 0, fail: 0 }, g);
-  const list = (Array.isArray(ids) ? ids : []).filter(id => boxHeads().some(h => h.avatarId === id));
-  if(!list.length) return { ok: false, why: 'gone', n: 0, fail: 0 };
-  busy = true;
-  try{
+function trashBox(ids){
+  const pick = () => (Array.isArray(ids) ? ids : []).filter(id => boxHeads().some(h => h.avatarId === id));
+  if(load === 'ready' && !busy && !pick().length) return Promise.resolve({ ok: false, why: 'gone', n: 0, fail: 0 });
+  return action(async (g) => {
+    const list = pick();
+    if(!list.length) return { ok: false, why: 'gone', n: 0, fail: 0 };
     let r;
     try{ r = await closetApi.trash(list); }catch(e){ return Object.assign({ n: 0, fail: list.length }, failOp(e)); }
+    if(g !== gen) return { ok: false, why: 'off', n: 0, fail: 0 };
     const okIds = new Set(r.filter(x => x.ok || x.code === 'AVATAR_NOT_FOUND').map(x => x.id));
     heads = heads.filter(h => !okIds.has(h.avatarId));
     changed();
     return { ok: okIds.size > 0, n: okIds.size, fail: list.length - okIds.size };
-  }finally{ endBusy(); }
+  }, { n: 0, fail: 0 });
 }
 /* 휴지통 목록 — 쪽을 이어 받는다(상한 TRASH_PAGES_MAX). 못 받으면 던진다(빈 휴지통 ≠ 못 읽음). */
 async function trashRows(){
@@ -363,19 +386,18 @@ async function trashRows(){
   }
   return rows;
 }
-async function restore(trashId){
-  await quiet();
-  const g = guard(); if(g) return g;
-  if(boxCount() >= BOX_MAX) return { ok: false, why: 'full' };
-  busy = true;
-  try{
+function restore(trashId){
+  if(load === 'ready' && !busy && boxCount() >= BOX_MAX) return Promise.resolve({ ok: false, why: 'full' });
+  return action(async (g) => {
+    if(boxCount() >= BOX_MAX) return { ok: false, why: 'full' };
     let r;
     try{ r = await closetApi.restore(trashId); }catch(e){ return failOp(e); }
+    if(g !== gen) return { ok: false, why: 'off' };
     /* 서버가 옷장을 같이 돌려주면 그대로 앉히고, avatarId 만 주는 모양이면 옷장을 한 번 다시 받는다 — 판 · 시각을 앱이 지어 넣지 않는다 */
     if(r.closet){ heads = r.closet.avatars; checkLayout(r.closet); changed(); }
     else pullCloset(false);
     return { ok: true, avatarId: r.avatarId };
-  }finally{ endBusy(); }
+  });
 }
 
 /* 동작 실패 알림 한 곳 — 런처 톱니와 [내 정보]가 같이 쓴다.
@@ -419,7 +441,8 @@ function startCloset(){
 function resetCloset(){
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   taken.clear(); heads = []; known.fill(null); load = 'idle'; gen++;
-  pullAgain = false; flushAgain = false; saveFailShown = false; started = false; endBusy();
+  saveFailShown = false; started = false; busy = false; flushing = false;
+  laneTail = Promise.resolve(); queuedPull = null; queuedNotify = false; pullRunning = false; pullAgain = false;   // 옛 계정 일은 gen 이 달라 스스로 끝난다 — 새 계정 일은 그것을 기다리지 않는다
   if(unsubRt){ unsubRt(); unsubRt = null; }
   closetApi.reset();
   changed();
@@ -440,6 +463,7 @@ function legacyKeys(){
 }
 async function legacyStep(){
   const uc = getMyUserId();
+  const g = gen;
   if(!uc) return { ok: false, reason: '내 코드 없음' };
   if(storage.getItem(LEGACY_DONE_KEY) === uc) return { ok: true, wipe: legacyKeys() };
   const wipe = legacyKeys();
@@ -449,7 +473,11 @@ async function legacyStep(){
   const hasSlots = Array.isArray(rawSlots) && rawSlots.some(Boolean);
   const hasBox = !!box && typeof box === 'object' && Object.keys(box).some(c => box[c] && typeof box[c].def === 'string');
   if(!hasSlots && !hasBox){ try{ storage.setItem(LEGACY_DONE_KEY, uc); }catch(_){} return { ok: true, wipe }; }
-  if(load !== 'ready') await waitPull();   // 켜는 차례에서 받기와 같이 시작한다 — 받기가 끝난 뒤에 올린다
+  return inLane(() => legacyNow(uc, g, wipe, rawSlots, box, desk));   // 켜는 차례의 받기 뒤에 줄을 선다 — 받기가 끝난 뒤에 올린다
+}
+async function legacyNow(uc, g, wipe, rawSlots, box, desk){
+  const moved = () => g !== gen || getMyUserId() !== uc;           // 올리는 사이 계정을 놓았다 — 다른 계정 옷장에 넣지 않는다
+  if(moved()) return { ok: false, reason: '계정 바뀜' };
   if(load !== 'ready') return { ok: false, reason: '옷장을 받기 전' };
   const slotTs = Number(storage.getItem(LEGACY_TS_KEY)) || 0;
   const faceSt = roomFaceCache.load(), glbSt = codec._slotGlbCacheLoad();
@@ -460,6 +488,7 @@ async function legacyStep(){
     if(!o) continue;
     const so = await codec._slotToServerObj(uc, o, faceSt, glbSt);
     roomFaceCache.save(faceSt); codec._slotGlbCacheSave(glbSt);
+    if(moved()) return { ok: false, reason: '계정 바뀜' };
     if(!so) return { ok: false, reason: (i + 1) + '번 칸 그림을 올리지 못했다' };
     const cid = (Array.isArray(desk) && typeof desk[i] === 'string') ? desk[i] : null;
     if(cid) onDesk.add(cid);
@@ -475,12 +504,14 @@ async function legacyStep(){
   boxRows.sort((a, b) => b.editedAt - a.editedAt);
   for(const r of boxRows){ if(items.length >= 25) break; items.push(r); }
   let c = null;
-  const g = gen;
+  if(moved()) return { ok: false, reason: '계정 바뀜' };
   try{ c = await closetApi.legacySync(items); }
   catch(e){
+    if(moved()) return { ok: false, reason: '계정 바뀜' };
     if(e && e.code === 'AVATAR_LEGACY_SYNC_DONE'){ try{ storage.setItem(LEGACY_DONE_KEY, uc); }catch(_){} return { ok: true, wipe }; }
     return { ok: false, reason: String((e && (e.code || e.message)) || e) };
   }
+  if(moved()) return { ok: false, reason: '계정 바뀜' };
   try{ storage.setItem(LEGACY_DONE_KEY, uc); }catch(_){}
   try{ await applyCloset(c, g); renderLauncher(); slotSave.slotsReplaced(); changed(); }catch(e){ console.warn('[옷장] 올린 뒤 받아 앉히기 실패', e); }
   return { ok: true, wipe };

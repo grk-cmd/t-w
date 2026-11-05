@@ -209,7 +209,7 @@
 | **sim-seat-opacity.js** | 247 | **9d9cf1cc71f5** |
 | **sim-slot-fit.js** | 246 | **d28aa326a223** |
 | **sim-closet-api.js** | 171 | **6564acaab0b8** |
-| **sim-closet.js** | 593 | **3741d7238275** |
+| **sim-closet.js** | 628 | **c992aee7d201** |
 | **sim-slot-codec.js** | 133 | **6995ea14e489** |
 | **sim-signup.js** | 378 | **91e800d83770** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |

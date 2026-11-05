@@ -365,13 +365,16 @@
 - **책임**: 화면의 `slots[]` 를 서버 옷장과 잇는다. 시작할 때(`startCloset` — 계정 확인 뒤 app-boot) 받아 앉히고, 서버 신호 `avatars` 에 다시 받고, 고치면 3초 묶음으로 바뀐 칸만 쓰고(새 칸은 만들기 · 있는 칸은 고치기), 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 0.13 첫 실행의 옛 캐릭터 올리기(`legacyStep`)도 여기.
 - **이 PC 에 없는 것**: 캐릭터 저장본 · 보관함 사본 · 고친 시각 · 백업 · 충돌 판정 · 주기 맞추기 · 부팅 지연 타이머(0.12 의 `slot-sync.js` · `chars.js` 를 걷었다).
 - **deps**: `closetApi` · `codec`(slot-codec) · `roomFaceCache` · `slots` · `slotSave`(applySlotObjs · lastOut · onSaved · pullForward · _relinkSeatsToSlots · slotsReplaced) · `getMyUserId` · `rtOn` · `toast` · `notifyError` · `renderLauncher` · `creatorOpen` · `storage`.
-- **내놓는 것**: `startCloset` · `pullCloset(notify)` · `resetCloset` · `state()`(`idle|loading|ready|failed`) · `boxItems()`(받기 전 null) · `boxCount` · `boxFull` · `moveToBox` · `boxToSlot` · `trashSlot` · `trashBox` · `trashRows` · `restore` · `moveMsg` · `deleteWords` · `unsavedCount` · `flushSlots` · `legacyStep` · `onChange`.
+- **내놓는 것**: `startCloset` · `pullCloset(notify)` · `resetCloset` · `state()`(`idle|loading|ready|failed`) · `boxItems()`(받기 전 null) · `boxCount` · `boxFull` · `moveToBox` · `boxToSlot` · `trashSlot` · `trashBox` · `trashRows` · `restore` · `moveMsg` · `deleteWords` · `unsavedCount` · `flushSlots` · `waitFlush`(줄에 선 일이 다 끝나기를 기다림) · `legacyStep` · `onChange`.
 - **함정**
   - 받기 전(idle · loading · failed)에는 아무것도 쓰지 않는다. 실패 뒤 혼자 되풀이하지 않는다(다시 받는 길 = «다시 시도» · 서버 신호). 오류 번호 E-CHAR-16 은 사용자가 누른 받기에서만, 저장 실패(17~19)는 같은 실패를 한 번만.
   - 내가 아직 못 올린 고침이 있는 칸은 받기가 덮지 않는다(올릴 때 서버가 앞 모습을 남긴다). 생성기가 열려 있으면 칸 갈아 끼우기를 건너뛴다.
   - 화면에서 칸이 비었다고 서버 캐릭터를 지우지 않는다 — 지우기는 휴지통 이동(`trashSlot`)뿐. 서버가 된 뒤에만 `pullForward` 로 칸을 당긴다.
   - 새 캐릭터는 보관함이 가득 차 있어도 슬롯에 만든다(서버가 보관함 문턱을 보지 않는다 — 20 은 보관함으로 옮길 때 · 복원할 때).
-  - 계정 바뀜: `resetCloset` 이 세대를 올려 진행 중인 받기 · 쓰기의 답을 버린다.
+  - 서버 일은 한 줄(lane)로 하나씩 돈다 — 받기 · 쓰기 · 옮기기 · 휴지통 · 되살리기 · 첫 실행 올리기. 받는 사이 칸이 당겨지거나 쓰는 사이 받은 판이 바뀌는 엇갈림을 이 한 줄이 막는다. 새 서버 일도 `inLane` 으로 세우고, 줄 안에서 다른 줄 일을 기다리지 않는다(동작 안의 쓰기는 `flushNow` 를 바로 부른다).
+  - 받은 옷장은 칸 그림을 다 받은 뒤에만 판(known) · 칸 차지 표시 · 머리 목록을 적는다 — 한 칸이라도 못 받으면 아무것도 바꾸지 않는다.
+  - 보관함 → 슬롯 앞에서 못 올린 새 캐릭터를 먼저 올린다(서버는 첫 빈 칸에 넣는데 그 칸이 새 캐릭터 칸일 수 있다). 못 올리면 옮기지 않는다(`why: 'dirty'`).
+  - 계정 바뀜: `resetCloset` 이 세대(gen)를 올리고 줄을 새로 시작한다 — 옛 계정 일은 gen 이 달라 아무것도 적지 않고 끝난다. 첫 실행 올리기는 내 코드까지 같은지 본다(다른 계정 옷장에 넣지 않는다).
   - 검사: `checks/sim-closet.js` · 화면 쪽 `checks/sim-my-info-box.js` · `checks/sim-launcher-controls.js`.
 
 ## slot-codec.js — 🧬 캐릭터 한 칸 ↔ 서버 def
