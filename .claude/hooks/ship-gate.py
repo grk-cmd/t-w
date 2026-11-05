@@ -2,11 +2,10 @@
 """하네스 가드(PreToolUse · Bash) — 터미널 · 클라우드(웹) 세션 모두에서 돈다. 막는 것:
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
-   둘 다 success 가 아니면 막는다. 저장소는 **분명할 때만** 판정하고 그 밖은 막는다:
-   · `gh api` — 위치 인자가 `repos/<주인>/<이름>/pulls/N/merge` 하나(점 마디 · 인코딩 · 자리표시자 없음)이고 그 이름이 앱 저장소(REPO) ·
-     서버(GATED_REPOS — 그 저장소 머리 커밋의 두 상태값) · 문서(UNGATED_REPOS — 막지 않음) 중 하나일 때.
-   · `gh pr merge` — 앱 저장소 폴더(origin)에서 번호(위치 인자)로만. `-R` · `--repo` · `GH_REPO` · URL 이 있거나 폴더가 앱 저장소가 아니면 막는다
-     (다른 저장소 PR 을 앱 저장소의 같은 번호로 판정하지 않게 — 서버 · 문서 머지는 `gh api` 경로 모양으로).
+   둘 다 success 가 아니면 막는다. 머지 길은 **`gh api … repos/<주인>/<이름>/pulls/N/merge` 하나**다 — 위치 인자가 그 경로 하나
+   (점 마디 · 인코딩 · 자리표시자 없음)이고 그 이름이 앱 저장소(REPO) · 서버(GATED_REPOS — 그 저장소 머리 커밋의 두 상태값) ·
+   문서(UNGATED_REPOS — 막지 않음) 중 하나일 때만 판정한다. `gh pr merge` 는 늘 막는다(-R · GH_REPO · 폴더 이동 · URL 로 저장소가 바뀌어
+   다른 저장소 PR 을 앱 저장소의 같은 번호로 판정하게 되므로). `gh api` 위치 인자에 merge 가 들어가면 모두 이 판정을 지난다.
    못 보는 것(실수 막기 범위 밖): `env -i gh …` · `bash -c "gh …"` · GraphQL mergePullRequest. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
    (세션이 가드를 스스로 풀지 못하게). 웹 관리자 길(main 으로 가는 admin/*)의 위험도 높은 PR 도 승인 — 판을 거치지 않아 내보내기 전 한 장에 안 나온다.
@@ -34,7 +33,7 @@ sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를
 
 REPO = 'grk-cmd/t-w'
 GATED_REPOS = ('mihioon/t-w-server',)   # 앱 밖에서 컨펌 · 검증 상태값을 받아야 머지하는 저장소(승인 · 판 규칙은 앱 저장소 몫)
-UNGATED_REPOS = ('mihioon/tw-docs',)    # 가드 밖(문서). 이 두 표에 없는 이름 · 모르는 이름은 앱 저장소로 본다(막는 쪽)
+UNGATED_REPOS = ('mihioon/tw-docs',)    # 가드 밖(문서). 앱 · 이 두 표에 없는 저장소의 머지는 막는다
 PROTECTED = re.compile(r'^(main|release/.+)$')
 FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(main 으로 가는 PR 의 범위는 머지 때 risk.admin_outside 가 본다)
 GATES = ('tw/confirm', 'tw/verify')
@@ -52,7 +51,7 @@ def deny(reason):
 
 
 def segments(cmd):
-    for part in re.split(r'&&|\|\||;|\n|\|', cmd):
+    for part in re.split(r'&&|\|\||;|\n|\||&', cmd):
         try:
             toks = shlex.split(part)
         except ValueError:
@@ -98,22 +97,6 @@ API_TAKES = {'-X', '--method', '-f', '-F', '--field', '--raw-field', '-H', '--he
              '--hostname', '--cache', '-p', '--preview'}   # `gh api` 에서 값을 받는 옵션
 
 
-def api_path(toks):
-    """`gh api` 의 첫 위치 인자(경로) — 값을 받는 옵션 뒤 글은 건너뛴다(-f x=repos/… 미끼)."""
-    takes = API_TAKES
-    j = 2
-    while j < len(toks):
-        t = toks[j]
-        if t in takes:
-            j += 2
-            continue
-        if t.startswith('-'):
-            j += 1
-            continue
-        return t
-    return ''
-
-
 def api_positionals(g):
     """`gh api` 의 위치 인자들 — 값을 받는 옵션 뒤 낱말은 건너뛴다."""
     takes = API_TAKES
@@ -129,12 +112,15 @@ def api_positionals(g):
     return out
 
 
-def origin_repo(cwd):
-    """그 폴더 origin 의 저장소(소문자 '주인/이름') — 못 읽으면 None"""
-    return norm_repo(run('git', 'remote', 'get-url', 'origin', cwd=cwd) or '')
-
-
-PR_MERGE_TAKES = {'-b', '--body', '-F', '--body-file', '-t', '--subject', '-A', '--author-email', '--match-head-commit'}
+def api_may_merge(g):
+    """`gh api` 가 머지일 수 있나 — 넓게 잡는다(정확한 모양이 아니면 merge_target 이 막는다). 읽기(GET) · 본문 고치기(PATCH)는 건드리지 않게
+    «merge 글자» 또는 «PUT 이면서 pull · 인코딩» 만."""
+    method = next((g[j + 1].upper() for j, t in enumerate(g) if t in ('-X', '--method') and j + 1 < len(g)), None)
+    for t in api_positionals(g):
+        low = t.lower()
+        if 'merge' in low or '%6d' in low or (method == 'PUT' and ('pull' in low or '%' in t)):
+            return True
+    return False
 
 
 def merge_target(raw, cwd):
@@ -147,24 +133,7 @@ def merge_target(raw, cwd):
         if not repo or repo not in (REPO,) + GATED_REPOS + UNGATED_REPOS:
             deny('머지할 저장소 · PR 이 분명하지 않다 — `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 한 경로로 쓴다(자리표시자 · 위치 인자 여럿 · 표에 없는 저장소는 막음).')
         return repo, m.group(2)
-    # gh pr merge — 앱 저장소 폴더에서 번호로만
-    if any(t in ('-R', '--repo') or t.startswith('--repo=') or (t.startswith('-R') and len(t) > 2) or t.startswith('GH_REPO=') or '/pull/' in t for t in raw):
-        deny('`gh pr merge` 에 -R · --repo · GH_REPO · URL 을 주면 가드가 저장소를 분명히 알 수 없다 — 서버 · 문서 PR 은 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 로.')
-    if origin_repo(cwd) != REPO:
-        deny('`gh pr merge` 는 앱 저장소 폴더에서만 — 다른 저장소 PR 은 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 로.')
-    pos, j = [], 3
-    while j < len(g):
-        t = g[j]
-        if t in PR_MERGE_TAKES:
-            j += 2
-            continue
-        if not t.startswith('-'):
-            pos.append(t)
-        j += 1
-    pr = pos[0] if pos else run('gh', 'pr', 'view', '--json', 'number', '--jq', '.number', cwd=cwd)
-    if not pr or not str(pr).isdigit():
-        deny('머지할 PR 번호를 알 수 없다 — `/ship` 으로 머지한다.')
-    return REPO, str(pr)
+    deny('`gh pr merge` 는 막는다 — 머지는 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 한 경로로(저장소가 경로에 박혀 바뀌지 않는 모양만 판정한다).')
 
 
 def check_merge(raw, cwd=None):
@@ -175,6 +144,9 @@ def check_merge(raw, cwd=None):
         sha = run('gh', 'api', f'repos/{repo}/pulls/{pr}', '--jq', '.head.sha')
         if not sha:
             deny(f'{repo}#{pr} 머리 커밋을 읽지 못해 머지를 막았다 — 잠시 뒤 다시.')
+        raw_st = run('gh', 'api', f'repos/{repo}/commits/{sha}/status', '--jq', '.state')
+        if raw_st is None:
+            deny(f'{repo}#{pr} 상태값을 읽지 못해 머지를 막았다(GitHub 응답 실패) — 잠시 뒤 다시.')
         missing = gate_missing(sha, repo)
         if missing:
             deny(f'{repo}#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({", ".join(missing)}). 컨펌자(tw-confirmer) · 검증자(tw-verifier)를 돌려 '
@@ -373,7 +345,7 @@ def main():
             cwd = os.path.join(cwd, os.path.expanduser(toks[1]))
             continue
         g = gh_norm(toks)
-        if g and (g[1:3] == ['pr', 'merge'] or (g[1:2] == ['api'] and re.search(r'/pulls/\d+/merge', ' '.join(g)))):
+        if g and (g[1:3] == ['pr', 'merge'] or (g[1:2] == ['api'] and api_may_merge(g))):
             check_merge(toks, cwd)
             continue
         if toks[0] != 'git':

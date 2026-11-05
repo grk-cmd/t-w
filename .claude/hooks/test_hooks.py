@@ -254,7 +254,6 @@ import importlib.util, io, contextlib
 spec = importlib.util.spec_from_file_location('ship_gate', G)
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
-gate.origin_repo = lambda cwd: gate.REPO
 sys.modules['risk'] = risk
 GOOD = json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])
 for name, head, passed_on, want in (('합치기만 · 앞 커밋 통과', H, O, True), ('합치며 달라짐 · 앞 커밋 통과', H2, O, False),
@@ -325,7 +324,7 @@ def gate_case(name, fl, approved_comment, want_deny):
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            gate.check_merge(['gh', 'pr', 'merge', '395'])
+            gate.check_merge(['gh', 'api', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/395/merge'])
     except SystemExit:
         pass
     risk.assess = real_assess
@@ -379,7 +378,7 @@ def admin_case(name, ref, fl, want_deny, approved=False, word=''):
     buf = io.StringIO()
     try:
         with contextlib.redirect_stdout(buf):
-            gate.check_merge(['gh', 'pr', 'merge', '395'])
+            gate.check_merge(['gh', 'api', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/395/merge'])
     except SystemExit:
         pass
     out = buf.getvalue()
@@ -452,7 +451,7 @@ risk.api, risk.get = boom2, boom2
 buf = io.StringIO()
 try:
     with contextlib.redirect_stdout(buf):
-        gate.check_merge(['gh', 'pr', 'merge', '395'])
+        gate.check_merge(['gh', 'api', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/395/merge'])
 except SystemExit:
     pass
 if '"deny"' in buf.getvalue() and '읽지 못해' in buf.getvalue():
@@ -523,7 +522,6 @@ import importlib.util, io, contextlib
 spec = importlib.util.spec_from_file_location('ship_gate', G)
 gate = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(gate)
-gate.origin_repo = lambda cwd: gate.REPO
 gate.gate_ok = lambda pr: (True, '')
 gate.run = lambda *a, **k: S
 def boom(pr):
@@ -534,7 +532,7 @@ risk.api = lambda p: boom(p)   # 바뀐 파일 목록을 못 읽음
 buf = io.StringIO()
 try:
     with contextlib.redirect_stdout(buf):
-        gate.check_merge(['gh', 'pr', 'merge', '395'])
+        gate.check_merge(['gh', 'api', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/395/merge'])
 except SystemExit:
     pass
 if '"deny"' in buf.getvalue():
@@ -789,9 +787,8 @@ else:
 
 # 머지할 PR 의 저장소 — 앱 저장소 밖(서버)도 그 저장소의 상태값으로 막고, 문서 저장소는 막지 않는다
 SV = 'mihioon/t-w-server'
-def T(raw, origin='grk-cmd/t-w'):
-    real_o, real_r = gate.origin_repo, gate.run
-    gate.origin_repo = lambda cwd: origin
+def T(raw):
+    real_r = gate.run
     gate.run = lambda *a, **k: '42'   # gh pr view 번호
     buf = io.StringIO()
     try:
@@ -800,7 +797,7 @@ def T(raw, origin='grk-cmd/t-w'):
     except SystemExit:
         r = 'deny'
     finally:
-        gate.origin_repo, gate.run = real_o, real_r
+        gate.run = real_r
     return 'deny' if '"deny"' in buf.getvalue() else r
 API = lambda path, *opts: ['gh', 'api', '-X', 'PUT', *opts, path]
 for name, got, want in (
@@ -815,16 +812,17 @@ for name, got, want in (
         ('api 인코딩 — 막음', T(API('repos/mihioon/tw-docs%2f..%2fgrk-cmd/t-w/pulls/5/merge')), 'deny'),
         ('api 위치 인자 둘 — 막음', T(['gh', 'api', '-X', 'PUT', 'repos/mihioon/tw-docs/pulls/1/merge', 'repos/grk-cmd/t-w/pulls/5/merge']), 'deny'),
         ('api 옵션 값 속 미끼는 안 봄', T(['gh', 'api', '-f', 'x=repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge']), ('grk-cmd/t-w', '5')),
-        ('pr merge 앱 폴더 번호', T(['gh', 'pr', 'merge', '5', '--squash']), ('grk-cmd/t-w', '5')),
-        ('pr merge 옵션 값 숫자는 번호 아님', T(['gh', 'pr', 'merge', '--subject', '700']), ('grk-cmd/t-w', '42')),
+        ('pr merge 앱 번호도 막음(머지는 api 경로로만)', T(['gh', 'pr', 'merge', '5', '--squash']), 'deny'),
+        ('pr merge 옵션 값 숫자 — 막음', T(['gh', 'pr', 'merge', '--subject', '700']), 'deny'),
         ('pr merge -R 서버 — 막음', T(['gh', 'pr', 'merge', '169', '-R', SV]), 'deny'),
         ('pr merge --repo= — 막음', T(['gh', 'pr', 'merge', '--repo=' + SV, '5']), 'deny'),
         ('pr merge -Rx — 막음', T(['gh', 'pr', 'merge', '5', '-Rgrk-cmd/t-w']), 'deny'),
         ('pr merge GH_REPO — 막음', T(['GH_REPO=mihioon/tw-docs', 'gh', 'pr', 'merge', '5']), 'deny'),
         ('pr merge URL — 막음', T(['gh', 'pr', 'merge', 'https://github.com/mihioon/t-w-server/pull/169']), 'deny'),
         ('pr merge 본문 URL — 막음', T(['gh', 'pr', 'merge', '5', '--body', 'https://github.com/mihioon/tw-docs/pull/1']), 'deny'),
-        ('pr merge 서버 폴더 — 막음', T(['gh', 'pr', 'merge', '169'], origin=SV), 'deny'),
-        ('pr merge 폴더를 모름 — 막음', T(['gh', 'pr', 'merge', '5'], origin=None), 'deny'),
+        ('pr merge 서버 폴더 — 막음', T(['gh', 'pr', 'merge', '169']), 'deny'),
+        ('pr merge 폴더를 모름 — 막음', T(['gh', 'pr', 'merge', '5']), 'deny'),
+        ('api 이중 빗금 경로 — 막음', T(API('repos/grk-cmd/t-w/pulls/5//merge')), 'deny'),
         ('이름 맞춤(URL · .git)', gate.norm_repo('https://github.com/MIHIOON/t-w-server.git'), SV),
         ('-Rx 는 gh_norm 이 뗀다', gate.gh_norm(['gh', 'pr', 'merge', '-Rgrk-cmd/t-w', '5']), ['gh', 'pr', 'merge', '5'])):
     if got == want:
@@ -832,6 +830,30 @@ for name, got, want in (
     else:
         bad += 1
         print(f'  ✗ 머지 대상 {name}: {got!r}(기대 {want!r})')
+def main_sees(cmd):
+    p = subprocess.run([sys.executable, '-B', G], input=json.dumps({'tool_input': {'command': cmd}, 'cwd': CWD}), capture_output=True, text=True)
+    return '"deny"' in p.stdout
+for name, cmd in (('export GH_REPO 뒤 pr merge', 'export GH_REPO=mihioon/t-w-server; gh pr merge 5'),
+                  ('pushd 뒤 pr merge', 'pushd /tmp && gh pr merge 5'),
+                  ('괄호 묶음 pr merge', '( cd /tmp && gh pr merge 5 )'),
+                  ('홀로 & 뒤 두 번째 머지', 'true & gh pr merge 6'),
+                  ('이중 빗금 api 머지', 'gh api -X PUT repos/grk-cmd/t-w/pulls/5//merge'),
+                  ('merge 글자 인코딩', 'gh api -X PUT repos/grk-cmd/t-w/pulls/5/%6Derge'),
+                  ('PULLS 대문자', 'gh api -X PUT repos/grk-cmd/t-w/PULLS/5/merge'),
+                  ('pulls 빈 마디', 'gh api -X PUT repos/grk-cmd/t-w/pulls//5/merge')):
+    if main_sees(cmd):
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 가드 알아보기 {name}: 통과(기대 막음)')
+for name, cmd in (('PR 읽기는 건드리지 않음', 'gh api repos/grk-cmd/t-w/pulls/753 --jq .head.sha'),
+                  ('PR 본문 고치기는 건드리지 않음', 'gh api -X PATCH repos/grk-cmd/t-w/pulls/753 -F body=@x.md'),
+                  ('상태값 남기기는 건드리지 않음', 'gh api repos/grk-cmd/t-w/statuses/abc -f state=success -f context=tw/x')):
+    if not main_sees(cmd):
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 가드 알아보기 {name}: 막음(기대 통과)')
 def repo_case(name, repo, statuses, want_deny):
     global ok, bad
     calls = []
