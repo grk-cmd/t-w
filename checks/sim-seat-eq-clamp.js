@@ -106,7 +106,7 @@ say('── 4. 동작 — 평준화 가두기');
     const log = { clamp: [] };
     let now = 0;
     const fakeSlot = { clampParts: (parts, x, half, on) => log.clamp.push([parts.length, x, half, on]) };
-    const raw = { seats: o.seats || [], SPACING: 2, MULTIPLAYER_SPACING: 3, seatEqMod: { seatEqualizeOn: () => !!o.eq },
+    const raw = { seats: o.seats || [], SPACING: o.spacing !== undefined ? o.spacing : 2, MULTIPLAYER_SPACING: 3, seatEqMod: { seatEqualizeOn: () => !!o.eq },
       seatDeskHalfWidth: (s) => s.__half || 1, seatHalfWidth: (s) => s.__half || 1, DESK_PART_ANCHOR_NAME: PIN };   // 옛 글(PREMOVE)은 seatDeskHalfWidth 를 본다
     const perf = { now: () => now };
     const cons = { warn: () => { log.warned = (log.warned || 0) + 1; } };
@@ -143,6 +143,9 @@ say('── 4. 동작 — 평준화 가두기');
   ({ api, log } = load({ eq: false, seats: [mkSeat({ x: 0, parts: 1 })] }));
   api._clampSeatDeskParts(10);
   chk(log.clamp[0][3] === false && log.clamp[0][2] === 0, '  평준화가 꺼지면 반폭 0 · 끔(되돌리기)');
+  ({ api, log } = load({ eq: true, spacing: -0.3, seats: [mkSeat({ x: 0, parts: 1, __half: 0.85 })] }));
+  api._clampSeatDeskParts(10);
+  chk(Math.abs(log.clamp[0][2] - 0.7) < 1e-9 && log.clamp[0][3] === true, '  음수 간격(책상끼리 겹쳐 붙음) — 자리 반폭도 그 절반만큼 줄어 옆 좌석과의 가운데까지(0.85 - 0.15)');
   ({ api, log } = load({ eq: true, seats: [] }));
   api._clampSeatDeskParts(10);
   chk(!log.clamp.length, '  경계 — 좌석이 없으면 아무것도 안 한다');

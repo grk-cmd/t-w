@@ -22,7 +22,7 @@ const FN_DEPS = ["_rideBottom","clampDeskPan","renderSeatTabs","seatDeskHalfWidt
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["MULTIPLAYER_SPACING","SPACING","deskPanX","deskPanY","roomSeatMode","seatCameraMod"];
 const SET_DEPS = ["deskPanX","deskPanY"];
-const EXPORTS = ["layoutSeatRow","seatHalfWidth"];
+const EXPORTS = ["layoutSeatRow","seatHalfWidth","slotIndexAt"];
 const MOVED = ["layoutSeatRow"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  SPACING: ()=>SPACING,","  _rideBottom: (...a)=>_rideBottom(...a),","  clampDeskPan: (...a)=>clampDeskPan(...a),","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSeatMode: ()=>roomSeatMode,","  seatCameraMod: ()=>seatCameraMod,","  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),","  measureCharBox: (...a)=>measureCharBox(...a),","  seats: seats,","  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),","  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },","  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },","  setDeskPanX: (v)=>{ deskPanX = v; },","  setDeskPanY: (v)=>{ deskPanY = v; },"];
 
@@ -100,12 +100,12 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   function runLayout(seats, o){
     const log = [];
     const V = {
-      seats, roomSeatMode: o.mode || 'row', deskPanX: o.panX || 0, deskPanY: o.panY || 0, MULTIPLAYER_SPACING: 0.15, SPACING: 0.4,
+      seats, roomSeatMode: o.mode || 'row', deskPanX: o.panX || 0, deskPanY: o.panY || 0, MULTIPLAYER_SPACING: 0.15, SPACING: o.spacing !== undefined ? o.spacing : 0.4,
       _cachedRowCenter: 0, _cachedRowSpan: 1.2,
       syncSeatEqualize: () => log.push('sync'),
       renderSeatTabs: () => log.push('tabs'),
       clampDeskPan: (x, y) => { log.push('clamp'); return { x: Math.max(-0.2, Math.min(0.2, x)), y: Math.max(-0.1, Math.min(0.1, y)) }; },
-      seatDeskHalfWidth: (s, forZoom) => forZoom ? Math.min(s.hw, CAP) : s.hw,
+      seatDeskHalfWidth: (s, forZoom) => { V._dc = (V._dc || 0) + 1; return forZoom ? Math.min(s.hw, CAP) : s.hw; },
       rideBenchMod: { _rideBottom: (s) => { let b = s; while(b.ridingOn) b = b.ridingOn; return b; } },
       seatCameraMod: { applyCameraAndCanvas: (c, w) => log.push(['cam', +c.toFixed(6), +w.toFixed(6)]) },
     };
@@ -134,7 +134,7 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       const f = new Function(...names, 'window', 'TwSeatPin', '__V', SRC.slice(a, b) + '\nlayoutSeats(); __V.deskPanX = deskPanX; __V.deskPanY = deskPanY; __V._cachedRowCenter = _cachedRowCenter; __V._cachedRowSpan = _cachedRowSpan;');
       f(...names.map(n => V[n]), W, W.TwSeatPin, V);
     }
-    return { api: modApi, log, xs: seats.map(s => +(s.targetX || 0).toFixed(6)), pan: [V.deskPanX, V.deskPanY], cache: [+V._cachedRowCenter.toFixed(6), +V._cachedRowSpan.toFixed(6)] };
+    return { api: modApi, deskCalls: () => V._dc || 0, log, xs: seats.map(s => +(s.targetX || 0).toFixed(6)), pan: [V.deskPanX, V.deskPanY], cache: [+V._cachedRowCenter.toFixed(6), +V._cachedRowSpan.toFixed(6)] };
   }
   const J = (x) => JSON.stringify(x);
   /* 혼자 — 0번은 맨 오른쪽(0) · 폭은 하한 1.2 */
@@ -170,6 +170,100 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   /* 경계 — 책상 폭 0 · 빈 좌석 목록 */
   r = runLayout([{ isMe: true, hw: 0 }, { hw: 0 }], {});
   chk(J(r.xs) === J([0, -0.4]) && J(r.log[r.log.length - 1]) === J(['cam', -0.2, 1.2]), '경계 — 책상 폭 0 이면 여백만큼 · 폭 하한 1.2');
+  /* 좌석 간격 최소값(app.js GAP_MIN)은 음수 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다. 앱이 쓰는 값으로 그대로 돌린다 */
+  {
+    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SRC);
+    const gmin = m ? +m[1] : NaN;
+    chk(m && gmin < 0 && gmin > -0.85 && +m[2] > 0, '좌석 간격 최소값 — 음수(겹쳐 붙기)이되 기본 책상 반폭(0.85)보다 덜 겹친다 · 최대는 양수' + (m ? ' (' + m[1] + ' ~ ' + m[2] + ')' : ' — 못 찾음'));
+    if(m){
+      r = runLayout([{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }], { spacing: gmin });
+      const step = 1.7 + gmin;
+      chk(J(r.xs) === J([0, -step, -2 * step].map(v => +v.toFixed(6))) && step > 0, '  최소값으로 — 기본 책상 셋이 (1.7 + 최소값)씩 당겨져 붙는다 · 순서는 그대로');
+      const body = (bw) => ({ bw });
+      r = runLayout([{ isMe: true, hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }, { hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }], { spacing: gmin });
+      chk(-r.xs[1] >= 0.5 - 1e-9, '  책상 없는 좌석끼리는 최소값에서도 몸(0.25 + 0.25)이 겹치지 않는다');
+    }
+  }
+  /* 책상 끌기(slotIndexAt) — app.js 처럼 «번호 고르기 → splice → 줄 다시 잡기» 를 x 마다 세 번 돈다.
+     (a) 같은 x 에서 다시 불러도 번호가 그대로(떨림 없음) (b) 왼쪽으로 갈수록 번호가 줄지 않음 (c) 끝까지 끌면 맨 끝 · 맨 오른쪽 */
+  if(!process.env.TW_PREMOVE){
+    const dragRun = (src, hws, dragAt, spacing) => {
+      const ss = hws.map((hw, i) => Object.assign({ hw }, i === 0 ? { isMe: true } : {}));
+      const drag = ss[dragAt];
+      const rr = runLayout(ss, { spacing, src });
+      const first = ss.filter(x => !x.ridingOn).reduce((m, x) => Math.min(m, x.targetX), 0);
+      let shaky = 0, back = 0, prev = -1, end = -1, start = -1;
+      for(let x = 0.5; x >= first - 3; x -= 0.05){
+        const got = [];
+        for(let t = 0; t < 3; t++){
+          const idx = rr.api.slotIndexAt(x, drag), cur = ss.indexOf(drag);
+          if(idx !== cur){ ss.splice(cur, 1); ss.splice(idx, 0, drag); rr.api.layoutSeatRow(); }
+          got.push(ss.indexOf(drag));
+        }
+        if(got[1] !== got[2]) shaky++;
+        if(got[2] < prev) back++;
+        if(start < 0) start = got[2];
+        prev = end = got[2];
+      }
+      return { shaky, back, start, end, n: ss.length };
+    };
+    const cases = [[[0.85, 0.4, 2], 1], [[0.85, 0.5, 1.2, 0.85], 1], [[0.85, 0.85, 1.5], 1], [[0.85, 0.4, 1.7], 2], [[0.85, 0.85, 0.85], 2]];
+    let bad = [];
+    for(const sp of [-0.3, 0.021, 0.3, 1.2]) for(const [hws, at] of cases){
+      const o = dragRun(undefined, hws, at, sp);
+      if(o.shaky || o.back || o.start !== 0 || o.end !== o.n - 1) bad.push(sp + ' ' + J(hws) + ' ' + J(o));
+    }
+    chk(!bad.length, '책상 끌기 — 폭이 섞인 줄 · 간격 -0.3 · 0.021 · 0.3 · 1.2: 같은 자리에서 다시 불러도 그대로 · 왼쪽으로 갈수록 뒤 칸 · 오른쪽 끝 0번 · 왼쪽 끝 마지막' + (bad.length ? ' — ' + bad.slice(0, 2).join(' | ') : ''));
+    /* 끄는 동안(pointermove 마다)은 책상을 다시 재지 않는다 — 줄 배치가 잰 반폭을 다시 쓴다 */
+    {
+      const ss = [{ isMe: true, hw: 0.85 }, { hw: 0.4 }, { hw: 2 }, { hw: 1.2 }];
+      const rr = runLayout(ss, { spacing: 0.3 });
+      const before = rr.deskCalls();
+      for(let x = 0; x > -8; x -= 0.5) rr.api.slotIndexAt(x, ss[1]);
+      chk(rr.deskCalls() === before, '  끄는 동안 책상 폭을 다시 재지 않는다(줄 배치가 잰 반폭을 다시 씀)');
+      const fresh = { hw: 0.85 }; ss.push(fresh);
+      rr.api.slotIndexAt(-1, fresh);
+      chk(rr.deskCalls() > before, '  아직 줄 배치에 없던 좌석은 그때 잰다');
+    }
+    /* 줄 배치는 할 때마다 반폭을 새로 잰다(기억은 끌기 · 가두기용) — 책상을 바꾸거나 평준화로 크기가 바뀐 뒤 옛 폭으로 자리를 잡지 않게 */
+    const remeasure = (src) => {
+      const ss = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
+      const rr = runLayout(ss, { spacing: 0.3, src });
+      ss[1].hw = 1.05; rr.api.layoutSeatRow();
+      const xs = ss.map(x => +x.targetX.toFixed(6));
+      return { xs, slot: rr.api.slotIndexAt(-4.6, ss[2]) };
+    };
+    {
+      const o = remeasure();
+      chk(J(o.xs) === J([0, -2.2, -4.4]) && o.slot === 2, '  책상 폭이 바뀐 뒤 줄 배치는 새 폭으로(0 · -2.2 · -4.4) · 끌기도 새 폭 기준 칸');
+      const once = MOD.replace('_bodyHalfMemo.set(s, body); _halfMemo.set(s, measureRowHalf(s, body));', '_bodyHalfMemo.set(s, body); if(!_halfMemo.has(s)) _halfMemo.set(s, measureRowHalf(s, body));');
+      const b = once !== MOD ? remeasure(once) : null;
+      chk(!!b && J(b.xs) !== J(o.xs), '  깨 보기 — 한 번 잰 반폭을 다시 쓰면(새로 안 잼) 위 판정이 빨강');
+    }
+    /* 0번(맨 오른쪽) 좌석은 줌 상한 없이 실제 반폭 · 1번부터 상한 1.1(옛 map 그대로) */
+    {
+      const ss = [{ isMe: true, hw: 1.5 }, { hw: 1.5 }];
+      const rr = runLayout(ss, { spacing: 0.3 });
+      chk(J(rr.xs) === J([0, -2.9]), '  0번 큰 책상은 실제 반폭(1.5) · 1번은 상한(1.1) — 1.5 + 0.3 + 1.1');
+      const cap0 = MOD.replace('  return v[i ? 1 : 0];', '  return v[1];');
+      const rb = cap0 !== MOD ? runLayout([{ isMe: true, hw: 1.5 }, { hw: 1.5 }], { spacing: 0.3, src: cap0 }) : null;
+      chk(!!rb && J(rb.xs) !== J([0, -2.9]), '  깨 보기 — 0번에도 상한을 걸면 빨강');
+    }
+    const ride = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
+    ride[2].ridingOn = ride[1];
+    const rr = runLayout(ride, {});
+    chk(rr.api.slotIndexAt(-100, ride[3]) === 2 && rr.api.slotIndexAt(0.2, ride[3]) === 0, '  올라탄 좌석은 자리가 없어 건너뛴다(왼쪽 끝 = 남은 줄의 마지막)');
+    const re = runLayout([{ isMe: true, hw: 0.85 }], {});
+    chk(re.api.slotIndexAt(-3, null) === 0 && re.api.slotIndexAt(-3, { hw: 1 }) === 0, '  경계 — 끄는 좌석이 없거나 줄에 없으면 0');
+    /* 깨 보기 — 옛 셈 둘: 지금 자리(targetX) 중 가장 가까운 것(폭이 섞이면 떨림) · 끈 거리 ÷ 간격(음수 간격에서 뒤집힘) */
+    const nearest = MOD.replace(/function slotIndexAt\(x, dragSeat\)\{[\s\S]*?\n\}\n/, 'function slotIndexAt(x){ let b = 0, bd = Infinity; seats.forEach((s, i)=>{ if(s.ridingOn) return; const d = Math.abs((s.targetX || 0) - x); if(d < bd){ bd = d; b = i; } }); return b; }\n');
+    let caught = nearest !== MOD && dragRun(nearest, [0.85, 0.4, 2], 1, 0.3).shaky > 0;
+    chk(caught, '  깨 보기 — 지금 자리 중 가장 가까운 것으로 고르면 폭이 섞인 줄에서 떨린다');
+    const divide = MOD.replace(/function slotIndexAt\(x, dragSeat\)\{[\s\S]*?\n\}\n/, 'function slotIndexAt(x){ return Math.max(0, Math.min(seats.length - 1, Math.round(-x / SPACING()))); }\n');
+    caught = false;
+    if(divide !== MOD){ const o = dragRun(divide, [0.85, 0.85, 0.85], 2, -0.3); caught = o.end !== o.n - 1 || o.back > 0; }
+    chk(caught, '  깨 보기 — 끈 거리 ÷ 간격으로 되돌리면 음수 간격에서 빨강');
+  }
   /* 🧍 책상이 없거나 작은 좌석 — 몸 반폭 + 여유(0.15)만큼 자리를 잡아 옆 책상과 안 겹친다(건의). 책상 있는 좌석끼리는 그대로 */
   {
     const body = (bw) => ({ bw });
