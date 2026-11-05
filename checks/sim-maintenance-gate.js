@@ -109,9 +109,15 @@ function run(M, label){
     chk(n === 0 && typeof handed === 'function' && q.g.on() === false,
       '★ «확인» 으로 닫으면 다시 붙지 않고(자동 재시도 없음) 다시 붙기를 넘긴다(띠 [다시 연결]) · on() 은 거짓 — 오류 알림이 다시 켜진다');
     q.g.onValue({ on: true }); q.g.onValue({ on: false });
-    chk(n === 0, '  ↳ 넘긴 뒤엔 점검 칸이 풀려도 혼자 붙지 않는다(띠가 맡음)');
+    chk(n === 1, '★ 닫은 뒤에도 점검 칸이 풀리면 한 번 붙는다');
     if(handed) handed();   // 깨 본 판에선 안 넘어온다 — 위 줄이 이미 빨강
-    chk(n === 1, '  ↳ 넘겨받은 쪽이 누르면 한 번 붙는다');
+    chk(n === 1, '  ↳ 그 뒤 띠 [다시 연결] 을 눌러도 또 붙지 않는다(먼저 온 쪽 하나)');
+    q = rig(M, false); n = 0; handed = null;
+    q.g.serverClosed(() => { n++; }, (f) => { handed = f; });
+    q.press('close'); if(handed) handed();
+    chk(n === 1, '  ↳ 띠를 먼저 누르면 그때 한 번 붙는다');
+    q.g.onValue({ on: true }); q.g.onValue({ on: false });
+    chk(n === 1, '  ↳ 그 뒤 점검이 풀려도 또 붙지 않는다');
     q = rig(M, true); q.g.onValue({ on: true, message: '공지' }); q.g.serverClosed(() => {});
     chk(q.shows[q.shows.length - 1].body.indexOf('공지') === 0, '  ↳ 점검 칸을 봤으면 그 문구로');
   }
@@ -234,9 +240,13 @@ say('── 3. 고리');
   chk(b8 && !quietRun(asModule(b8)), '«다시 시도» 가 다시 붙지 않으면 빨강');
   const b9 = broke(SRC, '    if(f) f();   // 점검이 풀렸다', '    // 점검이 풀렸다');
   chk(b9 && !quietRun(asModule(b9)), '점검이 풀려도 다시 붙지 않으면 빨강');
-  const b12 = broke(SRC, "    if(action === 'close' && rtRetry){ const d = rtDismiss; const f = takeRetry(); if(d) d(f); }\n", '');
+  const b12 = broke(SRC, "    if(action === 'close' && rtShown){ rtShown = false; const d = rtDismiss; rtDismiss = null; if(d) d(rtRetry); }", '');
   chk(b12 && !quietRun(asModule(b12)), '«확인» 뒤에도 오류 알림이 꺼진 채면 빨강');
-  const b10 = broke(SRC, 'on: () => !!(cur || rtRetry)', 'on: () => !!cur');
+  const b13 = broke(SRC, "    rtRetry = () => { if(done) return; done = true; retry(); };", "    rtRetry = retry;");
+  chk(b13 && !quietRun(asModule(b13)), '띠 · 점검 해제가 둘 다 붙으면 빨강');
+  const b14 = broke(SRC, "if(action === 'close' && rtShown){ rtShown = false; const d = rtDismiss; rtDismiss = null; if(d) d(rtRetry); }", "if(action === 'close' && rtShown){ const d = rtDismiss; if(d) d(takeRetry()); }");
+  chk(b14 && !quietRun(asModule(b14)), '«확인» 뒤 점검이 풀려도 안 붙으면 빨강');
+  const b10 = broke(SRC, 'on: () => !!(cur || rtShown)', 'on: () => !!cur');
   chk(b10 && !quietRun(asModule(b10)), 'realtime 점검 동안 오류 토스트가 나면 빨강');
   const b11 = broke(SRC, "  const buttons = retry ? [{ label: '다시 시도', action: 'retry' }, { label: '확인', action: 'close' }] : ", "  const buttons = ");
   chk(b11 && !quietRun(asModule(b11)), '점검 창에 «다시 시도» 가 없으면 빨강');
