@@ -22,6 +22,8 @@ const SRC = fs.readFileSync(FILE, 'utf8');
 const APPTXT = (() => { const f = ['app.js', 'parts/app.js', 'app/parts/app.js', 'apps/desktop/app/parts/app.js'].flatMap(p => [path.dirname(FILE), process.cwd(), __dirname].map(d => path.join(d, p))).find(p => fs.existsSync(p)); return f ? fs.readFileSync(f, 'utf8') : ''; })();
 const flush = () => new Promise(r => setImmediate(r));
 const apiErr = (kind, code) => Object.assign(new Error(kind), { kind, code: code || '' });
+/* 다른 기기가 a(0번 칸)를 보관함으로 옮긴 서버 판 — 뒤 칸이 당겨진다 */
+const shiftA = (e) => { const h = e.srv.avatars.find(x => x.avatarId === 'a'); h.place = 'BOX'; h.slot = null; e.srv.slots = ['b', 'c', null, null, null]; e.srv.avatars.find(x => x.avatarId === 'b').slot = 0; e.srv.avatars.find(x => x.avatarId === 'c').slot = 1; };
 const clone = (v) => JSON.parse(JSON.stringify(v));
 
 function loadMod(src, env){
@@ -183,6 +185,15 @@ await sec('── 2. 받기', async () => {
   chk(p2 === 'skipped' && e.srv.calls.length === 1, '받는 중에 또 부르면 바로 보내지 않는다');
   e.srv.loadHold = null; release(); await p1; await flush(); await flush();
   chk(e.srv.calls.length === 2, '  끝나면 한 번 더 받는다');
+  /* 받기가 실패하는 동안 누른 «다시 시도» */
+  ({ e, C } = await ready({ slots: ['a'] }));
+  { let rl; e.srv.loadHold = new Promise(rs => { rl = rs; }); e.srv.fail.load = apiErr('unavailable'); e.srv.calls.length = 0; e.errs.length = 0;
+    const pf = C.pullCloset(false); await flush(); const pr = await C.pullCloset(true);
+    e.srv.loadHold = null; rl(); await pf; for(let n = 0; n < 6; n++) await flush();
+    chk(pr === 'skipped' && e.srv.calls.filter(c => c === 'load').length === 2 && e.errs.join() === 'E-CHAR-16', '받기가 실패하는 동안 누른 «다시 시도» 는 끝난 뒤 돈다(사용자가 누른 받기라 실패면 E-CHAR-16)');
+    e.errs.length = 0; await C.pullCloset(false); await flush();
+    chk(!e.errs.length, '  그 뒤 서버 신호 받기가 실패해도 묻지 않은 번호를 띄우지 않는다');
+    delete e.srv.fail.load; }
   /* 서버 신호 */
   C.startCloset(); await flush(); await flush();
   e.srv.calls.length = 0; e.rt.avatars[0]({ kind: 'avatars' }); await flush(); await flush();
@@ -465,6 +476,15 @@ await sec('── 4-2. 서버 일은 한 줄로', async () => {
   const mv = C.moveToBox(0); await flush();
   e.srv.loadHold = null; rel(); await p; r = await mv; await flush();
   chk(r.ok && e.slots.filter(Boolean).map(x => x.skin).join() === 'b,c2' && C.test.known().filter(Boolean).map(k => k.avatarId).join() === 'b,c', '받는 중에 누른 옮기기는 받기가 끝난 뒤에 돈다 — 같은 캐릭터가 두 칸에 보이지 않는다');
+  /* 받는 중 누른 휴지통 · 보관함 이동 — 앞 칸이 빠진 판이 와도 처음 고른 캐릭터에 */
+  for(const [name, op, call] of [['휴지통', (C) => C.trashSlot(1), 'trash:b'], ['보관함 이동', (C) => C.moveToBox(1), 'move:b:BOX']]){
+    ({ e, C } = await ready({ slots: ['a', 'b', 'c'] }));
+    shiftA(e); let rl3; e.srv.loadHold = new Promise(rs => { rl3 = rs; }); e.srv.calls.length = 0;
+    const pp = C.pullCloset(false); await flush(); await flush();
+    const op1 = op(C); await flush();
+    e.srv.loadHold = null; rl3(); await pp; r = await op1; await flush();
+    chk(r.ok && r.slot === 0 && e.srv.calls.includes(call) && !e.srv.calls.some(c => c.endsWith(':c') || c.startsWith('move:c')) && e.slots[0] && e.slots[0].skin === 'c', '받는 중 누른 ' + name + ' — 앞 칸이 빠져 칸이 당겨져도 처음 고른 캐릭터(b)에 한다');
+  }
   /* 첫 실행 올리기 중 계정 놓음 */
   ({ e, C } = await ready({ slots: [], ls: [['deskFriends.slots.v1', JSON.stringify([{ skin: 1 }])]] }));
   let rl2; e.toHold = new Promise(rs => { rl2 = rs; });
@@ -562,14 +582,14 @@ await sec('── 7. 깨 보기', async () => {
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(0, { skin: 'q' }); await C.flushSlots(); return e.srv.calls.some(c => c === 'update:a:0'); }), '받은 판 대신 다른 값을 실으면 3절이 빨강이 된다');
   S = broke("if(k && k.avatarId === id && isDirty(i)) continue;", "");
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(0, { skin: 'mine' }); e.srv.avatars.find(a => a.avatarId === 'a').version = 3; e.srv.defs.a = { skin: 'a3' }; await C.pullCloset(false); return e.slots[0].skin === 'a3'; }), '내 고침 보호를 빼면 2절이 빨강이 된다');
-  S = broke("    if(boxCount() >= BOX_MAX) return Promise.resolve({ ok: false, why: 'full' });\n  }\n  return action(async (g) => {\n    if(!slots[i])", "  }\n  return action(async (g) => {\n    if(!slots[i])");
+  S = broke("    if(boxCount() >= BOX_MAX) return Promise.resolve({ ok: false, why: 'full' });\n  }\n  const t = validSlot(i) ? targetOf(i) : null;", "  }\n  const t = validSlot(i) ? targetOf(i) : null;");
   chk(S && await run(S, async (e) => { const box20 = []; for(let i = 0; i < 20; i++) box20.push('bx' + i); const e2 = mkEnv({ slots: ['a'], box: box20 }); const M = loadMod(S, e2);
     const C = M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e2.srv.api, codec: e2.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e2.slots, slotSave: e2.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
       storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } });
     await C.pullCloset(false); e2.srv.calls.length = 0; await C.moveToBox(0); return e2.srv.calls.some(c => c.startsWith('move:')); }), '20 문턱을 빼면(요청이 나가면) 4절이 빨강이 된다');
   S = SRC.split("if(g !== gen) return 'skipped';").join(""); if(S === SRC) S = null;
   chk(S && await run(S, async (e) => { const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); const p = C.pullCloset(false); await flush(); C.resetCloset(); rel(); await p; await flush(); return C.state() !== 'idle'; }), '계정 바뀜 막이를 빼면 5절이 빨강이 된다');
-  S = broke("if(again && res !== 'failed') pullCloset(false);", "if(again) pullCloset(false);");
+  S = broke("if(again && (res !== 'failed' || an)) pullCloset(an);", "if(again) pullCloset(an);");
   chk(S && await run(S, async (e) => { const C = e.mk(); let rel; e.srv.loadHold = new Promise(r => { rel = r; }); e.srv.fail.load = apiErr('unavailable'); const p = C.pullCloset(false); await flush(); await C.pullCloset(false); rel(); await p; await flush(); await flush(); return e.srv.calls.filter(c => c === 'load').length > 1; }), '실패 뒤 되풀이 금지를 빼면 2절이 빨강이 된다');
   S = broke("function inLane(job){ const p = laneTail.then(job); laneTail = p.catch(() => {}); return p; }", "function inLane(job){ return Promise.resolve().then(job); }");
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); let rl; const hold = new Promise(r => { rl = r; }); const ou = e.srv.api.update; e.srv.api.update = async (...x) => { await hold; return ou(...x); };
@@ -615,6 +635,13 @@ await sec('── 7. 깨 보기', async () => {
       storage: { getItem: (k) => e.ls.has(k) ? e.ls.get(k) : null, setItem: (k, v) => e.ls.set(k, String(v)), removeItem: (k) => e.ls.delete(k), key: (i) => [...e.ls.keys()][i] || null, get length(){ return e.ls.size; } } });
     await C.pullCloset(false); let rl; e.toHold = new Promise(r => { rl = r; }); const lp = C.legacyStep(); for(let n = 0; n < 20 && !e.toEntered; n++) await flush();
     C.resetCloset(); e.uid = 'u2'; e.toHold = null; rl(); await lp; return e.srv.calls.some(c => c.startsWith('legacySync')); })(), '첫 실행 올리기의 계정 막이를 빼면 4-2절이 빨강이 된다');
+  S = broke("function targetOf(i){ return known[i] ? { id: known[i].avatarId } : { obj: slots[i] }; }\nfunction findTarget(t){ return t.id ? known.findIndex(k => k && k.avatarId === t.id) : slots.indexOf(t.obj); }", "function targetOf(i){ return { i }; }\nfunction findTarget(t){ return t.i; }");
+  chk(S && await (async () => { const e = mkEnv({ slots: ['a', 'b', 'c'] }); const M = loadMod(S, e);
+    const C = M.createCloset({ CHAR_SLOT_MAX: 5, closetApi: e.srv.api, codec: e.codec, roomFaceCache: { load: () => ({}), save: () => {} }, slots: e.slots, slotSave: e.slotSave, getMyUserId: () => 'u1', rtOn: () => () => {}, toast(){}, notifyError(){}, renderLauncher(){}, creatorOpen: () => false,
+      storage: { getItem: () => null, setItem(){}, removeItem(){}, key: () => null, length: 0 } });
+    await C.pullCloset(false); shiftA(e); let rl; e.srv.loadHold = new Promise(r => { rl = r; }); e.srv.calls.length = 0;
+    const pp = C.pullCloset(false); await flush(); await flush(); const op1 = C.trashSlot(1); await flush(); e.srv.loadHold = null; rl(); await pp; await op1; await flush();
+    return e.srv.calls.includes('trash:c'); })(), '누른 칸 번호를 그대로 쓰면 받는 중 다른 캐릭터가 휴지통에 간다 — 4-2절이 빨강이 된다');
   S = broke("setTimeout(() => { saveTimer = null; flushSlots(); }, SAVE_DEBOUNCE_MS)", "setTimeout(() => { saveTimer = null; flushSlots(); }, 0)");
   chk(S && await run(S, async (e) => { const C = e.mk(); await C.pullCloset(false); e.edit(0, { skin: 'q' }); return e.timers.filter(Boolean)[0].ms !== 3000; }), '묶음 시간을 없애면 3절이 빨강이 된다');
 });

@@ -46,14 +46,14 @@ let load = 'idle';                                       // 'idle' | 'loading' |
 const taken = new Set();   // 새 캐릭터를 올리려다 «그 칸에 이미 있다»(AVATAR_SLOT_TAKEN)고 거절당한 칸 — 다음 받기가 서버 캐릭터로 앉힌다
 let unsubRt = null;   // 서버 신호 구독 해제 함수 — 계정이 바뀌면 풀어 구독이 겹치지 않게
 let started = false, gen = 0;
-let saveTimer = null, flushing = false, saveFailShown = false, busy = false;
+let saveTimer = null, saveFailShown = false, busy = false;
 const changeFns = [];
 /* 서버 일 한 줄 — 앞 일이 끝난 뒤에 다음 일을 돌린다(실패해도 줄은 이어진다) */
 let laneTail = Promise.resolve();
 function inLane(job){ const p = laneTail.then(job); laneTail = p.catch(() => {}); return p; }
 const waitFlush = () => laneTail;   // 줄에 선 일(쓰기 포함)이 다 끝나기를 기다린다 — 로그아웃 올리기가 쓴다
 let queuedPull = null, queuedNotify = false;   // 줄에 서서 아직 시작하지 않은 받기 — 그 사이 또 부르면 그 받기 하나로 합친다
-let pullRunning = false, pullAgain = false;    // 받는 중에 또 부르면 끝난 뒤 한 번 더(실패 뒤에는 되풀이하지 않는다)
+let pullRunning = false, pullAgain = false, againNotify = false;   // 받는 중에 또 부르면 끝난 뒤 한 번 더(실패 뒤엔 사용자가 누른 받기만)
 function onChange(fn){ changeFns.push(fn); }
 function changed(){ changeFns.forEach(fn => { try{ fn(); }catch(e){ console.warn('[옷장] 알림 실패', e); } }); }
 
@@ -116,9 +116,9 @@ async function applyCloset(c, g){
    @return 'ready' | 'failed' | 'skipped' */
 function pullCloset(notify){
   if(!getMyUserId()) return Promise.resolve('skipped');
+  if(queuedPull){ if(notify) queuedNotify = true; return queuedPull; }
+  if(pullRunning){ pullAgain = true; if(notify) againNotify = true; return Promise.resolve('skipped'); }
   if(notify) queuedNotify = true;
-  if(queuedPull) return queuedPull;
-  if(pullRunning){ pullAgain = true; return Promise.resolve('skipped'); }
   if(load !== 'ready'){ load = 'loading'; changed(); }
   const g = gen;
   queuedPull = inLane(async () => {
@@ -131,8 +131,8 @@ function pullCloset(notify){
     finally{
       if(g === gen){
         pullRunning = false;
-        const again = pullAgain; pullAgain = false;
-        if(again && res !== 'failed') pullCloset(false);
+        const again = pullAgain, an = againNotify; pullAgain = false; againNotify = false;
+        if(again && (res !== 'failed' || an)) pullCloset(an);   // 실패 뒤 혼자 되풀이하지 않는다 — 그 사이 사용자가 «다시 시도» 를 눌렀으면 그 받기는 돈다
       }
     }
   });
@@ -197,7 +197,6 @@ async function flushNow(){
   if(load !== 'ready') return false;
   const uid = getMyUserId();
   if(!uid) return false;
-  flushing = true;
   let failed = false, needPull = false;
   try{
     const g = gen;
@@ -238,7 +237,6 @@ async function flushNow(){
     if(needPull) pullCloset(false);
     return failed;
   }finally{
-    flushing = false;
     changed();
   }
 }
@@ -286,31 +284,39 @@ function action(fn, extra){
   });
 }
 
+/* 누른 칸의 캐릭터를 몸으로 잡는다 — 줄에서 앞 받기가 칸을 당길 수 있으니 줄 안에서 그 캐릭터의 지금 칸을 다시 찾는다(서버 캐릭터는 id · 못 올린 새 캐릭터는 그 객체) */
+function targetOf(i){ return known[i] ? { id: known[i].avatarId } : { obj: slots[i] }; }
+function findTarget(t){ return t.id ? known.findIndex(k => k && k.avatarId === t.id) : slots.indexOf(t.obj); }
+const validSlot = (i) => i >= 0 && i < CHAR_SLOT_MAX && !!slots[i];
 function moveToBox(i){
   if(load === 'ready' && !busy){
-    if(!(i >= 0 && i < CHAR_SLOT_MAX) || !slots[i]) return Promise.resolve({ ok: false, why: 'nocid' });
+    if(!validSlot(i)) return Promise.resolve({ ok: false, why: 'nocid' });
     if(boxCount() >= BOX_MAX) return Promise.resolve({ ok: false, why: 'full' });
   }
+  const t = validSlot(i) ? targetOf(i) : null;
   return action(async (g) => {
-    if(!slots[i]) return { ok: false, why: 'nocid' };
-    if(!(await settleSlot(i))) return { ok: false, why: 'dirty' };
+    let at = t ? findTarget(t) : -1;
+    if(at < 0) return { ok: false, why: t ? 'gone' : 'nocid' };
+    if(!(await settleSlot(at))) return { ok: false, why: 'dirty' };
     if(g !== gen) return { ok: false, why: 'off' };
-    const id = known[i].avatarId;
+    const id = known[at].avatarId;
     let c;
     try{ c = await closetApi.move(id, 'BOX'); }catch(e){ return failOp(e); }
     if(g !== gen) return { ok: false, why: 'off' };
     heads = c.avatars;
-    pullForward(i);
+    pullForward(at);
     checkLayout(c);
     changed();
-    return { ok: true, slot: i };
+    return { ok: true, slot: at };
   });
 }
 function trashSlot(i){
-  if(load === 'ready' && !busy && (!(i >= 0 && i < CHAR_SLOT_MAX) || !slots[i])) return Promise.resolve({ ok: false, why: 'nocid' });
+  if(load === 'ready' && !busy && !validSlot(i)) return Promise.resolve({ ok: false, why: 'nocid' });
+  const t = validSlot(i) ? targetOf(i) : null;
   return action(async (g) => {
-    if(!slots[i]) return { ok: false, why: 'nocid' };
-    const k = known[i];
+    const at = t ? findTarget(t) : -1;
+    if(at < 0) return { ok: false, why: t ? 'gone' : 'nocid' };
+    const k = known[at];
     if(k){
       let r;
       try{ r = await closetApi.trash([k.avatarId]); }catch(e){ return failOp(e); }
@@ -318,9 +324,9 @@ function trashSlot(i){
       if(!r.length || (!r[0].ok && r[0].code !== 'AVATAR_NOT_FOUND')) return { ok: false, why: 'err' };   // 이미 없다면 같은 결과(이 칸을 비운다)
       heads = heads.filter(h => h.avatarId !== k.avatarId);
     }
-    pullForward(i);                                                  // 서버에 올린 적 없는 새 캐릭터는 화면에서만 지운다
+    pullForward(at);                                                 // 서버에 올린 적 없는 새 캐릭터는 화면에서만 지운다
     changed();
-    return { ok: true, slot: i };
+    return { ok: true, slot: at };
   });
 }
 const hasUnsentNew = () => slots.some((s, k) => s && !known[k] && !s._imgBroken);
@@ -441,8 +447,8 @@ function startCloset(){
 function resetCloset(){
   if(saveTimer){ clearTimeout(saveTimer); saveTimer = null; }
   taken.clear(); heads = []; known.fill(null); load = 'idle'; gen++;
-  saveFailShown = false; started = false; busy = false; flushing = false;
-  laneTail = Promise.resolve(); queuedPull = null; queuedNotify = false; pullRunning = false; pullAgain = false;   // 옛 계정 일은 gen 이 달라 스스로 끝난다 — 새 계정 일은 그것을 기다리지 않는다
+  saveFailShown = false; started = false; busy = false;
+  laneTail = Promise.resolve(); queuedPull = null; queuedNotify = false; pullRunning = false; pullAgain = false; againNotify = false;   // 옛 계정 일은 gen 이 달라 스스로 끝난다 — 새 계정 일은 그것을 기다리지 않는다
   if(unsubRt){ unsubRt(); unsubRt = null; }
   closetApi.reset();
   changed();

@@ -17,6 +17,7 @@ const slotToObj = deps.slotToObj;
 const uploadGlb = deps.uploadGlb;
 const SLOT_GLB_CACHE_KEY = 'tw.slotGlbUrls';
 const SLOT_JSON_MAX = 150000;                // 서버 def 상한(글자 수) — 서버 규격과 같은 값
+const FETCH_TIMEOUT_MS = 20000;              // 그림 · GLB 내려받기 상한 — 옷장 서버 일은 한 줄이라 끝나지 않는 내려받기가 쓰기 · 옮기기를 묶지 않게
 /* ── GLB 한 덩이 → Storage URL. 얼굴과 같은 «종류_내용해시» 이름 + localStorage 캐시. ── */
 function _slotGlbCacheLoad(){
   let st = {}; try{ st = JSON.parse(localStorage.getItem(SLOT_GLB_CACHE_KEY) || '{}'); }catch(_){}
@@ -42,7 +43,7 @@ async function _storageGlbUrlOne(uid, st, key, b64){
 }
 /* URL → base64 (GLB 되받기). Storage 는 CORS 허용이라 fetch 가 통한다(말랑이 선물이 같은 길). */
 async function _fetchB64(url){
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if(!res.ok) throw new Error('HTTP ' + res.status);
   const buf = new Uint8Array(await res.arrayBuffer());
   let s = '';
@@ -57,7 +58,7 @@ async function _fetchB64(url){
    ★ 다시 인코딩하지 않으니 화질이 안 깎이고 더 빠르다(GLB 를 가져오는 `_fetchB64` 와 같은 방식).
    ⚠️ 실패는 예전처럼 **던진다** — `_slotFromServerObj` 가 그걸 보고 이번 채택을 접는다. */
 async function _fetchImgDataUrl(url){
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(FETCH_TIMEOUT_MS) });
   if(!res.ok) throw new Error('HTTP ' + res.status);
   let type = '';
   try{ type = (res.headers && res.headers.get && res.headers.get('content-type')) || ''; }catch(_){}

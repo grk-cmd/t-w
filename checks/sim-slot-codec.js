@@ -21,11 +21,11 @@ const hash = (s) => 'h2' + String(s).length + String(s).slice(-4);   // 내용�
 
 function mkWorld(src, opt){
   const o = opt || {};
-  const w = { ls: new Map(), uploads: [], faceUp: [], fetched: [], failKey: o.failKey || null };
+  const w = { ls: new Map(), uploads: [], faceUp: [], fetched: [], fetchOpts: [], failKey: o.failKey || null };
   const store = new Map();
-  const ctx = { window: {}, console: { warn(){}, log(){} }, JSON, Object, Array, Promise, Error, Number, String, Math, Date, Uint8Array, atob: (s) => Buffer.from(s, 'base64').toString('binary'), btoa: (s) => Buffer.from(s, 'binary').toString('base64'),
+  const ctx = { window: {}, AbortSignal, console: { warn(){}, log(){} }, JSON, Object, Array, Promise, Error, Number, String, Math, Date, Uint8Array, atob: (s) => Buffer.from(s, 'base64').toString('binary'), btoa: (s) => Buffer.from(s, 'binary').toString('base64'),
     localStorage: { getItem: (k) => w.ls.has(k) ? w.ls.get(k) : null, setItem: (k, v) => w.ls.set(k, String(v)), removeItem: (k) => w.ls.delete(k) },
-    fetch: async (u) => { w.fetched.push(u); if(String(u).includes('BAD')) return { ok: false, status: 404 };
+    fetch: async (u, fo) => { w.fetched.push(u); w.fetchOpts.push(fo); if(String(u).includes('BAD')) return { ok: false, status: 404 };
       const bytes = Buffer.from('payload:' + u); return { ok: true, headers: { get: () => (/\.glb/.test(u) ? 'model/gltf-binary' : 'image/webp') }, arrayBuffer: async () => bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) }; } };
   vm.createContext(ctx);
   vm.runInContext(CACHE, ctx);
@@ -97,6 +97,7 @@ async function behave(src){
   w = mkWorld(src);
   const server = await w.codec._slotToServerObj('uA', OBJ(), {}, {});
   const back = await w.codec._slotFromServerObj(server);
+  t(w.fetchOpts.length > 0 && w.fetchOpts.every(fo => fo && fo.signal), '  내려받기마다 시간 상한(signal)을 건다 — 옷장 서버 일은 한 줄이라 끝나지 않는 내려받기가 줄을 묶지 않게');
   t(/^data:image\//.test(back.face) && /^data:image\//.test(back.blink) && !('faceUrl' in back) && back.animalBody.startsWith('data:image/') && back.thumb === null && back._norm === 1, '서버 def → 화면 모양: 주소가 dataURL 로, 섬네일은 비움, 저장 모양(slotToObj)을 한 번 지난다');
   t(typeof back.commGlb === 'string' && !('commGlbUrl' in back) && typeof back.deskGlb === 'string' && typeof back.customItems.c1.glb === 'string' && !('glbUrl' in back.customItems.c1), '  GLB 주소는 base64 로 되받는다');
   t(w.fetched.every(u => /^https:\/\/st\/users\/uA\//.test(u) || /already/.test(u)), '  받는 곳은 서버 def 에 적힌 주소뿐');
