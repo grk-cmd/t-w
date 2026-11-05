@@ -28,7 +28,7 @@ const WINDOWS = {
   adBannerOverlay: '--z-dialog-admin', totalStatsOverlay: '--z-dialog-admin', roomInvitePickOverlay: '--z-dialog-admin',
   bellWin: '--z-win-bell', focusLogOverlay: '--z-win-focuslog', myHomeOverlay: '--z-win-myhome', mhGbOverlay: '--z-win-guestbook',
   updateNoticeUserOverlay: '--z-dialog-notice', chatOverlay: '--z-win-chat', pkOverlay: '--z-win-chat', wardrobePanel: '--z-wardrobe', wdPreviewPanel: '--z-wardrobe',
-  charsLinkedOverlay: '--z-gate-device', deviceSessionOverlay: '--z-gate-device', inviteGateOverlay: '--z-gate-invite', mhDesignOverlay: '--z-mh-design',
+  deviceSessionOverlay: '--z-gate-device', inviteGateOverlay: '--z-gate-invite', mhDesignOverlay: '--z-mh-design',
   existingSignupOverlay: '--z-gate-signup', needLoginOverlay: '--z-gate-signup', signupDoneOverlay: '--z-gate-done',
 };
 /* 지금 값 — 이 표가 바뀌면 화면 앞뒤가 바뀐다(바꿀 때는 이 표와 관계 판정을 같이) */

@@ -358,7 +358,7 @@ _callers = {}
 # guestbook.js — 📖 방명록(앱 FSD 4번). subscribeGuestbook · subscribeClap · addGuestbookEntry · deleteGuestbookEntry · clapOnce · setClapEmoji · setClapImage 를 부른다.
 # friend-manage.js — 👥 친구 관리(앱 FSD 5번). acceptFriendRequest · rejectFriendRequest · getSentFriendRequests · isFriendRequestAlive · pruneSentFriendRequest · cancelFriendRequest · getUserNameById 를 부른다.
 # bug-board-ui.js — 🐞 버그 제보 탭(오픈카톡 기본 링크)을 app.js 에서 이 파일 끝으로 옮겼다(앱 FSD 5번). setBugReport · subscribeBugReport 를 부른다.
-# gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). loadGachaOwned · updateGacha 를 부른다.
+# gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). 서버 원본이라 firebaseAPI 를 부르지 않는다(gacha-api.js).
 # myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오(앱 FSD 7-2). saveMyHome · uploadUserImage 를 부른다.
 # room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기(앱 FSD 10번). sendRoomInvite · subscribeRoomInvites · clearRoomInvite 를 부른다.
 # myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend · getMallangGifts · setMallangGiftStarred 를 부른다(우편 · 소식은 서버 길 mail-feed.js · notice-feed.js).

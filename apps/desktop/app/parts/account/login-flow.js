@@ -14,7 +14,7 @@
 (function(){
 'use strict';
 
-const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 로컬 모드 · 프리미엄 유예의 «마지막 답»
+const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 마지막 /v1/me 답(patchMe 가 version 을 읽는다). 프리미엄은 여기서 읽지 않는다 — 서버 확인(license-premium.js)만 따른다
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
 const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost';   // rt-hub.js 상태 이름
@@ -26,11 +26,6 @@ function joinKey(inviteCode, password){
   const s = String(password || '');
   for(let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; }
   return 'join:' + String(inviteCode || '') + ':' + h.toString(36);
-}
-/* 마지막 답의 프리미엄이 아직 유효한가 — 서버가 준 유예(premiumGraceSec) 안일 때만(D8 라이선스 묶음이 판정에 쓴다) */
-function premiumNow(cache, now){
-  if(!cache || !cache.me || cache.me.premium !== true) return false;
-  return (now - cache.at) <= cache.me.premiumGraceSec * 1000;
 }
 
 /** @param {{
@@ -225,12 +220,11 @@ function createLoginFlow(deps){
     confirm, goOnline, waitForServer, retryNow, loginGoogle, loginPassword, joinPassword, joinGoogle, patchMe, logout,
     meCache: () => readCache(),
     identity: () => auth.identity(),   // 지금 Auth 로그인 { email, uid } — 이 PC 로그인 표시(계정 탭 얼굴 · 진단)
-    premiumNow: () => premiumNow(readCache(), now()),
     mode: () => mode,
   };
 }
 
-const api = { ME_CACHE_KEY, STATE, joinKey, premiumNow, createLoginFlow };
+const api = { ME_CACHE_KEY, STATE, joinKey, createLoginFlow };
 if(typeof window !== 'undefined') window.TwLoginFlow = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

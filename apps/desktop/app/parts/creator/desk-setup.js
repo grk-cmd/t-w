@@ -4,7 +4,7 @@
    ・책임: renderCrItems(기본 · 저장 책상 카드 — 라이선스 잠금 🔒 · 관리자 ✎ · ☰ / 기본 · 커스텀 아이템 카드 5개씩 쪽 넘김 · 개수 한도 표시) ·
      reorderSavedItem · reorderSavedDesk(관리자 순서 바꾸기 → 카탈로그 순서 저장) · selectDeskItemForAdjust(놓인 아이템 고르기) · 미리보기 우클릭으로 아이템 고르기 · 책상 색 칸.
    ・받는 deps 29 — 값 crState · assetCardsMod(카드 · 도트 썸네일 · ☰ 손잡이) · premiumMod · DESK_ITEMS · DESK_SCALE_DEFAULT · DEFAULT_DESK_OVERRIDE_ID · ndc · ray ·
-     함수 10 · 읽는 함수 11(뒤에서 만들어지는 모듈 · isAdmin · isPremium · catalogNet — 데이터 provider, 지금은 app.js 가 window.firebaseAPI 를 넘긴다).
+     함수 10 · 읽는 함수 10(뒤에서 만들어지는 모듈 · isAdmin · catalogNet — 데이터 provider, 지금은 app.js 가 window.firebaseAPI 를 넘긴다).
    ・내놓는 것: renderCrItems · selectDeskItemForAdjust · setHooks({ openDeskRegister, attachItemGizmo }) — app.js 가 crXformMod 를 만든 뒤 잇는다.
    ・입구 전제: 카드 줄(#crDeskRow · #crItemRow) · 색 칸(#deskColor) · 미리보기(#creatorPreview)가 없으면 그리지 · 걸지 않는다 · 아이템 고르기는 캐릭터(crState.cBase)가 있어야.
    ⚠️ document · confirm 은 전역 이름 그대로. firebaseAPI 는 catalogNet() 으로만. 전역 이름은 TwDeskSetup(Tw 접두사 #103).
@@ -32,7 +32,7 @@ const customItems = deps.customItems;   // 읽는 함수
 const deskItemsMod = deps.deskItemsMod;   // 읽는 함수
 const equipDeskItem = deps.equipDeskItem;
 const isAdmin = deps.isAdmin;   // 읽는 함수
-const isPremium = deps.isPremium;   // 읽는 함수
+const licenseAssetBlocked = deps.licenseAssetBlocked;   // 🔒 전용 자산을 막아야 하나(account-state.js)
 const lightToneMod = deps.lightToneMod;   // 읽는 함수
 const ndc = deps.ndc;
 const premiumMod = deps.premiumMod;
@@ -93,7 +93,7 @@ function renderCrItems(){
     const card=assetCardsMod.swThumb(rec.name||'책상', on, rec.icon||'🪑', deleteHandler);
     card.dataset.reorderId = rec.id;   // bindReorderHandle의 elementFromPoint 탐색용
     /* 라이선스 전용 책상은 라이선스 · 관리자가 아니면 고르지 못한다(아이템 카드와 같은 모양 · 조건) — 고르면 실행 화면에서 기본 책상으로 떨어진다. */
-    const deskLocked = !!(rec.licenseOnly && !isPremium() && !isAdmin());
+    const deskLocked = licenseAssetBlocked(rec);
     if(deskLocked){
       const lock=document.createElement('div'); lock.textContent='🔒'; lock.title='라이선스 보유자 전용';
       lock.style.cssText='position:absolute;bottom:-4px;right:-4px;font-size:13px;filter:drop-shadow(0 1px 1px #fff);z-index:2;';
@@ -194,7 +194,7 @@ function renderCrItems(){
     const it=assetCardsMod.swThumb(def.name, on, def.icon||'📦', deleteHandler, active);
     assetCardsMod.applyDeskDotThumb(rec, it);   // 🎨 GLB 도트 썸네일 (생성 전까진 이모지)
     it.dataset.reorderId = def.id;   // bindReorderHandle의 elementFromPoint 탐색용
-    if(def.licenseOnly && !isPremium() && !isAdmin()){
+    if(licenseAssetBlocked(def)){
       const lock=document.createElement('div'); lock.textContent='🔒'; lock.title='라이선스 보유자 전용';
       lock.style.cssText='position:absolute;bottom:-4px;right:-4px;font-size:13px;filter:drop-shadow(0 1px 1px #fff);z-index:2;';
       it.firstChild.appendChild(lock);

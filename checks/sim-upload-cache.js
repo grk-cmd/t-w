@@ -12,7 +12,7 @@ const need = (rel) => { const s = read('app/parts/' + rel, 'parts/' + rel, rel.s
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const SRC = need('shared/upload-cache.js');
 const ROOM = need('room/room-sync.js');
-const SLOT = need('character/slot-sync.js');
+const SLOT = need('character/slot-codec.js');
 const FI = need('firebase-init.js');
 const EDIT = need('myhome/myhome-edit.js');
 const LCP = need('launcher/launcher-preview.js');
@@ -55,7 +55,7 @@ function judgeUses(room, slot, fi, edit, lcp){
   ok.push([/faceUploadCache\.trim\(st, faceUploadCache\.FACE_CACHE_MAX\)/.test(r) && /faceUploadCache\.trim\(faceUploadCache\.merge\(cur, st\), faceUploadCache\.FACE_CACHE_MAX\)/.test(r), '얼굴 캐시 — 불러올 때 다듬고 · 저장 때 지금 저장본과 합친다']);
   ok.push([/if\(st\[ck\]\)\{ faceUploadCache\.touch\(st, ck\); return st\[ck\]; \}/.test(r) && /faceUploadCache\.once\('face\/' \+ uid \+ '\/' \+ ck, \(\)=>firebaseAPI\.uploadRoomFace\(/.test(r), '얼굴 업로드 — 쓴 것은 맨 뒤로 · 같은 그림 동시 업로드는 한 번']);
   ok.push([/glbUploadCache\.trim\(st, glbUploadCache\.GLB_CACHE_MAX\)/.test(s) && /glbUploadCache\.trim\(glbUploadCache\.merge\(cur, st\), glbUploadCache\.GLB_CACHE_MAX\)/.test(s), 'GLB 캐시 — 불러올 때 다듬고 · 저장 때 합친다']);
-  ok.push([/if\(st\[ck\]\)\{ glbUploadCache\.touch\(st, ck\); return st\[ck\]; \}/.test(s) && /glbUploadCache\.once\('glb\/' \+ uid \+ '\/' \+ ck, \(\)=>firebaseAPI\.uploadSlotGlb\(/.test(s), 'GLB 업로드 — 쓴 것은 맨 뒤로 · 같은 파일 동시 업로드는 한 번']);
+  ok.push([/if\(st\[ck\]\)\{ glbUploadCache\.touch\(st, ck\); return st\[ck\]; \}/.test(s) && /glbUploadCache\.once\('glb\/' \+ uid \+ '\/' \+ ck, \(\)=>uploadGlb\(/.test(s), 'GLB 업로드 — 쓴 것은 맨 뒤로 · 같은 파일 동시 업로드는 한 번']);
   ok.push([!/length\s*>\s*\d+\s*\)\s*\{?\s*(st\s*=\s*\{\}|for\b)/.test(r + s), '두 모듈에 «넘치면 비우기» 를 따로 쓰지 않는다']);
   const exist = (f.match(/async function _existingUrlIfHashed\(path\)\{[\s\S]*?\n  \}/) || [''])[0];
   ok.push([/_h2\[0-9a-z\]\+/.test(exist) && /getDownloadURL\(sref\(storage, path\)\)/.test(exist) && /catch\(_\)\{ return null; \}/.test(exist), '업로드 앞 «있나» — 이름이 내용 해시일 때만 · 못 찾으면 null(평소처럼 올린다)']);

@@ -178,6 +178,7 @@ async function judge(S){
     const g = defer(); env.gate = g; g.value = () => ({ items: env.server, unread: 2, complete: true });
     feed.start('ME01'); await tick();
     chk(feed.status() === 'loading' && await feed.markAllRead() === false && env.writes.length === 0, '받는 중에는 «모두 읽음» 도 보내지 않는다(아직 못 본 우편까지 덮지 않게)');
+    chk(await feed.removeRead() === null && env.writes.length === 0, '받는 중에는 «읽은 우편 지우기» 도 보내지 않는다(내 코드는 있어도 아직 못 받음)');
     env.gate = null; g.release(); await tick(); await tick(); await tick();
     env.changes.length = 0;
     chk(await feed.markRead('a') === true && feed.items().a.read === true && feed.unread() === 1 && env.writes[0].join() === 'read,ME01,a', '읽음 — 서버가 됐다 한 뒤에 읽음 · 안 읽은 수 -1');
@@ -216,7 +217,10 @@ async function judge(S){
     chk(await feed.removeRead() === 0, '  지울 게 없으면 0');
     const g = defer(); env.wgate = g; env.rr = { status: 'ok', deleted: 1 }; env.writes.length = 0;
     const p1 = feed.removeRead(); await tick();
-    chk(feed.clearing() === true && await feed.removeRead() === null && env.writes.length === 1, '  지우는 중에는 clearing() · 또 불러도 요청이 늘지 않는다');
+    /* 지우는 중 가드가 빠진 깬 판은 둘째 호출이 게이트(g)에서 풀리길 기다려 영영 안 끝난다 → 한 틱만 기다려 «안 끝남» 으로 센다 */
+    const clr = feed.clearing();
+    const second = await Promise.race([feed.removeRead(), tick().then(() => 'hang')]);
+    chk(clr === true && second === null && env.writes.length === 1, '  지우는 중에는 clearing() · 또 불러도 요청이 늘지 않는다');
     env.wgate = null; g.release(); await p1;
     chk(feed.clearing() === false, '  끝나면 clearing() 풀림');
     env.rr = null;
@@ -239,7 +243,7 @@ async function judge(S){
     env.changes.length = 0; env.errors.length = 0;
     g.release();
     const r = await p;
-    chk(r === false && feed.unread() === 3 && Object.values(feed.items()).every((m) => m.read === false) && Object.keys(feed.items()).length === 3 && env.changes.length === 0,
+    chk((what === 'clear' ? r === null : r === false) && feed.unread() === 3 && Object.values(feed.items()).every((m) => m.read === false) && Object.keys(feed.items()).length === 3 && env.changes.length === 0,
       '쓰는 사이 계정이 바뀌면(' + (what === 'read' ? '읽음' : what === 'all' ? '모두 읽음' : what === 'clear' ? '읽은 우편 지우기' : '지우기') + ') 새 계정 우편 · 안 읽은 수를 건드리지 않고 알리지도 않는다');
   }
   {
@@ -251,6 +255,20 @@ async function judge(S){
     env.wgate = null; feed.start('U2'); await tick(); await tick(); env.errors.length = 0;
     g.release(); await p;
     chk(env.errors.length === 0, '  앞 계정 쓰기의 늦은 실패도 새 계정에 오류 번호를 띄우지 않는다');
+  }
+
+  {
+    /* 지우는 요청이 가는 사이 다시 받기가 끝나 그 우편이 이미 목록에서 빠졌다 — 없는 id 를 만져 던지지 않는다 */
+    const { env, feed } = mk(LIB);
+    env.server = { a: mail(false), b: mail(false) }; env.unread = 2;
+    feed.start('U1'); await tick(); await tick();
+    const g = defer(); env.wgate = g;
+    const p = feed.remove('a'); await tick();
+    env.wgate = null; env.server = { b: mail(false) }; env.unread = 1;
+    await feed.refresh();
+    g.release();
+    let r, threw = false; try{ r = await p; }catch(_){ threw = true; }
+    chk(!threw && r === true && !('a' in feed.items()) && feed.unread() === 1, '지우기 응답이 왔을 땐 이미 목록에서 빠진 우편 — 던지지 않고 성공으로 센다(안 읽은 수는 그대로)');
   }
 
   say('── 5-3. 혼자 다시 받지 않는다');
