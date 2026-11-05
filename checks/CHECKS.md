@@ -150,7 +150,7 @@
 | **sim-room-live-def.js** | 150 | **1349d6997af1** |
 | **sim-app-version.js** | 281 | **e23038c4544b** |
 | **sim-update-flow.js** | 454 | **a05cced37048** |
-| **sim-maintenance-gate.js** | 240 | **6781400dfa0d** |
+| **sim-maintenance-gate.js** | 249 | **125919cb7ce8** |
 | **sim-invite-revoke.js** | 100 | **c6ce8535f35b** |
 | **sim-room-invite-wait.js** | 44 | **6d9e289acbd7** |
 | **sim-focus-auth.js** | 91 | **ef2f4cad0aeb** |
@@ -447,7 +447,7 @@
 | **sim-account-store.js** | 413 | **73887493bf5c** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 499 | **d969dad39c36** |
-| **sim-rt-status-ui.js** | 242 | **5ebda45d86dc** |
+| **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 210 | **576b5fe05b2d** |
 | **sim-login-flow.js** | 369 | **6c335399fcd8** |

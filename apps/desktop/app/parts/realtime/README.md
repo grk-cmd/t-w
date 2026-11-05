@@ -43,8 +43,8 @@
 - 검사: `checks/sim-rt-hub.js`(진짜 realtime-link 위에서 · 깨 보기).
 
 ## rt-status-ui.js — realtime 끊김 화면(classic script `window.TwRtStatusUi`)
-- 책임: rt-hub 상태 → 사용자에게 보이는 것(설계 04-realtime-disconnect 4-D-7). `retrying` 이 15초 넘고 방 밖이면 런처 위 띠 «서버에 다시 연결하는 중…»(V1 · 한 번 붙은 뒤에만 · 붙으면 사라짐) · `authFailed` → E-RT-01 · 로그인 화면(V2) · `accountGone` → E-RT-02 · 로그아웃 처리 · 로그인 화면(V3 · 탈퇴 흐름 중엔 건너뜀) · `update` → 업데이트 강제 창(V4) · `maintenance` → 점검 창 + [다시 시도](V5) · `closed` → E-RT-03 · 띠 [다시 연결](V6). `sessionLost` 는 로그인 흐름 몫.
-- deps: `rt`(TwRtHub.store — onState · state · start) · `inRoom()` · `band`(`createRtBandDom(document)`) · `notifyError` · `toLogin()`(강제 로그아웃 뒤 다시 켜기 — 게이트가 로그인 화면) · `withdrawing()` · `forceUpdate()`(update-flow `forceProtocol`) · `maintenance(retry)`(maintenance-gate `serverClosed`) · `setTimeout` · `clearTimeout`.
+- 책임: rt-hub 상태 → 사용자에게 보이는 것(설계 04-realtime-disconnect 4-D-7). `retrying` 이 15초 넘고 방 밖이면 런처 위 띠 «서버에 다시 연결하는 중…»(V1 · 한 번 붙은 뒤에만 · 붙으면 사라짐) · `authFailed` → E-RT-01 · 로그인 화면(V2) · `accountGone` → E-RT-02 · 로그아웃 처리 · 로그인 화면(V3 · 탈퇴 흐름 중엔 건너뜀) · `update` → 업데이트 강제 창(V4) · `maintenance` → 점검 창 + [다시 시도](V5 · «확인» 으로 닫으면 띠 «서버 점검 중이에요» [다시 연결]) · `closed` → E-RT-03 · 띠 [다시 연결](V6). `sessionLost` 는 로그인 흐름 몫.
+- deps: `rt`(TwRtHub.store — onState · state · start) · `inRoom()` · `band`(`createRtBandDom(document)`) · `notifyError` · `toLogin()`(강제 로그아웃 뒤 다시 켜기 — 게이트가 로그인 화면) · `withdrawing()` · `forceUpdate()`(update-flow `forceProtocol`) · `maintenance(retry, onDismiss)`(maintenance-gate `serverClosed`) · `setTimeout` · `clearTimeout`.
 - 내놓는 것: `createRtStatusUi(deps)` → `{ dispose }` · `createRtBandDom(doc)` → `{ show(view, onPress), hide }` · `RETRY_BAND_MS` · `BAND_ID`(`#rtBand` — desktop-run.js `UI_HIT_SEL` 에 있어야 단추를 누른다).
 - 함정: 멈춘 뒤 다시 붙기는 사용자 누름 · 점검 해제 때만이고 `claim:false`(이 기기가 이미 지금 세션 — 남을 밀지 않는다). 띠 글은 고정 문구만 textContent.
 - 검사: `checks/sim-rt-status-ui.js`(상태마다 · 진짜 rt-hub 위 · 띠 화면 · 배선 · 깨 보기).

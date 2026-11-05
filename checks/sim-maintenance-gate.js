@@ -94,8 +94,6 @@ function run(M, label){
     const sv = q.shows[q.shows.length - 1];
     chk(sv && sv.title === '서버 점검 중' && sv.buttons.map(b => b.action).join() === 'retry,close' && q.g.on() === true,
       'serverClosed — 점검 칸을 못 봤어도 점검 창 · 단추 «다시 시도» «확인» · 그동안 on()(오류 토스트 조용히)');
-    q.press('close');
-    chk(n === 0 && q.g.on() === true, '  ↳ «확인» 은 닫기만 — 다시 붙지 않는다(자동 재시도 없음)');
     q.g.onValue({ on: true }); q.g.onValue({ on: false });
     chk(n === 1 && q.g.on() === false, '  ↳ 점검 칸이 풀리면 한 번 다시 붙는다');
     q.g.onValue({ on: true }); q.g.onValue({ on: false });
@@ -105,6 +103,15 @@ function run(M, label){
     chk(n === 1 && q.hidden() === 1 && q.g.on() === false, '«다시 시도» — 창을 닫고 한 번 다시 붙는다');
     q.press('retry');
     chk(n === 1, '  ↳ 다시 눌러도 또 안 부른다(다시 닫히면 새 창)');
+    q = rig(M, false); n = 0; let handed = null;
+    q.g.serverClosed(() => { n++; }, (f) => { handed = f; });
+    q.press('close');
+    chk(n === 0 && typeof handed === 'function' && q.g.on() === false,
+      '★ «확인» 으로 닫으면 다시 붙지 않고(자동 재시도 없음) 다시 붙기를 넘긴다(띠 [다시 연결]) · on() 은 거짓 — 오류 알림이 다시 켜진다');
+    q.g.onValue({ on: true }); q.g.onValue({ on: false });
+    chk(n === 0, '  ↳ 넘긴 뒤엔 점검 칸이 풀려도 혼자 붙지 않는다(띠가 맡음)');
+    if(handed) handed();   // 깨 본 판에선 안 넘어온다 — 위 줄이 이미 빨강
+    chk(n === 1, '  ↳ 넘겨받은 쪽이 누르면 한 번 붙는다');
     q = rig(M, true); q.g.onValue({ on: true, message: '공지' }); q.g.serverClosed(() => {});
     chk(q.shows[q.shows.length - 1].body.indexOf('공지') === 0, '  ↳ 점검 칸을 봤으면 그 문구로');
   }
@@ -227,6 +234,8 @@ say('── 3. 고리');
   chk(b8 && !quietRun(asModule(b8)), '«다시 시도» 가 다시 붙지 않으면 빨강');
   const b9 = broke(SRC, '    if(f) f();   // 점검이 풀렸다', '    // 점검이 풀렸다');
   chk(b9 && !quietRun(asModule(b9)), '점검이 풀려도 다시 붙지 않으면 빨강');
+  const b12 = broke(SRC, "    if(action === 'close' && rtRetry){ const d = rtDismiss; const f = takeRetry(); if(d) d(f); }\n", '');
+  chk(b12 && !quietRun(asModule(b12)), '«확인» 뒤에도 오류 알림이 꺼진 채면 빨강');
   const b10 = broke(SRC, 'on: () => !!(cur || rtRetry)', 'on: () => !!cur');
   chk(b10 && !quietRun(asModule(b10)), 'realtime 점검 동안 오류 토스트가 나면 빨강');
   const b11 = broke(SRC, "  const buttons = retry ? [{ label: '다시 시도', action: 'retry' }, { label: '확인', action: 'close' }] : ", "  const buttons = ");

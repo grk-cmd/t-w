@@ -12,7 +12,8 @@
      로컬 기능을 쓰는 중일 수 있으니 저절로 끄지 않고 [지금 다시 켜기] [나중에] 를 묻는다. 이번 실행에 점검을 본 적이 없으면 묻지 않는다.
    [못 읽음] 모르는 모양은 «점검 아님» — 잘못 막는 쪽이 못 막는 쪽보다 크다(update-flow.js 와 같다).
    deps: userActive() · ui({ show(view, onPress) · hide() }) · relaunch() · now()
-   [realtime 점검] serverClosed(retry) — realtime 서버가 4006 으로 닫으면 점검 창 + [다시 시도]. 누르거나 점검 칸이 풀리면 retry 한 번(자동 재시도 없음) · 그 동안 on() 도 참.
+   [realtime 점검] serverClosed(retry, onDismiss) — realtime 서버가 4006 으로 닫으면 점검 창 + [다시 시도]. 누르거나 점검 칸이 풀리면 retry 한 번(자동 재시도 없음) · 창이 떠 있는 동안 on() 도 참.
+   «확인» 으로 닫으면 retry 를 onDismiss 에 넘긴다(띠 [다시 연결]) — on() 이 계속 참이면 이 실행의 오류 알림이 다 꺼진다.
    내놓는 것: createMaintenance(deps) → { onValue(값) · touch() · serverClosed(retry) · on() } · createInputClock({ now }) → { note(안쪽인가) · active() }
      · 앱 한 벌 store(firebase-init 이 onValue 를 잇고, 요청 문 · api-client 가 touch · 자식 창을 여는 모듈이 watchInput(doc))
    classic script — error-codes.js · api-client.js 보다 먼저 싣는다(window.TwMaintenance). Firebase 를 모른다. */
@@ -73,13 +74,15 @@ function createMaintenance(deps){
   let cur = null;             // 지금 점검이면 { endsAt, message }
   let open = false;           // 창(점검 중 · 끝남)이 떠 있는가 — 떠 있으면 바뀐 값으로 바로 다시 그린다
   let rtRetry = null;         // realtime 서버가 점검(4006)으로 닫았다 — [다시 시도] · 점검 해제 때 한 번 부를 함수(다시 붙기)
+  let rtDismiss = null;       // 그 창을 «확인» 으로 닫을 때 retry 를 넘겨받는 곳
 
-  function takeRetry(){ const f = rtRetry; rtRetry = null; return f; }
+  function takeRetry(){ const f = rtRetry; rtRetry = null; rtDismiss = null; return f; }
   function press(action){
     open = false;
     ui.hide();
     if(action === 'relaunch') relaunch();
     if(action === 'retry'){ const f = takeRetry(); if(f) f(); }
+    if(action === 'close' && rtRetry){ const d = rtDismiss; const f = takeRetry(); if(d) d(f); }
   }
 
   function onValue(raw){
@@ -94,8 +97,9 @@ function createMaintenance(deps){
 
   /* realtime 서버가 점검(4006 — 관리자만 통과)으로 닫았다 — 점검 창을 [다시 시도] 와 함께 띄우고, 누르거나 점검 칸이 풀리면 retry() 한 번.
      점검 칸(config/maintenance)을 아직 못 봤어도 서버가 점검이라 했으니 기본 문구로 띄운다. */
-  function serverClosed(retry){
+  function serverClosed(retry, onDismiss){
     rtRetry = retry;
+    rtDismiss = onDismiss || null;
     open = true;
     ui.show(viewOf(cur || { endsAt: null, message: '' }, now(), true), press);
   }

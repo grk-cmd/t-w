@@ -11,7 +11,7 @@
 
 const RETRY_BAND_MS = 15000;   // 방 안 «다시 연결 중» 과 같은 값(서버 PROTOCOL 1장 · ops) — 짧은 끊김엔 아무것도 안 보인다
 const BAND_ID = 'rtBand';      // desktop-run.js UI_HIT_SEL 에도 있어야 [다시 연결] 을 누른다
-const TEXT = Object.freeze({ RETRYING: '서버에 다시 연결하는 중…', CLOSED: '서버 연결이 끊겼어요', RECONNECT: '다시 연결' });
+const TEXT = Object.freeze({ RETRYING: '서버에 다시 연결하는 중…', CLOSED: '서버 연결이 끊겼어요', MAINTENANCE: '서버 점검 중이에요', RECONNECT: '다시 연결' });
 const S = Object.freeze({ READY: 'ready', OFF: 'off', CONNECTING: 'connecting', RETRYING: 'retrying', AUTH_FAILED: 'authFailed',
   ACCOUNT_GONE: 'accountGone', UPDATE: 'update', MAINTENANCE: 'maintenance', CLOSED: 'closed' });   // rt-hub.js STATE 이름
 
@@ -23,7 +23,7 @@ const S = Object.freeze({ READY: 'ready', OFF: 'off', CONNECTING: 'connecting', 
  *   toLogin: () => void,            // 로그아웃 처리(이 PC 계정 몫 지움 · 로그인 놓음) 뒤 로그인 화면으로
  *   withdrawing: () => boolean,     // 탈퇴 흐름이 도는 중(그 흐름이 로그아웃 · 다시 켜기를 한다)
  *   forceUpdate: () => void,        // 업데이트 강제 창(update-flow.js forceProtocol)
- *   maintenance: (retry: () => void) => void,   // 점검 창 + [다시 시도](maintenance-gate.js serverClosed)
+ *   maintenance: (retry: () => void, onDismiss: () => void) => void,   // 점검 창 + [다시 시도](maintenance-gate.js serverClosed) · «확인» 으로 닫으면 onDismiss
  *   setTimeout: Function, clearTimeout: Function,
  * }} deps */
 function createRtStatusUi(deps){
@@ -34,6 +34,7 @@ function createRtStatusUi(deps){
 
   /* 멈춘 뒤 다시 붙기 — 사용자 누름 · 점검 해제. 이 기기가 지금 세션이므로 claim 없이(남을 밀지 않는다) */
   const reconnect = () => { band.hide(); rt.start({ claim: false }); };
+  const showMaintBand = () => band.show({ text: TEXT.MAINTENANCE, button: TEXT.RECONNECT }, reconnect);   // 점검 창을 닫아도 다시 붙을 길을 남긴다
   function clearBand(){
     if(bandTimer){ deps.clearTimeout(bandTimer); bandTimer = null; }
     band.hide();
@@ -59,7 +60,7 @@ function createRtStatusUi(deps){
     [S.AUTH_FAILED]: () => { clearBand(); if(beginSignOut()){ notifyError('E-RT-01'); deps.toLogin(); } },
     [S.ACCOUNT_GONE]: () => { clearBand(); if(!deps.withdrawing() && beginSignOut()){ notifyError('E-RT-02'); deps.toLogin(); } },
     [S.UPDATE]: () => { clearBand(); deps.forceUpdate(); },
-    [S.MAINTENANCE]: () => { clearBand(); deps.maintenance(() => rt.start({ claim: false })); },
+    [S.MAINTENANCE]: () => { clearBand(); deps.maintenance(() => rt.start({ claim: false }), showMaintBand); },
     [S.CLOSED]: () => {
       clearBand();
       notifyError('E-RT-03');

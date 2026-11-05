@@ -5879,7 +5879,7 @@ TwRtStatusUi.createRtStatusUi({
   toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // 다시 켜면 게이트가 로그인 화면
   withdrawing: ()=>accountMod.withdrawing(),
   forceUpdate: ()=>updateFlowMod.forceProtocol(),
-  maintenance: (retry)=>TwMaintenance.store.serverClosed(retry),
+  maintenance: (retry, onDismiss)=>TwMaintenance.store.serverClosed(retry, onDismiss),
   setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h),
 });
 (function initInviteGate(){

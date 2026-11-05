@@ -56,7 +56,7 @@ function rig(U, o){
   const ui = U.createRtStatusUi({
     rt, inRoom: () => state.inRoom, band,
     notifyError: (c) => log.push('err:' + c), toLogin: () => log.push('toLogin'), withdrawing: () => state.withdrawing,
-    forceUpdate: () => log.push('update'), maintenance: (retry) => { log.push('maint'); state.retry = retry; },
+    forceUpdate: () => log.push('update'), maintenance: (retry, dismiss) => { log.push('maint'); state.retry = retry; state.dismiss = dismiss; },
     setTimeout: clock.setTimeout, clearTimeout: clock.clearTimeout,
   });
   const set = (s) => { st = s; if(fn) fn(s); };
@@ -112,6 +112,8 @@ async function judge(S){
     chk(m.log.join() === 'maint' && typeof m.state.retry === 'function', 'maintenance(4006) — 점검 창');
     m.state.retry();
     chk(m.log.join() === 'maint,start:{"claim":false}', '  ↳ 점검 창의 다시 시도 · 해제 = claim 없이 다시 붙기(남을 밀지 않음)');
+    m.log.length = 0; m.state.dismiss();
+    chk(m.log.join() === 'band:서버 점검 중이에요[다시 연결]', '★ 점검 창을 «확인» 으로 닫으면 띠 «서버 점검 중이에요» + [다시 연결] — ' + m.log.join());
     const c = rig(U);
     c.set('ready'); c.set('closed');
     chk(c.log.join() === 'err:E-RT-03,band:서버 연결이 끊겼어요[다시 연결]', 'closed(모르는 4000번대) — E-RT-03 · 띠 «서버 연결이 끊겼어요» + [다시 연결] — ' + c.log.join());
@@ -193,7 +195,7 @@ async function judge(S){
     const hit = (S.DR.match(/const UI_HIT_SEL = '([^']*)'/) || [])[1] || '';
     chk(hit.split(',').map((x) => x.trim()).includes('#' + U.BAND_ID), '클릭 통과 목록(UI_HIT_SEL)에 #' + U.BAND_ID + ' — 투명 창에서도 [다시 연결] 을 누른다');
     const blk = (S.APP.split('TwRtStatusUi.createRtStatusUi({')[1] || '').split('\n});')[0];
-    chk(/rt: TwRtHub\.store/.test(blk) && /forceUpdate: \(\)=>updateFlowMod\.forceProtocol\(\)/.test(blk) && /maintenance: \(retry\)=>TwMaintenance\.store\.serverClosed\(retry\)/.test(blk)
+    chk(/rt: TwRtHub\.store/.test(blk) && /forceUpdate: \(\)=>updateFlowMod\.forceProtocol\(\)/.test(blk) && /maintenance: \(retry, onDismiss\)=>TwMaintenance\.store\.serverClosed\(retry, onDismiss\)/.test(blk)
       && /withdrawing: \(\)=>accountMod\.withdrawing\(\)/.test(blk) && /toLogin: \(\)=>accountMod\._loginDoLogout\(\{ force:true \}\)\.then\(\(\)=>acctStateMod\._acctRelaunchAfterDetach\(null\)\)/.test(blk),
       'app.js — 연결 · 업데이트 강제 창 · 점검 창 · 탈퇴 중 · 강제 로그아웃 뒤 다시 켜기(게이트가 로그인 화면)를 잇는다');
   }
@@ -215,8 +217,9 @@ const BREAKS = [
   ['UI', "if(!deps.withdrawing() && beginSignOut())", "if(beginSignOut())", '탈퇴 중에도 «로그아웃됐어요»'],
   ['UI', "{ notifyError('E-RT-02'); deps.toLogin(); }", "{ notifyError('E-RT-02'); }", '계정 로그아웃인데 로그인 화면으로 안 감'],
   ['UI', "    [S.UPDATE]: () => { clearBand(); deps.forceUpdate(); },", "    [S.UPDATE]: () => { clearBand(); },", '4003 에 업데이트 창 없음'],
-  ['UI', "deps.maintenance(() => rt.start({ claim: false }));", "deps.maintenance(() => rt.start({ claim: true }));", '점검 뒤 다시 붙기가 claim(남을 밈)'],
-  ['UI', "deps.maintenance(() => rt.start({ claim: false }));", "rt.start({ claim: false });", '점검이면 창 없이 바로 다시 붙음'],
+  ['UI', "deps.maintenance(() => rt.start({ claim: false }), showMaintBand);", "deps.maintenance(() => rt.start({ claim: true }), showMaintBand);", '점검 뒤 다시 붙기가 claim(남을 밈)'],
+  ['UI', "deps.maintenance(() => rt.start({ claim: false }), showMaintBand);", "rt.start({ claim: false });", '점검이면 창 없이 바로 다시 붙음'],
+  ['UI', "deps.maintenance(() => rt.start({ claim: false }), showMaintBand);", "deps.maintenance(() => rt.start({ claim: false }));", '점검 창을 닫으면 [다시 연결] 띠가 없음'],
   ['UI', "      notifyError('E-RT-03');\n", "", '모르는 닫힘에 번호 없음'],
   ['UI', "      band.show({ text: TEXT.CLOSED, button: TEXT.RECONNECT }, reconnect);", "      reconnect();", '모르는 닫힘에 저절로 다시 붙음'],
   ['UI', "  const reconnect = () => { band.hide(); rt.start({ claim: false }); };", "  const reconnect = () => { band.hide(); };", '[다시 연결] 이 안 붙음'],
