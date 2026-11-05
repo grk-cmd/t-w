@@ -130,8 +130,8 @@
   await deskVisualMod.applyDeskCatalogRefToSeat(seat, seat.charDef);
   ```
 - **확장할 때 고칠 자리**: 새 재생 모드는 `swapDeskVisual` 의 `playMode` 분기 · 자리 맞춤(바닥 + 0.15 · 앞뒤 0.6)은 `normalizeDeskObj`.
-- **함정**: «책상 없음» 은 새 칸이 아니라 `deskCatalogId` 의 예약 값이다 — 옛 앱 · 방 서버는 모르는 책상으로 보고 기본 책상을 그린다(깨지지 않음). 고르는 곳은 꾸미기 › 책상(`wardrobe.js`) · 생성기 5단계(`creator/desk-setup.js`), 저장은 `creator/creator-save.js` · 프리셋 `creator/desk-preset.js`.
 - **함정**
+  - «책상 없음» 은 새 칸이 아니라 `deskCatalogId` 의 예약 값이다 — 옛 앱 · 방 서버는 모르는 책상으로 보고 기본 책상을 그린다(깨지지 않음). 고르는 곳은 꾸미기 › 책상(`wardrobe.js`) · 생성기 5단계(`creator/desk-setup.js`), 저장은 `creator/creator-save.js` · 프리셋 `creator/desk-preset.js`.
   - 라이선스 전용 책상은 **내 좌석에서만** 막는다(`!seat.remote`) — 친구 좌석에서 막으면 남이 쓴 책상이 기본 책상으로 보인다.
   - 크기를 GLB 에 굽지 않는다(원본 그대로 · 슬라이더만) — 새 책상만 자동 크기를 걸던 옛 코드는 지웠다. 다시 넣지 말 것(기본 책상과 크기가 갈린다).
   - 검사: `checks/sim-desk-visual.js`(4절 — 바꿔 끼기 · 되돌리기 · `_col` · 자리 맞춤 · 재생 세 모드 · 색 · 카탈로그 책상 · 라이선스 · 친구 좌석 · 풀기 실패).
