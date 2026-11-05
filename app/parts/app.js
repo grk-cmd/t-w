@@ -902,10 +902,8 @@ function buildPlaceholder(){
 
 /* ============================================================ SEATS */
 const seats=[]; let selected=null;
-// ★ 좌석 간격 = 책상 끝끼리 여백(설정 › 캐릭터) — 솔로 · 멀티 따로 저장. 자리 셈은 room/seat-layout.js.
-//   GAP_MIN 이 음수인 까닭: 책상 GLB 는 보이는 판보다 박스가 넓은 것이 많아 «끝끼리 0» 이어도 벌어져 보인다 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다.
-//   책상 없는 좌석은 몸 + 여유(0.15)씩이라 -0.3 이면 몸끼리 맞닿는다(seat-layout.js).
-const GAP_MIN = -0.3, GAP_MAX = 1.2, GAP_STEPS = 15;
+// ★ 좌석 간격 = 이웃 좌석의 보이는 겉면 사이(설정 › 캐릭터) — 0 이면 맞닿는다 · 솔로 · 멀티 따로 저장. 자리 셈은 room/seat-layout.js · 겉면 재기는 room/seat-extent.js.
+const GAP_MIN = 0, GAP_MAX = 1.2, GAP_STEPS = 15;
 const GAP_KEY_SOLO='tw.gapSolo', GAP_KEY_MULTI='tw.gapMulti';
 function _loadGap(key, def){ try{ const v=parseFloat(localStorage.getItem(key)); if(!isNaN(v)) return Math.max(GAP_MIN,Math.min(GAP_MAX,v)); }catch(e){} return def; }
 let SPACING = _loadGap(GAP_KEY_SOLO, 0.3);
@@ -1308,42 +1306,7 @@ function clampDeskPan(px, py){
 let focusCharScale=_loadCharScale();
 let dotRenderEnabled = (localStorage.getItem('tw.dotRender')==='1');   // 기본 꺼짐
 const DOT_RENDER_SCALE = 0.45;   // 저해상도(도트) 렌더 배율 — 작을수록 거친 도트. 0.45=PS1급 도트감. 0.55=은은, 0.35=더 거침.
-// ★ 좌석 i의 책상 "반쪽 폭"을 실측(월드 기준, deskScale 등 모든 스케일 반영) — 상대방이 책상 크기를
-//   키우거나 줄여도 여기서 정확히 잡아내서, layoutSeats가 항상 일정한 여백을 유지할 수 있게 함.
-//   ★ deskAnchor(꾸며놓은 책상 아이템들이 붙는 자리)는 반드시 제외 — 안 그러면 아이템 크기(ITEM_TARGET_SIZE)를
-//   키웠을 때 "책상 폭"이 실제보다 훨씬 크게 측정돼서 카메라가 필요 이상으로 멀리 물러나 보이는 문제가 있었음.
-const DESK_HALFWIDTH_CAP_FOR_ZOOM = 1.1;   // 카메라 줌 계산에만 적용되는 상한선 — 유난히 큰 책상 하나 때문에
-                                            // 전체 화면이 과하게 줌아웃되는 것 방지(좌석 간 여백 자체는 이 상한 영향 안 받음)
-function seatDeskHalfWidth(seat, forZoom){
-  if(!seat || !seat.desk) return 0.85;   // 책상이 아직 없으면(초기화 중 등) 기본 책상 폭(1.7)의 절반으로 대체
-  /* ⚠️ updateMatrixWorld(true) 가 아니라 **updateWorldMatrix(true, true)** 여야 한다.
-       앞엣것은 조상(seat.group)의 matrixWorld 를 '캐시된 그대로' 곱해 쓴다. 그런데 fitModel 은
-       측정을 위해 group.position 을 0 으로 옮겼다가 값만 되돌리고 matrixWorld 는 그대로 두므로,
-       fitModel 직후에는 그 캐시가 **x=0 시절의 행렬**이다. 그 상태로 재면 박스는 원점 근처(±0.85)에
-       잡히는데 아래 cx 는 진짜 좌표(예 -3.5)라, reach 가 4.35 로 부풀어 좌석 간격이 통째로 벌어진다.
-       (평준화를 켜면 syncSeatEqualize 가 좌석마다 fitModel 을 부르고 그 자리에서 여기로 오므로
-        전 좌석이 한꺼번에 이 값을 낸다 — "켜면 간격이 굉장히 넓어졌다가 나중에 원래대로 돌아온다"의
-        정체다. 돌아오는 이유는 그 사이 렌더 프레임이 matrixWorld 를 바로잡기 때문이다.)
-     ★ 측정 함수는 남이 남긴 상태에 기대지 않는다 — 조상부터 자손까지 여기서 직접 세운다. */
-  seat.desk.updateWorldMatrix(true, true);
-  const box = new THREE.Box3(); let any=false;
-  seat.desk.children.forEach(ch=>{
-    if(ch.name==='deskAnchor' || ch.visible===false) return;   // 책상 위 아이템은 폭 계산에서 제외 — 책상 자체만 봄
-    const b=new THREE.Box3().setFromObject(ch);
-    if(!b.isEmpty()){ box.union(b); any=true; }
-  });
-  if(!any) return 0.85;
-  const size = box.getSize(new THREE.Vector3());
-  /* ★ '폭의 절반'이 아니라 '좌석 중심에서 가장 멀리 뻗은 쪽까지'를 쓴다.
-     [경위] 책상 위치(deskPos)를 옮길 수 있게 되면서 책상이 좌석 중심에서 좌우로 치우칠 수 있다.
-       size.x/2 는 치우쳐도 값이 그대로라(박스가 통째로 옮겨질 뿐) 옆 좌석과 겹쳐도 layoutSeats 가
-       모르는 채 지나간다. 중심에서의 거리로 재면 치우친 만큼 간격이 자동으로 벌어진다.
-     ★ 안 옮긴 책상(대칭)에서는 두 값이 같다 = 기존 사용자에겐 회귀가 없다. */
-  const cx = (seat.group ? seat.group.position.x : 0);
-  const reach = Math.max(Math.abs(box.max.x - cx), Math.abs(box.min.x - cx), size.x / 2);
-  const half = Math.max(reach, 0.15);   // 너무 작은 값으로 다닥다닥 붙는 것 방지
-  return forZoom ? Math.min(half, DESK_HALFWIDTH_CAP_FOR_ZOOM) : half;
-}
+const DESK_HALFWIDTH_CAP_FOR_ZOOM = 1.1;   // 카메라 줌에만 거는 끝 좌석 반폭 상한 — 유난히 큰 책상 하나 때문에 전체가 과하게 줌아웃되지 않게(좌석 사이 간격엔 안 건다)
 // 마지막으로 계산된 좌석 배치 결과 캐시 — 좌석 수/책상 크기가 안 바뀌었으면(예: 캐릭터 크기 슬라이더만
 //움직일 때) 이 값을 재사용해서 무거운 책상 실측(Box3)을 매번 다시 안 해도 되게 함.
 let _cachedRowCenter = 0, _cachedRowSpan = 1.2;
@@ -1807,6 +1770,8 @@ const iDeskMod = TwInteractionDesk.createInteractionDesk({
 /* ═══ 🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터 ═══ */
 /* 본문은 room/seat-layout.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+/* 좌석 겉면 자리(보이는 책상 · 몸 · 파츠의 왼쪽 · 오른쪽 끝) — 줄 배치 · 평준화 가두기가 같은 값을 본다(#755) */
+const seatExtentMod = TwSeatExtent.createSeatExtent({ THREE });
 const seatLayoutMod = TwSeatLayout.createSeatLayout({
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   SPACING: ()=>SPACING,
@@ -1817,8 +1782,8 @@ const seatLayoutMod = TwSeatLayout.createSeatLayout({
   renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),
   roomSeatMode: ()=>roomSeatMode,
   seatCameraMod: ()=>seatCameraMod,
-  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
-  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),
+  seatExtent: (...a)=>seatExtentMod.extentOf(...a),
+  ZOOM_HALF_CAP: DESK_HALFWIDTH_CAP_FOR_ZOOM,
   seats: seats,
   syncSeatEqualize: (...a)=>seatEqMod.syncSeatEqualize(...a),
   setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },
@@ -1999,7 +1964,7 @@ function fitModel(seat){
   seat.bodyWrap.position.copy(sWp);seat.group.position.copy(sG);
   /* ⚠️ 값만 되돌리면 matrixWorld 는 위에서 0 으로 옮겨 잰 그대로 남는다 — 다음 렌더 프레임이
      오기 전까지 이 좌석의 월드 행렬은 **거짓말**이고, 그 사이에 월드 좌표를 재는 코드
-     (seatDeskHalfWidth → layoutSeats)가 원점 근처에 있는 것처럼 읽는다.
+     (좌석 겉면 재기 → layoutSeats)가 원점 근처에 있는 것처럼 읽는다.
      fitModel 바로 뒤에 layoutSeats 를 부르는 자리가 여럿이므로(크기 슬라이더·리빌드·평준화)
      여기서 한 번 세워 두고 나간다. 이 함수는 이미 위에서 두 번 부르는 호출이라 비용도 그만큼이다. */
   seat.group.updateWorldMatrix(true,true);
@@ -2401,6 +2366,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   Presence: ()=>Presence,
   SPACING: ()=>SPACING,
+  usesRoomGap: (...a)=>seatLayoutMod.usesRoomGap(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
   _updateRoomCountUI: (...a)=>roomEntryMod._updateRoomCountUI(...a),
@@ -7110,7 +7076,7 @@ function applyCharToSeat(seat,def){
   _purgeSeatParts(seat);   // ★ 리빌드 전 옛 파츠·진행 중 장착 정리 (유령 파츠 방지)
   // 🐾 동물이면 책상도 60%. 캐릭터 교체(인간↔동물)에 대비해 항상 명시적으로 갱신한다.
   //   실제 곱셈은 setDeskScale이 하므로 아래 모든 책상 적용 경로(비동기 포함)에 자동 반영됨.
-  //   좌석 간격·카메라 줌은 layoutSeats가 책상 폭을 실측(seatDeskHalfWidth)하므로 따로 손댈 필요 없음.
+  //   좌석 간격·카메라 줌은 layoutSeats 가 좌석 겉면을 다시 재므로(room/seat-extent.js) 따로 손댈 필요 없음.
   if(seat.desk) seat.desk.userData.animCorr = def.animal ? ANIMAL_RUN_SCALE : 1;
   /* 🪑 평준화 배율도 같은 자리에서 갱신한다 — def 가 바뀌면 그 좌석의 캐릭터 크기(xf.s)가 바뀌고,
      내 좌석이 바뀐 경우엔 **다른 모든 좌석의** k 까지 달라진다. seat._eqK 를 지워 다음
@@ -7270,9 +7236,11 @@ function applyCharToSeat(seat,def){
   
   (async()=>{  
     if(def.customItems){ for(const id in def.customItems){ if(!customItems[id]){ const c=def.customItems[id]; try{ const {scene:sc,animations}=await assetCodeMod.parseGlbFull(b64ToBuf(c.glb)); deskItemsMod.registerCustomItem(id,c.name,c.glb,sc,'',animations);}catch(e){} } } }
-    if(def.deskCatalogId){ deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
+    if(def.deskCatalogId){ await deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
     else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod.swapDeskVisual(seat.desk,sc); deskPlaceMod.setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod.applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
-    else { deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
+    else { await deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
+    // 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — 다 그린 뒤 줄을 다시 잡아야 바뀐 겉면으로 자리가 잡힌다(꾸미기 창 wardrobe.js 와 같은 까닭)
+    if(seats.includes(seat)) layoutSeats();
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
     //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).
@@ -8342,6 +8310,7 @@ const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   SPACING: ()=>SPACING,
   seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),
+  usesRoomGap: (...a)=>seatLayoutMod.usesRoomGap(...a),
   seatEqMod: seatEqMod,
   seatSlot: ()=>seatSlot,
   seats: seats,

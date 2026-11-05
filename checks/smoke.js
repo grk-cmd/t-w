@@ -594,6 +594,7 @@ PRELOAD.push('catalog-glb.js');
 /* catalog-sync.js — 🔄 카탈로그 실시간 동기화(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCatalogSync 를 같이 굴린다. */
 PRELOAD.push('catalog-sync.js');
 /* seat-layout.js — 🪑 좌석 줄 배치(layoutSeats 본문)(구역 떼기 C · w1). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatLayout 를 같이 굴린다. */
+PRELOAD.push('seat-extent.js');   // 좌석 겉면 자리(#755) — app.js 가 줄 배치보다 먼저 만든다
 PRELOAD.push('seat-layout.js');
 /* seat-refit.js — 🪑 파츠 구성이 바뀐 뒤 좌석 다시 맞추기 한 벌. 같은 까닭 — app.js 가 좌석 배치 자리에서 부르는 createSeatRefit 을 같이 굴린다. */
 PRELOAD.push('seat-refit.js');

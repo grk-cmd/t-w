@@ -89,18 +89,33 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   ```
 - **확장할 때 고칠 자리**: 탑 사슬을 따라가는 다른 순수 계산(깊이 · 위아래 판정)도 옮겨 올 수 있다 — 지금은 `ride-bench.js` 의 `_rideDepth` · `_rideIsAbove` 에 있다.
 - **함정**: 순환 방어로 `RIDE_CHAIN_MAX_HOPS`(16)번에서 멈춘다(`_rideDepth` 와 같은 상한) — 바꾸면 둘을 같이. 검사: `checks/sim-ride-chain.js`.
+## seat-extent.js — 🪑 좌석 겉면 자리
+
+- **책임**: 좌석 하나가 차지하는 가로 자리 — 보이는 겉면(책상 몸 · 캐릭터 몸 · 꾸미기 파츠)이 좌석 원점에서 왼쪽 · 오른쪽으로 얼마나 뻗었나(`{ left, right }`). 모습이 그대로면 다시 재지 않는다.
+- **deps**: `THREE` 하나. app.js 가 줄 배치보다 먼저 `const seatExtentMod = TwSeatExtent.createSeatExtent({ THREE })`.
+- **내놓는 것**: `extentOf(seat)`(모습 열쇠가 같으면 기억한 값) · `measure(seat)`(늘 새로 잼) · `shapeKey(seat)` · `DEFAULT_HALF`(잴 것이 없을 때 0.85).
+- **재는 법**: 책상(`deskAnchor` — 책상 위 아이템 · 파츠 핀 — 빼고)과 몸 감싸개(`bodyWrap`) 아래에서 **보이는** 메시의 점을 하나하나. 뼈대 메시는 `boneTransform` 으로 **지금 자세**의 점. 날기 · 끌기(rig 가로 · 기울기)는 잴 때만 되돌린다.
+- **함정**
+  - 상자(`Box3.setFromObject`)로 재지 않는다 — three r128 은 뼈대 메시를 처음 저장된 자세(팔 벌림)로, 숨은 메시까지 넣어 잰다(#755: 사람 14% · 동물 25% 넓었다).
+  - 자손 행렬은 `updateMatrixWorld` 로 세운다 — 뼈대 메시의 `bindMatrixInverse` 는 그 안에서만 맞춰진다(`updateWorldMatrix` 는 건너뛴다).
+  - 모습 열쇠에는 뼈대 자세 · rig 를 넣지 않는다(타이핑 · 숨쉬기마다 다시 재지 않게). 대신 메시 목록 · 책상 · 몸 감싸개 · 몸 크기 · 방향 · 파츠 감싸개 자리가 바뀌면 다시 잰다.
+  - 검사: `checks/sim-seat-extent.js`(실제 three — 숨은 메시 · 책상 위 아이템 · 치우친 책상 · 파츠 · 뼈대 자세 · rig · 기억 · 깨 보기).
+
 ## seat-layout.js — 🪑 좌석 줄 배치
 
-- **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 반폭 + 여백 + 내 반폭» 씩 `targetX`(반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유 `BODY_ROOM` 0.15» 중 넓은 쪽 — 책상이 작거나 없는 캐릭터가 옆 책상과 안 겹치게 · 🚫 «책상 없음»(`desk.userData.noDesk`)이면 몸을 잰 뒤엔 책상 폭을 안 센다) → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로.
-- **책상 끌기 자리** `slotIndexAt(x, seat)` — 끄는 좌석을 뺀 나머지 순서는 그대로 두고, 칸마다 «여기 넣으면 설 자리» 를 줄 배치와 같은 셈으로 내서 x 에서 가장 가까운 칸 번호(splice 번호). app.js 책상 끌기가 부르고 «맨 오른쪽 고정» 은 그 뒤 `TwSeatPin.dragIndex`. ⚠️ 지금 자리(targetX) 중 가장 가까운 것을 고르면 폭이 섞일 때 두 칸을 오가며 떨린다 · 간격으로 나누면 음수 간격에서 방향이 뒤집힌다.
-- **좌석 반폭** `seatHalfWidth(s)` — 줄 배치와 같은 규칙(책상 · 🚫 책상 없음 · 몸 폭, 줌 상한 없음)을 좌석 하나에. 평준화 가두기(`character/seat-eq-clamp.js`)가 deps 로 받는다 — 두 곳이 자리 폭을 따로 재면 «책상 없음» 좌석의 파츠가 옆으로 넘어간다. 몸 폭은 마지막 줄 배치에서 잰 값.
+- **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 좌석 왼쪽 끝 + 간격 + 내 오른쪽 끝» 씩 `targetX`(자리는 `seatExtent` — 보이는 겉면 · 여유 같은 덧댄 숫자 없음 · 간격 0 이면 맞닿음) → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로(끝 좌석 겉면에 줌 상한 `ZOOM_HALF_CAP`).
+- **간격 종류** `usesRoomGap()` — 친구 좌석이 있으면 방용 간격(`MULTIPLAYER_SPACING`). 설정 막대(`launcher/settings-panel.js`) · 평준화 가두기(`character/seat-eq-clamp.js`)도 이 함수를 deps 로 받는다(셋이 따로 고르면 막대가 안 먹는다 — #749).
+- **책상 끌기 자리** `slotIndexAt(x, seat)` — 끄는 좌석을 뺀 나머지 순서는 그대로 두고, 칸마다 «여기 넣으면 설 자리» 를 줄 배치와 같은 셈으로 내서 x 에서 가장 가까운 칸 번호(splice 번호). app.js 책상 끌기가 부르고 «맨 오른쪽 고정» 은 그 뒤 `TwSeatPin.dragIndex`. ⚠️ 지금 자리(targetX) 중 가장 가까운 것을 고르면 폭이 섞일 때 두 칸을 오가며 떨린다 · 간격으로 나누면 칸 자리가 틀린다.
+- **좌석 반폭** `seatHalfWidth(s)` — 같은 겉면 자리 중 더 뻗은 쪽. 평준화 가두기가 deps 로 받는다(가두기는 좌우 같은 폭).
 - **만드는 법**(app.js «🪑 좌석 배치» 구역 자리):
   ```js
+  const seatExtentMod = TwSeatExtent.createSeatExtent({ THREE });
   const seatLayoutMod = TwSeatLayout.createSeatLayout({
     seats,                                                                // 값
     _rideBottom: (...a)=>rideChainMod._rideBottom(...a),                  // 탑 바닥(ride-chain.js — ride-bench 를 부르면 순환)
-    syncSeatEqualize, renderSeatTabs, clampDeskPan, seatDeskHalfWidth,   // 함수(화살표로)
-    measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),         // 캐릭터 몸 박스(파츠 제외 · 월드)
+    syncSeatEqualize, renderSeatTabs, clampDeskPan,                       // 함수(화살표로)
+    seatExtent: (...a)=>seatExtentMod.extentOf(...a),                     // 좌석 겉면 자리
+    ZOOM_HALF_CAP: DESK_HALFWIDTH_CAP_FOR_ZOOM,                           // 카메라 줌에만 거는 상한(값)
     roomSeatMode: ()=>roomSeatMode, deskPanX: ()=>deskPanX, deskPanY: ()=>deskPanY,
     SPACING: ()=>SPACING, MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, seatCameraMod: ()=>seatCameraMod,
     setDeskPanX: (v)=>{ deskPanX = v; }, setDeskPanY: (v)=>{ deskPanY = v; },
@@ -108,13 +123,14 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   });
   function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }   // 이름은 app.js 에 남긴다(아래 함정)
   ```
-- **내보내는 것**: `layoutSeatRow()` — 직접 부르지 말고 app.js 의 `layoutSeats()` 를 부른다(좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때).
-- **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 app.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다) · 책상 반폭 재기는 app.js `seatDeskHalfWidth` · 고정 규칙은 `seat-pin.js`.
+- **내보내는 것**: `layoutSeatRow()` — 직접 부르지 말고 app.js 의 `layoutSeats()` 를 부른다(좌석이 늘거나 줄 때 · 책상 · 파츠 · 크기가 바뀔 때 · 창 크기가 바뀔 때) · `seatHalfWidth` · `slotIndexAt` · `usesRoomGap`.
+- **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 app.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다 · 막대 범위 `GAP_MIN` 0 ~ `GAP_MAX`) · 겉면 재기는 `seat-extent.js` · 고정 규칙은 `seat-pin.js`.
 - **함정**
   - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
-  - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seatDeskHalfWidth(s, i)` 가 인덱스를 forZoom 으로 넘김 — 몸 폭 규칙을 넣으면서도 그대로 뒀다).
-  - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록 · 책상 없는 좌석 몸 자리 · 🚫 책상 없음 표시).
+  - 자리 폭에 여유 · 하한 같은 숫자를 덧대지 않는다 — 겉면이 틀리면 `seat-extent.js` 를 고친다(#755).
+  - 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — app.js `applyCharToSeat` 는 책상을 다 그린 뒤 `layoutSeats` 를 다시 부른다(꾸미기 창 `wardrobe.js` 와 같은 까닭).
+  - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 치우친 자리 · 간격 0 · 간격 종류 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 끌기 · 빈 목록).
 
 ## label-measure.js — 📐 좌석 라벨 잰 값 기억
 

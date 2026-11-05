@@ -19,6 +19,7 @@ const GAP_STEPS = deps.GAP_STEPS;
 const MULTIPLAYER_SPACING = deps.MULTIPLAYER_SPACING;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const SPACING = deps.SPACING;   // 읽는 함수
+const usesRoomGap = deps.usesRoomGap;   // 방용 간격을 쓰는가 — 줄 배치(room/seat-layout.js)와 같은 판단(#749)
 const _chatEsc = deps._chatEsc;
 const _moveModeJustToggled = deps._moveModeJustToggled;   // 읽는 함수
 const _updateRoomCountUI = deps._updateRoomCountUI;
@@ -533,12 +534,12 @@ const setSeatEqualizeOn = deps.setSeatEqualizeOn;   // 쓰는 함수
   if(sizeBarLeft) sizeBarLeft.onclick=()=>setSizeStep(valueToSizeStep(focusCharScale())-1);
   if(sizeBarRight) sizeBarRight.onclick=()=>setSizeStep(valueToSizeStep(focusCharScale())+1);
 
-  // ★ 좌석 간격 — 멀티모드(방에 친구가 있음)면 MULTIPLAYER_SPACING을, 아니면 SPACING을 조절.
-  //   두 값은 서로 독립적으로 저장돼서 모드를 오가도 각자 마지막 설정을 기억함.
+  // ★ 좌석 간격 — 줄 배치가 지금 쓰는 쪽(친구 좌석이 있으면 MULTIPLAYER_SPACING · 없으면 SPACING)을 조절한다.
+  //   두 값은 따로 저장돼서 모드를 오가도 각자 마지막 설정을 기억한다.
   const gapValueToStep = v => Math.max(0, Math.min(GAP_STEPS-1, Math.round((v-GAP_MIN)/(GAP_MAX-GAP_MIN)*(GAP_STEPS-1))));
   const gapStepToValue = i => +(GAP_MIN + (GAP_MAX-GAP_MIN)*i/(GAP_STEPS-1)).toFixed(3);
-  function currentGap(){ return (typeof Presence()!=='undefined' && Presence().active()) ? MULTIPLAYER_SPACING() : SPACING(); }
-  function setCurrentGap(v){ if(typeof Presence()!=='undefined' && Presence().active()) setMULTIPLAYER_SPACING(v); else setSPACING(v); }
+  function currentGap(){ return usesRoomGap() ? MULTIPLAYER_SPACING() : SPACING(); }
+  function setCurrentGap(v){ if(usesRoomGap()) setMULTIPLAYER_SPACING(v); else setSPACING(v); }
   function renderGapBar(){
     const track=document.getElementById('fsGapBarTrack'); if(!track) return;
     const curStep = gapValueToStep(currentGap());

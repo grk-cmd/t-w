@@ -124,7 +124,7 @@
   - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
   - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
   - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상. `NO_DESK_ID`(`'__no_desk__'`)면 `hideDeskBody`.
-  - `hideDeskBody(deskGroup)` — 🚫 책상 없음: 책상 몸(기본 · 커스텀)만 숨기고 `deskAnchor`(책상 위 아이템)는 그대로 · `userData.noDesk = true`(좌석 간격이 몸 폭으로 — `room/seat-layout.js`). `swapDeskVisual` 이 부르면 표시를 내린다.
+  - `hideDeskBody(deskGroup)` — 🚫 책상 없음: 책상 몸(기본 · 커스텀)만 숨기고 `deskAnchor`(책상 위 아이템)는 그대로 · `userData.noDesk = true`(숨은 책상 몸은 좌석 겉면에 안 들어 자리가 몸 폭이 된다 — `room/seat-extent.js`). `swapDeskVisual` 이 부르면 표시를 내린다.
   ```js
   deskVisualMod.swapDeskVisual(cDesk, sc); deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
   await deskVisualMod.applyDeskCatalogRefToSeat(seat, seat.charDef);
@@ -192,14 +192,15 @@
 
 ## seat-eq-clamp.js — 🪑 평준화 가두기
 
-- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 좌석 반폭(`seatHalfWidth` — `room/seat-layout.js` 가 내놓는 줄 배치와 같은 규칙: 책상 · 🚫 책상 없음 · 몸 폭) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
+- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 좌석 반폭(`seatHalfWidth` — `room/seat-layout.js` 가 내놓는 줄 배치와 같은 겉면 자리 중 더 뻗은 쪽) + 좌석 사이 여백(`usesRoomGap` 으로 고른 간격 — 줄 배치와 같은 판단)의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
 - **왜 따로**: 책상 자리 · 크기(desk-place)가 평준화 깃발을 읽으면 desk-place ↔ seat-equalize 순환이 생긴다. 가두기는 평준화 몫이라 여기로 떼어 desk-place 는 seat-equalize 를 모른다(의존: seat-eq-clamp → seat-equalize · 파츠 핀 이름).
 - **만드는 법**(app.js «📌 책상 위 파츠 앵커» 자리, `DESK_PART_ANCHOR_NAME` 바로 뒤):
   ```js
   const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
     DESK_PART_ANCHOR_NAME, seatEqMod, seats,                   // 값
     MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, SPACING: ()=>SPACING, seatSlot: ()=>seatSlot,   // 읽는 함수(다시 대입 · 뒤에서 선언)
-    seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),  // 좌석 반폭 — 줄 배치와 같은 규칙
+    seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),  // 좌석 반폭 — 줄 배치와 같은 겉면 자리
+    usesRoomGap: (...a)=>seatLayoutMod.usesRoomGap(...a),      // 방용 간격을 쓰는가 — 줄 배치와 같은 판단(#749)
   });
   ```
 - **내보내는 것**

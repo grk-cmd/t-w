@@ -117,7 +117,7 @@ function swapDeskVisual(deskGroup,template,isDefaultOverride,animations,playMode
       }
     }
   } else { deskGroup.userData.customMats=null; defaults.forEach(m=>m.visible=true); } }
-/* 🚫 책상 없음 — 책상 몸만 숨기고 책상 위 아이템(deskAnchor)은 그대로 둔다. 좌석 간격은 userData.noDesk 를 보고 몸 폭으로 잡는다(seat-layout.js). */
+/* 🚫 책상 없음 — 책상 몸만 숨기고 책상 위 아이템(deskAnchor)은 그대로 둔다. 숨은 책상 몸은 좌석 겉면에 안 들어 자리가 몸 폭이 된다(room/seat-extent.js). */
 function hideDeskBody(deskGroup){ if(!deskGroup) return;
   swapDeskVisual(deskGroup,null);
   deskGroup.children.forEach(ch=>{ if(ch.name!=='deskAnchor') ch.visible=false; });

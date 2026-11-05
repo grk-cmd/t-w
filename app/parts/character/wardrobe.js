@@ -129,7 +129,7 @@ let _adminPartActions = null;
 function setAdminPartActions(a){ _adminPartActions = a; }
 /* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다.
    relayout: 책상을 바꾸는 카드(기본 · 책상 없음 · 전용)는 책상 폭이 크게 바뀐다 — 책상을 다 그린 **뒤에** 좌석 줄을 다시 잡는다
-   (기본 책상 교체본 · 전용 책상은 GLB 를 풀고서야 noDesk 가 내려가서, 바로 잡으면 좁은 자리가 남는다). */
+   (기본 책상 교체본 · 전용 책상은 GLB 를 풀고서야 책상 몸이 바뀌어서, 바로 잡으면 옛 겉면 자리가 남는다). */
 function _wdApplyDeskChange(mutate, relayout){
   const seat = findMySeat();
   if(!seat || !seat.charDef) return null;
