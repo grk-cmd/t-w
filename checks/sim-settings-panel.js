@@ -92,5 +92,40 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
+/* ── 4. 동작 — «꾸미기 파츠 표시» 버튼을 실제로 눌러 본다: 좌석마다 옷 · 파츠 표시를 맞춘 **뒤** 줄을 다시 잡는다(숨긴 파츠는 좌석 겉면에서 빠진다 — room/seat-extent.js) */
+say('── 4. 동작 — 꾸미기 파츠 표시 버튼');
+function pressDeco(src){
+  const any = anything(), log = [], els = {};
+  const el = (id) => els[id] || (els[id] = { id, onclick: null, classList: { toggle(){}, add(){}, remove(){} }, style: {}, addEventListener(){}, querySelectorAll: () => [], appendChild(){}, set textContent(v){}, set innerHTML(v){} });
+  const doc = new Proxy({}, { get: (t, k) => k === 'getElementById' ? ((id) => id === 'fsDecoPartsToggle' ? el(id) : any) : any });
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => any; });
+  VAL_DEPS.forEach(n => { deps[n] = any; });
+  GET_DEPS.forEach(n => { deps[n] = () => any; });
+  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  let vis = true;
+  deps.decoPartsVisible = () => vis; deps.setDecoPartsVisible = (v) => { vis = v; };
+  deps.seats = [{ n: 'a' }, { n: 'b' }];
+  deps.applyClothVisibility = (st) => log.push('cloth:' + st.n);
+  deps.layoutSeats = () => log.push('layout');
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  win.TwSeatPin = undefined;   // 다시 그리는 버튼 글자 중 «맨 오른쪽 고정» 은 이 검사 몫이 아니다(sim-seat-pin)
+  const ls = { getItem: () => null, setItem(){}, removeItem(){} };
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwMyHomeHooks', 'ResizeObserver', 'TwPanelFit',
+    src + '\nreturn window.TwSettingsPanel;')(win, doc, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, any, function(){ return { observe(){} }; }, any);
+  api.createSettingsPanel(deps);
+  const btn = els.fsDecoPartsToggle;
+  if(!btn || typeof btn.onclick !== 'function') return null;
+  btn.onclick();
+  return { log, vis };
+}
+{
+  const r = pressDeco(MOD);
+  chk(r && r.vis === false && r.log.join(',') === 'cloth:a,cloth:b,layout', '누르면 표시가 바뀌고 · 좌석마다 옷 · 파츠 표시를 맞춘 뒤 줄을 한 번 다시 잡는다' + (r ? ' — ' + r.log.join(',') : ' — 버튼을 못 찾음'));
+  const noLayout = MOD.replace("    layoutSeats();   // 숨긴 파츠는 좌석 겉면에서 빠진다(room/seat-extent.js) — 줄 다시 잡기\n", '');
+  const rb = noLayout !== MOD ? pressDeco(noLayout) : null;
+  chk(!!rb && rb.log.join(',') !== 'cloth:a,cloth:b,layout', '  깨 보기 — 줄 다시 잡기를 빼면 빨강');
+}
+
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

@@ -63,6 +63,20 @@ async function judge(src) {
     await m2.refitSeatAfterParts(seat, { layout: true }); r.fitThrows = lg.join(',') === 'ride';
     /* 남의 머리에 탄 좌석이면 그 대상 위 높이도 다시 잰다 */
     b = build(src.MOD); await b.m.refitSeatAfterParts({ n: 'r', gltfRoot: {}, ridingOn: { n: 'h' } }); r.riding = b.log.join(',') === 'fit:r,ride:r,ride:h';
+    /* 책상 3D 를 다 그린 뒤 줄 다시 잡기(relayoutAfter) — 풀린 뒤 한 번 · 거부돼도 · 좌석이 빠졌으면 안 함 · 부른 자리에서는 기다리지 않음 */
+    {
+      const S = { n: 'S', gltfRoot: {} };
+      let ok; const p = new Promise(res => { ok = res; });
+      b = build(src.MOD, [S]); const ra = b.m.relayoutAfter(p, S);
+      await Promise.resolve(); r.raNoWait = b.log.length === 0;   // 아직 안 풀렸으면 안 잡는다(아이템 달기는 이것을 안 기다린다)
+      ok(); await ra; r.raOk = b.log.join(',') === 'layout';
+      b = build(src.MOD, [S]); await b.m.relayoutAfter(Promise.reject(new Error('glb')), S); r.raReject = b.log.join(',') === 'layout';
+      const L = [S]; b = build(src.MOD, L); const ra2 = b.m.relayoutAfter(Promise.resolve(), S); L.length = 0; await ra2; r.raGone = b.log.length === 0;
+      /* 진짜 app.js applyCharToSeat — 두 책상 길 모두 그 약속을 넘기고 await 하지 않는다 */
+      const ac = grabFn(src.APP, 'applyCharToSeat');
+      r.raApp = /deskDrawn = deskVisualMod\.applyDeskCatalogRefToSeat\(seat, def\);/.test(ac) && /deskDrawn = deskVisualMod\.applyDeskCatalogRefToSeat\(seat, \{deskCatalogId:DEFAULT_DESK_OVERRIDE_ID/.test(ac)
+        && /seatRefitMod\.relayoutAfter\(deskDrawn, seat\);/.test(ac) && !/await deskVisualMod\.applyDeskCatalogRefToSeat/.test(ac);
+    }
     /* 3절 — 떼기는 다음 프레임에 한 번 */
     const A = { n: 'A', gltfRoot: {} }, B = { n: 'B', gltfRoot: {} }, P = { n: 'P', gltfRoot: {} };
     const list = [A, B];
@@ -142,6 +156,10 @@ async function judge(src) {
   chk(R.hook, 'app.js 가 만든 바로 뒤 탄 동물 팔 높이 · 올라탄 사람 높이 다시 재기(_remeasureRideArm · _remeasureRideHeadTop)를 onRefitted 로 건다 — 모듈은 rideBenchMod 를 모른다');
   chk(R.riding, '남의 머리에 탄 좌석을 다시 맞추면 그 대상(ridingOn) 위 높이도 다시 잰다 — 판단은 이 모듈 한 곳');
 
+  chk(R.raOk && R.raNoWait, '★ 책상 3D 를 다 그린 뒤 줄 다시 잡기(relayoutAfter) — 풀린 뒤 한 번 · 풀리기 전엔 안 잡는다');
+  chk(R.raReject && R.raGone, '  책상이 실패해도 잡는다 · 그 사이 좌석이 빠졌으면 안 잡는다');
+  chk(R.raApp, '  app.js applyCharToSeat — 두 책상 길이 약속을 넘기고 기다리지 않는다(아이템 달기 순서는 예전 그대로)');
+
   say('── 3. 파츠 떼기 — 다음 프레임에 한 번');
   chk(R.oneFrame && R.once, '★ 같은 프레임에 여러 번 떼도 프레임 하나 · 좌석마다 한 번(fitModel → 높이 다시 재기) · 부른 자리에서는 바로 안 잰다');
   chk(R.again && R.againRun, '  다음 프레임에 또 떼면 또 한 번');
@@ -170,6 +188,10 @@ async function judge(src) {
     ['꾸미기 저장이 옛 줄로', { WD: SRC.WD.replace('await refitSeatAfterParts(mySeat, { wait: applyEquippedPartsToSeat(mySeat, def), layout: true });', 'await applyEquippedPartsToSeat(mySeat, def);\n  try{ if(mySeat && mySeat.gltfRoot) fitModel(mySeat); }catch(_){}') }, 'wdNow'],
     ['친구 파츠 변경이 옛 .then 으로', { RE: SRC.RE.replace(/refitSeatAfterParts\(s, \{ wait: applyEquippedPartsToSeat\(s, fdef\)[^\n]*/, 'applyEquippedPartsToSeat(s, fdef).then(()=>{ try{ if(s && s.charDef===fdef && s.gltfRoot){ fitModel(s); layoutSeats(); } }catch(_){} });') }, 're'],
     ['관리자 다시 등록이 함수를 안 부름', { AP: SRC.AP.replace(/refitSeatAfterParts\(s, \{ wait: Promise\.resolve\(equipPartOnSeat\(s, c, rec, \{ stackableXf \}\)\) \}\);/, 'Promise.resolve(equipPartOnSeat(s, c, rec, { stackableXf })).then(()=>{ try{ if(s && s.gltfRoot) fitModel(s); }catch(_){} }).catch(()=>{});') }, 'ap'],
+    ['책상 뒤 다시 잡기가 거부를 안 받음', { MOD: SRC.MOD.replace('Promise.resolve(drawn).catch(()=>{}).then(', 'Promise.resolve(drawn).then(') }, 'raReject'],
+    ['책상 뒤 다시 잡기가 빠진 좌석도 잡음', { MOD: SRC.MOD.replace('{ if(seats.includes(seat)) layoutSeats(); }', '{ layoutSeats(); }') }, 'raGone'],
+    ['app.js 가 책상 뒤 다시 잡기를 안 부름', { APP: SRC.APP.replace('    seatRefitMod.relayoutAfter(deskDrawn, seat);', '') }, 'raApp'],
+    ['app.js 가 책상을 기다림', { APP: SRC.APP.replace('if(def.deskCatalogId){ deskDrawn = deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }', 'if(def.deskCatalogId){ deskDrawn = await deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }') }, 'raApp'],
     ['html 줄 빠짐', { HTML: SRC.HTML.replace(/<script src="parts\/room\/seat-refit\.js"><\/script>/, '') }, 'html'],
   ];
   for (const [name, patch, key] of BREAK) {

@@ -311,7 +311,7 @@
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 158 | **e5a9a4132bcf** |
-| **sim-settings-panel.js** | 96 | **8adbd8b1dda4** |
+| **sim-settings-panel.js** | 131 | **65adbd778fc1** |
 | **sim-desktop-run.js** | 94 | **742b11531096** |
 | **sim-room-entry.js** | 184 | **7cbc599f4032** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
@@ -403,7 +403,7 @@
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
 | **sim-seat-extent.js** | 167 | **2e5f6d965886** |
 | **sim-seat-layout.js** | 256 | **cd433d4f0d1e** |
-| **sim-seat-refit.js** | 183 | **eb55c31fb10b** |
+| **sim-seat-refit.js** | 205 | **ded390ca592b** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 163 | **bdc4bd948bfe** |
 | **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |

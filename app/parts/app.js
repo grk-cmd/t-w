@@ -7243,8 +7243,7 @@ function applyCharToSeat(seat,def){
     if(def.deskCatalogId){ deskDrawn = deskVisualMod.applyDeskCatalogRefToSeat(seat, def); }
     else if(def.deskGlb){ try{ const sc=await assetCodeMod.parseGlbBytes(b64ToBuf(def.deskGlb)); seat.desk.userData.deskScale=def.deskScale||1; deskVisualMod.swapDeskVisual(seat.desk,sc); deskPlaceMod.setDeskScale(seat.desk, def.deskScale||1, def.deskLenX||1); if(def.deskColor)deskVisualMod.applyDeskColorToCustom(seat.desk,def.deskColor);}catch(e){} }
     else { deskDrawn = deskVisualMod.applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor}); }   // 관리자가 기본 책상을 교체해뒀으면 그걸로, 없으면 원래 하드코딩된 기본 책상 그대로
-    // 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — 다 그린 뒤 줄을 다시 잡아야 바뀐 겉면으로 자리가 잡힌다(꾸미기 창 wardrobe.js 와 같은 모양)
-    Promise.resolve(deskDrawn).catch(()=>{}).then(()=>{ if(seats.includes(seat)) layoutSeats(); });
+    seatRefitMod.relayoutAfter(deskDrawn, seat);   // 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — 다 그린 뒤 줄 다시 잡기(기다리지 않는다)
     // ★ 새 아이템 목록을 적용하기 전에 기존에 붙어있던 아이템을 먼저 확실히 뗌 — 이 단계가 없어서
     //   실행 중인 캐릭터를 우클릭으로 수정할 때(특히 아이템을 끄거나 다른 걸로 바꿀 때) 예전 아이템이
     //   계속 남아있던 버그의 원인이었음(생성기 미리보기는 clearCreatorItems가 매번 먼저 비워서 문제 없었음).

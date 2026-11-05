@@ -130,7 +130,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
   - 자리 폭에 여유 · 하한 같은 숫자를 덧대지 않는다 — 겉면이 틀리면 `seat-extent.js` 를 고친다(#755).
-  - 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — app.js `applyCharToSeat` 는 책상을 다 그린 뒤 `layoutSeats` 를 다시 부른다(꾸미기 창 `wardrobe.js` 와 같은 까닭).
+  - 책상 3D 는 캐릭터보다 늦게 풀릴 수 있다 — app.js `applyCharToSeat` 는 `seatRefitMod.relayoutAfter` 로 책상을 다 그린 뒤 줄을 다시 잡는다(꾸미기 창 `wardrobe.js` 와 같은 까닭).
   - 파츠도 겉면에 든다 — 파츠가 바뀌면 줄을 다시 잡는다(꾸미기 저장 `layout: true` · 떼기는 `seat-refit.js` 다음 프레임에 한 번 · 설정 «꾸미기 파츠 표시»).
   - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 치우친 자리 · 간격 0 · 간격 종류 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 끌기 · 빈 목록).
 
@@ -201,7 +201,8 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   다른 모듈에는 `refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a)` 로 넘긴다(wardrobe · room-entry · catalog-sync · admin-part-register).
 - **내보내는 것**
   - `refitSeatAfterParts(seat, { wait, layout, isCurrent })` → Promise(다시 맞췄으면 true). 다시 맞춘 좌석과 그 좌석이 탄 대상(`ridingOn`)에 `onRefitted` 알림을 한 번씩.
-  - `requestRefit(seat)` — 파츠를 뗀 자리(app.js `unequipStackablePart` · `unequipPartFromSeat` → `_refitAfterUnequip`)가 부른다. 다음 프레임에 한 번(같은 프레임 여러 번이면 좌석마다 한 번) · 실행 화면 좌석만 · 그 전에 장착 뒤 맞추기가 돌았으면 건너뜀.
+  - `requestRefit(seat)` — 파츠를 뗀 자리(app.js `unequipStackablePart` · `unequipPartFromSeat` → `_refitAfterUnequip`)가 부른다. 다음 프레임에 한 번(같은 프레임 여러 번이면 좌석마다 한 번) · 실행 화면 좌석만 · 그 전에 장착 뒤 맞추기가 돌았으면 건너뜀 · 맞춘 뒤 줄을 한 번 다시 잡는다(뗀 파츠는 좌석 겉면에서 빠진다).
+  - `relayoutAfter(drawn, seat)` — 비동기로 그리는 것(친구 좌석 책상 3D — app.js `applyCharToSeat`)이 끝난 뒤 줄 다시 잡기. 실패해도 잡고 · 그 사이 좌석이 빠졌으면 안 잡는다 · 부르는 쪽은 기다리지 않는다(아이템 달기 순서 그대로).
   - `onRefitted(fn)` — 다시 맞춘 뒤 할 일(지금은 올라탄 사람 높이 다시 재기 하나).
   ```js
   // 친구 파츠가 바뀌었을 때(room-entry.js)

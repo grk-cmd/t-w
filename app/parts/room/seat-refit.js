@@ -60,9 +60,16 @@ async function refitSeatAfterParts(seat, opts){
   return true;
 }
 
+/* 비동기로 그리는 것(친구 좌석 책상 3D)이 끝난 뒤 줄 다시 잡기 — 겉면이 바뀌므로. 실패해도 잡고, 그 사이 좌석이 빠졌으면 안 잡는다.
+   ⚠️ 부르는 쪽의 다른 일(책상 위 아이템 달기)은 이것을 기다리지 않는다 — 기다리면 아이템이 책상 3D 만큼 늦게 붙는다. */
+function relayoutAfter(drawn, seat){
+  return Promise.resolve(drawn).catch(()=>{}).then(()=>{ if(seats.includes(seat)) layoutSeats(); });
+}
+
 return {
   onRefitted,
   refitSeatAfterParts,
+  relayoutAfter,
   requestRefit,
 };
 }
