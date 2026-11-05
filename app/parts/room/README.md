@@ -92,7 +92,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 ## seat-layout.js — 🪑 좌석 줄 배치
 
 - **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 반폭 + 여백 + 내 반폭» 씩 `targetX`(반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유 `BODY_ROOM` 0.15» 중 넓은 쪽 — 책상이 작거나 없는 캐릭터가 옆 책상과 안 겹치게 · 🚫 «책상 없음»(`desk.userData.noDesk`)이면 몸을 잰 뒤엔 책상 폭을 안 센다) → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로.
-- **책상 끌기 자리** `slotIndexAt(x)` — 끈 x 에서 가장 가까운 좌석 자리(`targetX`)의 번호(올라탄 좌석 제외). app.js 책상 끌기가 부르고 «맨 오른쪽 고정» 은 그 뒤 `TwSeatPin.dragIndex`. 간격으로 나누지 않는다(한 칸 너비는 책상마다 다르고 간격은 음수도 된다).
+- **책상 끌기 자리** `slotIndexAt(x, seat)` — 끄는 좌석을 뺀 나머지 순서는 그대로 두고, 칸마다 «여기 넣으면 설 자리» 를 줄 배치와 같은 셈으로 내서 x 에서 가장 가까운 칸 번호(splice 번호). app.js 책상 끌기가 부르고 «맨 오른쪽 고정» 은 그 뒤 `TwSeatPin.dragIndex`. ⚠️ 지금 자리(targetX) 중 가장 가까운 것을 고르면 폭이 섞일 때 두 칸을 오가며 떨린다 · 간격으로 나누면 음수 간격에서 방향이 뒤집힌다.
 - **좌석 반폭** `seatHalfWidth(s)` — 줄 배치와 같은 규칙(책상 · 🚫 책상 없음 · 몸 폭, 줌 상한 없음)을 좌석 하나에. 평준화 가두기(`character/seat-eq-clamp.js`)가 deps 로 받는다 — 두 곳이 자리 폭을 따로 재면 «책상 없음» 좌석의 파츠가 옆으로 넘어간다. 몸 폭은 마지막 줄 배치에서 잰 값.
 - **만드는 법**(app.js «🪑 좌석 배치» 구역 자리):
   ```js
