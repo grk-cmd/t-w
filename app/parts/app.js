@@ -4084,7 +4084,7 @@ canvas.addEventListener('pointermove',e=>{
 
   if(drag.mode==='slot'){
     const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
-    const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
+    let idx=seatLayoutMod.slotIndexAt(wx);   // 가장 가까운 좌석 자리 — 간격으로 나누면 음수 간격에서 방향이 뒤집힌다
     if(window.TwSeatPin) idx = TwSeatPin.dragIndex(idx, drag.seat, seats, roomSeatMode);   // 🪑 맨 오른쪽 고정이면 내 자리는 그대로
     const cur=seats.indexOf(drag.seat);
     if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();seatPanelMod.renderSeatTabs();}

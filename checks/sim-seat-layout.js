@@ -22,7 +22,7 @@ const FN_DEPS = ["_rideBottom","clampDeskPan","renderSeatTabs","seatDeskHalfWidt
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["MULTIPLAYER_SPACING","SPACING","deskPanX","deskPanY","roomSeatMode","seatCameraMod"];
 const SET_DEPS = ["deskPanX","deskPanY"];
-const EXPORTS = ["layoutSeatRow","seatHalfWidth"];
+const EXPORTS = ["layoutSeatRow","seatHalfWidth","slotIndexAt"];
 const MOVED = ["layoutSeatRow"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,","  SPACING: ()=>SPACING,","  _rideBottom: (...a)=>_rideBottom(...a),","  clampDeskPan: (...a)=>clampDeskPan(...a),","  deskPanX: ()=>deskPanX,","  deskPanY: ()=>deskPanY,","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSeatMode: ()=>roomSeatMode,","  seatCameraMod: ()=>seatCameraMod,","  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),","  measureCharBox: (...a)=>measureCharBox(...a),","  seats: seats,","  syncSeatEqualize: (...a)=>syncSeatEqualize(...a),","  setCachedRowCenter: (v)=>{ _cachedRowCenter = v; },","  setCachedRowSpan: (v)=>{ _cachedRowSpan = v; },","  setDeskPanX: (v)=>{ deskPanX = v; },","  setDeskPanY: (v)=>{ deskPanY = v; },"];
 
@@ -183,6 +183,24 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
       r = runLayout([{ isMe: true, hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }, { hw: 0.85, desk: { userData: { noDesk: true } }, gltfRoot: body(0.25) }], { spacing: gmin });
       chk(-r.xs[1] >= 0.5 - 1e-9, '  책상 없는 좌석끼리는 최소값에서도 몸(0.25 + 0.25)이 겹치지 않는다');
     }
+  }
+  /* 책상 끌기가 놓을 자리(slotIndexAt) — 끈 x 에서 가장 가까운 좌석 자리. 간격이 음수 · 0 에 가까움 · 보통 · 넓음 어디서나 왼쪽으로 끌면 뒤 칸 */
+  if(!process.env.TW_PREMOVE){
+    const pick = (src, spacing, xsAt) => { const ss = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.4 }]; const rr = runLayout(ss, { spacing, src }); return xsAt(rr.xs).map(x => rr.api.slotIndexAt(x)); };
+    for(const sp of [-0.3, 0.021, 0.3, 1.2]){
+      const got = pick(undefined, sp, (xs) => [xs[0], xs[1], xs[2], xs[2] - 5, 3, (xs[0] + xs[1]) / 2 - 0.01]);
+      chk(J(got) === J([0, 1, 2, 2, 0, 1]), '책상 끌기 자리 — 간격 ' + sp + ': 각 자리 → 0 · 1 · 2 · 왼쪽 끝 밖 → 마지막 · 오른쪽 밖 → 0 · 두 자리 가운데를 넘으면 다음 칸');
+    }
+    const ride = [{ isMe: true, hw: 0.85 }, { hw: 0.85 }, { hw: 0.85 }];
+    ride[2].ridingOn = ride[1];
+    const rr = runLayout(ride, {});
+    chk(rr.api.slotIndexAt(rr.xs[1]) === 1, '  올라탄 좌석(탑 바닥 자리를 물려받음)은 고르지 않는다');
+    const re = runLayout([], {});
+    chk(re.api.slotIndexAt(-3) === 0, '  경계 — 좌석이 없으면 0');
+    const old = MOD.replace(/function slotIndexAt\(x\)\{[\s\S]*?\n\}\n/, 'function slotIndexAt(x){ const sp = SPACING(); return Math.max(0, Math.min(seats.length - 1, Math.round(-x / sp))); }\n');
+    let caught = false;
+    if(old !== MOD){ const g = pick(old, -0.3, (xs) => [xs[0], xs[1], xs[2]]); caught = J(g) !== J([0, 1, 2]); }
+    chk(caught, '  깨 보기 — 옛 셈(끈 거리 ÷ 간격)으로 되돌리면 음수 간격에서 빨강');
   }
   /* 🧍 책상이 없거나 작은 좌석 — 몸 반폭 + 여유(0.15)만큼 자리를 잡아 옆 책상과 안 겹친다(건의). 책상 있는 좌석끼리는 그대로 */
   {

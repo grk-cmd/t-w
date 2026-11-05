@@ -1,7 +1,7 @@
 /* seat-layout.js — 🪑 좌석 줄 배치 — 책상 폭을 재서 좌석마다 자리(targetX)를 잡고 줄 가운데 · 폭을 카메라에 넘긴다
    책임: 좌석 줄 자리 계산 하나 — 평준화 반영 → 맨 오른쪽 고정 → 이동 오프셋 다시 검사 → 책상(작거나 없으면 · 🚫 «책상 없음» 이면 캐릭터 몸 + 여유)과 책상 사이 여백을 일정하게 targetX → 줄 가운데 · 폭을 캐시하고 카메라 모듈에 넘김.
    받는 deps: seats(값) · _rideBottom(ride-chain.js) · syncSeatEqualize · renderSeatTabs · clampDeskPan · seatDeskHalfWidth · measureCharBox(함수) · roomSeatMode · deskPanX/Y · SPACING · MULTIPLAYER_SPACING · seatCameraMod(읽는 함수) · setDeskPanX/Y · setCachedRowCenter/Span(쓰는 함수).
-   내보내는 것: layoutSeatRow() — app.js 의 layoutSeats() 가 부른다 · seatHalfWidth(s) — 좌석 반폭(같은 규칙 · 평준화 가두기가 받는다).
+   내보내는 것: layoutSeatRow() — app.js 의 layoutSeats() 가 부른다 · seatHalfWidth(s) — 좌석 반폭(같은 규칙 · 평준화 가두기가 받는다) · slotIndexAt(x) — 책상 끌기가 놓을 자리 번호(가장 가까운 좌석 자리).
    ⚠️ 이름이 layoutSeats 가 아닌 까닭: app.js 맨 아래 «데스크탑 창 크기» 가 layoutSeats 를 감싸 다시 대입한다(앱 FSD 32번). 그래서 app.js 에 같은 이름의 얇은 함수를 남겨 두고,
       모든 부르는 곳 · 다른 모듈 deps 는 예전처럼 그 이름을 본다 — 감싼 판이 그대로 불린다.
    app.js «🪑 좌석 배치(layoutSeats) · 카메라 · 도트 텍스처 필터» 구역의 layoutSeats 본문을 그대로 옮겼다(구역 떼기 C · w1). 동작은 옮기기 전과 같다.
@@ -68,6 +68,18 @@ function seatHalfWidth(s){
   const body = _bodyHalfMemo.has(s) ? _bodyHalfMemo.get(s) : seatBodyHalfWidth(s);
   return seatRoomHalf(seatDeskHalf(s, false, body), body);
 }
+/* 책상을 끌어 자리 바꾸기 — 끈 x 에서 가장 가까운 좌석 자리(targetX)의 번호(seats 안 번호).
+   간격으로 나누면 안 된다: 한 칸 너비는 «반폭 + 간격 + 반폭» 이라 책상마다 다르고, 간격은 음수도 된다(맨 왼쪽 칸 — 나누면 끄는 방향이 뒤집힌다).
+   올라탄 좌석은 자리가 없어(탑 바닥 자리를 물려받음) 고르지 않는다. 좌석이 없으면 0. */
+function slotIndexAt(x){
+  let best = 0, bestD = Infinity;
+  seats.forEach((s, i)=>{
+    if(s.ridingOn) return;
+    const d = Math.abs((s.targetX || 0) - x);
+    if(d < bestD){ bestD = d; best = i; }
+  });
+  return best;
+}
 function layoutSeatRow(){
   /* 🪑 좌석 간격·카메라 줌은 바로 아래에서 **책상 폭을 실측**한다. 평준화로 책상이 커지거나
      작아졌다면 그 전에 반영돼 있어야 간격이 한 박자 늦지 않는다. 바뀐 좌석이 없으면 숫자 비교뿐이다. */
@@ -108,6 +120,7 @@ function layoutSeatRow(){
 return {
   layoutSeatRow,
   seatHalfWidth,
+  slotIndexAt,
 };
 }
 
