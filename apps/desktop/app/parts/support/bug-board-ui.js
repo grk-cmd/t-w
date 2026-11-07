@@ -7,7 +7,7 @@
    ★ 글쓴이 답글 — 내 글 상세 맨 아래 칸. 답글과 함께 상태(확인 중 · 해결 안 됨 · 해결 완료)를 고를 수 있다.
      관리자 목록에는 운영자 답변보다 늦은 글쓴이 답글이 있으면 «✍ 글쓴이 답글».
    ⚠️ app.js 뒤에 싣는다 — isAdmin · toast · escHtml · getMyUserId · getDisplayName 을 그대로 쓴다.
-   ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면). alert/confirm 금지(audit 검사 4). */
+   ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면 — «비슷한 제보» 창도 게시판 안을 덮는 칸). alert/confirm 금지(audit 검사 4). */
 (function(){
   'use strict';
   const $ = (id) => document.getElementById(id);
@@ -43,6 +43,7 @@
     $('bbListView').style.display = view === 'list' ? '' : 'none';
     $('bbDetailView').style.display = view === 'detail' ? '' : 'none';
     $('bbWriteView').style.display = view === 'write' ? '' : 'none';
+    hideSimilar();   // 화면을 바꾸면 비슷한 제보 창도 닫는다
     const pg = $('mhPageBugreport'); if(pg) pg.scrollTop = 0;
   }
 
@@ -280,7 +281,17 @@
     const os = /Windows/.test(ua) ? 'Windows' : /Mac/.test(ua) ? 'macOS' : /Linux/.test(ua) ? 'Linux' : '기타 OS';
     return (ver ? 'v' + ver + ' · ' : '') + os;
   }
-  async function submitWrite(btn){
+  /* 🔎 비슷한 제보 창 — 제목이 비슷한 글(bug-board.js similarTo)을 목록 줄 모양 그대로 보여 준다.
+     [그래도 제보하기] 는 비교 없이 다시 올리기 · [취소] · × · Esc 는 쓰던 글을 그대로 두고 창만 닫는다. */
+  function showSimilar(title, items){
+    $('bbSimLead').textContent = '쓰신 제목 «' + title + '» 와 비슷한 제보가 이미 올라와 있어요.';
+    $('bbSimRows').innerHTML = items.map(rowHtml).join('');
+    $('bbSimilar').style.display = '';
+    $('bbSimCancel').focus();
+  }
+  function hideSimilar(){ $('bbSimilar').style.display = 'none'; }
+  const similarOpen = () => $('bbSimilar').style.display !== 'none';
+  async function submitWrite(btn, skipSimilar){
     const err = $('bbWErr');
     const notice = admin() && $('bbWNotice').checked;
     const p = {
@@ -289,6 +300,13 @@
       notice,
     };
     const bad = api().checkPost(p); if(bad){ err.textContent = bad; return; }
+    if(!notice && !skipSimilar){
+      btn.disabled = true; err.textContent = '';
+      let sim = [];
+      try{ sim = await api().similarTo(p.title); }catch(_){ sim = []; }   // 못 받으면 창 없이 올린다 — 비교는 안내라 올리기를 막지 않는다
+      btn.disabled = false;
+      if(sim.length){ showSimilar(p.title.trim(), sim); return; }
+    }
     if($('bbWEnv').checked) p.env = await envString();
     btn.disabled = true; err.textContent = '';
     let r = null;
@@ -347,6 +365,16 @@
     $('bbWriteBtn').addEventListener('click', openWrite);
     $('bbWCancel').addEventListener('click', () => show('list'));
     $('bbWSubmit').addEventListener('click', (e) => submitWrite(e.currentTarget));
+    $('bbSimGo').addEventListener('click', () => { hideSimilar(); submitWrite($('bbWSubmit'), true); });
+    $('bbSimCancel').addEventListener('click', hideSimilar);
+    $('bbSimX').addEventListener('click', hideSimilar);
+    $('bbSimRows').addEventListener('click', (e) => {
+      const row = e.target.closest('.bb-row[data-id]'); if(row) openPost(row.dataset.id);
+    });
+    // Esc 는 이 창만 닫는다(마이홈 창까지 닫히지 않게 먼저 받는다)
+    document.addEventListener('keydown', (e) => {
+      if(e.key === 'Escape' && similarOpen()){ e.stopImmediatePropagation(); e.preventDefault(); hideSimilar(); }
+    }, true);
     $('bbWNotice').addEventListener('change', (e) => {
       // 공지는 공개 글이다 — 고르는 동안 공개 범위를 공개로 묶는다
       document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.disabled = e.target.checked; if(e.target.checked && r.value === 'pub') r.checked = true; });
