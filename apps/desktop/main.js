@@ -291,13 +291,6 @@ function _saveLauncherPosSoon(){
   if(_launcherPosSaveT) clearTimeout(_launcherPosSaveT);
   _launcherPosSaveT = setTimeout(_flushLauncherPos, LAUNCHER_POS_SAVE_MS);
 }
-/* 끌 때 런처가 떠 있으면 지금 자리를 한 번 더 잰다 — 'moved' 를 못 받은 이동(OS · 배율 사정)이 있어도 다음 실행은 끈 자리에서 */
-function _rememberLauncherOnQuit(){
-  if(!_isConfigMode || _cfgMode !== 'launcher' || !mainWindow || mainWindow.isDestroyed()) return;
-  if(mainWindow.isMinimized()) return;   // 윈도우는 내린 창 자리를 -32000 으로 준다 — 그 자리를 적지 않는다
-  const p = _launcherPosOf(mainWindow.getBounds());
-  if(p) savedPos.launcher = p;
-}
 function _flushLauncherPos(){
   if(_launcherPosSaveT){ clearTimeout(_launcherPosSaveT); _launcherPosSaveT = null; }
   const p = savedPos.launcher;
@@ -651,7 +644,7 @@ function _exitNow(){
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
-  try{ _rememberLauncherOnQuit(); _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
+  try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
 }
@@ -4054,7 +4047,7 @@ function createWindow() {
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
   if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
-  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } try { _rememberLauncherOnQuit(); _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
+  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
        종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.

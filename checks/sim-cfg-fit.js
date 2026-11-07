@@ -7,7 +7,7 @@
      ・4절: 런처 HTML 이 카드가 창보다 길 때 스크롤되는가 — 예전 align-items:center 가 위아래를 동시에 잘랐다.
      ・5절: 런처 자리를 설정 파일에 — 거르기 · 몰아 저장 · 읽기 · 첫 창.
      ・6절: 'moved' 가 어느 모드 자리로 적나(_movedMode) — 배율이 다른 모니터(액정타블렛 등)로 끌어 크기가 어긋나도 런처 자리를 적는다 ·
-            늦게 온 전체화면 'moved' 는 안 적는다 · 끌 때 런처 자리 한 번 더(_rememberLauncherOnQuit) · 켤 때 진단 한 줄 · 깨 보기.
+            늦게 온 전체화면 'moved' 는 안 적는다 · 끌 때 창 자리를 다시 재지 않는다 · 켤 때 진단 한 줄 · 깨 보기.
    [실행] 원본(main.js · desk-companion-prototype.html)이 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
@@ -193,10 +193,9 @@ else{
     chk(/_launcherPosSaved = savedPos\.launcher \?/.test(sv), '  saveSettings 가 성공하면 파일 자리 기록을 맞춘다(어느 저장이든)');
   }
   const exitSrc = grabFn(MAIN, '_exitNow') || '';
-  chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('destroy()')
-    && exitSrc.indexOf('_rememberLauncherOnQuit()') > 0 && exitSrc.indexOf('_rememberLauncherOnQuit()') < exitSrc.indexOf('_flushLauncherPos()'),
+  chk(exitSrc.indexOf('_flushLauncherPos()') > exitSrc.indexOf('stopGlobalHooks') && exitSrc.indexOf('_flushLauncherPos()') < exitSrc.indexOf('destroy()'),
     '  _exitNow 는 훅 · 타이머를 내린 뒤 · 창을 닫기 전에 쓴다(종료 순서)');
-  chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(\) => \{ try \{ sysinput\.stopGlobalHooks\(\); \}[^\n]*try \{ _rememberLauncherOnQuit\(\); _flushLauncherPos\(\); \} catch \(_\) \{\} \}\);/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 런처 자리를 한 번 더 재고 남은 것을 쓴다');
+  chk(/_flushLauncherPos\(\)/.test(exitSrc) && /app\.on\('before-quit', \(\) => \{ try \{ sysinput\.stopGlobalHooks\(\); \}[^\n]*try \{ _flushLauncherPos\(\); \} catch \(_\) \{\} \}\);/.test(MAIN), '끄는 두 길(_exitNow · before-quit) 모두 남은 런처 자리를 쓴다');
   const load = MAIN.slice(MAIN.indexOf('function loadSettings(){'), MAIN.indexOf('function saveSettings(){'));
   chk(/savedPos\.launcher = _launcherPosOf\(data\.launcherPos\);/.test(load), '설정 파일을 읽을 때 launcherPos 를 그 함수로 거른다');
   chk(/launcherPos: savedPos\.launcher,/.test(grabFn(MAIN, 'saveSettings') || ''), '  저장할 때 launcherPos 를 같이 적는다');
@@ -206,9 +205,10 @@ else{
 }
 
 /* ── 6. 'moved' 가 어느 모드 자리로 적나 ── */
-say("── 6. 'moved' — 배율이 다른 모니터로 끌어도 런처 자리를 적는다 · 끌 때 한 번 더");
-const movedSrc = grabFn(MAIN, '_movedMode'), quitSrc = grabFn(MAIN, '_rememberLauncherOnQuit');
-if(!movedSrc || !quitSrc){ huh('_movedMode / _rememberLauncherOnQuit 를 못 찾음'); fail++; }
+const exitSrcAll = () => (grabFn(MAIN, '_exitNow') || '') + (grabFn(MAIN, '_flushLauncherPos') || '');
+say("── 6. 'moved' — 배율이 다른 모니터로 끌어도 런처 자리를 적는다");
+const movedSrc = grabFn(MAIN, '_movedMode');
+if(!movedSrc){ huh('_movedMode 를 못 찾음'); fail++; }
 else{
   const RATIO = Number((MAIN.match(/^const MOVED_SIZE_RATIO = ([\d.]+);/m) || [])[1]);   // 원본 상수 그대로 — 바꾸면 아래 판정이 따라간다
   chk(RATIO === 2, '  크기 범위는 그 모드의 절반 ~ 두 배(MOVED_SIZE_RATIO = ' + RATIO + ') — 넓히면 전체화면 크기도 런처로 읽힌다');
@@ -234,20 +234,12 @@ else{
   chk(!B1.dpi.every(m => m === 'launcher'), '  깨 보기 — 크기로만 알아보면(예전) 배율 어긋남이 빨강');
   const B2 = runMoved(mkMoved(movedSrc.replace('return (near(w, sz.w) && near(h, sz.h)) ? cfgMode : null;', 'return cfgMode;')));
   chk(B2.full === 'launcher', '  깨 보기 — 크기 범위를 안 보면 전체화면 \'moved\' 가 런처 자리로 적혀 빨강');
-  /* 끌 때 한 번 더 */
-  const mkQuit = (src, st) => new Function('_isConfigMode', '_cfgMode', 'mainWindow', 'savedPos', '_launcherPosOf', src + '\nreturn _rememberLauncherOnQuit;')(
-    st.cfg, st.mode, st.win, st.sp, new Function('LAUNCHER_POS_MAX', posSrc + '\nreturn _launcherPosOf;')(100000));
-  const win = (b, min) => ({ isDestroyed: () => false, isMinimized: () => !!min, getBounds: () => b });
-  const q = (o) => { const st = Object.assign({ cfg: true, mode: 'launcher', sp: { launcher: { x: 1, y: 1 } } }, o); mkQuit(quitSrc, st)(); return st.sp.launcher; };
-  const eq6 = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-  chk(eq6(q({ win: win({ x: 2500, y: 300, width: 570, height: 1020 }) }), { x: 2500, y: 300 }), '★ 끌 때 런처가 떠 있으면 지금 자리를 적는다(\'moved\' 를 못 받은 이동이 있어도 다음엔 끈 자리에서)');
-  chk(eq6(q({ win: win({ x: -32000, y: -32000, width: 160, height: 28 }, true) }), { x: 1, y: 1 }), '  내린 창(윈도우 -32000)은 적지 않는다');
-  chk(eq6(q({ cfg: false, win: win({ x: 0, y: 0, width: 1920, height: 1040 }) }), { x: 1, y: 1 }) && eq6(q({ mode: 'myhome', win: win({ x: 9, y: 9, width: 800, height: 580 }) }), { x: 1, y: 1 }),
-    '  실행 화면 · 마이홈에서 끄면 런처 자리는 그대로');
-  const qb = (o) => { const st = Object.assign({ cfg: true, mode: 'launcher', sp: { launcher: { x: 1, y: 1 } } }, o); mkQuit(quitSrc.replace("  if(mainWindow.isMinimized()) return;", ''), st)(); return st.sp.launcher; };
-  chk(!eq6(qb({ win: win({ x: -32000, y: -32000, width: 160, height: 28 }, true) }), { x: 1, y: 1 }), '  깨 보기 — 내린 창 거르기를 빼면 -32000 이 적혀 빨강');
 }
 /* 배선 */
+/* 끌 때 창 자리를 다시 재지 않는다(사용자 결정) — 액정타블렛을 꺼 둔 채 켜면 런처가 주 모니터로 당겨져 뜨는데, 끌 때 그 자리로 덮으면
+   타블렛을 다시 켜도 주 모니터에서 뜬다. 런처 자리는 사용자가 옮길 때('moved')만 적는다 */
+chk(!/getBounds/.test(exitSrcAll()) && !/getBounds/.test(MAIN.slice(MAIN.indexOf("app.on('before-quit'"), MAIN.indexOf("app.on('before-quit'") + 400)),
+  '끌 때(_exitNow · before-quit)는 창 자리를 다시 재지 않는다 — 타블렛을 꺼 둔 날 당겨진 자리로 덮지 않게');
 const acm = grabFn(MAIN, '_applyConfigMode') || '';
 chk(/if\(isConfig\) _cfgMode = MODE_SIZE\[mode\] \? mode : 'launcher';/.test(acm) && acm.indexOf('_cfgMode = ') < acm.indexOf('_fitConfigRect(') && acm.indexOf('_cfgMode = ') < acm.indexOf('setBounds('),
   '_applyConfigMode 가 창을 맞추기 전에 모드를 건다(맥은 setBounds 중에도 \'moved\' 가 온다)');
