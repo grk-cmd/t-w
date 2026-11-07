@@ -363,10 +363,16 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
       const row=d.createElement('div'); row.className='gb-row';
       row.innerHTML='<div class="gb-head"><b>'+escHtml(en.name||'(이름 없음)')+'</b><span class="gb-meta"><span>'+relTime(en.ts)+'</span></span></div>'
         +'<div class="gb-text">'+escHtml(en.text||'')+'</div>';
-      // ★ 내가 쓴 글(entry.uid가 내 uid)만 삭제 링크 표시 — uid 없는 옛 글은 작성자 확인이 안 돼서 미표시
-      if(en.uid && en.uid===getMyUserId()){
+      /* 🗑 삭제 링크 — 내가 쓴 글(entry.uid 가 내 uid) · 또는 내 방명록이면 남이 쓴 글도(주인). 남의 글은 한 번 더 눌러야 지운다(잘못 눌러 지우지 않게).
+         uid 없는 옛 글은 작성자 확인이 안 돼서 주인만 지울 수 있다. */
+      const mine = !!en.uid && en.uid===getMyUserId();
+      const ownerHere = !_mhViewingUserId() && !!getMyUserId();
+      if(mine || ownerHere){
         const del=d.createElement('span'); del.className='gb-del'; del.textContent='삭제';
+        if(!mine) del.title='내 방명록이라 남이 쓴 글도 지울 수 있어요';
+        let armed = mine;
         del.onclick=async ()=>{
+          if(!armed){ armed = true; del.textContent='정말 삭제?'; return; }
           if(!window.firebaseAPI || !firebaseAPI.deleteGuestbookEntry) return;
           try{ await firebaseAPI.deleteGuestbookEntry(_gbTargetId(), id); }
           catch(e){ gbSay('삭제에 실패했어요'); }
