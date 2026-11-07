@@ -6,12 +6,11 @@
    ⚠️ 방 코드는 _friendRoomTag 로만 얻는다(시크릿룸은 빈 값 = 누를 칸이 아예 없다) — 판정을 여기에 복사하지 말 것.
    ・🔔 받은 초대 줄에서 열 때(ask(fid, invite))만 하나 더: 초대가 시크릿룸(SCRT-)이고 친구가 지금 방에 있으면 초대에 실린 코드로 묻는다
      — 시크릿룸은 코드가 접속 상태에 안 올라와서 «방을 나갔어요» 로 잘못 읽힌다. 친구가 아니면(목록에 없음) 그렇게 알린다.
+     시크릿룸인지 · 방에 있는지는 deps(isSecretCode — room-state.js · friendInRoom — myhome-inbox.js)로 받는다 — 판정을 여기에 쓰지 않는다.
    ⚠️ 껍데기는 app-popup-ov + pointer-events:none — 화면 전체를 막지 않는다(초대 창 주석과 같은 근거).
    기본 포커스는 [취소] — Enter 한 번에 방이 바뀌지 않게(디자인 시스템 확인창 규칙). */
 (function(){
 'use strict';
-
-const SECRET_PREFIX = 'SCRT-';
 
 /* 누를 때 무엇을 할지 — 'none'(코드 없음 = 방을 나갔거나 시크릿룸) · 'same'(이미 같은 방) · 'ask'(묻기) */
 function decide(code, myRoom){
@@ -31,7 +30,7 @@ function createFriendVisit(deps){
     const tag = deps.roomTagOf(f);
     if(tag) return tag;
     const ic = invite && typeof invite.code === 'string' ? invite.code : '';
-    return (ic.indexOf(SECRET_PREFIX) === 0 && f && deps.friendInRoom(f)) ? ic : '';
+    return (deps.isSecretCode(ic) && f && deps.friendInRoom(f)) ? ic : '';   // 시크릿룸 판정은 room-state.js 한 곳
   }
   /* 창이 떠 있는 사이 바뀌었을 수 있으니 누를 때 다시 본다 */
   async function _go(fid, code, invite){

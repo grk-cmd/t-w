@@ -2776,7 +2776,7 @@ const richTextMod = TwRichText.createRichText({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 🏠 친구 방에 놀러 가기 — 방 코드 누르기 · 묻는 창 · 이동은 friend-visit.js. 여기는 연결만. */
 const friendVisit = window.TwFriendVisit ? TwFriendVisit.createFriendVisit({ document, escHtml, toast,
-  getFriend: fid => _myHomeFriends[fid], refreshFriend: fid => friendsSubMod.refreshPresence([fid]), roomTagOf: (...a)=>inboxMod.friendRoomTag(...a), friendInRoom: (...a)=>inboxMod.friendInRoom(...a),
+  getFriend: fid => _myHomeFriends[fid], refreshFriend: fid => friendsSubMod.refreshPresence([fid]), roomTagOf: (...a)=>inboxMod.friendRoomTag(...a), friendInRoom: (...a)=>inboxMod.friendInRoom(...a), isSecretCode: c => TwRoomState.isSecretCode(c),
   myRoom: () => (typeof Presence !== 'undefined' && Presence.roomCode) ? Presence.roomCode() : null,
   inRoom: () => typeof Presence !== 'undefined' && Presence.active(),
   leaveRoom: () => roomEntryMod.doLeaveRoom({ wipeChat: true }), startRoom: c => roomEntryMod.startRoom(c),

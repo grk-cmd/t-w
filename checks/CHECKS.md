@@ -92,7 +92,7 @@
 | **sim-mallang-hide.js** | 124 | **86040d19c645** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
-| **sim-friend-visit.js** | 140 | **6bf20a81eeac** |
+| **sim-friend-visit.js** | 142 | **d50ed490f70f** |
 | **sim-invite-notice.js** | 84 | **fa5f9a77bb79** |
 | **sim-friends-sub.js** | 618 | **6664bb6aad56** |
 | **sim-friends-port.js** | 459 | **949952d584bb** |

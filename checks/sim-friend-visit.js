@@ -39,7 +39,7 @@ const document = { createElement: () => mkEl(), body: env.body };
 const esc = (s) => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const tag = (f) => (f && f.room && String(f.room).indexOf('SCRT-') !== 0) ? String(f.room) : '';
 const FV = V.createFriendVisit({ document, escHtml: esc, toast: (m) => env.toasts.push(m),
-  getFriend: () => env.friend, refreshFriend: async (fid) => { env.refreshed.push(fid); if(env.onRefresh) env.onRefresh(); }, roomTagOf: tag, friendInRoom: (f) => !!(f && f.inRoom), myRoom: () => env.my, inRoom: () => env.inRoom,
+  getFriend: () => env.friend, refreshFriend: async (fid) => { env.refreshed.push(fid); if(env.onRefresh) env.onRefresh(); }, roomTagOf: tag, friendInRoom: (f) => !!(f && f.inRoom), isSecretCode: (c) => !!c && String(c).indexOf('SCRT-') === 0, myRoom: () => env.my, inRoom: () => env.inRoom,
   leaveRoom: async () => { env.left++; env.inRoom = false; env.my = null; }, startRoom: (c) => env.started.push(c),
   channelName: (c) => /^PLAY-/.test(c) ? '투게더룸' : /^WORK-/.test(c) ? '워킹룸' : '' });
 const lastBox = () => { const ov = env.body.children[env.body.children.length - 1]; return ov && ov.children[0]; };
@@ -115,13 +115,15 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   const n3 = env.body.children.length; FV.ask('f9', { code:'PLAY-MFEG', name:'모르는<이>' });
   chk(env.body.children.length === n3 && env.toasts[0] === '모르는<이> 님은 친구 목록에 없어요', '★ 친구가 아니면(목록에 없음) 그렇게 알린다 — «친구 님이 방을 나갔어요» 대신');
   { /* 깨 보기 — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» */
-    const w2 = {}; new Function('window', 'module', MOD.replace('    return (ic.indexOf(SECRET_PREFIX) === 0 && f && deps.friendInRoom(f)) ? ic : \'\';', "    return '';"))(w2, undefined);
+    const w2 = {}; new Function('window', 'module', MOD.replace(/    return \(deps\.isSecretCode\(ic\)[^\n]*\n/, "    return '';\n"))(w2, undefined);
     const env2 = { toasts: [] };
     const F2 = w2.TwFriendVisit.createFriendVisit({ document, escHtml: esc, toast: (m) => env2.toasts.push(m), getFriend: () => ({ name:'비밀', room:null, inRoom:true }),
-      refreshFriend: async () => {}, roomTagOf: tag, friendInRoom: (f) => !!(f && f.inRoom), myRoom: () => null, inRoom: () => false, leaveRoom: async () => {}, startRoom: () => {}, channelName: () => '' });
+      refreshFriend: async () => {}, roomTagOf: tag, friendInRoom: (f) => !!(f && f.inRoom), isSecretCode: (c) => !!c && String(c).indexOf('SCRT-') === 0, myRoom: () => null, inRoom: () => false, leaveRoom: async () => {}, startRoom: () => {}, channelName: () => '' });
     F2.ask('f1', { code:'SCRT-ABCD', name:'비밀' });
     chk(/방을 나갔어요/.test(env2.toasts[0] || ''), '  깨 보기 — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» 로 빨강');
   }
+  chk(!/SCRT-/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')) && /isSecretCode: c => TwRoomState\.isSecretCode\(c\)/.test(APP0) && /friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\)/.test(APP0.slice(APP0.indexOf('createFriendVisit('))),
+    '  시크릿룸 · 방에 있음 판정은 deps 로(room-state.js isSecretCode · myhome-inbox.js friendInRoom) — 이 파일에 SCRT- 를 쓰지 않는다');
 
   say('── 2. 배선');
   chk(/roomTagOf: \(\.\.\.a\)=>inboxMod\.friendRoomTag\(\.\.\.a\)/.test(APP0) && /friendRoomTag: _friendRoomTag,/.test(MI), '★ 코드는 _friendRoomTag 로만 얻는다(시크릿룸 판정을 복사하지 않음 — myhome-inbox.js 의 그 함수를 inboxMod 로)');
