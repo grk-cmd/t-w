@@ -331,6 +331,22 @@ await sec('── 5. 방 초대 받기', async () => {
   e.subs[0].cb({ y: { ts: e.now + 5, fromName: '나비', roomCode: 'RT' } });
   const k2 = e.outs.length - 1; e.popup().children[0].querySelector('[data-a="no"]').onclick(); await flush();
   chk(k2 >= 0 && e.outs[k2] === null, '  버튼으로 닫으면 10분 타이머를 치운다');
+  { /* 🔔 줄 — 처리하고 지운 뒤 남은 옛 초대로 되돌리지 않는다 · 보낸 쪽 시계가 틀려도 새로 온 초대면 바뀐다 */
+    const q = mkEnv({ active: false }); q.mk(); const qc = q.subs[0].cb;
+    qc({ a: { ts: q.now, fromName: '가', roomCode: 'RA' }, b: { ts: q.now - 5000, fromName: '나', roomCode: 'RB' } });
+    q.popup().children[0].querySelector('[data-a="no"]').onclick(); await flush(); await flush();
+    qc({ b: { ts: q.now - 5000, fromName: '나', roomCode: 'RB' } });
+    chk(q.notes.join() === 'a:RA', '★ 새 초대를 처리하고 지운 뒤 남은 옛 초대(이미 본 것)로 줄을 되돌리지 않는다');
+    q.popup().children[0].querySelector('[data-a="no"]').onclick(); await flush(); await flush();
+    qc({ s: { ts: q.now + 86400000, fromName: '시계', roomCode: 'RS' } });
+    qc({ s: { ts: q.now + 86400000, fromName: '시계', roomCode: 'RS' }, t: { ts: q.now, fromName: '바름', roomCode: 'RT' } });
+    chk(q.notes.slice(-2).join() === 's:RS,t:RT', '★ 시계가 하루 빠른 친구 초대 뒤에도 새로 온 초대(t)로 줄이 바뀐다 — 보낸 시각끼리는 새로 온 것 안에서만 견준다');
+    const qb = mkEnv({ active: false }, MOD.replace(/const fresh = ids\.filter\([^\n]*\n/, 'const fresh = ids.slice();\n')); qb.mk(); const qbc = qb.subs[0].cb;
+    qbc({ a: { ts: qb.now, fromName: '가', roomCode: 'RA' }, b: { ts: qb.now - 5000, fromName: '나', roomCode: 'RB' } });
+    qb.popup().children[0].querySelector('[data-a="no"]').onclick(); await flush(); await flush();
+    qbc({ b: { ts: qb.now - 5000, fromName: '나', roomCode: 'RB' } });
+    chk(qb.notes.join() === 'a:RA,b:RB', '  깨 보기 — 본 초대를 안 거르면 남은 옛 초대로 줄이 되돌아가 빨강');
+  }
   const r = mkEnv(); r.mk();
   let shown = null; r.api.showPopup('<i>', 'RC', v => { shown = v; });
   chk(/&lt;i&gt;/.test(r.popup().children[0].innerHTML) && r.flashes[0] === true, '보낸 사람 이름은 escHtml 로 씻는다');

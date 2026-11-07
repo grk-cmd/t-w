@@ -235,6 +235,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
 
 /* 🚪 방 초대 수신 — 어디에 있든 팝업으로 수락/거절. 수락하면 그 방으로 이동. */
 let _roomInviteBusy = false;
+const _inviteSeen = new Set();   // 이번 실행에서 본 초대(보낸 사람:보낸 시각) — 남은 옛 초대로 🔔 줄을 되돌리지 않게
 /* ⏳ 초대는 거절로 끝내지 않는다 — 팝업은 10분이 지나면 **창만 닫고**(거절 아님), 초대는 🔔 일정 알림 창의 줄에서 다시 연다.
    ★ 오래된 초대(앱을 꺼 둔 사이에 온 것 등)는 팝업 없이 그 줄로만 알린다 — 몇 시간 전 초대에 바로 수락하면
      이미 비어 있거나 다른 방이 된 방으로 끌려간다(줄을 누르면 친구가 지금 있는 방으로 묻는다 — friend-visit.js).
@@ -249,9 +250,14 @@ function _bindRoomInviteReceiver(){
   firebaseAPI.subscribeRoomInvites(myId, invites=>{
     let ids = Object.keys(invites || {}).filter(id => invites[id] && typeof invites[id] === 'object');
     if(!ids.length) return;
-    /* 🔔 가장 최근 초대를 일정 알림 줄로 — 팝업이 떠 있어도 · 오래된 것이어도(같은 초대면 그대로) */
-    const latest = ids.slice().sort((a,b)=> (invites[b].ts||0) - (invites[a].ts||0))[0];
-    inviteNotice.note(latest, invites[latest]);
+    /* 🔔 이번에 새로 온 초대 중 가장 최근 것을 일정 알림 줄로 — 팝업이 떠 있어도 · 오래된 것이어도.
+       이미 본 초대(처리하고 지운 뒤 남은 옛것)는 다시 올리지 않는다 · 보낸 쪽 시계끼리는 새로 온 것 안에서만 견준다 */
+    const fresh = ids.filter(id => !_inviteSeen.has(id + ':' + (invites[id].ts || 0)));
+    fresh.forEach(id => _inviteSeen.add(id + ':' + (invites[id].ts || 0)));
+    if(fresh.length){
+      const latest = fresh.sort((a,b)=> (invites[b].ts||0) - (invites[a].ts||0))[0];
+      inviteNotice.note(latest, invites[latest]);
+    }
     if(_roomInviteBusy) return;
     /* 오래된 초대는 팝업 없이 지운다(줄은 위에서 남겼다). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
     const _now = Date.now();

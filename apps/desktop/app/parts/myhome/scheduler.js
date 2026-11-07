@@ -28,7 +28,7 @@ const _positionInputBelowChar = deps.positionInputBelowChar;
 const _inboxUnreadCount = deps.inboxUnreadCount;
 const _refreshFriendTabBadge = deps.refreshFriendTabBadge;
 const roomInvite = deps.roomInvite;             // 🙋 마지막 방 초대 한 줄(room/invite-notice.js) — { get() · isNew(seenTs) }
-const openRoomInvite = deps.openRoomInvite;     // 🙋 줄을 누르면 — «○○ 님이 있는 룸에 놀러 갈까요?»(friend-visit.js · app.js 가 잇는다)
+const openRoomInvite = deps.openRoomInvite;     // 🙋 줄을 누르면(그 줄 { fromId · fromName · roomCode }) — «○○ 님이 있는 룸에 놀러 갈까요?»(friend-visit.js · app.js 가 잇는다)
 
 /* ═══════════════════════ 📅 스케줄러 ═══════════════════════
    좌: 월별 달력 (일정 등록/삭제, 일정별 공개 여부, 친구 태그)
@@ -1183,7 +1183,7 @@ function renderBellList(){
     t.textContent = '🙋 ' + inv.fromName + ' 님이 방에 초대했어요';
     const when = document.createElement('span'); when.className = 'bell-invite-ts'; when.textContent = _bellInviteWhen(inv.at);
     row.appendChild(dot); row.appendChild(t); row.appendChild(when);
-    row.onclick = ()=>{ window._closeBellWin(); openRoomInvite(inv.fromId); };
+    row.onclick = ()=>{ window._closeBellWin(); openRoomInvite(inv); };
     list.appendChild(row);
   }
 }

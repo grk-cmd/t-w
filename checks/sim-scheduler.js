@@ -91,7 +91,7 @@ function mkEnv(opt){
     twNav: opt.twNav || { go(){}, NAV: {} },
     roomInvite: (g.notice = INV.createInviteNotice({ storage: localStorage, getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), now: () => (g.now || Date.now()),
       onChange: () => { if(g.S){ g.S.refreshBellBadge(); if(g.S.isBellOpen()) g.S.renderBellList(); } } })),
-    openRoomInvite: (fid) => { (g.opened = g.opened || []).push(fid); },
+    openRoomInvite: (inv) => { (g.opened = g.opened || []).push(inv.fromId + ':' + inv.roomCode); },
   });
   g.S = S;
   return { S, win, els, ls, subs, timers, toasts, escWins, winListeners, g, api, el: id => document.getElementById(id) };
@@ -219,10 +219,8 @@ sec('── 3-2. 🙋 방 초대 줄 · 알림콩', () => {
   const ln2 = lineOf();
   chk(list.children.filter(c => c.className === 'bell-invite').length === 1 && ln2.textContent.includes('<b>토끼</b> 님이 방에 초대했어요') && !list.textContent.includes('나비 님'),
     '★ 새 초대가 오면 그 줄이 바뀐다(쌓지 않는다) · 이름은 글자 그대로(HTML 아님)');
-  E.g.notice.note('f1', { fromName: '나비', roomCode: 'PLAY-AB12', ts: 1500 });
-  chk(lineOf().textContent.includes('토끼'), '  먼저 보낸 옛 초대가 뒤늦게 와도 줄을 되돌리지 않는다');
   lineOf().onclick();
-  chk((E.g.opened || []).join() === 'f2' && !E.S.isBellOpen(), '★ 줄을 누르면 창을 닫고 «놀러 갈까요?» 로(보낸 사람 f2)');
+  chk((E.g.opened || []).join() === 'f2:WORK-CD34' && !E.S.isBellOpen(), '★ 줄을 누르면 창을 닫고 «놀러 갈까요?» 로(보낸 사람 · 초대 코드를 같이 — 시크릿룸 초대용)');
   const O = mkEnv({ uid: 'other' });
   O.ls.set('tw.roomInviteLast', E.ls.get('tw.roomInviteLast'));
   O.S.renderBellList(); O.S.refreshBellBadge();

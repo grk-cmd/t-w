@@ -2584,7 +2584,7 @@ const mhScheduler = MhScheduler.createScheduler({
   bellSeenKey: BELL_SEEN_KEY,
   twNav: twNav,
   roomInvite: inviteNotice,
-  openRoomInvite: async (fid)=>{ try{ await friendsSubMod.refreshPresence([fid]); }catch(_){} friendVisit.ask(fid); },   // 친구가 지금 있는 방으로 묻는다
+  openRoomInvite: async (inv)=>{ try{ await friendsSubMod.refreshPresence([inv.fromId]); }catch(_){} friendVisit.ask(inv.fromId, { code: inv.roomCode, name: inv.fromName }); },   // 친구가 지금 있는 방으로 묻는다(시크릿룸이면 초대 코드)
 });
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
@@ -2776,7 +2776,7 @@ const richTextMod = TwRichText.createRichText({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 🏠 친구 방에 놀러 가기 — 방 코드 누르기 · 묻는 창 · 이동은 friend-visit.js. 여기는 연결만. */
 const friendVisit = window.TwFriendVisit ? TwFriendVisit.createFriendVisit({ document, escHtml, toast,
-  getFriend: fid => _myHomeFriends[fid], refreshFriend: fid => friendsSubMod.refreshPresence([fid]), roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),
+  getFriend: fid => _myHomeFriends[fid], refreshFriend: fid => friendsSubMod.refreshPresence([fid]), roomTagOf: (...a)=>inboxMod.friendRoomTag(...a), friendInRoom: (...a)=>inboxMod.friendInRoom(...a),
   myRoom: () => (typeof Presence !== 'undefined' && Presence.roomCode) ? Presence.roomCode() : null,
   inRoom: () => typeof Presence !== 'undefined' && Presence.active(),
   leaveRoom: () => roomEntryMod.doLeaveRoom({ wipeChat: true }), startRoom: c => roomEntryMod.startRoom(c),

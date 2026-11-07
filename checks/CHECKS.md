@@ -92,8 +92,8 @@
 | **sim-mallang-hide.js** | 124 | **86040d19c645** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
-| **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-invite-notice.js** | 84 | **6aed8ae601d7** |
+| **sim-friend-visit.js** | 140 | **6bf20a81eeac** |
+| **sim-invite-notice.js** | 84 | **fa5f9a77bb79** |
 | **sim-friends-sub.js** | 618 | **6664bb6aad56** |
 | **sim-friends-port.js** | 459 | **949952d584bb** |
 | **sim-friend-profile-live.js** | 241 | **3c3e4af0e29d** |
@@ -263,7 +263,7 @@
 | **sim-app-size.js** | 127 | **f4d91c399857** |
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
-| **sim-scheduler.js** | 356 | **553e29052018** |
+| **sim-scheduler.js** | 354 | **2a32be21d093** |
 | **sim-weekly-challenge.js** | 345 | **35279543c804** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
@@ -273,7 +273,7 @@
 | **sim-myhome-sticker.js** | 437 | **606f203dca59** |
 | **sim-gacha.js** | 622 | **485a0f025f30** |
 | **sim-myhome-edit.js** | 614 | **bcddeecd526a** |
-| **sim-room-invite-ui.js** | 384 | **c5702736ad70** |
+| **sim-room-invite-ui.js** | 400 | **c357c983913a** |
 | **sim-focus-log.js** | 309 | **d8430d3d3ae0** |
 | **sim-chat-window.js** | 559 | **95901abb7f00** |
 | **sim-api-client.js** | 162 | **f93d00872b1a** |
