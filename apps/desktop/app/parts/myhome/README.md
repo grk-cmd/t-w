@@ -114,6 +114,7 @@ const inboxSec = TwInboxSections;   // myhome-inbox.js 머리(고리판 TwMyHome
 **책임** — 마이홈 «도움말» 탭 한 칸: 왼쪽 목차(묶음 접고 펴기) · 오른쪽 도움말 웹 페이지 틀(도움말 전용 Hosting 사이트 `help.together-working.com` · `?embed=1`) · 못 불러옴.
 사용법 글은 앱을 다시 내지 않고 고치려고 웹 페이지(`hosting/help/`)에 둔다. 목차는 앱에 박지 않고, 페이지(`hosting/help/embed.js`)가
 `postMessage({ type:'tw-help', v:1, page, toc })` 로 보내 오면 그것으로 그린다 — 페이지 안 «이전 · 다음» 으로 옮겨도 왼쪽 표시가 따라간다.
+목차 아래 «❓ 자주 묻는 질문»(`FAQ_PAGE` = `faq` — 페이지 `/faq`) 한 줄만 앱이 단다 — FAQ 페이지는 목차(toc.json)에 없는 편이라서. FAQ 의 «🔗» 링크로 편에 가면 그 편 표시로 따라간다.
 
 **만드는 법** — app.js 가 마이홈 창(`createMyHomeUi`) 바로 앞에서 만들고 deps `helpTab` 으로 넘긴다. 테마를 바꾸면 `themeMod.onApplied` 로 `themeChanged`:
 

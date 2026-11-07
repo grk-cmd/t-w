@@ -1,6 +1,6 @@
 /* sim-help-tab.js — 📘 마이홈 «도움말» 탭(myhome/help-tab.js) · 도움말 주소 규칙(shared/help-site.js)
    ・1절: help-site — 여는 주소 · 틀이 옮겨 갈 수 있는 주소 · 페이지 알림 읽기(남의 출처 · 어긋난 모양은 버린다)
-   ・2절: help-tab — 가짜 화면에서 돌린다: 처음 열기 · 알림이 오면 목차(묶음 접고 펴기) · 편 누르기 · 남의 틀 알림 무시 ·
+   ・2절: help-tab — 가짜 화면에서 돌린다: 처음 열기 · 알림이 오면 목차(묶음 접고 펴기) · 목차 아래 ❓ 자주 묻는 질문 · 편 누르기 · 남의 틀 알림 무시 ·
           시간 안에 알림이 없으면 «못 불러옴» + 다시 시도 · 목차가 어긋나면 «목차를 불러오지 못했어요» · 테마가 바뀌면 다시 연다 · 목차 글은 textContent
    ・3절: 배선 — main.js 틀 이동 허락 · CSP frame-src · html 탭 · 싣는 순서 · 알림함에 도움말 칸 없음 · embed.js 가 보내는 모양을 그대로 읽는다
    ・4절: 깨 보기 */
@@ -95,6 +95,7 @@ function tabChecks(tabSrc, siteSrc){
   const r = {};
   const e = mkEnv('bubble');
   const t = loadTab(tabSrc, siteSrc, e);
+  const T = e.window.TwHelpTab;
   r.lazy = !e.frame() && e.timers.length === 0;
   t.enter();
   const f = e.frame();
@@ -104,12 +105,12 @@ function tabChecks(tabSrc, siteSrc){
   const P3 = TOC[2].pages[0], P2 = TOC[1].pages[1], PF = TOC[2].pages[TOC[2].pages.length - 1];
   e.post({ type: 'tw-help', v: 1, page: P3.slug, toc: TOC });
   const rt = railText(e);
-  r.toc = rt.length === TOC.length + TOC[2].pages.length && rt[2].startsWith('▾ ') && rt[0].startsWith('▸ ') && t.state().openGroup === 2
+  r.toc = rt.length === TOC.length + TOC[2].pages.length + 1 && rt[rt.length - 1] === T.FAQ_LABEL && rt[2].startsWith('▾ ') && rt[0].startsWith('▸ ') && t.state().openGroup === 2
     && e.els.mhHelpRail.children.some(c => c.className === 'mh-help-ep on' && c.textContent === P3.slug + P3.title) && e.timers.every(x => !x.on);
   e.els.mhHelpRail.children[0].click();
-  r.toggle = t.state().openGroup === 0 && railText(e).length === TOC.length + TOC[0].pages.length;
+  r.toggle = t.state().openGroup === 0 && railText(e).length === TOC.length + TOC[0].pages.length + 1;
   e.els.mhHelpRail.children[0].click();
-  r.close = t.state().openGroup === -1 && railText(e).length === TOC.length;
+  r.close = t.state().openGroup === -1 && railText(e).length === TOC.length + 1;
   e.els.mhHelpRail.children[1].click();
   const ep = e.els.mhHelpRail.children.find(c => c.title === P2.slug + '. ' + P2.title);
   ep.click();
@@ -119,6 +120,14 @@ function tabChecks(tabSrc, siteSrc){
   r.ignore = t.state().page === P2.slug;
   e.post({ type: 'tw-help', v: 1, page: PF.slug, toc: TOC });
   r.follow = t.state().page === PF.slug && t.state().openGroup === 2 && PF !== P3;
+  /* ❓ 자주 묻는 질문 — 목차 아래 한 줄 · 누르면 FAQ 페이지 · 페이지 알림(page 'faq')이 와도 그 줄이 지금 표시 */
+  const faqBtn = () => e.els.mhHelpRail.children[e.els.mhHelpRail.children.length - 1];
+  faqBtn().click();
+  r.faq = T.FAQ_PAGE === 'faq' && f.src === ORIGIN + '/faq?theme=bubble&embed=1' && t.state().page === 'faq' && /\bon\b/.test(faqBtn().className)
+    && !e.els.mhHelpRail.children.some(c => c.className === 'mh-help-ep on');
+  e.post({ type: 'tw-help', v: 1, page: P2.slug, toc: TOC });
+  e.post({ type: 'tw-help', v: 1, page: 'faq', toc: TOC });
+  r.faqFollow = t.state().page === 'faq' && /\bon\b/.test(faqBtn().className) && faqBtn().textContent === T.FAQ_LABEL;
   /* 목차 글은 textContent 로만 — 받은 글이 HTML 이어도 그대로 글자 */
   e.post({ type: 'tw-help', v: 1, page: '1', toc: [{ group: '<img src=x onerror=alert(1)>', pages: [{ slug: '1', title: '<b>t</b>' }] }] });
   r.text = e.els.mhHelpRail.children[0].textContent === '▾ <img src=x onerror=alert(1)>' && e.els.mhHelpRail.children[1].textContent === '1<b>t</b>'
@@ -153,6 +162,8 @@ chk(t2.go, '  편을 누르면 같은 틀에서 그 편을 연다');
 chk(t2.ignore, '  다른 틀 · 다른 출처가 보낸 알림은 무시한다');
 chk(t2.follow, '  페이지 안 «이전 · 다음» 으로 옮기면 왼쪽 표시 · 펼친 묶음이 따라간다');
 chk(t2.text, '  받은 목차 글은 글자로만 넣는다(HTML 로 안 읽힘 · innerHTML 안 씀)');
+chk(t2.faq, '목차 아래 «❓ 자주 묻는 질문» — 누르면 같은 틀에서 FAQ 페이지(/faq) · 그 줄이 지금 표시 · 편 표시는 꺼짐');
+chk(t2.faqFollow, '  FAQ 페이지에서 온 알림(page faq)에도 그 줄이 지금 표시');
 chk(t2.fail, '시간 안에 알림이 없으면 «못 불러옴» 칸 · 오류 E-MH-01 · 빈 틀은 가린다');
 chk(t2.retry, '  [다시 시도] → 같은 편을 다시 열고 시간을 다시 잰다');
 chk(t2.tocFail, '  페이지는 왔는데 목차가 어긋나면 «목차를 불러오지 못했어요»(빈 메뉴와 구분)');
@@ -194,6 +205,8 @@ new Function('window', 'document', 'location', 'fetch', EMBED)(ewin, { documentE
   brk('help-tab 이 시간 재기를 안 하면(빈 틀이 그대로)', !tabChecks(TAB.replace(/_timer = setTimeout\(\(\)=>\{[\s\S]*?\}, LOAD_MS\);/, ''), SS).fail);
   brk('help-tab 이 목차 글을 HTML 로 넣으면', !tabChecks(TAB.replace('gb.textContent = (open ? ', 'gb.innerHTML = (open ? '), SS).text);
   brk('help-tab 이 탭에 들어올 때마다 다시 열면', !tabChecks(TAB.replace("if(!_frame || _failed || _theme !== getTheme()) _load(_page);", '_load(_page);'), SS).noReload);
+  brk('help-tab 이 FAQ 줄을 안 달면', !tabChecks(TAB.replace('  rail.appendChild(fb);\n', ''), SS).faq);
+  brk('help-tab 이 FAQ 줄을 눌러도 다른 편을 열면', !tabChecks(TAB.replace('_page = FAQ_PAGE; _renderRail(); _load(FAQ_PAGE);', '_renderRail(); _load(_page);'), SS).faq);
   brk('help-tab 이 목차 어긋남을 «없음» 처럼 비워 두면', !tabChecks(TAB.replace("    if(!_tocFailed) return;", '    return;'), SS).tocFail);
 
   say('');
