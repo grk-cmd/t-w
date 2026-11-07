@@ -20,6 +20,14 @@
          자식 창 테마 규약은 sim-child-theme 이 이 파일을 읽어 본다. */
 (function(){
 
+const GUESTBOOK_MAX = 30;   // 방명록에 남기는 글 수 — 넘으면 오래된 것(ts)부터 주인 앱이 지운다
+/** 넘친 글 id — 오래된 것(ts)부터 · 남길 max 개 뒤의 나머지(순수 — sim-guestbook) */
+function overflowIds(entries, max){
+  const all = entries || {};
+  const ids = Object.keys(all).sort((a, b) => ((all[a] && all[a].ts) || 0) - ((all[b] && all[b].ts) || 0));
+  return ids.length > max ? ids.slice(0, ids.length - max) : [];
+}
+
 function createGuestbook(deps){
 const getMyUserId = deps.getMyUserId;
 const getDisplayName = deps.getDisplayName;
@@ -65,12 +73,21 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
       badge.classList.add('hidden');
     }
   }
+  /* 🧹 30개 넘은 옛 글 정리 — 주인 앱이 내 방명록을 받을 때(손님 앱은 남의 글을 못 지운다 — 규칙) */
+  let _pruning = false;
+  async function _pruneOld(myId, entries){
+    const ids = overflowIds(entries, GUESTBOOK_MAX);
+    if(!ids.length || _pruning) return;
+    _pruning = true;
+    try{ await firebaseAPI.removeGuestbookEntries(myId, ids); }catch(_){}   // 못 지우면 다음 받을 때 다시
+    finally{ _pruning = false; }
+  }
   function start(){
     if(_unsub) return;
     if(!(window.firebaseAPI && firebaseAPI.subscribeGuestbook)) return;
     const myId = getMyUserId();
     if(!myId) return;
-    _unsub = firebaseAPI.subscribeGuestbook(myId, entries => _updateBadge(entries));
+    _unsub = firebaseAPI.subscribeGuestbook(myId, entries => { _updateBadge(entries); _pruneOld(myId, entries); });
   }
   function stop(){
     if(_unsub){ try{ _unsub(); }catch(_){} _unsub = null; }
@@ -522,7 +539,7 @@ return {
 };
 }
 
-const api = { createGuestbook };
+const api = { createGuestbook, overflowIds, GUESTBOOK_MAX };
 if(typeof window !== 'undefined') window.TwGuestbook = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

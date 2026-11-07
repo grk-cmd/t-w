@@ -492,8 +492,8 @@
           "$other": { ".validate": false }
         },
         "mallangGifts": {
-          ".write": true,
           "$giftId": {
+            ".write": "(!data.exists() && newData.exists() && newData.child('fromId').isString() && (!root.child('userAuth/'+newData.child('fromId').val()).exists() || root.child('userAuth/'+newData.child('fromId').val()).val() === auth.uid)) || (data.exists() && (!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid))",
             ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && (newData.hasChildren(['imgUrl','ts']) && newData.child('imgUrl').isString() && newData.child('imgUrl').val().length <= 400 && newData.child('imgUrl').val().beginsWith('https://firebasestorage.googleapis.com/') && (!newData.child('fromName').exists() || newData.child('fromName').val().length <= 20) && (!newData.child('fromId').exists() || newData.child('fromId').val().length <= 40) && newData.child('ts').isNumber() && (!newData.child('msg').exists() || (newData.child('msg').isString() && newData.child('msg').val().length <= 50)) && (!newData.child('hidden').exists() || newData.child('hidden').isBoolean()) && (!newData.child('starred').exists() || newData.child('starred').isBoolean()))",
             "imgUrl": { ".validate": true },
             "fromName": { ".validate": "newData.isString() && newData.val().length <= 20" },
@@ -745,8 +745,8 @@
           ".validate": "(!newData.child('bio').exists() || (newData.child('bio').isString() && newData.child('bio').val().length <= 4000)) && (!newData.child('post').exists() || (newData.child('post').isString() && newData.child('post').val().length <= 20000)) && (!newData.child('postTitle').exists() || (newData.child('postTitle').isString() && newData.child('postTitle').val().length <= 60)) && (!newData.child('avatar').exists() || (newData.child('avatar').isString() && newData.child('avatar').val().length <= 200000))"
         },
         "guestbook": {
-          ".write": true,
           "$entryId": {
+            ".write": "(!data.exists() && newData.exists() && newData.child('uid').isString() && (!root.child('userAuth/'+newData.child('uid').val()).exists() || root.child('userAuth/'+newData.child('uid').val()).val() === auth.uid)) || (data.exists() && !newData.exists() && ((!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) || (data.child('uid').isString() && (!root.child('userAuth/'+data.child('uid').val()).exists() || root.child('userAuth/'+data.child('uid').val()).val() === auth.uid)) || (data.child('ts').isNumber() && data.child('ts').val() < now - 604800000)))",
             ".validate": "!$entryId.matches(/^(null|undefined|NaN)$/) && !$entryId.beginsWith(' ') && !$entryId.endsWith(' ') && (newData.hasChildren(['name','text','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('text').isString() && newData.child('text').val().length <= 200 && newData.child('ts').isNumber() && newData.hasChild('uid') && (newData.child('uid').val() == $userId || root.child('users').child($userId).child('friends').child(newData.child('uid').val()).exists()))",
             "name": { ".validate": true },
             "text": { ".validate": true },
