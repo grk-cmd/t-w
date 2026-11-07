@@ -237,15 +237,38 @@ else{
 /* 배선 */
 /* 끌 때 창 자리를 다시 재지 않는다 — 액정타블렛을 꺼 둔 채 켜면 런처가 주 모니터로 당겨져 뜨는데, 끌 때 그 자리로 덮으면
    타블렛을 다시 켜도 주 모니터에서 뜬다. 런처 자리는 사용자가 옮길 때('moved')만 적는다 */
-const quitReads = (src) => {
+/* 끄는 두 길을 실제로 돌린다 — 부르는 함수는 main.js 에서 그 이름의 함수를 꺼내 같은 무대에서 돌린다(도움 함수를 거쳐도 잡는다) */
+const runQuit = (src) => {
+  const st = { reads: 0, saved: 0, err: [] };
+  const win = { isDestroyed: () => false, isMinimized: () => false, destroy(){}, getBounds(){ st.reads++; return { x: 50, y: 60, width: 380, height: 680 }; } };
+  const mocks = { mainWindow: win, savedPos: { launcher: { x: 1, y: 1 }, creator: null }, _isConfigMode: true, _cfgMode: 'launcher',
+    sysinput: { stopGlobalHooks(){} }, _cursorWatchTimer: null, _pollTimer: null, _lagTimer: null, clearInterval(){}, clearTimeout(){},
+    BrowserWindow: { getAllWindows: () => [win] }, app: { exit(){}, on(ev, fn){ if(ev === 'before-quit') st.bq = fn; } },
+    _launcherPosSaveT: null, _launcherPosSaved: { x: 1, y: 1 }, saveSettings(){ st.saved++; return true; }, _diagLog(){}, LAUNCHER_POS_MAX: 100000 };
+  const cache = {};
+  const scope = new Proxy(mocks, {
+    has: (t, k) => typeof k === 'string' && (k in t || !!grabFn(src, k)),
+    get: (t, k) => {
+      if(k === Symbol.unscopables) return undefined;
+      if(k in t) return t[k];
+      if(!cache[k]) cache[k] = new Function('__s', 'with(__s){ return (' + grabFn(src, k) + '); }')(scope);
+      return cache[k];
+    },
+    set: (t, k, v) => { t[k] = v; return true; },
+  });
+  const sp0 = JSON.stringify(mocks.savedPos.launcher);
+  try{ scope._exitNow(); }catch(e){ st.err.push('exit ' + e.message); }
   const bq = src.indexOf("app.on('before-quit'");
-  const bqLine = bq < 0 ? '' : src.slice(bq, src.indexOf('\n', bq));
-  return /getBounds/.test((grabFn(src, '_exitNow') || '') + (grabFn(src, '_flushLauncherPos') || '') + bqLine);
+  try{ new Function('__s', 'with(__s){ ' + src.slice(bq, src.indexOf('\n', bq)) + '\n}')(scope); st.bq(); }catch(e){ st.err.push('bq ' + e.message); }
+  st.kept = JSON.stringify(mocks.savedPos.launcher) === sp0;
+  return st;
 };
-chk(!quitReads(MAIN), '끌 때(_exitNow · before-quit)는 창 자리를 다시 재지 않는다 — 타블렛을 꺼 둔 날 당겨진 자리로 덮지 않게');
-chk(quitReads(MAIN.replace('function _exitNow(){', 'function _exitNow(){ mainWindow.getBounds();'))
-  && quitReads(MAIN.replace("app.on('before-quit', () => {", "app.on('before-quit', () => { mainWindow.getBounds();")),
-  '  깨 보기 — 끄는 두 길 어디든 창 자리를 다시 읽으면 빨강');
+const Q0 = runQuit(MAIN);
+chk(!Q0.err.length && Q0.reads === 0 && Q0.kept && Q0.saved === 0, '끌 때(_exitNow · before-quit 를 실제로 돌림)는 창 자리를 다시 재지 않고 기억한 런처 자리도 그대로 — 타블렛을 꺼 둔 날 당겨진 자리로 덮지 않게' + (Q0.err.length ? ' — ' + Q0.err.join(' · ') : ''));
+const helper = "function _remQ(){ const b = mainWindow.getBounds(); savedPos.launcher = { x: b.x, y: b.y }; }\n";
+const QB1 = runQuit(helper + MAIN.replace('try{ _flushLauncherPos(); }catch(_){}', 'try{ _remQ(); _flushLauncherPos(); }catch(_){}'));
+const QB2 = runQuit(helper + MAIN.replace("try { _flushLauncherPos(); } catch (_) {} });", "try { _remQ(); _flushLauncherPos(); } catch (_) {} });"));
+chk(QB1.reads > 0 && !QB1.kept && QB2.reads > 0 && !QB2.kept, '  깨 보기 — 끄는 두 길 어디든 도움 함수를 거쳐 창 자리를 다시 재면 빨강(_exitNow ' + QB1.reads + ' · before-quit ' + QB2.reads + ')');
 const acm = grabFn(MAIN, '_applyConfigMode') || '';
 chk(/if\(isConfig\) _cfgMode = MODE_SIZE\[mode\] \? mode : 'launcher';/.test(acm) && acm.indexOf('_cfgMode = ') < acm.indexOf('_fitConfigRect(') && acm.indexOf('_cfgMode = ') < acm.indexOf('setBounds('),
   '_applyConfigMode 가 창을 맞추기 전에 모드를 건다(맥은 setBounds 중에도 \'moved\' 가 온다)');
