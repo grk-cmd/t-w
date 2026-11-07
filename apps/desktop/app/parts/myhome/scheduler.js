@@ -1040,10 +1040,10 @@ function _bellWinOpen(){
   return !!(w && w.style.display !== 'none');
 }
 
-/* 알림 개수 = 오늘 내 일정 + 친구 태그 알림. 뱃지는 "마지막으로 창을 연 시각 이후" 것만 셈. */
 /* 🙋 초대 줄이 바뀌면 뱃지 · 열린 창을 다시 — 여기서 듣는다(초대 줄 모듈이 이 파일을 모르게) */
 roomInvite.subscribe(()=>{ refreshBellBadge(); if(_bellWinOpen()) renderBellList(); });
 
+/* 알림 개수 = 오늘 내 일정 + 친구 태그 알림 + 수령함 + 새 방 초대. 뱃지는 "마지막으로 창을 연 시각 이후" 것만 셈. */
 function refreshBellBadge(){
   const badge = document.getElementById('myBellBadge');
   if(!badge) return;
