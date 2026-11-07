@@ -106,7 +106,7 @@ say('── 4. 💭 머리 위 상태 말풍선 — 설정으로 끄기 · 눌�
   /* 실제로 한 좌석의 흐름을 흉내 — app.js 는 상태면 think=true, 채팅이면 think 없이 setSeatHeadBubble 을 부른다 */
   const run = (gate) => {
     const seat = {}, shown = [];
-    const frame = (text, think) => { const t = think ? gate(seat, text, true) : text; shown.push(t); if(!think) return; seat._last = t; };
+    const frame = (text, think) => { const t = think ? gate(seat, text) : text; shown.push(t); if(!think) return; seat._last = t; };
     frame('📱 procreate', true);                       // 1 상태
     seat._statusDismissedFor = '📱 procreate';          // 눌러 지움(dismissSeatHeadBubble 이 적는 값)
     frame('📱 procreate', true);                       // 2 지운 뒤
@@ -121,9 +121,10 @@ say('── 4. 💭 머리 위 상태 말풍선 — 설정으로 끄기 · 눌�
   chk(R[2] === '안녕', '  채팅 말풍선은 그대로 뜬다');
   chk(R[3] === null, '★ 채팅이 끝나 같은 상태로 돌아와도 다시 안 뜬다(예전엔 채팅이 기억을 지워 다시 떴다)');
   chk(R[4] === '📱 clip studio' && R[5] === '📱 procreate', '  다른 상태(다른 앱)가 오면 다시 보인다 — 그 뒤엔 처음 앱도 새로 보인다');
-  const s2 = {};
-  chk(G(s2, '📱 procreate', false) === null && G(s2, null, true) === null, '★ 설정에서 끄면 상태 말풍선은 안 뜬다(채팅은 이 판정을 안 지난다)');
-  chk(/if\(think\) text = statusBubbleGate\(seat, text, statusBubbleEnabled\);/.test(MOD) && /if\(seat\._lastBubbleThink && seat\._lastBubble\) seat\._statusDismissedFor = seat\._lastBubble;/.test(MOD),
+  const iChat = SRC.indexOf('else if(_chatting){ overheadMod.setSeatHeadBubble(seat, seat.chatBubbleText); }'), iOff = SRC.indexOf('else if(!overheadMod.statusBubbleEnabled()){ overheadMod.setSeatHeadBubble(seat, null); }'),
+    iSt = SRC.indexOf('overheadMod.setSeatHeadBubble(seat, _conf ? _conf.label : focusLevelMod._mobileBubbleText(_mobApp), true)');
+  chk(iChat > 0 && iOff > iChat && iSt > iOff, '★ 설정에서 끄면 상태 말풍선은 안 뜬다 — app.js 말풍선 갈래(채팅 다음 · 상태 앞)가 정한다(무엇을 보일지는 한 곳)');
+  chk(/if\(think\) text = statusBubbleGate\(seat, text\);/.test(MOD) && /if\(seat\._lastBubbleThink && seat\._lastBubble\) seat\._statusDismissedFor = seat\._lastBubble;/.test(MOD),
     '  배선 — 상태(think)만 판정을 지난다 · 상태 말풍선을 지우면 기억한다');
   chk(/overheadMod\.setSeatHeadBubble\(seat, _conf \? _conf\.label : focusLevelMod\._mobileBubbleText\(_mobApp\), true\)/.test(SRC) && /else if\(_chatting\)\{ overheadMod\.setSeatHeadBubble\(seat, seat\.chatBubbleText\); \}/.test(SRC),
     '  app.js — 상태 갈래만 think=true · 채팅 갈래는 think 없음');

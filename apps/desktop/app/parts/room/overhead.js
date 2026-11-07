@@ -11,13 +11,11 @@
    검사: checks/sim-overhead.js */
 (function(){
 
-/* 💭 상태 말풍선(«📱 앱» · 내 상태)을 이번에 무엇으로 보일지 — 순수(sim-overhead 4절).
-   ・설정에서 끄면(enabled=false) 상태 말풍선은 안 뜬다 — 채팅 말풍선은 이 판정을 지나지 않는다(think 아님).
-   ・눌러 지운 상태(seat._statusDismissedFor)는 그 상태가 이어지는 동안 채팅 · 다른 조작 뒤에도 다시 안 뜬다.
-     다른 상태(다른 앱 · 다른 문구)가 오면 기억을 지우고 다시 보인다. */
+/* 눌러 지운 상태 말풍선(«📱 앱» · 내 상태)의 기억 — 순수(sim-overhead 4절). 지운 그 상태(seat._statusDismissedFor)가
+   이어지는 동안 채팅 · 다른 조작 뒤에도 다시 안 뜬다. 다른 상태(다른 앱 · 다른 문구)가 오면 기억을 지우고 다시 보인다.
+   ⚠️ «설정에서 상태 말풍선 끔» 은 여기가 아니라 부르는 쪽(app.js 말풍선 갈래)이 정한다 — 무엇을 보일지는 app.js 한 곳. */
 const STATUS_BUBBLE_KEY = 'tw.statusBubble';   // 💭 머리 위 상태 말풍선 — 설정 › 디스플레이(이 PC 에만 · 기본 켜짐)
-function statusBubbleGate(seat, text, enabled){
-  if(!enabled) return null;
+function statusBubbleGate(seat, text){
   if(seat._statusDismissedFor === undefined) return text;
   if(text !== seat._statusDismissedFor){ seat._statusDismissedFor = undefined; return text; }
   return null;
@@ -480,7 +478,7 @@ function _bubSnapTransform(el, invert){
 }
 function setSeatHeadBubble(seat, text, think){
   const el=ensureSeatBubbleEl(seat); if(!el) return;
-  if(think) text = statusBubbleGate(seat, text, statusBubbleEnabled);   // 💭 상태 말풍선만 — 설정 끔 · 눌러 지운 상태 기억
+  if(think) text = statusBubbleGate(seat, text);   // 상태 말풍선만 — 눌러 지운 상태 기억(채팅 뒤에도)
   /* 🏢 회사원 모드 — 같은 요소를 '한 줄 라벨' 모양으로 바꾼다.
      ⚠️ 글자 변환을 아래 dismiss·중복 판정보다 **먼저** 해야 한다. 모드를 켜고 끄면 같은 대사라도
         표시 문자열이 달라지는데, 뒤에서 바꾸면 seat._lastBubble 비교가 예전 문자열을 물고 있어
