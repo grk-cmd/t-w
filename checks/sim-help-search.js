@@ -89,6 +89,8 @@ const CASES = [
   ['유튜브가 검게 변해요', (r) => r.answer.faq && r.answer.p === '5-1' && /^\[Windows\] /.test(r.answer.h), '영상 검게 FAQ → 5-1 › 영상 겹침 실험 · [Windows]'],
   ['포커스 시간이 안 쌓여요', (r) => r.answer.faq && r.answer.p === '5-3', '포커스 FAQ → 5-3. 포커싱 탭'],
   ['라이선스 키 등록', (r) => r.answer.faq && r.answer.p === '5-5', '라이선스 FAQ → 5-5 › 라이선스'],
+  ['파이널판타지14 포커스가 안 잡혀요', (r) => r.answer.faq && r.answer.p === '5-3' && /관리자 권한/.test(r.answer.t), '게임 감지 FAQ → 5-3 · 관리자 권한'],
+  ['레벨이 안 올라요', (r) => r.answer.faq && r.answer.p === '5-2' && /피규어 모드/.test(r.answer.t), '레벨 안 오름 FAQ → 5-2 › 피규어 모드'],
 ];
 for (const [q, ok, want] of CASES){
   const r = C.search(P, q);
