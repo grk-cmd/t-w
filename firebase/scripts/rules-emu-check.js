@@ -544,14 +544,14 @@ const BUG_VIS_CASES = [
   ['글쓴이 — 상태를 «검토중» 으로 바꾸기는 막힘', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/userReplyTs']: { '.sv': 'timestamp' } }, false, VU],
 ];
 
-/* 📖 방명록 · 🎁 말랑이 선물함 — 쓰기 · 지우기는 신원(로그인)으로. 손님 앱이 30개 넘은 옛 글을 정리하는 길(옛 앱 포함)은 남긴다 */
+/* 📖 방명록 · 🎁 말랑이 선물함 — 쓰기 · 지우기는 신원(로그인)으로. 방명록 지우기는 주인 · 글쓴이만(옛 앱 손님의 30개 정리도 막힌다 — 새 앱은 주인이 정리) */
 const GB_O = 'uguestown001', GB_F = 'uguestfrd001', GB_X = 'uguestbad001';
 const GB = (id) => `users/${GB_O}/guestbook/${id}`;
 const GBE = (uid, n) => ({ name: '손님' + n, text: '안녕 ' + n, ts: Date.now() - n, uid });
 const MG_S = 'umallsend001', MG_R = 'umallrecv001';
 const MG = (id) => `users/${MG_R}/mallangGifts/${id}`;
 const GIFT = (from) => ({ imgUrl: URL_S, fromName: '보냄', fromId: from, ts: 1 });
-const WEEK_AGO = Date.now() - 8 * 24 * 3600 * 1000;   // 7일 넘은 글 — 옛 앱 손님이 30개 정리로 지우는 글
+const WEEK_AGO = Date.now() - 8 * 24 * 3600 * 1000;   // 오래된 글 — 옛 앱 손님이 30개 정리로 지우려는 모양(이제 막힌다)
 const GB_CASES = [
   ['준비: 방명록 · 선물 — 로그인 연결 · 친구', 'PATCH', '', { [`userAuth/${GB_O}`]: 'authGbO', [`userAuth/${GB_F}`]: 'authGbF', [`userAuth/${GB_X}`]: 'authGbX',
     [`userAuth/${MG_S}`]: 'authMgS', [`userAuth/${MG_R}`]: 'authMgR',
@@ -566,13 +566,13 @@ const GB_CASES = [
   ['방명록 — 글쓴이 본인이 지우기', 'DELETE', GB('g1'), null, true, 'authGbF'],
   ['준비: 방명록 글 하나 더', 'PUT', GB('g4'), GBE(GB_F, 4), true, OWNER],
   ['방명록 — 주인이 남의 글 지우기', 'DELETE', GB('g4'), null, true, 'authGbO'],
-  ['준비: 방명록 — 7일 넘은 글 둘 · 최근 글 하나', 'PATCH', '', { [GB('old1')]: Object.assign(GBE(GB_F, 11), { ts: WEEK_AGO }), [GB('old2')]: Object.assign(GBE(GB_F, 12), { ts: WEEK_AGO }), [GB('new1')]: Object.assign(GBE(GB_F, 13), { ts: Date.now() }) }, true, OWNER],
-  ['방명록 — 로그인 없이 7일 넘은 글 지우기는 막힘', 'DELETE', GB('old1'), null, false],
-  ['방명록 — 친구가 아닌 사람은 7일 넘은 글도 못 지운다', 'DELETE', GB('old1'), null, false, 'authGbN'],
-  ['방명록 — 로그인 코드를 모르는 사람(authUsers 없음)은 7일 넘은 글도 못 지운다', 'DELETE', GB('old1'), null, false, 'authGbZ'],
-  ['방명록 — 친구 손님도 7일 넘은 남의 글을 못 지운다(옛 앱 30개 정리 포함 — 지우기는 주인 · 글쓴이만)', 'PATCH', '', { [GB('old1')]: null, [GB('old2')]: null }, false, 'authGbX'],
-  ['방명록 — 주인은 7일 넘은 글을 지운다(새 앱 주인 정리)', 'PATCH', '', { [GB('old1')]: null, [GB('old2')]: null }, true, 'authGbO'],
-  ['방명록 — 손님이 7일 안 된 남의 글 지우기는 막힘', 'DELETE', GB('new1'), null, false, 'authGbX'],
+  ['준비: 방명록 — 오래된 글 둘 · 최근 글 하나', 'PATCH', '', { [GB('old1')]: Object.assign(GBE(GB_F, 11), { ts: WEEK_AGO }), [GB('old2')]: Object.assign(GBE(GB_F, 12), { ts: WEEK_AGO }), [GB('new1')]: Object.assign(GBE(GB_F, 13), { ts: Date.now() }) }, true, OWNER],
+  ['방명록 — 로그인 없이 오래된 글 지우기는 막힘', 'DELETE', GB('old1'), null, false],
+  ['방명록 — 친구가 아닌 사람은 오래된 남의 글을 못 지운다', 'DELETE', GB('old1'), null, false, 'authGbN'],
+  ['방명록 — 로그인 코드를 모르는 사람(authUsers 없음)은 오래된 남의 글을 못 지운다', 'DELETE', GB('old1'), null, false, 'authGbZ'],
+  ['방명록 — 친구 손님도 오래된 남의 글을 못 지운다(옛 앱 30개 정리 포함 — 지우기는 주인 · 글쓴이만)', 'PATCH', '', { [GB('old1')]: null, [GB('old2')]: null }, false, 'authGbX'],
+  ['방명록 — 주인은 오래된 글을 지운다(새 앱 주인 정리)', 'PATCH', '', { [GB('old1')]: null, [GB('old2')]: null }, true, 'authGbO'],
+  ['방명록 — 손님이 최근 남의 글 지우기는 막힘', 'DELETE', GB('new1'), null, false, 'authGbX'],
   ['선물 — 보낸 사람이 자기 이름으로 보내기', 'PUT', MG('m1'), GIFT(MG_S), true, 'authMgS'],
   ['선물 — 남의 이름(fromId)으로 보내기는 막힘', 'PUT', MG('m2'), GIFT(MG_S), false, 'authGbX'],
   ['선물 — 이미 받은 선물을 남이 덮어쓰기는 막힘', 'PUT', MG('m1'), GIFT(MG_S), false, 'authMgS'],
