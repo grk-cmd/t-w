@@ -282,15 +282,17 @@
     return (ver ? 'v' + ver + ' · ' : '') + os;
   }
   /* 🔎 비슷한 제보 창 — 제목이 비슷한 글(bug-board.js similarTo)을 목록 줄 모양 그대로 보여 준다.
-     [그래도 제보하기] 는 비교 없이 다시 올리기 · [취소] · × · Esc 는 쓰던 글을 그대로 두고 창만 닫는다. */
+     [그래도 제보하기] 는 비교 없이 다시 올리기 · [취소] · × · Esc 는 쓰던 글을 그대로 두고 창만 닫는다.
+     ⚠️ 여닫힘은 .on — ESC 스택(shared/win-stack.js ESC_YIELD_SEL)이 이 칸이 «보이는 동안» 마이홈을 닫지 않고 양보한다. */
   function showSimilar(title, items){
     $('bbSimLead').textContent = '쓰신 제목 «' + title + '» 와 비슷한 제보가 이미 올라와 있어요.';
     $('bbSimRows').innerHTML = items.map(rowHtml).join('');
-    $('bbSimilar').style.display = '';
+    $('bbSimilar').classList.add('on');
     $('bbSimCancel').focus();
   }
-  function hideSimilar(){ $('bbSimilar').style.display = 'none'; }
-  const similarOpen = () => $('bbSimilar').style.display !== 'none';
+  function hideSimilar(){ $('bbSimilar').classList.remove('on'); }
+  // 보이는 동안만 «열림» — 마이홈을 닫거나 다른 탭으로 옮기면 숨은 채 남은 칸이 Esc 를 가로채지 않게
+  const similarOpen = () => $('bbSimilar').classList.contains('on') && $('bbSimilar').offsetParent !== null;
   async function submitWrite(btn, skipSimilar){
     const err = $('bbWErr');
     const notice = admin() && $('bbWNotice').checked;
@@ -305,6 +307,7 @@
       let sim = [];
       try{ sim = await api().similarTo(p.title); }catch(_){ sim = []; }   // 못 받으면 창 없이 올린다 — 비교는 안내라 올리기를 막지 않는다
       btn.disabled = false;
+      if($('bbWriteView').style.display === 'none') return;   // 찾는 동안 [취소] 로 떠났으면 올리지도 띄우지도 않는다
       if(sim.length){ showSimilar(p.title.trim(), sim); return; }
     }
     if($('bbWEnv').checked) p.env = await envString();
@@ -371,9 +374,9 @@
     $('bbSimRows').addEventListener('click', (e) => {
       const row = e.target.closest('.bb-row[data-id]'); if(row) openPost(row.dataset.id);
     });
-    // Esc 는 이 창만 닫는다(마이홈 창까지 닫히지 않게 먼저 받는다)
+    // Esc 는 이 창만 닫는다 — ESC 스택은 ESC_YIELD_SEL 로 양보하고 여기서 받는다
     document.addEventListener('keydown', (e) => {
-      if(e.key === 'Escape' && similarOpen()){ e.stopImmediatePropagation(); e.preventDefault(); hideSimilar(); }
+      if(e.key === 'Escape' && similarOpen()){ e.preventDefault(); hideSimilar(); }
     }, true);
     $('bbWNotice').addEventListener('change', (e) => {
       // 공지는 공개 글이다 — 고르는 동안 공개 범위를 공개로 묶는다

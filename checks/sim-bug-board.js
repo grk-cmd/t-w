@@ -494,7 +494,7 @@ say('§8 비슷한 제보');
   /* 깨 보기 — 규칙을 망가뜨린 모듈로 다시 고르면 위 판정이 깨지는가 */
   const mut = (from, to) => { if(!BB.includes(from)) return null; return new Function(BB.replace(from, to).replace(/^export (function|const) /mg, '$1 ') + '\nreturn { similarPosts, titleWords };')(); };
   const red = (X) => {
-    if(!X) return true;
+    if(!X) return false;   // 바꿔 칠 글을 못 찾음 — 조용히 «통과» 하지 않게 빨강
     const g = X.similarPosts('레벨이 안 올라가요', items).map(it => it.id), g2 = X.similarPosts('플레이리스트 재생 문제', items).map(it => it.id);
     return g.length !== 3 || g.includes('d') || g.includes('e') || new Set(g).size !== 3 || g2.join() !== 'e' || X.titleWords('키보드 입력이 안돼요').join() !== '키보드,입력' || X.titleWords('맥 키보드 입력 오류').join() !== '키보드,입력';
   };
@@ -538,7 +538,36 @@ say('§8 비슷한 제보');
     '  [그래도 제보하기] = 비교 없이 올리기 · [취소] · × = 창만 닫기(쓰던 글 그대로)');
   chk(/\$\('bbSimRows'\)\.innerHTML = items\.map\(rowHtml\)\.join\(''\);/.test(UI) && /\$\('bbSimLead'\)\.textContent = /.test(UI), '  줄은 목록 줄 모양 그대로(상태 칩 · 비공개 잠금) · 안내 글은 textContent');
   const sh = (UI.match(/function show\(view\)\{[\s\S]*?\n  \}/) || [''])[0];
-  chk(/hideSimilar\(\);/.test(sh) && /if\(e\.key === 'Escape' && similarOpen\(\)\)\{ e\.stopImmediatePropagation\(\);/.test(UI), '  화면을 바꾸면 · Esc 면 창을 닫는다(Esc 는 마이홈 창까지 안 닫히게 먼저 받음)');
+  chk(/hideSimilar\(\);/.test(sh) && /classList\.contains\('on'\) && \$\('bbSimilar'\)\.offsetParent !== null/.test(UI), '  화면을 바꾸면 닫는다 · «열림» 은 보이는 동안만(마이홈을 닫거나 탭을 옮기면 숨은 칸이 Esc 를 가로채지 않음)');
+  chk(/if\(\$\('bbWriteView'\)\.style\.display === 'none'\) return;/.test(sw) && sw.indexOf("if($('bbWriteView').style.display === 'none') return;") < sw.indexOf('if(sim.length)'), '  찾는 동안 [취소] 로 떠났으면 올리지도 띄우지도 않는다');
+  /* ★ Esc — 진짜 ESC 스택(win-stack.js)과 이 화면의 Esc 처리기를 싣는 순서대로 걸고 눌러 본다 */
+  const WS = read('win-stack.js');
+  const escH = (UI.match(/document\.addEventListener\('keydown', \(e\) => \{\n\s*if\(e\.key === 'Escape' && similarOpen\(\)\)\{[^\n]*\n\s*\}, true\);/) || [''])[0];
+  const escRun = (wsSrc) => {
+    const st = { mh: true, tab: true, sim: true }, closes = { mh: 0 };
+    const L = [];
+    const visible = () => st.sim && st.mh && st.tab;
+    const doc = { addEventListener: (t, f) => { if (t === 'keydown') L.push(f); }, getElementById: () => null,
+      querySelector: (sel) => sel.split(', ').some(x => x === '#myHomeOverlay.on #mhPageBugreport.on #bbSimilar.on' && visible()) ? {} : null };
+    const win = { __winPosResetters: [] };
+    new Function('window', 'document', 'MutationObserver', wsSrc)(win, doc, class { observe(){} });
+    win.TwWinStack.createWinStack({}).escRegisterWindow({ key: 'myHome', el: {}, isOpen: () => st.mh, close: () => { st.mh = false; closes.mh++; } });
+    new Function('document', 'similarOpen', 'hideSimilar', escH)(doc, visible, () => { st.sim = false; });
+    const press = () => { const e = { key: 'Escape', target: { tagName: 'DIV' }, defaultPrevented: false, preventDefault(){ this.defaultPrevented = true; }, stopPropagation(){} }; L.forEach(f => f(e)); };
+    press(); const r1 = { sim: st.sim, mh: st.mh };
+    press(); const r2 = { mh: st.mh };
+    st.mh = true; st.sim = true; st.tab = false; press(); const r3 = { mh: st.mh };
+    return { r1, r2, r3, n: L.length };
+  };
+  if (!WS || !escH) chk(false, '  Esc 흉내 — win-stack.js 나 Esc 처리기를 못 찾음');
+  else {
+    const R = escRun(WS);
+    chk(R.n === 2 && R.r1.sim === false && R.r1.mh === true, '★ Esc 한 번 — «비슷한 제보» 창만 닫히고 마이홈 창은 그대로(ESC 스택이 양보)');
+    chk(R.r2.mh === false, '  Esc 한 번 더 — 그때 마이홈 창이 닫힌다');
+    chk(R.r3.mh === false, '  다른 마이홈 탭으로 옮긴 뒤(창이 숨음) Esc — 숨은 칸이 가로채지 않고 마이홈이 닫힌다');
+    const noYield = WS.replace("  '#myHomeOverlay.on #mhPageBugreport.on #bbSimilar.on',", '');
+    chk(noYield !== WS && escRun(noYield).r1.mh === false, '  ↳ 깨 보기 — ESC_YIELD_SEL 줄을 빼면 Esc 한 번에 마이홈까지 닫힌다(빨강)');
+  }
   const sim = (HTML.match(/<div id="bbSimilar"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/) || [''])[0];
   chk(HTML.indexOf('id="bbSimilar"') > HTML.indexOf('id="bbWriteView"') && /role="dialog"/.test(sim) && /id="bbSimRows"/.test(sim) && /그래도 제보하기/.test(sim) && /id="bbSimCancel"/.test(sim),
     '  html — 게시판 안을 덮는 칸(따로 창 없음) · 그래도 제보하기 · 취소');

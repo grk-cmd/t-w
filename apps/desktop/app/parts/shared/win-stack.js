@@ -133,6 +133,7 @@ const ESC_CLOSE_ORDER = 'lifo';   // 'lifo' = 마지막에 연 것부터 · 'fif
 const ESC_YIELD_SEL = [
   '#mhFriendSearch.on',       // 🔍 마이홈 친구검색 줄 — 자기 캡처 핸들러가 먼저 닫는다
   '#myHomeOverlay.on #mhRoomPreview.mhd-ff-arrange',   // 📂 폴더 자유배치 중 — folder-free.js 가 window 캡처에서 먼저 끝낸다
+  '#myHomeOverlay.on #mhPageBugreport.on #bbSimilar.on',   // 🔎 버그제보 «비슷한 제보» 창 — bug-board-ui.js 가 이 창만 닫는다
 ].join(', ');
 const _escWins  = [];   // 등록된 창 — [{key, el, isOpen, close}]
 const _escOrder = [];   // 열린 순서대로 쌓인 key

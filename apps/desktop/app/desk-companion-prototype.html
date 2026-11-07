@@ -3408,7 +3408,8 @@
     box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);border-radius:var(--win-radius-el) !important;}
   #mhPageScheduler{position:relative;}
   #bbBoard{max-width:640px;margin:0 auto;font-size:11.5px;color:var(--ink);height:100%;position:relative;}
-  .bb-sim{position:absolute;inset:0;z-index:5;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.25);}
+  .bb-sim{position:absolute;inset:0;z-index:5;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.25);}
+  .bb-sim.on{display:flex;}
   .bb-sim-box{width:min(460px,94%);max-height:94%;overflow-y:auto;padding:10px 12px;background:var(--win-face);border:2px solid;
     border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .bb-sim-head{display:flex;align-items:center;justify-content:space-between;font-weight:bold;margin-bottom:6px;}
@@ -6167,7 +6168,7 @@
           </div>
         </div>
         <!-- 🔎 비슷한 제보 — [등록] 을 누르면 제목이 비슷한 글을 먼저 보여 준다(bug-board-ui.js · bug-board.js similarTo). 탭 안을 덮는 칸이라 따로 창을 띄우지 않는다 -->
-        <div id="bbSimilar" class="bb-sim" role="dialog" aria-modal="true" aria-labelledby="bbSimHead" style="display:none;">
+        <div id="bbSimilar" class="bb-sim" role="dialog" aria-modal="true" aria-labelledby="bbSimHead">
           <div class="bb-sim-box">
             <div class="bb-sim-head"><span id="bbSimHead">🐞 비슷한 제보가 이미 있어요</span><button id="bbSimX" class="bb-sim-x" type="button" aria-label="닫기">×</button></div>
             <div class="bb-sim-lead" id="bbSimLead"></div>
