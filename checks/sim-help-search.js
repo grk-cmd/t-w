@@ -48,6 +48,9 @@ chk(IX.faq.length >= 5 && IX.faq.every(f => f.q.length && f.t && IX.pages.some(p
   chk(IX.faq.every((f, i) => f.h === '[' + FAQ_SRC[i].tag + '] ' + f.q[0]) && IX.faq.some(f => /^\[mac\] /.test(f.h)) && IX.faq.some(f => /^\[공통\] /.test(f.h)), '★ FAQ 제목에 꼬리표 — «[공통] …» · «[mac] …»(검색 답 · FAQ 페이지 같은 글)');
   const FH = fs.readFileSync(path.join(DIR, 'faq.html'), 'utf8');
   chk(IX.faq.every((f, i) => FH.includes('<h2 id="f' + (i + 1) + '">' + f.h.replace(/&/g, '&amp;') + '</h2>')), '  FAQ 페이지 소제목도 꼬리표가 붙은 같은 글');
+  const more = IX.faq.filter(f => f.m && f.m.length);
+  chk(more.length >= 3 && more.every(f => f.m.every(x => IX.pages.some(p => p.s === x.p) && (!x.a || html[x.p].includes(' id="' + x.a + '"')) && FH.includes('href="/' + x.p + (x.a ? '#' + x.a : '') + '"'))),
+    '★ 함께 볼 자리(more) ' + more.length + '개 FAQ — 가리키는 편 · 소제목이 있고 FAQ 페이지에 🔗 링크로 붙는다');
 }
 const heads = ['index'].concat(slugs).map(s => (fs.readFileSync(path.join(DIR, s + '.html'), 'utf8').match(/<header class="bar">[\s\S]*?<\/header>/) || [''])[0]);
 chk(new Set(heads).size === 1 && /href="\/" aria-current="page">도움말<\/a><a href="\/faq">FAQ</.test(heads[0]), '위 띠(헤더)가 목차 · 편 모두 같은 모양 — [도움말](지금) · [FAQ] 탭');
@@ -91,6 +94,11 @@ const CASES = [
   ['라이선스 키 등록', (r) => r.answer.faq && r.answer.p === '5-5', '라이선스 FAQ → 5-5 › 라이선스'],
   ['파이널판타지14 포커스가 안 잡혀요', (r) => r.answer.faq && r.answer.p === '5-3' && /관리자 권한/.test(r.answer.t), '게임 감지 FAQ → 5-3 · 관리자 권한'],
   ['레벨이 안 올라요', (r) => r.answer.faq && r.answer.p === '5-2' && /피규어 모드/.test(r.answer.t), '레벨 안 오름 FAQ → 5-2 › 피규어 모드'],
+  ['아이패드 연결이 풀려요', (r) => r.answer.faq && r.answer.p === '5-3' && /연결 안 됨/.test(r.answer.t) && /QR 다시 보기/.test(r.answer.t) && /신호 보내 보기/.test(r.answer.t) && /즉시 실행/.test(r.answer.t), '태블릿 FAQ → 5-3 · «연결 안 됨» 이면 QR(연결했으면 QR 다시 보기) · 신호 보내 보기 · «쉬는 중» 이면 단축어 설정'],
+  ['창 위치 초기화', (r) => r.answer.faq && r.answer.p === '5-1', '«창 위치 초기화» → 모니터 FAQ'],
+  ['창이 화면 밖으로 나갔어요', (r) => r.answer.faq && r.answer.p === '5-1' && /창 위치 초기화/.test(r.answer.t), '창 밖 → 모니터 FAQ(창 위치 초기화)'],
+  ['모자가 머리를 뚫어요', (r) => r.answer.faq && r.answer.p === '6-3', '파츠 FAQ → 6-3. 위치 · 회전 · 크기'],
+  ['듀얼 모니터', (r) => r.answer.faq && r.answer.p === '5-1' && /모니터 선택/.test(r.answer.t), '모니터 FAQ → 5-1 › 디스플레이 탭'],
 ];
 for (const [q, ok, want] of CASES){
   const r = C.search(P, q);
@@ -178,6 +186,8 @@ try {
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { page: '99' }))), '  FAQ 편 오타 — 만들 때 멈춘다');
   chk(bad(faq.map((f, i) => { if(i) return f; const g = Object.assign({}, f); delete g.tag; return g; })), '  FAQ 꼬리표가 빠지면 — 만들 때 멈춘다');
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { tag: 'Mac' }))), '  FAQ 꼬리표가 모르는 값(Mac) — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { more: [{ page: '6-3', section: '없는 소제목' }] }))), '  함께 볼 자리 소제목 오타 — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { more: [{ page: '99' }] }))), '  함께 볼 자리 편 오타 — 만들 때 멈춘다');
   fs.writeFileSync(path.join(D, 'faq.json'), JSON.stringify(faq.map((f, i) => i ? f : Object.assign({}, f, { a: '<img src=x onerror=alert(1)>' }))));
   const evil = build(tmp)['firebase/hosting/help/faq.html'];
   chk(!evil.includes('<img src=x') && evil.includes('&lt;img src=x'), '  FAQ 답에 HTML 을 적어도 글자로만 나온다');

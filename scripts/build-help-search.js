@@ -37,15 +37,18 @@ function header(cur){
 }
 const withHeader = (html, cur) => html.replace(/<header class="bar">[\s\S]*?<\/header>/, header(cur));
 
-/* FAQ 페이지 — 질문 하나에 소제목 하나 · 답 · 그 내용이 있는 자리 링크 */
+/* FAQ 페이지 — 질문 하나에 소제목 하나 · 답 · 그 내용이 있는 자리 링크(+ 함께 볼 자리 more) */
 function faqPage(faq, pages, chunks){
+  const link = (p, a) => {
+    const pg = pages.find(x => x.s === p);
+    const c = a ? chunks.find(c => c.p === p && c.a === a) : null;
+    const where = p + '. ' + pg.t + (c ? ' › ' + c.h : '');
+    return '<p><a class="xref" href="/' + p + (a ? '#' + a : '') + '">🔗 ' + esc(where) + '</a></p>';
+  };
   const items = faq.map((f, i) => {
     const head = '<h2 id="f' + (i + 1) + '">' + esc(f.h) + '</h2>\n<p>' + esc(f.t) + '</p>';
-    if (f.p === 'faq') return head;
-    const pg = pages.find(p => p.s === f.p);
-    const c = f.a ? chunks.find(c => c.p === f.p && c.a === f.a) : null;
-    const where = f.p + '. ' + pg.t + (c ? ' › ' + c.h : '');
-    return head + '\n<p><a class="xref" href="/' + f.p + (f.a ? '#' + f.a : '') + '">🔗 ' + esc(where) + '</a></p>';
+    const links = (f.p === 'faq' ? [] : [link(f.p, f.a)]).concat((f.m || []).map(x => link(x.p, x.a)));
+    return links.length ? head + '\n' + links.join('\n') : head;
   }).join('\n\n');
   return ['<!doctype html>', '<html lang="ko">', '<head>', '<meta charset="utf-8">',
     '<meta name="viewport" content="width=device-width, initial-scale=1">', '<meta name="referrer" content="no-referrer">',
@@ -106,16 +109,19 @@ function build(root = process.cwd()){
   const faq = JSON.parse(read(FAQ)).map((f, i) => {
     if (FAQ_TAGS.indexOf(f.tag) < 0) throw new Error(FAQ + ' ' + (i + 1) + '번 — 꼬리표(tag)가 없거나 모르는 값 «' + f.tag + '» (' + FAQ_TAGS.join(' · ') + ')');
     const h = '[' + f.tag + '] ' + f.q[0];
-    if (!f.page) return { q: f.q, h, t: f.a, p: 'faq', a: 'f' + (i + 1) };
-    const page = pages.find(p => p.s === f.page);
-    if (!page) throw new Error(FAQ + ' ' + (i + 1) + '번 — 없는 편 «' + f.page + '»');
-    let a = '';
-    if (f.section){
-      const c = chunks.find(c => c.p === f.page && c.a && cleanHead(c.h.split(' › ').pop()) === f.section);
-      if (!c) throw new Error(FAQ + ' ' + (i + 1) + '번 — ' + f.page + ' 편에 «' + f.section + '» 소제목이 없다');
-      a = c.a;
-    }
-    return { q: f.q, h, t: f.a, p: f.page, a };
+    // 편 · 소제목 이름 → 자리(id). 없는 편 · 소제목이면 만들 때 멈춘다(링크가 빈 곳으로 가지 않게)
+    const at = (pageSlug, section) => {
+      if (!pages.some(p => p.s === pageSlug)) throw new Error(FAQ + ' ' + (i + 1) + '번 — 없는 편 «' + pageSlug + '»');
+      if (!section) return '';
+      const c = chunks.find(c => c.p === pageSlug && c.a && cleanHead(c.h.split(' › ').pop()) === section);
+      if (!c) throw new Error(FAQ + ' ' + (i + 1) + '번 — ' + pageSlug + ' 편에 «' + section + '» 소제목이 없다');
+      return c.a;
+    };
+    // 함께 볼 자리(more) — FAQ 페이지에만 링크를 더 단다(검색 답은 첫 자리 하나)
+    const m = (f.more || []).map(x => ({ p: x.page, a: at(x.page, x.section) }));
+    const extra = m.length ? { m } : {};
+    if (!f.page) return Object.assign({ q: f.q, h, t: f.a, p: 'faq', a: 'f' + (i + 1) }, extra);
+    return Object.assign({ q: f.q, h, t: f.a, p: f.page, a: at(f.page, f.section) }, extra);
   });
   files[HELP + '/index.html'] = withHeader(read(HELP + '/index.html'), 'help');
   files[FAQ_PAGE] = faqPage(faq, pages, chunks);
