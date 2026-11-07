@@ -210,8 +210,10 @@ say("── 6. 'moved' — 배율이 다른 모니터로 끌어도 런처 자리
 const movedSrc = grabFn(MAIN, '_movedMode'), quitSrc = grabFn(MAIN, '_rememberLauncherOnQuit');
 if(!movedSrc || !quitSrc){ huh('_movedMode / _rememberLauncherOnQuit 를 못 찾음'); fail++; }
 else{
+  const RATIO = Number((MAIN.match(/^const MOVED_SIZE_RATIO = ([\d.]+);/m) || [])[1]);   // 원본 상수 그대로 — 바꾸면 아래 판정이 따라간다
+  chk(RATIO === 2, '  크기 범위는 그 모드의 절반 ~ 두 배(MOVED_SIZE_RATIO = ' + RATIO + ') — 넓히면 전체화면 크기도 런처로 읽힌다');
   const mkMoved = (src) => new Function('MODE_SIZE', 'sizeToMode', '_modeSize', 'MOVED_SIZE_RATIO', src + '\nreturn _movedMode;')(
-    MODE_SIZE, sizeToMode, (m) => ({ w: MODE_SIZE[m].w, h: MODE_SIZE[m].h }), 2);
+    MODE_SIZE, sizeToMode, (m) => ({ w: MODE_SIZE[m].w, h: MODE_SIZE[m].h }), RATIO);
   const runMoved = (mv) => ({
     exact: mv(true, 'launcher', 380, 680),
     dpi: [mv(true, 'launcher', 570, 1020), mv(true, 'launcher', 253, 453), mv(true, 'launcher', 386, 690)],   // 150% · 67% 로 잘못 읽힘 · 몇 px 어긋남
