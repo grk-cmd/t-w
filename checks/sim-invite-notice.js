@@ -35,7 +35,8 @@ const mk = (src, opt) => {
   opt = opt || {};
   const st = { map: new Map(), changes: 0, t: 100, uid: 'me' };
   const storage = { getItem: (k) => st.map.has(k) ? st.map.get(k) : null, setItem: (k, v) => { if (opt.failSet) throw new Error('quota'); st.map.set(k, v); }, removeItem: (k) => st.map.delete(k) };
-  st.n = load(src).createInviteNotice({ storage, getMyUserId: () => st.uid, now: () => st.t, onChange: () => { st.changes++; } });
+  st.n = load(src).createInviteNotice({ storage, getMyUserId: () => st.uid, now: () => st.t });
+  st.n.subscribe(() => { st.changes++; });
   return st;
 };
 const run = (src) => {
@@ -59,7 +60,7 @@ const run = (src) => {
   return r;
 };
 const R = run(MOD);
-chk(R.first, '첫 초대 → 한 줄 · 받은 시각은 이 PC 시계 · onChange');
+chk(R.first, '첫 초대 → 한 줄 · 받은 시각은 이 PC 시계 · 듣는 쪽(subscribe)에 알림');
 chk(R.same, '★ 같은 초대가 다시 와도(구독이 다시 불림) 받은 시각을 안 바꾼다 — 알림콩이 되살아나지 않게');
 chk(R.replace, '★ 새 초대가 오면 그 줄을 덮는다(쌓지 않는다 — 저장 칸 하나)');
 chk(R.skew, '★ 보낸 쪽 시계가 틀려(보낸 시각이 더 이르게 찍혀도) 새로 온 초대면 줄이 바뀐다 — 시계가 틀린 친구 하나가 줄을 묶어 두지 않게');
@@ -76,7 +77,7 @@ say('── 3. 배선');
 const order = [...HTML.replace(/<!--[\s\S]*?-->/g, '').matchAll(/<script\b[^>]*\bsrc="parts\/([^"]+\.js)"/g)].map(m => m[1]);
 chk(order.indexOf('room/invite-notice.js') >= 0 && order.indexOf('room/invite-notice.js') < order.indexOf('app.js'), 'html — app.js 보다 먼저 싣는다');
 const iN = APP.indexOf('TwInviteNotice.createInviteNotice('), iS = APP.indexOf('MhScheduler.createScheduler(');
-chk(iN > 0 && iN < iS && /roomInvite: inviteNotice,/.test(APP) && /inviteNotice: inviteNotice,/.test(APP), 'app.js — 스케줄러보다 먼저 만들고 스케줄러 · 초대 받기에 같은 것을 넘긴다');
+chk(iN > 0 && iN < iS && /roomInvite: inviteNotice,/.test(APP) && /inviteNotice: inviteNotice,/.test(APP) && !/deps\.onChange/.test(MOD), 'app.js — 스케줄러보다 먼저 만들고 스케줄러 · 초대 받기에 같은 것을 넘긴다 · 줄이 바뀐 것은 듣는 쪽이 subscribe 로(이 모듈이 스케줄러를 모르게 — 순환 없음)');
 chk(/'tw\.roomInviteLast',/.test(ACC) && N.KEY === 'tw.roomInviteLast', '계정을 바꾸면 지운다(ACCOUNT_LOCAL_KEYS)');
 chk(/PRELOAD\.push\('invite-notice\.js'\)/.test(SMOKE), 'smoke 가 진짜로 싣는다');
 

@@ -38,7 +38,8 @@ const env = { toasts:[], started:[], left:0, focused:null, body:mkEl(), friend:n
 const document = { createElement: () => mkEl(), body: env.body };
 const esc = (s) => String(s).replace(/[&<>"']/g, c => '&#' + c.charCodeAt(0) + ';');
 const tag = (f) => (f && f.room && String(f.room).indexOf('SCRT-') !== 0) ? String(f.room) : '';
-const FV = V.createFriendVisit({ document, escHtml: esc, toast: (m) => env.toasts.push(m),
+const NAVF = {}; const navStub = { NAV: { FRIEND_VISIT: 'friendVisit' }, on: (k, fn) => { NAVF[k] = fn; } };
+const FV = V.createFriendVisit({ document, escHtml: esc, toast: (m) => env.toasts.push(m), twNav: navStub,
   getFriend: () => env.friend, refreshFriend: async (fid) => { env.refreshed.push(fid); if(env.onRefresh) env.onRefresh(); }, roomTagOf: tag, friendInRoom: (f) => !!(f && f.inRoom), isSecretCode: (c) => !!c && String(c).indexOf('SCRT-') === 0, myRoom: () => env.my, inRoom: () => env.inRoom,
   leaveRoom: async () => { env.left++; env.inRoom = false; env.my = null; }, startRoom: (c) => env.started.push(c),
   channelName: (c) => /^PLAY-/.test(c) ? '투게더룸' : /^WORK-/.test(c) ? '워킹룸' : '' });
@@ -114,10 +115,16 @@ const tick = () => new Promise(r => setTimeout(r, 0));
   env.friend = null; env.toasts = [];
   const n3 = env.body.children.length; FV.ask('f9', { code:'PLAY-MFEG', name:'모르는<이>' });
   chk(env.body.children.length === n3 && env.toasts[0] === '모르는<이> 님은 친구 목록에 없어요', '★ 친구가 아니면(목록에 없음) 그렇게 알린다 — «친구 님이 방을 나갔어요» 대신');
+  /* 🧭 창 열기 통로로 부탁받으면 — 그 친구 접속 상태를 먼저 읽고 묻는다 */
+  env.friend = { name:'통로', room:null, inRoom:false }; env.toasts = []; env.refreshed = [];
+  env.onRefresh = () => { env.friend = { name:'통로', room:'PLAY-NAV1', inRoom:true }; };
+  await NAVF.friendVisit('f7', { code:'PLAY-OLD9', name:'통로' }); box = lastBox();
+  chk(typeof NAVF.friendVisit === 'function' && env.refreshed.join() === 'f7' && /PLAY-NAV1/.test(box.innerHTML), '★ 🔔 초대 줄(창 열기 통로 FRIEND_VISIT) — 접속 상태를 먼저 한 번 읽고 지금 방으로 묻는다');
+  box._btn.no.onclick(); env.onRefresh = null;
   { /* 깨 보기 — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» */
     const w2 = {}; new Function('window', 'module', MOD.replace(/    return \(deps\.isSecretCode\(ic\)[^\n]*\n/, "    return '';\n"))(w2, undefined);
     const env2 = { toasts: [] };
-    const F2 = w2.TwFriendVisit.createFriendVisit({ document, escHtml: esc, toast: (m) => env2.toasts.push(m), getFriend: () => ({ name:'비밀', room:null, inRoom:true }),
+    const F2 = w2.TwFriendVisit.createFriendVisit({ document, escHtml: esc, toast: (m) => env2.toasts.push(m), twNav: { NAV: {}, on(){} }, getFriend: () => ({ name:'비밀', room:null, inRoom:true }),
       refreshFriend: async () => {}, roomTagOf: tag, friendInRoom: (f) => !!(f && f.inRoom), isSecretCode: (c) => !!c && String(c).indexOf('SCRT-') === 0, myRoom: () => null, inRoom: () => false, leaveRoom: async () => {}, startRoom: () => {}, channelName: () => '' });
     F2.ask('f1', { code:'SCRT-ABCD', name:'비밀' });
     chk(/방을 나갔어요/.test(env2.toasts[0] || ''), '  깨 보기 — 시크릿룸 초대 코드를 안 쓰면 «방을 나갔어요» 로 빨강');

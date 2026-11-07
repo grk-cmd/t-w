@@ -88,12 +88,9 @@ function mkEnv(opt){
     closeChipPopups: () => {}, positionInputBelowChar: () => {},
     inboxUnreadCount: () => opt.inbox || 0, refreshFriendTabBadge: () => { g.friendBadge = (g.friendBadge || 0) + 1; },
     bellSeenKey: 'tw.bellSeenTs',
-    twNav: opt.twNav || { go(){}, NAV: {} },
-    roomInvite: (g.notice = INV.createInviteNotice({ storage: localStorage, getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), now: () => (g.now || Date.now()),
-      onChange: () => { if(g.S){ g.S.refreshBellBadge(); if(g.S.isBellOpen()) g.S.renderBellList(); } } })),
-    openRoomInvite: (inv) => { (g.opened = g.opened || []).push(inv.fromId + ':' + inv.roomCode); },
+    twNav: opt.twNav || { go(k, fid, inv){ if(k === 'friendVisit') (g.opened = g.opened || []).push(fid + ':' + inv.code + ':' + inv.name); }, NAV: { FRIEND_VISIT: 'friendVisit' } },
+    roomInvite: (g.notice = INV.createInviteNotice({ storage: localStorage, getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), now: () => (g.now || Date.now()) })),
   });
-  g.S = S;
   return { S, win, els, ls, subs, timers, toasts, escWins, winListeners, g, api, el: id => document.getElementById(id) };
 }
 const pad = n => String(n).padStart(2, '0');
@@ -220,7 +217,7 @@ sec('── 3-2. 🙋 방 초대 줄 · 알림콩', () => {
   chk(list.children.filter(c => c.className === 'bell-invite').length === 1 && ln2.textContent.includes('<b>토끼</b> 님이 방에 초대했어요') && !list.textContent.includes('나비 님'),
     '★ 새 초대가 오면 그 줄이 바뀐다(쌓지 않는다) · 이름은 글자 그대로(HTML 아님)');
   lineOf().onclick();
-  chk((E.g.opened || []).join() === 'f2:WORK-CD34' && !E.S.isBellOpen(), '★ 줄을 누르면 창을 닫고 «놀러 갈까요?» 로(보낸 사람 · 초대 코드를 같이 — 시크릿룸 초대용)');
+  chk((E.g.opened || []).join() === 'f2:WORK-CD34:<b>토끼</b>' && !E.S.isBellOpen(), '★ 줄을 누르면 창을 닫고 창 열기 통로(FRIEND_VISIT)로 «놀러 갈까요?» — 보낸 사람 · 초대 코드 · 이름을 같이(시크릿룸 초대 · 친구 아님 안내용)');
   const O = mkEnv({ uid: 'other' });
   O.ls.set('tw.roomInviteLast', E.ls.get('tw.roomInviteLast'));
   O.S.renderBellList(); O.S.refreshBellBadge();

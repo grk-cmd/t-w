@@ -21,6 +21,7 @@ function decide(code, myRoom){
 
 function createFriendVisit(deps){
   const { document, escHtml, toast } = deps;
+  const twNav = deps.twNav;   // 🧭 창 열기 통로 — 🔔 받은 초대 줄(scheduler.js)이 이름으로 부탁한다(서로의 파일을 모르게)
   let _ov = null;
 
   function _close(){ if(_ov){ try{ _ov.remove(); }catch(_){} _ov = null; } }
@@ -84,6 +85,13 @@ function createFriendVisit(deps){
     box.addEventListener('keydown', e=>{ if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); _close(); } });
     try{ no.focus(); }catch(_){}
   }
+
+  /* 🔔 받은 초대 줄에서 — 그 친구 접속 상태를 먼저 한 번 읽고 묻는다(친구 목록이 닫혀 있으면 안 듣고 있다) */
+  async function askFresh(fid, invite){
+    try{ await deps.refreshFriend(fid); }catch(_){}
+    ask(fid, invite);
+  }
+  twNav.on(twNav.NAV.FRIEND_VISIT, askFresh);
 
   return { ask, close: _close };
 }

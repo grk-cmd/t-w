@@ -39,11 +39,12 @@ const isNew = (n, seenTs) => !!n && n.at > (Number(seenTs) || 0);
  *   storage: { getItem(k: string): string|null, setItem(k: string, v: string): void, removeItem(k: string): void },
  *   getMyUserId: () => string,
  *   now: () => number,
- *   onChange: () => void,   // 줄이 바뀌었을 때 — 일정 알림 배지 · 창 다시 그리기(app.js 가 잇는다)
  * }} deps
  */
 function createInviteNotice(deps){
-  const storage = deps.storage, getMyUserId = deps.getMyUserId, now = deps.now, onChange = deps.onChange;
+  const storage = deps.storage, getMyUserId = deps.getMyUserId, now = deps.now;
+  const _subs = [];   // 줄이 바뀌면 — 🔔 일정 알림(scheduler.js)이 만들 때 건다(이 파일이 그쪽을 모르게)
+  const onChange = () => _subs.forEach(fn => fn());
   function get(){
     const owner = getMyUserId(); if(!owner) return null;
     let raw = null; try{ raw = storage.getItem(KEY); }catch(_){}
@@ -62,7 +63,7 @@ function createInviteNotice(deps){
     try{ storage.removeItem(KEY); }catch(_){}
     onChange();
   }
-  return { get, note, clear, isNew: (seenTs) => isNew(get(), seenTs) };
+  return { get, note, clear, isNew: (seenTs) => isNew(get(), seenTs), subscribe: (fn) => { _subs.push(fn); } };
 }
 
 const api = { KEY, NAME_MAX, read, write, same, isNew, createInviteNotice };
