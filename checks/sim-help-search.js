@@ -94,7 +94,8 @@ const CASES = [
   ['라이선스 키 등록', (r) => r.answer.faq && r.answer.p === '5-5', '라이선스 FAQ → 5-5 › 라이선스'],
   ['파이널판타지14 포커스가 안 잡혀요', (r) => r.answer.faq && r.answer.p === '5-3' && /관리자 권한/.test(r.answer.t), '게임 감지 FAQ → 5-3 · 관리자 권한'],
   ['레벨이 안 올라요', (r) => r.answer.faq && r.answer.p === '5-2' && /피규어 모드/.test(r.answer.t), '레벨 안 오름 FAQ → 5-2 › 피규어 모드'],
-  ['아이패드 연결이 풀려요', (r) => r.answer.faq && r.answer.p === '5-3' && /QR/.test(r.answer.t), '태블릿 FAQ → 5-3 · QR 로 다시 연결'],
+  ['아이패드 연결이 풀려요', (r) => r.answer.faq && r.answer.p === '5-3' && /연결 안 됨/.test(r.answer.t) && /즉시 실행/.test(r.answer.t), '태블릿 FAQ → 5-3 · «연결 안 됨» 이면 QR · «쉬는 중» 이면 단축어 설정'],
+  ['창이 화면 밖으로 나갔어요', (r) => r.answer.faq && r.answer.p === '5-1' && /창 위치 초기화/.test(r.answer.t), '창 밖 → 모니터 FAQ(창 위치 초기화)'],
   ['모자가 머리를 뚫어요', (r) => r.answer.faq && r.answer.p === '6-3', '파츠 FAQ → 6-3. 위치 · 회전 · 크기'],
   ['듀얼 모니터', (r) => r.answer.faq && r.answer.p === '5-1' && /모니터 선택/.test(r.answer.t), '모니터 FAQ → 5-1 › 디스플레이 탭'],
 ];
