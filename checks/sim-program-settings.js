@@ -2,7 +2,7 @@
    app.js 의 닉네임 저장 · 프로그램 설정 창 구역 본문 을 parts/launcher/program-settings.js 로 옮겼다(글자 그대로 · 바뀐 줄 14 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(닉네임 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(USER_NAME_MAX · closeProgramSettings · commitUserName · openProgramSettings)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 26줄 그대로 · 부르는 곳은 progSettingsMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 27줄 그대로 · 부르는 곳은 progSettingsMod.이름 · html(app.js 앞)
      2-2: 창은 settings-panel.js 하나 — 옛 탭 이름(license · system)으로 여는 부탁이 새 탭(정보 · 디스플레이)으로 · 런처 ⚙️ 설정은 마지막 탭 · 탭을 보일 때 이 모듈 칸을 다시 그린다(refreshTab)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 버전 표시 — 만들 때 data-app-version 칸(설정 › 프로그램 정보 · 첫 화면 맨 아래)을 모두 «v버전» 으로 · 못 받으면 «-» ·
@@ -21,12 +21,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — program-settings.js'); process.exit(2);
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_applyChatSfxUI","_focusShowPush","_lsSet","refreshLicenseUI","refreshOfficeChipUI","refreshThemeUI","toast","applyRunPixelRatio","openSettings","closeSettings","onTabShown"];
-const VAL_DEPS = ["chatUiMod","purikuraUi","tricksMod","twNav","renderAntialias"];
+const VAL_DEPS = ["chatUiMod","purikuraUi","tricksMod","twNav","renderAntialias","renderShadows"];
 const GET_DEPS = ["FIGURE_MODE_KEY","OFFICE_MODE_KEY","figureMode","focusGateSleep","officeMode","renderQuality"];
 const SET_DEPS = ["figureMode","focusGateSleep","officeMode","renderQuality"];
 const EXPORTS = ["closeProgramSettings","openProgramSettings","refreshTab"];
 const MOVED = ["USER_NAME_MAX","commitUserName","renderProgMonitors","setProgSettingsTab","refreshAutoLaunchUI","refreshFigureModeUI","refreshOfficeModeUI","_labVideoShow","LAB_VIDEO_BLOCKED_GUIDE","_labVideoWarn","refreshLabVideoUI","refreshAppVersionUI","openProgramSettings","closeProgramSettings"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,","  renderQuality: ()=>_renderQuality,","  setRenderQuality: (v)=>{ _renderQuality = v; },","  renderAntialias: _renderAA,","  applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),","  openSettings: (...a)=>settingsMod.openSettings(...a),","  closeSettings: (...a)=>settingsMod.closeSettings(...a),","  onTabShown: (...a)=>settingsMod.onTabShown(...a),"];
+const GLUE = ["  FIGURE_MODE_KEY: ()=>FIGURE_MODE_KEY,","  OFFICE_MODE_KEY: ()=>OFFICE_MODE_KEY,","  _applyChatSfxUI: (...a)=>chatPrefsMod._applyChatSfxUI(...a),","  _focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),","  _lsSet: (...a)=>_lsSet(...a),","  chatUiMod: chatUiMod,","  figureMode: ()=>figureMode,","  focusGateSleep: ()=>focusGateSleep,","  officeMode: ()=>officeMode,","  purikuraUi: purikuraUi,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),","  refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,","  setFigureMode: (v)=>{ figureMode = v; },","  setFocusGateSleep: (v)=>{ focusGateSleep = v; },","  setOfficeMode: (v)=>{ officeMode = v; },","  twNav: twNav,","  renderQuality: ()=>_renderQuality,","  setRenderQuality: (v)=>{ _renderQuality = v; },","  renderAntialias: _renderAA,","  renderShadows: _renderShadows,","  applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),","  openSettings: (...a)=>settingsMod.openSettings(...a),","  closeSettings: (...a)=>settingsMod.closeSettings(...a),","  onTabShown: (...a)=>settingsMod.onTabShown(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

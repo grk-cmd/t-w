@@ -2,10 +2,11 @@
    제보: RTX 3060 Ti · Windows — 앱을 켜 두면 크롬(트위터)이 많이 버벅인다.
    ・1절: pickFps 표 — 최대 60 · 손 안 대면 30(실행 화면 · 포커스 · 하는 중 아님) · 다른 창 20 · hot 이면 60
    ・2절: admit — 예정 시각을 쌓아 144 · 165 · 120 · 75 · 60Hz 에서 평균이 상한에 맞는다 · 멈춤 뒤 몰아 그리지 않는다
-   ・3절: runPixelRatio — 플랫폼 상관없이 1.5 · 도트 렌더 1 · 화질(선명하게 · 자동 · 가볍게) · antialiasFor · qualityFrom
+   ・1절 끝: 화질 «최저» 줄 — 다른 창 10 · 손 안 댐 15 · 만질 때 30 · 런처 15 · 다른 화질은 예전 그대로
+   ・3절: runPixelRatio — 플랫폼 상관없이 1.5 · 도트 렌더 1 · 화질(선명하게 · 자동 · 가볍게 · 최저 0.75) · antialiasFor · shadowsFor · qualityFrom · 최저 깨 보기
    ・3-2절: createSlowWatch(«자동» 화질의 느림 감시) — 느린 PC 를 흉내 내 15초 뒤 한 번 낮춘다 · 잘 도는 PC · 쉼(창 가림) · 잠깐 튐은 안 낮춘다 · 깨 보기
    ・4절: 포커스 비율 · 진단 줄(짧게)
-   ・5절: 배선 — html 이 app.js 앞에 싣는다 · app.js 가 runPixelRatio · 1분 진단을 쓴다 · 렌더러 antialias · 자동 감시 · 모니터 탭 칸
+   ・5절: 배선 — html 이 app.js 앞에 싣는다 · app.js 가 runPixelRatio · 1분 진단을 쓴다 · 렌더러 antialias · 그림자 · 상한에 화질 · 자동 감시 · 디스플레이 탭 칸
    [실행] frame-budget.js · app.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
@@ -36,6 +37,18 @@ chk(F.pickFps({ focused:false, runMode:true, busy:true, idleMs:0 }) === 20, '다
 chk(F.pickFps({ focused:false, hot:true }) === 60 && F.pickFps({ focused:true, hot:true, runMode:true, idleMs:idle * 10 }) === 60, 'hot(누름 · 끌기 · 비행) → 60');
 chk(F.pickFps() === 20, '빈 값 → 20(안전 쪽)');
 chk(idle >= 5000, '30 으로 내려가는 문턱이 5초 이상(오르내림이 잦지 않게)');
+{
+  const L = 'lowest';
+  chk(F.pickFps({ focused:false, runMode:true, idleMs:0, quality:L }) === 10, '★ 최저 — 다른 창 10');
+  chk(F.pickFps({ focused:true, runMode:true, idleMs:idle, quality:L }) === 15, '★ 최저 — 손 안 댐 15');
+  chk(F.pickFps({ focused:true, runMode:true, idleMs:0, quality:L }) === 30 && F.pickFps({ focused:false, hot:true, quality:L }) === 30, '★ 최저 — 만질 때 · hot 30(60 이 아니다)');
+  chk(F.fpsFor(L).launcher === 15 && F.fpsFor('sharp').launcher === F.FPS_LAUNCHER, '★ 최저 — 런처 미리보기 15 · 다른 화질은 기본 30');
+  for(const q of ['sharp', 'auto', 'light', undefined, 'LOWEST']){
+    chk(F.pickFps({ focused:false, quality:q }) === 20 && F.pickFps({ focused:true, runMode:true, idleMs:idle, quality:q }) === 30 && F.pickFps({ hot:true, quality:q }) === 60, '  ' + String(q) + ' — 상한은 예전 그대로(20 · 30 · 60)');
+  }
+  const f = F.fpsFor(L);
+  chk(f.active <= F.FPS_ACTIVE && f.idle <= F.FPS_IDLE && f.unfocused <= F.FPS_UNFOCUSED && f.launcher <= F.FPS_LAUNCHER && f.unfocused > 0, '  최저 줄은 어느 칸도 기본보다 높지 않고 0 이 아니다');
+}
 
 say('── 2. admit — 실제로 그린 장 수');
 function count(fps, hz, ms){
@@ -73,9 +86,21 @@ chk(F.runPixelRatio(2, false, 'sharp', true) === 1.5 && F.runPixelRatio(2, false
 chk(F.runPixelRatio(2, false, 'auto', false) === 1.5 && F.runPixelRatio(2, false, 'auto', true) === 1, '★ 자동 — 낮추기 전 1.5 · 낮춘 뒤 1');
 chk(F.runPixelRatio(2, false, 'light', false) === 1 && F.runPixelRatio(1.25, false, 'light', false) === 1, '★ 가볍게 — 늘 1');
 chk(F.runPixelRatio(2, true, 'sharp', false) === 1, '  도트 렌더는 화질과 상관없이 1');
+chk(F.LOWEST_PR > 0 && F.LOWEST_PR < 1 && F.runPixelRatio(2, false, 'lowest', false) === F.LOWEST_PR && F.runPixelRatio(1, false, 'lowest', true) === F.LOWEST_PR, '★ 최저 — 배율 ' + F.LOWEST_PR + '(1 보다 낮게 · DPR · 낮춤과 상관없이)');
+chk(F.runPixelRatio(2, true, 'lowest', false) === F.LOWEST_PR, '  최저는 도트 렌더여도 ' + F.LOWEST_PR);
+chk(F.shadowsFor('lowest') === false && ['sharp', 'auto', 'light', null, 'x'].every(q => F.shadowsFor(q) === true), '★ 그림자는 «최저» 만 끈다');
+{
+  const mut3 = (from, to) => { const src = SRC['frame-budget.js']; if(!src.includes(from)) return null; const w = {}; new Function('window', 'module', src.replace(from, to))(w, undefined); return w.FrameBudget; };
+  const lowRed = (S) => !S || S.pickFps({ focused:false, quality:'lowest' }) !== 10 || S.shadowsFor('lowest') !== false || S.runPixelRatio(2, false, 'lowest') !== S.LOWEST_PR || S.pickFps({ focused:false, quality:'sharp' }) !== 20;
+  chk(!lowRed(F), '  (깨 보기 기준) 지금 모듈은 통과');
+  chk(lowRed(mut3("lowest: { active: 30, idle: 15, unfocused: 10, launcher: 15 }", "lowest: { active: 30, idle: 15, unfocused: 20, launcher: 15 }")), '깨 보기: 최저 비포커스를 20 으로 두면 빨강');
+  chk(lowRed(mut3("return qualityFrom(quality) !== QUALITY.LOWEST; }", "return true; }")), '깨 보기: 최저에서도 그림자를 켜면 빨강');
+  chk(lowRed(mut3("if(q === QUALITY.LOWEST) return LOWEST_PR;", "")), '깨 보기: 최저 배율을 빼면 빨강');
+  chk(lowRed(mut3("return (raw === QUALITY.AUTO || raw === QUALITY.LIGHT || raw === QUALITY.LOWEST) ? raw : QUALITY.SHARP;", "return (raw === QUALITY.AUTO || raw === QUALITY.LIGHT) ? raw : QUALITY.SHARP;")), '깨 보기: 저장값 «lowest» 를 모르면 빨강');
+}
 chk(F.qualityFrom('auto') === 'auto' && F.qualityFrom('light') === 'light' && F.qualityFrom('sharp') === 'sharp'
-  && F.qualityFrom(null) === 'sharp' && F.qualityFrom('') === 'sharp' && F.qualityFrom('LIGHT') === 'sharp' && F.qualityFrom('1') === 'sharp', '저장값 → 화질 · 없음 · 모르는 값은 선명하게');
-chk(F.antialiasFor('light') === false && F.antialiasFor('auto') === true && F.antialiasFor('sharp') === true && F.antialiasFor(null) === true, '★ 테두리 다듬기는 «가볍게» 만 끈다');
+  && F.qualityFrom('lowest') === 'lowest' && F.qualityFrom(null) === 'sharp' && F.qualityFrom('') === 'sharp' && F.qualityFrom('LIGHT') === 'sharp' && F.qualityFrom('1') === 'sharp', '저장값 → 화질 · 없음 · 모르는 값은 선명하게');
+chk(F.antialiasFor('light') === false && F.antialiasFor('lowest') === false && F.antialiasFor('auto') === true && F.antialiasFor('sharp') === true && F.antialiasFor(null) === true, '★ 테두리 다듬기는 «가볍게» · «최저» 만 끈다');
 chk(F.QUALITY_KEY === 'tw.renderQuality', '저장 키 tw. 접두사');
 
 say('── 3-2. createSlowWatch — «자동» 화질의 느림 감시');
@@ -165,6 +190,9 @@ say('── 5. 배선');
   chk(/let _renderQuality = FrameBudget\.qualityFrom\(localStorage\.getItem\(FrameBudget\.QUALITY_KEY\)\);/.test(raw)
     && /const _renderAA = FrameBudget\.antialiasFor\(_renderQuality\);/.test(raw) && /new THREE\.WebGLRenderer\(\{canvas,antialias:_renderAA,/.test(raw), '★ 렌더러 antialias 는 저장된 화질에서(도트 렌더 값을 안 본다)');
   chk(!/antialias:\s*!?\s*[^,]*dot/i.test(raw), '  antialias 를 도트 렌더 값으로 정하지 않는다(옛 «안 보이는 끔» 버그)');
+  chk(/const _renderShadows = FrameBudget\.shadowsFor\(_renderQuality\);/.test(raw) && /renderer\.shadowMap\.enabled=_renderShadows;/.test(raw) && !/renderer\.shadowMap\.enabled\s*=\s*true/.test(raw), '★ 실행 화면 그림자는 저장된 화질에서(«최저» 면 끔)');
+  const cap = (raw.match(/function _frameCap\(now\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/quality: _renderQuality,/.test(cap), '★ 상한 판정에 화질을 넘긴다(«최저» 줄)');
   chk(/if\(_renderQuality === FrameBudget\.QUALITY\.AUTO && document\.body\.classList\.contains\('runmode'\) && _runSlowWatch\.note\(now, _frameCap\(now\)\)\) _lowerRunQuality\(\);/.test(raw), '★ 자동일 때 · 실행 화면에서만 그린 장마다 감시');
   const lower = (raw.match(/function _lowerRunQuality\(\)\{[\s\S]*?\n\}/) || [''])[0];
   chk(/_runLowered = true;/.test(lower) && /seatCameraMod\.updateCameraOnly\(\);/.test(lower) && /diagNote/.test(lower), '  낮추면 배율을 바로 다시 맞추고 진단 로그에 한 줄');
@@ -174,7 +202,8 @@ say('── 5. 배선');
   chk(/_lsSet\(FrameBudget\.QUALITY_KEY, q\);/.test(PS) && /applyRunPixelRatio\(\);/.test(PS) && /FrameBudget\.qualityFrom\(b\.dataset\.q\)/.test(PS), '모니터 탭 — 고르면 저장(_lsSet · 실패 알림) · 배율 바로 다시 맞춤 · 모르는 값은 선명하게');
   const qRow = (H.match(/<div class="fs-monitors" id="progQualityRow">([\s\S]*?)<\/div>/) || [, ''])[1];
   const qs = [...qRow.matchAll(/data-q="(\w+)"/g)].map(m => m[1]);
-  chk(qs.join(',') === 'sharp,auto,light' && qs.every(q => F.qualityFrom(q) === q), 'html — 모니터 탭에 선명하게 · 자동 · 가볍게(규칙이 아는 값만)');
+  chk(qs.join(',') === 'sharp,auto,light,lowest' && qs.every(q => F.qualityFrom(q) === q), 'html — 디스플레이 탭에 선명하게 · 자동 · 가볍게 · 최저(규칙이 아는 값만)');
+  chk(/lowest: '/.test(PS) && /FrameBudget\.shadowsFor\(q\) !== renderShadows/.test(PS), '  최저 안내 글 · 그림자가 바뀌면 «다시 켜야» 안내');
   chk(H.indexOf('id="progQualityRow"') > H.indexOf('id="fsTabDisplay"') && H.indexOf('id="progQualityRow"') < H.indexOf('id="fsTabSize"'), '  칸은 설정 › 디스플레이 탭 안');
   chk(/return !_frameBudget\.admit\(now, _frameCap\(now\)\);/.test(code), '_frameCapped 가 admit 으로 판정');
   chk(/companion\.diagNote\(_FB\.diagLine\(m\)\);[\s\S]{0,40}\}, 60000\);/.test(code) && /if\(!document\.body\.classList\.contains\('runmode'\)\) return;/.test(code), '1분마다 · 실행 화면에서만 진단 줄');

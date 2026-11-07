@@ -234,7 +234,7 @@
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **bf05469a5050** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
-| **sim-frame-budget.js** | 188 | **9d88ea741f36** |
+| **sim-frame-budget.js** | 217 | **e4cba30ea109** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 183 | **3f3ed0f260c3** |
 | **sim-help-tab.js** | 202 | **7702dcb33364** |
@@ -332,7 +332,7 @@
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
-| **sim-program-settings.js** | 197 | **b1335da0e79b** |
+| **sim-program-settings.js** | 197 | **aca11583dde0** |
 | **sim-chat-prefs.js** | 95 | **5fe8258dc973** |
 | **sim-chat-read-on-send.js** | 273 | **579f9feb2c0f** |
 | **sim-rich-text.js** | 95 | **e2857c0faa2d** |
@@ -368,7 +368,7 @@
 | **sim-async-prompt.js** | 112 | **298066b0cef9** |
 | **sim-launcher-chrome.js** | 95 | **ed62fec910ad** |
 | **sim-launcher-controls.js** | 204 | **78202998b89b** |
-| **sim-launcher-preview.js** | 159 | **046bc6923a36** |
+| **sim-launcher-preview.js** | 165 | **bf885070c13f** |
 | **sim-mat-tone.js** | 179 | **1ed9ca399291** |
 | **sim-oss-licenses.js** | 180 | **40f8118d76e8** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |

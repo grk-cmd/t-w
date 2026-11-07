@@ -5,6 +5,7 @@ const canvas=document.getElementById('scene');
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
 const _renderAA = FrameBudget.antialiasFor(_renderQuality);
+const _renderShadows = FrameBudget.shadowsFor(_renderQuality);   // «최저» 면 그림자 끔 — 켜고 끄면 재질을 다시 만들어야 해서 antialias 처럼 다시 켜야 적용
 const renderer=new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
 /* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 화면을 한 번 다시 불러온다(parts/gl-recover.js · 제보 #11).
@@ -26,7 +27,7 @@ TwInputDiag.createImeWatch({
   now: () => Date.now(),
   defer: (fn) => setTimeout(fn, 0),
 }).attach(document, window);
-renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
+renderer.shadowMap.enabled=_renderShadows; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
 renderer.outputEncoding=THREE.sRGBEncoding;
 const scene=new THREE.Scene();
 const camera=new THREE.PerspectiveCamera(34,1,0.1,100);   // 생성기와 동일한 원근 렌즈 (WYSIWYG)
@@ -6265,6 +6266,7 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
 const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   CHAR_Z: CHAR_Z,
   FrameBudget: FrameBudget,
+  renderQuality: ()=>_renderQuality,
   blinkTiming: TwBlinkTiming,
   RIG_TURN: creatorPrevMod.RIG_TURN,
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
@@ -7035,6 +7037,7 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   renderQuality: ()=>_renderQuality,
   setRenderQuality: (v)=>{ _renderQuality = v; },
   renderAntialias: _renderAA,
+  renderShadows: _renderShadows,
   applyRunPixelRatio: (...a)=>seatCameraMod.updateCameraOnly(...a),
   openSettings: (...a)=>settingsMod.openSettings(...a),
   closeSettings: (...a)=>settingsMod.closeSettings(...a),
@@ -8227,6 +8230,7 @@ function _frameCap(now){
     runMode: document.body.classList.contains('runmode'),
     busy: _appFocused && _fbIsBusy(now),
     idleMs: _frameBudget.idleMs(now),
+    quality: _renderQuality,
   });
 }
 /* 이번 프레임을 건너뛸 것인가. 그린다고 답하면 다음 예정 시각이 잡힌다(admit). */
