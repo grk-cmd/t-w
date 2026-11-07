@@ -11,16 +11,6 @@
    검사: checks/sim-overhead.js */
 (function(){
 
-/* 눌러 지운 상태 말풍선(«📱 앱» · 내 상태)의 기억 — 순수(sim-overhead 4절). 지운 그 상태(seat._statusDismissedFor)가
-   이어지는 동안 채팅 · 다른 조작 뒤에도 다시 안 뜬다. 다른 상태(다른 앱 · 다른 문구)가 오면 기억을 지우고 다시 보인다.
-   ⚠️ «설정에서 상태 말풍선 끔» 은 여기가 아니라 부르는 쪽(app.js 말풍선 갈래)이 정한다 — 무엇을 보일지는 app.js 한 곳. */
-const STATUS_BUBBLE_KEY = 'tw.statusBubble';   // 💭 머리 위 상태 말풍선 — 설정 › 디스플레이(이 PC 에만 · 기본 켜짐)
-function statusBubbleGate(seat, text){
-  if(seat._statusDismissedFor === undefined) return text;
-  if(text !== seat._statusDismissedFor){ seat._statusDismissedFor = undefined; return text; }
-  return null;
-}
-
 function createOverhead(deps){
 const ANIMAL_RUN_SCALE = deps.ANIMAL_RUN_SCALE;
 const _chatEsc = deps._chatEsc;
@@ -58,6 +48,15 @@ const labelMeasure = TwLabelMeasure.createLabelMeasure({
         자동으로 폭이 늘어나서 잘릴 일이 없음. 3) 픽셀 단위 오프셋(예: 3px)을 정확히 줄 수 있음(3D 월드좌표는 근사치만 가능).
    위치 갱신은 상태칩(updateMyStatusChipPosition)과 완전히 같은 방식: 3D 월드좌표 → project(camera) → 화면 픽셀. ── */
 let nameplateEnabled = (localStorage.getItem('tw.nameplate') !== '0');   // 기본 켜짐
+/* 눌러 지운 상태 말풍선(«📱 앱» · 내 상태)의 기억 — 순수(sim-overhead 4절). 지운 그 상태(seat._statusDismissedFor)가
+   이어지는 동안 채팅 · 다른 조작 뒤에도 다시 안 뜬다. 다른 상태(다른 앱 · 다른 문구)가 오면 기억을 지우고 다시 보인다.
+   ⚠️ «설정에서 상태 말풍선 끔» 은 여기가 아니라 부르는 쪽(app.js 말풍선 갈래)이 정한다 — 무엇을 보일지는 app.js 한 곳. */
+const STATUS_BUBBLE_KEY = 'tw.statusBubble';   // 💭 머리 위 상태 말풍선 — 설정 › 디스플레이(이 PC 에만 · 기본 켜짐)
+function statusBubbleGate(seat, text){
+  if(seat._statusDismissedFor === undefined) return text;
+  if(text !== seat._statusDismissedFor){ seat._statusDismissedFor = undefined; return text; }
+  return null;
+}
 let statusBubbleEnabled = (localStorage.getItem(STATUS_BUBBLE_KEY) !== '0');
 // 저장된 이름표 크기(--nameplate-size)를 페이지 로드 시점에 즉시 CSS 변수에 반영. 설정 패널을 안 열어도 유지됨.
 (function _applySavedNameplateSize(){
@@ -689,7 +688,7 @@ return {
 };
 }
 
-const api = { createOverhead, statusBubbleGate, STATUS_BUBBLE_KEY };
+const api = { createOverhead };
 if(typeof window !== 'undefined') window.TwOverhead = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

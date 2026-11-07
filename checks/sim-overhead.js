@@ -137,7 +137,7 @@ say('── 4. 💭 머리 위 상태 말풍선 — 설정으로 끄기 · 눌�
   chk(R.back === '', '★ 채팅이 끝나 같은 상태로 돌아와도 다시 안 뜬다(예전엔 채팅이 기억을 지워 다시 떴다)');
   chk(R.memAfterChatDismiss === '📱 A', '  채팅 말풍선을 눌러 지워도 상태 기억은 그대로');
   chk(R.afterOnline === '📱 A' && R.other === '📱 B', '  다른 상태(온라인 · 다른 앱)가 오면 다시 보인다');
-  chk(R.saved0 === '0' && stage(MOD, { 'tw.statusBubble': '0' }).m.statusBubbleEnabled() === false && stage(MOD).m.statusBubbleEnabled() === true && stage(MOD).api.STATUS_BUBBLE_KEY === 'tw.statusBubble',
+  chk(R.saved0 === '0' && stage(MOD, { 'tw.statusBubble': '0' }).m.statusBubbleEnabled() === false && stage(MOD).m.statusBubbleEnabled() === true,
     '  설정 — 끄면 이 PC 에 tw.statusBubble=0 · 다음에 켜도 꺼진 채 · 기본 켜짐');
   const iChat = SRC.indexOf('else if(_chatting){ overheadMod.setSeatHeadBubble(seat, seat.chatBubbleText); }'), iOff = SRC.indexOf('else if(!overheadMod.statusBubbleEnabled()){ overheadMod.setSeatHeadBubble(seat, null); }'),
     iSt = SRC.indexOf('overheadMod.setSeatHeadBubble(seat, _conf ? _conf.label : focusLevelMod._mobileBubbleText(_mobApp), true)');
