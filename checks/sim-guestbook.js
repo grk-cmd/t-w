@@ -21,10 +21,10 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['guestbook.js', 'app.js', 'desk-companion-prototype.html'];
+const need = ['guestbook.js', 'app.js', 'desk-companion-prototype.html', 'firebase-init.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['guestbook.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['guestbook.js'], FB = SRC['firebase-init.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 8) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -61,7 +61,7 @@ function mkChildWin(env){
 
 function mkEnv(opt){
   opt = opt || {};
-  const env = { toasts: [], warns: [], ls: {}, subs: [], unsubs: 0, adds: [], dels: [], claps: [], emojis: [], themed: [], watched: [], tipped: [], wins: [], childClosed: 0,
+  const env = { toasts: [], warns: [], ls: {}, subs: [], unsubs: 0, adds: [], dels: [], prunes: [], claps: [], emojis: [], themed: [], watched: [], tipped: [], wins: [], childClosed: 0,
     viewing: opt.viewing || null, friends: opt.friends || {}, me: 'me' in opt ? opt.me : 'uA', name: '나', btnL: null };
   const mainEls = {};
   const getEl = id => (opt.noDom ? null : (mainEls[id] || (mainEls[id] = mkEl('div', id))));
@@ -79,6 +79,7 @@ function mkEnv(opt){
       subscribeClap: (uid, cb) => { const k = 'clap:' + uid; env.subs.push(k); subs[k] = cb; return () => { env.unsubs++; delete subs[k]; }; },
       addGuestbookEntry: async (uid, en) => { if(env.failAdd) throw new Error('denied'); env.adds.push({ uid, en }); },
       deleteGuestbookEntry: async (uid, id) => { env.dels.push(uid + '/' + id); },
+      removeGuestbookEntries: (uid, ids) => { env.prunes.push(uid + ':' + ids.join(',')); return env.pruneP || Promise.resolve(); },
       clapOnce: (uid) => { env.claps.push(uid); return env.clapP || Promise.resolve(); },
       setClapEmoji: async (uid, v) => { env.emojis.push(uid + ':' + v); },
       setClapImage: async () => {},
@@ -146,6 +147,30 @@ await sec('── 2. 새 글 배지 — 자기 홈 관점', () => {
   chk(badge.classList.contains('hidden'), '  끊은 뒤엔 안 켜진다');
   const e2 = mkEnv({ noApi: true }); e2.mk(); let ok = true; try{ e2.ctx._mhGbStartWatch(); }catch(_){ ok = false; }
   chk(ok && e2.subs.length === 0, 'firebaseAPI 가 없으면 조용히');
+});
+
+await sec('── 2-2. 🧹 30개 넘은 옛 글 정리 — 주인 앱이 한다', async () => {
+  const G = (() => { const w = {}; new Function('window', 'module', MOD)(w, undefined); return w.TwGuestbook; })();
+  const ent = (n) => { const o = {}; for(let i = 0; i < n; i++) o['g' + i] = { ts: 1000 + (i * 7) % n }; return o; };
+  chk(G.GUESTBOOK_MAX === 30 && G.overflowIds(ent(30), 30).length === 0 && G.overflowIds({}, 30).length === 0 && G.overflowIds(null, 30).length === 0, '30개 이하 · 빈 것 · 없음 → 지울 것 없음');
+  const o = { a: { ts: 5 }, b: { ts: 1 }, c: { ts: 9 }, d: { ts: 3 }, e: {} };
+  chk(G.overflowIds(o, 3).join() === 'e,b', '★ 넘친 만큼 오래된 것(ts)부터 — ts 없는 글이 가장 오래된 것');
+  const e = mkEnv(); e.mk(); e.ctx._mhGbStartWatch();
+  const tickI = () => new Promise(r => setImmediate(r));
+  e.push('gb:uA', ent(32)); await tickI();
+  chk(e.prunes.length === 1 && e.prunes[0].split(':')[0] === 'uA' && e.prunes[0].split(':')[1].split(',').length === 2, '★ 내 방명록이 32개면 주인 앱이 오래된 2개를 지운다');
+  let rel; e.pruneP = new Promise(r => { rel = r; });
+  e.push('gb:uA', ent(33)); e.push('gb:uA', ent(33));
+  chk(e.prunes.length === 2, '  지우는 중이면 한 번만(구독이 연달아 와도)');
+  rel(); await tickI();
+  e.pruneP = null; e.push('gb:uA', ent(30)); await tickI();
+  chk(e.prunes.length === 2, '  30개면 안 지운다');
+  const add = (FB.match(/async addGuestbookEntry\(userId, entry\)\{[\s\S]*?\n    \},/) || [''])[0];
+  chk(!!add && !/update\(|remove\(|get\(/.test(add), '★ 글쓰기(손님 앱)는 글만 올린다 — 남의 글을 지우지 않는다(규칙이 막는다 — 최근 글이면 «등록 실패» 가 됐다)');
+  chk(/async removeGuestbookEntries\(userId, ids\)\{/.test(FB), '  firebase-init: 주인 정리용 removeGuestbookEntries');
+  const bad = MOD.replace("_unsub = firebaseAPI.subscribeGuestbook(myId, entries => { _updateBadge(entries); _pruneOld(myId, entries); });", "_unsub = firebaseAPI.subscribeGuestbook(myId, entries => _updateBadge(entries));");
+  const b = mkEnv({ src: bad }); b.mk(); b.ctx._mhGbStartWatch(); b.push('gb:uA', ent(32)); await tickI();
+  chk(bad !== MOD && b.prunes.length === 0, '  깨 보기 — 주인 구독에서 정리를 빼면 아무도 안 지워 빨강');
 });
 
 await sec('── 3. 창 — 열기 · 목록 · 관람 · 외부인', async () => {

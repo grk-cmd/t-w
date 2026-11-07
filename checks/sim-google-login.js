@@ -504,7 +504,14 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
          «주인 또는 관리자» 로 잠갔다. 아래 따로 본다. */
       chk(/admins/.test(String((U.invite||{})['.write'])) && /userAuth/.test(String((U.invite||{})['.write'])),
           'users/invite 는 주인 또는 관리자만 쓴다 (관리자 초대권 지급)');
-      ['friends','guestbook','clap','mallangGifts','schedNotices']
+      /* 방명록 · 말랑이 선물함은 칸마다 — 남이 «자기 이름으로 새로 쓰기» 는 열려 있고(로그인으로 신원 확인) 지우기 · 고치기는 주인(· 글쓴이)만.
+         실제 판정은 firebase/scripts/rules-emu-check.js(에뮬레이터)가 본다 */
+      [['guestbook', '$entryId', 'uid'], ['mallangGifts', '$giftId', 'fromId']].forEach(([k, id, who]) => {
+        const w = String(((U[k] || {})[id] || {})['.write'] || '');
+        chk(U[k] && U[k]['.write'] === undefined && /!data\.exists\(\) && newData\.exists\(\)/.test(w) && w.indexOf("newData.child('" + who + "').val()") > 0 && /userAuth/.test(w),
+          'users/' + k + ' 은 남도 «자기 이름으로» 새로 쓸 수 있다 (' + k + ' 기능이 죽지 않게 · 신원은 로그인으로)');
+      });
+      ['friends','clap','schedNotices']
         .forEach(k => {
           /* clap 은 박수(count)만 남이 쓴다 — 그림 · 이모지는 주인만(크기 제한 개정) */
           const w = U[k] && (k === 'clap' ? (U[k].count||{})['.write'] : U[k]['.write'] !== undefined ? U[k]['.write'] : (U[k].$friendId||{})['.write']);

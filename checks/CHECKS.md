@@ -170,7 +170,7 @@
 | **sim-catalog-cache.js** | 391 | **4a3503b771b9** |
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
-| **sim-google-login.js** | 656 | **825a227266b5** |
+| **sim-google-login.js** | 663 | **8c69831c50c6** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
@@ -270,7 +270,7 @@
 | **sim-weekly-challenge.js** | 435 | **078b181cff81** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
-| **sim-guestbook.js** | 294 | **177f4506d26a** |
+| **sim-guestbook.js** | 319 | **187b7930d46d** |
 | **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **412082771903** |
