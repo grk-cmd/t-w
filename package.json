@@ -18,7 +18,8 @@
     "design:build": "node scripts/build-design-tokens.js",
     "version:bump": "node scripts/bump-version.js",
     "pack": "npm --prefix apps/desktop run pack",
-    "dist": "npm --prefix apps/desktop run dist"
+    "dist": "npm --prefix apps/desktop run dist",
+    "help:build": "node scripts/build-help-search.js"
   },
   "devDependencies": {
     "typescript": "5.9.3"
