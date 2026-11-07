@@ -566,6 +566,7 @@ const GB_CASES = [
   ['준비: 방명록 글 하나 더', 'PUT', GB('g4'), GBE(GB_F, 4), true, OWNER],
   ['방명록 — 주인이 남의 글 지우기', 'DELETE', GB('g4'), null, true, 'authGbO'],
   ['준비: 방명록 — 7일 넘은 글 둘 · 최근 글 하나', 'PATCH', '', { [GB('old1')]: Object.assign(GBE(GB_F, 11), { ts: WEEK_AGO }), [GB('old2')]: Object.assign(GBE(GB_F, 12), { ts: WEEK_AGO }), [GB('new1')]: Object.assign(GBE(GB_F, 13), { ts: Date.now() }) }, true, OWNER],
+  ['방명록 — 로그인 없이 7일 넘은 글 지우기는 막힘', 'DELETE', GB('old1'), null, false],
   ['방명록 — 옛 앱 손님의 30개 정리(7일 넘은 글 · 여러 칸 한 번에)', 'PATCH', '', { [GB('old1')]: null, [GB('old2')]: null }, true, 'authGbX'],
   ['방명록 — 손님이 7일 안 된 남의 글 지우기는 막힘', 'DELETE', GB('new1'), null, false, 'authGbX'],
   ['선물 — 보낸 사람이 자기 이름으로 보내기', 'PUT', MG('m1'), GIFT(MG_S), true, 'authMgS'],
