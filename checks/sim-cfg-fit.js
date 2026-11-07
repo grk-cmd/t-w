@@ -205,7 +205,6 @@ else{
 }
 
 /* ── 6. 'moved' 가 어느 모드 자리로 적나 ── */
-const exitSrcAll = () => (grabFn(MAIN, '_exitNow') || '') + (grabFn(MAIN, '_flushLauncherPos') || '');
 say("── 6. 'moved' — 배율이 다른 모니터로 끌어도 런처 자리를 적는다");
 const movedSrc = grabFn(MAIN, '_movedMode');
 if(!movedSrc){ huh('_movedMode 를 못 찾음'); fail++; }
@@ -236,10 +235,17 @@ else{
   chk(B2.full === 'launcher', '  깨 보기 — 크기 범위를 안 보면 전체화면 \'moved\' 가 런처 자리로 적혀 빨강');
 }
 /* 배선 */
-/* 끌 때 창 자리를 다시 재지 않는다(사용자 결정) — 액정타블렛을 꺼 둔 채 켜면 런처가 주 모니터로 당겨져 뜨는데, 끌 때 그 자리로 덮으면
+/* 끌 때 창 자리를 다시 재지 않는다 — 액정타블렛을 꺼 둔 채 켜면 런처가 주 모니터로 당겨져 뜨는데, 끌 때 그 자리로 덮으면
    타블렛을 다시 켜도 주 모니터에서 뜬다. 런처 자리는 사용자가 옮길 때('moved')만 적는다 */
-chk(!/getBounds/.test(exitSrcAll()) && !/getBounds/.test(MAIN.slice(MAIN.indexOf("app.on('before-quit'"), MAIN.indexOf("app.on('before-quit'") + 400)),
-  '끌 때(_exitNow · before-quit)는 창 자리를 다시 재지 않는다 — 타블렛을 꺼 둔 날 당겨진 자리로 덮지 않게');
+const quitReads = (src) => {
+  const bq = src.indexOf("app.on('before-quit'");
+  const bqLine = bq < 0 ? '' : src.slice(bq, src.indexOf('\n', bq));
+  return /getBounds/.test((grabFn(src, '_exitNow') || '') + (grabFn(src, '_flushLauncherPos') || '') + bqLine);
+};
+chk(!quitReads(MAIN), '끌 때(_exitNow · before-quit)는 창 자리를 다시 재지 않는다 — 타블렛을 꺼 둔 날 당겨진 자리로 덮지 않게');
+chk(quitReads(MAIN.replace('function _exitNow(){', 'function _exitNow(){ mainWindow.getBounds();'))
+  && quitReads(MAIN.replace("app.on('before-quit', () => {", "app.on('before-quit', () => { mainWindow.getBounds();")),
+  '  깨 보기 — 끄는 두 길 어디든 창 자리를 다시 읽으면 빨강');
 const acm = grabFn(MAIN, '_applyConfigMode') || '';
 chk(/if\(isConfig\) _cfgMode = MODE_SIZE\[mode\] \? mode : 'launcher';/.test(acm) && acm.indexOf('_cfgMode = ') < acm.indexOf('_fitConfigRect(') && acm.indexOf('_cfgMode = ') < acm.indexOf('setBounds('),
   '_applyConfigMode 가 창을 맞추기 전에 모드를 건다(맥은 setBounds 중에도 \'moved\' 가 온다)');
