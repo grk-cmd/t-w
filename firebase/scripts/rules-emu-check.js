@@ -582,6 +582,8 @@ const GB_CASES = [
   ['선물 — 남이 지우기는 막힘', 'DELETE', MG('m1'), null, false, 'authGbX'],
   ['선물 — 로그인 없이 지우기는 막힘', 'DELETE', MG('m1'), null, false],
   ['선물 — 받은 사람이 지우기(보관 한도 정리 · 우클릭 삭제)', 'DELETE', MG('m1'), null, true, 'authMgR'],
+  ['선물 — 이미 없는 선물 지우기는 아무것도 안 바꾸니 받아 준다(두 번 지움 · 겹친 정리)', 'DELETE', MG('m1'), null, true, 'authMgR'],
+  ['방명록 — 이미 없는 글 지우기도 받아 준다(정리 update 에 이미 지운 id 가 섞여도 통째 거절 안 됨)', 'PATCH', '', { [GB('gone1')]: null, [GB('new1')]: null }, true, 'authGbO'],
 ];
 
 const CASES = [
