@@ -96,6 +96,42 @@ export function unseenCount(mine, seen){
 }
 const toArr = (v) => Object.keys(v || {}).map(id => Object.assign({ id }, v[id]));
 
+/* 📝 임시저장 — 이 PC 에만(localStorage BUG_DRAFT_KEY) 최대 BUG_DRAFT_MAX 개. 순수 계산만 여기 · 읽고 쓰기는 화면(bug-board-ui.js).
+   계정마다 따로 — 저장본에 주인 코드(owner)를 같이 두고, 주인이 다르면 빈 것으로 본다(계정을 바꾸면 ACCOUNT_LOCAL_KEYS 로도 지운다). */
+export const BUG_DRAFT_KEY = 'tw.bugDrafts';
+export const BUG_DRAFT_MAX = 3;
+const draftOf = (d) => ({ id: String(d.id), ts: Number(d.ts) || 0, cat: typeof d.cat === 'string' ? d.cat.slice(0, 20) : '',
+  title: typeof d.title === 'string' ? d.title.slice(0, BUG_TITLE_MAX) : '', body: typeof d.body === 'string' ? d.body.slice(0, BUG_BODY_MAX) : '',
+  vis: d.vis === 'prv' ? 'prv' : 'pub' });
+export const draftIsEmpty = (d) => !d || (!String(d.title || '').trim() && !String(d.body || '').trim());
+/* 저장본(글자) → 목록. 깨졌거나 · 주인이 다르거나 · 모양이 틀린 줄은 버린다 · 최근 것부터 · 많아야 MAX */
+export function draftsRead(raw, owner){
+  let v = null;
+  try{ v = JSON.parse(raw); }catch(_){ return []; }
+  if(!v || typeof v !== 'object' || !owner || v.owner !== owner || !Array.isArray(v.items)) return [];
+  return v.items.filter(d => d && typeof d === 'object' && d.id != null && !draftIsEmpty(d)).map(draftOf)
+    .sort((x, y) => y.ts - x.ts).slice(0, BUG_DRAFT_MAX);
+}
+export const draftsWrite = (list, owner) => JSON.stringify({ owner, items: list.map(draftOf) });
+/* 저장 — 불러온 글(id 가 같은 것)은 덮어쓰고, 새 글은 칸이 있을 때만. { ok, list, id } · 실패면 { ok:false, reason:'empty'|'full' } */
+export function draftsSave(list, d, now, newId){
+  if(draftIsEmpty(d)) return { ok: false, reason: 'empty' };
+  const cur = (list || []).slice();
+  const i = d.id != null ? cur.findIndex(x => x.id === String(d.id)) : -1;
+  if(i < 0 && cur.length >= BUG_DRAFT_MAX) return { ok: false, reason: 'full' };
+  const id = i >= 0 ? cur[i].id : String(newId);
+  const one = draftOf(Object.assign({}, d, { id, ts: now }));
+  if(i >= 0) cur[i] = one; else cur.push(one);
+  return { ok: true, id, list: cur.sort((x, y) => y.ts - x.ts) };
+}
+export const draftsRemove = (list, id) => (list || []).filter(x => x.id !== String(id));
+/* 지금 쓰는 글이 «저장할 게 있는» 글인가 — 비었으면 아니고, 불러온 그대로(안 고침)여도 아니다 */
+export function draftDirty(d, loaded){
+  if(draftIsEmpty(d)) return false;
+  if(!loaded) return true;
+  return ['cat', 'title', 'body', 'vis'].some(k => String(d[k] || '') !== String(loaded[k] || ''));
+}
+
 /* 🔎 비슷한 제보 — 새 제보를 올리기 전 «이미 제보되어 있어요» 창에 띄울 글을 고른다(순수 계산).
    제목을 낱말로 나눠 조사 · 흔한 말(오류 · 안 돼요 …)을 떼고, 두 글자씩 끊은 조각이 얼마나 겹치는지(0~1)로 본다 —
    «레벨이 안 올라가요» · «레벨이 안올라요» 처럼 띄어쓰기 · 말끝이 달라도 잡히게. 공지는 비교하지 않는다. */
@@ -360,5 +396,6 @@ export function createBugBoard(deps){
   const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, anon: BUG_ANON, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
               bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody,
               authorStatus: BUG_AUTHOR_STATUS, hasAuthorReply, visNote: BUG_VIS_NOTE, visLocked: BUG_VIS_LOCKED };
-  return { C, checkPost, listPage, similarTo, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, addReply, setVis, canChangeVis, like, getSeen, setSeen, unseen, migrateNotice };
+  const drafts = { KEY: BUG_DRAFT_KEY, MAX: BUG_DRAFT_MAX, read: draftsRead, write: draftsWrite, save: draftsSave, remove: draftsRemove, dirty: draftDirty, empty: draftIsEmpty };
+  return { C, drafts, checkPost, listPage, similarTo, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, addReply, setVis, canChangeVis, like, getSeen, setSeen, unseen, migrateNotice };
 }

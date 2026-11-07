@@ -16,6 +16,7 @@
         (예전엔 min-height 만 있어 [전체] 한 쪽 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
      §6 글쓴이 답글 — rep 노드 규칙(글쓴이만 · 서버 시각 · userReplyTs 짝 · 10초) · 글쓴이 상태 셋 · addReply 실행 · 화면
      §7 공개 범위 바꾸기 — 답변 · 답글 전 · 글쓴이만 · 본문은 그대로 옮기기만(규칙) · canChangeVis · setVis 실행 · 화면 · 깨 보기
+     §9 임시저장 — 읽기(깨짐 · 다른 계정 · 빈 글 · 최근 순 · 3개) · 저장(빈 글 · 새 글 · 불러온 글 덮기 · 3개 참) · 지우기 · «쓰던 글» 판정 · 화면 배선(목록 · [임시저장] · 떠날 때 묻기 · 돌아오면 이어 쓰기 · 등록하면 지움 · Esc) · 계정 바꾸면 지움 · 깨 보기
      §8 비슷한 제보 — 제목 낱말 · 겹침 정도(실제 제보 제목 모양) · 고르기(공지 빼기 · 한 번만 · 3줄 · 순서) · 가짜 RTDB 로 받는 양(미해결 · 최근 각 20) · 화면 배선 · 깨 보기
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
@@ -96,7 +97,7 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_SIMILAR_MAX, BUG_SIMILAR_MIN, BUG_SIMILAR_FETCH, titleWords, titleSimilarity, similarPosts, BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard, canChangeVis, BUG_VIS_NOTE, BUG_VIS_LOCKED };')();
+  '\nreturn { BUG_DRAFT_KEY, BUG_DRAFT_MAX, draftsRead, draftsWrite, draftsSave, draftsRemove, draftDirty, draftIsEmpty, BUG_SIMILAR_MAX, BUG_SIMILAR_MIN, BUG_SIMILAR_FETCH, titleWords, titleSimilarity, similarPosts, BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard, canChangeVis, BUG_VIS_NOTE, BUG_VIS_LOCKED };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
 chk(prv.title === '비밀 제목' && prv.name === M.BUG_ANON && M.BUG_ANON === '익명' && !JSON.stringify(prv).includes('에이'), '⑤ 비공개 글의 목록 줄 — 제목은 보이고 이름은 «익명»(실명 없음)');
@@ -539,20 +540,20 @@ say('§8 비슷한 제보');
   chk(/\$\('bbSimRows'\)\.innerHTML = items\.map\(rowHtml\)\.join\(''\);/.test(UI) && /\$\('bbSimLead'\)\.textContent = /.test(UI), '  줄은 목록 줄 모양 그대로(상태 칩 · 비공개 잠금) · 안내 글은 textContent');
   const sh = (UI.match(/function show\(view\)\{[\s\S]*?\n  \}/) || [''])[0];
   chk(/hideSimilar\(\);/.test(sh) && /classList\.contains\('on'\) && \$\('bbSimilar'\)\.offsetParent !== null/.test(UI), '  화면을 바꾸면 닫는다 · «열림» 은 보이는 동안만(마이홈을 닫거나 탭을 옮기면 숨은 칸이 Esc 를 가로채지 않음)');
-  chk(/if\(\$\('bbWriteView'\)\.style\.display === 'none'\) return;/.test(sw) && sw.indexOf("if($('bbWriteView').style.display === 'none') return;") < sw.indexOf('if(sim.length)'), '  찾는 동안 [취소] 로 떠났으면 올리지도 띄우지도 않는다');
+  chk(/const seq = writeSeq;/.test(sw) && sw.indexOf("if(!writing() || seq !== writeSeq) return;") > 0 && sw.indexOf("if(!writing() || seq !== writeSeq) return;") < sw.indexOf('if(sim.length)'), '  찾는 동안 떠났거나 글쓰기를 새로 열었으면(늦게 온 결과) 올리지도 띄우지도 않는다');
   /* ★ Esc — 진짜 ESC 스택(win-stack.js)과 이 화면의 Esc 처리기를 싣는 순서대로 걸고 눌러 본다 */
   const WS = read('win-stack.js');
-  const escH = (UI.match(/document\.addEventListener\('keydown', \(e\) => \{\n\s*if\(e\.key === 'Escape' && similarOpen\(\)\)\{[^\n]*\n\s*\}, true\);/) || [''])[0];
+  const escH = (UI.match(/document\.addEventListener\('keydown', \(e\) => \{\n\s*if\(e\.key !== 'Escape'\) return;\n[\s\S]*?\n\s*\}, true\);/) || [''])[0];
   const escRun = (wsSrc) => {
     const st = { mh: true, tab: true, sim: true }, closes = { mh: 0 };
     const L = [];
     const visible = () => st.sim && st.mh && st.tab;
     const doc = { addEventListener: (t, f) => { if (t === 'keydown') L.push(f); }, getElementById: () => null,
-      querySelector: (sel) => sel.split(', ').some(x => x === '#myHomeOverlay.on #mhPageBugreport.on #bbSimilar.on' && visible()) ? {} : null };
+      querySelector: (sel) => sel.split(', ').some(x => x === '#myHomeOverlay.on #mhPageBugreport.on .bb-sim.on' && visible()) ? {} : null };
     const win = { __winPosResetters: [] };
     new Function('window', 'document', 'MutationObserver', wsSrc)(win, doc, class { observe(){} });
     win.TwWinStack.createWinStack({}).escRegisterWindow({ key: 'myHome', el: {}, isOpen: () => st.mh, close: () => { st.mh = false; closes.mh++; } });
-    new Function('document', 'similarOpen', 'hideSimilar', escH)(doc, visible, () => { st.sim = false; });
+    new Function('document', 'similarOpen', 'hideSimilar', 'leaveOpen', 'hideLeave', escH)(doc, visible, () => { st.sim = false; }, () => false, () => {});
     const press = () => { const e = { key: 'Escape', target: { tagName: 'DIV' }, defaultPrevented: false, preventDefault(){ this.defaultPrevented = true; }, stopPropagation(){} }; L.forEach(f => f(e)); };
     press(); const r1 = { sim: st.sim, mh: st.mh };
     press(); const r2 = { mh: st.mh };
@@ -565,12 +566,75 @@ say('§8 비슷한 제보');
     chk(R.n === 2 && R.r1.sim === false && R.r1.mh === true, '★ Esc 한 번 — «비슷한 제보» 창만 닫히고 마이홈 창은 그대로(ESC 스택이 양보)');
     chk(R.r2.mh === false, '  Esc 한 번 더 — 그때 마이홈 창이 닫힌다');
     chk(R.r3.mh === false, '  다른 마이홈 탭으로 옮긴 뒤(창이 숨음) Esc — 숨은 칸이 가로채지 않고 마이홈이 닫힌다');
-    const noYield = WS.replace("  '#myHomeOverlay.on #mhPageBugreport.on #bbSimilar.on',", '');
+    const noYield = WS.replace("  '#myHomeOverlay.on #mhPageBugreport.on .bb-sim.on',", '');
     chk(noYield !== WS && escRun(noYield).r1.mh === false, '  ↳ 깨 보기 — ESC_YIELD_SEL 줄을 빼면 Esc 한 번에 마이홈까지 닫힌다(빨강)');
   }
   const sim = (HTML.match(/<div id="bbSimilar"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/) || [''])[0];
   chk(HTML.indexOf('id="bbSimilar"') > HTML.indexOf('id="bbWriteView"') && /role="dialog"/.test(sim) && /id="bbSimRows"/.test(sim) && /그래도 제보하기/.test(sim) && /id="bbSimCancel"/.test(sim),
     '  html — 게시판 안을 덮는 칸(따로 창 없음) · 그래도 제보하기 · 취소');
+}
+
+say('§9 임시저장');
+{
+  chk(M.BUG_DRAFT_KEY === 'tw.bugDrafts' && M.BUG_DRAFT_MAX === 3, '이 PC 저장 키 tw. 접두사 · 최대 3개');
+  const one = (id, ts, t, b) => ({ id, ts, cat: 'bug', title: t, body: b || '', vis: 'pub' });
+  const raw = JSON.stringify({ owner: 'CA', items: [one('a', 1, '처음'), one('b', 3, '셋째'), one('c', 2, '', '본문만'), one('d', 4, '', ' '), one('e', 5, '다섯'), { id: 'f' }, null] });
+  const R = M.draftsRead(raw, 'CA');
+  chk(R.length === 3 && R.map(d => d.id).join() === 'e,b,c', '★ 읽기 — 빈 글 · 모양 틀린 줄은 버리고 · 최근 것부터 · 많아야 3개(' + R.map(d => d.id).join() + ')');
+  chk(M.draftsRead(raw, 'CB').length === 0 && M.draftsRead(raw, '').length === 0, '★ 다른 계정(주인 코드가 다름) · 주인 모름이면 빈 것 — 앞 사람 글이 안 보인다');
+  chk(M.draftsRead('{깨짐', 'CA').length === 0 && M.draftsRead(null, 'CA').length === 0 && M.draftsRead('[]', 'CA').length === 0, '  깨진 저장본 · 없음 → 빈 것(던지지 않음)');
+  const big = M.draftsRead(JSON.stringify({ owner: 'CA', items: [one('x', 1, '가'.repeat(99), '나'.repeat(3000))] }), 'CA')[0];
+  chk(big.title.length === 60 && big.body.length === 2000, '  제목 60 · 본문 2000 자까지만 남긴다');
+  let L = [];
+  chk(M.draftsSave(L, { title: ' ', body: '' }, 1, 'n0').ok === false && M.draftsSave(L, { title: ' ', body: '' }, 1, 'n0').reason === 'empty', '저장 — 빈 글은 저장하지 않는다');
+  let r = M.draftsSave(L, { title: '하나', body: '', cat: 'bug', vis: 'prv' }, 10, 'n1'); L = r.list;
+  r = M.draftsSave(L, { title: '둘', body: '' }, 20, 'n2'); L = r.list;
+  r = M.draftsSave(L, { title: '셋', body: '' }, 30, 'n3'); L = r.list;
+  chk(L.length === 3 && L[0].id === 'n3' && L.find(d => d.id === 'n1').vis === 'prv', '  새 글 셋 — 최근 것부터 · 공개 범위도 남긴다');
+  const full = M.draftsSave(L, { title: '넷', body: '' }, 40, 'n4');
+  chk(full.ok === false && full.reason === 'full', '★ 3개가 찼으면 새 글은 저장하지 않는다(«하나를 지운 뒤»)');
+  r = M.draftsSave(L, { id: 'n1', title: '하나 고침', body: '본문' }, 50, 'n5');
+  chk(r.ok && r.id === 'n1' && r.list.length === 3 && r.list[0].id === 'n1' && r.list[0].title === '하나 고침', '★ 불러온 글을 다시 저장하면 그 칸을 덮는다(3개가 차 있어도 · 맨 위로)');
+  L = r.list;
+  L = M.draftsRemove(L, 'n2');
+  chk(L.length === 2 && !L.some(d => d.id === 'n2') && M.draftsRemove(L, 'zz').length === 2, '  지우기 — 그 글만 · 없는 id 는 그대로');
+  const back = M.draftsRead(M.draftsWrite(L, 'CA'), 'CA');
+  chk(back.length === 2 && back[0].id === 'n1' && back[0].body === '본문', '  저장본으로 쓰고 다시 읽으면 같다');
+  const ld = { cat: 'bug', title: '제목', body: '본문', vis: 'pub' };
+  chk(M.draftDirty({ title: '', body: ' ' }, null) === false && M.draftDirty({ title: '제목', body: '' }, null) === true
+    && M.draftDirty(Object.assign({}, ld), ld) === false && M.draftDirty(Object.assign({}, ld, { body: '본문!' }), ld) === true && M.draftDirty(Object.assign({}, ld, { vis: 'prv' }), ld) === true,
+    '★ «쓰던 글» — 비었으면 아님 · 새 글이면 맞음 · 불러온 그대로면 아님(안 묻는다) · 고쳤으면 맞음');
+  /* 깨 보기 */
+  const mutD = (from, to) => { if(!BB.includes(from)) return null; return new Function(BB.replace(from, to).replace(/^export (function|const) /mg, '$1 ') + '\nreturn { draftsRead, draftsSave, draftDirty };')(); };
+  const redD = (X) => {
+    if(!X) return false;
+    const a = X.draftsRead(raw, 'CB').length !== 0;
+    let l = []; for (const t of ['1', '2', '3']) l = X.draftsSave(l, { title: t }, Number(t), 'k' + t).list;
+    const b = X.draftsSave(l, { title: '4' }, 4, 'k4').ok !== false;
+    const c = X.draftDirty(Object.assign({}, ld), ld) !== false;
+    return a || b || c;
+  };
+  chk(!redD({ draftsRead: M.draftsRead, draftsSave: M.draftsSave, draftDirty: M.draftDirty }), '  (깨 보기 기준) 지금 규칙은 통과');
+  chk(redD(mutD('|| !owner || v.owner !== owner ', '')), '깨 보기: 주인 코드를 안 보면(앞 사람 글이 보임) 빨강');
+  chk(redD(mutD('if(i < 0 && cur.length >= BUG_DRAFT_MAX) return', 'if(false) return')), '깨 보기: 3개 상한을 빼면 빨강');
+  chk(redD(mutD("  if(!loaded) return true;\n", "  return true;\n")), '깨 보기: 불러온 그대로도 «쓰던 글» 로 보면(괜히 묻는다) 빨강');
+  /* 화면 배선 */
+  const fn = (name) => (UI.match(new RegExp('function ' + name + '\\([^)]*\\)\\{[\\s\\S]*?\\n  \\}')) || [''])[0];
+  chk(/id="bbDrafts"/.test(HTML) && /id="bbWDraft"[^>]*>임시저장</.test(HTML) && HTML.indexOf('id="bbDrafts"') > HTML.indexOf('id="bbWriteView"') && HTML.indexOf('id="bbDrafts"') < HTML.indexOf('id="bbWCat"'),
+    'html — 글쓰기 맨 위 📝 임시저장 목록 · [취소] 옆 [임시저장]');
+  chk(/id="bbLeave" class="bb-sim"/.test(HTML) && /임시저장하고 나가기/.test(HTML) && /저장 안 하고 나가기/.test(HTML) && /계속 쓰기/.test(HTML), 'html — «📝 쓰던 제보가 있어요» 칸(임시저장하고 나가기 · 저장 안 하고 나가기 · 계속 쓰기)');
+  chk(/localStorage\.getItem\(D\(\)\.KEY\)/.test(fn('draftsLoad')) && /D\(\)\.read\(raw, draftOwner\(\)\)/.test(fn('draftsLoad')) && /TwErrorCodes\.notify\('E-MH-04', e\)/.test(fn('draftsStore')),
+    '  읽기 · 쓰기는 이 PC(localStorage) · 계정 코드로 거름 · 저장 실패는 E-MH-04');
+  chk(/function askLeave\(lead, next\)\{\n\s*if\(!dirty\(\)\)\{ next\(\); return; \}/.test(UI) && /\$\('bbWCancel'\)\.addEventListener\('click', \(\) => askLeave\(leaveLead\(\), \(\) => show\('list'\)\)\);/.test(UI)
+    && /askLeave\(leaveLead\(\), \(\) => openPost\(row\.dataset\.id\)\)/.test(UI), '★ 떠날 때 묻기 — [취소] · 비슷한 글 보러 가기 · 쓰던 글이 없으면 묻지 않고 바로');
+  chk(/if\(save && !saveDraft\(\$\('bbLeaveErr'\)\)\) return;/.test(fn('leaveGo')), '  [임시저장하고 나가기] 가 실패하면(3개 참 · 저장 실패) 창에 남아 까닭을 보인다');
+  chk(/async function enter\(\)\{\n\s*if\(dirty\(\)\) renderDrafts\(\);[^\n]*\n\s*else show\('list'\);/.test(UI), '★ 마이홈을 닫거나 탭을 옮겼다 돌아오면 쓰던 글쓰기로 돌아온다(글을 잃지 않음)');
+  chk(/if\(loaded\)\{ draftsStore\(D\(\)\.remove\(draftsLoad\(\), loaded\.id\)\); loaded = null; \}/.test(fn('submitWrite')) && fn('submitWrite').indexOf('draftsStore(D().remove') > fn('submitWrite').indexOf("if(!r || !r.ok)"),
+    '  등록에 성공하면 불러온 임시글을 지운다(실패면 남김)');
+  chk(/loaded = null; writeSeq\+\+;/.test(fn('openWrite')) && /renderDrafts\(\);/.test(fn('openWrite')), '  글쓰기를 새로 열면 불러온 글 · 찾기 순번을 새로 · 목록을 그린다');
+  chk(/if\(leaveOpen\(\)\)\{ e\.preventDefault\(\); hideLeave\(\); \}/.test(UI) && /hideSimilar\(\); hideLeave\(\);/.test(fn('show')), '  Esc · 화면 전환은 «저장할까요?» 를 닫는다(Esc = 계속 쓰기)');
+  chk(/'tw\.bugDrafts',/.test(read('account.js') || ''), '★ 계정을 바꾸면 지운다(ACCOUNT_LOCAL_KEYS)');
+  chk(/'#myHomeOverlay\.on #mhPageBugreport\.on \.bb-sim\.on'/.test(read('win-stack.js') || ''), '  ESC 스택은 덮는 칸 둘 다(.bb-sim.on)에 양보');
 }
 
 Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
