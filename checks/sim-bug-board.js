@@ -17,7 +17,7 @@
      §6 글쓴이 답글 — rep 노드 규칙(글쓴이만 · 서버 시각 · userReplyTs 짝 · 10초) · 글쓴이 상태 셋 · addReply 실행 · 화면
      §7 공개 범위 바꾸기 — 답변 · 답글 전 · 글쓴이만 · 본문은 그대로 옮기기만(규칙) · canChangeVis · setVis 실행 · 화면 · 깨 보기
      §9 임시저장 — 읽기(깨짐 · 다른 계정 · 빈 글 · 최근 순 · 3개) · 저장(빈 글 · 새 글 · 불러온 글 덮기 · 3개 참) · 지우기 · «쓰던 글» 판정 · 화면 배선(목록 · [임시저장] · 떠날 때 묻기 · 등록하면 지움 · Esc) · 계정 바꾸면 지움 · 깨 보기
-     §10 임시저장 동작 — 게시판 화면 코드를 가짜 화면에 싣고 눌러 본다(3개 참 · 저장하고 나가기 · 고리 LEAVE_GUARD · 다시 불러오기 · 등록 · 찾는 동안 떠나기 · 탭 다시 누르기) · 깨 보기
+     §10 임시저장 동작 — 게시판 화면 코드를 가짜 화면에 싣고 눌러 본다(3개 참 · 저장하고 나가기 · 고리 LEAVE_GUARD · 다시 불러오기 · 등록 · 찾는 동안 떠나기 · 탭 다시 누르기 · 진짜 ESC 스택과 Esc) · 깨 보기
      §8 비슷한 제보 — 제목 낱말 · 겹침 정도(실제 제보 제목 모양) · 고르기(공지 빼기 · 한 번만 · 3줄 · 순서) · 가짜 RTDB 로 받는 양(미해결 · 최근 각 20) · 화면 배선 · 깨 보기
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
@@ -544,7 +544,7 @@ say('§8 비슷한 제보');
   chk(/const seq = writeSeq;/.test(sw) && sw.indexOf("if(!writing() || seq !== writeSeq) return;") > 0 && sw.indexOf("if(!writing() || seq !== writeSeq) return;") < sw.indexOf('if(sim.length)'), '  찾는 동안 떠났거나 글쓰기를 새로 열었으면(늦게 온 결과) 올리지도 띄우지도 않는다');
   /* ★ Esc — 진짜 ESC 스택(win-stack.js)과 이 화면의 Esc 처리기를 싣는 순서대로 걸고 눌러 본다 */
   const WS = read('win-stack.js');
-  const escH = (UI.match(/document\.addEventListener\('keydown', \(e\) => \{\n\s*if\(e\.key !== 'Escape'\) return;\n[\s\S]*?\n\s*\}, true\);/) || [''])[0];
+  const escH = (UI.match(/document\.addEventListener\('keydown', \(e\) => \{\n\s*if\(e\.key !== 'Escape' \|\| e\.defaultPrevented\) return;[^\n]*\n[\s\S]*?\n\s*\}, true\);/) || [''])[0];
   const escRun = (wsSrc) => {
     const st = { mh: true, tab: true, sim: true }, closes = { mh: 0 };
     const L = [];
@@ -643,7 +643,7 @@ say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로
   const END = UI.indexOf('})();\n\n/* ↓ app.js 에서 옮긴');
   const tick = () => new Promise(r => setImmediate(r));
   /* 게시판 IIFE 한 벌을 싣는다 — 버튼은 fire('click') · 고리판은 진짜 myhome-hooks.js */
-  const boot = (src, owner) => {
+  const boot = (src, owner, withStack) => {
     const els = {};
     const mkEl = (id) => {
       const L = {}, cls = new Set();
@@ -660,8 +660,10 @@ say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로
     const radios = [{ value: 'pub', checked: true }, { value: 'prv', checked: false }];
     const tab = mkEl('tab'); tab.classList.add('on');
     const docL = [];
+    const mh = { open: true, closed: 0 };
     const doc = { readyState: 'complete', getElementById: $, addEventListener: (t, f, c) => docL.push([t, f]), createElement: () => mkEl('x'),
-      querySelector: (sel) => sel === 'input[name="bbWVis"]:checked' ? (radios.find(r => r.checked) || null) : sel.includes('data-tab="bugreport"') ? tab : null,
+      querySelector: (sel) => sel === 'input[name="bbWVis"]:checked' ? (radios.find(r => r.checked) || null) : sel.includes('data-tab="bugreport"') ? tab
+        : sel.includes('.bb-sim.on') ? ((mh.open && ($('bbLeave').classList.contains('on') || $('bbSimilar').classList.contains('on'))) ? {} : null) : null,
       querySelectorAll: (sel) => sel === 'input[name="bbWVis"]' ? radios : [] };
     const store = {};
     const ls = { getItem: (k) => k in store ? store[k] : null, setItem: (k, v) => { if (st.lsFail) throw new Error('quota'); store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
@@ -679,6 +681,12 @@ say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로
     const fapi = { bugBoard: bbApi, authCurrentUid: () => 'U1' };
     const win = { firebaseAPI: fapi };
     const HK = load(HOOKS_SRC);
+    if (withStack) {   // app.js 처럼 ESC 스택을 먼저 싣고(같은 document 캡처 — 먼저 걸린 쪽이 먼저 돈다) 마이홈 닫기는 고리를 거친다(myhome-ui.js 와 같은 모양)
+      const w = { __winPosResetters: [] };
+      new Function('window', 'document', 'MutationObserver', WS_SRC)(w, doc, class { observe(){} });
+      const closeAll = () => { mh.open = false; mh.closed++; };
+      w.TwWinStack.createWinStack({}).escRegisterWindow({ key: 'myHome', el: {}, isOpen: () => mh.open, close: () => { if (!HK.call(HK.HOOK.LEAVE_GUARD, closeAll)) closeAll(); } });
+    }
     new Function('window', 'document', 'localStorage', 'firebaseAPI', 'TwMyHomeHooks', 'TwErrorCodes', 'escHtml', 'toast', 'getMyUserId', 'getDisplayName', 'isAdmin', 'navigator', 'setTimeout', src)(
       win, doc, ls, fapi, HK, { notify: (c) => st.errs.push(c) }, (s) => s, (m) => st.toasts.push(m), () => owner, () => '나', false, { userAgent: 'Windows' }, () => 0);
     const type = (title, body) => { $('bbWTitle').value = title; $('bbWBody').value = body || ''; };
@@ -686,11 +694,12 @@ say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로
     const view = () => $('bbWriteView').style.display !== 'none' ? 'write' : $('bbListView').style.display !== 'none' ? 'list' : 'detail';
     const ask = () => $('bbLeave').classList.contains('on');
     const draftClick = (id, act) => $('bbDrafts').fire('click', { target: { closest: (s) => s === '[data-dact]' ? { dataset: { dact: act || 'open' } } : s === '.bb-draft[data-did]' ? { dataset: { did: id } } : null } });
-    const esc = () => docL.filter(([t]) => t === 'keydown').forEach(([, f]) => f({ key: 'Escape', preventDefault(){} }));
+    const esc = () => { const e = { key: 'Escape', target: { tagName: 'DIV' }, defaultPrevented: false, preventDefault(){ this.defaultPrevented = true; }, stopPropagation(){} };
+      docL.filter(([t]) => t === 'keydown').forEach(([, f]) => f(e)); };
     const guard = (next) => HK.call(HK.HOOK.LEAVE_GUARD, next);
-    return { $, st, store, saved, view, ask, type, draftClick, esc, guard, HK, tab };
+    return { $, st, store, saved, view, ask, type, draftClick, esc, guard, HK, tab, mh };
   };
-  const HOOKS_SRC = read('myhome/myhome-hooks.js');
+  const HOOKS_SRC = read('myhome/myhome-hooks.js'), WS_SRC = read('win-stack.js');
   const load = (mod) => { const w = {}; new Function('window', 'module', mod)(w, undefined); return w.TwMyHomeHooks; };
   const SRC = UI.slice(0, END + 5);
   /* 한 바퀴 — 모든 시나리오를 돌려 결과 표를 낸다(깨 보기도 같은 표로) */
@@ -778,6 +787,16 @@ say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로
         U.$('bbWriteBtn').fire('click'); U.type('x'); U.guard(() => {}); U.$('bbLeaveSave').fire('click');
         R.lsFail = U.ask() && U.st.errs.includes('E-MH-04');
       }
+      /* ⑦ 진짜 ESC 스택 — 쓰던 글이 있을 때 마이홈에서 Esc(입력칸 밖) → 묻는 창이 열린 채 남는다 · 한 번 더 = 계속 쓰기(마이홈 · 글 그대로) */
+      { const T = boot(src, 'CA', true);
+        T.$('bbWriteBtn').fire('click'); T.type('쓰던 글');
+        T.esc(); const a = T.ask() && T.mh.open;
+        T.esc(); const b = !T.ask() && T.mh.open && T.$('bbWTitle').value === '쓰던 글';
+        T.esc(); T.$('bbLeaveDrop').fire('click');
+        R.escStack = a && b && !T.mh.open && T.mh.closed === 1;
+        const U = boot(src, 'CA', true); U.esc();
+        R.escPlain = !U.ask() && !U.mh.open;
+      }
       /* ⑥ 쓰던 중에 버그제보 탭을 다시 누르면 먼저 묻는다 · 쓰던 글이 없으면 바로 목록 */
       { const T = boot(src, 'CA');
         T.$('bbWriteBtn').fire('click'); T.type('탭');
@@ -808,6 +827,8 @@ say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로
     raceStay: '  떠나지 않으면 그대로 올린다',
     noOwner: '  로그인 전이면 저장하지 않고 «로그인한 뒤에» 를 보인다',
     lsFail: '  이 PC 저장이 실패하면 E-MH-04 · 묻는 창에 남는다',
+    escStack: '★ 진짜 ESC 스택과 함께 — 쓰던 글이 있을 때 마이홈에서 Esc → «저장할까요?» 가 열린 채 남는다 · 한 번 더 Esc = 계속 쓰기 · [저장 안 하고 나가기] = 마이홈 닫힘',
+    escPlain: '  쓰던 글이 없으면 Esc 한 번에 마이홈이 닫힌다(묻지 않음)',
     tabAgain: '  쓰던 중에 버그제보 탭을 다시 누르면 먼저 묻는다 · 쓰던 글이 없으면 바로 목록',
   };
   pending.push((async () => {
@@ -820,6 +841,7 @@ say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로
       ["askLeave(leaveLead(), () => { show('list'); next(); });", 'askLeave(leaveLead(), next);', 'noLoop', '고른 뒤 목록으로 안 바꾸면(이어 가는 탭 옮기기가 또 묻는다)'],
       ['    writeSeq++;   // 비슷한', '    // 비슷한', 'raceLeave', '묻는 창이 찾기 순번을 안 올리면'],
       ['() => fillForm(draftsLoad().find(x => x.id === id) || d), { save: \'고친', '() => fillForm(d), { save: \'고친', 'reSaved', '다시 누를 때 저장본을 다시 읽지 않으면(옛 글이 보임)'],
+      ["if(e.key !== 'Escape' || e.defaultPrevented) return;", "if(e.key !== 'Escape') return;", 'escStack', 'Esc 처리기가 ESC 스택이 쓴 키를 다시 받으면(묻는 창이 바로 닫힘)'],
       ['    if(dirty()){ askLeave(leaveLead(), () => { show(\'list\'); enter(); }); return; }', '', 'tabAgain', '탭 다시 누르기를 안 물으면'],
     ];
     for (const [from, to, key, what] of breaks) {

@@ -483,7 +483,7 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판 — 마이홈을 �
     });
     // Esc 는 이 창만 닫는다 — ESC 스택은 ESC_YIELD_SEL 로 양보하고 여기서 받는다
     document.addEventListener('keydown', (e) => {
-      if(e.key !== 'Escape') return;
+      if(e.key !== 'Escape' || e.defaultPrevented) return;   // ESC 스택이 이 키로 마이홈 닫기(→ 저장할까요?)를 이미 했으면 방금 연 창을 닫지 않는다
       if(leaveOpen()){ e.preventDefault(); hideLeave(); }   // «저장할까요?» 에서 Esc = 계속 쓰기
       else if(similarOpen()){ e.preventDefault(); hideSimilar(); }
     }, true);
