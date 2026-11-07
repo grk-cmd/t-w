@@ -12,6 +12,7 @@
 function createLauncherPreview(deps){
 const CHAR_Z = deps.CHAR_Z;
 const FrameBudget = deps.FrameBudget;
+const renderQuality = deps.renderQuality;   // 읽는 함수 — 실행 화면 화질(«최저» 면 미리보기도 덜 그린다)
 const blinkTiming = deps.blinkTiming;
 const RIG_TURN = deps.RIG_TURN;
 const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
@@ -218,7 +219,7 @@ function setLauncherChar(def){_lcThumbJob=null;if(lChar){lScene.remove(lChar.gro
     applyBase(null);
   }
 }
-/* 런처 미리보기도 상한(FPS_LAUNCHER)까지만 그린다 — 상한이 없으면 모니터 주사율(120 · 144Hz)만큼 그려
+/* 런처 미리보기도 상한(화질 줄의 launcher — 기본 FPS_LAUNCHER)까지만 그린다 — 상한이 없으면 모니터 주사율(120 · 144Hz)만큼 그려
    런처 화면 GPU 부하가 실행 화면의 3~4배가 된다. */
 const _lBudget = FrameBudget.createFrameBudget({ now: ()=>performance.now() });
 /* 깜빡임은 실행 화면 좌석과 같은 시간표(blink-timing.js — 실제 시각으로 센다). 런처가 숨어 있는 동안은 비워 두어,
@@ -227,7 +228,7 @@ let lBlink=null;
 function launcherLoop(now){
   const vis=document.getElementById('launcher').classList.contains('on');
   if(!vis) lBlink=null;
-  if(vis&&lRenderer&&_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)){
+  if(vis&&lRenderer&&_lBudget.admit(now, FrameBudget.fpsFor(renderQuality()).launcher)){
     if(lChar){if(!lBlink) lBlink=blinkTiming.createBlink(now);
       blinkTiming.scheduleBlinks(lBlink, now);
       const shut=blinkTiming.eyeClose(lBlink, now) > blinkTiming.SHUT_AT;

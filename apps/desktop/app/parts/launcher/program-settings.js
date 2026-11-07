@@ -38,23 +38,26 @@ const setOfficeMode = deps.setOfficeMode;   // 쓰는 함수
 const renderQuality = deps.renderQuality;   // 읽는 함수 — 실행 화면 화질(FrameBudget.QUALITY)
 const setRenderQuality = deps.setRenderQuality;   // 쓰는 함수
 const renderAntialias = deps.renderAntialias;   // 값 — 이번 실행의 렌더러가 테두리 다듬기를 켜고 만들어졌는가
+const renderShadows = deps.renderShadows;   // 값 — 이번 실행의 렌더러가 그림자를 켜고 만들어졌는가
 const applyRunPixelRatio = deps.applyRunPixelRatio;   // 실행 화면 배율을 지금 화질로 다시 맞춘다
 const openSettings = deps.openSettings;   // ⚙️ 설정 창 열기(settings-panel.js) — (탭?)
 const closeSettings = deps.closeSettings;
 const onTabShown = deps.onTabShown;   // (fn(탭)) — 탭을 보일 때 부를 것을 건다
 
-/* --- 🎚️ 실행 화면 화질(디스플레이 탭) — 고르면 이 PC 에 저장 · 배율은 바로, 테두리 다듬기는 다시 켜야 --- */
+/* --- 🎚️ 실행 화면 화질(디스플레이 탭) — 고르면 이 PC 에 저장 · 배율 · 그리는 횟수는 바로, 테두리 다듬기 · 그림자는 다시 켜야 --- */
 const RENDER_QUALITY_HINT = {
   sharp: '지금처럼 선명하게 그려요.',
   auto: '화면이 계속 버벅이면 알아서 해상도를 낮춰요. 앱을 다시 켜면 선명하게 다시 시작해요.',
-  light: '해상도를 낮추고 테두리 다듬기를 꺼서 가장 가벼워요.',
+  light: '해상도를 낮추고 테두리 다듬기를 꺼서 가벼워요.',
+  lowest: '그래픽이 약한 PC 용이에요. 해상도를 더 낮추고 그림자를 끄고, 그리는 횟수를 절반으로 줄여요(움직임이 조금 뚝뚝해 보여요).',
 };
-const RENDER_QUALITY_RESTART = ' 테두리 다듬기는 앱을 다시 켜면 바뀌어요.';
+const RENDER_QUALITY_RESTART = ' 테두리 다듬기 · 그림자는 앱을 다시 켜면 바뀌어요.';
 function refreshRenderQualityUI(){
   const q = renderQuality();
   document.querySelectorAll('#progQualityRow [data-q]').forEach(b=>b.classList.toggle('current', b.dataset.q === q));
   const hint = document.getElementById('progQualityHint'); if(!hint) return;
-  hint.textContent = RENDER_QUALITY_HINT[q] + (FrameBudget.antialiasFor(q) !== renderAntialias ? RENDER_QUALITY_RESTART : '');
+  const needRestart = FrameBudget.antialiasFor(q) !== renderAntialias || FrameBudget.shadowsFor(q) !== renderShadows;
+  hint.textContent = RENDER_QUALITY_HINT[q] + (needRestart ? RENDER_QUALITY_RESTART : '');
 }
 document.querySelectorAll('#progQualityRow [data-q]').forEach(b=>{
   b.onclick = ()=>{

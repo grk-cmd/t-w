@@ -1,9 +1,9 @@
 /* ═══ 🖼️ sim-launcher-preview.js — 🖼️ 런처 미리보기 · 슬롯 섬네일 모듈 (2026-10-16 신설 · C 구역 떼기 · w3) ═══════════════
    app.js 의 런처 미리보기 · 슬롯 섬네일 구역 본문 을 parts/launcher/launcher-preview.js 로 옮겼다(글자 그대로 · 바뀐 줄 3 — 읽는 · 쓰는 함수로 바꾼 자리).
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 36줄 그대로(몸 재기 measureBodyBox · 외모 지문 _quickHash 더함) · 부르는 곳은 launcherPrevMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 만드는 줄 · deps 37줄 그대로(몸 재기 measureBodyBox · 외모 지문 _quickHash · 화질 renderQuality 더함) · 부르는 곳은 launcherPrevMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
-   ・4절: 런처 부하 — 미리보기는 FrameBudget.FPS_LAUNCHER 까지만 그린다(120Hz 에서 1초 30장) · 깜빡임은 좌석과 같은 시간표(blink-timing.js · 실제 시각 · 주사율과 무관) · 후원 반짝임은 steps(초당 20번 칠하기)
+   ・4절: 런처 부하 — 미리보기는 화질 줄의 launcher 까지만 그린다(120Hz 에서 1초 30장 · «최저» 15장) · 깜빡임은 좌석과 같은 시간표(blink-timing.js · 실제 시각 · 주사율과 무관) · 후원 반짝임은 steps(초당 20번 칠하기)
    [실행] app.js · desk-companion-prototype.html · launcher-preview.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -21,11 +21,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ["_quickHash","_mkFrontFill","_setDeskMatColor","allDeskItems","applyDeskColorToCustom","applyDeskItemsTo","applyEquippedPartsToSeat","applyStaticHandRest","b64ToBuf","buildDesk","clampCharY","clearHolderDeskItems","defToBase","equipDeskItem","extractBonesInto","getCommissionScene","measureBodyBox","registerCustomItem","setDeskPos","setDeskScale","setFaceMap","swapDeskVisual"];
 const VAL_DEPS = ["CHAR_Z","FrameBudget","blinkTiming","RIG_TURN","_FILL_LIGHT_MUL","_KEY_LIGHT_MUL","_MAIN_LIGHT_COL","_MAIN_LIGHT_INT","commSceneCache","scene","slots"];
-const GET_DEPS = ["assetCodeMod","customItems","slotSaveMod"];
+const GET_DEPS = ["assetCodeMod","customItems","slotSaveMod","renderQuality"];
 const SET_DEPS = [];
 const EXPORTS = ["ensureLauncherPreview","lHolder","lRenderer","launcherLoop","setLauncherChar","sizeLauncherPreview"];
 const MOVED = ["lRenderer","lScene","lCam","lChar","lBlinkT","lBlinkOn","lHolder","lDeskMat","lScaleHint","lCharBaseY","lFrameH","lFrameZ","LAUNCHER_CHAR_Y","PS1_PIXEL_SCALE","ensureLauncherPreview","_lcBodyBox","sizeLauncherPreview","LC_THUMB_SETTLE_MS","LC_THUMB_MAX","_lcThumbJob","_lcThumbArm","_lcThumbTake","setLauncherChar","launcherLoop"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_Z: CHAR_Z,","  FrameBudget: FrameBudget,","  blinkTiming: TwBlinkTiming,","  RIG_TURN: RIG_TURN,","  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,","  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,","  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,","  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,","  _quickHash: (...a)=>roomSyncMod._quickHash(...a),","  _mkFrontFill: (...a)=>_mkFrontFill(...a),","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),","  assetCodeMod: ()=>assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  buildDesk: (...a)=>buildDesk(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commSceneCache: commSceneCache,","  customItems: ()=>customItems,","  defToBase: (...a)=>defToBase(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  extractBonesInto: (...a)=>extractBonesInto(...a),","  getCommissionScene: (...a)=>getCommissionScene(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  registerCustomItem: (...a)=>registerCustomItem(...a),","  scene: scene,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  setFaceMap: (...a)=>setFaceMap(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  swapDeskVisual: (...a)=>swapDeskVisual(...a),"];
+const GLUE = ["  CHAR_Z: CHAR_Z,","  FrameBudget: FrameBudget,","  renderQuality: ()=>_renderQuality,","  blinkTiming: TwBlinkTiming,","  RIG_TURN: RIG_TURN,","  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,","  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,","  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,","  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,","  _quickHash: (...a)=>roomSyncMod._quickHash(...a),","  _mkFrontFill: (...a)=>_mkFrontFill(...a),","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),","  assetCodeMod: ()=>assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  buildDesk: (...a)=>buildDesk(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commSceneCache: commSceneCache,","  customItems: ()=>customItems,","  defToBase: (...a)=>defToBase(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  extractBonesInto: (...a)=>extractBonesInto(...a),","  getCommissionScene: (...a)=>getCommissionScene(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  registerCustomItem: (...a)=>registerCustomItem(...a),","  scene: scene,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  setFaceMap: (...a)=>setFaceMap(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  swapDeskVisual: (...a)=>swapDeskVisual(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -106,7 +106,7 @@ function judgeLoad(mod, fbSrc, html){
   /* 같은 씨앗이면 같은 난수 — 앱의 Math.random 자리에 꽂는다 */
   const seeded = (seed) => { let x = seed >>> 0 || 1; return () => { x ^= x << 13; x >>>= 0; x ^= x >>> 17; x ^= x << 5; x >>>= 0; return x / 4294967296; }; };
   /* 미리보기 하나를 가짜로 띄운다 — render 횟수 · 얼굴 바꾸기 · 시간표 부름을 센다 */
-  function rig(seed){
+  function rig(seed, quality){
     const st = { renders: 0, faces: [], made: 0, scheduled: 0, vis: true };
     const any = anything();
     const THREE3 = new Proxy({}, { get: (o, k) => k === 'WebGLRenderer' ? function(){ return new Proxy({ render(){ st.renders++; } }, { get: (x, kk) => kk in x ? x[kk] : any }); } : any });
@@ -115,7 +115,7 @@ function judgeLoad(mod, fbSrc, html){
     const rand = seeded(seed);
     const bt = { SHUT_AT: BT.SHUT_AT, createBlink: (now) => { st.made++; return BT.createBlink(now, rand); }, scheduleBlinks: (bl, now) => { st.scheduled++; return BT.scheduleBlinks(bl, now, rand); }, eyeClose: (bl, now) => BT.eyeClose(bl, now) };
     const base = { group: any, faceMat: { id: 'face' }, fT: 'OPEN', bT: 'SHUT' };
-    const api = build(mod, { FrameBudget: FB, blinkTiming: bt, defToBase: () => base, setFaceMap: (m, tex) => st.faces.push(tex) }, { THREE: THREE3, document: doc, performance: { now: () => 0 } });
+    const api = build(mod, { FrameBudget: FB, renderQuality: () => quality, blinkTiming: bt, defToBase: () => base, setFaceMap: (m, tex) => st.faces.push(tex) }, { THREE: THREE3, document: doc, performance: { now: () => 0 } });
     api.ensureLauncherPreview(); api.setLauncherChar({});
     st.renders = 0;
     return { st, api };
@@ -124,6 +124,11 @@ function judgeLoad(mod, fbSrc, html){
   try{ g = rig(5); }catch(e){ t(false, '가짜 미리보기 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
   for(let i = 1; i <= 120; i++) g.api.launcherLoop(i * 1000 / 120);
   t(FB.FPS_LAUNCHER > 0 && Math.abs(g.st.renders - FB.FPS_LAUNCHER) <= 1, '120Hz 로 1초 — 미리보기를 ' + g.st.renders + '번 그린다(상한 ' + FB.FPS_LAUNCHER + ' · 주사율만큼 그리지 않는다)');
+  {
+    const lo = rig(5, 'lowest'); for(let i = 1; i <= 120; i++) lo.api.launcherLoop(i * 1000 / 120);
+    const want = FB.fpsFor('lowest').launcher;
+    t(want > 0 && want < FB.FPS_LAUNCHER && Math.abs(lo.st.renders - want) <= 1, '★ 화질 «최저» — 120Hz 로 1초에 ' + lo.st.renders + '번(상한 ' + want + ' · 기본보다 적게)');
+  }
   /* 깜빡임 — 좌석과 같은 시간표를 부르고, 주사율이 달라도 1분에 감는 횟수가 같다 */
   const shuts = (hz) => { const x = rig(9); for(let i = 1; i <= hz * 60; i++) x.api.launcherLoop(i * 1000 / hz); return x; };
   const h120 = shuts(120), h60 = shuts(60), h144 = shuts(144);
@@ -143,7 +148,8 @@ function judgeLoad(mod, fbSrc, html){
 const rows4 = judgeLoad(MOD, FB_SRC, HTML);
 rows4.forEach(([ok, msg]) => chk(ok, msg));
 const breaks4 = [
-  ['상한 없이 그림', m => m.replace('_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)', 'true'), null],
+  ['상한 없이 그림', m => m.replace('_lBudget.admit(now, FrameBudget.fpsFor(renderQuality()).launcher)', 'true'), null],
+  ['화질을 안 보고 늘 기본 상한', m => m.replace('FrameBudget.fpsFor(renderQuality()).launcher', 'FrameBudget.FPS_LAUNCHER'), null],
   ['깜빡임을 프레임 수로 셈', m => m.replace('blinkTiming.scheduleBlinks(lBlink, now);', 'lBlink.f = (lBlink.f || 0) + 16; blinkTiming.scheduleBlinks(lBlink, lBlink.f);').replace('blinkTiming.eyeClose(lBlink, now)', 'blinkTiming.eyeClose(lBlink, lBlink.f)'), null],
   ['숨겨도 시간표를 안 비움', m => m.replace('  if(!vis) lBlink=null;\n', ''), null],
   ['반짝임 linear', null, h => h.replace(/(animation:donateShine [\d.]+s )steps\(\d+\)/, '$1linear')],
