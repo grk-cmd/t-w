@@ -291,11 +291,18 @@ function _saveLauncherPosSoon(){
   if(_launcherPosSaveT) clearTimeout(_launcherPosSaveT);
   _launcherPosSaveT = setTimeout(_flushLauncherPos, LAUNCHER_POS_SAVE_MS);
 }
+/* 끌 때 런처가 떠 있으면 지금 자리를 한 번 더 잰다 — 'moved' 를 못 받은 이동(OS · 배율 사정)이 있어도 다음 실행은 끈 자리에서 */
+function _rememberLauncherOnQuit(){
+  if(!_isConfigMode || _cfgMode !== 'launcher' || !mainWindow || mainWindow.isDestroyed()) return;
+  if(mainWindow.isMinimized()) return;   // 윈도우는 내린 창 자리를 -32000 으로 준다 — 그 자리를 적지 않는다
+  const p = _launcherPosOf(mainWindow.getBounds());
+  if(p) savedPos.launcher = p;
+}
 function _flushLauncherPos(){
   if(_launcherPosSaveT){ clearTimeout(_launcherPosSaveT); _launcherPosSaveT = null; }
   const p = savedPos.launcher;
   if(JSON.stringify(p) === JSON.stringify(_launcherPosSaved)) return;
-  saveSettings();
+  if(saveSettings() && p) _diagLog('[창] 런처 자리 저장 ' + p.x + ',' + p.y);
 }
 function _launcherPosOf(v){
   if(!v || typeof v !== 'object') return null;
@@ -322,6 +329,23 @@ function sizeToMode(w, h){
     if(close(h, sz.h) || (fit && close(h, fit.h))) return m;
   }
   return null;
+}
+/* 🪟 지금 config 창의 모드 — _applyConfigMode 가 창을 맞추기 **전에** 건다(맥은 setBounds 중에도 'moved' 가 온다). run 이면 그대로 두고 _isConfigMode 로 가른다. */
+let _cfgMode = 'launcher';   // 첫 창은 런처(createWindow)
+const MOVED_SIZE_RATIO = 2;   // 걸어 둔 모드 크기의 1/2 ~ 2 배까지만 그 모드로 본다
+/* 'moved' 때 어느 모드 자리로 기억할까.
+   ① 크기로 알아보면 그 모드 — 모드를 바꾼 직후 늦게 온 옛 창의 'moved' 를 새 모드 자리로 적지 않게.
+   ② 못 알아보면 지금 걸어 둔 모드 — 배율이 다른 모니터(액정타블렛 등)로 끌면 읽는 크기가 몇 px 넘게 어긋나
+      ①이 늘 실패해 런처 자리가 한 번도 저장되지 않았다(켤 때마다 가운데). 단 크기가 그 모드의 절반 ~ 두 배 안일 때만 —
+      전체화면(run) 크기의 늦은 'moved' 를 런처 자리로 적지 않게. */
+function _movedMode(isConfig, cfgMode, w, h){
+  if(!isConfig) return null;
+  const known = sizeToMode(w, h);
+  if(known) return known;
+  if(!MODE_SIZE[cfgMode]) return null;
+  const sz = _modeSize(cfgMode);
+  const near = (a, e) => a >= e / MOVED_SIZE_RATIO && a <= e * MOVED_SIZE_RATIO;
+  return (near(w, sz.w) && near(h, sz.h)) ? cfgMode : null;
 }
 
 /* ═══ 📐 [2026-09-15 제보 1·2] 런처 창이 잘린 채 뜬다 (첫 부팅 · 주모니터 변경) ═══════════
@@ -627,7 +651,7 @@ function _exitNow(){
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
-  try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
+  try{ _rememberLauncherOnQuit(); _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
 }
@@ -1978,6 +2002,7 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
    렌더러가 죽어 다시 불러올 때(_resetWindowForReload) 같이 쓴다. mode: 'launcher' | 'creator' | 'myhome' | 'animal' | 'run' */
 function _applyConfigMode(isConfig, mode, extra){
   _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
+  if(isConfig) _cfgMode = MODE_SIZE[mode] ? mode : 'launcher';   // 🪟 'moved' 가 볼 모드 — 창을 맞추기 전에(_movedMode)
   if (!mainWindow) return;
   // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
   //   다르게 지정해둔 듀얼 모니터 환경에서, 런처와 동떨어진 엉뚱한 모니터에 뜨던 문제를 방지.
@@ -2192,6 +2217,8 @@ function createWindow() {
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
      예전엔 workAreaSize 만 보고 (0,0) 기준으로 중앙을 잡았다 — 작업표시줄이 위에 있으면 그만큼 어긋난다. */
   const initRect = _fitConfigRect('launcher', _modeSize('launcher'), primaryDisplay, savedPos.launcher);   // 📐 저장된 줌 · 런처 자리가 이미 실려 있다(loadSettings 가 먼저 돈다)
+  _diagLog('[창] 런처 자리 — ' + (savedPos.launcher ? '지난 자리 ' + savedPos.launcher.x + ',' + savedPos.launcher.y : '기억 없음(가운데)')
+    + ' → ' + initRect.x + ',' + initRect.y + ' ' + initRect.width + 'x' + initRect.height);
 
   mainWindow = new BrowserWindow({
     width: initRect.width,      // 시작은 config 모드 크기로 (런처가 먼저 뜨니까)
@@ -2643,15 +2670,12 @@ function createWindow() {
     if(gbWin && !gbWin.isDestroyed()){ try{ gbWin.close(); }catch(e){} }
   });
 
-  // 네이티브 드래그(app-region:drag)로 창이 실제 움직였을 때 위치 기억 — 런처/생성기 모드 각각.
-  // (run 모드=전체화면 크기일 때는 해당 없음 — sizeToMode가 null 반환)
+  // 네이티브 드래그(app-region:drag)로 창이 실제 움직였을 때 위치 기억 — 런처/생성기 모드 각각(run 은 해당 없음 — _movedMode)
   mainWindow.on('moved', () => {
     if (!mainWindow) return;
     const b = mainWindow.getBounds();
-    const m = sizeToMode(b.width, b.height);
-    if (m) {
-      _rememberPos(m, b);
-    }
+    const m = _movedMode(_isConfigMode, _cfgMode, b.width, b.height);
+    if (m) _rememberPos(m, b);
   });
 
   // mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -4030,7 +4054,7 @@ function createWindow() {
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
   if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
-  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
+  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } try { _rememberLauncherOnQuit(); _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
        종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
