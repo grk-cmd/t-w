@@ -28,7 +28,7 @@ const FN_DEPS = ["_chatEsc","_diceSvg","_starPaint","getDisplayName","seatScale"
 const VAL_DEPS = ["ANIMAL_RUN_SCALE","_wpTmp3","camera","chatUiMod","renderer","seats","tricksMod"];
 const GET_DEPS = ["focusLevelMod","officeMode"];
 const SET_DEPS = [];
-const EXPORTS = ["NAMEPLATE_BELOW_EXPBAR","beginLabelFrame","labelSize","nameplateHeight","_officeDemojiHtml","_seatLabelName","setSeatMenu","setLabelDrag","bindLabelDrag","dismissSeatHeadBubble","ensureSeatLabelsLayer","nameplateEnabled","setNameplateEnabled","projectWorldToScreenPx","removeSeatLabels","setSeatHeadBubble","setSeatNamePlate"];
+const EXPORTS = ["NAMEPLATE_BELOW_EXPBAR","beginLabelFrame","labelSize","nameplateHeight","_officeDemojiHtml","_seatLabelName","setSeatMenu","setLabelDrag","bindLabelDrag","dismissSeatHeadBubble","ensureSeatLabelsLayer","nameplateEnabled","setNameplateEnabled","statusBubbleEnabled","setStatusBubbleEnabled","projectWorldToScreenPx","removeSeatLabels","setSeatHeadBubble","setSeatNamePlate"];
 const MOVED = ["nameplateEnabled","chipHorizontal","applyChipOrientation","_labelWP","projectWorldToScreenPx","ensureSeatLabelsLayer","ensureSeatNamePlateEl","seatLabelHeadY","LABEL_INV_GAP_PX","NAMEPLATE_BELOW_EXPBAR","setSeatNamePlate","ensureSeatAnnounceEl","_seatShowsAnnounce","updateSeatAnnounceEl","_activeAnnounceText","_announceExpireTimer","_refreshAnnounceState","_hideAllAnnounceEls","_initAnnounceSubscription","BUBBLE_INV_GAP_LABEL_PX","BUBBLE_INV_GAP_FEET_PX","BUBBLE_X_NUDGE_PX","ensureSeatBubbleEl","_officeLabelHtml","OFFICE_DEMOJI_PX","_officeDemojiHtml","_seatLabelName","_bubSnapTransform","setSeatHeadBubble","dismissSeatHeadBubble","removeSeatLabels"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  _chatEsc: (...a)=>_chatEsc(...a),","  _diceSvg: (...a)=>_diceSvg(...a),","  _starPaint: (...a)=>_starPaint(...a),","  _wpTmp3: _wpTmp3,","  camera: camera,","  chatUiMod: chatUiMod,","  focusLevelMod: ()=>focusLevelMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  officeMode: ()=>officeMode,","  renderer: renderer,","  seatScale: (...a)=>seatScale(...a),","  seats: seats,","  tricksMod: tricksMod,"];
 
@@ -97,6 +97,39 @@ for(const [name, fm, fa, fh] of breaks){
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 4. 💭 머리 위 상태 말풍선 — 설정으로 끄기 · 눌러 지우면 채팅 뒤에도 안 다시 뜸(B-1028-14)');
+{
+  const OV = (() => { const w = {}; new Function('window', 'module', 'localStorage', 'document', NET_PRE + MOD + '\nreturn window.TwOverhead;')(w, undefined, { getItem: () => null, setItem(){} }, anything()); return w.TwOverhead; })();
+  const G = OV.statusBubbleGate;
+  chk(typeof G === 'function' && OV.STATUS_BUBBLE_KEY === 'tw.statusBubble', '판정 함수 · 저장 키 tw.statusBubble(이 PC 에만)');
+  /* 실제로 한 좌석의 흐름을 흉내 — app.js 는 상태면 think=true, 채팅이면 think 없이 setSeatHeadBubble 을 부른다 */
+  const run = (gate) => {
+    const seat = {}, shown = [];
+    const frame = (text, think) => { const t = think ? gate(seat, text, true) : text; shown.push(t); if(!think) return; seat._last = t; };
+    frame('📱 procreate', true);                       // 1 상태
+    seat._statusDismissedFor = '📱 procreate';          // 눌러 지움(dismissSeatHeadBubble 이 적는 값)
+    frame('📱 procreate', true);                       // 2 지운 뒤
+    frame('안녕', false);                               // 3 채팅
+    frame('📱 procreate', true);                       // 4 채팅 끝 — 같은 앱
+    frame('📱 clip studio', true);                     // 5 다른 앱
+    frame('📱 procreate', true);                       // 6 다시 처음 앱
+    return shown;
+  };
+  const R = run(G);
+  chk(R[0] === '📱 procreate' && R[1] === null, '상태 말풍선 — 눌러 지우면 안 보인다');
+  chk(R[2] === '안녕', '  채팅 말풍선은 그대로 뜬다');
+  chk(R[3] === null, '★ 채팅이 끝나 같은 상태로 돌아와도 다시 안 뜬다(예전엔 채팅이 기억을 지워 다시 떴다)');
+  chk(R[4] === '📱 clip studio' && R[5] === '📱 procreate', '  다른 상태(다른 앱)가 오면 다시 보인다 — 그 뒤엔 처음 앱도 새로 보인다');
+  const s2 = {};
+  chk(G(s2, '📱 procreate', false) === null && G(s2, null, true) === null, '★ 설정에서 끄면 상태 말풍선은 안 뜬다(채팅은 이 판정을 안 지난다)');
+  chk(/if\(think\) text = statusBubbleGate\(seat, text, statusBubbleEnabled\);/.test(MOD) && /if\(seat\._lastBubbleThink && seat\._lastBubble\) seat\._statusDismissedFor = seat\._lastBubble;/.test(MOD),
+    '  배선 — 상태(think)만 판정을 지난다 · 상태 말풍선을 지우면 기억한다');
+  chk(/overheadMod\.setSeatHeadBubble\(seat, _conf \? _conf\.label : focusLevelMod\._mobileBubbleText\(_mobApp\), true\)/.test(SRC) && /else if\(_chatting\)\{ overheadMod\.setSeatHeadBubble\(seat, seat\.chatBubbleText\); \}/.test(SRC),
+    '  app.js — 상태 갈래만 think=true · 채팅 갈래는 think 없음');
+  const bad = MOD.replace("  if(text !== seat._statusDismissedFor){ seat._statusDismissedFor = undefined; return text; }\n  return null;", "  seat._statusDismissedFor = undefined; return text;");
+  const OB = (() => { const w = {}; new Function('window', 'module', 'localStorage', 'document', NET_PRE + bad + '\nreturn window.TwOverhead;')(w, undefined, { getItem: () => null, setItem(){} }, anything()); return w.TwOverhead; })();
+  chk(bad !== MOD && run(OB.statusBubbleGate)[3] !== null, '  깨 보기 — 지운 기억을 안 지키면 채팅 뒤 다시 떠 빨강');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

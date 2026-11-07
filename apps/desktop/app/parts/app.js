@@ -2282,6 +2282,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   layoutSeats: (...a)=>layoutSeats(...a),
   moveMode: ()=>moveMode,
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
+  statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
   plMod: plMod,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshInviteUI: (...a)=>roomEntryMod.refreshInviteUI(...a),
@@ -2308,6 +2309,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   setFocusCharScale: (v)=>{ focusCharScale = v; },
   setMoveMode: (v)=>{ moveMode = v; },
   setNameplateEnabled: (v)=>{ overheadMod.setNameplateEnabled(v); },
+  setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
   setRoomSeatMode: (v)=>{ roomSeatMode = v; },
   setSeatEqualizeOn: (v)=>{ seatEqMod.setSeatEqualizeOn(v); },
 });
