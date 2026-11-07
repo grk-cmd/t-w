@@ -13,10 +13,11 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['scheduler.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(모듈이 TwNetReady.whenNetReady 를 부른다)
+const need = ['scheduler.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'invite-notice.js'];   // invite-notice.js — 🙋 마지막 방 초대 한 줄(진짜 모듈을 무대 저장소에 얹는다)   // net-ready.js — 🛰 네트워크 준비 기다리기(모듈이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
+const INV = (() => { const w = {}; new Function('window', 'module', SRC['invite-notice.js'])(w, undefined); return w.TwInviteNotice; })();
 /* 절마다 따로 — 옛 코드(모듈 없음)에 대면 멈추지 않고 그 절을 빨강 하나로 센다 */
 const sec = (title, fn) => { say(title); try{ fn(); }catch(e){ chk(false, '이 절을 못 돌았다 — ' + (e && e.message)); } };
 
@@ -87,7 +88,8 @@ function mkEnv(opt){
     closeChipPopups: () => {}, positionInputBelowChar: () => {},
     inboxUnreadCount: () => opt.inbox || 0, refreshFriendTabBadge: () => { g.friendBadge = (g.friendBadge || 0) + 1; },
     bellSeenKey: 'tw.bellSeenTs',
-    twNav: opt.twNav || { go(){}, NAV: {} },
+    twNav: opt.twNav || { go(k, fid, inv){ if(k === 'friendVisit') (g.opened = g.opened || []).push(fid + ':' + inv.code + ':' + inv.name); }, NAV: { FRIEND_VISIT: 'friendVisit' } },
+    roomInvite: (g.notice = INV.createInviteNotice({ storage: localStorage, getMyUserId: () => ('uid' in opt ? opt.uid : 'me1'), now: () => (g.now || Date.now()) })),
   });
   return { S, win, els, ls, subs, timers, toasts, escWins, winListeners, g, api, el: id => document.getElementById(id) };
 }
@@ -191,6 +193,43 @@ sec('── 3. 🔔 뱃지 · 알림 목록', () => {
   const E2 = mkEnv();
   E2.S.renderBellList();
   chk(E2.el('bellList').textContent.includes('오늘 예정된 일정이 없어요'), '아무것도 없으면 «오늘 예정된 일정이 없어요»');
+});
+
+sec('── 3-2. 🙋 방 초대 줄 · 알림콩', () => {
+  const E = mkEnv();
+  const badge = E.el('myBellBadge'), list = E.el('bellList');
+  const lineOf = () => list.children.find(c => c.className === 'bell-invite');
+  E.S.refreshBellBadge();
+  chk(badge.textContent === '0' && !lineOf(), '초대가 없으면 줄도 알림콩도 없다');
+  E.g.now = Date.now();
+  E.g.notice.note('f1', { fromName: '나비', roomCode: 'PLAY-AB12', ts: 1000 });
+  chk(badge.textContent === '1' && badge.classList.contains('on'), '★ 초대가 오면 🔔 뱃지(알림콩) +1');
+  E.g.notice.note('f1', { fromName: '나비', roomCode: 'PLAY-AB12', ts: 1000 });
+  chk(badge.textContent === '1', '  같은 초대가 다시 와도(구독 다시 불림) 늘지 않는다');
+  E.el('myBellBtn').fire('click');
+  const ln = lineOf();
+  chk(!!ln && ln.textContent.includes('나비 님이 방에 초대했어요') && list.children.indexOf(ln) === list.children.length - 1
+    && list.children.indexOf(ln) > list.children.findIndex(c => c.className === 'bell-inbox-btn'), '★ [📪 알림함 확인] 아래에 «🙋 나비 님이 방에 초대했어요»');
+  chk(ln.children[0].classList.contains('on'), '  창을 연 그때는 새 초대라 줄 앞 점(알림콩)');
+  chk(badge.textContent === '0', '★ 창을 열면 알림콩이 꺼진다');
+  E.g.notice.note('f2', { fromName: '<b>토끼</b>', roomCode: 'WORK-CD34', ts: 2000 });
+  const ln2 = lineOf();
+  chk(list.children.filter(c => c.className === 'bell-invite').length === 1 && ln2.textContent.includes('<b>토끼</b> 님이 방에 초대했어요') && !list.textContent.includes('나비 님'),
+    '★ 새 초대가 오면 그 줄이 바뀐다(쌓지 않는다) · 이름은 글자 그대로(HTML 아님)');
+  lineOf().onclick();
+  chk((E.g.opened || []).join() === 'f2:WORK-CD34:<b>토끼</b>' && !E.S.isBellOpen(), '★ 줄을 누르면 창을 닫고 창 열기 통로(FRIEND_VISIT)로 «놀러 갈까요?» — 보낸 사람 · 초대 코드 · 이름을 같이(시크릿룸 초대 · 친구 아님 안내용)');
+  const O = mkEnv({ uid: 'other' });
+  O.ls.set('tw.roomInviteLast', E.ls.get('tw.roomInviteLast'));
+  O.S.renderBellList(); O.S.refreshBellBadge();
+  chk(!O.el('bellList').children.some(c => c.className === 'bell-invite') && O.el('myBellBadge').textContent === '0', '  다른 계정에는 남의 초대가 안 보인다');
+  /* 깨 보기 — 뱃지 셈에서 초대를 빼면 알림콩이 안 뜬다 */
+  const bad = MOD.replace('const n = newNotices + newToday + ddayHits + inboxNew + inviteNew;', 'const n = newNotices + newToday + ddayHits + inboxNew;');
+  const B = mkEnv({ src: bad }); B.g.now = Date.now();
+  B.g.notice.note('f1', { fromName: '나비', roomCode: 'PLAY-AB12', ts: 1000 });
+  chk(bad !== MOD && B.el('myBellBadge').textContent === '0', '  깨 보기 — 뱃지 셈에서 초대를 빼면 알림콩이 안 떠 빨강');
+  /* 저장본 규칙 */
+  chk(INV.read(JSON.stringify({ owner: 'a', fromId: 'f', roomCode: 'nope', at: 1 }), 'a') === null && INV.read('{깨짐', 'a') === null && INV.read(null, 'a') === null,
+    '  저장본 — 방 코드 모양이 틀리거나 깨지면 없음');
 });
 
 sec('── 4. 달력 · D-day · 👀 관람', () => {

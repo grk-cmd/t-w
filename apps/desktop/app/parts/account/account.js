@@ -306,6 +306,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', MY_AD_BANNER_KEY,
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,
   'tw.bugDrafts',              // 📝 버그 제보 임시저장 — 그 계정이 쓰던 글이라 다음 사람에게 남기지 않는다
+  'tw.roomInviteLast',         // 🙋 마지막으로 받은 방 초대 줄(invite-notice.js) — 다음 사람에게 남의 초대가 보이지 않게
 ];
 /* 접두어로 쌓이는 키(방마다 하나) — 목록에 못 적으므로 여기서 훑는다. */
 const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:', 'tw_chat_join:'];

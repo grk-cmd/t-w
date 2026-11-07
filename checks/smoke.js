@@ -361,6 +361,7 @@ PRELOAD.push('gacha.js');
 PRELOAD.push('myhome-edit.js');
 /* room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기 팝업(앱 FSD 10번). 같은 까닭 — 만들 때 하는 일(친구 고르기 창 버튼 · 끌기 · resize 연결 · 초대 수신 구독 또는 firebase-ready 기다림)을 같이 굴린다. */
 PRELOAD.push('room-invite-ui.js');
+PRELOAD.push('invite-notice.js');   // 🙋 마지막 방 초대 한 줄 — app.js 가 마이홈 스케줄러보다 먼저 만든다
 /* focus-log.js — 🕒 포커스 기록 팝업(앱 FSD 13번). 같은 까닭 — 만들 때 하는 일(버튼 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 타이틀바 끌기 연결)을 같이 굴린다. */
 PRELOAD.push('focus-log.js');
 /* chat-window.js — 💬 대화창 배선(앱 FSD 14번). 같은 까닭 — 만들 때 하는 일(버튼 · 메뉴 · 끌기 · 크기 손잡이 · ESC · 입력 · 이모티콘 그리드 연결 · 저장값 반영 · 복사 · 탭 묶기)을 같이 굴린다. */

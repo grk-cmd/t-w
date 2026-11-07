@@ -15,6 +15,7 @@ const NAV = Object.freeze({
   ASSET_IMPORT: 'assetImport',                      // ➕ 코드로 추가하기 창 열기 — (kind, cat) · 거는 곳 creator/asset-import.js
   ROOM_LOBBY: 'roomLobby',                          // 🗂️ 방 목록 로비 다시 읽기 — 모달이 열린 채 방을 나와 로비가 다시 보일 때 · 거는 곳 room/room-lobby-ui.js
   WARDROBE_ALBUM: 'wardrobeAlbum',                  // 📚 꾸미기 창을 «도감» 탭으로 열기 — 뽑기 창 [도감으로] · 거는 곳 character/wardrobe-panel.js
+  FRIEND_VISIT: 'friendVisit',                      // 🏠 «○○ 님이 있는 룸에 놀러 갈까요?» — (fid, invite) · 🔔 받은 초대 줄 · 거는 곳 room/friend-visit.js
 });
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }

@@ -2566,6 +2566,8 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
 let _schedDdaysVisitUnsub = null;        // 👀 관람 중 친구 D-day 구독 끊기 — openFriendHomeView · closeFriendHomeView
+/* 🙋 마지막으로 받은 방 초대 한 줄(room/invite-notice.js) — 받기는 room-invite-ui.js · 보이기는 🔔 일정 알림(scheduler.js) */
+const inviteNotice = TwInviteNotice.createInviteNotice({ storage: localStorage, getMyUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const mhScheduler = MhScheduler.createScheduler({
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
@@ -2580,6 +2582,7 @@ const mhScheduler = MhScheduler.createScheduler({
   refreshFriendTabBadge: ()=>inboxMod.refreshFriendTabBadge(),
   bellSeenKey: BELL_SEEN_KEY,
   twNav: twNav,
+  roomInvite: inviteNotice,
 });
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
@@ -2770,8 +2773,8 @@ const richTextMod = TwRichText.createRichText({
      app.js 에 두고 값으로. isAdmin 은 이 줄보다 뒤에 선언되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 /* 🏠 친구 방에 놀러 가기 — 방 코드 누르기 · 묻는 창 · 이동은 friend-visit.js. 여기는 연결만. */
-const friendVisit = window.TwFriendVisit ? TwFriendVisit.createFriendVisit({ document, escHtml, toast,
-  getFriend: fid => _myHomeFriends[fid], refreshFriend: fid => friendsSubMod.refreshPresence([fid]), roomTagOf: (...a)=>inboxMod.friendRoomTag(...a),
+const friendVisit = window.TwFriendVisit ? TwFriendVisit.createFriendVisit({ document, escHtml, toast, twNav,
+  getFriend: fid => _myHomeFriends[fid], refreshFriend: fid => friendsSubMod.refreshPresence([fid]), roomTagOf: (...a)=>inboxMod.friendRoomTag(...a), friendInRoom: (...a)=>inboxMod.friendInRoom(...a), isSecretCode: c => TwRoomState.isSecretCode(c),
   myRoom: () => (typeof Presence !== 'undefined' && Presence.roomCode) ? Presence.roomCode() : null,
   inRoom: () => typeof Presence !== 'undefined' && Presence.active(),
   leaveRoom: () => roomEntryMod.doLeaveRoom({ wipeChat: true }), startRoom: c => roomEntryMod.startRoom(c),
@@ -9161,6 +9164,7 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   friendsOpen: (...a)=>friendsSubMod.open(...a),
   friendsClose: (...a)=>friendsSubMod.close(...a),
   presence: Presence,
+  inviteNotice: inviteNotice,
 });
 
 /* ═══════════ 🛰 서버 모듈 감시견 — 안 붙으면 다시 붙이고, 그래도 안 되면 말해준다 ═══════════

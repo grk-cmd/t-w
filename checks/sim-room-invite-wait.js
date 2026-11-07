@@ -1,9 +1,10 @@
-/* ═══ ⏳ sim-room-invite-wait.js — 방 초대 팝업이 화면을 막지 않는다 · 3분 뒤 자동 거절 (개정 76 신설) ═══════════
+/* ═══ ⏳ sim-room-invite-wait.js — 방 초대 팝업이 화면을 막지 않는다 · 자동 거절 없음(10분 뒤 창만 닫힘) ═══════════
    [제보] «친구가 방에 초대하면 알림이 뜨는 동안 수락·거절 말고 아무것도 못 한다.»
      팝업이 화면 전체를 덮는 어두운 판(pointer-events:auto)이라, 실행 화면(전체화면 투명 오버레이)에서는
      화면 전체가 클릭을 막았다.
    ・1절: 껍데기는 pointer-events:none · 배경 없음 · 상자만 auto (클릭 통과 영역 수집 _uiRegions 는 none 껍데기를 건너뛴다)
-   ・2절: 3분 대기 → 거절과 같은 길(done(false)) · done 은 한 번만 · 남은 시간 표시 · 깜빡임은 done 에서 끈다
+   ・2절: 자동 거절 없음 — 10분 뒤 창만 닫는다(done('later') · 수락 · 거절과 다른 길) · done 은 한 번만 · 깜빡임은 done 에서 끈다
+          (실제로 돌려 보는 판정은 sim-room-invite-ui.js 5절)
    ・3절: 오래된 초대(10분 — 보낸 쪽 시계 오차 여유)는 띄우지 않고 지운다
    ⚠️ 실제 동작(밖 클릭 통과 · 만료 · 수락)은 2026-10-02 헤드리스 크로미움에서 함수 원문으로 확인했다.
    ・방 초대 받기(showRoomInvitePopup · _bindRoomInviteReceiver · 두 상수)는 parts/room/room-invite-ui.js 로 옮겼다(앱 FSD 10번) — 그 파일을 읽는다. 판정은 그대로.
@@ -27,13 +28,13 @@ chk(/ov\.style\.cssText = '[^']*pointer-events:none;'/.test(P) && !/ov\.style\.c
 chk(/ov\.style\.cssText = '[^']*background:none;/.test(P) && !/ov\.style\.cssText = '[^']*background:rgba/.test(P), '어두운 배경 판 없음');
 chk(/box\.style\.cssText = 'pointer-events:auto;/.test(P), '상자만 클릭을 받는다');
 
-say('── 2. 3분 대기 · 자동 거절');
-chk(/const ROOM_INVITE_WAIT_MS\s*= 3 \* 60 \* 1000;/.test(SRC), '대기 3분');
-chk(/const due = Date\.now\(\) \+ ROOM_INVITE_WAIT_MS;/.test(P), '팝업이 뜬 순간부터 잰다');
-chk(/if\(ms <= 0\)\{ done\(false\);/.test(P), '시간이 지나면 거절과 같은 길');
-chk(/if\(finished\) return; finished = true;/.test(P) && /clearInterval\(tick\)/.test(P), 'done 은 한 번만 · 타이머 정리');
+say('── 2. 자동 거절 없음 · 10분 뒤 창만 닫힘');
+chk(/const ROOM_INVITE_POPUP_MS = 10 \* 60 \* 1000;/.test(SRC) && !/ROOM_INVITE_WAIT_MS/.test(SRC), '팝업 10분 · 옛 3분 대기 상수 없음');
+chk(/timer = setTimeout\(\(\)=>\{ done\('later'\);/.test(P) && !/done\(false\); toast/.test(P), '10분이 지나면 거절(false)이 아니라 «나중에»(later) — 창만 닫는다');
+chk(/accepted === true && inv\.roomCode/.test(R), '  «나중에» 는 방으로 가지 않는다(수락만 true)');
+chk(/if\(finished\) return; finished = true;/.test(P) && /clearTimeout\(timer\)/.test(P), 'done 은 한 번만 · 타이머 정리');
 chk(/_flashTaskbar\(true\);/.test(P) && /_flashTaskbar\(false\);/.test(P), '깜빡임은 팝업과 수명을 같이 한다');
-chk(/data-a="left"/.test(grab('showRoomInvitePopup')), '남은 시간 줄');
+chk(!/data-a="left"/.test(grab('showRoomInvitePopup')), '남은 시간 줄 없음');
 
 say('── 3. 오래된 초대');
 chk(/const ROOM_INVITE_STALE_MS = 10 \* 60 \* 1000;/.test(SRC), '오래됨 문턱 10분(보낸 쪽 시계 오차 여유)');

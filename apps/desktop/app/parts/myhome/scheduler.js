@@ -27,6 +27,7 @@ const _closeChipPopups = deps.closeChipPopups;
 const _positionInputBelowChar = deps.positionInputBelowChar;
 const _inboxUnreadCount = deps.inboxUnreadCount;
 const _refreshFriendTabBadge = deps.refreshFriendTabBadge;
+const roomInvite = deps.roomInvite;             // 🙋 마지막 방 초대 한 줄(room/invite-notice.js) — { get() · isNew(seenTs) · subscribe(fn) }
 
 /* ═══════════════════════ 📅 스케줄러 ═══════════════════════
    좌: 월별 달력 (일정 등록/삭제, 일정별 공개 여부, 친구 태그)
@@ -1039,7 +1040,10 @@ function _bellWinOpen(){
   return !!(w && w.style.display !== 'none');
 }
 
-/* 알림 개수 = 오늘 내 일정 + 친구 태그 알림. 뱃지는 "마지막으로 창을 연 시각 이후" 것만 셈. */
+/* 🙋 초대 줄이 바뀌면 뱃지 · 열린 창을 다시 — 여기서 듣는다(초대 줄 모듈이 이 파일을 모르게) */
+roomInvite.subscribe(()=>{ refreshBellBadge(); if(_bellWinOpen()) renderBellList(); });
+
+/* 알림 개수 = 오늘 내 일정 + 친구 태그 알림 + 수령함 + 새 방 초대. 뱃지는 "마지막으로 창을 연 시각 이후" 것만 셈. */
 function refreshBellBadge(){
   const badge = document.getElementById('myBellBadge');
   if(!badge) return;
@@ -1058,7 +1062,8 @@ function refreshBellBadge(){
     return _ddayMilestoneDays(_daysBetween(dd.date, todayYMD), _ddayShownDays(dd, todayYMD));
   }).length;
   const inboxNew = _inboxUnreadCount();   // 📩 수령함 안 읽은 공지/업데이트
-  const n = newNotices + newToday + ddayHits + inboxNew;
+  const inviteNew = roomInvite.isNew(seen) ? 1 : 0;   // 🙋 창을 마지막으로 연 뒤 받은 방 초대(한 줄이라 많아야 1)
+  const n = newNotices + newToday + ddayHits + inboxNew + inviteNew;
   badge.textContent = n > 9 ? '9+' : String(n);
   badge.classList.toggle('on', n > 0);
   _refreshFriendTabBadge();   // 🎁 친구 탭 보상 배지도 함께 갱신
@@ -1169,6 +1174,25 @@ function renderBellList(){
     }, 320);
   };
   list.appendChild(btn);
+
+  /* 🙋 마지막으로 받은 방 초대 — 한 줄(새 초대가 오면 바뀐다). 창을 연 뒤 처음 그릴 때 새것이면 점(알림콩). 누르면 놀러 갈까요? */
+  const inv = roomInvite.get();
+  if(inv){
+    const row = document.createElement('div'); row.className = 'bell-invite';
+    row.title = '눌러서 ' + inv.fromName + ' 님이 있는 룸에 놀러 가기';
+    const dot = document.createElement('span'); dot.className = 'bell-invite-dot' + (roomInvite.isNew(_bellSeenTs()) ? ' on' : '');
+    const t = document.createElement('span'); t.className = 'bell-invite-txt';
+    t.textContent = '🙋 ' + inv.fromName + ' 님이 방에 초대했어요';
+    const when = document.createElement('span'); when.className = 'bell-invite-ts'; when.textContent = _bellInviteWhen(inv.at);
+    row.appendChild(dot); row.appendChild(t); row.appendChild(when);
+    row.onclick = ()=>{ window._closeBellWin(); twNav.go(twNav.NAV.FRIEND_VISIT, inv.fromId, { code: inv.roomCode, name: inv.fromName }); };   // 🏠 놀러 갈까요?(friend-visit.js)
+    list.appendChild(row);
+  }
+}
+/* 초대 받은 때 — 오늘이면 시:분, 아니면 월/일 */
+function _bellInviteWhen(at){
+  const d = new Date(at), p = (n)=>String(n).padStart(2, '0');
+  return _localYMD(at) === _todayYMD() ? p(d.getHours()) + ':' + p(d.getMinutes()) : (d.getMonth() + 1) + '/' + d.getDate();
 }
 
 (function bindBell(){
