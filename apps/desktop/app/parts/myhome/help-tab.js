@@ -1,6 +1,7 @@
 /* help-tab.js — 📘 마이홈 «도움말» 탭: 왼쪽 목차(묶음 접고 펴기) · 오른쪽 도움말 웹 페이지(도움말 전용 Hosting 사이트 — 틀 안) · 못 불러옴 (검사 sim-help-tab.js)
    [왜] 사용법 글은 앱을 다시 내지 않고 고칠 수 있게 웹 페이지에 두고, 앱은 그 페이지를 칸 안에 보여 준다.
    ★ 목차는 앱에 박지 않는다 — 페이지(hosting/help/embed.js)가 «지금 편 · 목차» 를 보내 오면 그것으로 그린다.
+     목차 아래 «❓ 자주 묻는 질문»(FAQ_PAGE) 하나만 앱이 단다 — FAQ 페이지는 목차에 없는 편이라서.
      그래서 페이지 안 «이전 · 다음» 으로 옮겨도 왼쪽 표시가 따라간다. 받은 글은 textContent 로만 넣는다.
    ★ 틀은 sandbox(allow-scripts allow-same-origin) — 페이지 스크립트(테마 · 알림)와 같은 사이트 목차 받기만 된다.
      앱 문서(file://)와 출처가 달라 앱 쪽 window · companion 에 손대지 못한다. 틀이 옮겨 갈 수 있는 주소는
@@ -12,6 +13,8 @@
 'use strict';
 
 const LOAD_MS = 10000;
+const FAQ_PAGE = 'faq';     // 자주 묻는 질문 — 목차(toc.json)에 없는 편이라 목차 아래에 따로 단다
+const FAQ_LABEL = '❓ 자주 묻는 질문';
 
 /** @param {{ getTheme: () => string }} deps */
 function createHelpTab(deps){
@@ -93,6 +96,12 @@ function _renderRail(){
       rail.appendChild(eb);
     });
   });
+  const fb = document.createElement('button');
+  fb.type = 'button';
+  fb.className = 'mh-help-grp mh-help-faq' + (_page === FAQ_PAGE ? ' on' : '');
+  fb.textContent = FAQ_LABEL;
+  fb.addEventListener('click', ()=>{ _page = FAQ_PAGE; _renderRail(); _load(FAQ_PAGE); });
+  rail.appendChild(fb);
 }
 function _onMessage(e){
   if(!_frame || e.source !== _frame.contentWindow) return;
@@ -128,5 +137,5 @@ return {
 };
 }
 
-window.TwHelpTab = { createHelpTab, LOAD_MS };
+window.TwHelpTab = { createHelpTab, LOAD_MS, FAQ_PAGE, FAQ_LABEL };
 })();
