@@ -10,6 +10,7 @@
    ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면 — «비슷한 제보» 창도 게시판 안을 덮는 칸). alert/confirm 금지(audit 검사 4). */
 (function(){
   'use strict';
+const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판 — 마이홈을 닫거나 탭을 옮길 때 쓰던 글을 묻는 LEAVE_GUARD 를 건다
   const $ = (id) => document.getElementById(id);
   const api = () => (window.firebaseAPI && firebaseAPI.bugBoard) || null;
   const C = () => (api() && api().C) || { cats: [], status: {}, page: 8, anon: '익명', kakaoRe: /^https:\/\/open\.kakao\.com\//, answerNoticeBody: () => '버그제보 탭에서 확인해 주세요' };
@@ -321,11 +322,14 @@
       '<button class="bb-draft-x" type="button" data-dact="del" title="지우기" aria-label="지우기">×</button></div>').join('') : '';
   }
   /* 저장 — 성공하면 true. 비었거나 3개가 찼으면 err 칸에 까닭 */
-  function saveDraft(errEl){
+  function saveDraft(errEl, inPrompt){
+    if(!draftOwner()){ errEl.textContent = '로그인한 뒤에 임시저장할 수 있어요'; return false; }
     const list = draftsLoad();
     const r = D().save(list, Object.assign(formNow(), { id: loaded ? loaded.id : null }), Date.now(), Date.now().toString(36) + Math.random().toString(36).slice(2, 6));
     if(!r.ok){
-      errEl.textContent = r.reason === 'full' ? '임시저장은 ' + D().MAX + '개까지예요 — 위 목록에서 하나를 지운 뒤 저장해 주세요' : '저장할 내용이 없어요';
+      errEl.textContent = r.reason !== 'full' ? '저장할 내용이 없어요'
+        : inPrompt ? '임시저장이 ' + D().MAX + '개 차 있어요 — [계속 쓰기] 로 돌아가 목록에서 하나를 지운 뒤 저장해 주세요'
+        : '임시저장은 ' + D().MAX + '개까지예요 — 위 목록에서 하나를 지운 뒤 저장해 주세요';
       return false;
     }
     if(!draftsStore(r.list)) return false;
@@ -336,17 +340,21 @@
     return true;
   }
   function fillForm(d){
-    $('bbWCat').value = d.cat || $('bbWCat').value; $('bbWTitle').value = d.title; $('bbWBody').value = d.body;
+    const sel = $('bbWCat'); if([].some.call(sel.options, o => o.value === d.cat)) sel.value = d.cat;   // 없는 분류면 지금 값 그대로
+    $('bbWTitle').value = d.title; $('bbWBody').value = d.body;
     document.querySelectorAll('input[name="bbWVis"]').forEach(r => { r.checked = r.value === d.vis; });
     loaded = d; $('bbWErr').textContent = '';
     renderDrafts();
   }
   /* 📝 «저장할까요?» — 쓰던 글이 있을 때만 묻고, 고르면 next() 로 이어 간다 */
   let leaveNext = null;
-  function askLeave(lead, next){
+  const LEAVE_BTNS = { save: '임시저장하고 나가기', drop: '저장 안 하고 나가기' };
+  function askLeave(lead, next, btns){
     if(!dirty()){ next(); return; }
+    writeSeq++;   // 비슷한 제보를 찾는 중이었으면 그 등록은 무른다(떠나려고 했으니)
     leaveNext = next;
     $('bbLeaveLead').textContent = lead;
+    $('bbLeaveSave').textContent = (btns || LEAVE_BTNS).save; $('bbLeaveDrop').textContent = (btns || LEAVE_BTNS).drop;
     $('bbLeaveErr').textContent = '';
     $('bbLeave').classList.add('on');
     $('bbLeaveStay').focus();
@@ -355,10 +363,18 @@
   const leaveOpen = () => $('bbLeave').classList.contains('on') && $('bbLeave').offsetParent !== null;
   function leaveGo(save){
     const next = leaveNext;
-    if(save && !saveDraft($('bbLeaveErr'))) return;   // 저장 못 하면(3개 · 저장 실패) 창에 남아 까닭을 보인다
+    if(save && !saveDraft($('bbLeaveErr'), true)) return;   // 저장 못 하면(3개 · 저장 실패) 창에 남아 까닭을 보인다
     hideLeave();
     if(next) next();
   }
+  /* 🪝 마이홈을 닫거나 탭을 옮길 때(myhome-ui.js) — 버그제보 탭이 보이고 쓰던 글이 있을 때만 묻는다.
+     고른 뒤엔 목록으로 바꾸고 이어 가므로, 이어 가는 길(탭 옮기기)이 고리를 다시 불러도 쓰던 글이 없어 묻지 않는다 */
+  mhHooks.on(mhHooks.HOOK.LEAVE_GUARD, (next) => {
+    const pg = $('mhPageBugreport');
+    if(!pg || !pg.classList.contains('on') || !dirty()) return false;
+    askLeave(leaveLead(), () => { show('list'); next(); });   // 고른 뒤 게시판은 목록으로 — 돌아왔을 때 버린 글이 남아 있지 않게
+    return true;
+  });
   const leaveLead = () => '임시저장할까요? 임시저장은 이 PC 에만 ' + D().MAX + '개까지 남아요.';
   async function submitWrite(btn, skipSimilar){
     const err = $('bbWErr');
@@ -409,8 +425,8 @@
 
   /* ── 탭 들어올 때 · 우편함에서 열 때 ───────────────────── */
   async function enter(){
-    if(dirty()) renderDrafts();   // 쓰던 글이 있으면(마이홈을 닫거나 탭을 옮겼다 돌아옴) 그 글쓰기로 돌아온다
-    else show('list');
+    if(dirty()){ askLeave(leaveLead(), () => { show('list'); enter(); }); return; }   // 쓰던 중에 탭을 다시 누르면 먼저 묻는다
+    show('list');
     if(api()) api().loadDailyMax();   // 하루 상한 — 열 때 한 번(기다리지 않는다 · 못 읽으면 5)
     if(admin() && !migrated && api()){
       migrated = true;
@@ -423,7 +439,7 @@
   window._bugBoardOpen = function(id){
     const tab = document.querySelector('#myHomeTabs .mh-tab[data-tab="bugreport"]');
     if(tab && !tab.classList.contains('on')) tab.click();   // 탭 바인딩이 enter() 를 부른다
-    openPost(id);
+    askLeave(leaveLead(), () => openPost(id));   // 버그제보 탭에서 쓰던 글이 있으면 먼저 묻는다
   };
 
   function bind(){
@@ -446,8 +462,12 @@
         return;
       }
       const d = draftsLoad().find(x => x.id === id); if(!d) return;
-      if(loaded && loaded.id === id && !dirty()) return;
-      askLeave('지금 쓰던 글을 임시저장하고 «' + (d.title.trim() || '제목 없음') + '» 을 불러올까요?', () => fillForm(d));
+      if(loaded && loaded.id === id){
+        if(!dirty()) return;
+        askLeave('고친 내용이 있어요 — 임시저장할까요, 아니면 저장해 둔 글로 되돌릴까요?', () => fillForm(draftsLoad().find(x => x.id === id) || d), { save: '고친 내용 임시저장', drop: '고친 것 버리고 되돌리기' });
+        return;
+      }
+      askLeave('지금 쓰던 글을 임시저장하고 «' + (d.title.trim() || '제목 없음') + '» 을 불러올까요?', () => fillForm(draftsLoad().find(x => x.id === id) || d), { save: '임시저장하고 불러오기', drop: '저장 안 하고 불러오기' });
     });
     $('bbLeaveSave').addEventListener('click', () => leaveGo(true));
     $('bbLeaveDrop').addEventListener('click', () => leaveGo(false));

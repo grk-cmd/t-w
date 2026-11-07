@@ -21,6 +21,7 @@ const HOOK = Object.freeze({
   DS_CLOSE: 'dsClose',                 // 👑 디자인 스튜디오 창 닫기 · 거는 곳 myhome-edit.js
   CANCEL_NAME_EDIT: 'cancelNameEdit',  // 🏷️ 열린 닉네임 입력칸을 취소로 접기 — 입력칸이 열려 있을 때만 걸린다 · 거는 곳 myhome-edit.js
   SYNC_BGM_BOUNDS: 'syncBgmBounds',    // 🎵 BGM 창이 숨을 마이홈 창 사각형 보내기 · 거는 곳 myhome-ui.js
+  LEAVE_GUARD: 'leaveGuard',           // 📝 버그제보 쓰던 글 — (next) 있으면 «저장할까요?» 를 띄우고 true(고르면 next) · 없으면 false · 거는 곳 bug-board-ui.js
 });
 const _fns = {};
 function on(name, fn){ _fns[name] = fn; }

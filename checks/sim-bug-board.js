@@ -16,7 +16,8 @@
         (예전엔 min-height 만 있어 [전체] 한 쪽 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
      §6 글쓴이 답글 — rep 노드 규칙(글쓴이만 · 서버 시각 · userReplyTs 짝 · 10초) · 글쓴이 상태 셋 · addReply 실행 · 화면
      §7 공개 범위 바꾸기 — 답변 · 답글 전 · 글쓴이만 · 본문은 그대로 옮기기만(규칙) · canChangeVis · setVis 실행 · 화면 · 깨 보기
-     §9 임시저장 — 읽기(깨짐 · 다른 계정 · 빈 글 · 최근 순 · 3개) · 저장(빈 글 · 새 글 · 불러온 글 덮기 · 3개 참) · 지우기 · «쓰던 글» 판정 · 화면 배선(목록 · [임시저장] · 떠날 때 묻기 · 돌아오면 이어 쓰기 · 등록하면 지움 · Esc) · 계정 바꾸면 지움 · 깨 보기
+     §9 임시저장 — 읽기(깨짐 · 다른 계정 · 빈 글 · 최근 순 · 3개) · 저장(빈 글 · 새 글 · 불러온 글 덮기 · 3개 참) · 지우기 · «쓰던 글» 판정 · 화면 배선(목록 · [임시저장] · 떠날 때 묻기 · 등록하면 지움 · Esc) · 계정 바꾸면 지움 · 깨 보기
+     §10 임시저장 동작 — 게시판 화면 코드를 가짜 화면에 싣고 눌러 본다(3개 참 · 저장하고 나가기 · 고리 LEAVE_GUARD · 다시 불러오기 · 등록 · 찾는 동안 떠나기 · 탭 다시 누르기) · 깨 보기
      §8 비슷한 제보 — 제목 낱말 · 겹침 정도(실제 제보 제목 모양) · 고르기(공지 빼기 · 한 번만 · 3줄 · 순서) · 가짜 RTDB 로 받는 양(미해결 · 최근 각 20) · 화면 배선 · 깨 보기
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
@@ -625,16 +626,208 @@ say('§9 임시저장');
   chk(/id="bbLeave" class="bb-sim"/.test(HTML) && /임시저장하고 나가기/.test(HTML) && /저장 안 하고 나가기/.test(HTML) && /계속 쓰기/.test(HTML), 'html — «📝 쓰던 제보가 있어요» 칸(임시저장하고 나가기 · 저장 안 하고 나가기 · 계속 쓰기)');
   chk(/localStorage\.getItem\(D\(\)\.KEY\)/.test(fn('draftsLoad')) && /D\(\)\.read\(raw, draftOwner\(\)\)/.test(fn('draftsLoad')) && /TwErrorCodes\.notify\('E-MH-04', e\)/.test(fn('draftsStore')),
     '  읽기 · 쓰기는 이 PC(localStorage) · 계정 코드로 거름 · 저장 실패는 E-MH-04');
-  chk(/function askLeave\(lead, next\)\{\n\s*if\(!dirty\(\)\)\{ next\(\); return; \}/.test(UI) && /\$\('bbWCancel'\)\.addEventListener\('click', \(\) => askLeave\(leaveLead\(\), \(\) => show\('list'\)\)\);/.test(UI)
+  chk(/function askLeave\(lead, next, btns\)\{\n\s*if\(!dirty\(\)\)\{ next\(\); return; \}/.test(UI) && /\$\('bbWCancel'\)\.addEventListener\('click', \(\) => askLeave\(leaveLead\(\), \(\) => show\('list'\)\)\);/.test(UI)
     && /askLeave\(leaveLead\(\), \(\) => openPost\(row\.dataset\.id\)\)/.test(UI), '★ 떠날 때 묻기 — [취소] · 비슷한 글 보러 가기 · 쓰던 글이 없으면 묻지 않고 바로');
-  chk(/if\(save && !saveDraft\(\$\('bbLeaveErr'\)\)\) return;/.test(fn('leaveGo')), '  [임시저장하고 나가기] 가 실패하면(3개 참 · 저장 실패) 창에 남아 까닭을 보인다');
-  chk(/async function enter\(\)\{\n\s*if\(dirty\(\)\) renderDrafts\(\);[^\n]*\n\s*else show\('list'\);/.test(UI), '★ 마이홈을 닫거나 탭을 옮겼다 돌아오면 쓰던 글쓰기로 돌아온다(글을 잃지 않음)');
+  chk(/if\(save && !saveDraft\(\$\('bbLeaveErr'\), true\)\) return;/.test(fn('leaveGo')), '  [임시저장하고 나가기] 가 실패하면(3개 참 · 저장 실패) 창에 남아 까닭을 보인다');
+  chk(/async function enter\(\)\{\n\s*if\(dirty\(\)\)\{ askLeave\(leaveLead\(\), \(\) => \{ show\('list'\); enter\(\); \}\); return; \}/.test(UI), '  쓰던 중에 버그제보 탭을 다시 누르면 먼저 묻는다(목록으로 바로 가 글을 잃지 않게)');
   chk(/if\(loaded\)\{ draftsStore\(D\(\)\.remove\(draftsLoad\(\), loaded\.id\)\); loaded = null; \}/.test(fn('submitWrite')) && fn('submitWrite').indexOf('draftsStore(D().remove') > fn('submitWrite').indexOf("if(!r || !r.ok)"),
     '  등록에 성공하면 불러온 임시글을 지운다(실패면 남김)');
   chk(/loaded = null; writeSeq\+\+;/.test(fn('openWrite')) && /renderDrafts\(\);/.test(fn('openWrite')), '  글쓰기를 새로 열면 불러온 글 · 찾기 순번을 새로 · 목록을 그린다');
   chk(/if\(leaveOpen\(\)\)\{ e\.preventDefault\(\); hideLeave\(\); \}/.test(UI) && /hideSimilar\(\); hideLeave\(\);/.test(fn('show')), '  Esc · 화면 전환은 «저장할까요?» 를 닫는다(Esc = 계속 쓰기)');
   chk(/'tw\.bugDrafts',/.test(read('account.js') || ''), '★ 계정을 바꾸면 지운다(ACCOUNT_LOCAL_KEYS)');
   chk(/'#myHomeOverlay\.on #mhPageBugreport\.on \.bb-sim\.on'/.test(read('win-stack.js') || ''), '  ESC 스택은 덮는 칸 둘 다(.bb-sim.on)에 양보');
+}
+
+say('§10 임시저장 — 게시판 화면 코드를 가짜 화면에 통째로 싣고 눌러 본다');
+{
+  const END = UI.indexOf('})();\n\n/* ↓ app.js 에서 옮긴');
+  const tick = () => new Promise(r => setImmediate(r));
+  /* 게시판 IIFE 한 벌을 싣는다 — 버튼은 fire('click') · 고리판은 진짜 myhome-hooks.js */
+  const boot = (src, owner) => {
+    const els = {};
+    const mkEl = (id) => {
+      const L = {}, cls = new Set();
+      const e = { id, value: '', textContent: '', innerHTML: '', disabled: false, scrollTop: 0, style: { display: '' }, dataset: {}, options: [], offsetParent: {},
+        classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c), toggle: (c, on) => { (on === undefined ? !cls.has(c) : on) ? cls.add(c) : cls.delete(c); } },
+        addEventListener: (t, f) => { (L[t] = L[t] || []).push(f); },
+        fire: (t, ev) => (L[t] || []).forEach(f => f(Object.assign({ currentTarget: e, target: e, preventDefault(){} }, ev || {}))),
+        focus(){}, click(){ e.fire('click'); }, querySelector: () => null, querySelectorAll: () => [], appendChild(){}, closest: () => null };
+      return e;
+    };
+    const $ = (id) => els[id] || (els[id] = mkEl(id));
+    $('bbWCat').options = [{ value: 'bug' }, { value: 'etc' }];
+    $('mhPageBugreport').classList.add('on');
+    const radios = [{ value: 'pub', checked: true }, { value: 'prv', checked: false }];
+    const tab = mkEl('tab'); tab.classList.add('on');
+    const docL = [];
+    const doc = { readyState: 'complete', getElementById: $, addEventListener: (t, f, c) => docL.push([t, f]), createElement: () => mkEl('x'),
+      querySelector: (sel) => sel === 'input[name="bbWVis"]:checked' ? (radios.find(r => r.checked) || null) : sel.includes('data-tab="bugreport"') ? tab : null,
+      querySelectorAll: (sel) => sel === 'input[name="bbWVis"]' ? radios : [] };
+    const store = {};
+    const ls = { getItem: (k) => k in store ? store[k] : null, setItem: (k, v) => { if (st.lsFail) throw new Error('quota'); store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
+    const st = { posts: [], opened: [], sim: [], gate: null, toasts: [], errs: [], lsFail: false, createOk: true };
+    const D = { KEY: M.BUG_DRAFT_KEY, MAX: M.BUG_DRAFT_MAX, read: M.draftsRead, write: M.draftsWrite, save: M.draftsSave, remove: M.draftsRemove, dirty: M.draftDirty, empty: M.draftIsEmpty };
+    const bbApi = {
+      drafts: D, C: { cats: [['bug', '버그'], ['etc', '기타']], status: {}, page: 8, anon: '익명', kakaoRe: /^x$/, answerNoticeBody: () => '' },
+      checkPost: (p) => (p.title.trim() ? null : '제목을 써 주세요'),
+      similarTo: () => st.gate ? st.gate.then(() => st.sim) : Promise.resolve(st.sim),
+      createPost: async (p) => { st.posts.push(p); return st.createOk ? { ok: true, id: 'P' + st.posts.length } : { ok: false, reason: '실패' }; },
+      getPost: async (id) => { st.opened.push(id); return null; },
+      dailyMax: () => 5, todayCount: async () => 0, loadDailyMax(){}, unseen: async () => ({ n: 0, ids: [] }),
+      listPage: async () => ({ items: [], next: null }), notices: async () => [], migrateNotice: async () => ({ ok: true, skipped: true }),
+    };
+    const fapi = { bugBoard: bbApi, authCurrentUid: () => 'U1' };
+    const win = { firebaseAPI: fapi };
+    const HK = load(HOOKS_SRC);
+    new Function('window', 'document', 'localStorage', 'firebaseAPI', 'TwMyHomeHooks', 'TwErrorCodes', 'escHtml', 'toast', 'getMyUserId', 'getDisplayName', 'isAdmin', 'navigator', 'setTimeout', src)(
+      win, doc, ls, fapi, HK, { notify: (c) => st.errs.push(c) }, (s) => s, (m) => st.toasts.push(m), () => owner, () => '나', false, { userAgent: 'Windows' }, () => 0);
+    const type = (title, body) => { $('bbWTitle').value = title; $('bbWBody').value = body || ''; };
+    const saved = () => M.draftsRead(store[M.BUG_DRAFT_KEY] || null, owner);
+    const view = () => $('bbWriteView').style.display !== 'none' ? 'write' : $('bbListView').style.display !== 'none' ? 'list' : 'detail';
+    const ask = () => $('bbLeave').classList.contains('on');
+    const draftClick = (id, act) => $('bbDrafts').fire('click', { target: { closest: (s) => s === '[data-dact]' ? { dataset: { dact: act || 'open' } } : s === '.bb-draft[data-did]' ? { dataset: { did: id } } : null } });
+    const esc = () => docL.filter(([t]) => t === 'keydown').forEach(([, f]) => f({ key: 'Escape', preventDefault(){} }));
+    const guard = (next) => HK.call(HK.HOOK.LEAVE_GUARD, next);
+    return { $, st, store, saved, view, ask, type, draftClick, esc, guard, HK, tab };
+  };
+  const HOOKS_SRC = read('myhome/myhome-hooks.js');
+  const load = (mod) => { const w = {}; new Function('window', 'module', mod)(w, undefined); return w.TwMyHomeHooks; };
+  const SRC = UI.slice(0, END + 5);
+  /* 한 바퀴 — 모든 시나리오를 돌려 결과 표를 낸다(깨 보기도 같은 표로) */
+  const scenarios = async (src) => {
+    const R = {};
+    try {
+      /* ① 3개가 찬 상태에서 새 글 — [임시저장하고 나가기] 는 실패하고 창에 남는다 · [저장 안 하고 나가기] 는 나간다 */
+      { const T = boot(src, 'CA');
+        for (const t of ['하나', '둘', '셋']) { T.$('bbWriteBtn').fire('click'); T.type(t); T.$('bbWDraft').fire('click'); }
+        T.$('bbWriteBtn').fire('click'); T.type('넷');
+        let went = 0; const g = T.guard(() => went++);
+        R.fullAsk = g === true && T.ask() && went === 0;
+        T.$('bbLeaveSave').fire('click');
+        R.fullStay = T.ask() && went === 0 && /3개/.test(T.$('bbLeaveErr').textContent) && T.saved().length === 3;
+        T.$('bbLeaveDrop').fire('click');
+        R.dropGo = !T.ask() && went === 1 && T.view() === 'list' && T.saved().length === 3 && !T.saved().some(d => d.title === '넷');
+        /* 다시 들어오면 버린 글이 없다(목록) · 고리는 쓰던 글이 없으니 안 묻는다 */
+        R.noAgain = T.guard(() => went++) === false && went === 1;
+      }
+      /* ② [임시저장하고 나가기] — 저장 · 나감 · 이어 가는 길(next)이 고리를 다시 불러도 묻지 않는다(무한 물음 없음) */
+      { const T = boot(src, 'CA');
+        T.$('bbWriteBtn').fire('click'); T.type('제목', '본문');
+        let inner = null, went = 0;
+        T.guard(() => { went++; inner = T.guard(() => {}); });
+        T.$('bbLeaveSave').fire('click');
+        R.saveGo = went === 1 && !T.ask() && T.saved().length === 1 && T.saved()[0].body === '본문' && T.view() === 'list';
+        T.$('bbWriteBtn').fire('click'); T.type('버릴 글');
+        T.guard(() => { inner = T.guard(() => {}); }); T.$('bbLeaveDrop').fire('click');
+        R.noLoop = inner === false && !T.ask();
+        /* 버그제보 탭이 아니면(다른 탭) 묻지 않는다 */
+        T.$('bbWriteBtn').fire('click'); T.type('또');
+        T.$('mhPageBugreport').classList.remove('on');
+        R.otherTab = T.guard(() => {}) === false && !T.ask();
+        T.$('mhPageBugreport').classList.add('on');
+        /* [계속 쓰기] · Esc — 창만 닫히고 글 · 화면 그대로, 나가지 않는다 */
+        let w2 = 0; T.guard(() => w2++); T.$('bbLeaveStay').fire('click');
+        const a = !T.ask() && w2 === 0 && T.$('bbWTitle').value === '또' && T.view() === 'write';
+        T.guard(() => w2++); T.esc();
+        R.stay = a && !T.ask() && w2 === 0 && T.$('bbWTitle').value === '또';
+      }
+      /* ③ 불러온 글 — 다시 저장하면 그 칸을 덮는다 · 고친 뒤 같은 글을 다시 누르면 «고친 내용 임시저장» → 저장본(고친 것)이 보인다 */
+      { const T = boot(src, 'CA');
+        T.$('bbWriteBtn').fire('click'); T.type('원래', '처음'); T.$('bbWDraft').fire('click');
+        const id = T.saved()[0].id;
+        T.$('bbWriteBtn').fire('click'); T.draftClick(id);
+        R.load = !T.ask() && T.$('bbWTitle').value === '원래';
+        T.type('원래', '고침'); T.draftClick(id);
+        R.reAsk = T.ask() && T.$('bbLeaveSave').textContent === '고친 내용 임시저장';
+        T.$('bbLeaveSave').fire('click');
+        R.reSaved = T.saved().length === 1 && T.saved()[0].id === id && T.saved()[0].body === '고침' && T.$('bbWBody').value === '고침' && !T.ask();
+        T.type('원래', '또 고침'); T.draftClick(id); T.$('bbLeaveDrop').fire('click');
+        R.reDrop = T.$('bbWBody').value === '고침' && T.saved()[0].body === '고침';
+        /* 등록 실패면 임시글을 남기고 · 성공하면 지운다 */
+        T.st.createOk = false; T.$('bbWSubmit').fire('click'); await tick(); await tick();
+        const kept = T.saved().length === 1;
+        T.st.createOk = true; T.$('bbWSubmit').fire('click'); await tick(); await tick();
+        R.submit = kept && T.st.posts.length === 2 && T.saved().length === 0;
+      }
+      /* ④ 비슷한 제보를 찾는 동안 떠나거나(마이홈 닫기) 다른 임시글을 불러오면 늦게 온 결과로 (옛 글을) 올리지 않는다 */
+      { const T = boot(src, 'CA');
+        T.$('bbWriteBtn').fire('click'); T.type('남겨 둔 글'); T.$('bbWDraft').fire('click');
+        const id = T.saved()[0].id;
+        let open; T.st.gate = new Promise(r => { open = r; });
+        T.$('bbWriteBtn').fire('click'); T.type('찾는 중');
+        T.$('bbWSubmit').fire('click');
+        T.guard(() => {}); T.$('bbLeaveDrop').fire('click');
+        open(); await tick(); await tick(); await tick();
+        const left = T.st.posts.length === 0;
+        T.st.gate = new Promise(r => { open = r; });
+        T.$('bbWriteBtn').fire('click'); T.type('찾는 중');
+        T.$('bbWSubmit').fire('click');
+        T.draftClick(id); T.$('bbLeaveDrop').fire('click');
+        open(); await tick(); await tick(); await tick();
+        R.raceLeave = left && T.st.posts.length === 0 && T.$('bbWTitle').value === '남겨 둔 글' && !T.$('bbSimilar').classList.contains('on');
+        /* 떠나지 않으면 그대로 올린다(비교 결과 없음) */
+        T.st.gate = null; T.$('bbWriteBtn').fire('click'); T.type('찾는 중'); T.$('bbWSubmit').fire('click');
+        await tick(); await tick(); await tick();
+        R.raceStay = T.st.posts.length === 1;
+      }
+      /* ⑤ 로그인 안 함 · 저장 실패 — 저장하지 않고 까닭 · 오류 번호 */
+      { const T = boot(src, '');
+        T.$('bbWriteBtn').fire('click'); T.type('x'); T.$('bbWDraft').fire('click');
+        R.noOwner = /로그인/.test(T.$('bbWErr').textContent) && !T.store[M.BUG_DRAFT_KEY];
+        const U = boot(src, 'CA'); U.st.lsFail = true;
+        U.$('bbWriteBtn').fire('click'); U.type('x'); U.guard(() => {}); U.$('bbLeaveSave').fire('click');
+        R.lsFail = U.ask() && U.st.errs.includes('E-MH-04');
+      }
+      /* ⑥ 쓰던 중에 버그제보 탭을 다시 누르면 먼저 묻는다 · 쓰던 글이 없으면 바로 목록 */
+      { const T = boot(src, 'CA');
+        T.$('bbWriteBtn').fire('click'); T.type('탭');
+        T.tab.fire('click');
+        const a = T.ask() && T.view() === 'write';
+        T.$('bbLeaveDrop').fire('click');
+        T.$('bbWriteBtn').fire('click'); T.tab.fire('click');
+        R.tabAgain = a && !T.ask() && T.view() === 'list';
+      }
+    } catch (e) { R.err = String(e && e.stack || e); }
+    return R;
+  };
+  const LABEL = {
+    fullAsk: '★ 쓰던 글이 있을 때 마이홈을 닫거나 탭을 옮기면(고리 LEAVE_GUARD) «임시저장할까요?» 를 띄우고 멈춘다',
+    fullStay: '★ 3개가 찼을 때 [임시저장하고 나가기] — 저장하지 않고 창에 남아 까닭(3개)을 보인다 · 나가지 않는다',
+    dropGo: '  [저장 안 하고 나가기] — 저장 없이 나가고 게시판은 목록으로',
+    noAgain: '  나간 뒤엔 버린 글이 남지 않아 다시 묻지 않는다',
+    saveGo: '★ [임시저장하고 나가기] — 저장한 뒤 나간다(마이홈 닫기 · 탭 옮기기가 이어진다)',
+    noLoop: '  이어 가는 길(탭 옮기기)이 고리를 다시 불러도 묻지 않는다(무한 물음 없음)',
+    otherTab: '  버그제보 탭이 아니면 묻지 않는다',
+    stay: '  [계속 쓰기] · Esc — 묻는 창만 닫히고 글 · 화면 그대로',
+    load: '  임시저장 줄을 누르면 그 글을 불러온다(쓰던 것 없으면 안 묻는다)',
+    reAsk: '★ 불러온 글을 고친 뒤 같은 줄을 다시 누르면 묻는다(«고친 내용 임시저장»)',
+    reSaved: '  고친 내용 임시저장 — 같은 칸을 덮고 화면엔 저장한 글(고친 것)이 보인다',
+    reDrop: '  고친 것 버리고 되돌리기 — 저장해 둔 글로 돌아간다',
+    submit: '★ 등록 실패면 임시글을 남기고 · 성공하면 지운다',
+    raceLeave: '★ 비슷한 제보를 찾는 동안 떠나거나 다른 임시글을 불러오면 늦게 온 결과로 (옛 글을) 올리지 않는다',
+    raceStay: '  떠나지 않으면 그대로 올린다',
+    noOwner: '  로그인 전이면 저장하지 않고 «로그인한 뒤에» 를 보인다',
+    lsFail: '  이 PC 저장이 실패하면 E-MH-04 · 묻는 창에 남는다',
+    tabAgain: '  쓰던 중에 버그제보 탭을 다시 누르면 먼저 묻는다 · 쓰던 글이 없으면 바로 목록',
+  };
+  pending.push((async () => {
+    const R = await scenarios(SRC);
+    if (R.err) chk(false, '가짜 화면에서 던졌다: ' + R.err);
+    for (const k of Object.keys(LABEL)) chk(R[k] === true, LABEL[k]);
+    /* 깨 보기 — 한 줄씩 빼면 그 시나리오가 빨강 */
+    const breaks = [
+      ['if(save && !saveDraft($(\'bbLeaveErr\'), true)) return;', 'if(save) saveDraft($(\'bbLeaveErr\'), true);', 'fullStay', '3개 찼는데 저장 실패를 무시하고 나가면'],
+      ["askLeave(leaveLead(), () => { show('list'); next(); });", 'askLeave(leaveLead(), next);', 'noLoop', '고른 뒤 목록으로 안 바꾸면(이어 가는 탭 옮기기가 또 묻는다)'],
+      ['    writeSeq++;   // 비슷한', '    // 비슷한', 'raceLeave', '묻는 창이 찾기 순번을 안 올리면'],
+      ['() => fillForm(draftsLoad().find(x => x.id === id) || d), { save: \'고친', '() => fillForm(d), { save: \'고친', 'reSaved', '다시 누를 때 저장본을 다시 읽지 않으면(옛 글이 보임)'],
+      ['    if(dirty()){ askLeave(leaveLead(), () => { show(\'list\'); enter(); }); return; }', '', 'tabAgain', '탭 다시 누르기를 안 물으면'],
+    ];
+    for (const [from, to, key, what] of breaks) {
+      if (!SRC.includes(from)) { chk(false, '깨 보기: 바꿀 줄을 못 찾음 — ' + what); continue; }
+      const B = await scenarios(SRC.replace(from, to));
+      chk(B[key] === false, '깨 보기: ' + what + ' 빨강(' + key + ')');
+    }
+  })());
 }
 
 Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
