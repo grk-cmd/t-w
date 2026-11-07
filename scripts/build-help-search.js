@@ -19,6 +19,8 @@ const OUT = HELP + '/search.json';
 const FAQ_PAGE = HELP + '/faq.html';
 const WORDS = 'docs/help-search/words.json';
 const FAQ = 'docs/help-search/faq.json';
+// FAQ 질문 앞 꼬리표 — 어느 컴퓨터 이야기인지(«[mac] 맥에서 안 열려요»). 새 꼬리표는 여기에 더한다 · 없거나 모르는 값이면 만들 때 멈춘다
+const FAQ_TAGS = ['공통', 'Windows', 'mac'];
 
 const ENT = { amp: '&', lt: '<', gt: '>', quot: '"', '#39': "'", nbsp: ' ' };
 const decode = (s) => s.replace(/&(amp|lt|gt|quot|#39|nbsp);/g, (_, k) => ENT[k]);
@@ -38,7 +40,7 @@ const withHeader = (html, cur) => html.replace(/<header class="bar">[\s\S]*?<\/h
 /* FAQ 페이지 — 질문 하나에 소제목 하나 · 답 · 그 내용이 있는 자리 링크 */
 function faqPage(faq, pages, chunks){
   const items = faq.map((f, i) => {
-    const head = '<h2 id="f' + (i + 1) + '">' + esc(f.q[0]) + '</h2>\n<p>' + esc(f.t) + '</p>';
+    const head = '<h2 id="f' + (i + 1) + '">' + esc(f.h) + '</h2>\n<p>' + esc(f.t) + '</p>';
     if (f.p === 'faq') return head;
     const pg = pages.find(p => p.s === f.p);
     const c = f.a ? chunks.find(c => c.p === f.p && c.a === f.a) : null;
@@ -102,7 +104,9 @@ function build(root = process.cwd()){
   const words = JSON.parse(read(WORDS));
   // 편이 없는 FAQ(맥 설치처럼 도움말 편에 없는 것)는 FAQ 페이지의 그 질문 자리로 간다
   const faq = JSON.parse(read(FAQ)).map((f, i) => {
-    if (!f.page) return { q: f.q, t: f.a, p: 'faq', a: 'f' + (i + 1) };
+    if (FAQ_TAGS.indexOf(f.tag) < 0) throw new Error(FAQ + ' ' + (i + 1) + '번 — 꼬리표(tag)가 없거나 모르는 값 «' + f.tag + '» (' + FAQ_TAGS.join(' · ') + ')');
+    const h = '[' + f.tag + '] ' + f.q[0];
+    if (!f.page) return { q: f.q, h, t: f.a, p: 'faq', a: 'f' + (i + 1) };
     const page = pages.find(p => p.s === f.page);
     if (!page) throw new Error(FAQ + ' ' + (i + 1) + '번 — 없는 편 «' + f.page + '»');
     let a = '';
@@ -111,7 +115,7 @@ function build(root = process.cwd()){
       if (!c) throw new Error(FAQ + ' ' + (i + 1) + '번 — ' + f.page + ' 편에 «' + f.section + '» 소제목이 없다');
       a = c.a;
     }
-    return { q: f.q, t: f.a, p: f.page, a };
+    return { q: f.q, h, t: f.a, p: f.page, a };
   });
   files[HELP + '/index.html'] = withHeader(read(HELP + '/index.html'), 'help');
   files[FAQ_PAGE] = faqPage(faq, pages, chunks);
@@ -120,7 +124,7 @@ function build(root = process.cwd()){
   return files;
 }
 
-module.exports = { build, withIds, withHeader, chunksOf, OUT, FAQ_PAGE };
+module.exports = { build, withIds, withHeader, chunksOf, OUT, FAQ_PAGE, FAQ_TAGS };
 
 if (require.main === module){
   const root = path.resolve(__dirname, '..');

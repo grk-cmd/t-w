@@ -1,5 +1,5 @@
 /* sim-help-search.js — 🔍 도움말 검색(firebase/hosting/help/search.js · search.json · scripts/build-help-search.js)
-   ・1절: 검색표가 최신 — 원본(편 · docs/help-search/words.json · faq.json)에서 다시 만든 것과 커밋된 것이 같다 · 소제목 id · FAQ 자리가 실제로 있다
+   ・1절: 검색표가 최신 — 원본(편 · docs/help-search/words.json · faq.json)에서 다시 만든 것과 커밋된 것이 같다 · 소제목 id · FAQ 자리가 실제로 있다 · FAQ 제목 꼬리표([공통] · [Windows] · [mac])
    ・2절: 질문 → 답 — 실제 검색표로 사람이 칠 만한 질문을 돌려 맞는 편 · 소제목이 맨 위에 오는가
    ・3절: 낱말 다루기 — 말끝 떼기 · 군말 빼기 · 띄어쓰기 합치기 · 거미줄 무게 · 토막 · 주소
    ・4절: 경계 — 빈 질문 · 군말뿐 · 모르는 말 · 아주 긴 질문 · HTML · 목록 겹침 · 한 편 상한
@@ -43,6 +43,12 @@ chk(badAnchor.length === 0, '조각 · FAQ 가 가리키는 소제목 id 가 그
 const dupId = slugs.filter(s => { const ids = [...html[s].matchAll(/ id="(s\d+)"/g)].map(m => m[1]); return new Set(ids).size !== ids.length; });
 chk(dupId.length === 0, '  한 편 안에서 소제목 id 가 겹치지 않는다');
 chk(IX.faq.length >= 5 && IX.faq.every(f => f.q.length && f.t && IX.pages.some(p => p.s === f.p)), 'FAQ ' + IX.faq.length + '개 — 질문 · 답 · 편이 다 있다');
+{
+  const FAQ_SRC = JSON.parse(fs.readFileSync(path.join(ROOT, 'docs', 'help-search', 'faq.json'), 'utf8'));
+  chk(IX.faq.every((f, i) => f.h === '[' + FAQ_SRC[i].tag + '] ' + f.q[0]) && IX.faq.some(f => /^\[mac\] /.test(f.h)) && IX.faq.some(f => /^\[공통\] /.test(f.h)), '★ FAQ 제목에 꼬리표 — «[공통] …» · «[mac] …»(검색 답 · FAQ 페이지 같은 글)');
+  const FH = fs.readFileSync(path.join(DIR, 'faq.html'), 'utf8');
+  chk(IX.faq.every((f, i) => FH.includes('<h2 id="f' + (i + 1) + '">' + f.h.replace(/&/g, '&amp;') + '</h2>')), '  FAQ 페이지 소제목도 꼬리표가 붙은 같은 글');
+}
 const heads = ['index'].concat(slugs).map(s => (fs.readFileSync(path.join(DIR, s + '.html'), 'utf8').match(/<header class="bar">[\s\S]*?<\/header>/) || [''])[0]);
 chk(new Set(heads).size === 1 && /href="\/" aria-current="page">도움말<\/a><a href="\/faq">FAQ</.test(heads[0]), '위 띠(헤더)가 목차 · 편 모두 같은 모양 — [도움말](지금) · [FAQ] 탭');
 const FAQH = fs.readFileSync(path.join(DIR, 'faq.html'), 'utf8');
@@ -79,6 +85,10 @@ const CASES = [
   ['손상되었다고 나와요', (r) => r.answer.faq && /손상/.test(r.answer.h), '맥 «손상» FAQ'],
   ['버전 정', (r) => r.answer.faq && r.answer.p === '5-5', '치는 중인 한 글자(정)가 앞 낱말(버전)을 덮지 않는다'],
   ['올라타기 내려오기', (r) => r.answer.p === '7-2', '7-2. 동물 올라타기(올라 → 레벨로 새지 않음)'],
+  ['게임할 때 렉 걸려요', (r) => r.answer.faq && r.answer.p === '5-1' && /화질/.test(r.answer.t), '버벅임 FAQ → 5-1 › 실행 화면 화질'],
+  ['유튜브가 검게 변해요', (r) => r.answer.faq && r.answer.p === '5-1' && /^\[Windows\] /.test(r.answer.h), '영상 검게 FAQ → 5-1 › 영상 겹침 실험 · [Windows]'],
+  ['포커스 시간이 안 쌓여요', (r) => r.answer.faq && r.answer.p === '5-3', '포커스 FAQ → 5-3. 포커싱 탭'],
+  ['라이선스 키 등록', (r) => r.answer.faq && r.answer.p === '5-5', '라이선스 FAQ → 5-5 › 라이선스'],
 ];
 for (const [q, ok, want] of CASES){
   const r = C.search(P, q);
@@ -164,6 +174,8 @@ try {
   chk(!bad(faq), '  원본 그대로면 임시 폴더에서도 만들어진다');
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { section: '없는 소제목' }))), '  FAQ 소제목 오타 — 만들 때 멈춘다');
   chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { page: '99' }))), '  FAQ 편 오타 — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => { if(i) return f; const g = Object.assign({}, f); delete g.tag; return g; })), '  FAQ 꼬리표가 빠지면 — 만들 때 멈춘다');
+  chk(bad(faq.map((f, i) => i ? f : Object.assign({}, f, { tag: 'Mac' }))), '  FAQ 꼬리표가 모르는 값(Mac) — 만들 때 멈춘다');
   fs.writeFileSync(path.join(D, 'faq.json'), JSON.stringify(faq.map((f, i) => i ? f : Object.assign({}, f, { a: '<img src=x onerror=alert(1)>' }))));
   const evil = build(tmp)['firebase/hosting/help/faq.html'];
   chk(!evil.includes('<img src=x') && evil.includes('&lt;img src=x'), '  FAQ 답에 HTML 을 적어도 글자로만 나온다');
