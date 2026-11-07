@@ -95,6 +95,38 @@ export function unseenCount(mine, seen){
   return (mine || []).filter(it => it && (it.lastReplyTs || 0) > ((seen || {})[it.id] || 0)).length;
 }
 const toArr = (v) => Object.keys(v || {}).map(id => Object.assign({ id }, v[id]));
+
+/* 🔎 비슷한 제보 — 새 제보를 올리기 전 «이미 제보되어 있어요» 창에 띄울 글을 고른다(순수 계산).
+   제목을 낱말로 나눠 조사 · 흔한 말(오류 · 안 돼요 …)을 떼고, 두 글자씩 끊은 조각이 얼마나 겹치는지(0~1)로 본다 —
+   «레벨이 안 올라가요» · «레벨이 안올라요» 처럼 띄어쓰기 · 말끝이 달라도 잡히게. 공지는 비교하지 않는다. */
+export const BUG_SIMILAR_MAX = 3;          // 창에 보일 줄 수
+export const BUG_SIMILAR_MIN = 0.4;        // 이만큼 겹쳐야 «비슷함»(실제 제보 제목으로 맞춘 값)
+export const BUG_SIMILAR_FETCH = 20;       // 비교할 글 — 미해결 · 최근 각각 이만큼(규칙 limitToLast 상한과 같음)
+const SIM_STOP = new Set(['오류', '버그', '문제', '현상', '관련', '문의', '질문', '제보', '에러', '오작동', '안됨', '안돼요', '안되요',
+  '안됩니다', '됩니다', '합니다', '해요', '입니다', '있어요', '없어요', '같아요', '것', '좀', '계속', '자꾸', '너무', '갑자기']);
+const SIM_TAIL = /(은|는|이|가|을|를|도|에|의|로|으로|에서|이랑|랑|하고|와|과|요|니다|해요|돼요|되요|나요|어요|아요)$/;
+export function titleWords(t){
+  return String(t == null ? '' : t).toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').split(' ')
+    .map(w => w.replace(SIM_TAIL, '')).filter(w => w.length >= 2 && !SIM_STOP.has(w));
+}
+function titleGrams(t){
+  const c = titleWords(t).join(''), g = new Set();
+  for(let i = 0; i < c.length - 1; i++) g.add(c.slice(i, i + 2));
+  return g;
+}
+export function titleSimilarity(a, b){
+  const A = titleGrams(a), B = titleGrams(b);
+  if(!A.size || !B.size) return 0;
+  let n = 0; A.forEach(x => { if(B.has(x)) n++; });
+  return 2 * n / (A.size + B.size);
+}
+/* 받은 글들 중 제목이 비슷한 것 — 겹친 정도 · 최근 순, 같은 글은 한 번만, 많아야 BUG_SIMILAR_MAX */
+export function similarPosts(title, items, max){
+  const lim = max > 0 ? max : BUG_SIMILAR_MAX, seen = new Set();
+  return (items || []).filter(it => it && it.id && !it.notice && typeof it.title === 'string' && it.title && !seen.has(it.id) && seen.add(it.id))
+    .map(it => ({ it, s: titleSimilarity(title, it.title) })).filter(x => x.s >= BUG_SIMILAR_MIN)
+    .sort((x, y) => (y.s - x.s) || ((y.it.ts || 0) - (x.it.ts || 0))).slice(0, lim).map(x => x.it);
+}
 const byTsDesc = (a, b) => (b.ts || 0) - (a.ts || 0);
 
 /*
@@ -137,6 +169,15 @@ export function createBugBoard(deps){
         : query(ref(db, L), orderByChild(key), limitToLast(BUG_PAGE));
     }
     return pageOf(filter, toArr((await get(q)).val()));
+  }
+  /* 비슷한 제보 찾기 — 미해결 · 최근 글을 각각 BUG_SIMILAR_FETCH 개만 받아 비교한다(전체를 받지 않는다 · 올릴 때 한 번) */
+  async function similarTo(title){
+    if(!titleWords(title).length) return [];
+    const [open, recent] = await Promise.all([
+      get(query(ref(db, L), orderByChild('openTs'), limitToLast(BUG_SIMILAR_FETCH))),
+      get(query(ref(db, L), orderByChild('ts'), limitToLast(BUG_SIMILAR_FETCH))),
+    ]);
+    return similarPosts(title, toArr(open.val()).concat(toArr(recent.val())));
   }
   async function notices(){
     const v = (await get(query(ref(db, L), orderByChild('nts'), limitToLast(BUG_NOTICE_MAX)))).val();
@@ -319,5 +360,5 @@ export function createBugBoard(deps){
   const C = { cats: BUG_CATS, status: BUG_STATUS, page: BUG_PAGE, anon: BUG_ANON, dailyMax: BUG_DAILY_MAX, titleMax: BUG_TITLE_MAX,
               bodyMax: BUG_BODY_MAX, envMax: BUG_ENV_MAX, ansMax: BUG_ANS_MAX, kakaoRe: KAKAO_RE, answerNoticeBody,
               authorStatus: BUG_AUTHOR_STATUS, hasAuthorReply, visNote: BUG_VIS_NOTE, visLocked: BUG_VIS_LOCKED };
-  return { C, checkPost, listPage, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, addReply, setVis, canChangeVis, like, getSeen, setSeen, unseen, migrateNotice };
+  return { C, checkPost, listPage, similarTo, notices, getItem, getPost, prvTitle, loadDailyMax, dailyMax: () => dailyMax, todayCount, createPost, addAnswer, addReply, setVis, canChangeVis, like, getSeen, setSeen, unseen, migrateNotice };
 }

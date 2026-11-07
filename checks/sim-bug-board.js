@@ -16,6 +16,7 @@
         (예전엔 min-height 만 있어 [전체] 한 쪽 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
      §6 글쓴이 답글 — rep 노드 규칙(글쓴이만 · 서버 시각 · userReplyTs 짝 · 10초) · 글쓴이 상태 셋 · addReply 실행 · 화면
      §7 공개 범위 바꾸기 — 답변 · 답글 전 · 글쓴이만 · 본문은 그대로 옮기기만(규칙) · canChangeVis · setVis 실행 · 화면 · 깨 보기
+     §8 비슷한 제보 — 제목 낱말 · 겹침 정도(실제 제보 제목 모양) · 고르기(공지 빼기 · 한 번만 · 3줄 · 순서) · 가짜 RTDB 로 받는 양(미해결 · 최근 각 20) · 화면 배선 · 깨 보기
    ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -95,7 +96,7 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
 
 say('§2 bug-board.js (실행)');
 const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard, canChangeVis, BUG_VIS_NOTE, BUG_VIS_LOCKED };')();
+  '\nreturn { BUG_SIMILAR_MAX, BUG_SIMILAR_MIN, BUG_SIMILAR_FETCH, titleWords, titleSimilarity, similarPosts, BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard, canChangeVis, BUG_VIS_NOTE, BUG_VIS_LOCKED };')();
 const who = { name: '에이', code: 'CA', authUid: 'uA' };
 const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
 chk(prv.title === '비밀 제목' && prv.name === M.BUG_ANON && M.BUG_ANON === '익명' && !JSON.stringify(prv).includes('에이'), '⑤ 비공개 글의 목록 줄 — 제목은 보이고 이름은 «익명»(실명 없음)');
@@ -461,6 +462,115 @@ say('§7 공개 범위 바꾸기');
     '  ↳ 못 바꾸면 버튼을 흐리게 · 안내 / 잠김 문구를 옆에');
   chk(/name="bbWVis" value="prv"> 비공개 \(나와 관리자만\)<\/label>\s*<div class="bb-hint">공개 범위는 운영자 답변이나 내 답글이 달리기 전까지만 바꿀 수 있어요\.<\/div>/.test(HTML),
     '  ↳ 제보 쓰기 창 «공개 범위» 아래에도 같은 안내');
+}
+
+say('§8 비슷한 제보');
+{
+  const W = M.titleWords;
+  chk(W('레벨이 안 올라가요').join() === '레벨,올라가' && W('키보드 입력이 안돼요').join() === '키보드,입력' && W('라이선스 문의').join() === '라이선스',
+    '제목 낱말 — 조사 · 말끝 · 흔한 말(문의 · 안돼요)을 뗀다');
+  chk(W('').length === 0 && W(null).length === 0 && W('오류 버그 문제').length === 0 && W('!!! ???').length === 0, '  빈 제목 · 흔한 말뿐 · 기호뿐 → 낱말 없음');
+  const S = M.titleSimilarity;
+  chk(S('레벨이 안 올라가요', '레벨이 안올라요') >= M.BUG_SIMILAR_MIN && S('맥에서 키보드 인식 안됨', '키보드 인식 오류') >= M.BUG_SIMILAR_MIN
+    && S('좌석 간격이 넓어요', '여전히 좌석 간격이 넓습니다') >= M.BUG_SIMILAR_MIN, '★ 띄어쓰기 · 말끝 · 앞뒤 말이 달라도 같은 문제는 비슷함(레벨 · 키보드 · 좌석 간격)');
+  chk(S('레벨이 안 올라가요', '플레이리스트 재생이 안 돼요') < M.BUG_SIMILAR_MIN && S('친구 추가가 안돼요', '유튜브 영상이 검게 나와요') < M.BUG_SIMILAR_MIN
+    && S('라이선스 문의', '') === 0 && S('', '') === 0, '  다른 문제 · 빈 제목은 비슷하지 않다');
+  const items = [
+    { id: 'a', ts: 5, status: 'checking', title: '레벨이 안올라요' },
+    { id: 'b', ts: 9, status: 'fixed', title: '레벨이 안 올라요' },
+    { id: 'c', ts: 7, status: 'norepro', title: '레벨이 안 오르는 것 같아요' },
+    { id: 'd', ts: 8, status: 'new', title: '레벨이 안 올라요', notice: true },
+    { id: 'e', ts: 6, status: 'new', title: '플레이리스트 재생이 안 돼요' },
+    { id: 'f', ts: 4, status: 'fixed', title: '레벨 안 올라요' },
+    { id: 'i', ts: 1, status: 'new', title: '레벨이 안 올라가요 ㅠ' },
+    { id: 'b', ts: 9, status: 'fixed', title: '레벨이 안 올라요' },
+    { id: 'g', ts: 3, status: 'new', title: '' }, { id: 'h', ts: 2, status: 'new' }, null,
+  ];
+  const got = M.similarPosts('레벨이 안 올라가요', items).map(it => it.id);
+  chk(M.BUG_SIMILAR_MAX === 3 && got.length === 3 && !got.includes('d') && !got.includes('e') && new Set(got).size === 3, '★ 고르기 — 많아야 3줄 · 공지 · 다른 문제 · 제목 없는 글은 빼고 · 같은 글은 한 번만(' + got.join() + ')');
+  const sc = got.map(id => S('레벨이 안 올라가요', items.find(x => x && x.id === id).title));
+  chk(sc.every((v, i) => i === 0 || sc[i - 1] >= v), '  겹친 정도가 큰 것부터(같으면 최근 것)');
+  chk(M.similarPosts('레벨이 안 올라가요', items, 1).length === 1 && M.similarPosts('', items).length === 0 && M.similarPosts('레벨', null).length === 0, '  상한 1 · 빈 제목 · 받은 글 없음');
+  /* 깨 보기 — 규칙을 망가뜨린 모듈로 다시 고르면 위 판정이 깨지는가 */
+  const mut = (from, to) => { if(!BB.includes(from)) return null; return new Function(BB.replace(from, to).replace(/^export (function|const) /mg, '$1 ') + '\nreturn { similarPosts, titleWords };')(); };
+  const red = (X) => {
+    if(!X) return false;   // 바꿔 칠 글을 못 찾음 — 조용히 «통과» 하지 않게 빨강
+    const g = X.similarPosts('레벨이 안 올라가요', items).map(it => it.id), g2 = X.similarPosts('플레이리스트 재생 문제', items).map(it => it.id);
+    return g.length !== 3 || g.includes('d') || g.includes('e') || new Set(g).size !== 3 || g2.join() !== 'e' || X.titleWords('키보드 입력이 안돼요').join() !== '키보드,입력' || X.titleWords('맥 키보드 입력 오류').join() !== '키보드,입력';
+  };
+  chk(!red({ similarPosts: M.similarPosts, titleWords: M.titleWords }), '  (깨 보기 기준) 지금 규칙은 통과');
+  chk(red(mut("it.id && !it.notice && typeof", 'it.id && typeof')), '깨 보기: 공지를 안 빼면 빨강');
+  chk(red(mut('.slice(0, lim).map(x => x.it)', '.map(x => x.it)')), '깨 보기: 3줄 상한을 빼면 빨강');
+  chk(red(mut("!seen.has(it.id) && seen.add(it.id)", 'true')), '깨 보기: 같은 글을 두 번 넣으면 빨강');
+  chk(red(mut("export const BUG_SIMILAR_MIN = 0.4;", 'export const BUG_SIMILAR_MIN = 0;')), '깨 보기: 문턱을 0 으로 내리면(다른 문제도 비슷함) 빨강');
+  chk(red(mut("w.length >= 2 && !SIM_STOP.has(w)", 'w.length >= 2')), '깨 보기: 흔한 말을 안 떼면 빨강');
+  pending.push((async () => {
+    const DB = {};
+    for (let i = 0; i < 60; i++) DB['p' + i] = { status: i % 3 ? 'fixed' : 'checking', title: i === 50 ? '레벨이 안올라요' : '다른 글 ' + i, ts: 1000 + i, ...(i % 3 ? {} : { openTs: 1000 + i }) };
+    DB.n1 = { title: '레벨이 안 올라요', notice: true, ts: 2000, nts: 2000 };
+    const reads = [];
+    const deps = {
+      db: {}, ref: (_, p) => ({ path: p || '' }), query: (r, ...cs) => ({ path: r.path, cs }),
+      orderByChild: (k) => ({ t: 'o', k }), limitToLast: (n) => ({ t: 'l', n }), endBefore: (v) => ({ t: 'e', v }), equalTo: (v) => ({ t: 'q', v }),
+      get: async (q) => {
+        const o = q.cs.find(c => c.t === 'o'), l = q.cs.find(c => c.t === 'l');
+        const ids = Object.keys(DB).filter(id => typeof DB[id][o.k] === 'number').sort((a, b) => DB[a][o.k] - DB[b][o.k]).slice(-l.n);
+        reads.push({ path: q.path, k: o.k, n: l.n, got: ids.length });
+        const out = {}; ids.forEach(id => { out[id] = DB[id]; }); return { val: () => (ids.length ? out : null) };
+      },
+      update: async () => {}, push: () => ({ key: 'k' }), runTransaction: async () => {}, authUid: () => 'uA', now: () => 1,
+    };
+    const bb = M.createBugBoard(deps);
+    const r = await bb.similarTo('레벨이 안 올라가요');
+    chk(r.length === 1 && r[0].id === 'p50', '★ similarTo — 미해결 · 최근 글에서 비슷한 글을 고른다(공지는 빼고 · 받은 두 목록이 겹쳐도 한 번)');
+    chk(reads.length === 2 && reads.every(x => x.path === 'bugBoard/list' && x.n === M.BUG_SIMILAR_FETCH && x.got <= 20) && reads.map(x => x.k).sort().join() === 'openTs,ts' && M.BUG_SIMILAR_FETCH <= 20,
+      '  받는 양 — 미해결(openTs) · 최근(ts) 각각 ' + M.BUG_SIMILAR_FETCH + '개 한 번씩(목록을 통째로 안 받는다 · 규칙 limitToLast ≤ 20)');
+    reads.length = 0;
+    chk((await bb.similarTo('오류 문제')).length === 0 && reads.length === 0, '  제목에 낱말이 없으면 받지도 않는다');
+  })());
+  /* 화면 배선 */
+  const sw = (UI.match(/async function submitWrite\(btn, skipSimilar\)\{[\s\S]*?\n  \}/) || [''])[0];
+  chk(/if\(!notice && !skipSimilar\)\{/.test(sw) && sw.indexOf('api().similarTo(p.title)') > sw.indexOf('api().checkPost(p)') && sw.indexOf('api().similarTo(p.title)') < sw.indexOf('api().createPost(p, who())'),
+    '★ [등록] — 입력 확인 뒤 · 올리기 전에 비슷한 제보를 찾는다(공지 · [그래도 제보하기] 는 건너뜀)');
+  chk(/catch\(_\)\{ sim = \[\]; \}/.test(sw) && /if\(sim\.length\)\{ showSimilar\(p\.title\.trim\(\), sim\); return; \}/.test(sw), '  못 받으면 창 없이 올리고 · 있으면 창을 띄우고 멈춘다');
+  chk(/\$\('bbSimGo'\)\.addEventListener\('click', \(\) => \{ hideSimilar\(\); submitWrite\(\$\('bbWSubmit'\), true\); \}\);/.test(UI)
+    && /\$\('bbSimCancel'\)\.addEventListener\('click', hideSimilar\);/.test(UI) && /\$\('bbSimX'\)\.addEventListener\('click', hideSimilar\);/.test(UI),
+    '  [그래도 제보하기] = 비교 없이 올리기 · [취소] · × = 창만 닫기(쓰던 글 그대로)');
+  chk(/\$\('bbSimRows'\)\.innerHTML = items\.map\(rowHtml\)\.join\(''\);/.test(UI) && /\$\('bbSimLead'\)\.textContent = /.test(UI), '  줄은 목록 줄 모양 그대로(상태 칩 · 비공개 잠금) · 안내 글은 textContent');
+  const sh = (UI.match(/function show\(view\)\{[\s\S]*?\n  \}/) || [''])[0];
+  chk(/hideSimilar\(\);/.test(sh) && /classList\.contains\('on'\) && \$\('bbSimilar'\)\.offsetParent !== null/.test(UI), '  화면을 바꾸면 닫는다 · «열림» 은 보이는 동안만(마이홈을 닫거나 탭을 옮기면 숨은 칸이 Esc 를 가로채지 않음)');
+  chk(/if\(\$\('bbWriteView'\)\.style\.display === 'none'\) return;/.test(sw) && sw.indexOf("if($('bbWriteView').style.display === 'none') return;") < sw.indexOf('if(sim.length)'), '  찾는 동안 [취소] 로 떠났으면 올리지도 띄우지도 않는다');
+  /* ★ Esc — 진짜 ESC 스택(win-stack.js)과 이 화면의 Esc 처리기를 싣는 순서대로 걸고 눌러 본다 */
+  const WS = read('win-stack.js');
+  const escH = (UI.match(/document\.addEventListener\('keydown', \(e\) => \{\n\s*if\(e\.key === 'Escape' && similarOpen\(\)\)\{[^\n]*\n\s*\}, true\);/) || [''])[0];
+  const escRun = (wsSrc) => {
+    const st = { mh: true, tab: true, sim: true }, closes = { mh: 0 };
+    const L = [];
+    const visible = () => st.sim && st.mh && st.tab;
+    const doc = { addEventListener: (t, f) => { if (t === 'keydown') L.push(f); }, getElementById: () => null,
+      querySelector: (sel) => sel.split(', ').some(x => x === '#myHomeOverlay.on #mhPageBugreport.on #bbSimilar.on' && visible()) ? {} : null };
+    const win = { __winPosResetters: [] };
+    new Function('window', 'document', 'MutationObserver', wsSrc)(win, doc, class { observe(){} });
+    win.TwWinStack.createWinStack({}).escRegisterWindow({ key: 'myHome', el: {}, isOpen: () => st.mh, close: () => { st.mh = false; closes.mh++; } });
+    new Function('document', 'similarOpen', 'hideSimilar', escH)(doc, visible, () => { st.sim = false; });
+    const press = () => { const e = { key: 'Escape', target: { tagName: 'DIV' }, defaultPrevented: false, preventDefault(){ this.defaultPrevented = true; }, stopPropagation(){} }; L.forEach(f => f(e)); };
+    press(); const r1 = { sim: st.sim, mh: st.mh };
+    press(); const r2 = { mh: st.mh };
+    st.mh = true; st.sim = true; st.tab = false; press(); const r3 = { mh: st.mh };
+    return { r1, r2, r3, n: L.length };
+  };
+  if (!WS || !escH) chk(false, '  Esc 흉내 — win-stack.js 나 Esc 처리기를 못 찾음');
+  else {
+    const R = escRun(WS);
+    chk(R.n === 2 && R.r1.sim === false && R.r1.mh === true, '★ Esc 한 번 — «비슷한 제보» 창만 닫히고 마이홈 창은 그대로(ESC 스택이 양보)');
+    chk(R.r2.mh === false, '  Esc 한 번 더 — 그때 마이홈 창이 닫힌다');
+    chk(R.r3.mh === false, '  다른 마이홈 탭으로 옮긴 뒤(창이 숨음) Esc — 숨은 칸이 가로채지 않고 마이홈이 닫힌다');
+    const noYield = WS.replace("  '#myHomeOverlay.on #mhPageBugreport.on #bbSimilar.on',", '');
+    chk(noYield !== WS && escRun(noYield).r1.mh === false, '  ↳ 깨 보기 — ESC_YIELD_SEL 줄을 빼면 Esc 한 번에 마이홈까지 닫힌다(빨강)');
+  }
+  const sim = (HTML.match(/<div id="bbSimilar"[\s\S]*?<\/div>\s*<\/div>\s*<\/div>/) || [''])[0];
+  chk(HTML.indexOf('id="bbSimilar"') > HTML.indexOf('id="bbWriteView"') && /role="dialog"/.test(sim) && /id="bbSimRows"/.test(sim) && /그래도 제보하기/.test(sim) && /id="bbSimCancel"/.test(sim),
+    '  html — 게시판 안을 덮는 칸(따로 창 없음) · 그래도 제보하기 · 취소');
 }
 
 Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
