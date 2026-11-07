@@ -2153,7 +2153,7 @@
       return ()=>{ try{ unsub(); }catch(_){} };
     },
     /* 글 등록만 — 30개 넘은 옛 글 정리는 주인 앱이 한다(removeGuestbookEntries · guestbook.js).
-       ⚠️ 손님이 남의 글을 지우는 길은 규칙이 막는다(주인 · 글쓴이 · 7일 넘은 글만) — 손님 앱이 정리하면 최근 글에서 막혀 «등록 실패» 가 된다. */
+       ⚠️ 손님이 남의 글을 지우는 길은 규칙이 막는다(주인 · 글쓴이만) — 손님 앱이 정리하면 막혀 «등록 실패» 가 된다. */
     async addGuestbookEntry(userId, entry){
       const gid = 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
       await set(ref(db, `users/${userId}/guestbook/${gid}`), entry);

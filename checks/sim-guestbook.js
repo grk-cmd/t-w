@@ -165,7 +165,7 @@ await sec('── 2-2. 🧹 30개 넘은 옛 글 정리 — 주인 앱이 한다
   e.pruneP = null; e.push('gb:uA', ent(30)); await tickI();
   chk(e.prunes.length === 2, '  30개면 안 지운다');
   const add = (FB.match(/async addGuestbookEntry\(userId, entry\)\{[\s\S]*?\n    \},/) || [''])[0];
-  chk(!!add && !/update\(|remove\(|get\(/.test(add), '★ 글쓰기(손님 앱)는 글만 올린다 — 남의 글을 지우지 않는다(규칙이 막는다 — 최근 글이면 «등록 실패» 가 됐다)');
+  chk(!!add && !/update\(|remove\(|get\(/.test(add), '★ 글쓰기(손님 앱)는 글만 올린다 — 남의 글을 지우지 않는다(규칙이 막는다 — 지우기는 주인 · 글쓴이만이라 «등록 실패» 가 된다)');
   chk(/async removeGuestbookEntries\(userId, ids\)\{/.test(FB), '  firebase-init: 주인 정리용 removeGuestbookEntries');
   const bad = MOD.replace("_unsub = firebaseAPI.subscribeGuestbook(myId, entries => { _updateBadge(entries); _pruneOld(myId, entries); });", "_unsub = firebaseAPI.subscribeGuestbook(myId, entries => _updateBadge(entries));");
   const b = mkEnv({ src: bad }); b.mk(); b.ctx._mhGbStartWatch(); b.push('gb:uA', ent(32)); await tickI();
