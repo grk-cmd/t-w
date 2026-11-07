@@ -4,7 +4,7 @@
    ・1절: 만들 때 — #mhGuestbookBtn 클릭 연결 · window 고리 일곱 · 반환값이 같은 함수 · DOM 이 없으면 조용히
    ・2절: 새 글 배지 — 내 방명록 구독 · 마지막으로 본 뒤 글 수 · 99+ · 관람 중엔 숨김(_mhViewingUserId 는 읽는 함수) ·
           다 읽음(tw.mhGbLastRead:uid) · 구독 끊기
-   ・3절: 창 — 가짜 자식 창에 GB_HTML 을 쓰고 테마를 넣는다 · 제목 · 목록(최신이 위 · 내 글만 삭제) · 이미 떠 있으면 앞으로만 ·
+   ・3절: 창 — 가짜 자식 창에 GB_HTML 을 쓰고 테마를 넣는다 · 제목 · 목록(최신이 위 · 내 글 삭제 · 내 방명록이면 남의 글도 두 번 눌러 삭제 · 친구 홈에선 내 글만) · 이미 떠 있으면 앞으로만 ·
           👀 관람(친구 것 구독 · 이미지 등록 숨김 · 홈 주인이 바뀌면 열린 창을 닫는다) · 🚪 외부인(친구 아님)은 입력칸 대신 안내 →
           친구 목록이 오면 다시 칠함(_myHomeFriends 는 읽는 함수)
    ・4절: 쓰기 · 삭제 · 박수 · 폭죽 — 등록(홈 주인에게 · 이름 · uid) · 외부인 한 번 더 막기 · 실패는 창 안에도 · 박수 하루 5번 ·
@@ -164,9 +164,20 @@ await sec('── 3. 창 — 열기 · 목록 · 관람 · 외부인', async () 
   const list = d.getElementById('gbList');
   chk(list.children.length === 2 && /두번째/.test(list.children[0].innerHTML) && /&lt;b&gt;안녕/.test(list.children[1].innerHTML), '목록 — 최신이 위 · 글은 escHtml 을 지난다');
   const delOf = (row) => row.querySelector('.gb-meta').children[0];
-  chk(delOf(list.children[0]) && delOf(list.children[0]).textContent === '삭제' && !delOf(list.children[1]), '삭제 링크는 내가 쓴 글에만');
+  chk(delOf(list.children[0]) && delOf(list.children[0]).textContent === '삭제' && delOf(list.children[1]) && delOf(list.children[1]).textContent === '삭제', '★ 내 방명록 — 내 글 · 남이 쓴 글 모두 삭제 링크(주인)');
   await delOf(list.children[0]).onclick(); await flush();
-  chk(e.dels.join() === 'uA/g2', '  삭제 — 홈 주인 경로의 그 글');
+  chk(e.dels.join() === 'uA/g2', '  내 글 — 한 번에 삭제(홈 주인 경로의 그 글)');
+  const other = delOf(list.children[1]);
+  await other.onclick(); await flush();
+  chk(e.dels.length === 1 && other.textContent === '정말 삭제?', '★ 남이 쓴 글 — 첫 클릭은 «정말 삭제?» 로 묻기만(잘못 눌러 지우지 않게)');
+  await other.onclick(); await flush();
+  chk(e.dels.join() === 'uA/g2,uA/g1', '  두 번째 클릭에 지운다');
+  e.push('gb:uA', { g1: { name: '밥', text: '<b>안녕</b>', ts: 10, uid: 'uB' }, g2: { name: '나', text: '두번째', ts: 20, uid: 'uA' }, g0: { name: '옛', text: '옛글', ts: 5 } });
+  chk(!!delOf(list.children[2]), '  uid 없는 옛 글도 주인은 지울 수 있다');
+  { const bad = MOD.replace('const ownerHere = !_mhViewingUserId() && !!getMyUserId();', 'const ownerHere = false;');
+    const b = mkEnv({ src: bad }); b.mk(); b.ctx.openMyGuestbook();
+    b.push('gb:uA', { g1: { name: '밥', text: 'x', ts: 10, uid: 'uB' } });
+    chk(bad !== MOD && !b.wins[0].document.getElementById('gbList').children[0].querySelector('.gb-meta').children[0], '  깨 보기 — 주인 판정을 빼면 남의 글에 삭제가 없어 빨강'); }
   e.push('clap:uA', { count: 7, img: 'data:image/png;base64,eA==', emoji: '🎉' });
   chk(d.getElementById('gbClapTotal').textContent === 'TOTAL CLAP : 7' && d.getElementById('gbClapImg').style.display === 'block'
     && d.getElementById('gbClapEmoji').value === '🎉', '박수 구독 — 합계 · 이미지 · 폭죽 이모지');
@@ -182,6 +193,9 @@ await sec('── 3. 창 — 열기 · 목록 · 관람 · 외부인', async () 
   chk(d2.getElementById('gbImgSet').style.display === 'none' && d2.getElementById('gbClapEmoji').style.display === 'none' && d2.getElementById('gbClapFwLbl').style.display === 'none',
     '관람 — 이미지 등록 · 폭죽 칸 숨김');
   chk(d2.getElementById('gbInputRow').style.display === 'flex', '친구 홈이면 입력칸');
+  e.push('gb:uB', { h1: { name: '밥', text: '주인글', ts: 30, uid: 'uB' }, h2: { name: '나', text: '내가 남김', ts: 40, uid: 'uA' } });
+  const l2 = d2.getElementById('gbList');
+  chk(!!delOf(l2.children[0]) && !delOf(l2.children[1]), '★ 친구 홈 — 내가 쓴 글에만 삭제(남의 방명록 글은 못 지운다)');
   chk(e.subs.length === 4, '  창을 다시 열어도 같은 주인이면 구독은 그대로');
   /* 🚪 외부인 — 친구 목록에 없는 홈 */
   w2.close(); e.viewing = 'uC'; e.ctx._mhReSubscribeGuestbook(); e.ctx.openMyGuestbook();
