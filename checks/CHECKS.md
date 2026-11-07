@@ -82,7 +82,7 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 145 | **26df0415ed74** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 580 | **cd4a42608f99** |
+| **sim-bug-board.js** | 859 | **4cb1bdd108b7** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
@@ -267,7 +267,7 @@
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 291 | **d7d424fc8974** |
-| **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
+| **sim-friend-manage-module.js** | 310 | **7ee6103cce81** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 437 | **606f203dca59** |
 | **sim-gacha.js** | 622 | **485a0f025f30** |
@@ -393,7 +393,7 @@
 | **sim-account-state.js** | 94 | **d9d3c39a82ed** |
 | **sim-nav.js** | 85 | **c4361c67713f** |
 | **sim-net-ready.js** | 145 | **0a54ffa6283c** |
-| **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
+| **sim-myhome-hooks.js** | 99 | **3392431af583** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 77 | **0e8ccbe59d09** |
 | **sim-typeof-guards.js** | 134 | **6fcc265732dd** |

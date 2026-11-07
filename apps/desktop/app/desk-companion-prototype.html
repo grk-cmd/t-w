@@ -3416,6 +3416,15 @@
   .bb-sim-x{background:none;border:none;cursor:pointer;font-size:14px;line-height:1;color:var(--ink);padding:0 2px;}
   .bb-sim-lead{margin-bottom:6px;}
   #bbSimRows{margin-bottom:6px;}
+  .bb-drafts{display:none;margin:4px 0 6px;padding:5px 8px;background:var(--win-face-2);border:1px solid var(--win-lo);}
+  .bb-drafts.on{display:block;}
+  .bb-drafts-head{font-weight:bold;margin-bottom:3px;}
+  .bb-draft{display:flex;align-items:center;gap:6px;padding:2px 0;}
+  .bb-draft-open{flex:1;min-width:0;text-align:left;background:none;border:none;cursor:pointer;color:var(--ink);font:inherit;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;padding:0;}
+  .bb-draft-open:hover{color:var(--win-select);}
+  .bb-draft.on .bb-draft-open{font-weight:bold;}
+  .bb-draft-ts{flex-shrink:0;font-size:10px;color:var(--ink-soft);}
+  .bb-draft-x{flex-shrink:0;background:none;border:none;cursor:pointer;color:var(--ink-soft);font-size:12px;padding:0 2px;}
   #bbListView{display:flex;flex-direction:column;height:100%;}
   .bb-bar{display:flex;align-items:center;gap:4px;margin-bottom:6px;flex-shrink:0;}
   .bb-sp{flex:1;}
@@ -6147,6 +6156,8 @@
         <div id="bbDetailView" style="display:none;"></div>
         <div id="bbWriteView" class="bb-form" style="display:none;">
           <div class="bb-dhead">✎ 버그 제보하기</div>
+          <!-- 📝 임시저장 — 이 PC 에만 최대 3개(bug-board-ui.js renderDrafts). 없으면 숨는다 -->
+          <div id="bbDrafts" class="bb-drafts"></div>
           <div class="bb-lbl">분류</div>
           <select id="bbWCat"></select>
           <div class="bb-lbl">제목</div>
@@ -6164,10 +6175,24 @@
           <div class="bb-err" id="bbWErr"></div>
           <div class="bb-foot">
             <button id="bbWCancel" class="bb-btn" type="button">취소</button>
+            <button id="bbWDraft" class="bb-btn" type="button">임시저장</button>
             <button id="bbWSubmit" class="bb-btn" type="button">등록</button>
           </div>
         </div>
         <!-- 🔎 비슷한 제보 — [등록] 을 누르면 제목이 비슷한 글을 먼저 보여 준다(bug-board-ui.js · bug-board.js similarTo). 탭 안을 덮는 칸이라 따로 창을 띄우지 않는다 -->
+        <!-- 📝 쓰던 글이 있을 때 글쓰기를 떠나면 — 임시저장할지 묻는다(bug-board-ui.js askLeave) -->
+        <div id="bbLeave" class="bb-sim" role="dialog" aria-modal="true" aria-labelledby="bbLeaveHead">
+          <div class="bb-sim-box">
+            <div class="bb-sim-head"><span id="bbLeaveHead">📝 쓰던 제보가 있어요</span><button id="bbLeaveX" class="bb-sim-x" type="button" aria-label="계속 쓰기">×</button></div>
+            <div class="bb-sim-lead" id="bbLeaveLead">임시저장할까요? 임시저장은 이 PC 에만 3개까지 남아요.</div>
+            <div class="bb-err" id="bbLeaveErr"></div>
+            <div class="bb-foot">
+              <button id="bbLeaveSave" class="bb-btn" type="button">임시저장하고 나가기</button>
+              <button id="bbLeaveDrop" class="bb-btn" type="button">저장 안 하고 나가기</button>
+              <button id="bbLeaveStay" class="bb-btn" type="button">계속 쓰기</button>
+            </div>
+          </div>
+        </div>
         <div id="bbSimilar" class="bb-sim" role="dialog" aria-modal="true" aria-labelledby="bbSimHead">
           <div class="bb-sim-box">
             <div class="bb-sim-head"><span id="bbSimHead">🐞 비슷한 제보가 이미 있어요</span><button id="bbSimX" class="bb-sim-x" type="button" aria-label="닫기">×</button></div>

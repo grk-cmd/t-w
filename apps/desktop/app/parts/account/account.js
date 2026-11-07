@@ -305,6 +305,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   /* 프로필·읽음 표시 — 이름은 스냅샷(r.name), 나머지는 새로 쌓이면 된다. */
   USER_NAME_KEY, CUSTOM_STATUS_KEY, 'tw.userStatus', 'tw.awayKind', MY_AD_BANNER_KEY,
   BELL_SEEN_KEY, INBOX_BC_READ_KEY, tricksMod.BONK_DAY_KEY,
+  'tw.bugDrafts',              // 📝 버그 제보 임시저장 — 그 계정이 쓰던 글이라 다음 사람에게 남기지 않는다
 ];
 /* 접두어로 쌓이는 키(방마다 하나) — 목록에 못 적으므로 여기서 훑는다. */
 const ACCOUNT_LOCAL_KEY_PREFIXES = ['tw_chat_read:', 'tw_chat_join:'];
