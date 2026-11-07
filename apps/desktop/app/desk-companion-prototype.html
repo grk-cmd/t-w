@@ -3117,6 +3117,14 @@
   .bell-inbox-btn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
     box-shadow: inset 1px 1px 0 var(--win-lo), inset -1px -1px 0 var(--win-face-2);}
   .bell-inbox-new{background:#e34a4a;color:#fff;font-size:9px;padding:1px 6px;border-radius:8px;font-weight:bold;}
+  /* 🙋 벨 창 맨 아래 — 마지막으로 받은 방 초대 한 줄(scheduler.js renderBellList · room/invite-notice.js) */
+  .bell-invite{display:flex;align-items:center;gap:6px;margin:4px 4px 2px;padding:6px 8px;cursor:pointer;
+    font-size:11.5px;color:var(--ink);border:1px dashed var(--win-lo-2);border-radius:var(--win-radius-el) !important;}
+  .bell-invite:hover{background:var(--win-face-2);}
+  .bell-invite-txt{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:bold;}
+  .bell-invite-ts{font-size:10px;color:#7a7466;flex-shrink:0;}
+  .bell-invite-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0;background:transparent;}
+  .bell-invite-dot.on{background:#e34a4a;}
 
   /* 📅 스케줄러 탭 — 버튼은 회색 박스 대신 텍스트 클릭 형식 */
   #mhSchedWrap{display:flex;gap:12px;padding:12px;height:100%;box-sizing:border-box;}
@@ -8493,6 +8501,7 @@
 <script src="parts/shared/error-codes.js"></script>   <!-- ⚠️ 에러코드 표 · 실패 토스트에 번호 붙이기(window.TwErrorCodes) — 부르는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/json-store.js"></script>   <!-- 💾 localStorage JSON 칸 읽기 · 쓰기 한 곳(window.TwJsonStore) — 책상 프리셋 저장 · animal.js · app.js 보다 먼저 -->
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
+<script src="parts/room/invite-notice.js"></script>   <!-- 🙋 마지막으로 받은 방 초대 한 줄(window.TwInviteNotice) — 🔔 일정 알림 줄 · 알림콩 · app.js 보다 먼저 -->
 <script src="parts/room/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
 <script src="parts/focus/gamepad-activity.js"></script>   <!-- 🎮 게임패드 버튼 · 스틱도 활동으로(window.TwGamepadActivity) — app.js 보다 먼저 -->
 <script src="parts/creator/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->

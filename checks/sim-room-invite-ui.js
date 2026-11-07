@@ -6,7 +6,8 @@
    ・2절: 친구 고르기 창 — 방 없으면 안 열림(안내) · 친구 없음 안내 · 온라인 먼저 이름순 · 사진(data:image · http 만) · 🏠 · 10줄 넘으면 스크롤 · 닫기
    ・3절: 초대 보내기 — 보낸 값 · 완료 · 실패 · 연결 없음 · 🏠 다른 방 친구는 첫 클릭은 알리기만
    ・4절: 창 끌기 — 손떨림(3px 미만)은 무시 · 화면 안으로 가둠 · ✕ 위는 끌기 아님 · 더블클릭 가운데로 · 다시 열면 가둠
-   ・5절: 받기 — 오래된 초대(10분)는 지움 · 가장 최근 하나 · 수락이면 나간 뒤 그 방으로 · 거절 · 3분 지나면 거절 · 떠 있는 동안 새 초대 안 띄움 ·
+   ・5절: 받기 — 오래된 초대(10분)는 지움 · 가장 최근 하나 · 수락이면 나간 뒤 그 방으로 · 거절 · 자동 거절 없음(10분 뒤 창만 닫힘 — 초대 지움 · 이동 안 함) · 떠 있는 동안 새 초대 안 띄움 ·
+           가장 최근 초대를 🔔 일정 알림 줄로(오래된 것 · 팝업이 떠 있을 때도) ·
            작업표시줄 깜빡임은 팝업과 수명을 같이 · done 은 한 번만
    ・6절: app.js 배선 — 정의는 모듈에만 · 만드는 곳 한 곳 · 원래 자리(INIT 뒤 · 🛰 감시견 앞) · deps 모양(함수는 화살표 · let 은 읽는 함수 · const 는 값) ·
            빈 껍데기 · html 순서 · 전역 이름
@@ -52,7 +53,7 @@ function mkEl(tag, id, env){
 function mkEnv(opt, mod){
   opt = opt || {};
   const env = {
-    toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {},
+    toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {}, notes: [], outs: [],
     friends: opt.friends === undefined ? {} : opt.friends, notice: opt.notice === undefined ? null : opt.notice, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
     sendFail: false, sendHold: false, release: null, opens: [], closes: [], onUpdate: null, winW: 320, winH: 200, winX: 100, winY: 100,
   };
@@ -80,6 +81,8 @@ function mkEnv(opt, mod){
     },
     setInterval: (fn) => { env.timers.push(fn); return env.timers.length; },
     clearInterval: (h) => { env.timers[h - 1] = null; },
+    setTimeout: (fn, ms) => { env.outs.push({ fn, ms }); return env.outs.length; },
+    clearTimeout: (h) => { if(env.outs[h - 1]) env.outs[h - 1] = null; },
     addEventListener: (t, fn, o) => { (env.winL[t] = env.winL[t] || []).push({ fn, once: !!(o && o.once) }); },
     companion: { flashFrame: (on) => env.flashes.push(on) },
   };
@@ -103,6 +106,7 @@ function mkEnv(opt, mod){
     friendsOpen: (key, fn) => { env.opens.push(key); env.onUpdate = fn; },
     friendsClose: (key) => { env.closes.push(key); env.onUpdate = null; },
     presence: { active: () => env.active, roomCode: () => env.room },
+    inviteNotice: { note: (id, inv) => { env.notes.push(id + ':' + (inv && inv.roomCode)); return true; } },
   }));
   env.fireWin = (t) => { (env.winL[t] || []).slice().forEach(h => { if(h.once) env.winL[t] = env.winL[t].filter(x => x !== h); h.fn({}); }); };
   env.fireDoc = (t, ev) => { (env.docL[t] || []).slice().forEach(fn => fn(ev)); };
@@ -279,17 +283,21 @@ await sec('── 5. 방 초대 받기', async () => {
   cb({ old: { ts: e.now - 11 * 60 * 1000, fromName: '옛', roomCode: 'OLD' } });
   await flush();
   chk(e.ctx.document.body.children.length === 0 && JSON.stringify(e.cleared) === JSON.stringify([['ME', 'old']]), '10분 지난 초대는 띄우지 않고 지운다');
+  chk(e.notes.join() === 'old:OLD', '  ★ 그 초대는 🔔 일정 알림 줄로 남긴다(팝업 없이 — 줄에서 다시 연다)');
+  e.notes = [];
   e.cleared = [];
   cb({ x: { ts: e.now - 9 * 60 * 1000, fromName: '<b>가</b>', roomCode: 'RX' }, y: { ts: e.now - 1000, fromName: '나비', roomCode: 'RY' } });
   const ov = e.popup();
   chk(e.ctx.document.body.children.length === 1 && ov.className === 'app-popup-ov' && e.api.busy(), '팝업 하나 · app-popup-ov · busy');
   const box = ov.children[0];
   chk(/<b>나비<\/b> 님이 함께하자고/.test(box.innerHTML), '가장 최근 초대(나비)를 띄운다 · 9분 된 것은 아직 안 버린다');
+  chk(e.notes.join() === 'y:RY', '  ★ 가장 최근 초대만 일정 알림 줄로(쌓지 않는다)');
   chk(/pointer-events:none/.test(ov.style.cssText) && /^pointer-events:auto;/.test(box.style.cssText), '  껍데기는 클릭 통과 · 상자만 받는다');
   chk(JSON.stringify(e.flashes) === '[true]', '  작업표시줄 깜빡임 켬');
-  chk(box.querySelector('[data-a="left"]').textContent === '⏳ 3:00 안에 응답이 없으면 자동으로 거절돼요', '  남은 시간 3:00');
+  chk(!box.querySelector('[data-a="left"]') && !/자동으로 거절/.test(box.innerHTML), '  ★ 자동 거절 안내 · 남은 시간 줄이 없다');
   cb({ z: { ts: e.now, fromName: '또', roomCode: 'RZ' } });
   chk(e.ctx.document.body.children.length === 1, '떠 있는 동안 새 초대는 안 띄운다');
+  chk(e.notes.join() === 'y:RY,z:RZ', '  ★ 그래도 일정 알림 줄은 새 초대로 바뀐다');
   box.querySelector('[data-a="ok"]').onclick();
   await flush(); await flush();
   chk(e.ctx.document.body.children.length === 0 && JSON.stringify(e.flashes) === '[true,false]', '수락 — 팝업 닫고 깜빡임 끔');
@@ -309,16 +317,20 @@ await sec('── 5. 방 초대 받기', async () => {
   e.popup().children[0].querySelector('[data-a="ok"]').onclick();
   await flush(); await flush();
   chk(e.left.length === 1 && e.started[1] === 'RQ', '방에 없으면 나가지 않고 바로 그 방으로');
-  // 3분
-  e.toasts = []; e.flashes = [];
+  // 10분 — 거절하지 않고 창만 닫는다
+  e.toasts = []; e.flashes = []; e.outs = [];
   e.subs[0].cb({ y: { ts: e.now, fromName: '나비', roomCode: 'RT' } });
-  const lb = e.popup().children[0].querySelector('[data-a="left"]');
-  e.now += 61 * 1000; e.tick();
-  chk(lb.textContent === '⏳ 1:59 안에 응답이 없으면 자동으로 거절돼요', '1초마다 남은 시간(1:59)');
-  e.now += 119 * 1000; e.tick();
-  await flush(); await flush();
-  chk(e.ctx.document.body.children.length === 0 && e.toasts.pop() === '⏳ 초대에 3분 동안 응답이 없어 거절했어요' && e.started.length === 2 && !e.api.busy() && JSON.stringify(e.flashes) === '[true,false]', '3분이 지나면 거절과 같은 길 · 안내');
-  chk(e.timers.every(t => t === null), '  타이머 정리');
+  const out = e.outs.filter(Boolean).pop();
+  chk(!!out && out.ms === 10 * 60 * 1000, '★ 팝업은 3분에 거절하지 않는다 — 10분 뒤 창만 닫는 타이머 하나');
+  e.tick(); await flush();
+  chk(e.ctx.document.body.children.length === 1 && e.api.busy(), '  1초 · 몇 분이 지나도 그대로(자동 거절 없음)');
+  out.fn(); await flush(); await flush();
+  chk(e.ctx.document.body.children.length === 0 && e.toasts.pop() === '🙋 초대 창을 닫았어요 — 🔔 일정 알림에서 다시 볼 수 있어요' && e.started.length === 2 && !e.api.busy() && JSON.stringify(e.flashes) === '[true,false]',
+    '★ 10분이 지나면 창만 닫고 안내 — 방으로 가지 않는다 · 깜빡임 끔');
+  chk(JSON.stringify(e.cleared.slice(-1)) === JSON.stringify([['ME', 'y']]), '  초대는 지운다(다시 팝업으로 안 뜬다 — 줄에서 다시 연다)');
+  e.subs[0].cb({ y: { ts: e.now + 5, fromName: '나비', roomCode: 'RT' } });
+  const k2 = e.outs.length - 1; e.popup().children[0].querySelector('[data-a="no"]').onclick(); await flush();
+  chk(k2 >= 0 && e.outs[k2] === null, '  버튼으로 닫으면 10분 타이머를 치운다');
   const r = mkEnv(); r.mk();
   let shown = null; r.api.showPopup('<i>', 'RC', v => { shown = v; });
   chk(/&lt;i&gt;/.test(r.popup().children[0].innerHTML) && r.flashes[0] === true, '보낸 사람 이름은 escHtml 로 씻는다');
@@ -342,9 +354,10 @@ await sec('── 6. app.js 배선', () => {
     /^getDisplayName: \(\.\.\.a\)=>getDisplayName\(\.\.\.a\),$/, /^startRoom: \(\.\.\.a\)=>startRoom\(\.\.\.a\),$/, /^doLeaveRoom: \(\.\.\.a\)=>doLeaveRoom\(\.\.\.a\),$/,
     /^friendInRoom: \(\.\.\.a\)=>inboxMod\.friendInRoom\(\.\.\.a\),$/, /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^friendsRetry: \(\.\.\.a\)=>friendsSubMod\.retryIfFailed\(\.\.\.a\),$/,
     /^friendsOpen: \(\.\.\.a\)=>friendsSubMod\.open\(\.\.\.a\),$/, /^friendsClose: \(\.\.\.a\)=>friendsSubMod\.close\(\.\.\.a\),$/, /^presence: Presence,$/,
+    /^inviteNotice: inviteNotice,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 13개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 14개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   chk(/^let _myHomeFriends = \{\};/m.test(APP) && /[^.\w]_myHomeFriends = [^=]/.test(code.replace(/let _myHomeFriends = \{\};/, '')), '  _myHomeFriends 는 다시 대입되는 let — 그래서 읽는 함수');
   const iP = APP.indexOf('const Presence=(()=>{');
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');

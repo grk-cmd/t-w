@@ -358,3 +358,10 @@ roomEntryMod.onRoomChanged(()=>listenUi.sync());
 - 실패 번호: `E-ROOM-05` 쓰기 실패(DJ) · `E-ROOM-06` 못 트는 곡(곡마다 한 번) · `E-ROOM-07` 구독 거부.
 
 검사: `checks/sim-listen-model.js` · `checks/sim-listen-provider.js` · `checks/sim-listen-ui.js`.
+
+## invite-notice.js — 🙋 마지막으로 받은 방 초대 한 줄
+- **책임**: 받은 방 초대 중 가장 최근 것 하나를 이 PC 에 계정마다 남긴다(`tw.roomInviteLast` — 쌓지 않고 덮는다). 🔔 일정 알림 창 맨 아래 줄과 알림콩(뱃지)이 이것을 본다.
+- **deps**: `storage`(localStorage) · `getMyUserId` · `now` · `onChange`(줄이 바뀌면 — app.js 가 일정 알림 뱃지 · 창 다시 그리기로 잇는다).
+- **내놓는 것**: `get()` · `note(fromId, invite)`(같은 초대 · 먼저 보낸 옛 초대면 그대로) · `clear()` · `isNew(seenTs)`(일정 알림 창을 마지막으로 연 뒤 받았나). 순수 규칙 `read` · `write` · `same` · `older` · `isNew`.
+- **함정**: «받은 시각» 은 이 PC 시계다(보낸 쪽 ts 와 섞지 않는다) — 같은 초대를 다시 받아도 그 시각을 안 바꿔야 알림콩이 되살아나지 않는다. 줄을 누르면 초대의 옛 방 코드가 아니라 친구가 **지금** 있는 방으로 묻는다(app.js → friend-visit.js `ask`).
+- **부르는 곳**: 받기 `room-invite-ui.js`(초대가 올 때마다 `note` · 팝업은 10분 뒤 창만 닫힘) · 보이기 `myhome/scheduler.js`(`renderBellList` · `refreshBellBadge`). 검사 `sim-invite-notice.js` · `sim-scheduler.js` 3-2절 · `sim-room-invite-ui.js` 5절.

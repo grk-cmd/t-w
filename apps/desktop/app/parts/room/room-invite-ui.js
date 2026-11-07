@@ -1,4 +1,4 @@
-/* room-invite-ui.js — 🙋 투게더룸 친구 초대(친구 고르기 창 · 초대 보내기) · 🚪 방 초대 받기(수락 / 거절 팝업 · 3분 자동 거절 · 작업표시줄 깜빡임)
+/* room-invite-ui.js — 🙋 투게더룸 친구 초대(친구 고르기 창 · 초대 보내기) · 🚪 방 초대 받기(수락 / 거절 팝업 · 10분 뒤 창만 닫힘 · 🔔 일정 알림 줄 · 작업표시줄 깜빡임)
    app.js 의 «🙋 투게더룸 친구 초대» 구역을 그대로 옮긴 모듈이다(앱 FSD 10번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
 
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
@@ -15,8 +15,8 @@
      (이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwRoomInviteUi — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
    검사: checks/sim-room-invite-ui.js — 만들 때 배선 · 친구 고르기 창(방 없음 · 친구 없음 · 순서 · 사진 · 🏠 · 10줄 스크롤) ·
-         초대 보내기(다른 방 친구는 한 번 더) · 끌기 · 받기(오래된 것 지움 · 최근 것 · 수락 이동 · 거절 · 3분) · app.js 배선 · html 순서.
-         checks/sim-room-invite-wait.js — 팝업이 화면을 막지 않는다 · 3분 · 오래됨 10분. */
+         초대 보내기(다른 방 친구는 한 번 더) · 끌기 · 받기(오래된 것 지움 · 최근 것 · 수락 이동 · 거절 · 10분) · app.js 배선 · html 순서.
+         checks/sim-room-invite-wait.js — 팝업이 화면을 막지 않는다 · 자동 거절 없음 · 10분 뒤 창만 닫힘 · 오래됨 10분 · 일정 알림 줄. */
 (function(){
 
 function createRoomInviteUi(deps){
@@ -28,6 +28,7 @@ const startRoom = deps.startRoom;              // 수락 — 그 방으로
 const doLeaveRoom = deps.doLeaveRoom;          // 수락 — 이미 방에 있으면 먼저 나간다
 const _friendInRoom = deps.friendInRoom;       // 🏠 다른 방에 있는 친구 판정 — app.js(마이홈 친구 목록)
 const Presence = deps.presence;
+const inviteNotice = deps.inviteNotice;       // 🙋 마지막 초대 한 줄(invite-notice.js) — 🔔 일정 알림 창 줄 · 알림콩
 const _myHomeFriends = deps.myHomeFriends;     // 읽는 함수 — app.js 가 다시 대입하는 let
 const _friendsNotice = deps.friendsNotice;     // 읽는 함수 — 친구 목록을 아직 못 받았으면 안내 문구, 받았으면 null(friends-sub.js · 마이홈 친구 탭과 같은 문구)
 const _friendsRetry = deps.friendsRetry;       // 친구 목록을 못 불러왔으면 다시 건다(초대 목록을 열 때)
@@ -234,22 +235,25 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
 
 /* 🚪 방 초대 수신 — 어디에 있든 팝업으로 수락/거절. 수락하면 그 방으로 이동. */
 let _roomInviteBusy = false;
-/* ⏳ [2026-10-02 제보 «초대 알림이 뜨면 수락·거절 말고 아무것도 못 한다»] 초대는 **3분** 기다린다.
-   그동안 화면의 다른 곳(앱 · 뒤의 프로그램)을 그대로 쓸 수 있고, 3분이 지나면 **거절로 본다.**
-   ★ 오래된 초대(앱을 꺼 둔 사이에 온 것 등)는 띄우지 않고 지운다 — 몇 시간 전 초대에 수락하면
-     이미 비어 있거나 다른 방이 된 방으로 끌려간다.
-   ⚠️ 그 «오래됨» 문턱은 3분이 아니라 **10분**이다. ts 는 **보낸 쪽 PC 시계**(Date.now)라, 받는 쪽 시계가 몇 분
-     앞서 있으면 방금 온 초대를 «3분 지남» 으로 읽고 버린다. 3분 대기 자체는 팝업이 뜬 순간부터 잰다(아래). */
-const ROOM_INVITE_WAIT_MS  = 3 * 60 * 1000;
+/* ⏳ 초대는 거절로 끝내지 않는다 — 팝업은 10분이 지나면 **창만 닫고**(거절 아님), 초대는 🔔 일정 알림 창의 줄에서 다시 연다.
+   ★ 오래된 초대(앱을 꺼 둔 사이에 온 것 등)는 팝업 없이 그 줄로만 알린다 — 몇 시간 전 초대에 바로 수락하면
+     이미 비어 있거나 다른 방이 된 방으로 끌려간다(줄을 누르면 친구가 지금 있는 방으로 묻는다 — friend-visit.js).
+   ⚠️ «오래됨» 문턱 10분은 보낸 쪽 PC 시계(ts)로 잰다 — 시계가 몇 분 어긋나도 방금 온 초대를 버리지 않게 넉넉히.
+     팝업이 떠 있는 10분은 팝업이 뜬 순간부터 잰다(아래). */
+const ROOM_INVITE_POPUP_MS = 10 * 60 * 1000;
 const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
 function _bindRoomInviteReceiver(){
   if(!(window.firebaseAPI && firebaseAPI.subscribeRoomInvites)) return;
   const myId = getMyUserId();
   if(!myId) return;   // 내 코드가 없으면 구독하지 않는다(roomInvites/null)
   firebaseAPI.subscribeRoomInvites(myId, invites=>{
-    let ids = Object.keys(invites || {});
-    if(!ids.length || _roomInviteBusy) return;
-    /* 오래된 초대는 조용히 거절 처리(지우기). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
+    let ids = Object.keys(invites || {}).filter(id => invites[id] && typeof invites[id] === 'object');
+    if(!ids.length) return;
+    /* 🔔 가장 최근 초대를 일정 알림 줄로 — 팝업이 떠 있어도 · 오래된 것이어도(같은 초대면 그대로) */
+    const latest = ids.slice().sort((a,b)=> (invites[b].ts||0) - (invites[a].ts||0))[0];
+    inviteNotice.note(latest, invites[latest]);
+    if(_roomInviteBusy) return;
+    /* 오래된 초대는 팝업 없이 지운다(줄은 위에서 남겼다). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
     const _now = Date.now();
     const _stale = ids.filter(id => (invites[id] && invites[id].ts > 0) && (_now - invites[id].ts > ROOM_INVITE_STALE_MS));
     if(_stale.length){
@@ -263,8 +267,8 @@ function _bindRoomInviteReceiver(){
     const fromId = ids[0];
     const inv = invites[fromId];
     showRoomInvitePopup(inv.fromName || '친구', inv.roomCode, async (accepted)=>{
-      try{ await firebaseAPI.clearRoomInvite(myId, fromId); }catch(_){}
-      if(accepted && inv.roomCode){
+      try{ await firebaseAPI.clearRoomInvite(myId, fromId); }catch(_){}   // 수락 · 거절 · 10분 닫힘 모두 — 다시 띄우지 않는다(줄은 남는다)
+      if(accepted === true && inv.roomCode){
         // 이미 다른 방이면 나간 뒤 이동
         try{ if(typeof Presence!=='undefined' && Presence.active()) await doLeaveRoom({ wipeChat: true }); }catch(_){}
         startRoom(inv.roomCode);
@@ -296,31 +300,21 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.innerHTML =
     '<div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;">🙋 방 초대</div>' +
     '<div style="padding:16px 14px 8px;color:var(--ink);font-size:12px;line-height:1.6;"><b>' + escHtml(fromName) + '</b> 님이 함께하자고 초대했어요.<br>수락하면 그 방으로 이동해요.</div>' +
-    '<div data-a="left" style="padding:0 14px 10px;color:var(--ink-soft);font-size:10.5px;"></div>' +
     '<div style="display:flex;gap:6px;padding:0 14px 14px;justify-content:flex-end;">' +
       '<button class="lc-btn" data-a="ok" style="min-width:70px;">수락</button>' +
       '<button class="lc-btn ghost" data-a="no" style="min-width:70px;">거절</button>' +
     '</div>';
   ov.appendChild(box); document.body.appendChild(ov);
   _flashTaskbar(true);
-  /* ⏳ 3분 대기 — 팝업이 뜬 순간부터 잰다(안내한 3분을 그대로 준다). 지나면 거절과 같은 길(done(false))로 간다.
-     ★ done 은 한 번만 — 시간 만료와 버튼이 같은 순간에 겹쳐도 cb 가 두 번 불리지 않게. */
-  const leftEl = box.querySelector('[data-a="left"]');
-  const due = Date.now() + ROOM_INVITE_WAIT_MS;
-  let finished = false, tick = null;
+  /* ⏳ 10분 — 팝업이 뜬 순간부터 잰다. 지나면 거절하지 않고 창만 닫는다(done('later')) — 🔔 일정 알림 줄에서 다시 연다.
+     ★ done 은 한 번만 — 시간과 버튼이 같은 순간에 겹쳐도 cb 가 두 번 불리지 않게. */
+  let finished = false, timer = null;
   const done = (val)=>{
     if(finished) return; finished = true;
-    if(tick){ clearInterval(tick); tick = null; }
+    if(timer){ clearTimeout(timer); timer = null; }
     _flashTaskbar(false); try{ ov.remove(); }catch(_){} cb(val);
   };
-  const paint = ()=>{
-    const ms = due - Date.now();
-    if(ms <= 0){ done(false); toast('⏳ 초대에 3분 동안 응답이 없어 거절했어요'); return; }
-    const s = Math.ceil(ms / 1000);
-    if(leftEl) leftEl.textContent = '⏳ ' + Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0') + ' 안에 응답이 없으면 자동으로 거절돼요';
-  };
-  paint();
-  tick = setInterval(paint, 1000);
+  timer = setTimeout(()=>{ done('later'); toast('🙋 초대 창을 닫았어요 — 🔔 일정 알림에서 다시 볼 수 있어요'); }, ROOM_INVITE_POPUP_MS);
   box.querySelector('[data-a="ok"]').onclick = ()=>done(true);
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
