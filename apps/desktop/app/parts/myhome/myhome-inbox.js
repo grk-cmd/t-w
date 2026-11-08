@@ -406,6 +406,7 @@ function renderGiftBox(listEl){
 async function _sentPaint(body){
   const me = getMyUserId();
   const raw = me ? await firebaseAPI.getMallangSent(me) : {};
+  if(_giftSub !== 'sent' || !body.isConnected || !document.querySelector('#mhFmTabs .mh-ibx-tab.gift.on')) return;   // 기다리는 사이 다른 칸 · 탭으로 옮겼다 — 덮지 않는다
   if(raw === null){ body.innerHTML = '<div class="mh-ibx-empty">보낸 선물을 불러오지 못했어요<br><small>잠시 뒤 다시 열어 주세요</small></div>'; return; }
   const rows = TwMallangSent.list(raw).slice(0, TwMallangSent.SENT_MAX);
   _giftStat(rows.length ? '최근 '+rows.length+'개' : '');

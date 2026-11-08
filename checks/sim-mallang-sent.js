@@ -43,8 +43,8 @@ chk(MS.lastTo(many, U, ST + '1').id === 'g31' && MS.lastTo(many, 'uzzzzzzzz9', S
 say('── 2. 서버 규칙');
 {
   const R = JSON.parse(SRC.rules).rules.users.$userId.mallangSent || {}, g = R.$giftId || {};
-  chk(/userAuth/.test(R['.write'] || '') && /hasChildren\(\['to', 'src', 'ts'\]\)/.test(g['.validate'] || '') && /\[uU\]\[0-9a-zA-Z\]\{8,40\}/.test((g.to || {})['.validate'] || ''),
-    '주인만 쓰기 · to · src · ts 가 있어야 · to 는 친구 코드 모양');
+  chk(R['.validate'] === 'newData.hasChildren()' && /userAuth/.test(R['.write'] || '') && /hasChildren\(\['to', 'src', 'ts'\]\)/.test(g['.validate'] || '') && /\[uU\]\[0-9a-zA-Z\]\{8,40\}/.test((g.to || {})['.validate'] || ''),
+    '주인만 쓰기 · 노드 통째 글자 거절 · to · src · ts 가 있어야 · to 는 친구 코드 모양');
   chk(['src', 'img'].every(k => /beginsWith\('https:\/\/firebasestorage\.googleapis\.com\/'\)/.test((g[k] || {})['.validate'] || '')) && /<= 20/.test((g.toName || {})['.validate'] || '')
     && /<= 50/.test((g.msg || {})['.validate'] || '') && (g.$other || {})['.validate'] === false, '그림 주소는 Storage 만 · 이름 20 · 메시지 50 · 다른 칸 거절');
   /* ★ 규칙식을 실제로 굴린다 — 앱이 만드는 기록(record)이 통과하고, 거절돼야 할 것이 거절되는지(«규칙을 실제 모양으로 시험» — 같은 말랑이 경로에서 난 사고) */
@@ -131,14 +131,14 @@ say('── 4. 💝 선물함 › 보낸 선물(myhome-inbox.js)');
 {
   const I0 = SRC.inbox.indexOf('let _giftSub = '), I1 = SRC.inbox.indexOf('/* 받아 둔 gifts 로 다시 그린다');
   const body = SRC.inbox.slice(I0, I1);
-  let srv = {};
+  let srv = {}, giftTabOn = true;
   const stat = [];
   const esc = (s) => String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const btn = (k) => { const c = new Set(); return { dataset: { gs: k }, classList: { toggle: (n, f) => { f ? c.add(n) : c.delete(n); }, has: n => c.has(n) } }; };
   const bts = [btn('got'), btn('sent')];
-  const listEl = { innerHTML: '', onclick: 'old', oncontextmenu: 'old', querySelectorAll: () => [] };
+  const listEl = { innerHTML: '', onclick: 'old', oncontextmenu: 'old', isConnected: true, querySelectorAll: () => [] };
   const ctx = { getMyUserId: () => 'umeeeeeeee1', firebaseAPI: { getMallangSent: async () => srv, getMallangGifts: async () => ({}) }, TwMallangSent: MS,
-    document: { querySelectorAll: (sel) => (sel === '#mhGiftSub [data-gs]' ? bts : []) },
+    document: { querySelectorAll: (sel) => (sel === '#mhGiftSub [data-gs]' ? bts : []), querySelector: (sel) => (sel === '#mhFmTabs .mh-ibx-tab.gift.on' && giftTabOn ? {} : null) },
     TwSafeHtml: { safeUrl: (u) => (String(u).startsWith('https://') ? u : '') }, TwImgRetry: { retryOnError(){} }, escHtml: esc, _inboxTimeStr: (t) => 'T' + t,
     _giftStat: (t) => stat.push(t), _giftBoxPaint: (b) => { b.innerHTML = 'GRID'; } };
   const f = new Function(...Object.keys(ctx), body + '\nreturn { renderGiftBox, _sentPaint };')(...Object.values(ctx));
@@ -151,6 +151,8 @@ say('── 4. 💝 선물함 › 보낸 선물(myhome-inbox.js)');
   chk(bts[1].classList.has('on') && listEl.onclick === null && listEl.oncontextmenu === null && h.indexOf('T9') < h.indexOf('T7') && /&lt;b&gt;민트&lt;\/b&gt;/.test(h) && /💬 &quot;하이&quot;/.test(h) && /<b>친구<\/b>/.test(h) && stat[stat.length - 1] === '최근 2개',
     '★ 보낸 선물 — 받은 선물의 누르기 · 우클릭을 걷고 · 최근 것부터 · 받은 친구 · 메시지(남이 정한 글자는 씻음) · 이름 없으면 «친구» · «최근 n개»');
   chk(/src="https:\/\/firebasestorage[^"]*\/g"/.test(h) && /src="https:\/\/firebasestorage[^"]*\/b"/.test(h), '그림은 사본 · 없으면 원래 그림');
+  { giftTabOn = false; srv = { z: { to: U, src: ST + 'z', ts: 99 } }; listEl.innerHTML = 'OTHER'; await f._sentPaint(listEl); giftTabOn = true;
+    chk(listEl.innerHTML === 'OTHER', '★ 기다리는 사이 다른 탭으로 옮겼으면 늦게 온 응답이 그 칸을 덮지 않는다'); }
   srv = null; await f._sentPaint(listEl);
   chk(/불러오지 못했어요/.test(listEl.innerHTML), '못 읽음은 «불러오지 못했어요»(빈 목록과 다르게)');
   srv = {}; await f._sentPaint(listEl);
