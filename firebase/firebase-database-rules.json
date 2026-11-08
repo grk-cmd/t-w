@@ -814,6 +814,15 @@
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           ".validate": "newData.isNumber() && (newData.val() === 60 || newData.val() === 80 || newData.val() === 100)"
         },
+        "themeCustom": {
+          ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+          "$t": {
+            ".validate": "($t === 'default' || $t === 'bubble') && newData.hasChildren(['a', 'b'])",
+            "a": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-F]{6}$/)" },
+            "b": { ".validate": "newData.isString() && newData.val().matches(/^#[0-9A-F]{6}$/)" },
+            "$other": { ".validate": false }
+          }
+        },
         "advBg": {
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           ".validate": "(!newData.child('img').exists() || (newData.child('img').isString() && newData.child('img').val().length <= 500)) && (!newData.child('color').exists() || (newData.child('color').isString() && newData.child('color').val().length <= 20))"
