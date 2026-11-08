@@ -2823,7 +2823,7 @@ function createWindow() {
     const safe = String(title || 'YouTube BGM').replace(/[<>&"]/g, '');
     return 'data:text/html;charset=utf-8,' + encodeURIComponent(
       '<!doctype html><html><head><meta charset="utf-8"></head>'+
-      '<body style="margin:0;overflow:hidden;background:#c0c0c0;font-family:Tahoma,sans-serif;height:100vh;box-sizing:border-box;'+
+      '<body style="margin:0;overflow:hidden;background:#c0c0c0;font-family:Tahoma,\'Malgun Gothic\',\'Apple SD Gothic Neo\',sans-serif;height:100vh;box-sizing:border-box;'+
       'border:2px solid;border-color:#ffffff #404040 #404040 #ffffff;">'+
       '<div style="height:22px;margin:2px;padding:0 5px;display:flex;align-items:center;justify-content:space-between;'+
       'background:linear-gradient(90deg,#7a7a7a,#a8a8a8);color:#fff;font-size:11px;font-weight:bold;user-select:none;">'+

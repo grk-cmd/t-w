@@ -2,7 +2,7 @@
    ・1절: 규칙(mallang-sent.js) — 기록 모양 씻기 · 최근 순서 · 30개 넘는 옛 기록 · 같은 친구에게 같은 그림을 보낸 적 · 깨 보기
    ・2절: 서버 규칙 — users/$uid/mallangSent 는 주인만 · 규칙식을 실제로 굴려 앱이 만드는 기록은 통과 · 코드 모양 · Storage 밖 · 모르는 칸 · 길이 초과는 거절 · 깨 보기
    ・3절: 보내기 화면(mallang.js) — 보낸 기록을 같이 읽는다 · 이미 보낸 그림에 «보냄» · 누르면 묻고 [또 보내기] 뒤에 보낸다 · 보낸 뒤 기록 + 넘는 것 지우기
-   ・4절: 💝 선물함 › 보낸 선물(myhome-inbox.js) — 맨 위 두 칸 · 최근 30개 · 받은 친구 · 메시지 · 못 읽음 · 빈 목록 · 남이 정한 글자는 씻는다
+   ・4절: 💝 선물함 › 보낸 선물(myhome-inbox.js) — 맨 위 두 칸 · 최근 30개 · 받은 친구 · 메시지 · 못 읽음 · 빈 목록 · 남이 정한 글자는 씻는다 · 늦은 응답은 다른 탭 · 받은 선물 · 닫힌 칸을 덮지 않는다
    [실행] node checks/run.js mallang-sent */
 'use strict';
 const fs = require('fs');
@@ -153,6 +153,17 @@ say('── 4. 💝 선물함 › 보낸 선물(myhome-inbox.js)');
   chk(/src="https:\/\/firebasestorage[^"]*\/g"/.test(h) && /src="https:\/\/firebasestorage[^"]*\/b"/.test(h), '그림은 사본 · 없으면 원래 그림');
   { giftTabOn = false; srv = { z: { to: U, src: ST + 'z', ts: 99 } }; listEl.innerHTML = 'OTHER'; await f._sentPaint(listEl); giftTabOn = true;
     chk(listEl.innerHTML === 'OTHER', '★ 기다리는 사이 다른 탭으로 옮겼으면 늦게 온 응답이 그 칸을 덮지 않는다'); }
+  { /* 기다리는 사이 «받은 선물» 로 돌아감 — 응답을 붙잡아 두고 단추를 누른 뒤 풀어 준다 */
+    let release; srv = new Promise(r => { release = () => r({ z: { to: U, src: ST + 'z', ts: 99 } }); });
+    const p = f._sentPaint(listEl);
+    bts[0].onclick({ stopPropagation(){} }); await tick();
+    release(); await p; await tick();
+    chk(listEl.innerHTML === 'GRID' && bts[0].classList.has('on'), '★ 기다리는 사이 «받은 선물» 로 돌아갔으면 늦은 «보낸 선물» 응답이 격자를 덮지 않는다');
+    bts[1].onclick({ stopPropagation(){} }); await tick(); }
+  { /* 칸이 화면에서 빠졌음(창을 닫음) */
+    srv = { z: { to: U, src: ST + 'z', ts: 99 } }; listEl.isConnected = false; listEl.innerHTML = 'GONE';
+    await f._sentPaint(listEl); listEl.isConnected = true;
+    chk(listEl.innerHTML === 'GONE', '  칸이 화면에서 빠졌으면(창을 닫음) 그리지 않는다'); }
   srv = null; await f._sentPaint(listEl);
   chk(/불러오지 못했어요/.test(listEl.innerHTML), '못 읽음은 «불러오지 못했어요»(빈 목록과 다르게)');
   srv = {}; await f._sentPaint(listEl);

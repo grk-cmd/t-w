@@ -8,6 +8,7 @@
           예외는 이모지 전용 목록(Segoe UI Emoji 로 시작) 하나뿐.
    ・2절: 기본 테마 --win-font 와 머리 위 말풍선·이름표에 맑은 고딕 · 버블 테마는 여전히 돋움이 먼저.
    ・3절: 🍎 맥 — 맑은 고딕 · 돋움(맥에 없음)을 적은 목록에는 맥 기본 한글 글꼴 'Apple SD Gothic Neo' 를 늘 같이 · 깨 보기 (B-1028-5)
+   ・4절: 🎵 BGM 창 제목줄(main.js bgmChromeHtml)을 실제로 만들어 글꼴을 본다 — 한글 · 맥 글꼴 · 깨 보기
    ・글꼴 토큰 var(--tw-font-…)(디자인 시스템 1단계)은 html 의 정의로 펼친 뒤 1 · 2절을 본다.
    [실행] desk-companion-prototype.html · app.js 가 있는 폴더에서(mallang.js · myhome-desktop.js 는 있으면 본다). */
 'use strict';
@@ -77,6 +78,21 @@ say('── 3. 🍎 맥 — 한글 목록마다 Apple SD Gothic Neo');
   /* 점검 창은 자식 창(방명록 · 디자인 스튜디오)에도 그려진다 — 거기엔 --tw-font-legacy 가 없어 대비 목록이 있어야 버블 테마에서 돋움으로 안 바뀐다 */
   const mg = all.find(([f]) => f === 'maintenance-gate.js');
   chk(!!mg && /var\(--tw-font-legacy,Tahoma,'Malgun Gothic','Apple SD Gothic Neo',sans-serif\)/.test(mg[1]), '★ 점검 창 — 토큰에 대비 목록(자식 창에서도 Tahoma)');
+}
+
+say('── 4. 🎵 BGM 창 제목줄(main.js — 유튜브 제목이 한글일 수 있다)');
+{
+  const MAIN = read('main.js');
+  if(MAIN == null) say('  · main.js 를 못 찾음 — 건너뜀');
+  else {
+    /* 실제로 만들어 본다 — 함수를 떼어 불러 data: 주소를 풀고 body 글꼴을 읽는다 */
+    const fnOf = (src) => { const m = src.match(/function bgmChromeHtml\(title\)\{[\s\S]*?\n  \}/); return m ? new Function(m[0] + '\nreturn bgmChromeHtml;')() : null; };
+    const fontOf = (src) => { try{ const f = fnOf(src); const html = decodeURIComponent(f('한글 제목').replace(/^data:text\/html;charset=utf-8,/, '')); return (html.match(/<body style="[^"]*font-family:([^;"]*)/) || [])[1] || ''; }catch(_){ return ''; } };
+    const ff = fontOf(MAIN);
+    chk(/Malgun Gothic/.test(ff) && /Apple SD Gothic Neo/.test(ff) && /^Tahoma,/.test(ff), '★ BGM 창 제목줄 — Tahoma 다음 맑은 고딕 · 맥 글꼴 (' + ff + ')');
+    const broke = MAIN.replace("font-family:Tahoma,\\'Malgun Gothic\\',\\'Apple SD Gothic Neo\\',sans-serif;height:100vh;", 'font-family:Tahoma,sans-serif;height:100vh;');
+    chk(broke !== MAIN && !/Malgun Gothic/.test(fontOf(broke)), '  깨 보기 — 예전 목록(Tahoma,sans-serif)이면 빨강');
+  }
 }
 
 say(`\n결과: ${pass} 통과 · ${fail} 실패`);

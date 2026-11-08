@@ -32,7 +32,7 @@ const saveCustom = deps.saveCustom; // (uid, obj) => bool
 const TC = TwThemeCustom;
 const THEME_CHILD_TOKENS = [
   '--win-face','--win-face-2','--win-hi','--win-lo','--win-lo-2','--win-ink','--win-ink-soft','--win-title-ink',
-  '--win-error','--win-radius','--win-radius-sm','--win-radius-el','--win-font','--win-title-grad',
+  '--win-error','--win-radius','--win-radius-sm','--win-radius-el','--win-font','--tw-font-legacy','--win-title-grad',
   '--win-title-premium','--win-title-premium-ink','--win-btn-grad','--win-face-grad','--win-drop','--win-select',
   '--acc-d','--acc-m','--acc-l','--acc-tint','--acc-brd','--acc-face','--acc-pop',
 ];
