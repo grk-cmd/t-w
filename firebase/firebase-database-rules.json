@@ -524,6 +524,7 @@
           }
         },
         "mallangSent": {
+          ".validate": "newData.hasChildren()",
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           "$giftId": {
             ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && newData.hasChildren(['to', 'src', 'ts'])",
