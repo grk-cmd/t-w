@@ -126,7 +126,7 @@ export function createAppVersionGateDom(doc){
     ov.style.cssText = 'position:fixed;inset:0;z-index:100000;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.55);-webkit-app-region:no-drag;';
     const box = doc.createElement('div');
     box.style.cssText = 'background:var(--win-face,#d4d0c8);border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);'
-      + 'box-shadow:3px 3px 0 rgba(0,0,0,.35);width:340px;max-width:92vw;font-family:Tahoma,\'Malgun Gothic\',sans-serif;';
+      + 'box-shadow:3px 3px 0 rgba(0,0,0,.35);width:340px;max-width:92vw;font-family:var(--tw-font-legacy);';
     const title = doc.createElement('div');
     title.style.cssText = 'font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;background:linear-gradient(90deg,var(--win-title-a,#0a246a),var(--win-title-b,#a6caf0));';
     const inner = doc.createElement('div');

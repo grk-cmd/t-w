@@ -7,6 +7,7 @@
    ・1절: 코드(주석 제외)에서 Tahoma 가 들어간 font-family / font 선언은 전부 한글 폰트를 함께 적는다.
           예외는 이모지 전용 목록(Segoe UI Emoji 로 시작) 하나뿐.
    ・2절: 기본 테마 --win-font 와 머리 위 말풍선·이름표에 맑은 고딕 · 버블 테마는 여전히 돋움이 먼저.
+   ・3절: 🍎 맥 — 맑은 고딕 · 돋움(맥에 없음)을 적은 목록에는 맥 기본 한글 글꼴 'Apple SD Gothic Neo' 를 늘 같이 · 깨 보기 (B-1028-5)
    ・글꼴 토큰 var(--tw-font-…)(디자인 시스템 1단계)은 html 의 정의로 펼친 뒤 1 · 2절을 본다.
    [실행] desk-companion-prototype.html · app.js 가 있는 폴더에서(mallang.js · myhome-desktop.js 는 있으면 본다). */
 'use strict';
@@ -48,6 +49,34 @@ say('── 2. 핵심 자리');
   chk(/font:bold 15px Tahoma,["']Malgun Gothic["']/.test(rule('.seat-bubble-dom')), '★ 머리 위 말풍선 15px — 맑은 고딕');
   chk(/Tahoma,["']Malgun Gothic["']/.test(rule('.seat-nameplate')), '머리 위 이름표 — 맑은 고딕');
   chk(/Tahoma,'Malgun Gothic'/.test(rule('#chatWindow')), '대화창은 원래대로 맑은 고딕 (이번 제보에서 멀쩡했던 기준)');
+}
+
+say('── 3. 🍎 맥 — 한글 목록마다 Apple SD Gothic Neo');
+{
+  /* 맑은 고딕 · 돋움은 맥에 없다. 적지 않으면 맥의 한글은 브라우저가 그때그때 고른 대체 글꼴이 된다 */
+  const MAC = /Apple SD Gothic Neo/;
+  const macBad = (code) => (code.match(/font(?:-family)?\s*:[^;}\n]*(?:Malgun Gothic|맑은 고딕|Dotum|돋움)[^;}\n]*|--(?:win|tw)-font[\w-]*\s*:[^;}\n]*(?:Malgun Gothic|맑은 고딕|Dotum|돋움)[^;}\n]*/g) || []).filter(d => !MAC.test(d));
+  const MODS = ['mallang.js', 'myhome-desktop.js', 'myhome-edit.js', 'guestbook.js', 'friend-manage.js', 'room-invite-ui.js', 'app-version-gate.js', 'maintenance-gate.js'];
+  const all = [['desk-companion-prototype.html', stripCss(HTML)], ['app.js', stripJs(APP)]];
+  for(const f of MODS){ const t = read(f); if(t != null) all.push([f, stripJs(t).replace(/\\'/g, "'")]); }
+  let n = 0;
+  for(const [name, code] of all){
+    const bad = macBad(code); n++;
+    chk(bad.length === 0, name + ' — 한글 목록에 맥 글꼴이 빠진 곳 없음' + (bad.length ? ' (' + bad.length + '곳: ' + bad.slice(0, 2).map(x => x.slice(0, 70)).join(' | ') + ')' : ''));
+  }
+  chk(n >= 8, '  본 파일 ' + n + '개(html · app.js · 모듈)');
+  const css = stripCss(HTML);
+  chk(/--tw-font-legacy\s*:\s*Tahoma,'Malgun Gothic','Apple SD Gothic Neo'/.test(css) && /--win-font\s*:\s*Tahoma,'Malgun Gothic','Apple SD Gothic Neo'/.test(css),
+    '★ 기본 테마 · 대부분 칸이 쓰는 토큰 — 맑은 고딕 바로 뒤 Apple SD Gothic Neo(영문은 그대로 Tahoma)');
+  chk(/--win-font\s*:\s*'Dotum','돋움','Gulim','굴림',Tahoma,'Apple SD Gothic Neo'/.test(css), '  버블 테마 — 돋움이 먼저 · Tahoma 뒤 Apple SD Gothic Neo');
+  const broke = stripCss(HTML.replace("--tw-font-legacy:Tahoma,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;", "--tw-font-legacy:Tahoma,'Malgun Gothic',sans-serif;"));
+  chk(broke !== stripCss(HTML) && macBad(broke).length > 0, '  깨 보기 — 토큰에서 맥 글꼴을 빼면 빨강');
+  const fm = all.find(([f]) => f === 'friend-manage.js');
+  const fmBroke = fm ? fm[1].replace('font-family:var(--tw-font-legacy);', "font-family:Tahoma,'Malgun Gothic',sans-serif;") : '';
+  chk(!!fm && fmBroke !== fm[1] && macBad(fmBroke).length > 0, '  깨 보기 — 모듈에 맥 글꼴 없는 목록을 직접 적으면 빨강');
+  /* 점검 창은 자식 창(방명록 · 디자인 스튜디오)에도 그려진다 — 거기엔 --tw-font-legacy 가 없어 대비 목록이 있어야 버블 테마에서 돋움으로 안 바뀐다 */
+  const mg = all.find(([f]) => f === 'maintenance-gate.js');
+  chk(!!mg && /var\(--tw-font-legacy,Tahoma,'Malgun Gothic','Apple SD Gothic Neo',sans-serif\)/.test(mg[1]), '★ 점검 창 — 토큰에 대비 목록(자식 창에서도 Tahoma)');
 }
 
 say(`\n결과: ${pass} 통과 · ${fail} 실패`);

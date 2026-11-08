@@ -2368,7 +2368,7 @@ function slotTitleName(s){
 const css = `
   /* ── 미니 바탕화면 ── */
   #advDesktop{position:absolute;inset:0;z-index:3;background:#3a8a8a;overflow:hidden;
-    font-family:Tahoma,'맑은 고딕',sans-serif;}
+    font-family:var(--tw-font-legacy);}
   #advDesktop.adv-visiting .adv-icon{opacity:.75;cursor:default;}
   .adv-icon{position:absolute;width:66px;text-align:center;cursor:pointer;user-select:none;}
   .adv-icon .ic{font-size:30px;line-height:1;filter:drop-shadow(1px 1px 0 rgba(0,0,0,.35));}
@@ -2433,7 +2433,7 @@ const css = `
   .adv-win{position:absolute;z-index:20;background:#c0c0c0;display:none;flex-direction:column;
     border:2px solid;border-color:#fff #000 #000 #fff;
     box-shadow:inset -1px -1px 0 #808080,inset 1px 1px 0 #d4d0c8,3px 3px 0 rgba(0,0,0,.4);
-    font-family:Tahoma,'맑은 고딕',sans-serif;max-width:calc(100% - 12px);max-height:calc(100% - 26px);}
+    font-family:var(--tw-font-legacy);max-width:calc(100% - 12px);max-height:calc(100% - 26px);}
   .adv-win.on{display:flex;}
   /* 📚 host:'side' — 마이홈 창 **바깥**에 붙는 서랍. 자리는 인라인이 아니라 **여기서** 정한다.
      ⚠️ 인라인으로만 두었더니 뒤에 붙는 한 줄(inset:auto)에 쓸려 창 아래로 떨어졌다(제보 2회).
@@ -2472,7 +2472,7 @@ const css = `
   /* ★ 아이템 설명 툴팁 */
   .adv-tip{position:absolute;z-index:40;display:none;max-width:190px;padding:6px 8px;
     background:rgba(10,14,11,0.98);border:1px solid #3a5a44;border-radius:4px;
-    box-shadow:0 4px 12px rgba(0,0,0,0.65);pointer-events:none;font-family:Tahoma,'맑은 고딕',sans-serif;}
+    box-shadow:0 4px 12px rgba(0,0,0,0.65);pointer-events:none;font-family:var(--tw-font-legacy);}
   .adv-tip.on{display:flex;flex-direction:column;gap:2px;}
   .adv-tip b{font-size:10.5px;color:#e8e8d8;}
   .adv-tip .eff{font-size:10px;color:#5fd06a;}
@@ -2602,7 +2602,7 @@ const css = `
   /* advPrompt를 거치지 않고 직접 버튼을 채우는 화면(advRenderChoices 등)도 같이 늘어나게 */
   .adv-choices:has(> .adv-choice:nth-child(4)){max-height:186px;}
   .adv-choices.has-chat{max-height:220px;}   /* 💬 탐색 채팅 열림 시 높이 확장 */
-  .adv-choice{text-align:left;font-family:Tahoma,'맑은 고딕',sans-serif;font-size:10px;padding:4px 8px;cursor:pointer;
+  .adv-choice{text-align:left;font-family:var(--tw-font-legacy);font-size:10px;padding:4px 8px;cursor:pointer;
     background:#1a1a1a;color:#dfe;border:1px solid #444;}
   .adv-choice:hover{background:#24302a;border-color:#4a7a5a;}
   .adv-choice .req{float:right;font-size:8.5px;color:#888;}
@@ -2848,7 +2848,7 @@ const css = `
   .adv-pcell.off .cost{color:#d07070;}
   .adv-pcell .atk{font-size:9px;color:#8fd0a0;line-height:1.25;}
   .adv-pcell .mat{font-size:9px;color:#8a8a8a;line-height:1.3;margin-top:1px;}
-  .adv-panel-back{width:100%;margin-top:7px;font-family:Tahoma,'맑은 고딕',sans-serif;font-size:10px;padding:4px;
+  .adv-panel-back{width:100%;margin-top:7px;font-family:var(--tw-font-legacy);font-size:10px;padding:4px;
     background:#1a1a12;color:#e0c060;border:1px solid #5a5a2a;cursor:pointer;}
   .adv-panel-back:hover{background:#2a2a18;border-color:#8a8a4a;}
   .adv-move-cell.cur{background:#2a2408;border-color:#6a5a20;}
