@@ -312,7 +312,7 @@
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 139 | **144912a9daf0** |
 | **sim-my-info.js** | 98 | **fe54a0cf6483** |
-| **sim-renderer-src.js** | 231 | **246b818bd200** |
+| **sim-renderer-src.js** | 231 | **e2129b7a273e** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
