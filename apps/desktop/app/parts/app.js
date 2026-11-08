@@ -5828,6 +5828,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
   refreshTheme: (...a)=>themeUiMod.refreshCustom(...a),
+  refreshFont: (...a)=>fontUiMod.premiumChanged(...a),
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
@@ -8935,6 +8936,9 @@ const themeUiMod = TwThemeUi.createThemeUi({
 themeMod.onApplied(()=>helpTabMod.themeChanged());   // 📘 연 도움말 틀도 새 테마로
 themeMod.applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
 themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
+/* 🔤 창 글꼴 — 테마처럼 파싱 즉시 건다(늦으면 기본 글꼴이 번쩍인다) */
+const fontUiMod = TwFontUi.createFontUi({ _premiumOn: (...a)=>_premiumOn(...a), refreshChildren: (...a)=>themeMod.applyTheme(...a) });
+fontUiMod.apply(); fontUiMod.bind();
 TwNetReady.whenNetReady(()=>{ themeUiMod.pullCustom(); }, 'loadThemeCustom');   // 👑 내 색 — 계정 사본 받기
 
 /* ═══ ⭐ 경험치 바 ═══════════════════════════════════════════════════════════

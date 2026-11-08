@@ -2246,6 +2246,36 @@
   #themeCxBox .cx-btns{display:flex;gap:6px;margin-top:8px;}
   #themeCxBox .cx-btns button{flex:1;font-family:inherit;font-size:11px;padding:3px 0;cursor:pointer;color:var(--ink);
     background:var(--win-face-2);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);}
+  /* 🔤 창 글꼴 — 줄마다 이름 + 그 글꼴 미리보기 */
+  .font-list{display:flex;flex-direction:column;gap:4px;}
+  .font-opt{display:flex;align-items:center;gap:8px;padding:4px 7px;cursor:pointer;text-align:left;font-family:var(--tw-font-classic);color:var(--ink);
+    background:var(--win-face-2);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
+  .font-opt.on{background:var(--win-select-bg);border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .font-opt.locked{opacity:.5;}
+  .font-opt .nm{width:78px;flex:none;font-size:11px;font-weight:bold;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .font-opt .pv{flex:1;min-width:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .font-opt .miss{flex:none;font-size:9px;color:var(--ink-soft);}
+  .font-opt .del{flex:none;font-size:10px;color:var(--ink-soft);padding:0 2px;}
+  .font-more{width:100%;margin-top:4px;padding:4px;font-family:var(--tw-font-classic);font-size:11px;color:var(--ink);cursor:pointer;
+    background:#fff;border:1px dashed var(--win-lo);border-radius:var(--win-radius-el);}
+  #fontPcLock{margin-top:6px;font-size:10px;line-height:1.5;padding:5px 7px;background:#f6f0dc;border:1px solid #c9a227;
+    color:#5a4a1a;border-radius:var(--win-radius-el);}
+  #fontPcBox{margin-top:6px;border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    border-radius:var(--win-radius-el);background:var(--win-face);overflow:hidden;}
+  #fontPcBox .fp-ttl{background:var(--win-title-premium);color:var(--win-title-premium-ink);font-size:11px;font-weight:bold;padding:4px 6px;}
+  #fontPcBox .fp-body{padding:6px 8px 8px;}
+  #fontPcSearch{width:100%;box-sizing:border-box;font-family:var(--tw-font-classic);font-size:11px;padding:3px 5px;margin-bottom:6px;
+    border:1px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el);}
+  #fontPcList{background:#fff;border:1px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
+    border-radius:var(--win-radius-el);max-height:180px;overflow-y:auto;}
+  #fontPcList .it{display:flex;gap:8px;padding:4px 6px;border-bottom:1px solid #eee;font-size:11px;cursor:pointer;color:#222;}
+  #fontPcList .it.on{background:var(--win-select-bg);}
+  #fontPcList .it b{width:110px;flex:none;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-family:var(--tw-font-classic);}
+  #fontPcList .it span{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #fontPcList .msg{padding:6px;font-size:10px;color:var(--ink-soft);line-height:1.5;}
+  #fontPcBox .fp-btns{display:flex;gap:6px;margin-top:8px;}
+  #fontPcBox .fp-btns button{flex:1;font-family:inherit;font-size:11px;padding:3px 0;cursor:pointer;color:var(--ink);
+    background:var(--win-face-2);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);}
   #themeCxLock{margin-top:6px;font-size:10px;line-height:1.5;padding:5px 7px;background:#f6f0dc;border:1px solid #c9a227;
     color:#5a4a1a;border-radius:var(--win-radius-el);}
 
@@ -5385,6 +5415,20 @@
       </div>
     </div>
     <p class="fs-note">색상은 테마마다 따로예요. 캐릭터 모습은 바뀌지 않아요. 👑 내 색은 계정에 저장돼서 다른 PC 에서도 같아요.</p>
+    <!-- 🔤 창 글꼴 — 칸은 shared/font-ui.js 가 그린다(규칙 font-choice.js) -->
+    <div class="fs-label">글꼴</div>
+    <div class="font-list" id="fontPickRow"></div>
+    <button class="font-more" id="fontPcMore" type="button">＋ 내 PC 글꼴에서 고르기… 👑</button>
+    <div id="fontPcLock" style="display:none;">👑 <b>내 PC 글꼴</b>은 프리미엄 기능이에요. 라이선스를 등록하면 쓸 수 있어요.</div>
+    <div id="fontPcBox" style="display:none;">
+      <div class="fp-ttl">👑 내 PC 글꼴</div>
+      <div class="fp-body">
+        <input id="fontPcSearch" type="text" placeholder="🔍 글꼴 이름 찾기" spellcheck="false" maxlength="60">
+        <div id="fontPcList"></div>
+        <div class="fp-btns"><button type="button" id="fontPcCancel">취소</button><button type="button" id="fontPcOk"><b>이 글꼴로</b></button></div>
+      </div>
+    </div>
+    <p class="fs-note">창 안 글씨가 바뀌어요(머리 위 말풍선 · 이름표는 그대로). 고른 글꼴이 없는 PC 에서는 기본으로 보여요.</p>
 
     <div class="fs-sep"></div>
     <div class="fs-label" id="fsMonitorLabel">모니터 선택</div>
@@ -8656,6 +8700,8 @@
 <script src="parts/account/license-request.js"></script>   <!-- 라이선스 요청 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseRequest.createLicenseRequest 로 만든다) -->
 <script src="parts/launcher/fn-keys.js"></script>   <!-- 함수키 단축키 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFnKeys.createFnKeys 로 만든다) -->
 <script src="parts/room/hidden-seats.js"></script>   <!-- 워킹룸 숨기기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHiddenSeats.createHiddenSeats 로 만든다) -->
+<script src="parts/shared/font-choice.js"></script>   <!-- 🔤 창 글꼴 규칙(순수) — font-ui 보다 먼저 -->
+<script src="parts/shared/font-ui.js"></script>   <!-- 🔤 창 글꼴 — app.js 보다 먼저(app.js 가 테마 뒤에서 TwFontUi.createFontUi) -->
 <script src="parts/shared/theme-custom.js"></script>   <!-- 👑 내 색 규칙(순수) — theme-ui · theme 보다 먼저 -->
 <script src="parts/shared/theme-ui.js"></script>   <!-- 테마 — app.js 보다 먼저(app.js 가 원래 자리에서 TwThemeUi.createThemeUi 로 만든다) -->
 <script src="parts/myhome/myhome-sticker-layout.js"></script>   <!-- 마이홈 스티커 배치 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeStickerLayout.createMyHomeStickerLayout 로 만든다) -->
