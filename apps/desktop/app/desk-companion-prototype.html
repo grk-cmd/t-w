@@ -4219,6 +4219,13 @@
   #chalDrawer .chal-list .li.pick b{display:block;font-size:11px;font-weight:bold;color:var(--ink);}
   #chalDrawer .chal-list .li.pick .sub{display:block;font-size:9px;color:var(--ink-soft);
     overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  /* 🎯 앱 고르기 — 체크 한 줄(이름만 · 창 제목은 툴팁). 8개를 다 등록해도 창이 길어지지 않게 한 줄로 줄였다 */
+  #chalDrawer .chal-list .li.one{padding:3px 2px;cursor:pointer;}
+  #chalDrawer .chal-list .li.one b{font-size:11px;font-weight:bold;color:var(--ink);
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0;}
+  #chalDrawer .chal-list .li.one .ck{flex:none;width:11px;height:11px;background:#fff;border:1px solid;
+    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);font-size:9px;line-height:11px;text-align:center;font-weight:bold;color:var(--ink);}
+  #chalDrawer .chal-list .li.one.dim{opacity:.45;cursor:default;}
   #chalDrawer .chal-list .add{text-align:center;color:var(--ink-soft);font-size:11px;padding:7px 2px;cursor:pointer;}
 
   /* 입력칸 · 숫자 · 스핀 */
@@ -5734,7 +5741,7 @@
       <div id="chalSetup" style="display:none;">
 
         <div id="chalSetFocus">
-          <div class="chal-label">잴 앱 하나</div>
+          <div class="chal-label">잴 앱 (여러 개 고를 수 있어요)</div>
           <div class="chal-field" style="margin-bottom:10px;">
             <span id="chalFocusApp">아직 안 골랐어요</span><span class="pick" id="chalFocusPick">고르기</span>
           </div>
