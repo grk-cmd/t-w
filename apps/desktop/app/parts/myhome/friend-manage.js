@@ -61,7 +61,7 @@ async function showFriendRequestPopup(onlyIds){
       ov.className = 'friend-req-popup-ov app-popup-ov';
       ov.style.cssText = 'position:fixed;inset:0;z-index:9500;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:auto;';
       const box = document.createElement('div');
-      box.style.cssText = 'width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif;';
+      box.style.cssText = 'width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);';
       box.innerHTML =
         '<div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;">👋 친구 요청</div>' +
         '<div style="padding:16px 14px;color:var(--ink);font-size:12px;line-height:1.6;">' +

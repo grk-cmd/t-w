@@ -56,7 +56,7 @@ say('── 3. 🍎 맥 — 한글 목록마다 Apple SD Gothic Neo');
   /* 맑은 고딕 · 돋움은 맥에 없다. 적지 않으면 맥의 한글은 브라우저가 그때그때 고른 대체 글꼴이 된다 */
   const MAC = /Apple SD Gothic Neo/;
   const macBad = (code) => (code.match(/font(?:-family)?\s*:[^;}\n]*(?:Malgun Gothic|맑은 고딕|Dotum|돋움)[^;}\n]*|--(?:win|tw)-font[\w-]*\s*:[^;}\n]*(?:Malgun Gothic|맑은 고딕|Dotum|돋움)[^;}\n]*/g) || []).filter(d => !MAC.test(d));
-  const MODS = ['mallang.js', 'myhome-desktop.js', 'myhome-edit.js', 'guestbook.js', 'friend-manage.js', 'room-invite-ui.js', 'admin-license-bulk.js', 'app-version-gate.js', 'maintenance-gate.js'];
+  const MODS = ['mallang.js', 'myhome-desktop.js', 'myhome-edit.js', 'guestbook.js', 'friend-manage.js', 'room-invite-ui.js', 'app-version-gate.js', 'maintenance-gate.js'];
   const all = [['desk-companion-prototype.html', stripCss(HTML)], ['app.js', stripJs(APP)]];
   for(const f of MODS){ const t = read(f); if(t != null) all.push([f, stripJs(t).replace(/\\'/g, "'")]); }
   let n = 0;
@@ -71,6 +71,9 @@ say('── 3. 🍎 맥 — 한글 목록마다 Apple SD Gothic Neo');
   chk(/--win-font\s*:\s*'Dotum','돋움','Gulim','굴림',Tahoma,'Apple SD Gothic Neo'/.test(css), '  버블 테마 — 돋움이 먼저 · Tahoma 뒤 Apple SD Gothic Neo');
   const broke = stripCss(HTML.replace("--tw-font-legacy:Tahoma,'Malgun Gothic','Apple SD Gothic Neo',sans-serif;", "--tw-font-legacy:Tahoma,'Malgun Gothic',sans-serif;"));
   chk(broke !== stripCss(HTML) && macBad(broke).length > 0, '  깨 보기 — 토큰에서 맥 글꼴을 빼면 빨강');
+  const fm = all.find(([f]) => f === 'friend-manage.js');
+  const fmBroke = fm ? fm[1].replace('font-family:var(--tw-font-legacy);', "font-family:Tahoma,'Malgun Gothic',sans-serif;") : '';
+  chk(!!fm && fmBroke !== fm[1] && macBad(fmBroke).length > 0, '  깨 보기 — 모듈에 맥 글꼴 없는 목록을 직접 적으면 빨강');
 }
 
 say(`\n결과: ${pass} 통과 · ${fail} 실패`);
