@@ -2282,6 +2282,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   layoutSeats: (...a)=>layoutSeats(...a),
   moveMode: ()=>moveMode,
   nameplateEnabled: ()=>overheadMod.nameplateEnabled(),
+  statusBubbleEnabled: ()=>overheadMod.statusBubbleEnabled(),
   plMod: plMod,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
   refreshInviteUI: (...a)=>roomEntryMod.refreshInviteUI(...a),
@@ -2308,6 +2309,7 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   setFocusCharScale: (v)=>{ focusCharScale = v; },
   setMoveMode: (v)=>{ moveMode = v; },
   setNameplateEnabled: (v)=>{ overheadMod.setNameplateEnabled(v); },
+  setStatusBubbleEnabled: (v)=>{ overheadMod.setStatusBubbleEnabled(v); },
   setRoomSeatMode: (v)=>{ roomSeatMode = v; },
   setSeatEqualizeOn: (v)=>{ seatEqMod.setSeatEqualizeOn(v); },
 });
@@ -8502,6 +8504,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
     if(_hidden){ overheadMod.setSeatHeadBubble(seat, null); }   // 🙈 캐릭터 없이 말풍선만 뜨지 않게
     else if(officeMode){ overheadMod.setSeatHeadBubble(seat, _chatting ? seat.chatBubbleText : null); }
     else if(_chatting){ overheadMod.setSeatHeadBubble(seat, seat.chatBubbleText); }
+    else if(!overheadMod.statusBubbleEnabled()){ overheadMod.setSeatHeadBubble(seat, null); }   // 설정 › 디스플레이 «머리 위 상태 말풍선» 끔 — 채팅은 위 갈래로 그대로
     // 💭 상태 갈래만 '생각 말풍선'(동그라미 꼬리). 채팅은 뾰족 꼬리 그대로다.
     else{ overheadMod.setSeatHeadBubble(seat, _conf ? _conf.label : focusLevelMod._mobileBubbleText(_mobApp), true); }
     updateItemHandTrackers(seat);   // 책상 아이템 안의 hand_L/hand_R 지점을 이번 프레임 손 위치로 갱신
