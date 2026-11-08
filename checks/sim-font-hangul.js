@@ -74,6 +74,9 @@ say('── 3. 🍎 맥 — 한글 목록마다 Apple SD Gothic Neo');
   const fm = all.find(([f]) => f === 'friend-manage.js');
   const fmBroke = fm ? fm[1].replace('font-family:var(--tw-font-legacy);', "font-family:Tahoma,'Malgun Gothic',sans-serif;") : '';
   chk(!!fm && fmBroke !== fm[1] && macBad(fmBroke).length > 0, '  깨 보기 — 모듈에 맥 글꼴 없는 목록을 직접 적으면 빨강');
+  /* 점검 창은 자식 창(방명록 · 디자인 스튜디오)에도 그려진다 — 거기엔 --tw-font-legacy 가 없어 대비 목록이 있어야 버블 테마에서 돋움으로 안 바뀐다 */
+  const mg = all.find(([f]) => f === 'maintenance-gate.js');
+  chk(!!mg && /var\(--tw-font-legacy,Tahoma,'Malgun Gothic','Apple SD Gothic Neo',sans-serif\)/.test(mg[1]), '★ 점검 창 — 토큰에 대비 목록(자식 창에서도 Tahoma)');
 }
 
 say(`\n결과: ${pass} 통과 · ${fail} 실패`);
