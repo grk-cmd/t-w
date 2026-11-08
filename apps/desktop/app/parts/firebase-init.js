@@ -1166,6 +1166,8 @@
          없는 다른 기기가 나중에 저장하면 그 표식이 지워지고 그 기기가 한 번 더 준다.
          선지급은 "평일 낮에 목표를 채우는 순간"이라 두 기기가 겹칠 일이 흔하다.
          ⚠️ 뽑기는 한 번 나가면 회수 경로가 없다. 이 방어를 걷어내지 말 것. */
+    loadThemeCustom: (uid) => get(ref(db, `users/${uid}/themeCustom`)).then(s => s.val() || {}, e => { console.warn('[테마] 내 색 읽기 실패', e); return null; }),   // 👑 내 색 { default:{a,b}, bubble:{a,b} } · null = 못 읽음
+    saveThemeCustom: (uid, obj) => set(ref(db, `users/${uid}/themeCustom`), obj && Object.keys(obj).length ? obj : null).then(() => true, e => { console.warn('[테마] 내 색 쓰기 실패', e); return false; }),
     async loadChalBonus(uid){
       try{ const s = await get(ref(db, `users/${uid}/chalBonus`)); return Math.max(0, Math.floor(Number(s.val()) || 0)); }
       catch(e){ console.warn('[달성표] 보상 읽기 실패', e); return null; }   // null = 읽기 실패(0 과 구분)

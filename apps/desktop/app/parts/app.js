@@ -5827,6 +5827,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
+  refreshTheme: (...a)=>themeUiMod.refreshCustom(...a),
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
@@ -8896,6 +8897,7 @@ async function _warnServerWriteDenied(what){
 /* 본문은 theme.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const themeMod = TwTheme.createTheme({
+  premiumOn: (...a)=>_premiumOn(...a),
 });
 /* ═══ 🎨 [2026-09-15 제보 5] 테마 「버블」이 마이홈 방명록엔 안 먹음 ═══════════════════════
    [원인] 방명록·디자인 창은 window.open → main.js setWindowOpenHandler 가 **별도 BrowserWindow** 로 연다.
@@ -8918,6 +8920,13 @@ const themeUiMod = TwThemeUi.createThemeUi({
   getAccent: (...a)=>themeMod.getAccent(...a),
   getTheme: (...a)=>themeMod.getTheme(...a),
   onApplied: (...a)=>themeMod.onApplied(...a),
+  CUSTOM_ID: themeMod.CUSTOM_ID,
+  getCustom: (...a)=>themeMod.getCustom(...a),
+  setCustom: (...a)=>themeMod.setCustom(...a),
+  premiumOn: (...a)=>_premiumOn(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  loadCustom: (...a)=>firebaseAPI.loadThemeCustom(...a),
+  saveCustom: (...a)=>firebaseAPI.saveThemeCustom(...a),
 });
 /* ★ 최상위 호출은 반드시 위 const 선언들 '뒤'에 둔다.
    앞에서 부르면 THEME_COLORS가 아직 TDZ라 ReferenceError가 나고, 최상위에서 터지므로
@@ -8925,6 +8934,7 @@ const themeUiMod = TwThemeUi.createThemeUi({
 themeMod.onApplied(()=>helpTabMod.themeChanged());   // 📘 연 도움말 틀도 새 테마로
 themeMod.applyTheme();      // 파싱 즉시 1회 — 늦게 부르면 기본 테마가 한 프레임 번쩍인다
 themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소가 없으면 조용히 넘어감)
+TwNetReady.whenNetReady(()=>{ themeUiMod.pullCustom(); }, 'themeCustom');   // 👑 내 색 — 계정 사본 받기
 
 /* ═══ ⭐ 경험치 바 ═══════════════════════════════════════════════════════════
    캐릭터 발밑에 1px 외곽선 통짜 게이지로 레벨 진행도를 보여준다. 내 좌석·상대 좌석 공용.

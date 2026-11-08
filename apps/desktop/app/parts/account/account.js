@@ -289,6 +289,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      문자열로 적는다: 상수는 이 목록보다 뒤에 선언된다(검사가 이 함수만 떼어 돌린다). flush 가 먼저 올린다. */
   'deskFriends.chars.v1', 'deskFriends.chars.desk', 'deskFriends.chars.trashPend',
   'tw.charsLinked',            // F 안내 표시(개정 57) — 옮긴 cid 목록 · 다음 사람에게 띄울 것이 아니다
+  'tw.accentCustom',           // 👑 테마 내 색 — 계정 것(로그인 뒤 pullCustom 이 서버 사본을 받아온다)
   'tw.starColor',              // 🌟 회차 별 색(개정 71) — 프로필 starC 가 돌아올 길이다(_adoptStarColorFromProfile). 남으면 다음 계정 프로필에 앞 사람 색이 실린다
   /* ⚠️ SLOTS_BAK_KEY(덮어쓰기 직전 백업)는 **일부러 빼 두었다.** 위 ⚠️ 의 「돌아오는 길이 없는
      항목을 여기 넣으면 로그아웃이 곧 삭제」가 그 이유다 — 백업은 정의상 서버에 없는 것이라

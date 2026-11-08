@@ -30,6 +30,7 @@ const CODE_RE = /^E-([A-Z]+)-(\d{2})$/;
 /* 문구는 사용자에게 그대로 보인다 — 무엇이 안 됐는지 + (있으면) 할 일. where 는 우리가 찾을 자리. */
 const CODES = {
   'E-SYS-01': { msg: '알 수 없는 오류가 났어요', where: '(예비) 어디서 났는지 모를 때' },
+  'E-SYS-02': { msg: '내 색을 계정에 저장하지 못했어요 — 이 PC 에는 저장했어요', where: 'shared/theme-ui.js — 👑 내 색 [저장] 의 서버 쓰기(saveThemeCustom · users/{uid}/themeCustom)' },
   'E-FR-01': { msg: '친구 요청을 수락하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [수락]' },
   'E-FR-02': { msg: '친구 요청을 거절하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [거절]' },
   'E-FR-03': { msg: '보낸 친구 요청을 취소하지 못했어요', where: 'myhome/friend-manage.js — 보낸 요청 [취소]' },
