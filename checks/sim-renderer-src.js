@@ -16,6 +16,7 @@ const VALUE_MODULES = [
   { file: 'ps1-dither.js', glob: 'TwPs1Dither' },   // 🕹️ PS1 디더 규칙 — dot-render.js 가 만들 때 읽는다
   { file: 'theme-custom.js', glob: 'TwThemeCustom' },   // 👑 테마 내 색 규칙 — theme.js · theme-ui.js 가 만들 때 읽는다
   { file: 'font-choice.js', glob: 'TwFontChoice' },   // 🔤 창 글꼴 규칙 — font-ui.js 가 읽는다
+  { file: 'mallang-sent.js', glob: 'TwMallangSent' },   // 🎁 보낸 말랑이 기록 규칙 — mallang.js · myhome-inbox.js 가 읽는다
 ];
 const MODULES = [
   { file: 'my-info.js', mod: 'myInfoMod', glob: 'TwMyInfo', sample: 'function openMyInfo(' },   // 앱 FSD 17번

@@ -1723,19 +1723,16 @@
 
     /* ── 🎁 말랑이 선물 ──
        users/{받는사람}/mallangGifts/{giftId} = {imgUrl, fromName, fromId, ts}
-       users/{보내는사람}/mallangGiftCount/{YYYY-MM-DD} = 그날 발송 횟수
-       ⚠️ 하루 한도의 **숫자는 여기 없다** — mallang.js 의 DAILY_LIMIT 한 곳이다.
-         여기 숫자를 같이 적으면 한쪽만 고쳐져 화면과 판정이 갈린다(실제로 5→10 때 그럴 뻔했다). */
+       users/{보내는사람}/mallangGiftCount/{YYYY-MM-DD} = 그날 발송 횟수 · mallangSent/{giftId} = 보낸 기록(모양 · 30개는 mallang-sent.js)
+       ⚠️ 하루 한도의 숫자는 여기 없다 — mallang.js 의 DAILY_LIMIT 한 곳(두 곳에 적으면 화면과 판정이 갈린다). */
     // 하루 발송 횟수 조회
     async getMallangGiftCount(fromId, dateStr){
       try{ const s=await get(ref(db, `users/${fromId}/mallangGiftCount/${dateStr}`)); const v=s.val(); return (typeof v==='number')?v:0; }
       catch(e){ return 0; }
     },
     // 선물 보내기 (하루 한도·상대 마이홈 정원 검사는 호출 측(mallang.js)에서 하고, 여기선 발송 + 카운트 증가)
-    //  ★ 보내는 순간 이미지를 '선물 전용 경로'로 복사해서 그 URL을 저장한다.
-    //    말랑이 원본은 users/{uid}/mallang_{슬롯}.png 처럼 슬롯 번호 고정 경로라, 나중에 그 슬롯 그림을
-    //    바꾸면 같은 경로에 덮어써져서 '이미 보낸 선물의 그림까지 같이 바뀌는' 문제가 있었다.
-    //    사본을 두면 원본을 아무리 고쳐도 보낸 선물은 그대로 유지된다.
+    //  ★ 보내는 순간 이미지를 '선물 전용 경로'로 복사해서 그 URL을 저장한다 — 원본은 슬롯 고정 경로라
+    //    그 슬롯 그림을 바꾸면 이미 보낸 선물의 그림까지 같이 바뀐다. 돌려주는 giftId · imgUrl 은 보낸 기록에 쓴다.
     async sendMallangGift(fromId, fromName, toId, imgUrl, dateStr, msg){
       try{
         const giftRef = push(ref(db, `users/${toId}/mallangGifts`));
@@ -1757,9 +1754,11 @@
         await set(giftRef, payload);
         // 발송 카운트 +1 (트랜잭션)
         await runTransaction(ref(db, `users/${fromId}/mallangGiftCount/${dateStr}`), c => (typeof c==='number'?c:0)+1);
-        return { ok:true };
+        return { ok:true, giftId, imgUrl:snapUrl };
       }catch(e){ return { ok:false, reason:'선물 전송에 실패했어요' }; }
     },
+    getMallangSent: (uid) => get(ref(db, `users/${uid}/mallangSent`)).then(s => s.val() || {}, e => { console.warn('[말랑이] 보낸 기록 읽기 실패', e); return null; }),   // null = 못 읽음
+    addMallangSent: (uid, giftId, rec, dropIds) => update(ref(db, `users/${uid}/mallangSent`), Object.assign(Object.fromEntries((dropIds || []).map(k => [k, null])), { [giftId]: rec })).then(() => true, () => false),
     // 받은 선물 목록 조회 → { giftId: {imgUrl, fromName, fromId, ts} }
     async getMallangGifts(userId){
       try{ const s=await get(ref(db, `users/${userId}/mallangGifts`)); return s.val() || {}; }
