@@ -36,7 +36,8 @@ const isAdmin = deps.isAdmin;   // 읽는 함수
 const pruneUnownedLicenseAssets = deps.pruneUnownedLicenseAssets;
 const refreshAccountTab = deps.refreshAccountTab;
 const refreshCustomStatusMenuItem = deps.refreshCustomStatusMenuItem;
-const refreshTheme = deps.refreshTheme;   // 👑 테마 내 색 — 프리미엄일 때만 보인다(다시 걸고 설정 칸 다시 그리기)
+const refreshTheme = deps.refreshTheme;
+const refreshFont = deps.refreshFont;   // 🔤 창 글꼴 — 내 PC 글꼴은 프리미엄일 때만(다시 걸고 칸 다시 그리기)   // 👑 테마 내 색 — 프리미엄일 때만 보인다(다시 걸고 설정 칸 다시 그리기)
 const refreshLicenseUI = deps.refreshLicenseUI;
 const renderCrItems = deps.renderCrItems;
 const restoreLicenseHeldAssets = deps.restoreLicenseHeldAssets;
@@ -878,6 +879,7 @@ function _refreshPremiumGatedUI(){
   // 생성기가 열려 있으면 책상 카드의 🔒 도 지금 값으로 다시 그린다
   try{ if(typeof creatorOpen()!=='undefined' && creatorOpen()) renderCrItems(); }catch(_){}
   try{ refreshTheme(); }catch(_){}   // 부팅 중 테마 모듈이 아직 없으면 건너뛴다 — 그 뒤 첫 applyTheme 가 지금 값으로 건다
+  try{ refreshFont(); }catch(_){}    // 같은 까닭 — 글꼴 모듈도 테마 뒤에서 만든다
 }
 
 return {

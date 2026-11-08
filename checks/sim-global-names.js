@@ -44,7 +44,8 @@ const KNOWN = {
 
 /* 브라우저 · Electron 내장 이름 — typescript 의 lib.dom · lib.es 선언에서 모은다 */
 function libGlobals() {
-  const out = new Set(['require', 'module', 'exports', '__dirname', '__filename', 'process', 'Buffer', 'global', 'globalThis', 'arguments', 'undefined', 'NaN', 'Infinity', 'webkitAudioContext', 'companion', 'firebaseAPI', 'THREE', 'JSZip', 'XLSX', 'QRCode', 'gifshot', 'GIF', 'Hls', 'YT']);
+  const out = new Set(['require', 'module', 'exports', '__dirname', '__filename', 'process', 'Buffer', 'global', 'globalThis', 'arguments', 'undefined', 'NaN', 'Infinity', 'webkitAudioContext', 'companion', 'firebaseAPI', 'THREE', 'JSZip', 'XLSX', 'QRCode', 'gifshot', 'GIF', 'Hls', 'YT',
+    'queryLocalFonts']);   // 크로미움 Local Font Access(🔤 내 PC 글꼴 — font-ui.js) — typescript lib 에 아직 없다
   const dir = path.dirname(ts.sys.getExecutingFilePath());
   for (const f of fs.readdirSync(dir).filter(f => /^lib\..*\.d\.ts$/.test(f))) {
     const t = fs.readFileSync(path.join(dir, f), 'utf8');

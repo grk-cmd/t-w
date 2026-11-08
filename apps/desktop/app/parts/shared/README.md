@@ -348,3 +348,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **쓰는 곳**: `theme.js`(칸 `cx` 를 걸 때 `<html>` 인라인 · 쓸 수 있나 판단 `customUsable`) · `theme-ui.js`(설정 칸 색 · 만들기 상자 미리보기).
 - **내놓는 것**: `normHex` · `normCustom` · `derive(theme, a, b)` · `chipCss` · `mix` · `lum` · `VAR_NAMES` · 밝기 경계 둘.
 - **함정**: 기본 테마는 제목줄 글자가 흰색이라 고른 색을 어둡게, 버블은 글자가 어두워서 밝은 파스텔로 맞춘다 — 경계를 바꾸면 어떤 색에서 글자가 안 읽힌다(검사가 여러 색으로 돌려 본다). 저장 모양은 서버 규칙 `users/$uid/themeCustom` 과 짝이라 칸을 늘리면 규칙도 같이. 검사 `sim-theme-custom.js`.
+
+## `font-choice.js` · `font-ui.js` — 🔤 창 글꼴 고르기
+
+- **책임**: 설정 › 모니터 › 글꼴 — 기본 · 돋움 · 나눔고딕(누구나) + 👑 내 PC 글꼴(프리미엄). 규칙(값 씻기 · PC 글꼴 이름 씻기 · 값 → 글꼴 목록)은 순수 `font-choice.js`(`window.TwFontChoice`), 걸기 · 칸 · PC 글꼴 상자는 `font-ui.js`(`window.TwFontUi` · app.js 가 테마 바로 뒤에서 `createFontUi`).
+- **deps**: `_premiumOn()` · `refreshChildren()`(열린 방명록 · 디자인 창에 토큰 다시 옮김 — `themeMod.applyTheme`).
+- **내놓는 것**: `apply` · `bind` · `refresh`(프리미엄이 바뀌면 초대 게이트 `_refreshPremiumGatedUI` 가 부른다).
+- **함정**: 바꾸는 토큰은 창 글씨 둘(`--win-font` · `--tw-font-legacy`)뿐 — 머리 위 말풍선 · 이름표(`--tw-font-classic`)는 일부러 안 바꾼다. 저장은 이 PC(`tw.uiFont`) — PC 글꼴은 그 PC 에만 있다. 글꼴 이름은 CSS 글자 안에 들어가므로 늘 `cleanFamily` 를 거친다. PC 글꼴 목록(`queryLocalFonts`)은 누름 직후에만 부를 수 있다. 검사 `sim-font-choice.js`.
