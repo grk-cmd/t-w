@@ -69,8 +69,10 @@ say('── 2. 걸기');
   chk(Object.keys(e.root.style._p).length === 0, '기본으로 돌아오면 인라인을 걷는다(테마 글꼴이 다시 산다)');
   e = mkEnv({ premium: false, ls: { 'tw.uiFont': 'pc:Consolas' } }); e.ui.apply();
   chk(Object.keys(e.root.style._p).length === 0 && e.store['tw.uiFont'] === 'pc:Consolas', '★ PC 글꼴은 프리미엄만 — 아니면 기본으로 보이고 고른 값은 남긴다');
-  e.premium = true; e.ui.apply();
-  chk(e.root.style._p['--win-font'] === FC.cssFor('pc:Consolas'), '  프리미엄이면 그 글꼴로');
+  e.premium = true; e.ui.premiumChanged();
+  chk(e.root.style._p['--win-font'] === FC.cssFor('pc:Consolas') && e.child === 1, '★ 프리미엄이 되면(premiumChanged) 그 글꼴을 바로 건다 · 열린 자식 창에도');
+  e.premium = false; e.ui.premiumChanged();
+  chk(Object.keys(e.root.style._p).length === 0 && e.store['tw.uiFont'] === 'pc:Consolas', '★ 프리미엄이 끝나면 바로 기본으로(다시 켤 때까지 남지 않음) · 값은 남긴다');
 }
 
 say('── 3. 설정 칸 · PC 글꼴 상자');
@@ -106,7 +108,7 @@ say('── 4. 배선');
   chk(order.join() === 'shared/font-choice,shared/font-ui,app', 'html — font-choice → font-ui → app.js 순서');
   const iTheme = SRC.app.indexOf('themeUiMod.bindThemeUI();'), iFont = SRC.app.indexOf('TwFontUi.createFontUi(');
   chk(iTheme > 0 && iFont > iTheme && /fontUiMod\.apply\(\); fontUiMod\.bind\(\);/.test(SRC.app), 'app.js — 테마 바로 뒤에서 만들고 파싱 즉시 건다');
-  chk(/try\{ refreshFont\(\); \}catch\(_\)\{\}/.test(SRC.gate) && /refreshFont: \(\.\.\.a\)=>fontUiMod\.refresh\(\.\.\.a\)/.test(SRC.app), '프리미엄이 바뀌면 초대 게이트 한 곳에서 다시 그린다');
+  chk(/try\{ refreshFont\(\); \}catch\(_\)\{\}/.test(SRC.gate) && /refreshFont: \(\.\.\.a\)=>fontUiMod\.premiumChanged\(\.\.\.a\)/.test(SRC.app), '프리미엄이 바뀌면 초대 게이트 한 곳에서 다시 그린다');
   chk(/id="fontPickRow"/.test(SRC.html) && /id="fontPcBox"/.test(SRC.html) && /id="fontPcLock"/.test(SRC.html), '설정 › 모니터 — 글꼴 칸 · 상자 · 잠금 안내');
 }
 

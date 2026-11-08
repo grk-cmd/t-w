@@ -3,8 +3,9 @@
    ★ 기본 · 돋움 · 나눔고딕은 누구나, 내 PC 글꼴은 프리미엄만(끝나면 기본으로 보이고 고른 값은 남긴다).
    ★ 그 글꼴이 없는 PC 에서는 기본 목록으로 떨어진다 — 칸에 «이 PC 에 없음» 을 붙여 알려 준다.
    ★ PC 글꼴 목록은 크로미움 queryLocalFonts(누름 직후에만 부를 수 있다). 못 읽으면 E-SYS-03 · 이름을 직접 써서 고를 수 있다.
+   ★ 프리미엄이 바뀌면 premiumChanged — 칸만 다시 그리면 화면 글꼴이 칸과 어긋난다.
    deps: _premiumOn() · refreshChildren()(열린 방명록 · 디자인 창에 토큰을 다시 옮김 — theme.js applyTheme)
-   밖에서 부르는 이름: apply · bind · refresh. classic script(window.TwFontUi) — app.js 가 테마 바로 뒤에서 createFontUi(deps).
+   밖에서 부르는 이름: apply · bind · refresh · premiumChanged. classic script(window.TwFontUi) — app.js 가 테마 바로 뒤에서 createFontUi(deps).
    검사: checks/sim-font-choice.js */
 (function(){
 
@@ -125,7 +126,10 @@ function bind(){
   refresh();
 }
 
-return { apply, bind, refresh, KEY };
+/* 프리미엄이 바뀌었다(초대 게이트) — 내 PC 글꼴이 걸리고 빠지므로 칸만이 아니라 화면 글꼴도 다시 건다 */
+function premiumChanged(){ apply(); refreshChildren(); refresh(); }
+
+return { apply, bind, refresh, premiumChanged, KEY };
 }
 
 const api = { createFontUi };

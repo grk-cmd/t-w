@@ -322,7 +322,7 @@
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **1576a91c1279** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
-| **sim-license-gate.js** | 179 | **ff398478e80b** |
+| **sim-license-gate.js** | 179 | **b5c22e19d517** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
 | **sim-wardrobe.js** | 184 | **c2d2628a81ba** |
 | **sim-settings-panel.js** | 201 | **c040df61e9fc** |
@@ -349,7 +349,7 @@
 | **sim-hidden-seats.js** | 96 | **178381fbe522** |
 | **sim-theme-ui.js** | 97 | **d3399b8ebf28** |
 | **sim-theme-custom.js** | 186 | **dee5871e332f** |
-| **sim-font-choice.js** | 115 | **a65cce277b13** |
+| **sim-font-choice.js** | 117 | **c600e43be305** |
 | **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** |
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** |
 | **sim-myhome-visit.js** | 96 | **d3c872803c16** |

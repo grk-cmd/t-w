@@ -353,5 +353,5 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**: 설정 › 모니터 › 글꼴 — 기본 · 돋움 · 나눔고딕(누구나) + 👑 내 PC 글꼴(프리미엄). 규칙(값 씻기 · PC 글꼴 이름 씻기 · 값 → 글꼴 목록)은 순수 `font-choice.js`(`window.TwFontChoice`), 걸기 · 칸 · PC 글꼴 상자는 `font-ui.js`(`window.TwFontUi` · app.js 가 테마 바로 뒤에서 `createFontUi`).
 - **deps**: `_premiumOn()` · `refreshChildren()`(열린 방명록 · 디자인 창에 토큰 다시 옮김 — `themeMod.applyTheme`).
-- **내놓는 것**: `apply` · `bind` · `refresh`(프리미엄이 바뀌면 초대 게이트 `_refreshPremiumGatedUI` 가 부른다).
+- **내놓는 것**: `apply` · `bind` · `refresh` · `premiumChanged`(프리미엄이 바뀌면 초대 게이트 `_refreshPremiumGatedUI` 가 부른다 — 화면 글꼴까지 다시 건다).
 - **함정**: 바꾸는 토큰은 창 글씨 둘(`--win-font` · `--tw-font-legacy`)뿐 — 머리 위 말풍선 · 이름표(`--tw-font-classic`)는 일부러 안 바꾼다. 저장은 이 PC(`tw.uiFont`) — PC 글꼴은 그 PC 에만 있다. 글꼴 이름은 CSS 글자 안에 들어가므로 늘 `cleanFamily` 를 거친다. PC 글꼴 목록(`queryLocalFonts`)은 누름 직후에만 부를 수 있다. 검사 `sim-font-choice.js`.
