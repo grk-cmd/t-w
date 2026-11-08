@@ -20,11 +20,12 @@ function save(v){ try{ localStorage.setItem(KEY, FC.norm(v)); }catch(_){} }
 /* 지금 실제로 거는 값 — PC 글꼴은 프리미엄일 때만 */
 function effective(){ const v = stored(); return (FC.isPc(v) && !_premiumOn()) ? 'base' : v; }
 
+/* 부팅 때는 이것만 — 열린 자식 창이 없다. 고를 때는 _set 이 자식 창까지 다시 옮긴다 */
 function apply(){
   const css = FC.cssFor(effective()), root = document.documentElement;
   for(const k of FC.TOKENS){ if(css) root.style.setProperty(k, css); else root.style.removeProperty(k); }
-  refreshChildren();
 }
+function _set(v){ save(v); apply(); refreshChildren(); refresh(); }
 /* 이 PC 에 그 글꼴이 있나 — 없는 글꼴은 뒤 글꼴로 그려져 폭이 같아진다(세 가지 기준 글꼴과 다 같으면 없음) */
 function hasFont(family){
   try{
@@ -50,7 +51,7 @@ function _row(v, on){
   pv.style.fontFamily = FC.cssFor(v) || FC.BASE_TAIL;
   b.appendChild(nm); b.appendChild(pv);
   if(_missing(v)){ const x = document.createElement('span'); x.className = 'miss'; x.textContent = '이 PC 에 없음'; b.appendChild(x); }
-  b.onclick = () => { save(v); apply(); refresh(); };
+  b.onclick = () => _set(v);
   return b;
 }
 function refresh(){
@@ -62,7 +63,7 @@ function refresh(){
     const r = _row(cur, eff === cur);
     if(eff !== cur) r.classList.add('locked');   // 프리미엄이 끝났다 — 남겨 두되 흐리게
     const x = document.createElement('span'); x.className = 'del'; x.textContent = '✕'; x.title = '지우기';
-    x.onclick = (e) => { e.stopPropagation(); save('base'); apply(); refresh(); };
+    x.onclick = (e) => { e.stopPropagation(); _set('base'); };
     r.appendChild(x); row.appendChild(r);
   }
   const lock = $('fontPcLock'); if(lock && _premiumOn()) lock.style.display = 'none';
@@ -113,7 +114,7 @@ function _pcOk(){
   const typed = FC.cleanFamily(($('fontPcSearch') || {}).value || '');
   const f = _pcDraft || (!(_pcFamilies || []).length ? typed : '');
   if(!f) return;
-  save(FC.PC_PREFIX + f); _pcClose(); apply(); refresh();
+  _pcClose(); _set(FC.PC_PREFIX + f);
 }
 function bind(){
   const on = (id, ev, fn) => { const e = $(id); if(e) e.addEventListener(ev, fn); };

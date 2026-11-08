@@ -349,7 +349,7 @@
 | **sim-hidden-seats.js** | 96 | **178381fbe522** |
 | **sim-theme-ui.js** | 97 | **d3399b8ebf28** |
 | **sim-theme-custom.js** | 186 | **dee5871e332f** |
-| **sim-font-choice.js** | 115 | **162c6c783213** |
+| **sim-font-choice.js** | 115 | **a65cce277b13** |
 | **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** |
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** |
 | **sim-myhome-visit.js** | 96 | **d3c872803c16** |

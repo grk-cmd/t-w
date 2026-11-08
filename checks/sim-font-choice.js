@@ -63,8 +63,8 @@ say('── 2. 걸기');
 {
   let e = mkEnv({ ls: { 'tw.uiFont': 'nanum' } });
   e.ui.apply();
-  chk(e.root.style._p['--win-font'] === FC.cssFor('nanum') && e.root.style._p['--tw-font-legacy'] === FC.cssFor('nanum') && !('--tw-font-classic' in e.root.style._p) && e.child === 1,
-    '★ 나눔고딕 → 창 글씨 토큰 둘에 · 머리 위 토큰은 안 건드림 · 열린 자식 창 다시 옮김');
+  chk(e.root.style._p['--win-font'] === FC.cssFor('nanum') && e.root.style._p['--tw-font-legacy'] === FC.cssFor('nanum') && !('--tw-font-classic' in e.root.style._p) && e.child === 0,
+    '★ 나눔고딕 → 창 글씨 토큰 둘에 · 머리 위 토큰은 안 건드림 · 부팅 걸기는 자식 창을 안 건드림(열린 창이 없다)');
   e.store['tw.uiFont'] = 'base'; e.ui.apply();
   chk(Object.keys(e.root.style._p).length === 0, '기본으로 돌아오면 인라인을 걷는다(테마 글꼴이 다시 산다)');
   e = mkEnv({ premium: false, ls: { 'tw.uiFont': 'pc:Consolas' } }); e.ui.apply();
@@ -82,7 +82,7 @@ say('── 3. 설정 칸 · PC 글꼴 상자');
     '세 줄 + 고른 PC 글꼴 줄(✕) — 프리미엄이 아니면 그 줄은 흐리게 · 기본이 켜짐');
   chk(/이 PC 에 없음/.test(txt(rows[2])) && !/이 PC 에 없음/.test(txt(rows[0])), '없는 글꼴엔 «이 PC 에 없음»(폭을 재서 판단)');
   rows[1].onclick();
-  chk(e.store['tw.uiFont'] === 'dotum' && e.root.style._p['--win-font'] === FC.cssFor('dotum') && e.els.fontPickRow.children.length === 3, '줄을 누르면 저장 · 바로 건다 · PC 줄은 사라짐');
+  chk(e.store['tw.uiFont'] === 'dotum' && e.root.style._p['--win-font'] === FC.cssFor('dotum') && e.els.fontPickRow.children.length === 3 && e.child === 1, '줄을 누르면 저장 · 바로 건다 · 열린 자식 창에도 옮김 · PC 줄은 사라짐');
   e.els.fontPcMore.fire('click'); await flush();
   chk(e.els.fontPcLock.style.display === 'block' && e.els.fontPcBox.style.display !== 'block', '★ 프리미엄이 아니면 PC 글꼴 상자 대신 잠금 안내');
   e = mkEnv({ premium: true, fonts: ['Consolas', 'Batang', 'Consolas', "Evil'Font"] });
