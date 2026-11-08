@@ -95,6 +95,7 @@ const KIND = {
   '/users/$userId/playlist/sets/$s/items/$i': 'other',
   '/users/$userId/emojis/$slot': 'other',
   '/users/$userId/chalPaidTags/$tag': 'other',
+  '/users/$userId/themeCustom/$t': 'own',     // 👑 내 색 — 'default' · 'bubble' 둘만
   '/playlistIndex/$uid': 'user',
   '/mobileKeys/$userId': 'user',
   '/mobileLink/$userId': 'userPadded',

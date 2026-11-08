@@ -341,3 +341,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 크로미움(Electron 44 실측)은 칸을 옮기면 compositionend → blur → focusout(같은 틱), 다른 앱이 앞으로 오면 focusout(창 포커스 없음) → window blur → compositionend, 칸을 다시 그리면 compositionend 없이 focusout(그때는 아직 붙어 있음 — 그래서 `defer` 뒤에 `isConnected` 를 본다). 절전 · 잠자기(`LAG_SLEEP_MS` 넘게 건너뜀)는 멈춤으로 안 센다. 줄 수 상한 `MAX_LINES` — 클릭고착 · 포커스 기록을 밀어내지 않게.
 - **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
 - 검사: `checks/sim-input-diag.js`(깨 보기 열).
+
+## `theme-custom.js` — 👑 테마 «내 색» 규칙(두 색 → 색상 축 · 저장 모양)
+
+- **책임**: 프리미엄이 고른 제목줄 두 색(a · b)으로 그 테마의 `--acc-*` 아홉 값을 만든다 · 색(`#RRGGBB`) · 저장 모양(`{ default:{a,b}, bubble:{a,b} }`)을 씻는다. 순수 함수(DOM · localStorage · firebase 없음) — `window.TwThemeCustom`.
+- **쓰는 곳**: `theme.js`(칸 `cx` 를 걸 때 `<html>` 인라인 · 쓸 수 있나 판단 `customUsable`) · `theme-ui.js`(설정 칸 색 · 만들기 상자 미리보기).
+- **내놓는 것**: `normHex` · `normCustom` · `derive(theme, a, b)` · `chipCss` · `mix` · `lum` · `VAR_NAMES` · 밝기 경계 둘.
+- **함정**: 기본 테마는 제목줄 글자가 흰색이라 고른 색을 어둡게, 버블은 글자가 어두워서 밝은 파스텔로 맞춘다 — 경계를 바꾸면 어떤 색에서 글자가 안 읽힌다(검사가 여러 색으로 돌려 본다). 저장 모양은 서버 규칙 `users/$uid/themeCustom` 과 짝이라 칸을 늘리면 규칙도 같이. 검사 `sim-theme-custom.js`.

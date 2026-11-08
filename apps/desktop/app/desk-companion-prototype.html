@@ -2227,6 +2227,27 @@
     justify-content:center;color:#fff;font-size:13px;font-weight:bold;text-shadow:0 1px 2px rgba(0,0,0,.6);}
   .color-names{display:flex;gap:6px;margin-top:3px;}
   .color-names span{flex:1;text-align:center;font-size:9px;color:var(--ink-soft);}
+  /* 👑 내 색 — 아직 안 만든(또는 잠긴) 칸은 빗금 + ＋ · 만들기 상자는 프리미엄 금색 제목줄 */
+  .color-chip.cx-empty{background:repeating-linear-gradient(45deg,#fff 0 4px,#e6e6e6 4px 8px) !important;
+    color:var(--ink-soft);font-size:13px;font-weight:bold;}
+  #themeCxBox{margin-top:8px;border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    border-radius:var(--win-radius-el);background:var(--win-face);overflow:hidden;}
+  #themeCxBox .cx-ttl{background:var(--win-title-premium);color:var(--win-title-premium-ink);font-size:11px;font-weight:bold;padding:4px 6px;}
+  #themeCxBox .cx-body{padding:6px 8px 8px;}
+  #themeCxBox .cx-lab{font-size:10px;color:var(--ink-soft);margin:6px 0 3px;}
+  #themeCxBox .cx-pick{display:flex;align-items:center;gap:6px;font-size:10px;color:var(--ink-soft);}
+  #themeCxBox input[type=color]{width:34px;height:22px;padding:0;border:1px solid var(--win-lo);background:none;cursor:pointer;}
+  #themeCxBox .cx-hex{width:68px;font-family:'Courier New',monospace;font-size:11px;padding:2px 4px;border:1px solid;
+    border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el);}
+  #themeCxBox .cx-prev{border:1px solid var(--win-lo);border-radius:var(--win-radius-el);overflow:hidden;margin-top:3px;}
+  #themeCxBox .cx-prev .t{height:14px;}
+  #themeCxBox .cx-prev .b{display:flex;align-items:center;gap:6px;padding:5px 6px;font-size:10px;color:#222;}
+  #themeCxBox .cx-prev .sel{padding:1px 6px;border:1px solid;}
+  #themeCxBox .cx-btns{display:flex;gap:6px;margin-top:8px;}
+  #themeCxBox .cx-btns button{flex:1;font-family:inherit;font-size:11px;padding:3px 0;cursor:pointer;color:var(--ink);
+    background:var(--win-face-2);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el);}
+  #themeCxLock{margin-top:6px;font-size:10px;line-height:1.5;padding:5px 7px;background:#f6f0dc;border:1px solid #c9a227;
+    color:#5a4a1a;border-radius:var(--win-radius-el);}
 
   #myStatusChip{position:fixed;z-index:55;pointer-events:auto;transition:opacity .18s ease;
     display:flex;flex-direction:column;align-items:flex-start;}
@@ -5350,7 +5371,20 @@
     <div class="fs-label">색상</div>
     <div class="color-row" id="themeColorRow"></div>
     <div class="color-names" id="themeColorNames"></div>
-    <p class="fs-note">색상은 테마마다 따로예요. 캐릭터 모습은 바뀌지 않아요.</p>
+    <div id="themeCxLock" style="display:none;">👑 <b>내 색</b>은 프리미엄 기능이에요. 라이선스를 등록하면 쓸 수 있어요.</div>
+    <div id="themeCxBox" style="display:none;">
+      <div class="cx-ttl">👑 내 색 만들기</div>
+      <div class="cx-body">
+        <div class="cx-lab">왼쪽 색 (제목줄 시작)</div>
+        <div class="cx-pick"><input type="color" id="themeCxA"><input class="cx-hex" id="themeCxAHex" type="text" maxlength="7" spellcheck="false"><span>칸을 누르면 색 고르기</span></div>
+        <div class="cx-lab">오른쪽 색 (제목줄 끝)</div>
+        <div class="cx-pick"><input type="color" id="themeCxB"><input class="cx-hex" id="themeCxBHex" type="text" maxlength="7" spellcheck="false"><label><input type="checkbox" id="themeCxOne"> 한 가지 색으로</label></div>
+        <div class="cx-lab">미리보기</div>
+        <div class="cx-prev"><div class="t" id="themeCxPrevT"></div><div class="b" id="themeCxPrevB"><span class="sel" id="themeCxPrevS">선택된 줄</span>글자가 읽히게 자동으로 맞춰요</div></div>
+        <div class="cx-btns"><button type="button" id="themeCxReset">처음 색으로</button><button type="button" id="themeCxCancel">취소</button><button type="button" id="themeCxSave"><b>저장</b></button></div>
+      </div>
+    </div>
+    <p class="fs-note">색상은 테마마다 따로예요. 캐릭터 모습은 바뀌지 않아요. 👑 내 색은 계정에 저장돼서 다른 PC 에서도 같아요.</p>
 
     <div class="fs-sep"></div>
     <div class="fs-label" id="fsMonitorLabel">모니터 선택</div>
@@ -8622,6 +8656,7 @@
 <script src="parts/account/license-request.js"></script>   <!-- 라이선스 요청 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseRequest.createLicenseRequest 로 만든다) -->
 <script src="parts/launcher/fn-keys.js"></script>   <!-- 함수키 단축키 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFnKeys.createFnKeys 로 만든다) -->
 <script src="parts/room/hidden-seats.js"></script>   <!-- 워킹룸 숨기기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHiddenSeats.createHiddenSeats 로 만든다) -->
+<script src="parts/shared/theme-custom.js"></script>   <!-- 👑 내 색 규칙(순수) — theme-ui · theme 보다 먼저 -->
 <script src="parts/shared/theme-ui.js"></script>   <!-- 테마 — app.js 보다 먼저(app.js 가 원래 자리에서 TwThemeUi.createThemeUi 로 만든다) -->
 <script src="parts/myhome/myhome-sticker-layout.js"></script>   <!-- 마이홈 스티커 배치 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeStickerLayout.createMyHomeStickerLayout 로 만든다) -->
 <script src="parts/myhome/myhome-diag.js"></script>   <!-- 마이홈 클릭 진단 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeDiag.createMyHomeDiag 로 만든다) -->

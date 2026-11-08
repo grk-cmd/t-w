@@ -501,6 +501,8 @@ PRELOAD.push('license-request.js');
 PRELOAD.push('fn-keys.js');
 /* hidden-seats.js — 워킹룸 숨기기(앱 FSD 43번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createHiddenSeats 를 같이 굴린다. */
 PRELOAD.push('hidden-seats.js');
+/* theme-custom.js — 👑 내 색 규칙(순수) — theme-ui · theme 가 만들 때 읽는다 */
+PRELOAD.push('theme-custom.js');
 /* theme-ui.js — 테마(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createThemeUi 를 같이 굴린다. */
 PRELOAD.push('theme-ui.js');
 /* myhome-sticker-layout.js — 마이홈 스티커 배치(앱 FSD 44번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeStickerLayout 를 같이 굴린다. */

@@ -15,15 +15,16 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["theme-ui.js","parts/shared/theme-ui.js","app/parts/shared/theme-ui.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — theme-ui.js'); process.exit(2); }
+globalThis.TwThemeCustom = require([__dirname, process.cwd()].flatMap(d => ['theme-custom.js', 'parts/shared/theme-custom.js', 'app/parts/shared/theme-custom.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 👑 내 색 규칙 — 진짜 파일
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["applyTheme","getAccent","getTheme","onApplied"];
-const VAL_DEPS = ["ACCENT_KEY","THEME_COLORS","THEME_DEFAULT_ACCENT","THEME_KEY"];
+const FN_DEPS = ["applyTheme","getAccent","getTheme","onApplied","getCustom","customUsable","setCustom","_premiumOn","getMyUserId","loadCustom","saveCustom"];
+const VAL_DEPS = ["ACCENT_KEY","THEME_COLORS","THEME_DEFAULT_ACCENT","THEME_KEY","CUSTOM_ID"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["_themeChildDocs","applyThemeToChildDoc","bindThemeUI","refreshThemeUI"];
+const EXPORTS = ["_themeChildDocs","applyThemeToChildDoc","bindThemeUI","refreshThemeUI","pullCustom","refreshCustom"];
 const MOVED = ["THEME_CHILD_TOKENS","_themeChildDocs","_themeChildCss","applyThemeToChildDoc","setTheme","setAccent","refreshThemeUI","bindThemeUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  ACCENT_KEY: ACCENT_KEY,","  THEME_COLORS: THEME_COLORS,","  THEME_DEFAULT_ACCENT: THEME_DEFAULT_ACCENT,","  THEME_KEY: THEME_KEY,","  applyTheme: (...a)=>applyTheme(...a),","  getAccent: (...a)=>getAccent(...a),","  getTheme: (...a)=>getTheme(...a),","  onApplied: (...a)=>onApplied(...a),"];
+const GLUE = ["  ACCENT_KEY: ACCENT_KEY,","  THEME_COLORS: THEME_COLORS,","  THEME_DEFAULT_ACCENT: THEME_DEFAULT_ACCENT,","  THEME_KEY: THEME_KEY,","  applyTheme: (...a)=>applyTheme(...a),","  getAccent: (...a)=>getAccent(...a),","  getTheme: (...a)=>getTheme(...a),","  onApplied: (...a)=>onApplied(...a),","  CUSTOM_ID: CUSTOM_ID,","  getCustom: (...a)=>getCustom(...a),","  customUsable: (...a)=>customUsable(...a),","  setCustom: (...a)=>setCustom(...a),","  _premiumOn: (...a)=>_premiumOn(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  loadCustom: (...a)=>loadThemeCustom(...a),","  saveCustom: (...a)=>saveThemeCustom(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
