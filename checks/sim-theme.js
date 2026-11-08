@@ -18,13 +18,13 @@ if(!MOD){ say('  ? 원본 못 찾음 — theme.js'); process.exit(2); }
 globalThis.TwThemeCustom = require([__dirname, process.cwd()].flatMap(d => ['theme-custom.js', 'parts/shared/theme-custom.js', 'app/parts/shared/theme-custom.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 👑 내 색 규칙 — 진짜 파일
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["premiumOn"];
+const FN_DEPS = ["_premiumOn"];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["ACCENT_KEY","CUSTOM_ID","CUSTOM_KEY","customUsable","getCustom","setCustom","THEME_COLORS","THEME_DEFAULT_ACCENT","THEME_KEY","applyTheme","getAccent","getTheme","onApplied"];
 const MOVED = ["THEME_KEY","ACCENT_KEY","THEME_COLORS","THEME_DEFAULT_ACCENT","getTheme","getAccent","applyTheme"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  premiumOn: (...a)=>_premiumOn(...a),"];
+const GLUE = ["  _premiumOn: (...a)=>_premiumOn(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

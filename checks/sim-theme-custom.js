@@ -80,11 +80,11 @@ function mkEnv(opt){
   const win = {};
   new Function('window', 'module', SRC.theme)(win, undefined);
   new Function('window', 'module', SRC.ui)(win, undefined);
-  const th = win.TwTheme.createTheme({ premiumOn: () => env.premium });
+  const th = win.TwTheme.createTheme({ _premiumOn: () => env.premium });
   const ui = win.TwThemeUi.createThemeUi({
     ACCENT_KEY: th.ACCENT_KEY, THEME_COLORS: th.THEME_COLORS, THEME_DEFAULT_ACCENT: th.THEME_DEFAULT_ACCENT, THEME_KEY: th.THEME_KEY,
     applyTheme: th.applyTheme, getAccent: th.getAccent, getTheme: th.getTheme, onApplied: th.onApplied,
-    CUSTOM_ID: th.CUSTOM_ID, getCustom: th.getCustom, customUsable: th.customUsable, setCustom: th.setCustom, premiumOn: () => env.premium,
+    CUSTOM_ID: th.CUSTOM_ID, getCustom: th.getCustom, customUsable: th.customUsable, setCustom: th.setCustom, _premiumOn: () => env.premium,
     getMyUserId: () => opt.uid === undefined ? 'uA' : opt.uid,
     loadCustom: async () => env.srv, saveCustom: async (uid, o) => { saved.push([uid, JSON.parse(JSON.stringify(o))]); return opt.saveOk !== false; },
   });
@@ -153,6 +153,15 @@ say('── 4. 계정 사본');
   e = mkEnv({ premium: true, srv: null, ls: { 'tw.accentCustom': mine } });
   await e.ui.pullCustom();
   chk(e.saved.length === 0 && e.store['tw.accentCustom'] === mine, '못 읽으면(null) 아무것도 안 한다 — 빈 값으로 덮지 않는다');
+  e = mkEnv({ premium: true, saveOk: false });
+  e.ui.bindThemeUI(); e.els.themeColorRow.children[5].onclick(); e.els.themeCxSave.fire('click'); await flush();
+  const left = e.store['tw.accentCustom'];
+  chk(e.store['tw.accentCustomDirty'] === '1', '서버 저장 실패 → 못 올린 표시');
+  { const e2 = mkEnv({ premium: true, srv: { default: { a: '#112233', b: '#445566' } }, ls: { 'tw.accentCustom': left, 'tw.accentCustomDirty': '1' } });
+    await e2.ui.pullCustom();
+    chk(e2.store['tw.accentCustom'] === left && e2.saved.length === 1 && JSON.stringify(e2.saved[0][1]) === left && !('tw.accentCustomDirty' in e2.store),
+      '★ 못 올린 표시가 있으면 서버 옛 값으로 덮지 않고 이 PC 것을 올린다 · 올리면 표시를 지운다'); }
+  chk(/'tw\.accentCustomDirty'/.test(SRC.acct), '  못 올린 표시도 계정 전환 지움 목록에');
   e = mkEnv({ premium: true, srv: { default: { a: '#112233', b: '#445566' } }, uid: '' });
   await e.ui.pullCustom();
   chk(!e.store['tw.accentCustom'], '내 코드가 없으면 서버를 안 본다');
@@ -162,14 +171,14 @@ say('── 5. 배선');
 {
   const R = JSON.parse(SRC.rules).rules.users.$userId.themeCustom || {};
   const tt = R.$t || {};
-  chk(/userAuth/.test(R['.write'] || '') && /'default'/.test(tt['.validate'] || '') && /'bubble'/.test(tt['.validate'] || '') && /#\[0-9A-F\]\{6\}/.test((tt.a || {})['.validate'] || '')
-    && /#\[0-9A-F\]\{6\}/.test((tt.b || {})['.validate'] || '') && (tt.$other || {})['.validate'] === false, '서버 규칙 — 주인만 쓰기 · default/bubble · a · b 는 #RRGGBB 만 · 다른 칸 거절');
+  chk(/userAuth/.test(R['.write'] || '') && R['.validate'] === 'newData.hasChildren()' && /'default'/.test(tt['.validate'] || '') && /'bubble'/.test(tt['.validate'] || '') && /#\[0-9A-F\]\{6\}/.test((tt.a || {})['.validate'] || '')
+    && /#\[0-9A-F\]\{6\}/.test((tt.b || {})['.validate'] || '') && (tt.$other || {})['.validate'] === false, '서버 규칙 — 주인만 쓰기 · 통째 글자 · 숫자 거절 · default/bubble · a · b 는 #RRGGBB 만 · 다른 칸 거절');
   chk(/'tw\.accentCustom'/.test(SRC.acct), '계정 전환 지움 목록에 tw.accentCustom — 다음 계정에 앞 사람 색이 남지 않게');
   const order = [...SRC.html.matchAll(/<script src="parts\/shared\/(theme-custom|theme-ui|theme)\.js"/g)].map(m => m[1]);
   chk(order[0] === 'theme-custom' && order.length === 3, 'html — theme-custom.js 를 theme-ui · theme 보다 먼저 싣는다');
   chk(/try\{ refreshTheme\(\); \}catch\(_\)\{\}/.test(SRC.gate) && /refreshTheme: \(\.\.\.a\)=>themeUiMod\.refreshCustom\(\.\.\.a\)/.test(SRC.app),
     '프리미엄이 바뀌면 다시 걸기 — 초대 게이트의 한 곳(_refreshPremiumGatedUI)');
-  chk(/whenNetReady\(\(\)=>\{ themeUiMod\.pullCustom\(\); \}/.test(SRC.app), '로그인 뒤 한 번 계정 사본 받기');
+  chk(/whenNetReady\(\(\)=>\{ themeUiMod\.pullCustom\(\); \}, 'loadThemeCustom'\)/.test(SRC.app), '로그인 뒤 한 번 계정 사본 받기');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

@@ -24,7 +24,7 @@ const onApplied = deps.onApplied;   // theme.js — 테마를 건 뒤 부를 함
 const CUSTOM_ID = deps.CUSTOM_ID;   // 👑 내 색 칸 번호(theme.js)
 const getCustom = deps.getCustom;   // () => { default:{a,b}?, bubble:{a,b}? }
 const setCustom = deps.setCustom;   // (obj) => 씻은 obj — 이 PC 사본에 쓴다
-const premiumOn = deps.premiumOn;   // () => bool
+const _premiumOn = deps._premiumOn;   // () => bool — 이름은 app.js 와 같게(검사가 옮기기 전 글로 합친다)
 const customUsable = deps.customUsable;   // (theme) => bool — 내 색을 쓸 수 있나(theme.js 한 곳)
 const getMyUserId = deps.getMyUserId;
 const loadCustom = deps.loadCustom; // (uid) => obj | {}(없음) | null(못 읽음) — 서버 users/$uid/themeCustom
@@ -96,7 +96,7 @@ function refreshThemeUI(){
     row.appendChild(b);
   });
   /* 👑 내 색 — 여섯째 칸. 이름 자리는 «👑» 하나(칸 위에 왕관을 붙이지 않는다) */
-  const cx = getCustom()[t], prem = premiumOn(), usable = customUsable(t);
+  const cx = getCustom()[t], prem = _premiumOn(), usable = customUsable(t);
   const b = document.createElement('button');
   b.type = 'button'; b.className = 'color-chip' + (a === CUSTOM_ID ? ' on' : '') + (usable ? '' : ' cx-empty');
   b.id = 'themeCxChip'; b.title = '내 색';
@@ -114,7 +114,7 @@ let _cxDraft = null;   // { a, b } — 상자가 열린 동안만
 const _cxEl = id => document.getElementById(id);
 function _cxChipClick(){
   const lock = _cxEl('themeCxLock');
-  if(!premiumOn()){ if(lock) lock.style.display = 'block'; return; }
+  if(!_premiumOn()){ if(lock) lock.style.display = 'block'; return; }
   if(customUsable(getTheme()) && getAccent() !== CUSTOM_ID){ setAccent(CUSTOM_ID); return; }   // 만들어 둔 색이면 먼저 그 색으로
   _cxOpen();
 }
@@ -156,7 +156,7 @@ function _cxSetFrom(key, raw){
   _cxRender();
 }
 async function _cxSave(){
-  if(!_cxDraft || !premiumOn()) return;
+  if(!_cxDraft || !_premiumOn()) return;
   const t = getTheme(), all = getCustom();
   all[t] = { a: _cxDraft.a, b: _cxDraft.b };
   const saved = setCustom(all);
@@ -165,15 +165,22 @@ async function _cxSave(){
   const uid = getMyUserId();
   if(!uid) return;   // 로그인 전 — 이 PC 에만. 로그인 뒤 pullCustom 이 서버가 비었으면 올린다
   const ok = await saveCustom(uid, saved);
+  _cxDirty(!ok);
   if(!ok) TwErrorCodes.notify('E-SYS-02', new Error('saveThemeCustom'));
 }
-/* 로그인 뒤 한 번 — 서버 사본이 있으면 이 PC 를 그것으로, 없으면 이 PC 것을 올린다(못 읽으면 아무것도 안 한다) */
+/* 서버에 못 올린 내 색이 이 PC 에 있다 — 다음 로그인 때 서버 것으로 덮지 말고 이것을 올린다 */
+const CX_DIRTY_KEY = 'tw.accentCustomDirty';
+function _cxDirty(on){ try{ if(on) localStorage.setItem(CX_DIRTY_KEY, '1'); else localStorage.removeItem(CX_DIRTY_KEY); }catch(_){} }
+function _cxIsDirty(){ try{ return localStorage.getItem(CX_DIRTY_KEY) === '1'; }catch(_){ return false; } }
+/* 로그인 뒤 한 번 — 서버 사본이 있으면 이 PC 를 그것으로, 없으면 이 PC 것을 올린다(못 읽으면 아무것도 안 한다).
+   지난번 저장을 서버에 못 올렸으면(dirty) 서버 것 대신 이 PC 것을 올린다 */
 async function pullCustom(){
   const uid = getMyUserId();
   if(!uid) return;
   const srv = await loadCustom(uid);
   if(srv === null) return;
   const s = TC.normCustom(srv), local = getCustom();
+  if(_cxIsDirty() && Object.keys(local).length){ _cxDirty(!(await saveCustom(uid, local))); return; }
   if(Object.keys(s).length){ setCustom(s); applyTheme(); refreshThemeUI(); return; }
   if(Object.keys(local).length) await saveCustom(uid, local);
 }

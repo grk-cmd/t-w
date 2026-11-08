@@ -12,7 +12,7 @@
 (function(){
 
 function createTheme(deps){
-const premiumOn = deps.premiumOn;   // () => bool — 👑 내 색은 프리미엄만(끝나면 기본색으로 보이고 저장본은 남긴다)
+const _premiumOn = deps._premiumOn;   // () => bool — 👑 내 색은 프리미엄만(끝나면 기본색으로 보이고 저장본은 남긴다) · 이름은 app.js 와 같게(검사가 옮기기 전 글로 합친다)
 const TC = TwThemeCustom;
 /* 테마를 건 뒤 부를 함수 — 열린 방명록 · 디자인 창(theme-ui.js)이 만들 때 건다. 이 파일은 아래층이라 theme-ui 를 직접 부르지 않는다 */
 const _onAppliedFns = [];
@@ -51,7 +51,7 @@ function setCustom(obj){
   return c;
 }
 /* 그 테마에서 내 색을 쓸 수 있나 — 프리미엄 + 그 테마의 내 색이 있다(칸 그림 · 걸기가 같이 부른다) */
-function customUsable(t){ return !!(premiumOn() && getCustom()[t]); }
+function customUsable(t){ return !!(_premiumOn() && getCustom()[t]); }
 function getAccent(){
   const t = getTheme();
   let a = null; try{ a = localStorage.getItem(ACCENT_KEY); }catch(_){}
