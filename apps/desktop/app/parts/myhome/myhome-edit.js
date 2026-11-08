@@ -853,7 +853,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     'html{--ds-body:#d8d8d8;}html[data-theme=bubble]{--ds-body:#FBFCFC;}'+
     /* [2026-09-16 제보 5 후속] 창 모서리는 **위 두 개만** 둥글다. 자식 창은 BrowserWindow 하나가 통째로 이
        body 라 아래까지 둥글리면 창 바닥 모서리가 깎여 보인다 — 마이홈 창(본창 안 div)과 같은 인상이 되게 아래는 사각. */
-    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);height:100vh;box-sizing:border-box;'+
+    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);height:100vh;box-sizing:border-box;'+
     'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius,0px) var(--win-radius,0px) 0 0;color:var(--win-ink,#000);display:flex;flex-direction:column;}'+
     /* [2026-09-16 제보 5 후속 · 시안 A] 플레이리스트 바(#myPlHead)와 같은 문법으로.
        ① margin 을 뺀다 — 2px 여백이 있으면 창 테두리와 바 사이에 흰 선이 보여 «붙어 있지 않은» 인상이 된다.
@@ -883,10 +883,10 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);display:flex;align-items:center;}'+
     '#dsPresets .ps-save.armed{color:#c0392b;font-weight:bold;}'+
     '#dsPresets .ps-edin{flex:1;min-width:0;height:19px;padding:0 3px;text-align:center;'+
-    'font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10.5px;color:var(--win-ink,#222);background:#fff;'+
+    'font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:10.5px;color:var(--win-ink,#222);background:#fff;'+
     'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsTabs{display:flex;gap:2px;padding:6px 8px 0;flex-shrink:0;}'+
-    '.ds-tab{font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:11px;padding:4px 14px;cursor:pointer;color:var(--win-ink-soft,#555);'+
+    '.ds-tab{font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:11px;padding:4px 14px;cursor:pointer;color:var(--win-ink-soft,#555);'+
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     '.ds-tab.on{font-weight:bold;color:var(--win-ink,#000);background:#fff;}'+
     '#dsBody{flex:1;min-height:0;overflow-y:auto;padding:8px;display:flex;flex-direction:column;gap:4px;margin:0 4px;background:var(--ds-body,#d8d8d8);border-radius:var(--win-radius-sm,0px);}'+
@@ -895,27 +895,27 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     '.ds-row .lb{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}'+
     '.ds-sw{width:24px;height:18px;flex-shrink:0;cursor:pointer;border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);background:#fff;position:relative;}'+
     '.ds-sw.none:after{content:"\\2014";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:#999;font-size:10px;}'+
-    '.ds-btn{font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:var(--win-ink,#222);'+
+    '.ds-btn{font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:10px;height:18px;padding:0 6px;cursor:pointer;flex-shrink:0;color:var(--win-ink,#222);'+
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     '.ds-btn.imgon{background:#dcefd8;font-weight:bold;}'+
     '.ds-imgrow{display:flex;gap:3px;margin:2px 0 4px 12px;}'+
     '.ds-imghint{font-size:9px;color:#8a8578;line-height:1.4;margin:0 0 6px 12px;}'+
-    '.ds-imgrow input{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;padding:2px 4px;'+
+    '.ds-imgrow input{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:10px;padding:2px 4px;'+
     'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#dsFoot{display:flex;align-items:center;gap:6px;padding:6px 8px;flex-shrink:0;border-top:1px solid #999;}'+
-    '#dsFoot button{font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:11px;padding:3px 12px;cursor:pointer;color:var(--win-ink,#222);'+
+    '#dsFoot button{font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:11px;padding:3px 12px;cursor:pointer;color:var(--win-ink,#222);'+
     'background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
     // 컬러 팝업 (opener의 _mhOpenColorPopup이 이 문서에 그려넣음)
     '.mh-color-pop{position:absolute;background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);z-index:9999;padding:6px;'+
     'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);box-shadow:2px 2px 5px rgba(0,0,0,.25);'+
-    'font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;color:var(--win-ink,#333);user-select:none;}'+
+    'font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:10px;color:var(--win-ink,#333);user-select:none;}'+
     '.mh-color-pop .lbl{margin:4px 0 2px;color:var(--win-ink-soft,#555);}'+
     '.mh-color-pop .grid{display:grid;grid-template-columns:repeat(8,14px);gap:2px;}'+
     '.mh-color-pop .sw{width:14px;height:14px;cursor:pointer;border:1px solid #999;box-sizing:border-box;}'+
     '.mh-color-pop .sw:hover{outline:1px solid #000;outline-offset:-1px;}'+
     '.mh-color-pop .row{display:flex;gap:2px;align-items:center;}'+
     '.mh-color-pop input[type=color]{width:22px;height:18px;padding:0;border:1px solid #999;cursor:pointer;background:none;}'+
-    '.mh-color-pop .hex{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:10px;padding:1px 3px;'+
+    '.mh-color-pop .hex{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:10px;padding:1px 3px;'+
     'border:1px solid #404040;background:#fff;color:var(--win-ink,#222);}'+
     '.mh-color-pop .reset{margin-left:auto;font-size:10px;padding:1px 6px;cursor:pointer;background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);'+
     'border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+

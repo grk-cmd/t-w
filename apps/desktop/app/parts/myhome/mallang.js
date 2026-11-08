@@ -176,7 +176,7 @@
         will-change:transform;touch-action:none;}
       #mlLayer .ml-guy img{width:100%;height:100%;display:block;pointer-events:none;-webkit-user-drag:none;}
       #mlLayer .ml-guy .ml-msg{position:absolute;left:50%;bottom:100%;transform:translateX(-50%);margin-bottom:6px;
-        max-width:150px;width:max-content;background:#fff;color:#222;font-family:Tahoma,'맑은 고딕',sans-serif;font-size:11px;
+        max-width:150px;width:max-content;background:#fff;color:#222;font-family:Tahoma,'맑은 고딕','Apple SD Gothic Neo',sans-serif;font-size:11px;
         line-height:1.45;padding:5px 8px;border:1px solid #555;border-radius:7px;box-shadow:1px 1px 0 rgba(0,0,0,.25);
         white-space:pre-wrap;word-break:break-word;text-align:center;pointer-events:none;opacity:0;transition:opacity .15s;}
       #mlLayer .ml-guy .ml-msg.on{opacity:1;}

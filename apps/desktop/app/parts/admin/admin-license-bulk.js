@@ -209,7 +209,7 @@ async function _lxWriteXlsx(rows, sheetName){
     + '</Relationships>');
   z.file('xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>'
     + '<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
-    + '<fonts count="2"><font><sz val="11"/><name val="Malgun Gothic"/></font><font><b/><sz val="11"/><name val="Malgun Gothic"/></font></fonts>'
+    + '<fonts count="2"><font><sz val="11"/><name val="Malgun Gothic","Apple SD Gothic Neo"/></font><font><b/><sz val="11"/><name val="Malgun Gothic","Apple SD Gothic Neo"/></font></fonts>'
     + '<fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills>'
     + '<borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders>'
     + '<cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs>'

@@ -200,7 +200,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     /* 피치·민트는 --acc-d 가 너무 옅어 흰 글씨가 안 읽힌다 — 한 단계 진하게 */
     'html[data-theme=bubble][data-accent=c4]{--gb-clap:#E39BB5;--gb-label:#C9708F;--gb-link:#C9708F;}'+
     'html[data-theme=bubble][data-accent=c5]{--gb-clap:#7CC4B0;--gb-label:#5FA894;--gb-link:#5FA894;}'+
-    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);height:100vh;box-sizing:border-box;'+
+    'body{margin:0;overflow:hidden;background:var(--win-face-grad,none),var(--win-face,#c0c0c0);font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);height:100vh;box-sizing:border-box;'+
     'border:2px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius,0px) var(--win-radius,0px) 0 0;color:var(--win-ink,#000);display:flex;flex-direction:column;}'+
     /* [2026-09-16 제보 5 후속 · 시안 A] 플레이리스트 바(#myPlHead)와 같은 문법으로.
        ① margin 을 뺀다 — 2px 여백이 있으면 창 테두리와 바 사이에 흰 선이 보여 «붙어 있지 않은» 인상이 된다.
@@ -251,7 +251,7 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
     /* 🚪 외부인 안내 — 입력칸 자리에 대신 들어간다. 자리를 비우면 창 아래가 뭉텅 잘린 것처럼 보인다. */
     '#gbGuestNote{display:none;flex-shrink:0;font-size:10.5px;line-height:1.6;color:var(--win-ink-soft,#555);'+
     'text-align:center;padding:6px 4px;background:var(--gb-note,#eee);border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
-    '#gbInput{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic",sans-serif);font-size:11px;padding:4px 6px;'+
+    '#gbInput{flex:1;min-width:0;font-family:var(--win-font,Tahoma,"Malgun Gothic","Apple SD Gothic Neo",sans-serif);font-size:11px;padding:4px 6px;'+
     'border:1px solid;border-color:var(--win-lo-2,#404040) var(--win-hi,#fff) var(--win-hi,#fff) var(--win-lo-2,#404040);border-radius:var(--win-radius-sm,0px);}'+
     '#gbSubmit{font-size:11px;padding:4px 10px;cursor:pointer;color:var(--win-ink,#222);background:var(--win-btn-grad,none),var(--win-face,#c0c0c0);'+
     'border:1px solid;border-color:var(--win-hi,#fff) var(--win-lo-2,#404040) var(--win-lo-2,#404040) var(--win-hi,#fff);border-radius:var(--win-radius-el,0px);}'+
