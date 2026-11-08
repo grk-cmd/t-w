@@ -8922,6 +8922,7 @@ const themeUiMod = TwThemeUi.createThemeUi({
   onApplied: (...a)=>themeMod.onApplied(...a),
   CUSTOM_ID: themeMod.CUSTOM_ID,
   getCustom: (...a)=>themeMod.getCustom(...a),
+  customUsable: (...a)=>themeMod.customUsable(...a),
   setCustom: (...a)=>themeMod.setCustom(...a),
   premiumOn: (...a)=>_premiumOn(...a),
   getMyUserId: (...a)=>getMyUserId(...a),

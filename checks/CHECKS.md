@@ -347,8 +347,8 @@
 | **sim-license-request.js** | 96 | **2fc254e81411** |
 | **sim-fn-keys.js** | 127 | **c2118670ae13** |
 | **sim-hidden-seats.js** | 96 | **178381fbe522** |
-| **sim-theme-ui.js** | 97 | **da8eeba59f39** |
-| **sim-theme-custom.js** | 177 | **2a8bf38d182a** |
+| **sim-theme-ui.js** | 97 | **a71962988708** |
+| **sim-theme-custom.js** | 177 | **05f5924e36d4** |
 | **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** |
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** |
 | **sim-myhome-visit.js** | 96 | **d3c872803c16** |
@@ -379,7 +379,7 @@
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |
 | **sim-realtime-link.js** | 323 | **1c6e8a88bcf8** |
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
-| **sim-theme.js** | 97 | **875f6edc0e6a** |
+| **sim-theme.js** | 97 | **0162a2e46e78** |
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
 | **sim-license-key.js** | 95 | **9b2c72d7fa60** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |

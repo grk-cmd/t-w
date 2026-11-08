@@ -84,7 +84,7 @@ function mkEnv(opt){
   const ui = win.TwThemeUi.createThemeUi({
     ACCENT_KEY: th.ACCENT_KEY, THEME_COLORS: th.THEME_COLORS, THEME_DEFAULT_ACCENT: th.THEME_DEFAULT_ACCENT, THEME_KEY: th.THEME_KEY,
     applyTheme: th.applyTheme, getAccent: th.getAccent, getTheme: th.getTheme, onApplied: th.onApplied,
-    CUSTOM_ID: th.CUSTOM_ID, getCustom: th.getCustom, setCustom: th.setCustom, premiumOn: () => env.premium,
+    CUSTOM_ID: th.CUSTOM_ID, getCustom: th.getCustom, customUsable: th.customUsable, setCustom: th.setCustom, premiumOn: () => env.premium,
     getMyUserId: () => opt.uid === undefined ? 'uA' : opt.uid,
     loadCustom: async () => env.srv, saveCustom: async (uid, o) => { saved.push([uid, JSON.parse(JSON.stringify(o))]); return opt.saveOk !== false; },
   });

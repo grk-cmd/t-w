@@ -5,7 +5,7 @@
      onApplied 로 건다(아래층이 위층 theme-ui 를 부르던 순환 끊기 — checks/sim-dep-cycles.js).
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 👑 내 색(칸 'cx') — 고른 두 색은 tw.accentCustom(계정 사본), 걸 때 --acc-* 를 <html> 인라인으로(규칙은 theme-custom.js).
-   ★ 밖에서 부르는 이름: ACCENT_KEY · CUSTOM_ID · CUSTOM_KEY · getCustom · setCustom · THEME_COLORS · THEME_DEFAULT_ACCENT · THEME_KEY · applyTheme · getAccent · getTheme · onApplied — app.js 는 themeMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ACCENT_KEY · CUSTOM_ID · CUSTOM_KEY · customUsable · getCustom · setCustom · THEME_COLORS · THEME_DEFAULT_ACCENT · THEME_KEY · applyTheme · getAccent · getTheme · onApplied — app.js 는 themeMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwTheme — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-theme.js */
@@ -50,10 +50,12 @@ function setCustom(obj){
   try{ localStorage.setItem(CUSTOM_KEY, JSON.stringify(c)); }catch(_){}
   return c;
 }
+/* 그 테마에서 내 색을 쓸 수 있나 — 프리미엄 + 그 테마의 내 색이 있다(칸 그림 · 걸기가 같이 부른다) */
+function customUsable(t){ return !!(premiumOn() && getCustom()[t]); }
 function getAccent(){
   const t = getTheme();
   let a = null; try{ a = localStorage.getItem(ACCENT_KEY); }catch(_){}
-  if(a === CUSTOM_ID) return (premiumOn() && getCustom()[t]) ? CUSTOM_ID : THEME_DEFAULT_ACCENT[t];
+  if(a === CUSTOM_ID) return customUsable(t) ? CUSTOM_ID : THEME_DEFAULT_ACCENT[t];
   // 저장값이 없거나 이상하면 그 테마의 기본색으로. (테마별로 색이 다르므로 칸 번호만 검사한다)
   return THEME_COLORS[t].some(c=>c[0]===a) ? a : THEME_DEFAULT_ACCENT[t];
 }
@@ -77,6 +79,7 @@ return {
   ACCENT_KEY,
   CUSTOM_ID,
   CUSTOM_KEY,
+  customUsable,
   getCustom,
   setCustom,
   THEME_COLORS,

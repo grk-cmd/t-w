@@ -25,6 +25,7 @@ const CUSTOM_ID = deps.CUSTOM_ID;   // 👑 내 색 칸 번호(theme.js)
 const getCustom = deps.getCustom;   // () => { default:{a,b}?, bubble:{a,b}? }
 const setCustom = deps.setCustom;   // (obj) => 씻은 obj — 이 PC 사본에 쓴다
 const premiumOn = deps.premiumOn;   // () => bool
+const customUsable = deps.customUsable;   // (theme) => bool — 내 색을 쓸 수 있나(theme.js 한 곳)
 const getMyUserId = deps.getMyUserId;
 const loadCustom = deps.loadCustom; // (uid) => obj | {}(없음) | null(못 읽음) — 서버 users/$uid/themeCustom
 const saveCustom = deps.saveCustom; // (uid, obj) => bool
@@ -95,11 +96,11 @@ function refreshThemeUI(){
     row.appendChild(b);
   });
   /* 👑 내 색 — 여섯째 칸. 이름 자리는 «👑» 하나(칸 위에 왕관을 붙이지 않는다) */
-  const cx = getCustom()[t], prem = premiumOn();
+  const cx = getCustom()[t], prem = premiumOn(), usable = customUsable(t);
   const b = document.createElement('button');
-  b.type = 'button'; b.className = 'color-chip' + (a === CUSTOM_ID ? ' on' : '') + ((cx && prem) ? '' : ' cx-empty');
+  b.type = 'button'; b.className = 'color-chip' + (a === CUSTOM_ID ? ' on' : '') + (usable ? '' : ' cx-empty');
   b.id = 'themeCxChip'; b.title = '내 색';
-  if(cx && prem) b.style.background = TwSafeHtml.cssColor(TC.chipCss(t, cx.a, cx.b)); else b.textContent = '＋';
+  if(usable) b.style.background = TwSafeHtml.cssColor(TC.chipCss(t, cx.a, cx.b)); else b.textContent = '＋';
   b.onclick = _cxChipClick;
   row.appendChild(b);
   if(names) names.innerHTML = set.map(c=>'<span>'+TwSafeHtml.text(c[1])+'</span>').join('') + '<span>👑</span>';
@@ -114,8 +115,7 @@ const _cxEl = id => document.getElementById(id);
 function _cxChipClick(){
   const lock = _cxEl('themeCxLock');
   if(!premiumOn()){ if(lock) lock.style.display = 'block'; return; }
-  const t = getTheme(), cx = getCustom()[t];
-  if(cx && getAccent() !== CUSTOM_ID){ setAccent(CUSTOM_ID); return; }   // 만들어 둔 색이면 먼저 그 색으로
+  if(customUsable(getTheme()) && getAccent() !== CUSTOM_ID){ setAccent(CUSTOM_ID); return; }   // 만들어 둔 색이면 먼저 그 색으로
   _cxOpen();
 }
 /* 처음 만들 땐 지금 칸의 색에서 시작한다 — 빈 칸보다 고치기 쉽다 */

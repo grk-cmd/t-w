@@ -22,7 +22,7 @@ const FN_DEPS = ["premiumOn"];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["ACCENT_KEY","CUSTOM_ID","CUSTOM_KEY","getCustom","setCustom","THEME_COLORS","THEME_DEFAULT_ACCENT","THEME_KEY","applyTheme","getAccent","getTheme","onApplied"];
+const EXPORTS = ["ACCENT_KEY","CUSTOM_ID","CUSTOM_KEY","customUsable","getCustom","setCustom","THEME_COLORS","THEME_DEFAULT_ACCENT","THEME_KEY","applyTheme","getAccent","getTheme","onApplied"];
 const MOVED = ["THEME_KEY","ACCENT_KEY","THEME_COLORS","THEME_DEFAULT_ACCENT","getTheme","getAccent","applyTheme"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  premiumOn: (...a)=>_premiumOn(...a),"];
 
