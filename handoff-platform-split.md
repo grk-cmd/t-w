@@ -284,6 +284,9 @@ focus-apps.json : { key:"win:chrome.exe", name:"chrome.exe", path:"...", title:"
   받아들인다**(`keysOf`). 나중에 넓힐 때 판정부는 한 글자도 안 바뀐다.
 - ⚠️ **`key` 와 `keys` 를 둘 다 저장하지 말 것.** 진실의 출처가 둘이 되면 어긋났을 때 누가 이기는지를
   또 정해야 한다. 저장은 언제나 하나다.
+  - 예외(B-1026-4): 👑 달성표 🎯집중이 **여러 앱**을 고르면 `cfg.keys` 를 쓴다(한 앱의 여러 플랫폼 키가 아니라 앱 여러 개).
+    `key` 는 늘 `keys[0]`, 하나만 고르면 `keys` 를 지운다, 어긋나면(옛 판본 [수정]이 `key` 만 바꿈) `key` 가 이긴다(`_chalStale`).
+    `sim-keysof-twin.js` 6절이 돌려서 본다.
 
 ### ★ 승격은 `'win:'` 고정이다 — `KEY_PLATFORM` 이 아니다
 

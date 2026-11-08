@@ -174,7 +174,7 @@
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **d96a4cd791fc** |
-| **sim-keysof-twin.js** | 369 | **864c08b01c27** |
+| **sim-keysof-twin.js** | 390 | **dd6a2c1ee1fa** |
 | **sim-license-leak.js** | 288 | **73780a67f961** |
 | **sim-mh-sanitize.js** | 274 | **b840325c6768** |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
@@ -264,7 +264,7 @@
 | **sim-asset-import.js** | 174 | **23c1ae52e3f9** |
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
 | **sim-scheduler.js** | 351 | **f6cada339703** |
-| **sim-weekly-challenge.js** | 345 | **35279543c804** |
+| **sim-weekly-challenge.js** | 420 | **6a918459f002** |
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 330 | **82a7ce62b9c9** |

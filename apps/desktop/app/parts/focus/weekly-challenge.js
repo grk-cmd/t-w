@@ -480,6 +480,12 @@ function _chalKeysOf(rec){
   if(rec.name) return ['win:' + String(rec.name).toLowerCase()];
   return [];
 }
+/* 판정 키에서 보이는 이름 — 'win:chrome.exe' → 'chrome'. mac 키는 번들 id(`mac:com.google.chrome`)라 사람이 못 읽어서
+   고를 때 같이 저장한 이름(label)을 먼저 쓴다. 옛 mac 키(`google chrome.app`)는 label 이 없을 때만 키에서 뽑는다. */
+function _chalKeyName(k, label){
+  if(!k) return String(label || '');
+  return (/^mac:/.test(k) && label) ? String(label) : String(k).replace(/^[a-z]+:/, '').replace(/\.(exe|app)$/i, '');
+}
 /* 이 기기의 플랫폼 접두사. main 이 보내주는 활성 상태에서 배운다 — 렌더러가 스스로 OS 를
    판단하지 않는다(그러면 두 곳이 서로 다른 답을 낼 수 있다). 아직 못 받았으면 null. */
 let _chalKeyPlatform = null;
@@ -491,7 +497,8 @@ let _chalKeyForeign = false;
 function _chalFocusTick(state, dt){
   if(!_chalActive() || chalRec.kind !== 'focus' || chalRec.paused) return;
   const c = chalRec.cfg || {};
-  const want = _chalKeysOf(c);
+  if(_chalIsAll(c)){ if(state && state.isFocusedAppRegistered) _chalAddSec(dt); return; }   // 등록한 앱이면 센다 — 나중에 등록한 앱도
+  const want = _chalPickedKeys(c);
   if(!want.length) return;
   /* 조건이 이 기기에서 만들어진 것이 아니면 셀 수 없다 — 그걸 여기서 표식으로 남긴다.
      (예: Windows 에서 'win:chrome.exe' 로 걸어둔 조건을 mac 에서 열었을 때) */
@@ -508,10 +515,68 @@ function _chalFocusTick(state, dt){
      ⚠️ 옛 main 은 keyAlt 를 안 보낸다 — 없으면 예전과 똑같이 now 하나로만 본다. */
   const alt = state && state.keyAlt ? String(state.keyAlt) : '';
   if(!now || !(want.includes(now) || (alt && want.includes(alt)))) return;
+  _chalAddSec(dt);
+}
+function _chalAddSec(dt){
   const t = chalRec.today;
   if(!t || t.date !== _focusDayStr()) return;   // 오전 6시를 넘겼다 — _chalTick 이 정리할 때까지 안 쌓는다
   t.sec = (t.sec || 0) + dt;
   _chalDirty = true;
+}
+
+/* 🎯 여러 앱 · 전체 — 고른 것은 cfg.keys(판정) · cfg.labels(보이는 이름, keys 와 같은 순서).
+   key · exe · label 은 첫째 앱 값으로 같이 쓴다(옛 판본 기기가 cfg.exe · key 하나만 읽는다).
+   전체(cfg.all)는 판정에 keys 를 안 쓰지만, 고른 그때 목록을 keys 에 적어 둔다 — 옛 판본은 그 목록으로 센다.
+   하나만 고르면 keys · labels 를 안 쓴다(예전 모양) — 옛 판본 [수정]은 key 만 바꾸고 keys 는 그대로 두기 때문이다.
+   ⚠️ 그래도 옛 판본이 여럿 · 전체 조건을 [수정]하면 keys 는 a · b 그대로, key 만 c 가 된다. keys[0] 과 key 가 다르면
+     옛 판본이 고친 것으로 보고 key 하나만 본다(_chalKeysOf 는 main.js 짝이라 손대지 않고 여기서 푼다). */
+const CHAL_ALL_LABEL = '포커싱 어플 전체';
+function _chalStale(c){ return !!(c && Array.isArray(c.keys) && c.key && c.keys[0] !== c.key); }
+function _chalPickedKeys(c){ return _chalStale(c) ? [String(c.key)] : _chalKeysOf(c); }
+function _chalIsAll(c){ return !!(c && c.all && !_chalStale(c)); }
+function _chalPickedLabels(c){
+  if(_chalStale(c)) return [String(c.label || _chalKeyName(c.key, ''))];
+  const keys = _chalKeysOf(c), labels = Array.isArray(c && c.labels) ? c.labels : [];
+  return keys.map((k, i) => String(labels[i] || (i === 0 && c.label) || _chalKeyName(k, '')));
+}
+/* 보이는 이름 — 전체면 «포커싱 어플 전체», 여럿이면 «첫째 외 n개» */
+function _chalFocusName(c, first){
+  if(_chalIsAll(c)) return CHAL_ALL_LABEL;
+  const n = _chalPickedKeys(c).length;
+  return n > 1 ? first + ' 외 ' + (n - 1) + '개' : first;
+}
+function _chalSetPicked(c, picks){
+  if(picks.length > 1 || c.all){ c.keys = picks.map(p => p.key); c.labels = picks.map(p => p.label); }
+  else { delete c.keys; delete c.labels; }
+  c.key = picks.length ? picks[0].key : '';
+  c.exe = picks.length ? String(picks[0].exe || '').toLowerCase() : '';
+  c.label = picks.length ? picks[0].label : '';
+}
+/* 첫째 앱이 빠지면 둘째의 exe 를 키에서 — win 키만(mac 키는 번들 id 라 이름으로 쓰면 안 된다 · 이름은 label) */
+function _chalExeOfKey(k){ return /^win:/.test(k) ? String(k).slice(4) : ''; }
+/* 앱 한 줄을 누름 — 고른 것이면 빼고, 아니면 끝에 더한다. 전체가 켜져 있으면 안 바꾼다(그 줄들은 흐리게 막힌다). */
+function _chalToggleApp(c, app){
+  if(_chalIsAll(c) || !app || !app.key) return;
+  if(_chalStale(c)) delete c.all;
+  const keys = _chalPickedKeys(c), labels = _chalPickedLabels(c);
+  const picks = keys.map((k, i) => ({ key: k, label: labels[i], exe: i === 0 ? c.exe : '' }));
+  const at = keys.indexOf(app.key);
+  if(at >= 0) picks.splice(at, 1); else picks.push({ key: app.key, label: app.label, exe: app.exe });
+  if(picks.length && !picks[0].exe) picks[0].exe = _chalExeOfKey(picks[0].key);
+  _chalSetPicked(c, picks);
+}
+/* 전체 켜기 · 끄기 — 이 설정 화면에서 켤 때 고르던 것을 prev 에 두고 끌 때 되돌린다(이미 전체였던 조건을 끄면 빈 채로) */
+function _chalSetAll(c, on, list, draft){
+  if(on){
+    const labels = _chalPickedLabels(c);
+    draft.prevPicks = _chalPickedKeys(c).map((k, i) => ({ key: k, label: labels[i], exe: i === 0 ? c.exe : _chalExeOfKey(k) }));
+    c.all = true;
+    _chalSetPicked(c, (list || []).filter(a => a && a.key).map(a => ({ key: a.key, label: a.label, exe: a.exe })));
+  }else{
+    delete c.all;
+    _chalSetPicked(c, draft.prevPicks || []);
+    draft.prevPicks = null;
+  }
 }
 
 /* 🔁반복 — 알림 시각 계산과 '오늘은 못 채운다' 확정. */
@@ -817,7 +882,7 @@ function _chalRenderPick(){
 }
 function _chalCfgLabel(kind, cfg){
   const c = cfg || {};
-  if(kind === 'focus')  return '🎯 ' + escHtml(String(c.exe || c.label || '앱').replace(/\.exe$/i, '')) + ' ' + (c.hours|0) + '시간';
+  if(kind === 'focus')  return '🎯 ' + escHtml(_chalFocusName(c, String(c.exe || c.label || '앱').replace(/\.exe$/i, ''))) + ' ' + (c.hours|0) + '시간';
   if(kind === 'repeat') return '🔁 ' + escHtml(c.text || '할 일') + ' 하루 ' + (c.times|0) + '회';
   if(kind === 'rule')   return '📋 요일별 체크표';
   return '';
@@ -852,7 +917,7 @@ function _chalRenderRun(){
   if(box){
     if(chalRec.kind === 'focus'){
       const goal = Math.max(1, (c.hours|0)) * 3600, cur = Math.min(goal, t.sec || 0);
-      box.innerHTML = '<div class="t1">🎯 ' + escHtml(c.label || c.exe || '앱') + ' · 하루 ' + (c.hours|0) + '시간</div>'
+      box.innerHTML = '<div class="t1">🎯 ' + escHtml(_chalFocusName(c, c.label || c.exe || '앱')) + ' · 하루 ' + (c.hours|0) + '시간</div>'
         + '<div class="t2">오늘 ' + formatHMS(t.sec || 0) + ' / ' + formatHMS(goal) + '</div>'
         + '<div class="chal-bar"><i style="width:' + Math.round(cur / goal * 100) + '%"></i></div>';
     }else if(chalRec.kind === 'repeat'){
@@ -907,6 +972,9 @@ function _chalOpenSetup(kind, editing){
     for(let i = 0; i < n; i++) _chalDraft.cfg.rules.push(Array.isArray(rs[i]) ? rs[i] : []);
   }
   _chalRuleDay = Math.max(0, _chalDayIdx(undefined, phKey));
+  const fl = _chalEl('chalFocusList'), fp = _chalEl('chalFocusPick');   // 앞 설정에서 펼쳐 둔 앱 목록은 접는다(다른 초안의 체크가 보인다)
+  if(fl) fl.style.display = 'none';
+  if(fp) fp.textContent = '고르기';
   _chalRenderSetup();
   _chalRender();
 }
@@ -927,24 +995,17 @@ function _chalRenderSetup(force){
 
   if(k === 'focus'){
     const app = _chalEl('chalFocusApp'), hrs = _chalEl('chalFocusHours'), hint = _chalEl('chalFocusHint');
-    /* 판정 키에서 보이는 이름을 뽑는다 — 'win:chrome.exe' → 'chrome'.
-       옛 판본에서 창 제목이 label 로 저장된 사람도 여기서 같은 이름으로 보인다.
-       (서버에 저장된 cfg 는 안 건드린다. 판정은 key 로만 하므로 표시만 맞추면 된다) */
-    const k0 = (_chalKeysOf(c)[0] || '');
-    /* 🍎 [2026-09-30] mac 키는 이제 번들 id(`mac:com.google.chrome`)라 키에서 뽑으면 사람이 못 읽는다.
-         mac 은 고를 때 함께 저장한 표시 이름(cfg.label = 'Google Chrome')을 먼저 쓴다.
-         옛 키(`google chrome.app`)는 label 이 없을 때만 키에서 뽑고 `.app` 을 뗀다. win 은 그대로다. */
-    const shown = k0
-      ? ((/^mac:/.test(k0) && c.label) ? String(c.label) : k0.replace(/^[a-z]+:/, '').replace(/\.(exe|app)$/i, ''))
-      : (c.label || '');
-    if(app) app.textContent = shown || '아직 안 골랐어요';
+    const k0 = (_chalPickedKeys(c)[0] || '');
+    const shown = _chalKeyName(k0, c.label);
+    if(app) app.textContent = (shown || _chalIsAll(c)) ? _chalFocusName(c, shown) : '아직 안 골랐어요';
     _chalPutNum(hrs, c.hours, force);
     /* ★ 다른 플랫폼에서 등록한 조건이면 **말해 준다.** 여기서 침묵하면 시간이 0초씩 쌓이다 마는데
          에러도 안 나서, 사용자는 달성표가 고장 난 줄로만 안다(이 작업이 없애려던 증상 그대로). */
-    const foreign = !!(k0 && _chalKeyPlatform && k0.split(':')[0] !== _chalKeyPlatform);
+    const foreign = !!(k0 && !_chalIsAll(c) && _chalKeyPlatform && k0.split(':')[0] !== _chalKeyPlatform);
     if(hint) hint.textContent = foreign
       ? '이 조건은 다른 기기(' + k0.split(':')[0] + ')에서 등록한 거예요. 여기서는 셀 수 없으니 앱을 다시 골라 주세요.'
-      : '다음 날 오전 6시가 되기 전까지 ' + (c.hours|0) + '시간을 채워 달성하세요!';
+      : '다음 날 오전 6시가 되기 전까지 ' + (c.hours|0) + '시간을 채워 달성하세요!'
+        + (_chalIsAll(c) ? ' 나중에 설정(F1)에 넣은 프로그램도 같이 재요.' : (_chalPickedKeys(c).length > 1 ? ' 고른 프로그램 시간을 합쳐서 재요.' : ''));
   }else if(k === 'repeat'){
     const tx = _chalEl('chalRepeatText'), tm = _chalEl('chalRepeatTimes'), gp = _chalEl('chalRepeatGap'), hint = _chalEl('chalRepeatHint');
     if(tx && document.activeElement !== tx) tx.value = c.text || '';
@@ -1065,49 +1126,39 @@ function _chalRenderRuleList(){
   on('chalAutoChk', ()=>{ if(!_chalDraft) return; _chalDraft.auto = !_chalDraft.auto; _chalRenderSetup(); });
   on('chalBackBtn', ()=>{ _chalDraft = null; _chalRender(); _chalOpen(true); });
 
-  // 🎯집중 — 앱 고르기. 목록은 companion 이 들고 있다(포커싱 어플 슬롯).
-  on('chalFocusPick', async ()=>{
-    const box = _chalEl('chalFocusList'); if(!box || !_chalDraft) return;
-    if(box.style.display === 'block'){ box.style.display = 'none'; return; }
-    const list = await _chalRefreshFocusApps();
-    box.style.display = 'block';
-    box.innerHTML = list.length
-      ? list.map(a => {
-          /* ★ **F1 설정과 같은 문법**으로 보여준다 — 굵은 글씨는 `.exe` 를 뗀 실행파일 이름,
-               그 아래 작은 글씨가 창 제목이다(설정의 슬롯 표시도, 창 목록 고르기도 그렇다).
-             ⚠️ 예전엔 창 제목을 주 이름으로 썼다. 창 제목에는 열어 둔 문서 이름이 붙어 그때그때
-               바뀌므로, 같은 앱이 설정에서와 다른 이름으로 보였다 —
-               "이름이 이상해서 딴 프로그램인 줄 알았다"는 제보가 여기서 나왔다. */
-          const label = String(a.name || '').replace(/\.exe$/i, '');
-          /* 지역 헬퍼 `attr` 을 지우고 escHtml 을 직접 쓴다 — 그 헬퍼는
-               `escHtml` + `"` 덧붙임이었는데 이제 escHtml 하나로 같은 일이 끝난다. */
-          return '<div class="li pick" data-key="' + escHtml(String(a.key || '')) + '" data-exe="' + escHtml(a.name) + '" data-label="' + escHtml(label) + '">'
-            + '<b>' + escHtml(label) + '</b>'
-            + (a.title ? '<span class="sub">' + escHtml(a.title) + '</span>' : '')
-            + '</div>';
-        }).join('')
+  // 🎯집중 — 앱 고르기(여러 개 · 전체). 목록은 companion 이 들고 있다(포커싱 어플 슬롯).
+  /* ⚠️ 슬롯 **번호**를 저장하면 안 된다. 다른 슬롯을 해제하면 뒤 슬롯이 앞으로 당겨져서
+     (main.js companion:clearFocusApp) 감시 대상이 조용히 다른 앱으로 바뀐다. 판정 키로 잡는다.
+     ★ 이름은 F1 설정과 같게 `.exe` 를 뗀 실행파일 이름 — 창 제목은 문서 이름이 붙어 바뀌므로 줄에 안 쓰고 툴팁으로만. */
+  const _chalPickApps = (list) => list.map(a => {
+    const exe = String(a.name || '').toLowerCase();
+    return { key: String(a.key || '') || ('win:' + exe), exe: exe, label: String(a.name || '').replace(/\.exe$/i, ''), title: String(a.title || '') };
+  });
+  const _chalRenderFocusList = (box, apps) => {
+    const c = _chalDraft.cfg, keys = _chalPickedKeys(c), all = _chalIsAll(c);
+    const row = (cls, on, name, tip, attr) => '<div class="li one' + cls + '"' + attr + (tip ? ' title="' + escHtml(tip) + '"' : '') + '>'
+      + '<span class="ck">' + (on ? '✓' : '') + '</span><b>' + escHtml(name) + '</b></div>';
+    box.innerHTML = apps.length
+      ? row(' all', all, CHAL_ALL_LABEL, '등록한 프로그램을 모두 합쳐서 재요(나중에 등록한 것도)', ' data-all="1"')
+        + apps.map((a, i) => row(all ? ' dim' : '', all || keys.includes(a.key), a.label, a.title, ' data-i="' + i + '"')).join('')
       : '<div class="add" style="cursor:default;">⚙ 설정(F1)의 포커싱 어플에 프로그램을 먼저 등록해 주세요</div>';
-    box.querySelectorAll('[data-exe]').forEach(el => {
-      el.onclick = () => {
-        if(!_chalDraft) return;
-        /* ⚠️ 슬롯 **번호**를 저장하면 안 된다. 다른 슬롯을 해제하면 뒤 슬롯이 앞으로 당겨져서
-           (main.js companion:clearFocusApp) 감시 대상이 조용히 다른 앱으로 바뀐다. 판정 키로 잡는다. */
-        const exe = String(el.getAttribute('data-exe') || '').toLowerCase();
-        _chalDraft.cfg.key = String(el.getAttribute('data-key') || '') || ('win:' + exe);
-        /* ★ `exe` 는 이제 **판정에 안 쓴다** — 판정은 cfg.key 하나다(_chalKeysOf).
-           그런데도 계속 써 넣는 이유: chalRec 은 서버(Firebase)로 동기화돼서 **아직 옛 판본을
-           쓰는 기기**가 같은 기록을 읽는다. 거기서 cfg.exe 가 비면 그 기기의 달성이
-           조용히 0초로 멎는다 — 이 작업이 없애려는 바로 그 증상이다.
-           ⇒ key 에서 **파생되는 값**이지 두 번째 진실이 아니다. 새 코드는 이걸 읽지 않는다.
-           ⚠️ 옛 판본이 전부 사라지면 이 줄을 지울 것. 그때까지는 남는다. */
-        _chalDraft.cfg.exe = exe;
-        /* ⚠️ label 을 el.textContent 로 줍지 말 것 — 줄 안에 exe 이름(.sub)이 같이 들어 있어서
-           "메모장Memo" 처럼 붙은 이름이 저장된다. data-label 로 따로 받는다. */
-        _chalDraft.cfg.label = el.getAttribute('data-label') || _chalDraft.cfg.exe;
-        box.style.display = 'none';
-        _chalRenderSetup();
-      };
-    });
+  };
+  on('chalFocusPick', async ()=>{
+    const box = _chalEl('chalFocusList'), btn = _chalEl('chalFocusPick'); if(!box || !_chalDraft) return;
+    if(box.style.display === 'block'){ box.style.display = 'none'; if(btn) btn.textContent = '고르기'; return; }
+    const apps = _chalPickApps(await _chalRefreshFocusApps());
+    if(!_chalDraft) return;
+    box.style.display = 'block';
+    if(btn) btn.textContent = '접기';
+    _chalRenderFocusList(box, apps);
+    box.onclick = (e) => {
+      const el = e.target && e.target.closest && e.target.closest('.li.one');
+      if(!el || !_chalDraft) return;
+      if(el.getAttribute('data-all')) _chalSetAll(_chalDraft.cfg, !_chalIsAll(_chalDraft.cfg), apps, _chalDraft);
+      else _chalToggleApp(_chalDraft.cfg, apps[+el.getAttribute('data-i')]);
+      _chalRenderFocusList(box, apps);
+      _chalRenderSetup();
+    };
   });
   const spin = (id, get, set, lo, hi) => on(id, ()=>{ if(!_chalDraft) return; set(Math.max(lo, Math.min(hi, get() + (id.endsWith('Up') ? 1 : -1)))); _chalRenderSetup(true); });
   spin('chalFocusUp',      ()=>_chalDraft.cfg.hours|0, v=>_chalDraft.cfg.hours=v, 1, 12);
@@ -1156,7 +1207,7 @@ function _chalRenderRuleList(){
        여기서 한 번 더 맞춰 두면 hours=0 짜리 주가 서버로 올라가는 일이 없다. */
     if(k === 'focus')  c.hours = _chalClampNum(c.hours, 1, 12, 4);
     if(k === 'repeat'){ c.times = _chalClampNum(c.times, 1, 10, 3); c.gap = _chalClampNum(c.gap, 1, 8, 2); }
-    if(k === 'focus' && !c.exe){ try{ toast('잴 앱을 먼저 골라 주세요'); }catch(_){} return; }
+    if(k === 'focus' && !_chalIsAll(c) && !_chalPickedKeys(c).length){ try{ toast('잴 앱을 먼저 골라 주세요'); }catch(_){} return; }
     if(k === 'repeat' && !String(c.text || '').trim()){ try{ toast('지킬 일을 적어 주세요'); }catch(_){} return; }
     if(k === 'repeat') c.text = String(c.text).trim();
     if(k === 'rule'){
@@ -1229,7 +1280,7 @@ return {
   /* 화면 없이 검사하는 셈 · 상태 — sim-weekly-challenge.js */
   calc: { phaseOf:_chalPhaseOf, weekStr:_chalWeekStr, dayIdx:_chalDayIdx, ticketsFor:_chalTicketsFor,
           earlyKey:_chalEarlyKey, ruleItems:_chalRuleItems, rewardLine:_chalRewardLine, cfgLabel:_chalCfgLabel,
-          keysOf:_chalKeysOf, clampNum:_chalClampNum, todayMet:_chalTodayMet },
+          keysOf:_chalKeysOf, clampNum:_chalClampNum, todayMet:_chalTodayMet, focusName:_chalFocusName },
   tick: _chalTick,
   state: ()=>chalRec,
 };

@@ -5,6 +5,7 @@
    ・3절: 📋규칙 트랙 — 진행 화면 · 오늘 항목 체크 → 달성 · 3일째 선지급(서버 tag) · 두 번 안 줌
    ・4절: 정산 — 토요일 06:00 에 주중 트랙을 닫는다 · 남은 날 ✗ · 박제(arcWd) · 선지급분을 뺀 나머지 · 팝업 · 기록 보기
    ・5절: 🎯집중 · 🔁반복 — 판정 키 · 다른 플랫폼 조건은 안 셈 · keyAlt · 반복 알림 팝업 · 못 채우는 날 확정
+   ・5-2절: 🎯 여러 앱 · 포커싱 어플 전체 (B-1026-4) — 합쳐 세기 · 전체는 레벨과 같은 기준 · 고르기 화면(체크 · 전체 켜고 끄기) · 시작 · 옛 판본용 첫째 값 · 깨 보기
    ・6절: 로그아웃 지우기(resetMemory) · 서버 동기화(ts 최신 승 · 읽기 실패면 아무것도 안 함)
    ・7절: app.js 배선 — 정의는 모듈에만 · createWeeklyChallenge 는 원래 자리 · 부르는 곳은 weeklyChal.이름 · CHAL_KEY 는 app.js · html 순서 · 전역 이름
    [실행] weekly-challenge.js · app.js · pomodoro.js · desk-companion-prototype.html 이 있는 폴더에서.
@@ -284,6 +285,80 @@ await sec('── 5. 🎯집중 · 🔁반복', async () => {
   e = mkEnv({ now: late, appMode: 'run', rec: { ts: 1, phase: 'wd', week: wk, kind: 'repeat', cfg: { text: '물', times: 3, gap: 4 }, days: [-3, -3, 0, -1, -1], today: Object.assign(today(), { done: 1 }) } });
   W = e.mk(); W.tick(); await flush();
   chk(W.state().today.fail === true && W.state().days[2] === -2 && e.toasts.includes('오늘은 시간이 모자라요 — 내일 다시'), '오전 6시 전까지 못 채우면 그 자리에서 ✗ · 알림');
+});
+
+await sec('── 5-2. 🎯 여러 앱 · 포커싱 어플 전체 (B-1026-4)', async () => {
+  const now = at(2026, 10, 14, 10), wk = isoWeek(now);
+  const H = mkEnv({ now }).H;
+  const today = () => ({ date: H._focusDayStr(now), dateMs: now, sec: 0, done: 0, checks: {}, anchor: 0, fail: false });
+  const run = (cfg) => ({ ts: 1, phase: 'wd', week: wk, kind: 'focus', cfg: cfg, days: [-3, -3, 0, -1, -1], today: today() });
+  /* 여러 앱 — 고른 것끼리 합친다 */
+  let e = mkEnv({ now, rec: run({ keys: ['win:a.exe', 'win:b.exe'], labels: ['a', 'b'], key: 'win:a.exe', exe: 'a.exe', label: 'a', hours: 1 }) });
+  let W = e.mk(); W.setKeyPlatform('win');
+  W.focusTick({ key: 'win:a.exe' }, 2); W.focusTick({ key: 'win:b.exe' }, 3); W.focusTick({ key: 'win:c.exe', isFocusedAppRegistered: true }, 7);
+  chk(W.state().today.sec === 5, '여러 앱 — 고른 두 앱 시간을 합친다(2+3) · 안 고른 앱은 등록돼 있어도 안 센다');
+  W.tick(); await flush();
+  chk(/🎯 a 외 1개 · 하루 1시간/.test(e.els.chalToday.innerHTML), '진행 줄 — «첫째 외 n개»');
+  chk(W.calc.cfgLabel('focus', { keys: ['win:a.exe', 'win:b.exe', 'win:c.exe'], exe: 'a.exe', hours: 2 }) === '🎯 a 외 2개 2시간'
+    && W.calc.cfgLabel('focus', { key: 'win:a.exe', exe: 'a.exe', hours: 2 }) === '🎯 a 2시간', '조건 이름 — 여럿은 «외 n개» · 하나는 예전 그대로');
+  /* 전체 — 레벨과 같은 기준(main 이 알려 주는 «등록된 앱인가») · 다른 플랫폼 표식에 안 걸림 */
+  e = mkEnv({ now, rec: run({ all: true, keys: ['win:a.exe'], key: 'win:a.exe', exe: 'a.exe', label: 'a', hours: 1 }) });
+  W = e.mk(); W.setKeyPlatform('mac');
+  W.focusTick({ key: 'mac:com.new', isFocusedAppRegistered: true }, 4); W.focusTick({ key: 'win:a.exe', isFocusedAppRegistered: false }, 9);
+  chk(W.state().today.sec === 4, '★ 전체 — 등록된 앱이면 무엇이든(나중에 넣은 앱 · 다른 기기 키여도) · 등록 안 된 앱은 안 셈');
+  W.tick(); await flush();
+  chk(/🎯 포커싱 어플 전체 · 하루 1시간/.test(e.els.chalToday.innerHTML) && W.calc.focusName({ all: true }, 'x') === '포커싱 어플 전체', '진행 줄 — «포커싱 어플 전체»');
+  /* 고르기 화면 */
+  const apps = [{ key: 'win:a.exe', name: 'a.exe', title: 'A 창' }, { key: 'win:b.exe', name: 'b.exe', title: '' }, { key: 'win:c.exe', name: 'c.exe', title: '' }];
+  e = mkEnv({ now, focusApps: apps });
+  W = e.mk(); await flush();
+  await e.els.chalKindFocus.click(); await flush();
+  await e.els.chalFocusPick.click(); await flush();
+  const box = e.els.chalFocusList, pickRow = (attr, v) => { box.onclick({ target: target(attr, v) }); };
+  chk(box.style.display === 'block' && e.els.chalFocusPick.textContent === '접기' && (box.innerHTML.match(/class="li one/g) || []).length === 4
+    && /data-all="1"/.test(box.innerHTML) && /title="A 창"/.test(box.innerHTML) && !/class="sub"/.test(box.innerHTML), '펼치면 «전체» + 앱 셋 · 한 줄(창 제목은 툴팁) · 버튼은 «접기»');
+  pickRow('data-i', '1'); pickRow('data-i', '0');
+  chk((box.innerHTML.match(/✓/g) || []).length === 2 && e.els.chalFocusApp.textContent === 'b 외 1개', '두 개 체크 → 칸에 «b 외 1개»(고른 순서) · 목록은 열린 채');
+  pickRow('data-i', '1');
+  chk(e.els.chalFocusApp.textContent === 'a', '다시 누르면 뺀다 → «a»');
+  { e.els.chalStartBtn.click(); await flush(); const c1 = W.state().cfg || {};
+    chk(!('keys' in c1) && !('labels' in c1) && c1.key === 'win:a.exe' && c1.exe === 'a.exe' && c1.label === 'a', '★ 하나만 고르면 예전 모양(key · exe · label) — keys 를 안 쓴다(옛 판본 [수정]과 섞이지 않게)');
+    W.state().kind = ''; W.state().week = ''; await e.els.chalKindFocus.click(); await flush(); await e.els.chalFocusPick.click(); await flush(); pickRow('data-i', '0'); }
+  pickRow('data-all', '1');
+  chk(e.els.chalFocusApp.textContent === '포커싱 어플 전체' && (box.innerHTML.match(/li one dim/g) || []).length === 3 && /합쳐서|같이 재요/.test(e.els.chalFocusHint.textContent), '전체 켜기 — 앱 줄은 흐리게 · 안내 한 줄');
+  pickRow('data-i', '2');
+  chk(e.els.chalFocusApp.textContent === '포커싱 어플 전체', '  전체가 켜져 있으면 앱 줄은 안 바뀐다');
+  pickRow('data-all', '1');
+  chk(e.els.chalFocusApp.textContent === 'a', '전체 끄기 — 켜기 전 고르던 «a» 로 돌아온다');
+  pickRow('data-i', '2'); pickRow('data-all', '1');
+  e.els.chalStartBtn.click(); await flush();
+  const c = W.state().cfg || {};
+  chk(W.state().kind === 'focus' && c.all === true && JSON.stringify(c.keys) === '["win:a.exe","win:b.exe","win:c.exe"]' && c.key === 'win:a.exe' && c.exe === 'a.exe',
+    '★ 전체로 시작 — all · 옛 판본용 keys(그때 목록) · 첫째 key · exe');
+  /* 고른 게 없으면 시작 막기 */
+  e = mkEnv({ now, focusApps: apps }); W = e.mk(); await flush();
+  await e.els.chalKindFocus.click(); await flush();
+  await e.els.chalFocusPick.click(); await flush();
+  e.els.chalFocusList.onclick({ target: target('data-i', '0') }); e.els.chalFocusList.onclick({ target: target('data-i', '0') });
+  e.els.chalStartBtn.click(); await flush();
+  chk(W.state().kind === '' && e.toasts.includes('잴 앱을 먼저 골라 주세요'), '골랐다 다 빼면 [시작] 이 막힌다');
+  /* 옛 판본(0.13 이하)이 [수정]한 모양 — keys · all 은 그대로, key · exe · label 만 바뀜 → 바뀐 key 하나로 본다 */
+  const stale = { all: true, keys: ['win:a.exe', 'win:b.exe'], labels: ['a', 'b'], key: 'win:c.exe', exe: 'c.exe', label: 'c', hours: 1 };
+  e = mkEnv({ now, rec: run(stale) }); W = e.mk(); W.setKeyPlatform('win');
+  W.focusTick({ key: 'win:a.exe', isFocusedAppRegistered: true }, 5); W.focusTick({ key: 'win:c.exe', isFocusedAppRegistered: true }, 2);
+  W.tick(); await flush();
+  chk(W.state().today.sec === 2 && /🎯 c · 하루 1시간/.test(e.els.chalToday.innerHTML), '★ 옛 판본이 고친 조건 — 옛 기기가 고른 c 만 센다 · 이름도 «c»(전체 · 옛 keys 무시)');
+  const brokeS = MOD.replace('return _chalStale(c) ? [String(c.key)] : _chalKeysOf(c);', 'return _chalKeysOf(c);').replace('return !!(c && c.all && !_chalStale(c));', 'return !!(c && c.all);');
+  const eS = mkEnv({ now, rec: run(stale) }); vm.runInContext(brokeS, eS.ctx);
+  const WS = eS.mk(); WS.setKeyPlatform('win'); WS.focusTick({ key: 'win:a.exe', isFocusedAppRegistered: true }, 5); WS.focusTick({ key: 'win:c.exe', isFocusedAppRegistered: true }, 2);
+  chk(brokeS !== MOD && WS.state().today.sec !== 2, '  깨 보기 — 옛 판본 모양을 안 풀면 위 ★ 가 빨강(예전 a · 전체를 센다)');
+  /* 깨 보기 — 전체를 «등록된 앱인가» 대신 keys 로만 세면 나중에 넣은 앱을 못 센다 */
+  const broke = MOD.replace("if(_chalIsAll(c)){ if(state && state.isFocusedAppRegistered) _chalAddSec(dt); return; }", '');
+  chk(broke !== MOD, '  깨 보기 준비 — 전체 판정 줄을 찾았다');
+  const e2 = mkEnv({ now, rec: run({ all: true, keys: ['win:a.exe'], key: 'win:a.exe', exe: 'a.exe', hours: 1 }) });
+  vm.runInContext(broke, e2.ctx);
+  const W2 = e2.mk(); W2.setKeyPlatform('win'); W2.focusTick({ key: 'win:new.exe', isFocusedAppRegistered: true }, 4);
+  chk(W2.state().today.sec === 0, '  깨 보기 — 그 줄을 빼면 나중에 넣은 앱은 안 센다(위 ★ 가 빨강이 된다)');
 });
 
 await sec('── 6. 로그아웃 지우기 · 서버 동기화', async () => {
