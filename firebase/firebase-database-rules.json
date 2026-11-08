@@ -523,6 +523,20 @@
             ".validate": "!$date.matches(/^(null|undefined|NaN)$/) && !$date.beginsWith(' ') && !$date.endsWith(' ') && (newData.isNumber() && newData.val() >= 0 && newData.val() <= 100)"
           }
         },
+        "mallangSent": {
+          ".validate": "newData.hasChildren()",
+          ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
+          "$giftId": {
+            ".validate": "!$giftId.matches(/^(null|undefined|NaN)$/) && !$giftId.beginsWith(' ') && !$giftId.endsWith(' ') && newData.hasChildren(['to', 'src', 'ts'])",
+            "to": { ".validate": "newData.isString() && newData.val().matches(/^[uU][0-9a-zA-Z]{8,40}$/)" },
+            "toName": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "src": { ".validate": "newData.isString() && newData.val().length <= 1000 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')" },
+            "img": { ".validate": "newData.isString() && newData.val().length <= 1000 && newData.val().beginsWith('https://firebasestorage.googleapis.com/')" },
+            "ts": { ".validate": "newData.isNumber() && newData.val() > 0" },
+            "msg": { ".validate": "newData.isString() && newData.val().length <= 50" },
+            "$other": { ".validate": false }
+          }
+        },
         "mallangGiftSeen": {
           ".write": "(!root.child('userAuth/'+$userId).exists() || root.child('userAuth/'+$userId).val() === auth.uid) && (root.child('users/'+$userId+'/presence/ver').exists() || root.child('users/'+$userId+'/presence/online').val() !== true)",
           ".validate": "newData.isNumber()"

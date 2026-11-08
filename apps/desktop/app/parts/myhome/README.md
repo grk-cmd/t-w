@@ -229,3 +229,10 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 **함정** — Windows 는 `setBounds` 뒤 `'moved'` 가 안 온다. 창 좌상단(여백 포함)을 기억하면 같은 여백으로 다시 불릴 때(메뉴 누름) 옛 자리로 돌아간다 — 여백 없는 자리로 기억해야 `'moved'` 가 오든 안 오든 같다.
 
 검사: `checks/sim-mh-pad-pos.js` (함수 · 놓는 흐름 — `'moved'` 오는 OS · 안 오는 OS · 깨 보기).
+
+## `mallang-sent.js` — 🎁 보낸 말랑이 기록 규칙
+
+- **책임**: 보낸 선물 기록(`users/{내 코드}/mallangSent/{선물 id}` = `{ to, toName, src, img, ts, msg? }`)의 모양 씻기 · 최근 순서 · 30개 넘는 옛 기록 · 같은 친구에게 같은 그림을 보낸 적 있나. 순수 모듈(`window.TwMallangSent`).
+- **쓰는 곳**: `mallang.js`(선물 창 — 이미 보낸 그림에 «보냄» · 누르면 묻기 · 보낸 뒤 기록 + 옛 기록 지우기) · `myhome-inbox.js`(💝 선물함 탭 줄 «받은 선물 · 보낸 선물» 중 보낸 선물 목록).
+- **내놓는 것**: `SENT_MAX` · `record` · `list` · `overflow` · `lastTo`.
+- **함정**: `src` 는 내 말랑이 칸의 원래 그림 주소(같은 그림 가르기), `img` 는 보낸 사본(목록 그림) — 둘 다 Storage 주소만(서버 규칙과 짝). 기록은 선물을 보낸 **뒤** 남겨서 실패해도 알리지 않는다(«보냄» 표시만 빠진다). 0.14.0 전에 보낸 선물은 기록이 없다. 검사 `sim-mallang-sent.js`.

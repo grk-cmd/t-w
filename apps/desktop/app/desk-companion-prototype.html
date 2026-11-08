@@ -2351,6 +2351,18 @@
   .gift-cell:hover .gift-star, .gift-cell.star .gift-star{opacity:1;}
   .gift-cell.star .gift-star{color:var(--win-star);}
   /* 서브탭 줄 오른쪽 끝 — 격자 위에 줄을 따로 두면 목록이 한 줄 길어져 스크롤이 생긴다. */
+  /* 🎁 선물함 맨 위 «받은 선물 · 보낸 선물» · 보낸 선물 목록 */
+  .gift-sub{display:none;gap:3px;margin-left:6px;align-self:center;}
+  #mhFmTabs:has(.mh-ibx-tab.gift.on) .gift-sub{display:flex;}   /* 선물함 탭일 때만 */
+  .gift-sub button{font-family:var(--tw-font-legacy);font-size:10px;padding:1px 8px;cursor:pointer;color:var(--ink);background:var(--win-face-2);
+    border:1px solid var(--win-lo);border-radius:9px;}
+  .gift-sub button.on{background:var(--win-select-bg);border-color:var(--win-select);font-weight:bold;}
+  .gift-sent{display:flex;flex-direction:column;}
+  .gift-sent .gs-row{display:flex;gap:8px;align-items:center;padding:4px 4px;border-bottom:1px solid var(--win-lo);font-size:11px;}
+  .gift-sent .gs-row img,.gift-sent .gs-noimg{width:34px;height:34px;flex:none;object-fit:contain;background:#fff;border:1px solid var(--win-lo);}
+  .gift-sent .gs-mid{flex:1;min-width:0;}
+  .gift-sent .gs-mid b{display:block;}
+  .gift-sent .gs-mid span{display:block;color:var(--ink-soft);font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
   .gift-head{margin-left:auto;align-self:center;white-space:nowrap;font-size:10.5px;color:var(--ink-soft);}
   /* 선물함 확인창 — **#myHomeWin 안에** 붙는다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). */
   .mh-ask-ov{position:absolute;inset:0;z-index:40;display:flex;align-items:center;justify-content:center;
@@ -6030,6 +6042,7 @@
           <button class="mh-ibx-tab on" data-fm="req"  type="button">👋 받은 요청</button>
           <button class="mh-ibx-tab"    data-fm="sent" type="button">📤 보낸 요청</button>
           <button class="mh-ibx-tab gift" data-fm="gift" type="button">💝 선물함</button>
+          <span id="mhGiftSub" class="gift-sub"><button type="button" data-gs="got" class="on">받은 선물</button><button type="button" data-gs="sent">보낸 선물</button></span>
           <span id="mhGiftStat" class="gift-head"></span>   <!-- ⭐ n/20 · 보관 m/30 — 선물함 서브탭일 때만 채워진다 -->
         </div>
         <!-- 일괄 처리 바 — 받은 요청 서브탭에서 요청이 있을 때만 보인다(JS 가 .on 토글) -->
@@ -8631,6 +8644,7 @@
 <script src="parts/chat/chat-window.js"></script>   <!-- 💬 대화창 배선(닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 · 입력 · 이모티콘) — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatWindow.createChatWindow 로 만든다) -->
 <script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/shared/drag-scroll.js"></script>   <!-- 🖱 목록 끌어 움직이기 — myhome-inbox.js 보다 먼저 -->
+<script src="parts/myhome/mallang-sent.js"></script>   <!-- 🎁 보낸 말랑이 기록 규칙(순수) — mallang.js · myhome-inbox.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
 <script src="parts/status/playlist-sync.js"></script>   <!-- ☁️ 플레이리스트 기기 간 맞추기 규칙(순수) — app.js 보다 먼저(app.js 가 deps 로 playlist.js 에 넘긴다) -->
 <script src="parts/status/bgm-diag.js"></script>   <!-- 🔍 플레이리스트 소리 진단 줄 — app.js 보다 먼저(app.js 가 TwBgmDiag.createBgmDiag 로 만든다) -->

@@ -95,6 +95,7 @@ const KIND = {
   '/users/$userId/playlist/sets/$s/items/$i': 'other',
   '/users/$userId/emojis/$slot': 'other',
   '/users/$userId/chalPaidTags/$tag': 'other',
+  '/users/$userId/mallangSent/$giftId': 'other',   // 🎁 보낸 말랑이 — 받는 쪽 선물 id(push)
   '/users/$userId/themeCustom/$t': 'own',     // 👑 내 색 — 'default' · 'bubble' 둘만
   '/playlistIndex/$uid': 'user',
   '/mobileKeys/$userId': 'user',

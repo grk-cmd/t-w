@@ -383,14 +383,40 @@ function _bindExtLinks(root){
      이름으로 붙잡고 있으면 다른 칸에서 못 쓴다.
    ⚠️ 배지 확인 처리(_mallangSeenGifts)는 여기 없다. **선물함 서브탭을 눌렀을 때**만 부른다 —
      탭을 스치기만 해도 선물을 본 것으로 처리되면 안 되기 때문이다. */
+/* 🎁 선물함 탭 줄의 «받은 선물 · 보낸 선물»(#mhGiftSub — 선물함 탭일 때만 CSS 가 보인다). 고른 쪽은 창이 열려 있는 동안 기억한다 */
+let _giftSub = 'got';
+function _giftSubBar(listEl){
+  document.querySelectorAll('#mhGiftSub [data-gs]').forEach(b=>{
+    b.classList.toggle('on', b.dataset.gs === _giftSub);
+    b.onclick = (e)=>{ e.stopPropagation(); _giftSub = b.dataset.gs; renderGiftBox(listEl); };
+  });
+}
 function renderGiftBox(listEl){
   if(!listEl) return;
+  _giftSubBar(listEl);
   listEl.innerHTML = '<div class="mh-ibx-empty">불러오는 중…</div>';
+  if(_giftSub === 'sent'){ listEl.onclick = null; listEl.oncontextmenu = null; _giftStat(''); _sentPaint(listEl); return; }
   (async ()=>{
     let gifts = {};
     try{ if(getMyUserId() && window.firebaseAPI && firebaseAPI.getMallangGifts) gifts = await firebaseAPI.getMallangGifts(getMyUserId()) || {}; }catch(_){}
     _giftBoxPaint(listEl, gifts);
   })();
+}
+/* 🎁 보낸 선물 — 최근 30개(그림 · 받은 친구 · 보낸 때 · 메시지). 상태 · 마이홈 이동은 없다(요청) */
+async function _sentPaint(body){
+  const me = getMyUserId();
+  const raw = me ? await firebaseAPI.getMallangSent(me) : {};
+  if(_giftSub !== 'sent' || !body.isConnected || !document.querySelector('#mhFmTabs .mh-ibx-tab.gift.on')) return;   // 기다리는 사이 다른 칸 · 탭으로 옮겼다 — 덮지 않는다
+  if(raw === null){ body.innerHTML = '<div class="mh-ibx-empty">보낸 선물을 불러오지 못했어요<br><small>잠시 뒤 다시 열어 주세요</small></div>'; return; }
+  const rows = TwMallangSent.list(raw).slice(0, TwMallangSent.SENT_MAX);
+  _giftStat(rows.length ? '최근 '+rows.length+'개' : '');
+  if(!rows.length){ body.innerHTML = '<div class="mh-ibx-empty">🎁 아직 보낸 선물이 없어요<br><small>0.14.0 부터 보낸 말랑이가 여기에 남아요</small></div>'; return; }
+  body.innerHTML = '<div class="gift-sent">'+rows.map(r=>{
+    const pic = TwSafeHtml.safeUrl(r.img || r.src, 'image');
+    return '<div class="gs-row">'+(pic ? '<img src="'+escHtml(pic)+'" alt="" draggable="false">' : '<span class="gs-noimg"></span>')+
+      '<span class="gs-mid"><b>'+escHtml(r.toName || '친구')+'</b><span>'+escHtml(_inboxTimeStr(r.ts))+(r.msg ? ' · 💬 '+escHtml(r.msg) : '')+'</span></span></div>';
+  }).join('')+'</div>';
+  body.querySelectorAll('.gs-row img').forEach(im=>TwImgRetry.retryOnError(im));
 }
 /* 받아 둔 gifts 로 다시 그린다 — ⭐ 토글·삭제·다시 불러오기마다 서버에서 통째로 다시 받지 않으려고
    renderGiftBox 에서 떼어 냈다. */

@@ -96,11 +96,13 @@ function mkEnv(mallangSrc, retrySrc){
       getMallangImgs: async (id) => (id === 'me' ? MINE.map(url => ({ url, on: true })) : []),
       getMallangGifts: async (id) => gifts[id] || {},
       getMallangGiftCount: async () => 0,
+      getMallangSent: async () => ({}),   // 🎁 보낸 기록 — 선물 창이 같이 읽는다
     },
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = loadSafe();
   ctx.TwImgRetry = loadRetry(retrySrc);
+  ctx.TwMallangSent = require([__dirname, process.cwd()].flatMap(d => ['mallang-sent.js', 'parts/myhome/mallang-sent.js'].map(p => require('path').join(d, p))).find(p => require('fs').existsSync(p)));   // 🎁 보낸 기록 규칙 — 진짜 파일
   vm.createContext(ctx);
   vm.runInContext(mallangSrc, ctx, { filename: 'mallang.js' });
   return { ctx, imgs, byId, layer: () => byId.mlLayer };

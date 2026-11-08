@@ -1018,14 +1018,32 @@
     if(!mine.length){ toast('먼저 내 말랑이를 등록하세요'); return; }
     /* 하루 발송 횟수 + 상대 마이홈이 꽉 찼는지 — **둘을 나란히 부른다.**
        순서대로 기다리면 창이 뜨는 데 왕복이 두 번 걸린다. 서로 무관한 조회다. */
-    const [cnt, theirs] = await Promise.all([
+    const [cnt, theirs, sent] = await Promise.all([
       firebaseAPI.getMallangGiftCount(myId(), todayStr()).catch(()=>0),
       visibleGiftCount(friendId),
+      firebaseAPI.getMallangSent(myId()),   // 🎁 보낸 기록 — 이미 보낸 그림에 «보냄» · 다시 보낼 때 묻기(못 읽으면 null — 묻지 않고 보낸다)
     ]);
-    buildGiftPopup(friendId, friendName, mine, cnt, theirs);
+    buildGiftPopup(friendId, friendName, mine, cnt, theirs, sent);
   };
 
-  function buildGiftPopup(friendId, friendName, mine, sentToday, theirVisible){
+  /* 🎁 이미 보낸 그림 — 막지 않고 묻는다(요청) */
+  function _askAgain(pop, friendName, before, go){
+    const box = pop.querySelector('#mlGiftAgain'); if(!box) return;
+    const d = new Date(before.ts), when = (d.getMonth()+1)+'-'+String(d.getDate()).padStart(2,'0');
+    box.innerHTML = '<b>이미 보낸 말랑이예요</b><br>'+esc(friendName||'친구')+' 님에게 '+esc(when)+' 에 보냈어요. 그래도 또 보낼까요?'+
+      '<div class="ml-again-btns"><button type="button" data-a="no">취소</button><button type="button" data-a="go"><b>또 보내기</b></button></div>';
+    box.style.display = 'block';
+    box.querySelector('[data-a="no"]').onclick = ()=>{ box.style.display = 'none'; };
+    box.querySelector('[data-a="go"]').onclick = ()=>{ box.style.display = 'none'; go(); };
+  }
+  /* 보낸 기록 — 선물은 이미 갔으니 실패해도 알리지 않는다(다음 «보냄» 표시만 빠진다) · 30개 넘는 옛 기록은 같이 지운다 */
+  function _recordSent(friendId, friendName, src, r, msg, sent){
+    const rec = TwMallangSent.record({ to: friendId, toName: friendName, src, img: r.imgUrl, ts: Date.now(), msg });
+    if(!rec || !r.giftId) return;
+    const all = Object.assign({}, sent || {}, { [r.giftId]: rec });
+    firebaseAPI.addMallangSent(myId(), r.giftId, rec, TwMallangSent.overflow(all));
+  }
+  function buildGiftPopup(friendId, friendName, mine, sentToday, theirVisible, sent){
     const win = homeWin(); if(!win) return;
     let pop = document.getElementById('mlGift');
     if(pop) pop.remove();
@@ -1043,6 +1061,7 @@
       '<div class="ml-hd"><span>🎁 '+esc(friendName||'친구')+'에게 말랑이 선물</span><span class="x" id="mlGiftClose">×</span></div>'+
       '<div class="ml-bd">'+note+
       '<div id="mlGiftGrid"></div>'+
+      '<div class="ml-again" id="mlGiftAgain" style="display:none;"></div>'+
       '<div class="ml-msgrow"><label>함께 보낼 메시지 (선택)</label>'+
       '<input id="mlGiftMsg" type="text" maxlength="'+MSG_MAX+'" placeholder="비워두면 말풍선이 뜨지 않아요">'+
       '<div class="ml-msgcnt"><span id="mlGiftMsgCnt">0</span> / '+MSG_MAX+'</div></div>'+
@@ -1058,7 +1077,11 @@
       const cell = document.createElement('div'); cell.className='ml-gcell';
       const gsrc = TwSafeHtml.safeUrl(item.url, 'image');
       if(gsrc){ const gim = TwImgRetry.retryOnError(document.createElement('img')); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
+      const before = TwMallangSent.lastTo(sent, friendId, item.url);
+      if(before){ const mk = document.createElement('i'); mk.className = 'ml-sent'; mk.textContent = '보냄'; cell.appendChild(mk); }
+      let again = false;   // 이미 보낸 그림 — 한 번 물은 뒤 [또 보내기] 를 눌렀다
       cell.addEventListener('click', async ()=>{
+        if(before && !again && !full && remain > 0){ _askAgain(pop, friendName, before, ()=>{ again = true; cell.click(); }); return; }
         /* ⚠️ 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다.
            보내기 직전에 한 번 더 본다(로컬 판정이라 왕복은 없다). */
         if(full){ toast('🎁 상대 마이홈이 가득 찼어요 ('+GIFT_SEND_CAP+'마리)'); return; }
@@ -1067,7 +1090,7 @@
         const myName = getDisplayName();
         const msg = msgInp ? msgInp.value.trim().slice(0, MSG_MAX) : '';
         const r = await firebaseAPI.sendMallangGift(myId(), myName, friendId, item.url, todayStr(), msg);
-        if(r&&r.ok){ toast('🎁 '+(friendName||'친구')+'에게 말랑이를 보냈어요!'); pop.remove(); }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
+        if(r&&r.ok){ toast('🎁 '+(friendName||'친구')+'에게 말랑이를 보냈어요!'); pop.remove(); _recordSent(friendId, friendName, item.url, r, msg, sent); }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
         else { cell.style.pointerEvents=''; cell.style.opacity=''; toast((r&&r.reason)||'전송 실패'); }
       });
       grid.appendChild(cell);
@@ -1095,6 +1118,14 @@
         display:flex;align-items:center;justify-content:center;overflow:hidden;cursor:pointer;}
       #mlGiftGrid .ml-gcell:hover{outline:2px solid #1084d0;}
       #mlGiftGrid .ml-gcell img{max-width:100%;max-height:100%;}
+      /* 🎁 이미 이 친구에게 보낸 그림 — 칸 구석 «보냄» · 누르면 아래 «또 보낼까요?» */
+      #mlGiftGrid .ml-gcell{position:relative;}
+      #mlGiftGrid .ml-sent{position:absolute;right:2px;bottom:2px;font-style:normal;font-size:9px;padding:0 3px;color:#7a2718;background:#fbe6de;border:1px solid #d9a99a;}
+      #mlGift .ml-again{margin-top:8px;font-size:10.5px;line-height:1.5;color:#333;background:#fffbe8;padding:6px;
+        border:1px solid;border-color:#808080 #fff #fff #808080;}
+      #mlGift .ml-again-btns{display:flex;gap:6px;margin-top:6px;}
+      #mlGift .ml-again-btns button{flex:1;font-family:var(--tw-font-legacy);font-size:11px;padding:2px 0;cursor:pointer;background:#c0c0c0;
+        border:2px solid;border-color:#fff #000 #000 #fff;}
       #mlGift .ml-msgrow{margin-top:9px;}
       #mlGift .ml-msgrow label{display:block;font-size:10.5px;color:#333;margin-bottom:3px;}
       #mlGift .ml-msgrow input{width:100%;box-sizing:border-box;font-family:var(--tw-font-legacy);font-size:11px;padding:3px 4px;
