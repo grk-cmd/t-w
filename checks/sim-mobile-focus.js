@@ -211,7 +211,7 @@ say('── 6. 화면');
   if(HOST){
     chk(/location\.hash/.test(HOST) && !/location\.search/.test(HOST), '안내 페이지 — # 뒤에서 읽는다');
     chk(/'\.sv': 'timestamp'/.test(HOST) && /method:'PUT'/.test(HOST) && /\/mobileLink\/' \+ U \+ '\/state\.json'/.test(HOST), '  REST PUT · 서버 시각');
-    chk(/신호 보내 보기/.test(HOST) && /✓ PC에 신호가 갔어요/.test(HOST) && /iPhone·iPad/.test(HOST) && /갤럭시/.test(HOST), '  시안 ④ 문구(탭 · 테스트 · 결과)');
+    chk(/신호 보내 보기/.test(HOST) && /✓ PC에 신호가 갔어요/.test(HOST) && /iPhone·iPad/.test(HOST) && /role="tab">안드로이드</.test(HOST), '  시안 ④ 문구(탭 · 테스트 · 결과)');
   } else say('  · hosting/help/link.html 을 못 찾음 — 안내 페이지 판정 건너뜀');
 }
 
