@@ -2,7 +2,7 @@
    ・1절: 규칙(font-choice.js) — 저장값 씻기 · PC 글꼴 이름 씻기(CSS 글자를 깨지 못하게) · 값 → 글꼴 목록(없는 PC 는 기본으로 떨어짐) · 깨 보기
    ・2절: 걸기(font-ui.js) — 창 글씨 토큰 둘만(머리 위 --tw-font-classic 은 안 건드림) · 기본이면 걷는다 · PC 글꼴은 프리미엄만(끝나면 기본 · 값은 남김) · 열린 자식 창 다시 옮김
    ・3절: 설정 칸 — 세 줄 + 고른 PC 글꼴 줄(✕) · 누르면 저장 · 프리미엄 아니면 잠금 안내 · PC 글꼴 상자(목록 · 찾기 · 고르기 · 못 읽으면 E-SYS-03 · 이름 직접 쓰기)
-   ・4절: 배선 — html 싣는 순서 · app.js 가 테마 뒤에서 만들고 바로 건다 · 프리미엄이 바뀌면 초대 게이트 한 곳에서 다시
+   ・4절: 배선 — html 싣는 순서 · app.js 가 테마 뒤에서 만들고 바로 건다 · 프리미엄이 바뀌면 초대 게이트 한 곳에서 다시 · 자식 창으로 옮기는 토큰에 글꼴 토큰 둘
    [실행] node checks/run.js font-choice */
 'use strict';
 const fs = require('fs');
@@ -109,6 +109,16 @@ say('── 4. 배선');
   const iTheme = SRC.app.indexOf('themeUiMod.bindThemeUI();'), iFont = SRC.app.indexOf('TwFontUi.createFontUi(');
   chk(iTheme > 0 && iFont > iTheme && /fontUiMod\.apply\(\); fontUiMod\.bind\(\);/.test(SRC.app), 'app.js — 테마 바로 뒤에서 만들고 파싱 즉시 건다');
   chk(/try\{ refreshFont\(\); \}catch\(_\)\{\}/.test(SRC.gate) && /refreshFont: \(\.\.\.a\)=>fontUiMod\.premiumChanged\(\.\.\.a\)/.test(SRC.app), '프리미엄이 바뀌면 초대 게이트 한 곳에서 다시 그린다');
+  { /* 글꼴 고르기가 바꾸는 토큰은 열린 방명록 · 디자인 창에도 옮겨야 한다 — 자식 창 목록(THEME_CHILD_TOKENS)을 실제 배열로 읽어 본다 */
+    const TU = read(['theme-ui.js', 'parts/shared/theme-ui.js']) || '';
+    const m = TU.match(/const THEME_CHILD_TOKENS = (\[[\s\S]*?\]);/);
+    let list = []; try{ list = m ? new Function('return ' + m[1])() : []; }catch(_){}
+    const miss = FC.TOKENS.filter(t => !list.includes(t));
+    chk(list.length > 0 && !miss.length, '★ 자식 창(방명록 · 디자인)으로 옮기는 토큰에 창 글씨 토큰 둘이 다 있다' + (miss.length ? ' — 빠짐: ' + miss.join(' · ') : ''));
+    const mb = TU.replace("'--tw-font-legacy',", '').match(/const THEME_CHILD_TOKENS = (\[[\s\S]*?\]);/);
+    let bl = []; try{ bl = mb ? new Function('return ' + mb[1])() : []; }catch(_){}
+    chk(bl.length > 0 && FC.TOKENS.some(t => !bl.includes(t)), '  깨 보기 — 목록에서 --tw-font-legacy 를 빼면 위 ★ 가 빨강');
+  }
   chk(/id="fontPickRow"/.test(SRC.html) && /id="fontPcBox"/.test(SRC.html) && /id="fontPcLock"/.test(SRC.html), '설정 › 모니터 — 글꼴 칸 · 상자 · 잠금 안내');
 }
 
