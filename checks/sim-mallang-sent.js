@@ -1,6 +1,6 @@
 /* ═══ 🎁 sim-mallang-sent.js — 보낸 말랑이 확인(B-1015-1) ═══════════════════════════════
    ・1절: 규칙(mallang-sent.js) — 기록 모양 씻기 · 최근 순서 · 30개 넘는 옛 기록 · 같은 친구에게 같은 그림을 보낸 적 · 깨 보기
-   ・2절: 서버 규칙 — users/$uid/mallangSent 는 주인만 · to · src · ts 가 있어야 · 그림 주소는 Firebase Storage 만 · 다른 칸 거절
+   ・2절: 서버 규칙 — users/$uid/mallangSent 는 주인만 · 규칙식을 실제로 굴려 앱이 만드는 기록은 통과 · 코드 모양 · Storage 밖 · 모르는 칸 · 길이 초과는 거절 · 깨 보기
    ・3절: 보내기 화면(mallang.js) — 보낸 기록을 같이 읽는다 · 이미 보낸 그림에 «보냄» · 누르면 묻고 [또 보내기] 뒤에 보낸다 · 보낸 뒤 기록 + 넘는 것 지우기
    ・4절: 💝 선물함 › 보낸 선물(myhome-inbox.js) — 맨 위 두 칸 · 최근 30개 · 받은 친구 · 메시지 · 못 읽음 · 빈 목록 · 남이 정한 글자는 씻는다
    [실행] node checks/run.js mallang-sent */
@@ -47,6 +47,28 @@ say('── 2. 서버 규칙');
     '주인만 쓰기 · to · src · ts 가 있어야 · to 는 친구 코드 모양');
   chk(['src', 'img'].every(k => /beginsWith\('https:\/\/firebasestorage\.googleapis\.com\/'\)/.test((g[k] || {})['.validate'] || '')) && /<= 20/.test((g.toName || {})['.validate'] || '')
     && /<= 50/.test((g.msg || {})['.validate'] || '') && (g.$other || {})['.validate'] === false, '그림 주소는 Storage 만 · 이름 20 · 메시지 50 · 다른 칸 거절');
+  /* ★ 규칙식을 실제로 굴린다 — 앱이 만드는 기록(record)이 통과하고, 거절돼야 할 것이 거절되는지(«규칙을 실제 모양으로 시험» — 같은 말랑이 경로에서 난 사고) */
+  const toJs = (src) => String(src || 'false')
+    .replace(/\$giftId\.matches\(/g, 'RX(k, ').replace(/\$giftId\.beginsWith\(/g, 'k.startsWith(').replace(/\$giftId\.endsWith\(/g, 'k.endsWith(')
+    .replace(/newData\.hasChildren\((\[[^\]]*\])\)/g, '$1.every(c => v && typeof v === "object" && c in v)')
+    .replace(/newData\.isString\(\)/g, "(typeof v === 'string')").replace(/newData\.isNumber\(\)/g, "(typeof v === 'number')")
+    .replace(/newData\.val\(\)\.matches\(/g, 'RX(v, ').replace(/newData\.val\(\)\.beginsWith\(/g, 'v.startsWith(').replace(/newData\.val\(\)/g, 'v');
+  const fnOf = (src) => { const f = new Function('RX', 'k', 'v', 'return (' + toJs(src) + ');'); return (k, v) => { try{ return !!f((x, re) => re.test(x), k, v); }catch(_){ return false; } }; };
+  const rulePass = (rules, id, rec) => {
+    const gg = rules.$giftId || {};
+    if(!fnOf(gg['.validate'])(id, rec)) return false;
+    return Object.keys(rec).every(c => (c in gg && c !== '$other') ? fnOf(gg[c]['.validate'])(id, rec[c]) : ((gg.$other || {})['.validate'] !== false));
+  };
+  const longest = MS.record({ to: U, toName: '가'.repeat(30), src: ST + 'a', img: ST + 'g', ts: Date.now(), msg: '나'.repeat(80) });
+  const bare = MS.record({ to: U, src: ST + 'a', ts: 1 });
+  chk(rulePass(R, '-Nabc_1', longest) && rulePass(R, '-Nabc_2', bare), '★ 앱이 만드는 기록은 규칙을 통과한다(이름 20 · 메시지 50 경계 · 그림 · 이름 없는 기록)');
+  const bad = [['친구 코드 모양 틀림', { to: 'evil', src: ST + 'a', ts: 1 }], ['Storage 밖 그림', { to: U, src: 'https://evil.com/a', ts: 1 }],
+    ['모르는 칸', { to: U, src: ST + 'a', ts: 1, x: 1 }], ['시각 0', { to: U, src: ST + 'a', ts: 0 }], ['src 없음', { to: U, ts: 1 }],
+    ['이름 21자', { to: U, src: ST + 'a', ts: 1, toName: 'x'.repeat(21) }], ['메시지 51자', { to: U, src: ST + 'a', ts: 1, msg: 'x'.repeat(51) }]];
+  const leaked = bad.filter(([, r]) => rulePass(R, '-Nabc_3', r)).map(([n]) => n);
+  chk(!leaked.length && !rulePass(R, 'null', bare) && !rulePass(R, ' x', bare), '거절 — 코드 모양 · Storage 밖 · 모르는 칸 · 시각 0 · src 없음 · 길이 초과 · 사고 키' + (leaked.length ? ' — 통과해 버림: ' + leaked.join(', ') : ''));
+  { const R2 = JSON.parse(JSON.stringify(R)); delete R2.$giftId.$other;
+    chk(rulePass(R2, '-Nabc_4', { to: U, src: ST + 'a', ts: 1, x: 1 }), '  깨 보기 — 규칙에서 «다른 칸 거절» 을 빼면 모르는 칸이 통과한다(위 거절 줄이 빨강)'); }
   chk(/getMallangSent: \(uid\) => get\(ref\(db, `users\/\$\{uid\}\/mallangSent`\)\)/.test(SRC.fb) && /addMallangSent: \(uid, giftId, rec, dropIds\) => update\(ref\(db, `users\/\$\{uid\}\/mallangSent`\)/.test(SRC.fb)
     && /return \{ ok:true, giftId, imgUrl:snapUrl \};/.test(SRC.fb), '서버 함수 — 읽기(못 읽으면 null) · 쓰기와 옛 기록 지우기를 한 번에 · 보내기가 선물 id · 사본 주소를 돌려준다');
 }

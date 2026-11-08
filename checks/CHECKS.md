@@ -350,7 +350,7 @@
 | **sim-theme-ui.js** | 97 | **d3399b8ebf28** |
 | **sim-theme-custom.js** | 186 | **dee5871e332f** |
 | **sim-font-choice.js** | 117 | **c600e43be305** |
-| **sim-mallang-sent.js** | 143 | **320b71c6a225** |
+| **sim-mallang-sent.js** | 165 | **337805afdbcc** |
 | **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** |
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** |
 | **sim-myhome-visit.js** | 96 | **d3c872803c16** |
