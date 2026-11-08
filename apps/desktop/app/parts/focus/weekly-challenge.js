@@ -528,7 +528,7 @@ function _chalAddSec(dt){
    key · exe · label 은 첫째 앱 값으로 같이 쓴다(옛 판본 기기가 cfg.exe · key 하나만 읽는다).
    전체(cfg.all)는 판정에 keys 를 안 쓰지만, 고른 그때 목록을 keys 에 적어 둔다 — 옛 판본은 그 목록으로 센다.
    하나만 고르면 keys · labels 를 안 쓴다(예전 모양) — 옛 판본 [수정]은 key 만 바꾸고 keys 는 그대로 두기 때문이다.
-   ⚠️ 그래도 옛 판본이 여럿 · 전체 조건을 [수정]하면 { keys:[a,b], key:c } 가 된다. keys[0] 과 key 가 다르면
+   ⚠️ 그래도 옛 판본이 여럿 · 전체 조건을 [수정]하면 keys 는 a · b 그대로, key 만 c 가 된다. keys[0] 과 key 가 다르면
      옛 판본이 고친 것으로 보고 key 하나만 본다(_chalKeysOf 는 main.js 짝이라 손대지 않고 여기서 푼다). */
 const CHAL_ALL_LABEL = '포커싱 어플 전체';
 function _chalStale(c){ return !!(c && Array.isArray(c.keys) && c.key && c.keys[0] !== c.key); }
