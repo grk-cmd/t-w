@@ -368,6 +368,8 @@ PRELOAD.push('chat-window.js');
 PRELOAD.push('drag-scroll.js');
 /* input-diag.js — 🩺 한글 조합 끊김 진단. app.js 맨 앞에서 만들어 document 에 건다. */
 PRELOAD.push('input-diag.js');
+/* gpu-timer.js — 🩺 한 장에 그래픽 칩 · JS 시간. app.js 가 프레임 예산 옆에서 만든다. */
+PRELOAD.push('gpu-timer.js');
 /* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');

@@ -8709,6 +8709,9 @@ const _FB = FrameBudget;
 const _frameBudget = _FB ? _FB.createFrameBudget({ now: ()=>performance.now() }) : null;
 /* 🐢 «자동» 화질 — 그린 장 수가 상한에 한참 못 미치는 게 이어지면 배율을 1 로(이번 실행만 · 진단 로그에 한 줄) */
 const _runSlowWatch = FrameBudget.createSlowWatch();
+/* 🩺 한 장에 그래픽 칩 · JS 가 쓴 시간 — 1분 [프레임] 줄 꼬리(shared/gpu-timer.js · 노트북 블루스크린 · 버벅임 제보) */
+const _gpuTimer = TwGpuTimer.createGpuTimer(renderer.getContext(), renderer.capabilities.isWebGL2);
+const _frameJsStats = TwGpuTimer.createStats();
 function _lowerRunQuality(){
   _runLowered = true;
   seatCameraMod.updateCameraOnly();
@@ -8797,10 +8800,12 @@ try{
     if(!_frameBudget) return;
     const t = performance.now();
     const m = _frameBudget.takeMinute(t);
+    const cost = { gpu: _gpuTimer.take(), js: _frameJsStats.take() };   // 실행 화면이 아니어도 1분마다 비운다
     if(!document.body.classList.contains('runmode')) return;
     if(!(window.companion && companion.diagNote)) return;
     m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
-    companion.diagNote(_FB.diagLine(m));
+    cost.calls = renderer.info.render.calls; cost.casters = TwGpuTimer.countCasters(scene);
+    companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suffix(cost));
   }, 60000);
 }catch(_){}
 function frame(now, manual){
@@ -8813,6 +8818,8 @@ function frame(now, manual){
     if(!manual) requestAnimationFrame(frame);
     return;
   }
+  const _frameT0 = performance.now();
+  _gpuTimer.poll();
   const dt=Math.min((now-prev)/1000,0.05);prev=now;
   overheadMod.beginLabelFrame();   // 라벨이 쓰는 캔버스 사각형을 이번 프레임에 한 번만 잰다(room/label-measure.js)
   updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
@@ -9048,9 +9055,10 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
   /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
-  if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
+  if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
+  _frameJsStats.add(performance.now() - _frameT0);
   if(!manual) requestAnimationFrame(frame);
 }
 
