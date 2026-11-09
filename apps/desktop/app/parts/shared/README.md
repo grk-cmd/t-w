@@ -190,7 +190,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `upload-cache.js` — 🗂️ 업로드 캐시 규칙 · 같은 그림 다시 안 올리기
 
 - **책임**: 업로드 캐시(`«종류:내용해시» → URL`)를 다루는 규칙 하나 — 넘칠 때 무엇을 버리나 · 쓴 것 표시 · 저장 때 사본 합치기 · 같은 업로드 한 번 · 올린 자리를 URL 로 바꿔 넣기. 읽기 · 쓰기(localStorage) · 업로드는 쓰는 모듈이 한다.
-- **쓰는 곳**: 얼굴 캐시 `room/room-sync.js`(`tw.roomFaceUrls` · `faceUploadCache`) · 슬롯 GLB 캐시 `character/slot-sync.js`(`tw.slotGlbUrls` · `glbUploadCache`) · 마이홈 저장 뒤 `myhome/myhome-edit.js`(`homeUploadCache.applyUrlSwaps`).
+- **쓰는 곳**: 얼굴 캐시 `room/room-sync.js`(`tw.roomFaceUrls` · `faceUploadCache`) · 슬롯 GLB 캐시 `character/slot-codec.js`(`tw.slotGlbUrls` · `glbUploadCache`) · 마이홈 저장 뒤 `myhome/myhome-edit.js`(`homeUploadCache.applyUrlSwaps`).
 - **만드는 법**: app.js 가 `const uploadCacheMod = TwUploadCache.createUploadCache();` 로 하나 만들어 위 세 모듈에 deps 로 넘긴다(받는 deps 없음 · 진행 중 업로드 표는 이 하나에 있다).
 - **내놓는 것**: `trim(st, max)` — 넘치면 옛 해시 → 섬네일 `THUMB_CACHE_MAX`(10) → 오래 안 쓴 것부터 버림(통째로 비우지 않는다) · `touch(st, key)` · `merge(stored, mine)` · `once(key, run)` · `applyUrlSwaps(obj, swaps)` · `FACE_CACHE_MAX`(100) · `GLB_CACHE_MAX`(40).
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
@@ -238,6 +238,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **내놓는 것**
 - `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).
+- `store.serverClosed(retry, onDismiss)` — realtime 서버가 점검(4006)으로 닫았다(`realtime/rt-status-ui.js` 가 부름). 점검 창에 [다시 시도] 를 더해 띄우고, 누르거나 `config/maintenance` 가 풀리면 `retry()` 한 번(자동 재시도 없음). 창이 떠 있는 동안 `on()` 도 참. «확인» 으로 닫으면 같은 `retry` 를 `onDismiss` 에도 넘긴다(띠 [다시 연결] · 점검 해제와 띠 중 먼저 온 쪽 한 번만) — ⚠️ 닫은 뒤에도 `on()` 이 참이면 이 실행의 오류 알림이 다 꺼진다.
 - 순수: `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
 
 **함정**
@@ -248,7 +249,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 점검 때 Firebase 를 잠그는 규칙도 `config/maintenance` **읽기는 열어 둬야** 한다 — 닫으면 구독이 끊겨 끝난 것을 모른다.
 - 창이 떠 있는 동안 관리자가 끝 시각 · 문구를 바꾸면 바로 다시 그린다.
 
-검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 7).
+검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 2-2절 realtime 점검 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 11).
 
 ## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
 
@@ -368,11 +369,20 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 최소 버전은 저장값을 쓰지 않는다(지난 값으로 막지 않게). 옛 판(평평한 칸)이 남긴 저장값은 판 표시가 없어 읽지 않는다. 칸 이름(`roomMaxPeople` 등)은 앱 안 이름이라 서버 이름과 다르다 — 풀기는 `fieldsOf` 한 곳.
 - 검사: `checks/sim-remote-config.js`.
 
+## `update-flow.js` — 🔄 켤 때 업데이트 흐름(업데이트 창 → 공지 창 → 로그인)
+
+- **책임**: 로그인보다 먼저(계정 없이) 최소 버전(`minVersion.app` — `GET /v1/config`)과 새 판(main.js electron-updater)을 보고 창을 띄운다. 강제(내 버전 < 최소)는 [업데이트] 만 · 닫기 없음 · 로그인으로 넘어가지 않음. 선택(새 판 있음)은 [업데이트] [나중에](버전만 보임). 그 뒤 안 본 업데이트 공지 창, 그 뒤 로그인. 아무것도 없으면 바로 로그인.
+- **만드는 법**: `TwUpdateFlow.createUpdateFlow({ readMin, getMin, onMinChange, getVersion, companion, ui: TwUpdateFlow.createUpdateDom(document), noticeOnce, showNotice })` — app.js 가 초대 게이트(`initInviteGate`) 앞에서 만든다. 오류 번호 없음(못 읽으면 막지 않고 넘어간다).
+- **내놓는 것**: `runBeforeLogin()`(→ `{ proceed, stage }` — 강제면 `proceed:false`) · `press(action)` · `whenStageDone(fn)`(런처 «재시작하면 업데이트» 띠를 단계가 끝난 뒤에 걸기) · `isForced()` · `current()` / 순수 함수 `parseVer` · `isBelow` · `stageOf(my, min, latest)` · `viewOf`.
+- **켜 둔 동안**: 원격 설정이 `minVersion` 이 바뀌었다고 알리면(`onMinChange` — 서버 신호) 바로 강제 창. 새 주기 요청은 없다. realtime 서버가 통신 판이 다르다고 닫으면(4003) `forceProtocol()` — 최소 버전 없이 «서버와 맞지 않아» 강제 창(`realtime/rt-status-ui.js` 가 부름).
+- **함정**: 새 판 확인은 main 이 혼자 3초 뒤 하지 않고 이 모듈이 켤 때 `companion.checkUpdate()` 로 묻는다(구독을 건 뒤라 답을 놓치지 않음). 답이 `UPDATE_WAIT_MS` 안에 없으면 «없음». 실패 뒤 혼자 되풀이하지 않고 강제 창 [다시 시도] 를 누를 때만 다시 묻는다. 맥은 자동 설치가 없어 [업데이트] 가 릴리스 주소를 연다.
+- 검사: `checks/sim-update-flow.js`.
+
 ## `account-store.js` — 🗂️ 계정별 로컬 칸(`tw.u.<계정코드>.<이름>`)
 
 - **책임**: 이 PC 에 남기는 값 중 «그 계정의 것» 을 계정별 칸에 둔다. 같은 PC 에서 계정을 바꾸면 다른 칸이 열릴 뿐이라 계정 전환 때 지우기 · 넘기기 판단이 없다(#582). 계정 데이터 자체는 0.13 부터 서버가 원본 — 여기는 PC 에 남는 값(미러 · 오늘치 · 마크 · 취향 · 캐시)만.
 - **만드는 법**: `const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });` (app.js `getMyUserId` 바로 뒤). 계정 코드는 **부를 때마다** `getAccountCode()` 로 읽는다 — 값으로 받으면 계정이 바뀐 뒤에도 옛 칸을 쓴다. 쓰는 모듈은 deps 로 받는다(`focusTotalStore` · `focusLevelStore`), 마이홈 바탕화면(`myhome-desktop.js`)은 app.js 의 전역 이름 `accountStoreMod` 를 `advStore` 로 받는다.
-- **내놓는 것**: `get(key)`(글자 또는 null) · `set(key, value)`(true / false) · `remove(key)`(true / false) · `migrateLegacy(code)` · 표 상수 `DEVICE_KEYS` · `ACCOUNT_KEYS` · `ACCOUNT_KEY_PREFIXES` · `MOVED_KEYS` · `isAccountKey`.
+- **내놓는 것**: `get(key)`(글자 또는 null) · `set(key, value)`(true / false) · `remove(key)`(true / false) · `open(code)` · `close()` · `migrateLegacy(code)` · 표 상수 `DEVICE_KEYS` · `ACCOUNT_KEYS` · `ACCOUNT_KEY_PREFIXES` · `MOVED_KEYS` · `isAccountKey`.
 - **로그인 전(코드 없음 · 모양 밖)**: 읽기 null · 쓰기 false · 지우기 false. PC 공용 칸으로 돌려 쓰면 그게 섞임의 뿌리다. 쓰는 쪽은 false 를 «저장 안 됨» 으로 본다(로그인 전엔 남길 계정 값이 없다).
 - **계정을 놓은 틈**: 로그아웃(wipe)이 `_acctDetached` 를 세운 뒤 재시작 전까지 `set` · `remove` 는 거절된다(코드가 바뀐 뒤에도 앱이 도는 동안 다른 계정 칸을 덮지 못하게 — 판단은 `isWriteLocked` 한 곳). 읽기는 된다. 틈을 통과하는 쓰기 길은 없다 — 0.13 은 로그인해야 쓰므로 «로그인 전 몫을 계정 칸으로 넘기기» 가 없다(옛 PC 칸의 값은 `migrateLegacy` 가 한 번만 옮긴다).
 - **기기 공용 키 · 모르는 키는 던진다** — 잘못 쓴 코드를 조용히 넘기지 않는다.
@@ -396,3 +406,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 | (b) 대화 | `chatTab.<…>` · `tw_chat_read:<방>` · `tw_chat_join:<방>` · IndexedDB 대화 기록(`chat/chat-history.js` — 지금 scope 가 프로젝트라 계정 구분 없음) | 채팅 묶음 — IDB scope 에 계정 코드를 넣거나 서버 3일 보관으로 걷는다 |
 
 - `ACCOUNT_LOCAL_KEYS`(`account/account.js`) 대조: 이번에 옮긴 포커스 누적 네 줄, 곧 그 목록의 `focusTotalSec` · `focusTodaySec` · `focusTodayDate` · `focusSyncedSec` 을 빼도 된다(계정 칸은 로그아웃해도 안 지우는 게 맞다 — 같은 계정이 돌아오면 이어진다). `advZ` 는 원래 목록에 없었다(그래서 바탕화면이 섞였다). 지우기 · 넘기기 로직을 걷는 것은 #580.
+
+## `session.js` — 🔐 로그인 세션 하나
+
+- **책임**: 로그인(계정 확인 통과)마다 세션을 새로 만들어, 그 로그인에 딸린 타이머 · 구독 · 비우기 훅 · 계정 칸 열림을 한 곳에 쥔다. 로그아웃 · 계정 바뀜은 `dispose()` 한 번 — 전부 멈추고 비운다. 다음 로그인은 새 세션이라 앞 세션의 것을 하나도 이어받지 않는다(껐다 켜지 않고 «앞 사람 것이 안 남는다» 를 장치로 지킨다).
+- **만드는 법**: `launcher/app-boot.js` 가 계정 확인 뒤 `deps.newSession(me)` 로 만들어 들고 있다(app.js 가 `TwSession.createSession({ me, openAccountStore, closeAccountStore, timers })` 를 넘긴다). 기능 모듈이 직접 만들지 않는다 — 시작 함수가 `(code, me, session)` 의 세 번째 인자로 받는다(**지금은 받아 쓰는 기능이 없다** — 모양만).
+- **내놓는 것**: `id`(세션 번호) · `code` · `me` · `alive()` · `openStore()`(계정 칸 열기 — 한 번만, 못 열면 false) · `setInterval(fn, ms)` / `setTimeout(fn, ms)`(손잡이, 끝난 세션이면 null) · `clearInterval(h)` / `clearTimeout(h)` · `on(unsub)`(구독 해제 함수 맡기기 — 돌려주는 함수로 먼저 풀 수도 있다) · `onReset(fn)`(메모리 비우기 훅) · `ifAlive(fn)`(끝난 뒤엔 안 부르고 undefined 를 돌려주는 래퍼 — 늦게 도착한 답 막이) · `dispose()` · `counts()`(남은 개수 — 검사 · 진단용).
+- **dispose**: 먼저 `alive` 를 내리고 → 타이머 clear → 구독 해제(나중에 등록한 것부터) → 비우기 훅(나중 것부터) → 계정 칸 닫기(열었을 때만). 하나가 던져도 나머지는 돈다(경고만). 두 번째부터는 아무 일 없이 false.
+- **끝난 뒤 등록**: 타이머는 거절(null), 구독 · 비우기 훅은 바로 한 번 풀고, 모두 콘솔 경고 — 늦은 콜백이 끝난 세션에 쌓이지 않는다.
+- **함정**: ① 올릴 것이 남았으면(서버 맞추기 · 검문) `dispose()` 전에 끝낸다 — 이 모듈은 올리지 않는다. ② 타이머 콜백은 `alive` 를 한 번 더 본다(clear 가 먹기 전에 이미 큐에 올라간 콜백도 막기 위해). ③ `await` 뒤에는 `session.alive()` 를 보거나 `ifAlive` 로 감싼다 — 세션 번호(`id`)를 값으로 쥐고 비교해도 된다. ④ 도메인 · 저장소를 모른다(deps 로만) — 계정 칸은 `account-store.js` 가 `open` / `close` 를 내놓는다.
+- 검사: `checks/sim-session.js`.

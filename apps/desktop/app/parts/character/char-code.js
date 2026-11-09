@@ -14,7 +14,6 @@
 function createCharCode(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
 const applyCharToSeat = deps.applyCharToSeat;
-const charsMod = deps.charsMod;
 const closeGearMenu = deps.closeGearMenu;
 const createSeat = deps.createSeat;
 const curSlot = deps.curSlot;   // 읽는 함수
@@ -24,6 +23,7 @@ const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
+const premiumKnown = deps.premiumKnown;   // 읽는 함수 — 서버가 프리미엄을 확인해 준 적이 있나(account-state.js)
 const layoutSeats = deps.layoutSeats;
 const loadCharGLB = deps.loadCharGLB;
 const overheadMod = deps.overheadMod;
@@ -63,6 +63,9 @@ document.getElementById('codeCancel').onclick=()=>document.getElementById('codeO
      (문구가 두 벌이 되면 다음 제보 때 또 어느 입구인지 못 가른다).
    forceSlot: [＋]로 칸이 확정된 경우 그 칸. null 이면 예전 규칙(현재 칸 → 없으면 첫 빈 칸)으로 고른다. */
 async function importCloneCode(v, p, forceSlot){
+  /* 서버가 프리미엄을 확인해 주기 전(모름)에는 불러오지 않는다 — 아래에서 «프리미엄 아님» 으로 읽으면 파츠를 지우고 저장해 되돌릴 수 없다.
+     코드 불러오기는 사용자가 누를 때만 도는 길이라(커미션 불러오기 commission-import.js 도 여기로 온다) 안내만 하고 일찍 끝낸다. */
+  if(!premiumKnown()){ toast('라이선스 확인 중이에요 — 잠시 뒤 다시 눌러 주세요'); return false; }
   if(!(window.crypto&&crypto.subtle)){toast('이 환경에선 암호화를 쓸 수 없어요 (로컬/앱에서 열어주세요)');return false;}
   /* 🔬 진단 — **이 한 줄이 제보를 못 풀게 하고 있었다.**
      decryptCode() 는 (1) 형식 판별 (2) base64 (3) AES 복호 (4) JSON (5) 얼굴 이미지 로드
@@ -130,9 +133,7 @@ async function importCloneCode(v, p, forceSlot){
   const _forced = (typeof forceSlot==='number' && forceSlot>=0 && forceSlot<CHAR_SLOT_MAX && !slots[forceSlot]) ? forceSlot : null;
   const target = (_forced!=null) ? _forced : (slots[curSlot()]?slots.findIndex(s=>!s):curSlot());
   if(target<0){toast('캐릭터가 모두 찼습니다');return false;}
-  if(typeof charsMod._charsBoxFull==='function' && charsMod._charsBoxFull()) return false;   // 🧬 보관함 20 문턱
   slots[target]=def;setCurSlot(target);
-  try{ if(typeof charsMod._charsOnNew==='function') charsMod._charsOnNew(target); }catch(_){}
   /* 🪑 [제보 2] 공유 코드에 실려 온 전용 책상·아이템을 **저장 전에** 접는다. 받는 쪽(decryptCode)에는
      라이선스 검사가 없어서 deskCatalogId·deskItems 가 그대로 들어온다 — 친구에게 코드를 받은
      미보유자가 전용 책상을 «착용한 것으로 전파되던» 가장 유력한 경로였다.

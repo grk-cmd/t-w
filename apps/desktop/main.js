@@ -231,12 +231,14 @@ function isNewerVersion(tag, cur){
   return false;
 }
 
-/* 맥: 최신 릴리즈 태그만 한 번 읽는다. 실패하면 조용히 넘어간다(안내가 없을 뿐, 앱은 그대로 돈다).
-   ⚠️ 주기적으로 다시 읽지 않는다 — 새 타이머를 만들면 그것대로 관리 대상이 하나 는다.
-     켤 때 한 번이면 «새 버전 나왔다» 를 알리기에 충분하다. */
+/* 맥: 최신 릴리즈 태그만 한 번 읽는다. 어떻게 끝나든 렌더러에 상태를 정확히 한 번 보낸다 —
+   새 판 있음 'mac-available' · 없음 'none' · 못 읽음 'error'(켤 때 업데이트 창이 답을 기다리므로 말없이 끝내면 시간 초과까지 로그인이 늦어진다).
+   앱은 그대로 돈다(안내가 없을 뿐). ⚠️ 주기적으로 다시 읽지 않는다 — 켤 때 한 번이면 «새 버전 나왔다» 를 알리기에 충분하다. */
 function checkMacUpdate(){
+  let sent = false;
+  const done = (status, extra) => { if(sent) return; sent = true; sendUpdateStatus(status, extra); };
   const info = githubRepoInfo();
-  if(!info) return;
+  if(!info){ done('error', { message: 'no repo info' }); return; }
   const opt = {
     host: 'api.github.com',
     path: `/repos/${info.owner}/${info.repo}/releases/latest`,
@@ -246,26 +248,29 @@ function checkMacUpdate(){
   let req;
   try{
     req = require('https').get(opt, (res) => {
-      if(res.statusCode !== 200){ res.resume(); return; }
+      if(res.statusCode !== 200){ res.resume(); done('error', { message: 'HTTP ' + res.statusCode }); return; }
       let body = '';
       res.setEncoding('utf8');
-      res.on('data', (c) => { body += c; if(body.length > 262144) req.destroy(); });
+      res.on('data', (c) => { body += c; if(body.length > 262144) req.destroy(new Error('too large')); });
+      res.on('error', (e) => done('error', { message: String(e && e.message || e) }));
+      res.on('close', () => done('error', { message: 'closed' }));   // 'end' 가 먼저 오면 이미 보냈으니 무시된다
       res.on('end', () => {
         try{
           const j = JSON.parse(body);
           const tag = j && (j.tag_name || j.name);
-          if(!tag || !isNewerVersion(tag, app.getVersion())) return;
+          if(!tag){ done('error', { message: 'no tag' }); return; }
+          if(!isNewerVersion(tag, app.getVersion())){ done('none'); return; }
           /* 주소도 응답에서 받은 것만 쓴다(직접 조립하지 않는다). https 가 아니면 안 보낸다 —
              렌더러는 이 값을 그대로 openBrowser 에 넘긴다. */
           const url = (j.html_url && /^https:\/\//i.test(j.html_url)) ? j.html_url : null;
-          if(!url) return;
-          sendUpdateStatus('mac-available', { version: String(tag).replace(/^v/i, ''), url });
-        }catch(_){}
+          if(!url){ done('none'); return; }
+          done('mac-available', { version: String(tag).replace(/^v/i, ''), url });
+        }catch(e){ done('error', { message: 'parse' }); }
       });
     });
-  }catch(_){ return; }
-  req.on('timeout', () => { try{ req.destroy(); }catch(_){} });
-  req.on('error', () => {});
+  }catch(e){ done('error', { message: 'request' }); return; }
+  req.on('timeout', () => { try{ req.destroy(new Error('timeout')); }catch(_){} });
+  req.on('error', (e) => done('error', { message: String(e && e.message || e) }));
 }
 
 /* 업데이트 확인의 **유일한 입구.** 플랫폼 갈래를 여기 한 곳에만 둔다 —
@@ -2617,15 +2622,13 @@ function createWindow() {
 
   startActiveWinPolling();
 
-  // 창이 뜨고 나서 업데이트 확인 시작 (초기 로딩과 겹치지 않게 살짝 지연).
-  // 개발 중(npm start)엔 electron-updater가 "패키징 안 된 앱"이라며 에러를 내는 게 정상이라 무시해도 됨 —
-  // 실제 설치된 exe에서만 정상 동작함.
+  // 업데이트 확인은 렌더러가 켤 때(로그인 전 — shared/update-flow.js) companion:checkUpdate 로 묻는다 — 창이 구독을 건 뒤라 답을 놓치지 않는다.
+  // 개발 중(npm start)엔 electron-updater가 "패키징 안 된 앱"이라며 에러를 내는 게 정상이라 무시해도 됨.
   // 🍎 맥은 autoUpdater 를 안 탄다 — 갈래는 startUpdateCheck() 안에 있다(위 주석).
-  setTimeout(() => { startUpdateCheck(); }, 3000);
 
   // 렌더러가 "지금 재시작해서 설치" 버튼을 눌렀을 때 — 다운로드 완료된 업데이트를 설치하며 앱 재시작
   ipcMain.on('companion:installUpdate', () => { autoUpdater.quitAndInstall(); });
-  // 앱 최소 버전 화면(app-version-gate.js)의 «다시 시도» — 처음 확인이 실패했을 때 한 번 더. 갈래는 startUpdateCheck 한 곳.
+  // 업데이트 흐름(update-flow.js)의 확인 · 강제 창 «다시 시도». 갈래는 startUpdateCheck 한 곳.
   ipcMain.on('companion:checkUpdate', () => { startUpdateCheck(); });
 
   // 광고 배너 클릭 등 — 시스템 기본 브라우저(크롬/웨일 등 사용자가 설정한 기본 브라우저)로 URL 열기.
@@ -3980,6 +3983,10 @@ if (!gotLock) {
     focusApps = loadFocusApps();   // ★ 이전에 등록해둔 포커싱 어플 복원
     _applyAppMenu();   // 기본 메뉴 걷기 — 창보다 먼저(APP_MENU_TEMPLATE 주석)
     createWindow();
+    /* 💤 절전 · 잠금에서 돌아옴 — 렌더러의 realtime 연결이 살아 있는지 한 번 확인한다(rt-hub checkAlive · 끊겼으면 다시 붙음) */
+    for(const ev of ['resume', 'unlock-screen']){
+      powerMonitor.on(ev, () => { if(mainWindow && !mainWindow.isDestroyed()) mainWindow.webContents.send('companion:wake', ev); });
+    }
     /* 🖥️ 화면 구성을 한 줄 남긴다 — createWindow 뒤에 부른다(그래야 오버레이가 어디에 뜨는지 함께 나온다).
        제보자마다 배율·화면 수를 물어보지 않아도 되게 하는 것이 목적이다. */
     overlay.logDisplayLayout();

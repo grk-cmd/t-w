@@ -333,6 +333,8 @@ const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 PRELOAD.push('safe-html.js');
 /* account-store.js — 🗂️ 계정별 로컬 칸(window.TwAccountStore). app.js 가 getMyUserId 바로 뒤에서 만들므로 그보다 먼저. */
 PRELOAD.push('account-store.js');
+/* session.js — 🔐 로그인 세션 하나(window.TwSession). app.js 가 app-boot 에 넘기는 newSession 이 부를 때 읽는다 — app-boot.js 보다 먼저. */
+PRELOAD.push('session.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
@@ -357,7 +359,7 @@ PRELOAD.push('pomodoro.js');
 PRELOAD.push('myhome-sticker-rules.js');
 PRELOAD.push('myhome-sticker.js');
 /* gacha.js — 🎰 파츠 가챠 코어 · 파츠 보관함(T) · 뽑기 창(앱 FSD 8번). 같은 까닭 — 만들 때 하는 일(보유분 · 보너스 읽기 · 부팅 동기화 4.2초 · 10분 tick · 창 버튼 · ESC · 바깥 클릭 연결)을 같이 굴린다. */
-PRELOAD.push('gacha-server.js');   // 🎰 가챠 서버 길 — app.js 가 만들 때 TwGachaServer 를 부른다
+PRELOAD.push('gacha-api.js');   // 🎰 가챠 서버 길 — app.js 가 만들 때 TwGachaApi 를 부른다
 PRELOAD.push('gacha.js');
 /* myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오 · 프리셋(앱 FSD 7-2). 같은 까닭 — 만들 때 하는 일(버튼 · 입력칸 연결 · window 고리 · BGM 창 구독)을 같이 굴린다. */
 PRELOAD.push('myhome-edit.js');
@@ -413,10 +415,8 @@ PRELOAD.push('admin-mode.js');
 PRELOAD.push('report.js', 'admin-report.js');
 /* my-info.js — 🪪 [내 정보] 화면 · 🏆 랭킹(앱 FSD 17번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyInfo 를 같이 굴린다. */
 PRELOAD.push('my-info.js');
-/* chars.js — 🧬 캐릭터 보관함(chars) — 병합 · 이관 · 조율(앱 FSD 18번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChars 를 같이 굴린다. */
-PRELOAD.push('chars.js');
-/* slot-sync.js — ☁️ 슬롯 기기 간 동기화 · 연동 UI(앱 FSD 19번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSlotSync 를 같이 굴린다. */
-PRELOAD.push('slot-sync.js');
+/* slot-codec.js · closet-api.js · closet.js — 🧬 옷장(서버 원본). 같은 까닭 — 만들 때 하는 일(없음)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
+PRELOAD.push('slot-codec.js', 'closet-api.js', 'closet.js');
 /* away-pic.js — 🫧 자리비움 그림(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAwayPic 를 같이 굴린다. */
 PRELOAD.push('away-pic.js');
 /* myhome-ui.js — 🏠 마이홈 창 버튼 연결(앱 FSD 22번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyHomeUi 를 같이 굴린다. */
@@ -443,6 +443,8 @@ PRELOAD.push('account-state.js');
 /* request-id.js · user-api.js · login-flow.js · first-run-013.js — 🔑 0.13 로그인 흐름. app.js 가 계정 핵심 상태 바로 뒤에서 createLoginFlow · createFirstRun 을 부르고
    게이트 · 계정 모듈에 TwUserApi.store · TwRequestId.createPending() 을 넘긴다(서버 통로 · realtime 은 부를 때 찾는다). */
 PRELOAD.push('request-id.js', 'user-api.js', 'login-flow.js', 'first-run-013.js', 'visit-ping.js');
+/* license-api.js · license-premium.js — 🔑 프리미엄 판정. app.js 가 계정 핵심 상태 · 초대 게이트 뒤에서 createLicensePremium 을 부르므로 그보다 먼저. */
+PRELOAD.push('license-api.js', 'license-premium.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
 PRELOAD.push('license-gate.js');
 /* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */
@@ -451,6 +453,10 @@ PRELOAD.push('account.js');
 PRELOAD.push('wardrobe.js');
 /* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
 PRELOAD.push('settings-panel.js');
+/* update-flow.js — 🔄 켤 때 업데이트 흐름. app.js 가 초대 게이트 앞에서 createUpdateFlow 를 만들고 desktop-run.js 가 whenStageDone 을 받으므로 먼저 싣는다. */
+PRELOAD.push('update-flow.js');
+/* rt-status-ui.js — 🛰 realtime 끊김 화면. app.js 가 업데이트 흐름 바로 뒤에서 createRtStatusUi 를 부르므로 먼저 싣는다. */
+PRELOAD.push('rt-status-ui.js');
 /* desktop-run.js — 🖥️ 데스크탑 실행 화면(앱 FSD 32번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDesktopRun 를 같이 굴린다. */
 /* click-through-policy.js — 클릭 통과 판단 규칙(순수 함수). desktop-run.js 가 deps.clickPolicy 로 받으므로 먼저 싣는다. */
 PRELOAD.push('click-through-policy.js');

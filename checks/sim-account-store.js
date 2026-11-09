@@ -201,6 +201,14 @@ async function judge(S){
     const closedB = s4.get('tw.focusTotalSec') === null && s4.set('tw.focusTotalSec', 2) === false && !Object.keys(st4.o).some((k) => k.includes(B));
     cr.v = A; const backA = s4.get('tw.focusTotalSec') === '1';
     console.warn = w4;
+    const st5 = mem(); const s5 = mk(st5, { v: A }, null, true); const w5 = console.warn; console.warn = () => {};
+    s5.open(A); s5.set('tw.focusTotalSec', 7); s5.close();
+    const closedAfter = s5.get('tw.focusTotalSec') === null && s5.set('tw.focusTotalSec', 8) === false && s5.remove('tw.focusTotalSec') === false;
+    s5.close();   // 두 번 닫아도 안전
+    const stillSame = st5.o['tw.u.' + A + '.focusTotalSec'] === '7';
+    s5.open(A); const reopened = s5.get('tw.focusTotalSec') === '7';
+    console.warn = w5;
+    chk(closedAfter && stillSame && reopened, 'close() — 닫은 뒤 읽기 null · 쓰기 · 지우기 거절 · 값은 그대로 · 두 번 닫아도 안전 · 다시 열면 이어진다');
     chk(okA && closedB && backA, '열린 뒤 계정 코드가 바뀌면 닫힘으로 돌아간다(다른 계정 칸에 읽기 · 쓰기 0) — 열린 코드는 불리언이 아니라 그 코드');
     const dev = mk(mem(), { v: null }, null, true);
     chk((() => { try{ dev.get('tw.deviceId'); return false; }catch(_){ return true; } })(), '기기 공용 키는 계정 칸이 아니라 이전처럼 던진다(열림과 상관없음)');
@@ -383,6 +391,7 @@ const BREAKS = [
   ['SHARE', "function startFocusShare(){\n  _focusShowPush(true);", "function startFocusShare(){\n  ", '오늘 기록 전시 첫 보내기가 시작에서 빠짐'],
   ['SHARE', "(function bindFocusShow(){", "_focusShowPush(true);\n(function bindFocusShow(){", '오늘 기록 전시 첫 보내기가 만들 때 나감'],
   ['STORE', "    if(opened !== null && opened === getAccountCode()) return false;", "    return false;", '열림 장치를 끔(늘 열림)'],
+  ['STORE', "function close(){ opened = null; }", "function close(){}", 'close 가 닫지 않음'],
   ['STORE', "    if(opened !== null && opened === getAccountCode()) return false;", "    if(opened !== null) return false;", '열린 뒤 코드가 바뀌어도 열린 채'],
   ['BOOT', 'createMyHomeDesktop({ advStore: accountStoreMod })', 'createMyHomeDesktop({})', 'deps 를 안 넘김'],
   ['HTML', '<script src="parts/shared/account-store.js"></script>', '', 'html 에 안 실음'],

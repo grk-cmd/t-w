@@ -145,6 +145,11 @@ contextBridge.exposeInMainWorld('companion', {
 
   // 업데이트 상태 변화 구독 — callback({status, version?, percent?, message?})
   // status: 'checking' | 'available' | 'none' | 'downloading' | 'downloaded' | 'error'
+  // 절전 · 잠금에서 돌아옴(main powerMonitor resume · unlock-screen) — realtime 연결 확인용(rt-hub.js)
+  onWake(callback) {
+    ipcRenderer.on('companion:wake', (e, why) => callback(why));
+  },
+
   onUpdateStatus(callback) {
     ipcRenderer.on('companion:updateStatus', (e, data) => callback(data));
   },
