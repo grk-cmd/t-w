@@ -354,6 +354,17 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
 - 검사: `checks/sim-front-diag.js`(깨 보기 열).
 
+## `gpu-timer.js` — 🩺 한 장에 그래픽 칩 · JS 시간(1분 `[프레임]` 줄 꼬리)
+
+- **책임**: «노트북에서 켜 두면 블루스크린» · «다른 프로그램이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 실행 화면이 한 장 그리는 데 그래픽 칩 · JS 가 쓴 시간과 그리기 · 그림자 횟수를 1분 `[프레임]` 줄 끝에 붙인다. 렌더러만 싣는다(`window.TwGpuTimer`).
+- **쓰는 법**: app.js 가 프레임 예산 옆에서 `createGpuTimer(renderer.getContext(), renderer.capabilities.isWebGL2)` · `createStats()` 를 만들고, 그리기를 `begin()` · `end()` 로 감싸 매 장 `poll()`. 1분마다 `suffix({ gpu: take(), js, calls: renderer.info.render.calls, casters: countCasters(scene) })`. 예) `… · GPU 평균 3.2ms 최대 11.0ms · JS 평균 1.4ms 최대 2.0ms · 그리기 42 · 그림자 31`.
+- **함정**
+  - 그래픽 칩 시간은 WebGL2 타이머 질의(`EXT_disjoint_timer_query_webgl2`)로 잰다. 답이 몇 장 뒤에 오고, 끊김(절전 · 클럭 변경)이 나면 그 사이 답은 버린다. 확장이 없는 기기는 `GPU 모름` — 0 으로 속이지 않는다.
+  - 기다리는 질의는 `MAX_PENDING` 까지만, `STALE_POLLS` 번 거둬도 안 오면 버린다(WebGL 연결 끊김 뒤 옛 질의는 영영 안 끝난다).
+  - three.js 는 그림자 지도를 그리는 횟수를 `info.render.calls` 에 안 센다(그림자를 그린 뒤 `info.reset`). 그래서 `그림자` 는 그림자를 드리우는 보이는 메시 수를 따로 센다 — 장면을 다 도니 1분에 한 번만.
+  - 재기만 한다 — 그리기 · 상한은 건드리지 않는다.
+- 검사: `checks/sim-gpu-timer.js`(깨 보기 여섯).
+
 ## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
 
 - **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
