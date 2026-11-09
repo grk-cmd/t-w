@@ -168,7 +168,7 @@
 | **sim-noise.js** | 146 | **40568ea4018a** |
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
 | **sim-figure-mode.js** | 153 | **2423545247d3** |
-| **sim-mac-0923.js** | 86 | **7987043b2649** |
+| **sim-mac-0923.js** | 86 | **52342519443b** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **174f9cc83500** |
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
