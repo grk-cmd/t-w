@@ -10,7 +10,7 @@
      listFriends(myId, opts) → Promise<{ 친구id: 친구 }>   opts.idsOnly — 판정용(id · addedAt 만 있으면 된다)
      readFriend(fid) → Promise<친구 | null>                 새로 생긴 친구 한 명의 이름 · 레벨 · 사진(목록 받기와 같은 서버 먼저) · null = 모름
      watchList(myId, onChange, onError) → 해제 함수         onChange({ 친구id: { addedAt } }) — 추가 · 삭제
-     watchPresence(myId, ids, onChange, onStatus) → 해제 함수   onChange({ 친구id: { online, lastSeen, room, inRoom } }) — 목록이 열려 있는 동안만 · onStatus('live' | 'waiting' | 'down')
+     watchPresence(myId, ids, onChange, onStatus) → 해제 함수   onChange({ 친구id: { online, lastSeen, room, inRoom } }) — 목록이 열려 있는 동안만 · onStatus('waiting' | 'live')
      readPresence(ids) → Promise<{ 친구id: 접속 상태 }>      한 번 읽기(100명씩 나눠) — 목록이 닫혀 있을 때 그 친구들만 · 못 받으면 던진다
      watchProfile(myId, ids, onChange) → 해제 함수          onChange({ 친구id: { name, level, cyc, clv, starC } }) — 목록이 열려 있는 동안만(접속 상태와 같은 수명)
      readProfile(fid) → Promise<{ name, level, cyc, clv, starC }>   한 번 새로 읽기(기억 안 씀) — 목록이 닫혀 있을 때 그 친구 마이홈 구경

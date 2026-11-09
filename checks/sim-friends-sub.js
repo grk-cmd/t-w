@@ -71,7 +71,7 @@ async function judge(S){
   const mk = (o) => {
     o = o || {};
     const T = mkTimers();
-    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], ones: [], pres: [], presLive: 0, reads: [], friends: {}, toasts: [], errs: [], sets: 0 };
+    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], ones: [], pres: [], presLive: 0, reads: [], held: [], friends: {}, toasts: [], errs: [], sets: 0 };
     E.mod = FS.createFriendsSub({
       subscribe: (id, ok, err) => {
         const s = { id, ok, err, on: true };
@@ -84,7 +84,7 @@ async function judge(S){
       listFriends: (id) => new Promise((res, rej) => { const l = { id, res, rej }; E.lists.push(l); if(o.failList) rej(new Error('offline')); else if(!o.holdList) res(Object.assign({}, o.details)); }),   // 받을 때마다 새 객체(서버가 주는 것처럼)
       readFriend: (fid) => new Promise((res, rej) => { E.ones.push({ fid, res, rej }); }),
       watchPresence: (id, ids, cb, st) => { const w = { id, ids: ids.slice(), cb, st, on: true }; E.pres.push(w); E.presLive++; return () => { if(w.on){ w.on = false; E.presLive--; } }; },
-      readPresence: (ids) => { E.reads.push(ids.join()); if(o.readFail) return Promise.reject(new Error('offline')); const m = {}; ids.forEach(fid => { m[fid] = { online: true, room: 'R-' + fid }; }); return Promise.resolve(m); },
+      readPresence: (ids) => { E.reads.push(ids.join()); if(o.readHold) return new Promise((res, rej) => E.held.push({ res, rej })); if(o.readFail) return Promise.reject(new Error('offline')); const m = {}; ids.forEach(fid => { m[fid] = { online: true, room: 'R-' + fid }; }); return Promise.resolve(m); },
       current: () => E.friends,
       setFriends: (v) => { E.sets++; E.friends = v; },
       getMyUserId: () => (o.noUid ? null : 'ME'),
@@ -398,26 +398,52 @@ async function judge(S){
     chk(E.errs.length === 0 && E.reads.length === 1 && E.T.pending() === 0, '읽기가 성공하면 알림 없음 · 타이머 없음(혼자 다시 받지 않는다)');
   }
   {
-    /* 듣기 상태 — live / waiting 은 알리지 않고, down 은 한 번 알린다. live 로 돌아오면 다시 알릴 수 있다 */
-    const E = mk(); E.start(); await flush(); E.last().ok({ f1: {} });
+    /* 듣기 상태로는 오류 번호를 띄우지 않는다 — 연결이 멈춘 화면은 끊김 정책(rt-hub · 끊김 띠) 몫. E-FR-05 는 사용자가 누른 한 번 읽기 실패에만 */
+    const E = mk({ readFail: true }); E.start(); await flush(); E.last().ok({ f1: {}, f2: {} });
     E.mod.open('myhome', () => {});
     const w = E.pres[0];
     w.st('waiting');
-    chk(E.errs.length === 0, '★ 연결을 붙이는 중(waiting) — 알리지 않는다(스스로 붙는다)');
-    w.st('down');
-    chk(E.errs.join() === 'E-FR-05', '★ 연결이 멈춤(down) — E-FR-05 한 번');
-    w.st('down');
-    chk(E.errs.length === 1, '  이어지는 동안 또 알리지 않는다');
-    w.st('live'); w.st('down');
-    chk(E.errs.length === 2, '  받았다가(live) 다시 멈추면 다시 알린다');
-    w.st('live');
+    chk(E.errs.length === 0, '★ 연결을 붙이는 중 · 처음 전체를 기다림(waiting) — 알리지 않는다');
+    for(const s of ['sessionLost', 'update', 'maintenance', 'accountGone', 'closed', 'authFailed', 'down']) w.st(s);
+    chk(E.errs.length === 0, '★ 연결이 멈춘 어떤 상태가 와도(다른 기기 · 업데이트 · 점검 · 계정 없음 · 닫힘) E-FR-05 0 — 끊김 정책 화면이 맡는다');
     w.st('live');
     E.mod.close('myhome');
+    await E.mod.refreshPresence(['f2']);
+    chk(E.errs.join() === 'E-FR-05', '  사용자가 누른 한 번 읽기 실패에는 E-FR-05 한 번(듣기 상태와 섞이지 않는다)');
+    await E.mod.refreshPresence(['f2']);
+    chk(E.errs.length === 1, '  이어서 또 실패하면 다시 알리지 않는다');
     E.mod.open('myhome', () => {});
-    const old = E.pres[E.pres.length - 1];
+    E.pres[E.pres.length - 1].st('live');
     E.mod.close('myhome');
-    old.st('down');
-    chk(E.errs.length === 2, '  풀린 듣기의 늦은 상태는 버린다');
+    await E.mod.refreshPresence(['f2']);
+    chk(E.errs.length === 2, '  듣기가 처음 전체를 받으면(live) 되돌려 — 다음 실패는 다시 알린다');
+  }
+  {
+    /* 풀린 듣기의 늦은 상태는 버린다 — 지금 열린 목록을 다시 그리지 않는다 */
+    const E = mk(); E.start(); await flush(); E.last().ok({ f1: {} });
+    let draws = 0;
+    E.mod.open('myhome', () => { draws++; });
+    const old = E.pres[E.pres.length - 1];
+    E.last().ok({ f1: {}, f2: {} });   // 친구가 늘어 듣기를 새로 건다
+    const n = draws;
+    old.st('live'); old.st('waiting');
+    chk(draws === n, '★ 앞 듣기의 늦은 상태 — 다시 그리기 0');
+    E.pres[E.pres.length - 1].st('live');
+    chk(draws === n + 1, '  지금 듣기의 상태는 받는다(다시 그리기 1)');
+  }
+  {
+    /* 계정 바뀜(stop) 뒤 늦게 끝난 한 번 읽기 — 값도 번호도 남기지 않는다 */
+    const E = mk({ readHold: true }); E.start(); await flush(); E.last().ok({ f1: {} });
+    const pOk = E.mod.refreshPresence(['f1']);
+    const pBad = E.mod.refreshPresence(['f1']);
+    E.mod.stop();
+    E.start(); await flush(); E.last().ok({ f1: {} });   // 다음 계정이 같은 친구를 가졌어도
+    E.held[0].res({ f1: { online: true, room: 'OLD' } });
+    E.held[1].rej(new Error('late'));
+    await pOk; await pBad; await flush();
+    E.last().ok({ f1: {} });
+    const cur = E.got[E.got.length - 1][1];
+    chk(cur.f1 && cur.f1.room !== 'OLD' && cur.f1.online === false && E.errs.length === 0, '★ stop 뒤 늦은 답 — 앞 실행의 접속 상태를 얹지 않고 · 실패여도 E-FR-05 0');
   }
 
   {
@@ -613,8 +639,9 @@ const BREAKS = [
   ['FS', "mergeFriends(_ids, _details, _presence)", "mergeFriends(_ids, _details)", '접속 상태를 목록에 안 얹음'],
   ['FS', "p=>{ if(run !== _run || _presKey !== want) return; Object.assign(_presence, p); _emit(); }", "p=>{ Object.assign(_presence, p); _emit(); }", '지난 실행의 늦은 접속 상태를 받아 씀'],
   ['FS', "s=>{ if(run !== _run || _presKey !== want) return; _setPresState(s); }", "s=>{ _setPresState(s); }", '풀린 듣기의 늦은 상태를 받아 씀'],
-  ['FS', "  else if(s === PRES.DOWN) _presFailed(new Error('realtime 연결이 멈춰 접속 상태를 받지 못해요'));", "", '연결이 멈춰도 알리지 않음'],
-  ['FS', "  else if(s === PRES.DOWN) _presFailed(new Error('realtime 연결이 멈춰 접속 상태를 받지 못해요'));", "  else if(s !== PRES.LIVE) _presFailed(new Error('x'));", '붙이는 중에도 알림'],
+  ['FS', "  if(s === PRES.LIVE) _presOk();\n", "  if(s === PRES.LIVE) _presOk();\n  else _presFailed(new Error('x'));\n", '연결 멈춤 · 기다림에도 E-FR-05 를 띄움'],
+  ['FS', "    }, e=>{ if(run !== _run) return; console.warn", "    }, e=>{ console.warn", 'stop 뒤 늦은 실패에도 E-FR-05'],
+  ['FS', "      if(run !== _run) return;\n      _presOk();", "      _presOk();", 'stop 뒤 늦은 답을 얹음'],
   ['FS', "  if(_presFailShown) return;\n  _presFailShown = true;", "  _presFailShown = true;", '이어지는 실패를 되풀이 알림'],
   ['FS', "  if(s === PRES.LIVE) _presOk();", "  if(false) _presOk();", '받아도 알림 상태를 안 되돌림'],
   ['FS', "  _wake();\n  _syncPresence();\n}\nfunction _attach", "  _wake();\n}\nfunction _attach", '목록 구독이 끊겨도 접속 상태가 남음'],

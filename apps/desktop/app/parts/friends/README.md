@@ -22,7 +22,7 @@
   - `listFriends(myId, opts)` → Promise<{ 친구id: 친구 }> — `opts.idsOnly` 면 id · addedAt 만 있으면 된다(판정용).
   - `readFriend(fid)` → Promise<친구 | null> — 켠 뒤 새로 생긴 친구 한 명의 이름 · 레벨 · 사진(friends-sub 가 늘어난 id 만 부른다 · 목록 전체를 다시 받지 않게). null = 모름(없는 사람 · 옛 길도 못 읽음).
   - `watchList(myId, onChange, onError)` → 해제 함수 — onChange({ 친구id: { addedAt, … } }).
-  - `watchPresence(myId, ids, onChange, onStatus)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }) · onStatus(`'live'` | `'waiting'` | `'down'`). 목록이 열려 있는 동안만 건다(friends-sub.js).
+  - `watchPresence(myId, ids, onChange, onStatus)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }) · onStatus(`'waiting'` | `'live'`). 목록이 열려 있는 동안만 건다(friends-sub.js).
   - `readPresence(ids)` → Promise<{ 친구id: 접속 상태 }> — 목록이 닫혀 있을 때 그 친구들만 요청 하나로(놀러 가기 · 파도타기 친구 고르기). 못 받으면 던진다.
   - `watchProfile(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { name, level, cyc, clv, starC } }). 접속 상태와 같은 조건 · 같은 수명(목록이 열려 있는 동안 · friends-sub.js).
   - `readProfile(fid)` → Promise<프로필> — 한 번 새로 읽기(10분 기억 안 씀). 목록이 닫혀 있을 때 그 친구 마이홈 구경(friends-sub `refreshProfile`).
@@ -80,8 +80,8 @@
 
 ## friends-presence-rt.js — 접속 상태 provider(realtime 연결 하나 · `TwRtHub.store`)
 - 책임: 친구 접속 상태를 realtime 으로. 한 번 읽기 `readPresence(ids)` = `presenceGet`(한 번에 100명 — `PRESENCE_IDS_MAX` — 넘으면 나눠 보내고 합친다). 듣기 `watchPresence(ids, onChange, onStatus)` = `watch` 하나(처음 전체 → 그 뒤 **바뀐 친구만** 서버가 알려 줌 — 친구마다 구독하지 않는다) · 풀면 `unwatch`.
-- 만드는 법(app.js): `TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store, STATE: TwRtHub.STATE })` — 포트의 `presence` 로 넘긴다. 만들 때 요청 · 구독 없음.
-- 상태(`onStatus`): `live`(처음 전체를 받음) · `waiting`(연결을 붙이는 중 · 켜기 전 — rt 가 스스로 붙인다) · `down`(스스로 안 붙고 멈춤: 다른 기기가 차지 · 업데이트 필요 · 인증 실패). friends-sub 는 `down` 일 때만 오류 번호(E-FR-05)를 한 번 알린다.
+- 만드는 법(app.js): `TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store })` — 포트의 `presence` 로 넘긴다. 만들 때 요청 · 구독 없음.
+- 상태(`onStatus`): `waiting`(처음 전체를 기다림 — 보냄 · 연결이 붙지 않음) · `live`(처음 전체를 받음). 연결이 멈췄나는 rt-hub 의 판단이고 화면은 끊김 정책 몫이라 여기서 따로 들지 않는다(멈춤 상태 목록을 사본으로 들면 rt-hub 가 늘린 상태와 어긋난다).
 - 함정:
   - 서버의 듣기는 **연결에 묶여** 있다 — 끊겼다 다시 붙으면 `watch` 를 다시 보낸다(연결 상태 알림으로. 타이머 되풀이 아님).
   - `rid` 가 붙은 presence 는 `presenceGet` 의 답이다 — 시간 초과 뒤 늦게 온 것은 듣기 값이 아니라 버린다.

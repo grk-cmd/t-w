@@ -4,7 +4,8 @@
    ・1절: 순수 — presenceOf(온라인이 아니면 방 없음 · lastSeen 모르면 0) · chunk(상한 100 · 0 · 빈 목록) · usersOf
    ・2절: readPresence — 250명이면 100 · 100 · 50 세 요청 · 겹침 하나로 · 빈 목록은 요청 0 · 답에 없는 id 는 없는 채로 · 한 조각이라도 못 받으면 던진다(빈 값과 다르다)
    ・3절: watchPresence — ready 면 watch 하나 · 처음 전체 → LIVE · 바뀐 친구만 · 듣는 친구만 넘김 · rid 붙은(늦은 presenceGet 답) 건 버림 ·
-          끊겼다 붙으면 watch 를 다시 · 풀면 unwatch · 새로 걸면 앞의 것을 풀고 하나만 · 연결 상태에 따라 WAITING / DOWN
+          끊겼다 붙으면 watch 를 다시 · 풀면 unwatch · 새로 걸면 앞의 것을 풀고 하나만 · 듣기 상태는 WAITING · LIVE 둘 —
+          연결이 멈춰도(다른 기기 · 업데이트 · 점검 · 계정 없음 · 모르는 4000번대) WAITING(멈춤 판단은 rt-hub 한 곳 · 화면은 끊김 정책 몫)
    ・4절: presence-self — 시작 전엔 안 보냄 · start 하면 status · 붙을 때마다 다시 · 값이 바뀌면 바로 · 타이머 없음
    ・5절: 배선 — html 차례 · smoke PRELOAD · app.js 가 realtime 연결 하나를 넘김
    ・6절: 일부러 깨 보기 */
@@ -109,7 +110,7 @@ async function judge(S){
   say('── 2. readPresence — presenceGet 을 100명씩 나눠');
   {
     const e = mkHub(S);
-    const prt = M.createFriendsPresenceRt({ rt: e.hub, STATE: e.H.STATE });
+    const prt = M.createFriendsPresenceRt({ rt: e.hub });
     e.hub.start();
     const ws = await readyOn(e);
     const want = ids(250);
@@ -144,7 +145,7 @@ async function judge(S){
     let threw3 = null; try{ await p3; }catch(err){ threw3 = err; }
     chk(r3.length === 2 && threw3, '  ↳ 두 조각 중 하나만 오고 하나가 시간 초과면 던진다(반쪽 값으로 «받음» 이라 하지 않음)');
     const off = mkHub(S);
-    const prt2 = M.createFriendsPresenceRt({ rt: off.hub, STATE: off.H.STATE });
+    const prt2 = M.createFriendsPresenceRt({ rt: off.hub });
     let threw4 = null; try{ await prt2.readPresence(['a']); }catch(err){ threw4 = err; }
     chk(threw4 && off.socks.length === 0, '  ↳ 연결을 켜지 않았으면(로그인 전) 던진다 · 연결을 새로 열지 않는다');
   }
@@ -152,28 +153,28 @@ async function judge(S){
   say('── 3. watchPresence — watch 하나 · 바뀐 친구만');
   {
     const e = mkHub(S);
-    const prt = M.createFriendsPresenceRt({ rt: e.hub, STATE: e.H.STATE });
+    const prt = M.createFriendsPresenceRt({ rt: e.hub });
     e.hub.start();
     const ws = await readyOn(e);
     const got = [], st = [];
     const off = prt.watchPresence(['f1', 'f2'], (u) => got.push(u), (s) => st.push(s));
     chk(ws.all('watch').length === 1 && !('rid' in ws.all('watch')[0]) && ws.all('presenceGet').length === 0, '★ 연결이 준비돼 있으면 watch 하나(친구마다 요청 없음 · 친구 목록은 서버가 안다)');
     ws.msg({ t: 'presence', users: { f1: { online: true, room: 'PLAY-1', inRoom: true, lastSeen: 3 }, f2: { online: false, lastSeen: 4 }, f9: { online: true } }, full: true });
-    chk(got.length === 1 && Object.keys(got[0]).join() === 'f1,f2' && got[0].f1.room === 'PLAY-1' && st.join() === 'live', '  ↳ 처음 전체 — 듣는 친구만 넘김 · live');
+    chk(got.length === 1 && Object.keys(got[0]).join() === 'f1,f2' && got[0].f1.room === 'PLAY-1' && st.join() === 'waiting,live', '  ↳ 보내면 waiting(처음 전체를 기다림) · 처음 전체 — 듣는 친구만 넘김 · live');
     ws.msg({ t: 'presence', users: { f2: { online: true, room: null, inRoom: false, lastSeen: 6 } } });
-    chk(got.length === 2 && got[1].f2.online === true && !('f1' in got[1]) && st.join() === 'live', '  ↳ 바뀐 친구만 — 그 친구만 넘김');
+    chk(got.length === 2 && got[1].f2.online === true && !('f1' in got[1]) && st.join() === 'waiting,live', '  ↳ 바뀐 친구만 — 그 친구만 넘김');
     ws.msg({ t: 'presence', users: { f9: { online: true } } });
     chk(got.length === 2, '  ↳ 듣지 않는 친구의 소식은 넘기지 않음(빈 넘기기도 없음)');
     ws.msg({ t: 'presence', users: { f1: { online: false } }, rid: 'q99' });
     chk(got.length === 2, '★ rid 가 붙은 presence(시간 초과 뒤 늦게 온 presenceGet 답)는 듣기 값이 아니라 버린다');
     // 끊겼다 붙음 — 서버의 듣기는 연결에 묶여 있어 다시 보낸다
     ws.kill(1006); await tick();
-    chk(st.join() === 'live,waiting', '★ 끊기면 waiting(연결을 스스로 다시 붙이는 중) — 오류 아님');
+    chk(st.join() === 'waiting,live,waiting', '★ 끊기면 waiting(연결을 스스로 다시 붙이는 중) — 오류 아님');
     await e.clock.advance(1000);
     const ws2 = await readyOn(e);
     chk(ws2.all('watch').length === 1 && !ws2.all('presenceGet').length, '★ 다시 붙으면 watch 를 다시 보낸다(혼자 되풀이하는 타이머는 없다)');
     ws2.msg({ t: 'presence', users: { f1: { online: true, lastSeen: 1 } }, full: true });
-    chk(st.join() === 'live,waiting,live' && got.length === 3, '  ↳ 처음 전체를 받으면 다시 live');
+    chk(st.join() === 'waiting,live,waiting,live' && got.length === 3, '  ↳ 처음 전체를 받으면 다시 live');
     off();
     chk(ws2.all('unwatch').length === 1, '풀면 unwatch');
     ws2.msg({ t: 'presence', users: { f1: { online: false } } });
@@ -186,7 +187,7 @@ async function judge(S){
   }
   {
     const e = mkHub(S);
-    const prt = M.createFriendsPresenceRt({ rt: e.hub, STATE: e.H.STATE });
+    const prt = M.createFriendsPresenceRt({ rt: e.hub });
     const st = [];
     const offW = prt.watchPresence(['f1'], () => {}, (s) => st.push(s));
     chk(st.join() === 'waiting' && e.socks.length === 0, '★ 연결을 켜기 전(꺼짐)이면 waiting — 알리지 않는다(켜지면 그때 watch) · 요청 0');
@@ -199,8 +200,20 @@ async function judge(S){
     chk(st2.join() === 'waiting', '붙이는 중이면 waiting(알리지 않을 상태)');
     const ws = await readyOn(e);
     chk(ws.all('watch').length === 1, '  ↳ 붙으면 그때 watch 를 보낸다');
+    ws.msg({ t: 'presence', users: { f1: { online: true } }, full: true });
     ws.msg({ t: 'sessionLost' }); ws.kill(4004); await tick();
-    chk(e.hub.state() === 'sessionLost' && st2.join() === 'waiting,down', '★ 다른 기기가 차지해 멈추면 down(스스로 안 붙음)');
+    chk(e.hub.state() === 'sessionLost' && st2.join() === 'waiting,live,waiting', '★ 다른 기기가 차지해 멈춰도 waiting — 멈춤 화면은 끊김 정책 몫(이 모듈은 멈춤 상태를 따로 들지 않는다)');
+  }
+  for(const [code, want] of [[4003, 'update'], [4006, 'maintenance'], [4007, 'accountGone'], [4099, 'closed']]){
+    const e = mkHub(S);
+    const prt = M.createFriendsPresenceRt({ rt: e.hub });
+    e.hub.start();
+    const ws = await readyOn(e);
+    const st = [];
+    prt.watchPresence(['f1'], () => {}, (s) => st.push(s));
+    ws.msg({ t: 'presence', users: {}, full: true });
+    ws.kill(code); await tick();
+    chk(e.hub.state() === want && st.join() === 'waiting,live,waiting', '  ↳ 닫힘 ' + code + '(rt-hub ' + want + ') — 듣기 상태는 waiting 하나');
   }
 
   say('── 4. presence-self — 내 접속 표시');
@@ -239,7 +252,7 @@ async function judge(S){
       && i('friends/friends-port.js') > i('friends/friends-presence-rt.js') && i('app.js') > i('friends/presence-self.js') && i('app.js') > i('friends/friends-port.js'),
       'html — rt-hub.js → friends-presence-rt.js → friends-port.js → app.js · presence-self.js 는 app.js 보다 먼저');
     chk(S.SMOKE.indexOf("PRELOAD.push('friends-presence-rt.js');") > 0 && S.SMOKE.indexOf("PRELOAD.push('presence-self.js');") > 0, 'smoke PRELOAD 에 둘');
-    chk(/const friendsPresenceRtMod = TwFriendsPresenceRt\.createFriendsPresenceRt\(\{ rt: TwRtHub\.store, STATE: TwRtHub\.STATE \}\);/.test(S.APP)
+    chk(/const friendsPresenceRtMod = TwFriendsPresenceRt\.createFriendsPresenceRt\(\{ rt: TwRtHub\.store \}\);/.test(S.APP)
       && /const presenceSelfMod = TwPresenceSelf\.createPresenceSelf\(\{ rt: TwRtHub\.store \}\);/.test(S.APP), 'app.js — 둘 다 realtime 연결 하나(TwRtHub.store)를 받는다');
     chk(!/firebaseAPI|firebase-init|\bref\(db|onValue\(|setInterval|setTimeout/.test(S.PRT.replace(/\/\*[\s\S]*?\*\//g, '')) && !/firebaseAPI|\bref\(db|setInterval|setTimeout/.test(S.SELF.replace(/\/\*[\s\S]*?\*\//g, '')),
       '두 파일은 Firebase 를 모르고 타이머를 쓰지 않는다(되풀이 요청 없음)');
@@ -255,7 +268,7 @@ const BREAKS = [
   ['PRT', 'const want = Array.from(new Set((ids || []).filter(Boolean)));', 'const want = (ids || []);', '겹침 · 빈 값을 안 거름'],
   ['PRT', "if(!u) throw new Error('접속 상태를 받지 못했어요');", 'if(!u) continue;', '못 받아도 빈 값으로 «받음»'],
   ['PRT', 'if(w.dead || m.rid !== undefined) return;', 'if(w.dead) return;', '늦게 온 presenceGet 답을 듣기 값으로 씀'],
-  ['PRT', 'w.offs.push(rt.onState(() => { if(!w.dead) ask(); }));', '', '다시 붙어도 watch 를 안 보냄'],
+  ['PRT', 'w.offs.push(rt.onState(() => { if(!w.dead) w.ask(); }));', '', '다시 붙어도 watch 를 안 보냄'],
   ['PRT', 'if(m.full === true) status(LIVE);', '', '처음 전체를 받아도 live 가 안 됨'],
   ['PRT', "if(rt.isReady()) rt.send({ t: 'unwatch' });", '', '풀어도 unwatch 를 안 보냄'],
   ['PRT', 'if(_cur) _stop(_cur);\n', '', '새로 걸어도 앞의 듣기가 남음'],
@@ -265,7 +278,8 @@ const BREAKS = [
   ['SELF', "if(!_off) _off = rt.onState(_send);", "", '다시 붙어도 안 알림'],
   ['SELF', "    if(_visible === null) return;\n    _visible = visible !== false;", "    _visible = visible !== false;", 'start 전 setVisible 이 시작시킴'],
   ['SELF', "rt.send({ t: 'status', visible: _visible });", "rt.send({ t: 'status', visible: _visible, inRoom: false });", '서버가 모르는 칸을 실어 보냄'],
-  ['PRT', 'status(stopped.indexOf(rt.state()) >= 0 ? DOWN : WAITING);', 'status(DOWN);', '꺼짐 · 붙이는 중도 멈춤으로 봄'],
+  ['PRT', "      status(WAITING);\n    };", "      status(rt.state() === 'sessionLost' ? 'down' : WAITING);\n    };", '멈춤 상태 사본을 다시 듦'],
+  ['PRT', "      if(rt.isReady()) rt.send({ t: 'watch' });\n      status(WAITING);", "      if(rt.isReady() && rt.send({ t: 'watch' })) return;\n      status(WAITING);", '보낸 뒤 처음 전체를 기다리는 동안을 알리지 않음'],
   ['SELF', "_visible = visible !== false;\n    if(!_off)", "_visible = !!visible;\n    if(!_off)", '값 없이 시작하면 숨김'],
 ];
 const caught = [];

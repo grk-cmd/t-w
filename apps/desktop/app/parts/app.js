@@ -2618,7 +2618,7 @@ const friendsApiMod = TwFriendsApi.createFriendsApi({
   wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
   warn: (...a)=>console.warn(...a),
 });
-const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store, STATE: TwRtHub.STATE });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
+const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
 const friendsPortMod = TwFriendsPort.createFriendsPort({
   firebase: friendsFirebaseMod,
   presence: friendsPresenceRtMod,
