@@ -2645,7 +2645,10 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
 });
-const presenceSelfMod = TwPresenceSelf.createPresenceSelf({ rt: TwRtHub.store });   // 내 접속 표시를 realtime 에 알림(status)
+const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표시를 realtime 에 알림(status)
+  rt: TwRtHub.store,
+  onUnload: (fn)=>window.addEventListener('beforeunload', fn),   // friends-sub stop 과 같은 자리 — 계정을 놓으면 보이기 값을 비운다
+});
 /* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
   getMyUserId: (...a)=>getMyUserId(...a),

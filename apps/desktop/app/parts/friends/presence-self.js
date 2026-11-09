@@ -5,8 +5,10 @@
    내보냄: createPresenceSelf(deps) → {
      start(visible)      계정 확인 뒤 한 번(마이홈 처음 준비 — 고정값을 앉힌 뒤의 처음 값). 두 번 부르면 값만 바꾼다
      setVisible(visible) 사용자가 «온라인 / 오프라인» 을 눌렀을 때. start 전이면 아무 일 없음(계정 확인 전에는 보내지 않는다)
+     reset()             계정을 놓을 때(friends-sub stop 과 같은 자리 — onUnload) — 값을 시작 전으로 · 연결 상태 구독을 푼다
    }
-   ⚠️ 로그아웃하면 앱이 다시 켜진다(연결이 끊기면 서버가 알아서 오프라인으로 바꾼다) — 그래서 멈추는 길은 두지 않았다.
+   ⚠️ reset 이 없으면 다음 계정의 연결이 붙는 순간 앞 계정의 보이기 값을 보낸다(🔒 오프라인 고정 계정이 온라인으로 보임).
+     오프라인으로 바꾸는 신호는 따로 없다 — 연결의 bye · 끊김으로 서버가 맡는다.
    ⚠️ 🔒 고정(오프라인 고정)은 호출하는 쪽(presence-lock.js)이 처음 값에 반영해서 넘긴다 — 여기서는 모른다.
    검사: checks/sim-friends-presence-rt.js(4절) */
 (function(){
@@ -18,9 +20,11 @@
  *     onState: (fn: (s: string) => void) => () => void,
  *     isReady: () => boolean,
  *   },
- * }} deps — rt: realtime 연결 하나(TwRtHub.store) */
+ *   onUnload: (fn: () => void) => void,
+ * }} deps — rt: realtime 연결 하나(TwRtHub.store) · onUnload: 계정을 놓을 때(앱 종료 · 로그아웃 뒤 재시작) 부를 함수를 건다 */
 function createPresenceSelf(deps){
   const rt = deps.rt;
+  const onUnload = deps.onUnload;
   let _visible = null;   // null = 아직 시작 안 함(계정 확인 전) — 보내지 않는다
   let _off = null;       // 연결 상태 구독 해제
 
@@ -39,7 +43,15 @@ function createPresenceSelf(deps){
     _send();
   }
 
-  return { start, setVisible };
+  function reset(){
+    _visible = null;
+    const off = _off; _off = null;
+    if(off) off();
+  }
+
+  onUnload(reset);
+
+  return { start, setVisible, reset };
 }
 
 const api = { createPresenceSelf };

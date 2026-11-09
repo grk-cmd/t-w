@@ -6,7 +6,8 @@
    ・3절: watchPresence — ready 면 watch 하나 · 처음 전체 → LIVE · 바뀐 친구만 · 듣는 친구만 넘김 · rid 붙은(늦은 presenceGet 답) 건 버림 ·
           끊겼다 붙으면 watch 를 다시 · 풀면 unwatch · 새로 걸면 앞의 것을 풀고 하나만 · 듣기 상태는 WAITING · LIVE 둘 —
           연결이 멈춰도(다른 기기 · 업데이트 · 점검 · 계정 없음 · 모르는 4000번대) WAITING(멈춤 판단은 rt-hub 한 곳 · 화면은 끊김 정책 몫)
-   ・4절: presence-self — 시작 전엔 안 보냄 · start 하면 status · 붙을 때마다 다시 · 값이 바뀌면 바로 · 타이머 없음
+   ・4절: presence-self — 시작 전엔 안 보냄 · start 하면 status · 붙을 때마다 다시 · 값이 바뀌면 바로 · 타이머 없음 ·
+          reset(계정 놓기 — onUnload 에 걸림) 뒤엔 붙어도 안 보냄 · 다시 start 하면 새 값 하나만
    ・5절: 배선 — html 차례 · smoke PRELOAD · app.js 가 realtime 연결 하나를 넘김
    ・6절: 일부러 깨 보기 */
 'use strict';
@@ -221,7 +222,8 @@ async function judge(S){
     let SM = null;
     try{ SM = loadMod(S.SELF, 'TwPresenceSelf'); }catch(e){ chk(false, 'presence-self 싣다 던짐 — ' + e.message); return; }
     const e = mkHub(S);
-    const me = SM.createPresenceSelf({ rt: e.hub });
+    const unloads = [];
+    const me = SM.createPresenceSelf({ rt: e.hub, onUnload: (fn) => unloads.push(fn) });
     e.hub.start();
     const ws = await readyOn(e);
     me.setVisible(false);
@@ -243,6 +245,22 @@ async function judge(S){
     await e.clock.advance(1000);
     const ws3 = await readyOn(e);
     chk(ws3.all('status').length === 1 && ws3.all('status')[0].visible === false && e.clock.q.filter((h) => h.f && /status/.test(String(h.f))).length === 0, '  ↳ 끊긴 동안 바뀐 값은 붙을 때 한 번 · 타이머로 되풀이하지 않는다');
+    // 계정 놓기 — 🔒 오프라인 고정(false) 계정을 놓고 다음 계정이 붙는다
+    chk(unloads.length === 1 && unloads[0] === me.reset, '★ reset 은 onUnload(계정을 놓을 때 · friends-sub stop 과 같은 자리)에 걸린다');
+    const n3 = ws3.all('status').length;
+    unloads[0]();
+    me.setVisible(true);
+    chk(ws3.all('status').length === n3, '★ reset 뒤 setVisible 은 시작 전처럼 아무 일 없음(앞 계정 값으로 보내지 않는다)');
+    ws3.kill(1006); await tick();
+    await e.clock.advance(1000);
+    const ws4 = await readyOn(e);
+    chk(ws4.all('status').length === 0, '★ reset 뒤 다음 연결이 붙어도 앞 계정의 보이기 값을 보내지 않는다');
+    me.start(true);
+    chk(JSON.stringify(ws4.all('status')) === '[{"t":"status","visible":true}]', '  ↳ 다음 계정이 start 하면 그 값 하나');
+    ws4.kill(1006); await tick();
+    await e.clock.advance(1000);
+    const ws5 = await readyOn(e);
+    chk(ws5.all('status').length === 1, '  ↳ 다시 붙을 때 한 번(reset 이 앞 구독을 풀어 겹치지 않는다)');
   }
 
   say('── 5. 배선');
@@ -253,7 +271,7 @@ async function judge(S){
       'html — rt-hub.js → friends-presence-rt.js → friends-port.js → app.js · presence-self.js 는 app.js 보다 먼저');
     chk(S.SMOKE.indexOf("PRELOAD.push('friends-presence-rt.js');") > 0 && S.SMOKE.indexOf("PRELOAD.push('presence-self.js');") > 0, 'smoke PRELOAD 에 둘');
     chk(/const friendsPresenceRtMod = TwFriendsPresenceRt\.createFriendsPresenceRt\(\{ rt: TwRtHub\.store \}\);/.test(S.APP)
-      && /const presenceSelfMod = TwPresenceSelf\.createPresenceSelf\(\{ rt: TwRtHub\.store \}\);/.test(S.APP), 'app.js — 둘 다 realtime 연결 하나(TwRtHub.store)를 받는다');
+      && /const presenceSelfMod = TwPresenceSelf\.createPresenceSelf\(\{[^\n]*\n  rt: TwRtHub\.store,\n  onUnload: \(fn\)=>window\.addEventListener\('beforeunload', fn\),/.test(S.APP), 'app.js — 둘 다 realtime 연결 하나(TwRtHub.store)를 받는다');
     chk(!/firebaseAPI|firebase-init|\bref\(db|onValue\(|setInterval|setTimeout/.test(S.PRT.replace(/\/\*[\s\S]*?\*\//g, '')) && !/firebaseAPI|\bref\(db|setInterval|setTimeout/.test(S.SELF.replace(/\/\*[\s\S]*?\*\//g, '')),
       '두 파일은 Firebase 를 모르고 타이머를 쓰지 않는다(되풀이 요청 없음)');
   }
@@ -281,6 +299,9 @@ const BREAKS = [
   ['PRT', "      status(WAITING);\n    };", "      status(rt.state() === 'sessionLost' ? 'down' : WAITING);\n    };", '멈춤 상태 사본을 다시 듦'],
   ['PRT', "      if(rt.isReady()) rt.send({ t: 'watch' });\n      status(WAITING);", "      if(rt.isReady() && rt.send({ t: 'watch' })) return;\n      status(WAITING);", '보낸 뒤 처음 전체를 기다리는 동안을 알리지 않음'],
   ['SELF', "_visible = visible !== false;\n    if(!_off)", "_visible = !!visible;\n    if(!_off)", '값 없이 시작하면 숨김'],
+  ['SELF', "    const off = _off; _off = null;\n    if(off) off();", "", 'reset 이 구독을 안 풂'],
+  ['SELF', "    _visible = null;\n    const off", "    const off", 'reset 뒤에도 옛 값 보냄'],
+  ['SELF', "  onUnload(reset);\n", "", 'reset 을 계정 놓을 때 걸지 않음'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){

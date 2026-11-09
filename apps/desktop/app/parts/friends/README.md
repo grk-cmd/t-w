@@ -91,5 +91,5 @@
 
 ## presence-self.js — 내 접속 표시를 realtime 에 알림
 - 책임: 친구에게 «온라인 / 오프라인으로 보일지»(`status { visible }`)를 알린다. 서버는 알린 적 없는 사람을 오프라인으로 보므로 `start(visible)`(마이홈 처음 준비 — 🔒 고정값을 앉힌 뒤) 부터, 값이 바뀔 때(`setVisible`) · **연결이 붙을 때마다** 보낸다. 방 · 방 안 여부는 서버가 안다.
-- 만드는 법(app.js): `TwPresenceSelf.createPresenceSelf({ rt: TwRtHub.store })` — `presence-lock.js` 가 `startVisible` · `setVisible` 로 부른다.
+- 만드는 법(app.js): `TwPresenceSelf.createPresenceSelf({ rt: TwRtHub.store, onUnload })` — `presence-lock.js` 가 `startVisible` · `setVisible` 로 부른다. `reset()` 은 계정을 놓을 때(friends-sub `stop` 과 같은 `onUnload` 자리) — 값을 시작 전(`null`)으로 되돌리고 연결 상태 구독을 푼다. 없으면 다음 계정이 붙는 순간 앞 계정의 보이기 값을 보낸다.
 - 함정: 옛 Firebase presence 쓰기(`setMyPresenceOnline` · `setMyPresenceState`)는 **아직 남아 있다** — 웹 관리자(마지막 접속 · 버전)와 규칙의 버전 검사(`presence/ver`)가 읽는다. 걷으려면 그쪽을 먼저 서버로 옮긴다.
