@@ -2606,8 +2606,6 @@ const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
   getList: (...a)=>firebaseAPI.getMyFriendList(...a),
   watchList: (...a)=>firebaseAPI.watchMyFriendList(...a),
   getCard: (...a)=>firebaseAPI.getFriendCard(...a),
-  watchPresence: (...a)=>firebaseAPI.watchFriendPresence(...a),
-  getPresence: (...a)=>firebaseAPI.getFriendPresence(...a),
   watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),   // 친구 한 명 프로필 구독 — 목록이 열려 있는 동안만
   getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),       // 같은 칸 한 번 — 마이홈 구경
   setTimer: (fn, ms)=>setTimeout(fn, ms),
@@ -2620,8 +2618,10 @@ const friendsApiMod = TwFriendsApi.createFriendsApi({
   wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
   warn: (...a)=>console.warn(...a),
 });
+const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
 const friendsPortMod = TwFriendsPort.createFriendsPort({
   firebase: friendsFirebaseMod,
+  presence: friendsPresenceRtMod,
   api: friendsApiMod,
   source: ()=>TwSourceSwitch.store.pick('friends'),   // 받는 곳 — 원격 설정 sources.friends(없으면 옛 flags.friendsApi) · 고르기는 shared/source-switch.js
   serverFirst: TwSourceSwitch.serverFirst,
@@ -2634,15 +2634,21 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   readFriend: (...a)=>friendsPortMod.readFriend(...a),
   watchPresence: (...a)=>friendsPortMod.watchPresence(...a),
   readPresence: (...a)=>friendsPortMod.readPresence(...a),
+  retryPresence: ()=>friendsPortMod.retryPresence(),
   watchProfile: (...a)=>friendsPortMod.watchProfile(...a),
   readProfile: (...a)=>friendsPortMod.readProfile(...a),
   current: ()=>_myHomeFriends,
   setFriends: (v)=>{ _myHomeFriends = v; },
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
+});
+const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표시를 realtime 에 알림(status)
+  rt: TwRtHub.store,
+  onUnload: (fn)=>window.addEventListener('beforeunload', fn),   // friends-sub stop 과 같은 자리 — 계정을 놓으면 보이기 값을 비운다
 });
 /* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
@@ -2651,6 +2657,8 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
+  setVisible: (v)=>presenceSelfMod.setVisible(v),
+  startVisible: (v)=>presenceSelfMod.start(v),
 });
 /* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */

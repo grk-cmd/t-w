@@ -43,7 +43,7 @@ function el(){
 function world(src, o){
   const w = Object.assign({ uid: 'u1', saveFail: false }, o || {});
   const tog = el(), lock = el();
-  const out = { tog, lock, saves: [], sets: [], toasts: [], errs: [] };
+  const out = { tog, lock, saves: [], sets: [], vis: [], toasts: [], errs: [] };
   const doc = { getElementById: (id) => id === 'mhPresenceToggle' ? tog : id === 'mhPresenceLock' ? lock : null };
   const win = {};
   new Function('window', 'document', src)(win, doc);
@@ -54,6 +54,8 @@ function world(src, o){
     notifyError: (c, e) => out.errs.push(c),
     savePref: async (uid, p) => { out.saves.push([uid, p.lock, p.online]); if(w.saveFail) throw new Error('거절'); },
     setPresence: (uid, on) => out.sets.push([uid, on]),
+    startVisible: (on) => out.vis.push('start:' + on),
+    setVisible: (on) => out.vis.push('set:' + on),
   });
   return out;
 }
@@ -115,6 +117,13 @@ async function behave(src){
   w = world(src, { saveFail: true }); w.m.startOnlineFor('u1', meOf(false, true)); w.lock.click(); await tick();
   r.edge = noUid && w.errs.join() === 'E-MH-03' && w.lock.textContent === '🔒'
     && world(src).m.startOnlineFor('', meOf(true, false)) === true;
+  // realtime 접속 표시 — 처음 값(고정값을 앉힌 뒤)과 누를 때마다. 로그인 없음이면 보내지 않는다
+  w = world(src); w.m.startOnlineFor('u1', meOf(true, false)); w.tog.click(); w.tog.click();
+  const vLocked = w.vis.join() === 'start:false,set:true,set:false';
+  w = world(src); w.m.startOnlineFor('u1', null);
+  const vFresh = w.vis.join() === 'start:true';
+  w = world(src); w.m.startOnlineFor('', meOf(true, false));
+  r.visible = vLocked && vFresh && w.vis.length === 0;
   return r;
 }
 function report(r){
@@ -122,6 +131,7 @@ function report(r){
   chk(r.pure, '고정했을 때만 고른 값으로 시작 · 틀린 모양은 «고정 없음 · 온라인» · 이 PC 사본 키 · 읽기 시한은 없다');
   say('── 2. 모듈을 실제로 돌린다');
   chk(r.bootLocked, '켤 때 — 계정 확인의 me 에 «🔒 오프라인» 이면 오프라인으로 시작 · 🔒 표시 · 저장 · 접속 쓰기 0(첫 쓰기는 firebase-init)');
+  chk(r.visible, '★ realtime 접속 표시 — 처음 값은 고정값을 앉힌 뒤(오프라인 고정이면 false 로 시작) · 누를 때마다 · 로그인 없으면 보내지 않는다');
   chk(r.bootUnlocked, '  고정을 안 했으면 마지막이 오프라인이어도 온라인으로 시작(예전과 같다)');
   chk(r.bootEmpty, '  서버 칸이 비어 있거나 me 가 없으면 온라인');
   chk(r.touched, '  고정값을 받기 전에 누르면 누른 값을 지키고 고정 여부는 받은 값 — 고정이면 누른 값이 새 고정값(🔒 · 저장)');
@@ -201,7 +211,8 @@ async function gate(fbi){
     chk(iL > 0 && iA > iL, 'html — presence-lock.js 가 app.js 보다 먼저');
     chk((AP.match(/const presenceLockMod = TwPresenceLock\.createPresenceLock\(\{/g) || []).length === 1 && AP.indexOf('const presenceLockMod') < AP.indexOf('const mhInitMod')
       && /savePref: \(uid, p\)=>loginFlowMod\.patchMe\(\{ presencePref: \{ locked: p\.lock, online: p\.online \} \}\)\.then\(\(r\)=>\{ if\(!r\.ok\) throw r\.err; \}\),/.test(AP)
-      && /setPresence: \(\.\.\.a\)=>firebaseAPI\.setMyPresenceState\(\.\.\.a\),/.test(AP) && /  presenceLock: presenceLockMod,\n/.test(AP), 'app.js — 마이홈 처음 준비보다 먼저 만들고 deps 로 넘긴다');
+      && /setPresence: \(\.\.\.a\)=>firebaseAPI\.setMyPresenceState\(\.\.\.a\),/.test(AP)
+      && /  setVisible: \(v\)=>presenceSelfMod\.setVisible\(v\),\n  startVisible: \(v\)=>presenceSelfMod\.start\(v\),/.test(AP) && AP.indexOf('const presenceSelfMod') < AP.indexOf('const presenceLockMod') && /  presenceLock: presenceLockMod,\n/.test(AP), 'app.js — 마이홈 처음 준비보다 먼저 만들고 deps 로 넘긴다');
     chk(/firebaseAPI\.setMyPresenceOnline\(myId, presenceLock\.startOnlineFor\(myId, me\)\);/.test(INIT), 'myhome-init — 처음 온라인 여부를 접속 표시 등록에 넘긴다(확인의 me 로)');
     chk(!/mhPresenceToggle/.test(UI) && !/setMyPresenceState/.test(UI), 'myhome-ui — 옛 토글 연결을 걷었다(두 벌이면 한 번 누름에 두 번 바뀐다)');
     const ld = FBI.slice(FBI.indexOf('async loadPresencePref('), FBI.indexOf('async savePresencePref('));
@@ -230,6 +241,10 @@ async function gate(fbi){
     chk(b4 && !b4.touched, '읽기 전 누름 뒤 서버 고정을 잊으면(🔓 로 보이고 다음 실행은 숨은 고정값) 2절이 빨강');
     const b6 = await br("if(p.lock && p.online !== online) save(uid);", "if(p.lock) save(uid);");
     chk(b6 && !b6.sameLock, '같은 고정값을 또 쓰면 2절이 빨강');
+    const b8 = await br("    deps.startVisible(online);", "");
+    chk(b8 && !b8.visible, '처음 접속 표시를 realtime 에 안 알리면 2절이 빨강');
+    const b9 = await br("    deps.setVisible(online);", "");
+    chk(b9 && !b9.visible, '토글을 realtime 에 안 알리면 2절이 빨강');
     const b7 = await br("adopt(uid, normalize(pp ? { lock: pp.locked, online: pp.online } : null));", "adopt(uid, normalize(null));");
     chk(b7 && !b7.bootLocked, 'me 의 고정값을 안 읽으면 2절이 빨강');
     const g2 = FBI.includes("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))") ? await gate(FBI.replace("update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now() }))", "update(_myPresenceRef, _appVer.withVer({ lastSeen: Date.now(), online: true }))")) : null;

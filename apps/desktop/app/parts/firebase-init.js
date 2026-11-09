@@ -1324,7 +1324,7 @@
       return snap.val() || {};
     },
     /* 내 친구 목록 실시간 구독 — users/{나}/friends 하나만({친구id:{addedAt}}). 실시간은 추가 · 삭제뿐이다:
-       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 접속 상태 · 프로필은 목록이 열려 있는 동안만(watchFriendPresence · watchFriendProfile).
+       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 프로필은 목록이 열려 있는 동안만(watchFriendProfile), 접속 상태는 realtime(friends/friends-presence-rt.js).
        onError(err) — 거부 · 끊기면 한 번(다시 걸기는 부르는 쪽 · friends-sub.js). @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다. */
     watchMyFriendList(myId, onChange, onError){
       if(_myFriendsOff) _myFriendsOff();
@@ -1352,18 +1352,10 @@
       const [p, b, a] = await Promise.all([`users/${fid}/profile`, `users/${fid}/home/bio`, `users/${fid}/home/avatar`].map(path => get(ref(db, path))));
       return { profile: p.val(), bio: b.val(), avatar: a.val() };
     },
-    /* 친구 한 명의 접속 상태(presence) 구독 → onChange(날것). 목록(친구 탭 · 초대 목록)이 열려 있는 동안만 건다(friends-sub.js). @return 해제 함수 */
-    watchFriendPresence(fid, onChange){
-      const presRef = ref(db, `users/${fid}/presence`);   // 읽기만 — 쓰기는 _myPresenceRef 한 곳(sim-app-version)
-      const off = onValue(presRef, snap=>onChange(snap.val()));
-      return ()=>{ try{ off(); }catch(_){} };
-    },
-    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) — 구독은 접속 상태와 같이 목록이 열려 있는 동안만(friends-sub.js · @return 해제 함수), 한 번 읽기는 목록이 닫혀 있을 때 마이홈 구경.
+    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) — 구독은 목록이 열려 있는 동안만(friends-sub.js · @return 해제 함수), 한 번 읽기는 목록이 닫혀 있을 때 마이홈 구경.
        💰 규칙상 작은 칸 여섯뿐(name ≤20자 · level · cyc · clv · starC · updatedAt)이고 쓰기는 켤 때 · 이름 · 레벨이 바뀔 때만이다. */
     watchFriendProfile(fid, onChange){ const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val())); return ()=>{ try{ off(); }catch(_){} }; },
     async getFriendProfile(fid){ return (await get(ref(db, `users/${fid}/profile`))).val(); },
-    /* 친구 한 명의 접속 상태 한 번 읽기 — 목록이 닫혀 있을 때 필요한 곳(놀러 가기 · 파도타기 친구 고르기)만 */
-    async getFriendPresence(fid){ return (await get(ref(db, `users/${fid}/presence`))).val(); },
     // ===== 마이홈 페이지(프로필사진/소개글/게시글/스티커) =====
     async getMyHome(userId){
       const snap = await get(ref(db, `users/${userId}/home`));

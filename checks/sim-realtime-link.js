@@ -3,7 +3,7 @@
  * 방 연결(room-server-net.js)이 이것 위에서 그대로 도는지는 sim-room-server-net.js 가 본다. 여기는 공통부만:
  * 1. 순수 — jwtExpMs · LINK_TIMING · import 없음
  * 2. 열기 · hello(선택 칸 helloExtra) · ready · 토큰 없음 → auth
- * 3. rid 요청 — answers 로 답 짝짓기 · rid 없는 답(ridless 켬/끔) · badRequest(ref · ref 없음) · 시간 초과 · 끊기면 null
+ * 3. rid 요청 — answers 로 답 짝짓기 · rid 없는 답(ridless 켬/끔) · badRequest(ref · ref 없음) · unavailable(ref — 가장 먼저 보낸 하나만 · 깨 보기) · 시간 초과 · 끊기면 null
  * 4. 끊김 → onClosed(wasReady, fatal) · 다시 붙기 백오프(reconnectWanted) · markAuthRetry → getToken(true)
  * 5. 토큰 갱신 hello 에도 선택 칸 · 쉬면 닫기(idleCloseMs · busy) · 못 붙은 주소 1분 쉼 · retry · 주소 바뀜(switchOk)
  * 6. firebase-init 연결 — import 하고 방 연결에 createLink 로 넘긴다
@@ -64,7 +64,7 @@ function mk(o = {}){
   const log = { closed: [], ready: 0, msgs: [], tokens: [] };
   let url = ('url' in o) ? o.url : 'ws://hub';
   const st = { busy: false, want: true, switchOk: true };
-  const link = M.createRealtimeLink({
+  const link = (o.M || M).createRealtimeLink({
     WebSocket: FakeWS,
     enabled: () => o.enabled !== false,
     target: () => url,
@@ -93,6 +93,29 @@ function mk(o = {}){
     log: { warn(){} },
   });
   return { link, clock, socks, log, st, setUrl: (u) => { url = u; } };
+}
+/* unavailable(ref) — 서버가 그 요청에 필요한 값을 못 받음. error 엔 rid 가 없어 같은 종류의 가장 먼저 보낸 요청 하나만 실패, 나머지는 그대로 답을 기다린다. */
+async function unavailableCase(Mod){
+  const out = [];
+  const e = mk({ ridless: false, M: Mod });
+  const { ws } = await up(e);
+  const p1 = e.link.request({ t: 'presenceGet', ids: ['a'] }, (m) => m);
+  const p2 = e.link.request({ t: 'presenceGet', ids: ['b'] }, (m) => m);
+  let r1 = 'pending', r2 = 'pending';
+  p1.then((v) => { r1 = v; }); p2.then((v) => { r2 = v; });
+  await tick();
+  ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet' });
+  await tick();
+  out.push([r1 === null && r2 === 'pending', '★ unavailable(ref presenceGet) → 가장 먼저 보낸 요청 하나만 바로 null(4초 기다리지 않음) · 다음 요청은 그대로']);
+  out.push([!e.log.msgs.some((m) => m.t === 'error'), '  ↳ 짝지은 error 는 onMessage 로 다시 안 간다']);
+  const sent = ws.sent.filter((m) => m.t === 'presenceGet');
+  ws.msg({ t: 'presence', users: { b: { online: true } }, rid: sent[1] && sent[1].rid });
+  await tick();
+  out.push([r2 && r2.users && r2.users.b, '  ↳ 다음 요청은 제 rid 답을 받는다']);
+  ws.msg({ t: 'error', code: 'unavailable', ref: 'watch' });
+  await tick();
+  out.push([e.log.msgs.some((m) => m.t === 'error' && m.ref === 'watch'), '  ↳ 요청 종류가 아닌 ref(watch) 의 unavailable 은 onMessage 로(듣는 쪽이 받는다)']);
+  return out;
 }
 async function up(env){
   const p = env.link.ensureReady();
@@ -170,6 +193,11 @@ async function up(env){
     w3.msg({ t: 'error', code: 'badRequest' });
     await tick();
     chk(e3.log.msgs.length === 1 && e3.log.msgs[0].t === 'error', '  ↳ 기다리는 요청이 없으면 onMessage 로');
+
+    for(const [ok, msg] of await unavailableCase(M)) chk(ok, msg);
+    const brokenSrc = SRC.split("\n        || (m.code === 'unavailable' && requestKinds.indexOf(m.ref) >= 0)").join('');
+    const MB = new Function('Buffer', brokenSrc.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);
+    chk(brokenSrc !== SRC && (await unavailableCase(MB)).some(([ok]) => !ok), '  깨 보기 — unavailable 갈래를 빼면 위 판정이 빨강');
 
     const p5 = e.link.request({ t: 'presenceGet', ids: ['d'] }, (m) => m);
     await e.clock.advance(4001);

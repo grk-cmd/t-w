@@ -26,6 +26,7 @@
 - 확장할 때: 새 rid 요청은 부르는 쪽 `requestKinds` · `answers` 에 더한다(이 파일은 안 고친다). 답의 t 가 요청과 다르면 answers 로 잇는다(presenceGet → presence).
 - 함정:
   - `ridless` 를 켜면 rid 없는 답을 같은 종류의 가장 먼저 보낸 요청이 가져간다(rid 를 모르는 옛 방 서버용). 밀어 주는 메시지와 답의 t 가 같은 연결(presence)은 꼭 끈다.
+  - 요청의 거절 `error` 에는 rid 가 없다 — `badRequest`(ref 가 요청 종류 · ref 없으면 `reflessKind`) · `unavailable`(ref 가 요청 종류 — 서버가 그 요청에 필요한 값을 못 받음, 예: `presenceGet` 의 친구 목록)이면 같은 종류의 **가장 먼저 보낸 요청 하나만** null 로 끝낸다. ref 가 요청 종류가 아니면(예: `watch`) `onMessage` 로 넘겨 듣는 쪽이 받는다.
   - ready 전의 `error` auth · version · protocol 은 서버가 곧 끊는 신호라 바로 닫고 `onClosed(false, fatal, 4001 | 4003 | null)` — auth 를 한 번 더 시도할지는 부르는 쪽(`markAuthRetry`). 토큰을 못 받은 것(이 PC 사정)은 `fatal` auth · 번호 없음.
   - 검사: `checks/sim-realtime-link.js`(공통부) · `checks/sim-room-server-net.js`(방 연결이 이 위에서 그대로 도는지).
 

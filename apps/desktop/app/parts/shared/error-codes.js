@@ -38,6 +38,7 @@ const CODES = {
   'E-FR-02': { msg: '친구 요청을 거절하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [거절]' },
   'E-FR-03': { msg: '보낸 친구 요청을 취소하지 못했어요', where: 'myhome/friend-manage.js — 보낸 요청 [취소]' },
   'E-FR-04': { msg: '선택한 친구 요청 일부를 처리하지 못했어요', where: 'myhome/friend-manage.js — 받은 요청 일괄 수락 · 거절' },
+  'E-FR-05': { msg: '친구의 접속 상태를 받지 못했어요 — 연결을 확인하고 다시 시도해 주세요', where: 'myhome/friends-sub.js — 놀러 가기 · 파도타기 친구 고르기의 접속 상태 한 번 읽기(presenceGet) 실패(이어지는 동안 한 번만)' },
   'E-ACC-01': { msg: '닉네임을 저장하지 못했어요 — 다시 해 주세요', where: 'account/user-name.js — 닉네임 저장 뒤 서버 계정 이름(PATCH /v1/me — login-flow patchMe) 실패' },
   'E-ACC-02': { msg: '비밀번호를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'account/account.js — 비밀번호 바꾸기 · 탈퇴 · 붙이기 전 «비밀번호 확인» 창에서 너무 많이 틀림(too-many-requests) · 네트워크 실패(틀린 비밀번호는 창 안에 알림)' },
   'E-ACC-03': { msg: '서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'account/license-gate.js — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음)' },
