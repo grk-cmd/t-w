@@ -57,6 +57,7 @@ async function judge(S){
     const rtp = {
       watchPresence: (ids, ok, st) => { log.push(['pres', ids.join(), typeof ok, typeof st]); return un; },
       readPresence: async (ids) => { log.push(['read', ids.join()]); return { a: { online: true } }; },
+      retryWatch: () => { log.push(['retry']); return true; },
     };
     const port = P.createFriendsPort({ firebase: fake, presence: rtp, api: null, source: () => 'server', serverFirst: SW.serverFirst, warn(){} });
     const r = await port.listFriends('ME', { idsOnly: true });
@@ -69,6 +70,7 @@ async function judge(S){
     chk(u2 === un && log[3].join() === 'pres,a,b,function,function', '★ watchPresence(myId, ids, onChange, onStatus) — realtime provider 로(내 코드는 안 넘김) · 해제 함수 그대로');
     const rd = await port.readPresence(['a', 'b']);
     chk(rd.a.online === true && log[4].join() === 'read,a,b', '  ↳ readPresence(ids) — ids 를 한 번에 realtime provider 로 · 옛 길(Firebase)은 안 거친다');
+    chk(port.retryPresence() === true && log[5].join() === 'retry', '  ↳ retryPresence() — realtime provider 의 retryWatch 로 · 답 그대로');
   }
 
   {
@@ -187,10 +189,10 @@ async function judge(S){
       const timers = [];
       const fbp = F.createFriendsFirebase({ getList: (...a) => api.getMyFriendList(...a), watchList: (...a) => api.watchMyFriendList(...a), getCard: (...a) => api.getFriendCard(...a),
         watchProfile: (...a) => api.watchFriendProfile(...a), getProfile: (...a) => api.getFriendProfile(...a), setTimer: (fn) => { timers.push(fn); return timers.length; }, clearTimer: () => {}, now: () => 0 });
-      const port = P.createFriendsPort({ firebase: fbp, presence: { watchPresence: () => () => {}, readPresence: async () => ({}) }, api: null, source: () => 'server', serverFirst: SW.serverFirst, warn(){} });
+      const port = P.createFriendsPort({ firebase: fbp, presence: { watchPresence: () => () => {}, readPresence: async () => ({}), retryWatch: () => false }, api: null, source: () => 'server', serverFirst: SW.serverFirst, warn(){} });
       let cur = {};
       const sub = FS.createFriendsSub({ subscribe: (...a) => port.watchList(...a), fetchOnce: (id) => port.listFriends(id, { idsOnly: true }), listFriends: (...a) => port.listFriends(...a),
-        watchPresence: (...a) => port.watchPresence(...a), readPresence: (...a) => port.readPresence(...a),
+        watchPresence: (...a) => port.watchPresence(...a), readPresence: (...a) => port.readPresence(...a), retryPresence: () => port.retryPresence(),
         watchProfile: (...a) => port.watchProfile(...a), readProfile: (...a) => port.readProfile(...a), current: () => cur, setFriends: (v) => { cur = v; }, getMyUserId: () => 'ME',
         toast(){}, setTimer: (fn) => 0, clearTimer(){}, onUnload(){} });
       const on = () => live.filter(l => l.on).length;
@@ -340,7 +342,7 @@ async function judge(S){
     const a = strip(S.APP);
     chk(/const friendsFirebaseMod = TwFriendsFirebase\.createFriendsFirebase\(\{\n  getList: \(\.\.\.a\)=>firebaseAPI\.getMyFriendList\(\.\.\.a\),\n  watchList: \(\.\.\.a\)=>firebaseAPI\.watchMyFriendList\(\.\.\.a\),\n  getCard: \(\.\.\.a\)=>firebaseAPI\.getFriendCard\(\.\.\.a\),\n  watchProfile: \(\.\.\.a\)=>firebaseAPI\.watchFriendProfile\(\.\.\.a\),[^\n]*\n/.test(a) && !/watchFriendPresence|getFriendPresence/.test(a),
       'app.js — firebase provider 가 firebaseAPI 친구 함수를 deps 로 받는다(목록 한 번 · 목록 구독 · 카드 · 프로필 구독 · 한 번) — 접속 상태 함수는 없다');
-    chk(/  watchPresence: \(\.\.\.a\)=>friendsPortMod\.watchPresence\(\.\.\.a\),\n  readPresence: \(\.\.\.a\)=>friendsPortMod\.readPresence\(\.\.\.a\),/.test(a), '  ↳ friends-sub 의 접속 상태 듣기 · 한 번 읽기도 포트로');
+    chk(/  watchPresence: \(\.\.\.a\)=>friendsPortMod\.watchPresence\(\.\.\.a\),\n  readPresence: \(\.\.\.a\)=>friendsPortMod\.readPresence\(\.\.\.a\),\n  retryPresence: \(\)=>friendsPortMod\.retryPresence\(\),/.test(a), '  ↳ friends-sub 의 접속 상태 듣기 · 한 번 읽기 · 다시 묻기도 포트로');
     chk(/const friendsPresenceRtMod = TwFriendsPresenceRt\.createFriendsPresenceRt\(\{ rt: TwRtHub\.store \}\);/.test(a) && /const friendsPortMod = TwFriendsPort\.createFriendsPort\(\{\n  firebase: friendsFirebaseMod,\n  presence: friendsPresenceRtMod,\n  api: friendsApiMod,\n  source: \(\)=>TwSourceSwitch\.store\.pick\('friends'\),[^\n]*\n  serverFirst: TwSourceSwitch\.serverFirst,/.test(a), '  ↳ 포트가 provider 셋(옛 길 · realtime 접속 상태 · api) · 스위치(원격 설정 friendsApi — 설정이 없으면 켜짐)를 받는다');
     chk(/const friendsApiMod = TwFriendsApi\.createFriendsApi\(\{\n  get: \(\.\.\.a\)=>firebaseAPI\.apiGetAuthed\(\.\.\.a\),[^\n]*\n  getCard: [^\n]*\n  wait: \(ms\)=>new Promise\(r=>setTimeout\(r, ms\)\),/.test(a), '  ↳ api provider 가 로그인 API 통로(firebase-init apiGetAuthed) · 쉬기를 받는다');
     const fi = strip(S.FI);

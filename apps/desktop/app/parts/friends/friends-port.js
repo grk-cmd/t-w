@@ -3,14 +3,15 @@
      목록 받기는 받는 곳 고르기(shared/source-switch.js — 기능 'friends')가 서버면 api 먼저 → 못 받으면 옛 길(firebase). 접속 상태(듣기 · 읽기)는 realtime provider(friends-presence-rt.js) 하나 —
      옛 길로 넘어가지 않는다. 목록 듣기 · 프로필 듣기 · 프로필 새로 읽기는 아직 옛 길(LIVE_SOURCE 자리).
    deps: firebase — 옛 길 provider(friends-firebase.js) { listFriends · readFriend · watchList · watchProfile · readProfile } ·
-         presence — realtime provider(friends-presence-rt.js) { readPresence(ids) · watchPresence(ids, onChange, onStatus) } ·
+         presence — realtime provider(friends-presence-rt.js) { readPresence(ids) · watchPresence(ids, onChange, onStatus) · retryWatch() } ·
          api — api provider(friends-api.js) { listFriends · readFriend } | null · source() → 'server' | 'firebase'(source-switch pick('friends')) ·
          serverFirst(받는 곳, 서버 함수, 파이어베이스 함수, 실패 알림)(source-switch — 넘어가기 한 벌) · warn(...a)
    내보냄: createFriendsPort(deps) → {
      listFriends(myId, opts) → Promise<{ 친구id: 친구 }>   opts.idsOnly — 판정용(id · addedAt 만 있으면 된다)
      readFriend(fid) → Promise<친구 | null>                 새로 생긴 친구 한 명의 이름 · 레벨 · 사진(목록 받기와 같은 서버 먼저) · null = 모름
      watchList(myId, onChange, onError) → 해제 함수         onChange({ 친구id: { addedAt } }) — 추가 · 삭제
-     watchPresence(myId, ids, onChange, onStatus) → 해제 함수   onChange({ 친구id: { online, lastSeen, room, inRoom } }) — 목록이 열려 있는 동안만 · onStatus('waiting' | 'live')
+     watchPresence(myId, ids, onChange, onStatus) → 해제 함수   onChange({ 친구id: { online, lastSeen, room, inRoom } }) — 목록이 열려 있는 동안만 · onStatus('waiting' | 'live' | 'failed')
+     retryPresence() → bool                               듣기가 못 받음(failed)이면 한 번 다시 묻는다 — 목록을 다시 열 때
      readPresence(ids) → Promise<{ 친구id: 접속 상태 }>      한 번 읽기(100명씩 나눠) — 목록이 닫혀 있을 때 그 친구들만 · 못 받으면 던진다
      watchProfile(myId, ids, onChange) → 해제 함수          onChange({ 친구id: { name, level, cyc, clv, starC } }) — 목록이 열려 있는 동안만(접속 상태와 같은 수명)
      readProfile(fid) → Promise<{ name, level, cyc, clv, starC }>   한 번 새로 읽기(기억 안 씀) — 목록이 닫혀 있을 때 그 친구 마이홈 구경
@@ -55,10 +56,11 @@ function createFriendsPort(deps){
   /* 접속 상태는 내 코드를 받지 않는다 — 서버가 토큰으로 내 친구를 안다(myId 는 부르는 쪽 모양을 맞추려 남긴 자리). */
   function watchPresence(myId, ids, onChange, onStatus){ return presence.watchPresence(ids, onChange, onStatus); }
   function readPresence(ids){ return presence.readPresence(ids); }
+  function retryPresence(){ return presence.retryWatch(); }
   function watchProfile(myId, ids, onChange){ return firebase.watchProfile(myId, ids, onChange); }
   function readProfile(fid){ return firebase.readProfile(fid); }
 
-  return { listFriends, readFriend, watchList, watchPresence, readPresence, watchProfile, readProfile, lastSource: () => _last };
+  return { listFriends, readFriend, watchList, watchPresence, readPresence, retryPresence, watchProfile, readProfile, lastSource: () => _last };
 }
 
 const api = { createFriendsPort, SOURCE, LIVE_SOURCE };

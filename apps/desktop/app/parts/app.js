@@ -2634,6 +2634,7 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   readFriend: (...a)=>friendsPortMod.readFriend(...a),
   watchPresence: (...a)=>friendsPortMod.watchPresence(...a),
   readPresence: (...a)=>friendsPortMod.readPresence(...a),
+  retryPresence: ()=>friendsPortMod.retryPresence(),
   watchProfile: (...a)=>friendsPortMod.watchProfile(...a),
   readProfile: (...a)=>friendsPortMod.readProfile(...a),
   current: ()=>_myHomeFriends,

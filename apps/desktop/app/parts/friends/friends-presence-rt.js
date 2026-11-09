@@ -1,23 +1,26 @@
 /* friends-presence-rt.js — 👥 친구 접속 상태 provider(realtime 연결 하나) — friends-port.js 가 부른다
    책임: 친구들의 접속 상태를 realtime 으로 받는다. 한 번 읽기는 presenceGet(ids 를 한 번에 PRESENCE_IDS_MAX 명씩 나눠 보냄),
      듣기는 watch 하나(서버가 «바뀐 친구만» 알려 준다 — 친구마다 따로 구독하지 않는다). 타이머로 되풀이 묻지 않는다 —
-     다시 보내는 때는 연결이 다시 붙었을 때(서버의 듣기는 연결에 묶여 있다)와 사용자가 연 · 누른 때뿐.
+     다시 보내는 때는 연결이 다시 붙었을 때(서버의 듣기는 연결에 묶여 있다)와 사용자가 연 · 누른 때(retryWatch)뿐.
    내보냄: createFriendsPresenceRt(deps) → {
      readPresence(ids) → Promise<{ 친구id: { online, lastSeen, room, inRoom } }>   못 받으면 던진다(빈 값과 다르다) · 친구가 아닌 id 는 서버가 빼서 결과에도 없다
-     watchPresence(ids, onChange, onStatus) → 해제 함수   onChange({ 친구id: 접속 상태 }) — 처음 전체 + 그 뒤 바뀐 친구 · onStatus(WAITING | LIVE) 필수
+     watchPresence(ids, onChange, onStatus) → 해제 함수   onChange({ 친구id: 접속 상태 }) — 처음 전체 + 그 뒤 바뀐 친구 · onStatus(WAITING | LIVE | FAILED) 필수
+     retryWatch() → bool   지금 듣기가 못 받음(FAILED)이면 watch 를 한 번 다시 보낸다 — 사용자가 목록을 다시 열 때
    }
-   순수: presenceOf(raw) · chunk(ids, n) · usersOf · PRESENCE_IDS_MAX · LIVE · WAITING (TwFriendsPresenceRt 위)
+   순수: presenceOf(raw) · chunk(ids, n) · usersOf · PRESENCE_IDS_MAX · LIVE · WAITING · FAILED (TwFriendsPresenceRt 위)
    ⚠️ 듣기는 하나뿐 — 새로 걸면 앞의 것을 푼다(friends-sub 가 «지금 열린 목록의 친구 전부» 한 벌만 건다).
    ⚠️ rid 가 붙은 presence 는 presenceGet 의 답이다(rt-hub 가 요청에 돌려줌) — 늦게 온 것은 듣기 값이 아니라 버린다.
    ⚠️ 연결이 멈췄나(다른 기기 · 업데이트 · 점검 · 계정 없음)는 rt-hub 의 판단이고 화면은 끊김 정책 몫 — 여기서는 «붙어 있지 않음 = WAITING» 하나로 본다.
+   ⚠️ 서버가 친구 목록을 못 받으면 watch · presenceGet 에 error{ code:'unavailable', ref } 로 답한다(빈 목록과 다르다).
+     presenceGet 쪽은 realtime-link 가 그 요청을 실패로 끝내고, watch 쪽은 FAILED — 서버의 앞 듣기는 그대로 남는다.
    ⚠️ 서버는 «보이기 끔» 인 친구를 online:false 로 준다 — 앱이 따로 숨김을 가리지 않는다.
    검사: checks/sim-friends-presence-rt.js */
 (function(){
 'use strict';
 
 const PRESENCE_IDS_MAX = 100;   // 서버 presenceGet 의 ids 상한 — 친구 상한(FRIEND_MAX)과 같다. 넘으면 나눠 보낸다
-/* 듣기 상태 — WAITING 처음 전체를 기다림(보냄 · 연결이 붙지 않음) · LIVE 처음 전체를 받음 */
-const LIVE = 'live', WAITING = 'waiting';
+/* 듣기 상태 — WAITING 처음 전체를 기다림(보냄 · 연결이 붙지 않음) · LIVE 처음 전체를 받음 · FAILED 서버가 친구 목록을 못 받아 watch 를 거절 */
+const LIVE = 'live', WAITING = 'waiting', FAILED = 'failed';
 
 /* 서버의 친구 한 명 → 앱 모양. 오프라인이면 방은 없다(서버도 그렇게 주지만 앱도 지킨다). lastSeen 은 모르면 0(옛 앱과 같은 «모름»). */
 function presenceOf(raw){
@@ -94,14 +97,27 @@ function createFriendsPresenceRt(deps){
       if(Object.keys(u).length) onChange(u);
       if(m.full === true) status(LIVE);
     }));
+    /* error 에는 rid 가 없다 — ref 로 watch 의 거절만 본다. 듣기는 하나뿐이라 지금 듣기의 것이다. */
+    w.offs.push(rt.onMessage('error', (m) => {
+      if(w.dead || !m || m.ref !== 'watch') return;
+      status(FAILED);
+    }));
     w.offs.push(rt.onState(() => { if(!w.dead) w.ask(); }));
     w.ask();
     return () => _stop(w);
   }
-  return { readPresence, watchPresence };
+  /* 못 받은 듣기만 다시 묻는다 — 받는 중 · 받은 듣기는 그대로(요청 0). */
+  function retryWatch(){
+    const w = _cur;
+    if(!w || w.dead || w.last !== FAILED) return false;
+    w.ask();
+    return true;
+  }
+
+  return { readPresence, watchPresence, retryWatch };
 }
 
-const api = { createFriendsPresenceRt, presenceOf, chunk, usersOf, PRESENCE_IDS_MAX, LIVE, WAITING };
+const api = { createFriendsPresenceRt, presenceOf, chunk, usersOf, PRESENCE_IDS_MAX, LIVE, WAITING, FAILED };
 if(typeof window !== 'undefined') window.TwFriendsPresenceRt = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

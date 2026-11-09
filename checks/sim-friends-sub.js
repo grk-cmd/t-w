@@ -71,7 +71,7 @@ async function judge(S){
   const mk = (o) => {
     o = o || {};
     const T = mkTimers();
-    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], ones: [], pres: [], presLive: 0, reads: [], held: [], friends: {}, toasts: [], errs: [], sets: 0 };
+    const E = { T, subs: [], live: 0, maxLive: 0, statuses: [], got: [], unload: [], fetches: [], lists: [], ones: [], pres: [], presLive: 0, reads: [], held: [], retries: 0, friends: {}, toasts: [], errs: [], sets: 0 };
     E.mod = FS.createFriendsSub({
       subscribe: (id, ok, err) => {
         const s = { id, ok, err, on: true };
@@ -84,6 +84,7 @@ async function judge(S){
       listFriends: (id) => new Promise((res, rej) => { const l = { id, res, rej }; E.lists.push(l); if(o.failList) rej(new Error('offline')); else if(!o.holdList) res(Object.assign({}, o.details)); }),   // 받을 때마다 새 객체(서버가 주는 것처럼)
       readFriend: (fid) => new Promise((res, rej) => { E.ones.push({ fid, res, rej }); }),
       watchPresence: (id, ids, cb, st) => { const w = { id, ids: ids.slice(), cb, st, on: true }; E.pres.push(w); E.presLive++; return () => { if(w.on){ w.on = false; E.presLive--; } }; },
+      retryPresence: () => { E.retries++; return true; },
       readPresence: (ids) => { E.reads.push(ids.join()); if(o.readHold) return new Promise((res, rej) => E.held.push({ res, rej })); if(o.readFail) return Promise.reject(new Error('offline')); const m = {}; ids.forEach(fid => { m[fid] = { online: true, room: 'R-' + fid }; }); return Promise.resolve(m); },
       current: () => E.friends,
       setFriends: (v) => { E.sets++; E.friends = v; },
@@ -419,6 +420,24 @@ async function judge(S){
     chk(E.errs.length === 2, '  듣기가 처음 전체를 받으면(live) 되돌려 — 다음 실패는 다시 알린다');
   }
   {
+    /* 서버가 친구 목록을 못 받아 듣기를 거절(failed) — 오류 번호 없이 상태만. 다시 묻기는 목록을 다시 열 때(사용자 동작) 한 번 · 혼자 안 묻는다 */
+    const E = mk(); E.start(); await flush(); E.last().ok({ f1: {} });
+    let draws = 0;
+    E.mod.open('myhome', () => { draws++; });
+    const w = E.pres[E.pres.length - 1];
+    w.st('waiting');
+    E.mod.open('myhome', () => { draws++; });
+    chk(E.retries === 0, '받는 중(waiting)에 다시 열면 다시 묻지 않는다');
+    const n = draws;
+    w.st('failed');
+    chk(E.errs.length === 0 && draws === n + 1 && E.T.pending() === 0, '★ failed — 오류 번호 0 · 다시 그리기 1 · 타이머 0(혼자 다시 묻지 않음)');
+    E.mod.open('invite', () => {});
+    chk(E.retries === 1 && E.presLive === 1, '★ 못 받은 채 목록을 열면(사용자 동작) 다시 묻기 한 번 · 듣기는 그대로 한 벌');
+    w.st('live');
+    E.mod.open('invite', () => {});
+    chk(E.retries === 1, '  ↳ 받은 뒤(live)엔 열어도 다시 묻지 않는다');
+  }
+  {
     /* 풀린 듣기의 늦은 상태는 버린다 — 지금 열린 목록을 다시 그리지 않는다 */
     const E = mk(); E.start(); await flush(); E.last().ok({ f1: {} });
     let draws = 0;
@@ -639,6 +658,8 @@ const BREAKS = [
   ['FS', "mergeFriends(_ids, _details, _presence)", "mergeFriends(_ids, _details)", '접속 상태를 목록에 안 얹음'],
   ['FS', "p=>{ if(run !== _run || _presKey !== want) return; Object.assign(_presence, p); _emit(); }", "p=>{ Object.assign(_presence, p); _emit(); }", '지난 실행의 늦은 접속 상태를 받아 씀'],
   ['FS', "s=>{ if(run !== _run || _presKey !== want) return; _setPresState(s); }", "s=>{ _setPresState(s); }", '풀린 듣기의 늦은 상태를 받아 씀'],
+  ['FS', "  if(_presState === PRES.FAILED) retryPresence();", "", '못 받은 듣기를 다시 열어도 안 물음'],
+  ['FS', "  if(_presState === PRES.FAILED) retryPresence();", "  retryPresence();", '받는 중 · 받은 듣기도 열 때마다 다시 물음'],
   ['FS', "  if(s === PRES.LIVE) _presOk();\n", "  if(s === PRES.LIVE) _presOk();\n  else _presFailed(new Error('x'));\n", '연결 멈춤 · 기다림에도 E-FR-05 를 띄움'],
   ['FS', "    }, e=>{ if(run !== _run) return; console.warn", "    }, e=>{ console.warn", 'stop 뒤 늦은 실패에도 E-FR-05'],
   ['FS', "      if(run !== _run) return;\n      _presOk();", "      _presOk();", 'stop 뒤 늦은 답을 얹음'],

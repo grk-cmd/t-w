@@ -5,7 +5,9 @@
    ・2절: readPresence — 250명이면 100 · 100 · 50 세 요청 · 겹침 하나로 · 빈 목록은 요청 0 · 답에 없는 id 는 없는 채로 · 한 조각이라도 못 받으면 던진다(빈 값과 다르다)
    ・3절: watchPresence — ready 면 watch 하나 · 처음 전체 → LIVE · 바뀐 친구만 · 듣는 친구만 넘김 · rid 붙은(늦은 presenceGet 답) 건 버림 ·
           끊겼다 붙으면 watch 를 다시 · 풀면 unwatch · 새로 걸면 앞의 것을 풀고 하나만 · 듣기 상태는 WAITING · LIVE 둘 —
-          연결이 멈춰도(다른 기기 · 업데이트 · 점검 · 계정 없음 · 모르는 4000번대) WAITING(멈춤 판단은 rt-hub 한 곳 · 화면은 끊김 정책 몫)
+          연결이 멈춰도(다른 기기 · 업데이트 · 점검 · 계정 없음 · 모르는 4000번대) WAITING(멈춤 판단은 rt-hub 한 곳 · 화면은 끊김 정책 몫) ·
+          서버가 친구 목록을 못 받으면(error unavailable ref watch) FAILED — live 아님 · 타이머로 다시 묻지 않음 · retryWatch(사용자) · 다시 붙음 때만 다시
+   ・2절 끝: presenceGet 에 unavailable → 바로 던짐(시간 초과를 기다리지 않음 · 빈 값과 다름)
    ・4절: presence-self — 시작 전엔 안 보냄 · start 하면 status · 붙을 때마다 다시 · 값이 바뀌면 바로 · 타이머 없음 ·
           reset(계정 놓기 — onUnload 에 걸림) 뒤엔 붙어도 안 보냄 · 다시 start 하면 새 값 하나만
    ・5절: 배선 — html 차례 · smoke PRELOAD · app.js 가 realtime 연결 하나를 넘김
@@ -137,10 +139,16 @@ async function judge(S){
     ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });
     let threw = null; try{ await p2; }catch(err){ threw = err; }
     chk(q && threw, '★ 서버가 거절하면 던진다(빈 값이 아니다 — 실패와 «없음» 을 가른다)');
+    const pu = prt.readPresence(['x1']);
+    pu.catch(() => {});
+    await tick();
+    ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet' });
+    let threwU = null; try{ await pu; }catch(err){ threwU = err; }
+    chk(!!threwU, '★ 서버가 친구 목록을 못 받음(unavailable · ref presenceGet) → 바로 던진다(«친구 없음» 빈 값이 아니다)');
     const p3 = prt.readPresence(ids(150, 'v')).catch((err) => { throw err; });
     p3.catch(() => {});
     await tick();
-    const r3 = ws.all('presenceGet').slice(4);
+    const r3 = ws.all('presenceGet').slice(5);
     ws.msg({ t: 'presence', users: {}, full: true, rid: r3[0].rid });
     await e.clock.advance(4100);
     let threw3 = null; try{ await p3; }catch(err){ threw3 = err; }
@@ -204,6 +212,31 @@ async function judge(S){
     ws.msg({ t: 'presence', users: { f1: { online: true } }, full: true });
     ws.msg({ t: 'sessionLost' }); ws.kill(4004); await tick();
     chk(e.hub.state() === 'sessionLost' && st2.join() === 'waiting,live,waiting', '★ 다른 기기가 차지해 멈춰도 waiting — 멈춤 화면은 끊김 정책 몫(이 모듈은 멈춤 상태를 따로 들지 않는다)');
+  }
+  {
+    /* 서버가 친구 목록을 못 받아 watch 를 거절 — FAILED. 혼자 다시 묻지 않고 사용자(retryWatch) · 다시 붙음 때만 */
+    const e = mkHub(S);
+    const prt = M.createFriendsPresenceRt({ rt: e.hub });
+    e.hub.start();
+    const ws = await readyOn(e);
+    const st = [], got = [];
+    prt.watchPresence(['f1'], (u) => got.push(u), (s) => st.push(s));
+    chk(prt.retryWatch() === false && ws.all('watch').length === 1, 'retryWatch — 받는 중(waiting)이면 아무 일 없음(요청 0)');
+    ws.msg({ t: 'error', code: 'unavailable', ref: 'presenceGet' });
+    chk(st.join() === 'waiting', '  ↳ 다른 요청(presenceGet)의 거절은 듣기 상태를 바꾸지 않는다');
+    ws.msg({ t: 'error', code: 'unavailable', ref: 'watch' });
+    chk(st.join() === 'waiting,failed' && got.length === 0, '★ unavailable(ref watch) → failed(live 아님 — «친구 없음 · 모두 오프라인» 으로 굳지 않는다)');
+    await e.clock.advance(120000);
+    chk(ws.all('watch').length === 1, '★ 못 받은 뒤 2분 — 혼자 다시 묻지 않는다(타이머 없음)');
+    chk(prt.retryWatch() === true && ws.all('watch').length === 2 && st.join() === 'waiting,failed,waiting', '★ 사용자가 다시 열면(retryWatch) watch 한 번 · waiting');
+    ws.msg({ t: 'presence', users: { f1: { online: true } }, full: true });
+    chk(st.join() === 'waiting,failed,waiting,live' && got.length === 1, '  ↳ 처음 전체를 받으면 live');
+    chk(prt.retryWatch() === false && ws.all('watch').length === 2, '  ↳ live 면 retryWatch 는 아무 일 없음');
+    ws.msg({ t: 'error', code: 'unavailable', ref: 'watch' });
+    ws.kill(1006); await tick();
+    await e.clock.advance(1000);
+    const ws2 = await readyOn(e);
+    chk(ws2.all('watch').length === 1, '★ 못 받은 채 끊겼다 다시 붙으면 watch 를 다시(서버 신호 · 연결 몫)');
   }
   for(const [code, want] of [[4003, 'update'], [4006, 'maintenance'], [4007, 'accountGone'], [4099, 'closed']]){
     const e = mkHub(S);
@@ -294,6 +327,9 @@ const BREAKS = [
   ['PRT', "const online = p.online === true;", "const online = !!p.online;", '온라인 판정이 느슨함'],
   ['PRT', "room: (online && typeof p.room === 'string' && p.room) ? p.room : null,", "room: (typeof p.room === 'string' && p.room) ? p.room : null,", '오프라인인데 방이 남음'],
   ['SELF', "if(!_off) _off = rt.onState(_send);", "", '다시 붙어도 안 알림'],
+  ['PRT', "if(w.dead || !m || m.ref !== 'watch') return;", "if(w.dead || !m) return;", '다른 요청의 거절도 듣기 실패로 봄'],
+  ['PRT', "      status(FAILED);\n", "", '서버가 듣기를 거절해도 failed 가 안 됨'],
+  ['PRT', "if(!w || w.dead || w.last !== FAILED) return false;", "if(!w || w.dead) return false;", '받는 중 · 받은 듣기도 다시 물음'],
   ['SELF', "    if(_visible === null) return;\n    _visible = visible !== false;", "    _visible = visible !== false;", 'start 전 setVisible 이 시작시킴'],
   ['SELF', "rt.send({ t: 'status', visible: _visible });", "rt.send({ t: 'status', visible: _visible, inRoom: false });", '서버가 모르는 칸을 실어 보냄'],
   ['PRT', "      status(WAITING);\n    };", "      status(rt.state() === 'sessionLost' ? 'down' : WAITING);\n    };", '멈춤 상태 사본을 다시 듦'],

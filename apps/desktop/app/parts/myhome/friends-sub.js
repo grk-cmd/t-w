@@ -6,13 +6,14 @@
      접속 상태(온라인 · 방)는 realtime 듣기 하나(서버가 바뀐 친구만 알림), 프로필은 친구별 구독 — 둘 다 목록이 하나라도 열려 있는 동안만 듣고 닫으면 푼다(마지막 값은 남는다).
      사용자가 누른 한 번 읽기(refreshPresence)가 실패하면 오류 번호(E-FR-05)로 한 번 알린다 — 이어지는 동안 되풀이하지 않고, 받으면 다시 알릴 수 있게 되돌린다.
      연결이 멈춘 화면은 끊김 정책(rt-hub · 끊김 띠) 몫이라 듣기 상태로 오류를 띄우지 않는다. 혼자 다시 받지 않는다(연결이 다시 붙으면 듣기가 스스로 다시 걸린다).
+     서버가 친구 목록을 못 받아 듣기를 거절하면(failed) live 로 두지 않고 — 목록을 다시 열 때(사용자 동작) · 다시 붙을 때만 다시 묻는다.
      목록이 닫혀 있을 때 친구 이름이 필요한 곳(마이홈 구경)은 refreshProfile(fid) 로 그 친구 프로필만 한 번 새로 읽는다.
      닫혀 있을 때 접속 상태가 필요한 곳(놀러 가기 · 파도타기 친구 고르기)은 refreshPresence(ids) 로 그 친구들만 한 번(요청 하나) 읽는다.
      친구 추가 · 수락 판정은 friendsForCheck() 로 — 받았으면 지금 목록, 아니면 이 모듈 한 곳에서만 한 번 읽는다(진행 중이면 모두가 같은 Promise).
      화면은 notice() 하나로 같은 문구 · 같은 상태를 읽는다.
    deps: subscribe(myId, onChange, onError) → 해제 함수 · fetchOnce(myId) → Promise<{친구id:{addedAt}}>(판정용) ·
          listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · readFriend(fid) → Promise<친구 | null>(새 친구 한 명) ·
-         watchPresence(myId, ids, onChange, onStatus('waiting' | 'live')) → 해제 함수 · readPresence(ids) → Promise<{친구id: 접속 상태}>(못 받으면 던짐) · watchProfile(myId, ids, onChange) → 해제 함수 · readProfile(fid) → Promise<프로필> · current() → 지금 목록 ·
+         watchPresence(myId, ids, onChange, onStatus('waiting' | 'live' | 'failed')) → 해제 함수 · readPresence(ids) → Promise<{친구id: 접속 상태}>(못 받으면 던짐) · retryPresence() → bool(듣기가 못 받음이면 한 번 다시) · watchProfile(myId, ids, onChange) → 해제 함수 · readProfile(fid) → Promise<프로필> · current() → 지금 목록 ·
          setFriends(v) · getMyUserId() · toast(msg) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · setTimer(fn, ms) → id · clearTimer(id) · onUnload(fn)(앱 종료 · 로그아웃 뒤 재시작 때 정리)
    내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck() ·
          open(key, onUpdate)(목록을 열 때 — 다시 걸기 · 이름 받기 · 접속 상태 듣기 · 열려 있는 동안 바뀌면 onUpdate) · close(key) ·
@@ -26,7 +27,7 @@
 (function(){
 
 const SUB_WAIT_MS = 3000;   // 판정이 연결 시도 중인 구독을 기다리는 상한 — 넘으면 그때 한 번 읽는다
-const PRES = { IDLE: 'idle', LIVE: 'live', WAITING: 'waiting' };   // 접속 상태 듣기 — 값은 friends-presence-rt.js 의 LIVE · WAITING
+const PRES = { IDLE: 'idle', LIVE: 'live', WAITING: 'waiting', FAILED: 'failed' };   // 접속 상태 듣기 — 값은 friends-presence-rt.js 의 LIVE · WAITING · FAILED
 const STATUS = { IDLE: 'idle', LOADING: 'loading', ERROR: 'error', READY: 'ready' };
 const NOTICE = {
   loading: '친구 목록을 불러오는 중이에요',
@@ -65,6 +66,7 @@ const listFriends = deps.listFriends;
 const readFriend = deps.readFriend;
 const watchPresence = deps.watchPresence;
 const readPresence = deps.readPresence;
+const retryPresence = deps.retryPresence;
 const watchProfile = deps.watchProfile;
 const readProfile = deps.readProfile;
 const current = deps.current;
@@ -310,6 +312,7 @@ function open(key, onUpdate){
   retryIfFailed();
   if(first) _loadDetails();
   _syncPresence();
+  if(_presState === PRES.FAILED) retryPresence();   // 서버가 친구 목록을 못 받아 거절한 듣기 — 다시 열 때 한 번 다시 묻는다
 }
 function close(key){ delete _open[key]; _syncPresence(); }
 /* 듣고 있지 않은 친구의 접속 상태만 한 번 읽어 얹는다(놀러 가기 · 파도타기 친구 고르기) — 요청 하나(100명 넘으면 나눠서). 못 받으면 지난 값 그대로 + 오류 번호 한 번. */

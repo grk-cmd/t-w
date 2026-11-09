@@ -283,8 +283,10 @@ export function createRealtimeLink(deps){
       }
       if(m.code === 'auth' && m.ref === 'hello') return;   // 갱신 실패 — 만료 뒤 서버가 끊으면 재연결이 새 토큰을 받는다
       /* 묻기 요청이 거절됐다 — 오류에는 rid 가 없어서 그 종류 중 가장 먼저 보낸 것을 실패로 끝낸다.
-         새 요청을 모르는 옛 서버는 ref 없이 badRequest 를 준다(모르는 t) — 그건 reflessKind 의 것으로 본다. */
-      if(m.code === 'badRequest' && (requestKinds.indexOf(m.ref) >= 0 || !m.ref)){
+         새 요청을 모르는 옛 서버는 ref 없이 badRequest 를 준다(모르는 t) — 그건 reflessKind 의 것으로 본다.
+         unavailable 은 서버가 그 요청에 필요한 값을 못 받음(예: presenceGet 의 친구 목록) — 같은 종류의 가장 먼저 보낸 것 하나만 실패로. */
+      if((m.code === 'badRequest' && (requestKinds.indexOf(m.ref) >= 0 || !m.ref))
+        || (m.code === 'unavailable' && requestKinds.indexOf(m.ref) >= 0)){
         const kind = m.ref || reflessKind;
         let w = null;
         if(kind){ for(const x of reqWaiters.values()){ if(x.kind === kind){ w = x; break; } } }
