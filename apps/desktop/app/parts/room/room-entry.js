@@ -995,7 +995,7 @@ let _pendingExtra = null;
 function _clearPendingCreate(){ window._pendingRoomChannel = null; window._pendingRoomOpen = false; _pendingExtra = null; }
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다.
    settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용), music(🎧 같이 듣기) }. */
-/* 카드 · [방 만들기] 를 빨리 두 번 누르면 방 개수 조회를 기다리는 사이 두 번째가 들어와 방이 둘 생기고 입장이 두 번 돈다(0.12.3) —
+/* [방 만들기] 를 빨리 두 번 누르면 방 개수 조회를 기다리는 사이 두 번째가 들어와 방이 둘 생기고 입장이 두 번 돈다(0.12.3) —
    사람이 누른 입장과 같은 한 깃발(_whileJoining)을 입장이 끝날 때까지 쥔다. */
 function doCreateRoomInChannel(channel, settings){ return _whileJoining(() => _createRoomInChannel(channel, settings)); }
 async function _createRoomInChannel(channel, settings){

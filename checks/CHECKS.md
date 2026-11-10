@@ -335,7 +335,7 @@
 | **sim-wardrobe.js** | 189 | **b4afe667aaf5** |
 | **sim-settings-panel.js** | 96 | **4b7ac46943e3** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
-| **sim-room-entry.js** | 239 | **4cc7f214b41d** |
+| **sim-room-entry.js** | 239 | **263420b1af1e** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **a352bc22d8ac** |
 | **sim-status-chip.js** | 102 | **f5f9257e9d2c** |
