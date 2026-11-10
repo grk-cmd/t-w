@@ -281,7 +281,8 @@
 | **sim-api-public-reads.js** | 184 | **f3a68560ff15** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-http-cache-reset.js** | 118 | **2533326cdf66** |
-| **sim-update-diag.js** | 71 | **01d645d0c26a** |
+| **sim-update-diag.js** | 74 | **30b60436a1c1** |
+| **sim-error-log.js** | 204 | **9af9787872fa** |
 | **sim-top-level.js** | 57 | **2ec16fa26434** |
 | **sim-remote-config.js** | 532 | **ed0e69ed1799** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
@@ -450,7 +451,7 @@
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
-| **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
+| **sim-renderer-gone-reset.js** | 114 | **d2807bd5dea6** |
 | **sim-room-code-len.js** | 178 | **0dd3514b5e58** |
 | **sim-recent-rooms.js** | 216 | **521a6470e3ea** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |

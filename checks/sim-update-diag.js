@@ -17,7 +17,10 @@ const MOD = read('update-diag.js'), MAIN = read('main.js'), PKG = read('package.
 for(const [n, v] of [['update-diag.js', MOD], ['main.js', MAIN], ['package.json', PKG]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
-const load = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, require); return m.exports; };
+const HMP = (() => { for(const d of DIRS){ const p = path.resolve(d, 'home-mask.js'); if(fs.existsSync(p)) return p; } return null; })();
+if(!HMP){ say('  ? 원본 못 찾음 — home-mask.js'); process.exit(2); }
+const req = (m) => (m === './home-mask' ? require(HMP) : require(m));   // 모듈이 부르는 이웃 파일을 찾은 자리에서
+const load = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, req); return m.exports; };
 
 const HOME = 'C:\\Users\\홍길동';
 function behave(src){
@@ -63,7 +66,7 @@ chk(/createUpdateDiag\(\{ log: \(m\) => _diagLog\(m\), home: require\('os'\)\.ho
 chk(/"update-diag\.js"/.test(PKG), '설치 목록(package.json files)에 update-diag.js — 빠지면 설치본이 켜지지 않는다');
 
 say('── 3. 깨 보기');
-chk(!behave(MOD.replace("if(home) s = s.split(home).join('~');", '')).home, '홈 폴더 바꾸기를 빼면 위 1절 «~» 가 빨강');
+chk(!behave(MOD.replace('s = maskHome(s, home);', '')).home, '홈 폴더 가리기를 빼면 위 1절 «~» 가 빨강');
 chk(!behave(MOD.replace('if(step === lastStep) return false;', '')).step, '칸 검사를 빼면 위 1절 «10% 칸마다» 가 빨강');
 chk(!behave(MOD.replace('debug: () => {},', 'debug: (m) => log(TAG + clean(m)),')).levels, 'debug 를 적으면 위 1절 logger 가 빨강');
 

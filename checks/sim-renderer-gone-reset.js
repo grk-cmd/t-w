@@ -47,6 +47,7 @@ function runGone(main, reasons, opts){
     mainWindow: o.other ? { isDestroyed: () => false } : win,
     _resetWindowForReload: () => log.push('reset'),
     _diagLog: () => {},
+    _errorLog: { write(){} },   // 🧯 오류 기록(error-log.js) — 여기서는 적지 않는다
     app: { on(){} },
     setTimeout: (fn) => { timers.push(fn); },
   };
