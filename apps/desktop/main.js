@@ -27,6 +27,7 @@ if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-wor
 // 🔒 개발자 도구 — 설치본에서는 막고 관리자 모드 창에서만 연다(devtools-gate.js). 개발 실행 · dev 빌드는 늘 연다.
 const { createDevtoolsGate } = require('./devtools-gate');
 const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
+const { createUpdateDiag } = require('./update-diag');   // 🩺 업데이트 진행 · 실패를 진단 기록에
 const devtoolsGate = createDevtoolsGate({ packaged: app.isPackaged, env: FIREBASE_ENV });
 // 렌더러(admin/admin-mode.js)가 관리자 모드를 켜고 끌 때 알린다 — 메인 창이 보낸 것만 받는다
 ipcMain.on('companion:setAdminMode', (e, on) => {
@@ -185,6 +186,8 @@ let mainWindow = null;
 // 꺼지는 것 방지).
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = false;   // 사용자가 명시적으로 재시작 버튼을 눌러야 설치되게(예상치 못한 종료 방지)
+const _updateDiag = createUpdateDiag({ log: (m) => _diagLog(m), home: require('os').homedir() });
+autoUpdater.logger = _updateDiag.logger;   // 조각만 받기 · 통째로 받기 · 오류를 electron-updater 가 스스로 적는다
 
 function sendUpdateStatus(status, extra){
   if(mainWindow && !mainWindow.isDestroyed()){
@@ -192,9 +195,9 @@ function sendUpdateStatus(status, extra){
   }
 }
 autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking'));
-autoUpdater.on('update-available', (info) => sendUpdateStatus('available', { version: info.version }));
+autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateStatus('available', { version: info.version }); });
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
-autoUpdater.on('download-progress', (p) => sendUpdateStatus('downloading', { percent: Math.round(p.percent) }));
+autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
 autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
 autoUpdater.on('error', (e) => sendUpdateStatus('error', { message: String(e && e.message || e) }));
 
