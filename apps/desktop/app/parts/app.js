@@ -1847,14 +1847,14 @@ function fitModel(seat){
        ⚠️ 인간·커미션은 _animPos 가 1 이라 **아무 변화 없다.**
        ⚠️ charLiftWorld 도 **같이** 바꿔야 한다 — 올라타기가 그 값으로 이 들림을 상쇄한다.
          한쪽만 고치면 동물 머리 위에 올라탄 캐릭터가 그 차이만큼 뜬다. */
-  m.position.y += clampCharY(seat.userY) * _animPos / _uz;
+  const _lift = clampCharY(seat.userY) * _animPos / _uz; m.position.y += _lift;
   /* 🦶 바닥 맞춤 — 발밑에 둔 파츠(욕조·방석 등)가 있으면 그 깊이만큼 들어 올려서
      '가장 아래에 있는 것'이 바닥에 닿게 한다. 발 아래에 아무것도 없으면 0이라 무동작이다.
      ⚠️ 반드시 여기, 크기(scale)와 x/z 가 다 정해진 **뒤**여야 한다. 스케일 전에 재면 깊이가
        정규화 배율만큼 어긋나서 그만큼 바닥을 파고들거나 뜬다. */
   const _under = charMeasureMod.measureUnderfootDepth(m); m.position.y += _under;
-  fitWatchMod.note(seat, { scale: baseScale, foot: _foot, userY: clampCharY(seat.userY), under: _under, y: m.position.y },
-    { rigY: sR.y, wrapRotX: (_rest && _rest.rot) ? _rest.rot.x : 0, pinned: !!seat.pinned, riding: !!seat.ridingOn, animal: isAnim });
+  fitWatchMod.note(seat, { scale: baseScale, foot: _foot, lift: _lift, under: _under, y: m.position.y },
+    { userY: clampCharY(seat.userY), rigY: sR.y, groupY: sG.y, wrapRotX: (_rest && _rest.rot) ? _rest.rot.x : 0, pinned: !!seat.pinned, riding: !!seat.ridingOn, animal: isAnim });
 }
   }finally{ restPoseMod.leave(_rest); }
   seat.rig.position.copy(sR);seat.rig.rotation.copy(sRr);

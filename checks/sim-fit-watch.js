@@ -21,21 +21,38 @@ const HTML = pick(['desk-companion-prototype.html', 'app/desk-companion-prototyp
 for(const [n, v] of [['fit-watch.js', MOD], ['app.js', APP], ['html', HTML]]){ if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); } }
 const loadWin = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwFitWatch; };
 
-const T = (o) => Object.assign({ scale: 1.0, foot: -0.13, userY: 0, under: 0, y: -0.13 }, o);
+const T = (o) => Object.assign({ scale: 1.0, foot: -0.13, lift: 0, under: 0, y: -0.13 }, o);
+/* fitModel 과 같은 식으로 값을 만든다 — 슬라이더 몫 = 높이 × 동물 배율 ÷ 캐릭터 크기 */
+const fit = (o) => { const lift = o.userY * (o.animal ? 0.4 : 1) / (o.uz || 1); const under = o.under || 0; return T({ lift, under, y: -0.13 + lift + under + (o.extra || 0) }); };
 function behave(src){
   const M = loadWin(src), out = [], r = {};
   const W = M.createFitWatch({ warn: (m) => out.push(m) });
   const seat = { gltfRoot: {} };
   r.first = W.note(seat, T()) === 'first' && out.length === 0;
   r.same = W.note(seat, T(), { rigY: 0.001 }) === 'same';
-  r.under = W.note(seat, T({ under: 0.3, y: 0.17 })) === 'same' && W.note(seat, T()) === 'same';        // 욕조 붙이고 떼기
-  r.slider = W.note(seat, T({ userY: 0.2, y: 0.07 })) === 'same' && W.note(seat, T()) === 'same';      // 높이 슬라이더
-  r.lift = W.note(seat, T({ y: 0.25 }), { rigY: 0, pinned: false, riding: true, wrapRotX: -1.5, animal: true }) === 'warn' && out.length === 1;
-  r.text = /^\[높이\] 다시 맞춘 캐릭터 높이가 설명 안 되게 바뀜 — y 0\.250→/.test(out[0] || '') === false && /y -0\.130→0\.250/.test(out[0] || '') && /올라탐/.test(out[0]) && /동물/.test(out[0]) && /눕힘 -1\.500/.test(out[0]) && !/액자 고정/.test(out[0]);
+  /* 평소 조작 — 동물 · 크기 0.63 · 높이가 0 이 아닌 캐릭터의 크기 바꿈 */
+  const human = { gltfRoot: {} }, animal = { gltfRoot: {} }, comm = { gltfRoot: {} };
+  W.note(human, fit({ userY: 0, uz: 0.63 }));  r.slider = W.note(human, fit({ userY: 0.2, uz: 0.63 })) === 'same';
+  W.note(animal, fit({ userY: 0, animal: true })); r.slider = r.slider && W.note(animal, fit({ userY: 0.1, animal: true })) === 'same';
+  W.note(comm, fit({ userY: 0.2, uz: 0.63 }));  r.slider = r.slider && W.note(comm, fit({ userY: 0.2, uz: 0.7 })) === 'same';
+  r.slider = r.slider && out.length === 0;
+  /* 발밑 깊이가 바뀌면 높이 경고는 안 내고 따로 한 줄 */
+  const n0 = out.length;
+  r.under = W.note(seat, T({ under: 0.3, y: 0.17 })) === 'same' && out.length === n0 + 1 && /^\[높이 · 발밑\] 발밑 깊이가 바뀜 0\.000→0\.300/.test(out[n0]);
   W.note(seat, T());
+  /* 설명 안 되는 높이 */
+  const n1 = out.length;
+  r.lift = W.note(seat, T({ y: 0.25 }), { riding: true, wrapRotX: -1.5, animal: true, userY: 0.2, groupY: 0.8 }) === 'warn' && out.length === n1 + 1;
+  const w = out[n1] || '';
+  r.text = /^\[높이\] 다시 맞춘 캐릭터 높이가 설명 안 되게 바뀜 — y -0\.130→0\.250/.test(w) && /좌석 y 0\.800/.test(w) && /눕힘 -1\.500/.test(w) && /높이 슬라이더 0\.200/.test(w) && /올라탐/.test(w) && /동물/.test(w) && !/액자 고정/.test(w);
+  r.held = W.note(seat, T({ y: 0.30 })) === 'held' && out.length === n1 + 1;        // 이어지는 동안 또 안 적는다
+  r.release = W.note(seat, T({ y: 0.30 })) === 'same';                              // 그대로가 되면 풀린다
+  W.note(seat, T()); W.note(seat, T());   // 높이가 돌아오며 한 번 더 경고 → 그대로로 풀기
   r.scale = W.note(seat, T({ scale: 1.05 })) === 'warn';
-  W.note(seat, T());
-  r.rig = W.note(seat, T(), { rigY: 0.3, pinned: true }) === 'warn' && /rig y 0\.300 · 눕힘 0\.000 · 액자 고정/.test(out[out.length - 1]);
+  W.note(seat, T()); W.note(seat, T());
+  const n2 = out.length;
+  r.rig = W.note(seat, T(), { rigY: 0.3, pinned: true }) === 'warn' && /rig y 0\.300 .* · 액자 고정/.test(out[n2] || '');
+  r.rigOnce = W.note(seat, T(), { rigY: 0.3, pinned: true }) === 'same' && W.note(seat, T(), { rigY: 0.3, pinned: true }) === 'same';   // 액자 고정이 그대로면 처음 한 번만
   const seat2 = { gltfRoot: {} };
   r.perRoot = W.note(seat2, T({ y: 5 })) === 'first';
   r.empty = W.note(null, T()) === null && W.note({}, T()) === null && W.note(seat, null) === null;
@@ -46,11 +63,13 @@ say('── 1. 동작');
 const b = behave(MOD);
 chk(b.first, '  새 모델의 첫 값은 적기만 한다');
 chk(b.same, '  그대로면 조용히');
-chk(b.under && b.slider, '★ 발밑 깊이(욕조 · 방석) · 높이 슬라이더로 설명되는 바뀜은 조용히');
+chk(b.slider, '★ 평소 조작은 조용히 — 크기 0.63 사람 · 동물의 높이 슬라이더 · 높이가 있는 캐릭터의 크기 바꿈(실제로 더한 슬라이더 몫으로 견준다)');
+chk(b.under, '★ 발밑 깊이가 바뀌면 높이 경고 대신 «[높이 · 발밑]» 한 줄(전→후)');
 chk(b.lift, '★ 설명 안 되는 높이 바뀜은 경고 한 줄');
-chk(b.text, '  경고에 지난값→지금값 · 상태(올라탐 · 동물 · 눕힘)를 적는다');
+chk(b.text, '  경고에 지난값→지금값 · 좌석 y · 눕힘 · 슬라이더 날값 · 올라탐 · 동물');
+chk(b.held && b.release, '  한 번 경고하면 다시 «그대로» 가 될 때까지 또 적지 않는다(슬라이더를 끄는 동안 쌓이지 않게)');
 chk(b.scale, '  크기가 1% 넘게 바뀌어도 경고');
-chk(b.rig, '  다시 맞출 때 rig 가 떠 있으면(액자 고정 등) 경고 · 상태를 적는다');
+chk(b.rig && b.rigOnce, '  rig 가 떠 있게 바뀌면 경고 · 액자 고정 그대로면 처음 한 번만');
 chk(b.perRoot, '  모델마다 따로 견준다');
 chk(b.empty, '  좌석 · 모델 · 값이 없으면 null');
 
@@ -61,20 +80,22 @@ function wired(app){
   const f = cut(app, 'fitModel');
   const at = (re) => { const m = re.exec(f); return m ? m.index : -1; };   // joinRenderer 는 옮긴 모듈 접두사(charMeasureMod.)를 걷는다
   const iU = at(/const _under = (?:charMeasureMod\.)?measureUnderfootDepth\(m\); m\.position\.y \+= _under;/),
-        iN = f.indexOf('fitWatchMod.note(seat, { scale: baseScale, foot: _foot, userY: clampCharY(seat.userY), under: _under, y: m.position.y },'),
+        iN = f.indexOf('fitWatchMod.note(seat, { scale: baseScale, foot: _foot, lift: _lift, under: _under, y: m.position.y },'),
         iL = f.indexOf('}finally{ restPoseMod.leave(_rest); }');
   return /const fitWatchMod = TwFitWatch\.createFitWatch\(\{ warn: \(m\)=>console\.warn\(m\) \}\);/.test(app)
     && /const _foot = (?:charMeasureMod\.)?charFootFix\(b2\); m\.position\.y = _foot;/.test(f)
-    && /\{ rigY: sR\.y, wrapRotX: \(_rest && _rest\.rot\) \? _rest\.rot\.x : 0, pinned: !!seat\.pinned, riding: !!seat\.ridingOn, animal: isAnim \}/.test(f)
+    && /const _lift = clampCharY\(seat\.userY\) \* _animPos \/ _uz; m\.position\.y \+= _lift;/.test(f)
+    && /\{ userY: clampCharY\(seat\.userY\), rigY: sR\.y, groupY: sG\.y, wrapRotX: \(_rest && _rest\.rot\) \? _rest\.rot\.x : 0, pinned: !!seat\.pinned, riding: !!seat\.ridingOn, animal: isAnim \}/.test(f)
     && iU > 0 && iN > iU && iL > iN;
 }
 chk(wired(SRC), '★ fitModel — 기본 자세 안에서 발밑 깊이를 잰 바로 뒤 note(크기 · 발바닥 · 슬라이더 · 발밑 · 높이 + rig 높이 · 눕힘 · 액자 고정 · 올라탐 · 동물)');
 chk(/parts\/character\/fit-watch\.js[\s\S]*parts\/app\.js/.test(HTML.slice(HTML.indexOf('fit-watch.js') - 40)), '  html 에 app.js 보다 먼저');
 
 say('── 3. 깨 보기');
-chk(!behave(MOD.replace('const explained = (t.under - p.under) + (t.userY - p.userY);', 'const explained = 0;')).under, '설명되는 바뀜을 빼면 위 «욕조 · 슬라이더는 조용히» 가 빨강');
-chk(!behave(MOD.replace('if(Math.abs(dy) <= TOL_Y && ds <= TOL_SCALE && !rigUp) return \'same\';', "return 'same';")).lift, '늘 조용히 하면 위 «경고 한 줄» 이 빨강');
-chk(!behave(MOD.replace('last.set(root, { ...t });', '')).same, '지난값을 안 남기면 위 «그대로면 조용히» 가 빨강');
+chk(!behave(MOD.replace('((t.under - p.under) + (t.lift - p.lift))', '(t.under - p.under)')).slider, '슬라이더 몫을 설명에서 빼면 위 «평소 조작은 조용히» 가 빨강');
+chk(!behave(MOD.replace("if(Math.abs(t.under - p.under) > TOL_Y) warn(", "if(false) warn(")).under, '발밑 깊이 한 줄을 빼면 위 ★ 가 빨강');
+chk(!behave(MOD.replace("if(L.held) return 'held';", '')).held, '이어지는 경고 막기를 빼면 위 «또 적지 않는다» 가 빨강');
+chk(!behave(MOD.replace(' && Math.abs(rigY - L.rigY) > RIG_LIFT', '')).rigOnce, 'rig 뜸을 «바뀌었을 때만» 안 보면 위 «액자 고정은 처음 한 번» 이 빨강');
 chk(!wired(SRC.replace('fitWatchMod.note(seat,', 'void(seat,')), 'fitModel 에서 note 를 빼면 위 2절 ★ 가 빨강');
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

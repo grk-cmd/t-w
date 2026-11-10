@@ -431,7 +431,7 @@
 | **sim-ride-tuning.js** | 124 | **6889f9df66be** |
 | **sim-char-measure.js** | 167 | **c1ee503be3b6** |
 | **sim-rest-pose.js** | 126 | **95c44da6a4a6** |
-| **sim-fit-watch.js** | 81 | **fd402eb7f593** |
+| **sim-fit-watch.js** | 102 | **f35dc7a99a9b** |
 | **sim-body-measure.js** | 653 | **67bf831c85c9** |
 | **sim-floor-snap-diag.js** | 142 | **3aa611d6946d** |
 | **sim-seat-model-load.js** | 194 | **7ff56380f12a** |

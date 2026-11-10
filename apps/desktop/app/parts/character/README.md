@@ -268,8 +268,8 @@
 
 - **책임**: fitModel 이 높이를 정하는 값(크기 · 발바닥 보정 · 높이 슬라이더 · 발밑 깊이)을 모델마다 지난번과 견주어, 파츠 · 슬라이더로 설명되지 않게 바뀌었거나 다시 맞출 때 rig 가 떠 있으면 `console.warn('[높이] …')` 한 줄 — 오류 기록(`tw-error.log`)에 WARN 으로 모인다(B-1109-9 원인 찾기).
 - **만드는 법**: `const fitWatchMod = TwFitWatch.createFitWatch({ warn: (m)=>console.warn(m) });`(app.js `restPoseMod` 바로 뒤).
-- **내보내는 것**: `note(seat, { scale, foot, userY, under, y }, { rigY, wrapRotX, pinned, riding, animal })` → `'first' | 'same' | 'warn' | null`.
-- **함정**: 새 모델의 첫 값은 견줄 것이 없어 적기만 한다 · 발밑 깊이 · 높이 슬라이더가 바뀐 만큼은 경고하지 않는다(욕조 · 방석 · 슬라이더) · 기준 `TOL_Y`(0.01) · `TOL_SCALE`(1%) · `RIG_LIFT`(0.05).
+- **내보내는 것**: `note(seat, { scale, foot, lift, under, y }, { userY, rigY, groupY, wrapRotX, pinned, riding, animal })` → `'first' | 'same' | 'warn' | 'held' | null` — `lift` 는 fitModel 이 실제로 더한 슬라이더 몫(동물 배율 · 캐릭터 크기 반영).
+- **함정**: 새 모델의 첫 값은 견줄 것이 없어 적기만 한다 · 슬라이더 몫은 날값이 아니라 **실제로 더한 값**으로 견준다(날값이면 동물 · 크기 ≠ 1 에서 거짓 경고) · 발밑 깊이가 바뀌면 높이 경고 대신 `[높이 · 발밑]` 한 줄 · 한 번 경고하면 «그대로» 가 될 때까지 다시 안 적음 · rig 뜸은 바뀌었을 때만 · 기준 `TOL_Y`(0.01) · `TOL_SCALE`(1%) · `RIG_LIFT`(0.05).
 - 검사: `checks/sim-fit-watch.js`.
 
 ## floor-snap-diag.js — 🩺 바닥 맞춤 진단
