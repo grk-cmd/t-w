@@ -1726,6 +1726,7 @@ const dotRenderMod = TwDotRender.createDotRender({
 const charMeasureMod = TwCharMeasure.createCharMeasure({
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
 });
+const restPoseMod = TwRestPose.createRestPose();   // 🧍 fitModel 은 기본 자세로 잰다(character/rest-pose.js)
 /* 본문은 character/floor-snap-diag.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const floorSnapDiagMod = TwFloorSnapDiag.createFloorSnapDiag({
@@ -1738,6 +1739,8 @@ function fitModel(seat){
   m.scale.set(1,1,1); m.position.set(0,0,0); m.rotation.set(0,seat.userRot+creatorPrevMod.RIG_TURN,0);
   const sR=seat.rig.position.clone(),sRr=seat.rig.rotation.clone(),sWp=seat.bodyWrap.position.clone(),sG=seat.group.position.clone();
   seat.rig.position.set(0,0,0);seat.rig.rotation.set(0,0,0);seat.bodyWrap.scale.set(1,1,1);seat.bodyWrap.position.set(0,0,0);seat.group.position.set(0,0,0);
+  const _rest = restPoseMod.enter(seat);   // 졸기 · 춤 · 눕기 자세로 재면 그만큼 뜬다(B-1109-9) — 아래 finally 에서 되돌린다
+  try{
   seat.group.updateWorldMatrix(true,true);
   
   const box=charMeasureMod.measureCharBox(m);   // 표준 리그 통합: base·커미션 동일 경로 (리깅 파츠 제외 측정)
@@ -1850,6 +1853,7 @@ function fitModel(seat){
        정규화 배율만큼 어긋나서 그만큼 바닥을 파고들거나 뜬다. */
   m.position.y += charMeasureMod.measureUnderfootDepth(m);
 }
+  }finally{ restPoseMod.leave(_rest); }
   seat.rig.position.copy(sR);seat.rig.rotation.copy(sRr);
   /* 🪑 평준화 배율은 여기(몸 스케일) 하나로 들어간다 — headAnchor·bodyAnchor 는 bodyWrap 의
      자식이라 저절로 같이 커진다. ⚠️ 위 _uz 는 raw userScale 그대로여야 한다(그 주석 참고). */

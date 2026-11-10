@@ -250,6 +250,20 @@
   - `floorClampWrapper` 는 «잰 것» 과 «움직이는 것» 이 같아야 한다 — 같이 안 올라가는 가지만 skipSub 로 뺀다.
   - 검사: `checks/sim-char-measure.js`(4절 — 실제 three 로 박스 · 깊이 · 상한 · 보정 · 부모 배율 환산 · hard · skipSub).
 
+## rest-pose.js — 🧍 기본 자세로 잠깐 되돌려 재기
+
+- **책임**: fitModel 이 캐릭터 크기 · 발바닥 보정 · 발밑 깊이를 **기본 자세**로 재게, 재는 동안만 뼈와 `bodyWrap` 회전을 기본으로 돌리고 끝나면 지금 자세로 되돌린다. 졸기 · 춤 · 눕기 자세로 재면 그 박스만큼 캐릭터가 뜬 채 남았다(B-1109-9).
+- **만드는 법**: deps 없음 — `const restPoseMod = TwRestPose.createRestPose();`(app.js `charMeasureMod` 바로 뒤).
+- **내보내는 것**: `enter(seat)` → 되돌릴 표(없으면 null) · `leave(표)` · `restOf(root)`(그 모델의 기본 자세 — 처음 부를 때 잰다).
+  ```js
+  const _rest = restPoseMod.enter(seat);
+  try{ /* 재기 */ }finally{ restPoseMod.leave(_rest); }
+  ```
+- **함정**
+  - 기본 자세는 그 모델(`gltfRoot`)을 처음 `enter` 할 때 잰다 — fitModel 의 첫 호출이 모델을 막 만든 직후라 그때가 기본 자세다. 다른 곳에서 먼저 부르면 그 자세가 기본이 된다.
+  - 나중에 붙은 파츠의 뼈(자기 뼈대가 있는 파츠)는 건드리지 않는다.
+  - 검사: `checks/sim-rest-pose.js`.
+
 ## floor-snap-diag.js — 🩺 바닥 맞춤 진단
 
 - **책임**: 진단 전용. 콘솔에서 `floorSnapReport()` 한 줄로 실행 화면 · 꾸미기 미리보기 좌석의 발밑 깊이와 파츠 wrapper 위치(바닥 아래인지 · 모델 안인지)를 나란히 적는다. 아무것도 고치지 않는다.
