@@ -91,7 +91,9 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **함정**: 순환 방어로 `RIDE_CHAIN_MAX_HOPS`(16)번에서 멈춘다(`_rideDepth` 와 같은 상한) — 바꾸면 둘을 같이. 검사: `checks/sim-ride-chain.js`.
 ## seat-layout.js — 🪑 좌석 줄 배치
 
-- **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 반폭 + 여백 + 내 반폭» 씩 `targetX`(반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유 `BODY_ROOM` 0.15» 중 넓은 쪽 — 책상이 작거나 없는 캐릭터가 옆 책상과 안 겹치게) → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로.
+- **책임**: 좌석 줄 자리 계산 하나. 평준화 반영(`syncSeatEqualize`) → 맨 오른쪽 고정(`TwSeatPin.pinFirst`, 옮겼으면 좌석 탭 다시 그림) → 이동 오프셋을 안전 범위로 → 0번(맨 오른쪽 · x=0)부터 왼쪽으로 «앞 반폭 + 여백 + 내 반폭» 씩 `targetX`(반폭 = 책상 반폭과 «캐릭터 몸 반폭 + 여유 `BODY_ROOM` 0.15» 중 넓은 쪽 — 책상이 작거나 없는 캐릭터가 옆 책상과 안 겹치게 · 🚫 «책상 없음»(`desk.userData.noDesk`)이면 몸을 잰 뒤엔 책상 폭을 안 센다) → 올라탄 좌석은 탑 바닥 자리를 물려받음 → 줄 가운데 · 폭을 캐시하고 `seatCameraMod.applyCameraAndCanvas` 로.
+- **책상 끌기 자리** `slotIndexAt(x, seat)` — 끄는 좌석을 뺀 나머지 순서는 그대로 두고, 칸마다 «여기 넣으면 설 자리» 를 줄 배치와 같은 셈으로 내서 x 에서 가장 가까운 칸 번호(splice 번호). app.js 책상 끌기가 부르고 «맨 오른쪽 고정» 은 그 뒤 `TwSeatPin.dragIndex`. ⚠️ 지금 자리(targetX) 중 가장 가까운 것을 고르면 폭이 섞일 때 두 칸을 오가며 떨린다 · 간격으로 나누면 음수 간격에서 방향이 뒤집힌다.
+- **좌석 반폭** `seatHalfWidth(s)` — 줄 배치와 같은 규칙(책상 · 🚫 책상 없음 · 몸 폭, 줌 상한 없음)을 좌석 하나에. 평준화 가두기(`character/seat-eq-clamp.js`)가 deps 로 받는다 — 두 곳이 자리 폭을 따로 재면 «책상 없음» 좌석의 파츠가 옆으로 넘어간다. 몸 폭은 마지막 줄 배치에서 잰 값.
 - **만드는 법**(app.js «🪑 좌석 배치» 구역 자리):
   ```js
   const seatLayoutMod = TwSeatLayout.createSeatLayout({
@@ -112,7 +114,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
   - 1번 자리부터 책상 반폭에 줌 상한(1.1)이 걸리는 지금 동작은 `CONFIRM.md` 에 적어 둠(`seatDeskHalfWidth(s, i)` 가 인덱스를 forZoom 으로 넘김 — 몸 폭 규칙을 넣으면서도 그대로 뒀다).
-  - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록 · 책상 없는 좌석 몸 자리).
+  - 검사: `checks/sim-seat-layout.js`(4절 — 혼자 · 셋 · 친구 간격 · 올라탄 좌석 · 고정 · 오프셋 · 폭 0 · 빈 목록 · 책상 없는 좌석 몸 자리 · 🚫 책상 없음 표시).
 
 ## label-measure.js — 📐 좌석 라벨 잰 값 기억
 
@@ -340,6 +342,7 @@ TwRoomLobbyUi.createRoomLobbyUi({
 - 60초 타이머는 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 다음 차례에 스스로 멈춘다 — 닫기 버튼에만 기대지 않는다.
 - 방 안에서 모달을 열면 로비는 안 읽는다. 모달이 열린 채 방을 나오면(나가기 · 해산 · 정원 초과) room-entry `refreshInviteUI` 가 «방 안 → 밖» 순간에 `twNav.go(NAV.ROOM_LOBBY)` 로 알리고, 로비가 그때 읽는다 — 서로의 모듈을 부르지 않게 창 열기 통로를 쓴다.
 
+- 방 만들기 창의 [방 만들기](`doCreateRoomInChannel`)도 같은 깃발을 입장이 끝날 때까지 쥔다 — 빨리 두 번 누르면 «방에 들어가는 중» 안내(0.12.3 은 조용히 버림 · 0.13 은 사용자 확인으로 안내) · 창은 먼저 닫혀 친 제목은 남지 않는다.
 - 카드 · [빠른시작] · «내 시크릿룸» 입장은 room-entry `joinRoom` 으로 — «입장 중» 깃발(`_joiningRoom`) 하나를 코드 칸 [입장] · F1 칸 · 🕘 최근 방과 같이 쓴다. 로비에 따로 깃발을 두지 않는다(두면 서로를 못 막는다). 입장 중에 또 누르면 «방에 들어가는 중이에요 — 잠시만 기다려 주세요» 토스트(`_joinBusy` 한 곳).
 
 검사: `checks/sim-room-lobby-ui.js`.

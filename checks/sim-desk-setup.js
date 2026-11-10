@@ -48,7 +48,7 @@ function world(src, o = {}) {
   const errCodes = { notify: (code, err) => log.toasts.push([code, err]) };   // 실패 알림은 번호 통로(TwErrorCodes) — 번호를 토스트 칸에 적는다
   const T = new Function('window', 'document', 'confirm', 'module', 'TwErrorCodes', src + '\nreturn window.TwDeskSetup;')({ focus() {} }, doc, confirmFn, undefined, errCodes);
   const out = T.createDeskSetup({
-    DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', DEF_SIZE_TOAST_MS: () => 5000, DESK_ITEMS: [{ id: 'plant', name: '화분' }, { id: 'cup', name: '컵' }, { id: 'books', name: '책' }], DESK_SCALE_DEFAULT: 0.175,
+    DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', NO_DESK_ID: '__no_desk__', hideDeskBody: call('hide'), DEF_SIZE_TOAST_MS: () => 5000, DESK_ITEMS: [{ id: 'plant', name: '화분' }, { id: 'cup', name: '컵' }, { id: 'books', name: '책' }], DESK_SCALE_DEFAULT: 0.175,
     _creatorSizeGrow: (fn) => { const d = {}; fn(d); log.calls.push(['grow', d]); return o.sizeFail ? { ok: false, message: '용량' } : { ok: true }; },
     _syncCrColorSwatches: call('sync'), applyDeskColorToCustom: call('color'), assetCardsMod,
     assetCodeMod: () => ({ parseGlbBytes: (b) => (o.parseFail ? Promise.reject(new Error('x')) : Promise.resolve({ scene: b })) }), autoSaveDeskItemsNow: call('autosave'), b64ToBuf: (s) => 'B:' + s,
@@ -66,7 +66,9 @@ function world(src, o = {}) {
   return { out, log, st, E, cards, calls, customItems, getDesks: () => desks, getItems: () => items };
 }
 const lastT = (w) => (w.log.toasts[w.log.toasts.length - 1] || [])[0];
-const deskCards = (w) => w.E.crDeskRow.children, itemCards = (w) => w.E.crItemRow.children;
+/* 🚫 «책상 없음» 칸은 noDeskCard 로 따로 본다 — 아래 판정의 책상 카드 번호(0 기본 · 1~ 저장 책상)는 그대로 */
+const noDeskCard = (w) => w.E.crDeskRow.children.find((c) => c.label === '책상 없음');
+const deskCards = (w) => w.E.crDeskRow.children.filter((c) => c.label !== '책상 없음'), itemCards = (w) => w.E.crItemRow.children;
 
 async function behave(src) {
   const r = [];
@@ -179,6 +181,18 @@ async function behave(src) {
     t(!a.cards.length && !b.calls('gizmo').length, '입구 전제 — 카드 줄 · 색 칸 · 미리보기가 없거나 캐릭터가 없으면 던지지 않고 아무것도 안 한다');
   } catch (_) { threw = true; }
   if (threw) t(false, '입구 전제 — 없을 때 던졌다');
+
+  /* 🚫 책상 없음 칸 — 기본 책상 바로 뒤 · 누르면 책상 몸만 숨기고 저장할 id 를 NO_DESK_ID 로 */
+  w = world(src, { desks: D, active: 'd1' }); w.out.renderCrItems();
+  const row = w.E.crDeskRow.children, nd = noDeskCard(w);
+  t(nd && row[1] === nd && nd.on === false && nd.icon === '🚫', '책상 없음 칸 — 기본 책상 바로 뒤 · 다른 책상을 쓰면 꺼짐');
+  await nd.onclick(); await flush();
+  t(w.st.activeCustomDeskId === '__no_desk__' && w.st.cDeskTemplate === null && w.st.cDeskGlbB64 === null && w.calls('hide')[0][1] === w.st.cDesk && w.calls('scale').length >= 1 && noDeskCard(w).on === true && deskCards(w)[0].on === false,
+    '  누르면 — 고른 책상 · GLB 를 비우고 책상 몸 숨기기(hideDeskBody) · 크기 다시 · 다시 그려 책상 없음만 켜짐');
+  await noDeskCard(w).onclick(); await flush();
+  t(w.calls('hide').length === 1, '  이미 책상 없음이면 다시 눌러도 아무 일 없음');
+  await deskCards(w)[0].onclick(); await flush();
+  t(w.st.activeCustomDeskId === null && w.calls('swap').length >= 1 && noDeskCard(w).on === false, '  기본 책상을 누르면 책상 없음이 풀린다');
   return r;
 }
 
@@ -188,7 +202,7 @@ function wire(app, html) {
   const A = strip(app);
   t(!/function renderCrItems\b|function reorderSavedItem\b|function selectDeskItemForAdjust\b|const DESK_ICON\b/.test(A), 'app.js 에 옮긴 선언이 안 남았다');
   const mk = (app.match(/const deskSetupMod = TwDeskSetup\.createDeskSetup\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(mk.split('\n').length === 29 && /  crState: crState,/.test(mk) && /  catalogNet: \(\)=>window\.firebaseAPI,/.test(mk) && !/adminPartReg|crXformMod/.test(mk), '만드는 줄(가드 없이) · deps 29 · 데이터 provider 한 줄 · 관리자 등록 · 기즈모 모듈은 받지 않는다(순환)');
+  t(mk.split('\n').length === 31 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  catalogNet: \(\)=>window\.firebaseAPI,/.test(mk) && !/adminPartReg|crXformMod/.test(mk), '만드는 줄(가드 없이) · deps 29 · 데이터 provider 한 줄 · 관리자 등록 · 기즈모 모듈은 받지 않는다(순환)');
   const iX = app.indexOf('const crXformMod = TwCreatorXform.'), iH = app.indexOf('deskSetupMod.setHooks({');
   t(iH > iX && /openDeskRegister: \(\.\.\.a\)=>adminPartReg\.openDeskRegister\(\.\.\.a\),/.test(app) && /attachItemGizmo: \(\)=>crXformMod\.attachItemGizmoToActive\(\),/.test(app), 'crXformMod 를 만든 뒤 갈고리 둘을 잇는다');
   t(/function bindHold\(el, fn\)\{/.test(app), 'bindHold 는 app.js 에 남는다(animal.js 가 전역으로 읽는다)');
@@ -217,6 +231,8 @@ function wire(app, html) {
     ['기즈모 갈고리 안 부름', (m) => m.replace('  crState.cBase.activeDeskItem = pivot;\n  if(creatorOpen()) renderCrItems();\n  if(_hooks.attachItemGizmo) _hooks.attachItemGizmo();', '  crState.cBase.activeDeskItem = pivot;\n  if(creatorOpen()) renderCrItems();'), null, null],
     ['관리자도 미리보기 우클릭', (m) => m.replace('  if(isAdmin()) return;   // 관리자는', '  if(false) return;   // 관리자는'), null, null],
     ['입구 전제 없앰(카드)', (m) => m.replace("  if(!document.getElementById('crDeskRow') || !document.getElementById('crItemRow') || !document.getElementById('deskColor')) return;\n", ''), null, null],
+    ['책상 없음 칸 빠짐', (m) => m.replace('  dr.appendChild(noThumb);\n', ''), null, null],
+    ['책상 없음이 저장 id 를 안 둠', (m) => m.replace('crState.activeCustomDeskId=NO_DESK_ID;', 'crState.activeCustomDeskId=null;'), null, null],
     ['만들 때 던짐', (m) => m.replace('function createDeskSetup(deps){', 'function createDeskSetup(deps){ throw new Error("깨 봄");'), null, null],
     ['app.js 에 본문이 남음', null, (a) => a + '\nfunction renderCrItems(){}', null],
     ['갈고리 줄 빠짐', null, (a) => a.replace('deskSetupMod.setHooks({', 'void({'), null],

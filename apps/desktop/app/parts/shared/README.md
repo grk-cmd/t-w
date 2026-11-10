@@ -382,6 +382,16 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.
 - **함정**: 최소 버전은 저장값을 쓰지 않는다(지난 값으로 막지 않게). 옛 판(평평한 칸)이 남긴 저장값은 판 표시가 없어 읽지 않는다. 칸 이름(`roomMaxPeople` 등)은 앱 안 이름이라 서버 이름과 다르다 — 풀기는 `fieldsOf` 한 곳.
 - 검사: `checks/sim-remote-config.js`.
+## `front-diag.js` — 🩺 앞 창 진단(1분 `[프레임]` 줄 끝에 앞 창 · 전체화면 비율)
+
+- **책임**: «앱을 켜 두면 게임 · 영상이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 렌더러가 1분마다 보내는 `[프레임]` 줄 끝에 그 1분 동안 가장 오래 앞에 있던 실행 파일과 그 창이 모니터를 꽉 채운 비율을 붙인다. main 만 싣는다(`module.exports` — 렌더러는 앞 창을 모른다).
+- **쓰는 법**: `createFrontWatch()` — 활성 창 폴링(500ms)마다 `note(t, exe, coversDisplay(앞창 bounds, 우리 창 모니터 bounds))`, `companion:diagNote` 가 `isFrameLine(줄)` 이면 `줄 + suffix(take(t))`. 예) `… · 앞 창 Discord.exe · 전체화면 85%` · 표본이 없으면 ` · 앞 창 모름`.
+- **함정**
+  - 창 제목은 적지 않는다(영상 제목 · 대화 상대 이름) — 실행 파일 이름만.
+  - 맥은 앞 창 크기를 안 읽는다(`bounds: null` — node-window-manager 맥 `getBounds` 가 창 목록을 통째로 다시 받고 사전을 놓아주지 않아 0.5초 폴링에 못 쓴다). 크기를 못 읽은 표본은 비율 분모에서 빠지고, 그것만 있으면 `전체화면 모름`.
+  - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
+  - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
+- 검사: `checks/sim-front-diag.js`(깨 보기 열).
 
 ## `error-report.js` — 🧯 화면 오류를 오류 기록(tw-error.log)으로
 
@@ -390,3 +400,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **내놓는 것**: `TwErrorReport.install(win, send, now?)` · `format(args)`.
 - **함정**: console 원래 출력은 그대로 둔다 · 에러코드 알림이 찍는 `console.warn('[오류] E-…')` 은 다시 안 보낸다 · 보내다 난 오류가 되돌아 들어오지 않게 막는다 · 같은 줄은 10초 안에 한 번.
 - 검사: `checks/sim-error-log.js`.
+
+## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
+
+- **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
+- **까닭**: 맥은 확인 창을 다른 앱 창이 덮으면 보안 때문에 그 칸(Touch ID · 암호 · «받기»)을 비워 보여 준다. 실행 화면은 모니터 전체를 덮는 투명 창이라 늘 덮는다(B-1104-10).
+- **쓰는 법**: `isSystemPrompt(activeKey)` — 활성 창 폴링(500ms)의 `focusKeyOf` 키(소문자 · `mac:<번들 id>`).
+- **함정**
+  - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
+  - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
+- 검사: `checks/sim-system-prompt.js`(깨 보기 셋).

@@ -291,6 +291,7 @@ function buildBooks(){ const g=new THREE.Group(); const cols=[matSage,matBlush,m
     b.position.set(0,0.02+i*0.045,0); b.rotation.y=(i-1)*0.12; b.castShadow=true; g.add(b);} return g; }
 const DESK_ITEMS=[{id:'plant',name:'화분',build:buildDeskPlant},{id:'cup',name:'머그컵',build:buildCup},{id:'books',name:'책',build:buildBooks}];
 const DEFAULT_DESK_OVERRIDE_ID='__default_desk__';   // 관리자가 "기본 책상"을 우클릭해서 등록하면 이 예약 ID로 저장됨
+const NO_DESK_ID='__no_desk__';   // 🚫 «책상 없음» — deskCatalogId 에 넣는다(새 칸이 아니라 옛 앱 · 방 서버가 그대로 받는다)
 function buildDesk(plain){
   const desk=new THREE.Group(); const deskTopY=0.46,deskZ=0.50;
   const topM=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.08,0.6),matWood);
@@ -757,13 +758,10 @@ function buildPlaceholder(){
 
 /* ============================================================ SEATS */
 const seats=[]; let selected=null;
-// ★ 좌석 간 간격 — 책상 폭(1.7)보다 좁게 잡아서 책상끼리 "한뼘 정도"만 떨어지게 함.
-//   자리 추가(솔로)/멀티플레이어 친구 좌석 모두 이 값 하나로 공통 적용됨(layoutSeats에서 재사용).
-//   더 좁히고 싶으면 값을 줄이고(단, 너무 작으면 책상끼리 겹쳐 보일 수 있음), 넓히고 싶으면 늘리세요.
-// ★ 좌석(책상) 간 여백 — 예전엔 고정 상수였는데, 사용자가 설정 패널에서 직접 조절할 수 있게 변경.
-//   솔로/멀티 각각 따로 저장되고(모드 전환해도 서로 기억), 최소값(GAP_MIN)은 책상끼리 겹치지 않을
-//   정도로 낮게 잡아둬서 아무리 좁혀도 실제로 겹쳐지진 않음.
-const GAP_MIN = 0.02, GAP_MAX = 1.2, GAP_STEPS = 15;
+// ★ 좌석 간격 = 책상 끝끼리 여백(설정 › 캐릭터) — 솔로 · 멀티 따로 저장. 자리 셈은 room/seat-layout.js.
+//   GAP_MIN 이 음수인 까닭: 책상 GLB 는 보이는 판보다 박스가 넓은 것이 많아 «끝끼리 0» 이어도 벌어져 보인다 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다.
+//   책상 없는 좌석은 몸 + 여유(0.15)씩이라 -0.3 이면 몸끼리 맞닿는다(seat-layout.js).
+const GAP_MIN = -0.3, GAP_MAX = 1.2, GAP_STEPS = 15;
 const GAP_KEY_SOLO='tw.gapSolo', GAP_KEY_MULTI='tw.gapMulti';
 function _loadGap(key, def){ try{ const v=parseFloat(localStorage.getItem(key)); if(!isNaN(v)) return Math.max(GAP_MIN,Math.min(GAP_MAX,v)); }catch(e){} return def; }
 let SPACING = _loadGap(GAP_KEY_SOLO, 0.3);
@@ -2404,6 +2402,8 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const wardrobeMod = TwWardrobe.createWardrobe({
+  NO_DESK_ID: NO_DESK_ID,
+  layoutSeats: (...a)=>layoutSeats(...a),
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
   PART_CATS: ()=>premiumMod.PART_CATS(),
@@ -2793,6 +2793,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  giftSave: TwGiftSave.createGiftSave({ fetch: (...a)=>fetch(...a), document, URL, setTimeout: (...a)=>setTimeout(...a), safeUrl: TwSafeHtml.safeUrl, now: ()=>new Date(), notifyFail: e=>TwErrorCodes.notify('E-MH-03', e) }),
   // 📩 수령함
   myInbox: ()=>_myInbox,
   inboxBroadcast: ()=>_inboxBroadcast,
@@ -3671,6 +3672,8 @@ const FOCUS_MS=1500,SLEEP_MS=8000,PET_MS=2200;
    (main.js가 activeAppState.isPenApp으로 알려줌 — 목록은 main.js의 PEN_APPS 한 곳에만 둔다) */
 const PEN_FOCUS_MS=4000;
 let _penAppFocused=false;
+/* 투게더워킹 창 자신이 맨 앞인가(main.js activeAppState.isSelf) — 등록 앱이 아니어도 잠들지 않게 seatState 가 본다. */
+let _selfAppActive=false;
 function focusWindowMs(){ return _penAppFocused ? PEN_FOCUS_MS : FOCUS_MS; }
 let lastActivity=performance.now(),windowFocused=!document.hidden,lastZ=0;
 function activity(){lastActivity=performance.now();}
@@ -3700,6 +3703,9 @@ function seatState(seat,now){
   if(!desktopMode && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
+  /* 투게더워킹 창을 쓰는 중이면 등록 앱이 아니어도 깨어 있는다(평소 자세). 손을 뗀 지 SLEEP_MS 가 넘으면 예전처럼 잔다.
+     ⚠️ lastActivity 만 보면 안 된다 — 전역 키 · 클릭은 게이트가 닫혀 있으면 lastAnyInput 만 올린다. */
+  if(desktopMode && focusGateSleep && _selfAppActive) return (now-Math.max(lastActivity,lastAnyInput)>SLEEP_MS) ? 'sleep' : 'idle';
   if(desktopMode && focusGateSleep) return 'sleep';
   if(seat.isMe && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
   const idle=now-lastActivity;
@@ -3859,7 +3865,7 @@ canvas.addEventListener('pointermove',e=>{
 
   if(drag.mode==='slot'){
     const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
-    const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
+    let idx=seatLayoutMod.slotIndexAt(wx, drag.seat);   // 칸마다 설 자리를 셈해 가장 가까운 칸 — 간격으로 나누면 음수 간격에서 방향이 뒤집힌다
     if(window.TwSeatPin) idx = TwSeatPin.dragIndex(idx, drag.seat, seats, roomSeatMode);   // 🪑 맨 오른쪽 고정이면 내 자리는 그대로
     const cur=seats.indexOf(drag.seat);
     if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();seatPanelMod.renderSeatTabs();}
@@ -5210,6 +5216,8 @@ const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetMod = TwDeskPreset.createDeskPreset({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  NO_DESK_ID: NO_DESK_ID,
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
   applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
@@ -5609,6 +5617,8 @@ const assetCardsMod = TwAssetCards.createAssetCards({
 /* 본문은 creator/desk-setup.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskSetupMod = TwDeskSetup.createDeskSetup({
+  NO_DESK_ID: NO_DESK_ID,
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   DEF_SIZE_TOAST_MS: ()=>creatorSaveMod.DEF_SIZE_TOAST_MS,
   DESK_ITEMS: DESK_ITEMS,
@@ -6122,7 +6132,8 @@ function openCreator(mode){
   if(crState.cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
     if(crState.cDesk)crState.cDesk.userData.deskScale=crState.cDeskScale; deskVisualMod.swapDeskVisual(crState.cDesk,null);
     (async()=>{
-      if(src&&src.deskCatalogId){
+      if(src&&src.deskCatalogId===NO_DESK_ID){ crState.activeCustomDeskId=NO_DESK_ID; deskVisualMod.hideDeskBody(crState.cDesk); }
+      else if(src&&src.deskCatalogId){
         const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
         /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
            deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
@@ -6217,6 +6228,7 @@ function openCreator(mode){
 /* 본문은 creator/creator-save.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const creatorSaveMod = TwCreatorSave.createCreatorSave({
+  NO_DESK_ID: NO_DESK_ID,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   Presence: ()=>Presence,
   _blankFaceConfirmed: ()=>_blankFaceConfirmed,
@@ -7769,6 +7781,7 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskVisualMod = TwDeskVisual.createDeskVisual({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  NO_DESK_ID: NO_DESK_ID,
   _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),
   _idleItemPivots: _idleItemPivots,
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
@@ -7821,7 +7834,7 @@ const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
   DESK_PART_ANCHOR_NAME: deskPlaceMod.DESK_PART_ANCHOR_NAME,
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   SPACING: ()=>SPACING,
-  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),
   seatEqMod: seatEqMod,
   seatSlot: ()=>seatSlot,
   seats: seats,
@@ -9022,6 +9035,7 @@ function _applyActiveAppState(state){
   /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
      구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
   if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
+  _selfAppActive = !!state.isSelf;   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
   _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
   /* 투게더워킹 창이 앞이면(isSelf) 직전 상태를 둔다 — 포커싱 어플 목록에 없어 «등록 안 된 앱» 으로 보면 앱을 만지는 동안 잠든다 */
   const keepGate = state.isSelf === true && !state.isFocusedAppRegistered && !figureMode && !mobOn;   // 자기를 포커싱 어플로 등록했으면 예전대로

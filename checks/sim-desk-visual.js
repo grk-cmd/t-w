@@ -1,8 +1,8 @@
 /* ═══ 🪑 sim-desk-visual.js — 🪑 책상 모양 모듈 구조 (2026-10-16 신설 · 구역 떼기 C · w2) ═══════════════
-   app.js 의 책상 모양 본문 을 parts/character/desk-visual.js 로 옮겼다(글자 그대로 · 바뀐 줄 1 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(4절 — 가짜 책상 그룹으로 바꿔 끼기 · 되돌리기 · 재생 모드 · 색 · 카탈로그 책상 · 라이선스).
+   app.js 의 책상 모양 본문 을 parts/character/desk-visual.js 로 옮겼다(글자 그대로 · 바뀐 줄 1 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(4절 — 가짜 책상 그룹으로 바꿔 끼기 · 되돌리기 · 재생 모드 · 색 · 카탈로그 책상 · 라이선스 · 🚫 책상 없음).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(applyDeskCatalogRefToSeat · applyDeskColorToCustom · swapDeskVisual)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 12줄 그대로 · 부르는 곳은 deskVisualMod.이름 · html(app.js 앞)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(applyDeskCatalogRefToSeat · applyDeskColorToCustom · hideDeskBody · swapDeskVisual)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 13줄 그대로 · 부르는 곳은 deskVisualMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · desk-visual.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -19,12 +19,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — desk-visual.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_applyItemMatTone","_setDeskMatColor","b64ToBuf","setDeskScale","toast"];
-const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","_idleItemPivots","activeItemMixers","assetCodeMod","commissionMod"];
+const VAL_DEPS = ["DEFAULT_DESK_OVERRIDE_ID","NO_DESK_ID","_idleItemPivots","activeItemMixers","assetCodeMod","commissionMod"];
 const GET_DEPS = ["isAdmin","isPremium"];
 const SET_DEPS = [];
-const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColorToCustom","swapDeskVisual"];
+const EXPORTS = ["applyDeskCatalogRefToSeat","applyDeskColorToCustom","hideDeskBody","swapDeskVisual"];
 const MOVED = ["applyDeskCatalogRefToSeat","normalizeDeskObj","swapDeskVisual","applyDeskColorToCustom"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  setDeskScale: (...a)=>setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  NO_DESK_ID: NO_DESK_ID,","  _applyItemMatTone: (...a)=>_applyItemMatTone(...a),","  _idleItemPivots: _idleItemPivots,","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  activeItemMixers: activeItemMixers,","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  commissionMod: commissionMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  setDeskScale: (...a)=>setDeskScale(...a),","  toast: (...a)=>toast(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -120,7 +120,7 @@ say('── 4. 동작 — 책상 모양');
     o = o || {};
     const log = { tone: [], color: [], scale: [], toast: [] };
     const raw = {
-      DEFAULT_DESK_OVERRIDE_ID: '__default_desk__',
+      DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', NO_DESK_ID: '__no_desk__',
       _idleItemPivots: new Set(), activeItemMixers: new Set(),
       _applyItemMatTone: (m) => log.tone.push(m.n),
       _setDeskMatColor: (m, c) => log.color.push(m.n + '=' + c),
@@ -133,7 +133,7 @@ say('── 4. 동작 — 책상 모양');
     };
     let api;
     if(!PREMOVE){
-      const w = {}; new Function('window', 'module', 'THREE', MOD)(w, undefined, THREE_);
+      const w = {}; new Function('window', 'module', 'THREE', o.src || MOD)(w, undefined, THREE_);
       api = w.TwDeskVisual.createDeskVisual(Object.assign({}, raw, { isPremium: () => raw.isPremium, isAdmin: () => raw.isAdmin }));
     } else {
       const a1 = SRC.indexOf('// 좌석의 charDef.deskCatalogId를 보고'), b1 = SRC.indexOf('\n/* (구역 떼기 C · w2) 이 자리의 본문도 character/catalog-sync.js', a1);
@@ -204,6 +204,34 @@ say('── 4. 동작 — 책상 모양');
     ({ api, log } = load({ desks: [{ id: 'P', glb: 'X' }], parseThrows: true }));
     thr = null; try{ await api.applyDeskCatalogRefToSeat(seat(), { deskCatalogId: 'P' }); }catch(e){ thr = e; }
     chk(!thr && !log.scale.length, '  GLB 풀기가 실패하면 조용히 그대로 둔다');
+
+    /* 🚫 책상 없음 — 책상 몸만 숨기고(앵커 · 아이템은 그대로) noDesk 표시 · 다른 책상으로 바꾸면 표시를 내린다(옮기기 전 글엔 없는 기능이라 PREMOVE 는 건너뜀) */
+    if(!PREMOVE){
+      const noDeskCase = (src) => {
+        const L = load({ desks: [{ id: 'P', glb: 'X' }], src });
+        const st = seat(); st.desk.add({ name: 'customDesk', visible: true });
+        return L.api.applyDeskCatalogRefToSeat(st, { deskCatalogId: '__no_desk__', deskScale: 0.4, deskLenX: 1.2 }).then(() => ({ st, L }));
+      };
+      let { st, L } = await noDeskCase();
+      const vis = (n) => st.desk.getObjectByName(n) && st.desk.getObjectByName(n).visible;
+      chk(st.desk.userData.noDesk === true && vis('boardDefault') === false && vis('legDefault') === false && vis('deskAnchor') === true && !st.desk.getObjectByName('customDesk') && !L.log.parsed,
+        '책상 없음 — 기본 메쉬 · 커스텀 책상을 숨기고 앵커(책상 위 아이템)는 그대로 · GLB 를 안 푼다 · noDesk 표시');
+      chk(L.log.scale[0].join() === '0.4,1.2', '  크기 · 길이는 def 값을 건다(아이템 자리가 따른다)');
+      L.api.swapDeskVisual(st.desk, null);
+      chk(st.desk.userData.noDesk === false && vis('boardDefault') !== false, '  기본 책상으로 바꾸면 noDesk 를 내리고 다시 보인다');
+      st.desk.userData.noDesk = true; L.api.swapDeskVisual(st.desk, mkTemplate());
+      chk(st.desk.userData.noDesk === false, '  다른 책상으로 바꿔 끼어도 noDesk 를 내린다');
+      thr = null; try{ L.api.hideDeskBody(null); }catch(e){ thr = e; }
+      chk(!thr, '  책상 그룹이 없으면 아무 일 없이 지나간다');
+      const broken = MOD.replace('  deskGroup.userData.noDesk=true;\n', '');
+      let caught = false;
+      if(broken !== MOD){ ({ st } = await noDeskCase(broken)); caught = st.desk.userData.noDesk !== true; }
+      chk(caught, '  깨 보기 — noDesk 표시를 빼면 위 판정이 잡는다');
+      const broken2 = MOD.replace("if(def.deskCatalogId===NO_DESK_ID){", "if(false){");
+      caught = false;
+      if(broken2 !== MOD){ ({ st } = await noDeskCase(broken2)); caught = st.desk.userData.noDesk !== true; }
+      chk(caught, '  깨 보기 — 책상 없음 갈래를 빼면(옛 동작: 모르는 책상 → 기본 책상) 잡는다');
+    }
     say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
     process.exit(fail ? 1 : 0);
   })().catch(e => { chk(false, '4절 던짐 — ' + (e && e.stack || e)); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); });

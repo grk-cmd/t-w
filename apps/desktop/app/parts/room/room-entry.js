@@ -995,7 +995,10 @@ let _pendingExtra = null;
 function _clearPendingCreate(){ window._pendingRoomChannel = null; window._pendingRoomOpen = false; _pendingExtra = null; }
 /* ★ 채널 개편: 실제 방 생성 — 채널을 받아 그 채널의 상한을 확인하고 만든다.
    settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용), music(🎧 같이 듣기) }. */
-async function doCreateRoomInChannel(channel, settings){
+/* 카드 · [방 만들기] 를 빨리 두 번 누르면 방 개수 조회를 기다리는 사이 두 번째가 들어와 방이 둘 생기고 입장이 두 번 돈다(0.12.3) —
+   사람이 누른 입장과 같은 한 깃발(_whileJoining)을 입장이 끝날 때까지 쥔다. */
+function doCreateRoomInChannel(channel, settings){ return _whileJoining(() => _createRoomInChannel(channel, settings)); }
+async function _createRoomInChannel(channel, settings){
   channel = channel || 'workingroom';
   const limit = roomLimitOf(channel);
   // 해당 채널의 현재 방 개수만 확인(참여는 방 개수가 안 늘어나므로 만들 때만 검사)
@@ -1012,7 +1015,7 @@ async function doCreateRoomInChannel(channel, settings){
   _pendingExtra = { max: roomSettings.clampMax(settings && settings.max, maxPeople()),
     title: (settings && settings.title) || null, hostName: roomSettings.hostNameOf(getDisplayName()), music: !!(settings && settings.music) };
   const c=genRoomCode(channel);   // 🏷️ #9 — 채널대로 WORK-/PLAY-
-  startRoom(c);
+  await startRoom(c);
 }
 /* 🎲 랜덤 참여 — 코드 없이 '참여'를 누르면 여기로 온다.
    인덱스는 최대 90초 낡을 수 있어 후보가 이미 꽉 찼거나 사라졌을 수 있다 — 순서대로 확인하며 넘어간다.
