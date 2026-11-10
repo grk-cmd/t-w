@@ -24,6 +24,7 @@ for(const k of Object.keys(SRC)) if(!SRC[k]){ console.log('  ? 원본 못 찾음
 const apiErr = (status, code, kind) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: kind || (status >= 500 ? 'unavailable' : 'request') });
 const ME = (premium) => ({ userCode: 'u12345678', friendCode: 'MATE-AAAA', version: 1, premium, admin: false });
 const lic = (ids, status) => ({ licenseId: 'L', status: status || 'VALID', devices: ids.map((id) => ({ deviceId: id, name: 'Mac', registeredAt: '', lastSeenAt: '' })) });
+const withPremium = (l, p) => (p === undefined ? l : Object.assign(l, { premium: p }));
 const ID = 'dev-mine0001', NAME = 'Mac';
 const tick = () => new Promise((r) => setImmediate(r));
 
@@ -37,8 +38,9 @@ function env(src, o){
   const licenseApi = {
     mine: async () => { e.calls.push('mine'); const v = typeof o.mine === 'function' ? o.mine() : o.mine; if(v instanceof Error) throw v; return v === undefined ? null : v; },
     putDevice: async (id, name) => { e.calls.push('put:' + id + ':' + name); return lic([id]); },   // 앱은 부르지 않는다 — 불리면 «자동 등록 없음» 판정이 빨강
-    register: async (key, dev) => { e.calls.push('register:' + key + ':' + dev.id + ':' + dev.name); if(o.register instanceof Error) throw o.register; if(o.onRegister) o.onRegister(e); return lic([dev.id]); },
-    removeDevice: async (id) => { e.calls.push('remove:' + id); if(o.remove instanceof Error) throw o.remove; return lic([]); },
+    /* o.regPremium · o.remPremium — 쓰기 응답의 premium(이 기기 판정). 주지 않으면 칸 없음(«모름» — 옛 서버) */
+    register: async (key, dev) => { e.calls.push('register:' + key + ':' + dev.id + ':' + dev.name); if(o.register instanceof Error) throw o.register; if(o.onRegister) o.onRegister(e); return withPremium(lic([dev.id]), o.regPremium); },
+    removeDevice: async (id) => { e.calls.push('remove:' + id); if(o.remove instanceof Error) throw o.remove; return withPremium(lic([]), o.remPremium); },
     reasonOf: (err) => (err && err.code === 'LICENSE_OWNED_BY_OTHER' ? '이미 다른 계정에 등록된 키예요' : null),
   };
   const mod = load(src, 'createLicensePremium')({
@@ -152,6 +154,24 @@ async function judge(S){
     const d2 = await e.mod.deactivate();
     t(d2.ok === true && !e.calls.some((c) => c.startsWith('remove:')), '라이선스가 없으면 뺄 것이 없다(빼기 요청 0)');
 
+    e = env(LP, { me: [ME(false)], mine: null, regPremium: true });
+    const w1 = await e.mod.activate('KEY');
+    t(w1.ok === true && e.calls.join() === 'mine,register:KEY:' + ID + ':' + NAME && e.sets.join() === 'true', '★ 등록 응답에 premium 이 있으면 그것으로 반영 — GET /v1/me 를 다시 묻지 않는다(요청 둘)');
+    e = env(LP, { me: [ME(true)], mine: null, regPremium: false });
+    const w2 = await e.mod.activate('KEY');
+    t(w2.ok === false && /다시 켜/.test(w2.reason) && e.sets.join() === 'false' && !e.calls.includes('me'), '  등록 응답 premium:false → 성공이라 하지 않는다(GET 없이)');
+    e = env(LP, { me: [ME(true)], mine: lic([ID]), remPremium: false, premium: true });
+    const w3 = await e.mod.deactivate();
+    t(w3.ok === true && e.calls.join() === 'mine,remove:' + ID && e.sets.join() === 'false' && e.custom === 1, '★ 해제 응답 premium 으로 반영 — GET /v1/me 없이(서버 GET 은 아직 참이어도 따르지 않음)');
+    {
+      let release; const slow = new Promise((r) => { release = r; }).then(() => ME(true));
+      e = env(LP, { me: [slow, ME(false)], mine: null, regPremium: false });
+      const p0 = e.mod.refresh();   // 도는 확인(늦게 끝남 — 등록 전의 «참»)
+      const pa = e.mod.activate('KEY');
+      await tick();   // 등록 응답이 도는 확인보다 먼저 온다
+      release(); await Promise.all([p0, pa]);
+      t(e.premium === false && e.calls.filter((c) => c === 'me').length === 2, '★ 도는 확인 중에 쓰기 응답이 오면 끝난 뒤 한 번 더 묻는다 — 늦게 온 옛 답이 마지막 값이 되지 않게');
+    }
     const boom = apiErr(503, '', 'unavailable');
     e = env(LP, { me: [ME(false)], mine: lic([ID]), remove: boom, premium: true });
     const d3 = await e.mod.deactivate();
@@ -226,6 +246,9 @@ async function judge(S){
     ['알림이 겹치면 요청이 쌓임', mut('LP', (s) => s.replace("if(running){ again = true; return running; }", ""))],
     ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again){ again = false; r = await once(null); }", ""))],
     ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true } : { ok: false, reason: NOT_CONFIRMED };", "return { ok: true };"))],
+    ['쓰기 응답 premium 을 버리고 늘 다시 물음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "return lane(null);"))],
+    ['쓰기 응답에 premium 이 없어도 다시 묻지 않음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "if(!l) return lane(null);"))],
+    ['도는 확인 중 쓰기 응답 뒤 다시 묻지 않음', mut('LP', (s) => s.replace("if(running) again = true;\n", ""))],
     ['해제가 서버를 안 부름', mut('LP', (s) => s.replace("await licenseApi.removeDevice(deps.deviceId());", ""))],
     ['쓰기 응답 사본(meCache)으로 프리미엄 판정', mut('LP', (s) => s.replace("let me = given || null;", "let me = given || (deps.meCache && deps.meCache()) || null;").replace("setPremium(me.premium === true);", "setPremium(me.premium === true || deps.meCache);"))],
     ['첫 확인이 같은 값이면 조용', mut('AS', (s) => s.replace('isPremium() === v && wasKnown', 'isPremium() === v'))],

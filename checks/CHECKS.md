@@ -170,8 +170,8 @@
 | **sim-key-input.js** | 71 | **3116fd7dd8fb** |
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 315 | **5b8cf9066189** |
-| **sim-license-api.js** | 159 | **4bcfb148e5f4** |
-| **sim-license-premium.js** | 241 | **48de96e4222d** |
+| **sim-license-api.js** | 169 | **2a45f234de43** |
+| **sim-license-premium.js** | 264 | **49e8d5ebc3d9** |
 | **sim-mh-sanitize.js** | 274 | **b840325c6768** |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
