@@ -158,13 +158,13 @@ say('── 4. room-create-ui.js — 가짜 DOM');
 
 say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다');
 {
-  const fn = takeFn(RE_SRC, 'async function doCreateRoomInChannel(');
+  const fn = takeFn(RE_SRC, 'async function _createRoomInChannel(');   // doCreateRoomInChannel 은 두 번 누름 막기(_whileJoining)로 이 본문을 부른다
   chk(!!fn && /let _pendingExtra = null;/.test(RE_SRC), '만들기 함수 · 고른 값 칸이 있다');
   const run = async (o) => {
     const win = { firebaseAPI: { getRoomCount: async () => 0 } };
     const log = { started: [], toasts: [] };
     const f = new Function('window', 'roomLimitOf', 'toast', '_channelFullMsg', 'genRoomCode', 'startRoom', 'roomSettings', 'maxPeople', 'getDisplayName',
-      'let _pendingExtra = null;\n' + fn + '\nreturn { go: doCreateRoomInChannel, extra: () => _pendingExtra };')(
+      'let _pendingExtra = null;\n' + fn + '\nreturn { go: _createRoomInChannel, extra: () => _pendingExtra };')(
       win, () => 300, (m) => log.toasts.push(m), () => '꽉', (ch) => (ch === 'togetherroom' ? 'PLAY-' : 'WORK-') + 'AB12', (c) => log.started.push(c), RS, () => o.cap || 10, () => (o.name !== undefined ? o.name : '나'));
     await f.go(o.ch, o.settings);
     return { win, log, extra: f.extra() };

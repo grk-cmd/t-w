@@ -99,6 +99,7 @@ const HoverPoke = require('./hover-poke');
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
 const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
 const FrontDiag = require('./app/parts/shared/front-diag');   // 🩺 1분 [프레임] 줄 끝에 앞 창 · 전체화면 비율(게임 · 영상 버벅임 제보)
+const { isSystemPrompt } = require('./app/parts/shared/system-prompt');   // 🔐 앱스토어 · 암호 확인 창이 맨 앞이면 실행 화면을 내린다
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
 const GamepadActivity = require('./app/parts/focus/gamepad-activity');
@@ -979,6 +980,20 @@ let _lastIgnoreRequested = false;
    ※ 예전에 제거된 워치독과 방향이 정반대다. 그건 "통과를 해제"해서 이 증상을 만들었고,
      이건 "통과를 설정"한다. 오판해도 다음 마우스 움직임에 즉시 정상 복구된다. */
 let _isConfigMode = true;        // 런처/생성기(작은 창)면 true — 그때는 이 장치를 끈다
+/* 🔐 시스템 확인 창(앱스토어 «받기» · 암호 · Touch ID)이 맨 앞인가 — 활성 창 폴링이 바꾼다(app/parts/shared/system-prompt.js).
+   ⚠️ 실행 화면 맨 위 설정은 _setRunTop 한 곳으로만 — 창 배치 IPC(수백 번/분)가 맨 위로 되돌리지 않게 같은 깃발을 본다. */
+let _sysPromptFront = false;
+function _setRunTop(top){
+  if(top) mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);
+  else mainWindow.setAlwaysOnTop(false);
+}
+function _onSysPromptFront(on){
+  if(on === _sysPromptFront) return;
+  _sysPromptFront = on;
+  _diagLog('[확인창] ' + (on ? '시스템 확인 창이 맨 앞 — 실행 화면을 아래로' : '시스템 확인 창이 물러남 — 실행 화면을 다시 맨 위로'));
+  if(_isConfigMode || !mainWindow || mainWindow.isDestroyed()) return;   // 런처 · 생성기는 원래 맨 위가 아니다
+  try{ _setRunTop(!on); }catch(_){}
+}
 let _lastCharBoundsAt = 0;       // 렌더러 생존 신호를 마지막으로 받은 시각
 let _lastActiveKeyLogged = null; // 🩺 [E] 마지막으로 진단 로그에 적은 활성 창 키 — 바뀔 때만 한 줄
 /* 🩺 [2026-09-17 · E 추가 제보] 전역 훅 **수신 여부**를 앞창별로 1분에 한 줄.
@@ -1580,6 +1595,7 @@ function startActiveWinPolling(){
       //   렌더러의 1.5초(FOCUS_MS) 기록 창이 너무 좁다. 펜 앱일 때만 그 창을 넓히는 데 쓴다.
       /* ⚠️ 전용 채널을 파지 않는다 — 필드 하나를 얹는 방식이라 구버전 preload/렌더러와도 짝이 맞는다
          (모르는 필드는 그냥 무시된다). offOverlay 를 얹을 때와 같은 규약이다. */
+      _onSysPromptFront(isSystemPrompt(activeKey));
       lastActiveState = { exeName, key: activeKey, keyAlt: activeKeyAlt, isFocusedAppRegistered, hasAnyRegistered: focusApps.some(Boolean), isPenApp: penNow, isSelf: !!exeName && exeName === SELF_EXE };   // isSelf: 투게더워킹 창이 맨 앞 — 렌더러가 잠들지 않게(seatState)
       let frontFull = null;   // null = 크기를 못 읽음(맥 · 실패) — 비율 분모에서 뺀다
       /* 우리 창이 있는 모니터와 견준다(실행 화면이면 실행 모니터) — getRunDisplay 는 저장 · 로그가 딸려 있어 0.5초마다 부르지 않는다 */
@@ -2071,14 +2087,15 @@ function _applyConfigMode(isConfig, mode, extra){
     const runRect = { x: waPos.x, y: waPos.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, display) };
     /* 🔁 이미 그 상태면 아무것도 하지 않는다(_winAlreadyIs 주석 — 실측 906회/30분).
        setBounds·setAlwaysOnTop 을 다시 부르는 것 자체가 뒤 창의 합성을 흔든다. */
-    if(_winAlreadyIs(runRect, true)){ _ovSkipped++; return; }
+    const wantTop = !_sysPromptFront;   // 🔐 시스템 확인 창(앱스토어 · 암호)이 맨 앞인 동안은 내려 둔다 — 덮으면 그 칸이 비어 보인다(app/parts/shared/system-prompt.js)
+    if(_winAlreadyIs(runRect, wantTop)){ _ovSkipped++; return; }
     mainWindow.setBounds(runRect);
     overlay.logGeometry('run 진입' + (_ovSkipped ? ' (같은 요청 ' + _ovSkipped + '건 생략 후)' : ''));   // 🩺 실제 틈이 생겼는지 기록(제보 재확인용)
     _ovSkipped = 0;
     // 실행 중엔 캐릭터가 항상 보여야 하니 항상위 유지 — 단계는 플랫폼 모듈이 정한다(overlay-*.js TOP_LEVEL:
     // 윈도우는 다른 «항상 위» 프로그램에 가려지지 않게 맨 위 · 맥은 메뉴 막대 메뉴를 덮지 않게 그 아래).
-    mainWindow.setAlwaysOnTop(true, overlay.TOP_LEVEL);
-    _noteApplied(runRect, true);        // 🩺 위와 같은 이유. 실측 417회/9분을 만든 자리다
+    _setRunTop(wantTop);
+    _noteApplied(runRect, wantTop);     // 🩺 위와 같은 이유. 실측 417회/9분을 만든 자리다
   }
 }
 /* 렌더러가 죽어 다시 불러오면 화면은 런처로 돌아오는데 창은 실행 화면(모니터 전체 · 클릭 통과 · 맨 위)으로 남아,
@@ -2428,7 +2445,8 @@ function createWindow() {
           // ★ 전부 overlay.TOP_LEVEL 로 되돌린다. 예전엔 mainWindow만 최고 단계로, 나머지는 기본 단계로
           //   복원했는데, 그러면 색을 한 번 고른 뒤부터 스튜디오·방명록이 메인 뒤로 깔린다
           //   (= 여기서 고친 것과 똑같은 증상이 대화상자를 쓴 뒤에만 재발한다).
-          w.setAlwaysOnTop(true, overlay.TOP_LEVEL);
+          if(w === mainWindow) _setRunTop(!_sysPromptFront);   // 🔐 그사이 시스템 확인 창이 맨 앞이면 덮지 않게 내려 둔다
+          else w.setAlwaysOnTop(true, overlay.TOP_LEVEL);
         }catch(_){}
       });
     };
@@ -3969,9 +3987,9 @@ function createWindow() {
         const d = getRunDisplay();
         const wa = d.workArea;
         const rect = { x: wa.x, y: wa.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, d) };
-        if(_winAlreadyIs(rect, true)) return;   // 이미 맞다 — 건드리지 않는다
+        if(_winAlreadyIs(rect, !_sysPromptFront)) return;   // 이미 맞다 — 건드리지 않는다(확인 창이 맨 앞이면 내려 둔 것이 맞다)
         mainWindow.setBounds(rect);
-        _noteApplied(rect, true);
+        _noteApplied(rect, !_sysPromptFront);
         _refreshMainWinBounds();
         overlay.logGeometry('표시설정 변경');
       }catch(_){}

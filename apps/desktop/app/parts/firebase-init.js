@@ -3039,7 +3039,7 @@
       try{
         // limit 생략 시 100(대화창 본문). 뱃지 카운트처럼 적게만 필요하면 작은 값을 넘겨 트래픽을 줄인다.
         const n = (typeof limit === 'number' && limit > 0) ? Math.min(200, Math.floor(limit)) : 100;
-        const q = query(ref(db, _chatLogPath(room, tabId)), limitToLast(n));
+        const q = query(ref(db, _chatLogPath(room, tabId)), orderByChild('ts'), limitToLast(n));   // «마지막» 은 서버 시각 순 — 아래 _chatOrder 주석
         const cb = snap => {
           const val = snap.val() || {};
           /* ★ push key(k)를 id로 함께 넘긴다 — "여기까지 읽었습니다" 구분선이 이 id를 기준으로 잡는다.
@@ -3057,7 +3057,8 @@
     subscribeChatSince(room, tabId, since, onMsg, onReady, limit){
       try{
         const r = ref(db, _chatLogPath(room, tabId));
-        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, limitToLast(limit || 100));
+        /* ⚠️ 마지막 limit 줄도 ts 순으로 자른다 — key(보낸 PC 시계) 순이면 시계가 늦은 사람의 새 글이 «마지막» 밖으로 밀려 안 온다(B-1103-4) */
+        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, orderByChild('ts'), limitToLast(limit || 100));
         const one = snap => onMsg(Object.assign({ id: snap.key }, snap.val()));
         const offA = onChildAdded(q, one), offC = onChildChanged(q, one);
         onValue(q, () => { if(onReady) onReady(); }, { onlyOnce: true });   // child_added 가 다 온 뒤에 한 번

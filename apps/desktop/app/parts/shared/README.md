@@ -400,3 +400,13 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **내놓는 것**: `TwErrorReport.install(win, send, now?)` · `format(args)`.
 - **함정**: console 원래 출력은 그대로 둔다 · 에러코드 알림이 찍는 `console.warn('[오류] E-…')` 은 다시 안 보낸다 · 보내다 난 오류가 되돌아 들어오지 않게 막는다 · 같은 줄은 10초 안에 한 번.
 - 검사: `checks/sim-error-log.js`.
+
+## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
+
+- **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
+- **까닭**: 맥은 확인 창을 다른 앱 창이 덮으면 보안 때문에 그 칸(Touch ID · 암호 · «받기»)을 비워 보여 준다. 실행 화면은 모니터 전체를 덮는 투명 창이라 늘 덮는다(B-1104-10).
+- **쓰는 법**: `isSystemPrompt(activeKey)` — 활성 창 폴링(500ms)의 `focusKeyOf` 키(소문자 · `mac:<번들 id>`).
+- **함정**
+  - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
+  - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
+- 검사: `checks/sim-system-prompt.js`(깨 보기 셋).
