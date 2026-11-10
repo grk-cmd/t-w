@@ -18,12 +18,15 @@ const TOL_Y = 0.01;        // 높이 차이 허용(모델 로컬 단위) — 수
 const TOL_SCALE = 0.01;    // 크기 비율 차이 허용
 const RIG_LIFT = 0.05;     // 다시 맞출 때 rig 가 이만큼 떠 있으면 같이 알린다(액자 고정 · 끌기)
 
-/* 지금 붙어 있는 파츠 묶음 표시 — 파츠를 붙이거나 떼면(입장 때 파츠가 붙는 것 포함) 바뀐다. wrapper 마다 다른 uuid · 쌓기는 id */
+/* 지금 붙어 있는 파츠 묶음 표시 — «무엇이 · 어디에» 붙었나. 파츠를 붙이거나 떼거나(입장 때 파츠가 붙는 것 포함) 옮기면 바뀐다.
+   ⚠️ wrapper 의 uuid 를 쓰지 않는다 — equipPartOnSeat 는 같은 파츠도 다시 붙일 때마다 wrapper 를 새로 만든다(T 를 닫을 때마다).
+     칸 + partId(모든 wrapper 에 단다) · 쌓기는 칸:id, 거기에 저장된 착용 목록(def.equippedParts — 자리 · 크기 포함)을 더한다 */
 function partsKey(seat){
-  const one = (k, w) => k + '=' + ((w && w.uuid) || '?');
+  const one = (k, w) => k + '=' + ((w && w.userData && w.userData.partId) || '?');
   const eq = seat.equippedPartObjs || {}, st = seat.stackedPartObjs || {};
   return Object.keys(eq).sort().map((k) => one(k, eq[k])).join(',') + '|'
-    + Object.keys(st).sort().map((c) => c + ':' + Object.keys(st[c] || {}).sort().map((id) => one(id, st[c][id])).join('+')).join(',');
+    + Object.keys(st).sort().map((c) => c + ':' + Object.keys(st[c] || {}).sort().map((id) => one(id, st[c][id])).join('+')).join(',')
+    + '#' + JSON.stringify((seat.charDef && seat.charDef.equippedParts) || null);
 }
 function createFitWatch(deps){
   const warn = deps.warn;
