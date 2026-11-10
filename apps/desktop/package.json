@@ -40,6 +40,7 @@
       "hover-poke.js",
       "devtools-gate.js",
       "http-cache-reset.js",
+      "update-diag.js",
       "oauth-config.js",
       "app/**/*"
     ],
