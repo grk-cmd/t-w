@@ -1727,6 +1727,7 @@ const charMeasureMod = TwCharMeasure.createCharMeasure({
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
 });
 const restPoseMod = TwRestPose.createRestPose();   // 🧍 fitModel 은 기본 자세로 잰다(character/rest-pose.js)
+const fitWatchMod = TwFitWatch.createFitWatch({ warn: (m)=>console.warn(m) });   // 🩺 다시 맞춘 높이가 설명 안 되면 경고 → tw-error.log
 /* 본문은 character/floor-snap-diag.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const floorSnapDiagMod = TwFloorSnapDiag.createFloorSnapDiag({
@@ -1739,7 +1740,7 @@ function fitModel(seat){
   m.scale.set(1,1,1); m.position.set(0,0,0); m.rotation.set(0,seat.userRot+creatorPrevMod.RIG_TURN,0);
   const sR=seat.rig.position.clone(),sRr=seat.rig.rotation.clone(),sWp=seat.bodyWrap.position.clone(),sG=seat.group.position.clone();
   seat.rig.position.set(0,0,0);seat.rig.rotation.set(0,0,0);seat.bodyWrap.scale.set(1,1,1);seat.bodyWrap.position.set(0,0,0);seat.group.position.set(0,0,0);
-  const _rest = restPoseMod.enter(seat);   // 졸기 · 춤 · 눕기 자세로 재면 그만큼 뜬다(B-1109-9) — 아래 finally 에서 되돌린다
+  const _rest = restPoseMod.enter(seat);   // 누워 떼쓰기 · 뼈에 붙은 파츠 자세가 높이에 안 들어가게(rest-pose.js) — 아래 finally 에서 되돌린다
   try{
   seat.group.updateWorldMatrix(true,true);
   
@@ -1800,7 +1801,7 @@ function fitModel(seat){
     /* 🦶 피봇 보정 — 예전엔 `m.position.y = 0`(피봇=발바닥 전제)이었다. 사람 GLB 는 그 전제가
        깨져 있어 늘 0.048(로컬)만큼 떠 있었다. charFootFix 의 ⚠️ 넷 중 하나 — 나머지 셋은
        fitCreator('edit') · fitCreator('app') · refreshWdPreviewChar. 함께 고칠 것. */
-    m.position.y = charMeasureMod.charFootFix(b2);
+    const _foot = charMeasureMod.charFootFix(b2); m.position.y = _foot;
     
     // ★ 이 아래에서 seat.bodyWrap.scale이 userScale로 곱해지는데(코드 더 아래 참고), m은 bodyWrap의
     //   자식이라 m.position도 그때 같이 곱해져 버림 — 그래서 캐릭터 크기(userScale)를 1이 아니게 설정한
@@ -1851,7 +1852,9 @@ function fitModel(seat){
      '가장 아래에 있는 것'이 바닥에 닿게 한다. 발 아래에 아무것도 없으면 0이라 무동작이다.
      ⚠️ 반드시 여기, 크기(scale)와 x/z 가 다 정해진 **뒤**여야 한다. 스케일 전에 재면 깊이가
        정규화 배율만큼 어긋나서 그만큼 바닥을 파고들거나 뜬다. */
-  m.position.y += charMeasureMod.measureUnderfootDepth(m);
+  const _under = charMeasureMod.measureUnderfootDepth(m); m.position.y += _under;
+  fitWatchMod.note(seat, { scale: baseScale, foot: _foot, userY: clampCharY(seat.userY), under: _under, y: m.position.y },
+    { rigY: sR.y, wrapRotX: (_rest && _rest.rot) ? _rest.rot.x : 0, pinned: !!seat.pinned, riding: !!seat.ridingOn, animal: isAnim });
 }
   }finally{ restPoseMod.leave(_rest); }
   seat.rig.position.copy(sR);seat.rig.rotation.copy(sRr);
