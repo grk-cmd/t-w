@@ -116,6 +116,10 @@ function behaveMask(hmSrc){
   r.none = lines.every((l) => !/홍길동|john|kim|김|other/i.test(l) && !l.includes(enc) && !l.includes('%EA%B9%80'));
   r.keep = /app\.asar\/app\/parts\/app\.js:12:3$/.test(lines[0]) && /~/.test(lines[0]);
   r.empty = maskHome(null, '') === '' && maskHome('그냥 글', '') === '그냥 글';
+  /* 사용자 폴더가 아닌 경로는 그대로 — Firebase 경고의 /users/<uid> · 주소 안의 /home · /users */
+  const keep = ['set at /users/AbC123uid/profile failed: permission_denied', 'https://together-working.com/home/page', 'GET https://api.github.com/users/grk-cmd failed', 'https://x.com/c:/Users/y'];
+  r.notPath = keep.slice(0, 3).every((l) => maskHome(l, HOME) === l);
+  r.fileMac = maskHome('file:///Users/%EA%B9%80/x', '') === 'file://~/x';   // file: 의 «e:» 를 드라이브로 보지 않는다
   return r;
 }
 
@@ -124,6 +128,8 @@ const h = behaveMask(HM);
 chk(h.none, '★ 화면 쪽 스택(file:/// · 빗금 반대 · 한글 퍼센트) · 대소문자 · 맥 · 리눅스 · 다른 사용자 폴더 — 이름이 안 남는다');
 chk(h.keep, '  이름 뒤 경로(파일 · 줄)는 남긴다');
 chk(h.empty, '  빈 값 · 홈 없음');
+chk(h.notPath, '★ 사용자 폴더가 아닌 경로는 그대로 — Firebase /users/<uid> 경고 · 주소 안의 /home · /users(«어느 경로가 막혔나» 를 남긴다)');
+chk(h.fileMac, '  file:/// 맥 경로 — «file:» 를 드라이브 글자로 안 본다');
 
 say('── 1. main 쪽 error-log.js');
 const a = behaveLog(LOG);
@@ -162,11 +168,12 @@ const htmlOk = (h) => { const i = h.indexOf('<script src="parts/shared/error-rep
 chk(htmlOk(HTML), '  html — 다른 스크립트보다 먼저 싣는다');
 const codesOk = (c) => /diag: \(line\)=>\{ if\(window\.companion && window\.companion\.errorLog\) window\.companion\.errorLog\(\{ kind: 'CODE', src: '에러코드', msg: line \}\); \}/.test(c) && !/diagNote/.test(c.slice(c.indexOf('createErrorNotice({')));
 chk(codesOk(CODES), '★ 에러코드 알림은 진단 기록이 아니라 오류 기록(CODE)으로');
-chk(/"error-log\.js"/.test(PKG), '설치 목록(package.json files)에 error-log.js — 빠지면 설치본이 켜지지 않는다');
+chk(/"error-log\.js"/.test(PKG) && /"home-mask\.js"/.test(PKG), '설치 목록(package.json files)에 error-log.js · home-mask.js — 빠지면 설치본이 켜지지 않는다');
 
 say('── 4. 깨 보기');
 chk(!behaveLog(LOG.replace('s = maskHome(s, home);', '')).home, '홈 가리기를 빼면 위 1절 «~» 가 빨강');
-chk(!behaveMask(HM.replace("  for(const f of forms(home)) out = out.replace(new RegExp(esc(f), 'gi'), '~');\n", '').replace("return out.replace(USER_DIR_RE, '~');", 'return out;')).none, '퍼센트 · 빗금 모양 가리기를 빼면 위 0절 ★ 가 빨강');
+chk(!behaveMask(HM.replace("  for(const f of forms(home)) out = out.replace(new RegExp(esc(f) + AFTER, 'gi'), '~');\n", '').replace("return out.replace(WIN_USER_RE, '~').replace(POSIX_USER_RE, '~');", 'return out;')).none, '퍼센트 · 빗금 모양 가리기를 빼면 위 0절 ★ 가 빨강');
+chk(!behaveMask(HM.replace("'(?<![\\\\w.\\\\-])/(?:Users|home)/' + SEG, 'g'", "'/(?:Users|home)/' + SEG, 'gi'")).notPath, '맥 · 리눅스 모양을 대소문자 무시 · 앞 글자 조건 없이 보면 위 0절 «그대로» 가 빨강');
 chk(!behaveLog(LOG.replace('if(r.n >= REPEAT_MAX){ r.skipped++; return false; }', '')).storm, '몰아칠 때 거르기를 빼면 위 1절 «3번까지만» 이 빨강');
 chk(!behaveRep(REP.replace("if(typeof args[0] === 'string' && args[0].indexOf(CODE_PREFIX) === 0) return;", '')).code, '에러코드 경고 건너뛰기를 빼면 위 2절이 빨강');
 chk(!behaveRep(REP.replace('if(busy) return;', '')).loop, '되돌아 들어오기 막기를 빼면 위 2절이 빨강');

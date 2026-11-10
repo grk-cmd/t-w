@@ -282,7 +282,7 @@
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-http-cache-reset.js** | 118 | **2533326cdf66** |
 | **sim-update-diag.js** | 74 | **30b60436a1c1** |
-| **sim-error-log.js** | 178 | **f20302148846** |
+| **sim-error-log.js** | 185 | **a9c5712555cd** |
 | **sim-top-level.js** | 57 | **2ec16fa26434** |
 | **sim-remote-config.js** | 532 | **ed0e69ed1799** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
