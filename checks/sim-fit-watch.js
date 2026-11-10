@@ -41,12 +41,22 @@ function behave(src){
   W.note(tub, fit({ userY: 0, D: 0.2 })); for(let i = 1; i <= 30; i++) W.note(tub, fit({ userY: i * 0.01, D: 0.2, uz: 0.63 }));
   W.note(tub2, fit({ userY: 0.2, D: 0.3, uz: 1 })); for(let i = 1; i <= 20; i++) W.note(tub2, fit({ userY: 0.2, D: 0.3, uz: 1 - i * 0.02 }));
   r.slider = r.slider && out.length === 0;
-  /* 입장 — 첫 값(파츠 붙기 전 깊이 0) → 파츠가 붙은 뒤 깊이 D 는 적지 않는다 */
+  /* 실제 입장 순서 — 파츠 붙기 전 fitModel 세 번(모델 싣기 · 애니메이션 뒤 · xf 넣고) → 파츠가 붙은 뒤 refit(깊이 0→D). 파츠 묶음이 바뀌어 안 적는다 */
   const enter = { gltfRoot: {} };
-  W.note(enter, T()); r.enterQuiet = W.note(enter, T({ under: 0.2, y: 0.07 })) === 'same' && out.length === 0;
+  W.note(enter, T()); W.note(enter, T()); W.note(enter, fit({ userY: 0.05, uz: 0.63 }));
+  enter.equippedPartObjs = { underfoot: { uuid: 'tub-1' } };
+  r.enterQuiet = W.note(enter, fit({ userY: 0.05, uz: 0.63, D: 0.2 })) === 'same' && out.length === 0;
+  /* 파츠 그대로인데 깊이만 바뀜(잘못 잼) — 두 번째 값이어도 한 줄 */
+  const mis = { gltfRoot: {}, equippedPartObjs: { underfoot: { uuid: 'tub-2' } } };
+  W.note(mis, T()); const nm = out.length; W.note(mis, T({ under: 0.2, y: 0.07 }));
+  r.misMeasure = out.length === nm + 1 && /\[높이 · 발밑\]/.test(out[nm]);
+  /* 같은 칸에 다른 파츠로 바꿔 끼움(wrapper 가 바뀜) — 묶음 표시가 바뀌어 안 적는다 */
+  const sw = { gltfRoot: {}, equippedPartObjs: { underfoot: { uuid: 'a' } }, stackedPartObjs: { deco: { x1: { uuid: 'u1' } } } };
+  W.note(sw, T()); sw.equippedPartObjs = { underfoot: { uuid: 'b' } }; const ns = out.length;
+  r.swapQuiet = W.note(sw, T({ under: 0.3, y: 0.17 })) === 'same' && out.length === ns;
   /* 발밑 깊이가 바뀌면 높이 경고는 안 내고 따로 한 줄 */
   const n0 = out.length;
-  r.under = W.note(seat, T({ under: 0.3, y: 0.17 })) === 'same' && out.length === n0 + 1 && /^\[높이 · 발밑\] 발밑 깊이가 바뀜 0\.000→0\.300/.test(out[n0]);
+  r.under = W.note(seat, T({ under: 0.3, y: 0.17 })) === 'same' && out.length === n0 + 1 && /^\[높이 · 발밑\] 발밑 깊이가 바뀜 0\.000→0\.300 \(파츠는 그대로/.test(out[n0]);
   W.note(seat, T());
   /* 설명 안 되는 높이 */
   const n1 = out.length;
@@ -73,7 +83,9 @@ chk(b.first, '  새 모델의 첫 값은 적기만 한다');
 chk(b.same, '  그대로면 조용히');
 chk(b.slider, '★ 평소 조작은 조용히 — 크기 0.63 사람 · 동물의 높이 슬라이더 · 높이가 있는 캐릭터의 크기 바꿈 · 욕조를 단 채 높이 · 크기 슬라이더(실제로 더한 슬라이더 몫으로 견준다)');
 chk(b.under, '★ 발밑 깊이가 설명 안 되게 바뀌면 높이 경고 대신 «[높이 · 발밑]» 한 줄(전→후)');
-chk(b.enterQuiet, '  입장 때 파츠가 붙기 전 → 붙은 뒤의 깊이 바뀜은 적지 않는다');
+chk(b.enterQuiet, '★ 실제 입장 순서(파츠 전 세 번 → 파츠 붙은 뒤) — 파츠 묶음이 바뀌어 발밑 줄을 안 적는다');
+chk(b.misMeasure, '★ 파츠 그대로인데 깊이만 바뀌면(잘못 잼) 몇 번째 값이든 한 줄');
+chk(b.swapQuiet, '  같은 칸에 다른 파츠로 바꿔 끼우면 안 적는다');
 chk(b.lift, '★ 설명 안 되는 높이 바뀜은 경고 한 줄');
 chk(b.text, '  경고에 지난값→지금값 · 좌석 y · 눕힘 · 슬라이더 날값 · 올라탐 · 동물');
 chk(b.held && b.release, '  한 번 경고하면 다시 «그대로» 가 될 때까지 또 적지 않는다(슬라이더를 끄는 동안 쌓이지 않게)');
@@ -102,9 +114,9 @@ chk(/parts\/character\/fit-watch\.js[\s\S]*parts\/app\.js/.test(HTML.slice(HTML.
 
 say('── 3. 깨 보기');
 chk(!behave(MOD.replace('((t.under - p.under) + (t.lift - p.lift))', '(t.under - p.under)')).slider, '슬라이더 몫을 설명에서 빼면 위 «평소 조작은 조용히» 가 빨강');
-chk(!behave(MOD.replace("if(underMoved && !(L.fresh && p.under === 0)) warn(", "if(false) warn(")).under, '발밑 깊이 한 줄을 빼면 위 ★ 가 빨강');
+chk(!behave(MOD.replace("if(underMoved && parts === L.parts) warn(", "if(false) warn(")).under, '발밑 깊이 한 줄을 빼면 위 ★ 가 빨강');
 chk(!behave(MOD.replace(' && Math.abs((t.under + t.lift) - (p.under + p.lift)) > TOL_Y', '')).slider, '발밑 줄에서 슬라이더 몫을 안 빼면 위 «평소 조작은 조용히»(욕조 + 슬라이더) 가 빨강');
-chk(!behave(MOD.replace(' && !(L.fresh && p.under === 0)', '')).enterQuiet, '입장 한 번 빼기를 없애면 위 «입장 때» 가 빨강');
+chk(!behave(MOD.replace(' && parts === L.parts', '')).enterQuiet, '파츠 묶음 비교를 없애면 위 «실제 입장 순서» 가 빨강');
 chk(!behave(MOD.replace("if(L.held) return 'held';", '')).held, '이어지는 경고 막기를 빼면 위 «또 적지 않는다» 가 빨강');
 chk(!behave(MOD.replace(' && Math.abs(rigY - L.rigY) > RIG_LIFT', '')).rigOnce, 'rig 뜸을 «바뀌었을 때만» 안 보면 위 «액자 고정은 처음 한 번» 이 빨강');
 chk(!wired(SRC.replace('fitWatchMod.note(seat,', 'void(seat,')), 'fitModel 에서 note 를 빼면 위 2절 ★ 가 빨강');
