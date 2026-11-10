@@ -392,3 +392,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
   - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
 - 검사: `checks/sim-front-diag.js`(깨 보기 열).
+
+## `error-report.js` — 🧯 화면 오류를 오류 기록(tw-error.log)으로
+
+- **책임**: 화면(렌더러)에서 난 잡히지 않은 오류 · 처리 안 된 Promise 거절 · `console.error` / `console.warn` 을 main 의 오류 기록(`apps/desktop/error-log.js` — 파일 `tw-error.log`, 진단 기록과 같은 폴더)으로 보낸다. 줄 모양 · 몰아칠 때 거르기 · 파일 크기는 main 이 정한다.
+- **쓰는 법**: 싣기만 하면 `companion.errorLog` 로 스스로 건다 — html 맨 먼저(뒤 스크립트가 실리다 난 오류도 잡게). 에러코드 알림(`TwErrorCodes.notify`)은 스스로 `CODE` 로 보낸다.
+- **내놓는 것**: `TwErrorReport.install(win, send, now?)` · `format(args)`.
+- **함정**: console 원래 출력은 그대로 둔다 · 에러코드 알림이 찍는 `console.warn('[오류] E-…')` 은 다시 안 보낸다 · 보내다 난 오류가 되돌아 들어오지 않게 막는다 · 같은 줄은 10초 안에 한 번.
+- 검사: `checks/sim-error-log.js`.

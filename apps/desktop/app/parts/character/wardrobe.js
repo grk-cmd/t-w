@@ -750,7 +750,10 @@ async function refreshWdPreviewChar(){
   //   화면 색이 달라 보이는 부작용이 있었음 — 색상 선택 화면에서는 "입체감"보다 "지정한 색 그대로 보이는 것"이
   //   더 중요하다는 피드백에 따라 이 조정은 제거함(장착 시 설정된 emissive를 그대로 둠).
   // 카메라 기준값만 다시 계산 — yaw/pitch/zoom(사용자가 조절한 값)은 그대로 유지
-  const box=new THREE.Box3().setFromObject(g);
+  /* 카메라는 맨 몸으로 맞춘다(fitModel 과 같은 measureCharBox) — 파츠까지 통째로 재면 리깅 파츠는 원본 박스가 몇 배씩 커서
+     카메라가 멀리 · 높이 잡혀 캐릭터가 안 보였다(B-1109-9). 몸을 못 재면(빈 박스) 예전처럼 통째로 잰다. */
+  let box=measureCharBox(g);
+  if(box.isEmpty()) box=new THREE.Box3().setFromObject(g);
   const size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   wdCamCenter.copy(center);
   wdCamLookY = center.y+size.y*0.12;

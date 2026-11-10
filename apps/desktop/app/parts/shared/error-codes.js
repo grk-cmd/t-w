@@ -7,7 +7,7 @@
      · 한 번 쓴 번호는 **다시 쓰지 않는다.** 걷은 번호는 RETIRED 로 옮긴다 — 옛 앱 사용자는
        옛 번호를 계속 불러 준다.
      · 새 번호는 표에 먼저 넣고 부른다. 표에 없는 번호를 부르면 검사(sim-error-codes)가 빨강이다.
-   ★ 부르는 법: TwErrorCodes.notify('E-FR-01', err) — 표의 문구로 토스트를 띄우고 진단 기록에 한 줄.
+   ★ 부르는 법: TwErrorCodes.notify('E-FR-01', err) — 표의 문구로 토스트를 띄우고 오류 기록(tw-error.log)에 한 줄.
      문구에 개수처럼 그때그때 다른 말이 필요하면 셋째 인자로 준다(번호는 그대로 붙는다).
    ⚠️ 이 파일은 app.js 보다 먼저 실린다. 토스트(app.js 의 toast)는 **부를 때** 찾는다 — 실릴 때는 아직 없다.
    DOM 을 직접 안 만진다(검사 sim-error-codes.js). */
@@ -130,7 +130,7 @@ const api = {
 if(typeof window !== 'undefined'){
   const notice = createErrorNotice({
     toast: (...a)=>window.toast(...a),   // app.js 의 전역 toast — 실패 알림은 부팅 뒤에만 난다(새 typeof 가드 금지)
-    diag: (line)=>{ if(window.companion && window.companion.diagNote) window.companion.diagNote(line); },
+    diag: (line)=>{ if(window.companion && window.companion.errorLog) window.companion.errorLog({ kind: 'CODE', src: '에러코드', msg: line }); },   // 진단 기록이 아니라 오류 기록에
     muted: ()=>window.TwMaintenance.store.on(),
   });
   api.notify = notice.notify;

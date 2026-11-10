@@ -27,6 +27,12 @@ if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-wor
 // 🔒 개발자 도구 — 설치본에서는 막고 관리자 모드 창에서만 연다(devtools-gate.js). 개발 실행 · dev 빌드는 늘 연다.
 const { createDevtoolsGate } = require('./devtools-gate');
 const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
+const { createUpdateDiag } = require('./update-diag');   // 🩺 업데이트 진행 · 실패를 진단 기록에
+const { createErrorLog } = require('./error-log');   // 🧯 오류만 모으는 파일(tw-error.log)
+/* 오류 기록 — 경로는 적을 때 찾는다(ready 전에도 userData 는 읽힌다 · 실패는 error-log 가 삼킨다) */
+const _errorLog = createErrorLog({ fs, path, dir: () => app.getPath('userData'), version: app.getVersion(), home: require('os').homedir() });
+/* 메인 프로세스의 잡히지 않은 오류 — Monitor 라 원래 처리(오류 창 · 종료)는 그대로 두고 적기만 한다 */
+process.on('uncaughtExceptionMonitor', (err, origin) => { _errorLog.write('CRASH', 'main ' + origin, err); });
 const devtoolsGate = createDevtoolsGate({ packaged: app.isPackaged, env: FIREBASE_ENV });
 // 렌더러(admin/admin-mode.js)가 관리자 모드를 켜고 끌 때 알린다 — 메인 창이 보낸 것만 받는다
 ipcMain.on('companion:setAdminMode', (e, on) => {
@@ -186,6 +192,8 @@ let mainWindow = null;
 // 꺼지는 것 방지).
 autoUpdater.autoDownload = true;
 autoUpdater.autoInstallOnAppQuit = false;   // 사용자가 명시적으로 재시작 버튼을 눌러야 설치되게(예상치 못한 종료 방지)
+const _updateDiag = createUpdateDiag({ log: (m) => _diagLog(m), home: require('os').homedir() });
+autoUpdater.logger = _updateDiag.logger;   // 조각만 받기 · 통째로 받기 · 오류를 electron-updater 가 스스로 적는다
 
 function sendUpdateStatus(status, extra){
   if(mainWindow && !mainWindow.isDestroyed()){
@@ -193,11 +201,11 @@ function sendUpdateStatus(status, extra){
   }
 }
 autoUpdater.on('checking-for-update', () => sendUpdateStatus('checking'));
-autoUpdater.on('update-available', (info) => sendUpdateStatus('available', { version: info.version }));
+autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateStatus('available', { version: info.version }); });
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
-autoUpdater.on('download-progress', (p) => sendUpdateStatus('downloading', { percent: Math.round(p.percent) }));
+autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
 autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
-autoUpdater.on('error', (e) => sendUpdateStatus('error', { message: String(e && e.message || e) }));
+autoUpdater.on('error', (e) => { _errorLog.write('ERROR', '업데이트', e); sendUpdateStatus('error', { message: String(e && e.message || e) }); });
 
 /* ── 🍎 맥은 자동 업데이트를 안 한다 (0.9.7~) ───────────────────────────────
    맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml`
@@ -296,7 +304,7 @@ function _flushLauncherPos(){
   if(_launcherPosSaveT){ clearTimeout(_launcherPosSaveT); _launcherPosSaveT = null; }
   const p = savedPos.launcher;
   if(JSON.stringify(p) === JSON.stringify(_launcherPosSaved)) return;
-  saveSettings();
+  if(saveSettings() && p) _diagLog('[창] 런처 자리 저장 ' + p.x + ',' + p.y);
 }
 function _launcherPosOf(v){
   if(!v || typeof v !== 'object') return null;
@@ -323,6 +331,23 @@ function sizeToMode(w, h){
     if(close(h, sz.h) || (fit && close(h, fit.h))) return m;
   }
   return null;
+}
+/* 🪟 지금 config 창의 모드 — _applyConfigMode 가 창을 맞추기 **전에** 건다(맥은 setBounds 중에도 'moved' 가 온다). run 이면 그대로 두고 _isConfigMode 로 가른다. */
+let _cfgMode = 'launcher';   // 첫 창은 런처(createWindow)
+const MOVED_SIZE_RATIO = 2;   // 걸어 둔 모드 크기의 1/2 ~ 2 배까지만 그 모드로 본다
+/* 'moved' 때 어느 모드 자리로 기억할까.
+   ① 크기로 알아보면 그 모드 — 모드를 바꾼 직후 늦게 온 옛 창의 'moved' 를 새 모드 자리로 적지 않게.
+   ② 못 알아보면 지금 걸어 둔 모드 — 배율이 다른 모니터(액정타블렛 등)로 끌면 읽는 크기가 몇 px 넘게 어긋나
+      ①이 늘 실패해 런처 자리가 한 번도 저장되지 않았다(켤 때마다 가운데). 단 크기가 그 모드의 절반 ~ 두 배 안일 때만 —
+      전체화면(run) 크기의 늦은 'moved' 를 런처 자리로 적지 않게. */
+function _movedMode(isConfig, cfgMode, w, h){
+  if(!isConfig) return null;
+  const known = sizeToMode(w, h);
+  if(known) return known;
+  if(!MODE_SIZE[cfgMode]) return null;
+  const sz = _modeSize(cfgMode);
+  const near = (a, e) => a >= e / MOVED_SIZE_RATIO && a <= e * MOVED_SIZE_RATIO;
+  return (near(w, sz.w) && near(h, sz.h)) ? cfgMode : null;
 }
 
 /* ═══ 📐 [2026-09-15 제보 1·2] 런처 창이 잘린 채 뜬다 (첫 부팅 · 주모니터 변경) ═══════════
@@ -1984,6 +2009,7 @@ const CONFIG_HEIGHT = MODE_SIZE.launcher.h;
    렌더러가 죽어 다시 불러올 때(_resetWindowForReload) 같이 쓴다. mode: 'launcher' | 'creator' | 'myhome' | 'animal' | 'run' */
 function _applyConfigMode(isConfig, mode, extra){
   _isConfigMode = !!isConfig;   // ★ 안전장치는 전체화면 오버레이(run)에서만 동작해야 함
+  if(isConfig) _cfgMode = MODE_SIZE[mode] ? mode : 'launcher';   // 🪟 'moved' 가 볼 모드 — 창을 맞추기 전에(_movedMode)
   if (!mainWindow) return;
   // ★ 마이홈은 "런처가 지금 떠 있는 모니터" 기준으로 중앙 계산 — 캐릭터 실행용 모니터(getRunDisplay)와
   //   다르게 지정해둔 듀얼 모니터 환경에서, 런처와 동떨어진 엉뚱한 모니터에 뜨던 문제를 방지.
@@ -2079,6 +2105,7 @@ function _watchRendererHealth(win){
     const reason = (d && d.reason) || '?';
     _diagLog('[렌더러] 프로세스 종료 — reason=' + reason + ' exitCode=' + (d && d.exitCode) + ' | 자동 재로드 ' + _rendererReloads + '/' + RENDERER_AUTO_RELOAD_MAX);
     if(reason === 'clean-exit' || reason === 'killed') return;   // 앱이 닫히는 중 · 사용자가 끈 것
+    _errorLog.write('CRASH', '렌더러 종료', 'reason=' + reason + ' exitCode=' + (d && d.exitCode));
     /* 다시 불러오든(런처로 돌아옴) 안 불러오든(죽은 화면) 모니터 전체를 덮은 채 둘 수는 없다 — 횟수 판정보다 먼저 */
     if(win === mainWindow){ try{ _resetWindowForReload(); }catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); } }
     if(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX) return;
@@ -2087,6 +2114,7 @@ function _watchRendererHealth(win){
   });
   wc.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
     if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
+    _errorLog.write('ERROR', '화면 로드 실패', code + ' ' + desc);
     _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
   });
   win.on('unresponsive', () => { if(!_unresponsiveSince.has(win)) _unresponsiveSince.set(win, Date.now()); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
@@ -2094,6 +2122,7 @@ function _watchRendererHealth(win){
   if(!_childGoneHooked){
     _childGoneHooked = true;
     app.on('child-process-gone', (e, d) => {
+      if(d && d.reason && d.reason !== 'clean-exit' && d.reason !== 'killed') _errorLog.write('CRASH', ((d && d.type) || '?') + ' 종료', 'reason=' + d.reason + ' exitCode=' + d.exitCode + (d.name ? ' name=' + d.name : ''));
       _diagLog('[프로세스] ' + ((d && d.type) || '?') + ' 종료 — reason=' + ((d && d.reason) || '?') + ' exitCode=' + (d && d.exitCode)
         + (d && d.name ? ' name=' + d.name : '') + (d && d.serviceName ? ' service=' + d.serviceName : ''));
     });
@@ -2198,6 +2227,8 @@ function createWindow() {
   /* 📐 [2026-09-15 제보 1·2] 첫 창도 같은 규칙 — 작업영역 원점을 더하고, 높이는 작업영역에 맞춘다.
      예전엔 workAreaSize 만 보고 (0,0) 기준으로 중앙을 잡았다 — 작업표시줄이 위에 있으면 그만큼 어긋난다. */
   const initRect = _fitConfigRect('launcher', _modeSize('launcher'), primaryDisplay, savedPos.launcher);   // 📐 저장된 줌 · 런처 자리가 이미 실려 있다(loadSettings 가 먼저 돈다)
+  _diagLog('[창] 런처 자리 — ' + (savedPos.launcher ? '지난 자리 ' + savedPos.launcher.x + ',' + savedPos.launcher.y : '기억 없음(가운데)')
+    + ' → ' + initRect.x + ',' + initRect.y + ' ' + initRect.width + 'x' + initRect.height);
 
   mainWindow = new BrowserWindow({
     width: initRect.width,      // 시작은 config 모드 크기로 (런처가 먼저 뜨니까)
@@ -2649,15 +2680,12 @@ function createWindow() {
     if(gbWin && !gbWin.isDestroyed()){ try{ gbWin.close(); }catch(e){} }
   });
 
-  // 네이티브 드래그(app-region:drag)로 창이 실제 움직였을 때 위치 기억 — 런처/생성기 모드 각각.
-  // (run 모드=전체화면 크기일 때는 해당 없음 — sizeToMode가 null 반환)
+  // 네이티브 드래그(app-region:drag)로 창이 실제 움직였을 때 위치 기억 — 런처/생성기 모드 각각(run 은 해당 없음 — _movedMode)
   mainWindow.on('moved', () => {
     if (!mainWindow) return;
     const b = mainWindow.getBounds();
-    const m = sizeToMode(b.width, b.height);
-    if (m) {
-      _rememberPos(m, b);
-    }
+    const m = _movedMode(_isConfigMode, _cfgMode, b.width, b.height);
+    if (m) _rememberPos(m, b);
   });
 
   // mainWindow.webContents.openDevTools({ mode: 'detach' });
@@ -3826,6 +3854,13 @@ function createWindow() {
     let line = String(msg == null ? '' : msg).replace(/[\r\n]+/g, ' ').slice(0, 200);
     if(FrontDiag.isFrameLine(line)) line += FrontDiag.suffix(_frontWatch.take(Date.now()));   // 그 1분의 앞 창 — 렌더러는 모른다
     _diagLog('[렌더러] ' + line);
+  });
+  /* 🧯 렌더러 오류 한 줄 — 종류는 렌더러가 보낼 수 있는 셋만 · 길이는 error-log 가 자른다 */
+  const RENDERER_ERROR_KINDS = ['ERROR', 'WARN', 'CODE'];
+  ipcMain.on('companion:errorLog', (e, p) => {
+    if(!mainWindow || mainWindow.isDestroyed() || e.sender !== mainWindow.webContents) return;
+    if(!p || typeof p !== 'object' || !RENDERER_ERROR_KINDS.includes(p.kind)) return;
+    _errorLog.write(p.kind, '렌더러 ' + String(p.src == null ? '' : p.src).slice(0, 60), String(p.msg == null ? '' : p.msg).slice(0, 4000));
   });
   ipcMain.handle('companion:openDiagFolder', () => {
     try{

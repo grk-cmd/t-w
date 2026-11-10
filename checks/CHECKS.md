@@ -80,7 +80,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
-| **sim-cfg-fit.js** | 205 | **8cbd0ffb44a9** |
+| **sim-cfg-fit.js** | 281 | **3cef131e017d** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 503 | **e39ef0fefceb** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
@@ -281,6 +281,8 @@
 | **sim-api-public-reads.js** | 184 | **f3a68560ff15** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-http-cache-reset.js** | 118 | **2533326cdf66** |
+| **sim-update-diag.js** | 74 | **30b60436a1c1** |
+| **sim-error-log.js** | 204 | **9af9787872fa** |
 | **sim-top-level.js** | 57 | **2ec16fa26434** |
 | **sim-remote-config.js** | 532 | **ed0e69ed1799** |
 | **sim-source-switch.js** | 129 | **8fafe4d902bb** |
@@ -428,6 +430,8 @@
 | **sim-ride-measure.js** | 188 | **83e35751526e** |
 | **sim-ride-tuning.js** | 124 | **6889f9df66be** |
 | **sim-char-measure.js** | 167 | **c1ee503be3b6** |
+| **sim-rest-pose.js** | 126 | **95c44da6a4a6** |
+| **sim-fit-watch.js** | 135 | **aedf99708e6a** |
 | **sim-body-measure.js** | 653 | **67bf831c85c9** |
 | **sim-floor-snap-diag.js** | 142 | **3aa611d6946d** |
 | **sim-seat-model-load.js** | 194 | **7ff56380f12a** |
@@ -448,7 +452,7 @@
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
-| **sim-renderer-gone-reset.js** | 113 | **c6d9e72a66d1** |
+| **sim-renderer-gone-reset.js** | 114 | **d2807bd5dea6** |
 | **sim-room-code-len.js** | 178 | **0dd3514b5e58** |
 | **sim-recent-rooms.js** | 216 | **521a6470e3ea** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |

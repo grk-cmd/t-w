@@ -250,6 +250,28 @@
   - `floorClampWrapper` 는 «잰 것» 과 «움직이는 것» 이 같아야 한다 — 같이 안 올라가는 가지만 skipSub 로 뺀다.
   - 검사: `checks/sim-char-measure.js`(4절 — 실제 three 로 박스 · 깊이 · 상한 · 보정 · 부모 배율 환산 · hard · skipSub).
 
+## rest-pose.js — 🧍 기본 자세로 잠깐 되돌려 재기
+
+- **책임**: fitModel 이 캐릭터 크기 · 발바닥 보정 · 발밑 깊이를 **기본 자세**로 재게, 재는 동안만 뼈와 `bodyWrap` 회전을 기본으로 돌리고 끝나면 지금 자세로 되돌린다. 몸은 스키닝 메시라 뼈 자세가 박스에 안 들어가지만, 누워 떼쓰기(`bodyWrap` 회전) · 뼈에 직접 붙은 리깅 안 된 파츠는 자세가 높이에 들어가 캐릭터가 뜬 채 남을 수 있었다.
+- **만드는 법**: deps 없음 — `const restPoseMod = TwRestPose.createRestPose();`(app.js `charMeasureMod` 바로 뒤).
+- **내보내는 것**: `enter(seat)` → 되돌릴 표(없으면 null) · `leave(표)` · `restOf(root)`(그 모델의 기본 자세 — 처음 부를 때 잰다).
+  ```js
+  const _rest = restPoseMod.enter(seat);
+  try{ /* 재기 */ }finally{ restPoseMod.leave(_rest); }
+  ```
+- **함정**
+  - 기본 자세는 그 모델(`gltfRoot`)을 처음 `enter` 할 때 잰다 — fitModel 의 첫 호출이 모델을 막 만든 직후라 그때가 기본 자세다. 다른 곳에서 먼저 부르면 그 자세가 기본이 된다.
+  - 나중에 붙은 파츠의 뼈(자기 뼈대가 있는 파츠)는 건드리지 않는다.
+  - 검사: `checks/sim-rest-pose.js`.
+
+## fit-watch.js — 🩺 다시 맞춘 높이 경고
+
+- **책임**: fitModel 이 높이를 정하는 값(크기 · 발바닥 보정 · 높이 슬라이더 · 발밑 깊이)을 모델마다 지난번과 견주어, 파츠 · 슬라이더로 설명되지 않게 바뀌었거나 다시 맞출 때 rig 가 떠 있으면 `console.warn('[높이] …')` 한 줄 — 오류 기록(`tw-error.log`)에 WARN 으로 모인다(B-1109-9 원인 찾기).
+- **만드는 법**: `const fitWatchMod = TwFitWatch.createFitWatch({ warn: (m)=>console.warn(m) });`(app.js `restPoseMod` 바로 뒤).
+- **내보내는 것**: `note(seat, { scale, foot, lift, under, y }, { userY, rigY, groupY, wrapRotX, pinned, riding, animal })` → `'first' | 'same' | 'warn' | 'held' | null` — `lift` 는 fitModel 이 실제로 더한 슬라이더 몫(동물 배율 · 캐릭터 크기 반영). · `TwFitWatch.partsKey(seat)` — 붙은 파츠 묶음 표시(칸 + partId · 쌓기 칸:id + 저장된 착용 목록).
+- **함정**: 새 모델의 첫 값은 견줄 것이 없어 적기만 한다 · 슬라이더 몫은 날값이 아니라 **실제로 더한 값**으로 견준다(날값이면 동물 · 크기 ≠ 1 에서 거짓 경고) · 발밑 깊이가 «파츠 묶음 그대로 · 슬라이더 몫으로 설명 안 될 때만» 높이 경고 대신 `[높이 · 발밑]` 한 줄 · 묶음 표시에 wrapper uuid 를 쓰지 않는다(같은 파츠도 다시 붙일 때마다 wrapper 가 새로 생긴다) · 한 번 경고하면 «그대로» 가 될 때까지 다시 안 적음 · rig 뜸은 바뀌었을 때만 · 기준 `TOL_Y`(0.01) · `TOL_SCALE`(1%) · `RIG_LIFT`(0.05).
+- 검사: `checks/sim-fit-watch.js`.
+
 ## floor-snap-diag.js — 🩺 바닥 맞춤 진단
 
 - **책임**: 진단 전용. 콘솔에서 `floorSnapReport()` 한 줄로 실행 화면 · 꾸미기 미리보기 좌석의 발밑 깊이와 파츠 wrapper 위치(바닥 아래인지 · 모델 안인지)를 나란히 적는다. 아무것도 고치지 않는다.
