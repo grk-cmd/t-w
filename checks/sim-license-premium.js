@@ -249,7 +249,7 @@ async function judge(S){
     ['쓰기 응답 premium 을 버리고 늘 다시 물음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "return lane(null);"))],
     ['쓰기 응답에 premium 이 없어도 다시 묻지 않음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "if(!l) return lane(null);"))],
     ['도는 확인 중 쓰기 응답 뒤 다시 묻지 않음', mut('LP', (s) => s.replace("if(running) again = true;\n", ""))],
-    ['해제가 서버를 안 부름', mut('LP', (s) => s.replace("await licenseApi.removeDevice(deps.deviceId());", ""))],
+    ['해제가 서버를 안 부름', mut('LP', (s) => s.replace("after = await licenseApi.removeDevice(deps.deviceId());", "after = null;"))],
     ['쓰기 응답 사본(meCache)으로 프리미엄 판정', mut('LP', (s) => s.replace("let me = given || null;", "let me = given || (deps.meCache && deps.meCache()) || null;").replace("setPremium(me.premium === true);", "setPremium(me.premium === true || deps.meCache);"))],
     ['첫 확인이 같은 값이면 조용', mut('AS', (s) => s.replace('isPremium() === v && wasKnown', 'isPremium() === v'))],
     ['전용 자산 접기가 «모름» 을 안 봄', mut('PA', (s) => s.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', ''))],
