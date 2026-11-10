@@ -183,7 +183,7 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say('── 4. 방 만들기 두 번 — 입장이 끝날 때까지 다음 누름은 버린다(0.12.3 · 0.13 은 방 만들기 창 → doCreateRoomInChannel)');
+say('── 4. 방 만들기 두 번 — 입장이 끝날 때까지 방을 더 만들지 않는다(0.12.3 · 0.13 은 방 만들기 창 → doCreateRoomInChannel)');
 /* 방 만들기 창이 부르는 doCreateRoomInChannel 만 진짜 · 방 개수 조회는 50ms 뒤 0 · 입장(startRoom)은 버전 확인에서 150ms 기다린 뒤 «구버전» 으로 끝난다(그 뒤 길은 안 탄다) */
 function cardRig(src, o){
   o = o || {};
@@ -228,7 +228,7 @@ globalThis.__rsCheck.then(async () => {
   chk(!!r, '방 만들기를 부를 수 있다');
   chk(!!r && r.double === 1, '① 빨리 두 번 누르면(조회 중) 만들기는 한 번' + (r ? ' (조회 ' + r.double + '번)' : ''));
   chk(!!r && r.after === 2, '② 앞 입장이 끝난 뒤 누르면 다시 만든다');
-  chk(!!r && r.during === 1, '③ 입장이 도는 중에 누른 것도 버린다');
+  chk(!!r && r.during === 1, '③ 입장이 도는 중에 눌러도 방을 더 만들지 않는다');
   chk(!!r && r.afterThrow === 2, '④ 도중에 던져도 가드가 풀려 다음 누름은 다시 된다');
   await breakWith('가드를 뺌', 'return _whileJoining(() => _createRoomInChannel(channel, settings));', 'return _createRoomInChannel(channel, settings);', b => b.double === 2);
   await breakWith('입장을 안 기다림(await 뺌)', '  await startRoom(c);\n}', '  startRoom(c);\n}', b => b.during === 2);
