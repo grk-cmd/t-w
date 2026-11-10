@@ -11,8 +11,9 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const APP = read('app.js');
-if(!APP){ say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
+const APP = read('app.js'), GATE = read('focus-gate.js');
+if(!APP || !GATE){ say('  ? 원본 못 찾음 — app.js · focus-gate.js'); process.exit(2); }
+const GATE_DECL = `const focusGate = (function(){ const window = {}; ${GATE}\n; return window.TwFocusGate; })();`;
 const SRC = APP;   // 두 함수는 app.js 에 그대로 있다 — 옮기기 전 글(joinRenderer)은 deps 이름을 되돌려 이 판과 안 맞는다
 
 function grabFn(name, src){
@@ -35,6 +36,7 @@ function seatEnv(fnSrc){
     const seatPanelMod = { manual: () => null };
     const focusLevelMod = { _mobileOn: () => false };
     const _mobileOn = focusLevelMod._mobileOn;
+    ${GATE_DECL}
     ${fnSrc}
     this.api = {
       st: (now) => seatState({ isMe: true, petStart: -1e9 }, now),
@@ -56,6 +58,7 @@ function applyEnv(fnSrc){
     const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;
     const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(){} };
     let _focusLastTick = performance.now(), _focusWasActive = false;
+    ${GATE_DECL}
     ${fnSrc}
     this.api = { apply: _applyActiveAppState, act: (t) => { lastActivity = t; }, fig: (v) => { figureMode = v; },
                  gate: () => focusGateSleep, self: () => _selfAppActive };`, ctx);
@@ -143,9 +146,9 @@ if(SS && AP && SLEEP_M){
   chk(apOld !== AP && !sec2(apOld, true), '쌓기 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
   const apChal = AP.replace(/if\(!figureMode && dt>0 && dt<30 && !pcNotFocusing\) weeklyChal/, 'if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal');
   chk(apChal !== AP && !sec2(apChal, true), '달성표 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
-  const ssSelf = SS.replace(/\n  if\(desktopMode && focusGateSleep && _selfAppActive\)[^\n]*/, '');
+  const ssSelf = SS.replace('return focusGate.gatedPose(_selfAppActive, ', 'return focusGate.gatedPose(false, ');
   chk(ssSelf !== SS && !sec4(ssSelf, AP, true), '투게더워킹 창 줄을 빼면(옛 모양) 4절이 빨강');
-  const apSelf = AP.replace(/_selfAppActive = !!state\.isSelf;/, '');
+  const apSelf = AP.replace('_selfAppActive = focusGate.selfFront(state);', '');
   chk(apSelf !== AP && !sec4(SS, apSelf, true), 'isSelf 받는 줄을 빼면 4절이 빨강');
 }
 
