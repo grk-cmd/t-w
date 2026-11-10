@@ -184,8 +184,7 @@ for(const [name, fm, fa, fh] of breaks){
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say('── 4. 방 만들기 두 번 — 입장이 끝날 때까지 다음 누름은 버린다(0.12.3 · 0.13 은 방 만들기 창 → doCreateRoomInChannel)');
-/* 카드만 진짜 객체 · 방 개수 조회는 50ms 뒤 0 · 입장(startRoom)은 버전 확인에서 150ms 기다린 뒤 «구버전» 으로 끝난다(그 뒤 길은 안 탄다).
-   o.throwOnce 면 첫 만들기 도중(랜덤 참여 토글을 읽는 자리) 한 번 던진다 */
+/* 방 만들기 창이 부르는 doCreateRoomInChannel 만 진짜 · 방 개수 조회는 50ms 뒤 0 · 입장(startRoom)은 버전 확인에서 150ms 기다린 뒤 «구버전» 으로 끝난다(그 뒤 길은 안 탄다) */
 function cardRig(src, o){
   o = o || {};
   let asked = 0, threw = false;
