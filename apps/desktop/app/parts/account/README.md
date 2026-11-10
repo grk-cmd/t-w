@@ -18,7 +18,8 @@
 - deps(license-premium): `userApi` · `licenseApi` · `deviceId` · `deviceName` · `setPremium`(account-state `_setPremium` — 바꾸는 곳은 이 한 곳) · `isPremium` · `rtOn` · `notifyError` · `reasonOf` · `resetCustomStatus`.
 - 내놓는 것: `start(me)`(켜는 차례 licensePremium — 받아 둔 확인으로 반영 + `license` 알림 걸기) · `refresh()` · `activate(key)` · `deactivate()` → `{ ok, reason? }`.
 - 함정:
-  - 프리미엄은 **GET /v1/me 응답에서만** 반영한다. `PATCH /v1/me` 같은 쓰기 응답은 기기 머리 없이 `premium:false` 일 수 있어 따르지 않는다.
+  - 프리미엄은 **GET /v1/me 응답과 라이선스 쓰기(키 등록 · 이 기기 해제) 응답의 `premium`** 에서만 반영한다(쓰기 하나 = 요청 하나 — 응답에 `premium` 이 없으면 GET /v1/me 를 한 번 더). `PATCH /v1/me` 같은 다른 쓰기 응답은 따르지 않는다. 확인이 도는 중에 쓰기 응답이 오면 끝난 뒤 한 번 더 묻는다(늦은 옛 답이 덮지 않게).
+  - 내 라이선스 모양에 `premium`(이 기기 판정) · `deviceLimit`(기기 상한 — 앱에 숫자를 박지 않는다)이 있다. 없거나 모양이 틀리면 `null`(«모름»).
   - 확인 전의 `isPremium=false` 는 «모름» — `acctStateMod.premiumKnown()` 이 참이 된 뒤에야 전용 자산 접기(`pruneUnownedLicenseAssets`)가 돈다. 첫 확인은 값이 그대로여도 알림을 돌려 건너뛴 접기를 돌린다.
   - «전용 책상 · 아이템을 지금 막아야 하나» 는 `acctStateMod.licenseAssetBlocked()` 한 곳에서만 판단한다(모름이면 막지 않음 — 그리기 · 장착 · 생성기 · 프리셋 · 접기). 새로 막는 곳도 조건을 다시 쓰지 말고 이것을 부른다. 캐릭터 코드 불러오기(파츠)는 지우고 저장하는 되돌릴 수 없는 일이라 입구에서 «모름» 이면 아예 멈춘다(`char-code.js`).
   - **기기 등록은 앱이 알아서 하지 않는다** — «키를 직접 넣을 때» 만 등록되고, 프리미엄은 «이미 목록에 있는 기기» 만 켜진다. 라이선스는 있는데 이 기기만 목록에 없는 새 PC 는 «아님» 으로 둔다(기기 관리 화면에서 등록 — D8-2). 켤 때 `GET /v1/me/license` 는 부르지 않는다(프리미엄이 아닌 사용자의 요청 0).

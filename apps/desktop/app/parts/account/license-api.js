@@ -42,7 +42,8 @@ function deviceNameOf(userAgent){
   return '내 기기';
 }
 
-/* 서버 MyLicense → 앱 모양. 꼭 있어야 할 칸(licenseId · status · devices)이 없으면 undefined(받은 값을 믿지 않는다). */
+/* 서버 MyLicense → 앱 모양. 꼭 있어야 할 칸(licenseId · status · devices)이 없으면 undefined(받은 값을 믿지 않는다).
+   premium(이 기기 판정 — 쓰기 뒤의 값) · deviceLimit(기기 상한 — 앱에 숫자를 박지 않는다)은 모양이 틀리거나 없으면 null(«모름» — 부르는 쪽이 다시 묻는다). */
 function licenseFrom(d){
   if(!isObj(d) || !str(d.licenseId) || !Array.isArray(d.devices)) return undefined;
   const status = d.status === STATUS.VALID ? STATUS.VALID : d.status === STATUS.REVOKED ? STATUS.REVOKED : '';
@@ -52,7 +53,9 @@ function licenseFrom(d){
     if(!isObj(x) || !str(x.deviceId)) return undefined;
     devices.push({ deviceId: x.deviceId, name: str(x.name), registeredAt: str(x.registeredAt), lastSeenAt: str(x.lastSeenAt) });
   }
-  return { licenseId: d.licenseId, status, devices };
+  const premium = typeof d.premium === 'boolean' ? d.premium : null;
+  const deviceLimit = Number.isInteger(d.deviceLimit) && d.deviceLimit > 0 ? d.deviceLimit : null;
+  return { licenseId: d.licenseId, status, devices, premium, deviceLimit };
 }
 function applicationFrom(d){
   if(!isObj(d) || !str(d.name)) return undefined;
@@ -75,7 +78,7 @@ function createLicenseApi(deps){
     return l;
   }
 
-  /* 내 라이선스 → { licenseId, status, devices:[{deviceId,name,registeredAt,lastSeenAt}] } · 라이선스가 없으면 null */
+  /* 내 라이선스 → { licenseId, status, devices:[{deviceId,name,registeredAt,lastSeenAt}], premium, deviceLimit } · 라이선스가 없으면 null */
   async function mine(){
     const d = await authed.get(PATHS.mine, { auth: true, onOwner: (who) => { owner = who; } });
     if(d === null || d === undefined) return null;

@@ -70,6 +70,14 @@ async function judge(src){
     const bad = [{ licenseId: 'L', status: 'VALID' }, { licenseId: 'L', status: 'WHAT', devices: [] }, { licenseId: 'L', status: 'VALID', devices: [{ name: 'x' }] }, 'x', 7, [], { status: 'VALID', devices: [] }];
     let allThrow = true;
     for(const b of bad){ try{ await mk({ 'GET /v1/me/license': b }).api.mine(); allThrow = false; }catch(e){ if(e.code !== 'SHAPE') allThrow = false; } }
+    const full = await mk({ 'GET /v1/me/license': LIC({ premium: true, deviceLimit: 3 }) }).api.mine();
+    t(full.premium === true && full.deviceLimit === 3, '이 기기 판정 premium · 기기 상한 deviceLimit 을 서버 값 그대로(앱에 3 을 박지 않는다)');
+    const off = await mk({ 'GET /v1/me/license': LIC({ premium: false, deviceLimit: 1 }) }).api.mine();
+    t(off.premium === false && off.deviceLimit === 1, '  premium:false 는 «아님» · 상한 1 도 받는다(경계)');
+    const odd = [{}, { premium: 'true', deviceLimit: '3' }, { premium: 1, deviceLimit: 0 }, { premium: null, deviceLimit: -1 }, { deviceLimit: 2.5 }];
+    let allNull = true;
+    for(const o of odd){ const r = await mk({ 'GET /v1/me/license': LIC(o) }).api.mine(); if(r.premium !== null || r.deviceLimit !== null) allNull = false; }
+    t(allNull, '★ 칸이 없거나 모양이 틀리면 null(«모름») — 문자열 · 숫자 1 · 0 · 음수 · 소수를 판정 · 상한으로 읽지 않는다');
     t(allThrow, '★ 모양이 틀린 답(칸 없음 · 모르는 상태 · 기기 id 없음 · 문자열 · 배열)은 SHAPE 로 던진다 — 받은 값을 믿지 않는다');
   }
 
@@ -147,6 +155,8 @@ async function judge(src){
     ['기기 id 를 인코딩하지 않음', (s) => s.replace("encodeURIComponent(id)", "id")],
     ['모르는 요청 상태를 승인으로', (s) => s.replace("d.status === 'APPROVED' ? 'APPROVED' : 'PENDING'", "d.status")],
     ['컴퓨터 이름을 그대로 보냄', (s) => s.replace("return '내 기기';", "return ua;")],
+    ['premium 을 참 같은 값으로 읽음', (s) => s.replace("typeof d.premium === 'boolean' ? d.premium : null", "d.premium == null ? null : !!d.premium")],
+    ['기기 상한 0 · 음수를 받음', (s) => s.replace("Number.isInteger(d.deviceLimit) && d.deviceLimit > 0", "Number.isInteger(d.deviceLimit)")],
     ['오류 문구 표가 상속 이름을 읽음', (s) => s.replace("Object.prototype.hasOwnProperty.call(REASONS, code) ? REASONS[code] : null", "REASONS[code] || null")],
   ];
   for(const [name, f] of breaks){
