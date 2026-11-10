@@ -181,9 +181,10 @@
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
 | **sim-fix-0923.js** | 297 | **522d07f95e45** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
-| **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
-| **sim-figure-mode.js** | 153 | **2423545247d3** |
-| **sim-focus-gate-self.js** | 116 | **19283b4c764a** |
+| **sim-mobile-focus.js** | 222 | **8fd684ce8ec8** |
+| **sim-figure-mode.js** | 156 | **4039d2faf61a** |
+| **sim-focus-gate-self.js** | 123 | **3c460ad46c8b** |
+| **sim-focus-gate.js** | 105 | **d13765baacc8** |
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **174f9cc83500** |
