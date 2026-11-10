@@ -41,6 +41,7 @@
       "devtools-gate.js",
       "http-cache-reset.js",
       "update-diag.js",
+      "error-log.js",
       "oauth-config.js",
       "app/**/*"
     ],

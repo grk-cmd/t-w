@@ -28,6 +28,11 @@ if(FIREBASE_ENV === 'dev') console.log('[firebase-env] dev Firebase(together-wor
 const { createDevtoolsGate } = require('./devtools-gate');
 const { createHttpCacheReset } = require('./http-cache-reset');   // 🧹 버전이 바뀐 뒤 첫 실행에 웹 캐시 한 번 비우기
 const { createUpdateDiag } = require('./update-diag');   // 🩺 업데이트 진행 · 실패를 진단 기록에
+const { createErrorLog } = require('./error-log');   // 🧯 오류만 모으는 파일(tw-error.log)
+/* 오류 기록 — 경로는 적을 때 찾는다(ready 전에도 userData 는 읽힌다 · 실패는 error-log 가 삼킨다) */
+const _errorLog = createErrorLog({ fs, path, dir: () => app.getPath('userData'), version: app.getVersion(), home: require('os').homedir() });
+/* 메인 프로세스의 잡히지 않은 오류 — Monitor 라 원래 처리(오류 창 · 종료)는 그대로 두고 적기만 한다 */
+process.on('uncaughtExceptionMonitor', (err, origin) => { _errorLog.write('CRASH', 'main ' + origin, err); });
 const devtoolsGate = createDevtoolsGate({ packaged: app.isPackaged, env: FIREBASE_ENV });
 // 렌더러(admin/admin-mode.js)가 관리자 모드를 켜고 끌 때 알린다 — 메인 창이 보낸 것만 받는다
 ipcMain.on('companion:setAdminMode', (e, on) => {
@@ -199,7 +204,7 @@ autoUpdater.on('update-available', (info) => { _updateDiag.reset(); sendUpdateSt
 autoUpdater.on('update-not-available', () => sendUpdateStatus('none'));
 autoUpdater.on('download-progress', (p) => { _updateDiag.progress(p); sendUpdateStatus('downloading', { percent: Math.round(p.percent) }); });
 autoUpdater.on('update-downloaded', (info) => sendUpdateStatus('downloaded', { version: info.version }));
-autoUpdater.on('error', (e) => sendUpdateStatus('error', { message: String(e && e.message || e) }));
+autoUpdater.on('error', (e) => { _errorLog.write('ERROR', '업데이트', e); sendUpdateStatus('error', { message: String(e && e.message || e) }); });
 
 /* ── 🍎 맥은 자동 업데이트를 안 한다 (0.9.7~) ───────────────────────────────
    맥판은 **애플 서명·공증이 없다.** electron-updater 의 맥 갈래는 서명된 zip + `latest-mac.yml`
@@ -2094,6 +2099,7 @@ function _watchRendererHealth(win){
     const reason = (d && d.reason) || '?';
     _diagLog('[렌더러] 프로세스 종료 — reason=' + reason + ' exitCode=' + (d && d.exitCode) + ' | 자동 재로드 ' + _rendererReloads + '/' + RENDERER_AUTO_RELOAD_MAX);
     if(reason === 'clean-exit' || reason === 'killed') return;   // 앱이 닫히는 중 · 사용자가 끈 것
+    _errorLog.write('CRASH', '렌더러 종료', 'reason=' + reason + ' exitCode=' + (d && d.exitCode));
     /* 다시 불러오든(런처로 돌아옴) 안 불러오든(죽은 화면) 모니터 전체를 덮은 채 둘 수는 없다 — 횟수 판정보다 먼저 */
     if(win === mainWindow){ try{ _resetWindowForReload(); }catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); } }
     if(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX) return;
@@ -2102,6 +2108,7 @@ function _watchRendererHealth(win){
   });
   wc.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
     if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
+    _errorLog.write('ERROR', '화면 로드 실패', code + ' ' + desc);
     _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));
   });
   win.on('unresponsive', () => { if(!_unresponsiveSince.has(win)) _unresponsiveSince.set(win, Date.now()); _diagLog('[렌더러] 응답 없음(unresponsive)'); });
@@ -2109,6 +2116,7 @@ function _watchRendererHealth(win){
   if(!_childGoneHooked){
     _childGoneHooked = true;
     app.on('child-process-gone', (e, d) => {
+      if(d && d.reason && d.reason !== 'clean-exit') _errorLog.write('CRASH', ((d && d.type) || '?') + ' 종료', 'reason=' + d.reason + ' exitCode=' + d.exitCode + (d.name ? ' name=' + d.name : ''));
       _diagLog('[프로세스] ' + ((d && d.type) || '?') + ' 종료 — reason=' + ((d && d.reason) || '?') + ' exitCode=' + (d && d.exitCode)
         + (d && d.name ? ' name=' + d.name : '') + (d && d.serviceName ? ' service=' + d.serviceName : ''));
     });
@@ -3838,6 +3846,13 @@ function createWindow() {
   ipcMain.on('companion:diagNote', (e, msg) => {
     if(!mainWindow || mainWindow.isDestroyed() || e.sender !== mainWindow.webContents) return;
     _diagLog('[렌더러] ' + String(msg == null ? '' : msg).replace(/[\r\n]+/g, ' ').slice(0, 200));
+  });
+  /* 🧯 렌더러 오류 한 줄 — 종류는 렌더러가 보낼 수 있는 셋만 · 길이는 error-log 가 자른다 */
+  const RENDERER_ERROR_KINDS = ['ERROR', 'WARN', 'CODE'];
+  ipcMain.on('companion:errorLog', (e, p) => {
+    if(!mainWindow || mainWindow.isDestroyed() || e.sender !== mainWindow.webContents) return;
+    if(!p || typeof p !== 'object' || !RENDERER_ERROR_KINDS.includes(p.kind)) return;
+    _errorLog.write(p.kind, '렌더러 ' + String(p.src == null ? '' : p.src).slice(0, 60), String(p.msg == null ? '' : p.msg).slice(0, 4000));
   });
   ipcMain.handle('companion:openDiagFolder', () => {
     try{
