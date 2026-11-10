@@ -117,8 +117,20 @@ function behaveMask(hmSrc){
   r.keep = /app\.asar\/app\/parts\/app\.js:12:3$/.test(lines[0]) && /~/.test(lines[0]);
   r.empty = maskHome(null, '') === '' && maskHome('그냥 글', '') === '그냥 글';
   /* 사용자 폴더가 아닌 경로는 그대로 — Firebase 경고의 /users/<uid> · 주소 안의 /home · /users */
-  const keep = ['set at /users/AbC123uid/profile failed: permission_denied', 'https://together-working.com/home/page', 'GET https://api.github.com/users/grk-cmd failed', 'https://x.com/c:/Users/y'];
-  r.notPath = keep.slice(0, 3).every((l) => maskHome(l, HOME) === l);
+  const keep = ['set at /users/AbC123uid/profile failed: permission_denied', 'https://together-working.com/home/page', 'GET https://api.github.com/users/grk-cmd failed'];
+  r.notPath = keep.every((l) => maskHome(l, HOME) === l);
+  /* 내 홈 글자 바꾸기만 막을 수 있는 길 — 이름에 빈칸(폴더 칸 모양은 빈칸에서 끊긴다) */
+  const SP = 'C:\\Users\\홍 길동';
+  const sp = [
+    maskHome('at C:\\Users\\홍 길동\\x.js', SP),
+    maskHome('file:///C:/Users/' + encodeURI('홍 길동') + '/x.js', SP),
+    maskHome('c:\\users\\홍 길동\\x', SP),
+    maskHome('{"p":"C:\\\\Users\\\\홍 길동\\\\a"}', SP),
+  ];
+  r.space = sp.every((l) => !l.includes('길동') && !l.includes(encodeURI('길동')));
+  r.unc = maskHome('\\\\server\\Users\\kim\\x', '') === '~\\x';
+  r.otherLower = !/other/.test(maskHome('c:\\users\\other\\x', HOME));
+  r.prefix = maskHome('C:\\Users\\홍길동2\\x', HOME) === '~\\x';
   r.fileMac = maskHome('file:///Users/%EA%B9%80/x', '') === 'file://~/x';   // file: 의 «e:» 를 드라이브로 보지 않는다
   return r;
 }
@@ -130,6 +142,9 @@ chk(h.keep, '  이름 뒤 경로(파일 · 줄)는 남긴다');
 chk(h.empty, '  빈 값 · 홈 없음');
 chk(h.notPath, '★ 사용자 폴더가 아닌 경로는 그대로 — Firebase /users/<uid> 경고 · 주소 안의 /home · /users(«어느 경로가 막혔나» 를 남긴다)');
 chk(h.fileMac, '  file:/// 맥 경로 — «file:» 를 드라이브 글자로 안 본다');
+chk(h.space, '★ 이름에 빈칸이 있는 내 홈 — 원래 · file:/// 퍼센트 · 소문자 · JSON 두 겹 모양 모두 이름이 안 남는다');
+chk(h.unc && h.otherLower, '  네트워크 경로(\\\\서버\\Users\\이름) · 다른 사용자의 소문자 경로도 가린다');
+chk(h.prefix, '  이름 앞부분이 같은 다른 폴더(홍길동2)는 내 홈으로 잘리지 않고 폴더째 가린다');
 
 say('── 1. main 쪽 error-log.js');
 const a = behaveLog(LOG);
@@ -173,6 +188,10 @@ chk(/"error-log\.js"/.test(PKG) && /"home-mask\.js"/.test(PKG), '설치 목록(p
 say('── 4. 깨 보기');
 chk(!behaveLog(LOG.replace('s = maskHome(s, home);', '')).home, '홈 가리기를 빼면 위 1절 «~» 가 빨강');
 chk(!behaveMask(HM.replace("  for(const f of forms(home)) out = out.replace(new RegExp(esc(f) + AFTER, 'gi'), '~');\n", '').replace("return out.replace(WIN_USER_RE, '~').replace(POSIX_USER_RE, '~');", 'return out;')).none, '퍼센트 · 빗금 모양 가리기를 빼면 위 0절 ★ 가 빨강');
+chk(!behaveMask(HM.replace("  for(const f of forms(home)) out = out.replace(new RegExp(esc(f) + AFTER, 'gi'), '~');\n", '')).space, '내 홈 글자 바꾸기만 빼면 위 «빈칸 이름» 이 빨강');
+chk(!behaveMask(HM.replace("'(?:' + DRIVE + '|' + UNC + ')", "'(?:' + DRIVE + ')")).unc, '네트워크 경로 갈래를 빼면 위 0절이 빨강');
+chk(!behaveMask(HM.replace("+ SEG, 'gi');", "+ SEG, 'g');")).otherLower, 'Windows 모양을 대소문자 그대로 보면 위 0절이 빨강');
+chk(!behaveMask(HM.replace("new RegExp(esc(f) + AFTER, 'gi')", "new RegExp(esc(f), 'gi')")).prefix, '홈 글자 뒤 경계를 빼면 위 «홍길동2» 가 빨강');
 chk(!behaveMask(HM.replace("'(?<![\\\\w.\\\\-])/(?:Users|home)/' + SEG, 'g'", "'/(?:Users|home)/' + SEG, 'gi'")).notPath, '맥 · 리눅스 모양을 대소문자 무시 · 앞 글자 조건 없이 보면 위 0절 «그대로» 가 빨강');
 chk(!behaveLog(LOG.replace('if(r.n >= REPEAT_MAX){ r.skipped++; return false; }', '')).storm, '몰아칠 때 거르기를 빼면 위 1절 «3번까지만» 이 빨강');
 chk(!behaveRep(REP.replace("if(typeof args[0] === 'string' && args[0].indexOf(CODE_PREFIX) === 0) return;", '')).code, '에러코드 경고 건너뛰기를 빼면 위 2절이 빨강');

@@ -11,7 +11,9 @@
 
 const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 const SEG = "[^\\\\/\\s'\"`<>|:*?)]+";   // 폴더 이름 한 칸
-const WIN_USER_RE = new RegExp('(?:(?<![\\w])[A-Za-z]:|\\\\\\\\[^\\\\/\\s]+)[\\\\/]+Users[\\\\/]+' + SEG, 'gi');
+const DRIVE = '(?<![\\w])[A-Za-z]:';          // C: — 앞이 단어 글자면 아니다(file: 의 e:)
+const UNC = '\\\\\\\\[^\\\\/\\s]+';              // \\서버
+const WIN_USER_RE = new RegExp('(?:' + DRIVE + '|' + UNC + ')[\\\\/]+Users[\\\\/]+' + SEG, 'gi');
 const POSIX_USER_RE = new RegExp('(?<![\\w.\\-])/(?:Users|home)/' + SEG, 'g');
 const AFTER = "(?=[\\\\/]|$|[\\s'\"`)<>|:])";   // 홈 글자 바로 뒤 — 경로가 끝나거나 다음 칸으로
 
@@ -19,7 +21,8 @@ function forms(home){
   if(!home) return [];
   const fwd = home.replace(/\\/g, '/');
   let enc = ''; try{ enc = encodeURI(fwd); }catch(_){}
-  return [...new Set([home, fwd, enc].filter(Boolean))].sort((a, b) => b.length - a.length);
+  const dbl = home.replace(/\\/g, '\\\\');   // JSON 안처럼 역빗금이 두 겹인 모양
+  return [...new Set([home, fwd, enc, dbl].filter(Boolean))].sort((a, b) => b.length - a.length);
 }
 function maskHome(s, home){
   let out = String(s == null ? '' : s);
