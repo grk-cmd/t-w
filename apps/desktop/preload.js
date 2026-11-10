@@ -305,6 +305,12 @@ contextBridge.exposeInMainWorld('companion', {
     ipcRenderer.send('companion:diagNote', String(msg == null ? '' : msg).slice(0, 200));
   },
 
+  // 🧯 렌더러 오류 한 줄을 오류 기록(tw-error.log)에 — { kind: 'ERROR'|'WARN'|'CODE', src, msg } · 모양 · 길이는 main 이 다시 거른다
+  errorLog(p) {
+    if(!p || typeof p !== 'object') return;
+    ipcRenderer.send('companion:errorLog', { kind: String(p.kind || ''), src: String(p.src == null ? '' : p.src).slice(0, 80), msg: String(p.msg == null ? '' : p.msg).slice(0, 4000) });
+  },
+
   // ---- 버전 게이트 ----
   // 현재 앱 버전 조회(예: "0.6.1"): Promise<string|null>. 방 입장 시 원격 설정 minVersion.room 과 비교.
   getAppVersion() {

@@ -382,3 +382,11 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.
 - **함정**: 최소 버전은 저장값을 쓰지 않는다(지난 값으로 막지 않게). 옛 판(평평한 칸)이 남긴 저장값은 판 표시가 없어 읽지 않는다. 칸 이름(`roomMaxPeople` 등)은 앱 안 이름이라 서버 이름과 다르다 — 풀기는 `fieldsOf` 한 곳.
 - 검사: `checks/sim-remote-config.js`.
+
+## `error-report.js` — 🧯 화면 오류를 오류 기록(tw-error.log)으로
+
+- **책임**: 화면(렌더러)에서 난 잡히지 않은 오류 · 처리 안 된 Promise 거절 · `console.error` / `console.warn` 을 main 의 오류 기록(`apps/desktop/error-log.js` — 파일 `tw-error.log`, 진단 기록과 같은 폴더)으로 보낸다. 줄 모양 · 몰아칠 때 거르기 · 파일 크기는 main 이 정한다.
+- **쓰는 법**: 싣기만 하면 `companion.errorLog` 로 스스로 건다 — html 맨 먼저(뒤 스크립트가 실리다 난 오류도 잡게). 에러코드 알림(`TwErrorCodes.notify`)은 스스로 `CODE` 로 보낸다.
+- **내놓는 것**: `TwErrorReport.install(win, send, now?)` · `format(args)`.
+- **함정**: console 원래 출력은 그대로 둔다 · 에러코드 알림이 찍는 `console.warn('[오류] E-…')` 은 다시 안 보낸다 · 보내다 난 오류가 되돌아 들어오지 않게 막는다 · 같은 줄은 10초 안에 한 번.
+- 검사: `checks/sim-error-log.js`.
