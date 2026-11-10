@@ -22,7 +22,7 @@ const SRC = {
 };
 for(const k of Object.keys(SRC)) if(!SRC[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const apiErr = (status, code, kind) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: kind || (status >= 500 ? 'unavailable' : 'request') });
-const ME = (premium) => ({ userCode: 'u12345678', friendCode: 'MATE-AAAA', version: 1, premium, admin: false, premiumGraceSec: 86400 });
+const ME = (premium) => ({ userCode: 'u12345678', friendCode: 'MATE-AAAA', version: 1, premium, admin: false });
 const lic = (ids, status) => ({ licenseId: 'L', status: status || 'VALID', devices: ids.map((id) => ({ deviceId: id, name: 'Mac', registeredAt: '', lastSeenAt: '' })) });
 const ID = 'dev-mine0001', NAME = 'Mac';
 const tick = () => new Promise((r) => setImmediate(r));

@@ -31,7 +31,7 @@ const load = (src) => { const m = { exports: {} }; new Function('module', 'windo
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
 
 const ME = (v, extra) => Object.assign({ userCode: 'u1234567890', friendCode: 'MATE-AB12', displayName: '나', presencePref: { locked: false, online: true },
-  hasPasswordLogin: true, admin: false, premium: true, premiumGraceSec: 3600, version: v || 1 }, extra || {});
+  hasPasswordLogin: true, admin: false, premium: true, version: v || 1 }, extra || {});
 const apiErr = (kind, code) => Object.assign(new Error(code), { kind, code });
 
 function mkEnv(S, o){

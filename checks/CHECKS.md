@@ -171,7 +171,7 @@
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 315 | **5b8cf9066189** |
 | **sim-license-api.js** | 159 | **4bcfb148e5f4** |
-| **sim-license-premium.js** | 241 | **e507dc224546** |
+| **sim-license-premium.js** | 241 | **48de96e4222d** |
 | **sim-mh-sanitize.js** | 274 | **b840325c6768** |
 | **sim-myhome-steps.js** | 127 | **ba55a9aea5d8** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
@@ -450,8 +450,8 @@
 | **sim-rt-hub.js** | 499 | **d969dad39c36** |
 | **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
-| **sim-user-api.js** | 210 | **576b5fe05b2d** |
-| **sim-login-flow.js** | 369 | **6c335399fcd8** |
+| **sim-user-api.js** | 210 | **31e19eb795ae** |
+| **sim-login-flow.js** | 369 | **499879745e77** |
 | **sim-first-run-013.js** | 144 | **c0544d9c503e** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |

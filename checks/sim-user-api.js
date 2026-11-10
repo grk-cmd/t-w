@@ -55,8 +55,8 @@ async function judge(S){
     const me = await e.ua.me();
     const s = e.sent[0];
     chk(s && s.auth === 'Bearer ' + TOKEN && s.dev === 'dev-0001', 'GET /v1/me 에 토큰 · 기기 머리(X-Device-Id)');
-    chk(me && me.userCode === 'u1234567890' && me.friendCode === 'MATE-AB12' && me.version === 3 && me.premium === true && me.premiumGraceSec === 86400,
-      '  ↳ 받은 값을 그대로 · 버전 · 프리미엄 · 유예');
+    chk(me && me.userCode === 'u1234567890' && me.friendCode === 'MATE-AB12' && me.version === 3 && me.premium === true && !('premiumGraceSec' in me),
+      '  ↳ 받은 값을 그대로 · 버전 · 프리미엄 · 옛 서버가 보낸 유예 칸은 버린다');
     chk(me && me.presencePref.locked === true && me.presencePref.online === false && me.hasPasswordLogin === true, '  ↳ 접속 고정 · 비밀번호 로그인 여부');
     const bad = [null, {}, Object.assign({}, ME, { userCode: 'x' }), Object.assign({}, ME, { version: '3' }), Object.assign({}, ME, { friendCode: '' })];
     chk(bad.every((b) => e.UA.meFrom(b) === null), '  ↳ 꼭 있어야 할 칸이 빠지거나 모양이 틀리면 null(받은 값을 믿지 않음)');
