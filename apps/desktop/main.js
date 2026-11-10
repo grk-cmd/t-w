@@ -2116,7 +2116,7 @@ function _watchRendererHealth(win){
   if(!_childGoneHooked){
     _childGoneHooked = true;
     app.on('child-process-gone', (e, d) => {
-      if(d && d.reason && d.reason !== 'clean-exit') _errorLog.write('CRASH', ((d && d.type) || '?') + ' 종료', 'reason=' + d.reason + ' exitCode=' + d.exitCode + (d.name ? ' name=' + d.name : ''));
+      if(d && d.reason && d.reason !== 'clean-exit' && d.reason !== 'killed') _errorLog.write('CRASH', ((d && d.type) || '?') + ' 종료', 'reason=' + d.reason + ' exitCode=' + d.exitCode + (d.name ? ' name=' + d.name : ''));
       _diagLog('[프로세스] ' + ((d && d.type) || '?') + ' 종료 — reason=' + ((d && d.reason) || '?') + ' exitCode=' + (d && d.exitCode)
         + (d && d.name ? ' name=' + d.name : '') + (d && d.serviceName ? ' service=' + d.serviceName : ''));
     });

@@ -42,6 +42,7 @@
       "http-cache-reset.js",
       "update-diag.js",
       "error-log.js",
+      "home-mask.js",
       "oauth-config.js",
       "app/**/*"
     ],

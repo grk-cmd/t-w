@@ -3,10 +3,12 @@
      (조각만 받기 · 통째로 받기 · 이어 받기), 몇 % 에서 멈췄는지, 어떤 오류로 끝났는지를 진단 기록에 한 줄씩 남긴다.
    ・logger: electron-updater 의 자기 기록(info · warn · error)을 받는다 — debug 는 버린다(양이 많다).
    ・progress: 받는 중은 STEP % 마다 한 줄(받은 양 · 전체 · 속도). 새 판을 찾으면 reset 으로 다시 0 부터.
-   ⚠️ 기록에는 사용자 폴더 이름이 들어가지 않게 홈 폴더를 ~ 로 바꾼다(제보자가 기록 파일을 그대로 보내 준다).
+   ⚠️ 기록에는 사용자 폴더 이름이 들어가지 않게 홈 폴더를 ~ 로 바꾼다(제보자가 기록 파일을 그대로 보내 준다) — 규칙은 home-mask.js 한 벌.
    createUpdateDiag({ log, home }) → { logger, progress(p), reset() }
    검사: checks/sim-update-diag.js */
 'use strict';
+
+const { maskHome } = require('./home-mask');
 
 const TAG = '[업데이트] ';
 const STEP = 10;        // 진행 기록 간격(%)
@@ -17,7 +19,7 @@ function createUpdateDiag(o){
   const home = typeof o.home === 'string' ? o.home : '';
   const clean = (m) => {
     let s = (m && typeof m === 'object' && typeof m.message === 'string') ? m.message : String(m);
-    if(home) s = s.split(home).join('~');
+    s = maskHome(s, home);
     return s.replace(/[\u0000-\u001f]+/g, ' ').trim().slice(0, MSG_MAX);
   };
   const mb = (n) => (Number(n) > 0 ? (n / 1048576).toFixed(1) : '0');

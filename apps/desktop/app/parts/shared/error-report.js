@@ -1,4 +1,4 @@
-/* error-report.js — 🧯 렌더러 오류를 오류 기록 파일(tw-error.log)로 (검사 sim-error-report.js)
+/* error-report.js — 🧯 렌더러 오류를 오류 기록 파일(tw-error.log)로 (검사 sim-error-log.js)
    [왜] 설치본은 개발자 도구가 막혀 있어, 화면에서 난 오류(잡히지 않은 오류 · 처리 안 된 Promise 거절 · console.error / warn)를
      제보로 받을 길이 없었다. 여기서 모아 main 의 오류 기록(error-log.js)으로 보낸다 — 줄 모양 · 몰아칠 때 거르기 · 파일 크기는 main 이 정한다.
    ・install(win, send): window 의 error · unhandledrejection 을 듣고 console.error · console.warn 을 감싼다(원래 출력은 그대로).

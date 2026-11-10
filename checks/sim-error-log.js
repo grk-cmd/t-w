@@ -24,7 +24,12 @@ const PKG = pick(['package.json', path.join(DESK, 'package.json')]);
 for(const [n, v] of [['error-log.js', LOG], ['error-report.js', REP], ['error-codes.js', CODES], ['main.js', MAIN], ['preload.js', PRE], ['html', HTML], ['package.json', PKG]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
-const load = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, require); return m.exports; };
+const HM = pick(['home-mask.js', path.join(DESK, 'home-mask.js')]);
+if(!HM){ say('  ? 원본 못 찾음 — home-mask.js'); process.exit(2); }
+const loadPlain = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, require); return m.exports; };
+let HMOD = loadPlain(HM);
+const req = (m) => (m === './home-mask' ? HMOD : require(m));   // 모듈이 부르는 이웃 파일 — 깨 보기에서 바꿔 끼운다
+const load = (src) => { const m = { exports: {} }; new Function('module', 'require', src)(m, req); return m.exports; };
 
 /* 가짜 파일 — appendFileSync · 크기 · 이름 바꾸기 */
 function fakeFs(opt){
@@ -56,6 +61,12 @@ function behaveLog(src){
   r.more = /같은 경고 \(같은 오류 7번 더 — 적지 않음\)/.test(F.files[f]);
   F.files[f] = 'x'.repeat(M.MAX_BYTES + 10); L.write('CRASH', '렌더러 종료', 'reason=crashed');
   r.rotate = (F.files[f + '.1'] || '').length > M.MAX_BYTES && /^\[[^\]]+\] \[앱 0\.13\.0\] \[CRASH\]/.test(F.files[f]);
+  const F3 = fakeFs(), f3 = path.join('/ud', M.FILE); let t3 = 0;
+  const L3 = M.createErrorLog({ fs: F3, path, dir: '/ud', version: '1', now: () => t3 });
+  for(let i = 0; i < M.MINUTE_MAX + 10; i++) L3.write('WARN', 'x', '좌표 ' + i);   // 매번 글이 다른 경고
+  const n3 = F3.files[f3].split('\n').filter(Boolean).length;
+  t3 += 61000; L3.write('WARN', 'x', '다음');
+  r.minute = n3 === M.MINUTE_MAX && /다음 \(1분 상한으로 10줄 건너뜀\)$/.test(F3.files[f3].trim());
   const L2 = M.createErrorLog({ fs: fakeFs({ fail: true }), path, dir: '/ud', version: '1', now: () => 0 });
   try{ r.swallow = L2.write('ERROR', 'a', 'b') === false; }catch(_){ r.swallow = false; }
   return r;
@@ -89,6 +100,31 @@ function behaveRep(src){
   return r;
 }
 
+/* 사용자 이름 가리기 — 화면 쪽 스택(빗금 반대 · 한글 퍼센트) · 대소문자 · 맥 · 리눅스 */
+function behaveMask(hmSrc){
+  const { maskHome } = loadPlain(hmSrc), r = {};
+  const enc = encodeURI('홍길동');
+  const lines = [
+    maskHome('at file:///C:/Users/' + enc + '/AppData/Local/Programs/together-working/resources/app.asar/app/parts/app.js:12:3', HOME),
+    maskHome('at C:\\Users\\홍길동\\AppData\\x.js', HOME),
+    maskHome('c:\\users\\홍길동\\appdata', HOME),
+    maskHome('file:///C:/Users/john/AppData/x.js', 'C:\\Users\\john'),
+    maskHome('file:///Users/%EA%B9%80/Library/x.js', '/Users/김'),
+    maskHome('/home/kim/.config/x', '/home/kim'),
+    maskHome('C:/Users/other/x — 다른 사람 폴더', HOME),
+  ];
+  r.none = lines.every((l) => !/홍길동|john|kim|김|other/i.test(l) && !l.includes(enc) && !l.includes('%EA%B9%80'));
+  r.keep = /app\.asar\/app\/parts\/app\.js:12:3$/.test(lines[0]) && /~/.test(lines[0]);
+  r.empty = maskHome(null, '') === '' && maskHome('그냥 글', '') === '그냥 글';
+  return r;
+}
+
+say('── 0. 사용자 이름 가리기(home-mask.js — error-log · update-diag 공용)');
+const h = behaveMask(HM);
+chk(h.none, '★ 화면 쪽 스택(file:/// · 빗금 반대 · 한글 퍼센트) · 대소문자 · 맥 · 리눅스 · 다른 사용자 폴더 — 이름이 안 남는다');
+chk(h.keep, '  이름 뒤 경로(파일 · 줄)는 남긴다');
+chk(h.empty, '  빈 값 · 홈 없음');
+
 say('── 1. main 쪽 error-log.js');
 const a = behaveLog(LOG);
 chk(a.shape, '★ 한 줄 모양 — [시각] [앱 판] [종류] 출처 · 내용 (줄바꿈은 ⏎)');
@@ -99,6 +135,7 @@ chk(a.storm, '★ 같은 오류가 몰아치면 10분 안에 3번까지만');
 chk(a.more, '  10분이 지나 다시 적을 때 «같은 오류 n번 더» 를 붙인다');
 chk(a.rotate, '  256KB 를 넘으면 .1 로 밀고 새 파일');
 chk(a.swallow, '  쓰기 실패는 삼킨다(앱이 멈추지 않게)');
+chk(a.minute, '★ 매번 글이 다른 경고가 몰아쳐도 1분에 120줄까지 · 다음에 «n줄 건너뜀»');
 
 say('── 2. 화면 쪽 error-report.js');
 const b = behaveRep(REP);
@@ -128,7 +165,8 @@ chk(codesOk(CODES), '★ 에러코드 알림은 진단 기록이 아니라 오�
 chk(/"error-log\.js"/.test(PKG), '설치 목록(package.json files)에 error-log.js — 빠지면 설치본이 켜지지 않는다');
 
 say('── 4. 깨 보기');
-chk(!behaveLog(LOG.replace("if(home) s = s.split(home).join('~');", '')).home, '홈 가리기를 빼면 위 1절 «~» 가 빨강');
+chk(!behaveLog(LOG.replace('s = maskHome(s, home);', '')).home, '홈 가리기를 빼면 위 1절 «~» 가 빨강');
+chk(!behaveMask(HM.replace("  for(const f of forms(home)) out = out.replace(new RegExp(esc(f), 'gi'), '~');\n", '').replace("return out.replace(USER_DIR_RE, '~');", 'return out;')).none, '퍼센트 · 빗금 모양 가리기를 빼면 위 0절 ★ 가 빨강');
 chk(!behaveLog(LOG.replace('if(r.n >= REPEAT_MAX){ r.skipped++; return false; }', '')).storm, '몰아칠 때 거르기를 빼면 위 1절 «3번까지만» 이 빨강');
 chk(!behaveRep(REP.replace("if(typeof args[0] === 'string' && args[0].indexOf(CODE_PREFIX) === 0) return;", '')).code, '에러코드 경고 건너뛰기를 빼면 위 2절이 빨강');
 chk(!behaveRep(REP.replace('if(busy) return;', '')).loop, '되돌아 들어오기 막기를 빼면 위 2절이 빨강');
