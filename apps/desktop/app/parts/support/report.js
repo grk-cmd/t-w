@@ -20,7 +20,7 @@ const _reportHiddenUids = deps.reportHiddenUids; // 신고해서 숨긴 사용�
 const reportApi = deps.reportApi;               // 🌐 신고 서버 길(TwReportApi — file(대상, 사유, 글) · failOf(오류) → 갈래)
 const apiErrors = deps.apiErrors;               // 🧭 공통 code → 할 일 · 번호(TwApiErrors.store — 로그인 풀림 · 점검 · 닿지 못함)
 const notifyError = deps.notifyError;           // 실패 번호 토스트(TwErrorCodes.notify)
-var REPORT_ADMIN_MIN = 3;
+var REPORT_ADMIN_MIN = 3;   // 안내 문구용 — 관리자 목록 거르기는 서버 기본(3)이 한다. 서버 기본이 바뀌면 같이 고친다
 var REPORT_KINDS = [
   { k:'char', label:'캐릭터 신고', sub:'모습 · 꾸미기', short:'캐릭터' },
   { k:'away', label:'자리비움 그림 신고', sub:'', short:'자리비움 그림' },

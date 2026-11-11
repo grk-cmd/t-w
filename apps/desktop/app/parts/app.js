@@ -8589,6 +8589,9 @@ const adminReport = TwAdminReport.createAdminReport({
   setReportOv: (...a)=>reportMod.setOv(...a),
   reportEsc: (...a)=>reportMod.esc(...a),
   setReportEsc: (...a)=>reportMod.setEsc(...a),
+  adminApi: TwReportApi.createAdminReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 /v1/admin/reports* — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
