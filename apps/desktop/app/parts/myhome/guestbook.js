@@ -1,6 +1,8 @@
 /* guestbook.js — 📖 방명록 — 새 글 배지(자기 홈) · 독립 팝업 창(웹박수 · 폭죽 · 글 목록 · 쓰기)
    app.js 의 세 구역(«📖 방명록 새 글 뱃지» · «📖 방명록 팝업» 머리 · «📖 방명록 — 독립 팝업 창»)을 그대로 옮긴 모듈이다
    (앱 FSD 4번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
+   ★ 옮긴 뒤 더한 것: 🧹 30개 넘은 옛 글 정리를 주인 앱이 한다(_pruneOld · 순수 overflowIds · GUESTBOOK_MAX — 반환값에도) —
+     규칙이 손님의 남의 글 지우기를 막아서(주인 · 글쓴이만) 예전처럼 손님 앱이 정리하지 않는다.
 
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
      바뀐 것은 이름을 읽는 방법뿐이다.
@@ -19,6 +21,14 @@
    검사: checks/sim-guestbook.js — 만들 때 배선 · 배지 · 창 열기(외부인 · 관람) · 쓰기 · 삭제 · 박수 · 폭죽 · app.js 배선 · html 순서.
          자식 창 테마 규약은 sim-child-theme 이 이 파일을 읽어 본다. */
 (function(){
+
+const GUESTBOOK_MAX = 30;   // 방명록에 남기는 글 수 — 넘으면 오래된 것(ts)부터 주인 앱이 지운다
+/** 넘친 글 id — 오래된 것(ts)부터 · 남길 max 개 뒤의 나머지(순수 — sim-guestbook) */
+function overflowIds(entries, max){
+  const all = entries || {};
+  const ids = Object.keys(all).sort((a, b) => ((all[a] && all[a].ts) || 0) - ((all[b] && all[b].ts) || 0));
+  return ids.length > max ? ids.slice(0, ids.length - max) : [];
+}
 
 function createGuestbook(deps){
 const getMyUserId = deps.getMyUserId;
@@ -65,12 +75,21 @@ const _myHomeFriends = deps.myHomeFriends;                // 👥 친구 목록 
       badge.classList.add('hidden');
     }
   }
+  /* 🧹 30개 넘은 옛 글 정리 — 주인 앱이 내 방명록을 받을 때(손님 앱은 남의 글을 못 지운다 — 규칙) */
+  let _pruning = false;
+  async function _pruneOld(myId, entries){
+    const ids = overflowIds(entries, GUESTBOOK_MAX);
+    if(!ids.length || _pruning) return;
+    _pruning = true;
+    try{ await firebaseAPI.removeGuestbookEntries(myId, ids); }catch(_){}   // 못 지우면 다음 받을 때 다시
+    finally{ _pruning = false; }
+  }
   function start(){
     if(_unsub) return;
     if(!(window.firebaseAPI && firebaseAPI.subscribeGuestbook)) return;
     const myId = getMyUserId();
     if(!myId) return;
-    _unsub = firebaseAPI.subscribeGuestbook(myId, entries => _updateBadge(entries));
+    _unsub = firebaseAPI.subscribeGuestbook(myId, entries => { _updateBadge(entries); _pruneOld(myId, entries); });
   }
   function stop(){
     if(_unsub){ try{ _unsub(); }catch(_){} _unsub = null; }
@@ -522,7 +541,7 @@ return {
 };
 }
 
-const api = { createGuestbook };
+const api = { createGuestbook, overflowIds, GUESTBOOK_MAX };
 if(typeof window !== 'undefined') window.TwGuestbook = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
