@@ -80,6 +80,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `myhome-desktop.js` · `folder-free.js` · `bookmark.js` · `mallang.js` | 마이홈 바탕화면 · 폴더 자유배치 · 북마크 책장 · 말랑이 | fb 98 · 27 |
 | `myhome-links.js` · `myhome-diag.js` | 본문 링크 · 클릭 진단(콘솔) | — |
 | `inbox-api.js` · `mail-feed.js` | 📩 내 우편 — 서버 길(`/v1/me/notifications`) · 받아 들고 있는 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기). 사용법은 `README.md` | 서버 |
+| `gift-api.js` | 🧸 말랑이 · 🎁 선물 서버 길(`/v1/me/mallangs` · `/v1/me/gifts` · `/v1/gifts/{code}`) provider — 아직 만드는 곳 없음(D7-3 부터). 사용법은 `README.md` | 서버 |
 | `launcher/notice-api.js` · `launcher/notice-feed.js` | 📢 공지 한 판(`/v1/notices` — 소식 · 업데이트 공지 · 런처 배너) + 관리자 소식 쓰기. 확성기는 realtime `announce`(`room/overhead.js`). 사용법은 `launcher/README.md` | 서버 |
 
 ### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `apps/desktop/app/parts/friends/README.md`)
