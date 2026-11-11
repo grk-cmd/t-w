@@ -142,6 +142,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **확장할 때 고칠 자리**: 실패 판정 `CIRCUS_FOOT_OFF_MAX`(0.3) · 새 실측은 여기에 더하고 캐싱은 ride-bench 쪽에.
 - **함정**
   - 드래그 중(rig 가 들린 채)에 재면 값이 틀린다 — 접지점은 rig 가 원점에 놓인 첫 묘기 프레임, 팔 높이는 bodyWrap 기준.
+  - 날기 · 맞아 납작 · 흔들기 · 어지러움 · 쓰다듬기 · 춤 중에 재면 낮게 나온다 — `ride-bench.js` 의 `_rideSettled` 가 그 동안은 재지 않고 «다시 재야 함»(`_rideRemeasurePending`)만 남겨, 위 · 아래가 둘 다 가만해진 첫 프레임에 한 번 다시 잰다.
   - 캐릭터 높이 상쇄는 `_positionRideSeat` 가 `charLiftWorld` 로 한 번 — 여기서도 빼므로 armH 에는 높이가 안 섞인다(두 번 빼지 말 것).
   - 팔 높이는 좌석 기울임을 지우고 잰다(대상 머리 재기와 같은 규칙) — 탄 채로 다시 재면(`_remeasureRideArm`) 대상 고개 기울기가 섞인다.
   - 임시 벡터(`_rideFootTmpV` 등)를 돌려주지 않고 `clone()` 한다 — 호출부가 값을 들고 있어도 안전.

@@ -318,7 +318,7 @@
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **8d2f056f3589** |
 | **sim-tricks.js** | 94 | **53f1d40a59a5** |
-| **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
+| **sim-ride-bench.js** | 350 | **ceec13ee8528** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
 | **sim-focus-level.js** | 119 | **1576a91c1279** |
 | **sim-chat-ui.js** | 95 | **defcaa744921** |
