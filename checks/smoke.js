@@ -343,6 +343,8 @@ PRELOAD.push('img-retry.js');
    (버튼 연결 · 알림 구독 · 자정 타이머)을 아무도 안 굴린다 — 여기서 같이 싣고 굴린다.
    ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
 PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 · 알림 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
+PRELOAD.push('gift-api.js');   // 🧸 말랑이 · 🎁 선물 서버 길 provider — 아직 만드는 곳 없음(D7-3 부터 app.js 가 로그인 통로를 넘겨 만든다)
+PRELOAD.push('mallang.js');   // 🧸 말랑이 · 🎁 선물 화면 — app.js 가 마이홈 수령함보다 먼저 createMallang 으로 만든다
 PRELOAD.push('scheduler.js');
 /* weekly-challenge.js — 👑 달성표(앱 FSD 2번). 같은 까닭 — 만들 때 하는 일(로컬 기록 읽기 · 부팅 동기화 · 20초 tick · 버튼 연결)을 같이 굴린다. */
 PRELOAD.push('weekly-challenge.js');
@@ -415,8 +417,8 @@ PRELOAD.push('admin-asset.js');
 /* admin/admin-mode.js — 🛠️ 🔐 관리자 모드 진입(관리자 코드 admin 폴더 7번). 같은 까닭 — 만들 때 하는 일(비밀번호 창 연결 · Ctrl+E · Ctrl·⌘+클릭 가로채기)과
    app.js 가 원래 자리에서 부르는 createAdminMode · 부팅 때 adminMode.refreshAdminVisibility 를 같이 굴린다. */
 PRELOAD.push('admin-mode.js');
-/* report.js · admin/admin-report.js — 🚩 신고하기 · 관리자 신고 목록(앱 FSD 11번). 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create 둘. */
-PRELOAD.push('report.js', 'admin-report.js');
+/* report-api.js · report.js · admin/admin-report.js — 🚩 신고 서버 길 · 신고하기 · 관리자 신고 목록. 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create. */
+PRELOAD.push('report-api.js', 'report.js', 'admin-report.js');
 /* my-info.js — 🪪 [내 정보] 화면 · 🏆 랭킹(앱 FSD 17번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyInfo 를 같이 굴린다. */
 PRELOAD.push('my-info.js');
 /* slot-codec.js · closet-api.js · closet.js — 🧬 옷장(서버 원본). 같은 까닭 — 만들 때 하는 일(없음)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
@@ -591,6 +593,7 @@ PRELOAD.push('lv-tier.js');
 /* friends-firebase.js · friends-api.js · friends-port.js — 친구 데이터 provider · 포트. 같은 까닭 — app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
 PRELOAD.push('friends-firebase.js');
 PRELOAD.push('friends-api.js');
+PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 길 provider — 아직 만드는 곳 없음(다음 PR 부터 app.js 가 로그인 통로를 넘겨 만든다)
 PRELOAD.push('friends-presence-rt.js');
 PRELOAD.push('presence-self.js');
 PRELOAD.push('friends-port.js');

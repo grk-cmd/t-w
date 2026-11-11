@@ -92,7 +92,7 @@ chk(paint.length > 0 && ask.length > 0, '_giftBoxPaint · _mhAsk 를 찾았다')
 chk(/closest\('\.gift-star'\)\)\{\s*ev\.stopPropagation\(\)/.test(paint), '⭐ 클릭은 stopPropagation 후 칸 클릭(다시 불러오기)으로 안 간다');
 chk(/starN >= lim\.starMax[\s\S]{0,60}즐겨찾기는 '\+lim\.starMax\+'개까지예요/.test(paint), '⭐ 상한 초과 시 토스트');
 chk(/g\.starred === true\)\{\s*_mhAsk\([^)]*⭐를 먼저 풀어 주세요/.test(paint), '⭐ 칸 우클릭은 삭제 대신 안내');
-chk(/_mallangDeleteGift/.test(paint) && /if\(_isStar\(gift\)\) return 'starred'/.test(ML), '삭제 함수도 ⭐ 를 한 번 더 막는다');
+chk(/mallangMod\.deleteGift\(/.test(paint) && /if\(_isStar\(gift\)\) return 'starred'/.test(ML), '삭제 함수도 ⭐ 를 한 번 더 막는다');
 chk(/_giftStat\('⭐ '\+starN\+'\/'\+lim\.starMax\+' · 보관 '\+keys\.length\+'\/'\+lim\.max/.test(paint), '「⭐ n/20 · 보관 m/30」 표시');
 const HTML = read('desk-companion-prototype.html') || '';
 const fmTabs = (HTML.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0];

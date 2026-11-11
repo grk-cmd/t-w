@@ -1912,7 +1912,6 @@ const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
    typeof 가드도 let TDZ에는 통하지 않으므로 try/catch로 안전하게 읽는 접근자를 씀.
    (라이선스가 확정되면 _refreshPremiumGatedUI가 다시 호출되어 UI가 갱신됨) */
 function _premiumOn(){ try{ return !!isPremium; }catch(_){ return false; } }
-try{ window._premiumOn = _premiumOn; }catch(_){}
 
 /* (구역 떼기 C · w1) 이 자리의 본문도 status/user-status-table.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 function saveCustomStatusConf(emo, text){
@@ -2754,6 +2753,14 @@ const richTextMod = TwRichText.createRichText({
   DOMPurify: () => window.DOMPurify,
 });
 
+/* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */
+const mallangMod = TwMallang.createMallang({
+  toast: (...a)=>toast(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  getDisplayName: (...a)=>getDisplayName(...a),
+  premiumOn: (...a)=>_premiumOn(...a),
+});
+
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
 /* 👥 마이홈 친구 목록(Ctrl+F 검색) · 📩 수령함 · 💝 선물함 그리기 · 수령함 함수(안 읽은 수 · 배지 · 공지 읽음) · 친구 방 표시 둘은
      parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일은 없다(상태 초기값뿐).
@@ -2791,6 +2798,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   lvBadgeClass: (...a)=>lvTierMod.lvBadgeClass(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
+  mallangMod: mallangMod,
 });
 /* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */
 /* 📩 수령함 · 💝 선물함 그리기는 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 연결은 바로 위 «👥 마이홈 친구 목록» 머리 아래(inboxMod). */
@@ -2821,6 +2829,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   inboxMod: inboxMod,
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   myHomeSticker: ()=>myHomeSticker,
@@ -2848,6 +2857,7 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
@@ -8574,25 +8584,22 @@ const awayPicMod = TwAwayPic.createAwayPic({
   toast: (...a)=>toast(...a),
 });
 
-/* ═══ 🚩 신고하기 (2026-09-23 · 시안 확정) ═══════════════════════════════════════════════════════════
+/* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
    좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
-   ★ 서버: reports/{신고당한 uid}/{내 uid} = { kind, note?, nick, code4, ts } — 규칙이 «로그인한 본인 칸만» 쓰게 한다.
-     같은 사람을 또 신고하면 같은 칸을 덮는다 = 칸 수가 곧 «서로 다른 신고자 수».
-   ★ 신고자에 대해 남기는 것은 **닉네임 + 친구 코드 뒷자리 4자리 + 사유**뿐(요청).
+   ★ 신고는 서버 길(support/report-api.js — POST /v1/reports) — 신고한 사람은 서버가 토큰에서 정한다.
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
-   ★ 관리자 목록(_openReportAdmin)에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
-/* 본문은 둘로 나눠 옮겼다 — 신고 창 · 공용 도우미는 report.js(앱 FSD 11번), 관리자 신고 목록은 admin/admin-report.js.
-   팝업 칸(한 번에 하나만 열리는 자리)은 report.js 가 가지고, 관리자 목록은 읽는 · 쓰는 함수로만 만진다.
+   신고 창 · 공용 도우미는 report.js, 관리자 신고 목록은 admin/admin-report.js. 팝업 칸은 report.js 가 가진다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const reportMod = TwReport.createReport({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   reportHiddenSave: (...a)=>hiddenSeatsMod._reportHiddenSave(...a),
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
-  myFriendCodeKey: MY_FRIEND_CODE_KEY,
+  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 POST /v1/reports — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminReport = TwAdminReport.createAdminReport({
   toast: (...a)=>toast(...a),
@@ -8606,6 +8613,9 @@ const adminReport = TwAdminReport.createAdminReport({
   setReportOv: (...a)=>reportMod.setOv(...a),
   reportEsc: (...a)=>reportMod.esc(...a),
   setReportEsc: (...a)=>reportMod.setEsc(...a),
+  adminApi: TwReportApi.createAdminReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 /v1/admin/reports* — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */

@@ -33,6 +33,7 @@ const helpTab = deps.helpTab;   // 📘 도움말 탭(help-tab.js) — 탭에 �
 const inboxMod = deps.inboxMod;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const loadMyHomePage = deps.loadMyHomePage;
+const mallangMod = deps.mallangMod;   // 🧸 말랑이(mallang.js) — 열기 · 닫기 · 선물 봤음
 const mhScheduler = deps.mhScheduler;
 const myHomeOpen = deps.myHomeOpen;   // 읽는 함수
 const myHomeSticker = deps.myHomeSticker;   // 읽는 함수
@@ -146,13 +147,13 @@ function syncFriendsOpen(){
     // 🧸 말랑이: 내 마이홈 기준으로 이미지 로드 (방문 여부는 _mhApplyVisitUI가 다시 갱신)
     //   ⚠️ async 함수다 — 안에서 실패하면 이 try/catch 가 아니라 반환된 Promise 가 거부된다. .catch 로 받는다.
     try{
-      Promise.resolve(window._mallangOnOpen((typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId()) ? _mhViewingUserId() : getMyUserId(), !!(typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId())))
+      Promise.resolve(mallangMod.onOpen((typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId()) ? _mhViewingUserId() : getMyUserId(), !!(typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId())))
         .catch(e=>console.error('[말랑이] 열기 실패', e));
     }catch(e){ console.warn('[말랑이] 열기 실패', e); }
   };
   const close=()=>{
     /* 🛟 open() 과 같은 이유로 칸마다 감싼다 — 다만 **여기가 더 위험하다.**
-       [경위] 예전엔 `_mallangOnClose()` 가 맨 앞줄이고 그 다음이 `commitMyHomePage(true)` 였다.
+       [경위] 예전엔 말랑이 닫기(`mallangMod.onClose()`)가 맨 앞줄이고 그 다음이 `commitMyHomePage(true)` 였다.
          말랑이 정리에서 한 번 던지면 **마이홈 마지막 저장이 통째로 건너뛰어진다** — 편집한 내용이
          조용히 사라진다. 그 뒤 `overlay.classList.remove('on')` 도 못 돌아서 창이 안 닫힌다.
        ★ 순서도 바꿨다: **저장이 맨 먼저다.** 정리(말랑이·BGM·스티커)는 실패해도 다음에 열 때
@@ -163,7 +164,7 @@ function syncFriendsOpen(){
     _step('마지막 저장', ()=>{ mhHooks.call(mhHooks.HOOK.COMMIT, true); });
     overlay.classList.remove('on');
     setMyHomeOpen(false);
-    _step('말랑이 정리', ()=>{ window._mallangOnClose(); });   // 🧸 말랑이 전부 제거
+    _step('말랑이 정리', ()=>{ mallangMod.onClose(); });   // 🧸 말랑이 전부 제거
     _step('확인창 닫기', ()=>{ const a=document.getElementById('mhAskOv'); if(a) a.remove(); });   // 다시 열 때 남아 있지 않게
     // 🔍 검색줄도 접는다 — 다음에 열었을 때 필터만 남아 친구가 사라져 보이지 않게
     _step('검색줄', ()=>{ if(typeof inboxMod.friendSearchToggle==='function') inboxMod.friendSearchToggle(false); });
@@ -389,7 +390,7 @@ function syncFriendsOpen(){
       friendManage.renderFriendManage();
       /* 🎁 선물 배지 확인 처리는 **바로 이 자리**다. 렌더 안이 아니라 클릭에 건다 —
          친구 탭에 들어오기만 해도(직전에 보던 서브탭이 선물함이라) 본 것으로 처리되면 안 된다. */
-      if(friendManage.tab() === 'gift') window._mallangSeenGifts();
+      if(friendManage.tab() === 'gift') mallangMod.seenGifts();
     });
   });
   // 일괄 처리 바

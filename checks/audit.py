@@ -370,7 +370,7 @@ _callers = {}
 #   cleanupGhostRooms · reclaimInvitesSince · publishPart · publishDesk · publishItem 을 부른다. admin-license.js · admin-notice.js ·
 #   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
 #   publishDesk · publishItem 등 카탈로그 쓰기를 부른다. admin-users.js · admin-launcher.js(5번)는 통계 · 초대권 지급 · 방 종료 ·
-#   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. report.js · admin-report.js(앱 FSD 11번)는 reportUser · listReports ·
+#   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. admin-report.js(앱 FSD 11번)는 listReports ·
 #   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인) · chars.js(18번 — 🧬 캐릭터 보관함) · slot-sync.js(19번 — ☁️ 슬롯 기기 간 동기화) · away-pic.js · myhome-ui.js(22번) · tricks.js(25번 — 💃 깜짝쇼 · 🪄 때리기) · ride-bench.js(30번 — 🗼 올라타기 · 🪑 멀티좌석) · part-paint.js(21번 — 🖍️ 파츠에 직접 그리기) · focus-level.js(26번 — ⭐ 포커스 레벨 · 공유 · 태블릿) · chat-ui.js(24번 — 💬 채팅 날리기 · 탭 · 복사 · 이모티콘) · license-gate.js(31번 — 🎟️ 초대장 · 라이선스) · account.js(23번 — 🔑 계정) · wardrobe.js(29번 — 🎨 꾸미기 창) · settings-panel.js(27번 — ⚙ 설정 패널) · desktop-run.js(32번 — 🖥️ 데스크탑 실행 화면) · room-entry.js(33번 — 🛰 방 서버 · 입장 · 방 개수) · overhead.js(34번 — 💬 머리 위 말풍선 · 🏷️ 이름표)도 본다.
 def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):

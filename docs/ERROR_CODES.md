@@ -25,6 +25,8 @@
 | `FOCUS` | 포커스 · 레벨 |
 | `PL` | 플레이리스트 |
 | `LIC` | 라이선스 · 프리미엄 |
+| `RPT` | 신고 |
+| `ADM` | 앱 관리자 창 |
 | `DATA` | (걷음) 범용 데이터 통로 — 걷은 번호만 |
 | `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
 | `RT` | realtime 연결이 끊겨 멈춤(로그인 풀림 · 계정 로그아웃 · 모르는 닫힘) — 다시 붙는 끊김엔 번호 없음 |
@@ -89,6 +91,10 @@
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
 | `E-LIC-01` | 라이선스 상태를 확인하지 못했어요 — 앱을 다시 켜면 다시 확인해요 | `account/license-premium.js` — 프리미엄 확인(`GET /v1/me`) 실패(켤 때는 계정 확인이 곧 확인이라 실패가 없다 · 서버 `license` 알림 뒤 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음) |
 | `E-LIC-02` | 이 기기의 라이선스를 해제하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/license-key.js` — «이 기기에서 해제» 버튼의 서버 기기 빼기(`DELETE /v1/me/license/devices/{id}`) 실패(프리미엄은 그대로 · 로그인이 풀린 실패는 알리지 않음) |
+| `E-RPT-01` | 신고하지 못했어요 — 잠시 뒤 다시 해 주세요 | `support/report.js` — 신고 창 [신고] 서버 쓰기 실패(`POST /v1/reports` — 기능 갈래(`report-api.js` `failOf`)도 공통 code(`api-errors.js`)도 아닌 실패 · 숨기지 않고 [신고] 다시 켬 · 다시 보내지 않음) |
+| `E-ADM-30` | 신고 목록을 불러오지 못했어요 | `admin/admin-report.js` — 🚩 신고 목록 열기 · [다시 시도] · [더 보기](`GET /v1/admin/reports` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · 열 때 · 다시 시도는 «못 불러왔어요 [다시 시도]» · 다시 보내지 않음) |
+| `E-ADM-31` | 신고를 비우지 못했어요 | `admin/admin-report.js` — [문제없음](`POST /v1/admin/reports/dismissals` — 그 사람 줄이 ok 가 아님 포함 · [문제없음] 다시 켬) |
+| `E-ADM-32` | 자리비움 그림을 내리지 못했어요 | `admin/admin-report.js` — [그림 내리기](`POST /v1/admin/reports/{target}/take-down` — `REPORT_IMAGE_CHANGED` 는 번호 없이 목록 다시 받기 · 그 밖 실패 · [그림 내리기] 다시 켬) |
 | `E-NET-01` | 로그인이 풀렸어요 — 다시 로그인해 주세요 | `shared/api-errors.js` — 공통 `AUTH_REQUIRED` · 토큰 없음(`NO_TOKEN`) |
 | `E-NET-02` | 이 작업을 할 권한이 없어요 | `shared/api-errors.js` — 공통 `ACCESS_DENIED` |
 | `E-NET-03` | 프리미엄에서 쓸 수 있는 기능이에요 | `shared/api-errors.js` — 공통 `PREMIUM_REQUIRED`(이 기기 판정 — `X-Device-Id`) |

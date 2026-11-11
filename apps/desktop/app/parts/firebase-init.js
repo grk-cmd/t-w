@@ -1074,35 +1074,6 @@
       try{ await deleteObject(_stRef(storage, url)); }catch(_){}
     },
 
-    /* ===== 🚩 신고 (2026-09-23 · 시안 확정) =====
-       reports/{신고당한 uid}/{신고한 uid} = { kind, note?, nick, code4, ts }
-       ★ 한 사람이 같은 사람을 여러 번 신고해도 칸이 하나 — «서로 다른 몇 명» 이 곧 칸 수다.
-       ★ 규칙: 신고자 칸은 **로그인한 본인 것만**(userAuth/{신고자} === auth.uid) · 읽기와 비우기는 관리자만. */
-    async reportUser(targetId, reporterId, rec){
-      if(!targetId || !reporterId || targetId === reporterId) return { ok:false, reason:'self' };
-      if(!(auth && auth.currentUser)) return { ok:false, reason:'auth' };
-      const v = { kind: String(rec.kind||''), nick: String(rec.nick||'').slice(0,20), code4: String(rec.code4||'').slice(-4), ts: Date.now() };
-      if(rec.note) v.note = String(rec.note).slice(0,40);
-      try{ await set(ref(db, `reports/${targetId}/${reporterId}`), v); return { ok:true }; }
-      catch(e){ console.warn('[report] 실패', e); return { ok:false, reason:'denied' }; }
-    },
-    /* 관리자 — 전체 신고(대상별 묶음). 규칙상 관리자만 읽힌다. */
-    async listReports(){
-      try{ const v=(await get(ref(db, 'reports'))).val(); return { ok:true, reports: v || {} }; }
-      catch(e){ return { ok:false, reports:{} }; }
-    },
-    async clearReports(targetId){
-      try{ await remove(ref(db, `reports/${targetId}`)); return { ok:true }; }catch(e){ return { ok:false }; }
-    },
-    /* 관리자 목록 한 줄에 필요한 것만 — 이름 · 친구 코드 · 자리비움 그림. */
-    async getUserBrief(userId){
-      const out = { name:null, friendCode:null, awayImg:null };
-      try{ const p=(await get(ref(db, `users/${userId}/profile/name`))).val(); if(typeof p==='string') out.name=p; }catch(_){}
-      try{ const c=(await get(ref(db, `users/${userId}/friendCode`))).val(); if(typeof c==='string') out.friendCode=c; }catch(_){}
-      try{ const a=(await get(ref(db, `users/${userId}/awayImg`))).val(); if(typeof a==='string') out.awayImg=a; }catch(_){}
-      return out;
-    },
-
     /* ── 🎁 말랑이 선물 ──
        users/{받는사람}/mallangGifts/{giftId} = {imgUrl, fromName, fromId, ts}
        users/{보내는사람}/mallangGiftCount/{YYYY-MM-DD} = 그날 발송 횟수

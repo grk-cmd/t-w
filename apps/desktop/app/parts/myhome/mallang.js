@@ -8,9 +8,20 @@
    · 전부 로컬 상태 — 내 화면에만 존재, 마이홈 닫으면 전부 사라짐.
    · 방문 모드: 다른 폴더(좀아칼/캐릭터세팅/인벤토리)는 잠기지만 말랑이 폴더는 열림.
      방문자는 그 집 주인이 등록한 이미지로 자기 화면에 소환(각자 로컬).
+   · 모듈 모양: window.TwMallang = { createMallang(deps) } — app.js 가 마이홈 수령함 모듈보다 먼저 만들고,
+     마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallangMod` 로 받아 부른다.
+     deps 4 — toast · getMyUserId · getDisplayName · premiumOn(프리미엄 판정 — app.js _premiumOn).
+     본문은 예전 즉시 실행 함수 그대로다(들여쓰기도). 바뀐 것은 window 고리 열 개 → 반환값 · 전역 함수 넷 → deps 뿐.
+   검사: checks/sim-mallang-module.js
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
+
+function createMallang(deps){
+  const toast = deps.toast;
+  const getMyUserId = deps.getMyUserId;
+  const getDisplayName = deps.getDisplayName;
+  const premiumOn = deps.premiumOn;   // 👑 프리미엄 판정(app.js _premiumOn) — 전역 window._premiumOn 을 읽지 않는다
 
   const MAX_IMGS = 4;        // 등록 가능한 이미지 수
   /* 동시에 떠다닐 수 있는 말랑이 수 (20 → 30).
@@ -64,7 +75,7 @@
   function roomBox(){ return document.getElementById('mhRoomPreview'); }   // 청록 바탕화면 박스
   function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
   function fbReady(){ return !!(window.firebaseAPI && firebaseAPI.getMallangImgs); }
-  function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
+  function hasLicense(){ try{ return !!premiumOn(); }catch(_){ return false; } }
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
   function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
   function saveLocal(){ try{ localStorage.setItem(lsKey(), JSON.stringify(imgs)); }catch(_){} }
@@ -683,7 +694,7 @@
       if(!inst.gift.isOwner){ return; }   // 방문자는 선물 못 없앰 (하트만)
       // ★ 집주인 → 서버 기록은 남기고 '선물함으로 되돌리기'만 한다(치움 표시).
       //   예전엔 여기서 deleteMallangGift로 영구 삭제해서 다시 부를 방법이 없었다.
-      //   선물함에서 클릭하면 _mallangRespawnGift로 다시 나온다.
+      //   선물함에서 클릭하면 respawnGift 로 다시 나온다.
       _hideGift(inst.gift.giftId);
       // ★ 서버에도 기록 — 로컬만이면 방문자 화면·다른 기기에서는 그대로 보인다.
       if(fbReady() && firebaseAPI.setMallangGiftHidden){
@@ -825,26 +836,26 @@
     imgs = (raw||[]).map(x => (typeof x==='string') ? { url:x, on:true } : { url:x.url, on:(x.on!==false) }).filter(x=>x && x.url);
   }
 
-  /* ── 외부 훅 (app.js 마이홈 로직이 호출) ──
-     window._mallangOnOpen(ownerId, isVisiting): 마이홈 열릴 때 (내 집이면 ownerId=내ID, isVisiting=false)
-     window._mallangOnClose(): 마이홈 닫힐 때 → 전부 제거
-     window._mallangApplyVisit(isVisiting, ownerId): 방문 상태 전환 시 */
-  window._mallangOnOpen = async function(ownerId, isVisiting){
+  /* ── 마이홈이 부르는 셋(반환값) ──
+     onOpen(ownerId, isVisiting): 마이홈 열릴 때 (내 집이면 ownerId=내ID, isVisiting=false)
+     onClose(): 마이홈 닫힐 때 → 전부 제거
+     applyVisit(isVisiting, ownerId): 방문 상태 전환 시 */
+  async function onOpen(ownerId, isVisiting){
     visiting = !!isVisiting;
     build();
     clearAll();                       // 이전 상태 초기화
     await loadImgsFor(ownerId||myId());
     refreshFolder();                  // 이미지 로드 후 폴더 표시 여부 재판정 (방문 집 말랑이 유무 반영)
     await loadGifts(ownerId||myId());  // 🎁 선물받은 말랑이 소환 (내 집·방문 모두)
-  };
-  window._mallangOnClose = function(){ clearAll(); };
-  window._mallangApplyVisit = async function(isVisiting, ownerId){
+  }
+  function onClose(){ clearAll(); }
+  async function applyVisit(isVisiting, ownerId){
     visiting = !!isVisiting;
     clearAll();                       // 집 바뀌면 내 말랑이 사라짐
     await loadImgsFor(ownerId||myId());
     refreshFolder();                  // 방문/복귀에 맞춰 폴더 재판정
     await loadGifts(ownerId||myId());
-  };
+  }
 
   /* ── 🎁 선물 "치움" 상태 (로컬) ──────────────────────────────────────────
      우클릭은 이제 '삭제'가 아니라 '선물함으로 되돌리기'다. 서버 기록(mallangGifts)은 그대로 두고,
@@ -874,8 +885,7 @@
       .sort((a,b)=>((gifts[a]&&gifts[a].ts)||0)-((gifts[b]&&gifts[b].ts)||0));
     return plain.slice(0, ids.length - GIFT_MAX);
   }
-  window._mallangGiftOrder = giftOrder;
-  window._mallangGiftLimits = { max: GIFT_MAX, starMax: GIFT_STAR_MAX };
+  const giftLimits = { max: GIFT_MAX, starMax: GIFT_STAR_MAX };
   function _hiddenSet(){
     try{ const a = JSON.parse(localStorage.getItem(GIFT_HIDE_KEY) || '[]');
          return new Set(Array.isArray(a) ? a : []); }catch(_){ return new Set(); }
@@ -884,9 +894,9 @@
     try{ localStorage.setItem(GIFT_HIDE_KEY, JSON.stringify([...set])); }catch(_){}
   }
   function _hideGift(giftId){ const h=_hiddenSet(); h.add(giftId); _saveHidden(h); }
-  window._mallangIsGiftHidden = function(giftId){ return _hiddenSet().has(giftId); };
-  /* 선물함에서 클릭 → 다시 마이홈에 소환 (app.js가 호출) */
-  window._mallangRespawnGift = function(giftId, imgUrl, msg){
+  function isGiftHidden(giftId){ return _hiddenSet().has(giftId); }
+  /* 선물함에서 클릭 → 다시 마이홈에 소환 (myhome-inbox.js 가 호출) */
+  function respawnGift(giftId, imgUrl, msg){
     try{
       const h=_hiddenSet(); h.delete(giftId); _saveHidden(h);
       if(fbReady() && firebaseAPI.setMallangGiftHidden) firebaseAPI.setMallangGiftHidden(myId(), giftId, false);
@@ -895,12 +905,12 @@
       spawnGift(imgUrl, giftId, true, myId(), msg||'');
       return 'ok';
     }catch(_){ return 'error'; }
-  };
+  }
 
-  /* 선물함 우클릭 → 영구 삭제 (app.js 가 확인창을 띄운 뒤 호출).
+  /* 선물함 우클릭 → 영구 삭제 (myhome-inbox.js 가 확인창을 띄운 뒤 호출).
      서버(+Storage 사본)에서 지우고, 마이홈에 나와 있는 그 말랑이와 로컬 치움 목록에서도 뺀다.
      ⚠️ ⭐ 는 여기서 한 번 더 막는다 — 확인창을 거치지 않는 호출이 생겨도 즐겨찾기는 안 지워진다. */
-  window._mallangDeleteGift = async function(giftId, gift){
+  async function deleteGift(giftId, gift){
     if(!giftId) return 'error';
     if(_isStar(gift)) return 'starred';
     if(!fbReady() || !firebaseAPI.deleteMallangGift) return 'error';
@@ -912,7 +922,7 @@
     syncHideBtn();
     const h=_hiddenSet(); if(h.delete(giftId)) _saveHidden(h);
     return 'ok';
-  };
+  }
 
   /* ── 🎁 받은 선물 말랑이 로드/소환 ── */
   async function loadGifts(ownerId){
@@ -968,13 +978,13 @@
       padding:1px 5px;border-radius:8px;vertical-align:middle;font-weight:bold;}`;
     document.head.appendChild(s);
   }
-  // 친구 탭 열면 "봤음" 처리 (뱃지 제거) — app.js가 호출
-  window._mallangSeenGifts = async function(){
+  // 선물함 서브탭을 누르면 "봤음" 처리 (뱃지 제거) — myhome-ui.js 가 호출
+  async function seenGifts(){
     const tab = document.querySelector('.mh-tab[data-tab="friend"]');
     const badge = tab && tab.querySelector('.ml-giftbadge');
     if(fbReady() && firebaseAPI.setMallangGiftSeen) await firebaseAPI.setMallangGiftSeen(myId(), (tab&&tab._mlLatest)||Date.now());
     if(badge) badge.remove();
-  };
+  }
 
   // 선물 말랑이 소환
   function spawnGift(url, giftId, isOwner, ownerId, msg){
@@ -982,7 +992,7 @@
     spawn(url, { giftId, isOwner, ownerId, msg: msg||'' });
   }
 
-  /* ── 🎁 선물 보내기 (친구 우클릭 → app.js가 호출) ── */
+  /* ── 🎁 선물 보내기 (친구 우클릭 → myhome-inbox.js 가 호출) ── */
   const DAILY_LIMIT = 10;   // 하루 발송 한도 (5 → 10)
   const MSG_MAX = 50;   // 선물에 함께 보내는 메시지 최대 길이
   /* 🎁 받는 사람 마이홈이 꽉 찼는가 — **치우지 않은 선물** 이 이 수 이상이면 못 보낸다.
@@ -1006,7 +1016,7 @@
     return Object.keys(gifts).filter(k => gifts[k] && !gifts[k].hidden).length;
   }
 
-  window._mallangOpenGift = async function(friendId, friendName){
+  async function openGift(friendId, friendName){
     if(!hasLicense()){ toast('👑 말랑이 선물은 라이선스 보유자 전용이에요'); return; }
     if(!fbReady()){ toast('네트워크 연결이 필요해요'); return; }
     // 내 말랑이 이미지 로드 (활성/비활성 무관하게 등록된 것 전부 선물 가능)
@@ -1023,7 +1033,7 @@
       visibleGiftCount(friendId),
     ]);
     buildGiftPopup(friendId, friendName, mine, cnt, theirs);
-  };
+  }
 
   function buildGiftPopup(friendId, friendName, mine, sentToday, theirVisible){
     const win = homeWin(); if(!win) return;
@@ -1104,4 +1114,15 @@
     document.head.appendChild(s);
   }
 
+  return {
+    onOpen, onClose, applyVisit,   // 🏠 마이홈 열기 · 닫기(myhome-ui) · 집 옮기기(myhome-visit)
+    seenGifts,                     // 🎁 봤음 — 선물함 서브탭 누름(myhome-ui)
+    openGift,                      // 🎁 보내기 창 — 친구 줄 우클릭(myhome-inbox)
+    giftOrder, giftLimits, isGiftHidden, respawnGift, deleteGift,   // 💝 선물함 격자(myhome-inbox)
+  };
+}
+
+const api = { createMallang };
+if(typeof window !== 'undefined') window.TwMallang = api;
+if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
