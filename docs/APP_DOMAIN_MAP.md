@@ -157,6 +157,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `bug-board-ui.js` | 버그 제보 게시판 화면 | fb 8 |
 | `report.js` | 신고하기 · 신고 창 도우미(관리자 목록은 `admin/admin-report.js`) | — |
+| `report-api.js` | 🚩 신고 서버 길(`POST /v1/reports`) provider — 사유 이름 → 서버 종류 이름. 사용법은 `README.md` | 서버 |
 | `bug-board.js` (ES) | 버그 게시판 데이터 | (firebase-init 이 연결) |
 
 ## 12. 📷 `purikura/` — 스티커사진 ✅ 옮김(폴더 1번)

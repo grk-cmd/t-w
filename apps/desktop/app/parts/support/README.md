@@ -1,0 +1,22 @@
+# app/parts/support — 🐞 버그 제보 · 🚩 신고
+
+## report-api.js — 🚩 신고 provider(classic script `window.TwReportApi`)
+- 책임: 신고 서버 길(`POST /v1/reports`) 한 벌. 경로 · 본문 모양 · 서버 종류 이름(`CHARACTER` · `AWAY_IMAGE` · `NICKNAME` · `ETC`)은 여기만 안다.
+- deps: `authed`(로그인 통로 `TwApi.authed` — `post(path, body)`).
+- 내놓는 것: `createReportApi(deps)` → `{ file(target, kind, note) }` — `target` 은 신고할 사람의 사용자 코드, `kind` 는 신고 창 사유 이름(`char` · `away` · `nick` · `etc`).
+  순수: `bodyOf(target, kind, note)`(보낼 본문 `{ target, kind, note? }`) · `KIND` · `CODE`(서버 거절 code) · `NOTE_MAX`(40) · `PATHS`.
+- 함정:
+  - 신고한 사람은 서버가 토큰에서 정한다 — 본문에 내 이름 · 코드를 싣지 않는다.
+  - 실패는 ApiError 를 그대로 던진다. 다시 보내지 않는다(다시 하는 길은 사용자가 [신고] 를 다시 누르는 것뿐).
+  - 틀린 값(대상 없음 · 모르는 사유 · 40자 넘는 글)은 요청 없이 code `INVALID` 로 던진다.
+  - 같은 사람을 다시 신고하면 서버가 열린 신고를 고친다 — 그래서 `requestId` 칸이 없다.
+- 검사: `checks/sim-report.js`.
+
+## report.js — 🚩 신고 창 · 공용 도우미(classic script `window.TwReport`)
+- 책임: 좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» 창(사유 넷 · 기타 40자) → `report-api.js` 로 보내기 → 성공하면 내 화면에서 숨김(`hidden-seats.js` 의 같은 Set) · 창 닫기.
+  관리자 신고 목록(`admin/admin-report.js`)과 함께 쓰는 창 틀 · 닫기 · 팝업 칸(한 번에 하나)을 가진다.
+- deps: `toast` · `getMyUserId` · `seatLabelName` · `awayUrlOk` · `reportHiddenSave` · `reportHiddenUids` · `reportApi`(`TwReportApi.createReportApi`) · `notifyError`(`TwErrorCodes.notify`).
+- 내놓는 것: `openDialog(seat)` · 관리자 목록용 `close` · `box` · `KINDS` · `ADMIN_MIN` · `ov` · `setOv` · `esc` · `setEsc`.
+- 실패: 서버 거절 까닭 표 `REPORT_REJECT` — `REPORT_SELF` 는 조용히 닫기 · `REPORT_NO_AWAY_IMAGE` · `REPORT_NOTE_REQUIRED` 는 안내 문구. 그 밖은 `E-RPT-01`. 실패하면 숨기지 않고 [신고] 를 다시 켠다.
+- 함정: 보내는 동안 [신고] 는 꺼져 있다(연타로 두 번 보내지 않게). `ADMIN_MIN`(3)은 창 안내 문구 «서로 다른 3명» 과 관리자 목록 거르기가 같이 읽는다.
+- 검사: `checks/sim-report.js` · `checks/sim-report-away.js`.
