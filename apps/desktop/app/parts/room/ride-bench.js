@@ -713,6 +713,7 @@ const RIDE_UNSETTLED_STATES = ['shaking', 'dizzy', 'pet', 'dance'];
 function _rideSettled(s, now){
   if(!s) return true;
   if(s.fly || s.bonkStart || s.beingShaken || s.pinned) return false;
+  if(s.bodyWrap && s.bodyWrap.rotation && s.bodyWrap.rotation.x !== 0) return false;   // 춤(누워 떼쓰기 등)이 끝나도 몸이 몇 프레임 젖혀진 채 돌아온다 — 0 이 된 뒤에 잰다
   return !RIDE_UNSETTLED_STATES.includes(seatState(s, now));
 }
 function _rideRemeasureIfSettled(seat, now){

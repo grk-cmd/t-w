@@ -6,7 +6,7 @@
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 올라탄 높이 다시 재기 — 실패하면 옛 높이 그대로 · 진단 기록 한 줄 / 성공하면 탄 좌석 모두 새 값 · 다음 프레임 검증 줄(작은 가짜 THREE · 깨 보기)
    ・6절: 탑 맨 아래 사람이 나가면 위층도 바닥으로 — 높이 0 · 묘기 자세 풀림 · 내 좌석이면 «내렸다» 방송(깨 보기)
-   ・7절: 날기 · 맞기 · 흔들기 · 어지러움 · 춤 · 쓰다듬기 중에는 재지 않고 «다시 재야 함» — 둘 다 가만해진 첫 프레임에 한 번 다시 잰다(깨 보기)
+   ・7절: 날기 · 맞기 · 흔들기 · 어지러움 · 춤(끝난 뒤 몸이 젖혀진 채 돌아오는 동안도) · 쓰다듬기 중에는 재지 않고 «다시 재야 함» — 둘 다 가만해진 첫 프레임에 한 번 다시 잰다(깨 보기)
    [실행] app.js · desk-companion-prototype.html · ride-bench.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -326,6 +326,13 @@ function judgeSettle(src){
       on(rider); mod._remeasureRideArm(rider); const kept = rider._rideArmH === 0.9 && rider._rideRemeasurePending === true; off(rider);
       t(kept, '  ' + name + ' 중 — 재지 않고 «다시 재야 함»');
     }
+    /* ⑥-2 춤은 끝났지만 몸이 아직 젖혀진 채 돌아오는 중(bodyWrap 회전) — 재지 않고, 0 이 되면 잰다 */
+    rider._rideRemeasurePending = false; rider._rideArmH = 0.9; arm = 0.6; rider.bodyWrap = { rotation: { x: -1.125 } };
+    mod._remeasureRideArm(rider);
+    const tilted = rider._rideArmH === 0.9 && rider._rideRemeasurePending === true;
+    rider.bodyWrap.rotation.x = 0;
+    try{ mod._updateRideChains(5000); }catch(_){}
+    t(tilted && rider._rideArmH === 0.6 && rider._rideRemeasurePending === false, '★ 춤이 끝나도 몸이 젖혀진 채면 재지 않음 · 몸이 바로 서면 잼');
     /* ⑦ 가만한 자세(잠 · 집중)는 그대로 잰다 */
     rider._rideRemeasurePending = false; rider._rideArmH = 0.9; arm = 0.6; state.set(rider, 'sleep');
     mod._remeasureRideArm(rider);
@@ -336,6 +343,7 @@ function judgeSettle(src){
 judgeSettle(MOD).forEach(([ok, msg]) => chk(ok, msg));
 for(const [name, a, b] of [
   ['날기를 안 봄', 'if(s.fly || s.bonkStart', 'if(s.bonkStart'],
+  ['몸 기울기를 안 봄', '  if(s.bodyWrap && s.bodyWrap.rotation && s.bodyWrap.rotation.x !== 0) return false;', ''],
   ['어지러움을 안 봄', "const RIDE_UNSETTLED_STATES = ['shaking', 'dizzy', 'pet', 'dance'];", "const RIDE_UNSETTLED_STATES = ['shaking', 'pet', 'dance'];"],
   ['얹을 때 표시 안 함', '    animalSeat._rideRemeasurePending = !(_rideSettled(animalSeat, _now) && _rideSettled(hostSeat, _now)); }', '    }'],
   ['가만해져도 다시 안 잼', '  list.forEach(seat=>{ if(seat._rideRemeasurePending) _rideRemeasureIfSettled(seat, now); });\n', ''],
