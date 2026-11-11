@@ -17,7 +17,8 @@ const _seatLabelName = deps.seatLabelName;
 const _awayUrlOk = deps.awayUrlOk;             // 자리비움 그림 주소가 우리 Storage 인가
 const _reportHiddenSave = deps.reportHiddenSave;
 const _reportHiddenUids = deps.reportHiddenUids; // 신고해서 숨긴 사용자 코드(Set — hidden-seats.js 의 같은 객체)
-const reportApi = deps.reportApi;               // 🌐 신고 서버 길(TwReportApi — file(대상, 사유, 글))
+const reportApi = deps.reportApi;               // 🌐 신고 서버 길(TwReportApi — file(대상, 사유, 글) · failOf(오류) → 갈래)
+const apiErrors = deps.apiErrors;               // 🧭 공통 code → 할 일 · 번호(TwApiErrors.store — 로그인 풀림 · 점검 · 닿지 못함)
 const notifyError = deps.notifyError;           // 실패 번호 토스트(TwErrorCodes.notify)
 var REPORT_ADMIN_MIN = 3;
 var REPORT_KINDS = [
@@ -27,11 +28,10 @@ var REPORT_KINDS = [
   { k:'etc',  label:'기타', sub:'', short:'기타' },
 ];
 var _reportOv = null, _reportEsc = null;
-/* 서버가 거절한 까닭 → 신고 창이 할 일. 표에 없으면 E-RPT-01 */
-const REPORT_REJECT = {
-  REPORT_SELF: { close: true, text: null },                           // 나 신고는 창을 열 때 이미 막는다 — 여기까지 오면 조용히 닫기만
-  REPORT_NO_AWAY_IMAGE: { close: false, text: '그 분의 자리비움 그림이 이미 없어요' },
-  REPORT_NOTE_REQUIRED: { close: false, text: '사유를 적어 주세요' },
+/* 실패 갈래(report-api.js failOf) → 안내 문구. self 는 창을 열 때 이미 막아 조용히 닫기만 · common 은 공통 표 · 그 밖은 E-RPT-01 */
+const FAIL_TEXT = {
+  noAwayImage: '그 분의 자리비움 그림이 이미 없어요',
+  noteRequired: '사유를 적어 주세요',
 };
 function _reportClose(){
   if(_reportEsc){ document.removeEventListener('keydown', _reportEsc, true); _reportEsc = null; }
@@ -105,11 +105,11 @@ function _openReportDialog(seat){
     try{
       await reportApi.file(target, picked, txt);
     }catch(e){
-      const code = String((e && e.code) || '');
-      const rj = Object.prototype.hasOwnProperty.call(REPORT_REJECT, code) ? REPORT_REJECT[code] : null;
-      if(rj && rj.close){ _reportClose(); return; }
+      const kind = reportApi.failOf(e);
+      if(kind === 'self'){ _reportClose(); return; }
       go.disabled = false;
-      if(rj) toast(rj.text);
+      if(Object.prototype.hasOwnProperty.call(FAIL_TEXT, kind)) toast(FAIL_TEXT[kind]);
+      else if(kind === 'common') apiErrors.notify(e);
       else notifyError('E-RPT-01', e);
       return;
     }

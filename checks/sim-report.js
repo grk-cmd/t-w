@@ -1,9 +1,11 @@
 /* ═══ 🚩 sim-report.js — 신고 서버 길 · 신고하기 모듈 둘 ═══════════════
    report-api.js(신고 provider — POST /v1/reports) · report.js(신고 창 · 공용 도우미 · 팝업 칸) · admin/admin-report.js(관리자 신고 목록).
    신고 규칙 · 문구는 sim-report-away.js 가 본다. 여기서는 provider 본문 · 신고 창의 성공 / 실패 · 팝업 칸 나눠 쓰기 · app.js 연결을 본다 — 가짜 DOM · 가짜 통로 위에서 굴린다.
-   ・0절: report-api.js — 사유 이름 → 서버 종류 이름 표 · 본문 = { target, kind, note? }(내 이름 · 코드 없음) · 틀린 값은 요청 0 · 실패는 그대로 던짐
+   ・0절: report-api.js — 사유 이름 → 서버 종류 이름 표 · 본문 = { target, kind, note? }(내 이름 · 코드 없음) · 틀린 값은 요청 0 · 실패는 그대로 던짐 ·
+          failOf — 기능 표 갈래 · 공통 code · 닿지 못함 → common · 그 밖 → site(진짜 api-errors.js 로)
    ・1절: report.js — 내놓는 이름 · 정보 없는 좌석 · 나 자신 · 기타는 글 필요 · 보내는 동안 [신고] 꺼짐 · 성공 = 숨김 · 창 닫힘 ·
-          실패 = 숨김 0 + E-RPT-01 한 번 + [신고] 다시 켬 · REPORT_NO_AWAY_IMAGE = 안내(번호 0) · REPORT_SELF = 조용히 닫음
+          실패 = 숨김 0 + E-RPT-01 한 번 + [신고] 다시 켬 · REPORT_NO_AWAY_IMAGE · REPORT_NOTE_REQUIRED = 안내(번호 0) · REPORT_SELF = 조용히 닫음 ·
+          공통 code(로그인 풀림 · 닿지 못함) = 공통 표 번호(E-NET) — E-RPT-01 아님
    ・2절: admin-report.js — 관리자 아니면 안 염(다시 대입된 isAdmin) · 열면 신고 창이 닫히고 팝업 칸을 이어받음 · ESC 로 닫힘 · rows
    ・3절: app.js 연결 — 본문이 안 남음 · 빈 껍데기 둘(관리자 목록은 report.js 없으면 안 만듦) · deps · 원래 자리 · 메뉴는 reportMod.openDialog · html
    ・4절: 일부러 깨 보기
@@ -20,9 +22,11 @@ const _APP = read('app.js'), SRC = _APP && (_APP + '\n' + _MENU), HTML = read('d
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const REP = ['report.js', 'parts/support/report.js', 'app/parts/support/report.js'].map(read).find(Boolean);
 const RAPI = ['report-api.js', 'parts/support/report-api.js', 'app/parts/support/report-api.js'].map(read).find(Boolean);
+const AERR = ['api-errors.js', 'parts/shared/api-errors.js', 'app/parts/shared/api-errors.js'].map(read).find(Boolean);
 const ADM = ['admin-report.js', 'parts/admin/admin-report.js', 'app/parts/admin/admin-report.js'].map(read).find(Boolean);
 if(!REP){ say('  ? 원본 못 찾음 — report.js'); process.exit(2); }
 if(!RAPI){ say('  ? 원본 못 찾음 — report-api.js'); process.exit(2); }
+if(!AERR){ say('  ? 원본 못 찾음 — api-errors.js'); process.exit(2); }
 if(!ADM){ say('  ? 원본 못 찾음 — admin-report.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
@@ -55,13 +59,16 @@ function build(rep, adm, st, rapi){
   const hidden = new Set();
   const run = (src, glob) => new Function('window', 'document', 'firebaseAPI', 'module', src + '\nreturn window.' + glob + ';')(win, D.document, fb, undefined);
   const RA = run(rapi, 'TwReportApi');
+  /* 진짜 공통 표 — 번호 토스트만 가짜(어느 번호로 갔는지 적는다) */
+  const notifyError = (code, e) => { calls.push(['notifyError', code, e]); return true; };
+  const ERRS = new Function('module', AERR + '\nreturn module.exports;')({ exports: {} });
   const R = run(rep, 'TwReport').createReport({ toast: (m) => calls.push(['toast', m]), getMyUserId: () => st.me, seatLabelName: () => '콩떡', awayUrlOk: (u) => !!u,
     reportHiddenSave: () => calls.push(['hiddenSave']), reportHiddenUids: hidden,
-    reportApi: RA.createReportApi({ authed: fakeAuthed(st, calls) }), notifyError: (code, e) => { calls.push(['notifyError', code, e]); return true; } });
+    reportApi: RA.createReportApi({ authed: fakeAuthed(st, calls), errs: ERRS }), apiErrors: ERRS.createApiErrors({ notifyError }), notifyError });
   const A = run(adm, 'TwAdminReport').createAdminReport({ toast: (m) => calls.push(['toast', m]), awayUrlOk: (u) => !!u, isAdmin: () => st.admin,
     reportClose: (...a) => R.close(...a), reportBox: (...a) => R.box(...a), kinds: R.KINDS, adminMin: R.ADMIN_MIN,
     reportOv: (...a) => R.ov(...a), setReportOv: (...a) => R.setOv(...a), reportEsc: (...a) => R.esc(...a), setReportEsc: (...a) => R.setEsc(...a) });
-  return { R, A, D, calls, hidden, RA };
+  return { R, A, D, calls, hidden, RA, ERRS };
 }
 const find = (D, pred) => D.made.filter(pred);
 const flush = () => new Promise(r => setImmediate(r));
@@ -76,7 +83,7 @@ async function judgeAll(rep, adm, app, html, rapi){
   const st = { me: 'me1', admin: false };
   let B;
   try{ B = build(rep, adm, st, rapi); }catch(e){ t(false, '모듈을 만들 수 없다 — ' + e.message); return r; }
-  const { R, A, D, RA } = B;
+  const { R, A, D, RA, ERRS } = B;
   /* 0. report-api.js — 진짜 함수를 부른다 */
   const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
   const kinds = { char: 'CHARACTER', away: 'AWAY_IMAGE', nick: 'NICKNAME', etc: 'ETC' };
@@ -89,12 +96,21 @@ async function judgeAll(rep, adm, app, html, rapi){
     && thrown(() => RA.bodyOf('u9', 'spam', '')) === 'INVALID' && thrown(() => RA.bodyOf('u9', 'toString', '')) === 'INVALID',
     'report-api — 틀린 값(41자 · 대상 없음 · 모르는 사유)은 INVALID');
   {
-    const c0 = [], s0 = {}, api0 = RA.createReportApi({ authed: fakeAuthed(s0, c0) });
+    const c0 = [], s0 = {}, api0 = RA.createReportApi({ authed: fakeAuthed(s0, c0), errs: ERRS });
     let e0 = null; try{ await api0.file('u9', 'spam', ''); }catch(e){ e0 = e; }
     await api0.file('u9', 'nick', '');
     s0.fail = errOf('REPORT_SELF'); let e1 = null; try{ await api0.file('u9', 'char', ''); }catch(e){ e1 = e; }
     t(e0 && e0.code === 'INVALID' && c0.length === 2 && c0[0][1] === '/v1/reports' && same(c0[0][2], { target: 'u9', kind: 'NICKNAME' }) && e1 === s0.fail,
       'report-api — file: 틀린 값은 요청 0 · POST /v1/reports 한 번 · 실패는 받은 오류 그대로 던짐(다시 보내지 않음)');
+  }
+  {
+    const f = (e) => RA.failOf(e, ERRS);
+    t(f(errOf('REPORT_SELF')) === 'self' && f(errOf('REPORT_NO_AWAY_IMAGE')) === 'noAwayImage' && f(errOf('REPORT_NOTE_REQUIRED')) === 'noteRequired'
+      && f(Object.assign(new Error('x'), { code: 'INVALID' })) === 'site',
+      'report-api — failOf: 서버 거절 code 셋 → self · noAwayImage · noteRequired · 보내기 전 막은 값 → site');
+    t(f(errOf('AUTH_REQUIRED')) === 'common' && f(errOf('USER_CODE_NOT_BOUND')) === 'common' && f(errOf('TOO_MANY_REQUESTS')) === 'common'
+      && f(Object.assign(new Error('x'), { code: 'NETWORK', kind: 'unavailable' })) === 'common' && f(errOf('INTERNAL_ERROR')) === 'site' && f(errOf('USER_NOT_FOUND')) === 'site',
+      'report-api — failOf: 공통 code · 닿지 못함 → common · 기능 표 · 공통 표 둘 다 없는 code → site');
   }
   /* 1. report.js */
   t(['openDialog', 'close', 'box', 'KINDS', 'ADMIN_MIN', 'ov', 'setOv', 'esc', 'setEsc'].every(k => k in R) && R.KINDS.length === 4 && R.ADMIN_MIN === 3,
@@ -119,6 +135,16 @@ async function judgeAll(rep, adm, app, html, rapi){
   B.calls.length = 0; st.fail = errOf('REPORT_NO_AWAY_IMAGE'); await go.onclick();
   t(posts(B.calls).length === 1 && !errs(B.calls).length && B.calls.some(c => c[0] === 'toast' && /자리비움 그림이 이미 없어요/.test(c[1])) && B.hidden.size === 0 && !go.disabled && R.ov() === ov1,
     'REPORT_NO_AWAY_IMAGE — 안내 문구(번호 없음) · 숨기지 않음 · [신고] 다시 켬');
+  B.calls.length = 0; st.fail = errOf('REPORT_NOTE_REQUIRED'); await go.onclick();
+  t(posts(B.calls).length === 1 && !errs(B.calls).length && B.calls.some(c => c[0] === 'toast' && c[1] === '사유를 적어 주세요') && B.hidden.size === 0 && !go.disabled && R.ov() === ov1,
+    'REPORT_NOTE_REQUIRED — 안내 문구(번호 없음) · 숨기지 않음 · [신고] 다시 켬');
+  /* 공통 code — 공통 표 번호(로그인 풀림 E-NET-01 · 닿지 못함 E-NET-07)로, E-RPT-01 아님 */
+  B.calls.length = 0; st.fail = errOf('AUTH_REQUIRED'); await go.onclick();
+  const e1 = errs(B.calls).map(c => c[1]).join();
+  B.calls.length = 0; st.fail = Object.assign(new Error('x'), { code: 'NETWORK', kind: 'unavailable' }); await go.onclick();
+  const e2 = errs(B.calls).map(c => c[1]).join();
+  t(e1 === 'E-NET-01' && e2 === 'E-NET-07' && B.hidden.size === 0 && !go.disabled && R.ov() === ov1,
+    '공통 code — 로그인 풀림은 E-NET-01 · 닿지 못함은 E-NET-07(공통 표) · 숨기지 않음 · [신고] 다시 켬');
   /* 성공 — 보내는 동안 [신고] 꺼짐 · 본문은 { target, kind, note } 만 */
   B.calls.length = 0; st.fail = null; st.hold = true;
   const pend = go.onclick();
@@ -157,9 +183,9 @@ async function judgeAll(rep, adm, app, html, rapi){
     '빈 껍데기 없음 — 신고 창 · 관리자 목록 모두 늘 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const block = (name) => ((app.match(new RegExp('const ' + name + ' = [^\\n]*\\{\\n([\\s\\S]*?)\\n\\}\\);')) || [])[1] || '').split('\n').map(l => l.trim()).filter(Boolean);
   const dr = block('reportMod'), da = block('adminReport');
-  t(dr.length === 8 && dr.includes('reportHiddenUids: hiddenSeatsMod._reportHiddenUids,') && dr.some(l => l.startsWith('reportApi: TwReportApi.createReportApi({ authed: TwApi.authed }),'))
-    && dr.includes('notifyError: (...a)=>TwErrorCodes.notify(...a),') && !dr.some(l => /getDisplayName|myFriendCodeKey/.test(l)),
-    'deps — 신고 창 여덟(숨김 Set 은 값 · 신고 서버 길 · 오류 번호 · 내 이름 · 친구 코드 키 없음)');
+  t(dr.length === 9 && dr.includes('reportHiddenUids: hiddenSeatsMod._reportHiddenUids,') && dr.some(l => l.startsWith('reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),'))
+    && dr.includes('apiErrors: TwApiErrors.store,') && dr.includes('notifyError: (...a)=>TwErrorCodes.notify(...a),') && !dr.some(l => /getDisplayName|myFriendCodeKey/.test(l)),
+    'deps — 신고 창 아홉(숨김 Set 은 값 · 신고 서버 길 · 공통 표 · 오류 번호 · 내 이름 · 친구 코드 키 없음)');
   t(da.length === 11 && da.includes('isAdmin: ()=>isAdmin,') && da.includes('setReportOv: (...a)=>reportMod.setOv(...a),') && da.includes('kinds: reportMod.KINDS,'),
     'deps — 관리자 목록 열하나(isAdmin 은 읽는 함수 · 팝업 칸 · 창 틀은 reportMod 를 거침)');
   const iH = app.indexOf('/* ═══ 🚩 신고하기'), iR = app.indexOf('const reportMod ='), iA2 = app.indexOf('const adminReport =');
@@ -173,16 +199,21 @@ async function judgeAll(rep, adm, app, html, rapi){
 
 (async () => {
   const rows = await judgeAll(REP, ADM, SRC, HTML, RAPI);
-  const heads = { 0: '── 0. 🌐 신고 서버 길(report-api.js)', 4: '── 1. 🚩 신고 창(report.js)', 14: '── 2. 🛠️ 관리자 신고 목록(admin-report.js)', 20: '── 3. app.js 연결' };
+  const heads = { 0: '── 0. 🌐 신고 서버 길(report-api.js)', 6: '── 1. 🚩 신고 창(report.js)', 18: '── 2. 🛠️ 관리자 신고 목록(admin-report.js)', 24: '── 3. app.js 연결' };
   rows.forEach(([ok, msg], i) => { if(heads[i]) say(heads[i]); chk(ok, msg); });
   say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['신고 뒤에 안 숨김', { rep: s => s.replace('_reportHiddenUids.add(target); _reportHiddenSave();', '_reportHiddenSave();') }],
-    ['실패해도 숨김', { rep: s => s.replace('      go.disabled = false;\n      if(rj)', '      _reportHiddenUids.add(target);\n      go.disabled = false;\n      if(rj)') }],
+    ['실패해도 숨김', { rep: s => s.replace('      go.disabled = false;\n      if(Object', '      _reportHiddenUids.add(target);\n      go.disabled = false;\n      if(Object') }],
     ['실패를 번호 없이 삼킴', { rep: s => s.replace("else notifyError('E-RPT-01', e);", 'else {}') }],
-    ['실패 뒤 [신고] 안 켬', { rep: s => s.replace('      go.disabled = false;\n      if(rj)', '      if(rj)') }],
+    ['실패 뒤 [신고] 안 켬', { rep: s => s.replace('      go.disabled = false;\n      if(Object', '      if(Object') }],
     ['보내기 전에 [신고] 안 끔', { rep: s => s.replace('    go.disabled = true;\n    try{', '    try{') }],
-    ['그림 없음을 오류 번호로', { rep: s => s.replace("  REPORT_NO_AWAY_IMAGE: { close: false, text: '그 분의 자리비움 그림이 이미 없어요' },\n", '') }],
+    ['그림 없음을 오류 번호로', { rep: s => s.replace("  noAwayImage: '그 분의 자리비움 그림이 이미 없어요',\n", '') }],
+    ['사유 없음 안내 빠짐', { rep: s => s.replace("  noteRequired: '사유를 적어 주세요',\n", '') }],
+    ['공통 code 를 E-RPT-01 로', { rep: s => s.replace("      else if(kind === 'common') apiErrors.notify(e);\n", '') }],
+    ['갈래가 공통 code 를 site 로', { rapi: s => s.replace('if(own(errs.COMMON, t.code) || t.action === OFFLINE_ACTION) return FAIL.COMMON;', '') }],
+    ['갈래가 닿지 못함을 site 로', { rapi: s => s.replace(' || t.action === OFFLINE_ACTION', '') }],
+    ['기능 표에서 사유 없음 빠짐', { rapi: s => s.replace('  REPORT_NOTE_REQUIRED: row(FAIL.NOTE_REQUIRED),\n', '') }],
     ['본문에 내 이름을 실음', { rapi: s => s.replace('const body = { target, kind: KIND[kind] };', "const body = { target, kind: KIND[kind], nick: '나닉' };") }],
     ['종류 이름 표 틀림', { rapi: s => s.replace("nick: 'NICKNAME'", "nick: 'NICK'") }],
     ['실패를 성공으로 삼킴', { rapi: s => s.replace('    await authed.post(PATHS.file, body);', '    try{ await authed.post(PATHS.file, body); }catch(_){}') }],

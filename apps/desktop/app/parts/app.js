@@ -8550,7 +8550,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
   toast: (...a)=>toast(...a),
 });
 
-/* ═══ 🚩 신고하기 (2026-09-23 · 시안 확정) ═══════════════════════════════════════════════════════════
+/* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
    좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
    ★ 신고는 서버 길(support/report-api.js — POST /v1/reports) — 신고한 사람은 서버가 토큰에서 정한다.
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
@@ -8563,7 +8563,8 @@ const reportMod = TwReport.createReport({
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
   reportHiddenSave: (...a)=>hiddenSeatsMod._reportHiddenSave(...a),
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
-  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed }),   // 🌐 POST /v1/reports — 원본은 서버
+  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 POST /v1/reports — 원본은 서버
+  apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminReport = TwAdminReport.createAdminReport({
