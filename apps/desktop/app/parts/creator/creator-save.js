@@ -13,6 +13,7 @@
 
 function createCreatorSave(deps){
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
+const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id(desk-visual.js 가 그린다)
 const Presence = deps.Presence;   // 읽는 함수
 const _blankFaceConfirmed = deps._blankFaceConfirmed;   // 읽는 함수
 const _isBlankDraw = deps._isBlankDraw;
@@ -96,7 +97,8 @@ function _creatorBuildDef(forSize){
       // 카탈로그 아이템이면 GLB를 캐릭터에 박아넣지 않음 — 불러올 때 카탈로그 동기화(loadSavedItemsIntoSession)로 자동 채워짐(실시간 교체 반영을 위함)
       if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
     if(Object.keys(ci).length) def.customItems=ci; } }
-  if(cDeskGlbB64()){
+  if(activeCustomDeskId()===NO_DESK_ID){ def.deskCatalogId = NO_DESK_ID; }
+  else if(cDeskGlbB64()){
     // 카탈로그(관리자 배포) 책상이면 GLB를 통째로 박아넣는 대신 참조 ID만 저장 — 나중에 관리자가 GLB를 교체해도
     // 이 캐릭터를 불러올 때마다 최신 GLB를 다시 찾아오게 됨(applyDeskCatalogRefToSeat). 로컬 전용(코드로 추가) 책상은 예전처럼 그대로 저장.
     const activeRec = activeCustomDeskId() ? commissionMod().savedDesks().find(d=>d.id===activeCustomDeskId()) : null;

@@ -18,6 +18,10 @@
   font-weight: bold;
 }
 
+.done {
+  border-color: var(--ok);
+}
+
 .pending {
   border-style: dashed;
 }

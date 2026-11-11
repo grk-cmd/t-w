@@ -2,7 +2,7 @@
    ・1절: 진짜 _applyActiveAppState 를 가짜 환경에서 돌린다 — 포커싱 어플 → 투게더워킹: 깨어 있음 유지 · 브라우저 → 투게더워킹: 잠듦 유지 ·
           투게더워킹이 앞인 동안 포커스 시간은 안 쌓임 · 피규어 모드 · 폰 켜짐은 예전처럼 이긴다 · isSelf 없는 옛 main 은 예전 그대로
    ・2절: main.js — 활성 창 상태에 isSelf(우리 앱 = SELF_EXE) 를 싣는다
-   ・3절: 깨 보기 */
+   ・3절: 깨 보기 — 규칙(focus-gate.js)을 고쳐 돌린다 */
 'use strict';
 const { joinRenderer } = require('./sim-renderer-src.js');
 const fs = require('fs'), vm = require('vm');
@@ -10,8 +10,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const APP = read('app.js'), MAIN = read('main.js');
-if(!APP || !MAIN){ say('  ? 원본 못 찾음 — app.js · main.js'); process.exit(2); }
+const APP = read('app.js'), MAIN = read('main.js'), GATE = read('focus-gate.js');
+if(!APP || !MAIN || !GATE){ say('  ? 원본 못 찾음 — app.js · main.js · focus-gate.js'); process.exit(2); }
 const SRC = joinRenderer(APP);
 
 function grabFn(name, src){
@@ -22,9 +22,10 @@ function grabFn(name, src){
   return null;
 }
 
-function behave(fnSrc){
+function behave(fnSrc, gateSrc){
   const r = {};
   if(!fnSrc) return null;
+  gateSrc = gateSrc || GATE;
   const mk = (o) => {
     const env = Object.assign({ now: 100000, added: 0, mob: false }, o || {});
     const ctx = { env, performance: { now: () => env.now }, console };
@@ -35,7 +36,9 @@ function behave(fnSrc){
       const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
       const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;   // joinRenderer 는 옮기기 전 이름으로 되살린다
       const weeklyChal = { focusTick(){}, setKeyPlatform(){} };
-      let _focusLastTick = performance.now(), _focusWasActive = false;
+      let _focusLastTick = performance.now(), _focusWasActive = false, _selfAppActive = false;
+      const focusGate = (function(){ const window = {}; ${gateSrc}
+; return window.TwFocusGate; })();
       ${fnSrc}
       this.api = { apply: _applyActiveAppState, act: (t) => { lastActivity = t; }, get: () => ({ gate: focusGateSleep, was: _focusWasActive }) };`, ctx);
     return ctx;
@@ -103,10 +106,14 @@ say('── 2. main.js');
 
 say('── 3. 깨 보기');
 {
-  const b1 = FN && FN.includes('const keepGate = state.isSelf === true') ? behave(FN.replace('const keepGate = state.isSelf === true', 'const keepGate = false')) : null;
+  const SELF = 'return !!state && state.isSelf === true && !state.isFocusedAppRegistered;';
+  const ORDER = 'if(o.figureMode || o.mobOn) return false;\n  if(selfFront(state)) return null;';
+  const b1 = FN && GATE.includes(SELF) ? behave(FN, GATE.replace(SELF, 'return false;')) : null;
   chk(b1 && !b1.keepAwake, '투게더워킹 창을 «등록 안 된 앱» 으로 보면(옛 동작) 1절이 빨강');
-  const b2 = FN && FN.includes('&& !figureMode && !mobOn;') ? behave(FN.replace('&& !figureMode && !mobOn;', ';')) : null;
-  const b3 = FN && FN.includes('&& !state.isFocusedAppRegistered &&') ? behave(FN.replace('&& !state.isFocusedAppRegistered &&', '&&')) : null;
+  const b2 = FN && GATE.includes(ORDER) ? behave(FN, GATE.replace(ORDER, 'if(selfFront(state)) return null;\n  if(o.figureMode || o.mobOn) return false;')) : null;
+  const b3 = FN && GATE.includes(SELF) ? behave(FN, GATE.replace(SELF, 'return !!state && state.isSelf === true;')) : null;
+  const b4 = FN && FN.includes('if(nextGate !== null) focusGateSleep = nextGate;') ? behave(FN.replace('if(nextGate !== null) focusGateSleep = nextGate;', 'focusGateSleep = !!nextGate;')) : null;
+  chk(b4 && !b4.keepSleep, '«직전 값을 둔다(null)» 를 «연다» 로 읽으면 1절이 빨강');
   chk(b2 && !b2.wins, '피규어 모드 · 폰 켜짐까지 막으면 1절이 빨강');
   chk(b3 && !b3.selfReg, '자기를 등록한 경우까지 직전 상태로 두면 1절이 빨강');
 }

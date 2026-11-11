@@ -7,7 +7,7 @@
      · 한 번 쓴 번호는 **다시 쓰지 않는다.** 걷은 번호는 RETIRED 로 옮긴다 — 옛 앱 사용자는
        옛 번호를 계속 불러 준다.
      · 새 번호는 표에 먼저 넣고 부른다. 표에 없는 번호를 부르면 검사(sim-error-codes)가 빨강이다.
-   ★ 부르는 법: TwErrorCodes.notify('E-FR-01', err) — 표의 문구로 토스트를 띄우고 진단 기록에 한 줄.
+   ★ 부르는 법: TwErrorCodes.notify('E-FR-01', err) — 표의 문구로 토스트를 띄우고 오류 기록(tw-error.log)에 한 줄.
      문구에 개수처럼 그때그때 다른 말이 필요하면 셋째 인자로 준다(번호는 그대로 붙는다).
    ⚠️ 이 파일은 app.js 보다 먼저 실린다. 토스트(app.js 의 toast)는 **부를 때** 찾는다 — 실릴 때는 아직 없다.
    DOM 을 직접 안 만진다(검사 sim-error-codes.js). */
@@ -46,12 +46,13 @@ const CODES = {
   'E-ACC-03': { msg: '서버에 연결하지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'account/license-gate.js — «서버에 연결할 수 없어요» 화면에서 누른 [다시 시도] 가 또 닿지 못함(켤 때 자동으로 한 확인에는 번호 없음)' },
   'E-MH-01': { msg: '도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'myhome/help-tab.js — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(LOAD_MS)' },
   'E-MH-02': { msg: '배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요', where: 'myhome/mh-bg-url.js — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만)' },
-  'E-MH-03': { msg: '온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요', where: 'myhome/presence-lock.js — 🔒 고정 · 고정 중 토글 저장(서버 계정 presencePref — PATCH /v1/me)' },
+  'E-MH-03': { msg: '선물 그림을 저장하지 못했어요 — 잠시 뒤에 다시 해 주세요', where: 'myhome/gift-save.js — 선물함 우클릭 [저장]에서 그림을 못 받음(주소 없음 · 네트워크 · 그림 아님)' },
   'E-MH-08': { msg: '우편을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요', where: 'myhome/mail-feed.js — 내 우편 받기 실패(fetchMail 던짐 — 알림함을 열 때 · «다시 시도» 를 누를 때(연 · 누른 받기에서만) · 이어지는 동안 한 번만 알림)' },
   'E-MH-09': { msg: '소식을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요', where: 'launcher/notice-feed.js — 공지 한 판(소식 · 업데이트 공지 · 배너) 받기 실패(fetchBoard 던짐 — 알림함을 열 때 · «다시 시도» 를 누를 때(연 · 누른 받기에서만) · 이어지는 동안 한 번만 알림)' },
   'E-MH-10': { msg: '우편을 읽음으로 바꾸지 못했어요 — 잠시 뒤 다시 눌러 주세요', where: 'myhome/mail-feed.js — 읽음 · 모두 읽음 서버 쓰기 실패(markRead · markAllRead failed — 계정이 바뀌는 중(stale)은 조용히 버림)' },
   'E-MH-11': { msg: '우편을 지우지 못했어요 — 잠시 뒤 다시 눌러 주세요', where: 'myhome/mail-feed.js — 우편 지우기 서버 쓰기 실패(remove · removeRead failed — 읽은 우편 한꺼번에는 한 번에 실패하면 아무것도 안 지운 그대로)' },
   'E-MH-12': { msg: '소식을 올리거나 고치지 못했어요 — 관리자 권한과 연결을 확인해 주세요', where: 'launcher/notice-feed.js — 관리자 소식 올리기 · 📌 고정 · 내리기 실패(sendBroadcast · togglePin · remove — 409 는 다시 받고 알림)' },
+  'E-MH-13': { msg: '온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요', where: 'myhome/presence-lock.js — 🔒 고정 · 고정 중 토글 저장(서버 계정 presencePref — PATCH /v1/me)' },
   'E-ROOM-01': { msg: '방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'room/room-entry.js — 랜덤 참여 · 갈아타기 (findRandomRooms)' },
   'E-ROOM-02': { msg: '방을 옮기지 못했어요 — 참여를 다시 눌러 주세요', where: 'room/room-entry.js — 갈아타기 뒤 방 밖에 남음' },
   'E-ROOM-03': { msg: '방 목록을 불러오지 못했어요 — 다시 불러오기를 눌러 주세요', where: 'room/room-lobby-ui.js — 로비 목록 사본(roomLobby/{채널}) 읽기 실패' },
@@ -167,7 +168,7 @@ const api = {
 if(typeof window !== 'undefined'){
   const notice = createErrorNotice({
     toast: (...a)=>window.toast(...a),   // app.js 의 전역 toast — 실패 알림은 부팅 뒤에만 난다(새 typeof 가드 금지)
-    diag: (line)=>{ if(window.companion && window.companion.diagNote) window.companion.diagNote(line); },
+    diag: (line)=>{ if(window.companion && window.companion.errorLog) window.companion.errorLog({ kind: 'CODE', src: '에러코드', msg: line }); },   // 진단 기록이 아니라 오류 기록에
     muted: ()=>window.TwMaintenance.store.on(),
   });
   api.notify = notice.notify;

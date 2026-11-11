@@ -261,6 +261,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - `safeUrl(u, kind)` → 허용 안 되면 `''`. `'image'` = `data:image/(png|jpeg|webp|gif);base64,` · `https:`(호스트는 아직 안 좁힘) / `'link'` = `https:` · `http:`(2048자 상한). `new URL` 로 읽어 `JaVaScRiPt:` · `\tjavascript:` · `//evil` · 상대 주소를 막는다. 돌려주는 값은 정규화한 주소.
   - `cssUrl(u)` → `url("…")` 통째로(`safeUrl(u,'image')` + 따옴표 · 역슬래시 막기), 안 되면 `''`.
   - `cssColor(c)` → 색 · 그라데이션 값 그대로, 주소를 부르는 글(`url(` · `image-set(` …)이나 다른 선언으로 넘어가는 글자(`; { } \ < >` 따옴표)가 있으면 `''`.
+  - `linkify(s)` → 글 속 `http(s)` 주소(`safeUrl(…,'link')` 를 지난 것)만 `<span class="ext-link" data-url="…">` 칸으로, 나머지는 `text`. `<a href>` 가 아니라 눌러도 앱 화면이 안 넘어간다 — 부르는 쪽 클릭 처리가 `data-url` 을 다시 `safeUrl` 로 거른 뒤 `companion.openBrowser`. 문장 끝 `. , ; : ! ? ) ]` 는 주소에서 뺀다. 지금 쓰는 곳: 🐞 버그제보 게시판 본문 · 답변 · 답글.
   ```js
   el.innerHTML = '<b title="' + TwSafeHtml.attr(m.memo) + '">' + TwSafeHtml.text(m.name) + '</b>';
   const src = TwSafeHtml.safeUrl(item.url, 'image'); if(src) img.src = src;
@@ -280,6 +281,21 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **빼는 곳**: `attachDragScroll(el, { skip: '선택자' })` — 거기서 누르면 끌기를 시작하지 않는다(우편함은 펼친 본문 `.mh-ibx-body` · 링크 `a` — 글자를 끌어 골라 복사할 수 있게).
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
+
+## `mac-tooltip.js` — 💬 맥 설명 말풍선
+
+- **책임**: 맥에서 마우스를 올리면 뜨는 설명(`title`)을 앱이 직접 그린다. 실행 화면 창이 «항상 위»(`overlay-mac.js` `TOP_LEVEL`)라 맥 OS 툴팁이 그 뒤로 깔려 안 보이기 때문이다. 윈도우는 OS 툴팁이 맨 위라 걸지 않는다.
+- **쓰는 법**: 메인 창은 없다 — 싣기만 하면 맥에서 스스로 건다(`install(document, window)`). 화면 코드는 예전처럼 `title=` · `.title =` 를 쓴다. 따로 여는 창(방명록 · 디자인 스튜디오)은 `d.write` · `d.close` 뒤에 `installChild(창 문서, 창)` — 메인과 같은 «항상 위» 단계(`TOP_LEVEL`)라 같은 일이 생긴다(맥 창이 아니면 안 건다 · app.js 가 deps `installMacTip` 으로 넘긴다). 내놓는 것 `TwMacTooltip.isMac(navigator)` · `place(…)` · `install(doc, win)` · `installChild(doc, win)`.
+- **어떻게**: 올리면 `title` 을 `data-tw-tip` 으로 잠시 옮기고(OS 툴팁이 안 뜨게) 450ms 뒤 `#twMacTip`(토스트와 같은 «쪽지» 모양 · z-index 10000)에 같은 글을 그린다. 말풍선 css 는 이 모듈 한 곳에 두고 거는 문서마다 `<style id="twMacTipCss">` 로 넣는다(자식 창은 메인 HTML 의 style 을 못 본다). 나가면 `title` 을 되돌린다. 누르기 · 휠 · 키 · 창 떠남은 말풍선만 접는다.
+- **함정**: 올려 둔 동안 그 요소의 `title` 은 비어 있다 — 그 사이 코드가 `title` 을 새로 쓰면 그 값을 살린다(되돌릴 때 덮지 않는다). 빈 `title` 은 건드리지 않는다.
+- 검사: `checks/sim-mac-tooltip.js`.
+## `panel-fit.js` — 📐 아래 기준 창을 화면 안으로
+
+- **책임**: 기준점이 창의 아래 가운데인 창(`transform: translate(-50%,-100%)`)의 기준점을, 창 전체가 화면 안에 들도록 옮긴다. 순수 함수 · DOM 없음.
+- **쓰는 법**: `TwPanelFit.fitBottomCenter(x, y, 창너비, 창높이, 화면너비, 화면높이, 여유)` → `{ x, y }`. 화면보다 큰 창은 위(제목줄)를 살린다 — 아래는 창 안 스크롤로 보지만 제목줄이 잘리면 끌 수도 닫을 수도 없다.
+- **지금 쓰는 곳**: ⚙ 설정창 — 머리 위 자동 배치(`status-chip.js`) · 끌어 옮기기 · 끈 뒤 크기가 바뀔 때(`settings-panel.js` — 탭을 바꾸면 위로 자란다).
+- **함정**: 함수만으로는 화면보다 긴 창을 못 넣는다 — 창 높이 상한(css `max-height: calc(100vh - 16px)`)과 안쪽 스크롤(`.fs-body{overflow-y:auto}`)이 짝이다.
+- 검사: `checks/sim-panel-fit.js`.
 
 ## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
 
@@ -416,3 +432,31 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **끝난 뒤 등록**: 타이머는 거절(null), 구독 · 비우기 훅은 바로 한 번 풀고, 모두 콘솔 경고 — 늦은 콜백이 끝난 세션에 쌓이지 않는다.
 - **함정**: ① 올릴 것이 남았으면(서버 맞추기 · 검문) `dispose()` 전에 끝낸다 — 이 모듈은 올리지 않는다. ② 타이머 콜백은 `alive` 를 한 번 더 본다(clear 가 먹기 전에 이미 큐에 올라간 콜백도 막기 위해). ③ `await` 뒤에는 `session.alive()` 를 보거나 `ifAlive` 로 감싼다 — 세션 번호(`id`)를 값으로 쥐고 비교해도 된다. ④ 도메인 · 저장소를 모른다(deps 로만) — 계정 칸은 `account-store.js` 가 `open` / `close` 를 내놓는다.
 - 검사: `checks/sim-session.js`.
+## `front-diag.js` — 🩺 앞 창 진단(1분 `[프레임]` 줄 끝에 앞 창 · 전체화면 비율)
+
+- **책임**: «앱을 켜 두면 게임 · 영상이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 렌더러가 1분마다 보내는 `[프레임]` 줄 끝에 그 1분 동안 가장 오래 앞에 있던 실행 파일과 그 창이 모니터를 꽉 채운 비율을 붙인다. main 만 싣는다(`module.exports` — 렌더러는 앞 창을 모른다).
+- **쓰는 법**: `createFrontWatch()` — 활성 창 폴링(500ms)마다 `note(t, exe, coversDisplay(앞창 bounds, 우리 창 모니터 bounds))`, `companion:diagNote` 가 `isFrameLine(줄)` 이면 `줄 + suffix(take(t))`. 예) `… · 앞 창 Discord.exe · 전체화면 85%` · 표본이 없으면 ` · 앞 창 모름`.
+- **함정**
+  - 창 제목은 적지 않는다(영상 제목 · 대화 상대 이름) — 실행 파일 이름만.
+  - 맥은 앞 창 크기를 안 읽는다(`bounds: null` — node-window-manager 맥 `getBounds` 가 창 목록을 통째로 다시 받고 사전을 놓아주지 않아 0.5초 폴링에 못 쓴다). 크기를 못 읽은 표본은 비율 분모에서 빠지고, 그것만 있으면 `전체화면 모름`.
+  - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
+  - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
+- 검사: `checks/sim-front-diag.js`(깨 보기 열).
+
+## `error-report.js` — 🧯 화면 오류를 오류 기록(tw-error.log)으로
+
+- **책임**: 화면(렌더러)에서 난 잡히지 않은 오류 · 처리 안 된 Promise 거절 · `console.error` / `console.warn` 을 main 의 오류 기록(`apps/desktop/error-log.js` — 파일 `tw-error.log`, 진단 기록과 같은 폴더)으로 보낸다. 줄 모양 · 몰아칠 때 거르기 · 파일 크기는 main 이 정한다.
+- **쓰는 법**: 싣기만 하면 `companion.errorLog` 로 스스로 건다 — html 맨 먼저(뒤 스크립트가 실리다 난 오류도 잡게). 에러코드 알림(`TwErrorCodes.notify`)은 스스로 `CODE` 로 보낸다.
+- **내놓는 것**: `TwErrorReport.install(win, send, now?)` · `format(args)`.
+- **함정**: console 원래 출력은 그대로 둔다 · 에러코드 알림이 찍는 `console.warn('[오류] E-…')` 은 다시 안 보낸다 · 보내다 난 오류가 되돌아 들어오지 않게 막는다 · 같은 줄은 10초 안에 한 번.
+- 검사: `checks/sim-error-log.js`.
+
+## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
+
+- **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
+- **까닭**: 맥은 확인 창을 다른 앱 창이 덮으면 보안 때문에 그 칸(Touch ID · 암호 · «받기»)을 비워 보여 준다. 실행 화면은 모니터 전체를 덮는 투명 창이라 늘 덮는다(B-1104-10).
+- **쓰는 법**: `isSystemPrompt(activeKey)` — 활성 창 폴링(500ms)의 `focusKeyOf` 키(소문자 · `mac:<번들 id>`).
+- **함정**
+  - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
+  - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
+- 검사: `checks/sim-system-prompt.js`(깨 보기 셋).

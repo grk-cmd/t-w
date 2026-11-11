@@ -33,6 +33,7 @@ function createMyHomeInbox(deps){
 const escHtml = deps.escHtml;
 const toast = deps.toast;
 const getMyUserId = deps.getMyUserId;
+const giftSave = deps.giftSave;                     // 💾 선물 그림 저장(gift-save.js) — 우클릭 [저장]
 // 📩 수령함 — app.js 의 let(구독이 다시 대입)과 저장 키
 const mailFeed = deps.mailFeed;                      // 📩 내 우편 한 벌 — 받는 중 · 못 받음 · 읽음 · 지우기(mail-feed.js)
 const noticeFeed = deps.noticeFeed;                  // 📢 공지 한 판 — 소식 · 관리자 올리기 · 고정 · 내리기(notice-feed.js)
@@ -347,20 +348,9 @@ function _inboxTimeStr(ts){
      원하는 걸 심을 수 있다(XSS). 주소는 http/https만 인정한다.
    클릭하면 companion.openBrowser로 시스템 기본 브라우저(크롬·웨일 등)에서 열린다. */
 function _linkifyText(text){
-  /* 🛡️ 이스케이프는 공용 `escHtml` 하나로 한다 — 예전엔 여기에 네 문자를 손으로 적어 뒀는데
-       `'` 가 빠져 있었다(홑따옴표 속성 안에서 뚫린다). 손으로 적은 목록은 반드시 한 개가 빠진다. */
-  let esc = escHtml(text);
-  // 1) 주소를 클릭 가능한 링크로
-  esc = esc.replace(/(https?:\/\/[^\s<]+)/g, u=>{
-    const clean = u.replace(/[.,;:)\]]+$/, '');            // 문장 끝 문장부호는 주소에서 제외
-    const tail  = u.slice(clean.length);
-    return '<span class="ext-link" data-url="'+clean+'">'+clean+'</span>'+tail;
-  });
-  // 2) 라이선스 키(XXXX-XXXX-XXXX-XXXX)를 클릭하면 복사되는 요소로 (수령함에서 받은 키를 쉽게 복사)
-  esc = esc.replace(/\b([A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4})\b/g, k=>{
-    return '<span class="lic-key" data-key="'+k+'" title="클릭하면 복사돼요">'+k+'</span>';
-  });
-  return esc;
+  /* 주소 칸은 공용 linkify(채팅 · 버그 제보와 한 벌). 라이선스 키 칸은 주소가 아닌 조각에만 — 주소 속 글자에 끼면 data-url 이 깨진다 */
+  return TwSafeHtml.linkify(text, seg => escHtml(seg).replace(/\b([A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4}-[A-Z0-9]{4})\b/g,
+    k => '<span class="lic-key" data-key="'+k+'" title="클릭하면 복사돼요">'+k+'</span>'));
 }
 /* 링크 클릭을 한 곳에서 처리 — 본문이 다시 그려져도 계속 동작하도록 위임 방식. */
 function _bindExtLinks(root){
@@ -380,10 +370,11 @@ function _bindExtLinks(root){
       return;
     }
     const a = e.target && e.target.closest ? e.target.closest('.ext-link') : null;
-    if(!a || !a.dataset.url) return;
+    const url = a ? TwSafeHtml.safeUrl(a.dataset.url, 'link') : '';   // 화면에 그린 값 — 열기 전에 한 번 더
+    if(!url) return;
     e.preventDefault();
     e.stopPropagation();   // 알림 항목이 접히거나 창이 닫히지 않게
-    try{ if(window.companion && companion.openBrowser) companion.openBrowser(a.dataset.url); }catch(_){}
+    try{ if(window.companion && companion.openBrowser) companion.openBrowser(url); }catch(_){}
   });
 }
 /* 💝 선물함 — 받은 말랑이 선물 목록. 마이홈에서 클릭해 없앨 때까지 여기 남아있음.
@@ -459,19 +450,21 @@ function _giftBoxPaint(listEl, gifts){
     else if(r === 'already') toast('이미 마이홈에 나와 있어요');
     else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
   };
-  // 우클릭 → 영구 삭제 (⭐ 는 막음). 확인은 창 안 확인창으로 — confirm() 금지(audit 검사 4).
+  // 우클릭 → [저장] [삭제] [취소]. ⭐ 는 삭제를 막아 [저장] [취소] 만. 확인은 창 안 확인창으로 — confirm() 금지(audit 검사 4).
   listEl.oncontextmenu = (ev)=>{
     const it = ev.target && ev.target.closest ? ev.target.closest('.gift-item') : null;
     if(!it || !it.dataset.gid) return;
     ev.preventDefault(); ev.stopPropagation();
     const k = it.dataset.gid, g = gifts[k]; if(!g) return;
+    const saveBtn = { label:'저장', run: ()=>giftSave.save(g) };
     if(g.starred === true){
-      _mhAsk('선물 삭제', '즐겨찾기한 선물이에요. ⭐를 먼저 풀어 주세요.', [{ label:'확인' }]);
+      _mhAsk('선물 저장', '즐겨찾기한 선물이에요. 내 컴퓨터에 저장할 수 있어요.\n삭제하려면 ⭐를 먼저 풀어 주세요.', [saveBtn, { label:'취소' }]);
       return;
     }
-    _mhAsk('선물 삭제',
-      (g.fromName||'친구')+' 님의 선물을 삭제할까요?\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
-      [{ label:'삭제', danger:true, run: async ()=>{
+    _mhAsk('선물 저장 · 삭제',
+      (g.fromName||'친구')+' 님의 선물을 저장하거나 삭제할 수 있어요.\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
+      [saveBtn,
+       { label:'삭제', danger:true, run: async ()=>{
           const r = await mallangMod.deleteGift(k, g);
           if(r === 'ok'){ delete gifts[k]; repaint(); toast('🗑 선물을 삭제했어요'); }
           else toast('삭제하지 못했어요 — 네트워크를 확인해 주세요');

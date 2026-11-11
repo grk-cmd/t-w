@@ -248,7 +248,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/function roomLimitOf\(channel\)\{ const s = _rcStore\(\); return s \? s\.roomLimitOf\(channel\) : 300; \}/.test(a) &&
       /function maxPeople\(\)\{ const s = _rcStore\(\); return s \? s\.maxPeople\(\) : 10; \}/.test(a) &&
       /function inviteGateOn\(\)\{ const s = _rcStore\(\); return s \? s\.inviteGate\(\) : true; \}/.test(a), '  ↳ store 가 없어도(검사 · 옛 html) 기본값');
-    const create = takeFn(a, 'async function doCreateRoomInChannel(');
+    const create = takeFn(a, 'async function _createRoomInChannel(');
     chk(create && /const limit = roomLimitOf\(channel\);/.test(create) && /toast\(_channelFullMsg\(channel\)\)/.test(create), '방 만들기 — 설정 상한');
     chk(/const _openLimit = roomLimitOf\(_openCh\);/.test(a) && /toast\(_channelFullMsg\(_openCh\)\)/.test(a), 'Firebase 빈 방 열기 — 설정 상한');
     const counts = a.match(/\$\{roomLimitOf\('(workingroom|togetherroom)'\)\}/g) || [];
@@ -291,6 +291,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
       'let _pendingExtra = null;',
       'function _secretMusicOn(){ return false; }',
+      'function _roomJoined(){}',   // 🕘 «방에 연결됨» 알림(최근 방) — 이 검사가 보는 일과 무관
       ...need.map((h) => takeFn(a, h)),
       'return _startRoomOnServer;',
     ].join('\n');
@@ -375,6 +376,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
       'let _pendingExtra = null;',
       'function _secretMusicOn(){ return false; }',
+      'function _roomJoined(){}',   // 🕘 «방에 연결됨» 알림(최근 방) — 이 검사가 보는 일과 무관
       ...['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed(',
         'function _secretOpenFields(', 'function _clearPendingCreate('].map((h) => takeFn(a, h)),
       'return _startRoomOnServer;',

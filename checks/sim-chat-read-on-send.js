@@ -67,7 +67,7 @@ function world(src, opts){
   const deps = new Proxy({
     Presence: () => presence, _chatRoomCode: () => room, _chatOffOn: () => false, _parseDanceCmdChain: () => null,
     officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, getDisplayName: () => '나', toast(){},
-    _chatEsc: (s) => String(s), escHtml: (s) => String(s), _chatLinkify: (s) => s,
+    _chatEsc: (s) => String(s), escHtml: (s) => String(s),
     _chatLogCache: () => cache, setChatLogCache: (v) => { cache = v; }, _chatLogUnsub: () => null, setChatLogUnsub(){},
     CHAT_WIN_POS_KEY: () => 'tw.chatWinPos', bringWinToFront(){}, demojiCatalog: { DIR: '', LIST: [], BY_ID: {}, BY_CMD: {} }, seats: [], _myHomeData: () => null, isAdmin: () => false,
   }, { get: (t, k) => (k in t ? t[k] : (() => any)) });

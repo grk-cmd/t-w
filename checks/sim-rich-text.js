@@ -17,13 +17,13 @@ const MOD = ["rich-text.js","parts/shared/rich-text.js","app/parts/shared/rich-t
 if(!MOD){ say('  ? 원본 못 찾음 — rich-text.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["escHtml"];
+const FN_DEPS = ["escHtml","DOMPurify"];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["_mhLoadRT","_mhSaveRT","_mhStripHtml","_mhUpdateRTCount"];
-const MOVED = ["_MH_ALLOWED_TAGS","_MH_ALLOWED_ATTRS","_MH_IMG_SRC","_MH_IMG_HOSTS","_mhImgSrcOk","_mhSanitizeNode","_mhSaveRT","_mhHealEntities","_mhSanitizeHtml","_mhLoadRT","_mhUpdateRTCount","_mhStripHtml"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  escHtml: (...a)=>escHtml(...a),"];
+const MOVED = ["_MH_ALLOWED_TAGS","_MH_ALLOWED_ATTRS","_MH_IMG_SRC","_MH_IMG_HOSTS","_mhImgSrcOk","_MH_URI_OK","_MH_STYLE_OK","_mhPurifierOf","_mhPurify","_MH_PURIFY_TAGS","_MH_PURIFY_ATTRS","_mhSaveRT","_mhHealEntities","_mhSanitizeHtml","_mhLoadRT","_mhUpdateRTCount","_mhStripHtml"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
+const GLUE = ["  escHtml: (...a)=>escHtml(...a),","  DOMPurify: () => window.DOMPurify,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

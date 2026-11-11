@@ -46,8 +46,7 @@ function paint(){
 function showError(text){ $('rcTitleErr').textContent = text || ''; }
 function setShown(on){
   $('roomCreatePanel').hidden = !on;
-  $('lobbyMain').hidden = on;
-  $('inviteJoinPanel').hidden = on;
+  $('lobbyMain').hidden = on;   // 코드 칸도 로비 아래 줄에 있어 같이 숨는다
 }
 
 /** @param {string} ch 'workingroom' | 'togetherroom' */
