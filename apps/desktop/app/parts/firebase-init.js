@@ -1074,25 +1074,6 @@
       try{ await deleteObject(_stRef(storage, url)); }catch(_){}
     },
 
-    /* ===== 🚩 신고 (2026-09-23 · 시안 확정) =====
-       reports/{신고당한 uid}/{신고한 uid} — 관리자 목록만 남았다. 신고 쓰기는 서버 길(support/report-api.js — POST /v1/reports). */
-    /* 관리자 — 전체 신고(대상별 묶음). 규칙상 관리자만 읽힌다. */
-    async listReports(){
-      try{ const v=(await get(ref(db, 'reports'))).val(); return { ok:true, reports: v || {} }; }
-      catch(e){ return { ok:false, reports:{} }; }
-    },
-    async clearReports(targetId){
-      try{ await remove(ref(db, `reports/${targetId}`)); return { ok:true }; }catch(e){ return { ok:false }; }
-    },
-    /* 관리자 목록 한 줄에 필요한 것만 — 이름 · 친구 코드 · 자리비움 그림. */
-    async getUserBrief(userId){
-      const out = { name:null, friendCode:null, awayImg:null };
-      try{ const p=(await get(ref(db, `users/${userId}/profile/name`))).val(); if(typeof p==='string') out.name=p; }catch(_){}
-      try{ const c=(await get(ref(db, `users/${userId}/friendCode`))).val(); if(typeof c==='string') out.friendCode=c; }catch(_){}
-      try{ const a=(await get(ref(db, `users/${userId}/awayImg`))).val(); if(typeof a==='string') out.awayImg=a; }catch(_){}
-      return out;
-    },
-
     /* ── 🎁 말랑이 선물 ──
        users/{받는사람}/mallangGifts/{giftId} = {imgUrl, fromName, fromId, ts}
        users/{보내는사람}/mallangGiftCount/{YYYY-MM-DD} = 그날 발송 횟수
