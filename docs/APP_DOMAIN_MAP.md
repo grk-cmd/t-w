@@ -90,6 +90,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `friends-port.js` | 포트 — 친구 목록 받기 · 목록 듣기 · 접속 상태 듣기. friends-sub.js(마이홈)가 부른다 | — |
 | `friends-firebase.js` | 옛 길 provider — 상시 구독은 목록 하나 · 카드는 열 때 한 번 · 접속 상태는 목록이 열려 있는 동안만(나중에 걷음) | fb 0(deps 로) |
 | `friends-api.js` | api provider — GET /v1/me/friends · 요청 규칙(5초 · 서버 문제면 두 번 더 · 401 · 400 은 바로 옛 길) | api(로그인) |
+| `social-api.js` | 👥 친구 · 친구 요청 · 명함 서버 길(`/v1/me/friends` · `/v1/me/friend-requests` · `/v1/myhomes/cards`) provider — 아직 만드는 곳 없음(다음 PR 부터). 사용법은 `README.md` | 서버 |
 
 ## 5. 🧍 `character/` — 캐릭터 · 꾸미기 ✅ 옮김(폴더 10번)
 
