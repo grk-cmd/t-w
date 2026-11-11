@@ -276,6 +276,22 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - 일정의 `ts` 는 서버가 준 `createdAt` 을 ms 로 옮긴 만든 시각이다(없거나 깨지면 0 = 오래된 것). 🔔 뱃지의 «오늘 내 일정» 은 `tw.bellSeenTs` 뒤에 만든 것만 센다.
 - **검사**: `checks/sim-schedule-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
 
+## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 길 provider
+
+- **책임**: 내 말랑이 칸 읽기 · 통째 저장(`GET` · `PUT /v1/me/mallangs`) · 그림 올리기(`POST /v1/me/images?purpose=mallang`) · 남의 집 칸(`GET /v1/mallangs/{userCode}`) · 내 선물함(`GET /v1/me/gifts`) · 봤음(`POST /v1/me/gifts/seen`) · ⭐ · 치움(`PATCH /v1/me/gifts/{id}`) · 지우기(`DELETE /v1/me/gifts/{id}`) · 오늘 보낸 수(`GET /v1/me/gifts/sent-today`) · 그 집에 나온 선물(`GET /v1/gifts/{userCode}`) · 보내기(`POST /v1/gifts/{userCode}`). 서버 모양(`sentAt` ISO)을 화면 모양(`sentAt` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰 — 보내기 본문에 내 코드 · 이름 · 날짜 · 그림 주소를 싣지 않는다.
+- **만드는 법**: `TwGiftApi.createGiftApi({ authed, warn })` — 아직 만드는 곳이 없다. 선물함(D7-3)부터 app.js 가 로그인 통로(`TwApi.authed`)를 넘겨 만들고 상태 주인(`gift-box.js` · `mallang-store.js`)에 넘긴다.
+- **deps**: `authed`(`TwApi.authed`) · `warn`.
+- **내보내는 것**: `fetchMine()` · `fetchOf(userCode)` → `{ slots:[{ slot, imageUrl, enabled }], version }` · `uploadImage(dataUrl)` → `url` · `saveMallangs(version, slots)` · `fetchBox()` → `{ items:[{ id, senderName, imageUrl, message, starred, hidden, sentAt }], unseenCount, starCount, boxKeep, starMax }` · `markSeen()` · `star(id, on)` · `hide(id, on)` · `remove(id)` · `fetchSentToday()` → `{ count, dailyMax }` · `fetchVisible(userCode)` → `{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }` · `send(userCode, { requestId, mallang, message })` → `{ giftId, sentToday, dailyMax }` · `reset()`. 순수 함수(`slotsOf` · `slotsBody` · `boxOf` · `sendBody` · `failOf` 등)는 `TwGiftApi` 위. 모두 못 읽으면 던진다 — 빈 칸 · 빈 선물함은 빈 배열로 돌려줘 «못 읽음» 과 가른다.
+- **오류 갈래**: `failOf(err, TwApiErrors)` → `{ kind, code, message }`. `kind` — `guide`(⭐ 가득 · 보내기 거절 같은 안내 — 서버 문구 그대로 · 번호 없음) · `gone`(`GIFT_NOT_FOUND` — 안내 + 받기 한 번) · `missing`(`USER_NOT_FOUND` — «없음») · `site`(그 자리의 `E-GIFT-*` 번호 — 닿지 못함 · 모르는 코드도 여기) · `common`(`PREMIUM_REQUIRED` 같은 공통 코드 — `TwApiErrors.store.notify`) · `conflict`(409 `CONCURRENT_UPDATE` — 다시 받기) · `stale`(계정이 바뀌는 중 · 받기 전 — 조용히). 번호는 표에 두지 않고 부르는 자리가 정한다.
+- **함정**
+  - 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 내 것(칸 · 선물함 · 오늘 보낸 수)을 읽은 적이 없으면 `NOT_RECEIVED` · 읽은 뒤 로그인한 사람이 바뀌면 `OWNER_CHANGED`, 둘 다 요청 0. 남의 집 읽기는 주인 기억을 남기지 않는다.
+  - 칸 번호: 받은 칸은 서버 `slot` 을 그대로 든다 — 서버는 0~3 안에서 겹치지 않음만 지키고 이어짐은 지키지 않는다(0 · 2 처럼 빌 수 있다). **보내기는 고른 칸(`mallang`)의 서버 번호**를 싣는다(화면 차례로 보내면 빈 번호에 `GIFT_NO_MALLANG`). 칸이 없으면 요청 없이 `BAD_SLOT`.
+  - 칸 저장은 **통째**다 — 그때만 배열 차례로 `slot` 을 0부터 다시 매긴다(지우면 뒤 칸이 당겨지는 화면 그대로). 판은 상태 주인이 들고 넘기고, 409 에 여기서 다시 받아 한 번 더 보내지 않는다.
+  - 그림은 png · webp 만(말랑이는 JPEG 를 서버가 받지 않는다) · 1MB 이하 — 아니면 요청 없이 `IMAGE_UPLOAD`. 올리기는 칸을 바꾸지 않는다 — 받은 `url` 을 `saveMallangs` 에 넣어야 칸이 된다.
+  - 메시지는 UTF-16 50자까지(입력칸 `maxlength` 와 같은 단위) — 끝이 이모지 짝의 앞 반쪽이면 그것도 뺀다.
+  - `requestId` 는 부르는 쪽이 `TwRequestId.createPending()` 으로 정한다(닿지 못했으면 같은 번호로 다시).
+- **검사**: `checks/sim-gift-api.js`(가짜 `authed` · 진짜 `api-client` · 진짜 `api-errors` 로 실제로 불러 판정 · 일부러 깨 보기).
+
 ## `scheduler.js` — 📅 스케줄러 · 🔔 일정 알림 (서버가 원본)
 
 - **책임**: 마이홈 [스케줄러] 탭(달력 · 📌 기념일 카드 · ⏳ D-day 배너) · 🔔 알림창(오늘 일정 · 이정표 기념일 · 친구 태그). 받기 · 쓰기는 `schedule-api.js` 로, 화면과 «오늘 날짜를 이 기기 시간대로 보는» 셈만 여기 있다.
