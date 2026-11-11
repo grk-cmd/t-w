@@ -55,6 +55,7 @@ const lvStarStr = deps.lvStarStr;
 const lvBadgeClass = deps.lvBadgeClass;              // 🏅 레벨 배지 구간
 const openFriendHomeView = deps.openFriendHomeView;  // 아바타 클릭 → 친구 마이홈 관람
 const renderMhProfileRail = deps.renderMhProfileRail;   // (제거된 프로필 레일 — 빈 함수)
+const mallangMod = deps.mallangMod;                        // 🧸 말랑이(mallang.js) — 선물 보내기 창 · 선물함 순서 · 상한 · 치움 · 다시 부르기 · 지우기
 let _mhSelectedFriend = null;   // (구 DM 자리) 지금은 사용하지 않지만 다른 곳에서 참조할 수 있어 유지
 function _inboxBcReadSet(){ try{ return new Set(JSON.parse(localStorage.getItem(INBOX_BC_READ_KEY)||'[]')); }catch(e){ return new Set(); } }
 function _inboxBcMarkRead(id){ try{ const s=_inboxBcReadSet(); s.add(id); localStorage.setItem(INBOX_BC_READ_KEY, JSON.stringify([...s])); }catch(e){} }
@@ -307,7 +308,7 @@ function renderMyHomeFriendList(){
       // 🎁 우클릭 → 말랑이 선물 보내기 창
       row.addEventListener('contextmenu', e=>{
         e.preventDefault(); e.stopPropagation();
-        window._mallangOpenGift(fid, f.name||'친구');
+        mallangMod.openGift(fid, f.name||'친구');
       });
       row.title = (row.title ? row.title + ' · ' : '') + '우클릭: 말랑이 선물';
       list.appendChild(row);
@@ -389,7 +390,7 @@ function _bindExtLinks(root){
    ⚠️ 예전엔 renderInbox() 안의 `_inboxFilter === 'gift'` 분기였다. 선물은 친구에게서 오는
      것이라 친구 관리로 옮기면서 **그리는 칸을 인자로 받게** 떼어냈다 — #mhInboxList 를
      이름으로 붙잡고 있으면 다른 칸에서 못 쓴다.
-   ⚠️ 배지 확인 처리(_mallangSeenGifts)는 여기 없다. **선물함 서브탭을 눌렀을 때**만 부른다 —
+   ⚠️ 배지 확인 처리(mallangMod.seenGifts)는 여기 없다. **선물함 서브탭을 눌렀을 때**만 부른다 —
      탭을 스치기만 해도 선물을 본 것으로 처리되면 안 되기 때문이다. */
 function renderGiftBox(listEl){
   if(!listEl) return;
@@ -403,8 +404,8 @@ function renderGiftBox(listEl){
 /* 받아 둔 gifts 로 다시 그린다 — ⭐ 토글·삭제·다시 불러오기마다 서버에서 통째로 다시 받지 않으려고
    renderGiftBox 에서 떼어 냈다. */
 function _giftBoxPaint(listEl, gifts){
-  const lim = window._mallangGiftLimits || { max:30, starMax:20 };
-  const keys = window._mallangGiftOrder(gifts);
+  const lim = mallangMod.giftLimits;
+  const keys = mallangMod.giftOrder(gifts);
   if(!keys.length){
     listEl.innerHTML = '<div class="mh-ibx-empty">💝 아직 받은 선물이 없어요<br><small>친구가 보낸 말랑이가 여기에 표시돼요</small></div>';
     listEl.onclick = null; listEl.oncontextmenu = null;
@@ -424,7 +425,7 @@ function _giftBoxPaint(listEl, gifts){
   const cells = keys.map((k, i)=>{
     const g = gifts[k];
     const when = _inboxTimeStr(g.ts);
-    const isHidden = window._mallangIsGiftHidden(k);
+    const isHidden = mallangMod.isGiftHidden(k);
     const star = g.starred === true;
     const next = full && !star && i === keys.length - 1;
     const who = (g.fromName||'친구') + ' 님이 선물했어요';
@@ -453,8 +454,7 @@ function _giftBoxPaint(listEl, gifts){
       _giftToggleStar(k, gifts, starN, lim, repaint);
       return;
     }
-    if(typeof window._mallangRespawnGift !== 'function') return;
-    const r = window._mallangRespawnGift(k, it.dataset.img, it.dataset.msg);
+    const r = mallangMod.respawnGift(k, it.dataset.img, it.dataset.msg);
     if(r === 'ok'){ toast('🎁 마이홈에 다시 불러왔어요'); repaint(); }   // 목록의 '치움' 표시 갱신
     else if(r === 'already') toast('이미 마이홈에 나와 있어요');
     else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
@@ -472,7 +472,7 @@ function _giftBoxPaint(listEl, gifts){
     _mhAsk('선물 삭제',
       (g.fromName||'친구')+' 님의 선물을 삭제할까요?\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
       [{ label:'삭제', danger:true, run: async ()=>{
-          const r = await window._mallangDeleteGift(k, g);
+          const r = await mallangMod.deleteGift(k, g);
           if(r === 'ok'){ delete gifts[k]; repaint(); toast('🗑 선물을 삭제했어요'); }
           else toast('삭제하지 못했어요 — 네트워크를 확인해 주세요');
         } },

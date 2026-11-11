@@ -18,6 +18,7 @@ const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const getMyUserId = deps.getMyUserId;
 const loadMyHomePage = deps.loadMyHomePage;
+const mallangMod = deps.mallangMod;   // 🧸 말랑이(mallang.js) — 집을 옮기면 그 집 말랑이로
 const mhScheduler = deps.mhScheduler;
 const myHomeOpen = deps.myHomeOpen;   // 읽는 함수
 const renderMyHomePage = deps.renderMyHomePage;
@@ -129,10 +130,8 @@ function _mhApplyVisitUI(){
   catch(e){ console.error('[바탕화면] 관람모드 적용 실패', e); }
   // 🧸 말랑이: 실제 방문이면 그 집 주인 이미지로, 미리보기·내 집이면 내 것으로
   try{
-    if(window._mallangApplyVisit){
-      Promise.resolve(window._mallangApplyVisit(visiting, realVisit ? _mhViewingUserId() : getMyUserId()))
-        .catch(e=>console.error('[말랑이] 관람모드 적용 실패', e));
-    }
+    Promise.resolve(mallangMod.applyVisit(visiting, realVisit ? _mhViewingUserId() : getMyUserId()))
+      .catch(e=>console.error('[말랑이] 관람모드 적용 실패', e));
   }catch(e){ console.error('[말랑이] 관람모드 적용 실패', e); }
   const badge=document.getElementById('mhVisitBadge'); if(badge) badge.style.display = realVisit?'inline':'none';
   const back=document.getElementById('mhBackHomeBtn');  if(back) back.style.display = realVisit?'inline':'none';

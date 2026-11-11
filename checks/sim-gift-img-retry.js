@@ -103,7 +103,9 @@ function mkEnv(mallangSrc, retrySrc){
   ctx.TwImgRetry = loadRetry(retrySrc);
   vm.createContext(ctx);
   vm.runInContext(mallangSrc, ctx, { filename: 'mallang.js' });
-  return { ctx, imgs, byId, layer: () => byId.mlLayer };
+  /* app.js 가 만드는 줄과 같은 deps 4 */
+  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, getDisplayName: ctx.getDisplayName, premiumOn: ctx._premiumOn });
+  return { ctx, m, imgs, byId, layer: () => byId.mlLayer };
 }
 const flush = () => new Promise(r => setImmediate(r));
 
@@ -112,7 +114,7 @@ async function judgeMallang(mallangSrc, retrySrc){
   const t = (ok, msg) => r.push([!!ok, msg]);
   try{
     const e = mkEnv(mallangSrc, retrySrc);
-    await e.ctx._mallangOnOpen('home1', false); await flush();
+    await e.m.onOpen('home1', false); await flush();
     const im = e.imgs.find(x => String(x.src || '').startsWith(GIFT));
     const guys = () => (e.layer() ? e.layer().children.length : 0);
     t(im && guys() === 1, '선물 말랑이 하나가 뜬다(그림을 받는 중)');
@@ -135,7 +137,7 @@ async function judgeSlots(mallangSrc, retrySrc){
   const t = (ok, msg) => r.push([!!ok, msg]);
   try{
     const e = mkEnv(mallangSrc, retrySrc);
-    await e.ctx._mallangOnOpen('me', false); await flush();
+    await e.m.onOpen('me', false); await flush();
     const folder = e.byId.mlFolder;
     t(!!folder, '내 집 — 말랑이 폴더가 뜬다');
     if(folder){
@@ -143,7 +145,7 @@ async function judgeSlots(mallangSrc, retrySrc){
       const ims = imgsIn(e.byId.mlSlots);
       t(ims.length === 2 && ims.every(retriesOnce), '★ 등록 칸(우클릭 창) 그림 — 못 받으면 표식 주소로 한 번 더');
     }
-    await e.ctx._mallangOpenGift('f1', '친구'); await flush();
+    await e.m.openGift('f1', '친구'); await flush();
     const gims = imgsIn(e.byId.mlGiftGrid);
     t(gims.length === 2 && gims.every(retriesOnce), '★ 선물 고르기 칸 그림 — 못 받으면 표식 주소로 한 번 더');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }

@@ -1907,7 +1907,6 @@ const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
    typeof 가드도 let TDZ에는 통하지 않으므로 try/catch로 안전하게 읽는 접근자를 씀.
    (라이선스가 확정되면 _refreshPremiumGatedUI가 다시 호출되어 UI가 갱신됨) */
 function _premiumOn(){ try{ return !!isPremium; }catch(_){ return false; } }
-try{ window._premiumOn = _premiumOn; }catch(_){}
 
 /* (구역 떼기 C · w1) 이 자리의 본문도 status/user-status-table.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 function saveCustomStatusConf(emo, text){
@@ -2744,6 +2743,14 @@ const richTextMod = TwRichText.createRichText({
   escHtml: (...a)=>escHtml(...a),
 });
 
+/* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */
+const mallangMod = TwMallang.createMallang({
+  toast: (...a)=>toast(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  getDisplayName: (...a)=>getDisplayName(...a),
+  premiumOn: (...a)=>_premiumOn(...a),
+});
+
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
 /* 👥 마이홈 친구 목록(Ctrl+F 검색) · 📩 수령함 · 💝 선물함 그리기 · 수령함 함수(안 읽은 수 · 배지 · 공지 읽음) · 친구 방 표시 둘은
      parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일은 없다(상태 초기값뿐).
@@ -2780,6 +2787,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   lvBadgeClass: (...a)=>lvTierMod.lvBadgeClass(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
+  mallangMod: mallangMod,
 });
 /* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */
 /* 📩 수령함 · 💝 선물함 그리기는 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 연결은 바로 위 «👥 마이홈 친구 목록» 머리 아래(inboxMod). */
@@ -2810,6 +2818,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   inboxMod: inboxMod,
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   myHomeSticker: ()=>myHomeSticker,
@@ -2837,6 +2846,7 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),

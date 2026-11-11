@@ -342,6 +342,7 @@ PRELOAD.push('img-retry.js');
    ⚠️ 윗줄 모양은 sim-wd-ear.js 가 글자 그대로 본다 — 목록에 끼우지 말고 여기서 붙인다. */
 PRELOAD.push('schedule-api.js');   // 🌐 일정 · 디데이 · 알림 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
 PRELOAD.push('gift-api.js');   // 🧸 말랑이 · 🎁 선물 서버 길 provider — 아직 만드는 곳 없음(D7-3 부터 app.js 가 로그인 통로를 넘겨 만든다)
+PRELOAD.push('mallang.js');   // 🧸 말랑이 · 🎁 선물 화면 — app.js 가 마이홈 수령함보다 먼저 createMallang 으로 만든다
 PRELOAD.push('scheduler.js');
 /* weekly-challenge.js — 👑 달성표(앱 FSD 2번). 같은 까닭 — 만들 때 하는 일(로컬 기록 읽기 · 부팅 동기화 · 20초 tick · 버튼 연결)을 같이 굴린다. */
 PRELOAD.push('weekly-challenge.js');
