@@ -7,7 +7,7 @@
   `failOf` 는 실패 하나 → 갈래(`self` · `noAwayImage` · `noteRequired` · `common` · `site`). 서버 거절 code 는 기능 표 `ERRORS` 에만 있다(공통 표보다 먼저 본다).
   순수: `bodyOf(target, kind, note)`(보낼 본문 `{ target, kind, note? }`) · `failOf(err, errs)` · `KIND` · `FAIL` · `ERRORS` · `NOTE_MAX`(40) · `PATHS`.
   `createAdminReportApi(deps)`(같은 deps — `authed.get` 도 씀) → `{ page(cursor), dismiss(target), takeDown(target, url), failOf(err) }` — 관리자 신고 목록(`admin/admin-report.js`)이 부른다.
-  `page` 는 `{ items:[{ target, name, awayImg, count, reporters:[{ code, name, kind, note, at }] }], next }`(신고자는 최근 것이 위 · `kind` 는 신고 창 사유 이름 · 모르면 null) · 관리자 갈래는 `imageChanged` · `common` · `site`.
+  `page` 는 `{ items:[{ target, name, friendCode, awayImg, count, reporters:[{ code, friendCode, name, kind, note, at }] }], next, total }`(신고자는 최근 것이 위 · 신고자 `name` 은 신고할 때 이름 `nameSnapshot` 이 먼저 · `kind` 는 신고 창 사유 이름 · 모르면 null · `total` 은 첫 쪽에만) · 관리자 갈래는 `imageChanged` · `common` · `site`.
   순수(관리자): `targetOf` · `pageOf` · `adminFailOf(err, errs)` · `KIND_OF` · `ADMIN_FAIL` · `ADMIN_ERRORS`.
 - 함정:
   - 신고한 사람은 서버가 토큰에서 정한다 — 본문에 내 이름 · 코드를 싣지 않는다.

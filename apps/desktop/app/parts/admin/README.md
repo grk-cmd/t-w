@@ -26,7 +26,7 @@
 - **만드는 법**: app.js «🚩 신고하기» 자리, `reportMod` 바로 뒤에서 `const adminReport = TwAdminReport.createAdminReport({ … });`
   - `toast` · `awayUrlOk` · `isAdmin`(읽는 함수) · report.js 의 `reportClose` · `reportBox` · `kinds` · `adminMin` · 팝업 칸 `reportOv` · `setReportOv` · `reportEsc` · `setReportEsc` · `adminApi`(`TwReportApi.createAdminReportApi`) · `apiErrors`(`TwApiErrors.store`) · `notifyError`(`TwErrorCodes.notify`)
 - **내보내는 것**: 없음 — 버튼은 만들 때 건다.
-- **화면 상태**: 불러오는 중 · 받음(머리 «서로 다른 3명 이상 … · N명», 다음 쪽이 있으면 «N명 넘게» + [더 보기]) · 빈 목록 «확인할 신고가 없어요» · 못 받음 «못 불러왔어요 [다시 시도]» + `E-ADM-30`.
+- **화면 상태**: 불러오는 중 · 받음(머리 «서로 다른 3명 이상 … · N명» — N 은 첫 쪽 `total`(더 보기 뒤에도 그대로) · 없으면 받은 수, 다음 쪽이 있으면 «N명 넘게» · [더 보기]) · 코드는 친구 코드(없으면 사용자 코드) · 빈 목록 «확인할 신고가 없어요» · 못 받음 «못 불러왔어요 [다시 시도]» + `E-ADM-30`.
 - **실패**: `adminApi.failOf` 갈래만 본다 — `common`(로그인 풀림 · 권한 없음 · 닿지 못함 등)은 공통 표 · `imageChanged`(그 사이 그림이 바뀜)는 안내 + 목록 첫 쪽부터 다시 받기 · 그 밖은 자리 번호(목록 `E-ADM-30` · 문제없음 `E-ADM-31` · 그림 내리기 `E-ADM-32`) 뒤 버튼 다시 켬.
 - **함정**
   - 받은 답은 그 창 · 그 차례(gen)일 때만 그린다 — 창을 닫았거나 다시 받기가 시작됐으면 옛 답은 버린다.

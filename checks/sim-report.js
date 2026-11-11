@@ -60,7 +60,7 @@ function fakeAuthed(st, calls){
       calls.push(['get', path, opts]);
       const m = /[?&]cursor=([^&]*)/.exec(path), key = m ? decodeURIComponent(m[1]) : '';
       const answer = () => (st.getFail ? Promise.reject(st.getFail) : Promise.resolve((st.pages || {})[key]));
-      if(st.getHold) return new Promise((res) => { st.getRelease = () => res(answer()); });
+      if(st.getHold) return new Promise((res) => { st.getRelease = () => res(answer()); (st.held = st.held || []).push(st.getRelease); });
       return answer();
     },
   };
@@ -92,11 +92,11 @@ const errOf = (code) => Object.assign(new Error(code), { code, kind: 'server' })
 const posts = (calls) => calls.filter(c => c[0] === 'post');
 const gets = (calls) => calls.filter(c => c[0] === 'get');
 /* 서버 대상 줄 하나(계약 모양) */
-const srvTarget = (code, o) => Object.assign({ target: code, displayName: '이름' + code, awayImage: null, openCount: 3, byKind: { NICKNAME: 3 },
+const srvTarget = (code, o) => Object.assign({ target: code, displayName: '이름' + code, friendCode: 'FC-' + code, awayImage: null, openCount: 3, byKind: { NICKNAME: 3 },
   reporters: [
-    { userCode: 'ua0001', displayName: '갑', kind: 'NICKNAME', note: null, at: '2026-11-10T01:00:00Z' },
-    { userCode: 'ub0002', displayName: null, kind: 'ETC', note: '욕설', at: '2026-11-11T01:00:00Z' },
-    { userCode: 'uc0003', displayName: '병', kind: 'MYSTERY', note: null, at: '2026-11-09T01:00:00Z' },
+    { userCode: 'ua0001', displayName: '갑', friendCode: 'AAAA-1111', nameSnapshot: '갑옛', kind: 'NICKNAME', note: null, at: '2026-11-10T01:00:00Z' },
+    { userCode: 'ub0002', displayName: null, friendCode: null, nameSnapshot: null, kind: 'ETC', note: '욕설', at: '2026-11-11T01:00:00Z' },
+    { userCode: 'uc0003', displayName: '병', friendCode: 'CCCC-3333', nameSnapshot: null, kind: 'MYSTERY', note: null, at: '2026-11-09T01:00:00Z' },
   ] }, o || {});
 const errs = (calls) => calls.filter(c => c[0] === 'notifyError');
 
@@ -194,6 +194,12 @@ async function judgeAll(rep, adm, app, html, rapi){
       && row.reporters.map(x => x.code).join() === 'ub0002,ua0001,uc0003' && row.reporters[0].kind === 'etc' && row.reporters[0].note === '욕설'
       && row.reporters[0].name === null && row.reporters[1].kind === 'nick' && row.reporters[2].kind === null,
       'report-api — 서버 대상 줄 → 화면 줄(이름 · 그림 주소 · 수 = openCount · 신고자 최근 것이 위 · 종류 이름 되돌림 · 모르는 종류는 null)');
+    t(row.friendCode === 'FC-ux1' && row.reporters[1].friendCode === 'AAAA-1111' && row.reporters[0].friendCode === null
+      && row.reporters[1].name === '갑옛' && row.reporters[2].name === '병' && RA.targetOf(srvTarget('uz', { friendCode: null })).friendCode === null,
+      'report-api — 친구 코드(대상 · 신고자 · 탈퇴면 null) · 신고자 이름은 신고할 때 이름(nameSnapshot)이 먼저 · 없으면 지금 이름');
+    const pt = RA.pageOf({ items: [], nextCursor: null, total: 7 }), pn = RA.pageOf({ items: [], nextCursor: 'x', total: null });
+    t(pt.total === 7 && pn.total === null && RA.pageOf({ items: [], nextCursor: null, total: -1 }).total === null && RA.pageOf({ items: [] }).total === null,
+      'report-api — total(첫 쪽의 전체 수) · cursor 쪽 · 빠짐 · 틀린 값은 null');
     const p0 = RA.pageOf({ items: [], nextCursor: null });
     const thrownCode = (f) => { try{ f(); return null; }catch(e){ return e.code; } };
     t(p0.items.length === 0 && p0.next === null && thrownCode(() => RA.pageOf(null)) === 'SHAPE' && thrownCode(() => RA.pageOf({ items: [{ target: 'x' }] })) === 'SHAPE'
@@ -244,9 +250,10 @@ async function judgeAll(rep, adm, app, html, rapi){
   t(gets(B.calls).length === 1 && ovUser.removed && ovAdm && ovAdm !== ovUser && ovAdm.attached, '다시 대입된 isAdmin 을 읽고 · 열면 신고 창은 닫히고 팝업 칸을 이어받는다 · 목록 받기 한 번');
   const T1 = texts(el1);
   t(btnsIn(el1, '문제없음').length === 2 && btnsIn(el1, '그림 내리기').length === 1 && /이름ua/.test(T1) && /🚩 3명/.test(T1)
-    && /· \(이름 없음\) #0002 — 기타 · 욕설/.test(T1) && /· 갑 #0001 — 닉네임/.test(T1) && /· 병 #0003 — 기타/.test(T1) && /서로 다른 3명 이상이 신고한 사람만 보여요 · 2명 넘게/.test(T1)
-    && T1.indexOf('#0002') < T1.indexOf('#0001'),
-    '받음 — 사람마다 이름 · 수 · 신고자 줄(최근 것이 위 · 이름 없으면 «(이름 없음)») · 우리 Storage 그림만 [그림 내리기] · 머리 «2명 넘게»');
+    && /· \(이름 없음\) #0002 — 기타 · 욕설/.test(T1) && /· 갑옛 #1111 — 닉네임/.test(T1) && /· 병 #3333 — 기타/.test(T1) && /서로 다른 3명 이상이 신고한 사람만 보여요 · 2명 넘게/.test(T1)
+    && T1.indexOf('#0002') < T1.indexOf('#1111'),
+    '받음 — 사람마다 이름 · 수 · 신고자 줄(최근 것이 위 · 신고할 때 이름 · 친구 코드 뒷자리 — 없으면 사용자 코드 뒷자리 · 이름 없으면 «(이름 없음)») · 우리 Storage 그림만 [그림 내리기] · total 없으면 머리 «2명 넘게»');
+  t(el1.some(x => x.textContent === 'FC-ua') && !el1.some(x => x.textContent === 'ua'), '대상 코드 — 친구 코드(사용자 코드 아님)');
   /* 더 보기 */
   const more = btnsIn(el1, '더 보기')[0];
   k0 = D.made.length; B.calls.length = 0;
@@ -301,6 +308,26 @@ async function judgeAll(rep, adm, app, html, rapi){
   B.calls.length = 0; await click();
   t(errs(B.calls).map(c => c[1]).join() === 'E-NET-02', '목록 공통 code — 공통 표 번호(E-NET-02) · E-ADM-30 아님');
   st.getFail = null;
+  /* total — 첫 쪽 값을 [더 보기] 뒤에도 쓴다 · 친구 코드 없으면 사용자 코드 */
+  st.pages = { '': { items: [srvTarget('uf', { friendCode: null })], nextCursor: 'm2', total: 7 }, m2: { items: [srvTarget('ug')], nextCursor: null, total: null } };
+  k0 = D.made.length; await click();
+  const el5 = since(k0), headOf = (els) => els.find(x => /신고한 사람만/.test(x.textContent)).textContent;
+  const h1 = headOf(el5);
+  await btnsIn(el5, '더 보기')[0].onclick(); await flush();
+  t(/· 7명$/.test(h1) && /· 7명$/.test(headOf(el5)) && el5.some(x => x.textContent === 'uf'), '머리 «n명» 은 첫 쪽 total — [더 보기] 뒤에도 그대로 · 친구 코드가 없으면 사용자 코드');
+  /* 같은 창에서 다시 받은 뒤 옛 [더 보기] 답 버림 — 더 보기를 붙잡고 그림 바뀜으로 다시 받기 */
+  st.pages = { '': { items: [srvTarget('uh', { awayImage: { url: OK_IMG + 'h.webp', size: 80 } })], nextCursor: 'm3' }, m3: { items: [srvTarget('ui')], nextCursor: null } };
+  k0 = D.made.length; await click();
+  const el6 = since(k0);
+  st.getHold = true; st.held = [];
+  const pMore = btnsIn(el6, '더 보기')[0].onclick();
+  st.fail = errOf('REPORT_IMAGE_CHANGED');
+  await btnsIn(el6, '그림 내리기')[0].onclick(); st.fail = null;
+  const kA = D.made.length;
+  st.getHold = false; st.held[0](); await pMore; await flush(); await flush();
+  const staleDrawn = btnsIn(since(kA), '문제없음').length;
+  st.held[1](); await flush(); await flush();
+  t(st.held.length === 2 && staleDrawn === 0 && btnsIn(since(kA), '문제없음').length === 1, '다시 받은 뒤(gen 바뀜) — 옛 [더 보기] 답은 그리지 않고 새 첫 쪽만 그린다');
   /* 닫은 창에 늦은 답 — 붙잡아 두고 닫은 뒤 풀어 준다 */
   st.getHold = true; st.pages = { '': { items: [srvTarget('ue')], nextCursor: null } };
   await click();
@@ -372,6 +399,11 @@ async function judgeAll(rep, adm, app, html, rapi){
     ['신고자 순서를 안 맞춤', { rapi: s => s.replace('.sort((a, b) => b.at - a.at);', ';') }],
     ['문제없음 거절 줄을 성공으로', { rapi: s => s.replace("    if(it.ok !== true) throw", "    if(false) throw") }],
     ['관리자 갈래에서 그림 바뀜 빠짐', { rapi: s => s.replace('  REPORT_IMAGE_CHANGED: row(ADMIN_FAIL.IMAGE_CHANGED),\n', '') }],
+    ['대상에 친구 코드 대신 사용자 코드', { adm: s => s.replace('cd.textContent = r.friendCode || r.target;', 'cd.textContent = r.target;') }],
+    ['신고자에 친구 코드 뒷자리 대신 사용자 코드', { adm: s => s.replace('_code4(_codeOf(rc))', '_code4(rc.code)') }],
+    ['신고할 때 이름(nameSnapshot) 무시', { rapi: s => s.replace('str(r.nameSnapshot) || str(r.displayName)', 'str(r.displayName)') }],
+    ['total 무시', { adm: s => s.replace('const total = pg.total;', 'const total = null;') }],
+    ['옛 [더 보기] 답도 그림', { adm: s => s.replace("      if(!live(g)) return;\n      more.disabled = false;\n      add(p2);", "      more.disabled = false;\n      add(p2);") }],
     ['관리자 서버 길 deps 빠짐', { app: s => s.replace(/  adminApi: TwReportApi\.createAdminReportApi[^\n]*\n/, '') }],
     ['메뉴가 옛 이름', { app: s => s.replace('()=>reportMod().openDialog(seat)', '()=>_openReportDialog(seat)') }],
     ['html 순서 틀림', { html: s => s.replace('<script src="parts/support/report.js"></script>', '').replace('<script src="parts/app.js"></script>', '<script src="parts/support/report.js"></script>\n<script src="parts/app.js"></script>') }],

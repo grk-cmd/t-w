@@ -44,6 +44,7 @@ function _reportReasonText(r){
   return (r.kind === 'etc' && r.note) ? base + ' · ' + r.note : base;
 }
 const _code4 = (c)=>c ? String(c).slice(-4) : '----';
+const _codeOf = (x)=>x.friendCode || x.code;   // 친구 코드가 먼저 · 없으면(그새 탈퇴) 사용자 코드
 
 async function _openReportAdmin(){
   if(!isAdmin()) return;
@@ -71,13 +72,13 @@ async function _openReportAdmin(){
     const mid = document.createElement('div'); mid.style.cssText = 'flex:1;min-width:0;display:flex;flex-direction:column;gap:2px;';
     const nm = document.createElement('div');
     const nb = document.createElement('b'); nb.textContent = r.name || '(이름 없음)'; nm.appendChild(nb);
-    const cd = document.createElement('span'); cd.style.cssText = 'font-family:"Courier New",monospace;font-size:10.5px;margin-left:5px;'; cd.textContent = r.target;
+    const cd = document.createElement('span'); cd.style.cssText = 'font-family:"Courier New",monospace;font-size:10.5px;margin-left:5px;'; cd.textContent = r.friendCode || r.target;
     nm.appendChild(cd); mid.appendChild(nm);
     const cnt = document.createElement('span'); cnt.style.cssText = 'color:#B22222;font-weight:bold;font-size:10.5px;'; cnt.textContent = '🚩 ' + r.count + '명';
     mid.appendChild(cnt);
     r.reporters.forEach(rc=>{
       const ln = document.createElement('div'); ln.style.cssText = 'font-size:10.5px;word-break:break-all;';
-      ln.textContent = '· ' + (rc.name || '(이름 없음)') + ' #' + _code4(rc.code) + ' — ' + _reportReasonText(rc);
+      ln.textContent = '· ' + (rc.name || '(이름 없음)') + ' #' + _code4(_codeOf(rc)) + ' — ' + _reportReasonText(rc);
       mid.appendChild(ln);
     });
     const act = document.createElement('div'); act.style.cssText = 'display:flex;flex-direction:column;gap:4px;flex:none;';
@@ -135,8 +136,9 @@ async function _openReportAdmin(){
     if(!live(g)) return;
     body.textContent = '';
     let shown = 0, next = null;
+    const total = pg.total;   // 첫 쪽에만 온다 — [더 보기] 뒤에도 이 값을 쓴다
     const head = document.createElement('div'); head.style.cssText = 'font-size:10.5px;color:var(--ink-soft);margin-bottom:6px;';
-    const setHead = ()=>{ head.textContent = '서로 다른 ' + REPORT_ADMIN_MIN + '명 이상이 신고한 사람만 보여요 · ' + shown + '명' + (next ? ' 넘게' : ''); };
+    const setHead = ()=>{ head.textContent = '서로 다른 ' + REPORT_ADMIN_MIN + '명 이상이 신고한 사람만 보여요 · ' + (total !== null ? total + '명' : shown + '명' + (next ? ' 넘게' : '')); };
     body.appendChild(head);
     if(!pg.items.length){
       setHead();

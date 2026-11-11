@@ -65,23 +65,25 @@ const adminFailOf = (err, errs) => failIn(ADMIN_ERRORS, err, errs);
 
 const str = (v) => (typeof v === 'string' && v) ? v : null;
 const atMs = (v) => { const t = typeof v === 'string' ? Date.parse(v) : NaN; return isFinite(t) ? t : 0; };
-/* 서버 대상 줄 → 화면 줄 { target, name, awayImg, count, reporters:[{ code, name, kind, note, at }] }. 신고자는 최근 것이 위.
-   kind 는 신고 창의 사유 이름(모르는 서버 이름은 null) · 이름 · 그림이 없으면(그새 탈퇴 · 그림 없음) null. 모양이 틀리면 null */
+/* 서버 대상 줄 → 화면 줄 { target, name, friendCode, awayImg, count, reporters:[{ code, friendCode, name, kind, note, at }] }. 신고자는 최근 것이 위.
+   신고자 이름은 신고할 때 이름(nameSnapshot)이 먼저 · 없으면(옛 줄) 지금 이름. kind 는 신고 창의 사유 이름(모르는 서버 이름은 null).
+   이름 · 친구 코드 · 그림이 없으면(그새 탈퇴 · 그림 없음) null. 모양이 틀리면 null */
 function targetOf(t){
   if(!isObj(t) || !str(t.target) || !Array.isArray(t.reporters)) return null;
   const reporters = t.reporters.filter(isObj).map((r) => ({
-    code: str(r.userCode), name: str(r.displayName), kind: own(KIND_OF, r.kind) ? KIND_OF[r.kind] : null,
+    code: str(r.userCode), friendCode: str(r.friendCode), name: str(r.nameSnapshot) || str(r.displayName), kind: own(KIND_OF, r.kind) ? KIND_OF[r.kind] : null,
     note: str(r.note), at: atMs(r.at),
   })).sort((a, b) => b.at - a.at);
   const count = (typeof t.openCount === 'number' && isFinite(t.openCount) && t.openCount >= 0) ? Math.floor(t.openCount) : reporters.length;
-  return { target: t.target, name: str(t.displayName), awayImg: isObj(t.awayImage) ? str(t.awayImage.url) : null, count, reporters };
+  return { target: t.target, name: str(t.displayName), friendCode: str(t.friendCode), awayImg: isObj(t.awayImage) ? str(t.awayImage.url) : null, count, reporters };
 }
-/* 쪽(data) → { items, next }. 모양이 틀리면 던진다(SHAPE — «실패 ≠ 없음») */
+/* 쪽(data) → { items, next, total }. total = 기준을 넘는 대상 전체 수(첫 쪽에만 · 없으면 null). 모양이 틀리면 던진다(SHAPE — «실패 ≠ 없음») */
 function pageOf(d){
   if(!isObj(d) || !Array.isArray(d.items)) throw shapeError('items 없음');
   const items = d.items.map(targetOf);
   if(items.some((x) => !x)) throw shapeError('대상 줄');
-  return { items, next: str(d.nextCursor) };
+  const total = (typeof d.total === 'number' && isFinite(d.total) && d.total >= 0) ? Math.floor(d.total) : null;
+  return { items, next: str(d.nextCursor), total };
 }
 
 /* 보낼 본문 — { target, kind, note? }. 사유 글은 앞뒤 공백을 걷고 비면 싣지 않는다. 틀리면 던진다(요청 0) */
