@@ -70,13 +70,14 @@
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
   - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
+  - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(연결이 안 되거나 받는 도중 끊김 — 차단 · DNS · 연결) · `fail … 403 Nms`(응답 번호) · `no-src`(받을 길 없음) · 실패한 적 없으면 빈 글). 책상 카드(만들기 E-CHAR-14 · 꾸미기 책상 탭 E-CHAR-13)가 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
   ```js
   catalogSourceMod.catalogSrcSubscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
   ```
 - **확장할 때 고칠 자리**: 받는 길이 바뀌면 provider(`catalog-source.js`) 쪽 — 이 모듈은 그대로.
 - **함정**
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
-  - 실패는 기억하지 않는다(다음에 다시 받는다) · 영구 캐시 넣기는 기다리지 않는다.
+  - 실패는 기억하지 않는다(다음에 다시 받는다 — `glbFailWhy` 는 이유만 적어 둘 뿐 막지 않고, 받으면 지운다) · 영구 캐시 넣기는 기다리지 않는다.
   - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부).
 
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
@@ -119,17 +120,19 @@
 ## desk-visual.js — 🪑 책상 모양(바꿔 끼기 · 색 · 좌석 책상)
 
 - **책임**: 책상 그룹(`deskGroup`)의 모양만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼기(톤 · `_col` 색 메쉬 모으기 · 애니메이션 재생 모드), `_col` 색, 좌석 def 의 카탈로그 책상을 찾아 그리기. 크기 · 자리는 `setDeskScale`(deps)이 맡는다.
-- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 12: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
+- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 13: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` · `NO_DESK_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
 - **내보내는 것**
   - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
   - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
-  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상.
+  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상. `NO_DESK_ID`(`'__no_desk__'`)면 `hideDeskBody`.
+  - `hideDeskBody(deskGroup)` — 🚫 책상 없음: 책상 몸(기본 · 커스텀)만 숨기고 `deskAnchor`(책상 위 아이템)는 그대로 · `userData.noDesk = true`(좌석 간격이 몸 폭으로 — `room/seat-layout.js`). `swapDeskVisual` 이 부르면 표시를 내린다.
   ```js
   deskVisualMod.swapDeskVisual(cDesk, sc); deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
   await deskVisualMod.applyDeskCatalogRefToSeat(seat, seat.charDef);
   ```
 - **확장할 때 고칠 자리**: 새 재생 모드는 `swapDeskVisual` 의 `playMode` 분기 · 자리 맞춤(바닥 + 0.15 · 앞뒤 0.6)은 `normalizeDeskObj`.
 - **함정**
+  - «책상 없음» 은 새 칸이 아니라 `deskCatalogId` 의 예약 값이다 — 옛 앱 · 방 서버는 모르는 책상으로 보고 기본 책상을 그린다(깨지지 않음). 고르는 곳은 꾸미기 › 책상(`wardrobe.js`) · 생성기 5단계(`creator/desk-setup.js`), 저장은 `creator/creator-save.js` · 프리셋 `creator/desk-preset.js`.
   - 라이선스 전용 책상은 **내 좌석에서만** 막는다(`!seat.remote`) — 친구 좌석에서 막으면 남이 쓴 책상이 기본 책상으로 보인다.
   - 크기를 GLB 에 굽지 않는다(원본 그대로 · 슬라이더만) — 새 책상만 자동 크기를 걸던 옛 코드는 지웠다. 다시 넣지 말 것(기본 책상과 크기가 갈린다).
   - 검사: `checks/sim-desk-visual.js`(4절 — 바꿔 끼기 · 되돌리기 · `_col` · 자리 맞춤 · 재생 세 모드 · 색 · 카탈로그 책상 · 라이선스 · 친구 좌석 · 풀기 실패).
@@ -190,14 +193,14 @@
 
 ## seat-eq-clamp.js — 🪑 평준화 가두기
 
-- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 책상이 뻗은 거리(`seatDeskHalfWidth`) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
+- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 좌석 반폭(`seatHalfWidth` — `room/seat-layout.js` 가 내놓는 줄 배치와 같은 규칙: 책상 · 🚫 책상 없음 · 몸 폭) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
 - **왜 따로**: 책상 자리 · 크기(desk-place)가 평준화 깃발을 읽으면 desk-place ↔ seat-equalize 순환이 생긴다. 가두기는 평준화 몫이라 여기로 떼어 desk-place 는 seat-equalize 를 모른다(의존: seat-eq-clamp → seat-equalize · 파츠 핀 이름).
 - **만드는 법**(app.js «📌 책상 위 파츠 앵커» 자리, `DESK_PART_ANCHOR_NAME` 바로 뒤):
   ```js
   const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
     DESK_PART_ANCHOR_NAME, seatEqMod, seats,                   // 값
     MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, SPACING: ()=>SPACING, seatSlot: ()=>seatSlot,   // 읽는 함수(다시 대입 · 뒤에서 선언)
-    seatDeskHalfWidth,                                         // 함수(화살표로)
+    seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),  // 좌석 반폭 — 줄 배치와 같은 규칙
   });
   ```
 - **내보내는 것**
@@ -248,6 +251,28 @@
   - 측정에서 빼는 규칙(리깅 · 꾸미기 wrapper · 숨김)은 함수마다 조금씩 다르다 — 바꾸면 fitModel · fitCreator · 꾸미기 미리보기가 함께 움직인다.
   - `floorClampWrapper` 는 «잰 것» 과 «움직이는 것» 이 같아야 한다 — 같이 안 올라가는 가지만 skipSub 로 뺀다.
   - 검사: `checks/sim-char-measure.js`(4절 — 실제 three 로 박스 · 깊이 · 상한 · 보정 · 부모 배율 환산 · hard · skipSub).
+
+## rest-pose.js — 🧍 기본 자세로 잠깐 되돌려 재기
+
+- **책임**: fitModel 이 캐릭터 크기 · 발바닥 보정 · 발밑 깊이를 **기본 자세**로 재게, 재는 동안만 뼈와 `bodyWrap` 회전을 기본으로 돌리고 끝나면 지금 자세로 되돌린다. 몸은 스키닝 메시라 뼈 자세가 박스에 안 들어가지만, 누워 떼쓰기(`bodyWrap` 회전) · 뼈에 직접 붙은 리깅 안 된 파츠는 자세가 높이에 들어가 캐릭터가 뜬 채 남을 수 있었다.
+- **만드는 법**: deps 없음 — `const restPoseMod = TwRestPose.createRestPose();`(app.js `charMeasureMod` 바로 뒤).
+- **내보내는 것**: `enter(seat)` → 되돌릴 표(없으면 null) · `leave(표)` · `restOf(root)`(그 모델의 기본 자세 — 처음 부를 때 잰다).
+  ```js
+  const _rest = restPoseMod.enter(seat);
+  try{ /* 재기 */ }finally{ restPoseMod.leave(_rest); }
+  ```
+- **함정**
+  - 기본 자세는 그 모델(`gltfRoot`)을 처음 `enter` 할 때 잰다 — fitModel 의 첫 호출이 모델을 막 만든 직후라 그때가 기본 자세다. 다른 곳에서 먼저 부르면 그 자세가 기본이 된다.
+  - 나중에 붙은 파츠의 뼈(자기 뼈대가 있는 파츠)는 건드리지 않는다.
+  - 검사: `checks/sim-rest-pose.js`.
+
+## fit-watch.js — 🩺 다시 맞춘 높이 경고
+
+- **책임**: fitModel 이 높이를 정하는 값(크기 · 발바닥 보정 · 높이 슬라이더 · 발밑 깊이)을 모델마다 지난번과 견주어, 파츠 · 슬라이더로 설명되지 않게 바뀌었거나 다시 맞출 때 rig 가 떠 있으면 `console.warn('[높이] …')` 한 줄 — 오류 기록(`tw-error.log`)에 WARN 으로 모인다(B-1109-9 원인 찾기).
+- **만드는 법**: `const fitWatchMod = TwFitWatch.createFitWatch({ warn: (m)=>console.warn(m) });`(app.js `restPoseMod` 바로 뒤).
+- **내보내는 것**: `note(seat, { scale, foot, lift, under, y }, { userY, rigY, groupY, wrapRotX, pinned, riding, animal })` → `'first' | 'same' | 'warn' | 'held' | null` — `lift` 는 fitModel 이 실제로 더한 슬라이더 몫(동물 배율 · 캐릭터 크기 반영). · `TwFitWatch.partsKey(seat)` — 붙은 파츠 묶음 표시(칸 + partId · 쌓기 칸:id + 저장된 착용 목록).
+- **함정**: 새 모델의 첫 값은 견줄 것이 없어 적기만 한다 · 슬라이더 몫은 날값이 아니라 **실제로 더한 값**으로 견준다(날값이면 동물 · 크기 ≠ 1 에서 거짓 경고) · 발밑 깊이가 «파츠 묶음 그대로 · 슬라이더 몫으로 설명 안 될 때만» 높이 경고 대신 `[높이 · 발밑]` 한 줄 · 묶음 표시에 wrapper uuid 를 쓰지 않는다(같은 파츠도 다시 붙일 때마다 wrapper 가 새로 생긴다) · 한 번 경고하면 «그대로» 가 될 때까지 다시 안 적음 · rig 뜸은 바뀌었을 때만 · 기준 `TOL_Y`(0.01) · `TOL_SCALE`(1%) · `RIG_LIFT`(0.05).
+- 검사: `checks/sim-fit-watch.js`.
 
 ## floor-snap-diag.js — 🩺 바닥 맞춤 진단
 

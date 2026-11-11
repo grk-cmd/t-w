@@ -4,6 +4,7 @@
    ・1절: 만들 때 — 싣기만 하면 window.TwFocusLog 뿐 · 만들면 버튼 다섯 · 본문 누름 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 끌기 연결 ·
            창 DOM 이 없으면 아무것도 안 건다
    ・2절: 열기 · 닫기 — 현재 기록부터 · 맨 앞으로 · ⚙️ 설정창 닫기 · 누적 ↔ 현재(오늘 기록 둘째 줄) · 다시 열면 현재 기록 · ✕ · ESC
+   ・2-1절: 피규어 모드 안내 줄 — 꺼짐 숨김 · 열린 채 켜면 매초 갱신에서 보임 · 누적기록에서도 · 끄면 숨김 · 켜진 채 열면 바로
    ・3절: 매초 갱신 — 열려 있을 때만 · 값은 부를 때마다 읽는다(누적 · 현재 · 오늘)
    ・4절: 미니미 — _ □ 저장(tw.focusLogMini) · 제목 · 짧은 라벨 · 열려 있으면 좌상단 고정 · 본문 누름 토글(미니미에서만) · 저장값으로 시작
    ・5절: 화면 안 가두기 · 끌기 — 중앙정렬 상태는 안 건드림 · 옮긴 뒤엔 가둠 · _ □ ✕ 위 누름은 끌기 아님
@@ -25,7 +26,7 @@ const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.h
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
 const IDS = ['focusLogOverlay', 'focusLogWin', 'focusLogTitle', 'focusLogTime', 'focusLogCaption', 'fsFocusLogBtn', 'focusLogClose', 'focusLogOk',
-  'focusLogTitleTxt', 'focusLogMin', 'focusLogMax', 'focusLogCaption2', 'focusLogBody', 'focusLogRow2', 'focusLogTime2', 'focusSettingsPanel'];
+  'focusLogTitleTxt', 'focusLogMin', 'focusLogMax', 'focusLogCaption2', 'focusLogBody', 'focusLogRow2', 'focusLogTime2', 'focusSettingsPanel', 'focusLogFigureNote'];
 
 function mkEl(id, env){
   const L = {}, cls = new Set();
@@ -47,7 +48,7 @@ function mkEl(id, env){
 function mkEnv(opt){
   opt = opt || {};
   const env = {
-    total: 3600, session: 65, today: 1800, rollCalls: 0, fronts: [], escs: [], timers: [], winL: {}, store: {}, sets: [],
+    total: 3600, session: 65, today: 1800, fig: false, rollCalls: 0, fronts: [], escs: [], timers: [], winL: {}, store: {}, sets: [],
     rect: { left: 300, top: 200 }, winH: 120,
   };
   if(opt.mini) env.store['tw.focusLogMini'] = '1';
@@ -77,6 +78,7 @@ function mkEnv(opt){
     escRegisterWindow: (w) => env.escs.push(w),
     focusTotalSec: () => env.total,
     focusSessionSec: () => env.session,
+    figureMode: () => env.fig,
   }));
   env.tick = () => env.timers.forEach(t => t.fn());
   env.win = () => els.focusLogWin;
@@ -114,6 +116,23 @@ function behave(src){
     chk(e.escs.length === 1 && esc.key === 'focusLog' && esc.el === e.els.focusLogOverlay && esc.isOpen() === true, 'ESC 스택 — key focusLog · el 은 오버레이 · 열림을 DOM 으로 읽음');
     esc.close();
     chk(!e.on() && esc.isOpen() === false, '  ESC 로 닫힘');
+  }
+
+  say('── 2-1. 피규어 모드 안내 줄');
+  {
+    const e = E(); e.mk();
+    e.els.focusLogFigureNote.hidden = true;
+    e.els.fsFocusLogBtn.onclick();
+    chk(e.els.focusLogFigureNote.hidden === true, '피규어 모드 꺼짐 — 안내 줄 숨김');
+    e.fig = true; e.tick();
+    chk(e.els.focusLogFigureNote.hidden === false, '  열린 채로 켜면 매초 갱신에서 보인다');
+    e.els.focusLogOk.onclick();
+    chk(e.els.focusLogFigureNote.hidden === false, '  누적기록으로 바꿔도 보인다');
+    e.fig = false; e.tick();
+    chk(e.els.focusLogFigureNote.hidden === true, '  끄면 다시 숨김');
+    e.els.focusLogClose.onclick(); e.fig = true;
+    e.els.fsFocusLogBtn.onclick();
+    chk(e.els.focusLogFigureNote.hidden === false, '  켜진 채로 열면 바로 보인다');
   }
 
   say('── 3. 매초 갱신');
@@ -228,10 +247,10 @@ sec('── 6. app.js 배선', () => {
   const want = [
     /^formatHMS: \(\.\.\.a\)=>formatHMS\(\.\.\.a\),$/, /^rolloverFocusToday: \(\.\.\.a\)=>_rolloverFocusToday\(\.\.\.a\),$/,
     /^bringWinToFront: \(\.\.\.a\)=>bringWinToFront\(\.\.\.a\),$/, /^escRegisterWindow: \(\.\.\.a\)=>escRegisterWindow\(\.\.\.a\),$/,
-    /^focusTotalSec: \(\)=>_focusTotalSec,$/, /^focusSessionSec: \(\)=>_focusSessionSec,$/,
+    /^focusTotalSec: \(\)=>_focusTotalSec,$/, /^focusSessionSec: \(\)=>_focusSessionSec,$/, /^figureMode: \(\)=>figureMode,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 6개 — 함수는 화살표 · let 은 읽는 함수 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 7개 — 함수는 화살표 · let 은 읽는 함수 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iT = APP.indexOf('let _focusTotalSec='), iS = APP.indexOf('let _focusSessionSec=');
   chk(iT > iMk && iS > iMk && /[^.\w]_focusTotalSec\s*=[^=]/.test(code.replace(/let _focusTotalSec=/, '')) && /[^.\w]_focusSessionSec\s*[+-]?=[^=]/.test(code.replace(/let _focusSessionSec=/, '')),
     '  _focusTotalSec · _focusSessionSec 는 만드는 줄보다 뒤에 선언 · 다시 대입되는 let — 그래서 읽는 함수(값이면 TDZ)');
@@ -267,6 +286,8 @@ sec('── 7. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', () =
     ['오늘 기록 라벨', s => s.replace("cap2El.textContent = mini?'오늘':'오늘 기록'", "cap2El.textContent = mini?'오늘':'오늘'")],
     ['ESC 닫기 다른 함수', s => s.replace('close:closeLog,', 'close:()=>{},')],
     ['_focusLogClamp 안 검', s => s.replace('try{ window._focusLogClamp = clampWin; }catch(_){}', '')],
+    ['피규어 안내 줄 늘 숨김', s => s.replace('figureNoteEl.hidden = !figureMode();', 'figureNoteEl.hidden = true;')],
+    ['피규어 안내 줄을 값으로', s => s.replace('figureNoteEl.hidden = !figureMode();', 'figureNoteEl.hidden = !figureMode;')],
   ];
   for(const [name, mut] of CASES){
     const bent = mut(MOD);

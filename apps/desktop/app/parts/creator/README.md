@@ -285,7 +285,7 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 
 ## `desk-setup.js` — 🪑 책상 세팅(5단계)
 
-**책임** — 책상 카드(기본 · 저장 책상 — 전용 책상은 관리자만 · 카탈로그 것은 관리자만 회수)와 아이템 카드(기본 셋 + 커스텀, 5개씩 쪽 넘김)를 그리고, 고르기 · 지우기 · 순서 바꾸기(관리자 — 카탈로그 순서 저장) · 놓인 아이템 고르기(카드 우클릭 · 미리보기 우클릭) · 책상 색 칸을 잇는다.
+**책임** — 책상 카드(기본 · 🚫 책상 없음(`hideDeskBody` · 저장 id `NO_DESK_ID`) · 저장 책상 — 전용 책상은 관리자만 · 카탈로그 것은 관리자만 회수)와 아이템 카드(기본 셋 + 커스텀, 5개씩 쪽 넘김)를 그리고, 고르기 · 지우기 · 순서 바꾸기(관리자 — 카탈로그 순서 저장) · 놓인 아이템 고르기(카드 우클릭 · 미리보기 우클릭) · 책상 색 칸을 잇는다.
 
 **만드는 법** — app.js «책상 세팅(5단계)» 자리, 그리고 crXformMod 를 만든 바로 뒤에 갈고리:
 
@@ -293,7 +293,7 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
 const deskSetupMod = TwDeskSetup.createDeskSetup({
   crState: crState, assetCardsMod: assetCardsMod, premiumMod: premiumMod,
   catalogNet: ()=>window.firebaseAPI,   // 데이터 provider — 회수 · 순서 저장(서버 이관 때 이 줄만)
-  // … 값 5 · 함수 10 · 읽는 함수 10
+  // … 값 6(NO_DESK_ID 포함) · 함수 11(hideDeskBody 포함) · 읽는 함수 10
 });
 // … const crXformMod = …;
 deskSetupMod.setHooks({

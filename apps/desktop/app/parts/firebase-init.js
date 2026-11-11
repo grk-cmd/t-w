@@ -2453,7 +2453,7 @@
       try{
         // limit 생략 시 100(대화창 본문). 뱃지 카운트처럼 적게만 필요하면 작은 값을 넘겨 트래픽을 줄인다.
         const n = (typeof limit === 'number' && limit > 0) ? Math.min(200, Math.floor(limit)) : 100;
-        const q = query(ref(db, _chatLogPath(room, tabId)), limitToLast(n));
+        const q = query(ref(db, _chatLogPath(room, tabId)), orderByChild('ts'), limitToLast(n));   // «마지막» 은 서버 시각 순 — 아래 _chatOrder 주석
         const cb = snap => {
           const val = snap.val() || {};
           /* ★ push key(k)를 id로 함께 넘긴다 — "여기까지 읽었습니다" 구분선이 이 id를 기준으로 잡는다.
@@ -2471,7 +2471,8 @@
     subscribeChatSince(room, tabId, since, onMsg, onReady, limit){
       try{
         const r = ref(db, _chatLogPath(room, tabId));
-        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, limitToLast(limit || 100));
+        /* ⚠️ 마지막 limit 줄도 ts 순으로 자른다 — key(보낸 PC 시계) 순이면 시계가 늦은 사람의 새 글이 «마지막» 밖으로 밀려 안 온다(B-1103-4) */
+        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, orderByChild('ts'), limitToLast(limit || 100));
         const one = snap => onMsg(Object.assign({ id: snap.key }, snap.val()));
         const offA = onChildAdded(q, one), offC = onChildChanged(q, one);
         onValue(q, () => { if(onReady) onReady(); }, { onlyOnce: true });   // child_added 가 다 온 뒤에 한 번
@@ -3114,7 +3115,9 @@
     //   앱은 로컬(localStorage/IndexedDB)에서 캐싱을 담당해서 같은 파츠는 두 번 안 받게 함(호출 측).
     async fetchCatalogGlb(url){
       if(!url) throw new Error('empty url');
-      const res = await fetch(url);
+      /* 웹 캐시를 거치지 않는다 — 깨진 응답이 캐시에 남으면 서버에 다시 묻지 않고 그것만 계속 꺼낸다(E-CHAR-14).
+         받은 GLB 는 부르는 쪽이 IndexedDB 에 저장하므로(glb-idb-cache.js) 요청 수는 그대로다. */
+      const res = await fetch(url, { cache: 'no-store' });
       if(!res.ok) throw new Error('storage fetch failed '+res.status);
       const buf = await res.arrayBuffer();
       // ArrayBuffer → base64 (한 번에 큰 배열 대상으로 fromCharCode 하면 stack overflow — 청크로 처리)

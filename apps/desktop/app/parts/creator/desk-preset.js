@@ -11,6 +11,8 @@
 
 function createDeskPreset(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
+const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id
+const hideDeskBody = deps.hideDeskBody;
 const applyCreatorXform = deps.applyCreatorXform;
 const applyDeskColorToCustom = deps.applyDeskColorToCustom;
 const applyDeskItemsTo = deps.applyDeskItemsTo;
@@ -141,7 +143,13 @@ function applyDeskPreset(p){
   };
   /* 프리셋에 남은 라이선스 전용 책상은 라이선스가 없으면 쓰지 않는다(쓰면 완료 때 def 에 굳는다) — 기본 책상으로 열고 프리셋은 그대로 둔다. */
   const _presetDeskLocked = licenseAssetBlocked({ licenseOnly: premiumMod._licenseLockedDeskId(p.deskCatalogId) });
-  if(p.deskCatalogId && !_presetDeskLocked){
+  if(p.deskCatalogId===NO_DESK_ID){
+    crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=NO_DESK_ID;
+    if(crState.cDesk){ hideDeskBody(crState.cDesk); setCreatorDeskScale(crState.cDeskScale); }
+    applyDeskModel();
+    _refitPreviewAfterPreset();
+  }
+  else if(p.deskCatalogId && !_presetDeskLocked){
     _presetDeskGlb(p).then(b64=>{
       /* 카탈로그에서 빠졌거나 받지 못했다 — 프리셋은 그대로 두고 기본 책상으로 연다(조용히 바꾸지 않는다) */
       if(!b64){ notifyError('E-CHAR-08'); applyDefaultDesk(); return; }

@@ -13,6 +13,8 @@
 
 function createDeskSetup(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
+const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id
+const hideDeskBody = deps.hideDeskBody;
 const DEF_SIZE_TOAST_MS = deps.DEF_SIZE_TOAST_MS;   // 읽는 함수
 const DESK_ITEMS = deps.DESK_ITEMS;
 const DESK_SCALE_DEFAULT = deps.DESK_SCALE_DEFAULT;
@@ -69,6 +71,15 @@ function renderCrItems(){
   };
   if(isAdmin()) defThumb.oncontextmenu=e=>{ e.preventDefault(); _hooks.openDeskRegister('desk', DEFAULT_DESK_OVERRIDE_ID); };
   dr.appendChild(defThumb);
+  /* 🚫 책상 없음 — 책상 몸만 숨긴다(책상 위 아이템은 그대로). 저장하면 deskCatalogId 가 NO_DESK_ID(creator-save.js). */
+  const noThumb=assetCardsMod.swThumb('책상 없음', crState.activeCustomDeskId===NO_DESK_ID, '🚫');
+  noThumb.onclick=()=>{
+    if(crState.activeCustomDeskId===NO_DESK_ID) return;
+    crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=NO_DESK_ID;
+    if(crState.cDesk){ hideDeskBody(crState.cDesk); setCreatorDeskScale(crState.cDeskScale); }
+    renderCrItems();
+  };
+  dr.appendChild(noThumb);
   // 저장된 책상 카드들
   /* 라이선스 전용 책상은 꾸미기 › 책상 에서 고른다 — 관리자만 여기서 본다(등록 · 검수 · 순서). 아래 deskLocked 갈래는 관리자 화면과
      카탈로그가 늦게 와 licenseOnly 를 아직 모르는 순간의 안전망이라 지우지 않는다. */
@@ -121,7 +132,7 @@ function renderCrItems(){
       if(!rec.glb && rec.glbUrl){
         try{ await catalogGlbMod().resolveCatalogGlb(rec); }catch(e){ glbErr = e; }
       }
-      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-14', glbErr || (rec.glbUrl ? 'no-glb' : 'no-url')); return; }
+      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-14', glbErr || (rec.glbUrl ? (catalogGlbMod().glbFailWhy(rec.glbUrl) || 'no-glb') : 'no-url')); return; }
       /* 📦 코드로 넣은 책상만 GLB 가 def 에 실린다(카탈로그 책상은 id 만) — crDone 과 같은 갈래. */
       if(!rec.fromCatalog){
         const _sz = _creatorSizeGrow(d=>{ d.deskGlb = rec.glb; delete d.deskCatalogId; });

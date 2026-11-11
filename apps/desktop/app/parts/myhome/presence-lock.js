@@ -50,7 +50,7 @@ function createPresenceLock(deps){
   }
   function save(uid){
     Promise.resolve().then(() => deps.savePref(uid, { lock: pref.lock, online: pref.online }))
-      .catch(err => deps.notifyError('E-MH-03', err));
+      .catch(err => deps.notifyError('E-MH-13', err));
   }
   /* 받은 고정값을 앉힌다 */
   function adopt(uid, p){

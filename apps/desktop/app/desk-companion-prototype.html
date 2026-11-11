@@ -81,7 +81,7 @@
      ★ 숫자를 창마다 따로 적으면 «이 창은 저 창보다 위» 가 숫자끼리의 우연한 크기로만 정해져, 하나를 바꾸면 엮인 창이 다 흔들린다(B-1016-4).
      ★ 층 차례: 런처 → 작업창 · 창 쌓기 창(열거나 누르면 83~92 안에서 맨 위 — shared/win-stack.js) → 꾸미기(93) → 대화상자(100~) → 막는 창(가입 · 로그인 · 기기 110~).
        대화상자는 어느 창에서 열든 그 창 위에 떠야 해서 창 쌓기 위에 둔다(예전 57 은 편집 · 마이홈을 창 쌓기에 넣는 순간 그 뒤로 숨는다).
-     ⚠️ 이 표 밖(가챠 120 · 마이홈 팝업 9200 · 토스트 9100 · 색 고르기 9999)은 이 표보다 늘 위다. 검사: checks/sim-z-layers.js */
+     ⚠️ 이 표 밖(가챠 120 · 마이홈 팝업 9200 · 토스트 9100 · 색 고르기 9999 · 맥 설명 말풍선 10000)은 이 표보다 늘 위다. 검사: checks/sim-z-layers.js */
   :root{
     --z-friend-picker: 46;   /* 친구 고르기 */
     --z-launcher: 50;        /* 런처 화면 */
@@ -760,6 +760,7 @@
   .chat-messages .cm-unread-sep::before,
   .chat-messages .cm-unread-sep::after{content:"";flex:1;height:0;border-top:1px dashed #e0a0a0;}
   .chat-messages a{color:#0a3;text-decoration:underline;}
+  .chat-messages .ext-link,.chat-messages .ext-link:hover{color:#0a3;}   /* 채팅 주소 칸은 예전 초록 그대로(공용 .ext-link 는 파랑) */
   /* 📋 대화 칸만 글자를 고를 수 있다 — body 의 user-select:none 을 여기서만 푼다.
      이름표·탭·메뉴·툴바는 그대로 못 고른다. 시각·구분선은 위 규칙의 none 이 이긴다(더 구체적). */
   .chat-messages, .chat-messages *{user-select:text;-webkit-user-select:text;}
@@ -1727,6 +1728,17 @@
   #lobbyMain .lb-foot{display:flex;align-items:center;gap:6px;margin-top:4px;}
   #lobbyMain .lb-foot .lc-btn{width:auto;margin-top:0;padding:5px 14px;}
   #lobbyMain .lb-grow{flex:1;}
+  #lobbyMain .lb-code-wrap{position:relative;flex:0 0 150px;min-width:0;}
+  #lobbyMain .lb-code-in{margin-bottom:0;}
+  #lobbyMain .lb-recent{position:absolute;left:0;bottom:calc(100% + 4px);width:280px;z-index:2;background:var(--tw-bg-face-2);border:1px solid var(--tw-ink-accent);border-radius:var(--win-radius-el);padding:4px;}
+  #lobbyMain .lb-recent[hidden]{display:none;}
+  #lobbyMain .lb-recent-head{font-size:11px;color:var(--ink-soft);padding:2px 6px 4px;}
+  #lobbyMain .lb-recent-row{display:flex;align-items:center;gap:8px;width:100%;padding:5px 6px;border:none;background:none;text-align:left;cursor:pointer;font-size:12px;color:var(--ink);border-radius:var(--win-radius-el);}
+  #lobbyMain .lb-recent-row:hover{background:var(--tw-bg-face);}
+  #lobbyMain .lb-recent-code{flex:none;font-family:var(--tw-font-legacy);letter-spacing:.5px;}
+  #lobbyMain .lb-recent-title{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  #lobbyMain .lb-recent-ago{flex:none;font-size:11px;color:var(--ink-soft);}
+  #lobbyMain .lb-code-in .room-code-in{padding:5px 6px;}
   #lobbyMain .lb-page{min-width:44px;text-align:center;font-size:12px;color:var(--ink);}
   #lobbyMain[hidden]{display:none;}
   /* 방 만들기 창(room-create-ui.js) · 방 안 [방 설정](room-info-ui.js) 공용 칸(.rc-form) — 입력칸 · 버튼은 .code-pass · .code-btns 를 쓰고, 여기는 배치와 글자만(베젤 없음 · audit 검사 12 대상 아님). */
@@ -2018,9 +2030,6 @@
   @keyframes donateShine{from{background-position:0 0;} to{background-position:220% 0;}}
   /* 움직임에 민감한 사용자는 흐르지 않게 — 색은 그대로 남아 링크로 읽힌다 */
   @media (prefers-reduced-motion:reduce){ .donate-shine{animation:none;} }
-  #donateLink{text-decoration:none;cursor:pointer;font:bold 12px var(--tw-font-classic);}
-  #donateLink:hover .donate-shine{filter:brightness(1.12);}
-  #donateLink:hover{text-decoration:underline;}
   #lcDonateBtn:hover:not(:disabled) .donate-shine{filter:brightness(1.12);}
 
   /* ===== 본인 활동 상태 칩 + 🎨 꾸미기 버튼 (자기 캐릭터 발 밑) ===== */
@@ -2802,15 +2811,17 @@
   #focusSettingsPanel{position:fixed;z-index:var(--z-win-settings);transform:translate(-50%,-100%);
     background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
     box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    padding:0;width:300px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel.on{display:block;}
+    padding:0;width:300px;box-sizing:border-box;display:none;font-family:var(--tw-font-legacy);border-radius:var(--win-radius-el) !important;
+    max-height:calc(100vh - 16px);}   /* 화면보다 길어지지 않게 — 넘치는 내용은 .fs-body 안에서 스크롤(제목줄은 늘 보인다) */
+  #focusSettingsPanel.on{display:flex;flex-direction:column;}
   #focusSettingsPanel .fs-titlebar{font-size:11px;font-weight:bold;color:#fff;padding:5px 8px;margin-bottom:10px;
     background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));
     display:flex;align-items:center;justify-content:space-between;}
   #focusSettingsPanel .fs-titlebar-x{width:16px;height:14px;font-size:10px;line-height:1;cursor:pointer;color:var(--ink);
     display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;
     background:var(--win-face);border:1px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
-  #focusSettingsPanel .fs-body{padding:0 12px 12px;}
+  #focusSettingsPanel .fs-titlebar{flex:none;}
+  #focusSettingsPanel .fs-body{padding:0 12px 12px;flex:1 1 auto;min-height:0;overflow-y:auto;}
   /* 광고 배너 — 관리자가 등록한 이미지 기본 표시. 라이선스 보유자는 우클릭으로 자기 이미지(로컬)로 교체 가능 */
   .fs-adbanner-wrap{margin:10px 0 8px;}
   .fs-adbanner{width:100%;display:block;-webkit-user-drag:none;user-select:none;border:2px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);
@@ -2969,6 +2980,7 @@
   /* 시계 아이콘은 미니미에선 안 쓴다 — 118px 안에서 시간 숫자가 밀려 잘렸다. */
   #focusLogWin.mini .flt-row .flt-clock{display:none;}
   #focusLogWin.mini #focusLogOk{display:none;}
+  #focusLogWin.mini #focusLogFigureNote{display:none;}
   /* 👑 달성표 버튼·서랍도 미니미(118px)에선 자리가 없다 — 같이 감춘다.
      ⚠️ 서랍이 열린 채로 최소화하면 창이 118px 폭에 세로로 길게 늘어진다. 그래서 display:none 이다.
         (열림 상태 자체는 .chal-on 으로 남아 있어서 □로 복귀하면 그대로 다시 보인다) */
@@ -2995,6 +3007,7 @@
   body.config #myHomeTitle #mhEditHomeBtn,
   body.config #myHomeTitle #mhPreviewBtn,
   body.config #myHomeTitle #mhPreviewExitBtn,
+  body.config #myHomeTitle #mhMallangHideBtn,
   body.config #myHomeTitle #mhBackHomeBtn{-webkit-app-region:no-drag;}
   /* ★ 마이홈3: -webkit-app-region:drag를 쓰면 Electron이 이 영역 드래그를 OS 창 전체 이동으로 처리해서
      캐릭터/설정창까지 같이 움직임. DOM 기반 드래그(app.js)로 대체하여 마이홈 창만 이동시킴. */
@@ -4006,6 +4019,8 @@
   /* 기록 한 줄 — 라벨 폭을 고정해서 '누적 기록'/'오늘 기록' 두 줄의 시계·숫자가 세로로 딱 맞게 정렬된다. */
   .flt-row{display:flex;align-items:center;gap:8px;}
   .flt-row .flt-label{font-size:11px;color:var(--ink-soft);font-weight:bold;width:52px;text-align:right;flex:none;}
+  /* ⚠️ display 를 여기서 정하지 않는다 — 정하면 hidden 속성을 이겨 늘 보인다 */
+  #focusLogFigureNote{margin-top:6px;font-size:11px;line-height:1.4;color:var(--ink-soft);text-align:center;}
   .flt-row .flt-clock{font-size:15px;line-height:1;flex:none;}
   /* 📊 오늘 기록 전시 토글 — 꺼짐은 예전 모양 그대로, 켜지면 머리 위 말풍선과 같은 크림색 동그라미 안에 든다. */
   #focusLogShowClock{cursor:pointer;border-radius:50%;padding:2px;border:1px solid transparent;}
@@ -5514,6 +5529,8 @@
         <span class="flt-clock">🕒</span>
         <span class="flt-time" id="focusLogTime2">00:00:00</span>
       </div>
+      <!-- 피규어 모드가 켜져 있을 때만 보인다(focus-log.js refreshTime) · 미니미에서는 숨김 -->
+      <div id="focusLogFigureNote" hidden>피규어 모드에서는 포커스 기록과 달성표 집중 시간이 쌓이지 않아요</div>
       <!-- 🍅 미니미일 때만, 뽀모가 돌고 있으면 나타나는 둘째 줄(pomodoro.js _pomoRender 가 켠다) -->
       <div class="flt-row" id="pomoMiniRow" style="display:none;">
         <span class="flt-label" id="pomoMiniLbl">🍅 1/4</span>
@@ -6003,7 +6020,7 @@
           <div class="bb-lbl">제목</div>
           <input id="bbWTitle" type="text" maxlength="60" placeholder="어떤 문제인지 한 줄로">
           <div class="bb-lbl">내용</div>
-          <textarea id="bbWBody" maxlength="2000" placeholder="언제, 무엇을 했을 때, 어떻게 됐는지 적어 주세요"></textarea>
+          <textarea id="bbWBody" maxlength="2000" placeholder="어떤 상황에서 무엇을 했을 때 오류가 났는지 적어 주세요.&#10;예) 투게더룸에서 꾸미기 창을 닫았더니 캐릭터가 사라졌어요.&#10;&#10;제보는 운영자가 한 건씩 직접 읽고 답변드려요.&#10;불편하셨을 마음은 충분히 이해합니다. 다만 더 나은 서비스 제공을 위해 서로 존중하는 말투로 적어 주시면 감사하겠습니다."></textarea>
           <div class="bb-lbl">공개 범위</div>
           <label><input type="radio" name="bbWVis" value="pub" checked> 공개</label>
           <label><input type="radio" name="bbWVis" value="prv"> 비공개 (나와 관리자만)</label>
@@ -7258,7 +7275,7 @@
           <span>피규어 모드</span>
           <button class="fs-toggle-btn" id="progFigureModeToggle" type="button">꺼짐</button>
         </div>
-        <p style="margin:8px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">포커싱 어플이 아니어도, 어떤 프로그램에서든 입력하면 캐릭터가 깨어나요. 손을 떼고 8초가 지나면 잠들어요. (포커스 시간은 등록한 포커싱 어플에서만 쌓여요)</p>
+        <p style="margin:8px 0 0;font-size:10.5px;color:var(--ink-soft);line-height:1.5;">포커싱 어플을 지정 안 해도 캐릭터가 항상 깨어있어요. 손을 떼고 있어도 잠들지 않아요. (포커스 시간 · 달성표 집중 시간은 안 쌓여요)</p>
         <div class="fs-toggle-row">
           <span>회사원 모드</span>
           <button class="fs-toggle-btn" id="progOfficeModeToggle" type="button">꺼짐</button>
@@ -8169,14 +8186,20 @@
         <div class="lb-foot">
           <button type="button" class="lc-btn" id="lobbyCreate">＋ 방 만들기</button>
           <button type="button" class="lc-btn lb-quick" id="lobbyQuick">⚡ 빠른시작</button>
+          <!-- 받은 방 코드로 입장 — 비운 채 누르면 안내만(랜덤 입장은 [빠른시작] 하나) · 시크릿룸은 «1234*» 로 넣거나 맨 위 «내 시크릿룸» 줄로 -->
+          <div class="lb-code-wrap">
+            <div class="room-code-group lb-code-in" title="받은 방 코드 4자리 · 시크릿룸은 끝에 *">
+              <span class="room-code-prefix">COZY-</span>
+              <input id="inviteCode" class="room-code-in" type="text" placeholder="방 코드" maxlength="5" autocomplete="off" spellcheck="false">
+            </div>
+            <!-- 🕘 칸이 비어 있을 때 누르면 위로 펼쳐지는 최근 방(room/recent-rooms-ui.js) -->
+            <div id="lobbyRecent" class="lb-recent" hidden></div>
+          </div>
+          <button type="button" class="lc-btn ghost" id="inviteJoin">입장</button>
           <span class="lb-grow"></span>
           <button type="button" class="lb-icon" id="lobbyPrev" aria-label="이전 쪽">‹</button>
           <span id="lobbyPage" class="lb-page">1 / 1</span>
           <button type="button" class="lb-icon" id="lobbyNext" aria-label="다음 쪽">›</button>
-        </div>
-        <!-- 💝 후원 링크 — 투게더룸은 라이선스가 필요해서 로비 아래에 둔다. 시스템 브라우저로 열림(app.js에서 처리). -->
-        <div style="text-align:center;margin-top:4px;">
-          <a id="donateLink" href="https://litt.ly/togetherworking" title="후원 페이지로 이동해요"><span class="donate-shine">후원하러 가기 ››</span></a>
         </div>
       </div>
 
@@ -8213,18 +8236,6 @@
           <div class="rc-hint rc-pub-hint">방장이 DJ 가 되어 자기 플레이리스트를 다 같이 들어요 · 만든 뒤엔 못 바꿔요</div>
         </div>
         <div class="code-btns"><button type="button" id="rcCancel">취소</button><button type="button" id="rcCreate">방 만들기</button></div>
-      </div>
-
-      <!-- 참여 코드 입력 (늘 로비 아래에 보인다 — 시크릿룸은 «1234*» 로 넣거나 로비 맨 위 «내 시크릿룸» 줄로) -->
-      <div id="inviteJoinPanel" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--win-lo-2);">
-        <div style="font-size:11px;color:var(--ink-soft);text-align:center;margin:0 0 6px;">받은 방 코드가 있다면 입력해서 바로 입장하세요.<br>코드를 비워 두고 <b>참여</b>를 누르면 랜덤 참여를 허용한 방에 들어가요 🎲</div>
-        <div style="display:flex;gap:8px;align-items:center;">
-          <div class="room-code-group" style="margin-bottom:0;flex:1;">
-            <span class="room-code-prefix">COZY-</span>
-            <input id="inviteCode" class="room-code-in" type="text" placeholder="예: 7Q2K" maxlength="5" autocomplete="off" spellcheck="false">
-          </div>
-          <button class="lc-btn ghost" id="inviteJoin" style="width:auto;margin-top:0;padding:6px 14px;">참여</button>
-        </div>
       </div>
     </div>
     <div id="inviteActive" style="display:none;">
@@ -8346,6 +8357,7 @@
   <div class="hint" id="runHint" style="display:none"><b>짧게 클릭</b>하면 쓰다듬을 수 있어요. 꾸미기·좌석 세팅은 <b>런처의 ⚙</b>에서 캐릭터별로 편집해요.</div>
 </div>
 
+<script src="parts/shared/error-report.js"></script>   <!-- 🧯 화면 오류 · console.error / warn 을 오류 기록(tw-error.log)으로 — 맨 먼저(뒤 스크립트가 실리다 난 오류도 잡게) -->
 <script src="vendor/three/three.min.js"></script>
 <script src="vendor/three/GLTFLoader.js"></script>
 <script src="vendor/three/DRACOLoader.js"></script>
@@ -8373,6 +8385,7 @@
        (parts/firebase-init.js 끝부분). 그래서 node 로 따로 검사할 수 있다 — sim-purikura-net.js.
      ⚠️ firebase-init.js 는 type="module" 이라 이 classic 스크립트들보다 **늦게** 돈다.
        그래서 app.js 는 firebaseAPI.pkGet 이 아직 없을 수 있다고 보고 쓴다(_purikura() 참고). -->
+<script src="parts/shared/mac-tooltip.js"></script>   <!-- 💬 맥 설명 말풍선(window.TwMacTooltip) — 싣기만 하면 맥에서 스스로 건다 · app.js 보다 먼저 -->
 <script src="parts/shared/safe-html.js"></script>   <!-- 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳(window.TwSafeHtml — text · attr · safeUrl · cssUrl · cssColor) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/img-retry.js"></script>   <!-- 🖼 남의 그림을 한 번 더 받을 주소(window.TwImgRetry) — room-sync.js · animal.js · myhome-inbox.js · mallang.js 보다 먼저 -->
 <script src="parts/shared/ps1-dither.js"></script>   <!-- 🕹️ PS1 디더 규칙(색 단계 · Bayer 표) — 스티커사진 PS1 필터와 도트 모드가 같이 읽는다 · 둘보다 먼저 -->
@@ -8402,6 +8415,7 @@
 <script src="parts/room/seat-pin.js"></script>   <!-- 🪑 방에서 내 자리 «맨 오른쪽 고정»(window.TwSeatPin) — app.js 보다 먼저 -->
 <script src="parts/room/friend-visit.js"></script>   <!-- 🏠 친구 방에 놀러 가기(window.TwFriendVisit) — app.js 보다 먼저 -->
 <script src="parts/focus/gamepad-activity.js"></script>   <!-- 🎮 게임패드 버튼 · 스틱도 활동으로(window.TwGamepadActivity) — app.js 보다 먼저 -->
+<script src="parts/focus/focus-gate.js"></script>   <!-- 😴 «투게더워킹 창이 앞이면 안 잠듦» 규칙(window.TwFocusGate — 순수 함수) — app.js 보다 먼저 -->
 <script src="parts/creator/animal-edit-route.js"></script>   <!-- 🐾 동물 편집 길잡이(모양 → 책상 → 좌석) — app.js 보다 먼저 -->
 <script src="parts/shared/request-id.js"></script>   <!-- 🔁 요청 번호(window.TwRequestId — 같은 일 다시 보내기는 같은 번호) — 쓰는 모듈 · app.js 보다 먼저 -->
 <script src="parts/shared/device-id.js"></script>   <!-- 🖥️ 이 기기 id(window.TwDeviceId — tw.deviceId · X-Device-Id · realtime hello) — request-id.js 다음 · api-client.js 보다 먼저 -->
@@ -8447,6 +8461,7 @@
 <script src="parts/chat/chat-window.js"></script>   <!-- 💬 대화창 배선(닫기 · 최소화 · 끌기 · 크기 · 메뉴 · 버튼 · 입력 · 이모티콘) — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatWindow.createChatWindow 로 만든다) -->
 <script src="parts/myhome/inbox-sections.js"></script>   <!-- 📩 우편함 칸 나누기 규칙(우편 · 소식 · 순서 · 안 읽은 수 — 순수 함수) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/shared/drag-scroll.js"></script>   <!-- 🖱 목록 끌어 움직이기 — myhome-inbox.js 보다 먼저 -->
+<script src="parts/myhome/gift-save.js"></script>   <!-- 💾 받은 말랑이 선물 그림 저장(window.TwGiftSave) — myhome-inbox.js · app.js 보다 먼저 -->
 <script src="parts/myhome/myhome-inbox.js"></script>   <!-- 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(Ctrl+F 검색) — app.js 보다 먼저(app.js 가 원래 자리에서 TwMyHomeInbox.createMyHomeInbox 로 만든다) -->
 <script src="parts/myhome/inbox-api.js"></script>   <!-- 📩 우편 서버 길(/v1/me/notifications — 읽기 · 읽음 · 지우기) provider — mail-feed.js · app.js 보다 먼저(app.js 가 로그인 통로를 넘겨 만든다) -->
 <script src="parts/myhome/mail-feed.js"></script>   <!-- 📩 내 우편 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기) — app.js 보다 먼저(app.js 가 inbox-api 와 realtime 알림을 넘겨 만든다) -->
@@ -8485,6 +8500,7 @@
 <script src="parts/account/license-gate.js"></script>   <!-- 🎟️ 초대장 · 라이선스 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseGate.createLicenseGate 로 만든다) -->
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
 <script src="parts/character/wardrobe.js"></script>   <!-- 🎨 꾸미기 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWardrobe.createWardrobe 로 만든다) -->
+<script src="parts/shared/panel-fit.js"></script>   <!-- 📐 아래 기준 창을 화면 안으로 — settings-panel.js · status-chip.js 보다 먼저 -->
 <script src="parts/launcher/settings-panel.js"></script>   <!-- ⚙ 설정 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSettingsPanel.createSettingsPanel 로 만든다) -->
 <script src="parts/launcher/click-through-policy.js"></script>   <!-- 🖱 클릭 통과 판단 규칙(순수 함수 · main.js 도 require) — desktop-run.js 보다 먼저 -->
 <script src="parts/launcher/desktop-run.js"></script>   <!-- 🖥️ 데스크탑 실행 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDesktopRun.createDesktopRun 로 만든다) -->
@@ -8498,6 +8514,8 @@
 <script src="parts/room/room-lobby-model.js"></script>   <!-- 🗂️ 방 목록 로비 규칙(window.TwRoomLobbyModel — 카드 · 정렬 · 쪽 · 빠른시작) -->
 <script src="parts/room/room-lobby-provider.js"></script>   <!-- 🗂️ 로비가 읽는 것(window.TwRoomLobbyProvider — 지금은 Firebase 옛 길) -->
 <script src="parts/room/room-lobby-ui.js"></script>   <!-- 🗂️ 방 목록 로비 화면(window.TwRoomLobbyUi) — app.js 가 방 만들기 창 뒤에서 만든다 -->
+<script src="parts/room/recent-rooms.js"></script>   <!-- 🕘 최근 들어간 방 규칙 · 이 PC 저장(window.TwRecentRooms) — app.js 보다 먼저 -->
+<script src="parts/room/recent-rooms-ui.js"></script>   <!-- 🕘 로비 코드 칸의 최근 방 목록(window.TwRecentRoomsUi) — app.js 가 방 입장 모듈 뒤에서 만든다 -->
 <script src="parts/room/room-entry.js"></script>   <!-- 🛰 방 서버 · 입장 · 방 개수 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRoomEntry.createRoomEntry 로 만든다) -->
 <script src="parts/room/seat-label-drag.js"></script>   <!-- 🏷️ 이름표 · 경험치 바 끌어 자리 바꾸기(window.TwSeatLabelDrag) — app.js 보다 먼저 -->
 <script src="parts/room/label-measure.js"></script>   <!-- 📐 라벨 잰 값 기억 — overhead.js 보다 먼저(만들 때 TwLabelMeasure 를 부른다) -->
@@ -8511,6 +8529,7 @@
 <script src="parts/launcher/program-settings.js"></script>   <!-- ⚙️ 프로그램 설정 창 — app.js 보다 먼저(app.js 가 원래 자리에서 TwProgramSettings.createProgramSettings 로 만든다) -->
 <script src="parts/launcher/oss-licenses.js"></script>   <!-- 📄 오픈소스 라이선스 창 — app.js 보다 먼저(app.js 가 프로그램 설정 바로 뒤에서 TwOssLicenses.createOssLicenses 로 만든다) -->
 <script src="parts/chat/chat-prefs.js"></script>   <!-- 💬 채팅 투명도 · 알림음 · 기록 삭제 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatPrefs.createChatPrefs 로 만든다) -->
+<script src="vendor/dompurify/purify.min.js"></script>   <!-- 🛡️ DOMPurify 3.4.17 — rich-text.js 가 씻기에 쓴다 · 그보다 먼저 -->
 <script src="parts/shared/rich-text.js"></script>   <!-- 🛡️ 리치 텍스트 sanitize — app.js 보다 먼저(app.js 가 원래 자리에서 TwRichText.createRichText 로 만든다) -->
 <script src="parts/shared/sfx.js"></script>   <!-- 🔊 효과음 공장 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSfx.createSfx 로 만든다) -->
 <script src="parts/character/face-heal.js"></script>   <!-- 얼굴 자동 복구 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFaceHeal.createFaceHeal 로 만든다) -->
@@ -8587,6 +8606,8 @@
 <script src="parts/shared/toast.js"></script>   <!-- 🍞 토스트 · 저장 실패 문구 — app.js 보다 먼저(app.js 가 원래 자리에서 TwToast.createToast 로 만든다) -->
 <script src="parts/room/ride-tuning.js"></script>   <!-- 🎛️ 올라타기 · 묘기 튜닝 값 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRideTuning.createRideTuning 로 만든다) -->
 <script src="parts/character/char-measure.js"></script>   <!-- 📐 캐릭터 실측 — app.js 보다 먼저(app.js 가 원래 자리에서 TwCharMeasure.createCharMeasure 로 만든다) -->
+<script src="parts/character/rest-pose.js"></script>   <!-- 🧍 기본 자세로 잠깐 되돌려 재기 — app.js 보다 먼저(fitModel 이 TwRestPose 를 쓴다) -->
+<script src="parts/character/fit-watch.js"></script>   <!-- 🩺 다시 맞춘 높이 경고 — app.js 보다 먼저(fitModel 이 TwFitWatch 를 쓴다) -->
 <script src="parts/character/floor-snap-diag.js"></script>   <!-- 🩺 바닥 맞춤 진단 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFloorSnapDiag.createFloorSnapDiag 로 만든다) -->
 <script src="parts/character/seat-model-load.js"></script>   <!-- 📦 좌석 모델 싣기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatModelLoad.createSeatModelLoad 로 만든다) -->
 <script src="parts/character/seat-panel.js"></script>   <!-- 🎚️ 좌석 패널 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatPanel.createSeatPanel 로 만든다) -->

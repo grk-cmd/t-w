@@ -330,6 +330,8 @@ let failed = null;
    (스텁이 아니라 진짜 파일이다. 빠지면 app.js 가 첫 줄에서 «정의 안 됨» 으로 서는데, 그건 앱의 버그가 아니다) */
 const PRELOAD = ['human-ear.js', 'wd-ear.js'];
 /* safe-html.js — 🛡️ 화면에 넣는 값 씻기(window.TwSafeHtml). app.js escHtml · 모듈들이 부를 때 읽는다 — 맨 먼저. */
+/* mac-tooltip.js — 💬 맥 설명 말풍선. 싣기만 하면 맥에서 스스로 건다(smoke 무대는 맥이 아니라 안 건다). */
+PRELOAD.push('mac-tooltip.js');
 PRELOAD.push('safe-html.js');
 /* account-store.js — 🗂️ 계정별 로컬 칸(window.TwAccountStore). app.js 가 getMyUserId 바로 뒤에서 만들므로 그보다 먼저. */
 PRELOAD.push('account-store.js');
@@ -376,6 +378,8 @@ PRELOAD.push('input-diag.js');
 /* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
+/* gift-save.js — 💾 선물 그림 저장. app.js 가 수령함 모듈을 만들 때 TwGiftSave.createGiftSave 를 부르므로 진짜가 먼저 있게. */
+PRELOAD.push('gift-save.js');
 PRELOAD.push('myhome-inbox.js');
 /* inbox-api.js · mail-feed.js · notice-api.js · notice-feed.js — 📩 우편 · 📢 공지 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwInboxApi · TwMailFeed · TwNoticeApi · TwNoticeFeed 를 부른다. */
 PRELOAD.push('inbox-api.js');
@@ -452,6 +456,8 @@ PRELOAD.push('account.js');
 /* wardrobe.js — 🎨 꾸미기 창(앱 FSD 29번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createWardrobe 를 같이 굴린다. */
 PRELOAD.push('wardrobe.js');
 /* settings-panel.js — ⚙ 설정 패널(앱 FSD 27번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSettingsPanel 를 같이 굴린다. */
+/* panel-fit.js — 📐 아래 기준 창을 화면 안으로. settings-panel.js · status-chip.js 가 부른다. */
+PRELOAD.push('panel-fit.js');
 PRELOAD.push('settings-panel.js');
 /* update-flow.js — 🔄 켤 때 업데이트 흐름. app.js 가 초대 게이트 앞에서 createUpdateFlow 를 만들고 desktop-run.js 가 whenStageDone 을 받으므로 먼저 싣는다. */
 PRELOAD.push('update-flow.js');
@@ -472,6 +478,8 @@ PRELOAD.push('room-info-ui.js');   // 🏷️ 방 안 제목 줄 · [방 설정]
 PRELOAD.push('room-lobby-model.js');   // 🗂️ 방 목록 로비 규칙(TwRoomLobbyModel)
 PRELOAD.push('room-lobby-provider.js');   // 🗂️ 로비가 읽는 것(TwRoomLobbyProvider)
 PRELOAD.push('room-lobby-ui.js');   // 🗂️ 방 목록 로비 화면(TwRoomLobbyUi)
+PRELOAD.push('recent-rooms.js');      // 🕘 최근 방 규칙 · 저장(TwRecentRooms) — app.js 가 만든다
+PRELOAD.push('recent-rooms-ui.js');   // 🕘 로비 코드 칸 최근 방 목록(TwRecentRoomsUi)
 PRELOAD.push('room-entry.js');
 /* label-measure.js — 📐 라벨 잰 값 기억. overhead.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('label-measure.js');

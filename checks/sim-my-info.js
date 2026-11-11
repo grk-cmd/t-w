@@ -1,5 +1,5 @@
 /* ═══ 🪪 sim-my-info.js — 🪪 [내 정보] 화면 모듈 구조 (2026-10-14 신설 · 앱 FSD 17번) ═══════════════
-   app.js 의 «🪪 [내 정보] — 런처 화면 전환» · «🏆 [내 정보] 전체 랭킹» 두 구역 본문(702줄) 을 parts/account/my-info.js 로 옮겼다(글자 그대로 · 바뀐 줄 15 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(sim-signup.js · sim-google-login.js).
+   app.js 의 «🪪 [내 정보] — 런처 화면 전환» · «🏆 [내 정보] 전체 랭킹» 두 구역 본문(702줄 — 순위 칸은 뒤에 걷었다) 을 parts/account/my-info.js 로 옮겼다(글자 그대로 · 바뀐 줄 15 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(sim-signup.js · sim-google-login.js).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_acctRelaunchAfterDetach · _miIsOpen · _miSlotThumb · closeMyInfo · openMyInfo)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 53줄 그대로 · 부르는 곳은 myInfoMod.이름 · html(app.js 앞)
