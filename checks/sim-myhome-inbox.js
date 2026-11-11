@@ -86,12 +86,6 @@ function mkEnv(o){
   const companion = { openBrowser: (u) => env.opened.push(u) };
   const win = {
     firebaseAPI: api, companion, focus(){ env.focused++; },
-    _mallangGiftLimits: { max: 30, starMax: 20 },
-    _mallangIsGiftHidden: (k) => k === 'g-out',
-    _mallangGiftOrder: (g) => Object.keys(g).sort((a, b) => (g[b].ts || 0) - (g[a].ts || 0)),   // 🧸 mallang.js 가 부팅 때 건다 — 여기선 ⭐ 없이 최신순만
-    _mallangRespawnGift: (k, img, msg) => { env.respawn.push(k + '|' + img + '|' + msg); return env.respawnAns || 'ok'; },
-    _mallangDeleteGift: async (k) => { env.calls.push('deleteGift ' + k); return 'ok'; },
-    _mallangOpenGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
     _bugBoardOpen: (id) => env.bugOpen.push(id),
   };
   const ls = { getItem: (k) => env.store.has(k) ? env.store.get(k) : null, setItem: (k, v) => env.store.set(k, String(v)) };
@@ -128,6 +122,15 @@ function mkEnv(o){
     togglePin: async (id) => { const next = !(env.bc[id] && env.bc[id].pinned); env.calls.push('pin ' + id + ' ' + next); if(env.pinOk === false) return false; env.bc[id].pinned = next; return true; },   // 서버가 됐다 하면 다시 받아 판이 바뀐다
     sendBroadcast: async (o) => { env.calls.push('send ' + o.tag + ' ' + o.title + ' ' + !!o.pinned); return env.sendOk !== false; },
   };
+  /* 🧸 말랑이(mallang.js createMallang 의 반환값) 가짜 — 선물함 격자 · 보내기 창이 부르는 것만 */
+  env.mallangMod = {
+    giftLimits: { max: 30, starMax: 20 },
+    isGiftHidden: (k) => k === 'g-out',
+    giftOrder: (g) => Object.keys(g).sort((a, b) => (g[b].ts || 0) - (g[a].ts || 0)),   // 여기선 ⭐ 없이 최신순만
+    respawnGift: (k, img, msg) => { env.respawn.push(k + '|' + img + '|' + msg); return env.respawnAns || 'ok'; },
+    deleteGift: async (k) => { env.calls.push('deleteGift ' + k); return 'ok'; },
+    openGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
+  };
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({
     escHtml, toast: (m) => env.toasts.push(m), getMyUserId: () => 'ME01',
     mailFeed: env.mailFeed, noticeFeed: env.noticeFeed, INBOX_BC_READ_KEY: 'tw.inboxBcRead', isAdmin: () => env.admin,
@@ -136,6 +139,7 @@ function mkEnv(o){
     mhStripHtml: (h) => String(h || '').replace(/<[^>]*>/g, ''),
     starFromRemote: (f) => (f && f.star) ? { color: f.star, cyc: 2, lv: 7 } : null, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n,
     lvBadgeClass: (n) => 'lv' + n, openFriendHomeView: (fid) => env.homeView.push(fid), renderMhProfileRail: () => { env.profileRail++; },
+    mallangMod: env.mallangMod,
   }, extra || {}));
   return env;
 }
@@ -564,9 +568,10 @@ function wiring(MI, APP, HTML){
     /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
+    /^mallangMod: mallangMod,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 19개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 20개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');
