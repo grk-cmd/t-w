@@ -2113,18 +2113,17 @@
       const unsub = onValue(r, snap=> onChange(snap.val()||{}));
       return ()=>{ try{ unsub(); }catch(_){} };
     },
-    // 글 등록 후 30개 초과분은 오래된 것(ts 기준)부터 자동 삭제
+    /* 글 등록만 — 30개 넘은 옛 글 정리는 주인 앱이 한다(removeGuestbookEntries · guestbook.js).
+       ⚠️ 손님이 남의 글을 지우는 길은 규칙이 막는다(주인 · 글쓴이만) — 손님 앱이 정리하면 막혀 «등록 실패» 가 된다. */
     async addGuestbookEntry(userId, entry){
       const gid = 'g'+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
       await set(ref(db, `users/${userId}/guestbook/${gid}`), entry);
-      const snap = await get(ref(db, `users/${userId}/guestbook`));
-      const all = snap.val()||{};
-      const ids = Object.keys(all).sort((a,b)=>(all[a].ts||0)-(all[b].ts||0));
-      if(ids.length>30){
-        const updates={};
-        ids.slice(0, ids.length-30).forEach(id=>{ updates[`users/${userId}/guestbook/${id}`]=null; });
-        await update(ref(db), updates);
-      }
+    },
+    /* 방명록 글 여러 개 한 번에 지우기 — 주인 앱의 30개 정리 */
+    async removeGuestbookEntries(userId, ids){
+      const updates = {};
+      (ids || []).forEach(id=>{ updates[`users/${userId}/guestbook/${id}`] = null; });
+      if(Object.keys(updates).length) await update(ref(db), updates);
     },
     // 웹박수도 방명록과 같은 짝 — 해지 함수가 없으면 친구 홈의 박수 수/이미지가 내 홈에 남는다.
     /* ⚠️ 해지는 onValue 가 돌려준 함수를 그대로 부른다. 예전엔 그 반환값을 off(ref,'value',…) 의
