@@ -78,6 +78,22 @@
   - 통로는 쉬기를 끈 로그인 통로(`TwApi.authed` — 토큰은 firebase-init 이 `bindToken` 으로 잇는다)를 쓴다. 공용 `TwApi.client` 를 쓰면 쉬는 동안 다시 묻기가 묻지도 않고 끝나고, 이 경로 실패 하나가 원격 설정 · 공개 읽기까지 30초 쉬게 한다.
   - 응답 `truncated` 로 잘린 친구 · 서버 사본이 늦어 없는 친구는 이름이 자리표시('...')로 남는다 — 누가 친구인지는 옛 길 목록 구독(watchList)만 본다.
 
+## social-api.js — 친구 · 친구 요청 · 명함 서버 길 provider(0.13 · 아직 부르는 곳 없음)
+- 책임: 내 친구 목록(`GET /v1/me/friends` — 객체 배열) · 친구 한 명(`GET …/{code}`) · 끊기(`DELETE …/{code}`) · 친구 요청 목록(`GET /v1/me/friend-requests`) · 보내기 · 수락 · 거절 · 취소 · 명함 묶음(`GET /v1/myhomes/cards?codes=`)을 서버에서. 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양(친구 칸 `name · level · cyc · clv · starC · bio · avatar` · 시각 ms)으로 맞추는 곳은 여기뿐이다.
+  다음 PR 에서 포트(`friends-port.js`)가 이것을 쓰고, 옛 `friends-api.js`(옛 응답 모양 `{ friends:[{ id, … }] }` · 옛 공개 명함 · 다시 묻기 3번)는 걷는다.
+- 만드는 법(app.js — 다음 PR): `TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) })`. 만들 때 요청 없음.
+- 내보내는 것: `fetchFriends()` → `[{ userCode, addedAt, lastSeenAt }]`(오래 사귄 순 · ms · 마지막 접속 기록 없음 `null`) · `fetchFriend(code)` → 한 줄 | `null`(친구가 아님) · `removeFriend(code)` ·
+  `fetchRequests()` → `{ received, sent }`(코드 목록) · `sendRequest(to)` · `acceptRequest(from)` · `rejectRequest(from)` · `cancelRequest(to)` ·
+  `fetchCards(codes)` → `{ userCode: 명함 }`(없는 코드는 빠짐 · 100개씩 나눠 묻고 합침 · 빈 목록이면 요청 0) · `reset()`.
+- 실패: 한 번에 던진다(다시 묻지 않는다 — 다시 받기는 목록을 다시 열거나 realtime 알림 `friends` · `friendRequests` · `card` 가 올 때). «없음»(빈 목록 · 친구 아님 `null`)과 «못 받음»(던짐)을 가른다.
+  `failOf(err, TwApiErrors)` → `{ kind, code, message }` — `guide`(나 · 이미 친구 · 친구 100명 — 서버 문구) · `gone`(요청 · 친구가 이미 없음) · `missing`(없는 사람) · `site`(그 자리 E-FR 번호 · 닿지 못함 · 모양 틀림) · `stale`(계정 바뀜 · 받기 전 — 조용히) · `common`(공통 code — `apiErrors.notify`).
+- 함정:
+  - 쓰기는 **읽은 토큰의 주인**과 묶는다(`expectOwner`) — 내 친구 · 요청을 받기 전엔 `NOT_RECEIVED` 로 요청 0. 명함 · 친구 한 명 읽기는 주인을 남기지 않는다. 계정을 놓을 때 `reset()`.
+  - 나는 토큰으로만 — 경로 · 본문에 내 코드 · 이름을 싣지 않는다(보내기 본문은 `{ to }` 만).
+  - 이름이 없으면 `''` 그대로 — «(이름 없음)» 자리표시를 여기서 만들지 않는다(화면 한 곳 몫).
+  - 마지막 접속(`lastSeenAt`)은 데이터에만 싣는다 — 화면에 쓰지 않는다(설계 D3-Q1 «안 넣음»).
+  - 검사: `checks/sim-social-api.js`(가짜 통로 · 진짜 api-client · 진짜 api-errors · 깨 보기).
+
 ## friends-presence-rt.js — 접속 상태 provider(realtime 연결 하나 · `TwRtHub.store`)
 - 책임: 친구 접속 상태를 realtime 으로. 한 번 읽기 `readPresence(ids)` = `presenceGet`(한 번에 100명 — `PRESENCE_IDS_MAX` — 넘으면 나눠 보내고 합친다). 듣기 `watchPresence(ids, onChange, onStatus)` = `watch` 하나(처음 전체 → 그 뒤 **바뀐 친구만** 서버가 알려 줌 — 친구마다 구독하지 않는다) · 풀면 `unwatch`.
 - 만드는 법(app.js): `TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store })` — 포트의 `presence` 로 넘긴다. 만들 때 요청 · 구독 없음.

@@ -1,12 +1,11 @@
 /* report.js — 🚩 신고하기(좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 → 신고) · 신고 창 공용 도우미
-   app.js «🚩 신고하기» 구역의 사용자 몫을 그대로 옮긴 모듈이다(앱 FSD 11번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
-   관리자 신고 목록은 admin/admin-report.js 로 따로 옮겼다 — 이 파일의 도우미(창 틀 · 닫기 · 신고 종류 · 팝업 칸)를 받아 쓴다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 없다 — var 셋은 이 함수 안 지역 이름이 됐다(밖에서 쓰던 곳은 관리자 목록뿐).
+   관리자 신고 목록은 admin/admin-report.js — 이 파일의 도우미(창 틀 · 닫기 · 신고 종류 · 팝업 칸)를 받아 쓴다.
+   ★ 신고는 서버 길(report-api.js — POST /v1/reports) 하나로 보낸다. 신고한 사람은 서버가 토큰에서 정하니 내 이름 · 코드를 싣지 않는다.
+     성공하면 내 화면에서 그 사람을 숨기고(hidden-seats.js 의 같은 Set) 창을 닫는다. 실패하면 숨기지 않고 [신고] 를 다시 켠다 — 다시 보내지 않는다.
    ★ 팝업 칸(_reportOv · _reportEsc)은 신고 창과 관리자 목록이 함께 쓰는 «한 번에 하나만 열리는 자리»라 이 파일이 가진다.
      관리자 목록은 읽는 함수 · 쓰는 함수(ov · setOv · esc · setEsc)로만 만진다.
-   ★ app.js 함수 일곱은 화살표로, MY_FRIEND_CODE_KEY · _reportHiddenUids(앞에서 선언한 const — 같은 Set)는 값으로 받는다.
    ★ 밖에서 부르는 이름: openDialog(좌석 우클릭 메뉴 — reportMod.openDialog) · 관리자 목록용 close · box · KINDS · ADMIN_MIN · ov · setOv · esc · setEsc.
-   ⚠️ document · window · localStorage 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
+   ⚠️ document · window 는 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwReport — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-report.js · checks/sim-report-away.js */
 (function(){
@@ -16,10 +15,11 @@ const toast = deps.toast;
 const getMyUserId = deps.getMyUserId;
 const _seatLabelName = deps.seatLabelName;
 const _awayUrlOk = deps.awayUrlOk;             // 자리비움 그림 주소가 우리 Storage 인가
-const getDisplayName = deps.getDisplayName;
 const _reportHiddenSave = deps.reportHiddenSave;
-const _reportHiddenUids = deps.reportHiddenUids; // 신고해서 숨긴 uid(Set — app.js 의 같은 객체)
-const MY_FRIEND_CODE_KEY = deps.myFriendCodeKey;
+const _reportHiddenUids = deps.reportHiddenUids; // 신고해서 숨긴 사용자 코드(Set — hidden-seats.js 의 같은 객체)
+const reportApi = deps.reportApi;               // 🌐 신고 서버 길(TwReportApi — file(대상, 사유, 글) · failOf(오류) → 갈래)
+const apiErrors = deps.apiErrors;               // 🧭 공통 code → 할 일 · 번호(TwApiErrors.store — 로그인 풀림 · 점검 · 닿지 못함)
+const notifyError = deps.notifyError;           // 실패 번호 토스트(TwErrorCodes.notify)
 var REPORT_ADMIN_MIN = 3;
 var REPORT_KINDS = [
   { k:'char', label:'캐릭터 신고', sub:'모습 · 꾸미기', short:'캐릭터' },
@@ -28,9 +28,11 @@ var REPORT_KINDS = [
   { k:'etc',  label:'기타', sub:'', short:'기타' },
 ];
 var _reportOv = null, _reportEsc = null;
-function _myCode4(){
-  try{ return String(localStorage.getItem(MY_FRIEND_CODE_KEY) || '').slice(-4); }catch(_){ return ''; }
-}
+/* 실패 갈래(report-api.js failOf) → 안내 문구. self 는 창을 열 때 이미 막아 조용히 닫기만 · common 은 공통 표 · 그 밖은 E-RPT-01 */
+const FAIL_TEXT = {
+  noAwayImage: '그 분의 자리비움 그림이 이미 없어요',
+  noteRequired: '사유를 적어 주세요',
+};
 function _reportClose(){
   if(_reportEsc){ document.removeEventListener('keydown', _reportEsc, true); _reportEsc = null; }
   if(_reportOv){ try{ _reportOv.remove(); }catch(_){} _reportOv = null; }
@@ -99,18 +101,21 @@ function _openReportDialog(seat){
     if(!picked) return;
     const txt = (picked === 'etc') ? etc.value.trim().slice(0, 40) : '';
     if(picked === 'etc' && !txt){ toast('사유를 적어 주세요'); etc.focus(); return; }
-    const api = window.firebaseAPI;
-    if(!api || !api.reportUser){ toast('아직 준비 중이에요'); return; }
     go.disabled = true;
-    const res = await api.reportUser(target, me, { kind:picked, note:txt, nick:getDisplayName(), code4:_myCode4() });
-    if(res && res.ok){
-      _reportHiddenUids.add(target); _reportHiddenSave();
-      _reportClose();
-      toast('신고했어요 · 내 화면에서 이 분을 숨겼어요');
-    }else{
+    try{
+      await reportApi.file(target, picked, txt);
+    }catch(e){
+      const kind = reportApi.failOf(e);
+      if(kind === 'self'){ _reportClose(); return; }
       go.disabled = false;
-      toast(res && res.reason === 'auth' ? '로그인한 뒤에 신고할 수 있어요' : '신고하지 못했어요 — 잠시 뒤 다시 해 주세요');
+      if(Object.prototype.hasOwnProperty.call(FAIL_TEXT, kind)) toast(FAIL_TEXT[kind]);
+      else if(kind === 'common') apiErrors.notify(e);
+      else notifyError('E-RPT-01', e);
+      return;
     }
+    _reportHiddenUids.add(target); _reportHiddenSave();
+    _reportClose();
+    toast('신고했어요 · 내 화면에서 이 분을 숨겼어요');
   };
   _reportEsc = e=>{ if(e.key === 'Escape'){ e.stopPropagation(); _reportClose(); } };
   document.addEventListener('keydown', _reportEsc, true);
