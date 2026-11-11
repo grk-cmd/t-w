@@ -278,7 +278,7 @@
 | **sim-playlist.js** | 1062 | **3f0b76cd410d** |
 | **sim-playlist-api.js** | 307 | **f8441a9d1075** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
-| **sim-gift-api.js** | 297 | **c9c6cbbf8a6a** |
+| **sim-gift-api.js** | 320 | **872ecae229d6** |
 | **sim-mail-feed.js** | 341 | **59150658f261** |
 | **sim-notice-api.js** | 159 | **39c7ae06eabd** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |

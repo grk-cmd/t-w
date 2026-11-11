@@ -2,12 +2,13 @@
    책임: 내 말랑이 칸 읽기 · 통째 저장(GET · PUT /v1/me/mallangs) · 그림 올리기(POST /v1/me/images?purpose=mallang) · 남의 집 칸(GET /v1/mallangs/{userCode}) ·
      내 선물함(GET /v1/me/gifts) · 봤음(POST …/seen) · ⭐ · 치움(PATCH …/{id}) · 지우기(DELETE …/{id}) · 오늘 보낸 수(GET …/sent-today) ·
      그 집에 나온 선물(GET /v1/gifts/{userCode}) · 보내기(POST /v1/gifts/{userCode}).
-     서버 모양(slot 번호 · sentAt ISO)을 화면 모양(배열 차례 = 칸 번호 · sentAt ms)으로 맞추는 곳은 여기뿐이다.
+     서버 모양(sentAt ISO)을 화면 모양(sentAt ms)으로 맞추는 곳은 여기뿐이다.
+     칸 번호: 받은 칸은 서버 slot 을 그대로 들고 있다(0~3 안에서 겹치지만 않고 0 · 2 처럼 빌 수 있다) — 보내기는 이 번호를 쓴다. 칸 저장(PUT)만 배열 차례로 0부터 다시 매긴다.
    신원: 보낸 사람 · 내 칸은 서버가 토큰에서 정한다 — 본문에 내 코드 · 이름 · 날짜 · 그림 주소(보내기)를 싣지 않는다. 경로의 코드는 받는 사람 · 방문한 집(데이터 주소).
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · patch · del(…, { expectOwner }) → Promise<data>)
          warn(...a)(진단 로그)
    내보냄: createGiftApi(deps) → {
-     fetchMine() → Promise<{ slots:[{ imageUrl, enabled }], version }> — 저장한 적 없으면 빈 칸 · 판 0. 못 읽으면 던진다.
+     fetchMine() → Promise<{ slots:[{ slot, imageUrl, enabled }], version }> — 저장한 적 없으면 빈 칸 · 판 0. 못 읽으면 던진다.
      fetchOf(userCode) → 같은 모양(남의 집 — 주인 기억은 안 바꾼다)
      uploadImage(dataUrl) → Promise<url> — png · webp · 1MB 이하. 아니면 요청 없이 IMAGE_UPLOAD 로 던진다.
      saveMallangs(version, slots) → Promise<{ slots, version }> — 통째 저장 · 칸 번호는 배열 차례로 0부터 다시 매긴다.
@@ -15,7 +16,8 @@
      markSeen() · star(id, on) · hide(id, on) · remove(id) → Promise<void>
      fetchSentToday() → Promise<{ count, dailyMax }>
      fetchVisible(userCode) → Promise<{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }>
-     send(userCode, { requestId, slot, message }) → Promise<{ giftId, sentToday, dailyMax }> — requestId 는 부르는 쪽(TwRequestId pending)이 정한다.
+     send(userCode, { requestId, mallang, message }) → Promise<{ giftId, sentToday, dailyMax }> — mallang 은 fetchMine 이 준 칸 하나(본문 slot = 그 칸의 서버 번호).
+       requestId 는 부르는 쪽(TwRequestId pending)이 정한다. 메시지는 UTF-16 50자까지(이모지 짝을 깨지 않게 자른다).
      reset() — 읽은 토큰 주인 기억을 비운다(계정을 놓을 때)
    }
      순수: slotsOf · slotsBody · giftOf · boxOf · visibleOf · sentTodayOf · sentOf · sendBody · failOf · ERRORS · PATHS · LIMITS (TwGiftApi 위)
@@ -54,7 +56,7 @@ const ERRORS = Object.freeze({
   GIFT_NOT_FOUND: row(KIND.GONE),
   USER_NOT_FOUND: row(KIND.MISSING),
   GIFT_IMAGE_COPY_FAILED: row(KIND.SITE), GIFT_MALLANG_INVALID: row(KIND.SITE), GIFT_INVALID_STATE: row(KIND.SITE),
-  IMAGE_UPLOAD: row(KIND.SITE), SHAPE: row(KIND.SITE),
+  IMAGE_UPLOAD: row(KIND.SITE), SHAPE: row(KIND.SITE), BAD_SLOT: row(KIND.SITE),
   OWNER_CHANGED: row(KIND.STALE), NOT_RECEIVED: row(KIND.STALE),
 });
 const CONCURRENT_CODE = 'CONCURRENT_UPDATE';
@@ -91,18 +93,19 @@ function parseDataUrl(u){
   return { type: m[1], bytes };
 }
 
-/* 칸 응답 { slots:[{slot, imageUrl, enabled}], version } → { slots:[{imageUrl, enabled}] (slot 차례), version }. 모양이 틀리면 undefined */
+/* 칸 응답 { slots:[{slot, imageUrl, enabled}], version } → { slots:[{slot, imageUrl, enabled}] (slot 차례 · 서버 번호 그대로), version }. 모양이 틀리면 undefined */
 function slotsOf(d){
   if(!isObj(d) || !Array.isArray(d.slots) || !cnt(d.version) || d.slots.length > LIMITS.SLOTS) return undefined;
-  const list = [];
+  const list = [], seen = new Set();
   for(const s of d.slots){
-    if(!isObj(s) || !cnt(s.slot) || !nonEmpty(s.imageUrl) || typeof s.enabled !== 'boolean') return undefined;
+    if(!isObj(s) || !cnt(s.slot) || s.slot >= LIMITS.SLOTS || seen.has(s.slot) || !nonEmpty(s.imageUrl) || typeof s.enabled !== 'boolean') return undefined;
+    seen.add(s.slot);
     list.push(s);
   }
   list.sort((a, b) => a.slot - b.slot);
-  return { slots: list.map((s) => ({ imageUrl: s.imageUrl, enabled: s.enabled })), version: d.version };
+  return { slots: list.map((s) => ({ slot: s.slot, imageUrl: s.imageUrl, enabled: s.enabled })), version: d.version };
 }
-/* 칸 저장 본문 — 배열 차례로 0부터 다시 매긴다(지우면 뒤 칸이 당겨지는 화면 그대로) */
+/* 칸 저장 본문 — 들고 있던 서버 번호는 버리고 배열 차례로 0부터 다시 매긴다(지우면 뒤 칸이 당겨지는 화면 그대로) */
 function slotsBody(version, slots){
   return { version, slots: (slots || []).slice(0, LIMITS.SLOTS).map((s, i) => ({ slot: i, imageUrl: str(s && s.imageUrl), enabled: !!(s && s.enabled) })) };
 }
@@ -137,10 +140,20 @@ function sentOf(d){
   if(!isObj(d) || !nonEmpty(d.giftId) || !cnt(d.sentToday) || !cnt(d.dailyMax)) return undefined;
   return { giftId: d.giftId, sentToday: d.sentToday, dailyMax: d.dailyMax };
 }
-/* 보내기 본문 — 요청 번호 · 칸 · 메시지만(보낸 사람 · 이름 · 날짜 · 그림 주소는 서버가 정한다) */
+/* UTF-16 n 자까지 — 끝이 이모지 짝(서로게이트)의 앞 반쪽이면 그것도 뺀다(입력칸 maxlength · 서버 길이 셈과 같은 단위) */
+function clip(text, n){
+  let t = text.slice(0, n);
+  const last = t.charCodeAt(t.length - 1);
+  if(last >= 0xD800 && last <= 0xDBFF) t = t.slice(0, -1);
+  return t;
+}
+/* 보내기 본문 — 요청 번호 · 칸(고른 칸의 서버 번호) · 메시지만(보낸 사람 · 이름 · 날짜 · 그림 주소는 서버가 정한다).
+   칸 번호가 없으면 undefined — 화면 차례로 메우지 않는다(칸이 0 · 2 처럼 비면 다른 칸이 간다) */
 function sendBody(o){
-  const body = { requestId: str(o && o.requestId), slot: o && o.slot };
-  const msg = str(o && o.message).trim().slice(0, LIMITS.MESSAGE);
+  const slot = o && isObj(o.mallang) ? o.mallang.slot : undefined;
+  if(!cnt(slot) || slot >= LIMITS.SLOTS) return undefined;
+  const body = { requestId: str(o && o.requestId), slot };
+  const msg = clip(str(o && o.message).trim(), LIMITS.MESSAGE);
   if(msg) body.message = msg;
   return body;
 }
@@ -194,7 +207,9 @@ function createGiftApi(deps){
     fetchVisible: async (userCode) => need(visibleOf(await authed.get(PATHS.visible(needCode(userCode)), { auth: true }))),
     send: async (userCode, o) => {
       const code = needCode(userCode);
-      return need(sentOf(await write('보내기', (opts) => authed.post(PATHS.send(code), sendBody(o), opts))));
+      const body = sendBody(o);
+      if(!body) throw codeError('BAD_SLOT', '보낼 말랑이 칸이 없어요');
+      return need(sentOf(await write('보내기', (opts) => authed.post(PATHS.send(code), body, opts))));
     },
     reset: () => { epoch++; owner = undefined; },
   };
