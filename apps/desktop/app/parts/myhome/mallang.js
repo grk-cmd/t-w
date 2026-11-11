@@ -9,7 +9,7 @@
    · 방문 모드: 다른 폴더(좀아칼/캐릭터세팅/인벤토리)는 잠기지만 말랑이 폴더는 열림.
      방문자는 그 집 주인이 등록한 이미지로 자기 화면에 소환(각자 로컬).
    · 모듈 모양: window.TwMallang = { createMallang(deps) } — app.js 가 마이홈 수령함 모듈보다 먼저 만들고,
-     마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallang` 으로 받아 부른다.
+     마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallangMod` 로 받아 부른다.
      deps 4 — toast · getMyUserId · getDisplayName · premiumOn(프리미엄 판정 — app.js _premiumOn).
      본문은 예전 즉시 실행 함수 그대로다(들여쓰기도). 바뀐 것은 window 고리 열 개 → 반환값 · 전역 함수 넷 → deps 뿐.
    검사: checks/sim-mallang-module.js
