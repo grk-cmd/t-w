@@ -1075,17 +1075,7 @@
     },
 
     /* ===== 🚩 신고 (2026-09-23 · 시안 확정) =====
-       reports/{신고당한 uid}/{신고한 uid} = { kind, note?, nick, code4, ts }
-       ★ 한 사람이 같은 사람을 여러 번 신고해도 칸이 하나 — «서로 다른 몇 명» 이 곧 칸 수다.
-       ★ 규칙: 신고자 칸은 **로그인한 본인 것만**(userAuth/{신고자} === auth.uid) · 읽기와 비우기는 관리자만. */
-    async reportUser(targetId, reporterId, rec){
-      if(!targetId || !reporterId || targetId === reporterId) return { ok:false, reason:'self' };
-      if(!(auth && auth.currentUser)) return { ok:false, reason:'auth' };
-      const v = { kind: String(rec.kind||''), nick: String(rec.nick||'').slice(0,20), code4: String(rec.code4||'').slice(-4), ts: Date.now() };
-      if(rec.note) v.note = String(rec.note).slice(0,40);
-      try{ await set(ref(db, `reports/${targetId}/${reporterId}`), v); return { ok:true }; }
-      catch(e){ console.warn('[report] 실패', e); return { ok:false, reason:'denied' }; }
-    },
+       reports/{신고당한 uid}/{신고한 uid} — 관리자 목록만 남았다. 신고 쓰기는 서버 길(support/report-api.js — POST /v1/reports). */
     /* 관리자 — 전체 신고(대상별 묶음). 규칙상 관리자만 읽힌다. */
     async listReports(){
       try{ const v=(await get(ref(db, 'reports'))).val(); return { ok:true, reports: v || {} }; }

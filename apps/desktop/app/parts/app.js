@@ -8550,25 +8550,22 @@ const awayPicMod = TwAwayPic.createAwayPic({
   toast: (...a)=>toast(...a),
 });
 
-/* ═══ 🚩 신고하기 (2026-09-23 · 시안 확정) ═══════════════════════════════════════════════════════════
+/* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
    좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
-   ★ 서버: reports/{신고당한 uid}/{내 uid} = { kind, note?, nick, code4, ts } — 규칙이 «로그인한 본인 칸만» 쓰게 한다.
-     같은 사람을 또 신고하면 같은 칸을 덮는다 = 칸 수가 곧 «서로 다른 신고자 수».
-   ★ 신고자에 대해 남기는 것은 **닉네임 + 친구 코드 뒷자리 4자리 + 사유**뿐(요청).
+   ★ 신고는 서버 길(support/report-api.js — POST /v1/reports) — 신고한 사람은 서버가 토큰에서 정한다.
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
-   ★ 관리자 목록(_openReportAdmin)에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
-/* 본문은 둘로 나눠 옮겼다 — 신고 창 · 공용 도우미는 report.js(앱 FSD 11번), 관리자 신고 목록은 admin/admin-report.js.
-   팝업 칸(한 번에 하나만 열리는 자리)은 report.js 가 가지고, 관리자 목록은 읽는 · 쓰는 함수로만 만진다.
+   신고 창 · 공용 도우미는 report.js, 관리자 신고 목록은 admin/admin-report.js. 팝업 칸은 report.js 가 가진다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const reportMod = TwReport.createReport({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   reportHiddenSave: (...a)=>hiddenSeatsMod._reportHiddenSave(...a),
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
-  myFriendCodeKey: MY_FRIEND_CODE_KEY,
+  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 POST /v1/reports — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminReport = TwAdminReport.createAdminReport({
   toast: (...a)=>toast(...a),

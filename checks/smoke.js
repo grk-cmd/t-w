@@ -412,8 +412,8 @@ PRELOAD.push('admin-asset.js');
 /* admin/admin-mode.js — 🛠️ 🔐 관리자 모드 진입(관리자 코드 admin 폴더 7번). 같은 까닭 — 만들 때 하는 일(비밀번호 창 연결 · Ctrl+E · Ctrl·⌘+클릭 가로채기)과
    app.js 가 원래 자리에서 부르는 createAdminMode · 부팅 때 adminMode.refreshAdminVisibility 를 같이 굴린다. */
 PRELOAD.push('admin-mode.js');
-/* report.js · admin/admin-report.js — 🚩 신고하기 · 관리자 신고 목록(앱 FSD 11번). 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create 둘. */
-PRELOAD.push('report.js', 'admin-report.js');
+/* report-api.js · report.js · admin/admin-report.js — 🚩 신고 서버 길 · 신고하기 · 관리자 신고 목록. 같은 까닭 — 만들 때 하는 일(관리자 버튼 연결)과 create. */
+PRELOAD.push('report-api.js', 'report.js', 'admin-report.js');
 /* my-info.js — 🪪 [내 정보] 화면 · 🏆 랭킹(앱 FSD 17번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createMyInfo 를 같이 굴린다. */
 PRELOAD.push('my-info.js');
 /* slot-codec.js · closet-api.js · closet.js — 🧬 옷장(서버 원본). 같은 까닭 — 만들 때 하는 일(없음)과 app.js 가 원래 자리에서 부르는 create 셋을 같이 굴린다. */
