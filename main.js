@@ -2117,7 +2117,7 @@ const GPU_DETAIL_DELAY_MS = 10000;   // 'complete' 는 정보를 모으는 프�
 const RES_MS = 60 * 1000;
 const _resWatch = EnvDiag.createResourceWatch();
 let _resTimer = null;
-function _cpuThreads(){ try{ return (require('os').cpus() || []).length; }catch(_){ return 0; } }
+let _resFailLogged = false;   // [자원] 을 못 읽으면 첫 번만 남긴다 — «줄이 없음» 과 «실패» 를 가르게, 1분마다 같은 줄이 쌓이지 않게
 function _logEnvOnce(){
   try{
     const os = require('os');
@@ -2144,10 +2144,13 @@ function _resTick(){
     const w = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
     const mode = (!w || !w.isVisible() || w.isMinimized()) ? '숨김' : (_isConfigMode ? '런처' : '실행 화면');
     const os = require('os');
-    const sys = { cpu: EnvDiag.cpuTimes(os.cpus()), freeBytes: os.freemem(), totalBytes: os.totalmem() };
+    const cpus = os.cpus() || [];
+    const sys = { cpu: EnvDiag.cpuTimes(cpus), freeBytes: os.freemem(), totalBytes: os.totalmem() };
     const r = _resWatch.take(Date.now(), app.getAppMetrics(), w ? w.webContents.getOSProcessId() : null, sys);
-    if(r) _diagLog(EnvDiag.resourceLine(r, _cpuThreads(), mode));
-  }catch(_){}
+    if(r) _diagLog(EnvDiag.resourceLine(r, cpus.length, mode));
+  }catch(e){
+    if(!_resFailLogged){ _resFailLogged = true; _diagLog('[자원] 못 읽음 ' + (e && e.message)); }
+  }
 }
 function _startResourceWatch(){
   if(_resTimer) return;
