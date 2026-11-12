@@ -205,7 +205,6 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(!/createAppVersionGate|MIN_APP_VER_WAIT_MS/.test(fi), '  ↳ 앱 최소 버전 판정은 firebase-init 에 없다 — 켜는 흐름(shared/update-flow.js)이 원격 설정 첫 답으로 한다(sim-update-flow.js)');
     chk(/async getMinRoomVer\(\)\{\s*if\(!_rc\) return null;\s*try\{ await _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\); \}catch\(_\)\{\}\s*return _rc\.minRoomVer\(\);/.test(fi),
       '  ↳ 방 입장 최소 버전 — 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
-    chk(/getDailyMax: \(\) => _rc \? _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\)\.then\(\(\) => _rc\.bugDailyMax\(\)\) : null,/.test(fi), '  ↳ 제보 하루 상한도 원격 설정');
     chk(/const _cap = window\.TwRoomSettings\.roomCap\(_capturedMeta, \(window\.TwRemoteConfig && window\.TwRemoteConfig\.store\) \? window\.TwRemoteConfig\.store\.maxPeople\(\) : 10\);/.test(fi) && !/window\.MAX_PEOPLE/.test(fi),
       '  ↳ 정원 초과 자기 퇴장도 같은 store 의 정원(window.MAX_PEOPLE 안 씀)');
     chk(!/^\s*import\s/m.test(RC) && !/gstatic|getDatabase|require\(|fallbackRead/.test(strip(RC)), 'remote-config.js 는 Firebase 를 모른다(import · 비상 읽기 없음)');

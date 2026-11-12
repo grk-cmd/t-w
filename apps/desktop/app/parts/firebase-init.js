@@ -10,7 +10,7 @@
   import {
     getDatabase, ref as _dbRef, set as _sdkSet, update as _dbUpdate, remove as _sdkRemove, onValue as _sdkOnValue, off, onDisconnect, serverTimestamp, get as _sdkGet, runTransaction,
     push as _sdkPush, query as _sdkQuery, limitToLast as _sdkLimitToLast, orderByChild as _sdkOrderByChild, orderByKey as _sdkOrderByKey,
-    startAt as _sdkStartAt, endBefore, equalTo as _sdkEqualTo, onChildAdded, onChildChanged, goOffline, goOnline
+    startAt as _sdkStartAt, equalTo as _sdkEqualTo, onChildAdded, onChildChanged, goOffline, goOnline
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
@@ -39,7 +39,6 @@
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./shared/app-version.js";
-  import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
@@ -2522,11 +2521,6 @@
     ─────────────────────────────────────────────────────────── */
 
     // 이 uid가 이미 등록된 사용자인지 (친구 시스템을 쓴 적 있으면 profile/home 등이 남아있음)
-    /* 🐞 버그제보 게시판 — 경로 · 쿼리 · 묶음 쓰기는 bug-board.js 에 있다. 여기는 연결만. */
-    bugBoard: createBugBoard({ db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push,
-                               serverTs: () => serverTimestamp(),
-                               getDailyMax: () => _rc ? _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }).then(() => _rc.bugDailyMax()) : null,
-                               authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
     /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
