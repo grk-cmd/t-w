@@ -215,10 +215,6 @@ async function gate(fbi){
       && /  setVisible: \(v\)=>presenceSelfMod\.setVisible\(v\),\n  startVisible: \(v\)=>presenceSelfMod\.start\(v\),/.test(AP) && AP.indexOf('const presenceSelfMod') < AP.indexOf('const presenceLockMod') && /  presenceLock: presenceLockMod,\n/.test(AP), 'app.js — 마이홈 처음 준비보다 먼저 만들고 deps 로 넘긴다');
     chk(/firebaseAPI\.setMyPresenceOnline\(myId, presenceLock\.startOnlineFor\(myId, me\)\);/.test(INIT), 'myhome-init — 처음 온라인 여부를 접속 표시 등록에 넘긴다(확인의 me 로)');
     chk(!/mhPresenceToggle/.test(UI) && !/setMyPresenceState/.test(UI), 'myhome-ui — 옛 토글 연결을 걷었다(두 벌이면 한 번 누름에 두 번 바뀐다)');
-    const ld = FBI.slice(FBI.indexOf('async loadPresencePref('), FBI.indexOf('async savePresencePref('));
-    const sv = FBI.slice(FBI.indexOf('async savePresencePref('), FBI.indexOf('setMyPresenceState(userId, online){'));
-    chk(/get\(ref\(db, `presencePref\/\$\{userId\}`\)\)\)\.val\(\) \|\| \{\}; \}catch\(_\)\{ return null; \}/.test(ld) && /await _whenAuthReady\(\)/.test(ld)
-      && /set\(ref\(db, `presencePref\/\$\{userId\}`\), \{ lock: p\.lock === true, online: p\.online !== false, ts: serverTimestamp\(\) \}\)/.test(sv), 'firebase-init — 읽기(비어 있음 {} · 못 읽음 null) · 쓰기(lock · online · ts 세 칸)');
     let R = null; try{ R = JSON.parse(SRC['firebase/firebase-database-rules.json']).rules.presencePref.$userId; }catch(_){}
     const own = /^auth != null && root\.child\('userAuth\/'\+\$userId\)\.val\(\) === auth\.uid && /;
     chk(!!R && own.test(R['.read']) && own.test(R['.write']) && !/!root\.child\('userAuth/.test(R['.read'] + R['.write'])

@@ -73,7 +73,7 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 931 | **9a66d180dc67** |
+| **audit.py** | 930 | **351517787b89** |
 | **sim-session.js** | 221 | **37c9ae623d30** |
 | **smoke.js** | 749 | **1ad47a63d126** |
 | **sim-account-switch.js** | 368 | **8f34490871c4** |
@@ -393,7 +393,7 @@
 | **sim-license-key.js** | 124 | **132df15b9b32** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
 | **sim-myhome-init.js** | 165 | **2a0c11657b2b** |
-| **sim-presence-lock.js** | 260 | **6b1f56de53b3** |
+| **sim-presence-lock.js** | 256 | **7c51c56a0be1** |
 | **sim-parts-paths.js** | 85 | **09ed8a827e44** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
