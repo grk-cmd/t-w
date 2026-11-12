@@ -102,8 +102,8 @@
 | **sim-name-guard.js** | 42 | **9c89831d5c23** |
 | **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
-| **sim-fix-1008.js** | 433 | **be18ae241576** |
-| **sim-display-pick.js** | 171 | **537e0e66f93d** |
+| **sim-fix-1008.js** | 437 | **5430cf1c3ee1** |
+| **sim-display-pick.js** | 171 | **547c17431d42** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 88 | **e3705358c7eb** |
@@ -187,8 +187,9 @@
 | **sim-focus-gate.js** | 105 | **d13765baacc8** |
 | **sim-mac-0923.js** | 86 | **7987043b2649** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
-| **sim-overlay-gap.js** | 343 | **174f9cc83500** |
+| **sim-overlay-gap.js** | 345 | **eeee70a317a5** |
 | **sim-overlay-layered.js** | 361 | **fdb1ca616576** |
+| **sim-run-rect.js** | 76 | **21065ed3459c** |
 | **sim-part-color-entry.js** | 141 | **7a5beed8d5da** |
 | **sim-pk-fit.js** | 188 | **158c7cfabd07** |
 | **sim-pl-grab-pick.js** | 187 | **35923393acdd** |

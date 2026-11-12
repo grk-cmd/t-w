@@ -188,8 +188,10 @@ say('\n── 4. run 크기를 정하는 자리가 **전부** 이 함수를 거�
   chk(bare.length === 0, '★ 작업영역 높이를 그대로 쓰는 run 크기 지정이 하나도 없다' +
       (bare.length ? ' — ' + bare.length + '곳 남음' : ''));
   /* ★ 분리 후에는 정의가 모듈에, 호출이 main.js 에 있다. 한 파일만 세면 어느 쪽을 세든 모자란다. */
-  const viaHelper = (bothSrc.match(new RegExp(HEIGHT_FN + '\\(', 'g')) || []).length;
-  chk(viaHelper >= 4, HEIGHT_FN + ' 를 거치는 자리 ' + viaHelper + '곳 (정의 1 + 호출 3 이상)');
+  /* 세 자리는 _runRectOf(실행 창 자리 — launcher/run-rect.js) 한 곳을 부르고, 그 함수가 runOverlayHeight 를 거친다 */
+  chk(/function _runRectOf\(d\)\{[^\n]*overlay\.runOverlayHeight\(/.test(src), '_runRectOf 가 ' + HEIGHT_FN + ' 를 거친다');
+  const viaHelper = (src.match(/_runRectOf\(/g) || []).length;
+  chk(viaHelper >= 4, '_runRectOf 를 거치는 자리 ' + viaHelper + '곳 (정의 1 + 호출 3 이상)');
 
   /* 크기를 정하는 자리 셋. 하나라도 빠지면 그 경로에서만 조용히 재발한다.
      ⚠️ 첫 등장만 보면 안 된다 — 그 자리가 주석이거나 선언이면 본체를 놓친다. 등장 **전부**를 본다.
@@ -218,7 +220,7 @@ say('\n── 4. run 크기를 정하는 자리가 **전부** 이 함수를 거�
     let found = false, viaIt = false;
     for (let i = src.indexOf(where); i >= 0; i = src.indexOf(where, i + 1)) {
       found = true;
-      if (new RegExp(HEIGHT_FN + '\\(').test(bodyFrom(src, i))) { viaIt = true; break; }
+      if (new RegExp('(' + HEIGHT_FN + '|_runRectOf)\\(').test(bodyFrom(src, i))) { viaIt = true; break; }
     }
     if (!found) { huh(label + ' 자리를 못 찾음 — 사라진 것이면 ✗ 다. 개명된 것이면 이 목록을 고칠 것'); continue; }
     chk(viaIt, label + ' 가 ' + HEIGHT_FN + ' 를 거친다');

@@ -155,7 +155,7 @@ chk(/runDisplayName = _displayName\(target\);/.test(mv) && /runDisplayNameUnique
 chk(/typeof data\.runDisplayName === 'string'/.test(MAIN) && /\.slice\(0, DISPLAY_NAME_MAX\)/.test(MAIN) && /runDisplayWasPrimary, runDisplayName,/.test(MAIN), '  설정 파일 읽기(문자열 · 공백 · 200자) · 쓰기');
 chk(/screen\.on\('display-metrics-changed', _onDisplaysChanged\);/.test(MAIN) && /screen\.on\('display-added', _onDisplaysChanged\);/.test(MAIN) && /screen\.on\('display-removed', _onDisplaysChanged\);/.test(MAIN),
   '★ 모니터 연결 · 해제도 같은 처리기 — 실행 중에 다시 찾아 옮긴다(예전엔 표시 설정 변경만)');
-chk(/const d = getRunDisplay\(\);/.test(MAIN.slice(MAIN.indexOf('const _onDisplaysChanged = () => {'))), '  처리기는 실행 화면이면 getRunDisplay 로 다시 찾는다');
+chk(/_runRectOf\(getRunDisplay\(\)\)/.test(MAIN.slice(MAIN.indexOf('const _onDisplaysChanged = () => {'))), '  처리기는 실행 화면이면 getRunDisplay 로 다시 찾는다(실행 창 자리 _runRectOf 로)');
 
 say('\n── 4절: 깨 보기');
 const noNameFirst = behave(MAIN.replace("      if(!shape || _displayShape(byName[0]) === shape) return { display: byName[0], stage: 'name', strong: true };\n", ''));

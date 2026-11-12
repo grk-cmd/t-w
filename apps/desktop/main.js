@@ -97,6 +97,10 @@ const HoverPoke = require('./hover-poke');
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+/* 🖥️ 실행 창 자리 — 실행 진입 · 모니터 바꾸기 · 표시 설정 바뀜이 같은 사각형을 쓴다. 🧪 --tw-run-band 시험 스위치도 여기서 읽는다 */
+const RunRect = require('./app/parts/launcher/run-rect');
+const _runBand = RunRect.parseBand(process.argv);
+function _runRectOf(d){ return RunRect.runRect(d.workArea, overlay.runOverlayHeight(d.workArea.height, d), _runBand); }
 const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
 const FrontDiag = require('./app/parts/shared/front-diag');   // 🩺 1분 [프레임] 줄 끝에 앞 창 · 전체화면 비율(게임 · 영상 버벅임 제보)
 const { isSystemPrompt } = require('./app/parts/shared/system-prompt');   // 🔐 앱스토어 · 암호 확인 창이 맨 앞이면 실행 화면을 내린다
@@ -2037,8 +2041,6 @@ function _applyConfigMode(isConfig, mode, extra){
   } else {
     display = getRunDisplay();
   }
-  const wa = display.workAreaSize;
-  const waPos = display.workArea;   // {x, y, width, height} — 전역 좌표계에서의 작업영역(멀티모니터 대응)
   if (isConfig) {
     // 설정 화면: mode에 따라 크기 다름. 사용자가 옮긴 적 있으면 그 위치, 없으면 선택된 모니터 중앙.
     /* 🎨 스티커 여백 — 크기(_modeSize)가 읽으니 재기 전에 바꾼다. 옛 렌더러(셋째 인자 없음)면 0 */
@@ -2083,8 +2085,8 @@ function _applyConfigMode(isConfig, mode, extra){
     _noteApplied(cfgRect, false);       // 🩺 OS 가 크기를 깎아도 같은 요청이 반복되지 않게
   } else {
     // 실행 화면: 선택된 모니터를 꽉 채우는 전체화면 투명 오버레이 (전역 좌표 x/y 포함 → 2번 모니터도 정확히 이동)
-    // ★ 높이는 overlay.runOverlayHeight 를 거친다 — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
-    const runRect = { x: waPos.x, y: waPos.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, display) };
+    // ★ 높이는 overlay.runOverlayHeight 를 거친다(_runRectOf) — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
+    const runRect = _runRectOf(display);
     /* 🔁 이미 그 상태면 아무것도 하지 않는다(_winAlreadyIs 주석 — 실측 906회/30분).
        setBounds·setAlwaysOnTop 을 다시 부르는 것 자체가 뒤 창의 합성을 흔든다. */
     const wantTop = !_sysPromptFront;   // 🔐 시스템 확인 창(앱스토어 · 암호)이 맨 앞인 동안은 내려 둔다 — 덮으면 그 칸이 비어 보인다(app/parts/shared/system-prompt.js)
@@ -2150,7 +2152,7 @@ function _watchRendererHealth(win){
      알아야 CPU 합성으로 넘기지 않는 방법(아래 GPU_TEST_SWITCHES) 중 무엇을 토글에 넣을지 정할 수 있다.
    ★ 제보자가 바로가기 끝에 붙여 시험한 스위치가 실제로 먹었는지도 같은 줄에 남긴다.
    ⚠️ getGPUFeatureStatus 는 gpu-info-update 전에는 '?' 가 섞인다 — 그 이벤트(또는 화면 로드 + 1.5초) 뒤에 한 번만 찍는다. */
-const GPU_TEST_SWITCHES = ['force_high_performance_gpu', 'use-angle', 'disable-direct-composition', 'disable-gpu', 'disable-gpu-compositing'];
+const GPU_TEST_SWITCHES = ['force_high_performance_gpu', 'use-angle', 'disable-direct-composition', 'disable-gpu', 'disable-gpu-compositing', RunRect.BAND_SWITCH];
 const GPU_VENDORS = { 0x10de: 'NVIDIA', 0x1002: 'AMD', 0x8086: 'Intel', 0x1414: 'Microsoft(기본/원격)', 0x15ad: 'VMware' };
 let _gpuLogged = false;
 function _gpuSummary(info, feat, sw){
@@ -3726,7 +3728,6 @@ function createWindow() {
     if(mainWindow && !mainWindow.isDestroyed()){
       const b = mainWindow.getBounds();
       const curMode = sizeToMode(b.width, b.height);   // 'launcher'|'creator'|null(=run 크기)
-      const wa = target.workArea;
       if(curMode){
         // 런처/생성기: 선택 모니터 중앙으로 옮기고 그 위치를 새 기준으로 저장
         /* 📐 줌 걸린 크기로, 작업영역에 맞춰 — 직접 setBounds 하면 _fittedSize 가 안 남아 다음 sizeToMode 가 못 알아본다. */
@@ -3735,8 +3736,7 @@ function createWindow() {
         _rememberPos(curMode, mvc);
       } else {
         // run(전체화면): 그 모니터 작업영역 꽉 채움
-        // ★ 높이는 overlay.runOverlayHeight 를 거친다 — 동영상 검어짐 대응(근거는 overlay-win.js 상단). 원래 크기로 되돌리지 말 것.
-        const mvRect = { x: wa.x, y: wa.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, target) };
+        const mvRect = _runRectOf(target);   // 실행 진입과 같은 사각형(run-rect.js)
         mainWindow.setBounds(mvRect);
         _noteApplied(mvRect, mainWindow.isAlwaysOnTop());
         overlay.logGeometry('모니터 변경');
@@ -3984,9 +3984,7 @@ function createWindow() {
         return;
       }
       try{
-        const d = getRunDisplay();
-        const wa = d.workArea;
-        const rect = { x: wa.x, y: wa.y, width: wa.width, height: overlay.runOverlayHeight(wa.height, d) };
+        const rect = _runRectOf(getRunDisplay());   // 실행 진입과 같은 사각형(run-rect.js)
         if(_winAlreadyIs(rect, !_sysPromptFront)) return;   // 이미 맞다 — 건드리지 않는다(확인 창이 맨 앞이면 내려 둔 것이 맞다)
         mainWindow.setBounds(rect);
         _noteApplied(rect, !_sysPromptFront);
