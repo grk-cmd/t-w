@@ -1722,19 +1722,20 @@ function _guardGhostPassthrough(quietFor){
    ⚠️ 이건 로그가 넘치는 것에 대한 **대비**이지 해결이 아니다. 같은 줄이 83번 찍히는 것 자체는
      GHOST_MAX_POKES(위 유령 감시)가 막는다. 여기가 조용해졌다고 그쪽을 되돌리면 안 된다. */
 const DIAG_MAX_BYTES = 256 * 1024;
+const _diagHeader = EnvDiag.createHeaderKeep();   // [환경] · [GPU] · [GPU 상세] — 돌려 쓴 새 파일 첫머리에 다시 적는다
+const _diagIo = {
+  exists: (p) => fs.existsSync(p), size: (p) => fs.statSync(p).size, unlink: (p) => fs.unlinkSync(p),
+  rename: (a, b) => fs.renameSync(a, b), append: (p, t) => fs.appendFileSync(p, t, 'utf8'),
+};
 function _diagLog(msg){
   try{
     if(!app.isReady()) return;
     const f = path.join(app.getPath('userData'), 'tw-mouse-diag.log');
+    const stamp = new Date().toISOString();
+    _diagHeader.note(msg);
     /* 상한을 넘겼으면 .1 로 밀고 새 파일로 시작한다(실패해도 기록은 계속 — 회전은 편의지 필수가 아니다). */
-    try{
-      if(fs.existsSync(f) && fs.statSync(f).size > DIAG_MAX_BYTES){
-        const old = f + '.1';
-        try{ if(fs.existsSync(old)) fs.unlinkSync(old); }catch(_){}
-        fs.renameSync(f, old);
-      }
-    }catch(_){}
-    const line = '[' + new Date().toISOString() + '] ' + msg
+    try{ EnvDiag.rotateKeep(_diagIo, f, DIAG_MAX_BYTES, _diagHeader.lines(), stamp); }catch(_){}
+    const line = '[' + stamp + '] ' + msg
       + ' | config=' + _isConfigMode + ' ignore=' + _lastIgnoreRequested
       + ' pen=' + _penAppActive + ' fwd=' + _fwdApplied + '\n';   // fwd — 펜 앱에서 forward 를 껐는지(펜 씹힘 제보 확인용)
     fs.appendFileSync(f, line, 'utf8');

@@ -1,7 +1,7 @@
 /* ═══ 🩺 env-diag.js — 환경 · 자원 진단(켤 때 [환경] · [GPU 상세] 한 줄씩 · 1분마다 [자원] 한 줄) ══════════════
-   «같은 앱이 어떤 PC 에선 CPU 0.2%, 어떤 PC 에선 4~22%» 제보를 진단 기록 두 장으로 가르려는 진단이다 —
+   «같은 앱이 PC 마다 CPU 가 크게 다르다» 제보를 진단 기록 두 장으로 가르려는 진단이다 —
    어떤 PC 인지(OS · CPU · 메모리 · 모니터 · 실제로 그리는 그래픽 장치)와, CPU · 메모리를 어느 프로세스가 쓰는지.
-   main 만 싣는다. 순수 계산만 — 받은 값을 한 줄 글로 만든다(검사 sim-env-diag.js).
+   main 만 싣는다. 받은 값을 한 줄 글로 만들고, 진단 기록을 돌려 쓸 때 그 머리 줄을 새 파일에 다시 적는다(파일은 받은 io 로만 — 검사 sim-env-diag.js).
    ★ CPU 는 프로세스마다 «시작 뒤 쓴 CPU 초(cumulativeCPUUsage)» 의 차이로 셈한다 — percentCPUUsage 는
      «지난 호출 뒤 평균» 이라 다른 곳이 부르면 구간이 바뀌고, 코어 하나 기준인지 PC 전체 기준인지 문서에 없다.
      적는 % 는 작업 관리자와 같은 PC 전체 기준(코어 몫 ÷ 논리 프로세서 수). */
@@ -11,6 +11,9 @@
 const RES_TAG = '[자원]';
 const KB_PER_MB = 1024;          // getAppMetrics 메모리 단위는 KB
 const STR_MAX = 120;             // 장치 이름 같은 바깥 글의 길이 상한
+/* 켤 때 한 번만 남는 «어떤 PC 인가» 줄 — 진단 기록을 돌려 쓰면 새 파일 첫머리에 다시 적는다(rotateKeep) */
+const HEADER_TAGS = ['[환경]', '[GPU]', '[GPU 상세]'];
+const REWRITE_NOTE = ' (기록을 돌려 써서 다시 적음)';
 const BUCKETS = [                // [자원] 줄에 적는 순서 · 이름
   ['main', '메인'], ['gpu', 'GPU'], ['view', '화면'], ['tabs', '다른 화면'], ['rest', '기타'],
 ];
@@ -135,7 +138,31 @@ function resourceLine(r, threads, mode){
     + ' · 메모리 합 ' + Math.round(mbSum) + 'MB · ' + mem.join(' · ') + pc;
 }
 
-const api = { RES_TAG, KB_PER_MB, STR_MAX, BUCKETS, envLine, gpuDetailLine, cpuTimes, createResourceWatch, resourceLine };
+/* 머리 줄 기억 — 태그마다 마지막 줄 하나. note(msg) 는 진단 줄마다 불러도 된다(머리 태그로 시작하는 줄만 남긴다) */
+function createHeaderKeep(){
+  const kept = new Map();
+  function note(msg){
+    const m = String(msg == null ? '' : msg);
+    const tag = HEADER_TAGS.find(t => m.indexOf(t + ' ') === 0);
+    if(tag) kept.set(tag, m);
+  }
+  function lines(){ return HEADER_TAGS.filter(t => kept.has(t)).map(t => kept.get(t)); }
+  return { note, lines };
+}
+
+/* 진단 기록 돌려쓰기 — 상한을 넘었으면 지난 .1 을 지우고 지금 파일을 .1 로 민 뒤, 새 파일 첫머리에 머리 줄을 다시 적는다.
+   io: { exists, size, unlink, rename, append }(fs 를 감싼 것 — 검사가 가짜를 넣는다) · stamp: 줄 머리 시각 글. 돌렸으면 true.
+   [왜] 1분 [자원] 줄 때문에 반나절이면 파일이 돈다 — 오래 켜 두고 보낸 기록에 정작 «어떤 PC 인지» 가 없게 된다. */
+function rotateKeep(io, f, maxBytes, headerLines, stamp){
+  if(!(io.exists(f) && io.size(f) > maxBytes)) return false;
+  const old = f + '.1';
+  try{ if(io.exists(old)) io.unlink(old); }catch(_){}
+  io.rename(f, old);
+  for(const h of (Array.isArray(headerLines) ? headerLines : [])) io.append(f, '[' + stamp + '] ' + h + REWRITE_NOTE + '\n');
+  return true;
+}
+
+const api = { RES_TAG, KB_PER_MB, STR_MAX, BUCKETS, HEADER_TAGS, REWRITE_NOTE, envLine, gpuDetailLine, cpuTimes, createResourceWatch, resourceLine, createHeaderKeep, rotateKeep };
 if(typeof window !== 'undefined') window.TwEnvDiag = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -7,8 +7,9 @@
           새로 뜬 프로세스 · 다시 쓰인 pid · 누적 값이 없으면 «일부 모름» · 메모리 KB → MB
    ・2절: resourceLine — PC 전체 기준 % (코어 몫 ÷ 논리 수) · 기준 잡는 중 · 논리 수 모름
    ・3절: envLine · gpuDetailLine — 물리 해상도 · Hz · 주 · 실행 모니터 · 빈 값은 «모름» · 줄바꿈 · 길이 상한
-   ・4절: 깨 보기 — 갈래를 하나씩 지운 모듈로 1~3절을 다시 돌려 빨강이 나는지
-   ・5절: 배선 — main 이 싣고 · GPU 줄 뒤 [환경] · 미뤄서 [GPU 상세] · 창을 만들 때 1분 [자원] 시작 · 끌 때 타이머 내림 */
+   ・3-2절: createHeaderKeep · rotateKeep — 가짜 파일로 돌려 쓴 뒤 새 파일 첫머리에 [환경] · [GPU] · [GPU 상세] 가 다시 있는지
+   ・4절: 깨 보기 — 갈래를 하나씩 지운 모듈로 1~3-2절을 다시 돌려 빨강이 나는지
+   ・5절: 배선 — main 이 싣고 · GPU 줄 뒤 [환경] · 미뤄서 [GPU 상세] · 창을 만들 때 1분 [자원] 시작 · 끌 때 타이머 내림 · 진단 기록 돌려쓰기가 머리 줄을 다시 적음 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -86,6 +87,38 @@ function runEnv(E){
 const ENV_MSG = ['[환경] — 해상도는 배율을 곱한 물리 값 · Hz 반올림 · 주 · 실행 모니터', '빈 값은 «모름»', '바깥 글은 한 줄 · 길이 상한',
   '[GPU 상세] — overlayInfo 안의 칸을 읽는다', 'auxAttributes 바로 아래 칸도 읽는다 · optimus → 겹친 그래픽', '정보가 없으면 칸마다 «모름»', 'false 는 false 로(모름으로 지우지 않는다)'];
 
+/* 가짜 파일 — 이름 → 글 */
+function fakeIo(){
+  const files = new Map();
+  return { files,
+    exists: (p) => files.has(p), size: (p) => Buffer.byteLength(files.get(p) || ''),
+    unlink: (p) => { files.delete(p); }, rename: (a, b) => { files.set(b, files.get(a)); files.delete(a); },
+    append: (p, t) => { files.set(p, (files.get(p) || '') + t); } };
+}
+function runRotate(E){
+  const r = [];
+  const k = E.createHeaderKeep();
+  k.note('[GPU] NVIDIA 0x2484(사용 중)'); k.note('[환경] 앱 0.12.4 · CPU i7-10700K(논리 16)'); k.note('[자원] 60초 · 런처'); k.note('[GPU 상세] 그리는 장치 ANGLE (NVIDIA, RTX 3070)');
+  k.note('[환경] 앱 0.12.4 · CPU i7-10700K(논리 16) · 두 번째'); k.note(null); k.note('x [환경] 가운데');
+  const hl = k.lines();
+  r.push(hl.length === 3 && hl[0] === '[환경] 앱 0.12.4 · CPU i7-10700K(논리 16) · 두 번째' && hl[1] === '[GPU] NVIDIA 0x2484(사용 중)' && hl[2] === '[GPU 상세] 그리는 장치 ANGLE (NVIDIA, RTX 3070)');   // 0 태그마다 마지막 하나 · 순서 고정 · [자원] 은 안 남김
+  const io = fakeIo(); const f = 'log';
+  io.files.set(f, 'x'.repeat(100)); io.files.set(f + '.1', 'oldest');
+  const rot = E.rotateKeep(io, f, 50, hl, 'T');
+  r.push(rot === true && io.files.get(f + '.1') === 'x'.repeat(100));                                   // 1 넘으면 .1 로 밀고 더 오래된 .1 은 지움
+  const head = io.files.get(f) || '';
+  r.push(head.split('\n').filter(Boolean).length === 3 && head.indexOf('[T] [환경] 앱 0.12.4') === 0 && head.indexOf('[GPU 상세]') > 0 && head.indexOf(E.REWRITE_NOTE) > 0);   // 2 새 파일 첫머리에 머리 줄 셋
+  const io2 = fakeIo(); io2.files.set(f, 'short');
+  r.push(E.rotateKeep(io2, f, 50, hl, 'T') === false && io2.files.get(f) === 'short' && !io2.files.has(f + '.1'));   // 3 상한 안이면 그대로
+  const io3 = fakeIo();
+  r.push(E.rotateKeep(io3, f, 50, hl, 'T') === false && !io3.files.has(f));                             // 4 파일이 없으면 아무것도 안 함
+  const io4 = fakeIo(); io4.files.set(f, 'y'.repeat(100));
+  r.push(E.rotateKeep(io4, f, 50, [], 'T') === true && !io4.files.has(f));                               // 5 머리 줄이 없으면 새 파일을 만들지 않음(다음 줄이 만든다)
+  return r;
+}
+const ROT_MSG = ['머리 줄은 태그마다 마지막 하나 · [환경] · [GPU] · [GPU 상세] 순 · [자원] · 가운데 든 태그는 안 남김', '상한을 넘으면 지금 파일을 .1 로 밀고 더 오래된 .1 은 지운다',
+  '돌려 쓴 새 파일 첫머리에 [환경] · [GPU] · [GPU 상세] 가 다시 있다(다시 적었다는 표시와 함께)', '상한 안이면 아무것도 안 바꾼다', '파일이 없으면 아무것도 안 한다', '기억한 머리 줄이 없으면 새 파일을 미리 만들지 않는다'];
+
 const E = load(MOD);
 say('── 1. createResourceWatch');
 runWatch(E).forEach((ok, i) => chk(ok, WATCH_MSG[i]));
@@ -93,6 +126,9 @@ say('── 2. resourceLine');
 runLine(E).forEach((ok, i) => chk(ok, LINE_MSG[i]));
 say('── 3. envLine · gpuDetailLine');
 runEnv(E).forEach((ok, i) => chk(ok, ENV_MSG[i]));
+
+say('── 3-2. createHeaderKeep · rotateKeep');
+runRotate(E).forEach((ok, i) => chk(ok, ROT_MSG[i]));
 
 say('── 4. 깨 보기');
 const breaks = [
@@ -105,6 +141,9 @@ const breaks = [
   ['PC 전체 CPU 를 쉰 시간까지 바쁨으로 셈', MOD.replace('busy += all - idle;', 'busy += all;'), runWatch],
   ['메모리 KB 를 MB 로 안 바꿈', MOD.replace('const KB_PER_MB = 1024;', 'const KB_PER_MB = 1;'), runWatch],
   ['배율을 안 곱함(논리 해상도)', MOD.replace('Math.round(w * scale)', 'Math.round(w)'), runEnv],
+  ['돌려 쓴 뒤 머리 줄을 안 적음', MOD.replace("for(const h of (Array.isArray(headerLines) ? headerLines : [])) io.append(f, '[' + stamp + '] ' + h + REWRITE_NOTE + '\\n');", ''), runRotate],
+  ['줄 가운데 든 태그도 머리 줄로 남김', MOD.replace("m.indexOf(t + ' ') === 0", "m.indexOf(t + ' ') >= 0"), runRotate],
+  ['오래된 .1 을 안 지우고 덮어씀 없이 밂', MOD.replace("const old = f + '.1';", "const old = f + '.2';"), runRotate],
   ['false 를 모름으로', MOD.replace("if(v !== undefined && v !== null && v !== '') return v;", 'if(v) return v;'), runEnv],
 ];
 for (const [name, src, run] of breaks) {
@@ -126,6 +165,10 @@ chk(/if\(!_resFailLogged\)\{ _resFailLogged = true; _diagLog\('\[자원\] 못 �
 chk(/'숨김'/.test(tick) && /_isConfigMode \? '런처' : '실행 화면'/.test(tick), '[자원] — 런처 · 실행 화면 · 숨김 어디서든 남긴다');
 chk(/_resTimer = setInterval\(_resTick, RES_MS\);/.test(code) && /const RES_MS = 60 \* 1000;/.test(code) && /_startResourceWatch\(\);/.test(code), '창을 만들 때 1분 타이머 하나');
 chk(/function _exitNow\(\)\{[\s\S]*?if\(_resTimer\)\{ clearInterval\(_resTimer\); _resTimer = null; \}[\s\S]*?app\.exit\(0\)/.test(code) && /app\.on\('before-quit'[^\n]*if\(_resTimer\)\{ clearInterval\(_resTimer\); _resTimer = null; \}/.test(code), '끌 때(바로 끝내기 · before-quit) 타이머를 내린다');
+
+const dl = (code.match(/function _diagLog\(msg\)\{[\s\S]*?\n\}/) || [''])[0];
+chk(/const _diagHeader = EnvDiag\.createHeaderKeep\(\);/.test(code) && /_diagHeader\.note\(msg\);/.test(dl) && /EnvDiag\.rotateKeep\(_diagIo, f, DIAG_MAX_BYTES, _diagHeader\.lines\(\), stamp\)/.test(dl), '진단 기록 — 줄마다 머리 줄을 기억하고, 돌려 쓸 때 rotateKeep 이 새 파일 첫머리에 다시 적는다');
+chk(!/fs\.renameSync\(f, old\)/.test(dl), '  _diagLog 안에 옛 돌려쓰기(.1 로 밀기만)가 남지 않았다');
 
 say('\n' + (fail ? '✗' : '✓') + ' sim-env-diag: ' + pass + ' 통과 · ' + fail + ' 실패');
 process.exit(fail ? 1 : 0);
