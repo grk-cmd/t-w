@@ -6,6 +6,7 @@
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    ・4절: 올라탄 높이 다시 재기 — 실패하면 옛 높이 그대로 · 진단 기록 한 줄 / 성공하면 탄 좌석 모두 새 값 · 다음 프레임 검증 줄(작은 가짜 THREE · 깨 보기)
    ・6절: 탑 맨 아래 사람이 나가면 위층도 바닥으로 — 높이 0 · 묘기 자세 풀림 · 내 좌석이면 «내렸다» 방송(깨 보기)
+   ・7절: 날기 · 맞기 · 흔들기 · 어지러움 · 춤(끝난 뒤 몸이 젖혀진 채 돌아오는 동안도) · 쓰다듬기 중에는 재지 않고 «다시 재야 함» — 둘 다 가만해진 첫 프레임에 한 번 다시 잰다(깨 보기)
    [실행] app.js · desk-companion-prototype.html · ride-bench.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -274,6 +275,84 @@ judgeTowerDrop(MOD).forEach(([ok, msg]) => chk(ok, msg));
   const m2 = MOD.replace('      up.ridingOn = animalSeat;\n      unmountRide(up);', '      up.ridingOn = null;\n      unmountRide(up);');
   let rows2; try{ rows2 = judgeTowerDrop(m2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — 탄 대상을 비운 채 하차를 부르면(옛 모양) 빨강' + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 7. 날기 · 맞기 · 흔들기 · 어지러움 · 춤 중에는 재지 않고 «다시 재야 함» — 둘 다 가만해진 첫 프레임에 다시 잰다(머리 위 동물이 파묻힌 채 남던 것)');
+function judgeSettle(src){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  try{
+    let arm = 0.7;
+    const state = new Map();   // 좌석 → seatState 가 돌려줄 자세
+    const mk = (o) => Object.assign({ charDef: { animal: true }, remote: true, desk: null, group: { position: { x: 0, y: 0, z: 0, copy(){} }, quaternion: { identity(){}, copy(){} }, updateMatrixWorld(){} } }, o);
+    const host = mk({ charDef: {} });
+    const rider = mk({});
+    const seats = [host, rider];
+    const heads = [];
+    const mod = build(src, { seats, diagNote: () => {}, _measureAnimalArmH: () => arm, seatScale: () => 1, layoutSeats: () => {}, RIDE_MAX_STACK: 5,
+      _rideBottom: (x) => { let b = x, g = 0; while(b && b.ridingOn && g++ < 16) b = b.ridingOn; return b; },
+      seatState: (s) => state.get(s) || 'idle' });
+    /* ① 대상이 날아가는 중에 얹힘 — 얹기는 되고 «다시 재야 함» */
+    host.fly = { t0: 0 };
+    const ok = mod.mountRide(rider, host);
+    t(ok === true && rider.ridingOn === host && rider._rideArmH === 0.7 && rider._rideRemeasurePending === true, '★ 대상이 나는 중에 얹으면 — 얹기는 되고(팔 0.7) «다시 재야 함» 표시');
+    /* ② 아직 날고 있으면 프레임이 돌아도 다시 재지 않는다 */
+    arm = 0.5;
+    try{ mod._updateRideChains(1000); }catch(_){}
+    t(rider._rideArmH === 0.7 && rider._rideRemeasurePending === true, '  아직 나는 중 — 프레임이 돌아도 재지 않는다');
+    /* ③ 둘 다 가만해진 첫 프레임 — 다시 잰다 · 표시 내림 · 검증 줄 */
+    host.fly = null;
+    try{ mod._updateRideChains(2000); }catch(_){}
+    t(rider._rideArmH === 0.5 && rider._rideRemeasurePending === false, '★ 가만해진 첫 프레임 — 다시 잼(팔 0.7 → 0.5) · 표시 내림');
+    arm = 0.3;
+    try{ mod._updateRideChains(3000); }catch(_){}
+    t(rider._rideArmH === 0.5, '  그다음 프레임부터는 다시 재지 않는다(매 프레임 재면 이름표가 떤다)');
+    /* ④ 탄 동물이 어지러운 중에 팔 다시 재기가 불림 — 옛 값 그대로 · 표시 */
+    state.set(rider, 'dizzy');
+    mod._remeasureRideArm(rider);
+    t(rider._rideArmH === 0.5 && rider._rideRemeasurePending === true, '★ 어지러운 중 다시 재기 — 옛 팔 높이 그대로 · «다시 재야 함»');
+    state.delete(rider);
+    try{ mod._updateRideChains(4000); }catch(_){}
+    t(rider._rideArmH === 0.3 && rider._rideRemeasurePending === false, '  어지러움이 풀리면 — 다시 잼(0.5 → 0.3)');
+    /* ⑤ 대상이 맞아 납작한 중에 머리 다시 재기가 불림 — 옛 머리 높이 그대로 · 탄 좌석 모두 표시 */
+    rider._rideHeadTop = 0.42;
+    host.bonkStart = 1;
+    mod._remeasureRideHeadTop(host);
+    t(rider._rideHeadTop === 0.42 && rider._rideRemeasurePending === true, '★ 대상이 맞아 납작한 중 머리 다시 재기 — 옛 머리 높이 그대로 · «다시 재야 함»');
+    /* ⑥ 흔들기 · 춤 · 쓰다듬기도 같다 */
+    host.bonkStart = 0;
+    const each = [['흔들기', (s) => { s.beingShaken = true; }, (s) => { s.beingShaken = false; }], ['춤', (s) => state.set(s, 'dance'), (s) => state.delete(s)], ['쓰다듬기', (s) => state.set(s, 'pet'), (s) => state.delete(s)]];
+    for(const [name, on, off] of each){
+      rider._rideRemeasurePending = false; rider._rideArmH = 0.9; arm = 0.6;
+      on(rider); mod._remeasureRideArm(rider); const kept = rider._rideArmH === 0.9 && rider._rideRemeasurePending === true; off(rider);
+      t(kept, '  ' + name + ' 중 — 재지 않고 «다시 재야 함»');
+    }
+    /* ⑥-2 춤은 끝났지만 몸이 아직 젖혀진 채 돌아오는 중(bodyWrap 회전) — 재지 않고, 0 이 되면 잰다 */
+    rider._rideRemeasurePending = false; rider._rideArmH = 0.9; arm = 0.6; rider.bodyWrap = { rotation: { x: -1.125 } };
+    mod._remeasureRideArm(rider);
+    const tilted = rider._rideArmH === 0.9 && rider._rideRemeasurePending === true;
+    rider.bodyWrap.rotation.x = 0;
+    try{ mod._updateRideChains(5000); }catch(_){}
+    t(tilted && rider._rideArmH === 0.6 && rider._rideRemeasurePending === false, '★ 춤이 끝나도 몸이 젖혀진 채면 재지 않음 · 몸이 바로 서면 잼');
+    /* ⑦ 가만한 자세(잠 · 집중)는 그대로 잰다 */
+    rider._rideRemeasurePending = false; rider._rideArmH = 0.9; arm = 0.6; state.set(rider, 'sleep');
+    mod._remeasureRideArm(rider);
+    t(rider._rideArmH === 0.6 && rider._rideRemeasurePending === false, '  잠 · 집중처럼 가만한 자세는 바로 잰다(예전 그대로)');
+  }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
+  return r;
+}
+judgeSettle(MOD).forEach(([ok, msg]) => chk(ok, msg));
+for(const [name, a, b] of [
+  ['날기를 안 봄', 'if(s.fly || s.bonkStart', 'if(s.bonkStart'],
+  ['몸 기울기를 안 봄', '  if(s.bodyWrap && s.bodyWrap.rotation && s.bodyWrap.rotation.x !== 0) return false;', ''],
+  ['어지러움을 안 봄', "const RIDE_UNSETTLED_STATES = ['shaking', 'dizzy', 'pet', 'dance'];", "const RIDE_UNSETTLED_STATES = ['shaking', 'pet', 'dance'];"],
+  ['얹을 때 표시 안 함', '    animalSeat._rideRemeasurePending = !(_rideSettled(animalSeat, _now) && _rideSettled(hostSeat, _now)); }', '    }'],
+  ['가만해져도 다시 안 잼', '  list.forEach(seat=>{ if(seat._rideRemeasurePending) _rideRemeasureIfSettled(seat, now); });\n', ''],
+  ['다시 잰 뒤 표시를 안 내림', '  seat._rideRemeasurePending = false;\n  _remeasureRideArm(seat);', '  _remeasureRideArm(seat);'],
+  ['머리 다시 재기가 자세를 안 봄', "  if(!_rideSettled(hostSeat, performance.now())){ riders.forEach(r=>{ r._rideRemeasurePending = true; }); return; }\n", ''],
+]){
+  const m2 = MOD.replace(a, b);
+  let rows2; try{ rows2 = judgeSettle(m2); }catch(_){ rows2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

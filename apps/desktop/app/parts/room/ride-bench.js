@@ -154,6 +154,7 @@ function _updateRideChains(now){
   try{ list = seats.filter(s=>s && s.ridingOn && !s.inPreview); }catch(_){ return; }
   if(!list.length) return;
   list.sort((a,b)=>_rideDepth(a)-_rideDepth(b));
+  list.forEach(seat=>{ if(seat._rideRemeasurePending) _rideRemeasureIfSettled(seat, now); });
   list.forEach(seat=>{
     _positionRideSeat(seat, now);
     try{ seat.group.updateMatrixWorld(true); }catch(_){}
@@ -705,6 +706,23 @@ function _measureHostHeadTop(hostSeat, headNode){
     return (isFinite(h) && h > 0) ? h : null;
   }catch(_){ return null; }
 }
+/* 🌀 재도 되는 자세인가 — 날기 · 맞아 납작 · 흔들기 · 어지러움 · 쓰다듬기 · 춤 중에는 몸이 틀어져 머리 · 팔 높이가 낮게 잡힌다.
+   그 값이 남으면 다음 다시 재기(파츠 · 귀가 바뀔 때)까지 위 동물이 머리에 파묻힌 채로 있었다(런처를 다녀와야 풀림).
+   그래서 그 동안은 재지 않고(얹을 때는 재되) «다시 재야 함» 만 남겨 둘 다 가만해진 첫 프레임에 다시 잰다. 자세 판정은 seatState 한 곳. */
+const RIDE_UNSETTLED_STATES = ['shaking', 'dizzy', 'pet', 'dance'];
+function _rideSettled(s, now){
+  if(!s) return true;
+  if(s.fly || s.bonkStart || s.beingShaken || s.pinned) return false;
+  if(s.bodyWrap && s.bodyWrap.rotation && s.bodyWrap.rotation.x !== 0) return false;   // 춤(누워 떼쓰기 등)이 끝나도 몸이 몇 프레임 젖혀진 채 돌아온다 — 0 이 된 뒤에 잰다
+  return !RIDE_UNSETTLED_STATES.includes(seatState(s, now));
+}
+function _rideRemeasureIfSettled(seat, now){
+  const host = seat.ridingOn;
+  if(!host || !_rideSettled(seat, now) || !_rideSettled(host, now)) return;
+  seat._rideRemeasurePending = false;
+  _remeasureRideArm(seat);
+  _remeasureRideHeadTop(host);
+}
 /* 🐰 대상 머리 꼭대기를 **한 번 더** 재서 이미 올라타 있는 좌석들에 다시 심는다.
    [경위] 동물 귀는 별도 GLB 라 비동기로 붙는데, _measureHostHeadTop 은 mountRide 에서 **1회**만 돈다.
      귀가 붙기 전에 얹히면 귀 없는 높이가 캐시로 남아 위 캐릭터가 귀 사이에 파묻힌 채로 있고,
@@ -719,6 +737,7 @@ function _remeasureRideHeadTop(hostSeat){
   let riders = [];
   try{ riders = _rideRiders(hostSeat); }catch(_){ return; }
   if(!riders.length) return;   // 아무도 안 타고 있으면 잴 이유가 없다(다음 mountRide 가 잰다)
+  if(!_rideSettled(hostSeat, performance.now())){ riders.forEach(r=>{ r._rideRemeasurePending = true; }); return; }
   try{
     const headNode = (hostSeat.bones && hostSeat.bones.head) ? hostSeat.bones.head : hostSeat.headAnchor;
     const v = _measureHostHeadTop(hostSeat, headNode);
@@ -750,6 +769,7 @@ function _keepRidePartTop(rider, vp, key){
    실패하면(null) 옛 값을 둔다. */
 function _remeasureRideArm(seat){
   if(!seat || !seat.ridingOn || seat._circusOn) return;
+  if(!_rideSettled(seat, performance.now())){ seat._rideRemeasurePending = true; return; }
   const h = _measureAnimalArmH(seat);
   if(h == null){ diagNote('[올라타기] 팔 높이 다시 재기 실패 — 옛 값 그대로'); return; }
   seat._rideArmH = h;
@@ -839,6 +859,8 @@ function mountRide(animalSeat, hostSeat){
      고르는 것은 _positionRideSeat 이고, 여기서는 값만 남긴다. */
   animalSeat._rideHeadTopPart = (hostSeat._headTopPart != null) ? hostSeat._headTopPart : null;
   animalSeat._rideHeadTopPartKey = _rideTopPartKey(hostSeat);
+  { const _now = performance.now();   // 🌀 틀어진 자세로 잰 값이면 가만해진 뒤 다시 잰다(_rideSettled)
+    animalSeat._rideRemeasurePending = !(_rideSettled(animalSeat, _now) && _rideSettled(hostSeat, _now)); }
   // 🔍 진단 — "머리 위에 얹으면 뜬다"의 원인 항 특정용.
   //   ★ armH에는 반드시 _sizeMul(=RIDE_ARM_SIZE_FOLLOW 반영)을 곱한 값을 봐야 한다.
   //     앞서 이걸 빼고 찍는 바람에 실제보다 낮은 offY가 보고됐다.
