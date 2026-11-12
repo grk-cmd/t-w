@@ -354,6 +354,22 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
 - 검사: `checks/sim-front-diag.js`(깨 보기 열).
 
+## `env-diag.js` — 🩺 환경 · 자원 진단(켤 때 `[환경]` · `[GPU 상세]` · 1분 `[자원]`)
+
+- **책임**: «같은 앱이 PC 마다 CPU 가 크게 다르다» 를 진단 기록(`tw-mouse-diag.log`) 두 장으로 가르게, 어떤 PC 인지와 CPU · 메모리를 어느 프로세스가 쓰는지를 남기고, 기록을 돌려 쓸 때 «어떤 PC 인지» 줄을 새 파일에 다시 적는다. main 만 싣는다(`module.exports`). 파일은 받은 io 로만 만진다(검사가 가짜를 넣는다).
+- **쓰는 법**
+  - 켤 때(GPU 줄과 같이) `envLine({ app, electron, chrome, os, osVer, arch, cpuModel, threads, ramBytes, displays })` → `[환경]` 한 줄. 모니터 해상도는 배율을 곱한 물리 값.
+  - 10초 뒤 `gpuDetailLine(getGPUInfo('complete'))` → `[GPU 상세]` 한 줄(실제로 그리는 장치 · directComposition · supportsOverlays · 겹친 그래픽 · 화면 종류 · 그리기 엔진).
+  - 1분마다 `createResourceWatch().take(t, app.getAppMetrics(), 우리 창 pid, { cpu: cpuTimes(os.cpus()), freeBytes, totalBytes })` → `resourceLine(r, 논리 프로세서 수, '실행 화면' | '런처' | '숨김')`. 첫 호출은 기준만 잡고 줄을 안 남긴다.
+- **함정**
+  - CPU 는 `cumulativeCPUUsage`(시작 뒤 쓴 CPU 초)의 차이로 셈한다. `percentCPUUsage` 는 «지난 호출 뒤 평균» 이라 다른 곳이 부르면 구간이 바뀌고, 코어 하나 기준인지 PC 전체 기준인지 문서에 없다.
+  - 적는 % 는 모두 **PC 전체 기준**(작업 관리자와 같음) — 우리 앱 몫은 코어 몫 ÷ 논리 프로세서 수, 끝의 «PC 전체 CPU» 는 그 구간 모든 프로그램 합.
+  - 같은 pid 가 다시 쓰일 수 있어 «pid + 만든 시각» 으로 알아본다. 그사이 새로 뜬 프로세스는 처음부터 쓴 몫을, 지난번에 못 본 오래된 프로세스는 0 으로 센다.
+  - `directComposition` · `supportsOverlays` 는 Windows 에만 온다 — 맥은 «모름».
+  - 1분 사이에 죽은 프로세스(닫힌 자식 창 등)가 쓴 CPU 는 빠진다 — 앱 합이 조금 낮게 나올 수 있다.
+  - 진단 기록은 256KB 에서 돌려 쓰고, `[자원]` 때문에 반나절이면 돈다. 그래서 `_diagLog` 는 `createHeaderKeep` 으로 `[환경]` · `[GPU]` · `[GPU 상세]` 의 마지막 줄을 기억하고, `rotateKeep` 이 새 파일 첫머리에 «(기록을 돌려 써서 다시 적음)» 을 붙여 다시 적는다. 이게 없으면 오래 켜 둔 PC 의 기록에 사양이 없다.
+- 검사: `checks/sim-env-diag.js`(깨 보기 열셋).
+
 ## `gpu-timer.js` — 🩺 한 장에 그래픽 칩 · JS 시간(1분 `[프레임]` 줄 꼬리)
 
 - **책임**: «노트북에서 켜 두면 블루스크린» · «다른 프로그램이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 실행 화면이 한 장 그리는 데 그래픽 칩 · JS 가 쓴 시간과 그리기 · 그림자 횟수를 1분 `[프레임]` 줄 끝에 붙인다. 렌더러만 싣는다(`window.TwGpuTimer`).
