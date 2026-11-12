@@ -514,35 +514,8 @@
     getIdToken(force){ return _getIdToken(force); },
     // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
     apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
-    apiPostAuthed(path, body, opts){ return _authApi ? _authApi.post(path, body, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     setPresenceRoom(code){ _syncPresenceRoom(code || null); },
-    /* 🛰 소켓이 실제로 열렸는가 — 감시견(app.js `_fbBootWatch`)이 부팅 때 한 번 부른다.
-       [왜 필요한가] `window.firebaseAPI` 가 있다는 것과 **서버에 닿는다**는 것은 다른 질문이다.
-         initializeApp·getDatabase 는 네트워크를 안 타므로 CSP connect-src 나 방화벽이 소켓만
-         막아도 이 파일은 끝까지 완주하고 firebase-ready 까지 발화한다. 그 뒤의 모든 읽기·쓰기가
-         조용히 멈추는데 화면에는 아무 말도 안 뜬다 — 제보된 "방 개수 확인 중에서 안 넘어감 /
-         마이홈·친구가 빈 채로 뜸"이 그 상태다.
-       ★ `.info/connected` 는 서버 왕복이 아니라 **클라이언트가 들고 있는 소켓 상태**라 공짜다.
-         부팅마다 불러도 요금이 0 이라 이 자리에 둘 수 있다.
-       ⚠️ true 를 볼 때까지 기다리다 시간이 지나면 false 를 준다. 어느 쪽으로 끝나든 구독은 반드시
-         해제한다 — 안 하면 재시도할 때마다 리스너가 쌓인다. */
-    waitConnected(timeoutMs){
-      return new Promise(resolve=>{
-        let settled = false, unsub = null;
-        const fin = v => {
-          if(settled) return;
-          settled = true;
-          clearTimeout(t);
-          try{ if(unsub) unsub(); }catch(_){}
-          resolve(v);
-        };
-        const t = setTimeout(()=>fin(false), Math.max(1000, timeoutMs || 8000));
-        try{
-          unsub = onValue(ref(db, '.info/connected'), s=>{ if(s.val() === true) fin(true); }, ()=>fin(false));
-        }catch(_){ fin(false); }
-      });
-    },
     // 🚪 버전 게이트 — 방 입장 최소 허용 버전(예: "0.6.2"). 원격 설정 minVersion.room — 관리자가 바꾸면
     //   앱 재배포 없이 올라감(입장 때 STALE_MS 넘었으면 한 번 더 묻는다). 값 없음 · 못 받음이면 null(=제한 없음).
     async getMinRoomVer(){
@@ -861,16 +834,6 @@
         }, 6 * 60 * 60 * 1000);
       }catch(_){}
     },
-    /* 🔒 온라인 고정 — presencePref/{uid} = { lock, online, ts }(본인만 · users/* 밖 — 친구가 «숨긴 오프라인» 을 못 알아보게). 읽기: 비어 있으면 {} · 못 읽으면 null */
-    async loadPresencePref(userId){
-      if(!userId) return null;
-      await _whenAuthReady();
-      try{ return (await get(ref(db, `presencePref/${userId}`))).val() || {}; }catch(_){ return null; }
-    },
-    async savePresencePref(userId, p){
-      await _whenAuthReady();
-      return set(ref(db, `presencePref/${userId}`), { lock: p.lock === true, online: p.online !== false, ts: serverTimestamp() });
-    },
     // 온라인 표시 수동 토글 — false면 친구 목록에서 오프라인으로 보임(앱은 계속 실행됨).
     setMyPresenceState(userId, online){
       _presenceOnline = !!online;
@@ -944,15 +907,6 @@
     // 🏊 방 입장용 얼굴/눈감기 PNG를 Storage에 올리고 URL 반환 — 방 payload 다이어트(가) 단계.
     //   예전엔 512 PNG dataURL이 rooms/{code}/{member}/def에 통째로 들어가 모든 참여자가 매번 내려받았음.
     //   Storage는 캐시 헤더(1년)가 붙어 있어 같은 얼굴은 두 번째부터 다운로드가 발생하지 않음.
-    // 🖼 투명 PNG 범용 업로드 — 알파가 살아야 하는 이미지(미스테리au 스탠딩 등).
-    //   uploadUserImage는 .jpg로 저장해서 투명이 검게 죽는다. 투명이 필요하면 이쪽을 쓸 것.
-    async uploadUserPng(userId, key, dataUrl){
-      if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false, reason:'이미지가 아니에요' };
-      const safeKey = String(key||'img').replace(/[^a-zA-Z0-9_-]/g, '');
-      const url = await _uploadDataUrlIfNeeded(`users/${userId}/img_${safeKey}.png`, dataUrl);
-      if(!url || url.startsWith('data:')) return { ok:false, reason:'업로드에 실패했어요' };
-      return { ok:true, url };
-    },
     async uploadRoomFace(userId, key, dataUrl){
       if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false };
       const safeKey = String(key||'face').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -3145,11 +3099,8 @@
        0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v1/me — account/login-flow.js).
        여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.
        ⚠️ 로그인 창은 여기서 열지 않는다(file:// + frame-src 'none') — main.js 가 연 창에서 받은 ID 토큰만 받는다. */
-    authAvailable(){ return !!auth; },
-
     /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다). */
     authReady(){ return _whenAuthReady(); },
-    authSettled(){ return _authSettled; },
     authCurrentUid(){ return (auth && auth.currentUser) ? auth.currentUser.uid : null; },
     authCurrentEmail(){ return (auth && auth.currentUser) ? (auth.currentUser.email || null) : null; },
     /* 지금 로그인 → { uid, anonymous } | null — login-flow.js 의 판정 재료 */
@@ -3263,16 +3214,12 @@
     async advGetFriends(){ return {}; },
     async advCreateParty(){ return null; },
     advWatchParty(){ return ()=>{}; },
-    advWatchInvites(){ return ()=>{}; },
-    advWatchMergeRequests(){ return ()=>{}; },
     async advSendInvite(){ return { ok:false, reason:'서비스 종료' }; },
     async advClearInvite(){},
     async advJoinParty(){ return { ok:false, reason:'서비스 종료' }; },
     async advUpdateMember(){},
     async advLeaveParty(){ return { ok:true }; },
     async advDisbandParty(){ return { ok:true }; },
-    async advRestoreParty(){ return { ok:true }; },
-    async advSetLeader(){ return { ok:true }; },
     async advSetDeparted(){ return { ok:true }; },
     async advSetAtCamp(){ return { ok:true }; },
     async advSendGameChat(){ return { ok:true }; },
@@ -3284,9 +3231,6 @@
     async advWriteCoord(){ return { ok:true }; },
     advWatchCoords(){ return ()=>{}; },
     async advFindLeaderParty(){ return null; },
-    async advSendMerge(){ return { ok:false, reason:'서비스 종료' }; },
-    async advClearMerge(){},
-    async advMergeParties(){ return { ok:false, reason:'서비스 종료' }; },
 
     /* ═══════════ 📷 스티커사진 어댑터 (parts/purikura-net.js 전용) ═══════════
        purikura-net.js 는 THREE 도 DOM 도 firebase SDK 도 안 본다 — **아래 일곱 개만** 쓴다.
