@@ -294,7 +294,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 길 provider
 
 - **책임**: 내 말랑이 칸 읽기 · 통째 저장(`GET` · `PUT /v1/me/mallangs`) · 그림 올리기(`POST /v1/me/images?purpose=mallang`) · 남의 집 칸(`GET /v1/mallangs/{userCode}`) · 내 선물함(`GET /v1/me/gifts`) · 봤음(`POST /v1/me/gifts/seen`) · ⭐ · 치움(`PATCH /v1/me/gifts/{id}`) · 지우기(`DELETE /v1/me/gifts/{id}`) · 오늘 보낸 수(`GET /v1/me/gifts/sent-today`) · 그 집에 나온 선물(`GET /v1/gifts/{userCode}`) · 보내기(`POST /v1/gifts/{userCode}`). 서버 모양(`sentAt` ISO)을 화면 모양(`sentAt` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰 — 보내기 본문에 내 코드 · 이름 · 날짜 · 그림 주소를 싣지 않는다.
-- **만드는 법**: `TwGiftApi.createGiftApi({ authed, warn })` — 아직 만드는 곳이 없다. 선물함(D7-3)부터 app.js 가 로그인 통로(`TwApi.authed`)를 넘겨 만들고 상태 주인(`gift-box.js` · `mallang-store.js`)에 넘긴다.
+- **만드는 법**: app.js 가 `const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, warn })` 로 한 벌 만들어 상태 주인에 넘긴다 — 지금은 말랑이 칸(`mallang-store.js`)이 쓰고, 선물함 · 보내기는 선물 묶음에서 같은 한 벌을 받는다.
 - **deps**: `authed`(`TwApi.authed`) · `warn`.
 - **내보내는 것**: `fetchMine()` · `fetchOf(userCode)` → `{ slots:[{ slot, imageUrl, enabled }], version }` · `uploadImage(dataUrl)` → `url` · `saveMallangs(version, slots)` · `fetchBox()` → `{ items:[{ id, senderName, imageUrl, message, starred, hidden, sentAt }], unseenCount, starCount, boxKeep, starMax }` · `markSeen()` · `star(id, on)` · `hide(id, on)` · `remove(id)` · `fetchSentToday()` → `{ count, dailyMax }` · `fetchVisible(userCode)` → `{ items:[{ id, imageUrl, message }], visibleCount, recipientCap }` · `send(userCode, { requestId, mallang, message })` → `{ giftId, sentToday, dailyMax }` · `reset()`. 순수 함수(`slotsOf` · `slotsBody` · `boxOf` · `sendBody` · `failOf` 등)는 `TwGiftApi` 위. 모두 못 읽으면 던진다 — 빈 칸 · 빈 선물함은 빈 배열로 돌려줘 «못 읽음» 과 가른다.
 - **오류 갈래**: `failOf(err, TwApiErrors)` → `{ kind, code, message }`. `kind` — `guide`(⭐ 가득 · 보내기 거절 같은 안내 — 서버 문구 그대로 · 번호 없음) · `gone`(`GIFT_NOT_FOUND` — 안내 + 받기 한 번) · `missing`(`USER_NOT_FOUND` — «없음») · `site`(그 자리의 `E-GIFT-*` 번호 — 닿지 못함 · 모르는 코드도 여기) · `common`(`PREMIUM_REQUIRED` 같은 공통 코드 — `TwApiErrors.store.notify`) · `conflict`(409 `CONCURRENT_UPDATE` — 다시 받기) · `stale`(계정이 바뀌는 중 · 받기 전 — 조용히). 번호는 표에 두지 않고 부르는 자리가 정한다.
@@ -309,7 +309,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 ## `mallang.js` — 🧸 말랑이 · 🎁 선물 화면
 
-- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물함 격자가 쓰는 규칙(순서 · 상한 · 치움 · 다시 부르기 · 지우기). 데이터는 아직 옛 길(`firebaseAPI`)이다 — 서버 길(`gift-api.js`)로는 D7-3 ~ D7-5 에서 옮긴다.
+- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물함 격자가 쓰는 규칙(순서 · 상한 · 치움 · 다시 부르기 · 지우기). 말랑이 칸은 상태 주인(`mallang-store.js`)이 서버 길로 받고 저장한다 — 이 파일은 그리기 · 누름만. 선물은 아직 옛 길(`firebaseAPI`)이다 — 서버 길로는 선물 묶음에서 옮긴다.
 - **만드는 법**: app.js 가 마이홈 수령함(`createMyHomeInbox`)보다 먼저 만든다 — 수령함 · 마이홈 창 · 친구 홈 구경이 값으로 받는다.
 
 ```js
@@ -318,15 +318,30 @@ const mallangMod = TwMallang.createMallang({
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   premiumOn: (...a)=>_premiumOn(...a),   // 👑 프리미엄 판정 — 전역 window._premiumOn 을 읽지 않는다
+  mallangStore: mallangStoreMod,         // 🧸 칸 상태 주인(mallang-store.js) — 이 줄보다 먼저 만든다
 });
 ```
 
-- **deps**: `toast` · `getMyUserId` · `getDisplayName` · `premiumOn`.
+- **deps**: `toast` · `getMyUserId` · `getDisplayName` · `premiumOn` · `mallangStore`.
 - **내놓는 것**: `onOpen(ownerId, isVisiting)` · `onClose()`(마이홈 창 `myhome-ui.js`) · `applyVisit(isVisiting, ownerId)`(친구 홈 구경 `myhome-visit.js`) · `seenGifts()`(선물함 서브탭 누름 — `myhome-ui.js`) · `openGift(friendId, name)`(친구 줄 우클릭) · `giftOrder(gifts)` · `giftLimits` · `isGiftHidden(id)` · `respawnGift(id, img, msg)` · `deleteGift(id, gift)`(선물함 격자 — `myhome-inbox.js`). 세 모듈은 deps `mallangMod` 로 받는다.
 - **함정**
   - `onOpen` · `applyVisit` 은 async 다 — 부르는 쪽은 `Promise.resolve(…).catch` 로 받는다(try/catch 로는 못 잡는다 — `sim-myhome-steps.js`).
   - 만드는 줄은 수령함 · 마이홈 창 · 친구 홈 구경을 만드는 줄보다 앞이어야 한다(값으로 넘긴다 — 뒤면 TDZ).
+  - 칸 값을 직접 고치지 않는다 — 등록 · 켜고 끄기 · 지우기는 `mallangStore.add(그림)` · `toggle(i)` · `remove(i)`. 등록 창은 칸이 바뀌면(`onChange`) 다시 그리고, 받기 전 · 받는 중 · 못 받음엔 칸 대신 «불러오는 중…» · «못 불러왔어요 [다시 시도]» 를 그린다.
+  - 집을 옮기는 사이 늦게 온 앞 집 칸 답은 `openView` 가 false 로 알려 준다 — 그때는 폴더 · 선물을 다시 그리지 않는다.
 - **검사**: `checks/sim-mallang-module.js`(가짜 DOM · 가짜 서버로 열기 → 치우기 → 다시 부르기 → 지우기 → 봤음 → 남의 집 → 닫기 → 보내기 창을 실제로 불러 부른 순서 · 값을 옮기기 전과 견줌 · `TW_MALLANG_OLD` 로 옛 글과 직접 견주기 · 배선 · 일부러 깨 보기).
+
+## `mallang-store.js` — 🧸 말랑이 칸 상태 주인 (서버가 원본)
+
+- **책임**: 내 말랑이 칸(받기 · 등록 · 켜고 끄기 · 지우기 · 통째 저장)과 보고 있는 집 칸(내 집이면 내 칸을 가리킴 · 남의 집이면 그 집 칸). 저장은 한 번에 하나 — 저장 중 고침은 끝난 뒤 최신 칸 · 새 판으로 한 번 더. 저장이 끝나면 서버가 돌려준 칸(번호 0부터)을 그대로 받는다.
+- **만드는 법**: app.js 가 말랑이 화면보다 먼저 `TwMallangStore.createMallangStore({ api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store, notifyError, toast })`. 앱을 끌 때(`beforeunload`) · 로그아웃 올리기(`account.js`)가 `flush()`, 계정을 놓을 때 `reset()`.
+- **내보내는 것**: `mine()` → `{ load, slots, version, saving, uploading }` · `view()` → `{ owner, mine, load, slots }` · `onChange(fn)` · `pullMine({ site }?)` · `openView(code, isMine)` → 아직 그 집인가 · `closeView()` · `add(dataUrl)` · `toggle(i)` · `remove(i)` → `'ok' | 'failed' | 'conflict' | 'stale' | 'locked' | 'busy' | 'full' | 'uploadFailed'` · `flush()` · `reset()` · `LOAD` · `MSG` · `SLOTS`.
+- **함정**
+  - 받기 전(`load !== 'ready'`)엔 고치지 못한다(`locked` · 요청 0). 저장 중이거나 못 올린 고침이 있으면 내 칸 받기는 요청하지 않는다(받은 판이 고친 칸을 덮지 않게).
+  - 409 `CONCURRENT_UPDATE` 는 내 고침을 버리고 서버 것을 받아 «다른 기기에서 바꾼 내용을 받아왔어요». 실패는 화면을 고친 대로 두고 `E-GIFT-03` 한 번 — 혼자 다시 보내지 않는다(타이머 없음). 다음 고침 · `flush()` 가 한 번 보낸다.
+  - 올리기(`POST /v1/me/images?purpose=mallang`) 실패는 칸을 그대로 두고 `E-GIFT-02`(PUT 없음). 올리는 중 또 등록은 `busy`. 409 로 다시 받는 사이 올리기가 끝나면 그 그림은 칸에 붙이지 않는다(파일은 남는다 — 탈퇴 때 서버가 지운다).
+  - 오류: 받기 `E-GIFT-01`(보내기 창 열기는 `site: 'sendOpen'` → `E-GIFT-07`) · 공통 code(`PREMIUM_REQUIRED` 등)는 `TwApiErrors.store.notify` · 계정이 바뀌는 중(`OWNER_CHANGED` · `NOT_RECEIVED`)은 조용히 · 없는 사람(`USER_NOT_FOUND`)은 «말랑이 없음».
+- **검사**: `checks/sim-mallang-store.js`(진짜 모듈을 가짜 서버 길 위에서 — 저장 차례 · 409 · 실패 한 번 · 등록 · 집 gen · reset · 배선 · 일부러 깨 보기).
 
 ## `scheduler.js` — 📅 스케줄러 · 🔔 일정 알림 (서버가 원본)
 

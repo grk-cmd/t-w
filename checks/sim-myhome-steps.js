@@ -117,8 +117,9 @@ chk(/라이선스/.test(ML) && /이미지/.test(ML),
     '   내 집(라이선스)과 방문(이미지 수)을 갈라서 말한다 — 숨는 길이 둘이다');
 chk(/mhRoomPreview 를 못 찾음|mhRoomPreview/.test(ML),
     '   붙일 자리(#mhRoomPreview)를 못 찾은 경우도 구분한다');
-/* 판정식 자체는 바뀌지 않았다 — 진단이 동작을 바꿨다면 그게 더 큰 사고다 */
-chk(/wantFolder\s*=\s*visiting\s*\?\s*\(imgs\.length>0\)\s*:\s*hasLicense\(\)/.test(ML),
+/* 판정식 자체는 바뀌지 않았다 — 진단이 동작을 바꿨다면 그게 더 큰 사고다(방문 = 그 집 칸 수 · 내 집 = 라이선스).
+   칸은 칸 상태 주인(mallang-store.js view())에서 센다 — 실제로 돌려 본 판정은 sim-mallang-module.js 2 · 3절 */
+chk(/const shown = mallangStore\.view\(\)\.slots\.length;\s*const wantFolder\s*=\s*visiting\s*\?\s*\(shown>0\)\s*:\s*hasLicense\(\)/.test(ML),
     '★ 판정식은 예전 그대로다 — 진단을 넣으면서 동작을 바꾸지 않았다');
 
 say('');

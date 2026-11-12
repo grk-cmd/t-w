@@ -16,6 +16,16 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/parts/myhome/' + f, 'app/parts/shared/' + f, 'app/' + f]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = { retry: read('img-retry.js'), safe: read('safe-html.js'), mallang: read('mallang.js'), html: read('desk-companion-prototype.html') };
 if(Object.values(SRC).some(v => !v)){ say('  ? 원본 못 찾음 — img-retry.js · safe-html.js · mallang.js · desk-companion-prototype.html'); process.exit(2); }
+const STORE_SRC = { store: read('mallang-store.js'), gift: read('gift-api.js'), ae: read('api-errors.js') };
+if(!STORE_SRC.store || !STORE_SRC.gift || !STORE_SRC.ae){ say('  ? 원본 못 찾음 — mallang-store.js · gift-api.js · api-errors.js'); process.exit(2); }
+
+/* 🧸 말랑이 칸 상태 주인 — 진짜 mallang-store.js 위에 가짜 서버 길(slotsOf: 집 코드 → 칸 · 내 집은 'me') */
+const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
+function mkStore(slotsOf){
+  const copy = (who) => ({ slots: (slotsOf[who] || []).map((x, i) => ({ slot: i, imageUrl: x, enabled: true })), version: 1 });
+  const api = { fetchMine: async () => copy('me'), fetchOf: async (u) => copy(u), uploadImage: async () => 'https://x.example/n.png', saveMallangs: async (v, sl) => ({ slots: sl, version: v + 1 }), reset(){} };
+  return loadMod(STORE_SRC.store).createMallangStore({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){} });
+}
 
 const loadSafe = () => { const m = { exports: {} }; new Function('window', 'module', SRC.safe)(undefined, m); return m.exports; };
 /* img-retry.js 를 싣는다 — TwSafeHtml 은 그 안에서 전역 이름으로 찾는다 */
@@ -93,7 +103,6 @@ function mkEnv(mallangSrc, retrySrc){
     requestAnimationFrame: () => 1, cancelAnimationFrame(){}, setTimeout: () => 0, clearTimeout(){},
     toast(){}, getMyUserId: () => 'me', _premiumOn: () => true, getDisplayName: () => '나',
     firebaseAPI: {
-      getMallangImgs: async (id) => (id === 'me' ? MINE.map(url => ({ url, on: true })) : []),
       getMallangGifts: async (id) => gifts[id] || {},
       getMallangGiftCount: async () => 0,
     },
@@ -103,8 +112,8 @@ function mkEnv(mallangSrc, retrySrc){
   ctx.TwImgRetry = loadRetry(retrySrc);
   vm.createContext(ctx);
   vm.runInContext(mallangSrc, ctx, { filename: 'mallang.js' });
-  /* app.js 가 만드는 줄과 같은 deps 4 */
-  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, getDisplayName: ctx.getDisplayName, premiumOn: ctx._premiumOn });
+  /* app.js 가 만드는 줄과 같은 deps 5 — 칸은 상태 주인(mallang-store.js)에서 */
+  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, getDisplayName: ctx.getDisplayName, premiumOn: ctx._premiumOn, mallangStore: mkStore({ me: MINE }) });
   return { ctx, m, imgs, byId, layer: () => byId.mlLayer };
 }
 const flush = () => new Promise(r => setImmediate(r));

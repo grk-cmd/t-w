@@ -2753,12 +2753,21 @@ const richTextMod = TwRichText.createRichText({
   DOMPurify: () => window.DOMPurify,
 });
 
+/* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v1/me/mallangs · /v1/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
+const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 길
+const mallangStoreMod = TwMallangStore.createMallangStore({
+  api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+});
+window.addEventListener('beforeunload', ()=>{ mallangStoreMod.flush(); });   // 앱을 끌 때 못 올린 칸 고침 한 번(결과를 기다리지 않음)
 /* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */
 const mallangMod = TwMallang.createMallang({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   premiumOn: (...a)=>_premiumOn(...a),
+  mallangStore: mallangStoreMod,
 });
 
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
@@ -5822,6 +5831,7 @@ const firstRunMod = TwFirstRun013.createFirstRun({
   steps: {
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
     gacha: TwFirstRun013.gachaStep(),
+    mallang: TwFirstRun013.mallangStep(localStorage),
     legacySync: ()=>closetMod.legacyStep(),
     licenseKey: TwFirstRun013.pendingStep('라이선스 키'),
   },
@@ -7104,6 +7114,7 @@ const accountMod = TwAccount.createAccount({
   acctStateMod: acctStateMod,
   plMod: plMod,
   mhScheduler: mhScheduler,
+  mallangStore: mallangStoreMod,
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   weeklyChal: ()=>weeklyChal,

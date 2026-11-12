@@ -26,6 +26,7 @@
 | `PL` | 플레이리스트 |
 | `LIC` | 라이선스 · 프리미엄 |
 | `RPT` | 신고 |
+| `GIFT` | 말랑이 · 선물 |
 | `ADM` | 앱 관리자 창 |
 | `DATA` | (걷음) 범용 데이터 통로 — 걷은 번호만 |
 | `NET` | 서버 통로 공통(API · realtime) — 기능 오류는 그 기능 영역 번호로 |
@@ -91,6 +92,10 @@
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
 | `E-LIC-01` | 라이선스 상태를 확인하지 못했어요 — 앱을 다시 켜면 다시 확인해요 | `account/license-premium.js` — 프리미엄 확인(`GET /v1/me`) 실패(켤 때는 계정 확인이 곧 확인이라 실패가 없다 · 서버 `license` 알림 뒤 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음) |
 | `E-LIC-02` | 이 기기의 라이선스를 해제하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/license-key.js` — «이 기기에서 해제» 버튼의 서버 기기 빼기(`DELETE /v1/me/license/devices/{id}`) 실패(프리미엄은 그대로 · 로그인이 풀린 실패는 알리지 않음) |
+| `E-GIFT-01` | 말랑이를 불러오지 못했어요 | `myhome/mallang-store.js` — 내 칸(`GET /v1/me/mallangs` — 마이홈 열기 · 등록 창 [다시 시도] · 못 받은 폴더 누름) · 보는 집 칸(`GET /v1/mallangs/{code}` — 친구 홈 구경 · 내 집으로) 받기 실패(그 사람이 없음은 번호 없이 «말랑이 없음» · 혼자 다시 받지 않음) |
+| `E-GIFT-02` | 말랑이 그림을 올리지 못했어요 | `myhome/mallang-store.js` — 등록 ① 그림 올리기(`POST /v1/me/images?purpose=mallang`) 실패 · 형식 · 크기 거절(`IMAGE_UPLOAD`) — 칸은 그대로 |
+| `E-GIFT-03` | 말랑이를 저장하지 못했어요 | `myhome/mallang-store.js` — 등록 ② · 켜고 끄기 · 지우기의 칸 저장(`PUT /v1/me/mallangs` — `GIFT_MALLANG_INVALID` 포함 · 409 는 번호 없이 다시 받기) 실패(이어지는 동안 한 번만 · 고친 화면은 그대로 · 혼자 다시 보내지 않음 — 다음 고침 · 로그아웃 · 앱 끄기 때 한 번) |
+| `E-GIFT-07` | 내 말랑이를 불러오지 못해 선물 창을 열지 못했어요 | `myhome/mallang-store.js` — 친구 줄 우클릭 선물 보내기 창(`mallang.js` `openGift`)을 열 때 내 칸 받기(`pullMine` site `sendOpen` — `GET /v1/me/mallangs`) 실패 · 창을 열지 않음 |
 | `E-RPT-01` | 신고하지 못했어요 — 잠시 뒤 다시 해 주세요 | `support/report.js` — 신고 창 [신고] 서버 쓰기 실패(`POST /v1/reports` — 기능 갈래(`report-api.js` `failOf`)도 공통 code(`api-errors.js`)도 아닌 실패 · 숨기지 않고 [신고] 다시 켬 · 다시 보내지 않음) |
 | `E-ADM-30` | 신고 목록을 불러오지 못했어요 | `admin/admin-report.js` — 🚩 신고 목록 열기 · [다시 시도] · [더 보기](`GET /v1/admin/reports` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · 열 때 · 다시 시도는 «못 불러왔어요 [다시 시도]» · 다시 보내지 않음) |
 | `E-ADM-31` | 신고를 비우지 못했어요 | `admin/admin-report.js` — [문제없음](`POST /v1/admin/reports/dismissals` — 그 사람 줄이 ok 가 아님 포함 · [문제없음] 다시 켬) |
