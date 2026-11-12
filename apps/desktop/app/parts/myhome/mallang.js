@@ -189,7 +189,7 @@ function createMallang(deps){
       #mlSlots .ml-slot .ml-del{position:absolute;top:1px;right:1px;width:15px;height:15px;background:#c33;color:#fff;
         border:none;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:2;}
       #mlSlots .ml-slot:hover .ml-del{display:flex;}
-      #mlSlots .ml-state{grid-column:1 / -1;font-size:10.5px;color:#333;text-align:center;padding:18px 0;}
+      #mlSlots .ml-state{grid-column:1 / -1;font-size:10.5px;color:var(--tw-ink);text-align:center;padding:18px 0;}
       #mlSlots .ml-retry{font-size:10.5px;margin-left:4px;cursor:pointer;}
     `;
     document.head.appendChild(s);
