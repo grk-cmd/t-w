@@ -925,22 +925,6 @@
       return { ok:true, url };
     },
 
-    /* ===== 🧸 말랑이 (마이홈 시메지) =====
-       users/{uid}/mallang = { imgs:[url,...] }  (최대 4개, 투명 PNG) */
-    // 말랑이 이미지 PNG로 업로드 (투명도 유지)
-    async uploadMallangImage(userId, slot, dataUrl){
-      if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false, reason:'이미지가 아니에요' };
-      const safeSlot = String(slot||'0').replace(/[^a-zA-Z0-9_-]/g, '');
-      const url = await _uploadDataUrlIfNeeded(`users/${userId}/mallang_${safeSlot}.png`, dataUrl);
-      if(url && url.startsWith('data:')) return { ok:false, reason:'업로드에 실패했어요' };
-      return { ok:true, url };
-    },
-    // 말랑이 이미지 URL 목록 저장
-    async saveMallangImgs(userId, imgs){
-      try{ await set(ref(db, `users/${userId}/mallang`), { imgs: (imgs||[]).slice(0,4) }); return { ok:true }; }
-      catch(e){ return { ok:false }; }
-    },
-    // 말랑이 이미지 URL 목록 조회 (내 것 또는 방문한 친구 것)
     /* ===== 📚 마이홈 북마크 책장 (2026-09-23 · 개정 61 · 계정 연동) =====
        bookmarks/{uid} = { order:"id,id,…", items:{ id:{url,title,w,h,color,img?,at} }, ts }
        ★ users/{uid} 아래가 아니다 — 그 자리는 `.read: true` 라 **방문자 읽기를 규칙으로 막을 수 없다.**
@@ -978,11 +962,6 @@
         await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
         return { ok:true, url: await getDownloadURL(r) };
       }catch(e){ console.warn('[bookmark] 그림 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
-    },
-
-    async getMallangImgs(userId){
-      try{ const s=await get(ref(db, `users/${userId}/mallang`)); const v=s.val(); return (v&&Array.isArray(v.imgs))?v.imgs:[]; }
-      catch(e){ return []; }
     },
 
     /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====

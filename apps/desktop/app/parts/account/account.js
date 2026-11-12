@@ -45,6 +45,7 @@ const getMyLoginEmail = deps.getMyLoginEmail;
 const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
 const mhScheduler = deps.mhScheduler;   // 📅 스케줄러 — 계정을 놓을 때 비운다(다음 계정 것은 로그인 뒤 다시 켠 부팅이 받는다)
+const mallangStore = deps.mallangStore;   // 🧸 말랑이 칸(mallang-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
@@ -156,6 +157,7 @@ async function _acctFlushToServer(){
   call(typeof focusLevelMod().syncFocusTotalToServer === 'function' ? focusLevelMod().syncFocusTotalToServer : null, 'logout');
   call(weeklyChal().syncChalToServer, 'logout');
   call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
+  call(() => mallangStore.flush());   // 🧸 저장 중이거나 못 올린 말랑이 칸 고침 한 번
   /* 슬롯은 아직 못 올린 고침만 올린다(3초 묶음을 기다릴 이유가 없다). 받기 전이면 쓴 것이 없어 즉시 돌아온다. */
   call(async () => { await closetMod().waitFlush(); return closetMod().flushSlots(); });   // 도는 쓰기가 있으면 끝난 뒤 남은 고침을 올린다
   if(!jobs.length) return { timedOut:false };
@@ -238,6 +240,7 @@ function _wipeAccountLocal(){
   try{ closetMod().resetCloset(); setExtraSeatSlots([]); }catch(_){}   // 🧬 옷장 — 메모리 · 받은 판 기억을 비우고 진행 중인 받기 · 쓰기의 답을 버린다(closet.js)
   try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
   try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로
+  try{ mallangStore.reset(); }catch(_){}   // 🧸 mallang-store.js — 칸 · 판 · 보는 집을 비우고 늦게 온 답을 버린다
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }
