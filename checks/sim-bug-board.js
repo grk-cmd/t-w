@@ -10,7 +10,7 @@
      §2 bug-board.js 를 실제로 돌린다 — 입력 확인 · 공개 범위 버튼 조건 · 분류 · 상태가 서버 이름과 같다 · 안내 문구가 갈래 표를 다 덮는다
      §3 연결 — html 순서 · app.js 가 만들고 bugBadge 로 시작 · Firebase 길(bugBoard) 걷음 · 우편함에서 글 열기
      §4 화면을 가짜 DOM · 가짜 provider 로 굴린다 — 로그인 전 · 시작(배지 한 번 · 타이머 0) · 목록 상태(받음 · 빈 · 못 받음 · 공지 실패) · 필터 gen ·
-        글(없음 · 비공개 · 못 받음 · 봤음) · 글 gen · 글쓰기(남은 수 · 연타 · 429 안내 · 그 밖 번호) · 답글 · 👍 · 공개 범위 · reset · 새 답변 우편 · 관리자 표시
+        글(없음 · 비공개 · 못 받음 · 봤음) · 글 gen · 글쓰기(남은 수 · 연타 · 429 안내 · 그 밖 번호) · 답글 · 👍(서버가 돌려준 수로) · 공개 범위 · reset · 새 답변 우편 · 관리자 표시
      §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
      §6 상세 화면의 바깥 주소 열기(openDetailLink) — 다시 거르기 · 오픈카톡만
      §7 일부러 깨 보기 */
@@ -192,7 +192,7 @@ function boot(src) {
   const api = { KIND: BLIB.KIND, ERRORS: BLIB.ERRORS, failOf: (e) => BLIB.failOf(e, ERRS), badge: null, resets: 0,
     badgeCount: () => api.badge, reset: () => { api.resets++; api.badge = null; },
     refreshBadge: () => { calls.push(['badge']); return Promise.resolve(impl.badge ? impl.badge() : 2).then(v => { api.badge = v; return v; }); } };
-  const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, setVis: { vis: 'prv', version: 2 }, like: undefined, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
+  const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, setVis: { vis: 'prv', version: 2 }, like: { likeN: 9, liked: true }, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
   for (const k of Object.keys(DEF)) api[k] = (...a) => { calls.push([k, ...a]); return Promise.resolve().then(() => impl[k] ? impl[k](...a) : DEF[k]); };
   const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib: M, apiErrors: { notify: (e) => env.common.push(e.code) }, notifyError: (c) => { env.codes.push(c); return true; },
     toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; } });
@@ -346,7 +346,8 @@ async function judgeUi(src) {
     chk(b.env.codes.join() === 'E-BUG-05' && lb.disabled === false, '👍 실패 — E-BUG-05 · 버튼 다시 켬 · 다시 보내지 않음(' + b.n('like') + '번)');
     b.impl.like = undefined;
     lb = b.clickAct('like'); await flush();
-    chk(b.n('like') === 2 && lb.textContent === '👍 나도 겪었어요 4' && lb.classList.contains('on'), '  성공 — 눌린 모양 · 본 수 + 1');
+    chk(b.n('like') === 2 && lb.textContent === '👍 나도 겪었어요 9' && lb.classList.contains('on') && lb.disabled === true,
+      '  성공 — 눌린 모양 · 서버가 돌려준 수(본 수 3 + 1 이 아니라 9)');
     b.env.codes.length = 0;
     b.impl.setVis = () => { throw apiErr(409, 'BUG_VIS_LOCKED'); };
     b.clickAct('vis', { vis: 'prv' }); await flush();
@@ -431,6 +432,7 @@ chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link
     ['[등록] busy 를 뺌', UI.replace("    if(busy) return;\n    const err = $('bbWErr');", "    const err = $('bbWErr');"), '연타 두 번'],
     ['시작에 배지 타이머를 넣음', UI.replace('    return refreshBadge();\n  }', '    setTimeout(refreshBadge, 5000);\n    return refreshBadge();\n  }'), '자동 되풀이'],
     ['목록 실패 번호를 뺌', UI.replace("      report(e, 'list');\n", ''), '못 받음이 조용함'],
+    ['👍 를 본 수 + 1 로 그림', UI.replace("btn.textContent = '👍 나도 겪었어요 ' + r.likeN;", "btn.textContent = '👍 나도 겪었어요 ' + (Number(cur.post.likeN || 0) + 1);"), '서버 수를 안 봄'],
     ['reset 이 provider 를 안 비움', UI.replace('    bugApi.reset();\n', ''), '앞 계정 배지 · 번호가 남음'],
   ];
   for (const [name, src, what] of breaks) {

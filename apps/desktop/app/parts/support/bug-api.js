@@ -5,7 +5,7 @@
    [모양] list(filter, cursor, limit) → { items:[row], next } · notices() → [row] · detail(number) → post
      row = { number, vis, cat, title, status, notice, byAdmin, anon, name, mine, likeN, ansN, createdAt, answeredAt, authorReplied, unseen }
      post = row 의 글 칸 + { body, env, canReply, liked, version, comments:[{ id, byAuthor, text, kakao, vis, st, at }] }
-     write(p) → { number } · reply(number, { text, status }) · setVis(number, version, vis) → { vis, version } · like(number) · seen(number) → Promise<void>
+     write(p) → { number } · reply(number, { text, status }) · setVis(number, version, vis) → { vis, version } · like(number) → { likeN, liked }(누른 뒤 서버의 수) · seen(number) → Promise<void>
      quota() → { dailyMax(관리자는 null), usedToday } · refreshBadge() → Promise<정수> · badgeCount() → 정수 | null(모름) · reset()
      failOf(err) → { kind, code } — 화면은 서버 code 를 모르고 갈래만 본다(KIND).
    [requestId] 글 · 답글은 한 일 한 번호(TwRequestId pending) — 닿지 못해 다시 누르면 같은 번호(서버가 처음 결과를 돌려준다 · 두 번 안 올라감),
@@ -183,7 +183,9 @@ function createBugApi(deps){
   }
   async function like(number){
     if(!nonEmpty(number)) throw invalid('글 번호');
-    await authed.put(PATHS.like(number), {});
+    const d = await authed.put(PATHS.like(number), {});
+    if(!isObj(d) || !cnt(d.likeCount) || typeof d.liked !== 'boolean') throw shapeError('공감 수');
+    return { likeN: d.likeCount, liked: d.liked };
   }
   async function seen(number){
     if(!nonEmpty(number)) throw invalid('글 번호');

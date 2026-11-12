@@ -3,7 +3,7 @@
      화면 모양(소문자 열쇠 · ms · anon)으로 맞추는 곳 · 본문을 만드는 곳 · 실패 갈래를 정하는 곳이 provider 하나라 실제로 불러서 판정한다.
    ・1절: 목록 — 경로(filter · limit · cursor) · 줄 맞춤(공개 범위 · 분류 · 상태 · 내 글 · 안 본 답변 · 익명 · 글쓴이 답글) · 빈 목록 ≠ 못 읽음 · 모양 틀림 던짐 · 공지
    ・2절: 글 — 댓글 차례 · 글쓴이 답글의 공개 범위 · 판(version) · 모양 틀림 던짐
-   ・3절: 쓰기 — 새 글 본문(내 이름 · 코드 없음 · 공지는 켤 때만) · 요청 번호(닿지 못함 → 같은 번호 · 서버 답 → 새 번호) · 답글 · 공개 범위 · 👍 · 봤음 · 남은 수
+   ・3절: 쓰기 — 새 글 본문(내 이름 · 코드 없음 · 공지는 켤 때만) · 요청 번호(닿지 못함 → 같은 번호 · 서버 답 → 새 번호) · 답글 · 공개 범위 · 👍(응답 수 · 모양 틀림 던짐) · 봤음 · 남은 수
    ・4절: 배지 수 — 받으면 기억 · reset 뒤 null · reset 전에 보낸 받기의 늦은 답은 버림
    ・5절: 오류 갈래(failOf — 진짜 api-errors.js 의 translate 로)
    ・6절: 일부러 깨 보기
@@ -153,7 +153,7 @@ async function judge(S){
   {
     const { m, authed } = mk(S.API, {
       'POST /v1/bugs/B-1/replies': null, 'PATCH /v1/bugs/B-1/visibility': { visibility: 'PRIVATE', version: 5 },
-      'PUT /v1/bugs/B-1/like': null, 'PUT /v1/me/bugs/B-1/seen': null, 'GET /v1/me/bugs/quota': { dailyMax: 5, usedToday: 2 },
+      'PUT /v1/bugs/B-1/like': { likeCount: 7, liked: true }, 'PUT /v1/me/bugs/B-1/seen': null, 'GET /v1/me/bugs/quota': { dailyMax: 5, usedToday: 2 },
     });
     await m.reply('B-1', { text: ' 더 알려요 ', status: 'unfixed' });
     const rb = authed.log[0].body;
@@ -164,9 +164,20 @@ async function judge(S){
     const v = await m.setVis('B-1', 4, 'prv');
     chk(authed.log[1].method === 'PATCH' && JSON.stringify(authed.log[1].body) === '{"version":4,"visibility":"PRIVATE"}' && v.vis === 'prv' && v.version === 5,
       '공개 범위 — PATCH /v1/bugs/{number}/visibility { version, visibility } → { vis, version }');
-    await m.like('B-1'); await m.seen('B-1');
+    const lk = await m.like('B-1'); await m.seen('B-1');
     chk(authed.log[2].method === 'PUT' && authed.log[2].path === '/v1/bugs/B-1/like' && authed.log[3].method === 'PUT' && authed.log[3].path === '/v1/me/bugs/B-1/seen',
       '👍 PUT /v1/bugs/{number}/like · 봤음 PUT /v1/me/bugs/{number}/seen');
+    chk(!!lk && lk.likeN === 7 && lk.liked === true && Object.keys(lk).length === 2,
+      '  👍 응답 수로 그린다 — { likeCount, liked } → { likeN, liked }(본 수 + 1 이 아니라 서버의 수)');
+    const zero = mk(S.API, { 'PUT /v1/bugs/B-2/like': { likeCount: 0, liked: false } });
+    const z = await zero.m.like('B-2');
+    chk(z.likeN === 0 && z.liked === false, '  경계 — 수 0 · liked false 도 그대로 받는다');
+    for(const [why, d] of [['응답 없음', null], ['수가 글자', { likeCount: '3', liked: true }], ['음수', { likeCount: -1, liked: true }],
+      ['소수', { likeCount: 1.5, liked: true }], ['liked 없음', { likeCount: 3 }]]){
+      const bad = mk(S.API, { 'PUT /v1/bugs/B-3/like': d });
+      const e = await throws(() => bad.m.like('B-3'));
+      chk(!!e && e.code === 'SHAPE', '  👍 응답 모양이 틀리면 던진다 — ' + why);
+    }
     const q = await m.quota();
     chk(q.dailyMax === 5 && q.usedToday === 2, '남은 수 — GET /v1/me/bugs/quota → { dailyMax, usedToday }');
     const adm = mk(S.API, { 'GET /v1/me/bugs/quota': { dailyMax: null, usedToday: 9 } });
@@ -215,6 +226,8 @@ async function runAll(){
       "try{ return pageOf(await get(PATHS.list + queryOf({ filter, limit: n, cursor: nonEmpty(cursor) ? cursor : null }))); }catch(_){ return { items: [], next: null }; }"), '실패 ≠ 없음'],
     ['닿지 못해도 번호를 끝냄', S.API.replace('if(e && e.status) ids.settle(key);', 'ids.settle(key);'), '두 번 올라감'],
     ['배지 epoch 를 안 봄', S.API.replace('if(at === epoch) badge = n;', 'badge = n;'), '늦은 답이 새 계정 수를 덮음'],
+    ['👍 응답을 안 보고 본 수 + 1', S.API.replace("return { likeN: d.likeCount, liked: d.liked };", "return { likeN: 1, liked: true };"), '서버 수로 그림'],
+    ['👍 응답 모양을 안 봄', S.API.replace("if(!isObj(d) || !cnt(d.likeCount) || typeof d.liked !== 'boolean') throw shapeError('공감 수');", ''), '모양 틀림 던짐'],
     ['새 글에 내 코드를 실음', S.API.replace('const body = { requestId,', "const body = { code: 'ME', requestId,"), '신원은 토큰에서만'],
   ];
   for(const [name, src, what] of breaks){

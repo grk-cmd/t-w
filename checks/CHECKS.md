@@ -83,8 +83,8 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 281 | **3cef131e017d** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 446 | **106f1326864f** |
-| **sim-bug-api.js** | 231 | **615a913e6d77** |
+| **sim-bug-board.js** | 448 | **3c77266919d3** |
+| **sim-bug-api.js** | 244 | **86608e10da93** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |

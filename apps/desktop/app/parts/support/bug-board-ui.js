@@ -292,10 +292,11 @@ const rtOn = deps.rtOn;
   }
   async function likePost(btn){
     if(busy || !cur || !cur.post) return;
-    const number = cur.number, n = Number(cur.post.likeN || 0);
+    const number = cur.number;
     busy = true; btn.disabled = true;
     const at = epoch;
-    try{ await bugApi.like(number); }
+    let r;
+    try{ r = await bugApi.like(number); }
     catch(e){
       if(at !== epoch) return;
       busy = false; btn.disabled = false;
@@ -304,9 +305,9 @@ const rtOn = deps.rtOn;
     }
     if(at !== epoch) return;
     busy = false;
-    // 서버는 한 사람 한 번만 센다 — 누를 수 있던 버튼(아직 안 누름)이니 본 수 + 1
-    if(cur && cur.number === number && cur.post){ cur.post.liked = true; cur.post.likeN = n + 1; }
-    btn.classList.add('on'); btn.textContent = '👍 나도 겪었어요 ' + (n + 1);
+    // 서버가 돌려준 수로 그린다 — 본 뒤에 다른 사람이 누른 것까지 맞는다
+    if(cur && cur.number === number && cur.post){ cur.post.liked = r.liked; cur.post.likeN = r.likeN; }
+    btn.classList.toggle('on', r.liked); btn.disabled = r.liked; btn.textContent = '👍 나도 겪었어요 ' + r.likeN;
   }
 
   /* ── 글쓰기 ─────────────────────────────────────────── */
