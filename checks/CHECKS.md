@@ -433,6 +433,7 @@
 | **sim-mh-bg-url.js** | 133 | **0713ca44ff81** |
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-gift-save.js** | 137 | **f7be455180d5** |
+| **sim-env-diag.js** | 130 | **9ef28122ad18** |
 | **sim-front-diag.js** | 115 | **2585d0146d44** |
 | **sim-gpu-timer.js** | 169 | **1f91f293d33a** |
 | **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |

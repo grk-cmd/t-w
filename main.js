@@ -92,6 +92,7 @@ const HoverPoke = require('./hover-poke');
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
 const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
 const FrontDiag = require('./app/parts/shared/front-diag');   // 🩺 1분 [프레임] 줄 끝에 앞 창 · 전체화면 비율(게임 · 영상 버벅임 제보)
+const EnvDiag = require('./app/parts/shared/env-diag');   // 🩺 켤 때 [환경] · [GPU 상세] · 1분 [자원](CPU · 메모리를 어느 프로세스가 쓰나)
 const { isSystemPrompt } = require('./app/parts/shared/system-prompt');   // 🔐 앱스토어 · 암호 확인 창이 맨 앞이면 실행 화면을 내린다
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
@@ -628,6 +629,7 @@ function _exitNow(){
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
+  try{ if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } }catch(_){}
   try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
@@ -2103,9 +2105,54 @@ function _logGpuOnce(win){
     app.getGPUInfo('basic')
       .then(info => _diagLog(_gpuSummary(info, feat, sw)))
       .catch(err => _diagLog(_gpuSummary(null, feat, sw) + ' | getGPUInfo 실패 ' + (err && err.message)));
+    _logEnvOnce();
+    setTimeout(_logGpuDetail, GPU_DETAIL_DELAY_MS);
   };
   app.once('gpu-info-update', go);
   if(win && !win.isDestroyed()) win.webContents.once('did-finish-load', () => setTimeout(go, 1500));
+}
+/* 🩺 [환경] · [GPU 상세] · [자원] — «같은 앱이 PC 마다 CPU 가 수십 배 다르다» 를 로그 두 장으로 가른다(shared/env-diag.js).
+   실행 모니터는 창이 있는 모니터로 본다 — getRunDisplay 는 저장 · 로그가 딸린다. */
+const GPU_DETAIL_DELAY_MS = 10000;   // 'complete' 는 정보를 모으는 프로세스를 띄울 수 있다 — 켜는 동안을 피한다
+const RES_MS = 60 * 1000;
+const _resWatch = EnvDiag.createResourceWatch();
+let _resTimer = null;
+function _cpuThreads(){ try{ return (require('os').cpus() || []).length; }catch(_){ return 0; } }
+function _logEnvOnce(){
+  try{
+    const os = require('os');
+    const cpus = os.cpus() || [];
+    const runId = (mainWindow && !mainWindow.isDestroyed()) ? screen.getDisplayMatching(mainWindow.getBounds()).id : null;
+    const primaryId = screen.getPrimaryDisplay().id;
+    _diagLog(EnvDiag.envLine({
+      app: app.getVersion(), electron: process.versions.electron, chrome: process.versions.chrome,
+      os: process.platform === 'win32' ? 'Windows' : (process.platform === 'darwin' ? 'macOS' : process.platform),
+      osVer: process.getSystemVersion(), arch: process.arch,
+      cpuModel: cpus[0] && cpus[0].model, threads: cpus.length, ramBytes: os.totalmem(),
+      displays: screen.getAllDisplays().map(d => ({ w: d.size.width, h: d.size.height, scale: d.scaleFactor, hz: d.displayFrequency, primary: d.id === primaryId, run: d.id === runId })),
+    }));
+  }catch(e){ _diagLog('[환경] 못 읽음 ' + (e && e.message)); }
+}
+function _logGpuDetail(){
+  app.getGPUInfo('complete')
+    .then(info => _diagLog(EnvDiag.gpuDetailLine(info)))
+    .catch(err => _diagLog('[GPU 상세] 못 읽음 ' + (err && err.message)));
+}
+/* 1분마다 — 런처 · 실행 화면 · 숨김 어디서든 남긴다(어떻게 써도 기록이 남게). 첫 호출은 기준만 잡는다 */
+function _resTick(){
+  try{
+    const w = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+    const mode = (!w || !w.isVisible() || w.isMinimized()) ? '숨김' : (_isConfigMode ? '런처' : '실행 화면');
+    const os = require('os');
+    const sys = { cpu: EnvDiag.cpuTimes(os.cpus()), freeBytes: os.freemem(), totalBytes: os.totalmem() };
+    const r = _resWatch.take(Date.now(), app.getAppMetrics(), w ? w.webContents.getOSProcessId() : null, sys);
+    if(r) _diagLog(EnvDiag.resourceLine(r, _cpuThreads(), mode));
+  }catch(_){}
+}
+function _startResourceWatch(){
+  if(_resTimer) return;
+  _resTick();
+  _resTimer = setInterval(_resTick, RES_MS);
 }
 /* 🎬 초기화(SETTINGS_VER)로 꺼진 실험을 다시 켤지 묻는 대상인가 — 백업 파일에 실험이 켜져 있었고, 지금은 꺼져 있고, 아직 안 물었다.
    ★ 0.11.0 ~ 0.11.2 에서 이미 초기화된 사람도 백업 파일로 알아본다(그 버전엔 묻는 창이 없었다). */
@@ -2248,6 +2295,7 @@ function createWindow() {
   _mainWindowCreated = true;
   _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
   _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
+  _startResourceWatch();              // 🩺 1분 [자원] — 어느 프로세스가 CPU · 메모리를 쓰나
   mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));
 
   // ★ renderer의 window.open 요청 처리 — 방명록('mhGuestbook…')은 Win98풍 프레임리스 독립 창으로.
@@ -3974,7 +4022,7 @@ function createWindow() {
     wheel:     (e) => { _inputDiag.wheel++; _onGlobalWheel(e); },
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
-  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
+  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
        종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
