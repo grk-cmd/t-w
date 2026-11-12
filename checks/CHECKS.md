@@ -473,7 +473,7 @@
 | **sim-run-verdict.js** | 67 | **4303b789970f** |
 | **sim-user-api.js** | 210 | **31e19eb795ae** |
 | **sim-login-flow.js** | 369 | **499879745e77** |
-| **sim-first-run-013.js** | 144 | **c0544d9c503e** |
+| **sim-first-run-013.js** | 158 | **9758408b7554** |
 | **sim-lobby-window.js** | 115 | **4e45590bc75d** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |
 | **sim-install-desktop.js** | 116 | **9ea4923a007b** |

@@ -5831,6 +5831,7 @@ const firstRunMod = TwFirstRun013.createFirstRun({
   steps: {
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
     gacha: TwFirstRun013.gachaStep(),
+    mallang: TwFirstRun013.mallangStep(localStorage),
     legacySync: ()=>closetMod.legacyStep(),
     licenseKey: TwFirstRun013.pendingStep('라이선스 키'),
   },

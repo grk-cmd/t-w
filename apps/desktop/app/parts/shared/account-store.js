@@ -51,7 +51,7 @@ const ACCOUNT_KEYS = Object.freeze([
 ]);
 /* 이름 뒤에 방 · 친구 · 종류가 붙는 키 */
 const ACCOUNT_KEY_PREFIXES = Object.freeze([
-  'tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.mallang.', 'tw.chatTab.', 'tw.dailyPlay.', 'tw_chat_read:', 'tw_chat_join:',
+  'tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw.dailyPlay.', 'tw_chat_read:', 'tw_chat_join:',
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
