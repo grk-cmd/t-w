@@ -103,7 +103,7 @@
 | **sim-chat-tabs.js** | 139 | **cb2e61320c79** |
 | **sim-chat-layout.js** | 108 | **7b3248a01a4c** |
 | **sim-fix-1008.js** | 437 | **5430cf1c3ee1** |
-| **sim-display-pick.js** | 171 | **537e0e66f93d** |
+| **sim-display-pick.js** | 171 | **547c17431d42** |
 | **sim-fix-1016b.js** | 84 | **55d2d7d90ae9** |
 | **sim-fix-1016.js** | 170 | **7724abcbddfe** |
 | **sim-gl-recover.js** | 88 | **e3705358c7eb** |
