@@ -26,3 +26,34 @@
 - 실패: `reportApi.failOf` 의 갈래만 본다 — `self` 는 조용히 닫기 · `noAwayImage` · `noteRequired` 는 안내 문구 · `common`(로그인 풀림 · 점검 · 닿지 못함 등)은 공통 표(`apiErrors.notify`) · 그 밖은 `E-RPT-01`. 실패하면 숨기지 않고 [신고] 를 다시 켠다 · 다시 보내지 않는다.
 - 함정: 보내는 동안 [신고] 는 꺼져 있다(연타로 두 번 보내지 않게). `ADMIN_MIN`(3)은 창 안내 문구 «서로 다른 3명» · 관리자 목록 머리 글에만 쓴다 — 거르기는 서버 기본(3)이 한다(서버 기본이 바뀌면 같이 고친다).
 - 검사: `checks/sim-report.js` · `checks/sim-report-away.js`.
+
+## bug-board.js — 🐞 버그제보 규칙(classic script `window.TwBugBoard`)
+- 책임: 게시판 화면 · provider 가 같이 보는 상수 · 순수 함수 — 한 쪽 크기(`BUG_PAGE` 8 · 서버 `limit` 로 보냄) · 입력 상한(제목 60 · 본문 2000 · 환경 120 · 답글 1000 — 서버와 같음) · 분류 일곱(`BUG_CATS` — «건의» 포함) · 상태 여섯(`BUG_STATUS` — «검토중» 포함) · 글쓴이 상태 셋 · 오픈카톡 주소 판정 · 공개 범위 안내 문구 · 서버 거절 code 별 안내 문구(`GUIDE_TEXT`).
+- 내놓는 것: 위 상수 · `checkPost(p)`(새 글 입력 확인 — 문제없으면 null) · `canChangeVis(post)`(내 글 · 공지 아님 · 댓글 0 — 서버 공개 범위 바꾸기와 같은 조건).
+- 함정: 분류 · 상태 열쇠는 서버 이름(`BUG` · `REVIEW` …)의 소문자다 — 하나 늘리면 서버 값과 같이. 요청 · DOM · 저장을 모른다.
+- 검사: `checks/sim-bug-board.js` 2절.
+
+## bug-api.js — 🐞 버그제보 provider(classic script `window.TwBugApi`)
+- 책임: 게시판 서버 길 한 벌 — 목록(`GET /v1/bugs?filter=&limit=&cursor=` · 공지 `filter=notices`) · 글(`GET /v1/bugs/{number}`) · 새 글(`POST /v1/bugs`) · 답글(`POST …/{number}/replies`) · 공개 범위(`PATCH …/{number}/visibility`) · 👍(`PUT …/{number}/like`) · 봤음(`PUT /v1/me/bugs/{number}/seen`) · 오늘 남은 수(`GET /v1/me/bugs/quota`) · 새 답변 배지 수(`GET /v1/me/bugs/unseen-count`).
+  서버 모양(대문자 이름 · ISO 시각 · `author`) → 화면 모양(`vis` 'pub'|'prv' · 소문자 `cat` · `status` · ms · `anon` · `authorReplied`)은 여기 한 곳(`rowOf` · `postOf`).
+- deps: `authed`(`TwApi.authed`) · `errs`(`TwApiErrors` — `translate` · `COMMON`) · `pending`(요청 번호 기억 만들기 — `TwRequestId.createPending`).
+- 내놓는 것: `createBugApi(deps)` → `{ KIND, ERRORS, list, notices, detail, write, reply, setVis, like, seen, quota, refreshBadge, badgeCount, failOf, reset }`. 순수: `rowOf` · `postOf` · `pageOf` · `quotaOf` · `writeBody` · `failOf(err, errs)` · `PATHS` · `KIND` · `ERRORS` · `LIMIT_MAX`.
+  `failOf` 갈래 — `guide`(안내 문구 · 번호 없음) · `missing`(없는 글) · `private`(남의 비공개 글) · `conflict`(그사이 바뀜) · `common`(공통 code · 닿지 못함) · `site`(그 자리 번호).
+- 함정:
+  - 글쓴이 · 공감한 사람 · 읽은 사람은 서버가 토큰에서 정한다 — 본문에 내 이름 · 코드 · uid 를 싣지 않는다.
+  - 새 글 · 답글은 요청 번호를 싣는다 — 닿지 못해 다시 누르면 같은 번호(두 번 안 올라감), 서버가 답했으면(성공 · 거절) 다음엔 새 번호.
+  - 실패는 ApiError 를 그대로 던진다(빈 목록으로 돌리지 않는다). 다시 보내지 않는다. 응답 모양이 틀리면 code `SHAPE`, 보내기 전 틀린 값은 `INVALID`(요청 0).
+  - 배지 수는 `reset` 마다 오르는 epoch 로 묶는다 — 계정을 놓기 전에 보낸 받기의 늦은 답이 새 계정 수를 덮지 않게.
+  - 👍 응답에는 수가 없다 — 화면이 본 수 + 1 로 그린다(누를 수 있던 버튼 = 아직 안 누름 · 서버가 한 사람 한 번만 셈).
+- 검사: `checks/sim-bug-api.js`.
+
+## bug-board-ui.js — 🐞 버그제보 게시판 화면(classic script `window.TwBugBoardUi`)
+- 책임: 마이홈 «버그제보» 탭의 목록 → 상세 → 글쓰기 세 화면 · 탭 «새 답변» 배지. 파일 끝(게시판 밖)은 관리자 오픈카톡 기본 링크(`bugReport/current` — 다음 묶음이 서버 설정으로 옮긴다).
+- deps: `bugApi`(`createBugApi` 인스턴스) · `lib`(`TwBugBoard`) · `apiErrors`(`TwApiErrors.store`) · `notifyError`(`TwErrorCodes.notify`) · `toast` · `escHtml` · `safeHtml`(`TwSafeHtml`) · `isAdmin`(읽는 함수) · `rtOn`(`TwRtHub.store.on`).
+- 내놓는 것: `createBugBoardUi(deps)` → `{ start, reset, refreshBadge }` — `start` 는 app-boot STEPS 의 `bugBadge`(배지 한 번 · realtime resync 때 한 번 다시), `reset` 은 계정을 놓을 때(account.js). 우편함 고리 `window._bugBoardOpen(번호)` · `window._bugBoardRefreshBadge(번호)` 를 만들 때 건다.
+- 실패: 갈래로 — 안내는 그 칸 문구 · 공통은 공통 번호 · 그 밖은 `E-BUG-01`(목록) · `02`(글) · `03`(등록) · `04`(답글) · `05`(👍) · `06`(공개 범위) · `07`(오늘 남은 수). 없는 글 · 남의 비공개 글은 번호 없이 그 화면.
+- 함정:
+  - 목록 · 글 · 남은 수 받기마다 번호(gen)를 쥔다 — 그사이 다른 필터 · 다른 글 · reset 이면 늦은 답을 버린다. 쓰기는 한 번에 하나(busy).
+  - 시작 전 · reset 뒤엔 받지 않는다(«로그인 뒤에 볼 수 있어요»). 배지를 타이머로 되풀이하지 않는다.
+  - TODO(D9-4): 관리자 [답변 등록] 은 아직 서버 길이 없어 등록하지 않고 까닭만 적는다.
+- 검사: `checks/sim-bug-board.js`.
