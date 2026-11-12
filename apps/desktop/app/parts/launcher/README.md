@@ -72,3 +72,14 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 프로그램 설정 바로 뒤에서 만들기만).
 - 목록 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(`window.TwOssNotices` · 손으로 고치지 않는다). 줄은 `VENDOR` + 앱이 직접 쓰는 npm 패키지, 하위 패키지는 그 줄 원문 안으로. 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 lock 운영 패키지를 다 덮지 않으면 빨강.
 - 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `shared/outside-close.js`. 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+
+## run-rect.js — 🖥️ 실행 창 자리 · 🧪 아래 띠 시험 스위치
+
+- **책임**: 모니터 작업영역에서 실행 화면 창 사각형을 만든다(순수 함수 · main.js 가 require). 실행 진입 · 모니터 바꾸기 · 표시 설정 바뀜 세 길이 `_runRectOf` 로 같은 사각형을 쓴다.
+- **내보내는 것**: `parseBand(argv)` → 띠 비율(없으면 1) · `runRect(workArea, overlayHeight, band)` → `{ x, y, width, height }` · `BAND_SWITCH`(`tw-run-band`) · `BAND_MIN`(0.25).
+- **🧪 시험 스위치 `--tw-run-band=0.4`**: 실행 창을 아래쪽 40% 높이로만 띄운다. «CPU 가 창 넓이에 따라 주는가» 를 재 보려는 시험이다 — 바로가기 대상 끝에 붙인다. 켰는지는 진단 기록 `[GPU]` 줄 «시험 스위치» 에 남는다.
+- **함정**
+  - 높이는 `overlay.runOverlayHeight`(아래 틈)로 깎은 값을 받는다 — 여기서 다시 깎지 않는다. 띠는 아래 끝을 그대로 두고 위만 내린다.
+  - 스위치가 없으면 옛 식과 한 픽셀도 다르면 안 된다 — 실행 창 크기가 바뀌면 `_winAlreadyIs` 억제가 깨져 창 조작이 다시 쏟아진다.
+  - 띠로 띄우면 날아가기 · 위쪽 말풍선 · 끌기는 띠 밖으로 못 나간다(시험이라 그대로 둔다).
+  - 검사: `checks/sim-run-rect.js` · `sim-overlay-gap.js`(세 자리가 이 함수를 거치는가) · `sim-fix-1008.js`([GPU] 줄).

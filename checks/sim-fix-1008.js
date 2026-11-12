@@ -330,7 +330,9 @@ say('§1-B 그래픽카드 · GPU 기능 상태 · 시험 스위치 기록');
   chk(/if\(_gpuLogged\) return;/.test(lg) && /app\.once\('gpu-info-update', go\)/.test(lg) && /did-finish-load', \(\) => setTimeout\(go, 1500\)/.test(lg), '★ GPU 준비 뒤 · 부팅마다 한 번만');
   chk(!/appendSwitch\('disable-gpu-compositing'\)/.test(MAIN.replace(/^\s*\/\/.*$/mg, '')) && !/disableHardwareAcceleration\(\)/.test(MAIN.replace(/^\s*\/\/.*$/mg, '').replace(/\/\*[\s\S]*?\*\//g, '')), '★ CPU 합성 · 하드웨어 가속 끄기는 켜지 않았다 (기록만)');
   const src = (MAIN.match(/const GPU_TEST_SWITCHES[\s\S]*?\nfunction _gpuSummary\(info, feat, sw\)\{[\s\S]*?\n\}/) || [''])[0];
-  let sum = null; try { sum = new Function(src + '\nreturn _gpuSummary;')(); } catch (e) { say('  ' + e.message); }
+  /* 시험 스위치 목록이 실행 창 자리 모듈(run-rect.js)의 스위치 이름도 읽는다 */
+  const RR = ['run-rect.js', 'app/parts/launcher/run-rect.js', '../app/parts/launcher/run-rect.js'].find(f => fs.existsSync(f));
+  let sum = null; try { sum = new Function('RunRect', src + '\nreturn _gpuSummary;')(require(require('path').resolve(RR))); } catch (e) { say('  ' + e.message); }
   if (!sum) chk(false, '_gpuSummary 를 꺼냈다');
   else {
     const sw = (on) => ({ has: (s) => s in on, value: (s) => on[s] || '' });
@@ -338,6 +340,8 @@ say('§1-B 그래픽카드 · GPU 기능 상태 · 시험 스위치 기록');
       { gpu_compositing: 'enabled', webgl: 'enabled' }, sw({ 'use-angle': 'gl' }));
     chk(/Intel 0x9bc4\(사용 중\)/.test(a) && /NVIDIA 0x1f95 드라이버 31\.0\.15/.test(a) && /그래픽카드 2개/.test(a), '  실행 — 내장 + 외장 노트북이 한 줄에 보인다: ' + a.slice(0, 70) + '…');
     chk(/gpu_compositing=enabled/.test(a) && /rasterization=\?/.test(a) && /시험 스위치 use-angle=gl/.test(a), '  실행 — 기능 상태 · 시험 스위치 값이 남는다');
+    const c = sum(null, null, sw({ 'tw-run-band': '0.4' }));
+    chk(/시험 스위치 tw-run-band=0\.4/.test(c), '  실행 — 🧪 실행 창 띠(--tw-run-band) 시험도 같은 줄에 남는다');
     const b = sum(null, null, sw({}));
     chk(/\[GPU\] 정보 없음/.test(b) && /시험 스위치 없음/.test(b), '  실행 — 정보가 없어도 죽지 않는다');
   }
