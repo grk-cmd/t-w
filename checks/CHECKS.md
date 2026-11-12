@@ -83,7 +83,8 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 281 | **3cef131e017d** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 503 | **e39ef0fefceb** |
+| **sim-bug-board.js** | 446 | **106f1326864f** |
+| **sim-bug-api.js** | 231 | **615a913e6d77** |
 | **sim-bug-no.js** | 159 | **afeda1efa43f** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
@@ -268,7 +269,7 @@
 | **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 319 | **b66d767d11fc** |
-| **sim-friend-manage-module.js** | 309 | **1a09c072d659** |
+| **sim-friend-manage-module.js** | 309 | **632eed6beda1** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **412082771903** |
 | **sim-gacha.js** | 471 | **72703fe818a8** |
@@ -334,7 +335,7 @@
 | **sim-focus-level.js** | 119 | **dcef7d6522e5** |
 | **sim-chat-ui.js** | 123 | **8cb619c64968** |
 | **sim-license-gate.js** | 340 | **78de89e312a3** |
-| **sim-account.js** | 174 | **df04e85d97b6** |
+| **sim-account.js** | 174 | **4a10757aea57** |
 | **sim-wardrobe.js** | 189 | **b4afe667aaf5** |
 | **sim-settings-panel.js** | 96 | **a04d94668421** |
 | **sim-desktop-run.js** | 94 | **c83f41497fc2** |
@@ -404,7 +405,7 @@
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 99 | **f15e0c15e7f6** |
 | **sim-nav.js** | 91 | **b74d2aa1c684** |
-| **sim-app-boot.js** | 165 | **4b7d666a2b8b** |
+| **sim-app-boot.js** | 165 | **6876fdb73cd5** |
 | **sim-net-ready.js** | 145 | **e7eb45ad9e77** |
 | **sim-myhome-hooks.js** | 99 | **a7ccbffbc7b3** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |

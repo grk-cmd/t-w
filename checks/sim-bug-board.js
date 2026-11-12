@@ -1,36 +1,35 @@
-/* sim-bug-board.js — 🐞 버그제보 게시판 검사
-   실행:  node sim-bug-board.js   (firebase-database-rules.json · bug-board.js · bug-board-ui.js · firebase-init.js · app.js 와 같은 폴더에서)
+/* sim-bug-board.js — 🐞 버그제보 게시판 검사(규칙 · 화면)
+   실행:  node sim-bug-board.js   (firebase-database-rules.json · bug-board.js · bug-api.js · bug-board-ui.js · app.js 와 같은 폴더에서)
 
-   ★ 왜 이 검사가 있는가 — 비공개 제보를 **서버에서** 막는 구조라, 규칙 한 줄이 풀리면 화면은 멀쩡한데
-     남의 비공개 글이 `/bugBoard/prv.json` 한 번으로 다 보인다. 화면 확인으로는 절대 안 잡힌다.
-     그리고 우편함 tag 정규식에 bug 가 빠지면 답변 알림이 **조용히** 실패한다.
+   ★ 왜 이 검사가 있는가 — 0.13 에서 게시판의 원본은 서버(/v1/bugs*)다. 화면은 provider(bug-api.js — 검사 sim-bug-api.js)가 준 칸만 보고,
+     실패는 갈래 · 번호로, 늦게 온 답은 버리고, 같은 쓰기를 두 번 보내지 않아야 한다. 화면을 몇 개 눌러 봐서는 «늦은 답 덮어씀» · «연타 두 번 올라감» 이 안 잡힌다.
+     컷오버 전까지 Firebase 규칙(bugBoard/*)은 그대로 배포돼 있어 §1 이 그 규칙을 계속 본다.
 
-   ★ 무엇을 보는가 (핸드오프 ③ 확인 ①~⑤ + 순수 함수)
-     §1 규칙 — ① prv · ans/prv 읽기가 관리자/본인 조건 ② ans 쓰기가 관리자 전용 ③ list 읽기에 limitToLast 상한
-              ④ inbox tag 에 bug  + 비공개 글 이름 «익명» 은 앱이 넣는다(규칙은 0.11.2 이하 앱 때문에 아직 안 본다) · kakao 는 open.kakao.com 만 · 하루 작성 수 본인만
-     §2 bug-board.js 를 실제로 돌린다 — ⑤ 비공개 글의 목록 줄은 제목은 있고 이름은 «익명» · 입력 확인 · 배지 수
-     §3 연결 — firebase-init · 우편함 · 화면 스크립트 순서 · 비공개 행은 누를 수 없다
-     §4 쪽 넘김 — 가짜 RTDB(정렬 · endBefore · limitToLast 를 흉내)에 글 45개 + 공지 2개를 넣고 [다음] 으로 끝까지 걷는다.
-        한 쪽은 BUG_PAGE(8)개 · 한 번에 20개 넘게 받지 않는다 · 빠짐 · 겹침 없음 · [이전] 은 같은 쪽 · 미해결도 같은 방식
+   ★ 무엇을 보는가
+     §1 규칙 — ① prv · ans/prv 읽기가 관리자/본인 조건 ② ans 쓰기가 관리자 전용 ③ list 읽기에 limitToLast 상한 ④ inbox tag 에 bug …(컷오버 전 Firebase 규칙)
+     §2 bug-board.js 를 실제로 돌린다 — 입력 확인 · 공개 범위 버튼 조건 · 분류 · 상태가 서버 이름과 같다 · 안내 문구가 갈래 표를 다 덮는다
+     §3 연결 — html 순서 · app.js 가 만들고 bugBadge 로 시작 · Firebase 길(bugBoard) 걷음 · 우편함에서 글 열기
+     §4 화면을 가짜 DOM · 가짜 provider 로 굴린다 — 로그인 전 · 시작(배지 한 번 · 타이머 0) · 목록 상태(받음 · 빈 · 못 받음 · 공지 실패) · 필터 gen ·
+        글(없음 · 비공개 · 못 받음 · 봤음) · 글 gen · 글쓰기(남은 수 · 연타 · 429 안내 · 그 밖 번호) · 답글 · 👍 · 공개 범위 · reset · 새 답변 우편 · 관리자 표시
      §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
-        (예전엔 min-height 만 있어 [전체] 한 쪽 + 공지만큼 마이홈 창이 세로로 화면 끝까지 늘어났다)
-     §6 글쓴이 답글 — rep 노드 규칙(글쓴이만 · 서버 시각 · userReplyTs 짝 · 10초) · 글쓴이 상태 셋 · addReply 실행 · 화면
-     §7 공개 범위 바꾸기 — 답변 · 답글 전 · 글쓴이만 · 본문은 그대로 옮기기만(규칙) · canChangeVis · setVis 실행 · 화면 · 깨 보기
-   ⚠️ 규칙을 **실제로 돌려 본 것**은 이 검사가 아니다(에뮬레이터 필요). 그 결과는 커밋 메시지에 남겼다. */
+     §6 상세 화면의 바깥 주소 열기(openDetailLink) — 다시 거르기 · 오픈카톡만
+     §7 일부러 깨 보기 */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
 const fs = require('fs');
+const vm = require('vm');
 const say = console.log;
-let fail = 0;
-const pending = [];
-const chk = (ok, msg) => { if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
-const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const RULES = stripReadGate(read('firebase-database-rules.json')), BB = read('bug-board.js'), UI = read('bug-board-ui.js');
-/* 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록은 parts/myhome/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 렌더러 쪽 한 벌 = app.js + 그 파일.
-   ⚠️ 그 파일이 없으면 «못 찾음» 으로 멈춘다 — app.js 만 보고 빨개지거나 초록인 척하지 않게. */
+let fail = 0, quiet = false, qfail = 0;
+const chk = (ok, msg) => { if (quiet) { if (!ok) qfail++; return; } if (!ok) fail++; say((ok ? '  ✓ ' : '  ✗ ') + msg); };
+const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, 'parts/support/' + f, 'parts/shared/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
+const RULES = stripReadGate(read('firebase-database-rules.json')), BB = read('bug-board.js'), UI = read('bug-board-ui.js'), BAPI = read('bug-api.js');
+const AE = read('api-errors.js'), SHS = read('safe-html.js');
+/* 📩 수령함은 parts/myhome/myhome-inbox.js — 우편함에서 글 열기를 거기서 본다 */
 const MI = read('myhome-inbox.js'); if (!MI) { console.log('  ? 원본 못 찾음 — myhome-inbox.js'); process.exit(2); }
-const FB = read('firebase-init.js'), APP = read('app.js') + '\n' + MI, HTML = read('desk-companion-prototype.html');
-if (!RULES || !BB || !UI || !FB || !APP || !HTML) { say('  ? 원본 못 찾음 — 규칙 · bug-board.js · bug-board-ui.js · firebase-init.js · app.js · HTML'); process.exit(2); }
+const FB = read('firebase-init.js'), APP = read('app.js') + '\n' + MI, HTML = read('desk-companion-prototype.html'), BOOT = read('app-boot.js');
+if (!RULES || !BB || !UI || !BAPI || !AE || !SHS || !FB || !APP || !HTML || !BOOT) { say('  ? 원본 못 찾음 — 규칙 · bug-board.js · bug-api.js · bug-board-ui.js · api-errors.js · safe-html.js · firebase-init.js · app.js · app-boot.js · HTML'); process.exit(2); }
+const loadMod = (src) => { const mod = { exports: {} }; new Function('module', 'window', src)(mod, undefined); return mod.exports; };
+const M = loadMod(BB), BLIB = loadMod(BAPI), ERRS = loadMod(AE), SH = loadMod(SHS);
 
 const rules = JSON.parse(RULES).rules;
 const at = (p) => p.split('/').reduce((o, k) => (o && o[k] !== undefined) ? o[k] : undefined, rules);
@@ -93,227 +92,51 @@ chk(S(bb['.write']) && ADMIN.test(S(bb['.write'])) && !/\|\|/.test(S(bb['.write'
     '하루 상한 config/bugDailyMax — 누구나 읽기 · 관리자만 쓰기 · 1~100 정수 · config 통째 읽기는 관리자만');
 }
 
+
 say('§2 bug-board.js (실행)');
-const M = new Function(BB.replace(/^export (function|const) /mg, '$1 ') +
-  '\nreturn { BUG_STATUS, BUG_AUTHOR_STATUS, isOpenStatus, hasAuthorReply, BUG_CATS, BUG_DAILY_MAX, BUG_PAGE, BUG_MINE_MAX, BUG_ANON, KAKAO_RE, checkPost, listEntry, contentEntry, unseenCount, answerNoticeBody, pageOf, ymd, dailyMaxOf, createBugBoard, canChangeVis, BUG_VIS_NOTE, BUG_VIS_LOCKED };')();
-const who = { name: '에이', code: 'CA', authUid: 'uA' };
-const prv = M.listEntry({ vis: 'prv', cat: 'bug', title: '비밀 제목', body: 'b' }, who, 1000);
-chk(prv.title === '비밀 제목' && prv.name === M.BUG_ANON && M.BUG_ANON === '익명' && !JSON.stringify(prv).includes('에이'), '⑤ 비공개 글의 목록 줄 — 제목은 보이고 이름은 «익명»(실명 없음)');
-// 우편함은 누구나 읽고 우편함 주소가 글쓴이 코드다 — 비공개 글의 답변 알림에 제목이 실리면 «누가 그 글을 썼는지» 가 샌다
-chk(!M.answerNoticeBody('prv', '비밀 제목', false).includes('비밀 제목') && !M.answerNoticeBody('prv', '비밀 제목', true).includes('비밀 제목'),
-  '⑥ 비공개 글의 답변 알림(우편함) 본문에는 제목이 없다');
-// ⑦ 쪽 넘김 — 공지가 섞여도 [다음] 이 켜진다(거르기 전 원본으로 센다)
+chk(M.checkPost({ vis: 'pub', cat: 'bug', title: '', body: 'x' }) === '제목을 적어 주세요' && !!M.checkPost({ vis: 'pub', cat: 'zzz', title: 't', body: 'x' })
+  && !!M.checkPost({ vis: 'prv', cat: 'bug', title: 't', body: 'x', notice: true }) && !!M.checkPost({ vis: 'pub', cat: 'bug', title: 'x'.repeat(61), body: 'x' })
+  && !!M.checkPost({ vis: 'pub', cat: 'bug', title: 't', body: 'x'.repeat(2001) }) && M.checkPost({ vis: 'pub', cat: 'bug', title: 'x'.repeat(60), body: 'x'.repeat(2000) }) === null,
+  '입력 확인 — 빈 제목 · 없는 분류 · 비공개 공지 · 61자 · 2001자 거부, 상한(60 · 2000)은 통과');
+chk(M.canChangeVis({ mine: true, notice: false, comments: [] }) && !M.canChangeVis({ mine: true, notice: false, comments: [{}] })
+  && !M.canChangeVis({ mine: false, notice: false, comments: [] }) && !M.canChangeVis({ mine: true, notice: true, comments: [] }) && !M.canChangeVis(null),
+  '공개 범위 버튼 — 내 글 · 공지 아님 · 운영자 답변 · 내 답글이 하나도 없을 때만(서버와 같은 조건)');
+/* 서버 분류 · 상태 이름(GET /v1/bugs 응답 값)의 소문자가 화면 열쇠다 — 하나라도 어긋나면 그 분류 · 상태 글이 «기타» · «접수» 로 보인다 */
+const SERVER_CATS = ['BUG', 'UI', 'ROOM', 'CHAT', 'MYHOME', 'SUGGEST', 'ETC'], SERVER_ST = ['NEW', 'CHECKING', 'REVIEW', 'FIXED', 'NOREPRO', 'UNFIXED'];
+chk(M.BUG_CATS.map(c => c[0].toUpperCase()).join() === SERVER_CATS.join() && M.BUG_CATS.find(c => c[0] === 'suggest')[1] === '건의', '분류 일곱 — 서버 이름과 같다 · «건의» 그대로');
+chk(Object.keys(M.BUG_STATUS).map(k => k.toUpperCase()).sort().join() === SERVER_ST.slice().sort().join() && M.BUG_STATUS.review === '검토중', '상태 여섯 — 서버 이름과 같다 · «검토중» 그대로');
+chk(M.BUG_AUTHOR_STATUS.map(x => x[0]).join('|') === 'checking|unfixed|fixed' && M.BUG_AUTHOR_STATUS.find(x => x[0] === 'fixed')[1] === '해결 완료', '글쓴이 버튼 — 확인 중 · 해결 안 됨 · 해결 완료(서버가 글쓴이에게 받는 셋)');
 {
-  const raw = Array.from({ length: 20 }, (_, i) => ({ id: 'p' + i, ts: 1000 + i, status: 'new' }));
-  raw[19].notice = true;
-  const pg = M.pageOf('all', raw);
-  chk(pg.items.length === 19 && pg.next === 1000, '⑦ 전체: 공지 1개 섞인 20개 → 19개 보이고 [다음] 켜짐(커서 = 가장 오래된 ts)');
-  chk(M.pageOf('all', raw.slice(0, M.BUG_PAGE - 1)).next === null, '⑦ 전체: 한 쪽(' + M.BUG_PAGE + '개) 미만이면 끝');
-  const open = raw.map((it, i) => Object.assign({}, it, { openTs: 2000 + i }));
-  chk(M.pageOf('open', open).next === 2000, '⑦ 미해결: 꽉 차면 커서 = 가장 작은 openTs');
-  const mixed = open.slice(0, M.BUG_PAGE - 3).concat(Array.from({ length: 5 }, (_, i) => ({ id: 'z' + i, ts: 1 + i })));
-  chk(M.pageOf('open', mixed).next === null && M.pageOf('open', mixed).items.length === M.BUG_PAGE - 3, '⑦ 미해결: openTs 없는 글이 딸려 와도 끝으로 본다');
-  chk(M.pageOf('mine', raw).next === null, '⑦ 내 글은 서버에서 쪽을 넘기지 않는다');
-  chk(/mineCache\.slice\(from, from \+ n\)/.test(UI) && /const n = C\(\)\.page/.test(UI) && !/filter === 'mine' \? 'none'/.test(UI),
-    '⑦ 내 글은 한 번에 받아 화면에서 한 쪽(BUG_PAGE)씩 나눈다 — [이전]/[다음] 을 숨기지 않는다');
-  chk(/더 이전 제보가 없어요/.test(UI) && /emptyText\(filter, page\)/.test(UI), '⑦ 딱 한 쪽의 배수라 빈 2쪽이 나오면 «더 이전 제보가 없어요»');
+  const ruleCats = (S(at('bugBoard/list/$id')['.validate']).match(/cat'\)\.val\(\)\.matches\(\/\^\(([^)]*)\)\$\/\)/) || [, ''])[1].split('|');
+  chk(M.BUG_CATS.map(c => c[0]).join('|') === ruleCats.join('|'), '분류 목록이 (컷오버 전) 규칙과도 같다 (' + ruleCats.join(',') + ')');
 }
-chk(M.answerNoticeBody('pub', '공개 제목', true).startsWith('공개 제목') && M.answerNoticeBody('pub', '공개 제목', true).includes('오픈카톡'),
-  '⑥ 공개 글은 제목 + 오픈카톡 안내');
-chk(/answerNoticeBody\(post\.it\.vis/.test(UI) && !/post\.title \+ \(r\.kakao/.test(UI), '⑥ 화면은 answerNoticeBody 로 알림 본문을 만든다');
-const pub = M.listEntry({ vis: 'pub', cat: 'bug', title: '공개 제목', body: 'b' }, who, 1000);
-chk(pub.title === '공개 제목' && pub.status === 'new' && pub.openTs === 1000, '  공개 글은 제목 · 접수 · 미해결 표시');
-const nt = M.listEntry({ vis: 'pub', cat: 'etc', title: '공지', body: 'b', notice: true }, who, 1000);
-chk(nt.notice === true && nt.nts === 1000 && !('openTs' in nt), '  공지는 nts 로 고정 · 미해결 목록에 안 낀다');
+chk(M.BUG_PAGE === 8 && M.BUG_PAGE <= BLIB.LIMIT_MAX, '한 쪽 8개(지금 화면 그대로 · 서버 limit 상한 안)');
 {
-  // 정적: 목록 줄의 이름은 비공개면 BUG_ANON — 실명이 들어가는 갈래는 공개 글뿐
-  const le = (BB.match(/export function listEntry\([\s\S]*?\n\}/) || [''])[0];
-  chk(/name: p\.vis === 'prv' \? BUG_ANON : String\(who\.name/.test(le), '⑤ (정적) listEntry 의 이름은 비공개면 BUG_ANON');
-  chk(/limitToLast\(BUG_MINE_MAX\)/.test(BB) && M.BUG_MINE_MAX === 20, '  «내 글» 은 쪽 크기와 따로 최근 20개(새 답변 배지가 그 안에서 센다)');
-  chk(/const whoName = \(it\) => \(it\.vis === 'prv' \? esc\(C\(\)\.anon\)/.test(UI), '  화면의 이름도 비공개 글이면 «익명»(옛 글에 실명이 남아 있어도)');
-}
-chk(M.checkPost({ vis: 'pub', cat: 'bug', title: '', body: 'x' }) && M.checkPost({ vis: 'pub', cat: 'zzz', title: 't', body: 'x' })
-  && M.checkPost({ vis: 'prv', cat: 'bug', title: 't', body: 'x', notice: true }) && M.checkPost({ vis: 'pub', cat: 'bug', title: 'x'.repeat(61), body: 'x' })
-  && M.checkPost({ vis: 'pub', cat: 'bug', title: 't', body: 'x' }) === null, '입력 확인 — 빈 제목 · 없는 분류 · 비공개 공지 · 61자 거부, 정상은 통과');
-const ruleCats = (S(at('bugBoard/list/$id')['.validate']).match(/cat'\)\.val\(\)\.matches\(\/\^\(([^)]*)\)\$\/\)/) || [, ''])[1].split('|');
-chk(M.BUG_CATS.map(c => c[0]).join('|') === ruleCats.join('|'), '분류 목록이 규칙과 같다 (' + ruleCats.join(',') + ')');
-chk(M.BUG_DAILY_MAX === 5 && M.BUG_PAGE === 8, '하루 기본 5건 · 한 쪽 8개');
-chk(/const whoName = \(it\) =>/.test(UI) && /it\.byAdmin === true \|\| it\.notice/.test(UI) && (UI.match(/whoName\(it\)/g) || []).length >= 3 && /🛡 운영자 답변/.test(UI),
-  '🛡 — 글 이름 옆(byAdmin · 공지, 이름으로 가르지 않음) · 운영자 답변');
-chk(/api\(\)\.loadDailyMax\(\)/.test(UI) && /api\(\)\.dailyMax\(\)/.test(UI), '게시판을 열 때 상한을 한 번 읽고 «오늘 n건 남음» 에 쓴다');
-chk(M.unseenCount([{ id: 'a', lastReplyTs: 5 }, { id: 'b', lastReplyTs: 5 }, { id: 'c' }], { a: 9 }) === 1, '배지 = lastReplyTs > bugSeen[id] 개수');
-chk(M.dailyMaxOf(7) === 7 && M.dailyMaxOf(null) === 5 && M.dailyMaxOf('7') === 5 && M.dailyMaxOf(0) === 5 && M.dailyMaxOf(101) === 5 && M.dailyMaxOf(2.5) === 5
-  && !/config\/bugDailyMax/.test(BB.replace(/\/\*[\s\S]*?\*\//g, '')), '하루 상한 = 원격 설정 bugDailyMax(deps.getDailyMax · 없거나 이상하면 5) — Firebase config 를 읽지 않는다');
-{
-  // createPost 를 가짜 deps 로 — 서버 시각 · 작성 수는 예전대로(앱이 읽고 +1) · 상한은 설정값 · 관리자 글 byAdmin
-  const run = async (count, who, max, getMaxThrows) => {
-    const writes = [], tx = [];
-    const SV = { '.sv': 'timestamp' };
-    const bb = M.createBugBoard({ db: {}, ref: (_, p) => p || '',
-      get: async (p) => ({ val: () => (/bugPostCount/.test(p) ? count : null) }),
-      getDailyMax: async () => { if(getMaxThrows) throw new Error('net'); return max; },
-      update: async (_, w) => { writes.push(w); }, push: () => ({ key: 'k1' }), runTransaction: async (p, fn) => { tx.push([p, fn(count)]); },
-      query: () => null, orderByChild: () => null, limitToLast: () => null, endBefore: () => null, equalTo: () => null,
-      authUid: () => 'uA', now: () => 1000, serverTs: () => SV });
-    const loaded = await bb.loadDailyMax();
-    const r = await bb.createPost({ vis: 'pub', cat: 'bug', title: 't', body: 'b' }, who);
-    return { r, writes, tx, SV, loaded };
-  };
-  // 결과는 맨 끝 판정 전에 모은다(pending)
-  pending.push(run(2, { name: '에이', code: 'CA' }).then(({ r, writes, tx, SV, loaded }) => {
-    const e = writes[0] && writes[0]['bugBoard/list/k1'];
-    chk(r.ok && loaded === 5 && e && e.ts === SV && e.openTs === SV && !('byAdmin' in e), '새 글 ts · openTs = serverTimestamp · 설정값 없으면 상한 5 · 글쓴이 글엔 byAdmin 없음');
-    chk(tx.length === 1 && /^users\/CA\/bugPostCount\/\d{4}-\d{2}-\d{2}$/.test(tx[0][0]) && tx[0][1] === 3, '  ↳ 하루 작성 수는 예전대로 앱이 +1 (users/{code}/bugPostCount/{날짜})');
-  }));
-  pending.push(run(5, { name: '에이', code: 'CA' }, 7).then(({ r, loaded }) => chk(r.ok && loaded === 7, '상한을 7 로 올리면 6번째 글도 된다')));
-  pending.push(run(7, { name: '에이', code: 'CA' }, 7).then(({ r, writes }) => chk(!r.ok && /하루 7건/.test(r.reason) && !writes.length, '  ↳ 7건이면 막고 이유에 상한을 적는다')));
-  pending.push(run(5, { name: '에이', code: 'CA' }).then(({ r, writes }) => chk(!r.ok && /하루 5건/.test(r.reason) && !writes.length, '설정값이 없으면 5건에서 막는다')));
-  pending.push(run(5, { name: '에이', code: 'CA' }, 7, true).then(({ r, loaded }) => chk(!r.ok && loaded === 5, '  ↳ 설정을 못 받으면(오류) 5')));
-  pending.push(run(9, { name: '운영자', code: 'CA', isAdmin: true }).then(({ r, writes, tx }) => {
-    chk(r.ok && writes[0]['bugBoard/list/k1'].byAdmin === true && tx.length === 0, '관리자는 상한 없음 · 글에 byAdmin(🛡) · 작성 수 안 셈');
-  }));
-  pending.push(run(0, { name: '운영팀', code: 'CA' }).then(({ r }) => chk(r.ok, '제보 글쓰기는 이름을 따로 막지 않는다 (막는 곳은 프로필 이름)')));
+  const guideCodes = Object.keys(BLIB.ERRORS).filter(k => BLIB.ERRORS[k].action === BLIB.KIND.GUIDE || BLIB.ERRORS[k].action === BLIB.KIND.PRIVATE);
+  const miss = guideCodes.filter(k => !M.GUIDE_TEXT[k]);
+  chk(guideCodes.length >= 9 && !miss.length, '안내 갈래 code 마다 문구가 있다(' + guideCodes.length + '개)' + (miss.length ? ' — 빠짐 ' + miss.join(' · ') : ''));
 }
 chk(M.KAKAO_RE.test('https://open.kakao.com/o/x') && !M.KAKAO_RE.test('http://open.kakao.com/o/x') && !M.KAKAO_RE.test('https://open.kakao.com.evil.io/'), '오픈카톡 링크 판정');
 
 say('§3 연결');
-chk(/import \{ createBugBoard \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?bug-board\.js"/.test(FB) && /bugBoard: createBugBoard\(/.test(FB), 'firebase-init 은 연결만 (bugBoard: createBugBoard)');
-chk(/tag==='bug'\) \? tag : 'notice'/.test(FB) && /rec\.bugId = /.test(FB), 'sendInboxMessage 가 bug · bugId 를 보낸다');
-chk(/m\.tag === 'bug' && m\.bugId\)\{\s*_inboxOpenId = null; window\._bugBoardOpen\(m\.bugId\)/.test(APP), '우편함에서 누르면 그 글을 연다');
-chk(/sendInboxMessage\(post\.it\.code, 'bug', '접수된 제보에 답변이 달렸어요'/.test(UI), '답변 등록 → 글쓴이 우편함 알림');
-const iApp = HTML.indexOf('<script src="parts/app.js"></script>'), iUi = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>');
-chk(iApp > 0 && iUi > iApp, 'bug-board-ui.js 는 app.js 뒤에 싣는다');
-chk(/class="bb-row locked"/.test(UI) && !/class="bb-row locked" data-id/.test(UI) && /\.bb-row\.locked\{[^}]*cursor:not-allowed/.test(HTML), '남의 비공개 행은 data-id 가 없어 누를 수 없다 (not-allowed)');
-chk(/prvOnly \? ' checked disabled'/.test(UI), '비공개 글이면 답변 공개 범위가 비공개로 묶인다');
-const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
-chk(!/\b(alert|confirm|prompt)\(/.test(noC(UI)), 'alert · confirm · prompt 를 쓰지 않는다');
-chk(!/innerHTML[^;]*\+\s*(it|ct|a|post)\.(title|body|text|name|env|kakao)\b/.test(UI), '사용자 문자열은 esc() 를 거쳐 innerHTML 에 들어간다');
-/* 🔗 본문 · 답변 · 답글 속 주소 — 씻은 칸(TwSafeHtml.linkify — 실행 검사는 sim-safe-html.js)으로 그리고, 누르면 다시 거른 뒤 기본 브라우저로 */
-chk(/const linked = \(s\) => TwSafeHtml\.linkify\(s\);/.test(UI) && /'<div class="bb-body">' \+ linked\(ct \? ct\.body/.test(UI)
-  && (UI.match(/<div class="bb-ans-t">' \+ linked\(a\.text\)/g) || []).length === 2 && !/esc\(a\.text\)|esc\(ct \? ct\.body/.test(UI),
-  '본문 · 운영자 답변 · 글쓴이 답글의 주소는 linkify 로 누를 수 있는 칸이 된다(esc 로만 그리는 곳 0)');
 {
-  /* 누르기 처리(openDetailLink)를 꺼내 실제로 부른다 — 가짜 companion · 진짜 safe-html */
-  const SH = (() => { const src = read('safe-html.js') || read('shared/safe-html.js'); if (!src) return null; const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; })();
-  const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return null; let k = src.indexOf('{', i), d = 0; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
-  const runLink = (uiSrc, target, hasCompanion = true) => {
-    const fn = grab(uiSrc, 'openDetailLink'); if (!fn || !SH) return null;
-    const opened = [];
-    const win = hasCompanion ? { companion: { openBrowser: (u) => opened.push(u) } } : {};
-    const C = () => ({ kakaoRe: /^https:\/\/open\.kakao\.com\// });
-    const f = new Function('window', 'companion', 'C', 'TwSafeHtml', fn + '\nreturn openDetailLink;')(win, win.companion, C, SH);
-    let handled, threw = false;
-    try { handled = f({ target: target }); } catch (_) { threw = true; }
-    return { opened, handled, threw };
-  };
-  const tgt = (sel, ds) => ({ closest: (q) => (q === sel ? { dataset: ds } : null) });
-  const link = (u) => tgt('.ext-link[data-url]', { url: u });
-  const ok = runLink(UI, link('https://x.example/a?b=1&c=2'));
-  chk(!!ok && ok.handled && ok.opened.join() === 'https://x.example/a?b=1&c=2', '주소 칸을 누르면 그 주소를 기본 브라우저(openBrowser)로 한 번 — 처리했다고 돌려준다(아래 버튼 처리로 안 넘어감)');
-  const bad = ['javascript:alert(1)', '', 'https://x.example/' + 'a'.repeat(2049), '//evil.example/x'].map(u => runLink(UI, link(u)));
-  chk(bad.every(r => r && r.handled && r.opened.length === 0), '  javascript: · 빈 값 · 상한 넘음 · 스킴 없는 주소는 열지 않는다(다시 거름)');
-  const kk = runLink(UI, tgt('[data-kakao]', { kakao: 'https://open.kakao.com/o/abc' })), kkBad = runLink(UI, tgt('[data-kakao]', { kakao: 'https://evil.example' }));
-  chk(!!kk && kk.opened.join() === 'https://open.kakao.com/o/abc' && kkBad.opened.length === 0, '  오픈카톡 버튼은 오픈카톡 주소만(그대로)');
-  const none = runLink(UI, { closest: () => null }), noComp = runLink(UI, link('https://x.example/a'), false);
-  chk(!!none && none.handled === false && !!noComp && !noComp.threw && noComp.handled, '  다른 곳을 누르면 false(버튼 처리로) · companion 이 없어도 던지지 않는다');
-  const broke = runLink(UI.replace("const url = TwSafeHtml.safeUrl(ln.dataset.url, 'link');", 'const url = ln.dataset.url;'), link('javascript:alert(1)'));
-  chk(!!broke && broke.opened.length === 1, '  깨 보기 — 다시 거르기를 빼면 javascript: 가 열린다 → 위 판정이 빨강');
-  chk(/\$\('bbDetailView'\)\.addEventListener\('click', \(e\) => \{\n\s*if\(openDetailLink\(e\)\) return;/.test(UI), '  상세 화면 누르기가 이 처리를 먼저 거친다');
+  const idx = (f) => HTML.indexOf('<script src="parts/' + f + '"></script>');
+  const iB = idx('support/bug-board.js'), iA = idx('support/bug-api.js'), iU = idx('support/bug-board-ui.js'), iApp = idx('app.js');
+  const iAc = idx('shared/api-client.js'), iRid = idx('shared/request-id.js'), iNr = idx('shared/net-ready.js');
+  chk(iB > 0 && iA > iB && iU > iA && iApp > iU && iAc > 0 && iAc < iA && iRid > 0 && iRid < iA && iNr > 0 && iNr < iU,
+    'html — api-client · request-id → bug-board.js → bug-api.js → bug-board-ui.js(net-ready 뒤) → app.js');
+  chk(!/bugBoard\s*:|createBugBoard|support\/bug-board\.js/.test(FB) && !/firebaseAPI\.bugBoard/.test(APP + UI), 'Firebase 길 걷음 — firebase-init 에 bugBoard 연결 없음 · 부르는 곳 0');
+  chk(/const bugBoardUi = TwBugBoardUi\.createBugBoardUi\(\{/.test(APP) && /bugApi: TwBugApi\.createBugApi\(\{ authed: TwApi\.authed, errs: TwApiErrors, pending: \(\)=>TwRequestId\.createPending\(\) \}\)/.test(APP),
+    'app.js 가 게시판을 만든다 — provider 는 로그인 통로 · 공통 표 · 요청 번호 기억');
+  chk(/bugBadge: \(\)=>bugBoardUi\.start\(\)/.test(APP) && /'mhInit',[^\n]*\n\s*'bugBadge',/.test(BOOT), '시작은 app-boot STEPS 의 bugBadge(mhInit 다음) 한 곳');
+  chk(/bugBoardReset: \(\.\.\.a\)=>bugBoardUi\.reset\(\.\.\.a\)/.test(APP), '계정을 놓을 때 reset(account.js 가 부른다)');
+  chk(/m\.tag === 'bug' && m\.bugId\)\{\s*_inboxOpenId = null; window\._bugBoardOpen\(m\.bugId\)/.test(APP), '우편함에서 누르면 그 글을 연다');
+  const noC = (t) => t.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:])\/\/[^\n]*/g, '$1');
+  const board = UI.slice(0, UI.indexOf('/* ↓ app.js 에서 옮긴'));
+  chk(!/\b(alert|confirm|prompt)\(/.test(noC(board)) && !/typeof\s+isAdmin/.test(board), 'alert · confirm · prompt 없음 · typeof isAdmin 가드 없음(deps 로 받는다)');
+  chk(!/innerHTML[^;]*\+\s*(it|d|a|cur)\.(title|body|text|name|env|kakao)\b/.test(board), '사용자 문자열은 esc() · linked() 를 거쳐 innerHTML 에 들어간다');
+  chk(/class="bb-row locked"/.test(board) && !/class="bb-row locked" data-id/.test(board) && /\.bb-row\.locked\{[^}]*cursor:not-allowed/.test(HTML), '남의 비공개 행은 data-id 가 없어 누를 수 없다 (not-allowed)');
 }
-chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link — 밑줄 · 손가락)은 공용 스타일');
-
-say('§4 쪽 넘김 (가짜 RTDB)');
-{
-  /* RTDB 정렬 흉내 — orderByChild 값이 없는 글(null)이 맨 앞, 그다음 숫자 오름차순, 같으면 키 순.
-     endBefore(v) 는 v 보다 앞(= null 포함), limitToLast(n) 은 뒤에서 n 개. */
-  const mk = (n0, extra) => {
-    const DB = {};
-    for (let i = 0; i < 45; i++) {
-      const id = 'p' + String(i).padStart(2, '0');
-      DB[id] = { vis: 'pub', status: i % 3 ? 'fixed' : 'new', cat: 'bug', title: '글 ' + i, ts: 10000 + i * 10 };
-      if (DB[id].status === 'new') DB[id].openTs = DB[id].ts;
-    }
-    // 공지 둘 — 가장 최근 쪽에 끼워 둔다(1쪽에서 걸러져도 [다음] 이 켜져야 한다)
-    DB.n1 = { vis: 'pub', status: 'new', cat: 'etc', title: '공지1', notice: true, ts: 10445, nts: 10445 };
-    DB.n2 = { vis: 'pub', status: 'new', cat: 'etc', title: '공지2', notice: true, ts: 10305, nts: 10305 };
-    return Object.assign(DB, extra || {});
-  };
-  const fake = (DB) => {
-    const reads = [];
-    const cmp = (k) => (a, b) => {
-      const va = DB[a][k], vb = DB[b][k];
-      const na = typeof va === 'number', nb = typeof vb === 'number';
-      if (na !== nb) return na ? 1 : -1;
-      if (na && va !== vb) return va - vb;
-      return a < b ? -1 : a > b ? 1 : 0;
-    };
-    const deps = {
-      db: {}, ref: (_, p) => ({ path: p || '' }),
-      query: (r, ...cs) => ({ path: r.path, cs }),
-      orderByChild: (k) => ({ t: 'o', k }), limitToLast: (n) => ({ t: 'l', n }), endBefore: (v) => ({ t: 'e', v }), equalTo: (v) => ({ t: 'q', v }),
-      get: async (q) => {
-        if (!q.cs || q.path !== 'bugBoard/list') return { val: () => null };
-        const o = q.cs.find(c => c.t === 'o'), l = q.cs.find(c => c.t === 'l'), e = q.cs.find(c => c.t === 'e'), eq = q.cs.find(c => c.t === 'q');
-        let ids = Object.keys(DB).sort(cmp(o.k));
-        if (eq) ids = ids.filter(id => DB[id][o.k] === eq.v);
-        if (e) ids = ids.filter(id => !(typeof DB[id][o.k] === 'number') || DB[id][o.k] < e.v);
-        if (l) ids = ids.slice(-l.n);
-        reads.push({ limit: l ? l.n : Infinity, got: ids.length });
-        const out = {}; ids.forEach(id => { out[id] = DB[id]; });
-        return { val: () => (ids.length ? out : null) };
-      },
-      update: async () => {}, push: () => ({ key: 'k' }), runTransaction: async () => {}, authUid: () => 'uA', now: () => 1,
-    };
-    return { bb: M.createBugBoard(deps), reads };
-  };
-  // [다음] 을 끝까지 누른다 — 화면(bug-board-ui.js)처럼 커서를 쌓는다
-  const walk = async (bb, filter) => {
-    const cursors = [null], pages = [];
-    for (let guard = 0; guard < 10; guard++) {
-      const r = await bb.listPage(filter, cursors[cursors.length - 1]);
-      pages.push(r.items.map(it => it.id));
-      if (r.next == null) break;
-      cursors.push(r.next);
-    }
-    return { pages, cursors };
-  };
-  pending.push((async () => {
-    const DB = mk();
-    const { bb, reads } = fake(DB);
-    const { pages, cursors } = await walk(bb, 'all');
-    const ids = [].concat(...pages);
-    const P = M.BUG_PAGE;
-    chk(pages[0].length === P - 1 && !pages[0].some(id => /^n/.test(id)), '§4 전체 1쪽: 받은 ' + P + '개 중 공지 1개는 빼고 ' + (P - 1) + '개 (공지는 위에 따로 고정)');
-    chk(pages.map(p => p.length).join(' · ') === '7 · 7 · 8 · 8 · 8 · 7', '§4 전체: 글 45개 + 공지 2개 → 7 · 7 · 8 · 8 · 8 · 7 여섯 쪽 (' + pages.map(p => p.length).join(' · ') + ')');
-    chk(pages.every(p => p.length <= P), '§4 한 쪽에 ' + P + '개 넘게 안 보인다');
-    chk(ids.length === 45 && new Set(ids).size === 45, '§4 전체: 45개가 빠짐 · 겹침 없이 다 나온다');
-    chk(ids.every((id, i) => i === 0 || DB[ids[i - 1]].ts > DB[id].ts), '§4 전체: 쪽을 넘겨도 최근 → 오래된 순서가 이어진다');
-    chk(reads.every(r => r.limit <= 20 && r.got <= 20), '§4 한 번에 20개 넘게 받지 않는다 (노드를 통째로 안 받는다 · 받은 수 ' + reads.map(r => r.got).join('/') + ')');
-    const back = await bb.listPage('all', cursors[1]);
-    chk(JSON.stringify(back.items.map(it => it.id)) === JSON.stringify(pages[1]), '§4 [이전] 으로 돌아와도 같은 쪽');
-    const notes = await bb.notices();
-    chk(notes.length === 2 && notes[0].id === 'n1', '§4 공지는 따로 읽어 맨 위(최근 것 먼저)');
-  })());
-  pending.push((async () => {
-    const DB = mk();
-    const { bb, reads } = fake(DB);
-    const { pages } = await walk(bb, 'open');
-    const ids = [].concat(...pages);
-    const want = Object.keys(DB).filter(id => typeof DB[id].openTs === 'number');
-    chk(ids.length === want.length && new Set(ids).size === want.length && ids.every(id => typeof DB[id].openTs === 'number'),
-      '§4 미해결: ' + want.length + '개가 빠짐 · 겹침 없이 · 해결된 글은 안 섞인다');
-    chk(reads.every(r => r.got <= 20), '§4 미해결도 한 번에 20개까지');
-  })());
-  pending.push((async () => {
-    // 딱 한 쪽만큼이면 [다음] 이 한 번 켜지고 2쪽은 비어 «더 이전 제보가 없어요» (하나 더 미리 보지 않아서 생기는 헛걸음 한 번)
-    const DB = {};
-    for (let i = 0; i < M.BUG_PAGE; i++) DB['q' + i] = { vis: 'pub', status: 'fixed', cat: 'bug', ts: 500 + i };
-    const { bb } = fake(DB);
-    const { pages } = await walk(bb, 'all');
-    chk(pages.length === 2 && pages[0].length === M.BUG_PAGE && pages[1].length === 0, '§4 딱 ' + M.BUG_PAGE + '개 → 1쪽 ' + M.BUG_PAGE + ' · 2쪽 빈 쪽에서 끝');
-  })());
-}
-
 say('§5 창이 안 늘어난다 (CSS)');
 {
   const rule = (sel) => {
@@ -328,176 +151,296 @@ say('§5 창이 안 늘어난다 (CSS)');
     '§5 목록 화면은 페이지 높이를 채우는 세로 flex');
   chk(/overflow-y:auto/.test(rows) && /flex:11(0|0px)/.test(rows), '§5 #bbRows 가 남은 높이를 받고 그 안에서 스크롤한다');
   chk(/flex-shrink:0/.test(pager) && /flex-shrink:0/.test(rule('.bb-bar')), '§5 [이전]/[다음] · 위 단추 줄은 줄어들지 않는다(늘 보인다)');
-  chk(/rows\.scrollTop = 0/.test(UI), '§5 쪽을 넘기면 목록 스크롤을 맨 위로');
+  chk(/box\.scrollTop = 0/.test(UI), '§5 쪽을 넘기면 목록 스크롤을 맨 위로');
 }
 
-say('§6 글쓴이 답글');
-{
-  const AU = /bugBoard\/list\/'\+\$id\+'\/authUid'\)\.val\(\) === auth\.uid/;
-  for (const v of ['pub', 'prv']) {
-    const n = at('bugBoard/rep/' + v + '/$id/$rid') || {};
-    const w = S(n['.write']);
-    chk(AU.test(w) && /!data\.exists\(\)/.test(w) && new RegExp("vis'\\)\\.val\\(\\) === '" + v + "'").test(w) && /!root\.child\('bugBoard\/list\/'\+\$id\+'\/notice'\)\.exists\(\)/.test(w),
-      '§6 rep/' + v + ' 쓰기 = 그 글의 글쓴이 · 새 답글만 · 글의 공개 범위 갈래 · 공지 아님');
-    chk(/newData\.child\('ts'\)\.val\(\) === now/.test(w) && /child\('list\/'\+\$id\+'\/userReplyTs'\)\.val\(\) === now/.test(w), '  ↳ 답글 ts 는 서버 시각 · 같은 묶음에 userReplyTs === now 짝');
-    const vd = S(n['.validate']);
-    chk(/length <= 1000/.test(vd) && /st'\)\.val\(\)\.matches\(\/\^\(checking\|unfixed\|fixed\)\$\/\)/.test(vd) && (n.$other || {})['.validate'] === 'false', '  ↳ 1000자 · st 는 글쓴이 상태 셋만 · 다른 칸 못 넣음');
+/* ── §4 화면 굴리기 — 가짜 DOM(필요한 만큼) · 가짜 provider(진짜 failOf · 진짜 api-errors) ── */
+const flush = async (n = 6) => { for (let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
+const apiErr = (status, code) => Object.assign(new Error(code), { status, code, kind: status >= 500 ? 'unavailable' : (status === 401 || status === 403) ? 'auth' : 'request' });
+const defer = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
+const row = (n, o) => Object.assign({ number: n, vis: 'pub', cat: 'bug', title: '제목' + n, status: 'new', notice: false, byAdmin: false, anon: false, name: '에이',
+  mine: false, likeN: 0, ansN: 0, createdAt: 1, answeredAt: 0, authorReplied: false, unseen: false }, o || {});
+const post = (n, o) => Object.assign(row(n), { body: '본문' + n, env: null, canReply: false, liked: false, version: 1, comments: [], likeN: 3 }, o || {});
+function mkEl(id) {
+  const cls = new Set();
+  return { id, style: { display: '' }, dataset: {}, innerHTML: '', textContent: '', value: '', disabled: false, checked: false, options: [], scrollTop: 0, className: '',
+    classList: { add: (c) => cls.add(c), remove: (c) => cls.delete(c), contains: (c) => cls.has(c), toggle: (c, f) => { const on = f === undefined ? !cls.has(c) : !!f; on ? cls.add(c) : cls.delete(c); return on; } },
+    _L: {}, addEventListener(t, fn) { (this._L[t] || (this._L[t] = [])).push(fn); }, focus() {}, querySelector() { return null; }, appendChild() {} };
+}
+function boot(src) {
+  const env = { admin: false, timers: 0, toasts: [], codes: [], common: [], rt: [] };
+  const els = {}; const el = (id) => els[id] || (els[id] = mkEl(id));
+  const flts = ['all', 'mine', 'open'].map(f => { const b = mkEl('flt-' + f); b.dataset.f = f; return b; });
+  const tab = mkEl('tab'); tab.kids = [];
+  tab.querySelector = (s) => tab.kids.find(c => c.className === 'mh-tab-badge') || null;
+  tab.appendChild = (c) => tab.kids.push(c);
+  tab.click = () => { tab.classList.add('on'); (tab._L.click || []).forEach(f => f()); };
+  el('bbDetailView').querySelector = (s) => s === '.bb-rst.on' ? { dataset: { st: 'unfixed' } } : null;
+  const document = {
+    readyState: 'complete', addEventListener() {}, getElementById: el, createElement: () => mkEl('new'),
+    querySelector: (s) => s === '#myHomeTabs .mh-tab[data-tab="bugreport"]' ? tab : s === 'input[name="bbWVis"]:checked' ? { value: 'pub' } : null,
+    querySelectorAll: (s) => s === '#bbListView .bb-flt' ? flts : [],
+  };
+  const ctx = { document, console: { warn() {}, log() {} }, navigator: { userAgent: 'Windows' }, TwNetReady: { whenNetReady() {} },
+    setTimeout: () => { env.timers++; return 0; }, setInterval: () => { env.timers++; return 0; },
+    Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp };
+  ctx.window = ctx;
+  vm.createContext(ctx);
+  vm.runInContext(src, ctx, { filename: 'bug-board-ui.js' });
+  const calls = [], impl = {};
+  const n = (k) => calls.filter(c => c[0] === k).length;
+  const api = { KIND: BLIB.KIND, ERRORS: BLIB.ERRORS, failOf: (e) => BLIB.failOf(e, ERRS), badge: null, resets: 0,
+    badgeCount: () => api.badge, reset: () => { api.resets++; api.badge = null; },
+    refreshBadge: () => { calls.push(['badge']); return Promise.resolve(impl.badge ? impl.badge() : 2).then(v => { api.badge = v; return v; }); } };
+  const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, setVis: { vis: 'prv', version: 2 }, like: undefined, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
+  for (const k of Object.keys(DEF)) api[k] = (...a) => { calls.push([k, ...a]); return Promise.resolve().then(() => impl[k] ? impl[k](...a) : DEF[k]); };
+  const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib: M, apiErrors: { notify: (e) => env.common.push(e.code) }, notifyError: (c) => { env.codes.push(c); return true; },
+    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; } });
+  const clickAct = (act, ds) => { const b = mkEl('btn'); b.dataset = Object.assign({ act }, ds || {}); els.bbDetailView._L.click[0]({ target: { closest: (s) => s === '[data-act]' ? b : null } }); return b; };
+  const clickRow = (id) => els.bbRows._L.click[0]({ target: { closest: (s) => s === '.bb-row[data-id]' ? { dataset: { id } } : null } });
+  return { env, el, ui, api, impl, calls, n, ctx, flts, tab, clickAct, clickRow };
+}
+
+async function judgeUi(src) {
+  if (!quiet) say('§4 화면 굴리기');
+  {
+    const b = boot(src);
+    b.tab.click(); await flush();
+    chk(/로그인 뒤에 볼 수 있어요/.test(b.el('bbRows').innerHTML) && b.n('list') === 0 && b.n('badge') === 0, '로그인 전(시작 전) — «로그인 뒤에 볼 수 있어요» · 요청 0');
+    b.el('bbWriteBtn')._L.click[0](); await flush();
+    chk(b.env.toasts.includes('로그인 뒤에 쓸 수 있어요') && b.n('quota') === 0, '  글쓰기도 «로그인 뒤에» · 요청 0');
+    await b.ui.start(); await flush();
+    chk(b.n('badge') === 1 && b.env.rt.length === 1 && b.env.rt[0][0] === 'notification' && b.tab.kids[0] && b.tab.kids[0].textContent === '2' && b.el('bbMineDot').classList.contains('on'),
+      '시작(bugBadge) — 배지 한 번 받아 탭 · 내 글 점에 그림 · realtime 알림 하나 건다');
+    b.env.rt[0][1]({ kind: 'notification', resync: false }); await flush();
+    const before = b.n('badge');
+    b.env.rt[0][1]({ kind: 'notification', resync: true }); await flush();
+    chk(before === 1 && b.n('badge') === 2, '  realtime 이 오래 끊겼다 붙으면(resync) 한 번 더 받는다 · 그냥 알림은 안 받는다(우편 쪽이 부른다)');
+    b.impl.badge = () => 0; await b.ui.refreshBadge();
+    chk(b.tab.kids[0].style.display === 'none' && !b.el('bbMineDot').classList.contains('on'), '  0 이면 배지 · 점이 안 보인다');
+    chk(b.env.timers === 0, '타이머 0 — 배지를 되풀이해서 받지 않는다(부팅 setTimeout 걷음)');
   }
-  chk(S(at('bugBoard/rep/pub/$id')['.read']) === 'true' && AU.test(S(at('bugBoard/rep/prv/$id')['.read'])) && ADMIN.test(S(at('bugBoard/rep/prv/$id')['.read'])),
-    '§6 비공개 글의 답글은 글쓴이 · 관리자만 읽는다 (공개 글은 누구나)');
-  chk(at('bugBoard/rep')['.read'] === undefined && at('bugBoard/rep/prv')['.read'] === undefined, '  rep · rep/prv 통째 읽기는 열려 있지 않다');
-  const ur = S(at('bugBoard/list/$id/userReplyTs')['.write']);
-  chk(/data\.parent\(\)\.child\('authUid'\)\.val\(\) === auth\.uid/.test(ur) && /newData\.val\(\) === now/.test(ur) && /now - data\.val\(\) >= 10000/.test(ur) && /rep\/'\+data\.parent\(\)\.child\('vis'\)\.val\(\)/.test(ur),
-    '§6 userReplyTs = 글쓴이만 · 서버 시각 · 10초에 한 번 · 답글이 있어야');
-  const sw = S(at('bugBoard/list/$id/status')['.write']);
-  chk(/matches\(\/\^\(checking\|unfixed\|fixed\)\$\/\)/.test(sw) && /userReplyTs'\)\.val\(\) === now/.test(sw) && /!data\.parent\(\)\.child\('notice'\)\.exists\(\)/.test(sw),
-    '§6 글쓴이 상태 변경은 확인 중 · 해결 안 됨 · 해결 완료만 · 답글과 한 묶음 · 공지 아님 (접수 · 재현 안 됨은 관리자만)');
-  const ow = S(at('bugBoard/list/$id/openTs')['.write']);
-  chk(/newData\.val\(\) === data\.parent\(\)\.child\('ts'\)\.val\(\)/.test(ow) && /!newData\.exists\(\)/.test(ow) && /\(new\|checking\|unfixed\)/.test(ow), '  ↳ openTs 는 미해결이면 그 글의 ts, 아니면 지움 — 다른 값은 못 넣는다');
-  const ruleSt = (S(at('bugBoard/list/$id')['.validate']).match(/status'\)\.val\(\)\.matches\(\/\^\(([^)]*)\)\$\/\)/) || [, ''])[1].split('|').sort().join('|');
-  chk(Object.keys(M.BUG_STATUS).sort().join('|') === ruleSt, '§6 상태 목록이 규칙과 같다 (' + ruleSt + ')');
-  chk(M.BUG_AUTHOR_STATUS.map(x => x[0]).join('|') === 'checking|unfixed|fixed' && M.BUG_AUTHOR_STATUS.find(x => x[0] === 'fixed')[1] === '해결 완료', '§6 글쓴이 버튼 — 확인 중 · 해결 안 됨 · 해결 완료(= fixed)');
-  chk(M.isOpenStatus('unfixed') && M.isOpenStatus('new') && M.isOpenStatus('checking') && !M.isOpenStatus('fixed') && !M.isOpenStatus('norepro'), '§6 «해결 안 됨» 은 미해결 목록에 낀다');
-  chk(M.BUG_STATUS.review === '검토중' && M.isOpenStatus('review') && !M.BUG_AUTHOR_STATUS.some(x => x[0] === 'review') && /\.bb-chip\.review\{/.test(HTML),
-      '§6 «검토중»(review) — 관리자 상태 · 미해결 목록에 낀다 · 글쓴이 버튼엔 없다 · 칩 색');
-  chk(M.hasAuthorReply({ userReplyTs: 9, lastReplyTs: 5 }) && M.hasAuthorReply({ userReplyTs: 9 }) && !M.hasAuthorReply({ userReplyTs: 5, lastReplyTs: 9 }) && !M.hasAuthorReply({}),
-    '§6 관리자 «✍ 글쓴이 답글» = 운영자 마지막 답변보다 뒤');
-
-  const SV = { '.sv': 'timestamp' };
-  const mkBB = (item, me) => {
-    const writes = [], reads = [];
-    const bb = M.createBugBoard({ db: {}, ref: (_, p) => p || '',
-      get: async (p) => { reads.push(p); return { val: () => (p === 'bugBoard/list/p1' ? item : p === 'bugBoard/rep/prv/p1' ? { r0: { text: '앞 답글', ts: 50, st: 'unfixed' } } : p === 'bugBoard/ans/prv/p1' ? { a0: { text: '운영', ts: 40 } } : null) }; },
-      update: async (_, w) => { writes.push(w); }, push: () => ({ key: 'r1' }), runTransaction: async () => {},
-      query: () => null, orderByChild: () => null, limitToLast: () => null, endBefore: () => null, equalTo: () => null,
-      authUid: () => me, now: () => 1000, serverTs: () => SV });
-    return { bb, writes, reads };
-  };
-  const base = { vis: 'prv', status: 'fixed', cat: 'bug', authUid: 'uA', code: 'CA', ts: 77, ansN: 1, lastReplyTs: 40 };
-  pending.push((async () => {
-    let t = mkBB(base, 'uA');
-    let r = await t.bb.addReply('p1', { text: ' 아직 그대로예요 ', status: 'unfixed' });
-    const w = t.writes[0] || {};
-    chk(r.ok && JSON.stringify(w) === JSON.stringify({ 'bugBoard/rep/prv/p1/r1': { text: '아직 그대로예요', ts: SV, st: 'unfixed' }, 'bugBoard/list/p1/userReplyTs': SV, 'bugBoard/list/p1/status': 'unfixed', 'bugBoard/list/p1/openTs': 77 }),
-      '§6 addReply(해결 안 됨) — 답글 · userReplyTs(서버 시각) · 상태 · openTs=글 ts 한 묶음, lastReplyTs · ansN 은 안 건드림');
-    t = mkBB(Object.assign({}, base, { status: 'unfixed', openTs: 77 }), 'uA');
-    await t.bb.addReply('p1', { text: '고쳐졌어요', status: 'fixed' });
-    chk(t.writes[0]['bugBoard/list/p1/openTs'] === null && t.writes[0]['bugBoard/list/p1/status'] === 'fixed', '§6 해결 완료 → 미해결 목록에서 빠진다(openTs 지움)');
-    t = mkBB(base, 'uA');
-    await t.bb.addReply('p1', { text: '덧붙여요', status: '' });
-    chk(Object.keys(t.writes[0]).join() === 'bugBoard/rep/prv/p1/r1,bugBoard/list/p1/userReplyTs' && !('st' in t.writes[0]['bugBoard/rep/prv/p1/r1']), '§6 상태 없이 부르면 답글 · userReplyTs 만 (데이터 함수 · 화면은 늘 하나를 고른다)');
-    t = mkBB(base, 'uA');
-    await t.bb.addReply('p1', { text: 'x', status: 'norepro' });
-    chk(!('bugBoard/list/p1/status' in t.writes[0]), '  ↳ 글쓴이 상태 셋 밖(재현 안 됨)은 무시');
-    t = mkBB(base, 'uB');
-    r = await t.bb.addReply('p1', { text: 'x' });
-    chk(!r.ok && !t.writes.length, '§6 남의 글에는 답글을 못 단다');
-    t = mkBB(Object.assign({}, base, { vis: 'pub', notice: true }), 'uA');
-    r = await t.bb.addReply('p1', { text: 'x' });
-    chk(!r.ok && !t.writes.length, '  ↳ 공지에도 못 단다');
-    t = mkBB(base, 'uA');
-    r = await t.bb.addReply('p1', { text: '   ' });
-    chk(!r.ok && !t.writes.length, '  ↳ 빈 답글은 안 보낸다');
-    t = mkBB(Object.assign({}, base, { userReplyTs: 50 }), 'uA');
-    const d = await t.bb.getPost('p1');
-    chk(d.answers.map(a => (a.byAuthor ? '글쓴이' : '운영') + ':' + a.ts).join(',') === '운영:40,글쓴이:50' && d.answers[1].st === 'unfixed', '§6 상세 — 운영자 답변과 글쓴이 답글을 시간순으로');
-    t = mkBB(base, 'uA');
-    await t.bb.getPost('p1');
-    chk(!t.reads.some(p => /rep\//.test(p)), '  ↳ 답글을 단 적 없는 글(userReplyTs 없음)은 rep 를 읽지 않는다');
-  })());
-  chk(/else if\(it\.authUid === myUid\(\) && !it\.notice\) h\.push\((visForm\(it, d\.answers\) \+ )?authorForm\(it\)\)/.test(UI) && /if\(admin\(\)\) h\.push\(adminForm\(it\)\);\n\s*else if/.test(UI), '§6 답글 칸은 내 글 · 공지 아님 · 관리자가 아닐 때(관리자는 답변 칸)');
-  chk(/class="bb-new mine">✍ 글쓴이 답글/.test(UI) && /admin\(\) && C\(\)\.hasAuthorReply/.test(UI), '§6 관리자 목록 줄에 «✍ 글쓴이 답글»');
-  chk(/✍ 글쓴이 답글<span class="bb-ans-v">/.test(UI) && /if\(a\.byAuthor\)/.test(UI), '§6 상세의 글쓴이 답글은 «🛡 운영자 답변» 과 따로 그린다');
-  chk(!/'그대로'/.test(UI) && /const AUTHOR_DEFAULT_ST = 'unfixed';/.test(UI) && /const sts = C\(\)\.authorStatus \|\| \[\];/.test(UI) && /s\[0\] === AUTHOR_DEFAULT_ST \? ' on'/.test(UI),
-    '§6 상태 버튼은 셋(확인 중 · 해결 안 됨 · 해결 완료) · «그대로» 없음 · 기본은 해결 안 됨');
-  chk(/\.bb-chip\.unfixed\{/.test(HTML) && /\.bb-ans\.mine\{/.test(HTML) && /\.bb-row2 \.bb-rst\.on\{/.test(HTML), '§6 CSS — 해결 안 됨 칩 · 글쓴이 답글 · 고른 상태 버튼(오픈카톡 .bb-btn.on 보다 강하게)');
+  {
+    const b = boot(src); await b.ui.start();
+    b.impl.list = (f) => ({ items: [row('B-1', { mine: true, unseen: true }), row('B-2', { vis: 'prv', anon: true, title: '남의 비밀' })], next: 'c1' });
+    b.impl.notices = () => [row('N-1', { notice: true, byAdmin: true, title: '공지글' })];
+    b.tab.click(); await flush();
+    const h = b.el('bbRows').innerHTML;
+    chk(h.indexOf('공지글') >= 0 && h.indexOf('공지글') < h.indexOf('제목B-1') && /새 답변/.test(h) && b.calls.find(c => c[0] === 'list').slice(1).join() === 'all,,8',
+      '전체 1쪽 — 공지(따로 받음)가 위 · 내 글의 «새 답변» · list(all, 커서 없음, 8)');
+    chk(/class="bb-row locked"[^>]*>[\s\S]*남의 비밀[\s\S]*익명/.test(h) && !/data-id="B-2"/.test(h), '  남의 비공개 글 — 제목 · «익명» 만 · 누를 수 없음');
+    chk(b.el('bbNext').disabled === false && b.el('bbPrev').disabled === true && b.el('bbPageNo').textContent === '1', '  다음 쪽 있음 → [다음] 켜짐 · 1쪽이라 [이전] 꺼짐');
+    b.el('bbNext')._L.click[0](); await flush();
+    chk(b.calls.filter(c => c[0] === 'list').pop()[2] === 'c1' && b.n('notices') === 1 && b.el('bbPageNo').textContent === '2', '  [다음] — 서버 커서로 · 2쪽엔 공지를 다시 받지 않는다');
+    b.impl.notices = () => { throw apiErr(503, 'X'); };
+    b.el('bbPrev')._L.click[0](); await flush();
+    chk(/제목B-1/.test(b.el('bbRows').innerHTML) && b.env.codes.length === 0 && b.env.common.length === 0, '공지 받기 실패 — 목록은 그대로 · 번호 없음(목록이 주인)');
+  }
+  {
+    const b = boot(src); await b.ui.start();
+    b.impl.list = () => { throw apiErr(400, 'BUG_INVALID'); };
+    b.tab.click(); await flush();
+    chk(/목록을 불러오지 못했어요/.test(b.el('bbRows').innerHTML) && /data-act="retry"/.test(b.el('bbRows').innerHTML) && b.env.codes.join() === 'E-BUG-01' && b.el('bbNext').disabled,
+      '못 받음 — «목록을 불러오지 못했어요 [다시 시도]» + E-BUG-01 한 번 · [다음] 꺼짐');
+    b.impl.list = () => ({ items: [], next: null });
+    b.el('bbRows')._L.click[0]({ target: { closest: (s) => s === '[data-act="retry"]' ? {} : null } }); await flush();
+    chk(/아직 제보가 없어요/.test(b.el('bbRows').innerHTML), '  [다시 시도] → 다시 받기 · 빈 목록은 «아직 제보가 없어요»(못 받음과 다른 화면)');
+    b.flts[1]._L.click[0](); await flush();
+    chk(/아직 쓴 제보가 없어요/.test(b.el('bbRows').innerHTML) && b.flts[1].classList.contains('on'), '  내 글 빈 목록 — «아직 쓴 제보가 없어요»');
+    b.impl.list = () => { throw apiErr(401, 'AUTH_REQUIRED'); };
+    b.flts[0]._L.click[0](); await flush();
+    chk(b.env.common.join() === 'AUTH_REQUIRED' && b.env.codes.join() === 'E-BUG-01', '  공통 code(로그인 풀림)는 공통 번호로 · E-BUG-01 은 더 안 낸다');
+  }
+  {
+    const b = boot(src); await b.ui.start();
+    const slow = defer();
+    b.impl.list = (f) => f === 'all' ? slow.p : { items: [row('M-1', { mine: true })], next: null };
+    b.tab.click(); await flush();
+    b.flts[1]._L.click[0](); await flush();
+    slow.res({ items: [row('A-1')], next: 'zz' }); await flush();
+    chk(/제목M-1/.test(b.el('bbRows').innerHTML) && !/제목A-1/.test(b.el('bbRows').innerHTML) && b.el('bbNext').disabled, '필터 gen — 늦게 온 옛 필터(전체) 답은 버린다(내 글 화면 · [다음] 그대로)');
+  }
+  {
+    const b = boot(src); await b.ui.start();
+    const cases = [[apiErr(404, 'BUG_NOT_FOUND'), /지워졌거나 없는 제보예요/], [apiErr(403, 'BUG_PRIVATE'), /비공개 제보예요/]];
+    for (const [e, re] of cases) { b.impl.detail = () => { throw e; }; b.clickRow('B-1'); await flush(); chk(re.test(b.el('bbDetailView').innerHTML) && b.env.codes.length === 0, '글 열기 ' + e.code + ' — ' + re.source + ' · 번호 없음'); }
+    b.impl.detail = () => { throw apiErr(400, 'BUG_INVALID'); };
+    b.clickRow('B-1'); await flush();
+    chk(/제보를 불러오지 못했어요/.test(b.el('bbDetailView').innerHTML) && /data-act="reload"/.test(b.el('bbDetailView').innerHTML) && b.env.codes.join() === 'E-BUG-02', '  그 밖 — «못 불러왔어요 [다시 시도]» + E-BUG-02');
+    b.impl.detail = (n) => post(n, { mine: true, answeredAt: 5, canReply: true });
+    b.clickAct('reload'); await flush();
+    chk(b.n('seen') === 1 && b.calls.find(c => c[0] === 'seen')[1] === 'B-1' && b.n('badge') === 2 && /본문B-1/.test(b.el('bbDetailView').innerHTML), '  [다시 시도] → 받음 · 답변 달린 내 글이면 봤음 한 번 → 배지 다시 받기');
+    b.impl.detail = (n) => post(n, { mine: false, answeredAt: 5 });
+    b.clickRow('B-2'); await flush();
+    chk(b.n('seen') === 1, '  남의 글은 봤음을 보내지 않는다');
+    const slow = defer();
+    b.impl.detail = (n) => n === 'B-5' ? slow.p : post(n);
+    b.clickRow('B-5'); b.clickRow('B-6'); await flush();
+    slow.res(post('B-5')); await flush();
+    chk(/본문B-6/.test(b.el('bbDetailView').innerHTML) && !/본문B-5/.test(b.el('bbDetailView').innerHTML), '글 gen — 늦게 온 앞 글(B-5) 답은 버린다');
+    b.impl.detail = (n) => post(n, { mine: true, canReply: true });
+    b.clickRow('B-7'); await flush();
+    const dc = b.n('detail');
+    b.ctx._bugBoardRefreshBadge('B-8'); await flush();
+    const other = b.n('detail');
+    b.ctx._bugBoardRefreshBadge('B-7'); await flush();
+    chk(other === dc && b.n('detail') === dc + 1, '새 답변 우편 — 배지 다시 받기 · 보고 있는 그 글이면 글도 다시 받는다(다른 글이면 안 받음)');
+  }
+  {
+    const b = boot(src); await b.ui.start();
+    b.impl.quota = () => ({ dailyMax: 5, usedToday: 5 });
+    b.el('bbWriteBtn')._L.click[0](); await flush();
+    chk(b.el('bbWSubmit').disabled === true && /5건 모두 썼어요/.test(b.el('bbWErr').textContent), '글쓰기 — 다 썼으면 [등록] 꺼짐 · 안내');
+    b.impl.quota = () => ({ dailyMax: 5, usedToday: 2 });
+    b.el('bbWriteBtn')._L.click[0](); await flush();
+    chk(b.el('bbWSubmit').disabled === false && b.el('bbWSubmit').textContent === '등록 (오늘 3건 남음)', '  «등록 (오늘 3건 남음)»');
+    b.impl.quota = () => { throw apiErr(400, 'BUG_INVALID'); };
+    b.el('bbWriteBtn')._L.click[0](); await flush();
+    chk(b.env.codes.join() === 'E-BUG-07' && b.el('bbWSubmit').disabled === false && b.el('bbWSubmit').textContent === '등록', '  남은 수 못 받음 — E-BUG-07 · [등록] 은 켜 둔다');
+    b.env.admin = true; const q0 = b.n('quota');
+    b.el('bbWriteBtn')._L.click[0](); await flush();
+    chk(b.n('quota') === q0, '  관리자는 남은 수를 묻지 않는다(상한 없음)');
+    b.env.admin = false; b.env.codes.length = 0;
+    b.el('bbWTitle').value = ''; b.el('bbWBody').value = 'b'; b.el('bbWCat').value = 'bug'; b.el('bbWEnv').checked = false;
+    const submit = () => b.el('bbWSubmit')._L.click[0]({ currentTarget: b.el('bbWSubmit') });
+    await submit();
+    chk(b.n('write') === 0 && b.el('bbWErr').textContent === '제목을 적어 주세요', '[등록] 입력 확인에 걸리면 요청 0');
+    b.el('bbWTitle').value = 't';
+    const slow = defer(); b.impl.write = () => slow.p;
+    submit(); submit(); await flush();
+    chk(b.n('write') === 1 && b.calls.find(c => c[0] === 'write')[1].cat === 'bug', '[등록] 연타 — 보내는 동안 한 번만');
+    slow.res({ number: 'B-1113-1' }); await flush();
+    chk(b.env.toasts.includes('🐞 제보를 등록했어요') && b.calls.filter(c => c[0] === 'detail').pop()[1] === 'B-1113-1', '  성공 — 토스트 · 그 글을 연다');
+    b.impl.write = () => { throw apiErr(429, 'BUG_DAILY_LIMIT'); };
+    await submit(); await flush();
+    chk(b.el('bbWErr').textContent === M.GUIDE_TEXT.BUG_DAILY_LIMIT && b.env.codes.length === 0 && b.el('bbWTitle').value === 't', '  429 하루 상한 — 안내 문구(번호 없음) · 입력 그대로');
+    b.impl.write = () => { throw apiErr(400, 'BUG_INVALID'); };
+    await submit(); await flush();
+    chk(b.env.codes.join() === 'E-BUG-03' && b.el('bbWSubmit').disabled === false, '  그 밖 — E-BUG-03 한 번 · [등록] 다시 켬');
+  }
+  {
+    const b = boot(src); await b.ui.start();
+    b.impl.detail = (n) => post(n, { mine: true, canReply: true, version: 7 });
+    b.clickRow('B-1'); await flush();
+    const h = b.el('bbDetailView').innerHTML;
+    chk(/답글 달기/.test(h) && /data-act="vis" data-vis="prv">/.test(h) && /data-act="like"/.test(h), '내 글 — 답글 칸 · 공개 범위 버튼(답변 없으면 켜짐) · 👍');
+    b.el('bbRText').value = '';
+    b.clickAct('reply'); await flush();
+    chk(b.n('reply') === 0 && b.el('bbRErr').textContent === '답글을 적어 주세요', '[답글] 빈 글이면 요청 0');
+    b.el('bbRText').value = ' 아직 그래요 ';
+    const slow = defer(); b.impl.reply = () => slow.p;
+    b.clickAct('reply'); b.clickAct('reply'); await flush();
+    const rc = b.calls.find(c => c[0] === 'reply');
+    chk(b.n('reply') === 1 && rc[1] === 'B-1' && rc[2].text === '아직 그래요' && rc[2].status === 'unfixed', '[답글] 연타 한 번 · 고른 상태(기본 «해결 안 됨»)와 함께');
+    const d0 = b.n('detail'); slow.res(); await flush();
+    chk(b.env.toasts.includes('답글을 등록했어요') && b.n('detail') === d0 + 1, '  성공 — 글 다시 받기');
+    b.impl.reply = () => { throw apiErr(429, 'BUG_REPLY_TOO_SOON'); };
+    b.el('bbRText').value = 'x'; b.clickAct('reply'); await flush();
+    chk(b.el('bbRErr').textContent === '잠시 뒤에 다시 등록해 주세요' && b.env.codes.length === 0, '  10초 간격 — 안내(번호 없음)');
+    b.impl.reply = () => { throw apiErr(400, 'BUG_INVALID'); };
+    b.clickAct('reply'); await flush();
+    chk(b.env.codes.join() === 'E-BUG-04', '  그 밖 — E-BUG-04');
+    b.env.codes.length = 0;
+    b.impl.like = () => { throw apiErr(400, 'BUG_INVALID'); };
+    let lb = b.clickAct('like'); await flush();
+    chk(b.env.codes.join() === 'E-BUG-05' && lb.disabled === false, '👍 실패 — E-BUG-05 · 버튼 다시 켬 · 다시 보내지 않음(' + b.n('like') + '번)');
+    b.impl.like = undefined;
+    lb = b.clickAct('like'); await flush();
+    chk(b.n('like') === 2 && lb.textContent === '👍 나도 겪었어요 4' && lb.classList.contains('on'), '  성공 — 눌린 모양 · 본 수 + 1');
+    b.env.codes.length = 0;
+    b.impl.setVis = () => { throw apiErr(409, 'BUG_VIS_LOCKED'); };
+    b.clickAct('vis', { vis: 'prv' }); await flush();
+    chk(b.calls.find(c => c[0] === 'setVis').slice(1).join() === 'B-1,7,prv' && b.el('bbVErr').textContent === M.BUG_VIS_LOCKED && b.env.codes.length === 0,
+      '공개 범위 — setVis(번호, 받은 판, prv) · 답변이 그새 달림(BUG_VIS_LOCKED) → 안내');
+    const d1 = b.n('detail');
+    b.impl.setVis = () => { throw apiErr(409, 'CONCURRENT_UPDATE'); };
+    b.clickAct('vis', { vis: 'prv' }); await flush();
+    chk(b.n('detail') === d1 + 1 && b.env.codes.length === 0 && b.env.common.length === 0, '  그사이 글이 바뀜(CONCURRENT_UPDATE) → 번호 없이 글 다시 받기');
+    b.impl.setVis = () => { throw apiErr(400, 'BUG_INVALID'); };
+    b.clickAct('vis', { vis: 'prv' }); await flush();
+    chk(b.env.codes.join() === 'E-BUG-06', '  그 밖 — E-BUG-06');
+    b.impl.setVis = undefined;
+    b.clickAct('vis', { vis: 'prv' }); await flush();
+    chk(b.env.toasts.includes('비공개로 바꿨어요'), '  성공 — 토스트 · 글 다시 받기');
+    b.impl.detail = (n) => post(n, { mine: true, canReply: true, comments: [{ id: 'c1', byAuthor: false, text: '답', kakao: null, vis: 'pub', st: '', at: 2 }] });
+    b.clickRow('B-1'); await flush();
+    chk(/data-act="vis" data-vis="prv" disabled>/.test(b.el('bbDetailView').innerHTML) && /운영자 답변이나 내 답글이 달린 글은/.test(b.el('bbDetailView').innerHTML), '  답변이 달린 글은 버튼을 흐리게 · 까닭');
+  }
+  {
+    const b = boot(src); await b.ui.start();
+    const slow = defer(); b.impl.list = () => slow.p;
+    b.tab.click(); await flush();
+    b.el('bbWriteBtn')._L.click[0](); await flush();
+    chk(b.el('bbWriteView').style.display === '', '  (글쓰기 열림)');
+    b.ui.reset();
+    slow.res({ items: [row('X-1')], next: null }); await flush();
+    chk(b.api.resets === 1 && !/제목X-1/.test(b.el('bbRows').innerHTML) && /로그인 뒤에 볼 수 있어요/.test(b.el('bbRows').innerHTML) && b.el('bbWriteView').style.display === 'none',
+      'reset — provider reset · 늦게 온 목록 답 버림 · 글쓰기 닫힘');
+    chk(!b.tab.kids.length || b.tab.kids[0].style.display === 'none', '  배지 안 보임');
+    b.tab.click(); await flush();
+    chk(b.n('list') === 1, '  reset 뒤엔(다음 시작 전) 받지 않는다');
+  }
+  {
+    const b = boot(src); b.env.admin = true; await b.ui.start();
+    b.impl.list = () => ({ items: [row('B-3', { vis: 'prv', anon: true, authorReplied: true })], next: null });
+    b.tab.click(); await flush();
+    chk(/data-id="B-3"/.test(b.el('bbRows').innerHTML) && /✍ 글쓴이 답글/.test(b.el('bbRows').innerHTML), '관리자 — 비공개 글도 누를 수 있고 «✍ 글쓴이 답글» 표시');
+    b.impl.detail = (n) => post(n);
+    b.clickRow('B-3'); await flush();
+    chk(/class="bb-no">B-3</.test(b.el('bbDetailView').innerHTML) && /답변 달기 \(관리자\)/.test(b.el('bbDetailView').innerHTML), '  글 번호 · 답변 칸(관리자)');
+  }
 }
 
-
-say('§7 공개 범위 바꾸기');
+say('§6 바깥 주소 열기');
 {
-  const S7 = (x) => S(x || '');
-  const vw = S7((at('bugBoard/list/$id/vis') || {})['.write']);
-  const nw = S7((at('bugBoard/list/$id/name') || {})['.write']);
-  const pw = S7((at('bugBoard/pub/$id') || {})['.write']);
-  const qw = S7((at('bugBoard/prv/$authUid/$id') || {})['.write']);
-  const GATE = ['bugBoard/ans/pub/', 'bugBoard/ans/prv/', 'bugBoard/rep/pub/', 'bugBoard/rep/prv/'];
-  chk(/data\.parent\(\)\.child\('authUid'\)\.val\(\) === auth\.uid/.test(vw) && /!data\.parent\(\)\.child\('notice'\)\.exists\(\)/.test(vw)
-    && GATE.every(g => vw.includes("!root.child('" + g + "'+$id).exists()")) && /!data\.parent\(\)\.child\('lastReplyTs'\)\.exists\(\)/.test(vw) && /!data\.parent\(\)\.child\('userReplyTs'\)\.exists\(\)/.test(vw),
-    '§7 규칙 vis 쓰기 — 글쓴이 · 공지 아님 · 운영자 답변 · 글쓴이 답글(pub · prv 둘 다) 없음');
-  chk(vw.includes("newData.parent().child('name').val() === '" + M.BUG_ANON + "'") && /newData\.val\(\) === 'prv' && .*child\('prv\/'\+auth\.uid\+'\/'\+\$id\)\.exists\(\) && !.*child\('pub\/'\+\$id\)\.exists\(\)/.test(vw)
-    && /newData\.val\(\) === 'pub' && .*child\('pub\/'\+\$id\)\.exists\(\) && !.*child\('prv\/'\+auth\.uid\+'\/'\+\$id\)\.exists\(\)/.test(vw),
-    '  ↳ 비공개로 가면 이름은 «익명»(앱 BUG_ANON 과 같은 글자) · 본문이 반대쪽 칸으로 옮겨진 묶음일 때만');
-  chk(/newData\.parent\(\)\.child\('vis'\)\.val\(\) !== data\.parent\(\)\.child\('vis'\)\.val\(\)/.test(nw) && /authUid'\)\.val\(\) === auth\.uid/.test(nw),
-    '§7 규칙 name 쓰기 — 글쓴이가 공개 범위를 함께 바꿀 때만(이름만 따로 못 바꾼다)');
-  const eq = (w, src) => ['title', 'body', 'env'].every(k => w.includes("newData.child('" + k + "').val() === root.child('" + src + "+'/" + k + "').val()"));
-  chk(eq(pw, "bugBoard/prv/'+auth.uid+'/'+$id") && eq(qw, "bugBoard/pub/'+$id") && pw.includes("!root.child('bugBoard/list/'+$id).exists() ||") && qw.includes("!root.child('bugBoard/list/'+$id).exists() ||"),
-    '§7 규칙 본문 — 바꿀 때 새 칸은 옛 칸과 제목 · 본문 · 환경이 같아야(이 길로 글을 못 고친다) · 처음 쓸 때는 그대로');
-  chk(/data\.exists\(\) && !newData\.exists\(\) && root\.child\('bugBoard\/list\/'\+\$id\+'\/authUid'\)\.val\(\) === auth\.uid && root\.child\('bugBoard\/list\/'\+\$id\+'\/vis'\)\.val\(\) === 'pub' && newData\.parent\(\)\.parent\(\)\.child\('list\/'\+\$id\+'\/vis'\)\.val\(\) === 'prv'/.test(pw)
-    && /auth\.uid === \$authUid && data\.exists\(\) && !newData\.exists\(\) && .*vis'\)\.val\(\) === 'prv' && newData\.parent\(\)\.parent\(\)\.parent\(\)\.child\('list\/'\+\$id\+'\/vis'\)\.val\(\) === 'pub'/.test(qw),
-    '  ↳ 옛 칸 지우기는 글쓴이가 그 묶음에서 공개 범위를 반대로 바꿀 때만');
-  chk(/ADMIN|admins/.test(S7((at('bugBoard/ans/pub/$id') || {})['.write'])) && /admins/.test(S7((at('bugBoard/ans/prv/$id') || {})['.write'])),
-    '  ↳ 운영자 답변 칸 쓰기는 그대로 관리자만(글쓴이가 옮기지 못하게 — 그래서 답변 전까지만)');
-
-  const it0 = { vis: 'pub', authUid: 'uA', ts: 5 };
-  chk(M.canChangeVis(it0, 'uA', []) && !M.canChangeVis(it0, 'uB', []) && !M.canChangeVis(it0, null, []) && !M.canChangeVis(null, 'uA', [])
-    && !M.canChangeVis(Object.assign({}, it0, { notice: true }), 'uA', []) && !M.canChangeVis(Object.assign({}, it0, { lastReplyTs: 9 }), 'uA', [])
-    && !M.canChangeVis(Object.assign({}, it0, { ansN: 1 }), 'uA', []) && !M.canChangeVis(Object.assign({}, it0, { userReplyTs: 9 }), 'uA', [])
-    && !M.canChangeVis(it0, 'uA', [{ text: 'x' }]),
-    '§7 canChangeVis — 내 글 · 공지 아님 · 답변(lastReplyTs · ansN · 상세 답변) · 내 답글(userReplyTs) 없을 때만');
-  chk(/운영자 답변이나 내 답글이 달리기 전까지만/.test(M.BUG_VIS_NOTE) && /바꿀 수 없어요/.test(M.BUG_VIS_LOCKED), '  ↳ 안내 · 잠김 문구');
-
-  const mkV = (item, me, content, fail) => {
-    const writes = [];
-    const bb = M.createBugBoard({ db: {}, ref: (_, p) => p || '',
-      get: async (p) => ({ val: () => (p === 'bugBoard/list/v1' ? item : (p === 'bugBoard/pub/v1' || p === 'bugBoard/prv/uA/v1') ? content : null) }),
-      update: async (_, w) => { if(fail) throw new Error(fail); writes.push(w); }, push: () => ({ key: 'k' }), runTransaction: async () => {},
-      query: () => null, orderByChild: () => null, limitToLast: () => null, endBefore: () => null, equalTo: () => null,
-      authUid: () => me, now: () => 1000, serverTs: () => ({ '.sv': 'timestamp' }) });
-    return { bb, writes };
+  /* 누르기 처리(openDetailLink)를 꺼내 실제로 부른다 — 가짜 companion · 진짜 safe-html */
+  const grab = (src, name) => { const i = src.indexOf('function ' + name + '('); if (i < 0) return null; let k = src.indexOf('{', i), d = 0; for (; k < src.length; k++) { if (src[k] === '{') d++; else if (src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return null; };
+  const runLink = (uiSrc, target, hasCompanion = true) => {
+    const fn = grab(uiSrc, 'openDetailLink'); if (!fn) return null;
+    const opened = [];
+    const win = hasCompanion ? { companion: { openBrowser: (u) => opened.push(u) } } : {};
+    const f = new Function('window', 'companion', 'lib', 'safeHtml', fn + '\nreturn openDetailLink;')(win, win.companion, M, SH);
+    let handled, threw = false;
+    try { handled = f({ target: target }); } catch (_) { threw = true; }
+    return { opened, handled, threw };
   };
-  const C1 = { title: '제목', body: '본문', env: 'v0.12.2 · win' };
-  pending.push((async () => {
-    let t = mkV({ vis: 'pub', authUid: 'uA', name: '에이', ts: 5 }, 'uA', C1);
-    let r = await t.bb.setVis('v1', 'prv', who);
-    chk(r.ok && r.item.vis === 'prv' && JSON.stringify(t.writes[0]) === JSON.stringify({ 'bugBoard/list/v1/vis': 'prv', 'bugBoard/list/v1/name': M.BUG_ANON, 'bugBoard/prv/uA/v1': C1, 'bugBoard/pub/v1': null }),
-      '§7 setVis(공개→비공개) — vis · 이름 «익명» · 본문을 prv 로 그대로 · pub 지움 한 묶음');
-    t = mkV({ vis: 'prv', authUid: 'uA', name: '익명', ts: 5 }, 'uA', { title: '제목', body: '본문' });
-    r = await t.bb.setVis('v1', 'pub', { name: '에이가 바꾼 이름이 이십 자를 넘게 길어요', code: 'CA' });
-    const w2 = t.writes[0] || {};
-    chk(r.ok && w2['bugBoard/list/v1/name'] === '에이가 바꾼 이름이 이십 자를 넘게 길어요'.slice(0, 20) && JSON.stringify(w2['bugBoard/pub/v1']) === JSON.stringify({ title: '제목', body: '본문' }) && w2['bugBoard/prv/uA/v1'] === null,
-      '§7 setVis(비공개→공개) — 지금 이름(20자) · 본문을 pub 로 · prv 지움(환경 없으면 env 칸 없음)');
-    for (const [extra, why] of [[{ lastReplyTs: 9 }, '운영자 답변이 있으면'], [{ userReplyTs: 9 }, '내 답글이 있으면'], [{ notice: true }, '공지면']]) {
-      t = mkV(Object.assign({ vis: 'pub', authUid: 'uA', ts: 5 }, extra), 'uA', C1);
-      r = await t.bb.setVis('v1', 'prv', who);
-      chk(!r.ok && !t.writes.length, '§7 ' + why + ' 안 바꾼다(쓰기 없음)');
-    }
-    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uB', C1);
-    r = await t.bb.setVis('v1', 'prv', who);
-    chk(!r.ok && !t.writes.length, '§7 남의 글은 못 바꾼다');
-    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uA', C1);
-    r = await t.bb.setVis('v1', 'pub', who);
-    chk(r.ok && !t.writes.length, '  ↳ 같은 공개 범위면 쓰지 않는다');
-    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uA', null);
-    r = await t.bb.setVis('v1', 'prv', who);
-    chk(!r.ok && !t.writes.length, '  ↳ 본문을 못 읽으면 쓰지 않는다(빈 글로 옮기지 않게)');
-    t = mkV({ vis: 'pub', authUid: 'uA', ts: 5 }, 'uA', C1, 'PERMISSION_DENIED');
-    r = await t.bb.setVis('v1', 'prv', who);
-    chk(!r.ok && r.reason === M.BUG_VIS_LOCKED, '  ↳ 규칙이 거부하면(그사이 답변이 달림) 잠김 문구');
-    // 깨 보기 — 잠김 조건 하나를 빼면 위 검사가 빨강이 나는지(답글 조건)
-    const broken = new Function('return ' + M.canChangeVis.toString().replace('&& !it.userReplyTs ', ''))();
-    chk(broken(Object.assign({}, it0, { userReplyTs: 9 }), 'uA', []) === true, '  ↳ 깨 보기 — 답글 조건을 빼면 잠긴 글이 바뀌게 된다(검사가 그 조건을 본다)');
-  })());
-
-  chk(/else if\(it\.authUid === myUid\(\) && !it\.notice\) h\.push\(visForm\(it, d\.answers\) \+ authorForm\(it\)\)/.test(UI), '§7 화면 — 바꾸기 버튼은 내 글 · 공지 아님 · 관리자 아닐 때(답글 칸 위)');
-  chk(/data-act="vis"/.test(UI) && /else if\(act === 'vis'\) submitVis\(el\)/.test(UI) && /\(can \? '' : ' disabled'\)/.test(UI) && /C\(\)\.visNote : C\(\)\.visLocked/.test(UI),
-    '  ↳ 못 바꾸면 버튼을 흐리게 · 안내 / 잠김 문구를 옆에');
-  chk(/name="bbWVis" value="prv"> 비공개 \(나와 관리자만\)<\/label>\s*<div class="bb-hint">공개 범위는 운영자 답변이나 내 답글이 달리기 전까지만 바꿀 수 있어요\.<\/div>/.test(HTML),
-    '  ↳ 제보 쓰기 창 «공개 범위» 아래에도 같은 안내');
+  const tgt = (sel, ds) => ({ closest: (q) => (q === sel ? { dataset: ds } : null) });
+  const link = (u) => tgt('.ext-link[data-url]', { url: u });
+  const ok = runLink(UI, link('https://x.example/a?b=1&c=2'));
+  chk(!!ok && ok.handled && ok.opened.join() === 'https://x.example/a?b=1&c=2', '주소 칸을 누르면 그 주소를 기본 브라우저(openBrowser)로 한 번 — 처리했다고 돌려준다');
+  const bad = ['javascript:alert(1)', '', 'https://x.example/' + 'a'.repeat(2049), '//evil.example/x'].map(u => runLink(UI, link(u)));
+  chk(bad.every(r => r && r.handled && r.opened.length === 0), '  javascript: · 빈 값 · 상한 넘음 · 스킴 없는 주소는 열지 않는다(다시 거름)');
+  const kk = runLink(UI, tgt('[data-kakao]', { kakao: 'https://open.kakao.com/o/abc' })), kkBad = runLink(UI, tgt('[data-kakao]', { kakao: 'https://evil.example' }));
+  chk(!!kk && kk.opened.join() === 'https://open.kakao.com/o/abc' && kkBad.opened.length === 0, '  오픈카톡 버튼은 오픈카톡 주소만');
+  const none = runLink(UI, { closest: () => null }), noComp = runLink(UI, link('https://x.example/a'), false);
+  chk(!!none && none.handled === false && !!noComp && !noComp.threw && noComp.handled, '  다른 곳을 누르면 false(버튼 처리로) · companion 이 없어도 던지지 않는다');
+  const broke = runLink(UI.replace("const url = safeHtml.safeUrl(ln.dataset.url, 'link');", 'const url = ln.dataset.url;'), link('javascript:alert(1)'));
+  chk(!!broke && broke.opened.length === 1, '  깨 보기 — 다시 거르기를 빼면 javascript: 가 열린다 → 위 판정이 빨강');
+  chk(/\$\('bbDetailView'\)\.addEventListener\('click', \(e\) => \{\n\s*if\(openDetailLink\(e\)\) return;/.test(UI), '  상세 화면 누르기가 이 처리를 먼저 거친다');
+  chk(/const linked = \(s\) => safeHtml\.linkify\(s\);/.test(UI) && /'<div class="bb-body">' \+ linked\(d\.body\)/.test(UI) && (UI.match(/<div class="bb-ans-t">' \+ linked\(a\.text\)/g) || []).length === 2,
+    '본문 · 운영자 답변 · 글쓴이 답글의 주소는 linkify 로 누를 수 있는 칸이 된다');
 }
+chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link — 밑줄 · 손가락)은 공용 스타일');
 
-Promise.all(pending).catch(e => chk(false, '검사가 던졌다: ' + (e && e.stack || e))).then(() => {
+(async () => {
+  await judgeUi(UI);
+  say('§7 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
+  const breaks = [
+    ['목록 gen 비교를 뺌', UI.replace('if(g !== listGen) return;   // 그사이', 'if(false) return;   // 그사이'), '늦은 옛 필터 답이 덮음'],
+    ['글 gen 비교를 뺌', UI.replace('if(g !== postGen) return;   // 그사이', 'if(false) return;   // 그사이'), '늦은 앞 글 답이 덮음'],
+    ['[등록] busy 를 뺌', UI.replace("    if(busy) return;\n    const err = $('bbWErr');", "    const err = $('bbWErr');"), '연타 두 번'],
+    ['시작에 배지 타이머를 넣음', UI.replace('    return refreshBadge();\n  }', '    setTimeout(refreshBadge, 5000);\n    return refreshBadge();\n  }'), '자동 되풀이'],
+    ['목록 실패 번호를 뺌', UI.replace("      report(e, 'list');\n", ''), '못 받음이 조용함'],
+    ['reset 이 provider 를 안 비움', UI.replace('    bugApi.reset();\n', ''), '앞 계정 배지 · 번호가 남음'],
+  ];
+  for (const [name, src, what] of breaks) {
+    if (src === UI) { chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
+    quiet = true; qfail = 0;
+    try { await judgeUi(src); } catch (_) { qfail++; }
+    quiet = false;
+    chk(qfail > 0, name + ' → 빨강(' + what + ')');
+  }
   say('');
-  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 비공개 제보 본문은 서버에서 막히고(제목만 공개 · 이름은 익명), 답변 알림이 우편함으로 간다');
+  say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 버그제보 게시판은 서버 길로 받고 쓰며, 늦은 답 · 연타 · 실패를 화면이 갈래대로 다룬다');
   process.exit(fail ? 1 : 0);
-});
+})();

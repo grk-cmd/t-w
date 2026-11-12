@@ -259,7 +259,7 @@ await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () =
   chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
   const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
-  chk(iBU > iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 뒤 · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
+  chk(iBU > 0 && iBU < iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 앞(게시판은 app.js 가 만든다) · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
   /* 굴려 보기 — 게시판 IIFE 는 DOMContentLoaded 를 기다리게 두고(loading), 끝의 버그 제보 탭만 돈다 */
   const env = { toasts: [], saved: [], L: {}, admin: false };
   const els = {};

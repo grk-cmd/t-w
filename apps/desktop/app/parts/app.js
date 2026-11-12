@@ -2566,7 +2566,7 @@ const mhScheduler = MhScheduler.createScheduler({
 });
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
-     게시판 화면과 한 파일이다. 그 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다는 앞이라 구독 시작 때는 같다.
+     게시판 화면과 한 파일이다(게시판은 🚩 신고 다음에서 만든다).
    👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지는 parts/friend-manage.js 로 옮겼다
      (앱 FSD 5번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다(만들 때 바로 도는 일은 없다 — 상태 초기값뿐).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 let 이라
@@ -7115,6 +7115,7 @@ const accountMod = TwAccount.createAccount({
   plMod: plMod,
   mhScheduler: mhScheduler,
   mallangStore: mallangStoreMod,
+  bugBoardReset: (...a)=>bugBoardUi.reset(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   weeklyChal: ()=>weeklyChal,
@@ -8628,6 +8629,18 @@ const adminReport = TwAdminReport.createAdminReport({
   apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
+/* 🐞 버그제보 게시판 — 원본은 서버(support/bug-api.js — /v1/bugs*). 만들 때는 버튼만 잇고, 배지 받기는 app-boot STEPS 의 bugBadge(start) · 계정을 놓을 때 reset. */
+const bugBoardUi = TwBugBoardUi.createBugBoardUi({
+  bugApi: TwBugApi.createBugApi({ authed: TwApi.authed, errs: TwApiErrors, pending: ()=>TwRequestId.createPending() }),
+  lib: TwBugBoard,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+  escHtml: (...a)=>escHtml(...a),
+  safeHtml: TwSafeHtml,
+  isAdmin: ()=>isAdmin,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+});
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -9030,6 +9043,7 @@ const appBoot = TwAppBoot.createAppBoot({
     gacha: ()=>gachaMod.startGacha(),
     closet: ()=>closetMod.startCloset(),
     mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
+    bugBadge: ()=>bugBoardUi.start(),
     scheduler: ()=>mhScheduler.startSchedule(),
     roomInvite: ()=>roomInviteUi.startReceive(),
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),

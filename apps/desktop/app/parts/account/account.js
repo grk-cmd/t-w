@@ -46,6 +46,7 @@ const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
 const mhScheduler = deps.mhScheduler;   // 📅 스케줄러 — 계정을 놓을 때 비운다(다음 계정 것은 로그인 뒤 다시 켠 부팅이 받는다)
 const mallangStore = deps.mallangStore;   // 🧸 말랑이 칸(mallang-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
+const bugBoardReset = deps.bugBoardReset;   // 🐞 버그제보 게시판(bug-board-ui.js) — 계정을 놓을 때 배지 · 목록 · 쓰던 글을 비운다
 const toast = deps.toast;
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
@@ -241,6 +242,7 @@ function _wipeAccountLocal(){
   try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
   try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로
   try{ mallangStore.reset(); }catch(_){}   // 🧸 mallang-store.js — 칸 · 판 · 보는 집을 비우고 늦게 온 답을 버린다
+  try{ bugBoardReset(); }catch(_){}   // 🐞 bug-board-ui.js — 배지 · 목록 · 연 글 · 쓰던 글을 비우고 늦게 온 답을 버린다
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.
      다음 부팅의 initLicense 가 빈 키를 보고 기본으로 시작한다. */
 }
