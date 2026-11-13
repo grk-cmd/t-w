@@ -386,7 +386,7 @@ function wiringRows(S){
     ['reset 뒤 옛 목록을 반영', mut('LS', (s) => s.replace("if(g !== gen) return false;   // reset 뒤에 온 옛 답은 버린다", ""))],
     ['reset 이 알림 구독을 안 풂', mut('LS', (s) => s.replace("if(unsub){ try{ unsub(); }catch(_){} }", ""))],
     ['안 보일 때 온 알림을 잊음', mut('LS', (s) => s.replace("if(!deps.isShown()){ stale = true; return; }", "if(!deps.isShown()) return;"))],
-    ['안 보이는 구획도 알림으로 받음', mut('LS', (s) => s.replace("if(load === 'idle' || !deps.isShown()) return;", ""))],
+    ['안 보이는 구획도 알림으로 받음', mut('LS', (s) => s.replace("if(!deps.isShown()){ stale = true; return; }", ""))],
     ['동작 중 알림을 바로 받음', mut('LS', (s) => s.replace("if(busy){ pullAfterBusy = true; return; }\n    pull(false);", "pull(false);"))],
     ['이 기기를 «빼기» 로 뺄 수 있음', mut('LS', (s) => s.replace("if(!id || id === deps.deviceId()) return { ok: false, why: 'self' };", ""))],
     ['기기 가득 거절에도 번호를 띄움', mut('LS', (s) => s.replace("if(api.isDeviceFull(r.err)){", "if(false){"))],
