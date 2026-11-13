@@ -3881,6 +3881,20 @@ function createWindow() {
   mainWindow.on('restore', _refreshMainWinBounds);
   mainWindow.on('show', _refreshMainWinBounds);
   _refreshMainWinBounds();
+  /* 🪟 창이 보이는지를 렌더러에 알린다 — 하트비트가 안 보일 때 무거운 칸(regions · others)을 뺀다(heartbeat-policy.js).
+     backgroundThrottling:false 라 렌더러의 document.hidden 은 최소화에도 안 바뀐다. 바뀔 때만 보낸다.
+     ⚠️ Windows 는 최소화한 창도 isVisible() 이 참이라 isMinimized() 를 같이 본다. */
+  let _winShownSent = null;
+  const _sendWinShown = () => {
+    if(!mainWindow || mainWindow.isDestroyed()) return;
+    let shown = true;
+    try{ shown = mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){}
+    if(shown === _winShownSent) return;
+    _winShownSent = shown;
+    try{ mainWindow.webContents.send('companion:winShown', shown); }catch(_){}
+  };
+  for(const ev of ['minimize', 'restore', 'hide', 'show', 'focus']) mainWindow.on(ev, _sendWinShown);
+  mainWindow.webContents.on('did-finish-load', () => { _winShownSent = null; _sendWinShown(); });   // 다시 불러오면 렌더러 값이 처음(null)으로 돌아간다
 
   /* 📐 [2026-08-26] 해상도·배율·작업영역이 바뀌면 run 오버레이를 다시 맞춘다 — 핸드오프5 §4-3.
      [무엇이 문제였나] 이 핸들러가 **없었다.** 갭(overlay.gapFor)은 배율로 나눠서 계산하는데,
