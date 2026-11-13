@@ -1,14 +1,17 @@
 /* ═══ 🏠 sim-myhome-store.js — 마이홈 상태 주인 (0.13 앱 묶음 D2-2) ═══
    [왜] 마이홈 페이지의 원본이 서버가 됐다. 판(page.version) 하나를 페이지 PATCH · 디자인 PUT 이 같이 올려서 겹쳐 보내면 409 가 나고,
      늦게 온 답이 새 집 · 새 계정 화면을 덮는다. 진짜 모듈을 가짜 서버 길 위에서 돌려 순서를 본다.
+     저장소는 «서버 값(server) + 못 보낸 고침(pending)» 이다 — 고친 사본을 따로 두지 않아 다시 받아도 섞는 규칙이 없다. 받기 · 저장은 한 줄(lane).
    ・1절: 받기 — 받기 전 · 구경 중 · 미리보기 중 고치기 잠금(요청 0) · 받은 값 · 판 없는 답 = 못 받음(E-MH-20) · 공통 code 는 공통 번호
    ・2절: 저장 — 바뀐 칸만 · 바뀐 칸 없으면 요청 0 · 보내는 중 고침 → 끝난 뒤 한 번(판 이어 감) · 서버가 글을 씻어도 다시 보내지 않음 · 늘 판을 싣는다
    ・3절: 스티커 — w · h 정수 · 가득 참 · 지움 · 순서 · 올리는 사이 지움 · 얼린 page()
    ・4절: 디자인 · 배경 — PUT design(프리셋 3칸) · 바깥 배경 · 초기화는 PATCH 의 테마 지우기
-   ・5절: 409 · 실패 — 글 칸만 얹어 한 번 더(Q1) · 두 번째 409 는 받은 값 + 알림 · 디자인 409 · 실패 한 번 · 혼자 다시 안 보냄 · flush
+   ・5절: 409 · 실패 — 글 칸만 얹어 한 번 더(Q1 · rebased) · 두 번째 409 는 받은 값 + 알림 · 디자인 409 · 다시 받는 사이 끝난 올리기는 conflict(F2a) · 그냥 받는 사이면 받은 판 + 내 것(F2b) ·
+        다시 받기 실패 → 잠금 → «다시 시도»(F3) · 디자인 성공 뒤 PATCH 409 는 디자인을 다시 안 보냄 · 실패 + 새 고침 = 한 요청 · 없어진 스티커 고침은 건너뜀 · 실패 한 번 · 혼자 다시 안 보냄 · flush
    ・6절: 올리기 — 실패면 예전 값(E-MH-24) · 같은 칸 busy
-   ・7절: 구경 · 계정 — gen · 없는 사람 · 집 실패(E-MH-21) · reset 뒤 답 버림 · 주인 바뀜은 조용히
-   ・8절: 일부러 깨 보기
+   ・7절: 구경 · 계정 — gen · 없는 사람 · 집 실패(E-MH-21) · reset(저장 · 다시 받기 · 올리기 · 받기 도중) 뒤 답 버림 · 줄 새로 · 주인 바뀜은 조용히
+   ・8절: 배선
+   ・9절: 일부러 깨 보기 — rebased 안 달기 · mergeOps 가 rebased 안 잇기 · adoptSeq 검사 빼기 · 본문을 화면 값에서 만들기 · 실패한 batch 안 되돌리기 · 409 에서 글 외 칸 남기기 · gen 검사 빼기 · 한 줄 우회
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -60,8 +63,8 @@ function mk(srv0, opt){
   return { st, log, srv, release, waits };
 }
 const count = (log, re) => log.filter((l) => re.test(l)).length;
-const ready = async (e) => { const p = e.st.pullMine(); if(!e.srv.auto){ await e.release(); } await p; return e; };
 const tick = flush;
+const ready = async (e) => { const p = e.st.pullMine(); if(!e.srv.auto){ await tick(); await e.release(); } await p; return e; };
 
 async function judge(withBreak){
   const brk = withBreak || {};
@@ -80,7 +83,7 @@ async function judge(withBreak){
     chk(!(await down.st.pullMine()) && down.st.mine().load === 'failed' && down.log.includes('error E-MH-20') && await down.st.setField('bio', 'x') === 'locked', '못 받음 → failed · E-MH-20 · 고치기 잠금');
     const prem = mk({ mineErr: apiErr(403, 'PREMIUM_REQUIRED') }); await prem.st.pullMine();
     chk(prem.log.includes('common PREMIUM_REQUIRED') && !prem.log.includes('error E-MH-20'), '공통 code 는 공통 번호');
-    const hold = mk({ auto: false }); const p1 = hold.st.pullMine(), p2 = hold.st.pullMine();
+    const hold = mk({ auto: false }); const p1 = hold.st.pullMine(), p2 = hold.st.pullMine(); await tick();
     chk(p1 === p2 && count(hold.log, /^GET mine$/) === 1, '받는 중 또 받기 → 같은 약속');
     chk(await hold.st.setField('bio', 'x') === 'locked' && hold.log.includes('toast ' + hold.st.MSG.loading), '받는 중 고치려 하면 «불러오는 중이에요»');
     await hold.release();
@@ -104,13 +107,13 @@ async function judge(withBreak){
     await e.st.setField('bgm', { url: 'https://y/1', title: 'a' }); await e.st.setField('bgm', null);
     chk(e.srv.sent[3].bgm === null && Object.keys(e.srv.sent[3]).join() === 'bgm', 'BGM 지우기는 null 만');
     const h = mk({ auto: false }); await ready(h);
-    const a = h.st.setField('bio', '1'), b = h.st.setField('post', '2');
+    const a = h.st.setField('bio', '1'), b = h.st.setField('post', '2'); await tick();
     chk(count(h.log, /^PATCH/) === 1 && h.st.mine().saving, '보내는 중 또 고침 → 아직 요청 1(겹치지 않음)');
     const c = h.st.setField('postTitle', '3');
     await h.release();
-    chk(count(h.log, /^PATCH/) === 2 && h.log.filter((l) => /^PATCH/.test(l))[1] === 'PATCH v6 ["postTitle","post"]'.replace('["postTitle","post"]', JSON.stringify(Object.keys(h.srv.sent[1]))), '앞 저장이 끝나면 그 사이 바뀐 칸을 모아 새 판으로 한 번');
+    chk(count(h.log, /^PATCH/) === 2 && h.log.filter((l) => /^PATCH/.test(l))[1] === 'PATCH v6 ["postTitle"]', '앞 저장이 끝나면 그 사이 바뀐 칸을 모아 새 판(6)으로 한 번');
     await h.release(); await Promise.all([a, b, c]);
-    chk(h.srv.sent[1].post === '2' && h.srv.sent[1].postTitle === '3' && !h.st.mine().saving && h.st.mine().pageVersion === 7, '  둘 다 실림 · 판 7');
+    chk(h.srv.sent[0].bio === '1' && h.srv.sent[0].post === '2' && h.srv.sent[1].postTitle === '3' && !h.st.mine().saving && h.st.mine().pageVersion === 7, '  둘 다 실림 · 판 7');
   }
 
   say('── 3. 스티커');
@@ -175,7 +178,7 @@ async function judge(withBreak){
     const ds = mk({ auto: false }); await ready(ds);
     const a = ds.st.setDesign({ theme: { tab: '#1' }, presets: [null, null, null], presetCur: 0 });
     const b = ds.st.setField('bio', 'zz');
-    await ds.release(); await ds.release(); await Promise.all([a, b]);
+    await tick(); await ds.release(); await ds.release(); await Promise.all([a, b]);
     const ord = ds.log.filter((l) => /^(PUT|PATCH)/.test(l));
     chk(ord.length === 2 && /^PUT design v5/.test(ord[0]) && /^PATCH v6/.test(ord[1]), '디자인 먼저 · 페이지가 그 응답 판으로 차례로');
     const nodata = await ready(mk());
@@ -221,13 +224,13 @@ async function judge(withBreak){
     const up = mk({ auto: false }); await ready(up);
     const pa = up.st.setAvatar('data:image/png;base64,AA');
     const pull = up.st.pullMine();   // 올리는 중 받기 시작(READY 라 GET 이 간다)
-    await up.release(1); await up.release(1); await pa; await pull; await up.release(2);
-    chk(up.srv.sent && up.srv.sent.some((f) => 'avatar' in f), '받는 사이 올리기가 끝나도 저장이 걸린다');
+    await tick(); await up.release(3); await pa; await pull; await tick();
+    chk(up.srv.sent && up.srv.sent.some((f) => 'avatar' in f) && up.st.page().avatar && /^https:\/\/img\//.test(up.st.page().avatar), '받는 사이 올리기가 끝나도 저장이 걸린다(그냥 받기는 판을 안 바꾼다)');
     const rb = mk({ auto: false }); await ready(rb);
     const pb = rb.st.setField('bio', 'a1');
     const dd = rb.st.setDesign({ theme: {}, presets: [{ name: 'P', theme: {}, bg: null }, null, null], presetCur: 1 });
     const rr = rb.st.resetBg();
-    await rb.release(4); await Promise.all([pb, dd, rr]); await flush();
+    await tick(); await rb.release(4); await Promise.all([pb, dd, rr]); await flush();
     chk(rb.srv.designs && rb.srv.designs.some((d) => d.presets[0] && d.presets[0].name === 'P'), '초기화가 기다리던 프리셋 고침을 지우지 않는다');
     const keep = await ready(mk());
     await keep.st.setDesign({ theme: { a: '#1' }, presets: [{ name: 'Q', theme: {}, bg: null }, null, null], presetCur: 0 });
@@ -235,21 +238,45 @@ async function judge(withBreak){
     chk(keep.srv.designs[1].presets[0].name === 'Q', 'setDesign 에 프리셋을 안 넘기면 지금 값을 쓴다');
     const cu = mk({ auto: false }); await ready(cu);
     cu.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
-    const up2 = cu.st.setAvatar('data:image/png;base64,AA');   // 올리는 중에
+    cu.srv.page.stickers = { s1: stk('x') }; cu.srv.pageVersion = 9;   // 다른 기기가 붙인 스티커 — 아직 못 받음
+    const ad = cu.st.addSticker('data:x', { w: 1, h: 1 });   // 올리는 중에
     const cp = cu.st.setField('bio', 'mine');
-    cu.waits.reverse();   // PATCH 답이 먼저
+    await tick(); cu.waits.reverse();   // PATCH 답이 먼저
     await cu.release();   // PATCH 409 → 다시 받기 시작
     const ens = cu.st.ensureMine();
     chk(count(cu.log, /^GET/) === 2, '409 다시 받는 중 ensureMine 은 GET 을 더하지 않는다');
-    await cu.release(8); await up2; await ens; await cp; await flush();
-    chk(cu.st.page().avatar && /^https:\/\/img\//.test(cu.st.page().avatar) && cu.srv.sent.some((f) => 'avatar' in f), '  다시 받는 사이 끝난 사진 올리기는 받은 값에 밀리지 않고 저장된다');
-    chk(cu.st.mine().load === 'ready', '(409 와 올리기 겹침) 끝나면 ready');
+    await cu.release();   // 올리기가 다시 받는 사이 끝난다
+    const adr = await ad;
+    chk(adr.status === 'conflict' && count(cu.log, /^toast /) === 1 && cu.log.includes('toast ' + cu.st.MSG.merged), 'F2a: 다시 받는 사이 끝난 스티커 올리기 → conflict · 알림 한 번');
+    await cu.release(6); await cp; await ens; await tick();
+    chk(Object.keys(cu.st.page().stickers).join() === 's1' && cu.srv.sent.every((f) => !('stickers' in f)) && count(cu.log, /^GET/) === 2, '  받은 스티커 그대로 · 올린 그림은 쓰지 않음 · 저장에 스티커 없음');
+    chk(cu.st.page().bio === 'mine' && cu.srv.page.bio === 'mine' && cu.st.mine().load === 'ready', '  글 칸은 새 판에 얹혀 저장 · ready');
+    const ca = mk({ auto: false }); await ready(ca);
+    ca.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    const aa = ca.st.setAvatar('data:image/png;base64,AA'); const ab = ca.st.setField('bio', 'z');
+    await tick(); ca.waits.reverse(); await ca.release(); await ca.release();
+    chk(await aa === 'conflict' && ca.st.page().avatar === null && !ca.srv.sent.some((f) => 'avatar' in f), '사진 올리기도 다시 받는 사이 끝나면 conflict · 사진은 받은 값(미리보기도 걷힘)');
+    await ca.release(6); await ab;
+    const f2 = mk({ auto: false }); await ready(f2);
+    f2.srv.page.stickers = { s1: stk('x') }; f2.srv.pageVersion = 9;
+    const ad2 = f2.st.addSticker('data:x', { w: 1, h: 1 }); const pl2 = f2.st.pullMine(); await tick();
+    await f2.release(1);   // 올리기가 그냥 받는 사이 끝난다
+    await f2.release(1);   // 받기 끝
+    await f2.release(2); const ar2 = await ad2; await pl2;
+    const ps = f2.srv.sent[0];
+    chk(ar2.status === 'ok' && f2.log.some((l) => l === 'PATCH v9 ["stickers"]') && ps && Object.keys(ps.stickers).length === 2 && 's1' in ps.stickers && count(f2.log, /^toast /) === 0, 'F2b: 그냥 받는 사이 끝난 올리기 → 받은 스티커 + 내 것으로 PATCH(판 9)');
+    const lanes = mk({ auto: false }); await ready(lanes);
+    const pl3 = lanes.st.pullMine(); const sv3 = lanes.st.setField('bio', 'x'); await tick();
+    chk(count(lanes.log, /^GET/) === 2 && count(lanes.log, /^PATCH/) === 0, '한 줄: 받는 중에는 저장이 서서 기다린다(요청 0)');
+    await lanes.release(1); await tick();
+    chk(count(lanes.log, /^PATCH/) === 1 && lanes.log.includes('PATCH v5 ["bio"]'), '  받기가 끝나야 저장이 간다');
+    await lanes.release(1); await pl3; await sv3;
     const gd = await ready(mk({ patchErr: apiErr(400, 'MYHOME_INVALID_BGM') }));
     await gd.st.setField('bgm', { url: 'x', title: '' });
     chk(gd.log.includes('toast 유튜브 링크를 인식하지 못했어요') && count(gd.log, /^error/) === 0, '안내 code(GUIDE)는 앱 문구 토스트 · 번호 없음');
     const lock = mk({ auto: false }); await ready(lock);
     lock.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
-    const pp = lock.st.setField('bio', 'x'); await lock.release();
+    const pp = lock.st.setField('bio', 'x'); await tick(); await lock.release();
     chk(lock.st.mine().load === 'loading' && await lock.st.setField('post', 'y') === 'locked', '409 뒤 다시 받는 동안 고치기 잠김');
     await lock.release(3); await pp;
   }
@@ -277,6 +304,74 @@ async function judge(withBreak){
     await e.st.setField('bio', 'a');
     const n = count(e.log, /^GET/);
     chk(await e.st.pullMine() === true && count(e.log, /^GET/) === n, '못 올린 고침이 있으면 받기 요청 0(받은 값이 덮지 않게)');
+  }
+
+  {
+    const c409 = () => apiErr(409, 'CONCURRENT_UPDATE');
+    const f1 = await ready(mk());
+    f1.srv.patchErr = [c409()];
+    await f1.st.setField('bio', 't1');
+    chk(count(f1.log, /^PATCH/) === 2 && f1.srv.page.bio === 't1', 'F1: 409 → 받아서 글을 얹어 다시 보내 성공');
+    f1.srv.patchErr = [c409()];
+    await f1.st.setField('bio', 't2');
+    chk(count(f1.log, /^PATCH/) === 4 && f1.srv.page.bio === 't2' && f1.st.page().bio === 't2' && !f1.log.some((l) => l.startsWith('toast')), '  새 글 · 또 409 → 글을 다시 한 번 얹는다(앞 «한 번» 은 저장과 함께 사라졌다)');
+
+    const f3 = mk({ auto: false }); await ready(f3);
+    f3.srv.patchErr = [c409(), c409()];
+    const p3 = f3.st.setField('bio', 'x'); await tick();
+    await f3.release();   // PATCH 409 → 받기
+    await f3.release();   // 받기 ok → 얹은 글 PATCH
+    f3.srv.mineErr = apiErr(503, 'X');
+    await f3.release();   // 또 409 → 글도 버리고 받기
+    await f3.release();   // 받기 실패
+    chk(await p3 === 'failed' && f3.st.mine().load === 'failed' && count(f3.log, /^PATCH/) === 2 && f3.log.includes('error E-MH-20'), 'F3: 409 · 409 · 다시 받기 실패 → 잠김 · E-MH-20');
+    f3.srv.mineErr = undefined;
+    const r3 = f3.st.pullMine(); await tick(); await f3.release(); await r3; await tick();
+    chk(count(f3.log, /^PATCH/) === 2 && f3.st.mine().load === 'ready' && f3.st.page().bio === 'b' && !f3.st.mine().saving, '  «다시 시도» → PATCH 0 (버려진 글은 남지 않는다)');
+
+    const f4 = mk({ auto: false }); await ready(f4);
+    f4.srv.patchErr = [c409(), c409()];
+    const p4 = f4.st.setField('bio', 'keep'); await tick();
+    f4.srv.mineErr = apiErr(503, 'X');
+    await f4.release(); await f4.release(); await p4;   // 첫 409 · 받기 실패
+    chk(f4.st.mine().load === 'failed' && count(f4.log, /^PATCH/) === 1 && await f4.st.setField('post', 'z') === 'locked', 'F3: 첫 409 에서 받기 실패 → 잠김 · 글은 남음');
+    f4.srv.mineErr = undefined;
+    const r4 = f4.st.pullMine(); await tick(); await f4.release();   // 받기 ok → 남은 글 PATCH 한 번
+    await tick(); await f4.release();   // 그 PATCH 가 409 → 글도 버림 · 받기
+    await f4.release(); await r4; await tick();
+    chk(count(f4.log, /^PATCH/) === 2 && f4.st.page().bio === 'b' && f4.st.mine().load === 'ready' && f4.log.includes('toast ' + f4.st.MSG.merged), '  «다시 시도» → PATCH 정확히 1 · 그 409 는 글을 버리고 받은 값 + 알림');
+
+    const dd = await ready(mk());
+    dd.srv.patchErr = [c409()];
+    const x1 = dd.st.setDesign({ theme: { tab: '#1' }, presets: [null, null, null], presetCur: 0 }), x2 = dd.st.setField('bio', 'w');
+    await Promise.all([x1, x2]);
+    chk(count(dd.log, /^PUT design/) === 1 && count(dd.log, /^PATCH/) === 2 && dd.srv.page.bio === 'w', '디자인 성공 뒤 PATCH 409 → 디자인은 다시 보내지 않고 글만 한 번 더');
+
+    const mg = await ready(mk({ patchErr: apiErr(503, 'X') }));
+    await mg.st.setField('bio', 'a1'); mg.srv.patchErr = null;
+    const n0 = count(mg.log, /^PATCH/);
+    await mg.st.setFields({ post: 'p1' });
+    chk(count(mg.log, /^PATCH/) === n0 + 1 && mg.srv.sent[1].bio === 'a1' && mg.srv.sent[1].post === 'p1', '실패한 저장 + 새 고침 → 한 요청으로 합쳐 간다');
+
+    const ms = mk({ auto: false }); ms.srv.page.stickers = { s1: stk('x') }; await ready(ms);
+    const pl = ms.st.pullMine(); const ed = ms.st.editSticker('s1', { x: 50 });
+    ms.srv.page.stickers = {}; ms.srv.pageVersion = 7;   // 다른 기기가 s1 을 지웠다
+    await tick(); await ms.release(); await tick(); await pl; const edr = await ed; await tick();
+    chk(count(ms.log, /^PATCH/) === 0 && Object.keys(ms.st.page().stickers).length === 0 && edr === 'ok', '받은 판에 없는 스티커의 고침은 건너뛴다(요청 0)');
+
+    const bt = mk({ auto: false }); await ready(bt);
+    const b1 = bt.st.setDesign({ theme: { tab: '#1' }, presets: [null, null, null], presetCur: 0 }), b2 = bt.st.setField('bio', 'a');
+    await tick();   // 디자인 PUT 이 날아가는 중 — 묶음은 정해졌다
+    const b3 = bt.st.setField('bio', 'c');
+    chk(bt.st.page().bio === 'c', '보내는 중 새 고침도 화면엔 바로 보인다');
+    await bt.release(); await tick(); await bt.release(); await tick(); await bt.release(2); await Promise.all([b1, b2, b3]);
+    chk(bt.srv.sent.length === 2 && bt.srv.sent[0].bio === 'a' && bt.srv.sent[1].bio === 'c' && bt.st.mine().pageVersion === 8, '묶음 본문은 server + batch 에서 — 보내는 중 새 고침은 다음 묶음으로 간다');
+
+    const av = mk({ auto: false }); await ready(av);
+    const apv = av.st.setAvatar('data:image/png;base64,AA'); const bio = av.st.setField('bio', 'q'); await tick();
+    chk(av.st.page().avatar === 'data:image/png;base64,AA' && av.log.includes('PATCH v5 ["bio"]'), '사진 미리보기는 화면에만 — 저장 본문엔 bio 만');
+    await av.release(1); await av.release(2); await apv; await bio;
+    chk(av.srv.sent.every((f) => !JSON.stringify(f).includes('data:')) && /^https:\/\/img\//.test(av.st.page().avatar), '  올린 뒤엔 주소로 바뀐다');
   }
 
   say('── 6. 올리기');
@@ -328,8 +423,23 @@ async function judge(withBreak){
     const e = mk({ auto: false }); const p = e.st.pullMine(); e.st.reset(); await e.release(); await p;
     chk(e.st.mine().load === 'idle' && e.st.page().bio === '' && e.log.includes('api reset'), 'reset 뒤 늦은 받기 답은 버린다 · provider 도 비운다');
     const s = await ready(mk({ auto: false })); s.srv.auto = false;
-    const w = s.st.setField('bio', 'x'); s.st.reset(); await s.release();
-    chk(await w === 'stale', 'reset 뒤 저장 답은 상태를 안 고친다');
+    const w = s.st.setField('bio', 'x'); await tick(); s.st.reset(); await s.release();
+    chk(await w === 'stale' && s.st.mine().load === 'idle' && s.st.page().bio === '' && s.st.mine().pageVersion === undefined && !s.st.mine().saving, 'reset 뒤 저장 답(저장 도중 놓음)은 상태를 안 고친다');
+    const rf = mk({ auto: false }); await ready(rf);
+    rf.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    const wf = rf.st.setField('bio', 'x'); await tick(); await rf.release();   // PATCH 409 → 다시 받는 중
+    rf.st.reset(); await rf.release(3);
+    chk(await wf === 'stale' && rf.st.mine().load === 'idle' && rf.st.page().bio === '' && count(rf.log, /^PATCH/) === 1 && count(rf.log, /^toast/) === 0 && !rf.st.mine().saving, 'reset 뒤 409 다시 받기 답(받는 도중 놓음)은 상태를 안 고치고 더 보내지 않는다');
+    const ru = mk({ auto: false }); await ready(ru);
+    const wu = ru.st.setAvatar('data:image/png;base64,AA'); await tick(); ru.st.reset(); await ru.release(3);
+    chk(await wu === 'stale' && ru.st.page().avatar === null && ru.st.mine().load === 'idle' && count(ru.log, /^PATCH/) === 0, 'reset 뒤 올리기 답(올리는 도중 놓음)은 고침을 만들지 않는다');
+    const rn = mk({ auto: false }); await ready(rn);
+    const wn = rn.st.setField('bio', 'x'); await tick(); rn.st.reset();   // 저장 답이 아직 안 옴 — 앞 계정의 일이 멈춰 있다
+    const pn = rn.st.pullMine(); await tick();
+    chk(count(rn.log, /^GET/) === 2, '  reset 뒤 새 계정의 받기는 앞 계정의 멈춘 저장 뒤에 서지 않는다(줄을 새로)');
+    rn.waits.reverse(); await rn.release(2); await pn;   // 받기 답이 먼저 · 앞 계정 저장 답이 나중
+    chk(rn.st.mine().load === 'ready' && rn.st.page().bio === 'b' && count(rn.log, /^PATCH/) === 1 && rn.st.mine().pageVersion === 5, '  앞 계정의 늦은 저장 답은 새 계정 상태를 안 고친다');
+    await wn;
     const own = await ready(mk({ patchErr: apiErr(409, 'OWNER_CHANGED') }));
     await own.st.setField('bio', 'x');
     chk(count(own.log, /^error/) === 0, '주인 바뀜(OWNER_CHANGED)은 조용히 버림');
@@ -354,12 +464,17 @@ async function judge(withBreak){
   say('── 9. 일부러 깨 보기');
   const base = { pass, fail };
   const breaks = [
-    ['canEdit 를 빼면(미리보기에서 열림)', (s) => s.replace('mineSt.load === LOAD.READY && !viewSt.owner && !previewOn()', 'mineSt.load === LOAD.READY'), (s) => s.replace("if(viewSt.owner || previewOn()) return 'locked';", '')],
+    ['canEdit 를 빼면(미리보기에서 열림)', (s) => s.replace('load === LOAD.READY && !viewSt.owner && !previewOn()', 'load === LOAD.READY'), (s) => s.replace("if(viewSt.owner || previewOn()) return 'locked';", '')],
     ['gen 비교를 빼면(앞 집 답이 이김)', (s) => s.split('vg !== viewSt.gen').join('false')],
-    ['again 모으기를 빼면(저장이 겹침)', (s) => s.replace('if(saving) return saveP;', '')],
-    ['409 에서 글 칸을 안 얹으면', (s) => s.replace('const keepText = !textRetry;', 'const keepText = false;')],
-    ['409 다시 받는 사이 끝난 올리기를 안 남기면', (s) => s.replace('Object.assign(texts, late);', '')],
-    ['저장 중 받기를 막지 않으면', (s) => s.replace('if(saving) return saveP.then(() => mineSt.load === LOAD.READY);', '')],
+    ['409 에서 글 칸을 안 얹으면', (s) => s.replace('const keepKey = (k) => TEXT_FIELDS.indexOf(k) >= 0;', 'const keepKey = (k) => false;')],
+    ['409 뒤 얹은 묶음에 rebased 를 안 달면(두 번째 409 가 글을 또 얹음)', (s) => s.replace('o.rebased = Object.keys(o.fields).length > 0;', 'o.rebased = false;')],
+    ['mergeOps 가 rebased 를 안 이으면', (s) => s.replace('rebased: !!(a.rebased || b.rebased)', 'rebased: !!b.rebased')],
+    ['다시 받는 사이 끝난 올리기를 conflict 로 안 막으면(adoptSeq)', (s) => s.replace('if(seq !== adoptSeq){', 'if(false){')],
+    ['본문을 server + batch 가 아닌 화면 값(page())에서 만들면', (s) => s.replace('const next = apply(page, { fields: ops.fields, stickerOps: ops.stickerOps, design: null });', 'const next = mineView;')],
+    ['실패한 batch 를 pending 에 되돌리지 않으면', (s) => s.replace('    pending = mergeOps(batch, pending);   // 못 보낸 고침을 되돌려', '    // 되돌리지 않음   // 못 보낸 고침을 되돌려')],
+    ['409 에서 글 칸 말고도 남기면', (s) => s.replace('if(keepKey(k)) o.fields[k] = clone(all.fields[k]);', 'o.fields[k] = clone(all.fields[k]);')],
+    ['gen 검사를 빼면(계정을 놓은 뒤 늦은 답이 상태를 고침)', (s) => s.split('g !== gen').join('false')],
+    ['한 줄을 우회하면(받기 · 저장이 겹쳐 돔)', (s) => s.replace('const p = tail.then(job, job);', 'const p = Promise.resolve().then(job);')],
     ['스티커 w · h 를 정수로 안 만들면', (s) => s.replace('s.w = Math.max(1, Math.min(400, Math.round(Number(s.w) || 1)));', 's.w = Number(s.w);')],
   ];
   const origLoad = S.ST;
