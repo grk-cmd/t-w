@@ -268,7 +268,7 @@
 | **sim-weekly-challenge.js** | 437 | **029252f054ae** |
 | **sim-purikura-ui.js** | 277 | **b86950bf284f** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
-| **sim-guestbook.js** | 389 | **f51747f23c24** |
+| **sim-guestbook.js** | 479 | **90faaf8d7edf** |
 | **sim-friend-manage-module.js** | 309 | **632eed6beda1** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **412082771903** |
