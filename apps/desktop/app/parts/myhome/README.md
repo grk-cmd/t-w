@@ -328,6 +328,16 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - 409 에 여기서 다시 받아 보내지 않는다 — 판은 상태 주인이 들고 넘기고 `failOf` 가 `conflict` 로 알린다.
 - **검사**: `checks/sim-myhome-api.js`.
 
+## `myhome-store.js` — 🏠 마이홈 상태 주인
+
+- **책임**: 내 마이홈 페이지(`load` · 페이지 · 판)와 보고 있는 집. 화면은 값을 직접 고치지 않고 `setField` · `setFields` · `setAvatar` · `addSticker` · `editSticker` · `removeSticker` · `moveSticker` · `setDesign` · `resetBg` 를 부른다. `page()` 는 얼려 둔 값이다.
+- **상태 모델**: `server`(서버가 준 · 저장이 성공해 서버가 받은 마지막 페이지 — 받기 · 저장 성공만 바꾼다) + `pending`(못 보낸 고침 — 글 칸 · 스티커 동작 add · edit · remove · move · 디자인 · 지우기 표시 · `rebased`). `page()` = server 에 pending(보내는 중 묶음 포함)을 얹은 값 + 사진 미리보기 — emit 마다 새로 만들어 얼린다. 고친 사본 · dirty · base 를 따로 두지 않으므로 다시 받아도 섞는 규칙이 없다.
+- **저장**: 받기 · 저장은 한 줄(`tail.then(job, job)`)에 선다. 저장은 pending 을 batch 로 옮기고 server 에 batch 를 얹은 값에서 본문을 만든다 — server 와 같은 칸은 싣지 않고 바뀐 게 없으면 요청 0. 디자인 PUT 먼저 · 페이지 PATCH 한 번. 올리기는 줄 밖에서 돌고 주소만 돌려주며 고침은 끝난 때 만든다. 망 · 5xx · 로그인 실패는 batch 를 pending 에 되돌리고 번호(E-MH-22 · 23) 한 번 · 혼자 다시 보내지 않는다. 서버가 거절한 값(4xx · 403 — 408 · 429 · 409 · 길 없음 404 제외)은 거절 code 가 가리키는 칸만 버리고 나머지는 한 번 더 보낸다 — 디자인 PUT 이 거절돼도 같은 묶음의 PATCH 는 간다(결과 'failed').
+- **409**: 디자인 PUT 이든 페이지 PATCH 든 다시 받은 뒤 글 칸(소개 · 게시글 · 제목)만 새 판에 얹어 한 번 더 보낸다(사용자 결정 2026-11-14 Q1 = 나) — 나머지는 받은 값 + «다른 기기에서 바꾼 내용을 받아왔어요». 그 «한 번» 은 pending 의 `rebased` 로 센다(저장되거나 버려지면 같이 사라짐) — 얹은 글의 저장이 또 409 면 글도 버린다. 다시 받는 사이(`adoptSeq` 가 오른 사이) 끝난 올리기는 `'conflict'`(그림은 쓰지 않음). 다시 받기가 실패하면 잠긴 채 글은 남고 [다시 시도] 가 받은 뒤 남은 글을 한 번 보낸다.
+- **deps**: `api`(myhome-api.js) · `lib`(TwMyHomeApi) · `errs` · `apiErrors` · `notifyError` · `toast` · `previewOn` · `rules`(myhome-sticker-rules.js).
+- **함정**: 판 없는 받기 답은 못 받음으로 본다. 저장 본문에 `data:` 그림은 없다 — `upload(칸, 그림)` 이 주소를 돌려주면 그 주소로만 저장한다. 스티커 w · h 는 정수. 아직 바탕화면(`desktop`)은 읽기만 한다.
+- **검사**: `checks/sim-myhome-store.js`.
+
 ## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 길 provider
 
 - **책임**: 내 말랑이 칸 읽기 · 통째 저장(`GET` · `PUT /v1/me/mallangs`) · 그림 올리기(`POST /v1/me/images?purpose=mallang`) · 남의 집 칸(`GET /v1/mallangs/{userCode}`) · 내 선물함(`GET /v1/me/gifts`) · 봤음(`POST /v1/me/gifts/seen`) · ⭐ · 치움(`PATCH /v1/me/gifts/{id}`) · 지우기(`DELETE /v1/me/gifts/{id}`) · 오늘 보낸 수(`GET /v1/me/gifts/sent-today`) · 그 집에 나온 선물(`GET /v1/gifts/{userCode}`) · 보내기(`POST /v1/gifts/{userCode}`). 서버 모양(`sentAt` ISO)을 화면 모양(`sentAt` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰 — 보내기 본문에 내 코드 · 이름 · 날짜 · 그림 주소를 싣지 않는다.
