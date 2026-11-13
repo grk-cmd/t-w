@@ -8431,8 +8431,9 @@ const bugBoardUi = TwBugBoardUi.createBugBoardUi({
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 /* ⏱ 포커스 진척 — 레벨 · 회차 · 별 색은 서버 값, 이 PC 는 못 올린 초만(focus/focus-progress.js). 시작은 계정 확인 뒤 app-boot 의 focusLevel 차례 */
+const focusApiMod = TwFocusApi.createFocusApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 진척 · 폰 키가 같은 하나 — 읽은 토큰 주인을 같이 쓴다
 const focusProgressMod = TwFocusProgress.createFocusProgress({
-  focusApi: TwFocusApi.createFocusApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  focusApi: focusApiMod,
   focusStore: accountStoreMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   setServerDay: (t)=>focusTotalMod.setServerDay(t),
@@ -8450,7 +8451,10 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   addFocusToday: (...a)=>focusTotalMod.addFocusToday(...a),
   findMySeat: (...a)=>findMySeat(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  mobileDiag: TwMobileDiag,
+  focusApi: focusApiMod,
+  focusStore: accountStoreMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  rtOnMessage: (...a)=>TwRtHub.store.onMessage(...a),
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
   setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },
@@ -8781,7 +8785,7 @@ const appBoot = TwAppBoot.createAppBoot({
   starts: {
     focusTotal: ()=>focusTotalMod.startFocusTotal(),
     focusShare: ()=>focusShareMod.startFocusShare(),
-    focusLevel: (code, me, session)=>focusProgressMod.startFocus(code, me, session),
+    focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
     weeklyChal: ()=>weeklyChal.startChalSync(),
     pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
     gacha: ()=>gachaMod.startGacha(),

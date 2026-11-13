@@ -117,8 +117,8 @@
 | `E-FOCUS-05` | 달성표를 저장하지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 달성표 목표 · 자동 · 쉬기 저장(PUT /v1/me/focus/challenges/{주}) |
 | `E-FOCUS-06` | 오늘 달성을 적지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 오늘 달성 적기(POST /v1/me/focus/challenges/today) |
 | `E-FOCUS-07` | 달성표 보상을 받지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 보상 칸 받기(POST /v1/me/focus/challenges/{주}/rewards/{칸}) |
-| `E-FOCUS-08` | 폰 연결 키를 만들지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 폰 연결 새 키 만들기(POST /v1/me/focus/mobile-link) |
-| `E-FOCUS-09` | 폰 연결을 끊지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 폰 연결 끊기(DELETE /v1/me/focus/mobile-link) |
+| `E-FOCUS-08` | 폰 연결 키를 만들지 못했어요 | `focus/focus-api.js` 길 — 폰 연결 새 키 만들기(POST /v1/me/focus/mobile-link) |
+| `E-FOCUS-09` | 폰 연결을 끊지 못했어요 | `focus/focus-api.js` 길 — 폰 연결 끊기(DELETE /v1/me/focus/mobile-link) |
 | `E-BUG-01` | 제보 목록을 불러오지 못했어요 | `support/bug-board-ui.js` — 버그제보 탭 목록 · 필터 · [다음]/[이전] · [다시 시도](`GET /v1/bugs` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · «목록을 불러오지 못했어요 [다시 시도]» · 다시 보내지 않음 · 공지 받기 실패는 번호 없이 공지 칸만 비움) |
 | `E-BUG-02` | 제보를 불러오지 못했어요 | `support/bug-board-ui.js` — 글 열기 · 우편함 «가기» · [다시 시도](`GET /v1/bugs/{number}` — 없는 글 · 남의 비공개 글은 번호 없이 «없음» · «비공개» 화면) |
 | `E-BUG-03` | 제보를 올리지 못했어요 | `support/bug-board-ui.js` — 글쓰기 [등록](`POST /v1/bugs` — 하루 상한 · 공지 조건은 번호 없이 안내 · 입력은 그대로 · 다시 보내지 않음) |
