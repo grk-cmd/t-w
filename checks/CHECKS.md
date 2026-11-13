@@ -179,7 +179,7 @@
 | **sim-myhome-load.js** | 87 | **80598e5410f5** |
 | **sim-fix-0923.js** | 257 | **579177c0ddd4** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
-| **sim-mobile-focus.js** | 333 | **2e09e93da325** |
+| **sim-mobile-focus.js** | 334 | **c343815342de** |
 | **sim-figure-mode.js** | 169 | **e100b8151447** |
 | **sim-focus-gate-self.js** | 124 | **5a2405206abb** |
 | **sim-focus-gate.js** | 105 | **d13765baacc8** |
