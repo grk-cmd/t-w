@@ -55,6 +55,7 @@ async function judge(S){
     chk(!dup.length, '기기 공용 표와 계정별 표가 겹치지 않는다' + (dup.length ? ' — ' + dup.join(' · ') : ''));
     chk(new Set(M.ACCOUNT_KEYS).size === M.ACCOUNT_KEYS.length && new Set(M.DEVICE_KEYS).size === M.DEVICE_KEYS.length, '표 안에 같은 이름이 두 번 없다');
     chk(M.MOVED_KEYS.every((k) => M.ACCOUNT_KEYS.includes(k)), '옮긴 키(MOVED_KEYS)는 모두 계정별 표 안에 있다');
+    chk(!M.ACCOUNT_KEYS.includes('tw.bookmarks') && !M.DEVICE_KEYS.includes('tw.bookmarks') && !M.isAccountKey('tw.bookmarks') && M.isAccountKey('tw.mhGbLastRead:u1'), 'tw.bookmarks 는 어느 표에도 없다(서버가 원본 — 첫 실행 단계가 지움) · tw.mhGbLastRead:* 는 계정 키로 남는다');
     const bad = M.ACCOUNT_KEYS.concat(M.DEVICE_KEYS).filter((k) => !/^(tw[._]|deskFriends\.)/.test(k));
     chk(!bad.length, '이름이 tw. / tw_ / 옛 deskFriends. 로 시작한다' + (bad.length ? ' — ' + bad.join(' · ') : ''));
     chk(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2'].every((k) => M.MOVED_KEYS.includes(k)), '#582 의 포커스 오늘치 · 바탕화면 키가 옮긴 표에 있다');

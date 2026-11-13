@@ -380,6 +380,19 @@ const mallangMod = TwMallang.createMallang({
   - 오류: 받기 `E-GIFT-01`(보내기 창 열기는 `site: 'sendOpen'` → `E-GIFT-07`) · 공통 code(`PREMIUM_REQUIRED` 등)는 `TwApiErrors.store.notify` · 계정이 바뀌는 중(`OWNER_CHANGED` · `NOT_RECEIVED`)은 조용히 · 없는 사람(`USER_NOT_FOUND`)은 «말랑이 없음».
 - **검사**: `checks/sim-mallang-store.js`(진짜 모듈을 가짜 서버 길 위에서 — 저장 차례 · 409 · 실패 한 번 · 등록 · 집 gen · reset · 배선 · 일부러 깨 보기).
 
+## `bookshelf-store.js` · `bookmark.js` — 📚 책장 (서버가 원본)
+
+- **책임**: `bookshelf-store.js` — 내 책장(받기 · 통째 저장)과 보고 있는 집의 공개 책. 순서 = 배열 차례, 저장이 끝나면 서버가 돌려준 책(서버가 지금 시각을 넣은 `addedAt` 포함)으로 다시 그린다. 저장은 한 번에 하나 — 저장 중 고침은 끝난 뒤 최신 목록 · 새 판으로 한 번 더. `bookmark.js` — 서랍 · 책등 · 끌어서 순서 · 책 꽂기 창(그리기 · 누름만 — 값은 `put(책 목록)` 으로만 고친다).
+- **만드는 법**: app.js 가 `TwBookshelfStore.createBookshelfStore({ api: bookshelfApiMod, lib: TwMyHomeApi, errs, apiErrors, notifyError, toast })` → `TwBookmark.createBookmark({ bookshelfStore, toast, buildFreeColorPicker })`(`bookmark.js` 는 app.js 앞에 실리고 바탕화면에는 `MYHOME_DESKTOP.onReady` 로 붙는다). 앱을 끌 때 · 로그아웃 올리기(`account.js`)가 `flush()`, 계정을 놓을 때 `reset()`. 모듈을 싣기만 해서는 요청 · 타이머가 없다 — 서랍을 처음 열 때(내 집) · 구경을 시작할 때 받는다.
+- **내보내는 것(store)**: `mine()` → `{ load, books, version, saving }` · `view()` → `{ owner, load, books }`(`load`: `idle` · `loading` · `ready` · `failed` · `missing`) · `onChange(fn)` · `pullMine()` · `openView(code)` · `retryView()` · `closeView()` · `put(books)` → `'ok' | 'failed' | 'conflict' | 'stale' | 'locked' | 'full'` · `uploadImage(dataUrl)` → `{ ok, url }` · `flush()` · `reset()`.
+- **함정**
+  - 받기 전(`load !== 'ready'`)엔 고치지 못한다(`locked` · 요청 0 · «불러오는 중이에요» 안내). 이미 받았으면 서랍을 다시 열어도 요청 0. 저장 중이거나 못 올린 고침이 있으면 내 책장 받기는 요청하지 않는다.
+  - 409 `CONCURRENT_UPDATE` 는 내 고침을 버리고 서버 것을 받아 «다른 기기에서 바꾼 내용을 받아왔어요». 실패는 화면을 고친 대로 두고 `E-MH-27` 한 번 — 혼자 다시 보내지 않는다. 받기 실패는 서랍의 «못 불러왔어요 [다시 시도]» + `E-MH-26`.
+  - 구경: 공개 책을 못 받아도 폴더는 보이고 서랍에 «다시 시도»(시작하며 받다 실패하면 번호 없음 · 누른 다시 시도가 또 실패하면 `E-MH-26`). 없는 사람(`USER_NOT_FOUND`)은 폴더를 숨긴다. 집을 빨리 옮겨도 앞 집 답은 버린다(`gen`).
+  - 책등 그림 올리기 실패는 창 안 글(«그림을 올리지 못했어요.»)만 — `E-MH-24` 는 D2-2(마이홈 페이지)가 표에 올린 뒤 붙인다. 새 책은 `addedAt` 을 싣지 않고(서버가 넣는다) 색이 없는 옛 책은 색 칸을 싣지 않는다. 뗀 그림 지우기는 서버 몫이다.
+  - 이 PC 사본(`tw.bookmarks`)은 읽지 않는다 — 첫 실행 `myhome` 단계(`first-run-013.js`)가 지운다(올리지 않음).
+- **검사**: `checks/sim-bookshelf-store.js`(받기 · 저장 차례 · 409 · 실패 한 번 · 50권 · 구경 gen · reset · 배선 · 일부러 깨 보기) · `checks/sim-bookmark.js`(서랍 화면).
+
 ## `scheduler.js` — 📅 스케줄러 · 🔔 일정 알림 (서버가 원본)
 
 - **책임**: 마이홈 [스케줄러] 탭(달력 · 📌 기념일 카드 · ⏳ D-day 배너) · 🔔 알림창(오늘 일정 · 이정표 기념일 · 친구 태그). 받기 · 쓰기는 `schedule-api.js` 로, 화면과 «오늘 날짜를 이 기기 시간대로 보는» 셈만 여기 있다.
@@ -406,5 +419,5 @@ const mallangMod = TwMallang.createMallang({
 ## `myhome-desktop-boot.js` — 🖥️ 바탕화면을 만드는 한 줄
 
 - **책임**: `createMyHomeDesktop({ advStore: accountStoreMod })` 한 줄. 바탕화면은 app.js 뒤에 실리고 싣자마자 돌아야 해서, app.js 가 만든 계정 칸을 deps 로 넘기는 자리를 별도 파일로 둔다.
-- **함정**: 순서 — `app.js` → `myhome-desktop.js` → 이 파일 → `bookmark.js`. 사이에 다른 스크립트를 끼우지 않는다. html 에 `myhome-desktop-boot.js` 가 있는지는 `sim-account-store.js` 가 본다.
+- **함정**: 순서 — `app.js` → `myhome-desktop.js` → 이 파일. 사이에 다른 스크립트를 끼우지 않는다(`bookmark.js` 는 app.js 가 만들어 앞에 실린다). html 에 `myhome-desktop-boot.js` 가 있는지는 `sim-account-store.js` 가 본다.
 

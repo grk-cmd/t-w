@@ -224,7 +224,10 @@ function booksBody(books){
   for(const b of books || []){
     if(!isObj(b)) continue;
     const o = { id: str(b.id), title: str(b.title), width: b.w === 'thick' ? 'thick' : 'thin', height: b.h === 'long' ? 'long' : 'short',
-      color: str(b.color), titleColor: str(b.tcolor), hideTitle: b.hideTitle === true, public: b.pub === true };
+      hideTitle: b.hideTitle === true, public: b.pub === true };
+    /* 색이 없는 옛 책은 칸을 싣지 않는다 — 서버가 기본 색을 넣는다("" 는 색 모양이 아니라 400) */
+    if(nonEmpty(b.color)) o.color = b.color;
+    if(nonEmpty(b.tcolor)) o.titleColor = b.tcolor;
     if(nonEmpty(b.url)) o.url = b.url;
     if(nonEmpty(b.img)) o.image = b.img;
     if(fin(b.at) && b.at > 0) o.addedAt = new Date(b.at).toISOString();

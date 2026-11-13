@@ -2702,6 +2702,20 @@ const mallangStoreMod = TwMallangStore.createMallangStore({
   toast: (...a)=>toast(...a),
 });
 window.addEventListener('beforeunload', ()=>{ mallangStoreMod.flush(); });   // 앱을 끌 때 못 올린 칸 고침 한 번(결과를 기다리지 않음)
+/* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v1/me/myhome/bookshelf · /v1/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
+const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(책장 몫)
+const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
+  api: bookshelfApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+});
+window.addEventListener('beforeunload', ()=>{ bookshelfStoreMod.flush(); });   // 앱을 끌 때 못 올린 책장 고침 한 번(결과를 기다리지 않음)
+/* 📚 마이홈 북마크 서랍(myhome/bookmark.js) — 바탕화면이 준비되면(MYHOME_DESKTOP.onReady) 폴더로 붙는다. */
+TwBookmark.createBookmark({
+  bookshelfStore: bookshelfStoreMod,
+  toast: (...a)=>toast(...a),
+  buildFreeColorPicker: (...a)=>wardrobeMod.buildFreeColorPicker(...a),
+});
 /* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */
 const mallangMod = TwMallang.createMallang({
   toast: (...a)=>toast(...a),
@@ -5698,6 +5712,7 @@ const firstRunMod = TwFirstRun013.createFirstRun({
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
     gacha: TwFirstRun013.gachaStep(),
     mallang: TwFirstRun013.mallangStep(localStorage),
+    myhome: TwFirstRun013.myhomeStep(localStorage),
     legacySync: ()=>closetMod.legacyStep(),
     licenseKey: TwFirstRun013.licenseKeyStep({
       storage: localStorage,
@@ -6941,6 +6956,7 @@ const accountMod = TwAccount.createAccount({
   plMod: plMod,
   mhScheduler: mhScheduler,
   mallangStore: mallangStoreMod,
+  bookshelfStore: bookshelfStoreMod,
   bugBoardReset: (...a)=>bugBoardUi.reset(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,

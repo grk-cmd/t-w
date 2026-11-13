@@ -6,12 +6,10 @@
      (거기에 늘어난 것은 계약의 `host:'side'` 한 항목뿐). 이 파일을 지우고 HTML 의 <script> 한 줄을 빼면 끝난다.
    ★ 방문자 — 폴더 클릭은 myhome-desktop 쪽에서 이미 막고(advVisiting), 방문이 시작되면 등록된 창을 일괄로 닫는다.
      여기서는 onVisit 에서 서랍을 닫고 편집 창을 정리하기만 한다.
-   ★ 저장 — **계정 연동**(사용자 확정). bookmarks/{uid} = { order:"id,id,…", items:{…}, ts }.
-     · users/{uid} 아래가 아니다 — 그 자리는 `.read: true` 라 방문자 읽기를 규칙으로 막을 수 없다.
-     · 선반 번호는 저장하지 않는다. 순서 하나만 저장하고 선반은 서랍 너비로 매번 계산한다(시안 4-3).
-     · 같은 계정을 두 기기에서 고치면 **마지막에 저장한 쪽이 이긴다.** 책장은 슬롯처럼 충돌 판정을 둘 값이 아니다.
-   ★ 책등 그림 — Storage `bookmarks/{uid}/{bid}_{시각}.webp`(세로 400px 로 줄여 WebP · 200KB 이하).
-     로컬 IndexedDB 안을 버린 이유는 연동으로 정해졌기 때문이다(집 PC 에 꽂은 책이 회사 PC 에도 있어야 한다).
+   ★ 저장 — 서버가 원본이다(`bookshelf-store.js` — GET/PUT /v1/me/myhome/bookshelf · 판 version). 이 파일은 값을 직접 고치지 않고 `bookshelfStore.put(책 목록)` 만 부른다.
+     · 선반 번호는 저장하지 않는다. 순서(배열 차례)만 저장하고 선반은 서랍 너비로 매번 계산한다(시안 4-3).
+     · 이 PC 사본 · 4초 뒤 받기는 없다 — 서랍을 처음 열 때 받는다(받는 동안 «불러오는 중…»).
+   ★ 책등 그림 — 세로 400px 로 줄여 WebP(200KB 이하)로 올리고(`bookshelfStore.uploadImage`) 받은 주소만 저장에 싣는다. 뗀 그림 지우기는 서버가 한다.
    ⚠️ 색 팔레트는 꾸미기 창 것을 **그대로 재사용**한다(wardrobe.js `wardrobeMod.buildFreeColorPicker` · `.wd-color-palette`).
      새로 그리지 말 것 — 그 클래스가 실행 화면 클릭 통과 화이트리스트(UI_HIT_SEL)에 이미 들어 있다.
    ⚠️ 링크는 http/https 만 연다. 여는 길은 `companion.openBrowser`(main.js · shell.openExternal) 한 곳이다 —
@@ -19,12 +17,17 @@
 (function(){
   'use strict';
 
-  const BM_MAX = 50;                 // 책 상한
+/** @param {{ bookshelfStore: object, toast: (msg: string) => void, buildFreeColorPicker: (cur: string, onPick: (c: string) => void) => HTMLElement }} deps */
+function createBookmark(deps){
+  const bookshelfStore = deps.bookshelfStore;
+  const toast = deps.toast;
+  const buildFreeColorPicker = deps.buildFreeColorPicker;
+
+  const BM_MAX = bookshelfStore.BOOKS;   // 책 상한 — 서버 상한 하나(TwMyHomeApi.LIMITS.BOOKS)
   const BM_TITLE_MAX = 14;           // 세로 제목
   const BM_URL_MAX = 300;
   const BM_IMG_PX = 400;             // 책등 그림 세로
   const BM_IMG_MAX_BYTES = 200 * 1024;
-  const BM_KEY = 'tw.bookmarks';     // 로컬 사본(서버가 기준 · 오프라인에서도 보이게)
   const BM_DRAG_MIN = 4;             // 이보다 적게 끌면 클릭(링크 열기)
   const BM_W = { thin:22, thick:36 };
   const BM_H = { short:116, long:158 };
@@ -32,90 +35,30 @@
   const BM_DEFAULT_COLOR = '#8f5a4a';
   const BM_DEFAULT_TCOLOR = '#ffffff';   // 제목 글자색(요청 · 책등 색에 따라 흰 글씨가 안 보일 수 있다)
 
-  let bmData = { order:[], items:{}, ts:0 };
-  /* 👀 구경 모드 — 남의 마이홈에 들어가 있는 동안에는 **그 사람의 공개 책장**을 그린다.
-     ★ 공개 책은 서버에서도 따로 산다(bookmarksPub/{uid}) — 한 노드에 섞어 두면 규칙이 읽기를 못 갈라
-       방문자가 비공개 책까지 받아 간다. 화면에서 가리는 것은 방어가 아니다.
+  /* 👀 구경 모드 — 남의 마이홈에 들어가 있는 동안에는 **그 사람의 공개 책장**을 그린다(서버가 공개한 책만 준다).
      ★ 구경 모드에서는 [+ 추가] · 끌어서 순서 · 우클릭이 전부 빠지고, 공개 표시(노란 띠)도 안 그린다
        (전부 공개 책이라 뜻이 없다 · 사용자 요청). */
-  let bmVisit = null;          // { uid, data } — 구경 중일 때만
-  function bmView(){ return bmVisit ? bmVisit.data : bmData; }
+  let bmVisit = null;          // { uid } — 구경 중일 때만
   function bmReadOnly(){ return !!bmVisit; }
+  /* 그리는 책 · 상태는 store 에서만 읽는다 */
+  function bmState(){ return bmVisit ? bookshelfStore.view() : bookshelfStore.mine(); }
+  function bmBooks(){ return bmState().books; }
+  function bmFind(id){ return bmBooks().find(b=>b.id === id) || null; }
   let bmBody = null, bmShelf = null, bmAddBtn = null, bmCount = null;
-  let bmOpen = false, bmLoaded = false;
+  let bmOpen = false;
 
   /* ── 저장소 ───────────────────────────────────────────────────────────── */
-  function uid(){ try{ return getMyUserId(); }catch(_){ return null; } }
-  function api(){ return window.firebaseAPI || null; }
-  function toastOf(t){ try{ toast(t); }catch(_){} }
+  function toastOf(t){ toast(t); }
   function bmNewId(){ return 'b' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6); }
   function bmUrlOk(u){ return typeof u === 'string' && u.length <= BM_URL_MAX && /^https?:\/\//i.test(u); }
   /* 주소는 **선택**이다(요청). 주소 없는 책은 그냥 장식 — 눌러도 아무 일이 없다. */
   function bmUrlSlot(u){ return bmUrlOk(u) ? u : ''; }
-  function bmImgOk(u){ return typeof u === 'string' && u.length <= 500 && u.indexOf('https://firebasestorage.googleapis.com/') === 0; }
-  /* 서버·로컬 어느 쪽에서 온 것이든 한 곳에서 씻는다 — 남은 판·손댄 값이 그대로 화면에 오르지 않게. */
-  function bmClean(raw){
-    const out = { order:[], items:{}, ts:(raw && typeof raw.ts === 'number') ? raw.ts : 0 };
-    const items = (raw && raw.items && typeof raw.items === 'object') ? raw.items : {};
-    for(const id of Object.keys(items)){
-      const it = items[id];
-      if(!it || typeof it !== 'object') continue;
-      out.items[id] = {
-        url: bmUrlSlot(it.url),
-        title: (typeof it.title === 'string') ? it.title.slice(0, BM_TITLE_MAX) : '',
-        w: (it.w === 'thick') ? 'thick' : 'thin',
-        h: (it.h === 'long') ? 'long' : 'short',
-        color: (typeof it.color === 'string' && /^#[0-9a-fA-F]{6}$/.test(it.color)) ? it.color : BM_DEFAULT_COLOR,
-        tcolor: (typeof it.tcolor === 'string' && /^#[0-9a-fA-F]{6}$/.test(it.tcolor)) ? it.tcolor : BM_DEFAULT_TCOLOR,
-        hideTitle: !!it.hideTitle,      // 그림을 넣어도 제목을 겹쳐 보일지 말지는 **고르는 것**이다(요청)
-        pub: !!it.pub,                  // 👀 마이홈 방문자에게 보일 책(기본 꺼짐 — 있던 책은 전부 비공개로 시작)
-        at: (typeof it.at === 'number') ? it.at : 0,
-      };
-      if(bmImgOk(it.img)) out.items[id].img = it.img;
-    }
-    const seen = new Set();
-    const order = (typeof raw?.order === 'string') ? raw.order.split(',') : (Array.isArray(raw?.order) ? raw.order : []);
-    order.forEach(id=>{ if(out.items[id] && !seen.has(id)){ seen.add(id); out.order.push(id); } });
-    /* 순서에서 빠진 책은 버리지 않고 뒤에 붙인다 — 저장이 반쯤 끝난 판에서도 책이 사라지지 않게. */
-    Object.keys(out.items).forEach(id=>{ if(!seen.has(id)) out.order.push(id); });
-    out.order = out.order.slice(0, BM_MAX);
-    return out;
-  }
-  function bmLoadLocal(){
-    try{ bmData = bmClean(JSON.parse(localStorage.getItem(BM_KEY) || '{}')); }catch(_){ bmData = { order:[], items:{}, ts:0 }; }
-  }
-  function bmSaveLocal(){
-    try{ localStorage.setItem(BM_KEY, JSON.stringify({ order:bmData.order.join(','), items:bmData.items, ts:bmData.ts })); }
-    catch(_){ /* 용량이 차도 서버 사본이 기준이라 다음 부팅에 돌아온다 */ }
-  }
-  async function bmPull(){
-    const u = uid(), a = api();
-    if(!u || !a || !a.getBookmarks) return false;
-    const r = await a.getBookmarks(u).catch(()=>null);
-    if(!r || !r.ok) return false;
-    if(r.data){ bmData = bmClean(r.data); bmSaveLocal(); }
-    else if(bmData.order.length){ await bmPush(); }   // 서버가 비었고 이 기기에만 있으면 올린다
-    bmLoaded = true;
-    return true;
-  }
-  async function bmPush(){
-    const u = uid(), a = api();
-    bmData.ts = Date.now();
-    bmSaveLocal(); bmRender();
-    if(!u || !a || !a.saveBookmarks){ return false; }
-    /* 빈 주소 칸은 서버로 보내지 않는다 — 규칙은 «있으면 http/https» 라서 빈 문자열은 거절된다(주소는 선택). */
-    const strip = (k)=>{ const it = Object.assign({}, bmData.items[k]); if(!it.url) delete it.url; if(!it.img) delete it.img; return it; };
-    const items = {};
-    Object.keys(bmData.items).forEach(k=>{ items[k] = strip(k); });
-    const r = await a.saveBookmarks(u, { order:bmData.order.join(','), items, ts:bmData.ts }).catch(()=>null);
-    if(!r || !r.ok){ toastOf('책장을 저장하지 못했어요 — 이 기기에만 남아 있어요'); return false; }
-    /* 👀 공개 사본 — 공개로 표시한 책만 따로 올린다(방문자는 이 노드만 읽는다). 하나도 없으면 노드를 지운다. */
-    if(a.savePublicBookmarks){
-      const pubOrder = bmData.order.filter(k=>bmData.items[k] && bmData.items[k].pub);
-      const pubItems = {}; pubOrder.forEach(k=>{ pubItems[k] = strip(k); });
-      await a.savePublicBookmarks(u, pubOrder.length ? { order:pubOrder.join(','), items:pubItems, ts:bmData.ts } : null).catch(()=>{});
-    }
-    return true;
+  /* 고침을 서버에 올린다 — 받기 전 · 받는 중에는 잠겨 있다(안내만). 화면은 store 가 바뀌면 다시 그린다 */
+  async function bmPut(books){
+    const r = await bookshelfStore.put(books);
+    if(r === 'locked') toastOf('책장을 불러오는 중이에요 — 잠시 뒤에 다시 해 주세요');
+    else if(r === 'full') toastOf('책장이 가득 찼어요 · 한 권을 빼 주세요');
+    return r;
   }
 
   /* ── 책장 그리기 ──────────────────────────────────────────────────────── */
@@ -162,7 +105,7 @@
     document.head.appendChild(st);
   }
   function bmBook(id){
-    const it = bmView().items[id]; if(!it) return null;
+    const it = bmFind(id); if(!it) return null;
     const cell = document.createElement('div'); cell.className = 'bm-cell'; cell.dataset.bid = id;
     const b = document.createElement('div'); b.className = 'bm-book';
     b.style.width = BM_W[it.w] + 'px'; b.style.height = BM_H[it.h] + 'px'; b.style.background = TwSafeHtml.cssColor(it.color);
@@ -187,30 +130,44 @@
   function bmRender(){
     if(!bmShelf) return;
     const rows = bmShelf.querySelector('#bmRows'); if(!rows) return;
-    const view = bmView();
+    const st = bmState();
+    const books = st.books;
     rows.textContent = '';
-    if(!view.order.length){
+    /* 받는 중 · 못 받음은 빈 책장과 다르다(빈 책장으로 그리면 «지워졌다» 로 읽힌다) */
+    if(st.load === 'loading' || (st.load === 'idle' && !bmReadOnly())){
+      const e = document.createElement('div'); e.id = 'bmEmpty'; e.textContent = '불러오는 중…';
+      rows.appendChild(e);
+    }else if(st.load === 'failed'){
+      const e = document.createElement('div'); e.id = 'bmEmpty';
+      e.appendChild(document.createTextNode('못 불러왔어요'));
+      const again = document.createElement('button'); again.type = 'button'; again.textContent = '다시 시도';
+      again.style.cssText = 'display:block;margin:8px auto 0;font-family:inherit;font-size:10.5px;padding:3px 10px;cursor:pointer;';
+      again.onclick = ev=>{ ev.stopPropagation(); if(bmReadOnly()) bookshelfStore.retryView(); else bookshelfStore.pullMine(); };
+      e.appendChild(again);
+      rows.appendChild(e);
+    }else if(!books.length){
       const e = document.createElement('div'); e.id = 'bmEmpty';
       e.textContent = bmReadOnly() ? '공개된 책이 없어요.' : '책장이 비어 있어요.\n[+ 추가] 로 링크를 한 권씩 꽂아 보세요.';
       e.style.whiteSpace = 'pre-line';
       rows.appendChild(e);
     }else{
-      view.order.forEach(id=>{ const c = bmBook(id); if(c) rows.appendChild(c); });
+      books.forEach(bk=>{ const c = bmBook(bk.id); if(c) rows.appendChild(c); });
     }
+    const editable = !bmReadOnly() && st.load === 'ready';
     if(bmAddBtn) bmAddBtn.style.display = bmReadOnly() ? 'none' : '';
-    if(bmAddBtn) bmAddBtn.disabled = view.order.length >= BM_MAX;
+    if(bmAddBtn) bmAddBtn.disabled = !editable || books.length >= BM_MAX;
     if(bmCount){
-      if(bmReadOnly()) bmCount.textContent = '👀 남의 책장 구경 중 · 공개된 책 ' + view.order.length;
+      if(bmReadOnly()) bmCount.textContent = '👀 남의 책장 구경 중 · 공개된 책 ' + books.length;
       else{
-        const pub = bmData.order.filter(id=>bmData.items[id] && bmData.items[id].pub).length;
-        bmCount.textContent = '책 ' + bmData.order.length + ' / ' + BM_MAX + (pub ? '   👀 공개 ' + pub : '');
+        const pub = books.filter(b=>b.pub).length;
+        bmCount.textContent = '책 ' + books.length + ' / ' + BM_MAX + (pub ? '   👀 공개 ' + pub : '');
       }
     }
   }
 
   /* ── 링크 열기 ────────────────────────────────────────────────────────── */
   function bmOpenLink(id){
-    const it = bmView().items[id]; if(!it) return;
+    const it = bmFind(id); if(!it) return;
     if(!bmUrlOk(it.url)){ toastOf('이 책에는 주소가 없어요 — 우클릭해서 넣을 수 있어요'); return; }
     try{
       if(window.companion && companion.openBrowser) companion.openBrowser(it.url);
@@ -223,7 +180,7 @@
   let drag = null;
   function bmIndexAt(x, y){
     const cells = Array.from(bmShelf.querySelectorAll('.bm-cell'));
-    let best = bmData.order.length, bestD = Infinity;
+    let best = bmBooks().length, bestD = Infinity;
     cells.forEach((c, i)=>{
       const r = c.getBoundingClientRect();
       const cy = r.top + r.height / 2;
@@ -244,7 +201,8 @@
     else rows.insertBefore(bar, cells[idx]);
   }
   function bmDragStart(e, id, cell){
-    drag = { id, cell, idx: bmData.order.indexOf(id), to: bmData.order.indexOf(id), ghost:null, raf:0 };
+    const at0 = bmBooks().findIndex(b=>b.id === id);
+    drag = { id, cell, idx: at0, to: at0, ghost:null, raf:0 };
     bmShelf.classList.add('bm-dragging');
     cell.querySelector('.bm-book').classList.add('bm-ghosting');
     const src = cell.querySelector('.bm-book');
@@ -273,13 +231,14 @@
     bmShelf.classList.remove('bm-dragging');
     const bar = bmShelf.querySelector('.bm-bar'); if(bar) bar.remove();
     drag = null;
-    const from = bmData.order.indexOf(id);
+    const list = bmBooks();
+    const from = list.findIndex(b=>b.id === id);
     if(from < 0){ bmRender(); return; }
     let idx = to; if(idx > from) idx--;
     if(idx !== from){
-      bmData.order.splice(from, 1);
-      bmData.order.splice(Math.max(0, Math.min(bmData.order.length, idx)), 0, id);
-      bmPush();
+      const moved = list.splice(from, 1)[0];
+      list.splice(Math.max(0, Math.min(list.length, idx)), 0, moved);
+      bmPut(list);
     }else bmRender();
   }
   function bmBindShelf(){
@@ -321,7 +280,7 @@
 
   /* 책 우클릭 — 공개 전환 · 고치기 · 빼기 한 자리(시안). */
   function bmBookMenu(ev, id){
-    const it = bmData.items[id]; if(!it) return;
+    const it = bmFind(id); if(!it) return;
     const old = document.getElementById('bmBookMenu'); if(old) old.remove();
     const bd = document.createElement('div'); bd.id = 'bmBookMenu';
     /* ⚠️ [제보] body 에 직접 붙는 조각은 **클릭 통과 화이트리스트(app.js UI_HIT_SEL)** 에 걸리는 클래스를 달아야 한다.
@@ -344,15 +303,9 @@
       b.onclick = e=>{ e.stopPropagation(); close(); fn(); };
       m.appendChild(b); return b;
     };
-    mk(it.pub ? '🔒 공개 끄기' : '👀 방문자에게 공개', ()=>{ it.pub = !it.pub; bmPush(); });
+    mk(it.pub ? '🔒 공개 끄기' : '👀 방문자에게 공개', ()=>{ bmPut(bmBooks().map(b=>(b.id === id ? Object.assign({}, b, { pub: !b.pub }) : b))); });
     mk('책등 수정', ()=>bmEditor(id));
-    mk('빼기', ()=>{
-      const img = it.img;
-      delete bmData.items[id];
-      bmData.order = bmData.order.filter(x=>x !== id);
-      bmPush();
-      const a = api(); if(img && a && a.deleteStorageUrl) a.deleteStorageUrl(img).catch(()=>{});
-    });
+    mk('빼기', ()=>{ bmPut(bmBooks().filter(b=>b.id !== id)); });
     /* ⚠️ [제보] 덮개에 그냥 close 를 걸면 **메뉴 안을 누를 때도** 먼저 닫혀 버려서 줄이 눌리지 않는다.
        바깥을 누른 경우만 닫는다(줄의 click 은 그 뒤에 온다). */
     bd.addEventListener('pointerdown', e=>{ if(!m.contains(e.target)) close(); });
@@ -412,11 +365,11 @@
     });
   }
   function bmEditor(id){
-    if(bmData.order.length >= BM_MAX && !id){
+    if(bmBooks().length >= BM_MAX && !id){
       toastOf('책장이 가득 찼어요 · 한 권을 빼 주세요'); return;
     }
     bmEditorClose();
-    const cur = id ? bmData.items[id] : null;
+    const cur = id ? bmFind(id) : null;
     const draft = { url: cur ? cur.url : '', title: cur ? cur.title : '', w: cur ? cur.w : 'thin',
                     h: cur ? cur.h : 'short', color: cur ? cur.color : BM_DEFAULT_COLOR,
                     tcolor: cur ? (cur.tcolor || BM_DEFAULT_TCOLOR) : BM_DEFAULT_TCOLOR,
@@ -462,7 +415,7 @@
         const mine = (palHost === row);
         palClose();
         if(mine) return;
-        const pop = wardrobeMod.buildFreeColorPicker(draft[key], c=>{ draft[key] = c; hex.value = c; sw.style.background = TwSafeHtml.cssColor(c); paint(); });
+        const pop = buildFreeColorPicker(draft[key], c=>{ draft[key] = c; hex.value = c; sw.style.background = TwSafeHtml.cssColor(c); paint(); });
         pop.style.top = '26px'; pop.style.left = '0';
         row.appendChild(pop); palHost = row;
         palOff = ev=>{ if(!pop.contains(ev.target) && ev.target !== sw) palClose(); };
@@ -521,13 +474,12 @@
     imgPick.onclick = e=>{ e.stopPropagation(); imgFile.value = ''; imgFile.click(); };
     imgFile.addEventListener('change', async ()=>{
       const f = imgFile.files && imgFile.files[0]; if(!f) return;
-      const u = uid(), a = api();
-      if(!u || !a || !a.uploadBookmarkImg){ msg.textContent = '아직 준비 중이에요 — 잠시 뒤 다시 해 주세요.'; return; }
       msg.textContent = '그림을 올리는 중…';
       const prep = await bmPrepImg(f);
       if(prep.err){ msg.textContent = (prep.err === 'big') ? '그림이 너무 커요 — 줄여도 200KB 를 넘었어요.' : '그림 파일을 읽지 못했어요.'; return; }
-      const up = await a.uploadBookmarkImg(u, id || 'new', prep.dataUrl);
-      if(!up || !up.ok){ msg.textContent = '그림을 올리지 못했어요.'; return; }
+      const up = await bookshelfStore.uploadImage(prep.dataUrl);
+      if(up.stale) return;   // 올리는 사이 계정이 바뀌었다 — 창도 곧 닫힌다
+      if(!up.ok){ msg.textContent = '그림을 올리지 못했어요.'; return; }
       draft.img = up.url; imgDrop.style.display = ''; msg.textContent = '그림을 올렸어요.'; paint();
     });
     imgDrop.onclick = e=>{ e.stopPropagation(); draft.img = ''; imgDrop.style.display = 'none'; paint(); };
@@ -537,11 +489,7 @@
     if(id){
       const del = mkb('빼기', true);
       del.onclick = ()=>{
-        const old = bmData.items[id] && bmData.items[id].img;
-        delete bmData.items[id];
-        bmData.order = bmData.order.filter(x=>x !== id);
-        bmEditorClose(); bmPush();
-        const a = api(); if(old && a && a.deleteStorageUrl) a.deleteStorageUrl(old).catch(()=>{});
+        bmEditorClose(); bmPut(bmBooks().filter(b=>b.id !== id));
       };
     }
     const ok = mkb('저장'), no = mkb('취소');
@@ -552,18 +500,16 @@
       const u = urlEl.value.trim();
       /* 주소는 비워 둬도 저장된다(요청). 적었는데 형식이 틀린 경우만 막는다 — 오타를 조용히 버리지 않기 위해. */
       if(u && !bmUrlOk(u)){ msg.textContent = 'http:// 또는 https:// 로 시작하는 주소만 꽂을 수 있어요. (비워 두면 장식 책이 돼요)'; return; }
-      const bid = id || bmNewId();
-      const oldImg = (id && bmData.items[id] && bmData.items[id].img) || '';
-      bmData.items[bid] = { url:bmUrlSlot(u), title:titleEl.value.trim().slice(0, BM_TITLE_MAX), w:draft.w, h:draft.h,
-                            color:draft.color, tcolor:draft.tcolor, hideTitle:!!draft.hideTitle, pub:!!draft.pub,
-                            at:(id && bmData.items[id] ? bmData.items[id].at : Date.now()) };
-      if(draft.img) bmData.items[bid].img = draft.img;
-      if(!id){
-        if(bmData.order.length >= BM_MAX){ toastOf('책장이 가득 찼어요 · 한 권을 빼 주세요'); return; }
-        bmData.order.push(bid);
-      }
-      bmEditorClose(); bmPush();
-      if(oldImg && oldImg !== draft.img){ const a = api(); if(a && a.deleteStorageUrl) a.deleteStorageUrl(oldImg).catch(()=>{}); }
+      const list = bmBooks();
+      if(!id && list.length >= BM_MAX){ toastOf('책장이 가득 찼어요 · 한 권을 빼 주세요'); return; }
+      /* 새 책은 at 을 싣지 않는다(서버가 지금 시각을 넣는다) · 있던 책은 받은 값 그대로 */
+      const book = { id: id || bmNewId(), url:bmUrlSlot(u), title:titleEl.value.trim().slice(0, BM_TITLE_MAX), w:draft.w, h:draft.h,
+                     color:draft.color, tcolor:draft.tcolor, hideTitle:!!draft.hideTitle, pub:!!draft.pub };
+      if(draft.img) book.img = draft.img;
+      const old = id ? bmFind(id) : null;
+      if(old && old.at) book.at = old.at;
+      bmEditorClose();
+      bmPut(id ? list.map(b=>(b.id === id ? book : b)) : list.concat([book]));
     }
     body.appendChild(row);
     box.appendChild(tb); box.appendChild(body); ov.appendChild(box);
@@ -578,7 +524,6 @@
     if(window.MYHOME_DESKTOP) window.MYHOME_DESKTOP.onReady(fn);
     else (window._MHD_PENDING = window._MHD_PENDING || []).push(fn);
   }
-  bmLoadLocal();
   mhdReady(D=>{
     bmStyle();
     bmBody = D.createWindow({ id:'bmWin', title:'📚 북마크', host:'side', fill:false, visitable:true, onClose(){ bmOpen = false; bmEditorClose(); } });
@@ -603,26 +548,33 @@
         if(D.isWindowOpen && D.isWindowOpen('bmWin')){ bmOpen = false; bmEditorClose(); D.closeWindow('bmWin'); return; }
         bmOpen = true;
         D.openWindow('bmWin');
-        if(!bmVisit && !bmLoaded) bmPull().then(()=>bmRender()).catch(()=>{});
+        if(!bmVisit) bookshelfStore.pullMine();   // 이미 받았으면 요청 0 · 처음이면 «불러오는 중…» 뒤 그려진다
         bmRender();
       },
       /* 👀 남의 집 — 그 사람의 공개 책장으로 갈아 끼운다. 공개된 책이 없으면 폴더 자체를 감춘다(빈 서랍을 열게 하지 않는다). */
       onVisit(v, ownerId){
         bmOpen = false; bmEditorClose(); D.closeWindow('bmWin');
-        if(!v){ bmVisit = null; if(D.setFolderVisible) D.setFolderVisible('bookmark', true); bmRender(); return; }
-        bmVisit = { uid: ownerId || null, data: { order:[], items:{}, ts:0 } };
-        if(D.setFolderVisible) D.setFolderVisible('bookmark', false);
-        const a = api();
-        if(!ownerId || !a || !a.getPublicBookmarks) return;
-        a.getPublicBookmarks(ownerId).then(r=>{
-          if(!bmVisit || bmVisit.uid !== ownerId) return;      // 그 사이 집을 나갔다
-          bmVisit.data = bmClean((r && r.data) || {});
-          if(D.setFolderVisible) D.setFolderVisible('bookmark', bmVisit.data.order.length > 0);
-          bmRender();
-        }).catch(()=>{});
+        if(!v){ bmVisit = null; bookshelfStore.closeView(); D.setFolderVisible('bookmark', true); bmRender(); return; }
+        bmVisit = { uid: ownerId || null };
+        D.setFolderVisible('bookmark', false);
+        bookshelfStore.openView(ownerId);
       },
     });
-    /* 부팅 때 한 번 받아 둔다 — 폴더를 누르는 순간 빈 책장이 잠깐 보이지 않게. */
-    setTimeout(()=>{ if(!bmLoaded) bmPull().then(()=>bmRender()).catch(()=>{}); }, 4000);
+    /* 책장 상태가 바뀔 때마다 다시 그린다(받기 · 저장 · 409 · 계정 놓기). 구경 중 폴더는 공개 책이 있거나 못 받았을 때만 보인다(없는 사람 · 빈 책장은 숨김). */
+    bookshelfStore.onChange(()=>{
+      if(bmVisit){
+        const v = bookshelfStore.view();
+        D.setFolderVisible('bookmark', (v.load === 'ready' && v.books.length > 0) || v.load === 'failed');
+      }else if(bookshelfStore.mine().load === 'idle'){   // 계정을 놓았다 — 서랍 · 책 고치기 창을 닫는다
+        if(bmOpen){ bmOpen = false; D.closeWindow('bmWin'); }
+        bmEditorClose();
+      }
+      bmRender();
+    });
   });
+}
+
+const api = { createBookmark };
+if(typeof window !== 'undefined') window.TwBookmark = api;
+if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
