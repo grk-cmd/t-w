@@ -79,7 +79,6 @@ function mkEnv(o){
   env.byId = byId; env.doc = doc;
   env.reg = (id) => { const e = mkEl('div', env); e.id = id; byId[id] = e; return e; };
   const api = {
-    removeFriend: async (u, f) => { env.calls.push('removeFriend ' + u + ' ' + f); },
     getMallangGifts: async (u) => { env.calls.push('getMallangGifts ' + u); return env.gifts; },
     setMallangGiftStarred: async (u, k, on) => { env.calls.push('star ' + k + ' ' + on); return { ok: env.starOk !== false }; },
   };
@@ -141,6 +140,7 @@ function mkEnv(o){
     starFromRemote: (f) => (f && f.star) ? { color: f.star, cyc: 2, lv: 7 } : null, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n,
     lvBadgeClass: (n) => 'lv' + n, openFriendHomeView: (fid) => env.homeView.push(fid), renderMhProfileRail: () => { env.profileRail++; },
     mallangMod: env.mallangMod,
+    removeFriend: async (u, f) => { env.calls.push('removeFriend ' + u + ' ' + f); },
   }, extra || {}));
   return env;
 }
@@ -580,10 +580,10 @@ function wiring(MI, APP, HTML){
     /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
-    /^mallangMod: mallangMod,$/,
+    /^mallangMod: mallangMod,$/, /^removeFriend: \(\.\.\.a\)=>friendsPortMod\.removeFriend\(\.\.\.a\),$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 20개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 22개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');

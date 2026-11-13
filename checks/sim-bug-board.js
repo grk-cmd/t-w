@@ -12,6 +12,7 @@
      §4 화면을 가짜 DOM · 가짜 provider 로 굴린다 — 로그인 전 · 시작(배지 한 번 · 타이머 0) · 목록 상태(받음 · 빈 · 못 받음 · 공지 실패) · 필터 gen ·
         글(없음 · 비공개 · 못 받음 · 봤음) · 글 gen · 글쓰기(남은 수 · 연타 · 429 안내 · 그 밖 번호) · 답글 · 👍(서버가 돌려준 수로) · 공개 범위 · reset · 새 답변 우편 · 관리자 표시
      §5 창이 안 늘어난다 — 버그제보 페이지 높이 고정(440px) · 목록은 #bbRows 안에서 스크롤 · [이전]/[다음] 은 안 줄어든다
+     §4 끝 — 관리자 [답변 등록](본 시각 · 겹침 · 쓴 글 보존 · 번호) · 오픈카톡 기본 링크 폼(열 때 판 · 저장 · 겹침 · E-BUG-21 · 22)
      §6 상세 화면의 바깥 주소 열기(openDetailLink) — 다시 거르기 · 오픈카톡만
      §7 일부러 깨 보기 */
 'use strict';
@@ -160,7 +161,7 @@ const apiErr = (status, code) => Object.assign(new Error(code), { status, code, 
 const defer = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
 const row = (n, o) => Object.assign({ number: n, vis: 'pub', cat: 'bug', title: '제목' + n, status: 'new', notice: false, byAdmin: false, anon: false, name: '에이',
   mine: false, likeN: 0, ansN: 0, createdAt: 1, answeredAt: 0, authorReplied: false, unseen: false }, o || {});
-const post = (n, o) => Object.assign(row(n), { body: '본문' + n, env: null, canReply: false, liked: false, version: 1, comments: [], likeN: 3 }, o || {});
+const post = (n, o) => Object.assign(row(n), { body: '본문' + n, env: null, canReply: false, liked: false, version: 1, comments: [], likeN: 3, lastAnswerIso: null }, o || {});
 function mkEl(id) {
   const cls = new Set();
   return { id, style: { display: '' }, dataset: {}, innerHTML: '', textContent: '', value: '', disabled: false, checked: false, options: [], scrollTop: 0, className: '',
@@ -192,10 +193,10 @@ function boot(src) {
   const api = { KIND: BLIB.KIND, ERRORS: BLIB.ERRORS, failOf: (e) => BLIB.failOf(e, ERRS), badge: null, resets: 0,
     badgeCount: () => api.badge, reset: () => { api.resets++; api.badge = null; },
     refreshBadge: () => { calls.push(['badge']); return Promise.resolve(impl.badge ? impl.badge() : 2).then(v => { api.badge = v; return v; }); } };
-  const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, setVis: { vis: 'prv', version: 2 }, like: { likeN: 9, liked: true }, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
+  const DEF = { list: { items: [], next: null }, notices: [], detail: post('B-1'), write: { number: 'B-9' }, reply: undefined, answer: undefined, reportConfig: { version: 3, notice: '안내', link: 'https://open.kakao.com/o/a' }, saveReportLink: { version: 4, notice: '안내', link: 'https://open.kakao.com/o/new' }, setVis: { vis: 'prv', version: 2 }, like: { likeN: 9, liked: true }, seen: undefined, quota: { dailyMax: 5, usedToday: 0 } };
   for (const k of Object.keys(DEF)) api[k] = (...a) => { calls.push([k, ...a]); return Promise.resolve().then(() => impl[k] ? impl[k](...a) : DEF[k]); };
   const ui = ctx.TwBugBoardUi.createBugBoardUi({ bugApi: api, lib: M, apiErrors: { notify: (e) => env.common.push(e.code) }, notifyError: (c) => { env.codes.push(c); return true; },
-    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; } });
+    toast: (m) => env.toasts.push(m), escHtml: (s) => SH.text(s), safeHtml: SH, isAdmin: () => env.admin, bugReportLink: () => env.link || '', rtOn: (k, fn) => { env.rt.push([k, fn]); return () => {}; } });
   const clickAct = (act, ds) => { const b = mkEl('btn'); b.dataset = Object.assign({ act }, ds || {}); els.bbDetailView._L.click[0]({ target: { closest: (s) => s === '[data-act]' ? b : null } }); return b; };
   const clickRow = (id) => els.bbRows._L.click[0]({ target: { closest: (s) => s === '.bb-row[data-id]' ? { dataset: { id } } : null } });
   return { env, el, ui, api, impl, calls, n, ctx, flts, tab, clickAct, clickRow };
@@ -390,6 +391,87 @@ async function judgeUi(src) {
     b.clickRow('B-3'); await flush();
     chk(/class="bb-no">B-3</.test(b.el('bbDetailView').innerHTML) && /답변 달기 \(관리자\)/.test(b.el('bbDetailView').innerHTML), '  글 번호 · 답변 칸(관리자)');
   }
+  {
+    /* 관리자 [답변 등록] — 본 마지막 답변 시각을 실어 보낸다 · 겹치면 글 다시 받고 쓴 글은 칸에 둔다 */
+    const b = boot(src); b.env.admin = true; await b.ui.start();
+    b.impl.detail = (n) => post(n, { lastAnswerIso: '2026-11-10T02:00:00Z' });
+    b.clickRow('B-3'); await flush();
+    b.el('bbAText').value = '  '; b.el('bbAStatus').value = 'fixed';
+    b.clickAct('answer'); await flush();
+    chk(b.n('answer') === 0 && b.el('bbAErr').textContent === '답변을 적어 주세요', '관리자 [답변 등록] — 빈 글이면 요청 0');
+    b.el('bbAText').value = ' 고쳤어요 ';
+    const slow = defer(); b.impl.answer = () => slow.p;
+    b.clickAct('answer'); b.clickAct('answer'); await flush();
+    const ac = b.calls.find(c => c[0] === 'answer');
+    chk(b.n('answer') === 1 && ac[1] === 'B-3' && JSON.stringify(ac[2]) === JSON.stringify({ seenLastAnswerAt: '2026-11-10T02:00:00Z', text: '고쳤어요', status: 'fixed', kakaoLink: '', vis: 'pub' }),
+      '  연타 한 번 · answer(번호, { 글을 열 때 받은 시각 · 글 · 상태 · 링크 없음 · 공개 })');
+    const d0 = b.n('detail'); slow.res(); await flush();
+    chk(b.env.toasts.includes('답변을 등록했어요') && b.n('detail') === d0 + 1 && b.env.codes.length === 0, '  성공 — 토스트 · 글 다시 받기 · 알림은 서버 몫(앱이 우편을 쓰지 않는다)');
+    b.env.toasts.length = 0;
+    b.el('bbAText').value = '내가 쓴 답';
+    b.impl.answer = () => { throw apiErr(409, 'BUG_ANSWER_CONFLICT'); };
+    b.impl.detail = (n) => { b.el('bbAText').value = ''; return post(n, { lastAnswerIso: '2026-11-10T03:00:00Z' }); };   // 다시 그리면 칸이 비는 것을 흉내
+    const d1 = b.n('detail');
+    b.clickAct('answer'); await flush();
+    chk(b.env.toasts.join() === M.ANSWER_CONFLICT_TEXT && b.n('detail') === d1 + 1 && b.el('bbAText').value === '내가 쓴 답' && b.env.codes.length === 0 && b.env.common.length === 0,
+      '  다른 관리자가 먼저 답함(409) — 번호 없이 안내 · 글 다시 받기 · 쓴 글은 칸에 그대로');
+    b.impl.answer = () => { throw apiErr(400, 'BUG_PRIVATE_ANSWER_ONLY'); };
+    b.clickAct('answer'); await flush();
+    chk(b.el('bbAErr').textContent === M.GUIDE_TEXT.BUG_PRIVATE_ANSWER_ONLY && b.env.codes.length === 0, '  비공개 글의 공개 답변(400) — 안내(번호 없음)');
+    b.impl.answer = () => { throw apiErr(400, 'BUG_INVALID'); };
+    b.clickAct('answer'); await flush();
+    chk(b.env.codes.join() === 'E-BUG-20' && b.el('bbAText').value === '내가 쓴 답', '  그 밖 — E-BUG-20 · 쓴 글 그대로');
+    b.impl.answer = () => { throw apiErr(401, 'AUTH_REQUIRED'); };
+    b.env.codes.length = 0; b.clickAct('answer'); await flush();
+    chk(b.env.common.join() === 'AUTH_REQUIRED' && b.env.codes.length === 0, '  공통 code(로그인 풀림)는 공통 번호로');
+    b.impl.answer = undefined; b.el('bbAKakao').value = 'http://evil.example/'; b.el('bbAKk').classList.add('on');
+    const a0 = b.n('answer'); b.clickAct('answer'); await flush();
+    chk(b.n('answer') === a0 && b.el('bbAErr').textContent === M.KAKAO_LINK_RULE, '  오픈카톡 주소가 아니면 요청 0 · 안내');
+    b.el('bbAKakao').value = 'https://open.kakao.com/o/x'; b.clickAct('answer'); await flush();
+    chk(b.calls.filter(c => c[0] === 'answer').pop()[2].kakaoLink === 'https://open.kakao.com/o/x', '  링크 칸이 켜져 있으면 링크를 같이 보낸다');
+    b.impl.detail = (n) => post(n, { vis: 'prv' }); b.clickRow('B-4'); await flush();
+    b.el('bbAText').value = '비공개 답'; b.el('bbAKk').classList.remove('on'); b.clickAct('answer'); await flush();
+    chk(b.calls.filter(c => c[0] === 'answer').pop()[2].vis === 'prv', '  비공개 글은 늘 비공개 답변으로 보낸다');
+    b.env.link = 'https://open.kakao.com/o/default'; b.el('bbAKakao').value = '';
+    b.clickAct('kakao'); await flush();
+    chk(b.el('bbAKakao').value === 'https://open.kakao.com/o/default' && b.n('reportConfig') === 0, '  [💬 오픈카톡] — 원격 설정의 기본 주소로 칸 채움(요청 0)');
+    b.env.admin = false; const a1 = b.n('answer'); b.clickAct('answer'); await flush();
+    chk(b.n('answer') === a1, '  관리자가 아니면(화면 깃발) 보내지 않는다');
+  }
+  {
+    /* 관리자 오픈카톡 기본 링크 폼 — 열 때 받고(판) · 저장 때 그 판 · 그사이 바뀌면 다시 받아 칸 채움 */
+    const b = boot(src); await b.ui.start();
+    const form = b.el('mhBugEditForm'), input = b.el('mhBugLinkInput'), msg = b.el('mhBugEditMsg');
+    const open = async () => { b.el('mhBugEditBtn')._L.click[0](); await flush(); };
+    const save = async () => { b.el('mhBugSaveBtn')._L.click[0](); await flush(); };
+    form.style.display = 'none';
+    await open();
+    chk(b.n('reportConfig') === 0 && form.style.display === 'none', '링크 폼 — 관리자가 아니면 열지 않고 요청 0');
+    b.env.admin = true; await open();
+    chk(b.n('reportConfig') === 1 && form.style.display === 'block' && input.value === 'https://open.kakao.com/o/a', '  관리자 — 열 때 설정을 받아 칸에 지금 링크');
+    input.value = 'http://evil.example/'; await save();
+    chk(b.n('saveReportLink') === 0 && msg.textContent === M.KAKAO_LINK_RULE, '  오픈카톡 주소가 아니면 저장 요청 0');
+    input.value = ' https://open.kakao.com/o/new '; await save();
+    const sc = b.calls.find(c => c[0] === 'saveReportLink');
+    chk(sc[1].version === 3 && sc[1].notice === '안내' && sc[2] === 'https://open.kakao.com/o/new' && form.style.display === 'none' && b.env.toasts.includes('오픈카톡 기본 링크를 저장했어요'),
+      '  저장 — 열 때 받은 판 · 안내 글을 그대로 넘긴다 · 토스트 · 폼 닫음');
+    await open();
+    b.impl.saveReportLink = () => { throw apiErr(409, 'CONCURRENT_UPDATE'); };
+    b.impl.reportConfig = () => ({ version: 9, notice: '새 안내', link: 'https://open.kakao.com/o/other' });
+    input.value = 'https://open.kakao.com/o/mine'; b.env.codes.length = 0; await save();
+    chk(input.value === 'https://open.kakao.com/o/other' && msg.textContent === M.CONFIG_CONFLICT_TEXT && form.style.display === 'block' && b.env.codes.length === 0 && b.env.common.length === 0,
+      '  그사이 다른 곳에서 바꿈(409) — 다시 받아 칸 채움 · «다른 곳에서 바꾼 내용을 받아왔어요» · 번호 없음');
+    b.impl.saveReportLink = () => { throw apiErr(400, 'OPS_INVALID_VALUE'); };
+    input.value = 'https://open.kakao.com/o/z'; await save();
+    chk(b.env.codes.join() === 'E-BUG-22' && b.el('mhBugSaveBtn').disabled === false, '  그 밖 — E-BUG-22 · [저장] 다시 켬');
+    form.style.display = 'none'; b.impl.reportConfig = () => { throw apiErr(400, 'BUG_INVALID'); }; b.env.codes.length = 0;
+    await open();
+    chk(b.env.codes.join() === 'E-BUG-21' && form.style.display === 'none', '  설정 받기 실패 — E-BUG-21 · 폼은 열지 않는다');
+    b.impl.reportConfig = undefined; await open();
+    chk(form.style.display === 'block', '  (다시 엶)');
+    b.ui.reset();
+    chk(form.style.display === 'none', '  reset — 폼을 닫는다');
+  }
 }
 
 say('§6 바깥 주소 열기');
@@ -433,6 +515,12 @@ chk(/\.ext-link\{[^}]*cursor:pointer/.test(HTML), '  주소 칸 모양(.ext-link
     ['시작에 배지 타이머를 넣음', UI.replace('    return refreshBadge();\n  }', '    setTimeout(refreshBadge, 5000);\n    return refreshBadge();\n  }'), '자동 되풀이'],
     ['목록 실패 번호를 뺌', UI.replace("      report(e, 'list');\n", ''), '못 받음이 조용함'],
     ['👍 를 본 수 + 1 로 그림', UI.replace("btn.textContent = '👍 나도 겪었어요 ' + r.likeN;", "btn.textContent = '👍 나도 겪었어요 ' + (Number(cur.post.likeN || 0) + 1);"), '서버 수를 안 봄'],
+    ['답변에 본 시각을 안 실음', UI.replace('seenLastAnswerAt: post.lastAnswerIso', 'seenLastAnswerAt: null'), '겹침을 서버가 못 가림'],
+    ['겹친 뒤 쓴 글을 안 되살림', UI.replace("          $('bbAText').value = text;\n", ''), '쓴 글이 사라짐'],
+    ['답변 busy 를 뺌', UI.replace('    if(busy || !cur || !cur.post || !admin()) return;\n    const number = cur.number, post', '    if(!cur || !cur.post || !admin()) return;\n    const number = cur.number, post'), '연타 두 번'],
+    ['답변 쓰기가 관리자 깃발을 안 봄', UI.replace('!cur.post || !admin()) return;\n    const number = cur.number, post', '!cur.post) return;\n    const number = cur.number, post'), '일반 사용자 화면이 보냄'],
+    ['링크 저장에 열 때 받은 판을 안 넘김', UI.replace('bugApi.saveReportLink(linkCfg, link)', 'bugApi.saveReportLink({ version: 0, notice: linkCfg.notice }, link)'), '두 관리자가 덮어씀'],
+    ['링크 폼 reset 이 안 닫음', UI.replace("{ const f = $('mhBugEditForm'); if(f) f.style.display = 'none'; }", ''), '다른 계정에 폼이 남음'],
     ['reset 이 provider 를 안 비움', UI.replace('    bugApi.reset();\n', ''), '앞 계정 배지 · 번호가 남음'],
   ];
   for (const [name, src, what] of breaks) {

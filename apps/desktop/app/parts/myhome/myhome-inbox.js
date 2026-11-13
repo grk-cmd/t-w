@@ -57,6 +57,7 @@ const lvBadgeClass = deps.lvBadgeClass;              // 🏅 레벨 배지 구�
 const openFriendHomeView = deps.openFriendHomeView;  // 아바타 클릭 → 친구 마이홈 관람
 const renderMhProfileRail = deps.renderMhProfileRail;   // (제거된 프로필 레일 — 빈 함수)
 const mallangMod = deps.mallangMod;                        // 🧸 말랑이(mallang.js) — 선물 보내기 창 · 선물함 순서 · 상한 · 치움 · 다시 부르기 · 지우기
+const removeFriend = deps.removeFriend;                // 👥 친구 끊기(friends-port — 서버면 서버 길 · 아니면 옛 길)
 let _mhSelectedFriend = null;   // (구 DM 자리) 지금은 사용하지 않지만 다른 곳에서 참조할 수 있어 유지
 function _inboxBcReadSet(){ try{ return new Set(JSON.parse(localStorage.getItem(INBOX_BC_READ_KEY)||'[]')); }catch(e){ return new Set(); } }
 function _inboxBcMarkRead(id){ try{ const s=_inboxBcReadSet(); s.add(id); localStorage.setItem(INBOX_BC_READ_KEY, JSON.stringify([...s])); }catch(e){} }
@@ -295,7 +296,7 @@ function renderMyHomeFriendList(){
         e.stopPropagation();
         if(!confirm('이 친구를 목록에서 삭제할까요?')){ window.focus(); return; } window.focus();
         try{
-          await firebaseAPI.removeFriend(getMyUserId(), fid);
+          await removeFriend(getMyUserId(), fid);
           if(_mhSelectedFriend===fid){
             _mhSelectedFriend=null;
             renderMhChat();

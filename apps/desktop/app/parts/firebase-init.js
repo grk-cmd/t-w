@@ -824,18 +824,6 @@
     async setMallangGiftSeen(userId, ts){
       try{ await set(ref(db, `users/${userId}/mallangGiftSeen`), ts||Date.now()); }catch(e){}
     },
-    subscribeBugReport(onChange){
-      onValue(ref(db, 'bugReport/current'), snap => onChange(snap.val() || null));
-    },
-    async setBugReport(notice, link){
-      await set(ref(db, 'bugReport/current'), {
-        notice: String(notice||'').slice(0,600),
-        link:   String(link||'').slice(0,300),
-        ts: Date.now(),
-      });
-      return { ok:true };
-    },
-
     /* ═══════════ 👋 친구 요청 (수락/거절) ═══════════
        스키마: friendRequests/{받는사람}/{보낸사람} = { name, ts }
        흐름: 코드 입력 → 상대에게 요청 기록 → 상대가 수락하면 그때 양방향 friends 추가 */

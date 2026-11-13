@@ -2509,8 +2509,7 @@ const mhScheduler = MhScheduler.createScheduler({
   twNav: twNav,
 });
 
-/* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
-     게시판 화면과 한 파일이다(게시판은 🚩 신고 다음에서 만든다).
+/* 🐞 버그 제보 탭(오픈카톡 기본 링크 폼 포함)은 parts/support/bug-board-ui.js 다 — 게시판은 🚩 신고 다음에서 만든다.
    👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지는 parts/friend-manage.js 로 옮겼다
      (앱 FSD 5번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다(만들 때 바로 도는 일은 없다 — 상태 초기값뿐).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 let 이라
@@ -2560,14 +2559,15 @@ const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
   getCard: (...a)=>firebaseAPI.getFriendCard(...a),
   watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),   // 친구 한 명 프로필 구독 — 목록이 열려 있는 동안만
   getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),       // 같은 칸 한 번 — 마이홈 구경
+  remove: (...a)=>firebaseAPI.removeFriend(...a),               // 친구 끊기(옛 길)
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   clearTimer: (id)=>clearTimeout(id),
   now: ()=>Date.now(),
 });
+const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 · 친구 요청 · 명함 서버 길(social-api.js)
 const friendsApiMod = TwFriendsApi.createFriendsApi({
-  get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로(firebase-init.js — 토큰은 거기서 붙인다)
-  getCard: (...a)=>firebaseAPI.fetchUserCardApi(...a),   // 친구 한 명 명함 — 공개 읽기 통로(api-public-reads.js)
-  wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
+  social: socialApiMod,
+  rt: TwRtHub.store,   // 알림 friends · card 를 받으면 다시 받는다
   warn: (...a)=>console.warn(...a),
 });
 const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
@@ -2775,6 +2775,8 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
   mallangMod: mallangMod,
+  // 👥 친구 끊기 — 포트가 서버 · 옛 길을 고른다
+  removeFriend: (...a)=>friendsPortMod.removeFriend(...a),
 });
 /* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */
 /* 본문은 myhome-ui.js 로 옮겼다(앱 FSD 22번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
@@ -8436,6 +8438,7 @@ const bugBoardUi = TwBugBoardUi.createBugBoardUi({
   escHtml: (...a)=>escHtml(...a),
   safeHtml: TwSafeHtml,
   isAdmin: ()=>isAdmin,
+  bugReportLink: ()=>{ const s = acctStateMod._rcStore(); return s ? s.bugReportLink() : ''; },   // 답변 칸 [💬 오픈카톡] 기본 주소
   rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
 });
 

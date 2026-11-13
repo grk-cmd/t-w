@@ -127,6 +127,9 @@
 | `E-BUG-05` | 공감을 남기지 못했어요 | `support/bug-board-ui.js` — 👍 나도 겪었어요(`PUT /v1/bugs/{number}/like` — 버튼 다시 켬 · 다시 보내지 않음) |
 | `E-BUG-06` | 공개 범위를 바꾸지 못했어요 | `support/bug-board-ui.js` — 내 글 «🔒 비공개로 / 🌐 공개로 바꾸기»(`PATCH /v1/bugs/{number}/visibility` — 답변이 달림 · 글쓴이 아님은 번호 없이 안내 · 그사이 바뀜(`CONCURRENT_UPDATE`)은 글 다시 받기) |
 | `E-BUG-07` | 오늘 남은 제보 수를 불러오지 못했어요 | `support/bug-board-ui.js` — 글쓰기를 열 때 «오늘 N건 남음»(`GET /v1/me/bugs/quota` — [등록] 은 켜 둔다 · 상한은 서버가 [등록] 때 다시 본다) |
+| `E-BUG-20` | 답변을 올리지 못했어요 | `support/bug-board-ui.js` — 관리자 [답변 등록](`POST /v1/admin/bugs/{number}/answers` — 다른 관리자가 먼저 답함(BUG_ANSWER_CONFLICT)은 번호 없이 글 다시 받기 · 비공개 글의 공개 답변(BUG_PRIVATE_ANSWER_ONLY)은 번호 없이 안내 · 쓴 글은 칸에 둠 · 다시 보내지 않음) |
+| `E-BUG-21` | 오픈카톡 링크를 불러오지 못했어요 | `support/bug-board-ui.js` — 관리자 [🔗 오픈카톡 링크] 폼 열기(GET /v1/admin/config 의 bug.report 줄 — 폼은 안 엶) |
+| `E-BUG-22` | 오픈카톡 링크를 저장하지 못했어요 | `support/bug-board-ui.js` — 관리자 링크 폼 [저장](`PUT /v1/admin/config/bug.report` — 그사이 바뀜(CONCURRENT_UPDATE)은 번호 없이 다시 받아 칸 채움 · 주소 모양이 안 맞음(OPS_INVALID_VALUE) 포함) |
 | `E-RPT-01` | 신고하지 못했어요 — 잠시 뒤 다시 해 주세요 | `support/report.js` — 신고 창 [신고] 서버 쓰기 실패(`POST /v1/reports` — 기능 갈래(`report-api.js` `failOf`)도 공통 code(`api-errors.js`)도 아닌 실패 · 숨기지 않고 [신고] 다시 켬 · 다시 보내지 않음) |
 | `E-ADM-30` | 신고 목록을 불러오지 못했어요 | `admin/admin-report.js` — 🚩 신고 목록 열기 · [다시 시도] · [더 보기](`GET /v1/admin/reports` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · 열 때 · 다시 시도는 «못 불러왔어요 [다시 시도]» · 다시 보내지 않음) |
 | `E-ADM-31` | 신고를 비우지 못했어요 | `admin/admin-report.js` — [문제없음](`POST /v1/admin/reports/dismissals` — 그 사람 줄이 ok 가 아님 포함 · [문제없음] 다시 켬) |

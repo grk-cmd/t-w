@@ -5,7 +5,7 @@
 
 ## friends-port.js — 친구 데이터 포트
 - 책임: 친구 목록 받기(`listFriends`) · 목록(추가 · 삭제) 듣기(`watchList`) · 접속 상태 듣기(`watchPresence`) · 프로필 듣기(`watchProfile`) 를 provider 로 잇는다.
-  목록 받기 · 친구 한 명 받기(`readFriend`)는 **api 먼저 → 못 받으면 옛 길(firebase)**. 접속 상태(듣기 · 읽기)는 **realtime provider 하나**(`friends-presence-rt.js`) — 옛 길로 넘어가지 않는다. 목록 듣기 · 프로필 듣기 · 프로필 새로 읽기(`readProfile`)는 아직 옛 길(`LIVE_SOURCE` 자리).
+  목록 받기 · 친구 한 명 받기(`readFriend`) · 프로필 새로 읽기(`readProfile`)는 **api 먼저 → 못 받으면 옛 길(firebase)**. 목록 듣기 · 프로필 듣기 · 끊기(`removeFriend`)는 받는 곳이 서버면 api · 아니면 옛 길 — 하나만. 접속 상태(듣기 · 읽기)는 **realtime provider 하나**(`friends-presence-rt.js`) — 옛 길로 넘어가지 않는다.
 - 고르기: 받는 곳은 `shared/source-switch.js`(기능 `'friends'`)가 고르고 넘어가기도 그 `serverFirst` 한 벌이다. 스위치는 원격 설정 `sources.friends`(웹 관리자 «🎚️ 기능 스위치» · 쓰기 원본 Firebase `config/sources/friends`), 칸이 없으면 옛 `flags.friendsApi`(기본 켜짐). api provider 가 없으면 실패가 아니라 바로 옛 길.
   끄면 api 를 부르지도 않고 옛 길만. 비율 · 단계 켜기는 없다.
 - 만드는 법(app.js):
@@ -22,6 +22,7 @@
   - `listFriends(myId, opts)` → Promise<{ 친구id: 친구 }> — `opts.idsOnly` 면 id · addedAt 만 있으면 된다(판정용).
   - `readFriend(fid)` → Promise<친구 | null> — 켠 뒤 새로 생긴 친구 한 명의 이름 · 레벨 · 사진(friends-sub 가 늘어난 id 만 부른다 · 목록 전체를 다시 받지 않게). null = 모름(없는 사람 · 옛 길도 못 읽음).
   - `watchList(myId, onChange, onError)` → 해제 함수 — onChange({ 친구id: { addedAt, … } }).
+  - `removeFriend(myId, fid)` → Promise — 친구 끊기(서버면 `DELETE /v1/me/friends/{code}` · 아니면 옛 길). 쓰기라 옛 길로 넘기지 않고 못 하면 던진다.
   - `watchPresence(myId, ids, onChange, onStatus)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }) · onStatus(`'waiting'` | `'live'` | `'failed'`) · `retryPresence()` → 듣기가 못 받음이면 한 번 다시. 목록이 열려 있는 동안만 건다(friends-sub.js).
   - `readPresence(ids)` → Promise<{ 친구id: 접속 상태 }> — 목록이 닫혀 있을 때 그 친구들만 요청 하나로(놀러 가기 · 파도타기 친구 고르기). 못 받으면 던진다.
   - `watchProfile(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { name, level, cyc, clv, starC } }). 접속 상태와 같은 조건 · 같은 수명(목록이 열려 있는 동안 · friends-sub.js).
@@ -54,34 +55,26 @@
   - 프로필 콜백은 친구 수만큼 한꺼번에 온다 — 50ms 창에 한 번만 넘긴다(스로틀 · 뒷날). 디바운스로 바꾸면 계속 오는 동안 영영 안 그린다.
   - 검사: `checks/sim-friends-port.js`(2-1절이 친구 n명 → 평소 1개 · 목록 열면 1 + n 을 센다) · `checks/sim-friend-profile-live.js`(이름이 바뀌면 목록 · 마이홈 구경 값이 바뀌는지).
 
-## friends-api.js — api provider(GET /v1/me/friends · 친구 한 명 명함 · t-w-server)
-- 책임: 내 친구 목록(이름 · 레벨 · 소개 · 사진 · 서로 친구)을 서버에서 한 번 받는다. 실패하면 던진다 — 포트가 옛 길로 넘긴다.
-- 친구 한 명(`readFriend(fid)`): 공개 명함 `GET /v1/users/{uid}/card` 한 번(다시 묻기 없음). 경로 · 통로는 공개 읽기 한 곳(`shared/api-public-reads.js` — firebase-init 이 단 `fetchUserCardApi`)을 쓴다.
-  `data: null` = 없는 사람 → null(옛 길로 다시 안 감). 모양이 틀리거나 못 받으면 던진다(옛 길로). 명함엔 소개가 없어 `bio: ''` — 다음 목록 받기(앱 시작 · 목록 첫 열기)가 채운다.
-- 요청 규칙(사용자 확정 10-17 · 숫자는 모듈 위 상수):
-  - 한 번 `REQUEST_TIMEOUT_MS`(5초). 서버 문제(연결 실패 · 시간 초과 · 5xx)면 `RETRY_DELAYS_MS`(1초 · 3초 뒤) 두 번 더 — 총 3번.
-  - 401(연결 없는 옛 계정 · 토큰 없음) · 400 · 그 밖의 4xx · 모양이 틀린 응답은 다시 안 묻고 바로 옛 길(400 은 진단 로그).
-  - 실패를 기억하지 않는다 — 다음에 목록을 열면 다시 서버부터.
-- 헤더: `Authorization: Bearer <Firebase ID 토큰>`(api-client.js `getToken`) · `X-User-Code: <내 코드>`.
+## friends-api.js — 서버 provider(`social-api.js` 위 — 친구 목록 + 명함 → 친구 칸 · 알림)
+- 책임: 포트가 부르는 모양 하나로 서버 친구 데이터를 낸다. 서버 길(경로 · 모양 맞춤 · 오류 갈래)은 `social-api.js`, 여기는 «목록 + 명함 → 친구 칸» 합치기와 realtime 알림(`friends` · `card`)을 받으면 다시 받기뿐이다.
+  다시 묻지 않는다 — 못 받으면 던지거나(`listFriends` · `readFriend` · `readProfile` → 포트가 옛 길로) `onError` 로 알린다(`watchList` → friends-sub 가 «못 불러옴» · 목록을 다시 열 때 다시).
+- 내보내는 것: `listFriends(myId, opts)`(목록 1번 + 명함 한 묶음 · `opts.idsOnly` 면 명함 없이 addedAt 만) · `readFriend(fid)`(친구 아님 · 명함 없음 → `null`) ·
+  `watchList(myId, onChange, onError)`(처음 한 번 + `friends` 알림 · resync 마다 · 받기는 한 번에 하나 — 겹치면 끝난 뒤 한 번 더) · `watchProfile(myId, ids, onChange)`(처음 한 번 + `card` 알림은 듣는 친구 한 명만 · resync 는 전부) ·
+  `readProfile(fid)`(명함 없으면 던짐) · `removeFriend(fid)`(이미 친구가 아니면 끝난 것으로 봄). 해제 함수는 알림 걸기도 푼다.
 - 만드는 법(app.js):
   ```js
-  const friendsApiMod = TwFriendsApi.createFriendsApi({
-    get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로 — api-client.js 의 TwApi.authed(쉬기 끔 · 토큰은 bindToken)
-    getCard: (...a)=>firebaseAPI.fetchUserCardApi(...a),   // 친구 한 명 명함 — 공개 읽기 통로(api-public-reads.js)
-    wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
-    warn: (...a)=>console.warn(...a),
-  });
+  const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });
+  const friendsApiMod = TwFriendsApi.createFriendsApi({ social: socialApiMod, rt: TwRtHub.store, warn: (...a)=>console.warn(...a) });
   ```
-- 순수: `friendsOf(data)`(응답 → { 친구id: 친구 } · 모양이 틀리면 undefined) · `cardOf(c)`(목록 줄 · 명함 → 친구 칸 한 벌 — 명함의 `avatarInline` 은 불리언이라 사진이 안 된다) · `retryable(err)`.
-- 확장할 때: 응답 칸이 늘면 `friendsOf` 한 곳. 다시 묻기 규칙은 상수 둘과 `retryable`.
-- 함정:
-  - 통로는 쉬기를 끈 로그인 통로(`TwApi.authed` — 토큰은 firebase-init 이 `bindToken` 으로 잇는다)를 쓴다. 공용 `TwApi.client` 를 쓰면 쉬는 동안 다시 묻기가 묻지도 않고 끝나고, 이 경로 실패 하나가 원격 설정 · 공개 읽기까지 30초 쉬게 한다.
-  - 응답 `truncated` 로 잘린 친구 · 서버 사본이 늦어 없는 친구는 이름이 자리표시('...')로 남는다 — 누가 친구인지는 옛 길 목록 구독(watchList)만 본다.
+- 친구 하나: `{ addedAt, name, level, cyc, clv, starC, bio, avatar }`. 명함이 있는데 이름이 비면 «(이름 없음)» · 명함이 아예 없는 친구는 이름 칸을 덮지 않는다(friends-sub 의 `'...'`). 접속 상태는 realtime(`friends-presence-rt.js`).
+  «마지막 접속»(`lastSeenAt`)은 화면에 안 쓴다(설계 D3-Q1 «안 넣음»).
+- 포트의 고르기: 목록 · 한 명 · 프로필 새로 읽기는 서버 먼저 → 못 받으면 옛 길. **듣기와 끊기(쓰기)는 고른 길 하나** — 받는 곳이 서버면 이 provider · 아니면 옛 길. 쓰기는 옛 길로 넘기지 않는다(두 곳에 갈라 쓰지 않게).
+- 옛 provider(5초 제한 · 1초 · 3초 뒤 다시 묻기 · `X-User-Code` 머리 · 옛 응답 모양 `{ friends:[{ id }] }` · 공개 명함 `fetchUserCardApi`)는 걷었다.
+- 검사: `checks/sim-friends-port.js` 2-2절.
 
-## social-api.js — 친구 · 친구 요청 · 명함 서버 길 provider(0.13 · 아직 부르는 곳 없음)
+## social-api.js — 친구 · 친구 요청 · 명함 서버 길 provider(0.13 · 친구 목록 · 명함은 `friends-api.js` 가 부름 · 요청은 다음 PR)
 - 책임: 내 친구 목록(`GET /v1/me/friends` — 객체 배열) · 친구 한 명(`GET …/{code}`) · 끊기(`DELETE …/{code}`) · 친구 요청 목록(`GET /v1/me/friend-requests`) · 보내기 · 수락 · 거절 · 취소 · 명함 묶음(`GET /v1/myhomes/cards?codes=`)을 서버에서. 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양(친구 칸 `name · level · cyc · clv · starC · bio · avatar` · 시각 ms)으로 맞추는 곳은 여기뿐이다.
-  다음 PR 에서 포트(`friends-port.js`)가 이것을 쓰고, 옛 `friends-api.js`(옛 응답 모양 `{ friends:[{ id, … }] }` · 옛 공개 명함 · 다시 묻기 3번)는 걷는다.
-- 만드는 법(app.js — 다음 PR): `TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) })`. 만들 때 요청 없음.
+- 만드는 법(app.js — `socialApiMod`): `TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) })`. 만들 때 요청 없음.
 - 내보내는 것: `fetchFriends()` → `[{ userCode, addedAt, lastSeenAt }]`(오래 사귄 순 · ms · 마지막 접속 기록 없음 `null`) · `fetchFriend(code)` → 한 줄 | `null`(친구가 아님) · `removeFriend(code)` ·
   `fetchRequests()` → `{ received, sent }`(코드 목록) · `sendRequest(to)` · `acceptRequest(from)` · `rejectRequest(from)` · `cancelRequest(to)` ·
   `fetchCards(codes)` → `{ userCode: 명함 }`(없는 코드는 빠짐 · 100개씩 나눠 묻고 합침 · 빈 목록이면 요청 0) · `reset()`.
