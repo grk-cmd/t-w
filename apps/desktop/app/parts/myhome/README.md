@@ -162,7 +162,7 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 **오류 번호** — `E-GB-01`(방명록 받기 실패 — 연 · 누른 받기만) · `E-GB-02`~`05`(서버 거절) · `E-GB-06`(박수 그림을 쓸 수 없음) · `E-GB-07`(512KB 초과). 그 밖의 실패는 공통 `E-NET-*`.
 
 **함정** — 글 쓰기 · 박수는 `requestId` 를 싣는다. 닿지 못한 일은 같은 번호로 다시(서버가 한 번만 반영), 서버가 답한 일(거절 포함)은 번호를 놓는다.
-방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림은 요청 둘이다 — `POST /v1/me/images?purpose=clap`(바이트 그대로 · 512KB 이하 png/webp/jpeg → `{ url }`) 다음 `PATCH /v1/me/guestbook { version, clapImageUrl }`. 첫째가 실패하면 겉모습은 그대로, 둘째가 409 면 다시 받는다. `setImage(dataUrl)`.
+방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림은 요청 둘이다 — `POST /v1/me/images?purpose=clap`(바이트 그대로 · 512KB 이하 png/webp/jpeg → `{ url }`) 다음 `PATCH /v1/me/guestbook { version, clapImageUrl }`. 첫째가 실패하면 겉모습은 그대로, 둘째가 409 면 다시 받는다. 올리는 사이 연결이 끊기거나(`release()`) 계정 · 주인이 바뀌면 둘째를 보내지 않고 `{ ok:false, reason:'gone' }` — 겉모습을 못 바꿨는데 성공으로 돌려주지 않는다. `setImage(dataUrl)`.
 
 검사: `checks/sim-guestbook-api.js` · `checks/sim-guestbook-feed.js` · `checks/sim-guestbook.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
 
