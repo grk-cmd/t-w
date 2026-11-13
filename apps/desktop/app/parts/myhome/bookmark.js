@@ -21,6 +21,7 @@
 function createBookmark(deps){
   const bookshelfStore = deps.bookshelfStore;
   const toast = deps.toast;
+  const notifyError = deps.notifyError;   // TwErrorCodes.notify — 그림 올리기 실패 번호(E-MH-24)
   const buildFreeColorPicker = deps.buildFreeColorPicker;
 
   const BM_MAX = bookshelfStore.BOOKS;   // 책 상한 — 서버 상한 하나(TwMyHomeApi.LIMITS.BOOKS)
@@ -479,7 +480,7 @@ function createBookmark(deps){
       if(prep.err){ msg.textContent = (prep.err === 'big') ? '그림이 너무 커요 — 줄여도 200KB 를 넘었어요.' : '그림 파일을 읽지 못했어요.'; return; }
       const up = await bookshelfStore.uploadImage(prep.dataUrl);
       if(up.stale) return;   // 올리는 사이 계정이 바뀌었다 — 창도 곧 닫힌다
-      if(!up.ok){ msg.textContent = '그림을 올리지 못했어요.'; return; }
+      if(!up.ok){ msg.textContent = '그림을 올리지 못했어요.'; if(!up.notified) notifyError('E-MH-24'); return; }
       draft.img = up.url; imgDrop.style.display = ''; msg.textContent = '그림을 올렸어요.'; paint();
     });
     imgDrop.onclick = e=>{ e.stopPropagation(); draft.img = ''; imgDrop.style.display = 'none'; paint(); };

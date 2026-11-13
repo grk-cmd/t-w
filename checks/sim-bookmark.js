@@ -126,6 +126,7 @@ say('── 4. 저장');
   chk(/bookshelfStore\.put\(books\)/.test(B) && !/firebaseAPI|localStorage|getBookmarks|saveBookmarks|uploadBookmarkImg|deleteStorageUrl/.test(B), '저장은 store.put 하나 · Firebase · 이 PC 사본 · Storage 직접 올리기 없음');
   chk(!/setTimeout|setInterval/.test(B), '4초 뒤 받기 같은 타이머 없음');
   chk(/bookshelfStore\.uploadImage\(prep\.dataUrl\)/.test(B), '책등 그림은 store 길로 올리고 주소만 저장에 싣는다');
+  chk(/if\(!up\.notified\) notifyError\('E-MH-24'\)/.test(B), '  올리기 실패는 그 자리 번호 E-MH-24 를 한 번(공통 번호를 이미 알렸으면 안 띄움)');
   if(FI) chk(!/getBookmarks|saveBookmarks|getPublicBookmarks|savePublicBookmarks|uploadBookmarkImg/.test(FI), 'firebase-init 에 책장 메서드가 없다(부르는 곳 0)');
   else { huh++; say('  ? firebase-init.js 없음'); }
 }
@@ -175,7 +176,7 @@ say('── 6. 진짜 모듈을 가짜 store · 가짜 바탕화면 위에서');
     new Function('window', 'module', SAFE)(win, m); g.TwSafeHtml = win.TwSafeHtml || m.exports;
     const mod = { exports: {} };
     new Function('window', 'document', 'module', BM)(win, doc, mod);
-    mod.exports.createBookmark({ bookshelfStore: store, toast: (t) => toasts.push(t), buildFreeColorPicker: () => mkEl('div') });
+    mod.exports.createBookmark({ bookshelfStore: store, toast: (t) => toasts.push(t), notifyError: (c) => toasts.push('error ' + c), buildFreeColorPicker: () => mkEl('div') });
     const folder = folders.bookmark;
     const rows = () => { const shelf = all(D._body).find((e) => e.id === 'bmShelf'); return shelf.querySelector('#bmRows'); };
     chk(!!folder && calls.length === 0, '만들기만 하면 요청 0(서랍 폴더만 붙는다)');

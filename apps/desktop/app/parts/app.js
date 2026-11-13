@@ -2725,6 +2725,7 @@ const socialNamesApi = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn:
 TwBookmark.createBookmark({
   bookshelfStore: bookshelfStoreMod,
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   buildFreeColorPicker: (...a)=>wardrobeMod.buildFreeColorPicker(...a),
 });
 /* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */

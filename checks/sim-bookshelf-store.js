@@ -200,7 +200,10 @@ async function judge(S){
     chk(u.ok && /^https:\/\/img\/up/.test(u.url) && count(up.log, /^PUT/) === 0, '그림 올리기 → 주소만 돌려준다(저장은 put — PUT 0)');
     const uf = mk(S, { upErr: apiErr(503, 'X') });
     const uu = await uf.st.uploadImage('data:x');
-    chk(uu.ok === false && !uu.stale && !uf.log.some((l) => /^error/.test(l)), '올리기 실패 → { ok:false } · 번호는 부르는 화면 몫(여기선 없음)');
+    chk(uu.ok === false && !uu.stale && !uu.notified && !uf.log.some((l) => /^error/.test(l)), '올리기 실패 → { ok:false } · 번호는 부르는 화면 몫(여기선 없음)');
+    const uc = mk(S, { upErr: apiErr(403, 'PREMIUM_REQUIRED') });
+    const ucr = await uc.st.uploadImage('data:x');
+    chk(ucr.ok === false && ucr.notified === true && uc.log.some((l) => /^common/.test(l)), '  공통 번호(PREMIUM_REQUIRED)는 store 가 알리고 notified — 화면이 E-MH-24 를 또 안 띄운다');
     const us = mk(S, { auto: false });
     const upp = us.st.uploadImage('data:x'); us.st.reset(); await us.release();
     chk((await upp).stale === true, '올리는 사이 reset → stale');

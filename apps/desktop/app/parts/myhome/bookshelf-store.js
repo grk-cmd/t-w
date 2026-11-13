@@ -16,7 +16,7 @@
      onChange(fn) → 해제 함수 · pullMine() → Promise<boolean>(지금 내 책장이 ready 인가)
      openView(code) → Promise<boolean>(답이 왔을 때 아직 그 집인가) · retryView() → Promise<boolean> · closeView()
      put(books) → Promise<'ok'|'failed'|'conflict'|'stale'|'locked'|'full'>
-     uploadImage(dataUrl) → Promise<{ ok:true, url } | { ok:false, stale?:true }> — 올리는 것만(저장은 put). 실패 번호는 부르는 화면 몫
+     uploadImage(dataUrl) → Promise<{ ok:true, url } | { ok:false, stale?:true, notified?:true }> — 올리는 것만(저장은 put). 실패 번호(E-MH-24)는 부르는 화면 몫(notified 면 공통 번호를 이미 알림)
      flush() → Promise — 저장 중이면 그 끝을, 못 올린 고침이 있으면 한 번 올린다(로그아웃 올리기 · 앱 끄기) · reset() — 계정을 놓을 때
      LOAD · MSG · BOOKS(책 상한 — lib.LIMITS.BOOKS 그대로)
    }
@@ -200,7 +200,7 @@ function createBookshelfStore(deps){
       if(g !== gen) return { ok: false, stale: true };
       const f = failOf(e);
       if(f.kind === KIND.STALE) return { ok: false, stale: true };
-      if(f.kind === KIND.COMMON) apiErrors.notify(e, lib.ERRORS);
+      if(f.kind === KIND.COMMON){ apiErrors.notify(e, lib.ERRORS); return { ok: false, notified: true }; }   // 공통 번호는 알렸다 — 화면이 그 자리 번호(E-MH-24)를 또 띄우지 않게
       return { ok: false };
     }
   }
