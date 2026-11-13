@@ -47,7 +47,11 @@ let overlay=null, renderer=null, scene=null, cam=null, model=null;
 /* 💡 원색 보기(creator-flat-view.js — 사람 생성기와 같은 모듈의 두 번째 인스턴스).
    미리보기 재질은 emissive 를 0 으로 둔다(ensurePaintTex · _ensureEarTex) — 그래서 흰빛 앰비언트가
    flatAmbient(0) = 1 이면 칠한 텍스처 값이 화면에 그대로 나온다. 실행 화면(_animLit)은 따로라 건드리지 않는다. */
-const AN_AMB_COLOR=0xfdfbf7, AN_AMB_INT=0.95, AN_KEY_COLOR=0xfdfaf5, AN_KEY_INT=1.0;
+const AN_AMB_COLOR=0xfdfbf7, AN_KEY_COLOR=0xfdfaf5;
+/* 동물 생성기 빛 세기 — 예산 1 · 키 배율 없음 · 정면 필 없음(사람 생성기와 다른 옛 값을 화면 그대로 지킨다). 몫은 shared/light-tone.js */
+const AN_LIGHT_OPT={ keyPos:[0,4,0], int:1, keyMul:1, frontFill:false };
+/* app.js 가 먼저 실리는 classic script — 공용 조명(shared/light-tone.js)은 app.js 의 lightToneMod 로 받는다 */
+const addRunLights=lightToneMod.addRunLights, runLightInts=lightToneMod.runLightInts;
 const AN_PREVIEW_EMISSIVE=0;
 let aAmb=null, aKey=null, aFlat=null;
 let headBone=null, faceNodes=[], curFace=0, raf=0;
@@ -877,8 +881,7 @@ function openPreview(){
     renderer.toneMapping=THREE.NoToneMapping;
     renderer.setSize(360,398,false);
     scene=new THREE.Scene();
-    aAmb=new THREE.AmbientLight(AN_AMB_COLOR,AN_AMB_INT); scene.add(aAmb);   // 인간 생성기와 동일 광원
-    aKey=new THREE.DirectionalLight(AN_KEY_COLOR,AN_KEY_INT); aKey.position.set(0,4,0); scene.add(aKey);
+    { const lt=addRunLights(scene, AN_LIGHT_OPT); aAmb=lt.amb; aKey=lt.key; }   // 세기 · 색은 applyPreviewLights 가 바로 정한다
     applyPreviewLights();
     // 원근 없음(직교) — 비율 왜곡 없이 편집. 휠 줌은 cam.zoom으로.
     { const a=360/398, vh=3.3, vw=vh*a;
@@ -925,8 +928,9 @@ function applyPreviewLights(){
     aAmb.color.setRGB(1,1,1); aAmb.intensity=CreatorFlatView.flatAmbient(AN_PREVIEW_EMISSIVE);
     aKey.intensity=0;
   } else {
-    aAmb.color.setHex(AN_AMB_COLOR); aAmb.intensity=AN_AMB_INT;
-    aKey.intensity=AN_KEY_INT;
+    const li=runLightInts(AN_LIGHT_OPT);
+    aAmb.color.setHex(AN_AMB_COLOR); aAmb.intensity=li.amb;
+    aKey.color.setHex(AN_KEY_COLOR); aKey.intensity=li.key;
   }
 }
 function onPanKey(e){
