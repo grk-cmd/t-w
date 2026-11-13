@@ -108,10 +108,10 @@ async function judge(S){
 
   say('── 3. 친구 요청');
   {
-    const { m, authed } = mk(LIB, { 'GET /v1/me/friend-requests': { received: ['A', 'B', 'A', 3, ''], sent: ['C'] } });
+    const { m, authed } = mk(LIB, { 'GET /v1/me/friend-requests': { received: [{ userCode: 'A', requestedAt: '2026-11-01T00:00:00Z' }, { userCode: 'B', requestedAt: '2026-11-02T00:00:00Z' }, { userCode: 'A', requestedAt: '2026-11-03T00:00:00Z' }, 'x', { userCode: '', requestedAt: '2026-11-01T00:00:00Z' }, { userCode: 'D' }], sent: [{ userCode: 'C', requestedAt: '2026-11-04T00:00:00Z' }] } });
     const r = await m.fetchRequests();
     chk(authed.log[0].path === '/v1/me/friend-requests' && typeof authed.log[0].opts.onOwner === 'function', 'GET /v1/me/friend-requests · 토큰 주인을 듣는다');
-    chk(r.received.join() === 'A,B' && r.sent.join() === 'C', '{ received, sent } — 차례 그대로 · 겹침 · 글자 아닌 것 뺌');
+    chk(r.received.map((x) => x.userCode).join() === 'A,B' && r.received[0].requestedAt === Date.parse('2026-11-01T00:00:00Z') && r.sent[0].userCode === 'C', '{ received, sent } — 차례 그대로 · 시각 ms · 겹침 · 깨진 줄(코드 · 시각 없음) 뺌');
     for(const bad of [null, { received: [] }, { received: 'A', sent: [] }]){
       const e = await throws(() => mk(LIB, { 'GET /v1/me/friend-requests': bad }).m.fetchRequests());
       chk(e && e.code === 'SHAPE', '모양이 틀린 응답(' + JSON.stringify(bad) + ')은 던진다');
