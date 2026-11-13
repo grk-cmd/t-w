@@ -14,11 +14,7 @@
 function createRacePicker(deps){
 const BASE_SCENE = deps.BASE_SCENE;   // 읽는 함수
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
-const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
-const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
-const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
-const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
-const _mkFrontFill = deps._mkFrontFill;
+const addRunLights = deps.addRunLights;
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const applyLightPresetToInstance = deps.applyLightPresetToInstance;
 const instantiateBase = deps.instantiateBase;
@@ -34,9 +30,7 @@ function initRacePreview(){
   rRenderer.outputEncoding=THREE.sRGBEncoding;
   cv.style.imageRendering='pixelated';
   rScene=new THREE.Scene();
-  rScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  const k=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL); k.position.set(0,4,0); rScene.add(k);
-  rScene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 실행 화면과 같은 정면 필
+  addRunLights(rScene, { keyPos: [0, 4, 0] });   // ★ 실행 화면과 같은 조명(shared/light-tone.js)
   rCam=new THREE.PerspectiveCamera(32,1,0.1,100);
   rCam.position.set(0,1.0,2.6); rCam.lookAt(0,0.85,0);
 }
