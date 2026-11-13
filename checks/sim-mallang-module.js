@@ -263,7 +263,7 @@ const GOLDEN = [
     chk(w({ APP: late }), '만드는 줄이 수령함 · 창보다 뒤로 가면 빨강(값으로 넘기면 TDZ)');
     chk(w({ INBOX: SRC.INBOX.replace('mallangMod.openGift(fid', 'window._mallangOpenGift(fid') }), 'window._mallang* 고리가 다시 생기면 빨강');
     chk(w({ ML: SRC.ML.replace('function hasLicense(){ try{ return !!premiumOn(); }', 'function hasLicense(){ try{ return !!window._premiumOn(); }') }), '전역 프리미엄 읽기가 글에 다시 생기면 빨강');
-    chk(w({ HTML: SRC.HTML.replace(/<script src="parts\/myhome\/mallang\.js"><\/script>[^\n]*\n/, '').replace('<script src="parts/myhome/bookmark.js"></script>', '<script src="parts/myhome/mallang.js"></script>\n<script src="parts/myhome/bookmark.js"></script>') }), 'html 에서 app.js 뒤로 가면 빨강');
+    chk(w({ HTML: SRC.HTML.replace(/<script src="parts\/myhome\/mallang\.js"><\/script>[^\n]*\n/, '').replace('<script src="parts/myhome/myhome-desktop.js"></script>', '<script src="parts/myhome/mallang.js"></script>\n<script src="parts/myhome/myhome-desktop.js"></script>') }), 'html 에서 app.js 뒤로 가면 빨강');
     chk(w({ VISIT: SRC.VISIT.replace('Promise.resolve(mallangMod.applyVisit(', 'if(mallangMod) Promise.resolve(mallangMod.applyVisit(').replace("    Promise.resolve(mallangMod.applyVisit", "    if(typeof mallangMod.applyVisit === 'function') Promise.resolve(mallangMod.applyVisit") }), '«있으면 부르기» 가드가 생기면 빨강');
   }
 

@@ -130,6 +130,8 @@ async function judge(S){
     chk(t.authed.log[10].path === '/v1/me/myhome/bookshelf' && bb.version === 4 && bb.books[0].width === 'thick' && bb.books[0].titleColor === '#ffffff' && bb.books[0].public === true && bb.books[0].image === 'https://s/i.webp' && bb.books[0].url === 'https://a.b' && !('addedAt' in bb.books[0]), '책 본문 — 이름 바꿈(w → width …) · 새 책은 addedAt 없음');
     chk(bb.books[1].addedAt === '2026-01-02T03:04:05.000Z' && !('url' in bb.books[1]) && !('image' in bb.books[1]) && eq(bb.books.map((b) => b.id), ['n1', 'o1']), '  있던 책은 받은 시각 그대로 · 빈 주소 · 그림은 안 실음 · 목록 차례 = 순서');
     chk(eq(r, { books: [], version: 5 }), '  응답 { books, version } 을 화면 모양으로');
+    const noColor = t.M.booksBody([{ id: 'c1', title: 't', w: 'thin', h: 'short' }, { id: 'c2', title: 't', w: 'thin', h: 'short', color: '', tcolor: '' }]);
+    chk(noColor.every((b) => !('color' in b) && !('titleColor' in b)), '  색이 없는 옛 책은 color · titleColor 열쇠를 싣지 않는다("" 를 보내면 서버가 400)');
     chk(t.authed.log.every((x) => !/"data:/.test(JSON.stringify(x.body))), '본문 어디에도 data: 없음');
     const before = t.authed.log.length;
     const bads = [['PATCH 스티커', () => t.m.patchPage(8, { stickers: { a: { img: png(5) } } })], ['PATCH 사진', () => t.m.patchPage(8, { avatar: png(5) })], ['디자인 테마', () => t.m.putDesign(9, { theme: { tabImg: png(5) }, presets: [], presetCur: 0 })], ['바탕화면', () => t.m.putDesktop(3, { bg: { img: png(5) }, hideFolders: false, folderPos: {} })], ['책 그림', () => t.m.putBookshelf(4, [{ id: 'b', img: png(5), color: '#112233', tcolor: '#ffffff' }])]];
