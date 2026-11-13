@@ -5520,7 +5520,7 @@
         <span class="flt-time" id="focusLogTime">00:00:00</span>
       </div>
       <!-- 누적기록 탭에서만 보이는 둘째 줄 — 오늘(오전 6시~다음날 오전 6시) 기록.
-           ⚠️ 경계는 app.js 의 DAY_START_HOUR 한 곳이 정한다. 여기 문구만 고치면 화면과 계산이 갈린다. -->
+           ⚠️ 경계는 서버가 준 dayEndsAt(한국 06:00 — focus-total.js)이 정한다. 여기 문구만 고치면 화면과 계산이 갈린다. -->
       <div class="flt-row" id="focusLogRow2" style="display:none;" title="오늘 기록은 오전 6시에 새로 시작해요">
         <span class="flt-label" id="focusLogCaption2">오늘 기록</span>
         <span class="flt-clock">🕒</span>
@@ -5550,6 +5550,10 @@
          화면 세 개가 한 자리에서 갈아 끼워진다: 종류 고르기 → 설정 → 진행 중.
          ⚠️ 여는 <div> 하나만 빠져도 창 구조가 통째로 풀린다(audit 검사 16). 중첩을 건드릴 땐 audit 먼저. -->
     <div id="chalDrawer">
+
+      <!-- ⓪-b 서버에서 한 벌을 받기 전 · 못 받음 · 프리미엄 잠김일 때만 보인다(weekly-challenge.js _chalRender) -->
+      <div class="chal-hint" id="chalState" style="display:none;"><span id="chalStateMsg">달성표를 불러오는 중이에요…</span>
+        <button class="chal-btn tiny" id="chalRetryBtn" type="button" style="display:none;margin-left:6px;">다시 시도</button></div>
 
       <!-- ⓪ 페이즈 세그먼트 — 주중(월~금) 트랙과 주말(토·일) 트랙을 오간다.
            지금 달리는 트랙은 하나뿐이고, 반대쪽을 누르면 박제된 기록(#chalArc)이 열린다.
@@ -5634,6 +5638,8 @@
         <div class="chal-foot">
           <div class="chal-rw" id="chalReward"></div>
           <div class="chal-acts">
+            <button class="chal-btn tiny" id="chalPostBtn" type="button" style="display:none;">다시 적기</button>
+            <button class="chal-btn tiny" id="chalClaimBtn" type="button" style="display:none;">보상 받기</button>
             <button class="chal-btn tiny" id="chalEditBtn" type="button">수정</button>
             <button class="chal-btn tiny" id="chalGiveupBtn" type="button">포기하기</button>
           </div>
@@ -8451,6 +8457,7 @@
 <script src="parts/myhome/bookmark.js"></script>   <!-- 📚 마이홈 북마크 서랍(window.TwBookmark) — app.js 가 만든다 · MYHOME_DESKTOP.addFolder 로만 붙는다(바탕화면이 늦게 준비돼도 대기열에 선다) -->
 <script src="parts/myhome/mallang.js"></script>   <!-- 🧸 말랑이 · 🎁 선물 화면(window.TwMallang) — app.js 보다 먼저(app.js 가 마이홈 수령함보다 먼저 createMallang 으로 만든다) · safe-html.js · img-retry.js 뒤 -->
 <script src="parts/myhome/scheduler.js"></script>   <!-- 📅 스케줄러 · 🔔 일정 알림 — app.js 보다 먼저(app.js 가 원래 자리에서 MhScheduler.createScheduler 로 만든다) -->
+<script src="parts/focus/chal-store.js"></script>   <!-- 👑 달성표 상태(서버 한 주 한 벌 · 쓰기 한 줄 · 오늘 판정) — weekly-challenge.js 와 app.js 보다 먼저 -->
 <script src="parts/focus/weekly-challenge.js"></script>   <!-- 👑 달성표 — app.js 보다 먼저(app.js 가 원래 자리에서 TwWeeklyChallenge.createWeeklyChallenge 로 만든다) -->
 <script src="parts/purikura/pk-bgm.js"></script>   <!-- 🎵 스티커사진 창 BGM(재생 · 멈춤 · 끄기 기억) — purikura-ui.js 보다 먼저(만들 때 TwPkBgm 을 부른다) -->
 <script src="parts/purikura/purikura-ui.js"></script>   <!-- 📷 스티커사진 창(화면 쪽) — purikura-net.js 뒤 · app.js 보다 먼저(app.js 가 원래 자리에서 TwPurikuraUi.createPurikuraUi 로 만든다) -->

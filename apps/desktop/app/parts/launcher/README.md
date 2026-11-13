@@ -116,7 +116,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 1 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
 | 2 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
 | 3 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
-| 4 | weeklyChal | 👑 달성표(`startChalSync`) |
+| 4 | weeklyChal | 👑 달성표 오늘 진행을 계정 칸에서 읽고 이번 주 한 벌을 서버에서 받기(`weeklyChal.startChallenge` → `chal-store.startChal` — 세션을 받아 쓴다) |
 | 5 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
 | 6 | gacha | 🎰 가챠(`startGacha`) |
 | 7 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset`) |

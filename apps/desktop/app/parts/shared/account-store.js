@@ -40,9 +40,10 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',
   /* 포커스 — 서버에 아직 못 올린 집중 시간(초). 레벨 · 누적은 서버 값이라 이 PC 에 두지 않는다(옛 tw.focusTotalSec · tw.focusSyncedSec · tw.starColor · 해금 안내 기록은 첫 실행이 지운다) */
   'tw.focusPendingSec',
+  /* 달성표 — 오늘 진행(서버에 없는 이 PC 사실). 목표 · 기록 · 보상은 서버 한 벌이라 두지 않는다(옛 tw.chal 은 첫 실행이 오늘 진행만 옮기고 지운다) */
   /* 옮길 묶음 몫 */
   'tw.focusShow', 'tw.pomo', 'tw.pomoRun',
-  'tw.bonkDay', 'tw.chal',
+  'tw.bonkDay', 'tw.chalToday',
   'tw.curSlot', 'tw.extraSeatSlots', 'tw.roomFaceUrls', 'tw.slotGlbUrls',
   'tw.savedDesks', 'tw.savedItems', 'tw.savedParts', 'tw.decoParts', 'tw.deskPresets', 'tw.animalPresets', 'tw.animalEverUnlocked',
   'tw.animalCheatUnlock', 'tw.charColorHistory', 'tw.seatEq', 'tw.activeInteractionDesk', 'tw.emojiReactions',

@@ -352,7 +352,8 @@ PRELOAD.push('bookshelf-store.js');   // 📚 책장 상태 주인 — app.js �
 PRELOAD.push('bookmark.js');   // 📚 북마크 서랍 — app.js 가 createBookmark 로 만든다(바탕화면에는 MYHOME_DESKTOP.onReady 로 붙는다)
 PRELOAD.push('mallang.js');   // 🧸 말랑이 · 🎁 선물 화면 — app.js 가 마이홈 수령함보다 먼저 createMallang 으로 만든다
 PRELOAD.push('scheduler.js');
-/* weekly-challenge.js — 👑 달성표(앱 FSD 2번). 같은 까닭 — 만들 때 하는 일(로컬 기록 읽기 · 부팅 동기화 · 20초 tick · 버튼 연결)을 같이 굴린다. */
+/* chal-store.js · weekly-challenge.js — 👑 달성표 상태(서버 한 주 한 벌) · 화면(앱 FSD 2번). 같은 까닭 — 화면이 만들 때 하는 일(버튼 연결)을 같이 굴린다. 저장소가 먼저. */
+PRELOAD.push('chal-store.js');
 PRELOAD.push('weekly-challenge.js');
 /* pk-bgm.js — 🎵 스티커사진 창 BGM. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('pk-bgm.js');

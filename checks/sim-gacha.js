@@ -275,8 +275,7 @@ await sec('── 4. 받기 — 상태 · 실패 · 경합 · 신호 · 회수',
   e = mkEnv({ saved: [G('a')] }); e.gs = ST({ a: 1 }); M = e.mk(); M.startGacha(); await flush();
   e.gs = ST({ a: 3 }); e.rt.collection[0]({ kind: 'collection' }); await flush();
   chk(e.gsLoads === 2 && M.gachaCount('a') === 3, '서버 신호(collection) — 다시 받아 그 값으로');
-  M.refreshAfterReward(); await flush();
-  chk(e.gsLoads === 3, '달성표 보상 뒤 — 서버에서 다시 받는다(보너스를 값으로 받아 적지 않음)');
+  chk(typeof M.refreshAfterReward === 'undefined', '달성표 보상 뒤 따로 다시 받지 않는다 — 서버가 보너스 장부를 쓰면 collection 신호가 온다(위 줄)');
   M.resetMemory(); chk(e.unsubs === 1, '로그아웃 지우기 — 서버 신호 구독을 푼다(계정이 바뀌면 구독이 겹치지 않는다)');
   M.startGacha(); chk(e.rt.collection.length === 2, '  다시 시작하면 새로 건다');
   /* 미보유 파츠 회수 — 받은 뒤에만 */
@@ -437,12 +436,11 @@ await sec('── 7. app.js 배선', () => {
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
   const calls = ['gachaMod.toggleGachaInv();', 'gachaMod.isInvOpen()', 'gachaMod.isDrawOpen()', 'gachaMod.pruneUnownedGachaParts();', 'gachaMod.selId()',
     'gachaMod.isGachaPart(', 'gachaMod.isGachaColorUnlocked(', 'gachaMod.gachaCount(', 'gachaMod.DUPES_FOR_COLOR', 'gachaMod.sceneHasColorGroup(',
-    'gachaMod.renderGachaInv();', 'gachaMod.resetMemory();', 'gachaMod.startGacha()',
-    'setGachaBonusLocal: ()=>gachaMod.refreshAfterReward(),', 'renderGachaInv: ()=>gachaMod.renderGachaInv(),', 'gachaBonus: ()=>gachaMod.bonus(),'];
+    'gachaMod.renderGachaInv();', 'gachaMod.resetMemory();', 'gachaMod.startGacha()'];
   const callCode = code + '\n' + strip(PREG).replace(/gachaMod\(\)/g, 'gachaMod');   // 파츠 등록 창(admin-part-register.js)이 부르는 곳까지
   const miss = calls.filter(c => !callCode.includes(c));
   chk(!miss.length && (callCode.match(/gachaMod\.isGachaPart\(/g) || []).length === 5 && (callCode.match(/gachaMod\.pruneUnownedGachaParts\(\)/g) || []).length === 4,
-      '부르는 곳 — T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 옷장 받은 뒤 · 런처 · 로그아웃 · 👑 달성표(연동 pull 은 0.13 에서 걷음) (' + (miss[0] || '다 있음') + ')');
+      '부르는 곳 — T 키 · 꾸미기 색상 영역 · 파츠 등록 · 카탈로그 · 옷장 받은 뒤 · 런처 · 로그아웃 (' + (miss[0] || '다 있음') + ')');
   const off = (APP.match(/const GACHA_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   const used = [...new Set((code.match(/gachaMod\.(\w+)/g) || []).map(s => s.split('.')[1]))];
   chk(!/\bGACHA_OFF\b/.test(APP), '빈 껍데기 GACHA_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
