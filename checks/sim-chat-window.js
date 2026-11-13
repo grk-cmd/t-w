@@ -463,9 +463,9 @@ await sec('── 9. app.js 배선', () => {
   const defs = /function _wireChatWindow\(|function _bindChatDrag\(|function _bindChatResize\(|function _chatCloseMenus\(/;
   chk(!defs.test(code) && /function _wireChatWindow\(/.test(MOD) && /function _chatCloseMenus\(/.test(MOD), '대화창 배선 정의는 모듈에만');
   chk(/window\.TwChatWindow = api/.test(MOD) && (code.match(/TwChatWindow\.createChatWindow\(/g) || []).length === 1, '모듈은 window.TwChatWindow · 만드는 곳은 한 곳');
-  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎛️ 꾸미기 상세조정 패널 · 색 고르기 ═══ */');
+  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */');
   chk(iHead > 0 && iMk > iHead && iNext > iMk && /_selfFlyAfterDice\(\);\s*\n\}\s*\n\s*$/.test(APP.slice(iHead - 200, iHead)),
-    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎛️ 꾸미기 상세조정 앞');
+    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎨 텍스처 파츠 색조 셰이더 앞');
   const call = (APP.match(/TwChatWindow\.createChatWindow\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const FN = [['closeChatWindow', 'closeChatWindow'], ['chatWindowIsOpen', '_chatWindowIsOpen'], ['chatIsMinimized', '_chatIsMinimized'], ['setChatMinimized', '_setChatMinimized'],

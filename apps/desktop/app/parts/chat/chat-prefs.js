@@ -8,6 +8,8 @@
    ★ 밖에서 부르는 이름: _applyChatFontSize · _applyChatOpacity · _applyChatSfxUI · _chatDelClose · _chatDelOpen · _chatDelRefreshUI · _chatDelRun · _chatNotifyIncoming · _chatOffToggleClick · _demojiNotifyIncoming · _demojiSfxOn · _chatSfxOfficeLock · _chatSfxOn · _chatSfxPreview · _clampChatOpacity · _refreshChatMembers · _setChatFontSize · _setChatOpacity · _setChatSfxId · _setChatSfxOn · _setDemojiSfxOn — app.js 는 chatPrefsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwChatPrefs — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
+   ⚠️ 🗑 대화 기록 삭제(방장)는 서버에서 지워 되돌릴 수 없다 — 내 화면만 접는 [지우기](_chatClearNow)와 다르다.
+     표시 조건은 «_activeChannel === 2 + 방장» 하나다 — 늘리면 서로 어긋난다.
    검사: checks/sim-chat-prefs.js */
 (function(){
 

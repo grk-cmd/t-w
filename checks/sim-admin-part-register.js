@@ -101,8 +101,8 @@ async function judgeAll(src, app, html, ward = WARD){
     && VALUES.every(n => deps.some(d => new RegExp('^' + reEsc(n) + ': \\(\\)=>(?:[\\w$]+\\.)?' + reEsc(n) + '(?:\\(\\))?,$').test(d)))
     && deps.includes('seats,') && deps.includes('setSavedParts: (v)=>{ savedParts = v; },') && deps.some(d => /^setAdminPartActions: (wardrobeMod\.)?setAdminPartActions,$/.test(d)),
     'deps 42 — 함수 26 화살표 · 좌석 1 · 값 13 읽는 함수 · 쓰는 함수 1 · 꾸미기에 거는 함수 1 (' + deps.length + ')');
-  const h81 = app.indexOf('/* ═══ 🗂️ 카탈로그 파츠 페이로드 · 파츠 삭제(관리자) ═══ */'), h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
-  t(h81 > 0 && h82 > h81 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(두 구역 머리 아래)');
+  const h82 = app.indexOf('/* ═══ 🛠️ 파츠 · 책상 · 아이템 등록 모달(관리자) ═══ */');
+  t(h82 > 0 && app.indexOf('const adminPartReg =') > h82, '만드는 줄은 원래 자리(🛠️ 등록 모달 머리 아래)');
   /* app.js 를 공용 도우미로 되살려 읽으면 꾸미기 본문이 이미 app.js 글 안에 있다 — 그때는 wardrobe.js 를 따로 세지 않는다(두 번 세기 방지) */
   const W = /function renderWardrobe\(/.test(A) ? '' : strip(ward);
   /* 책상 세팅(creator/desk-setup.js)은 관리자 등록 창을 갈고리 _hooks.openDeskRegister 로 부른다(deps 로 받으면 순환) — 갈고리도 부르는 곳으로 센다 */
