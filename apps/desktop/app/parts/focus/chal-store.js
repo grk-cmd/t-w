@@ -169,8 +169,9 @@ function createChalStore(deps){
   let posting = false, postFailed = false, postShown = false;
   let claiming = false, claimFailed = false, claimShown = false;
   let boundary = { key: 0, tries: 0 };
+  let prevClaimIso = '';             // 지난 주 보상을 이미 살펴본 «이번 주» — 같은 주에서는 한 번만
   let prevMode = null;               // 🔁 실행 화면에 «들어간 때» 를 알아채는 직전 모드
-  let prev = { iso: '', load: 'idle', week: null };   // 지난 주(서랍에서 지난 주말 기록을 볼 때만)
+  let prev = { iso: '', load: 'idle', week: null, run: null };   // 지난 주(서랍에서 지난 주말 기록을 볼 때만)
   const changeFns = [], eventFns = [];
 
   function onChange(fn){ changeFns.push(fn); }
@@ -248,7 +249,7 @@ function createChalStore(deps){
       try{ res = await fetchInto(g, userOpened); }
       finally{ if(g === gen) loadRun = null; }
       if(g !== gen) return 'skipped';
-      if(res === 'ready'){ judge(); claimAll(); }
+      if(res === 'ready'){ judge(); claimAll(); claimPrevWeek(); }
       changed();
       return res;
     })();
@@ -419,6 +420,39 @@ function createChalStore(deps){
     const settle = /_SETTLE$/.test(slot);
     week.claimable = (week.claimable || []).filter((x) => x.slot !== slot && !(settle && x.slot === pairEarly(slot)));
   }
+  /* 지난 주 보상 — 주말 정산은 다음 주 월 06:00 에 열리고, 토 · 일에 앱을 안 켠 사람의 평일 정산도 새 주에 가서야 받는다.
+     서버 claimable 은 물은 주 것만 담으므로 새 주를 받은 뒤 지난 주를 한 번 받아 열린 칸을 받는다(받은 칸은 서버가 같은 답 — 되풀이해도 두 번 주지 않는다).
+     지난 주를 못 받으면 조용히 넘어간다(다음 새 주 · 다음 켤 때 다시). 0.12 에서 못 받고 남은 보상도 이 길로 받는다 */
+  function claimPrevWeek(){
+    if(!started || load !== 'ready' || !week) return;
+    const iso = weekBefore(week.isoWeek);
+    if(!iso || prevClaimIso === week.isoWeek) return;
+    prevClaimIso = week.isoWeek;
+    enqueue(async (g) => {
+      const w = await ensurePrev(false);
+      if(g !== gen) return { ok: false, reason: 'stale' };
+      if(!w){ prevClaimIso = ''; return { ok: false, reason: 'failed' }; }
+      for(const c of (w.claimable || []).slice()){
+        if(!(w.claimable || []).some((x) => x.slot === c.slot)) continue;
+        const r = await api.claimReward(code, iso, c.slot);
+        if(g !== gen) return { ok: false, reason: 'stale' };
+        if(r.status === 'ok'){
+          const phKey = c.slot.startsWith('WEEKDAY') ? 'wd' : 'we', settle = /_SETTLE$/.test(c.slot);
+          w.rewards = (w.rewards || []).filter((x) => x.slot !== c.slot).concat({ slot: c.slot, amount: r.amount });
+          w.claimable = (w.claimable || []).filter((x) => x.slot !== c.slot && !(settle && x.slot === pairEarly(c.slot)));
+          emit({ type: 'claimed', slot: c.slot, phKey, amount: r.amount, settle, early: 0, s: countOf(cellsOf(w, phKey, w.today.day, false), CELL.OK), cells: cellsOf(w, phKey, w.today.day, false), prev: true });
+        }else if(r.status === 'failed'){
+          const f = failOf(r.err);
+          if(f.kind === KIND.NOT_YET || f.kind === KIND.NOTHING) continue;
+          if(f.kind === KIND.PREMIUM){ lockPremium(); return { ok: false, reason: 'premium' }; }
+          if(!claimShown){ claimShown = true; notifyError('E-FOCUS-07', r.err); }
+          prevClaimIso = '';
+          return { ok: false, reason: 'failed' };
+        }else return { ok: false, reason: 'stale' };
+      }
+      return { ok: true };
+    });
+  }
   function claimAll(){
     if(!started || claiming || load !== 'ready' || !week || !(week.claimable || []).length) return Promise.resolve();
     claiming = true;
@@ -524,23 +558,31 @@ function createChalStore(deps){
   }
 
   /* ── 지난 주 — 서랍에서 지난 주말 기록을 눌렀을 때만 ── */
-  function loadPrev(userOpened){
-    if(!started || !week) return;
+  /* 지난 주 받기 — 한 번 받은 것은 같은 주 동안 들고 있고(서랍의 지난 주말 기록 · 지난 주 보상이 같이 쓴다) 받는 중에는 같은 약속을 돌려준다 */
+  function ensurePrev(userOpened){
+    if(!started || !week) return Promise.resolve(null);
     const iso = weekBefore(week.isoWeek);
-    if(!iso || (prev.iso === iso && (prev.load === 'ready' || prev.load === 'loading'))) return;
-    prev = { iso, load: 'loading', week: null };
+    if(!iso) return Promise.resolve(null);
+    if(prev.iso === iso && prev.load === 'ready') return Promise.resolve(prev.week);
+    if(prev.iso === iso && prev.load === 'loading') return prev.run;
     const g = gen;
-    changed();
-    api.fetchChallenge(code, iso).then((w) => {
-      if(g !== gen || prev.iso !== iso) return;
-      prev.week = w; prev.load = 'ready'; changed();
+    const mine = { iso, load: 'loading', week: null, run: null };
+    mine.run = api.fetchChallenge(code, iso).then((w) => {
+      if(g !== gen || prev !== mine) return null;
+      mine.week = w; mine.load = 'ready'; changed();
+      return w;
     }, (e) => {
-      if(g !== gen || prev.iso !== iso) return;
-      prev.load = 'failed';
+      if(g !== gen || prev !== mine) return null;
+      mine.load = 'failed';
       if(userOpened) notifyError('E-FOCUS-04', e);
       changed();
+      return null;
     });
+    prev = mine;
+    changed();
+    return mine.run;
   }
+  const loadPrev = (userOpened) => { ensurePrev(userOpened); };
 
   /* ── 읽기 — 화면이 그리는 한 벌 ── */
   function view(){
@@ -589,7 +631,7 @@ function createChalStore(deps){
     gen++;
     started = false; code = null; load = 'idle'; week = null; rec = null; dirty = false; loadRun = null; lane = Promise.resolve();
     posting = false; postFailed = false; postShown = false; claiming = false; claimFailed = false; claimShown = false;
-    boundary = { key: 0, tries: 0 }; prevMode = null; prev = { iso: '', load: 'idle', week: null };
+    boundary = { key: 0, tries: 0 }; prevClaimIso = ''; prevMode = null; prev = { iso: '', load: 'idle', week: null, run: null };
     api.reset();
     emit({ type: 'reset' });
     changed();

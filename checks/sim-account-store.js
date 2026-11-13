@@ -60,6 +60,7 @@ async function judge(S){
     chk(!bad.length, '이름이 tw. / tw_ / 옛 deskFriends. 로 시작한다' + (bad.length ? ' — ' + bad.join(' · ') : ''));
     chk(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2'].every((k) => M.MOVED_KEYS.includes(k)), '#582 의 포커스 오늘치 · 바탕화면 키가 옮긴 표에 있다');
     chk(['tw.pomo', 'tw.pomoRun'].every((k) => M.MOVED_KEYS.includes(k)), '★ 뽀모도로 설정 · 진행(tw.pomo · tw.pomoRun)이 옮긴 표에 있다 — 0.12 에서 올라온 PC 값이 계정 칸으로 간다(D5-6)');
+    chk(M.MOVED_KEYS.includes('tw.mobileKey'), '★ 폰 연결 키(tw.mobileKey)가 옮긴 표에 있다 — 0.12 에서 올라온 PC 값({ u, k })이 계정 칸으로 간다(D5-5)');
     const GONE = ['tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.starColor', 'tw.danceNotified', 'tw.danceNotifiedFix', 'tw.ideskNotified'];
     chk(GONE.every((k) => !M.ACCOUNT_KEYS.includes(k) && !M.MOVED_KEYS.includes(k) && !M.DEVICE_KEYS.includes(k)), '★ 서버가 원본이 된 옛 키 여섯(누적 · 마크 · 별 색 · 해금 안내 기록 셋)은 표에 없다 — 첫 실행이 지운다(D5-2)');
     chk(M.ACCOUNT_KEYS.includes('tw.focusPendingSec') && !M.MOVED_KEYS.includes('tw.focusPendingSec'), '★ 못 올린 집중 시간 tw.focusPendingSec 은 계정별 표에 있다(새 키 — 옮길 옛 값은 없다)');
@@ -374,8 +375,9 @@ const BREAKS = [
   ['STORE', "const todo = MOVED_KEYS.filter(k => !done.includes(k));", "const todo = MOVED_KEYS.slice();", '두 번 돎'],
   ['STORE', "try{ storage.removeItem(k); }catch(_){}\n      }\n      handled.push(k);", "}\n      handled.push(k);", '옮기고 PC 칸을 안 지움'],
   ['STORE', "catch(_){ continue; }   // 못 쓰면 옛 칸을 지우지 않고 다음에 다시", "catch(_){}", '못 써도 옛 칸을 지움'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 오늘 날짜 빠짐'],
-  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 뽀모도로 키 빠짐'],
+  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 오늘 날짜 빠짐'],
+  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 뽀모도로 키 빠짐'],
+  ['STORE', "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.mobileKey', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 폰 연결 키 빠짐'],
   ['STORE', "'tw.focusPendingSec',", "", '못 올린 집중 시간 키가 계정별 표에서 빠짐'],
   ['STORE', "  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", "  'tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", '걷은 옛 누적 키가 표에 되살아남'],
   ['TOTAL', "_day = _normDay(focusTotalStore.get(FOCUS_TODAY_DATE_KEY));", "_day = _normDay(localStorage.getItem(FOCUS_TODAY_DATE_KEY));", '오늘치를 다시 PC 칸에서 읽음'],

@@ -37,10 +37,14 @@ const week = (o) => Object.assign({
 function world(S, o){
   o = o || {};
   const P = S.P;
-  const W = { gets: [], puts: [], marks: [], claims: [], notes: [], events: [], store: new Map(), resets: [], timers: [], intervals: [], apiReset: 0, now: o.now || NOW0, premium: o.premium !== false, day: o.serverDay === undefined ? null : o.serverDay, rolled: 0, mode: 'run', changes: 0 };
+  const W = { prevGets: [], gets: [], puts: [], marks: [], claims: [], notes: [], events: [], store: new Map(), resets: [], timers: [], intervals: [], apiReset: 0, now: o.now || NOW0, premium: o.premium !== false, day: o.serverDay === undefined ? null : o.serverDay, rolled: 0, mode: 'run', changes: 0 };
   const defer = () => { const d = {}; d.p = new Promise((res, rej) => { d.res = res; d.rej = rej; }); return d; };
   const api = {
-    fetchChallenge: (uid, iso) => { const d = defer(); W.gets.push(Object.assign(d, { uid, iso })); return d.p; },
+    fetchChallenge: (uid, iso) => {
+      const d = defer();
+      if(iso && !o.prevManual){ W.prevGets.push({ uid, iso }); const pw = (o.prevWeek && o.prevWeek[iso]) || week({ isoWeek: iso, weekdayGoal: null, weekdayStartedOn: null, version: 0 }); d.res(pw); return d.p; }   // 지난 주 받기(보상 살펴보기)는 바로 답한다 — 손으로 푸는 것은 이번 주
+      W.gets.push(Object.assign(d, { uid, iso })); return d.p;
+    },
     saveChallenge: (uid, iso, body) => { const d = defer(); W.puts.push(Object.assign(d, { uid, iso, body })); return d.p; },
     markToday: (uid) => { const d = defer(); W.marks.push(Object.assign(d, { uid })); return d.p; },
     claimReward: (uid, iso, slot) => { const d = defer(); W.claims.push(Object.assign(d, { uid, iso, slot })); return d.p; },
@@ -339,7 +343,7 @@ async function judge(S){
   await W.tick();
   chk(W.gets.length === 2, '진척 쪽이 새 날을 먼저 알아도 이 주 답이 옛 것이면 다시 받는다');
   // 지난 주말 기록
-  W = world(S); await W.up();
+  W = world(S, { prevManual: true }); await W.up();
   W.mod.view(); const a0 = W.mod.arcView('we');
   chk(a0.state === 'loading' && W.gets.length === 2 && W.gets[1].iso === '2026-W45', '평일에 주말 기록을 보면 지난 주를 한 번 받는다(2026-W45)');
   W.mod.arcView('we');
@@ -348,6 +352,27 @@ async function judge(S){
   const a1 = W.mod.arcView('we');
   chk(a1.state === 'ready' && a1.cells.join() === '1,-2' && a1.s === 1 && a1.tickets === 2 && a1.range === '11/7 ~ 11/8', '  지난 주말 — ✓ ✗ · 달성 1일 · 보상 2회 · 범위');
   chk(W.mod.view().week.isoWeek === '2026-W46', '  이번 주 한 벌은 그대로(지난 주 답이 덮지 않는다)');
+
+  say('── 6b. 지난 주 보상');
+  W = world(S, { prevWeek: { '2026-W46': week({ isoWeek: '2026-W46', weekendGoal: FOCUS_GOAL, weekendStartedOn: '2026-11-14', claimable: [{ slot: 'WEEKEND_SETTLE', amount: 1 }, { slot: 'WEEKDAY_SETTLE', amount: 2 }] }) } });
+  W.day = today('2026-11-16', '2026-W47', ENDS + 3 * 86400000); W.start();
+  await W.ok(W.gets[0], week({ isoWeek: '2026-W47', today: W.day }));
+  chk(W.prevGets.length === 1 && W.prevGets[0].iso === '2026-W46', '★ 새 주를 받으면 지난 주(2026-W46)를 한 번 받는다(월 06:00 에 열리는 주말 정산 · 토 · 일에 앱을 안 켠 평일 정산)');
+  chk(W.claims.length === 1 && W.claims[0].iso === '2026-W46' && W.claims[0].slot === 'WEEKEND_SETTLE', '  지난 주 열린 칸을 지난 주 경로로 POST 한다');
+  W.claims[0].res({ status: 'failed', err: err('FOCUS_REWARD_NOT_YET') }); await flush();
+  chk(W.codes() === '' && W.claims.length === 2 && W.claims[1].slot === 'WEEKDAY_SETTLE', '  NOT_YET → 번호 0 · 다음 칸');
+  await W.ok(W.claims[1], { status: 'ok', amount: 2 });
+  chk(W.events.some((e) => e.type === 'claimed' && e.slot === 'WEEKDAY_SETTLE' && e.amount === 2 && e.prev === true) && W.codes() === '', '  받은 양은 서버 답 · 정산 알림');
+  W.mod.openDrawer(); await W.tick(5);
+  chk(W.prevGets.length === 1 && W.claims.length === 2, '  같은 주에서는 다시 살펴보지 않는다');
+  W = world(S, { prevWeek: { '2026-W46': week({ isoWeek: '2026-W46', claimable: [{ slot: 'WEEKEND_SETTLE', amount: 1 }] }) } });
+  W.day = today('2026-11-16', '2026-W47', ENDS + 3 * 86400000); W.start();
+  await W.ok(W.gets[0], week({ isoWeek: '2026-W47', today: W.day }));
+  W.claims[0].res({ status: 'failed', err: err('NETWORK') }); await flush();
+  chk(W.codes() === 'E-FOCUS-07' && W.claims.length === 1, '지난 주 보상 실패 → E-FOCUS-07 한 번 · 혼자 다시 안 보냄');
+  W = world(S, { api: (X) => ({ fetchChallenge: (u, iso) => { const d = {}; d.p = new Promise((a, b) => { d.res = a; d.rej = b; }); if(iso) X.prevGets.push({ iso }); else X.gets.push(d); if(iso) d.rej(Object.assign(new Error('x'), { code: 'NET' })); return d.p; }, saveChallenge: async () => ({ status: 'stale' }), markToday: async () => ({ status: 'stale' }), claimReward: async () => ({ status: 'stale' }), reset(){} }) });
+  W.day = today(); W.start(); await W.ok(W.gets[0], week()); await flush();
+  chk(W.mod.view().load === 'ready' && W.codes() === '', '지난 주를 못 받아도 이번 주 화면 · 번호 0(조용히)');
 
   say('── 7. 계정 바뀜 · 옛 기록 · 쌓기');
   W = world(S); W.day = today(); W.start(); W.reset();
@@ -409,6 +434,7 @@ async function judge(S){
     ["lane = p.then(() => {}, (e) => { console.warn('[달성표] 쓰기 줄 오류', e); });", "lane = Promise.resolve();", '쓰기 줄을 끊음(겹침)'],
     ["rec.posted || posting || postFailed", "rec.posted", '오늘 달성 하루 한 번 장치를 지움'],
     ["if(f.kind === KIND.CONFLICT){ await conflicted(g); return { ok: false, reason: 'conflict' }; }", "if(f.kind === KIND.CONFLICT){ return { ok: false, reason: 'conflict' }; }", '409 를 받아 오지 않음'],
+    ["judge(); claimAll(); claimPrevWeek(); }", "judge(); claimAll(); }", '지난 주 보상을 안 받음'],
     ["if(boundary.tries >= BOUNDARY_TRIES) return;", "", '하루 경계 다시 받기 한도를 지움'],
     ["if(f.kind === KIND.NOT_YET || f.kind === KIND.NOTHING){ week.claimable = week.claimable.filter((x) => x.slot !== c.slot); continue; }", "", 'NOT_YET 를 실패로 다룸'],
     ["return (t && now() < t.dayEndsAt) ? t : null;", "return t;", '서버 날 경계를 안 봄'],

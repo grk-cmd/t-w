@@ -2,18 +2,6 @@
 
 이 폴더 모듈의 책임 · deps · 함정. 아직 절이 없는 모듈은 파일 머리 주석이 정본이다.
 
-## mobile-diag.js — 📱 태블릿·폰 연결 진단 줄
-
-- **책임**: PC 가 받은 폰 신호(`mobileLink/{uid}/state`)를 기록하고, 설정 › 포커싱어플 칸에 쓸 한 줄을 만든다(순수 함수 · DOM · firebase 없음). «연동이 자꾸 풀린다» 제보를 캡처 한 장으로 가르려고 둔다.
-- **만드는 법**: 만들지 않는다 — 얼린 표 `window.TwMobileDiag`. app.js 가 `mobileDiag: TwMobileDiag` 로 focus-level.js 에 넘긴다.
-- **내보내는 것**: `empty()` · `next(기록, 사건)` → 새 기록 · `line(기록, 시각 글자?)` → `🔍 마지막 신호 14:02:10 열림(Procreate) · 그 전 … · 이번 실행 3번`.
-  - 사건: `{ kind:'state', v, first }`(구독으로 받은 값 · first = 처음 온 값이라 수에 안 넣음) · `{ kind:'reset', v }`(PC 를 켤 때 «켜짐» 을 내린 원래 값) · `{ kind:'live', has }`(PC 켜짐 표시).
-- **함정**
-  - 신호 하나 = ts(서버 시각). 같은 ts 가 다시 오면 새 신호가 아니다 — 부팅 초기화는 on 만 내려서 같은 ts 의 «꺼짐» 이 곧 온다.
-  - 읽기만 한다 — 켜짐 판정(`_mobileOn`)도, live 를 다시 거는 일도 하지 않는다. 진단으로 원인을 본 뒤 동작을 따로 고친다.
-  - 다른 키로 쓴 값은 세지 않는다(focus-level.js `_mobileStart`).
-  - 검사: `checks/sim-mobile-diag.js`(규칙 · 잇기를 실제로 돌림 · firebase-init 알림 자리).
-
 ## focus-gate.js — 😴 «투게더워킹 창이 앞이면 안 잠듦» 규칙
 
 - **책임**: 앞 창이 바뀔 때 포커싱 어플 게이트(`focusGateSleep`)를 어떻게 둘지, 게이트가 닫혔을 때 어떤 자세로 둘지 정한다. 순수 함수만 있고 DOM · firebase는 쓰지 않는다. 활성 창 처리(`_applyActiveAppState`)와 자세 판정(`seatState`)이 같은 판단을 쓰니까 한 곳에 둔다.
@@ -37,7 +25,7 @@
 
 **책임** — 레벨 · 회차 · 별 색은 서버가 준 값 그대로 들고(`load`: idle · loading · ready · failed), 이 PC 는 «아직 못 올린 초»(`pendingSec` · 계정 칸 `tw.focusPendingSec`)만 쌓아 정해진 때 한 번에 올린다. 앱이 누적에서 레벨을 다시 세지 않는다 — 레벨 막대만 `shownTotalSec()`(서버 누적 + 못 올린 몫).
 **deps** — `focusApi`(`createFocusApi`) · `focusStore`(계정 칸) · `notifyError` · `setServerDay`(서버 «오늘» → `focus-total.js`) · `addQuitListener`.
-**내놓는 것** — `startFocus(code, me, session)`(app-boot `focusLevel` 차례 — `session.onReset` 으로 reset) · `progress()` · `isReady()` · `getFocusLevel()` · `myFocusShow()` · `getStarColor()` · `setStarColor(hex)` · `shownTotalSec()` · `unsentSec()` · `addSeconds(sec)` · `focusEnded()` · `flushPending()`(로그아웃 올리기) · `reload(userOpened)` · `refreshDay()`(하루가 바뀐 때 새 날 한 번) · `legacyAccrue(sec)`(첫 실행의 옛 누적) · `onChange(fn)`.
+**내놓는 것** — `startFocus(code, me, session)`(app-boot `focusLevel` 차례 — `session.onReset` 으로 reset) · `progress()` · `isReady()` · `getFocusLevel()` · `myFocusShow()` · `getStarColor()` · `setStarColor(hex)` · `shownTotalSec()` · `unsentSec()` · `addSeconds(sec)` · `focusEnded()` · `flushPending()`(로그아웃 올리기) · `reload(userOpened)` · `whenReady()`(폰 키 만들기 · 끊기가 먼저 부른다 — 받는 중이면 기다리고 못 받았으면 한 번 더 받아 true/false) · `refreshDay()`(하루가 바뀐 때 새 날 한 번) · `legacyAccrue(sec)`(첫 실행의 옛 누적) · `onChange(fn)`.
 **올리는 때** — 주기 · 재시도 타이머 없음. ① 미전송분이 600초 칸을 넘을 때 ② 더해서 3600초(다음 레벨) 경계를 넘을 때 ③ 집중이 끝날 때(60초 이상) ④ 켤 때 · 로그아웃 올리기 · 앱 끄기. 실패하면 다음 때까지 기다린다.
 **함정**
 - 한 줄: 올리는 중이면 `again` 만 켠다. `sent` 를 잡고 답이 오면 `pendingSec -= sent` — 서버가 덜 받아도(`acceptedSec < sent`) 보낸 만큼 뺀다(서버 상한이 원본). 보내는 동안 쌓인 몫은 남는다.
@@ -53,6 +41,7 @@
 **상태** — `load`: idle · loading · ready · failed · locked(`PREMIUM_REQUIRED` — 실패 아님). 받기 전에는 쓰지도 판정하지도 않는다. 오늘 진행은 계정 칸 `tw.chalToday`(`{ day, sec, done, checks, anchor, fail, posted }` — 서버 날이 달라지면 새로 시작).
 **deps** — `chalApi`(`createFocusApi`) · `focusPure`(`TwFocusApi`) · `chalCell`(계정 칸) · `notifyError` · `premiumOn` · `serverDay` · `rolloverToday` · `now` · `appMode` · `addQuitListener`.
 **내놓는 것** — `startChal(code, me, session)` · `view()` · `arcView(단계)` · `start` · `edit` · `setAutoNext` · `giveUp` · `retryPost` · `claimNow` · `addFocusSec` · `check` · `repeatAnswer` · `openDrawer` · `reload` · `dayEnded` · `tick` · `adoptLegacyToday` · `flush` · `onChange` · `onEvent`. 순수 셈(`TwChalStore`): 날 글자 → 요일 · 단계 · 주의 월요일 · 지난 주 이름 · 칸 · 서버 목표 ↔ 화면 목표.
+**지난 주 보상** — 새 주를 받으면 지난 주를 한 번 받아 열린 칸(월 06:00 에 열리는 주말 정산 · 앱을 못 켠 토 · 일의 평일 정산 · 0.12 에서 못 받은 것)을 지난 주 경로로 받는다. 서버 `claimable` 은 물은 주 것만 담기 때문이다.
 **함정** — 409 는 덮지 않고 잠근 뒤 그 주를 받아 온다(다시 보내지 않음). 같은 하루 경계에서 이번 주를 다시 받는 것은 3번까지다(PC 시계가 서버보다 빠를 때). 목표를 «포기» 하면 목표를 지우지 않고 그 단계를 쉬게 한다 — 다음 주 자동 시작이 이어받는다. 20초 틱은 요청을 되풀이하지 않는다(판정 · 반복 알림 · 경계 훑기만).
 검사: `checks/sim-chal-store.js`.
 
@@ -66,9 +55,10 @@
 
 ## focus-level.js — ⭐ 레벨 표시 이름 · 오늘치 쌓기 · 태블릿
 
-**책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(D5-5 에서 서버 길로).
+**책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(서버 길 — 아래).
+**📱 폰 연결** — 폰 상태는 realtime `mobileFocus{ on, app, at }` 그대로(`startMobile(code, me, session)` 이 `onMessage` 를 걸고 1분 표시 틱을 세션 타이머로 둔다 · `ready` 뒤 서버가 4시간 안의 마지막을 다시 보내 주므로 따로 묻지 않는다). 4시간 상한은 `at`(서버 시각) 기준. 키는 서버가 만들고(`POST /v1/me/focus/mobile-link` · 원문은 그 답에만) 계정 칸 `tw.mobileKey` 에 둔다(QR 다시 보기 · 0.12 의 `{ u, k }` 도 읽음). 만들기 · 끊기(`DELETE`)는 읽은 진척의 주인과 묶이므로 `progress.whenReady()` 뒤에 부르고, 못 받았으면 요청 없이 `E-FOCUS-08` · `-09`. 단추는 끝날 때까지 잠근다.
 **함정** — Firebase 프로필 · 마크 · 해금 안내 우편은 걷었다(해금 안내는 서버 알림). 계정 확인 전에는 쌓지 않는다(`_focusTotalStarted`).
-검사: `checks/sim-focus-level.js`.
+검사: `checks/sim-focus-level.js`(모양) · `checks/sim-mobile-focus.js`(폰 연결 동작).
 
 ## focus-total.js — ⏱ 오늘 · 이번 실행 시간 · 서버 «오늘»
 
