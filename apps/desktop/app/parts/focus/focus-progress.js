@@ -10,7 +10,7 @@
    실패 알림: E-FOCUS-01(사용자가 연 창에서 다시 받다 실패) · E-FOCUS-02(올리기 실패 — 이어지면 한 번, 성공하면 풀림) · E-FOCUS-03(별 색 실패 — 이전 색으로 되돌림).
    deps: focusApi(focus-api.js createFocusApi) · focusStore(계정 칸 get/set/remove) · 오류 알림 함수(notifyError) · setServerDay(today) · addQuitListener(fn) · now 없음(시간으로 판단하는 것 없음)
    내놓는 것: startFocus(code, me, session) · progress() · isReady() · getFocusLevel() · myFocusShow() · getStarColor() · setStarColor(hex) · shownTotalSec() · unsentSec() ·
-     addSeconds(sec) · focusEnded() · flushPending() · reload(userOpened) · legacyAccrue(sec) · onChange(fn)
+     addSeconds(sec) · focusEnded() · flushPending() · reload(userOpened) · refreshDay() · legacyAccrue(sec) · onChange(fn)
    ⚠️ 전역 이름은 TwFocusProgress. 만들 때는 요청 · 구독 · 타이머를 하지 않는다 — 시작은 startFocus 한 번(app-boot).
    검사: checks/sim-focus-progress.js */
 (function(){
@@ -52,7 +52,7 @@ function createFocusProgress(deps){
   let reqSeq = 0, appliedSeq = 0;    // 요청 순번 — 더 나중에 보낸 쪽의 답만 진척을 바꾼다
   let busy = false, again = false, running = null;
   let failShown = false;             // E-FOCUS-02 를 이미 띄웠다(이어지는 실패는 안 띄움 · 성공하면 풀림)
-  let loadRun = null;
+  let loadRun = null, dayRun = null;
   let starBusy = false, starAgain = false, starWant = null;   // 별 색 — 보이는 값(starWant)과 서버가 확인한 값(p.starColor)
   const changeFns = [];
 
@@ -64,7 +64,10 @@ function createFocusProgress(deps){
 
   /* 서버 답을 진척으로 받는다 — 앞서 보낸 요청의 늦은 답이면 버린다 */
   function adopt(prog, seq){
-    if(seq < appliedSeq) return false;
+    if(seq < appliedSeq){
+      if(p && prog.totalSec > p.totalSec){ p.totalSec = prog.totalSec; p.level = prog.level; p.cycle = prog.cycle; p.cycleLevel = prog.cycleLevel; changed(); }   // 누적은 서버에서 줄지 않는다 — 늦게 온 답이 더 크면 그 몫은 받는다
+      return false;
+    }
     appliedSeq = seq;
     p = { totalSec: prog.totalSec, level: prog.level, cycle: prog.cycle, cycleLevel: prog.cycleLevel, starColor: prog.starColor };
     setServerDay(prog.today);
@@ -95,6 +98,23 @@ function createFocusProgress(deps){
       return res;
     })();
     return loadRun;
+  }
+  /* 하루가 바뀐 때(focus-total.js) — 새 날을 한 번 받는다. 받은 뒤에만(그 전엔 시작 받기가 새 날을 준다).
+     실패하면 failed 로만 두고 되풀이하지 않는다(설계 7절) — 번호 알림 없음 · 다음에 창을 열 때 다시 받는다 */
+  function refreshDay(){
+    if(!started || load !== 'ready' || dayRun) return dayRun || Promise.resolve();
+    const g = gen, seq = ++reqSeq;
+    dayRun = (async () => {
+      try{
+        const prog = await focusApi.fetchProgress(code);
+        if(g === gen && adopt(prog, seq)) changed();
+      }catch(e){
+        if(g === gen){ load = 'failed'; changed(); }
+      }finally{
+        if(g === gen) dayRun = null;
+      }
+    })();
+    return dayRun;
   }
   /* 내 정보 · 포커스 기록창을 열 때 — 못 받은 상태일 때만 다시 받는다(번호 알림 있음) */
   function reload(userOpened){
@@ -212,7 +232,7 @@ function createFocusProgress(deps){
         const r = await focusApi.setStarColor(code, want);
         if(g !== gen) return;
         if(r.status === 'ok'){
-          adopt(r.progress, seq);
+          if(!adopt(r.progress, seq) && p) p.starColor = r.progress.starColor;   // 늦게 온 답이어도 색은 이 답이 맞다(별 색 요청은 한 줄)
           if(!starAgain) starWant = null;
         }else{
           starWant = null;   // 서버가 아는 색으로 되돌린다
@@ -243,7 +263,7 @@ function createFocusProgress(deps){
   function reset(){
     gen++;
     started = false; load = 'idle'; p = null; pendingRaw = 0; code = null;
-    busy = false; again = false; running = null; loadRun = null;
+    busy = false; again = false; running = null; loadRun = null; dayRun = null;
     failShown = false; starBusy = false; starAgain = false; starWant = null;
     reqSeq = 0; appliedSeq = 0;
     setServerDay(null);
@@ -267,7 +287,7 @@ function createFocusProgress(deps){
 
   return {
     startFocus, progress, isReady, getFocusLevel, myFocusShow, getStarColor, setStarColor, shownTotalSec,
-    unsentSec: unsent, addSeconds, focusEnded, flushPending, reload, legacyAccrue, onChange,
+    unsentSec: unsent, addSeconds, focusEnded, flushPending, reload, refreshDay, legacyAccrue, onChange,
     STAR_PALETTE, PENDING_KEY,
   };
 }

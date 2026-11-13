@@ -17,13 +17,13 @@ const MOD = ["focus-level.js","parts/focus/focus-level.js","app/parts/focus/focu
 if(!MOD){ say('  ? 원본 못 찾음 — focus-level.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_focusDayStr","findMySeat","getMyUserId","toast"];
-const VAL_DEPS = ["focusLevelStore","progress","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","Presence","mobileDiag"];
-const GET_DEPS = ["_focusTotalStarted","_acctDetached","_focusSessionSec","_focusTodaySec","wdDraftDef"];
-const SET_DEPS = ["setFocusSessionSec","setFocusTodaySec"];
+const FN_DEPS = ["addFocusToday","findMySeat","getMyUserId","toast"];
+const VAL_DEPS = ["progress","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","Presence","mobileDiag"];
+const GET_DEPS = ["_focusTotalStarted","_acctDetached","_focusSessionSec","wdDraftDef"];
+const SET_DEPS = ["setFocusSessionSec"];
 const EXPORTS = ["STAR_PALETTE","_mobileBubbleText","_mobileCleanApp","_mobileOn","_mobileRoomLabel","_mobileStart","_seatMobileApp","addFocusSeconds","focusCycleOf","formatHMS","getFocusLevel","getStarColor","lvStarStr","myFocusShow","myStarOut","setStarColor","starFromRemote"];
 const MOVED = ["_lastPushedLevel","_lastPushedStar","_pushLevelIfChanged","DANCE_NOTIFIED_KEY","DANCE_REPAIR_KEY","_dancePending","_danceNotifiedSet","_danceRepairSet","_markDanceNotified","_danceMailExists","_danceUnlockPending","_notifyDanceUnlocks","IDESK_NOTIFIED_KEY","_ideskNotifiedSet","_notifyDeskUnlocks","addFocusSeconds","getFocusLevel","STAR_COLOR_KEY","STAR_PALETTE","_starColorOk","getStarColor","_starPicked","setStarColor","focusCycleOf","lvStarStr","myFocusShow","myStarOut","myStarProfileOut","_adoptStarColorFromProfile","starFromRemote","FOCUS_SYNCED_KEY","_focusSyncing","_focusSyncFailStreak","_focusSyncNoticed","_focusSyncRetryTimer","_focusSyncFailed","_focusLastSyncedVal","_setFocusSyncedMark","_getFocusSyncedMark","_hasFocusSyncedMark","syncFocusTotalToServer","FOCUS_SYNC_INTERVAL_MS","formatHMS","MOBILE_MAX_ON_MS","MOBILE_KEY_LS","MOBILE_APP_MAX","_mobileFocus","_mobileStop","_mobileNow","_mobileOn","_seatMobileApp","_mobileRoomLabel","_mobileBubbleText","_mobileCleanApp","_mobileGetKey","_mobileNewKey","_mobileLinkUrl","_mobileApplyState","_mobileChanged","_mobileStart","_mobRenderPanel","_mobDrawQr","_mobFillWindow","_mobMakeKey","_mobOpenWindow","_mobCloseWindow","_mobArm","_mobileWasOnTick"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  focusLevelStore: accountStoreMod,", "  progress: focusProgressMod,", "  _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),", "  FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,", "  FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,", "  FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,", "  FOCUS_TODAY_DATE_KEY: focusTotalMod.FOCUS_TODAY_DATE_KEY,", "  FOCUS_TODAY_SEC_KEY: focusTotalMod.FOCUS_TODAY_SEC_KEY,", "  Presence: Presence,", "  _acctDetached: ()=>acctStateMod._acctDetached(),", "  _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),", "  _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),", "  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),", "  findMySeat: (...a)=>findMySeat(...a),", "  getMyUserId: (...a)=>getMyUserId(...a),", "  mobileDiag: TwMobileDiag,", "  toast: (...a)=>toast(...a),", "  wdDraftDef: ()=>wardrobeMod.wdDraftDef(),", "  setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },", "  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },"];
+const GLUE = ["  progress: focusProgressMod,", "  _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),", "  FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,", "  FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,", "  FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,", "  Presence: Presence,", "  _acctDetached: ()=>acctStateMod._acctDetached(),", "  _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),", "  addFocusToday: (...a)=>focusTotalMod.addFocusToday(...a),", "  findMySeat: (...a)=>findMySeat(...a),", "  getMyUserId: (...a)=>getMyUserId(...a),", "  mobileDiag: TwMobileDiag,", "  toast: (...a)=>toast(...a),", "  wdDraftDef: ()=>wardrobeMod.wdDraftDef(),", "  setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -83,21 +83,19 @@ function runAdd(src, started){
   SET_DEPS.forEach(n => { deps[n] = () => {}; });
   deps.progress = { addSeconds: (x) => added.push(x), STAR_PALETTE: [['#ffd76a', '금']] };
   deps._focusTotalStarted = () => started;
-  deps.focusLevelStore = { get: (k) => (k in store ? store[k] : null), set: (k, v) => { store[k] = String(v); return true; } };
-  deps.FOCUS_TODAY_DATE_KEY = 'tw.focusTodayDate'; deps.FOCUS_TODAY_SEC_KEY = 'tw.focusTodaySec';
-  let today = 0; deps._focusDayStr = () => 'D'; deps._focusTodaySec = () => today; deps.setFocusTodaySec = (v) => { today = v; }; deps._focusSessionSec = () => 0;
+  const today = []; deps.addFocusToday = (x) => today.push(x); deps._focusSessionSec = () => 0;
   const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwFocusLevel;')(win, any, ls, fa, undefined);
   try{ api.createFocusLevel(deps).addFocusSeconds(3); }catch(_){ calls.push('throw'); }
-  return { calls, added, store };
+  return { calls, added, today };
 }
-const judgeAdd = (src) => { const a = runAdd(src, true), b = runAdd(src, false); return a.calls.length === 0 && a.added.join() === '3' && a.store['tw.focusTodaySec'] === '3' && b.added.length === 0 && !('tw.focusTodaySec' in b.store); };
+const judgeAdd = (src) => { const a = runAdd(src, true), b = runAdd(src, false); return a.calls.length === 0 && a.added.join() === '3' && a.today.join() === '3' && b.added.length === 0 && b.today.length === 0; };
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 쌓기 — 서버에 올릴 몫으로만 넘긴다');
-chk(judgeAdd(MOD), '계정 칸이 열린 뒤: 오늘치를 쓰고 3초를 미전송분에 넘긴다 · firebaseAPI 호출 0 · 열리기 전엔 아무것도 안 쌓는다');
+chk(judgeAdd(MOD), '계정 칸이 열린 뒤: 오늘 시간에 더하고 3초를 미전송분에 넘긴다 · firebaseAPI 호출 0 · 열리기 전엔 아무것도 안 쌓는다');
 chk(!/sendInboxMessage|setMyProfile|syncFocusTotal|fetchProfileStarC|tw\.starColor|focusSyncedSec|danceNotified|ideskNotified/.test(strip(MOD)), '걷은 Firebase 길 · 해금 우편 · 옛 키 이름이 코드에 없다');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
