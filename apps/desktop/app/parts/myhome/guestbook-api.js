@@ -4,6 +4,7 @@
    신원: 늘 토큰의 «나» — 글쓴이 · 박수 누른 사람은 본문에 싣지 않는다. 경로의 코드는 «어느 방명록인가» 하는 데이터 주소일 뿐이다.
      내 코드(uid)는 «읽은 토큰의 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · patch · del(…, { expectOwner }) → Promise<data>)
+         imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          warn(...a)(진단 로그)
    내보냄: createGuestbookApi(deps) → {
      fetchView(uid, owner) → Promise<{ entries:[{ id, name, text, ts, mine }](최신이 위), clap:{ count, img, emoji, todayLeft, dailyMax }, canWrite, version }>
@@ -41,16 +42,6 @@ const IMAGE_INVALID_CODE = 'IMAGE_INVALID';
 const TOO_LARGE_CODE = 'PAYLOAD_TOO_LARGE';
 const localError = (code) => Object.assign(new Error(code), { code, kind: 'request' });
 
-/* data:image/…;base64,… → { type, bytes }. 형식이 아니면 null */
-function parseDataUrl(u){
-  const m = /^data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]*)$/.exec(typeof u === 'string' ? u : '');
-  if(!m) return null;
-  let bin;
-  try{ bin = atob(m[2]); }catch(_){ return null; }
-  const bytes = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return { type: m[1], bytes };
-}
 const OWNER_CHANGED_CODE = 'OWNER_CHANGED';   // api-client.js — 쓰기 직전 토큰 주인이 읽을 때와 달라졌다
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
@@ -81,6 +72,7 @@ function viewOf(d){
 function createGuestbookApi(deps){
   const authed = deps.authed;
   const warn = deps.warn;
+  const imageBytes = deps.imageBytes;   // TwImageBytes — data: 그림 → 바이트 판정(shared/image-bytes.js)
   const owners = new Map();   // uid → 마지막으로 읽을 때 쓴 토큰의 주인
 
   async function read(uid, path){
@@ -139,9 +131,8 @@ function createGuestbookApi(deps){
     /* 박수 그림 올리기 — data: 그림 → POST /v1/me/images?purpose=clap(바이트 그대로) → { status, url?, err? }.
        형식 · 512KB 를 넘으면 요청 없이 failed(IMAGE_INVALID · PAYLOAD_TOO_LARGE). 서버 거절(400 IMAGE_INVALID · 413 · 415)·503 은 err 그대로 */
     async uploadImage(uid, dataUrl){
-      const img = parseDataUrl(dataUrl);
-      if(!img || IMAGE_TYPES.indexOf(img.type) < 0 || img.bytes.length === 0) return { status: 'failed', err: localError(IMAGE_INVALID_CODE) };
-      if(img.bytes.length > LIMITS.IMAGE_BYTES) return { status: 'failed', err: localError(TOO_LARGE_CODE) };
+      const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
+      if(!img.ok) return { status: 'failed', err: localError(img.why === 'large' ? TOO_LARGE_CODE : IMAGE_INVALID_CODE) };
       const r = await write(uid, '박수 그림 올리기', (o) => authed.post(PATHS.image, img.bytes, Object.assign({ rawType: img.type }, o)));
       if(r.status !== 'ok') return r;
       const url = isObj(r.data) && typeof r.data.url === 'string' ? r.data.url : '';

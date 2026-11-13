@@ -19,7 +19,7 @@ let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['scheduler.js', 'schedule-api.js', 'api-errors.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'account.js', 'myhome-init.js', 'myhome-visit.js'];
+const need = ['scheduler.js', 'schedule-api.js', 'image-bytes.js', 'api-errors.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'account.js', 'myhome-init.js', 'myhome-visit.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
@@ -120,6 +120,7 @@ function mkEnv(opt){
   const apiMod = {}; new Function('window', 'module', opt.apiSrc || SRC['schedule-api.js'])(apiMod, undefined);
   const scheduleApi = apiMod.TwScheduleApi.createScheduleApi({
     authed, newId: () => 'req-abcdefgh-' + authed.log.length,
+    imageBytes: (() => { const w = {}; new Function('window', 'module', SRC['image-bytes.js'])(w, undefined); return w.TwImageBytes; })(),
     warn: noop,
   });
   const errMod = {}; new Function('window', 'module', SRC['api-errors.js'])(errMod, undefined);
