@@ -51,10 +51,10 @@ function mkCtl(src, o){
     pin: async (room, id, on, clr) => { calls.push(['pin', room, id, on, clr.join()]); return { ok: true }; },
   };
   const M = loadWin(src, win).TwChatNotice;
-  const room = o.room === undefined ? 'SCRT-AB12' : o.room;
-  const c = M.createChatNotice({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => 'ME', roomCode: () => room, roomState: RS, provider, notifyError: (code) => errors.push(code) });
+  const cur = { room: o.room === undefined ? 'SCRT-AB12' : o.room };
+  const c = M.createChatNotice({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => 'ME', roomCode: () => cur.room, roomState: RS, provider, notifyError: (code) => errors.push(code) });
   c.onChange(() => { changes.n++; });
-  return { c, M, doc, calls, toasts, errors, changes, push: (raw) => cb(raw), counts: () => ({ subs, unsubs }), win };
+  return { c, M, doc, calls, toasts, errors, changes, push: (raw) => cb(raw), setRoom: (r) => { cur.room = r; }, calls2: calls, counts: () => ({ subs, unsubs }), win };
 }
 const NOW = new Date(2026, 10, 13, 9, 5).getTime();
 const RAW = { n1: { text: '첫 공지', ts: 100 }, n2: { text: '둘째 <b>공지</b>', ts: 300 }, n3: { text: '셋째', ts: 200, pin: true } };
@@ -157,6 +157,24 @@ async function judge(src, extra){
     t(/불러오지 못했어요/.test(ke.doc.els.chatNotices.innerHTML) && !/아직 공지가 없어요/.test(ke.doc.els.chatNotices.innerHTML), '읽기 실패는 «공지 없음» 이 아니라 «불러오지 못했어요» 로 그린다');
     ke.c.start(); await tick();
     t(ke.counts().subs === 2, '  끊긴 구독은 다음 start() 에서 다시 건다');
+    { const kh = mkCtl(src); kh.c.start(); kh.push(RAW); const pe = kh.doc.els.chatPin;
+      t(pe.classList.contains('on'), '고정 줄이 떠 있다');
+      pe._l.click[0]({ stopPropagation(){} });
+      t(!pe.classList.contains('on') && !kh.c.isActive(), '고정 줄을 누르면 숨는다(#공지 탭은 열리지 않는다)');
+      kh.push(RAW); t(!pe.classList.contains('on'), '  같은 공지가 다시 와도 숨은 채로 있다');
+      kh.push({ n3: { text: '셋째', ts: 200, pin: true, }, n1: { text: '첫 공지', ts: 100 } }); t(!pe.classList.contains('on'), '  다른 공지가 오더라도 고정된 그 공지가 같으면 숨은 채');
+      kh.push({ n3: { text: '셋째 고침', ts: 200, pin: true } }); t(pe.classList.contains('on'), '  고쳐진 공지 · 새로 고정한 공지는 다시 뜬다');
+      kh.c.stop(); kh.c.start(); kh.push(RAW); t(kh.doc.els.chatPin.classList.contains('on'), '  채팅창을 닫았다 열면 다시 뜬다'); }
+    /* 탭 · 방 · 창 상태 — 닫기 · 방이 바뀜 · 시크릿룸을 벗어남 */
+    { const ks = mkCtl(src); ks.c.start(); ks.push(RAW); ks.c.open(); const n0 = ks.changes.n;
+      ks.c.close(); t(!ks.c.isActive() && !ks.doc.els.chatWindow.classList.contains('notice-mode') && ks.changes.n > n0, '#공지 탭을 닫으면 보기에서 나오고 탭 줄 다시 그리기를 알린다');
+      ks.c.open(); ks.c.stop(); ks.c.start(); t(!ks.c.isActive() && !ks.doc.els.chatWindow.classList.contains('notice-mode'), '창을 닫았다 다시 열면 #공지 보기가 남지 않는다'); }
+    { const kb = mkCtl(src); kb.c.start(); kb.push(RAW); kb.c.start();
+      t(kb.counts().subs === 1 && kb.counts().unsubs === 0, '같은 방이면 다시 start() 해도 구독이 겹치지 않는다');
+      kb.setRoom('SCRT-ZZ99'); kb.c.start();
+      t(kb.counts().unsubs === 1 && kb.counts().subs === 2 && kb.calls2.filter((x) => x[0] === 'sub').pop()[1] === 'SCRT-ZZ99', '방이 바뀌면 옛 방 구독을 풀고 새 방을 건다');
+      kb.setRoom('WORK-AB12'); kb.c.start();
+      t(kb.counts().unsubs === 2 && kb.counts().subs === 2 && !kb.c.available() && kb.c.count() === 0, '시크릿룸을 벗어나면 구독을 풀고 다시 걸지 않는다'); }
     ke.push({}); t(/아직 공지가 없어요/.test(ke.doc.els.chatNotices.innerHTML), '  다시 받으면 정상(빈 목록은 «아직 공지가 없어요»)');
     /* 5절 일부 — net */
     if (extra) {
@@ -216,6 +234,7 @@ function wire(S){
   w(!ok1('WORK-AB12', 'n1', { text: '공지', ts: T }) && !ok1('ROOM-AB12', 'n1', { text: '공지', ts: T }), '  거절: 시크릿룸이 아닌 방');
   w(!ok1(SR, 'n21', { text: '공지', ts: T }) && !ok1(SR, 'n0', { text: '공지', ts: T }) && !ok1(SR, 'x1', { text: '공지', ts: T }), '  거절: n1~n20 밖의 칸 이름');
   w(!ok1(SR, 'n1', { text: long(301), ts: T }) && !ok1(SR, 'n1', { text: '', ts: T }) && !ok1(SR, 'n1', { text: 5, ts: T }) && !ok1(SR, 'n1', { ts: T }) && !ok1(SR, 'n1', { text: '공지' }) && !ok1(SR, 'n1', { text: '공지', ts: '1' }), '  거절: 301자 · 빈 글 · 글자 아님 · text 없음 · ts 없음 · ts 숫자 아님');
+  w(!ok1(SR, 'n1', { text: '공지', ts: 'x' }) && ok1(SR, 'n1', { text: '공지', ts: 0 }), '  ts 는 숫자여야 한다');
   w(!ok1(SR, 'n1', { text: '공지', ts: T, pin: false }) && !ok1(SR, 'n1', { text: '공지', ts: T, pin: 1 }), '  거절: pin 이 true 가 아닌 값(풀 때는 칸을 지운다)');
   w(!/import[^\n]*chat-notice-net/.test(S.fi) && /window\.TwChatNoticeNet\.createChatNoticeNet\(\{ db, ref, update, remove, set, onValue, off, runTransaction \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄만(전역 TwChatNoticeNet · 데이터 통로의 set · remove · onValue 를 그대로 넘김)');
   const H = S.html;
@@ -244,16 +263,22 @@ function wire(S){
 
   say('── 6. 일부러 깨 보기');
   const BREAKS = [
-    ['mod', "const p = (available() && !active) ? pinnedOf(items) : null;", "const p = pinnedOf(items);", '#공지 탭에서도 고정 줄이 겹쳐 보임'],
+    ['mod', "let p = (available() && !active) ? pinnedOf(items) : null;", "let p = pinnedOf(items);", '#공지 탭에서도 고정 줄이 겹쳐 보임'],
     ['mod', "if(!isHost()){ toast('방장만 공지를 쓸 수 있어요'); return true; }", '', '참여자도 공지를 쓸 수 있음'],
     ['mod', "const t = String(raw == null ? '' : raw).replace(/\\s+/g, ' ').trim();", "const t = String(raw == null ? '' : raw).trim();", '줄바꿈 · 연속 공백을 안 정리'],
+    ['mod', "    if(active){ active = false; changed(); }\n    paint();", "    paint();", '창을 닫아도 #공지 보기가 남음'],
+    ['mod', "if(!available()){ if(unsub || active || items.length) stop(); return; }", "if(!available()) return;", '시크릿룸을 벗어나도 구독이 남음'],
+    ['mod', "if(unsub && subRoom === room) { paint(); return; }", "if(unsub) { paint(); return; }", '방이 바뀌어도 옛 방을 계속 구독'],
+    ['mod', "active = false; editId = null; delId = null;\n    paint(); changed();", "active = false; editId = null; delId = null;\n    paint();", '탭을 닫아도 탭 줄을 안 다시 그림'],
+    ['mod', "hiddenSig = pinSig(p); paintPin();", "paintPin();", '고정 줄을 눌러도 안 숨음'],
+    ['mod', "if(p && pinSig(p) === hiddenSig) p = null;", "", '다시 그릴 때 숨김이 풀림'],
     ['mod', "if(t.length > TEXT_MAX) return", "if(t.length > TEXT_MAX + 1) return", '300자 경계가 하나 넘어감'],
     ['mod', "return out.sort((a, b) => (b.pin - a.pin) || (b.ts - a.ts) || (a.id < b.id ? -1 : 1));", "return out.sort((a, b) => (b.ts - a.ts) || (a.id < b.id ? -1 : 1));", '고정한 공지가 맨 위로 안 감'],
     ['mod', "return (items || []).filter(x => x.pin && x.id !== id).map(x => x.id);", "return [];", '새로 고정해도 옛 고정을 안 풂(둘 이상 고정)'],
     ['mod', "'<div class=\"cn-text\">' + (it.pin ? '<span class=\"cn-pinmark\">📌</span> ' : '') + escHtml(it.text) + '</div>'", "'<div class=\"cn-text\">' + (it.pin ? '<span class=\"cn-pinmark\">📌</span> ' : '') + it.text + '</div>'", '공지 글을 escape 없이 화면에 넣음'],
     ['mod', "    else if(name === 'del') askDelete(id);\n", "    else if(name === 'del') doDelete(id);\n", '지우기가 묻지 않고 바로 지움'],
     ['mod', "    inp.value = '';\n    provider.add(", "    provider.add(", '올린 뒤에도 입력칸이 안 비워짐'],
-    ['mod', "if(!(r && r.ok)){ inp.value = raw; failed(r); }", "if(!(r && r.ok)){ failed(r); }", '못 올렸는데 친 글을 안 돌려줌'],
+    ['mod', "if(!(r && r.ok)){ if(!inp.value) inp.value = raw; failed(r); }", "if(!(r && r.ok)){ failed(r); }", '못 올렸는데 친 글을 안 돌려줌'],
     ['mod', "loadFailed = true; unsub = null; paint();", "items = list(raw); paint();", '읽기 실패를 «공지 없음» 으로 그림'],
     ['mod', "loadFailed = true; unsub = null; paint();", "loadFailed = true; paint();", '끊긴 구독을 다시 걸지 않음'],
     ['net', "onValue(r, snap => cb(snap.val() || {}), () => cb(null));", "onValue(r, snap => cb(snap.val() || {}));", '읽기 거절을 알리지 않음'],

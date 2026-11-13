@@ -122,6 +122,7 @@ function createChatNotice(deps){
   let items = [];
   let unsub = null;
   let subRoom = null;
+  let hiddenSig = null;     // 고정 줄을 눌러 숨긴 공지(id · 시각 · 글) — 다른 공지를 고정하거나 고치면 다시 뜬다
   let loadFailed = false;   // 서버 읽기 실패 — «공지 없음» 과 다르게 그린다
   let active = false;     // #공지 탭을 보고 있다
   let editId = null;      // 고치는 중인 공지
@@ -143,12 +144,18 @@ function createChatNotice(deps){
     t.classList.toggle('long', over > 0);
     if(over > 0) t.style.setProperty('--cp-d', (-over - 4) + 'px');
   }
+  const pinSig = (p) => p.id + '|' + p.ts + '|' + p.text;
+  function hidePin(){
+    const p = pinnedOf(items); if(!p) return;
+    hiddenSig = pinSig(p); paintPin();
+  }
   function paintPin(){
     const el = $('chatPin'); if(!el) return;
-    const p = (available() && !active) ? pinnedOf(items) : null;
+    let p = (available() && !active) ? pinnedOf(items) : null;
+    if(p && pinSig(p) === hiddenSig) p = null;
     el.classList.toggle('on', !!p);
     if(!p){ el.textContent = ''; return; }
-    el.title = '공지 — 눌러서 공지 탭 열기';
+    el.title = '고정 공지 — 눌러서 숨기기 (공지 탭에서 다시 볼 수 있어요)';
     el.innerHTML = pinHtml(p, escHtml);
     measurePin();
   }
@@ -170,7 +177,7 @@ function createChatNotice(deps){
   /* 채팅창을 열 때 · 방이 바뀔 때 — 시크릿룸이면 공지를 구독한다(창이 열려 있는 동안만). */
   function stop(){
     if(unsub){ try{ unsub(); }catch(_){} unsub = null; }
-    subRoom = null; items = []; editId = null; delId = null; loadFailed = false;
+    subRoom = null; items = []; editId = null; delId = null; loadFailed = false; hiddenSig = null;
     if(active){ active = false; changed(); }
     paint();
   }
@@ -221,7 +228,7 @@ function createChatNotice(deps){
     const room = roomCode(); if(!room) return true;
     inp.value = '';
     provider.add(room, c.text).then(r => {
-      if(!(r && r.ok)){ inp.value = raw; failed(r); }
+      if(!(r && r.ok)){ if(!inp.value) inp.value = raw; failed(r); }
     }).catch(() => { inp.value = raw; failed(null); });
     return true;
   }
@@ -289,7 +296,7 @@ function createChatNotice(deps){
     if(pin){
       pin.addEventListener('mousedown', e => e.stopPropagation());
       pin.addEventListener('mouseenter', measurePin);   // 창이 숨어 있을 때 못 잰 길이를 올려 볼 때 다시
-      pin.addEventListener('click', e => { e.stopPropagation(); open(); });
+      pin.addEventListener('click', e => { e.stopPropagation(); hidePin(); });
     }
   }
   bind();
