@@ -36,7 +36,8 @@ function behave(fnSrc, gateSrc){
       const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
       const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;   // joinRenderer 는 옮기기 전 이름으로 되살린다
       const weeklyChal = { focusTick(){}, setKeyPlatform(){} };
-      let _focusLastTick = performance.now(), _focusWasActive = false, _selfAppActive = false;
+      const focusProgressMod = { focusEnded(){} };   // 집중 끝남 알림(서버 올리기) — 이 검사는 보지 않는다(sim-figure-mode · sim-focus-progress)
+      let _focusLastTick = performance.now(), _focusWasActive = false, _focusAccruedLast = false, _selfAppActive = false;
       const focusGate = (function(){ const window = {}; ${gateSrc}
 ; return window.TwFocusGate; })();
       ${fnSrc}

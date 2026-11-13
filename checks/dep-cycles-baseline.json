@@ -29,7 +29,6 @@
   "focus/exp-bar.js > room/overhead.js",
   "focus/focus-level.js > character/wardrobe-panel.js",
   "focus/focus-level.js > character/wardrobe.js",
-  "focus/focus-level.js > room/interaction-desk.js",
   "focus/focus-share.js > focus/pomodoro.js",
   "focus/pomodoro.js > focus/focus-share.js",
   "launcher/settings-panel.js > character/wardrobe.js",

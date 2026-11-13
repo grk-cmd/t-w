@@ -65,7 +65,8 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
       function addFocusSeconds(d){ env.added += d; }
       /* 👑 달성표는 weekly-challenge.js 모듈(앱 FSD 2번) — app.js 는 weeklyChal.focusTick · setKeyPlatform 으로 부른다 */
       const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(v){ env.plat = v; } };
-      let _focusLastTick = performance.now(), _focusWasActive = false, _selfAppActive = false;
+      const focusProgressMod = { focusEnded(){} };   // 집중 끝남 알림(서버 올리기) — 이 검사는 보지 않는다(sim-figure-mode · sim-focus-progress)
+      let _focusLastTick = performance.now(), _focusWasActive = false, _focusAccruedLast = false, _selfAppActive = false;
       const focusGate = (function(){ const window = {}; ${GATE}\n; return window.TwFocusGate; })();
       ${parts.join('\n')}
       this.api = { apply: _applyActiveAppState, on: _mobileOn, label: _mobileRoomLabel,

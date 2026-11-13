@@ -1,7 +1,7 @@
 /* session.js — 🔐 로그인 세션 하나 (검사 sim-session.js)
    로그인(계정 확인 통과)마다 세션을 새로 만든다. 계정 코드 · me · 계정 칸 열기 · 타이머 · 구독 · 비우기 훅을 세션이 쥐고,
    로그아웃 · 계정 바뀜은 dispose() 한 번으로 전부 멈추고 비운다. 다음 로그인은 새 세션 — 앞 세션의 것은 하나도 이어받지 않는다.
-   ⚠️ 아직 어떤 기능도 세션을 거치지 않는다(모양만 — launcher/app-boot.js 가 만들어 들고 있다). 기능을 옮기는 일은 다음 묶음. */
+   ⚠️ 세션을 받아 쓰는 기능은 아직 포커스 진척(focus-progress.js startFocus · onReset)뿐이다 — launcher/app-boot.js 가 만들어 들고 있다. 나머지 기능을 옮기는 일은 다음 묶음. */
 (function(){
 'use strict';
 

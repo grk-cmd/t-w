@@ -6,7 +6,7 @@
    로그인 필요 · 가입 필요 · 서버 안 됨이면 ③은 돌지 않는다. 계정이 바뀌었으면(switched) 앱을 다시 켜므로 그때도 돌지 않는다 — 다시 켠 뒤 새로 돈다.
    ★ 게이트가 이 모듈을 직접 부르지 않고 nav 로 부탁한다 — 이 모듈은 모든 계정 기능을 부르는 맨 위층이라, 아래 층(게이트)이 부르면 서로 부르는 순환이 된다(sim-dep-cycles).
    기능 모듈은 «만들기» 와 «시작» 을 나눠 내놓는다. 만들 때 요청 · 구독 · 타이머 · 계정 칸 읽기를 하지 않고, 시작은 여기서만 부른다.
-   ★ 이 모듈이 로그인 세션(shared/session.js)을 만들어 들고 있다(getSession) — 계정 칸 열기는 세션이 하고, 시작 함수는 세 번째 인자로 받는다. 아직 받아 쓰는 기능은 없다.
+   ★ 이 모듈이 로그인 세션(shared/session.js)을 만들어 들고 있다(getSession) — 계정 칸 열기는 세션이 하고, 시작 함수는 세 번째 인자로 받는다. 받아 쓰는 기능: focusLevel(startFocus — onReset).
    ★ 시작 함수는 한 번만 부른다 — begin 을 두 번 부르면 두 번째는 아무것도 안 하고 false(콘솔 경고).
    ★ 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 account.js 에 한 곳으로 있다 — 이 모듈은 건드리지 않는다. */
 (function(){
@@ -16,7 +16,7 @@
 const STEPS = [
   'focusTotal',      // 포커스 누적 읽기(계정 칸) — 아래 포커스 기능이 읽는 값이라 맨 먼저
   'focusShare',      // 📊 오늘 기록 전시(오늘치가 읽힌 뒤)
-  'focusLevel',      // 포커스 레벨 서버 맞추기(부팅 · 주기 · 닫힐 때)
+  'focusLevel',      // ⏱ 포커스 진척 받기 · 못 올린 집중 시간 올리기(focus-progress.js startFocus — 세션을 받아 쓴다)
   'weeklyChal',      // 👑 달성표 서버 맞추기
   'gacha',           // 🎰 가챠 보유분 서버 맞추기
   'closet',          // 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기
@@ -52,7 +52,7 @@ const starts = deps.starts;
   }
 
   let began = false;
-  let session = null;   // 이번 로그인의 세션 — 아직 받아 쓰는 기능은 없다(다음 묶음이 starts 의 세 번째 인자로 받는다)
+  let session = null;   // 이번 로그인의 세션 — 기능은 starts 의 세 번째 인자로 받는다
   /* 한 칸이 던져도 다음 칸은 돈다(기능끼리 서로 몰랐던 때와 같다) */
   function guard(label, fn){
     try{ Promise.resolve(fn()).catch((e)=>console.warn('[app-boot] ' + label + ' 실패', e)); }
