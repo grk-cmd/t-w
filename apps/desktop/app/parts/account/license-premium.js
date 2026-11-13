@@ -26,7 +26,7 @@ const EMPTY_KEY = '라이선스 키를 입력해 주세요';
  *   licenseApi: { mine: Function, register: Function, removeDevice: Function, reasonOf: (e: any) => string | null },
  *   deviceId: () => string, deviceName: () => string,
  *   setPremium: (v: boolean) => void, isPremium: () => boolean,
- *   rtOn: (kind: string, fn: Function) => Function, notifyError: (code: string, err: any) => unknown,
+ *   rtOn: (kind: string, fn: Function) => Function, resetKnown: () => void, notifyError: (code: string, err: any) => unknown,
  *   reasonOf: (e: any) => string, resetCustomStatus: () => void }} deps */
 function createLicensePremium(deps){
   const userApi = deps.userApi;
@@ -104,10 +104,12 @@ function createLicensePremium(deps){
     const k = String(key || '').trim().toUpperCase();
     if(!k) return { ok: false, reason: EMPTY_KEY };
     let l;
+    const g = gen;   // 쓰기를 기다리는 동안 reset 되면 옛 계정의 답을 버린다
     try{
       await licenseApi.mine();   // 읽은 토큰 주인에 쓰기를 묶는다(등록한 키가 다른 계정으로 가지 않게)
       l = await licenseApi.register(k, { id: deps.deviceId(), name: deps.deviceName() });
     }catch(e){ return { ok: false, err: e, reason: licenseApi.reasonOf(e) || deps.reasonOf(e) }; }   // err — 첫 실행 키 올리기가 서버 code · 로그인 풀림을 가른다
+    if(g !== gen) return { ok: false, stale: true, notified: true, reason: '' };
     notified = false;
     const premium = await fromWrite(l);
     return premium ? { ok: true } : { ok: false, registered: true, notified, reason: NOT_CONFIRMED };   // notified — 확인 실패 번호를 이미 띄웠다
@@ -115,10 +117,12 @@ function createLicensePremium(deps){
   /* 이 기기에서 해제 — 서버 목록에서 이 기기를 뺀다(다른 기기 · 키는 그대로). 돌려주는 것 { ok, reason? } */
   async function deactivate(){
     let after = null;
+    const g = gen;
     try{
       const lic = await licenseApi.mine();
       if(lic) after = await licenseApi.removeDevice(deps.deviceId());
     }catch(e){ return { ok: false, err: e, reason: licenseApi.reasonOf(e) || deps.reasonOf(e) }; }
+    if(g !== gen) return { ok: false, stale: true, reason: '' };
     deps.resetCustomStatus();
     await fromWrite(after);
     return { ok: true };

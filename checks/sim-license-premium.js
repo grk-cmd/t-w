@@ -39,7 +39,7 @@ function env(src, o){
     mine: async () => { e.calls.push('mine'); const v = typeof o.mine === 'function' ? o.mine() : o.mine; if(v instanceof Error) throw v; return v === undefined ? null : v; },
     putDevice: async (id, name) => { e.calls.push('put:' + id + ':' + name); return lic([id]); },   // 앱은 부르지 않는다 — 불리면 «자동 등록 없음» 판정이 빨강
     /* o.regPremium · o.remPremium — 쓰기 응답의 premium(이 기기 판정). 주지 않으면 칸 없음(«모름» — 옛 서버) */
-    register: async (key, dev) => { e.calls.push('register:' + key + ':' + dev.id + ':' + dev.name); if(o.register instanceof Error) throw o.register; if(o.onRegister) o.onRegister(e); return withPremium(lic([dev.id]), o.regPremium); },
+    register: async (key, dev) => { e.calls.push('register:' + key + ':' + dev.id + ':' + dev.name); if(o.register instanceof Error) throw o.register; if(o.onRegister) await o.onRegister(e); return withPremium(lic([dev.id]), o.regPremium); },
     removeDevice: async (id) => { e.calls.push('remove:' + id); if(o.remove instanceof Error) throw o.remove; return withPremium(lic([]), o.remPremium); },
     reasonOf: (err) => (err && err.code === 'LICENSE_OWNED_BY_OTHER' ? '이미 다른 계정에 등록된 키예요' : null),
   };
@@ -127,6 +127,10 @@ async function judge(S){
     const lastLoud = e.notes.length;
     e.push(); await tick(); await tick(); await tick();
     t(e.notes.length === lastLoud, '  ↳ 그 뒤 알림으로 받다 실패하면 번호 안 늘어난다(동작 뒤 한 번뿐)');
+
+    e = env(LP, { me: [ME(true)], mine: null, regPremium: true, onRegister: (x) => { x.mod.reset(); } });
+    const us = await e.mod.activate('KEY');
+    t(us.ok === false && us.stale === true && e.sets.length === 0 && e.notes.length === 0, '★ 키 등록 응답을 기다리는 동안 reset → 옛 계정의 쓰기 답은 반영 0 · 번호 0');
 
     e = env(LP, { me: [apiErr(401, 'AUTH_REQUIRED', 'auth')], mine: null });
     const ua = await e.mod.activate('KEY');
@@ -276,6 +280,7 @@ async function judge(S){
     ['알림이 겹치면 요청이 쌓임', mut('LP', (s) => s.replace("if(running){ again = true; return running; }", ""))],
     ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again && g === gen){ again = false; r = await once(null, g); }", ""))],
     ['신호 실패에도 번호를 띄움', mut('LP', (s) => s.replace("if(!loud) return;", ""))],
+    ['쓰기 응답이 reset 뒤에도 반영됨', mut('LP', (s) => s.replace("if(g !== gen) return { ok: false, stale: true, notified: true, reason: '' };", ""))],
     ['reset 이 알림 구독을 안 풂', mut('LP', (s) => s.replace("if(unsub){ try{ unsub(); }catch(_){} }", ""))],
     ['reset 뒤 옛 답을 반영', mut('LP', (s) => s.replace("if(!me || g !== gen) return isPremium();", "if(!me) return isPremium();"))],
     ['reset 이 모름으로 안 되돌림', mut('LP', (s) => s.replace("deps.resetKnown();", ""))],

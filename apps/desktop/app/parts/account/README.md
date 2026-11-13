@@ -15,8 +15,8 @@
 ## license-api.js · license-premium.js — 프리미엄 판정(classic script `window.TwLicenseApi` · `window.TwLicensePremium`)
 - 책임: 프리미엄은 서버가 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 로 판정한다. `license-api.js` 는 내 라이선스 · 기기 · 라이선스 요청 길(`/v1/me/license*`) 한 벌,
   `license-premium.js` 는 서버 확인(`GET /v1/me` 의 `premium`)을 `isPremium` 에 반영하고 키 등록 · 이 기기 해제를 한다. 이 PC 의 키(`tw.licenseKey`)로 미리 켜지도, 24시간 유예로 버티지도 않는다.
-- deps(license-premium): `userApi` · `licenseApi` · `deviceId` · `deviceName` · `setPremium`(account-state `_setPremium` — 바꾸는 곳은 이 한 곳) · `isPremium` · `rtOn` · `notifyError` · `reasonOf` · `resetCustomStatus`.
-- 내놓는 것: `start(me)`(켜는 차례 licensePremium — 받아 둔 확인으로 반영 + `license` 알림 걸기) · `refresh()` · `activate(key)` · `deactivate()` → `{ ok, reason? }`.
+- deps(license-premium): `userApi` · `licenseApi` · `deviceId` · `deviceName` · `setPremium`(account-state `_setPremium` — 바꾸는 곳은 이 한 곳) · `isPremium` · `rtOn`(해제 함수를 돌려줌) · `resetKnown`(account-state `resetPremium` — «모름» 으로 되돌림) · `notifyError` · `reasonOf` · `resetCustomStatus`.
+- 내놓는 것: `start(me)`(켜는 차례 licensePremium — 받아 둔 확인으로 반영 + `license` 알림 걸기) · `refresh()` · `activate(key)` · `deactivate()` → `{ ok, reason? }` · `reset()`(알림 구독을 풀고 gen 을 올려 늦은 답을 버림 · «모름» 으로 — S-4 세션 dispose 가 부를 자리). E-LIC-01 은 사용자가 누른 동작 뒤 확인 실패만.
 - 함정:
   - 프리미엄은 **GET /v1/me 응답과 라이선스 쓰기(키 등록 · 이 기기 해제) 응답의 `premium`** 에서만 반영한다(쓰기 하나 = 요청 하나 — 응답에 `premium` 이 없으면 GET /v1/me 를 한 번 더). `PATCH /v1/me` 같은 다른 쓰기 응답은 따르지 않는다. 확인이 도는 중에 쓰기 응답이 오면 끝난 뒤 한 번 더 묻는다(늦은 옛 답이 덮지 않게).
   - 내 라이선스 모양에 `premium`(이 기기 판정) · `deviceLimit`(기기 상한 — 앱에 숫자를 박지 않는다)이 있다. 없거나 모양이 틀리면 `null`(«모름»).

@@ -175,7 +175,7 @@
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 315 | **5b8cf9066189** |
 | **sim-license-api.js** | 169 | **2a45f234de43** |
-| **sim-license-premium.js** | 298 | **5aa1b2172350** |
+| **sim-license-premium.js** | 298 | **8e438196c154** |
 | **sim-mh-sanitize.js** | 216 | **9d3c299cd46e** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
