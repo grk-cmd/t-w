@@ -113,10 +113,10 @@
 | `E-FOCUS-01` | 포커스 기록을 불러오지 못했어요 | `focus/focus-progress.js` — 서버 진척 받기 실패(GET /v1/me/focus) · 내 정보 · 포커스 기록창을 열 때 못 받은 상태면 다시 받다 실패한 때만 알림(시작 때의 실패는 조용히 «못 불러옴» 상태) |
 | `E-FOCUS-02` | 집중 시간을 서버에 올리지 못했어요 — 다음에 같이 올릴게요 | `focus/focus-progress.js` — 집중 시간 올리기 실패(POST /v1/me/focus/accruals) · 이어지는 같은 실패는 한 번만(성공하면 풀림) · 혼자 다시 보내지 않고 다음 올리는 때(10분 · 레벨 경계 · 집중 끝 · 로그아웃 · 켤 때)에 |
 | `E-FOCUS-03` | 별 색을 저장하지 못했어요 | `focus/focus-progress.js` — 별 색 저장 실패(PATCH /v1/me/focus) · 서버가 아는 이전 색으로 되돌림 |
-| `E-FOCUS-04` | 달성표를 불러오지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 달성표 서랍 · 다음 주 칸 열기(GET /v1/me/focus/challenges/{주}) |
-| `E-FOCUS-05` | 달성표를 저장하지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 달성표 목표 · 자동 · 쉬기 저장(PUT /v1/me/focus/challenges/{주}) |
-| `E-FOCUS-06` | 오늘 달성을 적지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 오늘 달성 적기(POST /v1/me/focus/challenges/today) |
-| `E-FOCUS-07` | 달성표 보상을 받지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 보상 칸 받기(POST /v1/me/focus/challenges/{주}/rewards/{칸}) |
+| `E-FOCUS-04` | 달성표를 불러오지 못했어요 | `focus/chal-store.js` — 달성표 받기 실패(GET /v1/me/focus/challenges/current · 지난 주) · 사용자가 서랍을 열거나 [다시 시도] 할 때만 알림(시작 · 하루 경계의 실패는 조용히 «못 불러옴») |
+| `E-FOCUS-05` | 달성표를 저장하지 못했어요 | `focus/chal-store.js` — 달성표 시작 · 수정 · 자동 · 포기 저장 실패(PUT /v1/me/focus/challenges/{주} — 409 는 번호 없이 받아 와서 알림) |
+| `E-FOCUS-06` | 오늘 달성을 적지 못했어요 | `focus/chal-store.js` — 오늘 달성 적기 실패(POST /v1/me/focus/challenges/today) · 이어지는 같은 실패는 한 번 · 혼자 다시 보내지 않고 서랍 [다시 적기] 로 |
+| `E-FOCUS-07` | 달성표 보상을 받지 못했어요 | `focus/chal-store.js` — 보상 칸 받기 실패(POST /v1/me/focus/challenges/{주}/rewards/{칸}) · NOT_YET · NOTHING 은 조용히 · 이어지는 같은 실패는 한 번 · 서랍 [보상 받기] 로 |
 | `E-FOCUS-08` | 폰 연결 키를 만들지 못했어요 | `focus/focus-api.js` 길 — 폰 연결 새 키 만들기(POST /v1/me/focus/mobile-link) |
 | `E-FOCUS-09` | 폰 연결을 끊지 못했어요 | `focus/focus-api.js` 길 — 폰 연결 끊기(DELETE /v1/me/focus/mobile-link) |
 | `E-BUG-01` | 제보 목록을 불러오지 못했어요 | `support/bug-board-ui.js` — 버그제보 탭 목록 · 필터 · [다음]/[이전] · [다시 시도](`GET /v1/bugs` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · «목록을 불러오지 못했어요 [다시 시도]» · 다시 보내지 않음 · 공지 받기 실패는 번호 없이 공지 칸만 비움) |

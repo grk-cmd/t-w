@@ -1,7 +1,6 @@
 /* focus-total.js — ⏱️ 오늘 · 이번 실행 시간 — 오늘 시간의 날 경계는 서버 날(`today.day` · `dayEndsAt`)
    책임: 오늘 시간 · 이번 실행 시간 · 서버 «오늘» 들고 있기 · 하루가 바뀔 때 알리기(onDayEnd). 누적 · 레벨은 서버 값(focus-progress.js).
-   ★ 밖에서 부르는 이름: DAY_START_HOUR · FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · _dayShifted · _focusDayStr · _focusSessionSec · _focusTodaySec · serverDay · setServerDay · addFocusToday · onDayEnd · _rolloverFocusToday · _todayStr — app.js 는 focusTotalMod.이름 으로 부른다.
-   ⚠️ _dayShifted · _focusDayStr · DAY_START_HOUR 는 달성표가 아직 쓰는 앱 날짜 셈이다(D5-4 에서 걷음) — 오늘 시간에는 쓰지 않는다.
+   ★ 밖에서 부르는 이름: FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · _focusSessionSec · _focusTodaySec · serverDay · setServerDay · addFocusToday · onDayEnd · _rolloverFocusToday · _todayStr — app.js 는 focusTotalMod.이름 으로 부른다.
    ⚠️ 전역 이름은 TwFocusTotal — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-focus-total.js · sim-focus-day.js */
 (function(){
@@ -31,15 +30,6 @@ const FOCUS_CYCLE_SEC     = FOCUS_LEVEL_CAP_HOURS*3600;        // 999시간 = �
 const FOCUS_CYCLE_CAP     = 100;                               // 열어 둔 회차 수
 const FOCUS_TOTAL_CAP_SEC = FOCUS_CYCLE_SEC*FOCUS_CYCLE_CAP;   // 359,640,000초 = 99,900시간
 function _todayStr(){ const d=new Date(); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-/* 달성표(weekly-challenge.js)가 아직 쓰는 앱 날짜 셈 — D5-4 에서 서버 날로 바꾸고 걷는다. 오늘 시간은 쓰지 않는다. */
-const DAY_START_HOUR = 6;
-function _dayShifted(when){
-  const d = new Date(when == null ? Date.now() : when);
-  d.setHours(d.getHours() - DAY_START_HOUR);
-  return d;
-}
-function _focusDayStr(when){ const d=_dayShifted(when); return d.getFullYear()+'-'+(d.getMonth()+1)+'-'+d.getDate(); }
-
 /* 오늘 시간의 날 — 서버가 준 날 글자(`today.day`)를 그대로 쓴다. 하루가 바뀌는 때도 서버가 준 `dayEndsAt` 이다(한국 06:00).
    앱이 날짜를 셈하지 않는다 — PC 시간대가 달라도 하루는 서버 날에 맞는다.
    · 서버 답 전: 계정 칸에 적어 둔 날 · 초를 그대로 보인다(날이 달라졌으면 답이 오는 순간 0 으로)
@@ -103,15 +93,12 @@ function startFocusTotal(){
 return {
   startFocusTotal,
   _focusTotalStarted: ()=>_focusTotalStarted,   // 읽는 함수
-  DAY_START_HOUR,
   FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC,
   FOCUS_LEVEL_CAP_HOURS,
   FOCUS_TODAY_DATE_KEY,
   FOCUS_TODAY_SEC_KEY,
   FOCUS_TOTAL_CAP_SEC,
-  _dayShifted,
-  _focusDayStr,
   _focusSessionSec: ()=>_focusSessionSec,   // 읽는 함수
   setFocusSessionSec: (v)=>{ _focusSessionSec = v; },   // 쓰는 함수 — app.js 가 비운다
   _focusTodaySec: ()=>_focusTodaySec,   // 읽는 함수

@@ -1,7 +1,7 @@
 /* ═══ ⏱️ sim-focus-total.js — ⏱️ 포커스 누적 모듈 구조 (2026-10-14 신설 · 앱 FSD 45번) ═══════════════
    app.js 의 포커스 누적 구역 본문 을 parts/focus/focus-total.js 로 옮겼다(글자 그대로 · 바뀐 줄 0 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(포커스 누적 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DAY_START_HOUR · FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · _dayShifted · _focusDayStr · _focusSessionSec · setFocusSessionSec · _focusTodaySec · setFocusTodaySec · serverDay · setServerDay · _rolloverFocusToday · addFocusToday · onDayEnd · _todayStr)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · _focusSessionSec · setFocusSessionSec · _focusTodaySec · setFocusTodaySec · serverDay · setServerDay · _rolloverFocusToday · addFocusToday · onDayEnd · _todayStr)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 0줄 그대로 · 부르는 곳은 focusTotalMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · focus-total.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -21,7 +21,7 @@ const FN_DEPS = [];
 const VAL_DEPS = ["focusTotalStore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["startFocusTotal","_focusTotalStarted","DAY_START_HOUR","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","_dayShifted","_focusDayStr","_focusSessionSec","setFocusSessionSec","_focusTodaySec","setFocusTodaySec","serverDay","setServerDay","_rolloverFocusToday","addFocusToday","onDayEnd","_todayStr"];
+const EXPORTS = ["startFocusTotal","_focusTotalStarted","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","_focusSessionSec","setFocusSessionSec","_focusTodaySec","setFocusTodaySec","serverDay","setServerDay","_rolloverFocusToday","addFocusToday","onDayEnd","_todayStr"];
 const MOVED = ["FOCUS_TOTAL_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TODAY_DATE_KEY","FOCUS_LEVEL_CAP_HOURS","FOCUS_CYCLE_SEC","FOCUS_CYCLE_CAP","FOCUS_TOTAL_CAP_SEC","_todayStr","DAY_START_HOUR","_dayShifted","_focusDayStr","_focusMigrateDayKey","_loadFocusTotalSec","_loadFocusTodaySec","_focusTodaySec","_focusSessionSec","_rolloverFocusToday"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  focusTotalStore: accountStoreMod,"];
 

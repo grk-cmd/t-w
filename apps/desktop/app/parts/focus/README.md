@@ -35,6 +35,24 @@
 - 번호: `E-FOCUS-01`(사용자가 연 창에서 다시 받기 실패) · `-02`(올리기 실패 — 이어지면 한 번) · `-03`(별 색 실패 — 이전 색으로).
 검사: `checks/sim-focus-progress.js`.
 
+## chal-store.js — 👑 달성표 상태(서버 한 주 한 벌)
+
+**책임** — 이번 주 한 벌(`GET …/challenges/current`)을 받아 들고, 쓰기 셋(PUT 한 벌 · POST 오늘 달성 · POST 보상 칸)을 **주 한 줄**로 세워 보내고, «오늘 목표를 채웠나»(이 PC 만 아는 앱 사용 시간 · 🔁 [했다] · 📋 체크)를 판정하고, 서버가 열어 준 보상 칸(`claimable`)을 받는다. 오늘 · 주 · 단계 · 보상 양 · 쉬는 날 · «안 센 날» · 다음 날 목표 적용은 모두 서버 값이다.
+**상태** — `load`: idle · loading · ready · failed · locked(`PREMIUM_REQUIRED` — 실패 아님). 받기 전에는 쓰지도 판정하지도 않는다. 오늘 진행은 계정 칸 `tw.chalToday`(`{ day, sec, done, checks, anchor, fail, posted }` — 서버 날이 달라지면 새로 시작).
+**deps** — `chalApi`(`createFocusApi`) · `focusPure`(`TwFocusApi`) · `chalCell`(계정 칸) · `notifyError` · `premiumOn` · `serverDay` · `rolloverToday` · `now` · `appMode` · `addQuitListener`.
+**내놓는 것** — `startChal(code, me, session)` · `view()` · `arcView(단계)` · `start` · `edit` · `setAutoNext` · `giveUp` · `retryPost` · `claimNow` · `addFocusSec` · `check` · `repeatAnswer` · `openDrawer` · `reload` · `dayEnded` · `tick` · `adoptLegacyToday` · `flush` · `onChange` · `onEvent`. 순수 셈(`TwChalStore`): 날 글자 → 요일 · 단계 · 주의 월요일 · 지난 주 이름 · 칸 · 서버 목표 ↔ 화면 목표.
+**지난 주 보상** — 새 주를 받으면 지난 주를 한 번 받아 열린 칸(월 06:00 에 열리는 주말 정산 · 앱을 못 켠 토 · 일의 평일 정산 · 0.12 에서 못 받은 것)을 지난 주 경로로 받는다. 서버 `claimable` 은 물은 주 것만 담기 때문이다.
+**함정** — 409 는 덮지 않고 잠근 뒤 그 주를 받아 온다(다시 보내지 않음). 같은 하루 경계에서 이번 주를 다시 받는 것은 3번까지다(PC 시계가 서버보다 빠를 때). 목표를 «포기» 하면 목표를 지우지 않고 그 단계를 쉬게 한다 — 다음 주 자동 시작이 이어받는다. 20초 틱은 요청을 되풀이하지 않는다(판정 · 반복 알림 · 경계 훑기만).
+검사: `checks/sim-chal-store.js`.
+
+## weekly-challenge.js — 👑 달성표 화면
+
+**책임** — 서랍(불러오는 중 · 못 불러옴 [다시 시도] · 프리미엄 잠김 · 종류 고르기 · 설정 · 진행 중 · 지난 기록) · 팝업(🔁 반복 · 🏅 정산) · 🎯 집중 시간 쌓기(판정 키가 맞을 때만 `store.addFocusSec`). 상태는 `chal-store.js`.
+**deps** — `chalStore` · `toast` · `escHtml` · `formatHMS` · `premiumOn` · `appMode`. app.js 가 저장소를 먼저 만들어 넘긴다.
+**내놓는 것** — `startChallenge` · `dayEnded` · `flush` · `open` · `isOpen` · `focusTick` · `setKeyPlatform` · `calc`.
+**함정** — 설정 화면은 틱이 다시 그리지 않는다(입력 중 글자가 사라짐). 서버에 못 적은 것은 서랍 버튼으로만 다시 보낸다(`[다시 적기]` · `[보상 받기]`). `_chalKeysOf` 는 `main.js keysOf` 와 같은 규칙의 한 벌이다(`sim-keysof-twin.js`).
+검사: `checks/sim-weekly-challenge.js`.
+
 ## focus-level.js — ⭐ 레벨 표시 이름 · 오늘치 쌓기 · 태블릿
 
 **책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(서버 길 — 아래).
@@ -46,5 +64,5 @@
 
 **책임** — 오늘 시간(계정 칸 `tw.focusTodaySec` · `tw.focusTodayDate`) · 이번 실행 시간 · 진척 답이 준 서버 «오늘»(`serverDay()` — `{ day, isoWeek, dayEndsAt }`). 누적은 서버 값이라 여기 없다.
 **하루 경계** — 앱이 날짜를 셈하지 않는다. 날 글자는 서버 `today.day`, 오늘 시간이 0 으로 돌아가는 때는 서버 `dayEndsAt`(한국 06:00 — PC 시간대와 무관). 지나면 요청 없이 0 · 날 글자 비움 · `onDayEnd` 구독자에게 한 번 알림(app.js 가 `focus-progress.js` 의 새 날 받기에 잇는다 — 서로 deps 로 부르면 순환). 서버 답이 오면 날이 같을 때만 이어 쌓는다(0 채움 없는 옛 글자 `2026-11-4` 도 같은 날).
-**함정** — `_dayShifted` · `_focusDayStr` · `DAY_START_HOUR` 는 달성표(`weekly-challenge.js`)가 아직 쓴다 — D5-4 에서 서버 날로 바꾸고 걷는다. 오늘 시간은 쓰지 않는다.
+**함정** — 앱 날짜 셈(`_dayShifted` · `_focusDayStr` · `DAY_START_HOUR`)은 없다 — 오늘 시간 · 달성표 모두 서버 날(`serverDay()`)을 읽는다.
 검사: `checks/sim-focus-total.js`(모양) · `checks/sim-focus-day.js`(경계 동작).

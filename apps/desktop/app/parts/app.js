@@ -5725,6 +5725,12 @@ const firstRunMod = TwFirstRun013.createFirstRun({
       cellName: (code, key)=>TwAccountStore.cellName(code, key),
       accrue: (sec)=>focusProgressMod.legacyAccrue(sec),
     }),
+    chal: TwFirstRun013.chalStep({
+      storage: localStorage,
+      userCode: ()=>getMyUserId(),
+      cellName: (code, key)=>TwAccountStore.cellName(code, key),
+      adoptToday: (today)=>chalStoreMod.adoptLegacyToday(today),
+    }),
   },
   storage: localStorage,
   userCode: ()=>getMyUserId(),
@@ -6681,8 +6687,6 @@ function backToLauncher(){
     window._mhDsClose();
   }
   renderLauncher();
-  // 👑 달성표도 같은 경계에서 맞춘다 — 다른 기기에서 체크한 오늘 항목이 여기서 따라온다.
-  weeklyChal.syncChalToServer('launcher');
   applyDesktopRunClass();
 }
 document.getElementById('toLauncher').onclick=backToLauncher;
@@ -6931,7 +6935,6 @@ TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementB
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const accountMod = TwAccount.createAccount({
   BELL_SEEN_KEY: BELL_SEEN_KEY,
-  CHAL_KEY: ()=>CHAL_KEY,
   CUR_SLOT_KEY: CUR_SLOT_KEY,
   CUSTOM_STATUS_KEY: userStatusTableMod.CUSTOM_STATUS_KEY,
   EXTRA_SEAT_KEY: settingsMod.EXTRA_SEAT_KEY,
@@ -8629,22 +8632,26 @@ function _applyActiveAppState(state){
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 부팅 동기화 타이머 · 20초 tick · 버튼 연결)이
      예전과 같은 때 돈다. 함수 deps 는 화살표로 감싼다(부를 때 찾게). appMode · _gachaBonus 는 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const CHAL_KEY = 'tw.chal';   // 👑 달성표 로컬 기록 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
+const chalStoreMod = TwChalStore.createChalStore({
+  chalApi: TwFocusApi.createFocusApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  focusPure: TwFocusApi,
+  chalCell: accountStoreMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  premiumOn: ()=>_premiumOn(),
+  serverDay: ()=>focusTotalMod.serverDay(),
+  rolloverToday: ()=>focusTotalMod._rolloverFocusToday(),
+  appMode: ()=>appMode,
+  addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
+});
 const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
-  getMyUserId: ()=>getMyUserId(),
+  chalStore: chalStoreMod,
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   premiumOn: ()=>_premiumOn(),
-  dayShifted: (...a)=>focusTotalMod._dayShifted(...a),
-  focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
-  dayStartHour: focusTotalMod.DAY_START_HOUR,
-  setGachaBonusLocal: ()=>gachaMod.refreshAfterReward(),   // 보너스는 서버 장부가 센다 — 값을 받아 적지 않고 서버에서 다시 받는다(👑 달성표 묶음이 이 호출을 걷는다)
-  renderGachaInv: ()=>gachaMod.renderGachaInv(),
-  gachaBonus: ()=>gachaMod.bonus(),
   appMode: ()=>appMode,
-  storageKey: CHAL_KEY,
 });
+focusTotalMod.onDayEnd(()=>{ weeklyChal.dayEnded(); });   // 하루가 바뀐 때 달성표도 이번 주를 다시 받는다
 
 /* 🍅 뽀모도로(포커스 기록창 안쪽 서랍 · 집중 / 휴식 타이머)는 parts/pomodoro.js 로 옮겼다(앱 FSD 6번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(버튼 연결 · 첫 그리기 · 1초 tick)이 예전과 같은 때 돈다.
@@ -8786,7 +8793,7 @@ const appBoot = TwAppBoot.createAppBoot({
     focusTotal: ()=>focusTotalMod.startFocusTotal(),
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },
-    weeklyChal: ()=>weeklyChal.startChalSync(),
+    weeklyChal: (code, me, session)=>weeklyChal.startChallenge(code, me, session),
     pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
     gacha: ()=>gachaMod.startGacha(),
     closet: ()=>closetMod.startCloset(),
