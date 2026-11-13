@@ -444,7 +444,7 @@
 | **sim-run-diag-minute.js** | 126 | **ca95cebdd5ca** |
 | **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
-| **sim-idle-gate.js** | 103 | **2391c0df4fc2** |
+| **sim-idle-gate.js** | 155 | **0b00e0482ebd** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
