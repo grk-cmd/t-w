@@ -914,6 +914,31 @@
         "$other": { ".validate": false }
       }
     },
+    "playlistLikes": {
+      "$ownerId": {
+        ".validate": "$ownerId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $ownerId !== 'undefined'",
+        "$preset": {
+          ".validate": "$preset.matches(/^[0-2]$/)",
+          "count": {
+            ".read": "auth != null && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+            ".write": "auth != null && newData.exists()",
+            ".validate": "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1 && newData.parent().child('last').isString() && newData.parent().child('by/' + newData.parent().child('last').val()).exists() && !data.parent().child('by/' + newData.parent().child('last').val()).exists()"
+          },
+          "last": {
+            ".write": "auth != null && newData.isString() && root.child('userAuth/' + newData.val()).val() === auth.uid",
+            ".validate": "newData.isString() && newData.val() !== $ownerId && newData.parent().child('by/' + newData.val()).exists() && !data.parent().child('by/' + newData.val()).exists()"
+          },
+          "by": {
+            "$senderId": {
+              ".read": "auth != null && root.child('userAuth/'+$senderId).val() === auth.uid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
+              ".write": "auth != null && root.child('userAuth/'+$senderId).val() === auth.uid && !data.exists() && newData.exists() && (root.child('users/'+$senderId+'/presence/ver').exists() || root.child('users/'+$senderId+'/presence/online').val() !== true)",
+              ".validate": "$senderId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $senderId !== 'undefined' && newData.val() === true && newData.parent().parent().child('last').val() === $senderId && newData.parent().parent().child('count').val() === (data.parent().parent().child('count').exists() ? data.parent().parent().child('count').val() : 0) + 1"
+            }
+          },
+          "$other": { ".validate": false }
+        }
+      }
+    },
     "playlistPriv": {
       "$userId": {
         ".read": "auth != null && root.child('userAuth/'+$userId).val() === auth.uid && (auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",

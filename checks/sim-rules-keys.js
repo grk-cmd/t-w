@@ -117,6 +117,9 @@ const KIND = {
   '/reports/$target/$reporter': 'user',
   '/bookmarks/$userId': 'user',
   '/playlistPriv/$userId': 'user',
+  '/playlistLikes/$ownerId': 'user',                // 👍 플레이리스트 반응 — 주인
+  '/playlistLikes/$ownerId/$preset': 'own',         //   프리셋 자리 0~2
+  '/playlistLikes/$ownerId/$preset/by/$senderId': 'user',   //   누른 사람
   '/playlistPriv/$userId/sets/$s': 'own',
   '/playlistPriv/$userId/sets/$s/items/$i': 'other',
   '/bookmarks/$userId/items/$bid': 'other',

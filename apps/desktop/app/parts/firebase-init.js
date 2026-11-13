@@ -849,8 +849,7 @@
        ⚠️ playlistIndex/{uid} 는 절대 직접 읽지 않는다. 그 노드의 .read 는 "query.limitToLast <= 60" 이라
          쿼리 없는 단건 읽기는 query.limitToLast 가 null 이 되어 **거부**된다(무작위 파도타기가
          limitToLast(60) 을 쓰는 이유와 같은 규칙).
-       ★ 이름은 여기서 안 읽는다 — 부르는 쪽이 이미 친구 목록의 이름을 갖고 있다.
-         profile 을 한 번 더 읽으면 읽기만 늘고, 내가 보는 이름과 어긋날 수도 있다. */
+       ★ 이름은 여기서 안 읽는다 — 부르는 쪽이 이미 친구 목록의 이름을 갖고 있다(한 번 더 읽으면 읽기만 늘고 이름이 어긋날 수 있다). */
     /* 🎵 [2026-09-16 제보 4] **내 계정의 프리셋 세 벌 전부** — 계정을 이어받을 때 쓴다.
        fetchPlaylistOf 는 파도타기용이라 한 벌만 **무작위로** 고른다(_plPickSet). 그걸로 복원하면
        프리셋 2·3 이 사라지고, 로그아웃이 로컬 목록을 지우게 된 지금은 그게 곧 손실이다.
@@ -3265,6 +3264,7 @@
                                getDailyMax: () => _rc ? _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }).then(() => _rc.bugDailyMax()) : null,
                                authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
     chatNotice: window.TwChatNoticeNet.createChatNoticeNet({ db, ref, update, remove, set, onValue, off, runTransaction }), roomFocus: window.TwRoomFocusNet.createRoomFocusNet({ db, ref, update, remove, set, onValue, off, runTransaction }),   // 📢 시크릿룸 공지 · 📊 집중 기록 읽기 · 쓰기(경로 · 이유는 chat-notice-net.js · room-focus-net.js)
+    playlistLike: window.TwPlaylistLike.createPlaylistLikeNet({ db, ref, get, update }),   // 👍 플레이리스트 반응 읽기 · 쓰기(경로 · 이유는 status/playlist-like.js)
     /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),

@@ -285,7 +285,8 @@
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 602 | **2f88802194fc** |
 | **sim-playlist-sync.js** | 169 | **d3dd85d9361c** |
-| **sim-playlist.js** | 772 | **446b2c79277a** |
+| **sim-playlist.js** | 780 | **c2a7d19b7990** |
+| **sim-playlist-like.js** | 263 | **4309dc2e6792** |
 | **sim-ui-tokens.js** | 128 | **5e0444fe110a** |
 | **sim-playlist-sync.js** | 169 | **d3dd85d9361c** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
@@ -436,7 +437,7 @@
 | **sim-seat-panel.js** | 163 | **2f9bad25ac96** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
 | **sim-chip-popups.js** | 128 | **e58ffad1803b** |
-| **sim-rules-keys.js** | 326 | **f7d1f36a75ee** |
+| **sim-rules-keys.js** | 329 | **87ce11778baa** |
 | **sim-rules-src.js** | 78 | **12241e59c87b** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |

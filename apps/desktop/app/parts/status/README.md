@@ -66,3 +66,19 @@
   - 맞추기 전(`_plSynced` 거짓)에는 서버에 올리지 않는다 — 3초 뒤 실제로 올리는 순간에 맞춤 상태와 계정(예약 때 uid)을 다시 본다(곡을 고친 직후 계정을 갈아타도 앞 목록이 새 계정에 안 올라가게) · 재생 중이면 받기를 30초 고정 간격으로 미룬다. 계정을 놓을 때(account.js `_wipeAccountLocal`) `plMod.resetSync()` 와 지움 목록(`tw.playlistEditTs` · `tw.playlistBackup`)으로 새 기기처럼 돌린다 — 안 하면 앞 계정 시각이 다음 계정 목록을 비운다.
   - 서버 쪽: 비울 때 노드를 지우지 않고 빈 목록 + 시각을 남긴다(`removeMyPlaylist`) · 읽기는 비어 있음(빈 목록 · editTs 0)과 못 읽음(null)을 가른다.
   - 검사: `checks/sim-playlist-sync.js`(규칙 · firebase-init) · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림) · `checks/sim-account-switch.js`(계정 놓기 · 연동).
+
+## playlist-like.js · playlist-like-ui.js — 👍 플레이리스트 «노래가 좋아요»
+
+- **책임**: 남의 플레이리스트(프리셋 하나)에 «노래가 좋아요 👍» 를 한 번 남긴다. 받는 사람은 그 프리셋의 👍 수만 본다(누가 눌렀는지는 안 보인다 — 사용자 결정).
+  - `playlist-like.js`(순수 · DOM 없음): `presetKey` · `view`(무엇을 보일지) · `createPlaylistLikeNet({ db, ref, get, update })` → `{ read, like }`. firebase-init.js 가 `firebaseAPI.playlistLike` 로 잇는다.
+  - `playlist-like-ui.js`: 소개칸의 반응 줄(내 목록 👍 수 · 남의 목록 [💬 반응]) · 창 옆 서랍. app.js 가 플레이리스트보다 먼저 만들어 `playlistLikeUi` 로 넘긴다.
+- **deps**(ui): `likeRules`(TwPlaylistLike) · `net`(`() => firebaseAPI.playlistLike` — 서버 연결이 늦게 붙어 부를 때 찾는다) · `getMyUserId` · `notifyError`.
+- **내놓는 것**(ui): `render({ ro, ownerId, setIdx } | null)` — playlist.js `_plLikeSync` 가 소개칸을 그릴 때 · 창을 열고 닫고 접을 때 부른다(null 이면 읽지 않고 숨김) · `close()`.
+- **서버 자리**: `playlistLikes/{주인}/{프리셋 0~2}` — `count`(로그인한 누구나 읽음) · `by/{누른 사람}`(true · 본인만 읽음) · `last`(이번에 누른 사람 · 아무도 못 읽음).
+- **함정**
+  - «한 번» · «숫자 부풀리기 막기» 는 규칙이 지킨다: by 는 본인 신원으로 처음 만들 때만, count 는 그 같은 묶음에서 +1 만(last 가 새 by 를 가리켜야 한다). 지우기 · 취소는 없다.
+  - 둘이 동시에 누르면 늦은 쪽이 규칙에 막힌다 — 다시 읽고 `RETRY_MAX` 번까지 다시 쓴다.
+  - 프리셋 번호는 주인의 프리셋 «자리» 다. 이름 · 곡을 바꿔도 수는 그 자리에 남는다.
+  - 읽기는 «누구의 몇 번 프리셋» 이 바뀔 때만 한 번(수 하나 · 내 표시 하나). 창이 닫혀 있으면 읽지 않는다.
+  - 내 수를 못 읽으면 줄을 숨긴다(0 으로 그리지 않는다).
+  - 검사: `checks/sim-playlist-like.js`(진짜 규칙식을 진짜 서버 모듈 쓰기에 걸어 돌린다) · `sim-playlist.js`(넘기는 값).
