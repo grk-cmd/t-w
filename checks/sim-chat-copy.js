@@ -81,6 +81,23 @@ chk(/'새 메시지 ' \+ _chatHeldN \+ ' ↓'/.test(APP), '칩 글자 「새 메
 chk(/function _chatCopyToast\(\)/.test(APP) && /getElementById\('chatCopyToast'\)/.test(APP), '복사 후 창 안 토스트');
 chk(/getClientRects\(\)\.length\) return false/.test(APP), '창이 숨어 있으면 보류하지 않는다 (다른 방 대화가 남지 않게)');
 
+/* 칩 자리 — 실제로 돌린다: 대화 칸이 .chat-msgbox 안이라 칸의 offsetTop 은 상자 기준이다(창 기준이 아님) */
+{
+  const src = (APP.match(/function _chatChipRefresh\(\)\{[\s\S]*?\n\}/) || [''])[0];
+  const run = (src2) => {
+    const chip = { style: {}, textContent: '', classList: { toggle(){} } };
+    const msgbox = { offsetTop: 100, offsetHeight: 237 };
+    const box = { offsetTop: 0, offsetHeight: 237, parentElement: msgbox };
+    const win = { clientHeight: 420 };
+    const els = { chatNewChip: chip, chatMessages: box, chatWindow: win };
+    const f = new Function('document', '_chatHeldOn', '_chatHeldN', src2 + '; return _chatChipRefresh;')({ getElementById: (id) => els[id] || null }, true, 2);
+    f(); return chip.style.bottom;
+  };
+  chk(src.length > 0 && run(src) === '91px', '★ 새 메시지 칩은 대화 칸(상자 안) 아래에 붙는다 — 창 420 · 칸 아래 337 → bottom 91px (지금: ' + (src ? run(src) : '함수 없음') + ')');
+  const bad = src.replace('holder.offsetTop + holder.offsetHeight', 'box.offsetTop + box.offsetHeight');
+  chk(bad !== src && run(bad) !== '91px', '  깨 보기 — 상자를 안 거치고 칸의 offsetTop 만 쓰면 빨강(칩이 위로 뜬다)');
+}
+
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — 고르는 동안 선택이 유지되고, 복사는 원문 기준 「이름: 내용」 이다');
 process.exit(fail ? 1 : 0);

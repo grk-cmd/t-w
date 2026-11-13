@@ -927,9 +927,10 @@ function _chatChipRefresh(){
   chip.classList.toggle('on', on);
   if(!on) return;
   chip.textContent = '새 메시지 ' + _chatHeldN + ' ↓';
-  // 대화 칸 오른쪽 아래 — offset 값이라 창의 transform·화면 배율과 무관하다
-  const win = document.getElementById('chatWindow');
-  if(win) chip.style.bottom = (win.clientHeight - (box.offsetTop + box.offsetHeight) + 8) + 'px';
+  // 대화 칸 오른쪽 아래 — offset 값이라 창의 transform·화면 배율과 무관하다.
+  // ⚠️ 대화 칸은 .chat-msgbox(position:relative) 안이라 offsetTop 은 상자 기준 — 창 기준 자리는 상자의 offsetTop 으로 잰다
+  const win = document.getElementById('chatWindow'), holder = box.parentElement;
+  if(win && holder) chip.style.bottom = (win.clientHeight - (holder.offsetTop + holder.offsetHeight) + 8) + 'px';
 }
 /* 보류해 둔 list 로 그리고 맨 아래로. */
 function _chatFlushHeld(){
