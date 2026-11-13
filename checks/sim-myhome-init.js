@@ -77,7 +77,7 @@ function judgeAll(mod, app, html){
 /* 내 코드(getMyUserId)가 없는 기기 — initMyHome 이 부르는 firebaseAPI 이름들(콜백은 안 부른다) */
 async function callsWith(src, uid){
   const any = anything(), calls = [];
-  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
+  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(k === 'setMyProfile' ? 'setMyProfile/' + a.length : String(k)); return any; } });
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
@@ -106,6 +106,7 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 내 경로 요청 0');
 chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 우편은 멈춤(앞 계정 것 비움) · 공지는 코드와 상관없이 따로 받는다 · 코드 있으면 presence 부터');
+chk((await callsWith(MOD, 'ME')).filter(c => c.startsWith('setMyProfile')).join() === 'setMyProfile/2', '프로필은 이름만 쓴다 — 레벨 · 별을 넘기지 않는다(서버 진척이 원본 — 친구 목록이 읽는 노드에 이름은 남겨야 한다)');
 say('── 2-3. 받은 뒤 화면');
 {
   const act = [], toasts = [];

@@ -90,6 +90,8 @@ async function initMyHome(code, me){
       try{ focusLevelMod()._mobileStart(); }catch(_){}
       /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */
       /* ⚠️ 읽기(구독)는 쓰기의 성공에 기대지 않는다 — 여기에 await 쓰기를 새로 얹으면 거부될 때 아래 구독이 한 줄도 안 걸린다. 얹어야 하면 자기 try 로 감쌀 것. */
+      try{ await firebaseAPI.setMyProfile(myId, getDisplayName()); }   // 이름만 — 레벨 · 별은 서버 진척이 원본(focus-progress.js)
+      catch(e){ _warnOwnerWriteDenied('프로필', e); }
       try{ await ensureMyFriendCode(); }
       catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
       // 📌 D-day 보드 받기 (스케줄러 우측 목록) — 서버가 바뀌었다고 알리면 스케줄러가 알아서 다시 받는다

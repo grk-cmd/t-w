@@ -391,7 +391,7 @@
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
 | **sim-license-key.js** | 124 | **132df15b9b32** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
-| **sim-myhome-init.js** | 165 | **7fe142d4eb1a** |
+| **sim-myhome-init.js** | 166 | **d321b4b4202a** |
 | **sim-presence-lock.js** | 256 | **7c51c56a0be1** |
 | **sim-parts-paths.js** | 85 | **09ed8a827e44** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
