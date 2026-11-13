@@ -26,7 +26,7 @@ const focusGateSleep = deps.focusGateSleep;   // 읽는 함수
 const officeMode = deps.officeMode;   // 읽는 함수
 const purikuraUi = deps.purikuraUi;
 const refreshCharScaleForCurrentDisplay = deps.refreshCharScaleForCurrentDisplay;
-const refreshLicenseUI = deps.refreshLicenseUI;
+const openLicenseUI = deps.openLicenseUI;   // 🔑 라이선스 구획 열기 = 내 라이선스 받기 + 그리기(license-ui.js)
 const refreshOfficeChipUI = deps.refreshOfficeChipUI;
 const refreshThemeUI = deps.refreshThemeUI;
 const toast = deps.toast;
@@ -88,7 +88,7 @@ function setProgSettingsTab(tab){   // tab: 'license' | 'display' | 'system'
     if(p) p.style.display = (t.key===tab) ? 'block' : 'none';
   });
 }
-if(document.getElementById('progTabBtnLicense')) document.getElementById('progTabBtnLicense').onclick=()=>setProgSettingsTab('license');
+if(document.getElementById('progTabBtnLicense')) document.getElementById('progTabBtnLicense').onclick=()=>{ setProgSettingsTab('license'); openLicenseUI({ ifNeeded: true }); };
 if(document.getElementById('progTabBtnDisplay')) document.getElementById('progTabBtnDisplay').onclick=()=>{ setProgSettingsTab('display'); renderProgMonitors(); refreshThemeUI(); refreshRenderQualityUI(); };
 // 🎨 테마·색상 칩 바인딩은 여기서 하면 안 된다 — bindThemeUI()가 THEME_COLORS(const, 파일 아래쪽)를 읽어서
 //    TDZ 에러로 app.js 전체 실행이 여기서 멈춘다. 선언 바로 뒤(applyTheme 옆)에서 부른다.
@@ -301,7 +301,7 @@ function openProgramSettings(tab){
   const o=document.getElementById('programSettingsOverlay'); if(!o) return;
   o.classList.add('on'); o.style.display='flex';
   setProgSettingsTab(tab||'license');
-  refreshLicenseUI();
+  if((tab||'license')==='license') openLicenseUI();   // 창 열기 = 받기(다른 탭으로 열면 라이선스 탭을 누를 때 받는다)
   if((tab||'license')==='display') { renderProgMonitors(); refreshThemeUI(); }
   if((tab||'license')==='system')  { refreshAutoLaunchUI(); refreshFigureModeUI(); refreshOfficeModeUI(); refreshLabVideoUI(); refreshAppVersionUI(); }   // 🎬 시스템 탭으로 바로 열려도 실제 적용 상태(적용 안 됨)를 보인다
 }

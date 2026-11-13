@@ -69,12 +69,12 @@ function licenseKeyStep(deps){
     const e = (r && r.err) || null, code = String((e && e.code) || '');
     if(!e || e.kind === 'auth' || !Object.keys(LICENSE_CODE).some((n) => LICENSE_CODE[n] === code)) return { ok: false, reason: '라이선스 키 올리기 실패 — ' + String((r && r.reason) || code || '알 수 없음') };
     if(code === LICENSE_CODE.ALREADY_HAVE) return { ok: true, wipe: allWipe };
-    return { ok: true, wipe: allWipe, notice: code === LICENSE_CODE.DEVICE_FULL ? LICENSE_NOTICE.DEVICE_FULL : LICENSE_NOTICE.UNUSABLE };
+    return code === LICENSE_CODE.DEVICE_FULL ? { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.DEVICE_FULL, action: 'openSettings' } : { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.UNUSABLE };
   };
 }
 
 /** @param {{ steps: { login: () => Promise<object>, gacha: () => Promise<object>, mallang: () => Promise<object>, legacySync: () => Promise<object>, licenseKey: () => Promise<object> },
- *   storage: { getItem: Function, setItem: Function, removeItem: Function }, userCode: () => (string | null), log?: { warn: Function }, notify?: (msg: string) => unknown }} deps */
+ *   storage: { getItem: Function, setItem: Function, removeItem: Function }, userCode: () => (string | null), log?: { warn: Function }, notify?: (msg: string, action?: string) => unknown }} deps */
 function createFirstRun(deps){
   for(const n of STEPS) if(typeof deps.steps[n] !== 'function') throw new Error('[0.13 첫 실행] 단계 없음 — ' + n);
   const storage = deps.storage;
@@ -90,13 +90,13 @@ function createFirstRun(deps){
         if(!(r && r.pending)) try{ log.warn('[0.13 첫 실행] 멈춤 —', name, r && r.reason); }catch(_){}
         return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };
       }
-      if(typeof r.notice === 'string' && r.notice) notices.push(r.notice);
+      if(typeof r.notice === 'string' && r.notice) notices.push({ msg: r.notice, action: typeof r.action === 'string' ? r.action : '' });
       if(Array.isArray(r.wipe)) for(const k of r.wipe) if(typeof k === 'string' && k && wipe.indexOf(k) < 0) wipe.push(k);
     }
     for(const k of wipe){ try{ storage.removeItem(k); }catch(_){} }
     try{ storage.setItem(DONE_KEY, uc); }catch(_){}
-    if(deps.notify) for(const m of notices){ try{ deps.notify(m); }catch(_){} }   // 지운 뒤 안내 — 한 번만(끝냄 표시가 다시 돌리지 않는다)
-    return { ok: true, wiped: wipe, notices };
+    if(deps.notify) for(const n of notices){ try{ deps.notify(n.msg, n.action); }catch(_){} }   // 지운 뒤 안내 — 한 번만(끝냄 표시가 다시 돌리지 않는다) · action — 안내에서 바로 갈 곳(openSettings = 설정 › 라이선스)
+    return { ok: true, wiped: wipe, notices: notices.map((n) => n.msg) };
   }
   /* 한 번 돌리기 — 끝낸 계정이면 건너뜀 · 도는 중에 또 부르면 같은 약속 */
   function run(){

@@ -114,7 +114,10 @@ function createLicenseApi(deps){
     return Object.prototype.hasOwnProperty.call(REASONS, code) ? REASONS[code] : null;   // 표에 없으면 null — 부르는 쪽이 공통 문구(user-api reasonOf)로
   }
 
-  return { mine, register, putDevice, removeDevice, myApplication, apply, reasonOf };
+  /* 서버가 «기기를 모두 썼다» 로 거절했나 — 화면이 번호 대신 안내 문구를 고른다 */
+  function isDeviceFull(err){ return !!err && err.code === CODE.DEVICE_FULL; }
+
+  return { mine, register, putDevice, removeDevice, myApplication, apply, reasonOf, isDeviceFull };
 }
 
 const out = { PATHS, STATUS, CODE, REASONS, DEVICE_NAME_MAX, deviceNameOf, licenseFrom, applicationFrom, createLicenseApi };
