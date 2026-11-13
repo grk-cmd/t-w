@@ -71,6 +71,7 @@ function itemHtml(it, st, escHtml){
     '</div></div>';
 }
 function listHtml(items, st, escHtml){
+  if(!items.length && st.loading) return '<div class="cn-empty">공지를 불러오는 중이에요…</div>';
   if(!items.length && st.failed) return '<div class="cn-empty">공지를 불러오지 못했어요<br><small>잠시 뒤 채팅창을 다시 열어 주세요</small></div>';
   if(!items.length){
     return '<div class="cn-empty">아직 공지가 없어요' + (st.host ? '<br><small>아래 입력칸에 쓰고 Enter 를 누르면 공지로 올라가요 · 채팅에는 안 나와요</small>' : '') + '</div>';
@@ -119,6 +120,7 @@ function createChatNotice(deps){
   let subRoom = null;
   let editShown = null;     // 고치기 칸을 그려 둔 공지 id — 같은 칸을 다시 그릴 때만 친 글을 지킨다
   let hiddenSig = null;     // 고정 줄을 눌러 숨긴 공지(id · 시각 · 글) — 다른 공지를 고정하거나 고치면 다시 뜬다
+  let loaded = false;       // 첫 응답을 받았나 — 받기 전에는 «공지 없음» 으로 그리지 않는다
   let loadFailed = false;   // 서버 읽기 실패 — «공지 없음» 과 다르게 그린다
   let active = false;     // #공지 탭을 보고 있다
   let editId = null;      // 고치는 중인 공지
@@ -162,7 +164,7 @@ function createChatNotice(deps){
     /* 고치는 중에 구독 갱신 · 방 메타가 와서 다시 그려도 친 글을 서버 글로 되돌리지 않는다 */
     const prev = (editId && editShown === editId) ? box.querySelector('.cn-edit-in') : null;
     const keep = prev ? prev.value : null;
-    box.innerHTML = listHtml(items, { host: isHost(), editId, delId, failed: loadFailed }, escHtml);
+    box.innerHTML = listHtml(items, { host: isHost(), editId, delId, failed: loadFailed, loading: !loaded && !loadFailed }, escHtml);
     editShown = editId;
     const inp = box.querySelector('.cn-edit-in');
     if(inp){ if(keep !== null) inp.value = keep; inp.focus(); if(keep === null) inp.select(); }
@@ -177,7 +179,7 @@ function createChatNotice(deps){
   /* 채팅창을 열 때 · 방이 바뀔 때 — 시크릿룸이면 공지를 구독한다(창이 열려 있는 동안만). */
   function stop(){
     if(unsub){ try{ unsub(); }catch(_){} unsub = null; }
-    subRoom = null; items = []; editId = null; delId = null; loadFailed = false; hiddenSig = null;
+    subRoom = null; items = []; editId = null; delId = null; loadFailed = false; loaded = false; hiddenSig = null;
     if(active){ active = false; changed(); }
     paint();
   }
@@ -186,13 +188,13 @@ function createChatNotice(deps){
     if(!available()){ if(unsub || active || items.length) stop(); return; }
     if(unsub && subRoom === room) { paint(); return; }
     if(unsub){ try{ unsub(); }catch(_){} unsub = null; }
-    subRoom = room; items = []; editId = null; delId = null; loadFailed = false;
+    subRoom = room; items = []; editId = null; delId = null; loadFailed = false; loaded = false;
     unsub = provider.subscribe(room, raw => {
       if(raw === null){   // 읽기 실패 — «공지 없음» 과 구분해 그린다 · 구독은 이미 끊겨서 다음 start() 가 다시 건다
-        loadFailed = true; unsub = null; paint();
+        loadFailed = true; loaded = false; unsub = null; paint();
         return;
       }
-      loadFailed = false;
+      loadFailed = false; loaded = true;
       items = list(raw);
       if(editId && !items.some(x => x.id === editId)) editId = null;
       if(delId && !items.some(x => x.id === delId)) delId = null;
