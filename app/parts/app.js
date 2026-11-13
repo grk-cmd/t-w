@@ -350,10 +350,12 @@ function loadBaseGLB(){return new Promise(res=>{
   }, e=>{console.warn('base GLB parse fail',e);res(false);});
 });}
 /* 스킨드 메시 인스턴스 복제 (각 캐릭터가 독립 스켈레톤+머티리얼) */
+const skelShare = TwSkeletonShare;
 function instantiateBase(customScene){
   const src = customScene || BASE_SCENE;
   if(!src||!THREE.SkeletonUtils)return null;
   const root=THREE.SkeletonUtils.clone(src);
+  skelShare.shareSkeletons(skelShare.skinnedMeshesOf(root));   // 복제가 메시마다 Skeleton 을 따로 만든다 — 같은 뼈대는 하나로
   let faceMat=null,upMat=null,loMat=null,faceMesh=null,upMesh=null,loMesh=null;
   // 커미션 캐릭터에 미리 씌워진 파츠(안경/모자/탈/한벌옷/날개/손) — 메쉬(또는 재질) 이름으로 자동 인식.
   // 꾸미기에서 같은 카테고리 파츠를 장착하면 이 메쉬가 숨겨지고, 해제하면 다시 보임(applyClothVisibility에서 처리).
@@ -4574,6 +4576,8 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       // 🩺 리깅으로 붙었는데도 파츠가 뜨는 경우의 원인 확정용 — 아래 함수 주석 참고.
       _diagRiggedPartAlignment(cat, skinnedMeshes, charRoot);
     }
+    // 리깅 파츠는 캐릭터 뼈로 다시 묶였으니 몸 · 다른 파츠의 Skeleton 과도 맞춰 본다(뼈 · 역행렬이 같을 때만 함께 씀)
+    skelShare.shareSkeletons(skinnedMeshes, isRigged ? skelShare.skinnedMeshesOf(charRoot) : []);
     // 메시 중심을 피봇으로 만들기 위해 wrapper 그룹에 감싸기 (회전·스케일이 중심 기준)
     //  — 리깅 파츠는 본이 위치를 결정하므로 재중심화하지 않고 원본 좌표 그대로 둠
     const bb = new THREE.Box3().setFromObject(obj);
@@ -4768,6 +4772,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
               (extraColorGroups[key] = extraColorGroups[key]||[]).push(o);
             }
           }});
+          skelShare.shareSkeletons(skelShare.skinnedMeshesOf(extraObj));
           extraObj.name = '__part_'+cat+'_i'+i;
           const extraBB = new THREE.Box3().setFromObject(extraObj);
           const extraCenter = extraBB.getCenter(new THREE.Vector3());
