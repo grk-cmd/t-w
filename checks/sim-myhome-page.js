@@ -19,11 +19,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ["getDisplayName","renderMyHomeStickers"];
 const VAL_DEPS = ["mhStateMod","myHomeUiMod","richTextMod","myhomeStore"];
-const GET_DEPS = [];
+const GET_DEPS = ["myHomeOpen"];
 const SET_DEPS = [];
-const EXPORTS = ["_mhStickerDragDist","setMhStickerDragDist","loadMyHomePage","renderMyHomePage"];
+const EXPORTS = ["_mhStickerDragDist","setMhStickerDragDist","loadMyHomePage","onStoreChange","renderMyHomePage"];
 const MOVED = ["loadMyHomePage","renderMyHomePage","_mhStickerDragDist"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  getDisplayName: (...a)=>getDisplayName(...a),","  mhStateMod: mhStateMod,","  myHomeUiMod: myHomeUiMod,","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  richTextMod: richTextMod,","  myhomeStore: myhomeStoreMod,"];
+const GLUE = ["  getDisplayName: (...a)=>getDisplayName(...a),","  mhStateMod: mhStateMod,","  myHomeUiMod: myHomeUiMod,","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  richTextMod: richTextMod,","  myhomeStore: myhomeStoreMod,","  myHomeOpen: ()=>myHomeOpen,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -89,15 +89,43 @@ async function loadWith(src, viewing){
 }
 const judgeLoad = async (src) => (await loadWith(src, null)).join() === 'pull' && (await loadWith(src, 'friend1')).length === 0;
 
+/* 다시 그리기 — 쓰는 중인 글 칸(포커스)은 갈아 끼우지 않고 · 같은 글이면 그대로 · 다르면 갈아 끼운다 */
+function renderBoxes(src, active, boxHtml, pageBio){
+  const any = anything();
+  const mkBox = (id, html) => ({ id, innerHTML: html, contains: (n) => n === mkBox._self, setAttribute(){}, style: {}, children: [] });
+  const bio = mkBox('mhBioBox', boxHtml), post = mkBox('mhPostBox', '');
+  const doc = { getElementById: (id) => id === 'mhBioBox' ? bio : id === 'mhPostBox' ? post : null, activeElement: active === 'bio' ? bio : null, querySelectorAll: () => [], createElement: () => ({ style: {}, appendChild(){} }) };
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => 'x'; }); VAL_DEPS.forEach(n => { deps[n] = any; });
+  deps.getDisplayName = () => '나';
+  deps.mhStateMod = { _mhViewingUserId: () => null, _myHomeData: () => ({ bio: pageBio, post: '', stickers: {}, postTitle: '' }), _mhViewingDisplayName: () => '' };
+  deps.myhomeStore = { canEdit: () => true, mine: () => ({ load: 'ready' }), page: () => ({}), LOAD: { READY: 'ready', FAILED: 'failed' }, pullMine: () => Promise.resolve(true) };
+  deps.richTextMod = { _mhLoadRT: (v) => 'L:' + v, _mhSaveRT: (el) => String(el.innerHTML).replace(/^L:/, ''), _mhUpdateRTCount(){} };
+  deps.myHomeOpen = () => true;
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const g = { TwSafeHtml: { safeUrl: () => '' } };
+  try{
+    const api = new Function('window', 'document', 'localStorage', 'module', 'TwMyHomeHooks', 'TwSafeHtml', src + '\nreturn window.TwMyHomePage;')(win, doc, { getItem: () => null, setItem(){} }, undefined, { call(){}, HOOK: {} }, g.TwSafeHtml);
+    api.createMyHomePage(deps).renderMyHomePage();
+  }catch(_){}
+  return bio.innerHTML;
+}
+const judgeBoxes = (src) => renderBoxes(src, 'bio', '쓰는 중', '저장된') === '쓰는 중' && renderBoxes(src, null, 'L:같음', '같음') === 'L:같음' && renderBoxes(src, null, '옛', '새') === 'L:새';
+
 (async () => {
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 받기 — 내 집이면 상태 주인에게 한 번 · 구경 중이면 0');
 chk(await judgeLoad(MOD), '내 집 → 받기 1 · 친구 홈 구경 중 → 받기 0(내 값을 덮지 않는다)');
+chk(judgeBoxes(MOD), '다시 그리기 — 쓰는 중인 글 칸은 그대로 · 같은 글이면 안 건드림 · 다르면 갈아 끼움');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace("  if(mhStateMod._mhViewingUserId()) return;\n  const pulling", "  const pulling");
   chk(m2 !== MOD && !(await judgeLoad(m2)), '구경 중 확인을 빼면 — 받기 0 판정이 빨강');
+}
+{
+  const m3 = MOD.replace('if(ae && (ae === box || (box.contains && box.contains(ae)))) return;', '');
+  chk(m3 !== MOD && !judgeBoxes(m3), '쓰는 중 확인을 빼면 — 글 칸 판정이 빨강');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/myhome/myhome-page.js"></script>', '')],

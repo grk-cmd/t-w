@@ -2875,16 +2875,9 @@ const mhPageMod = TwMyHomePage.createMyHomePage({
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   richTextMod: richTextMod,
   myhomeStore: myhomeStoreMod,
+  myHomeOpen: ()=>myHomeOpen,
 });
-/* 🏠 마이홈 값이 바뀌면(올리기 끝 · 409 로 다시 받음 · 다른 칸 저장 결과) 열려 있는 마이홈을 다시 그린다 — 같은 값이면 그리지 않는다(저장 시작 · 끝 신호마다 그리지 않게). */
-let _mhRenderSig = '';
-myhomeStoreMod.onChange(()=>{
-  if(!myHomeOpen) return;
-  const sig = myhomeStoreMod.mine().load + '|' + JSON.stringify(myhomeStoreMod.page());
-  if(sig === _mhRenderSig) return;
-  _mhRenderSig = sig;
-  try{ mhPageMod.renderMyHomePage(); }catch(e){ console.warn('마이홈 다시 그리기 실패', e); }
-});
+myhomeStoreMod.onChange(()=>mhPageMod.onStoreChange());   // 상태 주인의 값이 바뀌면 열린 마이홈을 다시 그린다(판단은 myhome-page.js)
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
 /* 본문은 async-prompt.js 로 옮겼다(앱 FSD 47번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */

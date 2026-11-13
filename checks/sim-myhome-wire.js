@@ -29,7 +29,8 @@ function wiring(S){
   t(iApi > 0 && iSt > iApi && iState > iSt && (app.match(/TwMyHomeStore\.createMyHomeStore\(/g) || []).length === 1, 'app.js — 서버 길(api) → 상태 주인 → 상태 창구 순서 · 상태 주인은 한 곳에서만 만든다');
   const mk = (app.match(/TwMyHomeStore\.createMyHomeStore\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   t(/api: myhomeApiMod,/.test(mk) && /lib: TwMyHomeApi,/.test(mk) && /previewOn: \(\)=>!!window\._mhPreviewMode,/.test(mk) && /rules: TwMyHomeStickerRules,/.test(mk), '  deps — 서버 길 · 라이브러리 · 미리보기 깃발 · 스티커 규칙');
-  t(/myhomeStoreMod\.onChange\(\(\)=>\{\n  if\(!myHomeOpen\) return;[\s\S]*?mhPageMod\.renderMyHomePage\(\)/.test(app), '값이 바뀌면 열려 있는 마이홈만 다시 그린다(같은 값이면 안 그림)');
+  t(/myhomeStoreMod\.onChange\(\(\)=>mhPageMod\.onStoreChange\(\)\);/.test(app) && /function onStoreChange\(\)\{\n  if\(!myHomeOpen\(\)\) return;[\s\S]*?if\(sig === _renderSig\) return;/.test(S['myhome-page.js']), '값이 바뀌면 열려 있는 마이홈만 다시 그린다(같은 값이면 안 그림 — 판단은 myhome-page.js)');
+  t(/const ae = document\.activeElement;/.test(S['myhome-page.js']), '  쓰는 중인 글 칸은 다시 그리면서 갈아 끼우지 않는다');
   t(/beforeunload', \(\)=>\{ myhomeStoreMod\.flush\(\); \}/.test(app), '앱을 끌 때 못 올린 고침을 한 번 올린다(flush · 결과는 안 기다림)');
   const acc = strip(S['account.js']);
   const iF = acc.indexOf('myhomeStore.flush()'), iR = acc.indexOf('myhomeStore.reset()');

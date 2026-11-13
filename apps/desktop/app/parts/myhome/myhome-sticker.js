@@ -16,7 +16,6 @@
          두 let 은 app.js 의 renderMyHomeStickers 가 읽고(편집 표시 · 드래그 직후 링크 안 엶), 마이홈 페이지 편집 묶음도
          _mhStickerDragDist 를 쓰므로 app.js 에 두고 쓰는 함수로 받는다.
    ★ renderMyHomeStickers 는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). 스티커 값은 store 의 동작 함수로만 고친다.
-     부를 때 찾아야 예전과 같은 함수를 부른다.
    ★ 밖으로 내놓는 이름은 반환값이다(open · close · render · bringIn · editStart · editEnd · bindDrag · bindRotate · bindResize).
      부르는 곳(app.js 의 renderMyHomeStickers · 마이홈 닫기 · [+ 스티커] · 새 스티커 붙이기)은 전부 사용자가 마이홈을 연 뒤에 돌므로
      만드는 줄보다 늦다 — myHomeSticker.이름 으로 부른다.
@@ -39,7 +38,7 @@ const _mhStickerDispSize = deps.mhStickerDispSize;
 const _mhHomeWinSize = deps.mhHomeWinSize;
 const _mhStickerTransform = deps.mhStickerTransform;
 const _mhOpenStickerAnim = deps.mhOpenStickerAnim;       // ✨ 움직임 고르기 창 — app.js
-const _myHomeData = deps.myHomeData;                     // 🏠 마이홈 데이터 — app.js 의 let(불러올 때 · 관람할 때 다시 대입된다)
+const _myHomeData = deps.myHomeData;                     // 🏠 지금 그리는 마이홈 페이지(store.page() — 읽기만 · 고치기는 myhomeStore 동작 함수)
 const _mhViewingUserId = deps.mhViewingUserId;           // 👀 친구 홈 관람 중이면 그 사람 uid — app.js 의 let
 const _mhStickerEditSid = deps.mhStickerEditSid;         // ✎ 지금 편집모드인 스티커 id — app.js 의 let(renderMyHomeStickers 가 읽는다)
 const _setMhStickerEditSid = deps.setMhStickerEditSid;

@@ -317,7 +317,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ## `myhome-api.js` — 🏠 마이홈 서버 길 provider
 
 - **책임**: 내 마이홈 읽기(`GET /v1/me/myhome` — 페이지 + 바탕화면 한 번) · 남의 마이홈(`GET /v1/myhomes/{userCode}`) · 내 책장(`GET /v1/me/myhome/bookshelf`) · 남의 공개 책(`GET /v1/myhomes/{userCode}/bookshelf`) · 페이지 칸 저장(`PATCH /v1/me/myhome`) · 디자인(`PUT …/design`) · 바탕화면(`PUT …/desktop`) · 책장(`PUT …/bookshelf`) · 그림 올리기(`POST /v1/me/images?purpose=myhome`). 서버 모양(스티커 목록 · `image` · 프리셋 `withImage` · 책 `width` · `titleColor` · `public` · `addedAt` ISO)을 화면 모양(스티커 `{sid:…}` · `img` · `img:true` · `w` · `tcolor` · `pub` · `at` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰.
-- **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다. 이 묶음(D2-1)은 부르는 곳이 아직 없다.
+- **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다.
 - **내보내는 것**: `fetchMine()` → `{ page, pageVersion, desktop, desktopVersion }` · `fetchOf(code)` → `{ page, desktop }` · `fetchBookshelf()` → `{ books, version }` · `fetchBookshelfOf(code)` → `{ books }` · `patchPage(version, fields)` · `putDesign(version, d)` · `putDesktop(version, d)` → 새 `version` · `putBookshelf(version, books)` → `{ books, version }` · `uploadImage(dataUrl)` → `url` · `reset()`. 순수: `homeOf` · `stickersOf` · `stickersBody` · `presetsOf` · `presetsBody` · `desktopOf` · `desktopBody` · `booksOf` · `booksBody` · `failOf` · `PATHS` · `LIMITS`.
 - **함정**
   - `patchPage` 는 `fields` 에 열쇠가 있는 칸만 싣는다(지우기는 `null` · `stickers` 는 그리는 순서 목록 통째 · `clearTheme:true` 는 `theme:null`). 안 바뀐 칸을 실으면 다른 기기의 고침을 덮는다.
@@ -408,7 +408,7 @@ const mallangMod = TwMallang.createMallang({
   - 받기 전(`load !== 'ready'`)엔 고치지 못한다(`locked` · 요청 0 · «불러오는 중이에요» 안내). 이미 받았으면 서랍을 다시 열어도 요청 0. 저장 중이거나 못 올린 고침이 있으면 내 책장 받기는 요청하지 않는다.
   - 409 `CONCURRENT_UPDATE` 는 내 고침을 버리고 서버 것을 받아 «다른 기기에서 바꾼 내용을 받아왔어요». 실패는 화면을 고친 대로 두고 `E-MH-27` 한 번 — 혼자 다시 보내지 않는다. 받기 실패는 서랍의 «못 불러왔어요 [다시 시도]» + `E-MH-26`.
   - 구경: 공개 책을 못 받아도 폴더는 보이고 서랍에 «다시 시도»(시작하며 받다 실패하면 번호 없음 · 누른 다시 시도가 또 실패하면 `E-MH-26`). 없는 사람(`USER_NOT_FOUND`)은 폴더를 숨긴다. 집을 빨리 옮겨도 앞 집 답은 버린다(`gen`).
-  - 책등 그림 올리기 실패는 창 안 글(«그림을 올리지 못했어요.»)만 — `E-MH-24` 는 D2-2(마이홈 페이지)가 표에 올린 뒤 붙인다. 새 책은 `addedAt` 을 싣지 않고(서버가 넣는다) 색이 없는 옛 책은 색 칸을 싣지 않는다. 뗀 그림 지우기는 서버 몫이다.
+  - 책등 그림 올리기 실패는 창 안 글(«그림을 올리지 못했어요.»)만 — 그 실패는 `bookmark.js` 가 `E-MH-24` 를 한 번 띄운다(공통 번호를 이미 알렸으면 건너뜀). 새 책은 `addedAt` 을 싣지 않고(서버가 넣는다) 색이 없는 옛 책은 색 칸을 싣지 않는다. 뗀 그림 지우기는 서버 몫이다.
   - 이 PC 사본(`tw.bookmarks`)은 읽지 않는다 — 첫 실행 `myhome` 단계(`first-run-013.js`)가 지운다(올리지 않음).
 - **검사**: `checks/sim-bookshelf-store.js`(받기 · 저장 차례 · 409 · 실패 한 번 · 50권 · 구경 gen · reset · 배선 · 일부러 깨 보기) · `checks/sim-bookmark.js`(서랍 화면).
 

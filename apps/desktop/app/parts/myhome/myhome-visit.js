@@ -1,12 +1,11 @@
 /* myhome-visit.js — 🏠 마이홈 2단계 — 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)
    app.js «🏠 마이홈 2단계 — 내 마이홈 데이터(_myHomeData) · 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)» 구역을 옮긴 모듈이다(앱 FSD 44번). 받기 · 구경 상태는 myhome-store.js(D2-2).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 7줄 —
-     _myHomeFriends · myHomeOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMyHomeOpen(…).
+   화면 동작은 옮기기 전과 같고, 내 홈 · 친구 홈 받기와 «돌아오기» 는 상태 주인(store.openView · closeView · pullMine)이 한다(내 홈 백업 · 복원 없음).
+   ★ _myHomeFriends · myHomeOpen 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMyHomeOpen(…).
      스케줄러(달력 · 디데이)는 mhScheduler.startVisit(친구) · endVisit() 하나씩 — 받기 · 끊기는 스케줄러가 한다.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 마이홈 공용 상태(데이터 · 불러옴 · 계정 · 관람 중 uid · 이름)는 myhome-state.js 로 옮겼다(모듈 순환 끊기 4) — 읽는 함수 · 쓰는 함수로 받는다.
+   ★ 마이홈 공용 상태(지금 그리는 페이지 · 관람 중 uid · 이름)는 myhome-state.js 가 store 를 비추는 읽는 함수로 내놓는다(모듈 순환 끊기 4) — 쓰는 함수는 없다.
    ★ 밖에서 부르는 이름: _mhApplyVisitUI · closeFriendHomeView · openFriendHomeView — app.js 는 mhVisitMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyHomeVisit — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
@@ -60,7 +59,7 @@ async function openFriendHomeView(friendId, nameHint){
     /* 🏷️ 이름은 받아 둔 것(목록 · 힌트)으로 먼저 그리고, 새로 받은 값이 다르면 바꾼다.
        · 친구면 그 친구 프로필만 한 번 새로 읽는다(friends-sub refreshProfile — 목록이 열려 있으면 이미 듣고 있어 읽지 않는다).
          목록은 이름을 실시간으로 듣는 게 «열려 있는 동안» 뿐이라, 닫힌 채 들어오면 목록의 이름이 옛것일 수 있다.
-       · 친구가 아니고 이름도 모르면(힌트 없음) 프로필에서 이름 한 줄(getUserNameById — users/{uid}/profile · .read 는 원래 열려 있다).
+       · 친구가 아니고 이름도 모르면(힌트 없음) 프로필에서 이름 한 줄(명함 fetchCards — 서버 길).
        ⚠️ 조회가 끝나기 전에 다른 홈으로 넘어갔거나 관람을 닫았으면 결과를 버린다 —
           안 그러면 방금 나온 사람의 이름이 다음 화면에 뒤늦게 찍힌다. */
     const shownName = _mhViewingDisplayName();

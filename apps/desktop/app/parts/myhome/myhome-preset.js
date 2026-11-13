@@ -82,11 +82,6 @@ function apply(home, preset, keys){
   const bg = (h.bg && h.bg.img) ? h.bg : ((preset.bg && preset.bg.color) ? { color: preset.bg.color } : null);
   return { theme, bg };
 }
-/* 디자인 스튜디오 IMG 를 올릴 이름(uploadUserImage 의 slot → users/{uid}/design_{slot}.jpg) — 이름을 정하는 곳은 여기 하나.
-   지금 고른 칸 번호를 이름에 넣는다(p0_bg → design_p0_bg.jpg) — 다른 칸이 담아 둔 그림 파일을 덮지 않게.
-   같은 칸에 다시 올리면 같은 파일을 덮는다(칸마다 그림 키마다 한 파일 — 쌓이지 않는다).
-   key: 바깥 배경이면 'bg', 그 밖에는 그림 키 */
-
 const api = { MAX, NAME_MAX, imgKeyOf, imgKeys, normalize, cur, snapshot, apply };
 if(typeof window !== 'undefined') window.TwMyHomePreset = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

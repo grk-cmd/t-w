@@ -330,9 +330,10 @@ function createMyHomeStore(deps){
       if(k === 'bgm') v = isObj(v) ? { url: String(v.url || ''), title: String(v.title || '') } : null;
       if(k === 'bg') v = isObj(v) && (v.img || v.color) ? (v.img ? { img: String(v.img) } : { color: String(v.color) }) : null;
       if(k === 'bg' && v && v.img && /^data:/i.test(v.img)) continue;   // 그림은 올린 뒤 주소로만(upload)
+      if(!own(pending.fields, k) && J(mineView[k]) === J(v)) continue;   // 안 고친 칸은 넘기지 않는다 — 409 뒤 다른 기기가 바꾼 칸을 옛 값으로 덮지 않게
       patch[k] = v;
     }
-    if(!Object.keys(patch).length) return Promise.resolve('ok');
+    if(!Object.keys(patch).length) return kick();   // 바뀐 칸이 없어도 못 올린 고침이 있으면 한 번 보낸다
     Object.assign(pending.fields, patch);
     if(own(patch, 'bg') && pending.design) delete pending.design.bg;   // 나중 고침이 이긴다
     emit();

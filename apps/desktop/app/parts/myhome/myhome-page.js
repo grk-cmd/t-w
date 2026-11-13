@@ -2,7 +2,7 @@
    app.js «🏠 마이홈 페이지 불러오기 · 그리기(loadMyHomePage · renderMyHomePage)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 47번 — docs/APP_FSD_MAP.md).
    ★ 받기는 myhome-store.js 가 한다(D2-2) — 못 받으면 «마이홈을 못 불러왔어요 [다시 시도]» 를 그린다.
    ★ app.js 함수 3개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _mhStickerDragDist · loadMyHomePage · renderMyHomePage — app.js 는 mhPageMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _mhStickerDragDist · loadMyHomePage · onStoreChange · renderMyHomePage — app.js 는 mhPageMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwMyHomePage — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-myhome-page.js */
@@ -15,6 +15,7 @@ const myHomeUiMod = deps.myHomeUiMod;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
 const richTextMod = deps.richTextMod;
 const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 받기 · 못 받음 상태
+const myHomeOpen = deps.myHomeOpen;   // 읽는 함수 — 마이홈이 열려 있나(app.js 의 let)
 const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — BGM · 배경 · 테마 다시 칠하기는 편집 묶음이 건다
 /* 마이홈을 열 때 · [다시 시도] — 받고 그린다. 못 받으면(E-MH-20 은 store 가 띄운다) 본문 자리에 «못 불러왔어요 [다시 시도]» 를 그린다 */
 async function loadMyHomePage(){
@@ -57,10 +58,18 @@ function renderMyHomePage(){
   try{
     const _bioLoad = mhStateMod._myHomeData().bio||'';
     const _postLoad = mhStateMod._myHomeData().post||'';
+    /* 쓰는 중인 칸(포커스)이나 이미 같은 글을 보여 주는 칸은 건드리지 않는다 — 상태 주인이 값이 바뀔 때마다 다시 그리는데, 칸을 갈아 끼우면 쓰던 글 · 툴바용 선택 범위가 사라진다 */
+    const _setBox = (box, value, max)=>{
+      if(!box) return;
+      const ae = document.activeElement;
+      if(ae && (ae === box || (box.contains && box.contains(ae)))) return;
+      let same = false; try{ same = richTextMod._mhSaveRT(box, max) === value; }catch(_){}
+      if(!same) box.innerHTML = richTextMod._mhLoadRT(value);
+    };
     const bioBox=document.getElementById('mhBioBox');
-    if(bioBox) bioBox.innerHTML = richTextMod._mhLoadRT(_bioLoad);
+    _setBox(bioBox, _bioLoad, 120);
     const postBox=document.getElementById('mhPostBox');
-    if(postBox) postBox.innerHTML = richTextMod._mhLoadRT(_postLoad);
+    _setBox(postBox, _postLoad, 1000);
     const editable = myhomeStore.canEdit() ? 'true' : 'false';   // 받는 중 · 못 받음 · 구경 · 미리보기엔 글 칸을 잠근다(받은 글이 고친 글을 덮지 않게)
     if(bioBox) bioBox.setAttribute('contenteditable', editable);
     if(postBox) postBox.setAttribute('contenteditable', editable);
@@ -81,6 +90,15 @@ function renderMyHomePage(){
   _safe('bg', ()=>{ mhHooks.call(mhHooks.HOOK.APPLY_BG); });
   _safe('theme', ()=>{ mhHooks.call(mhHooks.HOOK.APPLY_THEME); });
 }
+/* 상태 주인의 값이 바뀌면(올리기 끝 · 409 로 다시 받음 · 저장 결과) 열려 있는 마이홈만 다시 그린다 — 같은 값이면 안 그린다(저장 시작 · 끝 신호마다 그리지 않게) */
+let _renderSig = '';
+function onStoreChange(){
+  if(!myHomeOpen()) return;
+  const sig = myhomeStore.mine().load + '|' + JSON.stringify(myhomeStore.page());
+  if(sig === _renderSig) return;
+  _renderSig = sig;
+  try{ renderMyHomePage(); }catch(e){ console.warn('[마이홈] 다시 그리기 실패', e); }
+}
 let _mhStickerDragDist = 0;   // 마지막 드래그 이동거리 — 드래그 직후 링크가 열리는 오작동 방지용
 
 return {
@@ -88,6 +106,7 @@ return {
   setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },   // 쓰는 함수 — app.js 가 비운다
   loadMyHomePage,
   renderMyHomePage,
+  onStoreChange,
 };
 }
 

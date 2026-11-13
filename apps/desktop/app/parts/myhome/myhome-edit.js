@@ -29,7 +29,7 @@ const toast = deps.toast;
 const myhomeStore = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 값은 여기 동작 함수로만 고친다
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(글 서식 링크 · 이미지 · 스티커 링크 · BGM)
 const renderMyHomePage = deps.renderMyHomePage;          // 🏠 마이홈 페이지 다시 그리기(프로필 사진 바꾼 뒤) — app.js
-const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(아래에서 감싸 다시 대입한다 — 부를 때 찾는다)
+const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(나중에 선언된 함수라 화살표로 받는다)
 const _mhSaveRT = deps.mhSaveRT;                         // 📝 리치 텍스트 저장 · 글자 수 — app.js(마이홈 페이지 그리기)
 const _mhUpdateRTCount = deps.mhUpdateRTCount;
 const _mhClampStickerPos = deps.mhClampStickerPos;       // 📐 스티커를 창 안으로 — app.js
@@ -43,7 +43,7 @@ const commitUserName = deps.commitUserName;              // 🏷️ 닉네임 �
 const getDisplayName = deps.getDisplayName;
 const getUserName = deps.getUserName;
 const getMyUserId = deps.getMyUserId;
-const _myHomeData = deps.myHomeData;                     // 🏠 마이홈 데이터 — app.js 의 let(불러올 때 · 관람할 때 다시 대입된다)
+const _myHomeData = deps.myHomeData;                     // 🏠 지금 그리는 마이홈 페이지(store.page() — 읽기만 · 고치기는 myhomeStore 동작 함수)
 const _mhViewingUserId = deps.mhViewingUserId;           // 👀 친구 홈 관람 중이면 그 사람 uid — app.js 의 let
 const _mhStickerDragDist = deps.mhStickerDragDist;       // 드래그 이동거리 — app.js 의 let(renderMyHomeStickers 가 읽는다)
 const _setMhStickerDragDist = deps.setMhStickerDragDist;
@@ -301,7 +301,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
   if(stickerAddBtn && stickerFile){
     stickerAddBtn.addEventListener('click', ()=>{ myHomeSticker.open(); });
     const pickNewSticker = ()=>{
-      if(!myhomeStore.canEdit()){ myhomeStore.setFields({}); return; }
+      if(!myhomeStore.canEdit()){ myhomeStore.setFields({}); return; }   // 빈 쓰기로 상태 주인의 안내(받는 중이에요 · 잠김)만 띄운다
       if(Object.keys(_myHomeData().stickers||{}).length>=STICKER_MAX){
         toast(`스티커는 최대 ${STICKER_MAX}개까지만 붙일 수 있어요`); return;
       }
