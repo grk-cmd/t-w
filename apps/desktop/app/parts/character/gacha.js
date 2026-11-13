@@ -34,6 +34,7 @@ const _srvNow = deps.srvNow;                                   // 🕒 서버 �
 const _warnServerWriteDenied = deps.warnServerWriteDenied;     // 🔑 쓰기 거부 안내 — app.js(캐릭터 슬롯 동기화도 쓴다)
 const getMyUserId = deps.getMyUserId;
 const getFocusLevel = deps.getFocusLevel;                      // ⭐ 레벨 — 뽑기 수(레벨/5)
+const levelCap = deps.levelCap;                                // ⭐ 레벨 상한 — 넘는 «다음 뽑기 레벨» 은 안 보인다
 const catEquippedIds = deps.catEquippedIds;                    // 👕 착용 목록 도우미 — app.js(꾸미기)
 const removeEntryFromCat = deps.removeEntryFromCat;
 const unequipStackablePart = deps.unequipStackablePart;
@@ -233,6 +234,13 @@ function gachaTicketsEarned(){
   if(_serverMode() && _srvState) return _srvState.earned;   // 서버 길 — 서버가 센 값(레벨 · 달성표 보상)
   return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0);
 }
+/* 다음 뽑기가 생기는 레벨 — 레벨로 받는 몫만 센다(👑 보상은 레벨과 무관). 상한을 넘으면 null. */
+function gachaNextTicketLevel(level, cap){
+  const lv = Math.max(0, Math.floor(Number(level) || 0));
+  const next = (Math.floor(lv / GACHA_LEVELS_PER_TICKET) + 1) * GACHA_LEVELS_PER_TICKET;
+  return next <= cap ? next : null;
+}
+const _nextLv = () => gachaNextTicketLevel(getFocusLevel(), levelCap);
 function gachaTicketsLeft(){
   if(_serverMode() && _srvState) return Math.max(0, Math.floor(Number(_srvState.left)) || 0);   // 서버 길 — 남은 횟수도 서버가 센 값
   return Math.max(0, gachaTicketsEarned() - gachaUsedTotal());
@@ -749,7 +757,8 @@ function renderGachaInv(){
   const left = gachaTicketsLeft();
   bar.innerHTML = '레벨 <b>' + Number(getFocusLevel()) + '</b> · 남은 뽑기 <b>' + left + '회</b>'
     + ' <span style="opacity:.6">(' + GACHA_LEVELS_PER_TICKET + '레벨당 1회'
-      + ((_gachaBonus|0) > 0 ? ' + 👑달성표 ' + (_gachaBonus|0) + '회' : '') + ')</span><br>'
+      + ((_gachaBonus|0) > 0 ? ' + 👑달성표 ' + (_gachaBonus|0) + '회' : '') + ')</span>'
+    + (_nextLv() ? ' · 다음 뽑기 <b>Lv ' + _nextLv() + '</b>' : '') + '<br>'
     + '이번 시즌 가챠 — <b>' + (GACHA_SEASON_LABEL[season] || season) + '</b>';
 
   // 보여줄 것: 이번 시즌 가챠분 전부 + 지금은 안 나오지만 내가 가진 비시즌 파츠
@@ -1121,7 +1130,8 @@ function renderGachaDrawBar(){
   const b1 = document.getElementById('gachaDraw1'), b5 = document.getElementById('gachaDraw5');
   if(!bar) return;
   const left = gachaTicketsLeft(), pool = gachaPool();
-  bar.innerHTML = '남은 뽑기 <b>' + left + '회</b> · 이번 시즌 <b>'
+  const nextLv = _nextLv();
+  bar.innerHTML = '남은 뽑기 <b>' + left + '회</b>' + (nextLv ? ' · 다음 뽑기 <b>Lv ' + nextLv + '</b>' : '') + ' · 이번 시즌 <b>'
     + (GACHA_SEASON_LABEL[gachaSeasonNow()] || '') + '</b> 가챠 <b>' + pool.length + '종</b>';
   if(b1) b1.disabled = (left <= 0 || !pool.length);
   if(b5){
@@ -1151,7 +1161,7 @@ function renderGachaDraw(results){
   }
   if(!results || !results.length){
     if(left > 0) _gachaStageIdle();
-    else _gachaMsg('남은 뽑기가 없어요.\n집중해서 레벨을 올리면 다시 채워져요.');
+    else { const nextLv = _nextLv(); _gachaMsg(nextLv ? '남은 뽑기가 없어요.\n레벨 ' + nextLv + '부터 1회가 생겨요.' : '남은 뽑기가 없어요.'); }
     return;
   }
   // 연출 없이 결과만 다시 그릴 때(복원용)
@@ -1389,7 +1399,7 @@ return {
   setBonusLocal: _setGachaBonusLocal,
   resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; _srvState = null; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-gacha.js · sim-gacha-prune.js · sim-part-color-entry.js */
-  draw: gachaDraw, pool: gachaPool, seasonNow: gachaSeasonNow, ticketsLeft: gachaTicketsLeft, ticketsEarned: gachaTicketsEarned,
+  draw: gachaDraw, pool: gachaPool, seasonNow: gachaSeasonNow, ticketsLeft: gachaTicketsLeft, ticketsEarned: gachaTicketsEarned, nextTicketLevel: gachaNextTicketLevel,
   openGachaInv, closeGachaInv, runDraw: _gachaRunDraw, renderGachaDraw,
   state: {
     ts: ()=>_gachaTs, srvSeen: ()=>_gachaSrvSeen, page: ()=>_gachaPage, tab: ()=>_gachaTab, cat: ()=>_gachaCat, season: ()=>_gachaSeason,

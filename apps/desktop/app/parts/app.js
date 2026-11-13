@@ -8821,6 +8821,7 @@ const gachaMod = TwGacha.createGacha({
   warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
+  levelCap: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
   removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),
   unequipStackablePart: (...a)=>unequipStackablePart(...a),
