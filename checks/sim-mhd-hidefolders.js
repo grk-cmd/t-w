@@ -78,6 +78,7 @@ say('── 3. 서버 기록 — 상태 주인(sim-myhome-store 5-2)이 통째 P
   chk(/myhomeStore\.setDesktop\(\{ bg: bg \|\| null \}\);/.test(sb) && /advApplyBg\(\);/.test(sb), '배경을 바꾸면 상태 주인에 넘기고 바로 다시 칠한다(색 · 파일 · URL · 초기화가 모두 여기로)');
   const vb = code.slice(code.indexOf('window._advApplyVisitUI = function'));
   chk(/const mhdShown = \(\) => myhomeStore\.desktop\(\);/.test(code) && !/advVisitBg/.test(code.replace(/\/\/[^\n]*/g, '')) && !/firebaseAPI/.test(vb.slice(0, 1800)), '남의 집 · 미리보기 판단은 상태 주인 한 곳(desktop()) — 따로 찍어 둔 사본(advVisitBg)이 없다 · 방문 때 Firebase 읽기 0');
+  chk(/if\(bg && !advVisiting && !myhomeStore\.viewing\(\)\) TwMhBgUrl\.probeOwnerBg\(bg\.img\);/.test(code), '남의 배경 그림 주소는 «내 배경 못 받음» 안내(probeOwnerBg)에 안 들어간다 — 구경 시작 때 openView 알림이 먼저라 advVisiting 만으론 새므로 상태 주인에게도 묻는다');
   chk(/mhHooks\.on\(mhHooks\.HOOK\.FINISH_ARRANGE, \(\)=>\{ if\(mhdFF && mhdFF\.isArranging\(\)\) mhdFF\.finish\(\); \}\);/.test(code) && /mhHooks\.call\(mhHooks\.HOOK\.FINISH_ARRANGE\)/.test(fs.readFileSync('myhome-visit.js', 'utf8')) && /mhHooks\.call\(mhHooks\.HOOK\.FINISH_ARRANGE\)/.test(fs.readFileSync('myhome-ui.js', 'utf8')), '폴더를 옮기던 중이면 친구 집 · 미리보기로 들어가기 «전에» 저장한다(들어간 뒤엔 잠겨 저장이 안 된다)');
   const iClickAll = code.indexOf("el('advEnvHideFolders').addEventListener('click'");
   const hf = code.slice(iClickAll, code.indexOf('toast(', iClickAll));

@@ -39,8 +39,8 @@ function paint(where, src, mod, bg, visiting){
   if (where === 'desk') {
     const fn = grabFn(src, 'function advApplyBg(){');
     if (!fn) throw new Error('advApplyBg 를 못 찾음');
-    new Function('document', 'TwMhBgUrl', 'TwSafeHtml', 'advVisiting', 'mhdShown', 'advApplyFolderHide', fn + '\nadvApplyBg();')(
-      doc, B, SH, visiting, () => ({ bg }), () => {});
+    new Function('document', 'TwMhBgUrl', 'TwSafeHtml', 'advVisiting', 'mhdShown', 'myhomeStore', 'advApplyFolderHide', fn + '\nadvApplyBg();')(
+      doc, B, SH, visiting, () => ({ bg }), { viewing: () => (visiting ? 'friend' : null) }, () => {});
   } else {
     const fn = grabFn(src, 'function applyMyHomeBg(preview){');
     if (!fn) throw new Error('applyMyHomeBg 를 못 찾음');
@@ -118,7 +118,7 @@ const breaks = [
   ['같은 주소를 매번 부름', 'mod', '    if(!u || seen.has(u)) return false;', '    if(!u) return false;'],
   ['연결이 꺼진 실패도 안내', 'mod', '      if(deps.isOffline()){ seen.delete(u); return; }\n', ''],
   ['바탕화면이 예전 씻기(cssUrl)를 바로 부름', 'desk', 'TwSafeHtml.cssUrl(TwMhBgUrl.httpsOf(bg.img))', 'TwSafeHtml.cssUrl(bg.img)'],
-  ['바탕화면이 친구 집에서도 안내', 'desk', 'if(bg && !advVisiting) TwMhBgUrl.probeOwnerBg', 'if(bg) TwMhBgUrl.probeOwnerBg'],
+  ['바탕화면이 친구 집에서도 안내', 'desk', 'if(bg && !advVisiting && !myhomeStore.viewing()) TwMhBgUrl.probeOwnerBg', 'if(bg) TwMhBgUrl.probeOwnerBg'],
   ['창 바깥이 예전 씻기(cssUrl)를 바로 부름', 'edit', 'TwSafeHtml.cssUrl(mhBgUrl.httpsOf(bg.img))', 'TwSafeHtml.cssUrl(bg.img)'],
   ['창 바깥이 친구 집에서도 안내', 'edit', 'if(bg && !_mhViewingUserId()) mhBgUrl.probeOwnerBg', 'if(bg) mhBgUrl.probeOwnerBg'],
 ];

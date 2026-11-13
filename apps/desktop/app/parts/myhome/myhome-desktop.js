@@ -5556,7 +5556,7 @@ function advApplyBg(){
   // 방문 중엔 내 배경이 아니라 "그 집 주인"의 배경을 보여준다(mhdShown).
   const bg = mhdShown().bg;
   const bgUrl = bg ? TwSafeHtml.cssUrl(TwMhBgUrl.httpsOf(bg.img)) : '';   // 남의 집 배경일 수 있다 — 허용된 그림 주소 · 색만(http 는 https 로 바꿔 불러 봄)
-  if(bg && !advVisiting) TwMhBgUrl.probeOwnerBg(bg.img);   // 못 받으면 주인에게만 안내
+  if(bg && !advVisiting && !myhomeStore.viewing()) TwMhBgUrl.probeOwnerBg(bg.img);   // 내 배경일 때만(구경 시작 때 openView 알림이 _advApplyVisitUI 보다 먼저라 advVisiting 만으론 남의 배경이 끼어든다)   // 못 받으면 주인에게만 안내
   if(bgUrl) d.style.background=bgUrl+' center/cover no-repeat';
   else if(bg&&bg.color) d.style.background=TwSafeHtml.cssColor(bg.color);
   // 방문 중인데 집주인 배경이 서버에 없으면(상대가 아직 업데이트 전) 청록 단색 대신 투명 처리 —

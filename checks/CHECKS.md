@@ -313,7 +313,7 @@
 | sim-yard-enter.js | 59 | c323aea595a5 |
 | **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
 | **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
-| **sim-mhd-hidefolders.js** | 132 | **856a3e2b1610** |
+| **sim-mhd-hidefolders.js** | 133 | **7a61ee3d6c05** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
 | **sim-admin-console.js** | 142 | **3e1dc419471c** |
 | **sim-admin-license.js** | 198 | **60af3595c806** |
@@ -466,7 +466,7 @@
 | **sim-room-code-len.js** | 178 | **0dd3514b5e58** |
 | **sim-recent-rooms.js** | 216 | **521a6470e3ea** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |
-| **sim-mh-bg-url.js** | 133 | **e12ce21896ed** |
+| **sim-mh-bg-url.js** | 133 | **cebde4b52791** |
 | **sim-gift-img-retry.js** | 201 | **9d40ed7341fd** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
