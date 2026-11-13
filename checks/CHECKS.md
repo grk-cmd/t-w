@@ -130,7 +130,8 @@
 | **sim-fly-egg.js** | 259 | **e92b86d5702f** |
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
-| **sim-license-xlsx.js** | 121 | **5f41d7ae40fa** |
+| **sim-license-xlsx.js** | 121 | **4ff73c7fa2da** |
+| **sim-secret-room-grant.js** | 162 | **25d902ed1cb5** |
 | **sim-room-meta-cleanup.js** | 326 | **5629d47bab63** |
 | **sim-room-stats.js** | 199 | **0bcea1517588** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
@@ -253,7 +254,7 @@
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
 | **sim-admin-active.js** | 155 | **100afda315c1** |
-| **sim-room-order.js** | 78 | **19449085aa33** |
+| **sim-room-order.js** | 59 | **51fdec592c72** |
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
 | **sim-font-hangul.js** | 54 | **1124dfc9f983** |
@@ -272,8 +273,8 @@
 | **sim-gacha.js** | 471 | **72703fe818a8** |
 | **sim-myhome-edit.js** | 617 | **8ee763130a25** |
 | **sim-room-invite-ui.js** | 377 | **524ffec85237** |
-| **sim-focus-log.js** | 312 | **8de1a310bfc3** |
-| **sim-focus-progress.js** | 348 | **ab7ff3127ea0** |
+| **sim-focus-log.js** | 333 | **721cf81ef653** |
+| **sim-focus-progress.js** | 379 | **cfe5c6ec53f7** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 455 | **b95a9185c17b** |
 | **sim-api-public-reads.js** | 161 | **fbb81fd843d3** |
@@ -329,7 +330,7 @@
 | **sim-tricks.js** | 94 | **53f1d40a59a5** |
 | **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
-| **sim-focus-level.js** | 130 | **8bc7fbafdd6e** |
+| **sim-focus-level.js** | 128 | **7d299c58e4b9** |
 | **sim-chat-ui.js** | 123 | **8cb619c64968** |
 | **sim-license-gate.js** | 340 | **78de89e312a3** |
 | **sim-account.js** | 174 | **abee575500c5** |
@@ -362,7 +363,8 @@
 | **sim-code-crypto.js** | 141 | **0234e006a868** |
 | **sim-commission.js** | 103 | **f2dfe500eb47** |
 | **sim-exp-bar.js** | 98 | **cd3f1861cd05** |
-| **sim-focus-total.js** | 103 | **72e72ff1630c** |
+| **sim-focus-day.js** | 118 | **48174710dadc** |
+| **sim-focus-total.js** | 103 | **1057b7aa1b7e** |
 | **sim-focus-share.js** | 96 | **65d840be2d83** |
 | **sim-demoji-palette.js** | 95 | **a38ceb5d6ee7** |
 | **sim-chat-lock.js** | 96 | **75b069f43f16** |
@@ -468,7 +470,7 @@
 | **sim-gift-img-retry.js** | 201 | **9d40ed7341fd** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 417 | **eda35008b872** |
+| **sim-account-store.js** | 415 | **d6133c0789e6** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 499 | **d969dad39c36** |
 | **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |

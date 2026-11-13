@@ -106,8 +106,11 @@ function _miRenderHead(){
   const $e = id => document.getElementById(id);
   const nick = $e('miNick'); if(nick){ let n = ''; try{ n = getDisplayName(); }catch(_){} nick.textContent = n; }
   /* 🏅 레벨 배지 — 친구 목록 배지와 **같은 함수**(plMod.fillLv → .mh-flv + lvBadgeClass). 모양·티어 색을 여기서 따로 만들지 않는다. */
+  const ready = progress().load === 'ready';
+  const lvBtn = $e('miLvBtn'); if(lvBtn) lvBtn.style.display = ready ? '' : 'none';
+  const pf = $e('miProgFail'); if(pf) pf.style.display = progress().load === 'failed' ? '' : 'none';   // 못 받았으면 «못 불러왔어요 [다시 시도]»
   const lv = $e('miLv'); if(lv){
-    lv.style.display = progress().load === 'ready' ? '' : 'none';   // 서버 답 전 · 실패면 레벨 배지를 숨긴다(깜빡이는 레벨 1 을 그리지 않는다)
+    lv.style.display = ready ? '' : 'none';   // 서버 답 전 · 실패면 레벨 배지를 숨긴다(깜빡이는 레벨 1 을 그리지 않는다)
     let n = 1, st = null; try{ n = getFocusLevel(); st = myFocusShow(); }catch(_){} plMod.fillLv(lv, n, st);
   }
   const code = $e('miCode'); if(code){ let c = null; try{ c = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} code.textContent = c || '—'; }
@@ -457,6 +460,7 @@ function _miCodeLoad(){
     const $e = id => document.getElementById(id);
     const on = (id, fn) => { const el = $e(id); if(el) el.onclick = fn; };
     on('miBack', () => closeMyInfo());
+    on('miProgRetry', () => { Promise.resolve(retryProgress()).then(onProgressChanged); onProgressChanged(); });   // 다시 받는 동안 줄을 숨기고 끝나면 다시 그린다
     on('miLvBtn', () => _miStarToggle());           // 🌟 레벨 배지 = 별 색 구획 여닫기(개정 69)
     on('miTabBox', () => _miSetTab('box'));
     on('miTabAcct', () => _miSetTab('acct'));
