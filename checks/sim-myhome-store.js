@@ -392,6 +392,22 @@ async function judge(withBreak){
     rj.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
     await rj.st.setField('bio', 'fresh');
     chk(rj.srv.page.bio === 'fresh' && rj.st.page().bio === 'fresh', '얹은 글이 거절돼 사라지면 rebased 표시도 사라진다 — 새 글의 첫 409 는 다시 얹어 저장');
+    const ru2 = await ready(mk());
+    ru2.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE'), apiErr(400, 'SOME_UNKNOWN')];
+    await ru2.st.setField('bio', 'long');
+    ru2.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    await ru2.st.setField('bio', 'fresh');
+    chk(ru2.srv.page.bio === 'fresh', '  모르는 code 로 거절돼도 같다');
+    const rpl = mk({ auto: false }); await ready(rpl);
+    rpl.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    const w1 = rpl.st.setField('bio', 'same'); await tick();
+    rpl.srv.mineErr = apiErr(503, 'X'); await rpl.release(); await rpl.release(); await w1;   // 409 · 받기 실패
+    rpl.srv.mineErr = undefined; rpl.srv.page.bio = 'same';   // 다른 기기가 같은 글을 이미 저장했다
+    const rp1 = rpl.st.pullMine(); await tick(); await rpl.release(); await rp1; await tick();
+    chk(count(rpl.log, /^PATCH/) === 1 && rpl.st.mine().load === 'ready', '  다시 시도로 받은 판이 남은 글과 같으면 보낼 것 없음');
+    rpl.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    const w2 = rpl.st.setField('post', 'newer'); await tick(); await rpl.release(); await tick(); await rpl.release(); await tick(); await rpl.release(3); await settled(w2);
+    chk(rpl.srv.page.post === 'newer', '  그 뒤 새 글의 첫 409 는 다시 얹어 저장(남은 rebased 표시 없음)');
     const nr = await ready(mk({ patchErr: Object.assign(apiErr(404, ''), { kind: 'unavailable' }) }));
     await nr.st.setField('bio', 'keepme');
     nr.srv.patchErr = null; await nr.st.save();
@@ -538,7 +554,8 @@ async function judge(withBreak){
     ['gen 검사를 빼면(계정을 놓은 뒤 늦은 답이 상태를 고침)', (s) => s.split('g !== gen').join('false')],
     ['한 줄을 우회하면(받기 · 저장이 겹쳐 돔)', (s) => s.replace('const p = tail.then(job, job);', 'const p = Promise.resolve().then(job);')],
     ['서버가 거절한 값을 되돌려 다시 보내면', (s) => s.replace("if(typeof st !== 'number') return false;", 'return false;')],
-    ['거절 뒤에도 rebased 를 그대로 이으면', (s) => s.replace('rest.rebased = batch.rebased && Object.keys(rest.fields).some(keepKey);', 'rest.rebased = batch.rebased;')],
+    ['거절 뒤에도 rebased 를 그대로 이으면', (s) => s.replace('rest.rebased = batch.rebased && Object.keys(rest.fields).some(keepKey);', 'rest.rebased = batch.rebased;'), (s) => s.replace(' && Object.keys(fields).some(keepKey) };', ' };')],
+    ['받은 판과 같아진 글에 rebased 가 남으면', (s) => s.replace('if(!hasWork(pending)) pending = emptyOps();   // 새 판과 같아진 글은 남기지 않는다', '')],
     ['거절된 칸만이 아니라 묶음을 통째로 버리면', (s) => s.replace('const cols = REJECT_COLS[code];', 'const cols = null;')],
     ['거절을 kind 로 안 가르면(404 길 없음도 거절)', (s) => s.replace("if(e.kind === 'request') return", "if(e.kind) return")],
     ['setDesign 이 앞서 고른 배경 색을 안 지우면(나중 것이 이김)', (s) => s.replace('if(hasBg) delete pending.fields.bg;', '')],

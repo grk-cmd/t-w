@@ -77,7 +77,7 @@ function mergeOps(a, b){
   if(b.design && !own(b.design, 'bg') && a.design && own(a.design, 'bg') && !own(b.fields, 'bg')) design.bg = clone(a.design.bg);
   if(b.design && own(b.design, 'bg') && !own(b.fields, 'bg')) delete fields.bg;   // 나중 디자인의 바깥 배경이 앞 칸 고침을 이긴다
   if(b.design && b.design.theme && !own(b.fields, 'clearTheme')) delete fields.clearTheme;   // 나중 디자인이 테마를 새로 정했다
-  return { fields: clone(fields), stickerOps: clone(a.stickerOps).concat(clone(b.stickerOps)), design, rebased: !!(a.rebased || b.rebased) };
+  return { fields: clone(fields), stickerOps: clone(a.stickerOps).concat(clone(b.stickerOps)), design, rebased: !!(a.rebased || b.rebased) && Object.keys(fields).some(keepKey) };   // 얹은 글이 하나도 없으면 표시도 없다
 }
 /** 409 뒤 새 판에 얹을 것 — 글 칸만(rebased 표시를 달아) */
 function textOnlyOps(all){
@@ -276,6 +276,7 @@ function createMyHomeStore(deps){
     }
     if(g !== gen) return false;
     setServer(got);   // 못 보낸 고침(pending)은 그대로 — 새 판 위에 다시 얹혀 보인다
+    if(!hasWork(pending)) pending = emptyOps();   // 새 판과 같아진 글은 남기지 않는다(rebased 표시도 함께)
     load = LOAD.READY;
     emit();
     if(hasWork(pending)) kickRaw();   // 받기가 실패했던 사이 남은 글 · 받는 사이 끝난 올리기
@@ -556,14 +557,13 @@ function createMyHomeStore(deps){
   function withoutRejected(batch, code){
     const cols = REJECT_COLS[code];
     const rest = emptyOps();
-    rest.rebased = batch.rebased;
-    if(!cols) return rest;
+    if(!cols) return emptyOps();
     let dropped = false;
     for(const k of Object.keys(batch.fields)){
       if(cols.indexOf(k) >= 0) dropped = true; else rest.fields[k] = batch.fields[k];
     }
     if(cols.indexOf('#stickers') >= 0 && batch.stickerOps.length) dropped = true; else rest.stickerOps = batch.stickerOps;
-    rest.rebased = batch.rebased && Object.keys(rest.fields).some(keepKey);   // 얹은 글이 남을 때만 «한 번» 표시를 잇는다
+    rest.rebased = batch.rebased && Object.keys(rest.fields).some(keepKey);
     return dropped ? rest : emptyOps();
   }
   function failSave(e, site, batch, g){
