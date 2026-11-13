@@ -21,6 +21,7 @@ const _waitForFirebaseAPI = deps._waitForFirebaseAPI;
 const ensureMyFriendCode = deps.ensureMyFriendCode;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
+const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(friend-requests-port.js — 읽는 함수)
 const friendsSub = deps.friendsSub;   // 👥 친구 목록 구독 한 벌(friends-sub.js) — 상태 · 자동 다시 걸기
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
@@ -97,8 +98,8 @@ async function initMyHome(code, me){
       // 👋 나에게 온 친구 요청 구독 — 새 요청이 오면 목록에 뜨고, 처음 도착 시 토스트로 알림.
       //   ★ 이전에는 mhReqSection이 "친구 탭" 안에 있어서 유저가 그 탭을 열지 않으면 요청이 있는지도 모름.
       //     → 요청이 있으면 친구 탭 버튼에 (N) 뱃지 표시 + 마이홈 아이콘에도 자동 뱃지 → 눈에 띄게 함.
-      if(firebaseAPI.subscribeFriendRequests){
-        firebaseAPI.subscribeFriendRequests(myId, reqs=>{
+      {
+        friendRequests().watchReceived(myId, reqs=>{
           const prevIds = Object.keys(_myFriendRequests()||{});
           setMyFriendRequests(reqs || {});
           friendManage.renderFriendRequests();
@@ -115,7 +116,7 @@ async function initMyHome(code, me){
           if(myHomeOpen() && newIds.length && !friendManage.reqVisible()){
             friendManage.showFriendRequestPopup(newIds);
           }
-        });
+        }, e=>console.warn('[친구 요청] 받은 요청을 못 받음 — 알림이 오면 다시 받아요', e));
       }
       // 📩 우편 받기 — 새 우편은 realtime 알림이 오면 다시 받는다(mail-feed.js). 계정이 바뀌면 앞 계정의 우편은 비운다.
       mailFeed.start(myId);

@@ -23,6 +23,7 @@ const applyDesktopRunClass = deps.applyDesktopRunClass;
 const closeFriendHomeView = deps.closeFriendHomeView;
 const escRegisterWindow = deps.escRegisterWindow;
 const friendManage = deps.friendManage;
+const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(friend-requests-port.js — 읽는 함수) · 친구코드 찾기 · 보내기
 const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) — 못 받았으면 한 번 읽고 · 실패면 null(토스트는 거기서)
 const friendsRetry = deps.friendsRetry;   // 👥 친구 목록을 못 불러왔으면 다시 건다(친구 탭을 열 때)
 const friendsOpen = deps.friendsOpen;     // 👥 친구 목록이 보이기 시작함(friends-sub open — 이름 · 사진 다시 받기)
@@ -293,7 +294,6 @@ function syncFriendsOpen(){
     if(/^[A-Z0-9]{4}$/.test(code)){ candidates = ['MATE-'+code, 'COZY-'+code]; }
     else if(/^(MATE|COZY)-[A-Z0-9]{4}$/.test(code)){ candidates = [code]; }
     else { candidates = [code]; }   // 혹시 다른 형식이면 그대로 시도
-    if(!window.firebaseAPI || !firebaseAPI.lookupFriendCode){ toast('아직 준비 중이에요, 잠시 후 다시 시도해주세요'); return; }
     /* 👥 받은 목록으로 판정한다 — 못 받았으면 friends-sub 가 한 번 읽는다(못 읽으면 아무것도 안 보낸다). */
     const _fr = await friendsForCheck();
     if(!_fr) return;
@@ -304,18 +304,17 @@ function syncFriendsOpen(){
       let friendId = null;
       let matchedCode = null;
       for(const cand of candidates){
-        friendId = await firebaseAPI.lookupFriendCode(cand);
+        friendId = await friendRequests().lookupFriendCode(cand);
         if(friendId){ matchedCode = cand; break; }
       }
       if(!friendId){ toast('존재하지 않는 코드예요'); return; }
       if(_fr[friendId] || _myHomeFriends()[friendId]){ toast('이미 친구예요'); return; }
-      if(!firebaseAPI.sendFriendRequest){ toast('아직 준비 중이에요'); return; }
       /* 📤 뒤 두 인자는 **보낸 요청 목록에 보여줄 이름표**다. 코드로 추가하면 상대 이름을 모르니
          프로필에서 한 번 읽어 넘긴다 — 목록에 '닉네임 (MATE-5H3K)' 로 뜨게 하는 값이다.
          ⚠️ 실패해도 그냥 보낸다(null). 이름은 목록 렌더가 _fmLookupName 으로 다시 시도하고,
            그것도 안 되면 코드만 뜬다 — 이름 조회 때문에 친구 요청 자체가 막히면 안 된다. */
       const toName = await friendManage.lookupName(friendId);
-      const res = await firebaseAPI.sendFriendRequest(getMyUserId(), friendId, getDisplayName(), toName, matchedCode);
+      const res = await friendRequests().send(getMyUserId(), friendId, getDisplayName(), toName, matchedCode);
       if(res && res.ok){ toast('친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요'); ai.value=''; }
       else if(res && res.reason==='already'){ toast('이미 친구예요'); }
       else if(res && res.reason==='self'){ toast('내 코드는 추가할 수 없어요'); }

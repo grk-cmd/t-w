@@ -12,8 +12,9 @@
      fetchFriends() → Promise<[{ userCode, addedAt, lastSeenAt }]>   오래 사귄 순 · addedAt ms · lastSeenAt ms | null(기록 없음). 못 읽으면 던진다
      fetchFriend(userCode) → Promise<{ userCode, addedAt, lastSeenAt } | null>   null = 친구가 아님(요청 중 · 나 · 없는 사람)
      removeFriend(userCode) → Promise<void>
-     fetchRequests() → Promise<{ received:[userCode], sent:[userCode] }>   요청이 먼저 생긴 순
+     fetchRequests() → Promise<{ received:[{ userCode, requestedAt }], sent:[{ userCode, requestedAt }] }>   요청이 먼저 생긴 순 · requestedAt ms
      sendRequest(to) · acceptRequest(from) · rejectRequest(from) · cancelRequest(to) → Promise<void>
+     findByFriendCode(friendCode) → Promise<userCode | null>   친구코드로 찾기(GET /v1/users?friendCode=) · 없으면 null
      fetchCards(codes) → Promise<{ userCode: 명함 }>   명함 = { name, avatar, bio, level, cyc, clv, starC } · 없는 코드는 빠진다 · 100개씩 나눠 묻는다 · 한 조각이라도 못 받으면 던진다
      reset() — 읽은 토큰 주인 기억을 비운다(계정을 놓을 때)
    }
@@ -32,6 +33,7 @@ const PATHS = Object.freeze({
   request: (userCode) => '/v1/me/friend-requests/' + enc(userCode),
   accept: (from) => '/v1/me/friend-requests/' + enc(from) + '/accept',
   reject: (from) => '/v1/me/friend-requests/' + enc(from) + '/reject',
+  userByCode: (friendCode) => '/v1/users?friendCode=' + enc(friendCode),
   cards: (codes) => '/v1/myhomes/cards?codes=' + codes.map(enc).join(','),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 거절한다 */
@@ -97,10 +99,21 @@ function codesOf(list){
   for(const c of list) if(nonEmpty(c) && !seen.has(c)){ seen.add(c); out.push(c); }
   return out;
 }
-/* GET /v1/me/friend-requests → { received, sent }. 둘 중 하나라도 배열이 아니면 undefined */
+/* 요청 한 줄 { userCode, requestedAt } → { userCode, requestedAt(ms) }. 코드 · 시각이 없으면 undefined */
+function requestOf(raw){
+  if(!isObj(raw) || !nonEmpty(raw.userCode)) return undefined;
+  const requestedAt = msOrNull(raw.requestedAt);
+  return requestedAt === null ? undefined : { userCode: raw.userCode, requestedAt };
+}
+function requestListOf(list){
+  const out = [], seen = new Set();
+  for(const raw of list){ const r = requestOf(raw); if(r && !seen.has(r.userCode)){ seen.add(r.userCode); out.push(r); } }
+  return out;
+}
+/* GET /v1/me/friend-requests → { received, sent }(차례 그대로 · 깨진 줄 · 겹침은 뺀다). 둘 중 하나라도 배열이 아니면 undefined */
 function requestsOf(d){
   if(!isObj(d) || !Array.isArray(d.received) || !Array.isArray(d.sent)) return undefined;
-  return { received: codesOf(d.received), sent: codesOf(d.sent) };
+  return { received: requestListOf(d.received), sent: requestListOf(d.sent) };
 }
 /* 명함 한 장 → 친구 칸 이름(name · level · cyc · clv · starC · bio · avatar). 레벨은 1 이상 숫자만(아니면 null = 배지 숨김).
    회차 · 별 색은 날것 그대로 넘긴다(거르기는 app.js starFromRemote 한 곳). 코드가 없으면 undefined */
@@ -171,7 +184,17 @@ function createSocialApi(deps){
     return Object.assign({}, ...parts);
   }
 
+  /* 친구코드(MATE-XXXX · 옛 모양도)로 찾기 — 0 또는 1명. 없으면 null(실패와 다름). 로그인한 사람만 묻는다 */
+  async function findByFriendCode(friendCode){
+    if(!nonEmpty(friendCode)) throw codeError('NO_USER', '친구 코드 없음');
+    const d = await authed.get(PATHS.userByCode(friendCode), { auth: true });
+    if(!Array.isArray(d)) throw shapeError();
+    const u = d.find((x) => isObj(x) && nonEmpty(x.userCode));
+    return u ? u.userCode : null;
+  }
+
   return {
+    findByFriendCode,
     fetchFriends: async () => need(friendsOf(await readMine(PATHS.friends))),
     fetchFriend,
     removeFriend: async (userCode) => { const c = needCode(userCode); await write('끊기', (o) => authed.del(PATHS.friend(c), o)); },

@@ -29,6 +29,7 @@ const myHomeOpen = deps.myHomeOpen;              // 🏠 마이홈이 열려 있
 const _myHomeFriends = deps.myHomeFriends;       // 👥 친구 목록 캐시 — app.js 의 let(구독마다 다시 대입된다)
 const _myFriendRequests = deps.myFriendRequests; // 👋 나에게 온 친구 요청 — app.js 의 let(구독마다 다시 대입된다)
 const FRIEND_MAX = deps.friendMax;               // 👥 친구 상한 — app.js 한 곳(다섯 곳이 이 값 하나를 본다)
+const requests = deps.requests;                  // 👋 친구 요청 포트(friends/friend-requests-port.js) — 읽는 함수(app.js 가 이 모듈보다 뒤에 만든다)
 const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) — 못 받았으면 한 번 읽고 · 실패면 null(토스트는 거기서)
 
 /* 👋 대기 중 친구 요청 팝업 — 요청이 여러 개면 한 번에 하나씩 순차로.
@@ -39,7 +40,7 @@ const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(
      게다가 지금 보고 있는 화면이 바로 그 목록이면(_fmReqVisible) 팝업조차 뜨지 않는다 —
      뒤에 같은 줄이 이미 보이는데 모달로 한 번 더 묻는 꼴이라서다.
      둘을 이렇게 갈라두면 "팝업에서 거절했는데 목록에 남아 있다" 가 애초에 생기지 않는다
-     (양쪽 모두 같은 firebaseAPI 를 부르고, 구독 콜백이 목록을 다시 그린다).
+     (양쪽 모두 같은 요청 포트를 부르고, 구독 콜백이 목록을 다시 그린다).
 
    onlyIds: 이 요청들만 묻는다. 생략하면 전부 — 지금 생략해서 부르는 곳은 없다. */
 let _friendReqPopupBusy = false;
@@ -85,11 +86,11 @@ async function showFriendRequestPopup(onlyIds){
         continue;   // 이 요청은 남겨둠 — 나중에 처리
       }
       try{
-        await firebaseAPI.acceptFriendRequest(getMyUserId(), fromId);
+        await requests().accept(getMyUserId(), fromId);
         toast(nm + ' 님과 친구가 됐어요');
       }catch(e){ TwErrorCodes.notify('E-FR-01', e); }
     } else if(answer === 'no'){
-      try{ await firebaseAPI.rejectFriendRequest(getMyUserId(), fromId); }
+      try{ await requests().reject(getMyUserId(), fromId); }
       catch(e){ TwErrorCodes.notify('E-FR-02', e); }
     }
   }
@@ -155,7 +156,7 @@ async function _fmLookupName(uid){
   if(_fmNameCache.has(uid)) return _fmNameCache.get(uid);
   let nm = null;
   try{
-    if(window.firebaseAPI && firebaseAPI.getUserNameById) nm = await firebaseAPI.getUserNameById(uid);
+    nm = await requests().lookupName(uid);
   }catch(_){ return null; }   // 네트워크 실패는 캐시하지 않는다 — 다음에 다시 시도한다
   nm = (nm && String(nm).trim()) || null;
   _fmNameCache.set(uid, nm);
@@ -205,21 +206,8 @@ async function renderSentRequests(listEl){
   listEl.onclick = null;   // 선물함이 걸어둔 위임 클릭 해제 (같은 칸을 돌려 쓴다)
   if(_fmSent === null) listEl.innerHTML = '<div class="mh-ibx-empty">불러오는 중…</div>';
   try{
-    const api = window.firebaseAPI;
-    if(!api || !api.getSentFriendRequests){
-      listEl.innerHTML = '<div class="mh-ibx-empty">아직 준비 중이에요</div>';
-      return;
-    }
-    const raw = await api.getSentFriendRequests(getMyUserId()) || {};
-    const ids = Object.keys(raw);
-    // 살아 있는 것만 남긴다 — 죽은 미러는 서버에서도 치운다
-    const alive = [];
-    for(const toId of ids){
-      let ok = true;
-      if(api.isFriendRequestAlive) ok = await api.isFriendRequestAlive(toId, getMyUserId());
-      if(ok) alive.push(toId);
-      else if(api.pruneSentFriendRequest) api.pruneSentFriendRequest(getMyUserId(), toId);   // 기다리지 않는다
-    }
+    const raw = await requests().listSent(getMyUserId()) || {};
+    const alive = Object.keys(raw);
     _fmSent = {};
     alive.forEach(id => { _fmSent[id] = raw[id]; });
     _fmSyncSentCount();
@@ -260,8 +248,7 @@ async function renderSentRequests(listEl){
       cancelBtn.type = 'button'; cancelBtn.textContent = '취소';
       cancelBtn.onclick = async ()=>{
         cancelBtn.disabled = true;
-        if(!api.cancelFriendRequest){ toast('아직 준비 중이에요'); cancelBtn.disabled = false; return; }
-        const r = await api.cancelFriendRequest(getMyUserId(), toId);
+        const r = await requests().cancel(getMyUserId(), toId);
         if(r && r.ok){
           toast('요청을 취소했어요');
           if(_fmSent) delete _fmSent[toId];
@@ -297,10 +284,9 @@ function _fmSyncSentCount(){
    ⚠️ seats 를 호출자가 세어 넘기는 것이 핵심이다. 서버 왕복 뒤에도 _myHomeFriends 는
      구독 콜백이 와야 갱신되므로, 매 건 다시 세면 **자리가 1칸인데 3건이 전부 통과한다.** */
 async function _fmAcceptOne(fromId, seats){
-  if(!window.firebaseAPI || !firebaseAPI.acceptFriendRequest) return 'noapi';
   if(seats <= 0) return 'full';
   try{
-    await firebaseAPI.acceptFriendRequest(getMyUserId(), fromId);
+    await requests().accept(getMyUserId(), fromId);
     return 'ok';
   }catch(e){ return 'err'; }
 }
@@ -388,9 +374,8 @@ function renderFriendRequests(){
       unlock();
     };
     noBtn.onclick = async ()=>{
-      if(!window.firebaseAPI || !firebaseAPI.rejectFriendRequest) return;
       lock();
-      try{ await firebaseAPI.rejectFriendRequest(getMyUserId(), fromId); _fmPicked.delete(fromId); }
+      try{ await requests().reject(getMyUserId(), fromId); _fmPicked.delete(fromId); }
       catch(e){ TwErrorCodes.notify('E-FR-02', e); unlock(); }
     };
 
@@ -436,12 +421,11 @@ async function _fmBulkReject(){
   if(!ids.length){ toast('선택된 요청이 없어요'); return; }
   if(!confirm(ids.length + '건의 친구 요청을 거절할까요?')){ window.focus(); return; }
   window.focus();
-  if(!window.firebaseAPI || !firebaseAPI.rejectFriendRequest){ toast('아직 준비 중이에요'); return; }
   let ok = 0;
   let err = 0;   // ⚠️ 검사 6 — 한 줄에 몰아 선언하면 둘째부터 const 재대입으로 잡힌다
   for(const id of ids){
     if(!_myFriendRequests()[id]) continue;
-    try{ await firebaseAPI.rejectFriendRequest(getMyUserId(), id); ok++; _fmPicked.delete(id); }
+    try{ await requests().reject(getMyUserId(), id); ok++; _fmPicked.delete(id); }
     catch(e){ err++; }
   }
   if(ok)  toast(ok + '건을 거절했어요');

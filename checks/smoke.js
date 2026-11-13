@@ -603,7 +603,10 @@ PRELOAD.push('lv-tier.js');
 /* friends-firebase.js · friends-api.js · friends-port.js — 친구 데이터 provider · 포트. 같은 까닭 — app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
 PRELOAD.push('friends-firebase.js');
 PRELOAD.push('friends-api.js');
-PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 길 provider — 아직 만드는 곳 없음(다음 PR 부터 app.js 가 로그인 통로를 넘겨 만든다)
+PRELOAD.push('friend-requests-firebase.js');
+PRELOAD.push('friend-requests-api.js');
+PRELOAD.push('friend-requests-port.js');
+PRELOAD.push('social-api.js');   // 👥 친구 · 요청 · 명함 서버 길 provider — app.js 가 만든다(socialApiMod)
 PRELOAD.push('friends-presence-rt.js');
 PRELOAD.push('presence-self.js');
 PRELOAD.push('friends-port.js');
