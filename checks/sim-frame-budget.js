@@ -3,6 +3,7 @@
    ・1절: pickFps 표 — 최대 60 · 손 안 대면 30(실행 화면 · 포커스 · 하는 중 아님) · 다른 창 20 · hot 이면 60
    ・2절: admit — 예정 시각을 쌓아 144 · 165 · 120 · 75 · 60Hz 에서 평균이 상한에 맞는다 · 멈춤 뒤 몰아 그리지 않는다
    ・3절: runPixelRatio — 플랫폼 상관없이 1.5 · 도트 렌더 1 · 화질(선명하게 · 자동 · 가볍게) · antialiasFor · qualityFrom
+   ・3-1절: castShadowFor — 실행 화면에서는 그림자를 안 만든다 · 런처 · 꾸미기는 만든다 · 깨 보기
    ・3-2절: createSlowWatch(«자동» 화질의 느림 감시) — 느린 PC 를 흉내 내 15초 뒤 한 번 낮춘다 · 잘 도는 PC · 쉼(창 가림) · 잠깐 튐은 안 낮춘다 · 깨 보기
    ・4절: 포커스 비율 · 진단 줄(짧게)
    ・5절: 배선 — html 이 app.js 앞에 싣는다 · app.js 가 runPixelRatio · 1분 진단을 쓴다 · 렌더러 antialias · 자동 감시 · 모니터 탭 칸
@@ -77,6 +78,18 @@ chk(F.qualityFrom('auto') === 'auto' && F.qualityFrom('light') === 'light' && F.
   && F.qualityFrom(null) === 'sharp' && F.qualityFrom('') === 'sharp' && F.qualityFrom('LIGHT') === 'sharp' && F.qualityFrom('1') === 'sharp', '저장값 → 화질 · 없음 · 모르는 값은 선명하게');
 chk(F.antialiasFor('light') === false && F.antialiasFor('auto') === true && F.antialiasFor('sharp') === true && F.antialiasFor(null) === true, '★ 테두리 다듬기는 «가볍게» 만 끈다');
 chk(F.QUALITY_KEY === 'tw.renderQuality', '저장 키 tw. 접두사');
+
+say('── 3-1. castShadowFor — 실행 화면 그림자');
+{
+  const ok = (S) => S && S.castShadowFor(true) === false && S.castShadowFor(false) === true;
+  chk(F.castShadowFor(true) === false, '★ 실행 화면(바닥 숨김)에서는 그림자를 안 만든다');
+  chk(F.castShadowFor(false) === true, '  런처 · 꾸미기(바닥 보임)에서는 만든다');
+  const mut = (from, to) => { const src = SRC['frame-budget.js']; if(!src.includes(from)) return null; const w = {}; new Function('window', 'module', src.replace(from, to))(w, undefined); return w.FrameBudget; };
+  const M1 = mut('function castShadowFor(runOverlay){ return !runOverlay; }', 'function castShadowFor(runOverlay){ return true; }');
+  const M2 = mut('function castShadowFor(runOverlay){ return !runOverlay; }', 'function castShadowFor(runOverlay){ return false; }');
+  chk(M1 && !ok(M1), '깨 보기: 늘 만들면(예전) 빨강');
+  chk(M2 && !ok(M2), '깨 보기: 늘 끄면(런처 그림자까지 사라짐) 빨강');
+}
 
 say('── 3-2. createSlowWatch — «자동» 화질의 느림 감시');
 {
@@ -179,6 +192,9 @@ say('── 5. 배선');
   chk(/return !_frameBudget\.admit\(now, _frameCap\(now\)\);/.test(code), '_frameCapped 가 admit 으로 판정');
   chk(/companion\.diagNote\(_FB\.diagLine\(m\)[^;]*\);[\s\S]{0,40}\}, 60000\);/.test(code) && /if\(!document\.body\.classList\.contains\('runmode'\)\) return;/.test(code), '1분마다 · 실행 화면에서만 진단 줄');
   chk(!/requestAnimationFrame\([^)]*diag/i.test(code), '진단은 rAF 가 아니라 1분 타이머');
+  chk(/floor\.visible = !runOverlay;[^\n]*\n\s*key\.castShadow = FrameBudget\.castShadowFor\(runOverlay\);/.test(code)
+    && !/renderer\.shadowMap\.enabled\s*=\s*(?!true)/.test(code), '실행 화면 전환에서 바닥과 같이 빛의 castShadow 를 정한다(shadowMap.enabled 는 끄지 않는다 — 낡은 그림자 그림)');
+  chk(/cost\.casters = key\.castShadow \? TwGpuTimer\.countCasters\(scene\) : 0;/.test(code), '  진단 줄 «그림자» 수는 빛이 그림자를 만들 때만 센다');
   chk(/if\(!_officeHidden && !\(document\.body\.classList\.contains\('desktop'\) && document\.body\.classList\.contains\('config'\)\)\)\{? ?(_gpuTimer\.begin\(\); )?renderer\.render\(scene,camera\);/.test(code)
     && (code.match(/renderer\.render\(scene,camera\)/g) || []).length === 1, '회사원 모드로 화면을 숨긴 동안은 3D 를 안 그린다(그리기 자리는 한 곳)');
 }

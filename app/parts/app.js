@@ -8804,7 +8804,7 @@ try{
     if(!document.body.classList.contains('runmode')) return;
     if(!(window.companion && companion.diagNote)) return;
     m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
-    cost.calls = renderer.info.render.calls; cost.casters = TwGpuTimer.countCasters(scene);
+    cost.calls = renderer.info.render.calls; cost.casters = key.castShadow ? TwGpuTimer.countCasters(scene) : 0;   // 빛이 그림자를 안 만들면 그림자 그리기도 없다
     companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suffix(cost));
   }, 60000);
 }catch(_){}
@@ -9602,6 +9602,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   document.body.classList.toggle('runmode', runOverlay);
   document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
+  key.castShadow = FrameBudget.castShadowFor(runOverlay);   // 바닥이 없으니 그림자도 안 만든다(frame-budget.js)
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
