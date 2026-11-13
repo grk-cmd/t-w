@@ -2365,10 +2365,17 @@ function _charProjSane(x, y, h){
    ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
 let _twMoveSeenAt = 0;
 const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
+/* 🪟 창이 보이는가(main 이 최소화 · 숨김 · 복귀 때 알려 준다 — 모르면 null) · 무거운 칸을 마지막으로 잰 시각.
+   안 보이면 regions · others 를 잠깐 빼고 보낸다 — 판단은 heartbeat-policy.js fullStep. */
+let _hbWinShown = null, _hbFullAt = 0;
 try{
+  if(window.companion) companion.onWinShown(v => { _hbWinShown = !!v; });
   setInterval(runCost.timed('hb', ()=>{
     try{
       if(!(window.companion && companion.setCharBounds)) return;
+      const _now = Date.now();
+      const _hbFull = TwHeartbeatPolicy.fullStep({ shown: _hbWinShown, sinceFull: _now - _hbFullAt });
+      if(_hbFull) _hbFullAt = _now;
       /* ★ _charBoundsLatest 를 직접 건드리지 않고 매번 새 객체로 보낸다 — 그 값은 다음 주기에도
          재사용되므로 필드를 덧붙이면 안 된다. moveAge 는 "mousemove 가 마지막으로 온 지 몇 ms 됐나",
          한 번도 온 적 없으면 -1(=판단 불가, main 은 이때 아무것도 하지 않는다). */
@@ -2378,7 +2385,8 @@ try{
          정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
       companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
         moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined, others: statusChipMod.otherSeatCircles(),   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
+        regions: (_hbFull && window.__uiRegions) ? window.__uiRegions() : undefined,
+        others: _hbFull ? statusChipMod.otherSeatCircles() : undefined,   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
         /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
            구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
         charBad: _charBadWhy || undefined });
