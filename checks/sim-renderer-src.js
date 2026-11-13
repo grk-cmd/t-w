@@ -206,7 +206,42 @@ function joinRenderer(app){
   for(const m of MODULES) all = all.replace(new RegExp('\\b' + esc(m.mod) + '\\.', 'g'), '');
   return all;
 }
-module.exports = { joinRenderer, MODULES, VALUE_MODULES };
+/* frame() 의 3D 그리기 조건을 실제로 돌려 본다 — 회사원 숨김 · 데스크톱 · 설정 화면 8가지 조합에서 «그린다 ⇔ 회사원 숨김 아님 ·
+   설정 화면이 #scene 을 가리지 않음(desktop && config 아님)» 인가. 조건이 부르는 함수(예: _configHidesScene)는 글에서 꺼내 같이 돌린다.
+   code = 주석을 걷은 렌더러 글. 돌려주는 값: { ok, renders(renderer.render(scene,camera) 개수), bad(어긋난 조합) } — 그리기 줄을 못 찾으면 ok 거짓 */
+function grabFn(code, name){
+  const i = code.search(new RegExp('function ' + esc(name) + '\\s*\\(')); if(i < 0) return '';
+  let k = code.indexOf('{', i), d = 0;
+  for(; k < code.length; k++){ if(code[k] === '{') d++; else if(code[k] === '}' && --d === 0) return code.slice(i, k + 1); }
+  return '';
+}
+function frameDrawGate(code){
+  const renders = (code.match(/renderer\.render\(scene,camera\)/g) || []).length;
+  const m = /\n\s*if\((.*)\)\{ ?(?:_gpuTimer\.begin\(\); )?renderer\.render\(scene,camera\);/.exec(code || '');
+  if(!m) return { ok: false, renders, bad: '그리기 조건을 못 찾음' };
+  const cond = m[1];
+  const fns = [...new Set([...cond.matchAll(/([A-Za-z_$][\w$]*)\(/g)].map(x => x[1]))].map(n => grabFn(code, n)).join('\n');
+  const bad = [];
+  for(const office of [false, true]) for(const desktop of [false, true]) for(const config of [false, true]){
+    const doc = { body: { classList: { contains: (c) => (c === 'desktop' && desktop) || (c === 'config' && config) } } };
+    let draw;
+    try{ draw = !!new Function('document', '_officeHidden', fns + '\nreturn (' + cond + ');')(doc, office); }catch(e){ draw = 'throw'; }
+    const want = !office && !(desktop && config);
+    if(draw !== want) bad.push('office=' + office + ' desktop=' + desktop + ' config=' + config + ' → ' + draw);
+  }
+  return { ok: !bad.length, renders, bad: bad.join(' / ') };
+}
+/* setInterval 하나 안에서 «실행 화면이 아니면 돌아감» 이 needle(진단 줄) 보다 먼저이고 그 타이머가 ms 마다인가 */
+function minuteTimerGuard(code, needle, ms){
+  const at = code.indexOf(needle); if(at < 0) return false;
+  const st = code.lastIndexOf('setInterval(', at); if(st < 0) return false;
+  const end = code.indexOf('}, ' + ms + ');', at); if(end < 0) return false;
+  const nx = code.indexOf('setInterval(', st + 1);
+  if(nx > st && nx < end) return false;   // 사이에 다른 타이머가 끼면 같은 타이머가 아니다
+  const guard = code.indexOf("if(!document.body.classList.contains('runmode')) return;", st);
+  return guard > st && guard < at;
+}
+module.exports = { joinRenderer, MODULES, VALUE_MODULES, frameDrawGate, minuteTimerGuard };
 
 if(require.main === module){
   let pass = 0, fail = 0;

@@ -8786,6 +8786,26 @@ try{
     for(const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, _fbPoke, { capture: true, passive: true });
   }
 }catch(_){}
+/* 🗺️ 클릭 통과 히트 맵 — 좌석 조각의 경계 구를 화면 사각형으로(room/seat-hit-targets.js · launcher/hit-map.js). 판정이 찾을 때 마지막으로 그린 장의 행렬로 만든다.
+   0.12.4 는 그림자 운행: 통과 판정의 답은 옛 판정 그대로, desktop-run 이 새 판정을 옆에서 돌려 hitShadow 에 센다(1분 [지도] 줄). */
+const hitShadow = TwHitShadow.createHitShadow();
+/* 설정(런처) 화면이 #scene 을 가리는가 — frame() 이 그리기를 건너뛰는 조건 · 히트 맵이 빈 지도를 만드는 조건 한 곳 */
+function _configHidesScene(){ return document.body.classList.contains('desktop') && document.body.classList.contains('config'); }
+const seatHitMod = TwSeatHitTargets.createSeatHitTargets({
+  THREE: THREE,
+  hitMap: TwHitMap,
+  seats: seats,
+  camera: camera,
+  ray: ray,
+  canvasRect: (...a)=>overheadMod.canvasRect(...a),
+  officeHidden: ()=>_officeHidden,
+  configHidden: ()=>_configHidesScene(),
+  isRunmode: ()=>document.body.classList.contains('runmode'),
+  partSkipped: (...a)=>hiddenSeatsMod._partSkipped(...a),
+  skipHits: (...a)=>hiddenSeatsMod._skipUnhittable(...a),
+  now: ()=>performance.now(),
+  noteBuild: (...a)=>hitShadow.build(...a),
+});
 /* 🩺 1분 진단 줄([비용] · [프레임])은 launcher/run-diag-minute.js 로 옮겼다 — 만들 때 한 번 돈다. */
 const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
   Presence: Presence,
@@ -8798,6 +8818,7 @@ const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
   _renderQuality: ()=>_renderQuality,
   _runLowered: ()=>_runLowered,
   canvas: canvas,
+  hitShadow: hitShadow,
   key: key,
   renderer: renderer,
   runCost: runCost,
@@ -9054,8 +9075,9 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
   /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
   const _tDraw = performance.now();
-  if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
+  if(!_officeHidden && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
   runCost.since('render', _tDraw);
+  seatHitMod.markRendered();   // 🗺️ 히트 맵 — 그린 장 표시만(지도는 판정이 찾을 때 만든다)
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
   _frameJsStats.add(performance.now() - _frameT0);
@@ -9628,6 +9650,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   desktopMode: desktopMode,
   drag: ()=>drag,
   focusGateSleep: ()=>focusGateSleep,
+  hitShadow: hitShadow,
   lastActivity: ()=>lastActivity,
   lastAnyInput: ()=>lastAnyInput,
   moveMode: ()=>moveMode,
@@ -9638,6 +9661,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   setLastActivity: (v)=>{ lastActivity = v; },
   setLastAnyInput: (v)=>{ lastAnyInput = v; },
   runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
+  seatHit: seatHitMod,   // 🗺️ 히트 맵 새 판정 — 그림자 운행
 });
 /* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 */
 const _layoutSeats=layoutSeats;

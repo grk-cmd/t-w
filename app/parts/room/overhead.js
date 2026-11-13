@@ -665,6 +665,7 @@ return {
   bindLabelDrag,
   NAMEPLATE_BELOW_EXPBAR,
   beginLabelFrame: labelMeasure.beginFrame,
+  canvasRect: labelMeasure.canvasRect,   // 이번 프레임에 한 번 잰 캔버스 사각형 — 히트 맵(seat-hit-targets.js)도 같은 값을 쓴다
   labelSize: labelMeasure.size,
   nameplateHeight,
   _officeDemojiHtml,

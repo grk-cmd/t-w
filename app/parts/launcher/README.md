@@ -94,12 +94,28 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **책임**: 1분마다 `companion.diagNote` 로 진단 기록(tw-mouse-diag.log)에 두 줄 — `[비용]`(그리기 밖 시간 · 좌석 · 방 종류) · `[프레임]`(그린 장 · 상한 · 배율 · 캔버스 · 화질 + GPU · JS 꼬리).
   실행 화면(`runmode`)일 때만 적지만, 1분 몫(`takeMinute` · `_gpuTimer.take` · `_frameJsStats.take` · `runCost.take`)은 늘 비운다.
 - **만드는 법**: `TwRunDiagMinute.createRunDiagMinute(deps)` — app.js 원래 자리(프레임 상한 · 포커스 연결 뒤, `function frame` 앞)에서 만든다. 만들 때 60초 타이머 하나를 건다.
-  - 값: `_FB`(FrameBudget) · `_frameBudget`(없으면 null — 그때는 아무것도 안 한다) · `_gpuTimer` · `_frameJsStats` · `runCost` · `renderer` · `canvas` · `scene` · `key` · `seats` · `Presence`
+  - 값: `_FB`(FrameBudget) · `_frameBudget`(없으면 null — 그때는 아무것도 안 한다) · `_gpuTimer` · `_frameJsStats` · `runCost` · `hitShadow` · `renderer` · `canvas` · `scene` · `key` · `seats` · `Presence`
   - 읽는 함수: `_renderQuality` · `_runLowered`(program-settings · 자동 낮춤이 다시 대입한다)
   - 함수: `_frameCap` · `_bodyHidden`(= `hiddenSeatsMod._bodyHidden`)
 - **내놓는 것**: 없음.
-- **함정**: 줄 모양은 `frame-budget.js`(`diagLine`) · `gpu-timer.js`(`suffix`) · `run-cost-diag.js`(`line`)가 정한다 — 여기서 글을 만들지 않는다. `[비용]` 줄은 `[프레임]` 줄 바로 앞에 적는다.
+- **함정**: 줄 모양은 `frame-budget.js`(`diagLine`) · `gpu-timer.js`(`suffix`) · `run-cost-diag.js`(`line`) · `hit-shadow.js`(`lines`)가 정한다 — 여기서 글을 만들지 않는다. `[비용]` 줄은 `[프레임]` 줄 바로 앞에, `[지도]` 줄들은 `[프레임]` 뒤에 적는다.
 - **검사**: `checks/sim-run-diag-minute.js` — 모듈 모양 · 가짜 타이머로 한 번 돌려 보기(실행 화면 아님 · 맞음 · 상한 모듈 없음 · 그림자) · app.js 연결 · 깨 보기. 줄 내용은 `sim-frame-budget` · `sim-gpu-timer` · `sim-run-cost-diag`.
+
+## hit-map.js — 🗺️ 클릭 통과 히트 맵(순수 계산)
+
+- **책임**: 좌석 조각의 경계 구(월드 가운데 · 반지름)를 화면 사각형(CSS px — 통과 판정이 ndc 를 만드는 캔버스 사각형 기준)으로 투영하고, 그 사각형들로 «이 점을 덮는 조각 · 좌석» 을 답한다. three r128 `Mesh.raycast` 가 첫 거르기로 쓰는 바로 그 구라 «사각형 밖 ⇒ 광선도 못 맞춤» 이 식으로 성립한다. 설계: tw-docs `design/app/hit-map.md`.
+- **모양**: 순수 모듈 `window.TwHitMap` + `module.exports`(main 이 나중에 require — click-through-policy.js 와 같은 모양). THREE · DOM · 좌석을 모른다 — 숫자만 받는다.
+- **내놓는 것**: `sphereRect` · `createMap` · `reset` · `addSphere` · `addFull` · `candidates` · `pointIn` · `fresh` · `skipWhy` · 상수 `HIT_MAP_PAD_PX`(8) · `HIT_MAP_STALE_MS`(250) · `EMPTY` · `RECT` · `FULL`.
+- **함정**: 모르면 «전체»(카메라가 구 안 · 원근이 아닌 투영 · NaN · 캔버스 넓이 0) — «모른다» 를 «멀다» 로 바꾸지 않는다. 카메라 뒤 구만 «없음». 화면 밀기(`setViewOffset`)도 투영 행렬 모양 그대로 받는다.
+- **검사**: `checks/sim-hit-map.js` — 진짜 three 로 구 위의 점 · 사각형 밖 광선 · 경계 · 깨 보기.
+
+## hit-shadow.js — 🗺️ 히트 맵 그림자 운행의 셈 · 1분 `[지도]` 줄
+
+- **책임**: 0.12.4 는 통과 판정의 답을 옛 판정이 정하고, 새 판정(`room/seat-hit-targets.js` `pick`)을 옆에서 돌려 세기만 한다. 같음 · 지도만통과(옛 맞음 · 새 못 맞음 — 샘) · 지도만받기 · 건너뜀 · 전체(지도를 못 만들어 모든 좌석에 광선) · 오류 · 구간(먼 · 근처 · 위 — 옛 답 기준 횟수 · 옛 판정 시간) · 새 판정 시간(지도 만들기 포함) · 지도 만든 횟수 · 판정당 비율 · 만들기 시간 · 좌석 · 조각 · 삼각형 · 모르는 조각 · 더함 초당.
+- **모양**: `window.TwHitShadow = { createHitShadow({ now }), line, detailLine, lines, … }`. app.js 가 하나 만들어(`hitShadow`) 지도 만들기(`noteBuild`) · desktop-run(`record` · `allow`) · 1분 진단(`take`)에 같은 것을 넘긴다.
+- **함정**: 새 판정은 옛 판정을 한 번 더 도는 셈이라 광선 · 지도 만들기 몫은 1초 창마다 `BUDGET_MS`(10ms)까지만 쓰고 넘으면 건너뛴다(`allow` — 건너뛴 판정은 지도도 다시 안 만든다). 그림자는 받기 · 통과를 main 에 보낸 뒤 `_updateIgnore` 끝에서 돈다(desktop-run `_shadowArm` · `_hitShadowRun`) — 받기가 늦지 않고 `[비용]` 의 통과 시간에 안 든다(옛 판정만의 시간으로 0.12.4-beta.0 과 견준다). 다를 때 줄(`[지도✗]`)은 종류마다 1분에 첫 번째 하나. 줄은 200자 안.
+- **끝내는 조건**: 설계 3-4 — 7일 · PC 10대 넘게 · 지도만통과 0 · 지도만받기 0 · 지도 만들기 평균(좌석 8) 0.2ms 아래. 설계와 다른 점: 지도를 판정이 찾을 때 만들어서 «낡음» 칸이 없고 «만듦 · 판정당 %» 를 적는다. 채우면 둘째 PR 에서 `pick` 이 답을 정한다.
+- **검사**: `checks/sim-hit-shadow.js` — 셈 · 줄 모양 · 예산 · desktop-run 을 가짜 창에서 만들어 mousemove 로 «통과 결과는 옛 판정대로» · app.js 연결 · 깨 보기.
 
 ## oss-licenses.js — 📄 오픈소스 라이선스 창
 - 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 시스템 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
