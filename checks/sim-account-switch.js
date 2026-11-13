@@ -68,7 +68,7 @@ say('── 1. ACCOUNT_LOCAL_KEYS — 제보의 다섯 자리 · 두 경로가 �
 const listSrc = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
 chk(!!listSrc, '★ ACCOUNT_LOCAL_KEYS 가 있다 (지움 목록은 코드 한 벌이어야 한다 — 주석으로 «같은 목록» 이면 또 새는 자리)');
 const has = n => new RegExp('\\b' + n + '\\b').test(listSrc);
-chk(has('LICENSE_KEY_STORAGE'), '① 라이선스 키 — 남으면 미보유자에게 프리미엄이 열린다');
+chk(!has('LICENSE_KEY_STORAGE') && !has('LICENSE_OPTOUT_KEY') && has('LICENSE_REQ_ID_KEY'), '① 라이선스 옛 키 · 해제 표시는 로그아웃이 지우지 않는다(첫 실행이 서버에 올린 뒤에야 지움 — 프리미엄은 서버 판정이라 남아도 열리지 않는다) · 요청 번호만 지운다');
 chk(!has('FOCUS_TOTAL_KEY') && !has('FOCUS_SYNCED_KEY') && !has('FOCUS_TODAY_SEC_KEY'), '③ 누적 시간 + 마크는 계정별 칸(shared/account-store.js)이라 지움 목록에 없다 — 계정을 바꾸면 다른 칸이 열려 다음 계정 서버를 안 끌어올린다(흐름은 sim-account-store 6b절)');
 chk(!has('GACHA_OWNED_KEY') && !has('GACHA_TS_KEY') && !has('GACHA_BONUS_KEY') && !/tw\.gacha/.test(listSrc), '④ 가챠는 서버가 원본이라 이 PC 에 지울 값이 없다(지움 목록에 없다)');
 chk(!has('LS_KEY') && !/deskFriends\./.test(listSrc), '② 캐릭터는 서버가 원본이라 이 PC 에 지울 슬롯 저장본·ts 가 없다(지움 목록에 없다)');
@@ -221,10 +221,10 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
 
     /* ⑤ uid 가 없는 기기 — 검문 없이 그냥 지운다 */
     say('· ⑤ uid 없는 기기(이미 놓았거나 새 기기)');
-    e = mkEnv({ unsaved: 1 }); e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-?');
+    e = mkEnv({ unsaved: 1 }); e.LS.setItem(K.LICENSE_REQ_ID_KEY, 'REQ-?');
     r = await e.m.detach();
     /* (개정 238) chal:reset 은 메모리 비우기 — 서버 호출이 아니다 */
-    chk(r && r.ok === true && e.calls.filter(c => c !== 'release' && !/:reset$/.test(c)).length === 0 && e.LS.getItem(K.LICENSE_KEY_STORAGE) === null, '  올릴 곳이 없으니 서버를 안 부르고 지운다(기기 세션 놓기만 — 내 것일 때만 지우는 호출이라 무해)');
+    chk(r && r.ok === true && e.calls.filter(c => c !== 'release' && !/:reset$/.test(c)).length === 0 && e.LS.getItem(K.LICENSE_REQ_ID_KEY) === null, '  올릴 곳이 없으니 서버를 안 부르고 지운다(기기 세션 놓기만 — 내 것일 때만 지우는 호출이라 무해)');
 
     /* ⑥ 오프라인 — firebaseAPI 없음 */
     e = mkEnv({ apiOn: false }); fillA(e);

@@ -28,7 +28,7 @@ const flush = async (n = 8) => { for(let i = 0; i < n; i++) await new Promise(r 
 const loadWin = (src, name) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w[name]; };
 const TwApiErrors = loadWin(SRC['api-errors.js'], 'TwApiErrors');
 const TwErrorCodes = loadWin(SRC['error-codes.js'], 'TwErrorCodes');
-const RT = { READY: 'ready', OFF: 'off', AUTH_FAILED: 'authFailed', SESSION_LOST: 'sessionLost', UPDATE: 'update' };
+const RT = { READY: 'ready', OFF: 'off', AUTH_FAILED: 'authFailed', SESSION_LOST: 'sessionLost', UPDATE: 'update', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed', RETRYING: 'retrying', CONNECTING: 'connecting' };
 const apiErr = (status, code, kind) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: kind || (status >= 500 ? 'unavailable' : 'request') });
 const deferred = () => { let res; const p = new Promise((a) => { res = a; }); return { p, res }; };
 
@@ -319,6 +319,86 @@ async function judge(S){
     chk(!/firebaseAPI|setClapImage/.test(strip(MOD)) && /feed\.setImage\(data\)/.test(MOD), '  그림 올리기는 feed.setImage(서버 그림 길 → PATCH)를 부른다 — 모듈이 Firebase 를 안 만진다');
   });
 
+  await sec('── 4-2. 창 닫기 · 폭죽 확정 · 그림 고르기 · 30개 · 배지 · 끊김 · 계정 바뀜', async () => {
+    const e = mkEnv({ src: MOD, answers: { count: 3, view: bookOf({ entries: [ent('m1', { mine: true })], clap: { count: 3, img: null, emoji: '🎉', todayLeft: 5, dailyMax: 5 }, version: 6 }) } });
+    e.mk(); const badge = e.ctx.document.getElementById('mhGuestbookBadge');
+    e.ctx._mhGbStartWatch(); await flush();
+    chk(badge.textContent === '3' && !badge.classList.contains('hidden'), '(준비) 새 글 3 — 배지가 보인다');
+    e.ctx.openMyGuestbook(); await flush();
+    chk(badge.classList.contains('hidden'), '창을 열면 배지가 내려간다(읽음으로 친다)');
+    const w = e.wins[0], d = w.document;
+
+    /* ✕ · ESC */
+    d.getElementById('gbClose').onclick();
+    chk(w.closed, '✕ 를 누르면 창이 닫힌다');
+    e.ctx.openMyGuestbook(); await flush();
+    const w1 = e.wins[1], d1 = w1.document;
+    d1._L.keydown.forEach(fn => fn({ key: 'a' }));
+    chk(!w1.closed, 'ESC 가 아닌 키는 창을 안 닫는다');
+    d1._L.keydown.forEach(fn => fn({ key: 'Escape' }));
+    chk(w1.closed, 'ESC 로 닫힌다');
+
+    /* 폭죽 칸 Enter — 포커스를 빼서 확정(change)으로 이어진다 */
+    e.ctx.openMyGuestbook(); await flush();
+    const d2 = e.wins[2].document, em = d2.getElementById('gbClapEmoji');
+    let blurred = 0, prevented = 0; em.blur = () => { blurred++; };
+    em._L.keydown.forEach(fn => fn({ key: 'x', preventDefault(){ prevented++; } }));
+    chk(blurred === 0 && prevented === 0, '폭죽 칸 — Enter 가 아닌 키는 그대로');
+    em._L.keydown.forEach(fn => fn({ key: 'Enter', preventDefault(){ prevented++; } }));
+    chk(blurred === 1 && prevented === 1, '  Enter 는 포커스를 빼서 저장(change)으로 이어지게 한다');
+
+    /* 그림 고르기 — 400 안으로 줄여 JPEG 로 올린다 */
+    const cv = { width: 0, height: 0, getContext: () => ({ drawImage(){ cv.drew = [].slice.call(arguments).slice(1); } }), toDataURL: (t, q) => { cv.args = [t, q]; return 'data:image/jpeg;base64,CCC'; } };
+    e.ctx.document.createElement = (t) => (t === 'canvas' ? cv : mkEl(t));
+    const pick = async (W, H, files) => {
+      e.ctx.FileReader = class { readAsDataURL(){ this.onload({ target: { result: 'data:image/png;base64,AAA' } }); } };
+      e.ctx.Image = class { set src(v){ if(W){ this.width = W; this.height = H; this.onload && this.onload(); } } };
+      const fi = d2.getElementById('gbClapImgFile'); fi.files = files === undefined ? [{ name: 'a.png' }] : files;
+      e.calls.length = 0; e.toasts.length = 0; fi._L.change.forEach(fn => fn({})); await flush();
+    };
+    await pick(1000, 500);
+    chk(cv.width === 400 && cv.height === 200 && cv.args[0] === 'image/jpeg' && cv.args[1] === 0.85, '그림 — 큰 그림은 비율을 지켜 가로 세로 400 안으로 줄여 JPEG(0.85)로 만든다');
+    chk(e.calls[0] === 'upload:uA|data:image/jpeg;base64,CCC' && e.calls[1] === 'look:uA|6|{"clapImageUrl":"https://img/u.png"}' && e.toasts.indexOf('웹박수 이미지를 등록했어요') >= 0, '  올린 뒤 받은 주소를 겉모습에 걸고 «등록했어요» 안내');
+    await pick(200, 100);
+    chk(cv.width === 200 && cv.height === 100, '  작은 그림은 키우지 않는다');
+    await pick(300, 900);
+    chk(cv.width === 133 && cv.height === 400, '  세로로 긴 그림도 긴 변이 400');
+    await pick(1000, 500, []);
+    chk(e.calls.length === 0 && e.toasts.length === 0, '파일을 고르지 않고 닫으면 아무 일도 없다');
+    await pick(0, 0);
+    chk(e.calls.length === 0 && e.toasts.length === 0, '그림으로 못 읽는 파일이면 올리지 않는다');
+    const msg = d2.getElementById('gbMsg');
+    e.answers.upload = { status: 'failed', err: apiErr(413, 'PAYLOAD_TOO_LARGE') }; await pick(1000, 500);
+    chk(msg.style.display === 'block' && msg.textContent === TwErrorCodes.toastText('E-GB-07') && /512KB/.test(msg.textContent) && !e.calls.some(c => c.startsWith('look')) && e.toasts.indexOf('웹박수 이미지를 등록했어요') < 0, '그림이 너무 크다는 거절 — 창 안에 E-GB-07(512KB) · 겉모습은 안 건드림 · «등록했어요» 없음');
+    e.answers.upload = { status: 'failed', err: apiErr(415, 'UNSUPPORTED_MEDIA_TYPE') }; await pick(1000, 500);
+    chk(msg.textContent === TwErrorCodes.toastText('E-GB-06') && /png · jpg · webp/.test(msg.textContent), '그림 형식이 아니라는 거절 — 창 안에 E-GB-06(png · jpg · webp)');
+    e.answers.upload = { status: 'failed', err: apiErr(503, 'X') }; await pick(1000, 500);
+    chk(/오류 E-NET-07/.test(msg.textContent), '서버에 닿지 못하면 그림 탓이 아닌 공통 번호(E-NET-07)');
+    e.answers.upload = undefined;
+
+    /* 30개 — 앱이 자르지 않고 서버가 준 만큼 그린다 · 삭제는 내 글만 */
+    const many = []; for(let i = 30; i >= 1; i--) many.push(ent('g' + i, { name: '이름' + i, text: '글' + i, mine: i % 3 === 0 }));
+    const e30 = mkEnv({ src: MOD, answers: { view: bookOf({ entries: many }) } }); e30.mk(); e30.ctx.openMyGuestbook(); await flush();
+    const rows = e30.wins[0].document.getElementById('gbList').children;
+    const delOf = (row) => row.querySelector('.gb-meta').children[0];
+    chk(rows.length === 30 && /글30/.test(rows[0].innerHTML) && /글1</.test(rows[29].innerHTML), '30개 — 30줄 모두 · 서버가 준 순서(최신이 위) 그대로');
+    chk(rows.filter(r => delOf(r)).length === 10 && rows.every((r, i) => !!delOf(r) === ((30 - i) % 3 === 0)), '  삭제 링크는 내 글(10개)에만 — 남의 글 20개에는 없다');
+
+    /* 연결이 끊겼다 다시 붙음 — 창은 그대로 · 붙으면 다시 받는다 */
+    for(const st of [RT.SESSION_LOST, RT.AUTH_FAILED, RT.MAINTENANCE, RT.UPDATE]){
+      const q = mkEnv({ src: MOD, answers: { count: 2, view: bookOf({ entries: [ent('k1', { text: '남은글' })] }) } }); q.mk(); q.ctx._mhGbStartWatch(); await flush();
+      q.ctx.openMyGuestbook(); await flush();
+      const qd = q.wins[0].document, ql = qd.getElementById('gbList');
+      q.states.forEach(fn => fn(st)); await flush();
+      chk(!q.wins[0].closed && /불러오지 못했어요/.test(ql.children[0].textContent) && qd.getElementById('gbInputRow').style.display === 'none', st + ' — 창은 열린 채 «불러오지 못했어요» · 입력칸 숨김(끊긴 채로 쓰게 하지 않는다)');
+      q.calls.length = 0; q.states.forEach(fn => fn(RT.READY)); await flush();
+      chk(q.calls.includes('view:uA|uA') && /남은글/.test(ql.children[0].innerHTML) && qd.getElementById('gbInputRow').style.display === 'flex', '  다시 붙으면 서버에서 다시 받아 목록 · 입력칸이 돌아온다');
+    }
+    const rr = mkEnv({ src: MOD, answers: { view: bookOf({ entries: [ent('k1')] }) } }); rr.mk(); rr.ctx.openMyGuestbook(); await flush();
+    rr.calls.length = 0; rr.states.forEach(fn => fn(RT.RETRYING)); rr.states.forEach(fn => fn(RT.CONNECTING)); await flush();
+    chk(rr.calls.length === 0 && /글k1/.test(rr.wins[0].document.getElementById('gbList').children[0].innerHTML), '재시도 · 연결 중에는 요청도 화면 변화도 없다(목록 그대로)');
+  });
+
   await sec('── 5. app.js 배선', () => {
     const code = strip(APP);
     chk(!/function (bindGuestbook|bindGuestbookBadge|_gbApplyWriteUI|_gbSubscribeIfNeeded|_gbAlive|gbFirstGrapheme|gbBurst|gbSay)\(|\bconst GB_HTML\b|window\.(openMyGuestbook|_mhGb\w+|_mhReSubscribeGuestbook)\s*=(?!=)/.test(code),
@@ -371,6 +451,16 @@ async function judge(S){
     ['로그아웃에도 창을 안 닫음', M.replace("if(e.kind === 'off'){ if(_gbAlive()){ try{ _gbWin.close(); }catch(_){} } return; }", ""), '열린 방명록 창도 닫는다'],
     ['폭죽 저장 실패 때 입력칸을 안 되돌림', M.replace("    renderClap();   // 저장하지 못했다", "    // renderClap();   // 저장하지 못했다"), '서버 값으로 되돌린다'],
     ['실패를 창 안에 안 보임', M.replace("if(r.reason==='failed') gbShow(failText(r));   // 오류 번호 알림은 feed 가 이미 띄웠다\n    // closed", "// closed"), '창 안 안내줄'],
+    ['ESC 로 안 닫음', M.replace("if(e.key==='Escape'){ try{ _gbWin.close(); }catch(_){} }", ""), 'ESC 로 닫힌다'],
+    ['ESC 가 아닌 키로도 닫음', M.replace("if(e.key==='Escape'){", "if(true){"), 'ESC 가 아닌 키'],
+    ['폭죽 칸 Enter 로 확정 안 함', M.replace("e.preventDefault(); emIn.blur();", "e.preventDefault();"), 'Enter 는 포커스'],
+    ['웹박수 그림을 400 안으로 안 줄임', M.replace("const MAX=400;", "const MAX=4000;"), '400 안으로'],
+    ['그림 올리기를 PNG 로 보냄', M.replace("c.toDataURL('image/jpeg',0.85)", "c.toDataURL('image/png')"), '400 안으로'],
+    ['그림 올린 뒤 안내 없음', M.replace("if(r.ok) toast('웹박수 이미지를 등록했어요');", "if(r.ok){}"), '등록했어요'],
+    ['그림 올리기 실패를 창 안에 안 보임', M.replace("if(r.ok) toast('웹박수 이미지를 등록했어요');\n          else if(r.reason==='failed') gbShow(failText(r));", "if(r.ok) toast('웹박수 이미지를 등록했어요');"), '창 안에 E-GB-07'],
+    ['창을 열어도 배지를 안 내림', M.replace("    window._mhGbMarkAllRead();\n    // 이미 떠", "    // 이미 떠"), '배지가 내려간다'],
+    ['글을 열 개까지만 그림', M.replace("v.entries.forEach(en=>{", "v.entries.slice(0,10).forEach(en=>{"), '30줄 모두'],
+    ['연결이 끊기면 열린 창을 닫음', M.replace("if(e.kind !== 'book') return;", "if(e.kind === 'book' && !feed.view() && feed.status() === 'error'){ if(_gbAlive()){ try{ _gbWin.close(); }catch(_){} } return; }\n    if(e.kind !== 'book') return;"), '창은 열린 채'],
   ];
   for(const [name, src, what, feedSrc] of breaks){
     if(src === M && !feedSrc){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }

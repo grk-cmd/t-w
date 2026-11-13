@@ -82,7 +82,7 @@ function createLicensePremium(deps){
   /* 지금 서버에 다시 묻는다 → 프리미엄 여부(못 받으면 지금 값) */
   function refresh(){ return lane(null); }
 
-  /* 키 등록 — 돌려주는 것 { ok, reason? }. ok 는 서버가 «이 기기에서 프리미엄» 이라고 확인해 준 경우만 */
+  /* 키 등록 — 돌려주는 것 { ok, reason?, err?, registered? }. ok 는 서버가 «이 기기에서 프리미엄» 이라고 확인해 준 경우만(registered — 등록은 됐는데 확인이 안 됨 · err — 요청 실패 원본) */
   async function activate(key){
     const k = String(key || '').trim().toUpperCase();
     if(!k) return { ok: false, reason: EMPTY_KEY };
@@ -90,9 +90,9 @@ function createLicensePremium(deps){
     try{
       await licenseApi.mine();   // 읽은 토큰 주인에 쓰기를 묶는다(등록한 키가 다른 계정으로 가지 않게)
       l = await licenseApi.register(k, { id: deps.deviceId(), name: deps.deviceName() });
-    }catch(e){ return { ok: false, reason: licenseApi.reasonOf(e) || deps.reasonOf(e) }; }
+    }catch(e){ return { ok: false, err: e, reason: licenseApi.reasonOf(e) || deps.reasonOf(e) }; }   // err — 첫 실행 키 올리기가 서버 code · 로그인 풀림을 가른다
     const premium = await fromWrite(l);
-    return premium ? { ok: true } : { ok: false, reason: NOT_CONFIRMED };
+    return premium ? { ok: true } : { ok: false, registered: true, reason: NOT_CONFIRMED };
   }
   /* 이 기기에서 해제 — 서버 목록에서 이 기기를 뺀다(다른 기기 · 키는 그대로). 돌려주는 것 { ok, reason? } */
   async function deactivate(){

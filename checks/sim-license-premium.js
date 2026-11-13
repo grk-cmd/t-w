@@ -135,7 +135,7 @@ async function judge(S){
 
     e = env(LP, { me: [ME(true)], mine: null, register: apiErr(409, 'LICENSE_OWNED_BY_OTHER') });
     const r1 = await e.mod.activate('KEY');
-    t(r1.ok === false && r1.reason === '이미 다른 계정에 등록된 키예요' && e.sets.length === 0 && e.calls.every((c) => c !== 'me'), '다른 계정의 키 → 표의 문구 · 프리미엄을 바꾸지 않는다');
+    t(r1.ok === false && r1.err && r1.err.code === 'LICENSE_OWNED_BY_OTHER' && r1.reason === '이미 다른 계정에 등록된 키예요' && e.sets.length === 0 && e.calls.every((c) => c !== 'me'), '다른 계정의 키 → 표의 문구 · 프리미엄을 바꾸지 않는다');
 
     e = env(LP, { me: [ME(true)], mine: null, register: apiErr(503, '', 'unavailable') });
     const r2 = await e.mod.activate('KEY');
@@ -143,7 +143,7 @@ async function judge(S){
 
     e = env(LP, { me: [ME(false)], mine: null });
     const r3 = await e.mod.activate('KEY');
-    t(r3.ok === false && /다시 켜/.test(r3.reason) && e.sets.join() === 'false', '등록은 됐는데 서버가 아직 «아님» → 성공이라 하지 않는다');
+    t(r3.ok === false && r3.registered === true && /다시 켜/.test(r3.reason) && e.sets.join() === 'false', '등록은 됐는데 서버가 아직 «아님» → 성공이라 하지 않는다');
 
     e = env(LP, { me: [ME(false)], mine: lic([ID]), premium: true });
     const d = await e.mod.deactivate();
@@ -229,7 +229,7 @@ async function judge(S){
     t(setCalls === 1 && /setPremium: \(v\)=>acctStateMod\._setPremium\(v\),/.test(A), 'app.js 에서 _setPremium 을 잇는 곳은 판정 모듈 하나');
     t((A.match(/licensePremiumMod\.start\(/g) || []).length === 1 && /licensePremium: \(code, me\)=>licensePremiumMod\.start\(me\),/.test(A), '시작은 켜는 차례 한 곳(계정 확인이 준 me 로) — 만들 때 요청 · 구독 없음');
     t(!/loadLicenseFromStorage|startLicenseVerify|redeemLicense|verifyLicense/.test(A), '옛 길(이 PC 키로 먼저 켜기 · Firebase 로 재검증)이 app.js 에 없다');
-    t(/made = true|createLicensePremium/.test(A) && !/licensePremiumMod\.(refresh|activate|deactivate)\(/.test(A), '  버튼은 모듈(license-key.js · license-request.js)이 부른다');
+    t(/made = true|createLicensePremium/.test(A) && !/licensePremiumMod\.(refresh|activate|deactivate)\(/.test(A.replace('activate: (key)=>licensePremiumMod.activate(key),', '')), '  버튼은 모듈(license-key.js · license-request.js)이 부른다 — app.js 는 첫 실행 키 올리기(D8-3)가 쓰는 activate 한 줄만');
   }
   return rows;
 }
@@ -245,7 +245,7 @@ async function judge(S){
     ['로그인 풀림도 오류 번호로 알림', mut('LP', (s) => s.replace("if(e && e.kind === 'auth') return;", ""))],
     ['알림이 겹치면 요청이 쌓임', mut('LP', (s) => s.replace("if(running){ again = true; return running; }", ""))],
     ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again){ again = false; r = await once(null); }", ""))],
-    ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true } : { ok: false, reason: NOT_CONFIRMED };", "return { ok: true };"))],
+    ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true } : { ok: false, registered: true, reason: NOT_CONFIRMED };", "return { ok: true };"))],
     ['쓰기 응답 premium 을 버리고 늘 다시 물음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "return lane(null);"))],
     ['쓰기 응답에 premium 이 없어도 다시 묻지 않음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "if(!l) return lane(null);"))],
     ['도는 확인 중 쓰기 응답 뒤 다시 묻지 않음', mut('LP', (s) => s.replace("if(running) again = true;\n", ""))],
