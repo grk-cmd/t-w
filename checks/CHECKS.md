@@ -400,10 +400,11 @@
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-guestbook-api.js** | 242 | **67aa9c5bcb0e** |
 | **sim-guestbook-feed.js** | 403 | **59f6346cbea6** |
+| **sim-focus-api.js** | 192 | **e6cd91ab0c8f** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
 | **sim-domain-calls.js** | 157 | **673fc5f9779a** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
-| **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
+| **sim-error-codes.js** | 110 | **5f949216e20f** |
 | **sim-myhome-state.js** | 90 | **9ac9ba6189aa** |
 | **sim-account-state.js** | 99 | **f15e0c15e7f6** |
 | **sim-nav.js** | 91 | **b74d2aa1c684** |
