@@ -18,7 +18,7 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 | 자리 | 내용 |
 |---|---|
 | `src/app/` | `App`(언어 공급 + 페이지) · `entry-client.tsx`(미리 그린 HTML 에 이어 붙이기 — 언어는 `<html lang>`) · `entry-server.tsx`(빌드 때 언어마다 그리기) · `styles/` |
-| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로(🔒 투게더랜드 잠긴 아이콘 · 경고창 · 📰 소식 창 자리) · 캐릭터 만들기(생성기를 브라우저에서만 따로 싣는다) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
+| `src/pages/home/` | 첫 화면 — 맨 위 메뉴 · 히어로(🔒 투게더랜드 잠긴 아이콘 · 경고창 · 📰 소식 창 자리) · 소개(기능 탭) · 내려받기 · 바닥 · `<head>` 줄(제목 · 설명 · canonical · hreflang). 다른 페이지가 생기면 메뉴 · 바닥은 `widgets/` 로 옮긴다 |
 | `src/widgets/creator/` | 🎨 웹 생성기(#440) — 3D 미리보기 · 고르기 판 · 되돌리기 · 앱으로 가져가기를 묶는다. three 와 몸 모델이 무거워 첫 화면 묶음과 따로 받는다. **지금은 홈페이지에 붙어 있지 않다**(사용자 결정 — 다시 열 때는 `pages/home` 에 자리를 다시 만들어 lazy 로 싣는다) |
 | `src/features/character-maker/` | 얼굴 레이어(`model/catalog.ts` — 코드에는 «없음» 과 처음 얼굴의 하이라이트 · 눈썹 · 입 · 볼만 도형으로, 나머지는 서버 상품): 👁 눈 폴더(동공 · 하이라이트(빛반사) · 아이라인을 차례로 쌓음 — 폴더를 옮기면 셋이 같이, 층은 폴더 안에서 따로) · 눈썹 · 입 · 볼 · 액세서리(최대 5개) · 상태 규칙(`reduce` — 모르는 그림 · 색 모양은 안 받음 · 대칭: 폴더 · 레이어는 거울, 폴더 안 층은 같은 값 · 오드아이) · 되돌리기 40번 · 자리 계산 한 벌(`model/geometry.ts` — 그리기와 끌기가 같은 행렬) · 얼굴 판 그리기(`drawFace`) · 앞모습 판(`drawFront`) · 얼굴 텍스처 한 벌(코어 `rasterFront`) · 평면 얼굴 텍스처 칸(`ui/FaceTexturePanel.tsx` — 고른 것을 끌어 옮김 · 계산은 `model/drag.ts`) · 관리자가 올린 꾸미기 상품(`api/web-parts.ts` 가 자체 서버 `GET /v1/products?target=baseModel&surface=face` 를 읽어 `model/remote-parts.ts` 가 그림(decal) · 기본 몸 모델 · 얼굴 면 조각만 하나씩 펼쳐 검사 · 잠긴 상품은 건너뜀(규격 grk-cmd/t-w#517) · 눈 감은 얼굴 그림(표정 closed)은 모든 자리 → `setRemoteParts` 로 코드 그림 뒤에 붙임 · 그림은 `lib/part-images.ts` 가 CORS 로 불러옴 · **동공(`slot: pupil`) 그림은 흰 부분에 고른 눈 색을 곱해 칠한다**(`tintImage` — 관리자 · 홈페이지 사이 약속, 오드아이는 짝마다) · 동공 · 아이라인의 처음 얼굴은 서버 목록 맨 앞(`FIRST_ITEM` — 관리자 진열 순서) · 받는 중 · 못 받음 · 없음(`RemoteLoad`)은 빈 칸에 안내) |
 | `src/features/clone-code/` | 앱으로 가져가기 — 코어 `encodeCloneCode`(앱 «코드 입력하기» 가 읽는 DCC1). 싣는 칸은 앱 생성기와 같다(피부 · 얼굴 · 감은눈 · 상의 · 하의 색 · 크기 xf 는 앱 생성기 처음 값 — 파츠 · 책상 없음). 비밀번호 · 코드는 화면에만 · 복사 · txt 파일 저장(`saveText` — 브라우저 안에서 파일을 만든다 · 앱 «📂 파일 불러오기» 가 읽음) |
@@ -42,5 +42,5 @@ CI «메인 홈페이지 시험 · 빌드» 가 lint · format · test · build 
 
 ## 아직 아닌 것
 - **Hosting 연결**: `firebase.json` 의 `home` 칸(사이트 `tw-site` · `dist/` 를 `firebase/web-dist/` 로 옮겨 올림 · CSP 는 우리 주소만)은 있다. 사이트 만들기 · 첫 배포 · 맞춤 도메인 `together-working.com` 연결은 사람이 한다(`firebase/hosting/README.md` «새 사이트 만들기» 1 · 3 ~ 6).
-- **캐릭터 만들기**: 파츠 · 동물은 넣지 않는다(사용자 결정 — 꾸미기 파츠는 라이선스 전용 · 웹은 사람만). 얼굴 레이어 그림은 시안 수준이라 디자이너 그림이 오면 `catalog.ts` 표만 바꾼다. 내 계정에 저장은 #441.
+- **캐릭터 만들기**(지금 페이지에 없음 — 다시 열 때의 메모): 파츠 · 동물은 넣지 않는다(사용자 결정 — 꾸미기 파츠는 라이선스 전용 · 웹은 사람만). 얼굴 레이어 그림은 시안 수준이라 디자이너 그림이 오면 `catalog.ts` 표만 바꾼다. 내 계정에 저장은 #441.
 - **내려받기 · 로그인 · 라이브러리 · 소식**: 서버 API 가 있어야 한다(#439 · #441). 내려받기 단추는 그때까지 눌리지 않는다.
