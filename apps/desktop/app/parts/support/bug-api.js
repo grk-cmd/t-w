@@ -2,6 +2,8 @@
    [왜] 게시판의 원본은 서버다. 글쓴이 · 공감한 사람 · 읽은 사람은 서버가 로그인 토큰에서 정한다 — 앱은 내 이름 · 코드를 싣지 않는다.
      화면(bug-board-ui.js)은 경로 · 본문 모양 · 서버 이름(PUBLIC · BUG · NEW …)을 모르고 이 파일의 함수만 부른다.
      서버 모양(ISO 시각 · 대문자 이름) → 화면 모양(ms · 소문자 열쇠 'pub' · 'bug' · 'new')은 여기 한 곳(rowOf · postOf).
+   [관리자] answer(number, { seenLastAnswerAt, text, status, vis, kakaoLink }) · reportConfig() → { version, notice, link } · saveReportLink(cfg, link) → 새 { version, notice, link }
+     — 관리자 판정은 서버. 앱 isAdmin 은 화면을 가리는 깃발일 뿐이다. seenLastAnswerAt = 글을 열 때 받은 post.lastAnswerIso(서버 글자 그대로 — 다시 만들지 않는다).
    [모양] list(filter, cursor, limit) → { items:[row], next } · notices() → [row] · detail(number) → post
      row = { number, vis, cat, title, status, notice, byAdmin, anon, name, mine, likeN, ansN, createdAt, answeredAt, authorReplied, unseen }
      post = row 의 글 칸 + { body, env, canReply, liked, version, comments:[{ id, byAuthor, text, kakao, vis, st, at }] }
@@ -26,13 +28,20 @@ const PATHS = Object.freeze({
   seen: (n) => '/v1/me/bugs/' + enc(n) + '/seen',
   unseenCount: '/v1/me/bugs/unseen-count',
   quota: '/v1/me/bugs/quota',
+  answers: (n) => '/v1/admin/bugs/' + enc(n) + '/answers',
+  adminConfig: '/v1/admin/config',
+  reportConfig: '/v1/admin/config/bug.report',
 });
+const REPORT_KEY = 'bug.report';
+const KAKAO_PREFIX = 'https://open.kakao.com/';
+const LINK_MAX = 300;
 const FILTERS = Object.freeze(['all', 'open', 'mine']);
 const LIMIT_MAX = 20;   // 서버 limit 상한(1~20)
 const VIS = Object.freeze({ pub: 'PUBLIC', prv: 'PRIVATE' });
 const VIS_OF = Object.freeze({ PUBLIC: 'pub', PRIVATE: 'prv' });
 const WRITE_KEY = 'write';
 const replyKey = (n) => 'reply:' + n;
+const answerKey = (n) => 'answer:' + n;
 
 /* 실패 갈래 — guide = 안내 문구(번호 없음 · 문구는 bug-board.js GUIDE_TEXT) · missing = 없는 글 · private = 남의 비공개 글
    · conflict = 다른 곳에서 먼저 바뀜(다시 받기) · common = 공통 code · 닿지 못함(api-errors.js) · site = 그 자리의 E-BUG 번호 */
@@ -45,7 +54,8 @@ const ERRORS = Object.freeze({
   BUG_VIS_NOT_AUTHOR: row(KIND.GUIDE), BUG_VIS_LOCKED: row(KIND.GUIDE), BUG_NOTICE_MUST_BE_PUBLIC: row(KIND.GUIDE), BUG_NOTICE_ADMIN_ONLY: row(KIND.GUIDE),
   BUG_NOT_FOUND: row(KIND.MISSING),
   BUG_PRIVATE: row(KIND.PRIVATE),
-  CONCURRENT_UPDATE: row(KIND.CONFLICT),
+  CONCURRENT_UPDATE: row(KIND.CONFLICT), BUG_ANSWER_CONFLICT: row(KIND.CONFLICT),
+  BUG_PRIVATE_ANSWER_ONLY: row(KIND.GUIDE),
   [SHAPE_CODE]: row(KIND.SITE), [INVALID_CODE]: row(KIND.SITE),
 });
 const OFFLINE_ACTION = 'offline';   // api-errors.js — 닿지 못함
@@ -108,7 +118,8 @@ function postOf(d){
   if(comments.some((x) => !x)) throw shapeError('댓글');
   comments.sort((a, b) => a.at - b.at);
   return Object.assign(h, { body: str(d.body), env: nonEmpty(d.env) ? d.env : null, canReply: d.canReply === true,
-    likeN: cnt(d.likeCount) ? d.likeCount : 0, liked: d.liked === true, version: d.version, comments });
+    likeN: cnt(d.likeCount) ? d.likeCount : 0, liked: d.liked === true, version: d.version, comments,
+    lastAnswerIso: nonEmpty(d.lastAnswerAt) ? d.lastAnswerAt : null });
 }
 function quotaOf(d){
   if(!isObj(d) || !cnt(d.usedToday) || !(d.dailyMax === null || cnt(d.dailyMax))) throw shapeError('남은 수');
@@ -123,6 +134,15 @@ function writeBody(requestId, p){
   if(p.notice === true) body.notice = true;
   return body;
 }
+/* 관리자 설정 목록의 한 줄(bug.report) → { version, notice, link }. 값이 비었으면 기본값 칸을 쓴다. 모양이 틀리면 null */
+function reportConfigOf(r){
+  if(!isObj(r) || r.key !== REPORT_KEY || !cnt(r.version)) return null;
+  const v = isObj(r.value) ? r.value : (isObj(r.default) ? r.default : null);
+  if(!v || !nonEmpty(v.notice)) return null;
+  return { version: r.version, notice: v.notice, link: str(v.link) };
+}
+/* 링크 칸 — 비우거나 오픈채팅 주소(서버가 답변 kakaoLink 와 같은 규칙으로 본다) */
+const linkOk = (l) => l === '' || (l.length <= LINK_MAX && l.indexOf(KAKAO_PREFIX) === 0 && l.length > KAKAO_PREFIX.length);
 const queryOf = (o) => '?' + Object.keys(o).filter((k) => o[k] != null).map((k) => k + '=' + enc(o[k])).join('&');
 
 /** @param {{
@@ -181,6 +201,36 @@ function createBugApi(deps){
     if(!isObj(d) || !own(VIS_OF, d.visibility) || !cnt(d.version)) throw shapeError('공개 범위');
     return { vis: VIS_OF[d.visibility], version: d.version };
   }
+  /* 관리자 답변 — 요청 번호는 글마다 하나. 쓴 글 · 상태 · 공개 범위 · 링크는 화면이 고른 대로(비공개 글은 비공개만 — 서버가 400) */
+  async function answer(number, a){
+    if(!nonEmpty(number) || !isObj(a)) throw invalid('글 번호');
+    const text = str(a.text).trim(), status = str(a.status).toUpperCase(), kakao = str(a.kakaoLink).trim();
+    if(!text || !status || !own(VIS, a.vis)) throw invalid('답변');
+    if(kakao && !linkOk(kakao)) throw invalid('오픈카톡 링크');
+    if(a.seenLastAnswerAt != null && !nonEmpty(a.seenLastAnswerAt)) throw invalid('본 답변 시각');
+    await once(answerKey(number), (id) => {
+      const body = { requestId: id, seenLastAnswerAt: a.seenLastAnswerAt == null ? null : a.seenLastAnswerAt, text, status, visibility: VIS[a.vis] };
+      if(kakao) body.kakaoLink = kakao;
+      return authed.post(PATHS.answers(number), body);
+    });
+  }
+  /* 오픈카톡 기본 링크 — 설정 목록에서 bug.report 한 줄을 찾는다. 없거나 모양이 틀리면 던진다(빈 값으로 돌리지 않는다) */
+  async function reportConfig(){
+    const d = await get(PATHS.adminConfig);
+    if(!Array.isArray(d)) throw shapeError('설정 목록');
+    const c = reportConfigOf(d.find((r) => isObj(r) && r.key === REPORT_KEY));
+    if(!c) throw shapeError('제보 설정');
+    return c;
+  }
+  /* 저장 — 안내 글(notice)은 받은 값 그대로 싣는다(서버가 두 칸을 한 키로 받는다). 판이 다르면 CONCURRENT_UPDATE */
+  async function saveReportLink(cfg, link){
+    const l = str(link).trim();
+    if(!isObj(cfg) || !cnt(cfg.version) || !nonEmpty(cfg.notice) || !linkOk(l)) throw invalid('오픈카톡 링크');
+    const d = await authed.put(PATHS.reportConfig, { version: cfg.version, value: { notice: cfg.notice, link: l } });
+    const c = reportConfigOf(d);
+    if(!c) throw shapeError('제보 설정');
+    return c;
+  }
   async function like(number){
     if(!nonEmpty(number)) throw invalid('글 번호');
     const d = await authed.put(PATHS.like(number), {});
@@ -203,14 +253,14 @@ function createBugApi(deps){
 
   return {
     KIND, ERRORS,   // 화면이 갈래 · 기능 표를 이 인스턴스로 받는다(전역을 다시 읽지 않게)
-    list, notices, detail, write, reply, setVis, like, seen, quota, refreshBadge,
+    list, notices, detail, write, reply, answer, reportConfig, saveReportLink, setVis, like, seen, quota, refreshBadge,
     badgeCount: () => badge,
     failOf: (err) => failOf(err, errs),
     reset: () => { epoch++; badge = null; ids = newPending(); },
   };
 }
 
-const out = { PATHS, KIND, ERRORS, VIS, VIS_OF, LIMIT_MAX, rowOf, postOf, pageOf, quotaOf, writeBody, failOf, createBugApi };
+const out = { PATHS, KIND, ERRORS, VIS, VIS_OF, LIMIT_MAX, reportConfigOf, linkOk, rowOf, postOf, pageOf, quotaOf, writeBody, failOf, createBugApi };
 if(typeof window !== 'undefined') window.TwBugApi = out;
 if(typeof module !== 'undefined' && module.exports) module.exports = out;
 })();

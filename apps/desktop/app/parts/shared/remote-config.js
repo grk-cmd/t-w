@@ -2,7 +2,7 @@
    [왜] 운영 값(방 상한 · 정원 · 방 연결 시간 · 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 앱 릴리스 없이 바꾸려고.
    [읽는 곳] 서버 GET /v1/config 하나(로그인 없이 · 몇백 바이트) — data 모양
      { room:{ limits:{workingroom, togetherroom}, maxPeople, timing:{joinWaitMs, clientGiveUpMs}, minVersion, bannedWords }, app:{ minVersion },
-       user:{ inviteGate }, bug:{ dailyMax }, guestbook:{ clapDailyMax }, gift:{ dailySendMax } }.
+       user:{ inviteGate }, bug:{ dailyMax, report:{ notice, link } }, guestbook:{ clapDailyMax }, gift:{ dailySendMax } }.
      못 받으면 이 PC 저장값(CACHE_KEY · 마지막으로 받은 값) → 그것도 없으면 DEFAULTS. Firebase config 칸은 읽지 않는다(0.13 · 서버가 원본).
      ★ 최소 버전(minVersion)은 저장값을 쓰지 않는다 — 이번 실행에 받은 값으로만 막는다(못 받으면 막지 않는다).
      범위 밖 · 타입이 다른 값은 그 칸만 기본값. 범위는 서버 설정 키 표와 같다.
@@ -30,7 +30,7 @@ const TIMING_RANGES = Object.freeze({
   joinWaitMs: Object.freeze([3000, 60000, 10000]),
   clientGiveUpMs: Object.freeze([15000, 600000, 90000]),
 });
-const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'bannedWords', 'clapDailyMax', 'giftDailySendMax'];
+const KEYS = ['roomLimits', 'roomMaxPeople', 'inviteGate', 'roomServerTiming', 'minVersion', 'bugDailyMax', 'bannedWords', 'clapDailyMax', 'giftDailySendMax', 'bugReport'];
 const BANNED_WORDS_MAX = 500;     // 금칙어 줄 수 상한(서버 room.bannedWords 500 · 판정 banned-words.js BANNED_MAX 와 같은 값)
 const BANNED_WORD_LEN_MAX = 20;   // 한 낱말 길이 상한(서버와 같은 값)
 const DEFAULTS = Object.freeze({
@@ -42,6 +42,7 @@ const DEFAULTS = Object.freeze({
   bugDailyMax: 5,
   bannedWords: Object.freeze([]),  // 방 제목 금칙어 원문(웹 관리자) — 맞추기 · 판정은 shared/banned-words.js 한 곳
   clapDailyMax: 5,                 // 방명록 박수 하루 상한(한 홈마다) — 판정은 서버, 앱은 문구에만
+  bugReport: Object.freeze({ notice: '', link: '' }),   // 제보 안내 글 · 오픈카톡 기본 링크(답변 칸 [💬 오픈카톡] 이 채움) — 저장은 관리자 폼(bug-api.js)
   giftDailySendMax: 10,            // 선물 하루 보내기 상한 — 판정은 서버, 앱은 문구에만
 });
 
@@ -58,6 +59,14 @@ function cleanFlag(raw, def){ return (typeof raw === 'boolean') ? raw : def; }
 const cleanBugDailyMax = (raw) => intIn(raw, BUG_DAILY_MIN, BUG_DAILY_MAX, DEFAULTS.bugDailyMax);
 const cleanClapDailyMax = (raw) => intIn(raw, CLAP_DAILY_MIN, CLAP_DAILY_MAX, DEFAULTS.clapDailyMax);
 const cleanGiftDailySendMax = (raw) => intIn(raw, GIFT_DAILY_MIN, GIFT_DAILY_MAX, DEFAULTS.giftDailySendMax);
+const KAKAO_PREFIX = 'https://open.kakao.com/';
+/* 안내 글 · 링크 — 글자 칸만. 링크는 오픈카톡 주소일 때만(아니면 빈 값 — 답변 칸에 엉뚱한 주소가 채워지지 않게) */
+function cleanBugReport(raw){
+  const o = isObj(raw) ? raw : {};
+  const notice = typeof o.notice === 'string' ? o.notice : '';
+  const link = (typeof o.link === 'string' && o.link.length <= 300 && o.link.indexOf(KAKAO_PREFIX) === 0 && o.link.length > KAKAO_PREFIX.length) ? o.link : '';
+  return { notice, link };
+}
 const cleanVer = (v) => (typeof v === 'string' && v.trim() && v.length <= VER_MAX) ? v.trim() : null;
 function cleanMinVersion(raw){
   return isObj(raw) ? { app: cleanVer(raw.app), room: cleanVer(raw.room) } : { app: null, room: null };
@@ -79,7 +88,7 @@ function cleanBannedWords(raw){
 const CLEAN = Object.freeze({
   roomLimits: cleanRoomLimits, roomMaxPeople: cleanMaxPeople, inviteGate: (raw) => cleanFlag(raw, DEFAULTS.inviteGate),
   roomServerTiming: cleanTiming, minVersion: cleanMinVersion, bugDailyMax: cleanBugDailyMax, bannedWords: cleanBannedWords,
-  clapDailyMax: cleanClapDailyMax, giftDailySendMax: cleanGiftDailySendMax,
+  clapDailyMax: cleanClapDailyMax, giftDailySendMax: cleanGiftDailySendMax, bugReport: cleanBugReport,
 });
 const clean = (key, raw) => CLEAN[key](raw);
 
@@ -91,7 +100,7 @@ function fieldsOf(data){
   return {
     roomLimits: pick(room, 'limits'), roomMaxPeople: pick(room, 'maxPeople'), roomServerTiming: pick(room, 'timing'), bannedWords: pick(room, 'bannedWords'),
     minVersion: { app: pick(d.app, 'minVersion'), room: pick(room, 'minVersion') },
-    inviteGate: pick(d.user, 'inviteGate'), bugDailyMax: pick(d.bug, 'dailyMax'),
+    inviteGate: pick(d.user, 'inviteGate'), bugDailyMax: pick(d.bug, 'dailyMax'), bugReport: pick(d.bug, 'report'),
     clapDailyMax: pick(d.guestbook, 'clapDailyMax'), giftDailySendMax: pick(d.gift, 'dailySendMax'),
   };
 }
@@ -208,13 +217,14 @@ function createRemoteConfig(){
     bannedWords: () => cur.bannedWords,   // 방 제목 금칙어 원문 — 판정은 banned-words.js
     clapDailyMax: () => cur.clapDailyMax,
     giftDailySendMax: () => cur.giftDailySendMax,
+    bugReportLink: () => cur.bugReport.link,   // 답변 칸 [💬 오픈카톡] 의 기본 주소(없으면 '')
   };
 }
 
 const api = { CONFIG_PATH, CACHE_KEY, CACHE_VERSION, STALE_MS,
   KEYS, CHANNELS, DEFAULTS, TIMING_RANGES, ROOM_LIMIT_MIN, ROOM_LIMIT_MAX, MAX_PEOPLE_MIN, MAX_PEOPLE_MAX, BUG_DAILY_MIN, BUG_DAILY_MAX,
   CLAP_DAILY_MIN, CLAP_DAILY_MAX, GIFT_DAILY_MIN, GIFT_DAILY_MAX,
-  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanClapDailyMax, cleanGiftDailySendMax, cleanMinVersion, cleanTiming,
+  cleanRoomLimits, cleanMaxPeople, cleanFlag, cleanBugDailyMax, cleanClapDailyMax, cleanGiftDailySendMax, cleanBugReport, cleanMinVersion, cleanTiming,
   cleanBannedWords, BANNED_WORDS_MAX, BANNED_WORD_LEN_MAX, fieldsOf, looksLikeConfig,
   createRemoteConfig, store: createRemoteConfig() };
 if(typeof window !== 'undefined') window.TwRemoteConfig = api;

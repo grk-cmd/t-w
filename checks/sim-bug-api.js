@@ -5,6 +5,7 @@
    ・2절: 글 — 댓글 차례 · 글쓴이 답글의 공개 범위 · 판(version) · 모양 틀림 던짐
    ・3절: 쓰기 — 새 글 본문(내 이름 · 코드 없음 · 공지는 켤 때만) · 요청 번호(닿지 못함 → 같은 번호 · 서버 답 → 새 번호) · 답글 · 공개 범위 · 👍(응답 수 · 모양 틀림 던짐) · 봤음 · 남은 수
    ・4절: 배지 수 — 받으면 기억 · reset 뒤 null · reset 전에 보낸 받기의 늦은 답은 버림
+   ・4-2절: 관리자 — 답변(본 시각 · 요청 번호 · 입력 거름) · 오픈카톡 기본 링크 받기 · 저장(판 · 안내 글 그대로)
    ・5절: 오류 갈래(failOf — 진짜 api-errors.js 의 translate 로)
    ・6절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
@@ -202,6 +203,66 @@ async function judge(S){
     chk(!!e && e.code === 'SHAPE' && m.badgeCount() === null, '수가 아니면 던지고 기억은 그대로');
   }
 
+  say('── 4-2. 관리자 — 답변 · 오픈카톡 기본 링크');
+  {
+    const { m, authed } = mk(S.API, { 'POST /v1/admin/bugs/B-1/answers': null });
+    const lastIso = '2026-11-10T02:00:00Z';
+    await m.answer('B-1', { seenLastAnswerAt: lastIso, text: ' 확인했어요 ', status: 'fixed', vis: 'prv', kakaoLink: ' https://open.kakao.com/o/abc ' });
+    const b = authed.log[0].body;
+    chk(authed.log[0].method === 'POST' && authed.log[0].path === '/v1/admin/bugs/B-1/answers' && b.text === '확인했어요' && b.status === 'FIXED' && b.visibility === 'PRIVATE'
+      && b.seenLastAnswerAt === lastIso && b.kakaoLink === 'https://open.kakao.com/o/abc' && /^req-id-/.test(b.requestId) && Object.keys(b).length === 6,
+      '답변 — POST /v1/admin/bugs/{number}/answers { requestId, seenLastAnswerAt(받은 글자 그대로), text, status, visibility, kakaoLink }');
+    await m.answer('B-1', { seenLastAnswerAt: null, text: 'x', status: 'checking', vis: 'pub' });
+    const b2 = authed.log[1].body;
+    chk(b2.seenLastAnswerAt === null && !('kakaoLink' in b2) && !('name' in b2) && !('code' in b2) && !('authUid' in b2), '  답변이 아직 없던 글 — seenLastAnswerAt null · 링크 없으면 칸을 싣지 않는다 · 내 이름 · 코드 없음');
+    for(const [why, a] of [['빈 글', { seenLastAnswerAt: null, text: '  ', status: 'new', vis: 'pub' }], ['상태 없음', { seenLastAnswerAt: null, text: 'x', status: '', vis: 'pub' }],
+      ['모르는 공개 범위', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'secret' }], ['남의 사이트 링크', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub', kakaoLink: 'https://evil.example/' }],
+      ['주소만 있는 링크', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub', kakaoLink: 'https://open.kakao.com/' }], ['빈 글자 시각', { seenLastAnswerAt: '', text: 'x', status: 'new', vis: 'pub' }]]){
+      const n0 = authed.log.length, e = await throws(() => m.answer('B-1', a));
+      chk(!!e && e.code === 'INVALID' && authed.log.length === n0, '  ' + why + ' — 요청 없이 던진다');
+    }
+    const lost = mk(S.API, { 'POST /v1/admin/bugs/B-2/answers': () => offline() });
+    await throws(() => lost.m.answer('B-2', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
+    await throws(() => lost.m.answer('B-2', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
+    chk(lost.authed.log[0].body.requestId === lost.authed.log[1].body.requestId, '  닿지 못해 다시 누르면 같은 요청 번호');
+    const conf = mk(S.API, { 'POST /v1/admin/bugs/B-3/answers': () => apiErr(409, 'BUG_ANSWER_CONFLICT') });
+    await throws(() => conf.m.answer('B-3', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
+    await throws(() => conf.m.answer('B-3', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
+    chk(conf.authed.log[0].body.requestId !== conf.authed.log[1].body.requestId, '  서버가 거절했으면 다음엔 새 요청 번호');
+    chk(lib.KIND.CONFLICT === m.failOf(apiErr(409, 'BUG_ANSWER_CONFLICT')).kind && lib.KIND.GUIDE === m.failOf(apiErr(400, 'BUG_PRIVATE_ANSWER_ONLY')).kind, '  겹침(BUG_ANSWER_CONFLICT)은 겹침 갈래 · 비공개 글의 공개 답변은 안내 갈래');
+    const pd = lib.postOf(detailRes());
+    chk(pd.lastAnswerIso === '2026-11-10T02:00:00Z' && lib.postOf(detailRes({ lastAnswerAt: null })).lastAnswerIso === null, '  글 받기 — 마지막 운영자 답변 시각을 서버 글자 그대로 기억(없으면 null)');
+  }
+  {
+    const row = (o) => Object.assign({ key: 'bug.report', value: { notice: '안내', link: 'https://open.kakao.com/o/a' }, default: { notice: '기본', link: '' }, version: 3, updatedBy: null, updatedAt: null, appliesOn: 'now' }, o || {});
+    const { m, authed } = mk(S.API, {
+      'GET /v1/admin/config': [{ key: 'room.limits', value: {}, version: 1 }, row()],
+      'PUT /v1/admin/config/bug.report': (b) => row({ value: b.value, version: b.version + 1 }),
+    });
+    const c = await m.reportConfig();
+    chk(authed.log[0].path === '/v1/admin/config' && c.version === 3 && c.notice === '안내' && c.link === 'https://open.kakao.com/o/a' && Object.keys(c).length === 3, '링크 받기 — GET /v1/admin/config 에서 bug.report 줄 → { version, notice, link }');
+    const s2 = await m.saveReportLink(c, ' https://open.kakao.com/o/new ');
+    chk(authed.log[1].method === 'PUT' && authed.log[1].path === '/v1/admin/config/bug.report' && JSON.stringify(authed.log[1].body) === '{"version":3,"value":{"notice":"안내","link":"https://open.kakao.com/o/new"}}'
+      && s2.version === 4 && s2.link === 'https://open.kakao.com/o/new', '저장 — PUT /v1/admin/config/bug.report { version, value:{ notice(받은 그대로), link } } → 새 판');
+    const cleared = await m.saveReportLink(c, '');
+    chk(authed.log[2].body.value.link === '' && cleared.link === '', '  링크 비우기도 저장(서버가 허용)');
+    for(const [why, cfg, l] of [['남의 사이트', c, 'http://evil.example/'], ['주소만', c, 'https://open.kakao.com/'], ['300자 넘음', c, 'https://open.kakao.com/' + 'a'.repeat(300)],
+      ['판 없음', { notice: '안내', link: '' }, ''], ['안내 글 없음', { version: 1, notice: '', link: '' }, '']]){
+      const n0 = authed.log.length, e = await throws(() => m.saveReportLink(cfg, l));
+      chk(!!e && e.code === 'INVALID' && authed.log.length === n0, '  ' + why + ' — 요청 없이 던진다');
+    }
+    const dflt = mk(S.API, { 'GET /v1/admin/config': [row({ value: null })] });
+    chk((await dflt.m.reportConfig()).notice === '기본', '  값이 비었으면 기본값 칸을 쓴다');
+    for(const [why, d] of [['목록이 아님', { a: 1 }], ['bug.report 줄 없음', [{ key: 'x', version: 1 }]], ['판 없음', [row({ version: 'a' })]], ['안내 글 없음', [row({ value: { link: '' } })]]]){
+      const bad = mk(S.API, { 'GET /v1/admin/config': d });
+      const e = await throws(() => bad.m.reportConfig());
+      chk(!!e && e.code === 'SHAPE', '  받은 모양이 틀리면 던진다(빈 값으로 돌리지 않는다) — ' + why);
+    }
+    const conf = mk(S.API, { 'PUT /v1/admin/config/bug.report': () => apiErr(409, 'CONCURRENT_UPDATE') });
+    const e = await throws(() => conf.m.saveReportLink(c, ''));
+    chk(!!e && conf.m.failOf(e).kind === lib.KIND.CONFLICT, '  판이 다르면(409 CONCURRENT_UPDATE) 겹침 갈래');
+  }
+
   say('── 5. 오류 갈래');
   {
     const { m } = mk(S.API, {});
@@ -228,6 +289,9 @@ async function runAll(){
     ['배지 epoch 를 안 봄', S.API.replace('if(at === epoch) badge = n;', 'badge = n;'), '늦은 답이 새 계정 수를 덮음'],
     ['👍 응답을 안 보고 본 수 + 1', S.API.replace("return { likeN: d.likeCount, liked: d.liked };", "return { likeN: 1, liked: true };"), '서버 수로 그림'],
     ['👍 응답 모양을 안 봄', S.API.replace("if(!isObj(d) || !cnt(d.likeCount) || typeof d.liked !== 'boolean') throw shapeError('공감 수');", ''), '모양 틀림 던짐'],
+    ['답변에 본 시각을 안 실음', S.API.replace("seenLastAnswerAt: a.seenLastAnswerAt == null ? null : a.seenLastAnswerAt,", ''), '겹침을 서버가 못 가림'],
+    ['링크 저장에 판을 안 실음', S.API.replace('{ version: cfg.version, value: { notice: cfg.notice, link: l } }', '{ value: { notice: cfg.notice, link: l } }'), '두 관리자가 덮어씀'],
+    ['링크 모양을 안 거름', S.API.replace("const linkOk = (l) => l === '' ||", 'const linkOk = (l) => true ||'), '남의 주소가 저장됨'],
     ['새 글에 내 코드를 실음', S.API.replace('const body = { requestId,', "const body = { code: 'ME', requestId,"), '신원은 토큰에서만'],
   ];
   for(const [name, src, what] of breaks){
