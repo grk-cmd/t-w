@@ -399,7 +399,7 @@
 | **sim-parts-paths.js** | 85 | **09ed8a827e44** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-guestbook-api.js** | 242 | **67aa9c5bcb0e** |
-| **sim-guestbook-feed.js** | 380 | **6e8b4e43b511** |
+| **sim-guestbook-feed.js** | 393 | **a58db2d032de** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
 | **sim-domain-calls.js** | 157 | **673fc5f9779a** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |

@@ -26,7 +26,9 @@ const SRC0 = {
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const loadWin = (src, name) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w[name]; };
 const TwApiErrors = loadWin(SRC0.ERR, 'TwApiErrors');
-const RT = { READY: 'ready', OFF: 'off', AUTH_FAILED: 'authFailed', SESSION_LOST: 'sessionLost', UPDATE: 'update', RETRYING: 'retrying' };
+const RT = { READY: 'ready', OFF: 'off', CONNECTING: 'connecting', RETRYING: 'retrying', AUTH_FAILED: 'authFailed', SESSION_LOST: 'sessionLost', UPDATE: 'update', MAINTENANCE: 'maintenance', ACCOUNT_GONE: 'accountGone', CLOSED: 'closed' };
+const STOPPED = [RT.AUTH_FAILED, RT.SESSION_LOST, RT.UPDATE, RT.MAINTENANCE, RT.ACCOUNT_GONE, RT.CLOSED];   // 연결만 끊긴 여섯 멈춤 상태
+const HUB_SRC = pick(['rt-hub.js', 'realtime/rt-hub.js', 'parts/realtime/rt-hub.js', 'app/parts/realtime/rt-hub.js']);
 const flush = async (n = 6) => { for(let i = 0; i < n; i++) await new Promise((r) => setImmediate(r)); };
 const deferred = () => { let res, rej; const p = new Promise((a, b) => { res = a; rej = b; }); return { p, res, rej }; };
 const apiErr = (status, code, kind) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: kind || (status >= 500 ? 'unavailable' : 'request') });
@@ -83,8 +85,8 @@ async function judge(S){
     e.notify({ kind: 'guestbook', subject: 'ME' }); await flush();
     chk(e.calls.length === 2 && f.badgeCount() === 5, '내 방명록이 바뀌었다는 알림 → 숫자만 다시 받는다');
     e.answers.count = 6; e.notify({ kind: 'guestbook', subject: null, resync: true }); await flush();
-    chk(e.calls.length === 3 && f.badgeCount() === 6, '오래 끊겼다 붙으면(resync) 놓친 알림을 메우려 다시 받는다');
-    chk(e.events.filter((k) => k === 'badge').length >= 3, '  바뀔 때마다 받는 쪽(화면)에 알린다');
+    chk(e.calls.length === 2 && f.badgeCount() === 5, '다시 받기 알림(resync)은 요청을 안 낸다 — 붙을 때 READY 가 이미 받았다');
+    chk(e.events.filter((k) => k === 'badge').length >= 2, '  바뀔 때마다 받는 쪽(화면)에 알린다');
     // 받는 중 또 알림 → 끝난 뒤 한 번만 더
     const d = deferred(); e.answers.count = () => d.p; e.calls.length = 0;
     e.notify({ subject: 'ME' }); e.notify({ subject: 'ME' }); e.notify({ subject: 'ME' });
@@ -166,10 +168,15 @@ async function judge(S){
     // 연결이 끊겼다 붙음
     const r = mkEnv(F); r.connected = false; r.feed.startBadge('ME'); await flush();
     r.feed.openBook('ME', 'uOWN'); await flush(); r.calls.length = 0;
-    r.connected = true; r.state(RT.READY); await flush();
+    r.answers.count = 3; r.connected = true; r.state(RT.READY); await flush();
     chk(r.sent.filter((s) => /guestbookWatch/.test(s)).length === 2 && r.calls.join() === 'count:ME|0,view:ME|uOWN', '연결이 없을 때 연 방명록은 다시 붙으면 «보는 중» 을 알리고 한 번 받는다');
     r.state(RT.RETRYING); r.calls.length = 0; await flush();
     chk(r.calls.length === 0, '  재시도 중 상태에서는 아무것도 안 한다');
+    chk(r.feed.view() !== null && r.feed.badgeCount() === 3 && r.feed.status() === 'ready', '  재시도 중에도 열린 방명록 · 배지는 그대로 남는다');
+    r.state(RT.CONNECTING); await flush();
+    chk(r.calls.length === 0 && r.feed.view() !== null && r.feed.status() === 'ready', '  CONNECTING 은 아무것도 안 한다');
+    r.calls.length = 0; r.state(RT.READY); r.notify({ kind: 'guestbook', subject: null, resync: true }); await flush();
+    chk(r.calls.filter((c) => c.startsWith('count:')).length === 1 && r.calls.filter((c) => c.startsWith('view:')).length === 1, '  READY 바로 뒤 resync 알림이 와도 배지 · 방명록은 각각 한 번만 받는다');
   });
 
   await sec('── 3. 쓰기', async () => {
@@ -283,7 +290,7 @@ async function judge(S){
     so.feed.openBook('YOU', 'uOWN'); await flush();
     chk(!evs.includes('book:null') && evs.includes('book:uOWN') && so.feed.status() === 'ready', '다른 계정으로 열면서 앞 계정을 비워도 «비어 있음» 알림은 내지 않는다(곧바로 받는 중부터 알림)');
     // 연결만 끊김(OFF 아님) — 받은 것만 거두고 걸기는 둔다. 다시 붙으면(«여기서 계속») 받는다
-    for(const st of [RT.SESSION_LOST, RT.AUTH_FAILED, RT.UPDATE]){
+    for(const st of STOPPED){
       const q = mkEnv(F, { answers: { count: 4, view: book({ entries: [{ id: 'k' }] }) } });
       q.feed.startBadge('ME'); await flush(); q.feed.openBook('ME', 'uOWN'); await flush();
       q.state(st); await flush();
@@ -323,6 +330,10 @@ async function judge(S){
     chk(ok, '  (저장소 오류를 삼킨다)');
     const a = S.APP.replace(/\/\*[\s\S]*?\*\//g, ' ');
     chk(/TwGuestbookFeed\.createGuestbookFeed\(\{[\s\S]*?rt: TwRtHub\.store,[\s\S]*?rtState: TwRtHub\.STATE,[\s\S]*?pending: TwRequestId\.createPending\(\)[\s\S]*?lastRead: TwGuestbookFeed\.createLastReadStore\(localStorage\)/.test(a), 'app.js — 실제 realtime · 요청 번호 · 이 PC 기억을 넘겨 만든다');
+    const hub = { exports: {} }; new Function('module', 'window', HUB_SRC)(hub, undefined);
+    const known = new Set([RT.READY, RT.OFF, RT.CONNECTING, RT.RETRYING, ...STOPPED]);
+    const hubStates = Object.values(hub.exports.STATE);
+    chk(hubStates.length >= 10 && hubStates.every((v) => known.has(v)) && Object.entries(RT).every(([, v]) => hubStates.includes(v)), 'rt-hub 의 STATE 값이 이 검사가 나눈 상태(READY · OFF · CONNECTING · RETRYING · 멈춤 여섯)와 같다 — 새 상태가 생기면 여기서 빨강');
     const CODES = loadWin(S.CODES, 'TwErrorCodes');
     const used = [...F.matchAll(/'(E-[A-Z]+-\d\d)'/g)].map((m) => m[1]);
     chk(used.length >= 5 && used.every((c) => CODES.CODES[c]), 'feed 가 쓰는 오류 번호(' + [...new Set(used)].join(' · ') + ')가 error-codes.js 표에 다 있다');
@@ -335,7 +346,7 @@ async function runAll(){
   say('── 6. 일부러 깨 보기');
   const breaks = [
     ['배지를 상시 받음(알림 없이 켤 때 목록)', S.FEED.replace("api.fetchNewCount(who, lastRead.get(who))", "api.fetchNewCount(who, 0)"), 'since'],
-    ['남의 방명록 알림에도 배지를 다시 받음', S.FEED.replace("if(badgeOn && (all || subject === me)) refreshBadge();", "if(badgeOn) refreshBadge();"), '남의 방명록 알림'],
+    ['남의 방명록 알림에도 배지를 다시 받음', S.FEED.replace("if(badgeOn && subject === me) refreshBadge();", "if(badgeOn) refreshBadge();"), '남의 방명록 알림'],
     ['다 읽음 뒤 옛 숫자를 버리지 않음', S.FEED.replace("badgeGen++; badgeNum = 0;\n    emit('badge');\n  }\n\n  /* ── 열어", "badgeNum = 0;\n    emit('badge');\n  }\n\n  /* ── 열어"), '옛 숫자'],
     ['배지 끄기가 알림 걸기를 안 뗌', S.FEED.replace("    badgeOn = false; badgeNum = 0; badgeGen++;\n    unhookIfIdle();", "    badgeOn = false; badgeNum = 0; badgeGen++;"), '알림 걸기를 모두 뗀다'],
     ['남의 방명록 «보는 중» 을 안 알림', S.FEED.replace("if(owner && owner !== me){", "if(false){"), '보는 중'],
@@ -365,6 +376,8 @@ async function runAll(){
     ['열 때 내 코드를 배지에서만 앎', S.FEED.replace("    if(!uid || !ow) return false;\n    if(uid !== me){ reset(true); me = uid; }   // 알리지 않는다 — 바로 아래에서 받는 중을 알린다", "    if(!me || !ow) return false;"), '입구에서 받는다'],
     ['받은 글 시각을 안 올림', S.FEED.replace("if(newest > lastRead.get(who)){", "if(false){"), '최신 시각'],
     ['다 읽음이 시각을 내림', S.FEED.replace("Math.max(now(), lastRead.get(me))", "now()"), '(max)'],
+    ['점검(MAINTENANCE)에서 안 거둠', S.FEED.replace(" || s === RT.MAINTENANCE", ""), 'maintenance'],
+    ['다시 받기 알림(resync)을 또 받음', S.FEED.replace("    if(n && n.resync) return;", "    const all = !!(n && n.resync);").replace("if(badgeOn && subject === me)", "if(badgeOn && (all || subject === me))").replace("if(owner && subject === owner)", "if(owner && (all || subject === owner))"), 'resync'],
     ['오류 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-03', e)", "notifyError('E-GB-99', e)"), 'error-codes.js 표'],
   ];
   for(const [name, src, what] of breaks){

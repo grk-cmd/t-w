@@ -21,7 +21,7 @@
      STATUS · ERRORS(이 묶음이 아는 서버 오류 → 오류 번호 표)
    }
      순수: createLastReadStore(storage) (TwGuestbookFeed 위)
-   ⚠️ 알림 걸기(rt.on · rt.onState)는 배지나 방명록이 켜져 있는 동안만 — 둘 다 꺼지면 뗀다(stop 이 빠진 채 남지 않게). 연결을 끈 것(OFF — 로그아웃 등)이면 스스로 모두 비운다. 인증 실패 · 다른 기기에 밀림 · 업데이트로 끊긴 것은 받은 것만 거두고 걸기는 둔다(다시 붙으면 READY 가 받는다).
+   ⚠️ 알림 걸기(rt.on · rt.onState)는 배지나 방명록이 켜져 있는 동안만 — 둘 다 꺼지면 뗀다(stop 이 빠진 채 남지 않게). 연결을 끈 것(OFF — 로그아웃 등)이면 스스로 모두 비운다. 인증 실패 · 다른 기기에 밀림 · 업데이트 · 점검 · 계정 없어짐 · 닫힘(여섯 멈춤 상태)은 받은 것만 거두고 걸기는 둔다(다시 붙으면 READY 가 받는다). 오래 끊겼다 붙은 알림(resync)은 무시한다 — READY 가 이미 다시 받는다.
    ⚠️ 박수를 보내는 중에 또 누르면 보내지 않는다('busy') — 같은 번호로 서버가 한 번만 세지만, 화면이 «눌렀는데 안 올라간다» 가 되지 않게.
    검사: checks/sim-guestbook-feed.js */
 (function(){
@@ -88,10 +88,10 @@ function createGuestbookFeed(deps){
   }
   function onNotify(n){
     if(!me) return;
-    const all = !!(n && n.resync);   // 오래 끊겼다 붙음 — 놓친 알림을 메운다
+    if(n && n.resync) return;   // 오래 끊겼다 붙음 — 같은 때 READY 가 이미 다시 받았다
     const subject = n && n.subject;
-    if(badgeOn && (all || subject === me)) refreshBadge();
-    if(owner && (all || subject === owner)) refreshBook();
+    if(badgeOn && subject === me) refreshBadge();
+    if(owner && subject === owner) refreshBook();
   }
   function onState(s){
     if(s === RT.READY){
@@ -101,9 +101,9 @@ function createGuestbookFeed(deps){
     }else if(s === RT.OFF){
       reset();   // 연결을 끈 것(로그아웃 · 계정을 놓음) — 모두 비운다. 보낼 길이 없으니 떼기 메시지도 없다
       emit('off');   // 화면이 열린 창을 닫는 신호 — 이것만이 «연결을 껐다» 는 뜻이다(owner 가 비었다고 짐작하지 말 것)
-    }else if(s === RT.AUTH_FAILED || s === RT.SESSION_LOST || s === RT.UPDATE){
+    }else if(s === RT.AUTH_FAILED || s === RT.SESSION_LOST || s === RT.UPDATE || s === RT.MAINTENANCE || s === RT.ACCOUNT_GONE || s === RT.CLOSED){
       release();   // 연결만 끊겼다 — 다시 붙을 수 있으니 받은 것만 거두고 «누구 것을 보는 중인가» 와 알림 걸기는 둔다
-    }
+    }   // CONNECTING · RETRYING 은 아무것도 안 한다 — 재시도 중에도 화면과 배지는 그대로 둔다
   }
   /* «보는 중» 알리기 — 남의 방명록만(내 것은 주인이라 원래 온다). 연결이 아직 없으면 붙을 때 다시(onState) */
   function syncWatch(){
