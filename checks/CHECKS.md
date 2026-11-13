@@ -157,7 +157,8 @@
 | **sim-room-invite-wait.js** | 45 | **c24b5a4572a2** |
 | **sim-focus-auth.js** | 91 | **ef2f4cad0aeb** |
 | **sim-focus-sync.js** | 174 | **084cb3a11f49** |
-| **sim-friend-manage.js** | 274 | **73c11c84c96b** |
+| **sim-friend-manage.js** | 275 | **dba7f09993ec** |
+| **sim-friendreq-rules.js** | 124 | **bc07545a7f57** |
 | **sim-gift-star.js** | 127 | **09dec0581403** |
 | **sim-gacha-prune.js** | 166 | **d9e85bab60ff** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
