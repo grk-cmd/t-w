@@ -13,7 +13,7 @@
 - 검사: `checks/sim-user-api.js`(진짜 api-client 위에서 · 깨 보기).
 
 ## license-api.js · license-premium.js — 프리미엄 판정(classic script `window.TwLicenseApi` · `window.TwLicensePremium`)
-- 책임: 프리미엄은 서버가 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 로 판정한다. `license-api.js` 는 내 라이선스 · 기기 · 라이선스 요청 길(`/v1/me/license*`) 한 벌,
+- 책임: 프리미엄은 서버가 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 로 판정한다. `license-api.js` 는 내 라이선스 · 기기 길(`/v1/me/license*`) 한 벌,
   `license-premium.js` 는 서버 확인(`GET /v1/me` 의 `premium`)을 `isPremium` 에 반영하고 키 등록 · 이 기기 해제를 한다. 이 PC 의 키(`tw.licenseKey`)로 미리 켜지도, 24시간 유예로 버티지도 않는다.
 - deps(license-premium): `userApi` · `licenseApi` · `deviceId` · `deviceName` · `setPremium`(account-state `_setPremium` — 바꾸는 곳은 이 한 곳) · `isPremium` · `rtOn`(해제 함수를 돌려줌) · `resetKnown`(account-state `resetPremium` — «모름» 으로 되돌림) · `notifyError` · `reasonOf` · `resetCustomStatus`.
 - 내놓는 것: `start(me)`(켜는 차례 licensePremium — 받아 둔 확인으로 반영 + `license` 알림 걸기) · `refresh()` · `activate(key, opts)` · `deactivate(opts)` · `registerDevice()` → `{ ok, reason?, err?, lic? }`(`lic` = 쓰기 응답의 내 라이선스 · `opts.ownerKnown` = 화면이 창 열기에서 이미 읽었으니 쓰기 전 읽기를 건너뜀) · `reset()`(`activate` · `deactivate` 가 쓰기를 기다리는 동안 reset 되면 `{ ok:false, stale:true }` — 부르는 쪽은 알리지 않는다 · 알림 구독을 풀고 gen 을 올려 늦은 답을 버림 · «모름» 으로 — S-4 세션 dispose 가 부를 자리). E-LIC-01 은 사용자가 누른 동작 뒤 확인 실패만.
@@ -23,7 +23,7 @@
   - 확인 전의 `isPremium=false` 는 «모름» — `acctStateMod.premiumKnown()` 이 참이 된 뒤에야 전용 자산 접기(`pruneUnownedLicenseAssets`)가 돈다. 첫 확인은 값이 그대로여도 알림을 돌려 건너뛴 접기를 돌린다.
   - «전용 책상 · 아이템을 지금 막아야 하나» 는 `acctStateMod.licenseAssetBlocked()` 한 곳에서만 판단한다(모름이면 막지 않음 — 그리기 · 장착 · 생성기 · 프리셋 · 접기). 새로 막는 곳도 조건을 다시 쓰지 말고 이것을 부른다. 캐릭터 코드 불러오기(파츠)는 지우고 저장하는 되돌릴 수 없는 일이라 입구에서 «모름» 이면 아예 멈춘다(`char-code.js`).
   - **기기 등록은 앱이 알아서 하지 않는다** — «키를 직접 넣을 때» 만 등록되고, 프리미엄은 «이미 목록에 있는 기기» 만 켜진다. 라이선스는 있는데 이 기기만 목록에 없는 새 PC 는 «아님» 으로 둔다(설정 › 라이선스 화면의 [이 기기 등록]). 켤 때 `GET /v1/me/license` 는 부르지 않는다(프리미엄이 아닌 사용자의 요청 0).
-  - 쓰기는 `mine()` 으로 읽은 토큰 주인과 묶는다 — 읽기 전에는 요청 0(`NOT_READ`). provider 의 `putDevice`(이 기기 등록)는 `registerDevice()` 가 부른다. `myApplication` · `apply`(요청)는 아직 옛 요청 구획(license-request.js)이 쓰지 않는다 — D8-4 가 구획째 걷는다.
+  - 쓰기는 `mine()` 으로 읽은 토큰 주인과 묶는다 — 읽기 전에는 요청 0(`NOT_READ`). provider 의 `putDevice`(이 기기 등록)는 `registerDevice()` 가 부른다.
   - 확인은 한 줄로만 돈다(겹치면 끝난 뒤 한 번 더). 실패해도 혼자 다시 하지 않는다 — E-LIC-01.
 - 검사: `checks/sim-license-api.js` · `checks/sim-license-premium.js`.
 

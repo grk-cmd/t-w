@@ -725,39 +725,12 @@
         return true;
       }catch(e){ console.warn('[달성표] 쓰기 실패', e); return false; }
     },
-    /* 내 프로필(이름·레벨) 저장 — 친구 목록에서 상대방에게 보여줄 값.
-       ★ level을 여기에 함께 넣는 이유: 친구 목록은 이미 users/{id}/profile을 구독하고 있어서
-         읽기 비용이 전혀 늘지 않는다. 쓰기도 레벨이 실제로 바뀔 때만 1회(숫자 하나)라 사실상 0. */
-    async setMyProfile(userId, name, level, star){
-      /* 🚧 부팅 직후 첫 쓰기다. 세션 복원을 기다리지 않으면 구글에 묶인 계정에서
-         permission_denied 가 나고, 부르는 쪽(app.js initMyHome)이 그 예외로 중단된다. */
+    /* 내 프로필 이름 저장 — 친구 목록이 이 노드를 아직 듣는다. 레벨 · 별(level · cyc · clv · starC)은 서버 진척이 원본이라 쓰지 않고,
+       update 라 그 칸들은 마지막 값 그대로 남는다(통째로 덮으면 지워진다 — 친구 쪽 갈아타기는 서버 빈칸 G2). */
+    async setMyProfile(userId, name){
+      /* 🚧 부팅 직후 첫 쓰기다. 세션 복원을 기다리지 않으면 구글에 묶인 계정에서 permission_denied 가 난다. */
       await _whenAuthReady();
-      const rec = { name: name||'(이름 없음)', updatedAt: Date.now() };
-      const lv = parseInt(level, 10);
-      if(isFinite(lv) && lv >= 1 && lv <= 9999) rec.level = lv;
-      /* 🌟 회차(개정 70) — { cyc, clv, starC }. 규칙과 같은 범위만 싣는다(cyc 1~100 · clv 1~999 · #rrggbb).
-         ★ level 은 해금 레벨 그대로다(999 에서 멈춤). 친구 목록의 별 배지는 이 세 필드로 그린다.
-         ⚠️ set() 통째 덮어쓰기라 **부르는 곳이 매번 star 를 넘겨야** 한다 — 빠뜨리면 회차가 지워진다(app.js myStarOut()). */
-      if(star){
-        const cy = parseInt(star.cyc, 10), cl = parseInt(star.clv, 10);
-        const hex = v => typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v);
-        if(cy >= 1 && cy <= 100 && cl >= 1 && cl <= 999){
-          rec.cyc = cy; rec.clv = cl;
-          /* 🌟 [개정 71] starC 가 비어 오면 = 이 기기에 고른 색이 없다(새 기기 · 받아 오기 전). 서버의 기존 값을 **지킨다** —
-             안 지키면 set() 통째 덮어쓰기가 다른 기기에서 고른 색을 지운다. 읽기는 이 경우에만 한 번. */
-          let sc = star.starC;
-          if(!hex(sc)){ try{ const cur = (await get(ref(db, `users/${userId}/profile/starC`))).val(); if(hex(cur)) sc = cur; }catch(_){} }
-          if(hex(sc)) rec.starC = sc;
-        }
-      }
-      await set(ref(db, `users/${userId}/profile`), rec);
-    },
-    /* 🌟 회차 별 색 받아 오기(개정 71) — 프로필 starC 한 값만 읽는다(프로필은 공개 읽기). #rrggbb 가 아니면 null.
-       팔레트 대조는 app.js(_starColorOk)가 한다. */
-    async fetchProfileStarC(userId){
-      if(!userId) return null;
-      try{ const v = (await get(ref(db, `users/${userId}/profile/starC`))).val(); return (typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v)) ? v : null; }
-      catch(_){ return null; }
+      await update(ref(db, `users/${userId}/profile`), { name: name||'(이름 없음)', updatedAt: Date.now() });
     },
     // 온라인 상태 등록 — onDisconnect로 앱이 꺼지거나 튕기면 자동으로 offline 처리됨.
     setMyPresenceOnline(userId, startOnline){
@@ -914,44 +887,7 @@
       return { ok:true, url };
     },
 
-    /* ===== 📚 마이홈 북마크 책장 (2026-09-23 · 개정 61 · 계정 연동) =====
-       bookmarks/{uid} = { order:"id,id,…", items:{ id:{url,title,w,h,color,img?,at} }, ts }
-       ★ users/{uid} 아래가 아니다 — 그 자리는 `.read: true` 라 **방문자 읽기를 규칙으로 막을 수 없다.**
-         책장은 주인만 보는 것이라 최상위에 따로 두고 읽기·쓰기를 주인(+로그인)으로 묶었다.
-       ★ order 는 **쉼표로 이은 문자열** 한 줄이다. 배열로 두면 규칙에서 한 칸씩 검사할 길이 마땅치 않고,
-         선반 번호는 저장하지 않으므로(서랍 너비로 매번 계산) 순서만 있으면 된다.
-       ★ 책등 그림은 Storage `bookmarks/{uid}/{bid}.webp` — 자리비움 그림과 같은 모양(200KB · 이미지만 · 삭제 허용). */
-    async getBookmarks(userId){
-      try{ const v=(await get(ref(db, `bookmarks/${userId}`))).val(); return { ok:true, data:(v && typeof v==='object') ? v : null }; }
-      catch(e){ return { ok:false, data:null }; }
-    },
-    /* 📚 공개 책장 — **따로 둔 노드**다(bookmarksPub/{uid}). 규칙은 «읽기»를 노드 단위로만 막을 수 있어서,
-       한 노드에 공개·비공개를 같이 두면 방문자가 비공개 책까지 받아 간다(화면에서 가리는 것은 방어가 아니다).
-       그래서 공개로 표시한 책만 이 노드에 **복사**해 둔다. 주인만 쓰고, 읽기는 열려 있다. */
-    async getPublicBookmarks(userId){
-      try{ const v=(await get(ref(db, `bookmarksPub/${userId}`))).val(); return { ok:true, data:(v && typeof v==='object') ? v : null }; }
-      catch(e){ return { ok:false, data:null }; }
-    },
-    async savePublicBookmarks(userId, data){
-      try{
-        if(data) await set(ref(db, `bookmarksPub/${userId}`), data);
-        else await remove(ref(db, `bookmarksPub/${userId}`));
-        return { ok:true };
-      }catch(e){ console.warn('[bookmark] 공개 책장 저장 실패', e); return { ok:false }; }
-    },
-    async saveBookmarks(userId, data){
-      try{ await set(ref(db, `bookmarks/${userId}`), data); return { ok:true }; }
-      catch(e){ console.warn('[bookmark] 저장 실패', e); return { ok:false }; }
-    },
-    async uploadBookmarkImg(userId, bid, dataUrl){
-      if(!userId || !bid || !dataUrl || !String(dataUrl).startsWith('data:image/')) return { ok:false, reason:'이미지가 아니에요' };
-      try{
-        const safe = String(bid).replace(/[^a-zA-Z0-9_-]/g, '');
-        const r = sref(storage, `bookmarks/${userId}/${safe}_${Date.now()}.webp`);
-        await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
-        return { ok:true, url: await getDownloadURL(r) };
-      }catch(e){ console.warn('[bookmark] 그림 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
-    },
+    /* 📚 마이홈 북마크 책장은 서버 길(myhome/bookshelf-store.js · myhome-api.js)로 옮겼다 — Firebase 책장 메서드는 없다. */
 
     /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====
        Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 을 users/{uid}/awayImg 한 칸에.
@@ -2592,16 +2528,9 @@
       }
     },
 
-    // ---- 라이선스 요청 (일반 유저가 앱 안에서 요청 → 관리자가 확인 후 발급) ----
+    // ---- 라이선스 요청 (관리자 쪽만 — 사용자 요청 화면은 0.13 에서 걷음) ----
     // licenseRequests/{reqId} = { name, status:'pending'|'approved', requestedAt, issuedKey|null, approvedAt|null, ver? }
 
-    // 사용자: 라이선스 요청 보내기(내 표시 이름과 함께)
-    async requestLicense(name){
-      const reqId = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      await _appVer.ready;
-      await set(ref(db, `licenseRequests/${reqId}`), _appVer.withVer({ name: name||'(이름 없음)', status:'pending', requestedAt: serverTimestamp(), issuedKey:null }));
-      return reqId;
-    },
     // 관리자: 대기 중인 요청 목록 실시간 구독
     subscribeLicenseRequests(onChange){
       onValue(ref(db, 'licenseRequests'), snap => onChange(snap.val()||{}));
@@ -2616,15 +2545,6 @@
     async rejectLicenseRequest(reqId){
       await remove(ref(db, `licenseRequests/${reqId}`));
       return { ok:true };
-    },
-    // 사용자: 내가 보낸 요청이 승인됐는지(발급된 키가 들어왔는지) 실시간 구독
-    subscribeMyLicenseRequest(reqId, onChange){
-      onValue(ref(db, `licenseRequests/${reqId}`), snap => onChange(snap.val()));
-    },
-    // 사용자: 발급받은 키가 그 이후에 회수됐는지(valid:false) 실시간 구독 — "발급됐어요" 화면이 떠있는 동안
-    // 관리자가 그 키를 회수하면 즉시 반영해서 안내를 지우기 위함.
-    subscribeLicenseValidity(key, onChange){
-      onValue(ref(db, `licenses/${key}`), snap => onChange(snap.val()));
     },
 
     // ---- 책상 카탈로그 (관리자가 등록한 책상을 모든 사용자에게 자동 배포. 수정하면 이미 쓰던 사람도 실시간 반영) ----

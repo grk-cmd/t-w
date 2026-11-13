@@ -10,7 +10,7 @@
                  (보관함 목록 · 슬롯에 올리기 · 휴지통 · 가득 참의 동작은 서버 원본 옷장으로 옮기며 sim-my-info-box.js 가 실제로 돌려 본다)
   15절 별 색     (개정 69) [내 정보] 레벨 배지 = 버튼 · 누르면 머리 아래 «별 색» 구획 · 999 전 잠김(남은 시간) · 회차면 미리보기 + 16칸 · 열 때마다 닫힘 · 재료 함수(별 문자열 · 회차 파생 · 팔레트만 받음)
   16절 랭킹      [내 정보] 순위 칸 · 왕관 · 후광 · 순위 올리기 · 읽기 · leaderboard 규칙을 걷었다(남으면 빨강 · 깨 보기) ·
-                 포커스 누적 동기화는 그대로
+                 옛 포커스 누적 동기화는 걷었다
 
    실행: node sim-signup.js   (app.js · firebase-init.js · desk-companion-prototype.html 과 같은 폴더에서 — run.js 가 맞춰 준다)
 */
@@ -26,6 +26,7 @@ const chk = (c, m) => { if (c) { pass++; say('  ✓ ' + m); } else { fail++; say
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const APP = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
 const FI  = fs.readFileSync('firebase-init.js', 'utf8');
+const FPROG = ['focus-progress.js', 'parts/focus/focus-progress.js', 'app/parts/focus/focus-progress.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean) || '';   // 별 색 팔레트 · 색 고르기(서버 진척)
 
 /* 함수 본문 떼어 오기 — `function 이름(` 부터 짝 맞는 `}` 까지. 문자열·주석 안의 괄호는 이 파일들에선 짝이 맞는다. */
 function takeFn(src, head){
@@ -171,7 +172,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     ['miBack','miAvatar','miAvatarImg','miAvatarPh','miNick','miLv','miNameEdit','miNameInput','miNameSave','miCode','miCopy','miTabBox','miTabTrash','miTabAcct',
      'miPageBox','miBoxCount','miBoxList','miBoxEmpty','miCodeLoad','miPageAcct'].forEach(id => chk(MI.includes('id="' + id + '"'), '  #' + id));
     chk(/id="miAvatar" style="width:44px;height:44px;/.test(MI), '★ 머리는 작게 — 사진 44px(사용자 요청 · 면적 줄임)');
-    chk(/<span id="miLv"><\/span>/.test(MI) && /const lv = \$e\('miLv'\); if\(lv\)\{[^\n]*plMod\.fillLv\(lv, n(, st)?\)/.test(A), '  레벨 배지는 친구 목록과 같은 _plFillLv(개정 46 · playlist.js 로 옮겨 plMod.fillLv — 앱 FSD 16번)');
+    chk(/<span id="miLv"><\/span>/.test(MI) && /const lv = \$e\('miLv'\); if\(lv\)\{[\s\S]*?plMod\.fillLv\(lv, n(, st)?\)/.test(A), '  레벨 배지는 친구 목록과 같은 _plFillLv(개정 46 · playlist.js 로 옮겨 plMod.fillLv — 앱 FSD 16번)');
     chk(/id="miAvatar" style="[^"]*border:1px solid;[^"]*var\(--win-lo-2\) var\(--win-hi\)/.test(MI) && !/id="miAvatar"[^>]*#111/.test(MI), '  사진 틀은 테마 베벨(개정 46)');
     chk(/id="miTabTrash"[^>]*display:none/.test(MI), '  휴지통 탭은 처음엔 숨김 — 보관함이 열린 PC 에서 코드가 연다(12절 · 개정 49)');
     /* 보관함 — 넣은 캐릭터만 */
@@ -254,32 +255,35 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk((Ac.match(/setProperty\('--pre-c'/g) || []).length === 2 && /sec\.style\.setProperty\('--pre-c', col\)/.test(takeFn(A, 'function _miRenderStar(') || '') && /el\.style\.setProperty\('--pre-c', star\.color\)/.test(takeFn(A, 'function _starPaint(') || ''),
       '★ --pre-c 를 칠하는 곳은 둘 — 미리보기(#miStar 한 곳) · 좌석·배지(_starPaint 한 함수)');
     const keys = (A.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';   // 개정 71: 목록 본문을 정확히 떼어 온다(옛 판은 엉뚱한 {…} 를 잡았다)
-    chk(/'tw\.starColor'/.test(keys), '  색은 프로필 starC 로 돌아온다 — 그래서 로그아웃 목록에 있다(개정 71)');
-    chk(/b\.onclick = \(\) => \{ if\(!setStarColor\(hex\)\) return; _miRenderHead\(\); _pushLevelIfChanged\(\); \};/.test(A), '★ 색을 고르면 머리 배지 · 프로필(친구 목록)까지 바로 — 방 좌석은 좌석 루프가(개정 70)');
+    chk(!/'tw\.starColor'/.test(keys), '  색은 서버 값(진척 starColor)이라 이 PC 에 두지 않는다 — 로그아웃 목록에도 없다(첫 실행이 옛 키를 지운다 · D5-2)');
+    chk(/b\.onclick = \(\) => \{ if\(!setStarColor\(hex\)\) return; _miRenderHead\(\); \};/.test(A), '★ 색을 고르면 머리 배지 · 구획이 바로(서버 저장 실패면 이전 색으로 돌아온다) — 방 좌석은 좌석 루프가(개정 70)');
     /* 재료 — 떼어 와 돌린다 */
-    const palSrc = A.slice(A.indexOf('const STAR_PALETTE = ['), A.indexOf('];', A.indexOf('const STAR_PALETTE = [')) + 2);
-    const fns = ['function _starColorOk(', 'function getStarColor(', 'function setStarColor(', 'function focusCycleOf(', 'function lvStarStr(',
+    const palSrc = FPROG.slice(FPROG.indexOf('const STAR_PALETTE = Object.freeze(['), FPROG.indexOf(']);', FPROG.indexOf('const STAR_PALETTE = Object.freeze([')) + 3);
+    const fns = ['function focusCycleOf(', 'function lvStarStr(',
                  'function _miStarToggle(', 'function _miRenderStar('].map(h => takeFn(A, h));
     chk(palSrc.length > 30 && fns.every(Boolean), '  재료 · 그리기 함수를 떼어 왔다');
     if (palSrc.length > 30 && fns.every(Boolean)){
       const mkEl = (id) => { const el = { id, style: { _p: {}, setProperty(k, v){ this._p[k] = v; }, display: '' }, attrs: {}, dataset: {}, children: [], textContent: '',
         setAttribute(k, v){ this.attrs[k] = String(v); }, appendChild(c){ this.children.push(c); return c; } }; return el; };
-      const mk = (total, stored) => {
+      const mk = (total, color) => {
         const els = {}; ['miStar','miLvBtn','miStarOn','miStarLock','miStarSub','miStarNpStar','miStarNpText','miStarFill','miStarPal','miStarLeft','miStarMeter'].forEach(id => els[id] = mkEl(id));
-        const LS = { st: Object.assign({}, stored || {}), getItem(k){ return k in this.st ? this.st[k] : null; }, setItem(k, v){ this.st[k] = String(v); } };
+        const LS = { st: {} };   // 색은 서버 진척 값(env.color) — 이 PC 칸에 안 쓴다
         const doc = { getElementById: id => els[id] || null, createElement: () => mkEl(null) };
         const f = new Function('document', 'localStorage', 'env', `
           const FOCUS_LEVEL_CAP_HOURS = 999, FOCUS_CYCLE_SEC = 999*3600, EXP_SEC_PER_LEVEL = 3600, EXP_SEC_PER_CELL = 300, EXP_CELLS = 12;
-          let _focusTotalSec = env.total;
-          const STAR_COLOR_KEY = 'tw.starColor';
-          ${palSrc}
+          const _focusTotalSec = () => env.total;
+          const progress = { load: 'ready', cycle: Math.floor(env.total / FOCUS_CYCLE_SEC), cycleLevel: 1 + Math.floor((env.total % FOCUS_CYCLE_SEC) / 3600) };   // 옮기기 전 글로 되살린 모양 — 읽는 함수 deps(progress)는 값으로 선다(sim-renderer-src)
+          const STAR_PALETTE = ${palSrc.replace(/^const STAR_PALETTE = /, '').replace(/;\s*$/, '')};
+          function getFocusLevel(){ return Math.min(FOCUS_LEVEL_CAP_HOURS, 1 + Math.floor(env.total / 3600)); }
+          const _starColorOk = (c) => STAR_PALETTE.some(p => p[0] === c);
+          const getStarColor = () => (_starColorOk(env.color) ? env.color : STAR_PALETTE[0][0]);
+          const setStarColor = (c) => { if(!_starColorOk(c)) return false; env.color = c; return true; };
           ${fns.join('\n')}
-          function getFocusLevel(){ return Math.min(FOCUS_LEVEL_CAP_HOURS, 1 + Math.floor(_focusTotalSec / 3600)); }
           function getDisplayName(){ return '키위'; }
           let _miStarOpen = false;
-          function _pushLevelIfChanged(){} function _miRenderHead(){ _miRenderStar(); }
+          function _miRenderHead(){ _miRenderStar(); }
           return { STAR_PALETTE, getStarColor, setStarColor, focusCycleOf, lvStarStr, toggle: _miStarToggle, render: _miRenderStar, isOpen: () => _miStarOpen };`);
-        return Object.assign(f(doc, LS, { total }), { els, LS });
+        const env = { total, color }; return Object.assign(f(doc, LS, env), { els, LS, env });
       };
       let v = mk(0);
       /* 팔레트 — 16 · 겹침 없음 · 밝은 톤만 */
@@ -297,9 +301,9 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       chk(a.cycle === 0 && a.lv === 1 && a.leftSec === C && b.cycle === 0 && b.lv === 999 && b.leftSec === 1 && c2.cycle === 1 && c2.lv === 1 && d.cycle === 2 && d.lv === 342,
         '★ 회차는 누적초에서 파생 — 999시간이 한 바퀴 · 바퀴 안 레벨 1~999');
       /* 색 저장 — 팔레트만 받는다 */
-      chk(v.getStarColor() === P[0] && !v.setStarColor('#000000') && !v.setStarColor('red') && !('tw.starColor' in v.LS.st), '★ 팔레트 밖 색은 거절 · 기본은 첫 색(금)');
-      chk(v.setStarColor(P[5]) && v.LS.st['tw.starColor'] === P[5] && v.getStarColor() === P[5], '  팔레트 색은 저장된다');
-      v = mk(0, { 'tw.starColor': '#123456' });
+      chk(v.getStarColor() === P[0] && !v.setStarColor('#000000') && !v.setStarColor('red') && v.env.color == null, '★ 팔레트 밖 색은 거절 · 기본은 첫 색(금)');
+      chk(v.setStarColor(P[5]) && v.env.color === P[5] && v.getStarColor() === P[5], '  팔레트 색은 받는다');
+      v = mk(0, '#123456');
       chk(v.getStarColor() === P[0], '  저장값이 팔레트 밖이면(손으로 고침 · 옛 판) 첫 색으로 떨어진다');
       /* 그리기 — 999 전 */
       v = mk(341 * 3600 + 1200);
@@ -315,7 +319,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       v = mk(C - 1800); v.toggle();
       chk(v.els.miStarLeft.textContent === '1시간 남았어요', '  30분 남아도 «1시간» — 0시간이라고 안 쓴다');
       /* 그리기 — 회차 */
-      v = mk(2 * C + 341 * 3600 + 1800, { 'tw.starColor': P[12] }); v.toggle();
+      v = mk(2 * C + 341 * 3600 + 1800, P[12]); v.toggle();
       chk(v.els.miStarOn.style.display === 'flex' && v.els.miStarLock.style.display === 'none' && v.els.miStarSub.textContent === '2회차 · 이름표 별과 바가 같이 바뀌어요',
         '★ 회차 — 미리보기 + 색 칸 · «2회차»');
       chk(v.els.miStarNpStar.textContent === '★' && v.els.miStarNpText.textContent === '342 키위' && v.els.miStarFill.style.width === '50%', '  이름표 «★342 키위» · 바 50%(30분 = 6칸)');
@@ -324,7 +328,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       chk(sw.length === 16 && sw.every(b => b.attrs.role === 'radio' && b.attrs['aria-label'] && b.style._p['--sw'] === b.dataset.c) && sw.filter(b => b.attrs['aria-checked'] === 'true').length === 1 && sw[12].attrs['aria-checked'] === 'true',
         '★ 16칸 · radio · 이름 · 색은 CSS 변수로만 · 고른 것 하나만 checked');
       sw[3].onclick();
-      chk(v.LS.st['tw.starColor'] === P[3] && v.els.miStar.style._p['--pre-c'] === P[3] && sw[3].attrs['aria-checked'] === 'true' && sw[12].attrs['aria-checked'] === 'false' && v.els.miStarPal.children.length === 16,
+      chk(v.env.color === P[3] && v.els.miStar.style._p['--pre-c'] === P[3] && sw[3].attrs['aria-checked'] === 'true' && sw[12].attrs['aria-checked'] === 'false' && v.els.miStarPal.children.length === 16,
         '★ 색 칸을 누르면 바로 저장 · 미리보기 · 체크가 따라온다(칸을 다시 만들지 않는다)');
       v = mk(13 * C + 5 * 3600); v.toggle();
       chk(v.els.miStarNpStar.textContent === '★×13' && v.els.miStarNpText.textContent === '6 키위', '  13회차 — «★×13» 으로 접힌 채 미리보기');
@@ -366,9 +370,8 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       Object.assign({}, cur, { rules: Object.assign({}, RU, { leaderboard: { '.read': true } }) }),
     ];
     chk(back.every(b => gone(b).length === 1), '  ↳ 깨 보기 — 칸 · 왕관 · CSS · 올리기 · 통로 · 경로 · 규칙을 하나씩 되살리면 각각 잡힌다');
-    /* 포커스 누적 동기화는 그대로 — 랭킹 알림 자리만 빠졌다 */
-    const sy = takeFn(A, 'async function syncFocusTotalToServer(') || '';
-    chk(/if\(!r \|\| !r\.ok\)\{ _focusSyncFailed\(reason, r, delta\); return; \}/.test(sy) && /_setFocusSyncedMark\(newMark\);/.test(sy), '  포커스 누적 동기화(성공 · 실패 처리)는 그대로');
+    /* 옛 포커스 누적 동기화(Firebase)는 걷었다(D5-2) — 서버 올리기는 focus-progress.js(sim-focus-progress.js) */
+    chk(!/syncFocusTotalToServer|_focusSyncFailed|_setFocusSyncedMark/.test(A), '  옛 포커스 누적 동기화(마크 · 재시도)는 걷었다 — 서버 올리기는 focus-progress.js');
   }
 
   say('');

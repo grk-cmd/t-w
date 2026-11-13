@@ -172,7 +172,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `net-ready.js` — 🛰 네트워크(provider) 준비됨 기다리기
 
-**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 15곳(app.js 넷 · room-entry 둘 · ad-banner · license-request · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
+**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 14곳(app.js 넷 · room-entry 둘 · ad-banner · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
 
 **만드는 법** — 만들 필요 없음(deps 0). 쓰는 모듈 · app.js 보다 먼저 싣는 classic script(`window.TwNetReady`)이고, 쓰는 곳은 `TwNetReady.이름` 으로 바로 부른다.
 
@@ -221,7 +221,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `app-version.js` — 🏷️ 앱 버전(ver) 싣기
 
-**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence · 라이선스 요청에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
+**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence 에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
 
 **만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion, onReady })`. `onReady(ver)` 는 처음 받았을 때 한 번 — presence 를 이미 썼으면 ver 만 update 하고 onDisconnect 를 다시 건다.
 
@@ -429,14 +429,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 |---|---|---|
 | (a) 기기 공용 | `tw.deviceId` · `apiBaseUrl` · `realtimeUrl` · `remoteConfig` · `glReloads` · `renderQuality` · `dotRender` · `figureMode` · `officeMode` · `deskPan` · `focusCharScale` · `chipHorz` · `chipCollapsed` · `nameplate` · `nameplateSize` · `theme` · `accent` · `mockRoom` · `updateNoticeDismissedTs` · `chatFontSize` · `chatOpacity` · `chatSfx` · `chatSfxId` · `listenMute` · `listenVol` · `noise.*` · `pkBgmMuted` · `gapSolo` · `gapMulti` · `roomSeatMode` · `focusLogMini` · `annivAreaH` · `adBanner` · `thumbSigs` · `playlistVol/Mini/Loop*/Pos` · `tw_chat_win_pos` · `bellWinPos` · `gachaWinPos` · `wdPreviewPos` · `ideskInvPos` | 이 PC 의 성질(창 자리 · 화질 · 소리 · 모양 취향). 계정을 바꿔도 그대로 |
 | (a') 신원 · 로그인 | `tw.myUserId` · `loginEmail` · `loginAuthUid` · `myFriendCode` · `myFriendCodePrev` · `myPrevUserIds` · `invitePassed` · `inviteToken` · `signupPending` · `licenseKey` · `licenseOptOut` · `licenseReqId` | 계정 코드를 정하는 쪽이라 계정 칸에 둘 수 없다. 0.13 에서 서버 로그인 토큰으로 대체될 것은 계정 묶음(B) 몫 |
-| (b) 계정별 — **옮김(이번 PR)** | `focusTotalSec` · `focusTodaySec` · `focusTodayDate` · `focusSyncedSec` · `advZ.v2`(마이홈 바탕화면) · `advZ.v1`(옛 판 읽기 전용) | #582 에서 섞이던 것. 모듈: `focus-total.js` · `focus-level.js` · `myhome-desktop.js` |
-| (b) 계정별 — 포커스 | `focusShow` · `danceNotified` · `danceNotifiedFix` · `ideskNotified` · `starColor` · `pomo` · `pomoRun` · `bonkDay` · `dailyPlay.*` | 포커스 · 뽀모 묶음이 옮김 |
+| (b) 계정별 — **옮김(이번 PR)** | `focusTodaySec` · `focusTodayDate` · `advZ.v2`(마이홈 바탕화면) · `advZ.v1`(옛 판 읽기 전용) | #582 에서 섞이던 것. 모듈: `focus-total.js` · `focus-level.js` · `myhome-desktop.js` |
+| (b) 계정별 — 포커스 | `focusPendingSec`(서버에 아직 못 올린 집중 시간 — `focus-progress.js`) · `focusShow` · `pomo` · `pomoRun` · `bonkDay` · `dailyPlay.*` | 포커스 · 뽀모 묶음이 옮김. 옛 `focusTotalSec` · `focusSyncedSec` · `starColor` · `danceNotified` · `danceNotifiedFix` · `ideskNotified` 는 서버가 원본이 되어 표에서 뺐고 첫 실행(`first-run-013.js` 포커스 단계)이 지운다 |
 | (b)+(c) 계정별 · 서버 원본이 될 것 | `chal`(D 달성표) · `gachaOwned` · `gachaOwnedTs` · `gachaBonus`(D 가챠) · `curSlot` · `extraSeatSlots` · `roomFaceUrls` · `slotGlbUrls` · `deskFriends.slots.*`(v1 · ts · seen · loss · lastsync · pushfail · bak · bak.meta) · `deskFriends.chars.*`(v1 · desk · trashPend) · `charsLinked` · `charsMoveFails`(D 캐릭터) · `savedDesks` · `savedItems` · `savedParts` · `decoParts` · `deskPresets` · `animalPresets` · `animalEverUnlocked` · `animalCheatUnlock` · `charColorHistory` · `seatEq` · `activeInteractionDesk` · `emojiReactions` | 서버가 원본이 되면 PC 사본이 필요 없어질 것 — 그 D 묶음이 «지움» 이든 «계정 칸으로 옮김» 이든 정한다 |
 | (b)+(c) 플레이리스트 | `playlist` · `playlistSets` · `playlistCur` · `playlistTitle` · `playlistBio` · `playlistHomePublic` · `playlistPrivate` · `playlistEditTs` · `playlistBackup` · `secretRoomMusic` | D10(playlist) — 서버 원본이면 `playlistEditTs` · `playlistBackup` 은 걷는다 |
-| (b) 프로필 · 마이홈 | `userName` · `customStatus` · `userStatus` · `awayKind` · `awayImg` · `awaySz` · `myAdBannerImg` · `bookmarks` · `mallangGiftHidden` · `inboxBcRead` · `noticeBoard`(마지막으로 받은 소식 묶음 — `launcher/notice-feed.js`) · `bellSeenTs` · `reportHidden` · `mobileKey` · `mhRecentColors.<종류>` · `mhGbLastRead:<uid>` | 마이홈 · 프로필 · 알림함 묶음이 옮김 |
+| (b) 프로필 · 마이홈 | `userName` · `customStatus` · `userStatus` · `awayKind` · `awayImg` · `awaySz` · `myAdBannerImg` · `mallangGiftHidden` · `inboxBcRead` · `noticeBoard`(마지막으로 받은 소식 묶음 — `launcher/notice-feed.js`) · `bellSeenTs` · `reportHidden` · `mobileKey` · `mhRecentColors.<종류>` · `mhGbLastRead:<uid>` | 마이홈 · 프로필 · 알림함 묶음이 옮김 |
 | (b) 대화 | `chatTab.<…>` · `tw_chat_read:<방>` · `tw_chat_join:<방>` · IndexedDB 대화 기록(`chat/chat-history.js` — 지금 scope 가 프로젝트라 계정 구분 없음) | 채팅 묶음 — IDB scope 에 계정 코드를 넣거나 서버 3일 보관으로 걷는다 |
 
-- `ACCOUNT_LOCAL_KEYS`(`account/account.js`) 대조: 이번에 옮긴 포커스 누적 네 줄, 곧 그 목록의 `focusTotalSec` · `focusTodaySec` · `focusTodayDate` · `focusSyncedSec` 을 빼도 된다(계정 칸은 로그아웃해도 안 지우는 게 맞다 — 같은 계정이 돌아오면 이어진다). `advZ` 는 원래 목록에 없었다(그래서 바탕화면이 섞였다). 지우기 · 넘기기 로직을 걷는 것은 #580.
+- `ACCOUNT_LOCAL_KEYS`(`account/account.js`) 대조: 이번에 옮긴 포커스 오늘치 두 줄, 곧 그 목록의 `focusTodaySec` · `focusTodayDate` 를 빼도 된다(계정 칸은 로그아웃해도 안 지우는 게 맞다 — 같은 계정이 돌아오면 이어진다). `advZ` 는 원래 목록에 없었다(그래서 바탕화면이 섞였다). 지우기 · 넘기기 로직을 걷는 것은 #580.
 
 ## `session.js` — 🔐 로그인 세션 하나
 

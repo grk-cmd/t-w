@@ -22,7 +22,7 @@ const MODULES = [
   { file: 'tricks.js', mod: 'tricksMod', glob: 'TwTricks', sample: 'function _eggCountCmd(' },   // 앱 FSD 25번
   { file: 'ride-bench.js', mod: 'rideBenchMod', glob: 'TwRideBench', sample: 'function _checkCircusBalance(' },   // 앱 FSD 30번
   { file: 'part-paint.js', mod: 'partPaintMod', glob: 'TwPartPaint', sample: 'function _wdPicSection(' },   // 앱 FSD 21번
-  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function _pushLevelIfChanged(' },   // 앱 FSD 26번
+  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function addFocusSeconds(' },   // 앱 FSD 26번
   { file: 'chat-ui.js', mod: 'chatUiMod', glob: 'TwChatUi', sample: 'function _chatFlySendGate(' },   // 앱 FSD 24번
   { file: 'license-gate.js', mod: 'licenseGateMod', glob: 'TwLicenseGate', sample: 'function _rcStore(' },   // 앱 FSD 31번
   { file: 'account.js', mod: 'accountMod', glob: 'TwAccount', sample: 'function getMyLoginEmail(' },   // 앱 FSD 23번
@@ -46,7 +46,6 @@ const MODULES = [
   { file: 'slot-save.js', mod: 'slotSaveMod', glob: 'TwSlotSave', sample: 'function _slotImgToDataUrl(' },   // 앱 FSD 43번
   { file: 'interaction-desk.js', mod: 'iDeskMod', glob: 'TwInteractionDesk', sample: 'function _trickTurns(' },   // 앱 FSD 43번
   { file: 'ad-banner.js', mod: 'adBannerMod', glob: 'TwAdBanner', sample: 'function refreshAdBanner(' },   // 앱 FSD 43번
-  { file: 'license-request.js', mod: 'licReqMod', glob: 'TwLicenseRequest', sample: 'function _showLicenseReqState(' },   // 앱 FSD 43번
   { file: 'fn-keys.js', mod: 'fnKeysMod', glob: 'TwFnKeys', sample: '(function bindHotkeys(){' },   // 앱 FSD 43번
   { file: 'hidden-seats.js', mod: 'hiddenSeatsMod', glob: 'TwHiddenSeats', sample: 'function _reportHiddenSave(' },   // 앱 FSD 43번
   { file: 'theme-ui.js', mod: 'themeUiMod', glob: 'TwThemeUi', sample: 'function _themeChildCss(' },   // 앱 FSD 44번

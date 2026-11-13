@@ -9,9 +9,8 @@
             첫 실패에서 끝내지 않고 전 항목을 이름·개수로 세고, 8초 상한에 걸린 뒤의 «없다» 는 timeout 이고,
             force 면 검문에 걸려도 목록 한 벌·메모리 전부 지우고 기기 세션도 놓는다.
             부르는 쪽은 정적으로 — [그래도 로그아웃] 은 두 번째 실패에서만 열리고 바로 실행한다.
-   ・3절: 신원을 놓은 뒤 beforeunload 의 syncFocusTotalToServer('quit') 가 임시 uid 를 만들어 올리지 않는다.
    ・4절: 플레이리스트 — 원본은 서버(playlist-api.js). firebase-init 에 옛 읽기가 없고, 로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다.
-   ・5절: 춤 해금 안내 — 기록이 지워져도 수령함에 우편이 있으면 다시 안 보낸다(새 계정이면 보낸다).
+   ・(3절 · 5절은 걷었다 — 포커스 올리기는 계정 세션이 끝나면 아무것도 못 보내고(sim-focus-progress.js) 해금 안내 우편은 서버 알림이다)
    [실행] app.js · firebase-init.js 가 있는 폴더에서. 판정 줄은 맨 끝. */
 'use strict';
 const fs = require('fs');
@@ -54,8 +53,8 @@ function constVal(name){
 }
 const K = {};
 ['MY_USER_ID_KEY','MY_FRIEND_CODE_KEY','LOGIN_EMAIL_KEY','LOGIN_UID_KEY',   // (개정 56) MY_PREV_USER_IDS_KEY 걷음
- 'MY_FRIEND_CODE_PREV_KEY','LICENSE_KEY_STORAGE','LICENSE_REQ_ID_KEY','FOCUS_TOTAL_KEY','FOCUS_TODAY_SEC_KEY',
- 'FOCUS_TODAY_DATE_KEY','FOCUS_SYNCED_KEY','DANCE_NOTIFIED_KEY','DANCE_REPAIR_KEY',
+ 'MY_FRIEND_CODE_PREV_KEY','LICENSE_KEY_STORAGE','LICENSE_REQ_ID_KEY','FOCUS_TODAY_SEC_KEY',
+ 'FOCUS_TODAY_DATE_KEY',
  'CHAL_KEY','LICENSE_OPTOUT_KEY',   // (개정 238) 목록에 들어온 뒤 여기 없어 2절이 «?» 로 통째 안 돌았다
  'CUR_SLOT_KEY','EXTRA_SEAT_KEY',
  'USER_NAME_KEY','CUSTOM_STATUS_KEY','MY_AD_BANNER_KEY','BELL_SEEN_KEY','INBOX_BC_READ_KEY','BONK_DAY_KEY',
@@ -69,7 +68,7 @@ const listSrc = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/)
 chk(!!listSrc, '★ ACCOUNT_LOCAL_KEYS 가 있다 (지움 목록은 코드 한 벌이어야 한다 — 주석으로 «같은 목록» 이면 또 새는 자리)');
 const has = n => new RegExp('\\b' + n + '\\b').test(listSrc);
 chk(!has('LICENSE_KEY_STORAGE') && !has('LICENSE_OPTOUT_KEY') && has('LICENSE_REQ_ID_KEY'), '① 라이선스 옛 키 · 해제 표시는 로그아웃이 지우지 않는다(첫 실행이 서버에 올린 뒤에야 지움 — 프리미엄은 서버 판정이라 남아도 열리지 않는다) · 요청 번호만 지운다');
-chk(!has('FOCUS_TOTAL_KEY') && !has('FOCUS_SYNCED_KEY') && !has('FOCUS_TODAY_SEC_KEY'), '③ 누적 시간 + 마크는 계정별 칸(shared/account-store.js)이라 지움 목록에 없다 — 계정을 바꾸면 다른 칸이 열려 다음 계정 서버를 안 끌어올린다(흐름은 sim-account-store 6b절)');
+chk(!has('FOCUS_TODAY_SEC_KEY') && !has('FOCUS_TODAY_DATE_KEY') && !/focusTotalSec|focusSyncedSec|focusPendingSec|starColor|danceNotified|ideskNotified|DANCE_NOTIFIED|DANCE_REPAIR/.test(listSrc), '③ 오늘치 · 못 올린 집중 시간은 계정별 칸(shared/account-store.js)이라 지움 목록에 없다 — 걷은 옛 키(누적 · 마크 · 별 색 · 해금 안내 기록)는 첫 실행이 지운다');
 chk(!has('GACHA_OWNED_KEY') && !has('GACHA_TS_KEY') && !has('GACHA_BONUS_KEY') && !/tw\.gacha/.test(listSrc), '④ 가챠는 서버가 원본이라 이 PC 에 지울 값이 없다(지움 목록에 없다)');
 chk(!has('LS_KEY') && !/deskFriends\./.test(listSrc), '② 캐릭터는 서버가 원본이라 이 PC 에 지울 슬롯 저장본·ts 가 없다(지움 목록에 없다)');
 chk(/'tw\.roomFaceUrls'/.test(listSrc) && /'tw\.slotGlbUrls'/.test(listSrc), '  업로드 캐시 둘 — users/{uid}/ 경로라 다른 uid 가 물려받으면 남의 Storage 를 가리킨다');
@@ -112,7 +111,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
   function mkEnv(o){
     const env = Object.assign({
       ls: new Map(), calls: [], unsaved: 0,
-      total: 3600, mark: 3600, hasMark: true,
+      unsent: 0,
       apiOn: true,
     }, o || {});
     const localStorage = {
@@ -131,7 +130,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     const decl = Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + "\nconst ME_CACHE_KEY = 'tw.me';\n" + [
       "const sessionLost=()=>!!env.lost;   /* 다른 기기에 밀렸나 */",
       "const accountLegacyStore={ migrateLegacy:(c)=>{ env.calls.push('migrate:'+c); return {}; } };",
-      "const syncFocusTotalToServer=async(r)=>{ env.calls.push('flush:focus:'+r); env.mark = env.total; env.hasMark = true; };",
+      "const flushFocus=async()=>{ env.calls.push('flush:focus:logout'); }; const unsentSec=()=>env.unsent;",
       "const gachaMod={ resetMemory(){ env.calls.push('gacha:reset'); } };",
       /* 👑 달성표는 weekly-challenge.js 모듈 — app.js 는 weeklyChal.syncChalToServer · resetMemory 로 부른다. 메모리 칸은 여기 let 이 대신한다 */
       "const weeklyChal={ syncChalToServer:async(r)=>{ env.calls.push('flush:chal:'+r); }, resetMemory(){ env.calls.push('chal:reset'); chalRec = _chalBlank(); _chalDirty = false; } };",
@@ -139,8 +138,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
       "const closetMod=()=>({ flushSlots:async()=>{ env.calls.push('flush:slots:logout'); }, waitFlush:async()=>{}, unsavedCount:()=>{ env.calls.push('unsaved'); return env.unsaved; }, resetCloset(){ env.calls.push('closet:reset'); } });",
       "const setTimeout=(fn,ms)=>{ if(env.fastTimeout && typeof fn==='function') fn(); return 0; };",
       "const firebaseAPI = window.firebaseAPI;   /* 본문이 bare 이름으로도 부른다(releaseDeviceSession) */",
-      "let _focusTotalSec = env.total, _focusTodaySec = 100;",
-      "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;",
+      "let _focusTodaySec = 100; const setFocusTodaySec=(v)=>{ _focusTodaySec = v; };",
       "let chalRec = { ts: 1, days: [1] }, _chalDirty = true; const _chalBlank=()=>({ ts:0 });",
       "let extraSeatSlots = [1,2];",
       "let _plSets = [{name:'a',items:[{id:'x'}]}], _plCur = 1, _plBio = 'hi', _plHomePublic = true, _plPrivate = true, _plPubSig = 'sig';",
@@ -149,14 +147,14 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     ].join('\n');
     const body = [tmo, fList, fPref, fFlush, fPre, fWipe, env.det || fDet].join('\n');
     const f = new Function('env', 'localStorage', 'window', decl + '\n' + body +
-      "\nreturn { detach:_detachAccountLocal, wipe:_wipeAccountLocal, keys:ACCOUNT_LOCAL_KEYS, mem:()=>({ total:_focusTotalSec, chalDirty:_chalDirty, chalTs:chalRec.ts, extra:extraSeatSlots, sets:_plSets, sig:_plPubSig, detached:_acctDetached }) };");
+      "\nreturn { detach:_detachAccountLocal, wipe:_wipeAccountLocal, keys:ACCOUNT_LOCAL_KEYS, mem:()=>({ today:_focusTodaySec, chalDirty:_chalDirty, chalTs:chalRec.ts, extra:extraSeatSlots, sets:_plSets, sig:_plPubSig, detached:_acctDetached }) };");
     env.m = f(env, localStorage, window);
     env.LS = localStorage;
     return env;
   }
   const fillA = e => {
     e.LS.setItem(K.MY_USER_ID_KEY, 'uA'); e.LS.setItem(K.LOGIN_EMAIL_KEY, 'a@x'); e.LS.setItem('tw.me', '{}');
-    e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-A'); e.LS.setItem(K.FOCUS_TOTAL_KEY, '3600'); e.LS.setItem(K.FOCUS_SYNCED_KEY, '3600');
+    e.LS.setItem(K.LICENSE_KEY_STORAGE, 'LIC-A'); e.LS.setItem(K.FOCUS_TODAY_SEC_KEY, '60');
     e.LS.setItem('tw.slotGlbUrls', '{}'); e.LS.setItem('tw.roomFaceUrls', '{"face:h":"https://st/u/A"}'); e.LS.setItem('tw.playlistSets', '[]'); e.LS.setItem('tw.playlistEditTs', '9000');
     e.LS.setItem(K.MY_FRIEND_CODE_PREV_KEY, '["MATE-OLD1"]'); e.LS.setItem(K.CHAL_KEY, '{}'); e.LS.setItem(K.USER_NAME_KEY, 'A');
     e.LS.setItem('tw_chat_read:COZY-1', '5'); e.LS.setItem('tw_chat_join:COZY-1', '1');
@@ -179,7 +177,7 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     chk(e.LS.getItem('tw.theme') === 'dark' && e.LS.getItem('tw.playlistVol') === '40' && e.LS.getItem('tw.savedParts') === '[]' && e.LS.getItem('tw.deskPresets') === '[]',
         '★ 테마·볼륨·카탈로그·프리셋은 남았다 (이 컴퓨터의 것)');
     const m = e.m.mem();
-    chk(m.total === 0 && e.calls.includes('gacha:reset'), '★ 메모리도 비웠다 — 누적 = 0 · 가챠는 gachaMod.resetMemory');
+    chk(m.today === 0 && e.calls.includes('gacha:reset'), '★ 메모리도 비웠다 — 오늘치 = 0 · 가챠는 gachaMod.resetMemory');
     chk(m.chalDirty === false && m.chalTs === 0 && e.calls.includes('chal:reset'), '  달성표 dirty=false (beforeunload 의 _chalSave 가 지운 키를 도로 안 쓴다 · weeklyChal.resetMemory)');
     chk(e.calls.includes('closet:reset') && m.extra.length === 0 && m.sig === null && m.sets.every(s => !s.items.length), '  옷장 메모리·추가 좌석·플레이리스트 지문 초기화');
     chk(e.plReset === 1 && e.LS.getItem('tw.playlistEditTs') === null, '  ☁️ 플레이리스트를 비우고 받기 전까지 안 올림(plMod.reset) · 옛 고친 시각 키도 지움');
@@ -191,33 +189,35 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     r = await e.m.detach();
     chk(r && r.ok === false && /캐릭터/.test(r.reason || ''), '★ ok:false + 이유가 캐릭터를 가리킨다 (' + (r && r.reason) + ')');
     chk(e.LS.getItem(K.MY_USER_ID_KEY) === 'uA' && e.LS.getItem(K.LICENSE_KEY_STORAGE) === 'LIC-A' && e.LS.getItem('tw.roomFaceUrls') !== null, '★ 신원도 소지품도 그대로 (막힌 로그아웃은 삭제가 아니다)');
-    chk(e.m.mem().total === 3600 && e.m.mem().detached === false, '  메모리도 그대로');
+    chk(e.m.mem().today === 100 && e.m.mem().detached === false, '  메모리도 그대로');
 
     /* ④ 누적 시간이 안 올라갔다 */
-    say('· ④ 누적 시간 미반영');
-    /* 위 mkEnv 의 flush 스텁은 mark=total 로 맞추므로 정상 기기는 늘 통과한다.
-       여기선 **마크를 안 옮기는 flush**(쓰기가 거부된 기기)로 바꿔 끼운다. */
+    say('· ④ 집중 시간 미반영');
+    /* 위 mkEnv 의 flush 스텁은 올린 걸로 치므로 정상 기기는 늘 통과한다.
+       여기선 **못 올린 몫이 남은 채**(쓰기가 거부된 기기)로 돌린다. */
     const g = new Function('env', 'localStorage', 'window',
       Object.keys(K).map(n => 'const ' + n + " = '" + K[n] + "';").join('\n') + '\n' +
       "const accountLegacyStore={ migrateLegacy:()=>({}) }; const sessionLost=()=>false; const ME_CACHE_KEY='tw.me';\n" +
-      "const syncFocusTotalToServer=async()=>{}; const gachaMod={ resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const closetMod=()=>({ flushSlots:async()=>{}, unsavedCount:()=>0, resetCloset(){} });\n" +
+      "const flushFocus=async()=>{}; const unsentSec=()=>env.unsent; const setFocusTodaySec=()=>{}; const gachaMod={ resetMemory(){} }; const weeklyChal={ syncChalToServer:async()=>{}, resetMemory(){} }; const closetMod=()=>({ flushSlots:async()=>{}, unsavedCount:()=>0, resetCloset(){} });\n" +
       "const clearTimeout=()=>{}; const setTimeout=()=>0;\n" +
-      "let _focusTotalSec=env.total, _focusTodaySec=0;\n" +
-      "const _hasFocusSyncedMark=()=>env.hasMark; const _getFocusSyncedMark=()=>env.mark;\n" +
+      "let _focusTodaySec=0;\n" +
       "let chalRec={ts:0}, _chalDirty=false; const _chalBlank=()=>({ts:0}); let extraSeatSlots=[];\n" +
       "let _plSets=[], _plCur=0, _plBio='', _plHomePublic=false, _plPrivate=false, _plPubSig=null; const getMyUserId=()=>'ME01'; const plMod={ flushPending:async(u)=>{ env.calls.push('flush:pl:'+(u||'')); }, blankSets:()=>[], st:" + PL_ST_MEM + " };\n" +
       [tmo, fList, fPref, fFlush, fPre, fWipe, fDet].join('\n') + "\nreturn _detachAccountLocal;");
     const FB_MIN = { deviceSessionLost: () => false, setMyPresenceState: () => Promise.resolve() };   // 늘 있는 둘 — 검문 뒤 presence «꺼짐» 이 부른다
     const lsOf = env => ({ getItem:k=>env.ls.has(k)?env.ls.get(k):null, setItem:(k,v)=>env.ls.set(k,String(v)), removeItem:k=>env.ls.delete(k), key:i=>Array.from(env.ls.keys())[i]||null, get length(){ return env.ls.size; } });
-    let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 3600, hasMark: true };
+    let env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), unsent: 3600 };
     r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
-    chk(r && r.ok === false && /누적 시간/.test(r.reason || ''), '★ 마크가 2분 넘게 뒤처지면 막는다 (' + (r && r.reason) + ')');
-    env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 0, hasMark: false };
+    chk(r && r.ok === false && /집중 시간/.test(r.reason || ''), '★ 올리기 뒤에도 못 올린 몫이 2분을 넘으면 막는다 (' + (r && r.reason) + ')');
+    env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), unsent: 121 };
     r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
-    chk(r && r.ok === false, '  마크가 아예 없는데 누적이 있으면 막는다 (서버와 한 번도 안 맞춰봄)');
-    env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), total: 7200, mark: 7150, hasMark: true };
+    chk(r && r.ok === false, '  경계 — 121초는 막는다');
+    env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), unsent: 120 };
     r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
-    chk(r && r.ok === true, '  50초 차이는 통과 (왕복 사이에 쌓인 폭)');
+    chk(r && r.ok === true, '  경계 — 120초는 통과 (왕복 사이에 쌓인 폭)');
+    env4 = { ls: new Map([[K.MY_USER_ID_KEY, 'uA']]), unsent: 0 };
+    r = await g(env4, lsOf(env4), { firebaseAPI: FB_MIN })();
+    chk(r && r.ok === true, '  못 올린 몫이 없으면 통과');
 
     /* ⑤ uid 가 없는 기기 — 검문 없이 그냥 지운다 */
     say('· ⑤ uid 없는 기기(이미 놓았거나 새 기기)');
@@ -292,37 +292,8 @@ if(!fList || !fPref || !fFlush || !fPre || !fWipe || !fDet || !tmo){
     if(html) chk(/id="acctLogoutForce"[^>]*display:none/.test(html), '  마크업의 [그래도 로그아웃] 은 처음엔 숨겨져 있다(app.js 만 연다)');
     else huh('desk-companion-prototype.html 없음 — 마크업 검사 생략');
 
-    part3(); part4(); part5(); done();
-  })().catch(err => { huh('2절 실행 오류: ' + (err && err.stack || err)); part3(); part4(); part5(); done(); });
-}
-
-/* ── 3. 신원을 놓은 뒤 'quit' 동기화가 임시 uid 를 만들지 않는다 ── */
-function part3(){
-  say('── 3. syncFocusTotalToServer — 신원을 놓은 뒤에는 돌지 않는다');
-  const f = grabFn(SRC, 'syncFocusTotalToServer', 'async function ');
-  if(!f){ huh('syncFocusTotalToServer 를 못 찾음'); return; }
-  const a = f.indexOf('if(typeof _acctDetached'), b = f.indexOf('const uid = getMyUserId();');   // (개정 238) typeof 가드를 걷어 getMyUserId() 를 바로 부른다
-  chk(a > 0 && b > a, '★ _acctDetached 검사가 getMyUserId() **앞**에 있다 (뒤면 이미 임시 uid 가 발급된 뒤다)');
-  chk(/window\.addEventListener\('beforeunload', \(\)=>\{ try\{ syncFocusTotalToServer\('quit'\)/.test(SRC), '  beforeunload 가 여전히 quit 동기화를 부른다 (이 경로가 있어서 3절이 필요하다)');
-  /* 실제로 돌려본다 */
-  try{
-    const env = { minted: 0, calls: 0 };
-    const run = new Function('env', 'window', 'localStorage',
-      "const firebaseAPI = window.firebaseAPI; let _acctDetached = env.detached; let _focusSyncing=false; const _focusTotalStarted=()=>true; const FOCUS_LEVEL_CAP_HOURS=999; const FOCUS_TOTAL_CAP_SEC=999*3600; let _focusTotalSec=5000;\n" +
-      "const getMyUserId=()=>{ env.minted++; return 'uTMP'; };\n" +
-      "const _hasFocusSyncedMark=()=>false, _getFocusSyncedMark=()=>0, _setFocusSyncedMark=()=>{}, _focusSyncFailed=()=>{}, _pushLevelIfChanged=()=>{}, _notifyDanceUnlocks=()=>{}, getFocusLevel=()=>1;\n" +
-      "let _focusSyncFailStreak=0, _focusLastSyncedVal=-1; const console={warn(){},log(){}};\n" +
-      f + "\nreturn syncFocusTotalToServer;");
-    const apiOf = (e) => ({ syncFocusTotal: async () => { e.calls++; return { ok:true, totalSec: 5000 }; } });
-    (async () => {
-      env.detached = true;
-      await run(env, { firebaseAPI: apiOf(env) }, { getItem:()=>null, setItem(){} })('quit');
-      chk(env.minted === 0 && env.calls === 0, '★ 놓은 뒤 quit: uid 발급 0 · 서버 호출 0');
-      const env2 = { minted: 0, calls: 0, detached: false };
-      await run(env2, { firebaseAPI: apiOf(env2) }, { getItem:()=>null, setItem(){} })('boot');
-      chk(env2.minted === 1 && env2.calls === 1, '  평소(boot)는 예전 그대로 돈다 — sim-focus-sync.js 의 동작을 바꾸지 않았다');
-    })();
-  }catch(err){ huh('3절 실행 오류: ' + (err && err.message || err)); }
+    part4(); done();
+  })().catch(err => { huh('2절 실행 오류: ' + (err && err.stack || err)); part4(); done(); });
 }
 
 /* ── 4. 플레이리스트 세 벌 복원 ── */
@@ -332,34 +303,8 @@ function part4(){
   chk(!/function _restoreOwnedDataAfterTransfer\(/.test(SRC), '  로그인 때 서버 사본을 당겨 오던 옛 이어받기(_restoreOwnedDataAfterTransfer)는 0.13 에서 걷었다 — 서버에서 받는 길(plMod.pull)이 맡는다');
 }
 
-/* ── 5. 춤 해금 안내 — 수령함이 진짜다 ── */
-function part5(){
-  say('── 5. _danceUnlockPending — 기록이 없어도 수령함에 있으면 다시 안 보낸다');
-  const f = grabFn(SRC, '_danceUnlockPending');
-  if(!f){ huh('_danceUnlockPending 을 못 찾음'); return; }
-  try{
-    const run = new Function('env',
-      "const DANCE_MOVES=[{cmd:'80',reqLevel:80},{cmd:'150',reqLevel:150}];\n" +
-      "let _myInboxReady = env.ready; const _danceNotifiedSet=()=>new Set(env.done), _danceRepairSet=()=>new Set();\n" +
-      "const _danceMailExists=(def)=>env.mail.has(def.cmd); const _markDanceNotified=(c)=>{ env.marked.push(c); };\n" +
-      f + "\nreturn (lv)=>_danceUnlockPending(lv).map(d=>d.cmd);");
-    let env = { ready: true, done: [], mail: new Set(['80']), marked: [] };
-    let p = run(env)(200);
-    chk(p.join(',') === '150' && env.marked.join(',') === '80', '★ 돌아온 계정: 우편 있는 80 은 건너뛰고 기록만 찍는다 · 150 은 보낸다');
-    env = { ready: true, done: [], mail: new Set(), marked: [] };
-    p = run(env)(200);
-    chk(p.join(',') === '80,150', '  새 계정(우편 없음): 둘 다 보낸다 — 기록을 지운 덕에 안내가 간다');
-    env = { ready: false, done: [], mail: new Set(['80']), marked: [] };
-    p = run(env)(200);
-    chk(p.join(',') === '80,150' && env.marked.length === 0, '  수령함이 아직 안 왔으면 예전처럼 보낸다 (못 받는 쪽이 더 나쁘다)');
-    env = { ready: true, done: ['80'], mail: new Set(['80']), marked: [] };
-    p = run(env)(100);
-    chk(p.length === 0, '  기록 있고 우편 있고 — 평소처럼 안 보낸다');
-  }catch(err){ huh('5절 실행 오류: ' + (err && err.message || err)); }
-}
-
 function done(){
-  /* 3·4절의 비동기 조각이 끝나길 잠깐 기다린다 — 스텁 await 몇 개뿐이라 한 틱이면 된다 */
+  /* 4절의 비동기 조각이 끝나길 잠깐 기다린다 — 스텁 await 몇 개뿐이라 한 틱이면 된다 */
   setTimeout(() => {
     say('');
     say('sim-account-switch.js: ' + pass + ' 통과 · ' + fail + ' 실패' + (huhs ? ' · ' + huhs + ' 의문' : ''));
