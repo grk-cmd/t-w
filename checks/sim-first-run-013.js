@@ -4,7 +4,8 @@
    ・3절: 지우기 — 단계들이 돌려준 키만(겹치면 한 번) · 다 끝나면 «이 계정으로 끝냄» · 같은 계정은 건너뜀 · 다른 계정은 다시
    ・4절: 다시 해도 같게 — 도는 중에 또 부르면 같은 약속 · 내 코드 없으면 안 돎
    ・5절: 자리 — pendingStep 은 늘 기다림(지우기를 막음) · loginStep 은 서버 계정 확인 뒤에만 · 로그인 키 목록 · mallangStep 은 이 PC 의 tw.mallang.* 만
-   ・6절: 배선 — html(app.js 앞)
+   ・6절: 배선 — html(app.js 앞) · app.js 가 라이선스 단계를 채움 · 로그아웃이 옛 키를 안 지움
+   ・6b절: 라이선스 키 단계(D8-3) — 키 없음 · 성공 · 서버 거절 갈래 · 해제 표시 · 네트워크
    ・7절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -16,6 +17,9 @@ const pick = (names) => names.map(read).find((v) => v != null);
 const SRC0 = {
   FR: pick(['first-run-013.js', 'parts/account/first-run-013.js', 'app/parts/account/first-run-013.js']),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']),
+  APP: pick(['parts/app.js', 'app/parts/app.js']),
+  ACC: pick(['parts/account/account.js', 'app/parts/account/account.js']),
+  API: pick(['parts/account/license-api.js', 'app/parts/account/license-api.js']),
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; };
@@ -119,6 +123,68 @@ async function judge(S){
     const H = S.HTML;
     const i = H.indexOf('<script src="parts/account/first-run-013.js"></script>');
     chk(i > 0 && H.indexOf('<script src="parts/app.js"') > i, 'html — app.js 앞');
+    const a = S.APP.indexOf('const firstRunMod = TwFirstRun013.createFirstRun(');
+    const blk = a < 0 ? '' : S.APP.slice(a, a + 1200);
+    chk(/licenseKey: TwFirstRun013\.licenseKeyStep\(/.test(blk) && !/pendingStep/.test(blk), 'app.js — 라이선스 단계를 진짜 함수로 채움(기다림 아님)');
+    chk(/notify: \(msg\)=>toast\(msg\)/.test(blk), 'app.js — 안내는 토스트로');
+    const list = (S.ACC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
+    chk(list && !/LICENSE_KEY_STORAGE|LICENSE_OPTOUT_KEY/.test(list), '로그아웃 지움 목록에 옛 라이선스 키 · 해제 표시가 없다(올리기 전에 지우면 잃는다)');
+  }
+
+  say('── 6b. 라이선스 키 단계(D8-3)');
+  {
+    const F = load(S.FR);
+    const API = load(S.API);
+    const err = (code, kind) => Object.assign(new Error(code), { code, kind: kind || 'http' });
+    const mkStep = (kv, behavior) => {
+      const store = new Map(Object.entries(kv));
+      const calls = { act: [] };
+      const step = F.licenseKeyStep({
+        storage: { getItem: (k) => (store.has(k) ? store.get(k) : null) },
+        activate: async (k) => { calls.act.push(k); if(behavior.reg) return { ok: false, err: behavior.reg, reason: 'x' }; if(behavior.notConfirmed) return { ok: false, registered: true, reason: 'nc' }; return { ok: true }; },
+      });
+      return { step, calls };
+    };
+    const KEY = { 'tw.licenseKey': ' abcd-1234 ' };
+    let e = mkStep({}, {}); let r = await e.step();
+    chk(r.ok === true && r.wipe.length === 0 && !r.notice && e.calls.act.length === 0, '키 없음 → 통과 · 지울 것 없음 · 요청 0');
+    e = mkStep({ 'tw.licenseOptOut': '1' }, {}); r = await e.step();
+    chk(r.ok === true && r.wipe.join() === 'tw.licenseOptOut' && e.calls.act.length === 0, '키 없고 해제 표시만 있음 → 그것만 지움');
+    e = mkStep(KEY, {}); r = await e.step();
+    chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && !r.notice && e.calls.act.length === 1 && e.calls.act[0] === 'abcd-1234', '키 있음 → 키 등록 함수(activate) 한 번(앞뒤 공백 다듬음) → 지움');
+    e = mkStep(KEY, { notConfirmed: true }); r = await e.step();
+    chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && !r.notice, '등록은 됐는데 확인이 늦음 → 지움(서버엔 이미 올라감)');
+    e = mkStep({ 'tw.licenseKey': 'K', 'tw.licenseOptOut': '1' }, {}); r = await e.step();
+    chk(r.ok === true && r.wipe.join() === 'tw.licenseKey,tw.licenseOptOut' && e.calls.act.length === 0, '해제했던 PC(OptOut 있음) → 올리지 않고(요청 0) 둘 다 지움');
+    for(const n of ['OWNED_BY_OTHER', 'NOT_FOUND', 'REVOKED']){
+      e = mkStep(KEY, { reg: err(API.CODE[n]) }); r = await e.step();
+      chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && r.notice === F.LICENSE_NOTICE.UNUSABLE, n + ' → 지움 + 안내 하나(쓸 수 없는 옛 키)');
+    }
+    e = mkStep(KEY, { reg: err(API.CODE.ALREADY_HAVE) }); r = await e.step();
+    chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && !r.notice, 'ALREADY_HAVE → 안내 없이 지움(이미 이 계정에 라이선스가 있다)');
+    e = mkStep(KEY, { reg: err(API.CODE.DEVICE_FULL) }); r = await e.step();
+    chk(r.ok === true && r.wipe.join() === 'tw.licenseKey' && r.notice === F.LICENSE_NOTICE.DEVICE_FULL && /설정/.test(r.notice), 'DEVICE_FULL → 지움 + 기기 관리 안내');
+    for(const [what, beh] of [['네트워크', { reg: Object.assign(new Error('net'), { code: 'NETWORK' }) }], ['서버 5xx', { reg: err('INTERNAL') }], ['로그인 풀림', { reg: err('X', 'auth') }], ['로그인 풀림(읽기 전)', { reg: err('NOT_READ', 'auth') }]]){
+      e = mkStep(KEY, beh); r = await e.step();
+      chk(r.ok === false && !r.wipe && !r.notice, what + ' → 멈춤 · 아무것도 안 지움(다음 실행에 다시)');
+    }
+    /* 이어 붙이기 — 멈추면 키가 남고 다음 실행에 POST 한 번 */
+    const store = new Map([['tw.licenseKey', 'K1'], ['x', '1']]); let n = 0, fails = true; const notes = [];
+    const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+    const fr = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), legacySync: async () => OK(),
+      licenseKey: F.licenseKeyStep({ storage, activate: async () => { n++; return fails ? { ok: false, err: Object.assign(new Error('net'), { code: 'NETWORK' }) } : { ok: true }; } }) },
+      storage, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m) => notes.push(m) });
+    const a1 = await fr.run();
+    chk(!a1.ok && a1.at === 'licenseKey' && store.has('tw.licenseKey') && !store.has('tw.firstRun013') && n === 1, '네트워크 실패 → 첫 실행이 멈추고 키가 남는다');
+    fails = false; const a2 = await fr.run();
+    chk(a2.ok && n === 2 && !store.has('tw.licenseKey') && store.get('tw.firstRun013') === 'u1234567890', '  ↳ 다음 실행에 등록 한 번 더 → 성공 → 지움 · 끝냄');
+    const notes2 = []; store.set('tw.licenseKey', 'K2'); store.delete('tw.firstRun013');
+    const fr2 = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), legacySync: async () => OK(),
+      licenseKey: F.licenseKeyStep({ storage, activate: async () => ({ ok: false, err: err(API.CODE.NOT_FOUND) }) }) },
+      storage, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m) => notes2.push(m) });
+    const b = await fr2.run();
+    chk(b.ok && notes2.length === 1 && notes2[0] === F.LICENSE_NOTICE.UNUSABLE && !store.has('tw.licenseKey'), '끝까지 돈 뒤에만 안내 한 번(멈춘 실행에는 안내 없음)');
+    chk(notes.length === 0, '  ↳ 안내가 없는 결과엔 notify 0');
   }
 }
 
@@ -140,6 +206,13 @@ const BREAKS = [
   ['FR', "function pendingStep(name){ return async () => ({ ok: false, pending: true,", "function pendingStep(name){ return async () => ({ ok: true, pending: true,", '기다림 자리가 통과'],
   ['FR', "const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev']);", "const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev', 'tw.deviceId']);", '기기 id 를 지움'],
   ['HTML', '<script src="parts/account/first-run-013.js"></script>', '', 'html 에 안 실음'],
+  ['FR', "    if(!key || optOut) return { ok: true, wipe: allWipe };", "    if(!key) return { ok: true, wipe: allWipe };", '해제 표시(OptOut)를 안 봄'],
+  ['FR', "if(!e || e.kind === 'auth' || !Object.keys(LICENSE_CODE).some((n) => LICENSE_CODE[n] === code)) return", "if(false) return", '실패해도 지움(네트워크 · 로그인 풀림)'],
+  ['FR', "    if(code === LICENSE_CODE.ALREADY_HAVE) return { ok: true, wipe: allWipe };", "", 'ALREADY_HAVE 에도 안내'],
+  ['FR', "if(r && (r.ok === true || r.registered === true)) return", "if(r && r.ok === true) return", '등록은 됐는데 확인이 늦으면 멈춤(안 지워 두 번 올림)'],
+  ['FR', "if(deps.notify) for(const m of notices)", "if(deps.notify) for(const m of notices.concat(notices))", '안내가 두 번'],
+  ['APP', "licenseKey: TwFirstRun013.licenseKeyStep(", "licenseKey: TwFirstRun013.pendingStep(", '라이선스 단계를 안 채움'],
+  ['ACC', "  LICENSE_REQ_ID_KEY(),   // 🎫 옛 값 지움", "  acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(),   // 🎫 옛 값 지움", '로그아웃이 옛 키를 지움'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){
