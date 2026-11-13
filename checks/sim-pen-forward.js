@@ -119,7 +119,7 @@ else {
   const many = Array.from({ length: 40 }, (_, i) => ({ isMe: false, group: {}, px: 0 }));
   chk((circles(SC, many) || []).length === 24 && (circles(SC, seats, { office: true }) || [1]).length === 0, '  상한 24 · 회사원 모드로 캐릭터를 숨기면 빈 목록');
   chk((circles(SC, seats, { insane: true }) || []).length === 1, '  투영이 터진 좌석은 뺀다');
-  chk(/others: statusChipMod\.otherSeatCircles\(\)/.test(APP), '  하트비트(app.js setCharBounds)가 others 로 싣는다');
+  chk(/others: (?:_hbFull \? )?statusChipMod\.otherSeatCircles\(\)/.test(APP), '  하트비트(app.js setCharBounds)가 others 로 싣는다(창이 안 보일 때 빼는 판단은 sim-heartbeat-policy)');
 }
 chk(/if\(Array\.isArray\(bounds\.others\)\)/.test(MAIN) && /\.slice\(0, OTHER_SEAT_MAX\)/.test(MAIN) && /Number\.isFinite\(c\.r\) && c\.r > 0/.test(MAIN), 'main — others 를 받을 때 상한 · 숫자 · 반경을 거르고 CSS px → DIP');
 chk(!/_ptOnOtherSeat/.test(grab(MAIN, '_ptOnOurUI') || 'x'), '  공용 판정(_ptOnOurUI — 유령 감시 · 회수 · 호버)에는 넣지 않는다(펜 근접만)');
