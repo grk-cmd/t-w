@@ -3825,6 +3825,7 @@ function setSeatOpacity(seat, op){
   //   자리비움 진입 시 원래 visible 값을 userData._prevVisible에 기억해두고,
   //   자리비움 해제 시 그 값으로 복원. 정상 상태(op≥0.001)에선 visible을 건드리지 않음.
   const hide = op < 0.001;
+  seat._bodyOff = hide;   // 몸 메쉬를 껐다는 표시 — 동작 계산 건너뛰기(hidden-seats.js _bodyHidden)가 이것만 읽는다(기준을 두 번 쓰지 않게)
   seat.bodyWrap.traverse(o=>{
     if(o.isMesh && o.material){
       if(hide){
@@ -8928,12 +8929,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      setClip(seat,state); seat.mixer.update(dt);
+      setClip(seat,state); if(!hiddenSeatsMod._bodyHidden(seat)) seat.mixer.update(dt);   // 몸이 안 보이면(자리비움 · 숨김) 뼈대 계산을 건너뛴다
     } else if(rigged){
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      animateRig(seat,now,state);
+      if(!hiddenSeatsMod._bodyHidden(seat)) animateRig(seat,now,state);
     } else {
       seat.rig.rotation.x=seat.pose.leanX;
       const breathe=1+Math.sin(seat.breathePhase)*seat.pose.breAmp;
