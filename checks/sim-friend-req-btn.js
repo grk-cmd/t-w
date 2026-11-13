@@ -63,7 +63,7 @@ function load(src, o = {}){
   const mod = T.createFriendReqBtn({
     sendFriendReq: async (...a) => { log.sends.push(a); if (o.throws) throw new Error('x'); return o.res || { ok: true }; },
     resultView: seatResultView(o.seat || SEAT),
-    isRequestAlive: (to, me) => { log.alive.push([to, me]); if (o.aliveThrows) return Promise.reject(new Error('x')); return o.alivePromise || Promise.resolve(!!o.alive); },
+    friendNet: () => o.noNet ? null : { isFriendRequestAlive: (to, me) => { log.alive.push([to, me]); if (o.aliveThrows) return Promise.reject(new Error('x')); return o.alivePromise || Promise.resolve(!!o.alive); } },
     friends: () => o.friends || {}, getMyUserId: () => 'me', toast: (m) => log.toasts.push(m),
   });
   return { T, mod, D, log };
@@ -87,6 +87,11 @@ async function behave(src, seat){
     w = load(src, { alive: false, friends: { u2: {} } }); await w.mod.refresh('u2', '민지'); r.hideFriend = w.D.btn.hidden === true && w.log.alive.length === 0;
     w = load(src, { alive: true }); await w.mod.refresh('u2', '민지'); r.hidePending = w.D.btn.hidden === true;
     w = load(src, { aliveThrows: true }); await w.mod.refresh('u2', '민지'); r.hideUnknown = w.D.btn.hidden === true;
+    w = load(src, { noNet: true }); await w.mod.refresh('u2', '민지'); r.hideUnknown = r.hideUnknown && w.D.btn.hidden === true;
+    w = load(src, { alive: false }); await w.mod.refresh('u2', '민지'); await w.mod.refresh('u2', '민지'); await w.mod.refresh('u2', '민지');
+    { const once = w.log.alive.length === 1 && w.D.btn.hidden === false;
+      await w.mod.refresh(null, null); await w.mod.refresh('u2', '민지');
+      r.dedupe = once && w.log.alive.length === 2 && w.D.btn.hidden === false; }
     { let res; const p = new Promise(x => { res = x; }); w = load(src, { alivePromise: p });
       const first = w.mod.refresh('u2', '민지'); await w.mod.refresh(null, null); res(false); await first; await flush();
       r.stale = w.D.btn.hidden === true; }
@@ -104,8 +109,9 @@ async function behave(src, seat){
     w = load(src, { alive: false, res: { ok: false, reason: 'save_failed' } }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
     { const o2 = find(w.D.win, 'friend-req-ask-ov'); const [b1, b2] = find(o2, 'friend-req-ask-btns').children; await b1.onclick(); await flush();
       r.fail = w.log.notes.length === 1 && w.log.notes[0][0] === 'E-FR-06' && !!find(w.D.win, 'friend-req-ask-ov') && !b1.disabled && !b2.disabled && w.log.toasts.length === 0; }
-    w = load(src, { alive: false, res: { ok: false, reason: 'error' }, seat }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
-    { const o2 = find(w.D.win, 'friend-req-ask-ov'); await find(o2, 'friend-req-ask-btns').children[0].onclick(); await flush(); r.errRes = w.log.notes.length === 1 && w.log.notes[0][0] === 'E-FR-06' && w.log.toasts.length === 0; }
+    const E = new Error('보내기 쪽 오류');
+    w = load(src, { alive: false, res: { ok: false, reason: 'error', err: E }, seat }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
+    { const o2 = find(w.D.win, 'friend-req-ask-ov'); await find(o2, 'friend-req-ask-btns').children[0].onclick(); await flush(); r.errRes = w.log.notes.length === 1 && w.log.notes[0][0] === 'E-FR-06' && w.log.notes[0][1] === E && w.log.toasts.length === 0; }
     w = load(src, { alive: false, throws: true }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
     { const o2 = find(w.D.win, 'friend-req-ask-ov'); await find(o2, 'friend-req-ask-btns').children[0].onclick(); await flush(); r.throwFail = w.log.notes.length === 1 && w.log.notes[0][0] === 'E-FR-06'; }
     w = load(src, { alive: false }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
@@ -119,7 +125,7 @@ async function behave(src, seat){
   } catch (e) { r.err = e && e.message; }
   return r;
 }
-const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close'];
+const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'dedupe', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close'];
 const allOk = (r) => !r.err && KEYS.every(k => r[k]);
 
 function wire(app, html, visit, fm, fbi, rules){
@@ -129,7 +135,7 @@ function wire(app, html, visit, fm, fbi, rules){
   const iS = H.indexOf('<script src="parts/myhome/seat-friend-req.js"></script>'), iB = H.indexOf('<script src="parts/myhome/friend-req-btn.js"></script>'), iA = H.indexOf('<script src="parts/app.js"></script>');
   o.order = iB > 0 && iA > iB && iS > 0;
   const iMk = A.indexOf('const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({'), iV = A.indexOf('const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({');
-  o.make = iMk > 0 && iV > iMk && /sendFriendReq: \(\.\.\.a\)=>seatFriendReqMod\.sendFriendReq\(\.\.\.a\),/.test(A) && /resultView: \(\.\.\.a\)=>seatFriendReqMod\.resultView\(\.\.\.a\),/.test(A) && /friendReqBtn: friendReqBtnMod,/.test(A.slice(iV));
+  o.make = iMk > 0 && iV > iMk && /sendFriendReq: \(\.\.\.a\)=>seatFriendReqMod\.sendFriendReq\(\.\.\.a\),/.test(A) && /resultView: \(\.\.\.a\)=>seatFriendReqMod\.resultView\(\.\.\.a\),/.test(A) && /friendNet: \(\)=>window\.firebaseAPI,/.test(A.slice(iMk, iV)) && /friendReqBtn: friendReqBtnMod,/.test(A.slice(iV));
   o.visit = /friendReqBtn\.refresh\(realVisit \? _mhViewingUserId\(\) : null, realVisit \? _mhViewingDisplayName\(\) : null\);/.test(strip(visit));
   o.recv = /msg\.textContent = String\(req\.msg\);/.test(fm) && /escHtml\(String\(req\.msg\)\)/.test(fm);
   o.send = /async sendFriendRequest\(fromId, toId, fromName, toName, toCode, msg\)\{/.test(fbi) && /msg \? \{ msg: String\(msg\)\.slice\(0,100\) \} : \{\}/.test(fbi);
@@ -148,11 +154,12 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(R.show, 'refresh — 남의 홈 · 친구 아님 · 보낸 요청 없음이면 보인다(그 사람 · 나로 물어봄)');
   chk(R.hideOwn && R.hideSelf, '  내 홈 · 미리보기(uid 없음) · 나 자신이면 숨김(묻지도 않음)');
   chk(R.hideFriend, '  이미 친구면 숨김(묻지도 않음)');
-  chk(R.hidePending && R.hideUnknown, '  보낸 요청이 살아 있거나 확인을 못 하면 숨김');
+  chk(R.hidePending && R.hideUnknown, '  보낸 요청이 살아 있거나 확인을 못 하면(provider 없음 · 던짐) 숨김');
+  chk(R.dedupe, '  같은 관람 화면을 여러 번 칠해도 한 번만 묻고 단추가 깜빡이지 않는다 · 내 홈으로 오면 다시 묻는다');
   chk(R.stale, '  묻는 동안 다른 화면으로 넘어가면 늦은 답은 버린다');
   chk(R.dialog, '사유 창 — 이름은 글자로(HTML 아님) · 100자 · 사유 칸에 포커스');
   chk(R.send, '  [신청하기] — 다듬은 사유로 보내고 안내 · 창 닫힘 · 단추 숨김');
-  chk(R.fail && R.errRes && R.throwFail, '  실패(저장 실패 · 보내기 쪽 오류 · 던짐)는 E-FR-06 · 창은 남고 단추를 다시 누를 수 있다');
+  chk(R.fail && R.errRes && R.throwFail, '  실패(저장 실패 · 보내기 쪽 오류 · 던짐)는 E-FR-06(실제 오류를 넘김) · 창은 남고 단추를 다시 누를 수 있다');
   chk(R.close, '  Esc(마이홈까지 안 닫히게 멈춤) · [취소]는 안 보내고 닫는다 · 두 번 눌러도 창 하나');
 
   say('── 4. 연결');
@@ -175,6 +182,8 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(b3 && !allOk(b3), '이름을 innerHTML 로 넣으면 빨강');
   const b4 = await brk("res = await sendFriendReq(uid, name, cleanReason(ta.value));", "res = await sendFriendReq(uid, name, ta.value);");
   chk(b4 && !allOk(b4), '사유를 다듬지 않고 보내면 빨강');
+  const b7 = await brk('if(viewUid && viewUid === _askedFor) return;', '');
+  chk(b7 && !allOk(b7), '같은 uid 를 다시 물으면(깜빡임) 빨강');
   const b5 = await brk("catch(_){ alive = true; }", "catch(_){ alive = false; }");
   chk(b5 && !allOk(b5), '확인을 못 했는데 단추를 보이면 빨강');
   { const s2 = SEAT.replace("if(r === 'error') return { kind:'fail',", "if(r === 'error') return { kind:'info',"); const b6 = s2 === SEAT ? null : await behave(MOD, s2);

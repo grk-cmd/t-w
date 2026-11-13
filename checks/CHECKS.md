@@ -199,7 +199,7 @@
 | **sim-light-tone.js** | 135 | **a299cf337216** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
 | **sim-seat-friend-req.js** | 137 | **82b386e418b4** |
-| **sim-friend-req-btn.js** | 190 | **1aa8c6037b3e** |
+| **sim-friend-req-btn.js** | 199 | **883b2d497c66** |
 | **sim-seat-menu.js** | 167 | **d852cfc88b06** |
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** |
 | **sim-purikura-deco.js** | 954 | **25b07f4973c8** |

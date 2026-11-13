@@ -2,7 +2,7 @@
    ・책임: 관람 중인 홈이 친구도 아니고 내가 보낸 요청도 없으면 이름 옆에 [친구 신청]을 보인다 · 누르면 사유(100자) 창 · [신청하기]로 보낸다.
    ・보내기와 앞단 검사(준비 · 나 · 이미 친구 · 정원)는 좌석 친구 신청과 같은 한 벌(seat-friend-req.js sendFriendReq)을 부른다 — 여기서 다시 쓰지 않는다.
    ・받는 deps — sendFriendReq(uid, name, msg) → {ok, reason} · resultView(res, name) → {kind, text}(둘 다 seat-friend-req.js 한 벌) ·
-     isRequestAlive(toId, myId) → Promise<bool>(내가 보낸 요청이 살아 있나) · friends()(읽는 함수 — 친구 구독이 다시 대입) · getMyUserId · toast.
+     friendNet()(데이터 provider — isFriendRequestAlive(toId, myId) 로 내가 보낸 요청이 살아 있나 · 좌석 친구 신청과 같은 모양) · friends()(읽는 함수 — 친구 구독이 다시 대입) · getMyUserId · toast.
    ・내놓는 것: refresh(viewUid, name) — 관람 화면을 다시 칠할 때(myhome-visit.js _mhApplyVisitUI) 부른다. viewUid 가 없으면(내 홈 · 미리보기) 숨김.
    ⚠️ 요청이 살아 있는지 묻는 동안 다른 홈으로 넘어가면 결과를 버린다(늦은 답이 다음 화면 단추를 켜지 않게).
    ⚠️ 사유는 textContent 로만 넣는다(받는 쪽도 같다) — 남이 쓴 글이 HTML 로 읽히면 안 된다.
@@ -20,18 +20,21 @@ function cleanReason(s){
 function createFriendReqBtn(deps){
 const sendFriendReq = deps.sendFriendReq;
 const resultView = deps.resultView;   // (res, name) → {kind, text} — 좌석 친구 신청과 같은 한 벌(seat-friend-req.js)
-const isRequestAlive = deps.isRequestAlive;
+const friendNet = deps.friendNet;   // 읽는 함수 — 데이터 provider, 준비 전이면 없음
 const friends = deps.friends;   // 읽는 함수
 const getMyUserId = deps.getMyUserId;
 const toast = deps.toast;
 
 let _shownFor = null;   // 지금 단추가 가리키는 uid
 let _seq = 0;           // 늦게 온 «살아 있나» 답 버리기
+let _askedFor = null;   // 마지막으로 물어본 uid — 관람 화면 하나를 여는 동안 여러 번 칠해도 다시 묻지 않는다(요청 · 단추 깜빡임). 내 홈으로 오면 비운다
 
 function _btn(){ return document.getElementById(BTN_ID); }
 function _hide(){ const b = _btn(); if(b) b.hidden = true; _shownFor = null; }
 
 async function refresh(viewUid, name){
+  if(viewUid && viewUid === _askedFor) return;
+  _askedFor = viewUid || null;
   const seq = ++_seq;
   _hide();
   const me = getMyUserId();
@@ -39,7 +42,8 @@ async function refresh(viewUid, name){
   const fr = friends() || {};
   if(fr[viewUid]) return;
   let alive = true;
-  try{ alive = await isRequestAlive(viewUid, me); }catch(_){ alive = true; }
+  const net = friendNet();
+  try{ alive = (net && net.isFriendRequestAlive) ? await net.isFriendRequestAlive(viewUid, me) : true; }catch(_){ alive = true; }
   if(seq !== _seq || alive) return;
   const b = _btn(); if(!b) return;
   b.hidden = false; _shownFor = viewUid;
@@ -76,7 +80,7 @@ function openDialog(uid, name){
     let res = null, err = null;
     try{ res = await sendFriendReq(uid, name, cleanReason(ta.value)); }catch(e){ err = e; }
     const v = resultView(res, name);   // fail 이면 문구 대신 E-FR-06
-    if(v.kind === 'fail'){ TwErrorCodes.notify('E-FR-06', err || (res && res.reason)); ok.disabled = false; no.disabled = false; return; }
+    if(v.kind === 'fail'){ TwErrorCodes.notify('E-FR-06', err || (res && (res.err || res.reason))); ok.disabled = false; no.disabled = false; return; }
     toast(v.text);
     close();
     if(_shownFor === uid) _hide();
