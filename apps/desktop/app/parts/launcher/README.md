@@ -125,8 +125,7 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 10 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
 | 11 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
 | 12 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
-| 13 | licenseRequest | 📨 보낸 라이선스 요청 지켜보기(`startWatch`) |
-| 14 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+| 13 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 
 **내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
 

@@ -1,5 +1,5 @@
 /*
- * 앱 버전(ver)을 presence 와 라이선스 요청에 싣는가 — 웹 관리자가 사용자 · 요청마다 버전을 본다.
+ * 앱 버전(ver)을 presence 에 싣는가 — 웹 관리자가 사용자마다 버전을 본다.
  * 1. app-version.js 를 그대로 불러 돌린다 — 정상 · companion 없음 · 실패 · 이상한 값
  * 2. firebase-init.js — presence 를 통째로 쓰는 자리(set · onDisconnect().set) 전부 ver 를 싣는가 · 늦게 오면 메우는가
  * 3. 규칙 — presence/ver · licenseRequests ver 를 실제로 굴린다(없어도 통과 · 문자열 · 20자)
@@ -72,9 +72,6 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     chk(/if\(!_myPresenceRef \|\| !_presenceWritten\) return;/.test(ready), '★ 버전이 늦게 오면 — presence 를 이미 썼을 때만 메운다');
     chk(/update\(_myPresenceRef, \{ ver \}\)/.test(ready), '  ↳ ver 만 update(부분 쓰기 — online · room 은 그대로)');
     chk(/onDisconnect\(_myPresenceRef\)\.set\(_appVer\.withVer\(/.test(ready), '  ↳ onDisconnect 도 ver 를 실어 다시 건다');
-    const req = (CODE.match(/async requestLicense\(name\)\{([\s\S]*?)\n    \},/) || [])[1] || '';
-    chk(/await _appVer\.ready;/.test(req) && /set\(ref\(db, `licenseRequests\/\$\{reqId\}`\), _appVer\.withVer\(\{/.test(req),
-      '★ 라이선스 요청에도 ver — 버전을 받은 뒤에 쓴다');
   }
 
   say('── 3. 규칙 — 실제로 굴린다');

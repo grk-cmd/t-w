@@ -288,7 +288,7 @@ const BREAKS = [
   ['FR', "deps.notify(n.msg, n.action)", "deps.notify(n.msg)", '갈 곳(action)을 안 넘김'],
   ['FR', "action: 'openSettings' } : {", "} : {", '기기 가득 안내에 갈 곳 없음'],
   ['APP', "licenseKey: TwFirstRun013.licenseKeyStep(", "licenseKey: TwFirstRun013.pendingStep(", '라이선스 단계를 안 채움'],
-  ['ACC', "  LICENSE_REQ_ID_KEY(),   // 🎫 옛 값 지움", "  acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY(),   // 🎫 옛 값 지움", '로그아웃이 옛 키를 지움'],
+  ['ACC', "  LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움", "  acctStateMod.LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움", '로그아웃이 옛 키를 지움'],
 ];
 const caught = [];
 for(const [where, from, to, what] of BREAKS){

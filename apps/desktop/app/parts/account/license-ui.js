@@ -2,7 +2,6 @@
    [왜] 구획의 «무엇을 보이나» 는 license-screen.js view() 가 정한다(상태 여섯 — 불러오는 중 · 못 받음 · 라이선스 없음 · 등록됨 · 이 기기만 없음 · 회수됨).
      이 파일은 그 한 벌을 칸에 그리기만 한다 — 단추의 동작은 license-key.js 가 건다. 서버가 준 기기 이름은 textContent 로만 넣는다(남이 정한 글).
    ★ 밖에서 부르는 이름: refreshLicenseUI(그리기) · openLicenseUI(opts)(창 열기 = 받기 + 그리기) — app.js 는 licenseUiMod.이름 으로 부른다.
-   ⚠️ 라이선스 요청 구획(licenseReqSection)은 license-request.js 몫이라 이 파일은 열고 닫기만 한다(요청을 걷으면 이 줄도 걷힌다).
    ⚠️ document · window 등 브라우저 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLicenseUi — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-license-ui.js(모듈 모양) · checks/sim-license-screen.js(상태 · 그리기) */
@@ -10,7 +9,6 @@
 
 function createLicenseUi(deps){
 const isPremium = deps.isPremium;   // 읽는 함수
-const licReqMod = deps.licReqMod;   // 읽는 함수
 const licenseScreenMod = deps.licenseScreenMod;   // 🔑 license-screen.js — view() · open()
 
 const licUiEl = (id) => document.getElementById(id);
@@ -89,18 +87,6 @@ function refreshLicenseUI(){
   const submit = licUiEl('licenseSubmitBtn');
   if(submit){ submit.disabled = !v.canAct; submit.textContent = v.busy ? '확인 중...' : '확인'; }
   const input = licUiEl('licenseKeyInput'); if(input) input.disabled = !v.canAct;
-
-  // ★ 요청 섹션(licenseReqSection)은 기본적으로 접혀 숨겨져 있음 — 이미 보낸 요청이 있으면(reqId 저장돼 있음) 자기 요청 상태(대기중/승인됨)는 볼 수 있게 자동으로 펼쳐줌.
-  const reqSection = licUiEl('licenseReqSection');
-  if(reqSection){
-    let reqId = null; try{ reqId = localStorage.getItem(licReqMod().LICENSE_REQ_ID_KEY); }catch(e){}
-    reqSection.classList.toggle('open', !isPremium() && !!reqId);
-  }
-  if(!isPremium()){
-    let reqId = null; try{ reqId = localStorage.getItem(licReqMod().LICENSE_REQ_ID_KEY); }catch(e){}
-    if(!reqId) licReqMod()._showLicenseReqState('idle');
-    // reqId가 있으면 watchMyLicenseRequest의 콜백이 pending/approved 표시를 갱신함(resumePendingLicenseRequest에서 이미 구독 중)
-  }
 }
 /* 설정 라이선스 구획을 열 때 — 받기(GET /v1/me/license)를 시작하고 지금 상태를 그린다(받는 동안은 «불러오는 중»). 받기가 끝나면 screen 이 다시 그리게 한다 */
 function openLicenseUI(opts){
