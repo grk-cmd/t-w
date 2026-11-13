@@ -98,6 +98,17 @@ async function judge(S){
   const n = W.gets.length; W.mod.reload(true);
   chk(W.gets.length === n && W.notes.length === 1, '  ready 일 때 열면 아무 요청도 안 한다');
 
+  /* 폰 키 만들기 · 끊기(D5-5)가 «읽은 주인» 을 얻으려고 먼저 부른다 — 받는 중이면 기다리고 · 못 받은 상태면 한 번 더 받고(번호 알림 없음) · 받았으면 true */
+  W = world(S);
+  chk(await W.mod.whenReady() === false && W.gets.length === 0, '★ whenReady — 시작 전에는 false · 요청 0');
+  W.start(); const wr = W.mod.whenReady(); await flush();
+  chk(W.gets.length === 1, '  받는 중이면 같은 GET 을 기다린다(요청이 늘지 않는다)');
+  await W.ok(W.gets[0], prog(0)); chk(await wr === true, '  받으면 true');
+  W = world(S); W.start(); W.gets[0].rej(new Error('x')); await flush();
+  const wr2 = W.mod.whenReady(); await flush();
+  chk(W.gets.length === 2, '  못 받은 상태면 한 번 더 받는다'); W.gets[1].rej(new Error('y')); await flush();
+  chk(await wr2 === false && W.notes.length === 0, '  또 실패하면 false · 번호 알림은 부른 쪽 몫(여기선 0)');
+
   say('── 2. 보내는 때');
   W = await world(S).up(0);
   W.add(599);
@@ -317,8 +328,8 @@ async function judge(S){
   say('── 8. 배선');
   const A = S.APP;
   const mk = (A.match(/const focusProgressMod = TwFocusProgress\.createFocusProgress\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  chk(/focusApi: TwFocusApi\.createFocusApi\(\{ authed: TwApi\.authed/.test(mk) && /focusStore: accountStoreMod/.test(mk) && /notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\)/.test(mk) && /setServerDay: \(t\)=>focusTotalMod\.setServerDay\(t\)/.test(mk) && /addQuitListener/.test(mk), 'app.js — 진척 모듈을 서버 길 · 계정 칸 · 오류 번호 · 서버 날에 잇는다');
-  chk(/focusLevel: \(code, me, session\)=>focusProgressMod\.startFocus\(code, me, session\),/.test(A), 'app.js — app-boot 의 focusLevel 차례가 startFocus(code, me, session) — 세션을 넘긴다');
+  chk(/const focusApiMod = TwFocusApi\.createFocusApi\(\{ authed: TwApi\.authed/.test(A) && /focusApi: focusApiMod,/.test(mk) && /focusStore: accountStoreMod/.test(mk) && /notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\)/.test(mk) && /setServerDay: \(t\)=>focusTotalMod\.setServerDay\(t\)/.test(mk) && /addQuitListener/.test(mk), 'app.js — 진척 모듈을 서버 길 · 계정 칸 · 오류 번호 · 서버 날에 잇는다');
+  chk(/focusLevel: \(code, me, session\)=>\{ focusProgressMod\.startFocus\(code, me, session\); focusLevelMod\.startMobile\(code, me, session\); \},/.test(A), 'app.js — app-boot 의 focusLevel 차례가 startFocus · startMobile(code, me, session) — 세션을 넘긴다');
   chk(!/startFocusSync|syncFocusTotalToServer/.test(A), '  옛 시작 · 동기화 부름이 없다');
   chk(/else if\(_focusAccruedLast\) focusProgressMod\.focusEnded\(\);/.test(A), 'app.js — 집중이 끝나는 순간 focusEnded 를 부른다');
   const iP = S.HTML.indexOf('<script src="parts/focus/focus-progress.js"></script>'), iApi = S.HTML.indexOf('<script src="parts/focus/focus-api.js"></script>'), iApp = S.HTML.indexOf('<script src="parts/app.js"></script>');
@@ -359,7 +370,7 @@ async function judge(S){
     ['MOD', "  const getFocusLevel = () => (load === 'ready' ? p.level : 1);", "  const getFocusLevel = () => (load === 'ready' ? Math.min(p.level, 50) : 1);", '레벨을 앱이 다시 셈'],
     ['MOD', "    if(!started || !(sec > 0)) return;", "    if(!(sec > 0)) return;", '시작 전에도 쌓음'],
     ['MOD', "    setServerDay(prog.today);", "", '서버 날을 안 넘김'],
-    ['APP', "focusLevel: (code, me, session)=>focusProgressMod.startFocus(code, me, session),", "focusLevel: ()=>{},", '앱 켜는 차례가 시작을 안 부름'],
+    ['APP', "focusLevel: (code, me, session)=>{ focusProgressMod.startFocus(code, me, session); focusLevelMod.startMobile(code, me, session); },", "focusLevel: ()=>{},", '앱 켜는 차례가 시작을 안 부름'],
     ['HTML', '<script src="parts/focus/focus-progress.js"></script>', '', 'html 에 안 실음'],
   ];
   const caught = [];

@@ -2,11 +2,12 @@
    책임: 집중한 초를 오늘치 · 이번 실행 시간에 더하고 서버에 올릴 몫으로 넘긴다(addFocusSeconds) · 서버가 준 레벨 · 별 색을 읽는 이름을 한 곳에 모은다
      (getFocusLevel · myFocusShow · myStarOut · getStarColor · setStarColor — 값의 주인은 focus-progress.js) · 남의 별 모양 받기(starFromRemote) · 별 문자열(lvStarStr) · 📱 태블릿·폰 포커싱 연결.
    레벨 · 회차를 앱이 누적에서 세지 않는다 · 해금 안내 우편은 서버 알림이 한다 · 프로필(Firebase)에 레벨 · 별을 쓰지 않는다.
-   ★ 📱 폰 연결 본문은 app.js 에 있던 글 그대로다(D5-5 에서 서버 길로 옮긴다).
-   ★ 밖에서 부르는 이름: STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileOn · _mobileRoomLabel · _mobileStart · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
+   ★ 📱 폰 연결은 서버 길이다 — 폰 상태는 realtime `mobileFocus`(on · app · at) 그대로, 키 만들기 · 끊기는 focus-api.js(POST · DELETE /v1/me/focus/mobile-link).
+     키 원문은 만들 때 한 번만 오므로 계정 칸 tw.mobileKey 에 둔다(QR 다시 보기). 키 만들기 · 끊기는 «읽은 진척의 주인» 과 묶이므로(expectOwner) 먼저 진척을 받은 뒤에 부른다.
+   ★ 밖에서 부르는 이름: STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwFocusLevel — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
-   검사: checks/sim-focus-level.js · sim-focus-progress.js */
+   검사: checks/sim-focus-level.js · sim-focus-progress.js · sim-mobile-focus.js */
 (function(){
 
 function createFocusLevel(deps){
@@ -19,7 +20,10 @@ const progress = deps.progress;   // 서버 진척(focus-progress.js createFocus
 const _focusSessionSec = deps._focusSessionSec;   // 읽는 함수
 const findMySeat = deps.findMySeat;
 const getMyUserId = deps.getMyUserId;
-const mobileDiag = deps.mobileDiag;
+const focusApi = deps.focusApi;   // focus-api.js createFocusApi — 진척과 같은 하나(읽은 주인을 같이 쓴다)
+const focusStore = deps.focusStore;   // 계정 칸 get/set/remove(shared/account-store.js)
+const notifyError = deps.notifyError;   // TwErrorCodes.notify
+const rtOnMessage = deps.rtOnMessage;   // (type, fn) => 해제 함수 — realtime 허브 onMessage
 const toast = deps.toast;
 const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
 const setFocusSessionSec = deps.setFocusSessionSec;   // 쓰는 함수
@@ -81,14 +85,18 @@ function formatHMS(sec){ sec=Math.max(0,Math.floor(sec));
   const h=String(Math.floor(sec/3600)).padStart(2,'0'), m=String(Math.floor((sec%3600)/60)).padStart(2,'0'), s=String(sec%60).padStart(2,'0');
   return h+':'+m+':'+s; }
 
-/* 📱 폰 · 태블릿 포커싱 — 기기 자동화(iOS 단축어 · MacroDroid)가 앱 열림 · 닫힘을 알리고 PC 가 판정한다.
-   MOBILE_MAX_ON_MS 는 «닫힘» 이 안 온 경우(방전 · 강제 종료)의 안전 상한이다. */
+/* 📱 폰 · 태블릿 포커싱 — 기기 자동화(iOS 단축어 · MacroDroid)가 앱 열림 · 닫힘을 서버에 알리면 서버가 realtime 으로 «mobileFocus» 를 보낸다.
+   MOBILE_MAX_ON_MS 는 «닫힘» 이 안 온 경우(방전 · 강제 종료)의 안전 상한이다(서버 시각 `at` 기준). */
 const MOBILE_MAX_ON_MS = 4*60*60*1000;
-const MOBILE_KEY_LS = 'tw.mobileKey';   // { u, k } — 이 PC 가 만든 키. uid 가 다르면 없는 것으로 본다(계정 전환)
+const MOBILE_KEY_CELL = 'tw.mobileKey';   // 계정 칸 — 이 PC 가 만든 키 원문(서버는 원문을 저장하지 않아 QR 다시 보기에 필요)
+const MOBILE_KEY_RE = /^[A-Z2-9]{24}$/;
 const MOBILE_APP_MAX = 40;
-let _mobileFocus = { on:false, app:'', since:0, seen:false };   // seen = 이 키로 폰이 한 번이라도 신호를 보냈다
-let _mobileStop = null;
-let _mobDiag = null, _mobDiagFirst = true;   // 🔍 진단 줄 — 이번 실행에 받은 신호(mobile-diag.js) · first = 구독 뒤 처음 온 값
+const MOBILE_TICK_MS = 60*1000;
+const MOBILE_EMPTY = Object.freeze({ on:false, app:'', since:0, seen:false });
+let _mobileFocus = MOBILE_EMPTY;   // seen = 이번 실행에 폰 신호를 한 번이라도 받았다
+let _mobileKey = null;             // startMobile 이 계정 칸에서 읽는다(만들 때는 계정 칸을 읽지 않는다)
+let mobCode = null, mobGen = 0, mobBusy = false;   // 로그인한 계정 · 계정 바뀜 순번(늦은 답 버림) · 키 만들기 · 끊기 중
+let _mobileWasOnTick = false;
 function _mobileNow(){ try{ if(window.firebaseAPI && firebaseAPI.serverNow) return firebaseAPI.serverNow(); }catch(_){} return Date.now(); }
 /* 폰이 지금 «포커싱 어플을 쓰는 중» 인가 — 켜짐 + 상한 안. */
 function _mobileOn(){
@@ -110,33 +118,29 @@ function _mobileCleanApp(v){
   if(typeof v !== 'string') return '';
   return v.replace(/[\u0000-\u001f<>]/g, '').trim().slice(0, MOBILE_APP_MAX);
 }
-function _mobileGetKey(){
+/* 계정 칸의 키 — 새 값은 키 글자 그대로. 0.12 가 PC 칸에 남긴 { u, k } 도 읽는다(서버가 옛 키를 같은 비밀로 옮겨 받는다). 이 계정 것이 아니면 없는 것 */
+function _mobileLoadKey(code){
+  const raw = focusStore.get(MOBILE_KEY_CELL);
+  if(typeof raw !== 'string') return null;
+  if(MOBILE_KEY_RE.test(raw)) return raw;
   try{
-    const o = JSON.parse(localStorage.getItem(MOBILE_KEY_LS) || 'null');
-    const uid = getMyUserId();
-    if(o && uid && o.u === uid && typeof o.k === 'string' && /^[A-Z2-9]{24}$/.test(o.k)) return o.k;
+    const o = JSON.parse(raw);
+    if(o && o.u === code && typeof o.k === 'string' && MOBILE_KEY_RE.test(o.k)) return o.k;
   }catch(_){}
   return null;
-}
-function _mobileNewKey(){
-  const a = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // 헷갈리는 글자(0·O·1·I) 뺌 — 붙여넣기 실수가 줄어든다
-  const b = new Uint8Array(24); crypto.getRandomValues(b);
-  let s = ''; for(let i = 0; i < 24; i++) s += a[b[i] % a.length];   // 256 % 32 == 0 → 치우침 없음
-  return s;
 }
 function _mobileLinkUrl(uid, key){
   // ★ 키는 # 뒤 — 호스팅 서버 로그에 안 남는다(§4-⑤)
   return 'https://help.together-working.com/link#u=' + encodeURIComponent(uid) + '&k=' + encodeURIComponent(key);
 }
-/* 서버 state → 전역. 이 PC 의 키로 쓴 것만 믿는다(키를 새로 만든 뒤 예전 값이 늦게 와도 무시). */
+/* 폰 상태 → 전역. v = { on, app, at } (realtime mobileFocus · at = 서버 시각 ms) · null 이면 비움 */
 function _mobileApplyState(v){
-  const key = _mobileGetKey();
   const wasOn = _mobileOn(), wasLabel = _mobileRoomLabel();
-  if(!v || !key || v.key !== key){
-    _mobileFocus = { on:false, app:'', since:0, seen:false };
+  if(!v){
+    _mobileFocus = MOBILE_EMPTY;
   } else {
-    const on = v.on === true, ts = Number(v.ts) || 0;
-    _mobileFocus = { on, app:_mobileCleanApp(v.app), since: on ? (ts || _mobileNow()) : 0, seen:true };
+    const on = v.on === true, at = Number(v.at) || 0;
+    _mobileFocus = { on, app:_mobileCleanApp(v.app), since: on ? (at || _mobileNow()) : 0, seen:true };
   }
   if(wasOn !== _mobileOn() || wasLabel !== _mobileRoomLabel()) _mobileChanged();
   try{ _mobRenderPanel(); }catch(_){}
@@ -145,21 +149,29 @@ function _mobileApplyState(v){
 function _mobileChanged(){
   try{ if(typeof Presence !== 'undefined' && Presence.broadcastNow) Presence.broadcastNow(); }catch(_){}
 }
-/* 부팅 · 연결 · 키 교체 때. 키가 없으면 아무것도 안 한다(비용 0). */
-function _mobileStart(){
-  const uid = getMyUserId(), key = _mobileGetKey();
-  if(!uid || !key || !window.firebaseAPI || !firebaseAPI.mobileLinkStart) return;
-  _mobDiag = mobileDiag.empty(); _mobDiagFirst = true;
-  const onState = (v)=>{
-    const first = _mobDiagFirst; _mobDiagFirst = false;   // 첫 값이 비어 있어도(처음 연결 · 새 키) 깃발은 내린다
-    if(v && v.key === key) _mobDiag = mobileDiag.next(_mobDiag, { kind:'state', v, first });
-    _mobileApplyState(v);
-  };
-  const onDiag = (ev)=>{
-    if(ev.kind === 'reset' && !(ev.v && ev.v.key === key)) return;   // 다른 키로 쓴 «켜짐» 은 이 PC 의 신호가 아니다
-    _mobDiag = mobileDiag.next(_mobDiag, ev); try{ _mobRenderPanel(); }catch(_){}
-  };
-  Promise.resolve(firebaseAPI.mobileLinkStart(uid, onState, onDiag)).then(stop=>{ if(stop) _mobileStop = stop; }).catch(()=>{});
+/* 상한을 넘기는 순간은 새 값이 오지 않으므로 1분마다 한 번 본다(표시 «N분째» 갱신 겸). */
+function _mobileTick(){
+  const on = _mobileOn();
+  if(on !== _mobileWasOnTick){ _mobileWasOnTick = on; _mobileChanged(); }
+  try{ _mobRenderPanel(); }catch(_){}
+}
+/* 계정이 바뀔 때(session.onReset) — 폰 상태 · 키 · 진행 중이던 요청을 비운다(타이머 · 구독은 세션이 푼다) */
+function _mobileReset(){
+  mobGen++;
+  mobCode = null; mobBusy = false; _mobileKey = null; _mobileWasOnTick = false;
+  _mobCloseWindow();
+  _mobSetBusy(false);
+  _mobileApplyState(null);
+}
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 계정 칸의 키를 읽고, 서버 신호(realtime)와 1분 틱을 건다. 서버에 따로 묻지 않는다(ready 뒤 서버가 4시간 안의 마지막을 보내 준다) */
+function startMobile(code, me, session){
+  if(mobCode) return;
+  mobCode = code;
+  session.onReset(_mobileReset);
+  _mobileKey = _mobileLoadKey(code);
+  session.on(rtOnMessage('mobileFocus', (m)=>{ if(m && mobCode) _mobileApplyState({ on:m.on, app:m.app, at:m.at }); }));   // 계정이 바뀐 뒤(mobCode 없음)에 늦게 온 신호는 버린다
+  session.setInterval(_mobileTick, MOBILE_TICK_MS);
+  try{ _mobRenderPanel(); }catch(_){}
 }
 /* ── 📱 설정 › 포커싱어플 칸 + QR 창 (시안 ①~③) ─────────────────────────────
    ★ 그리는 곳은 _mobRenderPanel 하나. 상태가 바뀔 때 · 1분마다 · 창을 열 때 부른다.
@@ -168,9 +180,9 @@ function _mobRenderPanel(){
   const st = document.getElementById('fsMobSt'); if(!st) return;
   const main = document.getElementById('fsMobMain'), sub = document.getElementById('fsMobSub');
   const qr = document.getElementById('fsMobQr'), un = document.getElementById('fsMobUnlink'), note = document.getElementById('fsMobNote');
-  const paired = !!_mobileGetKey();
+  const paired = !!_mobileKey;
   let cls = 'off', m = '연결 안 됨', sb = '';
-  if(paired && _mobileOn()){
+  if(_mobileOn()){
     const min = Math.max(0, Math.floor((_mobileNow() - _mobileFocus.since) / 60000));
     cls = 'use'; m = '📱 ' + (_mobileFocus.app || '태블릿·폰') + ' 사용 중';
     sb = (min < 1 ? '방금 시작' : (min + '분째')) + ' · 포커스 시간이 쌓이고 있어요';
@@ -185,8 +197,6 @@ function _mobRenderPanel(){
   if(qr) qr.textContent = paired ? 'QR 다시 보기' : 'QR로 연결하기';
   if(un && !un._armed){ un.style.display = paired ? '' : 'none'; un.textContent = '연결 끊기'; }
   if(note) note.style.display = paired ? '' : 'none';
-  const dg = document.getElementById('fsMobDiag');
-  if(dg){ dg.style.display = paired ? '' : 'none'; dg.textContent = paired ? mobileDiag.line(_mobDiag) : ''; }
 }
 function _mobDrawQr(text){
   const cv = document.getElementById('mobLinkQr'); if(!cv || !window.TWQR) return false;
@@ -199,29 +209,57 @@ function _mobDrawQr(text){
   return true;
 }
 function _mobFillWindow(){
-  const uid = getMyUserId(), key = _mobileGetKey();
+  const uid = mobCode, key = _mobileKey;
   const k = document.getElementById('mobLinkKey');
   if(k) k.textContent = key ? ('••••-' + key.slice(-4)) : '••••';
   if(uid && key && !_mobDrawQr(_mobileLinkUrl(uid, key))) toast('QR 을 그리지 못했어요 — 앱을 다시 시작해 보세요');
 }
-/* 키를 만들어 서버에 적고(예전 폰은 끊김) 이 PC 에 기억한다. 성공하면 구독을 새로 건다. */
+/* 만들기 · 끊기 중에는 단추를 잠근다(둘이 겹치지 않게) */
+function _mobSetBusy(b){
+  mobBusy = b;
+  ['fsMobQr', 'fsMobUnlink', 'mobLinkRenew'].forEach((id)=>{ const e = document.getElementById(id); if(e) e.disabled = b; });
+}
+/* 서버 길(focus-api.js)은 «읽은 진척의 주인» 과 묶여 있어 읽기 전에는 요청 없이 stale 이다 — 먼저 진척을 받는다(받는 중이면 기다린다 · 못 받으면 false) */
+async function _mobServer(run, fail){
+  const g = mobGen, uid = mobCode;
+  if(!uid || mobBusy) return null;
+  _mobSetBusy(true);
+  try{
+    if(!(await progress.whenReady())){
+      if(g === mobGen) fail(new Error('진척을 받지 못했어요'));
+      return null;
+    }
+    if(g !== mobGen) return null;
+    const r = await run(uid);
+    if(g !== mobGen || r.status === 'stale') return null;   // 계정이 바뀌는 중 — 조용히 버린다
+    if(r.status !== 'ok'){ fail(r.err); return null; }
+    return r;
+  }finally{
+    if(g === mobGen) _mobSetBusy(false);
+  }
+}
+/* 서버에 새 키를 만들어(예전 폰은 끊김) 계정 칸에 기억한다. 성공하면 폰 상태를 비운다. */
 async function _mobMakeKey(){
-  const uid = getMyUserId();
-  if(!uid){ toast('로그인한 뒤에 연결할 수 있어요'); return false; }
-  if(!window.firebaseAPI || !firebaseAPI.mobileSetKey){ toast('서버에 연결되면 다시 눌러 주세요'); return false; }
-  const key = _mobileNewKey();
-  const ok = await firebaseAPI.mobileSetKey(uid, key);
-  if(!ok){ toast('연결 키를 저장하지 못했어요 — 잠시 뒤 다시 눌러 주세요'); return false; }
-  try{ localStorage.setItem(MOBILE_KEY_LS, JSON.stringify({ u:uid, k:key })); }catch(_){}
-  try{ if(_mobileStop) _mobileStop(); }catch(_){}
-  _mobileStop = null;
+  if(!mobCode){ toast('로그인한 뒤에 연결할 수 있어요'); return false; }
+  const r = await _mobServer((uid)=>focusApi.issueMobileKey(uid), (e)=>notifyError('E-FOCUS-08', e));
+  if(!r) return false;
+  _mobileKey = r.key;
+  focusStore.set(MOBILE_KEY_CELL, r.key);
   _mobileApplyState(null);
-  _mobileStart();
   return true;
+}
+async function _mobUnlink(){
+  const r = await _mobServer((uid)=>focusApi.unlinkMobile(uid), (e)=>notifyError('E-FOCUS-09', e));
+  if(!r) return;
+  _mobileKey = null;
+  focusStore.remove(MOBILE_KEY_CELL);
+  _mobileApplyState(null);
+  _mobCloseWindow();
+  toast('📱 폰 연결을 끊었어요');
 }
 async function _mobOpenWindow(){
   const ov = document.getElementById('mobLinkOverlay'); if(!ov) return;
-  if(!_mobileGetKey() && !(await _mobMakeKey())) return;
+  if(!_mobileKey && !(await _mobMakeKey())) return;
   ov.classList.add('on');
   _mobFillWindow();
   _mobRenderPanel();
@@ -231,6 +269,7 @@ function _mobCloseWindow(){ const ov = document.getElementById('mobLinkOverlay')
 function _mobArm(btn, armedText, run){
   if(!btn) return;
   btn.onclick = ()=>{
+    if(mobBusy) return;
     if(btn._armed){ clearTimeout(btn._armed); btn._armed = 0; btn.textContent = btn._idleText; run(); return; }
     btn._idleText = btn.textContent; btn.textContent = armedText;
     btn._armed = setTimeout(()=>{ btn._armed = 0; btn.textContent = btn._idleText; }, 4000);
@@ -238,22 +277,13 @@ function _mobArm(btn, armedText, run){
 }
 {
   const q = document.getElementById('fsMobQr'); if(q) q.onclick = ()=>{ _mobOpenWindow(); };
-  _mobArm(document.getElementById('fsMobUnlink'), '한 번 더 누르면 끊겨요', async ()=>{
-    const uid = getMyUserId();
-    try{ if(_mobileStop) _mobileStop(); }catch(_){}
-    _mobileStop = null;
-    try{ localStorage.removeItem(MOBILE_KEY_LS); }catch(_){}
-    _mobileApplyState(null);
-    _mobCloseWindow();
-    if(uid && window.firebaseAPI && firebaseAPI.mobileUnlink) await firebaseAPI.mobileUnlink(uid);
-    toast('📱 폰 연결을 끊었어요');
-  });
+  _mobArm(document.getElementById('fsMobUnlink'), '한 번 더 누르면 끊겨요', ()=>{ _mobUnlink(); });
   _mobArm(document.getElementById('mobLinkRenew'), '한 번 더 누르면 바뀌어요', async ()=>{
     if(await _mobMakeKey()){ _mobFillWindow(); toast('새 키를 만들었어요 — 폰에서 다시 설정해 주세요'); }
   });
   const c = document.getElementById('mobLinkCopy');
   if(c) c.onclick = ()=>{
-    const key = _mobileGetKey(); if(!key) return;
+    const key = _mobileKey; if(!key) return;
     try{ navigator.clipboard.writeText(key).then(()=>toast('연결 키를 복사했어요'), ()=>toast('복사하지 못했어요')); }catch(_){ toast('복사하지 못했어요'); }
   };
   const x = document.getElementById('mobLinkClose'); if(x) x.onclick = _mobCloseWindow;
@@ -261,21 +291,13 @@ function _mobArm(btn, armedText, run){
   try{ _mobRenderPanel(); }catch(_){}
 }
 
-/* 상한을 넘기는 순간은 새 값이 오지 않으므로 1분마다 한 번 본다(표시 «N분째» 갱신 겸). */
-let _mobileWasOnTick = false;
-setInterval(()=>{
-  const on = _mobileOn();
-  if(on !== _mobileWasOnTick){ _mobileWasOnTick = on; _mobileChanged(); }
-  try{ _mobRenderPanel(); }catch(_){}
-}, 60*1000);
-
 return {
   STAR_PALETTE,
   _mobileBubbleText,
   _mobileCleanApp,
   _mobileOn,
   _mobileRoomLabel,
-  _mobileStart,
+  startMobile,
   _seatMobileApp,
   addFocusSeconds,
   focusCycleOf,

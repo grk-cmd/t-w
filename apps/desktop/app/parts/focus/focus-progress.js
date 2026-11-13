@@ -10,7 +10,7 @@
    실패 알림: E-FOCUS-01(사용자가 연 창에서 다시 받다 실패) · E-FOCUS-02(올리기 실패 — 이어지면 한 번, 성공하면 풀림) · E-FOCUS-03(별 색 실패 — 이전 색으로 되돌림).
    deps: focusApi(focus-api.js createFocusApi) · focusStore(계정 칸 get/set/remove) · 오류 알림 함수(notifyError) · setServerDay(today) · addQuitListener(fn) · now 없음(시간으로 판단하는 것 없음)
    내놓는 것: startFocus(code, me, session) · progress() · isReady() · getFocusLevel() · myFocusShow() · getStarColor() · setStarColor(hex) · shownTotalSec() · unsentSec() ·
-     addSeconds(sec) · focusEnded() · flushPending() · reload(userOpened) · refreshDay() · legacyAccrue(sec) · onChange(fn)
+     addSeconds(sec) · focusEnded() · flushPending() · reload(userOpened) · whenReady() · refreshDay() · legacyAccrue(sec) · onChange(fn)
    ⚠️ 전역 이름은 TwFocusProgress. 만들 때는 요청 · 구독 · 타이머를 하지 않는다 — 시작은 startFocus 한 번(app-boot).
    검사: checks/sim-focus-progress.js */
 (function(){
@@ -179,6 +179,12 @@ function createFocusProgress(deps){
     if(loadRun) await loadRun;
     if(load !== 'ready') await reload(false);
   }
+  /* 진척을 읽은 주인과 묶인 쓰기(폰 키 만들기 · 끊기)가 먼저 부른다 — 받는 중이면 기다리고 못 받은 상태면 한 번 더 받는다(번호 알림 없음). 받았으면 true */
+  async function whenReady(){
+    if(!started) return false;
+    await settled();
+    return load === 'ready';
+  }
   /* 로그아웃 올리기 — 끝난 뒤의 미전송분은 unsentSec() 로 본다. 못 올리면 그 값이 남는다(검문이 막는다) */
   async function flushPending(){
     if(!started) return;
@@ -287,7 +293,7 @@ function createFocusProgress(deps){
 
   return {
     startFocus, progress, isReady, getFocusLevel, myFocusShow, getStarColor, setStarColor, shownTotalSec,
-    unsentSec: unsent, addSeconds, focusEnded, flushPending, reload, refreshDay, legacyAccrue, onChange,
+    unsentSec: unsent, addSeconds, focusEnded, flushPending, reload, whenReady, refreshDay, legacyAccrue, onChange,
     STAR_PALETTE, PENDING_KEY,
   };
 }
