@@ -2486,6 +2486,7 @@ const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 �
 const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 길(/v1/me/schedules · /v1/me/ddays · /v1/me/notifications) — 원본은 서버
   authed: TwApi.authed,
   newId: ()=>TwRequestId.newId(),
+  imageBytes: TwImageBytes,
   warn: (...a)=>console.warn(...a),
 });
 const mhScheduler = MhScheduler.createScheduler({
@@ -2693,7 +2694,7 @@ const richTextMod = TwRichText.createRichText({
 });
 
 /* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v1/me/mallangs · /v1/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
-const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 길
+const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 길
 const mallangStoreMod = TwMallangStore.createMallangStore({
   api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -3058,7 +3059,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
    💬 showChatBubble(머리 위 말풍선)은 방명록이 아니라 바로 아래에 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 길(/v1/guestbooks · /v1/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
-  api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store,
   rtState: TwRtHub.STATE,
   pending: TwRequestId.createPending(),

@@ -4,6 +4,7 @@
      서버 모양(visibility · countFromOne · bgImage · cards / banners 두 목록)을 화면이 쓰던 모양(public · base1 · bgImg · kind · order)으로 맞추는 곳은 여기뿐이다.
    신원: 내 것은 토큰(/v1/me/…) · 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐). 내 코드(uid)는 «읽은 판 · 토큰 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · del(path, …, { expectOwner }) → Promise<data>)
+         imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          newId() → 요청 번호(TwRequestId.newId) · warn(...a)
    내보냄: createScheduleApi(deps) → {
      fetchMonth(uid, ym) → Promise<{ DD: { id: { text, public, ts, version, date } } }> — 일정이 없어도 {}(빈 달 ≠ 못 읽음). 못 읽으면 던진다.
@@ -50,17 +51,6 @@ const NOT_RECEIVED_CODE = 'NOT_RECEIVED';
 const IMAGE_UPLOAD_CODE = 'IMAGE_UPLOAD';
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
-
-/* data:image/…;base64,… → { type, bytes }. 형식이 아니면 null */
-function parseDataUrl(u){
-  const m = /^data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]*)$/.exec(typeof u === 'string' ? u : '');
-  if(!m) return null;
-  let bin;
-  try{ bin = atob(m[2]); }catch(_){ return null; }
-  const bytes = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return { type: m[1], bytes };
-}
 
 const isObj = (v) => !!v && typeof v === 'object' && !Array.isArray(v);
 const str = (v) => (typeof v === 'string' ? v : '');
@@ -162,6 +152,7 @@ function createScheduleApi(deps){
   const authed = deps.authed;
   const newId = deps.newId;
   const warn = deps.warn;
+  const imageBytes = deps.imageBytes;   // TwImageBytes — data: 그림 → 바이트 판정(shared/image-bytes.js)
   const reads = new Map();   // uid → { owner: 마지막으로 읽을 때 쓴 토큰의 주인, v: 보드 판(없으면 undefined) }
   let epoch = 0;             // reset 마다 오른다 — reset 전에 시작한 읽기가 늦게 끝나도 기억을 되살리지 않게
 
@@ -230,8 +221,8 @@ function createScheduleApi(deps){
   /* 그림 한 장 올리기 → 주소. 형식 · 1MB 를 넘으면 요청 없이 IMAGE_UPLOAD. 서버가 안 받으면(400 · 413 · 415) IMAGE_UPLOAD,
      계정이 바뀐 것(OWNER_CHANGED) · 닿지 못함 등은 그대로 던진다 */
   async function uploadImage(dataUrl, owner){
-    const img = parseDataUrl(dataUrl);
-    if(!img || IMAGE_TYPES.indexOf(img.type) < 0 || img.bytes.length > LIMITS.IMAGE_BYTES || img.bytes.length === 0) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
+    const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
+    if(!img.ok) throw codeError(IMAGE_UPLOAD_CODE, '카드 그림을 올리지 못했어요');
     let d;
     try{ d = await authed.post(PATHS.image, img.bytes, { expectOwner: owner, rawType: img.type }); }
     catch(e){

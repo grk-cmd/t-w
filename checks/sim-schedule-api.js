@@ -19,6 +19,7 @@ const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : f
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const pick = (names) => names.map(read).find(Boolean);
 const SRC0 = {
+  IMG: pick(['image-bytes.js', 'parts/shared/image-bytes.js', 'app/parts/shared/image-bytes.js']),
   API: pick(['schedule-api.js', 'parts/myhome/schedule-api.js', 'app/parts/myhome/schedule-api.js']),
   SCH: pick(['scheduler.js', 'parts/myhome/scheduler.js', 'app/parts/myhome/scheduler.js']),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
@@ -30,6 +31,8 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwScheduleApi; };
+let IMGSRC = SRC0.IMG;   // 검사 중인 image-bytes.js 원본(깨 보기가 바꿔 끼운다)
+const imgMod = () => { const w = {}; new Function('window', 'module', IMGSRC)(w, undefined); return w.TwImageBytes; };
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
 const apiErr = (status, code) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: status >= 500 ? 'unavailable' : 'request' });
@@ -58,7 +61,7 @@ function mk(src, routes, extra){
   const authed = fake(Object.assign({ 'POST /v1/me/images': (b) => { ups.push(b); return { url: 'https://storage.example/users/me/dday_x.jpg' }; } }, routes), extra && extra.who), warns = [];
   let n = 0;
   const m = load(src).createScheduleApi({
-    authed, newId: () => 'req-' + (++n) + '-abcdefgh',
+    authed, newId: () => 'req-' + (++n) + '-abcdefgh', imageBytes: imgMod(),
     warn: (...a) => warns.push(a.join(' ')),
   });
   return { m, authed, warns, ups };
@@ -369,10 +372,14 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
     const e = await rej(f.m.saveBoard('me1', b, null));
     return { f, e };
   };
-  await broken('1MB 를 넘어도 보낸다', (x) => x.replace('img.bytes.length > LIMITS.IMAGE_BYTES ||', ''), async (src) => {
-    const { f } = await upOne(src, bigUrl);
-    chk(f.ups.length === 0, 'x');
-  });
+  {   // 크기 판정은 shared/image-bytes.js 한 곳 — 거기를 깨 본다
+    const imgSrc = SRC0.IMG.replace('img.bytes.length > o.maxBytes', 'false');
+    chk(imgSrc !== SRC0.IMG, '깨 보기 — 1MB 를 넘어도 보낸다 (바뀐 곳이 있다)');
+    IMGSRC = imgSrc; quiet = true; qfail = 0;
+    try{ const { f } = await upOne(SRC, bigUrl); chk(f.ups.length === 0, 'x'); }catch(e){ qfail++; }
+    quiet = false; IMGSRC = SRC0.IMG;
+    chk(qfail > 0, '깨 보기 — 1MB 를 넘어도 보낸다 → 빨강');
+  }
   await broken('상한을 두 배로 느슨하게 잡는다', (x) => x.replace('IMAGE_BYTES: 1024 * 1024', 'IMAGE_BYTES: 2048 * 1024'), async (src) => {
     const { f } = await upOne(src, bigUrl);
     chk(f.ups.length === 0, 'x');

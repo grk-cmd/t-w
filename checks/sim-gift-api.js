@@ -17,6 +17,7 @@ const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : f
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const pick = (names) => names.map(read).find(Boolean);
 const SRC0 = {
+  IMG: pick(['image-bytes.js', 'parts/shared/image-bytes.js', 'app/parts/shared/image-bytes.js']),
   API: pick(['gift-api.js', 'parts/myhome/gift-api.js', 'app/parts/myhome/gift-api.js']),
   AC: pick(['api-client.js', 'parts/shared/api-client.js', 'app/parts/shared/api-client.js']),
   AE: pick(['api-errors.js', 'parts/shared/api-errors.js', 'app/parts/shared/api-errors.js']),
@@ -25,6 +26,8 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwGiftApi; };
+let IMGSRC = null;   // 검사 중인 image-bytes.js 원본(깨 보기가 바꿔 끼운다)
+const imgMod = () => { const w = {}; new Function('window', 'module', IMGSRC)(w, undefined); return w.TwImageBytes; };
 const loadMod = (src) => { const mod = { exports: {} }; new Function('module', 'window', src)(mod, undefined); return mod.exports; };
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
@@ -54,13 +57,14 @@ function fake(routes){
 }
 const mk = (src, routes) => {
   const authed = fake(Object.assign(ME_ROUTES(), routes || {})), warns = [];
-  const m = load(src).createGiftApi({ authed, warn: (...a) => warns.push(a.join(' ')) });
+  const m = load(src).createGiftApi({ authed, imageBytes: imgMod(), warn: (...a) => warns.push(a.join(' ')) });
   return { m, authed, warns };
 };
 const throws = async (fn) => { try{ await fn(); return null; }catch(e){ return e || {}; } };
 const png = (n) => 'data:image/png;base64,' + Buffer.alloc(n, 7).toString('base64');
 
 async function judge(S){
+  IMGSRC = S.IMG;
   const LIB = S.API;
   const G = load(LIB);
 
@@ -231,7 +235,7 @@ async function judge(S){
     const calls = [], tk = { v: jwt('A') };
     const client = AC.createApiClient({ baseUrl: 'https://api.test', getToken: async () => tk.v,
       fetch: async (url, init) => { calls.push(init.method + ' ' + url); return reply(200, url.endsWith('/v1/me/gifts') ? boxRes([]) : url.indexOf('/v1/mallangs/') >= 0 ? slotsRes([]) : null); } });
-    const m = load(S.API).createGiftApi({ authed: client, warn: () => {} });
+    const m = load(S.API).createGiftApi({ authed: client, imageBytes: imgMod(), warn: () => {} });
     await m.fetchOf('F1');
     chk((await throws(() => m.star('a', true))).code === 'NOT_RECEIVED' && calls.length === 1, '남의 집 읽기는 주인을 남기지 않는다 — 내 것을 받기 전 쓰기는 요청 0');
     await m.fetchBox();
@@ -249,7 +253,7 @@ async function judge(S){
     /* reset 전에 떠난 읽기가 늦게 와도 주인 기억을 되살리지 않는다 */
     let release;
     const slow = fake(Object.assign(ME_ROUTES(), { 'GET /v1/me/gifts': (b, p, o) => new Promise((res) => { release = () => { o.onOwner('A'); res(boxRes([])); }; }), 'POST /v1/me/gifts/seen': null }));
-    const sm = load(S.API).createGiftApi({ authed: slow, warn: () => {} });
+    const sm = load(S.API).createGiftApi({ authed: slow, imageBytes: imgMod(), warn: () => {} });
     const pending = sm.fetchBox();
     sm.reset();
     release(); await pending;
@@ -303,14 +307,14 @@ async function runAll(){
     ['칸을 slot 차례로 안 줄 세움', S.API.replace("list.sort((a, b) => a.slot - b.slot);", ""), 'slot 차례'],
     ['sentAt 을 ms 로 안 바꿈', S.API.replace("sentAt: msOf(raw.sentAt) };", "sentAt: raw.sentAt };"), 'ms'],
     ['닿지 못함을 공통 번호로', S.API.replace("else kind = KIND.SITE;", "else kind = KIND.COMMON;"), 'site'],
-    ['그림 크기를 안 거름', S.API.replace("|| img.bytes.length > LIMITS.IMAGE_BYTES", ""), '1MB'],
+    ['그림 크기를 안 거름', S.IMG.replace("img.bytes.length > o.maxBytes", "false"), '1MB', 'IMG'],
     ['jpeg 도 받음', S.API.replace("const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp']);", "const IMAGE_TYPES = Object.freeze(['image/png', 'image/webp', 'image/jpeg']);"), 'jpeg'],
     ['올리기 경로 purpose 틀림', S.API.replace("image: '/v1/me/images?purpose=mallang',", "image: '/v1/me/images?purpose=dday',"), 'purpose'],
   ];
-  for(const [name, src, what] of breaks){
-    if(src === S.API){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
+  for(const [name, src, what, key = 'API'] of breaks){
+    if(src === S[key]){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
     quiet = true; qfail = 0;
-    try{ await judge(Object.assign({}, S, { API: src })); }catch(_){ qfail++; }
+    try{ await judge(Object.assign({}, S, { [key]: src })); }catch(_){ qfail++; }
     quiet = false;
     chk(qfail > 0, name + ' → 빨강(' + what + ')');
   }
