@@ -493,7 +493,7 @@ async function judge(withBreak){
     b.srv.deskErr = apiErr(400, 'INVALID_REQUEST');
     const d1 = b.st.setDesktop({ hideFolders: true }), d2 = b.st.setField('bio', 'ok');
     await Promise.all([d1, d2]);
-    chk(b.log.includes('error E-MH-25') && b.st.mine().desktop.hideFolders === false, '거절 → E-MH-25 · 화면은 server 값으로 · 같은 묶음 PATCH 는 따로 시도');
+    chk(b.log.includes('error E-MH-25') && b.st.mine().desktop.hideFolders === false && count(b.log, /^PATCH/) === 1, '거절 → E-MH-25 · 화면은 server 값으로 · 같은 묶음 PATCH 는 따로 시도');
     const f = await ready(mk({ deskErr: apiErr(503, 'X') }));
     await f.st.setDesktop({ hideFolders: true }); await f.st.setDesktop({ bg: { color: '#222222' } });
     chk(count(f.log, /^error E-MH-25$/) === 1 && f.st.mine().desktop.hideFolders === true && f.st.mine().desktop.bg.color === '#222222' && count(f.log, /^PUT desktop/) === 2, '실패(503) → 화면 그대로 · 번호 한 번 · 다음 고침에 한꺼번에 다시');

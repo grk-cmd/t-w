@@ -167,7 +167,7 @@ sec('── 3. myhome-desktop.js 배선', () => {
   chk(!/advPullBg/.test(M) && /myhomeStore\.onChange\(\(\)=>\{/.test(M), '다른 기기에서 옮긴 배치는 상태 주인이 받으면 다시 놓는다(옛 고른 시각 맞춤은 걷음)');
   chk(/onSave:\(pos\)=>\{ myhomeStore\.setDesktop\(\{ folderPos: pos \}\); \}/.test(M), '저장 = 상태 주인에 자리만 넘긴다(서버 PUT · 409 · 실패 번호는 상태 주인 몫)');
   chk(/function mhdFfPos\(\)\{ return advVisiting \? \(\(advVisitBg && advVisitBg\.folderPos\) \|\| \{\}\) : \(mhdDesk\(\)\.folderPos \|\| \{\}\); \}/.test(M), '남의 집이면 그 집 주인의 배치');
-  chk(/canArrange:\(\)=> advVisiting \? '[^']+'\s*: \(mhdDesk\(\)\.hideFolders \? '[^']+' : ''\)/.test(M), '남의 집 · 폴더 숨김이면 못 옮긴다');
+  chk(/canArrange:\(\)=> advVisiting \? '[^']+'\s*: !myhomeStore\.canEdit\(\) \? '[^']+'\s*: \(mhdDesk\(\)\.hideFolders \? '[^']+' : ''\)/.test(M), '남의 집 · 못 고칠 때(받는 중 · 미리보기) · 폴더 숨김이면 못 옮긴다');
   chk(/'<button id="advEnvFreeFolders" type="button">폴더 자유배치<\/button>'/.test(M) && /el\('advEnvFreeFolders'\)\.addEventListener\('click', \(\)=>\{[^}]*mhdFF\.toggle\(\);/.test(M), '환경 설정 메뉴 [폴더 자유배치]');
   chk(/document\.getElementById\('mlFolder'\)/.test(M) && /out\.push\(\{ id:a\.id, el:e,/.test(M), '옮길 수 있는 것 = 외부 앱 폴더 + 말랑이 폴더(붙박이 아이콘은 빼고)');
   chk(/new MutationObserver\(\(\)=>mhdFF\.apply\(\)\)\.observe\(room, \{ childList:true \}\)/.test(M) && /d\.appendChild\(ic\);\s*if\(mhdFF\) mhdFF\.apply\(\);/.test(M), '늦게 생기는 폴더(말랑이 · 나중에 붙는 앱)도 옮긴 자리로');

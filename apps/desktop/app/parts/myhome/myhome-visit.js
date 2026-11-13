@@ -34,6 +34,7 @@ async function openFriendHomeView(friendId, nameHint){
   if(!friendId || friendId===getMyUserId()) return;
   /* 그 집 페이지 + 바탕화면을 한 번에 받는다 — 못 받으면 지금 보던 집 그대로(E-MH-21 은 store 가 띄운다) · 없는 사람은 서버 문구 안내.
      집을 빨리 옮겨도 늦게 온 앞 집 답은 store 의 gen 이 버린다. */
+  try{ if(mhHooks.has(mhHooks.HOOK.FINISH_ARRANGE)) mhHooks.call(mhHooks.HOOK.FINISH_ARRANGE); }catch(_){}   // 폴더를 옮기던 중이면 집을 옮기기 전에 내 배치로 저장(들어간 뒤엔 고치기가 잠겨 저장이 안 된다)
   const r = await myhomeStore.openView(friendId, nameHint);
   if(r !== 'ok') return;
   try{

@@ -20,6 +20,7 @@ const HOOK = Object.freeze({
   BGM_DESTROY: 'bgmDestroy',           // 🎵 BGM 창 닫기 · 거는 곳 myhome-edit.js
   DS_CLOSE: 'dsClose',                 // 👑 디자인 스튜디오 창 닫기 · 거는 곳 myhome-edit.js
   CANCEL_NAME_EDIT: 'cancelNameEdit',  // 🏷️ 열린 닉네임 입력칸을 취소로 접기 — 입력칸이 열려 있을 때만 걸린다 · 거는 곳 myhome-edit.js
+  FINISH_ARRANGE: 'finishArrange',     // 📂 옮기던 폴더 배치를 저장하고 끝내기 — 친구 집 · 미리보기로 들어가기 전에 부른다(들어간 뒤엔 고치기가 잠긴다) · 거는 곳 myhome-desktop.js
   SYNC_BGM_BOUNDS: 'syncBgmBounds',    // 🎵 BGM 창이 숨을 마이홈 창 사각형 보내기 · 거는 곳 myhome-ui.js
 });
 const _fns = {};

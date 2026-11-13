@@ -91,7 +91,7 @@ function textOnlyOps(all){
 const nonText = (o) => o.stickerOps.length > 0 || !!o.design || !!o.desktop || Object.keys(o.fields).some((k) => !keepKey(k));
 
 /** @param {{
- *   api: { fetchMine: Function, fetchOf: Function, patchPage: Function, putDesign: Function, uploadImage: Function, reset: Function },
+ *   api: { fetchMine: Function, fetchOf: Function, patchPage: Function, putDesign: Function, putDesktop: Function, uploadImage: Function, reset: Function },
  *   lib: { failOf: Function, KIND: Record<string, string>, ERRORS: object, LIMITS: { STICKERS: number } },
  *   errs: object, apiErrors: { notify: Function }, notifyError: (code: string, err?: any) => boolean, toast: (msg: string) => void,
  *   previewOn: () => boolean, rules: { nextZ: Function, move: Function },

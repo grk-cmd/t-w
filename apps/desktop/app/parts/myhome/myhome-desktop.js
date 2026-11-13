@@ -3561,9 +3561,9 @@ window.MYHOME_DESKTOP = {
     advStarted = true;
     try{ if(!advStore.get(ADV_KEY)) advSave(); }catch(_){}
     if(!advVisiting) advApplyBg();
-    mhdWatchStore();
-    myhomeStore.ensureMine({ site: 'quiet' });   // 바탕화면은 내 홈과 한 번에 받는다(이미 받았으면 요청 0 · 못 받으면 마이홈을 열 때 다시)
+    mhdWatchStore();   // 바탕화면은 마이홈 창 안에만 보인다 — 받기는 마이홈을 열 때(myhome-page.js pullMine) 한 번이고, 받으면 onChange 가 다시 칠한다(켤 때 서버 읽기는 걷음)
   },
+
 
   /* 폴더 아이콘 등록. advInit 전에 불러도 되고(대기열에 쌓았다가 마운트), 후에 불러도 된다. */
   addFolder(o){
@@ -5577,7 +5577,7 @@ function advApplyFolderHide(){
   if(typeof mhdFF !== 'undefined' && mhdFF) mhdFF.apply();   // 📂 자유배치도 같은 때에 — 남의 집이면 그 집 주인의 배치(검사가 이 함수만 떼어 돌려도 안전하게 typeof)
 }
 
-/* 📂 폴더 자유배치(folder-free.js) — 내 집은 내 배치(ADV.folderPos), 남의 집은 **그 집 주인의** 배치(advVisitBg.folderPos).
+/* 📂 폴더 자유배치(folder-free.js) — 내 집은 내 배치(mhdDesk().folderPos), 남의 집은 **그 집 주인의** 배치(advVisitBg.folderPos).
    ★ 옮길 수 있는 것: 외부 앱 폴더(.mhd-app)와 말랑이 폴더(#mlFolder). 둘 다 #mhRoomPreview 를 기준으로
      놓인다(#advDesktop 은 그 안을 꽉 채운다) — 그래서 한 좌표로 다룬다. 붙박이 아이콘(캐릭터세팅 · 좀아칼)은 그대로.
    ★ 옮기지 않은 폴더는 원래 자리 규칙을 그대로 따른다(격자 칸 · 말랑이 오른쪽 아래). */
@@ -5602,6 +5602,7 @@ function mhdFfInit(){
   mhdFF = FolderFree.createFolderFree({
     room:()=>document.getElementById('mhRoomPreview'), items:mhdFfItems, getPos:mhdFfPos, band, bottomInset:MHD_FF_TASKBAR,
     canArrange:()=> advVisiting ? '남의 집에서는 폴더를 옮길 수 없어요'
+                  : !myhomeStore.canEdit() ? '지금은 폴더를 옮길 수 없어요(마이홈을 받는 중이거나 미리보기 중이에요)'
                   : (mhdDesk().hideFolders ? '폴더 숨기기가 켜져 있어요 — 먼저 꺼 주세요' : ''),
     toast:(t)=>{ toast(t); },
     onSave:(pos)=>{ myhomeStore.setDesktop({ folderPos: pos }); },   // 바탕화면 한 벌에 실어 서버로(상태 주인)
@@ -5908,6 +5909,7 @@ function advBindEvents(){
   el('advEnvHideFolders').addEventListener('click', ()=>{
     el('advEnvMenu').classList.remove('on');
     if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 숨기기 전에 옮기던 것을 저장해 둔다
+    if(!myhomeStore.canEdit()){ myhomeStore.setDesktop({}); return; }   // 받는 중 · 못 받음 · 구경 · 미리보기엔 안 바뀐다 — 안내는 상태 주인이(거짓 «숨겼어요» 를 안 띄운다)
     const hide = !mhdDesk().hideFolders;
     myhomeStore.setDesktop({ hideFolders: hide });
     advApplyFolderHide();
@@ -6024,6 +6026,8 @@ function advBindEvents(){
 }
 
 /* ─────────────────────────── 관람 모드 훅 (app.js가 호출) ─────────────────────────── */
+/* 폴더를 옮기던 중이면 지금 저장하고 끝낸다 — 친구 집 구경 · 방문자 시점 미리보기로 들어가기 «전에» 부른다(들어간 뒤에는 상태 주인이 고치기를 잠가 저장이 안 된다) */
+mhHooks.on(mhHooks.HOOK.FINISH_ARRANGE, ()=>{ if(mhdFF && mhdFF.isArranging()) mhdFF.finish(); });
 window._advApplyVisitUI = function(visiting, ownerId){
   if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 📂 옮기던 중에 집을 나가면 내 배치로 저장하고 끝낸다
   advVisiting=!!visiting;
@@ -6031,7 +6035,7 @@ window._advApplyVisitUI = function(visiting, ownerId){
   if(advVisiting){
     /* 그 집 바탕화면은 openView 가 페이지와 함께 이미 받아 뒀다(요청 0) — 못 받았으면 없는 집처럼(청록 대신 투명) */
     const vw = myhomeStore.view();
-    advVisitBg = (vw && vw.desktop) ? vw.desktop : null;
+    advVisitBg = (vw && vw.owner) ? (vw.desktop || null) : mhdDesk();   // 방문자 시점 미리보기(집 주인이 «나»)는 내 바탕화면 그대로
   } else {
     advVisitBg = null;   // 내 집으로 돌아오면 «내 홈 한 번 받기» 가 따로 돈다(myhome-visit.js closeFriendHomeView) — 다른 기기에서 바꾼 배경도 거기서 온다
   }

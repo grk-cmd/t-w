@@ -304,7 +304,7 @@
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
 | **sim-def-size.js** | 157 | **68d8b678409d** |
 | **sim-todo-cli.js** | 157 | **a7469ac82852** |
-| **sim-folder-free.js** | 190 | **ddcb8312c5ad** |
+| **sim-folder-free.js** | 190 | **310b6a156ffe** |
 | **sim-chat-sfx.js** | 221 | **a989e31ff068** |
 | **sim-mac-update.js** | 269 | **ba778f7eaae1** |
 | **sim-focus-show.js** | 86 | **94e634cb488e** |
@@ -313,7 +313,7 @@
 | sim-yard-enter.js | 59 | c323aea595a5 |
 | **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
 | **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
-| **sim-mhd-hidefolders.js** | 99 | **31a4441b807b** |
+| **sim-mhd-hidefolders.js** | 104 | **a4c8d4f12a22** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
 | **sim-admin-console.js** | 142 | **3e1dc419471c** |
 | **sim-admin-license.js** | 198 | **60af3595c806** |
@@ -411,7 +411,7 @@
 | **sim-nav.js** | 91 | **dd38c03ae96c** |
 | **sim-app-boot.js** | 165 | **c6ba2f71e149** |
 | **sim-net-ready.js** | 145 | **a40362149bca** |
-| **sim-myhome-hooks.js** | 99 | **04e0a0308ecc** |
+| **sim-myhome-hooks.js** | 99 | **ded7ee208327** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 75 | **cb32158c9f2b** |
 | **sim-typeof-guards.js** | 133 | **1332b275f74a** |
@@ -488,7 +488,7 @@
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 | **sim-myhome-api.js** | 215 | **9d6526e018aa** |
 | **sim-bookshelf-store.js** | 258 | **2647af3c408b** |
-| **sim-myhome-store.js** | 629 | **3a02d90605c4** |
+| **sim-myhome-store.js** | 629 | **cbeeada94f57** |
 | **sim-myhome-wire.js** | 122 | **a6c458b30715** |
 
 ### `sim-sysinput.js` 판 계보

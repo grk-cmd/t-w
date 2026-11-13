@@ -77,7 +77,12 @@ say('── 3. 서버 기록 — 상태 주인(sim-myhome-store 5-2)이 통째 P
   const sb = strip(grabFn('advSetBg'));
   chk(/myhomeStore\.setDesktop\(\{ bg: bg \|\| null \}\);/.test(sb) && /advApplyBg\(\);/.test(sb), '배경을 바꾸면 상태 주인에 넘기고 바로 다시 칠한다(색 · 파일 · URL · 초기화가 모두 여기로)');
   const vb = code.slice(code.indexOf('window._advApplyVisitUI = function'));
-  chk(/const vw = myhomeStore\.view\(\);\s*advVisitBg = \(vw && vw\.desktop\) \? vw\.desktop : null;/.test(vb) && !/firebaseAPI/.test(vb.slice(0, 1800)), '남의 집은 openView 가 받아 둔 그 집 바탕화면을 쓴다(요청 0 · Firebase 읽기 없음)');
+  chk(/const vw = myhomeStore\.view\(\);\s*advVisitBg = \(vw && vw\.owner\) \? \(vw\.desktop \|\| null\) : mhdDesk\(\);/.test(vb) && !/firebaseAPI/.test(vb.slice(0, 1800)), '남의 집은 openView 가 받아 둔 그 집 바탕화면을 쓴다(요청 0 · Firebase 읽기 없음)');
+  chk(/advVisitBg = \(vw && vw\.owner\) \? \(vw\.desktop \|\| null\) : mhdDesk\(\);/.test(vb), '방문자 시점 미리보기(집 주인이 «나»)는 내 바탕화면 그대로 — 투명으로 비지 않는다');
+  chk(/mhHooks\.on\(mhHooks\.HOOK\.FINISH_ARRANGE, \(\)=>\{ if\(mhdFF && mhdFF\.isArranging\(\)\) mhdFF\.finish\(\); \}\);/.test(code) && /mhHooks\.call\(mhHooks\.HOOK\.FINISH_ARRANGE\)/.test(fs.readFileSync('myhome-visit.js', 'utf8')) && /mhHooks\.call\(mhHooks\.HOOK\.FINISH_ARRANGE\)/.test(fs.readFileSync('myhome-ui.js', 'utf8')), '폴더를 옮기던 중이면 친구 집 · 미리보기로 들어가기 «전에» 저장한다(들어간 뒤엔 잠겨 저장이 안 된다)');
+  const iClickAll = code.indexOf("el('advEnvHideFolders').addEventListener('click'");
+  const hf = code.slice(iClickAll, code.indexOf('toast(', iClickAll));
+  chk(/if\(!myhomeStore\.canEdit\(\)\)\{ myhomeStore\.setDesktop\(\{\}\); return; \}/.test(hf) && /canArrange:\(\)=> advVisiting \? '[^']+'\s*: !myhomeStore\.canEdit\(\)/.test(code), '고칠 수 없을 땐(받는 중 · 못 받음 · 미리보기) 거짓 «숨겼어요» 알림 없이 안내만 — 자유배치도 못 시작');
   return Promise.resolve().then(part4);
 }
 

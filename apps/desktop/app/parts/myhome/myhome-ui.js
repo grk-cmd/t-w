@@ -212,6 +212,7 @@ function syncFriendsOpen(){
   const previewBtn=document.getElementById('mhPreviewBtn');
   if(previewBtn) previewBtn.addEventListener('click', ()=>{
     if(_mhViewingUserId()) return;   // 남의 집 관람 중엔 미리보기 없음
+    try{ if(mhHooks.has(mhHooks.HOOK.FINISH_ARRANGE)) mhHooks.call(mhHooks.HOOK.FINISH_ARRANGE); }catch(_){}   // 폴더를 옮기던 중이면 미리보기로 들어가기 전에 저장
     window._mhPreviewMode = true;
     _mhApplyVisitUI();
     toast('👁 방문자 시점으로 보고 있어요');
