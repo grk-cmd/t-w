@@ -242,9 +242,13 @@ function _chalRenderArc(phKey){
   if(a.state !== 'ready'){
     if(head) head.textContent = '지난 ' + ph.name + ' 기록';
     if(wk) wk.innerHTML = '';
+    const arcRetry = _chalEl('chalArcRetryBtn');
+    if(arcRetry) arcRetry.style.display = a.state === 'failed' ? 'inline-block' : 'none';
     if(sum) sum.innerHTML = a.state === 'failed' ? '기록을 못 불러왔어요.' : (a.state === 'loading' ? '불러오는 중이에요…' : '아직 ' + ph.name + ' 달성표 기록이 없어요.');
     return;
   }
+  const arcRetry2 = _chalEl('chalArcRetryBtn');
+  if(arcRetry2) arcRetry2.style.display = 'none';
   if(head) head.textContent = a.range + ' · ' + ph.name;
   if(wk){
     wk.innerHTML = a.cells.map((c, i) => {
@@ -551,6 +555,7 @@ function _chalRenderRuleList(){
     try{ window._focusLogClamp(); }catch(_){}
   };
   on('chalRetryBtn', ()=>{ store.reload(true); _chalRender(); });
+  on('chalArcRetryBtn', ()=>{ store.retryPrev(); _chalRender(); });
   on('chalPostBtn', async ()=>{ const r = await store.retryPost(); if(!r.ok) _chalWhy(r); _chalRender(); });
   on('chalClaimBtn', async ()=>{ const r = await store.claimNow(); if(!r.ok) _chalWhy(r); _chalRender(); });
   on('chalPhWd', ()=> segGo('wd'));

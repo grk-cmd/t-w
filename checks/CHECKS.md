@@ -263,7 +263,7 @@
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
 | **sim-scheduler.js** | 984 | **bf3b693428c0** |
 | **sim-schedule-api.js** | 443 | **049e5a4f1e61** |
-| **sim-weekly-challenge.js** | 294 | **fe4c521e0582** |
+| **sim-weekly-challenge.js** | 295 | **af29b7e0f22e** |
 | **sim-purikura-ui.js** | 277 | **b86950bf284f** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 479 | **90faaf8d7edf** |
@@ -363,7 +363,7 @@
 | **sim-code-crypto.js** | 141 | **0234e006a868** |
 | **sim-commission.js** | 103 | **f2dfe500eb47** |
 | **sim-exp-bar.js** | 98 | **cd3f1861cd05** |
-| **sim-chal-store.js** | 465 | **f78ff4c87b47** |
+| **sim-chal-store.js** | 478 | **fcbc122da28e** |
 | **sim-focus-day.js** | 119 | **678ae90b3c1d** |
 | **sim-focus-total.js** | 103 | **e1291da0034c** |
 | **sim-focus-share.js** | 96 | **65d840be2d83** |
