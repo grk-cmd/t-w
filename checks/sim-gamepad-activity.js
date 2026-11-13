@@ -65,9 +65,11 @@ function sleepCase(src){
   advance(10000);
   t(env.hits === 0 && env.timers.size === 0, '  패드 없는 10초 동안 깨어나지 않는다');
   env.pads = [pad()]; env.ev.gamepadconnected({ gamepad: env.pads[0] });
-  t(env.timers.size === 1 && [...env.timers.values()][0].ms === GG.POLL_MS && env.hits === 0, '★ 꽂으면 그 자리에서 기준을 잡고 ' + GG.POLL_MS + 'ms 폴링을 건다(꽂는 순간은 활동 아님)');
+  t(env.timers.size === 1 && [...env.timers.values()][0].ms === GG.POLL_MS && env.hits === 0, '★ 꽂으면 ' + GG.POLL_MS + 'ms 폴링을 건다');
   env.pads = [pad({ axes: [0.7, 0] })]; advance(GG.POLL_MS);
-  t(env.hits === 1, '  다음 폴링에서 스틱을 센다 — 예전 폴링과 같은 결과');
+  t(env.hits === 0, '★ 꽂은 뒤 첫 폴링은 그때 상태를 기준으로만 잡는다(예전 폴링과 같다 — 꽂는 순간 · 첫 폴링 전 움직임은 안 셈)');
+  env.pads = [pad({ axes: [0.7, 0.8] })]; advance(GG.POLL_MS);
+  t(env.hits === 1, '  그다음 폴링부터 «바뀜» 을 센다');
   env.ev.gamepadconnected({ gamepad: pad({ index: 1 }) });
   t(env.timers.size === 1, '  둘째 패드를 꽂아도 타이머는 하나');
   env.ev.gamepaddisconnected({ gamepad: { index: 1 } });
@@ -89,7 +91,8 @@ function sleepCase(src){
 sleepCase(MOD).forEach(([ok, msg]) => chk(ok, msg));
 for(const [nm, m2] of [
   ['패드 없어도 폴링', MOD.replace('    if(plugged.size) start();\n  }', '    start();\n  }')],
-  ['꽂아도 안 깨움', MOD.replace('      if(!timer){ poll(); start(); }', '')],
+  ['꽂아도 안 깨움', MOD.replace('      start();   // 예전처럼', '      // 예전처럼')],
+  ['꽂는 순간을 기준으로 잡음', MOD.replace('      start();   // 예전처럼', '      if(!timer){ poll(); start(); }   // 예전처럼')],
   ['빼도 안 멈춤', MOD.replace('      stop();\n      Object.keys(last)', '      Object.keys(last)')],
 ]){
   let r2; try{ r2 = sleepCase(m2); }catch(_){ r2 = [[false, '던짐']]; }

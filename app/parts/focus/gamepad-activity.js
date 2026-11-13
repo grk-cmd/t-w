@@ -83,7 +83,7 @@ function createGamepadActivity(deps){
     deps.on('gamepadconnected', (e) => {
       if(!e || !e.gamepad) return;
       plugged.add(e.gamepad.index);
-      if(!timer){ poll(); start(); }   // 기준을 바로 잡는다 — 다음 폴링부터 «바뀜» 을 센다(예전 폴링과 같은 몫)
+      start();   // 예전처럼 꽂은 뒤 첫 폴링이 기준만 잡고, 그다음 폴링부터 «바뀜» 을 센다
     });
     deps.on('gamepaddisconnected', (e) => {
       if(!e || !e.gamepad) return;
