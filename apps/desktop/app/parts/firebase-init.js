@@ -524,16 +524,6 @@
     },
     // ===== 마이홈 친구 시스템 =====
     // 친추코드 → userId 조회. 없으면 null.
-    /* 🔴 그 계정이 마지막으로 접속한 시각(ms) — 없으면 null.
-       시크릿룸/라이선스 발급 전에 "친구코드가 가리키는 계정이 살아 있는가"를 보는 데 쓴다.
-       (계정 이전으로 friendCodes가 버린 uid를 가리키면 발급이 조용히 허공으로 간다) */
-    async getUserLastSeen(uid){
-      try{
-        const snap = await get(ref(db, `users/${uid}/presence`));
-        const p = snap.val();
-        return (p && typeof p.lastSeen === 'number') ? p.lastSeen : null;
-      }catch(_){ return null; }
-    },
     async getUserNameById(uid){
       try{ const snap = await get(ref(db, `users/${uid}/profile`)); const p = snap.val(); return (p && p.name) ? String(p.name) : null; }
       catch(_){ return null; }
@@ -2198,58 +2188,11 @@
       try{ const s = await get(ref(db, `secretRooms/${code}/pub`)); return s.val() || null; }
       catch(_){ return null; }
     },
-    /* 📅 expMs — 이용 기간이 끝나는 시각(ms). 넘기지 않거나 0이면 영구.
-       exp 는 pub 안에 둔다 — 입장하려는 사람(주인이 아닌 친구 포함)이 읽어야 판정할 수 있고,
-       pub 만 .read:true 이기 때문. 규칙의 pub .validate 는 owner/ts/name 만 보고 나머지 자식은
-       제한하지 않으므로 규칙 JSON을 고치지 않아도 통과한다.
-       ⚠️ set() 은 노드를 통째로 갈아치우므로, expMs 없이 부르면 기존 exp가 사라진다 —
-          그게 의도다(같은 코드로 '영구'로 재발급 = 만료 해제). */
-    async issueSecretRoom(code, ownerUserId, name, key, expMs){
-      try{
-        const pub = { owner: String(ownerUserId || ''), name: String(name || '').slice(0, 20), ts: Date.now() };
-        if(typeof expMs === 'number' && isFinite(expMs) && expMs > 0) pub.exp = Math.floor(expMs);
-        await set(ref(db, `secretRooms/${code}`), { k: String(key || ''), pub });
-        return { ok:true };
-      }catch(e){
-        // 1-7: permission_denied 를 "네트워크 오류"로 뭉뚱그리지 않는다 — 그게 원인을 가린다.
-        const msg = String((e && (e.code || e.message)) || '');
-        console.warn('[시크릿룸] 발급 실패', e);
-        return { ok:false, denied: /permission[_ ]denied/i.test(msg), reason: msg };
-      }
-    },
-    /* 📅 만료 처리 — owner·name 은 그대로 두고 exp 만 '지금'으로 내린다.
-       '회수'(owner 를 비워 없는 코드로 만들기)가 아니라 만료로 내리는 이유:
-         · 입장 문구가 자연스럽다 — "없는 코드예요" 대신 기존 만료 안내가 그대로 뜬다
-         · owner 가 남아 있어 같은 코드로 재발급 = 연장 경로로 되살릴 수 있다
-         · 누구 것이었는지 기록이 남는다
-       ⚠️ issueSecretRoom 과 마찬가지로 set() 이라 노드를 통째로 갈아치운다 —
-          기존 pub 을 먼저 읽어서 얹지 않으면 name·ts 가 날아간다.
-       ⚠️ 쓰기에 발급 열쇠(k)가 필요하다(규칙이 newData.k === root.srKey/v 를 본다).
-          즉 관리자만 할 수 있고, 앱이 자동으로 처리할 수는 없다 — srKey 는 .read 가 없다.
-       ⚠️ exp 를 정확히 Date.now() 로 두면 입장 게이트의 `Date.now() > exp` 가 같은 밀리초에
-          거짓이라 통과한다. 1초 과거로 내려 즉시 만료가 되게 한다. */
-    async expireSecretRoom(code, key){
-      try{
-        const pub = await firebaseAPI.getSecretRoomPub(code);
-        if(!pub || !pub.owner) return { ok:false, reason:'not-issued' };
-        await set(ref(db, `secretRooms/${code}`),
-                  { k: String(key || ''), pub: { ...pub, exp: Date.now() - 1000 } });
-        return { ok:true };
-      }catch(e){
-        const msg = String((e && (e.code || e.message)) || '');
-        console.warn('[시크릿룸] 만료 처리 실패', e);
-        return { ok:false, denied: /permission[_ ]denied/i.test(msg), reason: msg };
-      }
-    },
+    /* 발급 · 만료 처리는 서버(POST /v1/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
     // 후원자 본인 코드 조회 — 참여 화면이 "내 시크릿룸"을 자동으로 펼치고 채워넣는 데 쓴다.
     async getMySecretRoom(userId){
       try{ const s = await get(ref(db, `users/${userId}/secretRoom`)); return s.val() || null; }
       catch(_){ return null; }
-    },
-    // 후원자 본인 노드에 코드 기록 — 참여 화면이 위 getMySecretRoom으로 읽는다.
-    async setMySecretRoom(userId, code){
-      try{ await set(ref(db, `users/${userId}/secretRoom`), code || null); return { ok:true }; }
-      catch(_){ return { ok:false }; }
     },
     /* ★ 프리미엄 채팅 기록 — rooms/{room}/chatLog 아래에 push로 쌓는다.
        ⚠️ 예전 주석: "방이 폭파되면 기록도 함께 사라진다(원하는 동작)". **더 이상 아니다** —
