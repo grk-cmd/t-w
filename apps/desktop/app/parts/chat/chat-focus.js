@@ -92,7 +92,7 @@ function viewHtml(st, ui, escHtml){
     }
   }
   h.push(ui.delAsk
-    ? '<div class="cf-del">내 집중 기록을 이 방에서 지울까요? 되돌릴 수 없어요 <button type="button" data-act="wipeok">지우기</button><button type="button" data-act="cancel">취소</button></div>'
+    ? '<div class="cf-del">내 집중 기록을 이 방에서 지울까요? 되돌릴 수 없어요' + (ui.on ? '<br>올리기가 켜져 있어서 지운 뒤에도 다시 쌓여요(멈추려면 위에서 끄세요)' : '') + ' <button type="button" data-act="wipeok">지우기</button><button type="button" data-act="cancel">취소</button></div>'
     : '<div class="cf-del"><button type="button" data-act="wipe">내 기록 지우기</button></div>');
   return h.join('');
 }

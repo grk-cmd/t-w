@@ -30,6 +30,6 @@ const chatUiMod = TwChatUi.createChatUi({ …, chatNotice: chatNoticeMod, … })
 
 **만드는 법** — app.js 가 채팅 모듈보다 먼저 `roomFocusSync` 와 `chatFocusMod` 를 만들고 `chatFocus: chatFocusMod` 로 넘긴다. 올리기는 포커스 모듈이 `addFocusSeconds` 끝에서 부르는 `onFocusAdded` 에 건다.
 
-**내놓는 것** — 순수: `weekStartKey` · `addDays` · `stats` · `rank` · `compactPlan` · `fmtDur` · `viewHtml`. 컨트롤러: `start`(방이 바뀌면 다시) · `stop`(창 닫을 때) · `open` · `close` · `isActive` · `available` · `hint` · `submit`(#집중 에서 Enter — 안내만 · 채팅으로 안 보냄) · `onChange`.
+**내놓는 것** — 순수: `stats` · `rank` · `compactPlan` · `fmtDur` · `viewHtml`(날 키 · 주 시작은 `shared/room-focus-days.js`). 컨트롤러: `start`(방이 바뀌면 다시) · `stop`(창 닫을 때) · `open` · `close` · `isActive` · `available` · `hint` · `paint` · `act`(단추 하나 — 검사가 직접 부른다) · `submit`(#집중 에서 Enter — 안내만 · 채팅으로 안 보냄) · `onChange`.
 
 **함정** — ① 켠 사람의 **이름과 시간이 방 사람들에게 보인다**(화면에 그렇게 안내한다). 규칙상 쓰기는 «내 칸» 이어도 앱이 지킬 뿐이다(방 코드를 아는 고쳐 쓴 앱은 남의 칸을 쓸 수 있다 — 공지와 같은 수준). ② 날 칸 규칙이 «줄어들지 않는다» 라 올린 시간은 깎이지 않고, 지우려면 «내 기록 지우기»(내 칸 통째). ③ 앱을 끄거나 방을 나가는 순간 모으던 최대 1분 몫은 못 올린다. ③-2 «내 기록 지우기» 는 그 방에 들어가 있을 때만 된다(방을 떠난 뒤 남은 기록을 지우는 길은 아직 없다). ④ 날 키 모양은 `room-focus-days.js` 한 곳이다(규칙 `$day` 는 `^20[0-9]{6}$`). ⑤ 이름은 남이 쓴 값 — 화면에 넣을 때 반드시 `escHtml`.

@@ -97,6 +97,7 @@ async function judge(S){
     t(/불러오지 못했어요/.test(M.viewHtml(st, Object.assign({}, ui, { failed: true }), SH.text)) && !/아직 .* 기록이 없어요/.test(M.viewHtml(st, Object.assign({}, ui, { failed: true }), SH.text)), '읽기 실패는 «없음» 이 아니라 «불러오지 못했어요»');
     t(/아직 이번 주 기록이 없어요/.test(M.viewHtml(M.stats({}, TODAY), ui, SH.text)), '기록이 없으면 «아직 … 기록이 없어요»');
     t(/data-act="wipe"/.test(html) && !/wipeok/.test(html) && /data-act="wipeok"/.test(M.viewHtml(st, Object.assign({}, ui, { delAsk: true }), SH.text)) && /data-act="cancel"/.test(M.viewHtml(st, Object.assign({}, ui, { delAsk: true }), SH.text)), '내 기록 지우기 — 눌러야 «정말?» 이 나온다(그 자리에서 확인)');
+    t(/올리기가 켜져 있어서 지운 뒤에도 다시 쌓여요/.test(M.viewHtml(st, Object.assign({}, ui, { delAsk: true, on: true }), SH.text)) && !/다시 쌓여요/.test(M.viewHtml(st, Object.assign({}, ui, { delAsk: true, on: false }), SH.text)), '  켜 둔 채 지우면 «지운 뒤에도 다시 쌓여요» 를 알린다(꺼져 있으면 말하지 않는다)');
     t(/width:100%/.test(html) && /width:\d+%/.test(html) && !/width:NaN/.test(html), '막대 길이는 1등 대비 % 숫자');
 
     /* ── 3절 컨트롤러 ── */
@@ -169,6 +170,7 @@ async function judge(S){
     ['mod', "(okSec(node.o, 360000000) ? node.o : 0) + sum", "sum", '합칠 때 기존 o 를 덮어씀'],
     ['mod', "escHtml(r.name)", "r.name", '이름을 escape 없이 화면에 넣음'],
     ['mod', "if(ui.failed){", "if(false){", '읽기 실패를 «없음» 으로 그림'],
+    ['mod', "(ui.on ? '<br>올리기가 켜져 있어서", "(false ? '<br>올리기가 켜져 있어서", '켜 둔 채 지울 때 다시 쌓인다는 안내가 없음'],
     ['mod', "else if(name === 'wipe'){ delAsk = true; paint(); }", "else if(name === 'wipe') wipe();", '묻지 않고 바로 지움'],
     ['mod', "provider.removeMine(room, me)", "provider.removeMine(room, '*')", '내 칸이 아닌 곳을 지움'],
     ['mod', "if(!(r && r.ok)) notifyError('E-CHAT-02');", "", '지우기 실패를 알리지 않음'],
