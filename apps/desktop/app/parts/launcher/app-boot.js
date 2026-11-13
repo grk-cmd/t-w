@@ -18,6 +18,7 @@ const STEPS = [
   'focusShare',      // 📊 오늘 기록 전시(오늘치가 읽힌 뒤)
   'focusLevel',      // ⏱ 포커스 진척 받기 · 못 올린 집중 시간 올리기(focus-progress.js startFocus — 세션을 받아 쓴다)
   'weeklyChal',      // 👑 달성표 서버 맞추기
+  'pomodoro',        // 🍅 뽀모도로 설정 · 진행 읽기(계정 칸)
   'gacha',           // 🎰 가챠 보유분 서버 맞추기
   'closet',          // 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기
   'mhInit',          // 🏠 마이홈 시작(접속 표시 · 프로필 · 친구 · 요청 · 우편)
