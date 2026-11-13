@@ -236,7 +236,7 @@
 | **sim-creator-save.js** | 230 | **ade3bb959cfc** |
 | **sim-commission-import.js** | 190 | **6c80a45a1abe** |
 | **sim-creator-preview.js** | 202 | **4fe93b90fa71** |
-| **sim-hover-poke.js** | 197 | **b059ea08e1e1** |
+| **sim-hover-poke.js** | 198 | **73e0f75e139b** |
 | **sim-pen-forward.js** | 139 | **b9a0686ca38f** |
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |

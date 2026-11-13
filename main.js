@@ -1404,8 +1404,7 @@ function _mainWinShown(){
   try{ return mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){ return false; }
 }
 function _hoverState(pt){
-  let visible = false;
-  try{ visible = mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){}
+  const visible = _mainWinShown();
   return {
     win32: process.platform === 'win32',
     run: !_isConfigMode,
@@ -2149,7 +2148,7 @@ function _logGpuDetail(){
 function _resTick(){
   try{
     const w = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
-    const mode = (!w || !w.isVisible() || w.isMinimized()) ? '숨김' : (_isConfigMode ? '런처' : '실행 화면');
+    const mode = !_mainWinShown() ? '숨김' : (_isConfigMode ? '런처' : '실행 화면');
     const os = require('os');
     const cpus = os.cpus() || [];
     const sys = { cpu: EnvDiag.cpuTimes(cpus), freeBytes: os.freemem(), totalBytes: os.totalmem() };
