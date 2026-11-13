@@ -58,7 +58,7 @@ function mkEnv(opt){
   const store = {
     view: () => env.view, arcView: (p) => env.arcs[p] || { state: 'none' }, todayIdx: () => env.idx, liveGoal: () => (env.view.active ? Object.assign({ ph: env.view.phase }, env.view.goal) : null),
     onChange: (f) => env.onChange.push(f), onEvent: (f) => env.onEvent.push(f), load: () => env.view.load,
-    openDrawer: () => env.calls.push(['openDrawer']), reload: (u) => env.calls.push(['reload', u]), startChal: (...a) => env.calls.push(['startChal', ...a]), dayEnded: () => env.calls.push(['dayEnded']), flush: () => 'flushed',
+    openDrawer: () => env.calls.push(['openDrawer']), reload: (u) => env.calls.push(['reload', u]), retryPrev: () => env.calls.push(['retryPrev']), startChal: (...a) => env.calls.push(['startChal', ...a]), dayEnded: () => env.calls.push(['dayEnded']), flush: () => 'flushed',
     start: rec('start'), edit: rec('edit'), giveUp: rec('giveUp'), setAutoNext: rec('setAutoNext'), retryPost: rec('retryPost'), claimNow: rec('claimNow'),
     check: (...a) => { env.calls.push(['check', ...a]); return env.results.check || { ok: true }; },
     addFocusSec: (...a) => { env.calls.push(['addFocusSec', ...a]); return true; }, repeatAnswer: (...a) => { env.calls.push(['repeatAnswer', ...a]); return { ok: true }; },
@@ -154,7 +154,8 @@ await sec('── 3. 화면', async () => {
   e.arcs.wd = { state: 'loading' }; e.change();
   chk(/불러오는 중/.test(e.els.chalArcSum.innerHTML), '  지난 주를 받는 중 문구');
   e.arcs.wd = { state: 'failed' }; e.change();
-  chk(/못 불러왔어요/.test(e.els.chalArcSum.innerHTML), '  못 받음 문구');
+  chk(/못 불러왔어요/.test(e.els.chalArcSum.innerHTML) && e.els.chalArcRetryBtn.style.display === 'inline-block', '  못 받음 문구 + [다시 시도]');
+  e.els.chalArcRetryBtn.click(); chk(e.calls.some(c => c[0] === 'retryPrev'), '  [다시 시도] → store.retryPrev(사용자가 누름)');
   e.els.chalPhWe.click(); chk(e.els.chalRun.style.display === 'block', '  지금 단계 쪽을 누르면 돌아온다');
   e = mkEnv({ view: runView({ goal: { kind: 'rule', cfg: { rules: [[], [], [], [], ['a', 'b']] } }, rec: { checks: { 0: true } } }) }); e.mk().open(true);
   chk(/1 \/ 2/.test(e.els.chalToday.innerHTML.replace(/<[^>]*>/g, '')) && /☑ a/.test(e.els.chalToday.innerHTML), '📋 규칙 카드 — 오늘 항목 체크 상태');
@@ -257,7 +258,7 @@ await sec('── 7. 배선', () => {
   chk(!/CHAL_KEY|syncChalToServer|startChalSync|resetMemory\(\)[^;]*chal/i.test(strip(APP)), 'app.js — 옛 달성표 저장 키 · 동기화 · 부팅 타이머가 없다');
   const iS = HTML.indexOf('<script src="parts/focus/chal-store.js"></script>'), iW = HTML.indexOf('<script src="parts/focus/weekly-challenge.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iS > 0 && iS < iW && iW < iA, 'html — chal-store.js → weekly-challenge.js → app.js 순서');
-  for(const id of ['chalState', 'chalStateMsg', 'chalRetryBtn', 'chalPostBtn', 'chalClaimBtn']) chk(new RegExp('id="' + id + '"').test(HTML), 'html — #' + id + ' 가 있다');
+  for(const id of ['chalState', 'chalStateMsg', 'chalRetryBtn', 'chalArcRetryBtn', 'chalPostBtn', 'chalClaimBtn']) chk(new RegExp('id="' + id + '"').test(HTML), 'html — #' + id + ' 가 있다');
   chk(/PRELOAD\.push\('chal-store\.js'\)/.test(SRC['smoke.js']) && SRC['smoke.js'].indexOf("PRELOAD.push('chal-store.js')") < SRC['smoke.js'].indexOf("PRELOAD.push('weekly-challenge.js')"), 'smoke — 저장소를 화면 모듈보다 먼저 싣는다');
   const m = strip(MOD), s = strip(STORE);
   chk(!/firebaseAPI|localStorage|_dayShifted|_focusDayStr|DAY_START_HOUR|chalRec|syncChalToServer|(?<!session\.)setInterval|setTimeout\(/.test(m + s), '옛 장치 없음 — firebaseAPI · 로컬 저장 · 앱 날짜 셈 · ts 최신 승 · 자기 타이머');

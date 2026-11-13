@@ -73,7 +73,7 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 930 | **4fed4f72ae51** |
+| **audit.py** | 930 | **124da66ee563** |
 | **sim-session.js** | 221 | **37c9ae623d30** |
 | **smoke.js** | 759 | **cf0f7a42fcec** |
 | **sim-account-switch.js** | 309 | **30e2060e20e7** |
@@ -96,7 +96,7 @@
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-friends-sub.js** | 702 | **f7e3c7e3abaf** |
+| **sim-friends-sub.js** | 702 | **89f0e388608f** |
 | **sim-friends-port.js** | 435 | **b68362babc3c** |
 | **sim-friends-presence-rt.js** | 358 | **b2c59182bc84** |
 | **sim-social-api.js** | 275 | **b09703f4c150** |
@@ -263,7 +263,7 @@
 | **sim-asset-cards.js** | 151 | **4043cca67af1** |
 | **sim-scheduler.js** | 984 | **c4148ba4c860** |
 | **sim-schedule-api.js** | 443 | **049e5a4f1e61** |
-| **sim-weekly-challenge.js** | 294 | **fe4c521e0582** |
+| **sim-weekly-challenge.js** | 295 | **af29b7e0f22e** |
 | **sim-purikura-ui.js** | 277 | **b86950bf284f** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 479 | **94932280a36a** |
@@ -363,7 +363,7 @@
 | **sim-code-crypto.js** | 141 | **0234e006a868** |
 | **sim-commission.js** | 103 | **f2dfe500eb47** |
 | **sim-exp-bar.js** | 98 | **cd3f1861cd05** |
-| **sim-chal-store.js** | 465 | **f78ff4c87b47** |
+| **sim-chal-store.js** | 478 | **fcbc122da28e** |
 | **sim-focus-day.js** | 119 | **678ae90b3c1d** |
 | **sim-focus-total.js** | 103 | **e1291da0034c** |
 | **sim-focus-share.js** | 96 | **65d840be2d83** |

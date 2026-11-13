@@ -353,6 +353,18 @@ async function judge(S){
   chk(a1.state === 'ready' && a1.cells.join() === '1,-2' && a1.s === 1 && a1.tickets === 2 && a1.range === '11/7 ~ 11/8', '  지난 주말 — ✓ ✗ · 달성 1일 · 보상 2회 · 범위');
   chk(W.mod.view().week.isoWeek === '2026-W46', '  이번 주 한 벌은 그대로(지난 주 답이 덮지 않는다)');
 
+  // 지난 주 받기 실패 — 그리는 일이 혼자 다시 받지 않는다(P3) · [다시 시도] 만 한 번 더
+  W = world(S, { prevManual: true }); await W.up();
+  W.mod.arcView('we'); W.gets[1].rej(Object.assign(new Error('x'), { code: 'NET' })); await flush();
+  const f0 = W.mod.arcView('we');
+  chk(f0.state === 'failed' && W.gets.length === 2 && W.codes() === '', '★ 지난 주 받기가 실패하면 failed (보상 살피다 못 받은 것은 번호 0)');
+  for(let i = 0; i < 5; i++){ W.mod.arcView('we'); await flush(); }
+  chk(W.gets.length === 2 && W.codes() === '', '★ 실패 뒤 다시 그려도 혼자 다시 받지 않는다(P3)');
+  W.mod.retryPrev(); await flush();
+  chk(W.gets.length === 3 && W.gets[2].iso === '2026-W45', '  [다시 시도](retryPrev) 를 누르면 한 번 다시 받는다');
+  await W.ok(W.gets[2], week({ isoWeek: '2026-W45', weekendGoal: FOCUS_GOAL, weekendStartedOn: '2026-11-07' }));
+  chk(W.mod.arcView('we').state === 'ready', '  다시 받으면 ready');
+
   say('── 6b. 지난 주 보상');
   W = world(S, { prevWeek: { '2026-W46': week({ isoWeek: '2026-W46', weekendGoal: FOCUS_GOAL, weekendStartedOn: '2026-11-14', claimable: [{ slot: 'WEEKEND_SETTLE', amount: 1 }, { slot: 'WEEKDAY_SETTLE', amount: 2 }] }) } });
   W.day = today('2026-11-16', '2026-W47', ENDS + 3 * 86400000); W.start();
@@ -430,6 +442,7 @@ async function judge(S){
 
   say('── 9. 일부러 깨 보기');
   const BREAKS = [
+    ["if(prev.iso !== weekBefore(week.isoWeek) || prev.load === 'idle') loadPrev(true);", "loadPrev(true);", '못 받은 지난 주를 그릴 때마다 다시 받음(P3)'],
     ["if(w.version < week.version) return false;", "", '옛 판의 늦은 답을 막지 않음'],
     ["lane = p.then(() => {}, (e) => { console.warn('[달성표] 쓰기 줄 오류', e); });", "lane = Promise.resolve();", '쓰기 줄을 끊음(겹침)'],
     ["rec.posted || posting || postFailed", "rec.posted", '오늘 달성 하루 한 번 장치를 지움'],
