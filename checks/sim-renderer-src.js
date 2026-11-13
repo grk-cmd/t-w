@@ -22,7 +22,7 @@ const MODULES = [
   { file: 'tricks.js', mod: 'tricksMod', glob: 'TwTricks', sample: 'function _eggCountCmd(' },   // 앱 FSD 25번
   { file: 'ride-bench.js', mod: 'rideBenchMod', glob: 'TwRideBench', sample: 'function _checkCircusBalance(' },   // 앱 FSD 30번
   { file: 'part-paint.js', mod: 'partPaintMod', glob: 'TwPartPaint', sample: 'function _wdPicSection(' },   // 앱 FSD 21번
-  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function _pushLevelIfChanged(' },   // 앱 FSD 26번
+  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function addFocusSeconds(' },   // 앱 FSD 26번
   { file: 'chat-ui.js', mod: 'chatUiMod', glob: 'TwChatUi', sample: 'function _chatFlySendGate(' },   // 앱 FSD 24번
   { file: 'license-gate.js', mod: 'licenseGateMod', glob: 'TwLicenseGate', sample: 'function _rcStore(' },   // 앱 FSD 31번
   { file: 'account.js', mod: 'accountMod', glob: 'TwAccount', sample: 'function getMyLoginEmail(' },   // 앱 FSD 23번
@@ -73,7 +73,7 @@ const MODULES = [
   { file: 'myhome-page.js', mod: 'mhPageMod', glob: 'TwMyHomePage', sample: 'function loadMyHomePage(' },   // 앱 FSD 47번
   { file: 'theme.js', mod: 'themeMod', glob: 'TwTheme', sample: 'function getTheme(' },   // 앱 FSD 48번
   { file: 'asset-code.js', mod: 'assetCodeMod', glob: 'TwAssetCode', sample: 'function encryptBytes(' },   // 앱 FSD 48번
-  { file: 'license-key.js', mod: 'licenseKeyMod', glob: 'TwLicenseKey', sample: 'document.getElementById(\'licenseSubmitBt' },   // 앱 FSD 48번
+  { file: 'license-key.js', mod: 'licenseKeyMod', glob: 'TwLicenseKey', sample: 'licKeyEl(\'licenseSubmitBtn\').onclick' },   // 앱 FSD 48번
   { file: 'license-ui.js', mod: 'licenseUiMod', glob: 'TwLicenseUi', sample: 'function refreshLicenseUI(' },   // 앱 FSD 48번
   { file: 'race-picker.js', mod: 'racePickerMod', glob: 'TwRacePicker', sample: 'function initRacePreview(' },   // 앱 FSD 48번
   { file: 'wardrobe-panel.js', mod: 'wdPanelMod', glob: 'TwWardrobePanel', sample: '(function bindWardrobe(){' },   // 앱 FSD 48번

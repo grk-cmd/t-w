@@ -192,7 +192,8 @@ function setSeatNamePlate(seat, level, name, star, dj){
   if(seat.ridingOn){ el.style.display='none'; return; }
   /* 🌟 회차면 'Lv.' 자리에 색 있는 별(.np-star · 번쩍임)이 선다 — «★342  이름» (개정 70).
      ★ 매 프레임 불리므로 열쇠(_npKey)가 같으면 DOM 을 안 건드린다. 별은 span 이라 textContent 비교로는 못 잰다. */
-  const key = (star ? ('\u2605|' + star.cyc + '|' + star.color + '|' + level + '|' + name) : ('Lv.' + level + '  ' + name)) + (dj ? '|dj' : '');
+  const lvText = level == null ? '' : 'Lv.' + level + '  ';   // level null = 내 진척을 서버에서 아직 못 받음 — 레벨 없이 이름만
+  const key = (star ? ('\u2605|' + star.cyc + '|' + star.color + '|' + level + '|' + name) : (lvText + name)) + (dj ? '|dj' : '');
   if(el._npKey !== key){
     el._npKey = key;
     if(star){
@@ -200,7 +201,7 @@ function setSeatNamePlate(seat, level, name, star, dj){
       const sp = document.createElement('span'); sp.className = 'np-star'; sp.textContent = focusLevelMod().lvStarStr(star.cyc);
       el.appendChild(sp);
       el.appendChild(document.createTextNode(level + '  ' + name));
-    } else el.textContent = 'Lv.' + level + '  ' + name;
+    } else el.textContent = lvText + name;
     if(dj){ const b = document.createElement('span'); b.className = 'np-dj'; b.textContent = '🎧 DJ'; el.appendChild(b); }
     _starPaint(el, star);
   }

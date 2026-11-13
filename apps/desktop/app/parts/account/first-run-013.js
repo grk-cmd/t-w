@@ -1,7 +1,7 @@
 /* first-run-013.js — 🚚 0.13 첫 실행 — 이 PC 에 남은 옛 값을 서버로 올리고 지우는 차례 한 곳 (검사 sim-first-run-013.js)
    [왜] 0.12 까지는 캐릭터 · 라이선스 키 같은 값이 이 PC(localStorage)에 원본처럼 있었다. 0.13 은 서버가 원본이라
      처음 켤 때 한 번 올리고(필요한 것만) 이 PC 키를 지운다. 순서가 틀리면 잃는다 — 올리기 전에 지우면 끝이다.
-   [차례] ① 로그인(서버 계정 확인) → ①-b 가챠 옛 키 · ①-c 말랑이 옛 칸 백업(둘 다 올릴 것 없이 지우기만) → ② 캐릭터 올리기(legacy-sync — D1 묶음) → ③ 라이선스 키 등록(D8 묶음) → ④ 이 PC 키 지우기.
+   [차례] ① 로그인(서버 계정 확인) → ①-b 가챠 옛 키 · ①-c 말랑이 옛 칸 백업 · ①-d 마이홈 옛 키(책장 사본 · 방명록 박수 셈 — 셋 다 올릴 것 없이 지우기만) → ② 캐릭터 올리기(legacy-sync — D1 묶음) → ③ 라이선스 키 등록(D8 묶음) → ③-b 포커스 옛 누적 올리기(D5 묶음) → ④ 이 PC 키 지우기.
      단계는 { ok, wipe?:[키], pending?, reason? } 를 돌려준다. 하나라도 ok 가 아니면 거기서 멈추고 **아무것도 지우지 않는다** — 다음 실행에 처음부터.
      ④ 는 앞 단계들이 «이제 지워도 된다» 고 돌려준 키(wipe)만 지운다.
    [다시 해도 같게] 단계마다 서버 답으로 «이미 했다» 를 알아 같은 결과를 낸다(예: AVATAR_LEGACY_SYNC_DONE) — 여기는 차례만 지킨다.
@@ -15,7 +15,7 @@
 'use strict';
 
 const DONE_KEY = 'tw.firstRun013';
-const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey']);   // ④ 지우기는 맨 끝 — 따로 두지 않는다
+const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus']);   // ④ 지우기는 맨 끝 — 따로 두지 않는다
 /* 로그인 단계가 «이제 지워도 된다» 고 돌려주는 0.12 계정 키 — 서버가 가입 · 초대 · 친구코드를 맡으면서 아무도 안 읽는다 */
 const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev']);
 
@@ -31,6 +31,21 @@ function mallangStep(storage){
     for(let i = 0; i < storage.length; i++){
       const k = storage.key(i);
       if(typeof k === 'string' && k.length > MALLANG_LEGACY_PREFIX.length && k.indexOf(MALLANG_LEGACY_PREFIX) === 0) wipe.push(k);
+    }
+    return { ok: true, wipe };
+  };
+}
+/* 0.12 마이홈이 이 PC 에 남긴 키 — 책장 사본(tw.bookmarks)과 방명록 박수 셈(gbClap:{주인}:{날짜} — 접두사 없는 PC 키).
+   0.13 은 서버가 원본이라 올리지 않고 지우기만 한다(이 PC 에만 있던 책 · 박수 셈은 되살리지 않는다 — 서버 값이 전부다).
+   ⚠️ 'tw.mhGbLastRead:' 는 계정 칸(tw.u.…)이라 이 접두가 아니다 — 남긴다 */
+const MYHOME_LEGACY_KEYS = Object.freeze(['tw.bookmarks']);
+const MYHOME_LEGACY_PREFIX = 'gbClap:';
+function myhomeStep(storage){
+  return async () => {
+    const wipe = MYHOME_LEGACY_KEYS.filter((k) => { try{ return storage.getItem(k) !== null; }catch(_){ return false; } });
+    for(let i = 0; i < storage.length; i++){
+      const k = storage.key(i);
+      if(typeof k === 'string' && k.length > MYHOME_LEGACY_PREFIX.length && k.indexOf(MYHOME_LEGACY_PREFIX) === 0) wipe.push(k);
     }
     return { ok: true, wipe };
   };
@@ -69,12 +84,44 @@ function licenseKeyStep(deps){
     const e = (r && r.err) || null, code = String((e && e.code) || '');
     if(!e || e.kind === 'auth' || !Object.keys(LICENSE_CODE).some((n) => LICENSE_CODE[n] === code)) return { ok: false, reason: '라이선스 키 올리기 실패 — ' + String((r && r.reason) || code || '알 수 없음') };
     if(code === LICENSE_CODE.ALREADY_HAVE) return { ok: true, wipe: allWipe };
-    return { ok: true, wipe: allWipe, notice: code === LICENSE_CODE.DEVICE_FULL ? LICENSE_NOTICE.DEVICE_FULL : LICENSE_NOTICE.UNUSABLE };
+    return code === LICENSE_CODE.DEVICE_FULL ? { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.DEVICE_FULL, action: 'openSettings' } : { ok: true, wipe: allWipe, notice: LICENSE_NOTICE.UNUSABLE };
   };
 }
 
-/** @param {{ steps: { login: () => Promise<object>, gacha: () => Promise<object>, mallang: () => Promise<object>, legacySync: () => Promise<object>, licenseKey: () => Promise<object> },
- *   storage: { getItem: Function, setItem: Function, removeItem: Function }, userCode: () => (string | null), log?: { warn: Function }, notify?: (msg: string) => unknown }} deps */
+/* 포커스 옛 누적 단계(D5-2) — 0.12 는 누적을 이 PC(tw.focusTotalSec)에 두고 «어디까지 서버에 올렸나» 표시(tw.focusSyncedSec)를 남겼다.
+   0.13 은 서버가 원본이라, 아직 안 올린 몫(누적 − 표시)이 있으면 한 번 올리고 두 키를 지운다.
+   · 둘 다 있고 차가 0 보다 큼 → 올린다(서버가 «지난번 뒤 흐른 시간 + 60초» 로 자르므로 부풀린 값은 들어가지 않는다). 성공해야 지운다 · 실패하면 아무것도 안 지우고 첫 실행을 멈춘다(다음 실행에 다시)
+   · 표시가 없거나 차가 0 이하 → 올리지 않고 지운다(어디까지 올렸는지 모른다 — 서버 값이 원본)
+   · 별 색 · 춤 · 책상 해금 안내 기록은 서버가 원본(진척 · 알림)이라 올릴 것 없이 지운다
+   값은 이 PC 칸(0.12)에 있거나, 0.13 시험판이 옮겨 둔 이 계정 칸에 있다 — 둘 다 훑고 둘 다 지운다. */
+const FOCUS_LEGACY_TOTAL = 'tw.focusTotalSec';
+const FOCUS_LEGACY_SYNCED = 'tw.focusSyncedSec';
+const FOCUS_LEGACY_KEYS = Object.freeze([FOCUS_LEGACY_TOTAL, FOCUS_LEGACY_SYNCED, 'tw.starColor', 'tw.danceNotified', 'tw.danceNotifiedFix', 'tw.ideskNotified']);
+/** @param {{ storage: { getItem: Function }, userCode: () => (string | null), cellName: (code: string, key: string) => string, accrue: (sec: number) => Promise<{ ok: boolean, reason?: string }> }} deps */
+function focusStep(deps){
+  const get = (k) => { try{ return deps.storage.getItem(k); }catch(_){ return null; } };
+  return async () => {
+    const uc = deps.userCode();
+    const places = [(k) => k];   // 이 PC 칸
+    if(uc) places.unshift((k) => deps.cellName(uc, k));   // 이 계정 칸 먼저
+    const wipe = [];
+    for(const at of places) for(const k of FOCUS_LEGACY_KEYS) if(get(at(k)) !== null) wipe.push(at(k));
+    let delta = 0;
+    for(const at of places){
+      const total = parseFloat(get(at(FOCUS_LEGACY_TOTAL))), synced = parseFloat(get(at(FOCUS_LEGACY_SYNCED)));
+      if(isFinite(total) && isFinite(synced)){ delta = Math.floor(total - synced); break; }
+    }
+    if(delta > 0){
+      let r;
+      try{ r = await deps.accrue(delta); }catch(e){ r = { ok: false, reason: String((e && e.message) || e) }; }
+      if(!r || r.ok !== true) return { ok: false, reason: '포커스 옛 누적 올리기 실패 — ' + String((r && r.reason) || '알 수 없음') };
+    }
+    return { ok: true, wipe };
+  };
+}
+
+/** @param {{ steps: { login: () => Promise<object>, gacha: () => Promise<object>, mallang: () => Promise<object>, myhome: () => Promise<object>, legacySync: () => Promise<object>, licenseKey: () => Promise<object>, focus: () => Promise<object> },
+ *   storage: { getItem: Function, setItem: Function, removeItem: Function }, userCode: () => (string | null), log?: { warn: Function }, notify?: (msg: string, action?: string) => unknown }} deps */
 function createFirstRun(deps){
   for(const n of STEPS) if(typeof deps.steps[n] !== 'function') throw new Error('[0.13 첫 실행] 단계 없음 — ' + n);
   const storage = deps.storage;
@@ -90,13 +137,13 @@ function createFirstRun(deps){
         if(!(r && r.pending)) try{ log.warn('[0.13 첫 실행] 멈춤 —', name, r && r.reason); }catch(_){}
         return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };
       }
-      if(typeof r.notice === 'string' && r.notice) notices.push(r.notice);
+      if(typeof r.notice === 'string' && r.notice) notices.push({ msg: r.notice, action: typeof r.action === 'string' ? r.action : '' });
       if(Array.isArray(r.wipe)) for(const k of r.wipe) if(typeof k === 'string' && k && wipe.indexOf(k) < 0) wipe.push(k);
     }
     for(const k of wipe){ try{ storage.removeItem(k); }catch(_){} }
     try{ storage.setItem(DONE_KEY, uc); }catch(_){}
-    if(deps.notify) for(const m of notices){ try{ deps.notify(m); }catch(_){} }   // 지운 뒤 안내 — 한 번만(끝냄 표시가 다시 돌리지 않는다)
-    return { ok: true, wiped: wipe, notices };
+    if(deps.notify) for(const n of notices){ try{ deps.notify(n.msg, n.action); }catch(_){} }   // 지운 뒤 안내 — 한 번만(끝냄 표시가 다시 돌리지 않는다) · action — 안내에서 바로 갈 곳(openSettings = 설정 › 라이선스)
+    return { ok: true, wiped: wipe, notices: notices.map((n) => n.msg) };
   }
   /* 한 번 돌리기 — 끝낸 계정이면 건너뜀 · 도는 중에 또 부르면 같은 약속 */
   function run(){
@@ -111,7 +158,7 @@ function createFirstRun(deps){
   return { run };
 }
 
-const api = { DONE_KEY, STEPS, LOGIN_LEGACY_KEYS, GACHA_LEGACY_KEYS, MALLANG_LEGACY_PREFIX, pendingStep, licenseKeyStep, LICENSE_KEY_STORAGE, LICENSE_OPTOUT_KEY, LICENSE_NOTICE, loginStep, gachaStep, mallangStep, createFirstRun };
+const api = { DONE_KEY, STEPS, LOGIN_LEGACY_KEYS, GACHA_LEGACY_KEYS, MALLANG_LEGACY_PREFIX, pendingStep, licenseKeyStep, focusStep, FOCUS_LEGACY_KEYS, LICENSE_KEY_STORAGE, LICENSE_OPTOUT_KEY, LICENSE_NOTICE, loginStep, gachaStep, mallangStep, myhomeStep, MYHOME_LEGACY_KEYS, MYHOME_LEGACY_PREFIX, createFirstRun };
 if(typeof window !== 'undefined') window.TwFirstRun013 = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

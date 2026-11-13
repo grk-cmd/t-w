@@ -21,7 +21,8 @@ const formatHMS = deps.formatHMS;
 const _rolloverFocusToday = deps.rolloverFocusToday;   // 오늘 기록 — 자정이 지났으면 0 으로 넘기고 돌려준다
 const bringWinToFront = deps.bringWinToFront;          // 🪟 열 때 맨 앞으로
 const escRegisterWindow = deps.escRegisterWindow;      // ⎋ ESC 스택
-const _focusTotalSec = deps.focusTotalSec;             // 읽는 함수 — app.js 가 다시 대입하는 let(누적 기록)
+const _focusTotalSec = deps.focusTotalSec;             // 읽는 함수 — 서버 누적 + 못 올린 몫(받기 전 null)
+const retryProgress = deps.retryProgress;              // 진척을 못 받았으면 열 때 다시 받는다(실패하면 E-FOCUS-01)
 const _focusSessionSec = deps.focusSessionSec;         // 읽는 함수 — app.js 가 다시 대입하는 let(현재 기록)
 const figureMode = deps.figureMode;                    // 읽는 함수 — 피규어 모드면 기록이 멈춘다(app.js _applyActiveAppState) · 안내 줄을 보인다
 /* 포커스 기록 팝업 — [기록 열기] 클릭 시 오늘 누적 포커스 시간(hh:mm:ss)을 보여주고, 타이틀바 드래그로 위치 이동 가능 */
@@ -100,6 +101,7 @@ const figureMode = deps.figureMode;                    // 읽는 함수 — 피�
     if(figureNoteEl) figureNoteEl.hidden = !figureMode();
   }
   function openLog(){
+    retryProgress();
     logMode='session';   // 열 때마다 "현재 기록"부터 보여줌
     // 지난번에 미니미로 두고 껐으면 그대로 미니미로 연다(persist=false: 이미 저장된 값이라 다시 안 씀)
     setMini(miniOn, {persist:false});

@@ -348,6 +348,8 @@ PRELOAD.push('myhome-api.js');   // 🏠 마이홈 서버 길 provider — 상�
 PRELOAD.push('myhome-store.js');   // 🏠 마이홈 상태 주인 — app.js 가 만든다(D2-2)
 PRELOAD.push('gift-api.js');   // 🧸 말랑이 · 🎁 선물 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
 PRELOAD.push('mallang-store.js');   // 🧸 말랑이 칸 상태 주인 — app.js 가 말랑이 화면보다 먼저 만든다
+PRELOAD.push('bookshelf-store.js');   // 📚 책장 상태 주인 — app.js 가 북마크 서랍보다 먼저 만든다
+PRELOAD.push('bookmark.js');   // 📚 북마크 서랍 — app.js 가 createBookmark 로 만든다(바탕화면에는 MYHOME_DESKTOP.onReady 로 붙는다)
 PRELOAD.push('mallang.js');   // 🧸 말랑이 · 🎁 선물 화면 — app.js 가 마이홈 수령함보다 먼저 createMallang 으로 만든다
 PRELOAD.push('scheduler.js');
 /* weekly-challenge.js — 👑 달성표(앱 FSD 2번). 같은 까닭 — 만들 때 하는 일(로컬 기록 읽기 · 부팅 동기화 · 20초 tick · 버튼 연결)을 같이 굴린다. */
@@ -356,8 +358,10 @@ PRELOAD.push('weekly-challenge.js');
 PRELOAD.push('pk-bgm.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
 PRELOAD.push('purikura-ui.js');
+/* focus-api.js · focus-progress.js — ⏱ 포커스 서버 길 provider · 진척(서버 값 · 못 올린 초). app.js 가 로그인 통로를 넘겨 만든다. */
+PRELOAD.push('focus-api.js');
+PRELOAD.push('focus-progress.js');
 /* guestbook-api.js · guestbook-feed.js — 📖 방명록 서버 길과 받아 들고 있는 한 벌. app.js 가 만들 때 TwGuestbookApi · TwGuestbookFeed 를 부른다. */
-PRELOAD.push('focus-api.js');   // ⏱ 포커스 · 👑 달성표 · 📱 폰 연결 서버 길 provider — app.js 가 로그인 통로를 넘겨 만든다
 PRELOAD.push('guestbook-api.js');
 PRELOAD.push('guestbook-feed.js');
 /* guestbook.js — 📖 방명록(앱 FSD 4번). 같은 까닭 — 만들 때 하는 일(#mhGuestbookBtn 연결 · window 고리 등록)을 같이 굴린다. */
@@ -458,7 +462,7 @@ PRELOAD.push('account-state.js');
    게이트 · 계정 모듈에 TwUserApi.store · TwRequestId.createPending() 을 넘긴다(서버 통로 · realtime 은 부를 때 찾는다). */
 PRELOAD.push('request-id.js', 'user-api.js', 'login-flow.js', 'first-run-013.js', 'visit-ping.js');
 /* license-api.js · license-premium.js — 🔑 프리미엄 판정. app.js 가 계정 핵심 상태 · 초대 게이트 뒤에서 createLicensePremium 을 부르므로 그보다 먼저. */
-PRELOAD.push('license-api.js', 'license-premium.js');
+PRELOAD.push('license-api.js', 'license-premium.js', 'license-screen.js');
 /* license-gate.js — 🎟️ 초대장 · 라이선스(앱 FSD 31번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createLicenseGate 를 같이 굴린다. */
 PRELOAD.push('license-gate.js');
 /* account.js — 🔑 계정(앱 FSD 23번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createAccount 를 같이 굴린다. */

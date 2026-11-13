@@ -1,8 +1,8 @@
 /* ═══ ⭐ sim-focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿 모듈 구조 (2026-10-14 신설 · 앱 FSD 26번) ═══════════════
-   app.js 의 포커스 레벨 · 공유 · 태블릿 세 구역 본문 을 parts/focus/focus-level.js 로 옮겼다(글자 그대로 · 바뀐 줄 26 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(포커스 레벨 검사들).
-   여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DANCE_NOTIFIED_KEY · DANCE_REPAIR_KEY · FOCUS_SYNCED_KEY · STAR_PALETTE · _adoptStarColorFromProfile · _getFocusSyncedMark · _hasFocusSyncedMark · _mobileBubbleText · _mobileCleanApp · _mobileOn · _mobileRoomLabel · _mobileStart · _notifyDanceUnlocks · _pushLevelIfChanged · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · myStarProfileOut · setStarColor · starFromRemote · syncFocusTotalToServer)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 30줄 그대로 · 부르는 곳은 focusLevelMod.이름 · html(app.js 앞)
+   focus-level.js — 오늘치 쌓기 · 서버 레벨을 읽는 이름 · 별 문자열 · 태블릿. 레벨 · 회차 · 별 색의 값은 서버 진척(focus-progress.js — sim-focus-progress.js)이 맡는다.
+   여기서는 모듈 모양 · app.js 연결 · 서버 밖으로 아무것도 안 보내는 것을 본다.
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름 17개(STAR_PALETTE · _mobile… · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 줄 그대로 · 부르는 곳은 focusLevelMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · focus-level.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -17,13 +17,13 @@ const MOD = ["focus-level.js","parts/focus/focus-level.js","app/parts/focus/focu
 if(!MOD){ say('  ? 원본 못 찾음 — focus-level.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_focusDayStr","findMySeat","getDisplayName","getMyLoginEmail","getMyUserId","renderLauncher","toast"];
-const VAL_DEPS = ["focusLevelStore","DANCE_MOVES","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","FOCUS_TOTAL_KEY","IDESK_ENABLED","INTERACTION_DESKS","Presence","mobileDiag"];
-const GET_DEPS = ["_focusTotalStarted","_acctDetached","_focusSessionSec","_focusTodaySec","_focusTotalSec","_myInbox","_myInboxReady","appMode","wdDraftDef"];
-const SET_DEPS = ["setFocusSessionSec","setFocusTodaySec","_focusTotalSec"];
-const EXPORTS = ["startFocusSync","DANCE_NOTIFIED_KEY","DANCE_REPAIR_KEY","FOCUS_SYNCED_KEY","STAR_PALETTE","_adoptStarColorFromProfile","_getFocusSyncedMark","_hasFocusSyncedMark","_mobileBubbleText","_mobileCleanApp","_mobileOn","_mobileRoomLabel","_mobileStart","_notifyDanceUnlocks","_pushLevelIfChanged","_seatMobileApp","addFocusSeconds","focusCycleOf","formatHMS","getFocusLevel","getStarColor","lvStarStr","myFocusShow","myStarOut","myStarProfileOut","setStarColor","starFromRemote","syncFocusTotalToServer"];
+const FN_DEPS = ["_focusDayStr","findMySeat","getMyUserId","toast"];
+const VAL_DEPS = ["focusLevelStore","progress","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","Presence","mobileDiag"];
+const GET_DEPS = ["_focusTotalStarted","_acctDetached","_focusSessionSec","_focusTodaySec","wdDraftDef"];
+const SET_DEPS = ["setFocusSessionSec","setFocusTodaySec"];
+const EXPORTS = ["STAR_PALETTE","_mobileBubbleText","_mobileCleanApp","_mobileOn","_mobileRoomLabel","_mobileStart","_seatMobileApp","addFocusSeconds","focusCycleOf","formatHMS","getFocusLevel","getStarColor","lvStarStr","myFocusShow","myStarOut","setStarColor","starFromRemote"];
 const MOVED = ["_lastPushedLevel","_lastPushedStar","_pushLevelIfChanged","DANCE_NOTIFIED_KEY","DANCE_REPAIR_KEY","_dancePending","_danceNotifiedSet","_danceRepairSet","_markDanceNotified","_danceMailExists","_danceUnlockPending","_notifyDanceUnlocks","IDESK_NOTIFIED_KEY","_ideskNotifiedSet","_notifyDeskUnlocks","addFocusSeconds","getFocusLevel","STAR_COLOR_KEY","STAR_PALETTE","_starColorOk","getStarColor","_starPicked","setStarColor","focusCycleOf","lvStarStr","myFocusShow","myStarOut","myStarProfileOut","_adoptStarColorFromProfile","starFromRemote","FOCUS_SYNCED_KEY","_focusSyncing","_focusSyncFailStreak","_focusSyncNoticed","_focusSyncRetryTimer","_focusSyncFailed","_focusLastSyncedVal","_setFocusSyncedMark","_getFocusSyncedMark","_hasFocusSyncedMark","syncFocusTotalToServer","FOCUS_SYNC_INTERVAL_MS","formatHMS","MOBILE_MAX_ON_MS","MOBILE_KEY_LS","MOBILE_APP_MAX","_mobileFocus","_mobileStop","_mobileNow","_mobileOn","_seatMobileApp","_mobileRoomLabel","_mobileBubbleText","_mobileCleanApp","_mobileGetKey","_mobileNewKey","_mobileLinkUrl","_mobileApplyState","_mobileChanged","_mobileStart","_mobRenderPanel","_mobDrawQr","_mobFillWindow","_mobMakeKey","_mobOpenWindow","_mobCloseWindow","_mobArm","_mobileWasOnTick"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  focusLevelStore: accountStoreMod,","  _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),","  DANCE_MOVES: iDeskMod.DANCE_MOVES,","  FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,","  FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,","  FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,","  FOCUS_TODAY_DATE_KEY: focusTotalMod.FOCUS_TODAY_DATE_KEY,","  FOCUS_TODAY_SEC_KEY: focusTotalMod.FOCUS_TODAY_SEC_KEY,","  FOCUS_TOTAL_CAP_SEC: focusTotalMod.FOCUS_TOTAL_CAP_SEC,","  FOCUS_TOTAL_KEY: focusTotalMod.FOCUS_TOTAL_KEY,","  IDESK_ENABLED: iDeskMod.IDESK_ENABLED,","  INTERACTION_DESKS: iDeskMod.INTERACTION_DESKS,","  Presence: Presence,","  _acctDetached: ()=>acctStateMod._acctDetached(),","  _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),","  _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),","  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),","  _focusTotalSec: ()=>_focusTotalSec,","  _myInbox: ()=>_myInbox,","  _myInboxReady: ()=>_myInboxReady,","  appMode: ()=>appMode,","  findMySeat: (...a)=>findMySeat(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  mobileDiag: TwMobileDiag,","  renderLauncher: (...a)=>renderLauncher(...a),","  toast: (...a)=>toast(...a),","  wdDraftDef: ()=>wardrobeMod.wdDraftDef(),","  setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },","  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },","  setFocusTotalSec: (v)=>{ _focusTotalSec = v; },"];
+const GLUE = ["  focusLevelStore: accountStoreMod,", "  progress: focusProgressMod,", "  _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),", "  FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,", "  FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,", "  FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,", "  FOCUS_TODAY_DATE_KEY: focusTotalMod.FOCUS_TODAY_DATE_KEY,", "  FOCUS_TODAY_SEC_KEY: focusTotalMod.FOCUS_TODAY_SEC_KEY,", "  Presence: Presence,", "  _acctDetached: ()=>acctStateMod._acctDetached(),", "  _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),", "  _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),", "  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),", "  findMySeat: (...a)=>findMySeat(...a),", "  getMyUserId: (...a)=>getMyUserId(...a),", "  mobileDiag: TwMobileDiag,", "  toast: (...a)=>toast(...a),", "  wdDraftDef: ()=>wardrobeMod.wdDraftDef(),", "  setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },", "  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -38,7 +38,7 @@ function build(src){
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
-  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  SET_DEPS.forEach(n => { deps[n] = () => {}; });
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
@@ -72,32 +72,43 @@ function judgeAll(mod, app, html){
   return r;
 }
 
-/* 내 코드(getMyUserId)가 없는 기기 — 레벨 프로필 올리기(_pushLevelIfChanged) 가 부르는 firebaseAPI 이름들 */
-function callsWith(src, uid){
-  const any = anything(), calls = [];
+/* 쌓기 — addFocusSeconds 는 서버에 올릴 몫(progress.addSeconds)으로 넘길 뿐 firebaseAPI 를 부르지 않는다(프로필 · 마크 · 해금 우편 · 누적 쓰기 걷음) */
+function runAdd(src, started){
+  const any = anything(), calls = [], added = [], store = {};
   const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
-  SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
-  deps.getMyUserId = () => uid;
+  SET_DEPS.forEach(n => { deps[n] = () => {}; });
+  deps.progress = { addSeconds: (x) => added.push(x), STAR_PALETTE: [['#ffd76a', '금']] };
+  deps._focusTotalStarted = () => started;
+  deps.focusLevelStore = { get: (k) => (k in store ? store[k] : null), set: (k, v) => { store[k] = String(v); return true; } };
+  deps.FOCUS_TODAY_DATE_KEY = 'tw.focusTodayDate'; deps.FOCUS_TODAY_SEC_KEY = 'tw.focusTodaySec';
+  let today = 0; deps._focusDayStr = () => 'D'; deps._focusTodaySec = () => today; deps.setFocusTodaySec = (v) => { today = v; }; deps._focusSessionSec = () => 0;
   const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem: () => {}, removeItem: () => {} };
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', src + '\nreturn window.TwFocusLevel;')(win, any, ls, fa, undefined);
-  try{ api.createFocusLevel(deps)._pushLevelIfChanged(); }catch(_){}
-  return calls;
+  try{ api.createFocusLevel(deps).addFocusSeconds(3); }catch(_){ calls.push('throw'); }
+  return { calls, added, store };
 }
-const judgeNoUid = (src) => !callsWith(src, null).includes('setMyProfile') && callsWith(src, 'ME').includes('setMyProfile');
+const judgeAdd = (src) => { const a = runAdd(src, true), b = runAdd(src, false); return a.calls.length === 0 && a.added.join() === '3' && a.store['tw.focusTodaySec'] === '3' && b.added.length === 0 && !('tw.focusTodaySec' in b.store); };
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 2-2. 내 코드 없음 — 그 요청 0');
-chk(judgeNoUid(MOD), '내 코드 없음 → 레벨 프로필 요청(setMyProfile) 0 · 코드 있으면 보낸다');
+say('── 2-2. 쌓기 — 서버에 올릴 몫으로만 넘긴다');
+chk(judgeAdd(MOD), '계정 칸이 열린 뒤: 오늘치를 쓰고 3초를 미전송분에 넘긴다 · firebaseAPI 호출 0 · 열리기 전엔 아무것도 안 쌓는다');
+chk(!/sendInboxMessage|setMyProfile|syncFocusTotal|fetchProfileStarC|tw\.starColor|focusSyncedSec|danceNotified|ideskNotified/.test(strip(MOD)), '걷은 Firebase 길 · 해금 우편 · 옛 키 이름이 코드에 없다');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
-  const m2 = MOD.replace('if(getMyUserId() && window.firebaseAPI && firebaseAPI.setMyProfile)', 'if(window.firebaseAPI && firebaseAPI.setMyProfile)');
-  chk(m2 !== MOD && !judgeNoUid(m2), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
+  const m1 = MOD.replace('progress.addSeconds(sec);', '');
+  chk(m1 !== MOD && !judgeAdd(m1), '미전송분으로 안 넘기면 — 쌓기 판정이 빨강');
+  const m2 = MOD.replace('  if(!_focusTotalStarted()) return;   // 계정 확인 전', '  // ');
+  chk(m2 !== MOD && !judgeAdd(m2), '계정 확인 전 입구를 빼면 — 쌓기 판정이 빨강');
+  const m3 = MOD.replace('progress.addSeconds(sec);', "progress.addSeconds(sec); firebaseAPI.syncFocusTotal(1);");
+  chk(m3 !== MOD && !judgeAdd(m3), '쌓다가 Firebase 를 부르면 — 쌓기 판정이 빨강');
+  const m4 = MOD.replace('function addFocusSeconds(sec){', 'function _x(){ firebaseAPI.sendInboxMessage(); }\nfunction addFocusSeconds(sec){');
+  chk(m4 !== MOD && /sendInboxMessage/.test(strip(m4)), '해금 우편 코드가 되살아나면 — 글 판정이 빨강');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/focus/focus-level.js"></script>', '')],

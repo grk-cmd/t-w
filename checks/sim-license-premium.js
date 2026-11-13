@@ -17,7 +17,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 console.warn = () => {};   // 판정 모듈이 실패를 콘솔에 남긴다 — 검사 출력에는 필요 없다
 const pick = (n, d) => [n, 'parts/' + d + '/' + n, 'app/parts/' + d + '/' + n].map(read).find(Boolean);
 const SRC = {
-  LK: pick('license-key.js', 'account'), LR: pick('license-request.js', 'account'),
+  LS: pick('license-screen.js', 'account'), LR: pick('license-request.js', 'account'),
   LP: pick('license-premium.js', 'account'), AS: pick('account-state.js', 'account'), PA: pick('premium-assets.js', 'character'),
   APP: read('app.js') || read('parts/app.js') || read('app/parts/app.js'),
 };
@@ -38,7 +38,7 @@ function env(src, o){
   const meFn = async () => { e.calls.push('me'); const v = e.meQ.length > 1 ? e.meQ.shift() : e.meQ[0]; if(v instanceof Error) throw v; return v; };
   const licenseApi = {
     mine: async () => { e.calls.push('mine'); const v = typeof o.mine === 'function' ? o.mine() : o.mine; if(v instanceof Error) throw v; return v === undefined ? null : v; },
-    putDevice: async (id, name) => { e.calls.push('put:' + id + ':' + name); return lic([id]); },   // 앱은 부르지 않는다 — 불리면 «자동 등록 없음» 판정이 빨강
+    putDevice: async (id, name) => { e.calls.push('put:' + id + ':' + name); if(o.putError instanceof Error) throw o.putError; return withPremium(lic([id]), e.putPremium === undefined ? undefined : e.putPremium); },   // 사용자가 [이 기기 등록] 을 눌렀을 때만 불린다 — 켤 때 · 알림 뒤에 불리면 «자동 등록 없음» 판정이 빨강
     /* o.regPremium · o.remPremium — 쓰기 응답의 premium(이 기기 판정). 주지 않으면 칸 없음(«모름» — 옛 서버) */
     register: async (key, dev) => { e.calls.push('register:' + key + ':' + dev.id + ':' + dev.name); if(o.register instanceof Error) throw o.register; if(o.onRegister) await o.onRegister(e); return withPremium(lic([dev.id]), o.regPremium); },
     removeDevice: async (id) => { e.calls.push('remove:' + id); if(o.remove instanceof Error) throw o.remove; return withPremium(lic([]), o.remPremium); },
@@ -132,6 +132,27 @@ async function judge(S){
     e = env(LP, { me: [ME(true)], mine: null, regPremium: true, onRegister: (x) => { x.mod.reset(); } });
     const us = await e.mod.activate('KEY');
     t(us.ok === false && us.stale === true && e.sets.length === 0 && e.notes.length === 0, '★ 키 등록 응답을 기다리는 동안 reset → 옛 계정의 쓰기 답은 반영 0 · 번호 0');
+
+    /* D8-2 — 설정 › 라이선스 화면이 창 열기에서 이미 읽었다(ownerKnown) → 쓰기 전 읽기 0 · 응답의 내 라이선스(lic)를 돌려준다 */
+    e = env(LP, { me: [ME(true)], mine: lic([ID]), regPremium: true });
+    const ok1 = await e.mod.activate('key', { ownerKnown: true });
+    t(ok1.ok === true && ok1.lic && ok1.lic.devices[0].deviceId === ID && !e.calls.includes('mine') && e.calls.join() === 'register:KEY:' + ID + ':' + NAME, '★ 화면이 읽어 둔 뒤의 키 등록 → 쓰기 전 읽기(mine) 0 · 요청 하나 · 응답의 내 라이선스를 돌려줌(첫 실행은 ownerKnown 없이 부르면 읽기 1)');
+    e = env(LP, { me: [ME(true)], mine: lic([ID]), regPremium: true });
+    await e.mod.activate('key');
+    t(e.calls[0] === 'mine', '  ↳ ownerKnown 없이 부르면(첫 실행 키 올리기) 쓰기 전에 한 번 읽는다');
+    e = env(LP, { me: [ME(true)], mine: lic([ID]), remPremium: false });
+    const dk = await e.mod.deactivate({ ownerKnown: true });
+    t(dk.ok === true && dk.lic && dk.lic.devices.length === 0 && e.calls.join() === 'remove:' + ID && e.sets.join() === 'false' && e.custom === 1, '★ 해제(ownerKnown) → 읽기 0 · 삭제 하나 · 응답 premium 으로 반영(거짓) · 커스텀 상태 기본으로');
+    {
+      e = env(LP, { me: [ME(true)], mine: lic([ID]) });
+      e.putPremium = true;
+      const calls = e.calls;
+      const rd = await e.mod.registerDevice();
+      t(rd.ok === true && rd.lic && calls.some((c) => c === 'put:' + ID + ':' + NAME) && !calls.includes('mine'), '★ 이 기기 등록 → 이 기기 id · 이름으로 PUT 하나 · 읽기 0 · 응답의 내 라이선스를 돌려줌(프리미엄은 응답 premium 으로 반영)');
+      e = env(LP, { me: [ME(true)], mine: lic([ID]), putError: apiErr(409, 'LICENSE_DEVICE_FULL') });
+      const rf = await e.mod.registerDevice();
+      t(rf.ok === false && rf.err && rf.err.code === 'LICENSE_DEVICE_FULL' && e.notes.length === 0 && e.sets.length === 0, '  ↳ 등록 거절 → 오류 원본을 돌려줌(번호는 부르는 화면이 가른다) · 프리미엄 반영 0');
+    }
 
     e = env(LP, { me: [apiErr(401, 'AUTH_REQUIRED', 'auth')], mine: null });
     const ua = await e.mod.activate('KEY');
@@ -264,8 +285,8 @@ async function judge(S){
     t(setCalls === 1 && /setPremium: \(v\)=>acctStateMod\._setPremium\(v\),/.test(A), 'app.js 에서 _setPremium 을 잇는 곳은 판정 모듈 하나');
     t((A.match(/licensePremiumMod\.start\(/g) || []).length === 1 && /licensePremium: \(code, me\)=>licensePremiumMod\.start\(me\),/.test(A), '시작은 켜는 차례 한 곳(계정 확인이 준 me 로) — 만들 때 요청 · 구독 없음');
     t(!/loadLicenseFromStorage|startLicenseVerify|redeemLicense|verifyLicense/.test(A), '옛 길(이 PC 키로 먼저 켜기 · Firebase 로 재검증)이 app.js 에 없다');
-    t(/if\(r\.stale\) return;[^\n]*\n\s*refreshLicenseUI\(\);/.test(S.LK) && /else if\(!r\.stale\)\{ toast\('적용 실패/.test(S.LR), '  reset 으로 버린 늦은 답(stale)은 부르는 쪽이 알리지 않는다(license-key 해제 · license-request 적용)');
-    t(/made = true|createLicensePremium/.test(A) && !/licensePremiumMod\.(refresh|activate|deactivate)\(/.test(A.replace('activate: (key)=>licensePremiumMod.activate(key),', '')), '  버튼은 모듈(license-key.js · license-request.js)이 부른다 — app.js 는 첫 실행 키 올리기(D8-3)가 쓰는 activate 한 줄만');
+    t(/premium\.deactivate\(\{ ownerKnown: true \}\);\n\s*if\(g !== gen \|\| r\.stale\) return/.test(S.LS) && /else if\(!r\.stale\)\{ toast\('적용 실패/.test(S.LR), '  reset 으로 버린 늦은 답(stale)은 부르는 쪽이 알리지 않는다(설정 › 라이선스 화면 해제 · license-request 적용)');
+    t(/made = true|createLicensePremium/.test(A) && !/licensePremiumMod\.(refresh|activate|deactivate)\(/.test(A.replace('activate: (key)=>licensePremiumMod.activate(key),', '')), '  버튼은 모듈(license-screen.js · license-request.js)이 부른다 — app.js 는 첫 실행 키 올리기(D8-3)가 쓰는 activate 한 줄만');
   }
   return rows;
 }
@@ -282,16 +303,16 @@ async function judge(S){
     ['알림이 겹치면 요청이 쌓임', mut('LP', (s) => s.replace("if(running){ again = true; return running; }", ""))],
     ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again && g === gen){ again = false; r = await once(null, g); }", ""))],
     ['신호 실패에도 번호를 띄움', mut('LP', (s) => s.replace("if(!loud) return;", ""))],
-    ['해제 버튼이 버린 답(stale)에도 E-LIC-02 를 띄움', mut('LK', (s) => s.replace("if(r.stale) return;", ""))],
+    ['해제 화면이 버린 답(stale)에도 E-LIC-02 를 띄움', mut('LS', (s) => s.split(' || r.stale').join(''))],
     ['쓰기 응답이 reset 뒤에도 반영됨', mut('LP', (s) => s.replace("if(g !== gen) return { ok: false, stale: true, notified: true, reason: '' };", ""))],
     ['reset 이 알림 구독을 안 풂', mut('LP', (s) => s.replace("if(unsub){ try{ unsub(); }catch(_){} }", ""))],
     ['reset 뒤 옛 답을 반영', mut('LP', (s) => s.replace("if(!me || g !== gen) return isPremium();", "if(!me) return isPremium();"))],
     ['reset 이 모름으로 안 되돌림', mut('LP', (s) => s.replace("deps.resetKnown();", ""))],
-    ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true } : { ok: false, registered: true, notified, reason: NOT_CONFIRMED };   // notified — 확인 실패 번호를 이미 띄웠다", "return { ok: true };"))],
+    ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true, lic: l } : { ok: false, registered: true, notified, reason: NOT_CONFIRMED, lic: l };   // notified — 확인 실패 번호를 이미 띄웠다", "return { ok: true };"))],
     ['쓰기 응답 premium 을 버리고 늘 다시 물음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null, true);", "return lane(null, true);"))],
     ['쓰기 응답에 premium 이 없어도 다시 묻지 않음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null, true);", "if(!l) return lane(null, true);"))],
     ['도는 확인 중 쓰기 응답 뒤 다시 묻지 않음', mut('LP', (s) => s.replace("if(running) again = true;\n", ""))],
-    ['해제가 서버를 안 부름', mut('LP', (s) => s.replace("after = await licenseApi.removeDevice(deps.deviceId());", "after = null;"))],
+    ['해제가 서버를 안 부름', mut('LP', (s) => s.split("after = await licenseApi.removeDevice(deps.deviceId());").join("after = null;"))],
     ['쓰기 응답 사본(meCache)으로 프리미엄 판정', mut('LP', (s) => s.replace("let me = given || null;", "let me = given || (deps.meCache && deps.meCache()) || null;").replace("setPremium(me.premium === true);", "setPremium(me.premium === true || deps.meCache);"))],
     ['첫 확인이 같은 값이면 조용', mut('AS', (s) => s.replace('isPremium() === v && wasKnown', 'isPremium() === v'))],
     ['전용 자산 접기가 «모름» 을 안 봄', mut('PA', (s) => s.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', ''))],

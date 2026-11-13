@@ -28,7 +28,8 @@ const _loginDoLogout = deps._loginDoLogout;
 const _loginDoDeleteAccount = deps._loginDoDeleteAccount;
 const _withdrawPreview = deps._withdrawPreview;   // 탈퇴 미리보기(GET /v1/me/withdrawal-preview — account.js)
 const _myHomeData = deps._myHomeData;   // 읽는 함수
-const _pushLevelIfChanged = deps._pushLevelIfChanged;
+const progress = deps.progress;   // 서버 진척 { load, totalSec, level, cycle, cycleLevel, starColor }(focus-progress.js)
+const retryProgress = deps.retryProgress;   // 못 받은 진척을 다시 받는다(열 때 · 실패하면 E-FOCUS-01)
 const closeGearMenu = deps.closeGearMenu;
 const commitUserName = deps.commitUserName;
 const curSlot = deps.curSlot;   // 읽는 함수
@@ -59,9 +60,12 @@ function openMyInfo(tab){
   _miNameEditEnd();
   _miStarOpen = false;                              // 🌟 별 색 구획은 열 때마다 닫힌 채 시작한다(시안 v2 · 개정 69)
   _miRenderHead();
+  Promise.resolve(retryProgress()).then(onProgressChanged);   // 진척을 못 받았으면 열 때 한 번 다시 받는다
   _miSetTab(tab);
   _miTrashLoad();                                   // 휴지통 탭 글자 «휴지통 N» — 보관함이 열린 PC 에서만 읽는다
 }
+/* 서버 진척이 바뀌었을 때(받음 · 올림 · 별 색) — 열려 있으면 머리 · 별 색 구획을 다시 그린다 */
+function onProgressChanged(){ if(_miIsOpen()) _miRenderHead(); }
 function closeMyInfo(){
   const pg = document.getElementById('lcMyInfo'); if(!pg) return;
   _miNameEditEnd();
@@ -102,7 +106,10 @@ function _miRenderHead(){
   const $e = id => document.getElementById(id);
   const nick = $e('miNick'); if(nick){ let n = ''; try{ n = getDisplayName(); }catch(_){} nick.textContent = n; }
   /* 🏅 레벨 배지 — 친구 목록 배지와 **같은 함수**(plMod.fillLv → .mh-flv + lvBadgeClass). 모양·티어 색을 여기서 따로 만들지 않는다. */
-  const lv = $e('miLv'); if(lv){ let n = 1, st = null; try{ n = getFocusLevel(); st = myFocusShow(); }catch(_){} plMod.fillLv(lv, n, st); }
+  const lv = $e('miLv'); if(lv){
+    lv.style.display = progress().load === 'ready' ? '' : 'none';   // 서버 답 전 · 실패면 레벨 배지를 숨긴다(깜빡이는 레벨 1 을 그리지 않는다)
+    let n = 1, st = null; try{ n = getFocusLevel(); st = myFocusShow(); }catch(_){} plMod.fillLv(lv, n, st);
+  }
   const code = $e('miCode'); if(code){ let c = null; try{ c = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} code.textContent = c || '—'; }
   const p = _miRenderAvatar(); if(p && p.catch) p.catch(()=>{});
   _miRenderStar();                                  // 🌟 별 색 구획 — 이름표 미리보기에 닉네임이 들어간다(개정 69)
@@ -120,8 +127,9 @@ function _miRenderStar(){
   if(btn) btn.setAttribute('aria-expanded', _miStarOpen ? 'true' : 'false');
   sec.style.display = _miStarOpen ? 'block' : 'none';
   if(!_miStarOpen) return;
+  if(progress().load !== 'ready'){ sec.style.display = 'none'; return; }
   const total = Math.max(0, Number(_focusTotalSec()) || 0);
-  const c = focusCycleOf(total);
+  const c = { cycle: progress().cycle, lv: progress().cycleLevel, leftSec: focusCycleOf(total).leftSec };   // 회차 · 이번 바퀴 레벨은 서버 값 — 남은 시간만 막대와 같이 못 올린 몫을 더해 센다
   const on = $e('miStarOn'), lock = $e('miStarLock'), sub = $e('miStarSub');
   if(c.cycle > 0){
     if(on) on.style.display = 'flex';
@@ -142,7 +150,7 @@ function _miRenderStar(){
           b.type = 'button'; b.className = 'mi-star-sw'; b.setAttribute('role', 'radio');
           b.setAttribute('aria-label', name); b.title = name; b.dataset.c = hex;
           b.style.setProperty('--sw', hex);
-          b.onclick = () => { if(!setStarColor(hex)) return; _miRenderHead(); _pushLevelIfChanged(); };   // 머리 배지 · 구획 · 프로필(친구 목록) · 방은 좌석 루프가 다음 프레임에
+          b.onclick = () => { if(!setStarColor(hex)) return; _miRenderHead(); };   // 머리 배지 · 구획은 바로(서버 답에 실패하면 이전 색으로 돌아온다) · 방은 좌석 루프가 다음 프레임에
           pal.appendChild(b);
         });
       }
@@ -638,6 +646,7 @@ return {
   _miIsOpen,
   _miSlotThumb,
   closeMyInfo,
+  onProgressChanged,
   openMyInfo,
 };
 }

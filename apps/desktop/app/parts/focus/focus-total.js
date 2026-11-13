@@ -5,7 +5,7 @@
      바꾼 이름 없음.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: DAY_START_HOUR · FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · FOCUS_TOTAL_KEY · _dayShifted · _focusDayStr · _focusSessionSec · _focusTodaySec · _loadFocusTotalSec · _rolloverFocusToday · _todayStr — app.js 는 focusTotalMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: DAY_START_HOUR · FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · _dayShifted · _focusDayStr · _focusSessionSec · _focusTodaySec · serverDay · setServerDay · _rolloverFocusToday · _todayStr — app.js 는 focusTotalMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwFocusTotal — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-focus-total.js */
@@ -13,8 +13,8 @@
 
 function createFocusTotal(deps){
 
-const focusTotalStore = deps.focusTotalStore;   // 🗂️ 누적 세 칸은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 다른 칸이 열린다
-const FOCUS_TOTAL_KEY='tw.focusTotalSec', FOCUS_TODAY_SEC_KEY='tw.focusTodaySec', FOCUS_TODAY_DATE_KEY='tw.focusTodayDate';
+const focusTotalStore = deps.focusTotalStore;   // 🗂️ 오늘 두 칸은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 다른 칸이 열린다
+const FOCUS_TODAY_SEC_KEY='tw.focusTodaySec', FOCUS_TODAY_DATE_KEY='tw.focusTodayDate';
 const FOCUS_LEVEL_CAP_HOURS=999;
 /* 🔁 누적 상한과 레벨 상한을 가른다 (2026-09-18) ────────────────────────────
    예전엔 `FOCUS_LEVEL_CAP_HOURS` 하나가 **두 몫**을 했다 — 레벨 999 에서 접는 것과,
@@ -65,7 +65,6 @@ function _focusMigrateDayKey(){
     }
   }catch(_){}
 }
-function _loadFocusTotalSec(){ try{ return parseFloat(focusTotalStore.get(FOCUS_TOTAL_KEY))||0; }catch(e){ return 0; } }
 function _loadFocusTodaySec(){
   try{
     if(focusTotalStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) return 0;   // 날짜 바뀌었으면 오늘치만 리셋
@@ -89,7 +88,12 @@ function _rolloverFocusToday(){
   return _focusTodaySec;
 }
 
-/* 🚀 계정 확인 · 옛 PC 값 옮기기 뒤 한 번(launcher/app-boot.js) — 계정 칸에서 오늘치를 읽는다. 전체 누적은 app.js 가 _loadFocusTotalSec 로 읽는다. */
+/* 서버 «오늘» — 진척 · 올리기 답이 준다(focus-progress.js). { day, isoWeek, dayEndsAt(ms) } · 받기 전 · 계정을 놓은 뒤에는 null.
+   앱 날짜 셈을 대신하는 것은 D5-3 — 지금은 값만 들고 있는다. */
+let _serverDay = null;
+function setServerDay(t){ _serverDay = t; }
+
+/* 🚀 계정 확인 · 옛 PC 값 옮기기 뒤 한 번(launcher/app-boot.js) — 계정 칸에서 오늘치를 읽는다. 전체 누적은 서버 값(focus-progress.js)이다. */
 let _focusTotalStarted = false;   // startFocusTotal 이 계정 칸을 읽은 뒤 true — 포커스 모듈(누적 더하기 · 롤오버 · 레벨 올림)의 입구가 본다
 function startFocusTotal(){
   _focusTotalStarted = true;
@@ -107,14 +111,14 @@ return {
   FOCUS_TODAY_DATE_KEY,
   FOCUS_TODAY_SEC_KEY,
   FOCUS_TOTAL_CAP_SEC,
-  FOCUS_TOTAL_KEY,
   _dayShifted,
   _focusDayStr,
   _focusSessionSec: ()=>_focusSessionSec,   // 읽는 함수
   setFocusSessionSec: (v)=>{ _focusSessionSec = v; },   // 쓰는 함수 — app.js 가 비운다
   _focusTodaySec: ()=>_focusTodaySec,   // 읽는 함수
   setFocusTodaySec: (v)=>{ _focusTodaySec = v; },   // 쓰는 함수 — app.js 가 비운다
-  _loadFocusTotalSec,
+  serverDay: ()=>_serverDay,   // 읽는 함수
+  setServerDay,
   _rolloverFocusToday,
   _todayStr,
 };
