@@ -13,7 +13,7 @@ const chatNoticeMod = TwChatNotice.createChatNotice({ document, escHtml, toast, 
 const chatUiMod = TwChatUi.createChatUi({ …, chatNotice: chatNoticeMod, … });
 ```
 
-**내놓는 것** — 순수: `list` · `pinnedOf` · `cleanText` · `freeSlot` · `pinClearIds` · `timeText` · `pinHtml` · `itemHtml` · `listHtml`. 컨트롤러: `start` · `stop`(채팅창 열 때 · 닫을 때) · `open` · `close` · `isActive` · `available` · `count` · `hint` · `submit(inp)`(Enter 가 공지면 true) · `act(name, id)` · `onChange(fn)`.
+**내놓는 것** — 순수: `list` · `pinnedOf` · `cleanText` · `pinClearIds` · `timeText` · `pinHtml` · `itemHtml` · `listHtml`. 컨트롤러: `start` · `stop`(채팅창 열 때 · 닫을 때) · `open` · `close` · `isActive` · `available` · `count` · `hint` · `submit(inp)`(Enter 가 공지면 true) · `act(name, id)` · `onChange(fn)`.
 
 **함정**
 - 공지 모듈은 채팅 · 잠금 모듈을 **부르지 않는다**(순환 — `sim-dep-cycles`). 채팅 모듈이 `onChange` 로 «탭 줄 · 입력칸 안내문 다시 그리기» 를 걸어 둔다. 방장 · 시크릿룸 판정은 `room-state.js` 한 곳.

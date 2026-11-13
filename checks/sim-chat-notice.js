@@ -1,7 +1,7 @@
 /* sim-chat-notice.js — 📢 시크릿룸 공지(#공지 탭 · 고정 한 줄) — chat/chat-notice.js · chat-notice-net.js · 규칙 · 연결
    [무엇을 지키나] 시크릿룸 방장이 #공지 탭에서 공지를 쓰고 · 고치고 · 지우고 · 하나를 📌 고정하면, 모든 채팅 탭 위에 한 줄로 뜬다.
      공지는 채팅 말풍선 · 기록으로 안 나가고, 방장만 쓰며, 남이 쓴 글이라 HTML 로 안 읽힌다.
-   ・1절: 순수 규칙 — list(정렬 · 잘못된 칸) · pinnedOf · cleanText(경계 300) · freeSlot(상한 20) · pinClearIds · timeText
+   ・1절: 순수 규칙 — list(정렬 · 잘못된 칸) · pinnedOf · cleanText(경계 300) · pinClearIds · timeText
    ・2절: 화면 조각 — 글은 escHtml 을 거친다 · 방장에게만 단추 · 고치는 줄 · 지울지 묻는 줄 · 빈 안내
    ・3절: 컨트롤러(진짜 모듈 · 가짜 DOM · 진짜 room-state) — 시크릿룸 아니면 없음 · 구독 · 열기 · 쓰기(채팅으로 안 나감) · 참여자는 못 씀 · 고치기 · 지우기 · 고정 · 고정 줄
    ・4절: 서버 읽기 · 쓰기(진짜 모듈 · 가짜 db) — 빈 자리 · 꽉 참 · 고정 묶음 · 해제
@@ -73,10 +73,7 @@ async function judge(src, extra){
     t(M.cleanText('').err && M.cleanText('   \n ').err && M.cleanText(null).err, 'cleanText — 빈 글 · 공백뿐 · null 은 안내');
     t(M.cleanText(' 가\n 나   다 ').text === '가 나 다', '  줄바꿈 · 연속 공백은 한 칸 · 앞뒤 공백 뗌');
     t(M.cleanText('a'.repeat(300)).text.length === 300 && M.cleanText('a'.repeat(301)).err, '  경계 — 300자는 되고 301자는 안내');
-    const full = Object.fromEntries(M.SLOTS.map((id) => [id, { text: 'x', ts: 1 }]));
-    t(M.SLOTS.length === 20 && M.freeSlot(M.list(full)) === null, 'freeSlot — 20칸이 다 차면 null(상한 20)');
-    const f2 = Object.assign({}, full); delete f2.n7;
-    t(M.freeSlot(M.list(f2)) === 'n7' && M.freeSlot([]) === 'n1', '  지운 자리는 다시 쓴다 · 빈 목록은 n1');
+    t(M.SLOTS.length === 20 && M.list(Object.fromEntries(M.SLOTS.map((id) => [id, { text: 'x', ts: 1 }]))).length === 20 && M.list({ n21: { text: 'x', ts: 1 } }).length === 0, '자리 — 20칸이 다 보이고 n21 은 버린다(상한 20)');
     t(M.pinClearIds(M.list({ n1: { text: 'a', ts: 1, pin: true }, n2: { text: 'b', ts: 2, pin: true }, n3: { text: 'c', ts: 3 } }), 'n2').join() === 'n1', 'pinClearIds — 새로 고정할 것 말고 pin 이 서 있는 것만');
     t(M.timeText(NOW) === '11.13 09:05' && M.timeText(0) === '' && M.timeText(NaN) === '', 'timeText — 11.13 09:05 · 없으면 빈 글');
 
@@ -179,6 +176,7 @@ async function judge(src, extra){
     /* 5절 일부 — net */
     if (extra) {
       const N = loadWin(extra.net, {}).TwChatNoticeNet;
+      t(JSON.stringify(N.NOTICE_SLOTS) === JSON.stringify(M.SLOTS), '자리 이름 — 보여 주는 쪽(공지 모듈)과 고르는 쪽(서버 연결)의 20칸이 같다');
       const store = { v: {} }, log = [], cancels = [];
       const db = {}, ref = (d, p) => ({ p: p === undefined ? '' : p });
       const rt = async (r, fn) => { const next = fn(store.v[r.p] ? JSON.parse(JSON.stringify(store.v[r.p])) : null); if (next === undefined) return { committed: false }; store.v[r.p] = next; return { committed: true }; };

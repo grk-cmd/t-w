@@ -1,6 +1,6 @@
 /* chat-notice.js — 📢 시크릿룸 공지(#공지 탭 · 고정 한 줄)
    채팅창의 «#공지» 탭에서 시크릿룸 방장이 공지를 쓰고 · 고치고 · 지우고 · 📌 고정한다. 고정한 공지 하나는 모든 채팅 탭 위에
-   한 줄로 뜨고(길면 마우스를 올려 흘려 읽는다) 누르면 #공지 탭이 열린다. 공지는 채팅 말풍선으로 나가지 않는다.
+   한 줄로 뜨고(길면 마우스를 올려 흘려 읽는다) 누르면 숨는다(다시 보려면 #공지 탭). 공지는 채팅 말풍선으로 나가지 않는다.
    ★ 데이터: rooms/{방}/_notice/{n1..n20} = { text(1~300자), ts, pin? } — 방에 영구 보관(대화 3일 보관과 무관 · 서버 정리도 안 건드린다).
      고정은 공지 안의 pin:true — 한 번에 하나(다른 것은 같은 묶음에서 지운다). 상한 20 = 자리 이름(규칙에 자식 수 세는 함수가 없다).
    ★ 쓰는 사람 = 시크릿룸 방장(고정 · 나가도 안 바뀜) — 앱이 막는다. 참여자는 읽기만. 시크릿룸이 아닌 방에는 탭도 줄도 없다.
@@ -39,11 +39,6 @@ function cleanText(raw){
   if(!t) return { err: '공지 내용을 적어 주세요' };
   if(t.length > TEXT_MAX) return { err: '공지는 ' + TEXT_MAX + '자까지예요' };
   return { text: t };
-}
-/* 빈 자리 — 없으면 null(꽉 참). 서버가 고르는 것과 같은 규칙(작은 번호부터). */
-function freeSlot(items){
-  const used = new Set((items || []).map(x => x.id));
-  return SLOTS.find(id => !used.has(id)) || null;
 }
 /* 고정을 옮길 때 pin 을 지워야 하는 다른 공지 id 들 */
 function pinClearIds(items, id){ return (items || []).filter(x => x.pin && x.id !== id).map(x => x.id); }
@@ -229,7 +224,7 @@ function createChatNotice(deps){
     inp.value = '';
     provider.add(room, c.text).then(r => {
       if(!(r && r.ok)){ if(!inp.value) inp.value = raw; failed(r); }
-    }).catch(() => { inp.value = raw; failed(null); });
+    }).catch(() => { if(!inp.value) inp.value = raw; failed(null); });
     return true;
   }
 
@@ -304,7 +299,7 @@ function createChatNotice(deps){
   return { start, stop, open, close, isActive, available, hint, count, submit, paint, onChange, act };
 }
 
-const api = Object.freeze({ TEXT_MAX, SLOT_COUNT, SLOTS, NOTICE_TAB, NOTICE_TAB_NAME, list, pinnedOf, cleanText, freeSlot, pinClearIds, timeText, pinHtml, itemHtml, listHtml, createChatNotice });
+const api = Object.freeze({ TEXT_MAX, SLOT_COUNT, SLOTS, NOTICE_TAB, NOTICE_TAB_NAME, list, pinnedOf, cleanText, pinClearIds, timeText, pinHtml, itemHtml, listHtml, createChatNotice });
 if(typeof window !== 'undefined') window.TwChatNotice = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
