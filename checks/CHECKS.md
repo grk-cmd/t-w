@@ -220,7 +220,7 @@
 | **sim-animal-edit-route.js** | 113 | **05e6088f9a9d** |
 | **sim-seat-slot.js** | 114 | **aea78fc86038** |
 | **sim-fix-1008b.js** | 47 | **a35227963110** |
-| **sim-frame-budget.js** | 204 | **61da1336ba95** |
+| **sim-frame-budget.js** | 204 | **566820956027** |
 | **sim-design-tokens.js** | 39 | **f9371a6fe998** |
 | **sim-help-pages.js** | 167 | **07b35ebdfd76** |
 | **sim-help-search.js** | 174 | **a2d5ac54ad0d** |
@@ -435,7 +435,7 @@
 | **sim-gift-img-retry.js** | 190 | **ce37377a809e** |
 | **sim-gift-save.js** | 137 | **f7be455180d5** |
 | **sim-env-diag.js** | 174 | **8da31de26ec8** |
-| **sim-front-diag.js** | 115 | **2585d0146d44** |
+| **sim-front-diag.js** | 115 | **1e07708938ff** |
 | **sim-gpu-timer.js** | 169 | **1f91f293d33a** |
 | **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
