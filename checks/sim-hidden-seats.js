@@ -22,7 +22,7 @@ const FN_DEPS = ["seatFromObject"];
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["_flyActive"];
 const SET_DEPS = [];
-const EXPORTS = ["_bodyHidden","_clearHiddenSeats","_hiddenSeatIds","_hitsSkipHidden","_preferVisibleHit","_reportHiddenSave","_reportHiddenUids","_seatHidden","_skipFlyingRigs","_skipHiddenDesk"];
+const EXPORTS = ["_bodyHidden","_clearHiddenSeats","_hiddenSeatIds","_hitsSkipHidden","_partSkipped","_preferVisibleHit","_reportHiddenSave","_reportHiddenUids","_seatHidden","_skipFlyingRigs","_skipHiddenDesk","_skipUnhittable"];
 const MOVED = ["_hiddenSeatIds","REPORT_HIDDEN_KEY","REPORT_HIDDEN_MAX","_reportHiddenUids","_reportHiddenSave","_seatHidden","_hitInHiddenDesk","_skipHiddenDesk","_hitInFlyingRig","_skipFlyingRigs","_hitVisible","_preferVisibleHit","_hitsSkipHidden","_clearHiddenSeats"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  _flyActive: ()=>_flyActive,","  seatFromObject: (...a)=>seatFromObject(...a),","  seats: seats,"];
 

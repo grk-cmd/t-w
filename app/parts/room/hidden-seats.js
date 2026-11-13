@@ -5,7 +5,7 @@
      _flyActive 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _clearHiddenSeats · _hiddenSeatIds · _hitsSkipHidden · _preferVisibleHit · _reportHiddenSave · _reportHiddenUids · _seatHidden · _skipFlyingRigs · _skipHiddenDesk — app.js 는 hiddenSeatsMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _clearHiddenSeats · _hiddenSeatIds · _hitsSkipHidden · _partSkipped · _preferVisibleHit · _reportHiddenSave · _reportHiddenUids · _seatHidden · _skipFlyingRigs · _skipHiddenDesk · _skipUnhittable — app.js 는 hiddenSeatsMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwHiddenSeats — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-hidden-seats.js */
@@ -87,6 +87,11 @@ function _skipFlyingRigs(hits){
   if(!_flyActive() || !hits || !hits.length) return hits;   // startFlight 가 바로 올리고, 매 프레임 다시 센다
   return hits.filter(h=>!_hitInFlyingRig(h.object));
 }
+/* 통과 판정이 빼는 조각 한 벌 — 히트 목록(_skipUnhittable)과 조각 하나(_partSkipped · room/seat-hit-targets.js 의 히트 맵)가 같은 규칙을 쓴다 */
+function _partSkipped(obj){
+  return (!!_flyActive() && _hitInFlyingRig(obj)) || _hitInHiddenDesk(obj);
+}
+function _skipUnhittable(hits){ return _skipHiddenDesk(_skipFlyingRigs(hits)); }
 /* 🩹 [2026-10-08 제보 #7] 잡기 — **보이는 것에 맞은 히트를 먼저.** 없으면 예전처럼 첫 히트.
    [증상] 자리비움 이미지를 건 사람 머리 위의 동물을 눌러도 안 내려오고, 그 사람(이미지째)이 흔들린다.
    [원인] 자리비움이면 몸 메시를 visible=false 로 숨기는데(setSeatOpacity) three r128 레이캐스트는 visible 을 안 본다.
@@ -117,12 +122,14 @@ return {
   _clearHiddenSeats,
   _hiddenSeatIds,
   _hitsSkipHidden,
+  _partSkipped,
   _preferVisibleHit,
   _reportHiddenSave,
   _reportHiddenUids,
   _seatHidden,
   _skipFlyingRigs,
   _skipHiddenDesk,
+  _skipUnhittable,
 };
 }
 
