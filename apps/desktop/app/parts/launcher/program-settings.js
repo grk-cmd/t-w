@@ -312,8 +312,7 @@ function closeProgramSettings(){
 document.getElementById('lcProgSettingsBtn').onclick=()=>openProgramSettings('license');
 document.getElementById('progSettingsCloseBtn').onclick=()=>closeProgramSettings();
 
-twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기 · 라이선스 요청이 이 통로로 연다 · 닫는다
-twNav.on(twNav.NAV.PROGRAM_SETTINGS_CLOSE, closeProgramSettings);
+twNav.on(twNav.NAV.PROGRAM_SETTINGS, openProgramSettings);   // 🧭 꾸미기가 이 통로로 연다
 refreshAppVersionUI();
 return {
   closeProgramSettings,
