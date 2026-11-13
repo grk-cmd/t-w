@@ -2560,14 +2560,15 @@ const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
   getCard: (...a)=>firebaseAPI.getFriendCard(...a),
   watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),   // 친구 한 명 프로필 구독 — 목록이 열려 있는 동안만
   getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),       // 같은 칸 한 번 — 마이홈 구경
+  remove: (...a)=>firebaseAPI.removeFriend(...a),               // 친구 끊기(옛 길)
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   clearTimer: (id)=>clearTimeout(id),
   now: ()=>Date.now(),
 });
+const socialApiMod = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 · 친구 요청 · 명함 서버 길(social-api.js)
 const friendsApiMod = TwFriendsApi.createFriendsApi({
-  get: (...a)=>firebaseAPI.apiGetAuthed(...a),   // 로그인 API 통로(firebase-init.js — 토큰은 거기서 붙인다)
-  getCard: (...a)=>firebaseAPI.fetchUserCardApi(...a),   // 친구 한 명 명함 — 공개 읽기 통로(api-public-reads.js)
-  wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
+  social: socialApiMod,
+  rt: TwRtHub.store,   // 알림 friends · card 를 받으면 다시 받는다
   warn: (...a)=>console.warn(...a),
 });
 const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
@@ -2775,6 +2776,8 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
   mallangMod: mallangMod,
+  // 👥 친구 끊기 — 포트가 서버 · 옛 길을 고른다
+  removeFriend: (...a)=>friendsPortMod.removeFriend(...a),
 });
 /* ═══ 🏠 마이홈 창 버튼 연결(bindMyHomeUI) ═══ */
 /* 본문은 myhome-ui.js 로 옮겼다(앱 FSD 22번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.

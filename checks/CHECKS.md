@@ -97,7 +97,7 @@
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
 | **sim-friends-sub.js** | 702 | **89f0e388608f** |
-| **sim-friends-port.js** | 435 | **b68362babc3c** |
+| **sim-friends-port.js** | 463 | **8cb70636b4c2** |
 | **sim-friends-presence-rt.js** | 358 | **b2c59182bc84** |
 | **sim-social-api.js** | 275 | **b09703f4c150** |
 | **sim-friend-profile-live.js** | 248 | **4fde2914e1f1** |
@@ -282,7 +282,7 @@
 | **sim-remote-config.js** | 518 | **a4e852c90ba6** |
 | **sim-source-switch.js** | 128 | **f2e8951a398b** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
-| **sim-myhome-inbox.js** | 719 | **39cdcc02008f** |
+| **sim-myhome-inbox.js** | 719 | **b5af6b31da01** |
 | **sim-playlist.js** | 1059 | **48e909b5074d** |
 | **sim-playlist-api.js** | 307 | **f8441a9d1075** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |

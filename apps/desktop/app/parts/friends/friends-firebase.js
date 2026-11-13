@@ -5,9 +5,9 @@
    deps: getList(myId) → Promise<{친구id:{addedAt}}>(users/{나}/friends 한 번) · watchList(myId, onChange, onError) → 해제 함수(목록 구독 하나) ·
          getCard(fid) → Promise<{ profile, bio, avatar }>(날것) ·
          watchProfile(fid, onChange(날것)) → 해제 함수(users/{fid}/profile 구독) · getProfile(fid) → Promise<날것>(같은 칸 한 번) ·
-         setTimer(fn, ms) → id · clearTimer(id) · now() → ms
+         remove(myId, fid) → Promise(친구 끊기 — 양쪽 목록에서 지움) · setTimer(fn, ms) → id · clearTimer(id) · now() → ms
    내보냄: createFriendsFirebase(deps) → { listFriends(myId, opts) · readFriend(fid) · watchList(myId, onChange, onError) ·
-         watchProfile(myId, ids, onChange) · readProfile(fid) }
+         watchProfile(myId, ids, onChange) · readProfile(fid) · removeFriend(myId, fid) }
      순수: cardOf(raw) · profileOf(raw) · PROFILE_BATCH_MS · CARD_KEEP_MS (TwFriendsFirebase 위)
    ⚠️ 프로필 콜백은 친구 수만큼 한꺼번에 온다 — PROFILE_BATCH_MS 창에 한 번만 넘긴다(스로틀 · 뒷날. 디바운스면 계속 오는 동안 영영 안 그린다).
    ⚠️ 듣거나 새로 읽은 프로필은 카드 기억(_cards)에도 얹는다 — 안 그러면 10분 안에 목록을 다시 열 때 기억해 둔 옛 이름이 돌아온다.
@@ -39,6 +39,7 @@ function createFriendsFirebase(deps){
   const getCard = deps.getCard;
   const watchProfileOne = deps.watchProfile;
   const getProfile = deps.getProfile;
+  const remove = deps.remove;
   const setTimer = deps.setTimer;
   const clearTimer = deps.clearTimer;
   const now = deps.now;
@@ -95,8 +96,9 @@ function createFriendsFirebase(deps){
   }
   function watchProfile(myId, ids, onChange){ return _watchEach(ids, watchProfileOne, _keepProfile, onChange); }
   async function readProfile(fid){ return _keepProfile(fid, await getProfile(fid)); }
+  function removeFriend(myId, fid){ return remove(myId, fid); }
 
-  return { listFriends, readFriend, watchList, watchProfile, readProfile };
+  return { listFriends, readFriend, watchList, watchProfile, readProfile, removeFriend };
 }
 
 const api = { createFriendsFirebase, cardOf, profileOf, PROFILE_BATCH_MS, CARD_KEEP_MS };
