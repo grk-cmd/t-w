@@ -15,6 +15,10 @@ const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["wardrobe.js","parts/character/wardrobe.js","app/parts/character/wardrobe.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — wardrobe.js'); process.exit(2); }
+/* 😴 닫힌 창 반복 재우기(shared/idle-gate.js) — 모듈이 만들 때 미리보기 반복을 건다. 진짜 파일을 가짜 MutationObserver 위에 싣는다. */
+const GATE_SRC = ["idle-gate.js","parts/shared/idle-gate.js","app/parts/shared/idle-gate.js"].map(read).find(Boolean);
+if(!GATE_SRC){ say('  ? 원본 못 찾음 — idle-gate.js'); process.exit(2); }
+const GATE = (() => { const w = { MutationObserver: class { observe(){} disconnect(){} } }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; })();
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["layoutSeats","_attachHumanEars","_disposeWrapperFromSeat","_hsvToHex","_invalidatePendingEquip","_mkFrontFill","_rgbHexToHsv","_sweepOrphanPartWrappers","_wdLicenseDesks","addEntryToCat","addPartEntryInstance","applyClothVisibility","applyEquippedPartsToSeat","applyHueTint","applyPartXf","baseFlatOf","bindReorderHandle","boneSide","charFootFix","clampCharY","defToBase","defaultPartXf","entriesForCat","equipPartOnSeat","escHtml","findEntryById","findMySeat","firstEntryForCat","floorClampWrapper","getCommissionScene","groupOfCat","isDeskPartCat","isHueTintMesh","measureCharBox","openAssetImport","partCatInfo","partEntryId","partEntryInstanceCount","partEntryInstances","partEntryXf","partsInCat","partsInCatFor","partsInGroup","pruneSeatPartsAgainstDef","refitSeatAfterParts","removeEntryFromCat","removePartEntryInstance","reorderSavedPart","saveSlots","setPartEntryInstanceXf","toast","unequipStackablePart","_humanEarMat","_humanEarPic","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskDotThumb","clampDeskScale","resolveCatalogGlb","setDeskScale","swThumb"];
@@ -32,7 +36,8 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, env){
+  env = env || {};
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
@@ -42,8 +47,8 @@ function build(src){
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    src + '\nreturn window.TwWardrobe;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwIdleGate',
+    src + '\nreturn window.TwWardrobe;')(win, env.document || any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, env.requestAnimationFrame || (() => 0), any, () => {}, () => {}, undefined, env.TwIdleGate || GATE);
   return api.createWardrobe(deps);
 }
 
@@ -153,6 +158,41 @@ function deskTab(mod){
   caught = false;
   if(noLic){ noLic.render(noLic.el()); await noLic.cards.find(c => c.label === '전용').onclick(); await noLic.settle(); caught = noLic.log.layout === 0; }
   chk(caught, '  깨 보기 — 전용 책상 카드가 좌석 줄을 안 잡으면 잡힌다');
+  say('── 5. 닫힌 미리보기 창은 rAF 를 걸지 않는다 — 열리면 다음 rAF 에 다시(가짜 rAF · 가짜 MutationObserver)');
+  const sleepRows = (mod) => {
+    const r = [], t = (ok, msg) => r.push([!!ok, msg]);
+    const st = { q: [], obs: [], cls: new Set() };
+    const MO = class { constructor(fn){ this.fn = fn; } observe(el, o){ if(el === panel && o && o.attributeFilter && o.attributeFilter.includes('class')) st.obs.push(this.fn); } disconnect(){} };
+    const any = anything();
+    const panelCls = { contains: (c) => st.cls.has(c), add(){}, remove(){}, toggle(){} };
+    const panel = new Proxy({}, { get: (o, k) => k === 'classList' ? panelCls : any, set: () => true });
+    const doc = new Proxy({}, { get: (o, k) => k === 'getElementById' ? ((id) => id === 'wdPreviewPanel' ? panel : any) : any });
+    const flip = (on) => { on ? st.cls.add('on') : st.cls.delete('on'); st.obs.forEach(f => f([])); };
+    const step = (n) => { for(let i = 0; i < n; i++){ const q = st.q; st.q = []; q.forEach(f => f(i)); } };
+    const G = (() => { const w = { MutationObserver: MO }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; })();
+    try{ build(mod, { document: doc, requestAnimationFrame: (f) => { st.q.push(f); return st.q.length; }, TwIdleGate: G }); }
+    catch(e){ t(false, '가짜 미리보기 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
+    t(st.q.length === 0, '★ 닫힌 채 만들면 rAF 를 걸지 않는다(예전: 주사율마다 깨어나 클래스만 봄)');
+    step(600);
+    t(st.q.length === 0, '  닫힌 10초 동안 그대로');
+    flip(true);
+    t(st.q.length === 1, '★ 열리면(class 변화) 그 자리에서 rAF 하나 — 다음 장에 바로 그린다');
+    step(60);
+    t(st.q.length === 1, '  열려 있는 동안은 매 rAF 다시 건다');
+    flip(false); step(1);
+    t(st.q.length === 0, '★ 닫히면 다음 rAF 에서 멈춘다');
+    flip(true); flip(true);
+    t(st.q.length === 1, '  다시 열어도 반복은 한 벌');
+    return r;
+  };
+  sleepRows(MOD).forEach(([ok, msg]) => chk(ok, msg));
+  for(const [nm, m2] of [
+    ['닫혀도 계속 rAF', MOD.replace("isOn: ()=>p.classList.contains('on'),", 'isOn: ()=>true,')],
+    ['열려도 안 깨움', MOD.replace('TwIdleGate.onClassChange(p, ()=>loop.wake());', '')],
+  ]){
+    let r2; try{ r2 = sleepRows(m2); }catch(_){ r2 = [[false, '던짐']]; }
+    chk(m2 !== MOD && r2.some(([ok]) => !ok), '  깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+  }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);
 })();
