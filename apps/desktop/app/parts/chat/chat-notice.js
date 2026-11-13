@@ -76,6 +76,7 @@ function itemHtml(it, st, escHtml){
     '</div></div>';
 }
 function listHtml(items, st, escHtml){
+  if(!items.length && st.failed) return '<div class="cn-empty">공지를 불러오지 못했어요<br><small>잠시 뒤 채팅창을 다시 열어 주세요</small></div>';
   if(!items.length){
     return '<div class="cn-empty">아직 공지가 없어요' + (st.host ? '<br><small>아래 입력칸에 쓰고 Enter 를 누르면 공지로 올라가요 · 채팅에는 안 나와요</small>' : '') + '</div>';
   }
@@ -121,6 +122,7 @@ function createChatNotice(deps){
   let items = [];
   let unsub = null;
   let subRoom = null;
+  let loadFailed = false;   // 서버 읽기 실패 — «공지 없음» 과 다르게 그린다
   let active = false;     // #공지 탭을 보고 있다
   let editId = null;      // 고치는 중인 공지
   let delId = null;       // 지울지 묻는 중인 공지(그 칸 안에서 «정말?» — 따로 창을 띄우지 않는다)
@@ -154,7 +156,7 @@ function createChatNotice(deps){
   function paintList(){
     const box = $('chatNotices'); if(!box) return;
     if(!active){ box.textContent = ''; return; }
-    box.innerHTML = listHtml(items, { host: isHost(), editId, delId }, escHtml);
+    box.innerHTML = listHtml(items, { host: isHost(), editId, delId, failed: loadFailed }, escHtml);
     const inp = box.querySelector('.cn-edit-in');
     if(inp){ inp.focus(); inp.select(); }
   }
@@ -168,7 +170,7 @@ function createChatNotice(deps){
   /* 채팅창을 열 때 · 방이 바뀔 때 — 시크릿룸이면 공지를 구독한다(창이 열려 있는 동안만). */
   function stop(){
     if(unsub){ try{ unsub(); }catch(_){} unsub = null; }
-    subRoom = null; items = []; editId = null; delId = null;
+    subRoom = null; items = []; editId = null; delId = null; loadFailed = false;
     if(active){ active = false; changed(); }
     paint();
   }
@@ -177,9 +179,13 @@ function createChatNotice(deps){
     if(!available()){ if(unsub || active || items.length) stop(); return; }
     if(unsub && subRoom === room) { paint(); return; }
     if(unsub){ try{ unsub(); }catch(_){} unsub = null; }
-    subRoom = room; items = []; editId = null; delId = null;
+    subRoom = room; items = []; editId = null; delId = null; loadFailed = false;
     unsub = provider.subscribe(room, raw => {
-      if(raw === null) return;   // 읽기 실패 — 있던 화면을 지우지 않는다
+      if(raw === null){   // 읽기 실패 — «공지 없음» 과 구분해 그린다 · 구독은 이미 끊겨서 다음 start() 가 다시 건다
+        loadFailed = true; unsub = null; paint();
+        return;
+      }
+      loadFailed = false;
       items = list(raw);
       if(editId && !items.some(x => x.id === editId)) editId = null;
       if(delId && !items.some(x => x.id === delId)) delId = null;

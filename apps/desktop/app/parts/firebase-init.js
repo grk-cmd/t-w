@@ -3264,8 +3264,8 @@
                                serverTs: () => serverTimestamp(),
                                getDailyMax: () => _rc ? _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }).then(() => _rc.bugDailyMax()) : null,
                                authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
-    /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatNotice: window.TwChatNoticeNet.createChatNoticeNet({ db, ref, update, remove, set, onValue, off, runTransaction }),   // 📢 시크릿룸 공지 읽기 · 쓰기(경로 · 이유는 chat-notice-net.js)
+    /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
       subscribeSince: (room, tab, since, onMsg, onReady) => window.firebaseAPI.subscribeChatSince(room, tab, since, onMsg, onReady),

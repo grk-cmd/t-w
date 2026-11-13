@@ -18,11 +18,11 @@ function createChatNoticeNet(d){
   const now = d.now || (() => Date.now());
   const path = (room, id) => 'rooms/' + room + '/_notice' + (id ? '/' + id : '');
 
-  /** 공지 전체를 구독 — cb(객체 · 비면 {}). 돌려주는 함수가 구독 해제. */
+  /** 공지 전체를 구독 — cb(객체 · 비면 {} · 읽기 실패면 null). 돌려주는 함수가 구독 해제. */
   function subscribe(room, cb){
     if(!room) return () => {};
     const r = ref(db, path(room));
-    onValue(r, snap => cb(snap.val() || {}));
+    onValue(r, snap => cb(snap.val() || {}), () => cb(null));
     return () => off(r, 'value');
   }
   async function add(room, text){

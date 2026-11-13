@@ -153,15 +153,20 @@ async function judge(src, extra){
     t(k.counts().unsubs === before + 1 && k.c.count() === 0 && !k.doc.els.chatPin.classList.contains('on'), '멈추기 — 구독 해제 · 목록 비움 · 위 줄 숨김');
     const kr = mkCtl(src); kr.c.start(); kr.push(RAW); kr.push(null);
     t(kr.c.count() === 3, '읽기 실패(null)가 와도 있던 공지를 지우지 않는다');
+    const ke = mkCtl(src); ke.c.start(); ke.c.open(); ke.push(null);
+    t(/불러오지 못했어요/.test(ke.doc.els.chatNotices.innerHTML) && !/아직 공지가 없어요/.test(ke.doc.els.chatNotices.innerHTML), '읽기 실패는 «공지 없음» 이 아니라 «불러오지 못했어요» 로 그린다');
+    ke.c.start(); await tick();
+    t(ke.counts().subs === 2, '  끊긴 구독은 다음 start() 에서 다시 건다');
+    ke.push({}); t(/아직 공지가 없어요/.test(ke.doc.els.chatNotices.innerHTML), '  다시 받으면 정상(빈 목록은 «아직 공지가 없어요»)');
     /* 5절 일부 — net */
     if (extra) {
       const N = loadWin(extra.net, {}).TwChatNoticeNet;
-      const store = { v: {} }, log = [];
+      const store = { v: {} }, log = [], cancels = [];
       const db = {}, ref = (d, p) => ({ p: p === undefined ? '' : p });
       const rt = async (r, fn) => { const next = fn(store.v[r.p] ? JSON.parse(JSON.stringify(store.v[r.p])) : null); if (next === undefined) return { committed: false }; store.v[r.p] = next; return { committed: true }; };
       const net = N.createChatNoticeNet({ db, ref, runTransaction: rt, now: () => 777,
         update: async (_, w) => { log.push(['update', w]); }, remove: async (r) => { log.push(['remove', r.p]); }, set: async (r, v) => { log.push(['set', r.p, v]); },
-        onValue: (r, f) => { log.push(['on', r.p]); f({ val: () => null }); }, off: (r, e) => { log.push(['off', r.p, e]); } });
+        onValue: (r, f, c) => { log.push(['on', r.p]); f({ val: () => null }); if(c) cancels.push(c); }, off: (r, e) => { log.push(['off', r.p, e]); } });
       const a1 = await net.add('SCRT-AB12', '가'), a2 = await net.add('SCRT-AB12', '나');
       t(a1.ok && a1.id === 'n1' && a2.id === 'n2' && store.v['rooms/SCRT-AB12/_notice'].n1.ts === 777, '서버 — 빈 자리(작은 번호부터)에 { text, ts } 로 쓴다');
       for (let i = 3; i <= 20; i++) await net.add('SCRT-AB12', 'x' + i);
@@ -177,6 +182,7 @@ async function judge(src, extra){
       t(log[2][1] === 'rooms/SCRT-AB12/_notice/n3/text' && log[2][2] === '고침' && log[3][1] === 'rooms/SCRT-AB12/_notice/n4', '  고치기는 text 만 · 지우기는 그 칸만');
       log.length = 0; const off = net.subscribe('SCRT-AB12', () => {}); off();
       t(log[0][0] === 'on' && log[0][1] === 'rooms/SCRT-AB12/_notice' && log.some((x) => x[0] === 'off' && x[2] === 'value'), '  구독은 공지 노드 하나 · 해제하면 off');
+      { const got = []; log.length = 0; cancels.length = 0; net.subscribe('SCRT-AB12', (x) => got.push(x)); cancels[0] && cancels[0](); t(JSON.stringify(got) === '[{},null]', '  읽기 권한 거절(cancel)은 null 로 알린다(빈 {} 와 구분)'); }
       const bad = N.createChatNoticeNet({ db, ref, runTransaction: async () => { throw new Error('net'); }, update: async () => { throw new Error('x'); }, remove: async () => { throw new Error('x'); }, set: async () => { throw new Error('x'); }, onValue(){}, off(){} });
       t((await bad.add('SCRT-AB12', 'x')).ok === false && (await bad.pin('SCRT-AB12', 'n1', true, [])).ok === false && !('reason' in (await bad.add('SCRT-AB12', 'x'))) || (await bad.add('SCRT-AB12', 'x')).reason === undefined, '  서버 오류는 던지지 않고 { ok:false } — 기술 문구는 안 싣는다');
     }
@@ -193,6 +199,24 @@ function wire(S){
   w(!!R && R['.write'] === true && !!R.$nid, '규칙 — rooms/$room/_notice 가 있다(_ 로 시작 — 방 인원으로 안 센다)');
   const V = (R.$nid || {})['.validate'] || '';
   w(/\$room\.matches\(\/\^SCRT-\/\)/.test(V) && /n\(\[1-9\]\|1\[0-9\]\|20\)/.test(V) && /length >= 1/.test(V) && /length <= 300/.test(V) && /pin'\)\.val\(\) === true/.test(V) && R.$nid.$other['.validate'] === false && Object.keys(R.$nid).filter((x) => x[0] !== '.').sort().join() === '$other,pin,text,ts', '  시크릿룸 코드만 · n1~n20 만 · 글 1~300자 · pin 은 true 만 · 모르는 칸 거절');
+  /* 규칙식을 실제로 굴린다 — 앱이 보내는 모양(트랜잭션 노드 통째 · text 만 · pin true · 칸 하나)을 넣어 통과 · 거절을 본다 */
+  const snap = (val) => ({
+    exists: () => val !== null && val !== undefined, val: () => val,
+    isNumber: () => typeof val === 'number', isString: () => typeof val === 'string',
+    hasChildren: (ks) => ks.every((k) => val && val[k] !== undefined),
+    child: (k) => snap(val && val[k] !== undefined ? val[k] : null),
+  });
+  const judge = (room, nid, val) => {
+    const expr = String(V).replace(/\$(room|nid)\.matches\((\/(?:\\.|[^\/])+\/)\)/g, '$2.test($$$1)');
+    return new Function('$room', '$nid', 'newData', 'return (' + expr + ');')(room, nid, snap(val));
+  };
+  const ok1 = (room, nid, val) => { try { return judge(room, nid, val) === true; } catch (e) { return false; } };
+  const T = 1700000000000, SR = 'SCRT-AB12', long = (n) => 'ㄱ'.repeat(n);
+  w(ok1(SR, 'n1', { text: '공지', ts: T }) && ok1(SR, 'n20', { text: '공지', ts: T, pin: true }) && ok1(SR, 'n7', { text: long(300), ts: T }), '규칙 실행 — 통과: 새 공지(트랜잭션) · 고정된 칸 · n20 · 300자');
+  w(!ok1('WORK-AB12', 'n1', { text: '공지', ts: T }) && !ok1('ROOM-AB12', 'n1', { text: '공지', ts: T }), '  거절: 시크릿룸이 아닌 방');
+  w(!ok1(SR, 'n21', { text: '공지', ts: T }) && !ok1(SR, 'n0', { text: '공지', ts: T }) && !ok1(SR, 'x1', { text: '공지', ts: T }), '  거절: n1~n20 밖의 칸 이름');
+  w(!ok1(SR, 'n1', { text: long(301), ts: T }) && !ok1(SR, 'n1', { text: '', ts: T }) && !ok1(SR, 'n1', { text: 5, ts: T }) && !ok1(SR, 'n1', { ts: T }) && !ok1(SR, 'n1', { text: '공지' }) && !ok1(SR, 'n1', { text: '공지', ts: '1' }), '  거절: 301자 · 빈 글 · 글자 아님 · text 없음 · ts 없음 · ts 숫자 아님');
+  w(!ok1(SR, 'n1', { text: '공지', ts: T, pin: false }) && !ok1(SR, 'n1', { text: '공지', ts: T, pin: 1 }), '  거절: pin 이 true 가 아닌 값(풀 때는 칸을 지운다)');
   w(!/import[^\n]*chat-notice-net/.test(S.fi) && /window\.TwChatNoticeNet\.createChatNoticeNet\(\{ db, ref, update, remove, set, onValue, off, runTransaction \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄만(전역 TwChatNoticeNet · 데이터 통로의 set · remove · onValue 를 그대로 넘김)');
   const H = S.html;
   const iNet = H.indexOf('<script src="parts/chat/chat-notice-net.js"'), iMod = H.indexOf('<script src="parts/chat/chat-notice.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"'), iFi = H.indexOf('<script type="module" src="parts/firebase-init.js"');
@@ -230,7 +254,9 @@ function wire(S){
     ['mod', "    else if(name === 'del') askDelete(id);\n", "    else if(name === 'del') doDelete(id);\n", '지우기가 묻지 않고 바로 지움'],
     ['mod', "    inp.value = '';\n    provider.add(", "    provider.add(", '올린 뒤에도 입력칸이 안 비워짐'],
     ['mod', "if(!(r && r.ok)){ inp.value = raw; failed(r); }", "if(!(r && r.ok)){ failed(r); }", '못 올렸는데 친 글을 안 돌려줌'],
-    ['mod', "if(raw === null) return;", "", '읽기 실패가 있던 공지를 지움'],
+    ['mod', "loadFailed = true; unsub = null; paint();", "items = list(raw); paint();", '읽기 실패를 «공지 없음» 으로 그림'],
+    ['mod', "loadFailed = true; unsub = null; paint();", "loadFailed = true; paint();", '끊긴 구독을 다시 걸지 않음'],
+    ['net', "onValue(r, snap => cb(snap.val() || {}), () => cb(null));", "onValue(r, snap => cb(snap.val() || {}));", '읽기 거절을 알리지 않음'],
     ['net', "id = NOTICE_SLOTS.find(k => !t[k]) || null;", "id = NOTICE_SLOTS.find(k => !t[k]) || 'n1';", '꽉 차도 첫 자리를 덮어씀'],
     ['net', "(clearIds || []).forEach(k => { if(k !== id) w[path(room, k) + '/pin'] = null; });", '', '고정이 다른 pin 을 안 지움'],
     ['net', "w[path(room, id) + '/pin'] = on ? true : null;", "w[path(room, id) + '/pin'] = on;", '풀 때 pin:false 를 씀(규칙은 true 만 받는다)'],

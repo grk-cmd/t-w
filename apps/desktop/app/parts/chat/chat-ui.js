@@ -1357,7 +1357,6 @@ return {
   FLY_COLOR_LEVEL,
   _bindChatCopy,
   _bindChatTabs,
-  _chatAsk,
   _chatNoticeHint,
   _chatClearNow,
   _chatClearUndo,
