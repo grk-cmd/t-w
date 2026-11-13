@@ -5,6 +5,7 @@
      만들 때 deps 함수를 되부르지 않는다 — 만드는 도중엔 app.js 의 statusChipMod 가 아직 없어(TDZ) 되부른 refreshMyStatusUI 가 던졌다(상태를 저장해 둔 사람은 app.js 가 통째로 멈춘 사고)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 33줄 그대로 · 부르는 곳은 statusChipMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 칩 자리 한 번에 칩 크기는 한 번만 잰다(그 사이 쓰기가 없어 두 번째 재기는 같은 값) · 깨 보기
    [실행] app.js · desk-companion-prototype.html · status-chip.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -33,7 +34,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, doc, over){
   build.called = [];
   const any = anything();
   const deps = {};
@@ -41,11 +42,12 @@ function build(src){
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
+  Object.assign(deps, over || {});
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
-    src + '\nreturn window.TwStatusChip;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
+  const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'innerWidth', 'innerHeight',
+    src + '\nreturn window.TwStatusChip;')(win, doc || any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, 1000, 800);
   return api.createStatusChip(deps);
 }
 
@@ -97,6 +99,25 @@ for(const [name, fm, fa, fh] of breaks){
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+say('── 4. 칩 크기는 한 번만 잰다');
+/* 칩 getBoundingClientRect 를 센다 — 나머지는 아무거나 받아 주는 가짜. 크기 읽기는 라벨을 적은 뒤라 첫 읽기가 강제 레이아웃이고,
+   그 뒤로 쓰기가 없으니 두 번째 읽기는 같은 값을 다시 가져올 뿐이다 */
+function chipRectReads(src){
+  const any = anything();
+  let n = 0;
+  const chip = { style: {}, classList: { contains: () => false, toggle: () => {} }, getBoundingClientRect(){ n++; return { left: 0, top: 0, right: 28, bottom: 98, width: 28, height: 98 }; } };
+  const doc = new Proxy({}, { get: (t, k) => k === 'getElementById' ? (id => id === 'myStatusChip' ? chip : null) : any });
+  const mod = build(src, doc, { moveMode: () => false, _officeHidden: () => false, _charBadWhy: () => null });
+  mod.updateMyStatusChipPosition();
+  return { n, left: chip.style.left, top: chip.style.top };
+}
+{
+  const r = chipRectReads(MOD);
+  chk(r.n === 1 && r.left !== undefined, '★ 칩 자리 한 번에 칩 크기 읽기 ' + r.n + '번 · 자리는 적었다(left ' + r.left + ')');
+  const broken = MOD.replace('const chipW = chipW0, chipH = chipH0;', 'const chipRect = chip.getBoundingClientRect();\n  const chipW = chipRect.width || chipW0, chipH = chipRect.height || chipH0;');
+  const r2 = broken !== MOD ? chipRectReads(broken) : { n: 0 };
+  chk(broken !== MOD && r2.n === 2, '깨 보기 — 두 번 재던 옛 길이면 ' + r2.n + '번');
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
