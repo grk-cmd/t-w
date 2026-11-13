@@ -77,7 +77,7 @@ chk(F.isFrameLine('[GL] 복구') === false && F.isFrameLine('x [프레임]') ===
   if (fbSrc) {
     const w = {}; new Function('window', 'module', fbSrc)(w, undefined);
     const line = w.FrameBudget.diagLine({ ms: 60000, frames: 1200, focusedShare: 0, cap: 20, pr: 1.5, w: 2880, h: 1620, q: 'sharp' });
-    chk(F.isFrameLine(line) && (line + F.suffix({ samples: 120, fullShare: 1, exe: 'game.exe' })).length <= 200, 'frame-budget 의 진짜 [프레임] 줄을 알아보고 꼬리를 붙여도 짧다(로그 회전 256KB)');
+    chk(F.isFrameLine(line) && (line + F.suffix({ samples: 120, fullShare: 1, exe: 'game.exe' })).length <= 200, 'frame-budget 의 진짜 [프레임] 줄을 알아보고 꼬리를 붙여도 짧다(로그는 상한에서 돌려 쓴다)');
   } else chk(false, 'frame-budget.js 못 찾음');
 }
 
