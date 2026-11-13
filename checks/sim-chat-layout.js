@@ -63,6 +63,9 @@ function judge(html, quiet){
   c(mf.basis != null && /^0(px|%)?$/.test(mf.basis), '★ 기준 크기 0 — auto 면 대화가 쌓일수록 위 줄(탭)을 눌러 없앤다 — 지금: ' + mf.basis);
   c(/^(auto|scroll)$/.test(prop(msgs, 'overflow-y') || prop(msgs, 'overflow') || ''), '넘치는 대화는 이 칸 안에서 세로 스크롤');
   c(/^\d+px$/.test(prop(msgs, 'min-height') || ''), '최소 높이가 있다(창을 줄여도 대화 칸이 0 이 되지 않게)');
+  const ntc = rulesFor(css, '.chat-notices');
+  const nf = flexParts(ntc);
+  c(nf.grow === '1' && nf.basis != null && /^0(px|%)?$/.test(nf.basis) && /^\d+px$/.test(prop(ntc, 'min-height') || '') && /^(auto|scroll)$/.test(prop(ntc, 'overflow-y') || prop(ntc, 'overflow') || ''), '📢 #공지 본문(.chat-notices)도 같다 — flex 1 1 0 · 최소 높이 · 안에서 스크롤(대화 칸 자리를 대신 받는다)');
 
   if (!quiet) say('§2 창 (#chatWindow) · 창 안 줄');
   const win = rulesFor(css, '#chatWindow');
@@ -71,7 +74,7 @@ function judge(html, quiet){
   const kids = windowChildren(html);
   c(kids.some(k => k.cls.includes('chat-tabs')) && kids.some(k => k.cls.includes('chat-messages')), '탭 줄 · 대화 칸이 창의 직계 자식이다(마크업 읽기)');
   kids.forEach(k => {
-    if (k.cls.includes('chat-messages')) return;
+    if (k.cls.includes('chat-messages') || k.cls.includes('chat-notices')) return;   // 📢 #공지 본문은 대화 칸 자리를 대신 받는다 — 아래 §1 이 같은 규칙(flex 1 1 0 · 최소 높이)을 본다
     const body = k.cls.map(x => rulesFor(css, '.' + x)).concat(k.id ? [rulesFor(css, '#' + k.id)] : []).join(';');
     const pos = prop(body, 'position'), ov = prop(body, 'overflow') || prop(body, 'overflow-y');
     if (pos === 'absolute' || pos === 'fixed') return;   // 흐름 밖 — 눌리지 않는다

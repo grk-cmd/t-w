@@ -39,6 +39,7 @@ const CODES = {
   'E-MH-01': { msg: '도움말을 불러오지 못했어요 — 인터넷 연결을 확인하고 다시 시도해 주세요', where: 'myhome/help-tab.js — 도움말 탭 틀에서 페이지 알림이 시간 안에 안 옴(LOAD_MS)' },
   'E-MH-02': { msg: '배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요', where: 'myhome/mh-bg-url.js — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만)' },
   'E-MH-03': { msg: '온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요', where: 'myhome/presence-lock.js — 🔒 고정 · 고정 중 토글 저장(savePresencePref · presencePref/{uid})' },
+  'E-CHAT-01': { msg: '공지를 저장하지 못했어요 — 잠시 뒤에 다시 해 주세요', where: 'chat/chat-notice.js — 시크릿룸 #공지 탭에서 공지 쓰기 · 고치기 · 지우기 · 고정이 서버에 안 닿음' },
   'E-MH-04': { msg: '임시저장하지 못했어요 — 이 PC 의 저장 공간을 확인해 주세요', where: 'support/bug-board-ui.js — 버그 제보 📝 임시저장(localStorage tw.bugDrafts 쓰기 실패)' },
   'E-ROOM-01': { msg: '방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'room/room-entry.js — 랜덤 참여 · 갈아타기 (findRandomRooms)' },
   'E-ROOM-02': { msg: '방을 옮기지 못했어요 — 참여를 다시 눌러 주세요', where: 'room/room-entry.js — 갈아타기 뒤 방 밖에 남음' },

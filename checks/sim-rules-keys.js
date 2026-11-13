@@ -54,6 +54,7 @@ const KIND = {
   '/rooms/$room/chatLog/$msgId': 'other',
   '/rooms/$room/_chatTab/$tabId': 'own',
   '/rooms/$room/_chatTab/$tabId/$msgId': 'other',
+  '/rooms/$room/_notice/$nid': 'own',
   '/rooms/$room/_photo/slots/$i': 'own',
   '/rooms/$room/_photo/frames/$i': 'own',
   '/rooms/$room/_photo/p/$i': 'own',

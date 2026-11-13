@@ -69,7 +69,7 @@ function world(src, opts){
     officeMode: () => false, findMySeat: () => null, getMyUserId: () => ME, getDisplayName: () => '나', toast(){},
     _chatEsc: (s) => String(s), escHtml: (s) => String(s), _chatLinkify: (s) => s,
     _chatLogCache: () => cache, setChatLogCache: (v) => { cache = v; }, _chatLogUnsub: () => null, setChatLogUnsub(){},
-    CHAT_WIN_POS_KEY: () => 'tw.chatWinPos', bringWinToFront(){}, demojiCatalog: { DIR: '', LIST: [], BY_ID: {}, BY_CMD: {} }, seats: [], _myHomeData: () => null, isAdmin: () => false,
+    CHAT_WIN_POS_KEY: () => 'tw.chatWinPos', bringWinToFront(){}, demojiCatalog: { DIR: '', LIST: [], BY_ID: {}, BY_CMD: {} }, chatNotice: { onChange(){}, isActive: () => false, available: () => false, submit: () => false, start(){}, stop(){}, count: () => 0, open(){}, close(){}, hint: () => '' }, seats: [], _myHomeData: () => null, isAdmin: () => false,
   }, { get: (t, k) => (k in t ? t[k] : (() => any)) });
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'ChatTabs', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'TwSafeHtml', 'module',
     src + '\nreturn window.TwChatUi;')(win, doc, ls, any, fb, tabsApi, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, undefined);

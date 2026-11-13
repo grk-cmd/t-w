@@ -726,6 +726,33 @@
   .chat-ask-win .ca-foot button{padding:3px 10px;font-size:11px;cursor:pointer;font-family:var(--tw-font-legacy);color:var(--ink);
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .chat-ask-win .ca-foot button.danger{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
+  /* 📢 시크릿룸 공지(chat-notice.js) — 고정 한 줄(.chat-pin) · #공지 탭 본문(.chat-notices) · .notice-mode 일 때 채팅 본문 대신 보인다 */
+  .chat-pin{display:none;flex-shrink:0;align-items:center;gap:5px;margin:4px 6px 0;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--tw-ink);
+    background:var(--tw-bg-star);border:1px solid var(--tw-line);border-radius:var(--win-radius-el) !important;}
+  .chat-pin.on{display:flex;}
+  .chat-pin .cp-ico{flex-shrink:0;}
+  .chat-pin .cp-clip{flex:1;min-width:0;overflow:hidden;white-space:nowrap;}
+  .chat-pin .cp-text{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .chat-pin:hover .cp-text.long{overflow:visible;text-overflow:clip;width:max-content;animation:cp-flow 8s ease-in-out .3s infinite;}
+  @keyframes cp-flow{0%,15%{transform:translateX(0)}50%,65%{transform:translateX(var(--cp-d))}100%{transform:translateX(0)}}
+  @media (prefers-reduced-motion: reduce){.chat-pin:hover .cp-text.long{animation:none;overflow:hidden;text-overflow:ellipsis;width:auto;}}
+  .chat-notices{display:none;margin:0 6px;flex:1 1 0;min-height:60px;overflow-y:auto;padding:6px;background:#fff;font-size:var(--chat-font, 12px);color:var(--tw-ink);
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  #chatWindow.notice-mode .chat-notices{display:block;}
+  #chatWindow.notice-mode .chat-messages,
+  #chatWindow.notice-mode .chat-memberbar,
+  #chatWindow.notice-mode .chat-toolbar,
+  #chatWindow.notice-mode .chat-flyrow,
+  #chatWindow.notice-mode .chat-pin{display:none !important;}
+  .chat-notices .cn-empty{padding:18px 8px;text-align:center;color:var(--tw-ink-soft);line-height:1.6;}
+  .chat-notices .cn-item{padding:6px 7px;margin-bottom:5px;border:1px solid var(--tw-line);border-radius:var(--win-radius-el) !important;word-break:break-word;}
+  .chat-notices .cn-item.pin{background:var(--tw-bg-star);}
+  .chat-notices .cn-text{line-height:1.5;}
+  .chat-notices .cn-meta{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-top:3px;font-size:10.5px;color:var(--tw-ink-soft);}
+  .chat-notices .cn-acts{display:inline-flex;gap:3px;}
+  .chat-notices .cn-acts button{font-size:10.5px;padding:0 6px;cursor:pointer;font-family:var(--tw-font-legacy);}
+  .chat-notices .cn-edit-in{width:100%;box-sizing:border-box;font-size:11.5px;padding:2px 4px;font-family:var(--tw-font-legacy);}
+  .chat-notices .cn-item.editing .cn-acts{margin-top:4px;}
   .chat-memberbar{margin:6px;display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 6px;
     background:var(--win-face);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);color:var(--ink);border-radius:var(--win-radius-el) !important;}
   .chat-member-label{background:var(--win-face-2);border:1px solid var(--win-lo-2);padding:1px 5px;font-weight:bold;white-space:nowrap;}
@@ -788,6 +815,8 @@
   #chatWindow.min .chat-messages,
   #chatWindow.min .chat-profile,
   #chatWindow.min .chat-tabs,
+  #chatWindow.min .chat-notices,
+  #chatWindow.min .chat-pin,
   #chatWindow.min .cm-newchip,
   #chatWindow.min .cm-ctx{display:none;}
   #chatWindow.min .chat-rz.n, #chatWindow.min .chat-rz.s,
@@ -8062,11 +8091,15 @@
     <!-- 💬 채팅 탭(채널) 줄 — 투게더룸 · 시크릿룸에서만(.on). 그리기는 app.js _chatTabsRender.
          ⚠️ 스크롤바를 만들지 않는다(overflow:hidden) — 좁아지면 이름만 줄임표, 숫자는 남는다. -->
     <div class="chat-tabs" id="chatTabs"></div>
+    <!-- 📢 고정 공지 한 줄(시크릿룸 · 고정한 공지가 있을 때만 .on) — 길면 마우스를 올려 흘려 읽는다. 그리기는 chat-notice.js -->
+    <div class="chat-pin" id="chatPin"></div>
     <div class="chat-memberbar">
       <span class="chat-member-label" id="chatMemberLabel">이 채널(0)</span>
       <span class="chat-member-list" id="chatMemberList">—</span>
     </div>
     <div class="chat-messages" id="chatMessages"></div>
+    <!-- 📢 #공지 탭 본문(.notice-mode 일 때만 보임) — 공지 목록 · 고정 · 고치기 · 지우기. 그리기는 chat-notice.js -->
+    <div class="chat-notices" id="chatNotices"></div>
     <!-- 📋 복사 — 셋 다 #chatWindow 의 자식이다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). -->
     <div class="cm-newchip" id="chatNewChip"></div>
     <div class="cm-copytoast" id="chatCopyToast">복사했어요</div>
@@ -8674,6 +8707,8 @@
 <script src="parts/character/part-paint.js"></script>   <!-- 🖍️ 파츠에 직접 그리기 · 그림칸 — app.js 보다 먼저(app.js 가 원래 자리에서 TwPartPaint.createPartPaint 로 만든다) -->
 <script src="parts/focus/mobile-diag.js"></script>   <!-- 📱 진단 줄 규칙 — focus-level.js 보다 먼저(app.js 가 deps 로 넘긴다) -->
 <script src="parts/focus/focus-level.js"></script>   <!-- ⭐ 포커스 레벨 · 공유 · 태블릿 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLevel.createFocusLevel 로 만든다) -->
+<script src="parts/chat/chat-notice-net.js"></script>   <!-- 📢 시크릿룸 공지 서버 읽기 · 쓰기(window.TwChatNoticeNet) — firebase-init.js(type=module · 늦게 돈다)가 연결한다 -->
+<script src="parts/chat/chat-notice.js"></script>   <!-- 📢 시크릿룸 공지(window.TwChatNotice — #공지 탭 · 고정 줄) — chat-ui.js · app.js 보다 먼저(app.js 가 채팅 모듈보다 먼저 만든다) -->
 <script src="parts/chat/chat-ui.js"></script>   <!-- 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatUi.createChatUi 로 만든다) -->
 <script src="parts/account/license-gate.js"></script>   <!-- 🎟️ 초대장 · 라이선스 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseGate.createLicenseGate 로 만든다) -->
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->

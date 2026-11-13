@@ -39,7 +39,7 @@ function _chatOffRefreshUI(){
                     : (off ? '방장이 채팅을 껐어요' : '방장만 켜고 끌 수 있어요');
   }
   const inp = document.getElementById('chatInput');
-  if(inp) inp.placeholder = off ? '😊 🎲 💣 · /80 · /150 만 쓸 수 있어요' : ('#' + chatUiMod._chatTabName(chatUiMod._chatMyTabId()) + '에 메시지 입력 후 Enter');
+  if(inp) inp.placeholder = chatUiMod._chatNoticeHint() || (off ? '😊 🎲 💣 · /80 · /150 만 쓸 수 있어요' : ('#' + chatUiMod._chatTabName(chatUiMod._chatMyTabId()) + '에 메시지 입력 후 Enter'));
   /* 🗑 기록 삭제 버튼도 같은 재료(방 종류·방장)로 정해진다 — 여기서 같이 갱신한다.
      ⚠️ 호출 자리를 따로 두지 않는 이유: 이 함수는 창을 열 때(openChatWindow)와 방 메타가 바뀔 때
        (_onRoomMeta) 양쪽에서 이미 불린다. 별도 함수를 만들어 두 자리에 각각 걸면, 다음에 호출
