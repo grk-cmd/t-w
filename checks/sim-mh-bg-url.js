@@ -39,8 +39,8 @@ function paint(where, src, mod, bg, visiting){
   if (where === 'desk') {
     const fn = grabFn(src, 'function advApplyBg(){');
     if (!fn) throw new Error('advApplyBg 를 못 찾음');
-    new Function('document', 'TwMhBgUrl', 'TwSafeHtml', 'advVisiting', 'advVisitBg', 'mhdDesk', 'advApplyFolderHide', fn + '\nadvApplyBg();')(
-      doc, B, SH, visiting, visiting ? { bg } : null, () => ({ bg: visiting ? null : bg }), () => {});
+    new Function('document', 'TwMhBgUrl', 'TwSafeHtml', 'advVisiting', 'mhdShown', 'advApplyFolderHide', fn + '\nadvApplyBg();')(
+      doc, B, SH, visiting, () => ({ bg }), () => {});
   } else {
     const fn = grabFn(src, 'function applyMyHomeBg(preview){');
     if (!fn) throw new Error('applyMyHomeBg 를 못 찾음');

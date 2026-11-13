@@ -45,7 +45,7 @@ say('── 2. advApplyFolderHide — 누구 설정을 따르나');
   const env = {};
   const F = new Function('env', `
     const document = { getElementById: (id) => id === 'advDesktop' ? env.d : (id === 'advEnvHideFolders' ? env.b : null) };
-    const mhdDesk = () => env.ADV; let advVisiting = env.visiting, advVisitBg = env.visitBg;
+    const mhdDesk = () => env.ADV; const mhdShown = () => (env.visiting ? (env.visitBg || {}) : env.ADV); let advVisiting = env.visiting;
     ${grabFn('advApplyFolderHide')}
     advApplyFolderHide();
   `);
@@ -77,13 +77,41 @@ say('── 3. 서버 기록 — 상태 주인(sim-myhome-store 5-2)이 통째 P
   const sb = strip(grabFn('advSetBg'));
   chk(/myhomeStore\.setDesktop\(\{ bg: bg \|\| null \}\);/.test(sb) && /advApplyBg\(\);/.test(sb), '배경을 바꾸면 상태 주인에 넘기고 바로 다시 칠한다(색 · 파일 · URL · 초기화가 모두 여기로)');
   const vb = code.slice(code.indexOf('window._advApplyVisitUI = function'));
-  chk(/const vw = myhomeStore\.view\(\);\s*advVisitBg = \(vw && vw\.owner\) \? \(vw\.desktop \|\| null\) : mhdDesk\(\);/.test(vb) && !/firebaseAPI/.test(vb.slice(0, 1800)), '남의 집은 openView 가 받아 둔 그 집 바탕화면을 쓴다(요청 0 · Firebase 읽기 없음)');
-  chk(/advVisitBg = \(vw && vw\.owner\) \? \(vw\.desktop \|\| null\) : mhdDesk\(\);/.test(vb), '방문자 시점 미리보기(집 주인이 «나»)는 내 바탕화면 그대로 — 투명으로 비지 않는다');
+  chk(/const mhdShown = \(\) => myhomeStore\.desktop\(\);/.test(code) && !/advVisitBg/.test(code.replace(/\/\/[^\n]*/g, '')) && !/firebaseAPI/.test(vb.slice(0, 1800)), '남의 집 · 미리보기 판단은 상태 주인 한 곳(desktop()) — 따로 찍어 둔 사본(advVisitBg)이 없다 · 방문 때 Firebase 읽기 0');
   chk(/mhHooks\.on\(mhHooks\.HOOK\.FINISH_ARRANGE, \(\)=>\{ if\(mhdFF && mhdFF\.isArranging\(\)\) mhdFF\.finish\(\); \}\);/.test(code) && /mhHooks\.call\(mhHooks\.HOOK\.FINISH_ARRANGE\)/.test(fs.readFileSync('myhome-visit.js', 'utf8')) && /mhHooks\.call\(mhHooks\.HOOK\.FINISH_ARRANGE\)/.test(fs.readFileSync('myhome-ui.js', 'utf8')), '폴더를 옮기던 중이면 친구 집 · 미리보기로 들어가기 «전에» 저장한다(들어간 뒤엔 잠겨 저장이 안 된다)');
   const iClickAll = code.indexOf("el('advEnvHideFolders').addEventListener('click'");
   const hf = code.slice(iClickAll, code.indexOf('toast(', iClickAll));
   chk(/if\(!myhomeStore\.canEdit\(\)\)\{ myhomeStore\.setDesktop\(\{\}\); return; \}/.test(hf) && /canArrange:\(\)=> advVisiting \? '[^']+'\s*: !myhomeStore\.canEdit\(\)/.test(code), '고칠 수 없을 땐(받는 중 · 못 받음 · 미리보기) 거짓 «숨겼어요» 알림 없이 안내만 — 자유배치도 못 시작');
-  return Promise.resolve().then(part4);
+  /* 진짜 상태 주인 위에서 — 지금 그리는 바탕화면(desktop())이 내 집 · 친구 집 · 미리보기 · 받는 사이에 맞게 따라가는지 */
+  return (async () => {
+    const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)({}, m); return m.exports; };
+    const rd = (f) => { for(const c of [f, 'parts/myhome/' + f, 'app/parts/myhome/' + f, 'parts/shared/' + f, 'app/parts/shared/' + f]) { try{ return fs.readFileSync(c, 'utf8'); }catch(_){} } return null; };
+    const lib = loadMod(rd('myhome-api.js'));
+    const mkSrv = (bg, hide) => ({ page: { version: 3, avatar: null, bio: '', postTitle: '', post: '', bgm: null, bg: null, stickers: [], theme: null, presets: [null, null, null], presetCur: 0 }, desktop: { version: 4, bg, hideFolders: hide, folderPos: { a: { x: 0.1, y: 0.2 } } } });
+    const mine = mkSrv({ color: '#ff0000' }, true), friend = mkSrv({ color: '#0000ff' }, false);
+    let hold = null;
+    const api = { fetchMine: () => new Promise((r) => { const go = () => r(lib.homeOf(JSON.parse(JSON.stringify(mine)))); if(hold) hold.push(go); else go(); }),
+      fetchOf: async () => { const h = lib.homeOf(JSON.parse(JSON.stringify(friend))); return { page: h.page, desktop: h.desktop }; },
+      patchPage: async (v) => v + 1, putDesign: async (v) => v + 1, putDesktop: async (v) => v + 1, uploadImage: async () => 'https://x/u.png', reset(){} };
+    const store = loadMod(rd('myhome-store.js')).createMyHomeStore({ api, lib, errs: loadMod(rd('api-errors.js')), apiErrors: { notify(){} }, notifyError: () => true, toast(){}, previewOn: () => false, rules: loadMod(rd('myhome-sticker-rules.js')) });
+    const shown = () => store.desktop(), seen = [];
+    store.onChange(() => seen.push(JSON.stringify(shown().bg)));
+    chk(shown().bg === null, '받기 전 — 기본(배경 없음 → 청록으로 칠함)');
+    await store.pullMine();
+    chk(shown().bg.color === '#ff0000' && shown().hideFolders === true && shown().folderPos.a.x === 0.1, '받으면 내 바탕화면');
+    await store.openView('F');
+    chk(shown().bg.color === '#0000ff' && shown().hideFolders === false, '친구 집 구경 — 그 집 바탕화면(받아 둔 값)');
+    store.closeView();
+    chk(shown().bg.color === '#ff0000', '돌아오면 내 것');
+    Object.assign(mine, mkSrv(null, false));
+    hold = []; const pull = store.pullMine(); await new Promise((r) => setImmediate(r));   // 받는 중(방문자 시점 미리보기를 누른 때) — store.view().owner 없음
+    chk(store.view().owner === null && shown().bg.color === '#ff0000', '받는 중 미리보기 — 아직은 옛 내 값(집 주인이 «나» 라 친구 집 값이 끼지 않는다)');
+    hold.forEach((go) => go()); hold = null; await pull;
+    chk(shown().bg === null && seen[seen.length - 1] === 'null', '받기가 끝나면 미리보기 중에도 새 내 값으로(구독이 알린다)');
+    store.reset();
+    chk(shown().bg === null && shown().hideFolders === false, '계정을 놓으면 기본값 — 앞 계정 배경이 안 남는다');
+    part4();
+  })();
 }
 
 function part4(){

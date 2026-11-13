@@ -64,8 +64,10 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) �
 /* 🗂️ 바탕화면 로컬 저장은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 그 계정의 바탕화면이 열린다. 만드는 쪽(myhome-desktop-boot.js)이 넘긴 한 벌. */
 const advStore = deps.advStore;
 const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 바탕화면(배경 · 폴더 숨기기 · 폴더 자리)의 원본은 서버(PUT /v1/me/myhome/desktop)
-/* 내 바탕화면 { bg, hideFolders, folderPos } — 상태 주인 값(고치려면 myhomeStore.setDesktop). 남의 집은 advVisitBg(= 그 집 바탕화면) */
+/* 내 바탕화면 { bg, hideFolders, folderPos } — 상태 주인 값(고치려면 myhomeStore.setDesktop) */
 const mhdDesk = () => myhomeStore.mine().desktop;
+/* 지금 화면에 그리는 바탕화면 — 친구 집 구경 중이면 그 집 것(openView 가 페이지와 함께 받아 둔 값) · 아니면(방문자 시점 미리보기 포함) 내 것. 판단은 상태 주인 한 곳 */
+const mhdShown = () => myhomeStore.desktop();
 const ADV_KEY = 'tw.advZ.v2';
 const ADV_KEY_V1 = 'tw.advZ.v1';
 
@@ -152,7 +154,6 @@ function advSetBg(bg){
   myhomeStore.setDesktop({ bg: bg || null });
   advApplyBg();
 }
-let advVisitBg = null;   // 방문 중일 때 표시할 "집주인의" 바탕화면 { bg, hideFolders, folderPos }|null
 let mhdFF = null;        // 📂 폴더 자유배치(folder-free.js) — advApplyFolderHide · mhdMountApp 가 이른 시점에도 보므로 위에 둔다
 const ADV = advDefault();   // 계정 확인 뒤 startBgSync 가 계정 칸에서 채운다(만들 때 읽지 않는다)
 let editSlot = 0;
@@ -5552,8 +5553,8 @@ function advToast(msg){ try{ toast(msg); return; }catch(_){} }
 /* ─────────────────────────── 배경 ─────────────────────────── */
 function advApplyBg(){
   const d=document.getElementById('advDesktop'); if(!d) return;
-  // 방문 중엔 내 배경이 아니라 "그 집 주인"의 배경을 보여준다(서버에서 받아온 advVisitBg).
-  const bg = advVisiting ? (advVisitBg && advVisitBg.bg) : mhdDesk().bg;
+  // 방문 중엔 내 배경이 아니라 "그 집 주인"의 배경을 보여준다(mhdShown).
+  const bg = mhdShown().bg;
   const bgUrl = bg ? TwSafeHtml.cssUrl(TwMhBgUrl.httpsOf(bg.img)) : '';   // 남의 집 배경일 수 있다 — 허용된 그림 주소 · 색만(http 는 https 로 바꿔 불러 봄)
   if(bg && !advVisiting) TwMhBgUrl.probeOwnerBg(bg.img);   // 못 받으면 주인에게만 안내
   if(bgUrl) d.style.background=bgUrl+' center/cover no-repeat';
@@ -5564,11 +5565,11 @@ function advApplyBg(){
   else d.style.background='#3a8a8a';
   advApplyFolderHide();   // 📂 배경과 같은 때(내 집 · 남의 집 전환 · 서버 맞춤)에 같이 맞춘다
 }
-/* 📂 [2026-10-02] 폴더 숨기기 — 내 집이면 내 설정, 남의 집이면 **그 집 주인의** 설정(advVisitBg.hideFolders)을 따른다.
+/* 📂 [2026-10-02] 폴더 숨기기 — 내 집이면 내 설정, 남의 집이면 **그 집 주인의** 설정(mhdShown().hideFolders)을 따른다.
    ★ 주인이 숨겼으면 방문자에게도 안 보인다(요청). 메뉴 줄의 ✔ 는 내 설정만 보여 준다. */
 function advApplyFolderHide(){
   const d=document.getElementById('advDesktop'); if(!d) return;
-  const on = advVisiting ? !!(advVisitBg && advVisitBg.hideFolders) : !!mhdDesk().hideFolders;
+  const on = !!mhdShown().hideFolders;
   d.classList.toggle('mhd-hide-folders', on);
   const room=document.getElementById('mhRoomPreview');   // 📂 말랑이 폴더는 #advDesktop 바깥(형제)이라 바깥 상자에도 같은 표식 — 위 CSS 주석
   if(room) room.classList.toggle('mhd-hide-folders', on);
@@ -5577,7 +5578,7 @@ function advApplyFolderHide(){
   if(typeof mhdFF !== 'undefined' && mhdFF) mhdFF.apply();   // 📂 자유배치도 같은 때에 — 남의 집이면 그 집 주인의 배치(검사가 이 함수만 떼어 돌려도 안전하게 typeof)
 }
 
-/* 📂 폴더 자유배치(folder-free.js) — 내 집은 내 배치(mhdDesk().folderPos), 남의 집은 **그 집 주인의** 배치(advVisitBg.folderPos).
+/* 📂 폴더 자유배치(folder-free.js) — 내 집은 내 배치(mhdDesk().folderPos), 남의 집은 **그 집 주인의** 배치(mhdShown().folderPos).
    ★ 옮길 수 있는 것: 외부 앱 폴더(.mhd-app)와 말랑이 폴더(#mlFolder). 둘 다 #mhRoomPreview 를 기준으로
      놓인다(#advDesktop 은 그 안을 꽉 채운다) — 그래서 한 좌표로 다룬다. 붙박이 아이콘(캐릭터세팅 · 좀아칼)은 그대로.
    ★ 옮기지 않은 폴더는 원래 자리 규칙을 그대로 따른다(격자 칸 · 말랑이 오른쪽 아래). */
@@ -5592,7 +5593,7 @@ function mhdFfItems(){
   if(ml) out.push({ id:'mallang', el:ml, reset:()=>{ ml.style.left = ml.style.top = ml.style.right = ml.style.bottom = ''; } });
   return out;
 }
-function mhdFfPos(){ return advVisiting ? ((advVisitBg && advVisitBg.folderPos) || {}) : (mhdDesk().folderPos || {}); }
+function mhdFfPos(){ return mhdShown().folderPos || {}; }
 function mhdFfInit(){
   if(mhdFF || typeof FolderFree === 'undefined') return;
   const room = document.getElementById('mhRoomPreview'); if(!room) return;
@@ -6029,16 +6030,9 @@ function advBindEvents(){
 /* 폴더를 옮기던 중이면 지금 저장하고 끝낸다 — 친구 집 구경 · 방문자 시점 미리보기로 들어가기 «전에» 부른다(들어간 뒤에는 상태 주인이 고치기를 잠가 저장이 안 된다) */
 mhHooks.on(mhHooks.HOOK.FINISH_ARRANGE, ()=>{ if(mhdFF && mhdFF.isArranging()) mhdFF.finish(); });
 window._advApplyVisitUI = function(visiting, ownerId){
-  if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 📂 옮기던 중에 집을 나가면 내 배치로 저장하고 끝낸다
+  if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 📂 안전망 — 들어가기 «전에» FINISH_ARRANGE 고리가 저장한다(여기 오면 이미 고치기가 잠겨 있을 수 있다)
   advVisiting=!!visiting;
-  // 🖥️ 방문 시작 → 집주인 바탕화면을 서버에서 받아와 적용 (내 집 복귀 시엔 초기화)
-  if(advVisiting){
-    /* 그 집 바탕화면은 openView 가 페이지와 함께 이미 받아 뒀다(요청 0) — 못 받았으면 없는 집처럼(청록 대신 투명) */
-    const vw = myhomeStore.view();
-    advVisitBg = (vw && vw.owner) ? (vw.desktop || null) : mhdDesk();   // 방문자 시점 미리보기(집 주인이 «나»)는 내 바탕화면 그대로
-  } else {
-    advVisitBg = null;   // 내 집으로 돌아오면 «내 홈 한 번 받기» 가 따로 돈다(myhome-visit.js closeFriendHomeView) — 다른 기기에서 바꾼 배경도 거기서 온다
-  }
+  // 🖥️ 방문 중 바탕화면은 openView 가 페이지와 함께 이미 받아 뒀다(요청 0 · mhdShown). 내 집으로 돌아오면 «내 홈 한 번 받기»(myhome-visit.js closeFriendHomeView)가 따로 돈다
   const d=document.getElementById('advDesktop');
   if(d) d.classList.toggle('adv-visiting', advVisiting);
   const tb=document.getElementById('advEnvBtn');
@@ -6058,10 +6052,10 @@ function mhdWatchStore(){
   if(_mhdWatching) return;
   _mhdWatching = true;
   myhomeStore.onChange(()=>{
-    const sig = JSON.stringify(mhdDesk());
+    const sig = JSON.stringify(mhdShown());
     if(sig === _mhdSig) return;
     _mhdSig = sig;
-    if(!advVisiting) advApplyBg();
+    advApplyBg();   // 받기 끝 · 409 · 계정 바뀜 · (미리보기 중 받기 끝)마다 지금 그리는 바탕화면으로
   });
 }
 
