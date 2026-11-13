@@ -136,7 +136,6 @@ function createMyHomeStore(deps){
     const keepDesign = keep && dirty.has('design') ? { theme: mineSt.page.theme, themePresets: mineSt.page.themePresets, themePresetCur: mineSt.page.themePresetCur } : {};
     const keepClear = keep && dirty.has('clearTheme');
     const keepDesignBg = keep && dirty.has('designBg') ? { bg: mineSt.page.bg } : {};
-    const hadBg = keep && dirty.has('bg');
     base = baseFrom(got.page);
     const next = Object.assign({}, got.page, kept, keepDesign, keepDesignBg);
     if(keepClear) next.theme = null;
@@ -146,7 +145,6 @@ function createMyHomeStore(deps){
     dirty.clear();
     setPage(next);
     for(const k of PAGE_FIELDS) if(own(kept, k)) markField(k);
-    if(hadBg && !own(kept, 'bg')) markField('bg');
     if(keepClear){ base.theme = JSON.stringify(null); dirty.set('clearTheme', ++rev); }
     if(own(keepDesign, 'theme') && !keepClear){ markDesign(); }
     if(own(keepDesignBg, 'bg')){ mark('designBg', !sameBase('bg', mineSt.page.bg)); }
@@ -155,7 +153,7 @@ function createMyHomeStore(deps){
   /* ── 내 홈 받기 ── */
   function pullMine(opts){
     const site = (opts && opts.site) || 'load';
-    if(saving || dirty.size || failing.page || failing.design) return Promise.resolve(mineSt.load === LOAD.READY);   // 고친 칸이 서버보다 새것이다 — 덮지 않는다
+    if(mineSt.load === LOAD.READY && (saving || dirty.size || failing.page || failing.design)) return Promise.resolve(true);   // 고친 칸이 서버보다 새것이다 — 덮지 않는다
     if(pullP) return pullP;
     pullP = runPull(site).finally(() => { pullP = null; });
     return pullP;
@@ -183,6 +181,7 @@ function createMyHomeStore(deps){
     adopt(got, true);
     mineSt.load = LOAD.READY;
     emit();
+    if(nextJob()) kick();   // 받는 사이 올리기가 끝난 칸
     return true;
   }
 
@@ -255,14 +254,14 @@ function createMyHomeStore(deps){
     let url;
     try{ url = await api.uploadImage(dataUrl); }
     catch(e){
-      busy.delete(key);
       if(g !== gen) return { status: 'stale' };
+      busy.delete(key);
       report(e, 'upload');
       emit();
       return { status: 'uploadFailed' };
     }
-    busy.delete(key);
     if(g !== gen) return { status: 'stale' };
+    busy.delete(key);
     emit();
     return { status: 'ok', url };
   }
@@ -348,8 +347,10 @@ function createMyHomeStore(deps){
   function setDesign(d){
     const r = guard(); if(r) return locked();
     const o = d || {};
-    const theme = isObj(o.theme) && Object.keys(o.theme).length ? clone(o.theme) : null;
-    const patch = { theme, themePresets: Array.isArray(o.presets) ? clone(o.presets) : null, themePresetCur: cnt(o.presetCur) ? o.presetCur : null };
+    const now = mineSt.page;
+    const rawTheme = own(o, 'theme') ? o.theme : now.theme;   // 안 넘긴 열쇠는 지금 값 — 프리셋을 모르고 지우지 않게
+    const theme = isObj(rawTheme) && Object.keys(rawTheme).length ? clone(rawTheme) : null;
+    const patch = { theme, themePresets: Array.isArray(o.presets) ? clone(o.presets) : now.themePresets, themePresetCur: cnt(o.presetCur) ? o.presetCur : now.themePresetCur };
     const hasBg = own(o, 'bg');
     if(hasBg) patch.bg = isObj(o.bg) && (o.bg.img || o.bg.color) ? clone(o.bg) : null;
     if(hasBg && patch.bg && patch.bg.img && /^data:/i.test(patch.bg.img)) return Promise.resolve('invalid');   // 그림은 올린 뒤 주소로만
@@ -365,7 +366,7 @@ function createMyHomeStore(deps){
     change({ bg: null, theme: null });
     markField('bg');
     base.theme = JSON.stringify(null);   // 테마는 아래 clearTheme 가 지운다 — 디자인(PUT) 쪽에서 바뀐 칸으로 보지 않는다
-    dirty.delete('design');
+    markDesign();   // 테마는 지우기로 가고 프리셋 · 고른 칸의 못 보낸 고침은 남는다
     dirty.set('clearTheme', ++rev);
     return kick();
   }
@@ -462,6 +463,7 @@ function createMyHomeStore(deps){
     try{ got = await fetchChecked(); }
     catch(e){
       if(g !== gen) return 'stale';
+      for(const k of [...dirty.keys()]) if(TEXT_FIELDS.indexOf(k) < 0) dirty.delete(k);   // 글 칸만 남긴다 — 다시 시도하면 받은 판 위에 얹는다
       mineSt.load = LOAD.FAILED;
       report(e, 'load');
       emit();
@@ -511,7 +513,7 @@ function createMyHomeStore(deps){
     onChange: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
     pullMine, ensureMine, openView, closeView,
     setField, setFields, setAvatar, addSticker, editSticker, editStickers, removeSticker, moveSticker, setDesign, resetBg, upload,
-    flush, reset,
+    save: kick, flush, reset,
     LOAD, MSG, STICKER_MAX,
   };
 }

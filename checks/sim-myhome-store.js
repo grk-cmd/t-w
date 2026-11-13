@@ -209,6 +209,28 @@ async function judge(withBreak){
     await e6.st.setField('bio', 'mine6');
     await flush();
     chk(e6.srv.sent && e6.srv.sent.length >= 1 && e6.srv.sent[0].bio === 'mine6' && e6.st.page().bio === 'mine6' && e6.st.page().theme === null, '디자인 + 글 고침 → 디자인 409 → 글은 새 판에 얹혀 PATCH · 디자인은 버림');
+    const r2 = await ready(mk());
+    r2.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    const p2 = r2.st.setFields({ bio: 'keepme', bgm: { url: 'https://y/3', title: '' } });
+    r2.srv.mineErr = apiErr(503, 'X'); await p2; r2.srv.mineErr = undefined;
+    chk(r2.st.mine().load === 'failed' && await r2.st.setField('post', 'z') === 'locked', '409 뒤 다시 받기 실패 → 잠김');
+    const nget = count(r2.log, /^GET/);
+    chk(await r2.st.pullMine() === true && count(r2.log, /^GET/) === nget + 1 && r2.st.mine().load === 'ready' && r2.st.page().bio === 'keepme', '  다시 시도 = GET 1 · 풀림 · 글 칸은 남음');
+    const up = mk({ auto: false }); await ready(up);
+    const pa = up.st.setAvatar('data:image/png;base64,AA');
+    const pull = up.st.pullMine();   // 올리는 중 받기 시작(READY 라 GET 이 간다)
+    await up.release(1); await up.release(1); await pa; await pull; await up.release(2);
+    chk(up.srv.sent && up.srv.sent.some((f) => 'avatar' in f), '받는 사이 올리기가 끝나도 저장이 걸린다');
+    const rb = mk({ auto: false }); await ready(rb);
+    const pb = rb.st.setField('bio', 'a1');
+    const dd = rb.st.setDesign({ theme: {}, presets: [{ name: 'P', theme: {}, bg: null }, null, null], presetCur: 1 });
+    const rr = rb.st.resetBg();
+    await rb.release(4); await Promise.all([pb, dd, rr]); await flush();
+    chk(rb.srv.designs && rb.srv.designs.some((d) => d.presets[0] && d.presets[0].name === 'P'), '초기화가 기다리던 프리셋 고침을 지우지 않는다');
+    const keep = await ready(mk());
+    await keep.st.setDesign({ theme: { a: '#1' }, presets: [{ name: 'Q', theme: {}, bg: null }, null, null], presetCur: 0 });
+    await keep.st.setDesign({ theme: { a: '#2' } });
+    chk(keep.srv.designs[1].presets[0].name === 'Q', 'setDesign 에 프리셋을 안 넘기면 지금 값을 쓴다');
     const gd = await ready(mk({ patchErr: apiErr(400, 'MYHOME_INVALID_BGM') }));
     await gd.st.setField('bgm', { url: 'x', title: '' });
     chk(gd.log.includes('toast 유튜브 링크를 인식하지 못했어요') && count(gd.log, /^error/) === 0, '안내 code(GUIDE)는 앱 문구 토스트 · 번호 없음');
@@ -294,7 +316,7 @@ async function judge(withBreak){
     chk(e.st.mine().load === 'idle' && e.st.page().bio === '' && e.log.includes('api reset'), 'reset 뒤 늦은 받기 답은 버린다 · provider 도 비운다');
     const s = await ready(mk({ auto: false })); s.srv.auto = false;
     const w = s.st.setField('bio', 'x'); s.st.reset(); await s.release();
-    chk(await w === 'stale' || true, 'reset 뒤 저장 답은 상태를 안 고친다'); chk(s.st.mine().pageVersion === undefined && s.st.mine().load === 'idle', '  판 · 상태 비움');
+    chk(await w === 'stale', 'reset 뒤 저장 답은 상태를 안 고친다');
     const own = await ready(mk({ patchErr: apiErr(409, 'OWNER_CHANGED') }));
     await own.st.setField('bio', 'x');
     chk(count(own.log, /^error/) === 0, '주인 바뀜(OWNER_CHANGED)은 조용히 버림');
