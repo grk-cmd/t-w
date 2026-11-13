@@ -24,3 +24,11 @@
   - `idleMs` 는 `lastActivity` · `lastAnyInput` 중 늦은 것부터 잰다 — 게이트가 닫혀 있으면 전역 키 · 클릭은 `lastAnyInput` 만 올린다.
   - 피규어 모드 · 폰 켜짐은 투게더워킹 창이 앞이어도 게이트를 연다.
   - 검사: `checks/sim-focus-gate.js`(규칙 · 옛 두 식과 모든 경우 대조 · 연결) · `sim-focus-gate-self.js` · `sim-figure-mode.js` 4절(진짜 함수를 돌림).
+
+## focus-api.js — ⏱ 포커스 · 👑 달성표 · 📱 폰 연결 서버 길 provider
+
+**책임** — 서버 `/v1/me/focus*`(진척 · 집중 시간 올리기 · 별 색 · 달성표 한 주 · 오늘 달성 · 보상 칸 · 폰 키)를 요청 하나씩 보내고 답을 화면 모양으로 맞추는 한 곳(날 경계 `dayEndsAt` 은 ms). 줄 세우기 · 미전송분 · 상태 주인은 부르는 쪽(D5 다음 단계) 몫이다.
+**deps** — `authed`(`TwApi.authed`) · `warn`.
+**내놓는 것** — `createFocusApi(deps)` → `fetchProgress` · `accrue` · `setStarColor` · `fetchChallenge` · `saveChallenge` · `markToday` · `claimReward` · `issueMobileKey` · `unlinkMobile` · `reset`. 순수: `progressOf` · `challengeOf` · `editBody` · `failOf`(`PREMIUM_REQUIRED` 등 갈래) · `PATHS` · `LIMITS`. 읽기는 못 읽으면 던지고, 쓰기는 `{ status: 'ok'|'stale'|'failed', err? }`.
+**함정** — 쓰기는 읽은 토큰의 주인(`expectOwner`)과 묶는다(읽은 적 없으면 요청 0). 레벨 · 보상 양은 서버가 센다 — 앱이 센 값을 보내지 않는다.
+검사: `checks/sim-focus-api.js`.
