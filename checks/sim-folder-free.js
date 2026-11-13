@@ -162,12 +162,12 @@ sec('── 2-b. Esc · 마이홈 닫기', () => {
 sec('── 3. myhome-desktop.js 배선', () => {
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
   const M = strip(SRC['myhome-desktop.js']);
-  chk(/folderPos:\(typeof FolderFree!=='undefined'\) \? FolderFree\.cleanPos\(d\.folderPos\) : \{\}/.test(M), '로컬 저장값을 다듬어 읽는다');
-  chk(/if\(ADV\.folderPos && Object\.keys\(ADV\.folderPos\)\.length\) rec\.folderPos = ADV\.folderPos;/.test(M), '배경과 같은 서버 기록(advBg)에 싣는다 — 방문자 · 다른 기기');
-  chk(/const nextPos = \(typeof FolderFree!=='undefined'\) \? FolderFree\.cleanPos\(srv\.folderPos\)/.test(M) && /ADV\.folderPos = nextPos;/.test(M), '다른 기기에서 더 최근에 옮겼으면 그 배치로 맞춘다');
-  chk(/onSave:\(pos\)=>\{ ADV\.folderPos = pos; ADV\.bgTs = Date\.now\(\); advSave\(\); advSaveBgRemote\(\); \}/.test(M), '저장 = 고른 시각(bgTs) 찍고 로컬 + 서버');
-  chk(/function mhdFfPos\(\)\{ return advVisiting \? \(\(advVisitBg && advVisitBg\.folderPos\) \|\| \{\}\) : \(ADV\.folderPos \|\| \{\}\); \}/.test(M), '남의 집이면 그 집 주인의 배치');
-  chk(/canArrange:\(\)=> advVisiting \? '[^']+'\s*: \(ADV\.hideFolders \? '[^']+' : ''\)/.test(M), '남의 집 · 폴더 숨김이면 못 옮긴다');
+  chk(!/FolderFree\.cleanPos\(d\.folderPos\)/.test(M) && /const mhdDesk = \(\) => myhomeStore\.mine\(\)\.desktop;/.test(M), '폴더 자리의 원본은 서버(상태 주인의 바탕화면) — 이 기기 저장본은 읽지 않는다');
+  chk(!/advSaveBgRemote|saveAdvBg/.test(M), '옛 서버 기록(advBg)에 싣던 길이 없다 — 방문자 · 다른 기기는 상태 주인이 서버에서 받는다');
+  chk(!/advPullBg/.test(M) && /myhomeStore\.onChange\(\(\)=>\{/.test(M), '다른 기기에서 옮긴 배치는 상태 주인이 받으면 다시 놓는다(옛 고른 시각 맞춤은 걷음)');
+  chk(/onSave:\(pos\)=>\{ myhomeStore\.setDesktop\(\{ folderPos: pos \}\); \}/.test(M), '저장 = 상태 주인에 자리만 넘긴다(서버 PUT · 409 · 실패 번호는 상태 주인 몫)');
+  chk(/function mhdFfPos\(\)\{ return advVisiting \? \(\(advVisitBg && advVisitBg\.folderPos\) \|\| \{\}\) : \(mhdDesk\(\)\.folderPos \|\| \{\}\); \}/.test(M), '남의 집이면 그 집 주인의 배치');
+  chk(/canArrange:\(\)=> advVisiting \? '[^']+'\s*: \(mhdDesk\(\)\.hideFolders \? '[^']+' : ''\)/.test(M), '남의 집 · 폴더 숨김이면 못 옮긴다');
   chk(/'<button id="advEnvFreeFolders" type="button">폴더 자유배치<\/button>'/.test(M) && /el\('advEnvFreeFolders'\)\.addEventListener\('click', \(\)=>\{[^}]*mhdFF\.toggle\(\);/.test(M), '환경 설정 메뉴 [폴더 자유배치]');
   chk(/document\.getElementById\('mlFolder'\)/.test(M) && /out\.push\(\{ id:a\.id, el:e,/.test(M), '옮길 수 있는 것 = 외부 앱 폴더 + 말랑이 폴더(붙박이 아이콘은 빼고)');
   chk(/new MutationObserver\(\(\)=>mhdFF\.apply\(\)\)\.observe\(room, \{ childList:true \}\)/.test(M) && /d\.appendChild\(ic\);\s*if\(mhdFF\) mhdFF\.apply\(\);/.test(M), '늦게 생기는 폴더(말랑이 · 나중에 붙는 앱)도 옮긴 자리로');

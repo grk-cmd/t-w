@@ -5,7 +5,7 @@
           ④ 북마크 아이콘을 그림 파일로(addFolder 의 iconSrc · 상대 경로만).
    ・1절: 마크업 · CSS · 배선(정적).
    ・2절: advApplyFolderHide — 내 집은 내 설정, 남의 집은 **그 집 주인** 설정. ✔ 표시는 내 설정만.
-   ・3절: 서버 기록 — 켜졌을 때만 hideFolders 칸을 싣는다(규칙 변경 없음) · 배경을 초기화해도 같이 간다 · 다른 기기 값을 받아 온다.
+   ・3절: 서버 기록 — 상태 주인이 통째 PUT(sim-myhome-store) · 여기서는 옛 길이 없고 부르는 자리만 본다.
    ・4절: iconSrc 걸러내기 — 바깥 주소 · 상위 폴더 · 스크립트는 받지 않는다.
    [실행] myhome-desktop.js · firebase-database-rules.json 이 있는 폴더에서. */
 'use strict';
@@ -33,10 +33,10 @@ say('── 1. 마크업 · CSS · 배선');
   chk(!/id="advIconChar"[^']*mhd-app/.test(code), '기본 아이콘(캐릭터세팅)에는 표식이 없다');
   const ab = strip(grabFn('advApplyBg'));
   chk(/advApplyFolderHide\(\);\s*\}$/.test(ab.trim()), '② 배경을 칠할 때마다(내 집 · 남의 집 전환 · 서버 맞춤) 같이 맞춘다');
-  chk(/hideFolders:!!d\.hideFolders/.test(code), '켜짐은 이 기기에도 남는다(advLoad)');
+  chk(!/hideFolders:!!d\.hideFolders/.test(code) && /const mhdDesk = \(\) => myhomeStore\.mine\(\)\.desktop;/.test(code), '켜짐의 원본은 서버(상태 주인의 바탕화면) — 이 기기 저장본(advLoad)은 읽지 않는다');
   const iClick = code.indexOf("el('advEnvHideFolders').addEventListener('click'");
-  const clk = code.slice(iClick, code.indexOf('});', iClick));
-  chk(iClick > 0 && /ADV\.hideFolders = !ADV\.hideFolders;/.test(clk) && /ADV\.bgTs = Date\.now\(\);/.test(clk) && /advSaveBgRemote\(\)/.test(clk), '★ 누르면 고른 시각을 찍고 서버에 올린다(다른 기기 맞춤에서 이긴다)');
+  const clk = code.slice(iClick, code.indexOf('toast(', iClick));
+  chk(iClick > 0 && /const hide = !mhdDesk\(\)\.hideFolders;/.test(clk) && /myhomeStore\.setDesktop\(\{ hideFolders: hide \}\);/.test(clk), '★ 누르면 상태 주인에 숨김만 넘긴다(저장 · 다른 기기 맞춤 · 409 는 상태 주인 몫)');
   chk(MHD.indexOf('북마크') < 0, "이 파일에 '북마크' 글자 없음(sim-bookmark 와 같은 약속)");
 }
 
@@ -45,7 +45,7 @@ say('── 2. advApplyFolderHide — 누구 설정을 따르나');
   const env = {};
   const F = new Function('env', `
     const document = { getElementById: (id) => id === 'advDesktop' ? env.d : (id === 'advEnvHideFolders' ? env.b : null) };
-    let ADV = env.ADV, advVisiting = env.visiting, advVisitBg = env.visitBg;
+    const mhdDesk = () => env.ADV; let advVisiting = env.visiting, advVisitBg = env.visitBg;
     ${grabFn('advApplyFolderHide')}
     advApplyFolderHide();
   `);
@@ -71,50 +71,14 @@ say('── 2. advApplyFolderHide — 누구 설정을 따르나');
   chk(r.hidden, '주인이 배경을 초기화했어도 숨김은 그대로 따라온다');
 }
 
-say('── 3. 서버 기록');
+say('── 3. 서버 기록 — 상태 주인(sim-myhome-store 5-2)이 통째 PUT 한다. 여기서는 부르는 자리만');
 {
-  const env = { saved: [] };
-  const save = new Function('env', `
-    const window = { firebaseAPI: { saveAdvBg: (uid, rec) => { env.saved.push(rec); return { ok:true }; } } };
-    const firebaseAPI = window.firebaseAPI; const getMyUserId = () => 'u1'; const console = { log(){}, warn(){} };
-    const Promise = { resolve: (v) => ({ then: (f) => ({ catch(){} }) }) };
-    let ADV = env.ADV; const advStarted = true;   // 계정 확인 뒤 시작된 뒤의 모양(시작 전에는 서버에 올리지 않는다 — sim-account-store 6b)
-    ${grabFn('advSaveBgRemote')}
-    advSaveBgRemote();
-  `);
-  env.ADV = { bg:{ color:'#123' }, bgTs:10, hideFolders:true }; save(env);
-  chk(env.saved[0].color === '#123' && env.saved[0].ts === 10 && env.saved[0].hideFolders === true, '켜짐 → 배경 기록에 hideFolders:true 를 같이 싣는다');
-  env.ADV = { bg:null, bgTs:11, hideFolders:true }; save(env);
-  chk(env.saved[1].cleared === true && env.saved[1].hideFolders === true, '★ 배경 초기화 상태여도 숨김은 실린다(cleared 기록)');
-  env.ADV = { bg:{ color:'#123' }, bgTs:12, hideFolders:false }; save(env);
-  chk(!('hideFolders' in env.saved[2]), '꺼짐 → 칸을 아예 안 싣는다(옛 기록 모양 그대로)');
-  /* 규칙 — advBg .validate 는 img·color 만 본다(새 칸 때문에 쓰기가 거부되지 않는다) */
-  let rules = null; try{ rules = JSON.parse(fs.readFileSync('firebase-database-rules.json', 'utf8')); }catch(_){}
-  const find = (o) => { if(!o || typeof o !== 'object') return null; if(o.advBg) return o.advBg; for(const k in o){ const r = find(o[k]); if(r) return r; } return null; };
-  const adv = find(rules);
-  chk(adv && !/hideFolders|\$other/.test(JSON.stringify(adv)), '규칙 변경 없음 — advBg 는 img·color 만 검사한다(hideFolders 칸이 막히지 않는다)');
-
-  /* advPullBg — 다른 기기에서 켠 숨김을 받아 온다 */
-  const pull = new Function('env', `
-    const window = { firebaseAPI: { getAdvBgEx: async () => ({ ok:true, bg: env.srv }) } };
-    const firebaseAPI = window.firebaseAPI; const console = { log(){}, warn(){} };
-    let ADV = env.ADV, advVisiting = false;
-    const advSave = () => {}, advSaveBgRemote = () => { env.up++; }, advApplyBg = () => { env.applied++; };
-    ${grabFn('advPullBg')}
-    return advPullBg;
-  `);
-  return (async () => {
-    env.ADV = { bg:{ color:'#123' }, bgTs:100, hideFolders:false }; env.srv = { color:'#123', ts:200, hideFolders:true }; env.up = 0; env.applied = 0;
-    await pull(env)('u1');
-    chk(env.ADV.hideFolders === true && env.applied === 1, '★ 다른 기기에서 더 최근에 숨김 → 이 기기도 숨김(배경이 같아도 맞춘다)');
-    env.ADV = { bg:{ color:'#123' }, bgTs:300, hideFolders:true }; env.srv = { color:'#123', ts:200 }; env.up = 0; env.applied = 0;
-    await pull(env)('u1');
-    chk(env.ADV.hideFolders === true && env.up === 1, '이 기기가 더 최근 → 이 기기 값을 올린다');
-    env.ADV = { bg:{ color:'#123' }, bgTs:100, hideFolders:true }; env.srv = { color:'#123', ts:200 }; env.up = 0; env.applied = 0;
-    await pull(env)('u1');
-    chk(env.ADV.hideFolders === false, '다른 기기에서 다시 보이게 했으면(칸 없음) → 이 기기도 보임');
-    part4();
-  })();
+  chk(!/advSaveBgRemote|advPullBg|saveAdvBg|getAdvBg/.test(code), '옛 서버 길(advBg 기록 · 고른 시각 맞춤)이 남아 있지 않다');
+  const sb = strip(grabFn('advSetBg'));
+  chk(/myhomeStore\.setDesktop\(\{ bg: bg \|\| null \}\);/.test(sb) && /advApplyBg\(\);/.test(sb), '배경을 바꾸면 상태 주인에 넘기고 바로 다시 칠한다(색 · 파일 · URL · 초기화가 모두 여기로)');
+  const vb = code.slice(code.indexOf('window._advApplyVisitUI = function'));
+  chk(/const vw = myhomeStore\.view\(\);\s*advVisitBg = \(vw && vw\.desktop\) \? vw\.desktop : null;/.test(vb) && !/firebaseAPI/.test(vb.slice(0, 1800)), '남의 집은 openView 가 받아 둔 그 집 바탕화면을 쓴다(요청 0 · Firebase 읽기 없음)');
+  return Promise.resolve().then(part4);
 }
 
 function part4(){

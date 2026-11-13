@@ -304,7 +304,7 @@
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
 | **sim-def-size.js** | 157 | **68d8b678409d** |
 | **sim-todo-cli.js** | 157 | **a7469ac82852** |
-| **sim-folder-free.js** | 190 | **b48c8b4f9389** |
+| **sim-folder-free.js** | 190 | **ddcb8312c5ad** |
 | **sim-chat-sfx.js** | 221 | **a989e31ff068** |
 | **sim-mac-update.js** | 269 | **ba778f7eaae1** |
 | **sim-focus-show.js** | 86 | **94e634cb488e** |
@@ -313,7 +313,7 @@
 | sim-yard-enter.js | 59 | c323aea595a5 |
 | **sim-away-follow.js** | 145 | **6f3fd7fc7064** |
 | **sim-kb-blind.js** | 180 | **7d9f3fe5e684** |
-| **sim-mhd-hidefolders.js** | 135 | **d123fa2c1265** |
+| **sim-mhd-hidefolders.js** | 99 | **31a4441b807b** |
 | **sim-pomodoro.js** | 131 | **03a73d7ae51e** |
 | **sim-admin-console.js** | 142 | **3e1dc419471c** |
 | **sim-admin-license.js** | 198 | **60af3595c806** |
@@ -466,11 +466,11 @@
 | **sim-room-code-len.js** | 178 | **0dd3514b5e58** |
 | **sim-recent-rooms.js** | 216 | **521a6470e3ea** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |
-| **sim-mh-bg-url.js** | 133 | **2e874580cd93** |
+| **sim-mh-bg-url.js** | 133 | **92879ab59507** |
 | **sim-gift-img-retry.js** | 201 | **9d40ed7341fd** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 419 | **2f06a45b9d06** |
+| **sim-account-store.js** | 417 | **67db50bf3b55** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 499 | **d969dad39c36** |
 | **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |
@@ -488,7 +488,7 @@
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 | **sim-myhome-api.js** | 215 | **9d6526e018aa** |
 | **sim-bookshelf-store.js** | 258 | **2647af3c408b** |
-| **sim-myhome-store.js** | 596 | **efa231294fcb** |
+| **sim-myhome-store.js** | 629 | **3a02d90605c4** |
 | **sim-myhome-wire.js** | 122 | **a6c458b30715** |
 
 ### `sim-sysinput.js` 판 계보

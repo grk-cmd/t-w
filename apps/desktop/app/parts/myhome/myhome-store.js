@@ -6,6 +6,7 @@
      server = 서버가 준(또는 저장이 성공해 서버가 받은 것으로 친) 마지막 페이지 · 받기 · 저장 성공만 바꾼다.
      pending = 아직 안 보낸 고침 — 글 칸 · 스티커 동작(add · edit · remove · move) · 디자인 · 지우기 표시. page() = server 에 pending(보내는 중인 묶음 포함)을 얹은 값 + 사진 미리보기 — emit 마다 새로 만들어 얼린다.
    한 줄(lane): 받기 · 저장은 한 줄(tail)에 차례로 선다 — 겹치지 않으니 서버 판(version)이 한 갈래다. 올리기(사진 · 스티커 · 배경)는 줄 밖에서 돌고 주소만 돌려주며, 고침은 올리기가 «끝난 때» 만든다.
+   바탕화면(D2-3): 페이지와 판이 따로다(desktopVersion) — pending.desktop 에 바꾼 칸만 모았다가 디자인 PUT 다음 · 페이지 PATCH 앞에서 PUT desktop 통째 한 번. 409 · 실패 · 거절은 디자인과 같은 규칙(409 는 받은 값 + 알림 · 거절은 버리고 같은 묶음 PATCH 는 감).
    저장: pending 을 batch 로 옮기고(pending 은 비운다) server 에 batch 를 얹은 값에서 요청 본문을 만든다 — server 와 같은 칸은 싣지 않고 바뀐 게 없으면 요청 0. 디자인(PUT design) 먼저 · 그다음 페이지 PATCH 한 번. 성공하면 server 가 그 값이 된다(서버가 글을 씻어도 다시 보내지 않는다).
      서버가 거절한 값(api-client 가 «그 밖의 4xx» 로 가른 것과 403 — 408 · 429 · 409 · 길 없음 404 제외)은 되돌리지 않는다 — 다시 보내도 같은 답이라 다음 고침까지 막기 때문. 거절 code 가 가리키는 칸만 버리고(INVALID_BGM → BGM · TEXT_TOO_LONG → 글 칸 · 그림 주소 · 링크 → 그림 · 스티커) 같은 묶음의 나머지는 한 번 더 보낸다(모르는 code 면 묶음 통째). 디자인 PUT 이 거절돼도 같은 묶음의 PATCH 는 따로 보내고 결과는 'failed'. 그 자리 번호(또는 안내)를 알린다.
      그 밖의 실패(망 · 5xx · 로그인): batch 를 pending 에 되돌려 합치고 그 자리 번호를 한 번(이어지는 실패는 한 번 · 성공하면 풂). 혼자 다시 보내지 않는다 — 다음 고침 · save() · 창 닫기 올리기(flush) · 앱 끄기가 한 번.
@@ -24,7 +25,7 @@
      pullMine({ site }?) → Promise<boolean>(받은 뒤 ready 인가 — site: 'load'(E-MH-20 · 기본) | 'quiet'(번호 없음)) · ensureMine(opts) — ready 면 요청 없이 true
      openView(code, nameHint?) → Promise<'ok'|'missing'|'failed'|'stale'> · closeView()
      setField(칸, 값) · setFields({칸:값…}) · setAvatar(그림) · addSticker(그림, { link, x, y, w, h, size }) · editSticker(sid, 바꿀 칸) · editStickers({sid:바꿀 칸}) · removeSticker(sid) · moveSticker(sid, 방향)
-       · setDesign({ theme, presets, presetCur, bg? }) · resetBg() · upload(칸 이름, 그림) → Promise<'ok'|'failed'|'conflict'|'stale'|'locked'|'busy'|'full'|'uploadFailed'|'gone'|'invalid'>('invalid' = setDesign 에 data: 그림)(upload 는 { status, url? })
+       · setDesign({ theme, presets, presetCur, bg? }) · resetBg() · setDesktop({ bg?, hideFolders?, folderPos? })(바탕화면 — 바꾼 칸만 넘긴다 · 자기 판 desktopVersion 으로 PUT desktop 통째 · 실패 E-MH-25) · desktop() — 지금 그릴 바탕화면 · upload(칸 이름, 그림) → Promise<'ok'|'failed'|'conflict'|'stale'|'locked'|'busy'|'full'|'uploadFailed'|'gone'|'invalid'>('invalid' = setDesign 에 data: 그림)(upload 는 { status, url? })
      save() — 못 보낸 고침을 한 번 보낸다 · flush() → Promise — 줄이 빌 때까지 기다리고 못 올린 고침이 있으면 한 번 올린다(로그아웃 올리기 · 앱 끄기) · reset() — 계정을 놓을 때
      LOAD · MSG · STICKER_MAX
    }
@@ -65,8 +66,8 @@ const emptyDesktop = () => ({ bg: null, hideFolders: false, folderPos: {} });
 const emptyServer = () => ({ page: emptyPage(), version: undefined, desktop: emptyDesktop(), desktopVersion: undefined });
 /* 못 보낸 고침 한 묶음 — fields {bio, post, postTitle, bgm, bg, avatar, clearTheme} · stickerOps [{t:'add',sid,s}|{t:'edit',sid,patch}|{t:'remove',sid}|{t:'move',sid,dir}]
    · design {theme, presets, presetCur, bg?}|null · rebased(409 뒤 새 판에 한 번 얹은 묶음인가) */
-const emptyOps = () => ({ fields: {}, stickerOps: [], design: null, rebased: false });
-const isEmptyOps = (o) => !Object.keys(o.fields).length && !o.stickerOps.length && !o.design;
+const emptyOps = () => ({ fields: {}, stickerOps: [], design: null, desktop: null, rebased: false });   // desktop: 바탕화면에서 바꾼 칸만 { bg?, hideFolders?, folderPos? }|null
+const isEmptyOps = (o) => !Object.keys(o.fields).length && !o.stickerOps.length && !o.design && !o.desktop;
 const keepKey = (k) => TEXT_FIELDS.indexOf(k) >= 0;   // 409 뒤 새 판에 얹는 칸(Q1)
 const R = (status, follow) => ({ status, follow: follow || null });   // 저장 일의 결과 — follow: 409 뒤 이어서 서는 저장
 
@@ -77,7 +78,8 @@ function mergeOps(a, b){
   if(b.design && !own(b.design, 'bg') && a.design && own(a.design, 'bg') && !own(b.fields, 'bg')) design.bg = clone(a.design.bg);
   if(b.design && own(b.design, 'bg') && !own(b.fields, 'bg')) delete fields.bg;   // 나중 디자인의 바깥 배경이 앞 칸 고침을 이긴다
   if(b.design && b.design.theme && !own(b.fields, 'clearTheme')) delete fields.clearTheme;   // 나중 디자인이 테마를 새로 정했다
-  return { fields: clone(fields), stickerOps: clone(a.stickerOps).concat(clone(b.stickerOps)), design, rebased: !!(a.rebased || b.rebased) && Object.keys(fields).some(keepKey) };   // 얹은 글이 하나도 없으면 표시도 없다
+  const desktop = (a.desktop || b.desktop) ? Object.assign({}, clone(a.desktop), clone(b.desktop)) : null;   // 바탕화면 칸은 뒤 값이 이긴다
+  return { fields: clone(fields), stickerOps: clone(a.stickerOps).concat(clone(b.stickerOps)), design, desktop, rebased: !!(a.rebased || b.rebased) && Object.keys(fields).some(keepKey) };   // 얹은 글이 하나도 없으면 표시도 없다
 }
 /** 409 뒤 새 판에 얹을 것 — 글 칸만(rebased 표시를 달아) */
 function textOnlyOps(all){
@@ -86,7 +88,7 @@ function textOnlyOps(all){
   o.rebased = Object.keys(o.fields).length > 0;
   return o;
 }
-const nonText = (o) => o.stickerOps.length > 0 || !!o.design || Object.keys(o.fields).some((k) => !keepKey(k));
+const nonText = (o) => o.stickerOps.length > 0 || !!o.design || !!o.desktop || Object.keys(o.fields).some((k) => !keepKey(k));
 
 /** @param {{
  *   api: { fetchMine: Function, fetchOf: Function, patchPage: Function, putDesign: Function, uploadImage: Function, reset: Function },
@@ -136,6 +138,7 @@ function createMyHomeStore(deps){
     view: (e) => notifyError('E-MH-21', e),     // 친구 홈 구경
     save: (e) => notifyError('E-MH-22', e),     // 페이지 PATCH
     design: (e) => notifyError('E-MH-23', e),   // PUT design
+    desktop: (e) => notifyError('E-MH-25', e),  // PUT desktop
     upload: (e) => notifyError('E-MH-24', e),   // 그림 올리기
     quiet: () => true,
   });
@@ -200,10 +203,22 @@ function createMyHomeStore(deps){
     const p = apply(server.page, inflight ? mergeOps(inflight, pending) : pending);
     if(preview.avatar) p.avatar = preview.avatar;
     mineView = deepFreeze(p);
+    deskView = deepFreeze(applyDesktop(server.desktop, (inflight ? mergeOps(inflight, pending) : pending).desktop));
   }
   function setServer(got){
     server = { page: clone(got.page), version: got.pageVersion, desktop: clone(got.desktop), desktopVersion: got.desktopVersion };
     deskView = frozen(server.desktop);
+  }
+  /* 바탕화면 — server.desktop 에 바꾼 칸을 얹은 새 값 · PUT 본문(통째 · 바뀐 게 없으면 null) */
+  function applyDesktop(desk, d){
+    const o = clone(desk);
+    if(d) for(const k of ['bg', 'hideFolders', 'folderPos']) if(own(d, k)) o[k] = clone(d[k]);
+    return o;
+  }
+  function desktopBody(desk, d){
+    if(!d) return null;
+    const next = applyDesktop(desk, d);
+    return J(next) !== J(desk) ? next : null;
   }
 
   /* 디자인 PUT 본문 — server 와 다른 게 없으면 null(바깥 배경은 바뀌었을 때만 싣는다) */
@@ -225,6 +240,7 @@ function createMyHomeStore(deps){
   /* 지금 server 에 보낼 게 있는가 */
   function hasWork(ops){
     if(isEmptyOps(ops)) return false;
+    if(ops.desktop && desktopBody(server.desktop, ops.desktop)) return true;
     const d = ops.design ? designBody(server.page, ops.design) : null;
     const mid = ops.design ? apply(server.page, { fields: {}, stickerOps: [], design: ops.design }) : server.page;
     return !!(d || patchBody(mid, ops));
@@ -461,6 +477,29 @@ function createMyHomeStore(deps){
     return kick();
   }
 
+  /* 바탕화면 — 배경(색 · 그림 주소) · 폴더 숨기기 · 폴더 자리. 바꾼 칸만 넘긴다(통째 PUT 은 저장 때 만든다) · 그림은 upload 로 올린 주소만 */
+  function setDesktop(d){
+    const r = guard(); if(r) return locked();
+    const o = d || {};
+    const patch = {};
+    if(own(o, 'bg')){
+      const bg = isObj(o.bg) && (o.bg.img || o.bg.color) ? (o.bg.img ? { img: String(o.bg.img) } : { color: String(o.bg.color) }) : null;
+      if(bg && bg.img && /^data:/i.test(bg.img)) return Promise.resolve('invalid');   // 그림은 올린 뒤 주소로만(upload)
+      patch.bg = bg;
+    }
+    if(own(o, 'hideFolders')) patch.hideFolders = o.hideFolders === true;
+    if(own(o, 'folderPos')){
+      const pos = {};
+      if(isObj(o.folderPos)) for(const id of Object.keys(o.folderPos)){ const p = o.folderPos[id]; if(isObj(p) && fin(p.x) && fin(p.y)) pos[id] = { x: p.x, y: p.y }; }
+      patch.folderPos = pos;
+    }
+    for(const k of Object.keys(patch)) if(!(pending.desktop && own(pending.desktop, k)) && J(deskView[k]) === J(patch[k])) delete patch[k];   // 안 바뀐 칸은 넘기지 않는다
+    if(!Object.keys(patch).length) return kick();
+    pending.desktop = Object.assign(pending.desktop || {}, patch);
+    emit();
+    return kick();
+  }
+
   /* ── 저장 — 한 줄에 서서 한 번에 하나 ── */
   function kickRaw(){
     if(queued) return queued;
@@ -518,6 +557,28 @@ function createMyHomeStore(deps){
       }
       batch.design = null;   // 보냈거나 바뀐 게 없다 — 다시 보내지 않는다
     }
+    /* 1-2) 바탕화면 PUT(통째 · 자기 판 desktopVersion) — 바뀐 게 있을 때만 */
+    let rejectedDesktop = false;
+    if(batch.desktop){
+      const body = desktopBody(server.desktop, batch.desktop);
+      if(body){
+        let v;
+        try{ v = await api.putDesktop(server.desktopVersion, body); }
+        catch(e){
+          if(g !== gen) return R('stale');
+          if(!isRejected(e)) return failSave(e, 'desktop', batch, g);
+          report(e, 'desktop');   // 서버가 거절한 바탕화면은 버린다 — 같은 거절을 되풀이하지 않고 같은 묶음의 PATCH 는 따로 보낸다
+          rejectedDesktop = true;
+        }
+        if(g !== gen) return R('stale');
+        if(!rejectedDesktop){
+          server.desktop = body;
+          server.desktopVersion = v;
+          failing = false;
+        }
+      }
+      batch.desktop = null;
+    }
     /* 2) 페이지 PATCH 한 번 — server 에 batch 를 얹은 값에서 만든 본문(화면 값 · 사진 미리보기는 안 쓴다) */
     const body = patchBody(server.page, batch);
     if(body){
@@ -539,7 +600,7 @@ function createMyHomeStore(deps){
       failing = false;
     }
     inflight = null;
-    return R(rejectedDesign ? 'failed' : 'ok');
+    return R(rejectedDesign || rejectedDesktop ? 'failed' : 'ok');
   }
   /* 서버가 «이 값은 안 된다» 고 답함(400 대 · 로그인 · 시간 초과 · 몰림 제외) — 다시 보내도 같은 답이라 되돌리지 않는다 */
   function isRejected(e){
@@ -640,7 +701,7 @@ function createMyHomeStore(deps){
     setViewName: (n) => { if(viewSt.owner){ viewSt.name = (typeof n === 'string' && n.trim()) ? n.trim() : null; } },
     onChange: (fn) => { subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
     pullMine, ensureMine, openView, closeView,
-    setField, setFields, setAvatar, addSticker, editSticker, editStickers, removeSticker, moveSticker, setDesign, resetBg, upload,
+    setField, setFields, setAvatar, addSticker, editSticker, editStickers, removeSticker, moveSticker, setDesign, resetBg, setDesktop, upload,
     save: kick, flush, reset,
     LOAD, MSG, STICKER_MAX,
   };
