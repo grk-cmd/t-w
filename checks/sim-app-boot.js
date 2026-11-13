@@ -20,7 +20,7 @@ const MOD = read('launcher/app-boot.js'), HTML = read('desk-companion-prototype.
 if (!MOD || !HTML || !APP) { say('  ? 원본 못 찾음 — app-boot.js · desk-companion-prototype.html · app.js'); process.exit(2); }
 
 /* 정본 차례 — app-boot.js STEPS 와 같아야 한다(바꾸려면 여기와 app-boot.js · app.js starts 를 같이) */
-const ORDER = ['focusTotal', 'focusShare', 'focusLevel', 'weeklyChal', 'gacha', 'closet', 'mhInit', 'bugBadge', 'scheduler', 'roomInvite', 'desktopBg', 'playlist', 'licensePremium', 'firstRun'];
+const ORDER = ['focusTotal', 'focusShare', 'focusLevel', 'weeklyChal', 'pomodoro', 'gacha', 'closet', 'mhInit', 'bugBadge', 'scheduler', 'roomInvite', 'desktopBg', 'playlist', 'licensePremium', 'firstRun'];
 
 function build(src, o) {
   o = o || {};
