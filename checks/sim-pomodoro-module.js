@@ -187,7 +187,10 @@ await sec('── 5-2. 계정 칸 · 계정 바뀜', () => {
   chk(P.run() === null && e.reads === 0, '시작 전에는 저장된 진행이 있어도 안 읽는다(아직 어느 계정인지 모른다)');
   P.startPomodoro('u1', {}, e.session); P.startPomodoro('u1', {}, e.session);
   chk(P.cfg().f === 50 && P.run() && P.run().phase === 'short' && e.reads === 2 && e.resets.length === 1, '시작 → 계정 칸에서 설정 · 진행을 한 번 읽고 reset 훅 하나(두 번 시작해도 한 번)');
+  chk(e.pushes.length >= 1 && e.pushes[e.pushes.length - 1] === true, '★ 시작 때 돌던 진행이 있으면 머리 위 문구를 바로 다시 보낸다(오늘 기록 전시가 먼저 한 번 보낸 뒤라)');
+  const pn = e.pushes.length;
   e.resets.forEach(fn => fn());
+  chk(e.pushes.length === pn + 1, '  reset 뒤에도 한 번 보내 앞 계정의 문구를 거둔다');
   chk(P.run() === null && P.cfg().f === 25 && e.els.pomoBtn.textContent.indexOf('03:00') < 0, '★ 계정이 바뀌면(reset) 기본값 · 멈춤으로 돌아간다 — 앞 계정 진행이 남지 않는다');
   const w0 = e.writes; e.els.pomoStop.click();
   chk(e.writes === w0, '  reset 뒤 시작 전에는 쓰지도 않는다');

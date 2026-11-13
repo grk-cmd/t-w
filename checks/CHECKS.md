@@ -267,7 +267,7 @@
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 479 | **90faaf8d7edf** |
 | **sim-friend-manage-module.js** | 309 | **632eed6beda1** |
-| **sim-pomodoro-module.js** | 248 | **0815822c344d** |
+| **sim-pomodoro-module.js** | 251 | **fe9ad69f3e7b** |
 | **sim-myhome-sticker.js** | 415 | **412082771903** |
 | **sim-gacha.js** | 471 | **72703fe818a8** |
 | **sim-myhome-edit.js** | 617 | **8ee763130a25** |
@@ -469,7 +469,7 @@
 | **sim-gift-img-retry.js** | 201 | **9d40ed7341fd** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 415 | **d6133c0789e6** |
+| **sim-account-store.js** | 417 | **19773b0601b8** |
 | **sim-api-errors.js** | 126 | **2c405591f082** |
 | **sim-rt-hub.js** | 499 | **d969dad39c36** |
 | **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |

@@ -57,7 +57,7 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
-const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1']);
+const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.pomo', 'tw.pomoRun', 'tw.advZ.v2', 'tw.advZ.v1']);
 
 function isAccountKey(key){
   if(typeof key !== 'string' || !key) return false;
