@@ -164,7 +164,7 @@ say('── 4. 포커스 비율 · 진단 줄');
   const line = F.diagLine(Object.assign(m, { cap: 30, pr: 1.5, w: 2880, h: 1620 }));
   say('    ' + line);
   chk(/^\[프레임\] 60초 1800장 30fps · 포커스 50% · 상한 30 · 배율 1\.5 · 2880x1620$/.test(line), '진단 줄 모양');
-  chk(line.length <= 80, '짧다(' + line.length + '자 — 진단 파일은 256KB 에서 돌려 쓴다)');
+  chk(line.length <= 80, '짧다(' + line.length + '자 — 진단 파일은 상한에서 돌려 쓴다)');
 }
 
 say('── 5. 배선');
