@@ -2365,34 +2365,14 @@ function _charProjSane(x, y, h){
    ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
 let _twMoveSeenAt = 0;
 const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
-/* 🪟 창이 보이는가(main 이 최소화 · 숨김 · 복귀 때 알려 준다 — 모르면 null) · 무거운 칸을 마지막으로 잰 시각.
-   안 보이면 regions · others 를 잠깐 빼고 보낸다 — 판단은 heartbeat-policy.js fullStep. */
-let _hbWinShown = null, _hbFullAt = 0;
-try{
-  if(window.companion) companion.onWinShown(v => { _hbWinShown = !!v; });
-  setInterval(runCost.timed('hb', ()=>{
-    try{
-      if(!(window.companion && companion.setCharBounds)) return;
-      const _now = Date.now();
-      const _hbFull = TwHeartbeatPolicy.fullStep({ shown: _hbWinShown, sinceFull: _now - _hbFullAt });
-      if(_hbFull) _hbFullAt = _now;
-      /* ★ _charBoundsLatest 를 직접 건드리지 않고 매번 새 객체로 보낸다 — 그 값은 다음 주기에도
-         재사용되므로 필드를 덧붙이면 안 된다. moveAge 는 "mousemove 가 마지막으로 온 지 몇 ms 됐나",
-         한 번도 온 적 없으면 -1(=판단 불가, main 은 이때 아무것도 하지 않는다). */
-      const _b = _charBoundsLatest || { x:-99999, y:-99999, r:0 };
-      /* 📐 우리 창들의 사각형도 같이 보낸다 — main 의 회수 판정이 캐릭터 하나만 알아서
-         대화창 위에서 렌더러와 싸우던 문제(핸드오프5 §1-4). __uiRegions 는 클릭통과 블록이
-         정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
-      companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
-        moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: (_hbFull && window.__uiRegions) ? window.__uiRegions() : undefined,
-        others: _hbFull ? statusChipMod.otherSeatCircles() : undefined,   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
-        /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
-           구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
-        charBad: _charBadWhy || undefined });
-    }catch(_){}
-  }), 100);
-}catch(_){}
+/* 본문(창 보임 구독 · 100ms 타이머)은 launcher/heartbeat.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const heartbeatMod = TwHeartbeat.createHeartbeat({
+  _charBadWhy: ()=>_charBadWhy,
+  _charBoundsLatest: ()=>_charBoundsLatest,
+  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),
+  runCost: runCost,
+});
 /* ═══ 📍 상태칩 자리 · 칩 클릭 · Tab 접기 ═══ */
 /* (앱 FSD 36번) 이 자리의 본문도 status-chip.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
@@ -8804,22 +8784,24 @@ try{
     for(const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, _fbPoke, { capture: true, passive: true });
   }
 }catch(_){}
-/* 🩺 1분마다 진단 한 줄(tw-mouse-diag.log) — 실제로 그린 장 수 · 포커스 비율 · 상한 · 배율 · 캔버스 크기.
-   «앱 켜면 다른 프로그램이 버벅인다» 제보 때 로그만 받아서 우리 몫이 얼마인지 본다. 실행 화면에서만 적는다. */
-try{
-  setInterval(()=>{
-    if(!_frameBudget) return;
-    const t = performance.now();
-    const m = _frameBudget.takeMinute(t);
-    const cost = { gpu: _gpuTimer.take(), js: _frameJsStats.take() }, run = runCost.take();   // 실행 화면이 아니어도 1분마다 비운다
-    if(!document.body.classList.contains('runmode')) return;
-    if(!(window.companion && companion.diagNote)) return;
-    m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
-    cost.calls = renderer.info.render.calls; cost.casters = key.castShadow ? TwGpuTimer.countCasters(scene) : 0;   // 빛이 그림자를 안 만들면 그림자 그리기도 없다
-    companion.diagNote(TwRunCostDiag.line(run, TwRunCostDiag.countSeats(seats, hiddenSeatsMod._bodyHidden), TwRunCostDiag.roomKind(Presence.roomCode(), window._activeChannel, !!Presence.serverProvider())));   // 🩺 그리기 밖 시간 — 창을 내려도(runmode 그대로) 남는다
-    companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suffix(cost));
-  }, 60000);
-}catch(_){}
+/* 🩺 1분 진단 줄([비용] · [프레임])은 launcher/run-diag-minute.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
+  Presence: Presence,
+  _FB: _FB,
+  _bodyHidden: (...a)=>hiddenSeatsMod._bodyHidden(...a),
+  _frameBudget: _frameBudget,
+  _frameCap: (...a)=>_frameCap(...a),
+  _frameJsStats: _frameJsStats,
+  _gpuTimer: _gpuTimer,
+  _renderQuality: ()=>_renderQuality,
+  _runLowered: ()=>_runLowered,
+  canvas: canvas,
+  key: key,
+  renderer: renderer,
+  runCost: runCost,
+  scene: scene,
+  seats: seats,
+});
 function frame(now, manual){
   if(!manual) _lastRafAt = now;   // 브라우저가 실제로 rAF를 불러준 시각(아래 감시 장치가 씀)
   /* 상한(_frameCapped → FrameBudget) — 최대 60 · 포커스 있어도 손 안 대면 30 · 다른 창을 보는 중이면 20

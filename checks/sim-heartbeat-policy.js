@@ -1,8 +1,8 @@
 /* ═══ 🩺 sim-heartbeat-policy.js — 창이 안 보일 때 하트비트의 무거운 칸을 빼는 규칙(heartbeat-policy.js) ═══════════════
-   하트비트(app.js setInterval 100ms → companion.setCharBounds)는 늘 우리 창 사각형(__uiRegions — 선택자 수십 개 · 노드 수백 개에
+   하트비트(launcher/heartbeat.js setInterval 100ms → companion.setCharBounds)는 늘 우리 창 사각형(__uiRegions — 선택자 수십 개 · 노드 수백 개에
    getComputedStyle)과 남의 좌석 원(otherSeatCircles)을 잰다. 창을 내려도(backgroundThrottling:false) 그대로 돌았다.
    ・1절: 모듈 모양 · 상수 · 판단 표(경계값 — 모름 · 0 · 999 · 1000 · NaN · 음수)
-   ・2절: app.js 하트비트를 실제로 돌린다 — 가짜 companion · 타이머 · 시계로 «보임 → 숨김 → 복귀» 를 지나며 보낸 것을 본다
+   ・2절: 하트비트(heartbeat.js — app.js 에서 옮김)를 실제로 돌린다 — 가짜 companion · 타이머 · 시계로 «보임 → 숨김 → 복귀» 를 지나며 보낸 것을 본다
    ・3절: main.js 창 보임 알림을 실제로 돌린다 — 가짜 창이 minimize · restore · hide · show 를 낼 때 보낸 값
    ・4절: 연결 — preload · html(app.js 보다 먼저) · smoke PRELOAD
    ・5절: 깨 보기 — 규칙 · 하트비트 · main 을 일부러 틀리게 고쳐 빨강이 나는지
@@ -17,12 +17,12 @@ const read = (f) => { for(const d of [process.cwd(), __dirname, path.join(__dirn
 const firstOf = (...fs_) => { for(const f of fs_){ const t = read(f); if(t != null) return [f, t]; } return [null, null]; };
 
 const [, POLSRC] = firstOf('heartbeat-policy.js', 'parts/launcher/heartbeat-policy.js', 'app/parts/launcher/heartbeat-policy.js');
-const [, APP] = firstOf('app.js', 'parts/app.js', 'app/parts/app.js');
+const [, APP] = firstOf('heartbeat.js', 'parts/launcher/heartbeat.js', 'app/parts/launcher/heartbeat.js');   // 하트비트 덩이는 app.js 에서 이 모듈로 옮겼다
 const [, MAIN] = firstOf('main.js');
 const [, PRELOAD] = firstOf('preload.js');
 const [, HTML] = firstOf('desk-companion-prototype.html', 'app/desk-companion-prototype.html');
 const [, SMOKE] = firstOf('smoke.js', 'checks/smoke.js');
-if(!POLSRC || !APP || !MAIN || !PRELOAD || !HTML){ say('  ? 원본 못 찾음 — heartbeat-policy.js · app.js · main.js · preload.js · html'); process.exit(2); }
+if(!POLSRC || !APP || !MAIN || !PRELOAD || !HTML){ say('  ? 원본 못 찾음 — heartbeat-policy.js · heartbeat.js · main.js · preload.js · html'); process.exit(2); }
 
 function load(src){
   const m = { exports: {} }, w = {};
@@ -48,18 +48,9 @@ function policyTable(P){
   return rows.map(([f, want, msg]) => ({ ok: P.fullStep(f) === want, msg }));
 }
 
-/* ── app.js 하트비트 덩이를 떼어 가짜 환경에서 돌린다 ── */
-function grabHeartbeat(src){
-  const a = src.indexOf('let _twMoveSeenAt = 0;');
-  const m = /\}\)?, 100\);/.exec(src.slice(a));   // 시간 재기로 감싸면(runCost.timed) «}), 100);»
-  const b = (a < 0 || !m) ? -1 : a + m.index;
-  if(a < 0 || b < 0) return null;
-  const c = src.indexOf('}catch(_){}', b);
-  return c < 0 ? null : src.slice(a, c + '}catch(_){}'.length);
-}
+/* ── 하트비트 모듈(heartbeat.js)을 가짜 환경에서 만든다 — 만들 때 구독 · 타이머를 건다 ── */
 function runHeartbeat(src, P){
-  const block = grabHeartbeat(src);
-  if(!block) return null;
+  if(!/function createHeartbeat\(deps\)\{/.test(src)) return null;
   let now = 1000000, tick = null, shownCb = null;
   const sent = [];
   let regionCalls = 0, otherCalls = 0;
@@ -68,12 +59,15 @@ function runHeartbeat(src, P){
     onWinShown: (cb) => { shownCb = cb; },
   };
   const window = { companion, __uiRegions: () => { regionCalls++; return [{ x: 1, y: 2, w: 3, h: 4 }]; } };
-  const statusChipMod = { otherSeatCircles: () => { otherCalls++; return [{ x: 5, y: 6, r: 110 }]; } };
   const FakeDate = { now: () => now };
-  const TwRunCostDiag = { page: { timed: (k, fn) => fn } };   // 1분 [비용] 재기는 그대로 넘긴다(run-cost-diag.js — 검사는 sim-run-cost-diag)
-  new Function('window', 'companion', 'statusChipMod', 'TwHeartbeatPolicy', 'TwRunCostDiag', 'setInterval', 'Date', '_charBoundsLatest', '_charBadWhy',
-    block.replace(/^let _charBoundsLatest[^\n]*\n/m, ''))(
-    window, companion, statusChipMod, P, TwRunCostDiag, (fn, ms) => { tick = { fn, ms }; return 1; }, FakeDate, { x: 10, y: 20, r: 120 }, null);
+  const deps = {
+    _charBadWhy: () => null, _charBoundsLatest: () => ({ x: 10, y: 20, r: 120 }), _twMoveSeenAt: () => 0,
+    otherSeatCircles: () => { otherCalls++; return [{ x: 5, y: 6, r: 110 }]; },
+    runCost: { timed: (k, fn) => fn },   // 1분 [비용] 재기는 그대로 넘긴다(run-cost-diag.js — 검사는 sim-run-cost-diag)
+  };
+  const api = new Function('window', 'companion', 'TwHeartbeatPolicy', 'setInterval', 'Date', 'module', src + '\nreturn window.TwHeartbeat;')(
+    window, companion, P, (fn, ms) => { tick = { fn, ms }; return 1; }, FakeDate, undefined);
+  try{ api.createHeartbeat(deps); }catch(_){ return null; }
   if(!tick) return null;
   const step = (n) => { const out = []; for(let i = 0; i < n; i++){ now += tick.ms; const k = sent.length; tick.fn(); out.push(sent[k]); } return out; };
   return { tick, step, shown: (v) => shownCb && shownCb(v), hasShownCb: () => !!shownCb, counts: () => ({ regionCalls, otherCalls }) };
@@ -187,8 +181,8 @@ chk(P.HIDDEN_FULL_EVERY_MS === 1000, '숨김 중에도 1000ms 마다 한 번은 
 const table = policyTable(P);
 table.forEach(t => chk(t.ok, '  ' + t.msg));
 
-/* ═══ 2. app.js 하트비트 ═══ */
-say('\n── 2. app.js 하트비트를 돌려 본다(보임 → 숨김 3초 → 복귀)');
+/* ═══ 2. 하트비트(heartbeat.js) ═══ */
+say('\n── 2. 하트비트(heartbeat.js)를 돌려 본다(보임 → 숨김 3초 → 복귀)');
 const hb = heartbeatBehaviour(APP, P);
 chk(!!hb, '하트비트 덩이를 떼어 돌렸다');
 if(hb){

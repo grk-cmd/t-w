@@ -100,6 +100,7 @@ chk(/' pen=' \+ _penAppActive \+ ' fwd=' \+ _fwdApplied/.test(MAIN), '진단 줄
 /* 렌더러 쪽 — status-chip.js 의 otherSeatCircles 를 꺼내 가짜 THREE · 좌석으로 돌린다 */
 const SC = (() => { for (const c of ['status-chip.js', 'app/parts/status/status-chip.js', 'parts/status/status-chip.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
 const APP = (() => { for (const c of ['app.js', 'app/parts/app.js', 'parts/app.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();
+const HB = (() => { for (const c of ['heartbeat.js', 'app/parts/launcher/heartbeat.js', 'parts/launcher/heartbeat.js']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })();   // 하트비트 덩이는 app.js 에서 이 모듈로 옮겼다
 function circles(scSrc, seats, opt){
   const fn = grab(scSrc || '', 'otherSeatCircles'); if (!fn) return null;
   const decl = ((scSrc.match(/const OTHER_SEAT_MAX = \d+;[^\n]*\n/) || [''])[0]);
@@ -111,7 +112,7 @@ function circles(scSrc, seats, opt){
     THREE, { charHittable: () => !o.office }, () => !!o.office, { domElement: { getBoundingClientRect: () => ({ left: 0, top: 0, width: 2000, height: 1000 }) } },
     seats, {}, (s, v) => { v.x = s.px; v.y = 0; v.z = 0; }, () => ({ topY: 2 }), () => null, (x, y, h) => !(o.insane && x > 1500));
 }
-if (!SC || !APP) chk(false, 'status-chip.js · app.js 를 찾았다');
+if (!SC || !APP || !HB) chk(false, 'status-chip.js · app.js · heartbeat.js 를 찾았다');
 else {
   const seats = [{ isMe: true, group: {}, px: 0 }, { isMe: false, group: {}, px: 2 }, { isMe: false, group: { visible: false }, px: 4 }, { isMe: false, group: {}, px: 6 }];
   const c1 = circles(SC, seats);
@@ -119,7 +120,7 @@ else {
   const many = Array.from({ length: 40 }, (_, i) => ({ isMe: false, group: {}, px: 0 }));
   chk((circles(SC, many) || []).length === 24 && (circles(SC, seats, { office: true }) || [1]).length === 0, '  상한 24 · 회사원 모드로 캐릭터를 숨기면 빈 목록');
   chk((circles(SC, seats, { insane: true }) || []).length === 1, '  투영이 터진 좌석은 뺀다');
-  chk(/others: (?:_hbFull \? )?statusChipMod\.otherSeatCircles\(\)/.test(APP), '  하트비트(app.js setCharBounds)가 others 로 싣는다(창이 안 보일 때 빼는 판단은 sim-heartbeat-policy)');
+  chk(/others: (?:_hbFull \? )?otherSeatCircles\(\)/.test(HB) && /^const otherSeatCircles = deps\.otherSeatCircles;/m.test(HB) && /^  otherSeatCircles: \(\.\.\.a\)=>statusChipMod\.otherSeatCircles\(\.\.\.a\),$/m.test(APP), '  하트비트(heartbeat.js setCharBounds)가 others 로 싣는다 — app.js 가 statusChipMod.otherSeatCircles 를 deps 로 잇는다(창이 안 보일 때 빼는 판단은 sim-heartbeat-policy)');
 }
 chk(/if\(Array\.isArray\(bounds\.others\)\)/.test(MAIN) && /\.slice\(0, OTHER_SEAT_MAX\)/.test(MAIN) && /Number\.isFinite\(c\.r\) && c\.r > 0/.test(MAIN), 'main — others 를 받을 때 상한 · 숫자 · 반경을 거르고 CSS px → DIP');
 chk(!/_ptOnOtherSeat/.test(grab(MAIN, '_ptOnOurUI') || 'x'), '  공용 판정(_ptOnOurUI — 유령 감시 · 회수 · 호버)에는 넣지 않는다(펜 근접만)');
