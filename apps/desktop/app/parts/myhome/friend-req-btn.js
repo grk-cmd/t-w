@@ -27,27 +27,29 @@ const toast = deps.toast;
 
 let _shownFor = null;   // 지금 단추가 가리키는 uid
 let _seq = 0;           // 늦게 온 «살아 있나» 답 버리기
-let _askedFor = null;   // 마지막으로 물어본 uid — 관람 화면 하나를 여는 동안 여러 번 칠해도 다시 묻지 않는다(요청 · 단추 깜빡임). 내 홈으로 오면 비운다
+let _askedFor = null;   // 마지막으로 서버에 «살아 있나» 를 물은 uid — 같은 관람 화면을 여러 번 칠해도 그 읽기만 다시 안 한다. 숨길 때 비운다
+let _name = null;       // 지금 관람 중인 사람 이름 — 같은 uid 라도 칠할 때마다 새로 받는다(처음엔 '친구' 힌트 → 프로필 이름). 누를 때 읽는다
 
 function _btn(){ return document.getElementById(BTN_ID); }
 function _hide(){ const b = _btn(); if(b) b.hidden = true; _shownFor = null; }
 
 async function refresh(viewUid, name){
-  if(viewUid && viewUid === _askedFor) return;
-  _askedFor = viewUid || null;
+  _name = name || null;
+  const me = getMyUserId();
+  /* 내 홈 · 나 · 이미 친구는 서버를 안 읽고 숨긴다 — 같은 uid 를 다시 칠할 때도(그 사이 친구가 됐을 수 있다) */
+  if(!viewUid || !me || viewUid === me || (friends() || {})[viewUid]){ ++_seq; _askedFor = null; _hide(); return; }
+  if(viewUid === _askedFor) return;
+  _askedFor = viewUid;
   const seq = ++_seq;
   _hide();
-  const me = getMyUserId();
-  if(!viewUid || !me || viewUid === me) return;
-  const fr = friends() || {};
-  if(fr[viewUid]) return;
   let alive = true;
   const net = friendNet();
-  try{ alive = (net && net.isFriendRequestAlive) ? await net.isFriendRequestAlive(viewUid, me) : true; }catch(_){ alive = true; }
+  if(!net) return;
+  try{ alive = await net.isFriendRequestAlive(viewUid, me); }catch(_){ alive = true; }
   if(seq !== _seq || alive) return;
   const b = _btn(); if(!b) return;
   b.hidden = false; _shownFor = viewUid;
-  b.onclick = () => openDialog(viewUid, name || '이 사람');
+  b.onclick = () => openDialog(viewUid, _name || '이 사람');
 }
 
 function openDialog(uid, name){
