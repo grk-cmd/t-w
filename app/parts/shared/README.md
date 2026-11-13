@@ -402,3 +402,15 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
   - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
 - 검사: `checks/sim-system-prompt.js`(깨 보기 셋).
+
+## `skeleton-share.js` — 🦴 같은 뼈대는 Skeleton 하나
+
+- **책임**: 같은 뼈 객체를 같은 순서로 쓰고 역행렬 값이 모두 같은 스킨 메시들이 Skeleton 객체 하나를 함께 쓰게 한다. three 는 Skeleton 객체마다 한 장에 한 번 뼈 행렬을 셈하고 뼈 텍스처를 올리는데(`skeleton.frame`), `SkeletonUtils.clone` 과 리깅 파츠 다시 묶기가 스킨 메시마다 Skeleton 을 따로 만들어 같은 뼈를 메시 수만큼 셈했다. 순수 모듈(`window.TwSkeletonShare` + `module.exports`) — three 객체 모양만 안다.
+- **내놓는 것**: `sameRig(a, b)` · `shareSkeletons(meshes, anchors)`(anchors 의 Skeleton 은 바꾸지 않고 먼저 맞춰 볼 후보 · 바꾼 메시 수를 돌려줌) · `skinnedMeshesOf(root)`.
+- **부르는 곳**: app.js `instantiateBase`(기본 · 커미션 몸 — 기본 몸 4 → 1) · `equipPartOnSeat`(리깅 파츠는 캐릭터 몸 · 다른 파츠와도 맞춰 봄 · 비리깅 스킨 파츠는 자기끼리 · 다중 파츠 사본) · animal.js `buildAnimalBase`(몸 + 얼굴 넷 5 → 1) · purikura-ui.js 무대 복제.
+- **함정**
+  - `bindMatrix` · `bindMatrixInverse` 는 메시 것이다(셰이더 유니폼 · 광선의 `boneTransform` 모두 메시에서 읽음). 파츠 xf 를 `bindMatrix` 에 구워 메시마다 달라도 함께 쓴다. 뼈 행렬은 «뼈 월드 × 역행렬» 이라 역행렬 값이 하나라도 다르면 따로 둔다(비트가 같은 값만 — `-0` 도 가른다).
+  - 복제 · 묶기 바로 뒤, 그리기 전에만 부른다. 그린 적 있는 메시를 옮기면 옛 Skeleton 의 뼈 텍스처가 그래픽 메모리에 남는다.
+  - 함께 쓰는 Skeleton 의 뼈 · 역행렬을 바꾸지 않는다는 전제다. 다시 묶을 땐 지금처럼 `bind(new THREE.Skeleton(…))`.
+  - r128 광선 판정은 `boneMatrices` 가 아니라 뼈 `matrixWorld` × 역행렬을 바로 셈한다(`boneTransform`) — 함께 써도 판정이 같다.
+- 검사: `checks/sim-skeleton-share.js`(진짜 기본 몸 · 동물 GLB 로 옛/새 뼈 행렬 · 스킨 자리 대조 · 깨 보기 둘).
