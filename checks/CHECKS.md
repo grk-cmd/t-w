@@ -73,7 +73,7 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 930 | **4fed4f72ae51** |
+| **audit.py** | 930 | **124da66ee563** |
 | **sim-session.js** | 221 | **37c9ae623d30** |
 | **smoke.js** | 759 | **cf0f7a42fcec** |
 | **sim-account-switch.js** | 309 | **30e2060e20e7** |
@@ -96,7 +96,7 @@
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-visit.js** | 115 | **c33a7fed1e41** |
-| **sim-friends-sub.js** | 702 | **f7e3c7e3abaf** |
+| **sim-friends-sub.js** | 702 | **89f0e388608f** |
 | **sim-friends-port.js** | 435 | **b68362babc3c** |
 | **sim-friends-presence-rt.js** | 358 | **b2c59182bc84** |
 | **sim-social-api.js** | 275 | **b09703f4c150** |

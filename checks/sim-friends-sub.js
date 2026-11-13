@@ -588,7 +588,7 @@ async function judge(S){
     const m = mod.createMyHomeInit({
       MY_FRIEND_CODE_KEY: 'k', _inboxBroadcast: () => ({}), _myFriendRequests: () => ({}), _myHomeFriends: () => ({}), _myHomeReady: () => false,
       _myInbox: () => ({}), _myInboxReady: () => false, _waitForFirebaseAPI: (cb) => cb(), deviceLostMod: any, ensureMyFriendCode: () => hang,
-      focusLevelMod: () => ({ _mobileStart(){}, _adoptStarColorFromProfile: () => hang, getFocusLevel: () => 1, myStarProfileOut: () => null }),
+      focusLevelMod: () => ({ _adoptStarColorFromProfile: () => hang, getFocusLevel: () => 1, myStarProfileOut: () => null }),
       friendManage: any, friendsSub: { start: (id, onF, onS) => starts.push({ id, onF, onS }) }, getDisplayName: () => 'n', getMyUserId: () => 'ME',
       inboxMod: () => ({ renderMyHomeFriendList: () => renders.push('list') }), mhScheduler: any, myHomeOpen: () => false, toast: () => {},
       setInboxBroadcast(){}, setMyFriendRequests(){}, setMyHomeFriends: (v) => renders.push(['set', v]), setMyHomeReady(){}, setMyInbox(){}, setMyInboxReady(){},

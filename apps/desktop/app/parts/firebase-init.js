@@ -251,7 +251,6 @@
   let _myFriendsOff = null;   // 지금 걸린 watchMyFriendList 의 해제 함수 — 동시에 하나만(새로 걸면 앞의 것을 푼다)
   let _myPresenceRef = null, _presenceRoom = null, _presenceOnline = true, _presenceInRoom = false;
   let _presenceWritten = false;   // presence 를 한 번이라도 set 했는가 — 버전이 늦게 오면 그때만 메운다
-  let _mobLive = null;   // 📱 태블릿·폰 연결 — { uid, stop } (mobileLinkStart)
   // 방 입장/퇴장 시 presence에 현재 방 코드를 같이 기록 — 친구 목록의 "온라인 · COZY-9K2M" 배지에 쓰임
   /* 🔒 단, **시크릿룸 코드는 기기 밖으로 내보내지 않는다.**
      [왜 화면에서 가리는 게 아니라 여기서 막나] presence 는 친구라면 누구나 읽는 노드다. 화면에서만
@@ -602,129 +601,6 @@
         return { ok:true, url };
       }catch(e){ console.warn('[슬롯] GLB 업로드 실패', safeKey, e); return { ok:false, reason:'업로드에 실패했어요' }; }
     },
-    /* 🏅 👑달성표 주간 보상 — 추가 뽑기 횟수. users/{uid}/chalBonus (숫자 하나)
-       ★ **gacha 노드 안에 두지 않는다.** 옛 판(0.11 이하)이 그 노드를 통째로 set 하는데,
-         보상을 모르는 **옛 버전 클라이언트**는 {owned, ts} 만 실어 보낸다 — 그 한 번의 쓰기로
-         보상이 증발한다. 기기 두 대 중 하나만 업데이트한 사람에게 실제로 일어나는 일이다.
-         노드를 갈라 두면 옛 버전이 건드릴 수 있는 경로 자체가 없다.
-       ★ set 이 아니라 트랜잭션인 이유: 지급은 "지금 값에 더하기"다. 두 기기가 토요일 0시에
-         동시에 정산하면 set 은 한쪽 지급을 통째로 덮어써서 없앤다.
-       ★ 🔒 **두 번 지급**은 트랜잭션으로 못 막는다(트랜잭션은 "지금 값에 더하기"가 안전하다는 것뿐,
-         "이미 준 적이 있나"는 모른다). 그래서 tag 를 받아 users/{uid}/chalPaidTags/{tag} 를
-         먼저 잡는다 — 같은 tag 로 두 번 부르면 두 번째는 {dup:true} 로 물러난다.
-         [왜 서버여야 하나] app.js 의 chalRec 은 ts 최신 승 **통째 덮어쓰기**라, 선지급 표식이
-         없는 다른 기기가 나중에 저장하면 그 표식이 지워지고 그 기기가 한 번 더 준다.
-         선지급은 "평일 낮에 목표를 채우는 순간"이라 두 기기가 겹칠 일이 흔하다.
-         ⚠️ 뽑기는 한 번 나가면 회수 경로가 없다. 이 방어를 걷어내지 말 것. */
-    async loadChalBonus(uid){
-      try{ const s = await get(ref(db, `users/${uid}/chalBonus`)); return Math.max(0, Math.floor(Number(s.val()) || 0)); }
-      catch(e){ console.warn('[달성표] 보상 읽기 실패', e); return null; }   // null = 읽기 실패(0 과 구분)
-    },
-    async addChalBonus(uid, n, tag){
-      try{
-        const add = Math.max(0, Math.min(99, Math.floor(Number(n) || 0)));
-        if(!add) return { ok:true, bonus:null };
-        /* 🔒 표식을 **지급보다 먼저** 찍는다. 순서를 뒤집으면 "주고 나서 죽었을 때" 표식이 없어
-           다음 실행이 한 번 더 준다. 못 주고 끝나는 쪽이 두 번 주는 쪽보다 낫다
-           (지급 실패는 부르는 쪽이 콘솔에 남기고, 다음 tick 에서 다시 시도한다).
-           ⚠️ tag 는 RTDB **키**다 — '.', '/', '#', '$', '[', ']' 가 들어가면 경로가 갈라지거나
-             쓰기가 거부된다. app.js 는 '2026-W35-wd' 꼴로 만들지만 여기서 한 번 더 씻는다. */
-        if(tag){
-          const clean = String(tag).replace(/[.$#\[\]/]/g, '-').slice(0, 40);
-          const tr = ref(db, `users/${uid}/chalPaidTags/${clean}`);
-          /* 사전 get 은 트랜잭션 첫 시도의 cur=null 오해를 막는 장치다(아래 chalBonus 와 같은 이유).
-             여기서 이미 값이 보이면 트랜잭션까지 갈 것도 없다. */
-          let taken = false;
-          try{ const s = await get(tr); taken = (s.val() != null); }catch(_){}
-          if(taken) return { ok:true, dup:true, bonus:null };
-          const mark = await runTransaction(tr, cur => (cur == null ? Date.now() : undefined));
-          if(!mark || !mark.committed) return { ok:true, dup:true, bonus:null };   // 다른 기기가 먼저 잡았다
-        }
-        const r = ref(db, `users/${uid}/chalBonus`);
-        let pre = 0;
-        try{ const s = await get(r); pre = Number(s.val()) || 0; }catch(_){}
-        const res = await runTransaction(r, cur => {
-          const base = (cur === null || cur === undefined) ? pre : (Number(cur) || 0);
-          return Math.min(9999, base + add);
-        });
-        const v = Number(res && res.snapshot && res.snapshot.val());
-        return { ok:true, bonus: isFinite(v) ? v : (pre + add) };
-      }catch(e){ console.warn('[달성표] 보상 지급 실패', e); return { ok:false, reason:String((e && e.message) || e) }; }
-    },
-    /* 🕒 포커스 누적 동기화 (기기 간 공유) — users/{uid}/focus/totalSec
-       ★ set 이 아닌 이유: A/B 두 기기를 동시에 켜두면 set 은 나중에 쓴 쪽이 상대의 기록을
-         통째로 지운다. 아래는 트랜잭션 안에서 증분을 더하고 바닥을 깔기만 하므로 안전하다. */
-    /* 누적 집중시간 서버 반영. 병합식은 이 한 줄이다:
-           새 값 = max(서버값 + addSec, baselineSec)
-       ★ 두 인자는 **어느 쪽도 상대를 대체하지 않는다.** 둘 다 매번 온다.
-         · addSec(증분)      — "이 기기에서 새로 일한 만큼". 뒤처진 기기의 작업이 증발하지 않게.
-             예) a=8h 서버, b는 연동이 안 따라온 채 2h→6h 로 일했다(증분 4h).
-                 max 만 쓰면 8h 가 이겨 4시간이 사라진다. 증분이면 8+4=12h 가 된다.
-         · baselineSec(바닥) — "이 기기의 로컬 누적치". 마크가 어긋나 증분이 0 으로 잡히는
-             상황(연동/해제 직후, 구버전에서 올라온 기기)에서도 최소한 큰 쪽은 따라가게.
-       ★ 계산은 전부 트랜잭션 **안에서** 한다 — 두 기기가 동시에 써도 각자의 증분이 살아남는다.
-         (사전 get 의 pre 는 cur===null 일 때의 대체값으로만 쓴다. 아래 주석 참고)
-       ⚠️ 값은 절대 줄지 않는다(단조 증가). 서버 값을 낮추는 경로는 여기 없다 — 있어선 안 된다.
-       반환: { ok, totalSec } — 합산 후 서버의 최신 누적치(초). */
-    async syncFocusTotal(userId, addSec, baselineSec){
-      /* 🚧 [2026-09-15 제보 6] 소유권이 걸린 쓰기다 — setMyProfile 과 같은 이유로 대기선을 지난다.
-         빠져 있었다: 부팅 4초 동기화가 세션 복원과 경주해서, 구글에 묶인 계정은 첫 push 가
-         permission_denied 로 조용히 죽고 다음 10분 주기까지 이 기기의 기록이 서버에 안 갔다. */
-      await _whenAuthReady();
-      let _readSec = null;   // 🩹 #4a — 쓰기가 거부돼도 읽기는 공개라 서버 값은 받을 수 있다(아래 catch 가 돌려준다)
-      try{
-        const r = ref(db, `users/${userId}/focus/totalSec`);
-        /* ⚠️ 누적 상한 — **app.js 의 FOCUS_TOTAL_CAP_SEC · 규칙 파일의 .validate 와 같은 값이어야 한다.**
-           999시간(회차 한 바퀴) × 100회차. 서버 규칙이 더 낮으면 잘리는 게 아니라 쓰기가 통째로 거부된다. */
-        const CAP = 999*3600*100;   // 359,640,000초 = 99,900시간
-        const delta = Math.max(0, Math.floor(Number(addSec) || 0));
-        const bn = Number(baselineSec);
-        const baseline = (isFinite(bn) && bn >= 0) ? Math.min(CAP, Math.floor(bn)) : 0;
-        // ★ 사전 get: RTDB 트랜잭션은 로컬 캐시가 비어 있으면 첫 시도에 cur=null로 들어온다.
-        //   그 상태를 "값 없음"으로 오해해 중단하면 기록이 영영 안 써지므로, 미리 읽어 기준값을 잡는다.
-        let pre = 0;
-        try{ const s = await get(r); pre = Number(s.val()) || 0; _readSec = pre; }catch(_){}
-        // 올릴 게 없으면 쓰지 않는다 — 주기 동기화가 읽기 1회로 끝나게 하는 지점(비용).
-        const want = Math.min(CAP, Math.max(pre + delta, baseline));
-        if(want <= pre) return { ok:true, totalSec: pre };
-        const res = await runTransaction(r, cur => {
-          const base = (cur === null || cur === undefined) ? pre : (Number(cur) || 0);
-          return Math.min(CAP, Math.max(base + delta, baseline));
-        });
-        const v = Number(res && res.snapshot && res.snapshot.val());
-        return { ok:true, totalSec: isFinite(v) ? v : want };
-      }catch(e){
-        const reason = String((e && e.message) || e);
-        /* 거부를 이름 붙여 돌려준다 — 부르는 쪽이 «세션이 풀렸다» 를 가려낼 유일한 근거다. */
-        const denied = /permission[_ ]denied/i.test(reason) || /PERMISSION_DENIED/.test(String(e && e.code || ''));
-        /* 🩹 [2026-10-02 제보 #4a] «윈도우 58 → 맥 47» — 쓰기가 거부되면 받아오기도 같이 멈춰서, 거부되는 기기는
-           옛 레벨에 영영 머물렀다. 읽어 둔 서버 값(serverSec)을 같이 돌려준다 — 받아올지는 app.js 가 정한다. */
-        return { ok:false, reason, denied, authed: !!(auth && auth.currentUser), serverSec: _readSec };
-      }
-    },
-    /* ═══════════ 👑 달성표 (주간 5일 달성) ═══════════
-         users/{uid}/chal = { ts, week, kind, cfg, pendingCfg, auto, days, today }
-       ★ 병합 정책은 **가챠 쪽(ts 최신 승)** 을 베꼈다 — focus/totalSec 의 max+증분이 아니다.
-         주간 상태는 눈금이 아니라 "지금 어떤 주를 어떤 조건으로 하고 있는가"라는 한 덩어리라,
-         두 기기 값을 합치면 (예: 월은 A기기, 화는 B기기 조건) 말이 안 되는 주가 만들어진다.
-         판정·비교는 전부 app.js syncChalToServer 가 하고 여기는 읽기/쓰기만 한다.
-       ★ set 을 쓰는 것이 중요하다 — update 면 진 기기에만 있던 요일이 서버에 남아
-         "덮어썼는데 옛것이 섞여 있다"가 된다(가챠와 같은 이유).
-       ⚠️ 규칙 파일 users/$userId 안에 chal 블록이 없으면 여기 쓰기가 **조용히 전부 거부**된다.
-         audit 검사 7은 최상위 경로만 보므로 users 하위 키는 잡아주지 않는다. */
-    async loadChal(uid){
-      try{
-        const snap = await get(ref(db, `users/${uid}/chal`));
-        return snap.val() || {};        // {} = 아직 한 번도 안 쓴 사람
-      }
-      catch(e){ console.warn('[달성표] 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
-    },
-    async saveChal(uid, rec){
-      try{
-        await set(ref(db, `users/${uid}/chal`), rec || null);   // null 을 넣으면 노드 삭제(=포기)
-        return true;
-      }catch(e){ console.warn('[달성표] 쓰기 실패', e); return false; }
-    },
     /* 내 프로필 이름 저장 — 친구 목록이 이 노드를 아직 듣는다. 레벨 · 별(level · cyc · clv · starC)은 서버 진척이 원본이라 쓰지 않고,
        update 라 그 칸들은 마지막 값 그대로 남는다(통째로 덮으면 지워진다 — 친구 쪽 갈아타기는 서버 빈칸 G2). */
     async setMyProfile(userId, name){
@@ -805,64 +681,6 @@
       }
       _presenceWritten = true;
       return set(_myPresenceRef, _appVer.withVer({ online: _presenceOnline, lastSeen: Date.now(), room: _presenceOnline ? _presenceRoom : null, inRoom: _presenceOnline ? _presenceInRoom : false }));
-    },
-    /* ═══════════ 📱 태블릿·폰 포커싱 연결 (개정 74 · handoff-2026-09-18 §4) ═══════════
-       mobileKeys/{uid}       = "<키>"                 읽기 금지 · PC 만 쓴다(규칙)
-       mobileLink/{uid}/live  = { at }                 PC 가 켜져 있다는 표시 · onDisconnect remove
-       mobileLink/{uid}/state = { on, app, ts, key }   폰이 REST 로 쓴다(key 일치 + live 존재일 때만 · 규칙)
-       ⚠️ presence 를 «PC 켜짐» 으로 쓰지 않는다 — «오프라인으로 보이기» 가 online:false 를 써서 폰 연결까지 끊긴다.
-       ★ 키가 없는 사람(연결 안 한 사람)에게는 이 통로가 **한 번도 안 불린다** — 읽기·쓰기 0.
-       onDiag(ev) — 진단 줄(mobile-diag.js)에만: { kind:'reset', v } 부팅 초기화로 내린 원래 값 · { kind:'live', has } PC 켜짐 표시(다른 PC 가 꺼지며 지우면 폰 신호가 거절된다) */
-    async mobileLinkStart(userId, cb, onDiag){
-      if(!userId || typeof cb !== 'function' || !onDiag) return null;
-      await _whenAuthReady();
-      if(_mobLive && _mobLive.uid === userId) return _mobLive.stop;
-      if(_mobLive) _mobLive.stop();
-      const liveRef  = ref(db, `mobileLink/${userId}/live`);
-      const stateRef = ref(db, `mobileLink/${userId}/state`);
-      const arm = ()=>{
-        try{ onDisconnect(liveRef).remove(); }catch(_){}
-        set(liveRef, { at: serverTimestamp() }).catch(e=>console.warn('[📱] live 쓰기 실패', e && e.code));
-      };
-      arm();
-      /* 부팅 초기화 — 어제 «닫힘» 이 빠진 채 남은 «켜짐» 이 오늘 시간을 쌓지 않게. on 만 내린다(앱 이름·key 는 둔다). */
-      const diag = (ev)=>{ try{ onDiag(ev); }catch(_){} }; try{ const s = (await get(stateRef)).val(); if(s && s.on === true){ await update(stateRef, { on:false }); diag({ kind:'reset', v:s }); } }catch(_){}
-      const connRef = ref(db, '.info/connected');
-      const onConn = s=>{ if(s.val() === true) arm(); };
-      try{ onValue(connRef, onConn); }catch(_){}
-      const onState = s=>{ try{ cb(s.val() || null); }catch(_){} };
-      onValue(stateRef, onState, e=>{ console.warn('[📱] 구독 실패', e && e.code); try{ cb(null); }catch(_){} });
-      const onLive = s=>diag({ kind:'live', has: s.exists() }); onValue(liveRef, onLive, ()=>{});   // 보이기만 · 다시 걸지는 않는다
-      const stop = ()=>{
-        try{ off(connRef, 'value', onConn); }catch(_){}
-        try{ off(stateRef, 'value', onState); }catch(_){}
-        try{ off(liveRef, 'value', onLive); }catch(_){}
-        try{ onDisconnect(liveRef).cancel(); }catch(_){}
-        try{ remove(liveRef); }catch(_){}
-        if(_mobLive && _mobLive.stop === stop) _mobLive = null;
-      };
-      _mobLive = { uid:userId, stop };
-      return stop;
-    },
-    /* 키를 새로 적는다 — 예전 폰은 여기서 끊긴다. 남은 state 도 지운다(예전 폰의 «켜짐» 이 남지 않게). */
-    async mobileSetKey(userId, key){
-      if(!userId || typeof key !== 'string' || key.length < 16 || key.length > 32) return false;
-      await _whenAuthReady();
-      try{
-        await set(ref(db, `mobileKeys/${userId}`), key);
-        try{ await remove(ref(db, `mobileLink/${userId}/state`)); }catch(_){}
-        return true;
-      }catch(e){ console.warn('[📱] 키 저장 실패', e && e.code); return false; }
-    },
-    /* 연결 끊기 — 키 · live · state 를 전부 걷는다. */
-    async mobileUnlink(userId){
-      if(!userId) return false;
-      await _whenAuthReady();
-      if(_mobLive) _mobLive.stop();
-      let ok = true;
-      try{ await remove(ref(db, `mobileLink/${userId}`)); }catch(_){ ok = false; }
-      try{ await remove(ref(db, `mobileKeys/${userId}`)); }catch(_){ ok = false; }
-      return ok;
     },
     /* 범용 이미지 업로드 — 디자인 스튜디오 등에서 파일로 고른 이미지를 Storage에 올리고 URL을 받음.
        slot: 'bg' | 'panel_xxx' 등 용도별 키. 같은 slot에 다시 올리면 덮어씀(용량 누적 방지). */
