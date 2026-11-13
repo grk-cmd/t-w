@@ -454,6 +454,10 @@ PRELOAD.push('click-through-policy.js');
 /* heartbeat-policy.js — 하트비트에 무거운 칸을 실을지(순수 함수). app.js 하트비트가 TwHeartbeatPolicy 로 부른다. */
 PRELOAD.push('heartbeat-policy.js');
 /* heartbeat.js · run-diag-minute.js — 🩺 0.1초 하트비트 · 1분 진단 줄. 같은 까닭 — 만들 때 하는 일(타이머 걸기)과 app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
+/* hit-map.js · hit-shadow.js · seat-hit-targets.js — 🗺️ 클릭 통과 히트 맵 그림자 운행. app.js 가 만드는 줄에서 부르고 run-diag-minute.js 가 TwHitShadow 를 읽는다. */
+PRELOAD.push('hit-map.js');
+PRELOAD.push('hit-shadow.js');
+PRELOAD.push('seat-hit-targets.js');
 PRELOAD.push('heartbeat.js');
 PRELOAD.push('run-diag-minute.js');
 PRELOAD.push('desktop-run.js');
