@@ -1228,6 +1228,7 @@
           ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined' && (newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('ts').isNumber())",
           "name": { ".validate": true },
           "ts": { ".validate": "(root.child('users/'+$fromId+'/presence/ver').exists() || root.child('users/'+$fromId+'/presence/online').val() !== true)" },
+          "msg": { ".validate": "newData.isString() && newData.val().length <= 100" },
           "$other": { ".validate": false }
         }
       }

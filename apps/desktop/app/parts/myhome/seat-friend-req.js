@@ -3,7 +3,8 @@
    ・책임: 첫 번째 우클릭은 안내만(5초 안에 한 번 더 누르면 보냄) · 두 번째에 앞단 검사(준비 · 나 · 이미 친구 · 정원) 뒤 friendNet().sendFriendRequest.
    ・받는 deps 6 — 함수 3(getDisplayName · getMyUserId · toast) · 값 FRIEND_MAX · 읽는 함수 2: _myHomeFriends(친구 구독이 다시 대입) ·
      friendNet(데이터 provider — 지금은 app.js 가 window.firebaseAPI 를 넘긴다. 서버 이관 때 app.js 의 그 한 줄만 갈아 끼운다).
-   ・내놓는 것: _friendReqAsk(uid, seat) — 좌석 우클릭 메뉴(room/seat-menu.js)가 app.js 를 거쳐 부른다.
+   ・내놓는 것: _friendReqAsk(uid, seat) — 좌석 우클릭 메뉴(room/seat-menu.js)가 app.js 를 거쳐 부른다 ·
+     sendFriendReq(uid, name, msg) — 보내기 한 벌(앞단 검사 포함 · 결과만 돌려준다). 남의 마이홈 [친구 신청](friend-req-btn.js)도 이것을 부른다.
    ⚠️ firebaseAPI 를 직접 부르지 않는다(friendNet 으로만). setTimeout 은 전역 이름 그대로. 전역 이름은 TwSeatFriendReq(Tw 접두사 #103).
    검사: checks/sim-seat-friend-req.js */
 (function(){
@@ -32,25 +33,35 @@ function _friendReqAsk(uid, seat){
   clearTimeout(_friendReqTimer); _friendReqArmed = null;
   _friendReqSend(uid, name);
 }
-async function _friendReqSend(uid, name){
-  /* 앞단 검사는 마이홈의 [친구 추가] 와 같은 순서·같은 문구로 맞춘다 — 두 입구가 다른 말을 하지 않게. */
+/* 보내기 한 벌 — 좌석 두 번 우클릭과 남의 마이홈 [친구 신청](friend-req-btn.js)이 같이 부른다. 앞단 검사 순서 · 판단은 여기 하나.
+   msg = 신청 사유(없으면 빈 칸). → { ok } | { ok:false, reason: not_ready · self · already · full · save_failed · error } */
+async function sendFriendReq(uid, name, msg){
   const net = friendNet();
-  if(!net || !net.sendFriendRequest){ toast('아직 준비 중이에요'); return; }
+  if(!net || !net.sendFriendRequest) return { ok:false, reason:'not_ready' };
+  if(uid === getMyUserId()) return { ok:false, reason:'self' };
+  if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };
+  if(_myHomeFriends() && Object.keys(_myHomeFriends()).length >= FRIEND_MAX) return { ok:false, reason:'full' };
   try{
-    if(uid === getMyUserId()){ toast('내 코드는 추가할 수 없어요'); return; }
-    if(_myHomeFriends() && _myHomeFriends()[uid]){ toast('이미 친구예요'); return; }
-    if(_myHomeFriends() && Object.keys(_myHomeFriends()).length >= FRIEND_MAX){ toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요'); return; }
-    // 📤 여기는 좌석에서 상대 이름을 알고 있으므로 이름을 이름표로 넘긴다
-    const res = await net.sendFriendRequest(getMyUserId(), uid, getDisplayName(), name, null);
-    if(res && res.ok) toast(name + '님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요');
-    else if(res && res.reason === 'already') toast('이미 친구예요');
-    else if(res && res.reason === 'self') toast('내 코드는 추가할 수 없어요');
-    else toast('요청에 실패했어요');
-  }catch(e){ toast('요청 중 오류가 발생했어요'); }
+    // 📤 상대 이름을 아는 입구라 이름을 이름표로 넘긴다
+    const res = await net.sendFriendRequest(getMyUserId(), uid, getDisplayName(), name, null, msg || '');
+    return (res && res.ok) ? { ok:true } : { ok:false, reason: (res && res.reason) || 'save_failed' };
+  }catch(e){ return { ok:false, reason:'error', err:e }; }
+}
+async function _friendReqSend(uid, name){
+  /* 문구는 마이홈의 [친구 추가] 와 같게 — 두 입구가 다른 말을 하지 않게. */
+  const res = await sendFriendReq(uid, name, '');
+  if(res.ok) toast(name + '님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요');
+  else if(res.reason === 'not_ready') toast('아직 준비 중이에요');
+  else if(res.reason === 'self') toast('내 코드는 추가할 수 없어요');
+  else if(res.reason === 'already') toast('이미 친구예요');
+  else if(res.reason === 'full') toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요');
+  else if(res.reason === 'error') toast('요청 중 오류가 발생했어요');
+  else toast('요청에 실패했어요');
 }
 
 return {
   _friendReqAsk,
+  sendFriendReq,
 };
 }
 

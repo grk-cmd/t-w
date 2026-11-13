@@ -66,6 +66,7 @@ async function showFriendRequestPopup(onlyIds){
         '<div style="background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;">👋 친구 요청</div>' +
         '<div style="padding:16px 14px;color:var(--ink);font-size:12px;line-height:1.6;">' +
           '<b>' + escHtml(nm) + '</b> 님이 친구 요청을 보냈어요.<br>수락하면 서로 친구가 돼요.' +
+          (req.msg ? '<div class="friend-req-msg">' + escHtml(String(req.msg)) + '</div>' : '') +   // 🙋 신청 사유(마이홈 [친구 신청])
         '</div>' +
         '<div style="display:flex;gap:6px;padding:0 14px 14px;justify-content:flex-end;">' +
           '<button class="lc-btn" data-a="ok" style="min-width:70px;">수락</button>' +
@@ -370,6 +371,11 @@ function renderFriendRequests(){
     const sub = document.createElement('div'); sub.className = 'mh-req-sub';
     sub.textContent = req.ts ? _inboxTimeStr(req.ts) : '';
     main.appendChild(nm); main.appendChild(sub);
+    if(req.msg){   // 🙋 신청 사유 — 남이 쓴 글이라 textContent 로만
+      const msg = document.createElement('div'); msg.className = 'mh-req-msg';
+      msg.textContent = String(req.msg); msg.title = String(req.msg);
+      main.appendChild(msg);
+    }
 
     const okBtn = document.createElement('button');
     okBtn.className = 'ok'; okBtn.type = 'button'; okBtn.textContent = '수락';

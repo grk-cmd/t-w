@@ -3669,6 +3669,24 @@
      ⚠️ 새 줄이 아니라 **같은 줄 안**이다 — display 를 주지 말 것(줄이 두 줄로 벌어진다). */
   .mh-req-code{font-weight:normal;color:#999;}
   .mh-req-sub{font-size:9.5px;color:#999;}
+  /* 🙋 신청 사유(마이홈 [친구 신청]) — 한 줄로 줄이고 전체는 title */
+  .mh-req-msg{font-size:10.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .friend-req-msg{margin-top:8px;padding:6px 8px;background:var(--win-face-2);border:1px solid var(--win-lo);font-size:11.5px;color:var(--ink);word-break:break-all;white-space:pre-wrap;}
+  /* 🙋 남의 마이홈 이름 옆 [친구 신청] · 사유 창(friend-req-btn.js) */
+  .mh-friend-req-btn{margin-left:6px;font-family:var(--tw-font-legacy);font-size:10px;padding:2px 7px;cursor:pointer;vertical-align:middle;
+    background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2);color:var(--ink);border-radius:var(--win-radius-el) !important;}
+  .mh-friend-req-btn:active{border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .friend-req-ask-ov{position:absolute;inset:0;z-index:60;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;pointer-events:auto;}
+  .friend-req-ask{width:300px;background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow:inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 4px 4px 0 rgba(0,0,0,.35);font-family:var(--tw-font-legacy);}
+  .friend-req-ask-hd{background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));color:#fff;padding:5px 8px;font-size:12px;font-weight:bold;}
+  .friend-req-ask-bd{padding:12px 14px 4px;color:var(--ink);font-size:12px;line-height:1.6;}
+  .friend-req-ask-msg{display:block;width:100%;box-sizing:border-box;margin-top:8px;resize:none;font:inherit;font-size:12px;padding:5px 6px;color:var(--ink);background:#fff;
+    border:2px solid;border-color:var(--win-lo-2) var(--win-hi) var(--win-hi) var(--win-lo-2);}
+  .friend-req-ask-cnt{font-size:10px;color:var(--ink-soft);text-align:right;margin-top:2px;}
+  .friend-req-ask-btns{display:flex;gap:6px;padding:8px 14px 14px;justify-content:flex-end;}
+  .friend-req-ask-btns .lc-btn{min-width:70px;}
   .mh-req-btns{display:flex;gap:4px;flex-shrink:0;}
   /* 📤 보낸 요청 — '기다리는 중' 칩. 상태 표시일 뿐 누르는 것이 아니라 cursor 를 주지 않는다. */
   .mh-req-pend{font-size:9px;color:#7a6a4a;background:#f4efe0;border:1px solid #ddd2b8;
@@ -6030,7 +6048,7 @@
           <input id="mhAvatarInput" type="file" accept="image/*" style="display:none;">
         </div>
         <div id="mhBgmWidget"><span id="mhBgmPlay" title="재생 / 정지">▶</span><span id="mhBgmLabelVp"><span id="mhBgmLabel">배경음악 없음</span></span><span id="mhBgmSet" style="margin-left:auto;" title="유튜브 링크 등록/변경">((&#111;</span></div>
-        <div id="mhNameRow"><b id="mhMyName">-</b> <span class="mh-edit-mark" id="mhNameEditLink">수정</span></div>
+        <div id="mhNameRow"><b id="mhMyName">-</b> <span class="mh-edit-mark" id="mhNameEditLink">수정</span><button type="button" class="mh-friend-req-btn" id="mhFriendReqBtn" hidden>＋ 친구 신청</button></div>
         <div class="mh-rt-toolbar" data-target="mhBioBox">
           <button type="button" data-cmd="bold" title="굵게"><b>B</b></button>
           <button type="button" data-cmd="italic" title="기울임"><i>I</i></button>
@@ -8837,6 +8855,7 @@
 <script src="parts/admin/admin-thumbs.js"></script>   <!-- 🖼️ 관리자 콘솔 — 파츠 썸네일 다시 굽기 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAdminThumbs.createAdminThumbs 로 만든다) -->
 <script src="parts/character/mat-tone.js"></script>   <!-- 💡 재질 톤 — app.js 보다 먼저(app.js 가 원래 자리에서 TwMatTone.createMatTone 로 만든다) -->
 <script src="parts/myhome/seat-friend-req.js"></script>   <!-- 🙋 좌석 우클릭 친구 신청 — app.js 보다 먼저(app.js 가 원래 자리에서 TwSeatFriendReq.createSeatFriendReq 로 만든다) -->
+<script src="parts/myhome/friend-req-btn.js"></script>   <!-- 🙋 남의 마이홈 [친구 신청] · 사유 창 — app.js 보다 먼저(app.js 가 친구 홈 구경보다 먼저 TwFriendReqBtn.createFriendReqBtn 로 만든다) -->
 <script src="parts/character/catalog-source.js"></script>   <!-- 🔌 카탈로그 데이터 provider(지금은 Firebase 판) — app.js 보다 먼저(app.js 가 TwCatalogSource.createCatalogSource 로 고른다) -->
 <script src="parts/shared/glb-idb-cache.js"></script>   <!-- 💾 GLB 영구 캐시(IndexedDB) — app.js 보다 먼저(app.js 가 원래 자리에서 TwGlbIdbCache.createGlbIdbCache 로 만든다) -->
 <script src="parts/character/catalog-glb.js"></script>   <!-- 🔗 카탈로그 GLB 해결(glbUrl → rec.glb) — app.js 보다 먼저(app.js 가 원래 자리에서 TwCatalogGlb.createCatalogGlb 로 만든다) -->

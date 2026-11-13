@@ -316,6 +316,9 @@ const LIMIT_CASES = [
   /* 친구 요청 · 보낸 요청 · 방 초대 */
   ['친구 요청 — 요청 + 거울 한 번에', 'PATCH', '', { [`friendRequests/${GOOD_U2}/${GOOD_U}`]: { name: '민수', ts: 1 }, [`sentFriendRequests/${GOOD_U}/${GOOD_U2}`]: { ts: 1, toName: '지영', toCode: 'MATE-AB12' } }, true],
   ['친구 요청 — 모르는 칸', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, junk: 1 }, false],
+  ['친구 요청 — 신청 사유(msg) 100자', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, msg: '가'.repeat(100) }, true],
+  ['친구 요청 — 신청 사유 101자는 막힘', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, msg: '가'.repeat(101) }, false],
+  ['친구 요청 — 신청 사유가 글자가 아니면 막힘', 'PUT', `friendRequests/${GOOD_U2}/${GOOD_U}`, { name: 'a', ts: 1, msg: 5 }, false],
   ['보낸 요청 — 모르는 칸', 'PUT', `sentFriendRequests/${GOOD_U}/${GOOD_U2}`, { ts: 1, junk: 1 }, false],
   ['방 초대 — 통째', 'PUT', `roomInvites/${GOOD_U2}/${GOOD_U}`, { roomCode: ROOM, fromName: '민수', ts: 1 }, true],
   ['방 초대 — 모르는 칸', 'PUT', `roomInvites/${GOOD_U2}/${GOOD_U}`, { roomCode: ROOM, ts: 1, junk: 1 }, false],
