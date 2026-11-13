@@ -7,7 +7,7 @@ const acc = (id: string) => ({
   id,
   slot: 'acc' as const,
   name: { ko: id, en: id, ja: id },
-  src: `${API_ORIGIN}/v1/assets/h2${id}.png`,
+  src: `${API_ORIGIN}/v1/catalog/assets/h2${id}.png`,
   closedSrc: null,
   w: 6,
   h: 6,
@@ -23,15 +23,15 @@ const face = (id: string, slot: 'pupil' | 'eyeline', closed: boolean) => ({
   id,
   slot,
   name: { ko: id, en: id, ja: id },
-  src: `${API_ORIGIN}/v1/assets/h2${id}.png`,
-  closedSrc: closed ? `${API_ORIGIN}/v1/assets/h2${id}c.png` : null,
+  src: `${API_ORIGIN}/v1/catalog/assets/h2${id}.png`,
+  closedSrc: closed ? `${API_ORIGIN}/v1/catalog/assets/h2${id}c.png` : null,
   w: 16,
   h: 18,
 });
 /** 시험용 동공 그림 주소 · 아이라인 뜬 / 감은 그림 주소 */
-export const PUPIL_SRC = `${API_ORIGIN}/v1/assets/h2round.png`;
-export const LINE_SRC = `${API_ORIGIN}/v1/assets/h2thin.png`;
-export const LINE_SHUT_SRC = `${API_ORIGIN}/v1/assets/h2thinc.png`;
+export const PUPIL_SRC = `${API_ORIGIN}/v1/catalog/assets/h2round.png`;
+export const LINE_SRC = `${API_ORIGIN}/v1/catalog/assets/h2thin.png`;
+export const LINE_SHUT_SRC = `${API_ORIGIN}/v1/catalog/assets/h2thinc.png`;
 export const THIN = 'w:thin';
 export const ROUND = 'w:round';
 
