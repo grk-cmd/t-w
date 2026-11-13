@@ -49,6 +49,7 @@ function createLicenseScreen(deps){
   let gen = 0;   // reset 마다 올라간다 — await 뒤에 견줘 옛 계정의 늦은 답을 버린다
   let pulling = null, again = false, pullLoud = false;
   let pullAfterBusy = false;
+  let stale = false;   // 구획이 안 보이는 동안 서버 알림이 왔다 — 목록이 낡았을 수 있어 다음 열기 · 탭 누름이 다시 받는다
   let failShown = false;   // 받기 실패 번호를 이미 띄웠나 — 이어지는 같은 실패는 한 번만(성공하면 풀림)
   let unsub = null;
   let listener = null;
@@ -88,7 +89,7 @@ function createLicenseScreen(deps){
       return false;
     }
     if(g !== gen) return false;   // reset 뒤에 온 옛 답은 버린다
-    failShown = false;
+    failShown = false; stale = false;
     lic = licFrom(l); load = 'ready';
     changed();
     return true;
@@ -97,13 +98,14 @@ function createLicenseScreen(deps){
   /* 설정 라이선스 구획을 열 때 — 창 열기 = 받기. opts.ifNeeded: 이미 받았거나 받는 중이면 다시 받지 않는다(탭만 바꿔 누른 경우) */
   function open(opts){
     if(!unsub) unsub = deps.rtOn(KIND, onNotify);
-    if(opts && opts.ifNeeded && (load === 'ready' || load === 'loading')) return pulling || Promise.resolve(true);
+    if(opts && opts.ifNeeded && !stale && (load === 'ready' || load === 'loading')) return pulling || Promise.resolve(true);
     if(busy){ pullAfterBusy = true; return Promise.resolve(false); }   // 쓰는 중에 받으면 옛 목록이 쓰기 답을 덮는다 — 끝난 뒤에
     return pull(true);
   }
   /* 서버 license 알림 — 구획이 보이는 중에만 받는다(안 보이면 다음 열기가 받는다) */
   function onNotify(){
-    if(load === 'idle' || !deps.isShown()) return;
+    if(load === 'idle') return;
+    if(!deps.isShown()){ stale = true; return; }
     if(busy){ pullAfterBusy = true; return; }
     pull(false);
   }
@@ -117,8 +119,8 @@ function createLicenseScreen(deps){
     let r;
     try{ r = await run(g); }
     finally{
-      busy = false;
       if(g === gen){
+        busy = false;
         changed();
         if(pullAfterBusy){ pullAfterBusy = false; pull(false); }
       }
@@ -204,7 +206,7 @@ function createLicenseScreen(deps){
   function reset(){
     if(unsub){ try{ unsub(); }catch(_){} }
     unsub = null; load = 'idle'; lic = null; busy = false; keyMsg = ''; gen++;
-    pulling = null; again = false; pullLoud = false; pullAfterBusy = false; failShown = false;
+    pulling = null; again = false; pullLoud = false; pullAfterBusy = false; failShown = false; stale = false;
     changed();
   }
 
