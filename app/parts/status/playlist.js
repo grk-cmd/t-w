@@ -327,6 +327,21 @@ function _plSyncBgmBounds(){
   _plLastBoundsKey = key;
   companion.setPlBounds(rect);
 }
+const PL_BOUNDS_POLL_MS = 300;
+function _plBoundsIdle(){
+  const box = document.getElementById('myPlaylistBox');
+  return (!box || box.classList.contains('hidden')) && _plLastBoundsKey === 'off';
+}
+function _plStartBoundsPoll(){
+  const poll = TwIdleGate.intervalWhile({ idle: _plBoundsIdle, step: _plSyncBgmBounds, ms: PL_BOUNDS_POLL_MS,
+    setInterval: (f, ms)=>setInterval(f, ms), clearInterval: (id)=>clearInterval(id) });
+  const box = document.getElementById('myPlaylistBox');
+  TwIdleGate.onClassChange(box, ()=>{
+    if(box.classList.contains('hidden')) return;
+    if(poll.wake()) _plSyncBgmBounds();
+  });
+  poll.wake();
+}
 /* 🪟 창 위치 초기화 버튼이 부른다(위 가챠와 같은 이유 — 메모리 값도 같이 비워야 한다). */
 try{ (window.__winPosResetters = window.__winPosResetters || []).push(()=>{ _plPos = null; }); }catch(_){}
 function _plSavePos(){
@@ -1841,7 +1856,9 @@ function _plApplyVolSoon(){
   })();
   // 패널이 옮겨지거나 열고 닫힐 때마다 재생 창이 따라와 숨어야 한다. 드래그·캐스케이드·창크기 변경을
   // 전부 놓치지 않도록 가벼운 폴링으로 확인한다(바뀐 게 없으면 IPC를 보내지 않는다).
-  setInterval(_plSyncBgmBounds, 300);
+  // 패널이 닫혀 있고 'off' 를 이미 보냈으면 폴링을 재운다 — 닫힌 동안은 몇 번 돌아도 늘 'off' 다(_plSyncBgmBounds).
+  //   다시 열리면(.hidden 이 빠지면) 그 자리에서 한 번 맞추고 폴링을 다시 건다.
+  _plStartBoundsPoll();
   bind('myPlAdd',   _plAdd);
   /* 🎵 [프리셋 ▼] — 고르기 목록을 여닫는다(요청 2). 여는 문은 이 버튼 하나다. */
   bind('myPlSetBtn', _plToggleSetPick);

@@ -297,9 +297,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**: 창이 닫혀 있어 결과가 화면 · 저장 · 서버에 닿지 않는 동안 반복(rAF · 짧은 주기 타이머)을 재우고, 다시 열리면 다음 틱에 건다. 판단(돌 때인가)과 할 일은 부르는 쪽이 넘긴다 — 도메인을 모른다.
 - **쓰는 법**: `TwIdleGate.rafWhile({ isOn, frame, sleep, raf })` · `TwIdleGate.intervalWhile({ idle, step, ms, setInterval, clearInterval })` — 둘 다 `{ wake, running }` 을 돌려준다. 깨우기는 `TwIdleGate.onClassChange(el, fn)`(class 변화 — 여는 길이 여럿이어도 한 곳). html 에서 쓰는 모듈보다 먼저 싣는다.
-- **지금 쓰는 곳**: 런처 미리보기(`launcher-preview.js` `startLauncherLoop` — `#launcher.on`) · 꾸미기 미리보기(`wardrobe.js` — `#wdPreviewPanel.on`).
+- **지금 쓰는 곳**: 런처 미리보기(`launcher-preview.js` `startLauncherLoop` — `#launcher.on`) · 꾸미기 미리보기(`wardrobe.js` — `#wdPreviewPanel.on`) · 플레이리스트 재생 창 사각형 폴링(`playlist.js` — `#myPlaylistBox` 가 `.hidden` 이고 off 를 보낸 뒤).
 - **함정**: 재우는 조건에 «마지막 결과를 이미 보냈다» 를 넣는다(플레이리스트는 닫힌 뒤 off 를 한 번 보내고 잔다) — 닫히자마자 자면 마지막 IPC 가 빠진다. 안 보여도 돌아야 하는 것(하트비트 · 자리비움 판정 · 포커스 기록 · rAF 멈춤 감시 · 백색소음)에는 쓰지 않는다.
-- 검사: `checks/sim-idle-gate.js` · 쓰는 곳은 `sim-launcher-preview` 5절 · `sim-wardrobe` 5절.
+- 검사: `checks/sim-idle-gate.js` · 쓰는 곳은 `sim-launcher-preview` 5절 · `sim-wardrobe` 5절 · `sim-playlist` 7-2절.
 
 ## `mac-tooltip.js` — 💬 맥 설명 말풍선
 

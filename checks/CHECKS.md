@@ -273,7 +273,7 @@
 | **sim-panel-fit.js** | 106 | **a5d15a6aadb1** |
 | **sim-myhome-inbox.js** | 617 | **00f644b74e47** |
 | **sim-playlist-sync.js** | 169 | **d3dd85d9361c** |
-| **sim-playlist.js** | 772 | **446b2c79277a** |
+| **sim-playlist.js** | 810 | **b2c711333410** |
 | **sim-ui-tokens.js** | 128 | **c4e31dbe90c9** |
 | **sim-upload-cache.js** | 84 | **131a3db7c1b1** |
 | **sim-desk-item-origin.js** | 104 | **c994d7c5152e** |
