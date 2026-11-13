@@ -1,7 +1,7 @@
 /* myhome-sticker-layout.js — 🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 움직임 효과 창(그리기 renderMyHomeStickers 는 app.js)
-   app.js «🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 움직임 효과 창(그리기 renderMyHomeStickers 는 app.js)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 44번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 4줄 —
+   app.js «🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 움직임 효과 창(그리기 renderMyHomeStickers 는 app.js)» 구역 본문을 옮긴 모듈이다(앱 FSD 44번 — docs/APP_FSD_MAP.md).
+   화면 동작은 옮기기 전과 같다. 움직임 고르기 저장은 상태 주인 editSticker 로 바뀌었고 속도 칸 이름은 animSpeed 다(D2-2b).
+   ★ 본문은 app.js 에 있던 글을 따르되 들여쓰기는 그대로다. 바뀐 곳 —
      _mhViewingUserId · _myHomeData 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 2개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).

@@ -1,15 +1,14 @@
 /* myhome-sticker.js — 🎨 마이홈 스티커 관리 창(목록 · ▲▼ 순서 · 🔒 잠금 · ✎ 편집 · ⋯ 메뉴[◎ 데려오기 · ✨ 움직임 · 🔗 링크 · × 삭제] · 전부 화면 안으로)
    · 스티커 편집모드(우클릭) · 드래그 이동 · 회전 핸들 · 크기 핸들
-   app.js 의 «🎨 스티커 관리 창» 구역 가운데 스티커 몫 두 덩이를 그대로 옮긴 모듈이다(앱 FSD 7번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
+   app.js 의 «🎨 스티커 관리 창» 구역 가운데 스티커 몫 두 덩이를 옮긴 모듈이다(앱 FSD 7번 — docs/APP_FSD_MAP.md).
+   화면 동작은 옮기기 전과 같다. 값 고치기는 달라졌다(D2-2b) — 순서 · 잠금 · 링크 · 지우기 · 끌기 · 회전 · 크기를 상태 주인(myhome-store.js)의 동작 함수로 고치고, 끌기 · 회전 · 크기는 놓을 때 한 번만 보낸다(끄는 동안은 화면만).
      · 앞 덩이 — 스티커 관리 창(openStickerMgr ~ 창 버튼 연결)
      · 뒤 덩이 — 편집모드 · 드래그 · 회전 · 크기(_mhStickerEditStart ~ _mhBindStickerResize)
    두 덩이 사이에 끼어 있던 🔗 마이홈 본문 링크(bindMyHomeExternalLinks)와, 뒤에 붙은 마이홈 페이지 편집 묶음(bindMyHomePage —
    자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 닉네임 · 🎵 BGM · 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋)은
    스티커 관리 창이 아니라 app.js 에 남겼다(지도 7번 비고 — 다음 단계에서 따로 나눈다).
 
-   ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
-     바뀐 것은 app.js 의 let 을 읽고 쓰는 방법뿐이다.
+   ★ 본문은 app.js 에 있던 글을 따르되 들여쓰기는 그대로다. 바뀐 곳: app.js let 을 읽고 쓰는 방법과 값 고치기(위).
        · _myHomeData → _myHomeData() · _mhViewingUserId → _mhViewingUserId() · _mhStickerEditSid → _mhStickerEditSid()
          app.js 가 다시 대입하는 let 이라(불러오기 · 친구 홈 관람 · 편집모드) 값이 아니라 읽는 함수로 받는다.
        · _mhStickerEditSid = x → _setMhStickerEditSid(x) · _mhStickerDragDist = x → _setMhStickerDragDist(x)

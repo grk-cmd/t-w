@@ -1,12 +1,11 @@
 /* myhome-edit.js — 🏠 마이홈 페이지 편집 묶음(자동저장 · 프로필 사진 · 글 서식 · 새 스티커 붙이기 · 스티커 끌기 ·
    닉네임 · 게시글 제목 · 🎵 BGM · 바깥 배경 · 테마) · 👑 디자인 스튜디오 · 디자인 프리셋
-   app.js 의 마이홈 페이지 편집 묶음(bindMyHomePage — 즉시 실행 함수 하나)을 그대로 옮긴 모듈이다(앱 FSD 7-2 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
+   app.js 의 마이홈 페이지 편집 묶음(bindMyHomePage — 즉시 실행 함수 하나)을 옮긴 모듈이다(앱 FSD 7-2 — docs/APP_FSD_MAP.md).
+   화면 동작은 옮기기 전과 같다. 저장은 달라졌다(D2-2b) — 값을 직접 고쳐 firebaseAPI.saveMyHome 으로 통째 쓰던 길 대신 상태 주인(myhome-store.js)의 동작 함수를 부르고, 요청 · 409 · 실패 번호는 상태 주인이 맡는다.
    디자인 스튜디오 · 프리셋은 따로 떼지 않았다 — [✎ 마이홈 수정] 버튼(묶음 앞쪽)이 _mhOpenDesignStudio 를,
    스튜디오가 commitMyHomePage · _mhOpenColorPopup(묶음 앞쪽)을 이름으로 부르는 한 몸이라, 나누면 글자 그대로가 깨진다.
 
-   ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
-     바뀐 것은 app.js 의 이름을 읽고 쓰는 방법뿐이다.
+   ★ 본문은 app.js 에 있던 글을 따르되 들여쓰기는 그대로다. 바뀐 곳: app.js 이름을 읽고 쓰는 방법과 저장 자리(위).
        · _myHomeData → _myHomeData() · _mhViewingUserId → _mhViewingUserId() · isPremium → isPremium() · isAdmin → isAdmin()
          읽는 값이라 읽는 함수로 받는다(마이홈 페이지는 상태 주인 myhome-store.js 가 들고 있다 — 값은 store 의 동작 함수로만 고친다).
        · _mhStickerDragDist = x → _setMhStickerDragDist(x)(읽기는 _mhStickerDragDist())

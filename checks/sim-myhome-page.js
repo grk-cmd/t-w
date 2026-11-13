@@ -110,7 +110,8 @@ function renderBoxes(src, active, boxHtml, pageBio){
   }catch(_){}
   return bio.innerHTML;
 }
-const judgeBoxes = (src) => renderBoxes(src, 'bio', '쓰는 중', '저장된') === '쓰는 중' && renderBoxes(src, null, 'L:같음', '같음') === 'L:같음' && renderBoxes(src, null, '옛', '새') === 'L:새';
+/* 같은 글이면 안 건드린다 — 칸 값이 load 결과(L:같음)와 다르게 두어, 갈아 끼우면 바로 드러난다 */
+const judgeBoxes = (src) => renderBoxes(src, 'bio', '쓰는 중', '저장된') === '쓰는 중' && renderBoxes(src, null, '같음', '같음') === '같음' && renderBoxes(src, null, '옛', '새') === 'L:새';
 
 (async () => {
 const rows = judgeAll(MOD, SRC, HTML);
@@ -122,6 +123,10 @@ say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
   const m2 = MOD.replace("  if(mhStateMod._mhViewingUserId()) return;\n  const pulling", "  const pulling");
   chk(m2 !== MOD && !(await judgeLoad(m2)), '구경 중 확인을 빼면 — 받기 0 판정이 빨강');
+}
+{
+  const m4 = MOD.replace('if(!same) box.innerHTML', 'box.innerHTML');
+  chk(m4 !== MOD && !judgeBoxes(m4), '같은 글 확인을 빼면 — 글 칸 판정이 빨강');
 }
 {
   const m3 = MOD.replace('if(ae && (ae === box || (box.contains && box.contains(ae)))) return;', '');

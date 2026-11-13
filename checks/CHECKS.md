@@ -373,7 +373,7 @@
 | **sim-floaters.js** | 96 | **63212b22a6cd** |
 | **sim-add-friend.js** | 96 | **6f1a6fef415e** |
 | **sim-device-lost.js** | 150 | **81f2e0f0bd03** |
-| **sim-myhome-page.js** | 149 | **87fa7f6249d1** |
+| **sim-myhome-page.js** | 154 | **ae6bbb03faec** |
 | **sim-myhome-preset.js** | 153 | **c794b274d05b** |
 | **sim-inbox-sections.js** | 134 | **7562fc1e8229** |
 | **sim-myhome-sticker-rules.js** | 90 | **3b765b09b0fc** |
@@ -488,7 +488,7 @@
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 | **sim-myhome-api.js** | 215 | **9d6526e018aa** |
 | **sim-bookshelf-store.js** | 258 | **2647af3c408b** |
-| **sim-myhome-store.js** | 584 | **37bebb86ecc5** |
+| **sim-myhome-store.js** | 596 | **efa231294fcb** |
 | **sim-myhome-wire.js** | 122 | **a6c458b30715** |
 
 ### `sim-sysinput.js` 판 계보

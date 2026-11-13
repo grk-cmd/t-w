@@ -382,6 +382,18 @@ async function judge(withBreak){
     bad.srv.patchErr = null;
     await bad.st.setField('bio', 'hello');
     chk(bad.srv.sent.length === 2 && !('bgm' in bad.srv.sent[1]) && bad.srv.sent[1].bio === 'hello' && bad.srv.page.bio === 'hello' && bad.st.page().bgm === null, '서버가 거절한 값은 버린다 — 다음 고침이 같이 거절되지 않는다(화면은 server 값으로)');
+    const sf = await ready(mk());
+    await sf.st.setField('postTitle', 't');   // 서버 값과 같다
+    await sf.st.setField('bgm', null);         // 이미 없다
+    chk(count(sf.log, /^PATCH/) === 0, '안 바뀐 칸(제목 · BGM 없음)은 요청 0');
+    await sf.st.setField('postTitle', '새 제목'); await sf.st.setField('postTitle', '새 제목');
+    chk(count(sf.log, /^PATCH/) === 1, '  바꾸면 한 번 · 같은 값을 또 넘기면 요청 0');
+    await sf.st.setField('postTitle', 't');
+    chk(count(sf.log, /^PATCH/) === 2 && sf.srv.page.postTitle === 't', '  원래 값으로 되돌리는 것도 «바꾼 것» — 보낸다');
+    const sp = await ready(mk({ patchErr: apiErr(503, 'X') }));
+    await sp.st.setField('post', '고침'); await sp.st.setField('post', 'p');
+    await sp.st.save();
+    chk(sp.srv.page.post === 'p' && sp.st.page().post === 'p', '  못 올린 칸을 원래 값으로 되돌려도 서버 · 화면이 원래 값');
     const un = await ready(mk());
     un.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
     un.srv.page.bio = '다른 기기의 소개'; un.srv.pageVersion = 9;   // 다른 기기가 소개를 바꿨다 — 아직 못 받음
