@@ -204,7 +204,7 @@
 | **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
-| **sim-signup.js** | 1485 | **085696898c3e** |
+| **sim-signup.js** | 1488 | **57d11efc7a43** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
@@ -298,7 +298,7 @@
 | **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 139 | **144912a9daf0** |
-| **sim-my-info.js** | 98 | **fe54a0cf6483** |
+| **sim-my-info.js** | 98 | **5f6f1de826c8** |
 | **sim-renderer-src.js** | 228 | **667c59d884fb** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
@@ -315,7 +315,7 @@
 | **sim-settings-panel.js** | 96 | **ca06fbe0742a** |
 | **sim-desktop-run.js** | 94 | **8e8a83fe9c82** |
 | **sim-room-entry.js** | 187 | **2c1c3fb9ef36** |
-| **sim-overhead.js** | 102 | **c40b33e57f4c** |
+| **sim-overhead.js** | 102 | **f94365116e25** |
 | **sim-room-sync.js** | 99 | **a352bc22d8ac** |
 | **sim-status-chip.js** | 102 | **a2671ab087a1** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
@@ -364,7 +364,7 @@
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **eb713b5f131e** |
 | **sim-realtime-link.js** | 323 | **1c6e8a88bcf8** |
-| **sim-lv-tier.js** | 96 | **13d70962e49c** |
+| **sim-lv-tier.js** | 96 | **ba1de093723c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
 | **sim-license-ui.js** | 96 | **bc4bb234b208** |
 | **sim-license-key.js** | 95 | **9b2c72d7fa60** |
@@ -421,6 +421,7 @@
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 234 | **ce652588740d** |
+| **sim-label-anim-paint.js** | 232 | **621cd3a555de** |
 | **sim-seat-sync-diff.js** | 200 | **fa86e4ff2eb6** |
 | **sim-safe-html.js** | 741 | **6e1c0f9fc709** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |

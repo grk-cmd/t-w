@@ -27,6 +27,7 @@ function bindLabelDrag(el, seat){
   el.addEventListener('pointerdown', e=>{ if(_labelDragFn) _labelDragFn(e, seat); });
 }
 const _starPaint = deps._starPaint;
+const npStarFill = deps.npStarFill;
 const _wpTmp3 = deps._wpTmp3;
 const camera = deps.camera;
 const chatUiMod = deps.chatUiMod;
@@ -195,7 +196,7 @@ function setSeatNamePlate(seat, level, name, star){
     el._npKey = key;
     if(star){
       el.textContent = '';
-      const sp = document.createElement('span'); sp.className = 'np-star'; sp.textContent = focusLevelMod().lvStarStr(star.cyc);
+      const sp = document.createElement('span'); sp.className = 'np-star'; npStarFill(sp, focusLevelMod().lvStarStr(star.cyc));
       el.appendChild(sp);
       el.appendChild(document.createTextNode(level + '  ' + name));
     } else el.textContent = key;

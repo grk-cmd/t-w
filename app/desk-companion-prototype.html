@@ -1723,6 +1723,14 @@
        두 겹 겹쳐 윤곽을 만든다 — 필터는 '그려진 픽셀'을 따라가므로 잘린 글자에도 걸린다.
      ⚠️ 배지 별(.mh-flv .pre)은 **방법이 다르다.** 저쪽은 광택을 안 써서 text-shadow 로 윤곽을
        만든다. 두 자리를 같은 방식으로 통일하려 들지 말 것 — 한쪽이 반드시 깨진다. */
+  /* ⚠️ 반짝임은 다시 칠하기 없이 합성기만 쓴다(transform · opacity) — 실행 화면은 화면 전체를 덮는 창이라
+       칠하는 애니메이션은 주사율마다 그 창을 다시 그리고, 0.1초 위치 재기 · 마우스 판정까지 무거워진다.
+       그래서 별 글자를 겹으로 둔다(겹을 만드는 곳은 lv-tier.js npStarFill 한 곳):
+       · 밑그림 = .np-star 자신 — 그라데이션 · 윤곽 그림자는 멈춘 채(옛 흐름의 첫 장면 그대로)
+       · 번쩍임 = ::before(같은 글자 · 밝게 · 넓은 빛) — opacity 만 오르내린다
+       · 빛 쓸기 = .np-sw(좁은 창 · 오른쪽으로) 안의 ::before(흰 글자 · 반대로) — 둘이 상쇄돼 글자는 제자리, 창만 지나간다
+       · 반짝 별 = ::after — 원래 opacity · transform 뿐
+     ⚠️ 여기 @keyframes 에 background-position · filter · left 같은 칠하는 속성을 넣으면 sim-label-anim-paint 가 빨강. */
   .seat-nameplate .np-star{ display:inline-block; position:relative; text-shadow:none;
     background-image:linear-gradient(115deg,
       color-mix(in srgb, var(--pre-c,#ffd76a) 45%, #000),
@@ -1733,16 +1741,26 @@
     -webkit-background-clip:text; background-clip:text;
     color:transparent; -webkit-text-fill-color:transparent;
     filter:drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 1.2px rgba(0,0,0,.95))
-           drop-shadow(0 0 5px var(--pre-c,#ffd76a));
-    animation:npSweep 2.6s linear infinite, npGlint 3.6s ease-in-out infinite; }
+           drop-shadow(0 0 5px var(--pre-c,#ffd76a)); }
+  .seat-nameplate .np-star::before{ content:attr(data-s); position:absolute; left:0; top:0; pointer-events:none;
+    background:inherit; -webkit-background-clip:text; background-clip:text;
+    filter:brightness(1.75);   /* ⚠️ 여기에 빛(drop-shadow)을 더하지 말 것 — 바깥 .np-star 의 검은 윤곽이 그 빛에도 걸려 옆 글자 위에 회색 안개가 낀다 */
+    opacity:0; animation:npGlint 3.6s ease-in-out infinite; }
+  .seat-nameplate .np-star .np-sw{ position:absolute; left:0; top:0; bottom:0; width:60%; overflow:hidden; pointer-events:none;
+    -webkit-mask-image:linear-gradient(90deg, transparent, #000 45%, #000 55%, transparent);
+            mask-image:linear-gradient(90deg, transparent, #000 45%, #000 55%, transparent);
+    transform:translateX(-100%); animation:npSweepWin 1.625s linear infinite; }
+  .seat-nameplate .np-star .np-sw::before{ content:attr(data-s); position:absolute; left:0; top:0; width:166.667%;
+    color:rgba(255,255,255,.9); -webkit-text-fill-color:rgba(255,255,255,.9);
+    transform:translateX(60%); animation:npSweepIn 1.625s linear infinite; }
   .seat-nameplate .np-star::after{ content:'\2726'; position:absolute; left:-5px; top:-7px; font-size:9px;
     color:var(--pre-c,#ffd76a); -webkit-text-fill-color:var(--pre-c,#ffd76a);
-    filter:drop-shadow(0 0 3px #fff);
+    filter:drop-shadow(0 0 3px #fff) brightness(1.5);   /* 옛 번쩍임 밝기(.np-star 전체에 걸리던)를 반짝 별에만 멈춘 값으로 */
     animation:npSpark 3.6s ease-in-out infinite; }
-  @keyframes npSweep{ from{background-position:0 0;} to{background-position:260% 0;} }
-  @keyframes npGlint{
-    0%,78%,100%{ filter:drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 5px var(--pre-c,#ffd76a)) brightness(1); }
-    86%        { filter:drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 1.2px rgba(0,0,0,.95)) drop-shadow(0 0 9px var(--pre-c,#ffd76a)) brightness(1.75); } }
+  @keyframes npGlint{ 0%,78%,100%{ opacity:0; } 86%{ opacity:1; } }
+  /* 창(폭 60%)이 글자 왼쪽 밖 → 오른쪽 밖으로 1초에 지나가고 나머지는 쉰다(옛 흐름의 빛 간격 · 빠르기). 안쪽은 같은 거리만큼 반대로. */
+  @keyframes npSweepWin{ 0%{ transform:translateX(-100%); } 61.5%,100%{ transform:translateX(166.667%); } }
+  @keyframes npSweepIn{ 0%{ transform:translateX(60%); } 61.5%,100%{ transform:translateX(-100%); } }
   @keyframes npSpark{ 0%,72%,100%{ opacity:0; transform:scale(.4) rotate(0deg); }
                       82%        { opacity:1; transform:scale(1) rotate(25deg); }
                       93%        { opacity:0; transform:scale(.5) rotate(45deg); } }
@@ -2139,8 +2157,13 @@
   /* 채움은 티어 토큰만 읽는다. ⚠️ 여기에 색을 직접 적지 말 것(위 토큰 블록이 유일한 출처). */
   .seat-exp .exp-fill{height:100%;width:0;transition:width .35s ease;background:var(--lv-bar);}
   /* 흐름·발광은 표식 클래스로 받는다 — 티어 번호를 나열하지 않기 위해서다(JS 가 함께 붙인다). */
-  .seat-exp.lvx .exp-fill{background-size:300% 100%;
-    animation:mhLvFlow var(--lv-speed,9s) linear infinite;}
+  /* ⚠️ 흐름은 칠하지 않고 옮기기만 — 미리 그린 띠(::before · 채움 폭의 9배 = 무늬 칸 3W 셋)를 채움 안에서 잘라 transform 으로 민다.
+       옛 background-position 0→300%(size 300%)와 같은 그림 · 같은 빠르기다(한 바퀴에 6W). 무늬 칸 크기가 같아 비스듬한 각도도 같다. */
+  .seat-exp.lvx .exp-fill{position:relative;overflow:hidden;background:none;}
+  .seat-exp.lvx .exp-fill::before{content:'';position:absolute;left:0;top:0;height:100%;width:900%;
+    background:var(--lv-bar);background-size:calc(100% / 3) 100%;
+    animation:seatLvFlow var(--lv-speed,9s) linear infinite;}
+  @keyframes seatLvFlow{ from{transform:translateX(0);} to{transform:translateX(calc(-200% / 3));} }
   /* 상위 티어는 홈 바깥으로 살짝 빛이 샌다 — 바 자체에 걸어야 overflow:hidden 에 안 잘린다. */
   .seat-exp.lvglow{box-shadow:var(--lv-glow);}
 
@@ -2653,8 +2676,10 @@
   @media (prefers-reduced-motion:reduce){
     .mh-flv.lvx,
     .mh-flv.shine::after,
-    .seat-exp.lvx .exp-fill{ animation:none; }
-    .seat-nameplate .np-star{ animation:none; }
+    .seat-exp.lvx .exp-fill::before{ animation:none; }
+    .seat-nameplate .np-star::before{ animation:none; }
+    .seat-nameplate .np-star .np-sw{ animation:none; display:none; }
+    .seat-nameplate .np-star .np-sw::before{ animation:none; }
     .seat-nameplate .np-star::after{ animation:none; opacity:.9; }
   }
   /* 🏢 회사원 모드 — ▪ 을 누른 '화면 숨김' 상태.

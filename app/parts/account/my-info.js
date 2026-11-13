@@ -58,6 +58,7 @@ const getMyUserId = deps.getMyUserId;
 const getStarColor = deps.getStarColor;
 const getUserName = deps.getUserName;
 const lvStarStr = deps.lvStarStr;
+const npStarFill = deps.npStarFill;
 const myFocusShow = deps.myFocusShow;
 const openCodeModal = deps.openCodeModal;
 const plMod = deps.plMod;
@@ -150,7 +151,7 @@ function _miRenderStar(){
     sec.style.setProperty('--pre-c', col);
     let nick = ''; try{ nick = getDisplayName(); }catch(_){}
     const st = $e('miStarNpStar'), tx = $e('miStarNpText'), fill = $e('miStarFill');
-    if(st) st.textContent = lvStarStr(c.cycle);
+    if(st) npStarFill(st, lvStarStr(c.cycle));
     if(tx) tx.textContent = c.lv + ' ' + nick;
     if(fill) fill.style.width = (Math.floor((total % EXP_SEC_PER_LEVEL()) / EXP_SEC_PER_CELL()) / EXP_CELLS() * 100) + '%';
     const pal = $e('miStarPal');
