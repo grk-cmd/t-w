@@ -69,7 +69,7 @@
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
 | **audit.py** | 932 | **2ebbf483a2a2** |
-| **smoke.js** | 718 | **031a58537f82** |
+| **smoke.js** | 720 | **bfe1ff5858f5** |
 | **sim-account-switch.js** | 454 | **23355be81363** |
 | **sim-admin-rules.js** | 410 | **e594e47939e2** || · 아래 칸 · 쓰기 없음** · **개정 163 1절 관리자 서버 봇(apiBots) — admins · licenses 읽기만 · 봇 명단 잠김** · **개정 129 7절 할 일 공용 메모(adminTodoNote) — 관리자만 · rev + 1 · 0~2000자 · 서버 시각** · **개정 127 7절 할 일 종류(type) feat · bug · 없어도 됨** · **개정 126 1절 config/releaseAnswerTpl 관리자만 · 7절 릴리스 답변 템플릿 1~1000자 글자 · 지우기 관리자만 · 읽기 관리자만** · **개정 123 7절 할 일 릴리스 버전(release) 모양 · 20자 · 없어도 됨** · **개정 118 7절 관리자 할 일(adminTodos) — 관리자만 · rev + 1 만(덮어쓰기 막기) · 작업자는 관리자 uid · 제보 id 모양 · 관리자 이름(adminNames) 본인 칸만** · **개정 99 1절 metrics/improvements 관리자 쓰기 · 모양(버전 · 제목 · 항목 20개 · 적용 일수 0~30)** · **개정 95 1절 config/bugDailyMax 관리자만** · **개정 87 1절 config/minAppVer 관리자만** · **2026-10-08 1절 bugBoard/ans/pub · ans/prv 관리자만 · 2절 버그제보 글쓰기(본인 uid · 본인 코드 · 새 글만) · 👍 본인 표시 하나** · **2026-10-07 3절 metrics(접속 지표) 읽기 관리자만 · 쓰기 규칙 없음** · **2026-10-06 1절 inboxBroadcastMeta 관리자만** · **2026-10-06 1절 catalogMeta/$kind 관리자만** · **2026-10-05 6절 관리자 작업 기록(adminLog) — 규칙식을 굴려 관리자만 · 새로 쓰기만 · by · 서버 시각 · 길이 · 90일 지난 것만 지우기 · invites 목록 관리자 읽기(issuedBy 색인) · 코드 하나는 누구나** · **2026-10-04 licenseRequests 친구코드(선택 · MATE/COZY 형식) · accountSnap 목록 관리자 읽기** · **2026-10-03 licenseRequests 새 신청만 · userCount +1 만** · **개정 55 licenses 목록 관리자만 · 키 하나 읽기** |
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
@@ -299,7 +299,7 @@
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
 | **sim-report.js** | 139 | **144912a9daf0** |
 | **sim-my-info.js** | 98 | **fe54a0cf6483** |
-| **sim-renderer-src.js** | 225 | **aaccee516bfd** |
+| **sim-renderer-src.js** | 226 | **212bebad2a19** |
 | **sim-chars.js** | 94 | **f9cca0b353e7** |
 | **sim-slot-sync-mod.js** | 94 | **a2485a292a4e** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
@@ -314,7 +314,7 @@
 | **sim-wardrobe.js** | 158 | **e5a9a4132bcf** |
 | **sim-settings-panel.js** | 96 | **ca06fbe0742a** |
 | **sim-desktop-run.js** | 94 | **8d512bdb0be4** |
-| **sim-room-entry.js** | 184 | **2421b78d4a5b** |
+| **sim-room-entry.js** | 187 | **2c1c3fb9ef36** |
 | **sim-overhead.js** | 102 | **a6716c264104** |
 | **sim-room-sync.js** | 99 | **a352bc22d8ac** |
 | **sim-status-chip.js** | 102 | **a2671ab087a1** |
@@ -421,6 +421,7 @@
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
 | **sim-label-measure.js** | 234 | **ce652588740d** |
+| **sim-seat-sync-diff.js** | 200 | **fa86e4ff2eb6** |
 | **sim-safe-html.js** | 741 | **6e1c0f9fc709** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-mallang-gift.js** | 75 | **4e210440f918** |

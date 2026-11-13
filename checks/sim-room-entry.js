@@ -18,7 +18,10 @@ if(!MOD){ say('  ? 원본 못 찾음 — room-entry.js'); process.exit(2); }
 /* 🛰 네트워크 준비 기다리기(shared/net-ready.js — 모듈이 TwNetReady.whenNetReady 를 부른다) — 가짜 window 위에 진짜 파일을 먼저 싣는다 */
 const NET = ["net-ready.js","parts/shared/net-ready.js","app/parts/shared/net-ready.js"].map(read).find(Boolean);
 if(!NET){ say('  ? 원본 못 찾음 — net-ready.js'); process.exit(2); }
-const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n';
+/* 🪑 줄 배치 규칙(room/seat-sync-diff.js — 모듈이 만들 때 TwSeatSyncDiff 를 받는다) — 같은 방법으로 먼저 싣는다 */
+const SSD = ["seat-sync-diff.js","parts/room/seat-sync-diff.js","app/parts/room/seat-sync-diff.js"].map(read).find(Boolean);
+if(!SSD){ say('  ? 원본 못 찾음 — seat-sync-diff.js'); process.exit(2); }
+const NET_PRE = NET + '\nvar TwNetReady = window.TwNetReady;\n' + SSD + '\nvar TwSeatSyncDiff = window.TwSeatSyncDiff;\n';
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_chatNotifyIncoming","_clearHiddenSeats","_demojiNotifyIncoming","_onDeviceSessionLost","_pokeFresh","_refreshChatMembers","applyCharToSeat","applyEquippedPartsToSeat","createSeat","deserializeDefFromNetwork","getDisplayName","getMyUserId","layoutSeats","maxPeople","myExpCells","pruneSeatPartsAgainstDef","refitSeatAfterParts","removeSeatLabels","renderSeatTabs","retryDefAfter","serializeDefForNetwork","showChatBubble","spawnFloater","toast","triggerPet","uiIconEl","updateMyStatusChipPosition","_rcStore"];

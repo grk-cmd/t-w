@@ -129,6 +129,20 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 프레임 루프 순서(바 → 이름표 → 공지 → 말풍선 → 상태칩)가 곧 `_bottom` 이 이번 프레임 값인 까닭이다. 순서를 바꾸면 한 프레임 전 값을 읽는다.
   - 상태칩(`status-chip.js`)은 아직 사각형을 직접 읽는다 — 프레임에 한 번(그 자리에서 이번 프레임 쓰기가 한꺼번에 반영)이라 그대로 뒀다.
 
+## seat-sync-diff.js — 🪑 친구 좌석 맞추기 뒤 «줄 배치를 다시 할지»
+
+- **책임**: `syncFriendSeats`(room-entry.js) 끝에서 지난번 모양과 이번 모양을 견줘 `{ layout, tabs }` 를 낸다. 순수 함수(DOM · 서버 없음). 상태 · 경험치 같은 칸만 바뀐 메시지에 좌석 줄 전체(모든 좌석 몸 · 책상 재기 · 창 크기 IPC · 탭 innerHTML · 상태칩)를 다시 하지 않게.
+- **만드는 법**: 없음(값 모듈). `room-entry.js` 가 `const seatSyncDiff = TwSeatSyncDiff;` 로 받는다 — html · smoke PRELOAD 에서 room-entry.js 보다 먼저.
+- **내보내는 것**
+  - `snapshot(seats, friends, ids)` — `{ members, shape, tabs }`. members 는 멤버마다 «배치에 닿는 칸» 열쇠(NON_LAYOUT_FIELDS 밖의 칸 + 좌석의 def 지문 셋), shape 는 좌석 순서 · 올라타기 · 벤치 · 책상(보이는 자식 · 크기 · 자리) · 몸 모델 · 크기 배율, tabs 는 탭 글(이름 · 친구 상태).
+  - `plan(prev, next)` — 멤버 출입 · 멤버 열쇠 · 모양 중 하나라도 다르면 `layout`, 아니면 탭 글이 다를 때만 `tabs`. 처음(prev 없음)은 다 한다.
+  - `NON_LAYOUT_FIELDS` · `memberKey` · `seatShapeKey` · `seatTabsKey`.
+- **함정**
+  - `NON_LAYOUT_FIELDS` 에는 «좌석에 값만 적고 프레임 반복 · 클릭이 그때그때 읽는» 칸만 둔다. 모르는 칸은 늘 다시 배치한다(새 판이 보낸 칸이 배치에 닿을 수 있다).
+  - 책상 GLB 는 비동기로 늦게 붙고 그 자리에서 줄 배치를 부르지 않는다 — 모양(shape)에 책상 자식을 넣은 까닭이다. 빼면 늦게 붙은 책상이 옆 책상과 겹친 채 남는다.
+  - 매 프레임 흔들리는 값(group.position · rig · bodyWrap.scale 호흡)을 모양에 넣으면 늘 «바뀜» 이라 건너뛰기가 죽는다.
+  - 검사: `checks/sim-seat-sync-diff.js`(표 · 실제 syncFriendSeats 부른 수 · 깨 보기).
+
 ## ride-measure.js — 📏 올라타기 실측
 
 - **책임**: 올라타기에 쓰는 «한 번 재서 캐싱하는» 3D 실측 셋. 값만 돌려주고 좌석에 쓰지 않는다(캐싱 · 적용은 `ride-bench.js`).
