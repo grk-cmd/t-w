@@ -3055,12 +3055,24 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
 
 /* 📖 방명록(새 글 배지 · 독립 팝업 창 — 웹박수 · 폭죽 · 글 목록 · 쓰기)은 parts/guestbook.js 로 옮겼다(앱 FSD 4번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(#mhGuestbookBtn 클릭 연결 · window 고리 등록)이 예전과 같은 때 돈다.
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _mhViewingUserId · _myHomeFriends 는 다시 대입되는 let 이라 읽는 함수로 넘긴다.
-   부르는 곳은 예전처럼 window 고리(_mhGbStartWatch · _mhGbStopWatch · _mhGbRefreshBadge · _mhReSubscribeGuestbook · _mhGbRefreshWriteUI ·
-   openMyGuestbook)를 typeof 로 보고 부른다 — 모듈이 없으면 고리가 없어 조용히 넘어간다.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _mhViewingUserId 는 다시 대입되는 let 이라 읽는 함수로 넘긴다.
+   부르는 곳은 예전처럼 window 고리(_mhGbStartWatch · _mhGbStopWatch · _mhGbRefreshBadge · _mhReSubscribeGuestbook · openMyGuestbook)를 typeof 로 보고 부른다 — 모듈이 없으면 고리가 없어 조용히 넘어간다.
    💬 showChatBubble(머리 위 말풍선)은 방명록이 아니라 바로 아래에 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 길(/v1/guestbooks · /v1/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
+  api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  rt: TwRtHub.store,
+  rtState: TwRtHub.STATE,
+  pending: TwRequestId.createPending(),
+  lastRead: TwGuestbookFeed.createLastReadStore(localStorage),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  translate: (e, table)=>TwApiErrors.translate(e, table),
+  ACTION: TwApiErrors.ACTION,
+  now: ()=>Date.now(),
+});
 const guestbook = TwGuestbook.createGuestbook({
+  feed: guestbookFeed,
+  errorText: (code)=>TwErrorCodes.toastText(code),
   getMyUserId: ()=>getMyUserId(),
   getDisplayName: ()=>getDisplayName(),
   toast: (...a)=>toast(...a),
@@ -3070,7 +3082,6 @@ const guestbook = TwGuestbook.createGuestbook({
   installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
-  myHomeFriends: ()=>_myHomeFriends,
 });
 
 /* ═══ 💬 머리 위 채팅 말풍선(showChatBubble) ═══ */
