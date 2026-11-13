@@ -5691,7 +5691,7 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   forgetSession: ()=>TwApi.authed.forgetSession(),
   now: ()=>Date.now(),
 });
-/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
+/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 포커스 옛 누적 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
 const firstRunMod = TwFirstRun013.createFirstRun({
   steps: {
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
@@ -5701,6 +5701,12 @@ const firstRunMod = TwFirstRun013.createFirstRun({
     licenseKey: TwFirstRun013.licenseKeyStep({
       storage: localStorage,
       activate: (key)=>licensePremiumMod.activate(key),
+    }),
+    focus: TwFirstRun013.focusStep({
+      storage: localStorage,
+      userCode: ()=>getMyUserId(),
+      cellName: (code, key)=>TwAccountStore.cellName(code, key),
+      accrue: (sec)=>focusProgressMod.legacyAccrue(sec),
     }),
   },
   storage: localStorage,
