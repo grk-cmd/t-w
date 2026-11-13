@@ -34,7 +34,7 @@
 
    ★ deps (createMyHomeDesktop) — advStore: 계정별 로컬 칸(shared/account-store.js · 바탕화면 저장 tw.advZ.v2 · v1). myhome-desktop-boot.js 가 넘긴다
    ★ app.js 전역 의존 (전부 typeof 가드)
-   · focusLevelMod.getFocusLevel(), _focusTotalSec, getDisplayName()
+   · focusLevelMod.getFocusLevel(), getDisplayName()
    · firebaseAPI.uploadUserImage(), getMyUserId(), toast(), companion.dsHold()
 */
 function createMyHomeDesktop(deps){
@@ -215,7 +215,6 @@ function activeSlot(){ return ADV.slots[ADV.active]; }
 
 /* ─────────────────────────── 집중 연동 ─────────────────────────── */
 function advFocusLevel(){ try{ return focusLevelMod.getFocusLevel(); }catch(_){} return 1; }
-function advFocusSec(){ try{ if(typeof _focusTotalSec==='number') return _focusTotalSec; }catch(_){} return 0; }
 // ★ 나이대별 스탯 포인트 계수 (어린이·노인은 적게). 경계·배율은 여기서 조정.
 const AGE_TIERS = [
   { max:12,  mul:0.6,  label:'어린이' },
