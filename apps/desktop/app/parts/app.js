@@ -2859,11 +2859,11 @@ const mhStateMod = TwMyHomeState.createMyHomeState({
 /* 🙋 남의 마이홈 [친구 신청] · 사유 창 — 보내기는 좌석 친구 신청과 같은 한 벌(seat-friend-req.js · 뒤에서 만든다 — 누를 때 찾는다) */
 const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
   sendFriendReq: (...a)=>seatFriendReqMod.sendFriendReq(...a),
+  resultView: (...a)=>seatFriendReqMod.resultView(...a),
   isRequestAlive: (...a)=>window.firebaseAPI.isFriendRequestAlive(...a),
   friends: ()=>_myHomeFriends,
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
-  FRIEND_MAX: FRIEND_MAX,
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,

@@ -2,7 +2,7 @@
    실행:  node sim-seat-friend-req.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 상대 좌석 우클릭 «👤 친구 신청» 은 두 번 눌러야 보낸다(실행 화면은 확인 다이얼로그를 못 띄운다).
      app.js 에서 모듈로 옮겼으니(C 구역 떼기 w4) «언제 보내고 언제 안 보내는가 · 무슨 말을 하는가» 를 입력 → 출력으로 고정한다.
-   ・1절: 만들 때 — 던지지 않고 _friendReqAsk · sendFriendReq(보내기 한 벌 — 남의 마이홈 [친구 신청]도 부른다)를 내놓는다
+   ・1절: 만들 때 — 던지지 않고 _friendReqAsk · resultView(결과 → 안내 문구 한 벌) · sendFriendReq(보내기 한 벌) 를 내놓는다 — 남의 마이홈 [친구 신청]도 뒤의 둘을 부른다
    ・2절: 두 번 눌러 보내기 — 첫 번째는 안내만 · 같은 사람 두 번째에 보냄 · 다른 사람이면 다시 처음부터 · 5초 지나면 처음부터
    ・3절: 앞단 검사 · 결과 문구 — 준비 안 됨 · 나 · 이미 친구 · 정원(경계 MAX−1 / MAX) · 서버 결과 셋 · 던짐 · sendFriendReq 가 사유를 싣고 결과만 돌려줌
    ・4절: app.js 연결 · 5절: 일부러 깨 보기 */
@@ -36,8 +36,13 @@ async function behave(src) {
   const t = (ok, msg) => r.push([!!ok, msg]);
   let w = null, err = null;
   try { w = world(src); } catch (e) { err = e; }
-  t(!err && w && Object.keys(w.out).join() === '_friendReqAsk,sendFriendReq', '만들 때 던지지 않고 _friendReqAsk · sendFriendReq 를 내놓는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
+  t(!err && w && Object.keys(w.out).join() === '_friendReqAsk,resultView,sendFriendReq', '만들 때 던지지 않고 _friendReqAsk · resultView · sendFriendReq 를 내놓는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   if (!w) return r;
+  { const V = w.out.resultView;
+    t(V({ ok: true }, '민지').kind === 'ok' && V({ ok: false, reason: 'already' }, 'a').kind === 'info' && V({ ok: false, reason: 'self' }, 'a').kind === 'info'
+      && V({ ok: false, reason: 'full' }, 'a').kind === 'info' && V({ ok: false, reason: 'full' }, 'a').text === '친구는 최대 ' + MAX + '명까지만 추가할 수 있어요' && V({ ok: false, reason: 'not_ready' }, 'a').kind === 'info'
+      && V({ ok: false, reason: 'error' }, 'a').kind === 'fail' && V({ ok: false, reason: 'save_failed' }, 'a').kind === 'fail' && V(null, 'a').kind === 'fail',
+      'resultView — 성공 · 안내(나 · 이미 친구 · 정원 · 준비 안 됨) · 실패(던짐 · 저장 실패 · 빈 답) 한 벌'); }
   const seat = { friendName: '민지' };
   w.out._friendReqAsk('u2', seat); await flush();
   t(w.log.sends.length === 0 && /^민지님은 아직 친구가 아니에요 — 5초 안에 우클릭 › «👤 친구 신청»을 한 번 더 누르면 보내요$/.test(lastT(w)) && w.timers[0] && w.timers[0].ms === 5000, '첫 번째 — 안내만 · 5초 시계');
@@ -104,7 +109,7 @@ function wire(app, html) {
 
 (async () => {
   const B = await behave(MOD);
-  B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 만들 때', 1: '── 2. 두 번 눌러 보내기', 6: '── 3. 앞단 검사 · 결과 문구' }; if (s[i]) say(s[i]); chk(ok, msg); });
+  B.forEach(([ok, msg], i) => { const s = { 0: '── 1. 만들 때', 2: '── 2. 두 번 눌러 보내기', 7: '── 3. 앞단 검사 · 결과 문구' }; if (s[i]) say(s[i]); chk(ok, msg); });
   say('── 4. app.js 연결');
   wire(APP, HTML).forEach(([ok, msg]) => chk(ok, msg));
   say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
@@ -113,6 +118,7 @@ function wire(app, html) {
     ['5초를 50초로', (m) => m.replace('const FRIEND_REQ_ARM_MS = 5000;', 'const FRIEND_REQ_ARM_MS = 50000;'), null, null],
     ['정원 검사 >= 를 > 로', (m) => m.replace('.length >= FRIEND_MAX', '.length > FRIEND_MAX'), null, null],
     ['이미 친구 검사 없앰', (m) => m.replace("if(_myHomeFriends() && _myHomeFriends()[uid]) return { ok:false, reason:'already' };", ''), null, null],
+    ['정원 문구를 안내 아닌 실패로', (m) => m.replace("if(r === 'full') return { kind:'info',", "if(r === 'full') return { kind:'fail',"), null, null],
     ['사유를 안 실음', (m) => m.replace("name, null, msg || '')", "name, null)"), null, null],
     ['provider 대신 전역 firebaseAPI 를 부름', (m) => m.replace('await net.sendFriendRequest(', 'await firebaseAPI.sendFriendRequest('), null, null],
     ['만들 때 던짐', (m) => m.replace('function createSeatFriendReq(deps){', 'function createSeatFriendReq(deps){ throw new Error("깨 봄");'), null, null],

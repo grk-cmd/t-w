@@ -240,8 +240,8 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ## friend-req-btn.js — 🙋 남의 마이홈 [친구 신청] · 신청 사유 창
 
 - **책임**: 친구 홈 구경 화면에서 이름 옆 [＋ 친구 신청] 단추를 보이고 숨긴다. 남의 홈이고 친구가 아니고 내가 보낸 요청도 없을 때만 보인다. 누르면 사유(100자) 창을 띄우고 [신청하기]로 보낸다(네이버 이웃 신청처럼).
-- **deps**: `sendFriendReq(uid, name, msg)` → `{ok, reason}`(좌석 친구 신청 `seat-friend-req.js` 와 같은 한 벌 — 앞단 검사 포함) · `isRequestAlive(toId, myId)`(내가 보낸 요청이 살아 있나 — `firebaseAPI.isFriendRequestAlive`) · `friends()`(읽는 함수) · `getMyUserId` · `toast` · `FRIEND_MAX`.
-- **내놓는 것**: `refresh(viewUid, name)` — `myhome-visit.js` `_mhApplyVisitUI` 가 부른다(내 홈 · 미리보기면 `null`) · `openDialog(uid, name)`. 순수 함수 `resultView` · `cleanReason` · `REASON_MAX` 도 내놓는다(검사용).
+- **deps**: `sendFriendReq(uid, name, msg)` → `{ok, reason}` · `resultView(res, name)` → `{kind, text}`(둘 다 좌석 친구 신청 `seat-friend-req.js` 와 같은 한 벌 — 앞단 검사 · 안내 문구) · `isRequestAlive(toId, myId)`(내가 보낸 요청이 살아 있나 — `firebaseAPI.isFriendRequestAlive`) · `friends()`(읽는 함수) · `getMyUserId` · `toast`.
+- **내놓는 것**: `refresh(viewUid, name)` — `myhome-visit.js` `_mhApplyVisitUI` 가 부른다(내 홈 · 미리보기면 `null`) · `openDialog(uid, name)`. 순수 함수 `cleanReason` · `REASON_MAX` 도 내놓는다(검사용).
 - **함정**
   - «살아 있나» 를 묻는 동안 다른 홈으로 넘어가면 늦은 답을 버린다 — 안 버리면 다음 화면에 단추가 켜진다. 확인을 못 하면 숨긴다(이미 보낸 요청을 또 보내지 않게).
   - 사유 · 이름은 `textContent` 로만 넣는다. 받는 쪽(`friend-manage.js`)도 목록은 `textContent`, 👋 팝업은 `escHtml` 이다.

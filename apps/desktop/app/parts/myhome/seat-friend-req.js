@@ -4,7 +4,8 @@
    ・받는 deps 6 — 함수 3(getDisplayName · getMyUserId · toast) · 값 FRIEND_MAX · 읽는 함수 2: _myHomeFriends(친구 구독이 다시 대입) ·
      friendNet(데이터 provider — 지금은 app.js 가 window.firebaseAPI 를 넘긴다. 서버 이관 때 app.js 의 그 한 줄만 갈아 끼운다).
    ・내놓는 것: _friendReqAsk(uid, seat) — 좌석 우클릭 메뉴(room/seat-menu.js)가 app.js 를 거쳐 부른다 ·
-     sendFriendReq(uid, name, msg) — 보내기 한 벌(앞단 검사 포함 · 결과만 돌려준다). 남의 마이홈 [친구 신청](friend-req-btn.js)도 이것을 부른다.
+     sendFriendReq(uid, name, msg) — 보내기 한 벌(앞단 검사 포함 · 결과만 돌려준다) · resultView(res, name) — 결과 → 안내 문구 한 벌.
+     남의 마이홈 [친구 신청](friend-req-btn.js)도 이 둘을 부른다(app.js 가 deps 로 잇는다).
    ⚠️ firebaseAPI 를 직접 부르지 않는다(friendNet 으로만). setTimeout 은 전역 이름 그대로. 전역 이름은 TwSeatFriendReq(Tw 접두사 #103).
    검사: checks/sim-seat-friend-req.js */
 (function(){
@@ -47,20 +48,25 @@ async function sendFriendReq(uid, name, msg){
     return (res && res.ok) ? { ok:true } : { ok:false, reason: (res && res.reason) || 'save_failed' };
   }catch(e){ return { ok:false, reason:'error', err:e }; }
 }
+/* 결과 → 보일 것 한 벌 — 좌석 · 마이홈 [친구 신청] 두 입구가 같은 말을 하게(마이홈은 fail 이면 문구 대신 E-FR-06).
+   → { kind: 'ok' | 'info' | 'fail', text } */
+function resultView(res, name){
+  const r = res && res.reason;
+  if(res && res.ok) return { kind:'ok', text: name + '님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요' };
+  if(r === 'not_ready') return { kind:'info', text:'아직 준비 중이에요' };
+  if(r === 'self') return { kind:'info', text:'내 코드는 추가할 수 없어요' };
+  if(r === 'already') return { kind:'info', text:'이미 친구예요' };
+  if(r === 'full') return { kind:'info', text:'친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요' };
+  if(r === 'error') return { kind:'fail', text:'요청 중 오류가 발생했어요' };
+  return { kind:'fail', text:'요청에 실패했어요' };
+}
 async function _friendReqSend(uid, name){
-  /* 문구는 마이홈의 [친구 추가] 와 같게 — 두 입구가 다른 말을 하지 않게. */
-  const res = await sendFriendReq(uid, name, '');
-  if(res.ok) toast(name + '님에게 친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요');
-  else if(res.reason === 'not_ready') toast('아직 준비 중이에요');
-  else if(res.reason === 'self') toast('내 코드는 추가할 수 없어요');
-  else if(res.reason === 'already') toast('이미 친구예요');
-  else if(res.reason === 'full') toast('친구는 최대 '+FRIEND_MAX+'명까지만 추가할 수 있어요');
-  else if(res.reason === 'error') toast('요청 중 오류가 발생했어요');
-  else toast('요청에 실패했어요');
+  toast(resultView(await sendFriendReq(uid, name, ''), name).text);
 }
 
 return {
   _friendReqAsk,
+  resultView,
   sendFriendReq,
 };
 }
