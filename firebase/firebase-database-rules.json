@@ -94,6 +94,19 @@
             "$other": { ".validate": false }
           }
         },
+        "_focus": {
+          "$uid": {
+            ".write": true,
+            ".validate": "$room.matches(/^SCRT-/) && $uid.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $uid !== 'undefined' && newData.hasChildren()",
+            "n": { ".validate": "newData.isString() && newData.val().length <= 20" },
+            "o": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 360000000 && (!data.exists() || newData.val() >= data.val())" },
+            "d": {
+              ".validate": "newData.hasChildren()",
+              "$day": { ".validate": "$day.matches(/^20[0-9]{6}$/) && newData.isNumber() && newData.val() >= 0 && newData.val() <= 86400 && (!data.exists() || newData.val() >= data.val())" }
+            },
+            "$other": { ".validate": false }
+          }
+        },
         "_music": {
           ".write": "!newData.exists() || newData.parent().child('_meta').child('music').val() === true",
           ".validate": "newData.hasChildren(['id','title','by','at','paused','pos','seq']) && (!data.exists() || newData.child('seq').val() > data.child('seq').val())",

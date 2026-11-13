@@ -355,3 +355,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **deps**: `_premiumOn()` · `refreshChildren()`(열린 방명록 · 디자인 창에 토큰 다시 옮김 — `themeMod.applyTheme`).
 - **내놓는 것**: `apply` · `bind` · `refresh` · `premiumChanged`(프리미엄이 바뀌면 초대 게이트 `_refreshPremiumGatedUI` 가 부른다 — 화면 글꼴까지 다시 건다).
 - **함정**: 바꾸는 토큰은 창 글씨 둘(`--win-font` · `--tw-font-legacy`)뿐 — 머리 위 말풍선 · 이름표(`--tw-font-classic`)는 일부러 안 바꾼다. 저장은 이 PC(`tw.uiFont`) — PC 글꼴은 그 PC 에만 있다. 글꼴 이름은 CSS 글자 안에 들어가므로 늘 `cleanFamily` 를 거친다. PC 글꼴 목록(`queryLocalFonts`)은 누름 직후에만 부를 수 있다. 검사 `sim-font-choice.js`.
+
+## `room-focus-days.js` — 📅 집중 기록 날 키 규칙
+
+**책임** — 서버 칸 이름 `YYYYMMDD`(집중 하루)를 만들고 읽는 규칙 한 곳: `dayKeyOf`(집중 하루 문자열 → 키) · `isDayKey`(규칙 `$day` 와 같은 모양) · `addDays` · `weekStartKey`(월요일 시작). 올리기(`room-focus-sync.js` — app.js 가 `dayKey` 로 넘김)와 보여 주기(`chat/chat-focus.js`)가 같은 키를 쓴다.
+
+**함정** — 도메인(focus · chat) 둘이 같이 쓰는 순수 leaf 라 shared 에 둔다. 의존 없는 순수 classic script(`window.TwRoomFocusDays`) — 쓰는 모듈보다 먼저 싣는다. 모양을 바꾸면 규칙 `d/$day` · 이미 쌓인 칸도 같이 본다.

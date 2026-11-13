@@ -36,6 +36,7 @@ const getDisplayName = deps.getDisplayName;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const getMyUserId = deps.getMyUserId;
 const mobileDiag = deps.mobileDiag;
+const onFocusAdded = deps.onFocusAdded;   // 📊 쌓인 초를 알린다(시크릿룸 집중 기록 올리기 — room-focus-sync.js)
 const renderLauncher = deps.renderLauncher;
 const toast = deps.toast;
 const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
@@ -188,6 +189,7 @@ function addFocusSeconds(sec){
     localStorage.setItem(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));
     localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());
   }catch(e){}
+  onFocusAdded(sec);   // 저장이 끝난 뒤에 알린다(알림이 던져도 누적 저장은 이미 끝났다)
 }
 /* ★ 해금 레벨 — **레벨 상한(999)에서 멈춘다.** 회차가 돼도 모듈로로 접지 않는다(개정 70 · 아래 myFocusShow 주석).
    화면에 보이는 «이번 바퀴» 레벨과 별은 myFocusShow() 가 따로 낸다. */

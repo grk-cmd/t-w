@@ -103,6 +103,7 @@ function runAdd(start, add){
     const localStorage = { getItem: () => null, setItem: () => {} };
     const _focusDayStr = () => 'd';
     const _pushLevelIfChanged = () => {};
+    const onFocusAdded = () => {};
     ${fnAdd}
     addFocusSeconds(ctx.add);
     return _focusTotalSec;

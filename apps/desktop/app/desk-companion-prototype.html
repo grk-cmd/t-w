@@ -756,6 +756,36 @@
   .chat-notices .cn-acts button{font-size:10.5px;padding:0 6px;cursor:pointer;font-family:var(--tw-font-legacy);}
   .chat-notices .cn-edit-in{width:100%;box-sizing:border-box;font-size:11.5px;padding:2px 4px;font-family:var(--tw-font-legacy);}
   .chat-notices .cn-item.editing .cn-acts{margin-top:4px;}
+  /* 📊 시크릿룸 #집중 탭(chat-focus.js) — 방 전체 누적 · 오늘 / 이번 주 · 사람별 순위. 색은 토큰 */
+  .chat-focus{display:none;margin:0 6px;flex:1 1 0;min-height:60px;overflow-y:auto;padding:8px;background:#fff;font-size:var(--chat-font, 12px);color:var(--tw-ink);
+    border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
+  #chatWindow.focus-mode .chat-focus{display:block;}
+  #chatWindow.focus-mode .chat-msgbox,
+  #chatWindow.focus-mode .chat-memberbar,
+  #chatWindow.focus-mode .chat-toolbar,
+  #chatWindow.focus-mode .chat-flyrow,
+  #chatWindow.focus-mode .chat-pin{display:none !important;}
+  .chat-focus .cf-total{text-align:center;padding:6px 0 8px;}
+  .chat-focus .cf-total-l{font-size:11px;color:var(--tw-ink-soft);}
+  .chat-focus .cf-total-v{font-size:20px;font-weight:bold;margin-top:2px;}
+  .chat-focus .cf-cards{display:flex;gap:6px;margin-bottom:8px;}
+  .chat-focus .cf-card{flex:1;display:flex;flex-direction:column;align-items:center;padding:5px 4px;background:var(--tw-bg-star);border:1px solid var(--tw-line);border-radius:var(--win-radius-el) !important;}
+  .chat-focus .cf-card span{font-size:10.5px;color:var(--tw-ink-soft);}
+  .chat-focus .cf-opt{display:block;font-size:11.5px;line-height:1.4;margin-bottom:8px;cursor:pointer;}
+  .chat-focus .cf-opt small{display:block;margin:1px 0 0 18px;font-size:10px;color:var(--tw-ink-soft);}
+  .chat-focus .cf-seg{display:flex;gap:3px;margin-bottom:6px;}
+  .chat-focus .cf-seg button{flex:1;font-size:11px;padding:2px 0;cursor:pointer;font-family:var(--tw-font-legacy);}
+  .chat-focus .cf-seg button.on{font-weight:bold;background:var(--tw-bg-star);}
+  .chat-focus .cf-empty{padding:14px 8px;text-align:center;color:var(--tw-ink-soft);line-height:1.6;}
+  .chat-focus .cf-row{display:flex;align-items:center;gap:6px;padding:3px 2px;border-bottom:1px solid var(--tw-line);}
+  .chat-focus .cf-row.me{background:var(--tw-bg-star);}
+  .chat-focus .cf-no{width:16px;text-align:right;color:var(--tw-ink-soft);}
+  .chat-focus .cf-name{width:76px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .chat-focus .cf-bar{flex:1;height:6px;background:var(--tw-line);border-radius:3px;overflow:hidden;}
+  .chat-focus .cf-bar i{display:block;height:100%;background:var(--tw-ink-soft);}
+  .chat-focus .cf-val{min-width:64px;text-align:right;font-size:11px;}
+  .chat-focus .cf-del{margin-top:10px;text-align:center;font-size:10.5px;color:var(--tw-ink-soft);}
+  .chat-focus .cf-del button{font-size:10.5px;padding:0 6px;cursor:pointer;font-family:var(--tw-font-legacy);}
   .chat-memberbar{margin:6px;display:flex;align-items:center;gap:6px;font-size:11px;padding:4px 6px;
     background:var(--win-face);border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);color:var(--ink);border-radius:var(--win-radius-el) !important;}
   .chat-member-label{background:var(--win-face-2);border:1px solid var(--win-lo-2);padding:1px 5px;font-weight:bold;white-space:nowrap;}
@@ -820,6 +850,7 @@
   #chatWindow.min .chat-profile,
   #chatWindow.min .chat-tabs,
   #chatWindow.min .chat-notices,
+  #chatWindow.min .chat-focus,
   #chatWindow.min .chat-pin,
   #chatWindow.min .cm-newchip,
   #chatWindow.min .cm-ctx{display:none;}
@@ -8106,6 +8137,8 @@
     </div>
     <!-- 📢 #공지 탭 본문(.notice-mode 일 때만 보임) — 공지 목록 · 고정 · 고치기 · 지우기. 그리기는 chat-notice.js -->
     <div class="chat-notices" id="chatNotices"></div>
+    <!-- 📊 #집중 탭 본문(.focus-mode 일 때만 보임) — 방 전체 누적 · 오늘 / 이번 주 · 사람별 순위. 그리기는 chat-focus.js -->
+    <div class="chat-focus" id="chatFocus"></div>
     <!-- 📋 복사 — 셋 다 #chatWindow 의 자식이다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). -->
     <div class="cm-newchip" id="chatNewChip"></div>
     <div class="cm-copytoast" id="chatCopyToast">복사했어요</div>
@@ -8715,6 +8748,10 @@
 <script src="parts/focus/focus-level.js"></script>   <!-- ⭐ 포커스 레벨 · 공유 · 태블릿 — app.js 보다 먼저(app.js 가 원래 자리에서 TwFocusLevel.createFocusLevel 로 만든다) -->
 <script src="parts/chat/chat-notice-net.js"></script>   <!-- 📢 시크릿룸 공지 서버 읽기 · 쓰기(window.TwChatNoticeNet) — firebase-init.js(type=module · 늦게 돈다)가 연결한다 -->
 <script src="parts/chat/chat-notice.js"></script>   <!-- 📢 시크릿룸 공지(window.TwChatNotice — #공지 탭 · 고정 줄) — chat-ui.js · app.js 보다 먼저(app.js 가 채팅 모듈보다 먼저 만든다) -->
+<script src="parts/shared/room-focus-days.js"></script>   <!-- 📅 집중 기록 날 키 규칙 한 곳(window.TwRoomFocusDays) — 올리기 · 집중 탭보다 먼저 -->
+<script src="parts/focus/room-focus-net.js"></script>   <!-- 📊 시크릿룸 집중 기록 서버 읽기 · 쓰기(window.TwRoomFocusNet — firebase-init.js 가 firebaseAPI.roomFocus 로 연결) -->
+<script src="parts/focus/room-focus-sync.js"></script>   <!-- 📊 내 집중 시간을 방 기록에 올리기(window.TwRoomFocusSync) — app.js 가 만든다 -->
+<script src="parts/chat/chat-focus.js"></script>   <!-- 📊 시크릿룸 #집중 탭(window.TwChatFocus) — app.js 가 채팅 모듈보다 먼저 만든다 -->
 <script src="parts/chat/chat-ui.js"></script>   <!-- 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatUi.createChatUi 로 만든다) -->
 <script src="parts/account/license-gate.js"></script>   <!-- 🎟️ 초대장 · 라이선스 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseGate.createLicenseGate 로 만든다) -->
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
