@@ -457,7 +457,9 @@ function _seatLabelName(seat){
 function _bubSnapTransform(el, invert){
   const dpr = window.devicePixelRatio || 1;
   const snap = v => Math.round(v * dpr) / dpr;
-  if(el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr){
+  /* 숨은(display:none) 말풍선은 재지 않는다 — 폭이 0 이라 어차피 아무것도 안 바뀌는데, 상태 없는 좌석은 매 프레임 여기를 지나
+     그 읽기가 강제 레이아웃이 됐다. 보이는 순간(아래 display='block' 뒤 두 번째 부름)에 잰다. */
+  if(el.style.display !== 'none' && (el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr)){
     const w = el.offsetWidth;
     if(w > 0){
       el._bxfHalfW = snap(w / 2);

@@ -317,7 +317,7 @@
 | **sim-room-entry.js** | 187 | **2c1c3fb9ef36** |
 | **sim-overhead.js** | 102 | **f94365116e25** |
 | **sim-room-sync.js** | 99 | **a352bc22d8ac** |
-| **sim-status-chip.js** | 102 | **a2671ab087a1** |
+| **sim-status-chip.js** | 123 | **ef12db69877a** |
 | **sim-premium-assets.js** | 95 | **b79166874397** |
 | **sim-char-code.js** | 95 | **9bc8b1717f50** |
 | **sim-dice-games.js** | 95 | **1784b3741383** |
@@ -420,7 +420,7 @@
 | **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
-| **sim-label-measure.js** | 234 | **ce652588740d** |
+| **sim-label-measure.js** | 261 | **0ac7eb3b5b0d** |
 | **sim-label-anim-paint.js** | 232 | **621cd3a555de** |
 | **sim-seat-sync-diff.js** | 200 | **fa86e4ff2eb6** |
 | **sim-safe-html.js** | 741 | **6e1c0f9fc709** |
