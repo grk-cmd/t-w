@@ -92,7 +92,7 @@ const CODES = {
   'E-MH-07': { msg: '기념일 · D-day 는 각각 10개까지예요', where: 'myhome/scheduler.js — 서버가 기념일 · D-day 상한 초과를 거절(SCHEDULE_DDAY_FULL)' },
   'E-PL-01': { msg: '플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요', where: 'status/playlist.js — 내 목록 서버 저장 실패(_plPublishNow · saveMine failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음)' },
   'E-PL-02': { msg: '파도타기는 인터넷 연결이 필요해요', where: 'status/playlist.js — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(_plPeek · _plPeekFriend — fetchRandom · fetchOf 던짐)' },
-  'E-LIC-01': { msg: '라이선스 상태를 확인하지 못했어요 — 앱을 다시 켜면 다시 확인해요', where: 'account/license-premium.js — 프리미엄 확인(GET /v1/me) 실패(켤 때는 계정 확인이 곧 확인이라 실패가 없다 · 서버 license 알림 뒤 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음)' },
+  'E-LIC-01': { msg: '라이선스 상태를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'account/license-premium.js — 프리미엄 확인(GET /v1/me) 실패 — 사용자가 누른 키 등록 · 이 기기 해제 뒤만(켤 때 · 서버 license 알림으로 받다 실패하면 번호 없이 지금 값 그대로 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음)' },
   'E-LIC-02': { msg: '이 기기의 라이선스를 해제하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'account/license-key.js — «이 기기에서 해제» 버튼의 서버 기기 빼기(DELETE /v1/me/license/devices/{id}) 실패(프리미엄은 그대로 · 로그인이 풀린 실패는 알리지 않음)' },
   'E-GIFT-01': { msg: '말랑이를 불러오지 못했어요', where: 'myhome/mallang-store.js — 내 칸(GET /v1/me/mallangs — 마이홈 열기 · 등록 창 [다시 시도] · 못 받은 폴더 누름) · 보는 집 칸(GET /v1/mallangs/{code} — 친구 홈 구경 · 내 집으로) 받기 실패(그 사람이 없음은 번호 없이 «말랑이 없음» · 혼자 다시 받지 않음)' },
   'E-GIFT-02': { msg: '말랑이 그림을 올리지 못했어요', where: 'myhome/mallang-store.js — 등록 ① 그림 올리기(POST /v1/me/images?purpose=mallang) 실패 · 형식 · 크기 거절(IMAGE_UPLOAD) — 칸은 그대로' },

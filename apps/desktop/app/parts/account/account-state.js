@@ -5,7 +5,7 @@
      옮긴 뒤 바뀐 것 — _setPremium 이 다시 그리기를 직접 부르지 않고 «프리미엄이 바뀌었다» 알림(onPremiumChanged)을 돌린다(게이트가 건다) ·
      _acctDetached 는 계정이 쓰는 함수(setAcctDetached)로 올린다 · 프리미엄 «모름»(premiumKnown) · 전용 자산 막기 판단 한 곳(licenseAssetBlocked)이 더해졌다.
    ★ 원격 설정 한 벌 읽기(_rcStore)도 여기 — 초대 게이트 · 방 입장 · app.js 가 같이 쓴다.
-   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · _rcStore · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _setPremium · premiumKnown · licenseAssetBlocked · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: FRIEND_CODE_LOGIN_RE · _rcStore · LOGIN_EMAIL_KEY · LOGIN_UID_KEY · getMyLoginEmail · LICENSE_KEY_STORAGE · LICENSE_OPTOUT_KEY · _setPremium · resetPremium · premiumKnown · licenseAssetBlocked · onPremiumChanged · _acctDetached(읽는 함수) · setAcctDetached · _acctRelaunchAfterDetach — app.js 는 acctStateMod.이름 으로 부른다.
    ⚠️ 전역 이름은 TwAccountState — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    app.js · 쓰는 모듈보다 먼저 싣는 classic script. */
 (function(){
@@ -36,6 +36,11 @@ function _setPremium(v){
   setIsPremium(v);
   _premiumChanged();
 }
+/* 계정이 바뀌거나 세션을 놓을 때 «모름» 으로 되돌린다 — 알림 없이(다음 계정 확인이 다시 정한다 · license-premium.js reset) */
+function resetPremium(){
+  _premiumKnown = false;
+  setIsPremium(false);
+}
 /* 🔒 «이 라이선스 전용 자산을 지금 막아야 하나» — 전용(licenseOnly)이고 프리미엄도 관리자도 아님. 전용 책상 · 아이템을 그리거나 고르는 모든 곳이 이 한 판단을 부른다
    (책상 그리기 · 아이템 장착 · 생성기 카드 · 슬롯 불러오기 · 프리셋). item = 책상 · 아이템 레코드 또는 { licenseOnly }.
    ★ 서버가 프리미엄을 확인해 주기 전(모름)에는 막지 않는다 — isPremium 의 false 는 «아님» 이 아니라서, 막으면 프리미엄 사용자가 켤 때마다 기본 책상 + «보유자만» 안내를 본다.
@@ -43,7 +48,7 @@ function _setPremium(v){
 function licenseAssetBlocked(item){
   return !!(item && item.licenseOnly) && _premiumKnown && !isPremium() && !isAdmin();
 }
-const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';   // 0.12 의 «이 기기에서 해제» 표시 — 더는 쓰지 않는 옛 값(0.13 은 서버 기기 목록에서 뺀다 · 로그아웃 지움 목록에만 남음)
+const LICENSE_OPTOUT_KEY = 'tw.licenseOptOut';   // 0.12 의 «이 기기에서 해제» 표시 — 더는 쓰지 않는 옛 값(0.13 은 서버 기기 목록에서 뺀다 · 첫 실행이 읽고 지운다)
 let _acctDetached = false;   // 신원을 놓았다 — 이 뒤로 서버에 올리는 길(syncFocusTotalToServer 등)은 돌지 않는다
 const LOGIN_EMAIL_KEY = 'tw.loginEmail';    // 이 기기에 로그인된 구글 계정 (표시·판정용)
 const LOGIN_UID_KEY   = 'tw.loginAuthUid';  // Firebase Auth uid (디버그·대조용)
@@ -70,6 +75,7 @@ return {
   LICENSE_KEY_STORAGE,
   LICENSE_OPTOUT_KEY,
   _setPremium,
+  resetPremium,
   licenseAssetBlocked,
   premiumKnown: () => _premiumKnown,   // 읽는 함수 — 서버가 확인해 준 적이 있나(없으면 isPremium 의 false 는 «모름»)
   onPremiumChanged,

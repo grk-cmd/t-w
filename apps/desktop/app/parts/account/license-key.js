@@ -27,7 +27,7 @@ document.getElementById('licenseSubmitBtn').onclick=async ()=>{
     toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
     refreshLicenseUI();
     setTimeout(()=>{ twNav.go(twNav.NAV.PROGRAM_SETTINGS_CLOSE); }, 900);
-  } else {
+  } else if(!r.notified){   // 확인 실패 번호(E-LIC-01)를 이미 띄웠으면 입력칸에 같은 실패를 또 적지 않는다
     err.textContent = r.reason || '등록에 실패했어요'; err.style.display='block';
   }
 };
