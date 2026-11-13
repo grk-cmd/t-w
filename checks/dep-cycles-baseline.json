@@ -38,7 +38,6 @@
   "launcher/settings-panel.js > room/overhead.js",
   "launcher/settings-panel.js > room/room-entry.js",
   "launcher/settings-panel.js > status/playlist.js",
-  "myhome/bookmark.js > character/wardrobe.js",
   "myhome/bookmark.js > myhome/myhome-desktop.js",
   "myhome/friend-manage.js > myhome/myhome-inbox.js",
   "myhome/myhome-desktop.js > focus/focus-level.js",

@@ -54,6 +54,8 @@
 | `E-MH-05` | 카드 그림을 올리지 못해 저장하지 않았어요 — 다시 눌러 주세요 | `myhome/scheduler.js` — 기념일 카드 그림 올리기 실패 · 서버가 그림 주소를 거절(`IMAGE_UPLOAD` · `SCHEDULE_INVALID_IMAGE_URL`) |
 | `E-MH-06` | 친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요 | `myhome/scheduler.js` — 일정 · 기념일 저장의 그 밖의 태그 거절(`SCHEDULE_TAG_SELF` 등 — 아무것도 저장되지 않음). 친구가 아닌 사람 태그(`SCHEDULE_TAG_NOT_FRIEND`)는 번호 없이 안내 토스트 |
 | `E-MH-07` | 기념일 · D-day 는 각각 10개까지예요 | `myhome/scheduler.js` — 서버가 기념일 · D-day 상한 초과를 거절(`SCHEDULE_DDAY_FULL`) |
+| `E-MH-26` | 책장을 불러오지 못했어요 — 서랍의 «다시 시도» 를 눌러 주세요 | `myhome/bookshelf-store.js` — 내 책장 받기 실패(서랍을 열 때 · «다시 시도» · 409 뒤 다시 받기) · 구경 중 공개 책 «다시 시도» 가 또 실패(구경을 시작하며 받다 실패하면 번호 없이 서랍에 «못 불러왔어요») |
+| `E-MH-27` | 책장을 저장하지 못했어요 — 책을 한 번 더 고치면 다시 올려요 | `myhome/bookshelf-store.js` — 책장 저장(`PUT bookshelf`) 실패(이어지는 동안 한 번만 · 다음 고침 · 로그아웃 올리기가 한 번 다시 보냄) |
 | `E-MH-08` | 우편을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `myhome/mail-feed.js` — 내 우편 받기 실패(`fetchMail` 던짐 — 알림함을 열 때 · «다시 시도» 를 누를 때(연 · 누른 받기에서만) · 이어지는 동안 한 번만 알림) |
 | `E-MH-09` | 소식을 불러오지 못했어요 — 우편함의 «다시 시도» 를 눌러 주세요 | `launcher/notice-feed.js` — 공지 한 판(소식 · 업데이트 공지 · 배너) 받기 실패(`fetchBoard` 던짐 — 알림함을 열 때 · «다시 시도» 를 누를 때(연 · 누른 받기에서만) · 이어지는 동안 한 번만 알림) |
 | `E-MH-10` | 우편을 읽음으로 바꾸지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `myhome/mail-feed.js` — 읽음 · 모두 읽음 서버 쓰기 실패(`markRead` · `markAllRead` failed — 계정이 바뀌는 중(`stale`)은 조용히 버림) |

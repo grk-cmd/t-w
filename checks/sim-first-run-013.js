@@ -29,9 +29,9 @@ function mk(S, plan, uc){
   const store = new Map([['a', '1'], ['b', '1'], ['c', '1'], ['keep', '1']]);
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const order = [];
-  const step = (name) => async () => { if((name === 'gacha' || name === 'mallang') && !plan[name]) return { ok: true, wipe: [] }; order.push(name); const p = plan[name]; if(typeof p === 'function') return p(); return p; };
+  const step = (name) => async () => { if((name === 'gacha' || name === 'mallang' || name === 'myhome') && !plan[name]) return { ok: true, wipe: [] }; order.push(name); const p = plan[name]; if(typeof p === 'function') return p(); return p; };
   let code = (uc === undefined) ? 'u1234567890' : uc;
-  const fr = F.createFirstRun({ steps: { login: step('login'), gacha: step('gacha'), mallang: step('mallang'), legacySync: step('legacySync'), licenseKey: step('licenseKey') }, storage, userCode: () => code, log: { warn(){} } });
+  const fr = F.createFirstRun({ steps: { login: step('login'), gacha: step('gacha'), mallang: step('mallang'), myhome: step('myhome'), legacySync: step('legacySync'), licenseKey: step('licenseKey') }, storage, userCode: () => code, log: { warn(){} } });
   return { F, fr, store, order, setCode: (c) => { code = c; } };
 }
 const OK = (w) => ({ ok: true, wipe: w || [] });
@@ -39,9 +39,9 @@ const OK = (w) => ({ ok: true, wipe: w || [] });
 async function judge(S){
   say('── 1. 차례');
   {
-    const e = mk(S, { login: OK(['a']), gacha: OK(['g']), mallang: OK(['m']), legacySync: OK(['b']), licenseKey: OK([]) });
+    const e = mk(S, { login: OK(['a']), gacha: OK(['g']), mallang: OK(['m']), myhome: OK(['h']), legacySync: OK(['b']), licenseKey: OK([]) });
     const r = await e.fr.run();
-    chk(r.ok && e.order.join() === 'login,gacha,mallang,legacySync,licenseKey', '로그인 → 가챠 옛 키 → 말랑이 옛 칸 → 캐릭터 → 라이선스 차례로');
+    chk(r.ok && e.order.join() === 'login,gacha,mallang,myhome,legacySync,licenseKey', '로그인 → 가챠 옛 키 → 말랑이 옛 칸 → 마이홈 옛 키 → 캐릭터 → 라이선스 차례로');
     let threw = false;
     try{ e.F.createFirstRun({ steps: { login: async () => OK() }, storage: {}, userCode: () => 'u1' }); }catch(_){ threw = true; }
     chk(threw, '단계가 빠지면 만들 때 던짐(조용히 건너뛰지 않음)');
@@ -114,6 +114,18 @@ async function judge(S){
       const r3 = await e3.fr.run();
       chk(r3.ok && !e3.store.has('tw.mallang.u1') && e3.store.has('keep'), '  ↳ 다 끝나면 그 키를 지운다');
     }
+    {
+      const keys = ['tw.bookmarks', 'gbClap:u1234567890:2026-11-13', 'gbClap:', 'tw.u.u1234567890.mhGbLastRead:u9', 'tw.mhGbLastRead:u9', 'tw.advZ.v2', 'x.gbClap:y'];
+      const st = { length: keys.length, key: (i) => keys[i], getItem: (k) => (keys.indexOf(k) >= 0 ? '1' : null) };
+      const hs = await F.myhomeStep(st)();
+      chk(hs.ok === true && hs.wipe.join() === 'tw.bookmarks,gbClap:u1234567890:2026-11-13', 'myhomeStep — 이 PC 의 책장 사본(tw.bookmarks)과 박수 셈(gbClap:{주인}:{날짜})만 지우라고 한다(올리지 않음 · 읽음 시각 · 바탕화면 칸 · 다른 키는 그대로)');
+      const none = await F.myhomeStep({ length: 0, key: () => null, getItem: () => null })();
+      chk(none.ok === true && none.wipe.length === 0, '  ↳ 없으면 지울 것 없이 통과');
+      const e4 = mk(S, { login: OK(), myhome: () => F.myhomeStep({ length: 2, key: (i) => ['gbClap:u1:d', 'keep'][i], getItem: (k) => (k === 'tw.bookmarks' ? null : '1') })(), legacySync: OK(), licenseKey: OK() });
+      e4.store.set('gbClap:u1:d', '3');
+      const r4 = await e4.fr.run();
+      chk(r4.ok && !e4.store.has('gbClap:u1:d') && e4.store.has('keep'), '  ↳ 다 끝나면 그 키를 지운다');
+    }
     chk(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed'].every((k) => F.LOGIN_LEGACY_KEYS.indexOf(k) >= 0) && F.LOGIN_LEGACY_KEYS.indexOf('tw.deviceId') < 0 && F.LOGIN_LEGACY_KEYS.indexOf('tw.me') < 0,
       '  ↳ 옛 가입 · 초대 키만 — 기기 id · 내 계정 사본은 안 지움');
   }
@@ -171,7 +183,7 @@ async function judge(S){
     /* 이어 붙이기 — 멈추면 키가 남고 다음 실행에 POST 한 번 */
     const store = new Map([['tw.licenseKey', 'K1'], ['x', '1']]); let n = 0, fails = true; const notes = [];
     const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
-    const fr = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), legacySync: async () => OK(),
+    const fr = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(),
       licenseKey: F.licenseKeyStep({ storage, activate: async () => { n++; return fails ? { ok: false, err: Object.assign(new Error('net'), { code: 'NETWORK' }) } : { ok: true }; } }) },
       storage, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m) => notes.push(m) });
     const a1 = await fr.run();
@@ -179,7 +191,7 @@ async function judge(S){
     fails = false; const a2 = await fr.run();
     chk(a2.ok && n === 2 && !store.has('tw.licenseKey') && store.get('tw.firstRun013') === 'u1234567890', '  ↳ 다음 실행에 등록 한 번 더 → 성공 → 지움 · 끝냄');
     const notes2 = []; store.set('tw.licenseKey', 'K2'); store.delete('tw.firstRun013');
-    const fr2 = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), legacySync: async () => OK(),
+    const fr2 = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(),
       licenseKey: F.licenseKeyStep({ storage, activate: async () => ({ ok: false, err: err(API.CODE.NOT_FOUND) }) }) },
       storage, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m) => notes2.push(m) });
     const b = await fr2.run();
@@ -193,8 +205,8 @@ await judge(SRC0);
 
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
-  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'licenseKey', 'legacySync']);", '차례가 바뀜'],
-  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey']);", "const STEPS = Object.freeze(['login', 'gacha', 'legacySync', 'licenseKey']);", '말랑이 단계가 빠짐'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'licenseKey', 'legacySync']);", '차례가 바뀜'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey']);", '마이홈 단계가 빠짐'],
   ['FR', "if(typeof k === 'string' && k.length > MALLANG_LEGACY_PREFIX.length && k.indexOf(MALLANG_LEGACY_PREFIX) === 0) wipe.push(k);", "if(typeof k === 'string' && k.indexOf('tw.mallang') === 0) wipe.push(k);", '말랑이 접두가 선물 치움 키까지 지움'],
   ['FR', "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs', 'tw.gachaBonus']);", "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs']);", '가챠 옛 키를 덜 지움'],
   ['FR', "        return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };", "        continue;", '실패해도 이어 감(올리기 전에 지움)'],

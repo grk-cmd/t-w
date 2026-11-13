@@ -924,44 +924,7 @@
       return { ok:true, url };
     },
 
-    /* ===== 📚 마이홈 북마크 책장 (2026-09-23 · 개정 61 · 계정 연동) =====
-       bookmarks/{uid} = { order:"id,id,…", items:{ id:{url,title,w,h,color,img?,at} }, ts }
-       ★ users/{uid} 아래가 아니다 — 그 자리는 `.read: true` 라 **방문자 읽기를 규칙으로 막을 수 없다.**
-         책장은 주인만 보는 것이라 최상위에 따로 두고 읽기·쓰기를 주인(+로그인)으로 묶었다.
-       ★ order 는 **쉼표로 이은 문자열** 한 줄이다. 배열로 두면 규칙에서 한 칸씩 검사할 길이 마땅치 않고,
-         선반 번호는 저장하지 않으므로(서랍 너비로 매번 계산) 순서만 있으면 된다.
-       ★ 책등 그림은 Storage `bookmarks/{uid}/{bid}.webp` — 자리비움 그림과 같은 모양(200KB · 이미지만 · 삭제 허용). */
-    async getBookmarks(userId){
-      try{ const v=(await get(ref(db, `bookmarks/${userId}`))).val(); return { ok:true, data:(v && typeof v==='object') ? v : null }; }
-      catch(e){ return { ok:false, data:null }; }
-    },
-    /* 📚 공개 책장 — **따로 둔 노드**다(bookmarksPub/{uid}). 규칙은 «읽기»를 노드 단위로만 막을 수 있어서,
-       한 노드에 공개·비공개를 같이 두면 방문자가 비공개 책까지 받아 간다(화면에서 가리는 것은 방어가 아니다).
-       그래서 공개로 표시한 책만 이 노드에 **복사**해 둔다. 주인만 쓰고, 읽기는 열려 있다. */
-    async getPublicBookmarks(userId){
-      try{ const v=(await get(ref(db, `bookmarksPub/${userId}`))).val(); return { ok:true, data:(v && typeof v==='object') ? v : null }; }
-      catch(e){ return { ok:false, data:null }; }
-    },
-    async savePublicBookmarks(userId, data){
-      try{
-        if(data) await set(ref(db, `bookmarksPub/${userId}`), data);
-        else await remove(ref(db, `bookmarksPub/${userId}`));
-        return { ok:true };
-      }catch(e){ console.warn('[bookmark] 공개 책장 저장 실패', e); return { ok:false }; }
-    },
-    async saveBookmarks(userId, data){
-      try{ await set(ref(db, `bookmarks/${userId}`), data); return { ok:true }; }
-      catch(e){ console.warn('[bookmark] 저장 실패', e); return { ok:false }; }
-    },
-    async uploadBookmarkImg(userId, bid, dataUrl){
-      if(!userId || !bid || !dataUrl || !String(dataUrl).startsWith('data:image/')) return { ok:false, reason:'이미지가 아니에요' };
-      try{
-        const safe = String(bid).replace(/[^a-zA-Z0-9_-]/g, '');
-        const r = sref(storage, `bookmarks/${userId}/${safe}_${Date.now()}.webp`);
-        await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
-        return { ok:true, url: await getDownloadURL(r) };
-      }catch(e){ console.warn('[bookmark] 그림 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
-    },
+    /* 📚 마이홈 북마크 책장은 서버 길(myhome/bookshelf-store.js · myhome-api.js)로 옮겼다 — Firebase 책장 메서드는 없다. */
 
     /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====
        Storage `away/{uid}/away_{ts}.webp`(규칙: 300KB 미만 · 삭제 허용) → URL 을 users/{uid}/awayImg 한 칸에.

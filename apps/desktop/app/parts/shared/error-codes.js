@@ -90,6 +90,8 @@ const CODES = {
   'E-MH-05': { msg: '카드 그림을 올리지 못해 저장하지 않았어요 — 다시 눌러 주세요', where: 'myhome/scheduler.js — 기념일 카드 그림 올리기 실패 · 서버가 그림 주소를 거절(IMAGE_UPLOAD · SCHEDULE_INVALID_IMAGE_URL)' },
   'E-MH-06': { msg: '친구만 태그할 수 있어요 — 친구 목록을 확인해 주세요', where: 'myhome/scheduler.js — 일정 · 기념일 저장의 그 밖의 태그 거절(SCHEDULE_TAG_SELF 등 — 아무것도 저장되지 않음). 친구가 아닌 사람 태그(SCHEDULE_TAG_NOT_FRIEND)는 번호 없이 안내 토스트' },
   'E-MH-07': { msg: '기념일 · D-day 는 각각 10개까지예요', where: 'myhome/scheduler.js — 서버가 기념일 · D-day 상한 초과를 거절(SCHEDULE_DDAY_FULL)' },
+  'E-MH-26': { msg: '책장을 불러오지 못했어요 — 서랍의 «다시 시도» 를 눌러 주세요', where: 'myhome/bookshelf-store.js — 내 책장 받기 실패(서랍을 열 때 · «다시 시도» · 409 뒤 다시 받기) · 구경 중 공개 책 «다시 시도» 가 또 실패(구경을 시작하며 받다 실패하면 번호 없이 서랍에 «못 불러왔어요»)' },
+  'E-MH-27': { msg: '책장을 저장하지 못했어요 — 책을 한 번 더 고치면 다시 올려요', where: 'myhome/bookshelf-store.js — 책장 저장(PUT bookshelf) 실패(이어지는 동안 한 번만 · 다음 고침 · 로그아웃 올리기가 한 번 다시 보냄)' },
   'E-PL-01': { msg: '플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요', where: 'status/playlist.js — 내 목록 서버 저장 실패(_plPublishNow · saveMine failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음)' },
   'E-PL-02': { msg: '파도타기는 인터넷 연결이 필요해요', where: 'status/playlist.js — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(_plPeek · _plPeekFriend — fetchRandom · fetchOf 던짐)' },
   'E-LIC-01': { msg: '라이선스 상태를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요', where: 'account/license-premium.js — 프리미엄 확인(GET /v1/me) 실패 — 사용자가 누른 키 등록 · 이 기기 해제 뒤만(켤 때 · 서버 license 알림으로 받다 실패하면 번호 없이 지금 값 그대로 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음)' },
