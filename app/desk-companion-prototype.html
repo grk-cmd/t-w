@@ -8415,6 +8415,9 @@
 <script src="parts/launcher/click-through-policy.js"></script>   <!-- 🖱 클릭 통과 판단 규칙(순수 함수 · main.js 도 require) — desktop-run.js 보다 먼저 -->
 <script src="parts/launcher/heartbeat-policy.js"></script>   <!-- 🩺 하트비트에 무거운 칸을 실을지(순수 함수) — app.js 보다 먼저 -->
 <script src="parts/launcher/heartbeat.js"></script>   <!-- 🩺 0.1초 하트비트 — app.js 보다 먼저(app.js 가 원래 자리에서 TwHeartbeat.createHeartbeat 로 만든다) -->
+<script src="parts/launcher/hit-map.js"></script>   <!-- 🗺️ 클릭 통과 히트 맵(순수 계산 · window.TwHitMap) — app.js 보다 먼저 -->
+<script src="parts/launcher/hit-shadow.js"></script>   <!-- 🗺️ 히트 맵 그림자 운행의 셈 · 1분 [지도] 줄(window.TwHitShadow) — run-diag-minute.js · app.js 보다 먼저 -->
+<script src="parts/room/seat-hit-targets.js"></script>   <!-- 🎯 좌석의 누를 수 있는 조각 · 히트 맵 만들기(window.TwSeatHitTargets) — app.js 보다 먼저 -->
 <script src="parts/launcher/run-diag-minute.js"></script>   <!-- 🩺 1분 진단 줄 — app.js 보다 먼저(app.js 가 원래 자리에서 TwRunDiagMinute.createRunDiagMinute 로 만든다) -->
 <script src="parts/launcher/desktop-run.js"></script>   <!-- 🖥️ 데스크탑 실행 화면 — app.js 보다 먼저(app.js 가 원래 자리에서 TwDesktopRun.createDesktopRun 로 만든다) -->
 <script src="parts/room/seat-sync-diff.js"></script>   <!-- 🪑 친구 좌석 맞추기의 «줄 배치를 다시 할지» 규칙(window.TwSeatSyncDiff) — room-entry.js 보다 먼저 -->
