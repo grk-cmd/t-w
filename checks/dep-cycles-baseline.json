@@ -7,8 +7,6 @@
   2
  ],
  "edges": [
-  "account/license-request.js > account/license-ui.js",
-  "account/license-ui.js > account/license-request.js",
   "admin/admin-license-bulk.js > admin/admin-license.js",
   "admin/admin-license.js > admin/admin-license-bulk.js",
   "character/gacha.js > character/wardrobe.js",

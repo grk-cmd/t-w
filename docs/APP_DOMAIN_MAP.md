@@ -140,7 +140,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `account.js` · `my-info.js` | 로그인 · 로그아웃 · 신원 지우기 · 내 정보(보관함 · 휴지통 · 계정 탭) | fb 44 · 16 |
 | `license-gate.js` | 초대장 — 앱 접근 제한 | fb 60 |
-| `license-ui.js` · `license-key.js` · `license-request.js` | 라이선스 화면 · 키 등록 / 해제 · 요청 | fb 6 |
+| `license-ui.js` · `license-key.js` | 라이선스 화면 · 키 등록 / 해제 | fb 6 |
 | `device-lost.js` · `name-guard.js` | 한 계정 한 기기 · 운영진처럼 보이는 이름 막기 | fb 4 |
 | `invite-revoke.js` (ES) | 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
 

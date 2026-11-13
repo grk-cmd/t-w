@@ -1,4 +1,4 @@
-/* license-api.js — 🔑 라이선스 provider — 내 라이선스 · 기기 · 라이선스 요청 서버 길(/v1/me/license*) 한 벌 (검사 sim-license-api.js)
+/* license-api.js — 🔑 라이선스 provider — 내 라이선스 · 기기 서버 길(/v1/me/license*) 한 벌 (검사 sim-license-api.js)
    [왜] 프리미엄은 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 를 서버가 판정한다(GET /v1/me 의 premium). 키 · 기기 목록은 서버가 들고,
      화면 · 흐름(license-premium.js)은 경로 · 본문 모양 · 오류 code 를 모르고 이 파일의 함수만 부른다.
    [모양] 모두 Promise. 성공은 서버 data(모양을 맞춘 값), 실패는 api-client.js 의 ApiError 그대로 던진다(«실패 ≠ 없음»).
@@ -13,7 +13,6 @@
 const PATHS = Object.freeze({
   mine: '/v1/me/license',
   device: (id) => '/v1/me/license/devices/' + encodeURIComponent(id),
-  application: '/v1/me/license-requests',
 });
 const DEVICE_NAME_MAX = 40;   // 서버 상한 — 넘기면 400
 const STATUS = Object.freeze({ VALID: 'VALID', REVOKED: 'REVOKED' });
@@ -57,11 +56,6 @@ function licenseFrom(d){
   const deviceLimit = Number.isInteger(d.deviceLimit) && d.deviceLimit > 0 ? d.deviceLimit : null;
   return { licenseId: d.licenseId, status, devices, premium, deviceLimit };
 }
-function applicationFrom(d){
-  if(!isObj(d) || !str(d.name)) return undefined;
-  return { name: d.name, status: d.status === 'APPROVED' ? 'APPROVED' : 'PENDING' };
-}
-
 /** @param {{ authed: { get: Function, post: Function, put: Function, del: Function } }} deps
  *   authed 는 로그인 API 통로(TwApi.authed — get(path, { auth: true, onOwner }) · post · put · del(…, { expectOwner }) → Promise<data>) */
 function createLicenseApi(deps){
@@ -96,19 +90,6 @@ function createLicenseApi(deps){
   async function removeDevice(deviceId){
     return write((o) => licenseOrThrow(authed.del(PATHS.device(deviceId), o)));
   }
-  /* 내 최근 라이선스 요청 → { name, status:'PENDING'|'APPROVED' } · 없으면 null. 승인된 키는 여기 없다(우편함으로 간다) */
-  async function myApplication(){
-    const d = await authed.get(PATHS.application, { auth: true });
-    if(d === null || d === undefined) return null;
-    const a = applicationFrom(d);
-    if(!a) throw shapeError();
-    return a;
-  }
-  /* 라이선스 요청 보내기 — requestId 는 같은 요청을 두 번 보내도 한 번만 되게 하는 번호(request-id.js) */
-  async function apply(requestId, name){
-    await authed.post(PATHS.application, { requestId: String(requestId), name: String(name) });
-    return true;
-  }
   function reasonOf(err){
     const code = String((err && err.code) || '');
     return Object.prototype.hasOwnProperty.call(REASONS, code) ? REASONS[code] : null;   // 표에 없으면 null — 부르는 쪽이 공통 문구(user-api reasonOf)로
@@ -117,10 +98,10 @@ function createLicenseApi(deps){
   /* 서버가 «기기를 모두 썼다» 로 거절했나 — 화면이 번호 대신 안내 문구를 고른다 */
   function isDeviceFull(err){ return !!err && err.code === CODE.DEVICE_FULL; }
 
-  return { mine, register, putDevice, removeDevice, myApplication, apply, reasonOf, isDeviceFull };
+  return { mine, register, putDevice, removeDevice, reasonOf, isDeviceFull };
 }
 
-const out = { PATHS, STATUS, CODE, REASONS, DEVICE_NAME_MAX, deviceNameOf, licenseFrom, applicationFrom, createLicenseApi };
+const out = { PATHS, STATUS, CODE, REASONS, DEVICE_NAME_MAX, deviceNameOf, licenseFrom, createLicenseApi };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — 통로는 부를 때 찾는다(싣는 차례가 바뀌어도 만들 때 던지지 않게) */
   out.store = createLicenseApi({ authed: {

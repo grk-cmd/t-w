@@ -172,7 +172,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `net-ready.js` — 🛰 네트워크(provider) 준비됨 기다리기
 
-**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 15곳(app.js 넷 · room-entry 둘 · ad-banner · license-request · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
+**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 14곳(app.js 넷 · room-entry 둘 · ad-banner · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
 
 **만드는 법** — 만들 필요 없음(deps 0). 쓰는 모듈 · app.js 보다 먼저 싣는 classic script(`window.TwNetReady`)이고, 쓰는 곳은 `TwNetReady.이름` 으로 바로 부른다.
 
@@ -221,7 +221,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `app-version.js` — 🏷️ 앱 버전(ver) 싣기
 
-**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence · 라이선스 요청에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
+**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence 에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
 
 **만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion, onReady })`. `onReady(ver)` 는 처음 받았을 때 한 번 — presence 를 이미 썼으면 ver 만 update 하고 onDisconnect 를 다시 건다.
 
