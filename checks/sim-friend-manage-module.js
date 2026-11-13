@@ -260,52 +260,12 @@ await sec('── 6. app.js 배선', () => {
   chk(/^Tw[A-Z]/.test('TwFriendManage') && !/window\.FriendManage\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
 });
 
-await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () => {
+await sec('── 7. 🐞 버그 제보 탭 — 오픈카톡 링크 폼은 bug-board-ui.js 안으로(서버 설정 bug.report)', async () => {
   const code = strip(APP);
   chk(!/bindBugReport|_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|mhBugEditBtn/.test(code), 'app.js 에 버그 제보 탭 코드가 없다');
-  const iI = BUG.indexOf('})();\n\n/* ↓ app.js 에서 옮긴'), iB = BUG.indexOf('(function bindBugReport(){');
-  chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 맨 앞 칸 — 전역 이름 그대로(_bugReportConf · window._bugReportLink)');
-  chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
+  chk(!/_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|firebaseAPI/.test(strip(BUG)), 'bug-board-ui.js 에 옛 전역 이름 · Firebase 길이 없다(굴려 보기는 sim-bug-board.js 관리자 절)');
   const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
-  const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
-  chk(iBU > 0 && iBU < iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 앞(게시판은 app.js 가 만든다) · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
-  /* 굴려 보기 — 게시판 IIFE 는 DOMContentLoaded 를 기다리게 두고(loading), 끝의 버그 제보 탭만 돈다 */
-  const env = { toasts: [], saved: [], L: {}, admin: false };
-  const els = {};
-  const ctx = {
-    Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp,
-    console: { warn(){}, log(){} }, setTimeout: () => 0,
-    document: { readyState: 'loading', addEventListener(){}, getElementById: id => (els[id] || (els[id] = mkEl('div', id))) },
-    addEventListener: (t, fn, o) => { env.L[t] = fn; },
-    toast: (m) => env.toasts.push(m),
-    _saveFailMsg: (e, fb) => 'F:' + fb,
-    escHtml: (s) => s,
-  };
-  Object.defineProperty(ctx, 'isAdmin', { get: () => env.admin });
-  ctx.window = ctx;
-  vm.createContext(ctx);
-  vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
-  vm.runInContext(BUG, ctx, { filename: 'bug-board-ui.js' });
-  chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
-  chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');
-  let subCb = null;
-  ctx.firebaseAPI = { subscribeBugReport: (cb) => { subCb = cb; }, setBugReport: async (n, l) => { if(env.failSave) throw new Error('denied'); env.saved.push([n, l]); } };
-  env.L['firebase-ready']();
-  subCb({ notice: '공지글', link: 'https://open.kakao.com/o/abc', ts: 1 });
-  chk(ctx._bugReportLink() === 'https://open.kakao.com/o/abc', '구독이 오면 기본 링크를 돌려준다');
-  const form = els.mhBugEditForm; form.style.display = 'none';
-  els.mhBugEditBtn._L.click[0]();
-  chk(form.style.display === 'none', '관리자가 아니면 편집 칸을 안 연다');
-  env.admin = true; els.mhBugEditBtn._L.click[0]();
-  chk(form.style.display === 'block' && els.mhBugLinkInput.value === 'https://open.kakao.com/o/abc', '관리자 — 편집 칸에 지금 링크');
-  els.mhBugLinkInput.value = 'http://evil.example/'; await els.mhBugSaveBtn._L.click[0]();
-  chk(env.saved.length === 0 && /open\.kakao\.com/.test(els.mhBugEditMsg.textContent), '오픈카톡 주소가 아니면 저장 안 함');
-  els.mhBugLinkInput.value = ' https://open.kakao.com/o/new '; await els.mhBugSaveBtn._L.click[0](); await flush();
-  chk(env.saved.length === 1 && env.saved[0][0] === '공지글' && env.saved[0][1] === 'https://open.kakao.com/o/new' && form.style.display === 'none', '저장 — 있던 공지글을 그대로 실어(규칙이 notice 필수) · 칸 닫기');
-  env.failSave = true; els.mhBugEditBtn._L.click[0](); await els.mhBugSaveBtn._L.click[0](); await flush();
-  chk(/^F:저장에 실패했어요/.test(els.mhBugEditMsg.textContent) && els.mhBugSaveBtn.disabled === false, '실패 — _saveFailMsg 안내 · 버튼 다시 풀림');
-  env.admin = false; await els.mhBugSaveBtn._L.click[0]();
-  chk(env.toasts.includes('관리자만 수정할 수 있어요'), '저장 때 관리자를 한 번 더 확인');
+  chk(iBU > 0 && iBU < iA, 'html — bug-board-ui.js 는 app.js 앞(게시판은 app.js 가 만든다)');
 });
 
 say('');

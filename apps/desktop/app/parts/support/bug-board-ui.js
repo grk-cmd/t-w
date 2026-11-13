@@ -9,7 +9,9 @@
    ★ 실패는 갈래(bug-api.js failOf)로 — 안내(번호 없음) · 공통(api-errors.js) · 그 밖은 그 자리 번호(E-BUG-01~07). 다시 보내지 않는다.
    ★ 늦은 답 버리기 — 목록 · 글 · 남은 수 받기마다 번호(gen)를 쥐고, 그사이 다른 필터 · 다른 글 · reset 이면 버린다.
    ⚠️ 확인창·메뉴를 따로 띄우지 않는다(전부 탭 안 화면). alert/confirm 금지(audit 검사 4).
-   TODO(D9-4): 관리자 [답변 등록] 은 아직 서버 길이 없다 — 다음 묶음이 POST /v1/admin/bugs/{number}/answers 로 잇는다.
+   ★ 관리자(앱 창 그대로 · 속만 서버) — [답변 등록] 은 글을 열 때 받은 lastAnswerIso 를 seenLastAnswerAt 으로 실어 보낸다(겹치면 409 → 글 다시 받고 쓴 글은 칸에 둔다).
+     [🔗 오픈카톡 링크] 는 설정 bug.report 를 열 때 받아(판 version) 저장 때 그 판 · 안내 글을 그대로 싣는다. 답변 칸 [💬 오픈카톡] 의 기본 주소는 원격 설정(deps.bugReportLink).
+     관리자 판정은 서버 — isAdmin 은 화면을 가리는 깃발이고, 서버가 아니라고 하면 실패 번호가 난다.
    classic script — bug-board.js · bug-api.js 다음 · app.js 보다 먼저 싣는다(window.TwBugBoardUi). app.js 가 createBugBoardUi(deps) 로 만든다. */
 (function(){
 'use strict';
@@ -21,6 +23,7 @@
  *   notifyError: (code: string, err?: any) => boolean,          // TwErrorCodes.notify
  *   toast: (msg: string) => void, escHtml: (s: string) => string, safeHtml: { linkify: Function, safeUrl: Function },
  *   isAdmin: () => boolean,                                      // 화면을 가리는 깃발(관리자 판정은 서버)
+ *   bugReportLink: () => string,                                 // 답변 칸 [💬 오픈카톡] 기본 주소(원격 설정 bugReport.link — 없으면 '')
  *   rtOn: (kind: string, fn: Function) => Function,              // realtime 알림 걸기(TwRtHub.store.on)
  * }} deps */
 function createBugBoardUi(deps){
@@ -32,6 +35,7 @@ const toast = deps.toast;
 const escHtml = deps.escHtml;
 const safeHtml = deps.safeHtml;
 const isAdmin = deps.isAdmin;
+const bugReportLink = deps.bugReportLink;
 const rtOn = deps.rtOn;
 
   const $ = (id) => document.getElementById(id);
@@ -49,6 +53,9 @@ const rtOn = deps.rtOn;
     like: (e) => notifyError('E-BUG-05', e),     // 👍
     vis: (e) => notifyError('E-BUG-06', e),      // 공개 범위 바꾸기
     quota: (e) => notifyError('E-BUG-07', e),    // 글쓰기 «오늘 N건 남음»
+    answer: (e) => notifyError('E-BUG-20', e),   // 관리자 [답변 등록]
+    cfgLoad: (e) => notifyError('E-BUG-21', e),  // 관리자 링크 폼 열기
+    cfgSave: (e) => notifyError('E-BUG-22', e),  // 관리자 링크 [저장]
   });
   /* 실패 하나를 알린다 — 안내 갈래는 errEl 칸(없으면 토스트)에 문구 · 공통은 공통 번호 · 그 밖은 그 자리 번호. 갈래를 돌려준다 */
   function report(e, site, errEl){
@@ -67,7 +74,9 @@ const rtOn = deps.rtOn;
   let rows = [];              // 지금 목록에 그린 줄(봤음 뒤 «새 답변» 표시를 끄려고)
   let listGen = 0, postGen = 0, quotaGen = 0;
   let cur = null;             // 연 글 { number, post(받았으면) }
-  let busy = false;           // [등록] · [답글] · [바꾸기] · 👍 — 한 번에 하나
+  let busy = false;           // [등록] · [답글] · [답변] · [바꾸기] · 👍 — 한 번에 하나
+  let linkCfg = null;         // 관리자 링크 폼을 열 때 받은 bug.report { version, notice, link }
+  let linkBusy = false, linkGen = 0;
   let epoch = 0;              // reset 마다 오른다 — 계정을 놓기 전에 누른 쓰기의 답이 와도 화면을 고치지 않게
 
   function fmtDate(ts, withTime){
@@ -286,9 +295,41 @@ const rtOn = deps.rtOn;
     toast('답글을 등록했어요');
     if(cur && cur.number === number) openPost(number);
   }
-  /* TODO(D9-4): 관리자 답변 — 서버 길(POST /v1/admin/bugs/{number}/answers · seenLastAnswerAt)로 잇는 일은 다음 묶음이다. 지금은 등록하지 않고 까닭만 적는다. */
-  function submitAnswer(){
-    const err = $('bbAErr'); if(err) err.textContent = '답변 등록은 아직 서버로 옮기는 중이에요';
+  /* 관리자 [답변 등록] — 본 마지막 답변 시각(seenLastAnswerAt)을 실어 보낸다. 겹치면(BUG_ANSWER_CONFLICT) 글을 다시 받고 쓴 글은 칸에 둔다.
+     알림은 서버가 글쓴이에게 보낸다 — 앱은 우편을 쓰지 않는다. */
+  async function submitAnswer(btn){
+    if(busy || !cur || !cur.post || !admin()) return;
+    const number = cur.number, post = cur.post, err = $('bbAErr');
+    const text = $('bbAText').value.trim();
+    if(!text){ err.textContent = '답변을 적어 주세요'; return; }
+    const kakao = $('bbAKk').classList.contains('on') ? $('bbAKakao').value.trim() : '';
+    if(kakao && !lib.KAKAO_RE.test(kakao)){ err.textContent = lib.KAKAO_LINK_RULE; return; }
+    const box = $('bbDetailView'), picked = box.querySelector('input[name="bbAVis"]:checked');
+    const a = { seenLastAnswerAt: post.lastAnswerIso, text, status: $('bbAStatus').value, kakaoLink: kakao,
+      vis: post.vis === 'prv' ? 'prv' : (picked ? picked.value : 'pub') };
+    busy = true; btn.disabled = true; err.textContent = '';
+    const at = epoch;
+    try{ await bugApi.answer(number, a); }
+    catch(e){
+      if(at !== epoch) return;
+      busy = false; btn.disabled = false;
+      if(!cur || cur.number !== number) return;
+      if(bugApi.failOf(e).kind === KIND.CONFLICT){   // 다른 관리자가 먼저 답했다(번호 없음) — 새 답변을 보여 주고 쓴 글은 그대로
+        toast(lib.ANSWER_CONFLICT_TEXT);
+        await openPost(number);
+        if(at === epoch && cur && cur.number === number && $('bbAText')){
+          $('bbAText').value = text;
+          if($('bbAKakao') && kakao){ $('bbAKakao').value = kakao; $('bbAKk').classList.add('on'); }
+        }
+        return;
+      }
+      report(e, 'answer', err);   // 쓴 글은 칸에 그대로
+      return;
+    }
+    if(at !== epoch) return;
+    busy = false; btn.disabled = false;
+    toast('답변을 등록했어요');
+    if(cur && cur.number === number) openPost(number);
   }
   async function likePost(btn){
     if(busy || !cur || !cur.post) return;
@@ -462,12 +503,68 @@ const rtOn = deps.rtOn;
       else if(act === 'kakao'){
         const kk = $('bbAKk'), on = !kk.classList.contains('on');
         kk.classList.toggle('on', on); el.classList.toggle('on', on);
-        if(on && !$('bbAKakao').value) $('bbAKakao').value = window._bugReportLink();
+        if(on && !$('bbAKakao').value) $('bbAKakao').value = bugReportLink();
       }
       else if(act === 'kakaoX'){ $('bbAKk').classList.remove('on'); $('bbAKakaoBtn').classList.remove('on'); }
     });
   }
   bind();
+
+  /* ── 관리자 오픈카톡 기본 링크 폼(설정 bug.report) ───────────── */
+  function bindReportLink(){
+    const editBtn = $('mhBugEditBtn'), form = $('mhBugEditForm'), linkIn = $('mhBugLinkInput');
+    const saveBtn = $('mhBugSaveBtn'), cancelBtn = $('mhBugCancelBtn'), msgEl = $('mhBugEditMsg');
+    if(!editBtn || !form) return;
+    const showMsg = (text, isErr) => {
+      msgEl.textContent = text;
+      msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
+      msgEl.style.display = text ? 'block' : 'none';
+    };
+    const closeForm = () => { form.style.display = 'none'; };
+    const fill = (c) => { linkCfg = c; linkIn.value = c.link; };
+    editBtn.addEventListener('click', async () => {
+      if(!admin() || linkBusy) return;
+      if(form.style.display !== 'none'){ closeForm(); return; }
+      linkBusy = true; showMsg('', false);
+      const g = ++linkGen;
+      try{
+        const c = await bugApi.reportConfig();
+        if(g !== linkGen) return;
+        fill(c);
+        form.style.display = 'block';
+        linkIn.focus();
+      }catch(e){
+        if(g === linkGen) report(e, 'cfgLoad');   // 폼은 열지 않는다
+      }finally{
+        if(g === linkGen) linkBusy = false;
+      }
+    });
+    cancelBtn.addEventListener('click', () => { linkGen++; linkBusy = false; closeForm(); });
+    saveBtn.addEventListener('click', async () => {
+      if(!admin()){ toast('관리자만 수정할 수 있어요'); return; }
+      if(linkBusy || !linkCfg) return;
+      const link = linkIn.value.trim();
+      if(link && !lib.KAKAO_RE.test(link)){ showMsg(lib.KAKAO_LINK_RULE, true); return; }
+      linkBusy = true; saveBtn.disabled = true; showMsg('저장 중…', false);
+      const g = ++linkGen;
+      try{
+        fill(await bugApi.saveReportLink(linkCfg, link));
+        if(g !== linkGen) return;
+        showMsg('', false);
+        toast('오픈카톡 기본 링크를 저장했어요');
+        closeForm();
+      }catch(e){
+        if(g !== linkGen) return;
+        if(bugApi.failOf(e).kind === KIND.CONFLICT){   // 그사이 다른 곳에서 바꿨다 — 다시 받아 칸을 채운다
+          try{ fill(await bugApi.reportConfig()); showMsg(lib.CONFIG_CONFLICT_TEXT, false); }
+          catch(e2){ if(g === linkGen){ showMsg('', false); report(e2, 'cfgLoad'); } }
+        }else{ showMsg('', false); report(e, 'cfgSave'); }
+      }finally{
+        if(g === linkGen){ linkBusy = false; saveBtn.disabled = false; }
+      }
+    });
+  }
+  bindReportLink();
 
   /* 계정 기능 시작(app-boot STEPS bugBadge) — 배지 한 번 받기 · realtime 이 오래 끊겼다 붙으면 한 번 다시 받기 */
   function start(){
@@ -483,6 +580,8 @@ const rtOn = deps.rtOn;
     ready = false; busy = false;
     bugApi.reset();
     epoch++; listGen++; postGen++; quotaGen++;
+    linkGen++; linkBusy = false; linkCfg = null;
+    { const f = $('mhBugEditForm'); if(f) f.style.display = 'none'; }
     filter = 'all'; cursors = [null]; nextCursor = null; rows = []; cur = null;
     if($('bbBoard')){
       show('list');
@@ -501,69 +600,3 @@ if(typeof window !== 'undefined') window.TwBugBoardUi = out;
 if(typeof module !== 'undefined' && module.exports) module.exports = out;
 })();
 
-/* ↓ app.js 에서 옮긴 🐞 버그 제보 탭(오픈카톡 기본 링크) — 앱 FSD 5번 · docs/APP_FSD_MAP.md.
-   ★ 글자 그대로(들여쓰기도) 옮겼다. 위 게시판 IIFE 밖 맨 앞 칸이라 예전처럼 전역 이름(_bugReportConf · window._bugReportLink)이다.
-   ★ 이 파일은 app.js 앞에 싣는다(게시판은 app.js 가 만든다). firebase-init.js(type="module")는 classic 스크립트가 다 돈 뒤에 돌아 «firebase-ready» 를 기다리는 구독 시작 때가 예전과 같다.
-     버튼 연결도 사람이 누를 수 있기 전에 끝난다. window._bugReportLink 는 위 답변 칸의 [💬 오픈카톡] 이 누를 때 부른다.
-   ⚠️ app.js 의 isAdmin · toast · _saveFailMsg 를 누를 때 전역 이름으로 찾는다(TODO(D9-4): 서버 설정 bug.report 로 옮길 때 deps 로). */
-/* ═══════════════════ 🐞 버그 제보 탭 — 오픈카톡 기본 링크 ═══════════════════
-   게시판 화면은 parts/bug-board-ui.js 다. 여기는 bugReport/current 만 맡는다.
-   ★ 예전 공지(notice)는 첫 공지글로 옮겨졌다(bug-board.js migrateNotice). current.link 는
-     답변에 붙는 [💬 오픈카톡] 의 기본 주소로 계속 쓴다. 편집은 관리자만(.admin-only + 저장 때 isAdmin 재확인). */
-let _bugReportConf = null;   // { notice, link, ts }
-window._bugReportLink = ()=> (_bugReportConf && _bugReportConf.link) || '';
-
-(function bindBugReport(){
-  const editBtn   = document.getElementById('mhBugEditBtn');
-  const form      = document.getElementById('mhBugEditForm');
-  const linkIn    = document.getElementById('mhBugLinkInput');
-  const saveBtn   = document.getElementById('mhBugSaveBtn');
-  const cancelBtn = document.getElementById('mhBugCancelBtn');
-  const msgEl     = document.getElementById('mhBugEditMsg');
-
-  const showMsg = (text, isErr)=>{
-    if(!msgEl) return;
-    msgEl.textContent = text;
-    msgEl.style.color = isErr ? 'var(--win-error)' : 'var(--ink-soft)';
-    msgEl.style.display = text ? 'block' : 'none';
-  };
-  const closeForm = ()=>{ if(form) form.style.display = 'none'; };
-
-  if(editBtn){
-    editBtn.addEventListener('click', ()=>{
-      if(!isAdmin) return;   // .admin-only로 숨겨져 있지만 한 번 더 확인
-      if(form && form.style.display !== 'none'){ closeForm(); return; }
-      if(linkIn) linkIn.value = window._bugReportLink();
-      showMsg('', false);
-      if(form) form.style.display = 'block';
-      if(linkIn) linkIn.focus();
-    });
-  }
-  if(cancelBtn) cancelBtn.addEventListener('click', closeForm);
-
-  if(saveBtn){
-    saveBtn.addEventListener('click', async ()=>{
-      if(!isAdmin){ toast('관리자만 수정할 수 있어요'); return; }
-      if(!window.firebaseAPI || !firebaseAPI.setBugReport){ toast('네트워크 연결이 필요해요'); return; }
-      const link = (linkIn ? linkIn.value : '').trim();
-      if(link && !/^https:\/\/open\.kakao\.com\//.test(link)){ showMsg('오픈카톡 링크는 https://open.kakao.com/ 으로 시작해야 해요', true); return; }
-      /* ⚠️ 규칙이 notice 를 필수로 본다(웹 관리자도 같은 노드를 쓴다) — 있던 글을 그대로 실어 보낸다. */
-      const notice = (_bugReportConf && _bugReportConf.notice) || '버그 제보는 버그제보 게시판에 남겨 주세요.';
-      saveBtn.disabled = true; showMsg('저장 중…', false);
-      try{
-        await firebaseAPI.setBugReport(notice, link);
-        toast('오픈카톡 기본 링크를 저장했어요');
-        closeForm();
-      }catch(e){
-        showMsg(_saveFailMsg(e, '저장에 실패했어요 — 인터넷 연결을 확인해 주세요'), true);
-      }
-      saveBtn.disabled = false;
-    });
-  }
-
-  const sub = ()=>{
-    if(!window.firebaseAPI || !firebaseAPI.subscribeBugReport) return;
-    firebaseAPI.subscribeBugReport(conf=>{ _bugReportConf = conf; });
-  };
-  TwNetReady.whenNetReady(sub);
-})();
