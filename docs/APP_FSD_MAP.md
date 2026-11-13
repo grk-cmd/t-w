@@ -259,7 +259,7 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 | `🪑 좌석 배치(layoutSeats)` | 1657–2027 | 371 | `fitModel` · `fitDesk` · `setUserStatus` | `room/` · `status/` | |
 | `캐릭터 흔들기 — 시메지 컨셉` | 3698–3999 | 302 | `classifyHit` · 캔버스 누르기 · 끌기 · 떼기 처리기 | `room/` | |
 | `🧍 생성기 미리보기` | 5999–6248 | 250 | `openCreator` | `creator/` | |
-| `SETUP` | 1–180 | 180 | 렌더러 · 씬 · 조명 만들기 · `applyGlowEffect` | 부팅은 app.js · 빛 번짐은 `character/` | |
+| `SETUP` | 1–180 | 180 | 렌더러 · 씬 · 조명 만들기 · `applyGlowEffect` | 부팅은 app.js · 빛 번짐은 `character/` | 실행 화면 조명(여섯 자리에 같은 글)은 0.13 에서 `shared/light-tone.js` `addRunLights` 한 벌로 |
 
 남는 것(끝의 정의 새 판): 부팅 순서 · 모듈 연결 · 프레임 루프 · 공용 상태(`seats` 등)를 넘기는 줄.
 데이터 읽기 · 쓰기(`firebase-init.js`)는 이 표와 별개 — 서버 API 로 옮기면서 줄어든다(도메인 provider → `shared/api-client.js` · 0.13 에서 범용 데이터 통로는 걷음).
