@@ -74,9 +74,10 @@
   - `playlist-like-ui.js`: 소개칸의 반응 줄(내 목록 👍 수 · 남의 목록 [💬 반응]) · 창 옆 서랍. app.js 가 플레이리스트보다 먼저 만들어 `playlistLikeUi` 로 넘긴다.
 - **deps**(ui): `likeRules`(TwPlaylistLike) · `net`(`() => firebaseAPI.playlistLike` — 서버 연결이 늦게 붙어 부를 때 찾는다) · `getMyUserId` · `notifyError`.
 - **내놓는 것**(ui): `render({ ro, ownerId, setIdx } | null)` — playlist.js `_plLikeSync` 가 소개칸을 그릴 때 · 창을 열고 닫고 접을 때 부른다(null 이면 읽지 않고 숨김) · `close()`.
-- **서버 자리**: `playlistLikes/{주인}/{프리셋 0~2}` — `count`(로그인한 누구나 읽음) · `by/{누른 사람}`(true · 본인만 읽음) · `last`(이번에 누른 사람 · 아무도 못 읽음).
+- **서버 자리**: `playlistLikes/{주인 코드}/{프리셋 0~2}` — `count`(로그인한 누구나 읽음) · `by/{누른 사람 auth uid}`(true · 본인만 읽음) · `last`(이번에 누른 auth uid · 아무도 못 읽음).
 - **함정**
-  - «한 번» · «숫자 부풀리기 막기» 는 규칙이 지킨다: by 는 본인 신원으로 처음 만들 때만, count 는 그 같은 묶음에서 +1 만(last 가 새 by 를 가리켜야 한다). 지우기 · 취소는 없다.
+  - «한 번» · «숫자 부풀리기 막기» 는 규칙이 지킨다: by 는 로그인 토큰 칸(`auth.uid === $authUid`)에 처음 만들 때만, count 는 그 같은 묶음에서 +1 만(last 가 새 by 를 가리켜야 한다). 지우기 · 취소는 없다.
+  - ⚠️ 표시를 친구 코드 칸에 두지 말 것 — 빈 코드를 내 uid 에 새로 이어 붙일 수 있어(userAuth) 코드를 바꿔 가며 끝없이 누를 수 있다. 친구 코드는 «내 것인가» 를 가를 때만(userAuth/{주인} !== auth.uid).
   - 둘이 동시에 누르면 늦은 쪽이 규칙에 막힌다 — 다시 읽고 `RETRY_MAX` 번까지 다시 쓴다.
   - 프리셋 번호는 주인의 프리셋 «자리» 다. 이름 · 곡을 바꿔도 수는 그 자리에 남는다.
   - 읽기는 «누구의 몇 번 프리셋» 이 바뀔 때만 한 번(수 하나 · 내 표시 하나). 창이 닫혀 있으면 읽지 않는다.

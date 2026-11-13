@@ -119,7 +119,6 @@ const KIND = {
   '/playlistPriv/$userId': 'user',
   '/playlistLikes/$ownerId': 'user',                // 👍 플레이리스트 반응 — 주인
   '/playlistLikes/$ownerId/$preset': 'own',         //   프리셋 자리 0~2
-  '/playlistLikes/$ownerId/$preset/by/$senderId': 'user',   //   누른 사람
   '/playlistPriv/$userId/sets/$s': 'own',
   '/playlistPriv/$userId/sets/$s/items/$i': 'other',
   '/bookmarks/$userId/items/$bid': 'other',
@@ -144,6 +143,7 @@ const SKIP = {
   '/authUsers/$authUid': 'self',    // 내 auth uid 칸만(auth.uid === $authUid)
   '/bugBoard/prv/$authUid': 'self',
   '/bugBoard/likes/$id/$authUid': 'self',
+  '/playlistLikes/$ownerId/$preset/by/$authUid': 'self',   // 👍 누른 표시 — 로그인 토큰 칸(친구 코드는 새로 만들 수 있어 신원이 못 된다)
   '/roomDir/$code': 'closed',       // .write false — 방 서버(관리자 SDK)만 쓴다
   '/admins/$uid': 'closed',
   '/apiBots/$uid': 'closed',

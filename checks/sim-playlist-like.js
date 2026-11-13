@@ -48,7 +48,7 @@ function ruleChain(rules, p){   // 'playlistLikes/U1/0/by/U2' → [{node, vars}]
 }
 function evalRule(expr, ctx){
   if (expr === true || expr === false) return expr;
-  const names = ['$ownerId', '$preset', '$senderId'];
+  const names = ['$ownerId', '$preset', '$authUid'];
   return !!new Function(...names, 'auth', 'root', 'data', 'newData', 'now', 'return (' + expr + ');')(...names.map(n => ctx.vars[n]), ctx.auth, ctx.root, ctx.data, ctx.newData, 1700000000000);
 }
 function makeServer(R, init){
@@ -74,10 +74,11 @@ function makeServer(R, init){
 }
 /* firebase 모양 provider — 이 사람(auth)으로 읽고 쓴다 */
 function sdkFor(S, authUid, hook){
+  const uidFn = () => authUid;
   const ref = (db, p) => ({ p: p || '' });
   const get = async (r) => { if (!S.canRead(r.p, authUid)) throw new Error('PERMISSION_DENIED read ' + r.p); const s = snap(S.tree, r.p); return { val: s.val, exists: s.exists }; };
   const update = async (r, w) => { if (hook) await hook(w); S.apply(w, authUid); };
-  return { db: {}, ref, get, update };
+  return { db: {}, ref, get, update, authUid: uidFn };
 }
 const AUTH = { userAuth: { uAAAAAAAA1: 'authA', uBBBBBBBB2: 'authB', uOOOOOOOO0: 'authO' } };
 
@@ -118,7 +119,7 @@ async function judge(src){
     const S = makeServer(R, AUTH);
     const A = L.createPlaylistLikeNet(sdkFor(S, 'authA')), B = L.createPlaylistLikeNet(sdkFor(S, 'authB')), Ow = L.createPlaylistLikeNet(sdkFor(S, 'authO'));
     const r1 = await A.like('uOOOOOOOO0', 1, 'uAAAAAAAA1');
-    r.like = r1.ok === true && r1.count === 1 && getAt(S.tree, 'playlistLikes/uOOOOOOOO0/1/count') === 1 && getAt(S.tree, 'playlistLikes/uOOOOOOOO0/1/by/uAAAAAAAA1') === true;
+    r.like = r1.ok === true && r1.count === 1 && getAt(S.tree, 'playlistLikes/uOOOOOOOO0/1/count') === 1 && getAt(S.tree, 'playlistLikes/uOOOOOOOO0/1/by/authA') === true && getAt(S.tree, 'playlistLikes/uOOOOOOOO0/1/by/uAAAAAAAA1') === undefined;
     const r2 = await A.like('uOOOOOOOO0', 1, 'uAAAAAAAA1');
     r.once = r2.ok === false && r2.reason === 'already' && getAt(S.tree, 'playlistLikes/uOOOOOOOO0/1/count') === 1;
     const rB = await B.like('uOOOOOOOO0', 1, 'uBBBBBBBB2'), rOther = await A.like('uOOOOOOOO0', 0, 'uAAAAAAAA1');
@@ -129,33 +130,40 @@ async function judge(src){
     const deny = (w, who) => { try { S.apply(w, who); return false; } catch (_){ return true; } };
     const P = 'playlistLikes/uOOOOOOOO0/1/';
     r.rulesBlock = deny({ [P + 'count']: 3 }, 'authA')                                                   // count 만
-      && deny({ [P + 'count']: 3, [P + 'last']: 'uAAAAAAAA1' }, 'authA')                                     // 이미 누른 사람을 last 로
-      && deny({ [P + 'count']: 4, [P + 'last']: 'uOOOOOOOO0', [P + 'by/uOOOOOOOO0']: true }, 'authO')        // 내 것에
-      && deny({ [P + 'count']: 3, [P + 'last']: 'uEEEEEEEE5', [P + 'by/uEEEEEEEE5']: true }, 'authA')        // 남의 이름으로(아직 안 누른 사람)
-      && deny({ [P + 'count']: 9, [P + 'last']: 'uCCCCCCCC3', [P + 'by/uCCCCCCCC3']: true }, null)          // 로그인 안 함
-      && deny({ [P + 'by/uAAAAAAAA1']: null }, 'authA') && deny({ [P + 'count']: null }, 'authO')           // 지우기(취소 없음)
+      && deny({ [P + 'count']: 3, [P + 'last']: 'authA', [P + 'by/authA']: true }, 'authA')                 // 이미 누른 사람
+      && deny({ [P + 'count']: 3, [P + 'last']: 'authO', [P + 'by/authO']: true }, 'authO')                 // 내 것에(userAuth/주인 = 나)
+      && deny({ [P + 'count']: 3, [P + 'last']: 'authE', [P + 'by/authE']: true }, 'authA')                 // 남의 토큰 칸으로
+      && deny({ [P + 'count']: 9, [P + 'last']: 'authC', [P + 'by/authC']: true }, null)                    // 로그인 안 함
+      && deny({ [P + 'by/authA']: null }, 'authA') && deny({ [P + 'count']: null }, 'authO')               // 지우기(취소 없음)
       && deny({ [P + 'x']: 1 }, 'authA') && deny({ 'playlistLikes/uOOOOOOOO0/7/count': 1 }, 'authA');        // 모르는 칸 · 프리셋 밖
-    S.tree.userAuth.uDDDDDDDD4 = 'authD';
-    r.rulesBlock = r.rulesBlock && deny({ [P + 'count']: 4, [P + 'last']: 'uDDDDDDDD4', [P + 'by/uDDDDDDDD4']: true }, 'authD')   // +2 (count 3 → 4 가 아니라 현재 2 → 4)
-      && !deny({ [P + 'count']: 3, [P + 'last']: 'uDDDDDDDD4', [P + 'by/uDDDDDDDD4']: true }, 'authD');                         // 정상 한 번
-    r.readRule = S.canRead(P + 'count', 'authB') && !S.canRead(P + 'count', null) && S.canRead(P + 'by/uAAAAAAAA1', 'authA') && !S.canRead(P + 'by/uAAAAAAAA1', 'authO')
-      && !S.canRead(P + 'by/uAAAAAAAA1', 'authB') && !S.canRead(P + 'last', 'authO') && !S.canRead('playlistLikes/uOOOOOOOO0/1', 'authO') && !S.canRead('playlistLikes/uOOOOOOOO0', 'authO');
+    r.rulesBlock = r.rulesBlock && deny({ [P + 'count']: 4, [P + 'last']: 'authD', [P + 'by/authD']: true }, 'authD')   // +2 (지금 2 → 4)
+      && !deny({ [P + 'count']: 3, [P + 'last']: 'authD', [P + 'by/authD']: true }, 'authD');                         // 정상 한 번
+    /* 빈 친구 코드를 새로 내 uid 에 이어 붙여(userAuth) 그 코드로 또 누르기 — 표시가 토큰 칸이라 «이미» 이고, 직접 써도 막힌다 */
+    S.tree.userAuth.uNEWCODE99 = 'authA';
+    const rNew = await A.like('uOOOOOOOO0', 1, 'uNEWCODE99');
+    r.newCode = rNew.ok === false && rNew.reason === 'already' && getAt(S.tree, P + 'count') === 3
+      && deny({ [P + 'count']: 4, [P + 'last']: 'authA', [P + 'by/authA']: true }, 'authA')
+      && deny({ [P + 'count']: 4, [P + 'last']: 'uNEWCODE99', [P + 'by/uNEWCODE99']: true }, 'authA');
+    r.readRule = S.canRead(P + 'count', 'authB') && !S.canRead(P + 'count', null) && S.canRead(P + 'by/authA', 'authA') && !S.canRead(P + 'by/authA', 'authO')
+      && !S.canRead(P + 'by/authA', 'authB') && !S.canRead(P + 'last', 'authO') && !S.canRead('playlistLikes/uOOOOOOOO0/1', 'authO') && !S.canRead('playlistLikes/uOOOOOOOO0', 'authO');
     /* 동시에 누름 — 내 쓰기 직전에 다른 사람이 먼저 눌렀다 → 규칙에 막히고 다시 읽어 성공 */
     const S2 = makeServer(R, AUTH); let raced = false;
     const BB = L.createPlaylistLikeNet(sdkFor(S2, 'authB'));
     const AA = L.createPlaylistLikeNet(sdkFor(S2, 'authA', async () => { if (!raced){ raced = true; await BB.like('uOOOOOOOO0', 2, 'uBBBBBBBB2'); } }));
     const rr = await AA.like('uOOOOOOOO0', 2, 'uAAAAAAAA1');
     r.race = raced && rr.ok && rr.count === 2 && S2.denied === 1 && getAt(S2.tree, 'playlistLikes/uOOOOOOOO0/2/count') === 2;
-    const dead = L.createPlaylistLikeNet({ db: {}, ref: () => ({}), get: async () => { throw new Error('off'); }, update: async () => { throw new Error('off'); } });
+    const dead = L.createPlaylistLikeNet({ db: {}, ref: () => ({}), get: async () => { throw new Error('off'); }, update: async () => { throw new Error('off'); }, authUid: () => 'authA' });
+    const noLogin = L.createPlaylistLikeNet(Object.assign(sdkFor(S, null), { authUid: () => null }));
     r.fail = (await dead.read('uOOOOOOOO0', 0, 'uAAAAAAAA1')) === null && (await dead.like('uOOOOOOOO0', 0, 'uAAAAAAAA1')).reason === 'fail'
-      && (await dead.like('uOOOOOOOO0', 9, 'uAAAAAAAA1')).reason === 'fail' && (await dead.read('', 0, 'x')) === null;
+      && (await dead.like('uOOOOOOOO0', 9, 'uAAAAAAAA1')).reason === 'fail' && (await dead.read('', 0, 'x')) === null
+      && (await noLogin.like('uOOOOOOOO0', 0, 'uAAAAAAAA1')).reason === 'fail';   // 로그인 토큰이 없으면 누르지 않는다
     /* 3절 — 서랍 화면 */
     const D = mkDom(); globalThis.document = D.doc; globalThis.window = { innerWidth: 1920 };
     const U = load(src.ui, 'TwPlaylistLikeUi');
     const S3 = makeServer(R, AUTH); let reads = 0; const errs = [];
     const sdk = sdkFor(S3, 'authA'); const g0 = sdk.get; sdk.get = async (x) => { reads++; return g0(x); };
     const net3 = L.createPlaylistLikeNet(sdk);
-    S3.apply({ 'playlistLikes/uOOOOOOOO0/1/count': 1, 'playlistLikes/uOOOOOOOO0/1/last': 'uBBBBBBBB2', 'playlistLikes/uOOOOOOOO0/1/by/uBBBBBBBB2': true }, 'authB');
+    S3.apply({ 'playlistLikes/uOOOOOOOO0/1/count': 1, 'playlistLikes/uOOOOOOOO0/1/last': 'authB', 'playlistLikes/uOOOOOOOO0/1/by/authB': true }, 'authB');
     const ui = U.createPlaylistLikeUi({ likeRules: L, net: () => net3, getMyUserId: () => 'uAAAAAAAA1', notifyError: (c, e) => errs.push(c) });
     const $ = D.byId;
     ui.render(null);
@@ -175,7 +183,7 @@ async function judge(src){
     D.click('myPlReact'); D.doc.fire('mousedown', { target: $.myPlLikeDrawer });
     r.close = escClosed && outClosed && $.myPlLikeDrawer.classList.contains('on') && D.listeners.length === 2;
     D.click('myPlLikeBtn'); await flush(); await flush(); await flush(); await flush();
-    r.sent = $.myPlLikeBtn.textContent === '보냈어요 👍' && $.myPlLikeBtn.disabled && $.myPlLikeDrawerCnt.textContent === '지금까지 👍 2' && getAt(S3.tree, 'playlistLikes/uOOOOOOOO0/1/by/uAAAAAAAA1') === true;
+    r.sent = $.myPlLikeBtn.textContent === '보냈어요 👍' && $.myPlLikeBtn.disabled && $.myPlLikeDrawerCnt.textContent === '지금까지 👍 2' && getAt(S3.tree, 'playlistLikes/uOOOOOOOO0/1/by/authA') === true;
     ui.render({ ro: true, ownerId: 'uBBBBBBBB2', setIdx: 0 });
     r.switchCloses = !$.myPlLikeDrawer.classList.contains('on') && D.listeners.length === 0;
     await flush(); await flush();
@@ -202,7 +210,7 @@ function wire(S){
   w(/#myPlaylistBox\.mini #myPlLikeRow,#myPlaylistBox\.mini #myPlLikeDrawer\{display:none !important;\}/.test(S.html) && /\.plLikeDrawer\.left\{left:auto;right:calc\(100% \+ 4px\);\}/.test(S.html), '  접으면 숨김 · 자리가 없으면 왼쪽');
   w(/const plLikeUi = TwPlaylistLikeUi\.createPlaylistLikeUi\(\{ likeRules: TwPlaylistLike, net: \(\)=>firebaseAPI\.playlistLike,/.test(S.app) && S.app.indexOf('const plLikeUi = ') < S.app.indexOf('const plMod = TwPlaylist.createPlaylist(') && /\n  playlistLikeUi: plLikeUi,\n\}\);/.test(S.app),
     'app.js — 반응 칸을 플레이리스트보다 먼저 만들어 넘긴다 · 서버는 firebaseAPI.playlistLike(부를 때 찾는다)');
-  w(/playlistLike: window\.TwPlaylistLike\.createPlaylistLikeNet\(\{ db, ref, get, update \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄');
+  w(/playlistLike: window\.TwPlaylistLike\.createPlaylistLikeNet\(\{ db, ref, get, update, authUid: \(\) => \(auth && auth\.currentUser\) \? auth\.currentUser\.uid : null \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄(로그인 uid 를 넘긴다 · 버그 게시판과 같은 길)');
   w(/'E-SYS-04': \{ msg: '[^']+', where: 'status\/playlist-like-ui\.js/.test(S.codes), '에러 번호 E-SYS-04 가 표에 있다');
   w(!/firebaseAPI|document\.|window\.(?!TwPlaylistLike)/.test(S.mod.replace(/\/\*[\s\S]*?\*\//g, '').replace(/if\(typeof window[^\n]*\n/, '')), 'playlist-like.js 는 DOM · firebaseAPI 를 모른다(규칙 · provider 만)');
   return out;
@@ -219,10 +227,11 @@ function wire(S){
   chk(R.perPreset, '  다른 사람은 같은 프리셋에 · 나는 다른 프리셋에 또 누를 수 있다');
   chk(R.self, '  내 플레이리스트에는 못 누른다');
   chk(R.readBack, '  읽기 — 수 하나 · 내 표시 하나만(주인은 «누가» 를 못 본다)');
-  chk(R.rulesBlock, '★ 규칙 — count 만 올리기 · +2 · 남의 이름 · 내 것 · 로그인 안 함 · 지우기 · 모르는 칸 · 프리셋 밖 전부 거절, 정상 한 번은 통과');
+  chk(R.rulesBlock, '★ 규칙 — count 만 올리기 · +2 · 남의 토큰 칸 · 내 것 · 로그인 안 함 · 지우기 · 모르는 칸 · 프리셋 밖 전부 거절, 정상 한 번은 통과');
+  chk(R.newCode, '★ 빈 친구 코드를 새로 이어 붙여 또 누르기 — 표시가 로그인 토큰 칸이라 «이미» · 직접 써도 거절');
   chk(R.readRule, '★ 읽기 규칙 — 수는 로그인한 누구나 · 표시(by)는 누른 본인만 · last · 노드 통째는 아무도');
   chk(R.race, '  동시에 누르면 늦은 쪽이 규칙에 한 번 막히고 다시 읽어 성공');
-  chk(R.fail, '  서버 오류는 던지지 않고 null · fail');
+  chk(R.fail, '  서버 오류 · 로그인 없음은 던지지 않고 null · fail');
   chk(R.closedNoRead, '서랍 — 창이 닫혀 있으면(null) 읽지 않고 줄을 숨긴다');
   chk(R.mine, '  내 목록 — 👍 수만 · [💬 반응] 없음');
   chk(R.other, '  남의 목록 — [💬 반응] · 수 하나 · 내 표시 하나를 읽는다');
@@ -247,8 +256,9 @@ function wire(S){
   const rulesWith = (f) => { const j = JSON.parse(SRC.rules); f(j.rules.playlistLikes.$ownerId.$preset); return JSON.stringify(j); };
   await brk('count 의 «같은 묶음에서 by 를 처음 만든다» 를 빼면', { rules: rulesWith(n => { n.count['.validate'] = "newData.isNumber() && newData.val() === (data.exists() ? data.val() : 0) + 1"; }) }, x => x.rulesBlock);
   /* 신원은 by · last 두 곳이 서로 받친다(하나만 풀면 다른 쪽이 막는다) — 둘 다 풀어야 남의 이름으로 누를 수 있다 */
-  await brk('by · last 의 «누른 본인만» 을 둘 다 빼면', { rules: rulesWith(n => { n.by.$senderId['.write'] = "auth != null && !data.exists() && newData.exists()"; n.last['.write'] = 'auth != null && newData.isString()'; }) }, x => x.rulesBlock);
-  await brk('by 읽기를 누구나로 열면', { rules: rulesWith(n => { n.by.$senderId['.read'] = 'auth != null'; }) }, x => x.readRule);
+  await brk('by · last 의 «누른 본인만» 을 둘 다 빼면', { rules: rulesWith(n => { n.by.$authUid['.write'] = "auth != null && !data.exists() && newData.exists()"; n.last['.write'] = 'auth != null && newData.isString()'; }) }, x => x.rulesBlock);
+  await brk('누른 표시를 친구 코드 칸에 두면(새 코드로 또 누르기)', { mod: SRC.mod.replace("w[base(owner, key) + '/by/' + uid] = true;", "w[base(owner, key) + '/by/' + me] = true;").replace("w[base(owner, key) + '/last'] = uid;", "w[base(owner, key) + '/last'] = me;").replace("get(ref(db, base(owner, key) + '/by/' + uid))", "get(ref(db, base(owner, key) + '/by/' + me))") }, x => x.newCode);
+  await brk('by 읽기를 누구나로 열면', { rules: rulesWith(n => { n.by.$authUid['.read'] = 'auth != null'; }) }, x => x.readRule);
   await brk('프리셋 번호에서 빈 값 거르기를 빼면', { mod: SRC.mod.replace("  if(idx === null || idx === undefined || idx === '') return null;", '') }, x => x.key);
   await brk('누른 뒤에도 «이미» 를 안 보면', { mod: SRC.mod.replace("if(cur.mine) return { ok: false, reason: 'already', count: cur.count };", '') }, x => x.once);
   await brk('다시 하기를 없애면', { mod: SRC.mod.replace('const RETRY_MAX = 3;', 'const RETRY_MAX = 1;') }, x => x.race);
