@@ -149,8 +149,8 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     chk(iw > 0 && iw < fi.indexOf("window.dispatchEvent(new Event('firebase-ready'))") && iw > fi.indexOf('window.firebaseAPI = {'), '  ↳ firebaseAPI 를 다 만든 뒤 · firebase-ready 전에 wrap(공통 API 통로 · Firebase 한 칸 읽기)');
     const a = strip(APP);
     const s1 = takeFn(a, 'async function _refreshChatProfile('), s2 = takeFn(a, 'async function _miRenderAvatar(');
-    const line = /\(firebaseAPI\.fetchAvatar \? \{ avatar: await firebaseAPI\.fetchAvatar\(getMyUserId\(\)\) \} : await firebaseAPI\.getMyHome\(getMyUserId\(\)\)\) \|\| \{\}/;
-    chk(!!s1 && !!s2 && line.test(s1) && line.test(s2), '★ app.js 사진 두 곳(대화창 · 내 정보) — home 통째 대신 fetchAvatar(옛 firebaseAPI 면 예전 길)');
+    const line = /await ensureMyHome\(\{ site: 'quiet' \}\)/;
+    chk(!!s1 && !!s2 && line.test(s1) && line.test(s2) && !/getMyHome/.test(s1 + s2), '★ app.js 사진 두 곳(대화창 · 내 정보) — 내 홈 상태 주인에서 읽는다(home 통째 읽기 길 없음)');
     const fa = takeFn(fi, 'async fetchAvatar(uid){') || '';
     chk(/get\(ref\(db, `users\/\$\{uid\}\/home\/avatar`\)\)/.test(fa) && !/home`\)/.test(fa) && !/fetchMyRank|fetchLeaderboardTop|setLeaderboardSec/.test(fi), 'firebase-init — fetchAvatar 는 home/avatar 한 칸(통째 아님) · 순위 통로 없음');
     chk(!/^\s*import\s/m.test(SRC) && !/firebase\/|gstatic|getDatabase|fetch\(/.test(strip(SRC)), 'api-public-reads.js 는 아무것도 import 하지 않는다(API · Firebase 는 deps)');

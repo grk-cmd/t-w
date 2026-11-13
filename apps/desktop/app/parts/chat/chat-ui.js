@@ -2,7 +2,7 @@
    app.js 의 채팅 다섯 구역(🌊 날리기 · 🔖 여기까지 읽음 구분선 · 💬 채팅 탭 · 📋 드래그 복사 · 😊 커스텀 이모티콘) 본문을 그대로 옮긴 모듈이다(앱 FSD 24번 — docs/APP_FSD_MAP.md).
    대화창 배선은 chat-window.js. 동작은 옮기기 전과 같다. 기본 이모티콘 목록은 demoji-catalog.js.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 37줄 —
-     CHAT_WIN_POS_KEY · Presence · _chatLogCache · _chatLogUnsub · _danceCmdCooldownAt · _myHomeData · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setChatLogCache · setChatLogUnsub · setDanceCmdCooldownAt(…).
+     CHAT_WIN_POS_KEY · Presence · _chatLogCache · _chatLogUnsub · _danceCmdCooldownAt · myhomeAvatar · ensureMyHome · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setChatLogCache · setChatLogUnsub · setDanceCmdCooldownAt(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 22개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: DEMOJI_BY_CMD · DEMOJI_BY_ID · DEMOJI_DIR · DEMOJI_LIST · EMOJI_SLOTS · FLY_COLOR_LEVEL · _bindChatCopy · _bindChatTabs · _chatClearNow · _chatClearUndo · _chatFlyColor · _chatFlyOn · _chatFlyRefreshUI · _chatFlySize · _chatIsMinimized · _chatMyTabId · _chatTabName · _chatTabOut · _chatTabResolve · _chatTabsOnMeta · _chatTabsRender · _chatWindowIsOpen · _deleteEmoji · _emojiCache · _flyLaneFreeAt · _flySizeOk · _onEmojiFilePicked · _onEmojiSlotClick · _renderChatLog · _saveChatLog · _saveChatWinPos · _sendChatWindowMsg · _setChatMinimized · _syncChatBadgeSub · _toggleEmojiPanel · closeChatWindow · openChatWindow · sendMyChat · showFlyText — app.js 는 chatUiMod.이름 으로 부른다.
@@ -26,7 +26,8 @@ const _chatOffRefreshUI = deps._chatOffRefreshUI;
 const _chatRoomCode = deps._chatRoomCode;
 const _danceCmdCooldownAt = deps._danceCmdCooldownAt;   // 읽는 함수
 const _diceSvg = deps._diceSvg;
-const _myHomeData = deps._myHomeData;   // 읽는 함수
+const myhomeAvatar = deps.myhomeAvatar;   // 읽는 함수 — 내 사진(상태 주인 myhome-store.js · 받기 전엔 null)
+const ensureMyHome = deps.ensureMyHome;   // ({ site:'quiet' }) → Promise — 내 홈을 아직 안 받았으면 한 번 받는다(번호 없음)
 const _officeDemojiHtml = deps._officeDemojiHtml;
 const _parseDanceCmdChain = deps._parseDanceCmdChain;
 const _refreshChatMembers = deps._refreshChatMembers;
@@ -560,16 +561,10 @@ function _saveChatWinPos(){
 async function _refreshChatProfile(){
   const img=document.getElementById('chatProfileImg');
   const ph=document.getElementById('chatProfilePlaceholder');
-  let av = (typeof _myHomeData()!=='undefined' && _myHomeData() && _myHomeData().avatar) ? _myHomeData().avatar : null;
-  // ★ 마이홈(F4)을 한 번도 안 열었으면 _myHomeData가 아직 비어 있음 — 프로필 사진만 직접 가져온다.
-  if(!av && window.firebaseAPI && firebaseAPI.getMyHome){
-    try{
-      const data = (firebaseAPI.fetchAvatar ? { avatar: await firebaseAPI.fetchAvatar(getMyUserId()) } : await firebaseAPI.getMyHome(getMyUserId())) || {};   // 사진 한 칸만(home 통째 아님)
-      if(data.avatar){
-        av = data.avatar;
-        if(typeof _myHomeData()!=='undefined' && _myHomeData()) _myHomeData().avatar = data.avatar;   // 캐시
-      }
-    }catch(_){}
+  let av = myhomeAvatar() || null;
+  // ★ 마이홈(F4)을 한 번도 안 열었으면 내 홈이 아직 비어 있음 — 상태 주인이 한 번 받아 온다(받은 값은 마이홈이 같이 쓴다).
+  if(!av){
+    try{ await ensureMyHome({ site: 'quiet' }); av = myhomeAvatar() || null; }catch(_){}
   }
   const avSrc = TwSafeHtml.safeUrl(av, 'image');   // 서버에서 온 프로필 사진 주소 — 허용된 그림 주소만
   if(avSrc){ if(img){ img.src=avSrc; img.style.display='block'; } if(ph) ph.style.display='none'; }

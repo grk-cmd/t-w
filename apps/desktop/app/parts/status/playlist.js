@@ -6,8 +6,8 @@
 
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게). 구역 머리 주석까지 같이 왔고,
      app.js 에 남겼던 같은 제목의 빈 머리는 0.13 에서 걷었다(연결은 «🎵 상태칩 플레이리스트» 머리 아래).
-     바뀐 것은 세 줄뿐이다 — 모두 app.js 가 다시 대입하는 let 을 읽는 함수로 읽는다.
-       · _myHomeLoaded → _myHomeLoaded() · _myHomeData → _myHomeData()   (마이홈 로드가 다시 대입 — 내 명함 사진)
+     바뀐 것은 몇 줄뿐이다 — 모두 app.js 가 다시 대입하는 let 을 읽는 함수로 읽는다.
+       · _myHomeLoaded · _myHomeData → myhomeAvatar()   (내 명함 사진은 마이홈 상태 주인 myhome-store.js 가 준다)
        · _myHomeFriends → _myHomeFriends()                               (친구 목록 구독이 다시 대입 — 🌊 친구 파도타기 목록)
    ★ 상태(_plSets · _plCur · _plNowSet · _plSel · _plNow · _plView · _plNowView · _plBio · _plHomePublic · _plPrivate · _plPubSig ·
      _plPlaying · _plLastBoundsKey …)는 이 모듈 안에 둔다. 모듈 안에서 수백 번 읽고 쓰므로 app.js 에 남기면 바뀌는 줄이 훨씬 많다.
@@ -43,8 +43,7 @@ const lvStarBadgeClass = deps.lvStarBadgeClass;
 const lvStarStr = deps.lvStarStr;
 const _starPaint = deps.starPaint;
 // 🏠 마이홈 — app.js 의 let(다시 대입)과 구경 가기
-const _myHomeLoaded = deps.myHomeLoaded;             // 읽는 함수 — 마이홈을 한 번이라도 읽었나(이 줄보다 뒤에 선언)
-const _myHomeData = deps.myHomeData;                 // 읽는 함수 — 마이홈 데이터(열 때마다 다시 대입 · 이 줄보다 뒤에 선언)
+const myhomeAvatar = deps.myhomeAvatar;             // 읽는 함수 — 내 사진(상태 주인 myhome-store.js · 아직 못 받았으면 null)
 const _myHomeFriends = deps.myHomeFriends;           // 읽는 함수 — 친구 목록 캐시(구독마다 다시 대입 · 이 줄보다 뒤에 선언)
 const friendsRefreshPresence = deps.friendsRefreshPresence;   // (ids) → Promise — 친구 목록이 닫혀 있으면 접속 상태를 한 번 읽는다(friends-sub.js)
 const openFriendHomeView = deps.openFriendHomeView;  // 🏠 공개해 둔 남의 목록 → 그 사람 마이홈 구경
@@ -622,9 +621,8 @@ function _plFillAva(el, url){
 /* 내 명함(이름·레벨·사진) — 마이홈이 이미 로드됐으면 그 값이 최신이라 그쪽을 쓰고,
    아니면 서버에서 한 번만 읽는다. 실패해도 이름·레벨은 로컬에서 나오므로 사진만 비는 정도다. */
 function _plMyAvatar(){
-  if(_myHomeLoaded() && _myHomeData()){
-    return _myHomeData().avatar || null;
-  }
+  const av = myhomeAvatar();
+  if(av) return av;
   return _plMyCard ? _plMyCard.avatar : null;
 }
 async function _plLoadMyCard(){

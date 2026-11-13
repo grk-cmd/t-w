@@ -3,10 +3,10 @@
      한쪽만 고치면 칸에 담는 것과 칸에서 꺼내는 것이 어긋난다(그림 키를 하나 빠뜨리면 칸끼리 같은 파일을 덮는다).
    ★ 칸 한 벌 = 색 + 그림(theme 의 그림 키 · 바깥 배경 bg.img) 통째. 그림까지 담은 칸은 img:true 표시를 단다.
      표시가 없는 칸(그림 담기 전에 저장한 칸 · 옛 앱이 다시 쓴 칸)은 예전처럼 색만 갈고 지금 그림을 그대로 둔다 — 담지 않은 그림을 지우지 않게.
-   ★ 그림은 칸마다 다른 파일에 올린다(uploadSlot — 고른 칸 번호가 이름에 든다). 같은 파일을 가리키면 한 칸에서 바꾼 그림이 다른 칸까지 바꾼다.
+   ★ 그림은 서버에 올릴 때마다 새 주소를 받는다(상태 주인 myhome-store.js upload) — 칸마다 다른 파일 이름을 만들 필요가 없다(예전 uploadSlot 은 걷었다).
    ⚠️ 옛 앱의 씻기는 bg 의 그림과 img 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
    ★ 순수 함수만 — DOM · firebase · _myHomeData 를 모른다. 받은 값을 고치지 않고 새 값을 돌려준다.
-   받는 것 없음(실릴 때 바로 만든다). 내보냄: window.TwMyHomePreset = { MAX, NAME_MAX, imgKeyOf, imgKeys, normalize, cur, snapshot, apply, uploadSlot }.
+   받는 것 없음(실릴 때 바로 만든다). 내보냄: window.TwMyHomePreset = { MAX, NAME_MAX, imgKeyOf, imgKeys, normalize, cur, snapshot, apply }.
    app.js · myhome-edit.js 보다 먼저 싣는 classic script. */
 (function(){
 
@@ -86,9 +86,8 @@ function apply(home, preset, keys){
    지금 고른 칸 번호를 이름에 넣는다(p0_bg → design_p0_bg.jpg) — 다른 칸이 담아 둔 그림 파일을 덮지 않게.
    같은 칸에 다시 올리면 같은 파일을 덮는다(칸마다 그림 키마다 한 파일 — 쌓이지 않는다).
    key: 바깥 배경이면 'bg', 그 밖에는 그림 키 */
-function uploadSlot(slot, key){ return 'p' + cur(slot) + '_' + String(key); }
 
-const api = { MAX, NAME_MAX, imgKeyOf, imgKeys, normalize, cur, snapshot, apply, uploadSlot };
+const api = { MAX, NAME_MAX, imgKeyOf, imgKeys, normalize, cur, snapshot, apply };
 if(typeof window !== 'undefined') window.TwMyHomePreset = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

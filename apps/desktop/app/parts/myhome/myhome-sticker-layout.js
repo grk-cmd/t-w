@@ -16,7 +16,7 @@ const _mhViewingUserId = deps._mhViewingUserId;   // 읽는 함수
 const _myHomeData = deps._myHomeData;   // 읽는 함수
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
-const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 자동 저장은 편집 묶음이 건다
+const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 움직임 고르기는 editSticker 로만 고친다
 /* 🎨 스티커 — 마이홈 "창 전체"에 자유 배치.
    · 좌표는 마이홈 창(#myHomeWin) 좌상단 기준 px. 탭을 바꿔도 같은 자리에 있음.
    · 친구 탭에서는 숨김(목록이 빽빽해서 가리면 곤란) + 친구 홈 관람 중엔 그 사람 스티커만 보임.
@@ -33,7 +33,7 @@ const STICKER_ROT_SNAP = 3;       // 회전 스냅 각도(도) — 3도 단위�
      scale → rotate 순서로 쓰고 rotate에만 별도 origin이 필요 없도록
      scale 이후의 좌표계에서 중앙으로 옮겼다가 되돌리는 방식을 씀. */
 /* ✨ 스티커 움직임 고르기 창 — 고르는 즉시 화면에 반영되고 저장된다.
-   저장되는 값은 이름 문자열 두 개(anim/animSpd)뿐이라 용량·통신 부담이 없다. */
+   저장되는 값은 이름 문자열 두 개(anim/animSpeed)뿐이라 용량·통신 부담이 없다. */
 let _mhAnimSid = null;
 function _mhOpenStickerAnim(sid){
   _mhAnimSid = sid;
@@ -51,14 +51,13 @@ function _mhSyncStickerAnimUI(){
     b.classList.toggle('on', (b.dataset.a||'') === (s.anim||''));
   });
   document.querySelectorAll('#stAnimSpd button').forEach(b=>{
-    b.classList.toggle('on', (b.dataset.s||'') === (s.animSpd||''));
+    b.classList.toggle('on', (b.dataset.s||'') === (s.animSpeed||''));
   });
 }
 function _mhApplyStickerAnim(key, val){
-  if(!_mhAnimSid || !_myHomeData() || !_myHomeData().stickers) return;
-  const s=_myHomeData().stickers[_mhAnimSid]; if(!s) return;
-  if(val) s[key]=val; else delete s[key];
-  renderMyHomeStickers(); mhHooks.call(mhHooks.HOOK.COMMIT, true);
+  if(!_mhAnimSid || !_myHomeData() || !_myHomeData().stickers || !_myHomeData().stickers[_mhAnimSid]) return;
+  myhomeStore.editSticker(_mhAnimSid, { [key]: val || '' });   // 빈 값 = 움직임 없음(store 가 칸을 지운다) · 저장은 store 가 한다
+  renderMyHomeStickers();
   _mhSyncStickerAnimUI();
 }
 try{
@@ -66,7 +65,7 @@ try{
     const g = e.target.closest && e.target.closest('#stAnimGrid button');
     if(g){ _mhApplyStickerAnim('anim', g.dataset.a||''); return; }
     const p = e.target.closest && e.target.closest('#stAnimSpd button');
-    if(p){ _mhApplyStickerAnim('animSpd', p.dataset.s||''); return; }
+    if(p){ _mhApplyStickerAnim('animSpeed', p.dataset.s||''); return; }
     if(e.target.id === 'stAnimClose') _mhCloseStickerAnim();
   });
 }catch(_){}

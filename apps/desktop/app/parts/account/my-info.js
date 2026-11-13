@@ -1,7 +1,7 @@
 /* my-info.js — 🪪 [내 정보] 화면 — 머리(사진 · 닉네임 · 레벨 별 색) · 보관함 · 휴지통 · 계정 탭 연결
    app.js «🪪 [내 정보] — 런처 화면 전환» 구역 본문을 옮긴 모듈이다(앱 FSD 17번 — docs/APP_FSD_MAP.md). 함께 옮겼던 🏆 전체 랭킹은 걷었다.
    ★ app.js 에서 받는 값 —
-     EXP_CELLS · EXP_SEC_PER_CELL · EXP_SEC_PER_LEVEL · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · STAR_PALETTE · _acctDetached · _focusTotalSec · _myHomeData · curSlot 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
+     EXP_CELLS · EXP_SEC_PER_CELL · EXP_SEC_PER_LEVEL · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · STAR_PALETTE · _acctDetached · _focusTotalSec · myhomeAvatar · ensureMyHome · curSlot 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 36개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 보관함 · 휴지통은 서버 원본 옷장(closet.js — closetMod())이 준 목록을 그린다. 이 PC 에 보관함 사본은 없다.
@@ -27,7 +27,8 @@ const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
 const _loginDoLogout = deps._loginDoLogout;
 const _loginDoDeleteAccount = deps._loginDoDeleteAccount;
 const _withdrawPreview = deps._withdrawPreview;   // 탈퇴 미리보기(GET /v1/me/withdrawal-preview — account.js)
-const _myHomeData = deps._myHomeData;   // 읽는 함수
+const myhomeAvatar = deps.myhomeAvatar;   // 읽는 함수 — 내 사진(상태 주인 myhome-store.js · 받기 전엔 null)
+const ensureMyHome = deps.ensureMyHome;   // ({ site:'quiet' }) → Promise — 내 홈을 아직 안 받았으면 한 번 받는다(번호 없음)
 const progress = deps.progress;   // 서버 진척 { load, totalSec, level, cycle, cycleLevel, starColor }(focus-progress.js)
 const retryProgress = deps.retryProgress;   // 못 받은 진척을 다시 받는다(열 때 · 실패하면 E-FOCUS-01)
 const closeGearMenu = deps.closeGearMenu;
@@ -169,15 +170,12 @@ function _miRenderStar(){
     if(meter) meter.style.width = Math.min(100, Math.floor(total / FOCUS_CYCLE_SEC() * 100)) + '%';
   }
 }
-/* 마이홈 프로필 사진(mhAvatarBig 과 같은 값) — 채팅 창 _refreshChatProfile 과 같은 순서: 마이홈 캐시 → 서버 한 번. */
+/* 마이홈 프로필 사진(mhAvatarBig 과 같은 값) — 채팅 창 _refreshChatProfile 과 같은 순서: 내 홈 상태 주인 → 아직 안 받았으면 한 번 받는다. */
 async function _miRenderAvatar(){
   const img = document.getElementById('miAvatarImg'), ph = document.getElementById('miAvatarPh');
-  let av = (typeof _myHomeData() !== 'undefined' && _myHomeData() && _myHomeData().avatar) ? _myHomeData().avatar : null;
-  if(!av && window.firebaseAPI && firebaseAPI.getMyHome){
-    try{
-      const data = (firebaseAPI.fetchAvatar ? { avatar: await firebaseAPI.fetchAvatar(getMyUserId()) } : await firebaseAPI.getMyHome(getMyUserId())) || {};   // 사진 한 칸만(home 통째 아님)
-      if(data.avatar){ av = data.avatar; if(typeof _myHomeData() !== 'undefined' && _myHomeData()) _myHomeData().avatar = data.avatar; }
-    }catch(_){}
+  let av = myhomeAvatar() || null;
+  if(!av){
+    try{ await ensureMyHome({ site: 'quiet' }); av = myhomeAvatar() || null; }catch(_){}
   }
   const avSrc = TwSafeHtml.safeUrl(av, 'image');   // 허용된 그림 주소만(shared/safe-html.js)
   const ok = !!avSrc;

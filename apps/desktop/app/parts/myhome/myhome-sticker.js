@@ -31,7 +31,7 @@
 function createMyHomeSticker(deps){
 const toast = deps.toast;
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(🔗 링크 바꾸기)
-const store = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 스티커는 editSticker · removeSticker · moveSticker 로만 고친다
+const myhomeStore = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 스티커는 editSticker · removeSticker · moveSticker 로만 고친다
 const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(마이홈 페이지 편집 묶음이 감싸 다시 대입한다)
 const _mhStickerOutOfView = deps.mhStickerOutOfView;     // 📐 스티커 자리 · 크기 도우미 — app.js(마이홈 페이지 그리기)
 const _mhClampStickerPos = deps.mhClampStickerPos;
@@ -96,7 +96,7 @@ function renderStickerMgr(){
     const ord=document.createElement('div'); ord.className='st-mgr-ord';
     const mkOrd=(txt, title, dir, off)=>{ const b=document.createElement('button'); b.type='button';
       b.textContent=txt; b.title=title; b.disabled=off;
-      b.onclick=()=>{ store.moveSticker(sid, dir); redraw(); };
+      b.onclick=()=>{ myhomeStore.moveSticker(sid, dir); redraw(); };
       ord.appendChild(b); };
     mkOrd('▲', '한 칸 앞으로(다른 스티커 위에)', 1, k===0);
     mkOrd('▼', '한 칸 뒤로', -1, k===ids.length-1);
@@ -128,7 +128,7 @@ function renderStickerMgr(){
 
     /* 🔒 잠금 — 끌기 · ◎ 로는 안 움직인다(고칠 땐 우클릭 · ✎ 편집 모드 — 잠금은 그대로). 편집 중인 것을 잠그면 편집을 끝낸다. */
     const lockBtn = mk(btns, locked ? '🔒' : '🔓', locked ? '잠금 풀기' : '잠그기(끌어서 안 움직임)', ()=>{
-      store.editSticker(sid, { locked: !locked });
+      myhomeStore.editSticker(sid, { locked: !locked });
       if(!locked && _mhStickerEditSid()===sid) _mhStickerEditEnd();
       redraw();
     });
@@ -137,7 +137,7 @@ function renderStickerMgr(){
        화면 밖에 있던 스티커라면 먼저 창 안으로 당긴 뒤 편집모드로 들어간다(안 그러면 또 안 보인다).
        ⚠️ ◎(_mhBringStickerIn)는 잠긴 것을 건너뛰어서 여기선 직접 당긴다 — 창 밖의 잠긴 스티커를 고칠 길은 ✎ 뿐이다. */
     mk(btns, '✎', locked ? '편집 (잠금은 그대로 — 끌어서는 안 움직여요)' : '편집 (이동·크기·회전)', ()=>{
-      if(_mhStickerOutOfView(s)){ const t=_mhClampStickerPos(Object.assign({}, s)); store.editSticker(sid, { x: t.x, y: t.y }); }
+      if(_mhStickerOutOfView(s)){ const t=_mhClampStickerPos(Object.assign({}, s)); myhomeStore.editSticker(sid, { x: t.x, y: t.y }); }
       closeStickerMgr();
       renderMyHomeStickers();
       _mhStickerEditStart(sid);
@@ -167,12 +167,12 @@ function renderStickerMgr(){
       if(v===null || v===undefined) return;                 // 취소 — 그대로 둔다
       const u=(v||'').trim().slice(0,300);
       if(u && !/^https?:\/\//i.test(u)){ toast('http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요'); return; }
-      store.editSticker(sid, { link: u });
+      myhomeStore.editSticker(sid, { link: u });
       redraw();
     });
     item('× 삭제', '이 스티커 지우기', ()=>{
       if(!confirm('이 스티커를 지울까요?')){ window.focus(); return; } window.focus();
-      store.removeSticker(sid);
+      myhomeStore.removeSticker(sid);
       if(_mhStickerEditSid()===sid) _mhStickerEditEnd();
       redraw();
     }).classList.add('danger');
@@ -195,7 +195,7 @@ function _mhBringStickerIn(sid){
     t.x = Math.round((W - d.w)/2); t.y = Math.round((H - d.h)/2);
   }
   _mhClampStickerPos(t);
-  store.editSticker(sid, { x: t.x, y: t.y });
+  myhomeStore.editSticker(sid, { x: t.x, y: t.y });
 }
 try{
   document.getElementById('stMgrClose').onclick = closeStickerMgr;
@@ -204,7 +204,7 @@ try{
     const patches={};
     Object.keys(data).forEach(sid=>{ if(_mhStickerOutOfView(data[sid]) && !stRules.isLocked(data[sid])){ const t=_mhClampStickerPos(Object.assign({}, data[sid])); patches[sid]={ x: t.x, y: t.y }; } });
     const n=Object.keys(patches).length;
-    if(n){ store.editStickers(patches); renderMyHomeStickers(); toast(n+'개를 화면 안으로 데려왔어요'); }
+    if(n){ myhomeStore.editStickers(patches); renderMyHomeStickers(); toast(n+'개를 화면 안으로 데려왔어요'); }
     renderStickerMgr();
   };
 }catch(_){}
@@ -259,7 +259,7 @@ function _mhBindStickerDrag(el, sid){
     if(!dragging) return;
     dragging=false;
     try{ el.releasePointerCapture(e.pointerId); }catch(_){}
-    if(moved){ store.editSticker(sid, moved); moved=null; }
+    if(moved){ myhomeStore.editSticker(sid, moved); moved=null; }
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
@@ -311,7 +311,7 @@ function _mhBindStickerRotate(handle, sid, lblEl){
     const node = el();
     if(node) node.classList.remove('rotating');
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
-    if(rotNow !== null){ store.editSticker(sid, { rot: rotNow }); rotNow=null; }
+    if(rotNow !== null){ myhomeStore.editSticker(sid, { rot: rotNow }); rotNow=null; }
     window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);
@@ -341,7 +341,7 @@ function _mhBindStickerResize(handle, sid){
     if(!dragging) return;
     dragging=false;
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
-    if(sizeNow !== null){ store.editSticker(sid, { size: sizeNow }); sizeNow=null; }
+    if(sizeNow !== null){ myhomeStore.editSticker(sid, { size: sizeNow }); sizeNow=null; }
     window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);

@@ -11,31 +11,31 @@
 /* 👁 방문자 시점 미리보기 깃발 — 마이홈 창(myhome-ui.js)이 켜고 끄고, 친구 홈 구경이 끈다. 관람 · 편집 · 진단이 읽는다. 처음 값은 여기 한 곳 */
 window._mhPreviewMode = false;
 
-/** @param {{ _myHomeFriends: () => Record<string, any>, store: { page: Function, mine: Function, viewing: Function, viewName: Function } }} deps */
+/** @param {{ _myHomeFriends: () => Record<string, any>, myhomeStore: { page: Function, mine: Function, viewing: Function, viewName: Function } }} deps */
 function createMyHomeState(deps){
 const _myHomeFriends = deps._myHomeFriends;   // 읽는 함수 — 친구 목록(app.js 의 let · 구독이 다시 대입한다)
-const store = deps.store;                     // 🏠 상태 주인(myhome-store.js)
+const myhomeStore = deps.myhomeStore;                     // 🏠 상태 주인(myhome-store.js)
 
 /* 🏷️ 관람 중인 마이홈 주인의 이름 — 친구 목록에 없는 사람을 위한 자리(이름 힌트).
    세 곳(타이틀 · 프로필 닉네임 · 방명록 제목)이 반드시 같은 값을 보게 하는 단일 창구. 우선순위:
-     ① 친구 목록(실시간 구독이라 가장 최신) → ② 진입할 때 받은 이름 힌트(store.viewName)
+     ① 친구 목록(실시간 구독이라 가장 최신) → ② 진입할 때 받은 이름 힌트(myhomeStore.viewName)
    폴백 '친구' 는 둘 다 없을 때만 남는다. */
 function _mhViewingDisplayName(){
-  const uid = store.viewing();
+  const uid = myhomeStore.viewing();
   if(!uid) return '';
   const f = _myHomeFriends()[uid];
   if(f && f.name) return f.name;
-  const hint = store.viewName();
+  const hint = myhomeStore.viewName();
   if(hint) return hint;
   return '친구';
 }
 
 return {
   _mhViewingDisplayName,
-  _mhViewingName: ()=>store.viewName(),   // 읽는 함수
-  _mhViewingUserId: ()=>store.viewing(),   // 읽는 함수
-  _myHomeData: ()=>store.page(),   // 읽는 함수 — 얼린 값
-  _myHomeLoaded: ()=>store.mine().load === store.LOAD.READY,   // 읽는 함수 — 내 홈을 받았나
+  _mhViewingName: ()=>myhomeStore.viewName(),   // 읽는 함수
+  _mhViewingUserId: ()=>myhomeStore.viewing(),   // 읽는 함수
+  _myHomeData: ()=>myhomeStore.page(),   // 읽는 함수 — 얼린 값
+  _myHomeLoaded: ()=>myhomeStore.mine().load === myhomeStore.LOAD.READY,   // 읽는 함수 — 내 홈을 받았나
 };
 }
 

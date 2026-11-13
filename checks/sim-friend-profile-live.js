@@ -25,6 +25,10 @@ const SRC0 = {
   FS: pick(at('friends-sub.js', 'myhome')),
   MV: pick(at('myhome-visit.js', 'myhome')),
   MS: pick(at('myhome-state.js', 'myhome')),
+  MST: pick(at('myhome-store.js', 'myhome')),
+  MA: pick(at('myhome-api.js', 'myhome')),
+  RU: pick(at('myhome-sticker-rules.js', 'myhome')),
+  AE: pick(at('api-errors.js', 'shared')),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
 };
@@ -168,7 +172,12 @@ async function judge(S){
     const any = (() => { const f = function(){ return P; }; const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true }); return P; })();
     const run = async (friends, refresh, opts) => {
       const L = { renders: 0, titles: [], nameReads: 0 };
-      const st = load(S.MS, 'TwMyHomeState').createMyHomeState({ _myHomeFriends: () => friends.v });
+      const emptyP = { avatar: null, bio: '', postTitle: '', post: '', bgm: null, bg: null, stickers: {}, theme: null, themePresets: null, themePresetCur: null };
+      const store = load(S.MST, 'TwMyHomeStore').createMyHomeStore({   // 진짜 상태 주인 — 가짜 서버 길 위에서(집 받기만 쓴다)
+        api: { fetchMine: async () => ({ page: emptyP, pageVersion: 1, desktop: { bg: null, hideFolders: false, folderPos: {} }, desktopVersion: 1 }),
+          fetchOf: async () => ({ page: emptyP, desktop: { bg: null, hideFolders: false, folderPos: {} } }), patchPage(){}, putDesign(){}, uploadImage(){}, reset(){} },
+        lib: load(S.MA, 'TwMyHomeApi'), errs: load(S.AE, 'TwApiErrors'), apiErrors: { notify(){} }, notifyError: () => true, toast(){}, previewOn: () => false, rules: load(S.RU, 'TwMyHomeStickerRules') });
+      const st = load(S.MS, 'TwMyHomeState').createMyHomeState({ _myHomeFriends: () => friends.v, myhomeStore: store });
       const label = { textContent: '' };
       const doc = { getElementById: (id) => id === 'mhTitleLabel' ? label : any, querySelectorAll: () => [] };
       const fapi = { getMyHome: async () => ({}), getUserNameById: async () => { L.nameReads++; return '서버이름'; } };
@@ -177,9 +186,8 @@ async function judge(S){
       const mod = w2.TwMyHomeVisit.createMyHomeVisit({
         _myHomeFriends: () => friends.v, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
         renderMyHomePage: () => { L.renders++; L.titles.push(label.textContent); }, toast(){}, setSchedDdaysVisitUnsub(){}, setMyHomeOpen(){},
-        _myHomeData: () => st._myHomeData(), _myHomeLoaded: () => true, _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(),
-        _mhHomeFromServer: (...x) => st._mhHomeFromServer(...x), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
-        setMyHomeData: (v) => st.setMyHomeData(v), setMhViewingUserId: (v) => st.setMhViewingUserId(v), setMhViewingName: (v) => st.setMhViewingName(v),
+        _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
+        myhomeStore: store, fetchCards: async (codes) => { L.nameReads++; return { [codes[0]]: { name: '서버이름' } }; },
         refreshFriendProfile: refresh,
       });
       await mod.openFriendHomeView((opts && opts.fid) || 'f1', opts && opts.hint);
@@ -196,7 +204,7 @@ async function judge(S){
     const L2 = await run(friends2, () => Promise.resolve(true), { hint: '같은이름' });
     chk(L2.renders === 1, '  ↳ 이름이 그대로면 다시 그리지 않는다(그리기 한 번)');
     const L3 = await run({ v: {} }, () => Promise.resolve(false), { fid: 'x9' });
-    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 옛 길(getUserNameById)로 이름 한 줄');
+    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 명함(서버 길)으로 이름 한 줄');
     const L4 = await run({ v: {} }, () => Promise.reject(new Error('x')), { fid: 'x9', hint: '힌트' });
     chk(L4.renders === 1 && L4.nameReads === 0, '  ↳ 새로 받기가 실패해도 던지지 않고 받아 둔 이름 그대로');
   }

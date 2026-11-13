@@ -7,15 +7,12 @@
 
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
      바뀐 것은 app.js 의 이름을 읽고 쓰는 방법뿐이다.
-       · _myHomeData → _myHomeData() · _mhViewingUserId → _mhViewingUserId() · _myHomeLoaded → _myHomeLoaded() ·
-         _myHomeUid → _myHomeUid() · isPremium → isPremium() · isAdmin → isAdmin()
-         app.js 가 다시 대입하는 let 이라(불러오기 · 친구 홈 관람 · 계정 · 라이선스 · 관리자 판정) 값이 아니라 읽는 함수로 받는다.
-       · _myHomeLoaded = false → _setMyHomeLoaded(false) · _mhStickerDragDist = x → _setMhStickerDragDist(x)(읽기는 _mhStickerDragDist())
-         두 let 은 app.js 의 마이홈 불러오기 · renderMyHomeStickers(드래그 직후 링크 안 엶)가 같이 쓰므로 app.js 에 두고 쓰는 함수로 받는다.
+       · _myHomeData → _myHomeData() · _mhViewingUserId → _mhViewingUserId() · isPremium → isPremium() · isAdmin → isAdmin()
+         읽는 값이라 읽는 함수로 받는다(마이홈 페이지는 상태 주인 myhome-store.js 가 들고 있다 — 값은 store 의 동작 함수로만 고친다).
+       · _mhStickerDragDist = x → _setMhStickerDragDist(x)(읽기는 _mhStickerDragDist())
+         renderMyHomeStickers(드래그 직후 링크 안 엶)가 같이 쓰므로 app.js 에 두고 쓰는 함수로 받는다.
        · USER_NAME_MAX → USER_NAME_MAX() — app.js 에서 이 묶음보다 한참 뒤에 선언되는 const 라 만들 때 값으로 넘기면 TDZ 다.
-       · renderMyHomeStickers 를 감싸 다시 대입하던 두 줄 — 옛 함수는 _getRenderMyHomeStickers() 로 받고, 감싼 함수는
-         _setRenderMyHomeStickers(…) 로 app.js 의 이름에 다시 넣는다(삭제 버튼에 자동 저장을 한 번 더 붙이는 것 그대로).
-         ⚠️ 옛 함수를 화살표(renderMyHomeStickers)로 잡으면 감싼 함수가 자기를 부르는 무한 재귀가 된다.
+       · renderMyHomeStickers 를 감싸 다시 대입하던 두 줄 — 걷었다(스티커 삭제는 app.js 의 × 버튼이 상태 주인 removeSticker 를 부르고 저장은 상태 주인이 한다).
    ★ 이 묶음이 window 에 거는 이름 — commitMyHomePage · _mhOpenColorPopup · _mhBeginNameEdit · _bgmDestroy · _mhApplyBg · _mhApplyTheme · _mhDsClose.
      app.js(마이홈 닫기)와 이 파일 안이 그 이름으로 부른다. 다른 마이홈 파일 · 설정 패널 · 스티커사진은 🪝 고리판(myhome-hooks.js)으로
      부른다 — 저장 · 배경 · 테마 · BGM(새로 고침 · 재생 중 · 표시) · BGM 창 · 스튜디오 닫기 · 닉네임 취소를 만들 때 고리판에도 건다(순환 끊기 8).
@@ -29,7 +26,7 @@
 
 function createMyHomeEdit(deps){
 const toast = deps.toast;
-const store = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 값은 여기 동작 함수로만 고친다
+const myhomeStore = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 값은 여기 동작 함수로만 고친다
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(글 서식 링크 · 이미지 · 스티커 링크 · BGM)
 const renderMyHomePage = deps.renderMyHomePage;          // 🏠 마이홈 페이지 다시 그리기(프로필 사진 바꾼 뒤) — app.js
 const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(아래에서 감싸 다시 대입한다 — 부를 때 찾는다)
@@ -67,19 +64,20 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
 
   /* 글 칸(소개 · 게시글)을 store 에 넘긴다 — 바뀐 칸만 가고 바뀐 칸이 없으면 요청 0. 받기 전 · 구경 · 미리보기엔 아무것도 안 한다(store 가 판단) */
   function commitTexts(){
-    if(!store.canEdit()) return;
+    if(!myhomeStore.canEdit()) return;
     const bioBox=document.getElementById('mhBioBox'), postBox=document.getElementById('mhPostBox');
     const map={};
     if(bioBox) map.bio = _mhSaveRT(bioBox, 120);
     if(postBox) map.post = _mhSaveRT(postBox, 1000);
-    store.setFields(map);
+    myhomeStore.setFields(map);
   }
   /* 자동 저장 자리(칸에서 벗어남 · 탭 옮김 · 창 닫기) — 글 칸을 넘기고 못 올린 고침이 있으면 한 번 보낸다 */
   function commitMyHomePage(){
     commitTexts();
-    return store.save();
+    return myhomeStore.save();
   }
   mhHooks.on(mhHooks.HOOK.COMMIT, commitMyHomePage);
+  window.commitMyHomePage = commitMyHomePage;   // 탭 전환/창 닫힘 등 다른 곳에서도 재사용(예전 이름 그대로)
   // 프로필 사진 — 클릭하면 파일 선택, 선택하면 정사각형으로 크롭+축소해서 용량을 줄인 뒤 base64로 저장
   const avatarBig=document.getElementById('mhAvatarBig');
   const avatarInput=document.getElementById('mhAvatarInput');
@@ -102,7 +100,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
           for(let i=3;i<px.length;i+=4){ if(px[i] < 250){ hasAlpha = true; break; } }
         }catch(_){ /* 판정 실패(보안 오류 등)는 알파 없음으로 취급 */ }
         const out = hasAlpha ? c.toDataURL('image/png') : c.toDataURL('image/jpeg', 0.82);
-        const saved = store.setAvatar(out);   // 고르자마자 미리 그리고 · 올린 뒤 주소만 저장한다(실패하면 예전 사진으로)
+        const saved = myhomeStore.setAvatar(out);   // 고르자마자 미리 그리고 · 올린 뒤 주소만 저장한다(실패하면 예전 사진으로)
         renderMyHomePage();
         Promise.resolve(saved).then(()=>renderMyHomePage());
       }; img.src=e.target.result; };
@@ -303,7 +301,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
   if(stickerAddBtn && stickerFile){
     stickerAddBtn.addEventListener('click', ()=>{ myHomeSticker.open(); });
     const pickNewSticker = ()=>{
-      if(!store.canEdit()){ store.setFields({}); return; }
+      if(!myhomeStore.canEdit()){ myhomeStore.setFields({}); return; }
       if(Object.keys(_myHomeData().stickers||{}).length>=STICKER_MAX){
         toast(`스티커는 최대 ${STICKER_MAX}개까지만 붙일 수 있어요`); return;
       }
@@ -328,7 +326,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
         // 새 스티커는 창 가운데쯤에 놓아서 바로 눈에 띄게 (겹치지 않게 개수만큼 살짝 어긋냄)
         const n = Object.keys(_myHomeData().stickers||{}).length;
         const at = _mhClampStickerPos({ x: 60 + n*18, y: 60 + n*18, w, h, size: 1 });   // 창이 작으면 처음부터 밖에 놓일 수 있다 — 복사본에서 안으로
-        const r = await store.addSticker(c.toDataURL('image/png'), { link: link || undefined, x: at.x, y: at.y, w, h, size: 1 });   // PNG 로 올려 알파 채널(투명 배경) 유지 · 올린 주소만 저장
+        const r = await myhomeStore.addSticker(c.toDataURL('image/png'), { link: link || undefined, x: at.x, y: at.y, w, h, size: 1 });   // PNG 로 올려 알파 채널(투명 배경) 유지 · 올린 주소만 저장
         if(r.status === 'full') toast(`스티커는 최대 ${STICKER_MAX}개까지만 붙일 수 있어요`);
         renderMyHomeStickers();
         myHomeSticker.render();           // 관리 창이 열려 있으면 방금 붙인 것이 목록에 바로 뜬다
@@ -380,7 +378,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
       dragPos={ sid, x, y };
       dragSticker.style.left=x+'px'; dragSticker.style.top=y+'px';
     });
-    document.addEventListener('mouseup', ()=>{ if(dragSticker){ const d=dragPos; dragSticker=null; dragPos=null; if(d) store.editSticker(d.sid, { x: d.x, y: d.y }); } });
+    document.addEventListener('mouseup', ()=>{ if(dragSticker){ const d=dragPos; dragSticker=null; dragPos=null; if(d) myhomeStore.editSticker(d.sid, { x: d.x, y: d.y }); } });
   }
   // 이름 변경 링크(마이홈 탭 안) — 친구 탭의 것과 동일한 모달 재사용
   /* ★ "닉네임" 인라인 편집 — 게시글 제목(_mhBeginPostTitleEdit)과 **같은 모양**으로 맞췄다.
@@ -468,7 +466,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     inp.focus(); inp.select();
     let canceled=false;
     const commit=()=>{
-      if(!canceled){ store.setField('postTitle', inp.value.trim().slice(0,30)); }
+      if(!canceled){ myhomeStore.setField('postTitle', inp.value.trim().slice(0,30)); }
       titleSpan.textContent=_myHomeData().postTitle||'게시글 제목';
       titleSpan.style.display='';
       if(editBtn) editBtn.style.display='';
@@ -591,10 +589,10 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     const cur=(_myHomeData().bgm&&_myHomeData().bgm.url)||'';
     const url=await asyncPrompt({title:'배경음악', message:'배경음악으로 쓸 유튜브 링크를 입력하세요\n(비우고 확인 = 삭제)', defaultValue:cur, placeholder:'https://youtu.be/…'});
     if(url===null) return;
-    if(!url.trim()){ store.setField('bgm', null); _bgmDestroy(); return; }
+    if(!url.trim()){ myhomeStore.setField('bgm', null); _bgmDestroy(); return; }
     if(!_ytId(url)){ toast('유튜브 링크를 인식하지 못했어요'); return; }
     const title=await asyncPrompt({title:'곡 제목', message:'위젯에 표시할 곡 제목 (선택)', defaultValue:(_myHomeData().bgm&&_myHomeData().bgm.title)||'', maxLength:40});
-    store.setField('bgm', { url:url.trim(), title:(title||'').trim().slice(0,40) });
+    myhomeStore.setField('bgm', { url:url.trim(), title:(title||'').trim().slice(0,40) });
     _bgmLabelRefresh();
     _bgmLoadNew();   // 새 URL로 실제 로드
   });
@@ -709,7 +707,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
         applyMyHomeBg({ color:colorPicker.value });
       });
       colorPicker.addEventListener('change', ()=>{
-        store.setField('bg', { color:colorPicker.value }); applyMyHomeBg();
+        myhomeStore.setField('bg', { color:colorPicker.value }); applyMyHomeBg();
       });
     }
     const bgFile=document.getElementById('mhBgImgInput');
@@ -726,15 +724,15 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
         const c=document.createElement('canvas');
         c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
         c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-        store.upload('bg', c.toDataURL('image/jpeg',0.8)).then(r=>{   // 올린 주소만 저장 — 실패하면 배경 그대로(E-MH-24)
-          if(r.status === 'ok'){ store.setField('bg', { img:r.url }); applyMyHomeBg(); }
+        myhomeStore.upload('bg', c.toDataURL('image/jpeg',0.8)).then(r=>{   // 올린 주소만 저장 — 실패하면 배경 그대로(E-MH-24)
+          if(r.status === 'ok'){ myhomeStore.setField('bg', { img:r.url }); applyMyHomeBg(); }
         });
       }; img.src=e.target.result; };
       reader.readAsDataURL(f);
     });
     document.getElementById('mhBgResetBtn')?.addEventListener('click', ()=>{
       bgMenu.classList.remove('on');
-      store.resetBg();   // 배경 · 남은 테마를 지운다(프리셋은 그대로)
+      myhomeStore.resetBg();   // 배경 · 남은 테마를 지운다(프리셋은 그대로)
       applyMyHomeBg(); applyMyHomeTheme();
     });
     // (예전 드롭다운형 프리미엄 색 버튼은 👑 디자인 스튜디오 팝업으로 대체됨)
@@ -890,7 +888,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
   /* 디자인 한 벌을 store 에 넘긴다 — 늘 테마 · 프리셋 · 고른 칸 셋을 같이(안 바뀐 것은 지금 값). over 에서 바꿀 것만 준다 */
   function _mhDesignSet(over){
     const p = _myHomeData();
-    return store.setDesign(Object.assign({ theme: p.theme || {}, presets: _mhPresets(), presetCur: _mhPresetCur() }, over));
+    return myhomeStore.setDesign(Object.assign({ theme: p.theme || {}, presets: _mhPresets(), presetCur: _mhPresetCur() }, over));
   }
   function _mhPresetLabel(i){
     const p = _mhPresets()[i];
@@ -1093,7 +1091,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
           const kb = Math.round(dataUrl.length * 0.75 / 1024);
           toast(`이미지를 올리는 중… (${c.width}×${c.height}, 약 ${kb}KB)`);
           try{
-            const up = await store.upload('design:' + (isBg ? 'bg' : imgKey), dataUrl);   // 올린 주소만 저장 — 실패하면 칸 그대로(E-MH-24)
+            const up = await myhomeStore.upload('design:' + (isBg ? 'bg' : imgKey), dataUrl);   // 올린 주소만 저장 — 실패하면 칸 그대로(E-MH-24)
             if(up.status === 'ok'){ applyUrl(up.url); toast(`이미지를 등록했어요 (${c.width}×${c.height}, 약 ${kb}KB)`); }
           }catch(err){ toast('업로드에 실패했어요'); }
         };
@@ -1118,7 +1116,7 @@ const mhStickerRules = TwMyHomeStickerRules;             // 🔒 스티커 잠�
     watchMaintenanceInput(d);  // d.close() 뒤에 — document.open 이 리스너를 지운다
     installMacTip(d, _mhDsWin);  // 이 창도 메인과 같은 «항상 위» 단계라 맥 OS 툴팁이 뒤로 깔린다
     d.getElementById('dsClose').onclick=()=>{ try{ _mhDsWin.close(); }catch(_){} };
-    d.getElementById('dsDone').onclick=()=>{ store.save(); try{ _mhDsWin.close(); }catch(_){} };
+    d.getElementById('dsDone').onclick=()=>{ myhomeStore.save(); try{ _mhDsWin.close(); }catch(_){} };
     // ★ confirm()은 Electron 투명 창에서 렌더러를 블로킹한 채 다이얼로그가 안 보여
     //   "멈춘 것처럼" 되는 문제가 있음 → 블로킹 없는 2단계 클릭 확인으로 대체.
     (function(){

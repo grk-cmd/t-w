@@ -747,7 +747,7 @@ await sec('── 8. app.js 배선 · html', async () => {
   chk(left.length === 0, '정의는 모듈에만 — app.js 에 같은 이름의 함수가 없다' + (left.length ? ' (남음: ' + left.join(' ') + ')' : ''));
   chk(NAMES.every(n => new RegExp('function ' + n + '\\(').test(MOD)), '  모듈에 다 있다');
   chk(!/═+ 📅 스케줄러|═+ 🔔 일정 알림/.test(APP) && /═+ 📅 스케줄러/.test(MOD) && /═+ 🔔 일정 알림/.test(MOD), '구역 머리 둘이 모듈로 옮겨 갔다');
-  const iC = APP.indexOf('MhScheduler.createScheduler('), iV = APP.indexOf('let _mhViewingUserId'), iB = APP.indexOf('TwFriendManage.createFriendManage(');
+  const iC = APP.indexOf('MhScheduler.createScheduler('), iV = APP.indexOf('const myhomeStoreMod = '), iB = APP.indexOf('TwFriendManage.createFriendManage(');
   chk(iC > 0 && iC < iB && iC < iV, 'createScheduler 는 원래 자리(👥 친구 관리 연결 바로 앞)에서 부른다');
   chk(/^const mhScheduler = MhScheduler\.createScheduler\(\{/m.test(APP) && !/\bSCHEDULER_OFF\b/.test(APP), '  빈 껍데기 없이 만든다');
   chk(/viewingUserId: \(\)=>(?:mhStateMod\.)?_mhViewingUserId/.test(APP) && /myHomeFriends: \(\)=>_myHomeFriends/.test(APP), '  다시 대입되는 값은 읽는 함수로 넘긴다');

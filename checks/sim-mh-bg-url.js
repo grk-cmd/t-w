@@ -42,7 +42,7 @@ function paint(where, src, mod, bg, visiting){
     new Function('document', 'TwMhBgUrl', 'TwSafeHtml', 'advVisiting', 'advVisitBg', 'ADV', 'advApplyFolderHide', fn + '\nadvApplyBg();')(
       doc, B, SH, visiting, visiting ? bg : null, { bg: visiting ? null : bg }, () => {});
   } else {
-    const fn = grabFn(src, 'function applyMyHomeBg(){');
+    const fn = grabFn(src, 'function applyMyHomeBg(preview){');
     if (!fn) throw new Error('applyMyHomeBg 를 못 찾음');
     new Function('document', 'mhBgUrl', 'TwMhBgUrl', 'TwSafeHtml', '_myHomeData', '_mhViewingUserId', fn + '\napplyMyHomeBg();')(
       doc, B, B, SH, () => ({ bg }), () => (visiting ? 'friendUid' : null));

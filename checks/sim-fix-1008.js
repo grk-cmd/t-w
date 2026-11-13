@@ -229,22 +229,15 @@ say('§10 듀얼 모니터 — 위치순 이름 · 저장 모니터 다시 찾�
   }
 }
 
-say('§2 계정을 바꾼 뒤 자동 저장이 옛 계정 마이홈으로 덮어쓰지 않는다');
+say('§2 계정을 바꾼 뒤 자동 저장이 옛 계정 마이홈으로 덮어쓰지 않는다(D2-2 — 상태 주인 reset · gen)');
 {
-  const load = (APP.match(/async function loadMyHomePage\(\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/const _loadUid = getMyUserId\(\);/.test(load) && /if\(getMyUserId\(\) !== _loadUid\) return;/.test(load) && /_myHomeUid = _loadUid;/.test(load),
-    '★ 불러올 때 계정 코드를 적어 둔다 · 불러오는 사이 계정이 바뀌면 붙들지 않는다');
-  /* 자동 저장(commitMyHomePage)은 myhome-edit.js 로 옮겼다(앱 FSD 7-2) — 거기서는 app.js 의 let 을
-     읽는 함수 _myHomeLoaded() · _myHomeUid() 와 쓰는 함수 _setMyHomeLoaded(false) 로 다룬다. */
-  const EDIT = read('myhome-edit.js') || '';
-  const i = EDIT.indexOf('async function commitMyHomePage(silent){');
-  const commit = i < 0 ? '' : EDIT.slice(i, i + 2500);
-  const iUid = commit.indexOf('if(_myHomeLoaded() && _myHomeUid() !== getMyUserId()){'), iSave = commit.indexOf('firebaseAPI.saveMyHome(');
-  chk(iUid > 0 && iSave > iUid, '★ 저장 전에 «불러온 계정 = 지금 계정» 을 본다' + (EDIT ? '' : ' — myhome-edit.js 를 못 찾음'));
-  chk(/_setMyHomeLoaded\(false\);[\s\S]{0,200}return;/.test(commit.slice(iUid, iUid + 400)), '  다르면 저장하지 않고 불러온 상태도 무효로');
-  // 흉내 — 계정 A 로 불러온 뒤 B 로 바뀐 상태에서 저장
-  const sim = (loadedUid, nowUid) => { let loaded = true, saved = false; if (loaded && loadedUid !== nowUid) { loaded = false; return { saved, loaded }; } saved = true; return { saved, loaded }; };
-  chk(!sim('uA', 'uB').saved && sim('uA', 'uA').saved, '  흉내 — 바뀐 계정이면 안 쓰고, 같은 계정이면 쓴다');
+  /* 예전엔 불러올 때 계정 코드를 적어 두고 저장 전에 견줬다(_myHomeUid). 지금은 마이홈 페이지의 주인이 상태 주인(myhome-store.js)이고,
+     계정을 놓을 때 account.js 가 flush(올리기) 뒤 reset 한다 — reset 은 gen 을 올려 줄에 선 모든 일이 늦게 온 답을 버리고 못 보낸 고침도 비운다(동작은 sim-myhome-store 가 굴린다). */
+  const ACC = read('account.js') || '', STORE = read('myhome-store.js') || '';
+  chk(/myhomeStore\.flush\(\)/.test(ACC) && /myhomeStore\.reset\(\)/.test(ACC) && ACC.indexOf('myhomeStore.flush()') < ACC.indexOf('myhomeStore.reset()'), '★ 계정을 놓을 때 못 올린 고침을 한 번 올리고(flush) 그 뒤 비운다(reset)' + (ACC ? '' : ' — account.js 를 못 찾음'));
+  const reset = (STORE.match(/function reset\(\)\{[\s\S]*?\n  \}/) || [''])[0];
+  chk(/gen\+\+;/.test(reset) && /pending = emptyOps\(\)/.test(reset) && (STORE.match(/g !== gen/g) || []).length >= 10, '  reset 은 gen 을 올리고 못 보낸 고침을 비운다 · 줄의 일은 await 마다 gen 을 다시 본다');
+  chk(!/_myHomeUid|_loadUid|_setMyHomeLoaded/.test(APP + (read('myhome-edit.js') || '')), '  옛 계정 코드 견주기(_myHomeUid)는 없다 — 사본이 없어 견줄 것이 없다');
 }
 
 say('§3 표정 도장 — 턱 아래로 감아 칠하기 (공 모양 머리 흉내)');

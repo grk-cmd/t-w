@@ -14,13 +14,13 @@ const mhStateMod = deps.mhStateMod;
 const myHomeUiMod = deps.myHomeUiMod;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
 const richTextMod = deps.richTextMod;
-const store = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 받기 · 못 받음 상태
+const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 받기 · 못 받음 상태
 const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — BGM · 배경 · 테마 다시 칠하기는 편집 묶음이 건다
 /* 마이홈을 열 때 · [다시 시도] — 받고 그린다. 못 받으면(E-MH-20 은 store 가 띄운다) 본문 자리에 «못 불러왔어요 [다시 시도]» 를 그린다 */
 async function loadMyHomePage(){
   // ★ 마이홈2-B: 관람 중이면 절대 내 데이터로 덮어쓰지 않음 (친구 홈 데이터가 순간적으로 사라지는 버그 방지)
   if(mhStateMod._mhViewingUserId()) return;
-  const pulling = store.pullMine();
+  const pulling = myhomeStore.pullMine();
   try{ renderMyHomePage(); }catch(e){ console.warn('마이홈 렌더 실패', e); }   // 받는 동안 «불러오는 중» 상태로 한 번
   await pulling;
   if(mhStateMod._mhViewingUserId()) return;   // ★ 로드가 진행되는 사이 친구 홈 관람으로 전환됐으면 덮어쓰지 않음(비동기 경쟁 방지)
@@ -31,7 +31,7 @@ function renderLoadState(){
   const page = document.getElementById('mhPageHome');
   if(!page) return;
   let bar = document.getElementById('mhLoadFail');
-  const failed = !mhStateMod._mhViewingUserId() && store.mine().load === store.LOAD.FAILED;
+  const failed = !mhStateMod._mhViewingUserId() && myhomeStore.mine().load === myhomeStore.LOAD.FAILED;
   if(!failed){ if(bar) bar.style.display = 'none'; return; }
   if(!bar){
     bar = document.createElement('div');
@@ -61,7 +61,7 @@ function renderMyHomePage(){
     if(bioBox) bioBox.innerHTML = richTextMod._mhLoadRT(_bioLoad);
     const postBox=document.getElementById('mhPostBox');
     if(postBox) postBox.innerHTML = richTextMod._mhLoadRT(_postLoad);
-    const editable = store.canEdit() ? 'true' : 'false';   // 받는 중 · 못 받음 · 구경 · 미리보기엔 글 칸을 잠근다(받은 글이 고친 글을 덮지 않게)
+    const editable = myhomeStore.canEdit() ? 'true' : 'false';   // 받는 중 · 못 받음 · 구경 · 미리보기엔 글 칸을 잠근다(받은 글이 고친 글을 덮지 않게)
     if(bioBox) bioBox.setAttribute('contenteditable', editable);
     if(postBox) postBox.setAttribute('contenteditable', editable);
   }catch(e){ console.warn('[마이홈] bio/post 렌더 실패', e); }
