@@ -8,10 +8,11 @@
    ・4절: 디자인 · 배경 — PUT design(프리셋 3칸) · 바깥 배경 · 초기화는 PATCH 의 테마 지우기
    ・5절: 409 · 실패 — 글 칸만 얹어 한 번 더(Q1 · rebased) · 두 번째 409 는 받은 값 + 알림 · 디자인 409 · 다시 받는 사이 끝난 올리기는 conflict(F2a) · 그냥 받는 사이면 받은 판 + 내 것(F2b) ·
         다시 받기 실패 → 잠금 → «다시 시도»(F3) · 디자인 성공 뒤 PATCH 409 는 디자인을 다시 안 보냄 · 실패 + 새 고침 = 한 요청 · 없어진 스티커 고침은 건너뜀 · 실패 한 번 · 혼자 다시 안 보냄 · flush
+           서버가 거절한 값(4xx)은 버림(다음 고침이 같이 거절되지 않게) · 디자인 거절이어도 같은 묶음 PATCH 는 감 · 배경 색 ↔ 디자인 바깥 배경 · 초기화 ↔ 디자인은 나중 것이 이김
    ・6절: 올리기 — 실패면 예전 값(E-MH-24) · 같은 칸 busy
    ・7절: 구경 · 계정 — gen · 없는 사람 · 집 실패(E-MH-21) · reset(저장 · 다시 받기 · 올리기 · 받기 도중) 뒤 답 버림 · 줄 새로 · 주인 바뀜은 조용히
    ・8절: 배선
-   ・9절: 일부러 깨 보기 — rebased 안 달기 · mergeOps 가 rebased 안 잇기 · adoptSeq 검사 빼기 · 본문을 화면 값에서 만들기 · 실패한 batch 안 되돌리기 · 409 에서 글 외 칸 남기기 · gen 검사 빼기 · 한 줄 우회
+   ・9절: 일부러 깨 보기 — rebased 안 달기 · mergeOps 가 rebased 안 잇기 · adoptSeq 검사 빼기 · 본문을 화면 값에서 만들기 · 실패한 batch 안 되돌리기 · 409 에서 글 외 칸 남기기 · gen 검사 빼기 · 한 줄 우회 · 거절된 값 되돌리기 · 배경 «나중 것이 이김» 두 곳
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
 const fs = require('fs');
@@ -64,6 +65,7 @@ function mk(srv0, opt){
 }
 const count = (log, re) => log.filter((l) => re.test(l)).length;
 const tick = flush;
+const settled = (p) => Promise.race([p, new Promise((r) => setTimeout(() => r('hang'), 60))]);   // 깨졌을 때 멈추지 않고 빨강이 나게
 const ready = async (e) => { const p = e.st.pullMine(); if(!e.srv.auto){ await tick(); await e.release(); } await p; return e; };
 
 async function judge(withBreak){
@@ -246,16 +248,16 @@ async function judge(withBreak){
     const ens = cu.st.ensureMine();
     chk(count(cu.log, /^GET/) === 2, '409 다시 받는 중 ensureMine 은 GET 을 더하지 않는다');
     await cu.release();   // 올리기가 다시 받는 사이 끝난다
-    const adr = await ad;
-    chk(adr.status === 'conflict' && count(cu.log, /^toast /) === 1 && cu.log.includes('toast ' + cu.st.MSG.merged), 'F2a: 다시 받는 사이 끝난 스티커 올리기 → conflict · 알림 한 번');
-    await cu.release(6); await cp; await ens; await tick();
+    const adr = await settled(ad);
+    chk(adr && adr.status === 'conflict' && count(cu.log, /^toast /) === 1 && cu.log.includes('toast ' + cu.st.MSG.merged), 'F2a: 다시 받는 사이 끝난 스티커 올리기 → conflict · 알림 한 번');
+    await cu.release(6); await settled(cp); await settled(ens); await tick();
     chk(Object.keys(cu.st.page().stickers).join() === 's1' && cu.srv.sent.every((f) => !('stickers' in f)) && count(cu.log, /^GET/) === 2, '  받은 스티커 그대로 · 올린 그림은 쓰지 않음 · 저장에 스티커 없음');
     chk(cu.st.page().bio === 'mine' && cu.srv.page.bio === 'mine' && cu.st.mine().load === 'ready', '  글 칸은 새 판에 얹혀 저장 · ready');
     const ca = mk({ auto: false }); await ready(ca);
     ca.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
     const aa = ca.st.setAvatar('data:image/png;base64,AA'); const ab = ca.st.setField('bio', 'z');
     await tick(); ca.waits.reverse(); await ca.release(); await ca.release();
-    chk(await aa === 'conflict' && ca.st.page().avatar === null && !ca.srv.sent.some((f) => 'avatar' in f), '사진 올리기도 다시 받는 사이 끝나면 conflict · 사진은 받은 값(미리보기도 걷힘)');
+    chk(await settled(aa) === 'conflict' && ca.st.page().avatar === null && !ca.srv.sent.some((f) => 'avatar' in f), '사진 올리기도 다시 받는 사이 끝나면 conflict · 사진은 받은 값(미리보기도 걷힘)');
     await ca.release(6); await ab;
     const f2 = mk({ auto: false }); await ready(f2);
     f2.srv.page.stickers = { s1: stk('x') }; f2.srv.pageVersion = 9;
@@ -374,6 +376,50 @@ async function judge(withBreak){
     chk(av.srv.sent.every((f) => !JSON.stringify(f).includes('data:')) && /^https:\/\/img\//.test(av.st.page().avatar), '  올린 뒤엔 주소로 바뀐다');
   }
 
+  {
+    const bad = await ready(mk({ patchErr: apiErr(400, 'MYHOME_INVALID_BGM') }));
+    await bad.st.setField('bgm', { url: 'x', title: '' });
+    bad.srv.patchErr = null;
+    await bad.st.setField('bio', 'hello');
+    chk(bad.srv.sent.length === 2 && !('bgm' in bad.srv.sent[1]) && bad.srv.sent[1].bio === 'hello' && bad.srv.page.bio === 'hello' && bad.st.page().bgm === null, '서버가 거절한 값은 버린다 — 다음 고침이 같이 거절되지 않는다(화면은 server 값으로)');
+    const dr = await ready(mk({ designErr: apiErr(400, 'MYHOME_INVALID_THEME') }));
+    const d1 = dr.st.setDesign({ theme: { a: 'x' }, presets: [null, null, null], presetCur: 0 }), d2 = dr.st.setField('bio', 'ok');
+    await Promise.all([d1, d2]);
+    chk(dr.log.includes('error E-MH-23') && dr.srv.sent && dr.srv.sent[0].bio === 'ok' && dr.st.page().theme === null, '디자인 PUT 이 거절돼도 같은 묶음의 PATCH 는 따로 간다 · 거절된 디자인은 버림');
+    dr.srv.designErr = null; await dr.st.setField('post', 'p');
+    chk(count(dr.log, /^PUT design/) === 1, '  거절된 디자인을 다시 보내지 않는다');
+    const rp = await ready(mk({ designErr: apiErr(403, 'PREMIUM_REQUIRED') }));
+    rp.srv.page.theme = { a: '#1' }; await rp.st.pullMine();
+    const q1 = rp.st.setDesign({ theme: { a: '#2' }, presets: [null, null, null], presetCur: 0 }), q2 = rp.st.resetBg();
+    await Promise.all([q1, q2]);
+    chk(rp.srv.sent && rp.srv.sent.some((f) => f.clearTheme === true), '디자인이 pending 일 때 초기화 — 프리미엄이 끝나 PUT 이 거절돼도 PATCH(테마 지우기)는 간다');
+
+    const bgA = await ready(mk());
+    const g1 = bgA.st.setField('bg', { color: '#aaa' }), g2 = bgA.st.setDesign({ theme: { t: '#1' }, presets: [null, null, null], presetCur: 0, bg: { color: '#bbb' } });
+    chk(bgA.st.page().bg.color === '#bbb', '나중 것이 이김: 화면도 디자인 바깥 배경(배경 색 → 디자인)');
+    await Promise.all([g1, g2]);
+    chk(bgA.st.page().bg.color === '#bbb' && bgA.srv.designs[0].bg.color === '#bbb', '나중 것이 이김: 배경 색 → 디자인 바깥 배경');
+    const bgB = mk({ auto: false }); await ready(bgB);
+    const e1 = bgB.st.setDesign({ theme: { t: '#1' }, presets: [null, null, null], presetCur: 0, bg: { color: '#bbb' } }), e2 = bgB.st.setField('bg', { color: '#ccc' });
+    chk(bgB.st.page().bg.color === '#ccc', '  디자인 바깥 배경 → 배경 색: 화면은 나중 것');
+    await tick(); await bgB.release(); await tick(); await bgB.release(2); await Promise.all([e1, e2]);
+    chk(bgB.srv.page.bg.color === '#ccc' && !(bgB.srv.designs[0] && 'bg' in bgB.srv.designs[0]), '  보낸 것도 나중 것(배경 색 PATCH 만)');
+    const bgC = await ready(mk());
+    await bgC.st.setDesign({ theme: { t: '#1' }, presets: [null, null, null], presetCur: 0, bg: { color: '#bbb' } });
+    chk(bgC.st.page().bg.color === '#bbb', '  (바깥 배경은 고름)');
+    const bgD = mk({ auto: false }); await ready(bgD);
+    const f1 = bgD.st.setDesign({ theme: { t: '#1' }, presets: [null, null, null], presetCur: 0, bg: { color: '#bbb' } }), f2 = bgD.st.setDesign({ theme: { t: '#2' } });
+    chk(bgD.st.page().bg.color === '#bbb' && bgD.st.page().theme.t === '#2', '  바깥 배경을 고른 뒤 배경 없이 다시 setDesign → 고른 배경은 남는다');
+    await tick(); await bgD.release(3); await Promise.all([f1, f2]);
+    const th = await ready(mk());
+    await th.st.setDesign({ theme: { t: '#1' }, presets: [null, null, null], presetCur: 0 });
+    const t1 = th.st.resetBg(), t2 = th.st.setDesign({ theme: { t: '#9' } });
+    await Promise.all([t1, t2]);
+    chk(th.st.page().theme && th.st.page().theme.t === '#9', '초기화 뒤 setDesign(테마) → 테마가 남는다(나중 것)');
+    const fl = await ready(mk({ page: { avatar: null, bio: 'b', postTitle: 't', post: 'p', bgm: null, bg: null, stickers: { a: stk('a'), b: stk('b'), c: stk('c'), d: stk('d'), e: stk('e') }, theme: null, themePresets: [null, null, null], themePresetCur: 0 } }));
+    chk((await fl.st.addSticker('data:x', { w: 1, h: 1 })).status === 'full' && count(fl.log, /^PATCH/) === 0, '5장이 찬 판에는 올리기 전에 full');
+  }
+
   say('── 6. 올리기');
   {
     const e = await ready(mk({ upErr: apiErr(503, 'X') }));
@@ -424,15 +470,15 @@ async function judge(withBreak){
     chk(e.st.mine().load === 'idle' && e.st.page().bio === '' && e.log.includes('api reset'), 'reset 뒤 늦은 받기 답은 버린다 · provider 도 비운다');
     const s = await ready(mk({ auto: false })); s.srv.auto = false;
     const w = s.st.setField('bio', 'x'); await tick(); s.st.reset(); await s.release();
-    chk(await w === 'stale' && s.st.mine().load === 'idle' && s.st.page().bio === '' && s.st.mine().pageVersion === undefined && !s.st.mine().saving, 'reset 뒤 저장 답(저장 도중 놓음)은 상태를 안 고친다');
+    chk(await settled(w) === 'stale' && s.st.mine().load === 'idle' && s.st.page().bio === '' && s.st.mine().pageVersion === undefined && !s.st.mine().saving, 'reset 뒤 저장 답(저장 도중 놓음)은 상태를 안 고친다');
     const rf = mk({ auto: false }); await ready(rf);
     rf.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
     const wf = rf.st.setField('bio', 'x'); await tick(); await rf.release();   // PATCH 409 → 다시 받는 중
     rf.st.reset(); await rf.release(3);
-    chk(await wf === 'stale' && rf.st.mine().load === 'idle' && rf.st.page().bio === '' && count(rf.log, /^PATCH/) === 1 && count(rf.log, /^toast/) === 0 && !rf.st.mine().saving, 'reset 뒤 409 다시 받기 답(받는 도중 놓음)은 상태를 안 고치고 더 보내지 않는다');
+    chk(await settled(wf) === 'stale' && rf.st.mine().load === 'idle' && rf.st.page().bio === '' && count(rf.log, /^PATCH/) === 1 && count(rf.log, /^toast/) === 0 && !rf.st.mine().saving, 'reset 뒤 409 다시 받기 답(받는 도중 놓음)은 상태를 안 고치고 더 보내지 않는다');
     const ru = mk({ auto: false }); await ready(ru);
     const wu = ru.st.setAvatar('data:image/png;base64,AA'); await tick(); ru.st.reset(); await ru.release(3);
-    chk(await wu === 'stale' && ru.st.page().avatar === null && ru.st.mine().load === 'idle' && count(ru.log, /^PATCH/) === 0, 'reset 뒤 올리기 답(올리는 도중 놓음)은 고침을 만들지 않는다');
+    chk(await settled(wu) === 'stale' && ru.st.page().avatar === null && ru.st.mine().load === 'idle' && count(ru.log, /^PATCH/) === 0, 'reset 뒤 올리기 답(올리는 도중 놓음)은 고침을 만들지 않는다');
     const rn = mk({ auto: false }); await ready(rn);
     const wn = rn.st.setField('bio', 'x'); await tick(); rn.st.reset();   // 저장 답이 아직 안 옴 — 앞 계정의 일이 멈춰 있다
     const pn = rn.st.pullMine(); await tick();
@@ -475,6 +521,9 @@ async function judge(withBreak){
     ['409 에서 글 칸 말고도 남기면', (s) => s.replace('if(keepKey(k)) o.fields[k] = clone(all.fields[k]);', 'o.fields[k] = clone(all.fields[k]);')],
     ['gen 검사를 빼면(계정을 놓은 뒤 늦은 답이 상태를 고침)', (s) => s.split('g !== gen').join('false')],
     ['한 줄을 우회하면(받기 · 저장이 겹쳐 돔)', (s) => s.replace('const p = tail.then(job, job);', 'const p = Promise.resolve().then(job);')],
+    ['서버가 거절한 값을 되돌려 다시 보내면', (s) => s.replace("return typeof st === 'number' && st >= 400", "return false && st >= 400")],
+    ['setDesign 이 앞서 고른 배경 색을 안 지우면(나중 것이 이김)', (s) => s.replace('if(hasBg) delete pending.fields.bg;', '')],
+    ['setDesign 이 바깥 배경을 안 이어 가면', (s) => s.replace('snap.bg = pending.design.bg;', '')],
     ['스티커 w · h 를 정수로 안 만들면', (s) => s.replace('s.w = Math.max(1, Math.min(400, Math.round(Number(s.w) || 1)));', 's.w = Number(s.w);')],
   ];
   const origLoad = S.ST;
