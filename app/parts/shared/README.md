@@ -293,6 +293,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
 
+## `idle-gate.js` — 😴 할 일 없는 반복 재우기
+
+- **책임**: 창이 닫혀 있어 결과가 화면 · 저장 · 서버에 닿지 않는 동안 반복(rAF · 짧은 주기 타이머)을 재우고, 다시 열리면 다음 틱에 건다. 판단(돌 때인가)과 할 일은 부르는 쪽이 넘긴다 — 도메인을 모른다.
+- **쓰는 법**: `TwIdleGate.rafWhile({ isOn, frame, sleep, raf })` · `TwIdleGate.intervalWhile({ idle, step, ms, setInterval, clearInterval })` — 둘 다 `{ wake, running }` 을 돌려준다. 깨우기는 `TwIdleGate.onClassChange(el, fn)`(class 변화 — 여는 길이 여럿이어도 한 곳). html 에서 쓰는 모듈보다 먼저 싣는다.
+- **지금 쓰는 곳**: 런처 미리보기(`launcher-preview.js` `startLauncherLoop` — `#launcher.on`) · 꾸미기 미리보기(`wardrobe.js` — `#wdPreviewPanel.on`) · 플레이리스트 재생 창 사각형 폴링(`playlist.js` — `#myPlaylistBox` 가 `.hidden` 이고 off 를 보낸 뒤).
+- **함정**: 재우는 조건에 «마지막 결과를 이미 보냈다» 를 넣는다(플레이리스트는 닫힌 뒤 off 를 한 번 보내고 잔다) — 닫히자마자 자면 마지막 IPC 가 빠진다. 안 보여도 돌아야 하는 것(하트비트 · 자리비움 판정 · 포커스 기록 · rAF 멈춤 감시 · 백색소음)에는 쓰지 않는다.
+- 검사: `checks/sim-idle-gate.js` · 쓰는 곳은 `sim-launcher-preview` 5절 · `sim-wardrobe` 5절 · `sim-playlist` 7-2절.
+
 ## `mac-tooltip.js` — 💬 맥 설명 말풍선
 
 - **책임**: 맥에서 마우스를 올리면 뜨는 설명(`title`)을 앱이 직접 그린다. 실행 화면 창이 «화면 보호기» 단계(`setAlwaysOnTop('screen-saver')`)라 맥 OS 툴팁이 그 뒤로 깔려 안 보이기 때문이다. 윈도우는 OS 툴팁이 맨 위라 걸지 않는다.

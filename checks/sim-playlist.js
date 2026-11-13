@@ -25,6 +25,10 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const need = ['playlist.js', 'playlist-sync.js', 'app.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
+/* 😴 shared/idle-gate.js 진짜 파일 — 가짜 MutationObserver 는 위 가짜 DOM 의 _mo 에 건다 */
+const GATE_SRC = [__dirname, process.cwd()].flatMap(d => ['idle-gate.js', 'parts/shared/idle-gate.js', 'app/parts/shared/idle-gate.js'].map(p => require('path').join(d, p))).map(read).find(Boolean);
+if(!GATE_SRC){ console.log('  ? 원본 못 찾음 — idle-gate.js'); process.exit(2); }
+const IDLE_GATE = (() => { const w = { MutationObserver: class { constructor(fn){ this.fn = fn; } observe(el, o){ if(o && o.attributeFilter && o.attributeFilter.includes('class')) el._mo.push(this.fn); } disconnect(){} } }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; })();
 const PLSYNC = (() => { const w = {}; new Function('window', SRC['playlist-sync.js'])(w); return w.TwPlaylistSync; })();   // ☁️ 기기 간 맞추기 규칙(진짜)
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const flush = () => new Promise(r => setImmediate(r));
@@ -36,6 +40,9 @@ function mkEl(tag, env){
   const el = {
     tagName: String(tag || 'div').toUpperCase(), id: '', className: '', title: '', value: '', checked: false, disabled: false, children: [], parentNode: null,
     _L: L, _html: '', attrs: {}, rect: null,
+    /* 가짜 MutationObserver — class 를 바꾸면 진짜처럼 마이크로태스크에 한 번 몰아서 부른다 */
+    _mo: [], _moPending: false,
+    _moKick(){ if(!el._mo.length || el._moPending) return; el._moPending = true; Promise.resolve().then(() => { el._moPending = false; el._mo.slice().forEach(f => f()); }); },
     style: { setProperty(k, v){ this[k] = String(v); }, removeProperty(k){ delete this[k]; } },
     get textContent(){ return txt + el.children.map(c => c.textContent).join(''); },
     set textContent(v){ txt = String(v); el.children = []; },
@@ -47,8 +54,8 @@ function mkEl(tag, env){
     get offsetHeight(){ return el.rect ? el.rect.height : 0; },
     get clientWidth(){ return el.rect ? el.rect.width : 0; },
     classList: {
-      add: (...cs) => { const s = new Set(el.className.split(/\s+/).filter(Boolean)); cs.forEach(c => s.add(c)); el.className = [...s].join(' '); },
-      remove: (...cs) => { el.className = el.className.split(/\s+/).filter(x => x && !cs.includes(x)).join(' '); },
+      add: (...cs) => { const s = new Set(el.className.split(/\s+/).filter(Boolean)); cs.forEach(c => s.add(c)); el.className = [...s].join(' '); el._moKick(); },
+      remove: (...cs) => { el.className = el.className.split(/\s+/).filter(x => x && !cs.includes(x)).join(' '); el._moKick(); },
       contains: (c) => el.className.split(/\s+/).includes(c),
       toggle: (c, f) => { const on = f === undefined ? !el.classList.contains(c) : !!f; on ? el.classList.add(c) : el.classList.remove(c); return on; },
     },
@@ -142,8 +149,8 @@ function mkEnv(o){
   const con = { log: () => {}, warn: (m) => env.warns.push(String(m)) };
   const nav = { clipboard: { writeText: (t) => env.calls.push('copy ' + t) } };
   new Function('window', 'module', 'document', 'localStorage', 'firebaseAPI', 'companion', 'navigator', 'fetch', 'requestAnimationFrame',
-    'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'innerWidth', 'innerHeight', 'console', 'Date', 'Math', o.src || SRC['playlist.js'])
-    (win, undefined, doc, ls, api, comp, nav, fetch_, (fn) => fn(), setTimeout_, clearTimeout_, setInterval_, clearTimeout_, 1280, 720, con, DateX, MathX);
+    'setTimeout', 'clearTimeout', 'setInterval', 'clearInterval', 'innerWidth', 'innerHeight', 'console', 'Date', 'Math', 'TwIdleGate', o.src || SRC['playlist.js'])
+    (win, undefined, doc, ls, api, comp, nav, fetch_, (fn) => fn(), setTimeout_, clearTimeout_, setInterval_, clearTimeout_, 1280, 720, con, DateX, MathX, IDLE_GATE);
   env.win = win;
   env.mk = (extra) => {
     env.m = win.TwPlaylist.createPlaylist(Object.assign({
@@ -633,6 +640,34 @@ async function behave(src){
     chk(lv.className === '' && lv.textContent === '', '  레벨을 모르면 숨긴다');
     chk(m.ytVideoId('https://youtu.be/abcdefghijk?t=3') === 'abcdefghijk' && m.ytVideoId('https://www.youtube.com/shorts/abcdefghijk') === 'abcdefghijk' && m.ytVideoId('x') === null, '🔗 유튜브 id 파서(마이홈 BGM 과 한 벌)');
   }
+  say('── 7-2. 😴 재생 창 사각형 폴링 — 닫혀 있고 off 를 보냈으면 잔다 · 열리면 다시');
+  {
+    const e = E({ store: { 'tw.playlistSets': setsOf(songs(3)) } }); const m = e.mk();
+    const polls = () => e.timers.filter(t => t.every === 300).length;
+    chk(polls() === 1, '만들 때 300ms 폴링 하나');
+    await e.advance(600);
+    chk(e.count('bounds') === 1 && e.last('bounds') === 'bounds null', '  닫힌 창 «off» 는 한 번만 보낸다(예전과 같은 첫 IPC)');
+    chk(polls() === 0, '★ 닫혀 있고 off 를 보냈으면 폴링을 지운다');
+    const n0 = e.count('bounds'); await e.advance(60000);
+    chk(e.count('bounds') === n0 && polls() === 0, '  닫힌 1분 동안 깨어나지도 · 보내지도 않는다');
+    e.byId.myPlBtn.fire('click'); await flush();
+    chk(polls() === 1 && e.count('bounds') === n0, '★ 열면(.hidden 빠짐) 폴링을 다시 건다 · 재생 전이라 그대로 off(IPC 없음)');
+    e.byId.myPlPlay.fire('click'); await e.advance(300);
+    chk(e.last('bounds') === 'bounds 500,300,236,240', '  열린 채 재생하면 다음 폴링에서 패널 사각형');
+    e.byId.myPlaylistBox.rect = { left: 520, top: 310, width: 236, height: 240 }; await e.advance(300);
+    chk(e.last('bounds') === 'bounds 520,310,236,240', '  열려 있는 동안 옮기면 따라간다');
+    e.byId.myPlClose.fire('click'); await flush();
+    const n1 = e.count('bounds');
+    await e.advance(300);
+    chk(e.last('bounds') === 'bounds null' && polls() === 1, '★ 닫으면 다음 폴링이 off 를 보낸다(재생 창을 투명하게) — 바로 자지 않는다');
+    await e.advance(300);
+    chk(polls() === 0 && e.count('bounds') === n1 + 1, '  그다음 폴링에서 잔다 — 보낸 IPC 는 예전과 같은 한 번');
+    e.byId.myPlBtn.fire('click'); await flush();
+    chk(polls() === 1 && e.last('bounds') === 'bounds 520,310,236,240', '★ 재생 중에 다시 열면 그 자리에서 한 번 맞추고 폴링을 다시 건다');
+    e.byId.myPlBtn.fire('click'); e.byId.myPlBtn.fire('click'); await flush();
+    chk(polls() === 1, '  돌고 있을 때 여닫아도 폴링은 하나');
+    void m;
+  }
   {
     const e = E({ noDom: true }); const m = e.mk();
     chk(m && e.esc.length === 0 && e.count('setInterval') === 0 && e.store.size === 0 && !e.cb.end, 'DOM 이 없으면 버튼 연결 없이 끝난다(예전 bindMyPlaylist 의 return 그대로)');
@@ -747,6 +782,9 @@ async function runAll(PL, APP, HTML){
     ['PL', "  if(typeof _plPlaying !== 'undefined' && _plPlaying === false){ _plWatchMoveAt = now; return; }", '', '일시정지 중에도 감시견이 판정'],
     ['PL', "try{ (window.__winPosResetters = window.__winPosResetters || []).push(()=>{ _plPos = null; }); }catch(_){}", '', '창 위치 초기화에 등록 안 함'],
     ['PL', ' window._plSyncBgmBounds = _plSyncBgmBounds;', '', 'window 고리(noise.js)가 빠짐'],
+    ['PL', "  return (!box || box.classList.contains('hidden')) && _plLastBoundsKey === 'off';", "  return (!box || box.classList.contains('hidden'));", '닫히자마자 자서 off 를 못 보냄'],
+    ['PL', "  return (!box || box.classList.contains('hidden')) && _plLastBoundsKey === 'off';", '  return false;', '닫혀도 폴링이 안 잠'],
+    ['PL', '    if(poll.wake()) _plSyncBgmBounds();', '', '열어도 폴링을 안 깨움'],
     ['PL', '  get private(){ return _plPrivate; },     set private(v){ _plPrivate = v; },', '  get private(){ return _plPrivate; },', '상태 묶음의 쓰기가 빠짐'],
     ['PL', "if(typeof window !== 'undefined') window.TwPlaylist = api;", "if(typeof window !== 'undefined') window.Playlist = api;", '전역 이름에 Tw 가 없음'],
     ['APP', '  myHomeFriends: ()=>_myHomeFriends,', '  myHomeFriends: _myHomeFriends,', '친구 목록을 값으로(TDZ · 옛 것)'],

@@ -39,7 +39,8 @@ function changed(prev, cur){
   return false;
 }
 
-/* deps: getPads() → navigator.getGamepads() 결과 · onActivity() · setInterval/clearInterval(검사용 · 없으면 전역) */
+/* deps: getPads() → navigator.getGamepads() 결과 · onActivity() · setInterval/clearInterval(검사용 · 없으면 전역)
+   · on(이벤트, fn)(렌더러 startWhenConnected 만 — main 은 poll 만 부른다) */
 function createGamepadActivity(deps){
   const last = {};     // 패드 id + 자리 → snap
   let timer = null;
@@ -70,7 +71,30 @@ function createGamepadActivity(deps){
     const ci = deps.clearInterval || clearInterval;
     ci(timer); timer = null;
   }
-  return { start, stop, poll };
+  /* 패드가 꽂혀 있을 때만 0.5초 폴링 — 없으면 gamepadconnected 를 기다린다(렌더러 몫).
+     deps.on(이벤트, fn) = window.addEventListener. 꽂힌 패드는 이벤트로 센다 — getGamepads 는 창이 뒤에 있을 때 비어 보일 수 있어
+     «목록이 비었다» 로 재우면 앞으로 돌아와도 다시 깨울 신호가 없다.
+     ⚠️ 크로미움은 패드를 한 번 누르기 전에는 연결로 치지 않는다(파일 머리 주석) — 그 전에는 예전 폴링도 아무것도 못 읽었다. */
+  const plugged = new Set();
+  function startWhenConnected(){
+    let pads = [];
+    try{ pads = Array.from(deps.getPads() || []); }catch(_){}
+    for(const pad of pads) if(pad && pad.connected !== false) plugged.add(pad.index);
+    deps.on('gamepadconnected', (e) => {
+      if(!e || !e.gamepad) return;
+      plugged.add(e.gamepad.index);
+      start();   // 예전처럼 꽂은 뒤 첫 폴링이 기준만 잡고, 그다음 폴링부터 «바뀜» 을 센다
+    });
+    deps.on('gamepaddisconnected', (e) => {
+      if(!e || !e.gamepad) return;
+      plugged.delete(e.gamepad.index);
+      if(plugged.size) return;
+      stop();
+      Object.keys(last).forEach(k => { delete last[k]; });   // 다시 꽂으면 기준부터(예전 poll 이 뺀 패드를 잊던 것과 같다)
+    });
+    if(plugged.size) start();
+  }
+  return { start, stop, poll, startWhenConnected };
 }
 
 const api = { createGamepadActivity, POLL_MS, AXIS_EPS, BTN_EPS };

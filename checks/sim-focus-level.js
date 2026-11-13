@@ -4,6 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DANCE_NOTIFIED_KEY · DANCE_REPAIR_KEY · FOCUS_SYNCED_KEY · STAR_PALETTE · _adoptStarColorFromProfile · _getFocusSyncedMark · _hasFocusSyncedMark · _mobileBubbleText · _mobileCleanApp · _mobileOn · _mobileRoomLabel · _mobileStart · _notifyDanceUnlocks · _pushLevelIfChanged · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · myStarProfileOut · setStarColor · starFromRemote · syncFocusTotalToServer)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 30줄 그대로 · 부르는 곳은 focusLevelMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
+   ・4절: 포커스 누적 저장 — 0.5초 틱마다 저장된 값과 다른 칸만 쓴다 · 남는 값은 예전과 같다 · 지워졌으면 다시 쓴다 · 깨 보기
    [실행] app.js · desk-companion-prototype.html · focus-level.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
 const fs = require('fs');
@@ -114,6 +115,59 @@ for(const [name, fm, fa, fh] of breaks){
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+/* 4절 — addFocusSeconds 를 활성 앱 상태(0.5초) 틱처럼 부른다. then 이 없는 가짜(서버 요청 Promise 가 매달리지 않게) */
+function anythingNoThen(){
+  const f = function(){ return P; };
+  const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
+  return P;
+}
+function judgeFocus(src){
+  const r = [], t = (ok, msg) => r.push([!!ok, msg]);
+  const any = anythingNoThen();
+  const st = { total: 0, today: 0, session: 0, day: '2026-11-14', store: {}, writes: [] };
+  const ls = { getItem: (k) => (k in st.store ? st.store[k] : null), setItem: (k, v) => { st.writes.push(k); st.store[k] = String(v); }, removeItem: (k) => { delete st.store[k]; } };
+  const deps = new Proxy({
+    FOCUS_TOTAL_KEY: 'tw.focusTotalSec', FOCUS_TODAY_SEC_KEY: 'tw.focusTodaySec', FOCUS_TODAY_DATE_KEY: 'tw.focusTodayDate',
+    FOCUS_TOTAL_CAP_SEC: 100, FOCUS_LEVEL_CAP_HOURS: 999, FOCUS_CYCLE_SEC: 999 * 3600, FOCUS_CYCLE_CAP: 100,
+    _focusDayStr: () => st.day,
+    _focusTotalSec: () => st.total, setFocusTotalSec: (v) => { st.total = v; },
+    _focusTodaySec: () => st.today, setFocusTodaySec: (v) => { st.today = v; },
+    _focusSessionSec: () => st.session, setFocusSessionSec: (v) => { st.session = v; },
+    getMyUserId: () => null,
+  }, { get: (o, k) => k in o ? o[k] : (() => any) });
+  let api;
+  try{
+    api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'module',
+      src + '\nreturn window.TwFocusLevel;')(new Proxy({}, { get: (o, k) => k in o ? o[k] : any, set: (o, k, v) => { o[k] = v; return true; } }), any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, undefined).createFocusLevel(deps);
+  }catch(e){ t(false, 'focus-level.js 만들기 — ' + e.message); return r; }
+  const K = (k) => st.writes.filter(w => w === k).length;
+  api.addFocusSeconds(0.5);
+  t(st.writes.length === 3, '처음 — 세 칸 다 쓴다(저장된 것이 없다)');
+  st.writes = [];
+  for(let i = 0; i < 10; i++) api.addFocusSeconds(0.5);
+  t(K('tw.focusTodayDate') === 0 && K('tw.focusTotalSec') === 10 && K('tw.focusTodaySec') === 10, '★ 같은 날 0.5초 틱 10번 — 날짜는 안 쓰고 누적 · 오늘만(30 → 20번)');
+  t(st.store['tw.focusTotalSec'] === String(st.total) && st.store['tw.focusTodaySec'] === String(st.today) && st.store['tw.focusTodayDate'] === st.day, '  남는 값은 예전과 같다(메모리 값 그대로)');
+  st.day = '2026-11-15'; st.writes = [];
+  api.addFocusSeconds(0.5);
+  t(K('tw.focusTodayDate') === 1 && st.store['tw.focusTodayDate'] === '2026-11-15' && st.store['tw.focusTodaySec'] === '0.5', '  날이 바뀌면 날짜를 쓰고 오늘은 새로 센다');
+  delete st.store['tw.focusTotalSec']; delete st.store['tw.focusTodayDate']; st.writes = [];
+  api.addFocusSeconds(0.5);
+  t(K('tw.focusTotalSec') === 1 && K('tw.focusTodayDate') === 1, '★ 밖에서 지워졌으면(계정 전환) 다시 쓴다 — 메모리 사본이 아니라 저장된 값과 견준다');
+  st.total = 100; st.store['tw.focusTotalSec'] = '100'; st.writes = [];
+  api.addFocusSeconds(0.5);
+  t(K('tw.focusTotalSec') === 0 && st.total === 100, '  누적 상한이면 누적 칸도 안 쓴다');
+  return r;
+}
+
+say('── 4. 포커스 누적 저장 — 저장된 값과 다른 칸만 쓴다(활성 앱 상태 0.5초마다)');
+judgeFocus(MOD).forEach(([ok, msg]) => chk(ok, msg));
+for(const [nm, m2] of [
+  ['날짜를 늘 씀', MOD.replace('_lsSetIfChanged(FOCUS_TODAY_DATE_KEY,_focusDayStr());', 'localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());')],
+  ['메모리 사본과 견줌(지워져도 안 씀)', MOD.replace("if(localStorage.getItem(k) !== v) localStorage.setItem(k, v);", "if(_lsLast[k] !== v){ _lsLast[k] = v; localStorage.setItem(k, v); }").replace('function _lsSetIfChanged(k, v){', 'const _lsLast = {};\nfunction _lsSetIfChanged(k, v){')],
+]){
+  let r2; try{ r2 = judgeFocus(m2); }catch(_){ r2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && r2.some(([ok]) => !ok), '  깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

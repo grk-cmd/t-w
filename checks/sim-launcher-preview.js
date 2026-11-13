@@ -16,14 +16,17 @@ const FB_SRC = ["frame-budget.js","parts/shared/frame-budget.js","app/parts/shar
 const BT_SRC = ["blink-timing.js","parts/shared/blink-timing.js","app/parts/shared/blink-timing.js"].map(read).find(Boolean);
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["launcher-preview.js","parts/launcher/launcher-preview.js","app/parts/launcher/launcher-preview.js"].map(read).find(Boolean);
-if(!MOD || !FB_SRC || !BT_SRC){ say('  ? 원본 못 찾음 — launcher-preview.js · frame-budget.js · blink-timing.js'); process.exit(2); }
+const GATE_SRC = ["idle-gate.js","parts/shared/idle-gate.js","app/parts/shared/idle-gate.js"].map(read).find(Boolean);
+if(!MOD || !FB_SRC || !BT_SRC || !GATE_SRC){ say('  ? 원본 못 찾음 — launcher-preview.js · frame-budget.js · blink-timing.js · idle-gate.js'); process.exit(2); }
+/* 😴 shared/idle-gate.js 진짜 파일 — MO 는 부르는 쪽 가짜(없으면 아무것도 안 하는 것) */
+const loadGate = (MO) => { const w = { MutationObserver: MO || class { observe(){} disconnect(){} } }; new Function('window', 'module', GATE_SRC)(w, undefined); return w.TwIdleGate; };
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_quickHash","_mkFrontFill","_setDeskMatColor","allDeskItems","applyDeskColorToCustom","applyDeskItemsTo","applyEquippedPartsToSeat","applyStaticHandRest","b64ToBuf","buildDesk","clampCharY","clearHolderDeskItems","defToBase","equipDeskItem","extractBonesInto","getCommissionScene","measureBodyBox","registerCustomItem","setDeskPos","setDeskScale","setFaceMap","swapDeskVisual"];
 const VAL_DEPS = ["CHAR_Z","FrameBudget","blinkTiming","RIG_TURN","_FILL_LIGHT_MUL","_KEY_LIGHT_MUL","_MAIN_LIGHT_COL","_MAIN_LIGHT_INT","commSceneCache","scene","slots"];
 const GET_DEPS = ["assetCodeMod","customItems","slotSaveMod"];
 const SET_DEPS = [];
-const EXPORTS = ["ensureLauncherPreview","lHolder","lRenderer","launcherLoop","setLauncherChar","sizeLauncherPreview"];
+const EXPORTS = ["ensureLauncherPreview","lHolder","lRenderer","launcherLoop","setLauncherChar","sizeLauncherPreview","startLauncherLoop"];
 const MOVED = ["lRenderer","lScene","lCam","lChar","lBlinkT","lBlinkOn","lHolder","lDeskMat","lScaleHint","lCharBaseY","lFrameH","lFrameZ","LAUNCHER_CHAR_Y","PS1_PIXEL_SCALE","ensureLauncherPreview","_lcBodyBox","sizeLauncherPreview","LC_THUMB_SETTLE_MS","LC_THUMB_MAX","_lcThumbJob","_lcThumbArm","_lcThumbTake","setLauncherChar","launcherLoop"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  CHAR_Z: CHAR_Z,","  FrameBudget: FrameBudget,","  blinkTiming: TwBlinkTiming,","  RIG_TURN: RIG_TURN,","  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,","  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,","  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,","  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,","  _quickHash: (...a)=>roomSyncMod._quickHash(...a),","  _mkFrontFill: (...a)=>_mkFrontFill(...a),","  _setDeskMatColor: (...a)=>_setDeskMatColor(...a),","  allDeskItems: (...a)=>allDeskItems(...a),","  applyDeskColorToCustom: (...a)=>applyDeskColorToCustom(...a),","  applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyStaticHandRest: (...a)=>applyStaticHandRest(...a),","  assetCodeMod: ()=>assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  buildDesk: (...a)=>buildDesk(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearHolderDeskItems: (...a)=>clearHolderDeskItems(...a),","  commSceneCache: commSceneCache,","  customItems: ()=>customItems,","  defToBase: (...a)=>defToBase(...a),","  equipDeskItem: (...a)=>equipDeskItem(...a),","  extractBonesInto: (...a)=>extractBonesInto(...a),","  getCommissionScene: (...a)=>getCommissionScene(...a),","  measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),","  registerCustomItem: (...a)=>registerCustomItem(...a),","  scene: scene,","  setDeskPos: (...a)=>setDeskPos(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  setFaceMap: (...a)=>setFaceMap(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  swapDeskVisual: (...a)=>swapDeskVisual(...a),"];
 
@@ -47,7 +50,7 @@ function build(src, over, env){
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const E = Object.assign({ window: win, document: any, localStorage: ls, navigator: any, firebaseAPI: any, companion: any, setTimeout: () => 0, setInterval: () => 0, clearTimeout: () => {}, clearInterval: () => {},
     requestAnimationFrame: () => 0, THREE: any, addEventListener: () => {}, removeEventListener: () => {}, module: undefined, MutationObserver: class { observe(){} disconnect(){} }, ResizeObserver: class { observe(){} disconnect(){} },
-    performance: { now: () => 0 }, console: { log(){}, warn(){}, error(){} }, Image: any, confirm: () => true, devicePixelRatio: 1 }, env || {});
+    performance: { now: () => 0 }, console: { log(){}, warn(){}, error(){} }, Image: any, confirm: () => true, devicePixelRatio: 1, TwIdleGate: loadGate() }, env || {});
   const keys = Object.keys(E);
   const api = new Function(...keys, src + '\nreturn window.TwLauncherPreview;')(...keys.map(k => E[k]));
   return api.createLauncherPreview(deps);
@@ -133,8 +136,6 @@ function judgeLoad(mod, fbSrc, html){
   /* 기준 — 시간표를 1ms 마다 직접 돌린 1분(같은 씨앗) */
   const ref = (() => { const rd = seeded(9); const bl = BT.createBlink(1000 / 120, rd); let n = 0, sh = false; for(let ms = 1; ms <= 60000; ms++){ BT.scheduleBlinks(bl, ms, rd); const x = BT.eyeClose(bl, ms) > BT.SHUT_AT; if(x && !sh) n++; sh = x; } return n; })();
   t(nShut(h120) > 10 && [h60, h120, h144].every(x => Math.abs(nShut(x) - ref) <= 1), '1분에 눈 감는 횟수 — 60 · 120 · 144Hz 모두 ' + nShut(h60) + ' · ' + nShut(h120) + ' · ' + nShut(h144) + ' · 실제 시각 기준 ' + ref + '(주사율 · 프레임 상한과 무관)');
-  const hid = rig(3); for(let i = 1; i <= 60; i++) hid.api.launcherLoop(i * 1000 / 60); hid.st.vis = false; hid.api.launcherLoop(2000); hid.st.vis = true; hid.api.launcherLoop(9000);
-  t(hid.st.made === 2, '런처를 숨겼다 다시 열면 시간표를 새로 시작한다(밀린 예약이 바로 터지지 않게)');
   t(!/lBlinkT|LC_BLINK_|_lcBlinkStep/.test(mod), '런처만의 깜빡임 셈(lBlinkT · 따로 둔 박자)이 남지 않았다 — 좌석과 같은 시간표 하나');
   const css = (html.match(/\.donate-shine\{[^}]*\}/) || [''])[0];
   t(/animation:donateShine [\d.]+s steps\(\d+\) infinite/.test(css), '후원 반짝임은 steps — 주사율만큼 글자를 다시 칠하지 않는다');
@@ -145,7 +146,6 @@ rows4.forEach(([ok, msg]) => chk(ok, msg));
 const breaks4 = [
   ['상한 없이 그림', m => m.replace('_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)', 'true'), null],
   ['깜빡임을 프레임 수로 셈', m => m.replace('blinkTiming.scheduleBlinks(lBlink, now);', 'lBlink.f = (lBlink.f || 0) + 16; blinkTiming.scheduleBlinks(lBlink, lBlink.f);').replace('blinkTiming.eyeClose(lBlink, now)', 'blinkTiming.eyeClose(lBlink, lBlink.f)'), null],
-  ['숨겨도 시간표를 안 비움', m => m.replace('  if(!vis) lBlink=null;\n', ''), null],
   ['반짝임 linear', null, h => h.replace(/(animation:donateShine [\d.]+s )steps\(\d+\)/, '$1linear')],
 ];
 for(const [nm, fm, fh] of breaks4){
@@ -153,6 +153,64 @@ for(const [nm, fm, fh] of breaks4){
   const changed = m2 !== MOD || h2 !== HTML;
   let r2; try{ r2 = judgeLoad(m2, FB_SRC, h2); }catch(_){ r2 = [[false, '던짐']]; }
   chk(changed && r2.some(([ok]) => !ok), '깨 보기: ' + nm + (changed ? '' : ' — 바꿀 글을 못 찾음'));
+}
+
+say('── 5. 닫힌 런처는 rAF 를 걸지 않는다 — 열리면 다음 rAF 에 다시(가짜 rAF · 가짜 MutationObserver)');
+/* 가짜 무대: rAF 줄 · class 바꾸면 감시자를 부르는 #launcher · render 를 세는 렌더러 */
+function judgeSleep(mod){
+  const r = [];
+  const t = (ok, msg) => r.push([!!ok, msg]);
+  const fbWin = {}; new Function('window', 'module', FB_SRC)(fbWin, undefined);
+  const btWin = {}; new Function('window', 'module', BT_SRC)(btWin, undefined);
+  const st = { renders: 0, q: [], obs: [], cls: new Set(['on']), now: 0, made: 0 };
+  const BT = btWin.TwBlinkTiming;
+  const bt = { SHUT_AT: BT.SHUT_AT, createBlink: (now) => { st.made++; return BT.createBlink(now); }, scheduleBlinks: (b, now) => BT.scheduleBlinks(b, now), eyeClose: (b, now) => BT.eyeClose(b, now) };
+  const any = anything();
+  const MO = class { constructor(fn){ this.fn = fn; } observe(el, o){ if(o && o.attributeFilter && o.attributeFilter.includes('class')) st.obs.push(this.fn); } disconnect(){} };
+  const flip = (on) => { on ? st.cls.add('on') : st.cls.delete('on'); st.obs.forEach(f => f([])); };
+  const launcherEl = { classList: { contains: (c) => st.cls.has(c) } };
+  const doc = new Proxy({}, { get: (o, k) => k === 'getElementById' ? ((id) => id === 'launcher' ? launcherEl : any) : any });
+  const THREE3 = new Proxy({}, { get: (o, k) => k === 'WebGLRenderer' ? function(){ return new Proxy({ render(){ st.renders++; } }, { get: (x, kk) => kk in x ? x[kk] : any }); } : any });
+  const raf = (fn) => { st.q.push(fn); return st.q.length; };
+  const step = (n) => { for(let i = 0; i < n; i++){ st.now += 1000 / 60; const q = st.q; st.q = []; q.forEach(f => f(st.now)); } };
+  let api;
+  try{ api = build(mod, { FrameBudget: fbWin.FrameBudget, blinkTiming: bt, defToBase: () => ({ group: any, faceMat: {}, fT: 1, bT: 2 }) },
+    { THREE: THREE3, document: doc, requestAnimationFrame: raf, TwIdleGate: loadGate(MO), performance: { now: () => st.now } }); }
+  catch(e){ t(false, '가짜 런처 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
+  api.ensureLauncherPreview(); api.setLauncherChar({});
+  t(st.q.length === 0, '만들기만 해서는 rAF 를 안 건다(시작은 app.js 의 startLauncherLoop 한 줄)');
+  api.startLauncherLoop(); api.startLauncherLoop();
+  t(st.q.length === 1, '열린 채 시작 — rAF 하나(두 번 불러도 하나)');
+  step(60);
+  const r1 = st.renders;
+  t(r1 > 0 && st.q.length === 1, '열려 있으면 매 rAF 마다 다시 건다 · 그린다(' + r1 + '장 / 1초)');
+  t(st.made === 1, '  열린 동안 깜빡임 시간표는 처음 한 번만 만든다');
+  flip(false); step(1);
+  t(st.q.length === 0, '★ 닫히면 그 다음 rAF 에서 멈춘다 — 더 걸지 않는다');
+  const r2 = st.renders; step(600);
+  t(st.renders === r2 && st.q.length === 0, '  닫힌 10초 동안 깨어나지도 · 그리지도 않는다');
+  flip(true);
+  t(st.q.length === 1, '★ 다시 열면(class 변화) 그 자리에서 rAF 를 하나 건다');
+  step(1);
+  t(st.renders === r2 + 1, '  다음 rAF 에 바로 한 장 — 첫 장이 늦지 않다');
+  t(st.made === 2, '★ 숨겼다 다시 열면 깜빡임 시간표를 새로 만든다(밀린 예약이 바로 터지지 않게 — 멈출 때 비운다)');
+  flip(true); flip(false); flip(true);
+  t(st.q.length === 1, '  돌고 있는 중에 여닫아도 반복은 한 벌');
+  flip(false); flip(true);
+  t(st.q.length === 1, '  닫힌 것을 보기 전에 다시 열면 이미 걸린 rAF 가 이어 간다(두 벌 안 됨)');
+  return r;
+}
+const rows5 = judgeSleep(MOD);
+rows5.forEach(([ok, msg]) => chk(ok, msg));
+const breaks5 = [
+  ['닫혀도 계속 rAF', m => m.replace("isOn: ()=>el.classList.contains('on'),", 'isOn: ()=>true,')],
+  ['열려도 안 깨움', m => m.replace("TwIdleGate.onClassChange(el, ()=>_lLoop.wake());", '')],
+  ['숨겨도 시간표를 안 비움', m => m.replace("sleep: ()=>{ lBlink=null; },", 'sleep: ()=>{},')],
+];
+for(const [nm, fm] of breaks5){
+  const m2 = fm(MOD);
+  let r2; try{ r2 = judgeSleep(m2); }catch(_){ r2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && r2.some(([ok]) => !ok), '깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
