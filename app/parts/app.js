@@ -8808,7 +8808,7 @@ try{
     if(!(window.companion && companion.diagNote)) return;
     m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
     cost.calls = renderer.info.render.calls; cost.casters = key.castShadow ? TwGpuTimer.countCasters(scene) : 0;   // 빛이 그림자를 안 만들면 그림자 그리기도 없다
-    companion.diagNote(TwRunCostDiag.line(run, TwRunCostDiag.countSeats(seats), TwRunCostDiag.roomKind(Presence.roomCode(), window._activeChannel)));   // 🩺 그리기 밖 시간 — 창을 내려도(runmode 그대로) 남는다
+    companion.diagNote(TwRunCostDiag.line(run, TwRunCostDiag.countSeats(seats, hiddenSeatsMod._bodyHidden), TwRunCostDiag.roomKind(Presence.roomCode(), window._activeChannel, !!Presence.serverProvider())));   // 🩺 그리기 밖 시간 — 창을 내려도(runmode 그대로) 남는다
     companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suffix(cost));
   }, 60000);
 }catch(_){}

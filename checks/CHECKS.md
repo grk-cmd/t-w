@@ -436,7 +436,7 @@
 | **sim-env-diag.js** | 174 | **8da31de26ec8** |
 | **sim-front-diag.js** | 115 | **1e07708938ff** |
 | **sim-gpu-timer.js** | 169 | **1f91f293d33a** |
-| **sim-run-cost-diag.js** | 159 | **ca2f209d1a39** |
+| **sim-run-cost-diag.js** | 162 | **a75d6419bb73** |
 | **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 

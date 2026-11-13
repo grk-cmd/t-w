@@ -499,7 +499,7 @@
     url: () => _rsUrl,
     getToken: _getIdToken,
     getUserId: () => window.getMyUserId(),
-    getVersion: () => _appVer.ready, notePatch: () => TwRunCostDiag.page.count('patch'),   // 🩺 받은 patch 수 — 1분 [비용] 줄(shared/run-cost-diag.js)
+    getVersion: () => _appVer.ready,
     timing: () => _rc ? _rc.roomServerTiming() : null,   // 입장 대기 · 포기 시간(원격 설정 roomServerTiming)
   });
   /* 🔄 마이그레이션 프로브 캐시 — 인덱스에 없는 방의 생존 확인 결과를 60초 기억.

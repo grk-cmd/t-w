@@ -45,7 +45,7 @@ const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeSeatLabels = deps.removeSeatLabels;
 const renderSeatTabs = deps.renderSeatTabs;
 const rideBenchMod = deps.rideBenchMod;
-const runCost = deps.runCost;   // 🩺 1분 [비용] 줄에 좌석 맞춤 횟수 · 시간을 더한다(shared/run-cost-diag.js)
+const runCost = deps.runCost;   // 🩺 1분 [비용] 줄에 받은 방 변경 수 · 좌석 맞춤 횟수 · 시간을 더한다(shared/run-cost-diag.js)
 const scene = deps.scene;
 const seats = deps.seats;
 const serializeDefForNetwork = deps.serializeDefForNetwork;
@@ -601,6 +601,7 @@ function _myRoomPrefix(){
 }
 function genRoomCode(channel){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=_roomPrefixFor(channel); for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)]; return s; }
 function presenceChanged(friends){
+  runCost.count('recv');   // 받은 방 변경 — 방 서버 · Firebase 두 길이 모두 여기로 온다(Presence.start 의 changeCb)
   const cnt=Object.keys(friends).length;
   const lbl=document.getElementById('inviteFriendCnt'); if(lbl)lbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
   const flbl=document.getElementById('fsInviteFriendCnt'); if(flbl)flbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
