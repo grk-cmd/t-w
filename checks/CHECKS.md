@@ -410,7 +410,7 @@
 | **sim-account-state.js** | 99 | **f15e0c15e7f6** |
 | **sim-nav.js** | 91 | **dd38c03ae96c** |
 | **sim-app-boot.js** | 165 | **c6ba2f71e149** |
-| **sim-net-ready.js** | 145 | **a40362149bca** |
+| **sim-net-ready.js** | 145 | **d592b8f454f2** |
 | **sim-myhome-hooks.js** | 99 | **04e0a0308ecc** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 75 | **cb32158c9f2b** |
