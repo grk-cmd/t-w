@@ -45,6 +45,7 @@ const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeSeatLabels = deps.removeSeatLabels;
 const renderSeatTabs = deps.renderSeatTabs;
 const rideBenchMod = deps.rideBenchMod;
+const runCost = deps.runCost;   // 🩺 1분 [비용] 줄에 좌석 맞춤 횟수 · 시간을 더한다(shared/run-cost-diag.js)
 const scene = deps.scene;
 const seats = deps.seats;
 const serializeDefForNetwork = deps.serializeDefForNetwork;
@@ -416,6 +417,8 @@ function _applyRemoteRides(){
     });
   }catch(_){}
 }
+/* 부르는 곳(provider 변경 · app.js 친구 복원)은 이것을 부른다 — 본문은 그대로 두고 걸린 시간만 잰다 */
+const syncFriendSeatsTimed = runCost.timed('sync', syncFriendSeats);
 function syncFriendSeats(friends){
   friends=friends||{};
   const ids=Object.keys(friends).slice(0, maxPeople()-1);   // 친구는 최대 9(나 제외)
@@ -601,7 +604,7 @@ function presenceChanged(friends){
   const cnt=Object.keys(friends).length;
   const lbl=document.getElementById('inviteFriendCnt'); if(lbl)lbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
   const flbl=document.getElementById('fsInviteFriendCnt'); if(flbl)flbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
-  if(seats.some(s=>s.isMe)) syncFriendSeats(friends);
+  if(seats.some(s=>s.isMe)) syncFriendSeatsTimed(friends);
   // 💬 탭별 인원 · 멤버 줄은 사람이 오가거나 탭을 옮길 때 바뀐다
   try{ if(chatUiMod._chatWindowIsOpen()){ chatUiMod._chatTabsRender(); _refreshChatMembers(); } }catch(_){}
 }
@@ -1496,7 +1499,7 @@ return {
   refreshInviteUI,
   startRoom,
   startRoomCountWatch,
-  syncFriendSeats,
+  syncFriendSeats: syncFriendSeatsTimed,
 };
 }
 

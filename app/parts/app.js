@@ -2364,8 +2364,9 @@ function _charProjSane(x, y, h){
      '클릭 받는 중'이면 전체화면 투명 오버레이가 계속 클릭을 가로챈다.
    ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
 let _twMoveSeenAt = 0;
+const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
 try{
-  setInterval(()=>{
+  setInterval(runCost.timed('hb', ()=>{
     try{
       if(!(window.companion && companion.setCharBounds)) return;
       /* ★ _charBoundsLatest 를 직접 건드리지 않고 매번 새 객체로 보낸다 — 그 값은 다음 주기에도
@@ -2382,7 +2383,7 @@ try{
            구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
         charBad: _charBadWhy || undefined });
     }catch(_){}
-  }, 100);
+  }), 100);
 }catch(_){}
 /* ═══ 📍 상태칩 자리 · 칩 클릭 · Tab 접기 ═══ */
 /* (앱 FSD 36번) 이 자리의 본문도 status-chip.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -7507,6 +7508,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
   twNav: twNav,
+  runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 const USER_NAME_KEY = 'tw.userName';
 
@@ -8800,11 +8802,12 @@ try{
     if(!_frameBudget) return;
     const t = performance.now();
     const m = _frameBudget.takeMinute(t);
-    const cost = { gpu: _gpuTimer.take(), js: _frameJsStats.take() };   // 실행 화면이 아니어도 1분마다 비운다
+    const cost = { gpu: _gpuTimer.take(), js: _frameJsStats.take() }, run = runCost.take();   // 실행 화면이 아니어도 1분마다 비운다
     if(!document.body.classList.contains('runmode')) return;
     if(!(window.companion && companion.diagNote)) return;
     m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
     cost.calls = renderer.info.render.calls; cost.casters = key.castShadow ? TwGpuTimer.countCasters(scene) : 0;   // 빛이 그림자를 안 만들면 그림자 그리기도 없다
+    companion.diagNote(TwRunCostDiag.line(run, TwRunCostDiag.countSeats(seats), TwRunCostDiag.roomKind(Presence.roomCode(), window._activeChannel)));   // 🩺 그리기 밖 시간 — 창을 내려도(runmode 그대로) 남는다
     companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suffix(cost));
   }, 60000);
 }catch(_){}
@@ -8826,6 +8829,7 @@ function frame(now, manual){
   updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
   seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
+  const _tSeat = performance.now();
   seats.forEach(seat=>{
     const state=seatState(seat,now);
     if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
@@ -9037,6 +9041,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* selected ring follows selected seat */
 // if(selected){selRing.position.x=lerp(selRing.position.x,selected.group.position.x,1-Math.pow(0.001,dt));selRing.visible=true;}
   /* state bar shows selected seat */
+  runCost.since('seat', _tSeat);
   if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
 
   for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
@@ -9055,10 +9060,13 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
   /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
+  const _tDraw = performance.now();
   if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
+  runCost.since('render', _tDraw);
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
   _frameJsStats.add(performance.now() - _frameT0);
+  runCost.since('frame', _frameT0);
   if(!manual) requestAnimationFrame(frame);
 }
 
@@ -9636,6 +9644,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },
   setLastActivity: (v)=>{ lastActivity = v; },
   setLastAnyInput: (v)=>{ lastAnyInput = v; },
+  runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
 });
 /* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 */
 const _layoutSeats=layoutSeats;

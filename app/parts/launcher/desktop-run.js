@@ -34,6 +34,7 @@ const lastAnyInput = deps.lastAnyInput;   // 읽는 함수
 const moveMode = deps.moveMode;   // 읽는 함수
 const ray = deps.ray;
 const renderer = deps.renderer;
+const runCost = deps.runCost;   // 🩺 1분 [비용] 줄에 통과 판정 시간을 더한다(shared/run-cost-diag.js)
 const seats = deps.seats;
 const setTwMoveSeenAt = deps.setTwMoveSeenAt;   // 쓰는 함수
 const setLastActivity = deps.setLastActivity;   // 쓰는 함수
@@ -400,6 +401,7 @@ if(desktopMode){
       const d = performance.now() - t0;
       _hitPerf.n++; _hitPerf.ms += d;
       if(d > _hitPerf.maxMs) _hitPerf.maxMs = d;
+      runCost.add('hit', d);
       return r;
     };
     window.__hitStats = function(reset){

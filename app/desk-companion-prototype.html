@@ -8310,6 +8310,7 @@
 <script src="parts/character/def-size.js"></script>   <!-- 📦 캐릭터 디자인(def) 용량 상한 500KB · 부분별 크기 안내 — app.js 보다 먼저 -->
 <script src="parts/shared/frame-budget.js"></script>   <!-- 🔋 실행 화면 프레임 상한(60 · 손 안 대면 30 · 다른 창 20) · 해상도 배율 — app.js 보다 먼저 -->
 <script src="parts/shared/gpu-timer.js"></script>   <!-- 🩺 한 장에 그래픽 칩 · JS 시간(window.TwGpuTimer) — 1분 [프레임] 줄 꼬리 · app.js 보다 먼저 -->
+<script src="parts/shared/run-cost-diag.js"></script>   <!-- 🩺 그리기 밖 시간(window.TwRunCostDiag) — 1분 [비용] 줄 · app.js 보다 먼저(firebase-init.js 는 module 이라 뒤에 돈다) -->
 <script src="parts/shared/blink-timing.js"></script>   <!-- 👁 깜빡임 시간표(좌석 · 런처 미리보기) — app.js 보다 먼저 -->
 <script src="parts/shared/maintenance-gate.js"></script>   <!-- 🛠 서버 점검 창(window.TwMaintenance — config/maintenance · 서버 기능을 누르면 창) — error-codes.js · api-client.js 보다 먼저 -->
 <script src="parts/shared/error-codes.js"></script>   <!-- ⚠️ 에러코드 표 · 실패 토스트에 번호 붙이기(window.TwErrorCodes) — 부르는 모듈 · app.js 보다 먼저 -->

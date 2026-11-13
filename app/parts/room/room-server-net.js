@@ -120,6 +120,7 @@ export function createRoomServerNet(deps){
   const iClear = deps.clearInterval || ((h) => clearInterval(h));
   const now = deps.now || (() => Date.now());
   const log = deps.log || console;
+  const notePatch = deps.notePatch || (() => {});   // 🩺 받은 patch 수(1분 [비용] 줄) — 검사 · 다른 쓰임은 안 넘긴다
   function timing(){
     let t = null;
     try{ t = deps.timing ? deps.timing() : null; }catch(_){ t = null; }
@@ -440,6 +441,7 @@ export function createRoomServerNet(deps){
         if(P.members[m.memberId]){ delete P.members[m.memberId]; emit(P); }
         return;
       case 'patch': {
+        notePatch();
         const cur = P.members[m.memberId];
         if(!cur) return;
         for(const k of Object.keys(m)){ if(k !== 't' && k !== 'memberId') cur[k] = m[k]; }

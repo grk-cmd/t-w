@@ -381,6 +381,18 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 재기만 한다 — 그리기 · 상한은 건드리지 않는다.
 - 검사: `checks/sim-gpu-timer.js`(깨 보기 여섯).
 
+## `run-cost-diag.js` — 🩺 그리기 밖 시간(1분 `[비용]` 줄)
+
+- **책임**: «실행 화면 렌더러가 그리기(`frame()`) 밖에서 초당 수백 ms CPU 를 쓴다(창을 내려도)» 를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 1분 동안 하트비트(100ms `setCharBounds`) · 클릭 통과 판정 · 방 서버 patch 수 · 좌석 맞춤(`syncFriendSeats`) · 한 장 쪼갬(좌석 반복 · 그리기 · 나머지)을 모으고 좌석 수 · 방 종류와 함께 한 줄로 낸다. 렌더러만 싣는다(`window.TwRunCostDiag`).
+- **쓰는 법**: 창 하나에 하나인 `TwRunCostDiag.page` 에 더한다 — app.js(`const runCost = TwRunCostDiag.page` · 하트비트를 `runCost.timed('hb', fn)` 로 감쌈 · 프레임에서 `since('seat'|'render'|'frame', t0)`) · desktop-run.js(deps `runCost` — 기존 `_hitPerf` 자리에서 `add('hit', ms)`) · room-entry.js(deps `runCost` — 부르는 곳은 `timed('sync', syncFriendSeats)` 를 부른다) · firebase-init.js(방 서버 deps `notePatch` → `count('patch')`). 1분마다 `[프레임]` 줄과 같은 자리에서 `take()` → `line(r, countSeats(seats), roomKind(Presence.roomCode(), window._activeChannel))`.
+  예) `[비용] 하트비트 600회 0.42/3.10ms · 통과 1200회 0.08/1.20ms · patch 340 · 맞춤 340회 합 120 최대 4.20ms · 밖 초당 3.20ms · 한 장 1800 좌석 0.12 그리기 0.80 나머지 0.30ms · 좌석 8 몸 6 반짝 2 · 워킹룸`
+  - `n회 a/b` = 횟수 · 평균/최대. `밖 초당` = (하트비트 + 통과 + 맞춤 합) ÷ 초. `한 장` = 그린 장 수와 한 장 평균의 쪼갬. `몸` = 숨긴 rig · 자리비움(`_lastOp` 0)을 뺀 좌석, `반짝` = `.seat-exp.lvx` 바나 `.np-star` 이름표가 보이는 좌석.
+- **함정**
+  - main 은 렌더러 진단 줄을 200자에서 자른다(`companion:diagNote`) — 줄은 `LINE_MAX` 안에서 끝낸다. `[프레임]` 으로 시작하지 않아 앞 창 꼬리(front-diag.js)가 안 붙는다.
+  - 1분 몫은 실행 화면이 아니어도 비운다(take 를 runmode 확인보다 먼저). 창을 내려도 `runmode` 는 그대로라 그때도 남는다.
+  - 재기만 한다 — 함수 본문은 안 고치고 부르는 곳을 감싼다. `timed` 는 던져도 시간을 더하고 그대로 던진다.
+- 검사: `checks/sim-run-cost-diag.js`(깨 보기 아홉).
+
 ## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
 
 - **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
