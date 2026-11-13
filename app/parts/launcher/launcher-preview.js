@@ -224,10 +224,9 @@ const _lBudget = FrameBudget.createFrameBudget({ now: ()=>performance.now() });
 /* 깜빡임은 실행 화면 좌석과 같은 시간표(blink-timing.js — 실제 시각으로 센다). 런처가 숨어 있는 동안은 비워 두어,
    다시 열었을 때 밀린 예약이 바로 터지지 않고 처음 깜빡임(0.8~3초)부터 다시 시작한다. */
 let lBlink=null;
+/* 한 장 그리기 — 런처가 열려 있을 때만 불린다(열림 판정 · 숨길 때 시간표 비우기는 아래 startLauncherLoop). */
 function launcherLoop(now){
-  const vis=document.getElementById('launcher').classList.contains('on');
-  if(!vis) lBlink=null;
-  if(vis&&lRenderer&&_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)){
+  if(lRenderer&&_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)){
     if(lChar){if(!lBlink) lBlink=blinkTiming.createBlink(now);
       blinkTiming.scheduleBlinks(lBlink, now);
       const shut=blinkTiming.eyeClose(lBlink, now) > blinkTiming.SHUT_AT;

@@ -357,7 +357,7 @@
 | **sim-async-prompt.js** | 112 | **298066b0cef9** |
 | **sim-launcher-chrome.js** | 95 | **ed62fec910ad** |
 | **sim-launcher-controls.js** | 204 | **78202998b89b** |
-| **sim-launcher-preview.js** | 215 | **06a0e754f52c** |
+| **sim-launcher-preview.js** | 217 | **6a610be8df11** |
 | **sim-mat-tone.js** | 174 | **8055614c531b** |
 | **sim-oss-licenses.js** | 176 | **4b8e6195aaab** |
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |

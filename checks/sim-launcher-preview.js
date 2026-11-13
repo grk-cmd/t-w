@@ -136,8 +136,6 @@ function judgeLoad(mod, fbSrc, html){
   /* 기준 — 시간표를 1ms 마다 직접 돌린 1분(같은 씨앗) */
   const ref = (() => { const rd = seeded(9); const bl = BT.createBlink(1000 / 120, rd); let n = 0, sh = false; for(let ms = 1; ms <= 60000; ms++){ BT.scheduleBlinks(bl, ms, rd); const x = BT.eyeClose(bl, ms) > BT.SHUT_AT; if(x && !sh) n++; sh = x; } return n; })();
   t(nShut(h120) > 10 && [h60, h120, h144].every(x => Math.abs(nShut(x) - ref) <= 1), '1분에 눈 감는 횟수 — 60 · 120 · 144Hz 모두 ' + nShut(h60) + ' · ' + nShut(h120) + ' · ' + nShut(h144) + ' · 실제 시각 기준 ' + ref + '(주사율 · 프레임 상한과 무관)');
-  const hid = rig(3); for(let i = 1; i <= 60; i++) hid.api.launcherLoop(i * 1000 / 60); hid.st.vis = false; hid.api.launcherLoop(2000); hid.st.vis = true; hid.api.launcherLoop(9000);
-  t(hid.st.made === 2, '런처를 숨겼다 다시 열면 시간표를 새로 시작한다(밀린 예약이 바로 터지지 않게)');
   t(!/lBlinkT|LC_BLINK_|_lcBlinkStep/.test(mod), '런처만의 깜빡임 셈(lBlinkT · 따로 둔 박자)이 남지 않았다 — 좌석과 같은 시간표 하나');
   const css = (html.match(/\.donate-shine\{[^}]*\}/) || [''])[0];
   t(/animation:donateShine [\d.]+s steps\(\d+\) infinite/.test(css), '후원 반짝임은 steps — 주사율만큼 글자를 다시 칠하지 않는다');
@@ -148,7 +146,6 @@ rows4.forEach(([ok, msg]) => chk(ok, msg));
 const breaks4 = [
   ['상한 없이 그림', m => m.replace('_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)', 'true'), null],
   ['깜빡임을 프레임 수로 셈', m => m.replace('blinkTiming.scheduleBlinks(lBlink, now);', 'lBlink.f = (lBlink.f || 0) + 16; blinkTiming.scheduleBlinks(lBlink, lBlink.f);').replace('blinkTiming.eyeClose(lBlink, now)', 'blinkTiming.eyeClose(lBlink, lBlink.f)'), null],
-  ['숨겨도 시간표를 안 비움', m => m.replace('  if(!vis) lBlink=null;\n', ''), null],
   ['반짝임 linear', null, h => h.replace(/(animation:donateShine [\d.]+s )steps\(\d+\)/, '$1linear')],
 ];
 for(const [nm, fm, fh] of breaks4){
@@ -165,7 +162,9 @@ function judgeSleep(mod){
   const t = (ok, msg) => r.push([!!ok, msg]);
   const fbWin = {}; new Function('window', 'module', FB_SRC)(fbWin, undefined);
   const btWin = {}; new Function('window', 'module', BT_SRC)(btWin, undefined);
-  const st = { renders: 0, q: [], obs: [], cls: new Set(['on']), now: 0 };
+  const st = { renders: 0, q: [], obs: [], cls: new Set(['on']), now: 0, made: 0 };
+  const BT = btWin.TwBlinkTiming;
+  const bt = { SHUT_AT: BT.SHUT_AT, createBlink: (now) => { st.made++; return BT.createBlink(now); }, scheduleBlinks: (b, now) => BT.scheduleBlinks(b, now), eyeClose: (b, now) => BT.eyeClose(b, now) };
   const any = anything();
   const MO = class { constructor(fn){ this.fn = fn; } observe(el, o){ if(o && o.attributeFilter && o.attributeFilter.includes('class')) st.obs.push(this.fn); } disconnect(){} };
   const flip = (on) => { on ? st.cls.add('on') : st.cls.delete('on'); st.obs.forEach(f => f([])); };
@@ -175,7 +174,7 @@ function judgeSleep(mod){
   const raf = (fn) => { st.q.push(fn); return st.q.length; };
   const step = (n) => { for(let i = 0; i < n; i++){ st.now += 1000 / 60; const q = st.q; st.q = []; q.forEach(f => f(st.now)); } };
   let api;
-  try{ api = build(mod, { FrameBudget: fbWin.FrameBudget, blinkTiming: btWin.TwBlinkTiming, defToBase: () => ({ group: any, faceMat: {}, fT: 1, bT: 2 }) },
+  try{ api = build(mod, { FrameBudget: fbWin.FrameBudget, blinkTiming: bt, defToBase: () => ({ group: any, faceMat: {}, fT: 1, bT: 2 }) },
     { THREE: THREE3, document: doc, requestAnimationFrame: raf, TwIdleGate: loadGate(MO), performance: { now: () => st.now } }); }
   catch(e){ t(false, '가짜 런처 만들기 — ' + String(e.message || e).slice(0, 80)); return r; }
   api.ensureLauncherPreview(); api.setLauncherChar({});
@@ -185,6 +184,7 @@ function judgeSleep(mod){
   step(60);
   const r1 = st.renders;
   t(r1 > 0 && st.q.length === 1, '열려 있으면 매 rAF 마다 다시 건다 · 그린다(' + r1 + '장 / 1초)');
+  t(st.made === 1, '  열린 동안 깜빡임 시간표는 처음 한 번만 만든다');
   flip(false); step(1);
   t(st.q.length === 0, '★ 닫히면 그 다음 rAF 에서 멈춘다 — 더 걸지 않는다');
   const r2 = st.renders; step(600);
@@ -193,6 +193,7 @@ function judgeSleep(mod){
   t(st.q.length === 1, '★ 다시 열면(class 변화) 그 자리에서 rAF 를 하나 건다');
   step(1);
   t(st.renders === r2 + 1, '  다음 rAF 에 바로 한 장 — 첫 장이 늦지 않다');
+  t(st.made === 2, '★ 숨겼다 다시 열면 깜빡임 시간표를 새로 만든다(밀린 예약이 바로 터지지 않게 — 멈출 때 비운다)');
   flip(true); flip(false); flip(true);
   t(st.q.length === 1, '  돌고 있는 중에 여닫아도 반복은 한 벌');
   flip(false); flip(true);
@@ -204,6 +205,7 @@ rows5.forEach(([ok, msg]) => chk(ok, msg));
 const breaks5 = [
   ['닫혀도 계속 rAF', m => m.replace("isOn: ()=>el.classList.contains('on'),", 'isOn: ()=>true,')],
   ['열려도 안 깨움', m => m.replace("TwIdleGate.onClassChange(el, ()=>_lLoop.wake());", '')],
+  ['숨겨도 시간표를 안 비움', m => m.replace("sleep: ()=>{ lBlink=null; },", 'sleep: ()=>{},')],
 ];
 for(const [nm, fm] of breaks5){
   const m2 = fm(MOD);
