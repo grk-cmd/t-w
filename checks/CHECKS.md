@@ -332,7 +332,7 @@
 | **sim-ad-banner.js** | 96 | **69f9e0557056** |
 | **sim-license-request.js** | 96 | **2fc254e81411** |
 | **sim-fn-keys.js** | 95 | **ddaff9377359** |
-| **sim-hidden-seats.js** | 96 | **178381fbe522** |
+| **sim-hidden-seats.js** | 117 | **b40a62938b7d** |
 | **sim-theme-ui.js** | 96 | **ac544bbe99ae** |
 | **sim-myhome-sticker-layout.js** | 96 | **b4bb313d0dbf** |
 | **sim-myhome-diag.js** | 95 | **26738cf17aa4** |

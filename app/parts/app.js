@@ -8924,12 +8924,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      setClip(seat,state); seat.mixer.update(dt);
+      setClip(seat,state); if(!hiddenSeatsMod._bodyHidden(seat)) seat.mixer.update(dt);   // 몸이 안 보이면(자리비움 · 숨김) 뼈대 계산을 건너뛴다
     } else if(rigged){
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      animateRig(seat,now,state);
+      if(!hiddenSeatsMod._bodyHidden(seat)) animateRig(seat,now,state);
     } else {
       seat.rig.rotation.x=seat.pose.leanX;
       const breathe=1+Math.sin(seat.breathePhase)*seat.pose.breAmp;
