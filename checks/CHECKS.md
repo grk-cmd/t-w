@@ -326,7 +326,7 @@
 | **sim-report.js** | 420 | **193431faeb80** |
 | **sim-my-info.js** | 98 | **e96c7a23ad5b** |
 | **sim-my-info-box.js** | 208 | **a80135e14b2c** |
-| **sim-renderer-src.js** | 227 | **4ab26ed0a447** |
+| **sim-renderer-src.js** | 227 | **b47b58c12f59** |
 | **sim-away-pic.js** | 94 | **02105f2b9019** |
 | **sim-myhome-ui.js** | 133 | **6dc30d066bce** |
 | **sim-tricks.js** | 94 | **53f1d40a59a5** |
@@ -391,9 +391,9 @@
 | **sim-realtime-link.js** | 422 | **e68509d6f4f0** |
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
-| **sim-license-ui.js** | 96 | **0beb3d603f79** |
-| **sim-license-key.js** | 134 | **09f9f7a84585** |
-| **sim-license-screen.js** | 418 | **d34113b2736d** |
+| **sim-license-ui.js** | 96 | **e96557333c63** |
+| **sim-license-key.js** | 134 | **f1b85394a9e8** |
+| **sim-license-screen.js** | 418 | **6dfd3086a425** |
 | **sim-asset-code.js** | 96 | **1442b5b5b793** |
 | **sim-myhome-init.js** | 165 | **2a0c11657b2b** |
 | **sim-presence-lock.js** | 256 | **7c51c56a0be1** |

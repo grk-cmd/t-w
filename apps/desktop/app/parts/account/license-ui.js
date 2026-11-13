@@ -11,29 +11,29 @@
 function createLicenseUi(deps){
 const isPremium = deps.isPremium;   // 읽는 함수
 const licReqMod = deps.licReqMod;   // 읽는 함수
-const screen = deps.screen;   // 🔑 license-screen.js — view() · open()
+const licenseScreenMod = deps.licenseScreenMod;   // 🔑 license-screen.js — view() · open()
 
-const $ = (id) => document.getElementById(id);
-const show = (id, on, disp) => { const el = $(id); if(el) el.style.display = on ? (disp || 'block') : 'none'; };
-const SEG = 'display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--win-lo-2);font-size:11px;color:var(--ink);';
-const SMALL = 'font-size:10.5px;color:var(--ink-soft);';
-const TITLES = {
+const licUiEl = (id) => document.getElementById(id);
+const licUiShow = (id, on, disp) => { const el = licUiEl(id); if(el) el.style.display = on ? (disp || 'block') : 'none'; };
+const LIC_SEG = 'display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--win-lo-2);font-size:11px;color:var(--ink);';
+const LIC_SMALL = 'font-size:10.5px;color:var(--ink-soft);';
+const LIC_TITLES = {
   registered: '✅ 라이선스가 등록되어 있어요.',
   unregistered: '이 계정에는 라이선스가 있어요 — 이 기기는 아직 등록되지 않았어요.',
   revoked: '⚠️ 사용이 중지된 라이선스예요.',
 };
 
 /* 기기 한 줄 — 이름 · «이 기기» 표시 · 마지막 사용 · 등록일 · 다른 기기만 [빼기] */
-function deviceRow(d, canAct){
+function licDeviceRow(d, canAct){
   const row = document.createElement('div');
-  row.style.cssText = SEG;
+  row.style.cssText = LIC_SEG;
   const info = document.createElement('div');
   info.style.cssText = 'flex:1;min-width:0;';
   const name = document.createElement('div');
   name.style.cssText = 'font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
   name.textContent = (d.name || '이름 없는 기기') + (d.here ? ' · 이 기기' : '');
   const meta = document.createElement('div');
-  meta.style.cssText = SMALL;
+  meta.style.cssText = LIC_SMALL;
   meta.textContent = '마지막 사용 ' + (d.lastSeen || '-') + ' · 등록 ' + (d.registered || '-');
   info.appendChild(name); info.appendChild(meta);
   row.appendChild(info);
@@ -42,7 +42,7 @@ function deviceRow(d, canAct){
     btn.type = 'button'; btn.textContent = '빼기'; btn.className = 'licDeviceRemoveBtn';
     btn.style.cssText = 'background:none;border:none;color:var(--win-error);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;';
     btn.disabled = !canAct;
-    btn.onclick = () => { screen.removeDevice(d.id); };
+    btn.onclick = () => { licenseScreenMod.removeDevice(d.id); };
     row.appendChild(btn);
   }
   return row;
@@ -50,48 +50,48 @@ function deviceRow(d, canAct){
 
 /* --- 라이선스 구획 그리기 --- */
 function refreshLicenseUI(){
-  const v = screen.view();
-  const lbl = $('lcLicenseLbl');
+  const v = licenseScreenMod.view();
+  const lbl = licUiEl('lcLicenseLbl');
   if(lbl) lbl.textContent = isPremium() ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록';
 
   const waiting = v.mode === 'loading' || v.mode === 'failed';
-  show('licenseStatusBox', waiting);
-  const st = $('licenseStatusMsg');
+  licUiShow('licenseStatusBox', waiting);
+  const st = licUiEl('licenseStatusMsg');
   if(st) st.textContent = v.mode === 'failed' ? '라이선스 정보를 못 불러왔어요' : '라이선스 정보를 불러오는 중이에요';
-  show('licenseRetryBtn', v.mode === 'failed');
+  licUiShow('licenseRetryBtn', v.mode === 'failed');
 
-  show('licenseAdminNote', v.admin && v.mode === 'none');
+  licUiShow('licenseAdminNote', v.admin && v.mode === 'none');
 
   const hasLic = v.mode === 'registered' || v.mode === 'unregistered' || v.mode === 'revoked';
-  show('licenseActiveBox', hasLic);
-  const title = $('licenseActiveTitle'); if(title) title.textContent = TITLES[v.mode] || '';
+  licUiShow('licenseActiveBox', hasLic);
+  const title = licUiEl('licenseActiveTitle'); if(title) title.textContent = LIC_TITLES[v.mode] || '';
   const withDevices = v.mode === 'registered' || v.mode === 'unregistered';
-  show('licenseDeviceHead', withDevices);
-  const head = $('licenseDeviceHead');
+  licUiShow('licenseDeviceHead', withDevices);
+  const head = licUiEl('licenseDeviceHead');
   if(head && withDevices) head.textContent = '내 기기 ' + v.devices.length + (v.limit ? ' / ' + v.limit : '') + '대';
-  const list = $('licenseDeviceList');
+  const list = licUiEl('licenseDeviceList');
   if(list){
     list.textContent = '';
-    if(withDevices) for(const d of v.devices) list.appendChild(deviceRow(d, v.canAct));
+    if(withDevices) for(const d of v.devices) list.appendChild(licDeviceRow(d, v.canAct));
   }
   const full = v.mode === 'unregistered' && v.full;
-  show('licenseDeviceNote', full);
-  const note = $('licenseDeviceNote'); if(note) note.textContent = '기기를 모두 썼어요 — 하나를 빼면 등록할 수 있어요';
-  show('licenseRegisterThisBtn', v.mode === 'unregistered');
-  const reg = $('licenseRegisterThisBtn'); if(reg) reg.disabled = !v.canAct || full;
-  show('licenseDeactivateBtn', v.mode === 'registered');
-  const deact = $('licenseDeactivateBtn'); if(deact) deact.disabled = !v.canAct;
+  licUiShow('licenseDeviceNote', full);
+  const note = licUiEl('licenseDeviceNote'); if(note) note.textContent = '기기를 모두 썼어요 — 하나를 빼면 등록할 수 있어요';
+  licUiShow('licenseRegisterThisBtn', v.mode === 'unregistered');
+  const reg = licUiEl('licenseRegisterThisBtn'); if(reg) reg.disabled = !v.canAct || full;
+  licUiShow('licenseDeactivateBtn', v.mode === 'registered');
+  const deact = licUiEl('licenseDeactivateBtn'); if(deact) deact.disabled = !v.canAct;
 
   const keyOn = v.mode === 'none' || v.mode === 'revoked';
-  show('licenseKeyBox', keyOn);
-  const err = $('licenseErrorMsg');
+  licUiShow('licenseKeyBox', keyOn);
+  const err = licUiEl('licenseErrorMsg');
   if(err){ err.textContent = keyOn ? v.keyMsg : ''; err.style.display = keyOn && v.keyMsg ? 'block' : 'none'; }
-  const submit = $('licenseSubmitBtn');
+  const submit = licUiEl('licenseSubmitBtn');
   if(submit){ submit.disabled = !v.canAct; submit.textContent = v.busy ? '확인 중...' : '확인'; }
-  const input = $('licenseKeyInput'); if(input) input.disabled = !v.canAct;
+  const input = licUiEl('licenseKeyInput'); if(input) input.disabled = !v.canAct;
 
   // ★ 요청 섹션(licenseReqSection)은 기본적으로 접혀 숨겨져 있음 — 이미 보낸 요청이 있으면(reqId 저장돼 있음) 자기 요청 상태(대기중/승인됨)는 볼 수 있게 자동으로 펼쳐줌.
-  const reqSection = $('licenseReqSection');
+  const reqSection = licUiEl('licenseReqSection');
   if(reqSection){
     let reqId = null; try{ reqId = localStorage.getItem(licReqMod().LICENSE_REQ_ID_KEY); }catch(e){}
     reqSection.classList.toggle('open', !isPremium() && !!reqId);
@@ -104,11 +104,11 @@ function refreshLicenseUI(){
 }
 /* 설정 라이선스 구획을 열 때 — 받기(GET /v1/me/license)를 시작하고 지금 상태를 그린다(받는 동안은 «불러오는 중»). 받기가 끝나면 screen 이 다시 그리게 한다 */
 function openLicenseUI(opts){
-  const p = screen.open(opts);
+  const p = licenseScreenMod.open(opts);
   refreshLicenseUI();
   return p;
 }
-screen.onChange(refreshLicenseUI);
+licenseScreenMod.onChange(refreshLicenseUI);
 
 return {
   refreshLicenseUI,

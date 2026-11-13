@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — license-key.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = [];
-const VAL_DEPS = ["screen"];
+const VAL_DEPS = ["licenseScreenMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  screen: licenseScreenMod,"];
+const GLUE = ["  licenseScreenMod: licenseScreenMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -78,7 +78,7 @@ function press(mod, okOnSubmit){
   const calls = [];
   const screen = { submitKey: async (v) => { calls.push(['submit', v]); return { ok: okOnSubmit }; }, removeThisDevice: () => { calls.push(['removeThis']); }, registerThisDevice: () => { calls.push(['registerThis']); }, open: (o) => { calls.push(['open', o]); } };
   const api = new Function('window', 'document', mod + '\nreturn window.TwLicenseKey;')({}, { getElementById: el });
-  api.createLicenseKey({ screen });
+  api.createLicenseKey({ licenseScreenMod: screen });
   return { els, calls };
 }
 async function btnRows(mod){
@@ -117,10 +117,10 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwLicenseKey = api;', ''), null, null],
 
 
-  ['해제 단추가 다른 동작을 부름', m => m.replace("screen.removeThisDevice()", "screen.registerThisDevice()"), null, null],
+  ['해제 단추가 다른 동작을 부름', m => m.replace("licenseScreenMod.removeThisDevice()", "licenseScreenMod.registerThisDevice()"), null, null],
   ['실패해도 입력칸을 비움', m => m.replace("if(r && r.ok) input.value = '';", "input.value = '';"), null, null],
-  ['다시 시도가 받기를 건너뛸 수 있게 함', m => m.replace("screen.open()", "screen.open({ ifNeeded: true })"), null, null],
-  ['Enter 가 확인을 안 누름', m => m.replace("if(e.key==='Enter') el('licenseSubmitBtn').click();", ""), null, null],
+  ['다시 시도가 받기를 건너뛸 수 있게 함', m => m.replace("licenseScreenMod.open()", "licenseScreenMod.open({ ifNeeded: true })"), null, null],
+  ['Enter 가 확인을 안 누름', m => m.replace("if(e.key==='Enter') licKeyEl('licenseSubmitBtn').click();", ""), null, null],
   ['만들 때 던짐', m => m.replace('function createLicenseKey(deps){', 'function createLicenseKey(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){

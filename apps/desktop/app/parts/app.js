@@ -7027,7 +7027,7 @@ const licenseScreenMod = TwLicenseScreen.createLicenseScreen({
 const licenseUiMod = TwLicenseUi.createLicenseUi({
   isPremium: ()=>isPremium,
   licReqMod: ()=>licReqMod,
-  screen: licenseScreenMod,
+  licenseScreenMod: licenseScreenMod,
 });
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
 /* 본문은 launcher-chrome.js 로 옮겼다(앱 FSD 47번). 
@@ -7060,7 +7060,7 @@ const adminLauncher = TwAdminLauncher.createAdminLauncher({
 /* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseKeyMod = TwLicenseKey.createLicenseKey({
-  screen: licenseScreenMod,
+  licenseScreenMod: licenseScreenMod,
 });
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */

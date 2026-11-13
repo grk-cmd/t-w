@@ -301,7 +301,7 @@ async function drawRows(S){
     const e = env(S, o);
     const f = fakeDom();
     const ls = { getItem: () => null };
-    const ui = load(S.UI, 'createLicenseUi', { document: f.document, localStorage: ls })({ isPremium: () => !!o.premium, licReqMod: () => ({ LICENSE_REQ_ID_KEY: 'k', _showLicenseReqState(){} }), screen: e.screen });
+    const ui = load(S.UI, 'createLicenseUi', { document: f.document, localStorage: ls })({ isPremium: () => !!o.premium, licReqMod: () => ({ LICENSE_REQ_ID_KEY: 'k', _showLicenseReqState(){} }), licenseScreenMod: e.screen });
     await fn(e, f, ui);
   };
   const D = (f, id) => f.els[id];
@@ -354,7 +354,7 @@ async function drawRows(S){
     e.screen = e.screen;
     const hostile = L([HERE], {}); hostile.devices[0].name = '<img src=x onerror=alert(1)>';
     const e2 = env(S, { mine: hostile }); const f2 = fakeDom();
-    const ui2 = load(S.UI, 'createLicenseUi', { document: f2.document, localStorage: { getItem: () => null } })({ isPremium: () => true, licReqMod: () => ({ LICENSE_REQ_ID_KEY: 'k', _showLicenseReqState(){} }), screen: e2.screen });
+    const ui2 = load(S.UI, 'createLicenseUi', { document: f2.document, localStorage: { getItem: () => null } })({ isPremium: () => true, licReqMod: () => ({ LICENSE_REQ_ID_KEY: 'k', _showLicenseReqState(){} }), licenseScreenMod: e2.screen });
     await ui2.openLicenseUI(); await ticks();
     t(f2.els.licenseDeviceList.children[0].children[0].children[0].textContent.includes('<img') && !/innerHTML/.test(S.UI.replace(/\/\*[\s\S]*?\*\//g, '')), '서버가 준 기기 이름은 textContent 로만 넣는다(innerHTML 없음)');
   });
