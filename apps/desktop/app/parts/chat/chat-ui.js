@@ -247,6 +247,8 @@ function sendMyChat(text, fly, flyColor, flySize, tab){
   if(typeof Presence()!=='undefined' && Presence().active() && Presence().sendChat) Presence().sendChat(text, false, '', '', tab);
 }
 
+/* 🔖 «여기까지 읽음» 구분선 — 이 PC localStorage 에만 둔다(서버 · 남에게 안 보임).
+   창을 열 때 저장된 키로 구분선을 고정하고, 닫을 때 마지막 메시지를 읽음으로 적는다. */
 const CHAT_READ_KEY_PREFIX = 'tw_chat_read:';
 let _chatReadMarker  = null;    // 이번 세션의 구분선 기준 키 (창을 여는 순간 고정)
 let _chatReadRoom    = null;    // 마커를 저장할 방 코드 (방을 옮겨도 안전하게 열 때 캡처)
@@ -804,6 +806,9 @@ function _chatTabMenu(id){
     { label:'취소' },
   ]);
 }
+/* 💬 채팅 탭 — 내가 있는 탭은 마지막으로 누른 탭(방마다 localStorage 에 기억).
+   방 메타(탭 목록)가 아직 안 왔으면 «지워졌다» 로 보지 않고 기다린다.
+   ⚠️ 방장 제한은 **화면 수준**이다(Firebase 방 — `_meta.host` 는 문자열이라 서버가 방장을 검증하지 못한다). 🛰 서버 방은 서버가 방장만 받는다. */
 function _bindChatTabs(){
   const bar = document.getElementById('chatTabs'); if(!bar) return;
   bar.addEventListener('mousedown', e => e.stopPropagation());
@@ -978,6 +983,7 @@ function _chatCtxRun(act){
     rg.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(rg);
   }
 }
+/* 📋 mac 은 창이 frame:false 라 기본 편집 메뉴가 없어 Cmd+C 가 안 먹을 수 있다 — 키를 직접 받는다(두 OS 같게). */
 function _bindChatCopy(){
   const box = document.getElementById('chatMessages'), win = document.getElementById('chatWindow');
   if(!box || !win) return;

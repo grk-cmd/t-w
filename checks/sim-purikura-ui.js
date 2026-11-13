@@ -240,8 +240,8 @@ await sec('── 5. app.js 배선', () => {
   chk(/function _purikura\(\)/.test(APP) && /async function openPurikura\(\)/.test(MOD) && /function closePurikura\(force\)/.test(MOD) && /window\.TwPurikuraUi = api/.test(MOD),
     '세션 입구는 app.js · 화면은 모듈 · window.TwPurikuraUi');
   chk((code.match(/TwPurikuraUi\.createPurikuraUi\(/g) || []).length === 1, 'createPurikuraUi 는 한 곳');
-  const iMk = APP.indexOf('TwPurikuraUi.createPurikuraUi('), iEntry = APP.indexOf('function _purikura()'), iNext = APP.indexOf('/* ═══ 🎟️ [2026-10-02 요청] 하루 횟수 제한');
-  chk(iEntry > 0 && iMk > iEntry && iNext > iMk, '원래 자리 — 세션 입구(_purikura) 뒤 · 🎟️ 하루 횟수 제한 앞');
+  const iMk = APP.indexOf('TwPurikuraUi.createPurikuraUi('), iEntry = APP.indexOf('function _purikura()'), iNext = APP.indexOf('/* ═══ 🔫 러시안룰렛');
+  chk(iEntry > 0 && iMk > iEntry && iNext > iMk, '원래 자리 — 세션 입구(_purikura) 뒤 · 🔫 러시안룰렛 앞');
   chk(/onPeers: p => \{ purikuraUi\.onPeers\(p\); \}/.test(APP) && /onMeta : m => \{ purikuraUi\.onMeta\(m\); \}/.test(APP)
     && /onEvent: \(slot, ev\) => \{ purikuraUi\.onPeerEvent\(slot, ev\); \}/.test(APP) && /onShot : s => \{ purikuraUi\.onShot\(s\); \}/.test(APP),
     '세션 콜백 넷이 모듈로 들어간다');

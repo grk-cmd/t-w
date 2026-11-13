@@ -131,7 +131,7 @@
 | **sim-fly-egg.js** | 259 | **97f6fa1f3ffa** |
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
-| **sim-license-xlsx.js** | 121 | **3f7e80f71b7e** |
+| **sim-license-xlsx.js** | 121 | **5f41d7ae40fa** |
 | **sim-room-meta-cleanup.js** | 326 | **5629d47bab63** |
 | **sim-room-stats.js** | 199 | **0bcea1517588** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
@@ -266,7 +266,7 @@
 | **sim-scheduler.js** | 983 | **bd5c93e788da** |
 | **sim-schedule-api.js** | 436 | **abb513f99b07** |
 | **sim-weekly-challenge.js** | 437 | **029252f054ae** |
-| **sim-purikura-ui.js** | 277 | **d3b39f6fb1cd** |
+| **sim-purikura-ui.js** | 277 | **dcdbdf61942f** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 319 | **b66d767d11fc** |
 | **sim-friend-manage-module.js** | 309 | **632eed6beda1** |
@@ -276,15 +276,15 @@
 | **sim-myhome-edit.js** | 617 | **8ee763130a25** |
 | **sim-room-invite-ui.js** | 377 | **524ffec85237** |
 | **sim-focus-log.js** | 309 | **d8430d3d3ae0** |
-| **sim-chat-window.js** | 565 | **78283f58fb1c** |
+| **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 455 | **b95a9185c17b** |
 | **sim-api-public-reads.js** | 161 | **fbb81fd843d3** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
 | **sim-remote-config.js** | 518 | **a4e852c90ba6** |
 | **sim-source-switch.js** | 128 | **f2e8951a398b** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
-| **sim-myhome-inbox.js** | 720 | **2d8ea05ed797** |
-| **sim-playlist.js** | 1062 | **3f0b76cd410d** |
+| **sim-myhome-inbox.js** | 719 | **39cdcc02008f** |
+| **sim-playlist.js** | 1059 | **9dadbe2a1e27** |
 | **sim-playlist-api.js** | 307 | **f8441a9d1075** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-gift-api.js** | 320 | **872ecae229d6** |
@@ -319,7 +319,7 @@
 | **sim-pomodoro.js** | 130 | **ef28b73a68d0** |
 | **sim-admin-console.js** | 142 | **3e1dc419471c** |
 | **sim-admin-license.js** | 198 | **d5c7b7bfde32** |
-| **sim-admin-part-register.js** | 151 | **36e35de15c37** |
+| **sim-admin-part-register.js** | 151 | **7a798301bf93** |
 | **sim-admin-users-launcher.js** | 160 | **802ca8415028** |
 | **sim-admin-asset.js** | 129 | **6ecb2dc8ed96** |
 | **sim-admin-mode.js** | 133 | **437afbc7bb20** |
