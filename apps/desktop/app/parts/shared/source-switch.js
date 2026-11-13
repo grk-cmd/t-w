@@ -4,7 +4,7 @@
      표의 값은 스위치 칸이 없을 때 옛 판이 고르던 기본값과 같다 — 이 파일 때문에 동작이 바뀌지 않는다.
    [걷는 차례] 기능 묶음이 그 기능을 API · realtime 길로 갈아 끼우면 부르는 줄(pick · serverFirst)을 걷고 표에서 한 줄을 지운다.
      표가 비면 이 파일을 지운다. 새 기능을 여기 더하지 않는다.
-     · friends(친구 목록 — friends-port.js) · catalog(카탈로그 본문 — catalog-cache.js) · gacha(가챠 — gacha.js · 지금 앱이 뽑기). 방은 room-server-gate.js 가 늘 Firebase 를 돌려준다.
+     · friends(친구 목록 — friends-port.js) · catalog(카탈로그 본문 — catalog-cache.js) (가챠는 서버 원본으로 갈아 끼우며 이 표에서 뺐다). 방은 room-server-gate.js 가 늘 Firebase 를 돌려준다.
    내놓는 것: SOURCE · SKIP · ONE_WAY · pickSource(기능) · serverFirst(받는 곳, 서버 함수, 파이어베이스 함수, 실패 알림) · store({ pick, serverFirst })
    classic script — app.js 보다 먼저 싣는다(window.TwSourceSwitch). 아무것도 읽지 않는다. */
 (function(){
@@ -19,7 +19,6 @@ const SKIP = Object.freeze({ skip: true });
 const ONE_WAY = Object.freeze({
   friends: SOURCE.SERVER,     // 서버 먼저 → 못 받으면 옛 길(serverFirst)
   catalog: SOURCE.SERVER,     // 서버 먼저 → 못 받으면 옛 길(serverFirst)
-  gacha: SOURCE.FIREBASE,     // 앱이 Firebase 트랜잭션으로 뽑기 — 캐릭터 묶음이 서버 뽑기로 갈아 끼운다
 });
 
 /* 모르는 기능은 파이어베이스(옛 길 — 안전한 쪽) */

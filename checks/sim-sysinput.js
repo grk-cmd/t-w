@@ -84,7 +84,8 @@ say('── 1. 네이티브 접촉면이 이사 전후로 보존된다');
     ['uIOhook.on(...)',                 /uIOhook\s*\.\s*on\s*\(/g,                       3, '전역 훅 3종(mousedown·wheel·keydown)'],
     ['uIOhook.start()',                 /uIOhook\s*\.\s*start\s*\(/g,                    1, '훅 기동'],
     ['windowManager.getActiveWindow()', /windowManager\s*\.\s*getActiveWindow\s*\(/g,    1, 'activeWin() 어댑터 안'],
-    ['windowManager.getWindows()',      /windowManager\s*\.\s*getWindows\s*\(/g,         1, 'listWindows 핸들러 안'],
+    ['windowManager.getWindows()',      /windowManager\s*\.\s*getWindows\s*\(/g,         1, 'listWindows 핸들러 안(옛 길 — addon 이 없는 판)'],
+    ['nwmAddon.getWindows()',           /nwmAddon\s*\.\s*getWindows\s*\(/g,             1, '_allWindows — 경로 필터 없이 열거(경로 못 읽은 창도 · sim-winlist.js)'],
     ["require('uiohook-napi')",         /require\(\s*['"]uiohook-napi['"]\s*\)/g,        1, ''],
     ["require('node-window-manager')",  /require\(\s*['"]node-window-manager['"]\s*\)/g, 1, ''],
   ];
@@ -94,7 +95,7 @@ say('── 1. 네이티브 접촉면이 이사 전후로 보존된다');
     total += got;
     chk(got === want, '  ' + label + ' = ' + got + '곳 (기준 ' + want + ')' + (note ? ' — ' + note : ''));
   }
-  chk(total === 8, '★ 접촉면 합계 ' + total + '곳 (기준 8) — 줄면 기능 누락, 늘면 이음매 우회다');
+  chk(total === 9, '★ 접촉면 합계 ' + total + '곳 (기준 9) — 줄면 기능 누락, 늘면 이음매 우회다');
 
   /* ⚠️ stop() 만 개수로 세면 안 된다.
        분리 전에는 before-quit · session-end 두 자리에서 **각각** uIOhook.stop() 을 부르지만,
@@ -328,8 +329,7 @@ say('\n── 5. 왜 이렇게 됐는지가 파일에 남아 있다');
     '★ 세션 종료 예외의 정체가 남아 있다 — 이 근거가 없으면 session-end 처리가 군더더기로 보인다');
   chk(/CLICKED|mousedown/.test(mainSrc) && /드래그/.test(mainSrc),
     '  click 이 아니라 mousedown 을 듣는 이유(드래그 중 누락)가 남아 있다');
-  chk(/UIPI|관리자 권한/.test(mainSrc),
-    '  관리자 권한 창은 목록에도 안 나온다는 한계가 적혀 있다 — mac 권한 사안과 같은 자리다');
+  /* 경로를 못 읽는 창(관리자 권한 · 안티치트)이 창 목록에 드는지는 sim-winlist 1절이 실물로 돌려 본다. */
 }
 
 /* ══ 6. focus-apps.json 저장 포맷 — ★ 지금이 마지막 기회다 ════════════════

@@ -2,15 +2,20 @@
 """하네스 가드(PreToolUse · Bash) — 터미널 · 클라우드(웹) 세션 모두에서 돈다. 막는 것:
 
 1. 머지 — `gh pr merge` · `gh api …/pulls/N/merge`: 그 PR 머리 커밋에 상태값 `tw/confirm`(컨펌자) · `tw/verify`(검증자)가
-   둘 다 success 가 아니면 막는다. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
+   둘 다 success 가 아니면 막는다. 서버 · 문서 저장소 PR 은 `gh api -X PUT repos/<주인>/<이름>/pulls/N/merge` 로 경로에 저장소를
+   적어 머지한다 — 그 경로를 보면 서버(GATED_REPOS)는 그 저장소 머리 커밋의 두 상태값을, 문서(UNGATED_REPOS)는 막지 않는다.
+   그 밖은 모두 앱 저장소 판정(아래) 그대로. 두 상태값은 `/ship` 이 두 에이전트 판정이 «통과» 일 때만 올린다.
    가드 자리(risk.is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 컨펌자 · 검증자 지침 · /ship 안내서)를 바꾸는 PR 은 승인자(mihioon)가 그 머리 커밋을 승인해야 한다
-   (세션이 가드를 스스로 풀지 못하게). 나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
+   (세션이 가드를 스스로 풀지 못하게). 웹 관리자 길(main 으로 가는 admin/*)의 위험도 높은 PR 도 승인 — 판을 거치지 않아 내보내기 전 한 장에 안 나온다.
+   나머지는 위험도가 높아도 승인 없이 — 승인자는 내보내기 전 risk.py --release 한 장으로 본다.
    판정 · 승인 뒤 판 브랜치를 합치기만 한 머리(PR 자체 변경이 같음 — risk.same_change)는 앞 커밋의 것을 이어 받는다.
 2. 보호 브랜치에 직접 push — `main` · `release/*`. 예외 없음(현황판은 파일이 아니라 열린 PR · 이슈 — role-start.py).
 2-1. 승인을 세션이 대신 남기기 — Approve 리뷰 · «승인 <커밋>» 코멘트. 세션도 승인자 계정으로 GitHub 를 쓰니
    이걸 막지 않으면 승인이 사람 확인이 아니게 된다(사람은 GitHub 화면에서 단다).
 3. 판 브랜치 밖에서 새 브랜치 따기 — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 `release/X.Y.Z` 에서.
-   예외: `hotfix/*` · `harness/*`(하네스 · 작업 규칙)는 main 에서.
+   예외: `hotfix/*` · `harness/*`(하네스 · 작업 규칙) · `admin/*`(웹 관리자만 — 앱과 나눔)는 main 에서.
+   main 으로 가는 PR 중 `hotfix/*` · `harness/*` · `release/*` 가 아닌 것은 web-admin/ 안만 바꿀 수 있다 — 밖을 바꾸면 머지를 막는다
+   (브랜치 이름이 아니라 base 로 본다 · 앱 코드가 판을 건너뛰고 main 으로 새지 않게 · risk.admin_outside).
 가드가 스스로 깨지면 막지 않고 알린다.
 """
 import json, os, re, shlex, subprocess, sys
@@ -25,8 +30,10 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
 
 REPO = 'grk-cmd/t-w'
+GATED_REPOS = ('mihioon/t-w-server',)   # 그 저장소 머리 커밋의 tw/confirm · tw/verify 를 보고 머지(승인 · 판 규칙은 앱 저장소 몫)
+UNGATED_REPOS = ('mihioon/tw-docs',)    # 문서 — 가드 밖
 PROTECTED = re.compile(r'^(main|release/.+)$')
-FROM_MAIN = ('hotfix/', 'harness/')
+FROM_MAIN = ('hotfix/', 'harness/', 'admin/')   # admin/* — 웹 관리자만(main 으로 가는 PR 의 범위는 머지 때 risk.admin_outside 가 본다)
 GATES = ('tw/confirm', 'tw/verify')
 
 
@@ -51,8 +58,8 @@ def segments(cmd):
             yield toks
 
 
-def gate_missing(sha):
-    raw = run('gh', 'api', f'repos/{REPO}/commits/{sha}/status', '--jq',
+def gate_missing(sha, repo=REPO):
+    raw = run('gh', 'api', f'repos/{repo}/commits/{sha}/status', '--jq',
               '[.statuses[] | {context, state}]')
     states = {s['context']: s['state'] for s in json.loads(raw or '[]')[::-1]}  # 같은 context 는 최신이 앞
     return [g for g in GATES if states.get(g) != 'success']
@@ -72,7 +79,31 @@ def gate_ok(pr):
     return not missing, ', '.join(missing)
 
 
+def other_repo_merge(toks):
+    """`gh api` 명령에 저장소 · PR 을 가리키는 낱말이 하나뿐이고 그것이 서버 · 문서 저장소의 `repos/주인/이름/pulls/N/merge` 그대로면
+    (저장소, 번호), 아니면 None(앱 저장소 판정으로). 옵션을 풀어 읽지 않는다 — 다른 낱말(옵션 값 포함)에 repos/ · pulls 가 또 있으면 None."""
+    if toks[1:2] != ['api']:
+        return None
+    hits = [t for t in toks[2:] if re.search(r'repos/|pulls', t, re.I)]
+    if len(hits) != 1:
+        return None
+    m = re.match(r'^/?repos/([A-Za-z0-9-]+/[A-Za-z0-9._-]+)/pulls/(\d+)/merge$', hits[0])
+    if m and m.group(1).lower() in GATED_REPOS + UNGATED_REPOS:
+        return m.group(1).lower(), m.group(2)
+    return None
+
+
 def check_merge(toks):
+    other = other_repo_merge(toks)
+    if other:
+        repo, pr = other
+        if repo in UNGATED_REPOS:
+            return
+        sha = run('gh', 'api', f'repos/{repo}/pulls/{pr}', '--jq', '.head.sha')
+        missing = gate_missing(sha, repo) if sha else ['머리 커밋을 읽지 못함']
+        if missing:
+            deny(f'{repo}#{pr} 머리 커밋에 컨펌 · 검증 통과 기록이 없다({", ".join(missing)}). 그 저장소의 머리 커밋에 두 상태값을 남긴 뒤 머지한다(읽기 실패면 잠시 뒤 다시).')
+        return
     joined = ' '.join(toks)
     pr = None
     if toks[1:3] == ['pr', 'merge']:
@@ -93,11 +124,17 @@ def check_merge(toks):
         import risk
         try:   # 바뀐 파일 · 승인을 못 읽으면 막는다 — 맨 아래 «가드 오류면 통과» 로 새면 승인 없이 머지된다
             sha = run('gh', 'api', f'repos/{REPO}/pulls/{pr}', '--jq', '.head.sha')
-            approved = not risk.needs_owner(pr) or risk.owner_approved(pr, sha)   # 승인은 가드 자리를 바꾸는 PR 만
+            why = risk.approval_reason(pr)   # 'guard' · 'admin'(웹 관리자 길 높음 — 내보내기 전 한 장 대신 머지 전 승인) · ''
+            approved = not why or risk.owner_approved(pr, sha)
+            outside = risk.admin_outside(pr)
         except Exception as e:
             deny(f'#{pr} 바뀐 파일 · 승인을 읽지 못해 머지를 막았다({str(e)[:120]}) — 잠시 뒤 다시.')
+        if outside:
+            deny(f'#{pr} 은 main 으로 가는 PR(hotfix/* · harness/* · 판 내기가 아니면 웹 관리자 길)인데 web-admin/ 밖을 바꾼다({", ".join(outside[:5])}). '
+                 f'앱 · 규칙 · 검사는 판 브랜치(release/X.Y.Z)로 따로 PR 한다(main 으로 무엇이든 가는 것은 hotfix/* · harness/* · 판 내기뿐).')
         if not approved:
-            deny(f'#{pr} 은 가드 자리({risk.GUARD_LABEL})를 바꾼다 — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
+            what = f'가드 자리({risk.GUARD_LABEL})를 바꾼다' if why == 'guard' else '웹 관리자 길(main 에서 바로 내보냄)인데 위험도가 높다(risk.py)'
+            deny(f'#{pr} 은 {what} — 승인자({risk.OWNER})가 지금 머리 커밋을 GitHub 에서 Approve 하거나 «승인 {(sha or "")[:7]}» 코멘트를 달아야 머지한다. '
                  f'`/ship` 이 PR 에 설계 요약을 남기고 승인을 기다린다(risk.py --wait).')
         return
     if not ok:
@@ -258,7 +295,7 @@ def check_new_branch(cwd, name, start):
     if base.startswith('release/') or (name.startswith(FROM_MAIN) and base == 'main'):
         return
     deny(f'새 브랜치 «{name}» 의 시작점이 판 브랜치가 아니다({base}). 먼저 사용자에게 «이 작업은 어느 버전에 릴리스될 작업인가요?» 를 묻고 '
-         f'답한 판의 `origin/release/X.Y.Z` 에서 딴다. 그 판 브랜치가 없으면 만들지 말고 사용자에게 알린다. 긴급 수정만 `hotfix/*` 를 main 에서.')
+         f'답한 판의 `origin/release/X.Y.Z` 에서 딴다. 그 판 브랜치가 없으면 만들지 말고 사용자에게 알린다. 긴급 수정 `hotfix/*` · 하네스 `harness/*` · 웹 관리자만 바꾸는 `admin/*` 는 main 에서.')
 
 
 def main():

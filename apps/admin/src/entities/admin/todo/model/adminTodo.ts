@@ -116,13 +116,13 @@ export function toTodos(raw: unknown): Todo[] {
 }
 
 /**
- * 제보 id → 그 제보에 걸린 할 일 중 대표 하나(진행 중 > 할 일). 완료만 걸렸으면 없음.
+ * 제보 id → 그 제보에 걸린 할 일 중 대표 하나(진행 중 > 할 일 > 완료 — 같은 상태면 최근에 고친 것).
+ * 완료만 걸렸으면 완료를 보여 준다(어느 판에 나가는지까지 — 할 일을 끝내도 목록에서 사라지지 않게).
  * 제보 목록이 할 일 전체를 한 번 받아 이걸로 줄마다 찾는다(줄마다 읽지 않는다).
  */
 export function todoByReport(list: readonly Todo[]): Map<string, Todo> {
   const out = new Map<string, Todo>();
   for (const t of sortTodos(list)) {
-    if (t.status === 'done') continue;
     for (const rid of t.reports) if (!out.has(rid)) out.set(rid, t);
   }
   return out;

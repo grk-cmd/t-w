@@ -6,9 +6,8 @@
    1절 정적      getMyUserId 는 읽기만 · 앱에 uid 를 만드는 곳이 없다 · 옛 가입 통로 없음 · firebase-init 안전망 배선
    2절 안전망    firebase-init `_noUidPath` · ref/sref/update 가 빈 uid 경로를 서버에 안 보낸다
    8절 ⑥         친구 코드 거울 정정 — 로컬만 · friendCodes 쓰기 0 · 거울 코드가 지금 내 것일 때만 · 발급 없음 · 세션당 한 번
-  11절 내 정보   런처 안 페이지(개정 48) · 작은 머리 · 보관함 = 슬롯 밖 산 항목만 · n/20 · [슬롯에 올리기] · 톱니 G · 보관함 이동(지우지 않음 · 못 올린 고침은 먼저 올림) · 스위치 켬 · 계정 C4 · 걷은 것 · transferHash 지우기만
-  12절 휴지통    (개정 49 · 69) 탭 순서 보관함 · 휴지통 · 계정 · 보관함이 열린 PC 에서만 · E 줄(옮김/연동 교체 · 사라지는 날 · [복원] 폭 고정) · 20 이면 붉은 상자 · 보관함 줄 붉은 아이콘 + 줄 안 되묻기 · 가짜 DOM 그리기
-  13절 D2        (개정 51) 보관함 가득 참 — 20 이상일 때만 경고(n/20 · 몇 개) · 체크칸 · 고른 수 · [선택한 캐릭터 휴지통으로 (k)] → 되묻기 → 한꺼번에 · 19 면 다 접힘
+  11절 내 정보   런처 안 페이지(개정 48) · 작은 머리 · 보관함 표제 · 톱니 G · 계정 C4 · 걷은 것 · transferHash 지우기만
+                 (보관함 목록 · 슬롯에 올리기 · 휴지통 · 가득 참의 동작은 서버 원본 옷장으로 옮기며 sim-my-info-box.js 가 실제로 돌려 본다)
   15절 별 색     (개정 69) [내 정보] 레벨 배지 = 버튼 · 누르면 머리 아래 «별 색» 구획 · 999 전 잠김(남은 시간) · 회차면 미리보기 + 16칸 · 열 때마다 닫힘 · 재료 함수(별 문자열 · 회차 파생 · 팔레트만 받음)
   16절 랭킹      [내 정보] 순위 칸 · 왕관 · 후광 · 순위 올리기 · 읽기 · leaderboard 규칙을 걷었다(남으면 빨강 · 깨 보기) ·
                  포커스 누적 동기화는 그대로
@@ -177,88 +176,13 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(/id="miTabTrash"[^>]*display:none/.test(MI), '  휴지통 탭은 처음엔 숨김 — 보관함이 열린 PC 에서 코드가 연다(12절 · 개정 49)');
     /* 보관함 — 넣은 캐릭터만 */
     chk(/보관함 \(<span id="miBoxCount">/.test(MI) && !/마리/.test(noCm(MI)) && !/id="miSlots"|책상 \(/.test(MI), '★ 보관함 표제는 «보관함 (n/20)» — «마리» · 슬롯 격자 · «책상» 없음');
-    const items = takeFn(A, 'function _miBoxItems(') || '', rb = takeFn(A, 'function _miRenderBox(') || '';
-    chk(/on\.has\(cid\)/.test(items) && /_charsDeskGet\(\)/.test(items) && /_charsIsTomb\(e\)/.test(items), '★ 보관함 목록 = 슬롯 표 밖의 산 항목만(슬롯 캐릭터는 안 들어간다)');
-    chk(/'슬롯에 올리기'/.test(rb) && /_miBoxUp\(it\.cid/.test(rb) && /'\/' \+ CHARS_BOX_MAX/.test(rb), '  줄마다 [슬롯에 올리기] · 개수 n/20');
-    chk(!/책상/.test(rb.replace(/\/\/.*$/mg, '')) && !/마리/.test(rb), '  글자에 «책상» · «마리» 없음');
+    /* 보관함 목록 · 슬롯에 올리기 · 휴지통의 동작은 sim-my-info-box.js 가 실제로 돌려 본다 */
     /* G 톱니 */
     const menu = (H.match(/<div class="lc-menu" id="lcGearMenu">([\s\S]*?)<\/div>/) || [])[1] || '';
     const order = ['lcToBox','lcEdit','lcExport','lcGearSep','lcDelete'].map(id => menu.indexOf('id="' + id + '"'));
     chk(order.every((v, k) => v >= 0 && (k === 0 || v > order[k - 1])) && /id="lcToBox">보관함 이동</.test(menu), '★ 런처 톱니(시안 G): [보관함 이동] · [캐릭터 수정] · [복제 코드 만들기] · 구분선 · [휴지통 이동]');
-    chk(/'휴지통 이동'/.test(takeFn(A, 'function _charsDeleteWords(') || '') && /getElementById\('lcToBox'\)\.onclick=\(\)=>\{ closeGearMenu\(\); doMoveCurSlotToBox\(\); \}/.test(A), '  [보관함 이동] → doMoveCurSlotToBox(되묻지 않음) · 마지막 줄은 스위치에 묶인 글자');
+    chk(/getElementById\('lcToBox'\)\.onclick=\(\)=>\{ closeGearMenu\(\); doMoveCurSlotToBox\(\); \}/.test(A), '  [보관함 이동] → doMoveCurSlotToBox(되묻지 않음)');
     chk(/\['lcToBox','lcEdit','lcExport','lcGearSep','lcDelete'\]/.test(A), '  휴지통 되묻기 때 다른 줄(보관함 이동 · 구분선 포함)을 숨긴다');
-    /* 옮기기 — 떼어 와서 돌린다 */
-    const fns = ['function _charsIsTomb(', 'function _charsBoxOnlyCount(', 'async function _charsDeskToBox(', 'function _charsMoveMsg(', 'function _miSlotThumb('].map(h => takeFn(A, h));
-    chk(fns.every(Boolean), 'app.js: _charsBoxOnlyCount · _charsDeskToBox · _charsMoveMsg');
-    if (fns.every(Boolean)){
-      const mk = (box, desk, active, syncFix, slots, fnsUse) => {
-        const LS = { 'B': JSON.stringify(box), 'D': JSON.stringify(desk) };
-        const env = { syncs: 0 };
-        const F = new Function('LS', 'env', 'syncFix', 'slots', "const CHAR_SLOT_MAX=5, CHARS_BOX_MAX=20, CHARS_BOX_KEY='B', CHARS_DESK_KEY='D'; let _charsGen=0;" +
-          "const _charsOnNew=(i)=>{ const b=JSON.parse(LS.B), d=JSON.parse(LS.D); b.n1={def:null,mtime:9,dirty:true}; d[i]='n1'; LS.B=JSON.stringify(b); LS.D=JSON.stringify(d); return 'n1'; };" +
-          "const localStorage={ getItem:k=>LS[k]==null?null:LS[k], setItem:(k,v)=>{ LS[k]=String(v); } };" +
-          "const _charsActive=()=>" + (active ? 'true' : 'false') + ";" +
-          "const _charsBoxGet=()=>JSON.parse(LS.B); const _charsDeskGet=()=>JSON.parse(LS.D);" +
-          "const _charsSync=async()=>{ env.syncs++; if(syncFix){ const b=JSON.parse(LS.B); for(const c in b) if(b[c].dirty){ b[c]={def:'{}',mtime:b[c].mtime}; } LS.B=JSON.stringify(b); } };" +
-          (fnsUse || fns).join('\n') + '\nreturn { toBox:_charsDeskToBox, count:_charsBoxOnlyCount, msg:_charsMoveMsg, thumb:_miSlotThumb };');
-        return { F: F(LS, env, !!syncFix, slots || []), LS, env };
-      };
-      await (async () => {
-        let t = mk({ a:{def:'{}',mtime:1}, b:{def:'{}',mtime:2}, c:{def:'{}',mtime:3} }, ['a','b','c',null,null], true);
-        let r = await t.F.toBox(1);
-        chk(r.ok && t.LS.D === JSON.stringify(['a','c',null,null,null]) && Object.keys(JSON.parse(t.LS.B)).length === 3, '★ [보관함 이동] — 슬롯 표에서만 빠지고 뒤 칸이 당겨진다 · 보관함 항목은 그대로(지우지 않는다)');
-        chk(t.F.count() === 1, '  보관함 수 = 슬롯 밖만(1)');
-        t = mk({ a:{def:null,mtime:1,dirty:true} }, ['a',null,null,null,null], true, true);
-        r = await t.F.toBox(0);
-        chk(r.ok && t.env.syncs === 1, '★ 못 올린 고침은 먼저 올리고(_charsSync) 옮긴다');
-        t = mk({ a:{def:null,mtime:1,dirty:true} }, ['a',null,null,null,null], true, false);
-        r = await t.F.toBox(0);
-        chk(!r.ok && r.why === 'dirty' && t.LS.D === JSON.stringify(['a',null,null,null,null]), '  올리지 못하면 옮기지 않는다(그림이 사라지지 않게)');
-        const full = {}; for (let k = 0; k < 20; k++) full['x' + k] = { def:'{}', mtime:k }; full.a = { def:'{}', mtime:99 };
-        t = mk(full, ['a',null,null,null,null], true);
-        r = await t.F.toBox(0);
-        chk(!r.ok && r.why === 'full' && /\(20\/20\)/.test(t.F.msg(r)) && !/마리/.test(t.F.msg(r)), '  보관함 20칸이 차면 막는다 — «(20/20)»');
-        t = mk({ a:{def:'{}',mtime:1} }, ['a',null,null,null,null], false);
-        r = await t.F.toBox(0);
-        chk(!r.ok && r.why === 'off' && t.LS.D === JSON.stringify(['a',null,null,null,null]), '  보관함이 안 열렸으면(첫 채택 전) 아무것도 안 바꾼다');
-        chk(/슬롯이 꽉 차서 이동할 수 없어요/.test(t.F.msg({ why:'slotsfull' })), '  [슬롯에 올리기] 슬롯 꽉 참 = 시안 D3 문구');
-        /* 칸엔 캐릭터가 있는데 이름표가 묘비 · 없음(nocid 제보) — 새 이름표로 올린 뒤 옮긴다 */
-        const nocid = async (fnsUse) => {
-          const a = mk({ a:{del:5}, b:{def:'{}',mtime:2} }, ['a','b',null,null,null], true, true, [{ name:'A' }, { name:'B' }], fnsUse);
-          const ra = await a.F.toBox(0);
-          const b = mk({ b:{def:'{}',mtime:2} }, ['gone','b',null,null,null], true, true, [{ name:'A' }, { name:'B' }], fnsUse);
-          const rb = await b.F.toBox(0);
-          const c = mk({ b:{def:'{}',mtime:2} }, [null,'b',null,null,null], true, true, [null, { name:'B' }], fnsUse);
-          const rc = await c.F.toBox(0);
-          const fullBox = { b:{def:'{}',mtime:2} }; for (let k = 0; k < 20; k++) fullBox['x' + k] = { def:'{}', mtime:k };
-          const d = mk(Object.assign({ a:{del:5} }, fullBox), ['a','b',null,null,null], true, true, [{ name:'A' }, { name:'B' }], fnsUse);
-          const rd = await d.F.toBox(0);
-          return [ra.ok && ra.cid === 'n1' && a.env.syncs === 1 && a.LS.D === JSON.stringify(['b',null,null,null,null]) && JSON.parse(a.LS.B).n1.def === '{}' && JSON.parse(a.LS.B).a.del === 5,
-                  rb.ok && rb.cid === 'n1' && b.LS.D === JSON.stringify(['b',null,null,null,null]),
-                  !rc.ok && rc.why === 'nocid' && c.LS.D === JSON.stringify([null,'b',null,null,null]) && !JSON.parse(c.LS.B).n1,
-                  !rd.ok && rd.why === 'full' && d.LS.D === JSON.stringify(['a','b',null,null,null]) && !JSON.parse(d.LS.B).n1];
-        };
-        const nv = await nocid();
-        chk(nv[0], '★ 이름표가 묘비인 칸 — 새 이름표로 올린 뒤(동기화) 보관함으로 옮긴다 · 묘비는 그대로');
-        chk(nv[1], '★ 이름표가 보관함에 없는 칸 — 같은 길');
-        chk(nv[2], '  빈 칸은 그대로 nocid(새 이름표를 만들지 않는다)');
-        chk(nv[3], '  보관함이 가득이면 — full · 새 이름표를 만들지 않는다(지운 캐릭터가 계정에 되살아나지 않게)');
-        const brokeD2b = fns.map(f => f.replace(/\n    cid = _charsOnNew\(i\);[^\n]*/, ''));
-        const brokeFull = fns.map(f => f.replace(/\n    if\(_charsBoxOnlyCount\(box, desk\) >= CHARS_BOX_MAX\) return \{ ok: false, why: 'full' \};/, ''));
-        const nf = brokeFull.join() !== fns.join() ? await nocid(brokeFull) : [true, true, true, true];
-        chk(brokeFull.join() !== fns.join() && !nf[3], '  깨 보기 — 가득 참 검사를 새 이름표 뒤로 미루면 빨강');
-        const nb = brokeD2b.join() !== fns.join() ? await nocid(brokeD2b) : [true, true, true];
-        chk(brokeD2b.join() !== fns.join() && (!nb[0] || !nb[1]), '  깨 보기 — 새 이름표 줄을 빼면 빨강');
-      })().catch(e => chk(false, '11절 옮기기 예외: ' + (e && e.message)));
-    }
-    const up = takeFn(A, 'async function _charsBoxToDesk(') || '';
-    chk(/!slots\[k\] && !desk\[k\]/.test(up) && /_slotFromServerObj\(JSON\.parse\(e\.def\)\)/.test(up) && /delete b2\[cid\]\.h/.test(up) && /await loadSlots\(\)/.test(up),
-      '★ [슬롯에 올리기] — 빈 슬롯 첫 칸에 서버 표현을 그림째 받아 앉힌다 · 기준(h)을 다시 잡는다');
-    const mv = takeFn(A, 'async function doMoveCurSlotToBox(') || '';
-    chk(/await _charsDeskToBox\(i\)/.test(mv) && mv.indexOf('_charsDeskToBox') < mv.indexOf('slots[k] = slots[k + 1]') && /extraSeatSlots/.test(mv) && /'보관함으로 옮겼어요'/.test(mv),
-      '  런처 쪽은 보관함 기록이 끝난 뒤에만 칸을 당긴다 · 자리 추가 번호도 같이 · 토스트 «보관함으로 옮겼어요»');
-    chk(/const CHARS_SYNC_ENABLED = true;/.test(A), '★ 보관함 스위치 켬(개정 48) — 규칙 게시 뒤 배포');
-    chk(!/마리\)'/.test(A) && /'보관함이 가득 찼어요 \(' \+ n \+ '\/' \+ CHARS_BOX_MAX \+ '\)'/.test(A), '  «보관함이 가득 찼어요 (n/20)» — «마리» 없음');
     /* 걷은 것 — 마크업 · 코드 (개정 45 그대로) */
     const gone = ['progTabBtnAccount','progTabAccount','acctLoggedOut','acctGoogleBtn','acctLoginEmail','acctCurCode','acctCurFriendCode',
       'acctRecoverBtn','acctRecoverBox','acctRecoverGo','acctTransferBtn','acctTransferPanel','acctTransferPw','acctCodeBox','acctLinkBtn','acctLinkPanel','acctLinkSubmit','acctUnlinkBox','acctUnlinkYes'];
@@ -278,8 +202,8 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     const gateFn = _sg < 0 ? '' : A.slice(_sg, A.indexOf('\n/* 런처의 🎟️ 초대장 버튼', _sg));
     chk(!/inviteGateGoogleBtn/.test(gateUI) && /getElementById\('inviteGateGoogleBtn'\)/.test(gateFn) && /_loginDoGoogle\(\)/.test(gateFn), '  게이트 H 의 구글 버튼은 게이트(_showInviteGate) 안에서 처리한다(0.13 — 내 정보 화면에서 옮김)');
     /* 계정 C4 순서 */
-    const iPA = MI.indexOf('id="miPageAcct"'), iAM = MI.indexOf('<div id="acctMethods"'), iSB = MI.indexOf('id="acctSyncBox"'), iLO = MI.indexOf('<button id="acctLogoutBtn"'), iLD = MI.indexOf('id="acctLogoutDone"');
-    chk(iPA > 0 && iAM > iPA && iSB > iAM && iLO > iSB && iLD > iLO, '★ 계정 탭 C4 순서: 로그인 수단·비밀번호 → 기기 연동 → 로그아웃');
+    const iPA = MI.indexOf('id="miPageAcct"'), iAM = MI.indexOf('<div id="acctMethods"'), iLO = MI.indexOf('<button id="acctLogoutBtn"'), iLD = MI.indexOf('id="acctLogoutDone"');
+    chk(iPA > 0 && iAM > iPA && iLO > iAM && iLD > iLO && !/id="acctSyncBox"/.test(MI), '★ 계정 탭 순서: 로그인 수단·비밀번호 → 로그아웃 (기기 연동 구획은 걷었다 — 캐릭터는 서버가 원본이라 맞출 것이 없다)');
     /* 런처 · 닉네임 · 코드 불러오기 */
     chk(/<button class="lc-btn ghost" id="lcLoad">내 정보<\/button>/.test(HTML) && /getElementById\('lcLoad'\)\.onclick=\(\)=>openMyInfo\('box'\)/.test(A) && !/getElementById\('lcLoad'\)\.disabled/.test(A), '  런처 [내 정보] → openMyInfo · 늘 눌린다');
     const nameSave = takeFn(A, 'function _miNameSave(') || '', codeLoad = takeFn(A, 'function _miCodeLoad(') || '';
@@ -290,112 +214,6 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     chk(/^!newData\.exists\(\) && \(/.test(RJ.transferHash['.write']) && RJ.transferHash['.validate'] === 'false', '★ users/{uid}/transferHash — 지우기만(결정 12)');
     /* 개정 55 (설계 §9-12): 계정 스냅샷은 accountSnap/{코드}(주인만)로 옮겼다 — transferData 도 transferHash 처럼 지우기만. */
     chk(/^!newData\.exists\(\) && \(/.test(RJ.transferData['.write']) && RJ.transferData['.validate'] === 'false', '  users/{uid}/transferData — 지우기만(개정 55 · 스냅샷은 accountSnap 으로)');
-  }
-
-  /* ══ 12. 🗑️ 휴지통 탭 · 보관함 줄 [휴지통 이동] (시안 E · D2 아이콘 · CHECKS 개정 49) ══ */
-  say('');
-  say('【12】 휴지통 — 탭 순서(보관함 · 휴지통 · 계정) · 보관함이 열린 PC 에서만 · E 줄(옮김/연동 교체 · 사라지는 날 · [복원] 폭 고정) · 20 이면 붉은 상자 · 보관함 줄 붉은 아이콘 + 줄 안 되묻기');
-  {
-    const noCm = s => String(s || '').replace(/<!--[\s\S]*?-->/g, '');
-    const H = noCm(HTML), A = APP;
-    const iPg = H.indexOf('<div id="lcMyInfo"');
-    const MI = H.slice(iPg, H.indexOf('<!-- 광고 배너', iPg) > 0 ? H.indexOf('<!-- 광고 배너', iPg) : iPg + 20000);
-    /* 개정 69: 사용자가 순서를 다시 정했다 — 보관함 · 휴지통 · 계정(옛 개정 49 는 보관함 · 계정 · 휴지통). */
-    const tb = ['miTabBox', 'miTabTrash', 'miTabAcct'].map(id => MI.indexOf('<button id="' + id + '"'));
-    chk(tb.every((v, k) => v > 0 && (k === 0 || v > tb[k - 1])), '★ 탭 순서 보관함 · 휴지통 · 계정(사용자 결정 · 개정 69)');
-    chk(/<button id="miTabTrash"[^>]*color:#B22222/.test(MI), '  휴지통 탭 글자는 붉게(#B22222 · 설계 §7)');
-    chk(/#lcMyInfo\.mi-noscroll\{scrollbar-width:none;\}/.test(HTML) && /#lcMyInfo\.mi-noscroll::-webkit-scrollbar\{display:none;/.test(HTML) && /pg\.classList\.toggle\('mi-noscroll', _miTab === 'acct'\)/.test(takeFn(A, 'function _miSetTab(') || ''),
-      '  계정 탭에서만 스크롤바 숨김(개정 53 · 스크롤은 그대로)');
-    { const cb = A.slice(A.indexOf("const closeBtn=document.getElementById('lcCloseBtn');"), A.indexOf('(function bindLauncherDim('));
-      chk(/if\(typeof _miIsOpen === 'function' && _miIsOpen\(\)\)\{ closeMyInfo\(\); return; \}/.test(cb) && cb.indexOf('_miIsOpen()') < cb.indexOf('companion.quitApp()'),
-        '★ [내 정보]가 열려 있으면 런처 X 는 [내 정보]만 닫고 런처로(앱 종료보다 먼저 · 개정 53)'); }
-    ['miPageTrash', 'miTrashCount', 'miTrashFull', 'miTrashFullN', 'miTrashList', 'miTrashEmpty', 'miTrashNote'].forEach(id => chk(MI.includes('id="' + id + '"'), '  #' + id));
-    const pt = MI.slice(MI.indexOf('<div id="miPageTrash"'), MI.indexOf('<div id="miPageAcct"'));
-    chk(/<div id="miPageTrash" style="display:none;/.test(MI) && /휴지통 \(<span id="miTrashCount">/.test(pt) && /보관함이 가득 찼어요 \(<span id="miTrashFullN">/.test(pt), '  휴지통 페이지 — 처음엔 숨김 · 표제 «휴지통 (n)» · 가득 참 상자(시안 ③)');
-    chk(/복원하면 보관함으로 가요/.test(pt) && /«연동 교체»를 복원하면 지금 모습은 그대로 두고 하나가 더 생겨요/.test(pt) && !/마리|책상|되살리기|맞바꾸기/.test(pt), '★ 안내 글자 — 복원은 보관함으로 · 연동 교체는 하나 더 · «마리»·«책상»·옛 E 글자 없음');
-    const st = takeFn(A, 'function _miSetTab(') || '';
-    chk(/const trashOn = _miTrashOn\(\);/.test(st) && /tab === 'trash' && trashOn/.test(st) && /tt\.style\.display = trashOn \? '' : 'none'/.test(st) && /\['miTabTrash','trash'\]/.test(st) && /_miRenderTrash\(\)/.test(st),
-      '★ 휴지통 탭은 보관함이 열린 PC 에서만 보이고 열린다(스위치 · 첫 채택 뒤) — 아니면 보관함으로');
-    chk(/function _miTrashOn\(\)\{ return _charsActive\(\); \}/.test(A), '  «열림» 판정은 _charsActive 하나');
-    const ld = takeFn(A, 'async function _miTrashLoad(') || '';
-    chk(/firebaseAPI\.loadCharsTrashAll\(uid\)/.test(ld) && /_charsTrashView\(t, _charsBoxGet\(\), _slotsNow\(\)\)/.test(ld) && /_miTrashErr = \(t === null\)/.test(ld), '  읽기는 loadCharsTrashAll · 고르기는 _charsTrashView(보관함 사본 기준) · 읽기 실패는 따로 알린다');
-    chk(/_miTrashLoad\(\);/.test(takeFn(A, 'function openMyInfo(') || '') && /on\('miTabTrash', \(\) => \{[^\n]*_miSetTab\('trash'\); _miTrashLoad\(\); \}\)/.test(A), '  [내 정보]를 열 때 · 탭을 누를 때 다시 읽는다(«휴지통 N»)');
-    const rt = takeFn(A, 'function _miRenderTrash(') || '', rs = takeFn(A, 'async function _miTrashRestore(') || '';
-    chk(/'연동 교체' : '옮김'/.test(rt) && /' 사라져요'/.test(rt) && /rb\.textContent = '복원'/.test(rt) && /width:48px;/.test(rt) && /_miTrashRestore\(it, rb\)/.test(rt), '★ E 줄 — 이름표 «옮김»/«연동 교체» · «M/D 사라져요» · [복원] 하나(폭 고정)');
-    chk(!/마리|책상|되살리기|이 모습으로/.test(rt + rs), '  글자에 «마리»·«책상»·옛 E 버튼 글자 없음');
-    chk(rs.indexOf('_charsBoxOnlyCount() >= CHARS_BOX_MAX') > 0 && rs.indexOf('_charsBoxOnlyCount() >= CHARS_BOX_MAX') < rs.indexOf('_charsRestore(row)') && /full\.style\.display = 'block'/.test(rs) && /'보관함으로 복원했어요'/.test(rs),
-      '★ [복원] — 20 이면 먼저 붉은 상자(시안 ③ · 쓰지 않음) · 되면 «보관함으로 복원했어요»');
-    const rb = takeFn(A, 'function _miRenderBox(') || '';
-    chk(/tb\.setAttribute\('aria-label', '휴지통 이동'\)/.test(rb) && /_miTrashIcon\(14\)/.test(rb) && /_charsDeleteWords\(\)\.ask/.test(rb) && /yes\.onclick = \(\) => _miBoxTrash\(it\.cid\)/.test(rb) && /up\.disabled = true/.test(rb),
-      '★ 보관함 줄 끝 붉은 아이콘(시안 D2) → 그 줄 안 되묻기(«3일 뒤 사라져요» — 런처와 같은 글자) · [옮기기] · 되묻는 동안 [슬롯에 올리기] 잠금');
-    chk(/stroke', '#B22222'/.test(takeFn(A, 'function _miTrashIcon(') || '') && /M4 7h16M9 7V4h6v3M6 7l1 13h10l1-13/.test(A), '  아이콘은 D2 와 같은 선 · 붉게');
-    const bt = takeFn(A, 'async function _miBoxTrash(') || '';
-    chk(/const r = _charsBoxTrash\(cid\)/.test(bt) && bt.indexOf('_charsBoxTrash(cid)') < bt.indexOf("_charsSync('box-trash')") && /_miTrashLoad\(\)/.test(bt), '  [옮기기] → _charsBoxTrash 후 바로 한 번 동기화(휴지통 줄이 서버에 생기게) · 탭 글자 다시');
-    chk(/_miBoxAsk = null; _miTrashFullShown = false;/.test(takeFn(A, 'function closeMyInfo(') || ''), '  ◀ 로 나가면 되묻기·가득 참 상자를 접는다');
-    /* 그리기 — 떼어 와 돌린다(가짜 DOM) */
-    const fns = ['function _miRenderTrash(', 'function _miSlotThumb('].map(h => takeFn(A, h));
-    if (fns.every(Boolean)){
-      const mkEl = (tag) => { const e = { tag, style: {}, children: [], textContent: '', attrs: {}, appendChild(c){ this.children.push(c); return c; }, setAttribute(k, v){ this.attrs[k] = v; } };
-        Object.defineProperty(e, 'innerHTML', { set(){ e.children = []; } }); return e; };
-      const ids = {}; ['miTrashList','miTrashEmpty','miTrashCount','miTrashFull'].forEach(id => ids[id] = mkEl('div'));
-      const doc = { getElementById: id => ids[id] || null, createElement: mkEl, createTextNode: t => ({ tag: '#text', textContent: t }) };
-      const text = e => e.tag === '#text' ? e.textContent : (e.textContent || '') + (e.children || []).map(text).join('');
-      const run = (rows, err) => new Function('document', 'rows', 'err', "const MI_IMG_OK=/^(data:image\\/|https?:)/i; let _miTrashRows=rows, _miTrashErr=err, _miTrashFullShown=false; const _miTrashRestore=()=>{};" + fns.join('\n') + '\n_miRenderTrash();')(doc, rows, err);
-      const D = new Date(2026, 8, 25).getTime();
-      run([{ cid: 'ca', mtime: 1, def: '{"thumbUrl":"https://x/t.png"}', why: 'deleted', at: D - 3*864e5, until: D }, { cid: 'cb', mtime: 2, def: '{}', why: 'overwritten', at: D, until: new Date(2026, 9, 1).getTime() }], false);
-      const rows = ids.miTrashList.children;
-      chk(rows.length === 2 && text(rows[0]).includes('옮김9/25 사라져요') && text(rows[1]).includes('연동 교체10/1 사라져요') && ids.miTrashCount.textContent === '2', '  그리기: 두 줄 · «옮김 9/25 사라져요» · «연동 교체 10/1 사라져요» · 개수 2');
-      chk(rows[0].children[0].children[0] && rows[0].children[0].children[0].tag === 'img' && rows[0].children[0].children[0].src === 'https://x/t.png', '  섬네일은 thumbUrl(보관함과 같은 _miSlotThumb)');
-      run([], true);
-      chk(ids.miTrashList.children.length === 0 && ids.miTrashEmpty.style.display === 'block' && /읽지 못했어요/.test(ids.miTrashEmpty.textContent), '  읽기 실패 → 빈 줄이 아니라 «읽지 못했어요»');
-      run([], false);
-      chk(/휴지통이 비어 있어요/.test(ids.miTrashEmpty.textContent) && /3일/.test(ids.miTrashEmpty.textContent) && /10일/.test(ids.miTrashEmpty.textContent), '  비었을 때 — 3일 · 10일 안내');
-    } else chk(false, '12절 그리기 함수를 못 찾음');
-  }
-
-  /* ══ 13. 🧺 D2 보관함 가득 참 (시안 D2 를 [내 정보] 모양으로 · CHECKS 개정 51) ══ */
-  say('');
-  say('【13】 D2 보관함 가득 참 — 20 이상일 때만 노란 경고(n/20 · 몇 개) · 체크칸 · «고른 캐릭터 k» · [선택한 캐릭터 휴지통으로 (k)] → 되묻기 → 한꺼번에');
-  {
-    const noCm = s => String(s || '').replace(/<!--[\s\S]*?-->/g, '');
-    const H = noCm(HTML), A = APP;
-    const iPg = H.indexOf('<div id="lcMyInfo"');
-    const MI = H.slice(iPg, H.indexOf('<!-- 광고 배너', iPg) > 0 ? H.indexOf('<!-- 광고 배너', iPg) : iPg + 20000);
-    const pb = MI.slice(MI.indexOf('<div id="miPageBox"'), MI.indexOf('<div id="miPageTrash"'));
-    const at = id => pb.indexOf('id="' + id + '"');
-    ['miBoxFull','miBoxFullHead','miBoxFullText','miBoxPicked','miBoxBulk','miBoxBulkBtn','miBoxBulkAsk','miBoxBulkAskText','miBoxBulkYes','miBoxBulkNo'].forEach(id => chk(at(id) > 0, '  #' + id + ' (보관함 페이지 안)'));
-    chk(at('miBoxFull') < at('miBoxCount') && at('miBoxCount') < at('miBoxList') && at('miBoxList') < at('miBoxBulk') && at('miBoxBulk') < at('miCodeLoad'), '★ 순서(시안 D2): 경고 → «보관함 (n/20)» · 고른 수 → 목록 → [선택한 캐릭터 휴지통으로] → [코드로 캐릭터 불러오기]');
-    chk(/<div id="miBoxFull" style="display:none;/.test(pb) && /<div id="miBoxBulk" style="display:none;/.test(pb) && /<span id="miBoxPicked" style="display:none;/.test(pb), '  처음엔 다 숨김(가득 찼을 때만 코드가 켠다)');
-    chk(/3일 동안 복원할 수 있어요/.test(pb) && !/마리|책상|슬롯의 캐릭터는 여기서 고를 수 없어요/.test(pb), '  안내 «3일 동안 복원» · «마리»·«책상» 없음 · 옛 «슬롯의 캐릭터는 고를 수 없어요» 없음(슬롯 캐릭터는 보관함 목록에 아예 없다)');
-    const rb = takeFn(A, 'function _miRenderBox(') || '';
-    chk(/const full = _miRenderBoxFull\(items\);/.test(rb) && rb.indexOf('_miRenderBoxFull(items)') < rb.indexOf('if(!items || !items.length)') && /if\(full\)\{/.test(rb) && /_miPick\.has\(it\.cid\)/.test(rb) && /if\(_miBulkAsk\) up\.disabled = true;/.test(rb),
-      '★ 목록 — 가득 찼을 때만 줄마다 체크칸 · 빈 목록 전에 경고를 먼저 정리(열리지 않은 PC 에서 경고가 남지 않게) · 되묻는 동안 [슬롯에 올리기] 잠금');
-    const bt = takeFn(A, 'async function _miBoxTrashBulk(') || '';
-    chk(/_charsBoxTrashMany\(Array\.from\(_miPick\)\)/.test(bt) && bt.indexOf('_charsBoxTrashMany') < bt.indexOf("_charsSync('box-trash')") && /_miPick\.clear\(\)/.test(bt) && /_miTrashLoad\(\)/.test(bt), '  [옮기기] → 한꺼번에 묘비 → 고른 것 비움 → 한 번 동기화 → 휴지통 탭 글자');
-    chk(/_miPick\.clear\(\); _miBulkAsk = false;/.test(takeFn(A, 'function closeMyInfo(') || ''), '  ◀ 로 나가면 고른 것·되묻기를 접는다');
-    chk(/on\('miBoxBulkBtn', \(\) => _miBoxBulkStart\(\)\)/.test(A) && /on\('miBoxBulkYes', \(\) => _miBoxTrashBulk\(\)\)/.test(A) && /on\('miBoxBulkNo',/.test(A), '  버튼 셋 배선');
-    /* 떼어 와 돌리기 — 가짜 DOM */
-    const fns = ['function _miRenderBoxFull(', 'function _miTrashIcon('].map(h => takeFn(A, h));
-    if (fns.every(Boolean)){
-      const mkEl = (tag) => { const e = { tag, style: {}, children: [], textContent: '', attrs: {}, appendChild(c){ this.children.push(c); return c; }, setAttribute(k, v){ this.attrs[k] = v; } }; return e; };
-      const ids = {}; ['miBoxFull','miBoxFullHead','miBoxFullText','miBoxPicked','miBoxBulk','miBoxBulkBtn','miBoxBulkAsk','miBoxBulkAskText'].forEach(id => ids[id] = mkEl('div'));
-      const doc = { getElementById: id => ids[id] || null, createElement: mkEl, createElementNS: (ns, t) => mkEl(t), createTextNode: t => ({ tag: '#text', textContent: t }) };
-      const text = e => e.tag === '#text' ? e.textContent : (e.textContent || '') + (e.children || []).map(text).join('');
-      const F = new Function('document', 'CHARS_BOX_MAX', "const _miPick=new Set(); let _miBulkAsk=false;" + fns.join('\n') + '\nreturn { full:_miRenderBoxFull, pick:_miPick, ask:v=>{ _miBulkAsk=v; }, asking:()=>_miBulkAsk };')(doc, 20);
-      const its = n => Array.from({ length: n }, (_, k) => ({ cid: 'c' + k }));
-      F.pick.add('c1'); F.pick.add('c2'); F.pick.add('gone');
-      let full = F.full(its(22));
-      chk(full && ids.miBoxFull.style.display === 'block' && ids.miBoxFullHead.textContent === '보관함이 가득 찼어요 · 22/20' && /^3개 이상 휴지통으로/.test(ids.miBoxFullText.textContent), '★ 22/20 → 경고 «22/20» · «3개 이상»(20 문턱이 ≥20 이라 19 까지 내려가야 풀린다)');
-      chk(F.pick.size === 2 && ids.miBoxPicked.textContent === '고른 캐릭터 2' && text(ids.miBoxBulkBtn).includes('선택한 캐릭터 휴지통으로 (2)'), '  목록에 없는 고른 것은 버린다 · «고른 캐릭터 2» · 버튼 (2)');
-      F.ask(true); F.full(its(22));
-      chk(ids.miBoxBulkAsk.style.display === 'block' && ids.miBoxBulkBtn.style.display === 'none' && ids.miBoxBulkAskText.textContent === '2개를 휴지통으로 옮길까요? 3일 뒤 사라져요', '  되묻기 — «2개를 휴지통으로 옮길까요? 3일 뒤 사라져요» · 버튼 자리 대신');
-      full = F.full(its(20));
-      chk(full && /^1개 이상/.test(ids.miBoxFullText.textContent), '  딱 20 → 가득 참 · «1개 이상»');
-      full = F.full(its(19));
-      chk(!full && ids.miBoxFull.style.display === 'none' && ids.miBoxBulk.style.display === 'none' && ids.miBoxPicked.style.display === 'none' && F.pick.size === 0 && !F.asking(), '★ 19 → 경고 · 체크 · 버튼 다 접히고 고른 것·되묻기 비움');
-      full = F.full(null);
-      chk(!full && ids.miBoxFull.style.display === 'none', '  보관함이 안 열린 PC(null) → 경고 없음');
-    } else chk(false, '13절 함수를 못 찾음');
   }
 
   /* ══ 14. 🧬 «다름» · F 캐릭터를 계정에 연동했어요 (설계 §3 · §7-F · 시안 F-1 · F-2 확정 · CHECKS 개정 57) ══ */

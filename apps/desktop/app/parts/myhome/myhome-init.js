@@ -56,8 +56,8 @@ function onMailChanged(e){
     const m = box[id];
     if(!m) return;
     toast(`📩 ${inboxMod().inboxTagLabel(m.tag)}: ${m.title||''}`);
-    // 🐞 답변 알림이 오면 버그제보 탭 배지도 같이(bug-board-ui.js)
-    if(m.tag==='bug') window._bugBoardRefreshBadge();
+    // 🐞 답변 알림이 오면 버그제보 탭 배지도 같이 — 그 글을 보고 있으면 글도 다시 받는다(bug-board-ui.js)
+    if(m.tag==='bug') window._bugBoardRefreshBadge(m.bugId);
   });
 }
 

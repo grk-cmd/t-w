@@ -1,10 +1,10 @@
 /* license-gate.js — 🎟️ 게이트 — 켤 때 로그인 · 서버 가입 확인 · 초대 코드 · 계정 만들기 · 초대장 버튼 · 라이선스 키
    app.js «🎟️ 초대장 (앱 접근 제한)» 구역 본문을 옮긴 모듈이다(앱 FSD 31번 — docs/APP_FSD_MAP.md). 관리자 📊 통계 · 🎟️ 초대권 지급은 app.js 가 이 모듈 바로 뒤에서 만든다.
-   ★ awayPicMod · creatorOpen · userStatus · FRIEND_CODE_LOGIN_RE 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값).
-   ★ 저장 키 · 프리미엄 깃발 바꾸기(_setPremium)는 계정 핵심 상태(account-state.js)에 있다(모듈 순환 끊기 5) — 이 모듈은 deps 로 받고, 프리미엄이 바뀌면 다시 그리기를 onPremiumChanged 로 건다.
+   ★ awayPicMod · creatorOpen · FRIEND_CODE_LOGIN_RE 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값).
+   ★ 프리미엄 깃발 바꾸기(_setPremium)는 계정 핵심 상태(account-state.js)에 있고 부르는 곳은 서버 확인을 반영하는 license-premium.js 뿐이다 — 이 모듈은 프리미엄이 바뀌면 다시 그리기를 onPremiumChanged 로 건다.
    ★ 0.13 — 켤 때 로그인 · 서버 가입 확인은 login-flow.js(GET /v1/me), 초대 코드 확인 · 가입 · 내 초대는 서버(user-api.js)가 한다.
      옛 갈래(기기 토큰으로 초대 소진 · 앱이 uid · 친구 코드를 만들어 묶기 · 기존 사용자 가입 I · 로그인 필요 K · grandfather 초대권 · 계정 사본)는 걷었다.
-   ★ 밖에서 부르는 이름: INVITE_GRANT_MAX · _genLicenseKey · activateLicense · checkInviteGate · deactivateLicense · loadLicenseFromStorage · refreshInviteBtn · verifyLicense — app.js 는 licenseGateMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: INVITE_GRANT_MAX · _genLicenseKey · checkInviteGate · refreshInviteBtn — app.js 는 licenseGateMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLicenseGate — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-license-gate.js */
@@ -31,20 +31,17 @@ const pruneUnownedLicenseAssets = deps.pruneUnownedLicenseAssets;
 const refreshAccountTab = deps.refreshAccountTab;
 const refreshCustomStatusMenuItem = deps.refreshCustomStatusMenuItem;
 const refreshLicenseUI = deps.refreshLicenseUI;
+const refreshLauncherPreview = deps.refreshLauncherPreview;   // 런처가 열려 있으면 미리보기(전용 책상 · 아이템)를 다시 그린다
 const renderCrItems = deps.renderCrItems;
 const restoreLicenseHeldAssets = deps.restoreLicenseHeldAssets;
 const seats = deps.seats;
-const setUserStatus = deps.setUserStatus;
 const toast = deps.toast;
-const userStatus = deps.userStatus;   // 읽는 함수
-const LICENSE_KEY_STORAGE = deps.LICENSE_KEY_STORAGE;   // 🪪 계정 핵심 상태(account-state.js) — 저장 키 · 프리미엄
-const LICENSE_OPTOUT_KEY = deps.LICENSE_OPTOUT_KEY;
-const _setPremium = deps._setPremium;
 const onPremiumChanged = deps.onPremiumChanged;
 const _acctRelaunchAfterDetach = deps._acctRelaunchAfterDetach;
 const _rcStore = deps._rcStore;   // 원격 설정 한 벌(account-state.js)
 function inviteGateOn(){ const s = _rcStore(); return s ? s.inviteGate() : true; }
 const INVITE_GRANT_MAX = 3;                 // 관리자가 한 번에 지급할 수 있는 최대 초대권 수
+const BYE_SWITCH = 'switch';                // realtime 작별 까닭(rt-hub.js BYE_WHY) — 계정을 바꿔 다시 켤 때
 
 /* ═══ 🔑 켤 때 — 로그인 · 서버 가입 확인 (0.13 — login-flow.js 판정 · 설계 03-auth 3-3-1) ═══
    in     → 이 PC 를 서버 계정에 맞춘다(_enterAccount). uid 가 바뀌었으면 다시 켠다 · 아니면 «계정에 들어감» 을 알린다 — 옛 값 옮기기 → realtime → 계정 기능 시작 · 0.13 첫 실행은 app-boot.js 차례 표가 한다.
@@ -98,9 +95,13 @@ function _showOfflineGate(){
     };
   });
 }
+/* 계정을 바꿔 다시 켠다 — 켜 둔 realtime 연결이 있으면 작별(bye{switch}) 뒤에(못 닿으면 앱 끄기의 quit 이 한 번 더) */
+function _switchRelaunch(onFallback){
+  Promise.resolve(loginFlowMod.release(BYE_SWITCH)).catch(()=>{}).then(()=>_acctRelaunchAfterDetach(onFallback));
+}
 function _relaunchSoon(text){
   try{ toast(text); }catch(_){}
-  _acctRelaunchAfterDetach(()=>{ try{ toast('앱을 완전히 종료했다가 다시 실행해 주세요'); }catch(_){} });
+  _switchRelaunch(()=>{ try{ toast('앱을 완전히 종료했다가 다시 실행해 주세요'); }catch(_){} });
 }
 
 /* 🎉 [회원가입 설계 §7-J · §4 (가) · 개정 13] 가입 완료 — J(비밀번호) · J2(구글).
@@ -166,7 +167,7 @@ function _showInviteGate(){
     const finish = (r, say)=>{
       if(r.switched){
         say('✅ 로그인됐어요. 앱을 다시 시작하는 중이에요…');
-        _acctRelaunchAfterDetach(()=> say('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.'));
+        _switchRelaunch(()=> say('✅ 로그인됐어요. 앱을 완전히 종료했다가 다시 실행해 주세요.'));
         return;
       }
       close(); _entered(r.me); resolve(true);
@@ -194,7 +195,7 @@ function _showInviteGate(){
           /* 이미 가입된 구글이었다 — 새로 만든 게 없으니 완료 화면 없이 그 계정으로 */
           if(!e.switched){ say('', false); close(); _entered(r.me); resolve(true); return; }
           say('✅ 이미 가입된 구글 계정이에요 — 그 계정으로 들어갈게요. 앱을 다시 시작하는 중이에요…', false);
-          _acctRelaunchAfterDetach(()=> say('✅ 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
+          _switchRelaunch(()=> say('✅ 앱을 완전히 종료했다가 다시 실행해 주세요.', false));
           return;
         }
         if(codeEl) codeEl.textContent = r.me.friendCode;
@@ -415,38 +416,7 @@ function _genLicenseKey(){
   return `${seg()}-${seg()}-${seg()}-${seg()}`;
 }
 
-async function verifyLicense(key){
-  if(!window.firebaseAPI || !window.firebaseAPI.redeemLicense){
-    return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
-  }
-  return await window.firebaseAPI.redeemLicense(key.trim().toUpperCase());
-}
-
-function loadLicenseFromStorage(){
-  try{
-    const key = localStorage.getItem(LICENSE_KEY_STORAGE);
-    if(key){ _setPremium(true); return key; }   // 온라인 재검증 전까지는 로컬 저장값 신뢰(오프라인 사용 허용)
-  }catch(e){}
-  return null;
-}
-/* 🎫 «이 기기에서 해제» 는 이 기기만의 일이다 — LICENSE_OPTOUT_KEY 에 그 키를 적어 두고, 그 키는 다시 켜지 않는다.
-   다른 PC 로 라이선스를 옮기던 계정 사본(accountSnap)은 0.13 에서 걷었다 — 서버가 계정의 라이선스를 안다(D8 묶음이 판정 · 기기 관리를 옮긴다). */
-async function activateLicense(key){
-  const r = await verifyLicense(key);
-  if(r.ok){
-    try{ localStorage.setItem(LICENSE_KEY_STORAGE, key.trim().toUpperCase()); localStorage.removeItem(LICENSE_OPTOUT_KEY); }catch(e){}
-    _setPremium(true);
-  }
-  return r;
-}
-function deactivateLicense(){
-  let _k = null; try{ _k = localStorage.getItem(LICENSE_KEY_STORAGE); }catch(_){}
-  try{ localStorage.removeItem(LICENSE_KEY_STORAGE); if(_k) localStorage.setItem(LICENSE_OPTOUT_KEY, _k); }catch(e){}   // 🎫 이 기기만 해제 — 부팅 때 다시 켜지 않는다
-  // 프리미엄이 풀렸는데 커스텀 상태를 쓰고 있었으면 기본 상태로 되돌림
-  if(typeof userStatus()!=='undefined' && userStatus()==='custom') setUserStatus(null);
-  _setPremium(false);
-}
-/* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 (라이선스 검증이 비동기라 나중에 확정됨) */
+/* 프리미엄 여부가 바뀔 때 그에 따라 잠금/해제되는 UI를 다시 그림 — 바꾸는 쪽은 서버 확인을 반영하는 license-premium.js */
 onPremiumChanged(_refreshPremiumGatedUI);   // 프리미엄이 바뀌면(account-state.js _setPremium) 내 좌석 책상 · 아이템 · 전용 칸을 다시 그린다
 function _refreshPremiumGatedUI(){
   refreshCustomStatusMenuItem();   // ✨ 커스텀 상태 메뉴 항목
@@ -474,6 +444,7 @@ function _refreshPremiumGatedUI(){
       });
     }
   }catch(_){}
+  try{ refreshLauncherPreview(); }catch(e){ console.warn('[라이선스] 런처 미리보기 다시 그리기 실패', e); }   // 확인이 오기 전에 그려진 미리보기도 지금 값으로
   // 생성기가 열려 있으면 책상 카드의 🔒 도 지금 값으로 다시 그린다
   try{ if(typeof creatorOpen()!=='undefined' && creatorOpen()) renderCrItems(); }catch(_){}
 }
@@ -481,12 +452,8 @@ function _refreshPremiumGatedUI(){
 return {
   INVITE_GRANT_MAX,
   _genLicenseKey,
-  activateLicense,
   checkInviteGate,
-  deactivateLicense,
-  loadLicenseFromStorage,
   refreshInviteBtn,
-  verifyLicense,
 };
 }
 

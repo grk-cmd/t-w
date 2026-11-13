@@ -22,6 +22,8 @@ process.on('uncaughtException', (e) => { fail++; say('  ✗ 판정 도중 멈춤
 const read = (...fs_) => { for(const f of fs_){ try{ return fs.readFileSync(f, 'utf8'); }catch(_){} } return null; };
 const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html'), FBI = read('firebase-init.js'), RULES = read('firebase-database-rules.json');
 if(!SRC || !HTML || !FBI || !RULES){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
+const GATE = read('focus-gate.js', path.join('app', 'parts', 'focus', 'focus-gate.js'));
+if(!GATE){ say('  ? 원본 못 찾음 — focus-gate.js'); process.exit(2); }
 const QRLIB = read('vendor/qrcode.js', path.join('app', 'vendor', 'qrcode.js'), path.join('..', 'app', 'vendor', 'qrcode.js'));
 const HOST  = read('hosting/help/link.html', path.join('..', 'hosting', 'help', 'link.html'));
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
@@ -63,7 +65,8 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
       function addFocusSeconds(d){ env.added += d; }
       /* 👑 달성표는 weekly-challenge.js 모듈(앱 FSD 2번) — app.js 는 weeklyChal.focusTick · setKeyPlatform 으로 부른다 */
       const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(v){ env.plat = v; } };
-      let _focusLastTick = performance.now(), _focusWasActive = false;
+      let _focusLastTick = performance.now(), _focusWasActive = false, _selfAppActive = false;
+      const focusGate = (function(){ const window = {}; ${GATE}\n; return window.TwFocusGate; })();
       ${parts.join('\n')}
       this.api = { apply: _applyActiveAppState, on: _mobileOn, label: _mobileRoomLabel,
         setMob: (o) => { _mobileFocus = o; }, setAct: (t) => { lastActivity = t; },
@@ -108,7 +111,7 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
 say('── 2. 곁가지');
 {
   const ss = strip(grabFn('seatState') || '');
-  const iGate = ss.indexOf('if(desktopMode && focusGateSleep) return \'sleep\';'), iMob = ss.indexOf('_mobileOn()) return \'focus\'');
+  const iGate = ss.indexOf('if(desktopMode && focusGateSleep) return focusGate.gatedPose('), iMob = ss.indexOf('_mobileOn()) return \'focus\'');
   chk(iGate > 0 && iMob > iGate && /seat\.isMe && _mobileOn\(\)\) return 'focus'/.test(ss), '집중 포즈 — 내 좌석 · 게이트 뒤 · 입력 판정(idle) 앞');
   chk(iMob < ss.indexOf('const idle=now-lastActivity'), '  입력 판정보다 앞이라 PC 입력이 없어도 집중 포즈');
   const aw = strip(grabFn('_autoAwayCheck') || '');

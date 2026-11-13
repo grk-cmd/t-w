@@ -123,7 +123,8 @@ function sendPaths(dr, app){
   const j = app.indexOf(END, i);
   if(i < 0 || j < 0) throw new Error('app.js 에서 하트비트 덩이를 못 찾음');
   let tick = null;
-  new Function('window', 'companion', 'setInterval', '_charBoundsLatest', '_charBadWhy', app.slice(i, j + END.length))(win, companion, (fn) => { tick = fn; }, { x: 10, y: 10, r: 50 }, null);
+  /* statusChipMod — 하트비트가 펜 근처 판단용 남의 좌석 원(otherSeatCircles)도 싣는다 */
+  new Function('window', 'companion', 'setInterval', '_charBoundsLatest', '_charBadWhy', 'statusChipMod', app.slice(i, j + END.length))(win, companion, (fn) => { tick = fn; }, { x: 10, y: 10, r: 50 }, null, { otherSeatCircles: () => [] });
   const n0 = sent.length; if(tick) tick();
   out.beat = sent.length > n0 ? sent[sent.length - 1] : null;
   return out;

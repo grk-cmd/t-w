@@ -291,6 +291,7 @@ function buildBooks(){ const g=new THREE.Group(); const cols=[matSage,matBlush,m
     b.position.set(0,0.02+i*0.045,0); b.rotation.y=(i-1)*0.12; b.castShadow=true; g.add(b);} return g; }
 const DESK_ITEMS=[{id:'plant',name:'화분',build:buildDeskPlant},{id:'cup',name:'머그컵',build:buildCup},{id:'books',name:'책',build:buildBooks}];
 const DEFAULT_DESK_OVERRIDE_ID='__default_desk__';   // 관리자가 "기본 책상"을 우클릭해서 등록하면 이 예약 ID로 저장됨
+const NO_DESK_ID='__no_desk__';   // 🚫 «책상 없음» — deskCatalogId 에 넣는다(새 칸이 아니라 옛 앱 · 방 서버가 그대로 받는다)
 function buildDesk(plain){
   const desk=new THREE.Group(); const deskTopY=0.46,deskZ=0.50;
   const topM=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.08,0.6),matWood);
@@ -523,7 +524,7 @@ function equipDeskItem(holder,def,on){
   let _siCat = null; try{ _siCat = commissionMod.savedItems(); }catch(_){}
   const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
   const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
-  if(on && _itemLicenseOnly && !isPremium && !isAdmin && !(holder && holder.remote)){
+  if(on && !(holder && holder.remote) && acctStateMod.licenseAssetBlocked({ licenseOnly: _itemLicenseOnly })){
     toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
     return;
   }
@@ -757,13 +758,10 @@ function buildPlaceholder(){
 
 /* ============================================================ SEATS */
 const seats=[]; let selected=null;
-// ★ 좌석 간 간격 — 책상 폭(1.7)보다 좁게 잡아서 책상끼리 "한뼘 정도"만 떨어지게 함.
-//   자리 추가(솔로)/멀티플레이어 친구 좌석 모두 이 값 하나로 공통 적용됨(layoutSeats에서 재사용).
-//   더 좁히고 싶으면 값을 줄이고(단, 너무 작으면 책상끼리 겹쳐 보일 수 있음), 넓히고 싶으면 늘리세요.
-// ★ 좌석(책상) 간 여백 — 예전엔 고정 상수였는데, 사용자가 설정 패널에서 직접 조절할 수 있게 변경.
-//   솔로/멀티 각각 따로 저장되고(모드 전환해도 서로 기억), 최소값(GAP_MIN)은 책상끼리 겹치지 않을
-//   정도로 낮게 잡아둬서 아무리 좁혀도 실제로 겹쳐지진 않음.
-const GAP_MIN = 0.02, GAP_MAX = 1.2, GAP_STEPS = 15;
+// ★ 좌석 간격 = 책상 끝끼리 여백(설정 › 캐릭터) — 솔로 · 멀티 따로 저장. 자리 셈은 room/seat-layout.js.
+//   GAP_MIN 이 음수인 까닭: 책상 GLB 는 보이는 판보다 박스가 넓은 것이 많아 «끝끼리 0» 이어도 벌어져 보인다 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다.
+//   책상 없는 좌석은 몸 + 여유(0.15)씩이라 -0.3 이면 몸끼리 맞닿는다(seat-layout.js).
+const GAP_MIN = -0.3, GAP_MAX = 1.2, GAP_STEPS = 15;
 const GAP_KEY_SOLO='tw.gapSolo', GAP_KEY_MULTI='tw.gapMulti';
 function _loadGap(key, def){ try{ const v=parseFloat(localStorage.getItem(key)); if(!isNaN(v)) return Math.max(GAP_MIN,Math.min(GAP_MAX,v)); }catch(e){} return def; }
 let SPACING = _loadGap(GAP_KEY_SOLO, 0.3);
@@ -1352,7 +1350,7 @@ let _flyActive = 0;
    창 모듈이 만들 때 여는 함수를 걸고, 부르는 모듈은 이름으로 부탁만 한다 */
 const twNav = TwNav;
 const demojiCatalog = TwDemojiCatalog;   // 😊 기본 이모티콘 목록(demoji-catalog.js — 채팅 · 마이홈 바탕화면이 같이 읽는 맨 아래 표)
-const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-sync)가 같이 쓴다
+const uploadCacheMod = TwUploadCache.createUploadCache();   // 🗂️ 업로드 캐시 상한 규칙 — 얼굴(room-sync) · 슬롯 GLB(slot-codec)가 같이 쓴다
 const roomSyncMod = TwRoomSync.createRoomSync({
   DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,
   ITEM_LICENSE_HOLD: ()=>premiumMod.ITEM_LICENSE_HOLD,
@@ -1688,6 +1686,8 @@ const dotRenderMod = TwDotRender.createDotRender({
 const charMeasureMod = TwCharMeasure.createCharMeasure({
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
 });
+const restPoseMod = TwRestPose.createRestPose();   // 🧍 fitModel 은 기본 자세로 잰다(character/rest-pose.js)
+const fitWatchMod = TwFitWatch.createFitWatch({ warn: (m)=>console.warn(m) });   // 🩺 다시 맞춘 높이가 설명 안 되면 경고 → tw-error.log
 /* 본문은 character/floor-snap-diag.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const floorSnapDiagMod = TwFloorSnapDiag.createFloorSnapDiag({
@@ -1700,6 +1700,8 @@ function fitModel(seat){
   m.scale.set(1,1,1); m.position.set(0,0,0); m.rotation.set(0,seat.userRot+creatorPrevMod.RIG_TURN,0);
   const sR=seat.rig.position.clone(),sRr=seat.rig.rotation.clone(),sWp=seat.bodyWrap.position.clone(),sG=seat.group.position.clone();
   seat.rig.position.set(0,0,0);seat.rig.rotation.set(0,0,0);seat.bodyWrap.scale.set(1,1,1);seat.bodyWrap.position.set(0,0,0);seat.group.position.set(0,0,0);
+  const _rest = restPoseMod.enter(seat);   // 누워 떼쓰기 · 뼈에 붙은 파츠 자세가 높이에 안 들어가게(rest-pose.js) — 아래 finally 에서 되돌린다
+  try{
   seat.group.updateWorldMatrix(true,true);
   
   const box=charMeasureMod.measureCharBox(m);   // 표준 리그 통합: base·커미션 동일 경로 (리깅 파츠 제외 측정)
@@ -1759,7 +1761,7 @@ function fitModel(seat){
     /* 🦶 피봇 보정 — 예전엔 `m.position.y = 0`(피봇=발바닥 전제)이었다. 사람 GLB 는 그 전제가
        깨져 있어 늘 0.048(로컬)만큼 떠 있었다. charFootFix 의 ⚠️ 넷 중 하나 — 나머지 셋은
        fitCreator('edit') · fitCreator('app') · refreshWdPreviewChar. 함께 고칠 것. */
-    m.position.y = charMeasureMod.charFootFix(b2);
+    const _foot = charMeasureMod.charFootFix(b2); m.position.y = _foot;
     
     // ★ 이 아래에서 seat.bodyWrap.scale이 userScale로 곱해지는데(코드 더 아래 참고), m은 bodyWrap의
     //   자식이라 m.position도 그때 같이 곱해져 버림 — 그래서 캐릭터 크기(userScale)를 1이 아니게 설정한
@@ -1805,13 +1807,16 @@ function fitModel(seat){
        ⚠️ 인간·커미션은 _animPos 가 1 이라 **아무 변화 없다.**
        ⚠️ charLiftWorld 도 **같이** 바꿔야 한다 — 올라타기가 그 값으로 이 들림을 상쇄한다.
          한쪽만 고치면 동물 머리 위에 올라탄 캐릭터가 그 차이만큼 뜬다. */
-  m.position.y += clampCharY(seat.userY) * _animPos / _uz;
+  const _lift = clampCharY(seat.userY) * _animPos / _uz; m.position.y += _lift;
   /* 🦶 바닥 맞춤 — 발밑에 둔 파츠(욕조·방석 등)가 있으면 그 깊이만큼 들어 올려서
      '가장 아래에 있는 것'이 바닥에 닿게 한다. 발 아래에 아무것도 없으면 0이라 무동작이다.
      ⚠️ 반드시 여기, 크기(scale)와 x/z 가 다 정해진 **뒤**여야 한다. 스케일 전에 재면 깊이가
        정규화 배율만큼 어긋나서 그만큼 바닥을 파고들거나 뜬다. */
-  m.position.y += charMeasureMod.measureUnderfootDepth(m);
+  const _under = charMeasureMod.measureUnderfootDepth(m); m.position.y += _under;
+  fitWatchMod.note(seat, { scale: baseScale, foot: _foot, lift: _lift, under: _under, y: m.position.y },
+    { userY: clampCharY(seat.userY), rigY: sR.y, groupY: sG.y, wrapRotX: (_rest && _rest.rot) ? _rest.rot.x : 0, pinned: !!seat.pinned, riding: !!seat.ridingOn, animal: isAnim });
 }
+  }finally{ restPoseMod.leave(_rest); }
   seat.rig.position.copy(sR);seat.rig.rotation.copy(sRr);
   /* 🪑 평준화 배율은 여기(몸 스케일) 하나로 들어간다 — headAnchor·bodyAnchor 는 bodyWrap 의
      자식이라 저절로 같이 커진다. ⚠️ 위 _uz 는 raw userScale 그대로여야 한다(그 주석 참고). */
@@ -1907,7 +1912,6 @@ const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
    typeof 가드도 let TDZ에는 통하지 않으므로 try/catch로 안전하게 읽는 접근자를 씀.
    (라이선스가 확정되면 _refreshPremiumGatedUI가 다시 호출되어 UI가 갱신됨) */
 function _premiumOn(){ try{ return !!isPremium; }catch(_){ return false; } }
-try{ window._premiumOn = _premiumOn; }catch(_){}
 
 /* (구역 떼기 C · w1) 이 자리의 본문도 status/user-status-table.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 function saveCustomStatusConf(emo, text){
@@ -2200,7 +2204,7 @@ try{
          정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
       companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
         moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined,
+        regions: window.__uiRegions ? window.__uiRegions() : undefined, others: statusChipMod.otherSeatCircles(),   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
         /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
            구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
         charBad: _charBadWhy || undefined });
@@ -2293,6 +2297,7 @@ const focusLog = TwFocusLog.createFocusLog({
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   focusTotalSec: ()=>_focusTotalSec,
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
+  figureMode: ()=>figureMode,
 });
 /* ═══ ✥ 프로그램 이동 모드 ═══ */
 /* 프로그램 이동 모드 — 마우스를 따라 화면 전체(카메라 pan)가 이동, 클릭하면 확정.
@@ -2361,6 +2366,8 @@ const wdPanelMod = TwWardrobePanel.createWardrobePanel({
 /* 본문은 wardrobe.js 로 옮겼다(앱 FSD 29번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const wardrobeMod = TwWardrobe.createWardrobe({
+  NO_DESK_ID: NO_DESK_ID,
+  layoutSeats: (...a)=>layoutSeats(...a),
   ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,
   CHAR_Z: CHAR_Z,
   PART_CATS: ()=>premiumMod.PART_CATS(),
@@ -2442,6 +2449,7 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   clampDeskScale: (...a)=>clampDeskScale(...a),
   humanEar: humanEar,
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
+  glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   swThumb: (...a)=>assetCardsMod.swThumb(...a),
 });
@@ -2558,7 +2566,7 @@ const mhScheduler = MhScheduler.createScheduler({
 });
 
 /* 🐞 버그 제보 탭(오픈카톡 기본 링크 — bugReport/current · window._bugReportLink)은 parts/bug-board-ui.js 끝으로 옮겼다(앱 FSD 5번).
-     게시판 화면과 한 파일이다. 그 파일은 app.js 뒤에 싣지만 firebase-init.js(type="module")보다는 앞이라 구독 시작 때는 같다.
+     게시판 화면과 한 파일이다(게시판은 🚩 신고 다음에서 만든다).
    👥 친구 관리(받은 요청 · 📤 보낸 요청 · 선물함 서브탭) · 👋 새 친구 요청 팝업 · 친구 탭 배지는 parts/friend-manage.js 로 옮겼다
      (앱 FSD 5번 · docs/APP_FSD_MAP.md). ★ 원래 자리인 여기서 만든다(만들 때 바로 도는 일은 없다 — 상태 초기값뿐).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myFriendRequests · _myHomeFriends · myHomeOpen 은 다시 대입되는 let 이라
@@ -2606,8 +2614,6 @@ const friendsFirebaseMod = TwFriendsFirebase.createFriendsFirebase({
   getList: (...a)=>firebaseAPI.getMyFriendList(...a),
   watchList: (...a)=>firebaseAPI.watchMyFriendList(...a),
   getCard: (...a)=>firebaseAPI.getFriendCard(...a),
-  watchPresence: (...a)=>firebaseAPI.watchFriendPresence(...a),
-  getPresence: (...a)=>firebaseAPI.getFriendPresence(...a),
   watchProfile: (...a)=>firebaseAPI.watchFriendProfile(...a),   // 친구 한 명 프로필 구독 — 목록이 열려 있는 동안만
   getProfile: (...a)=>firebaseAPI.getFriendProfile(...a),       // 같은 칸 한 번 — 마이홈 구경
   setTimer: (fn, ms)=>setTimeout(fn, ms),
@@ -2620,8 +2626,10 @@ const friendsApiMod = TwFriendsApi.createFriendsApi({
   wait: (ms)=>new Promise(r=>setTimeout(r, ms)),
   warn: (...a)=>console.warn(...a),
 });
+const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
 const friendsPortMod = TwFriendsPort.createFriendsPort({
   firebase: friendsFirebaseMod,
+  presence: friendsPresenceRtMod,
   api: friendsApiMod,
   source: ()=>TwSourceSwitch.store.pick('friends'),   // 받는 곳 — 원격 설정 sources.friends(없으면 옛 flags.friendsApi) · 고르기는 shared/source-switch.js
   serverFirst: TwSourceSwitch.serverFirst,
@@ -2634,15 +2642,21 @@ const friendsSubMod = TwFriendsSub.createFriendsSub({
   readFriend: (...a)=>friendsPortMod.readFriend(...a),
   watchPresence: (...a)=>friendsPortMod.watchPresence(...a),
   readPresence: (...a)=>friendsPortMod.readPresence(...a),
+  retryPresence: ()=>friendsPortMod.retryPresence(),
   watchProfile: (...a)=>friendsPortMod.watchProfile(...a),
   readProfile: (...a)=>friendsPortMod.readProfile(...a),
   current: ()=>_myHomeFriends,
   setFriends: (v)=>{ _myHomeFriends = v; },
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   setTimer: (fn, ms)=>setTimeout(fn, ms),
   clearTimer: (id)=>clearTimeout(id),
   onUnload: (fn)=>window.addEventListener('beforeunload', fn),
+});
+const presenceSelfMod = TwPresenceSelf.createPresenceSelf({   // 내 접속 표시를 realtime 에 알림(status)
+  rt: TwRtHub.store,
+  onUnload: (fn)=>window.addEventListener('beforeunload', fn),   // friends-sub stop 과 같은 자리 — 계정을 놓으면 보이기 값을 비운다
 });
 /* 🔒 친구 탭 온라인 토글 · 고정 — 처음 접속 표시는 마이홈 처음 준비가 계정 확인의 me 로 부른다 */
 const presenceLockMod = TwPresenceLock.createPresenceLock({
@@ -2651,6 +2665,8 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   savePref: (uid, p)=>loginFlowMod.patchMe({ presencePref: { locked: p.lock, online: p.online } }).then((r)=>{ if(!r.ok) throw r.err; }),
   setPresence: (...a)=>firebaseAPI.setMyPresenceState(...a),
+  setVisible: (v)=>presenceSelfMod.setVisible(v),
+  startVisible: (v)=>presenceSelfMod.start(v),
 });
 /* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
@@ -2734,6 +2750,24 @@ const chatPrefsMod = TwChatPrefs.createChatPrefs({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const richTextMod = TwRichText.createRichText({
   escHtml: (...a)=>escHtml(...a),
+  DOMPurify: () => window.DOMPurify,
+});
+
+/* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v1/me/mallangs · /v1/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
+const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 길
+const mallangStoreMod = TwMallangStore.createMallangStore({
+  api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+});
+window.addEventListener('beforeunload', ()=>{ mallangStoreMod.flush(); });   // 앱을 끌 때 못 올린 칸 고침 한 번(결과를 기다리지 않음)
+/* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */
+const mallangMod = TwMallang.createMallang({
+  toast: (...a)=>toast(...a),
+  getMyUserId: (...a)=>getMyUserId(...a),
+  getDisplayName: (...a)=>getDisplayName(...a),
+  premiumOn: (...a)=>_premiumOn(...a),
+  mallangStore: mallangStoreMod,
 });
 
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
@@ -2754,6 +2788,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   escHtml: (...a)=>escHtml(...a),
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  giftSave: TwGiftSave.createGiftSave({ fetch: (...a)=>fetch(...a), document, URL, setTimeout: (...a)=>setTimeout(...a), safeUrl: TwSafeHtml.safeUrl, now: ()=>new Date(), notifyFail: e=>TwErrorCodes.notify('E-MH-03', e) }),
   // 📩 수령함
   mailFeed: mailFeed,
   noticeFeed: noticeFeed,
@@ -2772,6 +2807,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   lvBadgeClass: (...a)=>lvTierMod.lvBadgeClass(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
+  mallangMod: mallangMod,
 });
 /* ═══ 📩 수령함 · 💝 선물함 그리기 ═══ */
 /* 📩 수령함 · 💝 선물함 그리기는 parts/myhome-inbox.js 로 옮겼다(앱 FSD 15번) — 연결은 바로 위 «👥 마이홈 친구 목록» 머리 아래(inboxMod). */
@@ -2802,6 +2838,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   inboxMod: inboxMod,
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   myHomeSticker: ()=>myHomeSticker,
@@ -2829,6 +2866,7 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
+  mallangMod: mallangMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
@@ -3053,6 +3091,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   ytVideoId: (...a)=>plMod.ytVideoId(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getUserName: (...a)=>getUserName(...a),
@@ -3102,6 +3141,7 @@ const guestbook = TwGuestbook.createGuestbook({
   escHtml: (...a)=>escHtml(...a),
   applyThemeToChildDoc: (...a)=>themeUiMod.applyThemeToChildDoc(...a),
   watchMaintenanceInput: (...a)=>TwMaintenance.store.watchInput(...a),
+  installMacTip: (...a)=>TwMacTooltip.installChild(...a),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   mhViewingDisplayName: ()=>mhStateMod._mhViewingDisplayName(),
 });
@@ -3135,7 +3175,6 @@ const chatUiMod = TwChatUi.createChatUi({
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
   _chatEsc: (...a)=>_chatEsc(...a),
   _chatIsHost: (...a)=>chatLockMod._chatIsHost(...a),
-  _chatLinkify: (...a)=>_chatLinkify(...a),
   _chatLogCache: ()=>_chatLogCache,
   _chatLogUnsub: ()=>_chatLogUnsub,
   _chatOffOn: (...a)=>chatLockMod._chatOffOn(...a),
@@ -3179,13 +3218,6 @@ let _chatLogCache = [];        // 화면에 그린 마지막 메시지 목록(�
    ⚠️ `const` 가 아니라 **함수 선언**이다. 여기보다 앞줄에서 부르는 자리가 있어서
      호이스팅이 필요하다(const 로 바꾸면 TDZ 로 조용히 죽는다). */
 function _chatEsc(str){ return escHtml(str); }
-// 링크 감지 → 클릭 시 외부 열기. 이스케이프된 텍스트에서 http(s) URL만 <a>로 변환.
-function _chatLinkify(escapedText){
-  return escapedText.replace(/(https?:\/\/[^\s<]+)/g, (m)=>{
-    const safe = m.replace(/"/g,'&quot;');
-    return `<a href="#" data-url="${safe}" class="cm-link">${m}</a>`;
-  });
-}
 
 const CHAT_WIN_POS_KEY = 'tw_chat_win_pos';
 
@@ -3488,6 +3520,7 @@ const premiumMod = TwPremiumAssets.createPremiumAssets({
   findMySeat: (...a)=>findMySeat(...a),
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
   savedDesks: ()=>commissionMod.savedDesks(),
   savedItems: ()=>commissionMod.savedItems(),
@@ -3647,6 +3680,9 @@ const FOCUS_MS=1500,SLEEP_MS=8000,PET_MS=2200;
    (main.js가 activeAppState.isPenApp으로 알려줌 — 목록은 main.js의 PEN_APPS 한 곳에만 둔다) */
 const PEN_FOCUS_MS=4000;
 let _penAppFocused=false;
+/* 😴 «투게더워킹 창이 앞이면 안 잠듦» 규칙 — _applyActiveAppState · seatState 가 같이 쓴다(focus/focus-gate.js) */
+const focusGate = TwFocusGate;
+let _selfAppActive=false;   // 투게더워킹 창이 맨 앞인가 — _applyActiveAppState 가 focusGate.selfFront 로 정한다
 function focusWindowMs(){ return _penAppFocused ? PEN_FOCUS_MS : FOCUS_MS; }
 let lastActivity=performance.now(),windowFocused=!document.hidden,lastZ=0;
 function activity(){lastActivity=performance.now();}
@@ -3676,10 +3712,14 @@ function seatState(seat,now){
   if(!desktopMode && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
-  if(desktopMode && focusGateSleep) return 'sleep';
+  /* ⚠️ lastActivity 만 보면 안 된다 — 전역 키 · 클릭은 게이트가 닫혀 있으면 lastAnyInput 만 올린다. */
+  if(desktopMode && focusGateSleep) return focusGate.gatedPose(_selfAppActive, now-Math.max(lastActivity,lastAnyInput), SLEEP_MS);
   if(seat.isMe && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
   const idle=now-lastActivity;
-  if(idle<focusWindowMs())return 'focus'; if(idle>SLEEP_MS)return 'sleep'; return 'idle'; }
+  if(idle<focusWindowMs())return 'focus';
+  /* 🧸 피규어 모드는 «항상 깨어 있음» 이다 — 입력이 끊겨도(생각하는 동안 · 키 훅이 막힌 앱) 잠들지 않고 쉬는 자세. 자리비움은 위에서 잔다. */
+  if(idle>SLEEP_MS && !(desktopMode && figureMode))return 'sleep';
+  return 'idle'; }
 function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(seat.blink) seat.blink.pulses.push({start:now,dur:240}); }
 
 /* ============================================================ DRAG / PET */
@@ -3832,7 +3872,7 @@ canvas.addEventListener('pointermove',e=>{
 
   if(drag.mode==='slot'){
     const wx=worldX(e)-drag.grabX; drag.seat.group.position.x=wx;
-    const n=seats.length; const _spacing = seats.some(s=>s.remote) ? MULTIPLAYER_SPACING : SPACING; let idx=Math.round(-wx/_spacing); idx=Math.max(0,Math.min(n-1,idx));
+    let idx=seatLayoutMod.slotIndexAt(wx, drag.seat);   // 칸마다 설 자리를 셈해 가장 가까운 칸 — 간격으로 나누면 음수 간격에서 방향이 뒤집힌다
     if(window.TwSeatPin) idx = TwSeatPin.dragIndex(idx, drag.seat, seats, roomSeatMode);   // 🪑 맨 오른쪽 고정이면 내 자리는 그대로
     const cur=seats.indexOf(drag.seat);
     if(idx!==cur){seats.splice(cur,1);seats.splice(idx,0,drag.seat);layoutSeats();seatPanelMod.renderSeatTabs();}
@@ -5082,18 +5122,15 @@ async function applyEquippedPartsToSeat(seat, def){
 
 /* ============================================================ CREATOR + LAUNCHER */
 /* 🧍 캐릭터 저장 슬롯 개수. 3 → 5 (요청).
-   ★ 여기 하나만 고치면 되도록 아래 네 곳(loadSlots 순회 · 런처 (n/N) 라벨 · ◀▶ 순환)이
+   ★ 여기 하나만 고치면 되도록 서버에서 받아 앉히는 순회(applySlotObjs) · 런처 (n/N) 라벨 · ◀▶ 순환이
      전부 이 상수를 본다. 숫자를 다시 흩뿌리지 말 것 — 한 곳만 빠뜨리면 "칸은 보이는데
-     저장이 안 되는" 종류의 사고가 난다.
-   ⚠️ 옛 저장값(3칸)과의 호환: loadSlots 는 `arr[i]` 가 없으면 그 칸을 건너뛰므로 4·5번 칸이
-     null 로 남는다(패딩됨). 반대로 5칸으로 저장된 값을 옛 판본이 읽어도 앞 3칸만 읽고 지나간다.
-     즉 양방향 모두 안전하다.
+     저장이 안 되는" 종류의 사고가 난다(서버 슬롯 칸 수도 5 — 바꾸려면 서버 규격과 같이).
    ⚠️ extraSeatSlots(솔로모드 자리추가)는 슬롯 번호 목록이라 자동으로 최대 4석까지 늘어난다.
      layoutSeats 는 인원 수 상한이 없고(방은 이미 10명) 간격·줌을 실측으로 잡으므로 그대로 돈다. */
 const CHAR_SLOT_MAX=5;
 const slots=new Array(CHAR_SLOT_MAX).fill(null);
 /* 🛡️ [얼굴 영구 소실 방어 · 기억] 칸마다 «이 캐릭터는 그림을 가진 적이 있다».
-   켜지는 곳은 둘뿐이다 — loadSlots(부팅에 그림이 있었다) · saveSlots(멀쥰한 그림을 저장했다).
+   켜지는 곳은 둘뿐이다 — applySlotObjs(서버에서 받을 때 그림이 있었다) · saveSlots(멀쥰한 그림을 저장했다).
    꺼지는 곳은 하나뿐이다 — 생성기에서 사용자가 «비운 채 저장»을 직접 확인했을 때.
    이 값이 true 인 칸에 빈 그림이 저장되려 하면 그건 사용자의 뜻이 아니라 사고다. */
 const _faceEverDrawn  = new Array(CHAR_SLOT_MAX).fill(false);
@@ -5182,7 +5219,10 @@ const deskPresetStoreMod = TwDeskPresetStore.createDeskPresetStore({
 /* 본문은 creator/desk-preset.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskPresetMod = TwDeskPreset.createDeskPreset({
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  NO_DESK_ID: NO_DESK_ID,
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
   applyCreatorXform: (...a)=>creatorPrevMod.applyCreatorXform(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
@@ -5202,8 +5242,6 @@ const deskPresetMod = TwDeskPreset.createDeskPreset({
   equipDeskItem: (...a)=>equipDeskItem(...a),
   fitCreator: (...a)=>creatorPrevMod.fitCreator(...a),
   frameDeskCam: (...a)=>creatorPrevMod.frameDeskCam(...a),
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
   premiumMod: premiumMod,
   setCreatorDeskScale: (...a)=>deskPlaceMod.setCreatorDeskScale(...a),
   setDeskPos: (...a)=>deskPlaceMod.setDeskPos(...a),
@@ -5582,6 +5620,8 @@ const assetCardsMod = TwAssetCards.createAssetCards({
 /* 본문은 creator/desk-setup.js 로 옮겼다(C 구역 떼기 w4). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskSetupMod = TwDeskSetup.createDeskSetup({
+  NO_DESK_ID: NO_DESK_ID,
+  hideDeskBody: (...a)=>deskVisualMod.hideDeskBody(...a),
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   DEF_SIZE_TOAST_MS: ()=>creatorSaveMod.DEF_SIZE_TOAST_MS,
   DESK_ITEMS: DESK_ITEMS,
@@ -5603,7 +5643,7 @@ const deskSetupMod = TwDeskSetup.createDeskSetup({
   deskItemsMod: ()=>deskItemsMod,
   equipDeskItem: (...a)=>equipDeskItem(...a),
   isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   lightToneMod: ()=>lightToneMod,
   ndc: ndc,
   premiumMod: premiumMod,
@@ -5760,16 +5800,17 @@ let isAdmin = false;
 
 /* ============================================================ 라이선스 (직접 발급) — 프리미엄(꾸미기) 잠금 해제
    관리자가 관리자 모드에서 키를 직접 발급 → 구매자에게 전달(직거래) → 구매자가 앱에 입력하면
-   Firebase(licenses/{key})에서 유효성 확인 → 통과 시 로컬(localStorage)에 저장. */
+   서버(POST /v1/me/license)에 계정과 이 기기로 등록 → 프리미엄 여부는 서버 확인(GET /v1/me)만 따른다(account/license-premium.js). */
 /* ═══════════════════════ 🎟️ 게이트 — 로그인 · 가입 (앱 접근 제한) ═══════════════════════
    0.13 — 로그인 없이 쓰는 길은 없다(ADR-0006). 가입 · 초대 코드 판정 · 초대권은 서버가 한다(초대 게이트 스위치는 서버 user.inviteGate —
    꺼져 있으면 초대 코드 없이 가입). 켤 때 판정 순서는 license-gate.js checkInviteGate 머리말.
 ──────────────────────────────────────────────────────────────────── */
-let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 license-gate.js 의 _setPremium 하나
+let isPremium = false;   // 프리미엄 여부 — 여러 모듈이 읽어 app.js 에 둔다. 바꾸는 곳은 account-state.js 의 _setPremium 하나
 /* 🪪 계정 핵심 상태(라이선스 저장 키 · 프리미엄 깃발 바꾸기 · 신원 놓음 · 다시 켜기)는 account-state.js 에 —
    계정 · 초대 게이트 · 내 정보 · 포커스 레벨이 서로를 바라보지 않게(모듈 순환 끊기 5). isPremium 은 여기(app.js) 그대로, 바꾸는 곳은 _setPremium 하나 */
 const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
+  isAdmin: ()=>isAdmin,
   setIsPremium: (v)=>{ isPremium = v; },
 });
 /* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
@@ -5788,7 +5829,8 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
     identity: ()=>({ email: firebaseAPI.authCurrentEmail(), uid: firebaseAPI.authCurrentUid() }),
   },
   googleWindow: ()=>companion.signInWithGoogle(),
-  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), onState: (fn)=>TwRtHub.store.onState(fn) },
+  rt: { start: (o)=>TwRtHub.store.start(o), stop: ()=>TwRtHub.store.stop(), bye: (why)=>TwRtHub.store.bye(why), onState: (fn)=>TwRtHub.store.onState(fn) },
+  leaveRoom: ()=>Promise.resolve(Presence.active() ? twNav.go(twNav.NAV.LEAVE_ROOM) : null),   // 로그아웃 차례 — 방 leave 가 realtime 작별보다 먼저(방 모듈은 창 열기 통로로 — 순환 없이)
   pending: TwRequestId.createPending(),
   storage: localStorage,
   onSessionLost: ()=>deviceLostMod._onDeviceSessionLost(),
@@ -5799,7 +5841,9 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
 const firstRunMod = TwFirstRun013.createFirstRun({
   steps: {
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
-    legacySync: TwFirstRun013.pendingStep('캐릭터 올리기(legacy-sync)'),
+    gacha: TwFirstRun013.gachaStep(),
+    mallang: TwFirstRun013.mallangStep(localStorage),
+    legacySync: ()=>closetMod.legacyStep(),
     licenseKey: TwFirstRun013.pendingStep('라이선스 키'),
   },
   storage: localStorage,
@@ -5827,16 +5871,12 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   pruneUnownedLicenseAssets: (...a)=>premiumMod.pruneUnownedLicenseAssets(...a),
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
   refreshCustomStatusMenuItem: (...a)=>refreshCustomStatusMenuItem(...a),
+  refreshLauncherPreview: ()=>{ const lc=document.getElementById('launcher'); if(lc && lc.classList.contains('on') && slots[curSlot]) renderLauncher(); },
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   renderCrItems: (...a)=>deskSetupMod.renderCrItems(...a),
   restoreLicenseHeldAssets: (...a)=>premiumMod.restoreLicenseHeldAssets(...a),
   seats: seats,
-  setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
-  LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,
-  LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,
-  _setPremium: (...a)=>acctStateMod._setPremium(...a),
   onPremiumChanged: acctStateMod.onPremiumChanged,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
@@ -5848,56 +5888,63 @@ const adminUsers = TwAdminUsers.createAdminUsers({
   toast: (...a)=>toast(...a),
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
 });
+/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v1/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
+   키 등록 · 이 기기 해제 버튼(license-key.js · license-request.js)도 여기를 부른다. */
+const licensePremiumMod = TwLicensePremium.createLicensePremium({
+  userApi: userApiMod,
+  licenseApi: TwLicenseApi.store,
+  deviceId: ()=>TwDeviceId.store.get(),
+  deviceName: ()=>TwLicenseApi.deviceNameOf(navigator.userAgent),
+  setPremium: (v)=>acctStateMod._setPremium(v),
+  isPremium: ()=>isPremium,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  reasonOf: (e)=>TwUserApi.reasonOf(e),
+  resetCustomStatus: ()=>{ if(userStatus==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로
+});
 
 /* ═══ 🪑 [2026-09-18 제보 2] 라이선스 없는 기기에 남은 전용 자산을 **접어 둔다** ═══════════
-   [증상] 제보자(보유자) 화면에서 친구(미보유)가 가판대 책상을 착용한 것으로 보인다. 친구 화면에는
-     안 보이고, 방을 나갔다 들어오거나 런처를 껐다 켜도 유지된다.
-   [원인] 게이트가 **그리기만 막고 저장·전파는 안 막는다.**
-     · applyDeskCatalogRefToSeat 의 게이트는 `!seat.remote` 라 내 좌석에만 걸린다(그것은 의도이고 옳다 —
-       빼면 보유자 친구의 책상이 미보유자 화면에서만 기본 책상으로 보인다. 옛 제보다).
-     · 그런데 게이트에 걸린 쪽은 charDef.deskCatalogId 를 **그대로 들고 있고**, 그 값이
-       serializeDefForNetwork(Object.assign 통째 복사)를 타고 방으로 나간다. 받는 쪽은 remote 라
-       게이트 없이 그린다. 저장값이라 재입장·재시작에도 남는다.
-   [왜 지우지 않고 접어 두는가] 라이선스는 키 한 줄이면 다시 켜진다(activateLicense ·
-     서버 계정의 라이선스). 지워 버리면 재등록해도 책상이 안 돌아온다 — 그것이
-     예전에 「charDef 는 손대지 않는다」로 결정한 이유였다. 그래서 값을 **옮겨 적는다**:
-       deskCatalogId → deskLicenseHold · deskItems[id] → deskItemsLicenseHold[id]
-       · 좌석은 기본 책상으로 떨어진다(내 화면에서 해제된다)
-       · serializeDefForNetwork 가 이 두 필드를 빼므로 **친구 화면에서도 사라진다**
-       · 라이선스가 켜지면 restoreLicenseHeldAssets 가 그대로 되돌린다
-   ⚠️ **카탈로그가 도착하기 전에는 아무것도 안 한다.** licenseOnly 는 savedDesks/savedItems 의
-     레코드에만 있다. 조회 실패를 「전용 아님」으로도 「전용」으로도 단정하지 않는다 —
-     pruneUnownedGachaParts 가 savedParts 조회 실패를 다루는 관례와 같다.
-   ⚠️ **위조 방어가 아니다.** 라이선스는 localStorage 에 있고 계정에 안 묶인다(_setPremium 위 주석).
-     이것은 «남은 저장값 청소» 이고, 서버 규칙으로 막는 일과 섞지 말 것.
-   ★ 조용히 돈다 — 토스트가 없다. 못 쓰는 것을 원래대로 되돌리는 일이라 사용자에게 알릴 사건이
-     아니라는 결정(2026-09-18). 콘솔에는 남겨서 다음 제보 때 읽을 수 있게 한다.
-   ★ 이 둘은 **한 쌍**이다. 접기만 두고 되돌리기를 빠뜨리면 라이선스를 등록해도 책상이 안 돌아온다
-     — sim-license-leak.js 가 그 짝을 본다. */
+   왜: 게이트는 그리기만 막아 charDef.deskCatalogId 가 그대로 방으로 나갔다. 지우지 않고 deskLicenseHold · deskItemsLicenseHold 로
+     옮겨 적는다 — 라이선스가 켜지면 restoreLicenseHeldAssets 가 되돌린다(접기 · 되돌리기는 한 쌍 · sim-license-leak.js).
+   ⚠️ 카탈로그가 오기 전 · 프리미엄 «모름» 동안엔 아무것도 안 한다. 위조 방어가 아니다(화면 · 방 전파만 — 권한은 서버). */
 /* (앱 FSD 37번) 이 자리의 본문도 premium-assets.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 /* ═══ 🔐 라이선스 · 초대 게이트 시작 · 관리자 모드 진입 ═══ */
-// 앱 시작 시: 로컬에 저장된 키가 있으면 일단 프리미엄으로 간주(오프라인에서도 꾸미기 사용 가능하게),
-// 동시에 백그라운드로 재검증해서 (관리자가 비활성화한 경우 등) 무효화됐으면 조용히 잠금.
-licenseGateMod.loadLicenseFromStorage();
-/* 🚀 계정 확인 뒤(app-boot 의 licenseVerify 차례) — 저장된 키가 있으면 재검증. firebaseAPI가 module script 로드 지연으로 아직 없을 수 있으니 준비될 때까지 기다린다 */
-function startLicenseVerify(){
-  let key = null; try{ key = localStorage.getItem(acctStateMod.LICENSE_KEY_STORAGE); }catch(_){}
-  if(!key) return;
-  const doVerify = () => licenseGateMod.verifyLicense(key).then(r=>{
-    if(!r.ok && !r.offline){ try{localStorage.removeItem(acctStateMod.LICENSE_KEY_STORAGE);}catch(e){} acctStateMod._setPremium(false); }   // 회수된 키 — 내 책상도 같이 기본으로 돌아간다
-  });
-  TwNetReady.whenNetReady(doVerify);
-}
-
 // 🎟️ 앱 시작 시 초대장 게이트 — firebaseAPI가 준비된 뒤에 확인.
 //   원격 설정 inviteGate 가 false면 checkInviteGate가 즉시 통과시키므로 아무 일도 안 일어남.
 //   ★ 이 PC 저장값이 있으면 기다리지 않는다 — 저장값으로 바로 판단하고, 새 값은 뒤에서 받아 다음 부팅부터.
 //     저장값이 없을 때(처음 켠 PC)만 두 스위치의 첫 답을 최대 3초 기다린다 — 못 받으면 기본값(true · 예전 동작).
 const REMOTE_FLAGS_WAIT_MS = 3000;
+const MIN_APP_VER_WAIT_MS = 7000;   // 최소 버전 첫 답을 이만큼만 기다린다(update-flow.js 읽기 상한 8초보다 짧게) — 넘으면 막지 않는다
+/* 🔄 켤 때 업데이트 흐름(update-flow.js) — 업데이트 창 → 공지 창 → 로그인. 강제 창이 뜨면 로그인으로 넘어가지 않는다. */
+const _updRc = acctStateMod._rcStore();
+const updateFlowMod = TwUpdateFlow.createUpdateFlow({
+  readMin: ()=> _updRc ? _updRc.ready(null, MIN_APP_VER_WAIT_MS).then(()=>_updRc.minAppVer()) : null,
+  getMin: ()=> _updRc ? _updRc.minAppVer() : null,
+  onMinChange: (fn)=> _updRc ? _updRc.onChange((cur, key)=>{ if(key === 'minVersion') fn(); }) : ()=>{},
+  getVersion: ()=>window.companion ? window.companion.getAppVersion() : null,
+  companion: window.companion || null,
+  ui: TwUpdateFlow.createUpdateDom(document),
+  noticeOnce: (fn)=>noticeFeed.onceReady(fn),
+  showNotice: (n, done)=>_showUpdateNoticeOnce(n, done),
+});
+/* 🛰 realtime 끊김 화면(realtime/rt-status-ui.js) — 다시 연결 중 띠 · 로그인 풀림 · 계정 로그아웃 · 업데이트 강제 · 점검 · 모르는 닫힘 */
+TwRtStatusUi.createRtStatusUi({
+  rt: TwRtHub.store, inRoom: ()=>Presence.active(), band: TwRtStatusUi.createRtBandDom(document),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toLogin: ()=>accountMod._loginDoLogout({ force:true }).then(()=>acctStateMod._acctRelaunchAfterDetach(null)),   // 다시 켜면 게이트가 로그인 화면
+  withdrawing: ()=>accountMod.withdrawing(),
+  forceUpdate: ()=>updateFlowMod.forceProtocol(),
+  maintenance: (retry, onDismiss)=>TwMaintenance.store.serverClosed(retry, onDismiss),
+  setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h),
+});
 (function initInviteGate(){
+  // 업데이트 흐름은 Firebase 준비를 기다리지 않고 바로 시작한다 — firebase-init 이 깨진 판도 새 판 확인 · 받기로 고칠 수 있게. 로그인만 둘 다 기다린다.
+  const flowP = updateFlowMod.runBeforeLogin();
   const run = async ()=>{
     const _s = acctStateMod._rcStore();
     if(_s && _s.source() === 'default'){ try{ await _s.ready(['inviteGate'], REMOTE_FLAGS_WAIT_MS); }catch(_){} }
+    const flow = await flowP;
+    if(!flow.proceed) return;   // 강제 업데이트 — 창이 앱을 막고 있다
     licenseGateMod.checkInviteGate()   // 🔑 로그인 · 서버 가입 확인 → 게이트(필요하면) · realtime · 0.13 첫 실행
       .then(()=>{ licenseGateMod.refreshInviteBtn(); })
       .catch(err=>{ console.warn('[invite] 게이트 확인 실패', err); });
@@ -6117,11 +6164,12 @@ function openCreator(mode){
   if(crState.cBase){ creatorPrevMod.applyCreatorXform(); creatorPrevMod.clearCreatorItems(); creatorPrevMod.clearCreatorParts();   /* 🪑 이전 세션의 '책상 위' 파츠까지 걷어낸다(아래 applyEquippedPartsToSeat 가 다시 붙인다) */
     if(crState.cDesk)crState.cDesk.userData.deskScale=crState.cDeskScale; deskVisualMod.swapDeskVisual(crState.cDesk,null);
     (async()=>{
-      if(src&&src.deskCatalogId){
+      if(src&&src.deskCatalogId===NO_DESK_ID){ crState.activeCustomDeskId=NO_DESK_ID; deskVisualMod.hideDeskBody(crState.cDesk); }
+      else if(src&&src.deskCatalogId){
         const m=commissionMod.savedDesks().find(d=>d.id===src.deskCatalogId);
         /* 🔒 [2026-09-15] 라이선스가 빠진 뒤 남은 전용 책상 참조는 생성기에 싣지 않는다 — 실으면 저장 때
            deskCatalogId 가 다시 굳어 실행 화면에서 매번 기본 책상으로 떨어지는 상태가 이어진다. 기본 책상으로 열린다. */
-        if(m && m.licenseOnly && !isPremium && !isAdmin){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
+        if(m && acctStateMod.licenseAssetBlocked(m)){ toast('🔒 "'+(m.name||'이 책상')+'"은(는) 라이선스 보유자만 사용할 수 있어요 — 기본 책상으로 열어요'); }
         else if(m){
           if(!m.glb && m.glbUrl){
             try{ await catalogGlbMod.resolveCatalogGlb(m); }catch(_){}
@@ -6212,6 +6260,7 @@ function openCreator(mode){
 /* 본문은 creator/creator-save.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const creatorSaveMod = TwCreatorSave.createCreatorSave({
+  NO_DESK_ID: NO_DESK_ID,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   Presence: ()=>Presence,
   _blankFaceConfirmed: ()=>_blankFaceConfirmed,
@@ -6233,7 +6282,6 @@ const creatorSaveMod = TwCreatorSave.createCreatorSave({
   cTopColor: ()=>crState.cTopColor,
   cXform: ()=>crState.cXform,
   charDef: (...a)=>charDef(...a),
-  charsMod: ()=>charsMod,
   clampCharY: (...a)=>clampCharY(...a),
   clearStampState: (...a)=>crStampMod.clearStampState(...a),
   collectDeskItems: (...a)=>collectDeskItems(...a),
@@ -6311,18 +6359,19 @@ function renderLauncher(){
   const def=slots[curSlot];
   document.getElementById('lcCount').textContent='('+(curSlot+1)+'/'+CHAR_SLOT_MAX+')';
   document.getElementById('lcEmpty').style.display=def?'none':'flex';
+  launcherCtlMod.renderEmptyState();
   document.getElementById('lcGear').style.display=def?'block':'none';
   document.getElementById('lcPreview').style.display=def?'block':'none';
   /* #lcLoad([내 정보]) · lcCreate(HTML 에서 늘 disabled)는 여기서 토글하지 않는다. */
   launcherPrevMod.sizeLauncherPreview();launcherPrevMod.setLauncherChar(def);launcherCtlMod.closeGearMenu();
-  try{ slotSyncMod._slotsRenderBand(); }catch(_){}}   // 🛟 연동 띠(3-7-2 A안)
+}
 
 /* ═══ 🎛️ 런처 컨트롤 — 슬롯 넘기기 · 톱니 메뉴 · 삭제 · 보관함 이동 ═══ */
 /* 본문은 launcher/launcher-controls.js 로 옮겼다(C 구역 떼기 · w3). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const launcherCtlMod = TwLauncherControls.createLauncherControls({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  charsMod: ()=>charsMod,
+  closetMod: ()=>closetMod,
   curSlot: ()=>curSlot,
   launchApp: (...a)=>launchApp(...a),
   openCreator: (...a)=>openCreator(...a),
@@ -6330,7 +6379,6 @@ const launcherCtlMod = TwLauncherControls.createLauncherControls({
   renderLauncher: (...a)=>renderLauncher(...a),
   saveCurSlot: (...a)=>saveCurSlot(...a),
   settingsMod: settingsMod,
-  slotSaveMod: ()=>slotSaveMod,
   slots: slots,
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
@@ -6360,7 +6408,6 @@ const commImpMod = TwCommissionImport.createCommissionImport({
   CANVAS_SZ: CANVAS_SZ,
   charCodeMod: ()=>charCodeMod,
   charDef: (...a)=>charDef(...a),
-  charsMod: ()=>charsMod,
   commissionMod: ()=>commissionMod,
   creatorSaveMod: creatorSaveMod,
   curSlot: ()=>curSlot,
@@ -6772,8 +6819,6 @@ function backToLauncher(){
   focusLevelMod.syncFocusTotalToServer('launcher');
   // 👑 달성표도 같은 경계에서 맞춘다 — 다른 기기에서 체크한 오늘 항목이 여기서 따라온다.
   weeklyChal.syncChalToServer('launcher');
-  // 🎰 가챠도 같은 경계에서. 셋 다 '다른 기기에서 쌓인 것을 받아오는' 같은 성격이라 한자리에 둔다.
-  gachaMod.syncGachaToServer('launcher');
   applyDesktopRunClass();
 }
 document.getElementById('toLauncher').onclick=backToLauncher;
@@ -6951,6 +6996,11 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   roomSettings: TwRoomSettings,
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
+// 🕘 최근 들어간 방 — 연결되면 기록하고, 로비 코드 칸을 누르면 펼친다(room/recent-rooms*.js)
+const recentRooms = TwRecentRooms.createRecentRooms({ storage: localStorage, getMyUserId: (...a)=>getMyUserId(...a), now: ()=>Date.now(), isRoomCode: roomEntryMod.isRoomCode });
+roomEntryMod.onRoomJoined((code, meta)=>recentRooms.record(code, TwRoomSettings.displayTitle(meta && meta.title, meta && meta.hostName,
+  TwBannedWords.cleanBannedList(acctStateMod._rcStore().bannedWords()), TwBannedWords).text));   // 제목은 방 안 제목 칸과 같은 판단(금칙어면 «○○ 님의 방»)
+TwRecentRoomsUi.createRecentRoomsUi({ document, recent: recentRooms, agoText: TwRecentRooms.agoText, now: ()=>Date.now(), joinRoom: (code)=>roomEntryMod.joinRoom(code) });
 // 🏷️ 방 만들기 창 — 로비의 [방 만들기] 가 열고, 창의 [방 만들기] 가 방 입장 모듈의 만들기로 넘긴다(room/room-create-ui.js)
 const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   roomSettings: TwRoomSettings,
@@ -6969,7 +7019,7 @@ TwRoomLobbyUi.createRoomLobbyUi({
   twNav: twNav,
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
-  joinRoom: (code)=>roomEntryMod.startRoom(code),
+  joinRoom: (code)=>roomEntryMod.joinRoom(code),   // 입장 중 막기는 room-entry 한 깃발(코드 칸 · 최근 방과 같이)
   openCreate: (ch)=>roomCreateUi.open(ch),
   toast: (...a)=>toast(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -7057,12 +7107,8 @@ const accountMod = TwAccount.createAccount({
   accountLegacyStore: accountStoreMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  GACHA_BONUS_KEY: ()=>GACHA_BONUS_KEY,
-  GACHA_OWNED_KEY: ()=>GACHA_OWNED_KEY,
-  GACHA_TS_KEY: ()=>GACHA_TS_KEY,
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
   LICENSE_REQ_ID_KEY: ()=>licReqMod.LICENSE_REQ_ID_KEY,
-  LS_KEY: ()=>slotSaveMod.LS_KEY,
   MY_AD_BANNER_KEY: settingsMod.MY_AD_BANNER_KEY,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,
@@ -7072,7 +7118,6 @@ const accountMod = TwAccount.createAccount({
   _focusTotalSec: ()=>_focusTotalSec,
   _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),
   _setMyUserId: (...a)=>_setMyUserId(...a),
-  charsMod: ()=>charsMod,
   extraSeatSlots: ()=>settingsMod.extraSeatSlots(),
   focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
@@ -7080,7 +7125,8 @@ const accountMod = TwAccount.createAccount({
   acctStateMod: acctStateMod,
   plMod: plMod,
   mhScheduler: mhScheduler,
-  slotSyncMod: ()=>slotSyncMod,
+  mallangStore: mallangStoreMod,
+  bugBoardReset: (...a)=>bugBoardUi.reset(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
   weeklyChal: ()=>weeklyChal,
@@ -7134,7 +7180,6 @@ const accountMod = TwAccount.createAccount({
 /* 본문은 my-info.js 로 옮겼다(앱 FSD 17번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const myInfoMod = TwMyInfo.createMyInfo({
-  CHARS_BOX_MAX: ()=>charsMod.CHARS_BOX_MAX,
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   EXP_SEC_PER_CELL: ()=>expBarMod.EXP_SEC_PER_CELL,
   EXP_SEC_PER_LEVEL: ()=>expBarMod.EXP_SEC_PER_LEVEL,
@@ -7144,27 +7189,12 @@ const myInfoMod = TwMyInfo.createMyInfo({
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
   USER_NAME_MAX: userNameMod.USER_NAME_MAX,
   _acctDetached: ()=>acctStateMod._acctDetached(),
-  _charsActive: (...a)=>charsMod._charsActive(...a),
-  _charsBoxGet: (...a)=>charsMod._charsBoxGet(...a),
-  _charsBoxOnlyCount: (...a)=>charsMod._charsBoxOnlyCount(...a),
-  _charsBoxToDesk: (...a)=>charsMod._charsBoxToDesk(...a),
-  _charsBoxTrash: (...a)=>charsMod._charsBoxTrash(...a),
-  _charsBoxTrashMany: (...a)=>charsMod._charsBoxTrashMany(...a),
-  _charsCachedUid: (...a)=>charsMod._charsCachedUid(...a),
-  _charsDeleteWords: (...a)=>charsMod._charsDeleteWords(...a),
-  _charsDeskGet: (...a)=>charsMod._charsDeskGet(...a),
-  _charsIsTomb: (...a)=>charsMod._charsIsTomb(...a),
-  _charsMoveMsg: (...a)=>charsMod._charsMoveMsg(...a),
-  _charsRestore: (...a)=>charsMod._charsRestore(...a),
-  _charsSync: (...a)=>charsMod._charsSync(...a),
-  _charsTrashView: (...a)=>charsMod._charsTrashView(...a),
   _focusTotalSec: ()=>_focusTotalSec,
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
   _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
   _withdrawPreview: (...a)=>accountMod._withdrawPreview(...a),
   _myHomeData: ()=>mhStateMod._myHomeData(),
   _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
-  _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
   closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   curSlot: ()=>curSlot,
@@ -7185,8 +7215,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   slots: slots,
   toast: (...a)=>toast(...a),
   setCurSlot: (v)=>{ curSlot = v; },
-  CHARS_LINKED_KEY: accountMod.CHARS_LINKED_KEY,
-  charsMod: ()=>charsMod,
+  closetMod: ()=>closetMod,
   _acctRelaunchAfterDetach: (...a)=>acctStateMod._acctRelaunchAfterDetach(...a),
 });
 /* (앱 FSD 17번) 이 자리의 본문도 my-info.js 로 옮겼다 — 만드는 줄은 첫 자리. */
@@ -7243,10 +7272,11 @@ const adminLauncher = TwAdminLauncher.createAdminLauncher({
 /* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseKeyMod = TwLicenseKey.createLicenseKey({
-  licenseGateMod: licenseGateMod,
+  licensePremiumMod: licensePremiumMod,
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */
@@ -7261,7 +7291,7 @@ const outsideCloseMod = TwOutsideClose.createOutsideClose({
 const licReqMod = TwLicenseRequest.createLicenseRequest({
   _saveFailMsg: (...a)=>_saveFailMsg(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
-  licenseGateMod: licenseGateMod,
+  licensePremiumMod: licensePremiumMod,
   twNav: twNav,
   refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
   toast: (...a)=>toast(...a),
@@ -7284,13 +7314,13 @@ const adminNotice = TwAdminNotice.createAdminNotice({
 
 
 // 유저: 앱 시작 시 공지 확인 → 미표시 조건 아니면 팝업. 공지 한 판(noticeFeed)을 처음 받았을 때 한 번만 본다.
-function _showUpdateNoticeOnce(notice){
-  if(!notice || !notice.ts) return;
+function _showUpdateNoticeOnce(notice, done){   // done — 창이 닫히거나 보일 게 없을 때 한 번(켜는 흐름이 다음 단계로)
+  if(!notice || !notice.ts){ done(); return; }
   // "다시 보지 않기" 체크한 ts와 같으면 스킵
   const dismissedTs = parseInt(localStorage.getItem('tw.updateNoticeDismissedTs')||'0', 10);
-  if(dismissedTs === notice.ts) return;
+  if(dismissedTs === notice.ts){ done(); return; }
   // 팝업 표시
-  const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov) return;
+  const ov=document.getElementById('updateNoticeUserOverlay'); if(!ov){ done(); return; }
   document.getElementById('updateNoticeViewTitle').textContent = notice.title || '업데이트 안내';
   { const _nb = document.getElementById('updateNoticeViewBody');
     _nb.innerHTML = inboxMod.linkifyText(notice.body || '');   // 본문 속 주소를 클릭 가능하게
@@ -7304,11 +7334,12 @@ function _showUpdateNoticeOnce(notice){
       try{ localStorage.setItem('tw.updateNoticeDismissedTs', String(notice.ts)); }catch(_){}
     }
     ov.style.display = 'none';
+    done();
   };
   document.getElementById('updateNoticeOkBtn').onclick = close;
   document.getElementById('updateNoticeCloseX').onclick = close;
 }
-noticeFeed.onceReady(_showUpdateNoticeOnce);   // 처음 받았을 때 한 번 — 못 받았으면 다음에 받을 때
+// 공지 창은 켜는 흐름(updateFlowMod — 업데이트 창 다음)이 처음 받았을 때 한 번 띄운다
 // 켤 때 공지를 받는다 — 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않는다(로그인 화면 위에도 업데이트 공지가 뜬다). 이후엔 서버가 «공지가 바뀌었다» 하면 다시 받는다 — notice-feed.js
 TwNetReady.whenNetReady(()=>noticeFeed.start());
 
@@ -7356,7 +7387,7 @@ const addFriendMod = TwAddFriend.createAddFriend({
   toast: (...a)=>toast(...a),
 });
 
-/* ═══ 💾 슬롯 저장 · 복원(saveSlots · loadSlots) ═══ */
+/* ═══ 💾 슬롯 저장 · 받아 앉히기(saveSlots · applySlotObjs) ═══ */
 /* 본문은 slot-save.js 로 옮겼다(앱 FSD 43번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const slotSaveMod = TwSlotSave.createSlotSave({
@@ -7374,159 +7405,56 @@ const slotSaveMod = TwSlotSave.createSlotSave({
   setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },
 });
 /* 슬롯 저장 · 복원 뒤 할 일 — 이 모듈보다 먼저 만들어지는 위층(프리미엄 · 꾸미기 · 설정 화면)은 여기서 건다.
-   동기화 · 보관함은 자기를 만들 때 스스로 건다(slot-sync.js · chars.js). */
+   서버 원본 옷장(closet.js)은 자기를 만들 때 스스로 건다(onSaved). */
 slotSaveMod.onLoaded(()=>premiumMod.pruneUnownedLicenseAssets());
+// 옷장은 보통 가챠보다 늦게 받아진다 — 가챠가 끝날 때의 회수는 빈 슬롯을 보고 지나가므로 받아 앉힌 뒤 한 번 더(보유분을 모르면 회수 쪽이 물러난다)
+slotSaveMod.onLoaded(()=>gachaMod.pruneUnownedGachaParts());
 slotSaveMod.onSeatRelinked((old, cur)=>wardrobeMod.relinkDraftSrc(old, cur));
 slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
 
-/* ═══ ☁️ 슬롯(캐릭터) 기기 간 동기화 — 2026-09-16 제보 6-b «캐릭터가 집 PC 에 없음» ═══════════
-   [무엇이 없었나] 서버 users/{uid} 에는 gacha(보유 파츠)·playlist·profile·home… 만 있고 **슬롯
-     노드가 없었다.** 슬롯은 localStorage 에만 살아서, 회사에서 뽑은 파츠는 집에 있어도 그걸로
-     만든 캐릭터는 없었다. 고장이 아니라 기능 부재.
-   [모양] users/{uid}/slots = { ts, v:1, s:{ "0":json, … } } — 칸마다 JSON 문자열(firebase-init 주석).
-     ★ 그림·GLB 는 **한 바이트도 RTDB 에 안 실린다.** 얼굴·감은눈·동물 페인트는 방 입장과 같은
-       Storage 파일(roomface_{key}_{hash}.png)의 URL 로, 커미션·커스텀 책상·커스텀 아이템 GLB 는
-       slotglb_{key}.glb 의 URL 로 바꿔 실린다. 같은 그림은 같은 파일이라 재업로드가 없고, 방에
-       한 번이라도 들어간 캐릭터는 얼굴이 이미 올라가 있어 **추가 업로드 0**.
-     ★ thumb(런처 아이콘 3D 스냅샷)은 안 올린다. 받은 기기는 2D 합성 아이콘(makeCharThumbEl 의
-       폴백)으로 보이고, 그 기기에서 한 번 저장하면 다시 찍힌다.
-   [병합 — 결정됨 · 2026-09-16] 가챠와 같은 자리 나누기.
-     · 평소: ts 최신 승 **통째 덮어쓰기**. 슬롯은 순서 있는 편집물이라 칸 단위 max 가 없다.
-     · 연동(계정 이전·구글 로그인 — 둘 다 _restoreOwnedDataAfterTransfer 한 통로): 저쪽 계정 것을
-       ts 안 보고 pull. 저쪽이 비어 있으면 내 것을 push(로컬에만 캐릭터가 있던 사람의 첫 업로드).
-     · (A) 부팅: 서버가 비었고 로컬에 있으면 자동으로 한 번 올린다 — 기존 사용자가 아무것도 안
-       해도 집 PC 가 받게. 서버가 비었을 때만이라 계정당 사실상 한 번이다.
-   [비용]
-     · 읽기: 부팅 1회 + 30분마다 1회, 그것도 **ts 한 값만**(loadSlotsTs). 본문은 ts 가 다를 때만.
-     · 쓰기: 저장본이 실제로 바뀐 saveSlots 뒤 3초 묶음 1회(_slotsSchedulePush). 얼굴 업로드는
-       내용 해시 캐시(tw.roomFaceUrls)를 지나 바뀐 그림만.
-   [_imgBroken] push 는 **메모리 slots 가 아니라 localStorage 원본**을 읽는다. 부팅 때 이미지 복원에
-     실패한 칸은 메모리에 빈 캔버스가 있고 saveSlots 도 그 칸을 건너뛰어 원본을 지키는데, 메모리를
-     올리면 그 빈 캔버스가 서버에 굳는다(핸드오프 §5 주의). 원본을 읽으면 이 예외가 저절로 지켜진다.
-   [시각] 가챠와 같이 서버 시계(_srvNow). **ms ts 에 |0 금지** — 32비트로 잘려 음수가 된다.
-   [적용] 서버 것을 받아 적을 때(_slotsAdoptFromServer) 메모리 slots 도 같이 갈아 끼운다.
-     localStorage 만 바꾸고 메모리를 두면 다음 saveSlots 가 옛 메모리로 원본을 덮고 그걸 더 새
-     ts 로 올려 **다른 기기 편집을 지운다.** 책상 위 좌석은 옛 def 객체를 그대로 붙들고 있으므로
-     재실행하면 바뀐다고 안내한다. 생성기가 열려 있으면 이번 판은 건너뛴다(편집 중인 칸을 뺏지 않는다). */
-/* 본문은 slot-sync.js 로 옮겼다(앱 FSD 19번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
+/* ═══ 🧬 옷장 — 슬롯 5칸 · 보관함 · 휴지통 (서버 원본) ═══════════════════════════════════════
+   캐릭터는 서버가 원본이다(0.13). 시작할 때 서버 옷장을 받아 slots[] 에 앉히고(closet.js startCloset — 계정 확인 뒤 app-boot),
+   고치면 3초 묶음으로 서버에 쓰고, 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 이 PC 에 캐릭터 저장본 · 보관함 사본 ·
+   고친 시각 · 백업 · 충돌 판정은 없다(0.12 의 slot-sync.js · chars.js 맞추기 장치는 걷었다).
+   · slot-codec.js — 화면의 캐릭터 한 칸(그림은 dataURL) ↔ 서버 def(그림은 Storage 주소) 바꾸기 + 올리기 캐시
+   · closet-api.js — /v1/me/avatars… 서버 길(provider) · closet.js — 받기 · 쓰기 · 동작 · 0.13 첫 실행 올리기(legacy-sync)
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const slotSyncMod = TwSlotSync.createSlotSync({
-  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  LS_KEY: slotSaveMod.LS_KEY,
-  _blinkEverDrawn: _blinkEverDrawn,
-  _faceEverDrawn: _faceEverDrawn,
-  _quickHash: (...a)=>roomSyncMod._quickHash(...a),
-  _roomFaceCacheLoad: (...a)=>roomSyncMod._roomFaceCacheLoad(...a),
-  _roomFaceCacheSave: (...a)=>roomSyncMod._roomFaceCacheSave(...a),
-  _srvNow: (...a)=>roomSyncMod._srvNow(...a),
-  _storageFaceUrlOne: (...a)=>roomSyncMod._storageFaceUrlOne(...a),
-  _warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
-  creatorOpen: ()=>creatorOpen,
-  getMyUserId: (...a)=>getMyUserId(...a),
+const slotCodecMod = TwSlotCodec.createSlotCodec({
   glbUploadCache: uploadCacheMod,
-  loadSlots: (...a)=>slotSaveMod.loadSlots(...a),
-  renderLauncher: (...a)=>renderLauncher(...a),
-  slotToObj: (...a)=>slotSaveMod.slotToObj(...a),
-  slots: slots,
-  toast: (...a)=>toast(...a),
-  onSaved: slotSaveMod.onSaved,
-  slotsReplaced: slotSaveMod.slotsReplaced,
-});
-
-/* ═══ ☁️ [2026-09-20 · 3-7-2 시안 확정] 연동 UI — 띠(런처) · 기기 연동 구획(계정 탭) · ④ 충돌 대화상자 ═══
-   [자리] A안 띠 = 캐릭터가 줄어든 것을 **보는 그 자리**(그림 위). B안 구획 = 띠를 놓쳐도 나중에 찾아갈 자리.
-     둘 다 같은 기록(SLOTS_LOSS_KEY)을 읽는다. 대화상자 = ④ 가 세운 판을 사람이 고르는 자리.
-   [기록] 셋 다 로컬 전용·다시 만들 수 있는 값이라 ACCOUNT_LOCAL_KEYS 에 넣었다(로그아웃 = 정리).
-     · SLOTS_LOSS_KEY     { kind:'loss', from, to, at, bak } | { kind:'restored', to, at } | + dismissed:true
-     · SLOTS_LASTSYNC_KEY { at, ok, why?, localCount, serverCount? }  — serverCount 는 알게 된 값을 이어 쓴다
-     · SLOTS_PUSHFAIL_KEY { why, at }  — 올리기 성공에 지운다
-   [문구] 시안(캔버스 «3-7-2 시안») 그대로. «되돌릴 수 있는 기한» 줄은 뺐다 — 백업은 연동으로 사라지지 않고
-     되돌리기가 곧 맞바꾸기라 기한이 없다(restoreSlotsBackup 주석). */
-/* (앱 FSD 19번) 이 자리의 본문도 slot-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══════════ 🧬 캐릭터 단위 병합 — 순수 함수 (회원가입 설계 §2-4 · 2026-09-20 · 아직 아무도 안 부른다) ═══════════
-   [무엇인가] users/{uid}/chars/{cid} 한 마리씩의 로컬 사본과 서버 사본을 **합집합**으로 맞춘다. 5칸 통째 교체(3-7)를 대신할 규칙.
-     entry = { def, mtime }(산 마리) | { del: mtime }(묘비). 값을 지우는 일은 없다 — 지우면 다른 기기가 «없네» 하고 되살린다.
-   [규칙 — 설계 §2-4 표 그대로]
-     · 한쪽에만 있음            → 있는 쪽 (묘비도 그대로 건너간다)
-     · 둘 다 · mtime 같음       → 할 일 없음
-     · 둘 다 · 다름             → mtime 큰 쪽. 진 쪽에 def 가 있으면 trash 에 남긴다(이긴 쪽이 묘비면 'deleted' · 산 마리면 'overwritten')
-     · 서버 mtime 이 미래(now + skewTol 밖) → 지금 시각으로 찍어서 **올린다**(33307 의 규칙을 마리 단위로 — 시계 틀어진 기기가 영영 이기지 않게)
-   [왜 순수 함수인가] 검사(sim-chars-merge.js)가 스텁 없이 이 본문을 그대로 돌린다. localStorage·firebase 를 만지는 일은 부르는 쪽 몫.
-   [돌려주는 것] { merged, push, pull, trash, fixed }
-     merged: 맞춘 뒤의 전체(cid → entry) · push: 서버에 써야 할 것 · pull: 로컬에 써야 할 것
-     trash: [{ cid, def, mtime, why }] — 진 쪽 산 마리 · fixed: 미래 mtime 을 정정한 cid 목록
-   ⚠️ cid 는 불변이고 내용 해시가 아니다(설계 §1-3). 같은 마리인가는 cid 로만 가른다. */
-/* 본문은 chars.js 로 옮겼다(앱 FSD 18번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const charsMod = TwChars.createChars({
-  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  LS_KEY: slotSaveMod.LS_KEY,
-  MY_USER_ID_KEY: MY_USER_ID_KEY,
-  SLOTS_SYNC_INTERVAL_MS: slotSyncMod.SLOTS_SYNC_INTERVAL_MS,
-  SLOTS_TS_SKEW_TOL_MS: slotSyncMod.SLOTS_TS_SKEW_TOL_MS,
-  SLOT_IMG_FIELDS: slotSyncMod.SLOT_IMG_FIELDS,
-  SLOT_JSON_MAX: slotSyncMod.SLOT_JSON_MAX,
-  _blinkEverDrawn: _blinkEverDrawn,
-  _faceEverDrawn: _faceEverDrawn,
   _quickHash: (...a)=>roomSyncMod._quickHash(...a),
-  _relinkSeatsToSlots: (...a)=>slotSaveMod._relinkSeatsToSlots(...a),
-  _roomFaceCacheLoad: (...a)=>roomSyncMod._roomFaceCacheLoad(...a),
-  _roomFaceCacheSave: (...a)=>roomSyncMod._roomFaceCacheSave(...a),
-  _slotFromServerObj: (...a)=>slotSyncMod._slotFromServerObj(...a),
-  _slotGlbCacheLoad: (...a)=>slotSyncMod._slotGlbCacheLoad(...a),
-  _slotGlbCacheSave: (...a)=>slotSyncMod._slotGlbCacheSave(...a),
-  _slotToServerObj: (...a)=>slotSyncMod._slotToServerObj(...a),
-  _slotsBackupSave: (...a)=>slotSyncMod._slotsBackupSave(...a),
-  _slotsFilledCount: (...a)=>slotSyncMod._slotsFilledCount(...a),
-  _slotsNow: (...a)=>slotSyncMod._slotsNow(...a),
-  _slotsTs: ()=>slotSyncMod._slotsTs(),
-  creatorOpen: ()=>creatorOpen,
-  loadSlots: (...a)=>slotSaveMod.loadSlots(...a),
-  renderLauncher: (...a)=>renderLauncher(...a),
-  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),
-  slots: slots,
-  toast: (...a)=>toast(...a),
-  onSaved: slotSaveMod.onSaved,
-  onBackupRestored: slotSyncMod.onBackupRestored,
-  setCharsActiveCheck: slotSyncMod.setCharsActiveCheck,
-  slotsReplaced: slotSaveMod.slotsReplaced,
+  _storageFaceUrlOne: (...a)=>roomSyncMod._storageFaceUrlOne(...a),
+  slotToObj: (...a)=>slotSaveMod.slotToObj(...a),
+  uploadGlb: (...a)=>firebaseAPI.uploadSlotGlb(...a),   // 개인 GLB 는 아직 Storage 직접 올리기 — 주소만 서버 def 에 실린다
 });
-charsMod.onBootLinked(()=>myInfoMod._charsLinkedMaybeShow());   // 부팅 채택 뒤 «연동됨» 안내 — 내 정보가 보관함보다 먼저 만들어져 여기서 건다
-
-/* ═══════════ 🧬 이관 — slots → chars (회원가입 설계 §5-N-2 · 2026-09-21 · 개정 33 · 아직 아무도 안 부른다) ═══════════
-   [무엇인가] 5칸 저장본(서버 slots · slotsPrev · 이 기기 LS_KEY)에 있는 마리들에게 cid 를 붙여 chars 모양으로 옮긴다.
-     순수 함수 둘 + 열쇠 하나. localStorage·firebase 를 만지는 일은 부르는 쪽 몫(병합 함수와 같은 규칙).
-   [왜 _charIdentityFingerprint 가 아닌가] 그 지문은 **같은 표현**끼리 비교하려고 만든 것이다(친구 좌석 재빌드용).
-     이 기기 저장본은 얼굴을 dataURL 로, 서버 저장본은 Storage URL 로 들고 있어서 같은 마리도 지문이 다르다 —
-     그대로 쓰면 이관 첫 부팅에 모든 기기가 모든 마리를 «새 마리» 로 올린다(5마리 → 10마리).
-     ⇒ 그림은 **내용 해시**로 본다. 로컬은 `_quickHash(dataURL)`, 서버는 URL 이름 속 해시 — 올릴 때
-       `_storageFaceUrlOne`·`_storageGlbUrlOne` 이 `종류_해시` 로 이름을 지으므로 같은 그림이면 같은 값이 나온다.
-   [열쇠 두 벌 — 같은 마리인가]
-     K1 = 정체성: 피부·옷 색·동물 여부·동물 얼굴·커미션 여부 + 그림 여덟 + 커미션 GLB 의 내용 해시.
-          치장(파츠·xf·꾸미기)·책상은 안 본다 — 그걸 바꾼 것은 «같은 마리를 고친 것» 이라 같은 cid 에 mtime 으로 이긴다.
-     K2 = 그림을 뺀 나머지 전부(키 정렬 JSON). 해시를 URL 에서 못 꺼내는 옛 이름(개정 25 전) 대비 — 그림 말고는 한 글자도
-          안 다를 때만 맞는다. K1 이 맞으면 K2 는 안 본다.
-     둘 다 안 맞으면 **새 cid** — 잃지 않는 쪽으로 틀린다(최악이 «같은 마리가 둘» 이고, 보관함에서 보인다).
-   [짝짓기는 1:1] 한 cid 에 두 칸이 붙지 않는다(같은 캐릭터를 두 칸에 둔 사람). 열쇠가 같은 후보가 여럿이면 같은 칸 번호를 먼저.
-   ⚠️ 로컬 def 는 **LS_KEY 원본**(문자열 그림)을 넣을 것. 메모리 `slots` 는 얼굴이 캔버스라 해시가 안 나온다
-     (`_slotsPushToServer` 가 메모리를 안 보는 것과 같은 이유 — `_imgBroken` 주석).
-   ⚠️ 서버 이관(`_charsFromServerSlots`)은 **서버에서 한 번만** — 두 기기가 동시에 하면 같은 마리가 cid 둘을 받는다.
-     부르는 쪽은 `charsMeta` 를 트랜잭션으로 먼저 잡은 기기만 쓰게 할 것(firebase-init 쪽 일 · 아직 없음). */
-/* (앱 FSD 18번) 이 자리의 본문도 chars.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-
-/* ═══════════ 🧬 이관 조율 — 서버 쓰기 + 미리보기 (설계 §5-N-2 · 2026-09-21 · CHECKS 개정 34) ═══════════
-   [무엇인가] 위 순수 함수들을 firebase-init 의 chars 통로(loadCharsRemote · claimCharsMigration · saveCharsEntries ·
-     finishCharsMigration)에 잇는 자리. **부팅에서 부르지 않는다.**
-   · `_charsServerMigrate` — 서버 slots(+slotsPrev) → chars. 첫 이관은 charsMeta 트랜잭션을 잡은 기기만 한다.
-     이관 창 되돌이(옛 클라이언트가 slots 를 바꿈)는 같은 함수가 한다 — 짝짓기가 def 문자열 같음을 먼저 보므로 몇 번 돌아도 같다.
-     **CHARS_SYNC_ENABLED 가 꺼져 있으면 아무것도 안 쓴다.** 규칙(chars·trash·charsMeta)이 게시되기 전에 켜면 쓰기가 전부 거부된다.
-   · `charsMigrateDryRun` — 콘솔 전용 · **읽기만**. 이 계정의 실제 데이터로 짝짓기·병합을 돌려 보고 표로 찍는다.
-     열쇠(K1 = 그림 내용 해시)가 실제 Storage URL 에서 나오는지를 실기기에서 보는 유일한 자리다 — `sim-chars-migrate.js` 는 URL 모양을
-     가정했다. «그림 URL 중 해시를 꺼낸 것» 이 전부가 아니면 K2 가 받고 있다는 뜻이다(분실은 아니고 중복 위험).
-   · 이 기기 쪽 첫 채택(`_charsLocalAdopt` · 개정 35)은 아래 — 평상시 동기화(칸 고침·이동·삭제 · 주기적 받기)는 **아직 없다**.
-   ⚠️ uid 는 `getMyUserId()` 로 얻지 않는다 — 그 함수는 아직 «없으면 만든다»(설계 §6-①). 캐시만 읽는다. */
-/* (앱 FSD 18번) 이 자리의 본문도 chars.js 로 옮겼다 — 만드는 줄은 첫 자리. */
+const closetApiMod = TwClosetApi.createClosetApi({
+  authed: TwApi.authed,
+  newRequestId: ()=>TwRequestId.newId(),
+});
+const closetMod = TwCloset.createCloset({
+  CHAR_SLOT_MAX: CHAR_SLOT_MAX,
+  closetApi: closetApiMod,
+  codec: slotCodecMod,
+  roomFaceCache: { load: (...a)=>roomSyncMod._roomFaceCacheLoad(...a), save: (...a)=>roomSyncMod._roomFaceCacheSave(...a) },
+  slots: slots,
+  slotSave: {   // 슬롯 저장 모듈이 내놓는 것 중 옷장이 쓰는 여섯
+    applySlotObjs: (...a)=>slotSaveMod.applySlotObjs(...a),
+    lastOut: (...a)=>slotSaveMod.lastOut(...a),
+    onSaved: slotSaveMod.onSaved,
+    pullForward: (...a)=>slotSaveMod.pullForward(...a),
+    _relinkSeatsToSlots: (...a)=>slotSaveMod._relinkSeatsToSlots(...a),
+    slotsReplaced: (...a)=>slotSaveMod.slotsReplaced(...a),
+  },
+  getMyUserId: (...a)=>getMyUserId(...a),
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  renderLauncher: (...a)=>renderLauncher(...a),
+  creatorOpen: ()=>creatorOpen,
+  storage: localStorage,
+});
+closetMod.onChange(()=>{ myInfoMod._miBoxChanged(); launcherCtlMod.renderEmptyState(); });
+/* 앱을 끌 때 못 올린 캐릭터 고침을 한 번 올려 본다(결과를 기다리지 않는다 — 🎵 플레이리스트 · 포커스 누적과 같은 방식). 옷장을 받기 전 · 로그아웃 뒤(idle)에는 쓰지 않는다 */
+window.addEventListener('beforeunload', ()=>{ closetMod.flushSlots(); });   // 옷장이 바뀌면 [내 정보] 보관함 줄을 다시 그린다 — 내 정보가 옷장보다 먼저 만들어져 여기서 건다
 
 /* --- 복제 코드 (현재 base64. 다음 단계에서 AES 암호화로 교체) --- */
 /* ★ onload 가 떴다고 그림이 있는 것은 아니다 — 잘린 dataURL, 0바이트 PNG 는 브라우저에 따라
@@ -7548,7 +7476,7 @@ function loadImg(src){return new Promise((res,rej)=>{
      JS 는 def.face 에 손댄 적이 없다(대입하는 곳은 친구 전용 네트워크 경로 두 줄뿐이다).
    [saveSlots 의 공백 방어와 무엇이 다른가]
      · saveSlots 쪽은 **저장을 막는다** — 원본이 빈 그림으로 덮이지 않게 한다(영구 소실 차단).
-     · 여기는 **화면을 되돌린다** — 비어 버린 캔버스에 localStorage 원본을 다시 그려 넣는다.
+     · 여기는 **화면을 되돌린다** — 비어 버린 캔버스에 직전 저장 모양(서버에 올린 원본)을 다시 그려 넣는다.
      저장이 한 번도 안 도는 동안에는 saveSlots 쪽이 아예 실행되지 않으므로, 화면 복구는
      별도의 주기 점검이어야 한다. 그래서 둘 다 필요하다.
    [무엇을 안 건드리나]
@@ -7565,7 +7493,7 @@ function loadImg(src){return new Promise((res,rej)=>{
 const faceHealMod = TwFaceHeal.createFaceHeal({
   CANVAS_SZ: CANVAS_SZ,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  LS_KEY: slotSaveMod.LS_KEY,
+  lastOut: (...a)=>slotSaveMod.lastOut(...a),
   Presence: Presence,
   SKIN_COLORS: SKIN_COLORS,
   _blinkEverDrawn: _blinkEverDrawn,
@@ -7734,6 +7662,7 @@ const catalogSyncMod = TwCatalogSync.createCatalogSync({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const deskVisualMod = TwDeskVisual.createDeskVisual({
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
+  NO_DESK_ID: NO_DESK_ID,
   _applyItemMatTone: (...a)=>lightToneMod._applyItemMatTone(...a),
   _idleItemPivots: _idleItemPivots,
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
@@ -7741,8 +7670,7 @@ const deskVisualMod = TwDeskVisual.createDeskVisual({
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   commissionMod: commissionMod,
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
   setDeskScale: (...a)=>deskPlaceMod.setDeskScale(...a),
   toast: (...a)=>toast(...a),
 });
@@ -7786,7 +7714,7 @@ const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
   DESK_PART_ANCHOR_NAME: deskPlaceMod.DESK_PART_ANCHOR_NAME,
   MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
   SPACING: ()=>SPACING,
-  seatDeskHalfWidth: (...a)=>seatDeskHalfWidth(...a),
+  seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),
   seatEqMod: seatEqMod,
   seatSlot: ()=>seatSlot,
   seats: seats,
@@ -7799,7 +7727,6 @@ const seatSlot = (typeof SeatSlot === 'undefined') ? null : SeatSlot.createSeatS
 const charCodeMod = TwCharCode.createCharCode({
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
   applyCharToSeat: (...a)=>applyCharToSeat(...a),
-  charsMod: charsMod,
   closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),
   createSeat: (...a)=>createSeat(...a),
   curSlot: ()=>curSlot,
@@ -7809,6 +7736,7 @@ const charCodeMod = TwCharCode.createCharCode({
   gachaMod: ()=>gachaMod,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
+  premiumKnown: ()=>acctStateMod.premiumKnown(),
   layoutSeats: (...a)=>layoutSeats(...a),
   loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),
   overheadMod: overheadMod,
@@ -8502,8 +8430,8 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
 
 /* ============================================================ 데스크탑(Electron) 모드 */
 const desktopMode = !!window.companion || /[?&]desktop=1/.test(location.search);
-/* ★ 피규어 모드 — 켜져 있으면 포커싱 어플 등록 여부와 무관하게 입력으로 깨어난다(8초 입력 없으면 잠듦은 그대로).
-   포커스 시간(레벨) 누적에는 영향 안 줌 — _focusWasActive는 실제 등록된 앱 사용 여부만 그대로 추적. */
+/* ★ 피규어 모드 — 켜져 있으면 포커싱 어플 등록 여부 · 입력 유무와 무관하게 항상 깨어 있다(seatState).
+   대신 포커스 시간(레벨) · 👑 달성표 🎯집중은 쌓지 않는다(_applyActiveAppState) — 설정 화면 · 도움말이 그렇게 약속한다. */
 /* 💾 설정을 저장하고 **실제로 남았는지 확인한다** — 조용한 실패를 없애기 위한 것이다.
 
    [왜 필요한가] localStorage 쓰기는 이 파일에서 99곳이고 그중 58곳이 `catch(e){}` 로 비어 있다.
@@ -8679,25 +8607,22 @@ const awayPicMod = TwAwayPic.createAwayPic({
   toast: (...a)=>toast(...a),
 });
 
-/* ═══ 🚩 신고하기 (2026-09-23 · 시안 확정) ═══════════════════════════════════════════════════════════
+/* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
    좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
-   ★ 서버: reports/{신고당한 uid}/{내 uid} = { kind, note?, nick, code4, ts } — 규칙이 «로그인한 본인 칸만» 쓰게 한다.
-     같은 사람을 또 신고하면 같은 칸을 덮는다 = 칸 수가 곧 «서로 다른 신고자 수».
-   ★ 신고자에 대해 남기는 것은 **닉네임 + 친구 코드 뒷자리 4자리 + 사유**뿐(요청).
+   ★ 신고는 서버 길(support/report-api.js — POST /v1/reports) — 신고한 사람은 서버가 토큰에서 정한다.
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
-   ★ 관리자 목록(_openReportAdmin)에는 서로 다른 REPORT_ADMIN_MIN 명 이상에게 신고된 사람만 뜬다. */
-/* 본문은 둘로 나눠 옮겼다 — 신고 창 · 공용 도우미는 report.js(앱 FSD 11번), 관리자 신고 목록은 admin/admin-report.js.
-   팝업 칸(한 번에 하나만 열리는 자리)은 report.js 가 가지고, 관리자 목록은 읽는 · 쓰는 함수로만 만진다.
+   신고 창 · 공용 도우미는 report.js, 관리자 신고 목록은 admin/admin-report.js. 팝업 칸은 report.js 가 가진다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const reportMod = TwReport.createReport({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   seatLabelName: (...a)=>overheadMod._seatLabelName(...a),
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   reportHiddenSave: (...a)=>hiddenSeatsMod._reportHiddenSave(...a),
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
-  myFriendCodeKey: MY_FRIEND_CODE_KEY,
+  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 POST /v1/reports — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 const adminReport = TwAdminReport.createAdminReport({
   toast: (...a)=>toast(...a),
@@ -8711,6 +8636,21 @@ const adminReport = TwAdminReport.createAdminReport({
   setReportOv: (...a)=>reportMod.setOv(...a),
   reportEsc: (...a)=>reportMod.esc(...a),
   setReportEsc: (...a)=>reportMod.setEsc(...a),
+  adminApi: TwReportApi.createAdminReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 /v1/admin/reports* — 원본은 서버
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+/* 🐞 버그제보 게시판 — 원본은 서버(support/bug-api.js — /v1/bugs*). 만들 때는 버튼만 잇고, 배지 받기는 app-boot STEPS 의 bugBadge(start) · 계정을 놓을 때 reset. */
+const bugBoardUi = TwBugBoardUi.createBugBoardUi({
+  bugApi: TwBugApi.createBugApi({ authed: TwApi.authed, errs: TwApiErrors, pending: ()=>TwRequestId.createPending() }),
+  lib: TwBugBoard,
+  apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+  escHtml: (...a)=>escHtml(...a),
+  safeHtml: TwSafeHtml,
+  isAdmin: ()=>isAdmin,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
 });
 
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
@@ -8751,30 +8691,21 @@ const focusLevelMod = TwFocusLevel.createFocusLevel({
   setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
 
-/* ═══ 🎰 가챠 모듈 연결 · 🔑 쓰기 거부 안내 ═══ */
-/* 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 parts/gacha.js 로 옮겼다
-   (앱 FSD 8번 · docs/APP_FSD_MAP.md).
-   ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 · 10분 tick ·
-     창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결)이 예전과 같은 때 돈다.
-   저장 키 세 줄은 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같이 써서 여기 두고 값으로 넘긴다(달성표 CHAL_KEY 와 같은 방식).
+/* ═══ 🎰 가챠 모듈 연결 ═══ */
+/* 🎰 파츠 가챠 — 코어(서버 보유분 · 뽑기 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 character/gacha.js 로 옮겼다.
+   ★ 원래 자리인 여기서 만든다 — 만들 때는 창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결만 한다. 서버에서 받기는 계정 확인 뒤 startGacha()(app-boot).
    함수 deps 는 화살표로 감싼다(부를 때 찾게). isAdmin · savedParts · PART_CATS · wdDraftDef · activeWdAdj 는 다시 대입되는 let 이라 읽는 함수로,
    activeWdAdj 를 바꾸는 것은 쓰는 함수로 넘긴다. seats · slots · Presence 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    부르는 곳은 gachaMod.이름(전부 이 줄보다 늦게 돈다). 바로 아래 🔑 «서버가 조용히 거부하는 기기» 안내는 캐릭터 슬롯도 써서 여기 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다.
    ⚠️ 이름을 gacha 로 짓지 않은 까닭 — partsInCatFor(cat, gacha) · 파츠 등록의 const gacha 가 가린다. */
-const GACHA_OWNED_KEY = 'tw.gachaOwned';
-const GACHA_TS_KEY    = 'tw.gachaOwnedTs';   // 이 기기가 마지막으로 gachaOwned 를 '바꾼' 시각(ms)
-const GACHA_BONUS_KEY = 'tw.gachaBonus';     // 👑달성표 주간 보상으로 얹힌 추가 뽑기 횟수
-/* 🎰 가챠 서버 길 — 서버가 뽑고 저장한다(character/gacha-server.js) · 로그인 API 통로는 firebase-init.js */
-const gachaServerMod = TwGachaServer.createGachaServer({
-  get: (p, o)=>firebaseAPI.apiGetAuthed(p, o),
-  post: (p, b, o)=>firebaseAPI.apiPostAuthed(p, b, o),
-  newRequestId: ()=>crypto.randomUUID(),
+/* 🎰 가챠 서버 길 — 서버가 뽑고 저장한다(character/gacha-api.js) · 로그인 통로는 TwApi.authed */
+const gachaApiMod = TwGachaApi.createGachaApi({
+  authed: TwApi.authed,
+  newRequestId: ()=>TwRequestId.newId(),
 });
 const gachaMod = TwGacha.createGacha({
   toast: (...a)=>toast(...a),
-  srvNow: (...a)=>roomSyncMod._srvNow(...a),
-  warnServerWriteDenied: (...a)=>_warnServerWriteDenied(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   getFocusLevel: (...a)=>focusLevelMod.getFocusLevel(...a),
   catEquippedIds: (...a)=>premiumMod.catEquippedIds(...a),
@@ -8806,13 +8737,10 @@ const gachaMod = TwGacha.createGacha({
   seats: seats,
   slots: slots,
   presence: Presence,
-  ownedKey: GACHA_OWNED_KEY,
-  tsKey: GACHA_TS_KEY,
-  bonusKey: GACHA_BONUS_KEY,
   isGachaPart: (...a)=>premiumMod.isGachaPart(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
-  gachaSource: ()=>TwSourceSwitch.store.pick('gacha'),   // 받는 곳 — 원격 설정 sources.gacha(없으면 옛 길) · 고르기는 shared/source-switch.js
-  gachaServer: gachaServerMod,
+  gachaApi: gachaApiMod,
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
 });
 /* 🛠 가챠 보관함의 관리자 등록 · 삭제 — 관리자 모듈이 가챠보다 먼저 만들어져 여기서 건다(가챠는 관리자 모듈을 부르지 않는다) */
 gachaMod.setPartEditor({
@@ -8820,37 +8748,6 @@ gachaMod.setPartEditor({
   syncPartRegGachaLock: (...a)=>adminPartReg.syncPartRegGachaLock(...a),
   deletePart: (...a)=>adminPartReg.deletePart(...a),
 });
-
-/* 🔑 [2026-09-12 제보] «서버가 조용히 거부하는 기기» ══════════════════════════════
-   [제보] "2번 PC 에서 뽑은 가챠가 1번 PC 에서 안 보인다. 2번에서도 같은 구글 계정으로 연동하니 해결됐다."
-   [무슨 일인가] 유저 코드가 구글 계정에 묶이면(userAuth/{코드}) 규칙이 users/{코드} 의 자기 소유
-     가지를 «주인이 없거나 나일 때»로 잠근다. 그런데 **비밀번호 계정 이전은 인증을 만들지 않는다** —
-     코드만 갈아탈 뿐이다. 그래서 제보자의 순서대로
-       ① PC2 가 비밀번호로 코드 A 를 받고 → ② PC1 이 코드 A 에 구글 연동을 하면
-     그 순간부터 PC2 의 users/A 쓰기가 전부 거부된다.
-   [왜 가장 늦게 신고되는 종류인가] 거부는 예외를 던지지 않는다. 로컬 값은 그대로 남아 화면에는
-     멀쩡히 보이고, 서버에만 안 올라간다 — «내 PC 에선 있는데 다른 PC 엔 없다» 로만 드러난다.
-     게다가 이 앱의 동기화는 ts 최신 승 **통째 덮어쓰기**라, 거부당하는 기기는 자기 것도 못 올리고
-     남의 것도 못 지우므로 그냥 영원히 갈라진 채로 남는다.
-   [고치는 길은 이미 있다] 그 기기에서 같은 구글 계정으로 로그인하면 주인이 되어 쓰기가 통과한다.
-     제보자가 스스로 찾아낸 그 길이 정답이다 — 그러니 여기서 할 일은 **그 길을 알려주는 것**이다.
-   ★ 막지 않는다. 쓰기 시도는 그대로 두고(로그인하는 순간 다음 동기화가 그대로 올린다) 안내만 한다.
-   ⚠️ 세션당 한 번만. 가챠·집중·마이홈이 각자 실패할 때마다 띄우면 토스트가 도배된다.
-   ⚠️ «주인이 없다/조회 실패»면 아무 말도 하지 않고 표식도 도로 푼다 — 네트워크가 끊긴 부팅에서
-     있지도 않은 계정 경고를 띄우면 안 되고, 진짜로 묶여 있을 때 그 한 번을 써버려도 안 된다.
-   ⚠️ 로그인돼 있는데 실패했다면 그건 다른 원인이다(규칙 배포 누락 등). 그때는 조용히 물러난다 —
-     틀린 안내는 안 하느니만 못하다. 콘솔에는 남으므로 추적은 가능하다. */
-let _srvDeniedWarned = false;
-async function _warnServerWriteDenied(what){
-  if(_srvDeniedWarned) return;
-  _srvDeniedWarned = true;                    // 판정하는 동안 또 불려도 두 번 뜨지 않게 먼저 세운다
-  /* 0.13 — 로그인 없이 쓰는 길이 없다. 로그인돼 있는데 거부됐다면 다른 원인(규칙 배포 누락 등) — 조용히 물러난다. */
-  let mine = null;
-  try{ mine = firebaseAPI.authCurrentUid(); }catch(_){}
-  if(mine){ _srvDeniedWarned = false; return; }
-  try{ console.warn('[계정] ' + what + ' 서버 반영 거부 — 이 PC 에 로그인이 없다(코드 ' + getMyUserId() + ')'); }catch(_){}
-  try{ toast('🔑 ' + what + ' 기록이 서버에 저장되지 않았어요 — 이 PC의 로그인이 풀려 있어요. 앱을 다시 시작하면 로그인 화면이 나와요'); }catch(_){}
-}
 
 /* ═══ 🎨 디자인 테마 ═══════════════════════════════════════════════════════
    축이 두 개다 — '모양'(테마)과 '색'(액센트). 두 축은 독립이라 2×5=10가지가 나온다.
@@ -8974,20 +8871,21 @@ function _applyActiveAppState(state){
   const mobOn = focusLevelMod._mobileOn();
   const pcNotFocusing = (now - lastActivity) > focusWindowMs();
   const notFocusingNow = mobOn ? false : pcNotFocusing;
-  if(_focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
+  /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
+  if(!figureMode && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
   /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
      ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
        같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
      ★ _focusWasActive(=등록된 포커스 앱이 활성)를 조건에 안 거는 이유: 그건 평생 누적치용 게이트다.
        달성표는 사용자가 고른 exe 하나만 보므로, 그 앱이 포커싱 어플 슬롯에서 빠져도 계속 세야 한다. */
-  if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
+  if(!figureMode && dt>0 && dt<30 && !pcNotFocusing) weeklyChal.focusTick(state, dt);   // 📱 폰 시간은 안 넣는다(exe 기준 · 이번 범위 밖)
   /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
      구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
   if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
+  _selfAppActive = focusGate.selfFront(state);
   _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
-  /* 투게더워킹 창이 앞이면(isSelf) 직전 상태를 둔다 — 포커싱 어플 목록에 없어 «등록 안 된 앱» 으로 보면 앱을 만지는 동안 잠든다 */
-  const keepGate = state.isSelf === true && !state.isFocusedAppRegistered && !figureMode && !mobOn;   // 자기를 포커싱 어플로 등록했으면 예전대로
-  if(!keepGate) focusGateSleep = figureMode ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
+  const nextGate = focusGate.nextGateSleep(state, { figureMode, mobOn });   // null = 투게더워킹 창이 앞 — 직전 값을 둔다
+  if(nextGate !== null) focusGateSleep = nextGate;
   _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
 }
 
@@ -9006,7 +8904,7 @@ const weeklyChal = TwWeeklyChallenge.createWeeklyChallenge({
   dayShifted: (...a)=>focusTotalMod._dayShifted(...a),
   focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
   dayStartHour: focusTotalMod.DAY_START_HOUR,
-  setGachaBonusLocal: (...a)=>gachaMod.setBonusLocal(...a),
+  setGachaBonusLocal: ()=>gachaMod.refreshAfterReward(),   // 보너스는 서버 장부가 센다 — 값을 받아 적지 않고 서버에서 다시 받는다(👑 달성표 묶음이 이 호출을 걷는다)
   renderGachaInv: ()=>gachaMod.renderGachaInv(),
   gachaBonus: ()=>gachaMod.bonus(),
   appMode: ()=>appMode,
@@ -9058,6 +8956,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
 /* 본문은 desktop-run.js 로 옮겼다(앱 FSD 32번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const desktopRunMod = TwDesktopRun.createDesktopRun({
+  whenUpdateStageDone: (...a)=>updateFlowMod.whenStageDone(...a),
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
   _charBoundsLatest: ()=>_charBoundsLatest,
   _officeHidden: ()=>_officeHidden,
@@ -9101,7 +9000,7 @@ if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminV
 { const lbl=document.getElementById('lcLicenseLbl'); if(lbl) lbl.textContent = isPremium ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록'; }
 /* 🏠 마이홈 시작(내 접속 표시 · 프로필 · 친구 · 요청 · 우편 구독)은 계정 확인 뒤 app-boot 의 mhInit 차례다. */
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
-  return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
+  return loadSkins(); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());   // 캐릭터 슬롯은 계정 확인 뒤 서버에서 받는다(startCloset)
 requestAnimationFrame(frame);
 requestAnimationFrame(launcherPrevMod.launcherLoop);
 /* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
@@ -9140,22 +9039,27 @@ const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
 const appBoot = TwAppBoot.createAppBoot({
   twNav: twNav,
   migrateLegacy: (code)=>accountStoreMod.migrateLegacy(code),
-  openAccountStore: (code)=>accountStoreMod.open(code),
+  newSession: (me)=>TwSession.createSession({
+    me: me,
+    openAccountStore: (code)=>accountStoreMod.open(code),
+    closeAccountStore: ()=>accountStoreMod.close(),
+    timers: { setInterval: (f, ms)=>setInterval(f, ms), clearInterval: (h)=>clearInterval(h), setTimeout: (f, ms)=>setTimeout(f, ms), clearTimeout: (h)=>clearTimeout(h) },
+  }),
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
     focusTotal: ()=>{ focusTotalMod.startFocusTotal(); _focusTotalSec = focusTotalMod._loadFocusTotalSec(); },
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: ()=>focusLevelMod.startFocusSync(),
     weeklyChal: ()=>weeklyChal.startChalSync(),
-    gacha: ()=>gachaMod.startGachaSync(),
-    slotSync: ()=>slotSyncMod.startSlotsSync(),
-    chars: ()=>charsMod.startCharsSync(),
+    gacha: ()=>gachaMod.startGacha(),
+    closet: ()=>closetMod.startCloset(),
     mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
+    bugBadge: ()=>bugBoardUi.start(),
     scheduler: ()=>mhScheduler.startSchedule(),
     roomInvite: ()=>roomInviteUi.startReceive(),
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: ()=>plMod.pull(),
-    licenseVerify: ()=>startLicenseVerify(),
+    licensePremium: (code, me)=>licensePremiumMod.start(me),
     licenseRequest: ()=>licReqMod.startWatch(),
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
   },

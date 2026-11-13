@@ -1,18 +1,32 @@
 /* ═══════════════════════════════════════════════════════════════════════
    🧸 말랑이 (마이홈 시메지) — mallang.js
    · 마이홈 바탕화면 우측 하단 [말랑이] 폴더.
-   · 우클릭 → 투명 PNG 등록(최대 4개, 가로 200px 리사이징, Firebase Storage).
+   · 우클릭 → 투명 PNG 등록(최대 4개 — 서버 상한 TwGiftApi.LIMITS.SLOTS, 가로 160px 리사이징). 칸은 서버가 원본이다 —
+     상태 주인 mallang-store.js(내 칸 · 보고 있는 집 칸)가 받고 저장한다. 이 파일은 그리기 · 누름만(칸 값을 직접 고치지 않는다).
    · 폴더 클릭 → 등록된 이미지 중 랜덤으로 말랑이 소환(최대 30마리 — MAX_LIVE).
    · 말랑이는 #myHomeWin 창 전체 위를 통통 튀며 돌아다님(탭 이동해도 유지).
    · 짧게 누르면 하트 뿅뿅 + 제거 / 끌면 드래그(놓으면 다시 돌아다님).
    · 전부 로컬 상태 — 내 화면에만 존재, 마이홈 닫으면 전부 사라짐.
    · 방문 모드: 다른 폴더(좀아칼/캐릭터세팅/인벤토리)는 잠기지만 말랑이 폴더는 열림.
      방문자는 그 집 주인이 등록한 이미지로 자기 화면에 소환(각자 로컬).
+   · 모듈 모양: window.TwMallang = { createMallang(deps) } — app.js 가 마이홈 수령함 모듈보다 먼저 만들고,
+     마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallangMod` 로 받아 부른다.
+     deps 5 — toast · getMyUserId · getDisplayName · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js).
+     🎁 선물(받은 선물 · 선물함 · 보내기)은 아직 옛 길(firebaseAPI)이다 — 서버 길로는 선물 묶음에서 옮긴다.
+   검사: checks/sim-mallang-module.js · sim-mallang-store.js
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
 
-  const MAX_IMGS = 4;        // 등록 가능한 이미지 수
+function createMallang(deps){
+  const toast = deps.toast;
+  const getMyUserId = deps.getMyUserId;
+  const getDisplayName = deps.getDisplayName;
+  const premiumOn = deps.premiumOn;   // 👑 프리미엄 판정(app.js _premiumOn) — 전역 window._premiumOn 을 읽지 않는다
+  const mallangStore = deps.mallangStore;   // 🧸 칸 상태 주인(mallang-store.js) — mine() · view() · add · toggle · remove · pullMine · openView
+  const LOAD = mallangStore.LOAD;
+
+  const MAX_IMGS = mallangStore.SLOTS;   // 등록 칸 수 — 서버 상한 하나(TwGiftApi.LIMITS.SLOTS)
   /* 동시에 떠다닐 수 있는 말랑이 수 (20 → 30).
      ★ 🎁 선물 상한(GIFT_SEND_CAP=30)과 **같은 수로 맞춘다.** 남의 집에 30마리까지 보낼 수 있는데
        화면이 20에서 끊기면, 받는 사람은 "30마리라는데 20마리밖에 안 보인다"가 된다. */
@@ -34,7 +48,6 @@
   const REST_CHANCE = 0.004; // 매 프레임 쉬기 시작 확률
   const REST_MIN = 60, REST_MAX = 180;   // 쉬는 시간(프레임)
 
-  let imgs = [];             // 등록된 이미지 [{url, on}]  (on=활성 여부)
   let live = [];             // 살아있는 말랑이 인스턴스
   let rafId = null;
   let built = false;
@@ -63,48 +76,9 @@
   function homeWin(){ return document.getElementById('myHomeWin'); }
   function roomBox(){ return document.getElementById('mhRoomPreview'); }   // 청록 바탕화면 박스
   function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
-  function fbReady(){ return !!(window.firebaseAPI && firebaseAPI.getMallangImgs); }
-  function hasLicense(){ try{ return !!window._premiumOn(); }catch(_){ return false; } }
+  function fbReady(){ return !!(window.firebaseAPI && firebaseAPI.getMallangGifts); }   // 🎁 선물만 아직 옛 길
+  function hasLicense(){ try{ return !!premiumOn(); }catch(_){ return false; } }
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
-  function lsKey(){ return 'tw.mallang.' + (myId()||'anon'); }
-  function saveLocal(){ try{ localStorage.setItem(lsKey(), JSON.stringify(imgs)); }catch(_){} }
-  /* 💾 로컬 먼저, 서버는 그 다음. **이 함수는 던지지 않는다.**
-     [무엇이 문제였나] 예전 판은 `await firebaseAPI.saveMallangImgs(...)` 한 줄이었다. 위험이 둘이다.
-       ① **결과를 버린다.** saveMallangImgs 는 실패해도 예외 대신 `{ok:false}` 를 돌려주므로
-          (firebase-init 쪽에서 이미 try/catch 로 삼킨다) 서버에 안 올라가도 화면은 성공처럼
-          그려졌다. 이 기기에서는 localStorage 로 멀쩡하고 **다른 기기에서만 옛 상태**가 남는다 —
-          유저에게는 "말랑이를 지웠는데 회사 컴에서는 그대로"로 보이고, 원인을 짚을 단서가 없다.
-       ② **던지면 화면이 안 따라온다.** 세 호출부가 전부 `await persist(); renderSlots();` 라
-          여기서 예외가 나면 renderSlots 가 통째로 건너뛴다. imgs 는 이미 바뀐 뒤라
-          "지웠는데 그대로 남아 있다 / 등록했는데 아무 반응이 없다"가 된다.
-          지금 배관으로는 안 던지지만, 그건 **firebase-init 쪽 사정**이다. 그쪽이 바뀌면
-          여기가 조용히 깨진다 — 두 파일에 걸친 약속에 기대지 않는다.
-     ★ 로그인 전(uid 없음)은 실패가 아니다 — lsKey 가 'anon' 으로 로컬 저장을 하고 있고,
-       그 상태로 `users/null/mallang` 에 쓰면 규칙상 통과해 **엉뚱한 노드에 쌓인다.** 여기서 막는다. */
-  async function persist(){
-    saveLocal();                       // 서버가 안 되어도 이 기기에서는 남는다 — 순서를 바꾸지 말 것
-    if(!fbReady() || !firebaseAPI.saveMallangImgs) return { ok:false, reason:'offline' };
-    const uid = myId();
-    if(!uid) return { ok:false, reason:'no-uid' };
-    try{
-      const r = await firebaseAPI.saveMallangImgs(uid, imgs);
-      return (r && r.ok) ? { ok:true } : { ok:false, reason:'server' };
-    }catch(_){
-      return { ok:false, reason:'server' };
-    }
-  }
-  /* 🔔 "이 기기에만 저장됐다"를 알린다 — 조용히 넘어가면 유저는 다른 기기에서야 알게 된다.
-     ★ no-uid 는 알리지 않는다. 로그인 전에는 로컬 저장이 정상 동작이고, 그때 토스트를 띄우면
-       기능이 고장 난 것처럼 보인다.
-     ★ 5초에 한 번만 — 슬롯을 연타하면 토스트가 쌓여 화면을 덮는다. */
-  let _persistWarnAt = 0;
-  function warnIfUnsaved(r){
-    if(!r || r.ok || r.reason === 'no-uid') return;
-    const now = Date.now();
-    if(now - _persistWarnAt < 5000) return;
-    _persistWarnAt = now;
-    toast('말랑이 변경을 이 기기에만 저장했어요 — 연결을 확인해 주세요');
-  }
 
   /* ── 폴더 + 레이어 DOM 주입 ── */
   function build(){
@@ -128,6 +102,11 @@
     const hideBtn = document.getElementById(HIDE_BTN_ID);
     if(hideBtn) hideBtn.addEventListener('click', ()=>setHidden(!hidden));
     injectStyle();
+    /* 칸이 바뀌면(받음 · 저장 · 409 뒤 다시 받음) 열린 등록 창을 다시 그린다 */
+    mallangStore.onChange(()=>{
+      const pop = document.getElementById('mlManage');
+      if(pop && pop.classList.contains('on')) renderSlots(document.getElementById('mlFileInput'));
+    });
     built = true;
   }
 
@@ -136,7 +115,8 @@
     const win = homeWin(); if(!win) return;
     const box = roomBox();
     let folder = document.getElementById('mlFolder');
-    const wantFolder = visiting ? (imgs.length>0) : hasLicense();
+    const shown = mallangStore.view().slots.length;
+    const wantFolder = visiting ? (shown>0) : hasLicense();
     /* 🔬 진단 — **"말랑이 폴더가 안 보인다"를 한 줄로 가르기 위한 것.**
        [경위] 폴더가 안 뜨는 길이 넷인데(라이선스 없음 · 방문 중 이미지 0장 · 방 박스를 못 찾음 ·
          이 함수 자체가 안 불림) 화면에서는 전부 똑같이 "폴더가 없다"로만 보인다. 그래서 제보를 받고도
@@ -146,7 +126,7 @@
        ⚠️ 동작은 바꾸지 않는다. 판정식은 위 한 줄 그대로다. */
     try{
       console.log('[말랑이] 폴더 ' + (wantFolder ? '표시' : '숨김')
-        + ' — ' + (visiting ? '방문 중, 그 집 이미지 ' + imgs.length + '장' : '내 집, 라이선스 ' + (hasLicense() ? 'O' : 'X'))
+        + ' — ' + (visiting ? '방문 중, 그 집 이미지 ' + shown + '장' : '내 집, 라이선스 ' + (hasLicense() ? 'O' : 'X'))
         + (box ? '' : ' · ⚠️ #mhRoomPreview 를 못 찾음'));
     }catch(_){}
     if(folder && !wantFolder){ try{ folder.remove(); }catch(_){} folder=null; }
@@ -209,6 +189,8 @@
       #mlSlots .ml-slot .ml-del{position:absolute;top:1px;right:1px;width:15px;height:15px;background:#c33;color:#fff;
         border:none;font-size:10px;cursor:pointer;display:none;align-items:center;justify-content:center;line-height:1;z-index:2;}
       #mlSlots .ml-slot:hover .ml-del{display:flex;}
+      #mlSlots .ml-state{grid-column:1 / -1;font-size:10.5px;color:var(--tw-ink);text-align:center;padding:18px 0;}
+      #mlSlots .ml-retry{font-size:10.5px;margin-left:4px;cursor:pointer;}
     `;
     document.head.appendChild(s);
   }
@@ -242,54 +224,53 @@
   function renderSlots(inp){
     const wrap = document.getElementById('mlSlots'); if(!wrap) return;
     wrap.innerHTML = '';
+    const st = mallangStore.mine();
+    /* 받기 전 · 받는 중 · 못 받음 — 칸을 그리지 않는다(고치기 잠금). 못 받음과 «말랑이 없음»(빈 칸 넷)을 가른다 */
+    if(st.load !== LOAD.READY){
+      const msg = document.createElement('div'); msg.className = 'ml-state';
+      msg.textContent = st.load === LOAD.FAILED ? '못 불러왔어요 ' : '불러오는 중…';
+      if(st.load === LOAD.FAILED){
+        const again = document.createElement('button'); again.className = 'ml-retry'; again.textContent = '다시 시도';
+        again.addEventListener('click', (e)=>{ e.stopPropagation(); mallangStore.pullMine(); });
+        msg.appendChild(again);
+      }
+      wrap.appendChild(msg);
+      return;
+    }
     for(let i=0;i<MAX_IMGS;i++){
       const slot = document.createElement('div');
       slot.className = 'ml-slot';
-      const item = imgs[i];
+      const item = st.slots[i];
       if(item){
-        if(!item.on) slot.classList.add('off');
+        if(!item.enabled) slot.classList.add('off');
         /* 주소는 남의 것일 수 있다(선물) — 허용된 그림 주소만 · 마크업에 붙이지 않고 요소로 */
-        const src = TwSafeHtml.safeUrl(item.url, 'image');
+        const src = TwSafeHtml.safeUrl(item.imageUrl, 'image');
         if(src){ const im = TwImgRetry.retryOnError(document.createElement('img')); im.src = src; im.alt = ''; slot.appendChild(im); }
         const del = document.createElement('button'); del.className = 'ml-del'; del.dataset.i = String(i); del.textContent = '×';
         slot.appendChild(del);
-        slot.querySelector('.ml-del').addEventListener('click', (e)=>{ e.stopPropagation(); removeImg(i, inp); });
+        slot.querySelector('.ml-del').addEventListener('click', (e)=>{ e.stopPropagation(); mallangStore.remove(i); });
         // 우클릭 = 활성/비활성 토글
-        slot.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); toggleImg(i, inp); });
+        slot.addEventListener('contextmenu', (e)=>{ e.preventDefault(); e.stopPropagation(); mallangStore.toggle(i); });
       } else {
         slot.innerHTML = '<span class="ml-empty">+ 등록</span>';
-        slot.addEventListener('click', ()=>{ pickImage(i, inp); });
+        slot.addEventListener('click', ()=>{ pickImage(inp); });
       }
       wrap.appendChild(slot);
     }
   }
 
-  async function toggleImg(i, inp){
-    if(!imgs[i]) return;
-    imgs[i].on = !imgs[i].on;
-    const r = await persist();
-    renderSlots(inp);        // ★ 저장 성공 여부와 무관하게 그린다 — imgs 는 이미 바뀌었다
-    warnIfUnsaved(r);
-  }
-
-  // 이미지 처리 공통부 — 소스(File 또는 dataURL)를 리사이즈해 업로드하고 슬롯 갱신
-  async function _registerImage(slotIdx, src, inp){
-    toast('말랑이 이미지 처리 중…');
+  // 이미지 처리 공통부 — 소스(File 또는 dataURL)를 리사이즈해 칸 상태 주인에 넘긴다(올리기 · 칸 끝에 더하기 · 저장 · 실패 번호는 그쪽)
+  const BUSY_MSG = '말랑이 이미지 처리 중…';
+  async function _registerImage(src){
+    toast(BUSY_MSG);
     const dataUrl = await resizeToWidth(src, SAVE_W).catch(()=>null);
     if(!dataUrl){ toast('이미지를 불러오지 못했어요'); return; }
-    if(!fbReady() || !firebaseAPI.uploadMallangImage){ toast('네트워크 연결이 필요해요'); return; }
-    const r = await firebaseAPI.uploadMallangImage(myId(), slotIdx, dataUrl);
-    if(r && r.ok){
-      imgs.push({ url:r.url, on:true });
-      const pr = await persist();
-      renderSlots(inp);
-      /* 사진 자체는 Storage 에 올라갔지만 목록이 서버에 안 실렸을 수 있다 — 그때 "등록됐어요"는
-         거짓말이 된다(다른 기기에서는 안 보인다). 성공했을 때만 성공이라고 말한다. */
-      if(pr && pr.ok){ toast('말랑이가 등록됐어요!'); }
-      else warnIfUnsaved(pr);
-    } else toast((r&&r.reason)||'등록에 실패했어요');
+    const r = await mallangStore.add(dataUrl);
+    if(r === 'ok') toast('말랑이가 등록됐어요!');   // 칸 저장까지 됐을 때만 — 그림만 올라가고 칸이 안 실렸으면 등록이 아니다
+    else if(r === 'busy') toast(BUSY_MSG);
   }
-  function pickImage(slotIdx, inp){
+  function pickImage(inp){
+    if(mallangStore.mine().uploading){ toast(BUSY_MSG); return; }   // 올리는 중 또 등록 — 올린 그림이 어느 칸에 붙을지 흐려진다
     // ★ Electron에선 <input type=file>.click()이 사용자 제스처 판정 때문에 무시되는 경우가 있음
     //   (디자인 스튜디오에서 이미 겪고 고친 것과 동일). main의 OS 파일 대화상자(companion.pickImage)를
     //   우선 사용하고, 그 경로가 없으면(브라우저 미리보기 등) 기존 input 방식으로 폴백.
@@ -297,23 +278,16 @@
       try{ if(companion.dsHold) companion.dsHold(); }catch(_){}
       companion.pickImage().then(dataUrl=>{
         if(!dataUrl) return;   // 취소
-        _registerImage(slotIdx, dataUrl, inp);
+        _registerImage(dataUrl);
       }).catch(()=>{ toast('이미지를 불러오지 못했어요'); });
       return;
     }
     if(!inp){ toast('이미지를 불러올 수 없어요 — 앱을 재시작해 주세요'); return; }
     inp.onchange = async ()=>{
       const file = inp.files && inp.files[0]; inp.value=''; if(!file) return;
-      _registerImage(slotIdx, file, inp);
+      _registerImage(file);
     };
     inp.click();
-  }
-
-  async function removeImg(i, inp){
-    imgs.splice(i,1);
-    const r = await persist();
-    renderSlots(inp);        // ★ 여기가 건너뛰면 "지웠는데 그대로 남아 있다"가 된다
-    warnIfUnsaved(r);
   }
 
   /* ── 이미지를 가로 IMG_W에 맞춰 정비율 리사이징 (투명 PNG 유지) ── */
@@ -361,7 +335,11 @@
 
   /* ── 말랑이 소환 ── */
   function summonRandom(){
-    const active = imgs.filter(x=>x && x.on);
+    const v = mallangStore.view();
+    if(v.load === LOAD.LOADING) return;   // 받는 중 — 답이 오면 다시 누른다
+    /* 내 칸을 못 받았으면 누름 = 다시 받기 한 번(실패면 E-GIFT-01) — 받으면 그때 부른다 */
+    if(v.mine && v.load === LOAD.FAILED){ mallangStore.pullMine().then(ok=>{ if(ok && !visiting) summonRandom(); }); return; }
+    const active = v.slots.filter(x=>x && x.enabled);
     if(!active.length){
       toast(visiting ? '이 친구는 아직 말랑이를 등록하지 않았어요' : '먼저 우클릭으로 말랑이 이미지를 등록하세요');
       return;
@@ -371,7 +349,7 @@
       return;
     }
     const pick = active[Math.floor(Math.random()*active.length)];
-    spawn(pick.url);
+    spawn(pick.imageUrl);
   }
 
   function spawn(url, gift){
@@ -683,7 +661,7 @@
       if(!inst.gift.isOwner){ return; }   // 방문자는 선물 못 없앰 (하트만)
       // ★ 집주인 → 서버 기록은 남기고 '선물함으로 되돌리기'만 한다(치움 표시).
       //   예전엔 여기서 deleteMallangGift로 영구 삭제해서 다시 부를 방법이 없었다.
-      //   선물함에서 클릭하면 _mallangRespawnGift로 다시 나온다.
+      //   선물함에서 클릭하면 respawnGift 로 다시 나온다.
       _hideGift(inst.gift.giftId);
       // ★ 서버에도 기록 — 로컬만이면 방문자 화면·다른 기기에서는 그대로 보인다.
       if(fbReady() && firebaseAPI.setMallangGiftHidden){
@@ -813,38 +791,29 @@
     syncHideBtn();
   }
 
-  /* ── 이미지 목록 로드 (내 것 또는 방문 대상) ── */
-  async function loadImgsFor(userId){
-    imgs = [];
-    let raw = [];
-    if(fbReady() && userId) raw = await firebaseAPI.getMallangImgs(userId).catch(()=>[]) || [];   // 내 코드가 없으면 서버는 안 읽고 로컬 백업('anon')만
-    // 서버가 비었고 '내 것'을 보는 중이면 로컬 백업에서 복원 (규칙 미반영 등 대비)
-    if((!raw || !raw.length) && userId===myId()){
-      try{ const ls=JSON.parse(localStorage.getItem(lsKey())||'null'); if(Array.isArray(ls)) raw=ls; }catch(_){}
-    }
-    imgs = (raw||[]).map(x => (typeof x==='string') ? { url:x, on:true } : { url:x.url, on:(x.on!==false) }).filter(x=>x && x.url);
+  /* ── 마이홈이 부르는 셋(반환값) ──
+     onOpen(ownerId, isVisiting): 마이홈 열릴 때 (내 집이면 ownerId=내ID, isVisiting=false)
+     onClose(): 마이홈 닫힐 때 → 전부 제거
+     applyVisit(isVisiting, ownerId): 방문 상태 전환 시 */
+  /* 그 집 칸을 받고 폴더를 다시 판정한 뒤 선물을 띄운다. 답을 기다리는 사이 집을 옮겼거나 닫았으면(늦은 답) 아무것도 하지 않는다 */
+  async function showHouse(ownerId){
+    const owner = ownerId||myId();
+    if(!(await mallangStore.openView(owner, !visiting))) return;
+    refreshFolder();                  // 칸을 받은 뒤 폴더 표시 여부 재판정 (방문 집 말랑이 유무 반영)
+    await loadGifts(owner);           // 🎁 선물받은 말랑이 소환 (내 집·방문 모두)
   }
-
-  /* ── 외부 훅 (app.js 마이홈 로직이 호출) ──
-     window._mallangOnOpen(ownerId, isVisiting): 마이홈 열릴 때 (내 집이면 ownerId=내ID, isVisiting=false)
-     window._mallangOnClose(): 마이홈 닫힐 때 → 전부 제거
-     window._mallangApplyVisit(isVisiting, ownerId): 방문 상태 전환 시 */
-  window._mallangOnOpen = async function(ownerId, isVisiting){
+  async function onOpen(ownerId, isVisiting){
     visiting = !!isVisiting;
     build();
     clearAll();                       // 이전 상태 초기화
-    await loadImgsFor(ownerId||myId());
-    refreshFolder();                  // 이미지 로드 후 폴더 표시 여부 재판정 (방문 집 말랑이 유무 반영)
-    await loadGifts(ownerId||myId());  // 🎁 선물받은 말랑이 소환 (내 집·방문 모두)
-  };
-  window._mallangOnClose = function(){ clearAll(); };
-  window._mallangApplyVisit = async function(isVisiting, ownerId){
+    await showHouse(ownerId);
+  }
+  function onClose(){ clearAll(); mallangStore.closeView(); }   // 닫는 중에 온 칸 답은 아무것도 띄우지 않는다
+  async function applyVisit(isVisiting, ownerId){
     visiting = !!isVisiting;
     clearAll();                       // 집 바뀌면 내 말랑이 사라짐
-    await loadImgsFor(ownerId||myId());
-    refreshFolder();                  // 방문/복귀에 맞춰 폴더 재판정
-    await loadGifts(ownerId||myId());
-  };
+    await showHouse(ownerId);
+  }
 
   /* ── 🎁 선물 "치움" 상태 (로컬) ──────────────────────────────────────────
      우클릭은 이제 '삭제'가 아니라 '선물함으로 되돌리기'다. 서버 기록(mallangGifts)은 그대로 두고,
@@ -874,8 +843,7 @@
       .sort((a,b)=>((gifts[a]&&gifts[a].ts)||0)-((gifts[b]&&gifts[b].ts)||0));
     return plain.slice(0, ids.length - GIFT_MAX);
   }
-  window._mallangGiftOrder = giftOrder;
-  window._mallangGiftLimits = { max: GIFT_MAX, starMax: GIFT_STAR_MAX };
+  const giftLimits = { max: GIFT_MAX, starMax: GIFT_STAR_MAX };
   function _hiddenSet(){
     try{ const a = JSON.parse(localStorage.getItem(GIFT_HIDE_KEY) || '[]');
          return new Set(Array.isArray(a) ? a : []); }catch(_){ return new Set(); }
@@ -884,9 +852,9 @@
     try{ localStorage.setItem(GIFT_HIDE_KEY, JSON.stringify([...set])); }catch(_){}
   }
   function _hideGift(giftId){ const h=_hiddenSet(); h.add(giftId); _saveHidden(h); }
-  window._mallangIsGiftHidden = function(giftId){ return _hiddenSet().has(giftId); };
-  /* 선물함에서 클릭 → 다시 마이홈에 소환 (app.js가 호출) */
-  window._mallangRespawnGift = function(giftId, imgUrl, msg){
+  function isGiftHidden(giftId){ return _hiddenSet().has(giftId); }
+  /* 선물함에서 클릭 → 다시 마이홈에 소환 (myhome-inbox.js 가 호출) */
+  function respawnGift(giftId, imgUrl, msg){
     try{
       const h=_hiddenSet(); h.delete(giftId); _saveHidden(h);
       if(fbReady() && firebaseAPI.setMallangGiftHidden) firebaseAPI.setMallangGiftHidden(myId(), giftId, false);
@@ -895,12 +863,12 @@
       spawnGift(imgUrl, giftId, true, myId(), msg||'');
       return 'ok';
     }catch(_){ return 'error'; }
-  };
+  }
 
-  /* 선물함 우클릭 → 영구 삭제 (app.js 가 확인창을 띄운 뒤 호출).
+  /* 선물함 우클릭 → 영구 삭제 (myhome-inbox.js 가 확인창을 띄운 뒤 호출).
      서버(+Storage 사본)에서 지우고, 마이홈에 나와 있는 그 말랑이와 로컬 치움 목록에서도 뺀다.
      ⚠️ ⭐ 는 여기서 한 번 더 막는다 — 확인창을 거치지 않는 호출이 생겨도 즐겨찾기는 안 지워진다. */
-  window._mallangDeleteGift = async function(giftId, gift){
+  async function deleteGift(giftId, gift){
     if(!giftId) return 'error';
     if(_isStar(gift)) return 'starred';
     if(!fbReady() || !firebaseAPI.deleteMallangGift) return 'error';
@@ -912,7 +880,7 @@
     syncHideBtn();
     const h=_hiddenSet(); if(h.delete(giftId)) _saveHidden(h);
     return 'ok';
-  };
+  }
 
   /* ── 🎁 받은 선물 말랑이 로드/소환 ── */
   async function loadGifts(ownerId){
@@ -968,13 +936,13 @@
       padding:1px 5px;border-radius:8px;vertical-align:middle;font-weight:bold;}`;
     document.head.appendChild(s);
   }
-  // 친구 탭 열면 "봤음" 처리 (뱃지 제거) — app.js가 호출
-  window._mallangSeenGifts = async function(){
+  // 선물함 서브탭을 누르면 "봤음" 처리 (뱃지 제거) — myhome-ui.js 가 호출
+  async function seenGifts(){
     const tab = document.querySelector('.mh-tab[data-tab="friend"]');
     const badge = tab && tab.querySelector('.ml-giftbadge');
     if(fbReady() && firebaseAPI.setMallangGiftSeen) await firebaseAPI.setMallangGiftSeen(myId(), (tab&&tab._mlLatest)||Date.now());
     if(badge) badge.remove();
-  };
+  }
 
   // 선물 말랑이 소환
   function spawnGift(url, giftId, isOwner, ownerId, msg){
@@ -982,7 +950,7 @@
     spawn(url, { giftId, isOwner, ownerId, msg: msg||'' });
   }
 
-  /* ── 🎁 선물 보내기 (친구 우클릭 → app.js가 호출) ── */
+  /* ── 🎁 선물 보내기 (친구 우클릭 → myhome-inbox.js 가 호출) ── */
   const DAILY_LIMIT = 10;   // 하루 발송 한도 (5 → 10)
   const MSG_MAX = 50;   // 선물에 함께 보내는 메시지 최대 길이
   /* 🎁 받는 사람 마이홈이 꽉 찼는가 — **치우지 않은 선물** 이 이 수 이상이면 못 보낸다.
@@ -1006,15 +974,12 @@
     return Object.keys(gifts).filter(k => gifts[k] && !gifts[k].hidden).length;
   }
 
-  window._mallangOpenGift = async function(friendId, friendName){
+  async function openGift(friendId, friendName){
     if(!hasLicense()){ toast('👑 말랑이 선물은 라이선스 보유자 전용이에요'); return; }
     if(!fbReady()){ toast('네트워크 연결이 필요해요'); return; }
-    // 내 말랑이 이미지 로드 (활성/비활성 무관하게 등록된 것 전부 선물 가능)
-    let mine = [];
-    const raw = await firebaseAPI.getMallangImgs(myId()).catch(()=>[]) || [];
-    if(!raw.length){ try{ const ls=JSON.parse(localStorage.getItem(lsKey())||'null'); if(Array.isArray(ls)) mine=ls; }catch(_){} }
-    else mine = raw;
-    mine = mine.map(x=> (typeof x==='string')?{url:x}:{url:x.url}).filter(x=>x&&x.url);
+    // 내 말랑이 칸 (활성/비활성 무관하게 등록된 것 전부 선물 가능) — 못 받으면 E-GIFT-07 · 창을 열지 않는다
+    if(!(await mallangStore.pullMine({ site: 'sendOpen' }))) return;
+    const mine = mallangStore.mine().slots.map(x=>({ url: x.imageUrl }));
     if(!mine.length){ toast('먼저 내 말랑이를 등록하세요'); return; }
     /* 하루 발송 횟수 + 상대 마이홈이 꽉 찼는지 — **둘을 나란히 부른다.**
        순서대로 기다리면 창이 뜨는 데 왕복이 두 번 걸린다. 서로 무관한 조회다. */
@@ -1023,7 +988,7 @@
       visibleGiftCount(friendId),
     ]);
     buildGiftPopup(friendId, friendName, mine, cnt, theirs);
-  };
+  }
 
   function buildGiftPopup(friendId, friendName, mine, sentToday, theirVisible){
     const win = homeWin(); if(!win) return;
@@ -1104,4 +1069,15 @@
     document.head.appendChild(s);
   }
 
+  return {
+    onOpen, onClose, applyVisit,   // 🏠 마이홈 열기 · 닫기(myhome-ui) · 집 옮기기(myhome-visit)
+    seenGifts,                     // 🎁 봤음 — 선물함 서브탭 누름(myhome-ui)
+    openGift,                      // 🎁 보내기 창 — 친구 줄 우클릭(myhome-inbox)
+    giftOrder, giftLimits, isGiftHidden, respawnGift, deleteGift,   // 💝 선물함 격자(myhome-inbox)
+  };
+}
+
+const api = { createMallang };
+if(typeof window !== 'undefined') window.TwMallang = api;
+if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

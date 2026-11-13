@@ -30,6 +30,8 @@ const DEVICE_KEYS = Object.freeze([
   /* 신원 · 로그인 — 계정 코드를 정하는 쪽이라 계정 칸에 둘 수 없다(닭과 달걀). */
   'tw.myUserId', 'tw.loginEmail', 'tw.loginAuthUid', 'tw.myFriendCode', 'tw.myFriendCodePrev', 'tw.myPrevUserIds',
   'tw.invitePassed', 'tw.inviteToken', 'tw.signupPending', 'tw.licenseKey', 'tw.licenseOptOut', 'tw.licenseReqId',
+  /* 0.13 첫 실행 — 옛 캐릭터를 이 PC 에서 이 계정으로 올렸다는 표시(값 = 계정 코드). 계정 칸이 열리기 전에 읽는 단계라 기기 공용 칸이다 */
+  'tw.legacyCloset013',
 ]);
 
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */
@@ -38,11 +40,8 @@ const ACCOUNT_KEYS = Object.freeze([
   'tw.focusTotalSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.focusSyncedSec', 'tw.advZ.v2', 'tw.advZ.v1',
   /* 옮길 묶음 몫 */
   'tw.focusShow', 'tw.danceNotified', 'tw.danceNotifiedFix', 'tw.ideskNotified', 'tw.starColor', 'tw.pomo', 'tw.pomoRun',
-  'tw.bonkDay', 'tw.chal', 'tw.gachaOwned', 'tw.gachaOwnedTs', 'tw.gachaBonus',
-  'tw.curSlot', 'tw.extraSeatSlots', 'tw.roomFaceUrls', 'tw.slotGlbUrls', 'tw.charsLinked', 'tw.charsMoveFails',
-  'deskFriends.slots.v1', 'deskFriends.slots.ts', 'deskFriends.slots.seen', 'deskFriends.slots.loss', 'deskFriends.slots.lastsync',
-  'deskFriends.slots.pushfail', 'deskFriends.slots.bak', 'deskFriends.slots.bak.meta',
-  'deskFriends.chars.v1', 'deskFriends.chars.desk', 'deskFriends.chars.trashPend',
+  'tw.bonkDay', 'tw.chal',
+  'tw.curSlot', 'tw.extraSeatSlots', 'tw.roomFaceUrls', 'tw.slotGlbUrls',
   'tw.savedDesks', 'tw.savedItems', 'tw.savedParts', 'tw.decoParts', 'tw.deskPresets', 'tw.animalPresets', 'tw.animalEverUnlocked',
   'tw.animalCheatUnlock', 'tw.charColorHistory', 'tw.seatEq', 'tw.activeInteractionDesk', 'tw.emojiReactions',
   'tw.playlist', 'tw.playlistSets', 'tw.playlistCur', 'tw.playlistTitle', 'tw.playlistBio', 'tw.playlistHomePublic', 'tw.playlistPrivate',
@@ -52,7 +51,7 @@ const ACCOUNT_KEYS = Object.freeze([
 ]);
 /* 이름 뒤에 방 · 친구 · 종류가 붙는 키 */
 const ACCOUNT_KEY_PREFIXES = Object.freeze([
-  'tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.mallang.', 'tw.chatTab.', 'tw.dailyPlay.', 'tw_chat_read:', 'tw_chat_join:',
+  'tw.mhRecentColors.', 'tw.mhGbLastRead:', 'tw.chatTab.', 'tw.dailyPlay.', 'tw_chat_read:', 'tw_chat_join:',
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
@@ -84,6 +83,8 @@ function createAccountStore(deps){
     opened = code;
     return true;
   }
+  /* 로그인 세션이 끝날 때(shared/session.js dispose) 닫는다 — 다시 열기 전까지 읽기 null · 쓰기 거절. 안 열려 있으면 아무 일 없음 */
+  function close(){ opened = null; }
   function cellOf(key){
     if(!isAccountKey(key)) throw new Error('[계정 칸] 계정별 키가 아니다 — ' + key);
     const code = getAccountCode();
@@ -146,7 +147,7 @@ function createAccountStore(deps){
     return res;
   }
 
-  return { get, set, remove, open, migrateLegacy };
+  return { get, set, remove, open, close, migrateLegacy };
 }
 
 const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, createAccountStore };

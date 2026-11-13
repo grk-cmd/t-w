@@ -65,7 +65,7 @@ function mkEl(tag, env){
 }
 function mkEnv(o){
   o = o || {};
-  const env = { calls: [], toasts: [], store: new Map(), domCalls: 0, confirmAns: true, focused: 0, opened: [], copied: [], bell: 0, profileRail: 0, homeView: [], bugOpen: [], respawn: [] };
+  const env = { calls: [], toasts: [], store: new Map(), domCalls: 0, confirmAns: true, focused: 0, opened: [], copied: [], bell: 0, profileRail: 0, homeView: [], bugOpen: [], respawn: [], saved: [] };
   const byId = {};
   const doc = {
     body: mkEl('body', env),
@@ -86,12 +86,6 @@ function mkEnv(o){
   const companion = { openBrowser: (u) => env.opened.push(u) };
   const win = {
     firebaseAPI: api, companion, focus(){ env.focused++; },
-    _mallangGiftLimits: { max: 30, starMax: 20 },
-    _mallangIsGiftHidden: (k) => k === 'g-out',
-    _mallangGiftOrder: (g) => Object.keys(g).sort((a, b) => (g[b].ts || 0) - (g[a].ts || 0)),   // 🧸 mallang.js 가 부팅 때 건다 — 여기선 ⭐ 없이 최신순만
-    _mallangRespawnGift: (k, img, msg) => { env.respawn.push(k + '|' + img + '|' + msg); return env.respawnAns || 'ok'; },
-    _mallangDeleteGift: async (k) => { env.calls.push('deleteGift ' + k); return 'ok'; },
-    _mallangOpenGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
     _bugBoardOpen: (id) => env.bugOpen.push(id),
   };
   const ls = { getItem: (k) => env.store.has(k) ? env.store.get(k) : null, setItem: (k, v) => env.store.set(k, String(v)) };
@@ -128,14 +122,25 @@ function mkEnv(o){
     togglePin: async (id) => { const next = !(env.bc[id] && env.bc[id].pinned); env.calls.push('pin ' + id + ' ' + next); if(env.pinOk === false) return false; env.bc[id].pinned = next; return true; },   // 서버가 됐다 하면 다시 받아 판이 바뀐다
     sendBroadcast: async (o) => { env.calls.push('send ' + o.tag + ' ' + o.title + ' ' + !!o.pinned); return env.sendOk !== false; },
   };
+  /* 🧸 말랑이(mallang.js createMallang 의 반환값) 가짜 — 선물함 격자 · 보내기 창이 부르는 것만 */
+  env.mallangMod = {
+    giftLimits: { max: 30, starMax: 20 },
+    isGiftHidden: (k) => k === 'g-out',
+    giftOrder: (g) => Object.keys(g).sort((a, b) => (g[b].ts || 0) - (g[a].ts || 0)),   // 여기선 ⭐ 없이 최신순만
+    respawnGift: (k, img, msg) => { env.respawn.push(k + '|' + img + '|' + msg); return env.respawnAns || 'ok'; },
+    deleteGift: async (k) => { env.calls.push('deleteGift ' + k); return 'ok'; },
+    openGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
+  };
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({
     escHtml, toast: (m) => env.toasts.push(m), getMyUserId: () => 'ME01',
+    giftSave: { save: (g) => { env.saved.push(g.fromName + '|' + g.imgUrl); return Promise.resolve('ok'); } },
     mailFeed: env.mailFeed, noticeFeed: env.noticeFeed, INBOX_BC_READ_KEY: 'tw.inboxBcRead', isAdmin: () => env.admin,
     mhScheduler: { refreshBellBadge: () => { env.bell++; } },
     myHomeFriends: () => env.friends, friendsNotice: () => env.notice, FRIEND_MAX: 100, friendVisit: o.noVisit ? null : { ask: (fid) => env.calls.push('visit ' + fid) },
     mhStripHtml: (h) => String(h || '').replace(/<[^>]*>/g, ''),
     starFromRemote: (f) => (f && f.star) ? { color: f.star, cyc: 2, lv: 7 } : null, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n,
     lvBadgeClass: (n) => 'lv' + n, openFriendHomeView: (fid) => env.homeView.push(fid), renderMhProfileRail: () => { env.profileRail++; },
+    mallangMod: env.mallangMod,
   }, extra || {}));
   return env;
 }
@@ -296,7 +301,7 @@ async function behave(src){
     nList.children[1].onclick();
     chk(m.state().newsOpenId === 'q' && JSON.parse(e.store.get('tw.inboxBcRead')).includes('q') && e.calls.length === 0 && e.bell === 1, '글을 고르면 본문 · 로컬 읽음(서버 안 부름) · 🔔 갱신');
     chk(/mh-news-item read sel/.test(nList.children[1].className) && view.children[0].className === 'mh-news-banner notice' && view.children[1].textContent === '새 공지'
-      && /<span class="ext-link" data-url="https:\/\/y\.io">/.test(view.children[3].innerHTML) && view.children[3]._extLinkBound === true, '  오른쪽 — 색 띠 · 제목 · 본문(링크)');
+      && /<span class="ext-link" data-url="https:\/\/y\.io\/?">/.test(view.children[3].innerHTML) && view.children[3]._extLinkBound === true, '  오른쪽 — 색 띠 · 제목 · 본문(링크)');
     chk(view.children[2].children.length === 1, '  관리자가 아니면 고정 · 지우기 단추가 없다');
     m.setInboxFilter('update'); m.renderInbox();
     chk(m.state().newsOpenId === null && /왼쪽 목록에서/.test(view.innerHTML), '  종류를 바꿔 목록에서 빠지면 본문도 비운다');
@@ -382,6 +387,10 @@ async function behave(src){
     chk(out.indexOf('&lt;b&gt;&quot;&#39;x&lt;/b&gt;') === 0, '이스케이프를 먼저 한다(다섯 문자)');
     chk(/<span class="ext-link" data-url="https:\/\/a\.b\/c\?d=1&amp;e=2">https:\/\/a\.b\/c\?d=1&amp;e=2<\/span>\),/.test(out), '주소는 링크로 · 끝 문장부호는 빼고');
     chk(/<span class="lic-key" data-key="ABCD-1234-WXYZ-0000" title="클릭하면 복사돼요">ABCD-1234-WXYZ-0000<\/span>/.test(out), '라이선스 키는 누르면 복사되는 칸');
+    chk(out === TwSafeHtml.linkify('<b>"\'x</b> https://a.b/c?d=1&e=2), 키 ', TwSafeHtml.text) + m.linkifyText('ABCD-1234-WXYZ-0000') + ' 끝', '  주소 칸은 공용 linkify 와 한 벌(채팅 · 버그 제보와 같은 규칙)');
+    const inUrl = m.linkifyText('https://x.io/k/ABCD-1234-WXYZ-0000 키');
+    chk(!/lic-key/.test(inUrl) && /data-url="https:\/\/x\.io\/k\/ABCD-1234-WXYZ-0000"/.test(inUrl), '  주소 속 키 모양 글자는 키 칸으로 안 바꾼다(data-url 이 안 깨짐)');
+    chk(m.linkifyText('javascript:alert(1) https://ok.io/x') === TwSafeHtml.text('javascript:alert(1) ') + '<span class="ext-link" data-url="https://ok.io/x">https://ok.io/x</span>', '  http(s) 가 아닌 주소는 칸이 안 된다');
     const root = mkEl('div', e);
     m.bindExtLinks(root); m.bindExtLinks(root); m.bindExtLinks(null);
     chk((root._L.click || []).length === 1, '위임은 한 번만 건다');
@@ -392,6 +401,9 @@ async function behave(src){
     ev = { target: tgt('.lic-key', { key: 'ABCD-1234-WXYZ-0000' }) };
     root.fire('click', ev);
     chk(e.copied.join() === 'ABCD-1234-WXYZ-0000' && e.toasts.includes('라이선스 키를 복사했어요') && e.opened.length === 1, '키 누르면 클립보드 · 안내');
+    ev = { target: tgt('.ext-link', { url: 'javascript:alert(1)' }) };
+    root.fire('click', ev);
+    chk(e.opened.length === 1, '  화면에 그린 주소도 열기 전에 다시 거른다(http(s) 만)');
   }
 
   say('── 5. 선물함');
@@ -442,13 +454,17 @@ async function behave(src){
     ev = { target: tg('g2', false), preventDefault(){ ev._pd = true; }, stopPropagation(){} };
     list.oncontextmenu(ev);
     const ov = homeWin.children[0];
-    chk(ev._pd && ov && ov.id === 'mhAskOv' && /⭐를 먼저 풀어 주세요/.test(ov.innerHTML) && (ov.innerHTML.match(/<button/g) || []).length === 1, '⭐ 선물 우클릭 — 삭제 대신 안내(확인 단추 하나)');
+    const btnLabels = (o) => (o.innerHTML.match(/<button[^>]*>([^<]*)<\/button>/g) || []).map(b => b.replace(/<[^>]*>/g, '')).join(',');
+    chk(ev._pd && ov && ov.id === 'mhAskOv' && /⭐를 먼저 풀어 주세요/.test(ov.innerHTML) && btnLabels(ov) === '저장,취소' && !/class="danger"/.test(ov.innerHTML), '⭐ 선물 우클릭 — [저장] [취소] 만(삭제 없음) · ⭐ 안내');
+    e.calls = [];
+    ov.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '0' } } : null } }); await flush();
+    chk(e.saved.join() === '다|https://i/2.png?alt=media' && ov.removed && e.calls.length === 0, '  [저장] — 선물 그림 저장을 부르고 닫는다(지우지 않음)');
     chk(e.doc.body.children.length === 0, '  확인창은 #myHomeWin 안에 붙는다(body 로 빼지 않는다)');
     e.calls = []; e.gifts['g-out'].fromName = '라<마';
     list.oncontextmenu({ target: tg('g-out', false), preventDefault(){}, stopPropagation(){} });
     const ov2 = homeWin.children[0];
-    chk(homeWin.children.length === 1 && ov2 !== ov && /라&lt;마 님의 선물을 삭제할까요\?/.test(ov2.innerHTML) && /class="danger"/.test(ov2.innerHTML), '삭제 확인창 — 앞 창은 치우고 · 이름은 escHtml · 삭제는 위험 단추');
-    ov2.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '0' } } : null } }); await flush(); await flush();
+    chk(homeWin.children.length === 1 && /라&lt;마 님의 선물을 저장하거나 삭제할 수 있어요/.test(ov2.innerHTML) && btnLabels(ov2) === '저장,삭제,취소' && (ov2.innerHTML.match(/class="danger"/g) || []).length === 1 && /class="danger">삭제</.test(ov2.innerHTML), '저장 · 삭제 창 — [저장] [삭제] [취소] · 이름은 escHtml · 삭제만 위험 단추');
+    ov2.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '1' } } : null } }); await flush(); await flush();
     chk(e.calls.join() === 'deleteGift g-out' && ov2.removed && e.toasts.includes('🗑 선물을 삭제했어요') && !/data-gid="g-out"/.test(list.innerHTML) && /data-gid="g1"/.test(list.innerHTML), '  [삭제] — 지우고 닫고 다시 그림');
     const ov3 = (list.oncontextmenu({ target: tg('g2', false), preventDefault(){}, stopPropagation(){} }), homeWin.children[0]);
     ov3.fire('click', { target: ov3 });
@@ -560,13 +576,15 @@ function wiring(MI, APP, HTML){
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const want = [
     /^escHtml: \(\.\.\.a\)=>escHtml\(\.\.\.a\),$/, /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^getMyUserId: \(\.\.\.a\)=>getMyUserId\(\.\.\.a\),$/,
+    /^giftSave: TwGiftSave\.createGiftSave\(\{ fetch: \(\.\.\.a\)=>fetch\(\.\.\.a\), document, URL, setTimeout: \(\.\.\.a\)=>setTimeout\(\.\.\.a\), safeUrl: TwSafeHtml\.safeUrl, now: \(\)=>new Date\(\), notifyFail: e=>TwErrorCodes\.notify\('E-MH-03', e\) \}\),$/,
     /^mailFeed: mailFeed,$/, /^noticeFeed: noticeFeed,$/, /^INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,$/, /^isAdmin: \(\)=>isAdmin,$/, /^mhScheduler: mhScheduler,$/,
     /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
+    /^mallangMod: mallangMod,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 19개 — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 20개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');
@@ -625,6 +643,8 @@ async function runAll(MI, APP, HTML){
   say('── 8. 일부러 깨 보기');
   const BREAKS = [
     ['MI', '_inboxFilter = inboxSec.normCat(_inboxFilter);', '', "옛 'gift' 필터를 안 되돌림"],
+    ['MI', "[saveBtn, { label:'취소' }]);", "[saveBtn, { label:'삭제', danger:true }, { label:'취소' }]);", '⭐ 선물 우클릭에 삭제 단추가 붙음'],
+    ['MI', "const saveBtn = { label:'저장', run: ()=>giftSave.save(g) };", "const saveBtn = { label:'저장' };", '[저장] 이 아무것도 안 함'],
     ['MI', 'const ids = inboxSec.newsIds(merged, _inboxFilter);', 'const ids = Object.keys(merged);', '소식 칸이 칸 나누기 규칙을 안 부름'],
     ['MI', 'const ids = inboxSec.mailIds(merged);', 'const ids = Object.keys(merged);', '우편 칸에 소식이 섞임'],
     ['MI', "  if(m.read) return;\n  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", "  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", '읽은 것도 다시 읽음 표시'],
@@ -656,8 +676,8 @@ async function runAll(MI, APP, HTML){
     ['MI', "  if(isAdmin() && noticeFeed.confirmed()){\n    const del", "  if(isAdmin()){\n    const del", '저장본을 보여 주는 동안 «모두에게서 지우기» 단추'],
     ['MI', "  if(isAdmin() && noticeFeed.confirmed()){\n    const del", "  if(true){\n    const del", '일반 사용자에게 «모두에게서 지우기» 단추'],
     ['MI', "if(!(isAdmin() && noticeFeed.confirmed() && m._src === 'broadcast')) return null;", "if(!(m._src === 'broadcast')) return null;", '📌 단추가 누구에게나'],
-    ['MI', 'let esc = escHtml(text);', 'let esc = String(text);', '링크 글을 이스케이프 안 함'],
-    ['MI', "const clean = u.replace(/[.,;:)\\]]+$/, '');", 'const clean = u;', '주소 끝 문장부호를 같이 링크'],
+    ['MI', 'return TwSafeHtml.linkify(text, seg => escHtml(seg)', 'return TwSafeHtml.linkify(text, seg => String(seg)', '링크 바깥 글을 이스케이프 안 함'],
+    ['MI', "const url = a ? TwSafeHtml.safeUrl(a.dataset.url, 'link') : '';", "const url = a ? a.dataset.url : '';", '열기 전에 주소를 다시 안 거름'],
     ['MI', 'root._extLinkBound = true;', '', '링크 위임이 두 번 걸림'],
     ['MI', "badge.textContent = n > 9 ? '9+' : String(n);", 'badge.textContent = String(n);', '배지 9+ 없음'],
     ['MI', 'if(on && starN >= lim.starMax){', 'if(false){', '⭐ 상한 없음'],

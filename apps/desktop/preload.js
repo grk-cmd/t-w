@@ -102,7 +102,7 @@ contextBridge.exposeInMainWorld('companion', {
   // 📋 지금 떠 있는 창 목록 조회: Promise<{ok:true, list:[{name,path,title}]} | {ok:false, reason}>
   //   자동 등록(registerFocusApp)이 '방금 전 활성 창'을 집는 것과 달리, 이건 지금 열려 있는 창을
   //   전부 돌려준다. 게임처럼 등록 직전에 다른 창이 한 번 끼어드는 경우에 사람이 직접 고르라고 쓴다.
-  //   ⚠️ 관리자 권한으로 뜬 창은 목록에도 안 나온다(Windows UIPI) — 그건 OS 경계다.
+  //   경로를 못 읽는 창(관리자 권한 · 안티치트)도 tasklist 가 이름을 주면 목록에 든다.
   listWindows() {
     return ipcRenderer.invoke('companion:listWindows');
   },
@@ -145,6 +145,11 @@ contextBridge.exposeInMainWorld('companion', {
 
   // 업데이트 상태 변화 구독 — callback({status, version?, percent?, message?})
   // status: 'checking' | 'available' | 'none' | 'downloading' | 'downloaded' | 'error'
+  // 절전 · 잠금에서 돌아옴(main powerMonitor resume · unlock-screen) — realtime 연결 확인용(rt-hub.js)
+  onWake(callback) {
+    ipcRenderer.on('companion:wake', (e, why) => callback(why));
+  },
+
   onUpdateStatus(callback) {
     ipcRenderer.on('companion:updateStatus', (e, data) => callback(data));
   },
@@ -303,6 +308,12 @@ contextBridge.exposeInMainWorld('companion', {
   // 🩺 렌더러 쪽 사건 한 줄을 진단 기록에 남긴다(WebGL 연결 끊김 등). 길이는 main 이 자른다.
   diagNote(msg) {
     ipcRenderer.send('companion:diagNote', String(msg == null ? '' : msg).slice(0, 200));
+  },
+
+  // 🧯 렌더러 오류 한 줄을 오류 기록(tw-error.log)에 — { kind: 'ERROR'|'WARN'|'CODE', src, msg } · 모양 · 길이는 main 이 다시 거른다
+  errorLog(p) {
+    if(!p || typeof p !== 'object') return;
+    ipcRenderer.send('companion:errorLog', { kind: String(p.kind || ''), src: String(p.src == null ? '' : p.src).slice(0, 80), msg: String(p.msg == null ? '' : p.msg).slice(0, 4000) });
   },
 
   // ---- 버전 게이트 ----

@@ -3,19 +3,22 @@
      이름 · 레벨 · 소개 · 사진은 켤 때 한 번 + 목록을 열 때 포트의 listFriends(서버 먼저)로 받아 목록에 얹는다.
      그중 이름 · 레벨 · 회차(프로필)는 목록이 열려 있는 동안 접속 상태와 같이 듣는다(watchProfile — 같은 조건 · 같은 수명). 소개 · 사진은 열 때 한 번뿐.
      그 사이 새로 생긴 친구(구독에 늘어난 id)는 그 친구만 readFriend(서버 먼저)로 한 번 받는다 — 실행마다 친구당 한 번 · 실패면 자리표시('...') 그대로.
-     접속 상태(온라인 · 방) · 프로필은 목록이 하나라도 열려 있는 동안만 듣는다(watchPresence · watchProfile — 친구 n명이면 2n개) · 닫으면 둘 다 푼다(마지막 값은 남는다).
+     접속 상태(온라인 · 방)는 realtime 듣기 하나(서버가 바뀐 친구만 알림), 프로필은 친구별 구독 — 둘 다 목록이 하나라도 열려 있는 동안만 듣고 닫으면 푼다(마지막 값은 남는다).
+     사용자가 누른 한 번 읽기(refreshPresence)가 실패하면 오류 번호(E-FR-05)로 한 번 알린다 — 이어지는 동안 되풀이하지 않고, 받으면 다시 알릴 수 있게 되돌린다.
+     연결이 멈춘 화면은 끊김 정책(rt-hub · 끊김 띠) 몫이라 듣기 상태로 오류를 띄우지 않는다. 혼자 다시 받지 않는다(연결이 다시 붙으면 듣기가 스스로 다시 걸린다).
+     서버가 친구 목록을 못 받아 듣기를 거절하면(failed) live 로 두지 않고 — 목록을 다시 열 때(사용자 동작) · 다시 붙을 때만 다시 묻는다.
      목록이 닫혀 있을 때 친구 이름이 필요한 곳(마이홈 구경)은 refreshProfile(fid) 로 그 친구 프로필만 한 번 새로 읽는다.
-     닫혀 있을 때 접속 상태가 필요한 곳(놀러 가기 · 파도타기 친구 고르기)은 refreshPresence(ids) 로 그 친구만 한 번 읽는다.
+     닫혀 있을 때 접속 상태가 필요한 곳(놀러 가기 · 파도타기 친구 고르기)은 refreshPresence(ids) 로 그 친구들만 한 번(요청 하나) 읽는다.
      친구 추가 · 수락 판정은 friendsForCheck() 로 — 받았으면 지금 목록, 아니면 이 모듈 한 곳에서만 한 번 읽는다(진행 중이면 모두가 같은 Promise).
      화면은 notice() 하나로 같은 문구 · 같은 상태를 읽는다.
    deps: subscribe(myId, onChange, onError) → 해제 함수 · fetchOnce(myId) → Promise<{친구id:{addedAt}}>(판정용) ·
-         listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · readFriend(fid) → Promise<친구 | null>(새 친구 한 명) · watchPresence(myId, ids, onChange) → 해제 함수 ·
-         readPresence(fid) → Promise<접속 상태> · watchProfile(myId, ids, onChange) → 해제 함수 · readProfile(fid) → Promise<프로필> · current() → 지금 목록 ·
-         setFriends(v) · getMyUserId() · toast(msg) · setTimer(fn, ms) → id · clearTimer(id) · onUnload(fn)(앱 종료 · 로그아웃 뒤 재시작 때 정리)
+         listFriends(myId) → Promise<{친구id: 친구}>(이름 · 레벨 · 소개 · 사진) · readFriend(fid) → Promise<친구 | null>(새 친구 한 명) ·
+         watchPresence(myId, ids, onChange, onStatus('waiting' | 'live' | 'failed')) → 해제 함수 · readPresence(ids) → Promise<{친구id: 접속 상태}>(못 받으면 던짐) · retryPresence() → bool(듣기가 못 받음이면 한 번 다시) · watchProfile(myId, ids, onChange) → 해제 함수 · readProfile(fid) → Promise<프로필> · current() → 지금 목록 ·
+         setFriends(v) · getMyUserId() · toast(msg) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify) · setTimer(fn, ms) → id · clearTimer(id) · onUnload(fn)(앱 종료 · 로그아웃 뒤 재시작 때 정리)
    내보냄: start(myId, onFriends, onStatus) · stop() · status() · notice() · retryIfFailed() · friendsForCheck() ·
          open(key, onUpdate)(목록을 열 때 — 다시 걸기 · 이름 받기 · 접속 상태 듣기 · 열려 있는 동안 바뀌면 onUpdate) · close(key) ·
          refreshPresence(ids) → Promise(듣고 있지 않은 친구만 한 번 읽기) · refreshProfile(fid) → Promise<bool>(친구면 이름 · 레벨을 새로 — 듣는 중이면 그대로 true)
-     순수: noticeFor(status) · friendOf(entry, card, pres) · mergeFriends(ids, details, presence) · NOTICE · STATUS · SUB_WAIT_MS (TwFriendsSub 위)
+     순수: noticeFor(status) · friendOf(entry, card, pres) · mergeFriends(ids, details, presence) · NOTICE · STATUS · PRES · SUB_WAIT_MS (TwFriendsSub 위)
    ⚠️ 구독이 연결 시도 중이면 따로 읽지 않고 그 결과를 SUB_WAIT_MS 까지 기다린다 — 같은 경로를 두 번 읽지 않게.
    ⚠️ 한 번 읽은 값은 그 판정에만 쓴다(받음으로 치지 않는다 · 따로 캐시 안 함). 그 사이 구독 값이 왔으면 구독 값이 이긴다.
    ⚠️ 받은 목록이 비어 있으면 READY 다(«친구 없음»). 아직 못 받았거나 못 받은 것과 섞지 않는다.
@@ -24,6 +27,7 @@
 (function(){
 
 const SUB_WAIT_MS = 3000;   // 판정이 연결 시도 중인 구독을 기다리는 상한 — 넘으면 그때 한 번 읽는다
+const PRES = { IDLE: 'idle', LIVE: 'live', WAITING: 'waiting', FAILED: 'failed' };   // 접속 상태 듣기 — 값은 friends-presence-rt.js 의 LIVE · WAITING · FAILED
 const STATUS = { IDLE: 'idle', LOADING: 'loading', ERROR: 'error', READY: 'ready' };
 const NOTICE = {
   loading: '친구 목록을 불러오는 중이에요',
@@ -62,12 +66,14 @@ const listFriends = deps.listFriends;
 const readFriend = deps.readFriend;
 const watchPresence = deps.watchPresence;
 const readPresence = deps.readPresence;
+const retryPresence = deps.retryPresence;
 const watchProfile = deps.watchProfile;
 const readProfile = deps.readProfile;
 const current = deps.current;
 const setFriends = deps.setFriends;
 const getMyUserId = deps.getMyUserId;
 const toast = deps.toast;
+const notifyError = deps.notifyError;
 const setTimer = deps.setTimer;
 const clearTimer = deps.clearTimer;
 const onUnload = deps.onUnload;
@@ -90,6 +96,8 @@ let _open = {};        // 열려 있는 목록 { key: onUpdate | null }
 let _presence = {};    // 접속 상태 { 친구id: { online, lastSeen, room, inRoom } } — 닫은 뒤에도 마지막 값은 남는다
 let _live = {};        // 듣는 동안 받은 프로필 { 친구id: { name, level, cyc, clv, starC } } — 닫으면 비운다(값은 _details 에 남는다)
 let _presOff = null;   // 지금 걸린 실시간 듣기(접속 상태 · 프로필)의 해제 함수(하나뿐 — 친구 n명을 한 벌로)
+let _presState = PRES.IDLE;   // 접속 상태 듣기 상태 — 닫으면 IDLE
+let _presFailShown = false;   // 접속 상태 못 받음을 이미 알렸나 — 받으면 되돌린다(이어지는 실패는 한 번만)
 let _presKey = '';     // 그 듣기가 보는 친구 id(정렬해 이은 글) — 같으면 다시 걸지 않는다
 
 function _setStatus(s){
@@ -137,8 +145,21 @@ function _loadNew(added){
             e=>{ if(run === _run) console.warn('[친구 목록] 새 친구 이름 · 사진을 못 받음 — 자리표시 그대로', fid, e); });
   }
 }
+/* 한 번 읽기 실패를 알린다 — 이어지는 동안 한 번. 받으면(LIVE · 읽기 성공) 다시 알릴 수 있게 되돌린다. */
+function _presFailed(err){
+  if(_presFailShown) return;
+  _presFailShown = true;
+  try{ notifyError('E-FR-05', err); }catch(e){ console.warn('[친구 목록] 접속 상태 오류 알림 실패', e); }
+}
+function _presOk(){ _presFailShown = false; }
+function _setPresState(s){
+  if(_presState === s) return;
+  _presState = s;
+  if(s === PRES.LIVE) _presOk();
+  _emit();
+}
 function _stopPresence(){
-  const u = _presOff; _presOff = null; _presKey = ''; _live = {};
+  const u = _presOff; _presOff = null; _presKey = ''; _live = {}; _presState = PRES.IDLE;
   if(u){ try{ u(); }catch(_){} }
 }
 /* 프로필 받음 — 이름 · 레벨 · 회차만 덮는다(소개 · 사진은 그대로). */
@@ -157,7 +178,11 @@ function _syncPresence(){
   const run = _run;
   _presKey = want;
   const ids = want.split(','), offs = [];
-  try{ offs.push(watchPresence(_myId, ids, p=>{ if(run !== _run) return; Object.assign(_presence, p); _emit(); })); }
+  try{
+    offs.push(watchPresence(_myId, ids,
+      p=>{ if(run !== _run || _presKey !== want) return; Object.assign(_presence, p); _emit(); },
+      s=>{ if(run !== _run || _presKey !== want) return; _setPresState(s); }));
+  }
   catch(e){ console.warn('[친구 목록] 접속 상태 듣기 실패', e); }
   try{ offs.push(watchProfile(_myId, ids, p=>{ if(run !== _run || _presKey !== want) return; Object.assign(_live, p); _applyProfile(p); _emit(); })); }
   catch(e){ console.warn('[친구 목록] 프로필 듣기 실패', e); }
@@ -219,7 +244,7 @@ function stop(){
   _detach();
   _stopPresence();
   _status = STATUS.IDLE;
-  _ids = {}; _details = {}; _detailsP = null; _detailsTried = false; _presence = {}; _live = {}; _asked = {}; _gotIds = false;
+  _ids = {}; _details = {}; _detailsP = null; _detailsTried = false; _presence = {}; _live = {}; _asked = {}; _gotIds = false; _presFailShown = false;
   _wake();
 }
 /* 목록을 열 때 부른다. 못 불러온 상태일 때만 다시 건다 — 받았거나 · 거는 중이면 아무것도 안 한다.
@@ -287,18 +312,23 @@ function open(key, onUpdate){
   retryIfFailed();
   if(first) _loadDetails();
   _syncPresence();
+  if(_presState === PRES.FAILED) retryPresence();   // 서버가 친구 목록을 못 받아 거절한 듣기 — 다시 열 때 한 번 다시 묻는다
 }
 function close(key){ delete _open[key]; _syncPresence(); }
-/* 듣고 있지 않은 친구의 접속 상태만 한 번 읽어 얹는다(놀러 가기 · 파도타기 친구 고르기). 실패한 친구는 지난 값 그대로. */
+/* 듣고 있지 않은 친구의 접속 상태만 한 번 읽어 얹는다(놀러 가기 · 파도타기 친구 고르기) — 요청 하나(100명 넘으면 나눠서). 못 받으면 지난 값 그대로 + 오류 번호 한 번. */
 function refreshPresence(ids){
   const watching = _presKey ? _presKey.split(',') : [];
   const need = (ids || []).filter(fid=>fid && watching.indexOf(fid) < 0);
   if(!need.length) return Promise.resolve();
   const run = _run;
-  return Promise.all(need.map(fid=>Promise.resolve()
-    .then(()=>readPresence(fid))
-    .then(p=>{ if(run === _run && p) _presence[fid] = p; }, e=>{ console.warn('[친구 목록] 접속 상태 한 번 읽기 실패', fid, e); })))
-    .then(()=>{ if(run === _run) _emit(); });
+  return Promise.resolve()
+    .then(()=>readPresence(need))
+    .then(p=>{
+      if(run !== _run) return;
+      _presOk();
+      for(const fid of Object.keys(p || {})) if(p[fid]) _presence[fid] = p[fid];
+      _emit();
+    }, e=>{ if(run !== _run) return; console.warn('[친구 목록] 접속 상태 한 번 읽기 실패', e); _presFailed(e); _emit(); });
 }
 /* 친구 한 명의 이름 · 레벨을 새로(마이홈 구경 — 목록이 닫혀 있어도 옛 이름으로 굳지 않게) → Promise<true(친구 · 값 최신) | false(친구 아님 · 못 읽음)>.
    듣는 중이면 이미 최신이라 읽지 않는다. 받으면 목록에 얹고 다시 그린다(onFriends → 지금 목록). */
@@ -338,7 +368,7 @@ return {
 };
 }
 
-const api = { createFriendsSub, noticeFor, friendOf, mergeFriends, NOTICE, STATUS, SUB_WAIT_MS };
+const api = { createFriendsSub, noticeFor, friendOf, mergeFriends, NOTICE, STATUS, PRES, SUB_WAIT_MS };
 if(typeof window !== 'undefined') window.TwFriendsSub = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

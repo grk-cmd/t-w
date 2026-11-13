@@ -10,7 +10,7 @@
   import {
     getDatabase, ref as _dbRef, set as _sdkSet, update as _dbUpdate, remove as _sdkRemove, onValue as _sdkOnValue, off, onDisconnect, serverTimestamp, get as _sdkGet, runTransaction,
     push as _sdkPush, query as _sdkQuery, limitToLast as _sdkLimitToLast, orderByChild as _sdkOrderByChild, orderByKey as _sdkOrderByKey,
-    startAt as _sdkStartAt, endBefore, equalTo as _sdkEqualTo, onChildAdded, onChildChanged, goOffline, goOnline
+    startAt as _sdkStartAt, equalTo as _sdkEqualTo, onChildAdded, onChildChanged, goOffline, goOnline
   } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
   // Storage: 큰 base64 데이터(GLB 등)를 Realtime Database에서 빼내 스토리지에 두고 URL만 저장 (Firebase 사용량 절감)
   import {
@@ -36,12 +36,9 @@
   import { createGhostHeal } from "./room/room-ghost-heal.js";
   import { createRoomIndex } from "./room/room-index.js";
   import { recoverChannelFor, hostSuccession } from "./room/room-channel.js";
-  import { createGachaTx } from "./character/gacha-tx.js";
   import { ROOM_ALIVE_HB, ROOM_ALIVE_STALE_MS, aliveV2On, isMemberAlive, isNewerSession, isIndexToucher, isProbeAlive, isNodeAlive } from "./room/room-alive.js";
   import { createInviteRevokeAll } from "./account/invite-revoke.js";
   import { createAppVersion } from "./shared/app-version.js";
-  import { createAppVersionGate, createAppVersionGateDom } from "./shared/app-version-gate.js";
-  import { createBugBoard } from "./support/bug-board.js";
   import { createChatHistory, createIdbChatStore, chatOrder } from "./chat/chat-history.js";
   import { createCatalogSync, createApiCatalogFetch } from "./character/catalog-cache.js";
   import { createRealtimeLink } from "./realtime/realtime-link.js";
@@ -367,7 +364,6 @@
     state: () => ({ room: _roomCode, mid: _memberId, memberRef: _myMemberRef, data: _myMemberData,
                     friends: _roomLastFriends, meta: _roomMetaVal }),
   });
-  const _gachaTx = createGachaTx({ db, ref, get, runTransaction, waitConnected: ms => window.firebaseAPI.waitConnected(ms), whenAuthReady: _whenAuthReady });
   /* presence · onDisconnect 는 set(통째 덮기)이라 그 객체마다 ver 를 실어야 꺼진 뒤에도 남는다.
      ⚠️ presence 에 쓰는 것은 update 까지 **전부** withVer 를 거친다 — 규칙은 online:true 인데 ver 가 없으면
        옛 앱으로 보고 내 읽기 · 쓰기를 막는다(ver 없는 오프라인 쓰기도 inRoom 이 있으면 거절). withVer 는 모르면 'unknown' 을 싣는다.
@@ -384,7 +380,6 @@
   /* ⚙️ 원격 설정(remote-config.js — 읽는 차례 · 주기는 그 머리 주석) */
   const _lsOrNull = () => { try{ return window.localStorage; }catch(_){ return null; } };
   const _rc = (window.TwRemoteConfig && window.TwRemoteConfig.store) || null;
-  const MIN_APP_VER_WAIT_MS = 7000;   // 첫 답을 이만큼만 기다린다(API 시간 제한 + 여유 · 게이트 8초보다 짧게) — 넘으면 막지 않는다
   if(_rc){
     _rc.start({
       api: (window.TwApi && window.TwApi.client) || null,   // 앱 공통 API 통로(api-client.js) — 운영/dev 주소는 거기서
@@ -393,13 +388,6 @@
       rt: window.TwRtHub.store,   // realtime 알림 config — 서버가 바꿨을 때 · 오래 끊겼다 붙었을 때 다시 묻는다
     });
   }
-  /* 앱 최소 버전(app-version-gate.js) — 원격 설정의 첫 답(이번 실행에 받은 값만)으로 «업데이트해 주세요» · 못 받으면 막지 않는다. */
-  createAppVersionGate({
-    readMin: () => _rc ? _rc.ready(null, MIN_APP_VER_WAIT_MS).then(() => _rc.minAppVer()) : null,
-    getVersion: () => _appVer.ready,
-    companion: window.companion || null,
-    ui: createAppVersionGateDom(document),
-  }).start().then(r => { if(r.blocked) console.warn('[앱 최소 버전] 막음 —', r.my, '<', r.min); });
   onValue(ref(db, window.TwMaintenance.MAINTENANCE_PATH), (s) => _mt.onValue(s.val()), () => {});   // 🛠 서버 점검 표시 — 점검 중에도 규칙이 이 칸 읽기는 연다
   /* 🛰 옛 방 서버(웹소켓 pv 1) — 문지기(room-server-gate.js)가 0.13 에선 늘 Firebase 를 돌려줘 _rsUrl 은 null 그대로(서버 안 씀). */
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
@@ -525,35 +513,8 @@
     getIdToken(force){ return _getIdToken(force); },
     // 로그인 API GET — get(path, { auth:true, headers, timeoutMs }) 그대로(api-client.js). 통로가 없으면 'unavailable'(NO_API).
     apiGetAuthed(path, opts){ return _authApi ? _authApi.get(path, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
-    apiPostAuthed(path, body, opts){ return _authApi ? _authApi.post(path, body, opts) : Promise.reject(Object.assign(new Error('API 통로 없음'), { kind: 'unavailable', code: 'NO_API', status: 0 })); },
     // 서버 방에 들어가고 나갈 때 친구 목록의 «온라인 · 방코드» — Firebase 방은 joinRoom · leaveRoom 이 직접 한다.
     setPresenceRoom(code){ _syncPresenceRoom(code || null); },
-    /* 🛰 소켓이 실제로 열렸는가 — 감시견(app.js `_fbBootWatch`)이 부팅 때 한 번 부른다.
-       [왜 필요한가] `window.firebaseAPI` 가 있다는 것과 **서버에 닿는다**는 것은 다른 질문이다.
-         initializeApp·getDatabase 는 네트워크를 안 타므로 CSP connect-src 나 방화벽이 소켓만
-         막아도 이 파일은 끝까지 완주하고 firebase-ready 까지 발화한다. 그 뒤의 모든 읽기·쓰기가
-         조용히 멈추는데 화면에는 아무 말도 안 뜬다 — 제보된 "방 개수 확인 중에서 안 넘어감 /
-         마이홈·친구가 빈 채로 뜸"이 그 상태다.
-       ★ `.info/connected` 는 서버 왕복이 아니라 **클라이언트가 들고 있는 소켓 상태**라 공짜다.
-         부팅마다 불러도 요금이 0 이라 이 자리에 둘 수 있다.
-       ⚠️ true 를 볼 때까지 기다리다 시간이 지나면 false 를 준다. 어느 쪽으로 끝나든 구독은 반드시
-         해제한다 — 안 하면 재시도할 때마다 리스너가 쌓인다. */
-    waitConnected(timeoutMs){
-      return new Promise(resolve=>{
-        let settled = false, unsub = null;
-        const fin = v => {
-          if(settled) return;
-          settled = true;
-          clearTimeout(t);
-          try{ if(unsub) unsub(); }catch(_){}
-          resolve(v);
-        };
-        const t = setTimeout(()=>fin(false), Math.max(1000, timeoutMs || 8000));
-        try{
-          unsub = onValue(ref(db, '.info/connected'), s=>{ if(s.val() === true) fin(true); }, ()=>fin(false));
-        }catch(_){ fin(false); }
-      });
-    },
     // 🚪 버전 게이트 — 방 입장 최소 허용 버전(예: "0.6.2"). 원격 설정 minVersion.room — 관리자가 바꾸면
     //   앱 재배포 없이 올라감(입장 때 STALE_MS 넘었으면 한 번 더 묻는다). 값 없음 · 못 받음이면 null(=제한 없음).
     async getMinRoomVer(){
@@ -633,220 +594,8 @@
     },
     /* 🔗 (걷음 · 개정 56) `setFriendCodeOwner` — 친추코드 소유자 강제 지정. 부르던 두 곳(_claimFriendCodeAfterTransfer ·
        _healFriendCodeOwner 되찾기 갈래)이 걷혔다. 남의 계정 코드를 가져가는 통로라 남기지 않는다(선점은 registerFriendCode 뿐). */
-    /* ===== 🎰 파츠 가챠 =====
-         users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
-         users/{uid}/gacha/ts             = 172…   // 마지막으로 바꾼 시각(ms)
-       내 것만 1회 get 한다 — 목록을 실시간 구독하면 비용이 터진다(audit 검사 9).
-       ★ 쓰기는 트랜잭션 한 길(updateGacha → character/gacha-tx.js)뿐이다 — 통째 set 은 다른 PC 의 뽑기를 지운다.
-       ⚠️ 규칙 파일의 users/$userId 안에 gacha 블록이 없으면 여기 쓰기가 **조용히 전부 거부**된다.
-         audit 검사 7은 최상위 경로만 보므로 users 하위 키는 잡아주지 않는다. */
-    async loadGachaOwned(uid){
-      try{
-        const snap = await get(ref(db, `users/${uid}/gacha`));
-        const v = snap.val() || {};
-        return { owned: v.owned || {}, ts: Number(v.ts) || 0 };
-      }
-      catch(e){ console.warn('[가챠] 소유 목록 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
-    },
-    updateGacha(uid, apply, opt){ return _gachaTx.updateGacha(uid, apply, opt); },
-    /* ===== 🧍 캐릭터 슬롯 (기기 간 동기화 · 2026-09-16 제보 6-b) =====
-         users/{uid}/slots/ts      = 172…   // 마지막으로 바꾼 시각(ms · 서버 시계)
-         users/{uid}/slots/v       = 1
-         users/{uid}/slots/s/{i}   = "{…}"  // 칸 i(0~4)의 def 를 **JSON 문자열**로. 빈 칸은 키가 없다.
-       [왜 문자열인가] def 안의 deskItems·equippedParts·partXfMemory 는 파츠 id 를 키로 쓴다.
-         그걸 RTDB 노드로 펼치면 키에 '.' '#' '$' 가 하나라도 섞이는 순간 쓰기가 거부되고,
-         규칙의 .validate 도 필드마다 다시 써야 한다. 문자열 하나면 규칙 두 줄(길이 상한 +
-         base64 금지)로 끝나고, 앱 쪽 직렬화 규칙이 바뀌어도 규칙 파일은 손댈 게 없다.
-       ⚠️ **그림·GLB 는 절대 여기에 안 실린다.** 얼굴·감은눈·동물 페인트는 방 입장과 같은
-         Storage 파일(roomface_*)의 URL 로, 커미션·커스텀 책상·커스텀 아이템 GLB 는 아래
-         uploadSlotGlb 의 URL 로 바꿔 실린다 — 변환은 전부 app.js `_slotToServerObj` 가 한다.
-         규칙 파일의 `.validate` 가 'data:…;base64' 를 거부하므로, 여기서 새는 dataURL 은
-         조용히 저장되지 않고 **쓰기 전체가 거부**된다(그래서 반환값을 버리면 안 된다).
-       ★ 병합 판정(ts 최신 승 · 연동 pull)은 전부 app.js `syncSlotsToServer` 가 한다.
-         여기는 읽기/쓰기만. 가챠와 같은 자리 나누기다.
-       ★ 통째 set — update 면 진 기기에서 지운 칸이 서버에 그대로 남는다(가챠와 같은 이유).
-       ★ 부팅 때는 ts 만 먼저 읽는다(loadSlotsTs). 슬롯 본문은 얼굴 URL·파츠 목록까지 실려
-         가챠 노드보다 훨씬 크다 — 바뀐 게 없는 부팅에서 그걸 매번 내려받을 이유가 없다. */
-    async loadSlotsTs(uid){
-      try{ const s = await get(ref(db, `users/${uid}/slots/ts`)); return Number(s.val()) || 0; }
-      catch(e){ console.warn('[슬롯] 서버 시각 읽기 실패', e); return null; }   // null = 읽기 실패(0 과 구분)
-    },
-    async loadSlotsRemote(uid){
-      try{
-        const snap = await get(ref(db, `users/${uid}/slots`));
-        const v = snap.val() || {};
-        const s = {};
-        const src = v.s || {};
-        for(const k in src){ if(typeof src[k] === 'string' && src[k]) s[k] = src[k]; }
-        return { s, ts: Number(v.ts) || 0 };
-      }
-      catch(e){ console.warn('[슬롯] 서버 사본 읽기 실패', e); return null; }   // null = 읽기 실패(값 없음과 구분)
-    },
-    async saveSlotsRemote(uid, s, ts){
-      /* 🚧 소유권이 걸린 쓰기 — syncFocusTotal 과 같은 이유로 대기선을 지난다(제보 6).
-         부팅 4.6초 push 가 세션 복원과 경주하면 구글에 묶인 계정은 첫 push 가 조용히 거부된다. */
-      await _whenAuthReady();
-      try{
-        const clean = {};
-        for(const k in (s || {})){
-          if(!/^[0-4]$/.test(k)) continue;
-          if(typeof s[k] !== 'string' || !s[k]) continue;
-          clean[k] = s[k];
-        }
-        /* 🛟 [2026-09-20 ①] 서버 이전 한 벌 — 이 쓰기가 **칸을 줄이면** 덮기 직전의 것을 slotsPrev 에 남긴다.
-           로컬 백업(3-7-1)은 캐릭터가 사라진 그 기기에만 있어서, 그 기기를 포맷하거나 로그아웃하면 같이 없어진다.
-           서버에 한 벌 있으면 어느 기기에서든(새로 산 PC 에서도) 되돌릴 수 있다.
-           ⚠️ 여기서 남기는 이유 — 덮는 쪽(다른 기기)은 자기가 무엇을 덮는지 모른다. 그걸 아는 건 서버 앞의 이 함수뿐이다.
-           ⚠️ 하찮은 것으로 덮지 않는다(로컬 백업과 같은 규칙): 이미 있는 prev 가 더 많은 칸을 들고 있으면 그대로 둔다.
-           ⚠️ 실패해도 본 쓰기는 막지 않는다 — 백업 때문에 캐릭터가 안 올라가면 다른 제보가 생긴다. */
-        try{
-          const nNew = Object.keys(clean).length;
-          const cur = (await get(ref(db, `users/${uid}/slots`))).val();
-          const curS = (cur && cur.s) || {};
-          const nCur = Object.keys(curS).filter(k => typeof curS[k] === 'string' && curS[k]).length;
-          if(nCur > nNew){
-            const prev = (await get(ref(db, `users/${uid}/slotsPrev`))).val();
-            const nPrev = prev && prev.s ? Object.keys(prev.s).length : 0;
-            if(nPrev <= nCur) await set(ref(db, `users/${uid}/slotsPrev`), { v: 1, s: curS, ts: Number(cur.ts) || 0, at: Date.now() });
-          }
-        }catch(e){ console.warn('[슬롯] 서버 이전 한 벌 남기기 실패(본 쓰기는 계속)', e); }
-        await set(ref(db, `users/${uid}/slots`), { v: 1, s: clean, ts: Math.max(0, Math.floor(Number(ts) || 0)) });
-        return true;
-      }catch(e){ console.warn('[슬롯] 서버 반영 실패', e); return false; }
-    },
-    /* 🛟 [①] app.js 가 ④ 충돌에서 «이 기기 것으로» 를 고르면 덮기 직전에 **조건 없이** 한 벌 남긴다(칸 수와 무관 —
-       사람이 고른 판은 어느 쪽이든 되돌릴 자리가 있어야 한다). 같은 «더 많은 prev 는 안 덮는다» 규칙. */
-    async saveSlotsPrevRemote(uid){
-      await _whenAuthReady();
-      try{
-        const cur = (await get(ref(db, `users/${uid}/slots`))).val();
-        const curS = (cur && cur.s) || {};
-        const nCur = Object.keys(curS).filter(k => typeof curS[k] === 'string' && curS[k]).length;
-        if(!nCur) return false;
-        const prev = (await get(ref(db, `users/${uid}/slotsPrev`))).val();
-        const nPrev = prev && prev.s ? Object.keys(prev.s).length : 0;
-        if(nPrev > nCur) return false;
-        await set(ref(db, `users/${uid}/slotsPrev`), { v: 1, s: curS, ts: Number(cur.ts) || 0, at: Date.now() });
-        return true;
-      }catch(e){ console.warn('[슬롯] 서버 이전 한 벌 실패', e); return false; }
-    },
-    async loadSlotsPrevRemote(uid){
-      try{
-        const v = (await get(ref(db, `users/${uid}/slotsPrev`))).val() || {};
-        const s = {}; const src = v.s || {};
-        for(const k in src){ if(typeof src[k] === 'string' && src[k]) s[k] = src[k]; }
-        return { s, ts: Number(v.ts) || 0, at: Number(v.at) || 0 };
-      }catch(e){ console.warn('[슬롯] 서버 이전 한 벌 읽기 실패', e); return null; }
-    },
-    /* ===== 🧬 캐릭터 단위 저장 (회원가입 설계 §2-2 · §5-N · 2026-09-21 · CHECKS 개정 34) =====
-         users/{uid}/chars/{cid}          = { def:"{…}", mtime, v } | { del: mtime }   // def 는 slots.s 와 같은 JSON 문자열(서버 표현)
-         users/{uid}/trash/{cid}/{mtime}  = { def, why, at }                           // 붙이기만(규칙 잎)
-         users/{uid}/charsMeta            = { migratedFrom:'slots', migratedAt, claimAt, v, ts }
-                                            ts = chars 를 마지막으로 쓴 시각(개정 36) — 평상시 받기가 이 한 값만 읽고 같으면 본문을 안 받는다(slots.ts 와 같은 구실)
-       ★ 판정(짝짓기 · 병합)은 전부 app.js 순수 함수(_charsFromServerSlots · _charsFromLocalSlots · _charsMerge)가 한다. 여기는 읽기/쓰기만.
-       ⚠️ 규칙이 **게시되기 전엔 쓰기가 전부 거부된다**(루트 .write:false). app.js 는 CHARS_SYNC_ENABLED 가 꺼져 있으면 쓰는 쪽을 안 부른다. */
-    /* 💰 평상시 받기의 첫 걸음 — chars 본문(마리당 최대 15만 자 × 20)을 매번 받지 않으려고 한 값만 읽는다(개정 36).
-       돌려주는 값: 숫자(없으면 0) · 읽기 실패면 null. */
-    async loadCharsMetaTs(uid){
-      try{ const v = (await get(ref(db, `users/${uid}/charsMeta/ts`))).val(); return Number(v) || 0; }
-      catch(e){ console.warn('[캐릭터] charsMeta.ts 읽기 실패', e); return null; }
-    },
-    async loadCharsRemote(uid){
-      try{
-        const [c, m] = await Promise.all([ get(ref(db, `users/${uid}/chars`)), get(ref(db, `users/${uid}/charsMeta`)) ]);
-        const src = c.val() || {}, chars = {};
-        for(const k in src){ const e = src[k]; if(e && typeof e === 'object' && (typeof e.def === 'string' || typeof e.del === 'number')) chars[k] = e; }
-        return { chars, meta: m.val() || null };
-      }catch(e){ console.warn('[캐릭터] 서버 chars 읽기 실패', e); return null; }   // null = 읽기 실패(비어 있음과 구분)
-    },
-    /* 🔒 이관 선점 — 서버 slots → chars 는 **한 기기만** 한다(두 기기가 하면 같은 마리가 cid 둘).
-       migratedAt:0 = 진행 중. 선점한 기기가 쓰기를 마치면 finishCharsMigration 이 시각을 적는다.
-       진행 중인 채로 CHARS_CLAIM_STALE_MS 가 지나면(선점한 기기가 도중에 꺼짐) 다른 기기가 다시 잡을 수 있다 —
-       다시 잡은 쪽도 지금 chars 를 읽고 짝짓기를 하므로 먼저 쓴 것과 def 문자열이 같으면 새 cid 를 안 뽑는다. */
-    async claimCharsMigration(uid, staleMs){
-      await _whenAuthReady();
-      try{
-        const now = _svNow(), stale = Number(staleMs) || 10*60*1000;
-        const res = await runTransaction(ref(db, `users/${uid}/charsMeta`), cur => {
-          if(cur == null) return { migratedFrom: 'slots', migratedAt: 0, claimAt: now, v: 1 };
-          if(!cur.migratedAt && now - (Number(cur.claimAt) || 0) > stale) return Object.assign({}, cur, { claimAt: now });
-          return undefined;                                                   // 이미 끝났거나 다른 기기가 진행 중 — 손대지 않는다
-        });
-        return { claimed: !!res.committed, meta: res.snapshot.val() || null };
-      }catch(e){ console.warn('[캐릭터] 이관 선점 실패', e); return null; }
-    },
-    async finishCharsMigration(uid, at){
-      await _whenAuthReady();
-      try{ await update(ref(db, `users/${uid}/charsMeta`), { migratedAt: Math.max(1, Math.floor(Number(at) || _svNow())) }); return true; }
-      catch(e){ console.warn('[캐릭터] 이관 도장 실패', e); return false; }
-    },
-    /* 여러 마리를 한 번에 — update 라서 안 건드린 cid 는 그대로다(slots 의 통째 set 과 반대 · 합집합이니까).
-       ★ 개정 36: 같은 update 안에서 `charsMeta/ts` 도 찍는다(다중 경로 · 원자적). 따로 쓰면 둘째가 실패했을 때
-         다른 기기가 ts 만 보고 «바뀐 것 없음» 으로 영영 못 받는다. 경로 키는 `chars/{cid}` — 합집합은 그대로다.
-       돌려주는 값: 찍은 ts(숫자 · 성공) · 쓸 것이 없으면 true · 실패면 false. */
-    async saveCharsEntries(uid, entries){
-      await _whenAuthReady();
-      try{
-        const patch = {};
-        for(const cid in (entries || {})){
-          if(!/^c[a-z0-9]{6,24}$/.test(cid)) continue;
-          const e = entries[cid]; if(!e) continue;
-          patch['chars/' + cid] = (typeof e.def === 'string')
-            ? { def: e.def, mtime: Math.max(0, Math.floor(Number(e.mtime) || 0)), v: 1 }
-            : { del: Math.max(0, Math.floor(Number(e.del) || 0)) };
-        }
-        if(!Object.keys(patch).length) return true;
-        const ts = Math.max(1, Math.floor(_svNow()));
-        patch['charsMeta/ts'] = ts;
-        await update(ref(db, `users/${uid}`), patch);
-        return ts;
-      }catch(e){ console.warn('[캐릭터] 서버 chars 쓰기 실패', e); return false; }
-    },
-    /* 🧬 묘비의 마지막 모습 — 첫 채택이 «다른 기기에서 지운 마리» 를 알아보려고 읽는다(개정 35). cid 마다 mtime 이 가장 큰 def.
-       돌려주는 값: { cid: def문자열 } (휴지통에 없으면 키 없음) · 읽기 실패면 null. */
-    async loadCharsTrashLatest(uid, cids){
-      try{
-        const out = {};
-        await Promise.all((cids || []).map(async cid => {
-          const v = (await get(ref(db, `users/${uid}/trash/${cid}`))).val() || {};
-          let best = -1;
-          for(const k in v){ const t = Number(k); if(v[k] && typeof v[k].def === 'string' && t > best){ best = t; out[cid] = v[k].def; } }
-        }));
-        return out;
-      }catch(e){ console.warn('[캐릭터] 휴지통 읽기 실패', e); return null; }
-    },
-    /* 🗑️ 휴지통 탭(시안 E · CHECKS 개정 49) — 휴지통 전체. 어떤 줄을 보일지(기한 · 복원됨 접기)는 app.js 순수 함수 _charsTrashView 가 정한다.
-       여기는 모양만 거른다: def 문자열 · why 두 값 · at 숫자. [내 정보 › 휴지통]을 열 때만 부른다(평상시 동기화는 안 읽는다).
-       돌려주는 값: { cid: { mtime: { def, why, at } } } (없으면 {}) · 읽기 실패면 null(비어 있음과 구분). */
-    async loadCharsTrashAll(uid){
-      try{
-        const v = (await get(ref(db, `users/${uid}/trash`))).val() || {};
-        const out = {};
-        for(const cid in v){
-          if(!/^c[a-z0-9]{6,24}$/.test(cid) || !v[cid] || typeof v[cid] !== 'object') continue;
-          for(const mt in v[cid]){
-            const t = v[cid][mt];
-            if(!t || typeof t.def !== 'string' || (t.why !== 'deleted' && t.why !== 'overwritten')) continue;
-            (out[cid] = out[cid] || {})[mt] = { def: t.def, why: t.why, at: Number(t.at) || 0 };
-          }
-        }
-        return out;
-      }catch(e){ console.warn('[캐릭터] 휴지통 전체 읽기 실패', e); return null; }
-    },
-    /* 휴지통 — 한 줄씩. 잎 규칙이 «없을 때만» 이라 한 번에 update 하면 이미 있는 한 줄 때문에 **전부** 거부된다.
-       이미 있는 자리(같은 cid·같은 mtime)는 같은 내용이니 실패해도 넘어간다. 돌려주는 값 = 쓴 줄 수. */
-    async appendCharsTrash(uid, list){
-      await _whenAuthReady();
-      let n = 0;
-      for(const t of (list || [])){
-        if(!t || !/^c[a-z0-9]{6,24}$/.test(t.cid) || typeof t.def !== 'string') continue;
-        const why = (t.why === 'deleted') ? 'deleted' : 'overwritten';   // 두 값뿐 — deleted 3일 · overwritten 10일(설계 개정 5 · 청소는 함수)
-        try{ await set(ref(db, `users/${uid}/trash/${t.cid}/${Math.max(0, Math.floor(Number(t.mtime) || 0))}`), { def: t.def, why, at: _svNow() }); n++; }
-        catch(e){ /* 이미 있음(붙이기만) · 또는 규칙 미게시 — 본 쓰기는 막지 않는다 */ }
-      }
-      return n;
-    },
-    /* 🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.
+    /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v1/me/avatars). 여기는 Storage 올리기만 남았다 =====
+       🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.
        key 는 app.js 가 '종류_내용해시' 로 만든다 — 같은 파일은 같은 경로라 두 번 올라가지 않고,
        다른 파일은 다른 경로라 서로 덮지 않는다(roomface_* 와 같은 규칙).
        ⚠️ 카탈로그 GLB(_uploadGlbIfNeeded)와 경로를 나눈다 — 그쪽은 관리자 카탈로그, 이쪽은 개인 파일. */
@@ -1084,16 +833,6 @@
         }, 6 * 60 * 60 * 1000);
       }catch(_){}
     },
-    /* 🔒 온라인 고정 — presencePref/{uid} = { lock, online, ts }(본인만 · users/* 밖 — 친구가 «숨긴 오프라인» 을 못 알아보게). 읽기: 비어 있으면 {} · 못 읽으면 null */
-    async loadPresencePref(userId){
-      if(!userId) return null;
-      await _whenAuthReady();
-      try{ return (await get(ref(db, `presencePref/${userId}`))).val() || {}; }catch(_){ return null; }
-    },
-    async savePresencePref(userId, p){
-      await _whenAuthReady();
-      return set(ref(db, `presencePref/${userId}`), { lock: p.lock === true, online: p.online !== false, ts: serverTimestamp() });
-    },
     // 온라인 표시 수동 토글 — false면 친구 목록에서 오프라인으로 보임(앱은 계속 실행됨).
     setMyPresenceState(userId, online){
       _presenceOnline = !!online;
@@ -1167,15 +906,6 @@
     // 🏊 방 입장용 얼굴/눈감기 PNG를 Storage에 올리고 URL 반환 — 방 payload 다이어트(가) 단계.
     //   예전엔 512 PNG dataURL이 rooms/{code}/{member}/def에 통째로 들어가 모든 참여자가 매번 내려받았음.
     //   Storage는 캐시 헤더(1년)가 붙어 있어 같은 얼굴은 두 번째부터 다운로드가 발생하지 않음.
-    // 🖼 투명 PNG 범용 업로드 — 알파가 살아야 하는 이미지(미스테리au 스탠딩 등).
-    //   uploadUserImage는 .jpg로 저장해서 투명이 검게 죽는다. 투명이 필요하면 이쪽을 쓸 것.
-    async uploadUserPng(userId, key, dataUrl){
-      if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false, reason:'이미지가 아니에요' };
-      const safeKey = String(key||'img').replace(/[^a-zA-Z0-9_-]/g, '');
-      const url = await _uploadDataUrlIfNeeded(`users/${userId}/img_${safeKey}.png`, dataUrl);
-      if(!url || url.startsWith('data:')) return { ok:false, reason:'업로드에 실패했어요' };
-      return { ok:true, url };
-    },
     async uploadRoomFace(userId, key, dataUrl){
       if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false };
       const safeKey = String(key||'face').replace(/[^a-zA-Z0-9_-]/g, '');
@@ -1194,22 +924,6 @@
       return { ok:true, url };
     },
 
-    /* ===== 🧸 말랑이 (마이홈 시메지) =====
-       users/{uid}/mallang = { imgs:[url,...] }  (최대 4개, 투명 PNG) */
-    // 말랑이 이미지 PNG로 업로드 (투명도 유지)
-    async uploadMallangImage(userId, slot, dataUrl){
-      if(!dataUrl || !dataUrl.startsWith('data:')) return { ok:false, reason:'이미지가 아니에요' };
-      const safeSlot = String(slot||'0').replace(/[^a-zA-Z0-9_-]/g, '');
-      const url = await _uploadDataUrlIfNeeded(`users/${userId}/mallang_${safeSlot}.png`, dataUrl);
-      if(url && url.startsWith('data:')) return { ok:false, reason:'업로드에 실패했어요' };
-      return { ok:true, url };
-    },
-    // 말랑이 이미지 URL 목록 저장
-    async saveMallangImgs(userId, imgs){
-      try{ await set(ref(db, `users/${userId}/mallang`), { imgs: (imgs||[]).slice(0,4) }); return { ok:true }; }
-      catch(e){ return { ok:false }; }
-    },
-    // 말랑이 이미지 URL 목록 조회 (내 것 또는 방문한 친구 것)
     /* ===== 📚 마이홈 북마크 책장 (2026-09-23 · 개정 61 · 계정 연동) =====
        bookmarks/{uid} = { order:"id,id,…", items:{ id:{url,title,w,h,color,img?,at} }, ts }
        ★ users/{uid} 아래가 아니다 — 그 자리는 `.read: true` 라 **방문자 읽기를 규칙으로 막을 수 없다.**
@@ -1247,11 +961,6 @@
         await uploadString(r, dataUrl, 'data_url', { cacheControl: STORAGE_CACHE, contentType: 'image/webp' });
         return { ok:true, url: await getDownloadURL(r) };
       }catch(e){ console.warn('[bookmark] 그림 업로드 실패', e); return { ok:false, reason:'업로드에 실패했어요' }; }
-    },
-
-    async getMallangImgs(userId){
-      try{ const s=await get(ref(db, `users/${userId}/mallang`)); const v=s.val(); return (v&&Array.isArray(v.imgs))?v.imgs:[]; }
-      catch(e){ return []; }
     },
 
     /* ===== 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정) =====
@@ -1295,35 +1004,6 @@
     async deleteStorageUrl(url){
       if(!url || !/^https:\/\/firebasestorage\.googleapis\.com\//.test(url)) return;
       try{ await deleteObject(_stRef(storage, url)); }catch(_){}
-    },
-
-    /* ===== 🚩 신고 (2026-09-23 · 시안 확정) =====
-       reports/{신고당한 uid}/{신고한 uid} = { kind, note?, nick, code4, ts }
-       ★ 한 사람이 같은 사람을 여러 번 신고해도 칸이 하나 — «서로 다른 몇 명» 이 곧 칸 수다.
-       ★ 규칙: 신고자 칸은 **로그인한 본인 것만**(userAuth/{신고자} === auth.uid) · 읽기와 비우기는 관리자만. */
-    async reportUser(targetId, reporterId, rec){
-      if(!targetId || !reporterId || targetId === reporterId) return { ok:false, reason:'self' };
-      if(!(auth && auth.currentUser)) return { ok:false, reason:'auth' };
-      const v = { kind: String(rec.kind||''), nick: String(rec.nick||'').slice(0,20), code4: String(rec.code4||'').slice(-4), ts: Date.now() };
-      if(rec.note) v.note = String(rec.note).slice(0,40);
-      try{ await set(ref(db, `reports/${targetId}/${reporterId}`), v); return { ok:true }; }
-      catch(e){ console.warn('[report] 실패', e); return { ok:false, reason:'denied' }; }
-    },
-    /* 관리자 — 전체 신고(대상별 묶음). 규칙상 관리자만 읽힌다. */
-    async listReports(){
-      try{ const v=(await get(ref(db, 'reports'))).val(); return { ok:true, reports: v || {} }; }
-      catch(e){ return { ok:false, reports:{} }; }
-    },
-    async clearReports(targetId){
-      try{ await remove(ref(db, `reports/${targetId}`)); return { ok:true }; }catch(e){ return { ok:false }; }
-    },
-    /* 관리자 목록 한 줄에 필요한 것만 — 이름 · 친구 코드 · 자리비움 그림. */
-    async getUserBrief(userId){
-      const out = { name:null, friendCode:null, awayImg:null };
-      try{ const p=(await get(ref(db, `users/${userId}/profile/name`))).val(); if(typeof p==='string') out.name=p; }catch(_){}
-      try{ const c=(await get(ref(db, `users/${userId}/friendCode`))).val(); if(typeof c==='string') out.friendCode=c; }catch(_){}
-      try{ const a=(await get(ref(db, `users/${userId}/awayImg`))).val(); if(typeof a==='string') out.awayImg=a; }catch(_){}
-      return out;
     },
 
     /* ── 🎁 말랑이 선물 ──
@@ -1547,7 +1227,7 @@
       return snap.val() || {};
     },
     /* 내 친구 목록 실시간 구독 — users/{나}/friends 하나만({친구id:{addedAt}}). 실시간은 추가 · 삭제뿐이다:
-       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 접속 상태 · 프로필은 목록이 열려 있는 동안만(watchFriendPresence · watchFriendProfile).
+       이름 · 레벨 · 소개 · 사진은 목록을 열 때 한 번(getFriendCard · 서버 먼저 — friends/friends-port.js), 프로필은 목록이 열려 있는 동안만(watchFriendProfile), 접속 상태는 realtime(friends/friends-presence-rt.js).
        onError(err) — 거부 · 끊기면 한 번(다시 걸기는 부르는 쪽 · friends-sub.js). @return 해제 함수. ⚠️ 동시에 하나만 — 새로 걸면 앞의 것을 먼저 푼다. */
     watchMyFriendList(myId, onChange, onError){
       if(_myFriendsOff) _myFriendsOff();
@@ -1575,18 +1255,10 @@
       const [p, b, a] = await Promise.all([`users/${fid}/profile`, `users/${fid}/home/bio`, `users/${fid}/home/avatar`].map(path => get(ref(db, path))));
       return { profile: p.val(), bio: b.val(), avatar: a.val() };
     },
-    /* 친구 한 명의 접속 상태(presence) 구독 → onChange(날것). 목록(친구 탭 · 초대 목록)이 열려 있는 동안만 건다(friends-sub.js). @return 해제 함수 */
-    watchFriendPresence(fid, onChange){
-      const presRef = ref(db, `users/${fid}/presence`);   // 읽기만 — 쓰기는 _myPresenceRef 한 곳(sim-app-version)
-      const off = onValue(presRef, snap=>onChange(snap.val()));
-      return ()=>{ try{ off(); }catch(_){} };
-    },
-    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) — 구독은 접속 상태와 같이 목록이 열려 있는 동안만(friends-sub.js · @return 해제 함수), 한 번 읽기는 목록이 닫혀 있을 때 마이홈 구경.
+    /* 친구 한 명의 프로필(이름 · 레벨 · 회차) — 구독은 목록이 열려 있는 동안만(friends-sub.js · @return 해제 함수), 한 번 읽기는 목록이 닫혀 있을 때 마이홈 구경.
        💰 규칙상 작은 칸 여섯뿐(name ≤20자 · level · cyc · clv · starC · updatedAt)이고 쓰기는 켤 때 · 이름 · 레벨이 바뀔 때만이다. */
     watchFriendProfile(fid, onChange){ const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val())); return ()=>{ try{ off(); }catch(_){} }; },
     async getFriendProfile(fid){ return (await get(ref(db, `users/${fid}/profile`))).val(); },
-    /* 친구 한 명의 접속 상태 한 번 읽기 — 목록이 닫혀 있을 때 필요한 곳(놀러 가기 · 파도타기 친구 고르기)만 */
-    async getFriendPresence(fid){ return (await get(ref(db, `users/${fid}/presence`))).val(); },
     // ===== 마이홈 페이지(프로필사진/소개글/게시글/스티커) =====
     async getMyHome(userId){
       const snap = await get(ref(db, `users/${userId}/home`));
@@ -2625,7 +2297,7 @@
       try{
         // limit 생략 시 100(대화창 본문). 뱃지 카운트처럼 적게만 필요하면 작은 값을 넘겨 트래픽을 줄인다.
         const n = (typeof limit === 'number' && limit > 0) ? Math.min(200, Math.floor(limit)) : 100;
-        const q = query(ref(db, _chatLogPath(room, tabId)), limitToLast(n));
+        const q = query(ref(db, _chatLogPath(room, tabId)), orderByChild('ts'), limitToLast(n));   // «마지막» 은 서버 시각 순 — 아래 _chatOrder 주석
         const cb = snap => {
           const val = snap.val() || {};
           /* ★ push key(k)를 id로 함께 넘긴다 — "여기까지 읽었습니다" 구분선이 이 id를 기준으로 잡는다.
@@ -2643,7 +2315,8 @@
     subscribeChatSince(room, tabId, since, onMsg, onReady, limit){
       try{
         const r = ref(db, _chatLogPath(room, tabId));
-        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, limitToLast(limit || 100));
+        /* ⚠️ 마지막 limit 줄도 ts 순으로 자른다 — key(보낸 PC 시계) 순이면 시계가 늦은 사람의 새 글이 «마지막» 밖으로 밀려 안 온다(B-1103-4) */
+        const q = (typeof since === 'number') ? query(r, orderByChild('ts'), startAt(since)) : query(r, orderByChild('ts'), limitToLast(limit || 100));
         const one = snap => onMsg(Object.assign({ id: snap.key }, snap.val()));
         const offA = onChildAdded(q, one), offC = onChildChanged(q, one);
         onValue(q, () => { if(onReady) onReady(); }, { onlyOnce: true });   // child_added 가 다 온 뒤에 한 번
@@ -2778,23 +2451,6 @@
       return { ok:true };
     },
 
-    // 사용자: 키 검증 + 등록(redeemed 처리). 이미 등록된 키도 "같은 기기 재설치" 허용을 위해 valid하면 통과시킴.
-    async redeemLicense(key){
-      try{
-        const snap = await get(ref(db, `licenses/${key}`));
-        const data = snap.val();
-        if(!data) return { ok:false, reason:'존재하지 않는 라이선스 키예요' };
-        if(data.valid === false) return { ok:false, reason:'비활성화된 라이선스 키예요' };
-        // 처음 등록되는 거면 redeemedAt 기록(통계용, 재사용 막지는 않음 — 재설치 시나리오 고려)
-        if(!data.redeemedAt){
-          await update(ref(db, `licenses/${key}`), { redeemedAt: serverTimestamp() });
-        }
-        return { ok:true };
-      }catch(e){
-        return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요', offline:true };
-      }
-    },
-
     /* ═══════════════════ 🎟️ 초대장 (앱 접근 제한) ═══════════════════
        스키마:
          users/{uid}/invite = { invitesLeft, invitedBy, joinedAt }
@@ -2806,11 +2462,6 @@
     ─────────────────────────────────────────────────────────── */
 
     // 이 uid가 이미 등록된 사용자인지 (친구 시스템을 쓴 적 있으면 profile/home 등이 남아있음)
-    /* 🐞 버그제보 게시판 — 경로 · 쿼리 · 묶음 쓰기는 bug-board.js 에 있다. 여기는 연결만. */
-    bugBoard: createBugBoard({ db, ref, get, update, query, orderByChild, limitToLast, endBefore, equalTo, runTransaction, push,
-                               serverTs: () => serverTimestamp(),
-                               getDailyMax: () => _rc ? _rc.refresh({ maxAgeMs: window.TwRemoteConfig.STALE_MS }).then(() => _rc.bugDailyMax()) : null,
-                               authUid: () => (auth && auth.currentUser) ? auth.currentUser.uid : null }),
     /* 💬 대화 기록(서버 3일 · 이 PC 저장 · 커서 이어 받기) — 규칙은 chat-history.js. 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
@@ -3303,7 +2954,9 @@
     //   앱은 로컬(localStorage/IndexedDB)에서 캐싱을 담당해서 같은 파츠는 두 번 안 받게 함(호출 측).
     async fetchCatalogGlb(url){
       if(!url) throw new Error('empty url');
-      const res = await fetch(url);
+      /* 웹 캐시를 거치지 않는다 — 깨진 응답이 캐시에 남으면 서버에 다시 묻지 않고 그것만 계속 꺼낸다(E-CHAR-14).
+         받은 GLB 는 부르는 쪽이 IndexedDB 에 저장하므로(glb-idb-cache.js) 요청 수는 그대로다. */
+      const res = await fetch(url, { cache: 'no-store' });
       if(!res.ok) throw new Error('storage fetch failed '+res.status);
       const buf = await res.arrayBuffer();
       // ArrayBuffer → base64 (한 번에 큰 배열 대상으로 fromCharCode 하면 stack overflow — 청크로 처리)
@@ -3360,11 +3013,8 @@
        0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v1/me — account/login-flow.js).
        여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.
        ⚠️ 로그인 창은 여기서 열지 않는다(file:// + frame-src 'none') — main.js 가 연 창에서 받은 ID 토큰만 받는다. */
-    authAvailable(){ return !!auth; },
-
     /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다). */
     authReady(){ return _whenAuthReady(); },
-    authSettled(){ return _authSettled; },
     authCurrentUid(){ return (auth && auth.currentUser) ? auth.currentUser.uid : null; },
     authCurrentEmail(){ return (auth && auth.currentUser) ? (auth.currentUser.email || null) : null; },
     /* 지금 로그인 → { uid, anonymous } | null — login-flow.js 의 판정 재료 */
@@ -3478,16 +3128,12 @@
     async advGetFriends(){ return {}; },
     async advCreateParty(){ return null; },
     advWatchParty(){ return ()=>{}; },
-    advWatchInvites(){ return ()=>{}; },
-    advWatchMergeRequests(){ return ()=>{}; },
     async advSendInvite(){ return { ok:false, reason:'서비스 종료' }; },
     async advClearInvite(){},
     async advJoinParty(){ return { ok:false, reason:'서비스 종료' }; },
     async advUpdateMember(){},
     async advLeaveParty(){ return { ok:true }; },
     async advDisbandParty(){ return { ok:true }; },
-    async advRestoreParty(){ return { ok:true }; },
-    async advSetLeader(){ return { ok:true }; },
     async advSetDeparted(){ return { ok:true }; },
     async advSetAtCamp(){ return { ok:true }; },
     async advSendGameChat(){ return { ok:true }; },
@@ -3499,9 +3145,6 @@
     async advWriteCoord(){ return { ok:true }; },
     advWatchCoords(){ return ()=>{}; },
     async advFindLeaderParty(){ return null; },
-    async advSendMerge(){ return { ok:false, reason:'서비스 종료' }; },
-    async advClearMerge(){},
-    async advMergeParties(){ return { ok:false, reason:'서비스 종료' }; },
 
     /* ═══════════ 📷 스티커사진 어댑터 (parts/purikura-net.js 전용) ═══════════
        purikura-net.js 는 THREE 도 DOM 도 firebase SDK 도 안 본다 — **아래 일곱 개만** 쓴다.

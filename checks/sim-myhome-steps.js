@@ -6,11 +6,11 @@
          renderMyHomeFriendList();      ← 맨몸. 끝에서 renderInbox() 를 부른다
          loadMyHomePage();              ← 맨몸
          myHomeOpen = true; …
-         window._mallangOnOpen(…)       ← 맨 끝
+         mallangMod.onOpen(…)              ← 맨 끝
      **우편함 렌더가 던지면 open() 이 거기서 멈추고 뒤가 통째로 안 돈다.** 그중 눈에 보이는 것이
      말랑이 폴더 하나뿐이라, 손댄 곳(친구창)과 증상이 난 곳(말랑이)이 달라서 엉뚱한 파일을 뒤졌다.
 
-   ★ 닫기는 더 위험했다 — `_mallangOnClose()` 가 `commitMyHomePage(true)` **앞**에 맨몸으로 있었다.
+   ★ 닫기는 더 위험했다 — 말랑이 닫기(`mallangMod.onClose()`)가 `commitMyHomePage(true)` **앞**에 맨몸으로 있었다.
      말랑이 정리가 한 번 던지면 **마이홈 마지막 저장이 통째로 건너뛰어진다**(편집한 것이 조용히 사라진다).
      그래서 닫기는 순서까지 바꿨다: **저장이 맨 먼저다.**
 
@@ -60,30 +60,30 @@ chk(/console\.error\([^)]*마이홈 열기/.test(OPEN),
     '★ 죽은 칸을 콘솔에 남긴다 — 다음 제보 때 첫 단서가 된다');
 
 /* async 훅은 try/catch 로 안 잡힌다 — 반환된 Promise 를 받아야 한다 */
-chk(/Promise\.resolve\(\s*window\._mallangOnOpen/.test(OPEN),
-    '★ _mallangOnOpen 은 async 다 — Promise 를 .catch 로 받는다(try/catch 로는 못 잡는다)');
-chk(/_mallangOnOpen[\s\S]{0,300}\.catch\(/.test(OPEN), '   그 .catch 가 실제로 붙어 있다');
-chk(!/typeof window\._mallangOnOpen/.test(OPEN) && /try\{\s*Promise\.resolve\(window\._mallangOnOpen/.test(OPEN),
-    '   고리는 가드 없이 부른다(mallang.js 는 부팅 때 늘 건다) — 없으면 try 가 받아 «말랑이 열기 실패» 로 콘솔에 남는다');
+chk(/Promise\.resolve\(\s*mallangMod\.onOpen/.test(OPEN),
+    '★ mallangMod.onOpen 은 async 다 — Promise 를 .catch 로 받는다(try/catch 로는 못 잡는다)');
+chk(/mallangMod\.onOpen[\s\S]{0,300}\.catch\(/.test(OPEN), '   그 .catch 가 실제로 붙어 있다');
+chk(!/typeof mallangMod/.test(OPEN) && /try\{\s*Promise\.resolve\(mallangMod\.onOpen/.test(OPEN),
+    '   가드 없이 부른다(deps mallangMod 는 늘 있다) — 던지면 try 가 받아 «말랑이 열기 실패» 로 콘솔에 남는다');
 
 say('');
 
 /* ── §2. 닫기 ────────────────────────────────────────────────────── */
 say('· §2 닫기 — 저장이 정리에 인질로 잡히지 않는가');
 
-/* ⚠️ 순서를 indexOf 로 볼 때 **주석을 먼저 지운다.** 위 머리말이 `_mallangOnClose` 를
+/* ⚠️ 순서를 indexOf 로 볼 때 **주석을 먼저 지운다.** 위 머리말이 `mallangMod.onClose` 를
    경위 설명으로 언급하고 있어서, 안 지우면 그 주석을 '호출 자리'로 착각해 순서가 뒤집혀 보인다
    (이 검사를 처음 돌렸을 때 실제로 그렇게 잡혔다). */
 const CLOSE_CODE = CLOSE.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '');
 const iSave  = CLOSE_CODE.indexOf('HOOK.COMMIT');   // 💾 자동 저장 — 마이홈 고리판으로 부른다(순환 끊기 8)
-const iMl    = CLOSE_CODE.indexOf('_mallangOnClose');
+const iMl    = CLOSE_CODE.indexOf('mallangMod.onClose');
 const iOff   = CLOSE_CODE.indexOf("overlay.classList.remove('on')");
 chk(iSave > -1 && iMl > -1 && iSave < iMl,
     '★ 마지막 저장이 말랑이 정리보다 **먼저**다 — 정리가 던져도 편집분이 남는다');
 chk(iOff > -1 && iOff < iMl,
     '★ 창 닫기도 정리보다 먼저다 — 정리가 던져도 창이 남지 않는다');
 chk(/_step\([\s\S]{0,60}HOOK\.COMMIT\b/.test(CLOSE), '저장도 감싸져 있다 — 저장 실패가 창을 못 닫게 하지 않는다');
-chk(/_step\([\s\S]{0,40}_mallangOnClose/.test(CLOSE), '말랑이 정리가 감싸져 있다');
+chk(/_step\([\s\S]{0,40}mallangMod\.onClose/.test(CLOSE), '말랑이 정리가 감싸져 있다');
 chk(/console\.error\([^)]*마이홈 닫기/.test(CLOSE), '죽은 칸을 콘솔에 남긴다');
 
 say('');
@@ -102,8 +102,8 @@ const VISIT = (()=>{
 })();
 chk(/try\{[\s\S]{0,160}_advApplyVisitUI/.test(VISIT),
     '★ 바탕화면 훅(myhome-desktop.js)이 감싸져 있다 — 던져도 말랑이 재판정이 돈다');
-chk(/try\{[\s\S]{0,200}_mallangApplyVisit/.test(VISIT), '★ 말랑이 훅(mallang.js)도 감싸져 있다');
-chk(/Promise\.resolve\(\s*window\._mallangApplyVisit/.test(VISIT),
+chk(/try\{[\s\S]{0,200}mallangMod\.applyVisit/.test(VISIT), '★ 말랑이 훅(mallang.js)도 감싸져 있다');
+chk(/Promise\.resolve\(\s*mallangMod\.applyVisit/.test(VISIT),
     '   이쪽도 async 라 Promise 로 받는다');
 
 say('');
@@ -117,8 +117,9 @@ chk(/라이선스/.test(ML) && /이미지/.test(ML),
     '   내 집(라이선스)과 방문(이미지 수)을 갈라서 말한다 — 숨는 길이 둘이다');
 chk(/mhRoomPreview 를 못 찾음|mhRoomPreview/.test(ML),
     '   붙일 자리(#mhRoomPreview)를 못 찾은 경우도 구분한다');
-/* 판정식 자체는 바뀌지 않았다 — 진단이 동작을 바꿨다면 그게 더 큰 사고다 */
-chk(/wantFolder\s*=\s*visiting\s*\?\s*\(imgs\.length>0\)\s*:\s*hasLicense\(\)/.test(ML),
+/* 판정식 자체는 바뀌지 않았다 — 진단이 동작을 바꿨다면 그게 더 큰 사고다(방문 = 그 집 칸 수 · 내 집 = 라이선스).
+   칸은 칸 상태 주인(mallang-store.js view())에서 센다 — 실제로 돌려 본 판정은 sim-mallang-module.js 2 · 3절 */
+chk(/const shown = mallangStore\.view\(\)\.slots\.length;\s*const wantFolder\s*=\s*visiting\s*\?\s*\(shown>0\)\s*:\s*hasLicense\(\)/.test(ML),
     '★ 판정식은 예전 그대로다 — 진단을 넣으면서 동작을 바꾸지 않았다');
 
 say('');

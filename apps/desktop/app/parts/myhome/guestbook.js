@@ -23,6 +23,7 @@ const toast = deps.toast;
 const escHtml = deps.escHtml;
 const applyThemeToChildDoc = deps.applyThemeToChildDoc;   // 🎨 별도 창 = 별도 document — 테마 토큰을 넣어 준다
 const watchMaintenanceInput = deps.watchMaintenanceInput; // 🛠 이 창에서 누른 서버 동작에도 점검 창(maintenance-gate.js)
+const installMacTip = deps.installMacTip;                 // 💬 맥 설명 말풍선을 이 창에도(shared/mac-tooltip.js installChild)
 const _mhViewingUserId = deps.mhViewingUserId;            // 👀 친구 홈 관람 중이면 그 사람 uid — app.js 의 let(다시 대입된다)
 const _mhViewingDisplayName = deps.mhViewingDisplayName;
 const FALLBACK_ERROR = 'E-SYS-01';                        // feed 가 번호를 못 줬을 때(표에 있는 예비 번호)
@@ -365,6 +366,7 @@ const errorText = deps.errorText;                         // 오류 번호 → �
     /* 창이 닫히면(✕ · ESC · main.js 의 blur 닫기) 받아 둔 방명록을 비우고 서버에 «보는 중» 을 뗀다. 다시 연 새 창을 닫지 않게 이 창일 때만. */
     const thisWin = _gbWin;
     thisWin.addEventListener('pagehide', ()=>{ if(_gbWin === thisWin){ _gbWin = null; feed.closeBook(); } });
+    installMacTip(d, _gbWin);  // 이 창도 메인과 같은 «항상 위» 단계라 맥 OS 툴팁이 뒤로 깔린다
     d.getElementById('gbTitleText').textContent = (_mhViewingUserId() ? _mhViewingDisplayName() : getDisplayName())+' 님의 방명록';
     d.getElementById('gbClose').onclick=()=>{ try{ _gbWin.close(); }catch(_){} };
     // ⎋ ESC로도 닫힘(요청사항). 마이홈 클릭으로 닫히는 건 별도 코드가 아니라 main.js의 blur-닫힘이 담당 —

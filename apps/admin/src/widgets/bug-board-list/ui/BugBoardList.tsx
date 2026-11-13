@@ -3,10 +3,12 @@ import { TodoBadge, todoByReport, useRefreshTodos, useTodos, type Todo } from '@
 import {
   BUG_CATS,
   BUG_FILTERS,
+  bugAuthorName,
   BugNoText,
   commentSummary,
   hasAuthorReply,
   isStaffPost,
+  needsAuthorLookup,
   StatusChip,
   useBugList,
   useBugNo,
@@ -16,6 +18,7 @@ import {
   type BugFilter,
   type BugItem,
 } from '@/entities/bug-board';
+import { useUserName } from '@/entities/user';
 import { errorMessage, formatDate, pageForSize, readPageSize, savePageSize } from '@/shared/lib';
 import { Pager } from '@/shared/ui';
 import styles from './BugBoardList.module.css';
@@ -41,6 +44,8 @@ function Comments({ item }: { item: BugItem }) {
 }
 
 function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: string) => void }) {
+  // 비공개 글은 목록 칸 이름이 «익명» 이라 글쓴이 코드로 닉네임 한 칸만 읽는다
+  const nick = useUserName(item.code, needsAuthorLookup(item));
   const no = useBugNo(item);
   return (
     <tr>
@@ -71,7 +76,7 @@ function Row({ item, todo, onOpen }: { item: BugItem; todo?: Todo; onOpen: (id: 
         </button>
       </td>
       <td>
-        {item.name || <span className="soft">이름 없음</span>}
+        {item.name ? bugAuthorName(item, nick.data) : <span className="soft">이름 없음</span>}
         {isStaffPost(item) && <span title="운영진 글"> 🛡</span>}{' '}
         <small className="soft key">{item.code}</small>
       </td>

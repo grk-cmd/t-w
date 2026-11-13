@@ -92,7 +92,7 @@ chk(paint.length > 0 && ask.length > 0, '_giftBoxPaint · _mhAsk 를 찾았다')
 chk(/closest\('\.gift-star'\)\)\{\s*ev\.stopPropagation\(\)/.test(paint), '⭐ 클릭은 stopPropagation 후 칸 클릭(다시 불러오기)으로 안 간다');
 chk(/starN >= lim\.starMax[\s\S]{0,60}즐겨찾기는 '\+lim\.starMax\+'개까지예요/.test(paint), '⭐ 상한 초과 시 토스트');
 chk(/g\.starred === true\)\{\s*_mhAsk\([^)]*⭐를 먼저 풀어 주세요/.test(paint), '⭐ 칸 우클릭은 삭제 대신 안내');
-chk(/_mallangDeleteGift/.test(paint) && /if\(_isStar\(gift\)\) return 'starred'/.test(ML), '삭제 함수도 ⭐ 를 한 번 더 막는다');
+chk(/mallangMod\.deleteGift\(/.test(paint) && /if\(_isStar\(gift\)\) return 'starred'/.test(ML), '삭제 함수도 ⭐ 를 한 번 더 막는다');
 chk(/_giftStat\('⭐ '\+starN\+'\/'\+lim\.starMax\+' · 보관 '\+keys\.length\+'\/'\+lim\.max/.test(paint), '「⭐ n/20 · 보관 m/30」 표시');
 const HTML = read('desk-companion-prototype.html') || '';
 const fmTabs = (HTML.match(/<div id="mhFmTabs">[\s\S]*?<\/div>/) || [''])[0];
@@ -107,20 +107,20 @@ chk(/escHtml\(text\)/.test(ask) && /escHtml\(title\)/.test(ask), '확인창 문�
 chk(/live = live\.filter\(x=>!\(x\.gift && x\.gift\.giftId===giftId\)\)/.test(ML) && /h\.delete\(giftId\)/.test(ML),
   '삭제 시 마이홈 live 목록 · 로컬 치움 목록에서도 뺀다');
 
-say('§4 내 코드 없음 — 말랑이 · 선물 요청 0(로컬 백업은 그대로)');
+say('§4 내 코드 없음 — 선물 요청 0(말랑이 칸은 서버 길 — 토큰이 신원이라 sim-mallang-store.js 가 본다)');
 const noUidCalls = (ml) => {
   const pick = (re) => (ml.match(re) || [''])[0];
-  const fns = pick(/async function loadImgsFor\([\s\S]*?\n  \}/) + '\n' + pick(/async function loadGifts\([\s\S]*?\n  \}/);
+  const fns = pick(/async function loadGifts\([\s\S]*?\n  \}/);
   const calls = [];
-  const ctx = { calls, imgs: [], localStorage: { getItem: () => '["https://i/anon.png"]' }, lsKey: () => 'tw.mallang.anon', myId: () => null, fbReady: () => true,
+  const ctx = { calls, myId: () => null, fbReady: () => true,
     firebaseAPI: new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return Promise.resolve({}); } }),
     _hiddenSet: () => new Set(), _saveHidden(){}, spawnGift(){}, updateGiftBadge(){}, giftOverflow: () => [], GIFT_MAX: 30, JSON };
-  try { vm.runInNewContext(fns + '\nloadImgsFor(null).catch(()=>{}); loadGifts(null).catch(()=>{});', ctx); } catch (e) { return ['던짐 ' + e.message]; }
+  try { vm.runInNewContext(fns + '\nloadGifts(null).catch(()=>{});', ctx); } catch (e) { return ['던짐 ' + e.message]; }
   return calls;
 };
-chk(noUidCalls(ML).length === 0, '내 코드 없음 → getMallangImgs · getMallangGifts 요청 0');
-chk(noUidCalls(ML.replace('if(fbReady() && userId) raw =', 'if(fbReady()) raw =').replace('if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;', 'if(!fbReady() || !firebaseAPI.getMallangGifts) return;')).length === 2,
-  '  깨 보기 — 내 코드 확인을 빼면 두 요청이 나간다(빨강)');
+chk(noUidCalls(ML).length === 0, '내 코드 없음 → getMallangGifts 요청 0');
+chk(noUidCalls(ML.replace('if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;', 'if(!fbReady() || !firebaseAPI.getMallangGifts) return;')).length === 1,
+  '  깨 보기 — 내 코드 확인을 빼면 요청이 나간다(빨강)');
 
 say('');
 say(fail ? '문제 ' + fail + '건' : '전부 통과 ✅ — ⭐ 는 서버에 남고, 자동 정리·우클릭 어느 쪽으로도 지워지지 않는다');

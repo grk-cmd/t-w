@@ -70,13 +70,14 @@
 - **내보내는 것**
   - `resolveCatalogGlb(rec)` → `Promise<b64 | null>` — 성공하면 `rec.glb` 도 채운다. `rec.glb` 가 이미 있으면 그것.
   - `resolveCatalogGlbAll(catalogObj)` → 같은 객체 — 스냅샷 전부를 나란히 채우고 영구 캐시 치우기를 부른다.
+  - `glbFailWhy(url)` → 글 — 그 주소의 마지막 받기 실패 이유(`net-fail … Nms`(연결이 안 되거나 받는 도중 끊김 — 차단 · DNS · 연결) · `fail … 403 Nms`(응답 번호) · `no-src`(받을 길 없음) · 실패한 적 없으면 빈 글). 책상 카드(만들기 E-CHAR-14 · 꾸미기 책상 탭 E-CHAR-13)가 진단 기록에 싣는다 — 주소 · 토큰은 담지 않는다.
   ```js
   catalogSourceMod.catalogSrcSubscribe('parts', async obj => { await catalogGlbMod.resolveCatalogGlbAll(obj); merge(obj); });
   ```
 - **확장할 때 고칠 자리**: 받는 길이 바뀌면 provider(`catalog-source.js`) 쪽 — 이 모듈은 그대로.
 - **함정**
   - 메모리 · 영구 캐시에서 꺼낼 때도 `rec.glb` 를 채워야 한다 — 빠뜨리면 `rec.glb` 를 보는 곳이 «GLB를 불러올 수 없어요» 로 오탐한다.
-  - 실패는 기억하지 않는다(다음에 다시 받는다) · 영구 캐시 넣기는 기다리지 않는다.
+  - 실패는 기억하지 않는다(다음에 다시 받는다 — `glbFailWhy` 는 이유만 적어 둘 뿐 막지 않고, 받으면 지운다) · 영구 캐시 넣기는 기다리지 않는다.
   - 검사: `checks/sim-catalog-glb.js`(4절 — 차례 · 실패 · 다른 rec 채우기 · 스냅샷 전부).
 
 ## catalog-sync.js — 🔄 카탈로그 실시간 동기화
@@ -119,17 +120,19 @@
 ## desk-visual.js — 🪑 책상 모양(바꿔 끼기 · 색 · 좌석 책상)
 
 - **책임**: 책상 그룹(`deskGroup`)의 모양만 — 기본 책상 메쉬를 숨기고 커스텀 GLB 로 바꿔 끼기(톤 · `_col` 색 메쉬 모으기 · 애니메이션 재생 모드), `_col` 색, 좌석 def 의 카탈로그 책상을 찾아 그리기. 크기 · 자리는 `setDeskScale`(deps)이 맡는다.
-- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 12: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
+- **만드는 법**: `const deskVisualMod = TwDeskVisual.createDeskVisual({ … });` — deps 13: `commissionMod` · `assetCodeMod` · `b64ToBuf` · `_applyItemMatTone` · `_setDeskMatColor` · `activeItemMixers` · `_idleItemPivots` · `setDeskScale` · `toast` · `DEFAULT_DESK_OVERRIDE_ID` · `NO_DESK_ID` (값 · 함수) · `isPremium` · `isAdmin` (읽는 함수)
 - **내보내는 것**
   - `swapDeskVisual(deskGroup, template, isDefaultOverride, animations, playMode)` — `template` 이 `null` 이면 기본 책상으로 되돌린다. `playMode`: `'auto'`(바로 반복) · `'idle'`(`_idleItemPivots` 에 넣어 프레임 루프가 정함 — 부르기 전에 `deskGroup.userData.__seat` 를 심는다) · 그 밖(`'click'` — 한 번 · 끝에서 멈춤).
   - `applyDeskColorToCustom(deskGroup, color)` — 모아 둔 `_col` 머티리얼만.
-  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상.
+  - `applyDeskCatalogRefToSeat(seat, def)` → `Promise` — `def.deskCatalogId` 레코드를 찾아 그린다. 없으면 기본 책상. `NO_DESK_ID`(`'__no_desk__'`)면 `hideDeskBody`.
+  - `hideDeskBody(deskGroup)` — 🚫 책상 없음: 책상 몸(기본 · 커스텀)만 숨기고 `deskAnchor`(책상 위 아이템)는 그대로 · `userData.noDesk = true`(좌석 간격이 몸 폭으로 — `room/seat-layout.js`). `swapDeskVisual` 이 부르면 표시를 내린다.
   ```js
   deskVisualMod.swapDeskVisual(cDesk, sc); deskVisualMod.applyDeskColorToCustom(cDesk, cDeskColor);
   await deskVisualMod.applyDeskCatalogRefToSeat(seat, seat.charDef);
   ```
 - **확장할 때 고칠 자리**: 새 재생 모드는 `swapDeskVisual` 의 `playMode` 분기 · 자리 맞춤(바닥 + 0.15 · 앞뒤 0.6)은 `normalizeDeskObj`.
 - **함정**
+  - «책상 없음» 은 새 칸이 아니라 `deskCatalogId` 의 예약 값이다 — 옛 앱 · 방 서버는 모르는 책상으로 보고 기본 책상을 그린다(깨지지 않음). 고르는 곳은 꾸미기 › 책상(`wardrobe.js`) · 생성기 5단계(`creator/desk-setup.js`), 저장은 `creator/creator-save.js` · 프리셋 `creator/desk-preset.js`.
   - 라이선스 전용 책상은 **내 좌석에서만** 막는다(`!seat.remote`) — 친구 좌석에서 막으면 남이 쓴 책상이 기본 책상으로 보인다.
   - 크기를 GLB 에 굽지 않는다(원본 그대로 · 슬라이더만) — 새 책상만 자동 크기를 걸던 옛 코드는 지웠다. 다시 넣지 말 것(기본 책상과 크기가 갈린다).
   - 검사: `checks/sim-desk-visual.js`(4절 — 바꿔 끼기 · 되돌리기 · `_col` · 자리 맞춤 · 재생 세 모드 · 색 · 카탈로그 책상 · 라이선스 · 친구 좌석 · 풀기 실패).
@@ -190,14 +193,14 @@
 
 ## seat-eq-clamp.js — 🪑 평준화 가두기
 
-- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 책상이 뻗은 거리(`seatDeskHalfWidth`) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
+- **책임**: 좌석 크기 평준화가 켜졌을 때 «책상 위» 파츠가 옆 좌석으로 넘어가지 않게 자기 자리 반폭 안으로 미는 주기 작업 하나. 자리 반폭 = 좌석 반폭(`seatHalfWidth` — `room/seat-layout.js` 가 내놓는 줄 배치와 같은 규칙: 책상 · 🚫 책상 없음 · 몸 폭) + 좌석 사이 여백의 절반. 평준화를 끄면 다음 차례에 되돌린다. 계산(박스 재기 · 밀기)은 `seat-slot.js`, 이 모듈은 «언제 · 어느 좌석 · 반폭 얼마» 만.
 - **왜 따로**: 책상 자리 · 크기(desk-place)가 평준화 깃발을 읽으면 desk-place ↔ seat-equalize 순환이 생긴다. 가두기는 평준화 몫이라 여기로 떼어 desk-place 는 seat-equalize 를 모른다(의존: seat-eq-clamp → seat-equalize · 파츠 핀 이름).
 - **만드는 법**(app.js «📌 책상 위 파츠 앵커» 자리, `DESK_PART_ANCHOR_NAME` 바로 뒤):
   ```js
   const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
     DESK_PART_ANCHOR_NAME, seatEqMod, seats,                   // 값
     MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING, SPACING: ()=>SPACING, seatSlot: ()=>seatSlot,   // 읽는 함수(다시 대입 · 뒤에서 선언)
-    seatDeskHalfWidth,                                         // 함수(화살표로)
+    seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),  // 좌석 반폭 — 줄 배치와 같은 규칙
   });
   ```
 - **내보내는 것**
@@ -248,6 +251,28 @@
   - 측정에서 빼는 규칙(리깅 · 꾸미기 wrapper · 숨김)은 함수마다 조금씩 다르다 — 바꾸면 fitModel · fitCreator · 꾸미기 미리보기가 함께 움직인다.
   - `floorClampWrapper` 는 «잰 것» 과 «움직이는 것» 이 같아야 한다 — 같이 안 올라가는 가지만 skipSub 로 뺀다.
   - 검사: `checks/sim-char-measure.js`(4절 — 실제 three 로 박스 · 깊이 · 상한 · 보정 · 부모 배율 환산 · hard · skipSub).
+
+## rest-pose.js — 🧍 기본 자세로 잠깐 되돌려 재기
+
+- **책임**: fitModel 이 캐릭터 크기 · 발바닥 보정 · 발밑 깊이를 **기본 자세**로 재게, 재는 동안만 뼈와 `bodyWrap` 회전을 기본으로 돌리고 끝나면 지금 자세로 되돌린다. 몸은 스키닝 메시라 뼈 자세가 박스에 안 들어가지만, 누워 떼쓰기(`bodyWrap` 회전) · 뼈에 직접 붙은 리깅 안 된 파츠는 자세가 높이에 들어가 캐릭터가 뜬 채 남을 수 있었다.
+- **만드는 법**: deps 없음 — `const restPoseMod = TwRestPose.createRestPose();`(app.js `charMeasureMod` 바로 뒤).
+- **내보내는 것**: `enter(seat)` → 되돌릴 표(없으면 null) · `leave(표)` · `restOf(root)`(그 모델의 기본 자세 — 처음 부를 때 잰다).
+  ```js
+  const _rest = restPoseMod.enter(seat);
+  try{ /* 재기 */ }finally{ restPoseMod.leave(_rest); }
+  ```
+- **함정**
+  - 기본 자세는 그 모델(`gltfRoot`)을 처음 `enter` 할 때 잰다 — fitModel 의 첫 호출이 모델을 막 만든 직후라 그때가 기본 자세다. 다른 곳에서 먼저 부르면 그 자세가 기본이 된다.
+  - 나중에 붙은 파츠의 뼈(자기 뼈대가 있는 파츠)는 건드리지 않는다.
+  - 검사: `checks/sim-rest-pose.js`.
+
+## fit-watch.js — 🩺 다시 맞춘 높이 경고
+
+- **책임**: fitModel 이 높이를 정하는 값(크기 · 발바닥 보정 · 높이 슬라이더 · 발밑 깊이)을 모델마다 지난번과 견주어, 파츠 · 슬라이더로 설명되지 않게 바뀌었거나 다시 맞출 때 rig 가 떠 있으면 `console.warn('[높이] …')` 한 줄 — 오류 기록(`tw-error.log`)에 WARN 으로 모인다(B-1109-9 원인 찾기).
+- **만드는 법**: `const fitWatchMod = TwFitWatch.createFitWatch({ warn: (m)=>console.warn(m) });`(app.js `restPoseMod` 바로 뒤).
+- **내보내는 것**: `note(seat, { scale, foot, lift, under, y }, { userY, rigY, groupY, wrapRotX, pinned, riding, animal })` → `'first' | 'same' | 'warn' | 'held' | null` — `lift` 는 fitModel 이 실제로 더한 슬라이더 몫(동물 배율 · 캐릭터 크기 반영). · `TwFitWatch.partsKey(seat)` — 붙은 파츠 묶음 표시(칸 + partId · 쌓기 칸:id + 저장된 착용 목록).
+- **함정**: 새 모델의 첫 값은 견줄 것이 없어 적기만 한다 · 슬라이더 몫은 날값이 아니라 **실제로 더한 값**으로 견준다(날값이면 동물 · 크기 ≠ 1 에서 거짓 경고) · 발밑 깊이가 «파츠 묶음 그대로 · 슬라이더 몫으로 설명 안 될 때만» 높이 경고 대신 `[높이 · 발밑]` 한 줄 · 묶음 표시에 wrapper uuid 를 쓰지 않는다(같은 파츠도 다시 붙일 때마다 wrapper 가 새로 생긴다) · 한 번 경고하면 «그대로» 가 될 때까지 다시 안 적음 · rig 뜸은 바뀌었을 때만 · 기준 `TOL_Y`(0.01) · `TOL_SCALE`(1%) · `RIG_LIFT`(0.05).
+- 검사: `checks/sim-fit-watch.js`.
 
 ## floor-snap-diag.js — 🩺 바닥 맞춤 진단
 
@@ -342,28 +367,50 @@
   - 옛 규칙을 지키느라 판정이 조금씩 다르다 — 런처는 `'__part'` 접두(`__part_` 도)를 빼고 숨은 것은 센다 · 진단 · 머리 여유 · 검증 로그는 표식 `__twPartWrap` 을 안 본다(`isPartByRigOrName`). 지금은 이름 · 표식이 함께 붙어 결과가 같다. 하나로 맞추려면 동작 변경이라 따로 승인받는다.
   - `skipBranch` · `partTest` 는 순수 함수만 넘긴다(던지면 measureBodyBox 밖으로 나간다 — `_boxExcluding` 은 던지면 빈 박스).
 
-## gacha-tx.js — 🎰 가챠 트랜잭션 한 길
+## gacha-api.js — 🎰 가챠 api provider
 
-- **책임**: 가챠 노드(`users/{uid}/gacha`)를 트랜잭션으로 고치는 단 한 길. 뽑기 · 합치기(`gacha.js`)가 «지금 서버 값 → 새 값» 함수(apply)를 넘긴다. 통째 set 은 없다(다른 PC 의 뽑기를 지운다).
-- **만드는 법**: ESM — `firebase-init.js` 가 `import { createGachaTx } from "./character/gacha-tx.js"` 로 들이고 `createGachaTx({ db, ref, get, runTransaction, waitConnected, whenAuthReady })` 로 만든다. Firebase 를 직접 import 하지 않는다.
-- **내보내는 것**: `updateGacha(uid, apply, opt)` → `{ ok:true, committed, value }` | `{ ok:false, reason:'offline'|'timeout'|'denied'|'error' }`(firebase-init 의 `firebaseAPI.updateGacha` 가 그대로 건넨다) · `gachaFailReason(e)` · 상수 `GACHA_TX_TIMEOUT_MS`(10초) · `GACHA_CONNECT_WAIT_MS`(3초).
+- **책임**: 서버가 원본인 가챠의 읽기 · 뽑기(`GET /v1/me/collection` · `GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수 · 색 해금(다 모았나)은 서버가 정한다. 이 PC 에 보유분 사본을 두지 않는다(0.12 의 `gacha-tx.js` 트랜잭션 · 합치기 · 10분 맞추기는 걷었다).
+- **deps**: `authed`(로그인 API 통로 `TwApi.authed`) · `newRequestId`(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게).
+- **내보내는 것**: `createGachaApi(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason }, reset() }` · 상태 = `{ owned, unlocked, earned, bonus, left, season }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
 - **함정**
-  - 첫 시도의 `cur=null` 은 «빈 노드» 가 아닐 수 있다 — 사전 get 값(pre)으로 센다.
-  - 시간 상한은 사전 get 부터 저장까지 덮는다. 넘긴 뒤 늦게 committed 되면 `opt.onLate(값)` 로만 알린다(부르는 쪽이 사본에 합친다).
-  - apply 는 재시도마다 다시 불린다 — 부작용 없이 값만 돌려줄 것(gacha.js 는 마지막 실행의 결과만 쓴다).
-  - 검사: `checks/sim-gacha-tx.js`(연결 · 가짜 SDK · 깨 보기).
+  - 읽기가 실패하면 던진다(못 읽음 ≠ 빈 보유분). 뽑기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽기 전에는 보내지 않는다.
+  - 뽑기가 시간 초과여도 같은 요청을 다시 보내지 않는다. 서버엔 들어갔을 수 있어 사용자가 보관함을 여는 때 다시 받는다.
+  - 서버 신호 `collection`(본인)이 오면 `gacha.js` 가 다시 받는다 — 달성표 보상(`bonus`)도 이 길로 온다.
+  - 검사: `checks/sim-gacha-api.js`(요청 모양 · 응답 씻기 · 실패 · 계정 묶기 · 깨 보기) · `checks/sim-gacha.js`(받기 · 뽑기 · 보관함).
 
-## gacha-server.js — 🎰 가챠 서버 길
+## closet-api.js — 🧬 옷장 api provider
 
-- **책임**: 서버가 뽑고 서버가 저장하는 길(`GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수는 서버가 정한다. 이 PC 에만 있는 뽑기는 올리지 않는다(서버 값만 원본).
-- **고르기**: `gacha.js` 가 `deps.gachaSource()`(원격 설정 `sources.gacha` · `shared/source-switch.js`)가 `'server'` 일 때만 이 길을 탄다. 칸이 없으면 옛 길(`gacha-tx.js` 트랜잭션 · 앱이 뽑기).
-- **deps**: `get` · `post`(로그인 API 통로 — `firebaseAPI.apiGetAuthed` · `apiPostAuthed`) · `newRequestId`(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게 · 앱은 시간 초과면 다시 보내지 않고 상태를 다시 받는다).
-- **내보내는 것**: `createGachaServer(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason } }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
+- **책임**: 내 캐릭터 옷장(슬롯 5칸 · 보관함 20 · 휴지통)의 서버 길(`/v1/me/avatars…`) — 옷장 받기(슬롯 캐릭터 def 까지 한 번에) · 캐릭터 하나 읽기 · 만들기 · 고치기 · 슬롯 ↔ 보관함 옮기기 · 휴지통 보내기 · 휴지통 목록 · 되살리기 · 첫 실행 올리기(legacy-sync). 칸 수 · 상한 · 휴지통 기한은 서버가 정한다.
+- **deps**: `authed`(`TwApi.authed`) · `newRequestId`.
+- **내보내는 것**: `createClosetApi(deps)` → `{ load, fetchOne, create, update, move, trash, trashPage, restore, legacySync, reset }` · 순수 `headOf` · `closetOf` · `trashOf` · `failOf`.
+- **함정**: 읽은 토큰 주인과 쓰기를 묶는다(읽기 전엔 쓰지 않음) · 고치기는 받은 판(baseVersion)을 싣는다 — 낡은 판이어도 서버가 받고 앞 모습을 휴지통 «연동 교체» 로 남긴다(409 가 아니다) · 실패는 서버 code 그대로 던지고 혼자 다시 보내지 않는다 · 옷장 응답은 슬롯 칸과 def 짝이 맞아야 쓴다(모자라면 «못 읽음»). 검사: `checks/sim-closet-api.js`.
+
+## closet.js — 🧬 옷장 (서버 원본)
+
+- **책임**: 화면의 `slots[]` 를 서버 옷장과 잇는다. 시작할 때(`startCloset` — 계정 확인 뒤 app-boot) 받아 앉히고, 서버 신호 `avatars` 에 다시 받고, 고치면 3초 묶음으로 바뀐 칸만 쓰고(새 칸은 만들기 · 있는 칸은 고치기), 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 0.13 첫 실행의 옛 캐릭터 올리기(`legacyStep`)도 여기.
+- **이 PC 에 없는 것**: 캐릭터 저장본 · 보관함 사본 · 고친 시각 · 백업 · 충돌 판정 · 주기 맞추기 · 부팅 지연 타이머(0.12 의 `slot-sync.js` · `chars.js` 를 걷었다).
+- **deps**: `closetApi` · `codec`(slot-codec) · `roomFaceCache` · `slots` · `slotSave`(applySlotObjs · lastOut · onSaved · pullForward · _relinkSeatsToSlots · slotsReplaced) · `getMyUserId` · `rtOn` · `toast` · `notifyError` · `renderLauncher` · `creatorOpen` · `storage`.
+- **내놓는 것**: `startCloset` · `pullCloset(notify)` · `resetCloset` · `state()`(`idle|loading|ready|failed`) · `boxItems()`(받기 전 null) · `boxCount` · `boxFull` · `moveToBox` · `boxToSlot` · `trashSlot` · `trashBox` · `trashRows` · `restore` · `moveMsg` · `deleteWords` · `unsavedCount` · `flushSlots` · `waitFlush`(줄에 선 일이 다 끝나기를 기다림) · `legacyStep` · `onChange`.
 - **함정**
-  - 실패해도 옛 길로 넘기지 않는다 — 넘기면 서버가 정하는 뜻이 없어진다. 실패하면 `gacha.js` 가 서버 값을 다시 받는다(시간 초과 뒤 서버엔 들어갔을 수 있다).
-  - 서버 길에서 보유분은 **갈아 끼운다**(합치지 않음). 못 받으면 아무것도 안 바꾸고 착용도 안 벗긴다.
-  - 컷오버 전까지 옛 앱이 `users/*/gacha` 를 직접 쓴다 — 조작을 막는 건 규칙을 닫는 날이다.
-  - 검사: `checks/sim-gacha-server.js`(요청 모양 · 응답 씻기 · 실패 · 깨 보기) · `checks/sim-gacha.js` 3-2절(서버 길로 굴리기).
+  - 받기 전(idle · loading · failed)에는 아무것도 쓰지 않는다. 실패 뒤 혼자 되풀이하지 않는다(다시 받는 길 = «다시 시도» · 서버 신호). 오류 번호 E-CHAR-16 은 사용자가 누른 받기에서만, 저장 실패(17~19)는 같은 실패를 한 번만.
+  - 내가 아직 못 올린 고침이 있는 칸은 받기가 덮지 않는다(올릴 때 서버가 앞 모습을 남긴다). 생성기가 열려 있으면 칸 갈아 끼우기를 건너뛴다.
+  - 화면에서 칸이 비었다고 서버 캐릭터를 지우지 않는다 — 지우기는 휴지통 이동(`trashSlot`)뿐. 서버가 된 뒤에만 `pullForward` 로 칸을 당긴다.
+  - 새 캐릭터는 보관함이 가득 차 있어도 슬롯에 만든다(서버가 보관함 문턱을 보지 않는다 — 20 은 보관함으로 옮길 때 · 복원할 때).
+  - 서버 일은 한 줄(lane)로 하나씩 돈다 — 받기 · 쓰기 · 옮기기 · 휴지통 · 되살리기 · 첫 실행 올리기. 받는 사이 칸이 당겨지거나 쓰는 사이 받은 판이 바뀌는 엇갈림을 이 한 줄이 막는다. 새 서버 일도 `inLane` 으로 세우고, 줄 안에서 다른 줄 일을 기다리지 않는다(동작 안의 쓰기는 `flushNow` 를 바로 부른다).
+  - 받은 옷장은 칸 그림을 다 받은 뒤에만 판(known) · 칸 차지 표시 · 머리 목록을 적는다 — 한 칸이라도 못 받으면 아무것도 바꾸지 않는다.
+  - 보관함 → 슬롯 앞에서 못 올린 새 캐릭터를 먼저 올린다(서버는 첫 빈 칸에 넣는데 그 칸이 새 캐릭터 칸일 수 있다). 못 올리면 옮기지 않는다(`why: 'dirty'`).
+  - 계정 바뀜: `resetCloset` 이 세대(gen)를 올리고 줄을 새로 시작한다 — 옛 계정 일은 gen 이 달라 아무것도 적지 않고 끝난다. 첫 실행 올리기는 내 코드까지 같은지 본다(다른 계정 옷장에 넣지 않는다).
+  - 검사: `checks/sim-closet.js` · 화면 쪽 `checks/sim-my-info-box.js` · `checks/sim-launcher-controls.js`.
+
+## slot-codec.js — 🧬 캐릭터 한 칸 ↔ 서버 def
+
+- **책임**: 화면의 저장 모양(그림 dataURL · GLB base64)을 서버 def(그림 · GLB 는 우리 Storage 주소)로, 그 반대로 바꾼다. 올리는 이름은 «종류_내용해시» 라 같은 그림은 한 번만 올라가고 올린 주소는 이 PC 올리기 캐시(`tw.slotGlbUrls`)에 기억한다 — 맞추기 사본이 아니라 중복 올리기 막이다.
+- **내놓는 것**: `_slotToServerObj`(하나라도 못 올리면 null) · `_slotFromServerObj`(얼굴 · 감은눈이 없으면 던짐) · GLB 캐시 읽기 · 쓰기 · `SLOT_JSON_MAX`(150000자). 검사: `checks/sim-slot-codec.js`.
+
+## slot-save.js — 💾 슬롯 저장 · 받아 앉히기
+
+- **책임**: 서버에서 받은 칸을 화면 캐릭터로 앉히고(`applySlotObjs(arr, which)`), `saveSlots` 가 «지금 화면 → 저장 모양» 직렬화 결과(`lastOut`)와 달라졌는지를 알린다(`onSaved`). 이 PC 에 저장하지 않는다. 빈 그림 방어 · 이미지 복원 실패 칸(`_imgBroken`) 저장 제외는 직전 직렬화 결과 기준.
+- **함정**: `which` 로 고른 칸만 앉히면 나머지 칸의 캐릭터 객체는 그대로다(책상 위 좌석이 붙들고 있다). `pullForward(i)` 는 서버가 휴지통 · 보관함 이동 뒤 당기는 것과 같은 규칙. 검사: `checks/sim-slot-save.js`.
 
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 

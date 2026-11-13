@@ -24,6 +24,15 @@ const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // �
 const fs = require('fs');
 const vm = require('vm');
 const SRC = _joinRenderer(fs.readFileSync('app.js', 'utf8'));
+/* 접기의 «지금 막아야 하나» 는 account-state.js licenseAssetBlocked 한 곳 — 진짜 함수를 불러 쓴다(조건을 이 검사에 다시 쓰지 않음) */
+const ASSRC = ['account-state.js', 'parts/account/account-state.js', 'app/parts/account/account-state.js'].map(f => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } }).find(Boolean);
+function realBlocked(c, item){
+  const st = { premium: !!c.isPremium, admin: !!c.isAdmin };
+  const mod = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', ASSRC + '\nreturn window.TwAccountState;')({}, {}, { getItem: () => null, setItem(){}, removeItem(){} }, (f) => f(), undefined);
+  const as = mod.createAccountState({ isPremium: () => st.premium, isAdmin: () => st.admin, setIsPremium: (v) => { st.premium = v; } });
+  if(c.premiumKnown) as._setPremium(st.premium);
+  return as.licenseAssetBlocked(item);
+}
 
 let pass = 0, fail = 0, huhs = 0;
 const say = (s) => console.log(s);
@@ -51,13 +60,14 @@ const constHold = /const DESK_LICENSE_HOLD = '([^']+)';\s*\nconst ITEM_LICENSE_H
 /* ── 1. 접기 — 떼어 와 실행한다 ── */
 say('── 1. 접기(pruneUnownedLicenseAssets) — 실제로 돌려서 본다');
 let ctx = null;
-if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold){
+if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold || !ASSRC){
   huh('접기/되돌리기 함수나 HOLD 상수를 못 찾음 — 이름이 바뀌었으면 이 검사도 같이 고칠 것');
 } else {
   const makeCtx = (opts) => {
     const c = {
       console: { warn(){}, log(){} },
       isPremium: !!opts.premium,
+      premiumKnown: opts.known !== false,   // 서버가 프리미엄을 확인해 줬나 — 기본 «확인함»
       isAdmin: !!opts.admin,
       savedDesks: opts.desks || [],
       savedItems: opts.items || [],
@@ -67,6 +77,7 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold){
       DEFAULT_DESK_OVERRIDE_ID: '__default_desk__',
       _redrawn: [], _unequipped: [], _saved: 0, _pushed: 0,
     };
+    c.licenseAssetBlocked = (item) => realBlocked(c, item);
     c.applyDeskCatalogRefToSeat = (s, def) => { c._redrawn.push(def.deskCatalogId); };
     c.deskItemDef = (id) => ({ id, name: id });
     c.equipDeskItem = (h, d, on) => { if(!on) c._unequipped.push(d.id); };
@@ -90,6 +101,22 @@ if(!fnPrune || !fnRestore || !fnLockD || !fnLockI || !constHold){
     const n = vm.runInContext('pruneUnownedLicenseAssets()', c);
     chk(n === 0 && d.deskCatalogId === 'desk_gaming',
       '★ 카탈로그 미도착 → 아무것도 안 접는다 (조회 실패를 «전용 아님»으로도 «전용»으로도 단정하지 않는다)');
+  }
+  /* (가-2) 서버가 아직 프리미엄을 확인해 주지 않았으면(모름) 접지 않는다 — 켤 때마다 프리미엄 사용자의 책상이 잠깐 기본으로 떨어지는 것을 막는다 */
+  {
+    const d = mkDef();
+    const c = makeCtx({ known: false, desks: LOCKED, items: LOCKI, seats: [{ isMe: true, charDef: d }], slots: [d] });
+    const n = vm.runInContext('pruneUnownedLicenseAssets()', c);
+    chk(n === 0 && d.deskCatalogId === 'desk_gaming' && c._saved === 0 && c._redrawn.length === 0 && c._pushed === 0,
+      '★ 프리미엄 «모름» → 접지도 · 저장도 · 다시 그리기도 · 방에 내보내기도 없다(프리미엄 사용자의 책상이 깜빡이지 않게)');
+    c.premiumKnown = true;   // 확인이 와서 «아님» 으로 정해지면 그때 접는다
+    chk(vm.runInContext('pruneUnownedLicenseAssets()', c) === 2 && d.deskCatalogId === null, '  ↳ 확인이 «아님» 으로 오면 그때 접는다(모르는 동안 건너뛴 것이 사라지지 않는다)');
+    /* 깨 보기 — «모름» 가드를 지우면 위 판정이 빨강이어야 한다 */
+    const brokenSrc = fnPrune.replace('if(!licenseAssetBlocked({ licenseOnly: true })) return 0;', '');
+    const d2 = mkDef();
+    const cb = makeCtx({ known: false, desks: LOCKED, items: LOCKI, slots: [d2] });
+    vm.runInContext(brokenSrc.replace('function pruneUnownedLicenseAssets', 'function brokenPrune'), cb);
+    chk(brokenSrc !== fnPrune && vm.runInContext('brokenPrune()', cb) > 0 && d2.deskCatalogId === null, '  ↳ 깨 보기: 가드를 지우면 모르는 동안에도 접는다(= 위 검사가 빨강이 된다)');
   }
   /* (나) 라이선스 보유자·관리자는 통째로 건너뛴다 */
   {
@@ -187,8 +214,8 @@ const around = (needle, span) => {
   const i = SRC.indexOf(needle);
   return i < 0 ? '' : SRC.slice(i, i + span);
 };
-chk(/pruneUnownedLicenseAssets/.test(around('function loadSlots()', 6000)),
-  '★ 슬롯 복원 — 저장값에 남아 있던 전용 자산을 접는다');
+chk(/_loadedFns\.forEach/.test(around('async function applySlotObjs(', 6000)) && /onLoaded\(\(\)=>(premiumMod\.)?pruneUnownedLicenseAssets\(\)\)/.test(SRC),
+  '★ 슬롯 받아 앉히기 — 끝나면 onLoaded 알림이 돌고, 그 알림에 전용 자산 접기가 걸려 있다');
 chk(/pruneUnownedLicenseAssets[\s\S]{0,400}saveSlots\(\);saveCurSlot\(\)/.test(SRC),
   '★ 공유 코드 불러오기 — **저장 전에** 접는다 (받는 쪽에 라이선스 검사가 없었다)');
 chk(/pruneUnownedLicenseAssets/.test(around('function mergeCatalogIntoSavedDesks', 4000)),
@@ -270,7 +297,7 @@ else{
   chk(f({ id: '__default_desk__' }, '__default_desk__', false) === false, '기본 책상 오버라이드는 따로 그린다(중복 방지)');
 }
 const rcAll = grabFn('renderCrItems') || '';
-chk(/const deskLocked = !!\(rec\.licenseOnly && !isPremium && !isAdmin\)/.test(rcAll),
+chk(/const deskLocked = (?:premiumMod\.)?licenseAssetBlocked\(rec\)/.test(rcAll),
   '★ deskLocked 갈래는 **지우지 않았다** — 관리자 화면과, 카탈로그가 늦어 licenseOnly 를 아직 모르는 순간의 안전망');
 chk(/crDeskLicenseHint/.test(rcAll), '5단계에 «어디로 갔는지» 안내 줄을 켠다');
 let HTML = '';

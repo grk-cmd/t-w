@@ -37,6 +37,7 @@ const probe = `
   setGachaOpen: fn=>{ document.getElementById('gachaInvOverlay').style.display = fn() ? 'block' : 'none'; },
   setGachaSel: v=>{ gachaMod.state.setSelId(v); },
   setOwned: v=>{ gachaMod.state.setOwned(v); },
+  setUnlocked: v=>{ gachaMod.state.setUnlocked(v); },
   wrapBuildColorRows: fn=>{ const o = buildColorRows; buildColorRows = (...a)=>{ fn(...a); return o(...a); }; },
 };`;
 
@@ -122,7 +123,7 @@ say('\n=== 5. 🎰 보관함(T)에서 귀 파츠를 고른 상태 — 모자도 
     stackedPartObjs: { hat: { ear: wrap('ear') } },
   });
   P.setTab('hat'); P.setAdj(null);
-  P.setOwned({ ear: 99 });   // 색상 게이트(4개 수집)는 통과시킨다 — 여기서 보려는 건 게이트가 아니다
+  P.setOwned({ ear: 99 }); P.setUnlocked({ ear: true });   // 색상 게이트(서버가 센 해금)는 통과시킨다 — 여기서 보려는 건 게이트가 아니다
   P.setGachaOpen(() => true); P.setGachaSel('ear');
   try { P.refresh(); } catch (e) { say('  (refresh 예외: ' + e.message + ')'); }
   const r = seen;

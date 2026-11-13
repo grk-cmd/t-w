@@ -19,7 +19,7 @@
 
    ★ 무엇을 보는가 (두 층)
      §1 소스·마크업 대조 — 전역 `.mh-ibx-tab` 잔재 · 옛 #mhReqSection 잔재 ·
-        선물 배지 확인(_mallangSeenGifts) 호출 자리 · 팝업 호출부가 하나인가
+        선물 배지 확인(mallangMod.seenGifts) 호출 자리 · 팝업 호출부가 하나인가
      §2 런타임 — 자리가 1칸일 때 3건을 일괄 수락하면 정말 1건만 들어가는가,
         그리고 **일부러 옛날 방식으로 망가뜨리면 이 검사가 잡는가**
 
@@ -83,13 +83,13 @@ chk(/id="mhFmList"/.test(HTML), '요청·선물함을 그리는 새 칸 #mhFmLis
 
 // (ㄹ) 🎁 선물 배지 확인 처리는 **선물함 서브탭 클릭**에만 있어야 한다.
 //     탭을 스치기만 해도 본 것으로 처리되면 안 되므로, 렌더 함수 안에 있으면 실패다.
-const seenCalls = [...SRC.matchAll(/^.*_mallangSeenGifts\(\).*$/gm)]
+const seenCalls = [...SRC.matchAll(/^.*mallangMod\.seenGifts\(\).*$/gm)]
   .map(m => m[0].trim()).filter(l => !l.startsWith('*') && !l.startsWith('//'));
-chk(seenCalls.length === 1, '_mallangSeenGifts() 호출부가 하나뿐이다 (' + seenCalls.length + '곳)');
+chk(seenCalls.length === 1, 'mallangMod.seenGifts() 호출부가 하나뿐이다 (' + seenCalls.length + '곳)');
 chk(seenCalls.length === 1 && /(?:_fmTab|friendManage\.tab\(\))\s*===\s*'gift'/.test(seenCalls[0]),
     '그 한 곳이 선물함 서브탭 클릭이다');
 const giftBox = (SRC.match(/function renderGiftBox\([\s\S]*?\n\}/) || [''])[0];
-chk(!!giftBox && !giftBox.includes('_mallangSeenGifts'),
+chk(!!giftBox && !giftBox.includes('seenGifts'),
     'renderGiftBox() 안에는 배지 확인 처리가 없다 (렌더만으로 본 것이 되지 않는다)');
 
 /* (ㅁ) 요청 팝업 호출부는 하나 — 관리 화면과 겹치지 않게 '새로 온 것'에만 뜬다.

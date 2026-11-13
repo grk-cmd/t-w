@@ -37,7 +37,8 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     const head = grab(/const SETTINGS_VER = \d+;[\s\S]*?\nfunction _settingsLegacyRisky\(data\)\{[\s\S]*?\n\}/);
     const load = grab(/function loadSettings\(\)\{[\s\S]*?\n\}/);
     const save = grab(/function saveSettings\(\)\{[\s\S]*?\n\}/);
-    chk(!!head && !!load && !!save, 'SETTINGS_VER · loadSettings · saveSettings 를 찾았다');
+    const posOf = grab(/const LAUNCHER_POS_MAX = \d+;[\s\S]*?\nfunction _launcherPosOf\(v\)\{[\s\S]*?\n\}/);   // 런처 자리(launcherPos)도 같은 파일에 산다
+    chk(!!head && !!load && !!save && !!posOf, 'SETTINGS_VER · loadSettings · saveSettings · _launcherPosOf 를 찾았다');
     const os = require('os'), path = require('path');
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'tw-set-'));
     const run = (fileObj) => {
@@ -47,9 +48,10 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
       if (fileObj) fs.writeFileSync(P, JSON.stringify(fileObj));
       const ov = { _g: 12, _a: 0, GAP_MAX: 64, GAP_VER: 2, GAP_LEGACY: [2, 6], GAP_DEFAULT: 12,
         setGap(v) { this._g = v; }, gap() { return this._g; }, setAlpha(v) { this._a = v; }, alpha() { return this._a; } };
-      const body = 'let SETTINGS_PATH = P; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
-        + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + load + '\n' + save
-        + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice };'
+      const body = 'let SETTINGS_PATH = P; const DISPLAY_NAME_MAX = 200; let runDisplayId = null, runDisplayKey = null, runDisplayWasPrimary = null, runDisplayName = null, runDisplayNameUnique = false, uiZoom = 1, _gapMigratedFrom = null, _saveFailLogged = false;\n'
+        + 'const savedPos = { launcher: null, creator: null };\n'   // _launcherPosSaved · 몰아 저장은 아래 posOf 덩이에 같이 온다
+        + 'const _clampZoom = (z) => z; const _diagLog = () => {};\n' + head + '\n' + posOf + '\n' + load + '\n' + save
+        + '\nloadSettings(); const r = { runDisplayId, uiZoom, alpha: overlay.alpha(), reset: _settingsReset, notice: _settingsResetNotice, launcher: savedPos.launcher };'
         + '\n_settingsReset = null; saveSettings(); r.saved = JSON.parse(fs.readFileSync(P, "utf8")); return r;';
       const out = new Function('fs', 'path', 'P', 'overlay', body)(fs, path, P, ov);
       out.backup = fs.existsSync(path.join(dir, 'tw-settings.before-reset.json'));
@@ -65,6 +67,11 @@ say('§1 옛 빌드 설정 파일 — 영상 겹침 실험이 켜진 채 남은 
     chk(!c.reset && c.alpha === 252 && c.runDisplayId === 7, '새 빌드에서 일부러 켠 실험은 존중한다');
     const d = run(null);
     chk(!d.reset && d.saved.settingsVer === 1, '파일이 없으면(첫 실행) 초기화 없이 새 세대로');
+    chk(a.launcher === null && a.saved.launcherPos === null, '  초기화 길은 런처 자리도 읽지 않는다(전부 기본값 — 가운데)');
+    const nm = run({ settingsVer: 1, runDisplayId: 3, runDisplayName: '  Wacom Cintiq 16  ' }), nm2 = run({ settingsVer: 1, runDisplayName: 123 });
+    chk(nm.saved.runDisplayName === 'Wacom Cintiq 16' && nm2.saved.runDisplayName === null, '🖥 고른 모니터 이름은 읽고(공백 뗌) → 다시 저장해도 그대로 · 문자열이 아니면 버림(sim-display-pick.js)');
+    const e = run({ settingsVer: 1, launcherPos: { x: 340, y: -20 } });
+    chk(e.launcher && e.launcher.x === 340 && e.launcher.y === -20 && e.saved.launcherPos && e.saved.launcherPos.x === 340, '보통 파일의 런처 자리는 읽고 → 다시 저장해도 그대로');
     try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
     chk(/ipcMain\.handle\('companion:takeSettingsNotice'[\s\S]{0,200}_settingsResetNotice = false;/.test(MAIN), '안내는 한 번 돌려주면 끈다');
     chk(/takeSettingsNotice\(\) \{\s*return ipcRenderer\.invoke\('companion:takeSettingsNotice'\);/.test(PRE), 'preload 통로');
@@ -188,7 +195,8 @@ say('§10 듀얼 모니터 — 위치순 이름 · 저장 모니터 다시 찾�
   if (!MAIN) chk(false, 'main.js 를 찾았다');
   else {
     const g = (re) => (MAIN.match(re) || [''])[0];
-    const src = [g(/function _displayKey\(d\)\{[\s\S]*?\n\}/), g(/function _displaySize\(d\)\{[^\n]*\}/),
+    const src = ['const DISPLAY_NAME_MAX = 200;', g(/function _displayName\(d\)\{[\s\S]*?\n\}/), g(/function _displayShape\(d\)\{[\s\S]*?\n\}/), g(/function _shapeOfKey\(key\)\{[\s\S]*?\n\}/),   // 🖥 이름 · 모양(sim-display-pick.js)
+                 g(/function _displayKey\(d\)\{[\s\S]*?\n\}/), g(/function _displaySize\(d\)\{[^\n]*\}/),
                  g(/function _displaysByPosition\(all\)\{[\s\S]*?\n\}/), g(/function _pickRunDisplay\(all, primaryId, saved\)\{[\s\S]*?\n\}/)].join('\n');
     const M = new Function(src + '\nreturn { _displayKey, _pickRunDisplay, _displaysByPosition };')();
     const D = (id, x, w, h, sf) => ({ id, bounds: { x, y: 0, width: w, height: h }, rotation: 0, scaleFactor: sf || 1 });
@@ -284,7 +292,7 @@ say('§5 호버해도 클릭이 바로 안 잡힘 — 일반 앱 첫 재판정 0
     chk(/if\(now - _ghostSince < \(_penAppActive \? GHOST_MS : GHOST_MS_PLAIN\)\) return;/.test(MAIN), '★ 첫 찌르기 문턱만 앱 종류로 가른다');
     chk(/const GHOST_REPOKE_MS = 3000;/.test(MAIN) && /const GHOST_MAX_POKES = 3;/.test(MAIN), '  찌르기 간격 · 포기 한도는 그대로 (렌더러 사다리와의 결합 유지)');
     const fwd = (MAIN.match(/function _forwardFor\(\)\{[\s\S]*?\n\}/) || [''])[0];
-    chk(/if\(_lastIgnoreRequested\) return true;/.test(fwd) && /return !_penAppActive \|\| _penMouseNearChar;/.test(fwd), '  _forwardFor(클립 스튜디오 보호) 그대로');
+    chk(/if\(!_penAppActive \|\| _penMouseNearChar\) return true;/.test(fwd) && /return !_penWakeReady\(\);/.test(fwd), '  _forwardFor(클립 스튜디오 보호 · 깨울 길 없으면 켬) 그대로 — 동작은 sim-pen-forward.js');
     const chkFn = (MAIN.match(/function _checkCursorNearChar\(\)\{[\s\S]*?\n\}/) || [''])[0];
     const re = chkFn.slice(chkFn.indexOf('if(near && _penMouseNearChar && _lastIgnoreRequested){'), chkFn.indexOf('if(near !== _penMouseNearChar){'));
     chk(re.length > 0 && /_now - _penRepokeAt >= PEN_REPOKE_MS/.test(re) && /_moved/.test(re) && /_sendHitTest\(\{ x: cx, y: cy \}\)/.test(re), '★ 펜 앱 — 근처 · 통과 중 · 움직였으면 150ms 간격으로 다시 묻는다');
@@ -385,35 +393,12 @@ say('§13 꾸미기 초안 — 캐릭터를 바꾼 뒤 저장해도 원래 캐�
 }
 let _done13 = null; const done13 = () => { if (_done13) _done13(); else _done13 = true; };
 
-say('§9 보관함 이동 — 연타 · 동기화 경쟁');
+say('§9 보관함 이동 — 연타 (동기화 경쟁은 서버 원본으로 없어졌다)');
 {
-  const mv = (APP.match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/if\(_moveToBoxBusy\)\{ toast\(/.test(mv) && /finally\{ _moveToBoxBusy = false; \}/.test(mv), '★ 진행 중이면 다시 안 들어간다 (연타 방지 · 실패해도 풀린다)');
-  /* 10-16 제보 9 — 객체로만 찾으면 동기화가 슬롯을 새로 깔았을 때 못 찾아 복제가 됐다. 슬롯 표를 당긴 번호(r.slot)가 먼저, 객체 찾기는 옛 판 물러섬. */
-  chk(/const at = \(typeof r\.slot === 'number'[^\n]*\? r\.slot : slots\.indexOf\(slotObj\);/.test(mv) && /for\(let k = at; k < slots\.length - 1; k\+\+\)/.test(mv) && !/for\(let k = i; k < slots\.length - 1/.test(mv), '★ 기다린 뒤에는 처음 번호가 아니라 슬롯 표를 당긴 번호(r.slot)로 · 없으면 그 캐릭터로 칸을 찾아 당긴다');
-  chk(/_charsMoveFailLog\(r, i\);/.test(mv) && /localStorage\.setItem\('tw\.charsMoveFails'/.test(APP), '실패 이유를 기록한다 (콘솔 + 최근 10건)');
-  const d2b = (APP.match(/async function _charsDeskToBox\(i\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/await _idle\(\);\s*let sr = null;\s*try\{ sr = await _charsSync\('force'\); \}catch\(_\)\{\}\s*await _idle\(\);/.test(d2b) && /_charsSyncing && t < 200/.test(d2b), '★ 도는 동기화를 기다린 뒤 올리고, 끝날 때까지 다시 기다린다');
-  chk(/const j = desk\.indexOf\(cid\); if\(j < 0\) return \{ ok: false, why: 'moved' \}; i = j;/.test(d2b), '  번호가 바뀌었으면 그 캐릭터의 새 번호로 따라간다');
-  const sy = (APP.match(/async function _charsSync\(reason\)\{[\s\S]*?\n\}/) || [''])[0];
-  const iLoad = sy.indexOf('try{ await loadSlots(); }catch(_){}'), iGen = sy.indexOf("if(gen !== _charsGen){ _charsSyncAgain = true; return { ok: true, did: '불러오는 중 바뀜 — 다시' }; }"), iSave = sy.indexOf('try{ saveSlots(); }catch(_){}', iLoad);
-  chk(iLoad > 0 && iGen > iLoad && iSave > iGen, '★ 동기화 — loadSlots 를 기다린 뒤 칸이 바뀌었으면 saveSlots 를 건너뛴다 (양쪽에 남던 자리)');
-  chk(/return '옮기지 못했어요 — 다시 눌러 주세요' \+ \(w \? ' \(' \+ w \+ '\)' : ''\);/.test(APP), '기본 실패 문구에 이유 코드');
-  /* 10-22 제보 — 동물만 «다시 눌러 주세요» 로 안 옮겨짐. 계정에 못 올린 까닭을 문구 끝에 싣는다(실제로 불러서 본다). */
-  {
-    const src = (APP.match(/function _charsMoveMsg\(r\)\{[\s\S]*?\n\}/) || [''])[0];
-    let msg = null; try{ msg = new Function('CHARS_BOX_MAX', src + '\nreturn _charsMoveMsg;')(20); }catch(_){}
-    const m = (err) => msg ? msg({ why: 'dirty', err }) : '';
-    chk(!!msg && m('img@2').endsWith('(이유: 그림 올리기 실패 · 2번 칸)') && m('size162k@1').endsWith('(이유: 크기 초과 162k · 1번 칸)')
-      && m('write').endsWith('(이유: 서버가 거절)') && m('creator').endsWith('(이유: 생성기가 열려 있음)')
-      && m(undefined) === '방금 고친 모습을 계정에 올리는 중이에요 — 잠시 뒤 다시 눌러 주세요' && m('zzz@3') === m(undefined),
-      '★ 올리는 중 실패 문구 끝에 까닭(그림 올리기 실패 · 크기 초과 · 서버 거절 · 생성기 · 칸 번호) — 모르는 까닭은 붙이지 않는다');
-    chk(/if\(!so\)\{ toJsWhy = 'img'; return null; \}/.test(sy) && /toJsWhy = 'size' \+ Math\.round\(js\.length \/ 1000\) \+ 'k'/.test(sy)
-      && /code: toJsWhy \+ '@' \+ \(u\.slot \+ 1\)/.test(sy) && /reason: '서버 chars 쓰기 실패', code: 'write'/.test(sy), '  동기화가 못 올린 까닭을 code 로 돌려준다(그림 · 크기 · 서버 쓰기)');
-    chk(/const syncCode = \(sr && sr\.code\) \|\| '';/.test(d2b) && /return \{ ok: false, why: 'dirty', err: syncCode \|\| undefined \};/.test(d2b), '  보관함 이동이 그 code 를 실패 이유에 싣는다(최근 10건 기록에도 남는다)');
-  }
+  /* 옛 §9 는 슬롯을 새로 까는 동기화(loadSlots)와 보관함 이동이 겹치는 경쟁을 지켰다. 이제 서버가 칸을 당기고 앱은 된 뒤에만 당기므로(closet.moveToBox)
+     그 경쟁이 없다 — 판정은 sim-closet(한 번에 하나 · 서버가 된 뒤 당김) · sim-launcher-controls(연타 막기 · 실패하면 칸 그대로)가 한다. 여기서는 연타 흉내만 남긴다. */
+  /* 연타 막기 · 서버가 된 뒤에만 당김은 글자 대신 실행으로 판정한다 — sim-launcher-controls(busy 로 막기) · sim-closet(한 번에 하나). */
   // 흉내 — 연타 두 번이 겹쳐도 한 번만 옮긴다
-  (async () => {})();
   let busy = false, moved = 0;
   const press = async () => { if (busy) return 'busy'; busy = true; try { await new Promise(r => setTimeout(r, 5)); moved++; } finally { busy = false; } return 'ok'; };
   Promise.all([press(), press(), press()]).then(rs => {

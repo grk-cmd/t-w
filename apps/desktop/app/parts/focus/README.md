@@ -13,3 +13,14 @@
   - 읽기만 한다 — 켜짐 판정(`_mobileOn`)도, live 를 다시 거는 일도 하지 않는다. 진단으로 원인을 본 뒤 동작을 따로 고친다.
   - 다른 키로 쓴 값은 세지 않는다(focus-level.js `_mobileStart`).
   - 검사: `checks/sim-mobile-diag.js`(규칙 · 잇기를 실제로 돌림 · firebase-init 알림 자리).
+
+## focus-gate.js — 😴 «투게더워킹 창이 앞이면 안 잠듦» 규칙
+
+- **책임**: 앞 창이 바뀔 때 포커싱 어플 게이트(`focusGateSleep`)를 어떻게 둘지, 게이트가 닫혔을 때 어떤 자세로 둘지 정한다. 순수 함수만 있고 DOM · firebase는 쓰지 않는다. 활성 창 처리(`_applyActiveAppState`)와 자세 판정(`seatState`)이 같은 판단을 쓰니까 한 곳에 둔다.
+- **만드는 법**: 만들지 않는다 — 얼린 표 `window.TwFocusGate`. app.js 가 `const focusGate = TwFocusGate;` 로 받는다.
+- **내보내는 것**: `selfFront(state)`(투게더워킹 창이 맨 앞 · 자기를 등록했으면 아님) · `nextGateSleep(state, { figureMode, mobOn })` → `true` · `false` · `null`(직전 값을 둔다) · `gatedPose(selfFront, idleMs, sleepMs)` → `'idle'` · `'sleep'`.
+- **함정**
+  - `null` 은 «열기» 가 아니다 — 포커싱 어플에서 넘어오면 깨어 있고, 다른 앱에서 넘어오면 닫힌 채로 둔다.
+  - `idleMs` 는 `lastActivity` · `lastAnyInput` 중 늦은 것부터 잰다 — 게이트가 닫혀 있으면 전역 키 · 클릭은 `lastAnyInput` 만 올린다.
+  - 피규어 모드 · 폰 켜짐은 투게더워킹 창이 앞이어도 게이트를 연다.
+  - 검사: `checks/sim-focus-gate.js`(규칙 · 옛 두 식과 모든 경우 대조 · 연결) · `sim-focus-gate-self.js` · `sim-figure-mode.js` 4절(진짜 함수를 돌림).
