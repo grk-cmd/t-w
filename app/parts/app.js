@@ -2368,7 +2368,7 @@ let _twMoveSeenAt = 0;
    안 보이면 regions · others 를 잠깐 빼고 보낸다 — 판단은 heartbeat-policy.js fullStep. */
 let _hbWinShown = null, _hbFullAt = 0;
 try{
-  if(window.companion && companion.onWinShown) companion.onWinShown(v => { _hbWinShown = !!v; });
+  if(window.companion) companion.onWinShown(v => { _hbWinShown = !!v; });
   setInterval(()=>{
     try{
       if(!(window.companion && companion.setCharBounds)) return;

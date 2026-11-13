@@ -1397,6 +1397,12 @@ let _hoverTimer = null;
 const _hoverPoke = HoverPoke.createHoverPoke();
 let _hoverPokedAt = 0, _hoverLogAt = 0;
 const HOVER_LOG_GAP_MS = 30000;   // «호버 감시로 클릭받기» 진단 줄은 30초에 한 줄까지(_diagLog 회전 주석)
+/* 메인 창이 지금 화면에 보이는가 — 창 없음 · 파괴됨 · 읽다 실패면 false.
+   ⚠️ Windows 는 최소화한 창도 isVisible() 이 참이다 — isMinimized() 를 같이 본다. */
+function _mainWinShown(){
+  if(!mainWindow || mainWindow.isDestroyed()) return false;
+  try{ return mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){ return false; }
+}
 function _hoverState(pt){
   let visible = false;
   try{ visible = mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){}
@@ -3882,13 +3888,11 @@ function createWindow() {
   mainWindow.on('show', _refreshMainWinBounds);
   _refreshMainWinBounds();
   /* 🪟 창이 보이는지를 렌더러에 알린다 — 하트비트가 안 보일 때 무거운 칸(regions · others)을 뺀다(heartbeat-policy.js).
-     backgroundThrottling:false 라 렌더러의 document.hidden 은 최소화에도 안 바뀐다. 바뀔 때만 보낸다.
-     ⚠️ Windows 는 최소화한 창도 isVisible() 이 참이라 isMinimized() 를 같이 본다. */
+     backgroundThrottling:false 라 렌더러의 document.hidden 은 최소화에도 안 바뀐다. 바뀔 때만 보낸다. */
   let _winShownSent = null;
   const _sendWinShown = () => {
     if(!mainWindow || mainWindow.isDestroyed()) return;
-    let shown = true;
-    try{ shown = mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){}
+    const shown = _mainWinShown();
     if(shown === _winShownSent) return;
     _winShownSent = shown;
     try{ mainWindow.webContents.send('companion:winShown', shown); }catch(_){}

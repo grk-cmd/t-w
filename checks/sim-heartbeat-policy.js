@@ -103,12 +103,15 @@ function heartbeatBehaviour(src, P){
 }
 
 /* ── main.js 창 보임 알림 덩이를 떼어 가짜 창에서 돌린다 ── */
+/* 창 보임 판단 함수(_mainWinShown — main.js 의 한 벌)와 알림 덩이를 같이 떼어 돌린다 */
 function grabWinShown(src){
+  const f = src.indexOf('function _mainWinShown(){');
+  const fe = src.indexOf('\n}\n', f);
   const a = src.indexOf('let _winShownSent = null;');
   const b = src.indexOf("mainWindow.webContents.on('did-finish-load'", a);
-  if(a < 0 || b < 0) return null;
+  if(f < 0 || fe < 0 || a < 0 || b < 0) return null;
   const c = src.indexOf('\n', b);
-  return src.slice(a, c);
+  return src.slice(f, fe + 2) + '\n' + src.slice(a, c);
 }
 function mainBehaviour(src){
   const block = grabWinShown(src);
@@ -181,6 +184,7 @@ if(mb){
   chk(JSON.stringify(mb.min) === JSON.stringify([['companion:winShown', false]]), '최소화 → false 한 번(isVisible 이 참이어도 · 같은 값은 다시 안 보냄)');
   chk(JSON.stringify(mb.restore) === JSON.stringify([['companion:winShown', true]]), '복귀 → true');
   chk(JSON.stringify(mb.hide) === JSON.stringify([['companion:winShown', false]]) && JSON.stringify(mb.show) === JSON.stringify([['companion:winShown', true]]), '숨김 → false · 보임 → true');
+  chk(/const shown = _mainWinShown\(\);/.test(MAIN), '알림은 main.js 의 창 보임 판단 한 벌(_mainWinShown)을 부른다');
   chk(JSON.stringify(mb.reload) === JSON.stringify([['companion:winShown', false]]), '다시 불러오면 같은 값이어도 다시 알린다(렌더러는 모름으로 돌아가 있다)');
 }
 
@@ -201,8 +205,10 @@ const hbBroken = heartbeatBehaviour(APP.replace('(_hbFull && window.__uiRegions)
 chk(!!hbBroken && hbBroken.hiddenRegionCalls === 30, '하트비트가 판단을 무시하고 늘 재면 2절 «3번» 이 빨강(30번)');
 const hbNoBack = heartbeatBehaviour(APP.replace('companion.onWinShown(v => { _hbWinShown = !!v; });', 'companion.onWinShown(v => { if(!v) _hbWinShown = false; });'), P);
 chk(!!hbNoBack && !hbNoBack.backFull, '복귀 신호를 안 받게 고치면 2절 «다음 틱에 곧바로» 가 빨강');
-const mbBroken = mainBehaviour(MAIN.replace('shown = mainWindow.isVisible() && !mainWindow.isMinimized();', 'shown = mainWindow.isVisible();'));
-chk(!!mbBroken && JSON.stringify(mbBroken.min) !== JSON.stringify([['companion:winShown', false]]), 'main 이 isVisible 만 보면(Windows 최소화도 참) 3절 «최소화 → false» 가 빨강');
+const mbBroken = mainBehaviour(MAIN.replace('try{ return mainWindow.isVisible() && !mainWindow.isMinimized(); }', 'try{ return mainWindow.isVisible(); }'));
+chk(!!mbBroken && JSON.stringify(mbBroken.min) !== JSON.stringify([['companion:winShown', false]]), '_mainWinShown 이 isVisible 만 보면(Windows 최소화도 참) 3절 «최소화 → false» 가 빨강');
+const mbOwn = mainBehaviour(MAIN.replace('const shown = _mainWinShown();', 'const shown = mainWindow.isVisible();'));
+chk(!!mbOwn && JSON.stringify(mbOwn.min) !== JSON.stringify([['companion:winShown', false]]), '알림이 _mainWinShown 대신 제 판단을 쓰면 3절이 빨강');
 
 say(`\n결과: 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
