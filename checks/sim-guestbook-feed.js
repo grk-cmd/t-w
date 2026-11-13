@@ -271,6 +271,15 @@ async function judge(S){
     chk(!cu.ok && e.calls.some((c) => c.startsWith('view:')), '둘째가 409 면 다시 받는다');
     e.answers.look = { status: 'failed', err: apiErr(400, 'GUESTBOOK_IMAGE_INVALID') };
     chk((await f.setImage('d')).code === 'E-GB-06', '서버가 주소를 거절(GUESTBOOK_IMAGE_INVALID) → E-GB-06');
+    // 올리기와 겉모습 바꾸기 사이에 연결이 끊김(release) → 겉모습을 못 바꿨으니 ok 가 아니다
+    e.answers.look = undefined; e.answers.upload = undefined; e.calls.length = 0;
+    let relFire = true; e.answers.upload = () => { if(relFire){ e.state(RT.SESSION_LOST); } return undefined; };
+    const rel = await f.setImage('d'); await flush();
+    chk(!rel.ok && rel.reason === 'gone' && !e.calls.some((c) => c.startsWith('look:')), '올리기 뒤 연결이 끊기면(release) → ok 아님 · 겉모습 PATCH 안 보냄');
+    relFire = false; e.state(RT.READY); await flush(); e.calls.length = 0;
+    chk((await f.setImage('d')).ok, '다시 붙은 뒤 정상 → ok');
+    e.answers.upload = { status: 'ok', url: 'https://img/u.png' }; e.answers.look = { status: 'failed', err: apiErr(500, 'X') };
+    chk(!(await f.setImage('d')).ok, '겉모습 PATCH 가 실패하면 → ok 아님');
     e.answers.look = undefined; e.answers.upload = { status: 'stale' };
     chk((await f.setImage('d')).reason === 'stale', '로그인이 바뀌는 중이면 조용히');
   });
@@ -367,9 +376,10 @@ async function runAll(){
     ['연결 끝나도 안 비움', S.FEED.replace("      reset();   // 연결을 끈 것", "      // reset();   // 연결이 끝났다"), '연결이 끝나면'],
     ['다시 붙어도 보는 중을 안 알림', S.FEED.replace("if(owner){ syncWatch(); refreshBook(); }", "if(owner){ refreshBook(); }"), '다시 붙으면'],
     ['계정이 바뀌어도 안 비움', S.FEED.replace("if(uid !== me){ reset(); me = uid; }", "me = uid;"), '다른 계정으로 켜면'],
-    ['올리기 실패에도 겉모습을 보냄', S.FEED.replace("if(r.status === 'ok' && same(who, ow) && view) r = await api.changeLook", "if(same(who, ow) && view) r = await api.changeLook"), '올리기에 실패하면'],
+    ['올리기 실패에도 겉모습을 보냄', S.FEED.replace("      if(r.status === 'ok'){\n        // 올리는", "      {\n        // 올리는"), '올리기에 실패하면'],
+    ['올리기 뒤 끊겨도 성공으로 돌려줌', S.FEED.replace("if(!same(who, ow) || gen !== bookGen || !view) return { ok: false, reason: 'gone' };", ""), 'release'],
     ['413 번호 표 빠짐', S.FEED.replace("notifyError('E-GB-07', e)", "notifyError('E-NET-06', e)"), '413'],
-    ['남의 방명록 그림을 바꿈', S.FEED.replace("if(owner !== me || !view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload", "if(!view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload"), '내 것만'],
+    ['남의 방명록 그림을 바꿈', S.FEED.replace("if(owner !== me || !view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner, gen = bookGen;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload", "if(!view) return { ok: false, reason: 'blocked' };\n    if(looking) return { ok: false, reason: 'busy' };\n    const who = me, ow = owner, gen = bookGen;\n    looking = true;\n    let r;\n    try{\n      r = await api.upload"), '내 것만'],
     ['열면서 비울 때도 알림', S.FEED.replace("reset(true); me = uid; }   // 알리지 않는다", "reset(); me = uid; }   // 알리지 않는다"), '비우며 열기'],
     ['끊김(OFF 아님)에도 모두 비움', S.FEED.replace("      release();   // 연결만 끊겼다", "      reset();   // 연결만 끊겼다"), '다시 붙으면'],
     ['다시 붙어도 배지를 안 받음', S.FEED.replace("      if(badgeOn) refreshBadge();\n      if(owner){ syncWatch(); refreshBook(); }", "      if(owner){ syncWatch(); refreshBook(); }"), '배지 · 열린 방명록'],

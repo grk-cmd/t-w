@@ -310,12 +310,16 @@ function createGuestbookFeed(deps){
     if(!me || !owner) return { ok: false, reason: 'closed' };
     if(owner !== me || !view) return { ok: false, reason: 'blocked' };
     if(looking) return { ok: false, reason: 'busy' };
-    const who = me, ow = owner;
+    const who = me, ow = owner, gen = bookGen;
     looking = true;
     let r;
     try{
       r = await api.uploadImage(who, dataUrl);
-      if(r.status === 'ok' && same(who, ow) && view) r = await api.changeLook(who, view.version, { clapImageUrl: r.url });
+      if(r.status === 'ok'){
+        // 올리는 사이 연결이 끊겼거나(release → view 비움 · gen 바뀜) 계정이 바뀌었으면 겉모습을 못 바꿨다 — 성공으로 돌려주지 않는다
+        if(!same(who, ow) || gen !== bookGen || !view) return { ok: false, reason: 'gone' };
+        r = await api.changeLook(who, view.version, { clapImageUrl: r.url });
+      }
     }finally{ looking = false; }
     if(!same(who, ow)) return { ok: false, reason: 'gone' };
     if(r.status === 'stale') return { ok: false, reason: 'stale' };
