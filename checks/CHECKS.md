@@ -307,7 +307,7 @@
 | **sim-tricks.js** | 94 | **53f1d40a59a5** |
 | **sim-ride-bench.js** | 279 | **426a9d3c5c9f** |
 | **sim-part-paint.js** | 94 | **ccaa45183979** |
-| **sim-focus-level.js** | 119 | **1576a91c1279** |
+| **sim-focus-level.js** | 173 | **8ac080f2e8a5** |
 | **sim-chat-ui.js** | 123 | **8cb619c64968** |
 | **sim-license-gate.js** | 179 | **9ad7d48c2ce4** |
 | **sim-account.js** | 95 | **45959b36fe4e** |
@@ -447,7 +447,7 @@
 | **sim-seat-hit-targets.js** | 211 | **fe65419f52f2** |
 | **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
-| **sim-idle-gate.js** | 155 | **0b00e0482ebd** |
+| **sim-idle-gate.js** | 105 | **24c85a444592** |
 
 ### `sim-sysinput.js` 판 계보 — 이 항목만 판이 여러 개다
 
