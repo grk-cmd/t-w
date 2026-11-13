@@ -29,14 +29,14 @@ const WINDOWS = {
   bellWin: '--z-win-bell', focusLogOverlay: '--z-win-focuslog', myHomeOverlay: '--z-win-myhome', mhGbOverlay: '--z-win-guestbook',
   updateNoticeUserOverlay: '--z-dialog-notice', chatOverlay: '--z-win-chat', pkOverlay: '--z-win-chat', wardrobePanel: '--z-wardrobe', wdPreviewPanel: '--z-wardrobe',
   deviceSessionOverlay: '--z-gate-device', inviteGateOverlay: '--z-gate-invite', mhDesignOverlay: '--z-mh-design',
-  existingSignupOverlay: '--z-gate-signup', needLoginOverlay: '--z-gate-signup', signupDoneOverlay: '--z-gate-done',
+  signupDoneOverlay: '--z-gate-done',
 };
 /* 지금 값 — 이 표가 바뀌면 화면 앞뒤가 바뀐다(바꿀 때는 이 표와 관계 판정을 같이) */
 const WANT = { '--z-friend-picker': 46, '--z-launcher': 50, '--z-work': 55, '--z-win-settings': 58, '--z-win-bell': 62, '--z-win-focuslog': 70, '--z-win-myhome': 71,
   '--z-win-guestbook': 74, '--z-win-chat': 82, '--z-wardrobe': 93, '--z-dialog-code': 100, '--z-dialog': 101, '--z-dialog-program': 102, '--z-dialog-admin': 103,
-  '--z-dialog-notice': 104, '--z-gate-device': 110, '--z-gate-invite': 111, '--z-mh-design': 111, '--z-gate-signup': 112, '--z-gate-done': 113 };
+  '--z-dialog-notice': 104, '--z-gate-device': 110, '--z-gate-invite': 111, '--z-mh-design': 111, '--z-gate-done': 113 };
 const DIALOGS = ['--z-dialog-code', '--z-dialog', '--z-dialog-program', '--z-dialog-admin', '--z-dialog-notice'];
-const GATES = ['--z-gate-device', '--z-gate-invite', '--z-gate-signup', '--z-gate-done'];
+const GATES = ['--z-gate-device', '--z-gate-invite', '--z-gate-done'];
 
 function parseTable(html) {
   const m = /:root\{([^}]*--z-[^}]*)\}/.exec(html);
