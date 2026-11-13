@@ -58,6 +58,15 @@ function mkEnv(opt){
     editSid: null, dragDist: -1, viewing: opt.viewing || null, promptAns: null, timers: [], docL: {},
     data: { stickers: opt.stickers || {} }, W: 600, H: 400,
   };
+  /* 가짜 상태 주인 — 진짜(myhome-store.js)는 sim-myhome-store 가 본다. 여기서는 동작 함수가 불린 것을 세고 화면 값(env.data)을 그대로 고친다 */
+  env.calls = [];
+  env.store = {
+    page: () => env.data, canEdit: () => true,
+    editSticker(sid, patch){ env.commits++; env.calls.push(['edit', sid, patch]); const s = env.data.stickers[sid]; if(s) for(const k of Object.keys(patch)){ if(patch[k] === '' || patch[k] === undefined || patch[k] === null || patch[k] === false) delete s[k]; else s[k] = patch[k]; } return Promise.resolve('ok'); },
+    editStickers(map){ env.commits++; env.calls.push(['editMany', map]); for(const sid of Object.keys(map)){ const s = env.data.stickers[sid]; if(s) Object.assign(s, map[sid]); } return Promise.resolve('ok'); },
+    removeSticker(sid){ env.commits++; env.calls.push(['remove', sid]); delete env.data.stickers[sid]; return Promise.resolve('ok'); },
+    moveSticker(sid, dir){ env.commits++; env.calls.push(['move', sid, dir]); const o = ctx.TwMyHomeStickerRules; o.move(env.data.stickers, sid, dir); return Promise.resolve('ok'); },
+  };
   const els = {};
   const byId = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl('div', id))));
   const ctx = {
@@ -83,10 +92,10 @@ function mkEnv(opt){
   env.mk = () => ctx.TwMyHomeSticker.createMyHomeSticker({
     toast: (m) => env.toasts.push(m),
     asyncPrompt: async (o) => { env.prompts.push(o); return env.promptAns; },
-    commitMyHomePage: (silent) => { env.commits++; env.lastSilent = silent; },
+    myhomeStore: env.store,
     renderMyHomeStickers: () => { env.renders++; },
     mhStickerOutOfView: (s) => out(s),
-    mhClampStickerPos: (s) => { s.x = Math.max(0, Math.min(env.W - 40, s.x || 0)); s.y = Math.max(0, Math.min(env.H - 40, s.y || 0)); },
+    mhClampStickerPos: (s) => { s.x = Math.max(0, Math.min(env.W - 40, s.x || 0)); s.y = Math.max(0, Math.min(env.H - 40, s.y || 0)); return s; },
     mhStickerDispSize: () => ({ w: 40, h: 40 }),
     mhHomeWinSize: () => ({ W: env.W, H: env.H }),
     mhStickerTransform: (s) => 'rotate(' + (s.rot || 0) + 'deg) scale(' + (s.size || 1) + ')',
@@ -164,7 +173,7 @@ await sec('── 3. 줄 버튼', async () => {
   const M = e.mk(); const E = e.els;
   M.open();
   e.btn(0, '◎').click();
-  chk(e.data.stickers.a.x === 280 && e.data.stickers.a.y === 180 && e.renders === 1 && e.commits === 1 && e.lastSilent === true, '◎ — 안에 있던 것은 가운데로 · 다시 그림 · 조용히 저장');
+  chk(e.data.stickers.a.x === 280 && e.data.stickers.a.y === 180 && e.renders === 1 && e.commits === 1, '◎ — 안에 있던 것은 가운데로 · 다시 그림 · 상태 주인에 저장 한 번');
   e.btn(1, '◎').click();
   chk(e.data.stickers.b.x === 560 && e.data.stickers.b.y === 10, '◎ — 밖에 있던 것은 창 안으로 당김');
   e.data.stickers.b.x = 900; M.render();
@@ -180,7 +189,7 @@ await sec('── 3. 줄 버튼', async () => {
   e.promptAns = '  https://new  '; const c1 = e.commits; await e.btn(1, '🔗').click(); await flush();
   chk(e.data.stickers.b.link === 'https://new' && e.commits === c1 + 1, '🔗 — 바꿈(앞뒤 공백 뺌) · 저장');
   e.promptAns = ''; await e.btn(1, '🔗').click(); await flush();
-  chk(e.data.stickers.b.link === null, '🔗 비우면 링크 없음(null)');
+  chk(e.data.stickers.b.link === undefined && e.calls[e.calls.length - 1][2].link === '', '🔗 비우면 링크 없음(빈 값을 넘기면 상태 주인이 칸을 지운다)');
   e.confirmAns = false; const f0 = e.focus; e.btn(1, '×').click();
   chk(!!e.data.stickers.b && e.focus === f0 + 1, '× 취소 — 안 지움 · 창 포커스 되돌림');
   e.confirmAns = true; e.editSid = 'b'; const c2 = e.commits; e.btn(1, '×').click();
@@ -221,9 +230,9 @@ await sec('── 5. 편집모드 · 드래그 · 회전 · 크기', () => {
   el.fire('pointerdown', { clientX: 0, clientY: 0, target: el });
   chk(el._cap && e.dragDist === 0, '  잡으면 이동거리 0 으로');
   el.fire('pointermove', { clientX: 30, clientY: -100 });
-  chk(e.data.stickers.a.x === 80 && e.data.stickers.a.y === 0 && el.style.left === '80px' && el.style.top === '0px' && e.dragDist === 130, '  옮김 · 창 안으로 붙잡음 · 이동거리 130');
+  chk(el.style.left === '80px' && el.style.top === '0px' && e.dragDist === 130 && e.commits === 0, '  끄는 동안은 화면만 옮김 · 창 안으로 붙잡음 · 이동거리 130(저장 0)');
   el.fire('pointerup', {});
-  chk(!el._cap && e.commits === 1, '  놓으면 저장');
+  chk(!el._cap && e.commits === 1 && JSON.stringify(e.calls[e.calls.length - 1]) === JSON.stringify(['edit', 'a', { x: 80, y: 0 }]) && e.data.stickers.a.x === 80, '  놓으면 상태 주인에 한 번(자리만)');
   el.fire('pointermove', { clientX: 300, clientY: 300 });
   chk(e.data.stickers.a.x === 80, '  놓은 뒤 움직임은 무시');
   // 회전
@@ -232,27 +241,26 @@ await sec('── 5. 편집모드 · 드래그 · 회전 · 크기', () => {
   rot.fire('pointerdown', { clientX: 120, clientY: 80 });   // 중심(120,120) 위쪽 = 0°
   chk(parent.classList.contains('rotating'), '회전 — 잡으면 rotating 표시');
   rot.fire('pointermove', { clientX: 160, clientY: 120 });  // 오른쪽 = 90°
-  chk(e.data.stickers.a.rot === 90 && lbl.textContent === '90°' && parent.style.transform === 'rotate(90deg) scale(1)', '  90° · 각도 표시 · transform');
+  chk(lbl.textContent === '90°' && parent.style.transform === 'rotate(90deg) scale(1)' && e.commits === 1, '  90° · 각도 표시 · transform(끄는 동안 저장 0)');
   rot.fire('pointermove', { clientX: 160, clientY: 121 });  // 91.4° → 3° 스냅 = 90
-  chk(e.data.stickers.a.rot === 90, '  3° 스냅');
+  chk(lbl.textContent === '90°', '  3° 스냅');
   rot.fire('pointermove', { clientX: 160, clientY: 132, shiftKey: true });  // 106.7° → Shift 15° = 105
-  chk(e.data.stickers.a.rot === 105, '  Shift = 15° 스냅');
+  chk(lbl.textContent === '105°', '  Shift = 15° 스냅');
   rot.fire('pointermove', { clientX: 100, clientY: 140 });  // 왼쪽 아래 = 225° → -180 ~ 180 으로
-  chk(e.data.stickers.a.rot === -135 && lbl.textContent === '-135°', '  180° 를 넘으면 음수 쪽으로(225° → -135°)');
+  chk(lbl.textContent === '-135°', '  180° 를 넘으면 음수 쪽으로(225° → -135°)');
   const c1 = e.commits; rot.fire('pointerup', {});
-  chk(!parent.classList.contains('rotating') && e.commits === c1 + 1, '  놓으면 표시 끄고 저장');
+  chk(!parent.classList.contains('rotating') && e.commits === c1 + 1 && JSON.stringify(e.calls[e.calls.length - 1]) === JSON.stringify(['edit', 'a', { rot: -135 }]) && e.data.stickers.a.rot === -135, '  놓으면 표시 끄고 상태 주인에 각도만 한 번');
   // 크기
   const p2 = mkEl(); const h = mkEl(); p2.appendChild(h); e.data.stickers.a.size = 1;
   M.bindResize(h, 'a');
   h.fire('pointerdown', { clientX: 0, clientY: 0 });
   h.fire('pointermove', { clientX: 40, clientY: 40 });
-  chk(e.data.stickers.a.size === 2 && /scale\(2\)/.test(p2.style.transform), '크기 — 우하단 80px = +1(기준 40 × 2)');
+  chk(/scale\(2\)/.test(p2.style.transform), '크기 — 우하단 80px = +1(기준 40 × 2)');
   h.fire('pointermove', { clientX: 9999, clientY: 9999 });
-  chk(e.data.stickers.a.size === 8, '  상한 8');
+  chk(/scale\(8\)/.test(p2.style.transform), '  상한 8');
   h.fire('pointermove', { clientX: -9999, clientY: -9999 });
-  chk(e.data.stickers.a.size === 0.3, '  하한 0.3');
-  const c2 = e.commits; h.fire('pointerup', {});
-  chk(e.commits === c2 + 1, '  놓으면 저장');
+  chk(/scale\(0\.3\)/.test(p2.style.transform), '  하한 0.3');
+  { const c2 = e.commits; h.fire('pointerup', {}); chk(e.commits === c2 + 1 && JSON.stringify(e.calls[e.calls.length - 1]) === JSON.stringify(['edit', 'a', { size: 0.3 }]) && e.data.stickers.a.size === 0.3, '  놓으면 상태 주인에 크기만 한 번'); }
   delete e.data.stickers.a;
   let ok = true; try{ h.fire('pointerdown', {}); h.fire('pointermove', { clientX: 5, clientY: 5 }); rot.fire('pointerdown', {}); el.fire('pointerdown', { target: el }); }catch(_){ ok = false; }
   chk(ok, '지워진 스티커의 핸들은 조용히 넘어간다');
@@ -280,7 +288,7 @@ await sec('── 5-2. 🔒 잠금 · ▲▼ 순서 (관리 창 · 편집모드 
   chk(e.data.stickers.a.x === 0 && e.editSid === 'a' && e.data.stickers.a.locked === true && e.commits === cE + 1, '★ 창 밖의 잠긴 스티커도 ✎ — 창 안으로 당겨 편집모드 · 잠금은 그대로 · 저장');
   e.editSid = null; e.docL = {};
   { /* 깨 보기 — ✎ 가 ◎ 처럼 잠긴 것을 건너뛰면 창 밖에 남은 채 편집모드(안 보임) */
-    const bad = MOD.replace('if(_mhStickerOutOfView(s)){ _mhClampStickerPos(s); commitMyHomePage(true); }', 'if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); commitMyHomePage(true); }');
+    const bad = MOD.replace("if(_mhStickerOutOfView(s)){ const t=_mhClampStickerPos(Object.assign({}, s)); myhomeStore.editSticker(sid, { x: t.x, y: t.y }); }", 'if(_mhStickerOutOfView(s)){ _mhBringStickerIn(sid); }');
     const b = mkEnv({ src: bad, stickers: { a: { x: -500, y: 10, locked: true } } }); b.mk().open();
     const br = b.els.stMgrList.children.find(r => /locked/.test(r.className));
     const pen = br && b.walk(b.part(br, 'st-mgr-btns')).find(x => x.tagName === 'BUTTON' && x.textContent.split(' ')[0] === '✎');
@@ -291,10 +299,10 @@ await sec('── 5-2. 🔒 잠금 · ▲▼ 순서 (관리 창 · 편집모드 
   const t0 = e.toasts.length; M.editStart('a');
   chk(e.editSid === 'a' && e.toasts.length === t0 && e.data.stickers.a.locked === true, '★ 잠긴 스티커도 우클릭 · ✎ 로 편집모드에 들어간다 · 잠금은 그대로');
   const el = mkEl(); el.classList.add('editing'); M.bindDrag(el, 'a');
-  el.fire('pointerdown', { clientX: 0, clientY: 0, target: el }); el.fire('pointermove', { clientX: 50, clientY: 50 });
-  chk(!!el._cap && e.data.stickers.a.x === 60, '  편집모드에선 잠긴 스티커도 끌어 옮긴다');
-  const p2 = mkEl(); const h = mkEl(); p2.appendChild(h); M.bindResize(h, 'a'); h.fire('pointerdown', { clientX: 0, clientY: 0 }); h.fire('pointermove', { clientX: 40, clientY: 40 });
-  const p3 = mkEl(); const r = mkEl(); p3.appendChild(r); M.bindRotate(r, 'a', mkEl()); r.fire('pointerdown', { clientX: 120, clientY: 80 }); r.fire('pointermove', { clientX: 160, clientY: 120 });
+  el.fire('pointerdown', { clientX: 0, clientY: 0, target: el }); el.fire('pointermove', { clientX: 50, clientY: 50 }); el.fire('pointerup', {});
+  chk(e.data.stickers.a.x === 60, '  편집모드에선 잠긴 스티커도 끌어 옮긴다');
+  const p2 = mkEl(); const h = mkEl(); p2.appendChild(h); M.bindResize(h, 'a'); h.fire('pointerdown', { clientX: 0, clientY: 0 }); h.fire('pointermove', { clientX: 40, clientY: 40 }); h.fire('pointerup', {});
+  const p3 = mkEl(); const r = mkEl(); p3.appendChild(r); M.bindRotate(r, 'a', mkEl()); r.fire('pointerdown', { clientX: 120, clientY: 80 }); r.fire('pointermove', { clientX: 160, clientY: 120 }); r.fire('pointerup', {});
   chk(!!e.data.stickers.a.size && e.data.stickers.a.size !== 1 && typeof e.data.stickers.a.rot === 'number' && e.data.stickers.a.rot !== 0 && e.data.stickers.a.locked === true, '  크기 · 회전 핸들도 잡는다 · 잠금은 그대로');
   e.editSid = 'c'; M.open();
   e.btn(2, '🔓').click();
@@ -316,19 +324,18 @@ await sec('── 6. app.js 배선', () => {
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   const want = [
     /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/, /^asyncPrompt: \(\.\.\.a\)=>asyncPrompt\(\.\.\.a\),$/,
-    /^commitMyHomePage: \(\.\.\.a\)=>commitMyHomePage\(\.\.\.a\),$/, /^renderMyHomeStickers: \(\.\.\.a\)=>renderMyHomeStickers\(\.\.\.a\),$/,
+    /^myhomeStore: myhomeStoreMod,$/, /^renderMyHomeStickers: \(\.\.\.a\)=>renderMyHomeStickers\(\.\.\.a\),$/,
     /^mhStickerOutOfView: \(\.\.\.a\)=>_mhStickerOutOfView\(\.\.\.a\),$/, /^mhClampStickerPos: \(\.\.\.a\)=>_mhClampStickerPos\(\.\.\.a\),$/,
     /^mhStickerDispSize: \(\.\.\.a\)=>_mhStickerDispSize\(\.\.\.a\),$/, /^mhHomeWinSize: \(\.\.\.a\)=>_mhHomeWinSize\(\.\.\.a\),$/,
     /^mhStickerTransform: \(\.\.\.a\)=>_mhStickerTransform\(\.\.\.a\),$/, /^mhOpenStickerAnim: \(\.\.\.a\)=>_mhOpenStickerAnim\(\.\.\.a\),$/,
-    /^myHomeData: \(\)=>_myHomeData,$/, /^mhViewingUserId: \(\)=>_mhViewingUserId,$/, /^mhStickerEditSid: \(\)=>_mhStickerEditSid,$/,
+    /^myHomeData: \(\)=>_myHomeData\(\),$/, /^mhViewingUserId: \(\)=>_mhViewingUserId\(\),$/, /^mhStickerEditSid: \(\)=>_mhStickerEditSid,$/,
     /^setMhStickerEditSid: \(v\)=>\{ _mhStickerEditSid = v; \},$/, /^setMhStickerDragDist: \(v\)=>\{ _mhStickerDragDist = v; \},$/,
     /^stickerMax: STICKER_MAX,$/, /^stickerBase: STICKER_BASE,$/, /^stickerRotSnap: STICKER_ROT_SNAP,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
   chk(deps.length === want.length && !bad.length, 'deps 18개 — 함수는 화살표 · let 은 읽는 / 쓰는 함수 · const 는 값 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
-  /* ★ renderMyHomeStickers 는 마이홈 페이지 편집 묶음(myhome-edit.js)이 감싸 다시 대입한다 — 값으로 받으면 감싼 쪽(삭제 버튼 자동 저장)을 못 부른다.
-       대입은 app.js 의 연결 줄(setRenderMyHomeStickers)이 하고, 그 연결은 이 모듈을 만드는 줄보다 뒤다. */
-  chk(/_setRenderMyHomeStickers\(function\(\)\{ origRenderStickers\(\);/.test(EDIT) && APP.indexOf('setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },') > iMk, '  renderMyHomeStickers 는 만드는 줄 뒤에 다시 대입된다 — 그래서 화살표');
+  /* ★ renderMyHomeStickers 는 이제 편집 묶음이 감싸 다시 대입하지 않는다(삭제 저장은 × 버튼이 상태 주인 removeSticker 를 부른다) — 그래도 화살표로 받는다(app.js 함수가 뒤에서 선언) */
+  chk(!/_setRenderMyHomeStickers\(/.test(strip(EDIT)) && !/setRenderMyHomeStickers/.test(APP) && /myhomeStoreMod\.removeSticker\(sid\)/.test(APP), '  renderMyHomeStickers 감싸기 없음 — × 버튼이 상태 주인 removeSticker 를 부른다');
   const consts = ['STICKER_MAX', 'STICKER_BASE', 'STICKER_ROT_SNAP'].map(n => APP.indexOf('const ' + n + ' = '));
   chk(consts.every(i => i > 0 && i < iMk) && !/\bSTICKER_(MAX|BASE|ROT_SNAP)\s*=[^=]/.test(code.replace(/const STICKER_(MAX|BASE|ROT_SNAP) = /g, '')), '  STICKER_* 는 만드는 줄보다 앞 · 다시 대입되지 않는다');
   chk(/let _mhStickerEditSid = null;/.test(APP) && /let _mhStickerDragDist = 0;/.test(APP) && /if\(sid === _mhStickerEditSid && canEdit\)/.test(APP) && /if\(_mhStickerDragDist>5\) return;/.test(APP), '  두 let 은 app.js 에 남아 renderMyHomeStickers 가 읽는다');

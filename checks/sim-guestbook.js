@@ -412,7 +412,7 @@ async function judge(S){
     const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
     chk(deps.length === 11 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|\(\w+(, \w+)?\)=>|guestbookFeed,)/.test(l)), 'deps 11개 — feed 말고는 전부 화살표로 감싼다(부를 때 찾게) (' + deps.length + ')');
     chk(deps.includes('installMacTip: (...a)=>TwMacTooltip.installChild(...a),'), '  맥 말풍선은 shared/mac-tooltip.js 의 installChild 로 잇는다');
-    chk(/mhViewingUserId: \(\)=>_mhViewingUserId,/.test(call) && !/myHomeFriends/.test(call), '다시 대입되는 값은 읽는 함수로 · 친구 목록은 더 안 받는다(쓰기 판정은 서버 canWrite)');
+    chk(/mhViewingUserId: \(\)=>_mhViewingUserId\(\),/.test(call) && !/myHomeFriends/.test(call), '다시 대입되는 값은 읽는 함수로 · 친구 목록은 더 안 받는다(쓰기 판정은 서버 canWrite)');
     const m = strip(MOD);
     chk(!/_mhViewingUserId(?!\s*\(|!==|\s*===)/.test(m.replace(/const _mhViewingUserId = deps\.mhViewingUserId;/, '')), '모듈 본문은 읽는 함수만 부른다(값으로 쓰면 함수가 늘 참이 된다)');
     chk(!/\bGUESTBOOK_OFF\b/.test(APP), '빈 껍데기 GUESTBOOK_OFF 없음 — 모듈은 늘 싣는다');

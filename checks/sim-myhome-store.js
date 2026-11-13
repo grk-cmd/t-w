@@ -382,6 +382,23 @@ async function judge(withBreak){
     bad.srv.patchErr = null;
     await bad.st.setField('bio', 'hello');
     chk(bad.srv.sent.length === 2 && !('bgm' in bad.srv.sent[1]) && bad.srv.sent[1].bio === 'hello' && bad.srv.page.bio === 'hello' && bad.st.page().bgm === null, '서버가 거절한 값은 버린다 — 다음 고침이 같이 거절되지 않는다(화면은 server 값으로)');
+    const sf = await ready(mk());
+    await sf.st.setField('postTitle', 't');   // 서버 값과 같다
+    await sf.st.setField('bgm', null);         // 이미 없다
+    chk(count(sf.log, /^PATCH/) === 0, '안 바뀐 칸(제목 · BGM 없음)은 요청 0');
+    await sf.st.setField('postTitle', '새 제목'); await sf.st.setField('postTitle', '새 제목');
+    chk(count(sf.log, /^PATCH/) === 1, '  바꾸면 한 번 · 같은 값을 또 넘기면 요청 0');
+    await sf.st.setField('postTitle', 't');
+    chk(count(sf.log, /^PATCH/) === 2 && sf.srv.page.postTitle === 't', '  원래 값으로 되돌리는 것도 «바꾼 것» — 보낸다');
+    const sp = await ready(mk({ patchErr: apiErr(503, 'X') }));
+    await sp.st.setField('post', '고침'); await sp.st.setField('post', 'p');
+    await sp.st.save();
+    chk(sp.srv.page.post === 'p' && sp.st.page().post === 'p', '  못 올린 칸을 원래 값으로 되돌려도 서버 · 화면이 원래 값');
+    const un = await ready(mk());
+    un.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    un.srv.page.bio = '다른 기기의 소개'; un.srv.pageVersion = 9;   // 다른 기기가 소개를 바꿨다 — 아직 못 받음
+    await un.st.setFields({ bio: 'b', post: '내가 쓴 글' });   // bio 는 내가 안 고친 칸(받은 값 그대로 넘어옴)
+    chk(un.srv.page.bio === '다른 기기의 소개' && un.srv.page.post === '내가 쓴 글' && un.srv.sent.every((f) => !('bio' in f)), '안 고친 글 칸은 넘기지 않는다 — 409 뒤 다른 기기가 바꾼 칸을 옛 값으로 덮지 않는다(Q1 은 «내가 고친» 글 칸만)');
     const mx = await ready(mk());
     mx.srv.patchErr = [apiErr(400, 'MYHOME_INVALID_BGM')];
     const mr = await mx.st.setFields({ bio: '긴 소개', bgm: { url: 'x', title: '' } });
@@ -560,6 +577,7 @@ async function judge(withBreak){
     ['거절을 kind 로 안 가르면(404 길 없음도 거절)', (s) => s.replace("if(e.kind === 'request') return", "if(e.kind) return")],
     ['setDesign 이 앞서 고른 배경 색을 안 지우면(나중 것이 이김)', (s) => s.replace('if(hasBg) delete pending.fields.bg;', '')],
     ['setDesign 이 바깥 배경을 안 이어 가면', (s) => s.replace('snap.bg = pending.design.bg;', '')],
+    ['안 고친 글 칸까지 넘기면(409 뒤 다른 기기 글을 덮음)', (s) => s.replace('if(!own(pending.fields, k) && J(mineView[k]) === J(v)) continue;', '')],
     ['스티커 w · h 를 정수로 안 만들면', (s) => s.replace('s.w = Math.max(1, Math.min(400, Math.round(Number(s.w) || 1)));', 's.w = Number(s.w);')],
   ];
   const origLoad = S.ST;

@@ -2071,8 +2071,7 @@ const plMod = TwPlaylist.createPlaylist({
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   starPaint: (...a)=>lvTierMod._starPaint(...a),
   // 🏠 마이홈
-  myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
-  myHomeData: ()=>mhStateMod._myHomeData(),
+  myhomeAvatar: ()=>myhomeStoreMod.avatar(),
   myHomeFriends: ()=>_myHomeFriends,
   friendsRefreshPresence: (...a)=>friendsSubMod.refreshPresence(...a),
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
@@ -2711,10 +2710,22 @@ const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
   toast: (...a)=>toast(...a),
 });
 window.addEventListener('beforeunload', ()=>{ bookshelfStoreMod.flush(); });   // 앱을 끌 때 못 올린 책장 고침 한 번(결과를 기다리지 않음)
+/* 🏠 마이홈 상태 주인(myhome/myhome-store.js) — 원본은 서버(/v1/me/myhome · /v1/myhomes/{code}). 마이홈 화면 · 채팅 · 내 정보 · 플레이리스트가 내 사진 · 페이지를 여기서 읽고, 로그아웃 올리기 · 앱 끄기가 flush 한다. 만들 때 도는 일 없음(받기는 마이홈을 열 때). */
+const myhomeApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(페이지 · 디자인 몫)
+const myhomeStoreMod = TwMyHomeStore.createMyHomeStore({
+  api: myhomeApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+  previewOn: ()=>!!window._mhPreviewMode,   // 👁 방문자 시점 미리보기 중엔 고치지 않는다
+  rules: TwMyHomeStickerRules,
+});
+window.addEventListener('beforeunload', ()=>{ myhomeStoreMod.flush(); });   // 앱을 끌 때 못 올린 고침 한 번(결과를 기다리지 않음)
+const socialNamesApi = TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) });   // 🌐 친구 홈 구경 때 이름을 모르는 사람의 이름 한 줄(명함) — 읽기만
 /* 📚 마이홈 북마크 서랍(myhome/bookmark.js) — 바탕화면이 준비되면(MYHOME_DESKTOP.onReady) 폴더로 붙는다. */
 TwBookmark.createBookmark({
   bookshelfStore: bookshelfStoreMod,
   toast: (...a)=>toast(...a),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
   buildFreeColorPicker: (...a)=>wardrobeMod.buildFreeColorPicker(...a),
 });
 /* 🧸 말랑이 · 🎁 선물(myhome/mallang.js) — 마이홈 수령함 · 창 · 친구 홈 구경이 deps 로 받아서 그보다 먼저 만든다(만들 때 도는 일 없음). */
@@ -2814,6 +2825,7 @@ for(const id of ['myHomeOverlay', 'mhPageFriend']){
 /* 🏠 마이홈 공용 상태(데이터 · 불러옴 · 계정 · 관람 중 uid · 이름)는 myhome-state.js 에 — 읽는 모듈이 친구 홈 구경을 바라보지 않게(모듈 순환 끊기 4) */
 const mhStateMod = TwMyHomeState.createMyHomeState({
   _myHomeFriends: ()=>_myHomeFriends,
+  myhomeStore: myhomeStoreMod,
 });
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
@@ -2826,15 +2838,11 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   toast: (...a)=>toast(...a),
   setMyHomeOpen: (v)=>{ myHomeOpen = v; },
-  _myHomeData: ()=>mhStateMod._myHomeData(),
-  _myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
   _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
   _mhViewingName: ()=>mhStateMod._mhViewingName(),
-  _mhHomeFromServer: (...a)=>mhStateMod._mhHomeFromServer(...a),
   _mhViewingDisplayName: (...a)=>mhStateMod._mhViewingDisplayName(...a),
-  setMyHomeData: (v)=>{ mhStateMod.setMyHomeData(v); },
-  setMhViewingUserId: (v)=>{ mhStateMod.setMhViewingUserId(v); },
-  setMhViewingName: (v)=>{ mhStateMod.setMhViewingName(v); },
+  myhomeStore: myhomeStoreMod,
+  fetchCards: (...a)=>socialNamesApi.fetchCards(...a),
   refreshFriendProfile: (...a)=>friendsSubMod.refreshProfile(...a),   // 👥 친구면 이름 · 레벨을 새로(목록이 닫혀 있어도)
 });
 
@@ -2862,12 +2870,14 @@ const mhDiagMod = TwMyHomeDiag.createMyHomeDiag({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const mhPageMod = TwMyHomePage.createMyHomePage({
   getDisplayName: (...a)=>getDisplayName(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
   mhStateMod: mhStateMod,
   myHomeUiMod: myHomeUiMod,
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   richTextMod: richTextMod,
+  myhomeStore: myhomeStoreMod,
+  myHomeOpen: ()=>myHomeOpen,
 });
+myhomeStoreMod.onChange(()=>mhPageMod.onStoreChange());   // 상태 주인의 값이 바뀌면 열린 마이홈을 다시 그린다(판단은 myhome-page.js)
 /* ═══ ✏️ 인앱 프롬프트(asyncPrompt) ═══ */
 /* 본문은 async-prompt.js 로 옮겼다(앱 FSD 47번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -2881,6 +2891,7 @@ const mhStLayoutMod = TwMyHomeStickerLayout.createMyHomeStickerLayout({
   _myHomeData: ()=>mhStateMod._myHomeData(),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
+  myhomeStore: myhomeStoreMod,
 });
 function renderMyHomeStickers(){
   const zone=document.getElementById('mhStickerZone'); if(!zone) return;
@@ -2906,7 +2917,7 @@ function renderMyHomeStickers(){
       el.appendChild(sp); el.classList.add('emoji');
     }
     if(s.anim) el.classList.add('a-'+s.anim);
-    if(s.animSpd) el.classList.add('spd-'+s.animSpd);
+    if(s.animSpeed) el.classList.add('spd-'+s.animSpeed);
     el.style.left=(s.x||0)+'px'; el.style.top=(s.y||0)+'px'; el.dataset.sid=sid;
     // 새 스티커는 원본 비율(w/h)을 가짐. 옛 스티커는 w/h가 없으므로 CSS 기본(40×40 정사각) 유지.
     if(s.w && s.h){
@@ -2947,9 +2958,9 @@ function renderMyHomeStickers(){
       const del=document.createElement('div'); del.className='mh-sticker-del'; del.textContent='×';
       del.onclick=e=>{
         e.stopPropagation();
-        delete mhStateMod._myHomeData().stickers[sid];
         myHomeSticker.editEnd();
-        renderMyHomeStickers(); commitMyHomePage(true);
+        myhomeStoreMod.removeSticker(sid);   // 지우면 바로 그려지고(store 가 알림) 저장은 store 가 한다
+        renderMyHomeStickers();
       };
       el.appendChild(del);
 
@@ -2993,7 +3004,7 @@ function renderMyHomeStickers(){
 const myHomeSticker = TwMyHomeSticker.createMyHomeSticker({
   toast: (...a)=>toast(...a),
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
-  commitMyHomePage: (...a)=>commitMyHomePage(...a),
+  myhomeStore: myhomeStoreMod,
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
   mhStickerOutOfView: (...a)=>mhStLayoutMod._mhStickerOutOfView(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
@@ -3022,20 +3033,17 @@ const mhLinksMod = TwMyHomeLinks.createMyHomeLinks({
    바깥 배경 · 테마 · 👑 디자인 스튜디오 · 프리셋 — 옛 bindMyHomePage)은 parts/myhome-edit.js 로 옮겼다(앱 FSD 7-2 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 만들 때 바로 도는 일(버튼 · 입력칸 연결 · window 고리 · companion.onBgmClosed · onBgmMode 구독)이
      예전과 같은 때 돈다. 바깥에서 부르는 이름은 예전처럼 window 에 걸린다(commitMyHomePage · _mhApplyBg · _mhApplyTheme · _bgmDestroy 등).
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeData · _mhViewingUserId · _myHomeLoaded · _myHomeUid · _mhStickerDragDist ·
-   isPremium · isAdmin 은 다시 대입되는 let 이라 읽는 함수로, _myHomeLoaded · _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다.
-   USER_NAME_MAX 는 이 줄보다 뒤에 선언되는 const 라(TDZ) 읽는 함수로. renderMyHomeStickers 는 모듈이 감싸 다시 대입한다 —
-   감싸기 전 함수는 getRenderMyHomeStickers 로 주고, 감싼 함수는 setRenderMyHomeStickers 로 받는다.
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeData · _mhViewingUserId · _mhStickerDragDist · isPremium · isAdmin 은
+   다시 대입되거나 마이홈 상태 주인이 들고 있는 값이라 읽는 함수로, _mhStickerDragDist 를 바꾸는 것은 쓰는 함수로 넘긴다.
+   USER_NAME_MAX 는 이 줄보다 뒤에 선언되는 const 라(TDZ) 읽는 함수로. 마이홈 페이지 값은 myhomeStore(상태 주인)의 동작 함수로만 고친다 —
+   스티커 삭제 저장도 그쪽(removeSticker)이 하므로 renderMyHomeStickers 를 감싸 다시 대입하지 않는다.
    myHomeSticker · STICKER_* · DS_IMG_* 는 이 줄보다 앞에 선언되고 다시 대입되지 않는 const 라 값으로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   toast: (...a)=>toast(...a),
-  homeUploadCache: uploadCacheMod,
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   renderMyHomePage: (...a)=>mhPageMod.renderMyHomePage(...a),
   renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),
-  getRenderMyHomeStickers: ()=>renderMyHomeStickers,
-  setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },
   mhSaveRT: (...a)=>richTextMod._mhSaveRT(...a),
   mhUpdateRTCount: (...a)=>richTextMod._mhUpdateRTCount(...a),
   mhClampStickerPos: (...a)=>mhStLayoutMod._mhClampStickerPos(...a),
@@ -3051,9 +3059,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
   getMyUserId: (...a)=>getMyUserId(...a),
   myHomeData: ()=>mhStateMod._myHomeData(),
   mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),
-  myHomeLoaded: ()=>mhStateMod._myHomeLoaded(),
-  setMyHomeLoaded: (v)=>{ mhStateMod.setMyHomeLoaded(v); },
-  myHomeUid: ()=>mhStateMod._myHomeUid(),
+  myhomeStore: myhomeStoreMod,
   mhStickerDragDist: ()=>mhPageMod._mhStickerDragDist(),
   setMhStickerDragDist: (v)=>{ mhPageMod.setMhStickerDragDist(v); },
   isPremium: ()=>isPremium,
@@ -3135,7 +3141,8 @@ const chatUiMod = TwChatUi.createChatUi({
   _chatRoomCode: (...a)=>chatLockMod._chatRoomCode(...a),
   _danceCmdCooldownAt: ()=>iDeskMod._danceCmdCooldownAt(),
   _diceSvg: (...a)=>diceMod._diceSvg(...a),
-  _myHomeData: ()=>mhStateMod._myHomeData(),
+  myhomeAvatar: ()=>myhomeStoreMod.avatar(),
+  ensureMyHome: (...a)=>myhomeStoreMod.ensureMine(...a),
   _officeDemojiHtml: (...a)=>overheadMod._officeDemojiHtml(...a),
   _parseDanceCmdChain: (...a)=>iDeskMod._parseDanceCmdChain(...a),
   _refreshChatMembers: (...a)=>chatPrefsMod._refreshChatMembers(...a),
@@ -6680,7 +6687,7 @@ function backToLauncher(){
   //   commitMyHomePage(true)로 저장까지 처리한 뒤 닫기.
   const mhOv=document.getElementById('myHomeOverlay');
   if(mhOv && mhOv.classList.contains('on')){
-    try{ window.commitMyHomePage(true); }catch(_){}
+    try{ window.commitMyHomePage(true); myhomeStoreMod.flush(); }catch(_){}   // 못 올린 고침 한 번(결과는 기다리지 않음)
     mhOv.classList.remove('on'); myHomeOpen = false;
     _mhGbStopWatch();
     window._bgmDestroy();
@@ -6959,6 +6966,7 @@ const accountMod = TwAccount.createAccount({
   plMod: plMod,
   mhScheduler: mhScheduler,
   mallangStore: mallangStoreMod,
+  myhomeStore: myhomeStoreMod,
   bookshelfStore: bookshelfStoreMod,
   bugBoardReset: (...a)=>bugBoardUi.reset(...a),
   toast: (...a)=>toast(...a),
@@ -7007,7 +7015,8 @@ const myInfoMod = TwMyInfo.createMyInfo({
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
   _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
   _withdrawPreview: (...a)=>accountMod._withdrawPreview(...a),
-  _myHomeData: ()=>mhStateMod._myHomeData(),
+  myhomeAvatar: ()=>myhomeStoreMod.avatar(),
+  ensureMyHome: (...a)=>myhomeStoreMod.ensureMine(...a),
   closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   curSlot: ()=>curSlot,

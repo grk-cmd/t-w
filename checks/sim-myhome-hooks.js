@@ -78,7 +78,7 @@ chk(!R.alias.length, '쓰는 파일은 «const mhHooks = TwMyHomeHooks;» 한 �
 for (const n of Object.keys(R.table)) say('     ' + n + ' — 거는 곳 ' + R.table[n].on.join(' · ') + ' / 부르는 곳 ' + (R.table[n].call.join(' · ') || '(없음)'));
 
 say('── 3. 싣는 순서');
-chk(R.users >= 9 && !R.late.length, '쓰는 파일 ' + R.users + '개 · app.js 보다 myhome-hooks.js 를 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
+chk(R.users >= 8 && !R.late.length, '쓰는 파일 ' + R.users + '개 · app.js 보다 myhome-hooks.js 를 먼저 싣는다' + (R.late.length ? ' — 먼저 실리는 것: ' + R.late.join(' · ') : ''));
 chk(/PRELOAD\.push\('myhome-hooks\.js'\)/.test(SMOKE), 'smoke.js 가 진짜로 싣는다(빈 이름이면 거는 줄에서 선다)');
 
 say('── 4. 일부러 깨 보기');

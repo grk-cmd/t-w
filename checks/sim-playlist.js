@@ -154,7 +154,7 @@ function mkEnv(o){
       asyncPrompt: async (p) => { env.calls.push('prompt ' + p.title); return env.prompts.length ? env.prompts.shift() : null; },
       getFocusLevel: () => 42, myFocusShow: () => null, starFromRemote: (c) => (c && c.star) ? { cyc: 2, lv: 7, color: c.star } : null,
       lvBadgeClass: (n) => 'lv' + n, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n, starPaint: () => {},
-      myHomeLoaded: () => !!env.homeLoaded, myHomeData: () => env.homeData || null, myHomeFriends: () => env.friends,
+      myhomeAvatar: () => (env.homeLoaded && env.homeData && env.homeData.avatar) || null, myHomeFriends: () => env.friends,
       friendsRefreshPresence: (ids) => { env.refreshed.push(ids.slice().sort().join()); return Promise.resolve().then(() => { if(env.onRefresh) env.onRefresh(); }); },
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
@@ -897,11 +897,11 @@ function wiring(PL, APP, HTML){
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 23 && !miss.length, 'deps 23개 — 함수 19는 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 22 && !miss.length, 'deps 22개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
-  chk(['_myHomeLoaded', '_myHomeData', '_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeLoaded · _myHomeData · _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
+  chk(['_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
   const used = usedIn(/plMod\.(?!st\.)\w+/g).filter(n => n !== 'st');
   const off = (APP.match(/const PLAYLIST_OFF = \{([\s\S]*?)\};   \/\//) || [])[1] || '';

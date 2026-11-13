@@ -1,7 +1,7 @@
 /* sim-upload-cache.js — 🗂️ 업로드 캐시 규칙(shared/upload-cache.js)과 «같은 그림 다시 안 올리기» 길 검사
    ・1절: trim — 상한 이하 그대로 · 넘치면 옛 해시 → 섬네일 10 → 오래 안 쓴 것부터 · 통째로 비우지 않는다 · 빈 값
-   ・2절: touch · merge · once(같은 키 동시 업로드는 한 번) · applyUrlSwaps(그 사이 바뀐 자리는 안 덮음)
-   ・3절: 쓰는 곳 — 얼굴 · GLB 캐시(쓴 것 맨 뒤 · 같은 업로드 한 번 · 저장 때 합치기) · 업로드(이름이 내용 해시면 있나 먼저) · 마이홈(올린 자리 → URL) · 런처 섬네일(외모 지문)
+   ・2절: touch · merge · once(같은 키 동시 업로드는 한 번)
+   ・3절: 쓰는 곳 — 얼굴 · GLB 캐시(쓴 것 맨 뒤 · 같은 업로드 한 번 · 저장 때 합치기) · 업로드(이름이 내용 해시면 있나 먼저) · 런처 섬네일(외모 지문)
    ・4절: 깨 보기 */
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -36,10 +36,6 @@ async function judge(src){
   const mg = U.merge({ 'a:h21': 'old', 'b:h21': 'b' }, { 'a:h21': 'new', 'c:h21': 'c' });
   ok.push([Object.keys(mg).join() === 'b:h21,a:h21,c:h21' && mg['a:h21'] === 'new', 'merge — 저장본에만 있는 항목을 잃지 않고 · 내 항목이 뒤(최근)에 · 내 값이 이긴다']);
   ok.push([JSON.stringify(U.merge(null, { x: 1 })) === '{"x":1}' && JSON.stringify(U.merge({ x: 1 }, null)) === '{"x":1}', 'merge — 한쪽이 비어도']);
-  const home = { avatar: 'data:A', bg: { img: 'data:B' }, stickers: { s1: { img: 'data:C' }, s2: { img: 'data:CHANGED' } } };
-  const n = U.applyUrlSwaps(home, [{ path: ['avatar'], from: 'data:A', url: 'https://a' }, { path: ['bg', 'img'], from: 'data:B', url: 'https://b' },
-    { path: ['stickers', 's1', 'img'], from: 'data:C', url: 'https://c' }, { path: ['stickers', 's2', 'img'], from: 'data:OLD', url: 'https://x' }, { path: ['nope', 'img'], from: 'd', url: 'u' }, null]);
-  ok.push([n === 3 && home.avatar === 'https://a' && home.bg.img === 'https://b' && home.stickers.s1.img === 'https://c' && home.stickers.s2.img === 'data:CHANGED', 'applyUrlSwaps — 올린 세 자리를 URL 로 · 그 사이 바뀐 자리 · 없는 자리는 그대로']);
   const inst = U.createUploadCache(); let runs = 0;
   const slow = () => new Promise(r => setTimeout(() => { runs++; r({ ok: true, url: 'u' }); }, 5));
   const [p1, p2] = await Promise.all([inst.once('k', slow), inst.once('k', slow)]);
@@ -60,8 +56,6 @@ function judgeUses(room, slot, fi, edit, lcp){
   const exist = (f.match(/async function _existingUrlIfHashed\(path\)\{[\s\S]*?\n  \}/) || [''])[0];
   ok.push([/_h2\[0-9a-z\]\+/.test(exist) && /getDownloadURL\(sref\(storage, path\)\)/.test(exist) && /catch\(_\)\{ return null; \}/.test(exist), '업로드 앞 «있나» — 이름이 내용 해시일 때만 · 못 찾으면 null(평소처럼 올린다)']);
   ok.push([(f.match(/const have = await _existingUrlIfHashed\(path\);\s*if\(have\) return \{ ok:true, url: have \};/g) || []).length === 2, '  ↳ 얼굴(uploadRoomFace) · 슬롯 GLB(uploadSlotGlb) 두 곳이 먼저 묻는다']);
-  ok.push([/swaps\.push\(\{ path: at, from: val, url: r \}\)/.test(f) && /\['stickers', sid, 'img'\]/.test(f) && /return uploadWarn \? \{ ok:true, warn:uploadWarn, swaps \} : \{ ok:true, swaps \};/.test(f), '마이홈 저장 — 올린 자리(프로필 · 배경 · 스티커)와 URL 을 돌려준다']);
-  ok.push([/const homeUploadCache = deps\.homeUploadCache;/.test(e) && /if\(r && r\.swaps\) homeUploadCache\.applyUrlSwaps\(_myHomeData\(\), r\.swaps\);/.test(e), '마이홈 편집 — 돌려받은 URL 을 들고 있는 데이터에 바꿔 넣는다(다음 저장 때 다시 안 올림)']);
   ok.push([/if\(sig && job\.def\.thumb && sigs\[_quickHash\(job\.def\.thumb\)\] === sig\) return;/.test(l) && /delete o\.thumb; delete o\.thumbUrl; delete o\.partXfMemory;/.test(l) && /LC_THUMB_SIGS_KEY = 'tw\.thumbSigs'/.test(l), '런처 섬네일 — 외모 지문이 같으면 다시 찍지 않는다 · 지문은 이 PC 에만(tw.thumbSigs)']);
   return ok;
 }
@@ -74,10 +68,8 @@ say('── 4. 깨 보기');
 const bad = (rows) => rows.some(([o]) => !o);
 chk(bad(await judge(SRC.replace('  for(let i = 0; i < rest.length - max; i++) delete st[rest[i]];\n  return st;', '  if(rest.length > max) return {};\n  return st;'))), '넘치면 통째로 비우게 되돌리면 빨강');
 chk(bad(await judge(SRC.replace('    if(inflight.has(key)) return inflight.get(key);\n', ''))), '같은 키 동시 업로드 묶기를 빼면 빨강');
-chk(bad(await judge(SRC.replace('if(o && o[last] === s.from){', 'if(o){'))), '그 사이 바뀐 자리까지 덮으면 빨강');
 chk(bad(await judge(SRC.replace('if(!(mine && k in mine)) out[k] = stored[k];', ''))), '저장 때 저장본 항목을 버리면 빨강');
 chk(bad(judgeUses(ROOM.replace('faceUploadCache.merge(cur, st)', 'st'), SLOT, FI, EDIT, LCP)), '얼굴 캐시 저장이 합치지 않으면 빨강');
-chk(bad(judgeUses(ROOM, SLOT, FI, EDIT.replace('if(r && r.swaps) homeUploadCache.applyUrlSwaps(_myHomeData(), r.swaps);', ''), LCP)), '마이홈이 URL 을 안 바꿔 넣으면 빨강');
 chk(bad(judgeUses(ROOM, SLOT, FI, EDIT, LCP.replace("if(sig && job.def.thumb && sigs[_quickHash(job.def.thumb)] === sig) return;", ''))), '섬네일 지문 확인을 빼면 빨강');
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);

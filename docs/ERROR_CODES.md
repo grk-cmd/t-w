@@ -66,7 +66,7 @@
 | `E-MH-21` | 그 마이홈을 불러오지 못했어요 | `myhome/myhome-store.js` — 친구 홈 구경 받기 실패(fetchOf 던짐 — 지금 보던 집은 그대로 · 없는 사람 USER_NOT_FOUND 는 번호 없이 서버 문구 안내) |
 | `E-MH-22` | 마이홈을 저장하지 못했어요 | `myhome/myhome-store.js` — 페이지 PATCH 실패(MYHOME_TEXT_TOO_LONG · MYHOME_INVALID_IMAGE_URL · MYHOME_INVALID_LINK · INVALID_REQUEST 포함 — 서버가 거절한 값은 버리고 그때마다 알림 · 망 · 5xx 실패는 이어지는 동안 한 번만) |
 | `E-MH-23` | 디자인을 저장하지 못했어요 | `myhome/myhome-store.js` — 디자인 PUT 실패(MYHOME_INVALID_THEME 포함 · PREMIUM_REQUIRED 는 공통 E-NET-03) |
-| `E-MH-24` | 그림을 올리지 못했어요 | `myhome/myhome-store.js` — 그림 올리기 실패(사진 · 스티커 · 배경 · 디자인 · IMAGE_UPLOAD 올리기 전 걸러냄 포함) |
+| `E-MH-24` | 그림을 올리지 못했어요 | `myhome/myhome-store.js` · `myhome/bookmark.js` — 그림 올리기 실패(사진 · 스티커 · 배경 · 디자인 · 책등 · IMAGE_UPLOAD 올리기 전 걸러냄 포함) |
 | `E-ROOM-01` | 방 목록을 불러오지 못했어요 | `room/room-entry.js` — 랜덤 참여 · 갈아타기(`findRandomRooms`) |
 | `E-ROOM-02` | 방을 옮기지 못했어요 | `room/room-entry.js` — 갈아타기 뒤 방 밖에 남음 |
 | `E-ROOM-03` | 방 목록을 불러오지 못했어요 | `room/room-lobby-ui.js` — 로비 목록 사본(roomLobby/{채널}) 읽기 실패 |

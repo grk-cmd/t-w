@@ -1,7 +1,7 @@
 /* upload-cache.js — 🗂️ 업로드 캐시(«종류:내용해시 → URL») 규칙 한 곳 (검사 sim-upload-cache.js)
    [왜] 얼굴 캐시(room-sync.js · tw.roomFaceUrls)와 슬롯 GLB 캐시(slot-codec.js · tw.slotGlbUrls)가 «넘치면 어떻게 버리나» 를
      따로 들고 있었다. 같은 판단이라 여기로 모으고, 같은 그림을 여러 번 올리던 길(통째 비움 · 사본끼리 덮어쓰기 · 동시 업로드)도 여기서 막는다.
-   받는 deps 없음. 내놓는 것: createUploadCache() → { trim · touch · merge · once · applyUrlSwaps · FACE_CACHE_MAX · GLB_CACHE_MAX · THUMB_CACHE_MAX }
+   받는 deps 없음. 내놓는 것: createUploadCache() → { trim · touch · merge · once · FACE_CACHE_MAX · GLB_CACHE_MAX · THUMB_CACHE_MAX }
      · 같은 이름의 순수 함수.
    app.js · 쓰는 모듈보다 먼저 싣는 classic script(window.TwUploadCache). 쓰는 모듈은 app.js 가 만든 것을 deps 로 받는다. */
 (function(){
@@ -46,21 +46,6 @@ function merge(stored, mine){
   return out;
 }
 
-/* 올린 자리 → URL 바꿔 넣기. 그 자리 값이 올릴 때 그대로(from)일 때만 — 그 사이 사용자가 바꾼 것은 덮지 않는다.
-   swaps: [{ path: ['stickers', id, 'img'], from: dataURL, url }] */
-function applyUrlSwaps(obj, swaps){
-  let n = 0;
-  if(!obj || !Array.isArray(swaps)) return n;
-  for(const s of swaps){
-    if(!s || !Array.isArray(s.path) || !s.path.length || typeof s.url !== 'string') continue;
-    let o = obj;
-    for(let i = 0; i < s.path.length - 1 && o; i++) o = o[s.path[i]];
-    const last = s.path[s.path.length - 1];
-    if(o && o[last] === s.from){ o[last] = s.url; n++; }
-  }
-  return n;
-}
-
 function createUploadCache(){
   const inflight = new Map();
   /* 같은 키(«종류:해시»)를 올리는 중이면 그 약속을 같이 쓴다 — 슬롯 올리기와 보관함 동기화가 같은 때 같은 그림을 두 번 올리던 길. */
@@ -70,10 +55,10 @@ function createUploadCache(){
     inflight.set(key, p);
     return p;
   }
-  return { trim, touch, merge, once, applyUrlSwaps, FACE_CACHE_MAX, GLB_CACHE_MAX, THUMB_CACHE_MAX };
+  return { trim, touch, merge, once, FACE_CACHE_MAX, GLB_CACHE_MAX, THUMB_CACHE_MAX };
 }
 
-const api = { createUploadCache, trim, touch, merge, applyUrlSwaps, FACE_CACHE_MAX, GLB_CACHE_MAX, THUMB_CACHE_MAX };
+const api = { createUploadCache, trim, touch, merge, FACE_CACHE_MAX, GLB_CACHE_MAX, THUMB_CACHE_MAX };
 if(typeof window !== 'undefined') window.TwUploadCache = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -153,12 +153,13 @@ function runBackToLauncher(env, src, mhOpen){
 function buildVisit(env, src){
   const any = env.any, deps = {};
   ['mallangMod', 'mhScheduler'].forEach(n => { deps[n] = any; });
-  ['applyDesktopRunClass', 'getMyUserId', 'loadMyHomePage', 'renderMyHomePage', 'toast', '_mhHomeFromServer', '_mhViewingDisplayName', 'refreshFriendProfile'].forEach(n => { deps[n] = () => any; });
-  ['_myHomeFriends', 'myHomeOpen', '_myHomeData', '_myHomeLoaded', '_mhViewingName'].forEach(n => { deps[n] = () => any; });
+  ['applyDesktopRunClass', 'getMyUserId', 'loadMyHomePage', 'renderMyHomePage', 'toast', '_mhViewingDisplayName', 'refreshFriendProfile', 'fetchCards'].forEach(n => { deps[n] = () => any; });
+  ['_myHomeFriends', 'myHomeOpen', '_mhViewingName'].forEach(n => { deps[n] = () => any; });
   deps.getMyUserId = () => env.me;
   deps._mhViewingUserId = () => env.viewing;
-  deps.setMhViewingUserId = (v) => { env.viewing = v; };
-  deps.setMyHomeOpen = () => {}; deps.setMyHomeData = () => {}; deps.setMhViewingName = () => {};
+  /* 가짜 상태 주인 — 구경 받기 · 닫기만(진짜는 sim-myhome-store 가 본다) */
+  deps.myhomeStore = { openView: async (code) => { env.viewing = code; return 'ok'; }, closeView: () => { env.viewing = null; }, mine: () => ({ load: 'ready' }), LOAD: { READY: 'ready' }, pullMine: () => Promise.resolve(true), setViewName: () => {} };
+  deps.setMyHomeOpen = () => {};
   const win = new Proxy(env.ctx, { get: (t, k) => (k in t ? t[k] : any), set: (t, k, v) => { t[k] = v; return true; } });
   const ls = { getItem: () => null, setItem(){}, removeItem(){} };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'TwMyHomeHooks',
@@ -268,7 +269,7 @@ async function judge(S){
     ['앞 칸을 칸으로 안 감쌈(던지면 배지가 안 켜짐)', { ui: cut(S.ui, "_step('마이홈 페이지', ()=>{ loadMyHomePage(); });", 'loadMyHomePage();') }, '앞 칸'],
     ['마이홈을 닫아도 감시를 안 끔', { ui: cut(S.ui, UI_STOP, '') }, '모두 뗀다'],
     ['런처로 갈 때 감시를 안 끔', { app: cut(S.app, /(mhOv\.classList\.remove\('on'\); myHomeOpen = false;\s*)_mhGbStopWatch\(\);/, '$1') }, '런처로 가면'],
-    ['친구 홈에 들어가도 열린 창을 안 닫음', { visit: cut(S.visit, /(if\(!\(window\.firebaseAPI[^\n]*\n[\s\S]*?)window\._mhReSubscribeGuestbook\(\);/, '$1') }, '열려 있던 내 방명록 창'],
+    ['친구 홈에 들어가도 열린 창을 안 닫음', { visit: cut(S.visit, /(const r = await myhomeStore\.openView[\s\S]*?)window\._mhReSubscribeGuestbook\(\);/, '$1') }, '열려 있던 내 방명록 창'],
     ['친구 홈에 들어가도 배지를 안 숨김', { visit: cut(S.visit, 'window._mhGbRefreshBadge();   // 관람 모드', '// 관람 모드') }, '배지는 숨긴다'],
     ['내 홈으로 돌아와도 창을 안 닫음', { visit: S.visit.replace(/window\._mhReSubscribeGuestbook\(\);\n  window\._mhGbRefreshBadge\(\);   \/\/ 자기 홈 복귀/, 'window._mhGbRefreshBadge();   // 자기 홈 복귀') }, '친구 방명록 창을 닫는다'],
     ['내 홈으로 돌아와도 배지를 안 되돌림', { visit: cut(S.visit, 'window._mhGbRefreshBadge();   // 자기 홈 복귀', '// 자기 홈 복귀') }, '같은 숫자'],

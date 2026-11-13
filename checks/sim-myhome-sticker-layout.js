@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — myhome-sticker-layout.js'); process.exi
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["applyDesktopRunClass","renderMyHomeStickers"];
-const VAL_DEPS = [];
+const VAL_DEPS = ["myhomeStore"];
 const GET_DEPS = ["_mhViewingUserId","_myHomeData"];
 const SET_DEPS = [];
 const EXPORTS = ["STICKER_BASE","STICKER_IMG_MAX_W","STICKER_MAX","STICKER_ROT_SNAP","_mhCanEditStickers","_mhClampStickerPos","_mhCloseStickerAnim","_mhFitWindowSafe","_mhHomeWinSize","_mhOpenStickerAnim","_mhStickerDispSize","_mhStickerEditSid","setMhStickerEditSid","_mhStickerOutOfView","_mhStickerOverhang","_mhStickerTransform","_mhStickersData"];
 const MOVED = ["STICKER_MAX","STICKER_IMG_MAX_W","STICKER_ROT_SNAP","_mhAnimSid","_mhOpenStickerAnim","_mhCloseStickerAnim","_mhSyncStickerAnimUI","_mhApplyStickerAnim","_mhStickerTransform","STICKER_BASE","_mhStickerEditSid","_mhStickerDispSize","_mhHomeWinSize","_mhStickerBox","_mhClampStickerPos","_mhStickerOutOfView","_mhStickerOverhang","_mhFitWindowSafe","_mhStickersData","_mhCanEditStickers"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  _mhViewingUserId: ()=>_mhViewingUserId,","  _myHomeData: ()=>_myHomeData,","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),"];
+const GLUE = ["  _mhViewingUserId: ()=>mhStateMod._mhViewingUserId(),","  _myHomeData: ()=>mhStateMod._myHomeData(),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  myhomeStore: myhomeStoreMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

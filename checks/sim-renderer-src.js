@@ -52,7 +52,7 @@ const MODULES = [
   { file: 'myhome-sticker-layout.js', mod: 'mhStLayoutMod', glob: 'TwMyHomeStickerLayout', sample: 'function _mhOpenStickerAnim(' },   // 앱 FSD 44번
   { file: 'myhome-diag.js', mod: 'mhDiagMod', glob: 'TwMyHomeDiag', sample: 'window.__mhClickDiag = function(){' },   // 앱 FSD 44번
   { file: 'account-state.js', mod: 'acctStateMod', glob: 'TwAccountState', sample: 'function _setPremium(' },   // 모듈 순환 끊기 5 — 게이트 · 계정 · 내 정보에서 핵심 상태를
-  { file: 'myhome-state.js', mod: 'mhStateMod', glob: 'TwMyHomeState', sample: 'function _mhHomeFromServer(' },   // 모듈 순환 끊기 4 — visit 에서 공용 상태를
+  { file: 'myhome-state.js', mod: 'mhStateMod', glob: 'TwMyHomeState', sample: 'function _mhViewingDisplayName(' },   // 모듈 순환 끊기 4 — visit 에서 공용 상태를
   { file: 'myhome-visit.js', mod: 'mhVisitMod', glob: 'TwMyHomeVisit', sample: 'async function openFriendHomeView(' },   // 앱 FSD 44번
   { file: 'exp-bar.js', mod: 'expBarMod', glob: 'TwExpBar', sample: 'function expTierClass(' },   // 앱 FSD 45번
   { file: 'focus-share.js', mod: 'focusShareMod', glob: 'TwFocusShare', sample: 'function _focusShowText(' },   // 앱 FSD 45번
@@ -186,7 +186,7 @@ function joinRenderer(app){
      한 자리에 펼치면 같은 const 가 두 번이 되므로 app.js 차례로 처음 것만 남긴다(뒤 모듈은 부를 때 그 이름을 본다). */
   const aliasSeen = new Set();
   for(const p of parts.slice().sort((a, b) => (a[1] < 0) - (b[1] < 0) || a[1] - b[1])){
-    p[3] = p[3].replace(/^const [\w$]+ = Tw[\w$]+;.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });
+    p[3] = p[3].replace(/^const [\w$]+ = (?:Tw[\w$]+|[\w$]+Mod);.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });   // 여러 모듈이 같은 값 deps(상태 주인 등)를 받는 줄도 한 번만
   }
   let all = app, tail = [];
   for(const [m, i, j, body] of parts.slice().sort((a, b) => b[1] - a[1])){

@@ -200,20 +200,19 @@ const mhPreset = TwMyHomePreset;   // myhome-edit.js 머리(고리판 TwMyHomeHo
 ```
 
 **내놓는 것** — `MAX`(3) · `NAME_MAX`(8) · `imgKeyOf(row)` · `imgKeys(rows)` → Set · `normalize(raw)` → 3칸 배열 · `cur(raw)` → 0~2 ·
-`snapshot(home, imgKeys, name)` → 칸 한 벌 · `apply(home, preset, imgKeys)` → `{ theme, bg }`(부르는 쪽이 home 에 넣는다) ·
-`uploadSlot(cur, key)` → `uploadUserImage` 의 slot(`p0_bg` → `users/{uid}/design_p0_bg.jpg` — 고른 칸마다 다른 파일).
+`snapshot(home, imgKeys, name)` → 칸 한 벌 · `apply(home, preset, imgKeys)` → `{ theme, bg }`(부르는 쪽이 상태 주인 `setDesign` 으로 넘긴다).
+그림 올릴 파일 이름은 만들지 않는다 — 서버가 올릴 때마다 새 주소를 준다(예전 `uploadSlot` 은 걷었다).
 
 ```js
 arr[i] = mhPreset.snapshot(_myHomeData(), mhPreset.imgKeys(_MH_DS_ROWS), arr[i] && arr[i].name);   // 저장
-const next = mhPreset.apply(_myHomeData(), p, keys); _myHomeData().theme = next.theme; _myHomeData().bg = next.bg;   // 불러오기
+const next = mhPreset.apply(_myHomeData(), p, keys); myhomeStore.setDesign({ theme: next.theme, presets, presetCur, bg: next.bg });   // 불러오기
 ```
 
 **확장할 때 고칠 자리** — 칸에 담는 것을 늘리면 `snapshot` · `apply` · `normalize` 셋을 같이(옛 앱이 새 저장본을 읽는 길도 `normalize` 가 정한다). 칸 수 · 이름 길이는 `MAX` · `NAME_MAX`.
 그림 키는 디자인 스튜디오 항목 표(`_MH_DS_ROWS`)에서 뽑는다 — 여기에 따로 적지 않는다.
 
 **함정** — Realtime DB 는 빈 자리가 있는 배열을 `{0:…, 2:…}` 객체로 돌려준다 — `normalize` 를 거치지 않고 배열로 단정하지 말 것.
-그림 올리는 이름은 `uploadSlot` 한 곳 — 칸 번호를 빼면 칸끼리 같은 파일을 덮어 한 칸에서 바꾼 그림이 다른 칸까지 바꾼다. 같은 칸에 다시 올리면 같은 파일을 덮는다(파일은 지우지 않는다 · 쌓이지 않는다).
-그 전에 올린 `design_bg.jpg` 같은 옛 파일을 가리키는 칸은 그대로 둔다. `data:` 그림(옛 base64)은 칸에 담지 않는다 — 칸마다 복사되면 홈 노드가 몇 배로 커진다.
+그림은 올린 주소만 칸에 담는다(올릴 때마다 새 주소 — 칸끼리 같은 파일을 덮지 않는다). 옛 `design_bg.jpg` 같은 파일을 가리키는 칸은 그대로 둔다. `data:` 그림(옛 base64)은 칸에 담지 않는다 — 칸마다 복사되면 홈 노드가 몇 배로 커진다.
 옛 앱의 씻기는 `bg.img` · `img` 표시를 버린다 — 옛 앱이 새 저장본을 읽으면 그 칸은 «색만» 칸으로 보인다(깨지지 않는다).
 검사: `checks/sim-myhome-preset.js`(입력 → 출력 · 경계값 · 연결 · 깨 보기).
 
@@ -318,7 +317,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ## `myhome-api.js` — 🏠 마이홈 서버 길 provider
 
 - **책임**: 내 마이홈 읽기(`GET /v1/me/myhome` — 페이지 + 바탕화면 한 번) · 남의 마이홈(`GET /v1/myhomes/{userCode}`) · 내 책장(`GET /v1/me/myhome/bookshelf`) · 남의 공개 책(`GET /v1/myhomes/{userCode}/bookshelf`) · 페이지 칸 저장(`PATCH /v1/me/myhome`) · 디자인(`PUT …/design`) · 바탕화면(`PUT …/desktop`) · 책장(`PUT …/bookshelf`) · 그림 올리기(`POST /v1/me/images?purpose=myhome`). 서버 모양(스티커 목록 · `image` · 프리셋 `withImage` · 책 `width` · `titleColor` · `public` · `addedAt` ISO)을 화면 모양(스티커 `{sid:…}` · `img` · `img:true` · `w` · `tcolor` · `pub` · `at` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰.
-- **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다. 이 묶음(D2-1)은 부르는 곳이 아직 없다.
+- **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다.
 - **내보내는 것**: `fetchMine()` → `{ page, pageVersion, desktop, desktopVersion }` · `fetchOf(code)` → `{ page, desktop }` · `fetchBookshelf()` → `{ books, version }` · `fetchBookshelfOf(code)` → `{ books }` · `patchPage(version, fields)` · `putDesign(version, d)` · `putDesktop(version, d)` → 새 `version` · `putBookshelf(version, books)` → `{ books, version }` · `uploadImage(dataUrl)` → `url` · `reset()`. 순수: `homeOf` · `stickersOf` · `stickersBody` · `presetsOf` · `presetsBody` · `desktopOf` · `desktopBody` · `booksOf` · `booksBody` · `failOf` · `PATHS` · `LIMITS`.
 - **함정**
   - `patchPage` 는 `fields` 에 열쇠가 있는 칸만 싣는다(지우기는 `null` · `stickers` 는 그리는 순서 목록 통째 · `clearTheme:true` 는 `theme:null`). 안 바뀐 칸을 실으면 다른 기기의 고침을 덮는다.
@@ -337,6 +336,16 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 - **deps**: `api`(myhome-api.js) · `lib`(TwMyHomeApi) · `errs` · `apiErrors` · `notifyError` · `toast` · `previewOn` · `rules`(myhome-sticker-rules.js).
 - **함정**: 판 없는 받기 답은 못 받음으로 본다. 저장 본문에 `data:` 그림은 없다 — `upload(칸, 그림)` 이 주소를 돌려주면 그 주소로만 저장한다. 스티커 w · h 는 정수. 아직 바탕화면(`desktop`)은 읽기만 한다.
 - **검사**: `checks/sim-myhome-store.js`.
+
+## 마이홈 화면 ↔ 상태 주인(D2-2b) — `myhome-state.js` · `myhome-page.js` · `myhome-visit.js` · `myhome-edit.js` · `myhome-sticker.js` · `myhome-sticker-layout.js`
+
+- **읽기**: 화면은 `mhStateMod._myHomeData()`(= `store.page()` — 얼린 값 · 구경 중이면 그 집 것)를 **그릴 때마다** 읽는다. 값을 직접 고치지 않는다(`_myHomeData().X = …` · `delete …stickers[…]` 없음). `myhome-state.js` 는 예전 이름 그대로 읽는 함수만 내놓는다(쓰는 함수 · `_mhHomeFromServer` · 계정 칸 걷음).
+- **쓰기**: 글 칸 `setFields`(칸에서 벗어남 · 탭 · 창 닫기) · 사진 `setAvatar` · 스티커 `addSticker` · `editSticker`(끌기 · 회전 · 크기는 **놓을 때** 한 번) · `removeSticker` · `moveSticker` · 디자인 `setDesign` · 배경 `setField('bg')` · 초기화 `resetBg` · 그림 올리기 `upload`(주소만 돌려줌). 저장 줄 · 409 · 실패 번호는 전부 상태 주인 몫이라 화면은 «저장했어요» 를 띄우지 않는다. `upload` · `addSticker` 가 `'conflict'`(다시 받는 사이 끝남)를 돌려주면 `'failed'` 처럼 조용히 넘어간다(안내는 상태 주인).
+- **받기**: `loadMyHomePage` = `store.pullMine()`(못 받으면 «마이홈을 못 불러왔어요 [다시 시도]»). 친구 홈 구경은 `store.openView(코드, 이름힌트)` · 돌아오기는 `closeView()` — 내 홈은 사본 없이 그대로라 백업 · 복원이 없다. 이름을 모르면 명함(`social-api.js fetchCards`)으로 한 줄.
+- **사진**: 채팅 · 내 정보 · 플레이리스트 명함은 `store.avatar()`(없으면 `ensureMine({ site:'quiet' })` 한 번). 옛 `firebaseAPI.getMyHome` · `saveMyHome` 은 걷었다(`firebase-init.js`).
+- **바뀐 것**: 스티커 움직임 속도 칸 이름 `animSpd` → `animSpeed`(서버 이름 하나로). 옛 프로필 사진 200,000자 JPEG 되돌리기는 걷었다(서버가 PNG 도 받는다).
+- **로그아웃 · 앱 끄기**: `account.js` 가 `flush()` 뒤 `reset()`, `beforeunload` 가 `flush()`. 마이홈을 닫을 때(`COMMIT` 고리) 글 칸을 넘기고 못 올린 고침을 한 번 보낸다.
+- **검사**: `checks/sim-myhome-wire.js`(배선 · 직접 쓰기 없음 · 진짜 상태 주인 위의 읽기 창구) · 각 화면 파일 sim 은 가짜 상태 주인 위에서 «동작 함수를 부른다» 까지.
 
 ## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 길 provider
 
@@ -399,7 +408,7 @@ const mallangMod = TwMallang.createMallang({
   - 받기 전(`load !== 'ready'`)엔 고치지 못한다(`locked` · 요청 0 · «불러오는 중이에요» 안내). 이미 받았으면 서랍을 다시 열어도 요청 0. 저장 중이거나 못 올린 고침이 있으면 내 책장 받기는 요청하지 않는다.
   - 409 `CONCURRENT_UPDATE` 는 내 고침을 버리고 서버 것을 받아 «다른 기기에서 바꾼 내용을 받아왔어요». 실패는 화면을 고친 대로 두고 `E-MH-27` 한 번 — 혼자 다시 보내지 않는다. 받기 실패는 서랍의 «못 불러왔어요 [다시 시도]» + `E-MH-26`.
   - 구경: 공개 책을 못 받아도 폴더는 보이고 서랍에 «다시 시도»(시작하며 받다 실패하면 번호 없음 · 누른 다시 시도가 또 실패하면 `E-MH-26`). 없는 사람(`USER_NOT_FOUND`)은 폴더를 숨긴다. 집을 빨리 옮겨도 앞 집 답은 버린다(`gen`).
-  - 책등 그림 올리기 실패는 창 안 글(«그림을 올리지 못했어요.»)만 — `E-MH-24` 는 D2-2(마이홈 페이지)가 표에 올린 뒤 붙인다. 새 책은 `addedAt` 을 싣지 않고(서버가 넣는다) 색이 없는 옛 책은 색 칸을 싣지 않는다. 뗀 그림 지우기는 서버 몫이다.
+  - 책등 그림 올리기 실패는 창 안 글(«그림을 올리지 못했어요.»)만 — 그 실패는 `bookmark.js` 가 `E-MH-24` 를 한 번 띄운다(공통 번호를 이미 알렸으면 건너뜀). 새 책은 `addedAt` 을 싣지 않고(서버가 넣는다) 색이 없는 옛 책은 색 칸을 싣지 않는다. 뗀 그림 지우기는 서버 몫이다.
   - 이 PC 사본(`tw.bookmarks`)은 읽지 않는다 — 첫 실행 `myhome` 단계(`first-run-013.js`)가 지운다(올리지 않음).
 - **검사**: `checks/sim-bookshelf-store.js`(받기 · 저장 차례 · 409 · 실패 한 번 · 50권 · 구경 gen · reset · 배선 · 일부러 깨 보기) · `checks/sim-bookmark.js`(서랍 화면).
 
