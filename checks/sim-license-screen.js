@@ -149,6 +149,11 @@ async function judge(S){
     t(mines(e) === 2 && e.screen.view().devices.length === 2, '★ 구획이 안 보이는 동안 알림이 왔으면 → 라이선스 탭을 누를 때(ifNeeded) 다시 받는다(낡은 목록이 남지 않음)');
     await e.screen.open({ ifNeeded: true });
     t(mines(e) === 2, '  다시 받은 뒤에는 탭을 눌러도 또 받지 않는다');
+    e = env(S, { mine: [L([HERE]), L([HERE, OTHER])] });
+    e.holdOn('mine');
+    const ph = e.screen.open(); e.shown = false; e.push(); e.release('mine'); await ph; await ticks();
+    e.shown = true; await e.screen.open({ ifNeeded: true });
+    t(mines(e) === 2 && e.screen.view().devices.length === 2, '★ 받는 도중에 구획이 숨고 알림이 왔어도 → 받기가 끝난 뒤 탭을 누르면 다시 받는다(받기 시작 뒤의 알림은 지우지 않음)');
     e = env(S, { mine: L([HERE]) });
     e.push(); await ticks();
     t(mines(e) === 0 && e.handlers.length === 0, '  한 번도 안 열었으면 알림도 안 건다(요청 0 · 구독 0)');
@@ -385,6 +390,7 @@ function wiringRows(S){
     ['알림으로 받다 실패해도 번호를 띄움', mut('LS', (s) => s.replace("if(loud && !authLost(e)", "if(!authLost(e)"))],
     ['reset 뒤 옛 목록을 반영', mut('LS', (s) => s.replace("if(g !== gen) return false;   // reset 뒤에 온 옛 답은 버린다", ""))],
     ['reset 이 알림 구독을 안 풂', mut('LS', (s) => s.replace("if(unsub){ try{ unsub(); }catch(_){} }", ""))],
+    ['받는 도중 온 알림 표시를 받기 성공이 지움', mut('LS', (s) => s.replace("    lic = licFrom(l); load = 'ready';", "    stale = false; lic = licFrom(l); load = 'ready';"))],
     ['안 보일 때 온 알림을 잊음', mut('LS', (s) => s.replace("if(!deps.isShown()){ stale = true; return; }", "if(!deps.isShown()) return;"))],
     ['안 보이는 구획도 알림으로 받음', mut('LS', (s) => s.replace("if(!deps.isShown()){ stale = true; return; }", ""))],
     ['동작 중 알림을 바로 받음', mut('LS', (s) => s.replace("if(busy){ pullAfterBusy = true; return; }\n    pull(false);", "pull(false);"))],

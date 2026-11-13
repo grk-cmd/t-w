@@ -78,6 +78,7 @@ function createLicenseScreen(deps){
   async function once(g){
     if(load !== 'ready'){ load = 'loading'; changed(); }
     const loud = pullLoud; pullLoud = false;
+    stale = false;   // 이 받기가 시작한 뒤에 안 보이는 채로 알림이 오면 다시 걸린다 — 성공해도 그것은 지우지 않는다
     let l;
     try{ l = await api.mine(); }
     catch(e){
@@ -89,7 +90,7 @@ function createLicenseScreen(deps){
       return false;
     }
     if(g !== gen) return false;   // reset 뒤에 온 옛 답은 버린다
-    failShown = false; stale = false;
+    failShown = false;
     lic = licFrom(l); load = 'ready';
     changed();
     return true;
