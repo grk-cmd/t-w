@@ -315,6 +315,19 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
   - 일정의 `ts` 는 서버가 준 `createdAt` 을 ms 로 옮긴 만든 시각이다(없거나 깨지면 0 = 오래된 것). 🔔 뱃지의 «오늘 내 일정» 은 `tw.bellSeenTs` 뒤에 만든 것만 센다.
 - **검사**: `checks/sim-schedule-api.js`(가짜 `authed` 로 실제로 불러 판정 · 일부러 깨 보기).
 
+## `myhome-api.js` — 🏠 마이홈 서버 길 provider
+
+- **책임**: 내 마이홈 읽기(`GET /v1/me/myhome` — 페이지 + 바탕화면 한 번) · 남의 마이홈(`GET /v1/myhomes/{userCode}`) · 내 책장(`GET /v1/me/myhome/bookshelf`) · 남의 공개 책(`GET /v1/myhomes/{userCode}/bookshelf`) · 페이지 칸 저장(`PATCH /v1/me/myhome`) · 디자인(`PUT …/design`) · 바탕화면(`PUT …/desktop`) · 책장(`PUT …/bookshelf`) · 그림 올리기(`POST /v1/me/images?purpose=myhome`). 서버 모양(스티커 목록 · `image` · 프리셋 `withImage` · 책 `width` · `titleColor` · `public` · `addedAt` ISO)을 화면 모양(스티커 `{sid:…}` · `img` · `img:true` · `w` · `tcolor` · `pub` · `at` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰.
+- **만드는 법**: `TwMyHomeApi.createMyHomeApi({ authed, imageBytes, warn })` — 상태 주인(`myhome-store` · `bookshelf-store`, D2-2 · D2-4)이 받는다. 이 묶음(D2-1)은 부르는 곳이 아직 없다.
+- **내보내는 것**: `fetchMine()` → `{ page, pageVersion, desktop, desktopVersion }` · `fetchOf(code)` → `{ page, desktop }` · `fetchBookshelf()` → `{ books, version }` · `fetchBookshelfOf(code)` → `{ books }` · `patchPage(version, fields)` · `putDesign(version, d)` · `putDesktop(version, d)` → 새 `version` · `putBookshelf(version, books)` → `{ books, version }` · `uploadImage(dataUrl)` → `url` · `reset()`. 순수: `homeOf` · `stickersOf` · `stickersBody` · `presetsOf` · `presetsBody` · `desktopOf` · `desktopBody` · `booksOf` · `booksBody` · `failOf` · `PATHS` · `LIMITS`.
+- **함정**
+  - `patchPage` 는 `fields` 에 열쇠가 있는 칸만 싣는다(지우기는 `null` · `stickers` 는 그리는 순서 목록 통째 · `clearTheme:true` 는 `theme:null`). 안 바뀐 칸을 실으면 다른 기기의 고침을 덮는다.
+  - 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 내 홈을 읽은 적이 없으면 `NOT_RECEIVED` · 계정이 바뀌면 `OWNER_CHANGED`, 둘 다 요청 0. 남의 집 읽기는 주인 기억을 안 바꾼다.
+  - 저장 본문에 `data:` 그림이 있으면 요청 없이 `IMAGE_UPLOAD` — 먼저 `uploadImage` 로 올려 받은 주소만 싣는다. 그림은 png · webp · jpeg · 8MB 이하.
+  - 바탕화면 그림 주소의 `http://` 는 `https://` 로 바꿔 보낸다(서버는 https 만). 프리셋은 늘 3칸(빈 칸 `null`). 새 책은 `addedAt` 을 싣지 않는다.
+  - 409 에 여기서 다시 받아 보내지 않는다 — 판은 상태 주인이 들고 넘기고 `failOf` 가 `conflict` 로 알린다.
+- **검사**: `checks/sim-myhome-api.js`.
+
 ## `gift-api.js` — 🧸 말랑이 · 🎁 선물 서버 길 provider
 
 - **책임**: 내 말랑이 칸 읽기 · 통째 저장(`GET` · `PUT /v1/me/mallangs`) · 그림 올리기(`POST /v1/me/images?purpose=mallang`) · 남의 집 칸(`GET /v1/mallangs/{userCode}`) · 내 선물함(`GET /v1/me/gifts`) · 봤음(`POST /v1/me/gifts/seen`) · ⭐ · 치움(`PATCH /v1/me/gifts/{id}`) · 지우기(`DELETE /v1/me/gifts/{id}`) · 오늘 보낸 수(`GET /v1/me/gifts/sent-today`) · 그 집에 나온 선물(`GET /v1/gifts/{userCode}`) · 보내기(`POST /v1/gifts/{userCode}`). 서버 모양(`sentAt` ISO)을 화면 모양(`sentAt` ms)으로 맞추는 곳은 여기뿐이다. 신원은 토큰 — 보내기 본문에 내 코드 · 이름 · 날짜 · 그림 주소를 싣지 않는다.
