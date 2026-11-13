@@ -386,6 +386,12 @@ async function judge(withBreak){
     mx.srv.patchErr = [apiErr(400, 'MYHOME_INVALID_BGM')];
     const mr = await mx.st.setFields({ bio: '긴 소개', bgm: { url: 'x', title: '' } });
     chk(mr === 'failed' && mx.srv.page.bio === '긴 소개' && mx.st.page().bio === '긴 소개' && mx.st.page().bgm === null && mx.srv.sent.length === 2 && !('bgm' in mx.srv.sent[1]), '거절된 칸(BGM)만 버리고 같은 묶음의 글은 한 번 더 보낸다');
+    const rj = await ready(mk());
+    rj.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE'), apiErr(400, 'MYHOME_TEXT_TOO_LONG')];
+    await rj.st.setField('bio', 'long');   // 409 → 얹은 글이 TEXT_TOO_LONG 으로 거절
+    rj.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    await rj.st.setField('bio', 'fresh');
+    chk(rj.srv.page.bio === 'fresh' && rj.st.page().bio === 'fresh', '얹은 글이 거절돼 사라지면 rebased 표시도 사라진다 — 새 글의 첫 409 는 다시 얹어 저장');
     const nr = await ready(mk({ patchErr: Object.assign(apiErr(404, ''), { kind: 'unavailable' }) }));
     await nr.st.setField('bio', 'keepme');
     nr.srv.patchErr = null; await nr.st.save();
@@ -532,6 +538,7 @@ async function judge(withBreak){
     ['gen 검사를 빼면(계정을 놓은 뒤 늦은 답이 상태를 고침)', (s) => s.split('g !== gen').join('false')],
     ['한 줄을 우회하면(받기 · 저장이 겹쳐 돔)', (s) => s.replace('const p = tail.then(job, job);', 'const p = Promise.resolve().then(job);')],
     ['서버가 거절한 값을 되돌려 다시 보내면', (s) => s.replace("if(typeof st !== 'number') return false;", 'return false;')],
+    ['거절 뒤에도 rebased 를 그대로 이으면', (s) => s.replace('rest.rebased = batch.rebased && Object.keys(rest.fields).some(keepKey);', 'rest.rebased = batch.rebased;')],
     ['거절된 칸만이 아니라 묶음을 통째로 버리면', (s) => s.replace('const cols = REJECT_COLS[code];', 'const cols = null;')],
     ['거절을 kind 로 안 가르면(404 길 없음도 거절)', (s) => s.replace("if(e.kind === 'request') return", "if(e.kind) return")],
     ['setDesign 이 앞서 고른 배경 색을 안 지우면(나중 것이 이김)', (s) => s.replace('if(hasBg) delete pending.fields.bg;', '')],

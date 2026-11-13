@@ -563,6 +563,7 @@ function createMyHomeStore(deps){
       if(cols.indexOf(k) >= 0) dropped = true; else rest.fields[k] = batch.fields[k];
     }
     if(cols.indexOf('#stickers') >= 0 && batch.stickerOps.length) dropped = true; else rest.stickerOps = batch.stickerOps;
+    rest.rebased = batch.rebased && Object.keys(rest.fields).some(keepKey);   // 얹은 글이 남을 때만 «한 번» 표시를 잇는다
     return dropped ? rest : emptyOps();
   }
   function failSave(e, site, batch, g){

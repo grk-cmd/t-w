@@ -488,7 +488,7 @@
 | **sim-system-prompt.js** | 100 | **46079ff53b88** |
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 | **sim-myhome-api.js** | 213 | **d6dcbcca48a1** |
-| **sim-myhome-store.js** | 554 | **f61ac15c0533** |
+| **sim-myhome-store.js** | 561 | **aabdba51d2b5** |
 
 ### `sim-sysinput.js` 판 계보
 
