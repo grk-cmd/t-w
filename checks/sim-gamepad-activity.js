@@ -48,9 +48,57 @@ chk(g2.poll() === false, '  getGamepads 가 던져도 안 죽는다');
 g.start(); g.start();
 chk(ticks.length === 1 && ticks[0] === G.POLL_MS, '  start 를 두 번 불러도 타이머는 하나');
 
+say('── 1-2. 꽂힌 패드가 없으면 폴링하지 않는다 — gamepadconnected 로 깨운다(가짜 시계 · 가짜 이벤트)');
+function sleepCase(src){
+  const r = [], t = (ok, msg) => r.push([!!ok, msg]);
+  const w = {}; new Function('window', 'module', src)(w, undefined);
+  const GG = w.TwGamepadActivity;
+  const env = { pads: [], hits: 0, timers: new Map(), id: 0, ev: {}, now: 0 };
+  const g = GG.createGamepadActivity({ getPads: () => env.pads, onActivity: () => { env.hits++; },
+    setInterval: (f, ms) => { const id = ++env.id; env.timers.set(id, { f, ms, at: env.now + ms }); return id; },
+    clearInterval: (id) => { env.timers.delete(id); },
+    on: (n, f) => { env.ev[n] = f; } });
+  const advance = (ms) => { const end = env.now + ms; for(;;){ const due = [...env.timers.values()].filter(x => x.at <= end).sort((a, b) => a.at - b.at)[0]; if(!due) break; env.now = due.at; due.at += due.ms; due.f(); } env.now = end; };
+  const pad = (o) => Object.assign({ index: 0, id: 'Xbox', connected: true, buttons: [{ pressed: false, value: 0 }], axes: [0, 0] }, o || {});
+  g.startWhenConnected();
+  t(env.timers.size === 0 && typeof env.ev.gamepadconnected === 'function' && typeof env.ev.gamepaddisconnected === 'function', '★ 꽂힌 패드가 없으면 타이머 없음 · 연결 · 해제 이벤트만 건다');
+  advance(10000);
+  t(env.hits === 0 && env.timers.size === 0, '  패드 없는 10초 동안 깨어나지 않는다');
+  env.pads = [pad()]; env.ev.gamepadconnected({ gamepad: env.pads[0] });
+  t(env.timers.size === 1 && [...env.timers.values()][0].ms === GG.POLL_MS && env.hits === 0, '★ 꽂으면 그 자리에서 기준을 잡고 ' + GG.POLL_MS + 'ms 폴링을 건다(꽂는 순간은 활동 아님)');
+  env.pads = [pad({ axes: [0.7, 0] })]; advance(GG.POLL_MS);
+  t(env.hits === 1, '  다음 폴링에서 스틱을 센다 — 예전 폴링과 같은 결과');
+  env.ev.gamepadconnected({ gamepad: pad({ index: 1 }) });
+  t(env.timers.size === 1, '  둘째 패드를 꽂아도 타이머는 하나');
+  env.ev.gamepaddisconnected({ gamepad: { index: 1 } });
+  t(env.timers.size === 1, '  하나만 빼면 계속 돈다');
+  env.pads = []; env.ev.gamepaddisconnected({ gamepad: { index: 0 } });
+  t(env.timers.size === 0, '★ 다 빼면 폴링을 멈춘다');
+  env.pads = [pad({ axes: [0.9, 0] })]; env.ev.gamepadconnected({ gamepad: env.pads[0] }); advance(GG.POLL_MS);
+  t(env.hits === 1, '  다시 꽂으면 기준부터(다시 꽂은 순간 · 그대로 둔 스틱은 안 센다)');
+  /* 창이 뒤에 있어 getGamepads 가 비어 보여도 꽂힌 동안은 계속 돈다 — 앞으로 돌아왔을 때 깨울 신호가 따로 없다 */
+  env.pads = []; advance(GG.POLL_MS * 4);
+  t(env.timers.size === 1, '  목록이 잠깐 비어 보여도(창이 뒤) 이벤트로 빠지기 전엔 멈추지 않는다');
+  /* 시작 때 이미 꽂힌 패드 */
+  const w2 = {}; new Function('window', 'module', src)(w2, undefined);
+  let n2 = 0; const tm2 = [];
+  w2.TwGamepadActivity.createGamepadActivity({ getPads: () => [null, pad({ index: 1 })], onActivity: () => {}, setInterval: (f, ms) => { tm2.push(ms); return ++n2; }, clearInterval: () => {}, on: () => {} }).startWhenConnected();
+  t(tm2.length === 1, '★ 시작할 때 이미 꽂혀 있으면 바로 폴링');
+  return r;
+}
+sleepCase(MOD).forEach(([ok, msg]) => chk(ok, msg));
+for(const [nm, m2] of [
+  ['패드 없어도 폴링', MOD.replace('    if(plugged.size) start();\n  }', '    start();\n  }')],
+  ['꽂아도 안 깨움', MOD.replace('      if(!timer){ poll(); start(); }', '')],
+  ['빼도 안 멈춤', MOD.replace('      stop();\n      Object.keys(last)', '      Object.keys(last)')],
+]){
+  let r2; try{ r2 = sleepCase(m2); }catch(_){ r2 = [[false, '던짐']]; }
+  chk(m2 !== MOD && r2.some(([ok]) => !ok), '  깨 보기: ' + nm + (m2 !== MOD ? '' : ' — 바꿀 글을 못 찾음'));
+}
+
 say('── 2. app.js 배선 · html');
 const blk = (APP.match(/if\(window\.TwGamepadActivity && navigator\.getGamepads\)\{[\s\S]*?\n  \}/) || [''])[0];
-chk(!!blk && /getPads: \(\)=>navigator\.getGamepads\(\)/.test(blk) && /\.start\(\);/.test(blk), '만들고 시작한다 — 모듈 · getGamepads 가 없으면 건너뜀(구버전 · 브라우저 미리보기)');
+chk(!!blk && /getPads: \(\)=>navigator\.getGamepads\(\)/.test(blk) && /on: \(ev, fn\)=>window\.addEventListener\(ev, fn\)/.test(blk) && /\.startWhenConnected\(\);/.test(blk), '만들고 시작한다(꽂힌 패드가 있을 때만 폴링) — 모듈 · getGamepads 가 없으면 건너뜀(구버전 · 브라우저 미리보기)');
 chk(/onActivity: \(\)=>\{ anyInput\(\); if\(!focusGateSleep\) activity\(\); \}/.test(blk), '★ 처리는 펜 활동과 같다 — 자리비움 판정은 늘 · 기록은 등록한 포커싱 앱일 때만');
 const pen = APP.indexOf('companion.onPenActivity(()=>{'), gp = APP.indexOf('if(window.TwGamepadActivity && navigator.getGamepads){');
 chk(pen > 0 && gp > pen, '  펜 활동 수신 바로 뒤(같은 데스크탑 입력 묶음)');

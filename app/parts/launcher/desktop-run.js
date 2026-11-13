@@ -120,7 +120,8 @@ if(desktopMode){
       TwGamepadActivity.createGamepadActivity({
         getPads: ()=>navigator.getGamepads(),
         onActivity: ()=>{ anyInput(); if(!focusGateSleep()) activity(); },
-      }).start();
+        on: (ev, fn)=>window.addEventListener(ev, fn),
+      }).startWhenConnected();   // 꽂힌 패드가 없으면 폴링하지 않고 gamepadconnected 를 기다린다
     }catch(_){}
   }
   if(USE_OS_IDLE_FOR_FOCUS && window.companion && companion.getIdleSeconds){

@@ -82,7 +82,7 @@
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-chat-history.js** | 244 | **9bbbfd7c28fc** |
 | **sim-chat-last-by-ts.js** | 84 | **175e88989b35** |
-| **sim-gamepad-activity.js** | 131 | **320f86854007** |
+| **sim-gamepad-activity.js** | 179 | **ab4265e61987** |
 | **sim-mallang-hide.js** | 124 | **86040d19c645** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
