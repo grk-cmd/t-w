@@ -220,6 +220,7 @@ await sec('── 2. 셈 — 보유 · 색상 해금 · 풀 · 남은 뽑기', (
   chk(nx(92, 999) === 95 && nx(90, 999) === 95 && nx(94, 999) === 95 && nx(1, 999) === 5 && nx(0, 999) === 5,
       '다음 뽑기 레벨 — 92·90·94 → 95 · 1·0 → 5(딱 5의 배수면 그다음 배수)');
   chk(nx(994, 999) === 995 && nx(995, 999) === null && nx(999, 999) === null && nx('x', 999) === 5, '  상한(999)을 넘는 레벨은 null · 숫자 아님은 0 으로');
+  chk(nx(990, 995) === 995 && nx(994, 995) === 995 && nx(995, 995) === null, '  상한이 5의 배수면 상한 레벨까지는 보이고(995) 그 위는 null');
   e.els.gachaInvBar = mkEl('div', 'gachaInvBar'); e.els.gachaInvGrid = mkEl('div', 'gachaInvGrid');
   M.renderGachaInv();
   chk(/다음 뽑기 <b>Lv 25<\/b>/.test(e.els.gachaInvBar.innerHTML), '  보관함 정보줄 — 레벨 23 → «다음 뽑기 Lv 25» (' + e.els.gachaInvBar.innerHTML.slice(0, 120) + ')');
