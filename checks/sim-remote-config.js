@@ -85,9 +85,8 @@ const RCM = require(path.resolve(where('remote-config.js')));
 
     const BR = RCM.cleanBugReport;
     chk(JSON.stringify(BR({ notice: '안내', link: 'https://open.kakao.com/o/a' })) === '{"notice":"안내","link":"https://open.kakao.com/o/a"}'
-      && BR({ notice: '안내', link: 'http://evil.example/' }).link === '' && BR({ link: 'https://open.kakao.com/' }).link === '' && BR({ link: 'https://open.kakao.com/' + 'a'.repeat(300) }).link === ''
-      && JSON.stringify(BR(null)) === '{"notice":"","link":""}' && BR({ notice: 3, link: 5 }).notice === '' && RCM.fieldsOf({ room: {}, bug: { report: { link: 'x' } } }).bugReport.link === 'x',
-      '제보 안내 글 · 오픈카톡 기본 링크 — 오픈카톡 주소만(아니면 빈 값 · 답변 칸에 엉뚱한 주소가 안 채워진다) · bug.report 에서 풀기');
+      && JSON.stringify(BR(null)) === '{"notice":"","link":""}' && BR({ notice: 3, link: 5 }).notice === '' && BR({ notice: 3, link: 5 }).link === '' && RCM.fieldsOf({ room: {}, bug: { report: { link: 'x' } } }).bugReport.link === 'x',
+      '제보 안내 글 · 오픈카톡 기본 링크 — 글자 칸만(모양 판정은 쓰는 쪽 KAKAO_RE 한 곳) · bug.report 에서 풀기');
     const br = RCM.createRemoteConfig(); br.apply({ room: {}, bug: { report: { notice: 'n', link: 'https://open.kakao.com/o/q' } } }, false);
     chk(br.bugReportLink() === 'https://open.kakao.com/o/q' && RCM.createRemoteConfig().bugReportLink() === '', '  ↳ 받으면 bugReportLink() · 못 받았으면 빈 글자');
 

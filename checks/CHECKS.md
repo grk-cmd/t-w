@@ -84,7 +84,7 @@
 | **sim-cfg-fit.js** | 281 | **3cef131e017d** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 536 | **ca0ab68f7a9d** |
-| **sim-bug-api.js** | 308 | **a9ab89853eea** |
+| **sim-bug-api.js** | 305 | **7c6249d88a08** |
 | **sim-bug-no.js** | 210 | **695c5bfa74eb** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
@@ -279,7 +279,7 @@
 | **sim-api-client.js** | 455 | **b95a9185c17b** |
 | **sim-api-public-reads.js** | 161 | **415175ce382d** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 526 | **d027f991caa7** |
+| **sim-remote-config.js** | 525 | **8438a5623bfa** |
 | **sim-source-switch.js** | 128 | **f2e8951a398b** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 719 | **39cdcc02008f** |

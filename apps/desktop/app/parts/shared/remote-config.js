@@ -59,13 +59,10 @@ function cleanFlag(raw, def){ return (typeof raw === 'boolean') ? raw : def; }
 const cleanBugDailyMax = (raw) => intIn(raw, BUG_DAILY_MIN, BUG_DAILY_MAX, DEFAULTS.bugDailyMax);
 const cleanClapDailyMax = (raw) => intIn(raw, CLAP_DAILY_MIN, CLAP_DAILY_MAX, DEFAULTS.clapDailyMax);
 const cleanGiftDailySendMax = (raw) => intIn(raw, GIFT_DAILY_MIN, GIFT_DAILY_MAX, DEFAULTS.giftDailySendMax);
-const KAKAO_PREFIX = 'https://open.kakao.com/';
-/* 안내 글 · 링크 — 글자 칸만. 링크는 오픈카톡 주소일 때만(아니면 빈 값 — 답변 칸에 엉뚱한 주소가 채워지지 않게) */
+/* 안내 글 · 링크 — 글자 칸만 거른다. 링크 모양(오픈카톡 주소인가)은 서버가 저장 때 본 값이고 쓰는 쪽(bug-board.js KAKAO_RE)이 판정한다 */
 function cleanBugReport(raw){
   const o = isObj(raw) ? raw : {};
-  const notice = typeof o.notice === 'string' ? o.notice : '';
-  const link = (typeof o.link === 'string' && o.link.length <= 300 && o.link.indexOf(KAKAO_PREFIX) === 0 && o.link.length > KAKAO_PREFIX.length) ? o.link : '';
-  return { notice, link };
+  return { notice: typeof o.notice === 'string' ? o.notice : '', link: typeof o.link === 'string' ? o.link : '' };
 }
 const cleanVer = (v) => (typeof v === 'string' && v.trim() && v.length <= VER_MAX) ? v.trim() : null;
 function cleanMinVersion(raw){

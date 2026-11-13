@@ -33,8 +33,6 @@ const PATHS = Object.freeze({
   reportConfig: '/v1/admin/config/bug.report',
 });
 const REPORT_KEY = 'bug.report';
-const KAKAO_PREFIX = 'https://open.kakao.com/';
-const LINK_MAX = 300;
 const FILTERS = Object.freeze(['all', 'open', 'mine']);
 const LIMIT_MAX = 20;   // 서버 limit 상한(1~20)
 const VIS = Object.freeze({ pub: 'PUBLIC', prv: 'PRIVATE' });
@@ -141,8 +139,6 @@ function reportConfigOf(r){
   if(!v || !nonEmpty(v.notice)) return null;
   return { version: r.version, notice: v.notice, link: str(v.link) };
 }
-/* 링크 칸 — 비우거나 오픈채팅 주소(서버가 답변 kakaoLink 와 같은 규칙으로 본다) */
-const linkOk = (l) => l === '' || (l.length <= LINK_MAX && l.indexOf(KAKAO_PREFIX) === 0 && l.length > KAKAO_PREFIX.length);
 const queryOf = (o) => '?' + Object.keys(o).filter((k) => o[k] != null).map((k) => k + '=' + enc(o[k])).join('&');
 
 /** @param {{
@@ -206,7 +202,6 @@ function createBugApi(deps){
     if(!nonEmpty(number) || !isObj(a)) throw invalid('글 번호');
     const text = str(a.text).trim(), status = str(a.status).toUpperCase(), kakao = str(a.kakaoLink).trim();
     if(!text || !status || !own(VIS, a.vis)) throw invalid('답변');
-    if(kakao && !linkOk(kakao)) throw invalid('오픈카톡 링크');
     if(a.seenLastAnswerAt != null && !nonEmpty(a.seenLastAnswerAt)) throw invalid('본 답변 시각');
     await once(answerKey(number), (id) => {
       const body = { requestId: id, seenLastAnswerAt: a.seenLastAnswerAt == null ? null : a.seenLastAnswerAt, text, status, visibility: VIS[a.vis] };
@@ -225,7 +220,7 @@ function createBugApi(deps){
   /* 저장 — 안내 글(notice)은 받은 값 그대로 싣는다(서버가 두 칸을 한 키로 받는다). 판이 다르면 CONCURRENT_UPDATE */
   async function saveReportLink(cfg, link){
     const l = str(link).trim();
-    if(!isObj(cfg) || !cnt(cfg.version) || !nonEmpty(cfg.notice) || !linkOk(l)) throw invalid('오픈카톡 링크');
+    if(!isObj(cfg) || !cnt(cfg.version) || !nonEmpty(cfg.notice)) throw invalid('오픈카톡 링크');
     const d = await authed.put(PATHS.reportConfig, { version: cfg.version, value: { notice: cfg.notice, link: l } });
     const c = reportConfigOf(d);
     if(!c) throw shapeError('제보 설정');
@@ -260,7 +255,7 @@ function createBugApi(deps){
   };
 }
 
-const out = { PATHS, KIND, ERRORS, VIS, VIS_OF, LIMIT_MAX, reportConfigOf, linkOk, rowOf, postOf, pageOf, quotaOf, writeBody, failOf, createBugApi };
+const out = { PATHS, KIND, ERRORS, VIS, VIS_OF, LIMIT_MAX, reportConfigOf, rowOf, postOf, pageOf, quotaOf, writeBody, failOf, createBugApi };
 if(typeof window !== 'undefined') window.TwBugApi = out;
 if(typeof module !== 'undefined' && module.exports) module.exports = out;
 })();

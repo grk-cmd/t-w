@@ -216,8 +216,7 @@ async function judge(S){
     const b2 = authed.log[1].body;
     chk(b2.seenLastAnswerAt === null && !('kakaoLink' in b2) && !('name' in b2) && !('code' in b2) && !('authUid' in b2), '  답변이 아직 없던 글 — seenLastAnswerAt null · 링크 없으면 칸을 싣지 않는다 · 내 이름 · 코드 없음');
     for(const [why, a] of [['빈 글', { seenLastAnswerAt: null, text: '  ', status: 'new', vis: 'pub' }], ['상태 없음', { seenLastAnswerAt: null, text: 'x', status: '', vis: 'pub' }],
-      ['모르는 공개 범위', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'secret' }], ['남의 사이트 링크', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub', kakaoLink: 'https://evil.example/' }],
-      ['주소만 있는 링크', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub', kakaoLink: 'https://open.kakao.com/' }], ['빈 글자 시각', { seenLastAnswerAt: '', text: 'x', status: 'new', vis: 'pub' }]]){
+      ['모르는 공개 범위', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'secret' }], ['빈 글자 시각', { seenLastAnswerAt: '', text: 'x', status: 'new', vis: 'pub' }]]){
       const n0 = authed.log.length, e = await throws(() => m.answer('B-1', a));
       chk(!!e && e.code === 'INVALID' && authed.log.length === n0, '  ' + why + ' — 요청 없이 던진다');
     }
@@ -246,8 +245,7 @@ async function judge(S){
       && s2.version === 4 && s2.link === 'https://open.kakao.com/o/new', '저장 — PUT /v1/admin/config/bug.report { version, value:{ notice(받은 그대로), link } } → 새 판');
     const cleared = await m.saveReportLink(c, '');
     chk(authed.log[2].body.value.link === '' && cleared.link === '', '  링크 비우기도 저장(서버가 허용)');
-    for(const [why, cfg, l] of [['남의 사이트', c, 'http://evil.example/'], ['주소만', c, 'https://open.kakao.com/'], ['300자 넘음', c, 'https://open.kakao.com/' + 'a'.repeat(300)],
-      ['판 없음', { notice: '안내', link: '' }, ''], ['안내 글 없음', { version: 1, notice: '', link: '' }, '']]){
+    for(const [why, cfg, l] of [['판 없음', { notice: '안내', link: '' }, ''], ['안내 글 없음', { version: 1, notice: '', link: '' }, '']]){
       const n0 = authed.log.length, e = await throws(() => m.saveReportLink(cfg, l));
       chk(!!e && e.code === 'INVALID' && authed.log.length === n0, '  ' + why + ' — 요청 없이 던진다');
     }
@@ -291,7 +289,6 @@ async function runAll(){
     ['👍 응답 모양을 안 봄', S.API.replace("if(!isObj(d) || !cnt(d.likeCount) || typeof d.liked !== 'boolean') throw shapeError('공감 수');", ''), '모양 틀림 던짐'],
     ['답변에 본 시각을 안 실음', S.API.replace("seenLastAnswerAt: a.seenLastAnswerAt == null ? null : a.seenLastAnswerAt,", ''), '겹침을 서버가 못 가림'],
     ['링크 저장에 판을 안 실음', S.API.replace('{ version: cfg.version, value: { notice: cfg.notice, link: l } }', '{ value: { notice: cfg.notice, link: l } }'), '두 관리자가 덮어씀'],
-    ['링크 모양을 안 거름', S.API.replace("const linkOk = (l) => l === '' ||", 'const linkOk = (l) => true ||'), '남의 주소가 저장됨'],
     ['새 글에 내 코드를 실음', S.API.replace('const body = { requestId,', "const body = { code: 'ME', requestId,"), '신원은 토큰에서만'],
   ];
   for(const [name, src, what] of breaks){

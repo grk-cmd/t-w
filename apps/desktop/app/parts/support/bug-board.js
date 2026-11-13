@@ -18,7 +18,7 @@ const BUG_CATS = Object.freeze([
 const BUG_STATUS = Object.freeze({ new: '접수', checking: '확인 중', review: '검토중', fixed: '수정 완료', norepro: '재현 안 됨', unfixed: '해결 안 됨' });
 /* 글쓴이가 답글과 함께 고르는 상태 — 서버가 글쓴이에게 받는 셋과 같다. 버튼 이름은 글쓴이 말투로 */
 const BUG_AUTHOR_STATUS = Object.freeze([['checking', '확인 중'], ['unfixed', '해결 안 됨'], ['fixed', '해결 완료']]);
-const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
+const KAKAO_RE = /^https:\/\/open\.kakao\.com\/.+/;   // 오픈카톡 주소 판정 한 곳(길이 300 은 입력칸 maxlength · 서버가 다시 본다)
 const BUG_VIS_NOTE = '공개 범위는 운영자 답변이나 내 답글이 달리기 전까지만 바꿀 수 있어요.';
 const BUG_VIS_LOCKED = '운영자 답변이나 내 답글이 달린 글은 공개 범위를 바꿀 수 없어요.';
 
