@@ -27,12 +27,13 @@ document.getElementById('licenseSubmitBtn').onclick=async ()=>{
     toast('🎉 라이선스가 등록됐어요! 꾸미기를 이용할 수 있어요');
     refreshLicenseUI();
     setTimeout(()=>{ twNav.go(twNav.NAV.PROGRAM_SETTINGS_CLOSE); }, 900);
-  } else {
+  } else if(!r.notified){   // 확인 실패 번호(E-LIC-01)를 이미 띄웠으면 입력칸에 같은 실패를 또 적지 않는다
     err.textContent = r.reason || '등록에 실패했어요'; err.style.display='block';
   }
 };
 document.getElementById('licenseDeactivateBtn').onclick=async ()=>{
   const r=await licensePremiumMod.deactivate();
+  if(r.stale) return;   // 기다리는 동안 계정이 바뀌어 옛 답을 버렸다 — 알리지 않는다(license-premium.js reset)
   refreshLicenseUI();
   if(r.ok) toast('이 기기에서 라이선스가 해제됐어요');
   else if(!(r.err && r.err.kind === 'auth')) notifyError('E-LIC-02', r.err);   // 로그인이 풀린 실패는 로그인 흐름 몫(license-premium.js fail 과 같다)

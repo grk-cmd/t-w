@@ -92,12 +92,21 @@
 | `E-CHAR-23` | 다른 기기에서 그 칸에 캐릭터가 먼저 생겨 저장하지 못했어요 — 서버 것을 받았어요 | `character/closet.js` — 새 캐릭터 만들기가 `AVATAR_SLOT_TAKEN` 으로 거절됨 · 서버 캐릭터를 받아 앉힌다 |
 | `E-PL-01` | 플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요 | `status/playlist.js` — 내 목록 서버 저장 실패(`_plPublishNow` · `saveMine` failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음 — 다음 고침 · 창 열기 · 끌 때 · 로그아웃 때 한 번) |
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
-| `E-LIC-01` | 라이선스 상태를 확인하지 못했어요 — 앱을 다시 켜면 다시 확인해요 | `account/license-premium.js` — 프리미엄 확인(`GET /v1/me`) 실패(켤 때는 계정 확인이 곧 확인이라 실패가 없다 · 서버 `license` 알림 뒤 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음) |
+| `E-LIC-01` | 라이선스 상태를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/license-premium.js` — 프리미엄 확인(`GET /v1/me`) 실패 — 사용자가 누른 키 등록 · 이 기기 해제 뒤만(켤 때 · 서버 `license` 알림으로 받다 실패하면 번호 없이 지금 값 그대로 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음) |
 | `E-LIC-02` | 이 기기의 라이선스를 해제하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/license-key.js` — «이 기기에서 해제» 버튼의 서버 기기 빼기(`DELETE /v1/me/license/devices/{id}`) 실패(프리미엄은 그대로 · 로그인이 풀린 실패는 알리지 않음) |
 | `E-GIFT-01` | 말랑이를 불러오지 못했어요 | `myhome/mallang-store.js` — 내 칸(`GET /v1/me/mallangs` — 마이홈 열기 · 등록 창 [다시 시도] · 못 받은 폴더 누름) · 보는 집 칸(`GET /v1/mallangs/{code}` — 친구 홈 구경 · 내 집으로) 받기 실패(그 사람이 없음은 번호 없이 «말랑이 없음» · 혼자 다시 받지 않음) |
 | `E-GIFT-02` | 말랑이 그림을 올리지 못했어요 | `myhome/mallang-store.js` — 등록 ① 그림 올리기(`POST /v1/me/images?purpose=mallang`) 실패 · 형식 · 크기 거절(`IMAGE_UPLOAD`) — 칸은 그대로 |
 | `E-GIFT-03` | 말랑이를 저장하지 못했어요 | `myhome/mallang-store.js` — 등록 ② · 켜고 끄기 · 지우기의 칸 저장(`PUT /v1/me/mallangs` — `GIFT_MALLANG_INVALID` 포함 · 409 는 번호 없이 다시 받기) 실패(이어지는 동안 한 번만 · 고친 화면은 그대로 · 혼자 다시 보내지 않음 — 다음 고침 · 로그아웃 · 앱 끄기 때 한 번) |
 | `E-GIFT-07` | 내 말랑이를 불러오지 못해 선물 창을 열지 못했어요 | `myhome/mallang-store.js` — 친구 줄 우클릭 선물 보내기 창(`mallang.js` `openGift`)을 열 때 내 칸 받기(`pullMine` site `sendOpen` — `GET /v1/me/mallangs`) 실패 · 창을 열지 않음 |
+| `E-FOCUS-01` | 포커스 기록을 불러오지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 시작 · 내 정보 · 포커스 기록창 열기(GET /v1/me/focus) |
+| `E-FOCUS-02` | 집중 시간을 서버에 올리지 못했어요 — 다음에 같이 올릴게요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 집중 시간 올리기(POST /v1/me/focus/accruals) |
+| `E-FOCUS-03` | 별 색을 저장하지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 별 색 고르기(PATCH /v1/me/focus) |
+| `E-FOCUS-04` | 달성표를 불러오지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 달성표 서랍 · 다음 주 칸 열기(GET /v1/me/focus/challenges/{주}) |
+| `E-FOCUS-05` | 달성표를 저장하지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 달성표 목표 · 자동 · 쉬기 저장(PUT /v1/me/focus/challenges/{주}) |
+| `E-FOCUS-06` | 오늘 달성을 적지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 오늘 달성 적기(POST /v1/me/focus/challenges/today) |
+| `E-FOCUS-07` | 달성표 보상을 받지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 보상 칸 받기(POST /v1/me/focus/challenges/{주}/rewards/{칸}) |
+| `E-FOCUS-08` | 폰 연결 키를 만들지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 폰 연결 새 키 만들기(POST /v1/me/focus/mobile-link) |
+| `E-FOCUS-09` | 폰 연결을 끊지 못했어요 | `focus/focus-api.js` 길 — (예정: 앱 묶음 D5 다음 단계에서 부름) 폰 연결 끊기(DELETE /v1/me/focus/mobile-link) |
 | `E-BUG-01` | 제보 목록을 불러오지 못했어요 | `support/bug-board-ui.js` — 버그제보 탭 목록 · 필터 · [다음]/[이전] · [다시 시도](`GET /v1/bugs` — 기능 갈래도 공통 code(`api-errors.js`)도 아닌 실패 · «목록을 불러오지 못했어요 [다시 시도]» · 다시 보내지 않음 · 공지 받기 실패는 번호 없이 공지 칸만 비움) |
 | `E-BUG-02` | 제보를 불러오지 못했어요 | `support/bug-board-ui.js` — 글 열기 · 우편함 «가기» · [다시 시도](`GET /v1/bugs/{number}` — 없는 글 · 남의 비공개 글은 번호 없이 «없음» · «비공개» 화면) |
 | `E-BUG-03` | 제보를 올리지 못했어요 | `support/bug-board-ui.js` — 글쓰기 [등록](`POST /v1/bugs` — 하루 상한 · 공지 조건은 번호 없이 안내 · 입력은 그대로 · 다시 보내지 않음) |
