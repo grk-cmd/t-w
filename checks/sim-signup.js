@@ -1366,7 +1366,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     /* 재료 — 떼어 와 돌린다 */
     const palSrc = A.slice(A.indexOf('const STAR_PALETTE = ['), A.indexOf('];', A.indexOf('const STAR_PALETTE = [')) + 2);
     const fns = ['function _starColorOk(', 'function getStarColor(', 'function setStarColor(', 'function focusCycleOf(', 'function lvStarStr(',
-                 'function _miStarToggle(', 'function _miRenderStar('].map(h => takeFn(A, h));
+                 'function _miStarToggle(', 'function _miRenderStar(', 'function npStarFill('].map(h => takeFn(A, h));
     chk(palSrc.length > 30 && fns.every(Boolean), '  재료 · 그리기 함수를 떼어 왔다');
     if (palSrc.length > 30 && fns.every(Boolean)){
       const mkEl = (id) => { const el = { id, style: { _p: {}, setProperty(k, v){ this._p[k] = v; }, display: '' }, attrs: {}, dataset: {}, children: [], textContent: '',
@@ -1426,6 +1426,9 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
       chk(v.els.miStarOn.style.display === 'flex' && v.els.miStarLock.style.display === 'none' && v.els.miStarSub.textContent === '2회차 · 이름표 별과 바가 같이 바뀌어요',
         '★ 회차 — 미리보기 + 색 칸 · «2회차»');
       chk(v.els.miStarNpStar.textContent === '★' && v.els.miStarNpText.textContent === '342 키위' && v.els.miStarFill.style.width === '50%', '  이름표 «★342 키위» · 바 50%(30분 = 6칸)');
+      { const ns = v.els.miStarNpStar, sw0 = ns.children[0];
+        chk(ns.attrs['data-s'] === '★' && ns.children.length === 1 && sw0 && sw0.className === 'np-sw' && sw0.attrs['data-s'] === '★',
+          '  별 겹은 좌석과 같은 함수(npStarFill) — 번쩍임 글자(data-s) · 빛 쓸기 창(.np-sw) 하나'); }
       chk(v.els.miStar.style._p['--pre-c'] === P[12], '  고른 색이 #miStar 의 --pre-c');
       const sw = v.els.miStarPal.children;
       chk(sw.length === 16 && sw.every(b => b.attrs.role === 'radio' && b.attrs['aria-label'] && b.style._p['--sw'] === b.dataset.c) && sw.filter(b => b.attrs['aria-checked'] === 'true').length === 1 && sw[12].attrs['aria-checked'] === 'true',
