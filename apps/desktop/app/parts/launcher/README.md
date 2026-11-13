@@ -117,15 +117,17 @@ TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정
 | 2 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
 | 3 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
 | 4 | weeklyChal | 👑 달성표(`startChalSync`) |
-| 5 | gacha | 🎰 가챠(`startGacha`) |
-| 6 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset`) |
-| 7 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |
-| 8 | scheduler | 📅 일정 알림 받기(`startSchedule`) |
-| 9 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
-| 10 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
-| 11 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
-| 12 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
-| 13 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+| 5 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
+| 6 | gacha | 🎰 가챠(`startGacha`) |
+| 7 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset`) |
+| 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |
+| 9 | bugBadge | 🐞 버그제보 탭 «새 답변» 배지 한 번 받기 |
+| 10 | scheduler | 📅 일정 알림 받기(`startSchedule`) |
+| 11 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
+| 12 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
+| 13 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
+| 14 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
+| 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
 
 **내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
 

@@ -60,12 +60,16 @@ function mkEnv(opt){
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'pomodoro.js' });
   env.ctx = ctx; env.els = els;
-  env.mk = () => ctx.TwPomodoro.createPomodoro({
+  env.reads = 0; env.writes = 0; env.resets = [];
+  env.session = { onReset: (fn) => env.resets.push(fn) };
+  env.make = () => ctx.TwPomodoro.createPomodoro({
     toast: (m) => env.toasts.push(m),
     focusShowPush: (f) => env.pushes.push(f),
     weeklyChal: { open: (on) => env.chal.push(on) },
     pomoSnd: { play: () => { env.plays++; }, prime: () => { env.primes++; } },
+    pomoStore: { get: (k) => { env.reads++; return k in env.ls ? env.ls[k] : null; }, set: (k, v) => { env.writes++; env.ls[k] = String(v); return true; }, remove: (k) => { env.writes++; delete env.ls[k]; return true; } },
   });
+  env.mk = () => { const P = env.make(); P.startPomodoro('u1', {}, env.session); return P; };   // 계정 확인 뒤 app-boot 의 pomodoro 차례까지
   env.tick = () => env.intervals[0].fn();
   return env;
 }
@@ -76,8 +80,11 @@ const sec = async (t, fn) => { say(t); try{ await fn(); }catch(e){ chk(false, '�
 await sec('── 1. 만들 때', () => {
   const e = mkEnv({ ls: { 'tw.pomo': JSON.stringify({ preset: '50', f: 50, s: 10, l: 20, auto: false }) } });
   chk(typeof e.ctx.TwPomodoro.createPomodoro === 'function' && typeof e.ctx._pomoShowText === 'undefined', '싣기만 하면 window.TwPomodoro 뿐 — 고리는 만들 때 건다');
-  const P = e.mk();
-  chk(['showText', 'open', 'render', 'tick', 'cfg', 'run'].every(n => typeof P[n] === 'function'), '반환값 — showText · open · render · tick · cfg · run');
+  const P0 = e.make();
+  chk(e.reads === 0 && e.writes === 0 && P0.run() === null && P0.cfg().f === 25, '★ 만들 때는 계정 칸을 읽지도 쓰지도 않는다 — 기본값 · 멈춤(시작 전)');
+  P0.startPomodoro('u1', {}, e.session);
+  const P = P0;
+  chk(['startPomodoro', 'showText', 'open', 'render', 'tick', 'cfg', 'run'].every(n => typeof P[n] === 'function'), '반환값 — startPomodoro · showText · open · render · tick · cfg · run');
   chk(P.cfg().f === 50 && P.cfg().s === 10 && P.cfg().auto === false && P.cfg().every === 4 && P.cfg().sound === true, '저장된 설정(tw.pomo)을 읽는다 — 빠진 칸은 기본값');
   chk(P.run() === null, '진행(tw.pomoRun)이 없으면 안 돈다');
   chk(e.intervals.length === 1 && e.intervals[0].ms === 1000 && e.intervals[0].fn === P.tick, '1초 tick 하나(반환값 tick 과 같은 함수)');
@@ -173,6 +180,19 @@ await sec('── 5. 건너뛰기 · 자동 시작 꺼짐', () => {
   chk(P.run() === null, '안 돌 때 건너뛰기 · 일시정지는 아무것도 안 한다');
 });
 
+await sec('── 5-2. 계정 칸 · 계정 바뀜', () => {
+  const run = { phase: 'short', total: 5 * MIN, done: 2, paused: false, left: 5 * MIN, endAt: 1e12 + 3 * MIN };
+  const e = mkEnv({ ls: { 'tw.pomo': JSON.stringify({ f: 50 }), 'tw.pomoRun': JSON.stringify(run) } });
+  const P = e.make();
+  chk(P.run() === null && e.reads === 0, '시작 전에는 저장된 진행이 있어도 안 읽는다(아직 어느 계정인지 모른다)');
+  P.startPomodoro('u1', {}, e.session); P.startPomodoro('u1', {}, e.session);
+  chk(P.cfg().f === 50 && P.run() && P.run().phase === 'short' && e.reads === 2 && e.resets.length === 1, '시작 → 계정 칸에서 설정 · 진행을 한 번 읽고 reset 훅 하나(두 번 시작해도 한 번)');
+  e.resets.forEach(fn => fn());
+  chk(P.run() === null && P.cfg().f === 25 && e.els.pomoBtn.textContent.indexOf('03:00') < 0, '★ 계정이 바뀌면(reset) 기본값 · 멈춤으로 돌아간다 — 앞 계정 진행이 남지 않는다');
+  const w0 = e.writes; e.els.pomoStop.click();
+  chk(e.writes === w0, '  reset 뒤 시작 전에는 쓰지도 않는다');
+});
+
 await sec('── 6. 재시작 이어짐 · 머리 위 고리', () => {
   const run = { phase: 'short', total: 5 * MIN, done: 2, paused: false, left: 5 * MIN, endAt: 1e12 + 3 * MIN };
   const e = mkEnv({ ls: { 'tw.pomoRun': JSON.stringify(run) } }); const P = e.mk();
@@ -199,8 +219,8 @@ await sec('── 7. app.js 배선', () => {
   chk(/^window\._pomoShowText = _pomoShowText;$/m.test(MOD), '  모듈이 window._pomoShowText 고리를 건다');
   const call = (APP.match(/TwPomodoro\.createPomodoro\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 4 && /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/.test(deps[0]) && /^focusShowPush: \(\.\.\.a\)=>(?:focusShareMod\.)?_focusShowPush\(\.\.\.a\),$/.test(deps[1])
-    && /^weeklyChal: weeklyChal,$/.test(deps[2]) && /^pomoSnd: (?:sfxMod\.)?_pomoSnd,$/.test(deps[3]), 'deps 4개 — 함수는 화살표 · weeklyChal · _pomoSnd 는 앞에 선언된 const 값 (' + deps.length + ')');
+  chk(deps.length === 5 && /^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),$/.test(deps[0]) && /^focusShowPush: \(\.\.\.a\)=>(?:focusShareMod\.)?_focusShowPush\(\.\.\.a\),$/.test(deps[1])
+    && /^weeklyChal: weeklyChal,$/.test(deps[2]) && /^pomoSnd: (?:sfxMod\.)?_pomoSnd,$/.test(deps[3]) && /^pomoStore: accountStoreMod,$/.test(deps[4]), 'deps 5개 — 함수는 화살표 · weeklyChal · _pomoSnd · pomoStore 는 앞에 선언된 const 값 (' + deps.length + ')');
   const iWc = APP.indexOf('const weeklyChal = '), iSnd = (APP.indexOf("const _pomoSnd = _mkSndPool('pomo'") > 0) ? APP.indexOf("const _pomoSnd = _mkSndPool('pomo'")
     : ((read('sfx.js') || '').includes("const _pomoSnd = _mkSndPool('pomo'") ? APP.indexOf('TwSfx.createSfx(') : -1);   // 효과음 공장은 sfx.js 로 옮겼다(앱 FSD 42번) — 만드는 줄 자리로 본다
   chk(iWc > 0 && iWc < iMk && iSnd > 0 && iSnd < iMk && !/\b(weeklyChal|_pomoSnd)\s*=[^=]/.test(code.replace(/const (weeklyChal|_pomoSnd) = /g, '')), '  둘 다 만드는 줄보다 앞 · 다시 대입되지 않는다');

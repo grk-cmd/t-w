@@ -8654,6 +8654,7 @@ const pomodoro = TwPomodoro.createPomodoro({
   focusShowPush: (...a)=>focusShareMod._focusShowPush(...a),
   weeklyChal: weeklyChal,
   pomoSnd: sfxMod._pomoSnd,
+  pomoStore: accountStoreMod,
 });
 
 /* ═══ 🖥️ 데스크탑 실행 화면 — 창 크기 · 업데이트 배너 · 전역 입력 · 클릭 통과 · 하트비트 ═══ */
@@ -8782,6 +8783,7 @@ const appBoot = TwAppBoot.createAppBoot({
     focusShare: ()=>focusShareMod.startFocusShare(),
     focusLevel: (code, me, session)=>focusProgressMod.startFocus(code, me, session),
     weeklyChal: ()=>weeklyChal.startChalSync(),
+    pomodoro: (code, me, session)=>pomodoro.startPomodoro(code, me, session),
     gacha: ()=>gachaMod.startGacha(),
     closet: ()=>closetMod.startCloset(),
     mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
