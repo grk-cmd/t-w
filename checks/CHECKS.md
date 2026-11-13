@@ -73,7 +73,7 @@
 
 | 파일 | 줄 | sha256[:12] |
 |---|---|---|
-| **audit.py** | 930 | **124da66ee563** |
+| **audit.py** | 930 | **ca7797d4bdf5** |
 | **sim-session.js** | 221 | **37c9ae623d30** |
 | **smoke.js** | 759 | **cf0f7a42fcec** |
 | **sim-account-switch.js** | 309 | **30e2060e20e7** |
@@ -83,8 +83,8 @@
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
 | **sim-cfg-fit.js** | 281 | **3cef131e017d** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
-| **sim-bug-board.js** | 448 | **3c77266919d3** |
-| **sim-bug-api.js** | 244 | **86608e10da93** |
+| **sim-bug-board.js** | 536 | **ca0ab68f7a9d** |
+| **sim-bug-api.js** | 305 | **7c6249d88a08** |
 | **sim-bug-no.js** | 210 | **695c5bfa74eb** |
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
@@ -267,7 +267,7 @@
 | **sim-purikura-ui.js** | 277 | **b86950bf284f** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 479 | **94932280a36a** |
-| **sim-friend-manage-module.js** | 309 | **632eed6beda1** |
+| **sim-friend-manage-module.js** | 269 | **6e9414fd240e** |
 | **sim-pomodoro-module.js** | 251 | **fe9ad69f3e7b** |
 | **sim-myhome-sticker.js** | 422 | **bf3e0882810d** |
 | **sim-gacha.js** | 469 | **af5e38276dc6** |
@@ -279,7 +279,7 @@
 | **sim-api-client.js** | 455 | **b95a9185c17b** |
 | **sim-api-public-reads.js** | 161 | **415175ce382d** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 518 | **a4e852c90ba6** |
+| **sim-remote-config.js** | 525 | **8438a5623bfa** |
 | **sim-source-switch.js** | 128 | **f2e8951a398b** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 719 | **b5af6b31da01** |
@@ -410,7 +410,7 @@
 | **sim-account-state.js** | 99 | **f15e0c15e7f6** |
 | **sim-nav.js** | 91 | **dd38c03ae96c** |
 | **sim-app-boot.js** | 165 | **c6ba2f71e149** |
-| **sim-net-ready.js** | 145 | **a40362149bca** |
+| **sim-net-ready.js** | 145 | **d592b8f454f2** |
 | **sim-myhome-hooks.js** | 99 | **04e0a0308ecc** |
 | **sim-demoji-catalog.js** | 80 | **36e4e0c7b848** |
 | **sim-hook-guards.js** | 75 | **cb32158c9f2b** |

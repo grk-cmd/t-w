@@ -34,10 +34,10 @@
 - 검사: `checks/sim-bug-board.js` 2절.
 
 ## bug-api.js — 🐞 버그제보 provider(classic script `window.TwBugApi`)
-- 책임: 게시판 서버 길 한 벌 — 목록(`GET /v1/bugs?filter=&limit=&cursor=` · 공지 `filter=notices`) · 글(`GET /v1/bugs/{number}`) · 새 글(`POST /v1/bugs`) · 답글(`POST …/{number}/replies`) · 공개 범위(`PATCH …/{number}/visibility`) · 👍(`PUT …/{number}/like`) · 봤음(`PUT /v1/me/bugs/{number}/seen`) · 오늘 남은 수(`GET /v1/me/bugs/quota`) · 새 답변 배지 수(`GET /v1/me/bugs/unseen-count`).
+- 책임: 게시판 서버 길 한 벌 — 목록(`GET /v1/bugs?filter=&limit=&cursor=` · 공지 `filter=notices`) · 글(`GET /v1/bugs/{number}`) · 새 글(`POST /v1/bugs`) · 답글(`POST …/{number}/replies`) · 관리자 답변(`POST /v1/admin/bugs/{number}/answers`) · 오픈카톡 기본 링크(`GET /v1/admin/config` 의 `bug.report` 줄 · `PUT /v1/admin/config/bug.report`) · 공개 범위(`PATCH …/{number}/visibility`) · 👍(`PUT …/{number}/like`) · 봤음(`PUT /v1/me/bugs/{number}/seen`) · 오늘 남은 수(`GET /v1/me/bugs/quota`) · 새 답변 배지 수(`GET /v1/me/bugs/unseen-count`).
   서버 모양(대문자 이름 · ISO 시각 · `author`) → 화면 모양(`vis` 'pub'|'prv' · 소문자 `cat` · `status` · ms · `anon` · `authorReplied`)은 여기 한 곳(`rowOf` · `postOf`).
 - deps: `authed`(`TwApi.authed`) · `errs`(`TwApiErrors` — `translate` · `COMMON`) · `pending`(요청 번호 기억 만들기 — `TwRequestId.createPending`).
-- 내놓는 것: `createBugApi(deps)` → `{ KIND, ERRORS, list, notices, detail, write, reply, setVis, like, seen, quota, refreshBadge, badgeCount, failOf, reset }`. 순수: `rowOf` · `postOf` · `pageOf` · `quotaOf` · `writeBody` · `failOf(err, errs)` · `PATHS` · `KIND` · `ERRORS` · `LIMIT_MAX`.
+- 내놓는 것: `createBugApi(deps)` → `{ KIND, ERRORS, list, notices, detail, write, reply, answer, reportConfig, saveReportLink, setVis, like, seen, quota, refreshBadge, badgeCount, failOf, reset }`. 순수: `rowOf` · `postOf` · `pageOf` · `quotaOf` · `writeBody` · `failOf(err, errs)` · `PATHS` · `KIND` · `ERRORS` · `LIMIT_MAX`.
   `failOf` 갈래 — `guide`(안내 문구 · 번호 없음) · `missing`(없는 글) · `private`(남의 비공개 글) · `conflict`(그사이 바뀜) · `common`(공통 code · 닿지 못함) · `site`(그 자리 번호).
 - 함정:
   - 글쓴이 · 공감한 사람 · 읽은 사람은 서버가 토큰에서 정한다 — 본문에 내 이름 · 코드 · uid 를 싣지 않는다.
@@ -48,12 +48,13 @@
 - 검사: `checks/sim-bug-api.js`.
 
 ## bug-board-ui.js — 🐞 버그제보 게시판 화면(classic script `window.TwBugBoardUi`)
-- 책임: 마이홈 «버그제보» 탭의 목록 → 상세 → 글쓰기 세 화면 · 탭 «새 답변» 배지. 파일 끝(게시판 밖)은 관리자 오픈카톡 기본 링크(`bugReport/current` — 다음 묶음이 서버 설정으로 옮긴다).
-- deps: `bugApi`(`createBugApi` 인스턴스) · `lib`(`TwBugBoard`) · `apiErrors`(`TwApiErrors.store`) · `notifyError`(`TwErrorCodes.notify`) · `toast` · `escHtml` · `safeHtml`(`TwSafeHtml`) · `isAdmin`(읽는 함수) · `rtOn`(`TwRtHub.store.on`).
+- 책임: 마이홈 «버그제보» 탭의 목록 → 상세 → 글쓰기 세 화면 · 탭 «새 답변» 배지. 관리자(앱 창 그대로 · 속만 서버)의 답변 칸 · 🔗 오픈카톡 기본 링크 폼도 이 파일 안이다.
+- deps: `bugApi`(`createBugApi` 인스턴스) · `bugReportLink`(원격 설정 `bugReport.link` 읽는 함수 — 답변 칸 [💬 오픈카톡] 기본 주소) · `lib`(`TwBugBoard`) · `apiErrors`(`TwApiErrors.store`) · `notifyError`(`TwErrorCodes.notify`) · `toast` · `escHtml` · `safeHtml`(`TwSafeHtml`) · `isAdmin`(읽는 함수) · `rtOn`(`TwRtHub.store.on`).
 - 내놓는 것: `createBugBoardUi(deps)` → `{ start, reset, refreshBadge }` — `start` 는 app-boot STEPS 의 `bugBadge`(배지 한 번 · realtime resync 때 한 번 다시), `reset` 은 계정을 놓을 때(account.js). 우편함 고리 `window._bugBoardOpen(번호)` · `window._bugBoardRefreshBadge(번호)` 를 만들 때 건다.
-- 실패: 갈래로 — 안내는 그 칸 문구 · 공통은 공통 번호 · 그 밖은 `E-BUG-01`(목록) · `02`(글) · `03`(등록) · `04`(답글) · `05`(👍) · `06`(공개 범위) · `07`(오늘 남은 수). 없는 글 · 남의 비공개 글은 번호 없이 그 화면.
+- 실패: 갈래로 — 안내는 그 칸 문구 · 공통은 공통 번호 · 그 밖은 `E-BUG-01`(목록) · `02`(글) · `03`(등록) · `04`(답글) · `05`(👍) · `06`(공개 범위) · `07`(오늘 남은 수) · 관리자 `20`(답변) · `21`(링크 폼 열기) · `22`(링크 저장). 없는 글 · 남의 비공개 글은 번호 없이 그 화면.
 - 함정:
   - 목록 · 글 · 남은 수 받기마다 번호(gen)를 쥔다 — 그사이 다른 필터 · 다른 글 · reset 이면 늦은 답을 버린다. 쓰기는 한 번에 하나(busy).
   - 시작 전 · reset 뒤엔 받지 않는다(«로그인 뒤에 볼 수 있어요»). 배지를 타이머로 되풀이하지 않는다.
-  - TODO(D9-4): 관리자 [답변 등록] 은 아직 서버 길이 없어 등록하지 않고 까닭만 적는다.
+  - 관리자 [답변 등록] 은 글을 열 때 받은 `lastAnswerIso`(서버 글자 그대로)를 `seenLastAnswerAt` 으로 보낸다. 겹치면(409) 글을 다시 받고 쓴 글은 칸에 둔다. 알림은 서버가 글쓴이에게 보낸다(앱이 우편을 쓰지 않는다).
+  - 링크 폼은 열 때 받은 설정의 판(`version`) · 안내 글(`notice`)을 저장 때 그대로 싣는다(서버가 두 칸을 한 키로 받는다). 겹치면 다시 받아 칸을 채운다. 관리자 판정은 서버 — `isAdmin` 은 화면 깃발이다.
 - 검사: `checks/sim-bug-board.js`.
