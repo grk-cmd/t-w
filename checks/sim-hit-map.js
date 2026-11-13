@@ -135,7 +135,7 @@ function judgeAll(src){
   t(H.fresh(fm, 1249) && H.fresh(fm, 1250) && !H.fresh(fm, 1251), 'fresh — 249 · 250ms 는 믿고 251ms 는 낡음');
   const nm = H.createMap();
   t(!H.fresh(null, 0) && !H.fresh(nm, 0) && !H.fresh(H.reset(H.createMap(), -Infinity, 'error', null), 5) && !H.fresh(fm, 999), '  지도 없음 · 못 만듦(-∞) · 시계가 거꾸로 → 낡음');
-  t(H.skipWhy({ officeHidden: true, runmode: true }) === 'office' && H.skipWhy({ officeHidden: false, runmode: false }) === 'notRun' && H.skipWhy({ officeHidden: false, runmode: true }) === null && H.skipWhy(null) === 'notRun', 'skipWhy — 회사원 숨김 · 실행 화면 아님이면 빈 지도, 아니면 만든다');
+  t(H.skipWhy({ officeHidden: true, runmode: true }) === 'office' && H.skipWhy({ configHidden: true, runmode: true }) === 'config' && H.skipWhy({ officeHidden: false, runmode: false }) === 'notRun' && H.skipWhy({ officeHidden: false, configHidden: false, runmode: true }) === null && H.skipWhy(null) === 'notRun', 'skipWhy — 회사원 숨김 · 설정 화면(그리기를 건너뛰는 조건) · 실행 화면 아님이면 빈 지도, 아니면 만든다');
   t(H.HIT_MAP_PAD_PX === 8 && H.HIT_MAP_STALE_MS === 250, '상수 — 여유 8px · 낡음 250ms(설계 3-2)');
   return r;
 }

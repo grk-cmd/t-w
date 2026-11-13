@@ -3,9 +3,10 @@
    숨은 책상 빼기)과 새 판정(rebuild → pick)이 같은 답인지 본다. 거르기 규칙은 진짜 hidden-seats.js 를 쓴다.
    좌석: ① 앉음(뼈 대는 스킨 몸 · 책상 · 자리비움 그림 스프라이트 · raycast 를 끈 대역 · 선) ② 날아감 ③ 올라탐(책상 숨김) ④ 자리비움(몸 숨김)
    ・1절: 격자 1만 점 — 같은 답 · 맞는 점 · 사각형 안 못 맞는 점이 실제로 있음(헛판정 아님) · 화면 밀기 · 캔버스 자리
-   ・2절: 낡음 — 몸을 옮기고 안 그린 채 250ms 넘음 → 전체 광선으로 같은 답 · 못 만든 지도 · allowRay 거짓이면 광선 안 쏨 ·
-          회사원 숨김 빈 지도 · 다를 때 줄 재료(describe)
-   ・3절: 일부러 깨 보기 — 날아가는 몸을 지도에 · 스프라이트를 조각에서 뺌 · 숨은 책상 거르기 빠짐 · 낡음 규칙 빠짐
+   ・2절: 찾을 때 만들기 — 그린 장만 있고 판정이 없으면 안 만듦 · 판정이 찾을 때 한 번 · 다시 그리면 새 장으로 · 결과 객체 재사용 ·
+          못 만든 지도 → 전체 광선 · allowRay 거짓이면 광선 안 쏨 · 회사원 숨김 · 설정 화면 · 실행 화면 아님(deps) → 빈 지도 · 다를 때 줄 재료
+   ・3절: 일부러 깨 보기 — 날아가는 몸을 지도에 · 스프라이트를 조각에서 뺌 · 숨은 책상 거르기 빠짐 · 매 장 만들기로 되돌림 ·
+          장 번호 비교 빠짐 · 결과 객체를 판정마다 새로 · 못 만든 지도에서 전체 광선 빠짐
    [실행] 러너 스테이징(node checks/run.js seat-hit-targets) 또는 저장소 루트에서. */
 'use strict';
 const fs = require('fs');
@@ -85,9 +86,11 @@ function setup(src, w, opt){
   const clock = { t: 1000 };
   const ray = new THREE.Raycaster();
   const builds = [];
+  const env = opt.env || {};
   const mod = loadWin(src, 'TwSeatHitTargets').createSeatHitTargets({
     THREE, hitMap: HitMap, seats: w.seats, camera: w.camera, ray,
     canvasRect: opt.canvasRect || (() => VP),
+    officeHidden: () => !!env.office, configHidden: () => !!env.config, isRunmode: () => env.run !== false,
     partSkipped: opt.partSkipped || ((o) => hidden._partSkipped(o)),
     skipHits: (h) => hidden._skipUnhittable(h),
     now: () => clock.t,
@@ -100,7 +103,7 @@ function setup(src, w, opt){
     return ix.length > 0;
   };
   const neu = (x, y, allow) => mod.pick(ray, x, y, allow !== false);   // old() 바로 뒤 — 같은 광선
-  return { mod, old, neu, clock, builds, hidden, HitMap, ray };
+  return { mod, old, neu, clock, builds, hidden, HitMap, ray, env };
 }
 
 function grid(S){
@@ -121,71 +124,83 @@ function judgeAll(src, variant){
   const t = (ok, msg) => r.push([!!ok, msg]);
   /* 1절 */
   let w = world(), S = null, g = null;
-  try{ S = setup(src, w, variant.setup ? variant.setup(w) : null); S.mod.rebuild(null); g = grid(S); }catch(e){ g = null; t(false, '던짐 — ' + String(e.message || e).slice(0, 80)); }
+  try{ S = setup(src, w, variant.setup ? variant.setup(w) : null); S.mod.markRendered(); g = grid(S); }catch(e){ g = null; t(false, '던짐 — ' + String(e.message || e).slice(0, 80)); }
   t(g && g.diff === 0, '격자 ' + (g ? g.n : 0) + '점 — 옛 판정과 새 판정이 같다' + (g && g.diff ? ' — 다름 ' + g.diff + ' ' + g.first : ''));
   let gp = null;
-  try{ const wp = world({ plain: true }); const Sp = setup(src, wp, variant.setup ? variant.setup(wp) : null); Sp.mod.rebuild(null); gp = grid(Sp); }catch(_){}
+  try{ const wp = world({ plain: true }); const Sp = setup(src, wp, variant.setup ? variant.setup(wp) : null); Sp.mod.markRendered(); gp = grid(Sp); }catch(_){}
   t(gp && gp.diff === 0 && gp.hit > 200 && gp.near > 50 && gp.far > 1000, '  모르는 조각이 없는 방 — 같고, 맞는 점 · 사각형 안 못 맞는 점 · 먼 점이 다 있다(헛판정 아님) — ' + (gp ? gp.hit + ' · ' + gp.near + ' · ' + gp.far + (gp.diff ? ' 다름 ' + gp.diff : '') : '-'));
   const b = S && S.builds[S.builds.length - 1];
   t(b && !b.err && b.st.seats === 4 && b.st.parts > 10 && b.st.tris > 100 && b.st.full >= 2, '  지도 한 장 — 좌석 4 · 조각 · 삼각형 · 모르는 조각(끈 raycast · 선) 셈 — ' + (b ? JSON.stringify(b.st) : '-'));
   let g2 = null;
-  try{ const w2 = world({ offset: true }); const S2 = setup(src, w2, variant.setup ? variant.setup(w2) : null); S2.mod.rebuild(null); g2 = grid(S2); }catch(_){}
+  try{ const w2 = world({ offset: true }); const S2 = setup(src, w2, variant.setup ? variant.setup(w2) : null); S2.mod.markRendered(); g2 = grid(S2); }catch(_){}
   t(g2 && g2.diff === 0 && g2.hit > 100, '  화면 밀기(setViewOffset) 카메라에서도 같다' + (g2 && g2.diff ? ' — 다름 ' + g2.diff + ' ' + g2.first : ''));
-  /* 2절 */
-  let st = null;
+  /* 2절 — 판정이 찾을 때만 만든다 */
+  let lz = null;
   try{
-    const w3 = world(); const S3 = setup(src, w3, variant.setup ? variant.setup(w3) : null); S3.mod.rebuild(null);
-    w3.seats[0].group.position.x += 0.9; w3.seats[2].group.position.y += 0.5; w3.frame();   // 몸을 옮기고 지도는 안 만듦
-    S3.clock.t += 251;
+    const w3 = world(); const S3 = setup(src, w3, variant.setup ? variant.setup(w3) : null);
+    for(let k = 0; k < 30; k++) S3.mod.markRendered();
+    const b0 = S3.builds.length;
+    const x0 = VP.left + 160, y0 = VP.top + 330;
+    S3.old(x0, y0); const p1 = S3.neu(x0, y0); const built1 = p1.built;
+    S3.old(x0, y0); const p2 = S3.neu(x0, y0); const built2 = p2.built;
+    const b1 = S3.builds.length;
+    w3.seats[0].group.position.x += 0.9; w3.seats[2].group.position.y += 0.5; w3.frame(); S3.mod.markRendered();   // 몸을 옮기고 다시 그림
     const g3 = grid(S3);
-    let staleN = 0; const x0 = VP.left + 400, y0 = VP.top + 300; S3.old(x0, y0); if(S3.neu(x0, y0).stale) staleN++;
-    st = { g3, staleN };
+    lz = { b0, b1, built1, built2, same: p1 === p2, g3, b2: S3.builds.length };
   }catch(_){}
-  t(st && st.staleN === 1 && st.g3.diff === 0 && st.g3.hit > 200, '낡은 지도(251ms) — 몸을 옮겨도 전체 광선으로 같은 답' + (st && st.g3.diff ? ' — 다름 ' + st.g3.diff : ''));
+  t(lz && lz.b0 === 0, '그린 장만 있고 판정이 없으면 지도를 안 만든다(비용 0) — 30장에 만듦 ' + (lz ? lz.b0 : '-'));
+  t(lz && lz.b1 === 1 && lz.built1 === true && lz.built2 === false, '  판정이 찾을 때 한 번 · 같은 장의 다음 판정은 그 지도를 쓴다');
+  t(lz && lz.g3.diff === 0 && lz.g3.hit > 200 && lz.b2 === 2, '  몸을 옮겨 다시 그리면 다음 판정이 새 장으로 만들고 같은 답' + (lz && lz.g3.diff ? ' — 다름 ' + lz.g3.diff : ''));
+  t(lz && lz.same, '  pick 결과는 같은 객체를 다시 쓴다(판정마다 새 객체 없음)');
   let er = null;
   try{
-    const w4 = world(); const S4 = setup(src, w4, { canvasRect: () => { throw new Error('깨 봄'); } }); S4.mod.rebuild(null);
-    const bb = S4.builds[0]; const p = (S4.old(VP.left + 100, VP.top + 300), S4.neu(VP.left + 100, VP.top + 300));
-    er = { bb, p };
+    const w4 = world(); const S4 = setup(src, w4, { canvasRect: () => { throw new Error('깨 봄'); } }); S4.mod.markRendered();
+    const p = (S4.old(VP.left + 100, VP.top + 300), S4.neu(VP.left + 100, VP.top + 300));
+    er = { bb: S4.builds[0], stale: p.stale, g: grid(S4) };
   }catch(_){}
-  t(er && er.bb.err === true && er.p.stale === true, '지도를 못 만들면(던짐) 실패를 세고 늘 낡음 → 전체 광선');
+  t(er && er.bb.err === true && er.stale === true && er.g.diff === 0, '지도를 못 만들면(던짐) 실패를 세고 전체 광선으로 같은 답');
   let sk = null;
   try{
-    const w5 = world(); const S5 = setup(src, w5); S5.mod.rebuild(null);
+    const w5 = world(); const S5 = setup(src, w5); S5.mod.markRendered();
     let calls = 0; const realI = S5.ray.intersectObjects.bind(S5.ray);
     const x = VP.left + 160, y = VP.top + 330; S5.old(x, y);
+    const p0 = S5.neu(x, y, true); const b0 = S5.builds.length;
     S5.ray.intersectObjects = (...a) => { calls++; return realI(...a); };
-    const p1 = S5.neu(x, y, false); S5.clock.t += 400; const p2 = S5.neu(x, y, false);
-    sk = { calls, p1, p2 };
+    const p1 = S5.neu(x, y, false); const sk1 = p1.skipped, in1 = p1.inRect;
+    S5.mod.markRendered(); const p2 = S5.neu(x, y, false);
+    sk = { calls, sk1, in1, sk2: p2.skipped, built2: p2.built, b: S5.builds.length - b0 };
   }catch(_){}
-  t(sk && sk.calls === 0 && sk.p1.skipped && sk.p2.skipped && sk.p2.stale, 'allowRay 거짓 — 광선을 안 쏘고 건너뜀으로(지도 · 낡음은 그대로 알려 줌)');
-  let of = null;
-  try{
-    const w6 = world(); const S6 = setup(src, w6); S6.mod.rebuild('office');
+  t(sk && sk.calls === 0 && sk.sk1 && sk.in1 && sk.sk2 && !sk.built2 && sk.b === 0, 'allowRay 거짓(예산 넘음) — 광선을 안 쏘고 · 새 장이어도 지도를 안 만들고 건너뜀(지도 안인지는 알려 줌)');
+  const emptyWhy = (env) => { const w6 = world(); const S6 = setup(src, w6, { env }); S6.mod.markRendered();
     let any = 0; for(let i = 0; i < 40; i++){ const x = VP.left + i * 20, y = VP.top + 300; S6.old(x, y); const p = S6.neu(x, y); if(p.hit || p.inRect || p.stale) any++; }
-    of = { any, why: S6.mod.map().why, n: S6.mod.map().n };
-  }catch(_){}
-  t(of && of.any === 0 && of.why === 'office' && of.n === 0, '회사원 숨김 — 빈 지도(못 맞음 · 낡음 아님)');
+    return { any, why: S6.mod.map().why, n: S6.mod.map().n }; };
+  let of = null;
+  try{ of = [emptyWhy({ office: true }), emptyWhy({ config: true }), emptyWhy({ run: false })]; }catch(_){}
+  t(of && of.every(x => x.any === 0 && x.n === 0) && of.map(x => x.why).join() === 'office,config,notRun', '회사원 숨김 · 설정 화면 · 실행 화면 아님(deps) → 빈 지도 — ' + (of ? of.map(x => x.why).join(' · ') : '-'));
   let ds = null;
   try{
-    const w7 = world(); const S7 = setup(src, w7); S7.mod.rebuild(null);
+    const w7 = world(); const S7 = setup(src, w7); S7.mod.markRendered(); S7.old(1, 1); S7.neu(1, 1);
     ds = S7.mod.describe(w7.seats[2].desk.children[0], 5, 6, { drag: true });
     const d2 = S7.mod.describe(w7.seats[0].rig.children[1], 1, 2);
     ds = { a: ds, b: d2 };
   }catch(_){}
   t(ds && ds.a.seat === 2 && ds.a.kind === 'base' && ds.a.ride && ds.a.drag && ds.a.oldWhy === 'char:other#2' && ds.b.kind === 'rig' && ds.b.oldWhy === 'char:me' && ds.b.rect && isFinite(ds.b.rect.l) && ds.b.age === 0,
-    'describe — 좌석 · 몸/책상 · 좌석 사각형 · 지도 나이 · 상태(탐 · 끌) · 옛 이유');
+    'describe — 좌석 · 몸/책상 · 좌석 사각형 · 그린 뒤 시간 · 상태(탐 · 끌) · 옛 이유');
   return r;
 }
 
 const rows = judgeAll(MOD);
-rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 격자 1만 점'); if(i === 4) say('── 2. 낡음 · 못 만듦 · 건너뜀 · 회사원 · 다를 때 재료'); chk(ok, msg); });
+rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 격자 1만 점'); if(i === 4) say('── 2. 찾을 때 만들기 · 못 만듦 · 건너뜀 · 빈 지도 · 다를 때 재료'); chk(ok, msg); });
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['날아가는 몸을 지도에 넣기', MOD, { setup: (w) => { const h = loadWin(HS, 'TwHiddenSeats', LS).createHiddenSeats({ _flyActive: () => 0, seatFromObject: () => null, seats: w.seats }); return { partSkipped: (o) => h._partSkipped(o) }; } }],
   ['스프라이트를 조각에서 빼기', MOD.replace('if(rc === NO_RC) return;', 'if(rc === NO_RC || o.isSprite) return;'), null],
   ['숨은 책상 거르기 빼기', MOD, { setup: (w) => { const h = loadWin(HS, 'TwHiddenSeats', LS).createHiddenSeats({ _flyActive: () => 1, seatFromObject: () => null, seats: w.seats.map(s => Object.assign({}, s, { desk: null })) }); return { partSkipped: (o) => h._partSkipped(o) }; } }],
-  ['낡음 규칙 빼기', MOD.replace('const stale = !HitMap.fresh(map, t);', 'const stale = !isFinite(map.at);'), null],
+  ['매 장 만들기로 되돌림', MOD.replace('function markRendered(){ seq++; renderedAt = now(); }', 'function markRendered(){ seq++; renderedAt = now(); rebuild(); }'), null],
+  ['장 번호 비교 빠짐(한 번 만든 지도를 계속 씀)', MOD.replace('const need = mapSeq !== seq;', 'const need = mapSeq < 0;'), null],
+  ['결과 객체를 판정마다 새로', MOD.replace('if(!allowRay){ res.skipped = true; return res; }\n    _pickObjs', 'if(!allowRay){ res.skipped = true; return Object.assign({}, res); }\n    _pickObjs').replace('    return res;\n  }\n\n', '    return Object.assign({}, res);\n  }\n\n'), null],
+  ['예산을 넘어도 지도를 만듦', MOD.replace('if(need && !allowRay){', 'if(false){'), null],
+  ['못 만든 지도에서 전체 광선 빠짐', MOD.replace('const stale = !isFinite(map.at);', 'const stale = false;'), null],
 ];
 for(const [name, m2, v] of breaks){
   const changed = m2 !== MOD || !!v;

@@ -131,9 +131,10 @@ function fresh(map, now){
   const age = now - map.at;
   return age >= 0 && age <= HIT_MAP_STALE_MS;
 }
-/* 이번 장에 지도를 비울 까닭 — 회사원 모드 숨김(3D 판정 자체가 꺼짐) · 실행 화면 아님(판정이 3D 까지 안 감). 만들 장이면 null */
+/* 지도를 비울 까닭 — 그리기를 건너뛰는 조건(회사원 모드 숨김 · 설정 화면이 캔버스를 가림)과 같고, 실행 화면이 아니면(판정이 3D 까지 안 감) 비운다. 만들 때면 null */
 function skipWhy(s){
   if(s && s.officeHidden) return 'office';
+  if(s && s.configHidden) return 'config';
   if(!(s && s.runmode)) return 'notRun';
   return null;
 }

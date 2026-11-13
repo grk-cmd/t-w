@@ -378,7 +378,7 @@ if(desktopMode){
           /* 🩹 #7 — 올라탄 동물 좌석의 숨긴 책상이 머리 위 허공에 떠서 다른 앱 클릭을 가로챘다(_hitInHiddenDesk 주석).
              ⚡ 맞은 게 없으면 거르지 않는다 — 대부분의 호출(빈 공간)은 추가 비용 0 이다. */
           const _ix = _skipHiddenDesk(_skipFlyingRigs(_ix0));   // 🪑 날아가는 몸은 누를 일이 없다(_skipFlyingRigs 주석)
-          _hitShadowRun(cx, cy, _ix, performance.now() - _t3d);   // 🗺️ 답은 위 _ix 가 정한다 — 새 판정은 옆에서 세기만
+          _shadowArm(cx, cy, _ix, performance.now() - _t3d);   // 🗺️ 답은 위 _ix 가 정한다 — 새 판정은 보낸 뒤 _updateIgnore 끝에서
           if(_ix.length){
             let _si = -1;
             for(let o = _ix[0].object; o && _si < 0; o = o.parent){
@@ -392,26 +392,30 @@ if(desktopMode){
       }
       return false;
     };
-    /* 🗺️ 히트 맵 그림자 운행 — 같은 광선으로 새 판정(seatHit.pick)을 돌려 옛 답(_ix)과 견주고 hitShadow 에 센다.
-       ⚠️ 판정 결과 · _hitWhy 를 바꾸지 않는다 · 던지지 않는다. 걸린 시간은 _shadowMs 에 모아 [비용] 통과 시간에서 뺀다
-         (옛 판정만의 시간이 0.12.4-beta.0 과 견줄 수 있게 — 이 운행의 몫은 [지도] 줄의 «새» · «더함» 칸). */
-    let _shadowMs = 0;
-    function _hitShadowRun(cx, cy, ix, oldMs){
-      const t0 = performance.now();
-      const old = ix.length > 0;
+    /* 🗺️ 히트 맵 그림자 운행 — 같은 광선으로 새 판정(seatHit.pick)을 돌려 옛 답과 견주고 hitShadow 에 센다.
+       판정 안에서는 재료만 적어 두고(_shadowArm), 받기 · 통과를 main 에 보낸 뒤 _updateIgnore 끝에서 돌린다 — 받기가 그림자 몫만큼 늦지 않게.
+       ⚠️ 판정 결과 · _hitWhy 를 바꾸지 않는다 · 던지지 않는다. 판정 밖에서 돌아 [비용] 통과 시간에 안 든다(이 몫은 [지도] 줄 «새» · «더함»). */
+    const _shadow = { armed: false, cx: 0, cy: 0, old: false, oldObj: null, oldMs: 0 };
+    function _shadowArm(cx, cy, ix, oldMs){
+      _shadow.armed = true; _shadow.cx = cx; _shadow.cy = cy; _shadow.oldMs = oldMs;
+      _shadow.old = ix.length > 0; _shadow.oldObj = ix.length ? ix[0].object : null;
+    }
+    function _hitShadowRun(){
+      const sh = _shadow, t0 = performance.now();
+      sh.armed = false;
       try{
-        const p = seatHit.pick(ray, cx, cy, hitShadow.allow(t0));
-        const newMs = p.skipped ? -1 : performance.now() - t0;
+        const p = seatHit.pick(ray, sh.cx, sh.cy, hitShadow.allow(t0));
+        const newMs = performance.now() - t0;
         let detail = null;
-        if(!p.skipped && p.hit !== old){
-          detail = old ? seatHit.describe(ix[0].object, cx, cy, { drag: !!drag() })
-                       : seatHit.describe(p.obj, cx, cy, { drag: !!drag(), oldWhy: 'miss' });
+        if(!p.skipped && p.hit !== sh.old){
+          detail = sh.old ? seatHit.describe(sh.oldObj, sh.cx, sh.cy, { drag: !!drag() })
+                          : seatHit.describe(p.obj, sh.cx, sh.cy, { drag: !!drag(), oldWhy: 'miss' });
         }
-        hitShadow.record({ old, neu: p.skipped ? null : p.hit, stale: p.stale, inRect: p.inRect, oldMs, newMs, detail });
+        hitShadow.record({ old: sh.old, neu: p.skipped ? null : p.hit, built: p.built, stale: p.stale, inRect: p.inRect, oldMs: sh.oldMs, newMs, detail });
       }catch(_){
-        try{ hitShadow.record({ old, neu: null, stale: false, inRect: false, oldMs, newMs: -1, err: true }); }catch(__){}
+        try{ hitShadow.record({ old: sh.old, neu: null, inRect: false, oldMs: sh.oldMs, newMs: performance.now() - t0, err: true }); }catch(__){}
       }
-      _shadowMs += performance.now() - t0;
+      sh.oldObj = null;
     }
     /* 📏 판정 비용 계측 — 콘솔에서 `__hitStats()` 로 본다. 껐다 켜는 스위치가 아니라
        **지금 얼마나 불리고 있는지**를 보는 창구다(초당 횟수 · 한 번에 걸리는 시간).
@@ -422,9 +426,8 @@ if(desktopMode){
     const _pointHitsInteractiveRaw = _pointHitsInteractive;
     _pointHitsInteractive = function(cx, cy){
       const t0 = performance.now();
-      _shadowMs = 0;
       const r = _pointHitsInteractiveRaw(cx, cy);
-      const d = performance.now() - t0 - _shadowMs;   // 🗺️ 그림자 운행 몫은 뺀다(_hitShadowRun 주석)
+      const d = performance.now() - t0;
       _hitPerf.n++; _hitPerf.ms += d;
       if(d > _hitPerf.maxMs) _hitPerf.maxMs = d;
       runCost.add('hit', d);
@@ -599,6 +602,11 @@ if(desktopMode){
       return '클릭 받기로 되돌렸습니다 — 마우스를 캐릭터 위로 움직여 보세요';
     };
     function _updateIgnore(cx, cy){
+      _shadow.armed = false;
+      _updateIgnoreSend(cx, cy);
+      if(_shadow.armed) _hitShadowRun();   // 🗺️ 받기 · 통과를 보낸 뒤에(_shadowArm 주석)
+    }
+    function _updateIgnoreSend(cx, cy){
       const h = clickPolicy.hitStep({ hit: _pointHitsInteractive(cx, cy), ignoring: _ignoring });
       if(h === 'receive'){
         /* 🚫 여기서 _uiHot() 을 부르지 않는다 — 통과 중에도 초당 100번 돌아 상한이 오르내리면 뒤 영상이 깜빡인다.

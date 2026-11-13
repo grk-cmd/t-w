@@ -1,10 +1,11 @@
 /* hit-shadow.js — 🗺️ 히트 맵 그림자 운행(나란히 돌리기)의 셈 · 1분 [지도] 줄
    왜: 통과 판정을 히트 맵(hit-map.js)으로 바꾸기 전에, 옛 판정이 답을 정하는 그대로 두고 새 판정을 옆에서 돌려
-     «두 답이 다른 적이 있나 · 지도가 낡은 적이 얼마나 되나 · 판정이 어느 구간에서 얼마나 걸리나» 를 사용자 PC 들에서 모은다.
-   ★ 판정 · 화면 · 요청은 안 바꾼다 — 세고 줄을 만들기만. 끝내는 조건(지도만통과 0 · 지도만받기 0 · 낡음 1% 아래 ·
-     지도 만들기 평균 0.2ms 아래)은 설계 tw-docs design/app/hit-map.md 3-4.
-   ★ 새 판정은 옛 판정을 한 번 더 도는 셈이라 비용이 는다 — 광선을 쏘는 몫은 BUDGET_MS(1초 창마다)까지만 쓰고
-     넘으면 그 판정은 건너뛴다(건너뜀 칸). 지도 안에 드는지만 보는 몫은 늘 돈다(구간 칸).
+     «두 답이 다른 적이 있나 · 지도를 판정 몇 번에 한 번 다시 만드나 · 판정이 어느 구간에서 얼마나 걸리나» 를 사용자 PC 들에서 모은다.
+   ★ 판정 · 화면 · 요청은 안 바꾼다 — 세고 줄을 만들기만. 끝내는 조건은 설계 tw-docs design/app/hit-map.md 3-4.
+     설계와 다른 점: 지도를 매 장 만들지 않고 판정이 찾을 때 마지막으로 그린 장의 행렬로 만든다(seat-hit-targets.js) —
+     그래서 설계의 «낡음» 칸 대신 «만듦 n · 판정당 %»(판정 몇 번에 한 번 다시 만드나)를 적는다.
+   ★ 새 판정은 옛 판정을 한 번 더 도는 셈이라 비용이 는다 — 광선 · 지도 만들기 몫은 BUDGET_MS(1초 창마다)까지만 쓰고
+     넘으면 그 판정은 건너뛴다(건너뜀 칸 · 지도도 안 만듦). 구간 칸은 옛 답과 (있는) 지도로 어림한다.
    ⚠️ main 은 렌더러 진단 줄을 200자에서 자른다 — 줄은 LINE_MAX 안에서 끝난다.
    검사: checks/sim-hit-shadow.js */
 (function(){
@@ -31,7 +32,7 @@ function createHitShadow(opt){
   let acc, since = now(), winAt = -Infinity, winSpent = 0;
   let last = { seats: 0, parts: 0, tris: 0, full: 0 };
   function reset(){
-    acc = { n: 0, same: 0, leak: 0, grab: 0, stale: 0, skip: 0, err: 0,
+    acc = { n: 0, same: 0, leak: 0, grab: 0, full: 0, built: 0, skip: 0, err: 0,
       zone: { far: stat(), near: stat(), on: stat() }, neu: stat(), build: stat(), buildErr: 0,
       detail: { leak: null, grab: null } };
   }
@@ -41,13 +42,14 @@ function createHitShadow(opt){
     if(t - winAt >= BUDGET_WINDOW_MS || t < winAt){ winAt = t; winSpent = 0; }
     return winSpent < BUDGET_MS;
   }
-  /* 판정 한 번 — r = { old: 옛 답, neu: 새 답(건너뛰었으면 null), stale, inRect, oldMs, newMs, err, detail }
+  /* 판정 한 번 — r = { old: 옛 답, neu: 새 답(건너뛰었으면 null), built(이번에 지도를 만듦), stale(지도를 못 만들어 전체 광선), inRect, oldMs, newMs, err, detail }
      detail 은 다를 때만(부르는 쪽이 만든다) — 종류마다 1분에 첫 번째 것만 남긴다 */
   function record(r){
     acc.n++;
     const zone = r.old ? 'on' : (r.inRect ? 'near' : 'far');
     add(acc.zone[zone], r.oldMs);
-    if(r.stale) acc.stale++;
+    if(r.built) acc.built++;
+    if(r.stale) acc.full++;
     if(r.err){ acc.err++; return; }
     if(r.newMs >= 0){ add(acc.neu, r.newMs); winSpent += r.newMs; }
     if(r.neu === null || r.neu === undefined){ acc.skip++; return; }
@@ -56,7 +58,7 @@ function createHitShadow(opt){
     acc[k]++;
     if(!acc.detail[k] && r.detail) acc.detail[k] = r.detail;
   }
-  /* 지도 한 장 만든 시간 · 그 장의 크기(좌석 · 조각 · 삼각형 · 모르는 조각) */
+  /* 지도 한 번 만든 시간 · 그 지도의 크기(좌석 · 조각 · 삼각형 · 모르는 조각) — 판정 안(pick)에서 불린다 */
   function build(ms, st, err){
     add(acc.build, ms);
     if(err) acc.buildErr++;
@@ -83,20 +85,21 @@ const k = (n) => n >= 1000 ? Math.round(n / 1000) + 'k' : String(n | 0);
 const cut = (s) => s.length > LINE_MAX ? s.slice(0, LINE_MAX) : s;
 
 /* [지도] 한 줄 — r = take(). 판정이 없던 분이면 null.
-   예) [지도] 판정 5400 같음 5398 지도만통과 0 지도만받기 0 낡음 2 건너뜀 2 · 먼 4100 0.06 근처 1100 4.10 위 200 5.20ms · 새 0.01/5.90ms · 지도 1200장 0.03/0.20ms 좌석 3 조각 96 삼각 41k 모름 0 · 더함 초당 0.95ms
-   구간 = 옛 판정 횟수 · 평균 시간. «새» = 새 판정 평균/최대. «더함 초당» = (새 판정 + 지도 만들기) 합 ÷ 초 — 이 운행이 더하는 몫 */
+   예) [지도] 판정 5400 같음 5400 지도만통과 0 지도만받기 0 건너뜀 0 · 먼 4100 0.06 근처 1100 4.10 위 200 5.20ms · 새 0.03/5.90ms · 지도 만듦 900 판정당 17% 0.03/0.20ms 좌석 3 조각 96 삼각 41k 모름 0 · 더함 초당 0.95ms
+   구간 = 옛 판정 횟수 · 평균 시간. «새» = 새 판정(지도 만들기 포함) 평균/최대. «만듦 · 판정당» = 지도를 다시 만든 횟수 · 판정에 대한 비율.
+   «전체» = 지도를 못 만들어 모든 좌석에 광선(있을 때만). «더함 초당» = 새 판정 합 ÷ 초 — 이 운행이 더하는 몫 */
 function line(r){
   if(!r || !r.n) return null;
   const z = r.zone || {};
   const zs = ZONES.map(n => ZONE_NAME[n] + ' ' + (z[n] ? z[n].n : 0) + ' ' + f(avg(z[n]))).join(' ');
   const b = r.build || stat(), nu = r.neu || stat(), ls = r.last || {};
   const sec = r.sec > 0 ? r.sec : 60;
-  const extra = (nu.sum + b.sum) / sec;
+  const extra = nu.sum / sec;   // 지도 만들기는 pick 안에서 돌아 이미 «새» 에 든다
   const s = TAG + ' 판정 ' + r.n + ' 같음 ' + r.same + ' ' + KIND.leak + ' ' + r.leak + ' ' + KIND.grab + ' ' + r.grab
-    + ' 낡음 ' + r.stale + ' 건너뜀 ' + r.skip + (r.err ? ' 오류 ' + r.err : '')
+    + ' 건너뜀 ' + r.skip + (r.full ? ' 전체 ' + r.full : '') + (r.err ? ' 오류 ' + r.err : '')
     + ' · ' + zs + 'ms'
     + ' · 새 ' + f(avg(nu)) + '/' + f(nu.max) + 'ms'
-    + ' · 지도 ' + b.n + '장 ' + f(avg(b)) + '/' + f(b.max) + 'ms' + (r.buildErr ? ' 실패 ' + r.buildErr : '')
+    + ' · 지도 만듦 ' + b.n + ' 판정당 ' + Math.round(100 * (r.built || 0) / r.n) + '% ' + f(avg(b)) + '/' + f(b.max) + 'ms' + (r.buildErr ? ' 실패 ' + r.buildErr : '')
     + ' 좌석 ' + (ls.seats | 0) + ' 조각 ' + (ls.parts | 0) + ' 삼각 ' + k(ls.tris) + ' 모름 ' + (ls.full | 0)
     + ' · 더함 초당 ' + f(extra) + 'ms';
   return cut(s);

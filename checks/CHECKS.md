@@ -441,9 +441,9 @@
 | **sim-run-cost-diag.js** | 163 | **75186f43715b** |
 | **sim-heartbeat.js** | 87 | **f470ff5cf8b3** |
 | **sim-run-diag-minute.js** | 132 | **22f5e396c651** |
-| **sim-hit-map.js** | 159 | **45880fe87d76** |
-| **sim-hit-shadow.js** | 177 | **48eb83d8e3dd** |
-| **sim-seat-hit-targets.js** | 196 | **41aab7c2f6ae** |
+| **sim-hit-map.js** | 159 | **227daad5d26e** |
+| **sim-hit-shadow.js** | 185 | **787bd8e1b001** |
+| **sim-seat-hit-targets.js** | 211 | **fe65419f52f2** |
 | **sim-system-prompt.js** | 100 | **fbdbd1b9e8a6** |
 | **sim-mh-title-nodrag.js** | 56 | **75889fdccb2a** |
 
