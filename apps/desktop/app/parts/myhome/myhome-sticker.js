@@ -15,8 +15,7 @@
        · _mhStickerEditSid = x → _setMhStickerEditSid(x) · _mhStickerDragDist = x → _setMhStickerDragDist(x)
          두 let 은 app.js 의 renderMyHomeStickers 가 읽고(편집 표시 · 드래그 직후 링크 안 엶), 마이홈 페이지 편집 묶음도
          _mhStickerDragDist 를 쓰므로 app.js 에 두고 쓰는 함수로 받는다.
-   ★ renderMyHomeStickers · commitMyHomePage 는 화살표로 받는다 — renderMyHomeStickers 는 app.js 의 마이홈 페이지 편집 묶음이
-     나중에 감싸 다시 대입하고(삭제 버튼에 자동 저장을 붙인다), commitMyHomePage 는 그 묶음이 window 에 거는 이름이다.
+   ★ renderMyHomeStickers 는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다). 스티커 값은 store 의 동작 함수로만 고친다.
      부를 때 찾아야 예전과 같은 함수를 부른다.
    ★ 밖으로 내놓는 이름은 반환값이다(open · close · render · bringIn · editStart · editEnd · bindDrag · bindRotate · bindResize).
      부르는 곳(app.js 의 renderMyHomeStickers · 마이홈 닫기 · [+ 스티커] · 새 스티커 붙이기)은 전부 사용자가 마이홈을 연 뒤에 돌므로
@@ -32,7 +31,7 @@
 function createMyHomeSticker(deps){
 const toast = deps.toast;
 const asyncPrompt = deps.asyncPrompt;                    // ✏️ 인앱 프롬프트(🔗 링크 바꾸기)
-const commitMyHomePage = deps.commitMyHomePage;          // 💾 자동 저장 — app.js 마이홈 페이지 편집 묶음이 window 에 건다
+const store = deps.myhomeStore;                          // 🏠 상태 주인(myhome-store.js) — 스티커는 editSticker · removeSticker · moveSticker 로만 고친다
 const renderMyHomeStickers = deps.renderMyHomeStickers;  // 🎨 스티커 다시 그리기 — app.js(마이홈 페이지 편집 묶음이 감싸 다시 대입한다)
 const _mhStickerOutOfView = deps.mhStickerOutOfView;     // 📐 스티커 자리 · 크기 도우미 — app.js(마이홈 페이지 그리기)
 const _mhClampStickerPos = deps.mhClampStickerPos;
@@ -91,13 +90,13 @@ function renderStickerMgr(){
     const s=data[sid];
     const locked=stRules.isLocked(s);
     const row=document.createElement('div'); row.className='st-mgr-row' + (locked ? ' locked' : '');
-    const redraw=()=>{ renderMyHomeStickers(); commitMyHomePage(true); renderStickerMgr(); };
+    const redraw=()=>{ renderMyHomeStickers(); renderStickerMgr(); };
 
     /* ▲▼ 그리는 순서 — 줄 맨 앞(레이어 목록처럼). ▲ 는 한 칸 앞(다른 스티커 위로). 잠겨도 순서는 바꿀 수 있다(자리 · 크기만 잠근다). */
     const ord=document.createElement('div'); ord.className='st-mgr-ord';
     const mkOrd=(txt, title, dir, off)=>{ const b=document.createElement('button'); b.type='button';
       b.textContent=txt; b.title=title; b.disabled=off;
-      b.onclick=()=>{ if(stRules.move(data, sid, dir)) redraw(); };
+      b.onclick=()=>{ store.moveSticker(sid, dir); redraw(); };
       ord.appendChild(b); };
     mkOrd('▲', '한 칸 앞으로(다른 스티커 위에)', 1, k===0);
     mkOrd('▼', '한 칸 뒤로', -1, k===ids.length-1);
@@ -129,7 +128,7 @@ function renderStickerMgr(){
 
     /* 🔒 잠금 — 끌기 · ◎ 로는 안 움직인다(고칠 땐 우클릭 · ✎ 편집 모드 — 잠금은 그대로). 편집 중인 것을 잠그면 편집을 끝낸다. */
     const lockBtn = mk(btns, locked ? '🔒' : '🔓', locked ? '잠금 풀기' : '잠그기(끌어서 안 움직임)', ()=>{
-      stRules.setLocked(s, !locked);
+      store.editSticker(sid, { locked: !locked });
       if(!locked && _mhStickerEditSid()===sid) _mhStickerEditEnd();
       redraw();
     });
@@ -138,7 +137,7 @@ function renderStickerMgr(){
        화면 밖에 있던 스티커라면 먼저 창 안으로 당긴 뒤 편집모드로 들어간다(안 그러면 또 안 보인다).
        ⚠️ ◎(_mhBringStickerIn)는 잠긴 것을 건너뛰어서 여기선 직접 당긴다 — 창 밖의 잠긴 스티커를 고칠 길은 ✎ 뿐이다. */
     mk(btns, '✎', locked ? '편집 (잠금은 그대로 — 끌어서는 안 움직여요)' : '편집 (이동·크기·회전)', ()=>{
-      if(_mhStickerOutOfView(s)){ _mhClampStickerPos(s); commitMyHomePage(true); }
+      if(_mhStickerOutOfView(s)){ const t=_mhClampStickerPos(Object.assign({}, s)); store.editSticker(sid, { x: t.x, y: t.y }); }
       closeStickerMgr();
       renderMyHomeStickers();
       _mhStickerEditStart(sid);
@@ -168,12 +167,12 @@ function renderStickerMgr(){
       if(v===null || v===undefined) return;                 // 취소 — 그대로 둔다
       const u=(v||'').trim().slice(0,300);
       if(u && !/^https?:\/\//i.test(u)){ toast('http:// 또는 https:// 로 시작하는 주소만 넣을 수 있어요'); return; }
-      s.link = u || null;
+      store.editSticker(sid, { link: u });
       redraw();
     });
     item('× 삭제', '이 스티커 지우기', ()=>{
       if(!confirm('이 스티커를 지울까요?')){ window.focus(); return; } window.focus();
-      delete _myHomeData().stickers[sid];
+      store.removeSticker(sid);
       if(_mhStickerEditSid()===sid) _mhStickerEditEnd();
       redraw();
     }).classList.add('danger');
@@ -189,20 +188,23 @@ function renderStickerMgr(){
 function _mhBringStickerIn(sid){
   const s=(_myHomeData() && _myHomeData().stickers || {})[sid]; if(!s) return;
   if(stRules.isLocked(s)) return;
+  const t=Object.assign({}, s);
   if(!_mhStickerOutOfView(s)){
     const { W, H } = _mhHomeWinSize();
     const d = _mhStickerDispSize(s);
-    s.x = Math.round((W - d.w)/2); s.y = Math.round((H - d.h)/2);
+    t.x = Math.round((W - d.w)/2); t.y = Math.round((H - d.h)/2);
   }
-  _mhClampStickerPos(s);
+  _mhClampStickerPos(t);
+  store.editSticker(sid, { x: t.x, y: t.y });
 }
 try{
   document.getElementById('stMgrClose').onclick = closeStickerMgr;
   document.getElementById('stMgrBringAll').onclick = ()=>{
     const data=(_myHomeData() && _myHomeData().stickers) || {};
-    let n=0;
-    Object.keys(data).forEach(sid=>{ if(_mhStickerOutOfView(data[sid]) && !stRules.isLocked(data[sid])){ _mhClampStickerPos(data[sid]); n++; } });
-    if(n){ renderMyHomeStickers(); commitMyHomePage(true); toast(n+'개를 화면 안으로 데려왔어요'); }
+    const patches={};
+    Object.keys(data).forEach(sid=>{ if(_mhStickerOutOfView(data[sid]) && !stRules.isLocked(data[sid])){ const t=_mhClampStickerPos(Object.assign({}, data[sid])); patches[sid]={ x: t.x, y: t.y }; } });
+    const n=Object.keys(patches).length;
+    if(n){ store.editStickers(patches); renderMyHomeStickers(); toast(n+'개를 화면 안으로 데려왔어요'); }
     renderStickerMgr();
   };
 }catch(_){}
@@ -231,7 +233,7 @@ function _mhStickerEditCloser(ev){
 
 /* 스티커 드래그 이동 — 편집모드일 때만. 좌표는 마이홈 창 기준. */
 function _mhBindStickerDrag(el, sid){
-  let dragging=false, sx=0, sy=0, ox=0, oy=0;
+  let dragging=false, sx=0, sy=0, ox=0, oy=0, moved=null;
   el.addEventListener('pointerdown', e=>{
     if(!el.classList.contains('editing')) return;                 // 편집모드 아니면 이동 안 함
     if(e.target.classList.contains('mh-sticker-handle')) return;  // 핸들은 크기 조절 담당
@@ -239,7 +241,7 @@ function _mhBindStickerDrag(el, sid){
     if(e.target.classList.contains('mh-sticker-anim')) return;    // ✨ 움직임 버튼 — 드래그로 삼키지 않게
     e.preventDefault(); e.stopPropagation();
     const s = (_myHomeData().stickers||{})[sid]; if(!s) return;   // 편집 모드는 잠긴 스티커도 움직인다(잠금은 편집 모드 밖의 끌기만 막는다)
-    dragging=true; sx=e.clientX; sy=e.clientY;
+    dragging=true; sx=e.clientX; sy=e.clientY; moved=null;
     ox=s.x||0; oy=s.y||0; _setMhStickerDragDist(0);
     try{ el.setPointerCapture(e.pointerId); }catch(_){}
   });
@@ -249,15 +251,15 @@ function _mhBindStickerDrag(el, sid){
     const dx=e.clientX-sx, dy=e.clientY-sy;
     _setMhStickerDragDist(Math.abs(dx)+Math.abs(dy));
     // 창 밖으로 나가지 않게 통째로 안에 붙잡는다 (_mhClampStickerPos 주석 참고 — 나가면 되찾을 수가 없다)
-    s.x = ox+dx; s.y = oy+dy;
-    _mhClampStickerPos(s);
-    el.style.left=s.x+'px'; el.style.top=s.y+'px';
+    const t=_mhClampStickerPos(Object.assign({}, s, { x: ox+dx, y: oy+dy }));   // 끄는 동안은 화면만 — 놓을 때 store 에 한 번
+    moved={ x: t.x, y: t.y };
+    el.style.left=t.x+'px'; el.style.top=t.y+'px';
   });
   const end=e=>{
     if(!dragging) return;
     dragging=false;
     try{ el.releasePointerCapture(e.pointerId); }catch(_){}
-    commitMyHomePage(true);
+    if(moved){ store.editSticker(sid, moved); moved=null; }
   };
   el.addEventListener('pointerup', end);
   el.addEventListener('pointercancel', end);
@@ -266,7 +268,7 @@ function _mhBindStickerDrag(el, sid){
 /* 회전 핸들 — 스티커 중심을 기준으로 마우스 각도를 따라 돎. 3도 단위로 스냅.
    Shift를 누르면 15도 단위로 더 크게 스냅(빠르게 직각 맞추기). */
 function _mhBindStickerRotate(handle, sid, lblEl){
-  let dragging=false, cx=0, cy=0, startAngle=0, startRot=0;
+  let dragging=false, cx=0, cy=0, startAngle=0, startRot=0, rotNow=null;
   const el = ()=>handle.parentElement;
 
   const angleOf = (e)=>{
@@ -281,7 +283,7 @@ function _mhBindStickerRotate(handle, sid, lblEl){
     const r = node.getBoundingClientRect();
     cx = r.left + r.width/2;
     cy = r.top  + r.height/2;
-    dragging=true;
+    dragging=true; rotNow=null;
     startAngle = angleOf(e);
     startRot = (typeof s.rot==='number') ? s.rot : 0;
     node.classList.add('rotating');
@@ -297,9 +299,9 @@ function _mhBindStickerRotate(handle, sid, lblEl){
     // -180 ~ 180 범위로 정규화 (표시용)
     while(deg > 180) deg -= 360;
     while(deg <= -180) deg += 360;
-    s.rot = deg;
+    rotNow = deg;
     const node = el();
-    if(node) node.style.transform = _mhStickerTransform(s);
+    if(node) node.style.transform = _mhStickerTransform(Object.assign({}, s, { rot: deg }));
     if(lblEl) lblEl.textContent = Math.round(deg) + '°';
   });
 
@@ -309,7 +311,7 @@ function _mhBindStickerRotate(handle, sid, lblEl){
     const node = el();
     if(node) node.classList.remove('rotating');
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
-    commitMyHomePage(true);
+    if(rotNow !== null){ store.editSticker(sid, { rot: rotNow }); rotNow=null; }
     window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);
@@ -318,11 +320,11 @@ function _mhBindStickerRotate(handle, sid, lblEl){
 
 /* 코너 핸들로 크기 조절 — 우하단으로 끌면 커짐 */
 function _mhBindStickerResize(handle, sid){
-  let dragging=false, sx=0, sy=0, startSize=1;
+  let dragging=false, sx=0, sy=0, startSize=1, sizeNow=null;
   handle.addEventListener('pointerdown', e=>{
     e.preventDefault(); e.stopPropagation();
     const s=(_myHomeData().stickers||{})[sid]; if(!s) return;
-    dragging=true; sx=e.clientX; sy=e.clientY;
+    dragging=true; sx=e.clientX; sy=e.clientY; sizeNow=null;
     startSize=(typeof s.size==='number' && s.size>0)?s.size:1;
     try{ handle.setPointerCapture(e.pointerId); }catch(_){}
   });
@@ -331,15 +333,15 @@ function _mhBindStickerResize(handle, sid){
     const s=(_myHomeData().stickers||{})[sid]; if(!s) return;
     const dx=e.clientX-sx, dy=e.clientY-sy;
     const delta = (dx + dy) / (STICKER_BASE*2);
-    s.size = Math.max(0.3, Math.min(8, startSize + delta));   // 창 전체를 쓰므로 상한을 넉넉히
+    sizeNow = Math.max(0.3, Math.min(8, startSize + delta));   // 창 전체를 쓰므로 상한을 넉넉히
     const el = handle.parentElement;
-    if(el) el.style.transform = _mhStickerTransform(s);   // 회전값도 함께 유지
+    if(el) el.style.transform = _mhStickerTransform(Object.assign({}, s, { size: sizeNow }));   // 회전값도 함께 유지
   });
   const end=e=>{
     if(!dragging) return;
     dragging=false;
     try{ handle.releasePointerCapture(e.pointerId); }catch(_){}
-    commitMyHomePage(true);
+    if(sizeNow !== null){ store.editSticker(sid, { size: sizeNow }); sizeNow=null; }
     window._mhFitWindow();   // 창 밖으로 나간 만큼 런처 창을 넓힌다(app.js _mhStickerOverhang)
   };
   handle.addEventListener('pointerup', end);

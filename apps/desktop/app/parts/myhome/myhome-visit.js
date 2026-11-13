@@ -1,5 +1,5 @@
 /* myhome-visit.js — 🏠 마이홈 2단계 — 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)
-   app.js «🏠 마이홈 2단계 — 내 마이홈 데이터(_myHomeData) · 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 44번 — docs/APP_FSD_MAP.md).
+   app.js «🏠 마이홈 2단계 — 내 마이홈 데이터(_myHomeData) · 👀 친구 홈 구경(openFriendHomeView · closeFriendHomeView)» 구역을 옮긴 모듈이다(앱 FSD 44번). 받기 · 구경 상태는 myhome-store.js(D2-2).
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 7줄 —
      _myHomeFriends · myHomeOpen 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setMyHomeOpen(…).
@@ -25,33 +25,20 @@ const renderMyHomePage = deps.renderMyHomePage;
 const toast = deps.toast;
 const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 닉네임 입력칸 취소는 편집 묶음이 열 때만 건다
 const setMyHomeOpen = deps.setMyHomeOpen;   // 쓰는 함수
-const _myHomeData = deps._myHomeData;   // 읽는 함수 — 마이홈 공용 상태(myhome-state.js)
-const _myHomeLoaded = deps._myHomeLoaded;   // 읽는 함수
 const _mhViewingUserId = deps._mhViewingUserId;   // 읽는 함수
 const _mhViewingName = deps._mhViewingName;   // 읽는 함수
-const _mhHomeFromServer = deps._mhHomeFromServer;
 const _mhViewingDisplayName = deps._mhViewingDisplayName;
-const setMyHomeData = deps.setMyHomeData;   // 쓰는 함수
-const setMhViewingUserId = deps.setMhViewingUserId;   // 쓰는 함수
-const setMhViewingName = deps.setMhViewingName;   // 쓰는 함수
+const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 구경 받기 · 닫기
+const fetchCards = deps.fetchCards;   // (codes) → Promise<{ code: 명함 }> — 이름을 모르는 사람 이름 한 줄(D3 social-api.js)
 const refreshFriendProfile = deps.refreshFriendProfile;   // (fid) → Promise<bool> — 친구면 이름 · 레벨을 새로 읽어 목록에 얹는다(friends-sub.js)
-let _mhMyDataBackup = null;
 async function openFriendHomeView(friendId, nameHint){
   if(!friendId || friendId===getMyUserId()) return;
-  if(!(window.firebaseAPI && firebaseAPI.getMyHome)){ toast('네트워크 연결을 확인해주세요'); return; }
-  setMhViewingName((typeof nameHint==='string' && nameHint.trim()) ? nameHint.trim() : null);
+  /* 그 집 페이지 + 바탕화면을 한 번에 받는다 — 못 받으면 지금 보던 집 그대로(E-MH-21 은 store 가 띄운다) · 없는 사람은 서버 문구 안내.
+     집을 빨리 옮겨도 늦게 온 앞 집 답은 store 의 gen 이 버린다. */
+  const r = await myhomeStore.openView(friendId, nameHint);
+  if(r !== 'ok') return;
   try{
-    const data = await firebaseAPI.getMyHome(friendId);
-    // 관람 중에 또 다른 친구 마이홈으로 넘어가는 경우, 원래 내 데이터 백업(_mhMyDataBackup)은 그대로 유지 —
-    //   덮어쓰면 나중에 돌아갔을 때 "친구1 데이터가 내 마이홈으로 복원"되는 버그가 생김.
-    // ★ 추가 수정: 이번 세션에서 내 마이홈을 서버에서 로드한 적이 없으면(방에서 곧장 우클릭 방문 등)
-    //   _myHomeData가 "빈 초기값"이라 이걸 백업하면 복귀 때 마이홈이 초기화된 것처럼 보였다.
-    //   미로드 상태면 백업하지 않고(null), 복귀 시 closeFriendHomeView가 서버에서 로드하게 한다.
-    if(!_mhViewingUserId()){ _mhMyDataBackup = _myHomeLoaded() ? _myHomeData() : null; }
     window._mhPreviewMode = false;   // 👁 미리보기 중이었으면 해제 (실제 방문으로 전환)
-    setMhViewingUserId(friendId);
-    // ★ theme 포함 — 관람 모드에서도 친구의 👑 프리미엄 디자인이 그대로 보이게 (loadMyHomePage와 동일한 누락 버그 수정)
-    setMyHomeData(_mhHomeFromServer(data));
     // 마이홈 창을 안 열려있으면 열기 + 마이홈 탭으로 전환 (loadMyHomePage 트리거 없이 수동 전환)
     const overlay=document.getElementById('myHomeOverlay');
     if(overlay && !overlay.classList.contains('on')){ overlay.classList.add('on'); setMyHomeOpen(true); }
@@ -83,12 +70,13 @@ async function openFriendHomeView(friendId, nameHint){
         if(_mhViewingDisplayName() !== shownName){ _mhApplyVisitUI(); renderMyHomePage(); }
         return;
       }
-      if(!_mhViewingName() && !(_myHomeFriends()[friendId] && _myHomeFriends()[friendId].name) && firebaseAPI.getUserNameById){
-        Promise.resolve(firebaseAPI.getUserNameById(friendId)).then(n=>{
+      if(!_mhViewingName() && !(_myHomeFriends()[friendId] && _myHomeFriends()[friendId].name)){
+        Promise.resolve(fetchCards([friendId])).then(cards=>{
+          const n = cards && cards[friendId] && cards[friendId].name;
           if(_mhViewingUserId() !== friendId || !n) return;
-          setMhViewingName(String(n));
+          myhomeStore.setViewName(String(n));
           _mhApplyVisitUI(); renderMyHomePage();
-        }).catch(()=>{});
+        }).catch(()=>{});   // 이름을 모르면 «친구»(지금 폴백) · 번호 없음
       }
     });
     window._mhReSubscribeGuestbook();
@@ -99,16 +87,12 @@ async function openFriendHomeView(friendId, nameHint){
 }
 function closeFriendHomeView(){
   if(!_mhViewingUserId()) return;
-  setMhViewingUserId(null);
-  setMhViewingName(null);   // 🏷️ 다음 관람에 이전 사람 이름이 남지 않게
-  if(_mhMyDataBackup) setMyHomeData(_mhMyDataBackup);
-  _mhMyDataBackup = null;
-  // ★ 버그 수정("내 마이홈으로" 복귀 시 초기화된 것처럼 보임): 방에서 곧장 친구 홈으로 들어온 세션은
-  //   내 마이홈이 서버에서 로드된 적이 없어 복귀 화면이 빈 초기값으로 그려졌다. 실제 데이터는 안전함 —
-  //   저장 가드(_myHomeLoaded 전제)가 미로드 세션의 덮어쓰기를 원래부터 막고 있었고, 표시만 문제였다.
-  //   미로드 상태면 지금 서버에서 로드(loadMyHomePage가 끝에서 스스로 렌더함).
-  if(!_myHomeLoaded()){
+  myhomeStore.closeView();   // 이름 힌트도 같이 비운다 — 내 홈은 사본 없이 그대로 있다(백업 · 복원 없음)
+  /* 내 홈을 받은 적이 없거나 못 받았으면(방에서 곧장 친구 홈으로 들어온 세션) 지금 한 번 받는다 — 못 올린 고침이 있으면 store 가 받지 않는다. */
+  if(myhomeStore.mine().load !== myhomeStore.LOAD.READY){
     Promise.resolve(loadMyHomePage()).catch(()=>{});
+  }else{
+    myhomeStore.pullMine({ site: 'quiet' });   // 돌아올 때 한 번(ETag) — 같으면 304 · 번호 없음(보던 값 그대로)
   }
   _mhApplyVisitUI();
   renderMyHomePage();
