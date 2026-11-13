@@ -32,13 +32,13 @@ function _seatHidden(seat){
   if(seat.friendUserId && _reportHiddenUids.has(seat.friendUserId)) return true;   // 🚩 모든 채널
   return !!(seat.friendId && window._activeChannel === 1 && _hiddenSeatIds.has(seat.friendId));
 }
-/* 몸이 화면에 안 보이는 좌석 — 숨긴 좌석(rig 꺼짐) · 자리비움(투명도 0 이라 몸 메쉬를 꺼 둠 — app.js setSeatOpacity).
+/* 몸이 화면에 안 보이는 좌석 — 숨긴 좌석(rig 꺼짐) · 자리비움(app.js setSeatOpacity 가 몸 메쉬를 끄며 seat._bodyOff 를 세움 — 투명도 기준은 거기 한 곳).
    이런 좌석은 매 장 동작(뼈대) 계산을 건너뛴다 — 안 보이는 몸을 움직여 봐야 화면은 같다.
    ⚠️ 위치(group · rig)는 계속 맞춘다 — 책상은 보이고 올라탄 캐릭터 · 벤치가 그 자리를 읽는다. */
 function _bodyHidden(seat){
   if(!seat) return false;
   if(seat.rig && seat.rig.visible === false) return true;
-  return seat._lastOp != null && seat._lastOp < 0.001;
+  return seat._bodyOff === true;
 }
 /* 🩹 [2026-10-02 제보 #7] «머리 잡고 끌면 옆으로 빠지고 올라타기가 안 됨 · 캐릭터 위쪽 다른 앱 클릭을 앱이 가로챔»
    [원인] 동물이 머리 위에 올라타면 그 좌석의 **책상은 desk.visible=false 로 숨기기만** 한다(mountRide).

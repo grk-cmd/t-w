@@ -81,17 +81,18 @@ say('── 2-1. _bodyHidden — 몸이 안 보이는 좌석은 동작 계산을
     let H; try{ H = build(mod)._bodyHidden; }catch(_){ return false; }
     if(typeof H !== 'function') return false;
     return H({ rig:{ visible:false } }) === true
-      && H({ rig:{ visible:true }, _lastOp:0 }) === true
-      && H({ rig:{ visible:true }, _lastOp:0.0009 }) === true
-      && H({ rig:{ visible:true }, _lastOp:1 }) === false
-      && H({ rig:{ visible:true }, _lastOp:0.3 }) === false
+      && H({ rig:{ visible:true }, _bodyOff:true }) === true
+      && H({ rig:{ visible:true }, _bodyOff:false }) === false
       && H({ rig:{ visible:true } }) === false
+      && H({ rig:{ visible:true }, _lastOp:0 }) === false
       && H(null) === false;
   };
-  chk(judgeBody(MOD), '★ 숨김(rig 꺼짐) · 자리비움(투명도 0) → 건너뜀 · 보통 · 반투명 · 아직 투명도 안 정함 · 좌석 없음 → 계산');
-  chk(!judgeBody(MOD.replace('return seat._lastOp != null && seat._lastOp < 0.001;', 'return false;')), '깨 보기: 자리비움을 못 보면 빨강');
+  chk(judgeBody(MOD), '★ 숨김(rig 꺼짐) · 몸 꺼짐 표시(_bodyOff) → 건너뜀 · 표시 없음 · 꺼짐 풂 · 좌석 없음 → 계산 · 투명도 숫자를 따로 보지 않는다');
+  chk(!judgeBody(MOD.replace('return seat._bodyOff === true;', 'return false;')), '깨 보기: 자리비움(몸 꺼짐)을 못 보면 빨강');
   chk(!judgeBody(MOD.replace('if(seat.rig && seat.rig.visible === false) return true;', '')), '깨 보기: 숨긴 좌석을 못 보면 빨강');
-  chk(!judgeBody(MOD.replace('return seat._lastOp != null && seat._lastOp < 0.001;', 'return !(seat._lastOp >= 0.001);')), '깨 보기: 투명도를 아직 안 정한 좌석까지 건너뛰면 빨강');
+  chk(!judgeBody(MOD.replace('return seat._bodyOff === true;', 'return seat._bodyOff !== false;')), '깨 보기: 표시가 아직 없는 좌석까지 건너뛰면 빨강');
+  const so = (SRC.match(/function setSeatOpacity\(seat, op\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/const hide = op < [\d.]+;\s*\n\s*seat\._bodyOff = hide;/.test(so) && !/_lastOp\s*<|0\.001/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '')), 'app.js setSeatOpacity 가 몸을 끄는 바로 그 판단으로 _bodyOff 를 세운다 · 이 모듈은 투명도 기준을 따로 갖지 않는다');
   const n = (SRC.match(/if\(!hiddenSeatsMod\._bodyHidden\(seat\)\) (seat\.mixer\.update\(dt\)|animateRig\(seat,now,state\))/g) || []).length;
   chk(n === 2, 'app.js — 클립 동작(mixer) · 뼈대 동작(animateRig) 두 길 모두 이 판단을 거친다');
 }

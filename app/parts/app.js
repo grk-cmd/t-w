@@ -3824,6 +3824,7 @@ function setSeatOpacity(seat, op){
   //   자리비움 진입 시 원래 visible 값을 userData._prevVisible에 기억해두고,
   //   자리비움 해제 시 그 값으로 복원. 정상 상태(op≥0.001)에선 visible을 건드리지 않음.
   const hide = op < 0.001;
+  seat._bodyOff = hide;   // 몸 메쉬를 껐다는 표시 — 동작 계산 건너뛰기(hidden-seats.js _bodyHidden)가 이것만 읽는다(기준을 두 번 쓰지 않게)
   seat.bodyWrap.traverse(o=>{
     if(o.isMesh && o.material){
       if(hide){
