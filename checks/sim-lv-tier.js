@@ -21,7 +21,7 @@ const FN_DEPS = [];
 const VAL_DEPS = [];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["_starPaint","lvBadgeClass","lvBarClass","lvStarBadgeClass","lvStarBarClass"];
+const EXPORTS = ["_starPaint","npStarFill","lvBadgeClass","lvBarClass","lvStarBadgeClass","lvStarBarClass"];
 const MOVED = ["LV_TIERS","lvTierNum","lvBadgeClass","lvBarClass","lvStarBadgeClass","lvStarBarClass","_starPaint"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = [];
 
