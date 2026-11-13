@@ -1,6 +1,6 @@
 /* account.js — 🔑 계정 — 구글 로그인 · 친구코드 로그인 · 로그아웃 · 신원 지우기 · 서버 계정으로 이 PC 맞추기
    app.js «🔑 구글 로그인 (계정)» · «🧹 신원을 놓을 때 이 기기에서 지우는 것» · «📤 계정 이전 / 연동 / 연동 해제(걷은 흔적)» 세 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 23번 — docs/APP_FSD_MAP.md).
-   ★ 다시 대입되거나 뒤에서 선언되는 값은 deps 의 읽는 함수(…())로, 바꾸는 값은 쓰는 함수(setFocusTodaySec · setFocusTotalSec · setExtraSeatSlots)로 받는다.
+   ★ 다시 대입되거나 뒤에서 선언되는 값은 deps 의 읽는 함수(…())로, 바꾸는 값은 쓰는 함수(setFocusTodaySec · setExtraSeatSlots)로 받는다.
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
    ★ 캐릭터(슬롯 · 보관함)와 가챠는 서버가 원본이다 — 로그아웃은 못 올린 캐릭터 고침만 올리고(closet.flushSlots) 메모리를 비운다(이 PC 에 지울 캐릭터 저장본이 없다).
@@ -29,12 +29,12 @@ const MY_FRIEND_CODE_PREV_KEY = deps.MY_FRIEND_CODE_PREV_KEY;
 const MY_USER_ID_KEY = deps.MY_USER_ID_KEY;
 const USER_NAME_KEY = deps.USER_NAME_KEY;
 const _focusTodaySec = deps._focusTodaySec;   // 읽는 함수
-const _focusTotalSec = deps._focusTotalSec;   // 읽는 함수
+const unsentSec = deps.unsentSec;   // 읽는 함수 — 아직 서버에 못 올린 집중 시간(초)
+const flushFocus = deps.flushFocus;   // 로그아웃 올리기 — 못 올린 집중 시간 한 번(focus-progress.js)
 const _rememberOldFriendCode = deps._rememberOldFriendCode;
 const _setMyUserId = deps._setMyUserId;
 const closetMod = deps.closetMod;   // 읽는 함수 — 서버 원본 옷장(character/closet.js)
 const extraSeatSlots = deps.extraSeatSlots;   // 읽는 함수
-const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const getMyUserId = deps.getMyUserId;
 const acctStateMod = deps.acctStateMod;   // 🪪 계정 핵심 상태(account-state.js) — 라이선스 저장 키 · 초대 통과 · 프리미엄 · 신원 놓음
@@ -55,7 +55,6 @@ const sessionLost = deps.sessionLost;   // () => boolean — 다른 기기에 �
 const ME_CACHE_KEY = deps.ME_CACHE_KEY;   // 내 계정 사본(login-flow.js) — 계정 몫이라 로그아웃이 지운다
 const userApiMod = deps.userApiMod;   // 🪪 계정 provider(user-api.js) — 비밀번호 붙이기 · 바꾸기 · 탈퇴 · 화면 문구(reasonOf)
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
-const setFocusTotalSec = deps.setFocusTotalSec;   // 쓰는 함수
 const setExtraSeatSlots = deps.setExtraSeatSlots;   // 쓰는 함수
 
 /* 🪪 서버가 돌려준 계정(me)으로 이 PC 를 맞춘다 — 켤 때 확인 · 로그인 · 가입이 같이 부르는 한 곳.
@@ -122,14 +121,12 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   /* 라이선스 — 0.12 옛 값 중 요청 번호만 지운다. tw.licenseKey · tw.licenseOptOut 은 지우지 않는다 —
      첫 실행(first-run-013.js licenseKey 단계)이 서버에 올린 뒤에야 지운다(올리기 전에 로그아웃이 지우면 키를 잃는다). */
   LICENSE_REQ_ID_KEY(),   // 🎫 옛 값 지움
-  /* 누적 시간 · 오늘치 · 서버 맞춤 마크는 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
-  focusLevelMod().DANCE_NOTIFIED_KEY, focusLevelMod().DANCE_REPAIR_KEY,   // 해금 안내 기록 — 수령함이 진짜다(_danceUnlockPending 이 수령함을 보고 중복을 거른다)
+  /* 오늘치 · 못 올린 집중 시간은 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   /* 달성표 — syncChalToServer 가 서버 ts 가 크면 통째로 받아온다. */
   CHAL_KEY(),
   /* 캐릭터는 서버가 원본이라 이 PC 에 지울 저장본이 없다. 올리기 캐시 둘은 users/{uid}/ 경로의 URL 이라
      **다른 uid 가 물려받으면 남의 Storage 를 가리킨다** — 반드시 같이 지운다. */
   CUR_SLOT_KEY, 'tw.slotGlbUrls', 'tw.roomFaceUrls',
-  'tw.starColor',              // 🌟 회차 별 색(개정 71) — 프로필 starC 가 돌아올 길이다(_adoptStarColorFromProfile). 남으면 다음 계정 프로필에 앞 사람 색이 실린다
   /* ⚠️ SLOTS_BAK_KEY(덮어쓰기 직전 백업)는 **일부러 빼 두었다.** 위 ⚠️ 의 「돌아오는 길이 없는
      항목을 여기 넣으면 로그아웃이 곧 삭제」가 그 이유다 — 백업은 정의상 서버에 없는 것이라
      지우면 그것으로 끝이다. 남의 캐릭터를 주워 가는 길은 restoreSlotsBackup 의 uid 대조로 막는다.
@@ -156,7 +153,7 @@ const ACCT_FLUSH_TIMEOUT_MS = 8000;
 async function _acctFlushToServer(){
   const jobs = [];
   const call = (fn, ...a) => { try{ if(typeof fn === 'function') jobs.push(Promise.resolve(fn(...a))); }catch(_){} };
-  call(typeof focusLevelMod().syncFocusTotalToServer === 'function' ? focusLevelMod().syncFocusTotalToServer : null, 'logout');
+  call(flushFocus);   // ⏱ 못 올린 집중 시간 한 번 — 계정을 놓으면 버려지므로
   call(weeklyChal().syncChalToServer, 'logout');
   call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
   call(() => mallangStore.flush());   // 🧸 저장 중이거나 못 올린 말랑이 칸 고침 한 번
@@ -201,17 +198,12 @@ async function _acctPreflight(uid, opt){
   }
   /* 🧍 캐릭터 — 못 올린 고침이 남아 있으면 막는다(올리기를 이미 한 번 해 본 뒤라 «올리지 못했어요»). */
   if(hasSlots) push(lblSlots, '캐릭터 고침을 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
-  /* 🕒 누적 시간 — 마크가 로컬 누적을 따라잡았어야 한다(2분은 왕복 사이에 쌓이는 폭). */
-  try{
-    const total = Math.floor(Number(_focusTotalSec()) || 0);
-    if(total > 0){
-      const gap = focusLevelMod()._hasFocusSyncedMark() ? (total - focusLevelMod()._getFocusSyncedMark()) : total;
-      if(!focusLevelMod()._hasFocusSyncedMark() || gap > 120){
-        gapMin = Math.max(1, Math.round(gap / 60));
-        push('누적 시간 ' + gapMin + '분', '누적 시간을 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
-      }
-    }
-  }catch(_){}
+  /* 🕒 집중 시간 — 올리기 뒤에도 못 올린 몫이 남았으면 막는다(2분은 왕복 사이에 쌓이는 폭). */
+  const gap = unsentSec();
+  if(gap > 120){
+    gapMin = Math.max(1, Math.round(gap / 60));
+    push('집중 시간 ' + gapMin + '분', '집중 시간을 서버에 올리지 못했어요', timedOut ? 'timeout' : 'denied');
+  }
   if(!items.length) return { ok:true, items:[] };
   const kind = items.some(i => i.kind === 'unknown') ? 'unknown'
              : items.some(i => i.kind === 'timeout') ? 'timeout' : 'denied';
@@ -222,7 +214,7 @@ async function _acctPreflight(uid, opt){
    ⚠️ 목록을 늘리거나 줄일 땐 항목마다 «다시 로그인하면 돌아오는가» 를 볼 것 — 돌아오는 길이 없으면 로그아웃이 곧 삭제가 된다. */
 /* 🧹 실제로 지운다 — localStorage 와 **메모리** 둘 다.
    [왜 메모리까지] 이 뒤 700ms 안에 재시작하지만, 그 사이 beforeunload 가 돈다
-     (syncFocusTotalToServer('quit') · _chalSave). 메모리에 옛 값이 있으면 그 한 번이 지운 키를 도로 쓴다.
+     (포커스 올리기 · _chalSave). 메모리에 옛 값이 있으면 그 한 번이 지운 키를 도로 쓴다.
    ⚠️ getMyUserId() 를 부르는 코드가 이 뒤에 돌면 임시 uid 가 하나 생긴다. 그건 이미 설계된 상태다
      (게이트 주석 «로그아웃 직후 만들어진 임시 유저 코드»). 여기서 막지 않는다. */
 function _wipeAccountLocal(){
@@ -237,7 +229,7 @@ function _wipeAccountLocal(){
     drop.forEach(k => { try{ localStorage.removeItem(k); }catch(_){} });
   }catch(_){}
   /* 메모리 — 위 주석 참고. 각 값은 그 모듈의 «빈 기기» 초기값과 같다. */
-  try{ setFocusTotalSec(0); setFocusTodaySec(0); }catch(_){}
+  try{ setFocusTodaySec(0); }catch(_){}
   try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)
   try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — 서버에서 받아 온 보유분 · 뽑기 수 · 구독 표시를 비운다(gacha.js)
   try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)

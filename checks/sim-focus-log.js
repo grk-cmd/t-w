@@ -48,7 +48,7 @@ function mkEl(id, env){
 function mkEnv(opt){
   opt = opt || {};
   const env = {
-    total: 3600, session: 65, today: 1800, fig: false, rollCalls: 0, fronts: [], escs: [], timers: [], winL: {}, store: {}, sets: [],
+    total: 3600, session: 65, today: 1800, fig: false, rollCalls: 0, retries: 0, fronts: [], escs: [], timers: [], winL: {}, store: {}, sets: [],
     rect: { left: 300, top: 200 }, winH: 120,
   };
   if(opt.mini) env.store['tw.focusLogMini'] = '1';
@@ -77,6 +77,7 @@ function mkEnv(opt){
     bringWinToFront: (id) => env.fronts.push(id),
     escRegisterWindow: (w) => env.escs.push(w),
     focusTotalSec: () => env.total,
+    retryProgress: () => { env.retries++; },
     focusSessionSec: () => env.session,
     figureMode: () => env.fig,
   }));
@@ -98,6 +99,7 @@ function behave(src){
     e.els.fsFocusLogBtn.onclick();
     chk(e.on() && JSON.stringify(e.fronts) === '["focusLogOverlay"]', '[기록 열기] — 창이 뜨고 맨 앞으로(focusLogOverlay)');
     chk(!e.els.focusSettingsPanel.classList.contains('on'), '  ⚙️ 설정창은 닫는다');
+    chk(e.retries === 1, '  열 때 못 받은 진척을 다시 받으라고 한 번 부탁한다(받았으면 진척 모듈이 아무것도 안 한다)');
     chk(e.els.focusLogCaption.textContent === '현재 기록' && e.els.focusLogTime.textContent === 'T65' && e.els.focusLogOk.textContent === '누적기록', '  현재 기록부터(이번 실행 시간) · 버튼은 «누적기록»');
     chk(e.els.focusLogRow2.style.display === 'none' && !w.classList.contains('total') && e.rollCalls === 0, '  둘째 줄(오늘 기록)은 숨김 · 오늘 기록은 안 읽는다');
     chk(e.els.focusLogTitleTxt.textContent === '포커스 기록' && !w.classList.contains('mini') && !e.sets.length, '  제목 «포커스 기록» · 미니미 아님 · 저장값은 안 쓴다');
@@ -247,13 +249,13 @@ sec('── 6. app.js 배선', () => {
   const want = [
     /^formatHMS: \(\.\.\.a\)=>formatHMS\(\.\.\.a\),$/, /^rolloverFocusToday: \(\.\.\.a\)=>_rolloverFocusToday\(\.\.\.a\),$/,
     /^bringWinToFront: \(\.\.\.a\)=>bringWinToFront\(\.\.\.a\),$/, /^escRegisterWindow: \(\.\.\.a\)=>escRegisterWindow\(\.\.\.a\),$/,
-    /^focusTotalSec: \(\)=>_focusTotalSec,$/, /^focusSessionSec: \(\)=>_focusSessionSec,$/, /^figureMode: \(\)=>figureMode,$/,
+    /^focusTotalSec: \(\)=>focusProgressMod\.shownTotalSec\(\),/, /^retryProgress: \(\.\.\.a\)=>focusProgressMod\.reload\(true\),/, /^focusSessionSec: \(\)=>_focusSessionSec,$/, /^figureMode: \(\)=>figureMode,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 7개 — 함수는 화살표 · let 은 읽는 함수 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
-  const iT = APP.indexOf('let _focusTotalSec='), iS = APP.indexOf('let _focusSessionSec=');
-  chk(iT > iMk && iS > iMk && /[^.\w]_focusTotalSec\s*=[^=]/.test(code.replace(/let _focusTotalSec=/, '')) && /[^.\w]_focusSessionSec\s*[+-]?=[^=]/.test(code.replace(/let _focusSessionSec=/, '')),
-    '  _focusTotalSec · _focusSessionSec 는 만드는 줄보다 뒤에 선언 · 다시 대입되는 let — 그래서 읽는 함수(값이면 TDZ)');
+  chk(deps.length === want.length && !bad.length, 'deps 8개 — 함수는 화살표 · let 은 읽는 함수 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  const iS = APP.indexOf('let _focusSessionSec=');
+  chk(!/let _focusTotalSec=/.test(APP) && iS > iMk && /[^.\w]_focusSessionSec\s*[+-]?=[^=]/.test(code.replace(/let _focusSessionSec=/, '')),
+    '  누적은 app.js 의 let 이 아니라 서버 진척 모듈의 값(shownTotalSec — 읽는 함수) · _focusSessionSec 는 만드는 줄보다 뒤에 선언 · 다시 대입되는 let — 그래서 읽는 함수(값이면 TDZ)');
   const m = strip(MOD);
   chk(/formatHMS\(_focusTotalSec\(\)\)/.test(m) && /formatHMS\(_focusSessionSec\(\)\)/.test(m) && !/formatHMS\(_focus(Total|Session)Sec\)/.test(m), '모듈은 누적 · 현재 기록을 그릴 때마다 읽는다');
   chk(!/[^.\w]_focus(Total|Session|Today)Sec\s*[+-]?=[^=]/.test(m.replace(/const _focus(Total|Session)Sec = deps\.focus(Total|Session)Sec;/g, '')), '  모듈은 포커스 시간에 쓰지 않는다');
@@ -271,6 +273,7 @@ sec('── 7. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', () =
   const CASES = [
     ['누적 기록을 값으로', s => s.replace('formatHMS(_focusTotalSec())', 'formatHMS(_focusTotalSec)')],
     ['현재 기록을 값으로', s => s.replace('formatHMS(_focusSessionSec())', 'formatHMS(_focusSessionSec)')],
+    ['열 때 진척 다시 받기 안 부탁함', s => s.replace('    retryProgress();\n', '')],
     ['열 때 현재 기록부터 안 함', s => s.replace("logMode='session';   // 열 때마다", "// logMode='session';   // 열 때마다")],
     ['맨 앞으로 안 올림', s => s.replace("bringWinToFront('focusLogOverlay');", ';')],
     ['설정창 안 닫음', s => s.replace("if(panel) panel.classList.remove('on');", '')],

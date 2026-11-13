@@ -48,7 +48,7 @@ function seatEnv(fnSrc){
 
 /* _applyActiveAppState 를 돌릴 판 — 쌓인 초는 env.added */
 function applyEnv(fnSrc){
-  const env = { now: 100000, added: 0, chal: 0, mob: false };
+  const env = { now: 100000, added: 0, chal: 0, mob: false, ended: 0 };
   const ctx = { env, performance: { now: () => env.now } };
   vm.createContext(ctx);
   vm.runInContext(`
@@ -57,7 +57,8 @@ function applyEnv(fnSrc){
     const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
     const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;
     const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(){} };
-    let _focusLastTick = performance.now(), _focusWasActive = false;
+    const focusProgressMod = { focusEnded(){ env.ended++; } };
+    let _focusLastTick = performance.now(), _focusWasActive = false, _focusAccruedLast = false;
     ${GATE_DECL}
     ${fnSrc}
     this.api = { apply: _applyActiveAppState, act: (t) => { lastActivity = t; }, fig: (v) => { figureMode = v; },
@@ -106,6 +107,16 @@ function sec2(fnSrc, quiet){
     r.push(['  쌓던 중에 켜면 바로 다음 폴링부터 멈춘다', Math.abs(E.added - 2) < 1e-6 && Math.abs(E.chal - 2) < 1e-6]);
     A.fig(false); poll(A, E, REG, 2);
     r.push(['  다시 끄면 다시 쌓인다', Math.abs(E.added - 4) < 1e-6 && Math.abs(E.chal - 4) < 1e-6]); }
+  { const { A, E } = applyEnv(fnSrc);
+    A.apply(REG); poll(A, E, REG, 3);
+    r.push(['쌓는 동안에는 집중 끝남 알림 0(서버 올리기는 쌓는 쪽이 정한다)', E.ended === 0]);
+    poll(A, E, NOT_REG, 3);
+    r.push(['  쌓다가 멈추면(등록 앱을 벗어남) 집중 끝남을 한 번 알린다', E.ended === 1]);
+    poll(A, E, NOT_REG, 3);
+    r.push(['  멈춘 채로는 되풀이하지 않는다', E.ended === 1]); }
+  { const { A, E } = applyEnv(fnSrc);
+    A.apply(REG); poll(A, E, REG, 2); A.fig(true); poll(A, E, REG, 2);
+    r.push(['  피규어 모드로 멈춰도 집중 끝남으로 알린다(쌓기가 멎었으니)', E.ended === 1]); }
   if(!quiet){ say('── 2. _applyActiveAppState (진짜 함수를 돌린다)'); r.forEach(([m, ok]) => chk(ok, m)); }
   return r.every(x => x[1]);
 }
@@ -142,8 +153,10 @@ if(SS && AP && SLEEP_M){
   say('── 3. 깨 보기');
   const ssOld = SS.replace(/if\(idle>SLEEP_MS && !\(desktopMode && figureMode\)\)return 'sleep';/, "if(idle>SLEEP_MS)return 'sleep';");
   chk(ssOld !== SS && !sec1(ssOld, true), '피규어 모드 조건을 빼면(옛 모양) 1절이 빨강');
-  const apOld = AP.replace(/if\(!figureMode && _focusWasActive/, 'if(_focusWasActive');
+  const apOld = AP.replace(/const accruing = !figureMode && _focusWasActive/, 'const accruing = _focusWasActive');
   chk(apOld !== AP && !sec2(apOld, true), '쌓기 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
+  const apEnd = AP.replace(/else if\(_focusAccruedLast\) focusProgressMod\.focusEnded\(\);/, '');
+  chk(apEnd !== AP && !sec2(apEnd, true), '집중 끝남 알림을 빼면 2절이 빨강');
   const apChal = AP.replace(/if\(!figureMode && dt>0 && dt<30 && !pcNotFocusing\) weeklyChal/, 'if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal');
   chk(apChal !== AP && !sec2(apChal, true), '달성표 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
   const ssSelf = SS.replace('return focusGate.gatedPose(_selfAppActive, ', 'return focusGate.gatedPose(false, ');
