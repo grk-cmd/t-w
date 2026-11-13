@@ -135,7 +135,7 @@ say('── 5. 🫨 말랑이 제자리 떨림');
 say('── 6. 🎫 라이선스 — 등록 · 해제는 서버에(0.13 — 판정은 sim-license-premium · 계정 사본으로 옮기던 길은 걷었다)');
 {
   chk(!/setAccountSnapshot|fetchAccountSnapshot|_licenseSnapForPush/.test(CODE), '계정 사본(accountSnap) 길이 남지 않았다');
-  chk(/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY,/.test(CODE), '로그아웃이 해제 표시도 지운다(ACCOUNT_LOCAL_KEYS)');
+  chk(/LICENSE_REQ_ID_KEY,/.test(CODE) && !/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY|LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY/.test(CODE), '로그아웃이 옛 키 · 해제 표시를 지우지 않는다(첫 실행이 올린 뒤 지움 — ACCOUNT_LOCAL_KEYS)');
   chk(!/async function activateLicense\(|function deactivateLicense\(|function loadLicenseFromStorage\(|function verifyLicense\(/.test(CODE), '이 PC 의 키로 켜고 Firebase 로 확인하던 옛 길(activateLicense · deactivateLicense · loadLicenseFromStorage · verifyLicense)이 없다');
 }
 

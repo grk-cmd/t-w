@@ -5690,17 +5690,21 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   forgetSession: ()=>TwApi.authed.forgetSession(),
   now: ()=>Date.now(),
 });
-/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기. 캐릭터 · 라이선스 단계는 D1 · D8 묶음이 채운다(그 전엔 기다림 — 지우기도 안 돈다). */
+/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
 const firstRunMod = TwFirstRun013.createFirstRun({
   steps: {
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
     gacha: TwFirstRun013.gachaStep(),
     mallang: TwFirstRun013.mallangStep(localStorage),
     legacySync: ()=>closetMod.legacyStep(),
-    licenseKey: TwFirstRun013.pendingStep('라이선스 키'),
+    licenseKey: TwFirstRun013.licenseKeyStep({
+      storage: localStorage,
+      activate: (key)=>licensePremiumMod.activate(key),
+    }),
   },
   storage: localStorage,
   userCode: ()=>getMyUserId(),
+  notify: (msg)=>toast(msg),
 });
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
