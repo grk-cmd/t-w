@@ -432,6 +432,7 @@ PRELOAD.push('focus-level.js');
 /* chat-notice.js — 📢 시크릿룸 공지. app.js 가 채팅 모듈보다 먼저 TwChatNotice.createChatNotice 로 만들므로 진짜가 먼저 있게. */
 PRELOAD.push('chat-notice-net.js');   // 📢 공지 서버 읽기 · 쓰기(firebase-init.js 가 TwChatNoticeNet 으로 연결)
 PRELOAD.push('chat-notice.js');
+PRELOAD.push('room-focus-days.js');   // 📅 집중 기록 날 키 규칙(집중 탭 · 올리기가 같이 씀)
 PRELOAD.push('room-focus-net.js');   // 📊 집중 기록 서버 읽기 · 쓰기(firebase-init.js 가 TwRoomFocusNet 으로 연결)
 PRELOAD.push('room-focus-sync.js');   // 📊 내 집중 시간 올리기
 PRELOAD.push('chat-focus.js');   // 📊 시크릿룸 #집중 탭

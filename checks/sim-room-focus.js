@@ -13,7 +13,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, 'apps/desktop/app/parts/' + f, 'apps/desktop/app/' + f, path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = {
-  net: read('focus/room-focus-net.js'), sync: read('focus/room-focus-sync.js'),
+  net: read('focus/room-focus-net.js'), days: read('shared/room-focus-days.js'), sync: read('focus/room-focus-sync.js'),
   fi: read('firebase-init.js'), app: read('app.js'), html: read('desk-companion-prototype.html'), level: read('focus/focus-level.js'),
   rules: (() => { for (const c of ['firebase-database-rules.json', 'firebase/firebase-database-rules.json']) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; })(),
 };
@@ -81,7 +81,11 @@ async function judge(S){
 
     /* ── 2절 sync ── */
     const Y = loadWin(S.sync, {}).TwRoomFocusSync;
-    t(Y.dayKeyOf('2026-11-3') === '20261103' && Y.dayKeyOf('2026-1-13') === '20260113' && Y.dayKeyOf('') === '' && Y.dayKeyOf('x') === '', 'dayKeyOf — 월 · 일을 두 자리로 · 틀리면 빈 글');
+    const DY = loadWin(S.days, {}).TwRoomFocusDays;
+    t(DY.dayKeyOf('2026-11-3') === '20261103' && DY.dayKeyOf('2026-1-13') === '20260113' && DY.dayKeyOf('') === '' && DY.dayKeyOf('x') === '' && DY.dayKeyOf('2026-11-13x') === '', '날 키 — dayKeyOf: 월 · 일을 두 자리로 · 틀리면 빈 글');
+    t(DY.isDayKey('20261113') && !DY.isDayKey('19990101') && !DY.isDayKey('2026-11-13') && !DY.isDayKey('202611130') && !DY.isDayKey(''), '  isDayKey: 20xx + 6자리(규칙 $day 와 같은 모양)');
+    t(DY.weekStartKey('20261113') === '20261109' && DY.weekStartKey('20261109') === '20261109' && DY.weekStartKey('20261115') === '20261109' && DY.weekStartKey('20261116') === '20261116', '  이번 주 시작은 월요일 — 금요일 · 월요일 당일 · 일요일(전 주 월요일) · 다음 월요일');
+    t(DY.weekStartKey('20260301') === '20260223' && DY.addDays('20261231', 1) === '20270101' && DY.addDays('20260301', -1) === '20260228' && DY.addDays('20261113', -84) === '20260821', '  달 · 해가 넘어가도 맞다');
     const mk = (o) => {
       o = o || {};
       const st = Object.assign({}, o.store || {}), calls = [], clock = { t: 1000000 }, cur = { room: o.room === undefined ? 'SCRT-AB12' : o.room, day: '20261113', name: '꿀곰', fail: false };
@@ -90,8 +94,9 @@ async function judge(S){
         setName: async (room, uid, name) => { calls.push(['name', room, uid, name]); return { ok: true }; },
       };
       const storage = { getItem: (k) => (k in st ? st[k] : null), setItem: (k, v) => { st[k] = String(v); }, removeItem: (k) => { delete st[k]; } };
-      const s = Y.createRoomFocusSync({ provider, roomCode: () => cur.room, isSecretRoom: () => /^SCRT-/.test(cur.room), getMyUserId: () => (o.uid === undefined ? 'MATE-1' : o.uid), getMyName: () => cur.name, dayKey: () => cur.day, now: () => clock.t, storage });
-      return { s, calls, clock, cur, st };
+      const uidNow = { v: o.uid === undefined ? 'umu00pdxvk6d9x8mx' : o.uid };
+      const s = Y.createRoomFocusSync({ provider, roomCode: () => cur.room, isSecretRoom: () => /^SCRT-/.test(cur.room), getMyUserId: () => uidNow.v, getMyName: () => cur.name, dayKey: () => cur.day, now: () => clock.t, storage });
+      return { s, calls, clock, cur, st, uidNow };
     };
     { const m = mk(); m.s.add(30); m.clock.t += 61000; m.s.add(30); await tick();
       t(m.calls.length === 0 && m.s.isOn('SCRT-AB12') === false, '켜지 않았으면 아무것도 안 올린다(기본 꺼짐)'); }
@@ -103,7 +108,7 @@ async function judge(S){
       m.s.add(30.5); await tick();
       t(m.calls.some((c) => c[0] === 'name' && c[3] === '꿀곰') && m.calls.filter((c) => c[0] === 'add').length === 1, '처음 쌓이면 바로 한 번 올린다(1분 간격은 그 뒤부터) — 이름도 함께');
       const first = m.calls.filter((c) => c[0] === 'add');
-      t(first.length === 1 && first[0][4] === 30 && first[0][1] === 'SCRT-AB12' && first[0][2] === 'MATE-1' && first[0][3] === '20261113', '  정수 초(30)만 올리고 소수는 남긴다');
+      t(first.length === 1 && first[0][4] === 30 && first[0][1] === 'SCRT-AB12' && first[0][2] === 'umu00pdxvk6d9x8mx' && first[0][3] === '20261113', '  정수 초(30)만 올리고 소수는 남긴다');
       m.calls.length = 0; m.clock.t += 30000; m.s.add(20); await tick();
       t(m.calls.length === 0, '  1분이 안 지났으면 더 모으기만 한다');
       m.clock.t += 31000; m.s.add(10); await tick();
@@ -134,7 +139,12 @@ async function judge(S){
       const a = m.calls.filter((c) => c[0] === 'add');
       t(a.length === 1 && a[0][4] === 5, '  끄기 전에 모으던 몫은 버렸다 — 다시 켜면 그때부터(5)만 올라간다'); }
     { const m = mk(); m.s.setOn('SCRT-AB12', true); m.s.setOn('SCRT-ZZ99', false);
-      t(m.st['tw.roomFocus.SCRT-AB12'] === '1' && m.s.isOn('SCRT-AB12') === true && m.s.isOn('SCRT-ZZ99') === false, '켜는 것은 방마다(저장 키 tw.roomFocus.{방})'); }
+      t(m.st['tw.roomFocus.umu00pdxvk6d9x8mx.SCRT-AB12'] === '1' && m.s.isOn('SCRT-AB12') === true && m.s.isOn('SCRT-ZZ99') === false, '켜는 것은 방마다(저장 키 tw.roomFocus.{내 id}.{방})');
+      m.uidNow.v = 'uother00000000001'; t(m.s.isOn('SCRT-AB12') === false, '★ 같은 PC 에서 다른 계정이 들어오면 켜져 있지 않다(그 사람 동의 없이 올라가지 않는다)');
+      m.s.add(30); m.clock.t += 61000; m.s.add(30); await tick(); t(m.calls.length === 0, '  다른 계정은 올리지 않는다'); }
+    { const m = mk(); m.s.setOn('SCRT-AB12', true); m.s.add(30); await tick(); m.calls.length = 0;
+      m.s.forgetName('SCRT-AB12'); m.clock.t += 61000; m.s.add(10); await tick();
+      t(m.calls.some((c) => c[0] === 'name' && c[3] === '꿀곰') && m.calls.some((c) => c[0] === 'add'), '내 기록을 지운 뒤(forgetName) 다음 올리기에 이름을 다시 쓴다 — 안 그러면 방 사람들 화면에 «이름 없음»'); }
 
     /* ── 3절 규칙 ── */
     const R = JSON.parse(S.rules).rules.rooms.$room._focus;
@@ -154,11 +164,12 @@ async function judge(S){
     /* ── 4절 연결 ── */
     t(!/import[^\n]*room-focus-net/.test(S.fi) && /roomFocus: window\.TwRoomFocusNet\.createRoomFocusNet\(\{ db, ref, update, remove, set, onValue, off, runTransaction \}\)/.test(S.fi), 'firebase-init.js — 연결 한 줄만(전역 TwRoomFocusNet)');
     const H = S.html;
-    const iNet = H.indexOf('<script src="parts/focus/room-focus-net.js"'), iSync = H.indexOf('<script src="parts/focus/room-focus-sync.js"'), iFocus = H.indexOf('<script src="parts/chat/chat-focus.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"');
-    t(iNet > 0 && iSync > 0 && iFocus > 0 && iSync < iApp && iFocus < iUi && iUi < iApp, 'html — 올리기 · 집중 탭 모듈이 chat-ui · app.js 보다 먼저 실린다');
+    const iDays = H.indexOf('<script src="parts/shared/room-focus-days.js"'), iNet = H.indexOf('<script src="parts/focus/room-focus-net.js"'), iSync = H.indexOf('<script src="parts/focus/room-focus-sync.js"'), iFocus = H.indexOf('<script src="parts/chat/chat-focus.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"');
+    t(iDays > 0 && iDays < iSync && iDays < iFocus && iNet > 0 && iSync > 0 && iFocus > 0 && iSync < iApp && iFocus < iUi && iUi < iApp, 'html — 날 키 규칙이 올리기 · 집중 탭보다 먼저, 둘 다 chat-ui · app.js 보다 먼저 실린다');
     const A = S.app;
     t(/const roomFocusSync = TwRoomFocusSync\.createRoomFocusSync\(\{[\s\S]*?firebaseAPI\.roomFocus\.add\(\.\.\.a\)[\s\S]*?storage: localStorage,\n\}\);\nconst chatFocusMod = TwChatFocus\.createChatFocus\(\{[\s\S]*?sync: roomFocusSync[\s\S]*?firebaseAPI\.roomFocus\.removeMine\(\.\.\.a\)[\s\S]*?\n\}\);\nconst chatUiMod/.test(A), 'app.js — 올리기와 집중 탭을 채팅 모듈보다 먼저 만든다(서버는 firebaseAPI.roomFocus 한 곳)');
-    t(/const focusLevelMod = TwFocusLevel\.createFocusLevel\(\{\n  onFocusAdded: \(sec\)=>roomFocusSync\.add\(sec\),/.test(A) && /onFocusAdded\(sec\);\n/.test(S.level), '포커스 누적이 쌓일 때마다 올리기에 알린다(addFocusSeconds → onFocusAdded → roomFocusSync.add)');
+    t(/dayKey: \(\)=>TwRoomFocusDays\.dayKeyOf\(focusTotalMod\._focusDayStr\(\)\)/.test(A) && /todayKey: \(\)=>TwRoomFocusDays\.dayKeyOf\(focusTotalMod\._focusDayStr\(\)\)/.test(A) && !/dayKeyOf|function keyOfDate|dateOfKey/.test(S.sync.replace(/\/\*[\s\S]*?\*\//g, '')), '날 키는 한 곳(TwRoomFocusDays) — 올리기 · 집중 탭이 같은 함수를 쓰고 올리기 모듈에 따로 없다');
+    t(/const focusLevelMod = TwFocusLevel\.createFocusLevel\(\{\n  onFocusAdded: \(sec\)=>roomFocusSync\.add\(sec\),/.test(A) && /\}catch\(e\)\{\}\n  onFocusAdded\(sec\);   \/\/ 저장이 끝난 뒤에 알린다/.test(S.level), '포커스 누적이 쌓일 때마다 올리기에 알린다(addFocusSeconds → onFocusAdded → roomFocusSync.add)');
     t(!/firebaseAPI|window\.firebase/.test(S.sync.replace(/\/\*[\s\S]*?\*\//g, '')) && !/chat-focus|chat-ui|Presence/.test(S.sync.replace(/\/\*[\s\S]*?\*\//g, '')), '올리기 모듈은 firebaseAPI · 채팅 모듈을 직접 부르지 않는다(provider · deps 로만)');
   } catch (err) {
     t(false, '돌리다 오류 — ' + (err && err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : err));
@@ -184,13 +195,19 @@ async function judge(S){
     ['sync', 'const old = pending; pending = null; send(old);', 'pending = null;', '방 · 날이 바뀔 때 앞 몫을 버림'],
     ['sync', 'pending.sec += whole;', '', '실패한 몫을 되돌리지 않음'],
     ['sync', 'if(nameSent[p.room] !== name){', 'if(true){', '이름을 매번 다시 씀'],
+    ['sync', "const keyOf = (room) => KEY_PREFIX + getMyUserId() + '.' + room;", "const keyOf = (room) => KEY_PREFIX + room;", '켜짐 표시가 계정과 상관없이 기기에 남음'],
+    ['sync', 'function forgetName(room){ delete nameSent[room]; }', 'function forgetName(room){}', '지운 뒤에 이름을 다시 안 씀'],
+    ['days', "return addDays(todayKey, -((d.getDay() + 6) % 7));", "return addDays(todayKey, -d.getDay());", '날 키 — 주 시작이 일요일이 됨'],
+    ['days', "return m[1] + m[2].padStart(2, '0') + m[3].padStart(2, '0');", "return m[1] + m[2] + m[3];", '날 키 — 월 · 일 두 자리 맞춤이 빠짐'],
+    ['days', "const isDayKey = (k) => /^20\\d{6}$/.test(String(k));", "const isDayKey = (k) => /^\\d{8}$/.test(String(k));", '날 키 모양이 규칙($day)과 어긋남'],
     ['rules', " && $uid.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $uid !== 'undefined'", '', '내 id 모양을 안 봄'],
     ['rules', " && $uid !== 'undefined'", '', "id 'undefined' 를 막지 않음"],
     ['rules', '$room.matches(/^SCRT-/) && $uid', '$uid', '시크릿룸이 아닌 방에도 열림'],
     ['rules', 'newData.val() <= 86400 && (!data.exists() || newData.val() >= data.val())', 'newData.val() <= 864000', '하루 합 상한 · 줄어듦 막기가 풀림'],
     ['rules', '"$uid": {\n            ".write": true,', '".write": true,\n          "$uid": {\n            ".write": true,', '_focus 통째 쓰기(방 전체 지우기)가 열림'],
     ['fi', 'roomFocus: window.TwRoomFocusNet.createRoomFocusNet({ db, ref, update, remove, set, onValue, off, runTransaction }),', '', '서버 연결 줄이 없음'],
-    ['level', 'onFocusAdded(sec);\n', '', '포커스 누적이 올리기에 알리지 않음'],
+    ['level', '  onFocusAdded(sec);   // 저장이 끝난 뒤에 알린다(알림이 던져도 누적 저장은 이미 끝났다)\n', '', '포커스 누적이 올리기에 알리지 않음'],
+    ['level', '  }catch(e){}\n  onFocusAdded(sec);', '  onFocusAdded(sec);\n  }catch(e){}\n', '알림이 저장보다 먼저 가서 던지면 저장이 건너뛰어짐'],
     ['app', '  onFocusAdded: (sec)=>roomFocusSync.add(sec),\n', '', 'app.js 가 알림을 걸지 않음'],
     ['html', '<script src="parts/focus/room-focus-sync.js"></script>', '', '올리기 모듈을 html 이 안 실음'],
   ];

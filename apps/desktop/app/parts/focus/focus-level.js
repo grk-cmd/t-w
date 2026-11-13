@@ -184,12 +184,12 @@ function addFocusSeconds(sec){
   setFocusTodaySec(_focusTodaySec() + (sec));
   setFocusSessionSec(_focusSessionSec() + (sec));
   _pushLevelIfChanged();   // 레벨이 올랐을 때만 프로필 갱신(친구 목록 배지용)
-  onFocusAdded(sec);
   try{
     localStorage.setItem(FOCUS_TOTAL_KEY,String(_focusTotalSec()));
     localStorage.setItem(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));
     localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());
   }catch(e){}
+  onFocusAdded(sec);   // 저장이 끝난 뒤에 알린다(알림이 던져도 누적 저장은 이미 끝났다)
 }
 /* ★ 해금 레벨 — **레벨 상한(999)에서 멈춘다.** 회차가 돼도 모듈로로 접지 않는다(개정 70 · 아래 myFocusShow 주석).
    화면에 보이는 «이번 바퀴» 레벨과 별은 myFocusShow() 가 따로 낸다. */

@@ -3163,12 +3163,12 @@ const roomFocusSync = TwRoomFocusSync.createRoomFocusSync({
   provider: { add: (...a)=>firebaseAPI.roomFocus.add(...a), setName: (...a)=>firebaseAPI.roomFocus.setName(...a) },
   roomCode: ()=>Presence.roomCode(), isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.roomCode()),
   getMyUserId: (...a)=>getMyUserId(...a), getMyName: ()=>getDisplayName(),
-  dayKey: ()=>TwRoomFocusSync.dayKeyOf(focusTotalMod._focusDayStr()), now: ()=>Date.now(), storage: localStorage,
+  dayKey: ()=>TwRoomFocusDays.dayKeyOf(focusTotalMod._focusDayStr()), now: ()=>Date.now(), storage: localStorage,
 });
 const chatFocusMod = TwChatFocus.createChatFocus({
   document, escHtml: (...a)=>escHtml(...a), toast: (...a)=>toast(...a), getMyUserId: (...a)=>getMyUserId(...a), roomState: TwRoomState,
   roomCode: ()=>Presence.roomCode(), notifyError: (...a)=>TwErrorCodes.notify(...a), sync: roomFocusSync,
-  todayKey: ()=>TwRoomFocusSync.dayKeyOf(focusTotalMod._focusDayStr()),
+  todayKey: ()=>TwRoomFocusDays.dayKeyOf(focusTotalMod._focusDayStr()),
   provider: { subscribe: (...a)=>firebaseAPI.roomFocus.subscribe(...a), compact: (...a)=>firebaseAPI.roomFocus.compact(...a), removeMine: (...a)=>firebaseAPI.roomFocus.removeMine(...a) },
 });
 const chatUiMod = TwChatUi.createChatUi({

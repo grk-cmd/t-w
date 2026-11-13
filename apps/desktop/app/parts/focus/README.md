@@ -22,6 +22,6 @@
 
 **만드는 법** — `room-focus-net.js` 는 firebase-init.js 가 `firebaseAPI.roomFocus` 로 연결만 한다. app.js: `const roomFocusSync = TwRoomFocusSync.createRoomFocusSync({ provider: { add, setName }, roomCode, isSecretRoom, getMyUserId, getMyName, dayKey, now, storage: localStorage })` · 포커스 모듈 deps `onFocusAdded: (sec)=>roomFocusSync.add(sec)`.
 
-**내놓는 것** — `isOn(room)` · `setOn(room, on)` · `add(sec)` · `dayKeyOf(str)`.
+**내놓는 것** — `isOn(room)` · `setOn(room, on)` · `add(sec)` · `forgetName(room)`(내 기록을 지운 뒤 이름을 다시 쓰게).
 
-**함정** — ① 켜는 것은 사람마다 · 방마다(`tw.roomFocus.{방}` — 로그아웃해도 이 기기 설정으로 남는다). ② 끄면 모으던 몫은 버린다(다시 켜면 그때부터). ③ 실패한 몫은 다음 때 얹지만 600초를 넘기면 버린다. ④ 방이 바뀌거나 6시를 넘기면 앞 몫은 그 방 · 그 날 칸에 마무리한다. ⑤ 서버가 «하루 합은 줄지 않고 86400 이하» 를 지킨다.
+**함정** — ① 켜는 것은 사람마다 · 방마다(`tw.roomFocus.{내 id}.{방}` — 같은 PC 의 다른 계정은 켜져 있지 않다). ② 끄면 모으던 몫은 버린다(다시 켜면 그때부터). ③ 실패한 몫은 다음 때 얹지만 600초를 넘기면 버린다. ④ 방이 바뀌거나 6시를 넘기면 앞 몫은 그 방 · 그 날 칸에 마무리한다. ⑤ 서버가 «하루 합은 줄지 않고 86400 이하» 를 지킨다.

@@ -13,12 +13,13 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, 'apps/desktop/app/parts/' + f, 'apps/desktop/app/' + f, path.basename(f)]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = {
-  mod: read('chat/chat-focus.js'), safe: read('shared/safe-html.js'), state: read('room/room-state.js'),
+  mod: read('chat/chat-focus.js'), days: read('shared/room-focus-days.js'), safe: read('shared/safe-html.js'), state: read('room/room-state.js'),
   chatui: read('chat/chat-ui.js'), lock: read('chat/chat-lock.js'), html: read('desk-companion-prototype.html'), codes: read('shared/error-codes.js'),
 };
 for (const k of Object.keys(SRC)) if (SRC[k] == null) { say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const loadWin = (src, win) => { new Function('window', 'module', src)(win, undefined); return win; };
 const SH = loadWin(SRC.safe, {}).TwSafeHtml;
+const DAYS = loadWin(SRC.days, {}).TwRoomFocusDays;
 const RS = loadWin(SRC.state, { _roomMetaCache: null }).TwRoomState;
 const tick = () => new Promise((res) => setImmediate(res));
 
@@ -49,8 +50,8 @@ function mkCtl(src, o){
     compact: async (room, uid, plan) => { calls.push(['compact', room, uid, plan]); return { ok: true }; },
     removeMine: async (room, uid) => { calls.push(['wipe', room, uid]); return o.failWipe ? { ok: false } : { ok: true }; },
   };
-  const sync = { isOn: (r) => cur.on, setOn: (r, v) => { calls.push(['setOn', r, v]); cur.on = v; } };
-  const M = loadWin(src, {}).TwChatFocus;
+  const sync = { isOn: (r) => cur.on, setOn: (r, v) => { calls.push(['setOn', r, v]); cur.on = v; }, forgetName: (r) => { calls.push(['forget', r]); } };
+  const M = loadWin(src, { TwRoomFocusDays: DAYS }).TwChatFocus;
   const c = M.createChatFocus({ document: doc, escHtml: SH.text, toast: (m) => toasts.push(m), getMyUserId: () => cur.me, roomCode: () => cur.room, roomState: RS, provider, sync, todayKey: () => o.today || TODAY, notifyError: (code) => errors.push(code) });
   let changes = 0; c.onChange(() => { changes++; });
   return { c, M, doc, calls, toasts, errors, cur, push: (raw) => cb(raw), counts: () => ({ subs, unsubs }), changes: () => changes };
@@ -60,10 +61,8 @@ async function judge(S){
   const out = [];
   const t = (ok, msg) => out.push([!!ok, msg]);
   try {
-    const M = loadWin(S.mod, {}).TwChatFocus;
+    const M = loadWin(S.mod, { TwRoomFocusDays: DAYS }).TwChatFocus;
     /* ── 1절 순수 규칙 ── */
-    t(M.weekStartKey('20261113') === '20261109' && M.weekStartKey('20261109') === '20261109' && M.weekStartKey('20261115') === '20261109' && M.weekStartKey('20261116') === '20261116', '이번 주 시작은 월요일 — 금요일 · 월요일 당일 · 일요일(전 주 월요일) · 다음 월요일');
-    t(M.weekStartKey('20260301') === '20260223' && M.addDays('20261231', 1) === '20270101' && M.addDays('20260301', -1) === '20260228' && M.addDays('20261113', -84) === '20260821', '  달 · 해가 넘어가도 맞다');
     const st = M.stats(RAW, TODAY);
     const byId = Object.fromEntries(st.rows.map((r) => [r.id, r]));
     t(byId['MATE-1'].today === 3600 && byId['MATE-1'].week === 5400 && byId['MATE-1'].total === 3600 + 1800 + 600 + 7200, '통계 — 오늘 · 이번 주(월~오늘) · 누적(날 칸 + 합친 초 o)');
@@ -126,9 +125,10 @@ async function judge(S){
     { const k = mkCtl(S.mod); k.c.open(); k.push(RAW); k.c.act('wipe'); t(/data-act="wipeok"/.test(k.doc.els.chatFocus.innerHTML) && k.calls.every((c) => c[0] !== 'wipe'), '내 기록 지우기 — 처음 눌러서는 지우지 않고 묻는다');
       k.c.act('cancel'); t(!/wipeok/.test(k.doc.els.chatFocus.innerHTML), '  취소');
       k.c.act('wipe'); k.c.act('wipeok'); await tick(); await tick();
-      t(k.calls.some((c) => c[0] === 'wipe' && c[1] === 'SCRT-AB12' && c[2] === 'MATE-1') && k.toasts.some((m) => /지웠/.test(m)) && k.errors.length === 0, '  확인하면 내 칸(내 id)만 지운다'); }
+      t(k.calls.some((c) => c[0] === 'wipe' && c[1] === 'SCRT-AB12' && c[2] === 'MATE-1') && k.toasts.some((m) => /지웠/.test(m)) && k.errors.length === 0, '  확인하면 내 칸(내 id)만 지운다');
+      t(k.calls.some((c) => c[0] === 'forget' && c[1] === 'SCRT-AB12'), '  지운 뒤 올리기 모듈에 «이름 다시 쓰기» 를 알린다'); }
     { const k = mkCtl(S.mod, { failWipe: true }); k.c.open(); k.push(RAW); k.c.act('wipe'); k.c.act('wipeok'); await tick(); await tick();
-      t(k.errors.join() === 'E-CHAT-02', '  지우기가 서버에서 실패하면 E-CHAT-02'); }
+      t(k.errors.join() === 'E-CHAT-02' && k.calls.every((c) => c[0] !== 'forget'), '  지우기가 서버에서 실패하면 E-CHAT-02(이름은 그대로 — 지워지지 않았으니)'); }
     { const old = { 'MATE-1': { n: '꿀곰', d: { '20260101': 100, '20261113': 5 }, o: 50 }, 'MATE-2': { d: { '20260101': 999 } } };
       const k = mkCtl(S.mod); k.c.open(); k.push(old); await tick(); k.push(old); await tick();
       const cc = k.calls.filter((c) => c[0] === 'compact');
@@ -158,7 +158,6 @@ async function judge(S){
   (await judge(SRC)).forEach(([ok, msg]) => chk(ok, msg));
   say('── 5. 일부러 깨 보기 — 빨강이 나야 한다');
   const BREAKS = [
-    ['mod', "return addDays(todayKey, -((d.getDay() + 6) % 7));", "return addDays(todayKey, -d.getDay());", '이번 주 시작이 일요일이 됨'],
     ['mod', "if(k >= wk && k <= todayKey) week += d[k];", "if(k >= wk) week += d[k];", '이번 주에 앞날(미래)까지 셈'],
     ['mod', "if(k >= wk && k <= todayKey) week += d[k];", "if(k <= todayKey) week += d[k];", '이번 주가 지난주까지 셈'],
     ['mod', "let today = 0, week = 0, total = okSec(v.o, 360000000) ? v.o : 0;", "let today = 0, week = 0, total = 0;", '합친 초(o)가 누적에서 빠짐'],
@@ -173,6 +172,7 @@ async function judge(S){
     ['mod', "else if(name === 'wipe'){ delAsk = true; paint(); }", "else if(name === 'wipe') wipe();", '묻지 않고 바로 지움'],
     ['mod', "provider.removeMine(room, me)", "provider.removeMine(room, '*')", '내 칸이 아닌 곳을 지움'],
     ['mod', "if(!(r && r.ok)) notifyError('E-CHAT-02');", "", '지우기 실패를 알리지 않음'],
+    ['mod', "sync.forgetName(room); ", "", '지운 뒤 올리기에 이름 다시 쓰기를 알리지 않음'],
     ['mod', "if(sig === compactedFor) return;", "", '같은 합치기를 구독마다 다시 보냄'],
     ['mod', "const me = getMyUserId(); if(!me || !raw || !raw[me]) return;", "const me = Object.keys(raw)[0]; if(!me || !raw || !raw[me]) return;", '남의 칸을 합침'],
     ['mod', "if(unsub && subRoom === room) return;", "if(unsub) return;", '방이 바뀌어도 옛 방을 계속 구독'],

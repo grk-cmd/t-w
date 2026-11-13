@@ -6,6 +6,7 @@
    ★ 채팅 탭이 아니라 «보기 상태» — 저장 · 방송 · 안 읽음이 없다. 구독은 이 탭을 보는 동안만(방 전체 노드 하나 — 사람 수 × 최대 84일 × 작은 숫자).
    ⚠️ 서버 일은 provider(deps) 한 곳 — 이 파일은 firebaseAPI 를 직접 부르지 않는다.
    ⚠️ 남이 쓸 수 있는 값이다 — 이름은 화면에 넣을 때 반드시 deps.escHtml(TwSafeHtml.text) 을 거치고, 숫자는 모양을 걸러 읽는다.
+   ⚠️ 날 키 규칙(YYYYMMDD · 주 시작 · 하루 더하기)은 shared/room-focus-days.js(window.TwRoomFocusDays — 이 파일보다 먼저 싣는다).
    classic script(window.TwChatFocus) — app.js 가 채팅 모듈(chat-ui.js)보다 먼저 createChatFocus(deps) 로 만든다.
    ⚠️ 채팅 모듈을 부르지 않는다 — 채팅 모듈이 onChange 로 «탭 줄 · 입력칸 안내문 다시 그리기» 를 걸어 둔다(한쪽으로만 — 순환 방지).
    검사: checks/sim-chat-focus.js */
@@ -19,12 +20,7 @@ const NAME_MAX = 20;
 const METRICS = ['today', 'week', 'total'];
 const METRIC_LABEL = { today: '오늘', week: '이번 주', total: '누적' };
 
-const dateOfKey = (k) => new Date(+k.slice(0, 4), +k.slice(4, 6) - 1, +k.slice(6, 8));
-function keyOfDate(d){ return String(d.getFullYear()) + String(d.getMonth() + 1).padStart(2, '0') + String(d.getDate()).padStart(2, '0'); }
-function addDays(key, n){ const d = dateOfKey(key); d.setDate(d.getDate() + n); return keyOfDate(d); }
-/* 이번 주의 월요일(달성표와 같은 «월요일 시작») */
-function weekStartKey(todayKey){ const d = dateOfKey(todayKey); return addDays(todayKey, -((d.getDay() + 6) % 7)); }
-const isDayKey = (k) => /^20\d{6}$/.test(k);
+const { addDays, weekStartKey, isDayKey } = window.TwRoomFocusDays;   // 날 키 규칙은 shared/room-focus-days.js 한 곳
 const okSec = (v, max) => typeof v === 'number' && Number.isFinite(v) && v >= 0 && v <= max;
 
 /* 서버 사본 → { roomTotal, roomToday, roomWeek, rows:[{ id, name, today, week, total }] } — 모양이 틀린 칸은 버린다. rows 는 정렬하지 않는다. */
@@ -111,7 +107,7 @@ function viewHtml(st, ui, escHtml){
  *     compact(room: string, uid: string, plan: { newO: number, keys: string[] }): Promise<{ok:boolean}>,
  *     removeMine(room: string, uid: string): Promise<{ok:boolean}>,
  *   },
- *   sync: { isOn(room: string): boolean, setOn(room: string, on: boolean): void },
+ *   sync: { isOn(room: string): boolean, setOn(room: string, on: boolean): void, forgetName(room: string): void },
  *   todayKey: () => string,
  *   notifyError: (code: string, err?: unknown) => void,
  * }} deps
@@ -218,7 +214,7 @@ function createChatFocus(deps){
     delAsk = false;
     const r = await provider.removeMine(room, me).catch(() => null);
     if(!(r && r.ok)) notifyError('E-CHAT-02');
-    else toast('내 집중 기록을 지웠어요');
+    else{ sync.forgetName(room); toast('내 집중 기록을 지웠어요'); }
     paint();
   }
   /* 단추 하나 — 화면 조각의 data-act 이름과 같다(검사가 직접 부른다) */
@@ -249,7 +245,7 @@ function createChatFocus(deps){
   return { start, stop, open, close, isActive, available, hint, submit, paint, onChange, act };
 }
 
-const api = Object.freeze({ FOCUS_TAB, FOCUS_TAB_NAME, KEEP_DAYS, METRICS, weekStartKey, addDays, stats, rank, compactPlan, fmtDur, viewHtml, createChatFocus });
+const api = Object.freeze({ FOCUS_TAB, FOCUS_TAB_NAME, KEEP_DAYS, METRICS, stats, rank, compactPlan, fmtDur, viewHtml, createChatFocus });
 if(typeof window !== 'undefined') window.TwChatFocus = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();
