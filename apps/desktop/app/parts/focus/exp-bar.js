@@ -42,7 +42,7 @@ function expCellsFromSec(sec){
   return Math.min(EXP_CELLS, Math.floor((total % EXP_SEC_PER_LEVEL) / EXP_SEC_PER_CELL));
 }
 /* 내 현재 칸 수 — 프리즌스로 내보낼 값이자 내 좌석에 그릴 값. */
-function myExpCells(){ return expCellsFromSec(_focusTotalSec()); }
+function myExpCells(){ const sec = _focusTotalSec(); return sec == null ? null : expCellsFromSec(sec); }   // 서버 답 전 · 실패면 null — 바를 그리지 않는다
 
 function ensureSeatExpBarEl(seat){
   if(seat.expBarEl) return seat.expBarEl;

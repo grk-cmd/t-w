@@ -1,11 +1,12 @@
 /* sim-first-run-013.js — 🚚 0.13 첫 실행(account/first-run-013.js) 검사 — 가짜 단계 · 가짜 저장소로 그대로 돌린다
-   ・1절: 차례 — 로그인 → 캐릭터 → 라이선스 → 지우기 · 단계가 없으면 만들 때 던짐
+   ・1절: 차례 — 로그인 → 캐릭터 → 라이선스 → 포커스 → 지우기 · 단계가 없으면 만들 때 던짐
    ・2절: 멈춤 — 한 단계라도 실패 · 기다림 · 던짐이면 거기서 멈추고 아무것도 안 지움 · 다음 실행에 처음부터
    ・3절: 지우기 — 단계들이 돌려준 키만(겹치면 한 번) · 다 끝나면 «이 계정으로 끝냄» · 같은 계정은 건너뜀 · 다른 계정은 다시
    ・4절: 다시 해도 같게 — 도는 중에 또 부르면 같은 약속 · 내 코드 없으면 안 돎
    ・5절: 자리 — pendingStep 은 늘 기다림(지우기를 막음) · loginStep 은 서버 계정 확인 뒤에만 · 로그인 키 목록 · mallangStep 은 이 PC 의 tw.mallang.* 만
    ・6절: 배선 — html(app.js 앞) · app.js 가 라이선스 단계를 채움 · 로그아웃이 옛 키를 안 지움
    ・6b절: 라이선스 키 단계(D8-3) — 키 없음 · 성공 · 서버 거절 갈래 · 해제 표시 · 네트워크
+   ・6c절: 포커스 옛 누적 단계(D5-2) — 둘 다 있고 차가 양수 → 한 번 올림 · 마크 없음 → 안 올리고 지움 · 실패 → 아무것도 안 지우고 멈춤 · 이 PC 칸 · 계정 칸 둘 다 훑음
    ・7절: 일부러 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -29,9 +30,9 @@ function mk(S, plan, uc){
   const store = new Map([['a', '1'], ['b', '1'], ['c', '1'], ['keep', '1']]);
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const order = [];
-  const step = (name) => async () => { if((name === 'gacha' || name === 'mallang' || name === 'myhome') && !plan[name]) return { ok: true, wipe: [] }; order.push(name); const p = plan[name]; if(typeof p === 'function') return p(); return p; };
+  const step = (name) => async () => { if((name === 'gacha' || name === 'mallang' || name === 'myhome' || name === 'focus') && !plan[name]) return { ok: true, wipe: [] }; order.push(name); const p = plan[name]; if(typeof p === 'function') return p(); return p; };
   let code = (uc === undefined) ? 'u1234567890' : uc;
-  const fr = F.createFirstRun({ steps: { login: step('login'), gacha: step('gacha'), mallang: step('mallang'), myhome: step('myhome'), legacySync: step('legacySync'), licenseKey: step('licenseKey') }, storage, userCode: () => code, log: { warn(){} } });
+  const fr = F.createFirstRun({ steps: { login: step('login'), gacha: step('gacha'), mallang: step('mallang'), myhome: step('myhome'), legacySync: step('legacySync'), licenseKey: step('licenseKey'), focus: step('focus') }, storage, userCode: () => code, log: { warn(){} } });
   return { F, fr, store, order, setCode: (c) => { code = c; } };
 }
 const OK = (w) => ({ ok: true, wipe: w || [] });
@@ -39,9 +40,9 @@ const OK = (w) => ({ ok: true, wipe: w || [] });
 async function judge(S){
   say('── 1. 차례');
   {
-    const e = mk(S, { login: OK(['a']), gacha: OK(['g']), mallang: OK(['m']), myhome: OK(['h']), legacySync: OK(['b']), licenseKey: OK([]) });
+    const e = mk(S, { login: OK(['a']), gacha: OK(['g']), mallang: OK(['m']), myhome: OK(['h']), legacySync: OK(['b']), licenseKey: OK([]), focus: OK(['f']) });
     const r = await e.fr.run();
-    chk(r.ok && e.order.join() === 'login,gacha,mallang,myhome,legacySync,licenseKey', '로그인 → 가챠 옛 키 → 말랑이 옛 칸 → 마이홈 옛 키 → 캐릭터 → 라이선스 차례로');
+    chk(r.ok && e.order.join() === 'login,gacha,mallang,myhome,legacySync,licenseKey,focus', '로그인 → 가챠 옛 키 → 말랑이 옛 칸 → 마이홈 옛 키 → 캐릭터 → 라이선스 → 포커스 옛 누적 차례로');
     let threw = false;
     try{ e.F.createFirstRun({ steps: { login: async () => OK() }, storage: {}, userCode: () => 'u1' }); }catch(_){ threw = true; }
     chk(threw, '단계가 빠지면 만들 때 던짐(조용히 건너뛰지 않음)');
@@ -143,6 +144,54 @@ async function judge(S){
     chk(list && !/LICENSE_KEY_STORAGE|LICENSE_OPTOUT_KEY/.test(list), '로그아웃 지움 목록에 옛 라이선스 키 · 해제 표시가 없다(올리기 전에 지우면 잃는다)');
   }
 
+  say('── 6c. 포커스 옛 누적 단계(D5-2)');
+  {
+    const F = load(S.FR);
+    const cell = (c, k) => 'tw.u.' + c + '.' + k.replace(/^tw\./, '');
+    const mkF = (entries, accrueFn, uc) => {
+      const store = new Map(Object.entries(entries)), calls = [];
+      const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+      const step = F.focusStep({ storage, userCode: () => (uc === undefined ? 'u1234567890' : uc), cellName: cell, accrue: async (n) => { calls.push(n); return accrueFn ? accrueFn(n) : { ok: true }; } });
+      return { step, calls, store };
+    };
+    let e = mkF({ 'tw.focusTotalSec': '5000', 'tw.focusSyncedSec': '3000', 'tw.starColor': '#fff', 'tw.danceNotified': '[]', 'tw.danceNotifiedFix': '[]', 'tw.ideskNotified': '[]', keep: '1' });
+    let r = await e.step();
+    chk(r.ok === true && e.calls.join() === '2000', '누적 5000 · 마크 3000 → 올리지 않은 2000 을 한 번 올린다(누적 전체가 아니다)');
+    chk(r.wipe.slice().sort().join() === ['tw.danceNotified', 'tw.danceNotifiedFix', 'tw.focusSyncedSec', 'tw.focusTotalSec', 'tw.ideskNotified', 'tw.starColor'].join(), '  ↳ 누적 · 마크 · 별 색 · 해금 안내 기록 셋을 지우라고 한다(다른 키는 아님)');
+    e = mkF({ 'tw.focusTotalSec': '5000' }); r = await e.step();
+    chk(r.ok === true && e.calls.length === 0 && r.wipe.join() === 'tw.focusTotalSec', '마크가 없으면 보내지 않고 지운다(어디까지 올렸는지 모른다 — 서버 값이 원본)');
+    e = mkF({ 'tw.focusTotalSec': '3000', 'tw.focusSyncedSec': '3000' }); r = await e.step();
+    chk(r.ok === true && e.calls.length === 0 && r.wipe.length === 2, '차가 0 이면 보내지 않고 지운다');
+    e = mkF({ 'tw.focusTotalSec': '1000', 'tw.focusSyncedSec': '3000' }); r = await e.step();
+    chk(r.ok === true && e.calls.length === 0, '마크가 누적보다 크면(서버가 더 앞섬) 보내지 않는다');
+    e = mkF({ keep: '1' }); r = await e.step();
+    chk(r.ok === true && e.calls.length === 0 && r.wipe.length === 0, '옛 키가 하나도 없으면 아무것도 안 한다');
+    e = mkF({ 'tw.focusTotalSec': 'abc', 'tw.focusSyncedSec': '1' }); r = await e.step();
+    chk(r.ok === true && e.calls.length === 0, '깨진 글은 올리지 않는다');
+    e = mkF({ 'tw.focusTotalSec': '5000', 'tw.focusSyncedSec': '3000' }, () => ({ ok: false, reason: '서버' })); r = await e.step();
+    chk(r.ok === false && !r.wipe && /올리기 실패/.test(r.reason), '★ 올리기 실패 → 멈춤 · 지우라는 말 없음(다음 실행에 다시)');
+    e = mkF({ 'tw.focusTotalSec': '5000', 'tw.focusSyncedSec': '3000' }, () => { throw new Error('boom'); }); r = await e.step();
+    chk(r.ok === false && !r.wipe, '  ↳ 던져도 같다');
+    e = mkF({ 'tw.u.u1234567890.focusTotalSec': '9000', 'tw.u.u1234567890.focusSyncedSec': '8000', 'tw.starColor': '#fff' }); r = await e.step();
+    chk(e.calls.join() === '1000' && r.wipe.includes('tw.u.u1234567890.focusTotalSec') && r.wipe.includes('tw.u.u1234567890.focusSyncedSec') && r.wipe.includes('tw.starColor'), '0.13 시험판이 계정 칸으로 옮겨 둔 값도 읽고(1000) 그 칸 · PC 칸 둘 다 지운다');
+    e = mkF({ 'tw.focusTotalSec': '5000', 'tw.focusSyncedSec': '3000' }, null, null); r = await e.step();
+    chk(r.ok === true && e.calls.join() === '2000', '내 코드가 없으면 계정 칸은 건너뛰고 PC 칸만 본다');
+    /* 첫 실행 전체 — 실패하면 키가 남고 멈추며, 다음 실행에 성공하면 지운다 */
+    const store = new Map([['tw.focusTotalSec', '5000'], ['tw.focusSyncedSec', '3000']]); let ok = false, n = 0;
+    const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
+    const fr = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(), licenseKey: async () => OK(),
+      focus: F.focusStep({ storage, userCode: () => 'u1234567890', cellName: cell, accrue: async () => { n++; return { ok }; } }) }, storage, userCode: () => 'u1234567890', log: { warn(){} } });
+    const a1 = await fr.run();
+    chk(!a1.ok && a1.at === 'focus' && store.has('tw.focusTotalSec') && store.has('tw.focusSyncedSec') && !store.has('tw.firstRun013'), '★ 첫 실행 — 올리기 실패면 두 키가 남고 거기서 멈춘다');
+    ok = true; const a2 = await fr.run();
+    chk(a2.ok && n === 2 && !store.has('tw.focusTotalSec') && !store.has('tw.focusSyncedSec') && store.get('tw.firstRun013') === 'u1234567890', '  ↳ 다음 실행에 성공하면 두 키를 지우고 끝낸다');
+    const a = S.APP.indexOf('const firstRunMod = TwFirstRun013.createFirstRun(');
+    const blk = a < 0 ? '' : S.APP.slice(a, a + 1800);
+    chk(/focus: TwFirstRun013\.focusStep\(/.test(blk) && /accrue: \(sec\)=>focusProgressMod\.legacyAccrue\(sec\)/.test(blk), 'app.js — 포커스 단계를 진척 모듈의 옛 누적 올리기에 잇는다');
+    const list = (S.ACC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
+    chk(list && !/starColor|DANCE_|danceNotified|ideskNotified|focusTotalSec|focusSyncedSec/.test(list), '로그아웃 지움 목록에 걷은 포커스 키가 없다(첫 실행이 지운다)');
+  }
+
   say('── 6b. 라이선스 키 단계(D8-3)');
   {
     const F = load(S.FR);
@@ -183,7 +232,7 @@ async function judge(S){
     /* 이어 붙이기 — 멈추면 키가 남고 다음 실행에 POST 한 번 */
     const store = new Map([['tw.licenseKey', 'K1'], ['x', '1']]); let n = 0, fails = true; const notes = [];
     const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
-    const fr = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(),
+    const fr = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(), focus: async () => OK(),
       licenseKey: F.licenseKeyStep({ storage, activate: async () => { n++; return fails ? { ok: false, err: Object.assign(new Error('net'), { code: 'NETWORK' }) } : { ok: true }; } }) },
       storage, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m) => notes.push(m) });
     const a1 = await fr.run();
@@ -191,14 +240,14 @@ async function judge(S){
     fails = false; const a2 = await fr.run();
     chk(a2.ok && n === 2 && !store.has('tw.licenseKey') && store.get('tw.firstRun013') === 'u1234567890', '  ↳ 다음 실행에 등록 한 번 더 → 성공 → 지움 · 끝냄');
     const notes2 = []; store.set('tw.licenseKey', 'K2'); store.delete('tw.firstRun013');
-    const fr2 = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(),
+    const fr2 = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(), focus: async () => OK(),
       licenseKey: F.licenseKeyStep({ storage, activate: async () => ({ ok: false, err: err(API.CODE.NOT_FOUND) }) }) },
       storage, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m) => notes2.push(m) });
     const b = await fr2.run();
     chk(b.ok && notes2.length === 1 && notes2[0] === F.LICENSE_NOTICE.UNUSABLE && !store.has('tw.licenseKey'), '끝까지 돈 뒤에만 안내 한 번(멈춘 실행에는 안내 없음)');
     chk(notes.length === 0, '  ↳ 안내가 없는 결과엔 notify 0');
     const seen = []; store.set('tw.licenseKey', 'K3'); store.delete('tw.firstRun013');
-    const fr3 = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(),
+    const fr3 = F.createFirstRun({ steps: { login: async () => OK(), gacha: async () => OK(), mallang: async () => OK(), myhome: async () => OK(), legacySync: async () => OK(), focus: async () => OK(),
       licenseKey: F.licenseKeyStep({ storage, activate: async () => ({ ok: false, err: err(API.CODE.DEVICE_FULL) }) }) },
       storage, userCode: () => 'u1234567890', log: { warn(){} }, notify: (m, a) => seen.push([m, a]) });
     const c = await fr3.run();
@@ -211,8 +260,9 @@ await judge(SRC0);
 
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
-  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'licenseKey', 'legacySync']);", '차례가 바뀜'],
-  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey']);", '마이홈 단계가 빠짐'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'licenseKey', 'legacySync', 'focus']);", '차례가 바뀜'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus']);", "const STEPS = Object.freeze(['login', 'gacha', 'myhome', 'legacySync', 'licenseKey', 'focus']);", '말랑이 단계가 빠짐'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey', 'focus']);", '마이홈 단계가 빠짐'],
   ['FR', "if(typeof k === 'string' && k.length > MALLANG_LEGACY_PREFIX.length && k.indexOf(MALLANG_LEGACY_PREFIX) === 0) wipe.push(k);", "if(typeof k === 'string' && k.indexOf('tw.mallang') === 0) wipe.push(k);", '말랑이 접두가 선물 치움 키까지 지움'],
   ['FR', "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs', 'tw.gachaBonus']);", "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs']);", '가챠 옛 키를 덜 지움'],
   ['FR', "        return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };", "        continue;", '실패해도 이어 감(올리기 전에 지움)'],
@@ -223,6 +273,12 @@ const BREAKS = [
   ['FR', "  for(const n of STEPS) if(typeof deps.steps[n] !== 'function') throw new Error('[0.13 첫 실행] 단계 없음 — ' + n);", "", '빠진 단계를 조용히'],
   ['FR', "function pendingStep(name){ return async () => ({ ok: false, pending: true,", "function pendingStep(name){ return async () => ({ ok: true, pending: true,", '기다림 자리가 통과'],
   ['FR', "const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev']);", "const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', 'tw.invitePassed', 'tw.myFriendCodePrev', 'tw.deviceId']);", '기기 id 를 지움'],
+  ['FR', "delta = Math.floor(total - synced);", "delta = Math.floor(total);", '마크를 안 빼고 누적 전체를 올림'],
+  ['FR', "if(isFinite(total) && isFinite(synced)){ delta = Math.floor(total - synced); break; }", "if(isFinite(total)){ delta = Math.floor(total - (synced || 0)); break; }", '마크가 없어도 올림'],
+  ['FR', "if(!r || r.ok !== true) return { ok: false, reason: '포커스 옛 누적 올리기 실패", "if(false) return { ok: false, reason: '포커스 옛 누적 올리기 실패", '올리기 실패해도 지움'],
+  ['FR', "if(uc) places.unshift((k) => deps.cellName(uc, k));", "", '계정 칸을 안 훑음'],
+  ['FR', "'tw.starColor', 'tw.danceNotified', 'tw.danceNotifiedFix', 'tw.ideskNotified']);", "'tw.starColor']);", '해금 안내 기록을 안 지움'],
+  ['APP', "focus: TwFirstRun013.focusStep(", "focus: async ()=>({ ok: true, wipe: [] }) || TwFirstRun013.focusStep(", '포커스 단계를 안 채움'],
   ['HTML', '<script src="parts/account/first-run-013.js"></script>', '', 'html 에 안 실음'],
   ['FR', "    if(!key || optOut) return { ok: true, wipe: allWipe };", "    if(!key) return { ok: true, wipe: allWipe };", '해제 표시(OptOut)를 안 봄'],
   ['FR', "if(!e || e.kind === 'auth' || !Object.keys(LICENSE_CODE).some((n) => LICENSE_CODE[n] === code)) return", "if(false) return", '실패해도 지움(네트워크 · 로그인 풀림)'],

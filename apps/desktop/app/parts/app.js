@@ -2238,15 +2238,16 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
 /* 🕒 포커스 기록 팝업(현재 / 누적 · 오늘 기록 · 미니미 · 타이틀바 끌기 · ⎋ 닫기)은 parts/focus-log.js 로 옮겼다(앱 FSD 13번 · docs/APP_FSD_MAP.md).
    ★ 원래 자리인 여기서 만든다 — 모듈이 만들 때 바로 하는 일(버튼 · ESC 등록 · window._focusLogClamp · 매초 갱신 · 타이틀바 끌기)이
      예전과 같은 때 돈다. 밖에서 부르는 이름은 없다.
-   함수 deps 는 화살표로 감싼다(부를 때 찾게). _focusTotalSec · _focusSessionSec 는 다시 대입되고 이 줄보다 한참 뒤(포커스 시간 누적 구역)에
-   선언되는 let 이라 읽는 함수로 넘긴다(값으로 넘기면 TDZ).
+   함수 deps 는 화살표로 감싼다(부를 때 찾게). _focusSessionSec 는 다시 대입되고 이 줄보다 한참 뒤(포커스 시간 누적 구역)에
+   선언되는 let 이라 읽는 함수로 넘긴다(값으로 넘기면 TDZ). 누적(focusProgressMod)도 더 뒤에 만들어져 같은 까닭으로 읽는 함수.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
 const focusLog = TwFocusLog.createFocusLog({
   formatHMS: (...a)=>focusLevelMod.formatHMS(...a),
   rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
-  focusTotalSec: ()=>_focusTotalSec,
+  focusTotalSec: ()=>focusProgressMod.shownTotalSec(),   // 서버 누적 + 못 올린 몫(받기 전 null)
+  retryProgress: (...a)=>focusProgressMod.reload(true),   // 못 받았으면 열 때 다시 받는다(번호 알림 E-FOCUS-01)
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
   figureMode: ()=>figureMode,
 });
@@ -5705,7 +5706,7 @@ const loginFlowMod = TwLoginFlow.createLoginFlow({
   forgetSession: ()=>TwApi.authed.forgetSession(),
   now: ()=>Date.now(),
 });
-/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
+/* 🚚 0.13 첫 실행(account/first-run-013.js) — 로그인 → 캐릭터 올리기 → 라이선스 키 → 포커스 옛 누적 → 이 PC 키 지우기. 라이선스 단계는 이 PC 의 옛 키를 서버에 등록한다(D8-3). */
 const firstRunMod = TwFirstRun013.createFirstRun({
   steps: {
     login: TwFirstRun013.loginStep(()=>loginFlowMod.mode() === 'in'),
@@ -5716,6 +5717,12 @@ const firstRunMod = TwFirstRun013.createFirstRun({
     licenseKey: TwFirstRun013.licenseKeyStep({
       storage: localStorage,
       activate: (key)=>licensePremiumMod.activate(key),
+    }),
+    focus: TwFirstRun013.focusStep({
+      storage: localStorage,
+      userCode: ()=>getMyUserId(),
+      cellName: (code, key)=>TwAccountStore.cellName(code, key),
+      accrue: (sec)=>focusProgressMod.legacyAccrue(sec),
     }),
   },
   storage: localStorage,
@@ -6673,9 +6680,6 @@ function backToLauncher(){
     window._mhDsClose();
   }
   renderLauncher();
-  // 🕒 런처로 돌아오는 시점 = 이번 세션의 포커스 기록을 확정하기 좋은 경계.
-  //   여기서만 서버와 맞추므로 쓰기 횟수가 적고(세션당 몇 번), 다른 기기의 기록도 이때 받아온다.
-  focusLevelMod.syncFocusTotalToServer('launcher');
   // 👑 달성표도 같은 경계에서 맞춘다 — 다른 기기에서 체크한 오늘 항목이 여기서 따라온다.
   weeklyChal.syncChalToServer('launcher');
   applyDesktopRunClass();
@@ -6941,11 +6945,11 @@ const accountMod = TwAccount.createAccount({
   MY_USER_ID_KEY: MY_USER_ID_KEY,
   USER_NAME_KEY: USER_NAME_KEY,
   _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
-  _focusTotalSec: ()=>_focusTotalSec,
+  unsentSec: (...a)=>focusProgressMod.unsentSec(...a),   // 🕒 로그아웃 검문이 보는 «못 올린 집중 시간»
+  flushFocus: (...a)=>focusProgressMod.flushPending(...a),   // 📤 로그아웃 올리기
   _rememberOldFriendCode: (...a)=>_rememberOldFriendCode(...a),
   _setMyUserId: (...a)=>_setMyUserId(...a),
   extraSeatSlots: ()=>settingsMod.extraSeatSlots(),
-  focusLevelMod: ()=>focusLevelMod,
   gachaMod: ()=>gachaMod,
   getMyUserId: (...a)=>getMyUserId(...a),
   acctStateMod: acctStateMod,
@@ -6958,7 +6962,6 @@ const accountMod = TwAccount.createAccount({
   tricksMod: tricksMod,
   weeklyChal: ()=>weeklyChal,
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
-  setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
   setExtraSeatSlots: (v)=>{ settingsMod.setExtraSeatSlots(v); },
   setAcctDetached: (v)=>{ acctStateMod.setAcctDetached(v); },
   LOGIN_EMAIL_KEY: acctStateMod.LOGIN_EMAIL_KEY,
@@ -6995,12 +6998,13 @@ const myInfoMod = TwMyInfo.createMyInfo({
   STAR_PALETTE: ()=>focusLevelMod.STAR_PALETTE,
   USER_NAME_MAX: userNameMod.USER_NAME_MAX,
   _acctDetached: ()=>acctStateMod._acctDetached(),
-  _focusTotalSec: ()=>_focusTotalSec,
+  _focusTotalSec: ()=>focusProgressMod.shownTotalSec(),   // 레벨 막대용 — 받기 전 null
+  progress: ()=>focusProgressMod.progress(),
+  retryProgress: (...a)=>focusProgressMod.reload(true),   // 못 받았으면 열 때 다시 받는다(번호 알림 E-FOCUS-01)
   _loginDoLogout: (...a)=>accountMod._loginDoLogout(...a),
   _loginDoDeleteAccount: (...a)=>accountMod._loginDoDeleteAccount(...a),
   _withdrawPreview: (...a)=>accountMod._withdrawPreview(...a),
   _myHomeData: ()=>mhStateMod._myHomeData(),
-  _pushLevelIfChanged: (...a)=>focusLevelMod._pushLevelIfChanged(...a),
   closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),
   commitUserName: (...a)=>userNameMod.commitUserName(...a),
   curSlot: ()=>curSlot,
@@ -7979,7 +7983,7 @@ function frame(now, manual){
   const _djNow = listenUi.djId();   // 🎧 이름표 «DJ» 딱지 — 프레임에 한 번(좌석마다 방 사람 목록을 다시 만들지 않게)
   seats.forEach(seat=>{
     const state=seatState(seat,now);
-    if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
+    if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); if(focusProgressMod.isReady()) Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 서버 레벨을 받은 뒤에만 — 받기 전의 1 을 방에 싣지 않는다   // 액자 고정은 상대에겐 평상시로
     if(seat.remote && seat._lastTab!==seat.remoteState){ seat._lastTab=seat.remoteState; seatPanelMod.renderSeatTabs(); }  // 탭 상태 이모지 갱신
     const tg=targetFor(state),k=1-Math.pow(seat.smooth,dt);
     /* 활동 상태(userStatus): 본인=userStatus, 친구=remoteUserStatus */
@@ -8160,7 +8164,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       overheadMod.setSeatNamePlate(seat, lv, seat.friendName||'(이름 없음)', st, !!seat.friendUserId && _djNow === seat.friendUserId);
     }
     else if(seat.isMe){
-      const st = focusLevelMod.myFocusShow(), lv = st ? st.lv : focusLevelMod.getFocusLevel();
+      const st = focusLevelMod.myFocusShow(), lv = !focusProgressMod.isReady() ? null : (st ? st.lv : focusLevelMod.getFocusLevel());   // 서버 답 전 · 실패면 레벨 · 바를 그리지 않는다
       expBarMod.updateSeatExpBar(seat, lv, expBarMod.myExpCells(), st);
       overheadMod.setSeatNamePlate(seat, lv, getDisplayName(), st, !!getMyUserId() && _djNow === getMyUserId());
     }
@@ -8341,7 +8345,6 @@ window.__officeDiag = function(){
 const focusTotalMod = TwFocusTotal.createFocusTotal({
   focusTotalStore: accountStoreMod,
 });
-let _focusTotalSec=0;   // 계정 확인 뒤 app-boot 의 focusTotal 차례가 계정 칸에서 읽는다
 
 /* ═══ 📊 오늘 기록 전시 (2026-09-23 · handoff-2026-09-21-features §3 · 사용자 확정: 🕒 를 눌러 켜고 끈다) ═══
    포커스 기록창 첫 줄(현재/누적 기록) 옆 🕒(#focusLogShowClock)를 누르면 켜짐/꺼짐.
@@ -8440,40 +8443,38 @@ const bugBoardUi = TwBugBoardUi.createBugBoardUi({
 /* ═══ ⭐ 포커스 레벨 · 해금 안내 · 회차 별 색 ═══ */
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+/* ⏱ 포커스 진척 — 레벨 · 회차 · 별 색은 서버 값, 이 PC 는 못 올린 초만(focus/focus-progress.js). 시작은 계정 확인 뒤 app-boot 의 focusLevel 차례 */
+const focusProgressMod = TwFocusProgress.createFocusProgress({
+  focusApi: TwFocusApi.createFocusApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),
+  focusStore: accountStoreMod,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  setServerDay: (t)=>focusTotalMod.setServerDay(t),
+  addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
+});
 const focusLevelMod = TwFocusLevel.createFocusLevel({
   focusLevelStore: accountStoreMod,
+  progress: focusProgressMod,
   _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),
-  DANCE_MOVES: iDeskMod.DANCE_MOVES,
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
   FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
   FOCUS_TODAY_DATE_KEY: focusTotalMod.FOCUS_TODAY_DATE_KEY,
   FOCUS_TODAY_SEC_KEY: focusTotalMod.FOCUS_TODAY_SEC_KEY,
-  FOCUS_TOTAL_CAP_SEC: focusTotalMod.FOCUS_TOTAL_CAP_SEC,
-  FOCUS_TOTAL_KEY: focusTotalMod.FOCUS_TOTAL_KEY,
-  IDESK_ENABLED: iDeskMod.IDESK_ENABLED,
-  INTERACTION_DESKS: iDeskMod.INTERACTION_DESKS,
   Presence: Presence,
   _acctDetached: ()=>acctStateMod._acctDetached(),
   _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
   _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
   _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
-  _focusTotalSec: ()=>_focusTotalSec,
-  _myInbox: ()=>mailFeed.items(),
-  _myInboxReady: ()=>mailFeed.ready(),
-  appMode: ()=>appMode,
   findMySeat: (...a)=>findMySeat(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
-  getMyLoginEmail: (...a)=>acctStateMod.getMyLoginEmail(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   mobileDiag: TwMobileDiag,
-  renderLauncher: (...a)=>renderLauncher(...a),
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
   setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },
   setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
-  setFocusTotalSec: (v)=>{ _focusTotalSec = v; },
 });
+
+focusProgressMod.onChange(()=>{ myInfoMod.onProgressChanged(); });   // 진척이 바뀌면 내 정보 머리 · 별 색 구획을 다시 그린다
 
 /* ═══ 🎰 가챠 모듈 연결 ═══ */
 /* 🎰 파츠 가챠 — 코어(서버 보유분 · 뽑기 · 미보유 파츠 회수)와 파츠 보관함(T) · 뽑기 창은 character/gacha.js 로 옮겼다.
@@ -8592,7 +8593,7 @@ themeUiMod.bindThemeUI();     // 설정창 테마·색상 칩 바인딩 (요소�
 /* 본문은 exp-bar.js 로 옮겼다(앱 FSD 45번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const expBarMod = TwExpBar.createExpBar({
-  _focusTotalSec: ()=>_focusTotalSec,
+  _focusTotalSec: ()=>focusProgressMod.shownTotalSec(),   // 레벨 막대용 — 받기 전 null(막대를 그리지 않는다)
   _starPaint: (...a)=>lvTierMod._starPaint(...a),
   lvBarClass: (...a)=>lvTierMod.lvBarClass(...a),
   lvStarBarClass: (...a)=>lvTierMod.lvStarBarClass(...a),
@@ -8601,7 +8602,7 @@ const expBarMod = TwExpBar.createExpBar({
 });
 
 /* ═══ 🖥️ 활성 앱 판정(_applyActiveAppState) ═══ */
-let _focusLastTick=performance.now(), _focusWasActive=false;
+let _focusLastTick=performance.now(), _focusWasActive=false, _focusAccruedLast=false;
 function _applyActiveAppState(state){
   if(!state) return;
   const now=performance.now(), dt=(now-_focusLastTick)/1000; _focusLastTick=now;
@@ -8616,7 +8617,10 @@ function _applyActiveAppState(state){
   const pcNotFocusing = (now - lastActivity) > focusWindowMs();
   const notFocusingNow = mobOn ? false : pcNotFocusing;
   /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
-  if(!figureMode && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
+  const accruing = !figureMode && _focusWasActive && !notFocusingNow && dt>0 && dt<30;
+  if(accruing) focusLevelMod.addFocusSeconds(dt);
+  else if(_focusAccruedLast) focusProgressMod.focusEnded();   // 집중 → 쉼 · 자리비움 — 못 올린 몫이 60초 이상이면 올린다
+  _focusAccruedLast = accruing;
   /* 👑 달성표 🎯집중 — "오늘 그 앱을 몇 초 썼나"를 같은 dt 로 여기서 센다.
      ★ 새 타이머를 만들지 않는 이유: dt 는 _focusLastTick 을 소비해서 나온다. 밖에서 따로 재면
        같은 구간을 두 번 세거나 서로 _focusLastTick 을 리셋해서 둘 다 틀린다.
@@ -8791,9 +8795,9 @@ const appBoot = TwAppBoot.createAppBoot({
   }),
   goOnline: ()=>loginFlowMod.goOnline(),
   starts: {
-    focusTotal: ()=>{ focusTotalMod.startFocusTotal(); _focusTotalSec = focusTotalMod._loadFocusTotalSec(); },
+    focusTotal: ()=>focusTotalMod.startFocusTotal(),
     focusShare: ()=>focusShareMod.startFocusShare(),
-    focusLevel: ()=>focusLevelMod.startFocusSync(),
+    focusLevel: (code, me, session)=>focusProgressMod.startFocus(code, me, session),
     weeklyChal: ()=>weeklyChal.startChalSync(),
     gacha: ()=>gachaMod.startGacha(),
     closet: ()=>closetMod.startCloset(),

@@ -32,3 +32,27 @@
 **내놓는 것** — `createFocusApi(deps)` → `fetchProgress` · `accrue` · `setStarColor` · `fetchChallenge` · `saveChallenge` · `markToday` · `claimReward` · `issueMobileKey` · `unlinkMobile` · `reset`. 순수: `progressOf` · `challengeOf` · `editBody` · `failOf`(`PREMIUM_REQUIRED` 등 갈래) · `PATHS` · `LIMITS`. 읽기는 못 읽으면 던지고, 쓰기는 `{ status: 'ok'|'stale'|'failed', err? }`.
 **함정** — 쓰기는 읽은 토큰의 주인(`expectOwner`)과 묶는다(읽은 적 없으면 요청 0). 레벨 · 보상 양은 서버가 센다 — 앱이 센 값을 보내지 않는다.
 검사: `checks/sim-focus-api.js`.
+
+## focus-progress.js — ⏱ 포커스 진척(서버 값 · 못 올린 초)
+
+**책임** — 레벨 · 회차 · 별 색은 서버가 준 값 그대로 들고(`load`: idle · loading · ready · failed), 이 PC 는 «아직 못 올린 초»(`pendingSec` · 계정 칸 `tw.focusPendingSec`)만 쌓아 정해진 때 한 번에 올린다. 앱이 누적에서 레벨을 다시 세지 않는다 — 레벨 막대만 `shownTotalSec()`(서버 누적 + 못 올린 몫).
+**deps** — `focusApi`(`createFocusApi`) · `store`(계정 칸) · `notifyError` · `setServerDay`(서버 «오늘» → `focus-total.js`) · `addQuitListener`.
+**내놓는 것** — `startFocus(code, me, session)`(app-boot `focusLevel` 차례 — `session.onReset` 으로 reset) · `progress()` · `isReady()` · `getFocusLevel()` · `myFocusShow()` · `getStarColor()` · `setStarColor(hex)` · `shownTotalSec()` · `unsentSec()` · `addSeconds(sec)` · `focusEnded()` · `flushPending()`(로그아웃 올리기) · `reload(userOpened)` · `legacyAccrue(sec)`(첫 실행의 옛 누적) · `onChange(fn)`.
+**올리는 때** — 주기 · 재시도 타이머 없음. ① 미전송분이 600초 칸을 넘을 때 ② 더해서 3600초(다음 레벨) 경계를 넘을 때 ③ 집중이 끝날 때(60초 이상) ④ 켤 때 · 로그아웃 올리기 · 앱 끄기. 실패하면 다음 때까지 기다린다.
+**함정**
+- 한 줄: 올리는 중이면 `again` 만 켠다. `sent` 를 잡고 답이 오면 `pendingSec -= sent` — 서버가 덜 받아도(`acceptedSec < sent`) 보낸 만큼 뺀다(서버 상한이 원본). 보내는 동안 쌓인 몫은 남는다.
+- 늦은 답: `session.onReset` 이 `gen` 을 올려 옛 계정 답은 아무것도 못 바꾼다. 요청 순번(`reqSeq`)이 앞선 요청의 늦은 답이 진척을 덮는 것을 막는다.
+- 받기 전(idle · loading · failed)에는 레벨 배지 · 경험치 바를 그리지 않는다(`isReady()` · 막대 null). 해금 레벨은 받기 전 1.
+- 번호: `E-FOCUS-01`(사용자가 연 창에서 다시 받기 실패) · `-02`(올리기 실패 — 이어지면 한 번) · `-03`(별 색 실패 — 이전 색으로).
+검사: `checks/sim-focus-progress.js`.
+
+## focus-level.js — ⭐ 레벨 표시 이름 · 오늘치 쌓기 · 태블릿
+
+**책임** — `addFocusSeconds`(오늘치 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(D5-5 에서 서버 길로).
+**함정** — Firebase 프로필 · 마크 · 해금 안내 우편은 걷었다(해금 안내는 서버 알림). 계정 확인 전에는 쌓지 않는다(`_focusTotalStarted`).
+검사: `checks/sim-focus-level.js`.
+
+## focus-total.js — ⏱ 오늘 · 이번 실행 시간 · 서버 «오늘»
+
+**책임** — 오늘 시간(계정 칸 `tw.focusTodaySec` · `tw.focusTodayDate`) · 이번 실행 시간 · 6시 날짜 경계 · 진척 답이 준 서버 «오늘»(`serverDay()` — `{ day, isoWeek, dayEndsAt }`). 누적은 서버 값이라 여기 없다. 경계를 서버 값으로 바꾸는 일은 D5-3.
+검사: `checks/sim-focus-total.js`.

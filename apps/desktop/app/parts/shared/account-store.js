@@ -1,5 +1,5 @@
 /* account-store.js — 🗂️ 계정별 로컬 칸 (검사 sim-account-store.js)
-   [왜] PC 한 칸(`tw.focusTotalSec` 등)에 계정 값을 두면 같은 PC 에서 계정을 바꿀 때 «지우기 / 넘기기» 둘 중 하나를 골라야 하고,
+   [왜] PC 한 칸(`tw.focusTodaySec` 등)에 계정 값을 두면 같은 PC 에서 계정을 바꿀 때 «지우기 / 넘기기» 둘 중 하나를 골라야 하고,
      고르다 틀리면 앞 계정 값이 다음 계정에 섞인다(#582). 0.13 부터 계정 데이터는 서버가 원본이라, PC 에 남는 값만 계정별 칸 `tw.u.<계정코드>.<이름>` 에 둔다.
      계정을 바꾸면 다른 칸이 열릴 뿐이라 지우기 · 넘기기 판단이 없다.
    [계정 코드] 부를 때마다 deps.getAccountCode() 로 읽는다(값으로 받으면 계정이 바뀐 뒤에도 옛 칸을 쓴다). 모양은 app.js _setMyUserId 와 같다.
@@ -37,9 +37,11 @@ const DEVICE_KEYS = Object.freeze([
 /* 계정별 — 그 사람의 기록 · 고른 것 · 보관 · 캐시. 아직 옛 PC 칸을 읽는 것도 포함(표 · 옮길 묶음은 shared/README.md). */
 const ACCOUNT_KEYS = Object.freeze([
   /* 이번 PR 이 옮긴 것 */
-  'tw.focusTotalSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.focusSyncedSec', 'tw.advZ.v2', 'tw.advZ.v1',
+  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',
+  /* 포커스 — 서버에 아직 못 올린 집중 시간(초). 레벨 · 누적은 서버 값이라 이 PC 에 두지 않는다(옛 tw.focusTotalSec · tw.focusSyncedSec · tw.starColor · 해금 안내 기록은 첫 실행이 지운다) */
+  'tw.focusPendingSec',
   /* 옮길 묶음 몫 */
-  'tw.focusShow', 'tw.danceNotified', 'tw.danceNotifiedFix', 'tw.ideskNotified', 'tw.starColor', 'tw.pomo', 'tw.pomoRun',
+  'tw.focusShow', 'tw.pomo', 'tw.pomoRun',
   'tw.bonkDay', 'tw.chal',
   'tw.curSlot', 'tw.extraSeatSlots', 'tw.roomFaceUrls', 'tw.slotGlbUrls',
   'tw.savedDesks', 'tw.savedItems', 'tw.savedParts', 'tw.decoParts', 'tw.deskPresets', 'tw.animalPresets', 'tw.animalEverUnlocked',
@@ -55,7 +57,7 @@ const ACCOUNT_KEY_PREFIXES = Object.freeze([
 ]);
 
 /* 이미 계정 칸에서 읽고 쓰는 키 — migrateLegacy 가 PC 칸에서 옮기는 대상. */
-const MOVED_KEYS = Object.freeze(['tw.focusTotalSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.focusSyncedSec', 'tw.advZ.v2', 'tw.advZ.v1']);
+const MOVED_KEYS = Object.freeze(['tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1']);
 
 function isAccountKey(key){
   if(typeof key !== 'string' || !key) return false;
@@ -150,7 +152,7 @@ function createAccountStore(deps){
   return { get, set, remove, open, close, migrateLegacy };
 }
 
-const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, createAccountStore };
+const api = { CELL_PREFIX, MIGRATED_KEY, DEVICE_KEYS, ACCOUNT_KEYS, ACCOUNT_KEY_PREFIXES, MOVED_KEYS, isAccountKey, cellName, createAccountStore };
 if(typeof window !== 'undefined') window.TwAccountStore = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

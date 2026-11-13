@@ -735,39 +735,12 @@
         return true;
       }catch(e){ console.warn('[달성표] 쓰기 실패', e); return false; }
     },
-    /* 내 프로필(이름·레벨) 저장 — 친구 목록에서 상대방에게 보여줄 값.
-       ★ level을 여기에 함께 넣는 이유: 친구 목록은 이미 users/{id}/profile을 구독하고 있어서
-         읽기 비용이 전혀 늘지 않는다. 쓰기도 레벨이 실제로 바뀔 때만 1회(숫자 하나)라 사실상 0. */
-    async setMyProfile(userId, name, level, star){
-      /* 🚧 부팅 직후 첫 쓰기다. 세션 복원을 기다리지 않으면 구글에 묶인 계정에서
-         permission_denied 가 나고, 부르는 쪽(app.js initMyHome)이 그 예외로 중단된다. */
+    /* 내 프로필 이름 저장 — 친구 목록이 이 노드를 아직 듣는다. 레벨 · 별(level · cyc · clv · starC)은 서버 진척이 원본이라 쓰지 않고,
+       update 라 그 칸들은 마지막 값 그대로 남는다(통째로 덮으면 지워진다 — 친구 쪽 갈아타기는 서버 빈칸 G2). */
+    async setMyProfile(userId, name){
+      /* 🚧 부팅 직후 첫 쓰기다. 세션 복원을 기다리지 않으면 구글에 묶인 계정에서 permission_denied 가 난다. */
       await _whenAuthReady();
-      const rec = { name: name||'(이름 없음)', updatedAt: Date.now() };
-      const lv = parseInt(level, 10);
-      if(isFinite(lv) && lv >= 1 && lv <= 9999) rec.level = lv;
-      /* 🌟 회차(개정 70) — { cyc, clv, starC }. 규칙과 같은 범위만 싣는다(cyc 1~100 · clv 1~999 · #rrggbb).
-         ★ level 은 해금 레벨 그대로다(999 에서 멈춤). 친구 목록의 별 배지는 이 세 필드로 그린다.
-         ⚠️ set() 통째 덮어쓰기라 **부르는 곳이 매번 star 를 넘겨야** 한다 — 빠뜨리면 회차가 지워진다(app.js myStarOut()). */
-      if(star){
-        const cy = parseInt(star.cyc, 10), cl = parseInt(star.clv, 10);
-        const hex = v => typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v);
-        if(cy >= 1 && cy <= 100 && cl >= 1 && cl <= 999){
-          rec.cyc = cy; rec.clv = cl;
-          /* 🌟 [개정 71] starC 가 비어 오면 = 이 기기에 고른 색이 없다(새 기기 · 받아 오기 전). 서버의 기존 값을 **지킨다** —
-             안 지키면 set() 통째 덮어쓰기가 다른 기기에서 고른 색을 지운다. 읽기는 이 경우에만 한 번. */
-          let sc = star.starC;
-          if(!hex(sc)){ try{ const cur = (await get(ref(db, `users/${userId}/profile/starC`))).val(); if(hex(cur)) sc = cur; }catch(_){} }
-          if(hex(sc)) rec.starC = sc;
-        }
-      }
-      await set(ref(db, `users/${userId}/profile`), rec);
-    },
-    /* 🌟 회차 별 색 받아 오기(개정 71) — 프로필 starC 한 값만 읽는다(프로필은 공개 읽기). #rrggbb 가 아니면 null.
-       팔레트 대조는 app.js(_starColorOk)가 한다. */
-    async fetchProfileStarC(userId){
-      if(!userId) return null;
-      try{ const v = (await get(ref(db, `users/${userId}/profile/starC`))).val(); return (typeof v === 'string' && /^#[0-9a-f]{6}$/.test(v)) ? v : null; }
-      catch(_){ return null; }
+      await update(ref(db, `users/${userId}/profile`), { name: name||'(이름 없음)', updatedAt: Date.now() });
     },
     // 온라인 상태 등록 — onDisconnect로 앱이 꺼지거나 튕기면 자동으로 offline 처리됨.
     setMyPresenceOnline(userId, startOnline){
