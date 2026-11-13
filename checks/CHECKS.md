@@ -420,7 +420,7 @@
 | **sim-rules-src.js** | 78 | **9aa8c39c0d69** |
 | **sim-rules-drift.js** | 175 | **2782c5c73084** |
 | **sim-mobile-link-trim.js** | 133 | **6d00f7fd7b7f** |
-| **sim-label-measure.js** | 234 | **ce652588740d** |
+| **sim-label-measure.js** | 261 | **0ac7eb3b5b0d** |
 | **sim-label-anim-paint.js** | 232 | **621cd3a555de** |
 | **sim-seat-sync-diff.js** | 200 | **fa86e4ff2eb6** |
 | **sim-safe-html.js** | 741 | **6e1c0f9fc709** |
