@@ -179,7 +179,7 @@ async function judge(withBreak){
     const ord = ds.log.filter((l) => /^(PUT|PATCH)/.test(l));
     chk(ord.length === 2 && /^PUT design v5/.test(ord[0]) && /^PATCH v6/.test(ord[1]), '디자인 먼저 · 페이지가 그 응답 판으로 차례로');
     const nodata = await ready(mk());
-    chk(await nodata.st.setDesign({ theme: {}, presets: [null, null, null], presetCur: 0, bg: { img: 'data:image/png;base64,AA' } }) === 'locked' && count(nodata.log, /^PUT/) === 0, 'data: 그림은 저장하지 않는다');
+    chk(await nodata.st.setDesign({ theme: {}, presets: [null, null, null], presetCur: 0, bg: { img: 'data:image/png;base64,AA' } }) === 'invalid' && count(nodata.log, /^PUT/) === 0, 'data: 그림은 저장하지 않는다');
   }
 
   say('── 5. 409 · 실패');
@@ -203,6 +203,15 @@ async function judge(withBreak){
     const e4 = await ready(mk({ designErr: apiErr(409, 'CONCURRENT_UPDATE') }));
     await e4.st.setDesign({ theme: { tab: '#1' }, presets: [null, null, null], presetCur: 1 });
     chk(count(e4.log, /^GET/) === 2 && e4.st.page().theme === null && e4.log.includes('toast ' + e4.st.MSG.merged), '디자인 409 → 받은 값으로 + 알림(내 고침 버림)');
+    const e6 = mk(); await e6.st.pullMine();
+    e6.srv.designErr = apiErr(409, 'CONCURRENT_UPDATE');
+    e6.st.setDesign({ theme: { tab: '#1' }, presets: [null, null, null], presetCur: 1 });
+    await e6.st.setField('bio', 'mine6');
+    await flush();
+    chk(e6.srv.sent && e6.srv.sent.length >= 1 && e6.srv.sent[0].bio === 'mine6' && e6.st.page().bio === 'mine6' && e6.st.page().theme === null, '디자인 + 글 고침 → 디자인 409 → 글은 새 판에 얹혀 PATCH · 디자인은 버림');
+    const gd = await ready(mk({ patchErr: apiErr(400, 'MYHOME_INVALID_BGM') }));
+    await gd.st.setField('bgm', { url: 'x', title: '' });
+    chk(gd.log.includes('toast 유튜브 링크를 인식하지 못했어요') && count(gd.log, /^error/) === 0, '안내 code(GUIDE)는 앱 문구 토스트 · 번호 없음');
     const lock = mk({ auto: false }); await ready(lock);
     lock.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
     const pp = lock.st.setField('bio', 'x'); await lock.release();
@@ -313,7 +322,7 @@ async function judge(withBreak){
     ['canEdit 를 빼면(미리보기에서 열림)', (s) => s.replace('mineSt.load === LOAD.READY && !viewSt.owner && !previewOn()', 'mineSt.load === LOAD.READY'), (s) => s.replace("if(viewSt.owner || previewOn()) return 'locked';", '')],
     ['gen 비교를 빼면(앞 집 답이 이김)', (s) => s.split('vg !== viewSt.gen').join('false')],
     ['again 모으기를 빼면(저장이 겹침)', (s) => s.replace('if(saving) return saveP;', '')],
-    ['409 에서 글 칸을 안 얹으면', (s) => s.replace('const keepText = job === \'page\' && !textRetry;', 'const keepText = false;')],
+    ['409 에서 글 칸을 안 얹으면', (s) => s.replace('const keepText = !textRetry;', 'const keepText = false;')],
     ['스티커 w · h 를 정수로 안 만들면', (s) => s.replace('s.w = Math.max(1, Math.min(400, Math.round(Number(s.w) || 1)));', 's.w = Number(s.w);')],
   ];
   const origLoad = S.ST;

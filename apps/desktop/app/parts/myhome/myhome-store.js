@@ -35,6 +35,11 @@ const MSG = Object.freeze({
   loading: '불러오는 중이에요',
   uploading: '그림을 올리는 중이에요',
 });
+const GUIDE_MSG = Object.freeze({
+  MYHOME_STICKER_FULL: '스티커는 최대 5개까지만 붙일 수 있어요',
+  MYHOME_BOOKSHELF_FULL: '책장이 가득 찼어요',
+  MYHOME_INVALID_BGM: '유튜브 링크를 인식하지 못했어요',
+});
 const TEXT_FIELDS = Object.freeze(['bio', 'post', 'postTitle']);
 const PAGE_FIELDS = Object.freeze(['avatar', 'bio', 'postTitle', 'post', 'bgm', 'bg', 'stickers']);
 const SETTABLE = Object.freeze(['bio', 'postTitle', 'post', 'bgm', 'bg']);   // 화면이 setField 로 바꾸는 칸(사진 · 스티커는 전용 동작)
@@ -55,7 +60,7 @@ const emptyDesktop = () => ({ bg: null, hideFolders: false, folderPos: {} });
 
 /** @param {{
  *   api: { fetchMine: Function, fetchOf: Function, patchPage: Function, putDesign: Function, uploadImage: Function, reset: Function },
- *   lib: { failOf: Function, KIND: Record<string, string>, LIMITS: { STICKERS: number } },
+ *   lib: { failOf: Function, KIND: Record<string, string>, ERRORS: object, LIMITS: { STICKERS: number } },
  *   errs: object, apiErrors: { notify: Function }, notifyError: (code: string, err?: any) => boolean, toast: (msg: string) => void,
  *   previewOn: () => boolean, rules: { nextZ: Function, move: Function },
  * }} deps */
@@ -100,7 +105,8 @@ function createMyHomeStore(deps){
   function report(e, site){
     const f = failOf(e);
     if(f.kind === KIND.STALE) return f;
-    if(f.kind === KIND.COMMON) apiErrors.notify(e, lib.ERRORS || {});
+    if(f.kind === KIND.GUIDE){ toast(GUIDE_MSG[f.code] || GUIDE_MSG.MYHOME_STICKER_FULL); return f; }   // 안내(번호 없음 · 지금 앱 문구)
+    if(f.kind === KIND.COMMON) apiErrors.notify(e, lib.ERRORS);
     else SITE[site](e);
     return f;
   }
@@ -346,7 +352,7 @@ function createMyHomeStore(deps){
     const patch = { theme, themePresets: Array.isArray(o.presets) ? clone(o.presets) : null, themePresetCur: cnt(o.presetCur) ? o.presetCur : null };
     const hasBg = own(o, 'bg');
     if(hasBg) patch.bg = isObj(o.bg) && (o.bg.img || o.bg.color) ? clone(o.bg) : null;
-    if(hasBg && patch.bg && patch.bg.img && /^data:/i.test(patch.bg.img)) return locked();   // 그림은 올린 뒤 주소로만
+    if(hasBg && patch.bg && patch.bg.img && /^data:/i.test(patch.bg.img)) return Promise.resolve('invalid');   // 그림은 올린 뒤 주소로만
     change(patch);
     markDesign();
     if(hasBg) mark('designBg', !sameBase('bg', mineSt.page.bg));
@@ -388,7 +394,7 @@ function createMyHomeStore(deps){
       if(g !== gen) return 'stale';
       if(r === 'ok') continue;
       if(r === 'conflict'){
-        const keepText = job === 'page' && !textRetry;
+        const keepText = !textRetry;   // 어느 요청이 409 를 받았든 내가 고친 글 칸은 새 판에 한 번 얹는다(Q1)
         textRetry = textRetry || keepText;
         const done = await resolveConflict(keepText, g);
         if(done !== 'ok') return done;

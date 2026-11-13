@@ -331,7 +331,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 ## `myhome-store.js` — 🏠 마이홈 상태 주인
 
 - **책임**: 내 마이홈 페이지(`load` · 페이지 · 판)와 보고 있는 집. 화면은 값을 직접 고치지 않고 `setField` · `setFields` · `setAvatar` · `addSticker` · `editSticker` · `removeSticker` · `moveSticker` · `setDesign` · `resetBg` 를 부른다. `page()` 는 얼려 둔 값이다.
-- **저장**: 한 줄에서 한 번에 하나 — 바뀐 칸만(`dirty`) PATCH, 디자인은 PUT design(디자인 먼저). 보내는 중 고친 칸은 끝난 뒤 모아 한 번. «바뀜» 은 내가 마지막으로 보낸(받은) 값과 견준다. 409 는 글 칸(소개 · 게시글 · 제목)만 새 판에 얹어 한 번 더(사용자 결정 2026-11-14 Q1 = 나), 두 번째 409 · 디자인 409 는 받은 값 + 알림. 실패는 번호(E-MH-22 · 23) 한 번 · 혼자 다시 보내지 않는다.
+- **저장**: 한 줄에서 한 번에 하나 — 바뀐 칸만(`dirty`) PATCH, 디자인은 PUT design(디자인 먼저). 보내는 중 고친 칸은 끝난 뒤 모아 한 번. «바뀜» 은 내가 마지막으로 보낸(받은) 값과 견준다. 409 는 글 칸(소개 · 게시글 · 제목)만 새 판에 얹어 한 번 더(사용자 결정 2026-11-14 Q1 = 나), 디자인 PUT 이 409 여도 글 칸은 새 판에 얹고(디자인 고침만 버림), 두 번째 409 는 받은 값 + 알림. 실패는 번호(E-MH-22 · 23) 한 번 · 혼자 다시 보내지 않는다.
 - **deps**: `api`(myhome-api.js) · `lib`(TwMyHomeApi) · `errs` · `apiErrors` · `notifyError` · `toast` · `previewOn` · `rules`(myhome-sticker-rules.js).
 - **함정**: 판 없는 받기 답은 못 받음으로 본다. 저장 본문에 `data:` 그림은 없다 — `upload(칸, 그림)` 이 주소를 돌려주면 그 주소로만 저장한다. 스티커 w · h 는 정수. 아직 바탕화면(`desktop`)은 읽기만 한다.
 - **검사**: `checks/sim-myhome-store.js`.
