@@ -12,9 +12,11 @@ import { accItems, findItem, layerItems } from '@/features/character-maker/model
 import { parseRemoteParts, partImageUrlOk } from '@/features/character-maker/model/remote-parts';
 import { API_ORIGIN } from '@/shared/config';
 
-const IMG = `${API_ORIGIN}/v1/assets/h2a.png`;
+const H_IMG = 'a'.repeat(64);
+const H_SHUT = 'c'.repeat(64);
+const IMG = `${API_ORIGIN}/v1/catalog/assets/${H_IMG}.png`;
 const N = { ko: '가', en: 'a', ja: 'あ' };
-const SHUT = `${API_ORIGIN}/v1/assets/h2c.png`;
+const SHUT = `${API_ORIGIN}/v1/catalog/assets/${H_SHUT}.png`;
 const name = { ko: '별눈', en: 'Star', ja: 'ほし' };
 const piece = (o: Record<string, unknown> = {}) => ({
   id: 'p1',
@@ -22,16 +24,16 @@ const piece = (o: Record<string, unknown> = {}) => ({
   target: { kind: 'baseModel' },
   surface: 'face',
   slot: 'pupil',
-  src: IMG,
+  imageHash: H_IMG,
   w: 20,
   h: 22,
   ...o,
 });
 const product = (pieces: unknown[], o: Record<string, unknown> = {}) => ({
-  id: 'i1',
+  productId: 'i1',
   target: { kind: 'baseModel' },
-  name,
-  thumb: IMG,
+  names: name,
+  thumb: H_IMG,
   locked: false,
   pieces,
   ...o,
@@ -46,10 +48,10 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
     const got = parseRemoteParts({
       products: [
         product([piece({ id: 'b', slot: 'brows' }), piece({ id: 'a' })], {
-          id: 'cat',
-          name: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
+          productId: 'cat',
+          names: { ko: '고양이', en: 'Cat', ja: 'ねこ' },
         }),
-        product([piece({ id: 'a', slot: 'mouth' }), piece({ id: 'c', slot: 'acc' })], { id: 'dog' }),
+        product([piece({ id: 'a', slot: 'mouth' }), piece({ id: 'c', slot: 'acc' })], { productId: 'dog' }),
       ],
     });
     expect(got.map((p) => `${p.id}:${p.slot}:${p.name.ko}`)).toEqual([
@@ -72,15 +74,14 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
     const got = parseRemoteParts({
       products: [
         {
-          id: 'lock',
+          productId: 'lock',
           target: { kind: 'baseModel' },
-          name,
-          thumb: IMG,
+          names: name,
+          thumb: H_IMG,
           locked: true,
-          requires: { kind: 'entitlement', key: 'premium' },
         },
-        product([piece({ id: 'lk' })], { id: 'lock2', locked: true }), // 잠겼는데 조각이 실려 와도 쓰지 않는다
-        product([piece({ id: 'm1' })], { id: 'part', target: { kind: 'part', id: 'hat01' } }),
+        product([piece({ id: 'lk' })], { productId: 'lock2', locked: true }), // 잠겼는데 조각이 실려 와도 쓰지 않는다
+        product([piece({ id: 'm1' })], { productId: 'part', target: { kind: 'part', id: 'hat01' } }),
         product(
           [
             piece({ id: 'p3d', kind: 'part', partId: 'part_catear' }),
@@ -91,39 +92,56 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
             piece({ id: 'dim', dimension: '2d' }), // 옛 규격의 dimension 칸이 와도 받는다
             piece({ id: 'ok' }),
           ],
-          { id: 'mix' },
+          { productId: 'mix' },
         ),
-        product([piece({ id: 'x', slot: 'hair' })], { id: 'unk' }),
+        product([piece({ id: 'x', slot: 'hair' })], { productId: 'unk' }),
       ],
     });
     expect(got.map((p) => p.id)).toEqual(['dim', 'ok']);
   });
 
-  it('그림 주소는 우리 API 서버의 /v1/assets/ 아래 https 만', () => {
+  it('그림 주소는 우리 API 서버의 /v1/catalog/assets/ 아래 https 만', () => {
     expect(partImageUrlOk(IMG)).toBe(true);
     for (const bad of [
-      'http://api.together-working.com/v1/assets/a.png',
+      'http://api.together-working.com/v1/catalog/assets/a.png',
       'https://evil.example/a.png',
-      'https://together-working.com/v1/assets/a.png',
-      `${API_ORIGIN}/v1/admin/assets/a.png`, // API 서버라도 공개 파일 길이 아니면
-      `${API_ORIGIN}/v1/assetsX/a.png`,
-      `${API_ORIGIN}/v1/decal-images/a.png`, // 옛 규격 경로
+      'https://together-working.com/v1/catalog/assets/a.png',
+      `${API_ORIGIN}/v1/admin/catalog/assets/a.png`, // API 서버라도 공개 파일 길이 아니면
+      `${API_ORIGIN}/v1/catalog/assetsX/a.png`,
+      `${API_ORIGIN}/v1/assets/${H_IMG}.png`, // 옛 길
       `${API_ORIGIN}/web-creator/images/a.png`,
-      'https://api.together-working.com.evil.example/v1/assets/a.png',
+      'https://api.together-working.com.evil.example/v1/catalog/assets/a.png',
       'javascript:alert(1)',
       'data:image/png;base64,AAAA',
       42,
     ])
       expect(partImageUrlOk(bad), String(bad)).toBe(false);
-    expect(parseRemoteParts(one({ src: 'https://evil.example/a.png' }))).toEqual([]);
+  });
+
+  it('그림 주소는 해시로 만든다 — 해시 모양(소문자 16진 64자)이 아니면 그 조각을 버린다', () => {
+    expect(parseRemoteParts(one())[0]?.src).toBe(IMG);
+    for (const bad of [
+      'A'.repeat(64), // 대문자
+      'a'.repeat(63),
+      'a'.repeat(65),
+      `../${'a'.repeat(61)}`,
+      `${'a'.repeat(60)}.png`,
+      42,
+      undefined,
+    ])
+      expect(parseRemoteParts(one({ imageHash: bad })), String(bad)).toEqual([]);
+    // 옛 모양(주소를 그대로 준 src)은 읽지 않는다
+    expect(parseRemoteParts(one({ imageHash: undefined, src: IMG }))).toEqual([]);
   });
 
   it('상품 이름 셋(한 · 영 · 일)이 다 있어야 · 너무 길면 안 받는다 · 크기는 0 < 크기 ≤ 200 · id 모양', () => {
     const badItems = [
-      product([piece()], { name: { ko: '별', en: 'Star' } }),
-      product([piece()], { name: { ...name, ja: '  ' } }),
-      product([piece()], { name: { ...name, ko: '가'.repeat(21) } }),
-      product([piece()], { id: '../x' }),
+      product([piece()], { names: { ko: '별', en: 'Star' } }),
+      product([piece()], { names: { ...name, ja: '  ' } }),
+      product([piece()], { names: { ...name, ko: '가'.repeat(21) } }),
+      product([piece()], { productId: '../x' }),
+      product([piece()], { productId: undefined, id: 'i1' }), // 옛 칸 이름
+      product([piece()], { names: undefined, name }), // 옛 칸 이름
       product('no' as unknown as unknown[]),
     ];
     for (const b of badItems) expect(parseRemoteParts({ products: [b] }), JSON.stringify(b)).toEqual([]);
@@ -139,14 +157,15 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
     expect(parseRemoteParts(one({ w: 200, h: 0.5 }))).toHaveLength(1);
   });
 
-  it('눈 감은 얼굴 그림(variants.closed)은 모든 자리 · 모르는 표정 · 틀린 주소는 버리고 기본 그림', () => {
+  it('눈 감은 얼굴 그림(variantHashes.closed)은 모든 자리 · 모르는 표정 · 틀린 해시는 버리고 기본 그림', () => {
     for (const slot of ['eyeline', 'mouth', 'pupil', 'acc'])
-      expect(parseRemoteParts(one({ slot, variants: { closed: SHUT } }))[0]?.closedSrc, slot).toBe(SHUT);
-    expect(parseRemoteParts(one({ variants: { smile: SHUT } }))[0]?.closedSrc).toBeNull();
-    expect(
-      parseRemoteParts(one({ variants: { closed: 'https://evil.example/c.png' } }))[0]?.closedSrc,
-    ).toBeNull();
-    expect(parseRemoteParts(one({ variants: 'x' }))[0]?.closedSrc).toBeNull();
+      expect(parseRemoteParts(one({ slot, variantHashes: { closed: H_SHUT } }))[0]?.closedSrc, slot).toBe(
+        SHUT,
+      );
+    expect(parseRemoteParts(one({ variantHashes: { smile: H_SHUT } }))[0]?.closedSrc).toBeNull();
+    expect(parseRemoteParts(one({ variantHashes: { closed: 'A'.repeat(64) } }))[0]?.closedSrc).toBeNull();
+    expect(parseRemoteParts(one({ variantHashes: 'x' }))[0]?.closedSrc).toBeNull();
+    expect(parseRemoteParts(one({ variants: { closed: SHUT } }))[0]?.closedSrc).toBeNull(); // 옛 칸 이름
   });
 
   it('모양이 아닌 응답은 빈 목록 · 옛 모양({ parts } · { sets } · { items })도 빈 목록', () => {
@@ -168,7 +187,7 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
     const products = Array.from({ length: 11 }, (_, i) =>
       product(
         Array.from({ length: 20 }, (_, j) => piece({ id: `d${j}_${i}` })),
-        { id: `s${i}` },
+        { productId: `s${i}` },
       ),
     );
     expect(parseRemoteParts({ products })).toHaveLength(200);
@@ -276,18 +295,18 @@ describe('눈 감은 얼굴 그림(표정 closed) 그리기', () => {
   };
 
   it('눈썹 · 입 같은 자리 — 감은 얼굴엔 감은 그림, 없으면 뜬 그림 그대로', () => {
-    expect(drawn(pick('brows', { variants: { closed: SHUT } }), 'open')).toEqual([IMG, IMG]);
-    expect(drawn(pick('brows', { variants: { closed: SHUT } }), 'closed')).toEqual([SHUT, SHUT]);
+    expect(drawn(pick('brows', { variantHashes: { closed: H_SHUT } }), 'open')).toEqual([IMG, IMG]);
+    expect(drawn(pick('brows', { variantHashes: { closed: H_SHUT } }), 'closed')).toEqual([SHUT, SHUT]);
     expect(drawn(pick('brows'), 'closed')).toEqual([IMG, IMG]);
   });
 
   it('동공 · 하이라이트 — 감은 얼굴엔 감은 그림이 있을 때만(없으면 예전처럼 안 그림)', () => {
     expect(drawn(pick('pupil'), 'closed')).toEqual([]);
-    expect(drawn(pick('pupil', { variants: { closed: SHUT } }), 'closed')).toEqual([SHUT, SHUT]);
+    expect(drawn(pick('pupil', { variantHashes: { closed: H_SHUT } }), 'closed')).toEqual([SHUT, SHUT]);
   });
 
   it('액세서리도 감은 그림을 쓴다', () => {
-    setRemoteParts(parseRemoteParts(one({ slot: 'acc', variants: { closed: SHUT } })));
+    setRemoteParts(parseRemoteParts(one({ slot: 'acc', variantHashes: { closed: H_SHUT } })));
     const s = reduce(DEFAULT_STATE, { t: 'accAdd', id: 'w:p1' });
     expect(drawn(s, 'open')).toEqual([IMG]);
     expect(drawn(s, 'closed')).toEqual([SHUT]);
@@ -406,12 +425,12 @@ describe('fetchWebParts — 공개 목록 읽기', () => {
   const res = (status: number, body: unknown) =>
     ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
 
-  it('API 서버의 /v1/products(기본 몸 모델 · 얼굴 면)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
+  it('API 서버의 /v1/catalog(상품만 · 기본 몸 모델)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
     const f = vi.fn(async () => res(200, { success: true, data: one() }));
     const r = await fetchWebParts(f as unknown as typeof fetch);
     expect(r).toEqual({ t: 'ok', parts: parseRemoteParts(one()) });
     expect(f).toHaveBeenCalledWith(
-      `${API_ORIGIN}/v1/products?target=baseModel&surface=face`,
+      `${API_ORIGIN}/v1/catalog?only=products&target=baseModel`,
       expect.objectContaining({ credentials: 'omit' }),
     );
   });

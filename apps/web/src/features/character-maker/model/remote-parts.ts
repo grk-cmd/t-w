@@ -5,10 +5,10 @@ import type { LayerKind } from './catalog';
 /** 관리자가 올린 그림 조각(decal)이 들어갈 자리 — 얼굴 레이어 또는 액세서리 */
 export type PartSlot = LayerKind | 'acc';
 
-/* 서버 규격(grk-cmd/t-w#517 · /v1/products): 조각(piece)은 늘 상품(product) 안에 있다.
+/* 서버 규격(GET /v1/catalog · data.products): 조각(piece)은 늘 상품(product) 안에 있다.
    생성기가 그릴 수 있는 것은 «그림(decal) · 기본 몸 모델 · 얼굴 면» 뿐 — 3D 모양(part) · 다른 모델 · 면 · 모르는 slot 은 건너뛴다(서버가 먼저 늘어도 깨지지 않게).
    조각 종류는 kind 하나로 정한다(규격에서 dimension 칸은 빠졌다 — 와도 보지 않는다).
-   잠긴 상품(locked)은 조각이 오지 않는다 — 🔒 칸은 화면을 정한 뒤에 그린다(#517 §13). */
+   잠긴 상품(locked)은 조각이 오지 않는다 — 🔒 칸은 화면을 정한 뒤에 그린다. */
 const PIECE_KIND = 'decal';
 const TARGET_KIND = 'baseModel';
 const SURFACE = 'face';
@@ -18,7 +18,9 @@ const LANGS: readonly Lang[] = ['ko', 'en', 'ja'];
 const SIZE_MAX = 200;
 const NAME_MAX = 20;
 /** 파일은 API 서버의 이 아래만 — 서버의 다른 경로를 그림으로 받지 않는다 */
-const PART_IMAGE_PATH = '/v1/assets/';
+const PART_IMAGE_PATH = '/v1/catalog/assets/';
+/** 서버가 주는 파일 이름은 내용 해시(sha-256 16진 64자) — 이 모양만 받는다(서버 `AssetKey` 와 같다) */
+const HASH_RE = /^[0-9a-f]{64}$/;
 /** 펼친 조각 수 상한 — 응답이 비정상으로 커도 고르기 판이 터지지 않게 */
 const PARTS_MAX = 200;
 const ID_RE = /^[A-Za-z0-9_-]{1,40}$/;
@@ -30,7 +32,7 @@ export interface RemotePart {
   slot: PartSlot;
   /** 고르기 판에 보이는 이름 — 그 조각이 든 상품 이름 */
   name: Record<Lang, string>;
-  /** PNG 주소 — 우리 API 서버의 파일 경로만 */
+  /** PNG 주소 — 해시로 만든 우리 API 서버의 파일 경로만 */
   src: string;
   /** 눈 감은 얼굴 그림(표정 closed) — 없으면 아이라인은 기본 감은 줄, 나머지는 src 그대로 */
   closedSrc: string | null;
@@ -55,6 +57,9 @@ const isObj = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const sizeOk = (v: unknown): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v > 0 && v <= SIZE_MAX;
+/** 해시 → 그림 주소. 해시 모양이 아니면 null */
+const imageUrl = (hash: unknown): string | null =>
+  typeof hash === 'string' && HASH_RE.test(hash) ? `${API_ORIGIN}${PART_IMAGE_PATH}${hash}.png` : null;
 const onBaseModel = (target: unknown) => isObj(target) && target.kind === TARGET_KIND;
 
 function parseNames(name: unknown): Record<Lang, string> | null {
@@ -70,13 +75,15 @@ function parseNames(name: unknown): Record<Lang, string> | null {
 
 function parsePiece(v: unknown, name: Record<Lang, string>): RemotePart | null {
   if (!isObj(v)) return null;
-  const { id, kind, target, surface, slot, src, variants, w, h } = v;
+  const { id, kind, target, surface, slot, imageHash, variantHashes, w, h } = v;
   if (kind !== PIECE_KIND || !onBaseModel(target) || surface !== SURFACE) return null;
   if (typeof id !== 'string' || !ID_RE.test(id)) return null;
   if (typeof slot !== 'string' || !(SLOTS as readonly string[]).includes(slot)) return null;
+  const src = imageUrl(imageHash);
   if (!partImageUrlOk(src) || !sizeOk(w) || !sizeOk(h)) return null;
-  // 모르는 표정 · 틀린 주소는 버리고 기본 그림으로(빠진 표정 = 기본 · #517 §2)
-  const closed = isObj(variants) && partImageUrlOk(variants.closed) ? variants.closed : null;
+  // 모르는 표정 · 틀린 해시는 버리고 기본 그림으로(빠진 표정 = 기본)
+  const closedUrl = isObj(variantHashes) ? imageUrl(variantHashes.closed) : null;
+  const closed = partImageUrlOk(closedUrl) ? closedUrl : null;
   return { id, slot: slot as PartSlot, name, src, closedSrc: closed, w, h };
 }
 
@@ -88,8 +95,9 @@ export function parseRemoteParts(data: unknown): RemotePart[] {
   const out: RemotePart[] = [];
   for (const product of products) {
     if (!isObj(product) || product.locked === true || !onBaseModel(product.target)) continue;
-    if (typeof product.id !== 'string' || !ID_RE.test(product.id) || !Array.isArray(product.pieces)) continue;
-    const name = parseNames(product.name);
+    const pid = product.productId;
+    if (typeof pid !== 'string' || !ID_RE.test(pid) || !Array.isArray(product.pieces)) continue;
+    const name = parseNames(product.names);
     if (!name) continue;
     for (const piece of product.pieces) {
       const p = parsePiece(piece, name);
