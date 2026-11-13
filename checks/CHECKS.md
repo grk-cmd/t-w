@@ -195,7 +195,7 @@
 | **sim-pl-loop.js** | 511 | **baae9984599b** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 131 | **764746bcf36e** |
+| **sim-premium-desk.js** | 130 | **764746bcf36e** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
 | **sim-light-tone.js** | 281 | **2240049cb22b** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
