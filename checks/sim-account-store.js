@@ -106,7 +106,7 @@ async function judge(S){
   say('── 5. migrateLegacy');
   {
     const st = mem(); const code = { v: null }; const s = mk(st, code);
-    st.o['tw.focusTodaySec'] = '5000'; st.o['tw.advZ.v2'] = '{"x":1}'; st.o['tw.deviceId'] = 'dev-12345678'; st.o['tw.chal'] = '{"keep":1}';
+    st.o['tw.focusTodaySec'] = '5000'; st.o['tw.advZ.v2'] = '{"x":1}'; st.o['tw.deviceId'] = 'dev-12345678'; st.o['tw.userName'] = '{"keep":1}';
     const r0 = s.migrateLegacy(null);
     chk(r0.skipped === 'no-code' && st.o['tw.focusTodaySec'] === '5000' && !(MIG(M) in st.o), '코드 없음 — 아무것도 안 하고 PC 칸 그대로(표시도 안 남김)');
     const r1 = s.migrateLegacy(A);
@@ -115,7 +115,7 @@ async function judge(S){
     chk(s.get('tw.focusTodaySec') === '5000' && s.get('tw.advZ.v2') === '{"x":1}', '옮긴 값을 계정 칸에서 읽는다');
     chk(!('tw.focusTodaySec' in st.o) && !('tw.advZ.v2' in st.o), 'PC 칸에서는 지운다(다음 계정이 주워 가지 못하게)');
     chk(st.o['tw.deviceId'] === 'dev-12345678', '기기 공용 값은 건드리지 않는다');
-    chk(st.o['tw.chal'] === '{"keep":1}', '아직 옮기지 않은 계정별 키(MOVED_KEYS 밖)는 PC 칸에 그대로 — 옛 모듈이 아직 읽는다');
+    chk(st.o['tw.userName'] === '{"keep":1}', '아직 옮기지 않은 계정별 키(MOVED_KEYS 밖)는 PC 칸에 그대로 — 옛 모듈이 아직 읽는다');
     st.o['tw.focusTodaySec'] = '9999';   // 두 번째 계정이 같은 PC 칸을 다시 채웠다고 치고
     const r2 = s.migrateLegacy(B);
     chk(r2.skipped === 'already' && st.o['tw.focusTodaySec'] === '9999' && !('tw.u.' + B + '.focusTodaySec' in st.o), '★ 두 번 돌지 않는다 — 두 번째 계정에는 안 옮겨진다');

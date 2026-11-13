@@ -90,6 +90,7 @@ function judge(src){
   if(tz === undefined) delete process.env.TZ; else process.env.TZ = tz;
   chk(same, 'PC 시간대가 달라도 경계는 서버 dayEndsAt 하나(서울 · 로스앤젤레스 · 키리티마티)');
   chk(!/focusTotalStore\.get\(FOCUS_TODAY_DATE_KEY\)\s*!==\s*_focusDayStr/.test(src) && !/_focusMigrateDayKey/.test(src), '오늘 시간 쪽에 앱 날짜 셈(_focusDayStr 비교 · 6시 옮기기)이 없다');
+  chk(!/_dayShifted|_focusDayStr|DAY_START_HOUR/.test(src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/[^\n]*/g, '')) && !('_dayShifted' in W.mod) && !('_focusDayStr' in W.mod) && !('DAY_START_HOUR' in W.mod), '앱 날짜 셈(_dayShifted · _focusDayStr · DAY_START_HOUR)이 모듈에 남아 있지 않다 — 달성표도 서버 날을 읽는다');
 }
 
 judge(MOD0);

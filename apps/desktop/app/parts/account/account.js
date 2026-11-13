@@ -17,7 +17,6 @@ const BELL_SEEN_KEY = deps.BELL_SEEN_KEY;
 const asyncPrompt = deps.asyncPrompt;   // 비밀번호 다시 확인 창(shared/async-prompt.js — secret · validate 옵션)
 const notifyError = deps.notifyError;
 const accountLegacyStore = deps.accountLegacyStore;   // 🗂️ 계정별 칸 — 로그아웃 때 아직 PC 칸에 남은 옛 값을 지우기 전에 옮기려고 migrateLegacy 만 부른다
-const CHAL_KEY = deps.CHAL_KEY;   // 읽는 함수
 const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
@@ -124,8 +123,6 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
      첫 실행(first-run-013.js licenseKey 단계)이 서버에 올린 뒤에야 지운다(올리기 전에 로그아웃이 지우면 키를 잃는다). */
   LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움
   /* 오늘치 · 못 올린 집중 시간은 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
-  /* 달성표 — syncChalToServer 가 서버 ts 가 크면 통째로 받아온다. */
-  CHAL_KEY(),
   /* 캐릭터는 서버가 원본이라 이 PC 에 지울 저장본이 없다. 올리기 캐시 둘은 users/{uid}/ 경로의 URL 이라
      **다른 uid 가 물려받으면 남의 Storage 를 가리킨다** — 반드시 같이 지운다. */
   CUR_SLOT_KEY, 'tw.slotGlbUrls', 'tw.roomFaceUrls',
@@ -156,7 +153,7 @@ async function _acctFlushToServer(){
   const jobs = [];
   const call = (fn, ...a) => { try{ if(typeof fn === 'function') jobs.push(Promise.resolve(fn(...a))); }catch(_){} };
   call(flushFocus);   // ⏱ 못 올린 집중 시간 한 번 — 계정을 놓으면 버려지므로
-  call(weeklyChal().syncChalToServer, 'logout');
+  call(weeklyChal().flush);   // 👑 도는 달성표 쓰기(시작 · 수정 · 오늘 달성 · 보상)가 끝나기를 기다린다
   call(plMod.flushPending, getMyUserId());   // 🎵 못 올린 목록 고침 한 번 — 계정을 놓으면 버려지므로
   call(() => myhomeStore.flush());   // 🏠 저장 중이거나 못 올린 마이홈 페이지 고침 한 번
   call(() => bookshelfStore.flush());   // 📚 저장 중이거나 못 올린 책장 고침 한 번
@@ -236,7 +233,6 @@ function _wipeAccountLocal(){
   try{ setFocusTodaySec(0); }catch(_){}
   try{ if(window.firebaseAPI && firebaseAPI.chatHistory) firebaseAPI.chatHistory.wipeAll(); }catch(_){}   // 💬 이 PC 대화 저장(chat-history.js)
   try{ gachaMod().resetMemory(); }catch(_){}   // 🎰 가챠 — 서버에서 받아 온 보유분 · 뽑기 수 · 구독 표시를 비운다(gacha.js)
-  try{ weeklyChal().resetMemory(); }catch(_){}   // 👑 달성표 — chalRec = 빈 기록 · dirty=false (weekly-challenge.js)
   try{ closetMod().resetCloset(); setExtraSeatSlots([]); }catch(_){}   // 🧬 옷장 — 메모리 · 받은 판 기억을 비우고 진행 중인 받기 · 쓰기의 답을 버린다(closet.js)
   try{ plMod.st.cur = 0; plMod.reset(); }catch(_){}   // 🎵 playlist.js — 목록 · 한마디 · 공개를 비우고 새 계정 것을 받기 전까지 안 올림
   try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로

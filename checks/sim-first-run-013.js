@@ -24,9 +24,11 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; };
+/* 달성표 단계(chal)는 6c 절이 따로 본다 — 다른 절은 «채워진 것으로» 두고 돌린다(없으면 만들 때 던지는 것은 1절이 본다) */
+const loadFR = (src) => { const F = load(src); const mk = F.createFirstRun; F.createFirstRun = (d) => mk(Object.assign({}, d, { steps: Object.assign({ chal: async () => ({ ok: true, wipe: [] }) }, d.steps) })); return F; };
 
 function mk(S, plan, uc){
-  const F = load(S.FR);
+  const F = loadFR(S.FR);
   const store = new Map([['a', '1'], ['b', '1'], ['c', '1'], ['keep', '1']]);
   const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => store.set(k, String(v)), removeItem: (k) => store.delete(k) };
   const order = [];
@@ -91,7 +93,7 @@ async function judge(S){
 
   say('── 5. 자리');
   {
-    const F = load(S.FR);
+    const F = loadFR(S.FR);
     const p = await F.pendingStep('캐릭터')();
     chk(p.ok === false && p.pending === true, 'pendingStep — 늘 기다림');
     const gs = await F.gachaStep()();
@@ -146,7 +148,7 @@ async function judge(S){
 
   say('── 6c. 포커스 옛 누적 단계(D5-2)');
   {
-    const F = load(S.FR);
+    const F = loadFR(S.FR);
     const cell = (c, k) => 'tw.u.' + c + '.' + k.replace(/^tw\./, '');
     const mkF = (entries, accrueFn, uc) => {
       const store = new Map(Object.entries(entries)), calls = [];
@@ -194,7 +196,7 @@ async function judge(S){
 
   say('── 6b. 라이선스 키 단계(D8-3)');
   {
-    const F = load(S.FR);
+    const F = loadFR(S.FR);
     const API = load(S.API);
     const err = (code, kind) => Object.assign(new Error(code), { code, kind: kind || 'http' });
     const mkStep = (kv, behavior) => {
@@ -253,6 +255,40 @@ async function judge(S){
     const c = await fr3.run();
     chk(c.ok && seen.length === 1 && seen[0][0] === F.LICENSE_NOTICE.DEVICE_FULL && seen[0][1] === 'openSettings' && c.notices.join() === F.LICENSE_NOTICE.DEVICE_FULL, '기기 가득 안내는 notify 에 갈 곳(openSettings)을 같이 넘긴다 · 돌려주는 notices 는 글 그대로');
   }
+
+  say('── 6c. 달성표 옛 기록 단계(D5-4) — 오늘 진행만 새 칸으로 · 나머지는 지운다');
+  {
+    const F = loadFR(S.FR);
+    const cell = (c, k) => 'tw.u.' + c + '.' + k.replace(/^tw\./, '');
+    const old = JSON.stringify({ ts: 5, kind: 'focus', cfg: { key: 'win:a.exe' }, days: [1, 0], due: [{ tag: 't', n: 1 }], today: { date: '2026-11-4', sec: 900, done: 0, checks: {}, anchor: 0, fail: false } });
+    const mkC = (kv, adopt, uc) => {
+      const store = new Map(Object.entries(kv)), calls = [];
+      const storage = { getItem: (k) => (store.has(k) ? store.get(k) : null) };
+      const step = F.chalStep({ storage, userCode: () => (uc === undefined ? 'u1234567890' : uc), cellName: cell, adoptToday: (t) => { calls.push(t); return adopt ? adopt(t) : { ok: true }; } });
+      return { step, calls };
+    };
+    let e = mkC({ 'tw.chal': old }); let r = await e.step();
+    chk(r.ok === true && e.calls.length === 1 && e.calls[0].sec === 900 && e.calls[0].date === '2026-11-4' && r.wipe.join() === 'tw.chal', '★ 0.12 기록의 오늘 진행만 모듈로 넘기고 PC 칸 tw.chal 을 지운다(목표 · 지난 날 · 대기줄은 옮기지 않는다)');
+    e = mkC({ 'tw.u.u1234567890.chal': old, 'tw.chal': old }); r = await e.step();
+    chk(r.ok && e.calls.length === 1 && r.wipe.length === 2 && r.wipe.includes('tw.u.u1234567890.chal') && r.wipe.includes('tw.chal'), '0.13 시험판이 계정 칸으로 옮겨 둔 것도 읽고 두 칸 다 지운다');
+    e = mkC({ 'tw.chal': JSON.stringify({ ts: 1, kind: '', today: null }) }); r = await e.step();
+    chk(r.ok && e.calls.length === 0 && r.wipe.join() === 'tw.chal', '목표 없는 기록 · 오늘 진행 없음 → 옮길 것 없이 지우기만');
+    e = mkC({ 'tw.chal': '{깨진 글' }); r = await e.step();
+    chk(r.ok && e.calls.length === 0 && r.wipe.join() === 'tw.chal', '깨진 글은 옮기지 않고 지운다');
+    e = mkC({}); r = await e.step();
+    chk(r.ok && e.calls.length === 0 && r.wipe.length === 0, '옛 기록이 없으면 아무것도 안 한다');
+    e = mkC({ 'tw.chal': old }, () => ({ ok: false, reason: '시작 전' })); r = await e.step();
+    chk(r.ok === false && !r.wipe && /오늘 진행 옮기기 실패/.test(r.reason), '★ 옮기지 못하면 멈춘다 · 지우라는 말 없음(다음 실행에 다시)');
+    e = mkC({ 'tw.chal': old }, () => { throw new Error('boom'); }); r = await e.step();
+    chk(r.ok === false && !r.wipe, '  ↳ 던져도 같다');
+    e = mkC({ 'tw.chal': old }, null, null); r = await e.step();
+    chk(r.ok && e.calls.length === 1, '내 코드가 없으면 계정 칸은 건너뛰고 PC 칸만 본다');
+    const a = S.APP.indexOf('const firstRunMod = TwFirstRun013.createFirstRun(');
+    const blk = a < 0 ? '' : S.APP.slice(a, a + 2400);
+    chk(/chal: TwFirstRun013\.chalStep\(/.test(blk) && /adoptToday: \(today\)=>chalStoreMod\.adoptLegacyToday\(today\)/.test(blk), 'app.js — 달성표 단계를 달성표 저장소의 오늘 진행 받기에 잇는다');
+    const accKeys = (load(read('parts/shared/account-store.js') || read('app/parts/shared/account-store.js') || '').ACCOUNT_KEYS) || [];
+    chk(!accKeys.includes('tw.chal') && accKeys.includes('tw.chalToday'), '계정 칸 목록: 걷는 tw.chal 은 빠지고 새 tw.chalToday 가 올라 있다');
+  }
 }
 
 (async () => {
@@ -260,9 +296,9 @@ await judge(SRC0);
 
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
-  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'licenseKey', 'legacySync', 'focus']);", '차례가 바뀜'],
-  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus']);", "const STEPS = Object.freeze(['login', 'gacha', 'myhome', 'legacySync', 'licenseKey', 'focus']);", '말랑이 단계가 빠짐'],
-  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey', 'focus']);", '마이홈 단계가 빠짐'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'licenseKey', 'legacySync', 'focus']);", '차례가 바뀜'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", "const STEPS = Object.freeze(['login', 'gacha', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", '말랑이 단계가 빠짐'],
+  ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey', 'focus', 'chal']);", '마이홈 단계가 빠짐'],
   ['FR', "if(typeof k === 'string' && k.length > MALLANG_LEGACY_PREFIX.length && k.indexOf(MALLANG_LEGACY_PREFIX) === 0) wipe.push(k);", "if(typeof k === 'string' && k.indexOf('tw.mallang') === 0) wipe.push(k);", '말랑이 접두가 선물 치움 키까지 지움'],
   ['FR', "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs', 'tw.gachaBonus']);", "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs']);", '가챠 옛 키를 덜 지움'],
   ['FR', "        return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };", "        continue;", '실패해도 이어 감(올리기 전에 지움)'],

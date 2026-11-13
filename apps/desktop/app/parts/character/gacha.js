@@ -5,7 +5,7 @@
      스무 개 가까이(보유 수 · 풀 · 시즌 · 남은 뽑기 · 받기 …)를 그대로 쓰고, 코어의 받기도 보관함을 다시 그린다.
    ★ app.js 의 let(isAdmin · savedParts · PART_CATS · wdDraftDef · activeWdAdj)은 값이 아니라 읽는 함수로 받는다. activeWdAdj 를 바꾸는 것은 쓰는 함수.
    ★ 밖으로 내놓는 이름은 반환값이다(isGachaPart · isGachaColorUnlocked · gachaCount · sceneHasColorGroup · DUPES_FOR_COLOR · startGacha · pullGacha ·
-     pruneUnownedGachaParts · renderGachaInv · toggleGachaInv · isInvOpen · isDrawOpen · selId · owned · bonus · refreshAfterReward · resetMemory).
+     pruneUnownedGachaParts · renderGachaInv · toggleGachaInv · isInvOpen · isDrawOpen · selId · owned · bonus · resetMemory).
      예전부터 window 에 걸던 고리 셋(openGachaInv · closeGachaInv · _gachaRestorePos)은 그대로 건다.
    ★ 시작은 `startGacha()` 한 번 — launcher/app-boot.js 가 계정 확인 뒤에 부른다. 만들 때는 요청 · 구독 · 타이머를 하지 않는다(창 버튼 · 끌기 · ESC 연결뿐).
    ⚠️ document · window · localStorage(창 자리) 는 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
@@ -1168,7 +1168,6 @@ return {
   selId: ()=>_gachaSelId,               // 보관함에서 지금 보고 있는 파츠 — 꾸미기 미리보기 색상 영역이 따라간다
   owned: ()=>gachaOwned,                // 계정 전환 검문 — «뽑은 파츠 N개»
   bonus: gachaBonusNow,                 // 👑 달성표 — 서버가 센 보너스 뽑기 수(👑 달성표 묶음이 이 호출을 걷는다)
-  refreshAfterReward: ()=>{ pullGacha(false); },   // 👑 달성표 보상을 올린 뒤 — 보너스는 서버 장부에서 오니 값을 받아 적지 않고 서버에서 다시 받는다
   resetMemory: resetGacha,              // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-gacha.js · sim-gacha-prune.js · sim-part-color-entry.js */
   draw: gachaDraw, pool: gachaPool, seasonNow: gachaSeasonNow, ticketsLeft: gachaTicketsLeft, ticketsEarned: gachaTicketsEarned,
