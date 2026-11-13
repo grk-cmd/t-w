@@ -82,6 +82,18 @@
             }
           }
         },
+        "_notice": {
+          ".write": true,
+          ".validate": "newData.hasChildren()",
+          "$nid": {
+            ".write": true,
+            ".validate": "$room.matches(/^SCRT-/) && $nid.matches(/^n([1-9]|1[0-9]|20)$/) && newData.hasChildren(['text','ts']) && newData.child('text').isString() && newData.child('text').val().length >= 1 && newData.child('text').val().length <= 300 && newData.child('ts').isNumber() && (!newData.child('pin').exists() || newData.child('pin').val() === true)",
+            "text": { ".validate": true },
+            "ts": { ".validate": true },
+            "pin": { ".validate": true },
+            "$other": { ".validate": false }
+          }
+        },
         "_music": {
           ".write": "!newData.exists() || newData.parent().child('_meta').child('music').val() === true",
           ".validate": "newData.hasChildren(['id','title','by','at','paused','pos','seq']) && (!data.exists() || newData.child('seq').val() > data.child('seq').val())",

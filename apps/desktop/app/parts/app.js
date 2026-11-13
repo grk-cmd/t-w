@@ -3151,8 +3151,16 @@ function showChatBubble(seat, text){
      연타를 억제하는 것으로 갈음한다(_chatFlySendGate).                                */
 /* 본문은 chat-ui.js 로 옮겼다(앱 FSD 24번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+/* 📢 시크릿룸 공지(#공지 탭 · 고정 줄) — parts/chat/chat-notice.js. 채팅 모듈이 값으로 받아 먼저 만든다(채팅 모듈이 onChange 를 건다 — 한쪽으로만). */
+const chatNoticeMod = TwChatNotice.createChatNotice({
+  document, escHtml: (...a)=>escHtml(...a), toast: (...a)=>toast(...a), getMyUserId: (...a)=>getMyUserId(...a), roomState: TwRoomState,
+  roomCode: ()=>Presence.roomCode(), notifyError: (...a)=>TwErrorCodes.notify(...a),
+  provider: { subscribe: (...a)=>firebaseAPI.chatNotice.subscribe(...a), add: (...a)=>firebaseAPI.chatNotice.add(...a), edit: (...a)=>firebaseAPI.chatNotice.edit(...a),
+    remove: (...a)=>firebaseAPI.chatNotice.remove(...a), pin: (...a)=>firebaseAPI.chatNotice.pin(...a) },
+});
 const chatUiMod = TwChatUi.createChatUi({
   demojiCatalog: demojiCatalog,
+  chatNotice: chatNoticeMod,
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),

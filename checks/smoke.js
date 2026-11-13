@@ -429,6 +429,9 @@ PRELOAD.push('mobile-diag.js');   // 📱 진단 줄 규칙 — focus-level.js �
 /* focus-level.js — ⭐ 포커스 레벨 · 공유 · 태블릿(앱 FSD 26번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createFocusLevel 를 같이 굴린다. */
 PRELOAD.push('focus-level.js');
 /* chat-ui.js — 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘(앱 FSD 24번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createChatUi 를 같이 굴린다. */
+/* chat-notice.js — 📢 시크릿룸 공지. app.js 가 채팅 모듈보다 먼저 TwChatNotice.createChatNotice 로 만들므로 진짜가 먼저 있게. */
+PRELOAD.push('chat-notice-net.js');   // 📢 공지 서버 읽기 · 쓰기(firebase-init.js 가 TwChatNoticeNet 으로 연결)
+PRELOAD.push('chat-notice.js');
 PRELOAD.push('chat-ui.js');
 /* nav.js — 🧭 창 열기 통로(모듈 순환 끊기 6). 같은 까닭 — 창 모듈이 만들 때 여는 함수를 걸고 부르는 쪽이 이름으로 부탁한다(빈 껍데기면 부탁이 아무 일도 안 한다). */
 PRELOAD.push('nav.js');
