@@ -6828,7 +6828,7 @@
       <button id="licenseGenCopyBtn" style="margin-top:6px;background:none;border:none;color:var(--win-select);font-size:11px;
         cursor:pointer;text-decoration:underline;padding:0;">복사하기</button>
     </div>
-    <!-- 🔒 시크릿룸 발급 — 서버가 발급 열쇠(srKey/v)로 검증한다. 열쇠는 여기 어디에도 저장하지 않는다. -->
+    <!-- 🔒 시크릿룸 발급 — 서버(POST /v1/admin/secret-rooms)가 관리자 로그인으로 확인한다. -->
     <div style="margin-top:14px;border-top:2px solid var(--win-lo);padding-top:10px;">
       <div style="font-size:11px;color:var(--ink-soft);margin-bottom:6px;">🔒 시크릿룸 발급 (방 개수에 안 잡히는 고정 투게더룸)</div>
       <input id="srGrantCode" type="text" placeholder="친구코드(MATE-9K2M) 또는 유저 코드(u… 로 시작)" maxlength="48"
@@ -6842,10 +6842,6 @@
       <!-- 📅 이용 기간 — 비우면 영구. 숫자를 넣으면 그 개월 뒤 만료되고 그 뒤엔 입장이 막힌다.
            같은 코드로 다시 발급하면 기간이 새로 계산되므로 이 칸이 연장·영구전환 수단도 된다. -->
       <input id="srGrantMonths" type="text" inputmode="numeric" placeholder="이용 기간 개월 수 (비우면 영구)" maxlength="3"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:6px;">
-      <input id="srGrantKey" type="password" placeholder="발급 열쇠 (앱에 저장되지 않아요)" maxlength="64"
         style="width:100%;padding:7px 8px;box-sizing:border-box;
         background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
         box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:11.5px;margin-bottom:6px;">

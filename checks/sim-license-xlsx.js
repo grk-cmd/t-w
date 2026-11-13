@@ -113,8 +113,8 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   const out = api.createAdminLicenseBulk({ escHtml: s => String(s), toast: noop, genLicenseKey: () => 'K', saveFailMsg: () => '', renderLicenseGenList: noop, downloadBlob: noop, srFmtDate: () => '' });
   chk(out && typeof out === 'object' && !Object.keys(out).length, '만들면 빈 객체를 돌려준다(밖에서 부르는 이름 없음)');
   chk(typeof win._lxHideWin === 'function', '만들 때 window._lxHideWin 을 건다(발급 창을 다시 열 때 부름)');
-  chk((els.licenseXlsxOpenBtn._on.click || []).length === 1 && (els.srGrantBtn._on.click || []).length === 1 && (els.srGrantKey._on.keydown || []).length === 1,
-    '만들 때 버튼을 한 번씩 건다 — 일괄 발급 입구 · 시크릿룸 발급 · 열쇠 칸 Enter');
+  chk((els.licenseXlsxOpenBtn._on.click || []).length === 1 && (els.srGrantBtn._on.click || []).length === 1 && (els.srGrantCode._on.keydown || []).length === 1,
+    '만들 때 버튼을 한 번씩 건다 — 일괄 발급 입구 · 시크릿룸 발급 · 코드 칸 Enter');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

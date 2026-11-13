@@ -130,7 +130,8 @@
 | **sim-fly-egg.js** | 259 | **e92b86d5702f** |
 | **sim-fly-replay.js** | 161 | **b7faec9ac84f** |
 | **sim-fly-roulette.js** | 150 | **9b47f5b90a01** |
-| **sim-license-xlsx.js** | 121 | **5f41d7ae40fa** |
+| **sim-license-xlsx.js** | 121 | **4ff73c7fa2da** |
+| **sim-secret-room-grant.js** | 162 | **25d902ed1cb5** |
 | **sim-room-meta-cleanup.js** | 326 | **5629d47bab63** |
 | **sim-room-stats.js** | 199 | **0bcea1517588** |
 | **sim-room-lobby.js** | 196 | **8350cc76c150** |
@@ -253,7 +254,7 @@
 | sim-village-addr.js | 53 | f72ef601abbb |
 | **sim-wheel-kick.js** | 97 | **cdd5b36aa254** |
 | **sim-admin-active.js** | 155 | **100afda315c1** |
-| **sim-room-order.js** | 78 | **19449085aa33** |
+| **sim-room-order.js** | 59 | **51fdec592c72** |
 | **sim-deco-parts.js** | 67 | **c017ce7764fc** |
 | **sim-mhd-envsub.js** | 39 | **da0fcdb35c23** |
 | **sim-font-hangul.js** | 54 | **1124dfc9f983** |
