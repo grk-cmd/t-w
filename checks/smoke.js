@@ -453,6 +453,9 @@ PRELOAD.push('settings-panel.js');
 PRELOAD.push('click-through-policy.js');
 /* heartbeat-policy.js — 하트비트에 무거운 칸을 실을지(순수 함수). app.js 하트비트가 TwHeartbeatPolicy 로 부른다. */
 PRELOAD.push('heartbeat-policy.js');
+/* heartbeat.js · run-diag-minute.js — 🩺 0.1초 하트비트 · 1분 진단 줄. 같은 까닭 — 만들 때 하는 일(타이머 걸기)과 app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
+PRELOAD.push('heartbeat.js');
+PRELOAD.push('run-diag-minute.js');
 PRELOAD.push('desktop-run.js');
 /* room-entry.js — 🛰 방 서버 · 입장 · 방 개수(앱 FSD 33번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomEntry 를 같이 굴린다. */
 /* seat-sync-diff.js — 🪑 줄 배치를 다시 할지 규칙(순수). room-entry.js 가 만들 때 TwSeatSyncDiff 를 받으므로 그보다 먼저. */

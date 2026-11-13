@@ -68,14 +68,38 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 
 ## heartbeat-policy.js — 🩺 하트비트에 무거운 칸을 실을지
 
-- **책임**: 렌더러 하트비트(app.js `setInterval` 100ms → `companion.setCharBounds`)가 이번에 무거운 칸(`regions` = 우리 창 사각형 `__uiRegions` · `others` = 남의 좌석 원)을
+- **책임**: 렌더러 하트비트(`heartbeat.js` 의 `setInterval` 100ms → `companion.setCharBounds`)가 이번에 무거운 칸(`regions` = 우리 창 사각형 `__uiRegions` · `others` = 남의 좌석 원)을
   새로 잴지만 정한다. 순수 함수 — 창 보임 신호 · 시각은 부르는 쪽이 넘긴다. 하트비트 자체(생존 신호 · 캐릭터 좌표 · `moveAge` · `charBad`)는 늘 보낸다.
-- **만드는 법**: 만들 것이 없다. html 이 app.js 보다 먼저 싣고 app.js 가 `TwHeartbeatPolicy.fullStep(...)` 을 부른다. 창 보임은 main 이 `companion:winShown`(preload `onWinShown`)으로
+- **만드는 법**: 만들 것이 없다. html 이 app.js 보다 먼저 싣고 `heartbeat.js` 가 `TwHeartbeatPolicy.fullStep(...)` 을 부른다. 창 보임은 main 이 `companion:winShown`(preload `onWinShown`)으로
   minimize · restore · hide · show · focus · 불러오기 끝에 바뀔 때만 알린다 — `backgroundThrottling:false` 라 `document.hidden` 은 최소화에도 안 바뀐다.
 - **내놓는 것**: `fullStep({ shown, sinceFull })` → true 면 잰다 · `HIDDEN_FULL_EVERY_MS`(1000 — 숨김 중에도 이 간격마다 한 번은 잰다).
 - **함정**: «모름»(신호 전 · `null`)은 보임으로 친다 — 확인 못 한 채 빼면 클릭 통과 판정 재료가 낡는다. 칸을 빼면 main 은 마지막 값을 그대로 둔다(덮지 않음).
   런처에서는 `__uiRegions` 가 이미 빈 목록이라 여기서 따로 보지 않는다.
-- **검사**: `checks/sim-heartbeat-policy.js` — 판단 표(경계값) · app.js 하트비트를 가짜 타이머로 돌려 «보임 → 숨김 → 복귀» · main 알림을 가짜 창으로 돌려 보기 · 깨 보기.
+- **검사**: `checks/sim-heartbeat-policy.js` — 판단 표(경계값) · 하트비트(`heartbeat.js`)를 가짜 타이머로 돌려 «보임 → 숨김 → 복귀» · main 알림을 가짜 창으로 돌려 보기 · 깨 보기.
+
+## heartbeat.js — 🩺 0.1초 하트비트
+
+- **책임**: 100ms 마다 main 에 `companion.setCharBounds` 를 보낸다 — 캐릭터 원 · `moveAge`(mousemove 가 마지막으로 온 지) · 우리 창 사각형 · 남의 좌석 원 · `charBad`.
+  main 은 이것을 렌더러 생존 신호 · 클릭 통과 회수 · 펜 근접 판정에 쓴다. 창 보임(`companion.onWinShown`)을 구독해 무거운 칸을 뺄지는 `heartbeat-policy.js` 에 묻는다.
+- **만드는 법**: `TwHeartbeat.createHeartbeat(deps)` — app.js 원래 자리(`_twMoveSeenAt` · `runCost` 선언 바로 뒤)에서 만든다. 만들 때 구독 하나 · 타이머 하나를 건다.
+  - 값: `runCost`(app.js 의 `TwRunCostDiag.page` 한 벌 — 프레임 · desktop-run · room-entry 와 같은 것)
+  - 읽는 함수: `_charBoundsLatest` · `_charBadWhy`(status-chip.js 가 쓴다) · `_twMoveSeenAt`(desktop-run.js 가 쓴다)
+  - 함수: `otherSeatCircles`(= `statusChipMod.otherSeatCircles`)
+- **내놓는 것**: 없음.
+- **함정**: `_charBoundsLatest` 객체에 칸을 덧붙이지 않는다 — 다음 주기에도 다시 쓰는 값이라 매번 새 객체로 보낸다. 주기 100ms 는 main 생존 신호의 기준이다.
+- **검사**: `checks/sim-heartbeat.js` — 모듈 모양 · 만들 때 구독 · 타이머 · app.js 연결 · 깨 보기. 보내는 값은 `sim-heartbeat-policy.js` 2절이 돌려 본다.
+
+## run-diag-minute.js — 🩺 1분 진단 줄
+
+- **책임**: 1분마다 `companion.diagNote` 로 진단 기록(tw-mouse-diag.log)에 두 줄 — `[비용]`(그리기 밖 시간 · 좌석 · 방 종류) · `[프레임]`(그린 장 · 상한 · 배율 · 캔버스 · 화질 + GPU · JS 꼬리).
+  실행 화면(`runmode`)일 때만 적지만, 1분 몫(`takeMinute` · `_gpuTimer.take` · `_frameJsStats.take` · `runCost.take`)은 늘 비운다.
+- **만드는 법**: `TwRunDiagMinute.createRunDiagMinute(deps)` — app.js 원래 자리(프레임 상한 · 포커스 연결 뒤, `function frame` 앞)에서 만든다. 만들 때 60초 타이머 하나를 건다.
+  - 값: `_FB`(FrameBudget) · `_frameBudget`(없으면 null — 그때는 아무것도 안 한다) · `_gpuTimer` · `_frameJsStats` · `runCost` · `renderer` · `canvas` · `scene` · `key` · `seats` · `Presence`
+  - 읽는 함수: `_renderQuality` · `_runLowered`(program-settings · 자동 낮춤이 다시 대입한다)
+  - 함수: `_frameCap` · `_bodyHidden`(= `hiddenSeatsMod._bodyHidden`)
+- **내놓는 것**: 없음.
+- **함정**: 줄 모양은 `frame-budget.js`(`diagLine`) · `gpu-timer.js`(`suffix`) · `run-cost-diag.js`(`line`)가 정한다 — 여기서 글을 만들지 않는다. `[비용]` 줄은 `[프레임]` 줄 바로 앞에 적는다.
+- **검사**: `checks/sim-run-diag-minute.js` — 모듈 모양 · 가짜 타이머로 한 번 돌려 보기(실행 화면 아님 · 맞음 · 상한 모듈 없음 · 그림자) · app.js 연결 · 깨 보기. 줄 내용은 `sim-frame-budget` · `sim-gpu-timer` · `sim-run-cost-diag`.
 
 ## oss-licenses.js — 📄 오픈소스 라이선스 창
 - 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 시스템 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.

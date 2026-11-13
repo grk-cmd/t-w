@@ -160,9 +160,10 @@ chk(iT > 0 && iA > iT, 'html 이 gpu-timer.js 를 app.js 보다 먼저 싣는다
 chk(/PRELOAD\.push\('gpu-timer\.js'\)/.test(SMOKE), 'smoke PRELOAD 에 gpu-timer.js');
 chk(/_gpuTimer\.begin\(\);\s*renderer\.render\(scene,camera\);\s*_gpuTimer\.end\(\);/.test(APP), '실행 화면 그리기를 begin/end 로 감싼다');
 chk(/_gpuTimer\.poll\(\)/.test(APP) && /_frameJsStats\.add\(performance\.now\(\) - _frameT0\)/.test(APP), '매 장 poll · JS 시간 더함');
-const iTake = APP.indexOf('_gpuTimer.take()'), iRun = APP.indexOf("if(!document.body.classList.contains('runmode')) return;", APP.indexOf('takeMinute(t)'));
+const APPJ = require('./sim-renderer-src.js').joinRenderer(APP);   // 1분 진단 줄은 run-diag-minute.js 로 옮겼다 — «옮기기 전 app.js 글» 로 되살려 읽는다(판정 무변경)
+const iTake = APPJ.indexOf('_gpuTimer.take()'), iRun = APPJ.indexOf("if(!document.body.classList.contains('runmode')) return;", APPJ.indexOf('takeMinute(t)'));
 chk(iTake > 0 && iRun > iTake, '1분 몫은 실행 화면이 아니어도 비운다(실행 화면 확인보다 먼저 take)');
-chk(/companion\.diagNote\(_FB\.diagLine\(m\) \+ TwGpuTimer\.suffix\(cost\)\)/.test(APP), '1분 [프레임] 줄 꼬리에 붙인다');
+chk(/companion\.diagNote\(_FB\.diagLine\(m\) \+ TwGpuTimer\.suffix\(cost\)\)/.test(APPJ), '1분 [프레임] 줄 꼬리에 붙인다');
 
 say('');
 say(fail ? '✗ ' + fail + '개 실패 · ' + pass + '개 통과' : '✓ ' + pass + '개 모두 통과');
