@@ -727,7 +727,10 @@
     background:var(--win-face);border:2px solid;border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);border-radius:var(--win-radius-el) !important;}
   .chat-ask-win .ca-foot button.danger{color:var(--ink-danger, #7a1f1f);font-weight:bold;}
   /* 📢 시크릿룸 공지(chat-notice.js) — 고정 한 줄(.chat-pin) · #공지 탭 본문(.chat-notices) · .notice-mode 일 때 채팅 본문 대신 보인다 */
-  .chat-pin{display:none;flex-shrink:0;align-items:center;gap:5px;margin:4px 6px 0;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--tw-ink);
+  .chat-msgbox{position:relative;margin:0 6px;flex:1 1 0;min-height:60px;display:flex;flex-direction:column;}
+  .chat-msgbox .chat-messages{margin:0;flex:1 1 0;min-height:0;}
+  .chat-msgbox:has(.chat-pin.on) .chat-messages{padding-top:34px;}
+  .chat-pin{display:none;position:absolute;top:6px;left:6px;right:24px;z-index:2;align-items:center;gap:5px;padding:3px 7px;font-size:11px;cursor:pointer;color:var(--tw-ink);
     background:var(--tw-bg-star);border:1px solid var(--tw-line);border-radius:var(--win-radius-el) !important;}
   .chat-pin.on{display:flex;}
   .chat-pin .cp-ico{flex-shrink:0;}
@@ -739,7 +742,7 @@
   .chat-notices{display:none;margin:0 6px;flex:1 1 0;min-height:60px;overflow-y:auto;padding:6px;background:#fff;font-size:var(--chat-font, 12px);color:var(--tw-ink);
     border:2px solid;border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);border-radius:var(--win-radius-el) !important;}
   #chatWindow.notice-mode .chat-notices{display:block;}
-  #chatWindow.notice-mode .chat-messages,
+  #chatWindow.notice-mode .chat-msgbox,
   #chatWindow.notice-mode .chat-memberbar,
   #chatWindow.notice-mode .chat-toolbar,
   #chatWindow.notice-mode .chat-flyrow,
@@ -812,6 +815,7 @@
   #chatWindow.min{height:auto !important;min-height:0;}
   #chatWindow.min .chat-menubar,
   #chatWindow.min .chat-memberbar,
+  #chatWindow.min .chat-msgbox,
   #chatWindow.min .chat-messages,
   #chatWindow.min .chat-profile,
   #chatWindow.min .chat-tabs,
@@ -8091,13 +8095,15 @@
     <!-- 💬 채팅 탭(채널) 줄 — 투게더룸 · 시크릿룸에서만(.on). 그리기는 app.js _chatTabsRender.
          ⚠️ 스크롤바를 만들지 않는다(overflow:hidden) — 좁아지면 이름만 줄임표, 숫자는 남는다. -->
     <div class="chat-tabs" id="chatTabs"></div>
-    <!-- 📢 고정 공지 한 줄(시크릿룸 · 고정한 공지가 있을 때만 .on) — 길면 마우스를 올려 흘려 읽는다. 그리기는 chat-notice.js -->
-    <div class="chat-pin" id="chatPin"></div>
     <div class="chat-memberbar">
       <span class="chat-member-label" id="chatMemberLabel">이 채널(0)</span>
       <span class="chat-member-list" id="chatMemberList">—</span>
     </div>
-    <div class="chat-messages" id="chatMessages"></div>
+    <!-- 📢 고정 공지 한 줄(시크릿룸 · 고정한 공지가 있을 때만 .on)은 대화 흰 칸 맨 위에 떠 있다 — 글이 스크롤돼도 그 자리. 길면 마우스를 올려 흘려 읽는다. 그리기는 chat-notice.js -->
+    <div class="chat-msgbox" id="chatMsgBox">
+      <div class="chat-pin" id="chatPin"></div>
+      <div class="chat-messages" id="chatMessages"></div>
+    </div>
     <!-- 📢 #공지 탭 본문(.notice-mode 일 때만 보임) — 공지 목록 · 고정 · 고치기 · 지우기. 그리기는 chat-notice.js -->
     <div class="chat-notices" id="chatNotices"></div>
     <!-- 📋 복사 — 셋 다 #chatWindow 의 자식이다(body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다). -->

@@ -266,8 +266,9 @@ function wire(S){
   const H = S.html;
   const iNet = H.indexOf('<script src="parts/chat/chat-notice-net.js"'), iMod = H.indexOf('<script src="parts/chat/chat-notice.js"'), iUi = H.indexOf('<script src="parts/chat/chat-ui.js"'), iApp = H.indexOf('<script src="parts/app.js"'), iFi = H.indexOf('<script type="module" src="parts/firebase-init.js"');
   w(iNet > 0 && iMod > 0 && iMod < iUi && iUi < iApp && iFi > 0, 'html — 공지 모듈이 chat-ui · app.js 보다 먼저 실린다(서버 연결은 type=module 이라 늦게 돈다)');
-  w(/id="chatPin"/.test(H) && /id="chatNotices"/.test(H) && H.indexOf('id="chatTabs"') < H.indexOf('id="chatPin"') && H.indexOf('id="chatPin"') < H.indexOf('id="chatMemberLabel"') && H.indexOf('id="chatMessages"') < H.indexOf('id="chatNotices"'), '  고정 줄은 탭 줄 아래 · #공지 본문은 대화 칸 옆(창의 직계)');
-  w(/#chatWindow\.notice-mode \.chat-messages,[\s\S]*?\.chat-memberbar,[\s\S]*?\.chat-toolbar,[\s\S]*?\.chat-flyrow,[\s\S]*?\.chat-pin\{display:none !important;\}/.test(H) && /\.chat-pin:hover \.cp-text\.long\{[^}]*animation:cp-flow/.test(H), '  #공지 탭에서는 대화 · 인원 줄 · 도구 줄을 숨긴다 · 긴 고정 글은 올리면 흐른다');
+  w(/id="chatPin"/.test(H) && /id="chatNotices"/.test(H) && /<div class="chat-msgbox" id="chatMsgBox">\s*<div class="chat-pin" id="chatPin"><\/div>\s*<div class="chat-messages" id="chatMessages"><\/div>\s*<\/div>/.test(H) && H.indexOf('id="chatTabs"') < H.indexOf('id="chatMsgBox"') && H.indexOf('id="chatMsgBox"') < H.indexOf('id="chatNotices"'), '  고정 줄은 대화 흰 칸(.chat-msgbox) 안 맨 위 · #공지 본문은 그 칸 옆(창의 직계)');
+  w(/\.chat-pin\{display:none;position:absolute;top:\d+px;left:\d+px;right:\d+px;/.test(H) && /\.chat-msgbox:has\(\.chat-pin\.on\) \.chat-messages\{padding-top:\d+px;\}/.test(H), '  고정 줄은 흰 칸 맨 위에 떠 있고(글이 스크롤돼도 그 자리) 켜지면 대화 칸이 그만큼 내려선다');
+  w(/#chatWindow\.notice-mode \.chat-msgbox,[\s\S]*?\.chat-memberbar,[\s\S]*?\.chat-toolbar,[\s\S]*?\.chat-flyrow,[\s\S]*?\.chat-pin\{display:none !important;\}/.test(H) && /\.chat-pin:hover \.cp-text\.long\{[^}]*animation:cp-flow/.test(H), '  #공지 탭에서는 대화 · 인원 줄 · 도구 줄을 숨긴다 · 긴 고정 글은 올리면 흐른다');
   const A = S.app;
   w(/const chatNoticeMod = TwChatNotice\.createChatNotice\(\{[\s\S]*?roomState: TwRoomState[\s\S]*?firebaseAPI\.chatNotice\.pin\(\.\.\.a\)[^\n]*\n\}\);\nconst chatUiMod = TwChatUi\.createChatUi\(\{\n  demojiCatalog: demojiCatalog,\n  chatNotice: chatNoticeMod,/.test(A), 'app.js — 공지 모듈을 채팅 모듈보다 먼저 만들어 값으로 넘긴다(데이터는 firebaseAPI.chatNotice 한 곳)');
   const C = S.chatui;
@@ -328,6 +329,7 @@ function wire(S){
     ['rules', '"pin": { ".validate": true },', '"pin": { ".validate": true },\n            "extra": { ".validate": true },', '규칙이 모르는 칸을 받음(공지 칸)'],
     ['rules', '$room.matches(/^SCRT-/) && ', '', '규칙이 시크릿룸이 아닌 방에도 공지를 받음'],
     ['html', '<div class="chat-pin" id="chatPin"></div>', '', '고정 줄 자리가 없음'],
+    ['html', '.chat-msgbox:has(.chat-pin.on) .chat-messages{padding-top:34px;}', '', '고정 줄이 첫 대화를 가림'],
     ['chatui', 'if(chatNotice.submit(inp)) return;', '', 'Enter 가 공지를 채팅으로 보냄'],
     ['app', '  chatNotice: chatNoticeMod,\n', '', '채팅 모듈이 공지 모듈을 못 받음'],
     ['lock', "chatUiMod._chatNoticeHint() || (off ?", "(off ?", '#공지 탭에서 입력칸 안내문이 채팅 문구'],

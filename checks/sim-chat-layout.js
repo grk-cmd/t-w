@@ -72,9 +72,11 @@ function judge(html, quiet){
   c(prop(win, 'display') === 'flex' && prop(win, 'flex-direction') === 'column', '세로 flex');
   c(/^\d+px$/.test(prop(win, 'height') || ''), '높이가 정해져 있다(내용 따라 자라지 않는다 — 저장된 크기는 JS 가 인라인으로 덮는다)');
   const kids = windowChildren(html);
-  c(kids.some(k => k.cls.includes('chat-tabs')) && kids.some(k => k.cls.includes('chat-messages')), '탭 줄 · 대화 칸이 창의 직계 자식이다(마크업 읽기)');
+  c(kids.some(k => k.cls.includes('chat-tabs')) && kids.some(k => k.cls.includes('chat-msgbox')), '탭 줄 · 대화 칸 상자(.chat-msgbox — 고정 공지 줄이 이 안 맨 위에 뜬다)가 창의 직계 자식이다(마크업 읽기)');
+  const box = rulesFor(css, '.chat-msgbox'), bf = flexParts(box);
+  c(bf.grow === '1' && bf.basis != null && /^0(px|%)?$/.test(bf.basis) && /^\d+px$/.test(prop(box, 'min-height') || '') && prop(box, 'position') === 'relative', '📢 대화 칸 상자(.chat-msgbox)가 창 안에서 대화 칸 자리를 받는다 — flex 1 1 0 · 최소 높이 · position:relative(고정 줄의 기준)');
   kids.forEach(k => {
-    if (k.cls.includes('chat-messages') || k.cls.includes('chat-notices')) return;   // 📢 #공지 본문은 대화 칸 자리를 대신 받는다 — 아래 §1 이 같은 규칙(flex 1 1 0 · 최소 높이)을 본다
+    if (k.cls.includes('chat-messages') || k.cls.includes('chat-msgbox') || k.cls.includes('chat-notices')) return;   // 📢 #공지 본문은 대화 칸 자리를 대신 받는다 — 아래 §1 이 같은 규칙(flex 1 1 0 · 최소 높이)을 본다
     const body = k.cls.map(x => rulesFor(css, '.' + x)).concat(k.id ? [rulesFor(css, '#' + k.id)] : []).join(';');
     const pos = prop(body, 'position'), ov = prop(body, 'overflow') || prop(body, 'overflow-y');
     if (pos === 'absolute' || pos === 'fixed') return;   // 흐름 밖 — 눌리지 않는다
