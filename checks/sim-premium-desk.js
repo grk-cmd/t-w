@@ -86,7 +86,8 @@ say('── 1-2. 부르는 곳 — 복사된 조건이 없고 모두 그 함수�
 say('── 2. isPremium 은 _setPremium 으로만 바뀐다');
 const direct = [...SRC.matchAll(/\bisPremium\s*=\s*(true|false)\b/g)]
   .map(m => ({ i: m.index, decl: /(let|var|const)\s+$/.test(SRC.slice(Math.max(0, m.index - 6), m.index)) }))
-  .filter(m => !m.decl);
+  .filter(m => !m.decl)
+  .filter(m => !/function resetPremium\(\)\{[^}]*$/.test(SRC.slice(Math.max(0, m.i - 200), m.i)));   // 계정을 놓을 때 «모름» 으로 되돌리는 resetPremium 만 예외(알림 없이 false)
 chk(direct.length === 0, '★ 직접 대입 ' + direct.length + '곳 (선언 제외 · 기준 0)' + (direct.length ? ' — 줄 ' + direct.map(m => lineOf(m.i)).join(',') : ''));
 const setCalls = (SRC.match(/_setPremium\(/g) || []).length - 1;
 chk(setCalls === 1, '_setPremium 을 부르는 곳은 app.js 에서 서버 확인을 반영하는 모듈에 잇는 줄 하나뿐 (' + setCalls + '곳 — 로컬 키로 미리 켜기 · 활성화 · 해제가 직접 부르던 길은 0.13 에서 걷음)');

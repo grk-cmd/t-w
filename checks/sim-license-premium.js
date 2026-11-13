@@ -17,6 +17,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 console.warn = () => {};   // 판정 모듈이 실패를 콘솔에 남긴다 — 검사 출력에는 필요 없다
 const pick = (n, d) => [n, 'parts/' + d + '/' + n, 'app/parts/' + d + '/' + n].map(read).find(Boolean);
 const SRC = {
+  LK: pick('license-key.js', 'account'), LR: pick('license-request.js', 'account'),
   LP: pick('license-premium.js', 'account'), AS: pick('account-state.js', 'account'), PA: pick('premium-assets.js', 'character'),
   APP: read('app.js') || read('parts/app.js') || read('app/parts/app.js'),
 };
@@ -33,20 +34,21 @@ function load(src, name){ const w = {}; const m = { exports: {} }; new Function(
 /* 판정 모듈 한 벌 + 가짜들. me: 켤 때/다시 물을 때 서버가 줄 답(차례대로) · lic: 내 라이선스 읽기 답 */
 function env(src, o){
   o = o || {};
-  const e = { sets: [], notes: [], calls: [], meQ: (o.me || []).slice(), custom: 0, handlers: [], premium: !!o.premium };
+  const e = { sets: [], notes: [], calls: [], meQ: (o.me || []).slice(), custom: 0, handlers: [], unsubs: 0, known0: 0, premium: !!o.premium };
   const meFn = async () => { e.calls.push('me'); const v = e.meQ.length > 1 ? e.meQ.shift() : e.meQ[0]; if(v instanceof Error) throw v; return v; };
   const licenseApi = {
     mine: async () => { e.calls.push('mine'); const v = typeof o.mine === 'function' ? o.mine() : o.mine; if(v instanceof Error) throw v; return v === undefined ? null : v; },
     putDevice: async (id, name) => { e.calls.push('put:' + id + ':' + name); return lic([id]); },   // 앱은 부르지 않는다 — 불리면 «자동 등록 없음» 판정이 빨강
     /* o.regPremium · o.remPremium — 쓰기 응답의 premium(이 기기 판정). 주지 않으면 칸 없음(«모름» — 옛 서버) */
-    register: async (key, dev) => { e.calls.push('register:' + key + ':' + dev.id + ':' + dev.name); if(o.register instanceof Error) throw o.register; if(o.onRegister) o.onRegister(e); return withPremium(lic([dev.id]), o.regPremium); },
+    register: async (key, dev) => { e.calls.push('register:' + key + ':' + dev.id + ':' + dev.name); if(o.register instanceof Error) throw o.register; if(o.onRegister) await o.onRegister(e); return withPremium(lic([dev.id]), o.regPremium); },
     removeDevice: async (id) => { e.calls.push('remove:' + id); if(o.remove instanceof Error) throw o.remove; return withPremium(lic([]), o.remPremium); },
     reasonOf: (err) => (err && err.code === 'LICENSE_OWNED_BY_OTHER' ? '이미 다른 계정에 등록된 키예요' : null),
   };
   const mod = load(src, 'createLicensePremium')({
     userApi: { me: meFn }, licenseApi, deviceId: () => ID, deviceName: () => NAME,
     setPremium: (v) => { e.sets.push(v); e.premium = !!v; }, isPremium: () => e.premium,
-    rtOn: (kind, fn) => { e.handlers.push([kind, fn]); return () => {}; },
+    rtOn: (kind, fn) => { const h = [kind, fn]; e.handlers.push(h); return () => { e.unsubs++; const i = e.handlers.indexOf(h); if(i >= 0) e.handlers.splice(i, 1); }; },
+    resetKnown: () => { e.known0++; e.premium = false; },
     notifyError: (code, err) => e.notes.push(code + (err && err.code ? ':' + err.code : '')),
     reasonOf: () => '서버 문구', resetCustomStatus: () => { e.custom++; },
   });
@@ -105,7 +107,7 @@ async function judge(S){
     e = env(LP, { me: [apiErr(0, '', 'unavailable')], mine: null });
     await e.mod.start(ME(true));
     e.push(); await tick(); await tick(); await tick();
-    t(e.premium === true && e.sets.join() === 'true' && e.notes.length === 1, '알림 뒤 못 받음 → 지금 값 그대로 + 오류 번호 한 번 · 혼자 다시 묻지 않는다');
+    t(e.premium === true && e.sets.join() === 'true' && e.notes.length === 0, '★ 알림 뒤 못 받음 → 지금 값 그대로 · 오류 번호 0(신호로 받다 실패는 조용) · 혼자 다시 묻지 않는다');
     const meCalls = e.calls.filter((c) => c === 'me').length;
     await tick(); await tick();
     t(e.calls.filter((c) => c === 'me').length === meCalls, '  (실패 뒤 요청이 더 가지 않음)');
@@ -118,6 +120,39 @@ async function judge(S){
     e = env(LP, { me: [apiErr(401, 'AUTH_REQUIRED', 'auth')], mine: null, premium: true });
     await e.mod.start(ME(true)); e.push(); await tick(); await tick(); await tick();
     t(e.premium === true && e.notes.length === 0, '로그인이 풀린 실패(kind auth)는 알리지 않는다 — 로그인 흐름 몫');
+
+    /* 사용자 동작 뒤 확인 실패 → 번호 한 번(알림 · 입력칸에 같은 실패를 또 적지 않게 notified) */
+    e = env(LP, { me: [apiErr(0, '', 'unavailable')], mine: null, premium: false });
+    const ur = await e.mod.activate('KEY');
+    t(ur.ok === false && ur.registered === true && ur.notified === true && e.notes.length === 1 && e.notes[0].startsWith('E-LIC-01'), '★ 키 등록 뒤 확인 실패 → 번호 한 번 · notified(입력칸 문구 중복 없음)');
+    const lastLoud = e.notes.length;
+    e.push(); await tick(); await tick(); await tick();
+    t(e.notes.length === lastLoud, '  ↳ 그 뒤 알림으로 받다 실패하면 번호 안 늘어난다(동작 뒤 한 번뿐)');
+
+    e = env(LP, { me: [ME(true)], mine: null, regPremium: true, onRegister: (x) => { x.mod.reset(); } });
+    const us = await e.mod.activate('KEY');
+    t(us.ok === false && us.stale === true && e.sets.length === 0 && e.notes.length === 0, '★ 키 등록 응답을 기다리는 동안 reset → 옛 계정의 쓰기 답은 반영 0 · 번호 0');
+
+    e = env(LP, { me: [apiErr(401, 'AUTH_REQUIRED', 'auth')], mine: null });
+    const ua = await e.mod.activate('KEY');
+    t(ua.ok === false && e.notes.length === 0, '  ↳ 동작 뒤 확인이 로그인 풀림이면 번호 없음(로그인 흐름 몫)');
+
+    /* reset — 알림 해제 · 모름으로 · 늦은 답 버림 · 다시 시작 가능 */
+    e = env(LP, { me: [ME(true)], mine: null });
+    await e.mod.start(ME(true));
+    e.mod.reset();
+    t(e.unsubs === 1 && e.handlers.length === 0 && e.known0 === 1, '★ reset → 알림 구독을 푼다 · «모름» 으로 되돌린다(남은 구독 0)');
+    e.push(); await tick(); await tick();
+    t(!e.calls.includes('me'), '  ↳ reset 뒤 license 알림 → GET 0');
+    {
+      let release; const slow = new Promise((r) => { release = r; });
+      e = env(LP, { me: [slow], mine: null });
+      await e.mod.start(ME(true)); e.push(); await tick();
+      e.mod.reset(); release(ME(true)); await tick(); await tick(); await tick();
+      t(e.sets.join() === 'true' && e.premium === false, '★ reset 뒤 늦게 온 옛 답 → 반영 0(setPremium 더 안 부름)');
+      const again = await e.mod.start(ME(false));
+      t(again === false && e.handlers.length === 1, '  ↳ reset 뒤 다시 시작하면 구독을 새로 건다');
+    }
 
     e = env(LP, { me: [ME(false)], mine: null });
     t((await e.mod.refresh()) === false && e.sets.join() === 'false', 'refresh — 지금 서버에 묻고 반영한다');
@@ -143,7 +178,7 @@ async function judge(S){
 
     e = env(LP, { me: [ME(false)], mine: null });
     const r3 = await e.mod.activate('KEY');
-    t(r3.ok === false && r3.registered === true && /다시 켜/.test(r3.reason) && e.sets.join() === 'false', '등록은 됐는데 서버가 아직 «아님» → 성공이라 하지 않는다');
+    t(r3.ok === false && r3.registered === true && /잠시 뒤/.test(r3.reason) && !/다시 켜/.test(r3.reason) && e.sets.join() === 'false', '등록은 됐는데 서버가 아직 «아님» → 성공이라 하지 않는다');
 
     e = env(LP, { me: [ME(false)], mine: lic([ID]), premium: true });
     const d = await e.mod.deactivate();
@@ -159,7 +194,7 @@ async function judge(S){
     t(w1.ok === true && e.calls.join() === 'mine,register:KEY:' + ID + ':' + NAME && e.sets.join() === 'true', '★ 등록 응답에 premium 이 있으면 그것으로 반영 — GET /v1/me 를 다시 묻지 않는다(요청 둘)');
     e = env(LP, { me: [ME(true)], mine: null, regPremium: false });
     const w2 = await e.mod.activate('KEY');
-    t(w2.ok === false && /다시 켜/.test(w2.reason) && e.sets.join() === 'false' && !e.calls.includes('me'), '  등록 응답 premium:false → 성공이라 하지 않는다(GET 없이)');
+    t(w2.ok === false && /잠시 뒤/.test(w2.reason) && e.sets.join() === 'false' && !e.calls.includes('me'), '  등록 응답 premium:false → 성공이라 하지 않는다(GET 없이)');
     e = env(LP, { me: [ME(true)], mine: lic([ID]), remPremium: false, premium: true });
     const w3 = await e.mod.deactivate();
     t(w3.ok === true && e.calls.join() === 'mine,remove:' + ID && e.sets.join() === 'false' && e.custom === 1, '★ 해제 응답 premium 으로 반영 — GET /v1/me 없이(서버 GET 은 아직 참이어도 따르지 않음)');
@@ -229,6 +264,7 @@ async function judge(S){
     t(setCalls === 1 && /setPremium: \(v\)=>acctStateMod\._setPremium\(v\),/.test(A), 'app.js 에서 _setPremium 을 잇는 곳은 판정 모듈 하나');
     t((A.match(/licensePremiumMod\.start\(/g) || []).length === 1 && /licensePremium: \(code, me\)=>licensePremiumMod\.start\(me\),/.test(A), '시작은 켜는 차례 한 곳(계정 확인이 준 me 로) — 만들 때 요청 · 구독 없음');
     t(!/loadLicenseFromStorage|startLicenseVerify|redeemLicense|verifyLicense/.test(A), '옛 길(이 PC 키로 먼저 켜기 · Firebase 로 재검증)이 app.js 에 없다');
+    t(/if\(r\.stale\) return;[^\n]*\n\s*refreshLicenseUI\(\);/.test(S.LK) && /else if\(!r\.stale\)\{ toast\('적용 실패/.test(S.LR), '  reset 으로 버린 늦은 답(stale)은 부르는 쪽이 알리지 않는다(license-key 해제 · license-request 적용)');
     t(/made = true|createLicensePremium/.test(A) && !/licensePremiumMod\.(refresh|activate|deactivate)\(/.test(A.replace('activate: (key)=>licensePremiumMod.activate(key),', '')), '  버튼은 모듈(license-key.js · license-request.js)이 부른다 — app.js 는 첫 실행 키 올리기(D8-3)가 쓰는 activate 한 줄만');
   }
   return rows;
@@ -244,10 +280,16 @@ async function judge(S){
     ['켤 때 새 PC 를 자동 등록함', mut('LP', (s) => s.replace("function settle(me){\n    setPremium", "function settle(me){\n    if(me.premium !== true) licenseApi.mine().then(() => licenseApi.putDevice(deps.deviceId(), deps.deviceName()));\n    setPremium"))],
     ['로그인 풀림도 오류 번호로 알림', mut('LP', (s) => s.replace("if(e && e.kind === 'auth') return;", ""))],
     ['알림이 겹치면 요청이 쌓임', mut('LP', (s) => s.replace("if(running){ again = true; return running; }", ""))],
-    ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again){ again = false; r = await once(null); }", ""))],
-    ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true } : { ok: false, registered: true, reason: NOT_CONFIRMED };", "return { ok: true };"))],
-    ['쓰기 응답 premium 을 버리고 늘 다시 물음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "return lane(null);"))],
-    ['쓰기 응답에 premium 이 없어도 다시 묻지 않음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null);", "if(!l) return lane(null);"))],
+    ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again && g === gen){ again = false; r = await once(null, g); }", ""))],
+    ['신호 실패에도 번호를 띄움', mut('LP', (s) => s.replace("if(!loud) return;", ""))],
+    ['해제 버튼이 버린 답(stale)에도 E-LIC-02 를 띄움', mut('LK', (s) => s.replace("if(r.stale) return;", ""))],
+    ['쓰기 응답이 reset 뒤에도 반영됨', mut('LP', (s) => s.replace("if(g !== gen) return { ok: false, stale: true, notified: true, reason: '' };", ""))],
+    ['reset 이 알림 구독을 안 풂', mut('LP', (s) => s.replace("if(unsub){ try{ unsub(); }catch(_){} }", ""))],
+    ['reset 뒤 옛 답을 반영', mut('LP', (s) => s.replace("if(!me || g !== gen) return isPremium();", "if(!me) return isPremium();"))],
+    ['reset 이 모름으로 안 되돌림', mut('LP', (s) => s.replace("deps.resetKnown();", ""))],
+    ['등록 뒤 확인 없이 성공', mut('LP', (s) => s.replace("return premium ? { ok: true } : { ok: false, registered: true, notified, reason: NOT_CONFIRMED };   // notified — 확인 실패 번호를 이미 띄웠다", "return { ok: true };"))],
+    ['쓰기 응답 premium 을 버리고 늘 다시 물음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null, true);", "return lane(null, true);"))],
+    ['쓰기 응답에 premium 이 없어도 다시 묻지 않음', mut('LP', (s) => s.replace("if(!l || typeof l.premium !== 'boolean') return lane(null, true);", "if(!l) return lane(null, true);"))],
     ['도는 확인 중 쓰기 응답 뒤 다시 묻지 않음', mut('LP', (s) => s.replace("if(running) again = true;\n", ""))],
     ['해제가 서버를 안 부름', mut('LP', (s) => s.replace("after = await licenseApi.removeDevice(deps.deviceId());", "after = null;"))],
     ['쓰기 응답 사본(meCache)으로 프리미엄 판정', mut('LP', (s) => s.replace("let me = given || null;", "let me = given || (deps.meCache && deps.meCache()) || null;").replace("setPremium(me.premium === true);", "setPremium(me.premium === true || deps.meCache);"))],

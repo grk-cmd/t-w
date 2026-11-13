@@ -76,7 +76,7 @@ document.getElementById('licenseReqApplyBtn').onclick=async ()=>{
     try{ localStorage.removeItem(LICENSE_REQ_ID_KEY); }catch(e){}
     refreshLicenseUI();
     setTimeout(()=>{ twNav.go(twNav.NAV.PROGRAM_SETTINGS_CLOSE); }, 900);
-  } else { toast('적용 실패: '+(r.reason||'')); }
+  } else if(!r.stale){ toast('적용 실패: '+(r.reason||'')); }
 };
 /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 앱을 껐다 켜도 예전에 보낸 요청이 있으면 이어서 지켜봄(관리자가 그 사이 승인했을 수도 있으니) */
 function startWatch(){

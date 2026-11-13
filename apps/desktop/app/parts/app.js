@@ -5754,6 +5754,7 @@ const licensePremiumMod = TwLicensePremium.createLicensePremium({
   setPremium: (v)=>acctStateMod._setPremium(v),
   isPremium: ()=>isPremium,
   rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  resetKnown: ()=>acctStateMod.resetPremium(),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   reasonOf: (e)=>TwUserApi.reasonOf(e),
   resetCustomStatus: ()=>{ if(userStatus==='custom') setUserStatus(null); },   // 프리미엄을 놓으면 커스텀 상태는 기본으로

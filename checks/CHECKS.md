@@ -175,7 +175,7 @@
 | **sim-keysof-twin.js** | 369 | **864c08b01c27** |
 | **sim-license-leak.js** | 315 | **5b8cf9066189** |
 | **sim-license-api.js** | 169 | **2a45f234de43** |
-| **sim-license-premium.js** | 264 | **9b1ca0b5640b** |
+| **sim-license-premium.js** | 306 | **9ffdd9feaae4** |
 | **sim-mh-sanitize.js** | 216 | **9d3c299cd46e** |
 | **sim-myhome-steps.js** | 128 | **ed6b55640d6c** |
 | **sim-myhome-load.js** | 106 | **e6eb15f88375** |
@@ -195,7 +195,7 @@
 | **sim-pl-loop.js** | 511 | **baae9984599b** |
 | **sim-pl-next.js** | 171 | **9e7dea09b15f** |
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
-| **sim-premium-desk.js** | 130 | **7c5838e7f427** |
+| **sim-premium-desk.js** | 130 | **764746bcf36e** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
 | **sim-light-tone.js** | 281 | **2240049cb22b** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |

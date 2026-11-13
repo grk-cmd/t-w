@@ -92,7 +92,7 @@
 | `E-CHAR-23` | 다른 기기에서 그 칸에 캐릭터가 먼저 생겨 저장하지 못했어요 — 서버 것을 받았어요 | `character/closet.js` — 새 캐릭터 만들기가 `AVATAR_SLOT_TAKEN` 으로 거절됨 · 서버 캐릭터를 받아 앉힌다 |
 | `E-PL-01` | 플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요 | `status/playlist.js` — 내 목록 서버 저장 실패(`_plPublishNow` · `saveMine` failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음 — 다음 고침 · 창 열기 · 끌 때 · 로그아웃 때 한 번) |
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
-| `E-LIC-01` | 라이선스 상태를 확인하지 못했어요 — 앱을 다시 켜면 다시 확인해요 | `account/license-premium.js` — 프리미엄 확인(`GET /v1/me`) 실패(켤 때는 계정 확인이 곧 확인이라 실패가 없다 · 서버 `license` 알림 뒤 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음) |
+| `E-LIC-01` | 라이선스 상태를 확인하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/license-premium.js` — 프리미엄 확인(`GET /v1/me`) 실패 — 사용자가 누른 키 등록 · 이 기기 해제 뒤만(켤 때 · 서버 `license` 알림으로 받다 실패하면 번호 없이 지금 값 그대로 · 혼자 다시 하지 않음 · 로그인이 풀린 실패는 알리지 않음) |
 | `E-LIC-02` | 이 기기의 라이선스를 해제하지 못했어요 — 잠시 뒤 다시 해 주세요 | `account/license-key.js` — «이 기기에서 해제» 버튼의 서버 기기 빼기(`DELETE /v1/me/license/devices/{id}`) 실패(프리미엄은 그대로 · 로그인이 풀린 실패는 알리지 않음) |
 | `E-GIFT-01` | 말랑이를 불러오지 못했어요 | `myhome/mallang-store.js` — 내 칸(`GET /v1/me/mallangs` — 마이홈 열기 · 등록 창 [다시 시도] · 못 받은 폴더 누름) · 보는 집 칸(`GET /v1/mallangs/{code}` — 친구 홈 구경 · 내 집으로) 받기 실패(그 사람이 없음은 번호 없이 «말랑이 없음» · 혼자 다시 받지 않음) |
 | `E-GIFT-02` | 말랑이 그림을 올리지 못했어요 | `myhome/mallang-store.js` — 등록 ① 그림 올리기(`POST /v1/me/images?purpose=mallang`) 실패 · 형식 · 크기 거절(`IMAGE_UPLOAD`) — 칸은 그대로 |
