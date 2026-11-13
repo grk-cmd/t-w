@@ -57,6 +57,8 @@ const tricksMod = deps.tricksMod;
 const triggerPet = deps.triggerPet;
 const uiIconEl = deps.uiIconEl;
 const updateMyStatusChipPosition = deps.updateMyStatusChipPosition;
+const seatSyncDiff = TwSeatSyncDiff;   // 🪑 줄 배치를 다시 할지 정하는 규칙(seat-sync-diff.js — 순수 모듈)
+let _lastSyncSnap = null;   // 지난번 맞춘 뒤의 모양 — 줄 배치가 필요 없는 변화(상태 · 경험치 …)는 값만 적고 넘어간다
 function _roomServerNet(){
   try{ return (window.firebaseAPI && typeof firebaseAPI.roomServerNet === 'function') ? firebaseAPI.roomServerNet() : null; }
   catch(_){ return null; }
@@ -572,10 +574,20 @@ function syncFriendSeats(friends){
   _applyRemoteRides();   // 🐾 친구들의 올라타기·탑쌓기 관계를 좌석에 반영(좌석이 다 만들어진 뒤에)
   _applyRemoteBenchSeats();   // 🪑 친구들의 벤치 앉기 관계 반영
   if(typeof rideBenchMod.restoreInteractionDesk==='function') rideBenchMod.restoreInteractionDesk();   // 🔄 재입장 시 내 상호작용 책상 복원(1회)
-  layoutSeats(); renderSeatTabs();
-  // ★ 멀티모드 진입/친구 입퇴장으로 좌석 배치가 바뀌면 카메라도 같이 바뀌는데, 상태칩이 다음 프레임까지
-  //   기다렸다가 갱신되면 그 사이 잠깐 어긋난 위치(화면 밖으로 밀린 것처럼 보임)가 노출될 수 있어서 즉시 갱신.
-  updateMyStatusChipPosition();
+  /* 줄 배치에 닿는 변화(멤버 출입 · def · 올라타기 · 벤치 · 늦게 붙은 책상 …)가 없으면 layoutSeats 를 건너뛴다 — 판단은 seat-sync-diff.js 한 곳.
+     상태 · 경험치 · 말풍선 같은 칸은 위에서 좌석에 적었고 프레임 반복이 매번 읽는다. */
+  const _snap = seatSyncDiff.snapshot(seats, friends, ids);
+  const _todo = seatSyncDiff.plan(_lastSyncSnap, _snap);
+  if(_todo.layout){
+    layoutSeats(); renderSeatTabs();
+    // ★ 멀티모드 진입/친구 입퇴장으로 좌석 배치가 바뀌면 카메라도 같이 바뀌는데, 상태칩이 다음 프레임까지
+    //   기다렸다가 갱신되면 그 사이 잠깐 어긋난 위치(화면 밖으로 밀린 것처럼 보임)가 노출될 수 있어서 즉시 갱신.
+    updateMyStatusChipPosition();
+    _lastSyncSnap = seatSyncDiff.snapshot(seats, friends, ids);   // 배치가 바꾼 것(자리 순서 · 평준화 크기)까지 담는다
+  } else {
+    if(_todo.tabs) renderSeatTabs();
+    _lastSyncSnap = _snap;
+  }
 }
 
 /* 초대 UI 연결 */
