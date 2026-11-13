@@ -142,6 +142,30 @@ mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));   // 받은 뒤 화면 · �
 - 레벨 해금 · 버그 답변 우편은 서버가 만든다(앱이 자기 수령함에 쓰는 `sendInboxMessage` 는 관리자 코드와 옛 해금 안내가 아직 부르는 동안만 남는다).
 검사: `checks/sim-inbox-api.js` · `checks/sim-mail-feed.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
 
+## `guestbook-api.js` · `guestbook-feed.js` · `guestbook.js` — 📖 방명록 · 웹박수 (서버가 원본)
+
+**책임** — `guestbook-api.js` 는 서버 모양(`authorName` · `createdAt` · `clap.imageUrl` · `canWrite` · `version`)을 화면 모양(`{ name, ts, img, canWrite… }`)으로 맞추는 provider 한 곳(`/v1/guestbooks/{userCode}` · `/v1/me/guestbook`).
+`guestbook-feed.js` 는 받아 들고 있는 한 벌 — 새 글 배지(숫자 하나) · 열어 둔 방명록 · 글 쓰기 · 지우기 · 박수 · 폭죽. `guestbook.js` 는 화면(배지 · 독립 팝업 창)만.
+글 30개 정리 · 박수 하루 몫(`todayLeft`) · 쓸 수 있는지(`canWrite` — 주인이거나 친구)는 전부 서버가 정한 값이다. 앱이 세지도 정리하지도 판정하지도 않는다.
+
+**받는 때** — 배지: 마이홈을 열 때 `GET /v1/me/guestbook/summary?since=<마지막으로 연 때>` 한 번, 그 뒤 realtime `guestbook` 알림(`subject` = 내 코드) · 오래 끊겼다 붙을 때만. 방명록: 창을 열 때 `GET`, 열려 있는 동안 알림이 오면 다시 `GET`(ETag).
+남의 방명록은 열 때 realtime `guestbookWatch{ owner }` 로 «보는 중» 을 알려야 알림이 오고, 창을 닫으면 `guestbookUnwatch`. 혼자 되풀이해서 받지 않는다 — 못 받으면 창의 «다시 시도» 뿐.
+알림 걸기(`rt.on` · `rt.onState`)는 배지나 방명록이 켜져 있는 동안만이고 둘 다 꺼지면 뗀다. 연결 상태가 비우기를 맡는다 — 연결을 끈 것(OFF · 로그아웃)이면 모두 비우고(열린 창도 닫음), 인증 실패 · 다른 기기에 밀림 · 업데이트로 끊긴 것은 받은 것만 거두고 걸기는 둔다(다시 붙으면 배지 · 열린 방명록을 한 번씩 다시 받는다).
+
+**deps** — feed: `api`(guestbook-api) · `rt`(`TwRtHub.store`) · `rtState` · `pending`(`TwRequestId.createPending()`) · `lastRead`(`createLastReadStore(localStorage)` — `tw.mhGbLastRead:<코드>`) · `notifyError` · `translate` · `ACTION` · `now`.
+화면: `feed` · `errorText` · `getMyUserId` · `getDisplayName` · `toast` · `escHtml` · `applyThemeToChildDoc` · `watchMaintenanceInput` · `mhViewingUserId` · `mhViewingDisplayName`.
+
+**내놓는 것** — feed: `startBadge(uid)` · `stopBadge()` · `refreshBadge()` · `badgeCount()` · `markRead()` · `openBook(uid, owner)` · `closeBook()` · `refreshBook({ manual }?)` · `view()` · `status()` · `owner()` · `write(text)` · `remove(id)` · `clap()` · `clapBusy()` · `setEmoji(v)` · `setImage(dataUrl)` · `onChange(fn)`.
+쓰기는 `{ ok, reason?, code? }` — `reason`: `closed` · `blocked`(`canWrite` 아님) · `empty` · `gone`(그 사이 창을 닫음) · `stale`(로그인이 바뀌는 중 — 조용히) · `busy` · `limit`(하루 몫을 다 씀 — 오류 번호 없는 안내) · `failed`(`code` = 띄운 오류 번호).
+화면의 window 고리(`_mhGbStartWatch` · `_mhGbStopWatch` · `_mhGbRefreshBadge` · `_mhGbMarkAllRead` · `_mhReSubscribeGuestbook` · `openMyGuestbook`)는 예전 이름 그대로.
+
+**오류 번호** — `E-GB-01`(방명록 받기 실패 — 연 · 누른 받기만) · `E-GB-02`~`05`(서버 거절) · `E-GB-06`(박수 그림을 쓸 수 없음) · `E-GB-07`(512KB 초과). 그 밖의 실패는 공통 `E-NET-*`.
+
+**함정** — 글 쓰기 · 박수는 `requestId` 를 싣는다. 닿지 못한 일은 같은 번호로 다시(서버가 한 번만 반영), 서버가 답한 일(거절 포함)은 번호를 놓는다.
+방명록 창은 main.js 가 blur 에서 닫기도 한다 → `pagehide` 에서 `closeBook()`. 받는 중 · 못 받음에는 입력칸이 보이지 않는다. 박수 그림은 요청 둘이다 — `POST /v1/me/images?purpose=clap`(바이트 그대로 · 512KB 이하 png/webp/jpeg → `{ url }`) 다음 `PATCH /v1/me/guestbook { version, clapImageUrl }`. 첫째가 실패하면 겉모습은 그대로, 둘째가 409 면 다시 받는다. `setImage(dataUrl)`.
+
+검사: `checks/sim-guestbook-api.js` · `checks/sim-guestbook-feed.js` · `checks/sim-guestbook.js`(입력 → 출력 · 상태 · 계정 바뀜 · 깨 보기).
+
 ## `help-tab.js` — 📘 마이홈 «도움말» 탭
 
 **책임** — 마이홈 «도움말» 탭 한 칸: 왼쪽 목차(묶음 접고 펴기) · 오른쪽 도움말 웹 페이지 틀(도움말 전용 Hosting 사이트 `help.together-working.com` · `?embed=1`) · 못 불러옴.

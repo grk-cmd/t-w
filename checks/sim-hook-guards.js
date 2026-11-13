@@ -27,7 +27,7 @@ const HOOKS = {
   _mhSyncBgmBounds: 'myhome/myhome-ui.js', openMyHome: 'myhome/myhome-ui.js',
   _mhFitWindow: 'myhome/myhome-sticker-layout.js',
   _mhGbStartWatch: 'myhome/guestbook.js', _mhGbStopWatch: 'myhome/guestbook.js', _mhGbRefreshBadge: 'myhome/guestbook.js',
-  _mhGbRefreshWriteUI: 'myhome/guestbook.js', _mhGbMarkAllRead: 'myhome/guestbook.js', _mhReSubscribeGuestbook: 'myhome/guestbook.js',
+  _mhGbMarkAllRead: 'myhome/guestbook.js', _mhReSubscribeGuestbook: 'myhome/guestbook.js',
   /* 🧸 말랑이(_mallang*) 고리는 걷었다 — mallang.js 는 createMallang(deps) 모양이고 부르는 곳은 deps mallangMod(sim-mallang-module.js) */
   _bugBoardOpen: 'support/bug-board-ui.js', _bugBoardRefreshBadge: 'support/bug-board-ui.js',
   /* 🕒 포커스 · 🎨 꾸미기 · 🚪 방 · 🎵 플레이리스트 · 🛠️ 관리자(4단계 2-2 — app.js 안의 부름은 구역 떼기와 겹치지 않게 그 작업 뒤에) */
