@@ -583,6 +583,8 @@ function createChalStore(deps){
     return mine.run;
   }
   const loadPrev = (userOpened) => { ensurePrev(userOpened); };
+  /* 지난 주 [다시 시도] — 사용자가 누를 때만. 못 받은 상태일 때 한 번 다시 받는다 */
+  const retryPrev = () => { if(prev.load === 'failed') loadPrev(true); };
 
   /* ── 읽기 — 화면이 그리는 한 벌 ── */
   function view(){
@@ -615,7 +617,7 @@ function createChalStore(deps){
     let w = null;
     if(live === 'we' && phKey === 'wd') w = week;
     else{
-      loadPrev(true);
+      if(prev.iso !== weekBefore(week.isoWeek) || prev.load === 'idle') loadPrev(true);   // 못 받은(failed) 뒤에는 그리기가 다시 받지 않는다(P3) — [다시 시도] 의 retryPrev 만
       if(prev.load !== 'ready') return { state: prev.load === 'failed' ? 'failed' : 'loading' };
       w = prev.week;
     }
@@ -666,7 +668,7 @@ function createChalStore(deps){
 
   return {
     startChal, onChange, onEvent, view, arcView, todayIdx, liveGoal,
-    openDrawer, reload, dayEnded, tick, loadPrev,
+    openDrawer, reload, dayEnded, tick, loadPrev, retryPrev,
     start, edit, setAutoNext, giveUp, retryPost, claimNow,
     addFocusSec, check, repeatAnswer,
     adoptLegacyToday, flush,
