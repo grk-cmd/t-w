@@ -1977,6 +1977,7 @@ window.buildAnimalBase=function(def){
     return null;   // 파싱 전이면 인간 폴백 → 파싱 완료 후 rebuildAnimalSeats가 다시 세움
   }
   const root=THREE.SkeletonUtils.clone(_ANIMAL_SCENE);
+  TwSkeletonShare.shareSkeletons(TwSkeletonShare.skinnedMeshesOf(root));   // 몸 · 얼굴 넷이 같은 뼈대 — Skeleton 하나로
   // 텍스처 — 몸/표정(fT)·감은눈(bT). 감은눈엔 몸 무늬가 자동복사돼 있어 통짜 스왑으로 깜빡임 성립.
   // 로컬 슬롯은 dataURL(animalBody), 방에서 온 def는 Storage URL(animalBodyUrl) — 둘 다 지원
   const srcBody  = def.animalBody  || def.animalBodyUrl  || null;

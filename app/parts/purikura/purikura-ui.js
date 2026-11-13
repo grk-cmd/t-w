@@ -1282,6 +1282,7 @@ function _pkCloneChar(seat, out){
   catch(e){ console.warn('[스티커사진] 캐릭터 복제 실패', e); g = null; }
   finally{ stash.forEach(p=>{ p[0].userData = p[1]; }); }
   if(!g) return null;
+  TwSkeletonShare.shareSkeletons(TwSkeletonShare.skinnedMeshesOf(g));   // 복제가 메시마다 Skeleton 을 따로 만든다 — 같은 뼈대는 하나로
   const srcFace = seat.faceMat || null;
   const srcEars = (srcFace && srcFace.userData && Array.isArray(srcFace.userData.animalEars))
                     ? srcFace.userData.animalEars : [];
