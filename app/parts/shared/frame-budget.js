@@ -59,7 +59,13 @@ function runPixelRatio(dpr, dot, quality, lowered){
   return Math.min(d, RUN_MAX_PR);
 }
 
-/* 진단 한 줄 — 1분마다 tw-mouse-diag.log 에 쌓이므로 짧게(그 파일은 256KB 에서 돌려 쓴다 · main.js DIAG_MAX_BYTES).
+/* 실행 화면에서는 그림자를 만들지 않는다 — 그림자를 받는 투명 바닥을 실행 화면에서 숨겨서(app.js floor) 보이는 곳이
+   책상 윗면뿐인데, 그림자 그림은 조각마다 한 번씩 더 그려 한 장의 그리기 횟수가 거의 두 배가 된다(인원에 비례).
+   ⚠️ renderer.shadowMap.enabled 를 끄면 안 된다 — 이 three 판은 셰이더를 다시 만들지 않아 낡은 그림자 그림을 계속 읽는다.
+     빛의 castShadow 를 끄면 빛의 그림자 수가 바뀌어 셰이더를 다시 만든다. */
+function castShadowFor(runOverlay){ return !runOverlay; }
+
+/* 진단 한 줄 — 1분마다 tw-mouse-diag.log 에 쌓이므로 짧게(그 파일은 main.js DIAG_MAX_BYTES 에서 돌려 쓴다).
    예) [프레임] 60초 1800장 30fps · 포커스 40% · 상한 30 · 배율 1.5 · 2880x1620 */
 function diagLine(m){
   const secs = Math.max(1, Math.round((m.ms || 0) / 1000));
@@ -132,7 +138,7 @@ function createFrameBudget(deps){
 const api = {
   FPS_ACTIVE, FPS_IDLE, FPS_UNFOCUSED, FPS_LAUNCHER, IDLE_AFTER_MS, FRAME_SLACK_MS, RUN_MAX_PR,
   QUALITY_KEY, QUALITY, SLOW_WIN_MS, SLOW_SHARE, SLOW_WINDOWS, SLOW_GAP_MS,
-  pickFps, runPixelRatio, qualityFrom, antialiasFor, diagLine, createFrameBudget, createSlowWatch,
+  pickFps, runPixelRatio, castShadowFor, qualityFrom, antialiasFor, diagLine, createFrameBudget, createSlowWatch,
 };
 if(typeof window !== 'undefined') window.FrameBudget = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;

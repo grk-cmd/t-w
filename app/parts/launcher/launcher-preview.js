@@ -3,7 +3,7 @@
    ★ assetCodeMod · customItems · slotSaveMod 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 20개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview — app.js 는 launcherPrevMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: ensureLauncherPreview · lHolder · lRenderer · launcherLoop · setLauncherChar · sizeLauncherPreview · startLauncherLoop — app.js 는 launcherPrevMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLauncherPreview — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-launcher-preview.js */
@@ -224,10 +224,9 @@ const _lBudget = FrameBudget.createFrameBudget({ now: ()=>performance.now() });
 /* 깜빡임은 실행 화면 좌석과 같은 시간표(blink-timing.js — 실제 시각으로 센다). 런처가 숨어 있는 동안은 비워 두어,
    다시 열었을 때 밀린 예약이 바로 터지지 않고 처음 깜빡임(0.8~3초)부터 다시 시작한다. */
 let lBlink=null;
+/* 한 장 그리기 — 런처가 열려 있을 때만 불린다(열림 판정 · 숨길 때 시간표 비우기는 아래 startLauncherLoop). */
 function launcherLoop(now){
-  const vis=document.getElementById('launcher').classList.contains('on');
-  if(!vis) lBlink=null;
-  if(vis&&lRenderer&&_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)){
+  if(lRenderer&&_lBudget.admit(now, FrameBudget.FPS_LAUNCHER)){
     if(lChar){if(!lBlink) lBlink=blinkTiming.createBlink(now);
       blinkTiming.scheduleBlinks(lBlink, now);
       const shut=blinkTiming.eyeClose(lBlink, now) > blinkTiming.SHUT_AT;
@@ -237,16 +236,31 @@ function launcherLoop(now){
       const dY=Math.max(0.2, lScaleHint||1);
       lChar.group.position.y=lCharBaseY+Math.sin(performance.now()*0.0016)*0.015*dY;}
     lRenderer.render(lScene,lCam);
-    if(_lcThumbJob && lChar && !lBlinkOn && performance.now() >= _lcThumbJob.readyAt) _lcThumbTake();}   // 🖼️ 같은 틱에서
-  requestAnimationFrame(launcherLoop);}
+    if(_lcThumbJob && lChar && !lBlinkOn && performance.now() >= _lcThumbJob.readyAt) _lcThumbTake();}}   // 🖼️ 같은 틱에서
+/* 런처가 닫혀 있는 동안은 rAF 를 걸지 않는다(예전엔 주사율마다 깨어나 클래스만 봤다) — 다시 열리면 #launcher 의 class 변화로
+   다음 rAF 에 다시 건다. 여는 길(런처 복귀 · 생성기 닫기 · 동물 생성기 닫기 …)이 여럿이라 여는 함수가 아니라 class 를 본다. */
+let _lLoop=null;
+function startLauncherLoop(){
+  if(_lLoop) return;
+  const el=document.getElementById('launcher');
+  _lLoop=TwIdleGate.rafWhile({
+    isOn: ()=>el.classList.contains('on'),
+    frame: launcherLoop,
+    sleep: ()=>{ lBlink=null; },
+    raf: (f)=>requestAnimationFrame(f),
+  });
+  TwIdleGate.onClassChange(el, ()=>_lLoop.wake());
+  _lLoop.wake();
+}
 
 return {
   ensureLauncherPreview,
   lHolder: ()=>lHolder,   // 읽는 함수
   lRenderer: ()=>lRenderer,   // 읽는 함수
-  launcherLoop,
+  launcherLoop,   // 한 장 그리기(검사가 가짜 시계로 부른다) — 반복은 startLauncherLoop
   setLauncherChar,
   sizeLauncherPreview,
+  startLauncherLoop,
 };
 }
 

@@ -293,6 +293,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
 
+## `idle-gate.js` — 😴 할 일 없는 반복 재우기
+
+- **책임**: 창이 닫혀 있어 결과가 화면 · 저장 · 서버에 닿지 않는 동안 반복(rAF · 짧은 주기 타이머)을 재우고, 다시 열리면 다음 틱에 건다. 판단(돌 때인가)과 할 일은 부르는 쪽이 넘긴다 — 도메인을 모른다.
+- **쓰는 법**: `TwIdleGate.rafWhile({ isOn, frame, sleep, raf })` · `TwIdleGate.intervalWhile({ idle, step, ms, setInterval, clearInterval })` — 둘 다 `{ wake, running }` 을 돌려준다. 깨우기는 `TwIdleGate.onClassChange(el, fn)`(class 변화 — 여는 길이 여럿이어도 한 곳). html 에서 쓰는 모듈보다 먼저 싣는다.
+- **지금 쓰는 곳**: 런처 미리보기(`launcher-preview.js` `startLauncherLoop` — `#launcher.on`) · 꾸미기 미리보기(`wardrobe.js` — `#wdPreviewPanel.on`) · 플레이리스트 재생 창 사각형 폴링(`playlist.js` — `#myPlaylistBox` 가 `.hidden` 이고 off 를 보낸 뒤).
+- **함정**: 재우는 조건에 «마지막 결과를 이미 보냈다» 를 넣는다(플레이리스트는 닫힌 뒤 off 를 한 번 보내고 잔다) — 닫히자마자 자면 마지막 IPC 가 빠진다. 안 보여도 돌아야 하는 것(하트비트 · 자리비움 판정 · 포커스 기록 · rAF 멈춤 감시 · 백색소음)에는 쓰지 않는다.
+- 검사: `checks/sim-idle-gate.js` · 쓰는 곳은 `sim-launcher-preview` 5절 · `sim-wardrobe` 5절 · `sim-playlist` 7-2절.
+
 ## `mac-tooltip.js` — 💬 맥 설명 말풍선
 
 - **책임**: 맥에서 마우스를 올리면 뜨는 설명(`title`)을 앱이 직접 그린다. 실행 화면 창이 «화면 보호기» 단계(`setAlwaysOnTop('screen-saver')`)라 맥 OS 툴팁이 그 뒤로 깔려 안 보이기 때문이다. 윈도우는 OS 툴팁이 맨 위라 걸지 않는다.
@@ -381,6 +389,18 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 재기만 한다 — 그리기 · 상한은 건드리지 않는다.
 - 검사: `checks/sim-gpu-timer.js`(깨 보기 여섯).
 
+## `run-cost-diag.js` — 🩺 그리기 밖 시간(1분 `[비용]` 줄)
+
+- **책임**: «실행 화면 렌더러가 그리기(`frame()`) 밖에서 초당 수백 ms CPU 를 쓴다(창을 내려도)» 를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 1분 동안 하트비트(100ms `setCharBounds`) · 클릭 통과 판정 · 받은 방 변경 수 · 좌석 맞춤(`syncFriendSeats`) · 한 장 쪼갬(좌석 반복 · 그리기 · 나머지)을 모으고 좌석 수 · 방 종류와 함께 한 줄로 낸다. 렌더러만 싣는다(`window.TwRunCostDiag`).
+- **쓰는 법**: 창 하나에 하나인 `TwRunCostDiag.page` 에 더한다 — app.js(`const runCost = TwRunCostDiag.page` · 하트비트를 `runCost.timed('hb', fn)` 로 감쌈 · 프레임에서 `since('seat'|'render'|'frame', t0)`) · desktop-run.js(deps `runCost` — 기존 `_hitPerf` 자리에서 `add('hit', ms)`) · room-entry.js(deps `runCost` — `presenceChanged` 입구에서 `count('recv')`, 부르는 곳은 `timed('sync', syncFriendSeats)` 를 부른다). 1분마다 `[프레임]` 줄과 같은 자리에서 `take()` → `line(r, countSeats(seats, hiddenSeatsMod._bodyHidden), roomKind(Presence.roomCode(), window._activeChannel, !!Presence.serverProvider()))`.
+  예) `[비용] 하트비트 600회 0.42/3.10ms · 통과 1200회 0.08/1.20ms · 수신 340 · 맞춤 340회 합 120 최대 4.20ms · 밖 초당 3.20ms · 한 장 1800 좌석 0.12 그리기 0.80 나머지 0.30ms · 좌석 8 몸 6 반짝 2 · 워킹룸 ws`
+  - `n회 a/b` = 횟수 · 평균/최대. `밖 초당` = (하트비트 + 통과 + 맞춤 합) ÷ 초. `한 장` = 그린 장 수와 한 장 평균의 쪼갬. `수신` = 받은 방 변경(방 서버 · Firebase 두 길이 함께 지나는 `presenceChanged`) 수, 끝의 `ws` / `fb` 는 받는 길. `몸` = 넘긴 판단 함수(`hiddenSeatsMod._bodyHidden` — 숨김 · 자리비움)가 «보인다» 고 한 좌석(함수가 없으면 0 — shared 는 room 을 부르지 않는다), `반짝` = `.seat-exp.lvx` 바나 `.np-star` 이름표가 보이는 좌석.
+- **함정**
+  - main 은 렌더러 진단 줄을 200자에서 자른다(`companion:diagNote`) — 줄은 `LINE_MAX` 안에서 끝낸다. `[프레임]` 으로 시작하지 않아 앞 창 꼬리(front-diag.js)가 안 붙는다.
+  - 1분 몫은 실행 화면이 아니어도 비운다(take 를 runmode 확인보다 먼저). 창을 내려도 `runmode` 는 그대로라 그때도 남는다.
+  - 재기만 한다 — 함수 본문은 안 고치고 부르는 곳을 감싼다. `timed` 는 던져도 시간을 더하고 그대로 던진다.
+- 검사: `checks/sim-run-cost-diag.js`(깨 보기 열).
+
 ## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
 
 - **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
@@ -390,3 +410,15 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
   - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
 - 검사: `checks/sim-system-prompt.js`(깨 보기 셋).
+
+## `skeleton-share.js` — 🦴 같은 뼈대는 Skeleton 하나
+
+- **책임**: 같은 뼈 객체를 같은 순서로 쓰고 역행렬 값이 모두 같은 스킨 메시들이 Skeleton 객체 하나를 함께 쓰게 한다. three 는 Skeleton 객체마다 한 장에 한 번 뼈 행렬을 셈하고 뼈 텍스처를 올리는데(`skeleton.frame`), `SkeletonUtils.clone` 과 리깅 파츠 다시 묶기가 스킨 메시마다 Skeleton 을 따로 만들어 같은 뼈를 메시 수만큼 셈했다. 순수 모듈(`window.TwSkeletonShare` + `module.exports`) — three 객체 모양만 안다.
+- **내놓는 것**: `sameRig(a, b)` · `shareSkeletons(meshes, anchors)`(anchors 의 Skeleton 은 바꾸지 않고 먼저 맞춰 볼 후보 · 바꾼 메시 수를 돌려줌) · `skinnedMeshesOf(root)`.
+- **부르는 곳**: app.js `instantiateBase`(기본 · 커미션 몸 — 기본 몸 4 → 1) · `equipPartOnSeat`(리깅 파츠는 캐릭터 몸 · 다른 파츠와도 맞춰 봄 · 비리깅 스킨 파츠는 자기끼리 · 다중 파츠 사본) · animal.js `buildAnimalBase`(몸 + 얼굴 넷 5 → 1) · purikura-ui.js 무대 복제.
+- **함정**
+  - `bindMatrix` · `bindMatrixInverse` 는 메시 것이다(셰이더 유니폼 · 광선의 `boneTransform` 모두 메시에서 읽음). 파츠 xf 를 `bindMatrix` 에 구워 메시마다 달라도 함께 쓴다. 뼈 행렬은 «뼈 월드 × 역행렬» 이라 역행렬 값이 하나라도 다르면 따로 둔다(비트가 같은 값만 — `-0` 도 가른다).
+  - 복제 · 묶기 바로 뒤, 그리기 전에만 부른다. 그린 적 있는 메시를 옮기면 옛 Skeleton 의 뼈 텍스처가 그래픽 메모리에 남는다.
+  - 함께 쓰는 Skeleton 의 뼈 · 역행렬을 바꾸지 않는다는 전제다. 다시 묶을 땐 지금처럼 `bind(new THREE.Skeleton(…))`.
+  - r128 광선 판정은 `boneMatrices` 가 아니라 뼈 `matrixWorld` × 역행렬을 바로 셈한다(`boneTransform`) — 함께 써도 판정이 같다.
+- 검사: `checks/sim-skeleton-share.js`(진짜 기본 몸 · 동물 GLB 로 옛/새 뼈 행렬 · 스킨 자리 대조 · 깨 보기 둘).

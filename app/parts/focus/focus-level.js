@@ -184,10 +184,15 @@ function addFocusSeconds(sec){
   setFocusSessionSec(_focusSessionSec() + (sec));
   _pushLevelIfChanged();   // 레벨이 올랐을 때만 프로필 갱신(친구 목록 배지용)
   try{
-    localStorage.setItem(FOCUS_TOTAL_KEY,String(_focusTotalSec()));
-    localStorage.setItem(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));
-    localStorage.setItem(FOCUS_TODAY_DATE_KEY,_focusDayStr());
+    _lsSetIfChanged(FOCUS_TOTAL_KEY,String(_focusTotalSec()));
+    _lsSetIfChanged(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));
+    _lsSetIfChanged(FOCUS_TODAY_DATE_KEY,_focusDayStr());
   }catch(e){}
+}
+/* 활성 앱 상태(0.5초)마다 불린다 — 저장된 글과 같으면 쓰지 않는다(날짜는 하루 한 번만 바뀐다 · 상한에 닿은 누적도 그대로).
+   메모리 사본이 아니라 저장된 값과 견준다 — 계정 전환 등으로 지워졌으면 예전처럼 다시 쓴다. */
+function _lsSetIfChanged(k, v){
+  if(localStorage.getItem(k) !== v) localStorage.setItem(k, v);
 }
 /* ★ 해금 레벨 — **레벨 상한(999)에서 멈춘다.** 회차가 돼도 모듈로로 접지 않는다(개정 70 · 아래 myFocusShow 주석).
    화면에 보이는 «이번 바퀴» 레벨과 별은 myFocusShow() 가 따로 낸다. */

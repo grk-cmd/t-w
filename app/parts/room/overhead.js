@@ -27,6 +27,7 @@ function bindLabelDrag(el, seat){
   el.addEventListener('pointerdown', e=>{ if(_labelDragFn) _labelDragFn(e, seat); });
 }
 const _starPaint = deps._starPaint;
+const npStarFill = deps.npStarFill;
 const _wpTmp3 = deps._wpTmp3;
 const camera = deps.camera;
 const chatUiMod = deps.chatUiMod;
@@ -195,7 +196,7 @@ function setSeatNamePlate(seat, level, name, star){
     el._npKey = key;
     if(star){
       el.textContent = '';
-      const sp = document.createElement('span'); sp.className = 'np-star'; sp.textContent = focusLevelMod().lvStarStr(star.cyc);
+      const sp = document.createElement('span'); sp.className = 'np-star'; npStarFill(sp, focusLevelMod().lvStarStr(star.cyc));
       el.appendChild(sp);
       el.appendChild(document.createTextNode(level + '  ' + name));
     } else el.textContent = key;
@@ -456,7 +457,9 @@ function _seatLabelName(seat){
 function _bubSnapTransform(el, invert){
   const dpr = window.devicePixelRatio || 1;
   const snap = v => Math.round(v * dpr) / dpr;
-  if(el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr){
+  /* 숨은(display:none) 말풍선은 재지 않는다 — 폭이 0 이라 어차피 아무것도 안 바뀌는데, 상태 없는 좌석은 매 프레임 여기를 지나
+     그 읽기가 강제 레이아웃이 됐다. 보이는 순간(아래 display='block' 뒤 두 번째 부름)에 잰다. */
+  if(el.style.display !== 'none' && (el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr)){
     const w = el.offsetWidth;
     if(w > 0){
       el._bxfHalfW = snap(w / 2);
@@ -664,6 +667,7 @@ return {
   bindLabelDrag,
   NAMEPLATE_BELOW_EXPBAR,
   beginLabelFrame: labelMeasure.beginFrame,
+  canvasRect: labelMeasure.canvasRect,   // 이번 프레임에 한 번 잰 캔버스 사각형 — 히트 맵(seat-hit-targets.js)도 같은 값을 쓴다
   labelSize: labelMeasure.size,
   nameplateHeight,
   _officeDemojiHtml,

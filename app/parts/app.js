@@ -350,10 +350,12 @@ function loadBaseGLB(){return new Promise(res=>{
   }, e=>{console.warn('base GLB parse fail',e);res(false);});
 });}
 /* 스킨드 메시 인스턴스 복제 (각 캐릭터가 독립 스켈레톤+머티리얼) */
+const skelShare = TwSkeletonShare;
 function instantiateBase(customScene){
   const src = customScene || BASE_SCENE;
   if(!src||!THREE.SkeletonUtils)return null;
   const root=THREE.SkeletonUtils.clone(src);
+  skelShare.shareSkeletons(skelShare.skinnedMeshesOf(root));   // 복제가 메시마다 Skeleton 을 따로 만든다 — 같은 뼈대는 하나로
   let faceMat=null,upMat=null,loMat=null,faceMesh=null,upMesh=null,loMesh=null;
   // 커미션 캐릭터에 미리 씌워진 파츠(안경/모자/탈/한벌옷/날개/손) — 메쉬(또는 재질) 이름으로 자동 인식.
   // 꾸미기에서 같은 카테고리 파츠를 장착하면 이 메쉬가 숨겨지고, 해제하면 다시 보임(applyClothVisibility에서 처리).
@@ -2364,26 +2366,15 @@ function _charProjSane(x, y, h){
      '클릭 받는 중'이면 전체화면 투명 오버레이가 계속 클릭을 가로챈다.
    ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
 let _twMoveSeenAt = 0;
-try{
-  setInterval(()=>{
-    try{
-      if(!(window.companion && companion.setCharBounds)) return;
-      /* ★ _charBoundsLatest 를 직접 건드리지 않고 매번 새 객체로 보낸다 — 그 값은 다음 주기에도
-         재사용되므로 필드를 덧붙이면 안 된다. moveAge 는 "mousemove 가 마지막으로 온 지 몇 ms 됐나",
-         한 번도 온 적 없으면 -1(=판단 불가, main 은 이때 아무것도 하지 않는다). */
-      const _b = _charBoundsLatest || { x:-99999, y:-99999, r:0 };
-      /* 📐 우리 창들의 사각형도 같이 보낸다 — main 의 회수 판정이 캐릭터 하나만 알아서
-         대화창 위에서 렌더러와 싸우던 문제(핸드오프5 §1-4). __uiRegions 는 클릭통과 블록이
-         정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
-      companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
-        moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined, others: statusChipMod.otherSeatCircles(),   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
-        /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
-           구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
-        charBad: _charBadWhy || undefined });
-    }catch(_){}
-  }, 100);
-}catch(_){}
+const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
+/* 본문(창 보임 구독 · 100ms 타이머)은 launcher/heartbeat.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const heartbeatMod = TwHeartbeat.createHeartbeat({
+  _charBadWhy: ()=>_charBadWhy,
+  _charBoundsLatest: ()=>_charBoundsLatest,
+  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),
+  runCost: runCost,
+});
 /* ═══ 📍 상태칩 자리 · 칩 클릭 · Tab 접기 ═══ */
 /* (앱 FSD 36번) 이 자리의 본문도 status-chip.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
@@ -3805,6 +3796,7 @@ const overheadMod = TwOverhead.createOverhead({
   chatUiMod: chatUiMod,
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
+  npStarFill: (...a)=>lvTierMod.npStarFill(...a),
   officeMode: ()=>officeMode,
   renderer: renderer,
   seatScale: (...a)=>seatEqMod.seatScale(...a),
@@ -3824,6 +3816,7 @@ function setSeatOpacity(seat, op){
   //   자리비움 진입 시 원래 visible 값을 userData._prevVisible에 기억해두고,
   //   자리비움 해제 시 그 값으로 복원. 정상 상태(op≥0.001)에선 visible을 건드리지 않음.
   const hide = op < 0.001;
+  seat._bodyOff = hide;   // 몸 메쉬를 껐다는 표시 — 동작 계산 건너뛰기(hidden-seats.js _bodyHidden)가 이것만 읽는다(기준을 두 번 쓰지 않게)
   seat.bodyWrap.traverse(o=>{
     if(o.isMesh && o.material){
       if(hide){
@@ -4583,6 +4576,8 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       // 🩺 리깅으로 붙었는데도 파츠가 뜨는 경우의 원인 확정용 — 아래 함수 주석 참고.
       _diagRiggedPartAlignment(cat, skinnedMeshes, charRoot);
     }
+    // 리깅 파츠는 캐릭터 뼈로 다시 묶였으니 몸 · 다른 파츠의 Skeleton 과도 맞춰 본다(뼈 · 역행렬이 같을 때만 함께 씀)
+    skelShare.shareSkeletons(skinnedMeshes, isRigged ? skelShare.skinnedMeshesOf(charRoot) : []);
     // 메시 중심을 피봇으로 만들기 위해 wrapper 그룹에 감싸기 (회전·스케일이 중심 기준)
     //  — 리깅 파츠는 본이 위치를 결정하므로 재중심화하지 않고 원본 좌표 그대로 둠
     const bb = new THREE.Box3().setFromObject(obj);
@@ -4777,6 +4772,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
               (extraColorGroups[key] = extraColorGroups[key]||[]).push(o);
             }
           }});
+          skelShare.shareSkeletons(skelShare.skinnedMeshesOf(extraObj));
           extraObj.name = '__part_'+cat+'_i'+i;
           const extraBB = new THREE.Box3().setFromObject(extraObj);
           const extraCenter = extraBB.getCenter(new THREE.Vector3());
@@ -7507,6 +7503,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   updateMyStatusChipPosition: (...a)=>statusChipMod.updateMyStatusChipPosition(...a),
   _rcStore: (...a)=>acctStateMod._rcStore(...a),
   twNav: twNav,
+  runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 const USER_NAME_KEY = 'tw.userName';
 
@@ -7730,6 +7727,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   getUserName: (...a)=>getUserName(...a),
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   myFocusShow: (...a)=>focusLevelMod.myFocusShow(...a),
+  npStarFill: (...a)=>lvTierMod.npStarFill(...a),
   openCodeModal: (...a)=>charCodeMod.openCodeModal(...a),
   plMod: plMod,
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
@@ -8793,21 +8791,45 @@ try{
     for(const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, _fbPoke, { capture: true, passive: true });
   }
 }catch(_){}
-/* 🩺 1분마다 진단 한 줄(tw-mouse-diag.log) — 실제로 그린 장 수 · 포커스 비율 · 상한 · 배율 · 캔버스 크기.
-   «앱 켜면 다른 프로그램이 버벅인다» 제보 때 로그만 받아서 우리 몫이 얼마인지 본다. 실행 화면에서만 적는다. */
-try{
-  setInterval(()=>{
-    if(!_frameBudget) return;
-    const t = performance.now();
-    const m = _frameBudget.takeMinute(t);
-    const cost = { gpu: _gpuTimer.take(), js: _frameJsStats.take() };   // 실행 화면이 아니어도 1분마다 비운다
-    if(!document.body.classList.contains('runmode')) return;
-    if(!(window.companion && companion.diagNote)) return;
-    m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
-    cost.calls = renderer.info.render.calls; cost.casters = TwGpuTimer.countCasters(scene);
-    companion.diagNote(_FB.diagLine(m) + TwGpuTimer.suffix(cost));
-  }, 60000);
-}catch(_){}
+/* 🗺️ 클릭 통과 히트 맵 — 좌석 조각의 경계 구를 화면 사각형으로(room/seat-hit-targets.js · launcher/hit-map.js). 판정이 찾을 때 마지막으로 그린 장의 행렬로 만든다.
+   0.12.4 는 그림자 운행: 통과 판정의 답은 옛 판정 그대로, desktop-run 이 새 판정을 옆에서 돌려 hitShadow 에 센다(1분 [지도] 줄). */
+const hitShadow = TwHitShadow.createHitShadow();
+/* 설정(런처) 화면이 #scene 을 가리는가 — frame() 이 그리기를 건너뛰는 조건 · 히트 맵이 빈 지도를 만드는 조건 한 곳 */
+function _configHidesScene(){ return document.body.classList.contains('desktop') && document.body.classList.contains('config'); }
+const seatHitMod = TwSeatHitTargets.createSeatHitTargets({
+  THREE: THREE,
+  hitMap: TwHitMap,
+  seats: seats,
+  camera: camera,
+  ray: ray,
+  canvasRect: (...a)=>overheadMod.canvasRect(...a),
+  officeHidden: ()=>_officeHidden,
+  configHidden: ()=>_configHidesScene(),
+  isRunmode: ()=>document.body.classList.contains('runmode'),
+  partSkipped: (...a)=>hiddenSeatsMod._partSkipped(...a),
+  skipHits: (...a)=>hiddenSeatsMod._skipUnhittable(...a),
+  now: ()=>performance.now(),
+  noteBuild: (...a)=>hitShadow.build(...a),
+});
+/* 🩺 1분 진단 줄([비용] · [프레임])은 launcher/run-diag-minute.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
+  Presence: Presence,
+  _FB: _FB,
+  _bodyHidden: (...a)=>hiddenSeatsMod._bodyHidden(...a),
+  _frameBudget: _frameBudget,
+  _frameCap: (...a)=>_frameCap(...a),
+  _frameJsStats: _frameJsStats,
+  _gpuTimer: _gpuTimer,
+  _renderQuality: ()=>_renderQuality,
+  _runLowered: ()=>_runLowered,
+  canvas: canvas,
+  hitShadow: hitShadow,
+  key: key,
+  renderer: renderer,
+  runCost: runCost,
+  scene: scene,
+  seats: seats,
+});
 function frame(now, manual){
   if(!manual) _lastRafAt = now;   // 브라우저가 실제로 rAF를 불러준 시각(아래 감시 장치가 씀)
   /* 상한(_frameCapped → FrameBudget) — 최대 60 · 포커스 있어도 손 안 대면 30 · 다른 창을 보는 중이면 20
@@ -8826,6 +8848,7 @@ function frame(now, manual){
   updateActivePartPlayback();   // ▶ 파츠: animMode='active'인 것만 활동 중 재생/일시정지
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
   seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
+  const _tSeat = performance.now();
   seats.forEach(seat=>{
     const state=seatState(seat,now);
     if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 액자 고정은 상대에겐 평상시로
@@ -8924,12 +8947,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      setClip(seat,state); seat.mixer.update(dt);
+      setClip(seat,state); if(!hiddenSeatsMod._bodyHidden(seat)) seat.mixer.update(dt);   // 몸이 안 보이면(자리비움 · 숨김) 뼈대 계산을 건너뛴다
     } else if(rigged){
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      animateRig(seat,now,state);
+      if(!hiddenSeatsMod._bodyHidden(seat)) animateRig(seat,now,state);
     } else {
       seat.rig.rotation.x=seat.pose.leanX;
       const breathe=1+Math.sin(seat.breathePhase)*seat.pose.breAmp;
@@ -9037,6 +9060,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* selected ring follows selected seat */
 // if(selected){selRing.position.x=lerp(selRing.position.x,selected.group.position.x,1-Math.pow(0.001,dt));selRing.visible=true;}
   /* state bar shows selected seat */
+  runCost.since('seat', _tSeat);
   if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
 
   for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
@@ -9055,10 +9079,14 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
   /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
-  if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
+  const _tDraw = performance.now();
+  if(!_officeHidden && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
+  runCost.since('render', _tDraw);
+  seatHitMod.markRendered();   // 🗺️ 히트 맵 — 그린 장 표시만(지도는 판정이 찾을 때 만든다)
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
   _frameJsStats.add(performance.now() - _frameT0);
+  runCost.since('frame', _frameT0);
   if(!manual) requestAnimationFrame(frame);
 }
 
@@ -9602,6 +9630,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   document.body.classList.toggle('runmode', runOverlay);
   document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
+  key.castShadow = FrameBudget.castShadowFor(runOverlay);   // 바닥이 없으니 그림자도 안 만든다(frame-budget.js)
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
@@ -9626,6 +9655,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   desktopMode: desktopMode,
   drag: ()=>drag,
   focusGateSleep: ()=>focusGateSleep,
+  hitShadow: hitShadow,
   lastActivity: ()=>lastActivity,
   lastAnyInput: ()=>lastAnyInput,
   moveMode: ()=>moveMode,
@@ -9635,6 +9665,8 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },
   setLastActivity: (v)=>{ lastActivity = v; },
   setLastAnyInput: (v)=>{ lastAnyInput = v; },
+  runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
+  seatHit: seatHitMod,   // 🗺️ 히트 맵 새 판정 — 그림자 운행
 });
 /* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 */
 const _layoutSeats=layoutSeats;
@@ -9655,7 +9687,7 @@ mhInitMod.initMyHome();
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
   return Promise.all([loadSkins(), slotSaveMod.loadSlots()]); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());
 requestAnimationFrame(frame);
-requestAnimationFrame(launcherPrevMod.launcherLoop);
+launcherPrevMod.startLauncherLoop();
 /* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
    ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
      그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고

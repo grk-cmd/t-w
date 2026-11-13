@@ -5,7 +5,8 @@
    ・1절: 기억 모듈(label-measure.js) — 캔버스는 프레임에 한 번 · 크기는 열쇠 · 시간 · 숨김 · 0 경계
    ・2절: 실제 overhead.js · exp-bar.js 를 가짜 DOM 에서 돌린다 — «쓰기 뒤 읽기»(강제 레이아웃)를 세고, 남긴 아래변이 화면 사각형과 같은지
    ・3절: 깨 보기 — 옛 «바로 재기» 로 되돌리면 강제 레이아웃 수가 늘어 빨강
-   ・4절: 배선 — frame() 이 상한 검사 뒤 맨 앞에서 beginLabelFrame · html · smoke 순서 */
+   ・4절: 배선 — frame() 이 상한 검사 뒤 맨 앞에서 beginLabelFrame · html · smoke 순서
+   ・5절: 숨은 말풍선(상태 없는 좌석)은 매 프레임 폭을 재지 않는다 — 움직이는 프레임마다 강제 레이아웃 하나였다 · 깨 보기 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -79,8 +80,10 @@ function makeEnv(){
       querySelector(sel){ const cls = sel.replace(/^\./, ''); const f = (n) => { for (const c of n.children) { if (c.classList.contains(cls)) return c; const r = f(c); if (r) return r; } return null; }; return f(e); },
       querySelectorAll(){ return []; },
       _size(){ for (const c of classes) if (SIZE[c]) return SIZE[c]; return [0, 0]; },
-      get offsetWidth(){ read(); return st.display === 'none' ? 0 : e._size()[0]; },
-      get offsetHeight(){ read(); return st.display === 'none' ? 0 : e._size()[1]; },
+      /* 좌석 라벨은 CSS 가 display:none — 인라인 display 를 적기 전엔 숨어 있어 폭이 0 이다 */
+      _hidden(){ return st.display === 'none' || (!st.display && ['seat-nameplate', 'seat-exp', 'seat-bubble-dom', 'seat-announce'].some(c => classes.has(c))); },
+      get offsetWidth(){ read(); e._w = (e._w || 0) + 1; return e._hidden() ? 0 : e._size()[0]; },
+      get offsetHeight(){ read(); return e._hidden() ? 0 : e._size()[1]; },
       get scrollWidth(){ read(); return e._size()[0]; },
       get clientWidth(){ read(); return st.display === 'none' ? 0 : e._size()[0]; },
       /* CSS 그대로 — 이름표 · 공지는 .inverted 면 translate(-50%,0) 아니면 (-50%,-100%) · 경험치 바는 (-50%,0) */
@@ -136,7 +139,7 @@ function build(ovSrc, expSrc, lmSrc){
 }
 
 /* 프레임 루프 순서 그대로 — beginLabelFrame → 좌석마다 바 → 이름표(+공지) → 말풍선 */
-function runFrames(b, seats, n, invertY){
+function runFrames(b, seats, n, invertY, text){
   const { env, ov, exp } = b;
   const per = [];
   for (let f = 0; f < n; f++) {
@@ -146,7 +149,7 @@ function runFrames(b, seats, n, invertY){
     seats.forEach((s, i) => {
       exp.updateSeatExpBar(s, 3, 5, null);
       ov.setSeatNamePlate(s, 3, '사람' + i, null);
-      ov.setSeatHeadBubble(s, '안녕', false);
+      ov.setSeatHeadBubble(s, text === undefined ? '안녕' : text, false);
     });
     env.dirty = false;   // 그리기 · 다음 프레임 사이에 브라우저가 배치를 끝낸 셈 — 다음 프레임 첫 읽기는 강제가 아니다
     const rafs = env.raf.splice(0); rafs.forEach(fn => fn());
@@ -227,6 +230,30 @@ say('── 4. 배선');
   chk(hL > 0 && hL < hO, 'html — label-measure.js 를 overhead.js 보다 먼저');
   const sL = SMOKE.indexOf("PRELOAD.push('label-measure.js');"), sO = SMOKE.indexOf("PRELOAD.push('overhead.js');");
   chk(sL > 0 && sL < sO, 'smoke PRELOAD — label-measure.js 를 overhead.js 보다 먼저');
+}
+
+say('── 5. 숨은 말풍선 — 상태 없는 좌석은 폭을 재지 않는다');
+{
+  /* 상태 · 채팅이 없는 좌석은 말풍선이 숨은 채로 매 프레임 setSeatHeadBubble 를 지난다. 숨은 요소의 폭은 0 이라 잴 것이 없는데
+     예전엔 매번 offsetWidth 를 읽어, 좌석이 움직이는 프레임마다(라벨 자리를 적은 뒤라) 강제 레이아웃이 하나씩 났다. */
+  const bubbleReads = (ov) => { const b = build(ov, EXP, LM); const seats = mkSeats(4, -2);
+    runFrames(b, seats, 2, undefined, null);
+    const before = seats.reduce((a, s) => a + (s.bubbleEl._w || 0), 0);
+    const f0 = b.env.forced; runFrames(b, seats, 30, undefined, null);
+    return { reads: seats.reduce((a, s) => a + (s.bubbleEl._w || 0), 0) - before, forced: b.env.forced - f0, hidden: seats.every(s => s.bubbleEl.style.display === 'none') }; };
+  const now = bubbleReads(OV);
+  chk(now.hidden, '  글이 없으면 말풍선은 숨는다(display:none)');
+  chk(now.reads === 0, '★ 숨은 말풍선 4개 · 30프레임 — 폭 읽기 ' + now.reads + '번');
+  /* 다시 보이면 그 자리에서 잰다 — 숨김 동안 안 잰 탓에 자리가 0 폭으로 굳으면 안 된다 */
+  const b2 = build(OV, EXP, LM); const s2 = mkSeats(1, -2);
+  runFrames(b2, s2, 3, undefined, null);
+  runFrames(b2, s2, 1, undefined, '다시 보임');
+  chk(s2[0].bubbleEl.style.display === 'block' && s2[0].bubbleEl._bxfHalfW === 50 && /translate\(-50px, -30px\)/.test(s2[0].bubbleEl.style.transform),
+    '  다시 보이는 프레임에 폭을 재 가운데 맞춤(translate(-50px, -30px)) — ' + s2[0].bubbleEl.style.transform);
+  const broken = OV.replace("if(el.style.display !== 'none' && (el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr)){",
+    'if(el._bxfHalfW == null || el._bxfDirty || el._bxfCls !== el.className || el._bxfDpr !== dpr){');
+  const old = bubbleReads(broken);
+  chk(broken !== OV && old.reads >= 30 * 4 && old.forced > now.forced, '깨 보기 — 숨은 말풍선도 재던 옛 길이면 폭 읽기 ' + old.reads + '번 · 강제 레이아웃 ' + now.forced + ' → ' + old.forced);
 }
 
 say('');

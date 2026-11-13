@@ -422,9 +422,8 @@ function updateMyStatusChipPosition(){
       else           px0 = Math.min(px0, _r.left - GAP - chipW0);
     });
   }
-  // 화면 밖으로 나가지 않게 clamp — 실제 렌더된 크기를 재서 여유를 둠
-  const chipRect = chip.getBoundingClientRect();
-  const chipW = chipRect.width || chipW0, chipH = chipRect.height || chipH0;
+  // 화면 밖으로 나가지 않게 clamp — 위에서 잰 크기(chipRect0)를 쓴다. 그 뒤로 쓰기가 없어 다시 재도 같은 값이다.
+  const chipW = chipW0, chipH = chipH0;
   const px=Math.max(8, Math.min(innerWidth-chipW-8, px0));
   const py=Math.max(8, Math.min(innerHeight-chipH-8, py0));
   // 캐릭터 위치(투영결과+오프셋)를 따라감 — "프로그램 이동"으로 캐릭터를 옮겨도 정확히 따라옴

@@ -123,11 +123,25 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
 - **내보내는 것**
   - `beginFrame()` — 프레임 맨 앞(app.js `frame()` 이 `overheadMod.beginLabelFrame()`)에서 캔버스 사각형을 비운다. 이번 프레임 첫 `canvasRect()` 가 새로 잰다.
   - `size(el, key)` — `{ w, h }`. 열쇠(글 · 클래스)가 같고 `REFRESH_MS`(500) 안이면 기억한 값, 숨었거나 0 이면 마지막 값.
-  - overhead.js 가 밖에 내놓는 이름: `beginLabelFrame` · `labelSize` · `nameplateHeight(seat)`. 바 · 이름표 · 공지는 자리를 적으며 아래변을 `el._bottom` 에 남기고, 뒤에 도는 이름표 · 말풍선 · 공지는 사각형 대신 그것을 읽는다.
+  - overhead.js 가 밖에 내놓는 이름: `beginLabelFrame` · `canvasRect`(히트 맵 — seat-hit-targets.js 가 같은 사각형을 쓴다) · `labelSize` · `nameplateHeight(seat)`. 바 · 이름표 · 공지는 자리를 적으며 아래변을 `el._bottom` 에 남기고, 뒤에 도는 이름표 · 말풍선 · 공지는 사각형 대신 그것을 읽는다.
 - **함정**
   - `beginLabelFrame` 을 빼면 캔버스 사각형이 영영 안 바뀐다(창 크기가 바뀌어도 라벨이 옛 자리) — `checks/sim-label-measure.js` 가 frame 안 자리를 본다.
   - 프레임 루프 순서(바 → 이름표 → 공지 → 말풍선 → 상태칩)가 곧 `_bottom` 이 이번 프레임 값인 까닭이다. 순서를 바꾸면 한 프레임 전 값을 읽는다.
   - 상태칩(`status-chip.js`)은 아직 사각형을 직접 읽는다 — 프레임에 한 번(그 자리에서 이번 프레임 쓰기가 한꺼번에 반영)이라 그대로 뒀다.
+
+## seat-sync-diff.js — 🪑 친구 좌석 맞추기 뒤 «줄 배치를 다시 할지»
+
+- **책임**: `syncFriendSeats`(room-entry.js) 끝에서 지난번 모양과 이번 모양을 견줘 `{ layout, tabs }` 를 낸다. 순수 함수(DOM · 서버 없음). 상태 · 경험치 같은 칸만 바뀐 메시지에 좌석 줄 전체(모든 좌석 몸 · 책상 재기 · 창 크기 IPC · 탭 innerHTML · 상태칩)를 다시 하지 않게.
+- **만드는 법**: 없음(값 모듈). `room-entry.js` 가 `const seatSyncDiff = TwSeatSyncDiff;` 로 받는다 — html · smoke PRELOAD 에서 room-entry.js 보다 먼저.
+- **내보내는 것**
+  - `snapshot(seats, friends, ids)` — `{ members, shape, tabs }`. members 는 멤버마다 «배치에 닿는 칸» 열쇠(NON_LAYOUT_FIELDS 밖의 칸 + 좌석의 def 지문 셋), shape 는 좌석 순서 · 올라타기 · 벤치 · 책상(보이는 자식 · 크기 · 자리) · 몸 모델 · 크기 배율, tabs 는 탭 글(이름 · 친구 상태).
+  - `plan(prev, next)` — 멤버 출입 · 멤버 열쇠 · 모양 중 하나라도 다르면 `layout`, 아니면 탭 글이 다를 때만 `tabs`. 처음(prev 없음)은 다 한다.
+  - `NON_LAYOUT_FIELDS` · `memberKey` · `seatShapeKey` · `seatTabsKey`.
+- **함정**
+  - `NON_LAYOUT_FIELDS` 에는 «좌석에 값만 적고 프레임 반복 · 클릭이 그때그때 읽는» 칸만 둔다. 모르는 칸은 늘 다시 배치한다(새 판이 보낸 칸이 배치에 닿을 수 있다).
+  - 책상 GLB 는 비동기로 늦게 붙고 그 자리에서 줄 배치를 부르지 않는다 — 모양(shape)에 책상 자식을 넣은 까닭이다. 빼면 늦게 붙은 책상이 옆 책상과 겹친 채 남는다.
+  - 매 프레임 흔들리는 값(group.position · rig · bodyWrap.scale 호흡)을 모양에 넣으면 늘 «바뀜» 이라 건너뛰기가 죽는다.
+  - 검사: `checks/sim-seat-sync-diff.js`(표 · 실제 syncFriendSeats 부른 수 · 깨 보기).
 
 ## ride-measure.js — 📏 올라타기 실측
 
@@ -148,6 +162,16 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   - 팔 높이는 좌석 기울임을 지우고 잰다(대상 머리 재기와 같은 규칙) — 탄 채로 다시 재면(`_remeasureRideArm`) 대상 고개 기울기가 섞인다.
   - 임시 벡터(`_rideFootTmpV` 등)를 돌려주지 않고 `clone()` 한다 — 호출부가 값을 들고 있어도 안전.
   - 검사: `checks/sim-ride-measure.js`(4절 — 실제 three 로 회전 · 위치를 뺀 오프셋 · 경계 0.3 · 들린 rig 상쇄 · 크기 0 · 기울어진 채 잰 팔 높이).
+
+## seat-hit-targets.js — 🎯 좌석의 누를 수 있는 조각 · 히트 맵 만들기
+
+- **책임**: 좌석 group 아래에서 스스로 raycast 를 가진 자손(three `intersectObject` 처럼 layers 도 봄)을 조각으로 모아, 조각마다 경계 구를 `launcher/hit-map.js` 로 화면 사각형에 올린다. 지도는 판정이 찾을 때(`pick`) 지금 지도가 마지막으로 그린 장(`markRendered`) 것이 아니면 그때 한 번 만든다 — 마우스를 안 움직이면 비용 0. 새 판정 `pick(ray, x, y, allowRay)` 은 커서를 덮는 조각에만 광선을 쏜다 — 지도를 못 만들었으면 모든 좌석에 광선(지금 판정과 같은 길). 결과는 늘 같은 객체. 다를 때 줄 재료는 `describe`.
+- **조각에서 빼는 것**: 통과 판정이 히트에서 빼는 것과 같다 — 날아가는 몸 · 숨은 책상(`hidden-seats.js` `_partSkipped` 한 곳). 숨은 자리비움 몸은 넣는다(쓰다듬기).
+- **경계 구**: 메시 = `Mesh.raycast` 와 같은 구(boundingSphere × matrixWorld · 없으면 그때 셈) · 스프라이트 = 자리 + 크기(center · 회전까지 덮는 반지름) · 그 밖(InstancedMesh · Line · 끈 raycast · 거리로 크기를 바꾸는 스프라이트) = «전체»(늘 후보 — 모르는 것을 멀다로 치지 않는다).
+- **만드는 법**: `TwSeatHitTargets.createSeatHitTargets(deps)` — app.js 가 1분 진단 바로 앞에서. deps: `THREE` · `hitMap`(TwHitMap) · `seats` · `camera` · `ray`(통과 판정의 Raycaster) · `canvasRect`(= `overheadMod.canvasRect` — 이번 장에 한 번 잰 값) · `officeHidden` · `configHidden`(= app.js `_configHidesScene` — 그리기를 건너뛰는 조건과 같은 판단) · `isRunmode` · `partSkipped` · `skipHits`(= `hiddenSeatsMod._partSkipped` · `_skipUnhittable`) · `now` · `noteBuild`(= `hitShadow.build`).
+- **부르는 곳**: `frame()` 의 `renderer.render` 바로 뒤 `seatHitMod.markRendered()` 한 줄(표시만) · desktop-run 의 그림자 운행(`pick` · `describe`). 빈 지도 까닭(회사원 숨김 · 설정 화면 · 실행 화면 아님)은 모듈이 deps 로 판단한다.
+- **함정**: «파츠가 바뀌면 비운다» 같은 무효화를 두지 않는다 — 장 번호가 바뀌면 다시 만든다. 같은 장 안에서 지도를 만든 뒤 누가 `updateMatrixWorld` 를 따로 부르면(누르기 · 몸 재기) 광선은 새 행렬, 지도는 그 전 행렬을 본다 — 여유 8px 이 덮는지는 그림자 운행의 `지도만통과` 가 본다.
+- **검사**: `checks/sim-seat-hit-targets.js` — 진짜 three 좌석 넷(앉음 · 날아감 · 올라탐 · 자리비움 + 스프라이트 · 끈 대역 · 선)에서 화면 격자 1만 점을 옛 판정과 견줌 · 낡음 · 못 만듦 · 건너뜀 · 깨 보기.
 
 ## ride-tuning.js — 🎛️ 올라타기 · 묘기 튜닝 값
 

@@ -770,11 +770,21 @@ async function refreshWdPreviewChar(){
   refreshWdPreviewColorSection();
 }
 function wdPreviewLoop(){
-  const p=document.getElementById('wdPreviewPanel');
-  if(p && p.classList.contains('on') && wdRenderer) wdRenderer.render(wdScene, wdCam);
-  requestAnimationFrame(wdPreviewLoop);
+  if(wdRenderer) wdRenderer.render(wdScene, wdCam);
 }
-requestAnimationFrame(wdPreviewLoop);
+/* 미리보기 창이 닫혀 있는 동안은 rAF 를 걸지 않는다(예전엔 주사율마다 깨어나 클래스만 봤다) — 열리면 #wdPreviewPanel 의
+   class 변화로 다음 rAF 에 다시 건다. 여는 길(꾸미기 · 파츠 보관함 · 뽑기 창 — syncWdPreviewOwner)을 class 한 곳에서 잡는다. */
+(function startWdPreviewLoop(){
+  const p=document.getElementById('wdPreviewPanel'); if(!p) return;
+  const loop=TwIdleGate.rafWhile({
+    isOn: ()=>p.classList.contains('on'),
+    frame: wdPreviewLoop,
+    sleep: ()=>{},
+    raf: (f)=>requestAnimationFrame(f),
+  });
+  TwIdleGate.onClassChange(p, ()=>loop.wake());
+  loop.wake();
+})();
 // ★ 생성기 미리보기처럼 휠로 확대/축소, 방향키로 카메라 앵글 회전
 (function bindWdPreviewControls(){
   const canvas=document.getElementById('wdPreviewCanvas'); if(!canvas) return;

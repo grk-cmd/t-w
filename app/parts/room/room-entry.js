@@ -45,6 +45,7 @@ const refitSeatAfterParts = deps.refitSeatAfterParts;
 const removeSeatLabels = deps.removeSeatLabels;
 const renderSeatTabs = deps.renderSeatTabs;
 const rideBenchMod = deps.rideBenchMod;
+const runCost = deps.runCost;   // 🩺 1분 [비용] 줄에 받은 방 변경 수 · 좌석 맞춤 횟수 · 시간을 더한다(shared/run-cost-diag.js)
 const scene = deps.scene;
 const seats = deps.seats;
 const serializeDefForNetwork = deps.serializeDefForNetwork;
@@ -57,6 +58,8 @@ const tricksMod = deps.tricksMod;
 const triggerPet = deps.triggerPet;
 const uiIconEl = deps.uiIconEl;
 const updateMyStatusChipPosition = deps.updateMyStatusChipPosition;
+const seatSyncDiff = TwSeatSyncDiff;   // 🪑 줄 배치를 다시 할지 정하는 규칙(seat-sync-diff.js — 순수 모듈)
+let _lastSyncSnap = null;   // 지난번 맞춘 뒤의 모양 — 줄 배치가 필요 없는 변화(상태 · 경험치 …)는 값만 적고 넘어간다
 function _roomServerNet(){
   try{ return (window.firebaseAPI && typeof firebaseAPI.roomServerNet === 'function') ? firebaseAPI.roomServerNet() : null; }
   catch(_){ return null; }
@@ -416,6 +419,8 @@ function _applyRemoteRides(){
     });
   }catch(_){}
 }
+/* 부르는 곳(provider 변경 · app.js 친구 복원)은 이것을 부른다 — 본문은 그대로 두고 걸린 시간만 잰다 */
+const syncFriendSeatsTimed = runCost.timed('sync', syncFriendSeats);
 function syncFriendSeats(friends){
   friends=friends||{};
   const ids=Object.keys(friends).slice(0, maxPeople()-1);   // 친구는 최대 9(나 제외)
@@ -572,10 +577,20 @@ function syncFriendSeats(friends){
   _applyRemoteRides();   // 🐾 친구들의 올라타기·탑쌓기 관계를 좌석에 반영(좌석이 다 만들어진 뒤에)
   _applyRemoteBenchSeats();   // 🪑 친구들의 벤치 앉기 관계 반영
   if(typeof rideBenchMod.restoreInteractionDesk==='function') rideBenchMod.restoreInteractionDesk();   // 🔄 재입장 시 내 상호작용 책상 복원(1회)
-  layoutSeats(); renderSeatTabs();
-  // ★ 멀티모드 진입/친구 입퇴장으로 좌석 배치가 바뀌면 카메라도 같이 바뀌는데, 상태칩이 다음 프레임까지
-  //   기다렸다가 갱신되면 그 사이 잠깐 어긋난 위치(화면 밖으로 밀린 것처럼 보임)가 노출될 수 있어서 즉시 갱신.
-  updateMyStatusChipPosition();
+  /* 줄 배치에 닿는 변화(멤버 출입 · def · 올라타기 · 벤치 · 늦게 붙은 책상 …)가 없으면 layoutSeats 를 건너뛴다 — 판단은 seat-sync-diff.js 한 곳.
+     상태 · 경험치 · 말풍선 같은 칸은 위에서 좌석에 적었고 프레임 반복이 매번 읽는다. */
+  const _snap = seatSyncDiff.snapshot(seats, friends, ids);
+  const _todo = seatSyncDiff.plan(_lastSyncSnap, _snap);
+  if(_todo.layout){
+    layoutSeats(); renderSeatTabs();
+    // ★ 멀티모드 진입/친구 입퇴장으로 좌석 배치가 바뀌면 카메라도 같이 바뀌는데, 상태칩이 다음 프레임까지
+    //   기다렸다가 갱신되면 그 사이 잠깐 어긋난 위치(화면 밖으로 밀린 것처럼 보임)가 노출될 수 있어서 즉시 갱신.
+    updateMyStatusChipPosition();
+    _lastSyncSnap = seatSyncDiff.snapshot(seats, friends, ids);   // 배치가 바꾼 것(자리 순서 · 평준화 크기)까지 담는다
+  } else {
+    if(_todo.tabs) renderSeatTabs();
+    _lastSyncSnap = _snap;
+  }
 }
 
 /* 초대 UI 연결 */
@@ -598,10 +613,11 @@ function _myRoomPrefix(){
 }
 function genRoomCode(channel){ const a='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; let s=_roomPrefixFor(channel); for(let i=0;i<4;i++)s+=a[Math.floor(Math.random()*a.length)]; return s; }
 function presenceChanged(friends){
+  runCost.count('recv');   // 받은 방 변경 — 방 서버 · Firebase 두 길이 모두 여기로 온다(Presence.start 의 changeCb)
   const cnt=Object.keys(friends).length;
   const lbl=document.getElementById('inviteFriendCnt'); if(lbl)lbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
   const flbl=document.getElementById('fsInviteFriendCnt'); if(flbl)flbl.textContent=cnt?('· 친구 '+cnt+'명 접속'):'';
-  if(seats.some(s=>s.isMe)) syncFriendSeats(friends);
+  if(seats.some(s=>s.isMe)) syncFriendSeatsTimed(friends);
   // 💬 탭별 인원 · 멤버 줄은 사람이 오가거나 탭을 옮길 때 바뀐다
   try{ if(chatUiMod._chatWindowIsOpen()){ chatUiMod._chatTabsRender(); _refreshChatMembers(); } }catch(_){}
 }
@@ -1496,7 +1512,7 @@ return {
   refreshInviteUI,
   startRoom,
   startRoomCountWatch,
-  syncFriendSeats,
+  syncFriendSeats: syncFriendSeatsTimed,
 };
 }
 

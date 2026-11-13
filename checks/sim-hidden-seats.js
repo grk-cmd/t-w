@@ -3,6 +3,7 @@
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_clearHiddenSeats · _hiddenSeatIds · _hitsSkipHidden · _preferVisibleHit · _reportHiddenSave · _reportHiddenUids · _seatHidden · _skipFlyingRigs · _skipHiddenDesk)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 3줄 그대로 · 부르는 곳은 hiddenSeatsMod.이름 · html(app.js 앞)
+   ・2-1절: _bodyHidden — 숨김 · 자리비움 좌석은 동작 계산을 건너뛴다(함수를 불러 판정 · 깨 보기)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · hidden-seats.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -21,7 +22,7 @@ const FN_DEPS = ["seatFromObject"];
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["_flyActive"];
 const SET_DEPS = [];
-const EXPORTS = ["_clearHiddenSeats","_hiddenSeatIds","_hitsSkipHidden","_preferVisibleHit","_reportHiddenSave","_reportHiddenUids","_seatHidden","_skipFlyingRigs","_skipHiddenDesk"];
+const EXPORTS = ["_bodyHidden","_clearHiddenSeats","_hiddenSeatIds","_hitsSkipHidden","_partSkipped","_preferVisibleHit","_reportHiddenSave","_reportHiddenUids","_seatHidden","_skipFlyingRigs","_skipHiddenDesk","_skipUnhittable"];
 const MOVED = ["_hiddenSeatIds","REPORT_HIDDEN_KEY","REPORT_HIDDEN_MAX","_reportHiddenUids","_reportHiddenSave","_seatHidden","_hitInHiddenDesk","_skipHiddenDesk","_hitInFlyingRig","_skipFlyingRigs","_hitVisible","_preferVisibleHit","_hitsSkipHidden","_clearHiddenSeats"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  _flyActive: ()=>_flyActive,","  seatFromObject: (...a)=>seatFromObject(...a),","  seats: seats,"];
 
@@ -74,6 +75,27 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-1. _bodyHidden — 몸이 안 보이는 좌석은 동작 계산을 건너뛴다');
+{
+  const judgeBody = (mod) => {
+    let H; try{ H = build(mod)._bodyHidden; }catch(_){ return false; }
+    if(typeof H !== 'function') return false;
+    return H({ rig:{ visible:false } }) === true
+      && H({ rig:{ visible:true }, _bodyOff:true }) === true
+      && H({ rig:{ visible:true }, _bodyOff:false }) === false
+      && H({ rig:{ visible:true } }) === false
+      && H({ rig:{ visible:true }, _lastOp:0 }) === false
+      && H(null) === false;
+  };
+  chk(judgeBody(MOD), '★ 숨김(rig 꺼짐) · 몸 꺼짐 표시(_bodyOff) → 건너뜀 · 표시 없음 · 꺼짐 풂 · 좌석 없음 → 계산 · 투명도 숫자를 따로 보지 않는다');
+  chk(!judgeBody(MOD.replace('return seat._bodyOff === true;', 'return false;')), '깨 보기: 자리비움(몸 꺼짐)을 못 보면 빨강');
+  chk(!judgeBody(MOD.replace('if(seat.rig && seat.rig.visible === false) return true;', '')), '깨 보기: 숨긴 좌석을 못 보면 빨강');
+  chk(!judgeBody(MOD.replace('return seat._bodyOff === true;', 'return seat._bodyOff !== false;')), '깨 보기: 표시가 아직 없는 좌석까지 건너뛰면 빨강');
+  const so = (SRC.match(/function setSeatOpacity\(seat, op\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/const hide = op < [\d.]+;\s*\n\s*seat\._bodyOff = hide;/.test(so) && !/_lastOp\s*<|0\.001/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '')), 'app.js setSeatOpacity 가 몸을 끄는 바로 그 판단으로 _bodyOff 를 세운다 · 이 모듈은 투명도 기준을 따로 갖지 않는다');
+  const n = (SRC.match(/if\(!hiddenSeatsMod\._bodyHidden\(seat\)\) (seat\.mixer\.update\(dt\)|animateRig\(seat,now,state\))/g) || []).length;
+  chk(n === 2, 'app.js — 클립 동작(mixer) · 뼈대 동작(animateRig) 두 길 모두 이 판단을 거친다');
+}
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/room/hidden-seats.js"></script>', '')],
