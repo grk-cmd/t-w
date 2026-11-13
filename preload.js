@@ -257,6 +257,11 @@ contextBridge.exposeInMainWorld('companion', {
   setCharBounds(bounds) {
     ipcRenderer.send('companion:setCharBounds', bounds);
   },
+  // 🪟 메인 창이 보이는가(최소화 · 숨김이면 false) — 바뀔 때 main 이 알린다. 하트비트가 안 보일 때 무거운 칸을 뺀다.
+  //   backgroundThrottling:false 라 document.hidden 은 최소화에도 안 바뀌어 이 신호로 받는다.
+  onWinShown(callback) {
+    ipcRenderer.on('companion:winShown', (e, shown) => callback(shown));
+  },
 
   /* ❌ [폐기 2026-08-26] getNoActivate / setNoActivate / setTextInput 은 걷어냈다.
      '활성화되지 않는 창'(WS_EX_NOACTIVATE) 실험의 통로였는데, 그 창에서는 한/영 전환이

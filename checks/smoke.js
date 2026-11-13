@@ -370,6 +370,8 @@ PRELOAD.push('drag-scroll.js');
 PRELOAD.push('input-diag.js');
 /* gpu-timer.js — 🩺 한 장에 그래픽 칩 · JS 시간. app.js 가 프레임 예산 옆에서 만든다. */
 PRELOAD.push('gpu-timer.js');
+/* run-cost-diag.js — 🩺 그리기 밖 시간(1분 [비용] 줄). app.js 가 하트비트 줄에서 page 를 받는다. */
+PRELOAD.push('run-cost-diag.js');
 /* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
@@ -449,6 +451,8 @@ PRELOAD.push('settings-panel.js');
 /* desktop-run.js — 🖥️ 데스크탑 실행 화면(앱 FSD 32번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDesktopRun 를 같이 굴린다. */
 /* click-through-policy.js — 클릭 통과 판단 규칙(순수 함수). desktop-run.js 가 deps.clickPolicy 로 받으므로 먼저 싣는다. */
 PRELOAD.push('click-through-policy.js');
+/* heartbeat-policy.js — 하트비트에 무거운 칸을 실을지(순수 함수). app.js 하트비트가 TwHeartbeatPolicy 로 부른다. */
+PRELOAD.push('heartbeat-policy.js');
 PRELOAD.push('desktop-run.js');
 /* room-entry.js — 🛰 방 서버 · 입장 · 방 개수(앱 FSD 33번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomEntry 를 같이 굴린다. */
 /* seat-sync-diff.js — 🪑 줄 배치를 다시 할지 규칙(순수). room-entry.js 가 만들 때 TwSeatSyncDiff 를 받으므로 그보다 먼저. */

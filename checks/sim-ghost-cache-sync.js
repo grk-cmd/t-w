@@ -302,6 +302,7 @@ say('\n── 9. 끄는 동안 penHitTest 가 와도 끌기가 안 끊긴다 (�
       _charBoundsLatest: () => null, _twMoveSeenAt: () => 0, clickPolicy: POL,
       setTwMoveSeenAt(){}, setLastActivity(){}, setLastAnyInput(){},
       _skipFlyingRigs: (a) => a, _skipHiddenDesk: (a) => a,
+      runCost: { add(){}, count(){} },   // 1분 [비용] 진단(shared/run-cost-diag.js) — 판정에는 안 닿는다
     }, { get: (t, k) => k in t ? t[k] : (() => any) });
     const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval',
       'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'console',

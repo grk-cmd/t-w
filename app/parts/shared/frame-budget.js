@@ -65,7 +65,7 @@ function runPixelRatio(dpr, dot, quality, lowered){
      빛의 castShadow 를 끄면 빛의 그림자 수가 바뀌어 셰이더를 다시 만든다. */
 function castShadowFor(runOverlay){ return !runOverlay; }
 
-/* 진단 한 줄 — 1분마다 tw-mouse-diag.log 에 쌓이므로 짧게(그 파일은 256KB 에서 돌려 쓴다 · main.js DIAG_MAX_BYTES).
+/* 진단 한 줄 — 1분마다 tw-mouse-diag.log 에 쌓이므로 짧게(그 파일은 main.js DIAG_MAX_BYTES 에서 돌려 쓴다).
    예) [프레임] 60초 1800장 30fps · 포커스 40% · 상한 30 · 배율 1.5 · 2880x1620 */
 function diagLine(m){
   const secs = Math.max(1, Math.round((m.ms || 0) / 1000));

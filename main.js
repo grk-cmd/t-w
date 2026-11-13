@@ -977,7 +977,7 @@ let _lastActiveKeyLogged = null; // 🩺 [E] 마지막으로 진단 로그에 �
      tasklist 보조 통로로 대응)과 별개로, 관리자 권한 창이 앞에 있으면 **일반 권한 프로세스의 저수준 훅(uIOhook)은
      UIPI 에 막혀 클릭·키를 못 본다.** 그때 남는 활동 신호는 커서 이동(_reportCursorActivity)뿐이라 키보드만 쓰는
      게임은 누적이 서고 캐릭터도 idle 로 간다. 로그에 «등록=예 인데 클릭=0 키=0 커서이동>0» 이 찍히면 그 갈래다.
-   ⚠️ 등록 앱이 앞에 있을 때만 적는다 — 그 밖의 시간은 진단 가치가 없고 회전(256KB)만 당긴다.
+   ⚠️ 등록 앱이 앞에 있을 때만 적는다 — 그 밖의 시간은 진단 가치가 없고 회전만 당긴다.
    ⚠️ 새 타이머를 만들지 않는다 — 500ms 활성 창 폴링의 finally 에 얹는다(커서 이동 보고와 같은 자리). */
 const INPUT_DIAG_MS = 60 * 1000;
 /* ═══ ⌨️ [2026-10-02 제보] «업데이트 재설치 뒤로 키보드가 전혀 안 잡힌다 — 마우스만 잡혀서 타이핑하면 졸다가 자리비움» ═══
@@ -1397,9 +1397,14 @@ let _hoverTimer = null;
 const _hoverPoke = HoverPoke.createHoverPoke();
 let _hoverPokedAt = 0, _hoverLogAt = 0;
 const HOVER_LOG_GAP_MS = 30000;   // «호버 감시로 클릭받기» 진단 줄은 30초에 한 줄까지(_diagLog 회전 주석)
+/* 메인 창이 지금 화면에 보이는가 — 창 없음 · 파괴됨 · 읽다 실패면 false.
+   ⚠️ Windows 는 최소화한 창도 isVisible() 이 참이다 — isMinimized() 를 같이 본다. */
+function _mainWinShown(){
+  if(!mainWindow || mainWindow.isDestroyed()) return false;
+  try{ return mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){ return false; }
+}
 function _hoverState(pt){
-  let visible = false;
-  try{ visible = mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){}
+  const visible = _mainWinShown();
   return {
     win32: process.platform === 'win32',
     run: !_isConfigMode,
@@ -1597,7 +1602,7 @@ function _guardStuckClickCapture(){
   /* 🩺 임계값 아래의 '딸꾹질'도 남긴다 — 이게 이 로그의 진짜 쓸모다.
      제보 로그에서 4239ms 가 나왔는데, 그게 예외적인 한 번인지 평소에도 3~4초씩 멈추는지에 따라
      RENDERER_STALL_MS 를 다시 잡을지 렌더러 쪽 무거운 작업을 쪼갤지가 갈린다.
-     ⚠️ 1분에 한 줄로 묶는다. 매번 남기면 파일 상한(256KB)을 금방 채워 정작 필요한 발동 기록이
+     ⚠️ 1분에 한 줄로 묶는다. 매번 남기면 파일 상한을 금방 채워 정작 필요한 발동 기록이
        안 남는다 — 진단이 진단을 덮는 상황을 만들면 안 된다. */
   if(!_forcedPassthrough && !_isConfigMode && quietFor > HICCUP_LOG_MIN_MS){
     const now = Date.now();
@@ -1717,11 +1722,13 @@ function _guardGhostPassthrough(quietFor){
    [왜 그렇게 찼나] 1,501줄이 **전부 한 종류**였다 — `유령 의심`. 한 번의 고착이 83회까지
      같은 줄을 찍었다(최장 253초). 진단 하나가 256KB 를 통째로 먹고 나머지를 다 덮었다.
    ⇒ 상한은 그대로 두되, 닿으면 **직전 분량을 .1 로 밀어내고 새로 시작**한다.
-     최근 기록은 항상 살아 있고, 디스크는 최대 2배(512KB)로 묶인다.
+     최근 기록은 항상 살아 있고, 디스크는 최대 2배로 묶인다.
    ⚠️ 세 줄짜리 변경이지만 이게 없으면 다음 조사도 같은 자리에서 막힌다. 지우지 말 것.
    ⚠️ 이건 로그가 넘치는 것에 대한 **대비**이지 해결이 아니다. 같은 줄이 83번 찍히는 것 자체는
      GHOST_MAX_POKES(위 유령 감시)가 막는다. 여기가 조용해졌다고 그쪽을 되돌리면 안 된다. */
-const DIAG_MAX_BYTES = 256 * 1024;
+/* 상한 2MB — 1분 [자원] · [프레임] 줄로 PC 끼리 · 하루 흐름을 견주려면 하루치가 남아야 한다(보통 하루 2~3MB · .1 까지 합쳐 하루 넘게).
+   256KB 일 땐 2~4시간만 남아 비교가 안 됐다. 줄마다 붙여 쓰기만 하므로 파일이 커도 쓰는 비용은 같다. */
+const DIAG_MAX_BYTES = 2 * 1024 * 1024;
 const _diagHeader = EnvDiag.createHeaderKeep();   // [환경] · [GPU] · [GPU 상세] — 돌려 쓴 새 파일 첫머리에 다시 적는다
 const _diagIo = {
   exists: (p) => fs.existsSync(p), size: (p) => fs.statSync(p).size, unlink: (p) => fs.unlinkSync(p),
@@ -2143,7 +2150,7 @@ function _logGpuDetail(){
 function _resTick(){
   try{
     const w = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
-    const mode = (!w || !w.isVisible() || w.isMinimized()) ? '숨김' : (_isConfigMode ? '런처' : '실행 화면');
+    const mode = !_mainWinShown() ? '숨김' : (_isConfigMode ? '런처' : '실행 화면');
     const os = require('os');
     const cpus = os.cpus() || [];
     const sys = { cpu: EnvDiag.cpuTimes(cpus), freeBytes: os.freemem(), totalBytes: os.totalmem() };
@@ -3881,6 +3888,18 @@ function createWindow() {
   mainWindow.on('restore', _refreshMainWinBounds);
   mainWindow.on('show', _refreshMainWinBounds);
   _refreshMainWinBounds();
+  /* 🪟 창이 보이는지를 렌더러에 알린다 — 하트비트가 안 보일 때 무거운 칸(regions · others)을 뺀다(heartbeat-policy.js).
+     backgroundThrottling:false 라 렌더러의 document.hidden 은 최소화에도 안 바뀐다. 바뀔 때만 보낸다. */
+  let _winShownSent = null;
+  const _sendWinShown = () => {
+    if(!mainWindow || mainWindow.isDestroyed()) return;
+    const shown = _mainWinShown();
+    if(shown === _winShownSent) return;
+    _winShownSent = shown;
+    try{ mainWindow.webContents.send('companion:winShown', shown); }catch(_){}
+  };
+  for(const ev of ['minimize', 'restore', 'hide', 'show', 'focus']) mainWindow.on(ev, _sendWinShown);
+  mainWindow.webContents.on('did-finish-load', () => { _winShownSent = null; _sendWinShown(); });   // 다시 불러오면 렌더러 값이 처음(null)으로 돌아간다
 
   /* 📐 [2026-08-26] 해상도·배율·작업영역이 바뀌면 run 오버레이를 다시 맞춘다 — 핸드오프5 §4-3.
      [무엇이 문제였나] 이 핸들러가 **없었다.** 갭(overlay.gapFor)은 배율로 나눠서 계산하는데,

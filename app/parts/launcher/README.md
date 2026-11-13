@@ -66,6 +66,17 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **검사**: `checks/sim-click-through-policy.js` — 모양 · 상수 값 · 렌더러/main 표(상황 → 결정, 경계값) · 네 길 연결 · 같은 조건 재사용 금지(+깨 보기).
   동작 판정은 원래 검사들(`sim-ghost-cache-sync` · `sim-wheel-kick` · `sim-hover-poke` 등)도 그대로 본다.
 
+## heartbeat-policy.js — 🩺 하트비트에 무거운 칸을 실을지
+
+- **책임**: 렌더러 하트비트(app.js `setInterval` 100ms → `companion.setCharBounds`)가 이번에 무거운 칸(`regions` = 우리 창 사각형 `__uiRegions` · `others` = 남의 좌석 원)을
+  새로 잴지만 정한다. 순수 함수 — 창 보임 신호 · 시각은 부르는 쪽이 넘긴다. 하트비트 자체(생존 신호 · 캐릭터 좌표 · `moveAge` · `charBad`)는 늘 보낸다.
+- **만드는 법**: 만들 것이 없다. html 이 app.js 보다 먼저 싣고 app.js 가 `TwHeartbeatPolicy.fullStep(...)` 을 부른다. 창 보임은 main 이 `companion:winShown`(preload `onWinShown`)으로
+  minimize · restore · hide · show · focus · 불러오기 끝에 바뀔 때만 알린다 — `backgroundThrottling:false` 라 `document.hidden` 은 최소화에도 안 바뀐다.
+- **내놓는 것**: `fullStep({ shown, sinceFull })` → true 면 잰다 · `HIDDEN_FULL_EVERY_MS`(1000 — 숨김 중에도 이 간격마다 한 번은 잰다).
+- **함정**: «모름»(신호 전 · `null`)은 보임으로 친다 — 확인 못 한 채 빼면 클릭 통과 판정 재료가 낡는다. 칸을 빼면 main 은 마지막 값을 그대로 둔다(덮지 않음).
+  런처에서는 `__uiRegions` 가 이미 빈 목록이라 여기서 따로 보지 않는다.
+- **검사**: `checks/sim-heartbeat-policy.js` — 판단 표(경계값) · app.js 하트비트를 가짜 타이머로 돌려 «보임 → 숨김 → 복귀» · main 알림을 가짜 창으로 돌려 보기 · 깨 보기.
+
 ## oss-licenses.js — 📄 오픈소스 라이선스 창
 - 책임: «개인정보 처리방침» 옆 링크 둘(⚙️ 설정 › 시스템 › 프로그램 정보 `#progOssLink` · 내 정보 맨 아래 `#miOssLink`)을 누르면 고정 크기 창(`OSS_WIN` 440×460 · 화면이 작으면 92vw / 80vh 안으로)에 목록을 보인다. 한 줄 = 이름(누르면 홈페이지) · 판 · 라이선스 칩 · [원문] 펼치기. 목록 · 원문은 창 안에서만 스크롤.
 - deps: `document` · `window` · `links`(a 요소 목록 — 없는 것은 건너뜀) · `openUrl`(시스템 브라우저로 열기) · `escRegisterWindow`(ESC 스택) · `load`(검사용 — 기본은 `app/licenses/oss-notices.js` 를 처음 열 때 싣기).

@@ -124,6 +124,7 @@ function buildEntry(reSrc, ssdSrc){
     awayPicMod: () => ({ _awayUrlOk: () => false, _awaySzOk: () => false }),
     chatUiMod: { _chatMyTabId: () => 'general', FLY_COLOR_LEVEL: 99 },
     rideBenchMod: { unmountRide(){}, mountRide(){}, unmountBench(){}, mountBench(){}, attachBenchToSeat(s){ s.bench = { uuid: 'bench1', userData: { benchSeatCount: 2 } }; }, _rideIsAbove: () => false },
+    runCost: { timed: (k, fn) => fn, count(){}, add(){} },   // 1분 [비용] 진단(shared/run-cost-diag.js) — 맞춤을 그대로 부른다
     officeMode: () => false, showChatBubble: () => {}, triggerPet: () => {}, spawnFloater: () => {},
     _chatNotifyIncoming: () => {}, _demojiNotifyIncoming: () => {}, FLOATER_BURST: 0,
   }, { get: (t, k) => (k in t ? t[k] : any) });
