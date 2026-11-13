@@ -215,7 +215,9 @@ async function judge(withBreak){
     r2.srv.mineErr = apiErr(503, 'X'); await p2; r2.srv.mineErr = undefined;
     chk(r2.st.mine().load === 'failed' && await r2.st.setField('post', 'z') === 'locked', '409 뒤 다시 받기 실패 → 잠김');
     const nget = count(r2.log, /^GET/);
+    r2.srv.sent = r2.srv.sent || [];
     chk(await r2.st.pullMine() === true && count(r2.log, /^GET/) === nget + 1 && r2.st.mine().load === 'ready' && r2.st.page().bio === 'keepme', '  다시 시도 = GET 1 · 풀림 · 글 칸은 남음');
+    await flush(); chk(r2.st.page().bgm === null && !r2.srv.sent.slice(1).some((f) => 'bgm' in f), '  글 외 칸(BGM)은 받은 값 · 새 판에 싣지 않는다');
     const up = mk({ auto: false }); await ready(up);
     const pa = up.st.setAvatar('data:image/png;base64,AA');
     const pull = up.st.pullMine();   // 올리는 중 받기 시작(READY 라 GET 이 간다)
@@ -231,6 +233,17 @@ async function judge(withBreak){
     await keep.st.setDesign({ theme: { a: '#1' }, presets: [{ name: 'Q', theme: {}, bg: null }, null, null], presetCur: 0 });
     await keep.st.setDesign({ theme: { a: '#2' } });
     chk(keep.srv.designs[1].presets[0].name === 'Q', 'setDesign 에 프리셋을 안 넘기면 지금 값을 쓴다');
+    const cu = mk({ auto: false }); await ready(cu);
+    cu.srv.patchErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    const up2 = cu.st.setAvatar('data:image/png;base64,AA');   // 올리는 중에
+    const cp = cu.st.setField('bio', 'mine');
+    cu.waits.reverse();   // PATCH 답이 먼저
+    await cu.release();   // PATCH 409 → 다시 받기 시작
+    const ens = cu.st.ensureMine();
+    chk(count(cu.log, /^GET/) === 2, '409 다시 받는 중 ensureMine 은 GET 을 더하지 않는다');
+    await cu.release(8); await up2; await ens; await cp; await flush();
+    chk(cu.st.page().avatar && /^https:\/\/img\//.test(cu.st.page().avatar) && cu.srv.sent.some((f) => 'avatar' in f), '  다시 받는 사이 끝난 사진 올리기는 받은 값에 밀리지 않고 저장된다');
+    chk(cu.st.mine().load === 'ready', '(409 와 올리기 겹침) 끝나면 ready');
     const gd = await ready(mk({ patchErr: apiErr(400, 'MYHOME_INVALID_BGM') }));
     await gd.st.setField('bgm', { url: 'x', title: '' });
     chk(gd.log.includes('toast 유튜브 링크를 인식하지 못했어요') && count(gd.log, /^error/) === 0, '안내 code(GUIDE)는 앱 문구 토스트 · 번호 없음');
@@ -345,6 +358,8 @@ async function judge(withBreak){
     ['gen 비교를 빼면(앞 집 답이 이김)', (s) => s.split('vg !== viewSt.gen').join('false')],
     ['again 모으기를 빼면(저장이 겹침)', (s) => s.replace('if(saving) return saveP;', '')],
     ['409 에서 글 칸을 안 얹으면', (s) => s.replace('const keepText = !textRetry;', 'const keepText = false;')],
+    ['409 다시 받는 사이 끝난 올리기를 안 남기면', (s) => s.replace('Object.assign(texts, late);', '')],
+    ['저장 중 받기를 막지 않으면', (s) => s.replace('if(saving) return saveP.then(() => mineSt.load === LOAD.READY);', '')],
     ['스티커 w · h 를 정수로 안 만들면', (s) => s.replace('s.w = Math.max(1, Math.min(400, Math.round(Number(s.w) || 1)));', 's.w = Number(s.w);')],
   ];
   const origLoad = S.ST;

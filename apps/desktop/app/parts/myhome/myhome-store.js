@@ -8,7 +8,7 @@
    409 CONCURRENT_UPDATE: 페이지 PATCH 는 다시 받은 뒤 내가 고친 글 칸(소개 · 게시글 · 제목)만 새 판에 얹어 한 번 더(스티커 · 사진 · 배경 · BGM 은 받은 값) — 두 번째도 409 면 받은 값 + 알림.
      디자인 PUT 이 409 여도 내가 고친 글 칸은 새 판에 한 번 얹는다 — 디자인 고침만 버리고 받은 값으로 그린다 + 알림. 고치기는 다시 받는 동안 잠긴다.
      실패는 고친 화면을 그대로 두고 그 자리 번호를 한 번(이어지는 실패는 한 번 · 성공하면 풂). 혼자 다시 보내지 않는다 — 다음 고침 · 창 닫기 · 로그아웃 올리기(flush) · 앱 끄기가 한 번.
-     저장 중이거나 못 올린 고침이 있을 때 내 홈 받기는 요청하지 않는다(받은 판이 고친 칸을 덮지 않게).
+     저장 중(409 다시 받기 포함)이거나 못 올린 고침이 있을 때 내 홈 받기는 요청하지 않는다(받은 판이 고친 칸을 덮지 않게).
    그림: 고르면 줄인 뒤 올려 주소만 저장에 싣는다(upload). 같은 칸에 올리는 중 또 고르면 busy · 올리기가 실패하면 그 칸은 예전 값 · 다른 칸 저장은 그대로 간다.
    보고 있는 집: 내 집이면 내 홈을 가리키고(사본 없음), 남의 집이면 그 집 페이지를 받는다. 집을 옮길 때마다 gen 이 올라 늦게 온 앞 집 답은 버린다.
    deps: api — createMyHomeApi 가 돌려준 것(myhome-api.js — fetchMine · fetchOf · patchPage · putDesign · uploadImage · reset)
@@ -153,7 +153,8 @@ function createMyHomeStore(deps){
   /* ── 내 홈 받기 ── */
   function pullMine(opts){
     const site = (opts && opts.site) || 'load';
-    if(mineSt.load === LOAD.READY && (saving || dirty.size || failing.page || failing.design)) return Promise.resolve(true);   // 고친 칸이 서버보다 새것이다 — 덮지 않는다
+    if(saving) return saveP.then(() => mineSt.load === LOAD.READY);   // 저장 · 409 다시 받기가 도는 중 — 받기를 하나 더 보태지 않는다
+    if(mineSt.load === LOAD.READY && (dirty.size || failing.page || failing.design)) return Promise.resolve(true);   // 고친 칸이 서버보다 새것이다 — 덮지 않는다
     if(pullP) return pullP;
     pullP = runPull(site).finally(() => { pullP = null; });
     return pullP;
@@ -396,8 +397,8 @@ function createMyHomeStore(deps){
       if(r === 'ok') continue;
       if(r === 'conflict'){
         const keepText = !textRetry;   // 어느 요청이 409 를 받았든 내가 고친 글 칸은 새 판에 한 번 얹는다(Q1)
-        textRetry = textRetry || keepText;
         const done = await resolveConflict(keepText, g);
+        textRetry = textRetry || conflictKept;   // 글 칸을 실제로 얹었을 때만 «한 번» 을 썼다고 센다
         if(done !== 'ok') return done;
         outcome = 'conflict';
         continue;
@@ -451,6 +452,7 @@ function createMyHomeStore(deps){
     return 'ok';
   }
   /* 409 — 고치기를 잠그고 서버 것을 받는다. keepText 면 내가 고친 글 칸만 새 판에 얹어 한 번 더 보낸다(나머지는 받은 값) */
+  let conflictKept = false;
   async function resolveConflict(keepText, g){
     const texts = {};
     let dropped = false;
@@ -458,12 +460,13 @@ function createMyHomeStore(deps){
       if(keepText && TEXT_FIELDS.indexOf(k) >= 0) texts[k] = mineSt.page[k];
       else dropped = true;
     }
+    const rev0 = rev;
     mineSt.load = LOAD.LOADING; emit();
     let got;
     try{ got = await fetchChecked(); }
     catch(e){
       if(g !== gen) return 'stale';
-      for(const k of [...dirty.keys()]) if(TEXT_FIELDS.indexOf(k) < 0) dirty.delete(k);   // 글 칸만 남긴다 — 다시 시도하면 받은 판 위에 얹는다
+      for(const k of [...dirty.keys()]) if(TEXT_FIELDS.indexOf(k) < 0 && !(dirty.get(k) > rev0 && PAGE_FIELDS.indexOf(k) >= 0)) dirty.delete(k);   // 글 칸만 남긴다 — 다시 시도하면 받은 판 위에 얹는다
       mineSt.load = LOAD.FAILED;
       report(e, 'load');
       emit();
@@ -471,14 +474,18 @@ function createMyHomeStore(deps){
     }
     if(g !== gen) return 'stale';
     failing.page = false; failing.design = false;
+    const late = {};   // 다시 받는 사이 끝난 올리기 — 받은 값에 밀리지 않게 남긴다
+    for(const k of dirty.keys()) if(dirty.get(k) > rev0 && PAGE_FIELDS.indexOf(k) >= 0) late[k] = mineSt.page[k];
     adopt(got, false);
+    conflictKept = Object.keys(texts).length > 0;
+    Object.assign(texts, late);
     if(Object.keys(texts).length){
       change(texts);
       for(const k of Object.keys(texts)) markField(k);
     }
     mineSt.load = LOAD.READY;
     emit();
-    if(dropped || !Object.keys(texts).length) toast(MSG.merged);
+    if(dropped || !conflictKept) toast(MSG.merged);
     return 'ok';
   }
 
