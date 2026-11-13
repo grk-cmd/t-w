@@ -46,7 +46,6 @@ const MODULES = [
   { file: 'slot-save.js', mod: 'slotSaveMod', glob: 'TwSlotSave', sample: 'function _slotImgToDataUrl(' },   // 앱 FSD 43번
   { file: 'interaction-desk.js', mod: 'iDeskMod', glob: 'TwInteractionDesk', sample: 'function _trickTurns(' },   // 앱 FSD 43번
   { file: 'ad-banner.js', mod: 'adBannerMod', glob: 'TwAdBanner', sample: 'function refreshAdBanner(' },   // 앱 FSD 43번
-  { file: 'license-request.js', mod: 'licReqMod', glob: 'TwLicenseRequest', sample: 'function _showLicenseReqState(' },   // 앱 FSD 43번
   { file: 'fn-keys.js', mod: 'fnKeysMod', glob: 'TwFnKeys', sample: '(function bindHotkeys(){' },   // 앱 FSD 43번
   { file: 'hidden-seats.js', mod: 'hiddenSeatsMod', glob: 'TwHiddenSeats', sample: 'function _reportHiddenSave(' },   // 앱 FSD 43번
   { file: 'theme-ui.js', mod: 'themeUiMod', glob: 'TwThemeUi', sample: 'function _themeChildCss(' },   // 앱 FSD 44번

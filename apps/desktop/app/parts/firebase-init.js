@@ -2585,16 +2585,9 @@
       }
     },
 
-    // ---- 라이선스 요청 (일반 유저가 앱 안에서 요청 → 관리자가 확인 후 발급) ----
+    // ---- 라이선스 요청 (관리자 쪽만 — 사용자 요청 화면은 0.13 에서 걷음) ----
     // licenseRequests/{reqId} = { name, status:'pending'|'approved', requestedAt, issuedKey|null, approvedAt|null, ver? }
 
-    // 사용자: 라이선스 요청 보내기(내 표시 이름과 함께)
-    async requestLicense(name){
-      const reqId = 'r' + Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
-      await _appVer.ready;
-      await set(ref(db, `licenseRequests/${reqId}`), _appVer.withVer({ name: name||'(이름 없음)', status:'pending', requestedAt: serverTimestamp(), issuedKey:null }));
-      return reqId;
-    },
     // 관리자: 대기 중인 요청 목록 실시간 구독
     subscribeLicenseRequests(onChange){
       onValue(ref(db, 'licenseRequests'), snap => onChange(snap.val()||{}));
@@ -2609,15 +2602,6 @@
     async rejectLicenseRequest(reqId){
       await remove(ref(db, `licenseRequests/${reqId}`));
       return { ok:true };
-    },
-    // 사용자: 내가 보낸 요청이 승인됐는지(발급된 키가 들어왔는지) 실시간 구독
-    subscribeMyLicenseRequest(reqId, onChange){
-      onValue(ref(db, `licenseRequests/${reqId}`), snap => onChange(snap.val()));
-    },
-    // 사용자: 발급받은 키가 그 이후에 회수됐는지(valid:false) 실시간 구독 — "발급됐어요" 화면이 떠있는 동안
-    // 관리자가 그 키를 회수하면 즉시 반영해서 안내를 지우기 위함.
-    subscribeLicenseValidity(key, onChange){
-      onValue(ref(db, `licenses/${key}`), snap => onChange(snap.val()));
     },
 
     // ---- 책상 카탈로그 (관리자가 등록한 책상을 모든 사용자에게 자동 배포. 수정하면 이미 쓰던 사람도 실시간 반영) ----

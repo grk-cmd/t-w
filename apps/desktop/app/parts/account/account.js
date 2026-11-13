@@ -22,7 +22,7 @@ const CUR_SLOT_KEY = deps.CUR_SLOT_KEY;
 const CUSTOM_STATUS_KEY = deps.CUSTOM_STATUS_KEY;
 const EXTRA_SEAT_KEY = deps.EXTRA_SEAT_KEY;
 const INBOX_BC_READ_KEY = deps.INBOX_BC_READ_KEY;
-const LICENSE_REQ_ID_KEY = deps.LICENSE_REQ_ID_KEY;   // 읽는 함수
+const LICENSE_REQ_ID_KEY = 'tw.licenseReqId';   // 0.12 옛 요청 번호 — 요청 화면은 걷었고 남은 값만 지운다
 const MY_AD_BANNER_KEY = deps.MY_AD_BANNER_KEY;
 const MY_FRIEND_CODE_KEY = deps.MY_FRIEND_CODE_KEY;
 const MY_FRIEND_CODE_PREV_KEY = deps.MY_FRIEND_CODE_PREV_KEY;
@@ -121,7 +121,7 @@ const ACCOUNT_LOCAL_KEYS = ()=>[
   MY_FRIEND_CODE_PREV_KEY,     // 이 기기가 버린 코드 기록(진단용) — 다음 사람에게는 남의 코드다
   /* 라이선스 — 0.12 옛 값 중 요청 번호만 지운다. tw.licenseKey · tw.licenseOptOut 은 지우지 않는다 —
      첫 실행(first-run-013.js licenseKey 단계)이 서버에 올린 뒤에야 지운다(올리기 전에 로그아웃이 지우면 키를 잃는다). */
-  LICENSE_REQ_ID_KEY(),   // 🎫 옛 값 지움
+  LICENSE_REQ_ID_KEY,   // 🎫 옛 값 지움
   /* 오늘치 · 못 올린 집중 시간은 계정별 칸(shared/account-store.js)이라 여기서 지우지 않는다 — 계정을 바꾸면 다른 칸이 열린다. */
   /* 달성표 — syncChalToServer 가 서버 ts 가 크면 통째로 받아온다. */
   CHAL_KEY(),

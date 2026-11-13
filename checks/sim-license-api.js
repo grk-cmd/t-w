@@ -117,18 +117,8 @@ async function judge(src){
     t(!!sh && sh.code === 'SHAPE', '  쓰기 답의 모양이 틀려도 던진다');
   }
 
-  /* 4. 요청 · 오류 문구 */
+  /* 4. 오류 문구 */
   {
-    const { authed, api } = mk({ 'GET /v1/me/license-requests': { name: '민지', status: 'APPROVED' }, 'POST /v1/me/license-requests': null });
-    const a = await api.myApplication();
-    t(a && a.name === '민지' && a.status === 'APPROVED' && authed.log[0].opts.auth === true, '내 요청 — { name, status } (승인된 키는 여기 없다)');
-    const none = mk({ 'GET /v1/me/license-requests': null });
-    t((await none.api.myApplication()) === null, '  요청 없음 → null');
-    const weird = mk({ 'GET /v1/me/license-requests': { name: 'x', status: 'EVIL' } });
-    t((await weird.api.myApplication()).status === 'PENDING', '  모르는 상태는 «기다림» 으로(승인으로 읽지 않는다)');
-    await api.apply('req-1', '민지');
-    const p = authed.log[authed.log.length - 1];
-    t(p.method === 'POST' && p.path === '/v1/me/license-requests' && JSON.stringify(p.body) === JSON.stringify({ requestId: 'req-1', name: '민지' }), '요청 보내기 — POST /v1/me/license-requests { requestId, name }');
     const { api: ra } = mk({});
     t(['LICENSE_NOT_FOUND', 'LICENSE_REVOKED', 'LICENSE_OWNED_BY_OTHER', 'LICENSE_ALREADY_HAVE', 'LICENSE_DEVICE_FULL'].every((c) => typeof ra.reasonOf({ code: c }) === 'string' && ra.reasonOf({ code: c }).length > 4), '오류 문구 — 서버 code 다섯 갈래에 한 줄씩');
     t(ra.reasonOf({ code: 'NOPE' }) === null && ra.reasonOf(null) === null && ra.reasonOf({ code: 'toString' }) === null, '  표에 없으면 null — 부르는 쪽이 공통 문구로(상속 이름도 표 항목으로 안 읽는다)');
@@ -153,7 +143,6 @@ async function judge(src){
     ['라이선스 없음을 던짐으로', (s) => s.replace("if(d === null || d === undefined) return null;\n    return licenseOrThrow(d);", "return licenseOrThrow(d);")],
     ['모르는 상태를 VALID 로 받음', (s) => s.replace("d.status === STATUS.REVOKED ? STATUS.REVOKED : ''", "d.status === STATUS.REVOKED ? STATUS.REVOKED : STATUS.VALID")],
     ['기기 id 를 인코딩하지 않음', (s) => s.replace("encodeURIComponent(id)", "id")],
-    ['모르는 요청 상태를 승인으로', (s) => s.replace("d.status === 'APPROVED' ? 'APPROVED' : 'PENDING'", "d.status")],
     ['컴퓨터 이름을 그대로 보냄', (s) => s.replace("return '내 기기';", "return ua;")],
     ['premium 을 참 같은 값으로 읽음', (s) => s.replace("typeof d.premium === 'boolean' ? d.premium : null", "d.premium == null ? null : !!d.premium")],
     ['기기 상한 0 · 음수를 받음', (s) => s.replace("Number.isInteger(d.deviceLimit) && d.deviceLimit > 0", "Number.isInteger(d.deviceLimit)")],

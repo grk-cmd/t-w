@@ -5768,7 +5768,7 @@ const adminUsers = TwAdminUsers.createAdminUsers({
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
 });
 /* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v1/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
-   키 등록 · 이 기기 해제 버튼(license-key.js · license-request.js)도 여기를 부른다. */
+   키 등록 · 이 기기 해제 버튼(license-key.js)도 여기를 부른다. */
 const licensePremiumMod = TwLicensePremium.createLicensePremium({
   userApi: userApiMod,
   licenseApi: TwLicenseApi.store,
@@ -6938,7 +6938,6 @@ const accountMod = TwAccount.createAccount({
   asyncPrompt: (...a)=>asyncPromptMod.asyncPrompt(...a),
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   INBOX_BC_READ_KEY: INBOX_BC_READ_KEY,
-  LICENSE_REQ_ID_KEY: ()=>licReqMod.LICENSE_REQ_ID_KEY,
   MY_AD_BANNER_KEY: settingsMod.MY_AD_BANNER_KEY,
   MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,
   MY_FRIEND_CODE_PREV_KEY: MY_FRIEND_CODE_PREV_KEY,
@@ -7046,7 +7045,6 @@ const licenseScreenMod = TwLicenseScreen.createLicenseScreen({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseUiMod = TwLicenseUi.createLicenseUi({
   isPremium: ()=>isPremium,
-  licReqMod: ()=>licReqMod,
   licenseScreenMod: licenseScreenMod,
 });
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
@@ -7087,18 +7085,6 @@ const licenseKeyMod = TwLicenseKey.createLicenseKey({
 /* 본문은 outside-close.js 로 옮겼다(앱 FSD 47번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const outsideCloseMod = TwOutsideClose.createOutsideClose({
-});
-
-/* ═══ 📨 라이선스 요청 · 관리자 비밀번호 모달 ═══ */
-/* 본문은 license-request.js 로 옮겼다(앱 FSD 43번). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const licReqMod = TwLicenseRequest.createLicenseRequest({
-  _saveFailMsg: (...a)=>_saveFailMsg(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
-  licensePremiumMod: licensePremiumMod,
-  twNav: twNav,
-  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
-  toast: (...a)=>toast(...a),
 });
 
 /* ═══ 🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자) ═══ */
@@ -8808,7 +8794,6 @@ const appBoot = TwAppBoot.createAppBoot({
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: ()=>plMod.pull(),
     licensePremium: (code, me)=>licensePremiumMod.start(me),
-    licenseRequest: ()=>licReqMod.startWatch(),
     firstRun: ()=>firstRunMod.run().catch((e)=>console.warn('[0.13 첫 실행] 실패 — 다음 실행에 다시', e)),
   },
 });
