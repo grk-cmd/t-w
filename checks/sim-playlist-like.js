@@ -15,7 +15,7 @@ const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (...c) => { for (const f of c) for (const p of [f, 'app/parts/' + f, path.join('apps', 'desktop', 'app', 'parts', f), path.basename(f)]) if (fs.existsSync(p)) return fs.readFileSync(p, 'utf8'); return null; };
 const SRC = {
-  mod: read('status/playlist-like.js'), ui: read('status/playlist-like-ui.js'), app: read('app.js'), fi: read('firebase-init.js'),
+  mod: read('status/playlist-like.js'), ui: read('status/playlist-like-ui.js'), ws: read('shared/win-stack.js'), app: read('app.js'), fi: read('firebase-init.js'),
   html: read('desk-companion-prototype.html', '../desk-companion-prototype.html'), codes: read('shared/error-codes.js'),
   rules: read('firebase-database-rules.json', '../firebase-database-rules.json', path.join('firebase', 'firebase-database-rules.json')),
 };
@@ -92,7 +92,9 @@ function mkDom(){
   const byId = {}; ids.forEach(i => { byId[i] = el(i); byId[i].classList._o = byId[i]; });
   const doc = { getElementById: (i) => byId[i] || null,
     addEventListener: (t, f) => listeners.push([t, f]), removeEventListener: (t, f) => { const i = listeners.findIndex(x => x[0] === t && x[1] === f); if (i >= 0) listeners.splice(i, 1); },
-    fire: (t, e) => listeners.filter(x => x[0] === t).forEach(x => x[1](Object.assign({ stopPropagation(){} }, e))) };
+    /* «#id.클래스» 꼴만 알아듣는다 — win-stack 의 양보 목록(ESC_YIELD_SEL)이 쓰는 모양 */
+    querySelector: (sel) => { for (const one of String(sel).split(',')) { const m = /^\s*#([\w-]+)((?:\.[\w-]+)*)\s*$/.exec(one); if (!m) continue; const n = byId[m[1]]; if (n && m[2].split('.').filter(Boolean).every(c => n._cls.has(c))) return n; } return null; },
+    fire: (t, e) => { const ev = Object.assign({ defaultPrevented: false, stopPropagation(){}, preventDefault(){ ev.defaultPrevented = true; } }, e); listeners.filter(x => x[0] === t).slice().forEach(x => x[1](ev)); } };
   const click = (i) => byId[i]._ev.click({ stopPropagation(){} });
   return { byId, doc, click, listeners };
 }
@@ -159,6 +161,11 @@ async function judge(src){
       && (await noLogin.like('uOOOOOOOO0', 0, 'uAAAAAAAA1')).reason === 'fail';   // 로그인 토큰이 없으면 누르지 않는다
     /* 3절 — 서랍 화면 */
     const D = mkDom(); globalThis.document = D.doc; globalThis.window = { innerWidth: 1920 };
+    /* ⎋ 앱과 같은 순서 — win-stack(document 캡처 · 먼저 등록)을 먼저 만들고 플레이리스트 창을 올린다 */
+    globalThis.MutationObserver = class { observe(){} };
+    const WS = load(src.ws, 'TwWinStack').createWinStack({});
+    let winClosed = 0;
+    WS.escRegisterWindow({ key: 'playlist', el: D.byId.myPlaylistBox, isOpen: () => true, close: () => { winClosed++; } });
     const U = load(src.ui, 'TwPlaylistLikeUi');
     const S3 = makeServer(R, AUTH); let reads = 0; const errs = [];
     const sdk = sdkFor(S3, 'authA'); const g0 = sdk.get; sdk.get = async (x) => { reads++; return g0(x); };
@@ -181,11 +188,14 @@ async function judge(src){
     D.click('myPlReact'); D.doc.fire('mousedown', { target: {} });
     const outClosed = !$.myPlLikeDrawer.classList.contains('on');
     D.click('myPlReact'); D.doc.fire('mousedown', { target: $.myPlLikeDrawer });
-    r.close = escClosed && outClosed && $.myPlLikeDrawer.classList.contains('on') && D.listeners.length === 2;
+    r.escYield = escClosed && winClosed === 0;   // 서랍만 닫히고 창은 남는다
+    r.close = escClosed && outClosed && $.myPlLikeDrawer.classList.contains('on') && D.listeners.filter(x => x[1].name === 'onKey' || x[1].name === 'onDown').length === 2;
     D.click('myPlLikeBtn'); await flush(); await flush(); await flush(); await flush();
     r.sent = $.myPlLikeBtn.textContent === '보냈어요 👍' && $.myPlLikeBtn.disabled && $.myPlLikeDrawerCnt.textContent === '지금까지 👍 2' && getAt(S3.tree, 'playlistLikes/uOOOOOOOO0/1/by/authA') === true;
     ui.render({ ro: true, ownerId: 'uBBBBBBBB2', setIdx: 0 });
-    r.switchCloses = !$.myPlLikeDrawer.classList.contains('on') && D.listeners.length === 0;
+    r.switchCloses = !$.myPlLikeDrawer.classList.contains('on') && D.listeners.filter(x => x[1].name === 'onKey' || x[1].name === 'onDown').length === 0;
+    D.doc.fire('keydown', { key: 'Escape', target: {} });
+    r.escYield = r.escYield && winClosed === 1;   // 서랍이 닫혀 있으면 Esc 는 예전처럼 창을 닫는다
     await flush(); await flush();
     const bad = U.createPlaylistLikeUi({ likeRules: L, net: () => ({ read: async () => ({ count: 0, mine: false }), like: async () => ({ ok: false, reason: 'fail' }) }), getMyUserId: () => 'uAAAAAAAA1', notifyError: (c) => errs.push(c) });
     bad.render({ ro: true, ownerId: 'uOOOOOOOO0', setIdx: 0 }); await flush(); await flush();
@@ -238,6 +248,7 @@ function wire(S){
   chk(R.noReread, '  같은 사람 · 같은 프리셋을 다시 그려도 다시 읽지 않는다');
   chk(R.open, '  [💬 반응] → 서랍: 노래가 좋아요 👍 · 지금까지 수');
   chk(R.close, '  Esc · 바깥 누르기로 닫힘 · 서랍 안 누르기는 안 닫힘');
+  chk(R.escYield, '  ⎋ 서랍이 열려 있으면 Esc 는 서랍만 닫는다(win-stack 이 양보 · 창은 남음) · 닫혀 있으면 창을 닫는다');
   chk(R.sent, '  누르면 «보냈어요 👍» 로 잠김 · 수 +1 · 서버에 내 표시');
   chk(R.switchCloses, '  다른 사람 목록으로 넘어가면 서랍이 닫히고 듣기도 걷는다');
   chk(R.err, '  보내기 실패는 E-SYS-04');
@@ -263,6 +274,7 @@ function wire(S){
   await brk('누른 뒤에도 «이미» 를 안 보면', { mod: SRC.mod.replace("if(cur.mine) return { ok: false, reason: 'already', count: cur.count };", '') }, x => x.once);
   await brk('다시 하기를 없애면', { mod: SRC.mod.replace('const RETRY_MAX = 3;', 'const RETRY_MAX = 1;') }, x => x.race);
   await brk('같은 프리셋을 그릴 때마다 다시 읽으면', { ui: SRC.ui.replace("if(k !== key){ key = k; if(open) close(); if(k) load(next); else seq++; }", "key = k; if(k) load(next); else seq++;") }, x => x.noReread);
+  await brk('win-stack 양보 목록에서 서랍 줄을 빼면', { ws: SRC.ws.replace("  '#myPlLikeDrawer.on',", '') }, x => x.escYield);
   await brk('Esc 를 안 들으면', { ui: SRC.ui.replace("function onKey(e){ if(open && e.key === 'Escape'){ e.stopPropagation(); close(); } }", 'function onKey(){}') }, x => x.close);
   await brk('못 읽음을 0 으로 그리면', { mod: SRC.mod.replace('const count = (s.loaded && !s.failed) ? Math.max(0, Number(s.count) || 0) : null;', 'const count = Math.max(0, Number(s.count) || 0);') }, x => x.failRow);
   void R0;
