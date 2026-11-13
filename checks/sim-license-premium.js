@@ -17,6 +17,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 console.warn = () => {};   // 판정 모듈이 실패를 콘솔에 남긴다 — 검사 출력에는 필요 없다
 const pick = (n, d) => [n, 'parts/' + d + '/' + n, 'app/parts/' + d + '/' + n].map(read).find(Boolean);
 const SRC = {
+  LK: pick('license-key.js', 'account'), LR: pick('license-request.js', 'account'),
   LP: pick('license-premium.js', 'account'), AS: pick('account-state.js', 'account'), PA: pick('premium-assets.js', 'character'),
   APP: read('app.js') || read('parts/app.js') || read('app/parts/app.js'),
 };
@@ -263,6 +264,7 @@ async function judge(S){
     t(setCalls === 1 && /setPremium: \(v\)=>acctStateMod\._setPremium\(v\),/.test(A), 'app.js 에서 _setPremium 을 잇는 곳은 판정 모듈 하나');
     t((A.match(/licensePremiumMod\.start\(/g) || []).length === 1 && /licensePremium: \(code, me\)=>licensePremiumMod\.start\(me\),/.test(A), '시작은 켜는 차례 한 곳(계정 확인이 준 me 로) — 만들 때 요청 · 구독 없음');
     t(!/loadLicenseFromStorage|startLicenseVerify|redeemLicense|verifyLicense/.test(A), '옛 길(이 PC 키로 먼저 켜기 · Firebase 로 재검증)이 app.js 에 없다');
+    t(/if\(r\.stale\) return;[^\n]*\n\s*refreshLicenseUI\(\);/.test(S.LK) && /else if\(!r\.stale\)\{ toast\('적용 실패/.test(S.LR), '  reset 으로 버린 늦은 답(stale)은 부르는 쪽이 알리지 않는다(license-key 해제 · license-request 적용)');
     t(/made = true|createLicensePremium/.test(A) && !/licensePremiumMod\.(refresh|activate|deactivate)\(/.test(A.replace('activate: (key)=>licensePremiumMod.activate(key),', '')), '  버튼은 모듈(license-key.js · license-request.js)이 부른다 — app.js 는 첫 실행 키 올리기(D8-3)가 쓰는 activate 한 줄만');
   }
   return rows;
@@ -280,6 +282,7 @@ async function judge(S){
     ['알림이 겹치면 요청이 쌓임', mut('LP', (s) => s.replace("if(running){ again = true; return running; }", ""))],
     ['도는 중에 온 알림을 버림(한 번 더 안 받음)', mut('LP', (s) => s.replace("while(again && g === gen){ again = false; r = await once(null, g); }", ""))],
     ['신호 실패에도 번호를 띄움', mut('LP', (s) => s.replace("if(!loud) return;", ""))],
+    ['해제 버튼이 버린 답(stale)에도 E-LIC-02 를 띄움', mut('LK', (s) => s.replace("if(r.stale) return;", ""))],
     ['쓰기 응답이 reset 뒤에도 반영됨', mut('LP', (s) => s.replace("if(g !== gen) return { ok: false, stale: true, notified: true, reason: '' };", ""))],
     ['reset 이 알림 구독을 안 풂', mut('LP', (s) => s.replace("if(unsub){ try{ unsub(); }catch(_){} }", ""))],
     ['reset 뒤 옛 답을 반영', mut('LP', (s) => s.replace("if(!me || g !== gen) return isPremium();", "if(!me) return isPremium();"))],
