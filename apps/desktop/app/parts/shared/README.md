@@ -66,7 +66,7 @@
 아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조)은 캐릭터 코어 `tone.ts` 이고,
 여기서 `FLAT_EMISSIVE` 로 코어 톤을 만들어 `toneCore` 로 내놓는다(앱의 다른 곳은 그것을 deps 로 받는다).
 숫자(`LIGHT_PRESET` · `CREATOR_LIGHT_SL` · `TONE_FRONT_TOTAL` · 조명 배율)와 플랫 몫 계산식 · 재질 고치기(`fixMatLighting`)는 캐릭터 코어 `lighting.ts` 한 벌 — 웹 생성기도 같은 것을 쓴다.
-실행 화면 조명(앰비언트 · 키 · 뒤쪽 냉색 바운스 · 정면 필)을 씬에 넣는 것도 여기 한 벌(`addRunLights`) — 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일이 모두 부른다.
+실행 화면 조명(앰비언트 · 키 · 뒤쪽 냉색 바운스 · 정면 필)을 씬에 넣는 것도 여기 한 벌(`addRunLights`) — 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 생성기 미리보기 · 동물 생성기가 모두 부른다. 세기를 슬라이더로 다시 정하는 생성기는 `runLightInts` 로 세기를 읽는다(몫 숫자를 곳마다 다시 적지 않게).
 
 **만드는 법** — app.js 💡 조명 상수 바로 뒤(메인 씬 조명이 바로 아래에서 쓴다):
 
@@ -94,7 +94,8 @@ const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js
 | `_applyPartMatTone(m)` | 파츠 재질 — 코어 `toneCore.applyPartMatTone`(map 이 있으면 emissiveMap 도 · emissive = 색 × 플랫 · `userData.baseFlat`) |
 | `_applyItemMatTone(m)` | 아이템 · 책상 GLB 재질 — GLB 의 emissive 를 덮어쓴다 · emissiveIntensity 는 1 로 |
 | `_setDeskMatColor(m, color)` | 책상 색 바꾸기 — baseFlat 으로 emissive 다시 계산(없으면 처음 심는다) |
-| `addRunLights(target, opt)` | 실행 화면 조명을 `target` 에 넣는다 — `opt.keyPos`(필수) · `mul`(썸네일 광량 배율, 기본 1) · `backBounce`(뒤쪽 냉색 바운스) · `frontFill`(기본 켬). `{ amb, key, back, front }` 를 돌려준다(키 그림자는 부르는 쪽이 건다) |
+| `addRunLights(target, opt)` | 실행 화면 조명을 `target` 에 넣는다 — `opt.keyPos`(필수) · `mul`(썸네일 광량 배율, 기본 1) · `int` · `keyMul`(`runLightInts` 와 같다) · `backBounce`(뒤쪽 냉색 바운스) · `frontFill`(기본 켬). `{ amb, key, back, front }` 를 돌려준다(키 그림자는 부르는 쪽이 건다) |
+| `runLightInts(opt)` | 세 빛의 세기 `{ amb, key, front }` — `opt.int`(세기 예산, 기본 주광) · `mul`(광량 배율, 기본 1) · `keyMul`(키 배율, 기본 `_KEY_LIGHT_MUL`). `addRunLights` 도 같은 옵션을 받는다 |
 | `runLightAt1()` | 배율 1 일 때 앰비언트 + 키 세기 합 — 썸네일이 광량 배율을 계산할 때 |
 | `baseFlatOf(mat)` | 코어 `toneCore.baseFlatOf` — 재질에 심은 플랫 배율(baseFlat), 없으면 공용 기준 `FLAT_EMISSIVE` — 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이것으로 읽는다. 0 도 심은 값 |
 

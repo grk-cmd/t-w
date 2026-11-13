@@ -197,7 +197,7 @@
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
 | **sim-premium-desk.js** | 130 | **7c5838e7f427** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
-| **sim-light-tone.js** | 213 | **07c95b823e2c** |
+| **sim-light-tone.js** | 281 | **2240049cb22b** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
 | **sim-seat-friend-req.js** | 117 | **89a8bcf81a45** |
 | **sim-seat-menu.js** | 167 | **d852cfc88b06** |
@@ -242,7 +242,7 @@
 | **sim-help-tab.js** | 200 | **1877f429bfdc** |
 | **sim-unfocused-fps.js** | 177 | **8a40c76659ec** |
 | **sim-purikura-fish.js** | 169 | **90c65a1bc566** |
-| **sim-creator-flat-view.js** | 128 | **cc058c0dd902** |
+| **sim-creator-flat-view.js** | 128 | **ad04f512ac81** |
 | **sim-creator-xform.js** | 207 | **540025aaba06** |
 | **sim-cr-stamp.js** | 210 | **aaa16fef5c4b** |
 | **sim-creator-state.js** | 105 | **4e0daf68f5c8** |
@@ -250,7 +250,7 @@
 | **sim-creator-flow.js** | 196 | **24a3d06e5a4e** |
 | **sim-creator-save.js** | 230 | **c69b2cd7352b** |
 | **sim-commission-import.js** | 190 | **79bffd7fd205** |
-| **sim-creator-preview.js** | 202 | **cfd87debd49e** |
+| **sim-creator-preview.js** | 202 | **e7a2ed87c50e** |
 | **sim-hover-poke.js** | 197 | **b059ea08e1e1** |
 | **sim-pen-forward.js** | 139 | **bdafd7215244** |
 | sim-village-addr.js | 53 | f72ef601abbb |
