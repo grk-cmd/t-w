@@ -124,10 +124,10 @@ function mkEnv(opt){
     officeMode: () => env.office,
     lsSet: (k, v) => { env.lsSets.push([k, v]); env.ls[k] = String(v); return true; },
     presence: () => (env.room == null ? undefined : { roomCode: () => env.room }),
-    mkFrontFill: () => U(), findMySeat: () => null, setFaceMap(){}, animateRig(){}, targetFor: () => U(),
+    addRunLights: () => U(), findMySeat: () => null, setFaceMap(){}, animateRig(){}, targetFor: () => U(),
     setBone(){}, hueOBC(){}, trickArmBase: () => 0, trickArmSpread: () => 0, trickLegPose: () => ({ legL: { x: 0, z: 0 }, legR: { x: 0, z: 0 } }),
     seats: [],
-    mainLightCol: 0xffffff, mainLightInt: 1, keyLightMul: 1, fillLightMul: 1, animalHandRest: -1,
+    animalHandRest: -1,
     spineAxis: () => 1, headAxis: () => 1, handRest: () => -1, shakeArmDroop: () => 0.5,
   });
   return env;
@@ -253,8 +253,8 @@ await sec('── 5. app.js 배선', () => {
   chk(!/\bPURIKURA_UI_OFF\b/.test(APP), '빈 껍데기 PURIKURA_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwPurikuraUi\.createPurikuraUi\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 32 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
-    'deps 32개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
+  chk(deps.length === 28 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
+    'deps 28개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
   chk(/plPlaying: \(\)=>plMod\.st\.playing,/.test(call) && /setPlPlaying: v=>\{ plMod\.st\.playing = v; \},/.test(call) && /officeMode: \(\)=>officeMode,/.test(call),
     '다시 대입되는 let(officeMode · _plPlaying — playlist.js 상태 묶음 plMod.st.playing)은 읽는 함수로 · 쓰기는 setPlPlaying');
   chk(['presence: ()=>Presence', 'spineAxis: ()=>SPINE_AXIS', 'headAxis: ()=>HEAD_AXIS', 'handRest: ()=>HAND_REST', 'shakeArmDroop: ()=>SHAKE_ARM_DROOP'].every(s => call.indexOf(s) >= 0)

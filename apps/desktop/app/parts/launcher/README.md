@@ -26,9 +26,9 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **책임**: 런처 카드의 3D 미리보기 — 렌더러 · 씬 · 카메라(도트 느낌 저해상도), 칸 캐릭터 올리기(몸 기준 프레이밍 · 둥둥 · 깜빡임),
   다 그린 뒤 한 장 찍어 슬롯 섬네일(`def.thumb`) 갈아 끼우기.
 - **만드는 법**: `TwLauncherPreview.createLauncherPreview(deps)` — 만들 때는 아무것도 그리지 않는다(`ensureLauncherPreview` 가 렌더러를 처음 한 번 만든다).
-  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · 조명 상수(`_MAIN_LIGHT_*` · `_KEY_LIGHT_MUL` · `_FILL_LIGHT_MUL`) · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
+  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
   - 읽는 함수: `customItems` · `assetCodeMod` · `slotSaveMod`
-  - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …)
+  - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …) · `addRunLights`(실행 화면 조명 — shared/light-tone.js)
 - **내놓는 것**: `ensureLauncherPreview()` · `setLauncherChar(def)`(그 캐릭터로 갈아 올림 · null 이면 비움) · `sizeLauncherPreview()`(창 크기가 바뀌면) ·
   `launcherLoop`(부팅 때 `requestAnimationFrame` 에 한 번) · 읽는 함수 `lRenderer()` · `lHolder()`(책상 아이템 크기 로그가 «런처» 인지 가른다).
   ```js

@@ -17,13 +17,13 @@ const MOD = ["race-picker.js","parts/creator/race-picker.js","app/parts/creator/
 if(!MOD){ say('  ? 원본 못 찾음 — race-picker.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_mkFrontFill","applyDesktopRunClass","applyLightPresetToInstance","instantiateBase","normalizeModel","openCreator"];
-const VAL_DEPS = ["CHAR_SLOT_MAX","_FILL_LIGHT_MUL","_KEY_LIGHT_MUL","_MAIN_LIGHT_COL","_MAIN_LIGHT_INT"];
+const FN_DEPS = ["applyDesktopRunClass","applyLightPresetToInstance","instantiateBase","normalizeModel","openCreator","addRunLights"];
+const VAL_DEPS = ["CHAR_SLOT_MAX"];
 const GET_DEPS = ["BASE_SCENE"];
 const SET_DEPS = [];
 const EXPORTS = ["_raceTargetSlot","openRacePicker"];
 const MOVED = ["rRenderer","rScene","rCam","rChar","initRacePreview","RACE_PIXEL_SCALE","renderRacePreview","_raceTargetSlot","openRacePicker"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  BASE_SCENE: ()=>BASE_SCENE,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,","  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,","  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,","  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,","  _mkFrontFill: (...a)=>_mkFrontFill(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  applyLightPresetToInstance: (...a)=>applyLightPresetToInstance(...a),","  instantiateBase: (...a)=>instantiateBase(...a),","  normalizeModel: (...a)=>normalizeModel(...a),","  openCreator: (...a)=>openCreator(...a),"];
+const GLUE = ["  BASE_SCENE: ()=>BASE_SCENE,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  addRunLights: (...a)=>lightToneMod.addRunLights(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  applyLightPresetToInstance: (...a)=>applyLightPresetToInstance(...a),","  instantiateBase: (...a)=>instantiateBase(...a),","  normalizeModel: (...a)=>normalizeModel(...a),","  openCreator: (...a)=>openCreator(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
