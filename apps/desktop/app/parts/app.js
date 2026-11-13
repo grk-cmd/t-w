@@ -5705,7 +5705,7 @@ const firstRunMod = TwFirstRun013.createFirstRun({
   },
   storage: localStorage,
   userCode: ()=>getMyUserId(),
-  notify: (msg)=>toast(msg),
+  notify: (msg, action)=>{ if(action === 'openSettings') toast(msg, undefined, 7000, { label: '설정 열기', onClick: ()=>twNav.go(twNav.NAV.PROGRAM_SETTINGS, 'license') }); else toast(msg); },
 });
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
@@ -6886,7 +6886,7 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
   officeMode: ()=>officeMode,
   purikuraUi: purikuraUi,
   refreshCharScaleForCurrentDisplay: (...a)=>refreshCharScaleForCurrentDisplay(...a),
-  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
+  openLicenseUI: (...a)=>licenseUiMod.openLicenseUI(...a),
   refreshOfficeChipUI: (...a)=>refreshOfficeChipUI(...a),
   refreshThemeUI: (...a)=>themeUiMod.refreshThemeUI(...a),
   toast: (...a)=>toast(...a),
@@ -7011,11 +7011,23 @@ const myInfoMod = TwMyInfo.createMyInfo({
 /* (앱 FSD 17번) 이 자리의 본문도 my-info.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🔑 라이선스 등록 UI ═══ */
+/* 🔑 설정 › 라이선스 구획의 상태 · 동작(account/license-screen.js) — 창을 열면 내 라이선스(기기 목록)를 받고, 키 등록 · 기기 해제 · 빼기 · 이 기기 등록은 여기서 한다. */
+const licenseScreenMod = TwLicenseScreen.createLicenseScreen({
+  licenseApi: TwLicenseApi.store,
+  licensePremium: licensePremiumMod,
+  deviceId: ()=>TwDeviceId.store.get(),
+  isAdmin: ()=>isAdmin,
+  isShown: ()=>{ const o=document.getElementById('programSettingsOverlay'), p=document.getElementById('progTabLicense'); return !!(o && o.classList.contains('on') && p && p.style.display !== 'none'); },
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+});
 /* 본문은 license-ui.js 로 옮겼다(앱 FSD 48번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseUiMod = TwLicenseUi.createLicenseUi({
   isPremium: ()=>isPremium,
   licReqMod: ()=>licReqMod,
+  licenseScreenMod: licenseScreenMod,
 });
 /* ═══ 🪟 런처 타이틀바 · 팝업 흐림 ═══ */
 /* 본문은 launcher-chrome.js 로 옮겼다(앱 FSD 47번). 
@@ -7048,11 +7060,7 @@ const adminLauncher = TwAdminLauncher.createAdminLauncher({
 /* 본문은 license-key.js 로 옮겼다(앱 FSD 48번). 
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseKeyMod = TwLicenseKey.createLicenseKey({
-  licensePremiumMod: licensePremiumMod,
-  twNav: twNav,
-  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),
-  toast: (...a)=>toast(...a),
-  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  licenseScreenMod: licenseScreenMod,
 });
 
 /* ═══ 🪟 팝업 바깥 클릭으로 닫기 ═══ */

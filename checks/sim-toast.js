@@ -107,7 +107,7 @@ say('── 4. 동작 — 토스트 · 저장 실패 문구');
       appendChild(n){ this.tail.push(n); }, addEventListener(k, fn){ (this.on[k] = this.on[k] || []).push(fn); } };
     el.classList = { add: (c) => el.cls.add(c), remove: (c) => el.cls.delete(c), contains: (c) => el.cls.has(c) };
     Object.defineProperty(el, 'textContent', { get(){ return this._t; }, set(v){ this._t = v; this.kids = []; this.tail = []; } });
-    const doc = { getElementById: (id) => id === 'toast' ? el : null, createElement: (t) => ({ tag: t, style: {} }), createTextNode: (x) => ({ text: x }) };
+    const doc = { getElementById: (id) => id === 'toast' ? el : null, createElement: (t) => ({ tag: t, style: {}, ls: {}, addEventListener(k, fn){ this.ls[k] = fn; } }), createTextNode: (x) => ({ text: x }) };
     /* 클립보드 — 부른 글을 적어 두고, 약속(then)은 손으로 풀어 본다(fail 이면 거절) */
     const clip = { calls: [], fail: false, pend: [] };
     const nav = { clipboard: { writeText: (x) => { clip.calls.push(x); return { then: (ok, no) => clip.pend.push(clip.fail ? no : ok) }; } } };
@@ -165,6 +165,15 @@ say('── 4. 동작 — 토스트 · 저장 실패 문구');
     chk(el.tail.length === 1 && el.tail[0].text === ' (복사하지 못했어요)', '  복사가 거절되면 « (복사하지 못했어요)»');
     clip.fail = false; el.cls.delete('on'); const n0 = clip.calls.length; click();
     chk(clip.calls.length === n0, '  꺼진 토스트는 눌러도 복사 안 함');
+    /* 🔘 안내 단추(네 번째 인자 action) — 글 끝에 [라벨] · 누르면 복사하지 않고 onClick 만 · 토스트는 닫는다 */
+    let went = 0, stopped = 0;
+    api.toast('기기를 모두 썼어요', undefined, 7000, { label: '설정 열기', onClick: () => { went++; } });
+    const btn = el.tail[el.tail.length - 1], nClip = clip.calls.length;
+    chk(btn && btn.tag === 'button' && btn.textContent === '[설정 열기]' && log.timers[log.timers.length - 1].ms === 7000, '  action → 글 끝에 단추 [설정 열기] · 시간은 넘겨 준 대로');
+    btn.ls.click({ stopPropagation(){ stopped++; } });
+    chk(went === 1 && stopped === 1 && !el.cls.has('on') && clip.calls.length === nClip, '  단추를 누르면 onClick 한 번 · 눌림이 토스트로 번지지 않음(복사 안 함) · 토스트를 닫는다');
+    api.toast('단추 없는 글'); api.toast('반쪽 action', undefined, 0, { label: '라벨만' });
+    chk(!el.tail.length, '  action 이 없거나 onClick 이 없으면 단추를 안 만든다(다음 토스트에 단추가 남지도 않음)');
     const onRule = (h) => /\.toast\.on\{[^}]*pointer-events:auto;[^}]*cursor:pointer;/.test(h) && /\.toast\{[^}]*pointer-events:none;/.test(h);
     chk(onRule(HTML) && !onRule(HTML.replace(/(\.toast\.on\{[^}]*)pointer-events:auto;/, '$1')), '  html — 켜진 토스트(.toast.on)만 클릭 받기 · 손 모양(꺼진 토스트는 통과)');
   }

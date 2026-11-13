@@ -6,14 +6,14 @@
      부르는 곳 셋: ① 계정 확인 뒤 켜는 차례(app-boot 의 licensePremium) ② 서버 알림 license(키 등록 · 회수 · 기기 변경 — 다른 기기에서 바뀐 것 포함) ③ 키 등록 · 이 기기 해제 직후.
    [모름] 확인 전의 false 는 «아님» 이 아니라 «모름» — account-state.js premiumKnown. 모르는 동안은 전용 자산 접기를 건너뛴다(premium-assets.js).
    [기기 등록] 앱이 알아서 등록하지 않는다 — 기기는 «키를 직접 넣을 때» 등록되고, 프리미엄은 «이미 목록에 있는 기기» 만 켜진다.
-     라이선스는 있는데 이 기기만 목록에 없는 새 PC 는 «아님» 으로 둔다(기기 관리 화면에서 등록 — D8-2). 켤 때 라이선스 목록을 읽지 않는다.
+     라이선스는 있는데 이 기기만 목록에 없는 새 PC 는 «아님» 으로 둔다(설정 › 라이선스 화면의 [이 기기 등록] — license-screen.js). 켤 때 라이선스 목록을 읽지 않는다.
    [겹침] 확인은 한 줄로만 돈다 — 도는 중에 또 부르면 끝난 뒤 최신으로 한 번 더(알림이 몰려도 요청이 쌓이지 않는다). 실패해도 혼자 다시 하지 않는다(다음 알림 · 앱 켜기).
-   [실패] 번호는 사용자가 누른 동작(키 등록 · 이 기기 해제) 뒤의 확인 실패에만 E-LIC-01 을 띄운다(이 기기 해제 실패는 license-key.js 가 E-LIC-02). 서버 알림 · 켤 때로 받다 실패하면 아무것도 안 띄우고 지금 값 그대로.
+   [실패] 번호는 사용자가 누른 동작(키 등록 · 이 기기 해제) 뒤의 확인 실패에만 E-LIC-01 을 띄운다(이 기기 해제 실패는 license-screen.js 가 E-LIC-02). 서버 알림 · 켤 때로 받다 실패하면 아무것도 안 띄우고 지금 값 그대로.
      로그인이 풀린 실패(kind auth)는 로그인 흐름이 다루므로 어느 쪽도 알리지 않는다.
    [계정 바뀜] reset() — 알림 구독을 풀고 · 시작 표시 · 도는 확인을 비우고 · «모름» 으로 되돌린다(늦게 온 옛 답은 gen 이 달라 버린다). S-4(세션 dispose)가 부를 자리.
-   deps: userApi.me() · licenseApi(mine · register · removeDevice · reasonOf) · deviceId() · deviceName() · setPremium(v) · isPremium() ·
+   deps: userApi.me() · licenseApi(mine · register · putDevice · removeDevice · reasonOf) · deviceId() · deviceName() · setPremium(v) · isPremium() ·
          rtOn(kind, fn) → 해제 함수 · resetKnown()(프리미엄을 «모름» 으로 되돌림 — 알림 없이) · notifyError · reasonOf(err)(공통 문구) · resetCustomStatus()(프리미엄을 놓을 때 커스텀 상태를 기본으로)
-   내놓는 것: start(me) · refresh() · activate(key) · deactivate() · reset()
+   내놓는 것: start(me) · refresh() · activate(key, opts) · deactivate(opts) · registerDevice() · reset()
    classic script — license-api.js · user-api.js 다음 · app.js 보다 먼저 싣는다(window.TwLicensePremium). */
 (function(){
 'use strict';
@@ -23,7 +23,7 @@ const NOT_CONFIRMED = '등록은 됐는데 이 기기에서 아직 확인하지 
 const EMPTY_KEY = '라이선스 키를 입력해 주세요';
 
 /** @param {{ userApi: { me: () => Promise<any> },
- *   licenseApi: { mine: Function, register: Function, removeDevice: Function, reasonOf: (e: any) => string | null },
+ *   licenseApi: { mine: Function, register: Function, putDevice: Function, removeDevice: Function, reasonOf: (e: any) => string | null },
  *   deviceId: () => string, deviceName: () => string,
  *   setPremium: (v: boolean) => void, isPremium: () => boolean,
  *   rtOn: (kind: string, fn: Function) => Function, resetKnown: () => void, notifyError: (code: string, err: any) => unknown,
@@ -99,36 +99,51 @@ function createLicensePremium(deps){
   /* 지금 서버에 다시 묻는다 → 프리미엄 여부(못 받으면 지금 값) */
   function refresh(){ return lane(null); }
 
-  /* 키 등록 — 돌려주는 것 { ok, reason?, err?, registered? }. ok 는 서버가 «이 기기에서 프리미엄» 이라고 확인해 준 경우만(registered — 등록은 됐는데 확인이 안 됨 · err — 요청 실패 원본) */
-  async function activate(key){
+  /* 키 등록 — 돌려주는 것 { ok, reason?, err?, registered?, lic? }. ok 는 서버가 «이 기기에서 프리미엄» 이라고 확인해 준 경우만(registered — 등록은 됐는데 확인이 안 됨 · err — 요청 실패 원본 · lic — 쓰기 응답의 내 라이선스).
+     opts.ownerKnown — 부르는 쪽(설정 › 라이선스 화면)이 창 열기에서 이미 내 라이선스를 읽었다 → 쓰기 전 읽기를 건너뛴다(첫 실행 키 올리기는 창이 없어 한 번 읽는다) */
+  async function activate(key, opts){
     const k = String(key || '').trim().toUpperCase();
     if(!k) return { ok: false, reason: EMPTY_KEY };
     let l;
     const g = gen;   // 쓰기를 기다리는 동안 reset 되면 옛 계정의 답을 버린다
     try{
-      await licenseApi.mine();   // 읽은 토큰 주인에 쓰기를 묶는다(등록한 키가 다른 계정으로 가지 않게)
+      if(!(opts && opts.ownerKnown)) await licenseApi.mine();   // 읽은 토큰 주인에 쓰기를 묶는다(등록한 키가 다른 계정으로 가지 않게)
       l = await licenseApi.register(k, { id: deps.deviceId(), name: deps.deviceName() });
     }catch(e){ return { ok: false, err: e, reason: licenseApi.reasonOf(e) || deps.reasonOf(e) }; }   // err — 첫 실행 키 올리기가 서버 code · 로그인 풀림을 가른다
     if(g !== gen) return { ok: false, stale: true, notified: true, reason: '' };
     notified = false;
     const premium = await fromWrite(l);
-    return premium ? { ok: true } : { ok: false, registered: true, notified, reason: NOT_CONFIRMED };   // notified — 확인 실패 번호를 이미 띄웠다
+    return premium ? { ok: true, lic: l } : { ok: false, registered: true, notified, reason: NOT_CONFIRMED, lic: l };   // notified — 확인 실패 번호를 이미 띄웠다
   }
-  /* 이 기기에서 해제 — 서버 목록에서 이 기기를 뺀다(다른 기기 · 키는 그대로). 돌려주는 것 { ok, reason? } */
-  async function deactivate(){
+  /* 이 기기에서 해제 — 서버 목록에서 이 기기를 뺀다(다른 기기 · 키는 그대로). 돌려주는 것 { ok, reason?, lic? } · opts.ownerKnown — activate 와 같다 */
+  async function deactivate(opts){
     let after = null;
     const g = gen;
     try{
-      const lic = await licenseApi.mine();
-      if(lic) after = await licenseApi.removeDevice(deps.deviceId());
+      if(opts && opts.ownerKnown) after = await licenseApi.removeDevice(deps.deviceId());
+      else{
+        const lic = await licenseApi.mine();
+        if(lic) after = await licenseApi.removeDevice(deps.deviceId());
+      }
     }catch(e){ return { ok: false, err: e, reason: licenseApi.reasonOf(e) || deps.reasonOf(e) }; }
     if(g !== gen) return { ok: false, stale: true, reason: '' };
     deps.resetCustomStatus();
     await fromWrite(after);
-    return { ok: true };
+    return { ok: true, lic: after };
+  }
+  /* 이 기기 등록 — 라이선스는 있는데 이 기기만 목록에 없을 때(사용자가 [이 기기 등록] 을 눌렀을 때만). 쓰기 전 읽기는 화면이 창 열기에서 했다.
+     돌려주는 것 { ok, err?, lic? } — 서버가 «기기를 모두 썼다» 로 거절하면 err.code 로 부르는 쪽이 가른다 */
+  async function registerDevice(){
+    const g = gen;
+    let l;
+    try{ l = await licenseApi.putDevice(deps.deviceId(), deps.deviceName()); }
+    catch(e){ return { ok: false, err: e, reason: licenseApi.reasonOf(e) || deps.reasonOf(e) }; }
+    if(g !== gen) return { ok: false, stale: true, reason: '' };
+    await fromWrite(l);
+    return { ok: true, lic: l };
   }
 
-  return { start, refresh, activate, deactivate, reset };
+  return { start, refresh, activate, deactivate, registerDevice, reset };
 }
 
 const api = { KIND, createLicensePremium };
