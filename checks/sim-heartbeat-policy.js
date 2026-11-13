@@ -51,7 +51,8 @@ function policyTable(P){
 /* ── app.js 하트비트 덩이를 떼어 가짜 환경에서 돌린다 ── */
 function grabHeartbeat(src){
   const a = src.indexOf('let _twMoveSeenAt = 0;');
-  const b = src.indexOf('}, 100);', a);
+  const m = /\}\)?, 100\);/.exec(src.slice(a));   // 시간 재기로 감싸면(runCost.timed) «}), 100);»
+  const b = (a < 0 || !m) ? -1 : a + m.index;
   if(a < 0 || b < 0) return null;
   const c = src.indexOf('}catch(_){}', b);
   return c < 0 ? null : src.slice(a, c + '}catch(_){}'.length);
@@ -69,9 +70,10 @@ function runHeartbeat(src, P){
   const window = { companion, __uiRegions: () => { regionCalls++; return [{ x: 1, y: 2, w: 3, h: 4 }]; } };
   const statusChipMod = { otherSeatCircles: () => { otherCalls++; return [{ x: 5, y: 6, r: 110 }]; } };
   const FakeDate = { now: () => now };
-  new Function('window', 'companion', 'statusChipMod', 'TwHeartbeatPolicy', 'setInterval', 'Date', '_charBoundsLatest', '_charBadWhy',
+  const TwRunCostDiag = { page: { timed: (k, fn) => fn } };   // 1분 [비용] 재기는 그대로 넘긴다(run-cost-diag.js — 검사는 sim-run-cost-diag)
+  new Function('window', 'companion', 'statusChipMod', 'TwHeartbeatPolicy', 'TwRunCostDiag', 'setInterval', 'Date', '_charBoundsLatest', '_charBadWhy',
     block.replace(/^let _charBoundsLatest[^\n]*\n/m, ''))(
-    window, companion, statusChipMod, P, (fn, ms) => { tick = { fn, ms }; return 1; }, FakeDate, { x: 10, y: 20, r: 120 }, null);
+    window, companion, statusChipMod, P, TwRunCostDiag, (fn, ms) => { tick = { fn, ms }; return 1; }, FakeDate, { x: 10, y: 20, r: 120 }, null);
   if(!tick) return null;
   const step = (n) => { const out = []; for(let i = 0; i < n; i++){ now += tick.ms; const k = sent.length; tick.fn(); out.push(sent[k]); } return out; };
   return { tick, step, shown: (v) => shownCb && shownCb(v), hasShownCb: () => !!shownCb, counts: () => ({ regionCalls, otherCalls }) };
