@@ -58,7 +58,7 @@ const CODES = {
   'E-MH-13': { msg: '온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요', where: 'myhome/presence-lock.js — 🔒 고정 · 고정 중 토글 저장(서버 계정 presencePref — PATCH /v1/me)' },
   'E-MH-20': { msg: '마이홈을 불러오지 못했어요 — 마이홈의 «다시 시도» 를 눌러 주세요', where: 'myhome/myhome-store.js — 내 홈 받기 실패(fetchMine 던짐 · 판이 없는 답 — 마이홈을 열 때 · 다시 시도 · 409 뒤 다시 받기)' },
   'E-MH-21': { msg: '그 마이홈을 불러오지 못했어요', where: 'myhome/myhome-store.js — 친구 홈 구경 받기 실패(fetchOf 던짐 — 지금 보던 집은 그대로 · 없는 사람 USER_NOT_FOUND 는 번호 없이 서버 문구 안내)' },
-  'E-MH-22': { msg: '마이홈을 저장하지 못했어요', where: 'myhome/myhome-store.js — 페이지 PATCH 실패(MYHOME_TEXT_TOO_LONG · MYHOME_INVALID_IMAGE_URL · MYHOME_INVALID_LINK · INVALID_REQUEST 포함 — 이어지는 동안 한 번만)' },
+  'E-MH-22': { msg: '마이홈을 저장하지 못했어요', where: 'myhome/myhome-store.js — 페이지 PATCH 실패(MYHOME_TEXT_TOO_LONG · MYHOME_INVALID_IMAGE_URL · MYHOME_INVALID_LINK · INVALID_REQUEST 포함 — 서버가 거절한 값은 버리고 그때마다 알림 · 망 · 5xx 실패는 이어지는 동안 한 번만)' },
   'E-MH-23': { msg: '디자인을 저장하지 못했어요', where: 'myhome/myhome-store.js — 디자인 PUT 실패(MYHOME_INVALID_THEME 포함 · PREMIUM_REQUIRED 는 공통 E-NET-03)' },
   'E-MH-24': { msg: '그림을 올리지 못했어요', where: 'myhome/myhome-store.js — 그림 올리기 실패(사진 · 스티커 · 배경 · 디자인 · IMAGE_UPLOAD 올리기 전 걸러냄 포함)' },
   'E-ROOM-01': { msg: '방 목록을 불러오지 못했어요 — 잠시 후 다시 시도해 주세요', where: 'room/room-entry.js — 랜덤 참여 · 갈아타기 (findRandomRooms)' },

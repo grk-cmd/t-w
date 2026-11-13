@@ -382,6 +382,16 @@ async function judge(withBreak){
     bad.srv.patchErr = null;
     await bad.st.setField('bio', 'hello');
     chk(bad.srv.sent.length === 2 && !('bgm' in bad.srv.sent[1]) && bad.srv.sent[1].bio === 'hello' && bad.srv.page.bio === 'hello' && bad.st.page().bgm === null, '서버가 거절한 값은 버린다 — 다음 고침이 같이 거절되지 않는다(화면은 server 값으로)');
+    const mx = await ready(mk());
+    mx.srv.patchErr = [apiErr(400, 'MYHOME_INVALID_BGM')];
+    const mr = await mx.st.setFields({ bio: '긴 소개', bgm: { url: 'x', title: '' } });
+    chk(mr === 'failed' && mx.srv.page.bio === '긴 소개' && mx.st.page().bio === '긴 소개' && mx.st.page().bgm === null && mx.srv.sent.length === 2 && !('bgm' in mx.srv.sent[1]), '거절된 칸(BGM)만 버리고 같은 묶음의 글은 한 번 더 보낸다');
+    const nr = await ready(mk({ patchErr: Object.assign(apiErr(404, ''), { kind: 'unavailable' }) }));
+    await nr.st.setField('bio', 'keepme');
+    nr.srv.patchErr = null; await nr.st.save();
+    chk(nr.srv.page.bio === 'keepme' && nr.st.page().bio === 'keepme', '길 없음(404 · 닿지 못함)은 거절이 아니다 — 되돌려 다음에 보낸다');
+    const dro = await ready(mk({ designErr: apiErr(400, 'MYHOME_INVALID_THEME') }));
+    chk(await dro.st.setDesign({ theme: { a: 'x' }, presets: [null, null, null], presetCur: 0 }) === 'failed' && dro.st.page().theme === null, '디자인이 거절되면 결과도 failed(화면은 server 값)');
     const dr = await ready(mk({ designErr: apiErr(400, 'MYHOME_INVALID_THEME') }));
     const d1 = dr.st.setDesign({ theme: { a: 'x' }, presets: [null, null, null], presetCur: 0 }), d2 = dr.st.setField('bio', 'ok');
     await Promise.all([d1, d2]);
@@ -521,7 +531,9 @@ async function judge(withBreak){
     ['409 에서 글 칸 말고도 남기면', (s) => s.replace('if(keepKey(k)) o.fields[k] = clone(all.fields[k]);', 'o.fields[k] = clone(all.fields[k]);')],
     ['gen 검사를 빼면(계정을 놓은 뒤 늦은 답이 상태를 고침)', (s) => s.split('g !== gen').join('false')],
     ['한 줄을 우회하면(받기 · 저장이 겹쳐 돔)', (s) => s.replace('const p = tail.then(job, job);', 'const p = Promise.resolve().then(job);')],
-    ['서버가 거절한 값을 되돌려 다시 보내면', (s) => s.replace("return typeof st === 'number' && st >= 400", "return false && st >= 400")],
+    ['서버가 거절한 값을 되돌려 다시 보내면', (s) => s.replace("if(typeof st !== 'number') return false;", 'return false;')],
+    ['거절된 칸만이 아니라 묶음을 통째로 버리면', (s) => s.replace('const cols = REJECT_COLS[code];', 'const cols = null;')],
+    ['거절을 kind 로 안 가르면(404 길 없음도 거절)', (s) => s.replace("if(e.kind === 'request') return", "if(e.kind) return")],
     ['setDesign 이 앞서 고른 배경 색을 안 지우면(나중 것이 이김)', (s) => s.replace('if(hasBg) delete pending.fields.bg;', '')],
     ['setDesign 이 바깥 배경을 안 이어 가면', (s) => s.replace('snap.bg = pending.design.bg;', '')],
     ['스티커 w · h 를 정수로 안 만들면', (s) => s.replace('s.w = Math.max(1, Math.min(400, Math.round(Number(s.w) || 1)));', 's.w = Number(s.w);')],

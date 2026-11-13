@@ -7,7 +7,7 @@
      pending = 아직 안 보낸 고침 — 글 칸 · 스티커 동작(add · edit · remove · move) · 디자인 · 지우기 표시. page() = server 에 pending(보내는 중인 묶음 포함)을 얹은 값 + 사진 미리보기 — emit 마다 새로 만들어 얼린다.
    한 줄(lane): 받기 · 저장은 한 줄(tail)에 차례로 선다 — 겹치지 않으니 서버 판(version)이 한 갈래다. 올리기(사진 · 스티커 · 배경)는 줄 밖에서 돌고 주소만 돌려주며, 고침은 올리기가 «끝난 때» 만든다.
    저장: pending 을 batch 로 옮기고(pending 은 비운다) server 에 batch 를 얹은 값에서 요청 본문을 만든다 — server 와 같은 칸은 싣지 않고 바뀐 게 없으면 요청 0. 디자인(PUT design) 먼저 · 그다음 페이지 PATCH 한 번. 성공하면 server 가 그 값이 된다(서버가 글을 씻어도 다시 보내지 않는다).
-     서버가 거절한 값(4xx — 401 · 408 · 429 · 409 제외)은 되돌리지 않고 버린다 — 다시 보내도 같은 답이라 다음 고침까지 막기 때문. 디자인 PUT 이 거절돼도 같은 묶음의 PATCH 는 따로 보낸다. 그 자리 번호(또는 안내)를 알린다.
+     서버가 거절한 값(api-client 가 «그 밖의 4xx» 로 가른 것과 403 — 408 · 429 · 409 · 길 없음 404 제외)은 되돌리지 않는다 — 다시 보내도 같은 답이라 다음 고침까지 막기 때문. 거절 code 가 가리키는 칸만 버리고(INVALID_BGM → BGM · TEXT_TOO_LONG → 글 칸 · 그림 주소 · 링크 → 그림 · 스티커) 같은 묶음의 나머지는 한 번 더 보낸다(모르는 code 면 묶음 통째). 디자인 PUT 이 거절돼도 같은 묶음의 PATCH 는 따로 보내고 결과는 'failed'. 그 자리 번호(또는 안내)를 알린다.
      그 밖의 실패(망 · 5xx · 로그인): batch 를 pending 에 되돌려 합치고 그 자리 번호를 한 번(이어지는 실패는 한 번 · 성공하면 풂). 혼자 다시 보내지 않는다 — 다음 고침 · save() · 창 닫기 올리기(flush) · 앱 끄기가 한 번.
    409 CONCURRENT_UPDATE(디자인 PUT 이든 페이지 PATCH 든): 고치기를 잠그고 다시 받는다. 내 고침 가운데 글 칸(소개 · 게시글 · 제목)만 새 판에 얹어 한 번 더 보낸다(Q1) — 스티커 · 사진 · 배경 · BGM · 디자인은 받은 값(P6) + «다른 기기에서 바꾼 내용을 받아왔어요».
      그 «한 번» 은 pending 의 rebased 표시로 센다 — 얹은 글이 저장되거나 버려지면 표시도 같이 사라진다. 그 저장이 또 409 면 글도 버린다(받은 값 + 알림).
@@ -495,11 +495,11 @@ function createMyHomeStore(deps){
     pending = emptyOps();
     emit();
     /* 1) 디자인 PUT — 바뀐 게 있을 때만 */
+    let rejectedDesign = false;
     if(batch.design){
       const body = designBody(server.page, batch.design);
       if(body){
         let v;
-        let rejectedDesign = false;
         try{ v = await api.putDesign(server.version, body); }
         catch(e){
           if(g !== gen) return R('stale');
@@ -524,10 +524,12 @@ function createMyHomeStore(deps){
       catch(e){
         if(g !== gen) return R('stale');
         if(!isRejected(e)) return failSave(e, 'save', batch, g);
-        inflight = null;   // 서버가 거절한 값 — 버리고 화면은 server 값으로 돌아간다(다음 고침이 같이 거절되지 않게)
         report(e, 'save');
+        pending = mergeOps(withoutRejected(batch, failOf(e).code), pending);   // 거절된 칸만 버린다 — 나머지는 되돌려 한 번 더 보낸다
+        inflight = null;
+        const again = hasWork(pending) ? kickRaw() : null;
         emit();
-        return R('failed');
+        return R('failed', again);
       }
       if(g !== gen) return R('stale');
       server.page = apply(server.page, { fields: batch.fields, stickerOps: batch.stickerOps, design: null });
@@ -535,14 +537,33 @@ function createMyHomeStore(deps){
       failing = false;
     }
     inflight = null;
-    return R('ok');
+    return R(rejectedDesign ? 'failed' : 'ok');
   }
   /* 서버가 «이 값은 안 된다» 고 답함(400 대 · 로그인 · 시간 초과 · 몰림 제외) — 다시 보내도 같은 답이라 되돌리지 않는다 */
   function isRejected(e){
     const st = e && e.status;
     const k = failOf(e).kind;
     if(k === KIND.CONFLICT || k === KIND.STALE) return false;   // 409 · 주인 바뀜은 따로 다룬다
-    return typeof st === 'number' && st >= 400 && st < 500 && st !== 401 && st !== 408 && st !== 429;
+    if(typeof st !== 'number') return false;
+    if(e.kind === 'request') return st >= 400 && st < 500 && st !== 408 && st !== 429;   // api-client 가 «그 밖의 4xx» 로 가른 것
+    return e.kind === 'auth' && st === 403;   // 권한 없음(프리미엄 아님 등) — 길 없음 404 · 닿지 못함 · 5xx 는 되돌린다
+  }
+  /* 거절된 code 가 가리키는 칸만 뺀 묶음 — 모르는 code 거나 뺄 칸이 없으면 묶음을 통째로 버린다(같은 거절을 되풀이하지 않게) */
+  const REJECT_COLS = Object.freeze({
+    MYHOME_INVALID_BGM: ['bgm'], MYHOME_TEXT_TOO_LONG: TEXT_FIELDS,
+    MYHOME_INVALID_IMAGE_URL: ['avatar', 'bg', '#stickers'], MYHOME_INVALID_IMAGE: ['avatar', 'bg', '#stickers'], MYHOME_INVALID_LINK: ['#stickers'],
+  });
+  function withoutRejected(batch, code){
+    const cols = REJECT_COLS[code];
+    const rest = emptyOps();
+    rest.rebased = batch.rebased;
+    if(!cols) return rest;
+    let dropped = false;
+    for(const k of Object.keys(batch.fields)){
+      if(cols.indexOf(k) >= 0) dropped = true; else rest.fields[k] = batch.fields[k];
+    }
+    if(cols.indexOf('#stickers') >= 0 && batch.stickerOps.length) dropped = true; else rest.stickerOps = batch.stickerOps;
+    return dropped ? rest : emptyOps();
   }
   function failSave(e, site, batch, g){
     if(g !== gen) return R('stale');
