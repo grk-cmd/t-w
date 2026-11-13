@@ -12,7 +12,6 @@ export function SiteHeader() {
           {m.siteName}
         </a>
         <nav className="nav" aria-label={m.navLabel}>
-          <a href="#maker">{m.navMaker}</a>
           <a href="#about">{m.navAbout}</a>
           <a href={HELP_URL} target="_blank" rel="noopener noreferrer">
             {m.navHelp}
