@@ -6,6 +6,7 @@
      칸 번호: 받은 칸은 서버 slot 을 그대로 들고 있다(0~3 안에서 겹치지만 않고 0 · 2 처럼 빌 수 있다) — 보내기는 이 번호를 쓴다. 칸 저장(PUT)만 배열 차례로 0부터 다시 매긴다.
    신원: 보낸 사람 · 내 칸은 서버가 토큰에서 정한다 — 본문에 내 코드 · 이름 · 날짜 · 그림 주소(보내기)를 싣지 않는다. 경로의 코드는 받는 사람 · 방문한 집(데이터 주소).
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · patch · del(…, { expectOwner }) → Promise<data>)
+         imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          warn(...a)(진단 로그)
    내보냄: createGiftApi(deps) → {
      fetchMine() → Promise<{ slots:[{ slot, imageUrl, enabled }], version }> — 저장한 적 없으면 빈 칸 · 판 0. 못 읽으면 던진다.
@@ -82,17 +83,6 @@ function failOf(err, errs){
   return { kind, code: t.code, message: str(err && err.message) };
 }
 
-/* data:image/…;base64,… → { type, bytes }. 형식이 아니면 null */
-function parseDataUrl(u){
-  const m = /^data:([a-z]+\/[a-z0-9.+-]+);base64,([A-Za-z0-9+/=]*)$/.exec(str(u));
-  if(!m) return null;
-  let bin;
-  try{ bin = atob(m[2]); }catch(_){ return null; }
-  const bytes = new Uint8Array(bin.length);
-  for(let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
-  return { type: m[1], bytes };
-}
-
 /* 칸 응답 { slots:[{slot, imageUrl, enabled}], version } → { slots:[{slot, imageUrl, enabled}] (slot 차례 · 서버 번호 그대로), version }. 모양이 틀리면 undefined */
 function slotsOf(d){
   if(!isObj(d) || !Array.isArray(d.slots) || !cnt(d.version) || d.slots.length > LIMITS.SLOTS) return undefined;
@@ -161,6 +151,7 @@ function sendBody(o){
 function createGiftApi(deps){
   const authed = deps.authed;
   const warn = deps.warn;
+  const imageBytes = deps.imageBytes;   // TwImageBytes — data: 그림 → 바이트 판정(shared/image-bytes.js)
   let owner;          // 마지막으로 내 것을 읽을 때 쓴 토큰의 주인(undefined = 읽은 적 없음)
   let epoch = 0;      // reset 마다 오른다 — reset 전에 시작한 읽기가 늦게 끝나도 주인 기억을 되살리지 않게
 
@@ -186,8 +177,8 @@ function createGiftApi(deps){
   const needCode = (c) => { if(!nonEmpty(c)) throw codeError('NO_USER', '사용자 코드 없음'); return c; };
 
   async function uploadImage(dataUrl){
-    const img = parseDataUrl(dataUrl);
-    if(!img || IMAGE_TYPES.indexOf(img.type) < 0 || img.bytes.length === 0 || img.bytes.length > LIMITS.IMAGE_BYTES) throw codeError(IMAGE_UPLOAD_CODE, '말랑이 그림을 올리지 못했어요');
+    const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });
+    if(!img.ok) throw codeError(IMAGE_UPLOAD_CODE, '말랑이 그림을 올리지 못했어요');
     const d = await write('그림 올리기', (o) => authed.post(PATHS.image, img.bytes, Object.assign({ rawType: img.type }, o)));
     if(!isObj(d) || !nonEmpty(d.url)) throw shapeError();
     return d.url;

@@ -350,6 +350,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
 - 검사: `checks/sim-input-diag.js`(깨 보기 열).
 
+## `image-bytes.js` — 🖼 data: 그림 → 올릴 바이트
+
+- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 서버 올리기(`POST /v1/me/images?purpose=…`)가 받는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
+- **쓰는 법**: provider 가 `deps.imageBytes`(app.js 가 `TwImageBytes` 를 넘김)로 받아 `inspect(dataUrl, { types, maxBytes })` → `{ ok: true, type, bytes }` 또는 `{ ok: false, why: 'format' | 'empty' | 'large' }`. 종류 · 상한 값은 부르는 쪽(provider `LIMITS` · `IMAGE_TYPES`)이 정한다 — 여기엔 숫자를 두지 않는다.
+- **내놓는 것**: `parseDataUrl` · `inspect`. 순수 — 아무것도 부르지 않는다.
+- **함정**: 상한과 같은 크기는 통과(초과만 `large`). 서버 상한이 바뀌면 값은 각 provider `LIMITS` 한 곳씩.
+- 검사: `checks/sim-image-bytes.js`.
+
 ## `request-id.js` — 🔁 요청 번호(requestId)
 
 - **책임**: 새것을 만들거나 쌓는 쓰기(뽑기 · 선물 · 지급 · 초대 · 글 쓰기 · 대화 보내기)에 싣는 `requestId` 를 만든다 — 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`(uuid). 서버는 같은 사람 · 같은 번호를 «처음 결과를 다시 돌려주기» 로 받는다(10분).

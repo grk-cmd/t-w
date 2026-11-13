@@ -15,6 +15,7 @@ const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : f
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const pick = (names) => names.map(read).find(Boolean);
 const SRC0 = {
+  IMG: pick(['image-bytes.js', 'parts/shared/image-bytes.js', 'app/parts/shared/image-bytes.js']),
   API: pick(['guestbook-api.js', 'parts/myhome/guestbook-api.js', 'app/parts/myhome/guestbook-api.js']),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   UI: pick(['guestbook.js', 'parts/myhome/guestbook.js', 'app/parts/myhome/guestbook.js']),
@@ -25,6 +26,8 @@ const SRC0 = {
 };
 for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const load = (src) => { const w = {}; new Function('window', 'module', src)(w, undefined); return w.TwGuestbookApi; };
+let IMGSRC = null;   // 검사 중인 image-bytes.js 원본(깨 보기가 바꿔 끼운다)
+const imgMod = () => { const w = {}; new Function('window', 'module', IMGSRC)(w, undefined); return w.TwImageBytes; };
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
 const apiErr = (status, code) => Object.assign(new Error(code || String(status)), { status, code: code || '', kind: status >= 500 ? 'unavailable' : 'request' });
@@ -48,11 +51,12 @@ function fake(routes, who){
 }
 const mk = (src, routes, who) => {
   const authed = fake(routes, who), warns = [];
-  const m = load(src).createGuestbookApi({ authed, warn: (...a) => warns.push(a.join(' ')) });
+  const m = load(src).createGuestbookApi({ authed, imageBytes: imgMod(), warn: (...a) => warns.push(a.join(' ')) });
   return { m, authed, warns };
 };
 
 async function judge(S){
+  IMGSRC = S.IMG;
   const LIB = S.API;
 
   say('── 1. 읽기');
@@ -183,7 +187,7 @@ async function judge(S){
     const calls = [], tk = { v: jwt('A') };
     const client = AC.createApiClient({ baseUrl: 'https://api.test', getToken: async () => tk.v,
       fetch: async (url, init) => { calls.push(init.method + ' ' + url); return reply(200, init.method === 'GET' ? bookOf() : ent('n1')); } });
-    const m = load(S.API).createGuestbookApi({ authed: client, warn: () => {} });
+    const m = load(S.API).createGuestbookApi({ authed: client, imageBytes: imgMod(), warn: () => {} });
     await m.fetchView('ME01', 'uOWN00001');
     chk((await m.write('ME01', 'uOWN00001', 'hi', 'rid-12345678')).status === 'ok' && calls.length === 2, '같은 계정이면 보낸다');
     tk.v = jwt('B');   // 그 사이 다른 계정으로 로그인
@@ -224,15 +228,15 @@ async function runAll(){
     ['요청 번호를 안 실음', S.API.replace("{ requestId, text }", "{ text }"), 'requestId'],
     ['지움(null)을 칸 없음으로', S.API.replace("body.clapEmoji = patch.clapEmoji;", "if(patch.clapEmoji != null) body.clapEmoji = patch.clapEmoji;"), '«지움»'],
     ['박수 경로 틀림', S.API.replace("'/claps'", "'/clap'"), '박수'],
-    ['그림 용량 상한을 안 봄', S.API.replace('img.bytes.length > LIMITS.IMAGE_BYTES', 'false'), '512KB'],
+    ['그림 용량 상한을 안 봄', S.IMG.replace('img.bytes.length > o.maxBytes', 'false'), '512KB', 'IMG'],
     ['그림을 base64 글자로 보냄', S.API.replace('authed.post(PATHS.image, img.bytes,', 'authed.post(PATHS.image, dataUrl,'), '바이트 그대로'],
     ['그림 쓰임이 틀림', S.API.replace("image: '/v1/me/images?purpose=clap'", "image: '/v1/me/images?purpose=dday'"), 'purpose=clap'],
     ['새 글 수 since 를 안 보냄', S.API.replace("'/v1/me/guestbook/summary?since=' + enc(String(since))", "'/v1/me/guestbook/summary'"), 'since'],
   ];
-  for(const [name, src, what] of breaks){
-    if(src === S.API){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
+  for(const [name, src, what, key = 'API'] of breaks){
+    if(src === S[key]){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
     quiet = true; qfail = 0;
-    try{ await judge(Object.assign({}, S, { API: src })); }catch(_){ qfail++; }
+    try{ await judge(Object.assign({}, S, { [key]: src })); }catch(_){ qfail++; }
     quiet = false;
     chk(qfail > 0, name + ' → 빨강(' + what + ')');
   }
