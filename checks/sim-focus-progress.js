@@ -175,7 +175,11 @@ async function judge(S){
   await W.ok(W.gets[1], prog(10, { today: NEXT }));
   chk(W.days[W.days.length - 1].day === '2026-11-14' && W.mod.progress().load === 'ready' && W.notes.length === 0, '  답 → 서버 날을 넘긴다 · 번호 알림 0');
   W.mod.refreshDay(); W.gets[2].rej(new Error('z')); await flush();
-  chk(W.mod.progress().load === 'ready' && W.notes.length === 0 && W.gets.length === 3 && W.mod.getFocusLevel() === 1, '★ 실패 → 번호 0 · 진척 상태는 ready 그대로 · 되풀이 요청 0(다음 올리기 답이 새 날을 준다)');
+  chk(W.mod.progress().load === 'failed' && W.notes.length === 0 && W.gets.length === 3, '★ 실패 → failed 로만 둔다(설계 7절) · 번호 0 · 되풀이 요청 0');
+  W.mod.reload(true); await flush();
+  chk(W.gets.length === 4, '  창을 열면(reload) 다시 받는다');
+  if(W.gets[3]) W.gets[3].res(prog(20, { today: NEXT })); await flush();
+  chk(W.mod.progress().load === 'ready' && W.days[W.days.length - 1].day === '2026-11-14', '  받으면 ready · 새 날'); 
   W = await world(S).up(0);
   W.mod.refreshDay(); W.reset(); W.gets[1].res(prog(5)); await flush();
   chk(W.days[W.days.length - 1] === null, '계정이 바뀐 뒤 늦은 새 날 답은 버린다(서버 날을 다시 채우지 않는다)');
@@ -348,6 +352,7 @@ async function judge(S){
     ['MOD', "    session.onReset(reset);", "", '세션 reset 훅을 안 건다'],
     ['MOD', "    loadNow(false);\n  }", "  }", '시작해도 진척을 안 받음'],
     ['MOD', "    if(seq < appliedSeq){", "    if(false){", '요청 순번을 안 봄'],
+    ['MOD', "        if(g === gen){ load = 'failed'; changed(); }\n      }finally{", "        if(g === gen){ changed(); }\n      }finally{", '새 날 받기 실패를 failed 로 안 둠'],
     ['MOD', "    if(!started || load !== 'ready' || dayRun) return dayRun || Promise.resolve();", "    if(!started) return Promise.resolve();", '새 날 받기가 받기 전에도 · 겹쳐서 나감'],
     ['MOD', "if(!adopt(r.progress, seq) && p) p.starColor = r.progress.starColor;", "adopt(r.progress, seq);", '늦은 별 색 답의 색을 버림'],
     ['MOD', "  const shownTotalSec = () => (load === 'ready' ? p.totalSec + unsent() : null);", "  const shownTotalSec = () => (load === 'ready' ? p.totalSec : null);", '레벨 막대용 합계에 못 올린 몫을 안 더함'],

@@ -65,7 +65,7 @@ function createFocusProgress(deps){
   /* 서버 답을 진척으로 받는다 — 앞서 보낸 요청의 늦은 답이면 버린다 */
   function adopt(prog, seq){
     if(seq < appliedSeq){
-      if(p && prog.totalSec > p.totalSec){ p.totalSec = prog.totalSec; p.level = prog.level; p.cycle = prog.cycle; p.cycleLevel = prog.cycleLevel; }   // 누적은 서버에서 줄지 않는다 — 늦게 온 답이 더 크면 그 몫은 받는다
+      if(p && prog.totalSec > p.totalSec){ p.totalSec = prog.totalSec; p.level = prog.level; p.cycle = prog.cycle; p.cycleLevel = prog.cycleLevel; changed(); }   // 누적은 서버에서 줄지 않는다 — 늦게 온 답이 더 크면 그 몫은 받는다
       return false;
     }
     appliedSeq = seq;
@@ -100,7 +100,7 @@ function createFocusProgress(deps){
     return loadRun;
   }
   /* 하루가 바뀐 때(focus-total.js) — 새 날을 한 번 받는다. 받은 뒤에만(그 전엔 시작 받기가 새 날을 준다).
-     실패해도 되풀이하지 않고 진척 상태도 건드리지 않는다 — 다음 올리기 답이 새 날을 준다 */
+     실패하면 failed 로만 두고 되풀이하지 않는다(설계 7절) — 번호 알림 없음 · 다음에 창을 열 때 다시 받는다 */
   function refreshDay(){
     if(!started || load !== 'ready' || dayRun) return dayRun || Promise.resolve();
     const g = gen, seq = ++reqSeq;
@@ -109,7 +109,7 @@ function createFocusProgress(deps){
         const prog = await focusApi.fetchProgress(code);
         if(g === gen && adopt(prog, seq)) changed();
       }catch(e){
-        console.warn('[포커스] 새 날 받기 실패 — 다음 올리기 답이 채운다', e);
+        if(g === gen){ load = 'failed'; changed(); }
       }finally{
         if(g === gen) dayRun = null;
       }
