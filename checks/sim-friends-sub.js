@@ -608,11 +608,11 @@ async function judge(S){
   const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/\/\/[^\n]*/g, ' ');
   const ui = strip(S.UI), fm = strip(S.FM), ri = strip(S.RI);
   const iChk = ui.indexOf('const _fr = await friendsForCheck();'), iNull = ui.indexOf('if(!_fr) return;'), iMax = ui.indexOf('if(Object.keys(_fr).length>=FRIEND_MAX)');
-  const iSend = ui.indexOf('firebaseAPI.sendFriendRequest(');
+  const iSend = ui.indexOf('friendRequests().send(');
   chk(iChk > 0 && iNull > iChk && iMax > iNull && iSend > iMax, '친구 코드로 추가 — 판정용 목록 → 못 읽으면 그만(아무것도 안 보냄) → 상한 → … → 요청 보내기 순서');
   chk(/if\(_fr\[friendId\] \|\| _myHomeFriends\(\)\[friendId\]\)\{ toast\('이미 친구예요'\); return; \}/.test(ui) && !/Object\.keys\(_myHomeFriends\(\)\)\.length>=FRIEND_MAX/.test(ui),
     '  «이미 친구» · 상한은 판정용 목록으로(빈 캐시로 판정 안 함)');
-  const jChk = fm.indexOf('const _fr = await friendsForCheck();'), jNull = fm.indexOf('if(!_fr) continue;'), jMax = fm.indexOf('if(Object.keys(_fr).length >= FRIEND_MAX){'), jAcc = fm.indexOf('firebaseAPI.acceptFriendRequest(');
+  const jChk = fm.indexOf('const _fr = await friendsForCheck();'), jNull = fm.indexOf('if(!_fr) continue;'), jMax = fm.indexOf('if(Object.keys(_fr).length >= FRIEND_MAX){'), jAcc = fm.indexOf('requests().accept(');
   chk(jChk > 0 && jNull > jChk && jMax > jNull && jAcc > jMax, '요청 수락(팝업) — 판정용 목록 → 못 읽으면 요청 남김 → 상한 → 수락 순서');
   chk(/if\(tab\.dataset\.tab==='friend'\) friendsRetry\(\);/.test(ui), '친구 탭을 열 때 friendsRetry(못 불러왔으면 다시 걸기)');
   const kOpen = ri.indexOf('function openPick(){'), kRetry = ri.indexOf('_friendsRetry();', kOpen), kNotice = ri.indexOf('const notice = _friendsNotice();', kOpen);

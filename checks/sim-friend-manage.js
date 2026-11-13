@@ -166,8 +166,11 @@ for (const fn of ['getSentFriendRequests', 'isFriendRequestAlive', 'pruneSentFri
   chk(HTML.includes('async ' + fn + '('), fn + '() 가 정의돼 있다');
 const sentFn = (SRC.match(/async function renderSentRequests[\s\S]*?\n\}/) || [''])[0];
 chk(!!sentFn, 'renderSentRequests() 를 찾았다');
-chk(sentFn.includes('isFriendRequestAlive'), '목록을 그릴 때 한 건씩 살아 있는지 확인한다');
-chk(sentFn.includes('pruneSentFriendRequest'), '죽은 미러는 서버에서도 치운다 (자가 치유)');
+/* 한 건씩 살아 있는지 확인 · 죽은 미러 치우기는 옛 길 provider(friend-requests-firebase.js)로 옮겼다 — 목록은 포트 listSent 한 곳으로 읽는다 */
+let FRFSRC = null; try{ FRFSRC = fs.readFileSync('friend-requests-firebase.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — friend-requests-firebase.js'); process.exit(2); }
+chk(sentFn.includes('requests().listSent('), '보낸 요청 목록은 요청 포트 listSent 한 곳으로 읽는다');
+chk(FRFSRC.includes('deps.isAlive(toId, myId)'), '옛 길 provider 가 목록을 만들 때 한 건씩 살아 있는지 확인한다');
+chk(FRFSRC.includes('deps.prune(myId, toId)'), '죽은 미러는 서버에서도 치운다 (자가 치유)');
 chk(!/onValue|subscribe/.test(sentFn),
     '보낸 요청은 **구독이 아니다** (상시 구독을 늘리면 친구 100명 상한의 근거가 무너진다)');
 // 확인 실패를 '죽음'으로 보면 멀쩡한 요청이 사라진다 — catch 가 true 를 돌려주는지
@@ -229,6 +232,8 @@ const stubApi = {
   rejectFriendRequest: async () => {},
 };
 globalThis.firebaseAPI = stubApi;
+/* 👋 요청 포트는 받는 곳 스위치로 서버 · 옛 길을 고른다 — 이 검사는 옛 길(firebaseAPI 스텁)로 고정한다(자리 계산은 길과 무관) */
+if (globalThis.TwSourceSwitch) globalThis.TwSourceSwitch.store.pick = () => 'firebase';
 if (globalThis.window) globalThis.window.firebaseAPI = stubApi;
 
 // 자리 1칸만 남긴다

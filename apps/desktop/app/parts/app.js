@@ -2528,6 +2528,7 @@ const friendManage = TwFriendManage.createFriendManage({
   myFriendRequests: ()=>_myFriendRequests,
   friendMax: FRIEND_MAX,
   friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
+  requests: ()=>friendRequestsPortMod,
 });
 let _myHomeReady = false;
 /* 포기하지 않는다 — SDK 를 실행 때 gstatic 에서 받아 느린 망이면 20초를 넘긴다(예전 20초 포기 → 친구 · 우편 구독이 영영 안 걸렸다). */
@@ -2570,6 +2571,25 @@ const friendsApiMod = TwFriendsApi.createFriendsApi({
   social: socialApiMod,
   rt: TwRtHub.store,   // 알림 friends · card 를 받으면 다시 받는다
   warn: (...a)=>console.warn(...a),
+});
+/* 👋 친구 요청 — 포트 하나(friends/friend-requests-port.js) 뒤에 옛 길(Firebase) · 서버 provider. 받는 곳은 친구 목록과 같은 스위치('friends') */
+const friendRequestsFirebaseMod = TwFriendRequestsFirebase.createFriendRequestsFirebase({
+  subscribe: (...a)=>firebaseAPI.subscribeFriendRequests(...a),
+  getSent: (...a)=>firebaseAPI.getSentFriendRequests(...a),
+  isAlive: (...a)=>firebaseAPI.isFriendRequestAlive(...a),
+  prune: (...a)=>firebaseAPI.pruneSentFriendRequest(...a),
+  accept: (...a)=>firebaseAPI.acceptFriendRequest(...a),
+  reject: (...a)=>firebaseAPI.rejectFriendRequest(...a),
+  cancel: (...a)=>firebaseAPI.cancelFriendRequest(...a),
+  send: (...a)=>firebaseAPI.sendFriendRequest(...a),
+  getName: (...a)=>firebaseAPI.getUserNameById(...a),
+  lookupCode: (...a)=>firebaseAPI.lookupFriendCode(...a),
+});
+const friendRequestsApiMod = TwFriendRequestsApi.createFriendRequestsApi({ social: socialApiMod, rt: TwRtHub.store, warn: (...a)=>console.warn(...a) });
+const friendRequestsPortMod = TwFriendRequestsPort.createFriendRequestsPort({
+  firebase: friendRequestsFirebaseMod,
+  api: friendRequestsApiMod,
+  source: ()=>TwSourceSwitch.store.pick('friends'),
 });
 const friendsPresenceRtMod = TwFriendsPresenceRt.createFriendsPresenceRt({ rt: TwRtHub.store });   // 친구 접속 상태 — realtime 연결 하나(presenceGet · watch)
 const friendsPortMod = TwFriendsPort.createFriendsPort({
@@ -2636,6 +2656,7 @@ const mhInitMod = TwMyHomeInit.createMyHomeInit({
   ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),
   focusLevelMod: ()=>focusLevelMod,
   friendManage: friendManage,
+  friendRequests: ()=>friendRequestsPortMod,
   friendsSub: friendsSubMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2796,6 +2817,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   closeFriendHomeView: (...a)=>mhVisitMod.closeFriendHomeView(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   friendManage: friendManage,
+  friendRequests: ()=>friendRequestsPortMod,
   friendsForCheck: (...a)=>friendsSubMod.friendsForCheck(...a),
   friendsRetry: (...a)=>friendsSubMod.retryIfFailed(...a),
   friendsOpen: (...a)=>friendsSubMod.open(...a),
@@ -3644,7 +3666,7 @@ function classifyHit(seat, obj){
 const seatFriendReqMod = TwSeatFriendReq.createSeatFriendReq({
   FRIEND_MAX: FRIEND_MAX,
   _myHomeFriends: ()=>_myHomeFriends,
-  friendNet: ()=>window.firebaseAPI,
+  friendNet: ()=>({ sendFriendRequest: (...a)=>friendRequestsPortMod.send(...a) }),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   toast: (...a)=>toast(...a),
