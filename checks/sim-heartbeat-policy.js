@@ -150,6 +150,32 @@ function mainBehaviour(src){
   return r;
 }
 
+/* ── main.js setCharBounds 처리기를 떼어 돌린다 — 칸이 빠지면 마지막 값을 그대로 두는가(이 PR 이 안전한 근거) ── */
+function grabBoundsHandler(src){
+  const a = src.indexOf("ipcMain.on('companion:setCharBounds', (e, bounds) => {");
+  const b = src.indexOf('\n  });', a);
+  return (a < 0 || b < 0) ? null : src.slice(a, b + '\n  });'.length);
+}
+function keepBehaviour(src){
+  const block = grabBoundsHandler(src);
+  if(!block) return null;
+  const make = new Function(
+    'let _lastCharBounds = null, _lastCharBoundsAt = 0, _charBadSince = 0, _rendererMoveAge = -1, _lastIgnoreWhy = "", _lastHitWhy = "", _hitWhyAt = 0;\n' +
+    'let _lastRegions = [], _lastOtherSeats = [];\n' +
+    'const OTHER_SEAT_MAX = 24, _zoomIn = (v) => v, _diagLog = () => {};\n' +
+    'let h = null; const ipcMain = { on: (ch, fn) => { h = fn; } };\n' + block + '\n' +
+    'return { send: (b) => h(null, b), get: () => ({ regions: _lastRegions, others: _lastOtherSeats, at: _lastCharBoundsAt }) };');
+  const M = make();
+  const r = {};
+  M.send({ x: 10, y: 20, r: 120, moveAge: 5, regions: [{ x: 1, y: 2, w: 30, h: 40 }], others: [{ x: 5, y: 6, r: 110 }] });
+  const full = JSON.stringify(M.get().regions) + JSON.stringify(M.get().others);
+  r.fullSet = M.get().regions.length === 1 && M.get().others.length === 1;
+  M.send({ x: 11, y: 21, r: 120, moveAge: 6, regions: undefined, others: undefined });   // 숨김 중 가벼운 하트비트
+  r.kept = (JSON.stringify(M.get().regions) + JSON.stringify(M.get().others)) === full;
+  r.alive = M.get().at > 0;
+  return r;
+}
+
 /* ═══ 1. 모듈 모양 · 상수 · 판단 표 ═══ */
 say('── 1. 모듈 모양 · 상수 · 판단 표');
 const L = load(POLSRC), P = L.mod;
@@ -188,6 +214,16 @@ if(mb){
   chk(JSON.stringify(mb.reload) === JSON.stringify([['companion:winShown', false]]), '다시 불러오면 같은 값이어도 다시 알린다(렌더러는 모름으로 돌아가 있다)');
 }
 
+/* ═══ 3-2. main 이 빠진 칸을 덮지 않는다 ═══ */
+say('\n── 3-2. main setCharBounds 처리기 — 칸을 뺀 하트비트가 마지막 값을 지우지 않는가');
+const kb = keepBehaviour(MAIN);
+chk(!!kb, '처리기를 떼어 돌렸다');
+if(kb){
+  chk(kb.fullSet, 'regions · others 를 실은 값은 받는다');
+  chk(kb.kept, '뺀 값(undefined)이 오면 _lastRegions · _lastOtherSeats 를 그대로 둔다');
+  chk(kb.alive, '뺀 값도 생존 신호(_lastCharBoundsAt)는 찍는다');
+}
+
 /* ═══ 4. 연결 ═══ */
 say('\n── 4. 연결');
 chk(/onWinShown\(callback\)\s*\{\s*ipcRenderer\.on\('companion:winShown', \(e, shown\) => callback\(shown\)\);/.test(PRELOAD), 'preload — onWinShown 이 companion:winShown 을 받는다');
@@ -209,6 +245,11 @@ const mbBroken = mainBehaviour(MAIN.replace('try{ return mainWindow.isVisible() 
 chk(!!mbBroken && JSON.stringify(mbBroken.min) !== JSON.stringify([['companion:winShown', false]]), '_mainWinShown 이 isVisible 만 보면(Windows 최소화도 참) 3절 «최소화 → false» 가 빨강');
 const mbOwn = mainBehaviour(MAIN.replace('const shown = _mainWinShown();', 'const shown = mainWindow.isVisible();'));
 chk(!!mbOwn && JSON.stringify(mbOwn.min) !== JSON.stringify([['companion:winShown', false]]), '알림이 _mainWinShown 대신 제 판단을 쓰면 3절이 빨강');
+
+const kbBroken1 = keepBehaviour(MAIN.replace('_lastRegions = bounds.regions.map(', '_lastRegions = (bounds.regions || []).map(').replace('if(Array.isArray(bounds.regions))', 'if(true)'));
+chk(!!kbBroken1 && !kbBroken1.kept, 'main 이 빠진 regions 를 `|| []` 로 비우게 고치면 3-2절이 빨강');
+const kbBroken2 = keepBehaviour(MAIN.replace('if(Array.isArray(bounds.others))', 'if(true)').replace('_lastOtherSeats = bounds.others.slice(', '_lastOtherSeats = (bounds.others || []).slice('));
+chk(!!kbBroken2 && !kbBroken2.kept, 'main 이 빠진 others 를 `|| []` 로 비우게 고치면 3-2절이 빨강');
 
 say(`\n결과: 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
