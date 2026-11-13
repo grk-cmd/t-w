@@ -13,34 +13,24 @@ function createFocusLevel(deps){
 const FOCUS_CYCLE_CAP = deps.FOCUS_CYCLE_CAP;
 const FOCUS_CYCLE_SEC = deps.FOCUS_CYCLE_SEC;
 const FOCUS_LEVEL_CAP_HOURS = deps.FOCUS_LEVEL_CAP_HOURS;
-const FOCUS_TODAY_DATE_KEY = deps.FOCUS_TODAY_DATE_KEY;
-const FOCUS_TODAY_SEC_KEY = deps.FOCUS_TODAY_SEC_KEY;
 const Presence = deps.Presence;
 const _acctDetached = deps._acctDetached;   // 읽는 함수
-const focusLevelStore = deps.focusLevelStore;   // 🗂️ 오늘치는 계정별 칸(shared/account-store.js)
 const progress = deps.progress;   // 서버 진척(focus-progress.js createFocusProgress) — 레벨 · 회차 · 별 색 · 미전송분
-const _focusDayStr = deps._focusDayStr;
 const _focusSessionSec = deps._focusSessionSec;   // 읽는 함수
-const _focusTodaySec = deps._focusTodaySec;   // 읽는 함수
 const findMySeat = deps.findMySeat;
 const getMyUserId = deps.getMyUserId;
 const mobileDiag = deps.mobileDiag;
 const toast = deps.toast;
 const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
 const setFocusSessionSec = deps.setFocusSessionSec;   // 쓰는 함수
-const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
+const addFocusToday = deps.addFocusToday;   // 오늘 시간에 더한다(날 경계는 focus-total.js 가 서버 날로 정한다)
 const _focusTotalStarted = deps._focusTotalStarted;   // 읽는 함수 — 계정 칸의 오늘치를 읽은 뒤에만 더하고 쓴다
 function addFocusSeconds(sec){
   if(!(sec>0)) return;
   if(!_focusTotalStarted()) return;   // 계정 확인 전 — 쌓지도 쓰지도 않는다
-  if(focusLevelStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) setFocusTodaySec(0);   // 오전 6시 넘겼으면 오늘치 리셋 후 이어 누적
-  setFocusTodaySec(_focusTodaySec() + (sec));
+  addFocusToday(sec);
   setFocusSessionSec(_focusSessionSec() + (sec));
   progress.addSeconds(sec);   // 서버에 올릴 몫(미전송분)으로 — 레벨 · 별은 서버가 준 값이다
-  try{
-    focusLevelStore.set(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));
-    focusLevelStore.set(FOCUS_TODAY_DATE_KEY,_focusDayStr());
-  }catch(e){}
 }
 /* ★ 레벨 · 회차 · 별 색은 서버 값이다(focus-progress.js). 해금 레벨은 서버 레벨(999 에서 멈춤) · 표시용 «이번 바퀴» 레벨과 별은 myFocusShow. */
 const getFocusLevel = () => progress.getFocusLevel();

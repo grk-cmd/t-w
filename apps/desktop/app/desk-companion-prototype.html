@@ -2980,6 +2980,7 @@
   /* 시계 아이콘은 미니미에선 안 쓴다 — 118px 안에서 시간 숫자가 밀려 잘렸다. */
   #focusLogWin.mini .flt-row .flt-clock{display:none;}
   #focusLogWin.mini #focusLogOk{display:none;}
+  #focusLogWin.mini #focusLogRetryRow{display:none !important;}
   #focusLogWin.mini #focusLogFigureNote{display:none;}
   /* 👑 달성표 버튼·서랍도 미니미(118px)에선 자리가 없다 — 같이 감춘다.
      ⚠️ 서랍이 열린 채로 최소화하면 창이 118px 폭에 세로로 길게 늘어진다. 그래서 display:none 이다.
@@ -5529,6 +5530,11 @@
         <span class="flt-clock">🕒</span>
         <span class="flt-time" id="focusLogTime2">00:00:00</span>
       </div>
+      <!-- 서버 진척을 못 받았을 때만, 누적 탭에서 보인다(focus-log.js refreshTime) — 누르면 다시 받는다 · 미니미에서는 숨김 -->
+      <div class="flt-row" id="focusLogRetryRow" style="display:none;">
+        <span class="flt-label" style="width:auto;">못 불러왔어요</span>
+        <button id="focusLogRetry" class="lc-btn" type="button" style="width:auto;margin:0;padding:2px 8px;font-size:10.5px;">다시 시도</button>
+      </div>
       <!-- 피규어 모드가 켜져 있을 때만 보인다(focus-log.js refreshTime) · 미니미에서는 숨김 -->
       <div id="focusLogFigureNote" hidden>피규어 모드에서는 포커스 기록과 달성표 집중 시간이 쌓이지 않아요</div>
       <!-- 🍅 미니미일 때만, 뽀모가 돌고 있으면 나타나는 둘째 줄(pomodoro.js _pomoRender 가 켠다) -->
@@ -6162,6 +6168,8 @@
             <!-- 🌟 레벨 배지 = «별 색» 구획(#miStar)을 여닫는 버튼 (시안 v2 확정 · 2026-09-23 · CHECKS 개정 69).
                  배지 자체는 친구 목록과 같은 .mh-flv(_plFillLv) 그대로다. 버튼으로 감싸는 것은 **이 자리 하나뿐** —
                  친구 목록·마이홈 배지는 누르는 물건이 아니다. ▾ 는 «눌린다» 는 표시(배지는 원래 누르는 물건이 아니었다). -->
+            <!-- 서버 진척을 못 받았을 때만 보인다(my-info.js _miRenderHead) — 레벨 배지 자리에 «못 불러왔어요 [다시 시도]» -->
+            <span id="miProgFail" style="display:none;font-size:10.5px;color:var(--ink-soft);">못 불러왔어요 <button id="miProgRetry" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">다시 시도</button></span>
             <button id="miLvBtn" class="mi-lv-btn" type="button" aria-expanded="false" aria-controls="miStar" title="별 색"><span id="miLv"></span><span class="mi-lv-car" aria-hidden="true">&#9662;</span></button>
             <button id="miNameEdit" type="button" style="font-family:inherit;font-size:10.5px;background:none;border:0;padding:0;color:var(--ink-soft);cursor:pointer;text-decoration:underline;">수정</button></div>
           <div id="miNameEditRow" style="display:none;align-items:center;gap:4px;">

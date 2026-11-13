@@ -2248,6 +2248,7 @@ const focusLog = TwFocusLog.createFocusLog({
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   focusTotalSec: ()=>focusProgressMod.shownTotalSec(),   // 서버 누적 + 못 올린 몫(받기 전 null)
   retryProgress: (...a)=>focusProgressMod.reload(true),   // 못 받았으면 열 때 다시 받는다(번호 알림 E-FOCUS-01)
+  progressLoad: ()=>focusProgressMod.progress().load,
   focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
   figureMode: ()=>figureMode,
 });
@@ -8436,28 +8437,24 @@ const focusProgressMod = TwFocusProgress.createFocusProgress({
   addQuitListener: (fn)=>window.addEventListener('beforeunload', fn),
 });
 const focusLevelMod = TwFocusLevel.createFocusLevel({
-  focusLevelStore: accountStoreMod,
   progress: focusProgressMod,
   _focusTotalStarted: ()=>focusTotalMod._focusTotalStarted(),
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,
   FOCUS_LEVEL_CAP_HOURS: focusTotalMod.FOCUS_LEVEL_CAP_HOURS,
-  FOCUS_TODAY_DATE_KEY: focusTotalMod.FOCUS_TODAY_DATE_KEY,
-  FOCUS_TODAY_SEC_KEY: focusTotalMod.FOCUS_TODAY_SEC_KEY,
   Presence: Presence,
   _acctDetached: ()=>acctStateMod._acctDetached(),
-  _focusDayStr: (...a)=>focusTotalMod._focusDayStr(...a),
   _focusSessionSec: ()=>focusTotalMod._focusSessionSec(),
-  _focusTodaySec: ()=>focusTotalMod._focusTodaySec(),
+  addFocusToday: (...a)=>focusTotalMod.addFocusToday(...a),
   findMySeat: (...a)=>findMySeat(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
   mobileDiag: TwMobileDiag,
   toast: (...a)=>toast(...a),
   wdDraftDef: ()=>wardrobeMod.wdDraftDef(),
   setFocusSessionSec: (v)=>{ focusTotalMod.setFocusSessionSec(v); },
-  setFocusTodaySec: (v)=>{ focusTotalMod.setFocusTodaySec(v); },
 });
 
+focusTotalMod.onDayEnd(()=>{ focusProgressMod.refreshDay(); });   // 하루가 바뀐 때 서버에 새 날을 한 번 묻는다
 focusProgressMod.onChange(()=>{ myInfoMod.onProgressChanged(); });   // 진척이 바뀌면 내 정보 머리 · 별 색 구획을 다시 그린다
 
 /* ═══ 🎰 가챠 모듈 연결 ═══ */

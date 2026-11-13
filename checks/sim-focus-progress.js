@@ -153,8 +153,32 @@ async function judge(S){
   W.mod.setStarColor('#ff8a8a');
   await W.ok(W.patches[0], { status: 'ok', progress: prog(550, { starColor: '#ff8a8a' }) });
   await W.ok(W.accrues[0], okAcc(600, 600));
-  chk(W.mod.progress().totalSec === 550 && W.mod.progress().starColor === '#ff8a8a', '★ 요청 순번 — 더 나중에 보낸 별 색 답이 먼저 와 적용되면 앞서 보낸 올리기 답이 늦게 와도 진척을 못 바꾼다');
+  chk(W.mod.progress().totalSec === 600 && W.mod.progress().starColor === '#ff8a8a', '★ 요청 순번 — 늦게 온 올리기 답은 색을 되돌리지 못하고, 누적이 더 크면 그 몫만 받는다(누적은 서버에서 줄지 않는다)');
   chk(W.mod.unsentSec() === 0, '  그래도 보낸 몫은 뺀다(미전송분은 순번과 상관없이)');
+
+  W = await world(S).up(0);
+  W.mod.setStarColor('#ff8a8a'); W.add(600);
+  await W.ok(W.accrues[0], okAcc(600, 600));
+  await W.ok(W.patches[0], { status: 'ok', progress: prog(0, { starColor: '#ff8a8a' }) });
+  chk(W.mod.progress().starColor === '#ff8a8a' && W.mod.progress().totalSec === 600 && W.notes.length === 0, '★ 별 색 답이 더 늦게 와 버려져도 서버가 확인한 색으로 둔다(화면이 옛 색으로 돌아오지 않는다)');
+
+  say('── 3-2. 하루가 바뀐 때 — 새 날 한 번 받기(refreshDay)');
+  W = world(S);
+  W.mod.refreshDay();
+  chk(W.gets.length === 0, '시작 전 — 요청 0');
+  W.start(); W.mod.refreshDay();
+  chk(W.gets.length === 1, '  받는 중(loading) — 새로 묻지 않는다(시작 받기가 새 날을 준다)');
+  W = await world(S).up(0);
+  const NEXT = { day: '2026-11-14', isoWeek: '2026-W46', dayEndsAt: TODAY.dayEndsAt + 86400000 };
+  W.mod.refreshDay(); W.mod.refreshDay();
+  chk(W.gets.length === 2, '★ ready 에서 부르면 GET 한 번 — 겹쳐 불러도 하나로 합친다');
+  await W.ok(W.gets[1], prog(10, { today: NEXT }));
+  chk(W.days[W.days.length - 1].day === '2026-11-14' && W.mod.progress().load === 'ready' && W.notes.length === 0, '  답 → 서버 날을 넘긴다 · 번호 알림 0');
+  W.mod.refreshDay(); W.gets[2].rej(new Error('z')); await flush();
+  chk(W.mod.progress().load === 'ready' && W.notes.length === 0 && W.gets.length === 3 && W.mod.getFocusLevel() === 1, '★ 실패 → 번호 0 · 진척 상태는 ready 그대로 · 되풀이 요청 0(다음 올리기 답이 새 날을 준다)');
+  W = await world(S).up(0);
+  W.mod.refreshDay(); W.reset(); W.gets[1].res(prog(5)); await flush();
+  chk(W.days[W.days.length - 1] === null, '계정이 바뀐 뒤 늦은 새 날 답은 버린다(서버 날을 다시 채우지 않는다)');
 
   say('── 4. 실패');
   W = await world(S).up(0);
@@ -323,7 +347,9 @@ async function judge(S){
     ['MOD', "    if(starBusy){ starAgain = true; changed(); return true; }", "    if(false){ starAgain = true; changed(); return true; }", '별 색 한 줄을 뺌'],
     ['MOD', "    session.onReset(reset);", "", '세션 reset 훅을 안 건다'],
     ['MOD', "    loadNow(false);\n  }", "  }", '시작해도 진척을 안 받음'],
-    ['MOD', "    if(seq < appliedSeq) return false;", "", '요청 순번을 안 봄'],
+    ['MOD', "    if(seq < appliedSeq){", "    if(false){", '요청 순번을 안 봄'],
+    ['MOD', "    if(!started || load !== 'ready' || dayRun) return dayRun || Promise.resolve();", "    if(!started) return Promise.resolve();", '새 날 받기가 받기 전에도 · 겹쳐서 나감'],
+    ['MOD', "if(!adopt(r.progress, seq) && p) p.starColor = r.progress.starColor;", "adopt(r.progress, seq);", '늦은 별 색 답의 색을 버림'],
     ['MOD', "  const shownTotalSec = () => (load === 'ready' ? p.totalSec + unsent() : null);", "  const shownTotalSec = () => (load === 'ready' ? p.totalSec : null);", '레벨 막대용 합계에 못 올린 몫을 안 더함'],
     ['MOD', "  const getFocusLevel = () => (load === 'ready' ? p.level : 1);", "  const getFocusLevel = () => (load === 'ready' ? Math.min(p.level, 50) : 1);", '레벨을 앱이 다시 셈'],
     ['MOD', "    if(!started || !(sec > 0)) return;", "    if(!(sec > 0)) return;", '시작 전에도 쌓음'],

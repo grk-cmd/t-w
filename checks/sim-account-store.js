@@ -152,7 +152,7 @@ async function judge(S){
     const fresh = () => { const m = totalApi.createFocusTotal({ focusTotalStore: store }); m.startFocusTotal(); return m; };   // 계정 확인 뒤 app-boot 가 부르는 시작까지
     const a1 = fresh();
     chk(a1._focusTodaySec() === 0, '새 계정 A 는 0 에서 시작');
-    store.set(a1.FOCUS_TODAY_DATE_KEY, a1._focusDayStr()); store.set(a1.FOCUS_TODAY_SEC_KEY, 60);
+    store.set(a1.FOCUS_TODAY_DATE_KEY, '2026-11-13'); store.set(a1.FOCUS_TODAY_SEC_KEY, 60);
     chk(fresh()._focusTodaySec() === 60, 'A 의 오늘치를 다시 켜면 읽는다');
     code.v = B;
     chk(fresh()._focusTodaySec() === 0, '★ 같은 PC 에서 B 로 바꾸면 A 의 오늘치가 안 넘어온다');
@@ -171,7 +171,7 @@ async function judge(S){
     chk(/createMyHomeDesktop\(\{ advStore: accountStoreMod \}\)/.test(S.BOOT), '만드는 줄(myhome-desktop-boot.js)이 계정 칸을 넘긴다');
     const iD = S.HTML.indexOf('parts/myhome/myhome-desktop.js'), iB = S.HTML.indexOf('parts/myhome/myhome-desktop-boot.js');
     chk(iD > 0 && iB > iD && S.HTML.slice(iD, iB).split('<script').length === 2, 'html — boot 는 myhome-desktop.js 바로 다음');
-    chk(/const focusLevelStore = deps\.focusLevelStore;/.test(S.LEVEL) && /const focusTotalStore = deps\.focusTotalStore;/.test(S.TOTAL), '모듈은 계정 칸을 deps 로 받는다');
+    chk(!/focusLevelStore/.test(S.LEVEL) && /const focusTotalStore = deps\.focusTotalStore;/.test(S.TOTAL), '누적 모듈은 계정 칸을 deps 로 받는다 · 레벨 모듈은 계정 칸을 안 받는다(오늘 시간은 누적 모듈이 쓴다)');
   }
 
   say('── 5b. 열림 — 계정 확인 전(닫힘)에는 읽기 null · 쓰기 거절 · 키마다 경고 한 번 / 열린 뒤 정상');
@@ -229,15 +229,13 @@ async function judge(S){
       const store = load(S.STORE).createAccountStore({ storage: spy, getAccountCode: () => A1, isWriteLocked: () => false });
       const T = (() => { const w = {}; new Function('window', 'module', 'localStorage', S.TOTAL)(w, undefined, null); return w.TwFocusTotal; })();
       const total = T.createFocusTotal({ focusTotalStore: store });
-      st.setItem('tw.focusTodayDate', total._focusDayStr());
+      st.setItem('tw.focusTodayDate', '2026-11-13');
       const W = { st, io, store, total, profiles: [], pushes: [], added: [], today: 0, intervals: 0 };
       const levelDeps = new Proxy({
-        focusLevelStore: store, _focusTotalStarted: () => total._focusTotalStarted(),
-        FOCUS_TODAY_DATE_KEY: total.FOCUS_TODAY_DATE_KEY, FOCUS_TODAY_SEC_KEY: total.FOCUS_TODAY_SEC_KEY,
+        _focusTotalStarted: () => total._focusTotalStarted(), addFocusToday: (sec) => total.addFocusToday(sec),
         progress: { addSeconds: (sec) => W.added.push(sec) },   // 서버 진척(focus-progress.js) 자리 — 쌓인 초만 센다
         FOCUS_LEVEL_CAP_HOURS: total.FOCUS_LEVEL_CAP_HOURS, FOCUS_CYCLE_SEC: total.FOCUS_CYCLE_SEC, FOCUS_CYCLE_CAP: total.FOCUS_CYCLE_CAP,
-        _focusDayStr: (...a) => total._focusDayStr(...a), _focusTodaySec: () => W.today, _focusSessionSec: () => 0,
-        setFocusTodaySec: (v) => { W.today = v; }, setFocusSessionSec: () => {},
+        _focusSessionSec: () => 0, setFocusSessionSec: () => {},
         getMyUserId: () => A1, getDisplayName: () => 'n', _acctDetached: () => false,
       }, { get: (t, k) => (k in t ? t[k] : anyF) });
       const fa = { setMyProfile: (...a) => { W.profiles.push(a); return Promise.resolve(); } };
@@ -251,7 +249,7 @@ async function judge(S){
       io.length = 0;
       return W;
     });
-    const pre = (W) => quietly(() => { W.lvl.addFocusSeconds(5); W.total._rolloverFocusToday(); W.share._focusShowPush(true); });   // 활성 앱 신호 한 번 + 오늘 기록 전시 한 번
+    const pre = (W) => quietly(() => { W.total.setServerDay({ day: '2026-11-13', isoWeek: '2026-W46', dayEndsAt: 1 }); W.lvl.addFocusSeconds(5); W.total._rolloverFocusToday(); W.share._focusShowPush(true); });   // 활성 앱 신호 한 번 + 오늘 기록 전시 한 번
     const W1 = mkWorld(false); pre(W1);
     chk(W1.io.length === 0 && W1.profiles.length === 0 && W1.added.length === 0, '★ 확인 전 — 계정 칸이 닫혀 있다: 활성 앱 신호 · 오늘 기록 전시 한 번에 읽기 · 쓰기 0건 · 미전송분에 쌓기 0');
     chk(W1.st.o['tw.focusTodaySec'] === '600' && Object.keys(W1.st.o).every((k) => !k.startsWith('tw.u.')), '  ↳ 옛 PC 칸 값은 그대로이고 계정 칸은 비어 있다');
@@ -261,7 +259,7 @@ async function judge(S){
     quietly(() => { W3.store.migrateLegacy(A1); W3.store.open(A1); W3.total.startFocusTotal(); });   // app-boot begin: 옮기기 → 열기 → 시작
     chk(W3.total._focusTodaySec() === 600 && W3.total._focusTotalStarted(), '★ begin 뒤 — 옛 PC 칸 값(오늘 600)이 화면 값으로 보인다');
     quietly(() => W3.lvl.addFocusSeconds(5));
-    chk(W3.added.join() === '5' && W3.st.o['tw.u.' + A1 + '.focusTodaySec'] === '5', '  ↳ 시작 뒤에는 오늘치를 계정 칸에 쓰고 서버에 올릴 몫(미전송분)으로 넘긴다');
+    chk(W3.added.join() === '5' && W3.st.o['tw.u.' + A1 + '.focusTodaySec'] === '605', '  ↳ 시작 뒤에는 오늘치(600 + 5)를 계정 칸에 쓰고 서버에 올릴 몫(미전송분)으로 넘긴다');
     const grabF = (src, head) => { const i = src.indexOf(head); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0; for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
     const advLine = (S.MHD.match(/^const ADV = [^\n]*$/m) || [''])[0];
     const reads = [];
@@ -348,7 +346,7 @@ async function judge(S){
   say('── 7. 배선');
   {
     chk(/const accountStoreMod = TwAccountStore\.createAccountStore\(\{ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: \(\)=>acctStateMod\._acctDetached\(\) \}\);/.test(S.APP), 'app.js — getMyUserId(부를 때마다 읽는 함수)로 만든다');
-    chk(/createFocusTotal\(\{\n  focusTotalStore: accountStoreMod,/.test(S.APP) && /createFocusLevel\(\{\n  focusLevelStore: accountStoreMod,/.test(S.APP), 'app.js — 포커스 두 모듈에 같은 한 벌을 넘긴다');
+    chk(/createFocusTotal\(\{\n  focusTotalStore: accountStoreMod,/.test(S.APP) && !/createFocusLevel\(\{\n  focusLevelStore/.test(S.APP), 'app.js — 누적 모듈에 계정 칸을 넘기고 레벨 모듈에는 안 넘긴다');
     const iS = S.HTML.indexOf('<script src="parts/shared/account-store.js"></script>'), iA = S.HTML.indexOf('<script src="parts/app.js"></script>');
     chk(iS > 0 && iA > iS, 'html — account-store.js 를 app.js 보다 먼저 싣는다');
     chk(S.APP.indexOf('const accountStoreMod =') < S.APP.indexOf('const focusTotalMod ='), 'app.js — 쓰는 모듈보다 먼저 만든다(TDZ)');
@@ -377,8 +375,8 @@ const BREAKS = [
   ['STORE', "'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", "'tw.advZ.v2', 'tw.advZ.v1']);\n\nfunction isAccountKey", '옮긴 표에서 오늘 날짜 빠짐'],
   ['STORE', "'tw.focusPendingSec',", "", '못 올린 집중 시간 키가 계정별 표에서 빠짐'],
   ['STORE', "  'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", "  'tw.focusTotalSec', 'tw.focusSyncedSec', 'tw.focusTodaySec', 'tw.focusTodayDate', 'tw.advZ.v2', 'tw.advZ.v1',\n", '걷은 옛 누적 키가 표에 되살아남'],
-  ['TOTAL', "    if(focusTotalStore.get(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) return 0;", "    if(localStorage.getItem(FOCUS_TODAY_DATE_KEY)!==_focusDayStr()) return 0;", '오늘치를 다시 PC 칸에서 읽음'],
-  ['LEVEL', "focusLevelStore.set(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));", "localStorage.setItem(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));", '레벨 모듈이 PC 칸에 씀'],
+  ['TOTAL', "_day = _normDay(focusTotalStore.get(FOCUS_TODAY_DATE_KEY));", "_day = _normDay(localStorage.getItem(FOCUS_TODAY_DATE_KEY));", '오늘치를 다시 PC 칸에서 읽음'],
+  ['TOTAL', "focusTotalStore.set(FOCUS_TODAY_SEC_KEY, String(_focusTodaySec));", "localStorage.setItem(FOCUS_TODAY_SEC_KEY, String(_focusTodaySec));", '누적 모듈이 PC 칸에 씀'],
   ['MHD', "  try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){}\n}", "  try{ localStorage.setItem(ADV_KEY, JSON.stringify(ADV)); }catch(_){}\n}", '바탕화면이 PC 칸에 저장'],
   ['APP', "getAccountCode: getMyUserId, isWriteLocked", "getAccountCode: ()=>null, isWriteLocked", '계정 코드를 안 넘김'],
   ['STORE', "if(!cell || closedFor(key) || isWriteLocked()) return false;\n    try{ storage.setItem", "if(!cell || closedFor(key)) return false;\n    try{ storage.setItem", '놓은 틈에도 set 이 통과'],
