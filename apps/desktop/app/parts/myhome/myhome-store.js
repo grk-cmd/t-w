@@ -6,7 +6,7 @@
      바뀐 칸만 싣는다(dirty) — 바뀐 칸이 없으면 요청 0. «바뀜» 은 내가 마지막으로 보낸(또는 받은) 값과 견준다 — 서버가 글을 씻어도 다시 보내지 않는다.
      디자인(테마 · 프리셋 · 고른 칸 · 바깥 배경)은 PUT design 통째 — 페이지 PATCH 와 한 줄에서 차례로(디자인 먼저).
    409 CONCURRENT_UPDATE: 페이지 PATCH 는 다시 받은 뒤 내가 고친 글 칸(소개 · 게시글 · 제목)만 새 판에 얹어 한 번 더(스티커 · 사진 · 배경 · BGM 은 받은 값) — 두 번째도 409 면 받은 값 + 알림.
-     디자인 PUT 은 받은 값으로 그리고 알림(내 고침은 버린다). 고치기는 다시 받는 동안 잠긴다.
+     디자인 PUT 이 409 여도 내가 고친 글 칸은 새 판에 한 번 얹는다 — 디자인 고침만 버리고 받은 값으로 그린다 + 알림. 고치기는 다시 받는 동안 잠긴다.
      실패는 고친 화면을 그대로 두고 그 자리 번호를 한 번(이어지는 실패는 한 번 · 성공하면 풂). 혼자 다시 보내지 않는다 — 다음 고침 · 창 닫기 · 로그아웃 올리기(flush) · 앱 끄기가 한 번.
      저장 중이거나 못 올린 고침이 있을 때 내 홈 받기는 요청하지 않는다(받은 판이 고친 칸을 덮지 않게).
    그림: 고르면 줄인 뒤 올려 주소만 저장에 싣는다(upload). 같은 칸에 올리는 중 또 고르면 busy · 올리기가 실패하면 그 칸은 예전 값 · 다른 칸 저장은 그대로 간다.
@@ -20,7 +20,7 @@
      pullMine({ site }?) → Promise<boolean>(받은 뒤 ready 인가 — site: 'load'(E-MH-20 · 기본) | 'quiet'(번호 없음)) · ensureMine(opts) — ready 면 요청 없이 true
      openView(code, nameHint?) → Promise<'ok'|'missing'|'failed'|'stale'> · closeView()
      setField(칸, 값) · setFields({칸:값…}) · setAvatar(그림) · addSticker(그림, { link, x, y, w, h, size }) · editSticker(sid, 바꿀 칸) · editStickers({sid:바꿀 칸}) · removeSticker(sid) · moveSticker(sid, 방향)
-       · setDesign({ theme, presets, presetCur, bg? }) · resetBg() · upload(칸 이름, 그림) → Promise<'ok'|'failed'|'conflict'|'stale'|'locked'|'busy'|'full'|'uploadFailed'|'gone'>(upload 는 { status, url? })
+       · setDesign({ theme, presets, presetCur, bg? }) · resetBg() · upload(칸 이름, 그림) → Promise<'ok'|'failed'|'conflict'|'stale'|'locked'|'busy'|'full'|'uploadFailed'|'gone'|'invalid'>('invalid' = setDesign 에 data: 그림)(upload 는 { status, url? })
      flush() → Promise — 저장 중이면 그 끝을, 못 올린 고침이 있으면 한 번 올린다(로그아웃 올리기 · 앱 끄기) · reset() — 계정을 놓을 때
      LOAD · MSG · STICKER_MAX
    }
