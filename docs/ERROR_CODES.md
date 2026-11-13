@@ -40,6 +40,7 @@
 | `E-MH-02` | 배경 그림을 불러오지 못했어요 — https 로 시작하는 주소를 써 주세요 | `myhome/mh-bg-url.js` — http 배경 주소를 https 로 바꿔 불러 봤는데 못 받음(내 마이홈 · 바탕화면만) |
 | `E-MH-03` | 온라인 고정을 서버에 저장하지 못했어요 — 이 PC 에는 기억했어요 | `myhome/presence-lock.js` — 🔒 고정 · 고정 중 토글 저장(`savePresencePref` · `presencePref/{uid}`) |
 | `E-CHAT-01` | 공지를 저장하지 못했어요 — 잠시 뒤에 다시 해 주세요 | `chat/chat-notice.js` — 시크릿룸 #공지 탭에서 공지 쓰기 · 고치기 · 지우기 · 고정이 서버에 안 닿음 |
+| `E-CHAT-02` | 집중 기록을 지우지 못했어요 — 잠시 뒤에 다시 해 주세요 | `chat/chat-focus.js` — 시크릿룸 #집중 탭에서 «내 기록 지우기» 가 서버에 안 닿음 |
 | `E-MH-04` | 임시저장하지 못했어요 — 이 PC 의 저장 공간을 확인해 주세요 | `support/bug-board-ui.js` — 버그 제보 📝 임시저장(localStorage `tw.bugDrafts` 쓰기 실패) |
 | `E-ROOM-01` | 방 목록을 불러오지 못했어요 | `room/room-entry.js` — 랜덤 참여 · 갈아타기(`findRandomRooms`) |
 | `E-ROOM-02` | 방을 옮기지 못했어요 | `room/room-entry.js` — 갈아타기 뒤 방 밖에 남음 |

@@ -36,6 +36,7 @@ const getDisplayName = deps.getDisplayName;
 const getMyLoginEmail = deps.getMyLoginEmail;
 const getMyUserId = deps.getMyUserId;
 const mobileDiag = deps.mobileDiag;
+const onFocusAdded = deps.onFocusAdded;   // 📊 쌓인 초를 알린다(시크릿룸 집중 기록 올리기 — room-focus-sync.js)
 const renderLauncher = deps.renderLauncher;
 const toast = deps.toast;
 const wdDraftDef = deps.wdDraftDef;   // 읽는 함수
@@ -183,6 +184,7 @@ function addFocusSeconds(sec){
   setFocusTodaySec(_focusTodaySec() + (sec));
   setFocusSessionSec(_focusSessionSec() + (sec));
   _pushLevelIfChanged();   // 레벨이 올랐을 때만 프로필 갱신(친구 목록 배지용)
+  onFocusAdded(sec);
   try{
     localStorage.setItem(FOCUS_TOTAL_KEY,String(_focusTotalSec()));
     localStorage.setItem(FOCUS_TODAY_SEC_KEY,String(_focusTodaySec()));

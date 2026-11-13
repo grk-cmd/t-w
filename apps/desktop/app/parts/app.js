@@ -3158,9 +3158,23 @@ const chatNoticeMod = TwChatNotice.createChatNotice({
   provider: { subscribe: (...a)=>firebaseAPI.chatNotice.subscribe(...a), add: (...a)=>firebaseAPI.chatNotice.add(...a), edit: (...a)=>firebaseAPI.chatNotice.edit(...a),
     remove: (...a)=>firebaseAPI.chatNotice.remove(...a), pin: (...a)=>firebaseAPI.chatNotice.pin(...a) },
 });
+/* 📊 시크릿룸 #집중 탭 · 내 집중 시간 올리기 — parts/chat/chat-focus.js · parts/focus/room-focus-sync.js. 올리기는 포커스 누적(focusLevelMod)의 알림에 건다. */
+const roomFocusSync = TwRoomFocusSync.createRoomFocusSync({
+  provider: { add: (...a)=>firebaseAPI.roomFocus.add(...a), setName: (...a)=>firebaseAPI.roomFocus.setName(...a) },
+  roomCode: ()=>Presence.roomCode(), isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.roomCode()),
+  getMyUserId: (...a)=>getMyUserId(...a), getMyName: ()=>getDisplayName(),
+  dayKey: ()=>TwRoomFocusSync.dayKeyOf(focusTotalMod._focusDayStr()), now: ()=>Date.now(), storage: localStorage,
+});
+const chatFocusMod = TwChatFocus.createChatFocus({
+  document, escHtml: (...a)=>escHtml(...a), toast: (...a)=>toast(...a), getMyUserId: (...a)=>getMyUserId(...a), roomState: TwRoomState,
+  roomCode: ()=>Presence.roomCode(), notifyError: (...a)=>TwErrorCodes.notify(...a), sync: roomFocusSync,
+  todayKey: ()=>TwRoomFocusSync.dayKeyOf(focusTotalMod._focusDayStr()),
+  provider: { subscribe: (...a)=>firebaseAPI.roomFocus.subscribe(...a), compact: (...a)=>firebaseAPI.roomFocus.compact(...a), removeMine: (...a)=>firebaseAPI.roomFocus.removeMine(...a) },
+});
 const chatUiMod = TwChatUi.createChatUi({
   demojiCatalog: demojiCatalog,
   chatNotice: chatNoticeMod,
+  chatFocus: chatFocusMod,
   CHAT_WIN_POS_KEY: ()=>CHAT_WIN_POS_KEY,
   Presence: ()=>Presence,
   _chatDelClose: (...a)=>chatPrefsMod._chatDelClose(...a),
@@ -8761,6 +8775,7 @@ const adminReport = TwAdminReport.createAdminReport({
 /* 본문은 focus-level.js 로 옮겼다(앱 FSD 26번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const focusLevelMod = TwFocusLevel.createFocusLevel({
+  onFocusAdded: (sec)=>roomFocusSync.add(sec),
   DANCE_MOVES: iDeskMod.DANCE_MOVES,
   FOCUS_CYCLE_CAP: focusTotalMod.FOCUS_CYCLE_CAP,
   FOCUS_CYCLE_SEC: focusTotalMod.FOCUS_CYCLE_SEC,

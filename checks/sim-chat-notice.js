@@ -270,11 +270,11 @@ function wire(S){
   w(/\.chat-pin\{display:none;position:absolute;top:\d+px;left:\d+px;right:\d+px;/.test(H) && /\.chat-msgbox:has\(\.chat-pin\.on\) \.chat-messages\{padding-top:\d+px;\}/.test(H), '  고정 줄은 흰 칸 맨 위에 떠 있고(글이 스크롤돼도 그 자리) 켜지면 대화 칸이 그만큼 내려선다');
   w(/#chatWindow\.notice-mode \.chat-msgbox,[\s\S]*?\.chat-memberbar,[\s\S]*?\.chat-toolbar,[\s\S]*?\.chat-flyrow,[\s\S]*?\.chat-pin\{display:none !important;\}/.test(H) && /\.chat-pin:hover \.cp-text\.long\{[^}]*animation:cp-flow/.test(H), '  #공지 탭에서는 대화 · 인원 줄 · 도구 줄을 숨긴다 · 긴 고정 글은 올리면 흐른다');
   const A = S.app;
-  w(/const chatNoticeMod = TwChatNotice\.createChatNotice\(\{[\s\S]*?roomState: TwRoomState[\s\S]*?firebaseAPI\.chatNotice\.pin\(\.\.\.a\)[^\n]*\n\}\);\nconst chatUiMod = TwChatUi\.createChatUi\(\{\n  demojiCatalog: demojiCatalog,\n  chatNotice: chatNoticeMod,/.test(A), 'app.js — 공지 모듈을 채팅 모듈보다 먼저 만들어 값으로 넘긴다(데이터는 firebaseAPI.chatNotice 한 곳)');
+  w(/const chatNoticeMod = TwChatNotice\.createChatNotice\(\{[\s\S]*?roomState: TwRoomState[\s\S]*?firebaseAPI\.chatNotice\.pin\(\.\.\.a\)[^\n]*\n\}\);[\s\S]*?const chatUiMod = TwChatUi\.createChatUi\(\{\n  demojiCatalog: demojiCatalog,\n  chatNotice: chatNoticeMod,/.test(A), 'app.js — 공지 모듈을 채팅 모듈보다 먼저 만들어 값으로 넘긴다(데이터는 firebaseAPI.chatNotice 한 곳)');
   const C = S.chatui;
-  w(/chatNotice\.onChange\(\(\) => \{ _chatTabsRender\(\); _chatOffRefreshUI\(\); \}\)/.test(C) && /if\(chatNotice\.submit\(inp\)\) return;/.test(C) && /chatNotice\.start\(\);/.test(C) && /chatNotice\.stop\(\);/.test(C) && /if\(t\.dataset\.tab === 'notice'\)\{ chatNotice\.open\(\); return; \}/.test(C), '채팅 모듈 — 알림 걸기 · Enter 가 공지면 채팅 전송 건너뜀 · 창 열 때 구독 · 닫을 때 해제 · 탭 누르기');
-  w(/if\(chatNotice\.isActive\(\)\) chatNotice\.close\(\);\s*\/\/ 다른 탭을 누르면 공지 보기에서 나온다/.test(C) && /_chatTabMenu\(id\)\{[\s\S]*?if\(id === 'notice'\) return;/.test(C), '  다른 탭을 누르면 공지 보기에서 나온다 · #공지 는 우클릭 메뉴가 없다');
-  w(/chatUiMod\._chatNoticeHint\(\) \|\| \(off \?/.test(S.lock), '채팅 잠금 — #공지 탭이면 입력칸 안내문을 공지 쓰기로');
+  w(/chatNotice\.onChange\(\(\) => \{ _chatTabsRender\(\); _chatOffRefreshUI\(\); \}\)/.test(C) && /if\(chatNotice\.submit\(inp\)\) return;/.test(C) && /chatNotice\.start\(\);/.test(C) && /chatNotice\.stop\(\);/.test(C) && /if\(t\.dataset\.tab === 'notice'\)\{ if\(chatFocus\.isActive\(\)\) chatFocus\.close\(\); chatNotice\.open\(\); return; \}/.test(C), '채팅 모듈 — 알림 걸기 · Enter 가 공지면 채팅 전송 건너뜀 · 창 열 때 구독 · 닫을 때 해제 · 탭 누르기');
+  w(/if\(chatNotice\.isActive\(\)\) chatNotice\.close\(\);\s*\/\/ 다른 탭을 누르면 공지 · 집중 보기에서 나온다/.test(C) && /_chatTabMenu\(id\)\{[\s\S]*?if\(id === 'notice' \|\| id === 'focus'\) return;/.test(C), '  다른 탭을 누르면 공지 보기에서 나온다 · #공지 는 우클릭 메뉴가 없다');
+  w(/chatUiMod\._chatViewHint\(\) \|\| \(off \?/.test(S.lock), '채팅 잠금 — #공지 탭이면 입력칸 안내문을 공지 쓰기로');
   w(!/chat-ui|chat-lock|Presence|firebaseAPI/.test(S.mod.replace(/\/\*[\s\S]*?\*\//g, '')), '공지 모듈은 채팅 · 잠금 모듈 · Presence · firebaseAPI 를 직접 부르지 않는다(한쪽으로만 — 순환 방지 · provider 로만)');
   w(/'E-CHAT-01': \{ msg: '[^']+', where: 'chat\/chat-notice\.js/.test(S.codes), '에러 번호 E-CHAT-01 이 표에 있다');
 
@@ -332,7 +332,7 @@ function wire(S){
     ['html', '.chat-msgbox:has(.chat-pin.on) .chat-messages{padding-top:34px;}', '', '고정 줄이 첫 대화를 가림'],
     ['chatui', 'if(chatNotice.submit(inp)) return;', '', 'Enter 가 공지를 채팅으로 보냄'],
     ['app', '  chatNotice: chatNoticeMod,\n', '', '채팅 모듈이 공지 모듈을 못 받음'],
-    ['lock', "chatUiMod._chatNoticeHint() || (off ?", "(off ?", '#공지 탭에서 입력칸 안내문이 채팅 문구'],
+    ['lock', "chatUiMod._chatViewHint() || (off ?", "(off ?", '#공지 탭에서 입력칸 안내문이 채팅 문구'],
     ['mod', "const isHost = () =>", "const isHost = () => true; const _unused = () =>", '공지 모듈이 방장 판정을 건너뜀(연결 판정)'],
   ];
   for (const [k, from, to, why] of WB) {
