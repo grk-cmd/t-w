@@ -268,7 +268,7 @@
 | **sim-weekly-challenge.js** | 437 | **029252f054ae** |
 | **sim-purikura-ui.js** | 277 | **b86950bf284f** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
-| **sim-guestbook.js** | 389 | **f51747f23c24** |
+| **sim-guestbook.js** | 479 | **90faaf8d7edf** |
 | **sim-friend-manage-module.js** | 309 | **632eed6beda1** |
 | **sim-pomodoro-module.js** | 228 | **cfb5680616ad** |
 | **sim-myhome-sticker.js** | 415 | **412082771903** |
@@ -400,6 +400,7 @@
 | **sim-global-names.js** | 236 | **4da03342e299** |
 | **sim-guestbook-api.js** | 242 | **67aa9c5bcb0e** |
 | **sim-guestbook-feed.js** | 403 | **59f6346cbea6** |
+| **sim-guestbook-wiring.js** | 290 | **6a56fb971278** |
 | **sim-dep-cycles.js** | 237 | **2cbd6d414f8e** |
 | **sim-domain-calls.js** | 157 | **673fc5f9779a** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
