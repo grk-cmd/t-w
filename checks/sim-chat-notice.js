@@ -162,6 +162,13 @@ async function judge(src, extra){
       kh.push({ n3: { text: '셋째', ts: 200, pin: true, }, n1: { text: '첫 공지', ts: 100 } }); t(!pe.classList.contains('on'), '  다른 공지가 오더라도 고정된 그 공지가 같으면 숨은 채');
       kh.push({ n3: { text: '셋째 고침', ts: 200, pin: true } }); t(pe.classList.contains('on'), '  고쳐진 공지 · 새로 고정한 공지는 다시 뜬다');
       kh.c.stop(); kh.c.start(); kh.push(RAW); t(kh.doc.els.chatPin.classList.contains('on'), '  채팅창을 닫았다 열면 다시 뜬다'); }
+    { const kd = mkCtl(src); const box = kd.doc.els.chatNotices; let cur = null;
+      Object.defineProperty(box, 'innerHTML', { set(v){ cur = mkEl(); cur.value = '서버 글'; }, get(){ return ''; } });
+      box.querySelector = () => cur;
+      kd.c.start(); kd.push(RAW); kd.c.open(); kd.c.act('edit', 'n1');
+      t(cur && cur.value === '서버 글', '고치기를 열면 서버 글이 칸에 들어간다');
+      cur.value = '고치던 글'; kd.push(RAW);
+      t(cur.value === '고치던 글', '고치는 중에 다시 그려져도 친 글을 서버 글로 되돌리지 않는다'); }
     /* 탭 · 방 · 창 상태 — 닫기 · 방이 바뀜 · 시크릿룸을 벗어남 */
     { const ks = mkCtl(src); ks.c.start(); ks.push(RAW); ks.c.open(); const n0 = ks.changes.n;
       ks.c.close(); t(!ks.c.isActive() && !ks.doc.els.chatWindow.classList.contains('notice-mode') && ks.changes.n > n0, '#공지 탭을 닫으면 보기에서 나오고 탭 줄 다시 그리기를 알린다');
@@ -200,7 +207,7 @@ async function judge(src, extra){
       t(log[0][0] === 'on' && log[0][1] === 'rooms/SCRT-AB12/_notice' && log.some((x) => x[0] === 'off' && x[2] === 'value'), '  구독은 공지 노드 하나 · 해제하면 off');
       { const got = []; log.length = 0; cancels.length = 0; net.subscribe('SCRT-AB12', (x) => got.push(x)); cancels[0] && cancels[0](); t(JSON.stringify(got) === '[{},null]', '  읽기 권한 거절(cancel)은 null 로 알린다(빈 {} 와 구분)'); }
       const bad = N.createChatNoticeNet({ db, ref, runTransaction: async () => { throw new Error('net'); }, update: async () => { throw new Error('x'); }, remove: async () => { throw new Error('x'); }, set: async () => { throw new Error('x'); }, onValue(){}, off(){} });
-      t((await bad.add('SCRT-AB12', 'x')).ok === false && (await bad.pin('SCRT-AB12', 'n1', true, [])).ok === false && !('reason' in (await bad.add('SCRT-AB12', 'x'))) || (await bad.add('SCRT-AB12', 'x')).reason === undefined, '  서버 오류는 던지지 않고 { ok:false } — 기술 문구는 안 싣는다');
+      t((await bad.add('SCRT-AB12', 'x')).ok === false && (await bad.pin('SCRT-AB12', 'n1', true, [])).ok === false && !('reason' in (await bad.add('SCRT-AB12', 'x'))), '  서버 오류는 던지지 않고 { ok:false } — 기술 문구는 안 싣는다');
     }
   } catch (err) {
     t(false, '돌리다 오류 — ' + (err && err.stack ? err.stack.split('\n').slice(0, 3).join(' | ') : err));
@@ -270,6 +277,7 @@ function wire(S){
     ['mod', "active = false; editId = null; delId = null;\n    paint(); changed();", "active = false; editId = null; delId = null;\n    paint();", '탭을 닫아도 탭 줄을 안 다시 그림'],
     ['mod', "hiddenSig = pinSig(p); paintPin();", "paintPin();", '고정 줄을 눌러도 안 숨음'],
     ['mod', "if(p && pinSig(p) === hiddenSig) p = null;", "", '다시 그릴 때 숨김이 풀림'],
+    ['mod', "if(keep !== null) inp.value = keep;", "", '다시 그릴 때 고치던 글이 사라짐'],
     ['mod', "if(t.length > TEXT_MAX) return", "if(t.length > TEXT_MAX + 1) return", '300자 경계가 하나 넘어감'],
     ['mod', "return out.sort((a, b) => (b.pin - a.pin) || (b.ts - a.ts) || (a.id < b.id ? -1 : 1));", "return out.sort((a, b) => (b.ts - a.ts) || (a.id < b.id ? -1 : 1));", '고정한 공지가 맨 위로 안 감'],
     ['mod', "return (items || []).filter(x => x.pin && x.id !== id).map(x => x.id);", "return [];", '새로 고정해도 옛 고정을 안 풂(둘 이상 고정)'],

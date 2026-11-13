@@ -117,6 +117,7 @@ function createChatNotice(deps){
   let items = [];
   let unsub = null;
   let subRoom = null;
+  let editShown = null;     // 고치기 칸을 그려 둔 공지 id — 같은 칸을 다시 그릴 때만 친 글을 지킨다
   let hiddenSig = null;     // 고정 줄을 눌러 숨긴 공지(id · 시각 · 글) — 다른 공지를 고정하거나 고치면 다시 뜬다
   let loadFailed = false;   // 서버 읽기 실패 — «공지 없음» 과 다르게 그린다
   let active = false;     // #공지 탭을 보고 있다
@@ -158,9 +159,13 @@ function createChatNotice(deps){
   function paintList(){
     const box = $('chatNotices'); if(!box) return;
     if(!active){ box.textContent = ''; return; }
+    /* 고치는 중에 구독 갱신 · 방 메타가 와서 다시 그려도 친 글을 서버 글로 되돌리지 않는다 */
+    const prev = (editId && editShown === editId) ? box.querySelector('.cn-edit-in') : null;
+    const keep = prev ? prev.value : null;
     box.innerHTML = listHtml(items, { host: isHost(), editId, delId, failed: loadFailed }, escHtml);
+    editShown = editId;
     const inp = box.querySelector('.cn-edit-in');
-    if(inp){ inp.focus(); inp.select(); }
+    if(inp){ if(keep !== null) inp.value = keep; inp.focus(); if(keep === null) inp.select(); }
   }
   function paint(){
     const win = $('chatWindow');
