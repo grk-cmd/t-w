@@ -128,10 +128,10 @@ function mkEnv(opt){
     officeMode: () => env.office,
     lsSet: (k, v) => { env.lsSets.push([k, v]); env.ls[k] = String(v); return true; },
     presence: () => (env.room == null ? undefined : { roomCode: () => env.room }),
-    mkFrontFill: () => U(), findMySeat: () => { env.mySeatCalls++; return null; }, setFaceMap(){}, animateRig(){}, targetFor: () => U(),
+    addRunLights: () => U(), findMySeat: () => { env.mySeatCalls++; return null; }, setFaceMap(){}, animateRig(){}, targetFor: () => U(),
     setBone(){}, hueOBC(){}, trickArmBase: () => 0, trickArmSpread: () => 0, trickLegPose: () => ({ legL: { x: 0, z: 0 }, legR: { x: 0, z: 0 } }),
     seats: [],
-    mainLightCol: 0xffffff, mainLightInt: 1, keyLightMul: 1, fillLightMul: 1, animalHandRest: -1,
+    animalHandRest: -1,
     spineAxis: () => 1, headAxis: () => 1, handRest: () => -1, shakeArmDroop: () => 0.5,
   });
   return env;

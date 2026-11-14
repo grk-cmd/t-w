@@ -89,7 +89,7 @@
 | **sim-bug-cleanup.js** | 191 | **7c41fc91c912** |
 | **sim-bump-version.js** | 108 | **9c635d7b9caa** |
 | **sim-char-core-load.js** | 89 | **740ecf90c6f1** |
-| **sim-chat-history.js** | 238 | **7487f665fbe4** |
+| **sim-chat-history.js** | 248 | **13e828d41bc9** |
 | **sim-gamepad-activity.js** | 254 | **307df716981e** |
 | **sim-mallang-hide.js** | 147 | **a97601090ee3** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
@@ -140,7 +140,7 @@
 | **sim-listen-model.js** | 90 | **ee080c7f5c9c** |
 | **sim-listen-provider.js** | 86 | **221f5a4eb987** |
 | **sim-listen-ui.js** | 431 | **a9fe373d4b6b** |
-| **sim-room-settings.js** | 222 | **9f72e7fa9c2b** |
+| **sim-room-settings.js** | 222 | **e4793b3f67ad** |
 | **sim-room-alive.js** | 128 | **7d710942c7e7** |
 | **sim-daily-active.js** | 89 | **cde9ed578261** |
 | **sim-visit-ping.js** | 151 | **9f3a61fcae2c** |
@@ -199,8 +199,8 @@
 | **sim-seat-menu.js** | 167 | **d852cfc88b06** |
 | **sim-publish-fields.js** | 208 | **f461e7690a5b** |
 | **sim-purikura-deco.js** | 953 | **1d529bcb0f22** |
-| sim-purikura-net.js | 116 | 06da606e2fc6 |
-| **sim-purikura-rules.js** | 239 | **61dded4315a9** |
+| sim-purikura-net.js | 104 | 1d50a181e109 |
+| **sim-purikura-rules.js** | 241 | **25c4bbd4c8de** |
 | **sim-purikura-stage.js** | 270 | **8c2a256535ea** |
 | **sim-report-away.js** | 111 | **2520dc68e092** |
 | **sim-ride-height.js** | 115 | **870e0eb2c0e7** |
@@ -260,7 +260,7 @@
 | **sim-scheduler.js** | 984 | **c56a5b0efd3b** |
 | **sim-schedule-api.js** | 443 | **2ce6c2a211b4** |
 | **sim-weekly-challenge.js** | 295 | **af29b7e0f22e** |
-| **sim-purikura-ui.js** | 360 | **ea164728c8d7** |
+| **sim-purikura-ui.js** | 360 | **cc367465acc0** |
 | **sim-pk-bgm.js** | 103 | **6ec21bdb6d3e** |
 | **sim-guestbook.js** | 479 | **94932280a36a** |
 | **sim-friend-manage-module.js** | 278 | **fafc854c725f** |
@@ -268,14 +268,14 @@
 | **sim-myhome-sticker.js** | 422 | **bf3e0882810d** |
 | **sim-gacha.js** | 484 | **10ee8019344d** |
 | **sim-myhome-edit.js** | 608 | **92a966777336** |
-| **sim-room-invite-ui.js** | 365 | **7b5ca4859a3c** |
+| **sim-room-invite-ui.js** | 378 | **66906d7fd8cd** |
 | **sim-focus-log.js** | 333 | **721cf81ef653** |
 | **sim-focus-progress.js** | 390 | **0195fe25d4c3** |
 | **sim-chat-window.js** | 565 | **9b933ee52a05** |
 | **sim-api-client.js** | 455 | **95f8f2d62950** |
 | **sim-api-public-reads.js** | 161 | **a852f043391c** |
 | **sim-devtools-gate.js** | 87 | **0f94e5a4320f** |
-| **sim-remote-config.js** | 372 | **9be95fecfe30** |
+| **sim-remote-config.js** | 372 | **8d3a41c73563** |
 | **sim-source-switch.js** | 128 | **26f7aff8e56a** |
 | **sim-drag-scroll.js** | 103 | **dfe27aecdf9e** |
 | **sim-myhome-inbox.js** | 766 | **0c88f8bb0962** |
@@ -336,7 +336,7 @@
 | **sim-wardrobe.js** | 189 | **50551a3f1799** |
 | **sim-settings-panel.js** | 96 | **a04d94668421** |
 | **sim-desktop-run.js** | 94 | **c83f41497fc2** |
-| **sim-room-entry.js** | 333 | **3161ceedae1f** |
+| **sim-room-entry.js** | 333 | **6a22e8a529c2** |
 | **sim-overhead.js** | 161 | **28058dce0520** |
 | **sim-room-sync.js** | 99 | **20fd5b5bfe59** |
 | **sim-status-chip.js** | 102 | **f5f9257e9d2c** |
@@ -386,7 +386,7 @@
 | **sim-outside-close.js** | 95 | **2e61ab5a3e9c** |
 | **sim-wardrobe-panel.js** | 95 | **1070574caf86** |
 | **sim-race-picker.js** | 99 | **a7878b17f66a** |
-| **sim-realtime-link.js** | 404 | **28de09180521** |
+| **sim-realtime-link.js** | 418 | **3edc2fb9a92d** |
 | **sim-lv-tier.js** | 96 | **13d70962e49c** |
 | **sim-theme.js** | 96 | **1f4b87d7c9d7** |
 | **sim-license-ui.js** | 96 | **65a051e081d7** |
@@ -490,10 +490,10 @@
 | **sim-bookshelf-store.js** | 258 | **2647af3c408b** |
 | **sim-myhome-store.js** | 629 | **cbeeada94f57** |
 | **sim-myhome-wire.js** | 122 | **a6c458b30715** |
-| **sim-room-rt.js** | 357 | **1f746cdeb8d6** |
-| **sim-chat-rt.js** | 194 | **0709638f2177** |
-| **sim-room-invite-rt.js** | 73 | **05182e7f4355** |
-| **sim-purikura-rt.js** | 433 | **7b26b96845b1** |
+| **sim-room-rt.js** | 364 | **19243ed66e49** |
+| **sim-chat-rt.js** | 210 | **92dc28e3f0ca** |
+| **sim-room-invite-rt.js** | 85 | **aaf5c3f73ec3** |
+| **sim-purikura-rt.js** | 444 | **6b2045d0fb36** |
 
 ### `sim-sysinput.js` 판 계보
 

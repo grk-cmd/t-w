@@ -66,7 +66,7 @@ async function run(){
   let chan = 'workingroom', subs = [], sent = [];
   const H = M.createChatHistory({
     store, channel: () => chan,
-    subscribeSince: (room, tab, since, onMsg, onReady) => { const s = { room, tab, since, onMsg, onReady, off: false }; subs.push(s); return () => { s.off = true; }; },
+    subscribeSince: (room, tab, since, onMsg, onReady, onFail) => { const s = { room, tab, since, onMsg, onReady, onFail, off: false }; subs.push(s); return () => { s.off = true; }; },
     clearLog: async (room, tab) => { sent.push({ room, tab }); return { ok: true }; },
     setTimeout: (f) => { Promise.resolve().then(f); return 1; },
   });
@@ -92,6 +92,16 @@ async function run(){
   subs[1].onMsg(m('b', 2500)); subs[1].onMsg(m('c', 3000)); subs[1].onReady();
   await tick(); await tick();
   chk(got[got.length - 1] === 'a,b,c' && store.msgs.size === 3, '여유 구간에서 다시 온 줄은 겹치지 않고 새 줄만 붙는다');
+  // 지난 기록을 못 받음 — 빈 대화로 끝내지 않는다(D5)
+  {
+    const fails = []; let lst = [];
+    const cl = H.open('WORK-FA11', 'general', l => { lst = l; }, () => fails.push(1));
+    await tick();
+    const sf = subs[subs.length - 1];
+    sf.onFail(new Error('down')); await tick(); await tick();
+    chk(fails.length === 1 && lst.length === 0, '★ 서버 지난 기록을 못 받으면 onFail 을 부른다 — 받음(onReady)으로 그리지 않는다');
+    cl();
+  }
   // 방장 지우기
   const r = await H.clear('WORK-AB12', 'general');
   chk(r.ok && sent.length === 1 && sent[0].room === 'WORK-AB12' && sent[0].tab === 'general', '방장 [지우기] — 서버에 지우기만 부탁한다(표시 줄은 서버가 방 전원에 보낸다)');
@@ -154,7 +164,7 @@ run().then(() => {
   say('§3 연결 · 배선');
   chk(/import \{ createChatHistory, createIdbChatStore \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?chat-history\.js"/.test(FI),
     'firebase-init 은 chat-history.js 를 연결만');
-  chk(/subscribeSince: \(room, tab, since, onMsg, onReady\) => window\.TwChatRt\.store\.subscribeSince\(room, tab, since, onMsg, onReady\)/.test(FI) && /clearLog: \(room, tab\) => window\.TwChatRt\.store\.clear\(room, tab\)/.test(FI) && !/sendLog:/.test(FI),
+  chk(/subscribeSince: \(room, tab, since, onMsg, onReady, onFail\) => window\.TwChatRt\.store\.subscribeSince\(room, tab, since, onMsg, onReady, onFail\)/.test(FI) && /clearLog: \(room, tab\) => window\.TwChatRt\.store\.clear\(room, tab\)/.test(FI) && !/sendLog:/.test(FI),
     '★ 이어 받기 · 방장 지우기는 대화 포트(chat-rt.js — 시각 since · 서버 표시 줄) · 표시 줄을 앱이 따로 쓰지 않는다');
   chk(/indexedDB/.test(FI) && /firebaseConfig\.databaseURL/.test(FI), '저장 DB 이름에 DB 주소 — 운영 · dev 가 섞이지 않는다');
   chk(/bindSettings\(document/.test(FI) && /id="progChatHistWipe"/.test(HTML), '설정 › 시스템 [이 PC 에 저장된 대화 지우기]');
@@ -165,9 +175,9 @@ run().then(() => {
   chk(/_roomDisbanding = false; \}\);/.test(APP) && /doLeaveRoom\(\{ wipeChat: true \}\)\)\.catch\(\(\)=>\{\}\)\.then\(\(\)=>\{ window\._roomDisbanding/.test(APP), '방 해산 — 지운다');
   chk(/^twNav\.on\(twNav\.NAV\.LEAVE_ROOM, doLeaveRoom\);/m.test(APP), '  창 열기 통로의 방 나가기는 doLeaveRoom 그대로(부탁할 때 인자를 안 넘기면 기록을 안 지운다)');
   const noWipe = [/function _onDeviceSessionLost\(\)\{[\s\S]{0,300}?twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)\)/,   /* 창 열기 통로로 나간다 — 걸린 함수가 인자 없는 doLeaveRoom(모듈 순환 끊기 6) */
-    /toast\(ROOM_LOST_MSG\[code\] \|\| ROOM_LOST_DEFAULT\);\s*Promise\.resolve\(doLeaveRoom\(\)\)/];
+    /TwErrorCodes\.notify\('E-ROOM-10', code\); \}\s*Promise\.resolve\(doLeaveRoom\(\)\)/];
   chk(noWipe.every(re => re.test(APP)), '★ 튕김(다른 기기 로그인 · 서버 끊김 · 관리자 종료)은 안 지운다 — 다시 들어오면 이어진다');
-  chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList\)/.test(APP) && /firebaseAPI\.chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
+  chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList, \(\)=>\{ try\{ TwErrorCodes\.notify\('E-CHAT-02'\); \}catch\(_\)\{\} \}\)/.test(APP) && /firebaseAPI\.chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
     'app.js 배선 — 열기 · 방장 지우기 · 채널 정리 · 계정 놓기');
   /* 규칙 chatLog · _chatTab 색인은 0.13 앱이 안 쓴다(대화는 API · realtime) — 규칙을 걷는 묶음이 같이 걷는다 */
 

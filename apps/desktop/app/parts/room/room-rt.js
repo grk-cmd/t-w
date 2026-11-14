@@ -171,8 +171,10 @@ function createRoomRt(deps){
     const pick = (k) => (t && typeof t[k] === 'number' && t[k] > 0) ? t[k] : TIMING_DEFAULTS[k];
     return { joinWaitMs: pick('joinWaitMs'), clientGiveUpMs: pick('clientGiveUpMs') };
   }
-  /* 연결이 멈춘 상태(다시 붙지 않음) → 방을 놓는 까닭 */
-  const STOPPED = { [S.OFF]: 'off', [S.UPDATE]: 'version', [S.AUTH_FAILED]: 'auth' };
+  /* 연결이 멈춘 상태(다시 붙지 않음 — 04-realtime-disconnect 정책 표) → 방을 놓는 까닭.
+     점검(4006) · 계정 끝(4007) · 모르는 닫힘은 hub 가 멈춘다 — 이걸 «다시 연결 중» 으로 90초 기다리지 않는다. 창 · 띠는 rt-status-ui 가 맡는다. */
+  const STOPPED = { [S.OFF]: 'off', [S.UPDATE]: 'version', [S.AUTH_FAILED]: 'auth',
+    [S.MAINTENANCE]: 'maintenance', [S.ACCOUNT_GONE]: 'accountGone', [S.CLOSED]: 'hubClosed' };
 
   let active = null;     // 방에 들어가 있거나 들어가는 중인 provider 의 속(P)
   let lingering = null;  // 나가기 확인(left)을 기다리는 provider — active 를 비운 뒤라 따로 잡아 둔다

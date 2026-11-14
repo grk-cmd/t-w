@@ -91,7 +91,10 @@ async function secretGuests(code){
   return Math.max(0, e.count - (roomCode() === code ? 1 : 0));
 }
 
-return { listRooms, mySecretRoom, secretGuests };
+/* 계정이 바뀜(session.onReset) · 내 시크릿룸이 바뀜(realtime 알림 license) — 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다 */
+function reset(){ owned = null; }
+
+return { listRooms, mySecretRoom, secretGuests, reset };
 }
 
 window.TwRoomLobbyProvider = { LOBBY_PATH, MY_SECRET_PATH, lobbyOf, mySecretOf, createRoomLobbyProvider };

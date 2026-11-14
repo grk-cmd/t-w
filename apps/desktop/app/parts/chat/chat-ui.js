@@ -650,7 +650,7 @@ function _chatSubscribeTab(room){
   // 🚪 목록이 도착한 그 순간이 '입장'이다 — 처음이면 여기서 표식을 찍는다(_noteChatJoin 주석 참고).
   const _onList = list => { _noteChatJoin(key, list); _renderChatLog(list); };
   // 💬 이 PC 화면 캐시 + 그 뒤만 이어 받기(chat-history.js · 길은 chat-rt.js) — 연결 모듈이 아직이면 최근 줄 구독
-  if(room && window.firebaseAPI && firebaseAPI.chatHistory) setChatLogUnsub(firebaseAPI.chatHistory.open(room, tab, _onList));
+  if(room && window.firebaseAPI && firebaseAPI.chatHistory) setChatLogUnsub(firebaseAPI.chatHistory.open(room, tab, _onList, ()=>{ try{ TwErrorCodes.notify('E-CHAT-02'); }catch(_){} }));
   else if(room) setChatLogUnsub(chatNet.subscribeLog(room, _onList, undefined, tab));
   _chatTabUnreadStart(room);
   _chatTabsRender();
@@ -1156,7 +1156,7 @@ function _sendChatWindowMsg(){
       .then(r=>{
         if(r && r.ok) _chatMarkSentRead(sendKey, r);
         if(r && r.ok === false){
-          toast(CHAT_SAY_REFUSED[r.code] || '전송에 실패했어요 — 잠시 뒤 다시 보내주세요');
+          if(CHAT_SAY_REFUSED[r.code]) toast(CHAT_SAY_REFUSED[r.code]); else { try{ TwErrorCodes.notify('E-CHAT-01', r.code); }catch(_){} }
           const el=document.getElementById('chatInput');
           if(el && !el.value) el.value = text;   // 그 사이에 새로 친 글이 있으면 덮지 않는다
         }
@@ -1181,6 +1181,7 @@ function _saveChatLog(){
 
 let _emojiCache = {};          // { slot: {cmd, url, gif} }  — 내 이모티콘 (다른 방 가도 유지)
 let _emojiPendingSlot = null;  // 파일 선택 중인 슬롯
+let _emojiLoadFailed = false;  // 내 이모티콘을 못 받음 — 빈 칸으로 그리지 않고 고치기를 잠근다(빈 칸 위에 저장하면 서버 칸을 덮을 수 있다)
 const EMOJI_SLOTS = 8;
 
 // ★ 기본 이모티콘 목록은 demoji-catalog.js(마이홈 바탕화면 · 말풍선도 같이 읽는 맨 아래 표).
@@ -1191,7 +1192,8 @@ const DEMOJI_BY_ID = demojiCatalog.BY_ID, DEMOJI_BY_CMD = demojiCatalog.BY_CMD;
 
 // 내 이모티콘 로드 (대화창 열 때 1회)
 async function _loadMyEmojis(){
-  try{ _emojiCache = await chatNet.getEmojis() || {}; }catch(_){ _emojiCache = {}; }
+  try{ _emojiCache = await chatNet.getEmojis() || {}; _emojiLoadFailed = false; }
+  catch(e){ _emojiLoadFailed = true; try{ TwErrorCodes.notify('E-CHAT-04', e); }catch(_){} }   // _emojiCache 는 그대로(앞서 받은 것이 있으면 둔다)
   _renderEmojiPanel();
 }
 // 이모티콘 창 렌더 — [기본 32개] → [내 이모티콘(× 삭제)] → [＋ 등록] 인라인 나열
@@ -1215,7 +1217,9 @@ function _renderEmojiPanel(){
     }
   }
   // ＋ 새 이모티콘 등록 — 기존 등록 흐름(빈 슬롯 → 파일 → 명령어 → 저장) 그대로 재사용
-  html += `<button class="emoji-add-btn" data-add="1" title="내 이모티콘 등록 (최대 ${EMOJI_SLOTS}개)">＋</button>`;
+  html += _emojiLoadFailed
+    ? `<button class="emoji-add-btn" data-add="1" title="내 이모티콘을 못 불러왔어요 — 눌러서 다시 시도">↻</button>`
+    : `<button class="emoji-add-btn" data-add="1" title="내 이모티콘 등록 (최대 ${EMOJI_SLOTS}개)">＋</button>`;
   grid.innerHTML=html;
 }
 // 이모티콘 창 토글 — 채팅창 오른쪽에 배치(공간 없으면 왼쪽, 화면 안으로 클램프)
@@ -1237,6 +1241,7 @@ function _toggleEmojiPanel(){
 }
 // 슬롯 클릭 — 등록된 건 명령어 삽입, 빈 칸은 파일 선택
 function _onEmojiSlotClick(slot){
+  if(_emojiLoadFailed){ _loadMyEmojis(); return; }   // 못 받은 채로는 등록하지 않는다 — 다시 받기
   const e=_emojiCache[slot];
   if(e && e.cmd){
     // 입력창에 /명령어 삽입 (바로 전송 안 함)
@@ -1281,7 +1286,7 @@ async function _onEmojiFilePicked(file){
       });
     }
   }catch(_){ toast('이미지를 읽지 못했어요'); return; }
-  // 저장 — 그림은 Storage(users/{내 코드}/emojis/{칸}) · 칸은 API(PUT /v1/me/emojis/{칸})
+  // 저장 — 그림은 Storage(users/{내 코드}/emojis/{칸}) · 칸은 API(PUT /v2/me/emojis/{칸})
   const me = myCode();
   if(!(me && window.firebaseAPI && firebaseAPI.uploadEmojiImage)){ toast('서버에 연결된 뒤 등록할 수 있어요'); return; }
   toast('이모티콘 등록 중…');
@@ -1289,12 +1294,14 @@ async function _onEmojiFilePicked(file){
   try{ url = await firebaseAPI.uploadEmojiImage(me, slot, dataUrl, isGif); }catch(_){ url = null; }
   const r = url ? await chatNet.putEmoji(slot, cmd, url) : { ok:false };
   if(r && r.ok){ _emojiCache[slot]={cmd,url,gif:isGif}; _renderEmojiPanel(); toast('이모티콘을 등록했어요'); }
-  else toast('등록에 실패했어요');
+  else { try{ TwErrorCodes.notify('E-CHAT-05', r && r.code); }catch(_){} }
 }
 // 이모티콘 삭제
 async function _deleteEmoji(slot){
+  if(_emojiLoadFailed){ _loadMyEmojis(); return; }
   const r = await chatNet.deleteEmoji(slot);   // Storage 파일은 서버가 지운다
   if(r && r.ok){ delete _emojiCache[slot]; _renderEmojiPanel(); }
+  else { try{ TwErrorCodes.notify('E-CHAT-05', r && r.code); }catch(_){} }
 }
 // 슬래시 명령을 이모티콘 마커로 치환 — 전송 직전 호출. "/ㅋㅋ" → "[emoji:URL]"
 function _applyEmojiCommands(text){

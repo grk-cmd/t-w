@@ -89,7 +89,7 @@ function _rollDice(){
   if(typeof Presence()!=='undefined' && Presence().active() && Presence().sendChat) Presence().sendChat(dice2, false, '', '', _tab);
   // 2) 대화 기록 — 눈 두 개만 보내면 서버가 문장(«○○님이 주사위 … 가 나왔습니다.»)을 만든다
   const room=(typeof Presence()!=='undefined' && Presence().roomCode)?Presence().roomCode():null;
-  if(room) chatNet.sendGame(room, { dice: [n1, n2] }, _tab);
+  if(room) Promise.resolve(chatNet.sendGame(room, { dice: [n1, n2] }, _tab)).then(r=>{ if(r && r.ok === false) TwErrorCodes.notify('E-CHAT-01', r.code); }, ()=>{});   // 기록 줄 — 못 보내면 번호로 알린다
   if(willFly) _selfFlyAfterDice();
 }
 

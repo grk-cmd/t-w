@@ -1,9 +1,9 @@
 /* sim-chat-rt.js — 💬 대화 포트(chat/chat-rt.js) 검사 — 가짜 연결(hub) · 가짜 API 로 그대로 돌린다
    ・1절: 줄 모양 — 서버 줄 → 앱 줄(uid · ts ms · 탭 앱 id · CLEAR → sys clr) · 모양이 틀리면 버림
-   ・2절: 보내기 — chatSay{ requestId · tab S1 · text } · chatSaid 로 끝남 · 못 받으면 같은 requestId 로 한 번 더 · 거절 code · 방 밖이면 안 보냄 · 게임(주사위 탭 · 날리기는 탭 없음)
-   ・3절: 지난 기록 — 시크릿룸은 서버에서 안 읽음 · since 없으면 최근 쪽 · 있으면 ISO 시각으로 쪽 넘김(hasMore) · 받는 동안 온 줄도 · 못 받아도 onReady · 끊으면 안 부름
+   ・2절: 보내기 — chatSay{ requestId · tab S1 · text } · chatSaid 로 끝남 · 자동 재전송 없음(시간 초과 = 실패) · 사용자가 같은 글을 다시 보내면 같은 requestId · 거절 code · 방 밖이면 안 보냄 · 게임(주사위 탭 · 날리기는 탭 없음)
+   ・3절: 지난 기록 — 시크릿룸도 서버에서 읽음(3일 · 사용자 결정 11-09) · since 없으면 최근 쪽 · 있으면 ISO 시각으로 쪽 넘김(hasMore) · 받는 동안 온 줄도 · 못 받으면 onFail(onReady 아님 — 빈 대화로 끝내지 않음) · 끊으면 안 부름
    ・4절: 방장 지우기 — chatClear{ tab } · 지우기 표시 줄이 오면 ok · CHAT_NOT_HOST 거절
-   ・5절: 최근 줄 구독(안 읽은 수) · 내 이모티콘(slots → 칸 표 · PUT · DELETE)
+   ・5절: 최근 줄 구독(안 읽은 수) · 내 이모티콘(slots → 칸 표 · PUT · DELETE · 못 받으면 던짐) · 계정이 바뀌면 reset
    ・6절: 배선(html 차례 · firebase-init 이 대화 기록을 이 포트에 잇는다) · 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -66,10 +66,18 @@ async function judge(S){
     chk(r && r.ok && r.id === 'L1' && r.ts === 77, '  chatSaid → { ok, id, ts }');
     e = mk(S);
     const p2 = e.c.sendText('PLAY-AB12', '다시', 'general');
-    e.fire(); await tick();
-    chk(e.sent.length === 2 && e.sent[1].requestId === e.sent[0].requestId && !('tab' in e.sent[0] && e.sent[0].tab !== 'GENERAL'), '★ chatSaid 를 못 받으면 같은 requestId 로 한 번 더(서버가 처음 줄을 돌려준다)');
     e.fire(); const r2 = await within(p2);
-    chk(r2 && r2.ok === false && r2.code === 'timeout' && e.sent.length === 2, '  두 번 다 못 받으면 timeout — 끝없이 다시 보내지 않는다');
+    chk(r2 && r2.ok === false && r2.code === 'timeout' && e.sent.length === 1 && e.timers.length === 0, '★ D3 — chatSaid 를 못 받으면 자동으로 다시 보내지 않고 timeout 으로 끝난다(보낸 것은 한 번)');
+    const p2b = e.c.sendText('PLAY-AB12', '다시', 'general');
+    chk(e.sent.length === 2 && e.sent[1].requestId === e.sent[0].requestId, '★ 사용자가 같은 글을 다시 누르면 같은 requestId — 서버가 처음 줄을 돌려준다(두 줄이 안 생긴다)');
+    e.emit({ t: 'chatSaid', requestId: e.sent[1].requestId, line: LINE('L2', { userCode: 'u1', ts: 9 }) });
+    chk((await within(p2b)).ok === true, '  이번엔 답이 와서 끝');
+    e.c.sendText('PLAY-AB12', '다시', 'general');
+    chk(e.sent[2].requestId !== e.sent[0].requestId, '  끝난 뒤의 같은 글은 새 requestId(다른 글을 보내는 것)');
+    e = mk(S);
+    const p2c = e.c.sendText('PLAY-AB12', '가', 'general'); e.fire(); await within(p2c);
+    e.c.sendText('PLAY-AB12', '나', 'general');
+    chk(e.sent[1].requestId !== e.sent[0].requestId, '  다른 글은 새 requestId');
     e = mk(S);
     const p3 = e.c.sendText('PLAY-AB12', '글', 'general');
     e.emit({ t: 'error', code: 'CHAT_OFF', ref: 'chatSay', requestId: e.sent[0].requestId });
@@ -93,7 +101,7 @@ async function judge(S){
     const got = []; let ready = 0;
     const off = e.c.subscribeSince('PLAY-AB12', 's1', null, (m) => got.push(m.id), () => ready++);
     await tick();
-    chk(/\/v1\/rooms\/PLAY-AB12\/chats\?tab=S1&limit=100$/.test(e.gets[0][0]) && e.gets[0][1].auth === true && got.join() === 'a1,a2' && ready === 1, 'since 없음 → 최근 쪽(tab=S1 · limit) · 줄마다 onMsg · 끝나면 onReady 한 번');
+    chk(/\/v2\/rooms\/PLAY-AB12\/chats\?tab=S1&limit=100$/.test(e.gets[0][0]) && e.gets[0][1].auth === true && got.join() === 'a1,a2' && ready === 1, 'since 없음 → 최근 쪽(tab=S1 · limit) · 줄마다 onMsg · 끝나면 onReady 한 번');
     e.emit({ t: 'chatLine', line: LINE('a3', { tab: 'S1', ts: 3000 }) });
     e.emit({ t: 'chatLine', line: LINE('x9', { tab: 'GENERAL', ts: 3000 }) });
     chk(got.join() === 'a1,a2,a3', '  그 뒤 그 탭의 chatLine 만 이어 받는다');
@@ -107,22 +115,22 @@ async function judge(S){
     chk(e.gets.length === 2 && e.gets[0][0].indexOf('since=' + encodeURIComponent(new Date(4000).toISOString())) > 0 && e.gets[1][0].indexOf('since=' + encodeURIComponent(new Date(6000).toISOString())) > 0 && got2.join() === 'b1,b2,b3',
       '★ since → ISO 시각 · hasMore 면 마지막 줄 시각으로 다음 쪽');
     e = mk(S);
-    let r6 = 0; const got3 = [];
-    e.c.subscribeSince('PLAY-AB12', 'general', null, (m) => got3.push(m.id), () => r6++);
+    let r6 = 0, f6 = 0; const got3 = [];
+    e.c.subscribeSince('PLAY-AB12', 'general', null, (m) => got3.push(m.id), () => r6++, () => f6++);
     await tick();
-    chk(r6 === 1 && got3.length === 0, '  못 받아도 onReady — 화면이 «불러오는 중» 에 갇히지 않는다');
+    chk(r6 === 0 && f6 === 1 && got3.length === 0, '★ D5 — 못 받으면 onReady(빈 대화로 끝남)가 아니라 onFail 한 번');
     e = mk(S, { room: 'PLAY-AB12', get: { lines: [], hasMore: false } });
     e.emit({ t: 'chatSaid', requestId: 'zzzzzzzz', line: LINE('s1', { tab: 'GENERAL' }) });
     const got4 = []; e.c.subscribeSince('PLAY-AB12', 'general', null, (m) => got4.push(m.id), () => {}); await tick();
     e.emit({ t: 'chatLine', line: LINE('s2', { tab: 'GENERAL' }) });
     chk(got4.join() === 's2', '  구독 전에 지나간 줄은 다시 안 넘긴다(기록은 GET 으로)');
-    e = mk(S, { room: 'SCRT-AB12', get: { lines: [LINE('q1')], hasMore: false } });
+    e = mk(S, { room: 'SCRT-AB12', get: { lines: [LINE('q1', { ts: 10 })], hasMore: false } });
     const got5 = []; let r5 = 0;
     e.c.subscribeSince('SCRT-AB12', 'general', null, (m) => got5.push(m.id), () => r5++);
     e.c.subscribeLog('SCRT-AB12', () => {}, 30, 'general');
     await tick();
     e.emit({ t: 'chatLine', line: LINE('q2') });
-    chk(e.gets.length === 0 && r5 === 1 && got5.join() === 'q2', '★ 시크릿룸은 지난 기록을 서버에서 읽지 않는다(이 PC 저장분만 · 사용자 결정) — 연결 위로 오는 줄만');
+    chk(e.gets.length === 2 && /\/v2\/rooms\/SCRT-AB12\/chats/.test(e.gets[0][0]) && r5 === 1 && got5.join() === 'q1,q2', '★ D1 — 시크릿룸도 지난 기록을 서버에서 읽는다(서버 3일 · 사용자 결정 11-09) · 그 뒤 연결 위로 오는 줄');
   }catch(err){ chk(false, '3절 던짐 — ' + err.message); }
 
   say('── 4. 방장 지우기');
@@ -149,20 +157,26 @@ async function judge(S){
     chk(e.gets[0][0].indexOf('limit=2') > 0 && seen[0] === 'a1,a2' && seen[1] === 'a2,a3', '최근 n 줄 목록 — 새 줄이 오면 앞을 밀어낸다(안 읽은 수 세기)');
     e = mk(S, { get: { slots: [{ slot: 0, cmd: 'ㅋㅋ', imageUrl: 'https://x/0.png', animated: false }, { slot: 3, cmd: 'gif', imageUrl: 'https://x/3.gif', animated: true }, { slot: 'x' }] } });
     const em = await e.c.getEmojis();
-    chk(em[0].cmd === 'ㅋㅋ' && em[0].url === 'https://x/0.png' && em[3].gif === true && Object.keys(em).length === 2 && e.gets[0][0] === '/v1/me/emojis', '★ GET /v1/me/emojis 의 slots → { 칸: { cmd, url, gif } }(대화창이 읽던 모양)');
+    chk(em[0].cmd === 'ㅋㅋ' && em[0].url === 'https://x/0.png' && em[3].gif === true && Object.keys(em).length === 2 && e.gets[0][0] === '/v2/me/emojis', '★ GET /v2/me/emojis 의 slots → { 칸: { cmd, url, gif } }(대화창이 읽던 모양)');
     const pr = await e.c.putEmoji(2, 'ㅎㅎ', 'https://x/2.png');
     await e.c.deleteEmoji(3);
-    chk(pr.ok && e.puts[0][0] === '/v1/me/emojis/2' && JSON.stringify(e.puts[0][1]) === '{"cmd":"ㅎㅎ","imageUrl":"https://x/2.png"}' && e.dels[0] === '/v1/me/emojis/3', '  PUT /v1/me/emojis/{칸} { cmd, imageUrl } · DELETE');
+    chk(pr.ok && e.puts[0][0] === '/v2/me/emojis/2' && JSON.stringify(e.puts[0][1]) === '{"cmd":"ㅎㅎ","imageUrl":"https://x/2.png"}' && e.dels[0] === '/v2/me/emojis/3', '  PUT /v2/me/emojis/{칸} { cmd, imageUrl } · DELETE');
     e = mk(S, { putFail: 'CHAT_EMOJI_IMAGE_INVALID' });
     const pf = await e.c.putEmoji(1, 'a', 'u');
     chk(pf.ok === false && pf.code === 'CHAT_EMOJI_IMAGE_INVALID', '  거절은 { ok:false, code }');
-    chk(JSON.stringify(await mk(S).c.getEmojis()) === '{}', '  못 받으면 빈 표');
+    let thr = false; try{ await mk(S).c.getEmojis(); }catch(_){ thr = true; }
+    chk(thr, '★ D6 — 못 받으면 던진다(빈 표 {} 로 그리면 저장할 때 서버 칸을 덮을 수 있다)');
+    e = mk(S);
+    const pr1 = e.c.sendText('PLAY-AB12', '가', 'general'); const pc = e.c.clear('PLAY-AB12', 'general');
+    e.c.reset();
+    const rr1 = await within(pr1), rc = await within(pc);
+    chk(rr1.code === 'reset' && rc.code === 'reset' && e.timers.length === 0 && Object.keys(e.c._debug()).every((k) => k === 'timedOut' || (e.c._debug()[k].size || e.c._debug()[k].length || 0) === 0), '★ 계정이 바뀌면(reset) 기다리던 보내기 · 지우기를 접고 줄 · 구독을 비운다');
   }catch(err){ chk(false, '5절 던짐 — ' + err.message); }
 
   say('── 6. 배선');
   const h = S.HTML, i = (f) => h.indexOf('<script src="parts/' + f + '"></script>');
   chk(i('chat/chat-rt.js') > i('room/room-rt.js') && i('chat/chat-rt.js') > i('shared/api-client.js') && i('chat/chat-rt.js') > i('shared/request-id.js') && i('app.js') > i('chat/chat-rt.js'), 'html — room-rt · api-client · request-id → chat-rt → app.js');
-  chk(/subscribeSince: \(room, tab, since, onMsg, onReady\) => window\.TwChatRt\.store\.subscribeSince\(/.test(S.FI) && /clearLog: \(room, tab\) => window\.TwChatRt\.store\.clear\(room, tab\)/.test(S.FI)
+  chk(/subscribeSince: \(room, tab, since, onMsg, onReady, onFail\) => window\.TwChatRt\.store\.subscribeSince\(/.test(S.FI) && /clearLog: \(room, tab\) => window\.TwChatRt\.store\.clear\(room, tab\)/.test(S.FI)
     && !/sendChatLog|subscribeChatLog|subscribeChatSince|clearChatLog|_chatTab\//.test(S.FI), 'firebase-init — 대화 기록을 이 포트에 잇는다 · Firebase 대화 길(chatLog · _chatTab)이 없다');
 }
 
@@ -170,8 +184,10 @@ async function judge(S){
 await judge(SRC0);
 say('── 7. 일부러 깨 보기');
 const BREAKS = [
-  ['CR', "const readsServerHistory = (room) => !/^SCRT-/.test(String(room || ''));", "const readsServerHistory = (room) => true;", '시크릿룸 기록을 서버에서 읽음'],
-  ['CR', "        timer = tSet(() => { if(tries < SAY_TRIES) attempt(); else w.done({ ok: false, code: 'timeout' }); }, SAY_WAIT_MS);", "        timer = tSet(() => { w.done({ ok: false, code: 'timeout' }); }, SAY_WAIT_MS);", '못 받으면 다시 안 보냄'],
+  ['CR', "timer = tSet(() => w.done({ ok: false, code: 'timeout' }), SAY_WAIT_MS);", "timer = tSet(() => { w.done({ ok: false, code: 'timeout' }); hub.send(msg); }, SAY_WAIT_MS);", '못 받으면 자동으로 다시 보냄'],
+  ['CR', "const requestId = timedOut.get(key) || deps.newRequestId();", "const requestId = deps.newRequestId();", '다시 누른 같은 글에 새 requestId'],
+  ['CR', "        if(!closed && onFail){ try{ onFail(e); }catch(_){} }", "        if(!closed && onReady) onReady();", '못 받아도 «다 받음» 으로 끝냄'],
+  ['CR', "const d = await api.get(EMOJI_PATH, { auth: true });", "const d = await api.get(EMOJI_PATH, { auth: true }).catch(() => null);", '이모티콘 못 받음을 삼킴(빈 표)'],
   ['CR', "            at = p.lines[p.lines.length - 1].ts;", "            at = since;", '쪽 넘김이 같은 자리를 다시 받음'],
   ['CR', "  if(line.kind === 'CLEAR') m.sys = CLEAR_SYS;", "", '지우기 표시 줄을 모름'],
   ['CR', "    if(game && game.dice) body.tab = deps.historyTabOf(appTab);   // 날리기는 늘 #일반(서버)", "    body.tab = deps.historyTabOf(appTab);", '날리기에도 탭'],

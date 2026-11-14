@@ -182,6 +182,20 @@ async function up(env){
     ws.msg({ t: 'error', code: 'badRequest', ref: 'presenceGet' });
     chk(await p4 === null, '  ↳ 그 요청은 ref 가 있는 오류로만 끝난다');
 
+    {
+      /* rid 를 실어 보낸 요청의 오류(서버: photoOpen · photoStart · roomInvite 의 오류에 rid) — 그 rid 의 요청이 오류 메시지를 받는다(가장 먼저 보낸 것이 아니라 제 짝) */
+      const pa = e.link.request({ t: 'presenceGet', ids: ['r1'] }, (m) => m), pb = e.link.request({ t: 'presenceGet', ids: ['r2'] }, (m) => m);
+      await tick();
+      const sentQ = ws.sent.filter((x) => x.t === 'presenceGet');
+      const rids = sentQ.slice(-2).map((x) => x.rid);
+      if(rids.length === 2){
+        ws.msg({ t: 'error', code: 'ROOM_INVITE_NOT_FRIEND', ref: 'presenceGet', rid: rids[1] });
+        const rb = await pb;
+        chk(rb && rb.t === 'error' && rb.code === 'ROOM_INVITE_NOT_FRIEND', '★ 오류에 rid 가 있으면 그 rid 의 요청이 오류 메시지를 받는다(ref 종류의 «가장 먼저 보낸 것» 이 아니라)');
+        ws.msg({ t: 'presence', users: {}, full: true, rid: rids[0] });
+        chk((await pa) !== null && !e.log.msgs.some((m) => m.rid === rids[1]), '  ↳ 다른 요청은 그대로 제 답을 받는다 · 오류는 onMessage 로 새지 않는다');
+      }else chk(false, '보낸 요청 둘을 못 찾음');
+    }
     for(const [ok, msg] of await unavailableCase(M)) chk(ok, msg);
     const brokenSrc = SRC.split("\n        || (m.code === 'unavailable' && requestKinds.indexOf(m.ref) >= 0)").join('');
     const MB = new Function('Buffer', brokenSrc.replace(/^export (const|function|async function) /gm, '$1 ') + '\nreturn {' + names.join(',') + '};')(Buffer);

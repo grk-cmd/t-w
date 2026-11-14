@@ -99,19 +99,12 @@ var CAM_P_MIN = 0,    CAM_P_MAX = 26,   CAM_P_STEP = 2,    CAM_P_BIG = 5;
 function camClampH(v){ return Math.max(CAM_H_MIN, Math.min(CAM_H_MAX, Math.round((+v || 0) * 100) / 100)); }
 function camClampP(v){ return Math.max(CAM_P_MIN, Math.min(CAM_P_MAX, Math.round(+v || 0))); }
 var CHAR_H  = 1.7;      // 캐릭터 키(월드 단위)
-/* 🐾 동물은 이만큼 더 크게 세운다.
-   [왜] 무대는 모든 캐릭터를 «전체 높이»로 1.7 에 맞춘다(_pkCloneChar). 그런데 동물은 귀가 위로
-     솟아 있어서 그 귀 끝까지 1.7 이 되고, 결과적으로 **얼굴과 몸이 사람보다 작게** 남는다.
-     실행 화면의 ANIMAL_RUN_SCALE(40%)과는 다른 이야기다 — 저건 책상 옆에 앉은 크기이고,
-     여기는 «같은 무대에 나란히 섰을 때»의 크기다.
-   ⚠️ 키우면 귀가 화면 위로 나간다. 지금(1.30)은 기본 거리 81px · 가장 멀리 58px 이 잘린다.
-     1.15 면 34/22px, 1.20 이면 50/34px, 1.40 이면 113/82px 이다 —
-     눈으로 보고 고를 값이라 여기 한 곳에만 적는다.
-   ⚠️ 여기서 더 키워도 «작다»가 남으면 배율 문제가 아니다. 그때는 전체 높이가 아니라
-     **귀와 꼬리를 뺀 몸**을 재서 맞춰야 한다 — 그건 이 한 줄이 아니라 _pkCloneChar 를 고치는 일이다.
-   ⚠️ 나란히 서는 인원 계산(fitCount)은 사람 어깨 폭 기준이다. 동물이 커지면 그만큼 더 겹치는데,
-     지금은 넷이 0% 라 여유가 있다. 이 값을 크게 올리면 §2 의 겹침부터 다시 볼 것. */
-var ANIMAL_H = 1.30;
+/* 🐾 동물 키 배율 — 무대는 모든 캐릭터의 몸을 CHAR_H 에 맞추고(_pkCloneChar), 동물만 이 값을 더 곱한다.
+   ⚠️ 몸 키는 **귀를 뺀 몸**으로 잰다(_pkBodyBox — 귀는 rigged 표식). 귀까지 재던 때 «얼굴이 작다» 를 메우려던
+     1.30 을 남겨 두면 보정이 두 번 걸려 동물이 사람보다 30% 크게 선다 — 1 을 넘기려면 귀가 아니라 다른 까닭이어야 한다.
+   ⚠️ 키우면 귀가 화면 위로 나가고, 나란히 서는 인원 계산(fitCount — 사람 어깨 폭 기준)의 겹침도 다시 볼 것.
+   실행 화면의 ANIMAL_RUN_SCALE 과는 다른 값이다(그쪽은 책상 옆에 앉은 크기). */
+var ANIMAL_H = 1.0;
 /* 🐾 동물의 점프 «높이» 배율. 사람의 절반이다(2026-08-29 요청).
    ★ 높이 = v0² ÷ 2g 이므로, 높이를 절반으로 하려면 **초속은 √0.5 배**다.
      화면 쪽이 이 값의 제곱근을 초속에 곱한다 — 여기 적힌 것은 «높이»의 비율이다.
@@ -713,22 +706,14 @@ function penRender(g, group, k){
 function stkClamp(s){ return Math.max(STK_MIN, Math.min(STK_MAX, s)); }
 function penWClamp(w){ return Math.max(PEN_W_MIN, Math.min(PEN_W_MAX, Math.round(w))); }
 
-/* ══ 날짜 — 하루의 경계는 한국 시간 자정 ═══════════════════════════════ */
+/* ══ 다시 여는 안내 ═════════════════════════════════════════════════════
+   하루의 경계 · 다시 여는 시각은 서버가 정한다(정원 답의 reopenAt). 앱은 날짜를 세지 않고 그 시각을 문구로만 옮긴다 —
+   서버가 여는 시각을 바꾸면 문구가 저절로 따라온다. 한 번도 못 받았으면 시각 없이 «내일 다시» 로. */
 var DAY_MS  = 86400000;
 var KST_OFF = 9 * 3600 * 1000;
-
-/* 한국 시간 하루의 시작을 하나의 숫자로(「KST 일 번호 × 하루(ms)」). 하루의 경계는 서버가 정한다 —
-   여기는 «다시 여는 시각» 안내 문구(closedMessage)를 만들 때만 쓴다. */
-function kstDay(nowMs){ return Math.floor((nowMs + KST_OFF) / DAY_MS) * DAY_MS; }
-
-/* 다음에 열리는 시각(UTC ms) = 다음 KST 자정 */
-function reopenAt(nowMs){ return kstDay(nowMs) + DAY_MS - KST_OFF; }
-
-/* 안내 문구. 여는 시각을 상수로 박지 않고 reopenAt 에서 뽑는다 —
-   나중에 여는 시각을 바꾸면 문구가 저절로 따라온다. */
-function closedMessage(nowMs){
-  var t = reopenAt(nowMs);
-  var h = Math.floor(((t + KST_OFF) % DAY_MS) / 3600000);
+function closedMessage(reopenAtMs){
+  if(typeof reopenAtMs !== 'number' || !isFinite(reopenAtMs)) return '📷 스티커사진이 문을 닫았어요. 내일 다시 열려요.';
+  var h = Math.floor((((reopenAtMs + KST_OFF) % DAY_MS) + DAY_MS) % DAY_MS / 3600000);
   return '📷 스티커사진이 문을 닫았어요. 내일 ' + h + '시에 열려요.';
 }
 
@@ -769,14 +754,14 @@ function decPos(s){
 }
 
 /* ══ 하루 정원 문구 ═══════════════════════════════════════════════════
-   정원은 서버가 센다(GET /v1/rooms/photo-quota · 촬영 시작 때 서버가 한 칸을 쓴다) — 여기는 서버 답의 숫자를 문구로만 옮긴다.
+   정원은 서버가 센다(GET /v2/rooms/photo-quota · 촬영 시작 때 서버가 한 칸을 쓴다) — 여기는 서버 답의 숫자를 문구로만 옮긴다.
    두 가지 모양을 같은 곳에서 만든다 — 두 군데서 각자 조립하면 언젠가 한쪽만 고쳐진다. 상한은 서버 답의 cap · nth + left 에서 온다. */
 function quotaText(left, cap){ return Math.max(0, left | 0) + ' / ' + (cap | 0); }                       // 예: "395 / 400"
 function startedText(nth, left){ return (nth | 0) + '번째 · ' + Math.max(0, left | 0) + '회 남음'; }      // 예: "5번째 · 395회 남음"
 
 return {
   /* 아래는 검사기와 UI 가 같이 쓰는 순수 함수들 */
-  kstDay: kstDay, reopenAt: reopenAt, closedMessage: closedMessage,
+  closedMessage: closedMessage,
   quotaText: quotaText, startedText: startedText,
   encPos: encPos, decPos: decPos,
   /* 시트 기하 — 화면·검사기·규칙이 같은 숫자를 보게 하는 유일한 출처 */

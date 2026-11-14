@@ -275,6 +275,11 @@ export function createRealtimeLink(deps){
         return;
       }
       if(m.code === 'auth' && m.ref === 'hello') return;   // 갱신 실패 — 만료 뒤 서버가 끊으면 재연결이 새 토큰을 받는다
+      /* rid 를 실어 보낸 요청의 오류(서버는 photoOpen · photoStart · roomInvite 의 오류에 rid 를 돌려준다) — 그 rid 의 요청이 오류 메시지(t:'error' · code)를 받는다. */
+      if(typeof m.rid === 'string'){
+        const w = reqWaiters.get(m.rid);
+        if(w){ w.done(m); return; }
+      }
       /* 묻기 요청이 거절됐다 — 오류에는 rid 가 없어서 그 종류 중 가장 먼저 보낸 것을 실패로 끝낸다.
          unavailable 은 서버가 그 요청에 필요한 값을 못 받음(예: presenceGet 의 친구 목록) — 같은 종류의 가장 먼저 보낸 것 하나만 실패로. */
       if((m.code === 'badRequest' && requestKinds.indexOf(m.ref) >= 0)

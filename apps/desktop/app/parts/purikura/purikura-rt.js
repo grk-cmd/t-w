@@ -2,7 +2,7 @@
    [책임] 세션(자리 넷 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터)과 하루 정원은 서버가 가진다 — 이 파일은 보내고 받은 것을 화면 모양으로 옮긴다.
      · 보내기: photoOpen{ fx } · photoLeave · photoConfig · photoFilter · photoCam · photoStart · photoCut{ i, at } · photoDone · photoFrame{ i, url } · photoPos · photoEvent · photoShutter
      · 받기: photoWelcome{ slot, slots, meta, frames } · photoSlots · photoMeta · photoFrames · photoStarted{ nth, left } · photoPos{ slot, p } · photoEvent{ slot, k, v, ts } · photoShot{ n, at }
-     · 정원: GET /v1/rooms/photo-quota → { day, used, cap, left, reopenAt } · 바뀌면 알림 photoQuota(사진 세션에 든 연결만) → 다시 GET.
+     · 정원: GET /v2/rooms/photo-quota → { day, used, cap, left, reopenAt } · 바뀌면 알림 photoQuota(사진 세션에 든 연결만) → 다시 GET.
    [방장] 서버가 정한다 — 판(meta)의 host(방장 userCode)가 원본이고, 방장이 바뀌면 서버가 photoMeta 를 다시 보낸다. 앱은 번호를 다시 계산하지 않는다. 방장 일은 방장이 아니면 보내지 않고, 보냈는데 서버가 거절하면(ROOM_PHOTO_NOT_HOST 등) onRefused 로 알린다.
    [자리를 잃는 때] 연결이 끊기거나 · 서버가 «방 밖» 이라고 답하면 세션을 버리고 onSlots({}) 로 알린다 — 화면이 «자리를 잃었어요» 를 한 번 띄운다.
      혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다).
@@ -14,7 +14,7 @@
 (function(){
 'use strict';
 
-const QUOTA_PATH = '/v1/rooms/photo-quota';
+const QUOTA_PATH = '/v2/rooms/photo-quota';
 const OPEN_WAIT_MS = 8000;       // photoWelcome · 거절을 기다리는 시간 — 넘으면 «지금은 들어갈 수 없어요»
 const START_WAIT_MS = 8000;      // photoStarted · 정원 거절을 기다리는 시간(서버가 정원 길을 한 번 묻는다)
 /* 이 포트가 보내는 요청 이름 — 서버 오류의 ref 가 이 중 하나일 때만 이 포트 몫이다(방 · 대화 포트의 오류와 안 섞이게) */
@@ -61,14 +61,14 @@ const msOf = (v) => {
 };
 
 /** 정원 화면 모양 — 문 앞 안내 · 남은 횟수 칸. d = { used, cap, left, reopenAt } (서버 답) · 모양이 틀리면 던진다(못 읽음 ≠ 0회 남음)
- * @param {{ used?: number, cap: number, left: number, reopenAt?: string|number }} d
- * @param {object} P purikura-net.js (closedMessage · reopenAt)
- * @param {number} nowMs 서버 시각 */
-function quotaView(d, P, nowMs){
-  if(!d || typeof d !== 'object' || !(d.cap > 0) || typeof d.left !== 'number' || !isFinite(d.left)) throw new Error('정원 답의 모양이 틀려요');
+ * 다시 여는 시각은 서버 답의 reopenAt 만 쓴다(앱이 날짜를 세지 않는다 — 설계 D7).
+ * @param {{ used?: number, cap: number, left: number, reopenAt: string|number }} d
+ * @param {object} P purikura-net.js (quotaText · closedMessage) */
+function quotaView(d, P){
+  if(!d || typeof d !== 'object' || !(d.cap > 0) || typeof d.left !== 'number' || !isFinite(d.left) || msOf(d.reopenAt) === null) throw new Error('정원 답의 모양이 틀려요');
   const cap = d.cap | 0, left = Math.max(0, Math.min(cap, d.left | 0));
   return { ok: left > 0, left, used: (typeof d.used === 'number') ? d.used : cap - left, cap,
-    label: P.quotaText(left, cap), reopenAt: msOf(d.reopenAt) || P.reopenAt(nowMs), message: left > 0 ? '' : P.closedMessage(nowMs) };
+    label: P.quotaText(left, cap), reopenAt: msOf(d.reopenAt), message: left > 0 ? '' : P.closedMessage(msOf(d.reopenAt)) };
 }
 
 /** @param {{ hub: { onMessage: Function, on: Function, onState: Function, send: Function, isReady: () => boolean },
@@ -88,6 +88,7 @@ function createPhotoSession(deps){
   let inSession = false, slot = -1, hostSlot = -1, slots = {}, meta = null, peers = {}, frames = {};
   let lastSent = { wx: null, d: null, t: 0 };
   let myCode = null;
+  let lastReopenAt = null;   // 마지막으로 받은 정원 답의 reopenAt(ms) — 다 씀 거절 문구가 이걸 쓴다(photoQuota 알림이 정원이 바뀔 때마다 다시 받게 한다)
   /* 보낸 순서대로 줄 세운 open · start 요청 — 서버는 요청 하나에 답 하나(photoWelcome · photoStarted 아니면 오류)를 순서대로 준다.
      시간 초과된 요청은 stale 로 줄에 남겨 둔다: 그 요청의 늦은 답이 다음 요청의 답으로 읽히지 않게(답이 오면 줄 맨 앞과 짝지어 stale 이면 버린다) */
   const openQ = [], startQ = [];
@@ -114,8 +115,7 @@ function createPhotoSession(deps){
   /* 보낸 순서의 답 하나 — 줄 맨 앞(없으면 null). stale 이면 답만 버린다 */
   const nextAnswer = (q) => q.shift() || null;
   function startFail(reason){
-    const now = serverNow();
-    return { ok: false, left: 0, reason, reopenAt: P.reopenAt(now), message: reason === 'closed' ? P.closedMessage(now) : (START_MESSAGES[reason] || START_MESSAGES.error) };
+    return { ok: false, left: 0, reason, reopenAt: lastReopenAt, message: reason === 'closed' ? P.closedMessage(lastReopenAt) : (START_MESSAGES[reason] || START_MESSAGES.error) };
   }
   /* 자리를 잃었다 — 세션을 버리고 화면에 «자리 없음» 을 알린다(혼자 다시 들어가지 않는다) */
   /* 세션을 놓거나 잃을 때 — 기다리던 요청을 접는다. 서버는 세션이 지워졌거나 방을 나가면 start 에 답을 못 줄 수 있다(성공 답은 없을 수 있고, 실패는
@@ -205,11 +205,14 @@ function createPhotoSession(deps){
 
   /* 정원 — 시작하면 photoStarted 의 nth · left 로 바로(cap = nth + left) */
   function quotaFromStart(nth, left){
-    return quotaView({ used: nth, cap: nth + left, left }, P, serverNow());
+    const cap = nth + left;
+    return { ok: left > 0, left, used: nth, cap, label: P.quotaText(left, cap), reopenAt: lastReopenAt, message: left > 0 ? '' : P.closedMessage(lastReopenAt) };
   }
   /* 문 앞에서 한 번 읽는다 — 못 읽으면 던진다(화면이 «지금은 확인할 수 없어요» · 0회 남음과 다르다) */
   async function checkQuota(){
-    return quotaView(await api.get(QUOTA_PATH, { auth: true }), P, serverNow());
+    const q = quotaView(await api.get(QUOTA_PATH, { auth: true }), P);
+    lastReopenAt = q.reopenAt;
+    return q;
   }
   /* 창이 열려 있는 동안만 — 알림(photoQuota)이 오면 다시 GET · 시작하면 photoStarted. 다시 받기에 실패하면 지금 숫자를 둔다(혼자 되풀이하지 않는다) */
   function watchQuota(cb){
@@ -297,7 +300,7 @@ function createPhotoSession(deps){
   }
 
   return {
-    checkQuota, watchQuota, open, close, release: close,
+    checkQuota, watchQuota, open, close, release: close, reset: () => { dropWaiting(); reset(); lastReopenAt = null; myCode = null; quotaFns.length = 0; },
     isHost, mySlot: () => slot, hostSlot: () => hostSlot,
     setConfig, setFilter, setCam, setFrameUrl, start, setCut, setDone,
     sendPos, sendEvent, fireShutter, freezeMs: () => P.FREEZE_MS,

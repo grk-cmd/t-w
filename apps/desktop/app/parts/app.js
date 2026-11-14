@@ -6872,6 +6872,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
   roomRt: TwRoomRt.store,
+  setPresenceRoom: (...a)=>firebaseAPI.setPresenceRoom(...a),   // 친구 목록의 «방 안» 표시 — Firebase 접속 표시가 걷힐 때(접속 상태 묶음) 같이 걷는다
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
 // 🕘 최근 들어간 방 — 연결되면 기록하고, 로비 코드 칸을 누르면 펼친다(room/recent-rooms*.js)
@@ -8850,7 +8851,13 @@ const appBoot = TwAppBoot.createAppBoot({
     gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
     bugBadge: ()=>bugBoardUi.start(),
     scheduler: ()=>mhScheduler.startSchedule(),
-    roomInvite: ()=>roomInviteUi.startReceive(),
+    /* 🙋 방 초대 받기 — 방 쪽 포트(대화 · 방 목록 · 스티커사진)는 사용자가 들어갈 때 시작해 STEPS 칸이 없다. 대신 계정이 바뀔 때 비우는 일(session.onReset)을 여기서 한 곳에 모은다.
+       license 알림(발급 · 연장 · 코드 바꿈 · 끝남) → 읽어 둔 내 시크릿룸을 버려 다음에 다시 읽는다(관리자가 발급한 방이 다시 실행 없이 보이게). */
+    roomInvite: (code, me, session)=>{
+      roomInviteUi.startReceive(session);
+      session.on(TwRtHub.store.on('license', ()=>roomLobbyProvider.reset()));
+      session.onReset(()=>{ TwChatRt.store.reset(); roomLobbyProvider.reset(); if(_pkSession) _pkSession.reset(); });
+    },
     desktopBg: (code)=>window.MYHOME_DESKTOP.startBgSync(code),
     playlist: ()=>plMod.pull(),
     licensePremium: (code, me)=>licensePremiumMod.start(me),

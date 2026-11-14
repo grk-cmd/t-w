@@ -173,14 +173,14 @@ function throwFlyAt(seat, quiet){
   if(quiet) return;                            // 깜짝쇼로 던진 것 — 기록을 남기면 예고가 된다
   /* 기록 줄 — 날린 사람(userCode)만 보내면 서버가 문장을 만든다(«○○님이 ○○님을 날려버렸어요.💥💥») · 상대 코드를 모르면 남기지 않는다 */
   const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
-  if(room && seat.friendUserId) chatNet.sendGame(room, { fly: seat.friendUserId });
+  if(room && seat.friendUserId) Promise.resolve(chatNet.sendGame(room, { fly: seat.friendUserId })).then(r=>{ if(r && r.ok === false) TwErrorCodes.notify('E-CHAT-01', r.code); }, ()=>{});
 }
 
 /* 대화 기록 한 줄(내 이름의 글 — 룰렛 · 쉬어가기 안내). 서버 기록 줄(game)이 없는 문장이라 글로 보낸다(chat-rt.js sendText · #일반).
    ⚠️ 조사는 붙이지 않고 "님이/님을"로 통일한다 — 이모지가 섞인 닉네임에서도 안 깨진다. */
 function _flyChatLog(text){
   const room = (typeof Presence()!=='undefined' && Presence().roomCode) ? Presence().roomCode() : null;
-  if(room) chatNet.sendText(room, text, 'general');
+  if(room) Promise.resolve(chatNet.sendText(room, text, 'general')).then(r=>{ if(r && r.ok === false) TwErrorCodes.notify('E-CHAT-01', r.code); }, ()=>{});
 }
 
 /* 방송을 받아 실제로 날린다 — 던진 사람 화면 포함 전원이 이 경로를 탄다.

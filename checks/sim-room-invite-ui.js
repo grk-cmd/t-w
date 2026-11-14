@@ -52,7 +52,7 @@ function mkEl(tag, id, env){
 function mkEnv(opt, mod){
   opt = opt || {};
   const env = {
-    toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {},
+    errs: [], resets: 0, toasts: [], sent: [], cleared: [], left: [], started: [], flashes: [], subs: [], now: 1e12, timers: [], docL: {}, winL: {},
     friends: opt.friends === undefined ? {} : opt.friends, notice: opt.notice === undefined ? null : opt.notice, room: opt.room === undefined ? 'ROOM1' : opt.room, active: opt.active !== false,
     sendFail: false, sendHold: false, release: null, opens: [], closes: [], onUpdate: null, winW: 320, winH: 200, winX: 100, winY: 100,
   };
@@ -64,7 +64,8 @@ function mkEnv(opt, mod){
   /* 가짜 방 초대 포트(room-invite-rt.js 모양 — send · onInvites · clear) */
   const port = {
     send: async (to) => { if(env.sendFail) return { ok: false, code: 'x' }; if(env.sendHold) await new Promise(r => { env.release = r; }); env.sent.push([to]); return { ok: true }; },
-    onInvites: (cb) => { env.subs.push({ id: 'ME', cb }); return () => {}; },
+    onInvites: (cb) => { const sub = { id: 'ME', cb, off: false }; env.subs.push(sub); return () => { sub.off = true; }; },
+    reset: () => { env.resets++; },
     clear: (from) => { env.cleared.push(['ME', from]); },
   };
   const ctx = {
@@ -83,6 +84,7 @@ function mkEnv(opt, mod){
     clearInterval: (h) => { env.timers[h - 1] = null; },
     addEventListener: (t, fn, o) => { (env.winL[t] = env.winL[t] || []).push({ fn, once: !!(o && o.once) }); },
     companion: { flashFrame: (on) => env.flashes.push(on) },
+    TwErrorCodes: { notify: (c, e) => env.errs.push(c) },
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = globalThis.TwSafeHtml; vm.createContext(ctx);
@@ -129,8 +131,17 @@ await sec('── 1. 만들 때', () => {
   chk(!q.subs.length && !(q.winL['firebase-ready'] || []).length && q.els.inviteFriendBtn._L.click.length === 1, '만들기만 하면 구독 0 · firebase-ready 기다림 0 · 버튼 연결은 있다');
   q.api.startReceive();
   chk(q.subs.length === 1 && q.subs[0].id === 'ME', '  startReceive — 내 초대함 구독');
+  {
+    /* 계정이 바뀌어 다시 로그인해도 받기가 겹쳐 걸리지 않는다(D4) — 앞 듣기를 끊고 새로 건다 · session.onReset 으로 놓는다 */
+    let resetFn = null; const sess = { onReset: (fn) => { resetFn = fn; } };
+    q.api.startReceive(sess);
+    chk(q.subs.length === 2 && q.subs[0].off === true && q.subs[1].off === false, '★ startReceive 를 다시 불러도 듣기는 하나 — 앞 것을 끊고 새로 건다(로그인마다 겹쳐 걸리지 않게)');
+    resetFn();
+    chk(q.subs[1].off === true && q.resets === 1, '★ session.onReset → 듣기 끊기 · 받은 초대 비우기(invites.reset)');
+    q.api.startReceive();
+  }
   const api = e.mk();
-  chk(Object.keys(api).join() === 'startReceive,showPopup,busy' && api.busy() === false, '반환값은 시작 하나와 검사용 둘(startReceive · showPopup · busy)');
+  chk(Object.keys(api).join() === 'startReceive,stopReceive,showPopup,busy' && api.busy() === false, '반환값은 시작 · 놓기 둘과 검사용 둘(startReceive · stopReceive · showPopup · busy)');
   chk(e.els.inviteFriendBtn._L.click.length === 1 && e.els.fsInviteFriendBtn._L.click.length === 1, '[🙋 친구 초대하기] 버튼 둘(런처 · 실행 화면)을 건다');
   chk(e.els.roomInvitePickClose._L.click.length === 1 && e.els.roomInvitePickOverlay._L.mousedown.length === 1, '  ✕ · 바깥 누름(닫기)');
   chk(e.els.roomInvitePickHead._L.pointerdown.length === 1 && e.els.roomInvitePickHead._L.dblclick.length === 1 && (e.winL.resize || []).length === 1, '  타이틀바 끌기 · 더블클릭 · 창 크기 바뀜');
@@ -203,7 +214,7 @@ await sec('── 3. 초대 보내기', async () => {
   chk(e.sent.length === 2 && e.sent[1][0] === 'b' && b1.textContent === '완료', '  한 번 더 누르면 보낸다');
   e.sendFail = true;
   const b2 = e.btnBy('(이름 없음)'); b2.onclick(); await flush();
-  chk(e.toasts.pop() === '초대에 실패했어요' && b2.disabled === false && b2.textContent === '초대', '실패하면 안내 · 버튼을 되살린다');
+  chk(e.errs.pop() === 'E-ROOM-09' && b2.disabled === false && b2.textContent === '초대', '실패하면 오류 번호(E-ROOM-09) · 버튼을 되살린다');
   e.sendFail = false;
   b2.onclick(); await flush();
   chk(e.toasts.pop() === '친구 님에게 초대를 보냈어요', '  이름 없는 친구는 «친구»');
@@ -344,7 +355,9 @@ await sec('── 6. app.js 배선', () => {
   chk(iP > 0 && iP < iMk && !/[^.\w]Presence\s*=[^=>]/.test(code.replace('const Presence=(', '')), '  Presence 는 만드는 줄보다 앞의 const · 다시 대입 안 됨 — 그래서 값');
   const m = strip(MOD);
   chk(/const friends = _myHomeFriends\(\) \|\| \{\};/.test(m) && !/[^.\w]_myHomeFriends\s*=[^=]/.test(m.replace('const _myHomeFriends = deps.myHomeFriends;', '')), '모듈은 친구 목록을 부를 때마다 읽는다 · 직접 쓰지 않는다');
-  chk(/function startReceive\(\)\{ _bindRoomInviteReceiver\(\); \}/.test(MOD), 'startReceive 가 초대 받기를 건다(방 초대 포트 — 로그인 뒤 붙으면 서버가 남은 초대를 보낸다)');
+  chk(/function startReceive\(session\)\{\s*_bindRoomInviteReceiver\(\);/.test(MOD) && /session\.onReset\(stopReceive\)/.test(MOD), 'startReceive 가 초대 받기를 걸고 계정이 바뀌면 놓는다(방 초대 포트 — 로그인 뒤 붙으면 서버가 남은 초대를 보낸다)');
+  chk(/roomInvite: \(code, me, session\)=>\{\s*roomInviteUi\.startReceive\(session\);/.test(APP) && /session\.onReset\(\(\)=>\{ TwChatRt\.store\.reset\(\); roomLobbyProvider\.reset\(\); if\(_pkSession\) _pkSession\.reset\(\); \}\)/.test(APP) && /session\.on\(TwRtHub\.store\.on\('license', \(\)=>roomLobbyProvider\.reset\(\)\)\)/.test(APP),
+    '★ app.js 시작 — 로그인 세션을 받아 받기를 걸고, 계정이 바뀌면 대화 · 방 목록 · 사진 세션을 비운다 · license 알림이면 내 시크릿룸을 다시 읽게 한다');
   const off = (APP.match(/const ROOM_INVITE_UI_OFF = \{([^\n]*?)\};/) || [])[1] || '';
   chk(!/\bROOM_INVITE_UI_OFF\b/.test(APP), '빈 껍데기 ROOM_INVITE_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const iE = HTML.indexOf('<script src="parts/myhome/myhome-edit.js"></script>'), iS = HTML.indexOf('<script src="parts/room/room-invite-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');

@@ -104,6 +104,8 @@ say('· §1 병합이 들어갔는가 · 배포할 수 있는 모양인가');
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
+/* 규칙 파일이 쓰는 한국 하루 번호 — 앱은 더 세지 않아(purikura-net.js 에서 걷음) 이 검사 안에서만 계산한다. 규칙 노드를 걷는 묶음(E)이 이 줄도 걷는다. */
+const kstDay = (nowMs) => Math.floor((nowMs + 9 * 3600 * 1000) / 86400000) * 86400000;
 say('· §2 하루 정원 규칙을 실제로 굴려본다 (요금을 정하는 자리)');
 {
   const V = v('photoQuota');
@@ -112,7 +114,7 @@ say('· §2 하루 정원 규칙을 실제로 굴려본다 (요금을 정하는 
       '누구나 쓸 수 있다 — 이 앱은 구글 로그인이 선택이다 (stats/userCount 와 같은 등급)');
 
   const now = Date.UTC(2026, 7, 29, 3, 0, 0);          // 2026-08-29 12:00 KST
-  const day = Purikura.kstDay(now);
+  const day = kstDay(now);
   const CAP = 400;   // 규칙 파일의 상한(서버 정원과 같은 값 — 규칙을 걷으면 이 검사도 걷는다)
 
   chk(run(V, { day, n: 1 }, null, now), '아무도 안 찍었을 때 첫 장이 통과한다');
@@ -137,10 +139,10 @@ say('· §2 하루 정원 규칙을 실제로 굴려본다 (요금을 정하는 
 
   /* 자정 경계 — 규칙의 now+9h 조건과 kstDay 가 같은 순간에 넘어가야 한다.
      여기가 어긋나면 자정 전후 몇 분 동안 아무도 못 찍는다. */
-  const mid = Purikura.reopenAt(now);                   // 다음 KST 자정(UTC ms)
-  chk(run(V, { day: Purikura.kstDay(mid), n: 1 }, null, mid),
+  const mid = (kstDay(now) + 86400000 - 9 * 3600 * 1000);                   // 다음 KST 자정(UTC ms)
+  chk(run(V, { day: kstDay(mid), n: 1 }, null, mid),
       '★ 자정이 되는 그 순간에도 쓰기가 통과한다 (경계에서 앱이 멎지 않는다)');
-  chk(run(V, { day: Purikura.kstDay(mid - 1), n: 1 }, null, mid - 1),
+  chk(run(V, { day: kstDay(mid - 1), n: 1 }, null, mid - 1),
       '  ↳ 자정 1ms 전도 통과한다');
 }
 

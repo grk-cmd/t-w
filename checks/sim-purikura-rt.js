@@ -223,7 +223,14 @@ async function judge(S){
   chk(seen.length === 1 && seen[0].label === '395 / 400' && seen[0].cap === 400 && seen[0].used === 5 && seen[0].ok === true, '  정원 보는 창은 GET 없이 바로 갱신(상한 = nth + left)');
   const sysFail = async (code) => { const m = await opened(S); const pp = m.sess.start(); m.emit({ t: 'error', code, ref: 'photoStart' }); return [await pp, m]; };
   let [rr] = await sysFail('ROOM_PHOTO_QUOTA_EXHAUSTED');
-  chk(rr.ok === false && rr.reason === 'closed' && /문을 닫았어요/.test(rr.message) && rr.reopenAt === e.P.reopenAt(e.st.T), '거절 QUOTA_EXHAUSTED → closed · «문을 닫았어요 … 내일 0시» · 다시 여는 시각');
+  chk(rr.ok === false && rr.reason === 'closed' && /문을 닫았어요/.test(rr.message) && /내일 다시 열려요/.test(rr.message) && rr.reopenAt === null, '거절 QUOTA_EXHAUSTED → closed · 정원 답을 한 번도 못 받았으면 시각 없이 «내일 다시» (앱이 날짜를 세지 않는다 — D7)');
+  {
+    const m = await opened(S, { mk: { getRes: QUOTA({ reopenAt: '2026-03-16T15:00:00Z' }) } });   // 서버가 준 시각이 곧 문구 — 앱 계산이 아니다(일부러 하루 뒤 값)
+    await m.sess.checkQuota();
+    const pp = m.sess.start(); m.emit({ t: 'error', code: 'ROOM_PHOTO_QUOTA_EXHAUSTED', ref: 'photoStart' });
+    const r2 = await pp;
+    chk(r2.reason === 'closed' && r2.reopenAt === Date.parse('2026-03-16T15:00:00Z') && /내일 0시에 열려요/.test(r2.message), '★ D7 — 다 씀 거절 문구는 마지막으로 받은 정원 답의 reopenAt 에서 온다');
+  }
   [rr] = await sysFail('ROOM_PHOTO_QUOTA_UNAVAILABLE');
   chk(rr.reason === 'unavailable' && rr.message === e.R.START_MESSAGES.unavailable && /정원을 확인할 수 없어요/.test(rr.message), '거절 QUOTA_UNAVAILABLE → unavailable · 정원을 못 물었다는 까닭(닫힘과 다르다)');
   [rr] = await sysFail('ROOM_PHOTO_NOT_HOST');
@@ -330,10 +337,13 @@ async function judge(S){
   await e.sess.close(); await e.sess.release(); chk(e.sent.length === 1, '  이미 비었으면 또 보내지 않는다(release 는 같은 일)');
   e = await opened(S); await e.sess.release(); chk(e.last().t === 'photoLeave', '꾸미기로 넘어갈 때 release → 자리를 놓는다(다음 사람이 방장이 된다)');
 
+  e = await opened(S); e.sess.reset();
+  chk(e.sess.mySlot() === -1 && !e.sess.isHost() && Object.keys(e.sess.slotsNow()).length === 0 && e.sess.metaNow() === null, '★ 계정이 바뀌면(reset) 세션 · 자리 · 판을 비운다 — 다음 계정이 앞 계정의 사진 세션을 물려받지 않는다');
+
   say('── 7. 정원');
   e = mk(S, { getRes: QUOTA() });
   let qv = await e.sess.checkQuota();
-  chk(e.gets.length === 1 && e.gets[0][0] === '/v1/rooms/photo-quota' && e.gets[0][1].auth === true, 'GET /v1/rooms/photo-quota(로그인 통로)');
+  chk(e.gets.length === 1 && e.gets[0][0] === '/v2/rooms/photo-quota' && e.gets[0][1].auth === true, 'GET /v2/rooms/photo-quota(로그인 통로)');
   chk(qv.ok && qv.left === 395 && qv.used === 5 && qv.cap === 400 && qv.label === '395 / 400' && qv.message === '' && qv.reopenAt === Date.parse('2026-03-15T15:00:00Z'), '  { ok, left, used, cap, label, 다시 여는 시각(서버 값), message }');
   e = mk(S, { getRes: QUOTA({ left: 0, used: 400 }) }); qv = await e.sess.checkQuota();
   chk(qv.ok === false && qv.left === 0 && qv.label === '0 / 400' && /문을 닫았어요/.test(qv.message), '다 썼으면 ok:false + 닫힘 문구(0회 남음)');
@@ -343,9 +353,10 @@ async function judge(S){
   }
   e = mk(S, { getErr: new Error('offline') }); let threw2 = false; try{ await e.sess.checkQuota(); }catch(_){ threw2 = true; }
   chk(threw2, '닿지 못하면 던진다(화면이 «지금은 확인할 수 없어요»)');
-  const V = e.R.quotaView, P = e.P;
-  chk(V({ cap: 400, left: 900 }, P, e.st.T).left === 400 && V({ cap: 400, left: -4 }, P, e.st.T).left === 0 && V({ cap: 400, left: 0 }, P, e.st.T).ok === false && V({ cap: 400, left: 1 }, P, e.st.T).ok === true, '경계값 — 남은 수는 0~cap 으로 자른다 · 1 이면 열림 · 0 이면 닫힘');
-  chk(V({ cap: 400, left: 7 }, P, e.st.T).used === 393 && V({ cap: 400, left: 7, reopenAt: 'x' }, P, e.st.T).reopenAt === P.reopenAt(e.st.T), '  used 가 없으면 cap - left · 여는 시각을 못 읽으면 앱 계산(다음 한국 자정)');
+  const V = e.R.quotaView, P = e.P, RO = '2026-03-15T15:00:00Z';
+  chk(V({ cap: 400, left: 900, reopenAt: RO }, P).left === 400 && V({ cap: 400, left: -4, reopenAt: RO }, P).left === 0 && V({ cap: 400, left: 0, reopenAt: RO }, P).ok === false && V({ cap: 400, left: 1, reopenAt: RO }, P).ok === true, '경계값 — 남은 수는 0~cap 으로 자른다 · 1 이면 열림 · 0 이면 닫힘');
+  chk(V({ cap: 400, left: 7, reopenAt: RO }, P).used === 393, '  used 가 없으면 cap - left');
+  for(const bad of [undefined, null, 'x', {}]){ let th = false; try{ V({ cap: 400, left: 7, reopenAt: bad }, P); }catch(_){ th = true; } chk(th, '★ D7 — 여는 시각(reopenAt)이 없거나 못 읽으면 던진다(앱이 다음 한국 자정을 셈하지 않는다): ' + JSON.stringify(bad)); }
   e = await opened(S, { mk: { getRes: QUOTA({ left: 12, used: 388 }) } });
   const got = []; const unwatch = e.sess.watchQuota((v) => got.push(v));
   e.notify(); await tick();
@@ -402,14 +413,14 @@ process.on('exit', (c) => { if(!finished && c === 0){ console.log('✗ 검사가
     ['RT', "    e.fired = true;\n", "", '이어 가기를 두 번 부름'],
     ['RT', "openQ.length = 0; startQ.length = 0;", "", '끊긴 뒤 줄을 안 비움'],
     ['RT', "ROOM_PHOTO_QUOTA_UNAVAILABLE: 'unavailable'", "ROOM_PHOTO_QUOTA_UNAVAILABLE: 'closed'", '정원 못 묻기를 닫힘으로 읽음'],
-    ['RT', "reason === 'closed' ? P.closedMessage(now) : (START_MESSAGES[reason] || START_MESSAGES.error)", "P.closedMessage(now)", '모든 시작 실패를 «문 닫음» 으로'],
+    ['RT', "reason === 'closed' ? P.closedMessage(lastReopenAt) : (START_MESSAGES[reason] || START_MESSAGES.error)", "P.closedMessage(lastReopenAt)", '모든 시작 실패를 «문 닫음» 으로'],
     ['RT', "if(!hub.send({ t: 'photoPos', p: P.encPos(wx, d, gz, gp, yaw) })) return false;\n    lastSent = { wx, d, t };", "lastSent = { wx, d, t };\n    hub.send({ t: 'photoPos', p: P.encPos(wx, d, gz, gp, yaw) });", '못 보낸 좌표를 보낸 것으로 기억'],
     ['RT', "if(t - lastSent.t < P.SEND_MIN_MS) return false;", "", '10Hz 상한 없음'],
     ['RT', "if(lastSent.wx !== null && Math.abs(wx - lastSent.wx) < P.DEAD_X && Math.abs(d - lastSent.d) < P.DEAD_D) return false;", "", '안 움직여도 보냄'],
     ['RT', "    if(hub.isReady()) return;\n    for(const e of openQ", "    return;\n    for(const e of openQ", '연결 끊김을 모름'],
     ['RT', "    if(m.code === 'notInRoom'){ lose(); return; }", "", '방 밖 답에도 자리를 안 버림'],
     ['RT', "if(inSession && HOST_REFS.indexOf(m.ref) >= 0) onRefused", "if(false) onRefused", '방장 일 거절을 삼킴'],
-    ['RT', "if(!d || typeof d !== 'object' || !(d.cap > 0) || typeof d.left !== 'number' || !isFinite(d.left)) throw", "if(!d) throw", '정원 답 검사 약화'],
+    ['RT', "if(!d || typeof d !== 'object' || !(d.cap > 0) || typeof d.left !== 'number' || !isFinite(d.left) || msOf(d.reopenAt) === null) throw", "if(!d) throw", '정원 답 검사 약화'],
     ['RT', "const cap = d.cap | 0, left = Math.max(0, Math.min(cap, d.left | 0));", "const cap = d.cap | 0, left = d.left | 0;", '남은 수를 안 자름'],
     ['RT', "if(!inSession || !quotaFns.length) return;", "if(!quotaFns.length) return;", '세션 밖에서도 정원을 읽음'],
     ['RT', "(e) => warn('[스티커사진] 정원을 다시 못 읽었어요', e)", "(e) => { warn('x'); return checkQuota(); }", '정원 다시 읽기 실패 뒤 되풀이'],

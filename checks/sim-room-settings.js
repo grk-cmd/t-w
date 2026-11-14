@@ -179,7 +179,7 @@ say('── 5-2. 방 서버 만들기 칸(serverCreateOf) · room-entry 가 싣�
   const runClear = (src) => { const w = { _pendingRoomChannel: 'workingroom', _pendingRoomOpen: true }; const ex2 = new Function('window', 'let _pendingExtra = { title: 1 };\n' + src + '\n_clearPendingCreate(); return _pendingExtra;')(w); return { w, ex2 }; };
   const cr = runClear(clr);
   chk(clr && cr.w._pendingRoomChannel === null && cr.w._pendingRoomOpen === false && cr.ex2 === null, '★ 들어간 뒤 만들기 표시 셋(채널 · 공개 · 고른 값)을 비운다 — 다음 입장이 지난 제목 · 인원을 물려받지 않게');
-  chk(/refreshInviteUI\(\); toast\('방에 연결됐어요: '\+code\);\n  _clearPendingCreate\(\);/.test(rc) && /toast\(_roomJoinMessage\(r && r\.code, isSecret\)\);\n    _clearPendingCreate\(\);/.test(rc), '  들어간 뒤 · 거절된 뒤 둘 다 그것을 부른다');
+  chk(/refreshInviteUI\(\); toast\('방에 연결됐어요: '\+code\);\n  _clearPendingCreate\(\);/.test(rc) && /if\(why\) toast\(why\); else TwErrorCodes\.notify\('E-ROOM-08', r && r\.code\);\n    _clearPendingCreate\(\);/.test(rc), '  들어간 뒤 · 거절된 뒤 둘 다 그것을 부른다');
   chk(/if\(code === 'title'\) return roomSettings\.TITLE_ERROR_TEXT\.banned;/.test(RE_SRC), '  서버가 금칙어로 거절하면 «방 제목에 쓸 수 없는 말이 있어요»');
 }
 

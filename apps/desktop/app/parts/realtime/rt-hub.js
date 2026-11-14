@@ -30,9 +30,9 @@ const KINDS = Object.freeze(['friends', 'friendRequests', 'card', 'notification'
 const ROOM_TYPES = Object.freeze(['welcome', 'joined', 'left', 'patch', 'def', 'chat', 'poked', 'meta', 'music', 'disband', 'random', 'peek',
   'chatSaid', 'chatLine', 'photoWelcome', 'photoSlots', 'photoMeta', 'photoFrames', 'photoStarted', 'photoPos', 'photoEvent', 'photoShot']);
 /* 그 밖에 받는 메시지 — ready · notify 는 허브가 먼저 쓴다 */
-const MESSAGE_TYPES = Object.freeze(ROOM_TYPES.concat(['presence', 'roomInvited', 'mobileFocus', 'announce', 'sessionLost', 'error']));
-const REQUEST_KINDS = Object.freeze(['presenceGet', 'random', 'peek']);
-const ANSWERS = Object.freeze({ presence: 'presenceGet', random: 'random', peek: 'peek' });
+const MESSAGE_TYPES = Object.freeze(ROOM_TYPES.concat(['presence', 'roomInvited', 'roomInviteSent', 'mobileFocus', 'announce', 'sessionLost', 'error']));
+const REQUEST_KINDS = Object.freeze(['presenceGet', 'random', 'peek', 'roomInvite']);
+const ANSWERS = Object.freeze({ presence: 'presenceGet', random: 'random', peek: 'peek', roomInviteSent: 'roomInvite' });
 /* 서버 close 코드 표 — 정본 t-w-server realtime/src/protocol/closeCodes.ts(PROTOCOL.md 7-1). 이름 · 값을 그대로 옮긴다. 4002 는 걷은 번호(다시 쓰지 않음). */
 const CLOSE_CODES = Object.freeze({ bye: 1000, restart: 1001, tooLarge: 1009, auth: 4001, protocol: 4003, sessionLost: 4004,
   unavailable: 4005, maintenance: 4006, accountGone: 4007, helloTimeout: 4008 });

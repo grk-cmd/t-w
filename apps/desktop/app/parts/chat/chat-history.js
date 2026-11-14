@@ -132,8 +132,8 @@ export function createIdbChatStore(idb, scope){
 }
 
 /* deps:
-   subscribeSince(room, tab, since, onMsg, onReady) → 해제 함수 — since 가 null 이면 마지막 CHAT_FIRST_LIMIT 줄,
-     숫자면 ts ≥ since 전부. 새 줄 · 고친 줄(ts 확정)마다 onMsg(한 줄), 처음 받기가 끝나면 onReady() 한 번
+   subscribeSince(room, tab, since, onMsg, onReady, onFail) → 해제 함수 — since 가 null 이면 마지막 CHAT_FIRST_LIMIT 줄,
+     숫자면 ts ≥ since 전부. 새 줄 · 고친 줄(ts 확정)마다 onMsg(한 줄), 처음 받기가 끝나면 onReady() 한 번 · 못 받으면 onReady 대신 onFail() 한 번
    clearLog(room, tab) → Promise<{ok}>(서버가 지우기 표시 줄을 남긴다)
    store(createIdbChatStore 모양 · 없으면 저장 없이) · channel() → 지금 방 채널('workingroom' | 'togetherroom')
      — firebase-init 은 채널을 모르므로 room-entry 가 bindChannel 로 firebase-ready 때 건다(걸기 전에는 이 PC 에 저장 쪽)
@@ -148,7 +148,7 @@ export function createChatHistory(deps){
   /* 한 탭의 기록을 연다 — 저장된 것을 먼저 그리고, 그 뒤만 서버에서 이어 받는다. 반환: 닫기 함수
      ⚠️ 저장된 것이 없으면 서버의 첫 받기가 끝날 때까지 그리지 않는다 — 빈 목록을 먼저 그리면 app.js 의 입장 컷이
        «빈 방에 들어왔다» 로 찍혀 지난 대화가 보여 버린다(_noteChatJoin). */
-  function open(room, tab, onList){
+  function open(room, tab, onList, onFail){
     let list = [], closed = false, ready = false, unsub = null, pend = [], timer = null;
     const persist = keep(room);
     const emit = () => { if(!closed) onList(list); };
@@ -176,7 +176,12 @@ export function createChatHistory(deps){
       if(closed) return;
       unsub = deps.subscribeSince(room, tab, sinceOf(list),
         m => { if(m && m.id){ pend.push(m); queue(); } },
-        () => { ready = true; flush(); });
+        () => { ready = true; flush(); },
+        () => {   // 서버 지난 기록을 못 받음 — 이 PC 에 있던 줄은 그대로 보이되 «다 받음» 으로 그리지 않고 알린다(빈 대화로 끝내지 않는다)
+          if(closed) return;
+          if(list.length){ ready = true; emit(); }
+          if(onFail) onFail();
+        });
     })();
     return () => { closed = true; if(unsub){ try{ unsub(); }catch(_){} } };
   }

@@ -796,7 +796,7 @@
     /* 💬 대화 기록(서버 3일 · 이 PC 화면 캐시 · 시각으로 이어 받기) — 규칙은 chat-history.js · 서버 길은 대화 포트(chat/chat-rt.js). 여기는 연결만. */
     chatHistory: createChatHistory({
       store: createIdbChatStore(typeof indexedDB !== 'undefined' ? indexedDB : null, (firebaseConfig && firebaseConfig.databaseURL) || ''),
-      subscribeSince: (room, tab, since, onMsg, onReady) => window.TwChatRt.store.subscribeSince(room, tab, since, onMsg, onReady),
+      subscribeSince: (room, tab, since, onMsg, onReady, onFail) => window.TwChatRt.store.subscribeSince(room, tab, since, onMsg, onReady, onFail),
       clearLog: (room, tab) => window.TwChatRt.store.clear(room, tab) }),
     /* 😊 내 이모티콘 그림 올리기 — 서버가 받는 자리 users/{내 코드}/emojis/{칸}.png|gif 에만. 칸 저장 · 지우기는 API(chat-rt.js). 반환: 내려받기 주소 */
     async uploadEmojiImage(userCode, slot, dataUrl, isGif){

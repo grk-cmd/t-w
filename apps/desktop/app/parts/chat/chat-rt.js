@@ -1,9 +1,9 @@
 /* chat-rt.js — 💬 대화 포트(대화 기록 · 보내기 · 방장 지우기 · 내 이모티콘) — realtime 연결 하나 + API (검사 sim-chat-rt.js)
    [책임] 투게더룸 · 시크릿룸 대화창의 서버 길 한 곳.
-     · 보내기 chatSay{ requestId, tab, text | game } → 보낸 연결에 chatSaid · 방 전원에 chatLine. 못 받으면 같은 requestId 로 한 번 더(서버가 처음 줄을 돌려준다).
-     · 지난 기록 GET /v1/rooms/{코드}/chats?tab=&since=&limit= → { lines, hasMore } — since 는 시각(이상) · hasMore 면 마지막 줄 시각으로 다시. 시크릿룸은 읽지 않는다(readsServerHistory).
+     · 보내기 chatSay{ requestId, tab, text | game } → 보낸 연결에 chatSaid · 방 전원에 chatLine. 시간 안에 답이 없으면 실패로 끝낸다(자동으로 다시 보내지 않는다) — 사용자가 같은 글을 다시 누르면 같은 requestId 로 보낸다(서버가 처음 줄을 돌려줘 두 줄이 안 생긴다).
+     · 지난 기록 GET /v2/rooms/{코드}/chats?tab=&since=&limit= → { lines, hasMore } — since 는 시각(이상) · hasMore 면 마지막 줄 시각으로 다시. 시크릿룸도 읽는다(서버가 3일 보관 — 사용자 결정 11-09). 못 받으면 onFail — 빈 대화로 그리지 않는다.
      · 방장 지우기 chatClear{ tab } → 서버가 지우기 표시 줄(CLEAR)을 방 전원에 보낸다(앱이 따로 표시 줄을 쓰지 않는다).
-     · 내 이모티콘 8칸 GET · PUT · DELETE /v1/me/emojis — 그림은 Storage 에 올린 주소만(올리기는 부르는 쪽이 넘긴다).
+     · 내 이모티콘 8칸 GET · PUT · DELETE /v2/me/emojis — 그림은 Storage 에 올린 주소만(올리기는 부르는 쪽이 넘긴다).
    [모양 바꾸기 — 이 파일 한 곳] 서버 줄 { id, tab:'GENERAL'|'S1'|'S2', kind:TEXT|GAME|CLEAR, userCode?, name, text, ts } →
      앱 줄 { id, uid(=userCode), name, text, ts(ms), tab('general'|'s1'|'s2'), sys:'clr'(CLEAR) } — 대화창 · 대화 기록(chat-history.js)이 읽던 모양.
      탭 이름은 room-rt.js 의 tabToWire · tabFromWire 한 벌을 쓴다.
@@ -12,20 +12,16 @@
 (function(){
 'use strict';
 
-const SAY_WAIT_MS = 5000;        // chatSaid 를 기다리는 시간 — 넘으면 같은 requestId 로 한 번 더
-const SAY_TRIES = 2;
+const SAY_WAIT_MS = 5000;        // chatSaid 를 기다리는 시간 — 넘으면 실패(timeout). 자동으로 다시 보내지 않는다
+const RETRY_KEEP = 20;           // 시간 초과로 끝난 글의 requestId 를 들고 있는 개수 — 사용자가 같은 글을 다시 보낼 때 같은 번호를 쓴다
 const CLEAR_WAIT_MS = 5000;      // 방장 지우기 — 지우기 표시 줄을 기다리는 시간
 const PAGE_LIMIT = 100;          // 한 번에 받는 줄 수(서버 기본과 같다 · 상한 300)
 const PAGE_MAX = 5;              // 이어 받기 쪽수 상한 — 3일 보관 · 채널마다 300줄이라 이 안에서 끝난다
 const CHATS_TIMEOUT_MS = 8000;
 const LIVE_MAX = 300;            // 방 · 탭마다 들고 있는 최근 줄(chat-history.js CHAT_KEEP_MAX 와 같은 뜻)
 const CLEAR_SYS = 'clr';         // chat-history.js CLEAR_SYS 와 같다(지우기 표시 줄)
-const EMOJI_PATH = '/v1/me/emojis';
+const EMOJI_PATH = '/v2/me/emojis';
 const ERR_REFS = Object.freeze(['chatSay', 'chatClear']);
-/* 지난 기록을 서버에서 읽는 방인가 — 한 곳. 시크릿룸 대화는 이 PC(IndexedDB · chat-history.js)에만 둔다(사용자 결정 10-29) —
-   시크릿룸에서는 GET 을 부르지 않고 연결 위로 오는 줄만 받는다. 바뀌면 이 줄만 고친다. */
-const readsServerHistory = (room) => !/^SCRT-/.test(String(room || ''));
-
 const msOf = (v) => {
   if(typeof v === 'number' && isFinite(v)) return v;
   const t = (typeof v === 'string') ? Date.parse(v) : NaN;
@@ -64,6 +60,7 @@ function createChatRt(deps){
   const subs = new Set();     // { room, tab, fn }
   const pendingSay = new Map();   // requestId → waiter
   const pendingClear = [];        // { tab, done }
+  const timedOut = new Map();     // 글 모양 → requestId — 시간 초과로 끝난 것만(서버가 받았을 수 있어 같은 번호로 다시 보낸다)
 
   function liveOf(tab){
     if(!live.has(tab)) live.set(tab, new Map());
@@ -107,21 +104,24 @@ function createChatRt(deps){
     if(c) c.done({ ok: false, code: msg.code });
   });
 
-  /* 보내기 — chatSaid 를 기다린다(같은 requestId 로 한 번 더). { ok, id, ts } · 거절 { ok:false, code }(CHAT_OFF · CHAT_TOO_FAST · …) */
+  /* 보내기 — chatSaid 를 기다린다(자동으로 다시 보내지 않는다). { ok, id, ts } · 거절 { ok:false, code }(CHAT_OFF · CHAT_TOO_FAST · timeout · notReady …)
+     시간 초과 뒤 사용자가 같은 글을 다시 보내면 같은 requestId — 서버가 이미 받았다면 처음 줄을 돌려준다. */
   function say(body){
-    const requestId = deps.newRequestId();
+    const key = JSON.stringify(body);
+    const requestId = timedOut.get(key) || deps.newRequestId();
+    timedOut.delete(key);
     const msg = Object.assign({ t: 'chatSay', requestId }, body);
     return new Promise((res) => {
-      let tries = 0, timer = null;
+      let timer = null;
       const w = { done: null };
-      w.done = (r) => { tClear(timer); pendingSay.delete(requestId); res(r); };
-      const attempt = () => {
-        tries++;
-        if(!hub.send(msg)){ w.done({ ok: false, code: 'notReady' }); return; }
-        timer = tSet(() => { if(tries < SAY_TRIES) attempt(); else w.done({ ok: false, code: 'timeout' }); }, SAY_WAIT_MS);
+      w.done = (r) => {
+        tClear(timer); pendingSay.delete(requestId);
+        if(r && r.code === 'timeout'){ timedOut.set(key, requestId); if(timedOut.size > RETRY_KEEP) timedOut.delete(timedOut.keys().next().value); }
+        res(r);
       };
       pendingSay.set(requestId, w);
-      attempt();
+      if(!hub.send(msg)){ w.done({ ok: false, code: 'notReady' }); return; }
+      timer = tSet(() => w.done({ ok: false, code: 'timeout' }), SAY_WAIT_MS);
     });
   }
   /** 글 한 줄 — appTab 'general' · 's1' · 's2' */
@@ -151,7 +151,7 @@ function createChatRt(deps){
 
   /* 지난 기록 한 쪽 — 못 받으면 던진다(부르는 쪽이 «못 불러옴» 을 그린다) */
   async function page(room, appTab, sinceMs, limit){
-    let path = '/v1/rooms/' + encodeURIComponent(room) + '/chats?tab=' + deps.historyTabOf(appTab) + '&limit=' + limit;
+    let path = '/v2/rooms/' + encodeURIComponent(room) + '/chats?tab=' + deps.historyTabOf(appTab) + '&limit=' + limit;
     if(typeof sinceMs === 'number') path += '&since=' + encodeURIComponent(new Date(sinceMs).toISOString());
     const d = await api.get(path, { auth: true, timeoutMs: CHATS_TIMEOUT_MS });
     const lines = (d && Array.isArray(d.lines)) ? d.lines.map(fromWire).filter(Boolean) : [];
@@ -159,16 +159,15 @@ function createChatRt(deps){
   }
 
   /** chat-history.js 의 subscribeSince — since 가 null 이면 마지막 PAGE_LIMIT 줄, 숫자면 그 시각 이후 전부(쪽 넘김).
-   *  새 줄마다 onMsg(줄) · 처음 받기가 끝나면 onReady() 한 번. 반환: 끊는 함수. 받는 동안 온 줄도 놓치지 않는다(같은 id 는 하나로). */
-  function subscribeSince(room, appTab, since, onMsg, onReady){
+   *  새 줄마다 onMsg(줄) · 처음 받기가 끝나면 onReady() 한 번 · 못 받으면 onReady 대신 onFail(오류) 한 번. 반환: 끊는 함수. 받는 동안 온 줄도 놓치지 않는다(같은 id 는 하나로). */
+  function subscribeSince(room, appTab, since, onMsg, onReady, onFail){
     const tab = deps.tabFromWire(deps.historyTabOf(appTab)) || 'general';
     let closed = false;
     const sub = { room, tab, fn: (m) => { if(!closed) onMsg(m); } };
     subs.add(sub);
     (async () => {
       try{
-        if(!readsServerHistory(room)){ /* 시크릿룸 — 지난 기록은 이 PC 저장분만 */ }
-        else if(typeof since !== 'number'){
+        if(typeof since !== 'number'){
           const p = await page(room, appTab, null, PAGE_LIMIT);
           if(!closed) p.lines.forEach(sub.fn);
         }else{
@@ -181,7 +180,11 @@ function createChatRt(deps){
             at = p.lines[p.lines.length - 1].ts;
           }
         }
-      }catch(e){ warn('지난 기록을 못 받음', (e && (e.code || e.message)) || e); }
+      }catch(e){
+        warn('지난 기록을 못 받음', (e && (e.code || e.message)) || e);
+        if(!closed && onFail){ try{ onFail(e); }catch(_){} }   // 빈 대화로 끝내지 않는다 — 부르는 쪽이 «못 불러옴» 을 알린다
+        return;
+      }
       if(!closed && onReady) onReady();
     })();
     return () => { closed = true; subs.delete(sub); };
@@ -200,21 +203,21 @@ function createChatRt(deps){
     };
     const sub = { room, tab, fn: (m) => { box.set(m.id, m); emit(); } };
     subs.add(sub);
-    if(readsServerHistory(room)) page(room, appTab, null, n).then((p) => { if(closed) return; p.lines.forEach((m) => box.set(m.id, m)); emit(); }, (e) => { warn('최근 줄을 못 받음', (e && (e.code || e.message)) || e); });
+    page(room, appTab, null, n).then((p) => { if(closed) return; p.lines.forEach((m) => box.set(m.id, m)); emit(); }, (e) => { warn('최근 줄을 못 받음', (e && (e.code || e.message)) || e); });
     return () => { closed = true; subs.delete(sub); };
   }
 
   /* ── 내 이모티콘 8칸 ── */
-  /** { 칸: { cmd, url, gif } } — 대화창이 읽던 모양 · 못 받으면 {} */
+  /** { 칸: { cmd, url, gif } } — 대화창이 읽던 모양 · 못 받으면 던진다(빈 칸 {} 로 그리면 저장할 때 서버 칸을 덮을 수 있다) */
   async function getEmojis(){
-    try{
+    {
       const d = await api.get(EMOJI_PATH, { auth: true });
       const out = {};
       for(const e of ((d && Array.isArray(d.slots)) ? d.slots : [])){
         if(e && Number.isInteger(e.slot) && typeof e.imageUrl === 'string') out[e.slot] = { cmd: String(e.cmd || ''), url: e.imageUrl, gif: !!e.animated };
       }
       return out;
-    }catch(e){ warn('이모티콘을 못 받음', (e && (e.code || e.message)) || e); return {}; }
+    }
   }
   /** 칸 하나 — 그림 주소(Storage)는 부르는 쪽이 올려 넘긴다 · { ok } | { ok:false, code } */
   async function putEmoji(slot, cmd, imageUrl){
@@ -226,11 +229,18 @@ function createChatRt(deps){
     catch(e){ return { ok: false, code: (e && e.code) || 'error' }; }
   }
 
-  return { sendText, sendGame, clear, subscribeSince, subscribeLog, getEmojis, putEmoji, deleteEmoji,
-    _debug: () => ({ live, subs, pendingSay, pendingClear }) };
+  /* 계정이 바뀜 — 앞 계정의 줄 · 기다리던 요청 · 다시 보낼 번호를 비운다(session.onReset). 구독은 부르는 쪽(대화창)이 닫는다. */
+  function reset(){
+    for(const w of Array.from(pendingSay.values())){ try{ w.done({ ok: false, code: 'reset' }); }catch(_){} }
+    for(const c of pendingClear.splice(0)){ try{ c.done({ ok: false, code: 'reset' }); }catch(_){} }
+    live.clear(); liveRoom = null; subs.clear(); timedOut.clear();
+  }
+
+  return { sendText, sendGame, clear, subscribeSince, subscribeLog, getEmojis, putEmoji, deleteEmoji, reset,
+    _debug: () => ({ live, subs, pendingSay, pendingClear, timedOut }) };
 }
 
-const api = { readsServerHistory, SAY_WAIT_MS, SAY_TRIES, CLEAR_WAIT_MS, PAGE_LIMIT, PAGE_MAX, LIVE_MAX, CLEAR_SYS, EMOJI_PATH, lineFromWire, createChatRt };
+const api = { SAY_WAIT_MS, CLEAR_WAIT_MS, PAGE_LIMIT, PAGE_MAX, LIVE_MAX, CLEAR_SYS, EMOJI_PATH, lineFromWire, createChatRt };
 if(typeof window !== 'undefined'){
   /* 앱 한 벌 — realtime 연결 하나 · 방 포트(지금 방 · 탭 바꾸기) · 로그인 API 통로 */
   const R = window.TwRoomRt;

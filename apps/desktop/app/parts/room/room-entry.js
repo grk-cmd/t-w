@@ -65,6 +65,7 @@ function _roomJoined(code){ const meta = window._roomMetaCache || null; _roomJoi
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 const roomRt = deps.roomRt;   // 🛰 방 포트(room-rt.js TwRoomRt.store) — 입장 · 랜덤 · 들여다보기 · 연결의 나(myCode)
+const setPresenceRoom = deps.setPresenceRoom;   // 친구 목록의 «방 안» 표시(firebase-init) — 도메인은 firebaseAPI 를 직접 부르지 않고 deps 로 받는다(D9)
 /* 서버 meta { channel, host(userCode), open, chatOff, secret, tabs, title?, max?, hostName?, music?, since } → 방 공용 상태 · 방장이 나로 바뀌면 알림 */
 function _onServerRoomMeta(meta, prev){
   window._roomMetaCache = meta;
@@ -77,13 +78,15 @@ function _onServerRoomMeta(meta, prev){
 /* 💬 대화 기록(firebase-init chatHistory)이 «이 PC 에 저장할지» 를 가르는 채널 — 채널(window._activeChannel)을 바꾸는 곳이 이 파일이라 여기서 건다 */
 function _bindChatHistoryChannel(){ firebaseAPI.chatHistory.bindChannel(()=>(window._activeChannel === 2 ? 'togetherroom' : 'workingroom')); }
 TwNetReady.whenNetReady(_bindChatHistoryChannel);
-/* 방 안에서 방을 놓은 까닭(room-rt onLost) → 안내. off(로그아웃 · 계정을 놓음)는 조용히. */
+/* 방 안에서 방을 놓은 까닭(room-rt onLost) → 안내.
+   · 조용히: off(로그아웃 · 계정을 놓음) · maintenance(점검 4006) · accountGone(계정 끝 4007) · hubClosed(모르는 닫힘) — 창 · 띠는 rt-status-ui 가 맡는다(04-realtime-disconnect)
+   · 문구: closed(관리자가 방을 닫음) · version(판이 낮음)
+   · 번호: unreachable 와 그 밖은 E-ROOM-10 */
 const ROOM_LOST_MSG = Object.freeze({
-  unreachable: '서버 연결이 끊겨 방에서 나왔어요 — 잠시 후 다시 들어와 주세요',
   closed: '관리자가 방을 닫았어요',
   version: '최신 업데이트에서만 방을 이용할 수 있어요. 공지의 링크로 업데이트해 주세요.',
 });
-const ROOM_LOST_DEFAULT = '서버와 연결이 끊겨 방에서 나왔어요 — 다시 들어가 주세요';
+const ROOM_LOST_QUIET = Object.freeze(['off', 'maintenance', 'accountGone', 'hubClosed']);
 function makeRoomProvider(create){
   return roomRt.makeProvider({
     serializeDef: serializeDefForNetwork,
@@ -96,18 +99,17 @@ function makeRoomProvider(create){
     /* 방 안에서 이어 가지 못했다(오래 끊김 · 관리자 종료 · 판이 낮음 · 로그인 끊김) — 방에서 나온다. 다시 들어오면 서버가 같은 방으로 붙인다. */
     onLost: (code)=>{
       console.warn('[방] 방을 이어 가지 못했다 —', code);
-      if(code !== 'off') toast(ROOM_LOST_MSG[code] || ROOM_LOST_DEFAULT);
+      if(ROOM_LOST_QUIET.indexOf(code) < 0){ if(ROOM_LOST_MSG[code]) toast(ROOM_LOST_MSG[code]); else TwErrorCodes.notify('E-ROOM-10', code); }
       Promise.resolve(doLeaveRoom()).catch(()=>{});
     },
     // 끊긴 지 15초가 넘었다(true) · 다시 붙었다(false) — room-rt.js RECONNECT_NOTICE_MS
     onReconnecting: (on)=>{ toast(on ? '📡 서버 연결이 끊겨 다시 연결하는 중이에요…' : '서버에 다시 연결됐어요'); },
-    onJoined: (room)=>{ try{ firebaseAPI.setPresenceRoom(room); }catch(_){} },
-    onLeft: ()=>{ try{ firebaseAPI.setPresenceRoom(null); }catch(_){} },
+    onJoined: (room)=>{ try{ setPresenceRoom(room); }catch(_){} },
+    onLeft: ()=>{ try{ setPresenceRoom(null); }catch(_){} },
   }, { create });
 }
-const ROOM_JOIN_BUSY_MSG = '서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요';
 const ROOM_CONNECTING_TOAST_MS = 1000;   // 이만큼 지나도 못 붙었으면 «연결 중» 을 보인다(바로 붙으면 안 띄운다)
-/* 입장 실패 코드(room-rt join · 서버 규약 7장) → 안내 문구 */
+/* 입장 실패 코드(room-rt join · 서버 규약 7장) → 안내 문구. 판정 거절만 문구 · 그 밖은 null(E-ROOM-08) */
 function _roomJoinMessage(code, isSecret){
   if(code === 'full') return isSecret ? ('이 방은 손님 자리가 다 찼어요(방장 자리 제외 최대 '+(maxPeople()-1)+'명)')
                                       : ('이 방은 이미 가득 찼어요(최대 '+maxPeople()+'명)');
@@ -120,7 +122,7 @@ function _roomJoinMessage(code, isSecret){
   if(code === 'title') return roomSettings.TITLE_ERROR_TEXT.banned;   // 서버가 금칙어로 거절(앱 목록이 늦었을 때)
   if(code === 'version') return ROOM_LOST_MSG.version;
   if(code === 'sessionLost') return '다른 기기에서 이 계정을 쓰는 중이에요 — «여기서 계속 쓰기» 를 누르면 이 PC 로 가져와요';
-  return ROOM_JOIN_BUSY_MSG;
+  return null;   // 판정이 아닌 실패(unavailable · timeout · off · notReady · 모르는 code) — 부르는 쪽이 E-ROOM-08 번호로 알린다
 }
 /* 빈 방을 열 때 채널을 정하는 자격 — 보유자(라이선스 · 관리자)면 투게더룸(서버도 같은 판정 · 접두어 고르기에 쓴다). */
 function _myRoomLicensed(){ return !!((typeof isPremium()!=='undefined' && isPremium()) || (typeof isAdmin()!=='undefined' && isAdmin())); }
@@ -588,7 +590,8 @@ async function startRoom(code){
   try{ r = await Presence.start(code, myDef, getDisplayName(), presenceChanged, { provider: makeRoomProvider(create) }); }
   finally{ clearTimeout(t); }
   if(!(r && r.ok)){
-    toast(_roomJoinMessage(r && r.code, isSecret));
+    const why = _roomJoinMessage(r && r.code, isSecret);
+    if(why) toast(why); else TwErrorCodes.notify('E-ROOM-08', r && r.code);
     _clearPendingCreate();
     refreshInviteUI();
     return;

@@ -1,6 +1,7 @@
 /* sim-room-invite-rt.js — 🙋 방 초대 포트(room/room-invite-rt.js) 검사 — 가짜 연결로 그대로 돌린다
-   ・1절: 보내기 — roomInvite{ to }(방 코드 · 이름은 싣지 않는다) · 오류가 안 오면 ok · ROOM_INVITE_NOT_FRIEND · 한 번에 하나씩 · 연결 없음
+   ・1절: 보내기 — roomInvite{ to, rid }(방 코드 · 이름은 싣지 않는다) · 성공은 서버 roomInviteSent · ROOM_INVITE_NOT_FRIEND · 답이 없으면 timeout(조용함 ≠ 성공) · 연결 없음
    ・2절: 받기 — roomInvited → { 보낸 사람: { fromName, roomCode, ts } } · 같은 사람은 하나 · 듣자마자 지금 것 · 지우기(roomInviteClear)
+   ・계정이 바뀌면 reset — 받은 초대를 비운다
    ・3절: 배선 · 깨 보기 */
 'use strict';
 const fs = require('fs');
@@ -19,21 +20,24 @@ for(const k of Object.keys(SRC0)) if(!SRC0[k]){ console.log('  ? 원본 못 찾�
 const load = (src) => { const m = { exports: {} }; new Function('module', 'window', src)(m, undefined); return m.exports; };
 const tick = async () => { for(let i = 0; i < 10; i++) await Promise.resolve(); };
 function mk(S, o){
-  const fns = {}, sent = [], timers = [];
-  const hub = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, send(m){ if(o && o.offline) return false; sent.push(m); return true; } };
-  const I = load(S.IR).createRoomInviteRt({ hub, setTimeout: (f) => { const h = { f }; timers.push(h); return h; }, clearTimeout: (h) => { const i = timers.indexOf(h); if(i >= 0) timers.splice(i, 1); } });
-  return { I, sent, timers, emit: (m) => (fns[m.t] || []).forEach((f) => f(m)), fire: () => { const t = timers.shift(); if(t) t.f(); } };
+  const fns = {}, sent = [];
+  /* 가짜 hub.request — rt-hub 처럼 rid 를 붙여 보내고, 답(roomInviteSent · rid 달린 error)이 오면 그 요청이 받는다. 답이 안 오는 판은 o.silent(시간 초과 = null) */
+  const waits = [];
+  const hub = { onMessage(t, fn){ (fns[t] = fns[t] || []).push(fn); }, send(m){ if(o && o.offline) return false; sent.push(m); return true; }, isReady: () => !(o && o.offline),
+    request(m){ if(o && o.offline) return Promise.resolve(null); const rid = 'q' + (waits.length + 1); sent.push(Object.assign({}, m, { rid })); if(o && o.silent) return Promise.resolve(null); return new Promise((res) => waits.push({ rid, res })); } };
+  const I = load(S.IR).createRoomInviteRt({ hub });
+  return { I, sent, answer: (m) => { const w = waits.find((x) => x.rid === m.rid); if(w) w.res(m); }, emit: (m) => (fns[m.t] || []).forEach((f) => f(m)) };
 }
 async function judge(S){
   say('── 1. 보내기');
   let e = mk(S);
   const p1 = e.I.send('u2'), p2 = e.I.send('u3');
-  chk(e.sent.length === 1 && JSON.stringify(e.sent[0]) === '{"t":"roomInvite","to":"u2"}', 'roomInvite{ to } — 방 코드 · 이름은 싣지 않는다(서버가 채운다) · 한 번에 하나');
-  e.fire(); await tick();
-  chk(e.sent.length === 2 && e.sent[1].to === 'u3', '  오류가 안 오면 다음 것을 보낸다');
-  e.emit({ t: 'error', code: 'ROOM_INVITE_NOT_FRIEND', ref: 'roomInvite' });
+  chk(e.sent.length === 2 && e.sent[0].t === 'roomInvite' && e.sent[0].to === 'u2' && !('room' in e.sent[0]) && !('name' in e.sent[0]) && /^q\d+$/.test(e.sent[0].rid) && e.sent[0].rid !== e.sent[1].rid, 'roomInvite{ to, rid } — 방 코드 · 이름은 싣지 않는다(서버가 채운다) · 요청마다 다른 rid(동시에 보내도 답이 섞이지 않는다)');
+  e.answer({ t: 'error', code: 'ROOM_INVITE_NOT_FRIEND', ref: 'roomInvite', rid: e.sent[1].rid });
+  e.answer({ t: 'roomInviteSent', to: 'u2', rid: e.sent[0].rid });
   const r1 = await p1, r2 = await p2;
-  chk(r1.ok === true && r2.ok === false && r2.code === 'ROOM_INVITE_NOT_FRIEND', '  첫째는 ok · 둘째는 서버 거절 code');
+  chk(r1.ok === true && r2.ok === false && r2.code === 'ROOM_INVITE_NOT_FRIEND', '★ 성공은 서버의 roomInviteSent 로 · 거절은 rid 가 같은 error 의 code — 순서가 뒤바뀌어도 제 짝');
+  chk((await mk(S, { silent: true }).I.send('u2')).code === 'timeout', '★ 답이 안 오면 timeout — «조용하면 성공» 으로 보지 않는다(D11)');
   e = mk(S, { offline: true });
   chk((await e.I.send('u2')).code === 'notReady', '  연결이 없으면 notReady');
   chk((await mk(S).I.send('')).ok === false, '  받는 사람이 없으면 보내지 않는다');
@@ -47,6 +51,13 @@ async function judge(S){
   chk(seen.length === 2 && JSON.parse(seen[1]).u5.roomCode === 'PLAY-CD34' && Object.keys(JSON.parse(seen[1])).length === 1, '  같은 사람은 하나(나중 것)');
   e.I.clear('u5');
   chk(seen[2] === '{}' && e.sent[0] && e.sent[0].t === 'roomInviteClear' && e.sent[0].from === 'u5', '지우기 — roomInviteClear{ from } · 목록에서 빠진다');
+  e = mk(S);
+  const seen2 = [];
+  e.emit({ t: 'roomInvited', from: 'u5', fromName: '도토리', room: 'PLAY-AB12', ts: 9 });
+  e.I.onInvites((v) => seen2.push(JSON.stringify(v)));
+  e.I.reset();
+  const seen3 = []; e.I.onInvites((v) => seen3.push(JSON.stringify(v)));
+  chk(seen3[0] === '{}', '★ reset — 앞 계정이 받은 초대를 비운다(다음 계정에 남지 않게)');
   say('── 3. 배선');
   const h = S.HTML, at = (f) => h.indexOf('<script src="parts/' + f + '"></script>');
   chk(at('room/room-invite-rt.js') > at('realtime/rt-hub.js') && at('app.js') > at('room/room-invite-rt.js'), 'html — rt-hub → room-invite-rt → app.js');
@@ -56,7 +67,8 @@ async function judge(S){
   await judge(SRC0);
   say('── 4. 깨 보기');
   const BREAKS = [
-    ['IR', "    job.timer = tSet(() => job.done({ ok: true }), SEND_ERR_WAIT_MS);", "    job.done({ ok: true });", '오류를 안 기다림'],
+    ['IR', "    return { ok: false, code: !hub.isReady() ? 'notReady' : 'timeout' };", "    return { ok: true };", '답이 없어도 성공으로 봄'],
+    ['IR', "function reset(){ for(const k of Object.keys(invites)) delete invites[k]; }", "function reset(){}", 'reset 이 초대를 안 비움'],
     ['IR', "    if(invites[from]){ delete invites[from]; emit(); }\n", "", '지워도 목록에 남음'],
     ['IR', "    invites[m.from] = {", "    invites[m.from + Math.random()] = {", '같은 사람이 여럿'],
   ];

@@ -132,7 +132,7 @@ const _friendsClose = deps.friendsClose;       // (key) — 목록을 닫았다
             btn.textContent='완료';
             st.sent.add(fid);
           }else{
-            toast(INVITE_REFUSED[r && r.code] || '초대에 실패했어요');
+            if(INVITE_REFUSED[r && r.code]) toast(INVITE_REFUSED[r.code]); else TwErrorCodes.notify('E-ROOM-09', r && r.code);
             btn.disabled=false; btn.textContent='초대';
           }
           st.sending.delete(fid);
@@ -242,13 +242,16 @@ let _roomInviteBusy = false;
      앞서 있으면 방금 온 초대를 «3분 지남» 으로 읽고 버린다. 3분 대기 자체는 팝업이 뜬 순간부터 잰다(아래). */
 const ROOM_INVITE_WAIT_MS  = 3 * 60 * 1000;
 const ROOM_INVITE_STALE_MS = 10 * 60 * 1000;
-/* 보내기 거절 까닭(서버 code) → 안내. 그 밖은 «초대에 실패했어요» */
+/* 보내기 거절 까닭(서버 code) → 안내 문구. 그 밖의 실패는 E-ROOM-09 */
 const INVITE_REFUSED = Object.freeze({
   ROOM_INVITE_NOT_FRIEND: '친구에게만 초대를 보낼 수 있어요',
   notReady: '서버에 연결된 뒤 보낼 수 있어요',
 });
+let _unsubInvites = null;   // 받은 초대 듣기를 끊는 함수 — 로그인마다 새로 걸기 전에 앞 것을 끊는다(겹쳐 걸리지 않게)
+let _popupKill = null;      // 떠 있는 초대 팝업을 콜백 없이 치우는 함수
 function _bindRoomInviteReceiver(){
-  invites.onInvites(got=>{
+  if(_unsubInvites){ try{ _unsubInvites(); }catch(_){} _unsubInvites = null; }
+  _unsubInvites = invites.onInvites(got=>{
     let ids = Object.keys(got || {});
     if(!ids.length || _roomInviteBusy) return;
     /* 오래된 초대는 조용히 거절 처리(지우기). 지우면 구독이 다시 불려 남은 것으로 이어진다. */
@@ -309,6 +312,7 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   const leftEl = box.querySelector('[data-a="left"]');
   const due = Date.now() + ROOM_INVITE_WAIT_MS;
   let finished = false, tick = null;
+  _popupKill = ()=>{ if(finished) return; finished = true; if(tick){ clearInterval(tick); tick = null; } _flashTaskbar(false); try{ ov.remove(); }catch(_){} };
   const done = (val)=>{
     if(finished) return; finished = true;
     if(tick){ clearInterval(tick); tick = null; }
@@ -325,11 +329,21 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="ok"]').onclick = ()=>done(true);
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
-/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 받은 초대는 realtime 연결 하나로 온다(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다) */
-function startReceive(){ _bindRoomInviteReceiver(); }
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js STEPS.roomInvite) — 받은 초대는 realtime 연결 하나로 온다(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다) */
+function startReceive(session){
+  _bindRoomInviteReceiver();
+  /* 계정이 바뀌면(session.onReset) 앞 계정의 초대를 놓는다 — 듣기 끊기 · 받은 초대 비우기 · 떠 있는 팝업 치우기(다음 계정에 앞 계정 초대가 남지 않게) */
+  if(session) session.onReset(stopReceive);
+}
+function stopReceive(){
+  if(_unsubInvites){ try{ _unsubInvites(); }catch(_){} _unsubInvites = null; }
+  if(_popupKill){ try{ _popupKill(); }catch(_){} _popupKill = null; }
+  _roomInviteBusy = false;
+  try{ invites.reset(); }catch(_){}
+}
 
 return {
-  startReceive,
+  startReceive, stopReceive,
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)
   busy: ()=>_roomInviteBusy,          // 팝업이 떠 있는 동안 true(검사용)
 };

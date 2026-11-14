@@ -240,7 +240,7 @@ async function _chatDelRun(){
   const r = await firebaseAPI.chatHistory.clear(room, chatUiMod()._chatMyTabId());   // 지금 보는 탭만 — 서버가 지우기 표시 줄을 방 전원에 보내 각자 PC 저장도 비워진다
   if(!(r && r.ok)){
     if(ok){ ok.disabled = false; ok.textContent = '삭제'; }
-    toast('지우지 못했어요 — 네트워크나 권한을 확인해 주세요');
+    TwErrorCodes.notify('E-CHAT-03', r && r.code);
     return;
   }
   _chatDelClose();

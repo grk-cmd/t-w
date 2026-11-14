@@ -301,7 +301,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/투게더룸이 지금 꽉 찼어요\(77\/77\)/.test(mk({ premium: true, limits: { workingroom: 300, togetherroom: 77 } })('channelFull', false)), '★ channelFull — 빈 방(만들기 아님)이면 내 자격의 채널 · 설정 상한');
     chk(/워킹룸이 지금 꽉 찼어요\(20\/20\)/.test(mk({ pending: 'workingroom', premium: true, limits: { workingroom: 20, togetherroom: 300 } })('channelFull', false)), '  ↳ 만들기면 고른 채널');
     chk(/최대 12명/.test(mk({ max: 12 })('full', false)) && /방장 자리 제외 최대 11명/.test(mk({ max: 12 })('full', true)), '  ↳ 정원 문구도 설정값(시크릿룸은 방장 자리 빼고)');
-    chk(mk({})('weird', false) === '서버에 연결하지 못했어요 — 잠시 후 다시 시도해 주세요' && mk({})('version', false) === 'VER', '  ↳ 모르는 코드는 «잠시 후 다시» · version 은 업데이트 안내');
+    chk(mk({})('weird', false) === null && mk({})('version', false) === 'VER', '  ↳ 판정이 아닌 코드는 null(부르는 쪽이 E-ROOM-08) · version 은 업데이트 안내');
   }
 
   say('── 6. html — 순서 · 기본 표시 · CSP');

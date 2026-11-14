@@ -28,25 +28,13 @@ const kst = s => Date.parse(s + '+09:00');
 (function(){
 say('=== 📷 스티커사진 · 순수 계산 ===\n');
 
-/* ── §1 하루의 경계 ─────────────────────────────────────────────── */
-say('· §1 하루의 경계는 한국 시간 자정인가');
+/* ── §1 다시 여는 안내 ──────────────────────────────────────────── */
+say('· §1 다시 여는 안내는 서버가 준 시각에서 뽑는다 (앱은 날짜를 세지 않는다 — D7)');
 {
-  const a = P.kstDay(kst('2026-03-14T23:59:59'));
-  const b = P.kstDay(kst('2026-03-15T00:00:01'));
-  chk(a !== b, '★ 밤 12시를 지나면 날이 바뀐다');
-  chk(P.kstDay(kst('2026-03-15T00:00:01')) === P.kstDay(kst('2026-03-15T23:00:00')),
-      '같은 날 안에서는 값이 같다');
-  chk(b - a === DAY, '하루 차이는 정확히 86400000');
-
-  const now = kst('2026-03-15T14:00:00'), d = P.kstDay(now);
-  chk(d % DAY === 0 && d <= now + KST && d > now + KST - DAY, '한국 하루의 시작(KST 일 번호 × 하루)이 지금을 품는다');
-
-  const t = P.reopenAt(kst('2026-03-15T14:00:00'));
-  chk(t === kst('2026-03-16T00:00:00'), '다시 여는 시각 = 다음 날 0시');
-  chk(/내일 0시/.test(P.closedMessage(kst('2026-03-15T14:00:00'))),
-      '안내 문구: ' + P.closedMessage(kst('2026-03-15T14:00:00')));
-  chk(P.closedMessage(kst('2026-03-15T23:59:00')).indexOf('0시') > 0,
-      '자정 직전에도 문구가 안 깨진다');
+  chk(P.kstDay === undefined && P.reopenAt === undefined, '★ 앱 쪽 하루 경계 계산(kstDay · reopenAt)이 없다 — 하루 경계는 서버 정원 답의 reopenAt');
+  chk(/내일 0시/.test(P.closedMessage(kst('2026-03-16T00:00:00'))), '안내 문구: ' + P.closedMessage(kst('2026-03-16T00:00:00')));
+  chk(/내일 3시에 열려요/.test(P.closedMessage(kst('2026-03-16T03:00:00'))), '서버가 여는 시각을 바꾸면 문구가 따라온다(3시)');
+  chk(P.closedMessage(null) === '📷 스티커사진이 문을 닫았어요. 내일 다시 열려요.' && P.closedMessage(NaN).indexOf('다시 열려요') > 0, '시각을 모르면 «내일 다시 열려요»');
 }
 say('');
 

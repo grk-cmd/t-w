@@ -285,6 +285,13 @@ async function judge(S){
     X.ws.msg({ t: 'sessionLost' }); X.ws.kill(4004);
     await tick();
     chk(X.hl.L.indexOf('replaced') >= 0 && !X.e.rt.inRoom(), '다른 기기가 차지(4004) → onReplaced');
+    /* D2 — 연결이 멈추는 닫힘은 «다시 연결 중» 으로 90초 기다리지 않고 바로 방을 놓는다(04-realtime-disconnect 정책 표) */
+    for(const [code, why] of [[4006, 'maintenance'], [4007, 'accountGone'], [4003, 'version']]){
+      const Z = await joined(S);
+      Z.ws.kill(code);
+      await tick();
+      chk(Z.hl.L.indexOf('lost:' + why) >= 0 && !Z.e.rt.inRoom(), '★ D2 — 닫힘 ' + code + ' → 방을 바로 놓음(onLost ' + why + ')');
+    }
     const Y = await joined(S);
     Y.ws.msg({ t: 'error', code: 'CHAT_OFF', ref: 'chatSay', requestId: 'abcdefgh' });
     await tick();
