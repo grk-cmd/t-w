@@ -127,6 +127,25 @@ function build(srcs) {   // srcs: [[rel, text]] — HTML 순서
   const edges = new Map();   // 'a > b' → 첫 근거
   const add = (from, to, why) => { if (from === APP || to === APP || from === to) return; const k = from.rel + ' > ' + to.rel; if (!edges.has(k)) edges.set(k, why); };
   for (const a of A) if (a !== APP) for (const r of a.refs) { const t = target(r.name); if (t) add(a, t, r.name + ' (' + a.rel + ':' + r.line + ')'); }
+  /* attach 로 건 길 — app.js 가 «xMod.attachY({ … })» 로 모듈에 걸어 주는 알림도 그 모듈이 값에 닿는 길이다(deps 와 같이 간선으로 센다).
+     만드는 deps 에 안 넣고 나중에 거는 길이라 예전엔 순환이 보이지 않았다. attach 간선만 따로 모아 기준선이 «늘지 않게» 지킨다 */
+  const attachEdges = new Map();
+  (function f(x) {
+    if (ts.isCallExpression(x) && ts.isPropertyAccessExpression(x.expression) && /^attach[A-Z]?/.test(x.expression.name.text) && ts.isIdentifier(x.expression.expression) && instOf.has(x.expression.expression.text)) {
+      const mod = instOf.get(x.expression.expression.text), arg = x.arguments[0];
+      if (arg && ts.isObjectLiteralExpression(arg)) for (const p of arg.properties) {
+        const prop = p.name ? p.name.getText(APP.sf) : '';
+        (function g(y) {
+          if (ts.isIdentifier(y) && !(ts.isPropertyAccessExpression(y.parent) && y.parent.name === y) && !(ts.isPropertyAssignment(y.parent) && y.parent.name === y)) {
+            const t = target(y.text);
+            if (t && t !== APP && t !== mod) { const k = mod.rel + ' > ' + t.rel; if (!attachEdges.has(k)) attachEdges.set(k, x.expression.name.text + '.' + prop + ' ← ' + y.text + ' (app.js:' + APP.lineOf(x) + ')'); add(mod, t, 'attach.' + prop + ' ← ' + y.text + ' (app.js:' + APP.lineOf(x) + ')'); }
+          }
+          ts.forEachChild(y, g);
+        })(p);
+      }
+    }
+    ts.forEachChild(x, f);
+  })(APP.sf);
   const viol = [];
   for (const [mod, props] of depsOf) {
     for (const { prop, node } of props) {
@@ -180,7 +199,7 @@ function build(srcs) {   // srcs: [[rel, text]] — HTML 순서
   for (const a of A) if (!idx.has(a.rel)) visit(a.rel);
   const cyc = [...edges.keys()].filter(k => { const [a, b] = k.split(' > '); return comp.get(a) === comp.get(b); }).sort();
   const sizes = {}; for (const r of new Set(cyc.flatMap(k => k.split(' > ')))) sizes[comp.get(r)] = (sizes[comp.get(r)] || 0) + 1;
-  return { files: A.length, modules: instOf.size, edges, cyc, why: (k) => edges.get(k), viol, groups: Object.values(sizes).sort((a, b) => b - a), instOf, depsOf };
+  return { files: A.length, modules: instOf.size, edges, attach: [...attachEdges.keys()].sort(), attachWhy: (k) => attachEdges.get(k), cyc, why: (k) => edges.get(k), viol, groups: Object.values(sizes).sort((a, b) => b - a), instOf, depsOf };
 }
 
 const SRCS = ORDER.map(r => [r, fs.readFileSync(path.join(BASE, 'parts', r), 'utf8')]);
@@ -190,7 +209,7 @@ if (process.argv.includes('--write-baseline')) {
   if (!R) { say('  ✗ app.js 를 못 찾아 기준선을 못 쓴다'); process.exit(1); }
   fs.writeFileSync(BASE_FILE, JSON.stringify({
     note: 'sim-dep-cycles.js 기준선 — 지금 있는 모듈 순환 간선. 줄기만 한다: 순환을 끊었으면 같은 PR 에서 --write-baseline 으로 내리고, 새 순환은 기준선에 넣지 말고 끊는다(콜백 · 구독 · 공용 부분을 아래 파일로).',
-    groups: R.groups, edges: R.cyc,
+    groups: R.groups, edges: R.cyc, attachEdges: R.attach,
   }, null, 1) + '\n');
   say('  ✓ 기준선을 썼다 — 순환 간선 ' + R.cyc.length + ' · 묶음 ' + R.groups.join(' / ') + ' → ' + BASE_FILE);
   process.exit(0);
@@ -199,8 +218,8 @@ if (process.argv.includes('--write-baseline')) {
 say('── 1. 파일 · 모듈 읽기');
 chk(!!R && R.files >= 100 && R.modules >= 80, 'HTML 이 싣는 parts/ 파일 ' + (R ? R.files : 0) + '개 · app.js 가 만드는 모듈 ' + (R ? R.modules : 0) + '개를 읽었다');
 if (!R) { say(`\n✗ 통과 ${pass} · 실패 ${fail + 1}`); process.exit(1); }
-let base = null;
-try { base = new Set(JSON.parse(fs.readFileSync(BASE_FILE, 'utf8')).edges); } catch (e) { chk(false, '기준선 파일을 못 읽었다 — ' + BASE_FILE); }
+let base = null, baseAttach = null;
+try { const bj = JSON.parse(fs.readFileSync(BASE_FILE, 'utf8')); base = new Set(bj.edges); baseAttach = new Set(bj.attachEdges || []); } catch (e) { chk(false, '기준선 파일을 못 읽었다 — ' + BASE_FILE); }
 
 say('── 2. 순환이 늘지 않았다 (지금 순환 간선 ' + R.cyc.length + ' · 묶음 크기 ' + R.groups.join(' / ') + ')');
 if (base) {
@@ -208,6 +227,12 @@ if (base) {
   const gone = [...base].filter(k => !R.cyc.includes(k));
   chk(added.length === 0, '기준선에 없는 순환 간선 0' + (added.length ? ' — ' + added.length + '건(순환을 새로 만들지 말고 콜백 · 구독 · 공용 부분을 아래 파일로 끊는다):\n      ' + added.slice(0, 12).map(k => k + '  ← ' + R.why(k)).join('\n      ') : ''));
   chk(gone.length === 0, '기준선에서 사라진 간선 0' + (gone.length ? ' — ' + gone.length + '건 줄었어요. 같은 PR 에서 기준선을 내려 주세요: node checks/sim-dep-cycles.js --write-baseline (' + gone.slice(0, 3).join(' · ') + ')' : ''));
+}
+if (baseAttach) {
+  const aAdd = R.attach.filter(k => !baseAttach.has(k));
+  const aGone = [...baseAttach].filter(k => !R.attach.includes(k));
+  chk(aAdd.length === 0, 'attach 로 건 새 길 0' + (aAdd.length ? ' — ' + aAdd.length + '건(deps 로 받을 수 있으면 deps 로 · 꼭 필요하면 PR 본문 «attach 로 건 길» 에 적고 기준선에 넣는다):\n      ' + aAdd.slice(0, 12).map(k => k + '  ← ' + R.attachWhy(k)).join('\n      ') : ''));
+  chk(aGone.length === 0, 'attach 기준선에서 사라진 길 0' + (aGone.length ? ' — 줄었으면 같은 PR 에서 --write-baseline (' + aGone.slice(0, 3).join(' · ') + ')' : ''));
 }
 say('── 2-2. 만들 때 순서');
 chk(R.viol.length === 0, '모듈을 만드는 도중 아직 선언 전인 app.js let/const 를 읽는 deps 0' + (R.viol.length ? ' — ' + R.viol.slice(0, 8).join('\n      ') : ''));
@@ -222,6 +247,12 @@ say('── 3. 일부러 깨 보기');
   const s1b = SRCS.map(([r, t]) => [r, r === fa ? t + '\nwindow.__cycProbeA = function(){ return 1; };\n' : r === fb ? t + '\nwindow.__cycProbeB = function(){ return window.__cycProbeA(); };\n' : t]);
   const R1b = fa && fb ? build(s1b) : null;
   chk(!!R1b && R1b.edges.has(fb + ' > ' + fa) && !R1b.cyc.includes(fb + ' > ' + fa), '한쪽으로만 부르면 순환이 아니다');
+  /* attach 로 건 길 — 한쪽 모듈에 attach 로 다른 모듈을 걸면 간선으로 센다(deps 로만 보던 때는 안 보였다) */
+  const nameOf = (rel) => [...R.instOf].find(([, m]) => m.rel === rel)?.[0];
+  const [na, nb] = [nameOf(fa), nameOf(fb)];
+  const s3 = SRCS.map(([r, t]) => [r, r === 'app.js' && na && nb ? t + '\n' + na + '.attachProbe({ probe: ()=>' + nb + '.x() });\n' : t]);
+  const R3 = na && nb ? build(s3) : null;
+  chk(!!R3 && R3.attach.includes(fa + ' > ' + fb), 'attach 로 건 길(' + fa + ' > ' + fb + ')을 새 길로 잡는다');
   /* 만들 때 순서: 공장 맨 위에서 deps 를 부르고, 그 deps 가 자기 모듈 이름(아직 만드는 중)을 읽게 해 본다 — 10-15 commissionMod 모양 */
   const [inst, mod] = [...R.instOf].find(([, m]) => /function create[A-Z]\w*\(deps\)\s*\{/.test(SRCS.find(([r]) => r === m.rel)[1])) || [];
   const s2 = SRCS.map(([r, t]) => {
