@@ -65,10 +65,12 @@ async function judge(S){
     chk(a.log[1][0] === 'DELETE' && a.log[1][1] === '/v1/admin/notices/announcements/current', '확성기 끄기 — DELETE …/announcements/current');
 
     const u = mk(LIB, { post: null, del: null });
-    await u.m.publishUpdateNotice('t'.repeat(70), 'b'.repeat(900));
+    const noId = await u.m.publishUpdateNotice('t'.repeat(70), 'b'.repeat(900));
     const up = u.log[0];
     chk(up[1] === '/v1/admin/notices/update-notices' && up[2].title.length === 60 && up[2].body.length === 800 && /^req-/.test(up[2].requestId) && Object.keys(up[2]).sort().join() === 'body,requestId,title',
       '업데이트 공지 올리기 — POST …/update-notices { requestId, title≤60, body≤800 }');
+    const withId = mk(LIB, { post: { id: 'n-7', title: 't', body: 'b', publishedAt: '2026-11-01T00:00:00Z' }, del: null });
+    chk(await withId.m.publishUpdateNotice('t', 'b') === 'n-7' && noId === null, '  올리기가 응답의 새 공지 id 를 돌려준다(없으면 null — 이미 올라갔으니 던지지 않는다)');
     const cur = await u.m.currentUpdateNotice();
     chk(u.log[1][0] === 'BOARD' && cur.id === 'u-7' && cur.title === '제목', '지금 업데이트 공지 — 공지 한 판에서 id 를 받는다');
     chk(await mk(LIB, { board: { updateNotice: null } }).m.currentUpdateNotice() === null, '  공지가 없으면 null(실패가 아니라 «없음»)');
@@ -128,7 +130,7 @@ async function judge(S){
     }
     shown.length = 0;
     const t409 = store.notify(Object.assign(new Error('c'), { code: 'CONCURRENT_UPDATE', kind: 'request', status: 409 }), api.ERRORS);
-    chk(t409.action === 'refetch' && shown.join() === 'E-NET-05', '409 CONCURRENT_UPDATE 는 공통 표 그대로 — 다시 받기');
+    chk(t409.action === 'refetch' && shown.length === 0, '409 CONCURRENT_UPDATE → 다시 받기 · 번호 없음(부르는 쪽이 «받아왔어요» 문구 — 기능 표가 공통 E-NET-05 를 덮는다)');
     shown.length = 0;
     const net = store.notify(Object.assign(new Error('n'), { code: 'NETWORK', kind: 'unavailable', status: 0 }), api.ERRORS);
     chk(net.action === 'offline' && shown.join() === 'E-NET-07', '닿지 못함은 공통 표 그대로');

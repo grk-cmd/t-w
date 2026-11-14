@@ -207,14 +207,14 @@ def files(code, row='aaaaaaaaaaaa', extra=()):
             {'filename': 'checks/CHECKS.md', 'status': 'modified', 'patch': f'@@ -70 +70 @@\n-{ROW("000000000000")}\n+{ROW(row)}'}, *extra]
 CMP = {O: files('new'), H: files('new', row='bbbbbbbbbbbb'), H2: files('new2')}
 GUARD = [{'filename': '.claude/hooks/ship-gate.py', 'status': 'modified'}]   # 가드 파일을 바꾸는 PR 모양 — 승인이 필요하다
-def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD):
+def fake(reviews=(), comments=(), commits=(O, H), cmp=CMP, runs=None, state='open', base='main', files=GUARD, head_ref='harness/x'):   # 기본은 main 으로 가는 하네스 PR 모양
     risk.api = lambda p: [list(reviews)] if '/reviews' in p else [list(comments)] if '/comments' in p else [list(files)] if '/files' in p else [[{'sha': c} for c in commits]] if '/commits' in p else [[]]
     def get(p):
         if '/compare/' in p:
             return {'files': cmp[p.rsplit('...', 1)[1]]}
         if '/check-runs' in p:
             return {'check_runs': runs if runs is not None else [{'name': 'npm run check', 'status': 'completed', 'conclusion': 'success'}]}
-        return {'base': {'ref': base}, 'head': {'sha': commits[-1]}, 'state': state}
+        return {'base': {'ref': base}, 'head': {'sha': commits[-1], 'ref': head_ref}, 'state': state}
     risk.get = get
 carry = [
     ('합치기만 · 옛 커밋 코멘트 승인', dict(comments=[{'user': U, 'body': '승인 ' + O[:7]}]), H, True),
@@ -344,6 +344,95 @@ def gate_case(name, fl, approved_comment, want_deny):
 gate_case('가드 파일 안 바꿈 · 높음 · 승인 없음 → 통과', [{'filename': 'firebase/firebase-database-rules.json'}], False, False)
 gate_case('가드 파일 바꿈 · 승인 없음 → 막음', GUARD, False, True)
 gate_case('가드 파일 바꿈 · 승인 → 통과', GUARD, True, False)
+# main 으로 가는 웹 관리자 길 — hotfix/ · harness/ · release/ 가 아니면 web-admin/ 안만(브랜치 이름이 아니라 base 로)
+WA, APP = [{'filename': 'web-admin/src/a.tsx'}], [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'app/parts/app.js'}]
+for name, base, ref, fl, want in (
+        ('admin/* → main · web-admin 만', 'main', 'admin/x', WA + [{'filename': 'web-admin/tests/a.test.ts'}], []),
+        ('admin/* → main · 앱 파일이 섞임', 'main', 'admin/x', APP, ['app/parts/app.js']),
+        ('이름을 바꿔 올림(fix/*) → main · 앱 파일', 'main', 'fix/y', APP, ['app/parts/app.js']),
+        ('밖에서 web-admin 으로 옮김', 'main', 'admin/x', [{'filename': 'web-admin/x.js', 'previous_filename': 'app/x.js'}], ['app/x.js']),
+        ('hotfix/* → main · 앱 파일', 'main', 'hotfix/x', APP, []),
+        ('harness/* → main', 'main', 'harness/x', [{'filename': '.claude/hooks/ship-gate.py'}], []),
+        ('판 내기 release/* → main', 'main', 'release/0.12.3', APP, []),
+        ('판으로 가는 PR · 앱 파일', 'release/0.12.3', 'fix/x', APP, [])):
+    fake(files=fl, head_ref=ref, base=base)
+    got = risk.admin_outside(395)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ main 범위 {name}: {got}')
+fake(files=[{'filename': 'web-admin/a.tsx'}], head_ref='admin/x')
+risk.get = lambda p, g=risk.get: dict(g(p), changed_files=3001) if p.endswith('/pulls/395') else g(p)
+if risk.admin_outside(395) == ['(파일 목록을 다 못 봄)']:
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ main 범위 파일 목록이 잘림(3000개) → 못 봄')
+fake(files=WA, head_ref='admin/x')
+risk.get = lambda p: (_ for _ in ()).throw(RuntimeError('gh api 실패(시험)'))
+try:
+    risk.admin_outside(395)
+    bad += 1
+    print('  ✗ main 범위: PR 을 못 읽었는데 빈 목록(통과)으로 돌려줌 — 던져야 가드가 막는다')
+except RuntimeError:
+    ok += 1
+def admin_case(name, ref, fl, want_deny, approved=False, word=''):
+    global ok, bad
+    fake(commits=(O, H), files=fl, head_ref=ref, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved else [])
+    gate.gate_ok = lambda pr: (True, '')
+    gate.run = lambda *a, **k: H
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_merge(['gh', 'pr', 'merge', '395'])
+    except SystemExit:
+        pass
+    out = buf.getvalue()
+    denied = '"deny"' in out
+    if denied == want_deny and (not word or word in out):
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 머지 가드 {name}: {"막음" if denied else "통과"}{" · 문구에 «" + word + "» 없음" if word and word not in out else ""}')
+admin_case('admin/* · web-admin 만 → 통과', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], False)
+admin_case('admin/* · 앱 파일 섞임 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}, {'filename': 'main.js'}], True, word='web-admin/ 밖을 바꾼다')
+admin_case('이름 바꿔 올림 · 앱 파일 → 막음', 'chore/y', [{'filename': 'main.js'}], True)
+# 웹 관리자 길의 위험도 높음(데이터 접근)은 머지 전 승인 — 판을 거치지 않아 «내보내기 전 한 장» 에 안 나온다
+DB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]
+admin_case('admin/* · 데이터 접근(높음) · 승인 없음 → 막음', 'admin/x', DB, True, word='웹 관리자 길')
+admin_case('admin/* · 데이터 접근(높음) · 승인 → 통과', 'admin/x', DB, False, approved=True)
+admin_case('admin/* · 화면만(낮음) · 승인 없음 → 통과', 'admin/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
+admin_case('하네스 · 가드 파일 · 승인 없음 → 막음(가드 문구)', 'harness/x', GUARD, True, word='가드 자리(')
+real_assess3 = risk.assess
+risk.assess = lambda pr: (_ for _ in ()).throw(RuntimeError('assess 실패(시험)'))   # 파일 · PR 은 읽히고 위험도만 못 읽음
+admin_case('admin/* · 위험도를 못 읽음 → 막음', 'admin/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='읽지 못해')
+risk.assess = real_assess3
+for name, ref, base, fl, want in (('admin/* · 높음', 'admin/x', 'main', DB, True), ('admin/* · 낮음', 'admin/x', 'main', [{'filename': 'web-admin/src/a.tsx'}], False),
+                                  ('판으로 가는 PR · 높음(내보내기 전 한 장이 본다)', 'fix/x', 'release/0.12.3', DB, False),
+                                  ('하네스 · 가드 파일', 'harness/x', 'main', GUARD, True)):
+    fake(files=fl, head_ref=ref, base=base)
+    got = risk.must_approve(395)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 승인 필요 {name}: {got}')
+# 브랜치 따기 — admin/* 는 main 에서 딸 수 있고, 다른 이름은 여전히 판 브랜치에서만
+for name, br, start, want_deny in (('admin/* · main 에서', 'admin/x', 'origin/main', False), ('fix/* · main 에서', 'fix/x', 'origin/main', True),
+                                    ('admin/* · 판에서', 'admin/x', 'origin/release/0.12.3', False)):
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_new_branch('.', br, start)
+    except SystemExit:
+        pass
+    denied = '"deny"' in buf.getvalue()
+    if denied == want_deny:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 브랜치 따기 {name}: {"막음" if denied else "통과"}')
 gate.gate_ok = real_gate_ok
 
 # 릴리스 직전 한 장 — 판에 머지된 PR 중 높음만
@@ -389,7 +478,8 @@ def waiting(name, want_code, want_word, high=True, steps=(), **kw):   # high = �
     fake(**kw)
     risk._same.clear()
     real_needs = risk.needs_owner
-    risk.needs_owner = lambda pr: high(risk.get('pulls')['head']['sha']) if callable(high) else high
+    if high is not None:   # None 이면 진짜 판정(웹 관리자 길 높음까지) 그대로
+        risk.needs_owner = lambda pr: high(risk.get('pulls')['head']['sha']) if callable(high) else high
     code, msg = risk.wait(395, limit=60, every=15, sleep=nap)
     risk.needs_owner = real_needs
     global ok, bad
@@ -403,6 +493,10 @@ waiting('승인 · CI 초록', 0, '머지할 차례', commits=(O, H), comments=A
 waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), steps=[dict(commits=(O, H)), dict(commits=(O, H), comments=APPR)])
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
 waiting('가드 파일을 안 바꾸면 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
+ADB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]   # 웹 관리자 길 · 데이터 접근(높음)
+waiting('웹 관리자 길 높음 · 승인 없음 — 시간 끝', 1, '끝나지 않음', high=None, commits=(O, H), files=ADB, head_ref='admin/x')
+waiting('웹 관리자 길 높음 · 승인 → 머지할 차례', 0, '머지할 차례', high=None, commits=(O, H), files=ADB, head_ref='admin/x', comments=APPR)
+waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='admin/x')
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
@@ -621,7 +715,7 @@ elif a.endswith('.head.sha'):
 elif '/status' in a:
     w(json.dumps([{'context': 'tw/confirm', 'state': 'success'}, {'context': 'tw/verify', 'state': 'success'}])); sys.exit(0)
 elif a.rstrip().endswith('/pulls/403'):
-    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa'}, 'state': 'open'}
+    out = {'base': {'ref': 'main'}, 'head': {'sha': '0c4b3e9aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa', 'ref': 'harness/x'}, 'state': 'open'}
 else:
     out = {}
 w(json.dumps(out, ensure_ascii=False))
@@ -697,6 +791,56 @@ if CPL:
         print(f'  ✗ cp949 로캘 시작 hook 판 요약: 종료 {p.returncode} · {out[:200]!r} {err[-200:]!r}')
 else:
     print('  - cp949 로캘이 없어 «gh · git 출력 해독» 시험 4칸은 건너뜀(맥: ko_KR.CP949)')
+
+# 서버 · 문서 저장소 머지 — 경로에 적힌 저장소로만 앱 판정에서 빠진다
+SV = 'mihioon/t-w-server'
+for name, toks, want in (
+        ('서버 경로', ['gh', 'api', '-X', 'PUT', 'repos/mihioon/t-w-server/pulls/169/merge', '-f', 'merge_method=squash'], (SV, '169')),
+        ('서버 경로 대문자', ['gh', 'api', '-X', 'PUT', 'repos/MIHIOON/t-w-server/pulls/169/merge'], (SV, '169')),
+        ('문서 경로', ['gh', 'api', '-X', 'PUT', '/repos/mihioon/tw-docs/pulls/3/merge'], ('mihioon/tw-docs', '3')),
+        ('앱 경로는 앱 판정', ['gh', 'api', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
+        ('$R 경로는 앱 판정', ['gh', 'api', '-X', 'PUT', '$R/pulls/5/merge'], None),
+        ('옵션 값 속 서버 경로는 안 봄', ['gh', 'api', '-f', 'x=repos/mihioon/t-w-server/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
+        ('점 마디 꼬리는 앱 판정', ['gh', 'api', '-X', 'PUT', 'repos/mihioon/tw-docs/pulls/1/merge/../../../grk-cmd/t-w/pulls/5/merge'], None),
+        ('표에 없는 저장소는 앱 판정', ['gh', 'api', '-X', 'PUT', 'repos/someone/else/pulls/5/merge'], None),
+        ('-p 값 미끼는 앱 판정', ['gh', 'api', '-p', 'repos/mihioon/tw-docs/pulls/1/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
+        ('--preview 값 미끼(서버)는 앱 판정', ['gh', 'api', '--preview', 'repos/mihioon/t-w-server/pulls/169/merge', '-X', 'PUT', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
+        ('모르는 옵션 값 미끼는 앱 판정', ['gh', 'api', '--zzz', 'repos/mihioon/tw-docs/pulls/1/merge', 'repos/grk-cmd/t-w/pulls/5/merge'], None),
+        ('gh pr merge 는 앱 판정', ['gh', 'pr', 'merge', '5'], None)):
+    got = gate.other_repo_merge(toks)
+    if got == want:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 다른 저장소 머지 {name}: {got!r}(기대 {want!r})')
+def repo_case(name, statuses, want_deny):
+    global ok, bad
+    asked = []
+    def fake_run(*a, **k):
+        asked.append(' '.join(map(str, a)))
+        path = a[2] if len(a) > 2 else ''
+        if path.endswith('/pulls/169'):
+            return 'f' * 40
+        if '/status' in path:
+            return json.dumps([{'context': c, 'state': st} for c, st in statuses])
+        return None
+    gate.run = fake_run
+    buf = io.StringIO()
+    try:
+        with contextlib.redirect_stdout(buf):
+            gate.check_merge(['gh', 'api', '-X', 'PUT', 'repos/mihioon/t-w-server/pulls/169/merge'])
+    except SystemExit:
+        pass
+    denied = '"deny"' in buf.getvalue()
+    right = asked and all(SV in x for x in asked)
+    if denied == want_deny and right:
+        ok += 1
+    else:
+        bad += 1
+        print(f'  ✗ 서버 머지 판정 {name}: {"막음" if denied else "통과"}(기대 {"막음" if want_deny else "통과"}) · 서버 저장소에 물었나 {right}')
+repo_case('둘 다 통과면 머지', [('tw/confirm', 'success'), ('tw/verify', 'success')], False)
+repo_case('검증 없으면 막음', [('tw/confirm', 'success')], True)
+repo_case('아무것도 없으면 막음', [], True)
 
 print(f'{"✓" if not bad else "✗"} 통과 {ok} · 실패 {bad}')
 sys.exit(1 if bad else 0)

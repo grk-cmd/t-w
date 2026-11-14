@@ -21,6 +21,7 @@ const _waitForFirebaseAPI = deps._waitForFirebaseAPI;
 const ensureMyFriendCode = deps.ensureMyFriendCode;
 const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const friendManage = deps.friendManage;
+const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(friend-requests-port.js — 읽는 함수)
 const friendsSub = deps.friendsSub;   // 👥 친구 목록 구독 한 벌(friends-sub.js) — 상태 · 자동 다시 걸기
 const getDisplayName = deps.getDisplayName;
 const getMyUserId = deps.getMyUserId;
@@ -46,9 +47,6 @@ function _warnOwnerWriteDenied(what, err){
 /* 📩 우편이 바뀐 뒤(받음 · 못 받음 · 읽음 · 지움) — 목록 · 배지 · 🔔 다시 그리고, 새로 온 우편만 토스트(처음 받은 판은 새 우편이 아니다 — mail-feed.js) */
 function onMailChanged(e){
   const box = mailFeed.items();
-  /* 💃 우편함이 도착한 지금이 **밀린 해금 안내를 따라잡기 좋은 자리**다 — 여기서만
-     "보냈다는 기록은 있는데 실제로는 없다"를 알아볼 수 있다(_danceUnlockPending 참고). */
-  if(mailFeed.status() === 'ready') focusLevelMod()._notifyDanceUnlocks(focusLevelMod().getFocusLevel());
   inboxMod().renderInbox();
   mhScheduler.refreshBellBadge();   // 📩 수령함 변화 → 벨 뱃지 갱신
   if(mhScheduler.isBellOpen()) mhScheduler.renderBellList();
@@ -56,8 +54,8 @@ function onMailChanged(e){
     const m = box[id];
     if(!m) return;
     toast(`📩 ${inboxMod().inboxTagLabel(m.tag)}: ${m.title||''}`);
-    // 🐞 답변 알림이 오면 버그제보 탭 배지도 같이(bug-board-ui.js)
-    if(m.tag==='bug') window._bugBoardRefreshBadge();
+    // 🐞 답변 알림이 오면 버그제보 탭 배지도 같이 — 그 글을 보고 있으면 글도 다시 받는다(bug-board-ui.js)
+    if(m.tag==='bug') window._bugBoardRefreshBadge(m.bugId);
   });
 }
 
@@ -87,24 +85,11 @@ async function initMyHome(code, me){
       friendsSub.start(myId, friends=>{
         setMyHomeFriends(friends);
         inboxMod().renderMyHomeFriendList();
-        // 📖 방명록 쓰기 게이트는 이 목록으로 판정한다 — 목록이 도착/변경되면 열려 있는 창에 즉시 반영.
-        window._mhGbRefreshWriteUI();
       }, ()=>{ try{ inboxMod().renderMyHomeFriendList(); }catch(_){} });
       firebaseAPI.setMyPresenceOnline(myId, presenceLock.startOnlineFor(myId, me));   // 🔒 첫 쓰기는 고정값을 앉힌 뒤(presence-lock.js)
-      /* 📱 태블릿·폰 연결 — presence 등록 직후(§4-②). 키가 없는 사람은 아무 일도 안 한다. */
-      try{ focusLevelMod()._mobileStart(); }catch(_){}
       /* 🖥️ 한 계정 한 기기 — 0.13 은 realtime 연결의 hello claim 이 정한다(login-flow.js goOnline · 밀리면 device-lost.js). */
-      /* 🧱 쓰기와 구독 사이에 벽을 세운다 — **이 두 줄이 예전에는 맨몸이었다.**
-         [경위] 규칙 게시 직후 제보: "구글 연동한 유저만 친구 목록이 통째로 사라진다."
-           데이터는 RTDB 에 멀쩡히 살아 있었고 읽기 규칙도 열려 있었다. 사라진 것은 목록이
-           아니라 **구독** 이었다. setMyProfile 이 permission_denied 로 던지면 이 try 가
-           통째로 끊겨서 아래 친구요청·D-day·수령함이 **한 줄도 안 걸렸다.**
-           쓰기 하나가 거부됐을 뿐인데 화면에서는 친구·요청·우편이 전부 증발한 것으로 보인다.
-         ★ 원칙: 읽기(구독)는 쓰기의 성공에 기대지 않는다. 규칙상 users/{코드} 읽기는 항상
-           열려 있으므로, 쓰기가 어떻게 되든 구독은 반드시 걸려야 한다.
-         ⚠️ 여기에 await 쓰기를 새로 얹지 말 것. 얹어야 한다면 반드시 자기 try 로 감쌀 것. */
-      try{ await focusLevelMod()._adoptStarColorFromProfile(); }catch(_){}   // 🌟 색 받아 오기(읽기) — 아래 첫 프로필 쓰기보다 먼저(개정 71)
-      try{ await firebaseAPI.setMyProfile(myId, getDisplayName(), focusLevelMod().getFocusLevel(), focusLevelMod().myStarProfileOut()); }
+      /* ⚠️ 읽기(구독)는 쓰기의 성공에 기대지 않는다 — 여기에 await 쓰기를 새로 얹으면 거부될 때 아래 구독이 한 줄도 안 걸린다. 얹어야 하면 자기 try 로 감쌀 것. */
+      try{ await firebaseAPI.setMyProfile(myId, getDisplayName()); }   // 이름만 — 레벨 · 별은 서버 진척이 원본(focus-progress.js)
       catch(e){ _warnOwnerWriteDenied('프로필', e); }
       try{ await ensureMyFriendCode(); }
       catch(e){ console.warn('[마이홈] 친추 코드 확보 실패 — 구독은 그대로 진행', e); }
@@ -113,8 +98,8 @@ async function initMyHome(code, me){
       // 👋 나에게 온 친구 요청 구독 — 새 요청이 오면 목록에 뜨고, 처음 도착 시 토스트로 알림.
       //   ★ 이전에는 mhReqSection이 "친구 탭" 안에 있어서 유저가 그 탭을 열지 않으면 요청이 있는지도 모름.
       //     → 요청이 있으면 친구 탭 버튼에 (N) 뱃지 표시 + 마이홈 아이콘에도 자동 뱃지 → 눈에 띄게 함.
-      if(firebaseAPI.subscribeFriendRequests){
-        firebaseAPI.subscribeFriendRequests(myId, reqs=>{
+      {
+        friendRequests().watchReceived(myId, reqs=>{
           const prevIds = Object.keys(_myFriendRequests()||{});
           setMyFriendRequests(reqs || {});
           friendManage.renderFriendRequests();
@@ -131,7 +116,7 @@ async function initMyHome(code, me){
           if(myHomeOpen() && newIds.length && !friendManage.reqVisible()){
             friendManage.showFriendRequestPopup(newIds);
           }
-        });
+        }, e=>console.warn('[친구 요청] 받은 요청을 못 받음 — 알림이 오면 다시 받아요', e));
       }
       // 📩 우편 받기 — 새 우편은 realtime 알림이 오면 다시 받는다(mail-feed.js). 계정이 바뀌면 앞 계정의 우편은 비운다.
       mailFeed.start(myId);

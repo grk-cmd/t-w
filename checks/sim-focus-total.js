@@ -1,7 +1,7 @@
 /* ═══ ⏱️ sim-focus-total.js — ⏱️ 포커스 누적 모듈 구조 (2026-10-14 신설 · 앱 FSD 45번) ═══════════════
    app.js 의 포커스 누적 구역 본문 을 parts/focus/focus-total.js 로 옮겼다(글자 그대로 · 바뀐 줄 0 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(포커스 누적 검사들).
    여기서는 모듈 모양 · app.js 연결을 본다.
-   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(DAY_START_HOUR · FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · FOCUS_TOTAL_KEY · _dayShifted · _focusDayStr · _focusSessionSec · setFocusSessionSec · _focusTodaySec · setFocusTodaySec · _loadFocusTotalSec · _rolloverFocusToday · _todayStr)
+   ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(FOCUS_CYCLE_CAP · FOCUS_CYCLE_SEC · FOCUS_LEVEL_CAP_HOURS · FOCUS_TODAY_DATE_KEY · FOCUS_TODAY_SEC_KEY · FOCUS_TOTAL_CAP_SEC · _focusSessionSec · setFocusSessionSec · _focusTodaySec · setFocusTodaySec · serverDay · setServerDay · _rolloverFocusToday · addFocusToday · onDayEnd · _todayStr)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 0줄 그대로 · 부르는 곳은 focusTotalMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · focus-total.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -21,7 +21,7 @@ const FN_DEPS = [];
 const VAL_DEPS = ["focusTotalStore"];
 const GET_DEPS = [];
 const SET_DEPS = [];
-const EXPORTS = ["startFocusTotal","_focusTotalStarted","DAY_START_HOUR","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","FOCUS_TOTAL_KEY","_dayShifted","_focusDayStr","_focusSessionSec","setFocusSessionSec","_focusTodaySec","setFocusTodaySec","_loadFocusTotalSec","_rolloverFocusToday","_todayStr"];
+const EXPORTS = ["startFocusTotal","_focusTotalStarted","FOCUS_CYCLE_CAP","FOCUS_CYCLE_SEC","FOCUS_LEVEL_CAP_HOURS","FOCUS_TODAY_DATE_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TOTAL_CAP_SEC","_focusSessionSec","setFocusSessionSec","_focusTodaySec","setFocusTodaySec","serverDay","setServerDay","_rolloverFocusToday","addFocusToday","onDayEnd","_todayStr"];
 const MOVED = ["FOCUS_TOTAL_KEY","FOCUS_TODAY_SEC_KEY","FOCUS_TODAY_DATE_KEY","FOCUS_LEVEL_CAP_HOURS","FOCUS_CYCLE_SEC","FOCUS_CYCLE_CAP","FOCUS_TOTAL_CAP_SEC","_todayStr","DAY_START_HOUR","_dayShifted","_focusDayStr","_focusMigrateDayKey","_loadFocusTotalSec","_loadFocusTodaySec","_focusTodaySec","_focusSessionSec","_rolloverFocusToday"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  focusTotalStore: accountStoreMod,"];
 
@@ -54,6 +54,12 @@ function judgeAll(mod, app, html){
   try{ out = build(mod); }catch(e){ err = e; }
   t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
+  { const day = { day: '2026-11-13', isoWeek: '2026-W46', dayEndsAt: Date.parse('2026-11-13T21:00:00Z') };
+    t(out && out.serverDay() === null, '서버 날 — 받기 전에는 null');
+    if(out){ out.setServerDay(day); }
+    t(out && out.serverDay() === day, '  진척 답이 준 서버 날(day · isoWeek · dayEndsAt ms)을 그대로 들고 있는다');
+    if(out){ out.setServerDay(null); }
+    t(out && out.serverDay() === null, '  계정을 놓으면(reset) null 로 비운다'); }
   t(/window\.TwFocusTotal = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwFocusTotal(Tw 접두사)');
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
   const left = MOVED.filter(n => new RegExp('^(?:async\\s+)?(?:function\\s+' + n.replace(/\$/g, '\\$') + '\\b|(?:const|let|var)\\s+' + n.replace(/\$/g, '\\$') + '\\b)', 'm').test(A));
@@ -80,6 +86,7 @@ const breaks = [
   /* 같은 deps 줄이 다른 모듈을 만드는 줄에도 있을 수 있다 — 이 모듈을 만드는 줄 안의 마지막 deps 를 지운다 */
   /* deps 가 없는 모듈이면 거꾸로 한 줄을 끼워 넣어 본다(키 수가 어긋나야 잡힌다) */
   ['deps 하나 빠짐', null, GLUE.length ? (a => { const i = a.indexOf("const focusTotalMod = TwFocusTotal.createFocusTotal({"); const j = a.indexOf('\n});', i); const blk = a.slice(i, j); return a.slice(0, i) + blk.replace(/\n[^\n]*$/, '') + a.slice(j); }) : (a => a.replace("const focusTotalMod = TwFocusTotal.createFocusTotal({", "const focusTotalMod = TwFocusTotal.createFocusTotal({" + '\n  _extra: 1,')), null],
+  ['서버 날을 안 들고 있음', m => m.replace('function setServerDay(t){', 'function setServerDay(t){ return;'), null, null],
   ['전역 이름 안 걺', m => m.replace('window.TwFocusTotal = api;', ''), null, null],
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */

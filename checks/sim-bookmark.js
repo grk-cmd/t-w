@@ -3,9 +3,9 @@
           아이콘 📚 «북마크» 0번 칸 · 서랍은 host:'side' · 방문 중에는 닫는다.
    ・2절: 계약 — myhome-desktop.js 에 host:'side' 가 **추가만** 됐다(기본 · 'home' 무변경) · 서랍 닫기.
    ・3절: 책장 규칙 — 50권 · 네 모양 값 · http/https 만 · openBrowser 로만 · 툴팁 없음 · 팔레트 재사용 · 4px.
-   ・4절: 저장 — 순서 목록만(선반 번호 없음) · bookmarks/{uid}(users/ 아래가 아니다) · 규칙 · Storage 200KB.
+   ・4절: 저장 — 서버가 원본(bookshelf-store.js) · 이 파일은 put 만 부른다 · Firebase · 이 PC 사본 없음 · firebase-init 에 책장 메서드 없음.
    ・5절: 미스테리au 걷어내기 — 스크립트 둘 · 파일 둘 · firebase-init 어댑터 · app.js 무관.
-   ・6절: bmClean · 순서 바꾸기를 떼어 와 돌린다.
+   ・6절: 진짜 모듈을 가짜 store · 가짜 바탕화면 위에서 돌린다 — 서랍 열기(받기) · 받는 중 · 못 받음 [다시 시도] · 구경(폴더 보임 · 숨김) · 우클릭 공개 → put · 순서 바꾸기 → put.
    [실행] app.js · desk-companion-prototype.html · parts 원본들이 있는 폴더에서. */
 'use strict';
 const { stripReadGate } = require('./sim-rules-src.js');   // 옛 앱 읽기 막기 조건을 걷고 본다(개정 375)
@@ -67,7 +67,7 @@ if(MHD){
 
 say('── 3. 책장 규칙');
 {
-  chk(/const BM_MAX = 50;/.test(B) && /책장이 가득 찼어요 · 한 권을 빼 주세요/.test(BM), '50권 상한 · 가득 찬 문구');
+  chk(/const BM_MAX = bookshelfStore\.BOOKS;/.test(B) && /책장이 가득 찼어요 · 한 권을 빼 주세요/.test(BM), '책 상한은 store(서버 상한) 하나 · 가득 찬 문구');
   chk(/BM_W = \{ thin:22, thick:36 \}/.test(B) && /BM_H = \{ short:116, long:158 \}/.test(B), '두께 22·36 / 높이 116·158 네 모양');
   chk(/\^https\?:/.test(BM) && /test\(u\)/.test(BM) && /http:\/\/ 또는 https:\/\/ 로 시작하는 주소만/.test(BM), 'http/https 만');
   chk(/companion\.openBrowser\(it\.url\)/.test(B) && !/window\.open\(/.test(B), '여는 길은 openBrowser 하나(window.open 없음)');
@@ -96,7 +96,7 @@ say('── 3. 책장 규칙');
 
 say('── 3-b. 공개/비공개 · 구경 모드 (2026-09-23 요청 · 시안 확정)');
 {
-  chk(/pub: !!it\.pub/.test(B) && /pubCb\.type = 'checkbox'/.test(B) && /마이홈 방문자에게 공개/.test(BM), '책마다 공개 체크(기본 꺼짐)');
+  chk(/pub:!!draft\.pub/.test(B) && /pubCb\.type = 'checkbox'/.test(B) && /마이홈 방문자에게 공개/.test(BM), '책마다 공개 체크(기본 꺼짐)');
   chk(/mk\(it\.pub \? '🔒 공개 끄기' : '👀 방문자에게 공개'/.test(B), '우클릭 메뉴에서 바로 켜고 끈다');
   /* ⚠️ [제보] body 에 붙는 조각은 클릭 통과 화이트리스트(UI_HIT_SEL)에 걸리는 클래스가 있어야 한다. */
   chk(/bd\.className = 'app-popup-ov';/.test(B), '우클릭 메뉴도 .app-popup-ov(실행 화면에서 클릭이 새지 않게)');
@@ -105,20 +105,13 @@ say('── 3-b. 공개/비공개 · 구경 모드 (2026-09-23 요청 · 시안 
   chk(/mk\('책등 수정'/.test(B), '줄 이름은 «책등 수정»');
   chk(/\.bm-drag\{[^}]*pointer-events:none/.test(B), '끌 때 따라다니는 그림자는 pointer-events:none(클릭 판정에 안 걸린다)');
   chk(/if\(it\.pub && !bmReadOnly\(\)\)/.test(B) && /\.bm-pub\{[^}]*background:#ffd34d/.test(B), '공개한 책은 노란 띠 — **구경하는 사람에게는 안 보인다**(요청)');
-  chk(/function bmView\(\)\{ return bmVisit \? bmVisit\.data : bmData; \}/.test(B), '그리는 자료는 한 곳(bmView)에서 갈린다');
+  chk(/function bmState\(\)\{ return bmVisit \? bookshelfStore\.view\(\) : bookshelfStore\.mine\(\); \}/.test(B), '그리는 자료는 한 곳(bmState — store)에서 갈린다');
   chk(/if\(bmReadOnly\(\)\)\{[\s\S]{0,200}bmOpenLink\(c\.dataset\.bid\);[\s\S]{0,40}return;/.test(B), '구경 모드: 끌기 없음 · 누르면 링크만');
   chk(/if\(bmReadOnly\(\)\) return;\s*\/\/ 👀 남의 책장은 고칠 수 없다/.test(BM) || /if\(bmReadOnly\(\)\) return;/.test(B), '구경 모드: 우클릭 편집 없음');
   chk(/bmAddBtn\.style\.display = bmReadOnly\(\) \? 'none' : ''/.test(B), '구경 모드: [+ 추가] 없음');
-  chk(/setFolderVisible\('bookmark', bmVisit\.data\.order\.length > 0\)/.test(B), '공개된 책이 없으면 폴더 자체를 감춘다');
+  chk(/setFolderVisible\('bookmark', \(v\.load === 'ready' && v\.books\.length > 0\) \|\| v\.load === 'failed'\)/.test(B), '공개된 책이 없으면 폴더 자체를 감춘다(못 받았으면 보인다)');
   chk(/visitable:true/.test(B) && (B.match(/visitable:true/g) || []).length === 2, '폴더 · 서랍 둘 다 visitable');
   if(FI){
-    chk(/bookmarksPub\/\$\{userId\}/.test(FI) && /savePublicBookmarks/.test(FI), '공개 책은 bookmarksPub/{uid} 에 따로 올린다');
-    chk(/pubOrder\.length \? \{ order:pubOrder\.join\(','\), items:pubItems, ts:bmData\.ts \} : null/.test(BM), '공개가 하나도 없으면 그 노드를 지운다');
-  }
-  if(RULES){
-    const pr = JSON.parse(RULES).rules.bookmarksPub;
-    chk(!!pr && pr.$userId['.read'] === true && /userAuth/.test(pr.$userId['.write']), '규칙: 공개 책장은 누구나 읽고 주인만 쓴다');
-    chk(/pub.*isBoolean/.test(JSON.parse(RULES).rules.bookmarks.$userId.items.$bid['.validate']), '규칙: pub 칸');
   }
   if(MHD){
     const M2 = strip(MHD);
@@ -130,23 +123,12 @@ say('── 3-b. 공개/비공개 · 구경 모드 (2026-09-23 요청 · 시안 
 
 say('── 4. 저장');
 {
-  chk(/order:bmData\.order\.join\(','\)/.test(B) && !/shelf|선반 번호/.test(strip(BM).replace(/[^\x00-\x7F가-힣]/g, ' ').split('bmPush')[1] || ''), '순서 목록만 저장(선반 번호 없음)');
-  if(FI){
-    chk(/bookmarks\/\$\{userId\}/.test(FI) && !/users\/\$\{userId\}\/bookmarks/.test(FI), '자리는 최상위 bookmarks/{uid}(users/ 아래가 아니다 — 거긴 읽기가 열려 있다)');
-    chk(/bookmarks\/\$\{userId\}\/\$\{safe\}_\$\{Date\.now\(\)\}\.webp/.test(FI), '책등 그림은 Storage bookmarks/{uid}/…webp');
-  }else{ huh++; say('  ? firebase-init.js 없음'); }
-  if(RULES){
-    const r = JSON.parse(RULES).rules.bookmarks;
-    const u = r && r.$userId;
-    chk(!!u && /userAuth/.test(u['.read']) && /userAuth/.test(u['.write']), '규칙: 주인만 읽고 쓴다(방문자 읽기 금지)');
-    const bid = u && u.items && u.items.$bid;
-    chk(!!bid && /\^https\?/.test(bid['.validate']) && /thin\|thick/.test(bid['.validate']) && /short\|long/.test(bid['.validate']), '규칙: http/https · 네 모양 값');
-    chk(!!bid && /tcolor/.test(bid['.validate']) && /hideTitle.*isBoolean/.test(bid['.validate']) && !!bid.tcolor && !!bid.hideTitle, '규칙: 제목 글자색 · 제목 숨기기 칸');
-    chk(!!bid && bid.$other && bid.$other['.validate'] === false && u.$other && u.$other['.validate'] === false, '규칙: 모르는 칸 거절');
-  }else{ huh++; say('  ? 규칙 파일 없음'); }
-  if(STOR){
-    chk(/match \/bookmarks\/\{userId\}\/\{allPaths=\*\*\}/.test(STOR) && /200 \* 1024/.test(STOR) && /request\.resource == null/.test(STOR.split('match /bookmarks/')[1]), 'Storage: bookmarks/ 200KB · 이미지 · 삭제 허용');
-  }else{ huh++; say('  ? storage.rules 없음'); }
+  chk(/bookshelfStore\.put\(books\)/.test(B) && !/firebaseAPI|localStorage|getBookmarks|saveBookmarks|uploadBookmarkImg|deleteStorageUrl/.test(B), '저장은 store.put 하나 · Firebase · 이 PC 사본 · Storage 직접 올리기 없음');
+  chk(!/setTimeout|setInterval/.test(B), '4초 뒤 받기 같은 타이머 없음');
+  chk(/bookshelfStore\.uploadImage\(prep\.dataUrl\)/.test(B), '책등 그림은 store 길로 올리고 주소만 저장에 싣는다');
+  chk(/if\(!up\.notified\) notifyError\('E-MH-24'\)/.test(B), '  올리기 실패는 그 자리 번호 E-MH-24 를 한 번(공통 번호를 이미 알렸으면 안 띄움)');
+  if(FI) chk(!/getBookmarks|saveBookmarks|getPublicBookmarks|savePublicBookmarks|uploadBookmarkImg/.test(FI), 'firebase-init 에 책장 메서드가 없다(부르는 곳 0)');
+  else { huh++; say('  ? firebase-init.js 없음'); }
 }
 
 say('── 5. 미스테리au 걷어내기');
@@ -159,27 +141,96 @@ say('── 5. 미스테리au 걷어내기');
   chk(!fs.existsSync('sim-mys-play.js'), 'sim-mys-play.js 폐기');
 }
 
-say('── 6. 떼어 와 돌림');
-{
-  const src = BM.slice(BM.indexOf('function bmUrlOk'), BM.indexOf('function bmLoadLocal'));
-  const T = new Function('BM_URL_MAX','BM_TITLE_MAX','BM_MAX','BM_DEFAULT_COLOR','BM_DEFAULT_TCOLOR', src + ' return { clean:bmClean, url:bmUrlOk, img:bmImgOk };')(300, 14, 50, '#8f5a4a', '#ffffff');
-  const good = { order:'a,b', items:{ a:{url:'https://x.com', title:'가나다', w:'thick', h:'long', color:'#123456' },
-                                      b:{url:'http://y.com', w:'zz', h:'zz', color:'bad' },
-                                      c:{url:'javascript:alert(1)'}, d:{url:'https://z.com'} }, ts:5 };
-  const out = T.clean(good);
-  /* 주소는 선택이다(요청) — 틀린 주소는 **버리지 않고 빈 칸으로** 둔다. 책(모양·그림)은 남는다. */
-  chk(out.items.c && out.items.c.url === '' && out.order.indexOf('c') >= 0, 'javascript: 같은 주소는 빈 칸으로(책은 남는다)');
-  chk(/function bmUrlSlot\(u\)/.test(BM) && /if\(!it\.url\) delete it\.url;/.test(BM), '빈 주소는 서버로 안 보낸다(규칙은 «있으면 http/https»)');
-  chk(/if\(u && !bmUrlOk\(u\)\)/.test(BM), '창에서도 비워 두면 저장된다(적었는데 형식이 틀릴 때만 막는다)');
-  chk(out.items.b.w === 'thin' && out.items.b.h === 'short' && out.items.b.color === '#8f5a4a', '모르는 값은 기본으로');
-  chk(out.items.b.tcolor === '#ffffff' && out.items.b.hideTitle === false, '제목 글자색 · 숨기기도 기본값이 채워진다');
-  chk(out.order.join(',') === 'a,b,c,d', '순서에서 빠진 책은 뒤에 붙는다(책이 사라지지 않는다)');
-  chk(T.clean({ order:Array.from({length:60},(_,i)=>'x'+i).join(','), items:Object.fromEntries(Array.from({length:60},(_,i)=>['x'+i,{url:'https://a.b'}])) }).order.length === 50, '50권까지만');
-  chk(T.img('https://firebasestorage.googleapis.com/a') && !T.img('https://evil.example/a.png'), '책등 그림은 Storage 주소만');
-  /* 순서 바꾸기 — 끌어놓기 계산만 떼어 온다 */
-  const move = (order, id, to)=>{ const a = order.slice(); const from = a.indexOf(id); let idx = to; if(idx > from) idx--; a.splice(from,1); a.splice(Math.max(0,Math.min(a.length,idx)),0,id); return a; };
-  chk(move(['a','b','c'],'a',3).join('') === 'bca' && move(['a','b','c'],'c',0).join('') === 'cab' && move(['a','b','c'],'b',1).join('') === 'abc', '앞뒤로 옮기기 · 제자리는 그대로');
-}
-
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}` + (huh ? ` · 검사못함 ${huh}` : ''));
-process.exit(fail ? 1 : 0);
+say('── 6. 진짜 모듈을 가짜 store · 가짜 바탕화면 위에서');
+(async () => {
+  const safe = require('path');
+  const SAFE = rd('safe-html.js');
+  const mkEl = (tag) => {
+    const L = {}, q = {};
+    const el = { tag, id: '', children: [], style: { cssText: '' }, dataset: {}, className: '', _text: '', _L: L,
+      get textContent(){ return this._text + this.children.map((c) => c.textContent || '').join(''); }, set textContent(v){ this._text = String(v); this.children = []; },
+      appendChild(c){ this.children.push(c); return c; }, insertBefore(c){ this.children.push(c); return c; }, remove(){}, cloneNode(){ return mkEl(tag); },
+      addEventListener(t, fn){ (L[t] = L[t] || []).push(fn); }, removeEventListener(){},
+      querySelector(sel){ return q[sel] || (q[sel] = mkEl('div')); }, querySelectorAll(){ return []; }, contains(){ return false; }, setAttribute(){}, getBoundingClientRect: () => ({ left: 0, top: 0, right: 10, bottom: 10, width: 10, height: 10 }),
+      classList: { add(){}, remove(){}, contains: () => false } };
+    return el;
+  };
+  const all = (el, out) => { out = out || []; out.push(el); (el.children || []).forEach((c) => all(c, out)); return out; };
+  const body = mkEl('body');
+  const doc = { createElement: mkEl, getElementById: () => null, body, head: mkEl('head'), addEventListener(){}, createTextNode: (t) => { const e = mkEl('#text'); e._text = t; return e; } };
+  const win = { innerWidth: 800, innerHeight: 600 };
+  const folders = {}, vis = [], winCalls = [];
+  const D = { createWindow(o){ winCalls.push('create ' + o.id); const b = mkEl('div'); b.id = o.id; D._body = b; return b; }, addFolder(o){ folders[o.id] = o; }, isWindowOpen: () => false,
+    openWindow: (id) => winCalls.push('open ' + id), closeWindow: (id) => winCalls.push('close ' + id), setFolderVisible: (id, on) => vis.push(on) };
+  win.MYHOME_DESKTOP = { onReady: (fn) => fn(D) };
+  const calls = [], subs = [];
+  let mine = { load: 'idle', books: [], version: 0, saving: false }, view = { owner: null, load: 'idle', books: [] };
+  const store = { BOOKS: 50, mine: () => ({ load: mine.load, books: mine.books.map((b) => Object.assign({}, b)), version: mine.version, saving: false }), view: () => ({ owner: view.owner, load: view.load, books: view.books.map((b) => Object.assign({}, b)) }),
+    onChange: (fn) => { subs.push(fn); }, pullMine: () => { calls.push('pullMine'); return Promise.resolve(true); }, openView: (c) => { calls.push('openView ' + c); }, retryView: () => { calls.push('retryView'); }, closeView: () => { calls.push('closeView'); },
+    put: (books) => { calls.push('put ' + books.map((b) => b.id + (b.pub ? '+' : '')).join(',')); return Promise.resolve('ok'); }, uploadImage: () => Promise.resolve({ ok: false }) };
+  const toasts = [];
+  const emit = () => subs.forEach((f) => f());
+  const m = { exports: {} };
+  try{
+    const g = globalThis; const keep = { TwSafeHtml: g.TwSafeHtml };
+    new Function('window', 'module', SAFE)(win, m); g.TwSafeHtml = win.TwSafeHtml || m.exports;
+    const mod = { exports: {} };
+    new Function('window', 'document', 'module', BM)(win, doc, mod);
+    mod.exports.createBookmark({ bookshelfStore: store, toast: (t) => toasts.push(t), notifyError: (c) => toasts.push('error ' + c), buildFreeColorPicker: () => mkEl('div') });
+    const folder = folders.bookmark;
+    const rows = () => { const shelf = all(D._body).find((e) => e.id === 'bmShelf'); return shelf.querySelector('#bmRows'); };
+    chk(!!folder && calls.length === 0, '만들기만 하면 요청 0(서랍 폴더만 붙는다)');
+    folder.onOpen();
+    chk(calls.join() === 'pullMine' && winCalls.includes('open bmWin'), '서랍 열기 → store.pullMine 한 번(받기는 store 가 정한다)');
+    chk(/불러오는 중/.test(rows().textContent), '받기 전(idle) · 받는 중엔 «불러오는 중…»(빈 책장이 아니다)');
+    mine = { load: 'failed', books: [], version: 0 }; emit();
+    const again = all(rows()).find((e) => e.tag === 'button');
+    chk(/못 불러왔어요/.test(rows().textContent) && !!again, '못 받음 → «못 불러왔어요 [다시 시도]»');
+    again.onclick({ stopPropagation(){} });
+    chk(calls[calls.length - 1] === 'pullMine', '  [다시 시도] → store.pullMine');
+    mine = { load: 'ready', books: [], version: 1 }; emit();
+    chk(/책장이 비어 있어요/.test(rows().textContent), '빈 책장 → «책장이 비어 있어요»(못 받음과 다름)');
+    mine = { load: 'ready', books: [{ id: 'a', url: '', title: '가', w: 'thin', h: 'short', color: '#112233', tcolor: '#ffffff', hideTitle: false, pub: false, at: 1 }, { id: 'b', url: 'https://x.y', title: '나', w: 'thick', h: 'long', color: '#445566', tcolor: '#ffffff', hideTitle: false, pub: false, at: 2 }], version: 2 }; emit();
+    chk(rows().children.length === 2 && rows().children[0].dataset.bid === 'a', '받은 책을 순서대로 그린다');
+    const shelf = all(D._body).find((e) => e.id === 'bmShelf');
+    const bm = [];
+    (shelf._L.contextmenu || []).forEach((fn) => fn({ target: { closest: () => rows().children[0] }, clientX: 10, clientY: 10, preventDefault(){}, stopPropagation(){} }));
+    const menu = body.children[body.children.length - 1].children[0];
+    const pubItem = menu.children.find((c) => /방문자에게 공개/.test(c.textContent));
+    pubItem.onclick({ stopPropagation(){} });
+    chk(calls[calls.length - 1] === 'put a+,b', '우클릭 [방문자에게 공개] → store.put(그 책만 pub 로 바꾼 목록)');
+    const delItem = menu.children.find((c) => /빼기/.test(c.textContent));
+    delItem.onclick({ stopPropagation(){} });
+    chk(calls[calls.length - 1] === 'put b', '  [빼기] → store.put(그 책을 뺀 목록)');
+    store.put = () => Promise.resolve('locked');
+    toasts.length = 0;
+    pubItem.onclick({ stopPropagation(){} }); await new Promise((r) => setImmediate(r));
+    chk(toasts.some((t) => /불러오는 중/.test(t)), '잠김(locked)이면 «불러오는 중이에요» 안내(요청은 store 가 막는다)');
+    store.put = () => Promise.resolve('full'); toasts.length = 0;
+    pubItem.onclick({ stopPropagation(){} }); await new Promise((r) => setImmediate(r));
+    chk(toasts.some((t) => /가득 찼어요/.test(t)), '가득 참(full)이면 «책장이 가득 찼어요» 안내');
+    /* 구경 */
+    vis.length = 0; calls.length = 0;
+    folder.onVisit(true, 'uF');
+    chk(calls.join() === 'openView uF' && vis[vis.length - 1] === false, '구경 시작 → store.openView(그 집) · 폴더는 일단 숨김');
+    view = { owner: 'uF', load: 'ready', books: [{ id: 'p', url: '', title: 'p', w: 'thin', h: 'short', color: '#112233', tcolor: '#ffffff', hideTitle: false, pub: true, at: 1 }] }; emit();
+    chk(vis[vis.length - 1] === true && rows().children.length === 1 && !all(rows()).some((e) => e.className === 'bm-pub'), '공개 책이 있으면 폴더가 보이고 그린다 · 노란 띠(공개 표시)는 안 그린다');
+    view = { owner: 'uF', load: 'ready', books: [] }; emit();
+    chk(vis[vis.length - 1] === false, '공개 책 0 → 폴더 숨김');
+    view = { owner: 'uF', load: 'failed', books: [] }; emit();
+    chk(vis[vis.length - 1] === true && /못 불러왔어요/.test(rows().textContent), '못 받음 → 폴더는 보이고 서랍에 «못 불러왔어요 [다시 시도]»');
+    const vAgain = all(rows()).find((e) => e.tag === 'button'); vAgain.onclick({ stopPropagation(){} });
+    chk(calls[calls.length - 1] === 'retryView', '  구경 중 [다시 시도] → store.retryView');
+    view = { owner: 'uF', load: 'missing', books: [] }; emit();
+    chk(vis[vis.length - 1] === false, '없는 사람(missing) → 폴더 숨김');
+    folder.onVisit(false);
+    chk(calls[calls.length - 1] === 'closeView' && vis[vis.length - 1] === true, '구경 끝 → store.closeView · 폴더를 다시 보이게');
+    /* 계정을 놓으면(idle) 서랍을 닫는다 */
+    folder.onOpen(); winCalls.length = 0; mine = { load: 'idle', books: [], version: 0 }; emit();
+    chk(winCalls.includes('close bmWin'), '계정을 놓으면(reset → idle) 열려 있던 서랍을 닫는다');
+    g.TwSafeHtml = keep.TwSafeHtml;
+  }catch(e){ chk(false, '가짜 위에서 돌리다 던졌다 — ' + (e && e.stack || e)); }
+})().then(() => {
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}` + (huh ? ` · 검사못함 ${huh}` : ''));
+  process.exit(fail ? 1 : 0);
+});

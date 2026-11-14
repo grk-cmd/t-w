@@ -17,13 +17,13 @@ const MOD = ["wardrobe.js","parts/character/wardrobe.js","app/parts/character/wa
 if(!MOD){ say('  ? 원본 못 찾음 — wardrobe.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_attachHumanEars","_disposeWrapperFromSeat","_hsvToHex","_invalidatePendingEquip","_mkFrontFill","_rgbHexToHsv","_sweepOrphanPartWrappers","_wdLicenseDesks","addEntryToCat","addPartEntryInstance","applyClothVisibility","applyEquippedPartsToSeat","applyHueTint","applyPartXf","baseFlatOf","bindReorderHandle","boneSide","charFootFix","clampCharY","defToBase","defaultPartXf","entriesForCat","equipPartOnSeat","escHtml","findEntryById","findMySeat","firstEntryForCat","floorClampWrapper","getCommissionScene","groupOfCat","isDeskPartCat","isHueTintMesh","measureCharBox","openAssetImport","partCatInfo","partEntryId","partEntryInstanceCount","partEntryInstances","partEntryXf","partsInCat","partsInCatFor","partsInGroup","pruneSeatPartsAgainstDef","refitSeatAfterParts","removeEntryFromCat","removePartEntryInstance","reorderSavedPart","saveSlots","setPartEntryInstanceXf","toast","unequipStackablePart","_humanEarMat","_humanEarPic","applyDeskCatalogRefToSeat","applyDeskColorToCustom","applyDeskDotThumb","clampDeskScale","resolveCatalogGlb","setDeskScale","swThumb"];
-const VAL_DEPS = ["ANIMAL_RUN_SCALE","CHAR_Z","_FILL_LIGHT_MUL","_KEY_LIGHT_MUL","_MAIN_LIGHT_COL","_MAIN_LIGHT_INT","seats","DEFAULT_DESK_OVERRIDE_ID","humanEar"];
+const FN_DEPS = ["layoutSeats", "_attachHumanEars", "_disposeWrapperFromSeat", "_hsvToHex", "_invalidatePendingEquip", "_rgbHexToHsv", "_sweepOrphanPartWrappers", "_wdLicenseDesks", "addEntryToCat", "addPartEntryInstance", "applyClothVisibility", "applyEquippedPartsToSeat", "applyHueTint", "applyPartXf", "baseFlatOf", "bindReorderHandle", "boneSide", "charFootFix", "clampCharY", "defToBase", "defaultPartXf", "entriesForCat", "equipPartOnSeat", "escHtml", "findEntryById", "findMySeat", "firstEntryForCat", "floorClampWrapper", "getCommissionScene", "groupOfCat", "isDeskPartCat", "isHueTintMesh", "measureCharBox", "openAssetImport", "partCatInfo", "partEntryId", "partEntryInstanceCount", "partEntryInstances", "partEntryXf", "partsInCat", "partsInCatFor", "partsInGroup", "pruneSeatPartsAgainstDef", "refitSeatAfterParts", "removeEntryFromCat", "removePartEntryInstance", "reorderSavedPart", "saveSlots", "setPartEntryInstanceXf", "toast", "unequipStackablePart", "_humanEarMat", "_humanEarPic", "applyDeskCatalogRefToSeat", "applyDeskColorToCustom", "applyDeskDotThumb", "clampDeskScale", "resolveCatalogGlb", "glbFailWhy", "setDeskScale", "swThumb", "addRunLights"];
+const VAL_DEPS = ["NO_DESK_ID", "ANIMAL_RUN_SCALE", "CHAR_Z", "seats", "DEFAULT_DESK_OVERRIDE_ID", "humanEar"];
 const GET_DEPS = ["PART_CATS","PART_DEFAULT_OFFSET","PART_GROUPS","Presence","WD_DESK_TAB","gachaMod","isAdmin","partPaintMod","savedParts","slots","DESK_LICENSE_HOLD","DESK_SCALE_DEFAULT","DESK_SCALE_MAX","DESK_SCALE_MIN"];
 const SET_DEPS = [];
 const EXPORTS = ["ORBIT_DRAG_DIR","_clearMultiPanelRef","_wdAfterMainSwap","activeWdAdj","setActiveWdAdj","buildFreeColorPicker","clampWdPreviewIntoView","commitWdDraft","createWardrobeAdjPanel","currentWdTab","detachWdGizmo","ensureWdDraft","ensureWdGizmo","placeWdPreview","refreshWdPreviewChar","refreshWdPreviewColorSection","renderWardrobe","setWdGizmoMode","sizeWdPreview","syncWdGizmoToXf","syncWdPreviewOwner","toggleEquip","updateWdCam","updateWdGizmoForActivePanel","wdCam","wdDraftDef","wdEar","setAdminPartActions","relinkDraftSrc","wdGizmo","wdGizmoMode","wdPreviewBase","wdPreviewSavedPos","wdScene"];
 const MOVED = ["wdRenderer","wdScene","wdCam","wdPreviewBase","WD_PREVIEW_DESK_Y","WD_PREVIEW_DESK_Z","WD_PREVIEW_DESK_NUDGE","ensureWdPreview","wdGizmo","wdGizmoMode","wdGizmoCat","ensureWdGizmo","wdGizmoInstanceIdx","wdGizmoPartId","_wdGetActiveWrapperAndXf","syncWdGizmoToXf","attachWdGizmo","detachWdGizmo","setWdGizmoMode","updateWdGizmoForActivePanel","WD_PREVIEW_POS_KEY","wdPreviewSavedPos","placeWdPreview","clampWdPreviewIntoView","syncWdPreviewOwner","sizeWdPreview","wdYaw","wdPitch","wdHeightOffset","wdZoomMul","ORBIT_DRAG_DIR","wdCamCenter","wdCamLookY","wdCamBaseDist","WD_EAR_CAM_LIFT","WD_EAR_CAM_ZOOM","_wdEarCamOn","updateWdCam","wdDraftDef","ensureWdDraft","refreshWdPreviewChar","wdPreviewLoop","_wdCommitChain","commitWdDraft","_commitWdDraftNow","_commitWdDraftToOwner","_wdAfterMainSwap","refreshWdPreviewColorSection","activeWdAdj","_wdMultiActiveIdx","_wdGetSavedInstanceIdx","_wdSetSavedInstanceIdx","_clearMultiPanelRef","wdAdjAxis","_holdRepeat","hsvToHex","hexToHsv","buildFreeColorPicker","openCharColorPicker","createWardrobeAdjPanel","buildColorRows","currentWdTab","currentWdGroup","renderWardrobe","toggleEquip"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,","  CHAR_Z: CHAR_Z,","  PART_CATS: ()=>premiumMod.PART_CATS(),","  PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,","  PART_GROUPS: ()=>premiumMod.PART_GROUPS,","  Presence: ()=>Presence,","  WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,","  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,","  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,","  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,","  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,","  _attachHumanEars: (...a)=>_attachHumanEars(...a),","  _disposeWrapperFromSeat: (...a)=>_disposeWrapperFromSeat(...a),","  _hsvToHex: (...a)=>_hsvToHex(...a),","  _invalidatePendingEquip: (...a)=>_invalidatePendingEquip(...a),","  _mkFrontFill: (...a)=>_mkFrontFill(...a),","  _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),","  _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),","  _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),","  addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),","  addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),","  applyClothVisibility: (...a)=>applyClothVisibility(...a),","  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),","  applyHueTint: (...a)=>applyHueTint(...a),","  applyPartXf: (...a)=>applyPartXf(...a),","  baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),","  bindReorderHandle: (...a)=>bindReorderHandle(...a),","  boneSide: (...a)=>boneSide(...a),","  charFootFix: (...a)=>charMeasureMod.charFootFix(...a),","  clampCharY: (...a)=>clampCharY(...a),","  defToBase: (...a)=>defToBase(...a),","  defaultPartXf: (...a)=>premiumMod.defaultPartXf(...a),","  entriesForCat: (...a)=>premiumMod.entriesForCat(...a),","  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),","  escHtml: (...a)=>escHtml(...a),","  findEntryById: (...a)=>premiumMod.findEntryById(...a),","  findMySeat: (...a)=>findMySeat(...a),","  firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),","  floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),","  gachaMod: ()=>gachaMod,","  getCommissionScene: (...a)=>getCommissionScene(...a),","  groupOfCat: (...a)=>premiumMod.groupOfCat(...a),","  isAdmin: ()=>isAdmin,","  isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),","  isHueTintMesh: (...a)=>isHueTintMesh(...a),","  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),","  openAssetImport: (...a)=>openAssetImport(...a),","  partCatInfo: (...a)=>premiumMod.partCatInfo(...a),","  partEntryId: (...a)=>premiumMod.partEntryId(...a),","  partEntryInstanceCount: (...a)=>premiumMod.partEntryInstanceCount(...a),","  partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),","  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),","  partPaintMod: ()=>partPaintMod,","  partsInCat: (...a)=>premiumMod.partsInCat(...a),","  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),","  partsInGroup: (...a)=>premiumMod.partsInGroup(...a),","  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),","  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),","  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),","  removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),","  reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),","  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),","  savedParts: ()=>premiumMod.savedParts(),","  seats: seats,","  setPartEntryInstanceXf: (...a)=>premiumMod.setPartEntryInstanceXf(...a),","  slots: ()=>slots,","  toast: (...a)=>toast(...a),","  unequipStackablePart: (...a)=>unequipStackablePart(...a),","  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,","  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,","  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,","  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,","  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,","  _humanEarMat: (...a)=>_humanEarMat(...a),","  _humanEarPic: (...a)=>_humanEarPic(...a),","  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),","  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),","  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),","  clampDeskScale: (...a)=>clampDeskScale(...a),","  humanEar: humanEar,","  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),","  setDeskScale: (...a)=>setDeskScale(...a),","  swThumb: (...a)=>swThumb(...a),"];
+const GLUE = ["  NO_DESK_ID: NO_DESK_ID,", "  layoutSeats: (...a)=>layoutSeats(...a),", "  ANIMAL_RUN_SCALE: ANIMAL_RUN_SCALE,", "  CHAR_Z: CHAR_Z,", "  PART_CATS: ()=>premiumMod.PART_CATS(),", "  PART_DEFAULT_OFFSET: ()=>PART_DEFAULT_OFFSET,", "  PART_GROUPS: ()=>premiumMod.PART_GROUPS,", "  Presence: ()=>Presence,", "  WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,", "  _attachHumanEars: (...a)=>_attachHumanEars(...a),", "  _disposeWrapperFromSeat: (...a)=>_disposeWrapperFromSeat(...a),", "  _hsvToHex: (...a)=>_hsvToHex(...a),", "  _invalidatePendingEquip: (...a)=>_invalidatePendingEquip(...a),", "  _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),", "  _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),", "  _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),", "  addRunLights: (...a)=>lightToneMod.addRunLights(...a),", "  addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),", "  addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),", "  applyClothVisibility: (...a)=>applyClothVisibility(...a),", "  applyEquippedPartsToSeat: (...a)=>applyEquippedPartsToSeat(...a),", "  applyHueTint: (...a)=>applyHueTint(...a),", "  applyPartXf: (...a)=>applyPartXf(...a),", "  baseFlatOf: (...a)=>lightToneMod.baseFlatOf(...a),", "  bindReorderHandle: (...a)=>bindReorderHandle(...a),", "  boneSide: (...a)=>boneSide(...a),", "  charFootFix: (...a)=>charMeasureMod.charFootFix(...a),", "  clampCharY: (...a)=>clampCharY(...a),", "  defToBase: (...a)=>defToBase(...a),", "  defaultPartXf: (...a)=>premiumMod.defaultPartXf(...a),", "  entriesForCat: (...a)=>premiumMod.entriesForCat(...a),", "  equipPartOnSeat: (...a)=>equipPartOnSeat(...a),", "  escHtml: (...a)=>escHtml(...a),", "  findEntryById: (...a)=>premiumMod.findEntryById(...a),", "  findMySeat: (...a)=>findMySeat(...a),", "  firstEntryForCat: (...a)=>premiumMod.firstEntryForCat(...a),", "  floorClampWrapper: (...a)=>charMeasureMod.floorClampWrapper(...a),", "  gachaMod: ()=>gachaMod,", "  getCommissionScene: (...a)=>getCommissionScene(...a),", "  groupOfCat: (...a)=>premiumMod.groupOfCat(...a),", "  isAdmin: ()=>isAdmin,", "  isDeskPartCat: (...a)=>premiumMod.isDeskPartCat(...a),", "  isHueTintMesh: (...a)=>isHueTintMesh(...a),", "  measureCharBox: (...a)=>charMeasureMod.measureCharBox(...a),", "  openAssetImport: (...a)=>openAssetImport(...a),", "  partCatInfo: (...a)=>premiumMod.partCatInfo(...a),", "  partEntryId: (...a)=>premiumMod.partEntryId(...a),", "  partEntryInstanceCount: (...a)=>premiumMod.partEntryInstanceCount(...a),", "  partEntryInstances: (...a)=>premiumMod.partEntryInstances(...a),", "  partEntryXf: (...a)=>premiumMod.partEntryXf(...a),", "  partPaintMod: ()=>partPaintMod,", "  partsInCat: (...a)=>premiumMod.partsInCat(...a),", "  partsInCatFor: (...a)=>premiumMod.partsInCatFor(...a),", "  partsInGroup: (...a)=>premiumMod.partsInGroup(...a),", "  pruneSeatPartsAgainstDef: (...a)=>pruneSeatPartsAgainstDef(...a),", "  refitSeatAfterParts: (...a)=>seatRefitMod.refitSeatAfterParts(...a),", "  removeEntryFromCat: (...a)=>premiumMod.removeEntryFromCat(...a),", "  removePartEntryInstance: (...a)=>premiumMod.removePartEntryInstance(...a),", "  reorderSavedPart: (...a)=>premiumMod.reorderSavedPart(...a),", "  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),", "  savedParts: ()=>premiumMod.savedParts(),", "  seats: seats,", "  setPartEntryInstanceXf: (...a)=>premiumMod.setPartEntryInstanceXf(...a),", "  slots: ()=>slots,", "  toast: (...a)=>toast(...a),", "  unequipStackablePart: (...a)=>unequipStackablePart(...a),", "  DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,", "  DESK_LICENSE_HOLD: ()=>premiumMod.DESK_LICENSE_HOLD,", "  DESK_SCALE_DEFAULT: ()=>DESK_SCALE_DEFAULT,", "  DESK_SCALE_MAX: ()=>DESK_SCALE_MAX,", "  DESK_SCALE_MIN: ()=>DESK_SCALE_MIN,", "  _humanEarMat: (...a)=>_humanEarMat(...a),", "  _humanEarPic: (...a)=>_humanEarPic(...a),", "  applyDeskCatalogRefToSeat: (...a)=>deskVisualMod.applyDeskCatalogRefToSeat(...a),", "  applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),", "  applyDeskDotThumb: (...a)=>applyDeskDotThumb(...a),", "  clampDeskScale: (...a)=>clampDeskScale(...a),", "  humanEar: humanEar,", "  resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),", "  glbFailWhy: (...a)=>catalogGlbMod.glbFailWhy(...a),", "  setDeskScale: (...a)=>setDeskScale(...a),", "  swThumb: (...a)=>swThumb(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -91,5 +91,99 @@ for(const [name, fm, fa, fh] of breaks){
   let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
-say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
-process.exit(fail ? 1 : 0);
+/* ── 4. 꾸미기 책상 카드 — 못 받으면 E-CHAR-13 진단 줄에 받기 실패 이유(catalog-glb.js glbFailWhy) */
+say('── 4. 책상 카드 E-CHAR-13 진단 줄');
+const deskClickOf = (src) => {
+  const i = src.indexOf('card.onclick=async()=>{\n      if(def.deskCatalogId===rec.id) return;'), j = src.indexOf('\n    };', i);
+  return i < 0 || j < 0 ? null : src.slice(i + 'card.onclick='.length, j + 6);
+};
+const runDeskClick = async (body, o) => {
+  const calls = [];
+  const fn = new Function('def', 'rec', 'resolveCatalogGlb', 'glbFailWhy', 'TwErrorCodes', '_wdApplyDeskChange', 'renderWardrobe', 'return ' + body)(
+    { deskCatalogId: null }, o.rec, async (r) => { if(o.throwE) throw o.throwE; if(o.ok) r.glb = 'G'; }, () => o.why || '',
+    { notify: (...a) => calls.push(a) }, () => calls.push(['apply']), () => calls.push(['render']));
+  await fn();
+  return calls;
+};
+const _part4 = (async () => {
+  const body = deskClickOf(MOD);
+  chk(!!body, '책상 카드 누름 처리기를 모듈 글에서 떼어 왔다');
+  if(body){
+    const c1 = await runDeskClick(body, { rec: { id: 'a', glbUrl: 'u' }, why: 'net-fail Failed to fetch 12ms' });
+    chk(JSON.stringify(c1) === '[["E-CHAR-13","net-fail Failed to fetch 12ms"]]', '못 받음 — 받기 실패 이유(glbFailWhy)를 진단 줄에 싣는다');
+    const c2 = await runDeskClick(body, { rec: { id: 'a', glbUrl: 'u' } });
+    const c3 = await runDeskClick(body, { rec: { id: 'a' } });
+    chk(JSON.stringify(c2) === '[["E-CHAR-13","no-glb"]]' && JSON.stringify(c3) === '[["E-CHAR-13","no-url"]]', '  이유를 모르면 no-glb · 주소가 없으면 no-url');
+    const c4 = await runDeskClick(body, { rec: { id: 'a', glbUrl: 'u' }, ok: true });
+    chk(JSON.stringify(c4) === '[["apply"],["render"]]', '  받으면 알림 없이 적용 · 다시 그림');
+    const bb = deskClickOf(MOD.replace("(glbFailWhy(rec.glbUrl) || 'no-glb')", "'no-glb'"));
+    const cb = bb ? await runDeskClick(bb, { rec: { id: 'a', glbUrl: 'u' }, why: 'net-fail X 1ms' }) : [];
+    chk(bb && JSON.stringify(cb) !== JSON.stringify([['E-CHAR-13', 'net-fail X 1ms']]), '깨 보기 — 이유를 안 실으면 위 판정이 빨강');
+  }
+})();
+
+/* ── 5. 동작 — 🪑 꾸미기 › 책상 탭의 «🚫 책상 없음» 칸(책상 탭 두 함수만 떼어 가짜 위에서 누른다)
+   책상 그리기(applyDeskCatalogRefToSeat)는 GLB 를 풀어야 끝나는 일이라 가짜도 «나중에 끝나는» Promise — 좌석 줄은 그 뒤에 잡아야 한다 */
+say('── 5. 동작 — 책상 탭 «책상 없음» · 좌석 줄 다시 잡기');
+const tick = () => new Promise((r) => setImmediate(r));
+function deskTab(mod){
+  const a = mod.indexOf('function _wdApplyDeskChange('), b = mod.indexOf('let wdRenderer=null', a);
+  if(a < 0 || b < 0) return null;
+  const log = { apply: [], layout: 0, save: 0, render: 0, pending: [] };
+  const seat = { isMe: true, desk: {}, charDef: { deskCatalogId: 'd1', deskGlb: 'G' } };
+  const el = () => ({ style: {}, classList: { add(){} }, children: [], appendChild(c){ this.children.push(c); return c; }, set innerHTML(v){}, textContent: '' });
+  const cards = [];
+  const env = {
+    NO_DESK_ID: '__no_desk__', DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', DESK_LICENSE_HOLD: () => 'hold', DESK_SCALE_DEFAULT: () => 0.2, DESK_SCALE_MIN: () => 0.05, DESK_SCALE_MAX: () => 0.3,
+    findMySeat: () => seat, wdDraftDef: null, _wdLicenseDesks: () => [{ id: 'L1', name: '전용', glb: 'LG' }],
+    swThumb: (label, on, icon) => { const c = el(); c.label = label; c.on = on; c.icon = icon; cards.push(c); return c; },
+    applyDeskCatalogRefToSeat: (s, d) => { log.apply.push(d.deskCatalogId); return new Promise((r) => log.pending.push(r)); },
+    setDeskScale: () => {}, applyDeskColorToCustom: () => {}, clampDeskScale: (v) => v,
+    saveSlots: () => { log.save++; }, Presence: () => ({ active: () => false }), refreshWdPreviewChar: () => {}, layoutSeats: () => { log.layout++; }, renderWardrobe: () => { log.render++; },
+    openAssetImport: () => {}, applyDeskDotThumb: () => {}, resolveCatalogGlb: async () => {}, TwErrorCodes: { notify(){} }, document: { createElement: el },
+  };
+  const names = Object.keys(env);
+  const f = new Function(...names, mod.slice(a, b) + '\nreturn renderWdDeskSection;');
+  const render = f(...names.map(n => env[n]));
+  const settle = async () => { log.pending.splice(0).forEach((r) => r()); await tick(); await tick(); };
+  return { render, seat, log, cards, el, settle, again(){ cards.length = 0; render(el()); } };
+}
+(async () => {
+  await _part4;   // 4절(책상 카드 진단 줄)이 끝난 뒤
+  const T = deskTab(MOD);
+  chk(!!T, '책상 탭 함수를 떼어 냈다(_wdApplyDeskChange · renderWdDeskSection)');
+  if(T){
+    T.render(T.el());
+    const nd = T.cards.find(c => c.label === '책상 없음');
+    chk(nd && T.cards[0].label === '기본 책상' && T.cards[1] === nd && nd.on === false && nd.icon === '🚫', '«기본 책상» 바로 뒤에 «책상 없음» 칸 · 다른 책상을 쓰면 꺼짐');
+    nd.onclick(); await tick();
+    chk(T.seat.charDef.deskCatalogId === '__no_desk__' && T.seat.charDef.deskGlb === null && T.log.apply[0] === '__no_desk__' && T.log.save === 1 && T.log.render === 1 && T.log.layout === 0,
+      '  누르면 — def 에 예약 id · GLB 비움 · 좌석 책상 다시 그림 · 저장 · 창 다시 그림 · 그리기가 끝나기 전엔 좌석 줄을 안 잡는다');
+    await T.settle();
+    chk(T.log.layout === 1, '  책상을 다 그린 뒤 좌석 줄을 한 번 다시 잡는다');
+    T.again();
+    const nd2 = T.cards.find(c => c.label === '책상 없음');
+    chk(nd2.on === true && T.cards[0].on === false, '  다시 그리면 «책상 없음» 만 켜짐');
+    nd2.onclick(); await T.settle();
+    chk(T.log.apply.length === 1 && T.log.layout === 1, '  이미 책상 없음이면 다시 눌러도 아무 일 없음');
+    T.cards[0].onclick(); await tick();
+    chk(T.seat.charDef.deskCatalogId === null && T.log.apply[1] === '__default_desk__' && T.log.layout === 1, '  «기본 책상» — 교체본 GLB 를 푸는 동안은 좌석 줄을 안 잡고');
+    await T.settle();
+    chk(T.log.layout === 2, '    다 그린 뒤 한 번 잡는다');
+    T.again(); await T.cards.find(c => c.label === '전용').onclick(); await tick();
+    chk(T.seat.charDef.deskCatalogId === 'L1' && T.log.layout === 2, '  전용 책상 카드도 그리기가 끝나기 전엔 안 잡고');
+    await T.settle();
+    chk(T.log.layout === 3, '    다 그린 뒤 한 번 잡는다(책상 없음 → 진짜 책상의 큰 폭 차이)');
+  }
+  /* 깨 보기 — 그리기를 안 기다리고 바로 잡으면(옛 순서) · 전용 책상 카드가 안 잡으면 위 판정이 빨강 */
+  const early = deskTab(MOD.replace('if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());', 'if(relayout) layoutSeats();'));
+  let caught = false;
+  if(early){ early.render(early.el()); early.cards.find(c => c.label === '책상 없음').onclick(); await tick(); caught = early.log.layout === 1; }
+  chk(caught, '  깨 보기 — 그리기가 끝나기 전에 좌석 줄을 잡으면 잡힌다');
+  const noLic = deskTab(MOD.replace('_wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; }, true);', '_wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });'));
+  caught = false;
+  if(noLic){ noLic.render(noLic.el()); await noLic.cards.find(c => c.label === '전용').onclick(); await noLic.settle(); caught = noLic.log.layout === 0; }
+  chk(caught, '  깨 보기 — 전용 책상 카드가 좌석 줄을 안 잡으면 잡힌다');
+  say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+  process.exit(fail ? 1 : 0);
+})();

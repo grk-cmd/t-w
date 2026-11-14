@@ -1,6 +1,6 @@
-/* ═══ 🔑 sim-license-key.js — 🔑 라이선스 키 등록 · 해제 버튼 모듈 구조 (2026-10-14 신설 · 앱 FSD 48번) ═══════════════
-   app.js 의 라이선스 키 등록 · 해제 구역 본문 을 parts/account/license-key.js 로 옮겼다(글자 그대로 · 바뀐 줄 0 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(라이선스 키 등록 · 해제 검사들).
-   여기서는 모듈 모양 · app.js 연결을 본다.
+/* ═══ 🔑 sim-license-key.js — 🔑 라이선스 구획 단추 연결 모듈 구조 (2026-10-14 신설 · 앱 FSD 48번 · D8-2 에서 단추 연결만 남김) ═══════════════
+   설정 › 라이선스 구획의 단추([확인] · [이 기기에서 해제] · [이 기기 등록] · [다시 시도])를 license-screen.js 동작에 잇는다. 동작 · 번호 판정은 sim-license-screen 이 맡는다.
+   여기서는 모듈 모양 · app.js 연결 · 단추가 맞는 동작을 부르는지를 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(없음)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 4줄 그대로 · 부르는 곳은 licenseKeyMod.이름 · html(app.js 앞)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
@@ -17,13 +17,13 @@ const MOD = ["license-key.js","parts/account/license-key.js","app/parts/account/
 if(!MOD){ say('  ? 원본 못 찾음 — license-key.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["refreshLicenseUI","toast"];
-const VAL_DEPS = ["licenseGateMod","twNav"];
+const FN_DEPS = [];
+const VAL_DEPS = ["licenseScreenMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = [];
 const MOVED = [];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  licenseGateMod: licenseGateMod,","  twNav: twNav,","  refreshLicenseUI: (...a)=>licenseUiMod.refreshLicenseUI(...a),","  toast: (...a)=>toast(...a),"];
+const GLUE = ["  licenseScreenMod: licenseScreenMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -72,8 +72,42 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* 단추를 진짜로 눌러 본다 — 가짜 DOM 에 단추 · 입력칸을 두고, 가짜 screen 이 불린 동작을 적는다 */
+function press(mod, okOnSubmit){
+  const els = {}; const el = (id) => els[id] || (els[id] = { style: {}, value: '', listeners: {}, addEventListener(t, f){ this.listeners[t] = f; }, click(){ return this.onclick && this.onclick(); } });
+  const calls = [];
+  const screen = { submitKey: async (v) => { calls.push(['submit', v]); return { ok: okOnSubmit }; }, removeThisDevice: () => { calls.push(['removeThis']); }, registerThisDevice: () => { calls.push(['registerThis']); }, open: (o) => { calls.push(['open', o]); } };
+  const api = new Function('window', 'document', mod + '\nreturn window.TwLicenseKey;')({}, { getElementById: el });
+  api.createLicenseKey({ licenseScreenMod: screen });
+  return { els, calls };
+}
+async function btnRows(mod){
+  const a = press(mod, true);
+  a.els.licenseKeyInput.value = ' abcd-1234 ';
+  await a.els.licenseSubmitBtn.onclick();
+  const cleared = a.els.licenseKeyInput.value === '';
+  const b = press(mod, false);
+  b.els.licenseKeyInput.value = 'WRONG';
+  await b.els.licenseSubmitBtn.onclick();
+  const kept = b.els.licenseKeyInput.value === 'WRONG';
+  const c = press(mod, true);
+  c.els.licenseDeactivateBtn.onclick(); c.els.licenseRegisterThisBtn.onclick(); c.els.licenseRetryBtn.onclick();
+  const d = press(mod, true);
+  d.els.licenseKeyInput.value = 'K';
+  d.els.licenseKeyInput.listeners.keydown({ key: 'Enter' }); await Promise.resolve(); await Promise.resolve();
+  return [
+    [a.calls.length === 1 && a.calls[0][0] === 'submit' && a.calls[0][1] === ' abcd-1234 ', '[확인] → 입력한 글 그대로 screen.submitKey(다듬기 · 대문자 · 빈 칸 판정은 screen 몫)'],
+    [cleared && kept, '등록됐을 때만 입력칸을 비운다(실패하면 고쳐 다시 누르게 남김)'],
+    [c.calls.map((x) => x[0]).join() === 'removeThis,registerThis,open' && c.calls[2][1] === undefined, '[이 기기에서 해제] · [이 기기 등록] · [다시 시도] → 각각 removeThisDevice · registerThisDevice · open()(다시 시도는 늘 다시 받는다)'],
+    [d.calls.length === 1 && d.calls[0][0] === 'submit', '입력칸에서 Enter → [확인] 과 같다'],
+  ];
+}
+
+(async () => {
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 단추 연결');
+(await btnRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/account/license-key.js"></script>', '')],
@@ -83,13 +117,18 @@ const breaks = [
   ['전역 이름 안 걺', m => m.replace('window.TwLicenseKey = api;', ''), null, null],
 
 
+  ['해제 단추가 다른 동작을 부름', m => m.replace("licenseScreenMod.removeThisDevice()", "licenseScreenMod.registerThisDevice()"), null, null],
+  ['실패해도 입력칸을 비움', m => m.replace("if(r && r.ok) input.value = '';", "input.value = '';"), null, null],
+  ['다시 시도가 받기를 건너뛸 수 있게 함', m => m.replace("licenseScreenMod.open()", "licenseScreenMod.open({ ifNeeded: true })"), null, null],
+  ['Enter 가 확인을 안 누름', m => m.replace("if(e.key==='Enter') licKeyEl('licenseSubmitBtn').click();", ""), null, null],
   ['만들 때 던짐', m => m.replace('function createLicenseKey(deps){', 'function createLicenseKey(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
-  let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2).concat(m2 !== MOD ? await btnRows(m2) : []); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
+})().catch((e) => { say('  ✗ 검사가 던졌다: ' + (e && e.stack || e)); process.exit(1); });

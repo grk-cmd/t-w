@@ -4,7 +4,7 @@
      admin-launcher.js — 🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정(멈춤) · 📢 광고 배너 편집 (0.13: 방 종료 · 배너는 서버 관리자 API — adminApi)
    ・1절: 통계 · 초대권 — 만들 때 버튼 · 통계 읽기 · 한 명 지급(친추코드 → uid → 장수) · 장수 상한 · 전체 지급은 두 번 눌러야
    ・2절: 런처 도구 — 관리자 아니면 막힘(다시 대입된 isAdmin 을 읽음) · 방 종료는 «종료» 입력 후 서버 · 연타 한 번 · 실패는 오류 번호 · 게임 설정은 멈춤(서버로 안 감) ·
-        광고 배너는 열 때 서버에서 받고(받기 전엔 안 열림) 읽은 판으로 저장 · 409 는 다시 받아 채움 · 이 PC 사본 없음
+        광고 배너는 열 때 서버에서 받고(받기 전엔 안 열림) 읽은 판으로 저장 · 저장하면 본인 런처 배너를 한 번 받음 · 409 는 다시 받아 채우고 번호 없이 문구 · 이 PC 사본 없음
    ・3절: app.js 연결 — 본문이 안 남음 · 사용자 쪽은 남음 · 빈 껍데기 · deps · 원래 자리(초대 창 안 · 런처 구역) · html
    ・4절: 일부러 깨 보기
    [실행] app.js · desk-companion-prototype.html · admin-users.js · admin-launcher.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -78,7 +78,7 @@ async function judgeAll(m, app, html){
     t(n1 === 0 && U.calls.filter(c => c[0] === 'grantInvitesAll').length === 1, '전체 지급 — 첫 클릭은 걸기만 · 두 번째에 지급');
   }
   /* 2. 런처 도구 */
-  const st = { admin: false, shown: [], rooms: { closed: 3, missing: 0 }, banner: { version: 4, slides: [{ img: 'https://a/old.png', link: 'https://a/old' }] }, putErr: null, roomErr: null, fetchErr: null, hold: null };
+  const st = { admin: false, shown: [], rooms: { closed: 3, missing: 0 }, banner: { version: 4, slides: [{ img: 'https://a/old.png', link: 'https://a/old' }] }, putErr: null, roomErr: null, fetchErr: null, hold: null, feed: 0 };
   const apiCalls = [];
   const adminApi = {
     ERRORS: { MARK: 1 },
@@ -86,9 +86,10 @@ async function judgeAll(m, app, html){
     fetchBanner: async () => { apiCalls.push(['fetchBanner']); if(st.fetchErr) throw st.fetchErr; return st.banner; },
     replaceBanner: async (v, slides) => { apiCalls.push(['replaceBanner', v, slides]); if(st.putErr) throw st.putErr; },
   };
-  const apiErrors = { notify: (e, table) => { st.shown.push([e && e.code, table && table.MARK]); return { action: e && e.code === 'CONCURRENT_UPDATE' ? 'refetch' : 'notice' }; } };
+  const apiErrors = { notify: (e, table) => { if(!(e && e.code === 'CONCURRENT_UPDATE')) st.shown.push([e && e.code, table && table.MARK]);   /* 409 는 기능 표가 번호 없이(notice null) — admin-api.js ERRORS · sim-admin-api.js */
+    return { action: e && e.code === 'CONCURRENT_UPDATE' ? 'refetch' : 'notice' }; } };
   let Ln;
-  try{ Ln = build(m.launcher, 'TwAdminLauncher', { asyncPrompt: async () => st.answer, isAdmin: () => st.admin, adminApi, apiErrors }); }catch(e){ t(false, '런처 도구 모듈을 만들 수 없다 — ' + e.message); }
+  try{ Ln = build(m.launcher, 'TwAdminLauncher', { asyncPrompt: async () => st.answer, isAdmin: () => st.admin, adminApi, apiErrors, refreshBanner: async () => { st.feed++; } }); }catch(e){ t(false, '런처 도구 모듈을 만들 수 없다 — ' + e.message); }
   if(Ln){
     const e = Ln.els;
     t(['lcCloseAllRooms', 'lcCleanGhostRooms', 'lcGameCfg', 'lcAdBannerEdit', 'adBannerCloseBtn', 'adBannerSaveBtn']
@@ -124,16 +125,19 @@ async function judgeAll(m, app, html){
     const pb = apiCalls.find(c => c[0] === 'replaceBanner');
     t(pb && pb[1] === 4 && pb[2].length === 1 && pb[2][0].img === 'https://a/x.png' && pb[2][0].link === 'https://a' && !e.adBannerOverlay.classList.contains('on') && Ln.toasts.includes('배너가 저장됐어요 (1개)'),
       '배너 저장 — 빈 칸 빼고 · 읽은 판(4)을 싣고 · 성공하면 창을 닫는다');
+    t(st.feed === 1, '  저장이 성공하면 관리자 본인 런처 배너를 한 번 받는다(서버 «모두에게» 알림은 0~60초 늦다)');
     t(!Object.keys(Ln.store).length, '  이 PC(localStorage)에는 아무것도 남기지 않는다');
     await e.lcAdBannerEdit.onclick(); e.adBannerImgInput0.value = ''; e.adBannerImgInput1.value = ''; e.adBannerImgInput2.value = '';
     await e.adBannerSaveBtn.onclick();
     t(apiCalls.filter(c => c[0] === 'replaceBanner').pop()[2].length === 0 && Ln.toasts.includes('배너가 숨겨졌어요'), '  전부 비우면 빈 목록으로 저장(배너 숨김)');
     await e.lcAdBannerEdit.onclick(); st.putErr = Object.assign(new Error('c'), { code: 'NOTICE_INVALID_URL' }); st.shown.length = 0;
     await e.adBannerSaveBtn.onclick();
-    t(e.adBannerOverlay.classList.contains('on') && st.shown.length === 1 && st.shown[0][0] === 'NOTICE_INVALID_URL' && apiCalls.filter(c => c[0] === 'fetchBanner').length === 4, '저장 실패 → 창 · 쓴 글 유지 + 오류 번호(다시 받지 않는다)');
+    t(e.adBannerOverlay.classList.contains('on') && st.shown.length === 1 && st.shown[0][0] === 'NOTICE_INVALID_URL' && apiCalls.filter(c => c[0] === 'fetchBanner').length === 4 && st.feed === 2, '저장 실패 → 창 · 쓴 글 유지 + 오류 번호(다시 받지 않는다 · 사용자 배너도 안 받는다)');
     st.putErr = Object.assign(new Error('c'), { code: 'CONCURRENT_UPDATE' }); st.banner = { version: 9, slides: [{ img: 'https://b/new.png', link: 'https://b' }] }; st.shown.length = 0;
+    const nT = Ln.toasts.length;
     await e.adBannerSaveBtn.onclick();
-    t(e.adBannerImgInput0.value === 'https://b/new.png' && apiCalls.filter(c => c[0] === 'fetchBanner').length === 5 && e.adBannerOverlay.classList.contains('on'), '409 — 덮어쓰지 않고 지금 서버 값으로 다시 채운다(알림은 오류 표)');
+    t(e.adBannerImgInput0.value === 'https://b/new.png' && apiCalls.filter(c => c[0] === 'fetchBanner').length === 5 && e.adBannerOverlay.classList.contains('on')
+      && st.shown.length === 0 && Ln.toasts.slice(nT).join() === '다른 곳에서 바꾼 내용을 받아왔어요', '409 — 덮어쓰지 않고 지금 서버 값으로 다시 채우고 번호 없이 «받아왔어요» 문구(Q10)');
     st.putErr = null; await e.adBannerSaveBtn.onclick();
     t(apiCalls.filter(c => c[0] === 'replaceBanner').pop()[1] === 9, '  다시 채운 뒤 저장은 새 판(9)을 싣는다');
   }
@@ -147,8 +151,8 @@ async function judgeAll(m, app, html){
     .split('\n').map(l => l.trim()).filter(Boolean);
   const du = block('adminUsers'), dl = block('adminLauncher');
   t(/^toast: \(\.\.\.a\)=>toast\(\.\.\.a\),\|inviteGrantMax: (?:licenseGateMod\.)?INVITE_GRANT_MAX,$/.test(du.join('|')), 'deps — 통계 · 초대권: toast · INVITE_GRANT_MAX(초대장 모듈이 내놓는 상수)');
-  t(dl.length === 5 && dl.includes('isAdmin: ()=>isAdmin,') && dl.includes('adminApi: adminApi,') && dl.includes('apiErrors: TwApiErrors.store,'),
-    'deps — 런처 도구 다섯 · isAdmin 은 읽는 함수(다시 대입되는 let) · adminApi · apiErrors');
+  t(dl.length === 6 && dl.includes('isAdmin: ()=>isAdmin,') && dl.includes('adminApi: adminApi,') && dl.includes('apiErrors: TwApiErrors.store,') && dl.includes('refreshBanner: ()=>noticeFeed.refresh(),'),
+    'deps — 런처 도구 여섯 · isAdmin 은 읽는 함수(다시 대입되는 let) · adminApi · apiErrors · refreshBanner(저장 뒤 배너 받기)');
   /* 만드는 줄은 초대장 모듈(license-gate.js) 만드는 줄 바로 뒤 — 사이에 주석 · 빈 껍데기 줄 말고는 없다(부팅 때 초대 창 묶기 직후 한 번 만드는 차례 그대로) */
   const iLG = app.indexOf('const licenseGateMod = '), iLGEnd = iLG >= 0 ? app.indexOf('\n});', iLG) + 4 : -1, iUsers = app.indexOf('const adminUsers =');
   const gap = iLGEnd > 3 && iUsers > iLGEnd ? app.slice(iLGEnd, iUsers).replace(/\/\*[\s\S]*?\*\//g, '').replace(/const ADMIN_USERS_OFF = \{\};.*\n/, '').trim() : '?';
@@ -180,12 +184,14 @@ async function judgeAll(m, app, html){
     ['배너를 이 PC 에 남김', { launcher: s => s.replace("bannerVersion = b.version;", "bannerVersion = b.version; localStorage.setItem('tw.adBanner', '1');") }],
     ['배너 저장에 판을 안 실음', { launcher: s => s.replace('adminApi.replaceBanner(bannerVersion, slides)', 'adminApi.replaceBanner(0, slides)') }],
     ['배너 못 받아도 창을 엶', { launcher: s => s.replace("    await loadBanner();\n    const o=$('adBannerOverlay');", "    try{ await loadBanner(); }catch(_){}\n    const o=$('adBannerOverlay');") }],
+    ['배너 저장 뒤 사용자 배너를 안 받음', { launcher: s => s.replace("try{ Promise.resolve(refreshBanner()).catch(()=>{}); }catch(_){}", '') }],
+    ['배너 409 에 문구 없음', { launcher: s => s.replace("await loadBanner(); toast('다른 곳에서 바꾼 내용을 받아왔어요');", 'await loadBanner();') }],
     ['배너 409 에 다시 안 받음', { launcher: s => s.replace("if(t.action === 'refetch'){", "if(false){") }],
     ['배너 저장 실패해도 창을 닫음', { launcher: s => s.replace("  }catch(e){\n    const t = fail(e);", "  }catch(e){\n    closeBanner();\n    const t = fail(e);") }],
     ['배너 기능 표를 안 넘김', { launcher: s => s.replace("const fail = (e)=>apiErrors.notify(e, adminApi.ERRORS);", "const fail = (e)=>apiErrors.notify(e);") }],
     ['html 줄 빠짐', { html: s => s.replace('<script src="parts/admin/admin-launcher.js"></script>', '') }],
     ['app.js 에 본문이 남음', { app: s => s + "\n(function bindTotalStats(){})();" }],
-    ['deps 하나 빠짐', { app: s => s.replace('  adminApi: adminApi,\n  apiErrors: TwApiErrors.store,\n});\n/* (앱 FSD 43번)', '  apiErrors: TwApiErrors.store,\n});\n/* (앱 FSD 43번)') }],
+    ['deps 하나 빠짐', { app: s => s.replace('  adminApi: adminApi,\n  apiErrors: TwApiErrors.store,\n  refreshBanner', '  apiErrors: TwApiErrors.store,\n  refreshBanner') }],
   ];
   for(const [name, f] of breaks){
     const m2 = { users: f.users ? f.users(M.users) : M.users, launcher: f.launcher ? f.launcher(M.launcher) : M.launcher };

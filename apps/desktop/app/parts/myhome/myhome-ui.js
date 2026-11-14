@@ -23,6 +23,7 @@ const applyDesktopRunClass = deps.applyDesktopRunClass;
 const closeFriendHomeView = deps.closeFriendHomeView;
 const escRegisterWindow = deps.escRegisterWindow;
 const friendManage = deps.friendManage;
+const friendRequests = deps.friendRequests;   // 👋 친구 요청 포트(friend-requests-port.js — 읽는 함수) · 친구코드 찾기 · 보내기
 const friendsForCheck = deps.friendsForCheck;   // 👥 판정용 친구 목록(friends-sub.js) — 못 받았으면 한 번 읽고 · 실패면 null(토스트는 거기서)
 const friendsRetry = deps.friendsRetry;   // 👥 친구 목록을 못 불러왔으면 다시 건다(친구 탭을 열 때)
 const friendsOpen = deps.friendsOpen;     // 👥 친구 목록이 보이기 시작함(friends-sub open — 이름 · 사진 다시 받기)
@@ -33,6 +34,8 @@ const helpTab = deps.helpTab;   // 📘 도움말 탭(help-tab.js) — 탭에 �
 const inboxMod = deps.inboxMod;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const loadMyHomePage = deps.loadMyHomePage;
+const mallangMod = deps.mallangMod;   // 🧸 말랑이(mallang.js) — 열기 · 닫기
+const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — 선물함 서브탭 누름의 받기 · 봤음
 const mhScheduler = deps.mhScheduler;
 const myHomeOpen = deps.myHomeOpen;   // 읽는 함수
 const myHomeSticker = deps.myHomeSticker;   // 읽는 함수
@@ -146,13 +149,13 @@ function syncFriendsOpen(){
     // 🧸 말랑이: 내 마이홈 기준으로 이미지 로드 (방문 여부는 _mhApplyVisitUI가 다시 갱신)
     //   ⚠️ async 함수다 — 안에서 실패하면 이 try/catch 가 아니라 반환된 Promise 가 거부된다. .catch 로 받는다.
     try{
-      Promise.resolve(window._mallangOnOpen((typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId()) ? _mhViewingUserId() : getMyUserId(), !!(typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId())))
+      Promise.resolve(mallangMod.onOpen((typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId()) ? _mhViewingUserId() : getMyUserId(), !!(typeof _mhViewingUserId()!=='undefined' && _mhViewingUserId())))
         .catch(e=>console.error('[말랑이] 열기 실패', e));
     }catch(e){ console.warn('[말랑이] 열기 실패', e); }
   };
   const close=()=>{
     /* 🛟 open() 과 같은 이유로 칸마다 감싼다 — 다만 **여기가 더 위험하다.**
-       [경위] 예전엔 `_mallangOnClose()` 가 맨 앞줄이고 그 다음이 `commitMyHomePage(true)` 였다.
+       [경위] 예전엔 말랑이 닫기(`mallangMod.onClose()`)가 맨 앞줄이고 그 다음이 `commitMyHomePage(true)` 였다.
          말랑이 정리에서 한 번 던지면 **마이홈 마지막 저장이 통째로 건너뛰어진다** — 편집한 내용이
          조용히 사라진다. 그 뒤 `overlay.classList.remove('on')` 도 못 돌아서 창이 안 닫힌다.
        ★ 순서도 바꿨다: **저장이 맨 먼저다.** 정리(말랑이·BGM·스티커)는 실패해도 다음에 열 때
@@ -163,7 +166,7 @@ function syncFriendsOpen(){
     _step('마지막 저장', ()=>{ mhHooks.call(mhHooks.HOOK.COMMIT, true); });
     overlay.classList.remove('on');
     setMyHomeOpen(false);
-    _step('말랑이 정리', ()=>{ window._mallangOnClose(); });   // 🧸 말랑이 전부 제거
+    _step('말랑이 정리', ()=>{ mallangMod.onClose(); });   // 🧸 말랑이 전부 제거
     _step('확인창 닫기', ()=>{ const a=document.getElementById('mhAskOv'); if(a) a.remove(); });   // 다시 열 때 남아 있지 않게
     // 🔍 검색줄도 접는다 — 다음에 열었을 때 필터만 남아 친구가 사라져 보이지 않게
     _step('검색줄', ()=>{ if(typeof inboxMod.friendSearchToggle==='function') inboxMod.friendSearchToggle(false); });
@@ -211,6 +214,7 @@ function syncFriendsOpen(){
   const previewBtn=document.getElementById('mhPreviewBtn');
   if(previewBtn) previewBtn.addEventListener('click', ()=>{
     if(_mhViewingUserId()) return;   // 남의 집 관람 중엔 미리보기 없음
+    try{ if(mhHooks.has(mhHooks.HOOK.FINISH_ARRANGE)) mhHooks.call(mhHooks.HOOK.FINISH_ARRANGE); }catch(_){}   // 폴더를 옮기던 중이면 미리보기로 들어가기 전에 저장
     window._mhPreviewMode = true;
     _mhApplyVisitUI();
     toast('👁 방문자 시점으로 보고 있어요');
@@ -291,7 +295,6 @@ function syncFriendsOpen(){
     if(/^[A-Z0-9]{4}$/.test(code)){ candidates = ['MATE-'+code, 'COZY-'+code]; }
     else if(/^(MATE|COZY)-[A-Z0-9]{4}$/.test(code)){ candidates = [code]; }
     else { candidates = [code]; }   // 혹시 다른 형식이면 그대로 시도
-    if(!window.firebaseAPI || !firebaseAPI.lookupFriendCode){ toast('아직 준비 중이에요, 잠시 후 다시 시도해주세요'); return; }
     /* 👥 받은 목록으로 판정한다 — 못 받았으면 friends-sub 가 한 번 읽는다(못 읽으면 아무것도 안 보낸다). */
     const _fr = await friendsForCheck();
     if(!_fr) return;
@@ -302,18 +305,17 @@ function syncFriendsOpen(){
       let friendId = null;
       let matchedCode = null;
       for(const cand of candidates){
-        friendId = await firebaseAPI.lookupFriendCode(cand);
+        friendId = await friendRequests().lookupFriendCode(cand);
         if(friendId){ matchedCode = cand; break; }
       }
       if(!friendId){ toast('존재하지 않는 코드예요'); return; }
       if(_fr[friendId] || _myHomeFriends()[friendId]){ toast('이미 친구예요'); return; }
-      if(!firebaseAPI.sendFriendRequest){ toast('아직 준비 중이에요'); return; }
       /* 📤 뒤 두 인자는 **보낸 요청 목록에 보여줄 이름표**다. 코드로 추가하면 상대 이름을 모르니
          프로필에서 한 번 읽어 넘긴다 — 목록에 '닉네임 (MATE-5H3K)' 로 뜨게 하는 값이다.
          ⚠️ 실패해도 그냥 보낸다(null). 이름은 목록 렌더가 _fmLookupName 으로 다시 시도하고,
            그것도 안 되면 코드만 뜬다 — 이름 조회 때문에 친구 요청 자체가 막히면 안 된다. */
       const toName = await friendManage.lookupName(friendId);
-      const res = await firebaseAPI.sendFriendRequest(getMyUserId(), friendId, getDisplayName(), toName, matchedCode);
+      const res = await friendRequests().send(getMyUserId(), friendId, getDisplayName(), toName, matchedCode);
       if(res && res.ok){ toast('친구 요청을 보냈어요 — 상대가 수락하면 친구가 돼요'); ai.value=''; }
       else if(res && res.reason==='already'){ toast('이미 친구예요'); }
       else if(res && res.reason==='self'){ toast('내 코드는 추가할 수 없어요'); }
@@ -389,7 +391,7 @@ function syncFriendsOpen(){
       friendManage.renderFriendManage();
       /* 🎁 선물 배지 확인 처리는 **바로 이 자리**다. 렌더 안이 아니라 클릭에 건다 —
          친구 탭에 들어오기만 해도(직전에 보던 서브탭이 선물함이라) 본 것으로 처리되면 안 된다. */
-      if(friendManage.tab() === 'gift') window._mallangSeenGifts();
+      if(friendManage.tab() === 'gift') giftBox.openTab();   // 받기 → 안 본 선물이 있으면 봤음 · 실패는 E-GIFT-04
     });
   });
   // 일괄 처리 바

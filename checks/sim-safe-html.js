@@ -7,7 +7,7 @@
    ・2절: app/parts/**.js · app/*.html 의 <script> · main.js · preload.js 를 typescript 파서로 읽어
      innerHTML · outerHTML · insertAdjacentHTML 에 넣는 식, `.src` · `.href` · setAttribute(src|href) · `style.background*` 에 넣는 식,
      마크업 글자 안 src="…" · href="…" · url(…) 바로 뒤의 값을 끝(잎)까지 따라간다.
-     잎이 글자 · 숫자 리터럴 / TwSafeHtml 함수(text · attr · safeUrl · cssUrl) / 그 별칭(escHtml · _chatEsc · 리치 텍스트 _mhLoadRT) /
+     잎이 글자 · 숫자 리터럴 / TwSafeHtml 함수(text · attr · safeUrl · cssUrl) / 그 별칭(escHtml · _chatEsc · 리치 텍스트 _mhLoadRT · _mhPurify — DOMPurify) /
      숫자를 돌려주는 것 / 같은 파일 안 상수 표 가 아니면 빨강. 예외는 아래 ALLOW 에 «이유» 와 함께만(파일|식 글자).
    ・3절: 깨 보기 — 날값을 붙인 가짜 파일 · 약한 escape · 위험한 주소가 빨강이 나는지 */
 'use strict';
@@ -36,21 +36,15 @@ if (!fs.existsSync(SAFE_PATH)) { say('  ? 원본 못 찾음 — parts/shared/saf
    ⚠️ «남은 구멍» 은 알고 남긴 자리다 — 고치면 지운다(안 쓰는 줄이 남으면 빨강). */
 const ALLOW = {};
 const allow = (file, reason, exprs) => exprs.forEach(e => { ALLOW[file + '|' + e] = reason; });
-allow('myhome-desktop.js', '🧟 모험 시나리오 · 지도 · 전투 — 이 파일 상수 표(ADV_WORLD · 스토리 비트 · 선택지 · ADV_THEMES)의 고정 마크업을 씨앗으로 이 기기에서 만든 글. 남의 이름 · 수는 넣을 때 esc', [
-  'ADV_COMBAT.log', 'ADV._campLog', 'b.cls', 'b.label', 'b.pool[Math.floor(Math.random()*b.pool.length)]', 'bd.t', 'beat.text', 'beat.text(st)', 'beat.text(stForText)',
-  'branch.txt', 'branch.txt(st)', 'c.fail.txt', 'c.fail()', 'c.label', 'c.noItem()', 'c.ok()', 'c.pre()', 'c.result||[]', 'c.resultNoWeapon||c.result||[]', 'c.run()',
-  'cbg', 'cc', 'cedge', 'ev.intro', 'f.bg', 'f.inner', 'gauge.label', 'gauge.meterCls', 'label', 'sceneIntro(sc)', 'sg.lv', 'sg.txt']);
-allow('myhome-desktop.js', '아이템 설명 — advItemTipHtml 이 상수 표로 만든 마크업을 esc 로 data-tip 에 넣었다가 꺼낸 것', ["el.getAttribute('data-tip')"]);
 allow('myhome-desktop.js', '다른 앱 모듈이 MYHOME_DESKTOP.addFolder 로 넘긴 앱 안 그림 경로(상대 경로 — safeUrl 은 상대 경로를 막는다)', ['a.iconSrc']);
-allow('myhome-desktop.js', '⚠️ 남은 구멍 — 파티 방장이 보낸 진행 비트 마크업(storyHtml)을 받은 그대로 그린다. 마크업 대신 비트 id 를 보내야 고쳐진다(동작 변경 — 따로 결정)', [
-  'lm.storyHtml']);
-allow('weekly-challenge.js', '👑 달성표 주기 표(상수 — 요일 이름 · 주기 이름 · 기준 수) · 팝업 버튼(부르는 곳 글자) · 시간 글(formatHMS 숫자) · 보상 안내(_chalRewardLine 고정 글)', [
-  '_chalCurPh().name', 'b.a', 'b.t', 'd', 'formatHMS(goal)', 'formatHMS(t.sec || 0)', 'line.t', 'ph.label', 'ph.label[0]', 'ph.label[i]', 'ph.label[idx]', 'ph.name', 'ph.need1']);
+allow('weekly-challenge.js', '👑 달성표 주기 표(상수 — 요일 이름 · 주기 이름 · 기준 수) · 팝업 버튼(부르는 곳 글자) · 시간 글(formatHMS 숫자) · 보상 안내(_chalRewardLine 고정 글) · 범위 글(서버 주 이름에서 뽑은 숫자 — chal-store rangeLabel) · 보상 받음 숫자(서버 답)', [
+  '_chalPh(v.phase).name', 'v.range', 'e.s', 'e.early', 'e.amount', 'b.a', 'b.t', 'd', 'formatHMS(goal)', 'formatHMS(t.sec || 0)', 'line.t', 'ph.label', 'ph.label[0]', 'ph.label[i]', 'ph.label[idx]', 'ph.name', 'ph.need1']);
 allow('fx-preview.html', '개발용 효과 미리보기 페이지 — 고정 표(FX_KINDS) · 이 페이지 슬라이더 값만', ['k', 'S.anchor', 'S.every', 'S.kind', 'S.mode', 'S.seats', 't.lab']);
 allow('help-tab.js', '📘 도움말 틀 주소 — help-site.js pageUrl 이 고정 출처(HELP_ORIGIN) + 편 이름 정규식(SLUG_RE)으로 거른 값 + 앱 테마 표로만 만든다(페이지 알림의 편 이름도 readMessage 가 같은 정규식으로 거른다)', ['helpSite.pageUrl(page, _theme)']);
 allow('purikura-ui.js', '📷 판 모양 고정 표(세로형 · 가로형 · 컷 수 — purikura-net.js 숫자)', ['g.cols', 'g.rows', 'hint', 'label', 'n']);
 allow('purikura-ui.js', '이 기기 카메라로 찍은 사진(canvas data:)', ['d']);
-allow('chat-ui.js', '다른 파일의 씻은 마크업 도우미 — overhead.js _officeDemojiHtml(씻은 글에서 아는 이모티콘만 그림) · 주사위 SVG(숫자) · _chatLinkify(씻은 글에서 주소만 a)', ['_officeDemojiHtml(html)', '_diceSvg(parseInt(n,10),26)', '_chatLinkify(t)']);
+allow('chat-ui.js', '다른 파일의 씻은 마크업 도우미 — overhead.js _officeDemojiHtml(씻은 글에서 아는 이모티콘만 그림) · 주사위 SVG(숫자)', ['_officeDemojiHtml(html)', '_diceSvg(parseInt(n,10),26)']);
+allow('chat-ui.js', '채팅 글 — _renderChatText 가 마커를 토큰으로 빼고 남은 글을 TwSafeHtml.linkify(씻기 + 주소 칸)로 만든다(sim-chat-ui 에서 굴려 봄)', ['m.text']);
 allow('overhead.js', '주사위 SVG — 1~6 숫자로 만든 고정 그림', ['_diceSvg(parseInt(n,10), 30)']);
 allow('overhead.js', '회사원 모드 라벨 — _officeLabelHtml 이 이스케이프해 만든 HTML(닉네임 span)', ['text']);
 allow('seat-panel.js', '다른 파일이 만든 좌석 안내 마크업(내 캐릭터 정보)', ['html']);
@@ -63,8 +57,7 @@ allow('noise.js', '소리 노드(.src 라는 이름의 칸일 뿐 주소 아님)
 allow('app.js', 'loadImg — 얼굴 · 피부 캔버스 저장본(data:) · 앱 안 그림을 그리는 공용 로더(img 는 스크립트를 안 돌린다 · 상대 경로가 있어 safeUrl 불가)', ['src']);
 allow('room-sync.js', '얼굴 그림 로더 — 이 기기가 만든 data: 얼굴 · 앱 안 그림(app.js loadImg 와 같은 까닭)', ['src']);
 allow('commission.js', '커미션 zip 에서 이 기기가 풀어 만든 blob: 주소', ['faceUrl', 'blinkUrl']);
-allow('app.js', '수령함 공지 본문 — inboxMod.linkifyText 가 먼저 escHtml 로 씻은 글에서 주소만 a 로 감싼다(myhome-inbox.js)', ["inboxMod.linkifyText(notice.body || '')"]);
-allow('rich-text.js', '저장 직전 — 내가 쓰는 편집기 칸의 마크업을 떼어 낸 div 로 옮겨 바로 _mhSanitizeNode 로 씻는다', ['el.innerHTML']);
+allow('app.js', '수령함 공지 본문 — inboxMod.linkifyText 가 TwSafeHtml.linkify(주소 칸 · 나머지는 escHtml 뒤 라이선스 키 칸)로 만든다(myhome-inbox.js)', ["inboxMod.linkifyText(notice.body || '')"]);
 allow('mallang.js', '이 기기 사용자가 방금 고른 파일(FileReader · 파일 창)', ['dataUrl', 'inp.files[0]']);
 
 /* ── 1절: 함수 실행 ───────────────────────────────────────────── */
@@ -115,8 +108,25 @@ for (const u of ['https://x.example/a")%3Bbackground:red', 'https://x.example/a\
   chk(c.startsWith('url("') && c.endsWith('")') && !/(^|[^\\])"/.test(inner) && !/[\n\r]/.test(inner), `cssUrl — 따옴표 · 역슬래시 · 줄바꿈으로 못 빠져나감 (${JSON.stringify(u).slice(0, 40)})`);
 }
 
+/* linkify — 글 속 주소만 누를 칸으로, 나머지는 text 로 */
+const L = (x) => SH.linkify(x);
+const linkOf = (h) => (h.match(/data-url="([^"]*)"/g) || []).map(x => x.slice(10, -1));
+chk(L('안녕 <b>') === '안녕 &lt;b&gt;' && L(null) === '' && L('') === '', 'linkify — 주소가 없으면 text 와 같다(빈 값 · null 포함)');
+chk(SH.linkify('키 A-B https://x.io/A-B 끝', (s) => SH.text(s).replace(/A-B/g, '<i>A-B</i>')) === '키 <i>A-B</i> <span class="ext-link" data-url="https://x.io/A-B">https://x.io/A-B</span> 끝',
+  'linkify(글, plain) — 주소가 아닌 조각만 plain 으로(주소 속 글자는 안 건드림)');
+chk(SH.linkify('https://x.io/a\u0000b') === '<span class="ext-link" data-url="https://x.io/a">https://x.io/a</span>\u0000b', 'linkify — 제어 문자에서 주소를 끊는다(채팅 토큰 \\u0000 이 주소에 안 먹힘)');
+chk(L('보세요 https://x.example/a?b=1&c=2') === '보세요 <span class="ext-link" data-url="https://x.example/a?b=1&amp;c=2">https://x.example/a?b=1&amp;c=2</span>', 'linkify — 주소를 ext-link 칸으로(& 는 씻는다)');
+chk(L('여기 https://x.example/a. 그리고') === '여기 <span class="ext-link" data-url="https://x.example/a">https://x.example/a</span>. 그리고', '  문장 끝 마침표는 주소에서 뺀다');
+chk(L('(https://x.example/a)') === '(<span class="ext-link" data-url="https://x.example/a">https://x.example/a</span>)', '  괄호 안 주소 — 닫는 괄호는 글로');
+chk(linkOf(L('http://a.example/1 그리고 https://b.example/2')).join() === 'http://a.example/1,https://b.example/2', '  여러 개 · http 도');
+chk(L('javascript:alert(1) ftp://x.example/a //evil.example') === SH.text('javascript:alert(1) ftp://x.example/a //evil.example'), '  http(s) 가 아닌 주소는 글 그대로(칸 안 만듦)');
+const evil = L('https://x.example/"onmouseover="alert(1) <img src=x onerror=alert(1)>');
+chk(evil === '<span class="ext-link" data-url="https://x.example/">https://x.example/</span>&quot;onmouseover=&quot;alert(1) &lt;img src=x onerror=alert(1)&gt;', '  따옴표 · 꺾쇠에서 주소가 끝나고 나머지는 글 — 칸 밖으로 못 빠져나간다');
+chk(!/<(?!\/?span\b)/.test(evil) && (evil.match(/<span /g) || []).length === 1, '  만든 태그는 ext-link span 하나뿐');
+chk(L('https://x.example/' + 'a'.repeat(2100)) === SH.text('https://x.example/' + 'a'.repeat(2100)), '  길이 상한을 넘는 주소는 글 그대로');
+
 /* ── 2절: 파서로 전부 훑기 ───────────────────────────────────── */
-const HTML_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:text|attr|cssColor|safeUrl|cssUrl)|(?:deps\.)?(?:escHtml|_chatEsc)|(?:richTextMod\.)?(?:_mhLoadRT|_mhSanitizeHtml)|encodeURIComponent)$/;
+const HTML_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:text|attr|cssColor|safeUrl|cssUrl|linkify)|(?:deps\.)?(?:escHtml|_chatEsc)|(?:richTextMod\.)?(?:_mhLoadRT|_mhSanitizeHtml|_mhPurify)|encodeURIComponent)$/;
 const URL_SAFE_FN = /^(?:(?:window\.)?(?:TwSafeHtml|safeHtml)\.safeUrl|URL\.createObjectURL|encodeURIComponent|[\w$.]*\.toDataURL)$/;
 const CSS_SAFE_FN = /^(?:window\.)?(?:TwSafeHtml|safeHtml)\.(?:cssUrl|cssColor)$/;
 const NUM_FN = /^(?:Number|parseInt|parseFloat|Math\.\w+|Date\.now|[\w$.\[\]()]*\.(?:toFixed|toLocaleString|getTime|getFullYear|getMonth|getDate|getDay|getHours|getMinutes|getSeconds|indexOf|lastIndexOf|charCodeAt|findIndex))$/;
@@ -711,5 +721,14 @@ green("function f(im, c){ im.src = c.toDataURL('image/png'); }", '캔버스 그�
 green("function f(el){ el.innerHTML = ''; }", '비우기');
 green("function f(el, t){ el.innerHTML = TwSafeHtml.text(t).replace(/\\n/g, '<br>'); }", '씻은 뒤 줄바꿈만 <br>');
 
+{
+  /* linkify 가 주소를 씻지 않고 붙이면 빨강 — safe-html.js 글을 바꿔 다시 싣는다 */
+  const src = fs.readFileSync(SAFE_PATH, 'utf8');
+  const load = (code) => { const m = { exports: {} }; new Function('module', 'window', code)(m, undefined); return m.exports; };
+  const raw = load(src.replace("attr(url) + '\">' + text(raw)", "url + '\">' + raw"));
+  chk(!raw.linkify('https://x.example/a?b=1&c=2').includes('&amp;'), '깨 보기 — linkify 가 주소를 안 씻으면 & 가 날로 들어감 → 위 «& 는 씻는다» 가 빨강');
+  const noFilter = load(src.replace("const url = safeUrl(raw, 'link');", 'const url = raw;'));
+  chk(noFilter.linkify('https://x.example/' + 'a'.repeat(2100)) !== SH.linkify('https://x.example/' + 'a'.repeat(2100)), '깨 보기 — safeUrl 을 빼면 상한 넘는 주소도 칸이 됨 → 위 판정이 빨강');
+}
 say(`\n결과: ${pass}·${fail}`);
 process.exit(fail ? 1 : 0);

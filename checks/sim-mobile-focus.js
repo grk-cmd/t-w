@@ -5,8 +5,9 @@
           🎯집중(달성표)에는 안 들어간다 · 폰 꺼짐이면 예전과 똑같다 · 안전 상한(4시간)을 넘으면 꺼짐.
    ・2절: 곁가지 — 집중 포즈(seatState) · 자동 자리비움 건너뜀 · lastActivity 를 건드리지 않음 · main.js 무관.
    ・3절: 방 — 평소·입장 payload 에 mobile 한 칸 · 받는 쪽 거르기 · 말풍선 순서(상태 > 📱 > 🕒) · _statusOut 을 실제로 돌려 본다.
-   ・4절: 서버 — live onDisconnect remove · 재접속 때 다시 걸기 · 부팅 초기화(on=false) · presence 를 live 로 안 씀 ·
-          키 교체 때 state 지움 · 받은 state 는 이 PC 의 키로 쓴 것만 믿는다.
+   ・4절: 서버 길 — 진짜 focus-level.js 를 가짜 deps 위에서 돌린다(D5-5). realtime mobileFocus{on} → 켜짐 · at 이 4시간 넘음 → 꺼짐(서버 시각) ·
+          계정 바뀜 뒤 신호 → 무시 · 키 만들기 · 끊기는 진척을 받은 뒤에만 부르고(읽기 전이면 요청 0 · E-FOCUS-08 · 09) · 실패 → 번호 · 키 유지 ·
+          성공 → 계정 칸 tw.mobileKey · 끊기 → 키 지움 · 단추 잠금 · 늦은 답 버림 · 옛 { u, k } 칸 읽기.
    ・5절: 규칙 — mobileKeys 읽기 금지 · state 쓰기 = 주인 또는 (key 일치 + live 있음) · 방 mobile ≤ 40.
    ・6절: 화면 — 📱 칸이 #fsTabApp 안 · #fsSlotHint 뒤 · QR 창 베젤 radius · 클릭 목록 두 곳 · QR 라이브러리가 로컬 파일 ·
           새 클래스에 fly 없음 · 키는 주소의 # 뒤 · 안내 페이지.
@@ -22,6 +23,8 @@ process.on('uncaughtException', (e) => { fail++; say('  ✗ 판정 도중 멈춤
 const read = (...fs_) => { for(const f of fs_){ try{ return fs.readFileSync(f, 'utf8'); }catch(_){} } return null; };
 const SRC = _joinRenderer(read('app.js')), HTML = read('desk-companion-prototype.html'), FBI = read('firebase-init.js'), RULES = read('firebase-database-rules.json');
 if(!SRC || !HTML || !FBI || !RULES){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html · firebase-init.js · firebase-database-rules.json'); process.exit(2); }
+const GATE = read('focus-gate.js', path.join('app', 'parts', 'focus', 'focus-gate.js'));
+if(!GATE){ say('  ? 원본 못 찾음 — focus-gate.js'); process.exit(2); }
 const QRLIB = read('vendor/qrcode.js', path.join('app', 'vendor', 'qrcode.js'), path.join('..', 'app', 'vendor', 'qrcode.js'));
 const HOST  = read('hosting/help/link.html', path.join('..', 'hosting', 'help', 'link.html'));
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
@@ -63,7 +66,9 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
       function addFocusSeconds(d){ env.added += d; }
       /* 👑 달성표는 weekly-challenge.js 모듈(앱 FSD 2번) — app.js 는 weeklyChal.focusTick · setKeyPlatform 으로 부른다 */
       const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(v){ env.plat = v; } };
-      let _focusLastTick = performance.now(), _focusWasActive = false;
+      const focusProgressMod = { focusEnded(){} };   // 집중 끝남 알림(서버 올리기) — 이 검사는 보지 않는다(sim-figure-mode · sim-focus-progress)
+      let _focusLastTick = performance.now(), _focusWasActive = false, _focusAccruedLast = false, _selfAppActive = false;
+      const focusGate = (function(){ const window = {}; ${GATE}\n; return window.TwFocusGate; })();
       ${parts.join('\n')}
       this.api = { apply: _applyActiveAppState, on: _mobileOn, label: _mobileRoomLabel,
         setMob: (o) => { _mobileFocus = o; }, setAct: (t) => { lastActivity = t; },
@@ -108,12 +113,12 @@ say('── 1. 판정 합치기 (_applyActiveAppState 를 실제로 돌린다)')
 say('── 2. 곁가지');
 {
   const ss = strip(grabFn('seatState') || '');
-  const iGate = ss.indexOf('if(desktopMode && focusGateSleep) return \'sleep\';'), iMob = ss.indexOf('_mobileOn()) return \'focus\'');
+  const iGate = ss.indexOf('if(desktopMode && focusGateSleep) return focusGate.gatedPose('), iMob = ss.indexOf('_mobileOn()) return \'focus\'');
   chk(iGate > 0 && iMob > iGate && /seat\.isMe && _mobileOn\(\)\) return 'focus'/.test(ss), '집중 포즈 — 내 좌석 · 게이트 뒤 · 입력 판정(idle) 앞');
   chk(iMob < ss.indexOf('const idle=now-lastActivity'), '  입력 판정보다 앞이라 PC 입력이 없어도 집중 포즈');
   const aw = strip(grabFn('_autoAwayCheck') || '');
   chk(/const idle = _mobileOn\(\) \? 0 : await _idleMs\(\);/.test(aw), '자동 자리비움 · 6시간 퇴장 — 폰 켜짐이면 유휴 0 (복원 갈래로 돌아온다)');
-  const mobFns = ['_mobileOn', '_mobileApplyState', '_mobileStart', '_mobRenderPanel', '_mobMakeKey', '_applyActiveAppState'].map(n => strip(grabFn(n) || '')).join('\n');
+  const mobFns = ['_mobileOn', '_mobileApplyState', 'startMobile', '_mobRenderPanel', '_mobMakeKey', '_applyActiveAppState'].map(n => strip(grabFn(n) || '')).join('\n');
   chk(!/lastActivity\s*=/.test(mobFns) && !/activity\(\)/.test(mobFns), 'lastActivity 를 인위로 갱신하지 않는다(펜 앱 판정·입력 진단과 섞이지 않게)');
   const MAIN = read('main.js');
   chk(!MAIN || !/mobileLink|_mobileOn/.test(MAIN), 'main.js 는 폰 판정을 모른다(렌더러에서 합친다)');
@@ -140,29 +145,137 @@ say('── 3. 방');
   chk(/function _mobileChanged\(\)\{[\s\S]*?Presence\.broadcastNow\(\)/.test(CODE), '켜짐/꺼짐이 바뀌면 방에 바로 싣는다');
 }
 
-say('── 4. 서버 (firebase-init)');
+(async () => {
+say('── 4. 서버 길 (focus-level.js 를 돌린다)');
 {
-  const st = grabBlock(FBI, 'async mobileLinkStart(') || '';
-  chk(/onDisconnect\(liveRef\)\.remove\(\)/.test(st), 'live — onDisconnect remove');
-  chk(/\.info\/connected/.test(st) && /s\.val\(\) === true\) arm\(\)/.test(st), 'live — 재접속 때 다시 건다');
-  chk(/s && s\.on === true\)\{ await update\(stateRef, \{ on:false \}\); diag\(\{ kind:'reset', v:s \}\); \}/.test(st), '부팅 초기화 — 켜짐이 남아 있으면 on=false(내린 원래 값은 진단 줄로)');
-  chk(st.indexOf('update(stateRef') < st.indexOf('onValue(stateRef'), '  초기화가 구독보다 먼저');
-  chk(!/presence/.test(strip(st)), 'presence 를 «PC 켜짐» 으로 쓰지 않는다(오프라인 토글이 폰까지 끊는다)');
-  chk(/await _whenAuthReady\(\)/.test(st), '세션 복원 뒤에 쓴다');
-  const sk = grabBlock(FBI, 'async mobileSetKey(') || '';
-  chk(/set\(ref\(db, `mobileKeys\/\$\{userId\}`\), key\)/.test(sk) && /remove\(ref\(db, `mobileLink\/\$\{userId\}\/state`\)\)/.test(sk), '키 교체 — 키를 적고 예전 state 를 지운다');
-  const un = grabBlock(FBI, 'async mobileUnlink(') || '';
-  chk(/remove\(ref\(db, `mobileLink\/\$\{userId\}`\)\)/.test(un) && /remove\(ref\(db, `mobileKeys\/\$\{userId\}`\)\)/.test(un), '연결 끊기 — 키 · live · state 전부');
-  const as = strip(grabFn('_mobileApplyState') || '');
-  chk(/v\.key !== key/.test(as), '받은 state 는 이 PC 의 키로 쓴 것만 믿는다');
-  chk(/o\.u === uid/.test(strip(grabFn('_mobileGetKey') || '')), '로컬 키는 계정(uid)과 묶여 있다 — 계정을 바꾸면 없는 것으로 본다');
-  const ms = strip(grabFn('_mobileStart') || '');
-  chk(/if\(!uid \|\| !key/.test(ms), '키가 없는 사람은 서버에 한 번도 안 간다(비용 0)');
-  const ak = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
-  chk(!!ak && !/MOBILE_KEY_LS|tw\.mobileKey/.test(ak), '  로그아웃 목록 밖(서버에서 돌아올 길이 없는 값 · uid 대조로 막는다)');
-  const nk = grabFn('_mobileNewKey');
-  const key = new Function('crypto', nk + ' return _mobileNewKey();')(require('crypto').webcrypto);
-  chk(/^[A-Z2-9]{24}$/.test(key) && !/[01IO]/.test(key), '키 24자 · 헷갈리는 글자 없음 (' + key.slice(0, 4) + '…)');
+  const LEVEL = read('focus-level.js', path.join('app', 'parts', 'focus', 'focus-level.js'));
+  if(!LEVEL){ chk(false, '원본 못 찾음 — focus-level.js'); }
+  else{
+    const KEY = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const ids = ['fsMobSt', 'fsMobMain', 'fsMobSub', 'fsMobQr', 'fsMobUnlink', 'fsMobNote', 'mobLinkOverlay', 'mobLinkKey', 'mobLinkRenew', 'mobLinkCopy', 'mobLinkClose', 'mobLinkDone'];
+    const tick = async () => { for(let i = 0; i < 6; i++) await new Promise((r) => setImmediate(r)); };
+    /* 모듈을 가짜 deps 위에서 만든다. opt: ready(진척을 받았나) · issue · unlink(api 가 줄 답) · store(계정 칸 처음 값) · src(깨 본 글) */
+    function mk(opt){
+      opt = opt || {};
+      const env = { now: 5e12, calls: [], notes: [], toasts: [], bcast: 0, store: Object.assign({}, opt.store || {}), msgFns: [], subs: [], resets: [], ivs: [], ready: opt.ready !== false,
+        issue: opt.issue || { status: 'ok', key: KEY }, unlink: opt.unlink || { status: 'ok' }, gate: null };
+      const els = {}; ids.forEach((id) => { els[id] = { textContent: '', style: {}, className: '', disabled: false, onclick: null, title: '', classList: { add(){}, remove(){} }, getContext: () => null, width: 132 }; });
+      const document = { getElementById: (id) => els[id] || null };
+      const win = { firebaseAPI: { serverNow: () => env.now }, TWQR: null, addEventListener(){} };
+      const done = (v) => env.gate ? env.gate.then(() => v) : Promise.resolve(v);
+      const deps = {
+        progress: { STAR_PALETTE: [['#ffd76a', '금']], whenReady: async () => { env.calls.push('ready'); return env.ready; } },
+        FOCUS_CYCLE_CAP: 1, FOCUS_CYCLE_SEC: 1, FOCUS_LEVEL_CAP_HOURS: 1,
+        Presence: { broadcastNow: () => { env.bcast++; } },
+        focusApi: { issueMobileKey: (u) => { env.calls.push('issue:' + u); return done(env.issue); }, unlinkMobile: (u) => { env.calls.push('unlink:' + u); return done(env.unlink); } },
+        focusStore: { get: (k) => (k in env.store ? env.store[k] : null), set: (k, v) => { env.store[k] = String(v); return true; }, remove: (k) => { delete env.store[k]; return true; } },
+        notifyError: (c) => { env.notes.push(c); },
+        rtOnMessage: (t, fn) => { env.msgFns.push([t, fn]); return () => { env.msgFns = env.msgFns.filter((x) => x[1] !== fn); }; },
+        _acctDetached: () => false, _focusSessionSec: () => 0, findMySeat: () => null, getMyUserId: () => 'u1', toast: (t) => env.toasts.push(t),
+        wdDraftDef: () => null, setFocusSessionSec: () => {}, addFocusToday: () => {}, _focusTotalStarted: () => true,
+      };
+      const src = opt.src || LEVEL;
+      const thrower = () => { throw new Error('localStorage 를 건드림'); };
+      const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'setTimeout', 'clearTimeout', 'module', 'console', src + '\nreturn window.TwFocusLevel;')(
+        win, document, { getItem: thrower, setItem: thrower, removeItem: thrower }, {}, win.firebaseAPI,
+        () => 1, () => {}, undefined, console).createFocusLevel(deps);
+      const session = {
+        onReset: (f) => env.resets.push(f), on: (f) => { env.subs.push(f); return f; }, setInterval: (f, ms) => { env.ivs.push([f, ms]); return env.ivs.length; },
+      };
+      /* 세션이 끝날 때 — 구독 해제 → 비우기 훅(session.js dispose 순서) */
+      const dispose = () => { env.subs.splice(0).forEach((f) => f()); env.resets.splice(0).forEach((f) => f()); };
+      return { api, env, els, session, dispose };
+    }
+    const fire = (w, m) => w.env.msgFns.filter((x) => x[0] === 'mobileFocus').forEach((x) => x[1](m));
+    const hours = (h) => h * 3600 * 1000;
+
+    /* (a) 시작 — 구독 · 틱 · 계정 칸의 키 */
+    { const w = mk({ store: { 'tw.mobileKey': KEY } });
+      chk(w.env.msgFns.length === 0 && w.env.subs.length === 0 && w.env.ivs.length === 0, '만들 때는 구독 · 타이머 · 계정 칸 읽기가 없다(시작은 startMobile 한 번)');
+      w.api.startMobile('umfk2x3ab9c8d7e6f', {}, w.session);
+      chk(w.env.msgFns.length === 1 && w.env.msgFns[0][0] === 'mobileFocus' && w.env.subs.length === 1, '시작 — realtime mobileFocus 를 한 번 건다(해제는 세션에 맡김)');
+      chk(w.env.ivs.length === 1 && w.env.ivs[0][1] === 60000, '  1분 표시 틱은 세션 타이머로');
+      chk(w.els.fsMobQr.textContent === 'QR 다시 보기', '  계정 칸의 키를 읽는다 → «QR 다시 보기»');
+      w.api.startMobile('umfk2x3ab9c8d7e6f', {}, w.session);
+      chk(w.env.msgFns.length === 1, '  두 번 시작해도 구독은 하나');
+      const w2 = mk({ store: { 'tw.mobileKey': JSON.stringify({ u: 'umfk2x3ab9c8d7e6f', k: KEY }) } }); w2.api.startMobile('umfk2x3ab9c8d7e6f', {}, w2.session);
+      chk(w2.els.fsMobQr.textContent === 'QR 다시 보기', '옛 0.12 칸 { u, k } 도 읽는다(이 계정 것일 때)');
+      const w3 = mk({ store: { 'tw.mobileKey': JSON.stringify({ u: 'ux', k: KEY }) } }); w3.api.startMobile('umfk2x3ab9c8d7e6f', {}, w3.session);
+      chk(w3.els.fsMobQr.textContent === 'QR로 연결하기', '  다른 계정 것이면 없는 것으로 본다'); }
+
+    /* (b) 신호 → 켜짐 · 4시간 상한(서버 시각) */
+    { const w = mk(); w.api.startMobile('u1', {}, w.session);
+      fire(w, { t: 'mobileFocus', on: true, app: 'Procreate', at: w.env.now - 60000 });
+      chk(w.api._mobileOn() === true && w.api._mobileRoomLabel() === 'Procreate' && w.env.bcast === 1, 'mobileFocus{on:true} → 켜짐 · 방 이름 · 방에 바로 알림');
+      fire(w, { t: 'mobileFocus', on: true, app: ' <b>X</b> ', at: w.env.now - 1000 });
+      chk(w.api._mobileRoomLabel() === 'bX/b', '  앱 이름은 거른다(제어문자 · 꺾쇠)');
+      fire(w, { t: 'mobileFocus', on: false, app: null, at: w.env.now });
+      chk(w.api._mobileOn() === false && w.api._mobileRoomLabel() === '', 'on:false → 꺼짐');
+      fire(w, { t: 'mobileFocus', on: true, app: 'A', at: w.env.now - hours(4) - 1 });
+      chk(w.api._mobileOn() === false, '★ at 이 서버 시각으로 4시간 넘음 → 꺼짐으로 본다');
+      fire(w, { t: 'mobileFocus', on: true, app: 'A', at: w.env.now - hours(4) + 60000 });
+      chk(w.api._mobileOn() === true, '  4시간 안이면 켜짐');
+      w.env.now += hours(1);
+      chk(w.api._mobileOn() === false, '  서버 시각이 흘러 상한을 넘으면 꺼짐(새 신호 없이)');
+      const bk = LEVEL.replace('(_mobileNow() - m.since)', '(Date.now() - m.since)');
+      const wb = bk !== LEVEL ? mk({ src: bk }) : null; if(wb){ wb.api.startMobile('u1', {}, wb.session); fire(wb, { on: true, app: 'A', at: wb.env.now - hours(4) - 1 }); }
+      chk(!!wb && wb.api._mobileOn() === true, '  (깨 보기) 4시간 셈을 PC 시계로 바꾸면 위 «4시간 넘음 → 꺼짐» 판정이 빨강'); }
+
+    /* (c) 계정 바뀜 */
+    { const w = mk(); w.api.startMobile('u1', {}, w.session);
+      fire(w, { on: true, app: 'A', at: w.env.now - 1000 });
+      w.dispose();
+      chk(w.api._mobileOn() === false && w.env.msgFns.length === 0, '계정이 바뀌면(세션 끝) 폰 상태가 비고 구독이 풀린다');
+      fire(w, { on: true, app: 'A', at: w.env.now });
+      chk(w.api._mobileOn() === false, '★ 끝난 뒤의 신호 → 무시');
+      const wl = mk(); wl.api.startMobile('u1', {}, wl.session); const h = wl.env.msgFns[0][1]; wl.dispose(); h({ on: true, app: 'A', at: wl.env.now });
+      chk(wl.api._mobileOn() === false, '  풀리기 전에 이미 나간 호출이 와도 무시(코드 없음)');
+      const w2 = mk(); w2.api.startMobile('u2', {}, w2.session); chk(w2.env.msgFns.length === 1, '  다음 계정은 다시 시작할 수 있다'); }
+
+    /* (d) 키 만들기 */
+    { const w = mk(); w.api.startMobile('u1', {}, w.session);
+      w.els.fsMobQr.onclick(); await tick();
+      chk(w.env.calls.join() === 'ready,issue:u1', '★ 키 만들기 — 진척을 받은 뒤에 요청(읽은 주인이 있어야 stale 이 아니다)');
+      chk(w.env.store['tw.mobileKey'] === KEY && w.els.fsMobQr.textContent === 'QR 다시 보기' && w.env.notes.length === 0, '  성공 → 계정 칸에 키 · 번호 없음');
+      chk(w.els.fsMobQr.disabled === false && w.els.fsMobUnlink.disabled === false, '  끝나면 단추 잠금이 풀린다');
+      const wf = mk({ issue: { status: 'failed', err: new Error('x') } }); wf.api.startMobile('u1', {}, wf.session); wf.els.fsMobQr.onclick(); await tick();
+      chk(wf.env.notes.join() === 'E-FOCUS-08' && !('tw.mobileKey' in wf.env.store) && wf.els.fsMobQr.textContent === 'QR로 연결하기', '★ 실패 → E-FOCUS-08 한 번 · 키를 남기지 않는다');
+      const wn = mk({ ready: false }); wn.api.startMobile('u1', {}, wn.session); wn.els.fsMobQr.onclick(); await tick();
+      chk(wn.env.notes.join() === 'E-FOCUS-08' && !wn.env.calls.some((c) => c.startsWith('issue')), '★ 진척을 못 받았으면 요청 0 · E-FOCUS-08');
+      const ws = mk({ issue: { status: 'stale' } }); ws.api.startMobile('u1', {}, ws.session); ws.els.fsMobQr.onclick(); await tick();
+      chk(ws.env.notes.length === 0 && !('tw.mobileKey' in ws.env.store), '  stale(계정이 바뀌는 중) → 조용히 버린다');
+      const wg = mk(); wg.api.startMobile('u1', {}, wg.session); let open; wg.env.gate = new Promise((r) => { open = r; });
+      wg.els.fsMobQr.onclick(); await tick();
+      chk(wg.els.fsMobQr.disabled === true && wg.els.mobLinkRenew.disabled === true && wg.els.fsMobUnlink.disabled === true, '★ 만드는 중에는 단추 셋이 잠긴다');
+      wg.els.fsMobQr.onclick(); await tick();
+      chk(wg.env.calls.filter((c) => c.startsWith('issue')).length === 1, '  잠긴 동안 또 눌러도 요청은 하나');
+      wg.dispose(); open(); await tick();
+      chk(!('tw.mobileKey' in wg.env.store) && wg.env.notes.length === 0, '★ 만드는 중 계정이 바뀌면 늦은 답은 아무것도 바꾸지 못한다');
+      const wr = mk({ store: { 'tw.mobileKey': KEY } }); wr.api.startMobile('u1', {}, wr.session); fire(wr, { on: true, app: 'A', at: wr.env.now - 1000 });
+      wr.env.issue = { status: 'ok', key: 'ZYXWVUTSRQPNMKJHGFEDCBA2' }; wr.els.mobLinkRenew.onclick(); wr.els.mobLinkRenew.onclick(); await tick();
+      chk(wr.env.store['tw.mobileKey'] === 'ZYXWVUTSRQPNMKJHGFEDCBA2' && wr.api._mobileOn() === false, '  새 키(두 번 누름) → 계정 칸 키가 바뀌고 옛 폰 상태는 비운다'); }
+
+    /* (e) 연결 끊기 */
+    { const w = mk({ store: { 'tw.mobileKey': KEY } }); w.api.startMobile('u1', {}, w.session); fire(w, { on: true, app: 'A', at: w.env.now - 1000 });
+      w.els.fsMobUnlink.onclick(); await tick();
+      chk(w.env.calls.length === 0, '끊기 — 한 번 누르면 아무것도 안 보낸다(두 번 누름)');
+      w.els.fsMobUnlink.onclick(); await tick();
+      chk(w.env.calls.join() === 'ready,unlink:u1', '★ 두 번 누르면 진척을 받은 뒤 DELETE');
+      chk(!('tw.mobileKey' in w.env.store) && w.api._mobileOn() === false && w.els.fsMobQr.textContent === 'QR로 연결하기' && w.env.notes.length === 0, '  성공 → 키 지움 · 폰 꺼짐 · 번호 없음');
+      const wf = mk({ store: { 'tw.mobileKey': KEY }, unlink: { status: 'failed', err: new Error('x') } }); wf.api.startMobile('u1', {}, wf.session);
+      wf.els.fsMobUnlink.onclick(); wf.els.fsMobUnlink.onclick(); await tick();
+      chk(wf.env.notes.join() === 'E-FOCUS-09' && wf.env.store['tw.mobileKey'] === KEY, '★ 실패 → E-FOCUS-09 · 키는 그대로(서버에 아직 있다)');
+      const wn = mk({ store: { 'tw.mobileKey': KEY }, ready: false }); wn.api.startMobile('u1', {}, wn.session);
+      wn.els.fsMobUnlink.onclick(); wn.els.fsMobUnlink.onclick(); await tick();
+      chk(wn.env.notes.join() === 'E-FOCUS-09' && !wn.env.calls.some((c) => c.startsWith('unlink')) && wn.env.store['tw.mobileKey'] === KEY, '★ 진척을 못 받았으면 요청 0 · E-FOCUS-09'); }
+
+    /* (f) 글 — 걷은 길 */
+    const LV = strip(LEVEL);
+    chk(!/firebaseAPI\.mobile|mobileDiag|mobileLinkStart|mobileSetKey|mobileUnlink|localStorage|getRandomValues|\bsetInterval\(/.test(LV.replace(/session\.setInterval\(/g, '')), 'Firebase 길 · 진단 줄 · PC 에서 키를 짓는 코드 · 모듈 꼭대기 타이머가 없다(키는 서버가 만든다)');
+    chk(!/mobile-diag|fsMobDiag/.test(HTML) && !read('mobile-diag.js', path.join('app', 'parts', 'focus', 'mobile-diag.js')), '설정 › 포커싱어플의 📱 진단 줄이 사라졌다(html · 파일)');
+    const ak = (SRC.match(/const ACCOUNT_LOCAL_KEYS = \(\)=>\[([\s\S]*?)\n\];/) || [])[1] || '';
+    chk(!/MOBILE_KEY|tw\.mobileKey/.test(ak), '  로그아웃 목록 밖(키는 계정 칸에 있다 — 계정을 바꾸면 안 보인다)');
+  }
 }
 
 say('── 5. 규칙');
@@ -210,10 +323,12 @@ say('── 6. 화면');
   } else say('  · vendor/qrcode.js 를 못 찾음 — QR 인코더 판정 건너뜀');
   if(HOST){
     chk(/location\.hash/.test(HOST) && !/location\.search/.test(HOST), '안내 페이지 — # 뒤에서 읽는다');
-    chk(/'\.sv': 'timestamp'/.test(HOST) && /method:'PUT'/.test(HOST) && /\/mobileLink\/' \+ U \+ '\/state\.json'/.test(HOST), '  REST PUT · 서버 시각');
+    chk(/method:'POST'/.test(HOST) && /'X-Mobile-Key': K/.test(HOST) && /API \+ '\/v1\/focus\/mobile-link\/state'/.test(HOST) && /https:\/\/api\.together-working\.com'/.test(HOST), '  서버 POST /v1/focus/mobile-link/state · 키는 머리(X-Mobile-Key)');
+    chk(!/firebasedatabase|\.sv|method:'PUT'|mobileLink\/'/.test(HOST) && !/key: K/.test(HOST), '  Firebase REST 길 · 본문 키가 없다');
     chk(/신호 보내 보기/.test(HOST) && /✓ PC에 신호가 갔어요/.test(HOST) && /iPhone·iPad/.test(HOST) && /갤럭시/.test(HOST), '  시안 ④ 문구(탭 · 테스트 · 결과)');
   } else say('  · hosting/help/link.html 을 못 찾음 — 안내 페이지 판정 건너뜀');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
+})().catch((e) => { fail++; say('  ✗ 판정 도중 멈춤 — ' + (e && e.message)); say(`\n✗ 통과 ${pass} · 실패 ${fail}`); process.exit(1); });

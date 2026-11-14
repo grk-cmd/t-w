@@ -1,7 +1,7 @@
 /* admin-launcher.js — 🛑 전체 방 종료 · 🧹 유령 방 청소 · ⚙️ 게임 설정 · 📢 광고 배너 편집 (관리자 — 런처 관리자 줄의 단발 도구)
    서버에 쓰는 일은 admin-api.js(adminApi)가 한다(방 종료 · 배너). 사용자 쪽(광고 배너 그리기 · 게임 설정 구독)은 launcher/ad-banner.js.
    ★ 밖에서 부르는 이름은 없다 — 버튼 연결을 만들 때 건다.
-   deps: toast · asyncPrompt — 안내 · 입력 창 · isAdmin — 읽는 함수(app.js 의 let) · adminApi — 서버 길(admin-api.js) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
+   deps: toast · asyncPrompt — 안내 · 입력 창 · refreshBanner — 저장 뒤 관리자 본인 배너 받기 · isAdmin — 읽는 함수(app.js 의 let) · adminApi — 서버 길(admin-api.js) · apiErrors — 서버 오류 → 오류 번호(TwApiErrors.store)
    ⚠️ 배너의 원본은 서버다 — 열 때 서버에서 받아 채우고(받기 전에는 창을 안 연다), 저장은 읽은 판을 실어 보낸다. 다른 관리자가 먼저 고쳤으면(409)
      덮어쓰지 않고 지금 서버 값으로 다시 채우고 알린다. 이 PC 에는 사본을 남기지 않는다.
    ⚠️ ⚙️ 게임 설정(동물 해금 레벨)은 멈춰 있다 — 쓰는 길은 서버에 있으나(카탈로그 해금) 사용자 앱이 그 값을 아직 Firebase 에서 읽는다. 읽는 쪽이 서버로 옮겨 가면 이어서 켠다.
@@ -17,6 +17,7 @@ const asyncPrompt = deps.asyncPrompt;
 const isAdmin = deps.isAdmin;                     // 읽는 함수 — 관리자 모드(다시 대입되는 let)
 const adminApi = deps.adminApi;
 const apiErrors = deps.apiErrors;
+const refreshBanner = deps.refreshBanner;           // 관리자 본인 런처 배너를 서버에서 한 번 다시 받기(noticeFeed.refresh)
 const fail = (e)=>apiErrors.notify(e, adminApi.ERRORS);
 const GAME_CFG_PAUSED_TEXT = '⚙️ 게임 설정은 서버로 옮기는 중이라 지금은 바꿀 수 없어요';
 {
@@ -99,10 +100,12 @@ $('adBannerSaveBtn').onclick=async ()=>{
     await adminApi.replaceBanner(bannerVersion, slides);
     toast(slides.length ? '배너가 저장됐어요 ('+slides.length+'개)' : '배너가 숨겨졌어요');
     closeBanner();
+    /* 서버의 «모두에게» 알림은 0~60초 흩어서 온다 — 관리자 본인 런처는 기다리지 않고 한 번 받아 바로 바꾼다(저장 누름에 이은 받기) */
+    try{ Promise.resolve(refreshBanner()).catch(()=>{}); }catch(_){}
   }catch(e){
     const t = fail(e);
     if(t.action === 'refetch'){   // 다른 곳에서 먼저 고쳤다 — 덮어쓰지 않고 지금 서버 값으로 다시 채운다
-      try{ await loadBanner(); }catch(e2){ fail(e2); }
+      try{ await loadBanner(); toast('다른 곳에서 바꾼 내용을 받아왔어요'); }catch(e2){ fail(e2); }
     }
   }
   finally{ bannerBusy = false; }

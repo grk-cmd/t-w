@@ -207,7 +207,9 @@ const realRun = (winSrc) => {
     fs.writeFileSync(pth.join(dir, 'c.js'),
       "const S = require('./sysinput-win.js'); S.init({ log: () => {} }); S.readPads();\n" +
       "setTimeout(() => { console.log('PADS ' + S.readPads().length); }, 800);\n");
-    const r = cp.spawnSync(process.execPath, [pth.join(dir, 'c.js')], { timeout: 4000, encoding: 'utf8' });
+    /* NODE_PATH 는 넘기지 않는다 — 러너가 저장소 node_modules 를 넘기면 진짜 네이티브 모듈이 실려 이 무대(가짜 koffi 만)가 깨진다 */
+    const env = Object.assign({}, process.env); delete env.NODE_PATH;
+    const r = cp.spawnSync(process.execPath, [pth.join(dir, 'c.js')], { timeout: 4000, encoding: 'utf8', env });
     return { ended: r.status === 0, pads: (String(r.stdout).match(/PADS (\d+)/) || [])[1] };
   } finally { fs.rmSync(dir, { recursive: true, force: true }); }
 };

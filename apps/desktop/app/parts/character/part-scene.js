@@ -1,6 +1,6 @@
 /* part-scene.js — 🧊 파츠 GLB 파싱 캐시 · 도트 썸네일 굽기
    책임: 카탈로그 파츠 레코드(rec)의 GLB 를 한 번만 파싱해 id 별로 들고 있고(getPartScene), 그 씬으로 32×32 도트 썸네일을 굽는다(generatePartThumbnail).
-   받는 deps: 톤 예산 상수(TONE_FRONT_TOTAL · _MAIN_LIGHT_* · _KEY_LIGHT_MUL · FLAT_EMISSIVE) · _applyPartMatTone · GLB 해결(resolveCatalogGlb · b64ToBuf · assetCodeMod).
+   받는 deps: 톤 예산 상수(TONE_FRONT_TOTAL · FLAT_EMISSIVE) · 조명(addRunLights · runLightAt1) · _applyPartMatTone · GLB 해결(resolveCatalogGlb · b64ToBuf · assetCodeMod).
    내보내는 것: getPartScene(rec) · generatePartThumbnail(rec) · partSceneCache · _forceOpaqueAlphaOutput(빈 함수 — 부르는 자리 호환).
    app.js «🧊 파츠 GLB 파싱 캐시 · 썸네일» 구역을 그대로 옮겼다(구역 떼기 C · w2 — 관리자 콘솔 다시 굽기는 admin/admin-thumbs.js). 동작은 옮기기 전과 같다.
    ★ 아래 코드는 app.js 에 있던 글 그대로다(들여쓰기도 · 옛 이야기형 주석만 «왜 · 함정» 으로 줄였다). 바뀐 코드 줄은 0줄.
@@ -15,13 +15,12 @@
 function createPartScene(deps){
 const FLAT_EMISSIVE = deps.FLAT_EMISSIVE;
 const TONE_FRONT_TOTAL = deps.TONE_FRONT_TOTAL;
-const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
-const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
-const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
 const _applyPartMatTone = deps._applyPartMatTone;
+const addRunLights = deps.addRunLights;   // 💡 실행 화면 조명 한 벌(shared/light-tone.js)
 const assetCodeMod = deps.assetCodeMod;
 const b64ToBuf = deps.b64ToBuf;
 const resolveCatalogGlb = deps.resolveCatalogGlb;
+const runLightAt1 = deps.runLightAt1;     // 배율 1 일 때 앰비언트 + 키 세기 합
 /* 파츠 GLB 파싱 캐시: id → THREE.Object3D(원본 씬) */
 function _forceOpaqueAlphaOutput(mat){
   // ⚠️ 빈 함수다 — 알파를 1.0 으로 강제하면 반투명 파츠(안경 렌즈 등)가 안 비쳐서 뺐다. 부르는 자리 호환용으로 남김.
@@ -55,16 +54,14 @@ function _ensureThumbRig(){
   _thumbRenderer.outputEncoding = THREE.sRGBEncoding;
   _thumbScene = new THREE.Scene();
   /* 💡 썸네일 광량 배율은 손으로 정하지 않고 계산한다 — «정면 총합(THUMB_FRONT_TOTAL) − FLAT_EMISSIVE» 를 조명이 채운다.
-     ⚠️ 박아 둔 숫자는 조명 예산이 바뀔 때 안 따라와 카드만 어두워졌다. _MAIN_LIGHT_INT · _KEY_LIGHT_MUL · FLAT_EMISSIVE 는 여기서 만지지 말 것.
+     ⚠️ 박아 둔 숫자는 조명 예산이 바뀔 때 안 따라와 카드만 어두워졌다. 조명 세기(addRunLights · runLightAt1) · FLAT_EMISSIVE 는 여기서 만지지 말 것.
      ⚠️ 흰 파츠가 뭉개지면 THUMB_FRONT_TOTAL 만 내린다. 썸네일은 구워 둔 것이라 값을 바꾸면 generateAllPartThumbnails(true) 로 다시 굽는다. */
   const THUMB_FRONT_TOTAL = TONE_FRONT_TOTAL;   // 장착 화면과 같은 총합
-  const _THUMB_LIGHT_AT_1 = (0.95 * _MAIN_LIGHT_INT) + (_MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
+  const _THUMB_LIGHT_AT_1 = runLightAt1();
   const THUMB_LIGHT_MUL = Math.max(0, Math.min(THUMB_LIGHT_MUL_MAX,
     (THUMB_FRONT_TOTAL - FLAT_EMISSIVE) / (_THUMB_LIGHT_AT_1 || 1)));
-  _thumbScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT * THUMB_LIGHT_MUL));
-  const key = new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL * THUMB_LIGHT_MUL);
-  /* 정수리 위에서 비추면 정면이 어둡고, 정면에서 비추면 음영이 사라져 납작하다 — 비스듬히 위에서 준다. */
-  key.position.set(...THUMB_KEY_POS); _thumbScene.add(key);
+  /* 정수리 위에서 비추면 정면이 어둡고, 정면에서 비추면 음영이 사라져 납작하다 — 키는 비스듬히 위에서 준다. 썸네일엔 정면 필이 없다. */
+  addRunLights(_thumbScene, { keyPos: THUMB_KEY_POS, mul: THUMB_LIGHT_MUL, frontFill: false });
   _thumbCam = new THREE.OrthographicCamera(-1, 1, 1, -1, 0.01, 100);
   _thumbCam.position.set(0, 0, 3);
   _thumbCam.lookAt(0, 0, 0);

@@ -1,4 +1,4 @@
-/* myhome-hooks.js — 🪝 마이홈 고리판: 편집 묶음 · 마이홈 창이 거는 «저장 · 배경 · 테마 · BGM» 함수를 다른 파일이 이름으로 부르는 한 곳 (검사 sim-myhome-hooks.js)
+/* myhome-hooks.js — 🪝 마이홈 고리판: 편집 묶음 · 마이홈 창 · 바탕화면이 거는 «저장 · 배경 · 테마 · BGM · 폴더 배치 끝내기» 함수를 다른 파일이 이름으로 부르는 한 곳 (검사 sim-myhome-hooks.js)
    [왜] 페이지 그리기 · 친구 목록 · 스티커 · 친구 홈 구경 · 설정 패널 · 스티커사진 · 바탕화면이 편집 묶음(myhome-edit.js)과
      마이홈 창(myhome-ui.js)이 window 에 거는 이름을 직접 부르면, 편집 묶음 · 창도 그 파일들을 쓰므로 서로를 부르는 순환이 된다
      (checks/sim-dep-cycles.js). 거는 쪽은 자기를 만들 때 함수를 여기에 걸고(on), 부르는 쪽은 이름으로 부른다(call) — 서로의 파일을 모른다.
@@ -20,6 +20,7 @@ const HOOK = Object.freeze({
   BGM_DESTROY: 'bgmDestroy',           // 🎵 BGM 창 닫기 · 거는 곳 myhome-edit.js
   DS_CLOSE: 'dsClose',                 // 👑 디자인 스튜디오 창 닫기 · 거는 곳 myhome-edit.js
   CANCEL_NAME_EDIT: 'cancelNameEdit',  // 🏷️ 열린 닉네임 입력칸을 취소로 접기 — 입력칸이 열려 있을 때만 걸린다 · 거는 곳 myhome-edit.js
+  FINISH_ARRANGE: 'finishArrange',     // 📂 옮기던 폴더 배치를 저장하고 끝내기 — 친구 집 · 미리보기로 들어가기 전에 부른다(들어간 뒤엔 고치기가 잠긴다) · 거는 곳 myhome-desktop.js
   SYNC_BGM_BOUNDS: 'syncBgmBounds',    // 🎵 BGM 창이 숨을 마이홈 창 사각형 보내기 · 거는 곳 myhome-ui.js
 });
 const _fns = {};

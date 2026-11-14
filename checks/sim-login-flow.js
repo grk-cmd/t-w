@@ -31,7 +31,7 @@ const load = (src) => { const m = { exports: {} }; new Function('module', 'windo
 const tick = async () => { for(let i = 0; i < 20; i++) await Promise.resolve(); await new Promise((r) => setImmediate(r)); };
 
 const ME = (v, extra) => Object.assign({ userCode: 'u1234567890', friendCode: 'MATE-AB12', displayName: '나', presencePref: { locked: false, online: true },
-  hasPasswordLogin: true, admin: false, premium: true, premiumGraceSec: 3600, version: v || 1 }, extra || {});
+  hasPasswordLogin: true, admin: false, premium: true, version: v || 1 }, extra || {});
 const apiErr = (kind, code) => Object.assign(new Error(code), { kind, code });
 
 function mkEnv(S, o){
@@ -59,13 +59,17 @@ function mkEnv(S, o){
   };
   const rtLog = []; let stateFn = null;
   /* 서버 규칙 흉내(realtime SessionTable admit) — 다른 기기가 지금 세션이면 claim 없는 hello 는 4004(sessionLost), claim 이면 ready */
-  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn(x && x.claim === true ? 'ready' : 'sessionLost'); }, stop: () => rtLog.push('stop'), onState: (fn) => { stateFn = fn; return () => {}; } };
+  const rt = { start: (x) => { rtLog.push('start:' + JSON.stringify(x)); if(opt.otherSession && stateFn) stateFn(x && x.claim === true ? 'ready' : 'sessionLost'); }, stop: () => rtLog.push('stop'),
+    bye: async (why) => { rtLog.push('bye:' + why); await tick(); rtLog.push('closed'); }, onState: (fn) => { stateFn = fn; return () => {}; } };
+  /* 방 나가기 흉내 — leave 를 보내고 left 를 기다렸다 풀린다(방 밖이면 바로) */
+  const leaveRoom = opt.leaveHang ? () => { rtLog.push('leave'); return new Promise(() => {}); }   // 오프라인 — 방 나가기 쓰기가 끝나지 않음
+    : async () => { rtLog.push('leave'); await tick(); rtLog.push('left'); };
   let lost = 0;
   const ids = RI.createPending();
   const flow = LF.createLoginFlow({
     userApi, translate: AE.translate, reasonOf: UA.reasonOf, auth,
     googleWindow: async () => (opt.gWin ? opt.gWin() : { ok: true, idToken: 'gtok' }),
-    rt, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
+    rt, leaveRoom, pending: ids, storage, onSessionLost: () => { lost++; }, forgetSession: () => { rtLog.push('forget'); },
     now: () => clock.t,
   });
   const advance = async (ms) => {
@@ -258,17 +262,37 @@ async function judge(S){
     chk(!r3.ok && r3.err.code === 'USER_RESERVED_NAME' && e.srv.updates.length === 4, '그 밖 실패 → ok:false(다시 안 보냄)');
   }
 
-  say('── 7. 로그아웃 · 프리미엄 유예');
+  say('── 7. 로그아웃 · 프리미엄 유예 없음');
   {
     const e = mkEnv(S);
     await e.flow.confirm();
-    chk(e.flow.premiumNow() === true, '방금 받은 프리미엄 — 유예 안');
-    e.clock.t += 3600 * 1000 + 1;
-    chk(e.flow.premiumNow() === false, '유예(premiumGraceSec)가 지나면 아님');
-    chk(e.LF.premiumNow({ me: ME(1, { premium: false }), at: 0 }, 0) === false, '프리미엄이 아니면 아님');
+    chk(!('premiumNow' in e.flow) && !('premiumNow' in e.LF), '프리미엄은 이 사본에서 읽지 않는다 — 24시간 유예를 걷었다(서버 확인 license-premium.js 만 따른다)');
+    chk(!!e.flow.meCache() && e.flow.meCache().me.userCode === ME(1).userCode, '내 로그인의 사본은 읽는다(patchMe 가 version 을 읽는다)');
+    e.setUser({ uid: 'authOther', anonymous: false });
+    chk(e.flow.meCache() === null, '★ 다른 로그인의 사본은 읽지 않는다 — 남의 version 으로 내 계정을 고치지 않게');
+    e.setUser(null);
+    chk(e.flow.meCache() === null, '  로그인이 없으면 사본도 없다');
+    e.setUser({ uid: 'auth1', anonymous: false });
     e.flow.goOnline();
+    let outAt = null; const au = e.authLog; const push0 = au.push.bind(au);
+    au.push = (x) => { if(x === 'out') outAt = e.rtLog.join(); return push0(x); };
     await e.flow.logout();
-    chk(e.rtLog.join() === 'start:{"claim":true},stop,forget' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off', '로그아웃 — realtime 끔(안 끄면 토큰 없이 끝없이 다시 붙음) · API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움');
+    chk(e.rtLog.join() === 'start:{"claim":true},leave,left,bye:logout,closed,forget' && e.authLog.join() === 'out' && !e.store.has('tw.me') && e.flow.mode() === 'off',
+      '★ 로그아웃 차례 — 방 leave → left 기다림 → bye{logout} → 닫힘 기다림 → API 로그인 읽기 뗌 · 로그인 놓음 · 사본 지움 — ' + e.rtLog.join());
+    chk(outAt && outAt.endsWith('forget'), '  ↳ 로그인은 작별 · 닫힘 뒤에 놓는다');
+    e.rtLog.length = 0;
+    await e.flow.logout({ why: 'withdraw' });
+    chk(e.rtLog.join() === 'leave,left,bye:withdraw,closed,forget', '  ↳ 탈퇴는 bye{withdraw}');
+    e.rtLog.length = 0; e.authLog.length = 0; e.setUser({ uid: 'auth1', anonymous: false });
+    await e.flow.release('switch');
+    chk(e.rtLog.join() === 'leave,left,bye:switch,closed' && e.authLog.length === 0 && e.flow.mode() === 'off', 'release(switch) — 계정 바꾸기: 방 leave → bye{switch} · 로그인은 그대로(새 계정)');
+  }
+  {
+    const e = mkEnv(S, { leaveHang: true });
+    e.flow.goOnline(); e.rtLog.length = 0;
+    const done = await Promise.race([e.flow.logout().then(() => true), new Promise((r) => setTimeout(() => r(false), 3000))]);
+    chk(done && e.rtLog.join() === 'leave,bye:logout,closed,forget' && e.authLog.join() === 'out',
+      '★ 방 나가기가 끝나지 않아도(오프라인) 상한 뒤 작별 · 로그인 놓기까지 간다 — ' + e.rtLog.join());
   }
 
   say('── 8. 배선');
@@ -307,24 +331,39 @@ const BREAKS = [
   ['LF', "    const a = await auth.signInPassword(me.friendCode, o.password);", "    const a = await auth.signInPassword('MATE-0000', o.password);", '받은 친구코드로 로그인 안 함'],
   ['LF', "    if(c.state === STATE.SIGNUP){ try{ await auth.signOut(); }catch(_){} return", "    if(c.state === STATE.SIGNUP){ return", '계정 없는 로그인을 남김'],
   ['LF', "        if(!(e && e.code === 'CONCURRENT_UPDATE')) throw e;", "        throw e;", '먼저 바뀌면 그냥 실패'],
-  ['LF', "    try{ deps.rt.stop(); }catch(_){}   // 안 끄면 토큰 없이 끝없이 다시 붙는다\n", "", '로그아웃에 realtime 안 끔'],
+  ['LF', "    try{ await deps.rt.bye(why); }catch(_){}", "", '로그아웃에 realtime 작별 안 함'],
+  ['LF', "    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}\n    try{ await deps.rt.bye(why); }catch(_){}", "    try{ await deps.rt.bye(why); }catch(_){}\n    try{ await deps.leaveRoom(); }catch(_){}", '작별 뒤 방 leave(연결이 먼저 닫힘 — 방 사람은 20초 뒤에야 봄)'],
+  ['LF', "    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}\n", "", '로그아웃에 방 안 나감'],
+  ['LF', "    try{ await Promise.race([deps.leaveRoom(), new Promise((r) => setTimeout(r, LEAVE_WAIT_MS))]); }catch(_){}", "    try{ await deps.leaveRoom(); }catch(_){}", '방 나가기 기다림에 상한 없음(오프라인이면 로그아웃이 멈춤)'],
+  ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    await release(BYE_LOGOUT);", '탈퇴도 logout 으로 작별'],
+  ['LF', "    await release((o && o.why) || BYE_LOGOUT);", "    release((o && o.why) || BYE_LOGOUT);", '작별을 안 기다리고 로그인을 놓음'],
   ['LF', "    try{ deps.forgetSession(); }catch(_){}", "", '로그아웃에 API 로그인 읽기를 안 뗌'],
-  ['LF', "  return (now - cache.at) <= cache.me.premiumGraceSec * 1000;", "  return true;", '유예가 끝없음'],
+  ['LF', "const api = { ME_CACHE_KEY, STATE, joinKey, createLoginFlow };", "function premiumNow(){ return true; }\nconst api = { ME_CACHE_KEY, STATE, joinKey, premiumNow, createLoginFlow };", 'premiumNow(24시간 유예)를 되살림'],
   ['LF', "  return 'join:' + String(inviteCode || '') + ':' + h.toString(36);", "  return 'join:' + String(inviteCode || '');", '비밀번호를 바꿔도 같은 요청'],
   ['HTML', '<script src="parts/account/login-flow.js"></script>', '', 'html 에 안 실음'],
 ];
+let finished = false;
+process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 돌지 못하고 멈췄다(깨 보기 ' + ran + '/' + BREAKS.length + ')'); process.exitCode = 1; } });   // 약속이 안 끝나 node 가 조용히 0 으로 끝나는 것을 막는다
+const BREAK_MS = 5000;
+let ran = 0;
 const caught = [];
 for(const [where, from, to, what] of BREAKS){
-  if(SRC0[where].indexOf(from) < 0){ chk(false, '깨 볼 글을 못 찾음 — ' + what); continue; }
+  if(SRC0[where].indexOf(from) < 0){ chk(false, '깨 볼 글을 못 찾음 — ' + what); ran++; continue; }
   const S = Object.assign({}, SRC0); S[where] = S[where].split(from).join(to);
   quiet = true; qfail = 0;
-  try{ await judge(S); }catch(_){ qfail++; }
+  /* 깨 본 글이 끝나지 않는 약속을 기다리면(멈춤) 그것도 «잡음» 이다 — 안 그러면 node 가 조용히 종료코드 0 으로 끝나 뒤 깨 보기가 검사되지 않는다 */
+  let timer;
+  try{ await Promise.race([judge(S), new Promise((_, rej) => { timer = setTimeout(() => rej(new Error('멈춤')), BREAK_MS); })]); }catch(_){ qfail++; }
+  clearTimeout(timer);
   quiet = false;
+  ran++;
   caught.push([what, qfail]);
 }
 const missed = caught.filter(([, k]) => k === 0).map(([w]) => w);
 chk(caught.length === BREAKS.length && !missed.length, '일부러 깨 본 ' + BREAKS.length + '가지를 다 잡는다' + (missed.length ? ' — 못 잡음: ' + missed.join(' · ') : ''));
 
+chk(ran === BREAKS.length, '깨 보기 ' + BREAKS.length + '가지를 끝까지 돌았다(' + ran + ')');
 console.log(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
+finished = true;
 process.exit(fail ? 1 : 0);
 })().catch((e) => { console.error(e); process.exit(1); });

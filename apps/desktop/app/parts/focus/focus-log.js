@@ -7,7 +7,7 @@
    ★ 함수(formatHMS · _rolloverFocusToday · bringWinToFront · escRegisterWindow)는 app.js 가 화살표로 넘긴다.
      본문의 typeof 가드(typeof bringWinToFront)는 예전처럼 늘 통과한다.
    ★ 밖에서 부르는 이름은 없다 — 버튼([기록 열기] #fsFocusLogBtn · ✕ · _ · □ · 누적기록) 연결 · ESC 등록 · 매초 갱신 ·
-     타이틀바 끌기를 전부 만들 때 건다. 👑 달성표 · 🍅 뽀모 서랍이 부르는 window._focusLogClamp 도 예전처럼 만들 때 건다.
+     타이틀바 끌기 · 피규어 모드 안내 줄을 전부 만들 때 건다. 👑 달성표 · 🍅 뽀모 서랍이 부르는 window._focusLogClamp 도 예전처럼 만들 때 건다.
    ★ createFocusLog 는 app.js 의 원래 자리(🕒 포커스 기록 팝업 머리 아래)에서 부른다. 만들 때 바로 도는 것이 예전과 같은 순서 · 같은 때에 돈다.
    ⚠️ document · window · localStorage · innerWidth · innerHeight · setInterval 은 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞에 싣는 classic script).
@@ -21,8 +21,11 @@ const formatHMS = deps.formatHMS;
 const _rolloverFocusToday = deps.rolloverFocusToday;   // 오늘 기록 — 자정이 지났으면 0 으로 넘기고 돌려준다
 const bringWinToFront = deps.bringWinToFront;          // 🪟 열 때 맨 앞으로
 const escRegisterWindow = deps.escRegisterWindow;      // ⎋ ESC 스택
-const _focusTotalSec = deps.focusTotalSec;             // 읽는 함수 — app.js 가 다시 대입하는 let(누적 기록)
+const _focusTotalSec = deps.focusTotalSec;             // 읽는 함수 — 서버 누적 + 못 올린 몫(받기 전 null)
+const progressLoad = deps.progressLoad;                // 읽는 함수 — 서버 진척 상태('idle' · 'loading' · 'ready' · 'failed')
+const retryProgress = deps.retryProgress;              // 진척을 못 받았으면 열 때 다시 받는다(실패하면 E-FOCUS-01)
 const _focusSessionSec = deps.focusSessionSec;         // 읽는 함수 — app.js 가 다시 대입하는 let(현재 기록)
+const figureMode = deps.figureMode;                    // 읽는 함수 — 피규어 모드면 기록이 멈춘다(app.js _applyActiveAppState) · 안내 줄을 보인다
 /* 포커스 기록 팝업 — [기록 열기] 클릭 시 오늘 누적 포커스 시간(hh:mm:ss)을 보여주고, 타이틀바 드래그로 위치 이동 가능 */
 (function bindFocusLog(){
   const overlay=document.getElementById('focusLogOverlay');
@@ -76,7 +79,10 @@ const _focusSessionSec = deps.focusSessionSec;         // 읽는 함수 — app.
      ★ '오늘 기록'은 저장되는 _focusTodaySec라 재시작해도 이어지고, '현재 기록'은 메모리 전용이라
        앱을 켤 때마다 0부터 시작한다 — 둘의 성격이 달라 누적 탭에 함께 두는 편이 읽기 쉽다. */
   const row2El=document.getElementById('focusLogRow2');
+  const figureNoteEl=document.getElementById('focusLogFigureNote');
   const time2El=document.getElementById('focusLogTime2');
+  const retryRowEl=document.getElementById('focusLogRetryRow');
+  const retryBtn=document.getElementById('focusLogRetry');
   let logMode='session';
   function refreshTime(){
     const showTotal = (logMode==='total');
@@ -84,7 +90,8 @@ const _focusSessionSec = deps.focusSessionSec;         // 읽는 함수 — app.
     const mini = win.classList.contains('mini');
     win.classList.toggle('total', showTotal);
     if(showTotal){
-      captionEl.textContent = mini?'누적':'누적 기록'; timeEl.textContent=formatHMS(_focusTotalSec());
+      const total = _focusTotalSec();   // 서버 답 전 · 실패면 null — 0 으로 그리지 않는다
+      captionEl.textContent = mini?'누적':'누적 기록'; timeEl.textContent = total === null ? '--:--:--' : formatHMS(total);
       if(cap2El) cap2El.textContent = mini?'오늘':'오늘 기록';
       if(time2El) time2El.textContent=formatHMS(_rolloverFocusToday());
       toggleBtn.textContent='현재기록';
@@ -92,10 +99,14 @@ const _focusSessionSec = deps.focusSessionSec;         // 읽는 함수 — app.
       captionEl.textContent = mini?'현재':'현재 기록'; timeEl.textContent=formatHMS(_focusSessionSec());
       toggleBtn.textContent='누적기록';
     }
+    if(retryRowEl) retryRowEl.style.display = (showTotal && progressLoad() === 'failed') ? 'flex' : 'none';
     // 둘째 줄(오늘 기록)은 누적 탭에서만 노출
     if(row2El) row2El.style.display = showTotal ? 'flex' : 'none';
+    // 피규어 모드면 «기록 안 쌓임» 안내 줄 — 매초 갱신이 다시 그리므로 켜고 끄면 1초 안에 따라온다(미니미에서는 CSS 가 숨김)
+    if(figureNoteEl) figureNoteEl.hidden = !figureMode();
   }
   function openLog(){
+    retryProgress();
     logMode='session';   // 열 때마다 "현재 기록"부터 보여줌
     // 지난번에 미니미로 두고 껐으면 그대로 미니미로 연다(persist=false: 이미 저장된 값이라 다시 안 씀)
     setMini(miniOn, {persist:false});
@@ -114,6 +125,7 @@ const _focusSessionSec = deps.focusSessionSec;         // 읽는 함수 — app.
     isOpen:()=>overlay.classList.contains('on'),
     close:closeLog,
   });
+  if(retryBtn) retryBtn.onclick=()=>{ Promise.resolve(retryProgress()).then(refreshTime); refreshTime(); };   // 다시 받는 동안 줄을 숨기고 끝나면 다시 그린다
   if(openBtn) openBtn.onclick=openLog;
   if(closeBtn) closeBtn.onclick=closeLog;
   /* _ ↔ □ — **같은 자리를 번갈아 쓰는 버튼 하나**다(요청). 평소엔 _ 만 보이고, 최소화한 뒤에는

@@ -83,6 +83,13 @@ const RCM = require(path.resolve(where('remote-config.js')));
       && f.minVersion.app === '0.13.0' && f.minVersion.room === '0.13.1' && f.roomServerTiming.joinWaitMs === 20000 && f.bannedWords[0] === '나쁜말', '★ 서버 묶음 모양 풀기 — room · app · user · bug · guestbook · gift 를 칸마다');
     chk(JSON.stringify(RCM.fieldsOf(null).minVersion) === '{}' && RCM.fieldsOf({ room: 3 }).roomLimits === undefined, '  ↳ 묶음이 없거나 객체가 아니면 그 칸은 없음(기본값으로)');
 
+    const BR = RCM.cleanBugReport;
+    chk(JSON.stringify(BR({ notice: '안내', link: 'https://open.kakao.com/o/a' })) === '{"notice":"안내","link":"https://open.kakao.com/o/a"}'
+      && JSON.stringify(BR(null)) === '{"notice":"","link":""}' && BR({ notice: 3, link: 5 }).notice === '' && BR({ notice: 3, link: 5 }).link === '' && RCM.fieldsOf({ room: {}, bug: { report: { link: 'x' } } }).bugReport.link === 'x',
+      '제보 안내 글 · 오픈카톡 기본 링크 — 글자 칸만(모양 판정은 쓰는 쪽 KAKAO_RE 한 곳) · bug.report 에서 풀기');
+    const br = RCM.createRemoteConfig(); br.apply({ room: {}, bug: { report: { notice: 'n', link: 'https://open.kakao.com/o/q' } } }, false);
+    chk(br.bugReportLink() === 'https://open.kakao.com/o/q' && RCM.createRemoteConfig().bugReportLink() === '', '  ↳ 받으면 bugReportLink() · 못 받았으면 빈 글자');
+
     const seen = [];
     s.onChange((c, k) => seen.push(k));
     chk(s.set('roomLimits', { workingroom: 500, togetherroom: 400 }) === true && s.roomLimitOf('togetherroom') === 400 && seen.join() === 'roomLimits', '값을 받으면 바로 반영 · 알림 한 번');
@@ -111,14 +118,16 @@ const RCM = require(path.resolve(where('remote-config.js')));
   {
     const BASE = 'https://api.together-working.com';
     chk(RCM.CONFIG_PATH === '/v1/config' && /^tw\./.test(RCM.CACHE_KEY) && RCM.CACHE_VERSION === 2, '경로 /v1/config · 저장 키 tw. 접두사 · 저장 모양 2판');
-    chk(RCM.REFRESH_MS === 5 * 60 * 1000 && RCM.STALE_MS === 60 * 1000 && API.TIMEOUT_MS <= 3000, '다시 읽기 5분 · 입장 때 1분 넘었으면 · API 3초 이하');
+    chk(RCM.STALE_MS === 60 * 1000 && API.TIMEOUT_MS <= 3000 && !('REFRESH_MS' in RCM), '입장 때 1분 넘었으면 다시 읽기 · API 3초 이하 · 주기 다시 읽기 없음');
+    { const oi = globalThis.setInterval; let n = 0; globalThis.setInterval = (...a) => { n++; return oi(...a); };
+      try{ const sx = RCM.createRemoteConfig(); await sx.start({ api: mkApi(mkFetch(() => okRes(DATA))), storage: memStore() }); }finally{ globalThis.setInterval = oi; }
+      chk(n === 0, '★ 켤 때 주기 타이머를 걸지 않는다(바뀌면 서버가 config 알림)'); }
 
     // ① 정상
     let st = memStore();
     let f = mkFetch(() => okRes(DATA));
     let s = RCM.createRemoteConfig();
     await s.start({ api: mkApi(f), storage: st });
-    s.stop();
     chk(f.calls.length === 1 && f.calls[0].url === BASE + '/v1/config' && !f.calls[0].init.headers.Authorization && f.calls[0].init.credentials === 'omit', '★ 켤 때 GET /v1/config 한 번 — 로그인 없이(토큰 · 쿠키 없음)');
     chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.minAppVer() === '0.13.0' && s.bugDailyMax() === 9 && s.answered() && s.source() === 'api', '  ↳ 받은 값 반영 · 첫 답 표시 · 출처 api');
     const saved = JSON.parse(st.m['tw.remoteConfig'] || 'null');
@@ -128,22 +137,18 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const down = mkFetch(() => { throw new TypeError('Failed to fetch'); });
     s = RCM.createRemoteConfig();
     await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) }));
-    s.stop();
     chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.bugDailyMax() === 9 && s.answered() && s.source() === 'cache',
       '★ API 를 못 받으면 저장값(방 상한 · 정원 · 스위치 · 제보 상한)');
     chk(s.minAppVer() === null && s.minRoomVer() === null, '★ 최소 버전은 저장값을 쓰지 않는다(못 받으면 막지 않는다)');
     s = RCM.createRemoteConfig();
     await quiet(() => s.start({ api: mkApi(down), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { roomMaxPeople: 30, roomLimits: { workingroom: 9 } } }) }) }));
-    s.stop();
     chk(s.maxPeople() === 10 && s.roomLimitOf('workingroom') === 300 && s.source() === 'default', '  ↳ 옛 판(평평한 칸 · 판 표시 없음)이 남긴 저장값은 읽지 않는다');
     s = RCM.createRemoteConfig();
     await quiet(() => s.start({ api: mkApi(down), storage: memStore() }));
-    s.stop();
     chk(s.roomLimitOf('workingroom') === 300 && s.maxPeople() === 10 && s.inviteGate() === true && s.bugDailyMax() === 5 && s.answered() && s.source() === 'default',
       '★ 처음 실행 · 못 받음 → 기본값');
     s = RCM.createRemoteConfig();
     await s.start({ api: null, storage: memStore() });
-    s.stop();
     chk(s.answered() && s.source() === 'default', '  ↳ API 통로가 없으면 묻지 않고 기본값(답은 받은 것으로)');
     // ③ 봉투 · 모양 · 시간 초과
     const bads = [
@@ -158,7 +163,6 @@ const RCM = require(path.resolve(where('remote-config.js')));
     for(const fn of bads){
       const s2 = RCM.createRemoteConfig();
       await quiet(() => s2.start({ api: mkApi(mkFetch(fn)), storage: memStore() }));
-      s2.stop();
       if(s2.maxPeople() !== 10 || !s2.answered() || s2.source() !== 'default') allOk = false;
     }
     chk(allOk, '실패 봉투 · 5xx · 봉투 아닌 응답 · data 없음 · 옛 모양(config 칸) · 점검(503) → 못 받음으로(기본값 · 답은 받음)');
@@ -167,7 +171,6 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const w0 = console.warn; console.warn = () => {};
     hang.start({ api: mkApi(() => new Promise(() => {})), storage: memStore() });
     const v = await hang.ready(null, 300);
-    hang.stop();
     chk(Date.now() - t0 < 1000 && v.roomMaxPeople === 10 && !hang.answered(), '★ API 가 멈춰도(답 없음) 부팅 대기는 ready 시간 상한까지만 — 기본값으로 간다');
     await new Promise((res) => setTimeout(res, API.TIMEOUT_MS + 200));
     console.warn = w0;
@@ -178,7 +181,6 @@ const RCM = require(path.resolve(where('remote-config.js')));
     f = mkFetch((url, init) => (init.headers['If-None-Match'] === '"c1"' ? { ok: false, status: 304, headers: { get: () => null }, json: async () => { throw new Error('본문 없음'); } } : okRes(DATA, 200, { ETag: '"c1"' })));
     s = RCM.createRemoteConfig();
     await s.start({ api: mkApi(f), storage: memStore(), now: () => t });
-    s.stop();
     await s.refresh({ maxAgeMs: RCM.STALE_MS });
     chk(f.calls.length === 1, '입장 때 refresh({ maxAgeMs }) — 1분 안이면 다시 묻지 않는다');
     t += RCM.STALE_MS + 1;
@@ -187,7 +189,6 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const ff = mkFetch(() => { throw new Error('down'); });
     const s3 = RCM.createRemoteConfig();
     await quiet(() => s3.start({ api: mkApi(ff), storage: memStore(), now: () => t }));
-    s3.stop();
     await quiet(() => s3.refresh({ maxAgeMs: RCM.STALE_MS }));
     chk(ff.calls.length === 1, '  ↳ API 가 멈췄을 때도 1분 안에는 다시 기다리지 않는다(입장마다 시간 초과를 겪지 않게)');
 
@@ -198,7 +199,6 @@ const RCM = require(path.resolve(where('remote-config.js')));
     const fn = mkFetch(() => { n++; return okRes(Object.assign({}, DATA, { room: Object.assign({}, DATA.room, { maxPeople: 10 + n }) })); });
     s = RCM.createRemoteConfig();
     await s.start({ api: mkApi(fn), storage: memStore(), now: () => t, rt });
-    s.stop();
     chk(typeof hooks.config === 'function' && Object.keys(hooks).join() === 'config', 'realtime 알림 — config 하나만 건다');
     await hooks.config({ kind: 'config', resync: false });
     await new Promise((res) => setTimeout(res, 0)); await s.refresh({ maxAgeMs: RCM.STALE_MS });
@@ -209,11 +209,9 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/_rc\.start\(\{\s*api: \(window\.TwApi && window\.TwApi\.client\) \|\| null,\s*storage: _lsOrNull\(\),\s*win: window,\s*rt: window\.TwRtHub\.store,/.test(fi),
       'firebase-init.js 가 store.start 로 앱 공통 API 통로(TwApi.client) · realtime 알림(TwRtHub.store)을 잇는다');
     chk(!/fallbackRead/.test(fi) && !/store\.watch/.test(fi) && !/'config\/(?!maintenance)/.test(fi) && !/ref\(db, 'config'\)/.test(fi), '  ↳ Firebase config 비상 읽기 · 구독 · 박힌 경로 없음(점검 칸만 — maintenance-gate.js)');
-    chk(/readMin: \(\) => _rc \? _rc\.ready\(null, MIN_APP_VER_WAIT_MS\)\.then\(\(\) => _rc\.minAppVer\(\)\) : null,/.test(fi) && fi.indexOf('_rc.start(') < fi.indexOf('createAppVersionGate({'),
-      '  ↳ 앱 최소 버전은 원격 설정의 첫 답(API 값만) — start 다음에 게이트');
+    chk(!/createAppVersionGate|MIN_APP_VER_WAIT_MS/.test(fi), '  ↳ 앱 최소 버전 판정은 firebase-init 에 없다 — 켜는 흐름(shared/update-flow.js)이 원격 설정 첫 답으로 한다(sim-update-flow.js)');
     chk(/async getMinRoomVer\(\)\{\s*if\(!_rc\) return null;\s*try\{ await _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\); \}catch\(_\)\{\}\s*return _rc\.minRoomVer\(\);/.test(fi),
       '  ↳ 방 입장 최소 버전 — 1분 넘었으면 다시 묻고 API 값(못 받으면 null = 통과)');
-    chk(/getDailyMax: \(\) => _rc \? _rc\.refresh\(\{ maxAgeMs: window\.TwRemoteConfig\.STALE_MS \}\)\.then\(\(\) => _rc\.bugDailyMax\(\)\) : null,/.test(fi), '  ↳ 제보 하루 상한도 원격 설정');
     chk(/const _cap = window\.TwRoomSettings\.roomCap\(_capturedMeta, \(window\.TwRemoteConfig && window\.TwRemoteConfig\.store\) \? window\.TwRemoteConfig\.store\.maxPeople\(\) : 10\);/.test(fi) && !/window\.MAX_PEOPLE/.test(fi),
       '  ↳ 정원 초과 자기 퇴장도 같은 store 의 정원(window.MAX_PEOPLE 안 씀)');
     chk(!/^\s*import\s/m.test(RC) && !/gstatic|getDatabase|require\(|fallbackRead/.test(strip(RC)), 'remote-config.js 는 Firebase 를 모른다(import · 비상 읽기 없음)');
@@ -256,7 +254,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     chk(/function roomLimitOf\(channel\)\{ const s = _rcStore\(\); return s \? s\.roomLimitOf\(channel\) : 300; \}/.test(a) &&
       /function maxPeople\(\)\{ const s = _rcStore\(\); return s \? s\.maxPeople\(\) : 10; \}/.test(a) &&
       /function inviteGateOn\(\)\{ const s = _rcStore\(\); return s \? s\.inviteGate\(\) : true; \}/.test(a), '  ↳ store 가 없어도(검사 · 옛 html) 기본값');
-    const create = takeFn(a, 'async function doCreateRoomInChannel(');
+    const create = takeFn(a, 'async function _createRoomInChannel(');
     chk(create && /const limit = roomLimitOf\(channel\);/.test(create) && /toast\(_channelFullMsg\(channel\)\)/.test(create), '방 만들기 — 설정 상한');
     chk(/const _openLimit = roomLimitOf\(_openCh\);/.test(a) && /toast\(_channelFullMsg\(_openCh\)\)/.test(a), 'Firebase 빈 방 열기 — 설정 상한');
     const counts = a.match(/\$\{roomLimitOf\('(workingroom|togetherroom)'\)\}/g) || [];
@@ -299,6 +297,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
       'let _pendingExtra = null;',
       'function _secretMusicOn(){ return false; }',
+      'function _roomJoined(){}',   // 🕘 «방에 연결됨» 알림(최근 방) — 이 검사가 보는 일과 무관
       ...need.map((h) => takeFn(a, h)),
       'return _startRoomOnServer;',
     ].join('\n');
@@ -383,6 +382,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
       "function _roomPrefixFor(ch){ return ch === 'togetherroom' ? 'PLAY-' : 'WORK-'; }",
       'let _pendingExtra = null;',
       'function _secretMusicOn(){ return false; }',
+      'function _roomJoined(){}',   // 🕘 «방에 연결됨» 알림(최근 방) — 이 검사가 보는 일과 무관
       ...['async function _startRoomOnServer(', 'function _roomServerJoinMessage(', 'function _channelFullMsg(', 'function roomLimitOf(', 'function maxPeople(', 'function _myRoomLicensed(',
         'function _secretOpenFields(', 'function _clearPendingCreate('].map((h) => takeFn(a, h)),
       'return _startRoomOnServer;',
@@ -481,21 +481,16 @@ const RCM = require(path.resolve(where('remote-config.js')));
       let M; try{ M = loadRc(src); }catch(_){ return 99; }
       try{
         const s1 = M.createRemoteConfig();
-        await s1.start({ api: mkApi(mkFetch(() => okRes(DATA))), storage: memStore() }); s1.stop();
-        ok(s1.maxPeople() === 12 && s1.minAppVer() === '0.13.0' && s1.minRoomVer() === '0.13.1' && s1.clapDailyMax() === 7 && s1.giftDailySendMax() === 3 && s1.inviteGate() === false);
+        await s1.start({ api: mkApi(mkFetch(() => okRes(DATA))), storage: memStore() });        ok(s1.maxPeople() === 12 && s1.minAppVer() === '0.13.0' && s1.minRoomVer() === '0.13.1' && s1.clapDailyMax() === 7 && s1.giftDailySendMax() === 3 && s1.inviteGate() === false);
         const s2 = M.createRemoteConfig();
-        await s2.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) }); s2.stop();
-        ok(s2.maxPeople() === 12 && s2.minAppVer() === null);
+        await s2.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ v: 2, at: 1, data: DATA }) }) });        ok(s2.maxPeople() === 12 && s2.minAppVer() === null);
         const s3 = M.createRemoteConfig();
-        await s3.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { room: { maxPeople: 30 } } }) }) }); s3.stop();
-        ok(s3.maxPeople() === 10);
+        await s3.start({ api: mkApi(mkFetch(() => { throw new TypeError('x'); })), storage: memStore({ 'tw.remoteConfig': JSON.stringify({ data: { room: { maxPeople: 30 } } }) }) });        ok(s3.maxPeople() === 10);
         const s4 = M.createRemoteConfig();
-        await s4.start({ api: mkApi(mkFetch(() => okRes({ config: { roomMaxPeople: 30 } }))), storage: memStore() }); s4.stop();
-        ok(s4.source() === 'default');
+        await s4.start({ api: mkApi(mkFetch(() => okRes({ config: { roomMaxPeople: 30 } }))), storage: memStore() });        ok(s4.source() === 'default');
         const hooks = {}; let n = 0;
         const s5 = M.createRemoteConfig();
-        await s5.start({ api: mkApi(mkFetch(() => { n++; return okRes(DATA); })), storage: memStore(), rt: { on: (k, fn) => { hooks[k] = fn; } } }); s5.stop();
-        if(hooks.config) await hooks.config({}); await new Promise((r) => setTimeout(r, 0));
+        await s5.start({ api: mkApi(mkFetch(() => { n++; return okRes(DATA); })), storage: memStore(), rt: { on: (k, fn) => { hooks[k] = fn; } } });        if(hooks.config) await hooks.config({}); await new Promise((r) => setTimeout(r, 0));
         ok(n === 2);
         ok(M.cleanTiming({ joinWaitMs: 2999 }).joinWaitMs === 10000 && M.cleanClapDailyMax(101) === 5);
       }catch(_){ bad++; }

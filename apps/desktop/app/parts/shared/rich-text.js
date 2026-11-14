@@ -1,9 +1,6 @@
 /* rich-text.js — 🛡️ 리치 텍스트 sanitize · 저장 · 글자 수
    app.js «🛡️ 리치 텍스트 sanitize · 저장 · 글자 수» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 42번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 0줄 —
-     바꾼 이름 없음.
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   옮긴 뒤 씻기를 DOMPurify 로 바꿨다(deps.DOMPurify).
    ★ app.js 함수 1개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: _mhLoadRT · _mhSaveRT · _mhStripHtml · _mhUpdateRTCount — app.js 는 richTextMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -13,6 +10,7 @@
 
 function createRichText(deps){
 const escHtml = deps.escHtml;
+const getDOMPurify = deps.DOMPurify;   // () => window.DOMPurify — vendor/dompurify 를 rich-text.js 보다 먼저 싣는다
 // ★ 마이홈 4: 리치 텍스트 sanitize / load / count 헬퍼
 //   허용 태그: B/STRONG, I/EM, U, SPAN·DIV·P(style), FONT(color, size — execCommand가 만듦),
 //   BR, A(href), IMG(src, alt). 그 외 태그·이벤트 속성은 전부 제거.
@@ -25,7 +23,7 @@ const _MH_ALLOWED_TAGS = new Set(['B','STRONG','I','EM','U','SPAN','FONT','BR','
      (실제 크로미움으로 재현: 글자색·크기·굵게를 먼저 준 글자는 전부 이 모양이다.) 그런데 여기 목록에서
      FONT·B 등에는 style 이 없어서 저장할 때 지워졌다. 띄어쓰기는 보통 그런 태그 밖이라 span 으로 남았다.
    ★ 서식 태그 전부에 style 을 연다 — 값은 아래 style 필터(다섯 속성만)를 그대로 거치므로 위험이 늘지 않는다.
-   ⚠️ 이 선언은 **한 줄**로 둔다 — sim-mh-sanitize.js 가 줄 단위(cutLine)로 떼어 가서 돌린다. */
+   ⚠️ 이 선언은 **한 줄**로 둔다 — sim-fix-0923.js 가 정규식으로 떼어 간다. */
 const _MH_ALLOWED_ATTRS = { A:['href'], IMG:['src','alt'], FONT:['color','size','style'], SPAN:['style'], DIV:['style'], P:['style'], B:['style'], STRONG:['style'], I:['style'], EM:['style'], U:['style'] };
 /* 🖼️ 남의 bio·게시글 속 `<img>` 를 어디까지 허용하는가 — **정책은 이 한 줄에만 있다.**
      'any'          : http(s) 전부 (지금 값). 남의 글을 여는 것만으로 그 서버에 요청이 나간다 = IP 노출
@@ -42,43 +40,43 @@ function _mhImgSrcOk(v){
   try{ return _MH_IMG_HOSTS.some(re => re.test(new URL(String(v), 'https://x.invalid').hostname)); }
   catch(e){ return false; }
 }
-function _mhSanitizeNode(node){
-  if(node.nodeType===3) return;   // 텍스트 노드 그대로
-  if(node.nodeType!==1){ node.remove(); return; }
-  const tag = node.tagName;
-  if(!_MH_ALLOWED_TAGS.has(tag)){
-    // 허용 안 된 태그 → 자식만 남기고 자기 자신은 언래핑
-    while(node.firstChild) node.parentNode.insertBefore(node.firstChild, node);
-    node.remove();
-    return;
-  }
-  // 🖼️ IMG 정책이 'none' 이면 언래핑이 아니라 삭제다 — 자식이 없는 태그라 남길 것이 없다
-  if(tag==='IMG' && _MH_IMG_SRC==='none'){ node.remove(); return; }
-  // 허용된 태그도 속성은 화이트리스트만 남김 (특히 on* 이벤트/스타일의 위험한 값 제거)
-  const allowed = _MH_ALLOWED_ATTRS[tag] || [];
-  Array.from(node.attributes).forEach(a=>{
-    const name=a.name.toLowerCase();
-    if(!allowed.includes(name)){ node.removeAttribute(a.name); return; }
-    // href/src는 http(s) / mailto만 허용 (javascript: 등 스크립트 스킴 차단)
-    if((name==='href'||name==='src') && !/^(https?:|mailto:)/i.test(a.value)){
-      node.removeAttribute(a.name);
-      return;
-    }
-    // 🖼️ 스킴이 통과했어도 IMG src 는 정책(_MH_IMG_SRC)을 한 번 더 본다
-    if(name==='src' && tag==='IMG' && !_mhImgSrcOk(a.value)){ node.removeAttribute(a.name); return; }
-    // style은 color·font-size만 허용
-    if(name==='style'){
-      const clean = a.value.split(';').map(s=>s.trim()).filter(s=>/^(color|background-color|font-size|font-weight|font-style)\s*:/i.test(s)).join(';');
-      if(clean) node.setAttribute('style', clean); else node.removeAttribute('style');
+/* 🛡️ 씻기는 DOMPurify(검증된 라이브러리 · vendor/dompurify 판 고정)가 한다 — 위 허용 목록 · 정책을 넘길 뿐이다.
+   ⚠️ DOM 을 손으로 고치는 씻기를 다시 만들지 말 것.
+   ⚠️ DOMPurify 가 없거나 실패하면 원본을 돌려주지 않는다(부르는 쪽이 글자만 남긴다). */
+const _MH_URI_OK = /^(?:https?:|mailto:)/i;
+const _MH_STYLE_OK = /^(color|background-color|font-size|font-weight|font-style)\s*:/i;
+let _mhPurifier = null;
+function _mhPurifierOf(){
+  if(_mhPurifier) return _mhPurifier;
+  const make = getDOMPurify();
+  if(!make) throw new Error('DOMPurify 없음');
+  const p = make(window);   // 이 모듈만의 판 — 걸어 둔 고리가 다른 곳에 새지 않게
+  p.addHook('uponSanitizeAttribute', (node, data) => {
+    const tag = node.nodeName;
+    const name = data.attrName;
+    if(!(_MH_ALLOWED_ATTRS[tag] || []).includes(name)){ data.keepAttr = false; return; }
+    if((name === 'href' || name === 'src') && !_MH_URI_OK.test(data.attrValue)){ data.keepAttr = false; return; }
+    if(name === 'src' && tag === 'IMG' && !_mhImgSrcOk(data.attrValue)){ data.keepAttr = false; return; }
+    if(name === 'style'){
+      const clean = String(data.attrValue).split(';').map(x => x.trim()).filter(x => _MH_STYLE_OK.test(x)).join(';');
+      if(clean) data.attrValue = clean; else data.keepAttr = false;
     }
   });
-  // 자식 재귀 sanitize (복사본으로 순회 — 도중 삭제 방지)
-  Array.from(node.childNodes).forEach(_mhSanitizeNode);
+  _mhPurifier = p;
+  return p;
+}
+const _MH_PURIFY_TAGS = Array.from(_MH_ALLOWED_TAGS).filter(t => !(t === 'IMG' && _MH_IMG_SRC === 'none')).map(t => t.toLowerCase());
+const _MH_PURIFY_ATTRS = Array.from(new Set(Object.values(_MH_ALLOWED_ATTRS).flat()));
+function _mhPurify(html){
+  return _mhPurifierOf().sanitize(String(html), {
+    ALLOWED_TAGS: _MH_PURIFY_TAGS, ALLOWED_ATTR: _MH_PURIFY_ATTRS, ALLOWED_URI_REGEXP: _MH_URI_OK,
+    ADD_URI_SAFE_ATTR: ['color', 'size'],   // FONT 의 color · size 는 주소가 아니다 — 안 넣으면 주소 규칙에 걸려 글자색 · 크기가 지워진다
+    ALLOW_DATA_ATTR: false, ALLOW_ARIA_ATTR: false, KEEP_CONTENT: true,
+  });
 }
 // 편집기에서 HTML 뽑아 sanitize + 글자수 하드 리밋(순수 텍스트 기준으로 자름)
 function _mhSaveRT(el, maxChars){
-  const tmp = document.createElement('div'); tmp.innerHTML = el.innerHTML;
-  Array.from(tmp.childNodes).forEach(_mhSanitizeNode);
+  const tmp = document.createElement('div'); tmp.innerHTML = _mhPurify(el.innerHTML);
   // 글자수는 텍스트 기준. 초과분은 뒤에서 잘라 이미지·태그 구조를 깨트리지 않게 함.
   if(tmp.innerText.length > maxChars){
     // 간단하게: 텍스트 노드를 앞에서부터 세다가 초과 지점에서 나머지 텍스트 노드 제거
@@ -111,30 +109,14 @@ function _mhSaveRT(el, maxChars){
 function _mhHealEntities(s){
   return String(s).replace(/&(?:amp;)+((?:[a-z]+|#\d+);)/gi, '&$1');
 }
-/* 🛡️ 저장된 HTML 문자열을 sanitize 해서 문자열로 돌려준다 — **읽는 쪽**용.
-   [왜 있나] 예전엔 sanitize 가 `_mhSaveRT`(저장) 한쪽에만 걸려 있었다. 그런데 `_mhLoadRT` 가
-     그리는 `_myHomeData` 는 **남의 마이홈을 볼 때 남의 데이터**이고, RTDB `users/$uid/home` 은
-     `.write:true` 에 타입·길이 검사뿐이다(앱에 Firebase Auth 가 없어 소유자를 증명할 방법이
-     없다 — 규칙으로는 못 막는다). 즉 저장 경로를 안 거치고 심은 HTML 이 보는 사람 화면에서
-     그대로 실행됐다. 저장형 XSS. **읽는 쪽 sanitize 가 이 구조에서 유일한 방어선이다.**
-
-   ⚠️ `createElement('div')` + `innerHTML` 로 하면 **안 된다.** 문서에 안 붙은 div 라도 크롬은
-     그 안의 `<img>` 를 로드한다 — `onerror` 가 sanitize 보다 먼저 터지고 IP 도 그때 나간다.
-     `DOMParser` 가 만든 문서는 브라우징 컨텍스트가 없어 로드도 실행도 일어나지 않는다.
-     (`_mhStripHtml` 이 먼저 같은 이유로 DOMParser 를 쓰고 있다)
-   ⚠️ 그래서 `_mhSaveRT` 는 **안 바꿨다.** 그쪽은 이미 화면에 붙어 있는 편집기(`el.innerHTML`)를
-     읽으므로 새로 노출될 것이 없고, `innerText` 로 글자수를 세는데 DOMParser 문서에는
-     레이아웃이 없어 `innerText` 가 안 나온다.
-   ⚠️ 실패하면 **원본을 돌려주지 않는다.** 태그를 걷어낸 글자만 돌려준다 — sanitize 못 한 HTML 을
-     그리는 것이 이 함수가 막으려던 바로 그 일이다. */
+/* 🛡️ 저장된 HTML 문자열을 씻어 문자열로 돌려준다 — **읽는 쪽**용(남의 bio · 게시글도 이 길로 그린다 — 저장 규칙만으로는 못 막아 이것이 방어선).
+   ⚠️ 씻기 전에 `createElement('div').innerHTML` 에 넣지 않는다 — 그림이 씻기 전에 불린다(DOMPurify 는 브라우징 컨텍스트 없는 문서로 읽는다).
+   ⚠️ 실패하면 원본을 돌려주지 않는다 — 태그를 걷은 글자만. */
 function _mhSanitizeHtml(html){
   const str = String(html==null ? '' : html);
   if(str.indexOf('<') < 0) return str;   // 태그가 없으면 그릴 태그도 없다 (엔티티는 글자로만 풀린다)
   try{
-    const doc = new DOMParser().parseFromString(str, 'text/html');
-    if(!doc || !doc.body) throw new Error('DOMParser body 없음');
-    Array.from(doc.body.childNodes).forEach(_mhSanitizeNode);
-    return doc.body.innerHTML;
+    return _mhPurify(str);   // DOMPurify 는 브라우징 컨텍스트가 없는 문서로 읽는다 — 씻기 전에 그림이 불리지 않는다
   }catch(e){
     console.warn('[마이홈] sanitize 실패 — 태그를 걷어내고 글자만 표시', e);
     return escHtml(str.replace(/<[^>]*>/g, ''));

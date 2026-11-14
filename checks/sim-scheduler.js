@@ -19,7 +19,7 @@ let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['scheduler.js', 'schedule-api.js', 'api-errors.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'account.js', 'myhome-init.js', 'myhome-visit.js'];
+const need = ['scheduler.js', 'schedule-api.js', 'image-bytes.js', 'api-errors.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js', 'account.js', 'myhome-init.js', 'myhome-visit.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['scheduler.js'];
@@ -120,6 +120,7 @@ function mkEnv(opt){
   const apiMod = {}; new Function('window', 'module', opt.apiSrc || SRC['schedule-api.js'])(apiMod, undefined);
   const scheduleApi = apiMod.TwScheduleApi.createScheduleApi({
     authed, newId: () => 'req-abcdefgh-' + authed.log.length,
+    imageBytes: (() => { const w = {}; new Function('window', 'module', SRC['image-bytes.js'])(w, undefined); return w.TwImageBytes; })(),
     warn: noop,
   });
   const errMod = {}; new Function('window', 'module', SRC['api-errors.js'])(errMod, undefined);
@@ -746,7 +747,7 @@ await sec('── 8. app.js 배선 · html', async () => {
   chk(left.length === 0, '정의는 모듈에만 — app.js 에 같은 이름의 함수가 없다' + (left.length ? ' (남음: ' + left.join(' ') + ')' : ''));
   chk(NAMES.every(n => new RegExp('function ' + n + '\\(').test(MOD)), '  모듈에 다 있다');
   chk(!/═+ 📅 스케줄러|═+ 🔔 일정 알림/.test(APP) && /═+ 📅 스케줄러/.test(MOD) && /═+ 🔔 일정 알림/.test(MOD), '구역 머리 둘이 모듈로 옮겨 갔다');
-  const iC = APP.indexOf('MhScheduler.createScheduler('), iV = APP.indexOf('let _mhViewingUserId'), iB = APP.indexOf('TwFriendManage.createFriendManage(');
+  const iC = APP.indexOf('MhScheduler.createScheduler('), iV = APP.indexOf('const myhomeStoreMod = '), iB = APP.indexOf('TwFriendManage.createFriendManage(');
   chk(iC > 0 && iC < iB && iC < iV, 'createScheduler 는 원래 자리(👥 친구 관리 연결 바로 앞)에서 부른다');
   chk(/^const mhScheduler = MhScheduler\.createScheduler\(\{/m.test(APP) && !/\bSCHEDULER_OFF\b/.test(APP), '  빈 껍데기 없이 만든다');
   chk(/viewingUserId: \(\)=>(?:mhStateMod\.)?_mhViewingUserId/.test(APP) && /myHomeFriends: \(\)=>_myHomeFriends/.test(APP), '  다시 대입되는 값은 읽는 함수로 넘긴다');

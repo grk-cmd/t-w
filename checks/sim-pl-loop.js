@@ -138,17 +138,19 @@ function cutConst(src, name){
 /* main 쪽 무대 — bgmForcePlay 와 setBgmLoop IPC 를 실물로 싣는다. 감시 루프가 부르는 공용 조각(광고 판정 · 신호 주인 · 반복 여부)도 같이. */
 const FORCE = cutFn(MAIN, 'bgmForcePlay');
 const SHARED = [cutConst(MAIN, 'BGM_IS_AD_JS'), cutFn(MAIN, 'bgmSignalChannel'), cutFn(MAIN, 'bgmLoopOn')];
+const EXEC = cutFn(MAIN, 'bgmExec');   // 페이지에 글을 넣는 길도 실물로
 const IPC_LOOP = cutIpc(MAIN, 'companion:setBgmLoop');
 function makeMain(page, { mode = 'playlist', loop = false } = {}){
   const handlers = {};
   const st = {
     bgmMode: mode, bgmVolume: 0.5, bgmPlLoop: loop, console: { log(){}, warn(){} },
-    bgmView: page ? { webContents: { isDestroyed: () => false,
-      executeJavaScript: code => { page.run(code); return Promise.resolve(); } } } : null,
+    /* webContents.executeJavaScript 는 로딩이 안 끝나면 답이 없는 Electron 처럼 — 주입은 mainFrame 으로 가야 돈다 */
+    bgmView: page ? { webContents: { isDestroyed: () => false, executeJavaScript: () => new Promise(() => {}),
+      mainFrame: { executeJavaScript: code => { page.run(code); return Promise.resolve(); } } } } : null,
     ipcMain: { on: (ch, fn) => { handlers[ch] = fn; }, handle(){} },
   };
   vm.createContext(st);
-  vm.runInContext([...SHARED, FORCE, IPC_LOOP].filter(Boolean).join('\n'), st, { filename: 'main.js:bgm' });
+  vm.runInContext([EXEC, ...SHARED, FORCE, IPC_LOOP].filter(Boolean).join('\n'), st, { filename: 'main.js:bgm' });
   st.handlers = handlers;
   return st;
 }
@@ -162,11 +164,12 @@ function makeListenMain(page, { mode = 'listen', loop = false } = {}){
   const st = {
     bgmMode: mode, bgmVolume: 0.5, bgmPlLoop: loop, URL, Math, Number, isFinite, String, console: { log(){}, warn(){} },
     bgmOpen: (url, title, m) => opened.push([url, title, m]),
-    bgmView: page ? { webContents: { isDestroyed: () => false, executeJavaScript: code => { page.run(code); return Promise.resolve(); } } } : null,
+    bgmView: page ? { webContents: { isDestroyed: () => false, executeJavaScript: () => new Promise(() => {}),
+      mainFrame: { executeJavaScript: code => { page.run(code); return Promise.resolve(); } } } } : null,
     ipcMain: { on: (ch, fn) => { handlers[ch] = fn; }, handle(){} },
   };
   vm.createContext(st);
-  vm.runInContext([...SHARED, FORCE, IPC_LOOP, ...L_FNS, IPC_OPEN_L, IPC_SEEK].filter(Boolean).join('\n'), st, { filename: 'main.js:listen' });
+  vm.runInContext([EXEC, ...SHARED, FORCE, IPC_LOOP, ...L_FNS, IPC_OPEN_L, IPC_SEEK].filter(Boolean).join('\n'), st, { filename: 'main.js:listen' });
   st.handlers = handlers; st.opened = opened;
   return st;
 }
@@ -484,16 +487,16 @@ else {
   {
     const brokeLoop = MAIN.replace("function bgmLoopOn(){ return bgmPlLoop && bgmMode === 'playlist'; }", 'function bgmLoopOn(){ return bgmPlLoop; }');
     const st = { bgmMode: 'listen', bgmVolume: 0.5, bgmPlLoop: true, console: { log(){} }, bgmView: null, ipcMain: { on(){} } };
-    const P = makePage(20.3); st.bgmView = { webContents: { isDestroyed: () => false, executeJavaScript: c => { P.run(c); return Promise.resolve(); } } };
+    const P = makePage(20.3); st.bgmView = { webContents: { isDestroyed: () => false, mainFrame: { executeJavaScript: c => { P.run(c); return Promise.resolve(); } } } };
     vm.createContext(st);
-    vm.runInContext([cutConst(brokeLoop, 'BGM_IS_AD_JS'), cutFn(brokeLoop, 'bgmSignalChannel'), cutFn(brokeLoop, 'bgmLoopOn'), cutFn(brokeLoop, 'bgmForcePlay')].join('\n'), st);
+    vm.runInContext([cutFn(brokeLoop, 'bgmExec'), cutConst(brokeLoop, 'BGM_IS_AD_JS'), cutFn(brokeLoop, 'bgmSignalChannel'), cutFn(brokeLoop, 'bgmLoopOn'), cutFn(brokeLoop, 'bgmForcePlay')].join('\n'), st);
     st.bgmForcePlay(); P.steps(60);
     chk(brokeLoop !== MAIN && P.count(/^TWPL:ended$/) === 0, '깨 보기: 같이 듣기에서 반복을 안 끄면 곡 끝 신호가 사라진다 (4-1 이 잡는다)');
     const brokeSrc = MAIN.replace(" if(__twIsAd()) return; var v=", ' var v=');
-    const brokeAd = cutConst(brokeSrc, 'BGM_IS_AD_JS') + '\n' + cutIpc(brokeSrc, 'companion:bgmSeek');
+    const brokeAd = cutFn(brokeSrc, 'bgmExec') + '\n' + cutConst(brokeSrc, 'BGM_IS_AD_JS') + '\n' + cutIpc(brokeSrc, 'companion:bgmSeek');
     const st2 = { bgmMode: 'listen', Math, Number, isFinite, ipcMain: { on: (c, f) => { st2.h = f; } } };
     const P2 = makePage(300); const ad = makeVideo(15); P2.ad = true; P2.video = ad; ad.currentTime = 3;
-    st2.bgmView = { webContents: { isDestroyed: () => false, executeJavaScript: c => { P2.run(c); return Promise.resolve(); } } };
+    st2.bgmView = { webContents: { isDestroyed: () => false, mainFrame: { executeJavaScript: c => { P2.run(c); return Promise.resolve(); } } } };
     vm.createContext(st2); vm.runInContext(brokeAd, st2); st2.h({}, 100);
     chk(brokeSrc !== MAIN && ad.currentTime === 100, '깨 보기: 광고 확인을 빼면 광고 위치를 감는다 (4-3 이 잡는다)');
     chk((MAIN.match(/ad-showing/g) || []).length === 1 && (MAIN.match(/__twIsAd\(\)/g) || []).length >= 3,

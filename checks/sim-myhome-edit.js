@@ -4,7 +4,7 @@
    동작은 그대로여야 한다 — 여기서는 «옮긴 것» 을 가짜 DOM 위에서 통째로 굴린다.
    ・1절: 만들 때 — 싣기만 하면 window.TwMyHomeEdit 뿐 · 만들면 window 고리 · BGM 창 구독 · renderMyHomeStickers 감싸기 ·
           app.js 뒤쪽 const(USER_NAME_MAX)는 만들 때 읽지 않는다 · DOM 이 없어도 서지 않는다
-   ・2절: 자동저장 — 관람 중 · 불러오기 전 · 계정 바뀜(불러온 상태 무효) 이면 안 쓴다 · 쓰면 글 두 칸을 담아 saveMyHome · 거부 이유 · 경고 · 실패
+   ・2절: 자동저장 — 관람 중 · 받기 전이면 글 칸을 안 넘긴다 · 쓰면 글 두 칸을 상태 주인(myhome-store.js)에 넘기고 못 올린 고침을 한 번 보낸다(저장 · 실패 번호 · 계정 바뀜은 상태 주인 몫 — sim-myhome-store)
    ・3절: 프로필 사진 · 글 서식 툴바(굵게 · 링크 — http 만) · 색 팝업(HEX · 최근 색 · 초기화)
    ・4절: 새 스티커 붙이기 · 스티커 끌기(이동거리 · 창 안으로 · 놓으면 저장 · 관람 중 막힘) · [+ 스티커] 버튼을 가린 스티커는 버튼으로 통과 · 삭제 버튼에 저장 한 번 더
    ・5절: 닉네임 · 게시글 제목 인라인 편집 — Enter 저장 · Esc 취소 · 관람 중 막힘 · 길이 상한
@@ -87,7 +87,7 @@ function mkEnv(opt){
     toasts: [], saves: [], saveRes: undefined, saveThrows: false, commitsName: [], renders: 0, origRenders: 0, page: 0, clicks: [], exec: [],
     prompts: [], promptAns: [], viewing: opt.viewing || null, loaded: opt.loaded !== false, homeUid: 'u1', uid: 'u1', setLoaded: [],
     dragDist: 0, dragSets: [], premium: !!opt.premium, admin: false, userName: '나', nameMaxReady: !opt.lateConst, sticker: { open: 0, render: 0 },
-    timers: [], docL: {}, els: {}, ls: {}, comp: [], compCb: {}, rt: [], uploads: [], opened: [], themeChild: [], watchedChild: [], raf: [],
+    timers: [], docL: {}, els: {}, ls: {}, comp: [], compCb: {}, rt: [], uploads: [], opened: [], themeChild: [], watchedChild: [], tipChild: [], raf: [],
     data: Object.assign({ avatar: null, bio: '', postTitle: '', post: '', stickers: {}, bgm: null, bg: null, theme: null }, opt.data || {}),
   };
   /* 입력칸(편집 중에만 생기는 것)은 저절로 만들지 않는다 — «이미 편집 중» 판정이 그 칸이 있는지로 갈린다 */
@@ -111,6 +111,19 @@ function mkEnv(opt){
     if(k === 'pickImage') return async () => { env.comp.push(['pickImage']); return env.pickAns === undefined ? 'data:src' : env.pickAns; };
     return (...a) => { env.comp.push([k, ...a]); };
   } });
+  /* 가짜 상태 주인 — 진짜(myhome-store.js)는 sim-myhome-store 가 본다. 여기서는 동작 함수가 불린 것을 «저장» 으로 세고 화면 값(env.data)을 그대로 고친다 */
+  env.store = {
+    page: () => env.data, canEdit: () => env.loaded && !env.viewing && !(env.ctx && env.ctx._mhPreviewMode), mine: () => ({ load: env.loaded ? 'ready' : 'idle' }), LOAD: { READY: 'ready' },
+    setFields(map){ const m = JSON.parse(JSON.stringify(map || {})); if(!env.store.canEdit()) return Promise.resolve('locked'); if(Object.keys(m).length) env.saves.push(['setFields', m]); Object.assign(env.data, m); return Promise.resolve('ok'); },
+    setField(k, v){ return env.store.setFields({ [k]: v }); },
+    save(){ env.saveCalls = (env.saveCalls || 0) + 1; return Promise.resolve('ok'); },
+    setAvatar(d){ env.saves.push(['setAvatar', d]); env.data.avatar = d; return Promise.resolve('ok'); },
+    addSticker(img, o){ env.saves.push(['addSticker', img, o]); const sid = 'n' + env.saves.length; env.data.stickers = env.data.stickers || {}; env.data.stickers[sid] = Object.assign({ img: 'https://st/sticker' }, o); return Promise.resolve({ status: 'ok', sid }); },
+    editSticker(sid, patch){ env.saves.push(['editSticker', sid, patch]); const s = (env.data.stickers || {})[sid]; if(s) Object.assign(s, patch); return Promise.resolve('ok'); },
+    setDesign(d){ env.saves.push(['setDesign', JSON.parse(JSON.stringify(d))]); if(Object.prototype.hasOwnProperty.call(d, 'theme')) env.data.theme = d.theme && Object.keys(d.theme).length ? d.theme : null; if(d.presets) env.data.themePresets = d.presets; if(typeof d.presetCur === 'number') env.data.themePresetCur = d.presetCur; if(Object.prototype.hasOwnProperty.call(d, 'bg')) env.data.bg = d.bg; return Promise.resolve('ok'); },
+    resetBg(){ env.saves.push(['resetBg']); env.data.bg = null; env.data.theme = null; return Promise.resolve('ok'); },
+    upload(key, url){ env.uploads.push([key]); return Promise.resolve({ status: env.uploadStatus || 'ok', url: 'https://st/' + String(key).replace(/[^\w]/g, '_') }); },
+  };
   const ctx = {
     Math, JSON, String, Number, Array, Object, Boolean, Set, WeakMap, Date, parseInt, Error, Promise,
     console: { warn(){}, log(){}, error(){} },
@@ -135,8 +148,6 @@ function mkEnv(opt){
       Object.defineProperty(this, 'src', { get: () => s, set: (v) => { s = v; if(self.onload) self.onload(); } }); },
     FileReader: function(){ this.readAsDataURL = (f) => { this.onload({ target: { result: 'data:file;' + f.name } }); }; },
     firebaseAPI: {
-      saveMyHome: async (uid, d) => { if(env.saveThrows) throw new Error('망'); env.saves.push([uid, JSON.parse(JSON.stringify(d))]); return env.saveRes; },
-      uploadUserImage: async (uid, slot, url) => { env.uploads.push([uid, slot]); return { ok: true, url: 'https://st/' + slot }; },
     },
     open: (u, name, feat) => { env.opened.push([name, feat]); if(opt.noWin) return null; env.child = mkChildWin(env); return env.child; },
     _mhPreviewMode: false,
@@ -156,30 +167,26 @@ function mkEnv(opt){
   env.origRender = () => { env.origRenders++; };
   env.curRender = env.origRender;
   env.mk = () => ctx.TwMyHomeEdit.createMyHomeEdit({
-    homeUploadCache: (() => { const t = ['upload-cache.js', 'parts/shared/upload-cache.js', 'app/parts/shared/upload-cache.js', '../app/parts/shared/upload-cache.js'].map((f) => { try { return require('fs').readFileSync(f, 'utf8'); } catch (_) { return null; } }).find(Boolean); const m = { exports: {} }; new Function('module', 'window', t)(m, undefined); return m.exports.createUploadCache(); })(),
     toast: (m) => env.toasts.push(m),
     asyncPrompt: async (o) => { env.prompts.push(o); return env.promptAns.length ? env.promptAns.shift() : null; },
     renderMyHomePage: () => { env.page++; },
     renderMyHomeStickers: (...a) => env.curRender(...a),
-    getRenderMyHomeStickers: () => env.curRender,
-    setRenderMyHomeStickers: (f) => { env.curRender = f; env.wrapped = (env.wrapped || 0) + 1; },
     mhSaveRT: (el, max) => 'RT:' + el.id + ':' + max,
     mhUpdateRTCount: (id) => env.rt.push(id),
-    mhClampStickerPos: (s) => { s.x = Math.max(0, Math.min(500, s.x || 0)); s.y = Math.max(0, Math.min(300, s.y || 0)); env.clamped = (env.clamped || 0) + 1; },
+    mhClampStickerPos: (s) => { s.x = Math.max(0, Math.min(500, s.x || 0)); s.y = Math.max(0, Math.min(300, s.y || 0)); env.clamped = (env.clamped || 0) + 1; return s; },
     mhViewingDisplayName: () => '친구이름',
     mhApplyVisitUI: () => { env.visitUI = (env.visitUI || 0) + 1; },
     ytVideoId: (u) => { const m = /youtu\.?be[^/]*\/(?:watch\?v=)?([\w-]+)/.exec(u || ''); return m ? m[1] : null; },
     applyThemeToChildDoc: (d) => env.themeChild.push(d),
     watchMaintenanceInput: (d) => env.watchedChild.push(d),
+    installMacTip: (d, w) => env.tipChild.push([d, w]),
     commitUserName: (v) => env.commitsName.push(v),
     getDisplayName: () => env.userName === '나' ? '(이름 없음)' : env.userName,
     getUserName: () => env.userName,
     getMyUserId: () => env.uid,
     myHomeData: () => env.data,
     mhViewingUserId: () => env.viewing,
-    myHomeLoaded: () => env.loaded,
-    setMyHomeLoaded: (v) => { env.loaded = v; env.setLoaded.push(v); },
-    myHomeUid: () => env.homeUid,
+    myhomeStore: env.store,
     mhStickerDragDist: () => env.dragDist,
     setMhStickerDragDist: (v) => { env.dragDist = v; env.dragSets.push(v); },
     isPremium: () => env.premium,
@@ -215,7 +222,7 @@ await sec('── 1. 만들 때', () => {
   chk(e.H.call(e.K.BGM_PLAYING) === false, '  고리판으로 물으면 같은 묶음이 답한다(처음엔 BGM 이 안 나는 중)');
   chk(e.ctx.commitMyHomePage === M.commit && e.ctx._mhApplyTheme === M.applyTheme && e.ctx._bgmDestroy === M.bgmDestroy && e.ctx._mhOpenColorPopup === M.openColorPopup, '  고리와 반환값은 같은 함수');
   chk(typeof e.compCb.onBgmClosed === 'function' && typeof e.compCb.onBgmMode === 'function', 'BGM 창 닫힘 · 주인 바뀜을 구독한다');
-  chk(e.wrapped === 1 && e.curRender !== e.origRender, 'renderMyHomeStickers 를 감싸 다시 대입한다(한 번)');
+  chk(e.curRender === e.origRender && !e.wrapped, 'renderMyHomeStickers 는 감싸 다시 대입하지 않는다(스티커 삭제 저장은 상태 주인 removeSticker)');
   chk(typeof e.els.mhAvatarBig._L.click[0] === 'function' && e.els.mhBioBox._L.blur.length === 1 && e.els.mhPostBox._L.input.length === 1, '  사진 · 글 두 칸 · 툴바를 잇는다');
   const n = mkEnv({ noDom: true, noCompanion: true }); let ok = true; try{ n.mk(); }catch(x){ ok = x.message; }
   chk(ok === true, 'DOM · companion 이 없어도 만들 때 서지 않는다' + (ok === true ? '' : ' — ' + ok));
@@ -227,23 +234,13 @@ await sec('── 2. 자동저장', async () => {
   chk(e.saveCount() === 0 && !e.toasts.length, '관람 중이면 조용히 안 쓴다(남의 홈이 내 홈을 덮지 않게)');
   e = mkEnv({ loaded: false }); M = e.mk();
   await M.commit(false); await M.commit(true);
-  chk(e.saveCount() === 0 && e.toasts.join() === '마이홈 정보를 아직 불러오지 못했어요 — 창을 닫았다 다시 열어주세요', '불러오기 전이면 안 쓴다 · silent 면 안내도 없음');
-  e = mkEnv(); M = e.mk(); e.uid = 'u2';
-  await M.commit(false);
-  chk(e.saveCount() === 0 && e.setLoaded.join() === 'false' && e.loaded === false && /계정이 바뀌어서 저장하지 않았어요/.test(e.toasts[0]), '★ 불러온 계정 ≠ 지금 계정 — 안 쓰고 불러온 상태도 무효(쓰는 함수로)');
+  chk(e.saveCount() === 0 && !e.toasts.length, '받기 전이면 안 쓴다(상태 주인이 고치기를 잠근다 · 안내는 상태 주인 몫)');
   e = mkEnv(); M = e.mk();
   await M.commit(false);
-  chk(e.saveCount() === 1 && e.saves[0][0] === 'u1' && e.saves[0][1].bio === 'RT:mhBioBox:120' && e.saves[0][1].post === 'RT:mhPostBox:1000', '쓰면 소개글 120 · 게시글 1000 을 담아 saveMyHome(내 uid)');
-  chk(e.toasts.join() === '마이홈을 저장했어요', '  silent 아니면 «저장했어요»');
-  e.toasts.length = 0; e.saveRes = { ok: false, reason: '소개글이 너무 길어요' }; await M.commit(true);
-  e.saveRes = { warn: '사진은 빠졌어요' }; await M.commit(true);
-  e.saveThrows = true; await M.commit(true);
-  chk(e.toasts.join('|') === '소개글이 너무 길어요|사진은 빠졌어요|저장에 실패했어요 — 잠시 뒤 다시 시도해 주세요', '거부 이유 · 경고 · 실패는 silent 여도 알린다');
-  const f = mkEnv(); const F = f.mk(); delete f.ctx.firebaseAPI;
-  await F.commit(false);
-  chk(f.toasts.join() === '아직 준비 중이에요', 'firebaseAPI 가 없으면 «준비 중»');
-  f.els.mhBioBox.fire('blur'); await flush();
-  chk(f.saves.length === 0, '  (그때도 서지 않는다)');
+  chk(e.saveCount() === 1 && e.saves[0][0] === 'setFields' && e.saves[0][1].bio === 'RT:mhBioBox:120' && e.saves[0][1].post === 'RT:mhPostBox:1000' && e.saveCalls === 1, '쓰면 소개글 120 · 게시글 1000 을 담아 상태 주인에 넘기고(setFields) 못 올린 고침을 한 번 보낸다(save)');
+  chk(!e.toasts.length, '  화면은 «저장했어요» 를 띄우지 않는다(조용히 저장 · 실패는 상태 주인이 번호로 알림)');
+  e = mkEnv({ viewing: 'f1' }); M = e.mk(); await M.commit(true);
+  chk(e.saveCount() === 0, '  (구경 중엔 글 칸도 넘기지 않는다)');
   const g = mkEnv(); g.mk(); g.els.mhPostBox.fire('blur'); g.els.mhBioBox.fire('input'); await flush();
   chk(g.saveCount() === 1 && g.rt.join() === 'mhBioBox', '글 칸에서 벗어나면 조용히 저장 · 입력하면 글자 수');
 });
@@ -253,11 +250,10 @@ await sec('── 3. 프로필 사진 · 글 서식 · 색 팝업', async () => 
   e.els.mhAvatarBig.fire('click');
   chk(e.clicks.includes('mhAvatarInput'), '사진 칸을 누르면 파일 고르기');
   e.els.mhAvatarInput.files = [{ name: 'a.png' }]; e.els.mhAvatarInput.fire('change'); await flush();
-  chk(e.data.avatar === 'data:image/jpeg;ok' && e.page === 1 && e.saveCount() === 1, '알파 없는 사진은 JPEG · 다시 그림 · 저장');
+  chk(e.data.avatar === 'data:image/jpeg;ok' && e.page >= 1 && e.saveCount() === 1 && e.saves[0][0] === 'setAvatar', '알파 없는 사진은 JPEG · 다시 그림 · 상태 주인에 넘김(올린 주소만 저장하는 건 상태 주인 몫)');
   e.alpha = true; e.els.mhAvatarInput.fire('change'); await flush();
   chk(e.data.avatar === 'data:image/png;ok', '  투명이 있으면 PNG');
-  e.bigPng = true; e.els.mhAvatarInput.fire('change'); await flush();
-  chk(e.data.avatar === 'data:image/jpeg;ok' && e.toasts.includes('사진이 너무 커서 투명 배경은 유지하지 못했어요'), '  PNG 가 200,000자를 넘으면 JPEG 로 · 안내');
+  chk(!e.toasts.includes('사진이 너무 커서 투명 배경은 유지하지 못했어요'), '  옛 200,000자 JPEG 되돌리기는 없다(서버가 PNG 도 받는다)');
   /* 툴바 */
   e.bold.fire('click'); await flush();
   chk(JSON.stringify(e.exec) === '[["bold",null]]' && e.focused === e.els.mhBioBox && e.rt.includes('mhBioBox'), '굵게 — 그 편집기에 명령 · 글자 수');
@@ -298,7 +294,8 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   e.els.mhStickerFileInput.files = [{ name: 's.png' }]; e.els.mhStickerFileInput.fire('change'); await flush(); await flush();
   const ids = Object.keys(e.data.stickers);
   const s = e.data.stickers[ids[0]];
-  chk(ids.length === 1 && /^s/.test(ids[0]) && s.img === 'data:image/png;ok' && s.link === 'https://link.example' && s.size === 1 && s.w === 400 && s.h === 200, '붙이기 — PNG · 링크 · 가로 400 으로 줄인 원본 비율');
+  const ad = e.saves.find(x => x[0] === 'addSticker');
+  chk(ids.length === 1 && !!ad && ad[1] === 'data:image/png;ok' && ad[2].link === 'https://link.example' && ad[2].size === 1 && ad[2].w === 400 && ad[2].h === 200, '붙이기 — PNG 그림 · 링크 · 가로 400 으로 줄인 원본 비율을 상태 주인 addSticker 에 넘긴다(올리기 · 저장은 상태 주인)');
   chk(e.clamped === 1 && e.origRenders === 1 && e.saveCount() === 1 && e.sticker.render === 1, '  창 안으로 · 다시 그림(감싼 함수) · 저장 · 관리 창 목록');
   e.data.stickers = { a: {}, b: {}, c: {} }; e.clicks.length = 0; e.els.stMgrAdd.onclick();
   chk(e.toasts.includes('스티커는 최대 3개까지만 붙일 수 있어요') && !e.clicks.includes('mhStickerFileInput'), '  상한이면 안내만');
@@ -313,10 +310,10 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   (e.docL.mousemove || []).forEach(f => f({ clientX: 150, clientY: 130 }));
   (e.docL.mousemove || []).forEach(f => f({ clientX: 125, clientY: 121 }));
   chk(e.dragDist === 40 && e.dragSets.join() === '0,40,40', '  이동거리는 가장 멀리 간 값(읽는 함수 + 쓰는 함수)');
-  chk(e.data.stickers.a.x === 15 && e.data.stickers.a.y === 11 && st.style.left === '15px' && st.style.top === '11px', '  스티커 자리 · 화면 위치가 따라간다');
+  chk(st.style.left === '15px' && st.style.top === '11px' && e.saveCount() === 0, '  끄는 동안은 화면 위치만 따라간다(저장 0)');
   (e.docL.mouseup || []).forEach(f => f({})); await flush();
   (e.docL.mouseup || []).forEach(f => f({})); await flush();
-  chk(e.saveCount() === 1, '  놓으면 한 번 저장(끄는 중이 아니면 안 쓴다)');
+  chk(e.saveCount() === 1 && JSON.stringify(e.saves[0]) === JSON.stringify(['editSticker', 'a', { x: 15, y: 11 }]) && e.data.stickers.a.x === 15, '  놓으면 상태 주인에 자리만 한 번(끄는 중이 아니면 안 쓴다)');
   e.viewing = 'f1'; e.dragSets.length = 0;
   zone.fire('mousedown', { target: tgt, clientX: 120, clientY: 120 });
   e.ctx._mhPreviewMode = true; e.viewing = null; zone.fire('mousedown', { target: tgt, clientX: 120, clientY: 120 }); e.ctx._mhPreviewMode = false;
@@ -363,11 +360,6 @@ await sec('── 4. 새 스티커 · 스티커 끌기 · 삭제 저장', async 
   };
   const brokeSrc = MOD.replace('if(e.button || !go || !passToAdd(e)) return;', 'if(e.button || !passToAdd(e)) return;');
   chk(await dropOnBtn() === 0 && brokeSrc !== MOD && await dropOnBtn(brokeSrc) === 1, '  깨 보기 — 누른 자리를 안 보면 놓기만으로 관리 창이 열린다(빨강)');
-  /* 감싼 renderMyHomeStickers — 삭제 버튼에 저장 한 번 더 */
-  const del = mkEl(e, 'button'); let orig = 0; del.onclick = () => { orig++; }; e.dels = [del];
-  e.curRender();
-  del.onclick({}); await flush();
-  chk(e.origRenders === 1 && orig === 1 && e.saveCount() === 2, '감싼 함수 — 옛 함수를 부르고, 삭제 버튼은 옛 처리 뒤 저장 한 번 더');
 });
 
 await sec('── 5. 닉네임 · 게시글 제목', async () => {
@@ -473,13 +465,13 @@ await sec('── 7. 바깥 배경 · 테마 · [✎ 마이홈 수정]', async (
   e.premium = false; e.admin = true; e.child.closed = true; btn.fire('click', {});
   chk(e.opened.length === 2, '  관리자도');
   e.els.mhBgColorInput.value = '#00ff00'; e.els.mhBgColorInput.fire('input');
-  chk(JSON.stringify(e.data.bg) === '{"color":"#00ff00"}' && win.style.background === '#00ff00' && e.saveCount() === 0, '색 고르는 중 — 미리보기만');
+  chk(win.style.background === '#00ff00' && e.saveCount() === 0 && !e.data.bg, '색 고르는 중 — 화면 미리보기만(상태 주인에 안 넘김)');
   e.els.mhBgColorInput.fire('change'); await flush();
-  chk(e.saveCount() === 1, '  고르면 저장');
+  chk(e.saveCount() === 1 && JSON.stringify(e.saves[0]) === JSON.stringify(['setFields', { bg: { color: '#00ff00' } }]), '  고르면 상태 주인에 한 번');
   e.els.mhBgImgInput.files = [{ name: 'b.jpg' }]; e.els.mhBgImgInput.fire('change'); await flush();
-  chk(JSON.stringify(e.data.bg) === '{"img":"data:image/jpeg;ok"}' && e.saveCount() === 2, '바깥 그림 — 줄여서 저장');
+  chk(JSON.stringify(e.data.bg) === '{"img":"https://st/bg"}' && e.uploads.length === 1 && e.saveCount() === 2, '바깥 그림 — 줄여 올리고(upload) 올린 주소만 넘긴다');
   e.data.theme = { tab: '#1' }; e.els.mhBgResetBtn.fire('click'); await flush();
-  chk(e.data.bg === null && e.data.theme === null && e.saveCount() === 3, '초기화 — 배경 · 테마 둘 다');
+  chk(e.data.bg === null && e.data.theme === null && e.saves[e.saves.length - 1][0] === 'resetBg' && e.saveCount() === 3, '초기화 — 상태 주인 resetBg(배경 · 테마 둘 다)');
 });
 
 await sec('── 8. 👑 디자인 스튜디오 · 프리셋', async () => {
@@ -489,6 +481,7 @@ await sec('── 8. 👑 디자인 스튜디오 · 프리셋', async () => {
   chk(!!W && /<div id="dsPresets"><\/div>/.test(d.html) && /👑/.test(d.html) && d.closedDoc, '창 — DS_HTML 을 써 넣는다');
   chk(e.themeChild.length === 1 && e.themeChild[0] === d, '  쓰자마자 테마 토큰을 넣는다(applyThemeToChildDoc)');
   chk(e.watchedChild.length === 1 && e.watchedChild[0] === d, '  이 창 입력도 점검 판정에 센다(watchMaintenanceInput — 쓴 뒤에)');
+  chk(e.tipChild.length === 1 && e.tipChild[0][0] === d && e.tipChild[0][1] === W, '  맥 설명 말풍선을 이 창에도 건다(installMacTip(자식 문서, 자식 창))');
   const body = d.getElementById('dsBody');
   chk(body.children.length === 17 && body.children[0].className === 'ds-group' && body.children[1].className === 'ds-row' && /바깥 배경/.test(body.children[1].innerHTML), '마이홈 탭 — 그룹 넷 · 항목 열셋(17줄)');
   chk(/background:#333333;/.test(body.children[1].innerHTML) && /data-act="img"/.test(body.children[1].innerHTML), '  바깥 배경 칸 — 지금 색 · IMG 버튼');
@@ -540,9 +533,9 @@ await sec('── 8. 👑 디자인 스튜디오 · 프리셋', async () => {
   /* 그림 올리기 */
   const n = e.uploads.length;
   body.children[3].querySelector('[data-act="img"]').fire('click'); await flush(); await flush(); await flush();
-  chk(e.uploads.length === n + 1 && e.uploads[n][1] === 'p0_tabImg' && e.data.theme.tabImg === 'https://st/p0_tabImg', 'IMG — 고른 그림을 줄여 고른 칸(1번) 파일에 올리고 주소를 테마에');
+  chk(e.uploads.length === n + 1 && e.uploads[n][0] === 'design:tabImg' && e.data.theme.tabImg === 'https://st/design_tabImg', 'IMG — 고른 그림을 줄여 올리고(upload) 올린 주소를 테마에');
   e.data.themePresetCur = 1; d.getElementById('dsBody').children[1].querySelector('[data-act="img"]').fire('click'); await flush(); await flush(); await flush();
-  chk(e.uploads[n + 1][1] === 'p1_bg' && JSON.stringify(e.data.bg) === '{"img":"https://st/p1_bg"}', '  ★ 2번 칸에서 올린 바깥 그림은 2번 칸 파일(design_p1_bg) — 1번 칸 파일을 덮지 않는다');
+  chk(e.uploads[n + 1][0] === 'design:bg' && JSON.stringify(e.data.bg) === '{"img":"https://st/design_bg"}', '  바깥 그림도 올린 주소로(서버가 올릴 때마다 새 주소를 줘서 칸마다 파일 이름을 따로 안 만든다)');
   e.data.themePresetCur = 0;
   /* 탭 · 전체 초기화 · 다시 열기 · 닫기 */
   W.tabs[1].fire('click');
@@ -574,19 +567,20 @@ await sec('── 9. app.js 배선', () => {
   const call = (APP.match(/TwMyHomeEdit\.createMyHomeEdit\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // [\w$.] — ytVideoId 는 playlist.js 의 plMod.ytVideoId(앱 FSD 16번)
-  const getters = ['myHomeData: ()=>_myHomeData,', 'mhViewingUserId: ()=>_mhViewingUserId,', 'myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeUid: ()=>_myHomeUid,',
-    'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,', 'getRenderMyHomeStickers: ()=>renderMyHomeStickers,'];
-  const setters = ['setMyHomeLoaded: (v)=>{ _myHomeLoaded = v; },', 'setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },', 'setRenderMyHomeStickers: (f)=>{ renderMyHomeStickers = f; },'];
-  const vals = ['homeUploadCache: uploadCacheMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
-  chk(deps.length === 36 && fnDeps.length === 16 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
-      'deps 36개 — 함수 16은 화살표 · 읽는 함수 9 · 쓰는 함수 3 · 앞에 선언된 const 8은 값 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  const getters = ['myHomeData: ()=>_myHomeData(),', 'mhViewingUserId: ()=>_mhViewingUserId(),',
+    'mhStickerDragDist: ()=>_mhStickerDragDist,', 'isPremium: ()=>isPremium,', 'isAdmin: ()=>isAdmin,', 'userNameMax: ()=>USER_NAME_MAX,'];
+  const setters = ['setMhStickerDragDist: (v)=>{ _mhStickerDragDist = v; },'];
+  const vals = ['myhomeStore: myhomeStoreMod,', 'myHomeSticker,', 'stickerMax: STICKER_MAX,', 'stickerImgMaxW: STICKER_IMG_MAX_W,', 'dsImgMaxBgW: DS_IMG_MAX_BG_W,', 'dsImgMaxBgH: DS_IMG_MAX_BG_H,', 'dsImgMaxPanel: DS_IMG_MAX_PANEL,', 'dsImgQuality: DS_IMG_QUALITY,'];
+  chk(deps.includes('installMacTip: (...a)=>TwMacTooltip.installChild(...a),'), '맥 말풍선은 shared/mac-tooltip.js 의 installChild 로 잇는다');
+  chk(deps.length === 32 && fnDeps.length === 17 && getters.every(g => deps.includes(g)) && setters.every(s => deps.includes(s)) && vals.every(v => deps.includes(v)),
+      'deps 32개 — 함수 17은 화살표 · 읽는 함수 6 · 쓰는 함수 1 · 앞에 선언된 const 8은 값(상태 주인 포함) (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   const before = (n) => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; };
-  chk(['uploadCacheMod', 'myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
+  chk(['myhomeStoreMod', 'myHomeSticker', 'STICKER_MAX', 'STICKER_IMG_MAX_W', 'DS_IMG_MAX_BG_W', 'DS_IMG_MAX_BG_H', 'DS_IMG_MAX_PANEL', 'DS_IMG_QUALITY'].every(before), '  값으로 넘기는 것은 만드는 줄보다 앞에 선언된 const');
   chk(!before('USER_NAME_MAX') && APP.search(/^const USER_NAME_MAX\s*=/m) > iMk, '  ★ USER_NAME_MAX 는 만드는 줄보다 뒤 — 그래서 읽는 함수');
   const m = strip(MOD);
   chk(!/[^.\w$](_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|_mhStickerDragDist|isPremium|isAdmin|USER_NAME_MAX|renderMyHomeStickers)\s*=[^=]/.test(m.replace(/const (_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|_mhStickerDragDist|isPremium|isAdmin|USER_NAME_MAX|renderMyHomeStickers) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');
   chk(!/[^.\w$](_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|isPremium|isAdmin|USER_NAME_MAX)(?!\s*\()(?![\w$])/.test(m.replace(/const (_myHomeData|_mhViewingUserId|_myHomeLoaded|_myHomeUid|isPremium|isAdmin|USER_NAME_MAX) = deps\.\w+;/g, '')), '  읽을 때는 늘 함수로 부른다(값을 붙들지 않는다)');
-  chk(/const origRenderStickers = _getRenderMyHomeStickers\(\);/.test(MOD) && /_setRenderMyHomeStickers\(function\(\)\{ origRenderStickers\(\);/.test(MOD), '★ 감싸기 전 함수는 값으로 받는다 — 화살표로 받으면 감싼 함수가 자기를 부른다');
+  chk(!/_getRenderMyHomeStickers|_setRenderMyHomeStickers/.test(MOD) && !/getRenderMyHomeStickers|setRenderMyHomeStickers/.test(APP), '★ renderMyHomeStickers 를 감싸 다시 대입하지 않는다(삭제 저장은 상태 주인 removeSticker — 감싸기 위험이 없다)');
   const off = (APP.match(/const MYHOME_EDIT_OFF = \{([\s\S]*?)\};/) || [])[1] || '';
   chk(!/\bMYHOME_EDIT_OFF\b/.test(APP), '빈 껍데기 MYHOME_EDIT_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   chk(HOOKS.every(n => new RegExp('window\\.' + n + '\\s*=').test(m)), 'window 고리는 모듈이 예전 이름으로 건다(' + HOOKS.length + '개)');

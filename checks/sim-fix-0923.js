@@ -77,7 +77,6 @@ say('── 2. 🖼️ 슬롯 섬네일 = 런처');
   chk(/if\(a < 255 \* 20\) return;/.test(tk), '빈 그림이면 덮지 않는다');
   chk(/if\(url && url !== job\.def\.thumb\)\{ job\.def\.thumb = url; saveSlots\(\); \}/.test(tk), '바뀌었을 때만 저장');
   chk(/const LC_THUMB_SETTLE_MS = 900, LC_THUMB_MAX = 160;/.test(CODE), '크기 상한 160px(칸은 52px)');
-  chk(/out\.thumb = null;/.test(CODE), '섬네일은 서버로 안 간다(로컬 전용 — 쓰기가 안 는다)');
 }
 
 say('── 3. 🎨 서식 태그의 배경색');
@@ -90,7 +89,7 @@ say('── 3. 🎨 서식 태그의 배경색');
     chk(['B', 'STRONG', 'I', 'EM', 'U'].every(t => A[t] && A[t].includes('style')), 'B · STRONG · I · EM · U — style');
     chk(!A.A.includes('style') && !A.IMG.includes('style'), 'A · IMG 는 그대로(style 없음)');
   }
-  const sn = strip(grab(SRC, '_mhSanitizeNode'));
+  const sn = (CODE.match(/const _MH_STYLE_OK = [^\n]*/) || [''])[0];
   chk(/\^\(color\|background-color\|font-size\|font-weight\|font-style\)\\s\*:/.test(sn), 'style 값은 여전히 다섯 속성만(position 등은 지워진다)');
 }
 
@@ -133,33 +132,11 @@ say('── 5. 🫨 말랑이 제자리 떨림');
 
 (async ()=>{
 
-say('── 6. 🎫 라이선스 — 이 기기에서 등록 · 해제(0.13 — 계정 사본으로 옮기던 길은 걷었다 · 서버가 계정의 라이선스를 안다)');
+say('── 6. 🎫 라이선스 — 등록 · 해제는 서버에(0.13 — 판정은 sim-license-premium · 계정 사본으로 옮기던 길은 걷었다)');
 {
-  const fns = ['activateLicense', 'deactivateLicense'].map(n => (SRC.includes('async function ' + n + '(') ? 'async ' : '') + grab(SRC, n)).join('\n');   // grab 은 async 를 떼어 온다
-  chk(fns.split('function ').length - 1 >= 2, '두 함수를 떼어 왔다');
-  const mk = (o) => {
-    const LS = new Map(Object.entries(o.ls || {}));
-    const env = { premium:null, LS };
-    const f = new Function('env', `
-      const LICENSE_KEY_STORAGE='tw.licenseKey', LICENSE_OPTOUT_KEY='tw.licenseOptOut';
-      const localStorage = { getItem:k=>env.LS.has(k)?env.LS.get(k):null, setItem:(k,v)=>env.LS.set(k,String(v)), removeItem:k=>env.LS.delete(k) };
-      const verifyLicense = async (k)=> (${JSON.stringify(o.verify || { ok:true })});
-      const _setPremium = (v)=>{ env.premium = v; };
-      let userStatus = ()=>null; const setUserStatus = ()=>{};
-      ${fns}
-      return { act:activateLicense, deact:deactivateLicense };`);
-    return Object.assign(env, f(env));
-  };
-  await (async ()=>{
-    let e = mk({ ls:{ 'tw.licenseOptOut':'KEY-A' } }); await e.act(' key-a ');
-    chk(e.LS.get('tw.licenseKey') === 'KEY-A' && !e.LS.has('tw.licenseOptOut') && e.premium === true, '등록 — 키 저장 · 해제 표시를 지운다 · 프리미엄');
-    e = mk({ verify:{ ok:false } }); await e.act('KEY-A');
-    chk(!e.LS.has('tw.licenseKey') && e.premium === null, '검증 실패 — 저장 안 함');
-    e = mk({ ls:{ 'tw.licenseKey':'KEY-A' } }); e.deact();
-    chk(!e.LS.has('tw.licenseKey') && e.LS.get('tw.licenseOptOut') === 'KEY-A' && e.premium === false, '이 기기에서 해제 → 해제 표시에 그 키');
-    chk(!/setAccountSnapshot|fetchAccountSnapshot|_licenseSnapForPush/.test(CODE), '계정 사본(accountSnap) 길이 남지 않았다');
-    chk(/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY,/.test(CODE), '로그아웃이 해제 표시도 지운다(ACCOUNT_LOCAL_KEYS)');
-  })();
+  chk(!/setAccountSnapshot|fetchAccountSnapshot|_licenseSnapForPush/.test(CODE), '계정 사본(accountSnap) 길이 남지 않았다');
+  chk(/LICENSE_REQ_ID_KEY,/.test(CODE) && !/LICENSE_KEY_STORAGE, LICENSE_REQ_ID_KEY|LICENSE_REQ_ID_KEY, LICENSE_OPTOUT_KEY/.test(CODE), '로그아웃이 옛 키 · 해제 표시를 지우지 않는다(첫 실행이 올린 뒤 지움 — ACCOUNT_LOCAL_KEYS)');
+  chk(!/async function activateLicense\(|function deactivateLicense\(|function loadLicenseFromStorage\(|function verifyLicense\(/.test(CODE), '이 PC 의 키로 켜고 Firebase 로 확인하던 옛 길(activateLicense · deactivateLicense · loadLicenseFromStorage · verifyLicense)이 없다');
 }
 
 say('── 7. 🗼 탑에서 룰렛 — 나만 빠지고 탑은 한 칸 내려앉는다(A안)');

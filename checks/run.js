@@ -204,7 +204,7 @@ function stage(){
     /* ⚠️ 폴더는 건너뛴다. 재귀 옵션 없이 cpSync 에 폴더를 주면 던지고, 그러면
        **한 바퀴가 통째로 안 돈다.** 스테이징은 평면이어야 하므로 폴더는 애초에 대상이 아니다
        (`checks/tools/` 처럼 손으로 돌리는 도구를 두는 자리). */
-    if (e.isDirectory() || e.name === 'run.js') continue;
+    if (e.isDirectory()) continue;   // run.js 도 올린다 — 러너 판정 검사(sim-run-verdict.js)가 읽는다
     fs.cpSync(path.join(CHECKS, e.name), path.join(dir, e.name));
   }
   return dir;
@@ -276,6 +276,44 @@ function verdict(out){
   return tail.some(l => PASS_LINE.test(l)) ? { fail: 0 } : null;
 }
 
+/* ── 끝까지 돌았는가 — 조용한 종료 막이 ────────────────────────────────────
+   async 로 도는 sim 이 끝나지 않는 await 에 걸리면 node 는 `process.exit` 없이 종료코드 0 으로
+   조용히 끝난다(할 일이 없어졌을 뿐이다). 요약 줄이 없는 sim 은 그게 초록으로 셈됐다.
+   ⇒ node sim 은 `-r` 로 아래 가드를 먼저 싣고 띄운다. `beforeExit`(= process.exit 을 안 거치고
+     할 일이 없어져 끝남)에 표식 파일만 남긴다. 정상 sim 도 끝까지 가서 요약을 찍고 자연스럽게
+     끝나는 일이 많으므로, **여기서 빨강으로 정하지 않는다** — 러너가 «표식 있음 + 요약·끝줄 없음»
+     일 때만 `끝까지 못 돎` 으로 센다(runOne). */
+const GUARD_SRC = "process.on('beforeExit', function(){ try{ require('fs').writeFileSync(process.env.TW_GUARD_MARK, '1'); }catch(_){} });\n";
+
+/* ── 요약 줄 모양 ──────────────────────────────────────────────────────────
+   sim 49개가 `통과 N · 실패 N` 이 아닌 말로 끝낸다(`74 통과 · 0 실패` · `결과: 55 통과 · 0 실패` ·
+   `결과 38 · 0` · `76 · 0` · `판정: 초록 N · 빨강 M · 검사못함 K`). 검사 파일은 해시로 묶여 있어
+   (CHECKS.md §3) 하나씩 맞추면 흩어지므로 러너가 같은 뜻으로 읽는다.
+   ⚠️ 새 모양은 **줄 전체**가 그 모양일 때만 센다(앞에 `✓`·`검사이름:`·`결과:` 만 허용) —
+     본문 속 «3 · 0» 같은 글을 요약으로 잘못 줍지 않게. */
+const SUMMARY_TAIL = 5;   // 요약은 끝에서 이만큼 줄 안에서만 찾는다(빈 줄 제외)
+function findSummary(out){
+  /* ⚠️ 끝 몇 줄만 본다. 멈춘 sim 이 앞에서 찍은 `✓ 0 · 0` · 절 요약(`1절: 통과 3 · 실패 0`)을 최종 요약으로 줍거나,
+     끝난 sim 의 본문 숫자 줄을 요약으로 줍지 않게. */
+  const lines = out.split('\n').filter(l => l.trim()).slice(-SUMMARY_TAIL);
+  const tail = lines.join('\n');
+  const old = [...tail.matchAll(/통과\s*(\d+)\s*·\s*실패\s*(\d+)(?:\s*·\s*검사못함\s*(\d+))?/g)].pop();
+  if (old) return { pass: +old[1], fail: +old[2], huh: old[3] ? +old[3] : 0 };
+  const lead = '^\\s*[✓✗]?\\s*(?:[\\w.\\-]+:\\s*)?(?:결과:?\\s*|판정:?\\s*)?';
+  const shapes = [
+    [new RegExp(lead + '(\\d+)\\s*통과\\s*·\\s*(\\d+)\\s*실패\\s*$'), 1, 2, 0],
+    [new RegExp(lead + '초록\\s*(\\d+)\\s*·\\s*빨강\\s*(\\d+)(?:\\s*·\\s*검사못함\\s*(\\d+))?\\s*$'), 1, 2, 3],
+    [new RegExp(lead + '(\\d+)\\s*·\\s*(\\d+)\\s*$'), 1, 2, 0],
+  ];
+  for (let i = lines.length - 1; i >= 0; i--){
+    for (const [re, a, b, c] of shapes){
+      const m = lines[i].match(re);
+      if (m) return { pass: +m[a], fail: +m[b], huh: c && m[c] ? +m[c] : 0 };
+    }
+  }
+  return null;
+}
+
 /* ── 한 개 돌리기 ──────────────────────────────────────────────────────────
    ⚠️ 종료 코드만 보면 안 된다. 검사들은 0=통과 · 1=실패 · 2=검사못함 을 쓰는데,
      "원본을 못 찾음" 도 그 코드로 나온다. 출력을 같이 읽어야 그 둘이 갈린다. */
@@ -287,17 +325,21 @@ function runOne(file, cwd){
        파이썬은 stdout 이 터미널이 아닐 때(=여기처럼 파일일 때) 블록 버퍼로 돈다. SIGKILL 은
        버퍼를 안 비우므로 audit.py 가 19절을 다 찍고 섰든 1절에서 섰든 **로그가 0바이트**다 —
        실제로 `(한 줄도 못 찍고 섰다)` 로 왔다. 그 한 줄이 "어디서 섰나" 의 유일한 단서다. */
-  const env = py ? Object.assign({}, process.env,
-    { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }) : process.env;
-  const tries = py ? [['python3', [file]], ['python', [file]]] : [[process.execPath, [file]]];
+  /* 검사는 저장소 밖 임시 폴더에서 돈다 — 저장소 devDependencies(jsdom 등)를 찾게 NODE_PATH 로 저장소 node_modules 를 넘긴다. */
+  const env = Object.assign({}, process.env,
+    py ? { PYTHONIOENCODING: 'utf-8', PYTHONUTF8: '1', PYTHONUNBUFFERED: '1' }
+       : { NODE_PATH: [path.join(ROOT, 'node_modules'), process.env.NODE_PATH].filter(Boolean).join(path.delimiter) });
+  const logs = cwd + '-logs';
+  try { fs.mkdirSync(logs, { recursive: true }); } catch (_){}
+  const guard = path.join(logs, 'tw-guard.js'), mark = path.join(logs, file + '.beforeExit');
+  if (!py){ fs.writeFileSync(guard, GUARD_SRC); try { fs.rmSync(mark, { force: true }); } catch (_){} env.TW_GUARD_MARK = mark; }
+  const tries = py ? [['python3', [file]], ['python', [file]]] : [[process.execPath, ['-r', guard, file]]];
   /* ★ 출력을 파이프가 아니라 **파일**로 받는다.
        파이프로 받으면 시간초과로 죽일 때 아직 안 비워진 버퍼가 통째로 날아간다. Windows 에서
        실측했다 — 다 돌고 안 죽은 검사 셋이 출력 한 줄 없이 `시간초과` 로 왔다. 그러면
        "다 돌고 안 죽음" 과 "진짜 멈춤" 을 가를 수가 없다(아래 lingered 판정이 죽는다).
      파일은 쓰는 즉시 디스크에 남으므로 강제 종료돼도 그때까지 찍은 것이 그대로 있다. */
   /* ⚠️ 로그는 스테이징 **밖**에 쓴다. 안에 쓰면 검사가 폴더를 훑을 때 제 로그를 원본으로 본다. */
-  const logs = cwd + '-logs';
-  try { fs.mkdirSync(logs, { recursive: true }); } catch (_){}
   const of = path.join(logs, file + '.out'), ef = path.join(logs, file + '.err');
   let r = null;
   for (const [cmd, a] of tries){
@@ -313,7 +355,7 @@ function runOne(file, cwd){
   const slurp = (f) => { try { return fs.readFileSync(f, 'utf8'); } catch (_){ return ''; } };
   const so = slurp(of), se = slurp(ef);
   const out = so + se;
-  const sum = [...out.matchAll(/통과\s*(\d+)\s*·\s*실패\s*(\d+)(?:\s*·\s*검사못함\s*(\d+))?/g)].pop();
+  const sum = findSummary(so) || findSummary(se);
   /* ★ 판정은 **stdout 과 stderr 를 따로** 읽는다. 이어붙이면 안 된다 —
        `verdict` 는 마지막 세 줄만 보는데, 이어붙이면 stderr 가 통째로 뒤에 붙어
        **검사가 제 발로 찍은 판정 줄을 밀어낸다.** stderr 세 줄이면 그것만으로 사라진다(실측).
@@ -337,14 +379,20 @@ function runOne(file, cwd){
   /* ⚠️ `killed` 를 같이 봐야 한다. 끊긴 프로세스의 `status` 는 **null** 이라, 여기서 `status === 0`
        만 보면 끝줄이 멀쩡히 찍혀 있어도 못 쓴다 — `sim-fly-replay` · `sim-gacha-prune` 이
        마지막 줄에 `✓ 전부 통과` 를 남기고도 시간초과 셋 안에 묻혀 있던 이유가 이 한 줄이었다. */
-  const allPass = !sum && !!end && end.fail === 0 && (r.status === 0 || killed);
+  /* ★ 조용한 종료: 가드 표식(beforeExit)이 있는데 요약도 끝줄도 없다 = 끝까지 못 돌고 할 일이 없어져 끝난 것.
+       종료코드가 0 이어도 빨강이다. (가드 설명은 GUARD_SRC) */
+  const quiet = !py && !killed && fs.existsSync(mark) && !sum && !end;
+  /* ★ 출력에 `✗` 로 시작하는 줄이 하나라도 있으면 종료코드가 0 이어도 빨강이다 —
+       중간에 찍힌 ✗ 를 종료코드·끝줄만 보다 놓치던 구멍. (깨 보기용 «성공해야 하는 ✗» 는 없다 — 전체 실측) */
+  const xmarks = out.split('\n').filter(l => /^\s*✗/.test(l)).length;
+  const allPass = !sum && !!end && end.fail === 0 && (r.status === 0 || killed) && !xmarks;
   return {
-    file, code: r.status, out, allPass,
+    file, code: r.status, out, allPass, quiet, xmarks,
     lingered: killed && !!(sum || end), timedOut: killed && !sum && !end,
-    pass: sum ? +sum[1] : null,
+    pass: sum ? sum.pass : null,
     /* 요약 줄이 없으면 끝줄이 센 실패 수를 쓴다. 안 그러면 **끊긴 빨강**이 집계에서 샌다. */
-    fail: sum ? +sum[2] : (end ? end.fail : null),
-    huh: sum && sum[3] ? +sum[3] : 0,
+    fail: sum ? sum.fail : (end ? end.fail : null),
+    huh: sum ? sum.huh : 0,
   };
 }
 
@@ -406,7 +454,7 @@ function classify(r, cwd){
      ④ 나머지는 종료코드로 가른다. 단 **끊긴 것(`lingered`)의 null 은 실패가 아니다.** */
 function isRed(r){
   if (r.skipped || r.blocked || r.timedOut) return false;
-  if (r.fail > 0) return true;
+  if (r.fail > 0 || r.quiet || r.xmarks > 0) return true;
   if (r.allPass) return false;
   return r.code !== 0 && !r.lingered;
 }
@@ -421,12 +469,15 @@ function render(r){
   const mark = r.blocked ? '·' : r.timedOut ? '⏱' : bad ? '✗' : '✓';
   /* 요약 줄이 없는 검사는 끝줄이 센 실패 수를 쓴다. `종료코드 1` 보다 그쪽이 훨씬 많은 말을
      하고, 끊긴 검사는 종료코드가 아예 `null` 이라 그대로 두면 `종료코드 null` 이 찍힌다. */
-  const base = r.allPass ? '전부 통과'
+  const lastLine = () => (r.out.split('\n').filter(l => l.trim()).pop() || '').trim().slice(0, 60);
+  const base = r.quiet ? `끝까지 못 돎 — 요약 없이 조용히 끝남(종료코드 ${r.code}${r.xmarks ? ` · ✗ ${r.xmarks}줄` : ''}) 마지막: ${lastLine()}`
+    : r.allPass ? '전부 통과'
     : r.pass === null ? (r.fail > 0 ? `실패 ${r.fail}건` : `종료코드 ${r.code}`)
     : `${r.pass} · ${r.fail}${r.huh ? ' · ' + r.huh : ''}`
       /* 요약 줄은 `실패 0` 인데 종료코드가 1 인 경우. 검사가 요약 밖에서 따로 실패를 세고
          나간 것이다 — 숫자만 믿으면 초록으로 둔갑한다. 위 ④ 가 빨강으로 잡고, 여기서 왜인지 적는다. */
-      + (r.fail === 0 && !r.lingered && r.code !== 0 ? `  (요약은 실패 0 인데 종료코드 ${r.code})` : '');
+      + (r.fail === 0 && !r.lingered && r.code !== 0 ? `  (요약은 실패 0 인데 종료코드 ${r.code})` : '')
+      + (r.xmarks && !r.quiet ? `  (✗ 줄 ${r.xmarks}개가 찍혔다 — 종료코드 ${r.code})` : '');
   const score = r.blocked ? `원본 없음${r.want ? ' — ' + r.want : ''}`
     : r.timedOut ? `시간초과 ${TIMEOUT / 1000}초 — 결과를 못 봤다`
     : r.lingered ? `${base}  (다 돌고 안 죽어서 끊음)`

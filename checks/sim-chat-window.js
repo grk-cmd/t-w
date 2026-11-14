@@ -17,6 +17,7 @@
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
 const fs = require('fs');
 const vm = require('vm');
+const SAFE = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => fs.existsSync(p)));   // 🛡️ 모듈이 부르는 공용 씻기 — 진짜 파일
 let pass = 0, fail = 0, done = false, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
@@ -95,6 +96,7 @@ function mkEnv(opt){
       addEventListener: (t, fn) => { (env.docL[t] = env.docL[t] || []).push(fn); },
     },
     open: (u, w, f) => { env.opened.push(['window.open', u, w, f]); },
+    TwSafeHtml: SAFE,
   };
   ctx.window = ctx;
   if(!opt.noCompanion) ctx.companion = { openBrowser: (u) => env.opened.push(['openBrowser', u]) };
@@ -201,13 +203,16 @@ async function behave(src){
     e.clear(); ev = inp.fire('keydown', { key: 'x', keyCode: 88 });
     chk(!e.log.length && ev._sp === 1, '  다른 키는 창 단축키로 새지 않게 막기만');
     const a = { getAttribute: (k) => (k === 'data-url' ? 'https://example.com/x' : null) };
-    ev = e.els.chatMessages.fire('click', { target: tgt({ '.cm-link': a }) });
+    ev = e.els.chatMessages.fire('click', { target: tgt({ '.ext-link': a }) });
     chk(JSON.stringify(e.opened) === '[["openBrowser","https://example.com/x"]]' && ev._pd === true, '링크 — Electron 이면 외부 브라우저로(companion.openBrowser)');
     e.els.chatMessages.fire('click', { target: tgt({}) });
     chk(e.opened.length === 1, '  링크가 아닌 곳 누름은 아무것도 안 한다');
     const w = E({ noCompanion: true }); w.mk();
-    w.els.chatMessages.fire('click', { target: tgt({ '.cm-link': a }) });
+    w.els.chatMessages.fire('click', { target: tgt({ '.ext-link': a }) });
     chk(JSON.stringify(w.opened) === '[["window.open","https://example.com/x","_blank","noopener"]]', '  웹이면 새 탭(noopener)');
+    const bad = { getAttribute: (k) => (k === 'data-url' ? 'javascript:alert(1)' : null) };
+    e.els.chatMessages.fire('click', { target: tgt({ '.ext-link': bad }) });
+    chk(e.opened.length === 1, '  화면에 그린 주소도 열기 전에 다시 거른다(http(s) 만)');
   }
 
   say('── 3. 끌기 · 크기');
@@ -458,9 +463,9 @@ await sec('── 9. app.js 배선', () => {
   const defs = /function _wireChatWindow\(|function _bindChatDrag\(|function _bindChatResize\(|function _chatCloseMenus\(/;
   chk(!defs.test(code) && /function _wireChatWindow\(/.test(MOD) && /function _chatCloseMenus\(/.test(MOD), '대화창 배선 정의는 모듈에만');
   chk(/window\.TwChatWindow = api/.test(MOD) && (code.match(/TwChatWindow\.createChatWindow\(/g) || []).length === 1, '모듈은 window.TwChatWindow · 만드는 곳은 한 곳');
-  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎛️ 꾸미기 상세조정 패널 · 색 고르기 ═══ */');
+  const iHead = APP.indexOf('/* ═══ 💬 대화창 배선 — 닫기 · 최소화 · 끌기 · 메뉴 · 버튼 ═══ */'), iMk = APP.indexOf('TwChatWindow.createChatWindow('), iNext = APP.indexOf('/* ═══ 🎨 텍스처 파츠 색조 셰이더 ═══ */');
   chk(iHead > 0 && iMk > iHead && iNext > iMk && /_selfFlyAfterDice\(\);\s*\n\}\s*\n\s*$/.test(APP.slice(iHead - 200, iHead)),
-    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎛️ 꾸미기 상세조정 앞');
+    '원래 자리 — 🎡 룰렛 뒤 · 구역 머리 아래 · 🎨 텍스처 파츠 색조 셰이더 앞');
   const call = (APP.match(/TwChatWindow\.createChatWindow\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const FN = [['closeChatWindow', 'closeChatWindow'], ['chatWindowIsOpen', '_chatWindowIsOpen'], ['chatIsMinimized', '_chatIsMinimized'], ['setChatMinimized', '_setChatMinimized'],
@@ -533,6 +538,7 @@ await sec('── 10. 일부러 깨 보기 — 이 검사가 헛돌지 않는가
     ['기본 이모티콘 바로 보냄', s => s.replace("inp.value=(inp.value||'')+'/'+dc.getAttribute('data-cmd')+' '; inp.focus();", "inp.value='/'+dc.getAttribute('data-cmd'); inp.focus();")],
     ['저장값 반영 순서 바뀜', s => s.replace('_applyChatFontSize();   // 저장된 값 반영 + ✓ 표시\n  _applyChatSfxUI();', '_applyChatSfxUI();\n  _applyChatFontSize();')],
     ['링크 웹 폴백 noopener 빠짐', s => s.replace("else window.open(url, '_blank', 'noopener');", "else window.open(url, '_blank');")],
+    ['열기 전에 주소를 다시 안 거름', s => s.replace("const url=TwSafeHtml.safeUrl(a.getAttribute('data-url'), 'link');", "const url=a.getAttribute('data-url');")],
   ];
   for(const [name, mut] of CASES){
     const bent = mut(MOD);

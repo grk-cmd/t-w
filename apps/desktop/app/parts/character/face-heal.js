@@ -16,7 +16,7 @@
 function createFaceHeal(deps){
 const CANVAS_SZ = deps.CANVAS_SZ;
 const CHAR_SLOT_MAX = deps.CHAR_SLOT_MAX;
-const LS_KEY = deps.LS_KEY;
+const lastOut = deps.lastOut;   // 직전 저장 모양(slot-save.js lastOut) — 비어 버린 캔버스를 다시 그릴 원본
 const Presence = deps.Presence;
 const SKIN_COLORS = deps.SKIN_COLORS;
 const _blinkEverDrawn = deps._blinkEverDrawn;
@@ -219,8 +219,7 @@ async function repairBlankFaces(){
   const log = [];
   try{
     await _repairSkinCanvases();
-    let prev = null;
-    try{ prev = JSON.parse(localStorage.getItem(LS_KEY) || 'null'); }catch(_){ prev = null; }
+    const prev = lastOut();
     for(const t of targets){
       const p = (prev && prev[t.i]) ? prev[t.i] : null;
       const what = [];

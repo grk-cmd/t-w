@@ -4,7 +4,7 @@
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(initMyHome)
    ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 25줄 그대로 · 부르는 곳은 mhInitMod.이름 · html(app.js 앞)
    ・2-2절: 내 코드 없음 — initMyHome 이 내 경로를 하나도 안 부르고 우편만 멈춘다(공지는 notice-feed 가 따로)
-   ・2-3절: 받은 뒤 화면 — 우편 · 소식이 바뀌면 목록 · 🔔 다시 그리고 새로 온 것만 토스트(우편은 종류 이름 · 소식은 업데이트/우편/공지 표시) · 🐞 답변이면 배지 · 받음 상태일 때만 해금 안내 따라잡기
+   ・2-3절: 받은 뒤 화면 — 우편 · 소식이 바뀌면 목록 · 🔔 다시 그리고 새로 온 것만 토스트(우편은 종류 이름 · 소식은 업데이트/우편/공지 표시) · 🐞 답변이면 배지(해금 안내 우편은 서버 알림이라 앱이 따라잡지 않는다)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · myhome-init.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
 'use strict';
@@ -21,11 +21,11 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 
 const FN_DEPS = ["_waitForFirebaseAPI","ensureMyFriendCode","getDisplayName","getMyUserId","toast"];
 const VAL_DEPS = ["MY_FRIEND_CODE_KEY","friendManage","friendsSub","mailFeed","mhScheduler","noticeFeed","presenceLock"];
-const GET_DEPS = ["_myFriendRequests","_myHomeFriends","_myHomeReady","focusLevelMod","inboxMod","myHomeOpen"];
+const GET_DEPS = ["friendRequests","_myFriendRequests","_myHomeFriends","_myHomeReady","focusLevelMod","inboxMod","myHomeOpen"];
 const SET_DEPS = ["_myFriendRequests","_myHomeFriends","_myHomeReady"];
 const EXPORTS = ["initMyHome","onMailChanged","onNewsChanged"];
 const MOVED = ["_ownerWriteWarned","_warnOwnerWriteDenied","initMyHome","_myInbox","_myInboxReady","_inboxBroadcast"];   // 옮긴 꼭대기 선언 + 서버 원본이 되어 걷은 let 셋          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
+const GLUE = ["  MY_FRIEND_CODE_KEY: MY_FRIEND_CODE_KEY,","  _myFriendRequests: ()=>_myFriendRequests,","  _myHomeFriends: ()=>_myHomeFriends,","  _myHomeReady: ()=>_myHomeReady,","  _waitForFirebaseAPI: (...a)=>_waitForFirebaseAPI(...a),","  ensureMyFriendCode: (...a)=>ensureMyFriendCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  friendManage: friendManage,","  friendRequests: ()=>friendRequestsPortMod,","  friendsSub: friendsSubMod,","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  inboxMod: ()=>inboxMod,","  mailFeed: mailFeed,","  mhScheduler: mhScheduler,","  myHomeOpen: ()=>myHomeOpen,","  noticeFeed: noticeFeed,","  presenceLock: presenceLockMod,","  toast: (...a)=>toast(...a),","  setMyFriendRequests: (v)=>{ _myFriendRequests = v; },","  setMyHomeFriends: (v)=>{ _myHomeFriends = v; },","  setMyHomeReady: (v)=>{ _myHomeReady = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -77,7 +77,7 @@ function judgeAll(mod, app, html){
 /* 내 코드(getMyUserId)가 없는 기기 — initMyHome 이 부르는 firebaseAPI 이름들(콜백은 안 부른다) */
 async function callsWith(src, uid){
   const any = anything(), calls = [];
-  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return any; } });
+  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(k === 'setMyProfile' ? 'setMyProfile/' + a.length : String(k)); return any; } });
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
@@ -106,6 +106,7 @@ const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
 say('── 2-2. 내 코드 없음 — 내 경로 요청 0');
 chk(await judgeNoUid(MOD), '내 코드 없음 → presence · 기기 · 프로필 · 친구 · 요청 · 우편 요청 0 · 친구 목록은 «코드 없음» 으로 시작(요청 없음) · 우편은 멈춤(앞 계정 것 비움) · 공지는 코드와 상관없이 따로 받는다 · 코드 있으면 presence 부터');
+chk((await callsWith(MOD, 'ME')).filter(c => c.startsWith('setMyProfile')).join() === 'setMyProfile/2', '프로필은 이름만 쓴다 — 레벨 · 별을 넘기지 않는다(서버 진척이 원본 — 친구 목록이 읽는 노드에 이름은 남겨야 한다)');
 say('── 2-3. 받은 뒤 화면');
 {
   const act = [], toasts = [];
@@ -122,16 +123,16 @@ say('── 2-3. 받은 뒤 화면');
   deps.noticeFeed = { broadcasts: () => feedState.bc };
   deps.inboxMod = () => ({ renderInbox: rec('render'), inboxTagLabel: (t) => '라벨:' + t });
   deps.mhScheduler = { refreshBellBadge: rec('bell'), isBellOpen: () => true, renderBellList: rec('bellList') };
-  deps.focusLevelMod = () => ({ _notifyDanceUnlocks: rec('dance'), getFocusLevel: () => 7 });
+  deps.focusLevelMod = () => ({ _notifyDanceUnlocks: rec('dance'), getFocusLevel: () => 7 });   // 불리면 안 되는 옛 이름 — 불리면 'dance' 가 찍힌다
   const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any2, set: (t, k, v) => { t[k] = v; return true; } });
   win._bugBoardRefreshBadge = rec('bugBadge');
   const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', MOD + '\nreturn window.TwMyHomeInit;')(win, any2, { getItem: () => null }, any2, undefined);
   const m = api.createMyHomeInit(deps);
   m.onMailChanged({ addedIds: ['m1', 'b1', 'gone'] });
-  chk(act.join() === 'dance,render,bell,bellList,bugBadge' && toasts.join('|') === '📩 라벨:reward: 라이선스|📩 라벨:bug: 답변', '우편 — 해금 안내 따라잡기 · 목록 · 🔔 다시 그림 · 새로 온 것만 토스트(없어진 id 는 건너뜀) · 🐞 답변이면 배지');
+  chk(act.join() === 'render,bell,bellList,bugBadge' && toasts.join('|') === '📩 라벨:reward: 라이선스|📩 라벨:bug: 답변', '우편 — 해금 안내는 앱이 안 보낸다(서버 알림) · 목록 · 🔔 다시 그림 · 새로 온 것만 토스트(없어진 id 는 건너뜀) · 🐞 답변이면 배지');
   act.length = 0; toasts.length = 0; feedState.status = 'error';
   m.onMailChanged({ addedIds: [] });
-  chk(act.join() === 'render,bell,bellList' && toasts.length === 0, '못 받음(error)일 땐 해금 안내를 따라잡지 않는다(받지 못한 우편을 «없다» 로 보지 않게) · 새 우편이 없으면 토스트 없음');
+  chk(act.join() === 'render,bell,bellList' && toasts.length === 0, '못 받음(error)일 때도 같다 · 새 우편이 없으면 토스트 없음');
   act.length = 0;
   m.onNewsChanged({ addedIds: ['n1', 'n2', 'n3'] });
   chk(act.join() === 'render,bell,bellList' && toasts.join('|') === '📩 🆕 업데이트: 새 판|📩 📩 우편: 보상|📩 📢 공지: 점검', '소식 — 목록 · 🔔 다시 그림 · 새 소식만 토스트(업데이트 · 우편 · 공지 표시)');

@@ -11,39 +11,14 @@ const read = (...cands) => { for (const c of cands) if (fs.existsSync(c)) return
 const need = (rel, ...more) => { const s = read('app/' + rel, rel, rel.replace(/^parts\/[^/]+\//, 'parts/'), rel.split('/').pop(), ...more); if (s == null) { say('  ? 원본 못 찾음 — ' + rel); process.exit(2); } return s; };
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 
-const CHARS = need('parts/character/chars.js');
 const LC = need('parts/launcher/launcher-controls.js');
 const DR = need('parts/launcher/desktop-run.js');
 const MAIN = (() => { const s = read('main.js', '../main.js'); if (s == null) { say('  ? 원본 못 찾음 — main.js'); process.exit(2); } return s; })();
 
-say('§9 보관함 이동 — 슬롯 표를 당긴 번호로 슬롯도 당긴다');
+/* §9 (보관함 이동 — 동기화가 슬롯을 새로 깔면 복제) 는 서버 원본으로 없어졌다 — 앱이 서버에 옮기고 된 뒤에만 칸을 당기므로 슬롯을 새로 까는 동기화가 없다.
+   판정은 sim-closet(서버가 된 뒤 당김 · 한 번에 하나) · sim-launcher-controls(실패하면 칸 그대로) 가 한다. */
 {
-  const d2b = (strip(CHARS).match(/async function _charsDeskToBox\(i\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/return \{ ok: true, cid, slot: i \};/.test(d2b), '★ _charsDeskToBox 가 실제로 당긴 칸 번호(따라간 i)를 돌려준다');
-  chk(/if\(desk\[i\] !== cid\)\{ const j = desk\.indexOf\(cid\); if\(j < 0\) return \{ ok: false, why: 'moved' \}; i = j; \}/.test(d2b), '  ↳ 기다리는 사이 칸이 바뀌면 그 캐릭터의 새 번호로 따라간다(그 번호가 돌아간다)');
-  const fnSrc = (LC.match(/async function doMoveCurSlotToBox\(\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(!!fnSrc, 'doMoveCurSlotToBox 를 찾았다');
-  /* 흉내 — 칸 0 의 A 를 옮긴다. 기다리는 동안 동기화가 슬롯을 새 객체로 다시 깔았다(loadSlots). */
-  const run = (rFromChars) => {
-    const A = { name: 'A' }, B = { name: 'B' };
-    const slots = [A, B, null, null];
-    let cur = 0, saved = 0;
-    const ctx = {
-      curSlot: () => cur, setCurSlot: (v) => { cur = v; }, slots,
-      charsMod: () => ({
-        _charsDeskToBox: async () => { slots[0] = { name: 'A' }; slots[1] = { name: 'B' }; return rFromChars; },   // 새 객체(같은 캐릭터)
-        _charsMoveFailLog: () => {}, _charsMoveMsg: () => 'x',
-      }),
-      settingsMod: { extraSeatSlots: () => [], setExtraSeatSlots: () => {}, _saveExtraSeatSlots: () => {} },
-      slotSaveMod: () => ({ saveSlots: () => { saved++; } }),
-      saveCurSlot: () => {}, renderLauncher: () => {}, toast: () => {},
-    };
-    const f = new Function(...Object.keys(ctx), 'let _moveToBoxBusy = false;\n' + fnSrc + '\nreturn doMoveCurSlotToBox;')(...Object.values(ctx));
-    return f().then(() => ({ names: slots.map((x) => x && x.name), saved }));
-  };
-  return Promise.all([run({ ok: true, cid: 'cA', slot: 0 }), run({ ok: true, cid: 'cA' })]).then(([nw, old]) => {
-    chk(nw.names.join() === 'B,,,' && nw.saved === 1, '★ 새: 슬롯 객체가 바뀌어도 당긴 번호(0)로 슬롯을 당긴다 → [B] · 저장 1번');
-    chk(old.names.join() === 'A,B,,' && old.saved === 0, '  ↳ 흉내: 번호 없이 객체로만 찾으면(고치기 전) 못 찾아 A 가 슬롯에 남는다 — 보관함에도 들어가 복제');
+  return Promise.resolve().then(() => {
 
     say('§13 고착 회복 사다리 3단계 — 우리 UI 위 클릭일 때만');
     const D = strip(DR);

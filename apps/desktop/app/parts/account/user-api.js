@@ -75,7 +75,6 @@ function meFrom(d){
     hasPasswordLogin: d.hasPasswordLogin === true,
     admin: d.admin === true,
     premium: d.premium === true,
-    premiumGraceSec: Math.max(0, num(d.premiumGraceSec, 0)),
     version: d.version,
   };
 }

@@ -93,8 +93,8 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
   chk(deps.length === 7 && deps.every(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l)), 'app.js 가 원래 자리에서 만든다 — deps 7개 · 모두 화살표(나중에 선언된 함수도 부를 때 찾는다 · 목록 다시 그리기는 adminLicense.이름)');
   chk(!/\bADMIN_LICENSE_BULK_OFF\b/.test(SRC), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
-  const hA = SRC.indexOf('/* ═══ 📄 [2026-10-02]'), hS = SRC.indexOf('/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */'), hM = SRC.indexOf('const adminLicenseBulk =');
-  chk(hA > 0 && hS > hA && hM > hS, '만드는 줄은 원래 자리(두 구역 머리 아래) — 버튼을 거는 때가 예전과 같다');
+  const hS = SRC.indexOf('/* ═══ 🔒 시크릿룸 발급(관리자) ═══ */'), hM = SRC.indexOf('const adminLicenseBulk =');
+  chk(hS > 0 && hM > hS, '만드는 줄은 원래 자리(🔒 시크릿룸 발급 머리 아래) — 버튼을 거는 때가 예전과 같다');
   const used = ['escHtml', 'toast', '_genLicenseKey', '_saveFailMsg', 'renderLicenseGenList', 'downloadBlob', '_srFmtDate'];
   const body = strip(LB.slice(LB.indexOf('function createAdminLicenseBulk(deps){')));
   chk(used.every(n => new RegExp('const ' + n.replace('$', '\\$') + ' = deps\\.').test(body)), '본문이 쓰는 app.js 함수 일곱을 deps 로 받는다');
@@ -113,8 +113,8 @@ say('── 4. 관리자 모듈 연결 (admin/admin-license-bulk.js)');
   const out = api.createAdminLicenseBulk({ escHtml: s => String(s), toast: noop, genLicenseKey: () => 'K', saveFailMsg: () => '', renderLicenseGenList: noop, downloadBlob: noop, srFmtDate: () => '' });
   chk(out && typeof out === 'object' && !Object.keys(out).length, '만들면 빈 객체를 돌려준다(밖에서 부르는 이름 없음)');
   chk(typeof win._lxHideWin === 'function', '만들 때 window._lxHideWin 을 건다(발급 창을 다시 열 때 부름)');
-  chk((els.licenseXlsxOpenBtn._on.click || []).length === 1 && (els.srGrantBtn._on.click || []).length === 1 && (els.srGrantKey._on.keydown || []).length === 1,
-    '만들 때 버튼을 한 번씩 건다 — 일괄 발급 입구 · 시크릿룸 발급 · 열쇠 칸 Enter');
+  chk((els.licenseXlsxOpenBtn._on.click || []).length === 1 && (els.srGrantBtn._on.click || []).length === 1 && (els.srGrantCode._on.keydown || []).length === 1,
+    '만들 때 버튼을 한 번씩 건다 — 일괄 발급 입구 · 시크릿룸 발급 · 코드 칸 Enter');
 }
 
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);

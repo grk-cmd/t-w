@@ -25,6 +25,10 @@ const SRC0 = {
   FS: pick(at('friends-sub.js', 'myhome')),
   MV: pick(at('myhome-visit.js', 'myhome')),
   MS: pick(at('myhome-state.js', 'myhome')),
+  MST: pick(at('myhome-store.js', 'myhome')),
+  MA: pick(at('myhome-api.js', 'myhome')),
+  RU: pick(at('myhome-sticker-rules.js', 'myhome')),
+  AE: pick(at('api-errors.js', 'shared')),
   FI: pick(['firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js']),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js']),
 };
@@ -38,9 +42,9 @@ const load = (src, name, extra) => {
 };
 const flush = async () => { for(let i = 0; i < 3; i++) await new Promise(r => setImmediate(r)); };   // 걸려 있는 약속을 다 끝낸다
 
-/* firebase-init 의 친구 함수(목록 한 번 · 목록 구독 ~ 접속 상태 한 번)를 떼어 가짜 SDK 위에서 돌린다 */
+/* firebase-init 의 친구 함수(목록 한 번 · 목록 구독 ~ 프로필 한 번)를 떼어 가짜 SDK 위에서 돌린다 */
 function fakeFirebase(S, N){
-  const i0 = S.FI.indexOf('    watchMyFriendList(myId, onChange, onError){'), i1 = S.FI.indexOf('    async getFriendPresence(fid){', i0), i2 = i1 < 0 ? -1 : S.FI.indexOf('\n    },\n', i1);
+  const i0 = S.FI.indexOf('    watchMyFriendList(myId, onChange, onError){'), i1 = S.FI.indexOf('    async getFriendProfile(fid){', i0), i2 = i1 < 0 ? -1 : S.FI.indexOf('\n    },\n', i1);
   const g0 = S.FI.indexOf('    async getMyFriendList(myId){'), g1 = g0 < 0 ? -1 : S.FI.indexOf('\n    },\n', g0);
   if(!(i0 > 0 && i2 > i1 && g1 > g0)) return null;
   const db = { list: {}, profile: {}, presence: {} };
@@ -74,10 +78,9 @@ function wire(S, F, opts){
   const clock = { t: 0 };
   const a = F.api;
   const fbp = FB.createFriendsFirebase({ getList: (...x) => a.getMyFriendList(...x), watchList: (...x) => a.watchMyFriendList(...x), getCard: (...x) => a.getFriendCard(...x),
-    watchPresence: (...x) => a.watchFriendPresence(...x), getPresence: (...x) => a.getFriendPresence(...x),
     watchProfile: (...x) => a.watchFriendProfile(...x), getProfile: (...x) => a.getFriendProfile(...x),
     setTimer: (fn) => { T.q.push(fn); return T.q.length; }, clearTimer: (id) => { T.q[id - 1] = null; }, now: () => clock.t });
-  const port = P.createFriendsPort({ firebase: fbp, api: null, source: () => 'firebase', serverFirst: SW.serverFirst, warn(){} });
+  const port = P.createFriendsPort({ firebase: fbp, presence: { watchPresence: () => () => {}, readPresence: async () => ({}) }, api: null, source: () => 'firebase', serverFirst: SW.serverFirst, warn(){} });
   const box = { cur: {}, emits: 0 };
   const listFriends = (opts && opts.listFriends) ? opts.listFriends(port) : (...x) => port.listFriends(...x);
   const sub = FSM.createFriendsSub({ subscribe: (...x) => port.watchList(...x), fetchOnce: (id) => port.listFriends(id, { idsOnly: true }), listFriends,
@@ -102,11 +105,11 @@ async function judge(S){
     chk(F.on() === 1 && box.cur.f1 && box.cur.f1.name === '옛이름1', '★ 평소(목록 닫힘) 상시 구독 1개 · 이름은 한 번 읽어 얹음 (지금 ' + F.on() + ')');
     sub.open('myhome', () => {});
     await flush(); T.run(); await flush();
-    chk(F.on() === 1 + 2 * N && F.on(/\/presence$/) === N && F.on(/\/profile$/) === N, '★ 목록을 열면 1 + 2×' + N + ' = ' + (1 + 2 * N) + '개 — 접속 상태 ' + N + ' · 프로필 ' + N + ' (지금 ' + F.on() + ')');
+    chk(F.on() === 1 + N && F.on(/\/presence$/) === 0 && F.on(/\/profile$/) === N, '★ 목록을 열면 1 + ' + N + ' = ' + (1 + N) + '개 — 프로필 ' + N + '(접속 상태는 Firebase 구독 0 — realtime 하나) (지금 ' + F.on() + ')');
     chk(F.everOn(/\/home\//) === 0, '★ 소개 · 사진(home/bio · home/avatar)은 구독 0 — 열 때 한 번 읽기만 (구독 ' + F.everOn(/\/home\//) + ')');
     sub.open('invite', () => {});
     await flush();   // 초대 목록 첫 열기의 목록 받기까지 끝낸 뒤에 이름을 바꾼다 — 바뀐 이름은 듣기로만 와야 한다
-    chk(F.on() === 1 + 2 * N, '  초대 목록까지 열어도 겹쳐 걸지 않음 (지금 ' + F.on() + ')');
+    chk(F.on() === 1 + N, '  초대 목록까지 열어도 겹쳐 걸지 않음 (지금 ' + F.on() + ')');
     const before = box.emits;
     F.write('f2', { name: '새이름2', level: 7, cyc: 2, clv: 3, starC: '#112233', updatedAt: 2 });
     T.run(); await flush();
@@ -169,7 +172,12 @@ async function judge(S){
     const any = (() => { const f = function(){ return P; }; const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? undefined : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true }); return P; })();
     const run = async (friends, refresh, opts) => {
       const L = { renders: 0, titles: [], nameReads: 0 };
-      const st = load(S.MS, 'TwMyHomeState').createMyHomeState({ _myHomeFriends: () => friends.v });
+      const emptyP = { avatar: null, bio: '', postTitle: '', post: '', bgm: null, bg: null, stickers: {}, theme: null, themePresets: null, themePresetCur: null };
+      const store = load(S.MST, 'TwMyHomeStore').createMyHomeStore({   // 진짜 상태 주인 — 가짜 서버 길 위에서(집 받기만 쓴다)
+        api: { fetchMine: async () => ({ page: emptyP, pageVersion: 1, desktop: { bg: null, hideFolders: false, folderPos: {} }, desktopVersion: 1 }),
+          fetchOf: async () => ({ page: emptyP, desktop: { bg: null, hideFolders: false, folderPos: {} } }), patchPage(){}, putDesign(){}, uploadImage(){}, reset(){} },
+        lib: load(S.MA, 'TwMyHomeApi'), errs: load(S.AE, 'TwApiErrors'), apiErrors: { notify(){} }, notifyError: () => true, toast(){}, previewOn: () => false, rules: load(S.RU, 'TwMyHomeStickerRules') });
+      const st = load(S.MS, 'TwMyHomeState').createMyHomeState({ _myHomeFriends: () => friends.v, myhomeStore: store });
       const label = { textContent: '' };
       const doc = { getElementById: (id) => id === 'mhTitleLabel' ? label : any, querySelectorAll: () => [] };
       const fapi = { getMyHome: async () => ({}), getUserNameById: async () => { L.nameReads++; return '서버이름'; } };
@@ -178,9 +186,8 @@ async function judge(S){
       const mod = w2.TwMyHomeVisit.createMyHomeVisit({
         _myHomeFriends: () => friends.v, applyDesktopRunClass(){}, getMyUserId: () => 'ME', loadMyHomePage(){}, mhScheduler: any, myHomeOpen: () => true,
         renderMyHomePage: () => { L.renders++; L.titles.push(label.textContent); }, toast(){}, setSchedDdaysVisitUnsub(){}, setMyHomeOpen(){},
-        _myHomeData: () => st._myHomeData(), _myHomeLoaded: () => true, _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(),
-        _mhHomeFromServer: (...x) => st._mhHomeFromServer(...x), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
-        setMyHomeData: (v) => st.setMyHomeData(v), setMhViewingUserId: (v) => st.setMhViewingUserId(v), setMhViewingName: (v) => st.setMhViewingName(v),
+        _mhViewingUserId: () => st._mhViewingUserId(), _mhViewingName: () => st._mhViewingName(), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
+        myhomeStore: store, fetchCards: async (codes) => { L.nameReads++; return { [codes[0]]: { name: '서버이름' } }; },
         refreshFriendProfile: refresh,
       });
       await mod.openFriendHomeView((opts && opts.fid) || 'f1', opts && opts.hint);
@@ -197,7 +204,7 @@ async function judge(S){
     const L2 = await run(friends2, () => Promise.resolve(true), { hint: '같은이름' });
     chk(L2.renders === 1, '  ↳ 이름이 그대로면 다시 그리지 않는다(그리기 한 번)');
     const L3 = await run({ v: {} }, () => Promise.resolve(false), { fid: 'x9' });
-    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 옛 길(getUserNameById)로 이름 한 줄');
+    chk(L3.nameReads === 1 && L3.titles[L3.titles.length - 1] === '🏠 서버이름의 마이홈', '  ↳ 친구가 아니고 이름도 모르면 명함(서버 길)으로 이름 한 줄');
     const L4 = await run({ v: {} }, () => Promise.reject(new Error('x')), { fid: 'x9', hint: '힌트' });
     chk(L4.renders === 1 && L4.nameReads === 0, '  ↳ 새로 받기가 실패해도 던지지 않고 받아 둔 이름 그대로');
   }
@@ -217,7 +224,7 @@ const BREAKS = [
   ['FBP', "    if(c) _cards[fid] = { at: c.at, card: Object.assign({}, c.card, prof) };", "", '들은 이름이 카드 기억에 안 얹힘(다시 열면 옛 이름)'],
   ['FBP', "  function watchProfile(myId, ids, onChange){ return _watchEach(ids, watchProfileOne, _keepProfile, onChange); }", "  function watchProfile(myId, ids, onChange){ return _watchEach(ids, (fid, cb)=>{ watchProfileOne(fid, cb); return ()=>{}; }, _keepProfile, onChange); }", '프로필 구독 해제 함수를 버림'],
   ['FBP', "  async function readProfile(fid){ return _keepProfile(fid, await getProfile(fid)); }", "  async function readProfile(fid){ return readFriend(fid); }", '새로 읽기가 10분 기억을 씀'],
-  ['PORT', "  function watchProfile(myId, ids, onChange){ return firebase.watchProfile(myId, ids, onChange); }", "  function watchProfile(myId, ids, onChange){ firebase.watchProfile(myId, ids, onChange); }", '포트가 해제 함수를 안 돌려줌'],
+  ['PORT', "  function watchProfile(myId, ids, onChange){ return (viaServer() ? apiProvider : firebase).watchProfile(myId, ids, onChange); }", "  function watchProfile(myId, ids, onChange){ (viaServer() ? apiProvider : firebase).watchProfile(myId, ids, onChange); }", '포트가 해제 함수를 안 돌려줌'],
   ['FI', "const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val()));", "const off = onValue(ref(db, `users/${fid}/profile`), snap=>onChange(snap.val())); onValue(ref(db, `users/${fid}/home/avatar`), ()=>{});", '사진까지 구독'],
   ['MV', "    Promise.resolve(refreshFriendProfile ? refreshFriendProfile(friendId) : false)", "    Promise.resolve(false)", '마이홈 구경이 새 이름을 안 받음'],
   ['MV', "        if(_mhViewingDisplayName() !== shownName){ _mhApplyVisitUI(); renderMyHomePage(); }", "", '새 이름이 와도 다시 안 그림'],

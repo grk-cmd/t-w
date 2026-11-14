@@ -154,7 +154,7 @@ function mkEnv(o){
       asyncPrompt: async (p) => { env.calls.push('prompt ' + p.title); return env.prompts.length ? env.prompts.shift() : null; },
       getFocusLevel: () => 42, myFocusShow: () => null, starFromRemote: (c) => (c && c.star) ? { cyc: 2, lv: 7, color: c.star } : null,
       lvBadgeClass: (n) => 'lv' + n, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n, starPaint: () => {},
-      myHomeLoaded: () => !!env.homeLoaded, myHomeData: () => env.homeData || null, myHomeFriends: () => env.friends,
+      myhomeAvatar: () => (env.homeLoaded && env.homeData && env.homeData.avatar) || null, myHomeFriends: () => env.friends,
       friendsRefreshPresence: (ids) => { env.refreshed.push(ids.slice().sort().join()); return Promise.resolve().then(() => { if(env.onRefresh) env.onRefresh(); }); },
       openFriendHomeView: (uid, nm) => env.home.push(uid + ' ' + nm),
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
@@ -887,24 +887,21 @@ function wiring(PL, APP, HTML){
   chk(!oldUse, '  app.js 는 옛 이름을 부르지 않는다(전부 plMod.이름 · plMod.st)' + (oldUse ? ' — ' + oldUse[1] : ''));
   chk(/window\.TwPlaylist = api/.test(PL) && (A.match(/TwPlaylist\.createPlaylist\(/g) || []).length === 1, '모듈은 window.TwPlaylist · 만드는 곳은 한 곳');
   const H = (t) => APP.indexOf('/* ═══ ' + t + ' ═══ */');
-  const i27 = H('🎵 상태칩 플레이리스트'), iMk = APP.indexOf('TwPlaylist.createPlaylist('), i28 = H('🎵 프리셋 세 벌'), i29 = APP.indexOf('/* ═══ 👤 프로필 소개칸'),
-    i30 = APP.indexOf('/* ═══ 🏅 레벨 티어'), iTier = APP.indexOf('\nconst LV_TIERS = '), i31 = H('🎵 플레이리스트 화면 — 명함 · 목록 · 흐르는 제목 · 미니미 · 파도타기'),
-    i32 = H('🎵 프리셋 고르기'), i33 = H('🐕 재생 감시견'), i34 = APP.indexOf('/* ═══ 🩺 렌더러 생존 신호'), i26 = APP.indexOf('/* ═══ 😊 기본 이모티콘');
-  chk(i26 > 0 && i27 > i26 && iMk > i27 && i28 > iMk && i29 > i28 && i30 > i29 && iTier > i30 && i31 > iTier && i32 > i31 && i33 > i32 && i34 > i33,
-    '원래 자리 — 만드는 줄은 🎵 상태칩 플레이리스트 머리 아래 · 머리 다섯은 남김 · 👤 · 🏅 레벨 티어는 그 사이 그대로');
-  const notes = [[i28, i29], [i31, i32], [i32, i33], [i33, i34]].map(([a, b]) => APP.slice(a, b));
-  chk(notes.every(s => /parts\/(?:status\/)?playlist\.js 로 옮겼다/.test(s) && !/^(?:function|const|let|\(function) /m.test(s)), '  남긴 머리 아래는 옮긴 곳 안내뿐(구역 번호가 밀리지 않게)');
+  const i27 = H('🎵 상태칩 플레이리스트'), iMk = APP.indexOf('TwPlaylist.createPlaylist('),
+    i30 = APP.indexOf('/* ═══ 🏅 레벨 티어'), iTier = APP.indexOf('\nconst LV_TIERS = '), i34 = APP.indexOf('/* ═══ 🩺 렌더러 생존 신호'), i26 = APP.indexOf('/* ═══ 😊 기본 이모티콘');
+  chk(i26 > 0 && i27 > i26 && iMk > i27 && i30 > iMk && iTier > i30 && i34 > iTier,
+    '원래 자리 — 만드는 줄은 🎵 상태칩 플레이리스트 머리 아래 · 🏅 레벨 티어는 그 뒤 그대로(옮긴 몫의 빈 머리는 0.13 에서 걷음)');
   const call = (APP.match(/TwPlaylist\.createPlaylist\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
   const fnNames = [['toast', 'toast'], ['getMyUserId', 'getMyUserId'], ['getDisplayName', 'getDisplayName'], ['asyncPrompt', 'asyncPrompt'], ['getFocusLevel', 'getFocusLevel'],
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myhomeAvatar: ()=>myhomeStoreMod.avatar(),', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistApi: playlistApiMod,', 'notifyError: (...a)=>TwErrorCodes.notify(...a),']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 23 && !miss.length, 'deps 23개 — 함수 19는 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 22 && !miss.length, 'deps 22개 — 함수 19는 화살표 · 다시 대입되는 let 하나는 읽는 함수 · 내 사진은 마이홈 상태 주인 · 서버 길 provider (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
-  chk(['_myHomeLoaded', '_myHomeData', '_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeLoaded · _myHomeData · _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
+  chk(['_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
   const used = usedIn(/plMod\.(?!st\.)\w+/g).filter(n => n !== 'st');
   const off = (APP.match(/const PLAYLIST_OFF = \{([\s\S]*?)\};   \/\//) || [])[1] || '';

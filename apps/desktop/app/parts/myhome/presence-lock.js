@@ -6,6 +6,7 @@
      (startOnlineFor 가 돌려주는 Promise 를 firebase-init setMyPresenceOnline 이 첫 쓰기 앞에서 기다린다).
      고정값은 계정 확인(GET /v1/me)이 돌려준 me 의 presencePref 다 — 계정 확인을 통과한 뒤에만 시작하니(launcher/app-boot.js) 따로 읽거나 기다리지 않는다.
    ⚠️ 다른 PC 에서 바꾼 고정값은 이미 켜져 있는 PC 에 바로 오지 않는다(다음 실행부터).
+   ★ 접속 표시는 둘로 나간다 — 옛 Firebase presence(웹 관리자 · 규칙의 버전 검사가 아직 읽는다)와 realtime status(친구가 보는 쪽).
    만드는 곳은 app.js(마이홈 처음 준비보다 먼저) · 처음 온라인 여부는 myhome-init.js 가 startOnlineFor(uid, me) 로 묻는다. */
 (function(){
 'use strict';
@@ -24,6 +25,8 @@ function startOnline(p){ return !(p && p.lock === true && p.online === false); }
  *   notifyError: (code: string, err: unknown) => void,
  *   savePref: (uid: string, p: { lock: boolean, online: boolean }) => Promise<unknown>,
  *   setPresence: (uid: string, online: boolean) => unknown,
+ *   startVisible: (online: boolean) => void,
+ *   setVisible: (online: boolean) => void,
  * }} deps */
 function createPresenceLock(deps){
   const getMyUserId = deps.getMyUserId;
@@ -47,7 +50,7 @@ function createPresenceLock(deps){
   }
   function save(uid){
     Promise.resolve().then(() => deps.savePref(uid, { lock: pref.lock, online: pref.online }))
-      .catch(err => deps.notifyError('E-MH-03', err));
+      .catch(err => deps.notifyError('E-MH-13', err));
   }
   /* 받은 고정값을 앉힌다 */
   function adopt(uid, p){
@@ -65,6 +68,7 @@ function createPresenceLock(deps){
     if(!uid) return online;
     const pp = me && me.presencePref;
     adopt(uid, normalize(pp ? { lock: pp.locked, online: pp.online } : null));
+    deps.startVisible(online);   // realtime 에 처음 접속 표시 — 고정값을 앉힌 뒤라 «켜는 순간 온라인» 이 한 번 보이지 않는다
     return online;
   }
 
@@ -73,6 +77,7 @@ function createPresenceLock(deps){
     online = !online;
     touched = true;
     try{ deps.setPresence(uid, online); }catch(_){}
+    deps.setVisible(online);
     if(uid && pref.lock){ pref = { lock: true, online }; save(uid); }
     paint();
     toast(online ? '이제 친구들에게 온라인으로 보여요' : '이제 친구들에게 오프라인으로 보여요');
