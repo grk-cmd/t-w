@@ -23,6 +23,7 @@ const _applyTransferSnapshot = deps._applyTransferSnapshot;
 const _inventMyUserId = deps._inventMyUserId;
 const _loginDoFriendCode = deps._loginDoFriendCode;
 const _loginDoGoogle = deps._loginDoGoogle;
+const googleConfirmMod = deps.googleConfirmMod;   // 🔑 구글을 붙이기 전에 묻기(google-confirm.js)
 const _loginLocalSnapshot = deps._loginLocalSnapshot;
 const _setMyUserId = deps._setMyUserId;
 const applyDeskCatalogRefToSeat = deps.applyDeskCatalogRefToSeat;
@@ -168,7 +169,10 @@ async function _signupDoGoogle(){
   try{ g = await companion.signInWithGoogle(); }catch(_){ return { ok:false, reason:'로그인 창을 열지 못했어요' }; }
   if(!g || !g.ok) return { ok:false, canceled:!!(g && (g.canceled || !g.reason || g.reason === '로그인이 취소됐어요')), reason:(g && g.reason) || '' };
   const p = _signupPendingEnsure();
-  const r = await firebaseAPI.authSignInWithGoogle(g.idToken, p.uid);
+  /* 🔑 처음 보는 구글이면 이 새 아이디에 묶기 전에 묻는다 — 예전 계정이 있는 사람이 다른 구글로 가입하는 실수를 막는다 */
+  const r = await firebaseAPI.authSignInWithGoogle(g.idToken, p.uid, (email)=>googleConfirmMod.ask(email, 'bind', p.code));
+  if(r && r.declined === 'other') return _signupDoGoogle();
+  if(r && r.declined) return { ok:false, canceled:true, reason:'' };
   if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '구글 가입에 실패했어요' };
   if(r.userCode !== p.uid){
     if(!_setMyUserId(r.userCode)) return { ok:false, reason:'이 기기에 저장하지 못했어요 — 다시 시도해 주세요' };
@@ -343,8 +347,8 @@ function _showSignupDone(opts){
       gBtn.onclick = async ()=>{
         if(!(window.companion && companion.signInWithGoogle) || !(window.firebaseAPI && firebaseAPI.authLinkGoogle)){ say('이 버전에서는 구글을 연결할 수 없어요 — 나중에 계정 탭에서 연결해 주세요', true); return; }
         gBtn.disabled = true; say('구글 창을 여는 중…', false);
-        let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
-        if(!g || !g.ok){ say((g && g.reason) || '', true); gBtn.disabled = false; return; }
+        const g = await googleConfirmMod.pickForLink();
+        if(!g.ok){ say(g.canceled ? '' : g.reason, true); gBtn.disabled = false; return; }
         let r = null; try{ r = await firebaseAPI.authLinkGoogle(g.idToken); }catch(_){ r = { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; }
         if(!r || !r.ok){ say((r && r.reason) || '구글을 연결하지 못했어요', true); gBtn.disabled = false; return; }
         if(warn) warn.style.display = 'none';

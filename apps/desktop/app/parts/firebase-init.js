@@ -4035,10 +4035,11 @@
     /* main.js 가 받아온 구글 ID 토큰으로 로그인하고, 유저 코드와 묶는다.
        @param idToken   companion.signInWithGoogle() 이 돌려준 것
        @param userCode  이 기기의 현재 유저 코드(getMyUserId())
+       @param confirmBind (email)=>Promise<'yes'|'other'|'cancel'> — 처음 보는 구글을 묶기 전에 묻는다 · 아니면 { declined }
        @return { ok, uid, email, userCode, bound }
                bound=true  → 이 계정이 이 기기 코드를 **새로 가져간** 경우(첫 로그인)
                bound=false → 이미 묶여 있던 계정으로 들어온 경우(기기 이동) */
-    async authSignInWithGoogle(idToken, userCode){
+    async authSignInWithGoogle(idToken, userCode, confirmBind){
       if(!auth) return { ok:false, reason:'로그인 기능을 쓸 수 없어요 (초기화 실패)' };
       if(!idToken) return { ok:false, reason:'구글 토큰이 없어요' };
       let cred = null;
@@ -4063,19 +4064,15 @@
           return { ok:true, uid, email, userCode:String(v.userCode), bound:false };
         }
         /* ② 이 계정의 첫 로그인 — 이 기기의 유저 코드를 가져간다.
-           ★ userCode 가 비어 있으면 **묶지 않고 물러난다.** 부르는 쪽(app.js _loginDoGoogle)이
-             "이 기기의 코드는 아직 계정이라고 부를 수 없다"고 판단해서 일부러 비워 보낸 것이다.
-           [경위] 예전에는 부르는 쪽이 getMyUserId() 를 그대로 넘겼는데, 그 함수는 코드가 없으면
-             **그 자리에서 새로 만들어낸다.** 그래서 초대 게이트에서 [구글 로그인]을 누른 새 기기는
-             방금 태어난 임시 코드를 이 계정에 영구히 묶어놓고, 화면에는 "연결된 기록이 없어요"라며
-             입장을 거부당했다. 그다음 원래 컴퓨터에서 로그인하면 서버가 그 빈 코드를 정답으로
-             돌려줘서 마이홈·친구가 통째로 사라졌다. 묶기를 거절하는 이 한 줄이 그 경로를 끊는다.
-           ⚠️ 로그아웃까지 해야 한다 — 세션만 남기면 "로그인은 됐는데 계정은 없는" 상태가 된다(규약 ⑤).
-             막 생긴 계정은 로그아웃 대신 지운다(_dropGoogleSession). */
+           ★ userCode 가 비어 있으면 묶지 않고 물러난다 — 부르는 쪽(account.js _loginDoGoogle)이 «아직 계정이라 부를 수 없는 코드» 라 일부러 비운 것.
+             새로 만들어 넘기면 빈 임시 코드가 이 구글에 영구히 묶여, 원래 PC 에서 로그인할 때 그 빈 코드가 정답이 된다.
+           ⚠️ 물러날 땐 세션도 놓는다(«로그인은 됐는데 계정은 없는» 상태 금지 · 규약 ⑤) — 막 생긴 계정은 지운다(_dropGoogleSession). */
         if(!userCode){
           await _dropGoogleSession(cred);
           return { ok:false, needCode:true, reason:'이 구글 계정에 연결된 기록이 없어요' };
         }
+        const ans = confirmBind ? await confirmBind(email) : 'yes';   // 🔑 처음 보는 구글 — 묶기 전에 묻는다(google-confirm.js)
+        if(ans !== 'yes'){ await _dropGoogleSession(cred); return { ok:false, declined: ans === 'other' ? 'other' : 'cancel' }; }
         /* 선점은 runTransaction 으로. set 으로 덮으면 한 기기에서 두 계정으로 로그인한 사람이
            먼저 묶인 계정의 데이터를 통째로 빼앗는다. */
         const tr = await runTransaction(ref(db, `userAuth/${userCode}`), cur => (cur == null ? uid : undefined));

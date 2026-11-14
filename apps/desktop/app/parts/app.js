@@ -5837,9 +5837,15 @@ const acctStateMod = TwAccountState.createAccountState({
   isPremium: ()=>isPremium,
   setIsPremium: (v)=>{ isPremium = v; },
 });
+/* 🔑 구글을 계정에 처음 붙이기 전에 묻는 창(google-confirm.js) — 초대 게이트 · 계정 · 구글 연결하기가 같이 쓴다 */
+const googleConfirmMod = TwGoogleConfirm.createGoogleConfirm({
+  friendCode: ()=>{ try{ return localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){ return null; } },
+  signInWithGoogle: ()=>companion.signInWithGoogle(),
+});
 /* 본문은 license-gate.js 로 옮겼다(앱 FSD 31번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const licenseGateMod = TwLicenseGate.createLicenseGate({
+  googleConfirmMod: googleConfirmMod,
   DEFAULT_DESK_OVERRIDE_ID: DEFAULT_DESK_OVERRIDE_ID,
   FRIEND_CODE_LOGIN_RE: ()=>acctStateMod.FRIEND_CODE_LOGIN_RE,
   HAD_USER_ID_AT_BOOT: HAD_USER_ID_AT_BOOT,
@@ -7120,6 +7126,7 @@ TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementB
 /* 본문은 account.js 로 옮겼다(앱 FSD 23번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const accountMod = TwAccount.createAccount({
+  googleConfirmMod: googleConfirmMod,
   BELL_SEEN_KEY: BELL_SEEN_KEY,
   CHAL_KEY: ()=>CHAL_KEY,
   CUR_SLOT_KEY: CUR_SLOT_KEY,

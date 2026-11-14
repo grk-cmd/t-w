@@ -103,6 +103,7 @@
     --z-mh-design: 111;      /* 👑 마이홈 디자인 스튜디오(초대 게이트와 같은 자리였다) */
     --z-gate-signup: 112;    /* 이미 가입 · 로그인 필요 */
     --z-gate-done: 113;      /* 가입 완료 */
+    --z-gate-confirm: 114;   /* 처음 보는 구글 계정 · 구글 연결 묻기(게이트 · 가입 완료 위에서도 뜬다) */
   }
   /* ══════════════════════════════════════════════════════════════════════════
      🎨 디자인 테마 — 축이 두 개다.
@@ -7101,6 +7102,28 @@
   </div>
 </div>
 
+<!-- 🔑 구글을 계정에 처음 붙이기 전에 묻기 — 글자는 parts/account/google-confirm.js 가 채운다(주소는 가려서). 기본 버튼은 [다른 계정으로 로그인]. -->
+<div id="gConfirmOverlay" role="dialog" aria-modal="true" aria-labelledby="gcTitle" style="position:fixed;inset:0;z-index:var(--z-gate-confirm);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.35);">
+  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
+    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
+    width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
+    <div style="display:flex;align-items:center;justify-content:space-between;font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
+      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));"><span id="gcTitle">처음 보는 구글 계정이에요</span>
+      <button id="gcClose" class="lc-btn" type="button" aria-label="닫기" style="width:auto;margin:0;padding:0 6px;font-size:10px;line-height:14px;">✕</button></div>
+    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
+      <div style="font-size:12px;line-height:1.55;color:var(--ink);"><b id="gcMail" style="color:#000;"></b><span id="gcLead"></span></div>
+      <div style="font-size:11px;line-height:1.6;color:var(--ink);background:#fff;padding:8px 9px;border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
+        이 PC 의 계정 — 친구 코드 <b id="gcCode" style="color:#000;">—</b><br><span id="gcCard"></span></div>
+      <div id="gcWarn" style="font-size:10.5px;line-height:1.5;color:#B5624A;"></div>
+      <div id="gcFresh" style="font-size:10.5px;line-height:1.5;color:var(--ink-soft);"></div>
+      <div style="display:flex;gap:6px;">
+        <button id="gcOther" class="lc-btn" type="button" style="margin-top:0;flex:1;font-weight:bold;">다른 계정으로 로그인</button>
+        <button id="gcYes" class="lc-btn ghost" type="button" style="margin-top:0;flex:1;">이 계정에 연결</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 🧬 F · 캐릭터를 계정에 연동했어요 — [회원가입 설계 §7-F · 시안 F-1 · F-2 확정 · CHECKS 개정 57] 묻지 않는 안내(한 번).
      I 에서 이미 가입된 구글로 갈아탈 때 이 PC 에만 있던 캐릭터를 그 계정 보관함으로 옮긴 뒤, 재시작하고 첫 채택이 끝나면 뜬다(app.js _charsLinkedMaybeShow).
      섬네일만(이름 없음) · «개» · 20 이상이면 D2 와 같은 문구 + [보관함 열기]가 기본 버튼. 게이트(96~97)보다 아래. -->
@@ -8799,6 +8822,7 @@
 <script src="parts/focus/room-focus-sync.js"></script>   <!-- 📊 내 집중 시간을 방 기록에 올리기(window.TwRoomFocusSync) — app.js 가 만든다 -->
 <script src="parts/chat/chat-focus.js"></script>   <!-- 📊 시크릿룸 #집중 탭(window.TwChatFocus) — app.js 가 채팅 모듈보다 먼저 만든다 -->
 <script src="parts/chat/chat-ui.js"></script>   <!-- 💬 채팅 — 날리기 · 읽음 · 탭 · 복사 · 이모티콘 — app.js 보다 먼저(app.js 가 원래 자리에서 TwChatUi.createChatUi 로 만든다) -->
+<script src="parts/account/google-confirm.js"></script>   <!-- 🔑 구글을 계정에 처음 붙이기 전에 묻기 — 초대 게이트 · 계정보다 먼저 -->
 <script src="parts/account/license-gate.js"></script>   <!-- 🎟️ 초대장 · 라이선스 — app.js 보다 먼저(app.js 가 원래 자리에서 TwLicenseGate.createLicenseGate 로 만든다) -->
 <script src="parts/account/account.js"></script>   <!-- 🔑 계정 — app.js 보다 먼저(app.js 가 원래 자리에서 TwAccount.createAccount 로 만든다) -->
 <script src="parts/character/wardrobe-place.js"></script>   <!-- 📐 꾸미기 · 미리보기 창 자리 규칙(순수) — wardrobe.js 보다 먼저(wardrobe.js 가 TwWardrobePlace 를 읽는다) -->
