@@ -182,7 +182,7 @@
 | **sim-pl-watchdog.js** | 412 | **4658ffafbd00** |
 | **sim-premium-desk.js** | 96 | **9911af6ac156** |
 | **sim-presence.js** | 243 | **3f5b1eb57bdc** |
-| **sim-light-tone.js** | 280 | **f41e859ae745** |
+| **sim-light-tone.js** | 284 | **a83f49099a7c** |
 | **sim-paint-geom.js** | 107 | **0c187cb7b3d7** |
 | **sim-seat-friend-req.js** | 117 | **89a8bcf81a45** |
 | **sim-seat-menu.js** | 167 | **d852cfc88b06** |

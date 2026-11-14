@@ -112,8 +112,7 @@ function renderAnimalCardThumb(){
     _rcR.setPixelRatio(1); _rcR.outputEncoding=THREE.sRGBEncoding;
     cv.style.imageRendering='pixelated';
     _rcS=new THREE.Scene();
-    _rcS.add(new THREE.AmbientLight(0xfdfbf7,0.95));
-    const k=new THREE.DirectionalLight(0xfdfaf5,1.0); k.position.set(0,4,0); _rcS.add(k);
+    addRunLights(_rcS, { keyPos: [0, 4, 0] });   // 사람 카드(race-picker.js)와 같은 빛 — 실행 화면 조명(shared/light-tone.js)
     _rcC=new THREE.PerspectiveCamera(32,1,0.1,100); _rcC.position.set(0,0.9,3.5); _rcC.lookAt(0,0.7,0);   // 더 멀리·아래를 봐서 몸 전체가 프레임에
   }
   const SCALE=0.4, rw=Math.max(2,Math.round(160*SCALE));   // 인간 카드와 같은 도트 배율
