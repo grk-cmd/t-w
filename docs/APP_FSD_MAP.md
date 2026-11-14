@@ -261,6 +261,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 **0.12.4 — app.js 분리 M1**(설계 tw-docs `app-js-split.md` 4-2): SETUP 의 무대 만들기(렌더러 · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더)를 `shared/stage.js` 로, 발광 조각을 `character/glow.js` 로 옮겼다(동작 그대로 · 글 그대로).
 조명 상수 · `_fixGlbMatLighting`(T0 몫) · 화질 읽기(`_renderQuality` — 프레임 상한 몫) · 한글 진단 걸기 · 몸 재기 모듈 만들기는 app.js 에 남았다. `glow.js` 는 지금 부르는 곳이 없다. app.js 9,454 → 9,370줄.
 
+**0.12.4 — app.js 분리 M2**: 사람 귀 붙이기(귀 재질 · 귀 그림 · 까닥임 등록 · def 에 맞게 붙이기)를 `character/human-ear-attach.js` 로 옮겼다(동작 그대로 · 글 그대로 — 늦게 생기는 `seats` · `partPaintMod` · `wardrobeMod` · `rideBenchMod` 만 읽는 함수로 받는다). app.js 9,370 → 9,328줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

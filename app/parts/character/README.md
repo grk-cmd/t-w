@@ -364,3 +364,14 @@
   - 지금 **부르는 곳이 없다** — 아이템 발광(`equipDeskItem` 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄만.
   - 스프라이트 텍스처는 첫 부름에 한 번만 만든다(캔버스 128×128 방사형 그라디언트).
   - 검사: `checks/sim-glow.js`(진짜 three 오브젝트로 크기 · 자리 · 재질 · 실패 길 · 깨 보기).
+
+## human-ear-attach.js — 🐾 사람 귀 붙이기
+
+- **책임**: `human-ear.js`(귀 규칙)를 만들고, 사람 귀를 뼈대에 붙이는 배선 — 귀 재질(흰색 · 양면 · 플랫 조명) · 귀 그림(`def.earPicL · R`) 입히기 · 붙은 귀를 좌석 귀 목록(`seat.bones.ear`)에 올려 까닥이게 하기 · 떨어진 옛 귀 걷기 · def 에 맞게 붙이기. 앱 FSD 분리 M2 — app.js «사람 귀» 구역을 글 그대로 옮겼다.
+- **만드는 법**: `const humanEarAttachMod = TwHumanEarAttach.createHumanEarAttach({ _registerAnimalEarOn, lightToneMod, seats, partPaintMod, wardrobeMod, rideBenchMod })` — 뒤의 넷은 app.js 에서 더 아래에 만들어지므로 읽는 함수(`()=>seats` …)로 넘긴다.
+- **내보내는 것**: `humanEar`(모듈이 없으면 `null`) · `_humanEarMat()` · `_humanEarPic(wrap, def)` · `_syncHumanEarRig(seat)` · `_attachHumanEars(root, def)` — app.js 는 같은 이름 const 로 받는다(꾸미기 · 파츠 그림 모듈이 deps 로 받는 옛 이름).
+- **함정**
+  - 바인드 자세(조립 직후 · 애니메이션 전)에 불러야 한다 — holder 와 옮길 양을 이때 잰다. 귀가 없어도 holder 는 만든다.
+  - 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 «머리 꼭대기» 는 귀 없던 값이라 `onAttach` 가 다시 잰다.
+  - 사람 기본 모델의 ear 본은 웨이트가 없어 본만 돌리면 안 움직인다 — 부착물 자체를 돌려야 해서 동물 귀 등록을 같이 쓴다.
+  - 검사: `checks/sim-human-ear-attach.js`(가짜 귀 모듈 · 진짜 three 로 재질 · 등록 · 붙이기 · 실패 길 · 깨 보기).
