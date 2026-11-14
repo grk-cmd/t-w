@@ -91,10 +91,10 @@ async function judge(S){
     const t1 = e.st.toggle(1);
     chk(names(e.st) === 'a#0,b(꺼짐)#1' && e.st.mine().saving, '켜고 끄기 — 화면 칸을 먼저 바꾸고 저장 중');
     const t2 = e.st.remove(0);
-    chk(count(e.log, /^PUT/) === 1 && names(e.st) === 'b(꺼짐)#1', '저장 중 또 고침 → 아직 PUT 1(겹치지 않음) · 화면은 최신');
+    chk(count(e.log, /^PUT/) === 1 && names(e.st) === 'b(꺼짐)', '저장 중 또 고침 → 아직 PUT 1(겹치지 않음) · 화면은 최신(지운 뒤 남은 칸의 서버 번호는 답이 올 때까지 모름)');
     await e.release();
     chk(count(e.log, /^PUT/) === 2 && e.log.filter((l) => /^PUT/.test(l))[1] === 'PUT v4 [["b.png",false]]', '앞 저장이 끝나면 최신 칸 · 새 판으로 한 번 더');
-    chk(names(e.st) === 'b(꺼짐)#1', '  앞 저장의 답이 그 사이 고친 칸을 덮지 않는다');
+    chk(names(e.st) === 'b(꺼짐)', '  앞 저장의 답이 그 사이 고친 칸을 덮지 않는다');
     await e.release();
     const [r1, r2] = await Promise.all([t1, t2]);
     chk(r1 === 'ok' && r2 === 'ok' && names(e.st) === 'b(꺼짐)#0' && e.st.mine().version === 5 && !e.st.mine().saving, '끝나면 서버가 돌려준 칸(번호 0부터)을 그대로 받는다 · 둘 다 ok');

@@ -68,9 +68,9 @@ function mkBox(gifts){
   const api = {
     fetchBox: async () => ({ items: Object.keys(gifts.home1 || {}).map((k) => row(k, gifts.home1[k])), unseenCount: 0, starCount: 0, boxKeep: 30, starMax: 20 }),
     fetchVisible: async (u) => ({ items: Object.keys(gifts[u] || {}).map((k) => ({ id: k, imageUrl: gifts[u][k].imgUrl, message: '' })), visibleCount: Object.keys(gifts[u] || {}).length, recipientCap: 30 }),
-    markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {}, reset(){},
+    fetchSentToday: async () => ({ count: 0, dailyMax: 10 }), send: async () => ({ giftId: 'x', sentToday: 1, dailyMax: 10 }), markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {}, reset(){},
   };
-  return loadMod(STORE_SRC.box).createGiftBox({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){}, rtOn: () => () => {} });
+  return loadMod(STORE_SRC.box).createGiftBox({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){}, rtOn: () => () => {}, requestIds: { idFor: (k) => k, settle(){} } });
 }
 function mkEnv(mallangSrc, retrySrc){
   const byId = {}, imgs = [];
@@ -111,11 +111,7 @@ function mkEnv(mallangSrc, retrySrc){
     document: { getElementById: (id) => byId[id] || null, createElement: mk, head: mk('head'), querySelector: () => null, querySelectorAll: () => [] },
     Image: FakeImage, localStorage: { getItem: () => null, setItem(){} },
     requestAnimationFrame: () => 1, cancelAnimationFrame(){}, setTimeout: () => 0, clearTimeout(){},
-    toast(){}, getMyUserId: () => 'me', _premiumOn: () => true, getDisplayName: () => '나',
-    firebaseAPI: {
-      getMallangGifts: async (id) => gifts[id] || {},
-      getMallangGiftCount: async () => 0,
-    },
+    toast(){}, getMyUserId: () => 'me', _premiumOn: () => true,
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = loadSafe();
@@ -123,7 +119,7 @@ function mkEnv(mallangSrc, retrySrc){
   vm.createContext(ctx);
   vm.runInContext(mallangSrc, ctx, { filename: 'mallang.js' });
   /* app.js 가 만드는 줄과 같은 deps 5 — 칸은 상태 주인(mallang-store.js)에서 */
-  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, getDisplayName: ctx.getDisplayName, premiumOn: ctx._premiumOn, mallangStore: mkStore({ me: MINE }), giftBox: mkBox(gifts) });
+  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, premiumOn: ctx._premiumOn, mallangStore: mkStore({ me: MINE }), giftBox: mkBox(gifts) });
   return { ctx, m, imgs, byId, layer: () => byId.mlLayer };
 }
 const flush = () => new Promise(r => setImmediate(r));

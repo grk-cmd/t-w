@@ -92,7 +92,7 @@
 | **sim-chat-history.js** | 244 | **530050435065** |
 | **sim-gamepad-activity.js** | 254 | **307df716981e** |
 | **sim-chat-last-by-ts.js** | 84 | **175e88989b35** |
-| **sim-mallang-hide.js** | 148 | **85e26de2fe30** |
+| **sim-mallang-hide.js** | 147 | **a97601090ee3** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-requests.js** | 186 | **c1735ca8dcf2** |
@@ -287,9 +287,9 @@
 | **sim-playlist-api.js** | 307 | **f8441a9d1075** |
 | **sim-inbox-api.js** | 203 | **7287889a72e2** |
 | **sim-gift-api.js** | 324 | **01d972c569f0** |
-| **sim-gift-box.js** | 562 | **9923f03d7a73** |
-| **sim-mallang-module.js** | 358 | **233a70f03b8b** |
-| **sim-mallang-store.js** | 251 | **d97bf156706f** |
+| **sim-gift-box.js** | 562 | **ddc5d4a2c9cc** |
+| **sim-mallang-module.js** | 353 | **7abaed34d9b0** |
+| **sim-mallang-store.js** | 251 | **c56857bef23d** |
 | **sim-mail-feed.js** | 341 | **59150658f261** |
 | **sim-notice-api.js** | 159 | **39c7ae06eabd** |
 | **sim-notice-feed.js** | 266 | **c80dd0979f9b** |
@@ -459,7 +459,7 @@
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-native-peek.js** | 168 | **10af633f27f9** |
 | **sim-seat-regions.js** | 170 | **4664178b0a43** |
-| **sim-mallang-gift.js** | 75 | **4e210440f918** |
+| **sim-mallang-gift.js** | 320 | **d04f8dc61815** |
 | **sim-room-face-load.js** | 217 | **ea63c4cecbda** |
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |
@@ -469,7 +469,7 @@
 | **sim-recent-rooms.js** | 216 | **521a6470e3ea** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |
 | **sim-mh-bg-url.js** | 133 | **cebde4b52791** |
-| **sim-gift-img-retry.js** | 211 | **41cc41a4fffd** |
+| **sim-gift-img-retry.js** | 207 | **1053b262fc34** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
 | **sim-account-store.js** | 417 | **67db50bf3b55** |

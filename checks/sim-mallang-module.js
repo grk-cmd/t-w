@@ -80,11 +80,6 @@ function mkEnv(src, o){
   const visibleOf = { f1: [{ id: 'h1', imageUrl: 'https://x.example/h1.png', message: '' }] };
   const slotsOf = { me: [{ slot: 0, imageUrl: 'https://x.example/m1.png', enabled: true }, { slot: 1, imageUrl: 'https://x.example/m2.png', enabled: false }], f1: [{ slot: 0, imageUrl: 'https://x.example/f.png', enabled: true }] };
   const rec = (name, fn) => async (...a) => { log.push(('api ' + name + ' ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')).trimEnd()); return fn(...a); };
-  /* 보내기 창은 아직 옛 길(firebaseAPI) */
-  const firebaseAPI = {
-    getMallangGifts: rec('getMallangGifts', async (u) => (u === 'f1' ? { h1: { imgUrl: 'x', ts: 1 } } : {})),
-    getMallangGiftCount: rec('getMallangGiftCount', async () => 3),
-  };
   const ctx = {
     console: { log(){}, warn(){}, error(){} }, Math: Object.assign(Object.create(Math), { random: () => 0.25 }), JSON, String, Number, Array, Object, Set, Promise, Date: class extends Date { static now(){ return 1000; } }, Error,
     document: { getElementById: (id) => byId[id] || null, createElement: mk, head: mk('head'), querySelector: (q) => (q === '.mh-tab[data-tab="friend"]' ? tab : null), querySelectorAll: () => [] },
@@ -92,7 +87,6 @@ function mkEnv(src, o){
     localStorage: { getItem: (k) => (store.has(k) ? store.get(k) : null), setItem: (k, v) => { log.push('ls ' + k + ' ' + v); store.set(k, String(v)); } },
     requestAnimationFrame: () => 1, cancelAnimationFrame(){}, setTimeout: () => 0, clearTimeout(){},
     addEventListener(){}, removeEventListener(){},
-    firebaseAPI,
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = loadSafe();
@@ -114,15 +108,16 @@ function mkEnv(src, o){
     star: rec('star', async (id, on) => { srv.items.find(x => x.id === id).starred = on; }),
     hide: rec('hide', async (id, on) => { if(o.hideFails) throw Object.assign(new Error('x'), { status: 503, code: 'X', kind: 'unavailable' }); srv.items.find(x => x.id === id).hidden = on; }),
     remove: rec('remove', async (id) => { srv.items = srv.items.filter(x => x.id !== id); }),
+    fetchSentToday: rec('fetchSentToday', async () => ({ count: 3, dailyMax: 10 })),
+    send: rec('send', async () => ({ giftId: 'x', sentToday: 4, dailyMax: 10 })),
     fetchVisible: rec('fetchVisible', async (u) => ({ items: visibleOf[u] || [], visibleCount: (visibleOf[u] || []).length, recipientCap: 30 })),
     reset(){},
   };
   const giftBox = loadMod(SRC.BOX).createGiftBox({ api: boxApi, giftLib: GL, errs: AE, apiErrors: { notify: (e) => log.push('common ' + (e && e.code)) },
-    notifyError: (c) => log.push('error ' + c), toast: (m) => log.push('toast ' + m), rtOn: () => () => {} });
+    notifyError: (c) => log.push('error ' + c), toast: (m) => log.push('toast ' + m), rtOn: () => () => {}, requestIds: { idFor: (k) => k, settle(){} } });
   const deps = {
     toast: (m) => log.push('toast ' + m),
     getMyUserId: () => 'me',
-    getDisplayName: () => '나',
     premiumOn: () => !!o.premium,
     mallangStore,
     giftBox,
@@ -166,7 +161,7 @@ async function drive(src, o){
   return { log, e };
 }
 
-/* 부른 순서 · 값 — 말랑이 칸(fetchMine · fetchOf)과 선물(fetchBox · hide · star · remove · markSeen · fetchVisible)은 서버 길 · 보내기 창만 아직 옛 길(getMallangGiftCount · getMallangGifts). 동작이 바뀌면 여기가 어긋난다 */
+/* 부른 순서 · 값 — 말랑이 칸(fetchMine · fetchOf)과 선물(fetchBox · hide · star · remove · markSeen · fetchVisible · fetchSentToday)은 서버 길. 동작이 바뀌면 여기가 어긋난다 */
 const GOLDEN = [
   'api fetchMine',
   'api fetchBox',
@@ -200,8 +195,8 @@ const GOLDEN = [
   'state 내 집으로 폴더=O 말랑이=2 배지=🎁1 선물창=X',
   'state 닫기 폴더=O 말랑이=0 배지=🎁1 선물창=X',
   'api fetchMine',
-  'api getMallangGiftCount me <오늘>',
-  'api getMallangGifts f1',
+  'api fetchSentToday',
+  'api fetchVisible f1',
   'state 보내기 창 폴더=O 말랑이=0 배지=🎁1 선물창=O',
   'state 계정 놓음 폴더=O 말랑이=0 배지=- 선물창=X',
 ].join('\n');
@@ -234,7 +229,7 @@ const GOLDEN = [
   chk(has('api fetchOf f1') && has('api fetchVisible f1') && has('state 남의 집 폴더=O 말랑이=1 배지=🎁1 선물창=X') && has('toast 관람 중에는 이미지를 등록할 수 없어요'),
     '남의 집 — 그 집 그림 · 그 집에 나온 선물 · 폴더(그 집에 그림이 있음) · 등록 창은 막음');
   chk(has('state 닫기 폴더=O 말랑이=0 배지=🎁1 선물창=X'), '닫기 — 말랑이 전부 치움');
-  chk(L.filter(l => l === 'api fetchMine').length === 3 && has('api getMallangGiftCount me ' + todayStr()) && has('state 보내기 창 폴더=O 말랑이=0 배지=🎁1 선물창=O'), '보내기 창 — 내 그림 · 오늘 보낸 수 · 그 집 선물 수를 읽고 창을 연다(아직 옛 길)');
+  chk(L.filter(l => l === 'api fetchMine').length === 3 && has('api fetchSentToday') && has('api fetchVisible f1') && has('state 보내기 창 폴더=O 말랑이=0 배지=🎁1 선물창=O'), '보내기 창 — 내 그림 · 오늘 보낸 수 · 그 집 선물 수를 서버 길로 나란히 읽고 창을 연다');
   chk(has('state 계정 놓음 폴더=O 말랑이=0 배지=- 선물창=X'), '계정을 놓으면(reset) 말랑이 · 열린 창 · 배지를 걷음');
   const GOLD = goldOf(L);
   chk(GOLD === GOLDEN, '★ 부른 순서 · 값 전체가 옮기기 전과 같은 줄이다(' + L.length + '줄)' + (GOLD === GOLDEN ? '' : ' — 처음 어긋난 줄: ' + firstDiff(GOLD, GOLDEN)));
@@ -244,7 +239,7 @@ const GOLDEN = [
   {
     const no = await drive(SRC.ML, { premium: false, windowPremium: true });
     chk(no.log.includes('state 내 집 열기 폴더=X 말랑이=2 배지=🎁2 선물창=X'), 'deps premiumOn 이 거짓이면 내 집 폴더 숨김(window._premiumOn 이 참이어도)');
-    chk(no.log.includes('toast 👑 말랑이 선물은 라이선스 보유자 전용이에요') && no.log.includes('state 보내기 창 폴더=X 말랑이=0 배지=🎁1 선물창=X') && !no.log.includes('api getMallangGiftCount me ' + todayStr()),
+    chk(no.log.includes('toast 👑 말랑이 선물은 라이선스 보유자 전용이에요') && no.log.includes('state 보내기 창 폴더=X 말랑이=0 배지=🎁1 선물창=X') && !no.log.includes('api fetchSentToday'),
       '  보내기 창도 안내만 · 서버 요청 없음');
     const yes = await drive(SRC.ML, { premium: true, windowPremium: false });
     chk(yes.log.includes('state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X'), 'deps premiumOn 이 참이면 보임(window._premiumOn 이 거짓이어도)');
@@ -336,8 +331,8 @@ function wiring(S, loud){
   t((A.match(/TwMallang\.createMallang\(/g) || []).length === 1 && iMk > 0, 'app.js 가 만드는 곳은 한 곳(const mallangMod)');
   const call = (S.APP.match(/const mallangMod = TwMallang\.createMallang\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
-  t(JSON.stringify(deps) === JSON.stringify(['toast: (...a)=>toast(...a),', 'getMyUserId: (...a)=>getMyUserId(...a),', 'getDisplayName: (...a)=>getDisplayName(...a),', 'premiumOn: (...a)=>_premiumOn(...a),', 'mallangStore: mallangStoreMod,', 'giftBox: giftBoxMod,']),
-    '  deps 6 — toast · getMyUserId · getDisplayName · premiumOn(_premiumOn) · mallangStore(칸 상태 주인) · giftBox(선물 상태 주인) — 함수는 화살표');
+  t(JSON.stringify(deps) === JSON.stringify(['toast: (...a)=>toast(...a),', 'getMyUserId: (...a)=>getMyUserId(...a),', 'premiumOn: (...a)=>_premiumOn(...a),', 'mallangStore: mallangStoreMod,', 'giftBox: giftBoxMod,']),
+    '  deps 5 — toast · getMyUserId · premiumOn(_premiumOn) · mallangStore(칸 상태 주인) · giftBox(선물 상태 주인) — 함수는 화살표');
   const iSt = A.indexOf('const mallangStoreMod = TwMallangStore.createMallangStore(');
   t(iSt > 0 && iSt < iMk, '  칸 상태 주인(mallangStoreMod)을 말랑이 화면보다 먼저 만든다');
   const users = ['TwMyHomeInbox.createMyHomeInbox(', 'TwMyHomeUi.createMyHomeUi(', 'TwMyHomeVisit.createMyHomeVisit('];

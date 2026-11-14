@@ -365,23 +365,24 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 ## `mallang.js` — 🧸 말랑이 · 🎁 선물 화면
 
-- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 길로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기 창만 아직 옛 길(`firebaseAPI`)이다 — 보내기 묶음에서 옮긴다.
+- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출 · 선물 보내기 창. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 길로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기도 서버 길(`giftBox.send` · `fetchSentToday` · `fetchVisible`)이다 — 창 상태(`giftPop`)는 이 파일 안.
 - **만드는 법**: app.js 가 마이홈 수령함(`createMyHomeInbox`)보다 먼저 만든다 — 수령함 · 마이홈 창 · 친구 홈 구경이 값으로 받는다.
 
 ```js
 const mallangMod = TwMallang.createMallang({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   premiumOn: (...a)=>_premiumOn(...a),   // 👑 프리미엄 판정 — 전역 window._premiumOn 을 읽지 않는다
   mallangStore: mallangStoreMod,         // 🧸 칸 상태 주인(mallang-store.js) — 이 줄보다 먼저 만든다
   giftBox: giftBoxMod,                   // 🎁 선물 상태 주인(gift-box.js) — 이 줄보다 먼저 만든다
 });
 ```
 
-- **deps**: `toast` · `getMyUserId` · `getDisplayName` · `premiumOn` · `mallangStore` · `giftBox`.
+- **deps**: `toast` · `getMyUserId` · `premiumOn` · `mallangStore` · `giftBox`(보낸 사람 이름은 서버가 토큰에서 정하므로 내 이름을 받지 않는다).
 - **내놓는 것**: `onOpen(ownerId, isVisiting)` · `onClose()`(마이홈 창 `myhome-ui.js`) · `applyVisit(isVisiting, ownerId)`(친구 홈 구경 `myhome-visit.js`) · `reset()`(계정을 놓을 때 — 말랑이 · 열린 창 · 배지를 걷음) · `openGift(friendId, name)`(친구 줄 우클릭). 세 모듈은 deps `mallangMod` 로 받는다.
 - **함정**
+  - 보내기 창: 열 때 내 칸 · 오늘 보낸 수 · 상대 집 선물 수를 나란히 받는다(내 칸 실패 `E-GIFT-07` · 창 안 엶 / 나머지 실패는 «확인하지 못했어요» 만 적고 막지 않음). 보내는 동안 격자 전체가 잠기고, 칸 저장이 끝나면 격자를 다시 그린다(칸 번호는 서버 번호 — 0 · 2 처럼 빌 수 있다). 한도(하루 · 정원 · 메시지 50자)는 서버 값이다.
+  - 보내기: `send(code, { mallang, message })` — 본문은 `requestId · slot · message?` 뿐. 요청 번호는 받는 사람마다 하나(`TwRequestId.createPending`): 닿지 못했으면(네트워크 · 5xx) 같은 번호로 다시, 성공 · 4xx 거절이면 새 번호. 안내 코드(`GIFT_DAILY_LIMIT` · `GIFT_RECIPIENT_FULL` · `GIFT_NOT_FRIEND` · `GIFT_SELF` · `GIFT_NO_MALLANG` · `GIFT_MESSAGE_INVALID`)는 서버 문구 · 번호 0, 그 밖(그림 사본 실패 503 포함)은 `E-GIFT-08`. 한 줄(lane)에 서지 않는다.
   - `onOpen` · `applyVisit` 은 async 다 — 부르는 쪽은 `Promise.resolve(…).catch` 로 받는다(try/catch 로는 못 잡는다 — `sim-myhome-steps.js`).
   - 만드는 줄은 수령함 · 마이홈 창 · 친구 홈 구경을 만드는 줄보다 앞이어야 한다(값으로 넘긴다 — 뒤면 TDZ).
   - 칸 값을 직접 고치지 않는다 — 등록 · 켜고 끄기 · 지우기는 `mallangStore.add(그림)` · `toggle(i)` · `remove(i)`. 등록 창은 칸이 바뀌면(`onChange`) 다시 그리고, 받기 전 · 받는 중 · 못 받음엔 칸 대신 «불러오는 중…» · «못 불러왔어요 [다시 시도]» 를 그린다.

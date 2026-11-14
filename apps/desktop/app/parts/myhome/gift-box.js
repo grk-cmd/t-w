@@ -12,12 +12,15 @@
      화면 자리(상한 MAX_LIVE)는 화면의 사실이다 — mallang.js 가 attachScreen({ room(), has(id) }) 로 한 번 알려 준다. 못 들어간 선물은 «나와야 함» 으로 남고 다음 emit 에 다시 시도한다(보정 요청 없음).
    받기 합치기: 줄에 서서 아직 시작 안 한 받기가 있으면 그 하나로 합친다(신호 몰림 · 서브탭 연타). 받는 중에 부르면 끝난 뒤 한 번 더 받는다(줄에 선다).
    서브탭: openTab() = 받기 → 성공하고 안 본 선물이 있으면 봤음(같은 줄에 차례로 — 봤음이 먼저 끝나 받기 답이 배지를 다시 켜지 않게). 봤음 실패는 번호 없이 배지를 남긴다(다음 누름에 한 번).
+   보내기: send(code, { mallang, message }) — 본문 {requestId, slot, message?} 만(보낸 사람 · 이름 · 날짜 · 그림 주소는 서버가 토큰에서). requestId 는 받는 사람 코드마다 하나(TwRequestId pending ·
+     닿지 못했으면 같은 번호로 다시 · 서버가 거절했으면(4xx) 새 번호). 한 줄(lane)에 서지 않는다 — 누름 하나 = 요청 하나(화면이 보내는 동안 격자 전체를 잠근다).
+     오늘 보낸 수: fetchSentToday() — 못 받으면 {ok:false}(막지 않고 «확인하지 못했어요»).
    신호: listen() 이 서버 알림 `gifts` 를 건다 — 선물함이 idle 이 아니면 받기 한 번(번호 없음). idle 이면 요청 0 · reset 뒤엔 구독을 풀어 요청 0.
    실패: 받기는 사용자가 누른 받기(notify)만 E-GIFT-04 · ⭐ · 치움은 E-GIFT-05 · 지우기는 E-GIFT-06. 안내 코드(GIFT_STAR_FULL · GIFT_STARRED · GIFT_NOT_FOUND)는 번호 없이 안내.
      혼자 다시 보내지 않는다. 계정이 바뀌는 중(OWNER_CHANGED · 받기 전)은 조용히 버린다.
    값: 받기 전엔 숫자가 null(모름 — 0 과 가른다). 계정 키 없음 — 서버가 원본이라 이 PC 에 적지 않는다.
    deps: api — createGiftApi 가 돌려준 것(gift-api.js — fetchBox · markSeen · star · hide · remove · fetchVisible · reset)
-         giftLib — TwGiftApi(failOf · KIND · ERRORS) · errs — TwApiErrors · apiErrors — TwApiErrors.store(공통 code 번호 알림) · notifyError — TwErrorCodes.notify · toast(msg) · rtOn(kind, fn) → 해제 함수
+         giftLib — TwGiftApi(failOf · KIND · ERRORS · LIMITS) · requestIds — TwRequestId.createPending()(idFor · settle) · errs — TwApiErrors · apiErrors — TwApiErrors.store(공통 code 번호 알림) · notifyError — TwErrorCodes.notify · toast(msg) · rtOn(kind, fn) → 해제 함수
    내보냄: createGiftBox(deps) → {
      box() → { load, items:[{ id, senderName, imageUrl, message, starred, hidden, sentAt(ms) }], unseenCount, starCount, boxKeep, starMax } (복사본 · 숫자는 받기 전 null)
      get(id) → 한 줄 복사본 | null · isBusy(id) · onChange(fn) → 해제 함수 · order(items) — 순수(⭐ 먼저 → 최신순)
@@ -25,8 +28,9 @@
      pull(notify?) → Promise<'ready'|'failed'|'stale'> · openTab() → 같은 값(받기 뒤 봤음) · seen() → 'ok'|'failed'|'stale'
      star(id, on) → 'ok'|'busy'|'gone'|'full'|'guide'|'failed'|'stale' · remove(id) → 'ok'|'busy'|'gone'|'starred'|'guide'|'failed'|'stale'
      hide(id) → 'ok'|'busy'|'gone'|'guide'|'failed'|'stale' · show(id) → 'ok'|'busy'|'gone'|'already'|'full'|'guide'|'failed'|'stale'
+     fetchSentToday() → Promise<{ ok:true, count, dailyMax } | { ok:false }> · send(code, { mallang, message }) → Promise<{ ok:true, sentToday, dailyMax } | { ok:false, kind:'guide'|'failed'|'stale', message }>
      fetchVisible(code, { notify }?) → Promise<{ ok:true, items, visibleCount, recipientCap } | { ok:false, kind }> — 그 집에 나온 선물(저장 안 함)
-     listen() → 해제 함수(서버 신호) · reset() · LOAD · MSG
+     listen() → 해제 함수(서버 신호) · reset() · LOAD · MSG · MESSAGE_MAX(서버 상한)
    }
    ⚠️ 상한(⭐ 20 · 보관 30)은 서버 응답(starMax · boxKeep)이다 — 여기 다시 적지 않는다.
    검사: checks/sim-gift-box.js */
@@ -44,7 +48,7 @@ const MSG = Object.freeze({
  *   api: { fetchBox: Function, markSeen: Function, star: Function, hide: Function, remove: Function, fetchVisible: Function, reset: Function },
  *   giftLib: { failOf: Function, KIND: Record<string, string>, ERRORS: object },
  *   errs: object, apiErrors: { notify: Function }, notifyError: (code: string, err?: any) => boolean, toast: (msg: string) => void,
- *   rtOn: (kind: string, fn: Function) => Function,
+ *   rtOn: (kind: string, fn: Function) => Function, requestIds: { idFor: (key: string) => string, settle: (key: string) => void },
  * }} deps */
 function createGiftBox(deps){
   const api = deps.api;
@@ -54,6 +58,7 @@ function createGiftBox(deps){
   const notifyError = deps.notifyError;
   const toast = deps.toast;
   const rtOn = deps.rtOn;
+  const requestIds = deps.requestIds;
   const KIND = giftLib.KIND;
 
   const subs = [];
@@ -81,6 +86,7 @@ function createGiftBox(deps){
     change: (e) => notifyError('E-GIFT-05', e),   // ⭐ · 치움 · 다시 부르기
     remove: (e) => notifyError('E-GIFT-06', e),   // 삭제
     visit: (e) => notifyError('E-GIFT-09', e),    // 그 집 선물 받기(집 옮기기)
+    send: (e) => notifyError('E-GIFT-08', e),     // 선물 보내기
   });
   /* 실패 하나를 알린다 — 계정이 바뀌는 중(stale)은 조용히 · 공통 code 는 공통 번호 · 그 밖은 그 자리 번호. @return failOf 결과 */
   function report(e, site){
@@ -280,6 +286,33 @@ function createGiftBox(deps){
     }
   }
 
+  /* ── 보내기 ── */
+  async function fetchSentToday(){
+    const g = gen;
+    try{
+      const got = await api.fetchSentToday();
+      return g !== gen ? { ok: false } : { ok: true, count: got.count, dailyMax: got.dailyMax };
+    }catch(e){ return { ok: false }; }   // 막지 않는다 — 부르는 쪽이 «확인하지 못했어요» 만 적는다(판정은 서버)
+  }
+  async function send(code, o){
+    const g = gen;
+    const key = 'gift:' + code;
+    try{
+      const got = await api.send(code, { requestId: requestIds.idFor(key), mallang: o && o.mallang, message: o && o.message });
+      requestIds.settle(key);
+      return g !== gen ? { ok: false, kind: 'stale', message: '' } : { ok: true, sentToday: got.sentToday, dailyMax: got.dailyMax };
+    }catch(e){
+      if(g !== gen) return { ok: false, kind: 'stale', message: '' };
+      const status = e && e.status;
+      if(typeof status === 'number' && status >= 400 && status < 500) requestIds.settle(key);   // 서버가 답했다(거절) — 다음엔 새 번호. 닿지 못했거나 5xx 는 같은 번호로 다시
+      const f = failOf(e);
+      if(f.kind === KIND.STALE) return { ok: false, kind: 'stale', message: '' };
+      if(f.kind === KIND.GUIDE) return { ok: false, kind: 'guide', message: f.message };   // 서버 문구(숫자가 들어 있다) — 번호 없음
+      report(e, 'send');
+      return { ok: false, kind: 'failed', message: '' };
+    }
+  }
+
   /* 서버 신호 `gifts` — 선물함이 idle 이 아닐 때만 받기 한 번(번호 없음). 해제 함수는 부르는 쪽(세션)이 들고 있고, reset 도 푼다 */
   function listen(){
     if(unsub) return unsub;
@@ -305,9 +338,9 @@ function createGiftBox(deps){
     get: (id) => { const it = find(id); return it ? Object.assign({}, it) : null; },
     isBusy: (id) => pending.has(id),
     onChange(fn){ subs.push(fn); return () => { const i = subs.indexOf(fn); if(i >= 0) subs.splice(i, 1); }; },
-    order, pull, openTab, seen, star, hide, show, remove, fetchVisible, listen, reset,
+    order, pull, openTab, seen, star, hide, show, remove, fetchVisible, fetchSentToday, send, listen, reset,
     attachScreen, enterHome, leaveHome, onScreen,
-    LOAD, MSG,
+    LOAD, MSG, MESSAGE_MAX: giftLib.LIMITS.MESSAGE,
   };
 }
 

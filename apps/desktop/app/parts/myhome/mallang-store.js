@@ -132,7 +132,8 @@ function createMallangStore(deps){
   }
   function remove(i){
     if(!editable() || !mineSt.slots[i]) return Promise.resolve('locked');
-    mineSt.slots = mineSt.slots.filter((_, k) => k !== i);
+    /* 지우면 서버가 남은 칸을 0 부터 다시 매긴다 — 답이 오기 전(저장 실패 · 답 잃음 포함)에는 남은 칸의 서버 번호를 모른다. 옛 번호를 들고 있으면 보내기가 다른 그림을 보낸다 */
+    mineSt.slots = mineSt.slots.filter((_, k) => k !== i).map((s) => { const c = Object.assign({}, s); delete c.slot; return c; });
     emit();
     return commit();
   }
