@@ -455,7 +455,7 @@
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |
 | **sim-input-diag.js** | 148 | **09d9fb9484c8** |
-| **sim-renderer-gone-reset.js** | 137 | **d2cf1c49f44a** |
+| **sim-renderer-gone-reset.js** | 140 | **65629b9c38ee** |
 | **sim-room-code-len.js** | 178 | **0dd3514b5e58** |
 | **sim-recent-rooms.js** | 216 | **521a6470e3ea** |
 | **sim-mh-pad-pos.js** | 164 | **e8746cd0fbc6** |

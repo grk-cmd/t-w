@@ -2137,8 +2137,9 @@ function _watchRendererHealth(win){
   /* 화면이 스스로 다시 불러와도(WebGL 복구 · 그 밖) 창부터 런처로 — 사망 길과 같은 판단(launcher/reload-reset.js) */
   if(win === mainWindow){
     wc.on('did-finish-load', () => reloadReset.onFinishLoad());
-    wc.on('did-start-navigation', (e) => {
-      try{ reloadReset.onStartNavigation({ isMainFrame: !!e.isMainFrame, isSameDocument: !!e.isSameDocument }); }
+    /* ⚠️ did-start-navigation 이 아니라 did-navigate — 시작은 main 이 막는 이동(바깥 링크 · file:// 밖)에도 와서 실행 화면이 끼어 버린다 */
+    wc.on('did-navigate', () => {
+      try{ reloadReset.onNavigate(); }
       catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); }
     });
   }

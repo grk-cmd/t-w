@@ -88,8 +88,9 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 
 - **책임**: 메인 창 화면이 다시 불러와질 때(렌더러가 죽어 다시 불러옴 · 화면이 스스로 다시 불러옴 등 어느 길이든) 창을 먼저 런처 크기로 되돌릴지 정한다(순수 판단 · main.js 가 require). 창 맞추기 자체는 main.js `_resetWindowForReload`.
 - **만드는 법**: main.js `_watchRendererHealth` 가 창마다 `ReloadReset.createReloadReset({ reset })` 한 벌.
-- **내놓는 것**: `onFinishLoad()`(did-finish-load) · `onStartNavigation({ isMainFrame, isSameDocument })`(did-start-navigation) · `beforeReload()`(렌더러 사망 길 — 다시 불러오지 않을 때도 덮인 채 두지 않게).
+- **내놓는 것**: `onFinishLoad()`(did-finish-load) · `onNavigate()`(did-navigate — 메인 프레임이 실제로 다른 문서로 넘어감 · 다시 불러오기 포함) · `beforeReload()`(렌더러 사망 길 — 다시 불러오지 않을 때도 덮인 채 두지 않게).
 - **함정**
-  - 처음 로드 · 하위 틀(유튜브 등) · 같은 문서 안(해시) 이동은 되돌리지 않는다.
+  - `did-start-navigation` 을 쓰지 않는다 — main 이 막는 이동(바깥 링크 · file:// 밖 · blob:)에도 시작은 와서, 화면은 그대로인데 실행 화면이 런처 크기로 끼어 버린다.
+  - 처음 로드 · 해시 이동(did-navigate-in-page)은 되돌리지 않는다.
   - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
-  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 화면 이동 차례를 가짜 창에서 실제로 돌림 · 깨 보기).
+  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · 깨 보기).
