@@ -172,7 +172,7 @@
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
 | **sim-google-login.js** | 718 | **0469f4aace91** |
-| **sim-google-confirm.js** | 159 | **8c0e0f060794** |
+| **sim-google-confirm.js** | 161 | **56e1a12e2683** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
 | **sim-key-input.js** | 71 | **d96a4cd791fc** |
@@ -222,7 +222,7 @@
 | **sim-slot-sync-ui.js** | 82 | **0dd847a0d6a5** |
 | **sim-chars-merge.js** | 137 | **db4dda0ead95** |
 | **sim-chars-migrate.js** | 756 | **e29aa34d6dfc** |
-| **sim-signup.js** | 1488 | **1f2fec121c0b** |
+| **sim-signup.js** | 1506 | **aec3176793bd** |
 | **sim-sysinput.js** | 397 | **bdf06e31afdb** |
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 132 | **3a62138fcd8e** |
