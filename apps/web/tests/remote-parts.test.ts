@@ -14,9 +14,9 @@ import { API_ORIGIN } from '@/shared/config';
 
 const H_IMG = 'a'.repeat(64);
 const H_SHUT = 'c'.repeat(64);
-const IMG = `${API_ORIGIN}/v1/catalog/assets/${H_IMG}.png`;
+const IMG = `${API_ORIGIN}/v2/catalog/assets/${H_IMG}.png`;
 const N = { ko: '가', en: 'a', ja: 'あ' };
-const SHUT = `${API_ORIGIN}/v1/catalog/assets/${H_SHUT}.png`;
+const SHUT = `${API_ORIGIN}/v2/catalog/assets/${H_SHUT}.png`;
 const name = { ko: '별눈', en: 'Star', ja: 'ほし' };
 const piece = (o: Record<string, unknown> = {}) => ({
   id: 'p1',
@@ -100,17 +100,17 @@ describe('parseRemoteParts — 서버 상품을 고르기 판 항목(조각 하�
     expect(got.map((p) => p.id)).toEqual(['dim', 'ok']);
   });
 
-  it('그림 주소는 우리 API 서버의 /v1/catalog/assets/ 아래 https 만', () => {
+  it('그림 주소는 우리 API 서버의 /v2/catalog/assets/ 아래 https 만', () => {
     expect(partImageUrlOk(IMG)).toBe(true);
     for (const bad of [
-      'http://api.together-working.com/v1/catalog/assets/a.png',
+      'http://api.together-working.com/v2/catalog/assets/a.png',
       'https://evil.example/a.png',
-      'https://together-working.com/v1/catalog/assets/a.png',
-      `${API_ORIGIN}/v1/admin/catalog/assets/a.png`, // API 서버라도 공개 파일 길이 아니면
-      `${API_ORIGIN}/v1/catalog/assetsX/a.png`,
+      'https://together-working.com/v2/catalog/assets/a.png',
+      `${API_ORIGIN}/v2/admin/catalog/assets/a.png`, // API 서버라도 공개 파일 길이 아니면
+      `${API_ORIGIN}/v2/catalog/assetsX/a.png`,
       `${API_ORIGIN}/v1/assets/${H_IMG}.png`, // 옛 길
       `${API_ORIGIN}/web-creator/images/a.png`,
-      'https://api.together-working.com.evil.example/v1/catalog/assets/a.png',
+      'https://api.together-working.com.evil.example/v2/catalog/assets/a.png',
       'javascript:alert(1)',
       'data:image/png;base64,AAAA',
       42,
@@ -425,12 +425,12 @@ describe('fetchWebParts — 공개 목록 읽기', () => {
   const res = (status: number, body: unknown) =>
     ({ ok: status >= 200 && status < 300, status, json: async () => body }) as Response;
 
-  it('API 서버의 /v1/catalog(상품만 · 기본 몸 모델)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
+  it('API 서버의 /v2/catalog(상품만 · 기본 몸 모델)를 쿠키 없이 · 봉투 data 를 검사해 돌려준다', async () => {
     const f = vi.fn(async () => res(200, { success: true, data: one() }));
     const r = await fetchWebParts(f as unknown as typeof fetch);
     expect(r).toEqual({ t: 'ok', parts: parseRemoteParts(one()) });
     expect(f).toHaveBeenCalledWith(
-      `${API_ORIGIN}/v1/catalog?only=products&target=baseModel`,
+      `${API_ORIGIN}/v2/catalog?only=products&target=baseModel`,
       expect.objectContaining({ credentials: 'omit' }),
     );
   });

@@ -5,7 +5,7 @@ import type { LayerKind } from './catalog';
 /** 관리자가 올린 그림 조각(decal)이 들어갈 자리 — 얼굴 레이어 또는 액세서리 */
 export type PartSlot = LayerKind | 'acc';
 
-/* 서버 규격(GET /v1/catalog · data.products): 조각(piece)은 늘 상품(product) 안에 있다.
+/* 서버 규격(GET /v2/catalog · data.products): 조각(piece)은 늘 상품(product) 안에 있다.
    생성기가 그릴 수 있는 것은 «그림(decal) · 기본 몸 모델 · 얼굴 면» 뿐 — 3D 모양(part) · 다른 모델 · 면 · 모르는 slot 은 건너뛴다(서버가 먼저 늘어도 깨지지 않게).
    조각 종류는 kind 하나로 정한다(규격에서 dimension 칸은 빠졌다 — 와도 보지 않는다).
    잠긴 상품(locked)은 조각이 오지 않는다 — 🔒 칸은 화면을 정한 뒤에 그린다. */
@@ -18,7 +18,7 @@ const LANGS: readonly Lang[] = ['ko', 'en', 'ja'];
 const SIZE_MAX = 200;
 const NAME_MAX = 20;
 /** 파일은 API 서버의 이 아래만 — 서버의 다른 경로를 그림으로 받지 않는다 */
-const PART_IMAGE_PATH = '/v1/catalog/assets/';
+const PART_IMAGE_PATH = '/v2/catalog/assets/';
 /** 서버가 주는 파일 이름은 내용 해시(sha-256 16진 64자) — 이 모양만 받는다(서버 `AssetKey` 와 같다) */
 const HASH_RE = /^[0-9a-f]{64}$/;
 /** 펼친 조각 수 상한 — 응답이 비정상으로 커도 고르기 판이 터지지 않게 */
