@@ -11,7 +11,6 @@
 
    ★ deps (createMyHomeDesktop) — advStore: 계정별 로컬 칸(shared/account-store.js · 바탕화면 저장 tw.advZ.v2 · v1). myhome-desktop-boot.js 가 넘긴다
    ★ app.js 전역 의존 (전부 typeof 가드)
-   · focusLevelMod.getFocusLevel(), getDisplayName()
    · firebaseAPI.uploadUserImage(), getMyUserId(), toast(), companion.dsHold()
 */
 function createMyHomeDesktop(deps){
@@ -724,8 +723,8 @@ function h(html){ const t=document.createElement('template'); t.innerHTML=html.t
 
    ★ 왜 이걸 만드는가 (좀아칼의 교훈)
      좀아칼은 게임과 바탕화면이 한 파일에 섞여 advBindEvents 하나에 전부 얽혀 있었다.
-     그래서 은퇴시킬 때 파일을 통째로 지우지 못하고 ADV_GAME_OFF 스위치로 재우는
-     수밖에 없었고, 지금도 약 4,000줄이 잠들어 있다.
+     그래서 은퇴시킬 때 파일을 통째로 지우지 못하고 스위치로 재우는 수밖에 없었다.
+     (그 게임 코드는 D2-6 에서 apps/desktop/archive/myhome-game-archive.js 로 옮겼다)
      이 API를 거치면 게임을 걷어낼 때 할 일은 딱 두 가지다 —
        1) HTML에서 <script src="mystery-au.js"> 한 줄 삭제
        2) mystery-au.js 파일 삭제
@@ -771,10 +770,8 @@ let   MHD_READY = false;    // advInit이 #advDesktop을 만든 뒤 true
 
 /* 아이콘 자동 배치 — 바탕화면을 78×66 격자로 보고 '빈 칸'을 찾아 넣는다.
    ★ 단순히 '기존 아이콘 개수'를 자리 번호로 쓰면 안 된다.
-     내장 아이콘 좌표는 CSS에 박혀 있고(#advIconSim=0번칸/12px · #advIconChar=1번칸/90px),
-     ADV_GAME_OFF=true면 0번 칸이 비고 개수는 1이 된다 → 새 아이콘이 1번 칸으로 가서
-     캐릭터세팅과 정확히 겹친다. 그래서 '있는 칸'을 예약 목록으로 세고 빈 칸을 준다.
-     (게임이 꺼진 지금은 새 앱이 0번 칸에 들어가 빈자리를 메운다) */
+     자리 번호는 '있는 칸'을 예약 목록으로 세어 빈 칸을 준다. 내장 게임 아이콘(#advIconSim · #advIconChar)은
+     D2-6 에서 걷었으므로 지금은 늘 없고, 새 앱이 0번 칸부터 들어간다(아래 두 줄은 보관본이 되살아날 때를 위한 자리 예약). */
 const MHD_COL_W=78, MHD_ROW_H=66, MHD_X0=12, MHD_Y0=14;
 
 function mhdNextSlot(prefer){
