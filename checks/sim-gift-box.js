@@ -392,7 +392,7 @@ function wiring(S, loud){
   t((A.match(/TwGiftBox\.createGiftBox\(/g) || []).length === 1, 'app.js 가 만드는 곳은 한 곳(const giftBoxMod)');
   const call = (S.APP.match(/const giftBoxMod = TwGiftBox\.createGiftBox\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map((x) => x.trim()).filter((x) => x && !x.startsWith('//'));
-  t(deps.length === 4 && /^api: giftApiMod, giftLib: TwGiftApi/.test(deps[0]) && deps.some((d) => /^rtOn: \(kind, fn\)=>TwRtHub\.store\.on\(kind, fn\),$/.test(d)), '  deps — api(gift-api) · giftLib · errs · apiErrors · notifyError · toast · rtOn(신호)');
+  t(deps.length === 5 && /^api: giftApiMod, giftLib: TwGiftApi/.test(deps[0]) && deps.some((d) => /^rtOn: \(kind, fn\)=>TwRtHub\.store\.on\(kind, fn\),$/.test(d)), '  deps — api(gift-api) · giftLib · errs · apiErrors · notifyError · toast · rtOn(신호) · requestIds(보내기)');
   const iBox = A.indexOf('const giftBoxMod = '), iMl = A.indexOf('const mallangMod = TwMallang.createMallang(');
   const inboxAt = A.indexOf('TwMyHomeInbox.createMyHomeInbox('), uiAt = A.indexOf('TwMyHomeUi.createMyHomeUi(');
   t(iBox > 0 && iBox < iMl && iMl < inboxAt && iMl < uiAt, '  말랑이 화면 · 수령함 · 마이홈 창보다 먼저 만든다');

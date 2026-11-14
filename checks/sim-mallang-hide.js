@@ -32,9 +32,9 @@ function mkBox(gifts){
   const api = {
     fetchBox: async () => ({ items: Object.keys(gifts.home1 || {}).map((k) => row(k, gifts.home1[k])), unseenCount: 0, starCount: 0, boxKeep: 30, starMax: 20 }),
     fetchVisible: async (u) => ({ items: Object.keys(gifts[u] || {}).map((k) => ({ id: k, imageUrl: gifts[u][k].imgUrl, message: '' })), visibleCount: Object.keys(gifts[u] || {}).length, recipientCap: 30 }),
-    markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {}, reset(){},
+    fetchSentToday: async () => ({ count: 0, dailyMax: 10 }), send: async () => ({ giftId: 'x', sentToday: 1, dailyMax: 10 }), markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {}, reset(){},
   };
-  return loadMod(STORE_SRC.box).createGiftBox({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){}, rtOn: () => () => {} });
+  return loadMod(STORE_SRC.box).createGiftBox({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){}, rtOn: () => () => {}, requestIds: { idFor: (k) => k, settle(){} } });
 }
 
 /* 가짜 DOM — id 로 찾고 · 붙이고 · class · style · 이벤트만 진짜 */
@@ -78,7 +78,7 @@ function mkEnv(src){
   globalThis.TwSafeHtml = ctx.TwSafeHtml;   // img-retry.js 는 node 쪽 전역에서 TwSafeHtml 을 찾는다
   vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'mallang.js' });
-  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, getDisplayName: () => '나', premiumOn: () => false, mallangStore: mkStore({}), giftBox });
+  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, premiumOn: () => false, mallangStore: mkStore({}), giftBox });
   const loadAll = () => { imgs.splice(0).forEach(im => im.onload && im.onload()); };
   const layer = () => byId.mlLayer;
   return { ctx, m, btn, layer, loadAll, rafs };

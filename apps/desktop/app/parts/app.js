@@ -2729,6 +2729,7 @@ const giftBoxMod = TwGiftBox.createGiftBox({
   notifyError: (...a)=>TwErrorCodes.notify(...a),
   toast: (...a)=>toast(...a),
   rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+  requestIds: TwRequestId.createPending(),   // 보내기 요청 번호 — 받는 사람마다 하나(닿지 못했으면 같은 번호)
 });
 /* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v1/me/myhome/bookshelf · /v1/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
 const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(책장 몫)
@@ -2760,7 +2761,6 @@ TwBookmark.createBookmark({
 const mallangMod = TwMallang.createMallang({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
   premiumOn: (...a)=>_premiumOn(...a),
   mallangStore: mallangStoreMod,
   giftBox: giftBoxMod,

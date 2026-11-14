@@ -750,50 +750,6 @@
       try{ await deleteObject(_stRef(storage, url)); }catch(_){}
     },
 
-    /* ── 🎁 말랑이 선물 ──
-       users/{받는사람}/mallangGifts/{giftId} = {imgUrl, fromName, fromId, ts}
-       users/{보내는사람}/mallangGiftCount/{YYYY-MM-DD} = 그날 발송 횟수
-       ⚠️ 하루 한도의 **숫자는 여기 없다** — mallang.js 의 DAILY_LIMIT 한 곳이다.
-         여기 숫자를 같이 적으면 한쪽만 고쳐져 화면과 판정이 갈린다(실제로 5→10 때 그럴 뻔했다). */
-    // 하루 발송 횟수 조회
-    async getMallangGiftCount(fromId, dateStr){
-      try{ const s=await get(ref(db, `users/${fromId}/mallangGiftCount/${dateStr}`)); const v=s.val(); return (typeof v==='number')?v:0; }
-      catch(e){ return 0; }
-    },
-    // 선물 보내기 (하루 한도·상대 마이홈 정원 검사는 호출 측(mallang.js)에서 하고, 여기선 발송 + 카운트 증가)
-    //  ★ 보내는 순간 이미지를 '선물 전용 경로'로 복사해서 그 URL을 저장한다.
-    //    말랑이 원본은 users/{uid}/mallang_{슬롯}.png 처럼 슬롯 번호 고정 경로라, 나중에 그 슬롯 그림을
-    //    바꾸면 같은 경로에 덮어써져서 '이미 보낸 선물의 그림까지 같이 바뀌는' 문제가 있었다.
-    //    사본을 두면 원본을 아무리 고쳐도 보낸 선물은 그대로 유지된다.
-    async sendMallangGift(fromId, fromName, toId, imgUrl, dateStr, msg){
-      try{
-        const giftRef = push(ref(db, `users/${toId}/mallangGifts`));
-        const giftId = giftRef.key;
-        // 이미지 스냅샷 — 원본을 받아 선물 전용 경로로 재업로드. 실패하면 원본 URL로 폴백(전송은 성공시킴).
-        let snapUrl = String(imgUrl||'');
-        try{
-          const res = await fetch(snapUrl);
-          const blob = await res.blob();
-          /* 404 · 오류 페이지를 그림처럼 다시 올리면 받은 사람 칸이 깨진 그림이 된다 — 그림이 아니면 원본 주소를 그대로 보낸다 */
-          if(!res.ok || !blob || !blob.size || !/^image\//.test(blob.type || '')) throw new Error('not image');
-          const dataUrl = await new Promise((ok,ng)=>{ const r=new FileReader(); r.onload=()=>ok(r.result); r.onerror=ng; r.readAsDataURL(blob); });
-          const up = await _uploadDataUrlIfNeeded(`users/${toId}/giftimg/${giftId}.png`, dataUrl);
-          if(up && !up.startsWith('data:')) snapUrl = up;
-        }catch(_){ /* 네트워크·CORS 실패 시 원본 참조 유지 */ }
-        const payload = { imgUrl:snapUrl, fromName:String(fromName||'').slice(0,20), fromId:String(fromId||''), ts: Date.now() };
-        const m = String(msg||'').trim().slice(0,50);
-        if(m) payload.msg = m;   // 💬 함께 보낸 짧은 메시지(최대 50자) — 받은 사람이 말랑이를 클릭하면 말풍선으로 표시
-        await set(giftRef, payload);
-        // 발송 카운트 +1 (트랜잭션)
-        await runTransaction(ref(db, `users/${fromId}/mallangGiftCount/${dateStr}`), c => (typeof c==='number'?c:0)+1);
-        return { ok:true };
-      }catch(e){ return { ok:false, reason:'선물 전송에 실패했어요' }; }
-    },
-    // 받은 선물 목록 조회 → { giftId: {imgUrl, fromName, fromId, ts} }
-    async getMallangGifts(userId){
-      try{ const s=await get(ref(db, `users/${userId}/mallangGifts`)); return s.val() || {}; }
-      catch(e){ return {}; }
-    },
     /* ═══════════ 👋 친구 요청 (수락/거절) ═══════════
        스키마: friendRequests/{받는사람}/{보낸사람} = { name, ts }
        흐름: 코드 입력 → 상대에게 요청 기록 → 상대가 수락하면 그때 양방향 friends 추가 */

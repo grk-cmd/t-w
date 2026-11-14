@@ -113,6 +113,7 @@
 | `E-GIFT-04` | 선물함을 불러오지 못했어요 | `myhome/gift-box.js` — 선물함 받기(`GET /v1/me/gifts` — 마이홈 열기 · 💝 선물함 서브탭 · [다시 시도]) 실패(서버 신호로 받는 것은 번호 없이 조용히 · 혼자 다시 받지 않음 · 봤음 실패는 번호 없이 배지가 남음) |
 | `E-GIFT-05` | 선물을 바꾸지 못했어요 | `myhome/gift-box.js` — 선물 ⭐ · 선물함으로 치움 · 다시 부르기(`PATCH /v1/me/gifts/{id}`) 실패(⭐ 20개 초과 · 이미 없는 선물은 번호 없이 안내) |
 | `E-GIFT-06` | 선물을 지우지 못했어요 | `myhome/gift-box.js` — 선물함 우클릭 [삭제](`DELETE /v1/me/gifts/{id}`) 실패(⭐ 선물 · 이미 없는 선물은 번호 없이 안내) |
+| `E-GIFT-08` | 선물을 보내지 못했어요 | `myhome/gift-box.js` — 선물 보내기(`POST /v1/gifts/{code}`) 실패(그림 사본을 못 만든 503 포함 · 하루 한도 · 상대 가득 · 친구 아님 등 서버 안내 코드는 번호 없이 서버 문구) — 격자를 다시 켬 |
 | `E-GIFT-09` | 그 집 선물을 불러오지 못했어요 | `myhome/gift-box.js` — 친구 집을 구경할 때 그 집에 나온 선물 받기(`GET /v1/gifts/{code}`) 실패(그 사람이 없음은 번호 없이 «선물 없음») |
 | `E-GIFT-07` | 내 말랑이를 불러오지 못해 선물 창을 열지 못했어요 | `myhome/mallang-store.js` — 친구 줄 우클릭 선물 보내기 창(`mallang.js` `openGift`)을 열 때 내 칸 받기(`pullMine` site `sendOpen` — `GET /v1/me/mallangs`) 실패 · 창을 열지 않음 |
 | `E-FOCUS-01` | 포커스 기록을 불러오지 못했어요 | `focus/focus-progress.js` — 서버 진척 받기 실패(GET /v1/me/focus) · 내 정보 · 포커스 기록창을 열 때 못 받은 상태면 다시 받다 실패한 때만 알림(시작 때의 실패는 조용히 «못 불러옴» 상태) |

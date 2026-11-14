@@ -11,10 +11,10 @@
      방문자는 그 집 주인이 등록한 이미지로 자기 화면에 소환(각자 로컬).
    · 모듈 모양: window.TwMallang = { createMallang(deps) } — app.js 가 마이홈 수령함 모듈보다 먼저 만들고,
      마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallangMod` 로 받아 부른다.
-     deps 6 — toast · getMyUserId · getDisplayName · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
+     deps 5 — toast · getMyUserId · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
      🎁 받은 선물은 선물 상태 주인(gift-box.js)이 서버에서 받아 오고 «내 선물 중 무엇이 화면에 나와야 하나» 도 정한다(onScreen) — 이 파일은 그 목록을 그리고(syncGifts) 🎁 배지를 맡는다. 선물 id 를 따로 들지 않는다.
      화면 자리(MAX_LIVE 동시 상한)는 이 파일의 사실이라 attachScreen 으로 선물함에 알린다. 남의 집에 나온 선물(방문자)은 이 파일이 한 번 그린다.
-     🎁 보내기 창만 아직 옛 길(firebaseAPI)이다 — 보내기 묶음에서 옮긴다.
+     🎁 보내기 창도 서버 길이다(giftBox.send · fetchSentToday — 창 상태는 이 파일 안). 보낸 사람 · 이름은 서버가 토큰에서 정한다.
    검사: checks/sim-mallang-module.js · sim-mallang-store.js · sim-gift-box.js
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){
@@ -23,7 +23,6 @@
 function createMallang(deps){
   const toast = deps.toast;
   const getMyUserId = deps.getMyUserId;
-  const getDisplayName = deps.getDisplayName;
   const premiumOn = deps.premiumOn;   // 👑 프리미엄 판정(app.js _premiumOn) — 전역 window._premiumOn 을 읽지 않는다
   const mallangStore = deps.mallangStore;   // 🧸 칸 상태 주인(mallang-store.js) — mine() · view() · add · toggle · remove · pullMine · openView
   const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — onScreen() · enterHome · leaveHome · attachScreen · hide · onChange · fetchVisible
@@ -80,7 +79,6 @@ function createMallang(deps){
   function homeWin(){ return document.getElementById('myHomeWin'); }
   function roomBox(){ return document.getElementById('mhRoomPreview'); }   // 청록 바탕화면 박스
   function myId(){ try{ return getMyUserId(); }catch(_){ return null; } }
-  function fbReady(){ return !!(window.firebaseAPI && firebaseAPI.getMallangGifts); }   // 🎁 선물만 아직 옛 길
   function hasLicense(){ try{ return !!premiumOn(); }catch(_){ return false; } }
   function esc(s){ return TwSafeHtml.text(s); }   // 마크업 글자 안에 넣을 값 — 공용(shared/safe-html.js)
 
@@ -840,7 +838,7 @@ function createMallang(deps){
     clearAll();
     mallangStore.closeView();
     const pop = document.getElementById('mlManage'); if(pop) pop.classList.remove('on');
-    const gp = document.getElementById('mlGift'); if(gp) gp.remove();
+    closeGiftPopup();
     const tab = document.querySelector('.mh-tab[data-tab="friend"]');
     const badge = tab && tab.querySelector('.ml-giftbadge'); if(badge) badge.remove();
   }
@@ -911,93 +909,93 @@ function createMallang(deps){
     document.head.appendChild(s);
   }
 
-  /* ── 🎁 선물 보내기 (친구 우클릭 → myhome-inbox.js 가 호출) ── */
-  const DAILY_LIMIT = 10;   // 하루 발송 한도 (5 → 10)
-  const MSG_MAX = 50;   // 선물에 함께 보내는 메시지 최대 길이
-  /* 🎁 받는 사람 마이홈이 꽉 찼는가 — **치우지 않은 선물** 이 이 수 이상이면 못 보낸다.
-     [세는 기준] `mallangGifts/{id}.hidden` 이 아닌 것. 집주인이 우클릭으로 치우면 서버에 그 표시가
-       남으므로(heartsAndRemove 참고) 보내는 쪽에서도 같은 값을 읽을 수 있다 — `users/$userId` 는
-       공개 읽기라 규칙을 손댈 필요가 없다.
-     ⚠️ 이 수(30)는 보관 한도 GIFT_MAX 와 같지만 **다른 뜻**이다. GIFT_MAX 는 '선물함에 몇 개까지
-       쌓아 두는가'이고, 이쪽은 '남의 집에 몇 마리까지 내보낼 수 있는가'다. 한쪽을 고칠 때
-       다른 쪽이 따라가야 하는 관계가 아니므로 상수를 따로 둔다.
-     ★ 화면 동시 상한 MAX_LIVE 도 **같은 30** 이다. 둘을 다른 수로 두면 "30마리라는데 화면엔
-       그만큼 없다"가 되므로, 한쪽을 고치면 다른 쪽도 같이 본다. */
-  const GIFT_SEND_CAP = 30;
-  function todayStr(){ const d=new Date(); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0'); }
-  /* 상대의 '나와 있는' 선물 수. 못 읽으면 -1 — **막지 않는다.**
-     조회 실패로 선물을 못 보내게 하면, 네트워크가 잠깐 흔들린 사람에게는 기능이 고장난 것으로 보인다
-     (방 버전 게이트의 '조회 실패는 통과'와 같은 판단이다). */
-  async function visibleGiftCount(uid){
-    if(!fbReady() || !firebaseAPI.getMallangGifts) return -1;
-    const gifts = await firebaseAPI.getMallangGifts(uid).catch(()=>null);
-    if(!gifts) return -1;
-    return Object.keys(gifts).filter(k => gifts[k] && !gifts[k].hidden).length;
-  }
-
+  /* ── 🎁 선물 보내기 (친구 우클릭 → myhome-inbox.js 가 호출) ──
+     한도(하루 보내기 · 받는 집 정원 · 메시지 길이)는 서버 값이다 — dailyMax · recipientCap 은 응답 숫자, 메시지 상한은 giftBox.MESSAGE_MAX.
+     창 상태 pop = { to, name, sent:{count,dailyMax}|null, theirs:{visibleCount,recipientCap}|null, busy } — 창 안에서만 산다(열 때 받고 · 닫으면 버림). */
+  let giftPop = null;
+  const MSG_MAX = giftBox.MESSAGE_MAX;
+  /* 열기 — 내 칸 · 오늘 보낸 수 · 상대 집 선물 수를 나란히 받는다(서로 다른 자원). 내 칸을 못 받으면 E-GIFT-07 · 창을 열지 않는다.
+     남은 수 · 상대 수를 못 받으면 «확인하지 못했어요» 만 적고 막지 않는다(판정은 서버) */
   async function openGift(friendId, friendName){
     if(!hasLicense()){ toast('👑 말랑이 선물은 라이선스 보유자 전용이에요'); return; }
-    if(!fbReady()){ toast('네트워크 연결이 필요해요'); return; }
-    // 내 말랑이 칸 (활성/비활성 무관하게 등록된 것 전부 선물 가능) — 못 받으면 E-GIFT-07 · 창을 열지 않는다
-    if(!(await mallangStore.pullMine({ site: 'sendOpen' }))) return;
-    const mine = mallangStore.mine().slots.map(x=>({ url: x.imageUrl }));
-    if(!mine.length){ toast('먼저 내 말랑이를 등록하세요'); return; }
-    /* 하루 발송 횟수 + 상대 마이홈이 꽉 찼는지 — **둘을 나란히 부른다.**
-       순서대로 기다리면 창이 뜨는 데 왕복이 두 번 걸린다. 서로 무관한 조회다. */
-    const [cnt, theirs] = await Promise.all([
-      firebaseAPI.getMallangGiftCount(myId(), todayStr()).catch(()=>0),
-      visibleGiftCount(friendId),
+    const seq = houseSeq;
+    const [ok, sent, theirs] = await Promise.all([
+      mallangStore.pullMine({ site: 'sendOpen' }),
+      giftBox.fetchSentToday(),
+      giftBox.fetchVisible(friendId),
     ]);
-    buildGiftPopup(friendId, friendName, mine, cnt, theirs);
+    if(!ok || seq !== houseSeq) return;
+    if(!mallangStore.mine().slots.length){ toast('먼저 내 말랑이를 등록하세요'); return; }   // 켜고 끔과 상관없이 등록된 것 전부 선물 가능
+    buildGiftPopup(friendId, friendName, sent.ok ? { count: sent.count, dailyMax: sent.dailyMax } : null,
+      theirs.ok ? { visibleCount: theirs.visibleCount, recipientCap: theirs.recipientCap } : null);
   }
 
-  function buildGiftPopup(friendId, friendName, mine, sentToday, theirVisible){
+  const giftFull = (p) => !!(p.theirs && p.theirs.visibleCount >= p.theirs.recipientCap);
+  const giftRemain = (p) => (p.sent ? Math.max(0, p.sent.dailyMax - p.sent.count) : null);
+  /* 안내 줄 — 가득 참과 하루 한도를 다른 문구로 가른다(둘을 뭉치면 «오늘 다 썼나? 상대가 꽉 찼나?» 를 알 수 없다) */
+  function giftNote(p){
+    if(giftFull(p)){
+      return '<div class="ml-note ml-full"><b>'+esc(p.name||'친구')+'</b> 님의 마이홈에 말랑이가 가득 찼어요 ('+esc(p.theirs.visibleCount)+'/'+esc(p.theirs.recipientCap)+')<br>몇 마리 치우면 다시 보낼 수 있어요.</div>';
+    }
+    const r = giftRemain(p);
+    return '<div class="ml-note">보낼 말랑이를 고르세요. 오늘 남은 횟수: <b>'+(r === null ? '확인하지 못했어요' : esc(r)+'/'+esc(p.sent.dailyMax))+'</b></div>';
+  }
+  /* 칸 격자 — 내 칸 전부(꺼진 것 포함). 칸이 저장으로 바뀌면 다시 그린다(옛 번호로 보내면 다른 그림이 간다). 보내는 중이면 격자 전체가 흐리다 */
+  function renderGiftGrid(p){
+    const grid = document.getElementById('mlGiftGrid'); if(!grid) return;
+    grid.innerHTML = '';
+    grid.classList.toggle('off', giftFull(p) || p.busy);   // 눌러도 안 되는 것이 눈에 보이게(핸들러도 한 번 더 막는다)
+    mallangStore.mine().slots.forEach(item=>{
+      const cell = document.createElement('div'); cell.className='ml-gcell';
+      const gsrc = TwSafeHtml.safeUrl(item.imageUrl, 'image');
+      if(gsrc){ const gim = TwImgRetry.retryOnError(document.createElement('img')); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
+      cell.addEventListener('click', ()=>sendGift(p, item));
+      grid.appendChild(cell);
+    });
+  }
+  async function sendGift(p, item){
+    if(giftPop !== p || p.busy) return;
+    /* 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다. 보내기 직전에 한 번 더 본다(요청 없음) */
+    if(giftFull(p)){ toast('🎁 상대 마이홈이 가득 찼어요 ('+p.theirs.recipientCap+'마리)'); return; }
+    if(giftRemain(p) === 0){ toast('오늘은 더 보낼 수 없어요 (하루 '+p.sent.dailyMax+'번)'); return; }
+    if(typeof item.slot !== 'number'){ toast('말랑이를 저장하는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 방금 등록한 칸은 저장이 끝나야 서버 번호가 생긴다
+    p.busy = true; renderGiftGrid(p);
+    const inp = document.getElementById('mlGiftMsg');
+    const r = await giftBox.send(p.to, { mallang: item, message: inp ? inp.value : '' });
+    if(giftPop !== p) return;   // 그사이 창을 닫았거나 계정을 놓았다 — 이 답은 화면에 쓰지 않는다
+    p.busy = false;
+    if(r.ok){ toast('🎁 '+(p.name||'친구')+'에게 말랑이를 보냈어요!'); closeGiftPopup(); return; }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
+    if(r.kind === 'guide' && r.message) toast(r.message);   // 서버 문구(숫자가 들어 있다) — 번호 없음
+    renderGiftGrid(p);   // 격자를 다시 켠다
+  }
+  function closeGiftPopup(){
+    giftPop = null;
+    if(giftOff){ giftOff(); giftOff = null; }
+    const pop = document.getElementById('mlGift'); if(pop) pop.remove();
+  }
+  let giftOff = null;   // 칸 저장이 끝나면 격자를 다시 그리는 구독 해제
+
+  function buildGiftPopup(friendId, friendName, sent, theirs){
     const win = homeWin(); if(!win) return;
-    let pop = document.getElementById('mlGift');
-    if(pop) pop.remove();
-    pop = document.createElement('div');
+    closeGiftPopup();
+    const p = giftPop = { to: friendId, name: friendName, sent, theirs, busy: false };
+    const pop = document.createElement('div');
     pop.id = 'mlGift';
-    const remain = Math.max(0, DAILY_LIMIT - sentToday);
-    /* 🎁 상대 집이 꽉 찼으면 **고르기 전에** 막는다(요청).
-       ★ 안내를 하루 한도와 갈라 쓴다 — 둘을 같은 문구로 뭉치면 "오늘 다 썼나? 상대가 꽉 찼나?"를
-         유저가 구분할 수 없다. 조회 실패(-1)는 막지 않는다. */
-    const full = (theirVisible >= 0 && theirVisible >= GIFT_SEND_CAP);
-    const note = full
-      ? '<div class="ml-note ml-full"><b>'+esc(friendName||'친구')+'</b> 님의 마이홈에 말랑이가 가득 찼어요 ('+esc(theirVisible)+'/'+GIFT_SEND_CAP+')<br>몇 마리 치우면 다시 보낼 수 있어요.</div>'
-      : '<div class="ml-note">보낼 말랑이를 고르세요. 오늘 남은 횟수: <b>'+remain+'/'+DAILY_LIMIT+'</b></div>';
     pop.innerHTML =
       '<div class="ml-hd"><span>🎁 '+esc(friendName||'친구')+'에게 말랑이 선물</span><span class="x" id="mlGiftClose">×</span></div>'+
-      '<div class="ml-bd">'+note+
+      '<div class="ml-bd">'+giftNote(p)+
       '<div id="mlGiftGrid"></div>'+
       '<div class="ml-msgrow"><label>함께 보낼 메시지 (선택)</label>'+
       '<input id="mlGiftMsg" type="text" maxlength="'+MSG_MAX+'" placeholder="비워두면 말풍선이 뜨지 않아요">'+
       '<div class="ml-msgcnt"><span id="mlGiftMsgCnt">0</span> / '+MSG_MAX+'</div></div>'+
       '</div>';
     win.appendChild(pop);
-    pop.querySelector('#mlGiftClose').addEventListener('click', ()=>pop.remove());
+    pop.querySelector('#mlGiftClose').addEventListener('click', closeGiftPopup);
     const msgInp = pop.querySelector('#mlGiftMsg');
     const msgCnt = pop.querySelector('#mlGiftMsgCnt');
     if(msgInp) msgInp.addEventListener('input', ()=>{ if(msgCnt) msgCnt.textContent = String(msgInp.value.length); });
-    const grid = pop.querySelector('#mlGiftGrid');
-    if(full) grid.classList.add('off');   // 눌러도 안 되는 것이 눈에 보이게 (핸들러도 아래에서 한 번 더 막는다)
-    mine.forEach(item=>{
-      const cell = document.createElement('div'); cell.className='ml-gcell';
-      const gsrc = TwSafeHtml.safeUrl(item.url, 'image');
-      if(gsrc){ const gim = TwImgRetry.retryOnError(document.createElement('img')); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
-      cell.addEventListener('click', async ()=>{
-        /* ⚠️ 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다.
-           보내기 직전에 한 번 더 본다(로컬 판정이라 왕복은 없다). */
-        if(full){ toast('🎁 상대 마이홈이 가득 찼어요 ('+GIFT_SEND_CAP+'마리)'); return; }
-        if(remain<=0){ toast('오늘은 더 보낼 수 없어요 (하루 '+DAILY_LIMIT+'번)'); return; }
-        cell.style.pointerEvents='none'; cell.style.opacity='.5';
-        const myName = getDisplayName();
-        const msg = msgInp ? msgInp.value.trim().slice(0, MSG_MAX) : '';
-        const r = await firebaseAPI.sendMallangGift(myId(), myName, friendId, item.url, todayStr(), msg);
-        if(r&&r.ok){ toast('🎁 '+(friendName||'친구')+'에게 말랑이를 보냈어요!'); pop.remove(); }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
-        else { cell.style.pointerEvents=''; cell.style.opacity=''; toast((r&&r.reason)||'전송 실패'); }
-      });
-      grid.appendChild(cell);
-    });
+    renderGiftGrid(p);
+    giftOff = mallangStore.onChange(()=>{ if(giftPop === p) renderGiftGrid(p); });   // 메시지 칸은 그대로 둔다
     injectGiftStyle();
   }
 
