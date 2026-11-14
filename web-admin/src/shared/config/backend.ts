@@ -27,3 +27,6 @@ export const API_MISSING_ROUTE: 'unavailable' | 'notFound' = BACKEND === 'api' ?
 
 /** e2e 에서 서버(가짜)가 있나 — API 판만 있다. Firebase 판 e2e 는 에뮬레이터 RTDB 로 읽는다. */
 export const E2E_HAS_FAKE_API: boolean = BACKEND === 'api';
+
+/** 옛 API 읽기가 «못 닿으면 RTDB» 로 넘어가도 되나 — Firebase 판만. API 판은 API 하나라 넘어가는 길이 없다. */
+export const LEGACY_FALLBACK_ALLOWED: boolean = BACKEND === 'firebase';

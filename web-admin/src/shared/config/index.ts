@@ -6,6 +6,7 @@ export {
   BACKENDS,
   BUILD_COMMIT,
   E2E_HAS_FAKE_API,
+  LEGACY_FALLBACK_ALLOWED,
   parseBackend,
   type Backend,
 } from './backend';

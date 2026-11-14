@@ -9,6 +9,8 @@ import {
   isApiConflict,
   PROD_API_BASE_URL,
   shouldFallback,
+  viaApiOr,
+  type Api,
   type MissingRoute,
 } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
@@ -198,6 +200,41 @@ describe('API 통로', () => {
     expect([e.kind, e.code]).toEqual(['request', 'INVALID_REQUEST']);
     expect(shouldFallback(e)).toBe(false);
     expect(shouldFallback(new Error('x'))).toBe(false);
+  });
+});
+
+describe('옛 API 읽기 넘어가기 — Firebase 판만', () => {
+  const down = new ApiError('unavailable', 502, '', '');
+  it('API 판(allowed 거짓)은 못 닿아도 · 주소가 없어도 RTDB 로 넘어가지 않고 오류를 던진다', async () => {
+    const fallback = vi.fn(async () => 'rtdb');
+    expect(shouldFallback(down, false)).toBe(false);
+    await expect(
+      viaApiOr(
+        {} as Api,
+        async () => {
+          throw down;
+        },
+        fallback,
+        false,
+      ),
+    ).rejects.toBe(down);
+    await expect(viaApiOr(null, async () => 'x', fallback, false)).rejects.toBeInstanceOf(ApiError);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('Firebase 판(allowed 참)은 지금처럼 넘어간다', async () => {
+    const fallback = vi.fn(async () => 'rtdb');
+    await expect(
+      viaApiOr(
+        {} as Api,
+        async () => {
+          throw down;
+        },
+        fallback,
+        true,
+      ),
+    ).resolves.toBe('rtdb');
+    await expect(viaApiOr(null, async () => 'x', fallback, true)).resolves.toBe('rtdb');
   });
 });
 
