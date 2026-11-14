@@ -4,8 +4,9 @@
    ・2-2절: realtime 점검(4006) — serverClosed: 점검 창 + [다시 시도] · 누름 · 점검 해제 때만 한 번 다시 붙기 · 그동안 on()
    ・2절: 창 — 점검 중이어도 사람이 누른 동작일 때만 · 뒤에서 혼자 낸 요청은 조용히 · 떠 있는 창은 바뀐 끝 시각으로 다시 · 끝나면 다시 켜기를 묻는다(본 적 없으면 안 물음) · 단추
    ・3절: 고리 — Firebase 기본 동작(firebase-init.js _touched)이 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
+   ・2-3절: 점검 값 읽기(0.13) — 서버 /v1/config 먼저 · 네트워크 · 5xx · 시간 초과면 Firebase 한 칸 · 4xx 는 물러나지 않음 · 서버가 답하면 Firebase 를 안 읽음 · ISO 끝 시각 · 읽는 때(시작 · config 알림 · 4006 · 다시 시도)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
-   ・5절: 깨 보기 — 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
+   ・5절: 깨 보기 — (읽기) 4xx 도 물러나거나 · 서버가 답해도 Firebase 를 읽거나 · 서버 길을 건너뛰거나 · 알림 · 다시 시도에서 안 읽으면 빨강 · 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
    [실행] node checks/run.js sim-maintenance-gate */
 'use strict';
 const fs = require('fs');
@@ -158,6 +159,88 @@ function run(M, label){
   return fail === fails0;
 }
 
+/* 2-3절 — 점검 값 읽기(비동기라 run 밖) */
+async function runRead(M, label){
+  const fails0 = fail;
+  say('── 2-3. 점검 값 읽기 — 서버 먼저 · 닿지 못할 때만 Firebase' + label);
+  if(M.maintenanceOfServer){
+    const ok = (o) => ({ kind: 'unavailable', status: o || 0 });
+    const mk = (server, flag, active) => {
+      const r = rig2(M, !!active); r.reads = { server: 0, flag: 0 };
+      return r;
+    };
+    function rig2(MM, active){
+      const shows = []; const q = { shows, reads: { server: 0, flag: 0 }, server: null, flag: null, handlers: {} };
+      q.g = MM.createMaintenance({
+        userActive: () => !!active, ui: { show: (v) => shows.push(v), hide(){} }, relaunch(){}, now: () => 1e12 + (q.t || 0),
+        readServer: () => { q.reads.server++; return typeof q.server === 'function' ? q.server() : Promise.resolve(q.server); },
+        readFlag: () => { q.reads.flag++; return Promise.resolve(q.flag); },
+      });   // deps 로 줘도 start 로 줘도 같다 — 앱에서는 firebase-init 이 start 로 잇는다
+      return q;
+    }
+    const ends = '2026-11-20T03:00:00Z';
+    let q = mk(null, null, true);
+    q.server = { room: {}, maintenance: { on: true, endsAt: ends, message: '서버 점검' } }; q.flag = { on: false };
+    await q.g.check();
+    chk(q.reads.server === 1 && q.reads.flag === 0 && q.g.on() === true, '★ 서버가 답하면 서버 값으로 점검 — Firebase 는 읽지 않는다');
+    chk(q.g.touch() === true && q.shows[0].body.indexOf('서버 점검') === 0 && q.shows[0].body.split('\n')[1] !== undefined, '  ↳ 서버 문구로 창');
+    chk(M.maintenanceOfServer({ on: true, endsAt: ends, message: 'x' }).endsAt === Date.parse(ends) && M.maintenanceOfServer({ on: true, endsAt: null, message: null }).endsAt === null
+      && M.maintenanceOfServer({ on: 'true' }) === null && M.maintenanceOfServer({ on: false }) === null && M.maintenanceOfServer(undefined) === null
+      && M.maintenanceOfServer({ on: true, endsAt: 'bad' }).endsAt === null, '  ↳ ISO 끝 시각 → ms · 틀린 시각은 비움 · on 은 정확히 true');
+    q.server = { room: {}, maintenance: { on: false, endsAt: null, message: null } }; q.flag = { on: true };
+    await q.g.check();
+    chk(q.g.on() === false && q.reads.flag === 0, '★ 서버가 «점검 아님» 이라 하면 Firebase 가 켜져 있어도 점검 아님(서버가 원본)');
+    q = mk(null, null, true); q.server = { room: {} }; q.flag = { on: true };
+    await q.g.check();
+    chk(q.g.on() === false && q.reads.flag === 0, '  ↳ 옛 서버(maintenance 칸 없음) — 점검 아님 · Firebase 안 읽음');
+    for(const [name, err] of [['네트워크', { kind: 'unavailable', status: 0, code: 'NETWORK' }], ['시간 초과', { kind: 'unavailable', status: 0, code: 'TIMEOUT' }], ['5xx', { kind: 'unavailable', status: 502 }], ['5xx 상태만', { status: 502 }], ['503 본문', { kind: 'unavailable', status: 503, code: 'SERVER_ADMIN_ONLY' }], ['쉬는 중', { kind: 'unavailable', status: 0, code: 'BACKOFF' }]]){
+      q = mk(null, null, true); q.server = () => Promise.reject(err); q.flag = { on: true, message: 'fb 문구', endsAt: 1e12 };
+      await q.g.check();
+      chk(q.reads.server === 1 && q.reads.flag === 1 && q.g.on() === true && (q.g.touch(), q.shows[q.shows.length - 1].body.indexOf('fb 문구') === 0), '★ 서버에 닿지 못함(' + name + ') — Firebase 한 칸으로 물러난다');
+    }
+    for(const err of [{ kind: 'request', status: 400 }, { kind: 'auth', status: 401 }, { kind: 'request', status: 404 }, { kind: 'auth', status: 403 }, { kind: 'request', status: 429 }]){
+      q = mk(null, null, true); q.server = () => Promise.reject(err); q.flag = { on: true };
+      await q.g.check();
+      chk(q.reads.flag === 0 && q.g.on() === false, '★ 서버가 4xx 로 답함(' + err.status + ') — Firebase 로 물러나지 않는다');
+    }
+    q = mk(null, null, true); q.g.onValue({ on: true }); q.server = () => Promise.reject({ kind: 'request', status: 400 });
+    await q.g.check();
+    chk(q.g.on() === true, '  ↳ 4xx 는 지금 값을 그대로 둔다(점검 중이던 것을 꺼 버리지 않는다)');
+    q = mk(null, null, true); q.server = () => Promise.reject({ kind: 'unavailable', status: 0 }); q.flag = null;
+    await q.g.check();
+    chk(q.g.on() === false && q.reads.flag === 1, '  ↳ 서버도 못 닿고 Firebase 칸도 비었으면 점검 아님');
+    q = mk(null, null, true); q.server = () => Promise.reject({ kind: 'unavailable', status: 0 }); q.g.start({ readFlag: () => { q.reads.flag += 10; return Promise.resolve({ on: true }); } });
+    await q.g.check();
+    chk(q.g.on() === true && q.reads.flag >= 10, '  ↳ start 로 이은 Firebase 읽기를 쓴다');
+    let rel = 0; const hs = {}; q = mk(null, null, true); q.server = { room: {}, maintenance: { on: false } };
+    const rt = { on: (k, f) => { hs[k] = f; } };
+    await q.g.start({ rt });
+    chk(q.reads.server === 1 && typeof hs.config === 'function', '읽는 때 ① 앱 켤 때 한 번 · realtime config 알림을 듣는다');
+    hs.config(); await q.g.check();
+    chk(q.reads.server === 2, '읽는 때 ② realtime config 알림 — 서버를 다시 읽는다');
+    const resolvers = []; q.server = () => new Promise((res) => { resolvers.push(res); });
+    const p1 = q.g.check(), p2 = q.g.check();
+    chk(p1 === p2 && q.reads.server === 3, '  ↳ 읽는 중에 또 부르면 하나로 합친다'); resolvers.forEach((f) => f({ room: {} })); await Promise.all([p1, p2]);
+    q.server = { room: {}, maintenance: { on: true, message: '신호' } }; q.t = 10000; q.reads.server = 0;
+    q.g.serverClosed(() => { rel++; }); await q.g.check();
+    chk(q.reads.server === 1 && q.g.on() === true, '읽는 때 ③ realtime 이 점검(4006)으로 닫으면 서버 값을 읽는다');
+    q.t = 10500; q.reads.server = 0; q.g.serverClosed(() => {});
+    chk(q.reads.server === 0, '  ↳ 3초 안에 또 닫히면 다시 읽지 않는다(서버는 점검 아닌데 4006 이 돌 때 서버를 두드리지 않게)');
+    q = mk(null, null, true); q.server = { room: {}, maintenance: { on: true } };
+    q.g.serverClosed(() => {}); await q.g.check(); q.reads.server = 0; q.t = 60000;
+    q.press = null;
+    // [다시 시도] — 눌러 닫으면 새 값을 읽는다
+    const q2 = rig2(M, false); let pressFn = null;
+    q2.g = M.createMaintenance({ userActive: () => false, ui: { show: (v, p) => { pressFn = p; }, hide(){} }, relaunch(){}, now: () => 2e12,
+      readServer: () => { q2.reads.server++; return Promise.resolve({ room: {}, maintenance: { on: false } }); }, readFlag: () => Promise.resolve(null) });
+    q2.g.serverClosed(() => {}); await q2.g.check(); q2.reads.server = 0;
+    pressFn('retry'); await new Promise((r) => setImmediate(r));
+    chk(q2.reads.server === 1, '읽는 때 ④ [다시 시도] 를 누르면 서버 값을 읽는다');
+  }
+
+  return fail === fails0;
+}
+
 const M = asModule(SRC);
 run(M, '');
 
@@ -175,6 +258,7 @@ say('── 3. 고리');
   chk(!wired.length, '  ↳ get · set · remove · push · onValue · update 가 다 감쌈을 지난다' + (wired.length ? ' — 빠짐: ' + wired.join(', ') : ''));
 }
 (async () => {
+  await runRead(M, '');
   {
     const A = asModule(AC);
     let reqs = 0, fetches = 0;
@@ -203,8 +287,10 @@ say('── 3. 고리');
       'html — error-codes.js · api-client.js 보다 먼저 싣는다(firebase-init.js 는 module 이라 늘 뒤에 돈다)');
   const hit = (DR.match(/const UI_HIT_SEL = '([^']*)'/) || [])[1] || '';
   chk(hit.split(',').map(s => s.trim()).includes('#' + M.GATE_ID), '클릭 통과 목록(UI_HIT_SEL)에 #' + M.GATE_ID + ' — 투명 창에서도 단추를 누른다');
-  chk(/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\), \(s\) => _mt\.onValue\(s\.val\(\)\), \(\) => \{\}\)/.test(FI),
-      'firebase-init — config/maintenance 구독');
+  chk(/_mt\.start\(\{ readServer: \(\) => window\.TwApi\.client\.get\(window\.TwMaintenance\.CONFIG_PATH\),/.test(FI) && /readFlag: \(\) => _sdkGet\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\)\)\.then\(\(s\) => s\.val\(\)\), rt: window\.TwRtHub\.store \}\)/.test(FI),
+      'firebase-init — 점검 읽기를 gate 에 잇는다(서버 GET /v1/config 먼저 · Firebase 칸은 한 번 읽기 · 늘 듣는 구독 없음)');
+  chk(!/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\)/.test(FI), '  ↳ config/maintenance 를 늘 듣는 구독이 없다(P3)');
+  chk(M.CONFIG_PATH === '/v1/config' && !/window\.TwApi/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '  ↳ gate 는 API 통로를 직접 부르지 않는다(api-client.js 와 서로 부르는 순환이 되므로 · 읽기 함수는 firebase-init 이 잇는다)');
   chk(/const touch = \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \};/.test(AC) && /client = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch \}\);/.test(AC)
     && /authed = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch,/.test(AC) && /muted: \(\)=>window\.TwMaintenance\.store\.on\(\)/.test(EC), '  ↳ API 통로 두 벌(공용 읽기 · 로그인) · 오류 번호 한 벌에도');
   const n = (RULES.config || {}).maintenance || {};
@@ -236,7 +322,7 @@ say('── 3. 고리');
   { const E = b4 && asModule(b4); const t = []; const w = console.warn; console.warn = () => {};
     const s = E && E.createErrorNotice({ now: () => 1, toast: (m) => t.push(m), muted: () => true }).notify('E-FR-01'); console.warn = w;
     chk(b4 && s === true, '오류 토스트 조용히를 빼면 빨강'); }
-  const b8 = broke(SRC, "    if(action === 'retry'){ const f = takeRetry(); if(f) f(); }\n", '');
+  const b8 = broke(SRC, "    if(action === 'retry'){ const f = takeRetry(); if(f) f(); check(); }   // 사용자 동작 — 새 값 · 끝남을 한 번 읽는다\n", '');
   chk(b8 && !quietRun(asModule(b8)), '«다시 시도» 가 다시 붙지 않으면 빨강');
   const b9 = broke(SRC, '    if(f) f();   // 점검이 풀렸다', '    // 점검이 풀렸다');
   chk(b9 && !quietRun(asModule(b9)), '점검이 풀려도 다시 붙지 않으면 빨강');
@@ -250,6 +336,25 @@ say('── 3. 고리');
   chk(b10 && !quietRun(asModule(b10)), 'realtime 점검 동안 오류 토스트가 나면 빨강');
   const b11 = broke(SRC, "  const buttons = retry ? [{ label: '다시 시도', action: 'retry' }, { label: '확인', action: 'close' }] : ", "  const buttons = ");
   chk(b11 && !quietRun(asModule(b11)), '점검 창에 «다시 시도» 가 없으면 빨강');
+  const quietRead = async (MM) => { const log = console.log; console.log = () => {}; const p0 = pass, f0 = fail; let ok; try{ ok = await runRead(MM, ''); }catch(_){ ok = false; }finally{ console.log = log; } pass = p0; fail = f0; return ok; };
+  const r1 = broke(SRC, "if(!unreachable(e) || !readFlag) return false;", "if(!readFlag) return false;");
+  chk(r1 && !(await quietRead(asModule(r1))), '(읽기) 4xx 에도 Firebase 로 물러나면 빨강');
+  const r2 = broke(SRC, "apply(maintenanceOfServer(data.maintenance));", "apply(maintenanceOfServer(data.maintenance)); if(readFlag) try{ apply(maintenanceOf(await readFlag())); }catch(_){}");
+  chk(r2 && !(await quietRead(asModule(r2))), '(읽기) 서버가 답해도 Firebase 를 또 읽으면 빨강');
+  const r3 = broke(SRC, "try{ data = await readServer(); }", "try{ data = await Promise.reject({ kind: 'unavailable' }); }");
+  chk(r3 && !(await quietRead(asModule(r3))), '(읽기) 서버 길을 건너뛰고 Firebase 만 읽으면 빨강');
+  const r4 = broke(SRC, "return e.kind === 'unavailable' || (typeof e.status === 'number' && e.status >= 500);", "return e.kind === 'unavailable';");
+  chk(r4 && !(await quietRead(asModule(r4))), '(읽기) 5xx 를 «닿지 못함» 으로 안 보면 빨강');
+  const r5 = broke(SRC, "o.rt.on('config', () => { check(); });", "");
+  chk(r5 && !(await quietRead(asModule(r5))), '(읽기) realtime config 알림에 다시 읽지 않으면 빨강');
+  const r6 = broke(SRC, "if(f) f(); check(); }", "if(f) f(); }");
+  chk(r6 && !(await quietRead(asModule(r6))), '(읽기) [다시 시도] 에 다시 읽지 않으면 빨강');
+  const r7 = broke(SRC, "if(now() - lastDone >= SIGNAL_GAP_MS) check();", "check();");
+  chk(r7 && !(await quietRead(asModule(r7))), '(읽기) 4006 이 연달아 오면 서버를 두드려 대면 빨강');
+  const r8 = broke(SRC, "if(checking) return checking;", "");
+  chk(r8 && !(await quietRead(asModule(r8))), '(읽기) 읽는 중에 또 읽으면 빨강');
+  const r9 = broke(SRC, "const t = (typeof raw.endsAt === 'string') ? Date.parse(raw.endsAt) : NaN;", "const t = NaN;");
+  chk(r9 && !(await quietRead(asModule(r9))), '(읽기) ISO 끝 시각을 못 읽으면 빨강');
   void saved;
 
   say('');

@@ -239,14 +239,15 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `maintenance-gate.js` — 🛠 서버 점검 창
 
-**책임** — Firebase `config/maintenance`(`{ on, endsAt?, message? }` · 웹 관리자가 씀)가 켜진 동안, **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
+**책임** — 점검이 켜진 동안(0.13: 서버 `GET /v1/config` 의 `maintenance { on, endsAt(ISO), message }` 를 먼저 읽고, 서버에 닿지 못할 때만 Firebase `config/maintenance` 한 칸), **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
 
-**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `config/maintenance` 를 구독해 `store.onValue` 에 잇고, Firebase 기본 동작(firebase-init.js `_touched`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
+**만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `store.start({ readFlag, rt })` 로 Firebase 한 칸 읽기 · realtime 알림을 잇고(구독은 하지 않는다), Firebase 기본 동작(firebase-init.js `_touched`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
 
 **내놓는 것**
 - `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).
 - `store.serverClosed(retry, onDismiss)` — realtime 서버가 점검(4006)으로 닫았다(`realtime/rt-status-ui.js` 가 부름). 점검 창에 [다시 시도] 를 더해 띄우고, 누르거나 `config/maintenance` 가 풀리면 `retry()` 한 번(자동 재시도 없음). 창이 떠 있는 동안 `on()` 도 참. «확인» 으로 닫으면 같은 `retry` 를 `onDismiss` 에도 넘긴다(띠 [다시 연결] · 점검 해제와 띠 중 먼저 온 쪽 한 번만) — ⚠️ 닫은 뒤에도 `on()` 이 참이면 이 실행의 오류 알림이 다 꺼진다.
-- 순수: `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
+- `store.check()` — 점검 값을 한 번 읽는다(서버 먼저 · 네트워크 · 5xx · 시간 초과면 Firebase 한 칸 · 4xx 는 물러나지 않고 지금 값 그대로). 읽는 때: 앱 켤 때(`start`) · realtime `config` 알림 · 4006 으로 닫힐 때(`serverClosed` · 3초 안에 읽었으면 건너뜀) · [다시 시도]. 점검 상태(`cur`)의 주인은 이 모듈 하나.
+- 순수: `maintenanceOfServer`(ISO → ms) · `unreachable(오류)` · `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
 
 **함정**
 - «사람이 누른 동작» 은 클릭 · 키 입력 뒤 `ACTIVE_MS`(1초) 안에 나간 요청이다(점검 창 안 입력은 세지 않는다). `navigator.userActivation.isActive` 는 쓰지 않는다 — 아무 데나 누른 뒤 약 5초 참이라 꾸미기 저장 디바운스(3초) · 하트비트에도 창이 뜬다.
