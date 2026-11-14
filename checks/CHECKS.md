@@ -331,7 +331,7 @@
 | **sim-chat-focus.js** | 199 | **3d2314868c13** |
 | **sim-license-gate.js** | 179 | **78d99428ff7e** |
 | **sim-account.js** | 95 | **e93f07e9716a** |
-| **sim-wardrobe.js** | 184 | **c2d2628a81ba** |
+| **sim-wardrobe.js** | 184 | **7b40b7a136d5** |
 | **sim-settings-panel.js** | 201 | **c040df61e9fc** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **01800d7ef910** |

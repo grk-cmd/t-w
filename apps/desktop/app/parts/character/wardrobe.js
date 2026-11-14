@@ -54,6 +54,7 @@ const floorClampWrapper = deps.floorClampWrapper;
 const gachaMod = deps.gachaMod;   // 읽는 함수
 const getCommissionScene = deps.getCommissionScene;
 const groupOfCat = deps.groupOfCat;
+const hueShiftHex = deps.hueShiftHex;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수 — 라이선스(«도감» 말고 다른 탭은 라이선스가 있어야 쓴다)
 const twNav = deps.twNav;   // 🧭 창 열기 통로(nav.js) — 라이선스 안내의 [라이선스 등록하러 가기]
@@ -80,6 +81,7 @@ const savedParts = deps.savedParts;   // 읽는 함수
 const seats = deps.seats;
 const setPartEntryInstanceXf = deps.setPartEntryInstanceXf;
 const slots = deps.slots;   // 읽는 함수
+const tintPartMesh = deps.tintPartMesh;
 const toast = deps.toast;
 const unequipStackablePart = deps.unequipStackablePart;
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
@@ -1382,6 +1384,23 @@ function createWardrobeAdjPanel(cat, id) {
 //   syncFn은 색을 바꾼 뒤 호출할 콜백(위치조정 패널에서는 위치도 다시 반영하는 sync, 미리보기
 //   전용 섹션에서는 딱히 할 일이 없으면 빈 함수를 넘기면 됨).
 
+/* 색조 행 스와치에 보일 «이 파츠의 대표 색» — 텍스처를 1×1 로 줄여 평균을 읽는다. 텍스처 파츠의 재질 색은 대개 흰색이라
+   그 색을 돌리면 스와치가 늘 흰색으로 남는다. 못 읽으면(그림이 아직 없음 등) null — 부르는 쪽이 재질 색으로. */
+function _texAvgHex(meshes){
+  const m = meshes.find(x=>x.material && x.material.map && x.material.map.image);
+  if(!m) return null;
+  const img = m.material.map.image;
+  if(!(img.width > 0 && img.height > 0)) return null;
+  const cv = document.createElement('canvas'); cv.width = 1; cv.height = 1;
+  const cx = cv.getContext('2d');
+  if(!cx) return null;
+  try{
+    cx.drawImage(img, 0, 0, 1, 1);
+    const d = cx.getImageData(0, 0, 1, 1).data;   // 교차 출처 그림이면 던진다 — 스와치만 재질 색으로
+    return '#' + [d[0], d[1], d[2]].map(n=>n.toString(16).padStart(2, '0')).join('');
+  }catch(_){ return null; }
+}
+
 function buildColorRows(cat, xf, wrapper, syncFn){
   const rows=[];
   const colorGroups = wrapper && wrapper.userData && wrapper.userData.colorGroups;
@@ -1415,6 +1434,10 @@ function buildColorRows(cat, xf, wrapper, syncFn){
       let _h = _hsv0 ? (_hsv0.h||0) : 0;
       let _s = _hsv0 ? (_hsv0.s||0) : 0;
       let _v = _hsv0 ? (_hsv0.v==null?1:_hsv0.v) : 1;
+      /* 새로 고르는 값은 «돌리기»(0° = 원본 · 무늬의 여러 색이 같이 돈다). rot 없이 저장된 옛 값은 «덮기» 그대로 둔다 —
+         바꾸면 이미 꾸민 파츠 색이 달라진다. ↺ 로 되돌리면 그 뒤로는 돌리기. */
+      let _rot = _hsv0 ? !!_hsv0.rot : true;
+      const _avg = _texAvgHex(meshes) || ('#'+firstOrig);
       colorRow.style.flexDirection = 'column'; colorRow.style.alignItems = 'stretch'; colorRow.style.gap = '3px';
       const mk = (lab, min, max, val, unit)=>{
         const r = document.createElement('div'); r.className = 'wd-adj-row';
@@ -1426,7 +1449,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
       const head = document.createElement('div');
       head.className = 'wd-adj-row';
       head.innerHTML = `<span class="wd-adj-lab">${label}</span>`
-                     + `<span class="wd-adj-swatch" style="flex:1;background:${TwSafeHtml.cssColor(curColor)};"></span>`
+                     + `<span class="wd-adj-swatch" style="flex:1;background:${TwSafeHtml.cssColor(xf.color[key] || _avg)};"></span>`
                      + `<button class="wd-adj-reset" title="원본 색으로">↺</button>`;
       const rowH = mk('색조', 0, 359, Math.round(_h*360), '°');
       /* 🎚️ 채도만 양음(-100~100)이다. 가운데 0 이 '원본 그대로'이고, 왼쪽 끝이 회색이다.
@@ -1439,20 +1462,13 @@ function buildColorRows(cat, xf, wrapper, syncFn){
       let _hsvRAF = null;
       const applyHSV = ()=>{
         xf.colorHSV = xf.colorHSV || {};
-        xf.colorHSV[key] = { h:_h, s:_s, v:_v };
-        const hex = _hsvToHex(_h, _s, _v);
-        xf.color[key] = hex;                 // 표시용·플랫 메쉬용 사본
+        const hsv = _rot ? { h:_h, s:_s, v:_v, rot:1 } : { h:_h, s:_s, v:_v };
+        xf.colorHSV[key] = hsv;
+        // 표시용 사본 — 돌리기는 텍스처 평균색을 같은 규칙으로 돌린 색, 덮기는 예전처럼 고른 색조 그대로
+        const hex = _rot ? hueShiftHex(_avg, hsv) : _hsvToHex(_h, _s, _v);
+        xf.color[key] = hex;
         swatch.style.background = TwSafeHtml.cssColor(hex);
-        meshes.forEach(m=>{
-          if(!m.material) return;
-          if(isHueTintMesh(m)){ applyHueTint(m, hex, xf.colorHSV[key]); m.material.needsUpdate = true; return; }
-          if(m.material.color) m.material.color.set(hex);
-          if(m.material.emissive){
-            const baseFlat = baseFlatOf(m.material);
-            m.material.emissive.set(hex).multiplyScalar(baseFlat);
-          }
-          m.material.needsUpdate = true;
-        });
+        meshes.forEach(m=>tintPartMesh(m, hex, hsv));
         // 드래그 중 매 입력마다 저장하면 무거워진다 — 화면은 즉시, 저장은 프레임당 한 번.
         if(_hsvRAF) return;
         _hsvRAF = requestAnimationFrame(()=>{ _hsvRAF=null; syncFn(); });
@@ -1467,7 +1483,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
       head.querySelector('.wd-adj-reset').onclick = ()=>{
         delete xf.color[key];
         if(xf.colorHSV) delete xf.colorHSV[key];
-        _h = 0; _s = 0; _v = 1;
+        _h = 0; _s = 0; _v = 1; _rot = true;
         rowH.querySelector('input').value = 0;   rowH.querySelector('.wd-adj-num').textContent = '0°';
         rowS.querySelector('input').value = 0;   rowS.querySelector('.wd-adj-num').textContent = '0%';
         rowV.querySelector('input').value = 100; rowV.querySelector('.wd-adj-num').textContent = '100%';
@@ -1483,7 +1499,7 @@ function buildColorRows(cat, xf, wrapper, syncFn){
           }
           m.material.needsUpdate = true;
         });
-        swatch.style.background = '#'+firstOrig;
+        swatch.style.background = TwSafeHtml.cssColor(_avg);
         syncFn();
       };
       const box = document.createElement('div');
