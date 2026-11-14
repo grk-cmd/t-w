@@ -1,7 +1,7 @@
 /* mallang-store.js — 🧸 말랑이 칸 상태 주인 — 내 칸(받기 · 등록 · 켜고 끄기 · 지우기 · 저장) · 보고 있는 집 칸 (검사 sim-mallang-store.js)
    책임: 말랑이 칸의 «원본은 서버» — 앱은 받아서 보여 주고, 고치면 통째로 저장한다(PUT 판 version). 화면(mallang.js)은 값을 직접 고치지 않고
      add(그림) · toggle(i) · remove(i) 를 부른다. 칸 차례 = 화면 차례 — 저장할 때 provider 가 0부터 다시 매기고(지우면 뒤 칸이 당겨진다),
-     저장이 끝나면 서버가 돌려준 칸(slot 번호 포함)을 그대로 다시 받는다(앱이 칸 번호를 따로 기억해 어긋나지 않게).
+     저장이 끝나면 서버가 돌려준 칸을 그대로 다시 받는다. 보내기는 칸 번호가 아니라 그림 주소(imageUrl)로 하므로 번호가 낡아도 상관없다.
      보고 있는 집: 내 집이면 내 칸을 가리키고(사본 없음), 남의 집이면 그 집 칸을 받는다. 집을 옮길 때마다 gen 이 올라 늦게 온 앞 집 답은 버린다.
    저장 규칙: 한 번에 하나 — 저장 중에 또 고치면(again) 끝난 뒤 최신으로 한 번 더(같은 판으로 두 번 보내면 두 번째가 409 다).
      409 CONCURRENT_UPDATE 는 다른 기기가 먼저 고친 것 — 내 고침은 버리고, 고치기를 잠근 채 서버 것을 받아 그리고 알린다.
@@ -11,7 +11,7 @@
          giftLib — TwGiftApi(failOf · KIND · ERRORS · LIMITS) · errs — TwApiErrors(failOf 의 공통 code 표)
          apiErrors — TwApiErrors.store(공통 code 번호 알림 — notify(err, 표)) · notifyError — TwErrorCodes.notify · toast(msg)
    내보냄: createMallangStore(deps) → {
-     mine() → { load, slots:[{ slot?, imageUrl, enabled }], version, saving, uploading } (복사본) · view() → { owner, mine(내 집인가), load, slots }
+     mine() → { load, slots:[{ slot, imageUrl, enabled }], version, saving, uploading } (복사본) · view() → { owner, mine(내 집인가), load, slots }
      onChange(fn) → 해제 함수 · pullMine({ site }?) → Promise<boolean>(지금 내 칸이 ready 인가 — 실패 번호 자리 site: 'load'(E-GIFT-01 · 기본) | 'sendOpen'(E-GIFT-07))
      openView(code, isMine) → Promise<boolean>(답이 왔을 때 아직 그 집인가) · closeView()
      add(dataUrl) · toggle(i) · remove(i) → Promise<'ok'|'failed'|'conflict'|'stale'|'locked'|'busy'|'full'|'uploadFailed'>
@@ -132,8 +132,7 @@ function createMallangStore(deps){
   }
   function remove(i){
     if(!editable() || !mineSt.slots[i]) return Promise.resolve('locked');
-    /* 지우면 서버가 남은 칸을 0 부터 다시 매긴다 — 답이 오기 전(저장 실패 · 답 잃음 포함)에는 남은 칸의 서버 번호를 모른다. 옛 번호를 들고 있으면 보내기가 다른 그림을 보낸다 */
-    mineSt.slots = mineSt.slots.filter((_, k) => k !== i).map((s) => { const c = Object.assign({}, s); delete c.slot; return c; });
+    mineSt.slots = mineSt.slots.filter((_, k) => k !== i);
     emit();
     return commit();
   }
