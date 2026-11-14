@@ -101,7 +101,6 @@
     --z-gate-device: 110;    /* 캐릭터 연결 안내 · 다른 기기 접속 */
     --z-gate-invite: 111;    /* 초대장 게이트 */
     --z-mh-design: 111;      /* 👑 마이홈 디자인 스튜디오(초대 게이트와 같은 자리였다) */
-    --z-gate-signup: 112;    /* 이미 가입 · 로그인 필요 */
     --z-gate-done: 113;      /* 가입 완료 */
   }
   /* ══════════════════════════════════════════════════════════════════════════
@@ -6635,55 +6634,6 @@
   </div>
 </div>
 
-<!-- 🪪 I · 친구 코드 가입이 필요해요 — 로그인 안 하고 쓰던 기존 사용자(이 PC 에 uid 있음 · 그 uid 가 아무 계정에도 안 묶임)가 부팅 때 본다.
-     [회원가입 설계 §3 · §7-I · 시안 확정] **닫기 없음** — 가입하거나 구글을 연결해야 앱으로. 오프라인이면 이번엔 안 뜨고 다음 온라인 부팅에 다시.
-     지금 친구 코드가 곧 아이디(고정 표시) · 비밀번호만 정한다. uid 는 그대로라 캐릭터·레벨·친구·마이홈이 바뀌지 않는다.
-     배경은 반투명(뒤의 앱은 그대로 있다 · 시안 rgba(0,0,0,.45)). -->
-<div id="existingSignupOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;
-  background:rgba(0,0,0,.45);">
-  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">친구 코드 가입이 필요해요</div>
-    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
-      <div style="font-size:12px;line-height:1.55;color:var(--ink);">이제 투게더워킹은 계정으로 써요.<br>지금 쓰는 친구 코드가 그대로 <b>아이디</b>가 되고, 비밀번호만 정하면 끝이에요.</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-        <span id="exSignupCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
-        <span style="font-size:10.5px;color:var(--ink-soft);">내 아이디</span>
-      </div>
-      <label for="exSignupPw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
-      <input id="exSignupPw" type="password" placeholder="6자 이상" maxlength="40" autocomplete="off"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
-      <label for="exSignupPw2" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호 확인</label>
-      <input id="exSignupPw2" type="password" placeholder="한 번 더" maxlength="40" autocomplete="off"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
-      <div id="exSignupMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
-      <button id="exSignupOk" class="lc-btn" style="margin-top:0;">가입하기</button>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-        <span style="font-size:10.5px;color:var(--ink-soft);">또는</span>
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-      </div>
-      <button id="exSignupGoogleBtn" class="lc-btn" style="margin-top:0;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;">
-          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg>
-          <span>구글 계정으로 연결하기</span>
-        </span>
-      </button>
-      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-        캐릭터 · 레벨 · 친구 · 마이홈은 <b>하나도 바뀌지 않아요.</b> 가입하면 다른 컴퓨터에서도 같은 계정으로 쓸 수 있어요.
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- 🎉 J · J2 · 가입 완료 — A(새 사람) · I(기존 사용자)의 가입이 끝나면. [회원가입 설계 §7-J · §4 (가) · 시안 확정 개정 13]
      J(비밀번호 가입): 아이디 · «로그인돼 있는 PC 에서 바꾸기» 안내 · 경고 · [시작하기] · [구글도 연결하기](보조).
      J2(구글 가입): 아이디 · «비밀번호는 아직 없어요» · [시작하기]. 되찾기 코드는 없다((가) — 로그인된 PC 에서 바꾼다).
@@ -6710,44 +6660,6 @@
       <button id="sdGoogle" class="lc-btn ghost" style="margin-top:0;">
         <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg><span>구글도 연결하기</span></span>
       </button>
-    </div>
-  </div>
-</div>
-
-<!-- 🔐 K · 이 PC는 로그인이 필요해요 — 이 PC 의 uid 가 **이미 계정에 묶였는데** 여기선 그 계정으로 로그인돼 있지 않을 때(부팅 · 게이트 뒤).
-     같은 uid 를 두 PC 에서 쓰던 기존 사용자의 두 번째 PC · 다른 PC 에서 비밀번호를 바꿔 이 PC 로그인이 끊긴 판. [설계 §9-11 · §7-K · 시안 확정 개정 13]
-     **닫기 없음**(로그인 필수) · 오프라인이면 안 뜬다. 아이디는 고정(계정의 친구 코드) → 비밀번호만. -->
-<div id="needLoginOverlay" style="position:fixed;inset:0;z-index:var(--z-gate-signup);display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);">
-  <div style="background:var(--win-face); border:2px solid; border-color:var(--win-hi) var(--win-lo-2) var(--win-lo-2) var(--win-hi);
-    box-shadow: inset -1px -1px 0 var(--win-lo), inset 1px 1px 0 var(--win-face-2), 3px 3px 0 rgba(0,0,0,.35);
-    width:340px;max-width:92vw;font-family:var(--tw-font-legacy);">
-    <div style="font-weight:bold;font-size:12px;color:#fff;padding:5px 8px;
-      background:linear-gradient(90deg, var(--win-title-a), var(--win-title-b));">이 PC는 로그인이 필요해요</div>
-    <div style="padding:14px;display:flex;flex-direction:column;gap:9px;">
-      <div style="font-size:12px;line-height:1.55;color:var(--ink);">이 친구 코드는 이미 계정에 연결돼 있어요. 이 PC에서도 로그인하면 캐릭터와 기록이 그대로 이어져요.</div>
-      <div style="font-size:10.5px;color:var(--ink-soft);line-height:1.55;">다른 PC에서 비밀번호를 바꿨다면 새 비밀번호로 로그인해 주세요.</div>
-      <div style="display:flex;align-items:center;justify-content:space-between;background:#fff;padding:8px 9px;
-        border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);">
-        <span id="nlCode" style="font-family:'Courier New',monospace;font-weight:bold;font-size:15px;color:#000;">MATE-····</span>
-        <span style="font-size:10.5px;color:var(--ink-soft);">내 아이디</span>
-      </div>
-      <button id="nlGoogleBtn" class="lc-btn" style="margin-top:0;">
-        <span style="display:inline-flex;align-items:center;justify-content:center;gap:8px;"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M12 12h8M12 8v8"></path></svg><span>구글로 로그인</span></span>
-      </button>
-      <div style="display:flex;align-items:center;gap:6px;">
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-        <span style="font-size:10.5px;color:var(--ink-soft);">또는 비밀번호로</span>
-        <div style="flex:1;height:1px;background:var(--win-lo);"></div>
-      </div>
-      <label for="nlPw" style="font-size:11px;font-weight:bold;color:var(--ink);">비밀번호</label>
-      <input id="nlPw" type="password" placeholder="비밀번호" maxlength="40" autocomplete="off"
-        style="width:100%;padding:7px 8px;box-sizing:border-box;
-        background:#fff; border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);
-        box-shadow: inset 1px 1px 0 var(--win-lo-2); font-size:12px;">
-      <div id="nlMsg" style="display:none;font-size:10.5px;line-height:1.5;"></div>
-      <button id="nlFcBtn" class="lc-btn" style="margin-top:0;">친구 코드로 로그인</button>
-      <div style="font-size:10.5px;text-align:right;"><a id="nlForgot" href="#" style="color:var(--win-title-a);">비밀번호를 잊었어요</a></div>
-      <div id="nlForgotBox" style="display:none;font-size:10.5px;color:var(--ink-soft);line-height:1.5;background:#DFE8F6;padding:8px 9px;border:2px solid; border-color:var(--win-lo) var(--win-hi) var(--win-hi) var(--win-lo);"><b style="color:#000;">비밀번호를 잊었다면</b> — 로그인돼 있는 다른 PC의 [내 정보 › 계정]에서 새 비밀번호로 바꾼 뒤, 여기서 그 비밀번호로 로그인하세요. 구글이 연결돼 있으면 [구글로 로그인]으로 바로 들어올 수 있어요.</div>
     </div>
   </div>
 </div>

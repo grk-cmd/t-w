@@ -222,7 +222,7 @@
 | sim-town-32.js | 87 | ff7b7c796278 |
 | **sim-ui-zoom.js** | 130 | **4ddd42809f74** |
 | **sim-zoom-window.js** | 68 | **c130cf5b9af3** |
-| **sim-z-layers.js** | 168 | **4535526f3362** |
+| **sim-z-layers.js** | 168 | **b7c10e86e756** |
 | **sim-no-default-menu.js** | 95 | **75dc9981d8fb** |
 | **sim-winlist.js** | 117 | **264e376e72aa** |
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
