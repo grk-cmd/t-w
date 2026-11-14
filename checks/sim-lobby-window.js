@@ -69,8 +69,9 @@ function mkEnv(on){
 const PAD = { l: 30, r: 0, t: 0, b: 0 };
 function run(body, st){
   const env = mkEnv(new Set(st.on));
-  const fn = new Function('document', 'window', 'companion', 'desktopMode', 'creatorOpen', 'myHomeOpen', 'appMode', 'mhStLayoutMod', body);
-  fn(env.document, { companion: env.companion }, env.companion, true, !!st.creator, false, 'run', { _mhStickerOverhang: () => PAD });
+  const fn = new Function('document', 'window', 'companion', 'desktopMode', 'creatorOpen', 'myHomeOpen', 'appMode', 'mhStLayoutMod', 'key', 'FrameBudget', body);
+  fn(env.document, { companion: env.companion }, env.companion, true, !!st.creator, false, 'run', { _mhStickerOverhang: () => PAD },
+    {}, { castShadowFor: () => false });   // 실행 화면 그림자 끄기(#810)는 이 검사 몫이 아니다 — sim-frame-budget
   return env.sent[env.sent.length - 1];
 }
 const CASES = [

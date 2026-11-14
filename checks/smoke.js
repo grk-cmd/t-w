@@ -337,6 +337,10 @@ PRELOAD.push('safe-html.js');
 PRELOAD.push('account-store.js');
 /* session.js — 🔐 로그인 세션 하나(window.TwSession). app.js 가 app-boot 에 넘기는 newSession 이 부를 때 읽는다 — app-boot.js 보다 먼저. */
 PRELOAD.push('session.js');
+/* idle-gate.js — 😴 닫힌 창의 반복 재우기(window.TwIdleGate). playlist · wardrobe · launcher-preview 가 만들 때 부른다. */
+PRELOAD.push('idle-gate.js');
+/* skeleton-share.js — 🦴 같은 뼈대는 Skeleton 하나(window.TwSkeletonShare). app.js 가 최상위에서 받는다. */
+PRELOAD.push('skeleton-share.js');
 /* img-retry.js — 🖼 남의 그림 한 번 더 받을 주소(window.TwImgRetry). room-sync.js · animal.js · myhome-inbox.js · mallang.js 가 부를 때 읽는다. */
 PRELOAD.push('img-retry.js');
 /* scheduler.js — 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). app.js 는 없어도 빈 껍데기로 돌지만, 그러면 모듈이 만들 때 하는 일
@@ -392,6 +396,10 @@ PRELOAD.push('chat-window.js');
 PRELOAD.push('drag-scroll.js');
 /* input-diag.js — 🩺 한글 조합 끊김 진단. app.js 맨 앞에서 만들어 document 에 건다. */
 PRELOAD.push('input-diag.js');
+/* gpu-timer.js — 🩺 한 장에 그래픽 칩 · JS 시간. app.js 가 프레임 예산 옆에서 만든다. */
+PRELOAD.push('gpu-timer.js');
+/* run-cost-diag.js — 🩺 그리기 밖 시간(1분 [비용] 줄). app.js 가 하트비트 줄에서 page 를 받는다. */
+PRELOAD.push('run-cost-diag.js');
 /* myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). 같은 까닭 — 만들 때 하는 일(상태 초기값)과 app.js 가 원래 자리에서 부르는 createMyHomeInbox 를 같이 굴린다. */
 /* inbox-sections.js — 📩 우편함 칸 나누기 규칙(순수 함수). 수령함 모듈이 만들 때 TwInboxSections 를 받으므로 진짜가 먼저 있게. */
 PRELOAD.push('inbox-sections.js');
@@ -484,6 +492,15 @@ PRELOAD.push('rt-status-ui.js');
 /* desktop-run.js — 🖥️ 데스크탑 실행 화면(앱 FSD 32번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createDesktopRun 를 같이 굴린다. */
 /* click-through-policy.js — 클릭 통과 판단 규칙(순수 함수). desktop-run.js 가 deps.clickPolicy 로 받으므로 먼저 싣는다. */
 PRELOAD.push('click-through-policy.js');
+/* heartbeat-policy.js — 하트비트에 무거운 칸을 실을지(순수 함수). app.js 하트비트가 TwHeartbeatPolicy 로 부른다. */
+PRELOAD.push('heartbeat-policy.js');
+/* heartbeat.js · run-diag-minute.js — 🩺 0.1초 하트비트 · 1분 진단 줄. 같은 까닭 — 만들 때 하는 일(타이머 걸기)과 app.js 가 원래 자리에서 부르는 create 를 같이 굴린다. */
+/* hit-map.js · hit-shadow.js · seat-hit-targets.js — 🗺️ 클릭 통과 히트 맵 그림자 운행. app.js 가 만드는 줄에서 부르고 run-diag-minute.js 가 TwHitShadow 를 읽는다. */
+PRELOAD.push('hit-map.js');
+PRELOAD.push('hit-shadow.js');
+PRELOAD.push('seat-hit-targets.js');
+PRELOAD.push('heartbeat.js');
+PRELOAD.push('run-diag-minute.js');
 PRELOAD.push('desktop-run.js');
 /* room-entry.js — 🛰 방 서버 · 입장 · 방 개수(앱 FSD 33번). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createRoomEntry 를 같이 굴린다. */
 PRELOAD.push('banned-words.js');   // 🏷️ 방 제목 금칙어 판정(TwBannedWords)
@@ -498,6 +515,8 @@ PRELOAD.push('room-lobby-provider.js');   // 🗂️ 로비가 읽는 것(TwRoom
 PRELOAD.push('room-lobby-ui.js');   // 🗂️ 방 목록 로비 화면(TwRoomLobbyUi)
 PRELOAD.push('recent-rooms.js');      // 🕘 최근 방 규칙 · 저장(TwRecentRooms) — app.js 가 만든다
 PRELOAD.push('recent-rooms-ui.js');   // 🕘 로비 코드 칸 최근 방 목록(TwRecentRoomsUi)
+/* seat-sync-diff.js — 🪑 줄 배치를 다시 할지 규칙(순수). room-entry.js 가 만들 때 TwSeatSyncDiff 를 받으므로 그보다 먼저. */
+PRELOAD.push('seat-sync-diff.js');
 PRELOAD.push('room-entry.js');
 /* label-measure.js — 📐 라벨 잰 값 기억. overhead.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('label-measure.js');
@@ -721,6 +740,18 @@ PRELOAD.push('seat-eq-clamp.js');
 PRELOAD.push('desk-place.js');
 /* body-measure.js — 캐릭터 몸 박스 재기 한 규칙. app.js 가 맨 앞(SETUP)에서 createBodyMeasure 로 만든다. */
 PRELOAD.push('body-measure.js');
+/* stage.js — 🎬 3D 무대 한 벌(렌더러 · 씬 · 카메라 · 바닥 · GLTF 로더). app.js 가 맨 앞(SETUP)에서 createStage 로 만든다 — 가짜 THREE 로 같이 굴린다. */
+PRELOAD.push('stage.js');
+/* glow.js — ✨ 빛나는 스프라이트 · 재질 발광. app.js 가 SETUP 에서 createGlow 로 만든다. */
+PRELOAD.push('glow.js');
+/* human-ear-attach.js — 🐾 사람 귀 붙이기. app.js 가 원래 자리에서 createHumanEarAttach 로 만든다. */
+PRELOAD.push('human-ear-attach.js');
+/* desk-build.js — 🪑 기본 책상 · 소품 · 대신 몸 만들기와 재질. app.js 가 SETUP 에서 createDeskBuild 로 만든다. */
+PRELOAD.push('desk-build.js');
+/* part-anim.js — ▶ 파츠 · 아이템 애니메이션 재생. app.js 가 원래 자리에서 createPartAnim 으로 만든다. */
+PRELOAD.push('part-anim.js');
+/* desk-item-equip.js — 🪑 책상 아이템 장착. app.js 가 원래 자리에서 createDeskItemEquip 로 만든다. */
+PRELOAD.push('desk-item-equip.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

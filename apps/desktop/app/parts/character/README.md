@@ -421,3 +421,46 @@
   - 새로 받지 않는다 — 이미 받은 주소 · 원본만(캐시). 원본이 없거나 받기 실패면 처음 바탕색만 칠해 둔다(다시 투명이 아니라 헛돌지 않는다).
   - 피부 캔버스가 비었으면 남의 좌석은 그 차례를 건너뛴다(피부 없는 얼굴이 굳는다) — 피부는 `repairBlankFaces` 가 먼저 메운다.
   - 검사: `checks/sim-face-heal.js` 4절(가짜 캔버스에서 실제로 돌림 · 깨 보기) · `checks/sim-gl-recover.js`.
+
+## glow.js — ✨ 빛나는 스프라이트 · 재질 발광
+
+- **책임**: 오브젝트 옆에 반투명 원형 스프라이트를 깔고(`addGlowSprite`), 재질 emissive 를 밝히는(`applyGlowToMesh`) 규칙. 화면 전체 후처리(Bloom)는 이 앱(투명 배경 오버레이)과 안 맞아 쓰지 않는다. 앱 FSD 분리 M1 — app.js SETUP 에서 글 그대로 옮겼다.
+- **만드는 법**: `const glowMod = TwGlow.createGlow({});` — 받는 deps 없음(THREE 는 전역).
+- **내보내는 것**: `getGlowSpriteTexture()` · `addGlowSprite(obj)` · `applyGlowToMesh(mesh)` · `applyGlowEffect(obj)` · `GLOW_SIZE_MUL` · `GLOW_COLOR` · `GLOW_EMISSIVE_BOOST`
+- **함정**
+  - 지금 **부르는 곳이 없다** — 아이템 발광(`equipDeskItem` 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄을 `glowMod.applyGlowEffect(obj)` 로 바꿔 부른다(app.js 에 옛 이름이 없다).
+  - 스프라이트 텍스처는 첫 부름에 한 번만 만든다(캔버스 128×128 방사형 그라디언트).
+  - 검사: `checks/sim-glow.js`(진짜 three 오브젝트로 크기 · 자리 · 재질 · 실패 길 · 깨 보기).
+
+## human-ear-attach.js — 🐾 사람 귀 붙이기
+
+- **책임**: `human-ear.js`(귀 규칙)를 만들고, 사람 귀를 뼈대에 붙이는 배선 — 귀 재질(흰색 · 양면 · 플랫 조명) · 귀 그림(`def.earPicL · R`) 입히기 · 붙은 귀를 좌석 귀 목록(`seat.bones.ear`)에 올려 까닥이게 하기 · 떨어진 옛 귀 걷기 · def 에 맞게 붙이기. 앱 FSD 분리 M2 — app.js «사람 귀» 구역을 글 그대로 옮겼다.
+- **만드는 법**: `const humanEarAttachMod = TwHumanEarAttach.createHumanEarAttach({ _registerAnimalEarOn, lightToneMod, seats, partPaintMod, wardrobeMod, rideBenchMod })` — 뒤의 넷은 app.js 에서 더 아래에 만들어지므로 읽는 함수(`()=>seats` …)로 넘긴다.
+- **내보내는 것**: `humanEar`(모듈이 없으면 `null`) · `_humanEarMat()` · `_humanEarPic(wrap, def)` · `_syncHumanEarRig(seat)` · `_attachHumanEars(root, def)` — app.js 는 같은 이름 const 로 받는다(꾸미기 · 파츠 그림 모듈이 deps 로 받는 옛 이름).
+- **함정**
+  - 바인드 자세(조립 직후 · 애니메이션 전)에 불러야 한다 — holder 와 옮길 양을 이때 잰다. 귀가 없어도 holder 는 만든다.
+  - 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 «머리 꼭대기» 는 귀 없던 값이라 `onAttach` 가 다시 잰다.
+  - 사람 기본 모델의 ear 본은 웨이트가 없어 본만 돌리면 안 움직인다 — 부착물 자체를 돌려야 해서 동물 귀 등록을 같이 쓴다.
+  - 검사: `checks/sim-human-ear-attach.js`(가짜 귀 모듈 · 진짜 three 로 재질 · 등록 · 붙이기 · 실패 길 · 깨 보기).
+
+## part-anim.js — ▶ 파츠 · 책상 아이템 애니메이션 재생
+
+- **책임**: 파츠 클립 고르기(`_pickPartClip` — **실제로 움직이는** 클립이 이름보다 먼저, `idle` 정확 일치가 포함보다 먼저) · 귀 파츠 클립에서 까닥임이 맡은 본 트랙 걷기(`_stripPartClipOwnedTracks`) · 파츠 믹서 세우기 / 걷기(`_setupPartIdleAnim` · `_teardownPartIdleAnim`) · «활동 중에만 재생» 파츠(`updateActivePartPlayback`) · 아이템 idle 재생(`updateIdleItemPlayback`) · 손 본 따라가기(`updateItemHandTrackers`) · 아이템 눌러 재생(`playItemIdle`). 앱 FSD 분리 M4 — app.js BUILDERS 에서 글 그대로 옮겼다.
+- **만드는 법**: `const partAnimMod = TwPartAnim.createPartAnim({ isAdmin, seatState, seats, toast, userStatus })` — `isAdmin` · `userStatus` 는 다시 대입되는 let 이고 `seats` 는 더 아래에서 선언돼 읽는 함수(`()=>isAdmin` …)로 넘긴다. app.js 는 열두 이름을 옛 이름 const 로 받는다.
+- **내보내는 것**: `activeItemMixers`(매 프레임 돌릴 믹서 Set — `frame()` 이 돌린다) · `_idleItemPivots` · `_clipHasMotion` · `_pickPartClip` · `_partAnimNotice` · `_stripPartClipOwnedTracks` · `_setupPartIdleAnim` · `_teardownPartIdleAnim` · `updateActivePartPlayback` · `updateIdleItemPlayback` · `updateItemHandTrackers` · `playItemIdle`
+- **함정**
+  - 멈출 때 `stop()` 이 아니라 `paused = true` — stop 은 0프레임으로 되감아 파츠가 툭 튄다. 재생 판정은 `seatState(holder) === 'focus'` 일 때만(꾸미기 미리보기는 좌석이 아니라 늘 재생).
+  - 옛 글의 `typeof isAdmin` · `typeof seats` 는 읽는 함수로 바뀌며 걷었다(앱이 돌기 시작한 뒤에만 불리므로 같은 뜻).
+  - `_partAnimNotice` 는 첫 줄 `return` 으로 꺼져 있다(장착할 때마다 뜨던 토스트 잡음). 진단은 `console.log` 의 `[파츠 애니]` 로 본다.
+  - 검사: `checks/sim-part-anim.js`(진짜 three AnimationMixer · 클립 · 상태 표로 재생 판정 · 깨 보기).
+
+## desk-item-equip.js — 🪑 책상 위 아이템 장착
+
+- **책임**: 아이템 하나를 좌석 · 생성기 미리보기(`holder`)에 올리고 내리기(`equipDeskItem` — 라이선스 전용 막기 · 손 본 부착 · `_col` 색 그룹 · `hand_L/R` 손 따라가는 지점 · 재생 방식 등록 · 커스텀 GLB 크기 맞춤 · 해제 전 위치 · 색 기억) · 저장된 아이템 한 벌 입히기(`applyDeskItemsTo` — 저장 당시 «자동 크기 대비 비율» 환산) · 모으기(`collectDeskItems`) · 켜고 끌 때 바로 저장(`autoSaveDeskItemsNow`) · 색 반영(`_applyItemColor`) · 생성기 «처음 나타난 자리» 기억(`deskItemOrigin`). 앱 FSD 분리 M5 — app.js 에서 글 그대로 옮겼다.
+- **만드는 법**: `TwDeskItemEquip.createDeskItemEquip({ activeItemMixers, _idleItemPivots, lightToneMod, toast, commissionMod, crState, crXformMod, customItems, deskItemsMod, deskSetupMod, launcherPrevMod, licenseAssetBlocked, slotSaveMod })` — 앞 넷은 값(part-anim.js 가 먼저 만든 재생 목록 · 이미 있는 것), `licenseAssetBlocked` 는 함수(account-state.js — 전용 자산을 막아야 하나), 나머지 아홉은 읽는 함수(`()=>crState` …)다. 더 아래에서 만들어지거나 다시 대입되는 let 이어서다.
+- **내보내는 것**: `applyDeskAdj` · `deskItemOrigin`(처음 자리 모듈이 없으면 `null`) · `equipDeskItem` · `collectDeskItems` · `autoSaveDeskItemsNow` · `applyDeskItemsTo` · `_applyItemColor` — app.js 는 같은 이름 const 로 받는다.
+- **함정**
+  - 라이선스 전용 막기는 **친구 좌석(`holder.remote`)에는 걸지 않는다** — 보는 사람의 라이선스로 친구가 올린 아이템이 내 화면에서만 사라진다. `def.licenseOnly` 만 보면 새므로 카탈로그 기록(`savedItems`)도 같이 본다.
+  - 생성기(`crState.cBase`)일 때만 선택 표시 · 처음 자리 기억 · 기즈모 해제를 한다.
+  - 색 그룹이 있으면 비어 있어도 `colors` 를 항상 저장한다 — «초기화한 상태» 를 기록해야 옛 색이 안 남는다.
+  - 검사: `checks/sim-desk-item-equip.js`(진짜 three 로 장착 · 해제 · 복원 · 재생 방식 · 색 · 저장 · 환산 · 깨 보기).

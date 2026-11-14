@@ -23,6 +23,8 @@ function findUp(name){
 }
 const read = (n) => { const f = findUp(n); return f ? fs.readFileSync(f, 'utf8') : ''; };
 const MOD = read('status-chip.js'), APP = read('app.js'), MAIN = read('main.js'), DR = read('desktop-run.js');
+const HB = read('heartbeat.js'), HBP = read('heartbeat-policy.js');
+if(!MOD || !APP || !MAIN || !DR || !HB || !HBP){ console.log('  ? 원본 못 찾음 — status-chip.js · app.js · main.js · desktop-run.js · heartbeat.js · heartbeat-policy.js'); process.exit(2); }
 
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
@@ -117,14 +119,12 @@ function sendPaths(dr, app){
   const out = {};
   (L.pointerdown || []).forEach(fn => fn({}));            // 클릭받기로 전환 → _pushIgnoreWhy 가 보낸다
   out.why = sent.find(b => b.ignoreWhy) || null;
-  /* 하트비트 — app.js 의 setInterval 덩이를 떼어 실제로 한 번 돌린다 */
-  const i = app.indexOf('let _twMoveSeenAt = 0;\ntry{\n  setInterval(');
-  const END = '  }, 100);\n}catch(_){}';
-  const j = app.indexOf(END, i);
-  if(i < 0 || j < 0) throw new Error('app.js 에서 하트비트 덩이를 못 찾음');
+  /* 하트비트 — launcher/heartbeat.js 를 실제로 만들어 한 번 돌린다(창 보임 «모름» = 보임 → 무거운 칸도 싣는다 · heartbeat-policy.js) */
   let tick = null;
-  /* statusChipMod — 하트비트가 펜 근처 판단용 남의 좌석 원(otherSeatCircles)도 싣는다 */
-  new Function('window', 'companion', 'setInterval', '_charBoundsLatest', '_charBadWhy', 'statusChipMod', app.slice(i, j + END.length))(win, companion, (fn) => { tick = fn; }, { x: 10, y: 10, r: 50 }, null, { otherSeatCircles: () => [] });
+  const pw = {}; new Function('window', 'module', HBP)(pw, undefined);
+  new Function('window', 'companion', 'setInterval', 'TwHeartbeatPolicy', HB + '\nreturn window.TwHeartbeat;')(win, companion, (fn) => { tick = fn; }, pw.TwHeartbeatPolicy)
+    .createHeartbeat({ _charBadWhy: () => null, _charBoundsLatest: () => ({ x: 10, y: 10, r: 50 }), _twMoveSeenAt: () => 0,
+      otherSeatCircles: () => [], runCost: { timed: (k, fn) => fn } });   // 남의 좌석 원(펜 근처 판단)은 이 검사 몫이 아니다
   const n0 = sent.length; if(tick) tick();
   out.beat = sent.length > n0 ? sent[sent.length - 1] : null;
   return out;
@@ -136,7 +136,7 @@ function judgePaths(dr, app){
   try{
     const o = sendPaths(dr, app);
     t(has(o.why) && o.why.ignoreWhy === 'pointerdown', '★ 클릭받기 전환 이유(_pushIgnoreWhy)가 보낸 regions 에도 좌석 사각형 — 그 순간 좌석이 빠지면 ⓖ 가 회수한다');
-    t(has(o.beat), '★ 하트비트(app.js)가 보낸 regions 에도 좌석 사각형');
+    t(has(o.beat), '★ 하트비트(launcher/heartbeat.js)가 보낸 regions 에도 좌석 사각형');
     t(o.beat && mainPtOnUI(o.beat.regions, 600, 420) === true, '  main _ptOnOurUI — 보낸 regions 로 남의 캐릭터 위 점은 «UI 위»');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }
   return r;

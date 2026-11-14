@@ -105,6 +105,7 @@ const _runBand = RunRect.parseBand(process.argv);
 function _runRectOf(d){ return RunRect.runRect(d.workArea, overlay.runOverlayHeight(d.workArea.height, d), _runBand); }
 const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
 const FrontDiag = require('./app/parts/shared/front-diag');   // 🩺 1분 [프레임] 줄 끝에 앞 창 · 전체화면 비율(게임 · 영상 버벅임 제보)
+const EnvDiag = require('./app/parts/shared/env-diag');   // 🩺 켤 때 [환경] · [GPU 상세] · 1분 [자원](CPU · 메모리를 어느 프로세스가 쓰나)
 const { isSystemPrompt } = require('./app/parts/shared/system-prompt');   // 🔐 앱스토어 · 암호 확인 창이 맨 앞이면 실행 화면을 내린다
 const HelpSite = require('./app/parts/shared/help-site');   // 📘 도움말 탭 틀이 옮겨 갈 수 있는 주소(렌더러와 같은 규칙)
 /* 🎮 패드 «바뀌었나» 판정 — 렌더러와 같은 파일. 읽기는 플랫폼 모듈(sysinput.readPads). */
@@ -665,6 +666,7 @@ function _exitNow(){
   try{ if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } }catch(_){}
   try{ if(_pollTimer){ clearInterval(_pollTimer); _pollTimer = null; } }catch(_){}
   try{ if(_lagTimer){ clearInterval(_lagTimer); _lagTimer = null; } }catch(_){}
+  try{ if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } }catch(_){}
   try{ _flushLauncherPos(); }catch(_){}   // app.exit 는 before-quit 를 안 거친다 — 남은 런처 자리만
   try{ BrowserWindow.getAllWindows().forEach(w=>{ try{ if(!w.isDestroyed()) w.destroy(); }catch(_){} }); }catch(_){}
   try{ app.exit(0); }catch(_){}
@@ -1012,7 +1014,7 @@ let _lastActiveKeyLogged = null; // 🩺 [E] 마지막으로 진단 로그에 �
      tasklist 보조 통로로 대응)과 별개로, 관리자 권한 창이 앞에 있으면 **일반 권한 프로세스의 저수준 훅(uIOhook)은
      UIPI 에 막혀 클릭·키를 못 본다.** 그때 남는 활동 신호는 커서 이동(_reportCursorActivity)뿐이라 키보드만 쓰는
      게임은 누적이 서고 캐릭터도 idle 로 간다. 로그에 «등록=예 인데 클릭=0 키=0 커서이동>0» 이 찍히면 그 갈래다.
-   ⚠️ 등록 앱이 앞에 있을 때만 적는다 — 그 밖의 시간은 진단 가치가 없고 회전(256KB)만 당긴다.
+   ⚠️ 등록 앱이 앞에 있을 때만 적는다 — 그 밖의 시간은 진단 가치가 없고 회전만 당긴다.
    ⚠️ 새 타이머를 만들지 않는다 — 500ms 활성 창 폴링의 finally 에 얹는다(커서 이동 보고와 같은 자리). */
 const INPUT_DIAG_MS = 60 * 1000;
 /* ═══ ⌨️ [2026-10-02 제보] «업데이트 재설치 뒤로 키보드가 전혀 안 잡힌다 — 마우스만 잡혀서 타이핑하면 졸다가 자리비움» ═══
@@ -1476,9 +1478,14 @@ let _hoverTimer = null;
 const _hoverPoke = HoverPoke.createHoverPoke();
 let _hoverPokedAt = 0, _hoverLogAt = 0;
 const HOVER_LOG_GAP_MS = 30000;   // «호버 감시로 클릭받기» 진단 줄은 30초에 한 줄까지(_diagLog 회전 주석)
+/* 메인 창이 지금 화면에 보이는가 — 창 없음 · 파괴됨 · 읽다 실패면 false.
+   ⚠️ Windows 는 최소화한 창도 isVisible() 이 참이다 — isMinimized() 를 같이 본다. */
+function _mainWinShown(){
+  if(!mainWindow || mainWindow.isDestroyed()) return false;
+  try{ return mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){ return false; }
+}
 function _hoverState(pt){
-  let visible = false;
-  try{ visible = mainWindow.isVisible() && !mainWindow.isMinimized(); }catch(_){}
+  const visible = _mainWinShown();
   return {
     win32: process.platform === 'win32',
     run: !_isConfigMode,
@@ -1675,7 +1682,7 @@ function _guardStuckClickCapture(){
   /* 🩺 임계값 아래의 '딸꾹질'도 남긴다 — 이게 이 로그의 진짜 쓸모다.
      제보 로그에서 4239ms 가 나왔는데, 그게 예외적인 한 번인지 평소에도 3~4초씩 멈추는지에 따라
      RENDERER_STALL_MS 를 다시 잡을지 렌더러 쪽 무거운 작업을 쪼갤지가 갈린다.
-     ⚠️ 1분에 한 줄로 묶는다. 매번 남기면 파일 상한(256KB)을 금방 채워 정작 필요한 발동 기록이
+     ⚠️ 1분에 한 줄로 묶는다. 매번 남기면 파일 상한을 금방 채워 정작 필요한 발동 기록이
        안 남는다 — 진단이 진단을 덮는 상황을 만들면 안 된다. */
   if(!_forcedPassthrough && !_isConfigMode && quietFor > HICCUP_LOG_MIN_MS){
     const now = Date.now();
@@ -1795,24 +1802,27 @@ function _guardGhostPassthrough(quietFor){
    [왜 그렇게 찼나] 1,501줄이 **전부 한 종류**였다 — `유령 의심`. 한 번의 고착이 83회까지
      같은 줄을 찍었다(최장 253초). 진단 하나가 256KB 를 통째로 먹고 나머지를 다 덮었다.
    ⇒ 상한은 그대로 두되, 닿으면 **직전 분량을 .1 로 밀어내고 새로 시작**한다.
-     최근 기록은 항상 살아 있고, 디스크는 최대 2배(512KB)로 묶인다.
+     최근 기록은 항상 살아 있고, 디스크는 최대 2배로 묶인다.
    ⚠️ 세 줄짜리 변경이지만 이게 없으면 다음 조사도 같은 자리에서 막힌다. 지우지 말 것.
    ⚠️ 이건 로그가 넘치는 것에 대한 **대비**이지 해결이 아니다. 같은 줄이 83번 찍히는 것 자체는
      GHOST_MAX_POKES(위 유령 감시)가 막는다. 여기가 조용해졌다고 그쪽을 되돌리면 안 된다. */
-const DIAG_MAX_BYTES = 256 * 1024;
+/* 상한 2MB — 1분 [자원] · [프레임] 줄로 PC 끼리 · 하루 흐름을 견주려면 하루치가 남아야 한다(보통 하루 2~3MB · .1 까지 합쳐 하루 넘게).
+   256KB 일 땐 2~4시간만 남아 비교가 안 됐다. 줄마다 붙여 쓰기만 하므로 파일이 커도 쓰는 비용은 같다. */
+const DIAG_MAX_BYTES = 2 * 1024 * 1024;
+const _diagHeader = EnvDiag.createHeaderKeep();   // [환경] · [GPU] · [GPU 상세] — 돌려 쓴 새 파일 첫머리에 다시 적는다
+const _diagIo = {
+  exists: (p) => fs.existsSync(p), size: (p) => fs.statSync(p).size, unlink: (p) => fs.unlinkSync(p),
+  rename: (a, b) => fs.renameSync(a, b), append: (p, t) => fs.appendFileSync(p, t, 'utf8'),
+};
 function _diagLog(msg){
   try{
     if(!app.isReady()) return;
     const f = path.join(app.getPath('userData'), 'tw-mouse-diag.log');
+    const stamp = new Date().toISOString();
+    _diagHeader.note(msg);
     /* 상한을 넘겼으면 .1 로 밀고 새 파일로 시작한다(실패해도 기록은 계속 — 회전은 편의지 필수가 아니다). */
-    try{
-      if(fs.existsSync(f) && fs.statSync(f).size > DIAG_MAX_BYTES){
-        const old = f + '.1';
-        try{ if(fs.existsSync(old)) fs.unlinkSync(old); }catch(_){}
-        fs.renameSync(f, old);
-      }
-    }catch(_){}
-    const line = '[' + new Date().toISOString() + '] ' + msg
+    try{ EnvDiag.rotateKeep(_diagIo, f, DIAG_MAX_BYTES, _diagHeader.lines(), stamp); }catch(_){}
+    const line = '[' + stamp + '] ' + msg
       + ' | config=' + _isConfigMode + ' ignore=' + _lastIgnoreRequested
       + ' pen=' + _penAppActive + ' fwd=' + _fwdApplied + '\n';   // fwd — 펜 앱에서 forward 를 껐는지(펜 씹힘 제보 확인용)
     fs.appendFileSync(f, line, 'utf8');
@@ -2194,9 +2204,57 @@ function _logGpuOnce(win){
     app.getGPUInfo('basic')
       .then(info => _diagLog(_gpuSummary(info, feat, sw)))
       .catch(err => _diagLog(_gpuSummary(null, feat, sw) + ' | getGPUInfo 실패 ' + (err && err.message)));
+    _logEnvOnce();
+    setTimeout(_logGpuDetail, GPU_DETAIL_DELAY_MS);
   };
   app.once('gpu-info-update', go);
   if(win && !win.isDestroyed()) win.webContents.once('did-finish-load', () => setTimeout(go, 1500));
+}
+/* 🩺 [환경] · [GPU 상세] · [자원] — «같은 앱이 PC 마다 CPU 가 수십 배 다르다» 를 로그 두 장으로 가른다(shared/env-diag.js).
+   실행 모니터는 창이 있는 모니터로 본다 — getRunDisplay 는 저장 · 로그가 딸린다. */
+const GPU_DETAIL_DELAY_MS = 10000;   // 'complete' 는 정보를 모으는 프로세스를 띄울 수 있다 — 켜는 동안을 피한다
+const RES_MS = 60 * 1000;
+const _resWatch = EnvDiag.createResourceWatch();
+let _resTimer = null;
+let _resFailLogged = false;   // [자원] 을 못 읽으면 첫 번만 남긴다 — «줄이 없음» 과 «실패» 를 가르게, 1분마다 같은 줄이 쌓이지 않게
+function _logEnvOnce(){
+  try{
+    const os = require('os');
+    const cpus = os.cpus() || [];
+    const runId = (mainWindow && !mainWindow.isDestroyed()) ? screen.getDisplayMatching(mainWindow.getBounds()).id : null;
+    const primaryId = screen.getPrimaryDisplay().id;
+    _diagLog(EnvDiag.envLine({
+      app: app.getVersion(), electron: process.versions.electron, chrome: process.versions.chrome,
+      os: process.platform === 'win32' ? 'Windows' : (process.platform === 'darwin' ? 'macOS' : process.platform),
+      osVer: process.getSystemVersion(), arch: process.arch,
+      cpuModel: cpus[0] && cpus[0].model, threads: cpus.length, ramBytes: os.totalmem(),
+      displays: screen.getAllDisplays().map(d => ({ w: d.size.width, h: d.size.height, scale: d.scaleFactor, hz: d.displayFrequency, primary: d.id === primaryId, run: d.id === runId })),
+    }));
+  }catch(e){ _diagLog('[환경] 못 읽음 ' + (e && e.message)); }
+}
+function _logGpuDetail(){
+  app.getGPUInfo('complete')
+    .then(info => _diagLog(EnvDiag.gpuDetailLine(info)))
+    .catch(err => _diagLog('[GPU 상세] 못 읽음 ' + (err && err.message)));
+}
+/* 1분마다 — 런처 · 실행 화면 · 숨김 어디서든 남긴다(어떻게 써도 기록이 남게). 첫 호출은 기준만 잡는다 */
+function _resTick(){
+  try{
+    const w = (mainWindow && !mainWindow.isDestroyed()) ? mainWindow : null;
+    const mode = !_mainWinShown() ? '숨김' : (_isConfigMode ? '런처' : '실행 화면');
+    const os = require('os');
+    const cpus = os.cpus() || [];
+    const sys = { cpu: EnvDiag.cpuTimes(cpus), freeBytes: os.freemem(), totalBytes: os.totalmem() };
+    const r = _resWatch.take(Date.now(), app.getAppMetrics(), w ? w.webContents.getOSProcessId() : null, sys);
+    if(r) _diagLog(EnvDiag.resourceLine(r, cpus.length, mode));
+  }catch(e){
+    if(!_resFailLogged){ _resFailLogged = true; _diagLog('[자원] 못 읽음 ' + (e && e.message)); }
+  }
+}
+function _startResourceWatch(){
+  if(_resTimer) return;
+  _resTick();
+  _resTimer = setInterval(_resTick, RES_MS);
 }
 /* 🎬 초기화(SETTINGS_VER)로 꺼진 실험을 다시 켤지 묻는 대상인가 — 백업 파일에 실험이 켜져 있었고, 지금은 꺼져 있고, 아직 안 물었다.
    ★ 0.11.0 ~ 0.11.2 에서 이미 초기화된 사람도 백업 파일로 알아본다(그 버전엔 묻는 창이 없었다). */
@@ -2341,6 +2399,7 @@ function createWindow() {
   _mainWindowCreated = true;
   _watchRendererHealth(mainWindow);   // 🩺 렌더러 사망 · 로드 실패 · 무응답 기록(+ 사망 시 1회 재로드) — 제보 #1
   _logGpuOnce(mainWindow);            // 🩺 그래픽카드 · GPU 기능 상태 · 시험 스위치 한 줄 — 제보 #1-B
+  _startResourceWatch();              // 🩺 1분 [자원] — 어느 프로세스가 CPU · 메모리를 쓰나
   mainWindow.loadFile(path.join(__dirname, 'app', 'desk-companion-prototype.html'));
 
   // ★ renderer의 window.open 요청 처리 — 방명록('mhGuestbook…')은 Win98풍 프레임리스 독립 창으로.
@@ -3960,6 +4019,18 @@ function createWindow() {
   mainWindow.on('restore', _refreshMainWinBounds);
   mainWindow.on('show', _refreshMainWinBounds);
   _refreshMainWinBounds();
+  /* 🪟 창이 보이는지를 렌더러에 알린다 — 하트비트가 안 보일 때 무거운 칸(regions · others)을 뺀다(heartbeat-policy.js).
+     backgroundThrottling:false 라 렌더러의 document.hidden 은 최소화에도 안 바뀐다. 바뀔 때만 보낸다. */
+  let _winShownSent = null;
+  const _sendWinShown = () => {
+    if(!mainWindow || mainWindow.isDestroyed()) return;
+    const shown = _mainWinShown();
+    if(shown === _winShownSent) return;
+    _winShownSent = shown;
+    try{ mainWindow.webContents.send('companion:winShown', shown); }catch(_){}
+  };
+  for(const ev of ['minimize', 'restore', 'hide', 'show', 'focus']) mainWindow.on(ev, _sendWinShown);
+  mainWindow.webContents.on('did-finish-load', () => { _winShownSent = null; _sendWinShown(); });   // 다시 불러오면 렌더러 값이 처음(null)으로 돌아간다
 
   /* 📐 [2026-08-26] 해상도·배율·작업영역이 바뀌면 run 오버레이를 다시 맞춘다 — 핸드오프5 §4-3.
      [무엇이 문제였나] 이 핸들러가 **없었다.** 갭(overlay.gapFor)은 배율로 나눠서 계산하는데,
@@ -4104,7 +4175,7 @@ function createWindow() {
     keydown:   (e) => { _inputDiag.key++;   _onGlobalKeyDown(e); },
   });
   if(sysinput.nativeLoadFailed().length) _nativeShowGuide();   // 로드 실패 기록은 바로 위 startGlobalHooks 가 흘렸다
-  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
+  app.on('before-quit', () => { try { sysinput.stopGlobalHooks(); } catch (_) {} if(_cursorWatchTimer){ clearInterval(_cursorWatchTimer); _cursorWatchTimer = null; } if(_resTimer){ clearInterval(_resTimer); _resTimer = null; } try { _flushLauncherPos(); } catch (_) {} });   // 끄는 순서는 _exitNow 와 같다 — 훅 · 타이머 먼저
   /* ═══ 🖥️ 윈도우 세션 종료(로그오프·재시작·종료) ══════════════════════════
      [제보] 컴퓨터를 끄려 하면 "이 앱 때문에 종료할 수 없습니다"가 뜨고, [확인]을 눌러야
        종료된다. 그때 'unknown software exception (0x80000003)' 오류창이 같이 뜬다.
