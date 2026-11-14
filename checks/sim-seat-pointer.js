@@ -14,8 +14,9 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/' + f, f.split('/').pop()]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
-const SRC = read('room/seat-pointer.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html');
-if(!SRC || !APP || !HTML){ say('  ? 원본 못 찾음 — seat-pointer.js · app.js · desk-companion-prototype.html'); process.exit(2); }
+const SRC = read('room/seat-pointer.js'), APP = read('app.js'), HTML = read('desk-companion-prototype.html'), PIN = read('room/seat-pin.js');
+if(!SRC || !APP || !HTML || !PIN){ say('  ? 원본 못 찾음 — seat-pointer.js · app.js · desk-companion-prototype.html · seat-pin.js'); process.exit(2); }
+const PINMOD = (() => { const w = {}; new Function('window', 'module', PIN)(w, undefined); return w.TwSeatPin; })();   // 진짜 맨 오른쪽 고정 규칙(가짜는 mode 를 안 봐서 함수째 넘기는 실수를 놓쳤다)
 
 class V3 { constructor(x, y, z){ this.x = x || 0; this.y = y || 0; this.z = z || 0; } clone(){ return new V3(this.x, this.y, this.z); } sub(o){ this.x -= o.x; this.y -= o.y; this.z -= o.z; return this; } negate(){ this.x = -this.x; this.y = -this.y; this.z = -this.z; return this; } }
 function build(src, o){
@@ -28,7 +29,7 @@ function build(src, o){
     Raycaster: class { constructor(){ this.ray = { intersectPlane: (pl, pt) => { pt.x = o.planeX == null ? 0 : o.planeX; pt.y = 0; pt.z = 0; return pt; } }; } setFromCamera(){} intersectObjects(){ return hitsHolder.hits; } },
   };
   const canvas = { getBoundingClientRect: () => ({ left: 0, top: 0, width: 100, height: 100 }), addEventListener: (t, f) => { cl[t] = f; }, setPointerCapture(){}, releasePointerCapture(){} };
-  const win = { addEventListener: (t, f) => { wl[t] = f; }, TwSeatPin: o.noPin ? undefined : { dragIndex: (i) => i } };
+  const win = { addEventListener: (t, f) => { wl[t] = f; }, TwSeatPin: o.noPin ? undefined : PINMOD };
   const st = { t: 1000, suppress: !!o.suppress, office: !!o.office, flyAim: false, bonkAim: false, pokes: [], floaters: [], pets: [], menu: [], selects: [], layouts: 0, tabs: 0, hots: 0, toasts: [], clickSnd: 0, bubble: 0, myPetSent: 0, pokeSelf: 0, presenceActive: true, pokeThrows: !!o.pokeThrows };
   const seats = o.seats || [];
   const mkSeat = (s) => Object.assign({ group: { position: { x: 0 }, updateMatrixWorld(){}, getWorldPosition(v){ v.x = 0; v.y = 0; v.z = 0; } }, rig: { position: { x: 0, y: 0, z: 0 }, getWorldPosition(v){ v.x = 1; v.y = 1; v.z = 1; } }, petStart: -1e9, userData: {} }, s || {});
@@ -40,7 +41,7 @@ function build(src, o){
     iDeskMod: { findRideTarget: () => null, _rideDenyToastAt: () => 0, setRideDenyToastAt(){} }, layoutSeats: () => { st.layouts++; },
     officeMode: () => st.office, overheadMod: { dismissSeatHeadBubble: () => { st.bubble++; } }, playItemIdle(){},
     rideBenchMod: { unmountRide(){}, findBenchSlot: () => null, mountBench: () => false, unmountBench(){}, mountRide: () => false },
-    roomSeatMode: () => 'row', seatLayoutMod: { slotIndexAt: () => (o.slotIdx == null ? 0 : o.slotIdx) },
+    roomSeatMode: () => o.mode || 'row', seatLayoutMod: { slotIndexAt: () => (o.slotIdx == null ? 0 : o.slotIdx) },
     seatMenuMod: () => ({ _seatCtxMenu: (e, s) => st.menu.push(s) }),
     seatPanelMod: { selectSeat: (s) => st.selects.push(s), renderSeatTabs: () => { st.tabs++; } }, seats,
     setSuppressNextContextMenu: (v) => { st.suppress = v; }, sfxMod: { _clickSnd: { play: () => { st.clickSnd++; } } },
@@ -118,6 +119,11 @@ say('§3 누르기 · 끌기');
   const deskObj = { userData: {}, parent: s1.group }; b.hitsHolder.hits = [{ object: deskObj }]; s1.group.userData = { seat: s1 }; deskObj.userData = { seat: s1 };
   b.cl.pointerdown(b.ev(0, 0)); b.cl.pointermove(b.ev(30, 0));
   chk(b.mod.drag().mode === 'slot' && b.seats[1] === s1 && b.st.layouts === 1 && b.st.tabs === 1, '책상을 끌면 슬롯 이동 — 좌석 순서 바꾸기 · 줄 배치 · 좌석 탭');
+  // 맨 오른쪽 고정 — 진짜 seat-pin 규칙에 방 모드 값('right')을 넘겨야 한다
+  b = build(SRC, { slotIdx: 1, mode: 'right' }); const me = b.mkSeat({ isMe: true }), ot = b.mkSeat({ remote: true }); b.seats.push(me, ot);
+  s1.group.userData = {}; me.group.userData = { seat: me }; b.hitsHolder.hits = [{ object: { userData: { seat: me }, parent: me.group } }];
+  b.cl.pointerdown(b.ev(0, 0)); b.cl.pointermove(b.ev(30, 0));
+  chk(b.seats[0] === me && b.st.layouts === 0, '★ 맨 오른쪽 고정이면 내 책상을 끌어도 내 자리는 그대로(방 모드 값을 넘긴다 — 함수째 넘기면 고정이 안 걸린다)');
   // 이름표 끌기 시작
   b = build(SRC); const s3 = b.mkSeat({}); b.seats.push(s3);
   chk(b.mod._beginLabelSlotDrag(b.ev(1, 1), s3) === true && b.mod.drag().targetType === 'label' && b.mod._beginLabelSlotDrag(b.ev(1, 1), s3) === false, '이름표 끌기 시작 — drag 가 이미 있으면 거절');
@@ -177,6 +183,8 @@ say('§7 일부러 깨 보기');
   const brk = (from, to) => { const m = SRC.replace(from, to); return m === SRC ? null : m; };
   const m1 = brk("seat.pinned=true;", '');
   chk(!!m1 && (() => { const b = build(m1); const s = b.mkSeat({}); b.seats.push(s); charHit(b, s); b.cl.pointerdown(b.ev(0, 0)); b.cl.pointermove(b.ev(50, 0)); b.cl.contextmenu(b.ev(0, 0)); return s.pinned !== true; })(), '우클릭 고정을 빼면 빨강');
+  const m9 = brk("seats, roomSeatMode())", "seats, roomSeatMode)");
+  chk(!!m9 && (() => { const b = build(m9, { slotIdx: 1, mode: 'right' }); const me = b.mkSeat({ isMe: true }), ot = b.mkSeat({ remote: true }); b.seats.push(me, ot); b.hitsHolder.hits = [{ object: { userData: { seat: me }, parent: me.group } }]; me.group.userData = { seat: me }; b.cl.pointerdown(b.ev(0, 0)); b.cl.pointermove(b.ev(30, 0)); return b.seats[0] !== me; })(), '방 모드를 값이 아니라 함수째 넘기면 빨강');
   const m3 = brk("  drag=null;\n }finally{\n  /* ★ 위에서 무엇이 던지든 여기는 반드시 지난다. drag 가 남으면 앱이 유령이 된다(위 주석). */\n  drag=null;\n }", "  drag=null;\n }finally{\n }");
   chk(!!m3 && (() => { const b = build(m3, { pokeThrows: true }); const f = b.mkSeat({ remote: true, friendId: 'F' }); b.seats.push(f); charHit(b, f); b.cl.pointerdown(b.ev(5, 5)); try{ b.cl.pointerup(b.ev(5, 5)); }catch(_){} return b.mod.drag() !== null; })(), 'finally 의 drag 해제를 빼면 빨강');
   const m4 = brk("if(Math.hypot(dx,dy) > 6){", "if(Math.hypot(dx,dy) > 0){");
