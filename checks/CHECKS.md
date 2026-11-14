@@ -215,7 +215,7 @@
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
-| **sim-human-ear-attach.js** | 129 | **cc7187e89b24** |
+| **sim-human-ear-attach.js** | 130 | **f1db1e05199e** |
 | **sim-desk-build.js** | 100 | **0de2a23692c7** |
 | **sim-part-anim.js** | 177 | **849cae964607** |
 | **sim-desk-item-equip.js** | 212 | **6f7c86609c6d** |
@@ -416,7 +416,7 @@
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
 | **sim-seat-layout.js** | 326 | **00173ba60980** |
-| **sim-seat-refit.js** | 182 | **864d3b36827b** |
+| **sim-seat-refit.js** | 183 | **de2f9b3c188e** |
 | **sim-seat-equalize.js** | 169 | **adf87881fdd8** |
 | **sim-seat-eq-clamp.js** | 162 | **cfd9c27f1fd8** |
 | **sim-deco-parts-visibility.js** | 131 | **d079351120a6** |
