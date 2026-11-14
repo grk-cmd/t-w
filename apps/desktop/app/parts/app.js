@@ -2860,6 +2860,15 @@ for(const id of ['myHomeOverlay', 'mhPageFriend']){
 const mhStateMod = TwMyHomeState.createMyHomeState({
   _myHomeFriends: ()=>_myHomeFriends,
 });
+/* 🙋 남의 마이홈 [친구 신청] · 사유 창 — 보내기는 좌석 친구 신청과 같은 한 벌(seat-friend-req.js · 뒤에서 만든다 — 누를 때 찾는다) */
+const friendReqBtnMod = TwFriendReqBtn.createFriendReqBtn({
+  sendFriendReq: (...a)=>seatFriendReqMod.sendFriendReq(...a),
+  resultView: (...a)=>seatFriendReqMod.resultView(...a),
+  friendNet: ()=>window.firebaseAPI,   // 데이터 provider(좌석 친구 신청과 같은 한 줄 — 서버 이관 때 갈아 끼운다)
+  friends: ()=>_myHomeFriends,
+  getMyUserId: (...a)=>getMyUserId(...a),
+  toast: (...a)=>toast(...a),
+});
 const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   _myHomeFriends: ()=>_myHomeFriends,
   _schedDdaysVisitUnsub: ()=>_schedDdaysVisitUnsub,
@@ -2882,6 +2891,7 @@ const mhVisitMod = TwMyHomeVisit.createMyHomeVisit({
   setMhViewingUserId: (v)=>{ mhStateMod.setMhViewingUserId(v); },
   setMhViewingName: (v)=>{ mhStateMod.setMhViewingName(v); },
   refreshFriendProfile: (...a)=>friendsSubMod.refreshProfile(...a),   // 👥 친구면 이름 · 레벨을 새로(목록이 닫혀 있어도)
+  friendReqBtn: friendReqBtnMod,   // 🙋 이름 옆 [친구 신청] — 관람 화면을 칠할 때 다시 본다
 });
 
 /* ═══ 🔬 __mhClickDiag() — "보이는데 안 눌린다"를 한 줄로 가르는 진단 ═══════════

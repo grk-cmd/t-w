@@ -134,6 +134,7 @@ const ESC_YIELD_SEL = [
   '#mhFriendSearch.on',       // 🔍 마이홈 친구검색 줄 — 자기 캡처 핸들러가 먼저 닫는다
   '#myHomeOverlay.on #mhRoomPreview.mhd-ff-arrange',   // 📂 폴더 자유배치 중 — folder-free.js 가 window 캡처에서 먼저 끝낸다
   '#myHomeOverlay.on #mhPageBugreport.on .bb-sim.on',   // 🔎 버그제보 «비슷한 제보» · 📝 «저장할까요?» 칸 — bug-board-ui.js 가 이 칸만 닫는다
+  '#myHomeOverlay.on .friend-req-ask-ov',   // 🙋 남의 마이홈 친구 신청 사유 창 — friend-req-btn.js 가 document 캡처에서 이 창만 닫는다
   '#myPlLikeDrawer.on',       // 👍 플레이리스트 반응 서랍 — playlist-like-ui.js 가 서랍만 닫는다(창은 남는다)
 ].join(', ');
 const _escWins  = [];   // 등록된 창 — [{key, el, isOpen, close}]

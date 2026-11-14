@@ -612,6 +612,8 @@ PRELOAD.push('admin-thumbs.js');
 PRELOAD.push('mat-tone.js');
 /* seat-friend-req.js — 🙋 좌석 우클릭 친구 신청(C 구역 떼기 w4). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createSeatFriendReq 를 같이 굴린다. */
 PRELOAD.push('seat-friend-req.js');
+/* friend-req-btn.js — 🙋 남의 마이홈 [친구 신청](app.js 가 친구 홈 구경보다 먼저 만든다) */
+PRELOAD.push('friend-req-btn.js');
 /* glb-idb-cache.js — 💾 GLB 영구 캐시(IndexedDB)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createGlbIdbCache 를 같이 굴린다. */
 PRELOAD.push('glb-idb-cache.js');
 /* catalog-glb.js — 🔗 카탈로그 GLB 해결(glbUrl → rec.glb)(구역 떼기 C · w2). 같은 까닭 — 만들 때 하는 일과 app.js 가 원래 자리에서 부르는 createCatalogGlb 를 같이 굴린다. */

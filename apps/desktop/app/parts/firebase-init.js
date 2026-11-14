@@ -1806,14 +1806,14 @@
     },
 
     /* ═══════════ 👋 친구 요청 (수락/거절) ═══════════
-       스키마: friendRequests/{받는사람}/{보낸사람} = { name, ts }
+       스키마: friendRequests/{받는사람}/{보낸사람} = { name, ts, msg? }  — msg: 신청 사유(100자 · 없어도 됨)
        흐름: 코드 입력 → 상대에게 요청 기록 → 상대가 수락하면 그때 양방향 friends 추가 */
 
     // 친구 요청 보내기
     /* toName·toCode 는 **보낸 요청 목록에 보여줄 이름표**다(없어도 동작한다).
        스키마상 상대 프로필을 나중에 다시 못 찾는 게 아니라, 목록을 열 때마다 상대 프로필을
        또 읽지 않으려고 보낼 때 한 번 적어두는 것이다. */
-    async sendFriendRequest(fromId, toId, fromName, toName, toCode){
+    async sendFriendRequest(fromId, toId, fromName, toName, toCode, msg){
       console.log('[친구요청 발송] fromId=', fromId, 'toId=', toId, 'name=', fromName);
       if(fromId === toId){ console.log('[친구요청] 실패: self'); return { ok:false, reason:'self' }; }
       const already = await get(ref(db, `users/${fromId}/friends/${toId}`));
@@ -1829,7 +1829,7 @@
       if(toCode) mirror.toCode = String(toCode).slice(0,12);
       try{
         await update(ref(db), {
-          [`friendRequests/${toId}/${fromId}`]: { name: fromName || '(이름 없음)', ts: now },
+          [`friendRequests/${toId}/${fromId}`]: Object.assign({ name: fromName || '(이름 없음)', ts: now }, msg ? { msg: String(msg).slice(0,100) } : {}),   // 🙋 사유는 있을 때만
           [`sentFriendRequests/${fromId}/${toId}`]: mirror,
         });
         console.log('[친구요청] 서버 저장 성공: friendRequests/'+toId+'/'+fromId+' (+미러)');
@@ -1859,7 +1859,7 @@
       try{ await remove(ref(db, `sentFriendRequests/${myId}/${toId}`)); }catch(_){}
     },
     /* 📤 보낸 요청 취소 — 진짜 요청과 미러를 한 번에 지운다.
-       ⚠️ friendRequests/{상대}/{나} 는 **남의 노드**지만 $fromId 에 .write:true 가 있어 지울 수 있고,
+       ⚠️ friendRequests/{상대}/{나} 는 **남의 노드**지만 보낸 사람 본인이라 지울 수 있고,
          RTDB 는 지우는 쓰기에 .validate 를 아예 평가하지 않는다(그래서 hasChildren 이 안 막는다). */
     async cancelFriendRequest(myId, toId){
       try{
