@@ -193,6 +193,12 @@ say('── 5. 켠 뒤 들어온 메쉬 · 텍스처 · 셰이더');
   chk(a.needsUpdate === true && sh.fragmentShader.startsWith('HUE;') && sh.fragmentShader.includes('_snapped'), '덮어쓴 색조 셰이더 위에 다시 건다(색조 먼저 · PS1 뒤)');
   chk(typeof a.customProgramCacheKey === 'function' && typeof b.customProgramCacheKey === 'function' && a.customProgramCacheKey() !== b.customProgramCacheKey(), '셰이더 캐시 키가 색조 재질과 보통 재질에서 다르다(한 셰이더를 나눠 쓰다 염색이 빠지지 않게)');
   chk(b.customProgramCacheKey() === c.customProgramCacheKey(), '  같은 원래 훅이면 키도 같다(셰이더를 쓸데없이 늘리지 않음)');
+  /* 켠 뒤 처음 색조를 걸면 색조 셰이더가 우리 훅을 덮어쓴다 — 다음 훑기 전에 그려도 보통 재질 셰이더를 받으면 안 된다 */
+  const g = mat(); mesh(g); D.applyPS1Shader(true);
+  const keyPlain = g.customProgramCacheKey();
+  chk(keyPlain === b.customProgramCacheKey(), '  (준비) 켠 뒤 걸린 보통 재질 — 키가 보통 재질과 같다');
+  g.onBeforeCompile = function hueLater(sh){ sh.hl = 1; };
+  chk(g.customProgramCacheKey() !== keyPlain, '훑기 전에 색조가 덮어써도 키가 바로 달라진다(보통 재질 셰이더를 받아 색조가 빠지지 않게)');
 
   /* 끌 때 — 그새 색조 셰이더가 덮어쓴 재질은 그 셰이더를 지우지 않는다 */
   const d = mat(); mesh(d); D.applyPS1Shader(true);
