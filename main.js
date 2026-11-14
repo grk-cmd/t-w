@@ -90,6 +90,8 @@ const HoverPoke = require('./hover-poke');
 /* 🖱 클릭 통과 판단 규칙 — 렌더러(desktop-run.js)와 **같은 파일**을 쓴다. 안전장치 ⓔ·ⓕ·ⓖ 의 문턱 · 조건은 거기에만 있다.
    ⚠️ 여기에 같은 조건을 다시 쓰지 않는다(checks/sim-click-through-policy.js). 설치본에도 app/** 로 들어간다. */
 const ClickPolicy = require('./app/parts/launcher/click-through-policy');
+/* 🪟 메인 창 화면을 다시 불러오기 전에 창을 런처로 — 렌더러 사망 · WebGL 복구 등 어느 길이든 한 판단(B-1114-5) */
+const ReloadReset = require('./app/parts/launcher/reload-reset');
 const InputDiag = require('./app/parts/shared/input-diag');   // 🩺 한글 씹힘 진단 — 메인 멈춤 · 활성 창 조회 시간(렌더러는 조합 끊김)
 const FrontDiag = require('./app/parts/shared/front-diag');   // 🩺 1분 [프레임] 줄 끝에 앞 창 · 전체화면 비율(게임 · 영상 버벅임 제보)
 const EnvDiag = require('./app/parts/shared/env-diag');   // 🩺 켤 때 [환경] · [GPU 상세] · 1분 [자원](CPU · 메모리를 어느 프로세스가 쓰나)
@@ -2059,16 +2061,26 @@ const _unresponsiveSince = new WeakMap();   // 창 → 'unresponsive' 가 시작
 function _watchRendererHealth(win){
   if(!win || win.isDestroyed()) return;
   const wc = win.webContents;
+  const reloadReset = ReloadReset.createReloadReset({ reset: () => _resetWindowForReload() });   // 창마다 한 벌 — 다시 불러오기 전 런처로
   wc.on('render-process-gone', (e, d) => {
     const reason = (d && d.reason) || '?';
     _diagLog('[렌더러] 프로세스 종료 — reason=' + reason + ' exitCode=' + (d && d.exitCode) + ' | 자동 재로드 ' + _rendererReloads + '/' + RENDERER_AUTO_RELOAD_MAX);
     if(reason === 'clean-exit' || reason === 'killed') return;   // 앱이 닫히는 중 · 사용자가 끈 것
     /* 다시 불러오든(런처로 돌아옴) 안 불러오든(죽은 화면) 모니터 전체를 덮은 채 둘 수는 없다 — 횟수 판정보다 먼저 */
-    if(win === mainWindow){ try{ _resetWindowForReload(); }catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); } }
+    if(win === mainWindow){ try{ reloadReset.beforeReload(); }catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); } }
     if(_rendererReloads >= RENDERER_AUTO_RELOAD_MAX) return;
     _rendererReloads++;
     setTimeout(() => { try{ if(!win.isDestroyed()) wc.reload(); _diagLog('[렌더러] 자동 재로드 실행'); }catch(err){ _diagLog('[렌더러] 자동 재로드 실패 — ' + (err && err.message)); } }, 1000);
   });
+  /* 화면이 스스로 다시 불러와도(WebGL 복구 · 그 밖) 창부터 런처로 — 사망 길과 같은 판단(launcher/reload-reset.js) */
+  if(win === mainWindow){
+    wc.on('did-finish-load', () => reloadReset.onFinishLoad());
+    /* ⚠️ did-start-navigation 이 아니라 did-navigate — 시작은 main 이 막는 이동(바깥 링크 · file:// 밖)에도 와서 실행 화면이 끼어 버린다 */
+    wc.on('did-navigate', () => {
+      try{ reloadReset.onNavigate(); }
+      catch(err){ _diagLog('[렌더러] 창 되돌리기 실패 — ' + (err && err.message)); }
+    });
+  }
   wc.on('did-fail-load', (e, code, desc, url, isMainFrame) => {
     if(isMainFrame === false) return;   // 안쪽 iframe(유튜브 등) 실패는 앱 화면과 무관
     _diagLog('[렌더러] 로드 실패 — ' + code + ' ' + desc + ' | ' + String(url || '').slice(-80));

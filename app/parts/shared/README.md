@@ -422,3 +422,19 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 함께 쓰는 Skeleton 의 뼈 · 역행렬을 바꾸지 않는다는 전제다. 다시 묶을 땐 지금처럼 `bind(new THREE.Skeleton(…))`.
   - r128 광선 판정은 `boneMatrices` 가 아니라 뼈 `matrixWorld` × 역행렬을 바로 셈한다(`boneTransform`) — 함께 써도 판정이 같다.
 - 검사: `checks/sim-skeleton-share.js`(진짜 기본 몸 · 동물 GLB 로 옛/새 뼈 행렬 · 스킨 자리 대조 · 깨 보기 둘).
+
+## `gl-recover.js` · `gl-fail-notice.js` — 🧯 3D(WebGL) 끊김 뒤 복구
+
+- **책임**
+  - `gl-recover.js`(순수 규칙 · `window.GlRecover`): 메인 캔버스 WebGL 이 끊겨 6초 안에 안 돌아오면 **앱을 다시 켠다**. 다시 켠 지 10분 안에 또 안 돌아오면 다시 켜지 않고 안내만(무한 재시작 막기).
+  - `gl-fail-notice.js`(`window.TwGlFailNotice`): WebGL 을 못 만들거나(처음) · 10분 안 재발일 때 «그래픽(3D)을 불러오지 못했어요» 안내 + [다시 켜기] [앱 끄기] · `E-SYS-05`.
+- **만드는 법**: app.js 맨 앞에서 `createGlFailNotice(deps)` → 메인 렌더러를 `glFail.guard(() => new THREE.WebGLRenderer(...))` 로 만든 뒤 `GlRecover.createGlRecover(deps).attach(canvas)`.
+- **deps**
+  - gl-recover: `log` · `relaunch`(companion.relaunchApp) · `notice`(glFail.show('lost')) · `setTimer` · `clearTimer` · `now` · `store`(localStorage).
+  - gl-fail-notice: `doc` · `notifyError` · `note`(diagNote) · `relaunch` · `quit`.
+- **함정**
+  - 화면만 다시 불러오지 않는다 — GPU 를 잃은 크롬 엔진은 WebGL 을 못 만들어 app.js 가 첫 줄에서 죽고, 런처 바탕이 모니터를 덮었다(B-1114-5). 앱을 다시 켜야 GPU 를 새로 잡는다.
+  - 마지막으로 다시 켠 시각(`tw.glRelaunchAt`)은 localStorage — 앱을 다시 켜도 남아야 10분 규칙이 선다. 못 적으면 다시 켜지 않고 안내.
+  - 처음 만들기 실패 안내는 뒤의 반쯤 죽은 런처를 덮고, 실행 중 끊김 안내는 모니터를 덮지 않는다(상자만 눌림). 창 크기는 main 이 정한다(launcher/reload-reset.js).
+  - 안내는 렌더러를 못 만든 뒤 다시 던진다 — 뒤 코드는 렌더러 없이 돌 수 없다.
+  - 검사: `checks/sim-gl-recover.js`(규칙 · 안내를 실제로 돌림 · 연결 · 깨 보기).

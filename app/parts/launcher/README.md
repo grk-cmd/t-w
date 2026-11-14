@@ -123,3 +123,14 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - 내놓는 것: `open` · `close` · `isOpen` — 밖에서 부르는 곳 없음(app.js 가 프로그램 설정 바로 뒤에서 만들기만).
 - 목록 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(`window.TwOssNotices` · 손으로 고치지 않는다). 줄은 `VENDOR` + 앱이 직접 쓰는 npm 패키지, 하위 패키지는 그 줄 원문 안으로. 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 lock 운영 패키지를 다 덮지 않으면 빨강.
 - 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `shared/outside-close.js`. 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
+
+## reload-reset.js — 🪟 화면을 다시 불러오기 전에 창을 런처로
+
+- **책임**: 메인 창 화면이 다시 불러와질 때(렌더러가 죽어 다시 불러옴 · 화면이 스스로 다시 불러옴 등 어느 길이든) 창을 먼저 런처 크기로 되돌릴지 정한다(순수 판단 · main.js 가 require). 창 맞추기 자체는 main.js `_resetWindowForReload`.
+- **만드는 법**: main.js `_watchRendererHealth` 가 창마다 `ReloadReset.createReloadReset({ reset })` 한 벌.
+- **내놓는 것**: `onFinishLoad()`(did-finish-load) · `onNavigate()`(did-navigate — 메인 프레임이 실제로 다른 문서로 넘어감 · 다시 불러오기 포함) · `beforeReload()`(렌더러 사망 길 — 다시 불러오지 않을 때도 덮인 채 두지 않게).
+- **함정**
+  - `did-start-navigation` 을 쓰지 않는다 — main 이 막는 이동(바깥 링크 · file:// 밖 · blob:)에도 시작은 와서, 화면은 그대로인데 실행 화면이 런처 크기로 끼어 버린다.
+  - 처음 로드 · 해시 이동(did-navigate-in-page)은 되돌리지 않는다.
+  - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
+  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · 깨 보기).
