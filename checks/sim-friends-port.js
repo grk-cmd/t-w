@@ -360,7 +360,7 @@ async function judge(S){
     chk(!k.L.cards.length, '  ↳ 듣는 친구가 없으면 요청 0');
   }
 
-  say('── 2-3. 끄는 스위치는 없다 — 0.13 설정(/v1/config)에 친구 스위치 칸이 없다');
+  say('── 2-3. 끄는 스위치는 없다 — 0.13 설정(/v2/config)에 친구 스위치 칸이 없다');
   {
     let RCM = null;
     try{ const m = { exports: {} }; new Function('window', 'module', 'console', S.RC)(undefined, m, { warn(){} }); RCM = m.exports; }catch(e){ chk(false, 'remote-config 싣다 던짐 — ' + e.message); }

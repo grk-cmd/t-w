@@ -1,8 +1,8 @@
 /* schedule-api.js — 📅 일정 · 🎂 디데이 · 🔔 일정 알림 api provider (검사 sim-schedule-api.js)
-   책임: 내 달력 한 달 읽기 · 일정 쓰기 · 지우기(GET · POST · DELETE /v1/me/schedules) · 남의 공개 일정(GET /v1/schedules/{userCode}) ·
-     디데이 보드 통째 읽기 · 통째 저장(GET · PUT /v1/me/ddays) · 남의 공개 보드(GET /v1/ddays/{userCode}) · 친구가 태그한 알림(GET · DELETE /v1/me/notifications — 🔔 칸).
+   책임: 내 달력 한 달 읽기 · 일정 쓰기 · 지우기(GET · POST · DELETE /v2/me/schedules) · 남의 공개 일정(GET /v2/schedules/{userCode}) ·
+     디데이 보드 통째 읽기 · 통째 저장(GET · PUT /v2/me/ddays) · 남의 공개 보드(GET /v2/ddays/{userCode}) · 친구가 태그한 알림(GET · DELETE /v2/me/notifications — 🔔 칸).
      서버 모양(visibility · countFromOne · bgImage · cards / banners 두 목록)을 화면이 쓰던 모양(public · base1 · bgImg · kind · order)으로 맞추는 곳은 여기뿐이다.
-   신원: 내 것은 토큰(/v1/me/…) · 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐). 내 코드(uid)는 «읽은 판 · 토큰 주인 기억 열쇠» 로만 받는다.
+   신원: 내 것은 토큰(/v2/me/…) · 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐). 내 코드(uid)는 «읽은 판 · 토큰 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · del(path, …, { expectOwner }) → Promise<data>)
          imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          newId() → 요청 번호(TwRequestId.newId) · warn(...a)
@@ -22,21 +22,21 @@
      순수: itemOf · monthOf · ddayOf · boardOf · bellOf · boardBody · orderedIds · PATHS · LIMITS (TwScheduleApi 위)
    ⚠️ 보드는 판(version)으로 겹친 고침을 가른다 — 저장은 «마지막으로 읽은 판» 을 실어 보내고, 다른 기기가 먼저 저장했으면(409 CONCURRENT_UPDATE) 판을 버려 다시 받기 전엔 쓰지 못하게 한다. 409 에 판을 다시 읽어 한 번 더 보내지 않는다.
    ⚠️ 쓰기는 읽은 토큰의 주인과 묶는다(expectOwner) — 계정이 바뀌는 틈에 앞 계정의 값이 새 계정 토큰으로 나가지 않게. 읽은 적 없으면(받기 전) 쓰지 않는다.
-   ⚠️ 카드 그림은 data: 로 들고 있다가 저장할 때만 올린다(POST /v1/me/images?purpose=dday — 바이트 그대로 · 1MB 이하 png / webp / jpeg, 응답 { url }). 올리기를 못 하면 보드를 보내지 않는다(그림이 빠진 채 저장되지 않게).
+   ⚠️ 카드 그림은 data: 로 들고 있다가 저장할 때만 올린다(POST /v2/me/images?purpose=dday — 바이트 그대로 · 1MB 이하 png / webp / jpeg, 응답 { url }). 올리기를 못 하면 보드를 보내지 않는다(그림이 빠진 채 저장되지 않게).
    검사: checks/sim-schedule-api.js */
 (function(){
 'use strict';
 
 const PATHS = Object.freeze({
-  month: (ym) => '/v1/me/schedules?month=' + encodeURIComponent(ym),
-  monthOf: (userCode, ym) => '/v1/schedules/' + encodeURIComponent(userCode) + '?month=' + encodeURIComponent(ym),
-  create: '/v1/me/schedules',
-  item: (id, version) => '/v1/me/schedules/' + encodeURIComponent(id) + '?version=' + encodeURIComponent(version),
-  board: '/v1/me/ddays',
-  boardOf: (userCode) => '/v1/ddays/' + encodeURIComponent(userCode),
-  bell: '/v1/me/notifications?section=BELL&limit=50',
-  image: '/v1/me/images?purpose=dday',
-  bellOne: (id) => '/v1/me/notifications/' + encodeURIComponent(id),
+  month: (ym) => '/v2/me/schedules?month=' + encodeURIComponent(ym),
+  monthOf: (userCode, ym) => '/v2/schedules/' + encodeURIComponent(userCode) + '?month=' + encodeURIComponent(ym),
+  create: '/v2/me/schedules',
+  item: (id, version) => '/v2/me/schedules/' + encodeURIComponent(id) + '?version=' + encodeURIComponent(version),
+  board: '/v2/me/ddays',
+  boardOf: (userCode) => '/v2/ddays/' + encodeURIComponent(userCode),
+  bell: '/v2/me/notifications?section=BELL&limit=50',
+  image: '/v2/me/images?purpose=dday',
+  bellOne: (id) => '/v2/me/notifications/' + encodeURIComponent(id),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 거절한다 */
 const LIMITS = Object.freeze({ TEXT: 40, DDAY_TEXT: 20, DDAY_PER_KIND: 10, TAGS: 100, IMAGE_BYTES: 1024 * 1024 });
@@ -100,7 +100,7 @@ function ddaysOf(data){
   }
   return out;
 }
-/* GET /v1/me/ddays 의 data → { version, ddays }. 모양이 틀리면 undefined */
+/* GET /v2/me/ddays 의 data → { version, ddays }. 모양이 틀리면 undefined */
 function boardOf(data){
   const ddays = ddaysOf(data);
   if(!ddays || !fin(data.version) || data.version < 0) return undefined;

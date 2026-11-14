@@ -1,7 +1,7 @@
 /* ═══ 🪪 sim-signup.js — 회원가입 게이트 (design-signup-2026-09-20.md §3 · §6 · §8) ═══════════════
    CHECKS 개정 38 신설. 게이트를 조각마다 넣으면서 절을 늘린다 — 지금은 첫 조각(설계 개정 8)만.
 
-   0.13 — 가입 · 로그인은 서버(GET /v1/me · POST /v1/users)로 옮겼다. 옛 3~7 · 9 · 10 · 14절(초대 토큰 · 익명 → 묶기 다섯 단계 · 기존 사용자 가입 I ·
+   0.13 — 가입 · 로그인은 서버(GET /v2/me · POST /v2/users)로 옮겼다. 옛 3~7 · 9 · 10 · 14절(초대 토큰 · 익명 → 묶기 다섯 단계 · 기존 사용자 가입 I ·
    로그인 필요 K · 비밀번호 붙이기 함수 · 갈아타기 전 정리)은 대상이 없어 걷었다 — 새 흐름은 sim-login-flow.js · sim-user-api.js · sim-first-run-013.js.
    1절 정적      getMyUserId 는 읽기만 · 앱에 uid 를 만드는 곳이 없다 · 옛 가입 통로 없음 · firebase-init 안전망 배선
    2절 안전망    firebase-init `_noUidPath` · ref/sref/update 가 빈 uid 경로를 서버에 안 보낸다

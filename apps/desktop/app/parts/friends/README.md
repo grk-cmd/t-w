@@ -22,7 +22,7 @@
   - `listFriends(myId, opts)` → Promise<{ 친구id: 친구 }> — `opts.idsOnly` 면 id · addedAt 만 있으면 된다(판정용).
   - `readFriend(fid)` → Promise<친구 | null> — 켠 뒤 새로 생긴 친구 한 명의 이름 · 레벨 · 사진(friends-sub 가 늘어난 id 만 부른다 · 목록 전체를 다시 받지 않게). null = 모름(없는 사람 · 옛 길도 못 읽음).
   - `watchList(myId, onChange, onError)` → 해제 함수 — onChange({ 친구id: { addedAt, … } }).
-  - `removeFriend(myId, fid)` → Promise — 친구 끊기(서버면 `DELETE /v1/me/friends/{code}` · 아니면 옛 길). 쓰기라 옛 길로 넘기지 않고 못 하면 던진다.
+  - `removeFriend(myId, fid)` → Promise — 친구 끊기(서버면 `DELETE /v2/me/friends/{code}` · 아니면 옛 길). 쓰기라 옛 길로 넘기지 않고 못 하면 던진다.
   - `watchPresence(myId, ids, onChange, onStatus)` → 해제 함수 — onChange({ 친구id: { online, lastSeen, room, inRoom } }) · onStatus(`'waiting'` | `'live'` | `'failed'`) · `retryPresence()` → 듣기가 못 받음이면 한 번 다시. 목록이 열려 있는 동안만 건다(friends-sub.js).
   - `readPresence(ids)` → Promise<{ 친구id: 접속 상태 }> — 목록이 닫혀 있을 때 그 친구들만 요청 하나로(놀러 가기 · 파도타기 친구 고르기). 못 받으면 던진다.
   - `watchProfile(myId, ids, onChange)` → 해제 함수 — onChange({ 친구id: { name, level, cyc, clv, starC } }). 접속 상태와 같은 조건 · 같은 수명(목록이 열려 있는 동안 · friends-sub.js).
@@ -73,7 +73,7 @@
 - 검사: `checks/sim-friends-port.js` 2-2절.
 
 ## social-api.js — 친구 · 친구 요청 · 명함 서버 길 provider(0.13 · 친구 목록 · 명함은 `friends-api.js` 가 부름 · 요청은 다음 PR)
-- 책임: 내 친구 목록(`GET /v1/me/friends` — 객체 배열) · 친구 한 명(`GET …/{code}`) · 끊기(`DELETE …/{code}`) · 친구 요청 목록(`GET /v1/me/friend-requests`) · 보내기 · 수락 · 거절 · 취소 · 명함 묶음(`GET /v1/myhomes/cards?codes=`)을 서버에서. 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양(친구 칸 `name · level · cyc · clv · starC · bio · avatar` · 시각 ms)으로 맞추는 곳은 여기뿐이다.
+- 책임: 내 친구 목록(`GET /v2/me/friends` — 객체 배열) · 친구 한 명(`GET …/{code}`) · 끊기(`DELETE …/{code}`) · 친구 요청 목록(`GET /v2/me/friend-requests`) · 보내기 · 수락 · 거절 · 취소 · 명함 묶음(`GET /v2/myhomes/cards?codes=`)을 서버에서. 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양(친구 칸 `name · level · cyc · clv · starC · bio · avatar` · 시각 ms)으로 맞추는 곳은 여기뿐이다.
 - 만드는 법(app.js — `socialApiMod`): `TwSocialApi.createSocialApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) })`. 만들 때 요청 없음.
 - 내보내는 것: `fetchFriends()` → `[{ userCode, addedAt, lastSeenAt }]`(오래 사귄 순 · ms · 마지막 접속 기록 없음 `null`) · `fetchFriend(code)` → 한 줄 | `null`(친구가 아님) · `removeFriend(code)` ·
   `fetchRequests()` → `{ received, sent }`(`[{ userCode, requestedAt(ms) }]`) · `sendRequest(to)` · `acceptRequest(from)` · `rejectRequest(from)` · `cancelRequest(to)` ·
@@ -94,7 +94,7 @@
 - 서버 provider: 받은 요청은 처음 한 번 + `friendRequests` 알림(· resync)마다 다시 받고 상대 이름은 명함(`fetchCards`)으로 얹는다. 받는 중 알림이 여럿 와도 요청은 하나. 이름을 못 받아도 요청은 그린다. 보낼 때 이름 · 코드는 안 싣는다(서버가 안다).
 - 옛 길 provider: 📤 보낸 요청 미러를 읽고 한 건씩 살아 있는지 확인해 죽은 것은 빼고 치운다(전엔 friend-manage 안에 있던 몫).
 - 만드는 법: app.js `friendRequestsFirebaseMod` · `friendRequestsApiMod`(`social: socialApiMod`, `rt: TwRtHub.store`) · `friendRequestsPortMod`. 화면 deps 는 `()=>friendRequestsPortMod`(읽는 함수) — 만드는 줄이 화면 모듈보다 뒤다.
-- 친구코드(MATE-XXXX)로 찾기: `GET /v1/users?friendCode=`(`social-api.js findByFriendCode`) — 없으면 `null`.
+- 친구코드(MATE-XXXX)로 찾기: `GET /v2/users?friendCode=`(`social-api.js findByFriendCode`) — 없으면 `null`.
 - 검사: `checks/sim-friend-requests.js`.
 
 ## friends-presence-rt.js — 접속 상태 provider(realtime 연결 하나 · `TwRtHub.store`)

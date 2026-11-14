@@ -1,5 +1,5 @@
 /* source-switch.js — 🎚️ 기능별 받는 곳 — 0.13 에선 «한 길만 돌려주는» 얇은 자리 (검사 sim-source-switch.js)
-   [왜 얇은가] 0.13 서버 GET /v1/config 에는 기능 스위치(sources · roomServer · flags.friendsApi)가 없다 — 앱은 한 번에 새 서버로 바꾼다
+   [왜 얇은가] 0.13 서버 GET /v2/config 에는 기능 스위치(sources · roomServer · flags.friendsApi)가 없다 — 앱은 한 번에 새 서버로 바꾼다
      (옛 앱 호환 없음). 그래서 원격 설정을 읽지 않고, 기능마다 «지금 도는 한 길» 을 고정 표(ONE_WAY)로 돌려준다.
      표의 값은 스위치 칸이 없을 때 옛 판이 고르던 기본값과 같다 — 이 파일 때문에 동작이 바뀌지 않는다.
    [걷는 차례] 기능 묶음이 그 기능을 API · realtime 길로 갈아 끼우면 부르는 줄(pick · serverFirst)을 걷고 표에서 한 줄을 지운다.

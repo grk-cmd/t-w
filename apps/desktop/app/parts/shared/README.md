@@ -205,7 +205,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **검사**: `checks/sim-upload-cache.js`.
 ## `source-switch.js` — 🎚️ 기능별 받는 곳(0.13 — 한 길만 돌려주는 얇은 자리)
 
-- **책임**: 0.13 서버 설정(`GET /v1/config`)에는 기능 스위치가 없다. 기능마다 «지금 도는 한 길» 을 고정 표 `ONE_WAY` 로 돌려주고(`pick`), 서버 길이 있는 기능은 «서버 먼저 → 못 받으면 옛 길» 을 한 벌로 돌린다(`serverFirst`).
+- **책임**: 0.13 서버 설정(`GET /v2/config`)에는 기능 스위치가 없다. 기능마다 «지금 도는 한 길» 을 고정 표 `ONE_WAY` 로 돌려주고(`pick`), 서버 길이 있는 기능은 «서버 먼저 → 못 받으면 옛 길» 을 한 벌로 돌린다(`serverFirst`).
 - **표**: `friends` 서버 먼저 · `catalog` 서버 먼저 · `gacha` 앱이 뽑기 — 옛 판의 «스위치 칸 없음» 기본값과 같다(동작 그대로). 방은 `room/room-server-gate.js` 가 늘 Firebase 방을 돌려준다(같은 까닭의 얇은 자리).
 - **걷는 차례**: 기능 묶음이 그 기능을 API · realtime 길로 갈아 끼우면 부르는 줄(app.js · firebase-init.js 의 `pick` · `serverFirst`)을 걷고 표에서 한 줄을 지운다. 표가 비면 파일을 지운다. 새 기능을 더하지 않는다.
 - **함정**: 서버 함수가 «값은 왔는데 못 쓴다» 면 던지지 말고 `SKIP` 을 돌려준다 — 실패 알림 없이 옛 길로 간다. 옛 길 오류는 숨기지 않고 그대로 던진다.
@@ -239,7 +239,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `maintenance-gate.js` — 🛠 서버 점검 창
 
-**책임** — 점검이 켜진 동안(0.13: 서버 `GET /v1/config` 의 `maintenance { on, endsAt(ISO), message }` 를 먼저 읽고, 서버에 닿지 못할 때만 Firebase `config/maintenance` 한 칸), **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
+**책임** — 점검이 켜진 동안(0.13: 서버 `GET /v2/config` 의 `maintenance { on, endsAt(ISO), message }` 를 먼저 읽고, 서버에 닿지 못할 때만 Firebase `config/maintenance` 한 칸), **사람이 방금 누른 동작**이 서버에 닿으면 «서버 점검 중 · ○○:○○쯤 끝날 예정» 창을 띄운다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 막지 않는다. 점검이 끝나면 «지금 다시 켜기 · 나중에» 를 묻는다.
 
 **만드는 법** — classic script(`window.TwMaintenance`)를 `error-codes.js` · `api-client.js` 보다 먼저 싣고, 앱 한 벌 `store` 를 만들어 둔다. `firebase-init.js` 가 `store.start({ readFlag, rt })` 로 Firebase 한 칸 읽기 · realtime 알림을 잇고(구독은 하지 않는다), Firebase 기본 동작(firebase-init.js `_touched`) · API 통로(`api-client.js` `onRequest`)가 요청마다 `store.touch()` 를 부른다.
 
@@ -353,7 +353,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `image-bytes.js` — 🖼 data: 그림 → 올릴 바이트
 
-- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 서버 올리기(`POST /v1/me/images?purpose=…`)가 받는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
+- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 서버 올리기(`POST /v2/me/images?purpose=…`)가 받는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
 - **쓰는 법**: provider 가 `deps.imageBytes`(app.js 가 `TwImageBytes` 를 넘김)로 받아 `inspect(dataUrl, { types, maxBytes })` → `{ ok: true, type, bytes }` 또는 `{ ok: false, why: 'format' | 'empty' | 'large' }`. 종류 · 상한 값은 부르는 쪽(provider `LIMITS` · `IMAGE_TYPES`)이 정한다 — 여기엔 숫자를 두지 않는다.
 - **내놓는 것**: `parseDataUrl` · `inspect`. 순수 — 아무것도 부르지 않는다.
 - **함정**: 상한과 같은 크기는 통과(초과만 `large`). 서버 상한이 바뀌면 값은 각 provider `LIMITS` 한 곳씩.
@@ -374,7 +374,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 계정을 바꿔도 **지우지 않는다**(계정 전환 지움 목록에 넣지 말 것) — 값이 바뀌면 같은 PC 가 등록 기기(3대)를 하나 더 차지한다. 저장이 막힌 PC 는 실행마다 다른 기기로 보인다.
 - 검사: `checks/sim-device-id.js`.
 
-## `api-client.js` — 🌐 앱 공통 API 통로(`/v1`)
+## `api-client.js` — 🌐 앱 공통 API 통로(`/v2`)
 
 - **책임**: fetch · 시간 제한 · 봉투 풀기 · 실패 한 모양(`ApiError` kind · code · items · retryAfterMs) · 토큰 · 기기 머리 · ETag(304) 를 한 곳에서. 앱 오류 번호로 바꾸는 표는 `api-errors.js`.
 - **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true, onOwner? })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
@@ -392,9 +392,9 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: 서버 message 는 사용자 문구로 써도 되는 곳만 셋째 인자로(선물 · 하루 상한처럼 숫자가 든 것). 공통 표에 기능 code 를 더하지 않는다 — 같은 code 를 기능마다 다르게 다룰 수 있어야 한다.
 - 검사: `checks/sim-api-errors.js`.
 
-## `remote-config.js` — ⚙️ 원격 설정(`GET /v1/config` 하나)
+## `remote-config.js` — ⚙️ 원격 설정(`GET /v2/config` 하나)
 
-- **책임**: 운영 값(방 상한 · 정원 · 방 연결 시간 · 앱 · 방 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 서버 `GET /v1/config` 한 곳에서 받아 칸마다 씻어 둔다. 못 받으면 이 PC 저장값(2판) → 기본값. Firebase config 칸은 읽지 않는다.
+- **책임**: 운영 값(방 상한 · 정원 · 방 연결 시간 · 앱 · 방 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 서버 `GET /v2/config` 한 곳에서 받아 칸마다 씻어 둔다. 못 받으면 이 PC 저장값(2판) → 기본값. Firebase config 칸은 읽지 않는다.
 - **쓰는 법**: `TwRemoteConfig.store` — `maxPeople()` · `roomLimitOf(채널)` · `inviteGate()` · `roomServerTiming()` · `minAppVer()` · `minRoomVer()` · `bugDailyMax()` · `bannedWords()` · `clapDailyMax()` · `giftDailySendMax()` · `onChange(fn)` · `ready(_, ms)` · `refresh({ maxAgeMs })`.
 - **다시 읽기**: 5분마다 · 창이 다시 보일 때(1분 넘었으면) · realtime 알림 `config`(rt-hub.js — 서버가 바꿨다 · 오래 끊겼다 붙음). 같은 값이면 API 통로가 ETag 304 로 받는다.
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.
@@ -403,7 +403,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `update-flow.js` — 🔄 켤 때 업데이트 흐름(업데이트 창 → 공지 창 → 로그인)
 
-- **책임**: 로그인보다 먼저(계정 없이) 최소 버전(`minVersion.app` — `GET /v1/config`)과 새 판(main.js electron-updater)을 보고 창을 띄운다. 강제(내 버전 < 최소)는 [업데이트] 만 · 닫기 없음 · 로그인으로 넘어가지 않음. 선택(새 판 있음)은 [업데이트] [나중에](버전만 보임). 그 뒤 안 본 업데이트 공지 창, 그 뒤 로그인. 아무것도 없으면 바로 로그인.
+- **책임**: 로그인보다 먼저(계정 없이) 최소 버전(`minVersion.app` — `GET /v2/config`)과 새 판(main.js electron-updater)을 보고 창을 띄운다. 강제(내 버전 < 최소)는 [업데이트] 만 · 닫기 없음 · 로그인으로 넘어가지 않음. 선택(새 판 있음)은 [업데이트] [나중에](버전만 보임). 그 뒤 안 본 업데이트 공지 창, 그 뒤 로그인. 아무것도 없으면 바로 로그인.
 - **만드는 법**: `TwUpdateFlow.createUpdateFlow({ readMin, getMin, onMinChange, getVersion, companion, ui: TwUpdateFlow.createUpdateDom(document), noticeOnce, showNotice })` — app.js 가 초대 게이트(`initInviteGate`) 앞에서 만든다. 오류 번호 없음(못 읽으면 막지 않고 넘어간다).
 - **내놓는 것**: `runBeforeLogin()`(→ `{ proceed, stage }` — 강제면 `proceed:false`) · `press(action)` · `whenStageDone(fn)`(런처 «재시작하면 업데이트» 띠를 단계가 끝난 뒤에 걸기) · `isForced()` · `current()` / 순수 함수 `parseVer` · `isBelow` · `stageOf(my, min, latest)` · `viewOf`.
 - **켜 둔 동안**: 원격 설정이 `minVersion` 이 바뀌었다고 알리면(`onMinChange` — 서버 신호) 바로 강제 창. 새 주기 요청은 없다. realtime 서버가 통신 판이 다르다고 닫으면(4003) `forceProtocol()` — 최소 버전 없이 «서버와 맞지 않아» 강제 창(`realtime/rt-status-ui.js` 가 부름).

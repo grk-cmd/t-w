@@ -1,5 +1,5 @@
 /* ═══ 🔑 sim-license-api.js — 라이선스 provider(account/license-api.js · 0.13 앱 묶음 D8-1) ═══
-   [왜] 라이선스가 Firebase(licenses/{key}) 대신 우리 서버 공개 API(/v1/me/license*)를 쓴다. 서버 모양을 앱 모양으로 맞추고 «없음 ≠ 못 읽음» 을 가르고
+   [왜] 라이선스가 Firebase(licenses/{key}) 대신 우리 서버 공개 API(/v2/me/license*)를 쓴다. 서버 모양을 앱 모양으로 맞추고 «없음 ≠ 못 읽음» 을 가르고
      쓰기를 읽은 토큰 주인에 묶는 곳이 provider 하나라 그 맞춤을 실제로 불러서 판정한다.
    ・1절: 기기 이름 — 일반 이름만(컴퓨터 이름 없음) · 서버 상한 안
    ・2절: 읽기 — 내 라이선스 모양 맞춤 · 라이선스 없음(null) ≠ 못 읽음(던짐) · 모양 틀림은 던짐 · 로그인 통로로
@@ -56,34 +56,34 @@ async function judge(src){
 
   /* 2. 읽기 */
   {
-    const { authed, api } = mk({ 'GET /v1/me/license': LIC() });
+    const { authed, api } = mk({ 'GET /v2/me/license': LIC() });
     const r = await api.mine();
-    t(authed.log[0].path === '/v1/me/license' && authed.log[0].opts.auth === true, '읽기 — /v1/me/license 를 로그인 통로로(내 코드는 경로에 없다)');
+    t(authed.log[0].path === '/v2/me/license' && authed.log[0].opts.auth === true, '읽기 — /v2/me/license 를 로그인 통로로(내 코드는 경로에 없다)');
     t(r && r.licenseId === 'L-1' && r.status === 'VALID' && r.devices.length === 1 && r.devices[0].deviceId === 'dev-aaaaaaaa' && r.devices[0].name === 'Mac', '  내 라이선스 모양 — 상태 · 기기 목록');
-    const none = mk({ 'GET /v1/me/license': null });
+    const none = mk({ 'GET /v2/me/license': null });
     t((await none.api.mine()) === null, '★ 라이선스 없음 → null (못 읽음과 다르다)');
-    const down = mk({ 'GET /v1/me/license': apiErr(503, '', 'unavailable') });
+    const down = mk({ 'GET /v2/me/license': apiErr(503, '', 'unavailable') });
     let threw = null; try{ await down.api.mine(); }catch(e){ threw = e; }
     t(!!threw && threw.kind === 'unavailable', '★ 못 읽음 → 던진다(null 로 바꾸지 않는다)');
-    const revoked = mk({ 'GET /v1/me/license': LIC({ status: 'REVOKED' }) });
+    const revoked = mk({ 'GET /v2/me/license': LIC({ status: 'REVOKED' }) });
     t((await revoked.api.mine()).status === 'REVOKED', '  회수된 라이선스는 REVOKED 로');
     const bad = [{ licenseId: 'L', status: 'VALID' }, { licenseId: 'L', status: 'WHAT', devices: [] }, { licenseId: 'L', status: 'VALID', devices: [{ name: 'x' }] }, 'x', 7, [], { status: 'VALID', devices: [] }];
     let allThrow = true;
-    for(const b of bad){ try{ await mk({ 'GET /v1/me/license': b }).api.mine(); allThrow = false; }catch(e){ if(e.code !== 'SHAPE') allThrow = false; } }
-    const full = await mk({ 'GET /v1/me/license': LIC({ premium: true, deviceLimit: 3 }) }).api.mine();
+    for(const b of bad){ try{ await mk({ 'GET /v2/me/license': b }).api.mine(); allThrow = false; }catch(e){ if(e.code !== 'SHAPE') allThrow = false; } }
+    const full = await mk({ 'GET /v2/me/license': LIC({ premium: true, deviceLimit: 3 }) }).api.mine();
     t(full.premium === true && full.deviceLimit === 3, '이 기기 판정 premium · 기기 상한 deviceLimit 을 서버 값 그대로(앱에 3 을 박지 않는다)');
-    const off = await mk({ 'GET /v1/me/license': LIC({ premium: false, deviceLimit: 1 }) }).api.mine();
+    const off = await mk({ 'GET /v2/me/license': LIC({ premium: false, deviceLimit: 1 }) }).api.mine();
     t(off.premium === false && off.deviceLimit === 1, '  premium:false 는 «아님» · 상한 1 도 받는다(경계)');
     const odd = [{}, { premium: 'true', deviceLimit: '3' }, { premium: 1, deviceLimit: 0 }, { premium: null, deviceLimit: -1 }, { deviceLimit: 2.5 }];
     let allNull = true;
-    for(const o of odd){ const r = await mk({ 'GET /v1/me/license': LIC(o) }).api.mine(); if(r.premium !== null || r.deviceLimit !== null) allNull = false; }
+    for(const o of odd){ const r = await mk({ 'GET /v2/me/license': LIC(o) }).api.mine(); if(r.premium !== null || r.deviceLimit !== null) allNull = false; }
     t(allNull, '★ 칸이 없거나 모양이 틀리면 null(«모름») — 문자열 · 숫자 1 · 0 · 음수 · 소수를 판정 · 상한으로 읽지 않는다');
     t(allThrow, '★ 모양이 틀린 답(칸 없음 · 모르는 상태 · 기기 id 없음 · 문자열 · 배열)은 SHAPE 로 던진다 — 받은 값을 믿지 않는다');
   }
 
   /* 3. 쓰기 */
   {
-    const routes = { 'GET /v1/me/license': LIC(), 'POST /v1/me/license': LIC(), 'PUT /v1/me/license/devices/dev-bbbbbbbb': LIC(), 'DELETE /v1/me/license/devices/dev-bbbbbbbb': LIC() };
+    const routes = { 'GET /v2/me/license': LIC(), 'POST /v2/me/license': LIC(), 'PUT /v2/me/license/devices/dev-bbbbbbbb': LIC(), 'DELETE /v2/me/license/devices/dev-bbbbbbbb': LIC() };
     const { authed, api } = mk(routes);
     let e0 = null; try{ await api.putDevice('dev-bbbbbbbb', 'Mac'); }catch(e){ e0 = e; }
     t(!!e0 && e0.code === 'NOT_READ' && authed.log.length === 0, '★ 읽기 전 쓰기 → 요청 0 (NOT_READ) — 누구의 라이선스를 고치는지 모른다');
@@ -91,14 +91,14 @@ async function judge(src){
     await api.mine();
     await api.register('ABCD-1234', { id: 'dev-bbbbbbbb', name: 'Windows PC' });
     const post = authed.log[authed.log.length - 1];
-    t(post.method === 'POST' && post.path === '/v1/me/license' && JSON.stringify(post.body) === JSON.stringify({ key: 'ABCD-1234', device: { id: 'dev-bbbbbbbb', name: 'Windows PC' } }) && post.opts.expectOwner === 'tokA',
-      '키 등록 — POST /v1/me/license { key, device:{ id, name } } · 읽은 주인에 묶음');
+    t(post.method === 'POST' && post.path === '/v2/me/license' && JSON.stringify(post.body) === JSON.stringify({ key: 'ABCD-1234', device: { id: 'dev-bbbbbbbb', name: 'Windows PC' } }) && post.opts.expectOwner === 'tokA',
+      '키 등록 — POST /v2/me/license { key, device:{ id, name } } · 읽은 주인에 묶음');
     await api.putDevice('dev-bbbbbbbb', 'Mac');
     const put = authed.log[authed.log.length - 1];
-    t(put.method === 'PUT' && put.path === '/v1/me/license/devices/dev-bbbbbbbb' && JSON.stringify(put.body) === JSON.stringify({ name: 'Mac' }) && put.opts.expectOwner === 'tokA', '이 기기 등록 — PUT …/devices/{id} { name } · 읽은 주인에 묶음');
+    t(put.method === 'PUT' && put.path === '/v2/me/license/devices/dev-bbbbbbbb' && JSON.stringify(put.body) === JSON.stringify({ name: 'Mac' }) && put.opts.expectOwner === 'tokA', '이 기기 등록 — PUT …/devices/{id} { name } · 읽은 주인에 묶음');
     await api.removeDevice('dev-bbbbbbbb');
     const del = authed.log[authed.log.length - 1];
-    t(del.method === 'DELETE' && del.path === '/v1/me/license/devices/dev-bbbbbbbb' && del.opts.expectOwner === 'tokA', '기기 빼기 — DELETE …/devices/{id} · 읽은 주인에 묶음');
+    t(del.method === 'DELETE' && del.path === '/v2/me/license/devices/dev-bbbbbbbb' && del.opts.expectOwner === 'tokA', '기기 빼기 — DELETE …/devices/{id} · 읽은 주인에 묶음');
     const before = authed.log.length;
     state.who = 'tokB';   // 읽은 뒤 로그인한 사람이 바뀜
     let e1 = null; try{ await api.putDevice('dev-bbbbbbbb', 'Mac'); }catch(e){ e1 = e; }
@@ -107,11 +107,11 @@ async function judge(src){
     await api.putDevice('dev-bbbbbbbb', 'Mac');
     t(authed.log[authed.log.length - 1].opts.expectOwner === 'tokB', '  다시 읽으면 새 주인에 묶여 쓴다');
     state.who = 'tokA';
-    const odd = mk({ 'GET /v1/me/license': LIC(), 'PUT /v1/me/license/devices/a%2Fb%3Fc': LIC() });
+    const odd = mk({ 'GET /v2/me/license': LIC(), 'PUT /v2/me/license/devices/a%2Fb%3Fc': LIC() });
     await odd.api.mine();
     let encoded = true; try{ await odd.api.putDevice('a/b?c', 'x'); }catch(e){ encoded = false; }
     t(encoded, '  기기 id 는 경로에서 인코딩한다(경로를 바꿔 다른 자원을 가리키지 못함)');
-    const shapeBad = mk({ 'GET /v1/me/license': LIC(), 'PUT /v1/me/license/devices/dev-bbbbbbbb': { ok: 1 } });
+    const shapeBad = mk({ 'GET /v2/me/license': LIC(), 'PUT /v2/me/license/devices/dev-bbbbbbbb': { ok: 1 } });
     await shapeBad.api.mine();
     let sh = null; try{ await shapeBad.api.putDevice('dev-bbbbbbbb', 'x'); }catch(e){ sh = e; }
     t(!!sh && sh.code === 'SHAPE', '  쓰기 답의 모양이 틀려도 던진다');

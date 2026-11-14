@@ -55,9 +55,9 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
   {
     const f = mkFetch(() => res(200, { success: true, data: { a: 1 } }));
     const c = A.createApiClient({ baseUrl: PROD + '/', fetch: f });
-    const d = await c.get('/v1/config');
+    const d = await c.get('/v2/config');
     chk(d && d.a === 1, '봉투의 data 를 돌려준다');
-    chk(f.calls[0].url === PROD + '/v1/config' && f.calls[0].init.credentials === 'omit' && Object.keys(f.calls[0].init.headers || {}).length === 0, '  ↳ 주소 = 기본(끝 / 정리) + 경로 · 토큰 · 쿠키 없이');
+    chk(f.calls[0].url === PROD + '/v2/config' && f.calls[0].init.credentials === 'omit' && Object.keys(f.calls[0].init.headers || {}).length === 0, '  ↳ 주소 = 기본(끝 / 정리) + 경로 · 토큰 · 쿠키 없이');
     chk(c.baseUrl() === PROD && !c.resting(), '  ↳ baseUrl · 쉬지 않음');
     const nul = A.createApiClient({ baseUrl: PROD, fetch: mkFetch(() => res(200, { success: true, data: null })) });
     chk((await nul.get('/x')) === null, '  ↳ data 가 null 이어도 성공(없음은 부르는 쪽이 판단)');
@@ -65,7 +65,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
 
   say('── 3. 실패 한 모양');
   {
-    const one = async (fn, opts) => err(A.createApiClient(Object.assign({ baseUrl: PROD, fetch: mkFetch(fn), backoffMs: 0 }, opts || {})).get('/v1/x'));
+    const one = async (fn, opts) => err(A.createApiClient(Object.assign({ baseUrl: PROD, fetch: mkFetch(fn), backoffMs: 0 }, opts || {})).get('/v2/x'));
     const cases = [
       ['네트워크(TypeError)', () => { throw new TypeError('Failed to fetch'); }, 'unavailable', 'NETWORK'],
       ['500', () => res(500, { success: false, code: 'INTERNAL' }), 'unavailable', 'INTERNAL'],
@@ -175,7 +175,7 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
       const bytes = new Uint8Array([1, 2, 3]);
       const rf = mkFetch(() => res(200, { success: true, data: { url: 'u' } }));
       const cr = A.createApiClient({ baseUrl: PROD, fetch: rf, getToken: async () => jwt('A') });
-      await cr.post('/v1/me/images?purpose=dday', bytes, { rawType: 'image/png', expectOwner: 'A' });
+      await cr.post('/v2/me/images?purpose=dday', bytes, { rawType: 'image/png', expectOwner: 'A' });
       const ri = rf.calls[0].init;
       chk(ri.body === bytes && ri.headers['Content-Type'] === 'image/png' && ri.method === 'POST' && ri.headers.Authorization === 'Bearer ' + jwt('A'), '  rawType — 바이트 본문을 JSON 으로 바꾸지 않고 그 Content-Type 으로 그대로 보낸다');
       const owners = [];
@@ -216,14 +216,14 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     let n = 0;
     const f = mkFetch((url, init) => (++n === 1 ? res(401, { success: false, code: 'AUTH_REQUIRED' }) : res(200, { success: true, data: init.headers.Authorization })));
     const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async (force) => { forces.push(force); return force ? 'fresh' : 'old'; }, deviceId: () => 'dev-0001' });
-    const v = await c.get('/v1/me', { auth: true });
+    const v = await c.get('/v2/me', { auth: true });
     chk(v === 'Bearer fresh' && forces.join(',') === 'false,true' && f.calls.length === 2, '401 AUTH_REQUIRED(토큰이 막 끝남) → 새 토큰(force)으로 한 번만 다시(첫 토큰은 요청당 한 번만 받는다)');
     chk(f.calls[0].init.headers['X-Device-Id'] === 'dev-0001' && A.DEVICE_HEADER === 'X-Device-Id', '  ↳ 로그인 요청에 이 기기 머리 X-Device-Id');
     const g = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
     const e2 = await err(A.createApiClient({ baseUrl: PROD, fetch: g, getToken: async () => 't' }).get('/x', { auth: true }));
     chk(e2 && e2.kind === 'auth' && g.calls.length === 2, '  ↳ 다시 해도 401 이면 그대로 auth(두 번까지만)');
     const h = mkFetch(() => res(401, { success: false, code: 'USER_CODE_NOT_BOUND' }));
-    const e3 = await err(A.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/v1/me', { auth: true }));
+    const e3 = await err(A.createApiClient({ baseUrl: PROD, fetch: h, getToken: async () => 't' }).get('/v2/me', { auth: true }));
     chk(e3 && e3.code === 'USER_CODE_NOT_BOUND' && h.calls.length === 1, '  ↳ 가입 전(USER_CODE_NOT_BOUND)은 다시 안 함');
     const pub = mkFetch(() => res(401, { success: false, code: 'AUTH_REQUIRED' }));
     await err(A.createApiClient({ baseUrl: PROD, fetch: pub, getToken: async () => 't' }).get('/x'));
@@ -242,38 +242,38 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
     let body = { success: true, data: { v: 1 } };
     const f = mkFetch((url, init) => (init.headers['If-None-Match'] === '"e1"' ? res(304, null) : res(200, body, { ETag: '"e1"' })));
     const c = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => jwt('uA') });
-    const a = await c.get('/v1/config');
-    const b = await c.get('/v1/config');
+    const a = await c.get('/v2/config');
+    const b = await c.get('/v2/config');
     chk(a.v === 1 && b === a && !f.calls[0].init.headers['If-None-Match'] && f.calls[1].init.headers['If-None-Match'] === '"e1"', 'ETag 를 기억해 다음 읽기에 If-None-Match · 304 면 기억한 값');
-    const ma = await c.get('/v1/me/x', { auth: true });
+    const ma = await c.get('/v2/me/x', { auth: true });
     const tok = { cur: jwt('uA') };
     const c2 = A.createApiClient({ baseUrl: PROD, fetch: f, getToken: async () => tok.cur });
-    await c2.get('/v1/me/x', { auth: true });
+    await c2.get('/v2/me/x', { auth: true });
     tok.cur = jwt('uB');
     const n0 = f.calls.length;
-    await c2.get('/v1/me/x', { auth: true });
+    await c2.get('/v2/me/x', { auth: true });
     chk(ma.v === 1 && !f.calls[n0].init.headers['If-None-Match'], '  ↳ 로그인 읽기는 토큰 주인(sub)마다 따로 — 다른 계정은 기억 값을 묻지 않는다');
     c.clearCache();
-    await c.get('/v1/config');
+    await c.get('/v2/config');
     chk(!f.calls[f.calls.length - 1].init.headers['If-None-Match'], '  ↳ clearCache 는 ETag 기억도 지운다');
     {
       /* 계정을 놓을 때 — 진행 중인 로그인 읽기에 다음 계정이 묻어가지 않는다 */
       const gate = []; const who = { v: jwt('uA') };
       const fs2 = mkFetch((url, init) => new Promise((r) => gate.push(() => r(res(200, { success: true, data: init.headers.Authorization }, { ETag: '"m"' })))));
       const cs = A.createApiClient({ baseUrl: PROD, fetch: fs2, getToken: async () => who.v, backoffMs: 0 });
-      const pA = cs.get('/v1/me', { auth: true });
+      const pA = cs.get('/v2/me', { auth: true });
       await new Promise((r) => setImmediate(r));
       cs.forgetSession(); who.v = jwt('uB');
-      const pB = cs.get('/v1/me', { auth: true });
+      const pB = cs.get('/v2/me', { auth: true });
       await new Promise((r) => setImmediate(r));
-      const pB2 = cs.get('/v1/me', { auth: true });
+      const pB2 = cs.get('/v2/me', { auth: true });
       while(gate.length) gate.shift()();
       const [a1, b1, b2] = await Promise.all([pA, pB, pB2]);
       chk(fs2.calls.length === 2 && a1 === 'Bearer ' + jwt('uA') && b1 === 'Bearer ' + jwt('uB') && b2 === b1, 'forgetSession — 앞 계정의 진행 중 읽기에 묻어가지 않고 새로 보낸다 · 새 요청끼리는 하나로');
-      const n1 = fs2.calls.length; const pC = cs.get('/v1/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pC;
+      const n1 = fs2.calls.length; const pC = cs.get('/v2/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pC;
       chk(fs2.calls.length === n1 + 1 && fs2.calls[n1].init.headers['If-None-Match'] === '"m"', '  ↳ 앞 계정 읽기가 늦게 끝나도 새 계정 요청 자리를 지우지 않는다 · 새 계정 ETag 는 그대로');
       cs.forgetSession();
-      const n2 = fs2.calls.length; const pD = cs.get('/v1/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pD;
+      const n2 = fs2.calls.length; const pD = cs.get('/v2/me', { auth: true }); await new Promise((r) => setImmediate(r)); while(gate.length) gate.shift()(); await pD;
       chk(!fs2.calls[n2].init.headers['If-None-Match'], '  ↳ forgetSession 은 계정별 ETag 기억도 지운다');
     }
     const lost = mkFetch(() => res(304, null));
@@ -317,15 +317,15 @@ const err = async (p) => { try{ await p; return null; }catch(e){ return e; } };
         fetch: async (url, init) => { if(down) throw new TypeError('x'); calls.push(init.headers); return res(200, { success: true, data: 1 }); } };
       w.window = w;
       vm.runInNewContext(SRC, { window: w, console, setTimeout, clearTimeout, AbortController, Promise, Map, Error, String, Date, encodeURIComponent, atob });
-      const e0 = await err(w.TwApi.authed.get('/v1/me', { auth: true }));
+      const e0 = await err(w.TwApi.authed.get('/v2/me', { auth: true }));
       w.TwApi.bindToken(async (force) => 'tok-' + (force ? 'f' : 'n'));
-      await w.TwApi.authed.put('/v1/me/x', { a: 1 });
+      await w.TwApi.authed.put('/v2/me/x', { a: 1 });
       const h = calls.filter((x) => typeof x === 'object').pop();
       chk(e0 && e0.code === 'NO_TOKEN' && h.Authorization === 'Bearer tok-n' && h['X-Device-Id'] === 'dev-abc123' && calls.includes('touch'),
         'authed(로그인 통로) — 토큰을 잇기 전엔 NO_TOKEN · bindToken 뒤 토큰 · 기기 머리(TwDeviceId) · 점검 창 touch');
       down = true;
-      const eA = await err(w.TwApi.authed.get('/v1/me/friends', { auth: true }));
-      const eC = await err(w.TwApi.client.get('/v1/config'));
+      const eA = await err(w.TwApi.authed.get('/v2/me/friends', { auth: true }));
+      const eC = await err(w.TwApi.client.get('/v2/config'));
       chk(eA && eA.code === 'NETWORK' && !w.TwApi.authed.resting() && eC && w.TwApi.client.resting(), '  ↳ 로그인 통로는 닿지 못해도 쉬지 않는다(다시 묻기를 막지 않게) · 공용 읽기 통로는 쉰다');
     }
     const iApi = HTML.indexOf('<script src="parts/shared/api-client.js"></script>'), iRc = HTML.indexOf('<script src="parts/shared/remote-config.js"></script>'), iApp = HTML.indexOf('<script src="parts/app.js"></script>'),

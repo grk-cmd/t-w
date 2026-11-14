@@ -192,7 +192,7 @@ async function judge(S){
     chk(!r4.ok && r4.state === 'signup' && e4.authLog.join() === 'g:gtok,out', '★ 가입 전 → signup · 구글 로그인은 놓는다(껐다 켜도 켤 때 signup 으로 이 PC 몫이 지워지지 않게)');
     const e4b = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); } });
     const rj = await e4b.flow.joinGoogle({ inviteCode: 'ABC' });
-    chk(rj.ok && e4b.srv.joinG.length === 1 && e4b.authLog.join() === 'g:gtok', '  ↳ 가입으로 이어 가는 joinGoogle 은 그 로그인을 쓴다(구글 창을 다시 거쳐 POST /v1/users)');
+    chk(rj.ok && e4b.srv.joinG.length === 1 && e4b.authLog.join() === 'g:gtok', '  ↳ 가입으로 이어 가는 joinGoogle 은 그 로그인을 쓴다(구글 창을 다시 거쳐 POST /v2/users)');
     const e4c = mkEnv(S, { user: null, me: () => { throw apiErr('auth', 'USER_CODE_NOT_BOUND'); } }); e4c.srv.joinGAns = () => { throw Object.assign(new Error('x'), { kind: 'request', code: 'INVITE_INVALID' }); };
     const rj2 = await e4c.flow.joinGoogle({ inviteCode: 'BAD' });
     chk(!rj2.ok && e4c.authLog.join() === 'g:gtok,out', '  ↳ 가입이 거절되면 계정 없는 로그인을 남기지 않는다')

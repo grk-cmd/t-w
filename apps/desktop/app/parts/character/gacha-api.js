@@ -1,5 +1,5 @@
 /* gacha-api.js — 🎰 가챠 api provider (검사 sim-gacha-api.js)
-   책임: 내 보유분 · 뽑기 수 · 시즌을 서버에서 받고(GET /v1/me/collection · GET /v1/me/gacha), 뽑기를 서버에 부탁한다(POST /v1/me/gacha/draws).
+   책임: 내 보유분 · 뽑기 수 · 시즌을 서버에서 받고(GET /v2/me/collection · GET /v2/me/gacha), 뽑기를 서버에 부탁한다(POST /v2/me/gacha/draws).
      확률 · 풀 · 시즌 · 남은 횟수 · 색 해금(다 모았나)은 서버가 정한다 — 앱은 받은 값을 그린다. 이 PC 에 보유분 사본을 두지 않는다.
    신원: 토큰이 정한 나뿐이다(남의 것을 보거나 대신 뽑는 길이 없다). 읽을 때 토큰의 주인을 기억해 두고, 뽑기는 그 주인과 묶어 보낸다
      (계정이 바뀌는 틈에 앞 계정 요청이 새 계정 토큰으로 나가지 않게 — OWNER_CHANGED).
@@ -14,7 +14,7 @@
 (function(){
 'use strict';
 
-const PATHS = Object.freeze({ collection: '/v1/me/collection', gacha: '/v1/me/gacha', draws: '/v1/me/gacha/draws' });
+const PATHS = Object.freeze({ collection: '/v2/me/collection', gacha: '/v2/me/gacha', draws: '/v2/me/gacha/draws' });
 const COUNT_MAX = 10;               // 한 번에 부탁할 수 있는 뽑기 수 — 서버 규격(1..10)과 같은 값
 const LOAD_TIMEOUT_MS = 5000;
 const DRAW_TIMEOUT_MS = 8000;       // 서버가 읽고 · 굴리고 · 쓰는 왕복 — 읽기보다 길게

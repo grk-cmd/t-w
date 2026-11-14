@@ -5,7 +5,7 @@
      isAdmin 은 이름() 으로 읽고 isAdmin = … 은 setIsAdmin(…) 으로, savedParts 는 이름() 으로. 둘 다 app.js 의 let 이고(isAdmin 은
      이 모듈이 바꾸는 값 · savedParts 는 뒤에서 선언되고 다시 대입) 값이 아니라 읽는 함수 · 쓰는 함수로 받는다. 자리는 파서로 찾았다.
    ★ 이 모듈이 isAdmin 을 바꾸는 단 한 곳이다(켜기 · 끄기). 권한의 진짜 근거는 서버다 — 비밀번호가 맞고 로그인이 있어도 서버가 이 계정을
-     관리자로 알아야(GET /v1/admin/admins/me) 켠다. 아니면 «모드는 켜졌는데 저장이 전부 403» 이 된다.
+     관리자로 알아야(GET /v2/admin/admins/me) 켠다. 아니면 «모드는 켜졌는데 저장이 전부 403» 이 된다.
    ★ 밖에서 부르는 이름은 refreshAdminVisibility 하나 — 부팅 때 관리자 전용 UI 를 숨길 때 app.js 가 adminMode.refreshAdminVisibility 로 부른다.
    ⚠️ document · window · companion · firebaseAPI · crypto · TextEncoder · hotkeyLetter(key-input.js) · navigator 는 예전처럼 전역 이름으로 쓴다
      (이 파일은 app.js 앞 · key-input.js 뒤에 싣는 classic script).

@@ -1,5 +1,5 @@
 /* room-lobby-provider.js — 🗂️ 방 목록 로비가 읽는 것(채널 목록 사본 · 내 시크릿룸)을 한 곳에서.
-   목록은 API(GET /v1/rooms/lobby?channel= — 방 서버 방 + Firebase 방 사본을 서버가 합친 것) 먼저 · 못 받거나 모양이 틀리면 Firebase roomLobby/{채널}
+   목록은 API(GET /v2/rooms/lobby?channel= — 방 서버 방 + Firebase 방 사본을 서버가 합친 것) 먼저 · 못 받거나 모양이 틀리면 Firebase roomLobby/{채널}
    (설계 docs/ROOM_LOBBY.md 4장). 화면(room-lobby-ui.js)은 이 모양만 안다.
    classic script(window.TwRoomLobbyProvider) — app.js 가 createRoomLobbyProvider(deps). 검사: checks/sim-room-lobby-ui.js */
 (function(){
@@ -17,7 +17,7 @@
  *   now: () => number,
  * }} deps
  */
-const LOBBY_PATH = '/v1/rooms/lobby';
+const LOBBY_PATH = '/v2/rooms/lobby';
 const LOBBY_TIMEOUT_MS = 5000;
 
 function createRoomLobbyProvider(deps){

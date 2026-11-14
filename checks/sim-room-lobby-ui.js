@@ -93,8 +93,8 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
       const srv = { at: 7, rooms: { 'WORK-SV11': { t: '서버 방', n: 2, max: 4, hn: '도토리', mu: false, since: 5 } } };
       const oo = { lobby: { workingroom: { at: 1, rooms: {} } }, apiGet: async (path, opts) => { asked.push([path, opts]); return srv; } };
       const v = await mk(oo).listRooms('workingroom');
-      chk(v.at === 7 && v.rooms['WORK-SV11'].hn === '도토리' && asked[0][0] === '/v1/rooms/lobby?channel=workingroom' && asked[0][1].auth === true && asked[0][1].timeoutMs > 0,
-        '★ API 먼저 — GET /v1/rooms/lobby?channel= · 로그인 통로 · 시간 제한 · 받으면 Firebase 는 읽지 않는다');
+      chk(v.at === 7 && v.rooms['WORK-SV11'].hn === '도토리' && asked[0][0] === '/v2/rooms/lobby?channel=workingroom' && asked[0][1].auth === true && asked[0][1].timeoutMs > 0,
+        '★ API 먼저 — GET /v2/rooms/lobby?channel= · 로그인 통로 · 시간 제한 · 받으면 Firebase 는 읽지 않는다');
       let fbReads = 0;
       const o2 = { apiGet: async () => ({ at: 'x', rooms: [] }) };
       const pv = P.createRoomLobbyProvider({ api: () => Object.assign(mkApi(o2), { getRoomLobby: async () => { fbReads++; return { at: 2, rooms: {} }; } }), apiGet: o2.apiGet, myUserId: () => 'u1', now: () => now });

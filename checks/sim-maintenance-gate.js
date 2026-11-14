@@ -4,7 +4,7 @@
    ・2-2절: realtime 점검(4006) — serverClosed: 점검 창 + [다시 시도] · 누름 · 점검 해제 때만 한 번 다시 붙기 · 그동안 on()
    ・2절: 창 — 점검 중이어도 사람이 누른 동작일 때만 · 뒤에서 혼자 낸 요청은 조용히 · 떠 있는 창은 바뀐 끝 시각으로 다시 · 끝나면 다시 켜기를 묻는다(본 적 없으면 안 물음) · 단추
    ・3절: 고리 — Firebase 기본 동작(firebase-init.js _touched)이 요청마다 한 번 · API 통로(api-client.js)는 실제로 보낼 때만 · 오류 번호 토스트는 점검 중 조용히(기록은 남김)
-   ・2-3절: 점검 값 읽기(0.13) — 서버 /v1/config 먼저 · 네트워크 · 5xx · 시간 초과면 Firebase 한 칸 · 4xx 는 물러나지 않음 · 서버가 답하면 Firebase 를 안 읽음 · ISO 끝 시각 · 읽는 때(시작 · config 알림 · 4006 · 다시 시도)
+   ・2-3절: 점검 값 읽기(0.13) — 서버 /v2/config 먼저 · 네트워크 · 5xx · 시간 초과면 Firebase 한 칸 · 4xx 는 물러나지 않음 · 서버가 답하면 Firebase 를 안 읽음 · ISO 끝 시각 · 읽는 때(시작 · config 알림 · 4006 · 다시 시도)
    ・4절: 연결 · 규칙 — html 싣는 순서 · 클릭 통과 목록 · firebase-init 구독 · config/maintenance 누구나 읽기 · 관리자만 쓰기 · 모양
    ・5절: 깨 보기 — (읽기) 4xx 도 물러나거나 · 서버가 답해도 Firebase 를 읽거나 · 서버 길을 건너뛰거나 · 알림 · 다시 시도에서 안 읽으면 빨강 · 사람이 누른 동작 확인을 빼거나 · 판정 폭을 5초로 · 창 안 입력도 세거나 · 다른 창 것을 안 숨기거나 · 오류 토스트 조용히를 빼거나 · on 판정을 느슨하게 하면 빨강
    [실행] node checks/run.js sim-maintenance-gate */
@@ -264,9 +264,9 @@ say('── 3. 고리');
     let reqs = 0, fetches = 0;
     const fetch = async () => { fetches++; return { status: 200, ok: true, json: async () => ({ success: true, data: { v: 1 } }) }; };
     const c = A.createApiClient({ baseUrl: 'https://api.together-working.com', fetch, onRequest: () => { reqs++; } });
-    await c.get('/v1/x', { cacheMs: 60000 });
-    await c.get('/v1/x', { cacheMs: 60000 });
-    await c.post('/v1/y', {}, { auth: false });
+    await c.get('/v2/x', { cacheMs: 60000 });
+    await c.get('/v2/x', { cacheMs: 60000 });
+    await c.post('/v2/y', {}, { auth: false });
     chk(reqs === 2 && fetches === 2, 'API 통로 — 실제로 보낼 때만(캐시에서 준 것은 안 셈) · get · post · ' + reqs);
   }
   {
@@ -288,9 +288,9 @@ say('── 3. 고리');
   const hit = (DR.match(/const UI_HIT_SEL = '([^']*)'/) || [])[1] || '';
   chk(hit.split(',').map(s => s.trim()).includes('#' + M.GATE_ID), '클릭 통과 목록(UI_HIT_SEL)에 #' + M.GATE_ID + ' — 투명 창에서도 단추를 누른다');
   chk(/_mt\.start\(\{ readServer: \(\) => window\.TwApi\.client\.get\(window\.TwMaintenance\.CONFIG_PATH\),/.test(FI) && /readFlag: \(\) => _sdkGet\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\)\)\.then\(\(s\) => s\.val\(\)\), rt: window\.TwRtHub\.store \}\)/.test(FI),
-      'firebase-init — 점검 읽기를 gate 에 잇는다(서버 GET /v1/config 먼저 · Firebase 칸은 한 번 읽기 · 늘 듣는 구독 없음)');
+      'firebase-init — 점검 읽기를 gate 에 잇는다(서버 GET /v2/config 먼저 · Firebase 칸은 한 번 읽기 · 늘 듣는 구독 없음)');
   chk(!/onValue\(ref\(db, window\.TwMaintenance\.MAINTENANCE_PATH\)/.test(FI), '  ↳ config/maintenance 를 늘 듣는 구독이 없다(P3)');
-  chk(M.CONFIG_PATH === '/v1/config' && !/window\.TwApi/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '  ↳ gate 는 API 통로를 직접 부르지 않는다(api-client.js 와 서로 부르는 순환이 되므로 · 읽기 함수는 firebase-init 이 잇는다)');
+  chk(M.CONFIG_PATH === '/v2/config' && !/window\.TwApi/.test(SRC.replace(/\/\*[\s\S]*?\*\//g, '')), '  ↳ gate 는 API 통로를 직접 부르지 않는다(api-client.js 와 서로 부르는 순환이 되므로 · 읽기 함수는 firebase-init 이 잇는다)');
   chk(/const touch = \(\) => \{ window\.TwMaintenance\.store\.touch\(\); \};/.test(AC) && /client = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch \}\);/.test(AC)
     && /authed = createApiClient\(\{ baseUrl, fetch: fetchFn, onRequest: touch,/.test(AC) && /muted: \(\)=>window\.TwMaintenance\.store\.on\(\)/.test(EC), '  ↳ API 통로 두 벌(공용 읽기 · 로그인) · 오류 번호 한 벌에도');
   const n = (RULES.config || {}).maintenance || {};

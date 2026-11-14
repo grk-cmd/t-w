@@ -25,7 +25,7 @@
  * 수 MB 라 맞지 않는다. 용량 초과를 포함한 열기 · 읽기 · 쓰기 실패는 전부 «캐시 없음» 으로 보고 서버에서 받는다.
  * 받기(get)까지 실패하면 ① 과 같은 옛 방식으로 물러난다.
  *
- * [본문은 API 읽기 사본 먼저] 버전 알림은 그대로 Firebase catalogMeta(숫자 하나), 본문만 우리 API(GET /v1/catalog/{종류}?v=)에서 받는다
+ * [본문은 API 읽기 사본 먼저] 버전 알림은 그대로 Firebase catalogMeta(숫자 하나), 본문만 우리 API(GET /v2/catalog/{종류}?v=)에서 받는다
  *   — 관리자가 고칠 때마다 켜져 있는 앱 전부가 Firebase 에서 통째로 다시 받던 몫(createApiCatalogFetch).
  *   API 가 못 주거나(꺼짐 · 사본 아직) 사본 버전이 구독한 버전과 다르면 지금처럼 Firebase get. 쓰기는 그대로 Firebase(원본).
  * 캐시 키에 DB 주소를 넣는다 — 운영과 dev(start:dev)가 같은 PC 에서 돌 수 있다.
@@ -41,7 +41,7 @@ export const LIVE_COALESCE_MIN_MS = 10 * 1000;               // 켜져 있는 �
 export const LIVE_COALESCE_SPREAD_MS = 40 * 1000;           // (수명 타이머 MIN_RECHECK_MS 보다 짧게)
 const IDB_TIMEOUT_MS = 3000;                                 // IDB 가 막혀(다른 창이 버전 업그레이드 중 등) 안 열리면 기다리지 않는다
 const MIN_RECHECK_MS = 60 * 1000;                            // 수명 타이머가 너무 촘촘히 돌지 않게
-export const CATALOG_API_PATH = '/v1/catalog/';             // t-w-server api — 공개 읽기 · v 가 같으면 하루 캐시
+export const CATALOG_API_PATH = '/v2/catalog/';             // t-w-server api — 공개 읽기 · v 가 같으면 하루 캐시
 export const CATALOG_API_TIMEOUT_MS = 8000;                  // 본문이 수백 KB 라 API 공통 시간 제한(2.5초)보다 길게 — 넘으면 Firebase 로
 
 /* 버전은 서버 시각(ms) 양수만 인정한다 — 규칙 catalogMeta/$kind 도 같은 모양만 받는다.

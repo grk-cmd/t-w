@@ -1,5 +1,5 @@
 /* admin-report.js — 🚩 신고 목록 (관리자 — 서로 다른 ADMIN_MIN 명 이상에게 신고된 사람 · 그림 내리기 · 문제없음)
-   ★ 목록 · 문제없음 · 그림 내리기는 서버 길(support/report-api.js 의 createAdminReportApi — /v1/admin/reports*) 하나로 한다.
+   ★ 목록 · 문제없음 · 그림 내리기는 서버 길(support/report-api.js 의 createAdminReportApi — /v2/admin/reports*) 하나로 한다.
      «서로 다른 3명 이상» 거르기 · 이름 · 그림 붙이기 · 그림 칸과 파일 지우기는 서버가 한다. 이 파일은 화면만.
    ★ 팝업 칸(_reportOv · _reportEsc)은 신고 창(report.js)과 함께 쓰는 «한 번에 하나만 열리는 자리»라 그쪽이 가지고, 여기서는 읽는 · 쓰는 함수로만 만진다.
      창 틀 · 닫기 · 신고 종류 · 기준 인원도 report.js 가 내놓은 것을 app.js 가 넘긴다.

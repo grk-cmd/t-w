@@ -1,5 +1,5 @@
 /* admin-api.js — 🛠️ 앱 관리자 서버 길 provider (검사 sim-admin-api.js)
-   책임: 앱 관리자 창이 쓰는 서버 관리자 API(/v1/admin/...) 중 «관리자 확인 · 📣 확성기 · 📰 업데이트 공지 · 📢 런처 배너 · 🛑 방 종료» 의 요청 모양 한 곳.
+   책임: 앱 관리자 창이 쓰는 서버 관리자 API(/v2/admin/...) 중 «관리자 확인 · 📣 확성기 · 📰 업데이트 공지 · 📢 런처 배너 · 🛑 방 종료» 의 요청 모양 한 곳.
      서버 모양(imageUrl · linkUrl · publishedAt)을 화면 모양(img · link · ts)으로 맞추는 곳도 여기뿐이다. 화면 · 알림은 모른다 — 실패는 던진다(ApiError).
    관리자 판정은 서버가 한다(토큰의 uid 가 관리자 표에 있어야 하고, 아니면 403 ACCESS_DENIED). 앱에는 «누가 했는지» 를 보내지 않는다.
    deps: authed — 로그인 통로(TwApi.authed — get · post · put · del(…) → Promise<data>)
@@ -20,13 +20,13 @@
 'use strict';
 
 const PATHS = Object.freeze({
-  me: '/v1/admin/admins/me',
-  announcements: '/v1/admin/notices/announcements',
-  announcementNow: '/v1/admin/notices/announcements/current',
-  updateNotices: '/v1/admin/notices/update-notices',
-  updateNotice: (id) => '/v1/admin/notices/update-notices/' + encodeURIComponent(id),
-  banner: '/v1/admin/notices/launcher-banner',
-  roomsClose: '/v1/admin/rooms/close',
+  me: '/v2/admin/admins/me',
+  announcements: '/v2/admin/notices/announcements',
+  announcementNow: '/v2/admin/notices/announcements/current',
+  updateNotices: '/v2/admin/notices/update-notices',
+  updateNotice: (id) => '/v2/admin/notices/update-notices/' + encodeURIComponent(id),
+  banner: '/v2/admin/notices/launcher-banner',
+  roomsClose: '/v2/admin/rooms/close',
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 400 으로 거절한다 */
 const LIMITS = Object.freeze({ ANNOUNCE: 140, UPDATE_TITLE: 60, UPDATE_BODY: 800, BANNER_SLIDES: 3 });

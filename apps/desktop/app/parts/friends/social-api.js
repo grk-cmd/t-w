@@ -1,7 +1,7 @@
 /* social-api.js — 👥 친구 · 친구 요청 · 명함 api provider (검사 sim-social-api.js)
-   책임: 내 친구 목록(GET /v1/me/friends) · 친구 한 명(GET …/{code}) · 끊기(DELETE …/{code}) ·
-     친구 요청 목록(GET /v1/me/friend-requests) · 보내기(POST) · 수락 · 거절(POST …/{from}/accept · reject) · 취소(DELETE …/{to}) ·
-     명함 묶음(GET /v1/myhomes/cards?codes=). 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양
+   책임: 내 친구 목록(GET /v2/me/friends) · 친구 한 명(GET …/{code}) · 끊기(DELETE …/{code}) ·
+     친구 요청 목록(GET /v2/me/friend-requests) · 보내기(POST) · 수락 · 거절(POST …/{from}/accept · reject) · 취소(DELETE …/{to}) ·
+     명함 묶음(GET /v2/myhomes/cards?codes=). 서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양
      (친구 칸 name · level · cyc · clv · starC · bio · avatar · 시각 ms)으로 맞추는 곳은 여기뿐이다.
    신원: 나는 서버가 토큰에서 정한다 — 경로 · 본문에 내 코드 · 이름을 싣지 않는다. 경로의 코드는 상대(데이터 주소).
    이름: 이름이 없으면 '' 그대로 넘긴다 — «(이름 없음)» 같은 자리표시는 화면 한 곳이 정한다(여기서 새로 만들지 않는다).
@@ -14,7 +14,7 @@
      removeFriend(userCode) → Promise<void>
      fetchRequests() → Promise<{ received:[{ userCode, requestedAt }], sent:[{ userCode, requestedAt }] }>   요청이 먼저 생긴 순 · requestedAt ms
      sendRequest(to) · acceptRequest(from) · rejectRequest(from) · cancelRequest(to) → Promise<void>
-     findByFriendCode(friendCode) → Promise<userCode | null>   친구코드로 찾기(GET /v1/users?friendCode=) · 없으면 null
+     findByFriendCode(friendCode) → Promise<userCode | null>   친구코드로 찾기(GET /v2/users?friendCode=) · 없으면 null
      fetchCards(codes) → Promise<{ userCode: 명함 }>   명함 = { name, avatar, bio, level, cyc, clv, starC } · 없는 코드는 빠진다 · 100개씩 나눠 묻는다 · 한 조각이라도 못 받으면 던진다
      reset() — 읽은 토큰 주인 기억을 비운다(계정을 놓을 때)
    }
@@ -27,14 +27,14 @@
 
 const enc = (c) => encodeURIComponent(c);
 const PATHS = Object.freeze({
-  friends: '/v1/me/friends',
-  friend: (userCode) => '/v1/me/friends/' + enc(userCode),
-  requests: '/v1/me/friend-requests',
-  request: (userCode) => '/v1/me/friend-requests/' + enc(userCode),
-  accept: (from) => '/v1/me/friend-requests/' + enc(from) + '/accept',
-  reject: (from) => '/v1/me/friend-requests/' + enc(from) + '/reject',
-  userByCode: (friendCode) => '/v1/users?friendCode=' + enc(friendCode),
-  cards: (codes) => '/v1/myhomes/cards?codes=' + codes.map(enc).join(','),
+  friends: '/v2/me/friends',
+  friend: (userCode) => '/v2/me/friends/' + enc(userCode),
+  requests: '/v2/me/friend-requests',
+  request: (userCode) => '/v2/me/friend-requests/' + enc(userCode),
+  accept: (from) => '/v2/me/friend-requests/' + enc(from) + '/accept',
+  reject: (from) => '/v2/me/friend-requests/' + enc(from) + '/reject',
+  userByCode: (friendCode) => '/v2/users?friendCode=' + enc(friendCode),
+  cards: (codes) => '/v2/myhomes/cards?codes=' + codes.map(enc).join(','),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 거절한다 */
 const LIMITS = Object.freeze({ CARD_CODES: 100 });
@@ -81,7 +81,7 @@ function friendOf(raw){
   if(addedAt === null) return undefined;
   return { userCode: raw.userCode, addedAt, lastSeenAt: msOrNull(raw.lastSeenAt) };
 }
-/* GET /v1/me/friends(배열) → 같은 차례의 배열. 깨진 줄 · 겹친 코드는 뺀다 · 배열이 아니면 undefined */
+/* GET /v2/me/friends(배열) → 같은 차례의 배열. 깨진 줄 · 겹친 코드는 뺀다 · 배열이 아니면 undefined */
 function friendsOf(d){
   if(!Array.isArray(d)) return undefined;
   const out = [], seen = new Set();
@@ -110,7 +110,7 @@ function requestListOf(list){
   for(const raw of list){ const r = requestOf(raw); if(r && !seen.has(r.userCode)){ seen.add(r.userCode); out.push(r); } }
   return out;
 }
-/* GET /v1/me/friend-requests → { received, sent }(차례 그대로 · 깨진 줄 · 겹침은 뺀다). 둘 중 하나라도 배열이 아니면 undefined */
+/* GET /v2/me/friend-requests → { received, sent }(차례 그대로 · 깨진 줄 · 겹침은 뺀다). 둘 중 하나라도 배열이 아니면 undefined */
 function requestsOf(d){
   if(!isObj(d) || !Array.isArray(d.received) || !Array.isArray(d.sent)) return undefined;
   return { received: requestListOf(d.received), sent: requestListOf(d.sent) };

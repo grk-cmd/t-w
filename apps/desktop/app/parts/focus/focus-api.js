@@ -1,5 +1,5 @@
 /* focus-api.js — ⏱ 포커스 · 👑 달성표 · 📱 폰 연결 api provider (검사 sim-focus-api.js)
-   책임: 내 진척 읽기(GET /v1/me/focus) · 집중 시간 올리기(POST …/accruals) · 별 색(PATCH /v1/me/focus) ·
+   책임: 내 진척 읽기(GET /v2/me/focus) · 집중 시간 올리기(POST …/accruals) · 별 색(PATCH /v2/me/focus) ·
      달성표 한 주 읽기(GET …/challenges/{주} · 이번 주는 …/current) · 한 벌 저장(PUT) · 오늘 달성(POST …/challenges/today) · 보상 칸 받기(POST …/{주}/rewards/{칸}) ·
      폰 키 만들기 · 끊기(POST · DELETE …/mobile-link). 서버 모양을 화면이 쓰는 모양으로 맞추는 곳은 여기뿐이다(날 경계 dayEndsAt 은 ms).
    신원: 늘 토큰의 «나» — 본문에 내 코드 · 레벨 · 양을 싣지 않는다(레벨 · 회차 · 보상 양은 서버가 센다).
@@ -26,7 +26,7 @@
 'use strict';
 
 const enc = encodeURIComponent;
-const BASE = '/v1/me/focus';
+const BASE = '/v2/me/focus';
 const PATHS = Object.freeze({
   progress: BASE,
   accruals: BASE + '/accruals',

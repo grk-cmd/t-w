@@ -369,7 +369,7 @@
 
 ## gacha-api.js — 🎰 가챠 api provider
 
-- **책임**: 서버가 원본인 가챠의 읽기 · 뽑기(`GET /v1/me/collection` · `GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수 · 색 해금(다 모았나)은 서버가 정한다. 이 PC 에 보유분 사본을 두지 않는다(0.12 의 `gacha-tx.js` 트랜잭션 · 합치기 · 10분 맞추기는 걷었다).
+- **책임**: 서버가 원본인 가챠의 읽기 · 뽑기(`GET /v2/me/collection` · `GET /v2/me/gacha` · `POST /v2/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수 · 색 해금(다 모았나)은 서버가 정한다. 이 PC 에 보유분 사본을 두지 않는다(0.12 의 `gacha-tx.js` 트랜잭션 · 합치기 · 10분 맞추기는 걷었다).
 - **deps**: `authed`(로그인 API 통로 `TwApi.authed`) · `newRequestId`(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게).
 - **내보내는 것**: `createGachaApi(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason }, reset() }` · 상태 = `{ owned, unlocked, earned, bonus, left, season }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
 - **함정**
@@ -380,7 +380,7 @@
 
 ## closet-api.js — 🧬 옷장 api provider
 
-- **책임**: 내 캐릭터 옷장(슬롯 5칸 · 보관함 20 · 휴지통)의 서버 길(`/v1/me/avatars…`) — 옷장 받기(슬롯 캐릭터 def 까지 한 번에) · 캐릭터 하나 읽기 · 만들기 · 고치기 · 슬롯 ↔ 보관함 옮기기 · 휴지통 보내기 · 휴지통 목록 · 되살리기 · 첫 실행 올리기(legacy-sync). 칸 수 · 상한 · 휴지통 기한은 서버가 정한다.
+- **책임**: 내 캐릭터 옷장(슬롯 5칸 · 보관함 20 · 휴지통)의 서버 길(`/v2/me/avatars…`) — 옷장 받기(슬롯 캐릭터 def 까지 한 번에) · 캐릭터 하나 읽기 · 만들기 · 고치기 · 슬롯 ↔ 보관함 옮기기 · 휴지통 보내기 · 휴지통 목록 · 되살리기 · 첫 실행 올리기(legacy-sync). 칸 수 · 상한 · 휴지통 기한은 서버가 정한다.
 - **deps**: `authed`(`TwApi.authed`) · `newRequestId`.
 - **내보내는 것**: `createClosetApi(deps)` → `{ load, fetchOne, create, update, move, trash, trashPage, restore, legacySync, reset }` · 순수 `headOf` · `closetOf` · `trashOf` · `failOf`.
 - **함정**: 읽은 토큰 주인과 쓰기를 묶는다(읽기 전엔 쓰지 않음) · 고치기는 받은 판(baseVersion)을 싣는다 — 낡은 판이어도 서버가 받고 앞 모습을 휴지통 «연동 교체» 로 남긴다(409 가 아니다) · 실패는 서버 code 그대로 던지고 혼자 다시 보내지 않는다 · 옷장 응답은 슬롯 칸과 def 짝이 맞아야 쓴다(모자라면 «못 읽음»). 검사: `checks/sim-closet-api.js`.

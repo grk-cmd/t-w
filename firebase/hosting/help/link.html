@@ -8,7 +8,7 @@
 <title>Together Working · 태블릿·폰 포커싱 연결</title>
 <!-- 📱 폰 카메라로 PC 의 QR 을 찍으면 열리는 안내 페이지(도움말 사이트 help.together-working.com/link · 옛 web.app/link 는 이리로 넘긴다).
      주소의 # 뒤에 u(계정)·k(연결 키)가 온다 — # 뒤라서 호스팅 서버 로그에 안 남는다.
-     폰은 로그인이 없다 → 서버 POST /v1/focus/mobile-link/state 에 머리 X-Mobile-Key(연결 키) + 본문 { on, app } 을 보낸다.
+     폰은 로그인이 없다 → 서버 POST /v2/focus/mobile-link/state 에 머리 X-Mobile-Key(연결 키) + 본문 { on, app } 을 보낸다.
      서버가 키로 계정을 찾아 PC 로 넘긴다(0.13 · 계정 칸 u 는 안 쓴다 — 옛 QR 의 u 는 있어도 없어도 된다). -->
 <style>
   :root{ --face:#c0c0c0; --face2:#d4d0c8; --hi:#fff; --lo:#808080; --lo2:#000; --ta:#000080; --tb:#1084d0; --ink:#111; --soft:#444; --ok:#2a7a3f; --err:#b5624a; }
@@ -117,7 +117,7 @@
     document.getElementById('bad').classList.remove('hide');
     return;
   }
-  var URL_ = API + '/v1/focus/mobile-link/state';
+  var URL_ = API + '/v2/focus/mobile-link/state';
   var $ = function(id){ return document.getElementById(id); };
   function app(){ return ($('app').value || '').replace(/[\u0000-\u001f<>"\\]/g, '').trim().slice(0, 40); }
   function body(on, name){ return JSON.stringify({ on: on, app: name }); }

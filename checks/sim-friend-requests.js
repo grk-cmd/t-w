@@ -135,7 +135,7 @@ async function judge(S){
   {
     const calls = [];
     const mk = (d) => SOC.createSocialApi({ authed: { get: async (p, o) => { calls.push([p, o]); return d; }, post: async () => {}, del: async () => {} }, warn(){} });
-    chk((await mk([{ userCode: 'uA', displayName: 'a' }]).findByFriendCode('MATE-AB2C')) === 'uA' && calls[0][0] === '/v1/users?friendCode=MATE-AB2C' && calls[0][1].auth === true, '0/1명 — 있으면 userCode · 로그인 요청');
+    chk((await mk([{ userCode: 'uA', displayName: 'a' }]).findByFriendCode('MATE-AB2C')) === 'uA' && calls[0][0] === '/v2/users?friendCode=MATE-AB2C' && calls[0][1].auth === true, '0/1명 — 있으면 userCode · 로그인 요청');
     chk((await mk([]).findByFriendCode('MATE-AB2C')) === null, '  ↳ 없으면 null');
     let e = null; try{ await mk({}).findByFriendCode('MATE-AB2C'); }catch(x){ e = x; }
     chk(e && e.code === 'SHAPE', '  ↳ 모양이 틀리면 던진다');

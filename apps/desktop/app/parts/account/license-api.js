@@ -1,5 +1,5 @@
-/* license-api.js — 🔑 라이선스 provider — 내 라이선스 · 기기 서버 길(/v1/me/license*) 한 벌 (검사 sim-license-api.js)
-   [왜] 프리미엄은 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 를 서버가 판정한다(GET /v1/me 의 premium). 키 · 기기 목록은 서버가 들고,
+/* license-api.js — 🔑 라이선스 provider — 내 라이선스 · 기기 서버 길(/v2/me/license*) 한 벌 (검사 sim-license-api.js)
+   [왜] 프리미엄은 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 를 서버가 판정한다(GET /v2/me 의 premium). 키 · 기기 목록은 서버가 들고,
      화면 · 흐름(license-premium.js)은 경로 · 본문 모양 · 오류 code 를 모르고 이 파일의 함수만 부른다.
    [모양] 모두 Promise. 성공은 서버 data(모양을 맞춘 값), 실패는 api-client.js 의 ApiError 그대로 던진다(«실패 ≠ 없음»).
      mine() 은 라이선스가 없는 계정이면 null(없음 ≠ 못 읽음).
@@ -11,8 +11,8 @@
 'use strict';
 
 const PATHS = Object.freeze({
-  mine: '/v1/me/license',
-  device: (id) => '/v1/me/license/devices/' + encodeURIComponent(id),
+  mine: '/v2/me/license',
+  device: (id) => '/v2/me/license/devices/' + encodeURIComponent(id),
 });
 const DEVICE_NAME_MAX = 40;   // 서버 상한 — 넘기면 400
 const STATUS = Object.freeze({ VALID: 'VALID', REVOKED: 'REVOKED' });

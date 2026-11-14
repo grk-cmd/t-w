@@ -1,5 +1,5 @@
 /* ═══ 🐞 sim-bug-api.js — 버그제보 게시판 provider (0.13 앱 묶음 D9-3) ═══
-   [왜] 버그제보 탭이 Firebase 대신 서버 공개 API(/v1/bugs* · /v1/me/bugs*)를 쓴다. 서버 모양(대문자 이름 · ISO 시각 · author)을
+   [왜] 버그제보 탭이 Firebase 대신 서버 공개 API(/v2/bugs* · /v2/me/bugs*)를 쓴다. 서버 모양(대문자 이름 · ISO 시각 · author)을
      화면 모양(소문자 열쇠 · ms · anon)으로 맞추는 곳 · 본문을 만드는 곳 · 실패 갈래를 정하는 곳이 provider 하나라 실제로 불러서 판정한다.
    ・1절: 목록 — 경로(filter · limit · cursor) · 줄 맞춤(공개 범위 · 분류 · 상태 · 내 글 · 안 본 답변 · 익명 · 글쓴이 답글) · 빈 목록 ≠ 못 읽음 · 모양 틀림 던짐 · 공지
    ・2절: 글 — 댓글 차례 · 글쓴이 답글의 공개 범위 · 판(version) · 모양 틀림 던짐
@@ -62,7 +62,7 @@ async function judge(S){
   const lib = loadMod(S.API);
   say('── 1. 목록');
   {
-    const { m, authed } = mk(S.API, { 'GET /v1/bugs': (b, path) => /filter=notices/.test(path)
+    const { m, authed } = mk(S.API, { 'GET /v2/bugs': (b, path) => /filter=notices/.test(path)
       ? { items: [summary('B-1101-1', { notice: true, byAdmin: true })], nextCursor: null }
       : { items: [
         summary('B-1110-2', { mine: true, unseen: true, visibility: 'PRIVATE', author: author({ anonymous: true, name: '익명', userCode: null }), category: 'SUGGEST', status: 'REVIEW',
@@ -70,8 +70,8 @@ async function judge(S){
         summary('B-1110-1'),
       ], nextCursor: 'CUR/1' } });
     const r = await m.list('all', null, 8);
-    chk(authed.log[0].method === 'GET' && authed.log[0].path === '/v1/bugs?filter=all&limit=8' && authed.log[0].opts && authed.log[0].opts.auth === true,
-      '첫 쪽 — GET /v1/bugs?filter=all&limit=8 (로그인 통로 · 커서 없음)');
+    chk(authed.log[0].method === 'GET' && authed.log[0].path === '/v2/bugs?filter=all&limit=8' && authed.log[0].opts && authed.log[0].opts.auth === true,
+      '첫 쪽 — GET /v2/bugs?filter=all&limit=8 (로그인 통로 · 커서 없음)');
     const a = r.items[0], b = r.items[1];
     chk(a.number === 'B-1110-2' && a.vis === 'prv' && a.cat === 'suggest' && a.status === 'review' && a.mine === true && a.unseen === true && a.anon === true,
       '줄 맞춤 — PRIVATE → prv · SUGGEST → suggest · REVIEW → review · 내 글 · 안 본 답변 · 익명');
@@ -81,43 +81,43 @@ async function judge(S){
       '  공개 글 — 이름 · 👍 수 · 답변 수 · 시각(ms)');
     chk(r.next === 'CUR/1', '  다음 쪽 커서는 서버 것 그대로');
     await m.list('mine', 'CUR/1', 8);
-    chk(authed.log[1].path === '/v1/bugs?filter=mine&limit=8&cursor=CUR%2F1', '다음 쪽 — cursor 를 붙이고 인코딩한다');
+    chk(authed.log[1].path === '/v2/bugs?filter=mine&limit=8&cursor=CUR%2F1', '다음 쪽 — cursor 를 붙이고 인코딩한다');
     const notes = await m.notices();
-    chk(authed.log[2].path === '/v1/bugs?filter=notices' && notes.length === 1 && notes[0].notice === true && notes[0].byAdmin === true, '공지 — filter=notices 한 번 · 공지 줄');
+    chk(authed.log[2].path === '/v2/bugs?filter=notices' && notes.length === 1 && notes[0].notice === true && notes[0].byAdmin === true, '공지 — filter=notices 한 번 · 공지 줄');
     const bad = await throws(() => m.list('zzz', null, 8));
     chk(!!bad && bad.code === 'INVALID' && authed.log.length === 3, '모르는 필터는 요청 없이 던진다');
   }
   {
-    const { m } = mk(S.API, { 'GET /v1/bugs': { items: [], nextCursor: null } });
+    const { m } = mk(S.API, { 'GET /v2/bugs': { items: [], nextCursor: null } });
     const r = await m.list('open', null, 8);
     chk(Array.isArray(r.items) && r.items.length === 0 && r.next === null, '빈 목록 → { items: [], next: null }');
-    const down = mk(S.API, { 'GET /v1/bugs': offline() });
+    const down = mk(S.API, { 'GET /v2/bugs': offline() });
     const e = await throws(() => down.m.list('all', null, 8));
     chk(!!e && e.kind === 'unavailable', '못 받음 → 던진다(빈 목록으로 돌리지 않는다 — 실패 ≠ 없음)');
-    const shape = mk(S.API, { 'GET /v1/bugs': { nope: 1 } });
+    const shape = mk(S.API, { 'GET /v2/bugs': { nope: 1 } });
     const e2 = await throws(() => shape.m.list('all', null, 8));
-    const row = mk(S.API, { 'GET /v1/bugs': { items: [{ number: 'B-1', visibility: 'SECRET', author: author() }], nextCursor: null } });
+    const row = mk(S.API, { 'GET /v2/bugs': { items: [{ number: 'B-1', visibility: 'SECRET', author: author() }], nextCursor: null } });
     const e3 = await throws(() => row.m.list('all', null, 8));
     chk(!!e2 && e2.code === 'SHAPE' && !!e3 && e3.code === 'SHAPE', '모양이 틀리면(items 없음 · 모르는 공개 범위) SHAPE 로 던진다');
   }
 
   say('── 2. 글');
   {
-    const { m, authed } = mk(S.API, { 'GET /v1/bugs/B-1110-1': detailRes({ visibility: 'PRIVATE', comments: [
+    const { m, authed } = mk(S.API, { 'GET /v2/bugs/B-1110-1': detailRes({ visibility: 'PRIVATE', comments: [
       { id: 'c2', kind: 'AUTHOR_REPLY', text: '아직이요', kakaoLink: null, visibility: null, statusAfter: 'UNFIXED', createdAt: '2026-11-10T05:00:00Z', updatedAt: '2026-11-10T05:00:00Z' },
       { id: 'c1', kind: 'ADMIN_ANSWER', text: '확인할게요', kakaoLink: 'https://open.kakao.com/o/abc', visibility: 'PRIVATE', statusAfter: 'CHECKING', createdAt: '2026-11-10T02:00:00Z', updatedAt: '2026-11-10T02:00:00Z' },
     ] }) });
     const p = await m.detail('B-1110-1');
-    chk(authed.log[0].path === '/v1/bugs/B-1110-1' && p.number === 'B-1110-1' && p.vis === 'prv' && p.cat === 'ui' && p.status === 'checking' && p.version === 4,
-      'GET /v1/bugs/{number} → 글(공개 범위 · 분류 · 상태 · 판)');
+    chk(authed.log[0].path === '/v2/bugs/B-1110-1' && p.number === 'B-1110-1' && p.vis === 'prv' && p.cat === 'ui' && p.status === 'checking' && p.version === 4,
+      'GET /v2/bugs/{number} → 글(공개 범위 · 분류 · 상태 · 판)');
     chk(p.body === '본문' && p.env === 'v0.13 · Windows' && p.canReply === true && p.mine === true && p.likeN === 3 && p.liked === false && p.answeredAt === Date.parse('2026-11-10T02:00:00Z'),
       '  본문 · 환경 · 답글 칸 · 내 글 · 👍 · 마지막 답변 시각');
     chk(p.comments.map(c => c.id).join() === 'c1,c2' && p.comments[0].byAuthor === false && p.comments[0].kakao === 'https://open.kakao.com/o/abc' && p.comments[0].vis === 'prv',
       '  댓글은 시간순 · 운영자 답변의 오픈카톡 · 공개 범위');
     chk(p.comments[1].byAuthor === true && p.comments[1].vis === 'prv' && p.comments[1].st === 'unfixed', '  글쓴이 답글 — 공개 범위는 글을 따른다 · 고른 상태(소문자)');
-    const nov = mk(S.API, { 'GET /v1/bugs/B-1': detailRes({ number: 'B-1', version: undefined }) });
+    const nov = mk(S.API, { 'GET /v2/bugs/B-1': detailRes({ number: 'B-1', version: undefined }) });
     const e = await throws(() => nov.m.detail('B-1'));
-    const nk = mk(S.API, { 'GET /v1/bugs/B-1': detailRes({ number: 'B-1', comments: [{ id: 'x', kind: 'WHAT' }] }) });
+    const nk = mk(S.API, { 'GET /v2/bugs/B-1': detailRes({ number: 'B-1', comments: [{ id: 'x', kind: 'WHAT' }] }) });
     const e2 = await throws(() => nk.m.detail('B-1'));
     chk(!!e && e.code === 'SHAPE' && !!e2 && e2.code === 'SHAPE', '판이 없거나 모르는 댓글 종류면 SHAPE 로 던진다');
   }
@@ -126,11 +126,11 @@ async function judge(S){
   {
     let mode = 'ok';
     const { m, authed } = mk(S.API, {
-      'POST /v1/bugs': () => mode === 'off' ? offline() : mode === 'limit' ? apiErr(429, 'BUG_DAILY_LIMIT') : { number: 'B-1113-3' },
+      'POST /v2/bugs': () => mode === 'off' ? offline() : mode === 'limit' ? apiErr(429, 'BUG_DAILY_LIMIT') : { number: 'B-1113-3' },
     });
     const r = await m.write({ vis: 'prv', cat: 'myhome', title: '  제목 ', body: ' 본문  ', env: 'v1 · macOS' });
     const b = authed.log[0].body;
-    chk(r.number === 'B-1113-3' && authed.log[0].path === '/v1/bugs', 'POST /v1/bugs → { number }');
+    chk(r.number === 'B-1113-3' && authed.log[0].path === '/v2/bugs', 'POST /v2/bugs → { number }');
     chk(b.visibility === 'PRIVATE' && b.category === 'MYHOME' && b.title === '제목' && b.body === '본문' && b.env === 'v1 · macOS' && !('notice' in b),
       '  본문 — 서버 이름(PRIVATE · MYHOME) · 앞뒤 공백 걷음 · 공지는 켤 때만');
     chk(['name', 'code', 'authUid', 'nick', 'userCode'].every(k => !(k in b)) && Object.keys(b).sort().join() === 'body,category,env,requestId,title,visibility',
@@ -153,42 +153,42 @@ async function judge(S){
   }
   {
     const { m, authed } = mk(S.API, {
-      'POST /v1/bugs/B-1/replies': null, 'PATCH /v1/bugs/B-1/visibility': { visibility: 'PRIVATE', version: 5 },
-      'PUT /v1/bugs/B-1/like': { likeCount: 7, liked: true }, 'PUT /v1/me/bugs/B-1/seen': null, 'GET /v1/me/bugs/quota': { dailyMax: 5, usedToday: 2 },
+      'POST /v2/bugs/B-1/replies': null, 'PATCH /v2/bugs/B-1/visibility': { visibility: 'PRIVATE', version: 5 },
+      'PUT /v2/bugs/B-1/like': { likeCount: 7, liked: true }, 'PUT /v2/me/bugs/B-1/seen': null, 'GET /v2/me/bugs/quota': { dailyMax: 5, usedToday: 2 },
     });
     await m.reply('B-1', { text: ' 더 알려요 ', status: 'unfixed' });
     const rb = authed.log[0].body;
-    chk(authed.log[0].path === '/v1/bugs/B-1/replies' && rb.text === '더 알려요' && rb.status === 'UNFIXED' && /^req-id-/.test(rb.requestId) && Object.keys(rb).length === 3,
+    chk(authed.log[0].path === '/v2/bugs/B-1/replies' && rb.text === '더 알려요' && rb.status === 'UNFIXED' && /^req-id-/.test(rb.requestId) && Object.keys(rb).length === 3,
       '답글 — { requestId, text, status(대문자) } 만');
     const noSt = await throws(() => m.reply('B-1', { text: 'x', status: '' }));
     chk(!!noSt && noSt.code === 'INVALID' && authed.log.length === 1, '  상태가 없으면 요청 없이 던진다(서버가 상태를 꼭 받는다)');
     const v = await m.setVis('B-1', 4, 'prv');
     chk(authed.log[1].method === 'PATCH' && JSON.stringify(authed.log[1].body) === '{"version":4,"visibility":"PRIVATE"}' && v.vis === 'prv' && v.version === 5,
-      '공개 범위 — PATCH /v1/bugs/{number}/visibility { version, visibility } → { vis, version }');
+      '공개 범위 — PATCH /v2/bugs/{number}/visibility { version, visibility } → { vis, version }');
     const lk = await m.like('B-1'); await m.seen('B-1');
-    chk(authed.log[2].method === 'PUT' && authed.log[2].path === '/v1/bugs/B-1/like' && authed.log[3].method === 'PUT' && authed.log[3].path === '/v1/me/bugs/B-1/seen',
-      '👍 PUT /v1/bugs/{number}/like · 봤음 PUT /v1/me/bugs/{number}/seen');
+    chk(authed.log[2].method === 'PUT' && authed.log[2].path === '/v2/bugs/B-1/like' && authed.log[3].method === 'PUT' && authed.log[3].path === '/v2/me/bugs/B-1/seen',
+      '👍 PUT /v2/bugs/{number}/like · 봤음 PUT /v2/me/bugs/{number}/seen');
     chk(!!lk && lk.likeN === 7 && lk.liked === true && Object.keys(lk).length === 2,
       '  👍 응답 수로 그린다 — { likeCount, liked } → { likeN, liked }(본 수 + 1 이 아니라 서버의 수)');
-    const zero = mk(S.API, { 'PUT /v1/bugs/B-2/like': { likeCount: 0, liked: false } });
+    const zero = mk(S.API, { 'PUT /v2/bugs/B-2/like': { likeCount: 0, liked: false } });
     const z = await zero.m.like('B-2');
     chk(z.likeN === 0 && z.liked === false, '  경계 — 수 0 · liked false 도 그대로 받는다');
     for(const [why, d] of [['응답 없음', null], ['수가 글자', { likeCount: '3', liked: true }], ['음수', { likeCount: -1, liked: true }],
       ['소수', { likeCount: 1.5, liked: true }], ['liked 없음', { likeCount: 3 }]]){
-      const bad = mk(S.API, { 'PUT /v1/bugs/B-3/like': d });
+      const bad = mk(S.API, { 'PUT /v2/bugs/B-3/like': d });
       const e = await throws(() => bad.m.like('B-3'));
       chk(!!e && e.code === 'SHAPE', '  👍 응답 모양이 틀리면 던진다 — ' + why);
     }
     const q = await m.quota();
-    chk(q.dailyMax === 5 && q.usedToday === 2, '남은 수 — GET /v1/me/bugs/quota → { dailyMax, usedToday }');
-    const adm = mk(S.API, { 'GET /v1/me/bugs/quota': { dailyMax: null, usedToday: 9 } });
+    chk(q.dailyMax === 5 && q.usedToday === 2, '남은 수 — GET /v2/me/bugs/quota → { dailyMax, usedToday }');
+    const adm = mk(S.API, { 'GET /v2/me/bugs/quota': { dailyMax: null, usedToday: 9 } });
     chk((await adm.m.quota()).dailyMax === null, '  관리자는 dailyMax null(상한 없음)');
   }
 
   say('── 4. 배지 수');
   {
     let hold = null, val = 3;
-    const { m } = mk(S.API, { 'GET /v1/me/bugs/unseen-count': () => hold ? hold.p : val });
+    const { m } = mk(S.API, { 'GET /v2/me/bugs/unseen-count': () => hold ? hold.p : val });
     chk(m.badgeCount() === null, '받기 전엔 null(모름)');
     chk(await m.refreshBadge() === 3 && m.badgeCount() === 3, '받으면 기억한다');
     m.reset();
@@ -205,13 +205,13 @@ async function judge(S){
 
   say('── 4-2. 관리자 — 답변 · 오픈카톡 기본 링크');
   {
-    const { m, authed } = mk(S.API, { 'POST /v1/admin/bugs/B-1/answers': null });
+    const { m, authed } = mk(S.API, { 'POST /v2/admin/bugs/B-1/answers': null });
     const lastIso = '2026-11-10T02:00:00Z';
     await m.answer('B-1', { seenLastAnswerAt: lastIso, text: ' 확인했어요 ', status: 'fixed', vis: 'prv', kakaoLink: ' https://open.kakao.com/o/abc ' });
     const b = authed.log[0].body;
-    chk(authed.log[0].method === 'POST' && authed.log[0].path === '/v1/admin/bugs/B-1/answers' && b.text === '확인했어요' && b.status === 'FIXED' && b.visibility === 'PRIVATE'
+    chk(authed.log[0].method === 'POST' && authed.log[0].path === '/v2/admin/bugs/B-1/answers' && b.text === '확인했어요' && b.status === 'FIXED' && b.visibility === 'PRIVATE'
       && b.seenLastAnswerAt === lastIso && b.kakaoLink === 'https://open.kakao.com/o/abc' && /^req-id-/.test(b.requestId) && Object.keys(b).length === 6,
-      '답변 — POST /v1/admin/bugs/{number}/answers { requestId, seenLastAnswerAt(받은 글자 그대로), text, status, visibility, kakaoLink }');
+      '답변 — POST /v2/admin/bugs/{number}/answers { requestId, seenLastAnswerAt(받은 글자 그대로), text, status, visibility, kakaoLink }');
     await m.answer('B-1', { seenLastAnswerAt: null, text: 'x', status: 'checking', vis: 'pub' });
     const b2 = authed.log[1].body;
     chk(b2.seenLastAnswerAt === null && !('kakaoLink' in b2) && !('name' in b2) && !('code' in b2) && !('authUid' in b2), '  답변이 아직 없던 글 — seenLastAnswerAt null · 링크 없으면 칸을 싣지 않는다 · 내 이름 · 코드 없음');
@@ -220,11 +220,11 @@ async function judge(S){
       const n0 = authed.log.length, e = await throws(() => m.answer('B-1', a));
       chk(!!e && e.code === 'INVALID' && authed.log.length === n0, '  ' + why + ' — 요청 없이 던진다');
     }
-    const lost = mk(S.API, { 'POST /v1/admin/bugs/B-2/answers': () => offline() });
+    const lost = mk(S.API, { 'POST /v2/admin/bugs/B-2/answers': () => offline() });
     await throws(() => lost.m.answer('B-2', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
     await throws(() => lost.m.answer('B-2', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
     chk(lost.authed.log[0].body.requestId === lost.authed.log[1].body.requestId, '  닿지 못해 다시 누르면 같은 요청 번호');
-    const conf = mk(S.API, { 'POST /v1/admin/bugs/B-3/answers': () => apiErr(409, 'BUG_ANSWER_CONFLICT') });
+    const conf = mk(S.API, { 'POST /v2/admin/bugs/B-3/answers': () => apiErr(409, 'BUG_ANSWER_CONFLICT') });
     await throws(() => conf.m.answer('B-3', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
     await throws(() => conf.m.answer('B-3', { seenLastAnswerAt: null, text: 'x', status: 'new', vis: 'pub' }));
     chk(conf.authed.log[0].body.requestId !== conf.authed.log[1].body.requestId, '  서버가 거절했으면 다음엔 새 요청 번호');
@@ -235,28 +235,28 @@ async function judge(S){
   {
     const row = (o) => Object.assign({ key: 'bug.report', value: { notice: '안내', link: 'https://open.kakao.com/o/a' }, default: { notice: '기본', link: '' }, version: 3, updatedBy: null, updatedAt: null, appliesOn: 'now' }, o || {});
     const { m, authed } = mk(S.API, {
-      'GET /v1/admin/config': [{ key: 'room.limits', value: {}, version: 1 }, row()],
-      'PUT /v1/admin/config/bug.report': (b) => row({ value: b.value, version: b.version + 1 }),
+      'GET /v2/admin/config': [{ key: 'room.limits', value: {}, version: 1 }, row()],
+      'PUT /v2/admin/config/bug.report': (b) => row({ value: b.value, version: b.version + 1 }),
     });
     const c = await m.reportConfig();
-    chk(authed.log[0].path === '/v1/admin/config' && c.version === 3 && c.notice === '안내' && c.link === 'https://open.kakao.com/o/a' && Object.keys(c).length === 3, '링크 받기 — GET /v1/admin/config 에서 bug.report 줄 → { version, notice, link }');
+    chk(authed.log[0].path === '/v2/admin/config' && c.version === 3 && c.notice === '안내' && c.link === 'https://open.kakao.com/o/a' && Object.keys(c).length === 3, '링크 받기 — GET /v2/admin/config 에서 bug.report 줄 → { version, notice, link }');
     const s2 = await m.saveReportLink(c, ' https://open.kakao.com/o/new ');
-    chk(authed.log[1].method === 'PUT' && authed.log[1].path === '/v1/admin/config/bug.report' && JSON.stringify(authed.log[1].body) === '{"version":3,"value":{"notice":"안내","link":"https://open.kakao.com/o/new"}}'
-      && s2.version === 4 && s2.link === 'https://open.kakao.com/o/new', '저장 — PUT /v1/admin/config/bug.report { version, value:{ notice(받은 그대로), link } } → 새 판');
+    chk(authed.log[1].method === 'PUT' && authed.log[1].path === '/v2/admin/config/bug.report' && JSON.stringify(authed.log[1].body) === '{"version":3,"value":{"notice":"안내","link":"https://open.kakao.com/o/new"}}'
+      && s2.version === 4 && s2.link === 'https://open.kakao.com/o/new', '저장 — PUT /v2/admin/config/bug.report { version, value:{ notice(받은 그대로), link } } → 새 판');
     const cleared = await m.saveReportLink(c, '');
     chk(authed.log[2].body.value.link === '' && cleared.link === '', '  링크 비우기도 저장(서버가 허용)');
     for(const [why, cfg, l] of [['판 없음', { notice: '안내', link: '' }, ''], ['안내 글 없음', { version: 1, notice: '', link: '' }, '']]){
       const n0 = authed.log.length, e = await throws(() => m.saveReportLink(cfg, l));
       chk(!!e && e.code === 'INVALID' && authed.log.length === n0, '  ' + why + ' — 요청 없이 던진다');
     }
-    const dflt = mk(S.API, { 'GET /v1/admin/config': [row({ value: null })] });
+    const dflt = mk(S.API, { 'GET /v2/admin/config': [row({ value: null })] });
     chk((await dflt.m.reportConfig()).notice === '기본', '  값이 비었으면 기본값 칸을 쓴다');
     for(const [why, d] of [['목록이 아님', { a: 1 }], ['bug.report 줄 없음', [{ key: 'x', version: 1 }]], ['판 없음', [row({ version: 'a' })]], ['안내 글 없음', [row({ value: { link: '' } })]]]){
-      const bad = mk(S.API, { 'GET /v1/admin/config': d });
+      const bad = mk(S.API, { 'GET /v2/admin/config': d });
       const e = await throws(() => bad.m.reportConfig());
       chk(!!e && e.code === 'SHAPE', '  받은 모양이 틀리면 던진다(빈 값으로 돌리지 않는다) — ' + why);
     }
-    const conf = mk(S.API, { 'PUT /v1/admin/config/bug.report': () => apiErr(409, 'CONCURRENT_UPDATE') });
+    const conf = mk(S.API, { 'PUT /v2/admin/config/bug.report': () => apiErr(409, 'CONCURRENT_UPDATE') });
     const e = await throws(() => conf.m.saveReportLink(c, ''));
     chk(!!e && conf.m.failOf(e).kind === lib.KIND.CONFLICT, '  판이 다르면(409 CONCURRENT_UPDATE) 겹침 갈래');
   }

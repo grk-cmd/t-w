@@ -1,5 +1,5 @@
-/* ═══ ⚙️ sim-remote-config.js — 원격 설정(GET /v1/config 하나 — 방 상한 · 정원 · 연결 시간 · 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물) ═══════════════
-   [왜] 운영 값을 앱 릴리스 없이 바꾸려고. 0.13 은 서버가 원본 — 앱은 GET /v1/config 하나만 읽는다(Firebase config 칸은 안 읽음).
+/* ═══ ⚙️ sim-remote-config.js — 원격 설정(GET /v2/config 하나 — 방 상한 · 정원 · 연결 시간 · 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물) ═══════════════
+   [왜] 운영 값을 앱 릴리스 없이 바꾸려고. 0.13 은 서버가 원본 — 앱은 GET /v2/config 하나만 읽는다(Firebase config 칸은 안 읽음).
    1. remote-config.js 실행 — 기본값 · 범위 밖 · 타입이 다른 값 무시 · 서버 묶음 모양 풀기 · 바뀔 때만 알림 · ready 시간 초과
    2. 읽는 차례 — API → 저장값(최소 버전 제외 · 옛 모양 저장값 무시) → 기본값 · ETag 304 · 다시 읽기 · realtime 알림 config · firebase-init 배선
    3. 규칙 — 누구나 읽기 · 관리자만 쓰기 · 범위 · 타입 · 모르는 칸 거절 · 제보 하루 상한 100(Firebase 쪽 — 규칙을 걷는 묶음이 같이 걷는다)
@@ -41,7 +41,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
 
 (async () => {
   const memStore = (init) => { const m = Object.assign({}, init || {}); return { m, getItem: (k) => (k in m ? m[k] : null), setItem: (k, v) => { m[k] = String(v); } }; };
-  /* GET /v1/config 의 data — 서버가 앱에 주는 묶음 모양 */
+  /* GET /v2/config 의 data — 서버가 앱에 주는 묶음 모양 */
   const DATA = { room: { limits: { workingroom: 500, togetherroom: 400 }, maxPeople: 12, timing: { joinWaitMs: 20000, clientGiveUpMs: 1000 }, minVersion: '0.13.1', bannedWords: ['나쁜말'] },
     app: { minVersion: '0.13.0' }, user: { inviteGate: false }, bug: { dailyMax: 9 }, guestbook: { clapDailyMax: 7 }, gift: { dailySendMax: 3 } };
   const okRes = (data, status, hdr) => ({ ok: (status || 200) < 300, status: status || 200, headers: { get: (k) => (hdr || {})[k] || null }, json: async () => ({ success: true, data }) });
@@ -117,7 +117,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
   say('── 2. 읽는 차례 — API → 저장값 → 기본값 · ETag · 다시 읽기 · 알림 · 배선');
   {
     const BASE = 'https://api.together-working.com';
-    chk(RCM.CONFIG_PATH === '/v1/config' && /^tw\./.test(RCM.CACHE_KEY) && RCM.CACHE_VERSION === 2, '경로 /v1/config · 저장 키 tw. 접두사 · 저장 모양 2판');
+    chk(RCM.CONFIG_PATH === '/v2/config' && /^tw\./.test(RCM.CACHE_KEY) && RCM.CACHE_VERSION === 2, '경로 /v2/config · 저장 키 tw. 접두사 · 저장 모양 2판');
     chk(RCM.STALE_MS === 60 * 1000 && API.TIMEOUT_MS <= 3000 && !('REFRESH_MS' in RCM), '입장 때 1분 넘었으면 다시 읽기 · API 3초 이하 · 주기 다시 읽기 없음');
     { const oi = globalThis.setInterval; let n = 0; globalThis.setInterval = (...a) => { n++; return oi(...a); };
       try{ const sx = RCM.createRemoteConfig(); await sx.start({ api: mkApi(mkFetch(() => okRes(DATA))), storage: memStore() }); }finally{ globalThis.setInterval = oi; }
@@ -128,7 +128,7 @@ const RCM = require(path.resolve(where('remote-config.js')));
     let f = mkFetch(() => okRes(DATA));
     let s = RCM.createRemoteConfig();
     await s.start({ api: mkApi(f), storage: st });
-    chk(f.calls.length === 1 && f.calls[0].url === BASE + '/v1/config' && !f.calls[0].init.headers.Authorization && f.calls[0].init.credentials === 'omit', '★ 켤 때 GET /v1/config 한 번 — 로그인 없이(토큰 · 쿠키 없음)');
+    chk(f.calls.length === 1 && f.calls[0].url === BASE + '/v2/config' && !f.calls[0].init.headers.Authorization && f.calls[0].init.credentials === 'omit', '★ 켤 때 GET /v2/config 한 번 — 로그인 없이(토큰 · 쿠키 없음)');
     chk(s.roomLimitOf('workingroom') === 500 && s.maxPeople() === 12 && s.inviteGate() === false && s.minAppVer() === '0.13.0' && s.bugDailyMax() === 9 && s.answered() && s.source() === 'api', '  ↳ 받은 값 반영 · 첫 답 표시 · 출처 api');
     const saved = JSON.parse(st.m['tw.remoteConfig'] || 'null');
     chk(saved && saved.v === 2 && saved.data && saved.data.room.maxPeople === 12, '  ↳ 받은 묶음을 이 PC 에 저장(2판)');

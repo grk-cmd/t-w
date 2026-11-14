@@ -139,7 +139,7 @@
         "🚧 로그인 복원 대기선 (auth barrier)",
         "마이홈 친구 시스템",
         "🎵 플레이리스트",
-        "🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v1/me/avatars). 여기는 Storage 올리기만 남았다",
+        "🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다",
         "🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정)",
         "👋 친구 요청 (수락/거절)",
         "방명록 / 웹박수",

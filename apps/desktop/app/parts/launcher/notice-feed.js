@@ -4,7 +4,7 @@
      못 받아도 혼자 다시 받지 않는다 — 다시 받는 길은 공지 바뀜 알림 · 알림함을 열 때 실패 상태면 한 번(myhome-inbox.js 의 retryIfFailed — manual) · «다시 시도» 누르기뿐.
      받기 실패의 오류 번호는 사용자가 연 · 누른 받기(manual)에서만 띄운다 — 켤 때 · 알림으로 자동 받다 실패하면 오류 창 없이 못 받음 상태만.
      쓰는 쪽(알림함 · 런처 배너 · 업데이트 공지 팝업)은 onChange 로 받아 각자 그린다. 관리자 소식 쓰기(올리기 · 고정 · 내리기)도 여기를 지난다 — 서버가 «됐다» 하면 다시 받는다.
-   계정과 무관하다 — 공지는 모두에게 같은 공용 데이터라(GET /v1/notices 는 로그인 없이 읽힌다) 계정 확인 전(로그인 화면 위)에도 받는다(app.js 가 firebase-ready 에 start 를 건다 — launcher/app-boot.js 차례 표에 없다).
+   계정과 무관하다 — 공지는 모두에게 같은 공용 데이터라(GET /v2/notices 는 로그인 없이 읽힌다) 계정 확인 전(로그인 화면 위)에도 받는다(app.js 가 firebase-ready 에 start 를 건다 — launcher/app-boot.js 차례 표에 없다).
      서버가 원본이라 이 PC 에 사본을 두지 않는다(예전엔 마지막 묶음을 계정 칸에 남겨 켜면 바로 그렸다 — 받기가 계정 확인을 기다리지 않으니 필요 없다).
    deps: api — createNoticeApi 가 돌려준 것(notice-api.js) · rt — 알림 걸기(TwRtHub.store.on('notices', fn)) · notifyError — 오류 번호로 알리는 함수(TwErrorCodes.notify)
    내보냄: createNoticeFeed(deps) → {

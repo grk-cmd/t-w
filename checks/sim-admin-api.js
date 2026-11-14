@@ -1,5 +1,5 @@
 /* ═══ 🛠️ sim-admin-api.js — 앱 관리자 서버 길 provider (0.13 앱 묶음 D11-1) ═══
-   [왜] 앱 관리자 창의 확성기 · 업데이트 공지 · 런처 배너 · 방 종료 · 관리자 확인이 Firebase 직접 쓰기 대신 서버 관리자 API(/v1/admin/...)를 쓴다.
+   [왜] 앱 관리자 창의 확성기 · 업데이트 공지 · 런처 배너 · 방 종료 · 관리자 확인이 Firebase 직접 쓰기 대신 서버 관리자 API(/v2/admin/...)를 쓴다.
      요청 모양(경로 · 본문 칸 이름 · 판(version) · 요청 번호)이 서버 계약과 맞아야 하므로 provider 를 실제로 불러 판정한다.
    ・1절: 요청 모양 — 관리자 확인 · 확성기(켜기 140자 · 끄기) · 업데이트 공지(올리기 60 · 800자 · 내리기는 id 로 · 지금 id 는 공지 한 판에서) ·
         배너(읽기 → 화면 모양 · 저장은 읽은 판 + imageUrl · linkUrl) · 방 종료({all:true} → 닫은 방 수)
@@ -53,21 +53,21 @@ async function judge(S){
   {
     const t = mk(LIB, { get: { name: '관리자', grantedAt: 'x', version: 4 } });
     const me = await t.m.me();
-    chk(t.log[0][0] === 'GET' && t.log[0][1] === '/v1/admin/admins/me' && me.name === '관리자' && me.version === 4, '관리자 확인 — GET /v1/admin/admins/me → { name, version }');
+    chk(t.log[0][0] === 'GET' && t.log[0][1] === '/v2/admin/admins/me' && me.name === '관리자' && me.version === 4, '관리자 확인 — GET /v2/admin/admins/me → { name, version }');
     chk(await mk(LIB, { get: { name: null, version: 1 } }).m.me().then((x) => x.name === ''), '  이름이 없어도(null) 확인은 통한다');
 
     const a = mk(LIB, { post: null, del: null });
     await a.m.announce('가'.repeat(200));
     const ap = a.log[0];
-    chk(ap[0] === 'POST' && ap[1] === '/v1/admin/notices/announcements' && ap[2].text.length === 140 && /^req-/.test(ap[2].requestId) && Object.keys(ap[2]).sort().join() === 'requestId,text',
+    chk(ap[0] === 'POST' && ap[1] === '/v2/admin/notices/announcements' && ap[2].text.length === 140 && /^req-/.test(ap[2].requestId) && Object.keys(ap[2]).sort().join() === 'requestId,text',
       '확성기 켜기 — POST …/announcements { requestId, text≤140 } (켜는 시간은 서버가 정하니 앱이 안 보낸다)');
     await a.m.clearAnnouncement();
-    chk(a.log[1][0] === 'DELETE' && a.log[1][1] === '/v1/admin/notices/announcements/current', '확성기 끄기 — DELETE …/announcements/current');
+    chk(a.log[1][0] === 'DELETE' && a.log[1][1] === '/v2/admin/notices/announcements/current', '확성기 끄기 — DELETE …/announcements/current');
 
     const u = mk(LIB, { post: null, del: null });
     const noId = await u.m.publishUpdateNotice('t'.repeat(70), 'b'.repeat(900));
     const up = u.log[0];
-    chk(up[1] === '/v1/admin/notices/update-notices' && up[2].title.length === 60 && up[2].body.length === 800 && /^req-/.test(up[2].requestId) && Object.keys(up[2]).sort().join() === 'body,requestId,title',
+    chk(up[1] === '/v2/admin/notices/update-notices' && up[2].title.length === 60 && up[2].body.length === 800 && /^req-/.test(up[2].requestId) && Object.keys(up[2]).sort().join() === 'body,requestId,title',
       '업데이트 공지 올리기 — POST …/update-notices { requestId, title≤60, body≤800 }');
     const withId = mk(LIB, { post: { id: 'n-7', title: 't', body: 'b', publishedAt: '2026-11-01T00:00:00Z' }, del: null });
     chk(await withId.m.publishUpdateNotice('t', 'b') === 'n-7' && noId === null, '  올리기가 응답의 새 공지 id 를 돌려준다(없으면 null — 이미 올라갔으니 던지지 않는다)');
@@ -78,22 +78,22 @@ async function judge(S){
     let bt = null; try{ await mk(LIB, { board: apiErr(503, 'X') }).m.currentUpdateNotice(); }catch(e){ bt = e; }
     chk(bt && bt.status === 503, '  못 받으면 던진다(없음으로 숨기지 않는다)');
     await u.m.withdrawUpdateNotice('a/b');
-    chk(u.log[2][0] === 'DELETE' && u.log[2][1] === '/v1/admin/notices/update-notices/a%2Fb', '업데이트 공지 내리기 — DELETE …/update-notices/{id} (id 로 — «지금 것» 이 아니다)');
+    chk(u.log[2][0] === 'DELETE' && u.log[2][1] === '/v2/admin/notices/update-notices/a%2Fb', '업데이트 공지 내리기 — DELETE …/update-notices/{id} (id 로 — «지금 것» 이 아니다)');
 
     const b = mk(LIB, { get: { version: 6, slides: [{ imageUrl: 'https://x/a.png', linkUrl: 'https://x/l' }, null] }, put: null });
     const bn = await b.m.fetchBanner();
-    chk(b.log[0][1] === '/v1/admin/notices/launcher-banner' && bn.version === 6 && bn.slides.length === 1 && bn.slides[0].img === 'https://x/a.png' && bn.slides[0].link === 'https://x/l',
+    chk(b.log[0][1] === '/v2/admin/notices/launcher-banner' && bn.version === 6 && bn.slides.length === 1 && bn.slides[0].img === 'https://x/a.png' && bn.slides[0].link === 'https://x/l',
       '배너 읽기 — GET …/launcher-banner → { version, slides:[{ img, link }] }');
     await b.m.replaceBanner(6, [{ img: 'https://x/a.png', link: 'https://x/l' }]);
-    chk(b.log[1][0] === 'PUT' && b.log[1][1] === '/v1/admin/notices/launcher-banner' && JSON.stringify(b.log[1][2]) === '{"version":6,"slides":[{"imageUrl":"https://x/a.png","linkUrl":"https://x/l"}]}',
+    chk(b.log[1][0] === 'PUT' && b.log[1][1] === '/v2/admin/notices/launcher-banner' && JSON.stringify(b.log[1][2]) === '{"version":6,"slides":[{"imageUrl":"https://x/a.png","linkUrl":"https://x/l"}]}',
       '배너 저장 — PUT { version(읽은 판), slides:[{ imageUrl, linkUrl }] }');
     await b.m.replaceBanner(7, []);
     chk(JSON.stringify(b.log[2][2]) === '{"version":7,"slides":[]}', '  빈 목록 = 배너 숨기기');
 
     const r = mk(LIB, { post: { closed: ['A1', 'B2'], missing: ['C3'] } });
     const cr = await r.m.closeAllRooms();
-    chk(r.log[0][0] === 'POST' && r.log[0][1] === '/v1/admin/rooms/close' && JSON.stringify(r.log[0][2]) === '{"all":true}' && cr.closed === 2 && cr.missing === 1,
-      '방 종료 — POST /v1/admin/rooms/close { all:true } → 닫은 방 수 · 이미 없던 방 수');
+    chk(r.log[0][0] === 'POST' && r.log[0][1] === '/v2/admin/rooms/close' && JSON.stringify(r.log[0][2]) === '{"all":true}' && cr.closed === 2 && cr.missing === 1,
+      '방 종료 — POST /v2/admin/rooms/close { all:true } → 닫은 방 수 · 이미 없던 방 수');
   }
 
   say('── 2. 요청 번호 · 실패');

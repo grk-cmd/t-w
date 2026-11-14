@@ -31,7 +31,7 @@ function mkAuthed(reply, who){
     post: async (p, b, o) => { calls.push({ kind: 'post', path: p, body: b, opts: o }); return reply({ kind: 'post', path: p, body: b }); },
   };
 }
-const okReply = (c) => c.kind === 'get' ? (c.path === '/v1/me/collection' ? ITEMS : GACHA) : { results: [{ partId: 'a', count: 3, isNew: false }], items: ITEMS.items, gacha: GACHA };
+const okReply = (c) => c.kind === 'get' ? (c.path === '/v2/me/collection' ? ITEMS : GACHA) : { results: [{ partId: 'a', count: 3, isNew: false }], items: ITEMS.items, gacha: GACHA };
 
 (async () => {
 const sec = async (t, fn) => { say(t); try{ await fn(); }catch(e){ chk(false, '예외 — ' + String(e && e.stack || e).split('\n').slice(0, 2).join(' / ')); } };
@@ -39,7 +39,7 @@ const M = load(SRC);
 const mk = (a, ids) => { let n = 0; return M.createGachaApi({ authed: a, newRequestId: () => 'rid-' + (++n) }); };
 
 await sec('── 1. 순수', () => {
-  chk(M.PATHS.collection === '/v1/me/collection' && M.PATHS.gacha === '/v1/me/gacha' && M.PATHS.draws === '/v1/me/gacha/draws', '경로 상수 — 서버 규격과 같다');
+  chk(M.PATHS.collection === '/v2/me/collection' && M.PATHS.gacha === '/v2/me/gacha' && M.PATHS.draws === '/v2/me/gacha/draws', '경로 상수 — 서버 규격과 같다');
   const st = M.stateOf(ITEMS.items, GACHA);
   chk(st && JSON.stringify(st.owned) === '{"a":2,"c":4,"e":1}' && JSON.stringify(st.unlocked) === '{"c":true}' && st.earned === 4 && st.bonus === 1 && st.left === 1 && st.season === 'winter',
       'stateOf — 0 · 음수 · 빈 id 는 안 가짐으로 · 소수는 내림 · 해금은 서버 값 (' + JSON.stringify(st) + ')');
@@ -63,10 +63,10 @@ await sec('── 2. load', async () => {
   const a = mkAuthed(okReply);
   const st = await mk(a).load();
   const paths = a.calls.map(c => c.path).sort().join(',');
-  chk(a.calls.length === 2 && paths === '/v1/me/collection,/v1/me/gacha' && a.calls.every(c => c.opts.auth === true && c.opts.timeoutMs === M.LOAD_TIMEOUT_MS && typeof c.opts.onOwner === 'function') && st.left === 1,
+  chk(a.calls.length === 2 && paths === '/v2/me/collection,/v2/me/gacha' && a.calls.every(c => c.opts.auth === true && c.opts.timeoutMs === M.LOAD_TIMEOUT_MS && typeof c.opts.onOwner === 'function') && st.left === 1,
       '로그인 통로로 GET 두 번(가진 것 · 뽑기 수) · 시간 제한 · 주인 알림');
   let threw = null;
-  try{ await mk(mkAuthed((c) => c.path === '/v1/me/gacha' ? { earned: 1 } : ITEMS)).load(); }catch(e){ threw = e; }
+  try{ await mk(mkAuthed((c) => c.path === '/v2/me/gacha' ? { earned: 1 } : ITEMS)).load(); }catch(e){ threw = e; }
   chk(threw && threw.code === 'BAD_SHAPE', '  모양이 틀리면 던진다(못 읽음 — 착용을 벗기지 않는다)');
   threw = null;
   try{ await mk(mkAuthed((c) => { throw apiErr('unavailable'); })).load(); }catch(e){ threw = e; }
@@ -80,7 +80,7 @@ await sec('── 3. draw', async () => {
   await G.load(); a.calls.length = 0;
   r = await G.draw(25);
   const c = a.calls[0];
-  chk(c.path === '/v1/me/gacha/draws' && c.body.count === 10 && c.body.requestId === 'rid-1' && c.opts.auth === true && c.opts.expectOwner === 'uA' && c.opts.timeoutMs === M.DRAW_TIMEOUT_MS,
+  chk(c.path === '/v2/me/gacha/draws' && c.body.count === 10 && c.body.requestId === 'rid-1' && c.opts.auth === true && c.opts.expectOwner === 'uA' && c.opts.timeoutMs === M.DRAW_TIMEOUT_MS,
       'POST 본문 — 횟수 상한 10 · 요청 이름 · 읽은 주인과 묶음 (' + JSON.stringify(c.body) + ')');
   chk(r.ok && r.out.length === 1 && r.out[0].id === 'a' && r.out[0].count === 3 && r.state.left === 1 && r.state.owned.c === 4, '  성공 — 결과 · 뽑은 뒤 상태');
   await G.draw(1);

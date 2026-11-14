@@ -343,7 +343,7 @@ say('── 4. 구독기 (가짜 DB · 가짜 저장소)');
     let api = apiOf(() => ({ kind: 'parts', ver: V, data: { a1: { name: 'API' } } }));
     let sn = await AF(api)('parts', V);
     const v1 = sn.val(), v2 = sn.val();
-    chk(v1.a1.name === 'API' && v1 !== v2 && !fbLog.length && api.calls[0][0] === mod.CATALOG_API_PATH + 'parts?v=' + V && mod.CATALOG_API_PATH === '/v1/catalog/',
+    chk(v1.a1.name === 'API' && v1 !== v2 && !fbLog.length && api.calls[0][0] === mod.CATALOG_API_PATH + 'parts?v=' + V && mod.CATALOG_API_PATH === '/v2/catalog/',
         'API 사본의 ver 가 구독한 버전과 같으면 그 본문 — Firebase 는 안 부른다 · 묻는 주소에 버전(v)을 붙인다(같으면 하루 캐시)');
     chk(api.calls[0][1].timeoutMs === mod.CATALOG_API_TIMEOUT_MS && mod.CATALOG_API_TIMEOUT_MS > 2500, '  본문이 커서 시간 제한을 API 공통(2.5초)보다 길게');
     chk(v1 !== v2 && (v1.a1.name = 'x', v2.a1.name === 'API'), '  val() 은 부를 때마다 새 객체(캐시용 · 화면용을 따로 뗀다)');

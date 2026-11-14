@@ -1,5 +1,5 @@
 /* ═══ 📢 sim-notice-api.js — 공지 api provider (0.13 앱 묶음 D4) ═══
-   [왜] 소식 · 업데이트 공지 · 런처 배너가 Firebase(inboxBroadcast · updateNotice · catalog/adBanner) 대신 우리 서버 공개 API(/v1/notices)를 쓴다.
+   [왜] 소식 · 업데이트 공지 · 런처 배너가 Firebase(inboxBroadcast · updateNotice · catalog/adBanner) 대신 우리 서버 공개 API(/v2/notices)를 쓴다.
      서버 모양(대문자 tag · publishedAt · imageUrl · linkUrl · 고정/최신 두 묶음)을 화면 모양(소문자 tag · ts · img · link · { id: 소식 })으로 맞추는 곳이 provider 하나라
      그 맞춤을 실제로 불러서 판정한다.
    ・1절: 읽기 — 경로 · 소식 맞춤(고정 + 최신을 id 로 합침 · 같은 id 한 번) · 업데이트 공지(시각 ms · 없으면 null) · 배너(그림 없는 칸은 뺌) · 더 있음 표시 · 모양 틀림은 던짐 · 못 읽으면 던짐(빈 값으로 숨기지 않음)
@@ -61,7 +61,7 @@ async function judge(S){
   {
     const { m, log } = mk(LIB, { get: board() });
     const r = await m.fetchBoard();
-    chk(log[0][1] === '/v1/notices', '경로 — /v1/notices 한 번에(소식 · 업데이트 공지 · 배너)');
+    chk(log[0][1] === '/v2/notices', '경로 — /v2/notices 한 번에(소식 · 업데이트 공지 · 배너)');
     chk(Object.keys(r.broadcasts).sort().join() === 'l1,l2,p1', '고정 + 최신을 id 로 합친다(고정은 오래돼도 들어 있다)');
     chk(r.broadcasts.p1.tag === 'notice' && r.broadcasts.l1.tag === 'update' && r.broadcasts.l2.tag === 'reward', '  대문자 tag → 소문자(notice · update · reward)');
     chk(r.broadcasts.p1.pinned === true && r.broadcasts.l1.pinned === false && r.broadcasts.l1.ts === Date.parse('2026-10-30T01:00:00Z') && r.broadcasts.l1.version === 3 && r.broadcasts.l1.title === 'Tl1' && r.broadcasts.l1.body === 'Bl1', '  고정 · 시각(ms) · 판(version) · 제목 · 본문');
@@ -92,7 +92,7 @@ async function judge(S){
     const { m, log, settled } = mk(LIB, o);
     chk(await m.sendBroadcast({ tag: 'update', title: 'x'.repeat(100), body: 'y'.repeat(700), pinned: false }) === 'ok', '올리기 → ok');
     const p = log.find((x) => x[0] === 'POST');
-    chk(p[1] === '/v1/admin/notices/broadcasts' && p[2].tag === 'UPDATE' && p[2].title.length === 80 && p[2].body.length === 600 && /^req-/.test(p[2].requestId), '본문 — 대문자 tag · 제목 80 · 본문 600 으로 깎음 · 요청 번호');
+    chk(p[1] === '/v2/admin/notices/broadcasts' && p[2].tag === 'UPDATE' && p[2].title.length === 80 && p[2].body.length === 600 && /^req-/.test(p[2].requestId), '본문 — 대문자 tag · 제목 80 · 본문 600 으로 깎음 · 요청 번호');
     chk(settled.length === 1, '  서버가 답했으니 요청 번호를 버린다(같은 글을 또 올리면 새 번호)');
     chk(log.every((x) => x[0] !== 'PATCH'), '  고정을 안 켰으면 고정 요청 없음');
     await m.sendBroadcast({ tag: 'bogus', title: 'a', body: '', pinned: false });
@@ -100,7 +100,7 @@ async function judge(S){
     const pin = mk(LIB, o);
     chk(await pin.m.sendBroadcast({ tag: 'notice', title: 'a', body: 'b', pinned: true }) === 'ok', '고정해서 올리기 → ok');
     const pt = pin.log.find((x) => x[0] === 'PATCH');
-    chk(pt[1] === '/v1/admin/notices/broadcasts/new' && pt[2].pinned === true && pt[2].version === 1, '  올린 글의 판(version)으로 이어서 PATCH { version, pinned:true }');
+    chk(pt[1] === '/v2/admin/notices/broadcasts/new' && pt[2].pinned === true && pt[2].version === 1, '  올린 글의 판(version)으로 이어서 PATCH { version, pinned:true }');
     const pf = mk(LIB, Object.assign({}, o, { patch: apiErr(409, 'CONCURRENT_UPDATE') }));
     chk(await pf.m.sendBroadcast({ tag: 'notice', title: 'a', body: 'b', pinned: true }) === 'pinFailed', '올라는 갔는데 고정이 실패하면 pinFailed — 올리기 실패와 구별');
     const net = mk(LIB, Object.assign({}, o, { post: new Error('NETWORK'), sameId: true }));
@@ -108,8 +108,8 @@ async function judge(S){
     const rej = mk(LIB, Object.assign({}, o, { post: apiErr(400, 'INVALID_REQUEST') }));
     chk(await rej.m.sendBroadcast({ tag: 'notice', title: 'a', body: 'b' }) === 'failed' && rej.settled.length === 1, '서버가 거절했으면 failed · 번호는 버린다(고쳐서 다시 올리면 새 번호)');
     const w = mk(LIB, o);
-    chk(await w.m.setPinned('q/1', 5, true) === 'ok' && w.log[0][0] === 'PATCH' && w.log[0][1] === '/v1/admin/notices/broadcasts/q%2F1' && JSON.stringify(w.log[0][2]) === '{"version":5,"pinned":true}', '고정 → PATCH { version, pinned } · id 는 인코딩');
-    chk(await w.m.remove('q', 5) === 'ok' && w.log[1][0] === 'DELETE' && w.log[1][1] === '/v1/admin/notices/broadcasts/q?version=5', '내리기 → DELETE …/{id}?version=');
+    chk(await w.m.setPinned('q/1', 5, true) === 'ok' && w.log[0][0] === 'PATCH' && w.log[0][1] === '/v2/admin/notices/broadcasts/q%2F1' && JSON.stringify(w.log[0][2]) === '{"version":5,"pinned":true}', '고정 → PATCH { version, pinned } · id 는 인코딩');
+    chk(await w.m.remove('q', 5) === 'ok' && w.log[1][0] === 'DELETE' && w.log[1][1] === '/v2/admin/notices/broadcasts/q?version=5', '내리기 → DELETE …/{id}?version=');
     const c = mk(LIB, { patch: apiErr(409, 'CONCURRENT_UPDATE'), del: apiErr(409, 'CONCURRENT_UPDATE') });
     chk(await c.m.setPinned('q', 5, true) === 'conflict' && await c.m.remove('q', 5) === 'conflict' && c.warns.length === 0, '409 는 conflict — 덮어쓰지 않고 진단 로그도 안 남긴다');
     const f = mk(LIB, { patch: apiErr(403, 'ACCESS_DENIED') });
