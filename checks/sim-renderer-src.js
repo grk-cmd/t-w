@@ -138,6 +138,7 @@ const MODULES = [
   { file: 'desk-item-equip.js', mod: 'deskItemEquipMod', glob: 'TwDeskItemEquip', sample: 'function equipDeskItem(' },   // 0.12.4 app.js 분리 M5
   { file: 'seats.js', mod: 'seatsMod', glob: 'TwSeats', sample: 'function createSeat(' },   // 0.12.4 app.js 분리 M6
   { file: 'char-place.js', mod: 'charPlaceMod', glob: 'TwCharPlace', sample: 'function _animalPanExtra(' },   // 0.12.4 app.js 분리 M7
+  { file: 'fit-model.js', mod: 'fitModelMod', glob: 'TwFitModel', sample: 'function fitModel(' },   // 0.12.4 app.js 분리 M8
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

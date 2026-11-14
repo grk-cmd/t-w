@@ -397,3 +397,15 @@
   - 생성기(`crState.cBase`)일 때만 선택 표시 · 처음 자리 기억 · 기즈모 해제를 한다.
   - 색 그룹이 있으면 비어 있어도 `colors` 를 항상 저장한다 — «초기화한 상태» 를 기록해야 옛 색이 안 남는다.
   - 검사: `checks/sim-desk-item-equip.js`(진짜 three 로 장착 · 해제 · 복원 · 재생 방식 · 색 · 저장 · 환산 · 깨 보기).
+
+## fit-model.js — 📐 몸 · 책상 맞춤
+
+- **책임**: `fitModel(seat)` — 캐릭터를 좌석 키에 맞춘다(몸을 재어 높이 1.45 로 정규화 · 동물은 정해진 배율 · 커미션 보정 · 몸 x 가운데 · 발바닥 맞춤 · 사용자 x · y(높이 상한) · 평준화 배율 · 리깅 파츠 xf 다시 굽기) / `fitDesk(seat)` — 책상 GLB 를 높이 0.6 에 맞추고 바닥 · 가운데 · 앞으로 0.45. 앱 FSD 분리 M8 — app.js FIT 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwFitModel.createFitModel({ ANIMAL_RUN_SCALE, COMMISSION_SCALE_CORRECTION, charMeasureMod, clampCharY, seatEqMod, refreshRiggedPartsXf, creatorPrevMod })` — 앞 다섯은 값, `refreshRiggedPartsXf` 는 함수, `creatorPrevMod` 는 더 아래에서 만들어져 읽는 함수.
+- **내보내는 것**: `fitModel` · `fitDesk` — app.js 는 같은 이름 const 로 받는다.
+- **함정**
+  - 사용자 x · y 는 **raw `seat.userScale`** 로 나눈다(실효값 아님) — `bodyWrap.scale` 이 userScale × 평준화 k 라 raw 로 나눠야 이동량의 월드 값이 책상과 같은 배율로 따라온다. 실효값으로 나누면 평준화한 좌석에서 캐릭터가 책상을 파고든다.
+  - 동물은 x · y 이동량에 `ANIMAL_RUN_SCALE`(0.4)을 곱한다 — 생성기는 100% 로, 실행 화면은 40% 로 그리는데 이동량만 절대값이면 실행 화면에서 2.5배 크게 들려 보인다(`charLiftWorld` 도 같이 바꿀 것).
+  - 재는 동안 옮긴 `rig` · `bodyWrap` · `group` 은 값을 되돌린 뒤 **월드 행렬도 다시 세워 두고** 나간다 — 옛 행렬로 남으면 바로 뒤 `layoutSeats` 가 원점 근처에 있는 것처럼 읽는다.
+  - 앞뒤(z) 재센터링은 하지 않는다(미리보기가 정답 기준). 되돌리려면 주석에 적힌 한 줄.
+  - 검사: `checks/sim-fit-model.js`(진짜 three · body-measure · char-measure 로 정규화 · 이동량 · 동물 · 커미션 · 되돌리기 · 책상 · 깨 보기).
