@@ -38,7 +38,7 @@ const presenceMod = TwPresence.createPresence({
   roomSyncMod: roomSyncMod,              // 값 — Firebase provider · poke 신선도 · 자동 퇴장 안내
   roomNet: ()=>window.firebaseAPI,       // 읽는 함수 — 데이터 provider 고르기 한 줄(준비 확인 · Firebase 방 고르기)
   focusLevelMod: ()=>focusLevelMod,      // 읽는 함수 — 만드는 줄보다 뒤에 선언되는 모듈
-  lastAnyInput: ()=>lastAnyInput,        // 읽는 함수 — app.js 가 다시 대입하는 let
+  lastAnyInput: ()=>seatStateMod.lastAnyInput(),   // 읽는 함수 — 활동 시각은 status/seat-state.js 가 갖는다
   toast: (...a)=>toast(...a),            // 함수
   // … 20개(함수 3 · 값 7 · 읽는 함수 10)
 });
@@ -283,3 +283,12 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
   - `ANIMAL_RUN_SCALE` 은 `_animalPanExtra` 가 부를 때 읽는다(값을 미리 굳히면 TDZ 로 앱이 죽었던 자리).
   - `seatDeskHalfWidth` 는 `updateWorldMatrix(true, true)` 로 조상부터 세운다(`fitModel` 직후 `matrixWorld` 캐시가 옛 값이라 간격이 부풀던 자리). 책상 위 아이템(`deskAnchor`)과 숨은 자식은 뺀다.
   - 검사: `checks/sim-char-place.js`(저장 · 복원 · 모니터 바뀜 · 끌기 한계 표 · 책상 반폭 · 깨 보기).
+
+## seat-opacity.js — 👻 캐릭터 투명도(자리비움 영혼 효과)
+
+- **책임**: `setSeatOpacity(seat, op)` — 좌석 몸(`bodyWrap`) 아래 모든 mesh 의 material 투명도를 상태 투명도 × 파츠 원본 투명도로 쓰고, 자리비움(op≈0)이면 mesh 를 끈다. 앱 FSD 분리 M10 — app.js 캐릭터 투명도 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwSeatOpacity.createSeatOpacity({})` — deps 없음(좌석 객체만 읽고 쓴다). app.js 는 `setSeatOpacity` 를 같은 이름 const 로 받는다(`frame` 이 매 프레임 부른다).
+- **함정**
+  - 파츠 원본 투명도(`_baseOpacity` · `_baseTransparent`)는 **불투명할 때(op≥0.999) · 건드리기 전(`_opTouched` 없음)** 에만 잰다 — 숨은 동안 처음 만난 머티리얼의 0 이 원본으로 굳으면 머리가 영영 안 보인다(앱을 껐다 켜야 돌아옴).
+  - `seat._bodyOff` 는 `hidden-seats.js` 가 읽는다(몸을 껐다는 표시 — 투명도 기준은 여기 한 곳). `userData._prevVisible` 은 파츠 `hides` 로 숨긴 mesh 가 풀릴 때 다시 보이지 않게 하는 기억이다.
+  - 검사: `checks/sim-seat-opacity.js`(자리비움 풀림 사고 시나리오 — 이 파일의 본문을 떼어 돌린다) · `checks/sim-seat-opacity-mod.js`(자리비움 켜고 끄기 · 원본 투명도 기억 · 연결 · 깨 보기).

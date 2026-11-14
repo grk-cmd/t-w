@@ -2650,121 +2650,24 @@ const overheadMod = TwOverhead.createOverhead({
   tricksMod: tricksMod,
 });
 /* ═══ 👻 캐릭터 투명도 · 활동 판정(seatState) · 쓰다듬기 ═══ */
-/* 캐릭터 opacity (자리비움 영혼 효과) — bodyWrap 하위 모든 mesh의 material에 적용 */
-function setSeatOpacity(seat, op){
-  if(seat._lastOp===op) return;
-  seat._lastOp=op;
-  // 자리비움(op≈0)에선 material.opacity만 낮춰선 완전히 사라지지 않으므로 mesh.visible 자체를 함께 토글한다.
-  // ★ 단, applyClothVisibility가 관리하는 mesh.visible(파츠 hides에 의한 숨김)을 덮어쓰지 않도록:
-  //   자리비움 진입 시 원래 visible 값을 userData._prevVisible에 기억해두고,
-  //   자리비움 해제 시 그 값으로 복원. 정상 상태(op≥0.001)에선 visible을 건드리지 않음.
-  const hide = op < 0.001;
-  seat._bodyOff = hide;   // 몸 메쉬를 껐다는 표시 — 동작 계산 건너뛰기(hidden-seats.js _bodyHidden)가 이것만 읽는다(기준을 두 번 쓰지 않게)
-  seat.bodyWrap.traverse(o=>{
-    if(o.isMesh && o.material){
-      if(hide){
-        // 자리비움 진입 — 원래 visible 상태 저장 후 숨김
-        if(o.userData._prevVisible === undefined) o.userData._prevVisible = o.visible;
-        o.visible = false;
-      } else if(o.userData._prevVisible !== undefined){
-        // 자리비움 해제 — 저장된 원래 visible 복원 (hides로 숨긴 상태였다면 그대로 숨김 유지)
-        o.visible = o.userData._prevVisible;
-        delete o.userData._prevVisible;
-      }
-      // 정상 상태에선 mesh.visible 안 건드림 → applyClothVisibility의 세팅 유지
-      const mats=Array.isArray(o.material)?o.material:[o.material];
-      mats.forEach(m=>{
-        if(!m) return;
-        // ★ 파츠가 블렌더에서 설정해온 원본 투명도(transparent/opacity)를 최초 1회 기억해둔다.
-        //   예전엔 여기서 무조건 transparent=false, opacity=1로 덮어써서 반투명 파츠가 실행화면에서만
-        //   불투명하게 보였음(꾸미기 미리보기는 이 함수를 안 거쳐서 정상이었던 원인).
-        /* ★★ 그 기억은 **불투명할 때만**(op≥0.999) 잰다.
-           [증상] 작업하다 어느 순간 머리(얼굴 메시)가 통째로 안 보이고, 앱을 껐다 켜야 돌아온다.
-           [원인] 예전엔 "처음 보는 머티리얼이면 무조건" 그 자리의 opacity를 원본으로 적었다.
-             자리비움은 opacity 0.0 이므로(STATUS 표의 away), 숨어 있는 동안 그 좌석이 다시 빌드되거나
-             파츠가 새로 붙어서 그 머티리얼이 이 함수를 **처음** 통과하면, 이미 0이 된 값을 원본으로
-             기억한다. 그때부터 baseOp=0 이라 자리비움이 풀려 op=1 이 와도 0 × 1 = 0 — 영영 안 보인다.
-             (자동 자리비움은 20분 무반응이면 스스로 걸린다 → "자리를 비웠다 돌아오니 머리만 없다".)
-           [왜 껐다 켜면 돌아오나] 이 기억은 머티리얼 메모리(userData)에만 있고 저장되지 않는다.
-             즉 저장 데이터는 멀쩡하다 — 표정 텍스처가 지워진 게 아니다.
-           ⚠️ _baseTransparent 를 **반드시 같은 조건에 묶어 둘 것.** 따로 재면 투명도만 돌아오고
-             transparent 플래그가 켜진 채 남아 depthWrite/정렬이 어긋난다. */
-        /* ⚠️ _opTouched 가 왜 필요한가 — op≥0.999 조건만 걸면 구멍이 그대로 남는다.
-             숨은 동안 처음 만난 머티리얼은 여기서 못 재고 아래에서 opacity=0 이 **찍힌다.**
-             그 뒤 자리비움이 풀려 op=1 로 이 함수가 다시 오면, 조건이 통과되면서
-             **우리가 방금 쓴 0** 을 원본이라고 기억한다 — 고치기 전과 똑같이 굳는다.
-             그래서 "이 함수가 한 번이라도 쓴 머티리얼"에는 표식을 남기고, 표식이 있으면
-             다시는 재지 않는다. 원본을 잴 수 있는 시점은 **건드리기 전, 불투명할 때** 뿐이다. */
-        if(m.userData._baseOpacity === undefined && !m.userData._opTouched && op >= 0.999){
-          m.userData._baseOpacity     = (typeof m.opacity==='number') ? m.opacity : 1;
-          m.userData._baseTransparent = !!m.transparent;
-        }
-        m.userData._opTouched = true;   // 아래에서 opacity/transparent 를 쓴다 — 이후 이 값은 원본이 아니다
-        // 끝내 못 잰 머티리얼(숨은 동안 처음 붙은 파츠 등)은 1/불투명으로 본다.
-        //   블렌더에서 반투명으로 만든 파츠라면 그 반투명이 한 번 무시되지만, 0 으로 굳어
-        //   영영 안 보이는 쪽보다 이 방향이 훨씬 안전하다.
-        const baseOp = (typeof m.userData._baseOpacity === 'number') ? m.userData._baseOpacity : 1;
-        const baseTr = (m.userData._baseTransparent !== undefined) ? !!m.userData._baseTransparent : false;
-        const eff    = baseOp * op;              // 자리비움 등 상태 투명도 × 파츠 원본 투명도
-        m.transparent = baseTr || (op < 0.999);
-        m.opacity     = eff;
-        m.depthWrite  = (eff > 0.95);   // 반투명 시 z-fighting 줄이기
-        m.needsUpdate = true;
-      });
-    }
-  });
-}
-
-
-const FOCUS_MS=1500,SLEEP_MS=8000,PET_MS=2200;
-/* 🖊️ 펜 앱(클립스튜디오·포토샵 등)이 활성일 때만 쓰는 넓은 기록 창.
-   그림은 한 획이 몇 초씩 이어져서 그 사이 클릭·키 입력이 하나도 없다. 1.5초 기준으로는
-   선 하나 긋는 동안 캐릭터가 idle로 빠지고 기록도 뚝뚝 끊긴다. 펜 앱일 때만 4초로 넓힌다.
-   (main.js가 activeAppState.isPenApp으로 알려줌 — 목록은 main.js의 PEN_APPS 한 곳에만 둔다) */
-const PEN_FOCUS_MS=4000;
-let _penAppFocused=false;
-/* 투게더워킹 창 자신이 맨 앞인가(main.js activeAppState.isSelf) — 등록 앱이 아니어도 잠들지 않게 seatState 가 본다. */
-let _selfAppActive=false;
-function focusWindowMs(){ return _penAppFocused ? PEN_FOCUS_MS : FOCUS_MS; }
-let lastActivity=performance.now(),windowFocused=!document.hidden,lastZ=0;
-function activity(){lastActivity=performance.now();}
-
-/* ★ 자동 자리비움 전용 "실제 입력" 타임스탬프.
-   lastActivity는 focusGateSleep(등록한 포커싱 어플을 쓰는 중인가)에 걸려서, 포커싱 어플을 아예 등록하지
-   않았거나 다른 앱을 쓰는 중이면 갱신되지 않음 — 그건 "타이핑 모션" 판정용이라 그게 맞음.
-   하지만 자동 자리비움은 어떤 앱을 쓰든 "사람이 컴퓨터를 만지고 있는가"만 보면 되므로 별도로 기록함. */
-let lastAnyInput = performance.now();
-function anyInput(){ lastAnyInput = performance.now(); }
-window.addEventListener('mousemove',activity);window.addEventListener('keydown',activity);window.addEventListener('wheel',activity);
-document.addEventListener('visibilitychange',()=>windowFocused=!document.hidden);
-window.addEventListener('blur',()=>windowFocused=false); window.addEventListener('focus',()=>{windowFocused=true;activity();anyInput();});
-function seatState(seat,now){
-  if(seat.pinned) return 'shaking';   // 액자 고정: 드래그된 자세(팔 처짐) + 호흡·blink 유지
-  // 사용자 인터랙션 — 흔들기/회복(dizzy)/쓰다듬기(pet)가 모든 자동·수동·remote보다 우선
-  if(seat.beingShaken) return 'shaking';
-  if(seat.dizzyUntil && now < seat.dizzyUntil) return 'dizzy';
-  if(now-seat.petStart<PET_MS) return 'pet';   // remote(친구) 좌석도 쓰다듬으면 반응 보이게(원래 remote 분기보다 아래에 있어서 무시되던 버그)
-  // 💃 춤 — 자리비움/자동 상태보다 우선(단, 흔들기·dizzy·pet보다는 아래). 내 좌석은 danceUntil, 친구 좌석은 remoteState로 전달됨.
-  if(seat.danceUntil && now < seat.danceUntil && !seat.remote) return 'dance';
-  // 자리비움(본인/친구) → 자동·수동과 무관하게 sleep 모션 강제 (영혼 컨셉)
-  const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatusMod.userStatus() : null);
-  if(us==='away') return 'sleep';
-  if(seat.remote) return seat.remoteState||'idle';   // 친구 좌석: 공유받은 상태 사용
-  if(seatPanelMod.manual())return seatPanelMod.manual();
-  if(!desktopMode && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
-  // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
-  // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
-  /* 투게더워킹 창을 쓰는 중이면 등록 앱이 아니어도 깨어 있는다(평소 자세). 손을 뗀 지 SLEEP_MS 가 넘으면 예전처럼 잔다.
-     ⚠️ lastActivity 만 보면 안 된다 — 전역 키 · 클릭은 게이트가 닫혀 있으면 lastAnyInput 만 올린다. */
-  if(desktopMode && focusGateSleep && _selfAppActive) return (now-Math.max(lastActivity,lastAnyInput)>SLEEP_MS) ? 'sleep' : 'idle';
-  if(desktopMode && focusGateSleep) return 'sleep';
-  if(seat.isMe && focusLevelMod._mobileOn()) return 'focus';   // 📱 폰에서 그리는 중 — 집중 포즈
-  const idle=now-lastActivity;
-  if(idle<focusWindowMs())return 'focus';
-  /* 🧸 피규어 모드는 «항상 깨어 있음» 이다 — 입력이 끊겨도(생각하는 동안 · 키 훅이 막힌 앱) 잠들지 않고 쉬는 자세. 자리비움은 위에서 잔다. */
-  if(idle>SLEEP_MS && !(desktopMode && figureMode))return 'sleep';
-  return 'idle'; }
-function triggerPet(seat){ const now=performance.now(); seat.petStart=now; if(seat.blink) seat.blink.pulses.push({start:now,dur:240}); }
+/* 본문은 room/seat-opacity.js · status/seat-state.js 로 옮겼다(앱 FSD · app.js 분리 M10). 원래 자리인 여기서 만든다 — 활동 시각 듣기(mousemove · keydown · wheel · blur · focus)가 예전과 같은 때 걸린다.
+   다시 대입되던 활동 시각 · 펜 앱 · 창 자신 깃발은 모듈 안에 있고 `seatStateMod.이름()` 으로 읽는다. */
+const seatOpacityMod = TwSeatOpacity.createSeatOpacity({
+});
+const setSeatOpacity = seatOpacityMod.setSeatOpacity;   // 옛 전역 이름
+const seatStateMod = TwSeatState.createSeatState({
+  desktopMode: ()=>desktopMode,
+  figureMode: ()=>figureMode,
+  focusGateSleep: ()=>focusGateSleep,
+  focusLevelMod: ()=>focusLevelMod,
+  seatPanelMod: seatPanelMod,
+  userStatusMod: userStatusMod,
+});
+const focusWindowMs = seatStateMod.focusWindowMs;   // 옛 전역 이름
+const activity = seatStateMod.activity;   // 옛 전역 이름
+const anyInput = seatStateMod.anyInput;   // 옛 전역 이름
+const seatState = seatStateMod.seatState;   // 옛 전역 이름
+const triggerPet = seatStateMod.triggerPet;   // 옛 전역 이름
 
 /* ============================================================ DRAG / PET */
 const ray=new THREE.Raycaster(),ndc=new THREE.Vector2(),dragPlane=new THREE.Plane(new THREE.Vector3(0,1,0),-0.4);
@@ -6202,7 +6105,7 @@ const presenceMod = TwPresence.createPresence({
   iDeskMod: iDeskMod,
   isAdmin: ()=>isAdmin,
   isPremium: ()=>isPremium,
-  lastAnyInput: ()=>lastAnyInput,
+  lastAnyInput: ()=>seatStateMod.lastAnyInput(),
   roomEntryMod: ()=>roomEntryMod,
   roomNet: ()=>window.firebaseAPI,
   roomSyncMod: roomSyncMod,
@@ -7658,7 +7561,7 @@ function frame(now, manual){
       /* shake 중 — pointermove가 rig.position을 직접 제어, 덮어쓰지 않음 */
     } else if(seat.pinned){
       /* 액자 고정 — 그 자리 그대로, 위치 lerp 안 함 */
-    } else if(now-seat.petStart<PET_MS){const e=now-seat.petStart;seat.rig.position.y=Math.sin(e*0.016)*0.07*Math.exp(-e*0.0026)+lift;}
+    } else if(now-seat.petStart<seatStateMod.PET_MS){const e=now-seat.petStart;seat.rig.position.y=Math.sin(e*0.016)*0.07*Math.exp(-e*0.0026)+lift;}
     else seat.rig.position.y=lerp(seat.rig.position.y,lift,k);
     seat.breathePhase+=dt*seat.pose.breSpd;
 
@@ -8237,7 +8140,7 @@ function _applyActiveAppState(state){
   //   → "실제로 입력하며 집중하는 동안"만 시간이 쌓임. 입력이 재개되면 다음 폴링부터 다시 누적.
   /* 📱 폰 켜짐이면 PC 입력 조건을 건너뛴다 — PC 입력이 없는 게 정상이라 그대로 두면 한 초도 안 쌓인다(요구: PC 와 똑같이). */
   const mobOn = focusLevelMod._mobileOn();
-  const pcNotFocusing = (now - lastActivity) > focusWindowMs();
+  const pcNotFocusing = (now - seatStateMod.lastActivity()) > focusWindowMs();
   const notFocusingNow = mobOn ? false : pcNotFocusing;
   /* 🧸 피규어 모드면 쌓지 않는다 — 직전 폴링 값(_focusWasActive)이 아니라 지금 값을 봐서, 켠 순간부터 멈춘다. */
   if(!figureMode && _focusWasActive && !notFocusingNow && dt>0 && dt<30) focusLevelMod.addFocusSeconds(dt);
@@ -8250,8 +8153,8 @@ function _applyActiveAppState(state){
   /* 이 기기의 플랫폼 접두사를 main 이 보낸 키에서 배운다 — 렌더러가 스스로 판단하지 않는다.
      구버전 main 은 key 를 안 보내므로 null 로 남고, 그때는 플랫폼 판정을 아예 안 한다. */
   if(state.key) weeklyChal.setKeyPlatform(String(state.key).split(':')[0] || null);
-  _selfAppActive = !!state.isSelf;   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
-  _penAppFocused = !!state.isPenApp;   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
+  seatStateMod.setSelfAppActive(!!state.isSelf);   // 구버전 main 은 안 보낸다 — 그때는 예전처럼 잔다
+  seatStateMod.setPenAppFocused(!!state.isPenApp);   // 🖊️ 펜 앱이면 기록 창을 4초로 넓힘(focusWindowMs)
   focusGateSleep = figureMode ? false : (mobOn ? false : (state.hasAnyRegistered ? !state.isFocusedAppRegistered : true));
   _focusWasActive = !!(state.hasAnyRegistered && state.isFocusedAppRegistered) || mobOn;
 }
@@ -8324,7 +8227,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   _applyActiveAppState: (...a)=>_applyActiveAppState(...a),
   _charBoundsLatest: ()=>_charBoundsLatest,
   _officeHidden: ()=>_officeHidden,
-  _penAppFocused: ()=>_penAppFocused,
+  _penAppFocused: ()=>seatStateMod.penAppFocused(),
   _skipFlyingRigs: (...a)=>hiddenSeatsMod._skipFlyingRigs(...a),
   _skipHiddenDesk: (...a)=>hiddenSeatsMod._skipHiddenDesk(...a),
   _twMoveSeenAt: ()=>_twMoveSeenAt,
@@ -8337,15 +8240,15 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   drag: ()=>drag,
   focusGateSleep: ()=>focusGateSleep,
   hitShadow: hitShadow,
-  lastActivity: ()=>lastActivity,
-  lastAnyInput: ()=>lastAnyInput,
+  lastActivity: ()=>seatStateMod.lastActivity(),
+  lastAnyInput: ()=>seatStateMod.lastAnyInput(),
   moveMode: ()=>moveMode,
   ray: ray,
   renderer: renderer,
   seats: seats,
   setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },
-  setLastActivity: (v)=>{ lastActivity = v; },
-  setLastAnyInput: (v)=>{ lastAnyInput = v; },
+  setLastActivity: (v)=>{ seatStateMod.setLastActivity(v); },
+  setLastAnyInput: (v)=>{ seatStateMod.setLastAnyInput(v); },
   runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
   seatHit: seatHitMod,   // 🗺️ 히트 맵 새 판정 — 그림자 운행
 });

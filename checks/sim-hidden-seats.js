@@ -91,8 +91,9 @@ say('── 2-1. _bodyHidden — 몸이 안 보이는 좌석은 동작 계산을
   chk(!judgeBody(MOD.replace('return seat._bodyOff === true;', 'return false;')), '깨 보기: 자리비움(몸 꺼짐)을 못 보면 빨강');
   chk(!judgeBody(MOD.replace('if(seat.rig && seat.rig.visible === false) return true;', '')), '깨 보기: 숨긴 좌석을 못 보면 빨강');
   chk(!judgeBody(MOD.replace('return seat._bodyOff === true;', 'return seat._bodyOff !== false;')), '깨 보기: 표시가 아직 없는 좌석까지 건너뛰면 빨강');
-  const so = (SRC.match(/function setSeatOpacity\(seat, op\)\{[\s\S]*?\n\}/) || [''])[0];
-  chk(/const hide = op < [\d.]+;\s*\n\s*seat\._bodyOff = hide;/.test(so) && !/_lastOp\s*<|0\.001/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '')), 'app.js setSeatOpacity 가 몸을 끄는 바로 그 판단으로 _bodyOff 를 세운다 · 이 모듈은 투명도 기준을 따로 갖지 않는다');
+  const OPAC = read('seat-opacity.js') || read('parts/room/seat-opacity.js') || read('app/parts/room/seat-opacity.js') || '';   // setSeatOpacity 는 app.js 분리 M10 에서 room/seat-opacity.js 로 옮겼다
+  const so = (OPAC.match(/function setSeatOpacity\(seat, op\)\{[\s\S]*?\n\}/) || [''])[0];
+  chk(/const hide = op < [\d.]+;\s*\n\s*seat\._bodyOff = hide;/.test(so) && !/_lastOp\s*<|0\.001/.test(MOD.replace(/\/\*[\s\S]*?\*\//g, '')), 'seat-opacity.js setSeatOpacity 가 몸을 끄는 바로 그 판단으로 _bodyOff 를 세운다 · 이 모듈은 투명도 기준을 따로 갖지 않는다');
   const n = (SRC.match(/if\(!hiddenSeatsMod\._bodyHidden\(seat\)\) (seat\.mixer\.update\(dt\)|animateRig\(seat,now,state\))/g) || []).length;
   chk(n === 2, 'app.js — 클립 동작(mixer) · 뼈대 동작(animateRig) 두 길 모두 이 판단을 거친다');
 }
