@@ -31,6 +31,7 @@ const CODE_RE = /^E-([A-Z]+)-(\d{2})$/;
 /* 문구는 사용자에게 그대로 보인다 — 무엇이 안 됐는지 + (있으면) 할 일. where 는 우리가 찾을 자리. */
 const CODES = {
   'E-SYS-01': { msg: '알 수 없는 오류가 났어요', where: '(예비) 어디서 났는지 모를 때' },
+  'E-SYS-05': { msg: '그래픽(3D)을 불러오지 못했어요 — 앱을 다시 켜 주세요', where: 'shared/gl-fail-notice.js — 메인 렌더러(WebGL)를 못 만듦 · 끊긴 3D 가 10분 안에 또 안 돌아옴(안내 창)' },
   'E-FR-01': { msg: '친구 요청을 수락하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [수락]' },
   'E-FR-02': { msg: '친구 요청을 거절하지 못했어요', where: 'myhome/friend-manage.js — 요청 팝업 · 받은 요청 [거절]' },
   'E-FR-03': { msg: '보낸 친구 요청을 취소하지 못했어요', where: 'myhome/friend-manage.js — 보낸 요청 [취소]' },
