@@ -144,13 +144,6 @@ const _KEY_LIGHT_MUL = 0.29;
    ⚠️ 이 값을 올리면 FLAT_EMISSIVE 가 그만큼 줄어든다(TONE_FRONT_TOTAL 이 총합을 고정하므로).
       정면 밝기는 그대로고, 방향광 몫이 커져 측면과의 대비만 세진다. */
 const _FILL_LIGHT_MUL = 0.29;
-/* 정면 필 조명 하나를 만든다 — 씬마다 같은 배치를 쓰라고 함수로 둔다(생성기·런처·꾸미기·썸네일 전부).
-   ⚠️ 씬마다 따로 적어 두면 반드시 한 곳이 빠지고, 그 화면만 톤이 달라진다(예전 파츠 톤이 그랬다). */
-function _mkFrontFill(intensity){
-  const l = new THREE.DirectionalLight(_MAIN_LIGHT_COL, intensity);
-  l.position.set(0.5, 1.0, 3);
-  return l;
-}
 /* 💡 GLB 재질을 이 앱의 '플랫 조명' 규약에 맞게 정규화한다 — 캐릭터·파츠·아이템·책상이 전부 이 함수를 지난다.
    이 앱의 화면 밝기는 사실상 **앰비언트 + emissive** 두 개다(키 조명은 정수리 악센트뿐).
    그래서 그 둘 중 하나를 갉아먹는 재질 설정이 하나만 있어도 그 메쉬만 통째로 어두워진다.
@@ -204,14 +197,21 @@ function _fixGlbMatLighting(m){
       console.log('[재질 주의] ' + (m.name||'(이름 없음)') + ' — metalnessMap 이 있어 금속도를 안 건드렸습니다. 이 파츠가 어둡게 나오면 제작 툴에서 Metallic 을 0 으로 두고 다시 내보내 주세요');
   }catch(_){}
 }
-scene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-const key=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
-key.position.set(0,5,0); key.castShadow=true; key.shadow.mapSize.set(2048,2048);
+/* 재질 톤 · 실행 화면 조명 한 벌 — 메인 씬 조명이 바로 아래에서 쓰므로 조명 상수 바로 뒤에서 만든다(shared/light-tone.js).
+   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
+const lightToneMod = TwLightTone.createLightTone({
+  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
+  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
+  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
+  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
+  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
+});
+/* 메인 씬 — 앰비언트 · 키(정수리 위 · 그림자) · 뒤쪽 냉색 바운스 · 정면 필(옷 앞면 · 얼굴 · 욕조 앞면) */
+const key = lightToneMod.addRunLights(scene, { keyPos: [0, 5, 0], backBounce: true }).key;
+key.castShadow=true; key.shadow.mapSize.set(2048,2048);
 key.shadow.camera.near=1; key.shadow.camera.far=30;
 key.shadow.camera.left=-22; key.shadow.camera.right=22; key.shadow.camera.top=8; key.shadow.camera.bottom=-8;
-key.shadow.bias=-0.0003; key.shadow.normalBias=0.03; scene.add(key);
-const fill=new THREE.DirectionalLight(0xbcd0ff,0.12); fill.position.set(-3,2,-1); scene.add(fill);   // 뒤쪽 냉색 바운스(그대로 유지)
-scene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 정면 필 — 카메라를 보는 면(옷 앞면·얼굴·욕조 앞면)
+key.shadow.bias=-0.0003; key.shadow.normalBias=0.03;
 
 const M=(c,r=0.85,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
 const matSage=M(0x9dba8a,0.8),matSageD=M(0x84a172,0.8),matInk=M(0x4a3f35,0.6),matWhite=M(0xfdfaf2,0.7),
@@ -2496,18 +2496,14 @@ const wardrobeMod = TwWardrobe.createWardrobe({
   PART_GROUPS: ()=>premiumMod.PART_GROUPS,
   Presence: ()=>Presence,
   WD_DESK_TAB: ()=>premiumMod.WD_DESK_TAB,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _attachHumanEars: (...a)=>_attachHumanEars(...a),
   _disposeWrapperFromSeat: (...a)=>_disposeWrapperFromSeat(...a),
   _hsvToHex: (...a)=>_hsvToHex(...a),
   _invalidatePendingEquip: (...a)=>_invalidatePendingEquip(...a),
-  _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _rgbHexToHsv: (...a)=>_rgbHexToHsv(...a),
   _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),
   _wdLicenseDesks: (...a)=>premiumMod._wdLicenseDesks(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   addEntryToCat: (...a)=>premiumMod.addEntryToCat(...a),
   addPartEntryInstance: (...a)=>premiumMod.addPartEntryInstance(...a),
   applyClothVisibility: (...a)=>applyClothVisibility(...a),
@@ -3356,7 +3352,7 @@ const purikuraUi = TwPurikuraUi.createPurikuraUi({
   officeMode: ()=>officeMode,
   lsSet: (...a)=>_lsSet(...a),
   presence: ()=>Presence,
-  mkFrontFill: (...a)=>_mkFrontFill(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   findMySeat: (...a)=>findMySeat(...a),
   setFaceMap: (...a)=>matToneMod.setFaceMap(...a),
   animateRig: (...a)=>animateRig(...a),
@@ -3367,10 +3363,6 @@ const purikuraUi = TwPurikuraUi.createPurikuraUi({
   trickArmSpread: (...a)=>iDeskMod._trickArmSpread(...a),
   trickLegPose: (...a)=>iDeskMod._trickLegPose(...a),
   seats,
-  mainLightCol: _MAIN_LIGHT_COL,
-  mainLightInt: _MAIN_LIGHT_INT,
-  keyLightMul: _KEY_LIGHT_MUL,
-  fillLightMul: _FILL_LIGHT_MUL,
   animalHandRest: ANIMAL_HAND_REST,
   spineAxis: ()=>SPINE_AXIS,
   headAxis: ()=>HEAD_AXIS,
@@ -6234,13 +6226,7 @@ const assetImportMod = TwAssetImport.createAssetImport({
   toast: (...a)=>toast(...a),
 });
 assetImportMod.onPartAdded(()=>wardrobeMod.renderWardrobe());   // 파츠를 넣으면 꾸미기 창을 다시 그린다(꾸미기가 이 창을 열기도 해서 deps 대신 구독)
-/* 본문은 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4). 
-   ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
-const lightToneMod = TwLightTone.createLightTone({
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
-  _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),
-});
+/* 본문은 shared/light-tone.js 로 옮겼다(C 구역 떼기 w4) — 만드는 줄은 💡 조명 상수 바로 뒤(메인 씬 조명이 쓴다). */
 const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름 — 다른 모듈이 아직 전역으로 읽는다(도메인 단계에서 걷는다)
 
 /* ===== 관리자 모드 =====
@@ -6381,10 +6367,9 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   HAND_REST: ()=>HAND_REST,
   LIGHT_PRESET: LIGHT_PRESET,
   M: M,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
   _sweepOrphanPartWrappers: (...a)=>_sweepOrphanPartWrappers(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   bindPaint: (...a)=>bindPaint(...a),
   boneSide: (...a)=>boneSide(...a),
@@ -6432,6 +6417,7 @@ const creatorPrevMod = TwCreatorPreview.createCreatorPreview({
   measureUnderfootDepth: (...a)=>charMeasureMod.measureUnderfootDepth(...a),
   mkFaceTex: (...a)=>mkFaceTex(...a),
   normalizeModel: (...a)=>normalizeModel(...a),
+  runLightInts: (...a)=>lightToneMod.runLightInts(...a),
   sizeFloorTo: (...a)=>sizeFloorTo(...a),
   skinColorFor: (...a)=>skinColorFor(...a),
   skinIndex: ()=>crState.skinIndex,
@@ -6715,13 +6701,9 @@ const launcherPrevMod = TwLauncherPreview.createLauncherPreview({
   FrameBudget: FrameBudget,
   blinkTiming: TwBlinkTiming,
   RIG_TURN: creatorPrevMod.RIG_TURN,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _quickHash: (...a)=>roomSyncMod._quickHash(...a),
-  _mkFrontFill: (...a)=>_mkFrontFill(...a),
   _setDeskMatColor: (...a)=>lightToneMod._setDeskMatColor(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   allDeskItems: (...a)=>deskItemsMod.allDeskItems(...a),
   applyDeskColorToCustom: (...a)=>deskVisualMod.applyDeskColorToCustom(...a),
   applyDeskItemsTo: (...a)=>applyDeskItemsTo(...a),
@@ -6786,11 +6768,7 @@ const launcherCtlMod = TwLauncherControls.createLauncherControls({
 const racePickerMod = TwRacePicker.createRacePicker({
   BASE_SCENE: ()=>BASE_SCENE,
   CHAR_SLOT_MAX: CHAR_SLOT_MAX,
-  _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
-  _mkFrontFill: (...a)=>_mkFrontFill(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),
   applyLightPresetToInstance: (...a)=>matToneMod.applyLightPresetToInstance(...a),
   instantiateBase: (...a)=>instantiateBase(...a),
@@ -7965,13 +7943,12 @@ let customItems={};
 const partSceneMod = TwPartScene.createPartScene({
   FLAT_EMISSIVE: lightToneMod.FLAT_EMISSIVE,
   TONE_FRONT_TOTAL: lightToneMod.TONE_FRONT_TOTAL,
-  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,
-  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,
-  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,
   _applyPartMatTone: (...a)=>lightToneMod._applyPartMatTone(...a),
+  addRunLights: (...a)=>lightToneMod.addRunLights(...a),
   assetCodeMod: assetCodeMod,
   b64ToBuf: (...a)=>b64ToBuf(...a),
   resolveCatalogGlb: (...a)=>catalogGlbMod.resolveCatalogGlb(...a),
+  runLightAt1: (...a)=>lightToneMod.runLightAt1(...a),
 });
 /* 카탈로그 서버 호출은 provider 하나로 — 서버 API 판이 생기면 이 줄만 바꾼다(지금은 Firebase 판 = 옛 길). */
 const catalogSourceMod = TwCatalogSource.createCatalogSource({
