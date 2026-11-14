@@ -36,7 +36,7 @@ function seatEnv(fnSrc){
     const figureMode = () => figureModeV, focusGateSleep = () => focusGateSleepV, desktopMode = () => desktopModeV;   // 모듈이 읽는 함수로 받는다
     function focusWindowMs(){ return FOCUS_MS; }
     const userStatusMod = { userStatus: () => userStatus };   // 내 상태는 status/user-status.js 가 갖는다(app.js 분리 M9) — 이 시험은 아래 지역 변수를 읽는 함수로 건다
-    let manual = null;   // 손으로 고른 상태는 seat-state.js 가 갖는다
+    const seatPanelMod = { manual: () => null };
     const focusLevelMod = () => ({ _mobileOn: () => false });
     ${fnSrc}
     this.api = {

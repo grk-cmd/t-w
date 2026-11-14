@@ -2,8 +2,8 @@
    app.js 캐릭터 투명도 · 활동 판정 구역의 seatState 묶음을 글 그대로 옮긴 모듈이다. 동작은 옮기기 전과 같다(다시 대입되는 값을 읽는 함수로 받는 줄만 `이름()` 으로 달라짐).
    ・책임: 좌석 하나의 지금 상태 키(idle · focus · sleep · pet · shaking · dizzy · dance) 정하기(seatState) · 활동 시각 lastActivity(타이핑 모션 판정용 — 포커싱 게이트에 걸림) · lastAnyInput(자동 자리비움용 «실제 입력» — 어떤 앱을 쓰든 기록) ·
      창 포커스 windowFocused · 펜 앱 · 투게더워킹 창 자신이 맨 앞인지 · 쓰다듬기 시작(triggerPet). mousemove · keydown · wheel · visibilitychange · blur · focus 듣기는 만들 때 한 번 건다.
-   ・받는 deps 5 — 값: userStatusMod · 읽는 함수: desktopMode · figureMode · focusGateSleep · focusLevelMod(모듈을 만드는 줄보다 뒤에서 선언되거나 app.js 가 다시 대입한다).
-   ・내놓는 것: manual() · setManual(v)(손으로 고른 상태 — 좌석 패널 버튼이 쓴다) · FOCUS_MS · SLEEP_MS · PET_MS · PEN_FOCUS_MS · focusWindowMs · activity · anyInput · seatState · triggerPet · lastActivity() · lastAnyInput() · setLastActivity(v) · setLastAnyInput(v) · setPenAppFocused(v) · penAppFocused() · setSelfAppActive(v)
+   ・받는 deps 6 — 값: seatPanelMod · userStatusMod · 읽는 함수: desktopMode · figureMode · focusGateSleep · focusLevelMod(모듈을 만드는 줄보다 뒤에서 선언되거나 app.js 가 다시 대입한다).
+   ・내놓는 것: FOCUS_MS · SLEEP_MS · PET_MS · PEN_FOCUS_MS · focusWindowMs · activity · anyInput · seatState · triggerPet · lastActivity() · lastAnyInput() · setLastActivity(v) · setLastAnyInput(v) · setPenAppFocused(v) · penAppFocused() · setSelfAppActive(v)
      — app.js 는 시각 · 펜 앱은 `seatStateMod.이름()` 으로 읽고(다시 대입되는 let), 나머지는 같은 이름 const 로 받는다.
    ⚠️ lastActivity 는 포커싱 게이트(focusGateSleep)에 걸려 «타이핑 모션» 판정에만 쓴다 — 자동 자리비움은 lastAnyInput. 합치지 말 것.
    ⚠️ 옛 `lastZ`(app.js 에서 선언만 하고 아무도 안 읽던 값)는 옮기지 않았다.
@@ -15,6 +15,7 @@ const desktopMode = deps.desktopMode;
 const figureMode = deps.figureMode;
 const focusGateSleep = deps.focusGateSleep;
 const focusLevelMod = deps.focusLevelMod;
+const seatPanelMod = deps.seatPanelMod;
 const userStatusMod = deps.userStatusMod;
 const FOCUS_MS=1500,SLEEP_MS=8000,PET_MS=2200;
 /* 🖊️ 펜 앱(클립스튜디오·포토샵 등)이 활성일 때만 쓰는 넓은 기록 창.
@@ -38,8 +39,6 @@ function anyInput(){ lastAnyInput = performance.now(); }
 window.addEventListener('mousemove',activity);window.addEventListener('keydown',activity);window.addEventListener('wheel',activity);
 document.addEventListener('visibilitychange',()=>windowFocused=!document.hidden);
 window.addEventListener('blur',()=>windowFocused=false); window.addEventListener('focus',()=>{windowFocused=true;activity();anyInput();});
-/* 손으로 고른 상태(좌석 패널 버튼) — 값은 여기가 갖고 패널은 setManual 로 쓴다(패널이 이 모듈을, 이 모듈이 패널을 부르는 순환을 막으려고 옮겼다). */
-let manual=null;
 function seatState(seat,now){
   if(seat.pinned) return 'shaking';   // 액자 고정: 드래그된 자세(팔 처짐) + 호흡·blink 유지
   // 사용자 인터랙션 — 흔들기/회복(dizzy)/쓰다듬기(pet)가 모든 자동·수동·remote보다 우선
@@ -52,7 +51,7 @@ function seatState(seat,now){
   const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatusMod.userStatus() : null);
   if(us==='away') return 'sleep';
   if(seat.remote) return seat.remoteState||'idle';   // 친구 좌석: 공유받은 상태 사용
-  if(manual)return manual;
+  if(seatPanelMod.manual())return seatPanelMod.manual();
   if(!desktopMode() && !windowFocused)return 'sleep';   // 데스크톱 모드에선 다른 프로그램 쓰는 게 정상이라 이 체크 제외(포커싱 게이트가 대신함)
   // 포커싱 어플 게이트: 데스크톱 모드에서, 등록된 앱이 없거나 등록된 앱을 안 쓰는 중이면
   // (직접 쓰다듬기·흔들기 등은 위에서 이미 처리됐으므로) 자동 idle/focus 판정은 sleep으로 대체.
@@ -75,8 +74,6 @@ return {
   lastAnyInput: ()=>lastAnyInput,
   setLastActivity: (v)=>{ lastActivity = v; },
   setLastAnyInput: (v)=>{ lastAnyInput = v; },
-  manual: ()=>manual,
-  setManual: (v)=>{ manual = v; },
   penAppFocused: ()=>_penAppFocused,
   setPenAppFocused: (v)=>{ _penAppFocused = v; },
   setSelfAppActive: (v)=>{ _selfAppActive = v; },

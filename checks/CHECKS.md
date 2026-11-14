@@ -169,7 +169,7 @@
 | **sim-fix-0923.js** | 297 | **522d07f95e45** |
 | **sim-noise.js** | 146 | **40568ea4018a** |
 | **sim-mobile-focus.js** | 219 | **cea5e48561c1** |
-| **sim-figure-mode.js** | 157 | **15a464f35a47** |
+| **sim-figure-mode.js** | 157 | **d8a73a4a91b5** |
 | **sim-mac-0923.js** | 87 | **a46e56f3e317** |
 | **sim-bookmark.js** | 185 | **e1348542421e** |
 | **sim-overlay-gap.js** | 343 | **174f9cc83500** |
@@ -224,7 +224,7 @@
 | **sim-fit-model.js** | 162 | **ef5b499a4519** |
 | **sim-user-status.js** | 178 | **f7a4242b2242** |
 | **sim-seat-opacity-mod.js** | 84 | **d509bc1008a1** |
-| **sim-seat-state.js** | 157 | **6957ea53719c** |
+| **sim-seat-state.js** | 150 | **1e06eeb1df2c** |
 | **sim-wd-ear.js** | 366 | **8a1e093afa86** |
 | **sim-uv-fill.js** | 102 | **f4cb774248be** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** |
@@ -426,7 +426,7 @@
 | **sim-stage.js** | 149 | **f69053b60915** |
 | **sim-floor-snap-diag.js** | 142 | **3aa611d6946d** |
 | **sim-seat-model-load.js** | 194 | **7ff56380f12a** |
-| **sim-seat-panel.js** | 163 | **1f28be3ae189** |
+| **sim-seat-panel.js** | 163 | **2f9bad25ac96** |
 | **sim-user-status-table.js** | 125 | **8727d9f8adac** |
 | **sim-chip-popups.js** | 128 | **f9e9fcf20acd** |
 | **sim-rules-keys.js** | 320 | **f4fc16fe060d** |
