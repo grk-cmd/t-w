@@ -29,22 +29,32 @@ let _shownFor = null;   // 지금 단추가 가리키는 uid
 let _seq = 0;           // 늦게 온 «살아 있나» 답 버리기
 let _askedFor = null;   // 마지막으로 서버에 «살아 있나» 를 물은 uid — 같은 관람 화면을 여러 번 칠해도 그 읽기만 다시 안 한다. 숨길 때 비운다
 let _name = null;       // 지금 관람 중인 사람 이름 — 같은 uid 라도 칠할 때마다 새로 받는다(처음엔 '친구' 힌트 → 프로필 이름). 누를 때 읽는다
+let _dlg = null;        // 열린 사유 창 { uid, ov, onKey } — 다른 사람 · 내 홈으로 넘어가면 닫는다(남은 창이 옛 사람에게 보내지 않게)
+
+/* 사유 창 닫기 — Esc 처리기(document 캡처)도 같이 뗀다 */
+function _closeDialog(){
+  if(!_dlg) return;
+  const d = _dlg; _dlg = null;
+  try{ document.removeEventListener('keydown', d.onKey, true); }catch(_){}
+  try{ d.ov.remove(); }catch(_){}
+}
 
 function _btn(){ return document.getElementById(BTN_ID); }
 function _hide(){ const b = _btn(); if(b) b.hidden = true; _shownFor = null; }
 
 async function refresh(viewUid, name){
+  if(_dlg && _dlg.uid !== viewUid) _closeDialog();
   _name = name || null;
   const me = getMyUserId();
   /* 내 홈 · 나 · 이미 친구는 서버를 안 읽고 숨긴다 — 같은 uid 를 다시 칠할 때도(그 사이 친구가 됐을 수 있다) */
   if(!viewUid || !me || viewUid === me || (friends() || {})[viewUid]){ ++_seq; _askedFor = null; _hide(); return; }
   if(viewUid === _askedFor) return;
-  _askedFor = viewUid;
   const seq = ++_seq;
   _hide();
   let alive = true;
   const net = friendNet();
   if(!net) return;
+  _askedFor = viewUid;   // 물을 수 있을 때만 적는다 — provider 가 늦게 준비되면 다음 칠하기에서 묻는다
   try{ alive = await net.isFriendRequestAlive(viewUid, me); }catch(_){ alive = true; }
   if(seq !== _seq || alive) return;
   const b = _btn(); if(!b) return;
@@ -53,7 +63,8 @@ async function refresh(viewUid, name){
 }
 
 function openDialog(uid, name){
-  if(document.querySelector('.friend-req-ask-ov')) return;
+  if(_dlg && _dlg.uid === uid) return;
+  _closeDialog();
   const ov = document.createElement('div');
   ov.className = 'friend-req-ask-ov app-popup-ov';
   const box = document.createElement('div'); box.className = 'friend-req-ask';
@@ -74,9 +85,13 @@ function openDialog(uid, name){
   box.append(head, body, btns); ov.appendChild(box);
   const host = document.getElementById('myHomeWin') || document.body;
   host.appendChild(ov);
-  const close = () => { try{ ov.remove(); }catch(_){} };
+  /* Esc 는 document 캡처로 — 창 안 버블로 받으면 win-stack 의 캡처 Esc 가 먼저 마이홈을 닫는다(그 목록 ESC_YIELD_SEL 에 이 창이 있어 양보한다) */
+  const onKey = (e) => { if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); } };
+  const me = { uid, ov, onKey };
+  const close = () => { if(_dlg === me) _closeDialog(); };
+  _dlg = me;
+  document.addEventListener('keydown', onKey, true);
   no.onclick = close;
-  ov.addEventListener('keydown', (e) => { if(e.key === 'Escape'){ e.preventDefault(); e.stopPropagation(); close(); } });
   ok.onclick = async () => {
     ok.disabled = true; no.disabled = true;
     let res = null, err = null;

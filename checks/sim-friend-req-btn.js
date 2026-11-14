@@ -19,6 +19,9 @@ const MOD = read('myhome/friend-req-btn.js'), SEAT = read('myhome/seat-friend-re
 const RP = ['firebase-database-rules.json', '../firebase-database-rules.json', 'firebase/firebase-database-rules.json'].find(p => fs.existsSync(p));
 if (!MOD || !SEAT || !APP || !HTML || !VISIT || !FM || !FBI || !RP) { say('  ? 원본 못 찾음 — friend-req-btn.js · app.js · html · myhome-visit.js · friend-manage.js · firebase-init.js · 규칙'); process.exit(2); }
 const RULES = fs.readFileSync(RP, 'utf8');
+let WINSTACK = read('shared/win-stack.js') || '';
+/* win-stack 의 Esc 양보 목록을 실제 배열로 꺼낸다 */
+function escYieldList(){ const m = /const ESC_YIELD_SEL = (\[[\s\S]*?\])\.join/.exec(WINSTACK); if (!m) return []; try { return new Function('return ' + m[1])(); } catch (_) { return []; } }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 const flush = () => new Promise((r) => setImmediate(r));
 
@@ -40,7 +43,10 @@ function makeDoc(){
     return e;
   }
   const body = el('body');
-  const doc = { body, createElement: el, createTextNode: (t) => Object.assign(el('#text'), { _text: String(t) }),
+  const keys = [];   // document 의 keydown 처리기 — { fn, capture }
+  const doc = { body, keys, createElement: el, createTextNode: (t) => Object.assign(el('#text'), { _text: String(t) }),
+    addEventListener: (t, fn, cap) => { if (t === 'keydown') keys.push({ fn, capture: cap === true || !!(cap && cap.capture) }); },
+    removeEventListener: (t, fn) => { if (t !== 'keydown') return; const i = keys.findIndex(k => k.fn === fn); if (i >= 0) keys.splice(i, 1); },
     getElementById: (id) => byId[id] || null,
     querySelector: (sel) => { const cls = sel.replace(/^\./, ''); const walk = (n) => { if (String(n.className).split(' ').includes(cls)) return n; for (const c of n.children){ const r = walk(c); if (r) return r; } return null; }; return walk(body); } };
   const btn = el('button'); btn.hidden = true; byId.mhFriendReqBtn = btn;
@@ -124,17 +130,31 @@ async function behave(src, seat){
     w = load(src, { alive: false, throws: true }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
     { const o2 = find(w.D.win, 'friend-req-ask-ov'); await find(o2, 'friend-req-ask-btns').children[0].onclick(); await flush(); r.throwFail = w.log.notes.length === 1 && w.log.notes[0][0] === 'E-FR-06'; }
     w = load(src, { alive: false }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
-    { const o2 = find(w.D.win, 'friend-req-ask-ov'); let stopped = false;
-      o2.listeners.keydown[0]({ key: 'Escape', preventDefault(){}, stopPropagation(){ stopped = true; } });
-      const escOk = !find(w.D.win, 'friend-req-ask-ov') && stopped;
+    { let stopped = false;
+      const capKeys = w.D.doc.keys.filter(k => k.capture);
+      r.escCapture = capKeys.length === 1 && w.D.doc.keys.length === 1;   // Esc 는 document 캡처 하나(창 안 버블이 아니라) — win-stack 은 양보 목록으로 비켜 준다
+      capKeys.forEach(k => k.fn({ key: 'Escape', preventDefault(){}, stopPropagation(){ stopped = true; } }));
+      const escOk = !find(w.D.win, 'friend-req-ask-ov') && stopped && w.D.doc.keys.length === 0;
       w.D.btn.onclick(); w.D.btn.onclick();
       const one = w.D.win.children.filter(c => String(c.className).includes('friend-req-ask-ov')).length === 1;
       find(find(w.D.win, 'friend-req-ask-ov'), 'friend-req-ask-btns').children[1].onclick();
       r.close = escOk && one && !find(w.D.win, 'friend-req-ask-ov') && w.log.sends.length === 0; }
+    /* 창을 연 채 다른 사람 · 내 홈으로 넘어가면 창을 닫는다 — 남은 창이 옛 사람에게 보내지 않게 */
+    w = load(src, { alive: false }); await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
+    await w.mod.refresh(null, null);
+    const goneOwn = !find(w.D.win, 'friend-req-ask-ov') && w.D.doc.keys.length === 0;
+    await w.mod.refresh('u2', '민지'); w.D.btn.onclick();
+    await w.mod.refresh('u3', '지수');
+    const goneOther = !find(w.D.win, 'friend-req-ask-ov') && w.D.doc.keys.length === 0;
+    w.D.btn.onclick();
+    const ov3 = find(w.D.win, 'friend-req-ask-ov');
+    const newOne = !!ov3 && find(ov3, 'friend-req-ask-lead').children[0].textContent === '지수';
+    await find(ov3, 'friend-req-ask-btns').children[0].onclick(); await flush();
+    r.switchClose = goneOwn && goneOther && newOne && w.log.sends.length === 1 && w.log.sends[0][0] === 'u3';
   } catch (e) { r.err = e && e.message; }
   return r;
 }
-const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'dedupe', 'rename', 'becameFriend', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close'];
+const KEYS = ['view', 'info', 'clean', 'show', 'hideOwn', 'hideSelf', 'hideFriend', 'hidePending', 'hideUnknown', 'dedupe', 'rename', 'becameFriend', 'stale', 'dialog', 'send', 'fail', 'errRes', 'throwFail', 'close', 'escCapture', 'switchClose'];
 const allOk = (r) => !r.err && KEYS.every(k => r[k]);
 
 function wire(app, html, visit, fm, fbi, rules){
@@ -148,6 +168,7 @@ function wire(app, html, visit, fm, fbi, rules){
   o.visit = /friendReqBtn\.refresh\(realVisit \? _mhViewingUserId\(\) : null, realVisit \? _mhViewingDisplayName\(\) : null\);/.test(strip(visit));
   o.recv = /msg\.textContent = String\(req\.msg\);/.test(fm) && /escHtml\(String\(req\.msg\)\)/.test(fm);
   o.send = /async sendFriendRequest\(fromId, toId, fromName, toName, toCode, msg\)\{/.test(fbi) && /msg \? \{ msg: String\(msg\)\.slice\(0,100\) \} : \{\}/.test(fbi);
+  o.yield = escYieldList().includes('#myHomeOverlay.on .friend-req-ask-ov') && /ov\.className = 'friend-req-ask-ov app-popup-ov';/.test(MOD) && /document\.getElementById\('myHomeWin'\)/.test(MOD);
   let rmsg = null; try { rmsg = JSON.parse(rules).rules.friendRequests.$toId.$fromId.msg; } catch (_) {}
   o.rule = !!rmsg && rmsg['.validate'] === 'newData.isString() && newData.val().length <= 100';
   return o;
@@ -171,7 +192,9 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(R.dialog, '사유 창 — 이름은 글자로(HTML 아님) · 100자 · 사유 칸에 포커스');
   chk(R.send, '  [신청하기] — 다듬은 사유로 보내고 안내 · 창 닫힘 · 단추 숨김');
   chk(R.fail && R.errRes && R.throwFail, '  실패(저장 실패 · 보내기 쪽 오류 · 던짐)는 E-FR-06(실제 오류를 넘김) · 창은 남고 단추를 다시 누를 수 있다');
-  chk(R.close, '  Esc(마이홈까지 안 닫히게 멈춤) · [취소]는 안 보내고 닫는다 · 두 번 눌러도 창 하나');
+  chk(R.close, '  Esc(마이홈까지 안 닫히게 멈춤 · 처리기도 뗌) · [취소]는 안 보내고 닫는다 · 두 번 눌러도 창 하나');
+  chk(R.escCapture, '  Esc 는 document 캡처 하나로 받는다(창 안 버블로 받으면 win-stack 캡처가 먼저 마이홈을 닫는다)');
+  chk(R.switchClose, '  창을 연 채 내 홈 · 다른 사람으로 넘어가면 창이 닫히고, 새 사람 창이 그 사람 이름으로 열려 그 사람에게 보낸다');
 
   say('── 4. 연결');
   const W = wire(APP, HTML, VISIT, FM, FBI, RULES);
@@ -181,6 +204,7 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(W.visit, 'myhome-visit.js — 관람 화면을 칠할 때 refresh(관람 uid · 이름), 내 홈이면 null');
   chk(W.recv, 'friend-manage.js — 받은 요청 목록은 textContent · 👋 팝업은 escHtml 로 사유를 보인다');
   chk(W.send, 'firebase-init.js — sendFriendRequest 여섯째 인자 msg 를 있을 때만 100자로 싣는다');
+  chk(W.yield, 'win-stack — 사유 창(#myHomeOverlay.on .friend-req-ask-ov)이 열려 있으면 Esc 를 양보한다(마이홈을 먼저 닫지 않게)');
   chk(W.rule, '규칙 — friendRequests/$toId/$fromId/msg 는 문자열 · 100자 이하(없어도 됨)');
 
   say('── 5. 깨 보기');
@@ -204,6 +228,10 @@ function wire(app, html, visit, fm, fbi, rules){
   chk(b5 && !allOk(b5), '확인을 못 했는데 단추를 보이면 빨강');
   { const s2 = SEAT.replace("if(r === 'error') return { kind:'fail',", "if(r === 'error') return { kind:'info',"); const b6 = s2 === SEAT ? null : await behave(MOD, s2);
     chk(b6 && !allOk(b6), '좌석 쪽 한 벌에서 던짐을 안내로 바꾸면(마이홈이 실패를 못 알림) 빨강'); }
+  { const c1 = await brk("document.addEventListener('keydown', onKey, true);", "ov.addEventListener('keydown', onKey);"); chk(c1 && !allOk(c1), 'Esc 를 창 안 버블로 받으면 빨강'); }
+  { const c2 = await brk('  if(_dlg && _dlg.uid !== viewUid) _closeDialog();\n', ''); chk(c2 && !allOk(c2), '다른 사람 · 내 홈으로 넘어가도 창을 안 닫으면 빨강'); }
+  { const ws = WINSTACK; WINSTACK = ws.replace("  '#myHomeOverlay.on .friend-req-ask-ov',", ''); const c3 = WINSTACK !== ws && !wire(APP, HTML, VISIT, FM, FBI, RULES).yield; WINSTACK = ws;
+    chk(c3, 'win-stack 양보 목록에서 사유 창을 빼면 빨강'); }
   const w2 = wire(APP, HTML, VISIT.replace('friendReqBtn.refresh(', 'void ('), FM, FBI, RULES);
   chk(!w2.visit, '관람 화면에서 refresh 를 안 부르면 빨강');
   const w3 = wire(APP, HTML, VISIT, FM.replace('msg.textContent = String(req.msg);', 'msg.innerHTML = String(req.msg);'), FBI, RULES);
