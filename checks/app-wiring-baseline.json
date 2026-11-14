@@ -1,7 +1,7 @@
 {
  "note": "sim-app-wiring.js 기준선 — app.js 의 로직 표지(맨 위 함수 · 맨 위 let · addEventListener · localStorage · try) 개수. 줄기만 한다: 모듈로 옮겨 줄었으면 같은 PR 에서 --write-baseline 으로 내리고, 늘리지 말 것.",
  "counts": {
-  "functions": 200,
+  "functions": 195,
   "lets": 76,
   "listeners": 71,
   "storage": 45,

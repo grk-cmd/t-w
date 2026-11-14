@@ -133,6 +133,7 @@ const MODULES = [
   { file: 'stage.js', mod: 'stageMod', glob: 'TwStage', sample: "const canvas=document.getElementById('scene');" },   // 0.12.4 app.js 분리 M1
   { file: 'glow.js', mod: 'glowMod', glob: 'TwGlow', sample: 'function getGlowSpriteTexture(' },   // 0.12.4 app.js 분리 M1
   { file: 'human-ear-attach.js', mod: 'humanEarAttachMod', glob: 'TwHumanEarAttach', sample: 'function _syncHumanEarRig(' },   // 0.12.4 app.js 분리 M2
+  { file: 'desk-build.js', mod: 'deskBuildMod', glob: 'TwDeskBuild', sample: 'function buildPlaceholder(' },   // 0.12.4 app.js 분리 M3
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

@@ -263,6 +263,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M2**: 사람 귀 붙이기(귀 재질 · 귀 그림 · 까닥임 등록 · def 에 맞게 붙이기)를 `character/human-ear-attach.js` 로 옮겼다(동작 그대로 · 글 그대로 — 늦게 생기는 `seats` · `partPaintMod` · `wardrobeMod` · `rideBenchMod` 만 읽는 함수로 받는다). app.js 9,370 → 9,328줄.
 
+**0.12.4 — app.js 분리 M3**: 기본 책상 · 화분 · 컵 · 책 · 대신 몸 만들기와 재질(`M` · `matWood` …)을 `room/desk-build.js` 로 옮겼다(동작 그대로 · 글 그대로 · deps 없음). app.js 9,328 → 9,290줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

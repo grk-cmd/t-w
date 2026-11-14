@@ -251,3 +251,13 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
 - 입구 전제 — 이벤트 · 좌석 · 화면(document.body)이 없으면 열지 않는다.
 
 검사: `checks/sim-seat-menu.js`.
+
+## desk-build.js — 🪑 기본 책상 · 소품 · 대신 몸 만들기
+
+- **책임**: 재질 헬퍼 `M(색, 거칠기, 금속)` 과 이름 붙은 재질 아홉 · 기본 책상(`buildDesk(plain)` — 상판 · 다리 넷 · 소품 자리 `deskAnchor` · plain 이 아니면 화분) · 책상 위 소품 셋(`DESK_ITEMS` — 화분 · 머그컵 · 책) · 3D 몸을 못 불러왔을 때의 대신 몸(`buildPlaceholder`). 만들기만 한다 — 좌석에 올리기 · 저장은 app.js · `desk-*.js`. 앱 FSD 분리 M3 — app.js 에서 글 그대로 옮겼다.
+- **만드는 법**: `const deskBuildMod = TwDeskBuild.createDeskBuild({});` — 받는 deps 없음(THREE 는 전역). app.js SETUP 에서(재질을 쓰는 `floorMat` 보다 앞) 만들고, 아래 여덟을 옛 이름 const 로 받는다.
+- **내보내는 것**: `M` · `matWood` · `matWoodD`(승차 벤치가 deps 로 받는다) · `DESK_ITEMS` · `DEFAULT_DESK_OVERRIDE_ID` · `NO_DESK_ID` · `buildDesk` · `buildPlaceholder`
+- **함정**
+  - `DEFAULT_DESK_OVERRIDE_ID`(`__default_desk__`) · `NO_DESK_ID`(`__no_desk__`)는 `deskCatalogId` 로 **저장되는 값**이다 — 글자를 바꾸면 옛 앱 · 방 서버가 못 읽는다.
+  - 상판 이름 `deskTop` · `deskAnchor` 는 다른 곳(책상 크기 · 소품 장착)이 이름으로 찾는다.
+  - 검사: `checks/sim-desk-build.js`(진짜 three 로 상판 · 다리 · 소품 · 대신 몸 · 연결 · 깨 보기).
