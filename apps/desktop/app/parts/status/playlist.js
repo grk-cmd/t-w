@@ -54,6 +54,7 @@ const bringWinToFront = deps.bringWinToFront;
 const escRegisterWindow = deps.escRegisterWindow;
 const _escEditable = deps.escEditable;
 const plSync = deps.playlistSync;                    // ☁️ 기기 간 맞추기 규칙(playlist-sync.js — 순수)
+const plLikeUi = deps.playlistLikeUi;                // 👍 반응 — [💬 반응] 서랍 · 내 목록의 👍 수(playlist-like-ui.js)
 /* ═══ 🎵 상태칩 플레이리스트 ═════════════════════════════════════════════
    유튜브 링크를 여러 개 담아 순서대로 듣는 목록 + 🌊 남의 목록으로 파도타기 + 재생.
 
@@ -646,9 +647,18 @@ async function _plLoadMyCard(){
     if(c){ _plMyCard = c; _plRenderHead(); }
   }catch(_){}
 }
+/* 👍 반응 칸 — 창이 펼쳐져 보일 때만 «누구의 몇 번 프리셋» 을 넘긴다(닫혀 있거나 접혔으면 null — 읽지 않는다) */
+function _plLikeSync(){
+  const box = document.getElementById('myPlaylistBox');
+  const shown = !!box && !box.classList.contains('hidden') && !box.classList.contains('mini');
+  if(!shown){ plLikeUi.render(null); return; }
+  plLikeUi.render(_plReadOnly() ? { ro: true, ownerId: _plView.uid, setIdx: _plView.setIdx }
+                                : { ro: false, ownerId: getMyUserId(), setIdx: _plCur });
+}
 function _plRenderHead(){
   const wrap = document.getElementById('myPlProfile');
   if(!wrap) return;
+  _plLikeSync();
   const ro = _plReadOnly();
   const card = ro ? (_plViewCard || {}) : (_plMyCard || {});
 
@@ -997,6 +1007,7 @@ function _plApplyMini(){
   const box = document.getElementById('myPlaylistBox');
   if(!box) return;
   box.classList.toggle('mini', _plMini);
+  _plLikeSync();
   const btn = document.getElementById('myPlMin');
   if(btn){
     btn.textContent = _plMini ? '□' : '－';
@@ -1205,7 +1216,7 @@ async function _plPeekFriend(fid, name){
   /* ★ "친구지만 목록이 비었다"를 그대로 말해준다 — 무작위 파도타기의 '아직 파도탈 목록이 없어요'와
      뭉뚱그리면 내 친구가 목록을 안 만든 건지 앱이 고장난 건지 구분이 안 된다. */
   if(!r){ toast(name + ' 님은 아직 공개한 목록이 없어요'); return; }
-  _plView = { uid:r.uid, name:name || '(이름 없음)', items:r.items,
+  _plView = { uid:r.uid, name:name || '(이름 없음)', items:r.items, setIdx:r.setIdx,
     bio:r.bio || '', homePublic:!!r.homePublic };
   _plSel = -1;   // 🎵 재생 위치는 그대로 — 무작위 파도타기와 같은 규칙이다(듣던 곡이 안 끊긴다)
   _plCloseFriendPick();
@@ -1763,6 +1774,7 @@ function _plApplyVolSoon(){
     if(willOpen){ _closeChipPopups('myPlaylistBox'); box._cascadeFlipped = false; _plLoadMyCard(); _plRender(); }   // 새로 열 땐 항상 우측부터 판정
     box.classList.toggle('hidden', !willOpen);
     btn.classList.toggle('on', willOpen);
+    _plLikeSync();   // 👍 반응 칸 — 펼쳐진 뒤에야 읽는다(위 _plRender 는 아직 닫힌 채 돈다)
     // 🪟 열 때는 맨 앞으로 — 채팅창이 이미 떠 있으면 그 뒤에서 열려 "안 열렸다"로 보인다.
     //   (칩째 올린다 — bringWinToFront 주석 참고)
     if(willOpen) bringWinToFront('myStatusChip');
@@ -1773,7 +1785,7 @@ function _plApplyVolSoon(){
     head.addEventListener('pointerdown', _plHeadPointerDown);
     head.addEventListener('dblclick', e=>{ e.stopPropagation(); _plResetPos(); });
   }
-  function _plClose(){ box.classList.add('hidden'); btn.classList.remove('on'); _plCloseFriendPick(); _plCloseSetPick(); _plCloseGrabPick(); }
+  function _plClose(){ box.classList.add('hidden'); btn.classList.remove('on'); _plCloseFriendPick(); _plCloseSetPick(); _plCloseGrabPick(); _plLikeSync(); }
   /* ⎋ ESC 스택에 태운다 — 옛 캡처 핸들러(이 IIFE 끝에 있었다)를 대신한다. 그쪽 주석의 규약은
      그대로다: 바깥 클릭으로는 안 닫히고, 닫는 길은 ✕ 과 ESC 둘뿐이다.
      ★ 옛 핸들러와 달라진 것 하나 — **입력칸에서는 안 닫힌다.** bio 를 고치다 ESC 를 누르면

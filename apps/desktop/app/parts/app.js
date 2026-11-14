@@ -2117,6 +2117,9 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
      _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 모듈이 window 고리로도 건다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
+/* 👍 플레이리스트 반응 — 플레이리스트보다 먼저 만든다(만들 때 소개칸을 그리며 부른다). 서버는 firebaseAPI.playlistLike(늦게 붙어서 부를 때 찾는다) */
+const plLikeUi = TwPlaylistLikeUi.createPlaylistLikeUi({ likeRules: TwPlaylistLike, net: ()=>firebaseAPI.playlistLike,
+  getMyUserId: (...a)=>getMyUserId(...a), notifyError: (...a)=>TwErrorCodes.notify(...a) });
 const plMod = TwPlaylist.createPlaylist({
   toast: (...a)=>toast(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
@@ -2143,6 +2146,7 @@ const plMod = TwPlaylist.createPlaylist({
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   escEditable: (...a)=>winStackMod._escEditable(...a),
   playlistSync: TwPlaylistSync,
+  playlistLikeUi: plLikeUi,
 });
 TwBgmDiag.createBgmDiag({ companion: window.companion });   // 🔍 플레이리스트 소리 진단 줄
 /* ═══ 🎵 프리셋 세 벌 ═══ */
