@@ -2,7 +2,7 @@
 """PR 위험도 판정 — 세션의 판단이 아니라 diff 로 기계적으로 정한다. /ship 과 가드(ship-gate.py)가 같이 쓴다.
 
 높음 = 데이터 경로 · 권한 · 서버 · 빌드에 닿는 변경 — 머지 전 승인은 받지 않는다(앱 · 규칙 · 함수 · Hosting 은 사람이 내보낸다 ·
-승인자는 내보내기 전 `--release` 한 장으로 본다). 단 웹 관리자 길(main 으로 가는 admin/*)은 판을 거치지 않아 그 한 장에 안 나오므로 높으면 머지 전 승인.
+승인자는 내보내기 전 `--release` 한 장으로 본다). 단 웹 관리자 길(admin 으로 가는 PR)은 판을 거치지 않아 그 한 장에 안 나오므로 높으면 머지 전 승인.
 머지 전 승인자(OWNER) 승인은 **가드 자리(is_guard — 훅 폴더 · 훅 설정 · 훅이 돌리는 스크립트 · 지침 · /ship 안내서)를 바꾸는 PR · 웹 관리자 길의 높음** — 판단은 approval_reason 한 곳 ·
 가드가 «컨펌 · 검증 없이 머지 못 함» 을 지키는 마지막 자리라, 세션이 가드를 스스로 풀지 못하게. 승인은 GitHub Approve, 또는 PR 코멘트 한 줄 «승인 <머리 커밋 앞 7자리 이상>»(GitHub 은 작성자가 자기 PR 을 Approve 못 하는데
 이 PC 세션들은 OWNER 계정으로 PR 을 올린다). 커밋 번호를 받는 까닭: 시각으로 가리면 승인 뒤 옛 날짜 커밋을 올려도 통과한다.
@@ -12,7 +12,7 @@
 
   python3 .claude/hooks/risk.py <PR 번호>              → {"high": bool, "reasons": [...]} (gh api REST 만 씀 — 웹 세션에서도 된다)
   python3 .claude/hooks/risk.py --same <PR> <옛 커밋>   → 지금 머리가 그 커밋과 PR 자체 변경이 같은가(true/false)
-  python3 .claude/hooks/risk.py --owner <PR>          → 머지 전 승인이 필요한 PR 인가(true/false — 가드 자리를 바꿀 때 · 웹 관리자 길에서 위험도가 높을 때)
+  python3 .claude/hooks/risk.py --owner <PR>          → 머지 전 승인이 필요한 PR 인가(true/false — 가드 자리를 바꿀 때 · admin 으로 가는 PR 이 위험도가 높을 때)
   python3 .claude/hooks/risk.py --release <판 브랜치>   → 그 판에 머지된 PR 중 위험도 높았던 것 · 이유 한 장(릴리스 직전 승인자가 본다)
   python3 .claude/hooks/risk.py --wait <PR>             → 승인(낮음이면 바로) · CI 가 끝날 때까지 기다렸다가 한 줄로 알린다(/ship 이 뒤에서 돌림)
 """
@@ -85,9 +85,11 @@ def get(path):
     return json.loads(p.stdout)
 
 
-def assess(pr):
-    pages = api(f'repos/{REPO}/pulls/{pr}/files?per_page=100')
-    files = [f for page in pages for f in (page if isinstance(page, list) else [page])]
+def assess(pr, files=None):
+    """files 를 주면 그 목록으로(웹 관리자 길의 자기 변경 — admin_own_files), 없으면 PR 파일 목록으로 잰다."""
+    if files is None:
+        pages = api(f'repos/{REPO}/pulls/{pr}/files?per_page=100')
+        files = [f for page in pages for f in (page if isinstance(page, list) else [page])]
     reasons = set()
     for f in files:
         name = f['filename']
@@ -164,37 +166,70 @@ def is_guard(path):
 
 
 MAIN_OK = ('hotfix/', 'harness/', 'release/')   # main 으로 무엇이든 가져갈 수 있는 PR — 긴급 수정 · 하네스 · 판 내기
-ADMIN_DIR = 'web-admin/'                          # 그 밖에 main 으로 가는 PR(웹 관리자 길 admin/*)은 이 안만
+ADMIN_BRANCH = 'admin'   # 웹 관리자 정본 — 작업 PR 은 여기로 · Hosting 은 여기서 내보낸다 · 내보낸 뒤 admin → main 합치기(merge commit)
+ADMIN_DIR = 'web-admin/'   # 웹 관리자 길이 main 에 없는 것으로 가져올 수 있는 곳(0.13 은 apps/admin/ — 합칠 때 여기 하나만 바꾼다)
+
+
+def _refs(info):
+    return str((info.get('base') or {}).get('ref') or ''), str((info.get('head') or {}).get('ref') or '')
 
 
 def admin_path(info):
-    """main 으로 가는 웹 관리자 길인가 — base 가 main 이고 hotfix/ · harness/ · release/ 가 아니면(이름이 아니라 base 로)."""
-    base = str((info.get('base') or {}).get('ref') or '')
-    head = str((info.get('head') or {}).get('ref') or '')
-    return base == 'main' and not head.startswith(MAIN_OK)
+    """웹 관리자 작업 PR 인가 — base 가 admin(브랜치 이름이 아니라 base 로)."""
+    return _refs(info)[0] == ADMIN_BRANCH
+
+
+def admin_merge(info):
+    """내보낸 웹 관리자를 main 으로 합치는 PR 인가 — admin → main."""
+    return _refs(info) == ('main', ADMIN_BRANCH)
+
+
+def main_closed(pr):
+    """main 으로 가는데 받을 수 없는 PR 인가 — main 은 낸 것만: hotfix/ · harness/ · 판 내기(release/) · admin 합치기만 받는다.
+    웹 관리자 작업도 이제 admin 으로 간다. 읽기 실패는 던진다(가드가 막는다)."""
+    base, head = _refs(get(f'repos/{REPO}/pulls/{pr}'))
+    return base == 'main' and not (head.startswith(MAIN_OK) or head == ADMIN_BRANCH)
+
+
+def admin_own_files(info):
+    """웹 관리자 길이 main 에 없는 것으로 가져오는 변경 — PR 파일 목록이 아니라 main...머리 를 견준다.
+    main 을 admin 에 합쳐 받는 PR 은 main 에 이미 있는 앱 · 규칙 파일을 실어 와도 그것은 이 길의 변경이 아니다.
+    견줄 파일이 다 안 왔으면(compare 는 300개에서 끊긴다) None — 못 본 것. 읽기 실패는 던진다(가드가 막는다)."""
+    files = get(f'repos/{REPO}/compare/main...{info["head"]["sha"]}').get('files') or []
+    return None if len(files) >= COMPARE_MAX else files
 
 
 def admin_needs_owner(pr):
-    """웹 관리자 길에서 위험도가 높으면 머지 전에 승인 — 이 길은 판을 거치지 않고 main 에서 바로 내보내서
-    «내보내기 전 risk.py --release 한 장» 에 나오지 않는다. 그 확인을 머지 전 승인으로 당긴다."""
-    return admin_path(get(f'repos/{REPO}/pulls/{pr}')) and assess(pr)['high']
+    """웹 관리자 길(admin 으로 가는 PR)에서 위험도가 높으면 머지 전에 승인 — 이 길은 판을 거치지 않고 admin 에서 바로 내보내서
+    «내보내기 전 risk.py --release 한 장» 에 나오지 않는다. 그 확인을 머지 전 승인으로 당긴다. admin → main 합치기는 이미 내보낸 것이라 묻지 않는다.
+    위험도는 이 PR 파일 중 main 에 없는 것(admin_own_files 에도 있는 것)으로 잰다 — main 을 합쳐 실어 온 규칙 · 함수도,
+    admin 에 먼저 머지된 앞 PR 의 변경도 이 PR 몫이 아니다. 못 다 봤으면 높음."""
+    info = get(f'repos/{REPO}/pulls/{pr}')
+    if not admin_path(info):
+        return False
+    own = admin_own_files(info)
+    files = [f for page in api(f'repos/{REPO}/pulls/{pr}/files?per_page=100') for f in (page if isinstance(page, list) else [page]) if isinstance(f, dict)]
+    if own is None or len(files) < int(info.get('changed_files') or 0):
+        return True
+    names = {n for f in own for n in (f.get('filename'), f.get('previous_filename')) if n}
+    return assess(pr, [f for f in files if f.get('filename') in names or f.get('previous_filename') in names])['high']
 
 
 def admin_outside(pr):
-    """main 으로 가는 PR 중 hotfix/ · harness/ · release/ 가 아닌 것(웹 관리자 길)이 web-admin/ 밖에서 바꾼 파일(옮긴 옛 이름도).
-    브랜치 이름(admin/*)이 아니라 base 로 본다 — 이름을 바꿔 올려도 앱 코드가 판을 건너뛰고 main 으로 새지 않게.
-    파일 목록이 다 안 왔으면(API 는 3000개에서 끊긴다) 못 본 것이라 그 사실을 돌려준다. 읽기 실패는 던진다(가드가 막는다)."""
+    """웹 관리자 길(admin 으로 가는 PR · admin → main 합치기)의 자기 변경(admin_own_files) 중 web-admin/ 밖의 파일(옮긴 옛 이름도).
+    앱 코드가 판을 건너뛰고 admin(→ main)으로 새는 것만 잡는다. 브랜치 이름이 아니라 base 로 본다.
+    못 다 봤으면 그 사실을 돌려준다. 읽기 실패는 던진다(가드가 막는다)."""
     info = get(f'repos/{REPO}/pulls/{pr}')
-    if not admin_path(info):
+    if not (admin_path(info) or admin_merge(info)):
         return []
-    files = [f for page in api(f'repos/{REPO}/pulls/{pr}/files?per_page=100') for f in (page if isinstance(page, list) else [page]) if isinstance(f, dict)]
-    if len(files) < int(info.get('changed_files') or 0):
+    files = admin_own_files(info)
+    if files is None:
         return ['(파일 목록을 다 못 봄)']
     return [n for f in files for n in (f.get('filename'), f.get('previous_filename')) if n and not n.startswith(ADMIN_DIR)]
 
 
 def approval_reason(pr):
-    """머지 전에 승인자 승인이 필요한 까닭 — 'guard'(가드 자리를 바꿈) · 'admin'(웹 관리자 길에서 위험도 높음) · ''(필요 없음).
+    """머지 전에 승인자 승인이 필요한 까닭 — 'guard'(가드 자리를 바꿈) · 'admin'(admin 으로 가는 웹 관리자 PR 이 위험도 높음) · ''(필요 없음).
     가드 · --owner · --wait 가 이 한 곳을 쓴다. 읽기 실패는 던진다(가드가 막는다)."""
     if needs_owner(pr):
         return 'guard'

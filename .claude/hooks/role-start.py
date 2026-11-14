@@ -3,7 +3,7 @@
 
 1. 역할 지침 — `claude -n <이름>` 으로 연 세션이면(입력의 session_title) `.claude/roles/_공통.md` + `<이름>.md`.
    요약(compact) · 이어 열기(resume) 때도 다시 붙인다 — 요약되면 처음 지침이 사라지기 때문이다. 모르는 이름이면 붙이지 않는다.
-2. 판 고르기 — 새로 연 세션(startup · clear)이 작업 브랜치 위가 아니면(main · release/* · 떨어진 HEAD) 열린 판 전부의 한 장 요약을 주고
+2. 판 고르기 — 새로 연 세션(startup · clear)이 작업 브랜치 위가 아니면(main · admin · release/* · 떨어진 HEAD) 열린 판 전부의 한 장 요약을 주고
    «어느 버전에 나갈 작업인가요?» 를 묻게 한다. 판은 사람이 고른다. 질문 세션은 묻지 않는다.
    이 요약이 현황판이다 — 작업중 = 열린 PR(본문 «건드리는 파일» + 실제 diff) · 검토중 = 라벨 붙은 이슈 · 작업완료 = 머지.
    main 에 현황판 커밋을 쌓지 않으려고 파일 대신 GitHub 를 읽는다. 아무 때나 보기: `python3 .claude/hooks/role-start.py --board`.
@@ -22,6 +22,9 @@ for _s in (sys.stdin, sys.stdout, sys.stderr):
 
 REPO = 'grk-cmd/t-w'
 HERE = os.path.dirname(os.path.abspath(__file__))
+sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를 만들어 작업 트리를 더럽히지 않게
+sys.path.append(HERE)   # 뒤에 — 표준 모듈이 먼저
+from risk import ADMIN_BRANCH   # 웹 관리자 정본 브랜치 — 이름은 risk 한 곳에
 ROLES_DIR = os.path.join(os.path.dirname(HERE), 'roles')
 COMMON = '_공통.md'
 NO_PICK_ROLES = ('질문',)
@@ -53,10 +56,10 @@ def role_text(title, roles):
 
 
 def needs_pick(role, branch, source):
-    """판을 물을지 — 새로 연 세션 · 질문 세션 아님 · 작업 브랜치 위가 아님(main · release/* · 떨어진 HEAD)."""
+    """판을 물을지 — 새로 연 세션 · 질문 세션 아님 · 작업 브랜치 위가 아님(main · admin · release/* · 떨어진 HEAD)."""
     if source not in PICK_SOURCES or role in NO_PICK_ROLES:
         return False
-    return branch in ('', 'main') or branch.startswith('release/')
+    return branch in ('', 'main', ADMIN_BRANCH) or branch.startswith('release/')
 
 
 def declared_files(body):
@@ -144,7 +147,13 @@ def render(facts):
             out.extend(pr_line(p) for p in mine)
             if not mine:
                 out.append('- 열린 PR 없음')
-    others_pr = [p for p in (prs or []) if not p['base'].startswith('release/')]
+    if prs is not None:
+        out.append(f'\n### {ADMIN_BRANCH} — 웹 관리자(판 밖 · Hosting 은 여기서 · 내보낸 뒤 main 으로 합침)')
+        mine = [p for p in prs if p['base'] == ADMIN_BRANCH]
+        out.extend(pr_line(p) for p in mine)
+        if not mine:
+            out.append('- 열린 PR 없음')
+    others_pr = [p for p in (prs or []) if not p['base'].startswith('release/') and p['base'] != ADMIN_BRANCH]
     if others_pr:
         out.append('\n### 판 밖(main · hotfix · harness)')
         out.extend(pr_line(p, True) for p in others_pr)

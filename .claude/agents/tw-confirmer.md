@@ -15,7 +15,7 @@ model: opus
 - 바뀐 곳과 같은 일을 하는 기존 함수 · 모듈이 있는지 grep.
 
 ## 보는 것 (로직이 맞는지는 깊게 따지지 않는다 — 검증자 몫)
-1. **컨벤션**: 커밋 · PR 형식(한국어 · `타입(스코프)` · 한 커밋 한 의도 · Claude 표기 없음 · PR 틀), base 가 판 브랜치 `release/X.Y.Z`(긴급 수정 `hotfix/*` · `harness/*` · 웹 관리자만 바꾸는 `admin/*` 만 main — `admin/*` 가 `web-admin/` 밖을 바꾸면 오류), 도메인 모듈 모양(`createXxx(deps)` · 폴더 README 절 · `sim-*` 검사), 새 로직을 `app.js` · `firebase-init.js` 에 쌓지 않음, 주석 규칙, 남이 쓴 값은 `safe-html.js`, 실패는 `TwErrorCodes`, `checks/` 를 고쳤으면 `CHECKS.md` §3 해시.
+1. **컨벤션**: 커밋 · PR 형식(한국어 · `타입(스코프)` · 한 커밋 한 의도 · Claude 표기 없음 · PR 틀), base 가 판 브랜치 `release/X.Y.Z`(긴급 수정 `hotfix/*` · `harness/*` · 판 내기 · `admin` → main 합치기만 main · 웹 관리자만 바꾸는 작업은 `admin` — `admin` 으로 가는 PR 이 main 에 없는 것으로 `web-admin/` 밖을 바꾸면 오류), 도메인 모듈 모양(`createXxx(deps)` · 폴더 README 절 · `sim-*` 검사), 새 로직을 `app.js` · `firebase-init.js` 에 쌓지 않음, 주석 규칙, 남이 쓴 값은 `safe-html.js`, 실패는 `TwErrorCodes`, `checks/` 를 고쳤으면 `CHECKS.md` §3 해시.
 2. **설계**: 같은 판단 · 규칙이 여러 곳에 흩어지지 않았나(있으면 한 곳으로 묶는 안이 기본), 이미 있는 장치를 두고 새로 만들지 않았나, 도메인끼리 직접 부르지 않나(deps), 새 «있으면 부르기» 가드 · 값을 못 하는 복잡도가 없나, 데이터는 화면 → 도메인 → provider 한 방향.
 3. **비효율**: Firebase 노드 통째 `get`/`onValue` · 부팅마다 전체 받기 · 사람 수만큼 구독 · 반복 폴링, 같은 값을 여러 번 읽기, 매 프레임 레이아웃 강제.
 4. **승인 안 된 동작 변경**: 화면 · 문구 · 타이밍 · 요청 수가 바뀌는데 사용자 확인 기록이 없으면 걸린다. Firebase 의존을 새로 늘리는 변경도 걸린다(서버 이관 방향 — provider 자리만 둔다).
