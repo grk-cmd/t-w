@@ -1224,7 +1224,7 @@
         ".validate": "$toId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $toId !== 'undefined'",
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         "$fromId": {
-          ".write": true,
+          ".write": "(!data.exists() && !newData.exists()) || (!root.child('userAuth/'+$fromId).exists() || root.child('userAuth/'+$fromId).val() === auth.uid) || (data.exists() && !newData.exists() && (!root.child('userAuth/'+$toId).exists() || root.child('userAuth/'+$toId).val() === auth.uid))",
           ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined' && (newData.hasChildren(['name','ts']) && newData.child('name').isString() && newData.child('name').val().length <= 20 && newData.child('ts').isNumber())",
           "name": { ".validate": true },
           "ts": { ".validate": "(root.child('users/'+$fromId+'/presence/ver').exists() || root.child('users/'+$fromId+'/presence/online').val() !== true)" },
@@ -1237,7 +1237,7 @@
         ".validate": "$fromId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $fromId !== 'undefined'",
         ".read": "(auth == null || !root.child('authUsers/'+auth.uid+'/userCode').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/ver').exists() || root.child('users/'+root.child('authUsers/'+auth.uid+'/userCode').val()+'/presence/online').val() !== true)",
         "$toId": {
-          ".write": true,
+          ".write": "(!data.exists() && !newData.exists()) || (!root.child('userAuth/'+$fromId).exists() || root.child('userAuth/'+$fromId).val() === auth.uid) || (data.exists() && !newData.exists() && (!root.child('userAuth/'+$toId).exists() || root.child('userAuth/'+$toId).val() === auth.uid))",
           ".validate": "$toId.matches(/^[uU][0-9a-zA-Z]{8,40}$/) && $toId !== 'undefined' && (newData.hasChildren(['ts']) && newData.child('ts').isNumber() && (!newData.child('toName').exists() || (newData.child('toName').isString() && newData.child('toName').val().length <= 20)) && (!newData.child('toCode').exists() || (newData.child('toCode').isString() && newData.child('toCode').val().length <= 12)))",
           "ts": { ".validate": "(root.child('users/'+$fromId+'/presence/ver').exists() || root.child('users/'+$fromId+'/presence/online').val() !== true)" },
           "toName": { ".validate": true },
