@@ -33,6 +33,8 @@
 | `E-SYS-02` | 내 색을 계정에 저장하지 못했어요 — 이 PC 에는 저장했어요 | `shared/theme-ui.js` — 👑 내 색 [저장] 의 서버 쓰기(`saveThemeCustom` · `users/{uid}/themeCustom`) |
 | `E-SYS-03` | 이 PC 의 글꼴 목록을 읽지 못했어요 — 글꼴 이름을 직접 써서 고를 수 있어요 | `shared/font-ui.js` — 👑 내 PC 글꼴 고르기(`queryLocalFonts` 실패 · 막힘) |
 | `E-SYS-04` | 반응을 보내지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `status/playlist-like-ui.js` — 플레이리스트 [노래가 좋아요 👍] 쓰기(`playlistLikes`) |
+| `E-ACC-04` | 구글 계정을 바꾸지 못했어요 — 원래 구글 그대로예요. 잠시 뒤 다시 해 주세요 | `account/account.js` — 🔁 [바꾸기] 본인 확인 · 끊기 · 새로 붙이기 실패(`google-change-net.js` · 되돌림 성공) |
+| `E-ACC-05` | 구글 연결이 풀렸어요 — 친구 코드 + 비밀번호로 로그인되고, [연결하기]로 다시 붙일 수 있어요 | `account/account.js` — 🔁 [바꾸기] 새 구글도 못 붙이고 되돌리기도 실패(`google-change-net.js` `restored:false`) |
 | `E-FR-01` | 친구 요청을 수락하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [수락] |
 | `E-FR-02` | 친구 요청을 거절하지 못했어요 | `myhome/friend-manage.js` — 요청 팝업 · 받은 요청 [거절] |
 | `E-FR-03` | 보낸 친구 요청을 취소하지 못했어요 | `myhome/friend-manage.js` — 보낸 요청 [취소] |
