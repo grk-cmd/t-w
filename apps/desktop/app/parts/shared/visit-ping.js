@@ -1,4 +1,4 @@
-/* visit-ping.js — 📈 방문 기록 — 앱이 켜질 때 서버에 한 번(POST /v1/metrics/visits · 204) (검사 sim-visit-ping.js)
+/* visit-ping.js — 📈 방문 기록 — 앱이 켜질 때 서버에 한 번(POST /v2/metrics/visits · 204) (검사 sim-visit-ping.js)
    로그인하지 않은 사람도 센다(토큰 없는 길 — 부르는 쪽 user-api.js visit 이 토큰이 있으면 싣고 없거나 거절되면 빼고 보낸다).
    지표가 앱을 막으면 안 된다 — 부팅이 붐비는 때를 피해 조금 뒤에 부르고, 어떤 실패도 삼키며, 다시 시도하지 않는다.
    classic script — app.js 보다 먼저 싣는다(window.TwVisitPing). app.js 가 계정 provider 를 만든 뒤 createVisitPing(deps).start() 한 번. */

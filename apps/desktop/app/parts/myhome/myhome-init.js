@@ -72,7 +72,7 @@ function onNewsChanged(e){
   });
 }
 
-/* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — code: 서버가 확인한 내 계정 코드 · me: 그 확인(GET /v1/me)의 답(접속 고정을 거기서 읽는다) */
+/* 계정 확인을 통과한 뒤 한 번(launcher/app-boot.js) — code: 서버가 확인한 내 계정 코드 · me: 그 확인(GET /v2/me)의 답(접속 고정을 거기서 읽는다) */
 async function initMyHome(code, me){
   _waitForFirebaseAPI(async ()=>{
     const myId = code;

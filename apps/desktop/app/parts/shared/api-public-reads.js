@@ -15,8 +15,8 @@
  *   fetchUserCardApi(uid) 는 명함 날것만 단다(대체 길 없음 — 친구 포트가 넘어가기를 정한다).
  */
 export const API_PATHS = Object.freeze({
-  card: (uid) => '/v1/users/' + encodeURIComponent(uid) + '/card',
-  randomRooms: '/v1/rooms/random',
+  card: (uid) => '/v2/users/' + encodeURIComponent(uid) + '/card',
+  randomRooms: '/v2/rooms/random',
 });
 export const RANDOM_ROOMS_MAX = 50;
 export const avatarPath = (uid) => 'users/' + uid + '/home/avatar';

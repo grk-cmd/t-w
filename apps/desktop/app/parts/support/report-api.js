@@ -1,4 +1,4 @@
-/* report-api.js — 🚩 신고 provider — 신고 서버 길(POST /v1/reports) · 관리자 신고 목록 길(/v1/admin/reports*) 한 벌 (검사 sim-report.js)
+/* report-api.js — 🚩 신고 provider — 신고 서버 길(POST /v2/reports) · 관리자 신고 목록 길(/v2/admin/reports*) 한 벌 (검사 sim-report.js)
    [왜] 신고는 서버가 원본이다. 신고한 사람은 서버가 로그인 토큰에서 정한다 — 앱은 내 이름 · 코드를 싣지 않는다.
      신고 창(report.js)은 경로 · 본문 모양 · 서버 종류 이름을 모르고 이 파일의 함수만 부른다.
    [모양] file(target, kind, note) → Promise<void>. 성공이면 끝, 실패는 api-client.js 의 ApiError 그대로 던진다.
@@ -13,9 +13,9 @@
 (function(){
 'use strict';
 
-const ADMIN_BASE = '/v1/admin/reports';
+const ADMIN_BASE = '/v2/admin/reports';
 const PATHS = Object.freeze({
-  file: '/v1/reports',
+  file: '/v2/reports',
   adminList: ADMIN_BASE,
   dismissals: ADMIN_BASE + '/dismissals',
   takeDown: (target) => ADMIN_BASE + '/' + encodeURIComponent(target) + '/take-down',

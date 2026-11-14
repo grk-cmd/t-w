@@ -1,6 +1,6 @@
 /* myhome-api.js — 🏠 마이홈 api provider (검사 sim-myhome-api.js)
-   책임: 내 마이홈 읽기(GET /v1/me/myhome — 페이지 + 바탕화면) · 남의 마이홈(GET /v1/myhomes/{userCode}) · 내 책장(GET /v1/me/myhome/bookshelf) · 남의 공개 책(GET /v1/myhomes/{userCode}/bookshelf) ·
-     페이지 칸 저장(PATCH /v1/me/myhome) · 디자인 저장(PUT …/design) · 바탕화면 저장(PUT …/desktop) · 책장 저장(PUT …/bookshelf) · 그림 올리기(POST /v1/me/images?purpose=myhome).
+   책임: 내 마이홈 읽기(GET /v2/me/myhome — 페이지 + 바탕화면) · 남의 마이홈(GET /v2/myhomes/{userCode}) · 내 책장(GET /v2/me/myhome/bookshelf) · 남의 공개 책(GET /v2/myhomes/{userCode}/bookshelf) ·
+     페이지 칸 저장(PATCH /v2/me/myhome) · 디자인 저장(PUT …/design) · 바탕화면 저장(PUT …/desktop) · 책장 저장(PUT …/bookshelf) · 그림 올리기(POST /v2/me/images?purpose=myhome).
      서버 모양(스티커 목록 · image · 프리셋 withImage · 책 width/titleColor/public/image/addedAt ISO)을 화면 모양(스티커 {sid:…} · img · img:true · w/tcolor/pub/img/at ms)으로 맞추는 곳은 여기뿐이다.
    신원: 늘 토큰의 «나» — 본문에 내 코드 · 이름 · 시각을 싣지 않는다. 경로의 코드는 구경하는 집(데이터 주소)일 뿐.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · patch(…, { expectOwner, rawType }) → Promise<data>)
@@ -27,13 +27,13 @@
 
 const enc = encodeURIComponent;
 const PATHS = Object.freeze({
-  mine: '/v1/me/myhome',
-  of: (userCode) => '/v1/myhomes/' + enc(userCode),
-  design: '/v1/me/myhome/design',
-  desktop: '/v1/me/myhome/desktop',
-  bookshelf: '/v1/me/myhome/bookshelf',
-  bookshelfOf: (userCode) => '/v1/myhomes/' + enc(userCode) + '/bookshelf',
-  image: '/v1/me/images?purpose=myhome',
+  mine: '/v2/me/myhome',
+  of: (userCode) => '/v2/myhomes/' + enc(userCode),
+  design: '/v2/me/myhome/design',
+  desktop: '/v2/me/myhome/desktop',
+  bookshelf: '/v2/me/myhome/bookshelf',
+  bookshelfOf: (userCode) => '/v2/myhomes/' + enc(userCode) + '/bookshelf',
+  image: '/v2/me/images?purpose=myhome',
 });
 /* 서버 상한과 같은 값 — 업무 상한(스티커 5 · 책 50)은 앱이 먼저 막고, 옛 홈은 그대로 보낸다 */
 const LIMITS = Object.freeze({ STICKERS: 5, BOOKS: 50, PRESETS: 3, FOLDERS: 12, IMAGE_BYTES: 8 * 1024 * 1024 });

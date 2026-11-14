@@ -67,7 +67,7 @@ async function judge(S){
   chk(c2.action === 'notice' && c2.notes.length === 0, '  ↳ 같은 code 도 기능 표가 공통보다 먼저');
   const c3 = await run(() => res(403, { success: false, code: 'ACCESS_DENIED' }), null, mine);
   chk(c3.notes.join() === 'E-NET-02', '  ↳ 기능 표에 없으면 공통 표');
-  const it = await run(() => res(409, { success: false, code: 'AVATAR_ITEM_NOT_USABLE', items: [{ itemId: 'p9', reason: 'LOCKED' }] }), (c) => c.put('/v1/me/avatars/1', {}));
+  const it = await run(() => res(409, { success: false, code: 'AVATAR_ITEM_NOT_USABLE', items: [{ itemId: 'p9', reason: 'LOCKED' }] }), (c) => c.put('/v2/me/avatars/1', {}));
   chk(it.action === 'notice' && it.notes.join() === 'E-NET-08' && it.items && it.items[0].itemId === 'p9' && it.code === 'AVATAR_ITEM_NOT_USABLE', '  ↳ 아무 표에도 없는 4xx 는 E-NET-08 · items · code 를 잇는다');
   chk(E.translate({ kind: 'request', code: 'toString' }).action === 'notice' && E.translate({ kind: 'request', code: 'constructor' }).action === 'notice', '  ↳ 표 찾기는 제 칸만(toString 같은 이름에 속지 않음)');
 

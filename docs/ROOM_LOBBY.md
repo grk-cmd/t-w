@@ -60,7 +60,7 @@ roomLobby/workingroom = { at: 1729500000000, rooms: { 'WORK-AB12': { t: '방 제
 |---|---|
 | `room/room-lobby-model.js` (새 · 순수) | 목록 줄 → 카드: 탭 · «빈자리» 거르기 · 정렬 · 쪽 나누기 · 가득 참 판정 · 제목 기본값. DOM · firebase 없음 — `sim-room-lobby-model.js` |
 | `room/room-lobby.js` (새 · `TwRoomLobby`) | 로비 창: 탭 · 거르기 · 카드 · 쪽 · [방 만들기] · [빠른시작] · 코드 칸 · 내 시크릿룸 줄 · 비었음 / 못 불러옴(`E-ROOM-03`). deps 로 provider 를 받는다 |
-| `room/room-lobby-provider.js` (새) | `listRooms(channel)` — API(`GET /v1/rooms/lobby?channel=`) 먼저, 안 되면 Firebase `roomLobby/{채널}` (지금 `api-public-reads.js` 의 count · random 과 같은 모양) |
+| `room/room-lobby-provider.js` (새) | `listRooms(channel)` — API(`GET /v2/rooms/lobby?channel=`) 먼저, 안 되면 Firebase `roomLobby/{채널}` (지금 `api-public-reads.js` 의 count · random 과 같은 모양) |
 | `room/room-entry.js` | 방 만들기에 제목 · 최대 인원 · 공개 · 같이 듣기를 받아 `_meta` 에 · 정원 검사 `min(meta.max, maxPeople())` · 빠른시작이 지금 탭 채널로 |
 | `room/room-channel.js` | (#475) 승계 규칙 — 승계할 때 `hostName` 도 같이 |
 | `firebase-init.js` | `setRoomChannel` · `claimEmptyRoom` · `claimHostIfVacant` 가 `hostName` 을 같이 쓴다 · `findRandomRooms(channel)` |
@@ -71,7 +71,7 @@ roomLobby/workingroom = { at: 1729500000000, rooms: { 'WORK-AB12': { t: '방 제
 - 새 오류 번호: `E-ROOM-03` 방 목록을 못 불러옴(빈 목록과 다르게 그린다).
 
 ## 4. 서버 작업 필요 (`t-w-server` — 이 저장소 밖)
-- **`GET /v1/rooms/lobby?channel=workingroom|togetherroom`** — 공개 방 목록. 출력 `[{ code, t, n, max, hn, mu }]` · 방 서버 방과 Firebase `roomLobby` 를 합친 것. 시크릿룸 · 비공개는 빼고, 남의 userId 는 내보내지 않는다(닉네임만).
+- **`GET /v2/rooms/lobby?channel=workingroom|togetherroom`** — 공개 방 목록. 출력 `[{ code, t, n, max, hn, mu }]` · 방 서버 방과 Firebase `roomLobby` 를 합친 것. 시크릿룸 · 비공개는 빼고, 남의 userId 는 내보내지 않는다(닉네임만).
 - **방 만들기(`join` 의 `create`)** 에 `title` · `max` · `music` · `hostName` 을 받는다(지금 서버는 모르는 칸을 거절한다). `meta` 메시지로 **방장만** `title` · `open` 을 바꿀 수 있게. `title` 은 금칙어 판정(5.2)을 거친다.
 - **정원**: 서버 `join` 이 `min(max, 원격 설정 정원)` 으로 막는다.
 - **승계**: 워킹룸도 입장순 첫 사람 · 해산 없음(#475 와 같은 규칙) · 승계 때 `hostName` 갱신.

@@ -1,5 +1,5 @@
 /* guestbook.js — 📖 방명록 — 새 글 배지(자기 홈) · 독립 팝업 창(웹박수 · 폭죽 · 글 목록 · 쓰기)
-   화면만 맡는다 — 받기 · 쓰기 · 알림 걸기는 guestbook-feed.js(서버 /v1/guestbooks 는 guestbook-api.js)가 한다.
+   화면만 맡는다 — 받기 · 쓰기 · 알림 걸기는 guestbook-feed.js(서버 /v2/guestbooks 는 guestbook-api.js)가 한다.
    앱 FSD 4번으로 app.js 에서 옮긴 모듈이고, 0.13 에서 Firebase 구독을 걷고 서버 원본으로 바꿨다.
 
    ★ 밖으로 내놓는 이름은 예전처럼 window 고리다(_mhGbStartWatch · _mhGbStopWatch · _mhGbRefreshBadge · _mhGbMarkAllRead ·

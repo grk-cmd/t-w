@@ -1,7 +1,7 @@
 /* playlist-api.js — 🎵 플레이리스트 api provider (검사 sim-playlist-api.js)
-   책임: 내 프리셋 세 벌 읽기 · 통째 저장(GET · PUT /v1/me/playlist) · 파도타기(GET /v1/playlists/random) · 남의 목록(GET /v1/playlists/{userCode}).
+   책임: 내 프리셋 세 벌 읽기 · 통째 저장(GET · PUT /v2/me/playlist) · 파도타기(GET /v2/playlists/random) · 남의 목록(GET /v2/playlists/{userCode}).
      서버 모양(tracks[{videoId,title}] · 프리셋 늘 3칸 · listed)을 화면이 쓰던 모양(items[{id,title}] · private)으로 맞추는 곳은 여기뿐이다.
-   신원: 내 것은 토큰(/v1/me/…) · 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐). 내 코드(uid)는 «판(version) 기억 열쇠» 로만 받는다.
+   신원: 내 것은 토큰(/v2/me/…) · 남의 것은 사용자 코드(경로의 코드는 데이터 주소일 뿐). 내 코드(uid)는 «판(version) 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth: true }) · put(path, body) → Promise<data>)
          random() → 0 이상 1 미만 수(친구 목록에서 곡 있는 벌을 고를 때) · warn(...a)(진단 로그)
    내보냄: createPlaylistApi(deps) → {
@@ -20,9 +20,9 @@
 'use strict';
 
 const PATHS = Object.freeze({
-  mine: '/v1/me/playlist',
-  random: '/v1/playlists/random',
-  of: (userCode) => '/v1/playlists/' + encodeURIComponent(userCode),
+  mine: '/v2/me/playlist',
+  random: '/v2/playlists/random',
+  of: (userCode) => '/v2/playlists/' + encodeURIComponent(userCode),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 400 으로 거절한다 */
 const LIMITS = Object.freeze({ SETS: 3, TRACKS: 20, NAME: 16, TITLE: 60, BIO: 140 });
@@ -56,7 +56,7 @@ function setsOf(sets){
 /* 서버가 🔒 나만 보기를 아는가 — 세 벌 모두 locked(참/거짓)를 돌려줄 때만. 모르는 서버에 locked 를 보내면 400, 아는 척하면 잠근 곡이 남에게 보인다 */
 const lockableOf = (sets) => Array.isArray(sets) && sets.length > 0 && sets.every((s) => isObj(s) && typeof s.locked === 'boolean');
 
-/* GET /v1/me/playlist 의 data → 화면 모양. 모양이 틀리면 undefined. private 는 «목록에 올리지 않음» (listed 의 반대) */
+/* GET /v2/me/playlist 의 data → 화면 모양. 모양이 틀리면 undefined. private 는 «목록에 올리지 않음» (listed 의 반대) */
 function mineOf(d){
   if(!isObj(d)) return undefined;
   const sets = setsOf(d.sets);

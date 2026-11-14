@@ -1,9 +1,9 @@
-/* user-api.js — 🪪 계정 provider — 서버 user · invite · 탈퇴 미리보기 · 방문 기록 길(/v1) 한 벌 (검사 sim-user-api.js)
+/* user-api.js — 🪪 계정 provider — 서버 user · invite · 탈퇴 미리보기 · 방문 기록 길(/v2) 한 벌 (검사 sim-user-api.js)
    [왜] 로그인 · 가입 · 이름 · 비밀번호 · 탈퇴 · 초대가 서버(API)로 옮겼다. 화면 · 흐름(login-flow.js · account.js · license-gate.js)은
      경로 · 본문 모양 · 오류 code 를 모르고 이 파일의 함수만 부른다 — 서버 계약이 바뀌면 여기 한 곳만 고친다.
    [모양] 모두 Promise. 성공은 서버 data(모양을 맞춘 값), 실패는 api-client.js 의 ApiError 그대로 던진다(«실패 ≠ 없음» — 부르는 쪽이 가른다).
      화면에 쓸 한 줄은 reasonOf(err) — 서버 code → 사용자 문구 표(REASONS) · 표에 없으면 kind 로(닿지 못함 · 그 밖).
-   [길] 신원은 토큰뿐 — 경로에 내 코드를 싣지 않는다(/v1/me). 토큰 없이 여는 길은 셋: 초대 코드 확인 · 비밀번호 가입 · 방문 기록.
+   [길] 신원은 토큰뿐 — 경로에 내 코드를 싣지 않는다(/v2/me). 토큰 없이 여는 길은 셋: 초대 코드 확인 · 비밀번호 가입 · 방문 기록.
    classic script — api-client.js · request-id.js 다음 · login-flow.js · app.js 보다 먼저 싣는다(window.TwUserApi). Firebase 를 모른다. */
 (function(){
 'use strict';
@@ -85,65 +85,65 @@ function createUserApi(deps){
   const api = deps.api;
   const newId = deps.newId;
 
-  async function me(){ return meFrom(await api().get('/v1/me', { auth: true, timeoutMs: ME_TIMEOUT_MS })); }
+  async function me(){ return meFrom(await api().get('/v2/me', { auth: true, timeoutMs: ME_TIMEOUT_MS })); }
 
   /* 가입 — 비밀번호 길(토큰 없음 · requestId 필수) 또는 구글 길(지금 로그인 토큰). inviteCode 는 있을 때만 싣는다. */
   async function joinWithPassword(o){
     const body = { password: String(o.password || ''), requestId: o.requestId || newId() };
     if(o.inviteCode) body.inviteCode = o.inviteCode;
-    return meFrom(await api().post('/v1/users', body, { auth: false }));
+    return meFrom(await api().post('/v2/users', body, { auth: false }));
   }
   async function joinWithGoogle(o){
     const body = {};
     if(o && o.inviteCode) body.inviteCode = o.inviteCode;
-    return meFrom(await api().post('/v1/users', body));
+    return meFrom(await api().post('/v2/users', body));
   }
 
   /* 내 계정 고치기 — { version, displayName?, presencePref?:{ locked, online } }. 칸을 안 실으면 그대로. */
-  async function updateMe(patch){ return meFrom(await api().patch('/v1/me', patch)); }
+  async function updateMe(patch){ return meFrom(await api().patch('/v2/me', patch)); }
 
-  async function attachPasswordLogin(password){ return meFrom(await api().post('/v1/me/password-login', { password: String(password || '') })); }
-  async function changePassword(newPassword){ await api().post('/v1/me/password', { newPassword: String(newPassword || '') }); return true; }
+  async function attachPasswordLogin(password){ return meFrom(await api().post('/v2/me/password-login', { password: String(password || '') })); }
+  async function changePassword(newPassword){ await api().post('/v2/me/password', { newPassword: String(newPassword || '') }); return true; }
 
   /* 탈퇴 미리보기 → { items, files(null = 셀 수 없음), byContext } · 탈퇴(202) */
   async function withdrawalPreview(){
-    const d = await api().get('/v1/me/withdrawal-preview', { auth: true });
+    const d = await api().get('/v2/me/withdrawal-preview', { auth: true });
     if(!isObj(d)) return null;
     return { items: Math.max(0, num(d.items, 0)), files: (typeof d.files === 'number' && d.files >= 0) ? d.files : null,
       byContext: Array.isArray(d.byContext) ? d.byContext.filter(isObj).map((c) => ({ context: str(c.context), count: num(c.count, 0) })) : [] };
   }
-  async function withdraw(){ await api().post('/v1/me/withdrawal', { confirm: WITHDRAW_CONFIRM }); return true; }
+  async function withdraw(){ await api().post('/v2/me/withdrawal', { confirm: WITHDRAW_CONFIRM }); return true; }
 
   /* 초대 코드 확인(토큰 없음) → { usable, reason }. 모양이 틀린 입력은 서버에 묻지 않는다. */
   async function checkInvite(code){
     const c = String(code || '').trim().toUpperCase();
     if(!INVITE_RE.test(c)) return { usable: false, reason: 'NOT_FOUND', code: c };
-    const d = await api().get('/v1/invites/' + encodeURIComponent(c), { auth: false });
+    const d = await api().get('/v2/invites/' + encodeURIComponent(c), { auth: false });
     return { usable: !!(isObj(d) && d.usable === true), reason: isObj(d) ? str(d.reason) || null : null, code: c };
   }
   /* 내 초대 → { invitesLeft(null = 무제한), invites:[{code, used, createdAt}] } · 새 초대장 → { code } */
   async function myInvites(){
-    const d = await api().get('/v1/me/invites', { auth: true });
+    const d = await api().get('/v2/me/invites', { auth: true });
     if(!isObj(d)) return null;
     return { invitesLeft: (typeof d.invitesLeft === 'number') ? d.invitesLeft : null, invites: Array.isArray(d.invites) ? d.invites.filter(isObj) : [] };
   }
   async function createInvite(requestId){
-    const d = await api().post('/v1/me/invites', { requestId: requestId || newId() });
+    const d = await api().post('/v2/me/invites', { requestId: requestId || newId() });
     return { code: isObj(d) ? str(d.code) : '' };
   }
 
   /* 친구코드로 찾기 → [{ userCode, displayName }](0 또는 1명) */
   async function findByFriendCode(code){
-    const d = await api().get('/v1/users?friendCode=' + encodeURIComponent(String(code || '').trim().toUpperCase()), { auth: true });
+    const d = await api().get('/v2/users?friendCode=' + encodeURIComponent(String(code || '').trim().toUpperCase()), { auth: true });
     return Array.isArray(d) ? d.filter((x) => isObj(x) && str(x.userCode)).map((x) => ({ userCode: x.userCode, displayName: str(x.displayName) })) : [];
   }
 
   /* 방문 기록(204) — 로그인돼 있으면 토큰을 싣고, 토큰이 없거나 거절되면 토큰 없이 한 번 더(익명 방문으로 센다). */
   async function visit(){
-    try{ await api().post('/v1/metrics/visits', undefined); }
+    try{ await api().post('/v2/metrics/visits', undefined); }
     catch(e){
       if(!(e && e.kind === 'auth')) throw e;
-      await api().post('/v1/metrics/visits', undefined, { auth: false });
+      await api().post('/v2/metrics/visits', undefined, { auth: false });
     }
     return true;
   }

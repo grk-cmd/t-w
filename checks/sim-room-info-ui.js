@@ -151,8 +151,8 @@ function mkUi(o, src){
       'room-state.js 방장 판정 — 내 코드를 모르거나 meta 가 없으면 아니다');
     chk(RSt.isSecretCode('SCRT-AB12') && !RSt.isSecretCode('COZY-AB12') && !RSt.isSecretCode(null) && !RSt.isSecretCode('xSCRT-1'), '  시크릿룸 코드 판정');
     const CL = need('chat-lock.js');
-    chk(/isHost: \(\)=>TwRoomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(APP) && /isSecretRoom: \(\)=>TwRoomState\.isSecretCode\(/.test(APP)
-      && /roomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(CL) && /roomState\.isSecretCode\(_chatRoomCode\(\)\)/.test(CL) && /roomState: TwRoomState,/.test(APP) && !/isSecretCode/.test(RS_SRC),
+    chk(/isHost: \(\)=>TwRoomState\.isHost\(window\._roomMetaCache, TwRoomRt\.store\.myCode\(\)\)/.test(APP) && /isSecretRoom: \(\)=>TwRoomState\.isSecretCode\(/.test(APP)
+      && /roomState\.isHost\(window\._roomMetaCache, myCode\(\)\)/.test(CL) && /roomState\.isSecretCode\(_chatRoomCode\(\)\)/.test(CL) && /roomState: TwRoomState,/.test(APP) && !/isSecretCode/.test(RS_SRC),
       '★ 방장 · 시크릿룸 판정은 채팅 잠금과 같은 한 곳(room-state.js)을 부른다 — 다시 쓰지 않음 · 서로 부르지 않아 순환 없음');
   }
   chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>\(Presence\.serverProvider\(\) \? Presence\.serverProvider\(\)\.setMeta\(info\) : Promise\.resolve\(\{ ok:false, code:'notInRoom' \}\)\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 방 포트 meta 하나(방 밖이면 { ok:false })');

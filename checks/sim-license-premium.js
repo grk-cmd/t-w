@@ -1,11 +1,11 @@
 /* ═══ 🔑 sim-license-premium.js — 프리미엄 판정(account/license-premium.js · 0.13 앱 묶음 D8-1) ═══
-   [무엇을 지키나] 프리미엄은 서버 확인(GET /v1/me 의 premium)만 따른다. 확인 전의 false 는 «모름» 이라, 모르는 동안 전용 자산을 접으면
+   [무엇을 지키나] 프리미엄은 서버 확인(GET /v2/me 의 premium)만 따른다. 확인 전의 false 는 «모름» 이라, 모르는 동안 전용 자산을 접으면
      프리미엄 사용자의 책상이 켤 때마다 기본으로 떨어졌다 돌아온다(방으로도 나간다). 그래서 판정 모듈 · 계정 핵심 상태 · 전용 자산 접기를 진짜로 이어서 돌려 본다.
    ・1절: 켤 때 반영 — 프리미엄 참/거짓 · 켤 때 라이선스 요청 0 · 새 PC 자동 기기 등록 없음
    ・2절: 알림(license) — 다른 기기에서 바뀐 것 반영 · 겹쳐 와도 요청이 쌓이지 않음 · 못 받으면 지금 값 그대로(혼자 다시 안 함) · 두 번 시작 무시
    ・3절: 키 등록 · 이 기기 해제 — 서버 확인으로만 성공 · 해제한 기기는 자동 등록 안 함 · 키를 넣으면 풀림
    ・4절: ★ 모름 동안 접기 0번 — 계정 핵심 상태 + 전용 자산 접기를 실제로 이어 붙여: 프리미엄은 한 번도 접히지 않고, 아님은 확인 뒤 접힌다
-   ・5절: 배선 — 프리미엄을 바꾸는 곳 하나 · 쓰기 응답(PATCH /v1/me)을 따르지 않음 · 시작은 켜는 차례 한 곳
+   ・5절: 배선 — 프리미엄을 바꾸는 곳 하나 · 쓰기 응답(PATCH /v2/me)을 따르지 않음 · 시작은 켜는 차례 한 곳
    ・6절: 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
@@ -71,7 +71,7 @@ async function judge(S){
 
     e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) });
     t((await e.mod.start(ME(false))) === false && e.sets.join() === 'false' && e.calls.length === 0 && e.notes.length === 0,
-      '★ 프리미엄이 아님 → 아님(거짓) 한 번 · 켤 때 라이선스 읽기(GET /v1/me/license) · 기기 등록 · 다시 확인 요청 0 · 알림 없음');
+      '★ 프리미엄이 아님 → 아님(거짓) 한 번 · 켤 때 라이선스 읽기(GET /v2/me/license) · 기기 등록 · 다시 확인 요청 0 · 알림 없음');
     e = env(LP, { me: [ME(false)], mine: lic(['dev-other001']) });
     await e.mod.start(ME(false)); e.push(); await tick(); await tick(); await tick();
     t(!e.calls.some((c) => c === 'mine' || c.startsWith('put:') || c.startsWith('register:')), '★ 라이선스는 있는데 이 기기만 목록에 없는 새 PC → 아님으로 둔다. 자동 기기 등록 없음(알림 뒤에도) — 등록은 키를 직접 넣을 때만');
@@ -212,13 +212,13 @@ async function judge(S){
 
     e = env(LP, { me: [ME(false)], mine: null, regPremium: true });
     const w1 = await e.mod.activate('KEY');
-    t(w1.ok === true && e.calls.join() === 'mine,register:KEY:' + ID + ':' + NAME && e.sets.join() === 'true', '★ 등록 응답에 premium 이 있으면 그것으로 반영 — GET /v1/me 를 다시 묻지 않는다(요청 둘)');
+    t(w1.ok === true && e.calls.join() === 'mine,register:KEY:' + ID + ':' + NAME && e.sets.join() === 'true', '★ 등록 응답에 premium 이 있으면 그것으로 반영 — GET /v2/me 를 다시 묻지 않는다(요청 둘)');
     e = env(LP, { me: [ME(true)], mine: null, regPremium: false });
     const w2 = await e.mod.activate('KEY');
     t(w2.ok === false && /잠시 뒤/.test(w2.reason) && e.sets.join() === 'false' && !e.calls.includes('me'), '  등록 응답 premium:false → 성공이라 하지 않는다(GET 없이)');
     e = env(LP, { me: [ME(true)], mine: lic([ID]), remPremium: false, premium: true });
     const w3 = await e.mod.deactivate();
-    t(w3.ok === true && e.calls.join() === 'mine,remove:' + ID && e.sets.join() === 'false' && e.custom === 1, '★ 해제 응답 premium 으로 반영 — GET /v1/me 없이(서버 GET 은 아직 참이어도 따르지 않음)');
+    t(w3.ok === true && e.calls.join() === 'mine,remove:' + ID && e.sets.join() === 'false' && e.custom === 1, '★ 해제 응답 premium 으로 반영 — GET /v2/me 없이(서버 GET 은 아직 참이어도 따르지 않음)');
     {
       let release; const slow = new Promise((r) => { release = r; }).then(() => ME(true));
       e = env(LP, { me: [slow, ME(false)], mine: null, regPremium: false });
@@ -280,7 +280,7 @@ async function judge(S){
   {
     const A = S.APP, strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
     const lpc = strip(LP);
-    t(!/\bupdateMe\b|\bpatchMe\b|\bmeCache\b|premiumGraceSec|tw\.licenseKey|LICENSE_KEY_STORAGE/.test(lpc), '프리미엄은 GET /v1/me 확인에서만 — 쓰기 응답(PATCH) · 이 PC 의 사본 · 저장된 키 · 24시간 유예를 따르지 않는다');
+    t(!/\bupdateMe\b|\bpatchMe\b|\bmeCache\b|premiumGraceSec|tw\.licenseKey|LICENSE_KEY_STORAGE/.test(lpc), '프리미엄은 GET /v2/me 확인에서만 — 쓰기 응답(PATCH) · 이 PC 의 사본 · 저장된 키 · 24시간 유예를 따르지 않는다');
     const setCalls = (A.match(/_setPremium\(/g) || []).length;
     t(setCalls === 1 && /setPremium: \(v\)=>acctStateMod\._setPremium\(v\),/.test(A), 'app.js 에서 _setPremium 을 잇는 곳은 판정 모듈 하나');
     t((A.match(/licensePremiumMod\.start\(/g) || []).length === 1 && /licensePremium: \(code, me\)=>licensePremiumMod\.start\(me\),/.test(A), '시작은 켜는 차례 한 곳(계정 확인이 준 me 로) — 만들 때 요청 · 구독 없음');

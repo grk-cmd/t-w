@@ -1,12 +1,12 @@
 /* notice-api.js — 📢 공지 api provider (검사 sim-notice-api.js)
-   책임: 공지 한 판 읽기(GET /v1/notices — 📢 소식 · 📰 업데이트 공지 · 📢 런처 배너 한 번에) · 관리자 소식 쓰기(올리기 · 📌 고정 · 내리기).
+   책임: 공지 한 판 읽기(GET /v2/notices — 📢 소식 · 📰 업데이트 공지 · 📢 런처 배너 한 번에) · 관리자 소식 쓰기(올리기 · 📌 고정 · 내리기).
      서버 모양(publishedAt · imageUrl · linkUrl · 대문자 tag)을 화면이 쓰던 모양(ts · img · link · 소문자 tag)으로 맞추는 곳은 여기뿐이다.
    읽기는 로그인이 없어도 된다(공개 · ETag 로 같으면 304 — 안 바뀐 판은 몸통을 다시 받지 않는다). 쓰기는 관리자 토큰 — 관리자 판정은 서버가 한다.
    deps: get(path) → Promise<data> — 로그인 없는 읽기(TwApi.authed.get — 쉬기 없음 · 304 면 기억한 값)
          write — 관리자 쓰기 통로(TwApi.authed — post · patch · del(…) → Promise<data>)
          pending — 요청 번호 기억(TwRequestId.createPending() — 같은 일을 다시 보내면 같은 번호) · warn(...a)(진단 로그)
    내보냄: createNoticeApi(deps) → {
-     fetchBoard() → Promise<{ updateNotice:{title, body, ts}|null, banner:[{img, link}], broadcasts:{id: 소식}, hasMore:boolean }> — 못 읽으면 던진다.
+     fetchBoard() → Promise<{ updateNotice:{id, title, body, ts}|null, banner:[{img, link}], broadcasts:{id: 소식}, hasMore:boolean }> — 못 읽으면 던진다.
        소식 = { tag:'notice'|'update'|'reward', title, body, ts, pinned, version } — 고정 + 최신 한 쪽을 합친 것(고정은 오래돼도 들어 있다).
      sendBroadcast({ tag, title, body, pinned }) → Promise<'ok'|'pinFailed'|'failed'> — 올리고, 고정이 켜져 있으면 이어서 고정한다.
      setPinned(id, version, pinned) · remove(id, version) → Promise<'ok'|'conflict'|'failed'>
@@ -19,9 +19,9 @@
 'use strict';
 
 const PATHS = Object.freeze({
-  board: '/v1/notices',
-  broadcasts: '/v1/admin/notices/broadcasts',
-  broadcast: (id) => '/v1/admin/notices/broadcasts/' + encodeURIComponent(id),
+  board: '/v2/notices',
+  broadcasts: '/v2/admin/notices/broadcasts',
+  broadcast: (id) => '/v2/admin/notices/broadcasts/' + encodeURIComponent(id),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 400 으로 거절한다 */
 const LIMITS = Object.freeze({ TITLE: 80, BODY: 600 });
@@ -47,13 +47,13 @@ function broadcastsOf(list, out){
   return true;
 }
 
-/* GET /v1/notices 의 data → 화면 한 판. 모양이 틀리면 undefined */
+/* GET /v2/notices 의 data → 화면 한 판. 모양이 틀리면 undefined */
 function boardOf(d){
   if(!isObj(d) || !Array.isArray(d.launcherBanner) || !isObj(d.broadcasts)) return undefined;
   const broadcasts = {};
   if(!broadcastsOf(d.broadcasts.pinned, broadcasts) || !broadcastsOf(d.broadcasts.latest, broadcasts)) return undefined;
   const u = d.updateNotice;
-  const updateNotice = isObj(u) ? { title: str(u.title), body: str(u.body), ts: msOf(u.publishedAt) } : null;
+  const updateNotice = isObj(u) ? { id: str(u.id), title: str(u.title), body: str(u.body), ts: msOf(u.publishedAt) } : null;
   const banner = d.launcherBanner.filter((s) => isObj(s) && typeof s.imageUrl === 'string' && s.imageUrl)
     .map((s) => ({ img: s.imageUrl, link: str(s.linkUrl) }));
   return { updateNotice, banner, broadcasts, hasMore: typeof d.broadcasts.nextCursor === 'string' && !!d.broadcasts.nextCursor };

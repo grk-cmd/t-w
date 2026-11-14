@@ -1,5 +1,5 @@
 /* focus-progress.js — ⏱ 포커스 진척(레벨 · 회차 · 별 색)은 서버 값, 이 PC 는 «아직 못 올린 초» 만 (검사 sim-focus-progress.js)
-   책임: 시작할 때 서버 진척을 한 번 받고(GET /v1/me/focus), 집중한 초를 미전송분(pendingSec)으로 쌓아 정해진 때 한 번에 올리고(POST …/accruals),
+   책임: 시작할 때 서버 진척을 한 번 받고(GET /v2/me/focus), 집중한 초를 미전송분(pendingSec)으로 쌓아 정해진 때 한 번에 올리고(POST …/accruals),
      별 색을 바꾼다(PATCH). 레벨 · 회차 · 별 색은 서버가 준 값 그대로 — 앱이 누적에서 다시 세지 않는다(화면의 «다음 레벨까지» 막대만 shownTotalSec()).
    상태: load = idle | loading | ready | failed. ready 가 아니면 레벨 · 경험치 바는 비운다(깜빡이는 레벨 1 을 그리지 않는다 — D5-Q5).
    올리는 때(주기 타이머 없음 · 실패해도 혼자 다시 보내지 않는다): ① 미전송분이 600초 칸을 넘을 때 ② 더해서 다음 레벨(3600초 경계)을 넘을 때

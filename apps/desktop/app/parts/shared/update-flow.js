@@ -1,5 +1,5 @@
 /* update-flow.js — 🔄 켤 때 업데이트 흐름: 업데이트 창 → 공지 창 → 로그인 (검사 sim-update-flow.js)
-   [순서] 로그인보다 먼저, 계정 없이 — ① 서버 설정 minVersion.app(GET /v1/config · 공개) ② 새 판 확인(main.js electron-updater, 렌더러가 checkUpdate 로 묻는다)
+   [순서] 로그인보다 먼저, 계정 없이 — ① 서버 설정 minVersion.app(GET /v2/config · 공개) ② 새 판 확인(main.js electron-updater, 렌더러가 checkUpdate 로 묻는다)
      · 강제(이 앱 < minVersion.app): «업데이트가 필요해요» — [업데이트] 만 · 닫기 없음 · 로그인으로 넘어가지 않는다.
      · 선택(새 판 있음): «새 버전이 나왔어요» — [업데이트] [나중에]. 버전만 보이고 공지 본문은 넣지 않는다(공지는 앱 버전과 묶이지 않는다).
      · 그 뒤 안 본 «업데이트 안내» 공지 창(deps.noticeOnce · showNotice) → 로그인(runBeforeLogin 이 풀린다). 한 번에 하나, 아무것도 없으면 바로 로그인.

@@ -1,6 +1,6 @@
 /* remote-config.js — ⚙️ 원격 설정: 관리자가 웹 관리자 ⚙️ 설정에서 바꾸는 운영 값 (검사 sim-remote-config.js)
    [왜] 운영 값(방 상한 · 정원 · 방 연결 시간 · 최소 버전 · 금칙어 · 초대 게이트 · 제보 · 박수 · 선물 하루 상한)을 앱 릴리스 없이 바꾸려고.
-   [읽는 곳] 서버 GET /v1/config 하나(로그인 없이 · 몇백 바이트) — data 모양
+   [읽는 곳] 서버 GET /v2/config 하나(로그인 없이 · 몇백 바이트) — data 모양
      { room:{ limits:{workingroom, togetherroom}, maxPeople, timing:{joinWaitMs, clientGiveUpMs}, minVersion, bannedWords }, app:{ minVersion },
        user:{ inviteGate }, bug:{ dailyMax, report:{ notice, link } }, guestbook:{ clapDailyMax }, gift:{ dailySendMax } }.
      못 받으면 이 PC 저장값(CACHE_KEY · 마지막으로 받은 값) → 그것도 없으면 DEFAULTS. Firebase config 칸은 읽지 않는다(0.13 · 서버가 원본).
@@ -13,7 +13,7 @@
 (function(){
 'use strict';
 
-const CONFIG_PATH = '/v1/config';
+const CONFIG_PATH = '/v2/config';
 const CACHE_KEY = 'tw.remoteConfig';
 const CACHE_VERSION = 2;                 // 저장값 모양 — 0.13(서버 묶음 모양). 옛 판(평평한 칸)이 남긴 저장값은 읽지 않는다
 const STALE_MS = 60 * 1000;
@@ -89,7 +89,7 @@ const CLEAN = Object.freeze({
 });
 const clean = (key, raw) => CLEAN[key](raw);
 
-/* GET /v1/config 의 data(서버 묶음 모양) → 칸별 원값. 앱 안의 칸 이름은 그대로 둔다(onChange 를 듣는 화면 · 부르는 쪽이 그대로). */
+/* GET /v2/config 의 data(서버 묶음 모양) → 칸별 원값. 앱 안의 칸 이름은 그대로 둔다(onChange 를 듣는 화면 · 부르는 쪽이 그대로). */
 function fieldsOf(data){
   const d = isObj(data) ? data : {};
   const pick = (o, k) => (isObj(o) ? o[k] : undefined);

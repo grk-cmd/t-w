@@ -221,7 +221,9 @@
       rt: window.TwRtHub.store,   // realtime 알림 config — 서버가 바꿨을 때 · 오래 끊겼다 붙었을 때 다시 묻는다
     });
   }
-  onValue(ref(db, window.TwMaintenance.MAINTENANCE_PATH), (s) => _mt.onValue(s.val()), () => {});   // 🛠 서버 점검 표시 — 점검 중에도 규칙이 이 칸 읽기는 연다
+  /* 🛠 점검 표시 — 서버 /v2/config 가 먼저, 서버에 닿지 못할 때만 이 Firebase 칸을 한 번 읽는다(점검 중에도 규칙이 이 칸 읽기는 연다). 읽는 때 · 주인은 maintenance-gate.js 한 곳 */
+  _mt.start({ readServer: () => window.TwApi.client.get(window.TwMaintenance.CONFIG_PATH),   // 앱 공통 API 통로 — 원격 설정과 같은 길이면 하나로 합치고 같은 값이면 304
+    readFlag: () => _sdkGet(ref(db, window.TwMaintenance.MAINTENANCE_PATH)).then((s) => s.val()), rt: window.TwRtHub.store });
   const _getIdToken = (force) => (auth && auth.currentUser) ? auth.currentUser.getIdToken(!!force) : Promise.resolve(null);
   /* 🌐 로그인이 필요한 API 통로(api-client.js TwApi.authed — 쉬기 없음 · 기기 머리) — 토큰 출처만 여기서 잇는다. */
   window.TwApi.bindToken(_getIdToken);
@@ -248,7 +250,7 @@
     catalogRef: (kind) => ref(db, 'catalog/' + kind),
     onValue, get,
     scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
-    /* 본문은 API 읽기 사본(GET /v1/catalog/{종류}?v=) 먼저 — 못 받으면 아래 Firebase get. 버전 알림은 위 metaRef 그대로. */
+    /* 본문은 API 읽기 사본(GET /v2/catalog/{종류}?v=) 먼저 — 못 받으면 아래 Firebase get. 버전 알림은 위 metaRef 그대로. */
     fetch: createApiCatalogFetch({
       api: (window.TwApi && window.TwApi.client) || null,
       shouldFallback: window.TwApi && window.TwApi.shouldFallback,
@@ -378,7 +380,7 @@
     },
     /* 🔗 (걷음 · 개정 56) `setFriendCodeOwner` — 친추코드 소유자 강제 지정. 부르던 두 곳(_claimFriendCodeAfterTransfer ·
        _healFriendCodeOwner 되찾기 갈래)이 걷혔다. 남의 계정 코드를 가져가는 통로라 남기지 않는다(선점은 registerFriendCode 뿐). */
-    /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v1/me/avatars). 여기는 Storage 올리기만 남았다 =====
+    /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다 =====
        🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.
        key 는 app.js 가 '종류_내용해시' 로 만든다 — 같은 파일은 같은 경로라 두 번 올라가지 않고,
        다른 파일은 다른 경로라 서로 덮지 않는다(roomface_* 와 같은 규칙).
@@ -722,7 +724,7 @@
       try{ const s = await get(ref(db, `secretRooms/${code}/pub`)); return s.val() || null; }
       catch(_){ return null; }
     },
-    /* 발급 · 만료 처리는 서버(POST /v1/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
+    /* 발급 · 만료 처리는 서버(POST /v2/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
     // 후원자 본인 코드 조회 — 참여 화면이 "내 시크릿룸"을 자동으로 펼치고 채워넣는 데 쓴다.
     async getMySecretRoom(userId){
       try{ const s = await get(ref(db, `users/${userId}/secretRoom`)); return s.val() || null; }
@@ -870,25 +872,6 @@
         await remove(ref(db, `roomIndex/${code}`)).catch(()=>{});   // 💰 요약 노드도 함께 정리
       }
       return { ok:true, dryRun:false, removed, failed, ghosts };
-    },
-    /* ★ 점검용 — 모든 멀티플레이 방을 즉시 종료(관리자 전용).
-       rooms 노드를 통째로 비우면, 각 방의 리스너가 '빈 방' 스냅샷을 받아 안에 있던 사람들이 자동으로 튕긴다.
-       (별도 강제 퇴장 신호가 필요 없음 — 기존 리스너 구조가 그대로 처리) */
-    async closeAllRooms(){
-      try{
-        const snap = await get(ref(db, 'rooms'));
-        const all = snap.val() || {};
-        const codes = Object.keys(all);
-        // ★ 방을 하나씩 삭제 — rooms 최상위 통째 remove는 규칙(상위 .write 없음)에 막히므로,
-        //   rooms/{code}별로 지운다(각 방은 $room 규칙의 삭제 허용으로 처리). 일부 실패해도 나머지는 진행.
-        let ok=0, fail=0;
-        await Promise.all(codes.map(async code=>{
-          try{ await remove(ref(db, `rooms/${code}`)); ok++; }
-          catch(_){ fail++; }
-        }));
-        await Promise.all(codes.map(code => remove(ref(db, `roomIndex/${code}`)).catch(()=>{})));   // 💰 요약 노드도 정리
-        return { ok:true, count: ok, failed: fail, codes };
-      }catch(e){ return { ok:false, error:String(e&&e.message||e) }; }
     },
     // 🧹 관리자: 유령 방 일괄 청소 — 살아있는 멤버(90초 내 하트비트)가 하나도 없는데
     //   _meta/chatLog만 남은 방을 통째로 삭제. 정상 방(살아있는 멤버 있음)은 절대 안 건드림.
@@ -1051,19 +1034,7 @@
       return _subscribeCatalogKind('items', onChange);
     },
 
-    // ---- 광고 배너 ----
-    async publishAdBanner(slides){
-      await set(ref(db, 'catalog/adBanner'), slides);
-      return { ok:true };
-    },
-
-    /* ---- 게임 설정(관리자 전용) ----
-       동물 해금 레벨처럼 '앱을 새로 배포하지 않고 바꾸고 싶은 값'을 서버에 둔다.
-       광고 배너(catalog/adBanner)와 같은 방식 — 관리자가 저장하면 모든 유저에게 즉시 반영된다. */
-    async publishGameConfig(cfg){
-      await set(ref(db, 'catalog/gameConfig'), cfg);
-      return { ok:true };
-    },
+    /* ---- 게임 설정 ---- 동물 해금 레벨처럼 앱을 새로 배포하지 않고 바꾸고 싶은 값. 읽기만 있다 — 관리자 쓰기는 서버로 옮기는 중(admin/admin-launcher.js) */
     subscribeGameConfig(onChange){
       const r = ref(db, 'catalog/gameConfig');
       onValue(r, snap => onChange(snap.val() || {}));
@@ -1256,32 +1227,6 @@
       for(let i=0; i<bytes.length; i+=CHUNK) bin += String.fromCharCode.apply(null, bytes.subarray(i, i+CHUNK));
       return btoa(bin);
     },
-    // ===== 📣 확성기 공지 (관리자 → 전체 유저 브로드캐스트, 1분간 유효) — 런처5 =====
-    // announce: { text, ts(발행 시각 ms), duration(ms) } — 발행 순간부터 duration 안이면 표시.
-    async publishAnnounce(text, durationMs){
-      await set(ref(db, 'announce/current'), { text: String(text||'').slice(0,140), ts: Date.now(), duration: +durationMs||60000 });
-      return { ok:true };
-    },
-    async clearAnnounce(){
-      await remove(ref(db, 'announce/current'));
-      return { ok:true };
-    },
-    // ===== 📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업) =====
-    // updateNotice/current = { title, body, ts } — ts는 발행 시각(버전 구분자로도 씀).
-    //   유저가 "다시 보지 않기" 체크하면 localStorage에 그 ts를 기록해서 같은 ts면 스킵.
-    async publishUpdateNotice(title, body){
-      await set(ref(db, 'updateNotice/current'), {
-        title: String(title||'').slice(0,60),
-        body: String(body||'').slice(0,800),
-        ts: Date.now()
-      });
-      return { ok:true };
-    },
-    async clearUpdateNotice(){ await remove(ref(db, 'updateNotice/current')); return { ok:true }; },
-    async getUpdateNotice(){
-      const snap = await get(ref(db, 'updateNotice/current'));
-      return snap.val() || null;
-    },
     /* ═══════════ 📩 수령함 (구 DM 자리) ═══════════
        받기 · 읽음 · 지우기 · 공지는 서버 API 로 옮겼다(myhome/inbox-api.js · launcher/notice-api.js).
        여기엔 관리자 코드(admin/)가 아직 부르는 «개별 보내기» 만 남는다 — 관리자 묶음이 서버 길로 옮기면 같이 걷는다. */
@@ -1301,7 +1246,7 @@
     },
 
     /* ═══════════ 🔑 로그인(Firebase Auth) 원시 — 토큰 받기만 ═══════════
-       0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v1/me — account/login-flow.js).
+       0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v2/me — account/login-flow.js).
        여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.
        ⚠️ 로그인 창은 여기서 열지 않는다(file:// + frame-src 'none') — main.js 가 연 창에서 받은 ID 토큰만 받는다. */
     /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다). */

@@ -1,4 +1,4 @@
-/* api-client.js — 🌐 앱 공통 API 통로(우리 서버 /v1) (검사 sim-api-client.js)
+/* api-client.js — 🌐 앱 공통 API 통로(우리 서버 /v2) (검사 sim-api-client.js)
    [왜] 기능마다 fetch · 시간 제한 · 봉투 풀기 · 실패 판정 · 토큰 · 기기 머리를 따로 만들지 않게 여기 한 곳에 둔다.
    [모양] get · post · put · patch · del → 성공 봉투 { success: true, data } 의 data(204 는 null). 실패는 늘 ApiError 하나로:
      kind 'unavailable' — 닿지 못함(네트워크 · 시간 초과 · 5xx · 길이 없는 404 · 봉투가 아닌 응답 · 쉬는 중).

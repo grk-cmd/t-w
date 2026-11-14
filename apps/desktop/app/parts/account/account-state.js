@@ -23,7 +23,7 @@ function _premiumChanged(){ _premiumFns.forEach(fn=>fn()); }   // «프리미엄
 
 const LICENSE_KEY_STORAGE = 'tw.licenseKey';   // 0.12 까지 이 PC 가 들던 키 — 0.13 은 서버가 계정에 묶어 안다. 첫 실행에 올리고 지울 옛 값(읽기 전용)
 /* 🔑 isPremium 은 **이 함수로만** 바꾼다 — 바뀌면 _refreshPremiumGatedUI 가 내 좌석의 책상 · 아이템을 다시 적용한다.
-   [모름] 서버 확인(GET /v1/me)이 오기 전에는 «아직 모름» 이다 — isPremium 은 false 지만 «아님» 이 아니다. 모르는 동안 전용 자산을 접으면(pruneUnownedLicenseAssets)
+   [모름] 서버 확인(GET /v2/me)이 오기 전에는 «아직 모름» 이다 — isPremium 은 false 지만 «아님» 이 아니다. 모르는 동안 전용 자산을 접으면(pruneUnownedLicenseAssets)
      프리미엄 사용자의 책상이 잠깐 기본으로 떨어지고 방으로 나간다. 그래서 premiumKnown() 이 false 인 동안 접기는 건너뛴다(premium-assets.js).
    [부르는 곳] 서버가 «이 계정 + 이 기기» 로 판정해 준 값(license-premium.js)만. 확인 전 저장값으로 켜지 않는다.
    첫 확인은 값이 그대로 false 여도 «알림» 을 돌린다 — 모르는 동안 건너뛴 접기가 그때 돈다. */

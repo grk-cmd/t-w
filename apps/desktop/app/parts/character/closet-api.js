@@ -1,6 +1,6 @@
 /* closet-api.js — 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) api provider (검사 sim-closet-api.js)
-   책임: 내 캐릭터 옷장을 서버에서 받고(GET /v1/me/avatars — 슬롯 캐릭터의 def 까지 한 번에) 캐릭터 하나를 읽고 · 만들고 · 고치고 ·
-     슬롯 ↔ 보관함으로 옮기고 · 휴지통으로 보내고 · 되살린다(/v1/me/avatars/…). 슬롯 5칸 · 보관함 20 · 휴지통 기한(옮김 3일 · 연동 교체 10일)은 서버가 정한다.
+   책임: 내 캐릭터 옷장을 서버에서 받고(GET /v2/me/avatars — 슬롯 캐릭터의 def 까지 한 번에) 캐릭터 하나를 읽고 · 만들고 · 고치고 ·
+     슬롯 ↔ 보관함으로 옮기고 · 휴지통으로 보내고 · 되살린다(/v2/me/avatars/…). 슬롯 5칸 · 보관함 20 · 휴지통 기한(옮김 3일 · 연동 교체 10일)은 서버가 정한다.
    신원: 토큰이 정한 나뿐이다(남의 옷장을 읽거나 고치는 길이 없다). 읽을 때 토큰의 주인을 기억해 두고 쓰기는 그 주인과 묶는다(expectOwner —
      계정이 바뀌는 틈에 앞 계정 캐릭터가 새 계정 토큰으로 나가지 않게). 읽기 전에는 쓰지 않는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner, timeoutMs }) · post · put(path, body, { auth, expectOwner, timeoutMs }) → Promise<data>)
@@ -22,7 +22,7 @@
 (function(){
 'use strict';
 
-const BASE = '/v1/me/avatars';
+const BASE = '/v2/me/avatars';
 const PATHS = Object.freeze({
   closet: BASE,
   one: (id) => BASE + '/' + encodeURIComponent(id),

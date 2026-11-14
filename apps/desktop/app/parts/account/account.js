@@ -4,7 +4,7 @@
    ★ app.js 함수 4개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 신원 핵심(로그인 이메일 · 저장 키 · 친구코드 모양 · 신원 놓음)과 라이선스 저장 키는 account-state.js 에서 받는다(모듈 순환 끊기 5).
    ★ 캐릭터(슬롯 · 보관함)와 가챠는 서버가 원본이다 — 로그아웃은 못 올린 캐릭터 고침만 올리고(closet.flushSlots) 메모리를 비운다(이 PC 에 지울 캐릭터 저장본이 없다).
-   ★ 0.13 — 로그인 · 가입 판정은 login-flow.js(서버 GET /v1/me), 여기는 그 결과로 이 PC 를 맞춘다(_enterAccount). 계정 이전 사본(accountSnap)으로 복원하던 길은 걷었다 —
+   ★ 0.13 — 로그인 · 가입 판정은 login-flow.js(서버 GET /v2/me), 여기는 그 결과로 이 PC 를 맞춘다(_enterAccount). 계정 이전 사본(accountSnap)으로 복원하던 길은 걷었다 —
      다른 PC 이어받기는 같은 계정 로그인으로 끝난다(서버가 원본).
    ★ 밖에서 부르는 이름: _enterAccount · _loginDoFriendCode · _loginDoGoogle · _loginDoLogout · _loginDoDeleteAccount · _withdrawPreview · _wipeAccountLocal · withdrawing · refreshAccountTab — app.js 는 accountMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -297,7 +297,7 @@ async function _loginDoLogout(opt){
   return { ok:true };
 }
 
-/* 🗑️ 회원 탈퇴 — 서버(POST /v1/me/withdrawal · 202)가 계정을 지운 뒤 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
+/* 🗑️ 회원 탈퇴 — 서버(POST /v2/me/withdrawal · 202)가 계정을 지운 뒤 이 PC 의 신원 · 소지품도 로그아웃과 같은 한 벌로 지운다.
    ★ 로그아웃과 달리 올리기 · 검문을 하지 않는다 — 지울 계정에 올릴 까닭이 없다.
    ★ 서버는 5분 안 로그인을 요구한다 — 오래됐으면 다시 확인한다(_withRecentLogin — 구글 계정은 구글, 비밀번호만 있는 계정은 «비밀번호 확인» 창).
    @return { ok, reason } — ok=false 면 이 PC 는 그대로다. */
@@ -321,7 +321,7 @@ async function _withdrawPreview(){
 /* 🔐 [회원가입 설계 §7-C2·C3 · 개정 14 · 시안 확정] 계정 탭 — 로그인 수단 · 비밀번호 만들기(C3) · 바꾸기(C2).
    ★ 모드는 Auth 세션의 제공자(providerData)가 정한다 — 로컬 키가 아니라. 로그인 표시(LOGIN_EMAIL_KEY)는 «탭을 로그인 얼굴로» 만 정한다.
        비밀번호 있음 → C2(바꾸기 · 구글 없으면 경고 + [연결하기]) · 구글만 → C3(만들기) · 세션 없음 → 한 줄(«다시 시작하면 로그인 화면» — 그게 K) · 익명 → 숨김.
-   ★ C3 아이디 = 이 계정의 친구 코드(서버 계정) — 비밀번호 로그인은 서버가 붙인다(POST /v1/me/password-login).
+   ★ C3 아이디 = 이 계정의 친구 코드(서버 계정) — 비밀번호 로그인은 서버가 붙인다(POST /v2/me/password-login).
    ★ C2 는 지금 비밀번호를 묻지 않는다((가)) — 서버가 토큰으로 본인을 확인한다(5분 안 로그인 — 오래됐으면 구글 또는 «비밀번호 확인» 창으로 다시 확인). 바꾸면 이 PC 는 새 비밀번호로 곧바로 다시 로그인.
    ⚠️ 옛 계정 탭 안에 넣은 첫 조각이다 — 탭 전체를 C 로 바꾸는 건 화면 단계. */
 function _acctMethodsMode(pv){

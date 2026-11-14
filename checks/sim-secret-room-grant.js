@@ -1,5 +1,5 @@
 /* ═══ 🔒 sim-secret-room-grant.js — 관리자 시크릿룸 발급을 서버 길로(admin/admin-license-bulk.js · 0.13 앱 묶음 D8-5) ═══
-   [무엇을 지키나] 발급은 POST /v1/admin/secret-rooms 한 번이다. 친구코드 찾기 · 코드 뽑기 · 끝나는 날 셈 · 옛 코드 끝내기 · 우편은 서버가 한다.
+   [무엇을 지키나] 발급은 POST /v2/admin/secret-rooms 한 번이다. 친구코드 찾기 · 코드 뽑기 · 끝나는 날 셈 · 옛 코드 끝내기 · 우편은 서버가 한다.
      앱은 «남이 가진 코드» 일 때 서버가 실어 준 주인 · 끝나는 날로 한 번 경고하고, 같은 단추를 다시 누르면 confirmTakeover 로 넘긴다.
    ・1절: 한 번 발급 — 본문 모양(친구코드 · 유저 코드 · 뒷 4자리 → MATE · COZY) · 결과 문구(코드 · 끝나는 날) · Firebase 0
    ・2절: «이미 쓰이는 코드» 경고 — 주인 · 끝나는 날 · 끝난 방 · 같은 조건 다시 누름 = confirmTakeover · 조건을 고치면 다시 경고
@@ -54,7 +54,7 @@ async function judge(src){
     const s = build(src, [OK()]);
     s.set('mate-9k2m', 'abcd', '3'); await s.click();
     const p = s.posts[0];
-    t(s.posts.length === 1 && p.path === '/v1/admin/secret-rooms', '발급 = POST /v1/admin/secret-rooms 한 번');
+    t(s.posts.length === 1 && p.path === '/v2/admin/secret-rooms', '발급 = POST /v2/admin/secret-rooms 한 번');
     t(p.body.friendCode === 'MATE-9K2M' && p.body.ownerUserCode === undefined && p.body.code === 'SCRT-ABCD' && p.body.months === 3 && p.body.confirmTakeover === false && p.body.name === '',
       '  본문 — friendCode(대문자) · code SCRT-ABCD · months 3 · confirmTakeover false · name 빈 글');
     t(/^[A-Za-z0-9_-]{8,64}$/.test(p.body.requestId), '  requestId 는 서버 규칙 모양');

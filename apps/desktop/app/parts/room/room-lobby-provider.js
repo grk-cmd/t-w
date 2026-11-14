@@ -1,6 +1,6 @@
 /* room-lobby-provider.js — 🗂️ 방 목록 로비가 읽는 것(채널 목록 · 내 시크릿룸 · 손님 수)을 한 곳에서.
-   목록은 API GET /v1/rooms/lobby?channel= — realtime 서버가 지금 연 방(공개 · 사람 있음 · 시크릿룸 뺌)을 그대로 준다(저장 · 캐시 없음).
-   내 시크릿룸은 GET /v1/me/secret-room(없으면 null) · 손님 수는 방 포트 peek(들어가지 않고 보기).
+   목록은 API GET /v2/rooms/lobby?channel= — realtime 서버가 지금 연 방(공개 · 사람 있음 · 시크릿룸 뺌)을 그대로 준다(저장 · 캐시 없음).
+   내 시크릿룸은 GET /v2/me/secret-room(없으면 null) · 손님 수는 방 포트 peek(들어가지 않고 보기).
    화면(room-lobby-ui.js)은 이 모양만 안다 — 목록은 room-lobby-model.js 의 사본 모양 { at, rooms: { 코드: { t, n, max, hn, mu, since } } } 로 바꿔 넘긴다.
    classic script(window.TwRoomLobbyProvider) — app.js 가 createRoomLobbyProvider(deps). 검사: checks/sim-room-lobby-ui.js */
 (function(){
@@ -14,8 +14,8 @@
  *   now: () => number,
  * }} deps
  */
-const LOBBY_PATH = '/v1/rooms/lobby';
-const MY_SECRET_PATH = '/v1/me/secret-room';
+const LOBBY_PATH = '/v2/rooms/lobby';
+const MY_SECRET_PATH = '/v2/me/secret-room';
 const LOBBY_TIMEOUT_MS = 5000;
 const SECRET_NAME_DEFAULT = '내 시크릿룸';
 const CHANNELS = Object.freeze(['workingroom', 'togetherroom']);

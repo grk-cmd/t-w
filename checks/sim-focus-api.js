@@ -1,5 +1,5 @@
 /* ═══ ⏱ sim-focus-api.js — 포커스 · 달성표 · 폰 연결 api provider (0.13 앱 묶음 D5-1) ═══
-   [왜] 포커스 누적 · 달성표 · 폰 키가 Firebase 대신 우리 서버(/v1/me/focus*)를 쓴다. 서버 모양을 화면 모양으로 맞추는 곳이 provider 하나라 실제로 불러서 판정한다.
+   [왜] 포커스 누적 · 달성표 · 폰 키가 Firebase 대신 우리 서버(/v2/me/focus*)를 쓴다. 서버 모양을 화면 모양으로 맞추는 곳이 provider 하나라 실제로 불러서 판정한다.
    ・1절: 읽기 — 진척 · 달성표 경로 · 모양 맞춤(날 경계 ms) · 모양 틀림은 던짐 · 이번 주(current) · PREMIUM_REQUIRED 는 던져서 갈래로
    ・2절: 쓰기 — 경로 · 메서드 · 본문 · 읽은 토큰의 주인과 묶음(읽은 적 없으면 요청 0) · 서버 거절은 failed + err · 상한 밖 deltaSec 는 요청 0 · 갈래(failOf)
    ・3절: 배선 — html 순서 · smoke · 오류 번호 표
@@ -49,11 +49,11 @@ const mk = (src, routes, who) => {
   const m = load(src).createFocusApi({ authed, warn: (...a) => warns.push(a.join(' ')) });
   return { m, authed, warns };
 };
-const W = '/v1/me/focus/challenges/2026-W46';
+const W = '/v2/me/focus/challenges/2026-W46';
 const ROUTES = () => ({
-  'GET /v1/me/focus': prog(), 'POST /v1/me/focus/accruals': prog({ totalSec: 7800, acceptedSec: 600 }), 'PATCH /v1/me/focus': (b) => prog({ starColor: b.starColor }),
-  ['GET ' + W]: chal(), 'GET /v1/me/focus/challenges/current': chal(), ['PUT ' + W]: chal({ version: 4 }), 'POST /v1/me/focus/challenges/today': chal({ version: 5 }),
-  ['POST ' + W + '/rewards/WEEKDAY_EARLY']: { amount: 1 }, 'POST /v1/me/focus/mobile-link': { key: 'KEY123' }, 'DELETE /v1/me/focus/mobile-link': null,
+  'GET /v2/me/focus': prog(), 'POST /v2/me/focus/accruals': prog({ totalSec: 7800, acceptedSec: 600 }), 'PATCH /v2/me/focus': (b) => prog({ starColor: b.starColor }),
+  ['GET ' + W]: chal(), 'GET /v2/me/focus/challenges/current': chal(), ['PUT ' + W]: chal({ version: 4 }), 'POST /v2/me/focus/challenges/today': chal({ version: 5 }),
+  ['POST ' + W + '/rewards/WEEKDAY_EARLY']: { amount: 1 }, 'POST /v2/me/focus/mobile-link': { key: 'KEY123' }, 'DELETE /v2/me/focus/mobile-link': null,
 });
 
 async function judge(S){
@@ -62,17 +62,17 @@ async function judge(S){
   {
     const { m, authed } = mk(LIB, ROUTES());
     const p = await m.fetchProgress('ME01');
-    chk(authed.log[0].path === '/v1/me/focus' && authed.log[0].method === 'GET' && authed.log[0].opts.auth === true, '진척 — GET /v1/me/focus · 로그인 통로로');
+    chk(authed.log[0].path === '/v2/me/focus' && authed.log[0].method === 'GET' && authed.log[0].opts.auth === true, '진척 — GET /v2/me/focus · 로그인 통로로');
     chk(p.totalSec === 7200 && p.level === 2 && p.cycle === 0 && p.cycleLevel === 2 && p.starColor === 'gold', '  누적 · 레벨 · 회차 · 회차 안 레벨 · 별 색 — 서버 값 그대로');
     chk(p.today.day === '2026-11-14' && p.today.isoWeek === '2026-W46' && p.today.dayEndsAt === Date.parse('2026-11-14T21:00:00Z'), '  서버 «오늘» — 날 · 주 · 경계(ms · 한국 06:00 = 21:00Z)');
     for(const [name, bad] of [['null', null], ['totalSec 음수', prog({ totalSec: -1 })], ['level 글자', prog({ level: 'x' })], ['today 없음', prog({ today: undefined })], ['경계 시각 틀림', prog({ today: Object.assign({}, TODAY, { dayEndsAt: 'x' }) })], ['starColor 없음', prog({ starColor: undefined })]]){
-      const b = mk(LIB, { 'GET /v1/me/focus': bad });
+      const b = mk(LIB, { 'GET /v2/me/focus': bad });
       let t = null; try{ await b.m.fetchProgress('ME01'); }catch(x){ t = x; }
       chk(t && t.code === 'SHAPE', '모양이 틀리면(' + name + ') 던진다');
     }
     let t1 = null; try{ await m.fetchProgress(''); }catch(x){ t1 = x; }
     chk(t1 && t1.code === 'NO_USER', '내 코드가 없으면 요청 없이 던진다');
-    const down = mk(LIB, { 'GET /v1/me/focus': apiErr(503, 'X') });
+    const down = mk(LIB, { 'GET /v2/me/focus': apiErr(503, 'X') });
     let t2 = null; try{ await down.m.fetchProgress('ME01'); }catch(x){ t2 = x; }
     chk(t2 && t2.status === 503, '못 읽으면 던진다(빈 진척으로 숨기지 않는다)');
     authed.log.length = 0;
@@ -81,7 +81,7 @@ async function judge(S){
     chk(c.uncountedDays[0] === '2026-11-11' && c.claimable[0].slot === 'WEEKDAY_EARLY' && c.rewards[0].amount === 1 && c.weekdayStartedOn === '2026-11-10' && c.today.dayEndsAt > 0, '  안 센 날 · 받을 칸 · 보상 · 시작일 · 서버 오늘');
     authed.log.length = 0;
     await m.fetchChallenge('ME01');
-    chk(authed.log[0].path === '/v1/me/focus/challenges/current', '  주를 안 주면 이번 주(current)');
+    chk(authed.log[0].path === '/v2/me/focus/challenges/current', '  주를 안 주면 이번 주(current)');
     for(const [name, bad] of [['version 없음', chal({ version: undefined })], ['days 없음', chal({ days: null })], ['claimable 없음', chal({ claimable: undefined })], ['today 없음', chal({ today: null })]]){
       const b = mk(LIB, { ['GET ' + W]: bad });
       let t = null; try{ await b.m.fetchChallenge('ME01', '2026-W46'); }catch(x){ t = x; }
@@ -98,11 +98,11 @@ async function judge(S){
     await m.fetchProgress('ME01'); authed.log.length = 0;
     const a = await m.accrue('ME01', 600);
     const g = authed.log[0];
-    chk(a.status === 'ok' && a.progress.totalSec === 7800 && a.acceptedSec === 600 && g.method === 'POST' && g.path === '/v1/me/focus/accruals' && JSON.stringify(g.body) === JSON.stringify({ deltaSec: 600 }) && g.opts.expectOwner === 'ME01', '올리기 — POST …/accruals { deltaSec } 만 · 읽은 주인에 묶음');
-    const noAcc = mk(LIB, Object.assign(ROUTES(), { 'POST /v1/me/focus/accruals': prog() }));
+    chk(a.status === 'ok' && a.progress.totalSec === 7800 && a.acceptedSec === 600 && g.method === 'POST' && g.path === '/v2/me/focus/accruals' && JSON.stringify(g.body) === JSON.stringify({ deltaSec: 600 }) && g.opts.expectOwner === 'ME01', '올리기 — POST …/accruals { deltaSec } 만 · 읽은 주인에 묶음');
+    const noAcc = mk(LIB, Object.assign(ROUTES(), { 'POST /v2/me/focus/accruals': prog() }));
     await noAcc.m.fetchProgress('ME01');
     chk((await noAcc.m.accrue('ME01', 60)).err.code === 'SHAPE', 'acceptedSec 없는 답은 failed · SHAPE');
-    const acc2 = mk(LIB, Object.assign(ROUTES(), { 'POST /v1/me/focus/accruals': Object.assign(prog(), { acceptedSec: 500 }) }));
+    const acc2 = mk(LIB, Object.assign(ROUTES(), { 'POST /v2/me/focus/accruals': Object.assign(prog(), { acceptedSec: 500 }) }));
     await acc2.m.fetchProgress('ME01');
     chk((await acc2.m.accrue('ME01', 600)).acceptedSec === 500, '  받아 준 몫(acceptedSec)을 그대로 돌려준다');
     authed.log.length = 0;
@@ -113,13 +113,13 @@ async function judge(S){
     chk(authed.log.length === 0 && (await m.accrue('ME01', 1)).status === 'ok' && (await m.accrue('ME01', 604800)).status === 'ok', '  경계 1 · 604800 은 보낸다');
     authed.log.length = 0;
     const s = await m.setStarColor('ME01', 'blue');
-    chk(s.status === 'ok' && s.progress.starColor === 'blue' && authed.log[0].method === 'PATCH' && authed.log[0].path === '/v1/me/focus' && JSON.stringify(authed.log[0].body) === JSON.stringify({ starColor: 'blue' }), '별 색 — PATCH /v1/me/focus { starColor }');
+    chk(s.status === 'ok' && s.progress.starColor === 'blue' && authed.log[0].method === 'PATCH' && authed.log[0].path === '/v2/me/focus' && JSON.stringify(authed.log[0].body) === JSON.stringify({ starColor: 'blue' }), '별 색 — PATCH /v2/me/focus { starColor }');
     authed.log.length = 0;
     const k = await m.issueMobileKey('ME01');
-    chk(k.status === 'ok' && k.key === 'KEY123' && authed.log[0].method === 'POST' && authed.log[0].path === '/v1/me/focus/mobile-link' && authed.log[0].opts.expectOwner === 'ME01', '폰 키 만들기 — POST …/mobile-link → 키');
+    chk(k.status === 'ok' && k.key === 'KEY123' && authed.log[0].method === 'POST' && authed.log[0].path === '/v2/me/focus/mobile-link' && authed.log[0].opts.expectOwner === 'ME01', '폰 키 만들기 — POST …/mobile-link → 키');
     authed.log.length = 0;
     const u = await m.unlinkMobile('ME01');
-    chk(u.status === 'ok' && authed.log[0].method === 'DELETE' && authed.log[0].path === '/v1/me/focus/mobile-link', '폰 연결 끊기 — DELETE …/mobile-link');
+    chk(u.status === 'ok' && authed.log[0].method === 'DELETE' && authed.log[0].path === '/v2/me/focus/mobile-link', '폰 연결 끊기 — DELETE …/mobile-link');
     chk((await m.markToday('ME01')).status === 'stale', '달성표를 읽기 전 오늘 달성은 보내지 않는다(달성표 주인은 따로 읽는다)');
     await m.fetchChallenge('ME01', '2026-W46'); authed.log.length = 0;
     const body = { version: 3, weekdayGoal: { kind: 'TIME', hours: 3 }, weekendGoal: null, pendingGoal: null, pendingPhase: null, autoNext: true, autoNextWeekend: false, skippedWeekday: false, skippedWeekend: false };
@@ -127,7 +127,7 @@ async function judge(S){
     chk(sv.status === 'ok' && sv.challenge.version === 4 && authed.log[0].method === 'PUT' && authed.log[0].path === W && authed.log[0].body === body && authed.log[0].opts.expectOwner === 'ME01', '달성표 저장 — PUT …/{주} 한 벌 · 답의 한 벌');
     authed.log.length = 0;
     const td = await m.markToday('ME01');
-    chk(td.status === 'ok' && td.challenge.version === 5 && authed.log[0].method === 'POST' && authed.log[0].path === '/v1/me/focus/challenges/today' && authed.log[0].body === undefined, '오늘 달성 — POST …/challenges/today · 본문 없음(오늘 판정 · 양은 서버)');
+    chk(td.status === 'ok' && td.challenge.version === 5 && authed.log[0].method === 'POST' && authed.log[0].path === '/v2/me/focus/challenges/today' && authed.log[0].body === undefined, '오늘 달성 — POST …/challenges/today · 본문 없음(오늘 판정 · 양은 서버)');
     authed.log.length = 0;
     const rw = await m.claimReward('ME01', '2026-W46', 'WEEKDAY_EARLY');
     chk(rw.status === 'ok' && rw.amount === 1 && authed.log[0].path === W + '/rewards/WEEKDAY_EARLY' && authed.log[0].body === undefined, '보상 칸 — POST …/{주}/rewards/{칸} → { amount } · 본문 없음(양을 앱이 보내지 않는다)');
@@ -135,7 +135,7 @@ async function judge(S){
     chk(eb.version === 7 && !('days' in eb) && !('rewards' in eb) && !('today' in eb) && !('weekdayStartedOn' in eb) && !('pendingFrom' in eb) && eb.pendingPhase === 'WEEKDAY' && eb.autoNext === true && eb.weekdayGoal.hours === 2, '한 벌 본문 — 고치는 칸만(기록 · 보상 · 시작일은 서버가 정함)');
     chk(load(LIB).editBody(1, chal()).pendingPhase === null, '  다음 날 목표가 없으면 단계도 null');
 
-    const sc = mk(LIB, Object.assign(ROUTES(), { 'POST /v1/me/focus/challenges/today': apiErr(409, 'FOCUS_CHALLENGE_NOT_STARTED'), ['POST ' + W + '/rewards/WEEKDAY_EARLY']: apiErr(409, 'FOCUS_REWARD_NOT_YET'), ['PUT ' + W]: apiErr(409, 'CONCURRENT_UPDATE') }));
+    const sc = mk(LIB, Object.assign(ROUTES(), { 'POST /v2/me/focus/challenges/today': apiErr(409, 'FOCUS_CHALLENGE_NOT_STARTED'), ['POST ' + W + '/rewards/WEEKDAY_EARLY']: apiErr(409, 'FOCUS_REWARD_NOT_YET'), ['PUT ' + W]: apiErr(409, 'CONCURRENT_UPDATE') }));
     await sc.m.fetchChallenge('ME01', '2026-W46');
     const F = load(LIB).failOf;
     const t = await sc.m.markToday('ME01'), r = await sc.m.claimReward('ME01', '2026-W46', 'WEEKDAY_EARLY'), p = await sc.m.saveChallenge('ME01', '2026-W46', body);
@@ -164,7 +164,7 @@ async function runAll(){
   await judge(S);
   say('── 4. 일부러 깨 보기');
   const breaks = [
-    ['진척 경로 틀림', S.API.replace("progress: BASE,", "progress: BASE + '/x',"), '/v1/me/focus'],
+    ['진척 경로 틀림', S.API.replace("progress: BASE,", "progress: BASE + '/x',"), '/v2/me/focus'],
     ['올리기 경로 틀림', S.API.replace("'/accruals'", "'/accrual'"), 'accruals'],
     ['날 경계를 글자로 둠', S.API.replace("return { day, isoWeek, dayEndsAt: end };", "return { day, isoWeek, dayEndsAt: t.dayEndsAt };"), '경계(ms)'],
     ['쓰기가 주인을 안 묶음', S.API.replace("const data = await send({ expectOwner: owners.get(key) });", "const data = await send({});"), '읽은 주인'],

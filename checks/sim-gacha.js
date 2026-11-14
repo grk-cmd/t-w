@@ -106,6 +106,7 @@ function mkEnv(opt){
     toast: (m) => env.toasts.push(m),
     getMyUserId: () => env.uid,
     getFocusLevel: () => env.level,
+    levelCap: 999,
     catEquippedIds: (def, cat) => { const v = def.equippedParts[cat]; return (Array.isArray(v) ? v : [v]).filter(Boolean).map(e => e.id); },
     removeEntryFromCat: (def, cat, id) => { const v = def.equippedParts[cat]; const a = (Array.isArray(v) ? v : [v]).filter(e => e && e.id !== id); if(a.length) def.equippedParts[cat] = a; else delete def.equippedParts[cat]; env.prunedDef.push(id); },
     unequipStackablePart: (s, cat, id) => { delete s.stackedPartObjs[cat][id]; },
@@ -202,6 +203,17 @@ await sec('── 2. 셈 — 보유 · 색상 해금 · 풀 · 남은 뽑기', a
   chk(M.pool().map(p => p.id).join() === 'b,s', '풀 — 다 모은 것(a · n) · 다른 시즌(겨울)은 빠진다 (' + M.pool().map(p => p.id).join() + ')');
   chk(M.seasonNow() === 'spring', '  시즌은 서버 값');
   chk(M.ticketsEarned() === 9 && M.ticketsLeft() === 3 && M.bonus() === 5, '남은 뽑기 · 총 · 보너스는 서버가 센 값 그대로(보유 합으로 다시 세지 않는다)');
+  const nx = M.nextTicketLevel;
+  chk(nx(92, 999) === 95 && nx(90, 999) === 95 && nx(94, 999) === 95 && nx(1, 999) === 5 && nx(0, 999) === 5,
+      '다음 뽑기 레벨 — 92·90·94 → 95 · 1·0 → 5(딱 5의 배수면 그다음 배수)');
+  chk(nx(994, 999) === 995 && nx(995, 999) === null && nx(999, 999) === null && nx('x', 999) === 5, '  상한(999)을 넘는 레벨은 null · 숫자 아님은 0 으로');
+  chk(nx(990, 995) === 995 && nx(994, 995) === 995 && nx(995, 995) === null, '  상한이 5의 배수면 상한 레벨까지는 보이고(995) 그 위는 null');
+  e.els.gachaInvBar = mkEl('div', 'gachaInvBar'); e.els.gachaInvGrid = mkEl('div', 'gachaInvGrid');
+  e.level = 23; M.renderGachaInv();
+  chk(/다음 뽑기 <b>Lv 25<\/b>/.test(e.els.gachaInvBar.innerHTML), '  보관함 정보줄 — 레벨 23 → «다음 뽑기 Lv 25» (' + e.els.gachaInvBar.innerHTML.slice(0, 120) + ')');
+  e.level = 996; M.renderGachaInv();
+  chk(!/다음 뽑기/.test(e.els.gachaInvBar.innerHTML), '  상한 가까이(996)면 다음 뽑기 줄을 안 그린다');
+  e.level = 1;
   chk(M.sceneHasColorGroup({ traverse(f){ f({ isMesh: true, name: 'cap_col1', material: {} }); } }) === true
       && M.sceneHasColorGroup({ traverse(f){ f({ isMesh: true, name: 'cap', material: { name: 'm_col' } }); } }) === true
       && M.sceneHasColorGroup({ traverse(f){ f({ isMesh: true, name: 'cap', material: { name: 'm' } }); } }) === false
@@ -373,6 +385,7 @@ await sec('── 6. 뽑기 창', async () => {
   e.els.gachaGoDraw.onclick();
   chk(e.els.gachaDrawOverlay.style.display === 'block' && e.els.gachaInvOverlay.style.display === 'none' && /gc-cap-wrap idle/.test(e.els.gachaDrawStage.innerHTML), '뽑으러 가기 — 대기 캡슐');
   chk(/남은 뽑기 <b>2회<\/b>/.test(e.els.gachaDrawBar.innerHTML) && e.els.gachaDraw5.textContent === '2연속 뽑기' && !e.els.gachaDraw5.disabled, '정보줄 · 5연속은 남은 수만큼(죽이지 않는다)');
+  chk(/남은 뽑기 <b>2회<\/b> · 다음 뽑기 <b>Lv 5<\/b>/.test(e.els.gachaDrawBar.innerHTML), '  뽑기 창 정보줄 — 레벨 1 → «다음 뽑기 Lv 5»');
   e.gs = ST({ a: 1, b: 1 }, { earned: 2, left: 0 });
   e.gsOut = [{ id: 'a', count: 1, isNew: true, unlockedColor: false }, { id: 'b', count: 1, isNew: true, unlockedColor: false }];
   e.timers.length = 0;
@@ -390,6 +403,8 @@ await sec('── 6. 뽑기 창', async () => {
   e.els.gachaGoDraw.onclick(); e.toasts.length = 0;
   await e.els.gachaDraw1.onclick();
   chk(e.toasts.join() === '남은 뽑기가 없어요' || e.els.gachaDraw1.disabled, '남은 뽑기가 없으면 버튼이 꺼져 있다(눌러도 서버에 안 간다)');
+  M.renderGachaDraw();   // 결과 없이 다시 그리기 — 남은 뽑기 0 이면 무대에 안내
+  chk(/레벨 5부터 1회가 생겨요/.test(e.els.gachaDrawStage.children[0] ? e.els.gachaDrawStage.children[0].textContent : ''), '  무대 문구에 다음 뽑기 레벨(5)');
   /* 뽑기 안에서 던지면(여기서는 서버 길) 에러코드로 알리고 잠금을 푼다 */
   e = mkEnv({ saved: [G('a')] }); M = await open(e, ST({}, { earned: 2, left: 2 }));
   e.els.gachaGoDraw.onclick(); e.gsThrows = true;
@@ -429,8 +444,8 @@ await sec('── 7. app.js 배선', () => {
   const fnDeps = deps.filter(l => /^\w+: \(\.\.\.a\)=>[\w$.]+\(\.\.\.a\),$/.test(l));   // 파츠 등록 창 셋은 adminPartReg.이름
   const getters = ['isAdmin: ()=>isAdmin,', 'savedParts: ()=>savedParts,', 'partCats: ()=>PART_CATS,', 'wdDraftDef: ()=>wdDraftDef,', 'activeWdAdj: ()=>activeWdAdj,', 'setActiveWdAdj: (v)=>{ activeWdAdj = v; },'];
   const vals = ['seats: seats,', 'slots: slots,', 'presence: Presence,'];
-  chk(deps.length === 36 && fnDeps.length === 25 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)),
-      'deps 36개 — 함수 25는 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋은 값 · 서버 길과 구독은 만든 것 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
+  chk(deps.length === 37 && fnDeps.length === 25 && getters.every(g => deps.includes(g)) && vals.every(v => deps.includes(v)) && deps.some(l => /^levelCap: (focusTotalMod\.)?FOCUS_LEVEL_CAP_HOURS,$/.test(l)),
+      'deps 37개 — 함수 25는 화살표 · 다시 대입되는 let 5는 읽는 함수 + 쓰는 함수 1 · const 셋 · 레벨 상한은 값 · 서버 길과 구독은 만든 것 (' + deps.length + ' · 화살표 ' + fnDeps.length + ')');
   chk(['seats', 'slots', 'Presence'].every(n => { const i = APP.search(new RegExp('^const ' + n + '\\s*=', 'm')); return i > 0 && i < iMk; }), '  seats · slots · Presence 는 만드는 줄보다 앞에 선언된 const');
   const m = strip(MOD);
   chk(!/[^.\w$](activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef)\s*=[^=]/.test(m.replace(/const (activeWdAdj|isAdmin|savedParts|PART_CATS|wdDraftDef) = deps\.\w+;/g, '')), '모듈은 app.js 의 let 에 직접 쓰지 않는다(쓰는 함수로)');

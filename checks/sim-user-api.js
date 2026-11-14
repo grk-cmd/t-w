@@ -1,7 +1,7 @@
 /* sim-user-api.js — 🪪 계정 provider(account/user-api.js) 검사 — 진짜 API 통로(api-client.js) · 가짜 fetch 로 그대로 돌린다
-   ・1절: 내 계정 — GET /v1/me 에 토큰 · 기기 머리 · 모양 맞추기(빠진 칸이면 null) · 401 USER_CODE_NOT_BOUND 는 던진다(없음 ≠ 실패)
+   ・1절: 내 계정 — GET /v2/me 에 토큰 · 기기 머리 · 모양 맞추기(빠진 칸이면 null) · 401 USER_CODE_NOT_BOUND 는 던진다(없음 ≠ 실패)
    ・2절: 가입 — 비밀번호 길은 토큰 없이 { password, requestId, inviteCode? } · 구글 길은 토큰으로 { inviteCode? } · 빈 초대 코드는 안 실음
-   ・3절: 고치기 · 비밀번호 · 탈퇴 — PATCH /v1/me · password-login · password · withdrawal-preview(파일 수 모름 = null) · withdrawal { confirm:'탈퇴' }
+   ・3절: 고치기 · 비밀번호 · 탈퇴 — PATCH /v2/me · password-login · password · withdrawal-preview(파일 수 모름 = null) · withdrawal { confirm:'탈퇴' }
    ・4절: 초대 · 찾기 — 모양이 틀린 코드는 묻지 않음 · 토큰 없이 확인 · usable · 까닭 · 내 초대 · 새 초대 requestId · 친구코드 찾기
    ・5절: 방문 기록 — 토큰이 있으면 싣고 · 토큰이 없거나 거절되면 토큰 없이 한 번 더 · 닿지 못함은 던짐
    ・6절: 문구 표 — 아는 code · 닿지 못함 · 그 밖 · 초대 까닭
@@ -51,10 +51,10 @@ const threw = async (p) => { try{ await p; return null; }catch(e){ return e; } }
 async function judge(S){
   say('── 1. 내 계정');
   {
-    const e = mkEnv(S, (r) => (r.path === '/v1/me' && r.method === 'GET') ? ok(ME) : null);
+    const e = mkEnv(S, (r) => (r.path === '/v2/me' && r.method === 'GET') ? ok(ME) : null);
     const me = await e.ua.me();
     const s = e.sent[0];
-    chk(s && s.auth === 'Bearer ' + TOKEN && s.dev === 'dev-0001', 'GET /v1/me 에 토큰 · 기기 머리(X-Device-Id)');
+    chk(s && s.auth === 'Bearer ' + TOKEN && s.dev === 'dev-0001', 'GET /v2/me 에 토큰 · 기기 머리(X-Device-Id)');
     chk(me && me.userCode === 'u1234567890' && me.friendCode === 'MATE-AB12' && me.version === 3 && me.premium === true && !('premiumGraceSec' in me),
       '  ↳ 받은 값을 그대로 · 버전 · 프리미엄 · 옛 서버가 보낸 유예 칸은 버린다');
     chk(me && me.presencePref.locked === true && me.presencePref.online === false && me.hasPasswordLogin === true, '  ↳ 접속 고정 · 비밀번호 로그인 여부');
@@ -70,7 +70,7 @@ async function judge(S){
 
   say('── 2. 가입');
   {
-    const e = mkEnv(S, (r) => (r.path === '/v1/users' && r.method === 'POST') ? ok(ME) : null);
+    const e = mkEnv(S, (r) => (r.path === '/v2/users' && r.method === 'POST') ? ok(ME) : null);
     const me = await e.ua.joinWithPassword({ password: 'pw1234', inviteCode: 'INVT-AAAA-BBBB', requestId: 'req-join-0001' });
     const s = e.sent[0];
     chk(s && s.auth === null && s.dev === null, '비밀번호 가입은 토큰 없이(서버가 로그인 계정까지 만든다)');
@@ -90,23 +90,23 @@ async function judge(S){
   say('── 3. 고치기 · 비밀번호 · 탈퇴');
   {
     const e = mkEnv(S, (r) => {
-      if(r.path === '/v1/me' && r.method === 'PATCH') return ok(Object.assign({}, ME, { displayName: r.body.displayName || ME.displayName, version: 4 }));
-      if(r.path === '/v1/me/password-login') return ok(ME);
-      if(r.path === '/v1/me/password') return ok(null);
-      if(r.path === '/v1/me/withdrawal-preview') return ok({ items: 12, files: null, byContext: [{ context: 'avatar', count: 3 }] });
-      if(r.path === '/v1/me/withdrawal') return { status: 202, body: { success: true, data: null } };
+      if(r.path === '/v2/me' && r.method === 'PATCH') return ok(Object.assign({}, ME, { displayName: r.body.displayName || ME.displayName, version: 4 }));
+      if(r.path === '/v2/me/password-login') return ok(ME);
+      if(r.path === '/v2/me/password') return ok(null);
+      if(r.path === '/v2/me/withdrawal-preview') return ok({ items: 12, files: null, byContext: [{ context: 'avatar', count: 3 }] });
+      if(r.path === '/v2/me/withdrawal') return { status: 202, body: { success: true, data: null } };
       return null;
     });
     const m = await e.ua.updateMe({ version: 3, displayName: '새이름' });
-    chk(e.sent[0].method === 'PATCH' && e.sent[0].body.version === 3 && e.sent[0].body.displayName === '새이름' && m.version === 4, 'PATCH /v1/me { version · displayName } → 새 버전');
+    chk(e.sent[0].method === 'PATCH' && e.sent[0].body.version === 3 && e.sent[0].body.displayName === '새이름' && m.version === 4, 'PATCH /v2/me { version · displayName } → 새 버전');
     await e.ua.attachPasswordLogin('pw9999');
-    chk(e.sent[1].path === '/v1/me/password-login' && e.sent[1].body.password === 'pw9999' && e.sent[1].auth, '비밀번호 붙이기 POST /v1/me/password-login { password }');
+    chk(e.sent[1].path === '/v2/me/password-login' && e.sent[1].body.password === 'pw9999' && e.sent[1].auth, '비밀번호 붙이기 POST /v2/me/password-login { password }');
     await e.ua.changePassword('pw7777');
-    chk(e.sent[2].path === '/v1/me/password' && e.sent[2].body.newPassword === 'pw7777', '비밀번호 바꾸기 POST /v1/me/password { newPassword }');
+    chk(e.sent[2].path === '/v2/me/password' && e.sent[2].body.newPassword === 'pw7777', '비밀번호 바꾸기 POST /v2/me/password { newPassword }');
     const p = await e.ua.withdrawalPreview();
     chk(p && p.items === 12 && p.files === null && p.byContext.length === 1, '탈퇴 미리보기 { items · files(셀 수 없으면 null) · byContext }');
     await e.ua.withdraw();
-    chk(e.sent[4].path === '/v1/me/withdrawal' && e.sent[4].body.confirm === '탈퇴', '탈퇴 POST /v1/me/withdrawal { confirm:«탈퇴» } (202)');
+    chk(e.sent[4].path === '/v2/me/withdrawal' && e.sent[4].body.confirm === '탈퇴', '탈퇴 POST /v2/me/withdrawal { confirm:«탈퇴» } (202)');
     const e2 = mkEnv(S, () => err(403, 'USER_REAUTH_REQUIRED'));
     const x = await threw(e2.ua.withdraw());
     chk(x && x.code === 'USER_REAUTH_REQUIRED', '  ↳ 오래된 로그인은 던진다(부르는 쪽이 다시 확인 뒤 한 번 더)');
@@ -115,15 +115,15 @@ async function judge(S){
   say('── 4. 초대 · 찾기');
   {
     const e = mkEnv(S, (r) => {
-      if(r.path === '/v1/invites/INVT-AAAA-BBBB') return ok({ usable: true });
-      if(r.path === '/v1/invites/INVT-FULL-0000') return ok({ usable: false, reason: 'FULL' });
-      if(r.path === '/v1/me/invites' && r.method === 'GET') return ok({ invitesLeft: 2, invites: [{ code: 'INVT-X', used: false, createdAt: 'x' }] });
-      if(r.path === '/v1/me/invites' && r.method === 'POST') return ok({ code: 'INVT-NEW1-0000' });
-      if(r.path.indexOf('/v1/users?friendCode=') === 0) return ok([{ userCode: 'u9999999999', displayName: '친구' }]);
+      if(r.path === '/v2/invites/INVT-AAAA-BBBB') return ok({ usable: true });
+      if(r.path === '/v2/invites/INVT-FULL-0000') return ok({ usable: false, reason: 'FULL' });
+      if(r.path === '/v2/me/invites' && r.method === 'GET') return ok({ invitesLeft: 2, invites: [{ code: 'INVT-X', used: false, createdAt: 'x' }] });
+      if(r.path === '/v2/me/invites' && r.method === 'POST') return ok({ code: 'INVT-NEW1-0000' });
+      if(r.path.indexOf('/v2/users?friendCode=') === 0) return ok([{ userCode: 'u9999999999', displayName: '친구' }]);
       return null;
     });
     const a = await e.ua.checkInvite(' invt-aaaa-bbbb ');
-    chk(a.usable === true && e.sent[0].auth === null && e.sent[0].path === '/v1/invites/INVT-AAAA-BBBB', '초대 확인 — 대문자 · 토큰 없이 · usable');
+    chk(a.usable === true && e.sent[0].auth === null && e.sent[0].path === '/v2/invites/INVT-AAAA-BBBB', '초대 확인 — 대문자 · 토큰 없이 · usable');
     const b = await e.ua.checkInvite('INVT-FULL-0000');
     chk(b.usable === false && b.reason === 'FULL', '  ↳ 못 쓰면 까닭');
     const before = e.sent.length;
@@ -135,18 +135,18 @@ async function judge(S){
     const last = e.sent[e.sent.length - 1];
     chk(ni.code === 'INVT-NEW1-0000' && last.body.requestId === 'req-inv-00001', '새 초대장 { requestId } → { code }');
     const f = await e.ua.findByFriendCode('mate-ab12');
-    chk(f.length === 1 && f[0].userCode === 'u9999999999' && e.sent[e.sent.length - 1].path === '/v1/users?friendCode=MATE-AB12', '친구코드 찾기 — 대문자 · [{ userCode · displayName }]');
+    chk(f.length === 1 && f[0].userCode === 'u9999999999' && e.sent[e.sent.length - 1].path === '/v2/users?friendCode=MATE-AB12', '친구코드 찾기 — 대문자 · [{ userCode · displayName }]');
   }
 
   say('── 5. 방문 기록');
   {
-    const e = mkEnv(S, (r) => (r.path === '/v1/metrics/visits') ? { status: 204, body: null } : null);
+    const e = mkEnv(S, (r) => (r.path === '/v2/metrics/visits') ? { status: 204, body: null } : null);
     const r1 = await e.ua.visit();
     chk(r1 === true && e.sent.length === 1 && e.sent[0].auth === 'Bearer ' + TOKEN, '로그인돼 있으면 토큰을 싣고 한 번(204)');
-    const e2 = mkEnv(S, (r) => (r.path === '/v1/metrics/visits') ? { status: 204, body: null } : null, { token: null });
+    const e2 = mkEnv(S, (r) => (r.path === '/v2/metrics/visits') ? { status: 204, body: null } : null, { token: null });
     await e2.ua.visit();
     chk(e2.sent.length === 1 && e2.sent[0].auth === null, '토큰이 없으면 토큰 없이(익명 방문)');
-    const e3 = mkEnv(S, (r) => (r.path === '/v1/metrics/visits') ? (r.auth ? err(401, 'INVALID_TOKEN') : { status: 204, body: null }) : null);
+    const e3 = mkEnv(S, (r) => (r.path === '/v2/metrics/visits') ? (r.auth ? err(401, 'INVALID_TOKEN') : { status: 204, body: null }) : null);
     await e3.ua.visit();
     chk(e3.sent.length === 2 && e3.sent[1].auth === null, '토큰이 거절되면 토큰 없이 한 번 더');
     const e4 = mkEnv(S, () => ({ status: 503, body: null }));
@@ -182,8 +182,8 @@ await judge(SRC0);
 
 say('── 8. 일부러 깨 보기');
 const BREAKS = [
-  ['UA', "return meFrom(await api().post('/v1/users', body, { auth: false }));", "return meFrom(await api().post('/v1/users', body));", '비밀번호 가입에 토큰을 실음'],
-  ['UA', "    if(o.inviteCode) body.inviteCode = o.inviteCode;\n    return meFrom(await api().post('/v1/users', body, { auth: false }));", "    body.inviteCode = o.inviteCode || '';\n    return meFrom(await api().post('/v1/users', body, { auth: false }));", '빈 초대 코드를 실음'],
+  ['UA', "return meFrom(await api().post('/v2/users', body, { auth: false }));", "return meFrom(await api().post('/v2/users', body));", '비밀번호 가입에 토큰을 실음'],
+  ['UA', "    if(o.inviteCode) body.inviteCode = o.inviteCode;\n    return meFrom(await api().post('/v2/users', body, { auth: false }));", "    body.inviteCode = o.inviteCode || '';\n    return meFrom(await api().post('/v2/users', body, { auth: false }));", '빈 초대 코드를 실음'],
   ['UA', "const WITHDRAW_CONFIRM = '탈퇴';", "const WITHDRAW_CONFIRM = '삭제';", '탈퇴 확인 글자가 서버와 다름'],
   ['UA', "  if(!/^u[0-9a-z]{8,40}$/i.test(userCode) || !friendCode || typeof d.version !== 'number') return null;", '', '모양이 틀린 계정을 믿음'],
   ['UA', "    if(!INVITE_RE.test(c)) return { usable: false, reason: 'NOT_FOUND', code: c };", '', '틀린 입력을 경로에 실음'],

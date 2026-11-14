@@ -73,10 +73,32 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - 목록 만들기: `npm ci` 뒤 `node scripts/third-party-notices.js` → `app/licenses/oss-notices.js`(`window.TwOssNotices` · 손으로 고치지 않는다). 줄은 `VENDOR` + 앱이 직접 쓰는 npm 패키지, 하위 패키지는 그 줄 원문 안으로. 의존성을 바꾼 PR 에서 다시 돌린다 — `sim-oss-licenses.js` 가 lock 운영 패키지를 다 덮지 않으면 빨강.
 - 함정: 창은 처음 열 때 한 번 만들고 숨기기만 한다(ESC 스택이 늘 있는 요소를 본다). 프로그램 설정 위에서 연 이 창 안 클릭이 설정을 닫지 않게 하는 예외는 `shared/outside-close.js`. 이름 · 원문은 `textContent` 로만. npm 밖에서 넣은 것(app/vendor · 아이콘 · Electron)은 스크립트의 `VENDOR` 에 손으로 더한다.
 
+## run-rect.js — 🖥️ 실행 창 자리 · 🧪 아래 띠 시험 스위치
+
+- **책임**: 모니터 작업영역에서 실행 화면 창 사각형을 만든다(순수 함수 · main.js 가 require). 실행 진입 · 모니터 바꾸기 · 표시 설정 바뀜 세 길이 `_runRectOf` 로 같은 사각형을 쓴다.
+- **내보내는 것**: `parseBand(argv)` → 띠 비율(없으면 1) · `runRect(workArea, overlayHeight, band)` → `{ x, y, width, height }` · `BAND_SWITCH`(`tw-run-band`) · `BAND_MIN`(0.25).
+- **🧪 시험 스위치 `--tw-run-band=0.4`**: 실행 창을 아래쪽 40% 높이로만 띄운다. «CPU 가 창 넓이에 따라 주는가» 를 재 보려는 시험이다 — 바로가기 대상 끝에 붙인다. 켰는지는 진단 기록 `[GPU]` 줄 «시험 스위치» 에 남는다.
+- **함정**
+  - 높이는 `overlay.runOverlayHeight`(아래 틈)로 깎은 값을 받는다 — 여기서 다시 깎지 않는다. 띠는 아래 끝을 그대로 두고 위만 내린다.
+  - 스위치가 없으면 옛 식과 한 픽셀도 다르면 안 된다 — 실행 창 크기가 바뀌면 `_winAlreadyIs` 억제가 깨져 창 조작이 다시 쏟아진다.
+  - 띠로 띄우면 날아가기 · 위쪽 말풍선 · 끌기는 띠 밖으로 못 나간다(시험이라 그대로 둔다).
+  - 검사: `checks/sim-run-rect.js` · `sim-overlay-gap.js`(세 자리가 이 함수를 거치는가) · `sim-fix-1008.js`([GPU] 줄).
+
+## reload-reset.js — 🪟 화면을 다시 불러오기 전에 창을 런처로
+
+- **책임**: 메인 창 화면이 다시 불러와질 때(렌더러가 죽어 다시 불러옴 · 화면이 스스로 다시 불러옴 등 어느 길이든) 창을 먼저 런처 크기로 되돌릴지 정한다(순수 판단 · main.js 가 require). 창 맞추기 자체는 main.js `_resetWindowForReload`.
+- **만드는 법**: main.js `_watchRendererHealth` 가 창마다 `ReloadReset.createReloadReset({ reset })` 한 벌.
+- **내놓는 것**: `onFinishLoad()`(did-finish-load) · `onNavigate()`(did-navigate — 메인 프레임이 실제로 다른 문서로 넘어감 · 다시 불러오기 포함) · `beforeReload()`(렌더러 사망 길 — 다시 불러오지 않을 때도 덮인 채 두지 않게).
+- **함정**
+  - `did-start-navigation` 을 쓰지 않는다 — main 이 막는 이동(바깥 링크 · file:// 밖 · blob:)에도 시작은 와서, 화면은 그대로인데 실행 화면이 런처 크기로 끼어 버린다.
+  - 처음 로드 · 해시 이동(did-navigate-in-page)은 되돌리지 않는다.
+  - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
+  - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · 깨 보기).
+
 ## `notice-api.js` · `notice-feed.js` — 📢 공지 한 판(소식 · 업데이트 공지 · 런처 배너)
 
-**책임** — 공지의 원본은 서버다. `GET /v1/notices`(공개 · ETag — 같으면 304) 한 번에 소식(고정 + 최신 30) · 업데이트 공지 · 런처 배너를 받는다.
-`notice-api.js` 는 서버 모양(대문자 `tag` · `publishedAt` · `imageUrl` · `linkUrl`)을 화면 모양(소문자 tag · `ts` ms · `img` · `link`)으로 맞추는 provider 한 곳이고, 관리자 소식 쓰기(올리기 `POST /v1/admin/notices/broadcasts` · 📌 `PATCH` · 내리기 `DELETE`)도 여기다.
+**책임** — 공지의 원본은 서버다. `GET /v2/notices`(공개 · ETag — 같으면 304) 한 번에 소식(고정 + 최신 30) · 업데이트 공지 · 런처 배너를 받는다.
+`notice-api.js` 는 서버 모양(대문자 `tag` · `publishedAt` · `imageUrl` · `linkUrl`)을 화면 모양(소문자 tag · `ts` ms · `img` · `link`)으로 맞추는 provider 한 곳이고, 관리자 소식 쓰기(올리기 `POST /v2/admin/notices/broadcasts` · 📌 `PATCH` · 내리기 `DELETE`)도 여기다.
 `notice-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음, realtime `notices` 알림이 오면(오래 끊겼다 붙을 때 포함) 다시 받기, 받는 쪽마다 `onChange`.
 옛 장치는 걷었다: 버전 확인 + 이 PC 캐시(`broadcast-cache.js`) · 배너를 `localStorage('tw.adBanner')` 에 옮겨 적기 · 확성기의 `ts + duration` 계산.
 

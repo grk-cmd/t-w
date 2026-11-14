@@ -1,4 +1,4 @@
-/* friends-api.js — 👥 친구 데이터 서버 provider — 친구 목록(GET /v1/me/friends) + 명함(GET /v1/myhomes/cards)을 친구 칸으로 맞춘다
+/* friends-api.js — 👥 친구 데이터 서버 provider — 친구 목록(GET /v2/me/friends) + 명함(GET /v2/myhomes/cards)을 친구 칸으로 맞춘다
    책임: 포트(friends-port.js)가 부르는 모양 하나로 서버 친구 데이터를 낸다. 서버 길 자체(경로 · 모양 맞춤 · 오류 갈래)는 social-api.js 가 맡고,
      여기는 «목록 + 명함 → 친구 칸» 합치기 · 알림(friends · card)을 받으면 다시 받기뿐이다. 다시 묻지 않는다 — 못 받으면 던지거나 onError 로 알린다
      (다시 받기는 목록을 다시 열 때 · realtime 알림이 올 때 · 연결이 오래 끊겼다 붙을 때). 던지면 포트가 옛 길(Firebase)로 넘긴다(목록 · 한 명 받기).

@@ -2,7 +2,7 @@
  * 계정 삭제(adminDeleteAccount) 검사. functions/account-delete.js 를 그대로 불러 가짜 DB · 가짜 Storage · 가짜 로그인으로 돌린다.
  * 1. 입력 모양  2. 겹치는 경로  3. 미리 보기(지울 것 · 남길 것)  4. 로그인 계정 안전장치  5. 호출 권한  6. 실행 순서 · 작업 기록
  * 7. 다시 실행(이어서 지우기)  8. index.js 연결 · 규칙 · CSP
- * 9. 본인 탈퇴(deleteMyAccount) 서버(옛 Functions — 0.13 앱은 API)  10. 앱 탈퇴(account.js — POST /v1/me/withdrawal · 다시 확인 · 이 PC 지우기)  11. 앱 연결 · 화면(고지 · 확인)
+ * 9. 본인 탈퇴(deleteMyAccount) 서버(옛 Functions — 0.13 앱은 API)  10. 앱 탈퇴(account.js — POST /v2/me/withdrawal · 다시 확인 · 이 PC 지우기)  11. 앱 연결 · 화면(고지 · 확인)
  */
 'use strict';
 const fs = require('fs');
@@ -409,7 +409,7 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(!!err && !!w.at('userAuth/' + ME) && !!w.at('authUsers/authMe'), '로그인 계정 단계에서 멈추면 연결 줄이 남아 — 다시 누르면 본인 확인이 되어 이어서 지운다');
   }
 
-  say('── 10. 앱 탈퇴 (account.js · 0.13 — POST /v1/me/withdrawal)');
+  say('── 10. 앱 탈퇴 (account.js · 0.13 — POST /v2/me/withdrawal)');
   {
     const U = new Function('module', 'window', UA + '\nreturn module.exports;')({ exports: {} }, undefined);
     chk(U.WITHDRAW_CONFIRM === m.SELF_CONFIRM_WORD, '확인 글자가 서버와 같다(user-api.js WITHDRAW_CONFIRM)');

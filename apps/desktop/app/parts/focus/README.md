@@ -15,7 +15,7 @@
 
 ## focus-api.js — ⏱ 포커스 · 👑 달성표 · 📱 폰 연결 서버 길 provider
 
-**책임** — 서버 `/v1/me/focus*`(진척 · 집중 시간 올리기 · 별 색 · 달성표 한 주 · 오늘 달성 · 보상 칸 · 폰 키)를 요청 하나씩 보내고 답을 화면 모양으로 맞추는 한 곳(날 경계 `dayEndsAt` 은 ms). 줄 세우기 · 미전송분 · 상태 주인은 부르는 쪽(D5 다음 단계) 몫이다.
+**책임** — 서버 `/v2/me/focus*`(진척 · 집중 시간 올리기 · 별 색 · 달성표 한 주 · 오늘 달성 · 보상 칸 · 폰 키)를 요청 하나씩 보내고 답을 화면 모양으로 맞추는 한 곳(날 경계 `dayEndsAt` 은 ms). 줄 세우기 · 미전송분 · 상태 주인은 부르는 쪽(D5 다음 단계) 몫이다.
 **deps** — `authed`(`TwApi.authed`) · `warn`.
 **내놓는 것** — `createFocusApi(deps)` → `fetchProgress` · `accrue` · `setStarColor` · `fetchChallenge` · `saveChallenge` · `markToday` · `claimReward` · `issueMobileKey` · `unlinkMobile` · `reset`. 순수: `progressOf` · `challengeOf` · `editBody` · `failOf`(`PREMIUM_REQUIRED` 등 갈래) · `PATHS` · `LIMITS`. 읽기는 못 읽으면 던지고, 쓰기는 `{ status: 'ok'|'stale'|'failed', err? }`.
 **함정** — 쓰기는 읽은 토큰의 주인(`expectOwner`)과 묶는다(읽은 적 없으면 요청 0). 레벨 · 보상 양은 서버가 센다 — 앱이 센 값을 보내지 않는다.
@@ -56,7 +56,7 @@
 ## focus-level.js — ⭐ 레벨 표시 이름 · 오늘치 쌓기 · 태블릿
 
 **책임** — `addFocusSeconds`(오늘 시간 · 이번 실행 시간에 더하고 올릴 몫으로 넘김) · 서버 값을 읽는 이름(`getFocusLevel` · `myFocusShow` · `myStarOut` · `getStarColor` · `setStarColor` — 값의 주인은 `focus-progress.js`) · 남의 별 모양(`starFromRemote`) · 별 문자열(`lvStarStr`) · 📱 폰 연결(서버 길 — 아래).
-**📱 폰 연결** — 폰 상태는 realtime `mobileFocus{ on, app, at }` 그대로(`startMobile(code, me, session)` 이 `onMessage` 를 걸고 1분 표시 틱을 세션 타이머로 둔다 · `ready` 뒤 서버가 4시간 안의 마지막을 다시 보내 주므로 따로 묻지 않는다). 4시간 상한은 `at`(서버 시각) 기준. 키는 서버가 만들고(`POST /v1/me/focus/mobile-link` · 원문은 그 답에만) 계정 칸 `tw.mobileKey` 에 둔다(QR 다시 보기 · 0.12 의 `{ u, k }` 도 읽음). 만들기 · 끊기(`DELETE`)는 읽은 진척의 주인과 묶이므로 `progress.whenReady()` 뒤에 부르고, 못 받았으면 요청 없이 `E-FOCUS-08` · `-09`. 단추는 끝날 때까지 잠근다.
+**📱 폰 연결** — 폰 상태는 realtime `mobileFocus{ on, app, at }` 그대로(`startMobile(code, me, session)` 이 `onMessage` 를 걸고 1분 표시 틱을 세션 타이머로 둔다 · `ready` 뒤 서버가 4시간 안의 마지막을 다시 보내 주므로 따로 묻지 않는다). 4시간 상한은 `at`(서버 시각) 기준. 키는 서버가 만들고(`POST /v2/me/focus/mobile-link` · 원문은 그 답에만) 계정 칸 `tw.mobileKey` 에 둔다(QR 다시 보기 · 0.12 의 `{ u, k }` 도 읽음). 만들기 · 끊기(`DELETE`)는 읽은 진척의 주인과 묶이므로 `progress.whenReady()` 뒤에 부르고, 못 받았으면 요청 없이 `E-FOCUS-08` · `-09`. 단추는 끝날 때까지 잠근다.
 **함정** — Firebase 프로필 · 마크 · 해금 안내 우편은 걷었다(해금 안내는 서버 알림). 계정 확인 전에는 쌓지 않는다(`_focusTotalStarted`).
 검사: `checks/sim-focus-level.js`(모양) · `checks/sim-mobile-focus.js`(폰 연결 동작).
 

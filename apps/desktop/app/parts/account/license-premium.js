@@ -1,8 +1,8 @@
-/* license-premium.js — 🔑 프리미엄 판정 — 서버 확인(GET /v1/me 의 premium)을 isPremium 에 반영 · 키 등록 · 이 기기 해제 (검사 sim-license-premium.js)
+/* license-premium.js — 🔑 프리미엄 판정 — 서버 확인(GET /v2/me 의 premium)을 isPremium 에 반영 · 키 등록 · 이 기기 해제 (검사 sim-license-premium.js)
    [왜] 프리미엄은 서버가 «이 계정 + 이 기기가 등록돼 있음 + 키 유효» 로 판정한다. 앱은 확인 응답만 따른다 —
      이 PC 에 적어 둔 키로 미리 켜지도, 24시간 유예로 버티지도 않는다(0.13 은 서버에 못 닿으면 앱이 «서버에 연결할 수 없어요» 화면에서 멈춘다).
-   [반영 자리] 프리미엄은 GET /v1/me 의 응답과 라이선스 쓰기(키 등록 · 이 기기 해제)의 응답 premium(이 기기 판정)에서만 반영한다 —
-     PATCH /v1/me 같은 다른 쓰기 응답은 따르지 않는다. 라이선스 쓰기 응답에 premium 이 없으면(«모름») GET /v1/me 를 한 번 더 묻는다.
+   [반영 자리] 프리미엄은 GET /v2/me 의 응답과 라이선스 쓰기(키 등록 · 이 기기 해제)의 응답 premium(이 기기 판정)에서만 반영한다 —
+     PATCH /v2/me 같은 다른 쓰기 응답은 따르지 않는다. 라이선스 쓰기 응답에 premium 이 없으면(«모름») GET /v2/me 를 한 번 더 묻는다.
      부르는 곳 셋: ① 계정 확인 뒤 켜는 차례(app-boot 의 licensePremium) ② 서버 알림 license(키 등록 · 회수 · 기기 변경 — 다른 기기에서 바뀐 것 포함) ③ 키 등록 · 이 기기 해제 직후.
    [모름] 확인 전의 false 는 «아님» 이 아니라 «모름» — account-state.js premiumKnown. 모르는 동안은 전용 자산 접기를 건너뛴다(premium-assets.js).
    [기기 등록] 앱이 알아서 등록하지 않는다 — 기기는 «키를 직접 넣을 때» 등록되고, 프리미엄은 «이미 목록에 있는 기기» 만 켜진다.

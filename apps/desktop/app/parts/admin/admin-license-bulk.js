@@ -2,7 +2,7 @@
    app.js 의 두 구역(«📄 엑셀로 라이선스 일괄 발급» · «🔒 시크릿룸 발급(관리자)»)을 그대로 옮긴 관리자 모듈이다
    (관리자 코드 admin 폴더 1번 · 앱 FSD 순서표 9번 — docs/APP_FSD_MAP.md). 동작은 옮기기 전과 같다.
 
-   ★ D8-5: «🔒 시크릿룸 발급» 절만 서버 길(POST /v1/admin/secret-rooms)로 다시 썼다 — 엑셀 일괄 발급 절은 옮긴 그대로.
+   ★ D8-5: «🔒 시크릿룸 발급» 절만 서버 길(POST /v2/admin/secret-rooms)로 다시 썼다 — 엑셀 일괄 발급 절은 옮긴 그대로.
    ★ 아래 본문은 app.js 에 있던 글 그대로다 — 구역 머리 주석 · 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
    ★ app.js 함수 일곱(escHtml · toast · _genLicenseKey · _saveFailMsg · renderLicenseGenList · downloadBlob · _srFmtDate)은
      app.js 가 화살표로 넘긴다. 본문의 typeof 가드(typeof escHtml · typeof _saveFailMsg)는 예전처럼 늘 통과한다.
@@ -461,7 +461,7 @@ async function _lxWriteXlsx(rows, sheetName){
 
 /* ═══ 🔒 시크릿룸 발급(관리자) ═══ */
 /* 🔒 시크릿룸 발급 (관리자) — 후원자 친구코드(또는 유저 코드) · 원하는 코드 · 기간.
-   서버가 한다(POST /v1/admin/secret-rooms 한 번): 친구코드 → 사람 찾기 · 코드 뽑기 · 한 사람 한 방 · 같은 코드는 남은 기간에 이어 붙이기 ·
+   서버가 한다(POST /v2/admin/secret-rooms 한 번): 친구코드 → 사람 찾기 · 코드 뽑기 · 한 사람 한 방 · 같은 코드는 남은 기간에 이어 붙이기 ·
    끝나는 날 셈 · 옛 코드 끝내기 · 우편(SECRET_ROOM_ISSUED) · 관리자 확인(로그인 토큰). 옛 «발급 열쇠» 칸과 앱의 날짜 셈은 없다.
    앱은 «남이 가진 코드» 일 때 한 번 경고하고 같은 단추를 다시 누르면 confirmTakeover:true 로 다시 보낸다.
    같은 단추를 답 못 받고 다시 누르면 같은 requestId(TwRequestId) — 서버가 한 번만 처리한다. */
@@ -472,7 +472,7 @@ async function _lxWriteXlsx(rows, sheetName){
   const monInp = document.getElementById('srGrantMonths'); // 이용 기간(개월, 선택) — 비우면 영구
   const msgEl = document.getElementById('srGrantMsg');
   if(!btn || !codeInp) return;
-  const SR_PATH = '/v1/admin/secret-rooms';
+  const SR_PATH = '/v2/admin/secret-rooms';
   const SR_TAKEN = 'LICENSE_SECRET_ROOM_CODE_TAKEN';
   const showMsg=(text,isErr)=>{
     if(!msgEl) return;

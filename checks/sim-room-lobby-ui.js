@@ -87,36 +87,36 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
   {
     const at = new Date(now - 1000).toISOString(), since = new Date(now - 60000).toISOString();
     const srv = { at, rooms: [{ code: 'WORK-SV11', title: '서버 방', people: 2, max: 4, hostName: '도토리', music: false, since }, { code: 'WORK-SV22', title: '', people: 1, max: 10, hostName: '', music: true, since }] };
-    let t = mkP(P_SRC, { get: { '/v1/rooms/lobby': srv } });
+    let t = mkP(P_SRC, { get: { '/v2/rooms/lobby': srv } });
     const v = await t.pv.listRooms('workingroom');
     chk(v && v.at === now - 1000 && v.rooms['WORK-SV11'].hn === '도토리' && v.rooms['WORK-SV11'].n === 2 && v.rooms['WORK-SV11'].max === 4 && v.rooms['WORK-SV22'].mu === true && v.rooms['WORK-SV11'].since === now - 60000
-      && t.log.gets[0][0] === '/v1/rooms/lobby?channel=workingroom' && t.log.gets[0][1].auth === true && t.log.gets[0][1].timeoutMs > 0,
-      '★ GET /v1/rooms/lobby?channel= (로그인 통로 · 시간 제한) — 배열 답을 로비 모델 모양 { at(ms), rooms: { 코드: { t, n, max, hn, mu, since } } } 으로');
+      && t.log.gets[0][0] === '/v2/rooms/lobby?channel=workingroom' && t.log.gets[0][1].auth === true && t.log.gets[0][1].timeoutMs > 0,
+      '★ GET /v2/rooms/lobby?channel= (로그인 통로 · 시간 제한) — 배열 답을 로비 모델 모양 { at(ms), rooms: { 코드: { t, n, max, hn, mu, since } } } 으로');
     chk(M.cardsFrom(v, { now, cap: 10 }).list.length === 2, '  모델이 그대로 카드 2장으로 그린다');
     t = mkP(P_SRC, {});
     chk((await t.pv.listRooms('workingroom')) === null, '★ 못 받으면 null — 빈 목록과 다르게(«불러오지 못했어요»)');
-    t = mkP(P_SRC, { get: { '/v1/rooms/lobby': { at: 'x', rooms: {} } } });
+    t = mkP(P_SRC, { get: { '/v2/rooms/lobby': { at: 'x', rooms: {} } } });
     chk((await t.pv.listRooms('workingroom')) === null, '  답 모양이 틀리면(at 시각 아님 · rooms 배열 아님) null');
-    t = mkP(P_SRC, { get: { '/v1/rooms/lobby': { at, rooms: [] } } });
+    t = mkP(P_SRC, { get: { '/v2/rooms/lobby': { at, rooms: [] } } });
     const e = await t.pv.listRooms('togetherroom');
     chk(e && Object.keys(e.rooms).length === 0 && e.at === now - 1000, '  빈 목록은 «빈 목록» 그대로');
     chk((await t.pv.listRooms('evil')) === null && t.log.gets.length === 1, '  모르는 채널은 묻지 않는다');
   }
   {
     const exp = new Date(now + 86400000).toISOString();
-    let t = mkP(P_SRC, { get: { '/v1/me/secret-room': { code: 'SCRT-ABCD', name: '우리 방', expiresAt: exp } } });
+    let t = mkP(P_SRC, { get: { '/v2/me/secret-room': { code: 'SCRT-ABCD', name: '우리 방', expiresAt: exp } } });
     const s1 = await t.pv.mySecretRoom();
-    chk(s1 && s1.code === 'SCRT-ABCD' && s1.name === '우리 방' && s1.expiresAt === now + 86400000 && t.log.peeks.length === 0, '★ 내 시크릿룸: GET /v1/me/secret-room → { code, name, expiresAt(ms) } — 손님 수는 읽지 않는다');
+    chk(s1 && s1.code === 'SCRT-ABCD' && s1.name === '우리 방' && s1.expiresAt === now + 86400000 && t.log.peeks.length === 0, '★ 내 시크릿룸: GET /v2/me/secret-room → { code, name, expiresAt(ms) } — 손님 수는 읽지 않는다');
     await t.pv.mySecretRoom(); await t.pv.mySecretRoom();
     chk(t.log.gets.length === 1, '★ 계정마다 한 번만 읽는다 — F1 칸처럼 자주 불러도 읽기가 늘지 않는다');
-    chk((await mkP(P_SRC, { get: { '/v1/me/secret-room': { code: 'SCRT-ABCD', name: null, expiresAt: null } } }).pv.mySecretRoom()).name === '내 시크릿룸', '  이름이 없으면 «내 시크릿룸» · 기간 없음(null)은 영구');
-    chk(await mkP(P_SRC, { get: { '/v1/me/secret-room': null } }).pv.mySecretRoom() === null, '  없으면 null');
-    chk(await mkP(P_SRC, { get: { '/v1/me/secret-room': { code: 'SCRT-ABCD', expiresAt: new Date(now).toISOString() } } }).pv.mySecretRoom() === null, '  만료된 방은 안 보인다');
-    chk(await mkP(P_SRC, { get: { '/v1/me/secret-room': { code: 'evil' } } }).pv.mySecretRoom() === null, '  코드 모양이 틀리면 null');
-    const t0 = mkP(P_SRC, { get: { '/v1/me/secret-room': { code: 'SCRT-ABCD' } } }, null);
+    chk((await mkP(P_SRC, { get: { '/v2/me/secret-room': { code: 'SCRT-ABCD', name: null, expiresAt: null } } }).pv.mySecretRoom()).name === '내 시크릿룸', '  이름이 없으면 «내 시크릿룸» · 기간 없음(null)은 영구');
+    chk(await mkP(P_SRC, { get: { '/v2/me/secret-room': null } }).pv.mySecretRoom() === null, '  없으면 null');
+    chk(await mkP(P_SRC, { get: { '/v2/me/secret-room': { code: 'SCRT-ABCD', expiresAt: new Date(now).toISOString() } } }).pv.mySecretRoom() === null, '  만료된 방은 안 보인다');
+    chk(await mkP(P_SRC, { get: { '/v2/me/secret-room': { code: 'evil' } } }).pv.mySecretRoom() === null, '  코드 모양이 틀리면 null');
+    const t0 = mkP(P_SRC, { get: { '/v2/me/secret-room': { code: 'SCRT-ABCD' } } }, null);
     chk(await t0.pv.mySecretRoom() === null && t0.log.gets.length === 0, '  내 코드를 모르면 읽지 않는다');
     let fails = 1;
-    const t2 = mkP(P_SRC, { get: { '/v1/me/secret-room': () => { if(fails-- > 0) throw new Error('net'); return { code: 'SCRT-ABCD' }; } } });
+    const t2 = mkP(P_SRC, { get: { '/v2/me/secret-room': () => { if(fails-- > 0) throw new Error('net'); return { code: 'SCRT-ABCD' }; } } });
     let threw = false; try{ await t2.pv.mySecretRoom(); }catch(_){ threw = true; }
     chk(threw && (await t2.pv.mySecretRoom()) !== null, '  못 읽었으면 기억하지 않고 다음에 다시 읽는다');
     chk(await mkP(P_SRC, {}).pv.secretGuests('SCRT-ABCD') === 2, '★ 손님 수 — peek 으로(들어가지 않고 보기)');
@@ -248,13 +248,13 @@ const tick = () => new Promise((r) => setTimeout(r, 0));
     const noSort = model(M_SRC.replace('if(a.full !== b.full) return a.full ? 1 : -1;', ''));
     chk(noSort.cardsFrom(node, { now, cap: 10 }).list[0].code !== 'WORK-CC33', '«입장 가능 먼저» 를 빼면 1절 정렬이 빨강');
     const noShape = P_SRC.replace("  if(!d || typeof d !== 'object' || !Array.isArray(d.rooms)) return null;", "  if(!d) return null; if(!Array.isArray(d.rooms)) return { at: Date.now(), rooms: {} };");
-    chk(noShape !== P_SRC && (await mkP(noShape, { get: { '/v1/rooms/lobby': { at: 'x', rooms: {} } } }).pv.listRooms('workingroom')) !== null, '모양 확인을 빼면 2절 «답 모양이 틀리면 null» 이 빨강');
+    chk(noShape !== P_SRC && (await mkP(noShape, { get: { '/v2/rooms/lobby': { at: 'x', rooms: {} } } }).pv.listRooms('workingroom')) !== null, '모양 확인을 빼면 2절 «답 모양이 틀리면 null» 이 빨강');
     const noFail = model(M_SRC.replace("if(!node) return { state: 'failed', list: [], total: 0, open: 0, ageMs: null };", "if(!node) node = { at: o.now, rooms: {} };"));
     chk(noFail.cardsFrom(null, { now, cap: 10 }).state !== 'failed', '못 읽음을 빈 목록으로 뭉개면 1절 «failed» 가 빨강');
     const noMe = P_SRC.replace("e.count - (roomCode() === code ? 1 : 0)", "e.count");
     chk(noMe !== P_SRC && (await mkP(noMe, { inRoom: 'SCRT-ABCD', peek: { exists: true, count: 3 } }).pv.secretGuests('SCRT-ABCD')) !== 2, '나를 빼지 않으면 2절 «손님 수» 가 빨강');
     const noMemo = P_SRC.replace("  if(!owned || owned.uid !== uid){", "  if(true){");
-    const tm = mkP(noMemo, { get: { '/v1/me/secret-room': { code: 'SCRT-ABCD' } } }); await tm.pv.mySecretRoom(); await tm.pv.mySecretRoom();
+    const tm = mkP(noMemo, { get: { '/v2/me/secret-room': { code: 'SCRT-ABCD' } } }); await tm.pv.mySecretRoom(); await tm.pv.mySecretRoom();
     chk(noMemo !== P_SRC && tm.log.gets.length !== 1, '한 번만 읽기를 빼면 2절 «계정마다 한 번» 이 빨강');
     const noCap = model(M_SRC.replace('const max = roomCap({ max: r.max }, cap);', 'const max = Number.isInteger(r.max) ? r.max : cap;'));
     chk(noCap.cardsFrom(node, { now, cap: 10 }).list.find((c) => c.code === 'WORK-FF66').max !== 10, '정원 규칙(roomCap)을 안 거치면 1절 «정원보다 큰 max» 가 빨강');

@@ -1,7 +1,7 @@
 /*
  * IP 기준 일일 방문자 검사. functions/visit-ping.js 와 앱 visit-ping.js 를 그대로 불러 돌린다.
  * 1. 접속 IP 고르기  2. 해시(날마다 · 비밀마다 다름)  3. 쓰기 묶음 · 처리기(가짜 DB)  4. index.js 연결 · 규칙
- * 5. 앱 모듈(한 번 · 늦게 · 실패 삼킴)  6. 앱 연결 — 0.13 은 서버 POST /v1/metrics/visits(user-api.js visit) · 옛 Functions 호출 없음
+ * 5. 앱 모듈(한 번 · 늦게 · 실패 삼킴)  6. 앱 연결 — 0.13 은 서버 POST /v2/metrics/visits(user-api.js visit) · 옛 Functions 호출 없음
  */
 'use strict';
 const fs = require('fs');
@@ -140,7 +140,7 @@ const APPJS = need('app.js', 'parts/app.js', 'app/parts/app.js');
   {
     chk(!/createVisitPing|visitPing|firebase-functions/.test(strip(FI)), 'firebase-init 은 방문 기록을 모른다(옛 Functions visitPing 호출 걷음)');
     const ms = APPJS.match(/TwVisitPing\.createVisitPing\(\{([^\n]*)\}\)\.start\(\);/g) || [];
-    chk(ms.length === 1 && /callPing: \(\)=>userApiMod\.visit\(\)/.test(ms[0]), 'app.js 가 한 곳에서 만들고 바로 start — 계정 provider 의 visit(POST /v1/metrics/visits)');
+    chk(ms.length === 1 && /callPing: \(\)=>userApiMod\.visit\(\)/.test(ms[0]), 'app.js 가 한 곳에서 만들고 바로 start — 계정 provider 의 visit(POST /v2/metrics/visits)');
     chk(APPJS.indexOf('const userApiMod = ') >= 0 && APPJS.indexOf('const userApiMod = ') < APPJS.indexOf('TwVisitPing.createVisitPing('), '  ↳ 계정 provider 를 만든 뒤');
     const iV = HTML.indexOf('<script src="parts/shared/visit-ping.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
     chk(iV > 0 && iA > iV, 'html — visit-ping.js 를 app.js 보다 먼저');

@@ -16,7 +16,7 @@ const getUserName = deps.getUserName;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const setUserName = deps.setUserName;
 const toast = deps.toast;
-const saveNameOnServer = deps.saveNameOnServer;   // (name) => Promise<{ ok, err }> — 서버 계정 이름(PATCH /v1/me — login-flow patchMe)
+const saveNameOnServer = deps.saveNameOnServer;   // (name) => Promise<{ ok, err }> — 서버 계정 이름(PATCH /v2/me — login-flow patchMe)
 const notifyError = deps.notifyError;   // 번호 토스트(error-codes.js)
 const USER_NAME_MAX = 12;   // ⚠️ 옛 모달은 이 값을 HTML 의 maxlength 로 들고 있었다. 이제 여기가 유일한 자리다.
 function commitUserName(raw){

@@ -258,7 +258,7 @@ async function judge(S){
     const settle = async () => { for(let i = 0; i < 4; i++) await flush(); };
     const W3 = world(S, { focusApi: real });
     W3.start(); await settle();
-    chk(W3.mod.progress().load === 'ready' && W3.apiGets.join() === '/v1/me/focus', '진짜 focus-api 위 — 시작 GET /v1/me/focus → ready');
+    chk(W3.mod.progress().load === 'ready' && W3.apiGets.join() === '/v2/me/focus', '진짜 focus-api 위 — 시작 GET /v2/me/focus → ready');
     W3.who.v = 'B';   // 읽은 뒤 로그인한 사람이 바뀜(reset 이 오기 전의 틈)
     W3.add(600); await settle();
     chk(W3.posts.length === 0 && W3.mod.unsentSec() === 600 && W3.notes.length === 0, '★ A 로 읽고 B 로 바뀐 뒤 쓰기 → 서버에 나간 요청 0 · 미전송분 그대로 · 번호 없음');
@@ -266,7 +266,7 @@ async function judge(S){
     chk(W3.posts.length === 0 && W3.mod.getStarColor() === '#ffd76a' && W3.notes.length === 0, '  별 색도 같다(요청 0 · 보이는 색은 서버가 아는 색으로 조용히 돌아온다)');
     const W4 = world(S, { focusApi: real });
     W4.start(); await settle(); W4.add(600); await settle();
-    chk(W4.posts.join() === '/v1/me/focus/accruals' && W4.mod.unsentSec() === 0 && W4.mod.progress().totalSec === 700, '  같은 사람이면 나간다(POST /v1/me/focus/accruals · 미전송분 0 · 서버 합계 700)');
+    chk(W4.posts.join() === '/v2/me/focus/accruals' && W4.mod.unsentSec() === 0 && W4.mod.progress().totalSec === 700, '  같은 사람이면 나간다(POST /v2/me/focus/accruals · 미전송분 0 · 서버 합계 700)');
   }
 
   say('── 6. 별 색');

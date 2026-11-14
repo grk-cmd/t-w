@@ -22,7 +22,7 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) �
 /* ─────────────────────────── 저장 ─────────────────────────── */
 /* 🗂️ 바탕화면 로컬 저장은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 그 계정의 바탕화면이 열린다. 만드는 쪽(myhome-desktop-boot.js)이 넘긴 한 벌. */
 const advStore = deps.advStore;
-const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 바탕화면(배경 · 폴더 숨기기 · 폴더 자리)의 원본은 서버(PUT /v1/me/myhome/desktop)
+const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 바탕화면(배경 · 폴더 숨기기 · 폴더 자리)의 원본은 서버(PUT /v2/me/myhome/desktop)
 /* 내 바탕화면 { bg, hideFolders, folderPos } — 상태 주인 값(고치려면 myhomeStore.setDesktop) */
 const mhdDesk = () => myhomeStore.mine().desktop;
 /* 지금 화면에 그리는 바탕화면 — 친구 집 구경 중이면 그 집 것(openView 가 페이지와 함께 받아 둔 값) · 아니면(방문자 시점 미리보기 포함) 내 것. 판단은 상태 주인 한 곳 */

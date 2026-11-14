@@ -6,7 +6,7 @@
      (거기에 늘어난 것은 계약의 `host:'side'` 한 항목뿐). 이 파일을 지우고 HTML 의 <script> 한 줄을 빼면 끝난다.
    ★ 방문자 — 폴더 클릭은 myhome-desktop 쪽에서 이미 막고(advVisiting), 방문이 시작되면 등록된 창을 일괄로 닫는다.
      여기서는 onVisit 에서 서랍을 닫고 편집 창을 정리하기만 한다.
-   ★ 저장 — 서버가 원본이다(`bookshelf-store.js` — GET/PUT /v1/me/myhome/bookshelf · 판 version). 이 파일은 값을 직접 고치지 않고 `bookshelfStore.put(책 목록)` 만 부른다.
+   ★ 저장 — 서버가 원본이다(`bookshelf-store.js` — GET/PUT /v2/me/myhome/bookshelf · 판 version). 이 파일은 값을 직접 고치지 않고 `bookshelfStore.put(책 목록)` 만 부른다.
      · 선반 번호는 저장하지 않는다. 순서(배열 차례)만 저장하고 선반은 서랍 너비로 매번 계산한다(시안 4-3).
      · 이 PC 사본 · 4초 뒤 받기는 없다 — 서랍을 처음 열 때 받는다(받는 동안 «불러오는 중…»).
    ★ 책등 그림 — 세로 400px 로 줄여 WebP(200KB 이하)로 올리고(`bookshelfStore.uploadImage`) 받은 주소만 저장에 싣는다. 뗀 그림 지우기는 서버가 한다.

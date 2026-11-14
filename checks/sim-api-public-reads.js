@@ -2,7 +2,7 @@
    [왜] 명함 · 사진 · 랜덤 참여 후보를 API 에서 먼저 읽고, 못 받으면 지금 Firebase 길 그대로.
    1. (파도타기는 로그인 길로 옮겼다 — sim-playlist-api.js. 이 모듈에 파도타기가 남지 않았는지만 본다)
    2. 명함 · 사진 — avatarUrl · avatarInline(그때만 Firebase 한 칸) · 실패 → 원래 함수 / Firebase 한 칸 · 명함 날것(fetchUserCardApi — 대체 길 없음)
-   3. 랭킹 — 걷었다: 순위 통로(fetchMyRank · fetchLeaderboardTop)를 달지 않고 /v1/leaderboard 를 묻지 않는다
+   3. 랭킹 — 걷었다: 순위 통로(fetchMyRank · fetchLeaderboardTop)를 달지 않고 /v2/leaderboard 를 묻지 않는다
    4. 랜덤 참여 후보(워킹룸 · SCRT 빼기 · 빈 배열 = 없음) · 방 개수(정원 검사)는 API 를 거치지 않고 늘 Firebase
    5. 실패 종류 — 닿지 못함 · 503 *_NOT_READY · RTDB_UNAVAILABLE · 400 · API 없음 모두 Firebase 길
    6. 배선 — firebase-init(import · firebase-ready 전에 wrap) · app.js 사진 두 곳 · 모듈은 import 없음
@@ -54,20 +54,20 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     const { fb, log } = mkFb();
     const api = mkApi(() => new Error('?'));
     M.createApiPublicReads({ api }).wrap(fb);
-    chk(!('fetchRandomPlaylist' in fb) && !('fetchPlaylistOf' in fb) && !('randomPlaylist' in M.API_PATHS) && !('userPlaylist' in M.API_PATHS), '★ 무작위 · 친구 지목 파도타기를 바꿔 끼우지도, 길(/v1/playlists · /v1/users/{uid}/playlist)을 갖지도 않는다');
+    chk(!('fetchRandomPlaylist' in fb) && !('fetchPlaylistOf' in fb) && !('randomPlaylist' in M.API_PATHS) && !('userPlaylist' in M.API_PATHS), '★ 무작위 · 친구 지목 파도타기를 바꿔 끼우지도, 길(/v2/playlists · /v2/users/{uid}/playlist)을 갖지도 않는다');
     chk(!('playlistOf' in M) && !('EXCLUDE_MAX' in M) && !('CARD_KEEP_MS' in M) && log.length === 0 && api.calls.length === 0, '  ↳ 목록 모양 맞춤 · 명함 기억 같은 파도타기 잔재도 없다');
   }
 
   say('── 2. 명함 · 사진');
   {
     let cells = [];
-    const api = mkApi((p) => p === '/v1/users/uA/card' ? CARD : p === '/v1/users/uI/card' ? Object.assign({}, CARD, { avatarUrl: null, avatarInline: true })
-      : p === '/v1/users/uZ/card' ? null : p === '/v1/users/uBad/card' ? 'x' : ERR('unavailable', 0, 'NETWORK'));
+    const api = mkApi((p) => p === '/v2/users/uA/card' ? CARD : p === '/v2/users/uI/card' ? Object.assign({}, CARD, { avatarUrl: null, avatarInline: true })
+      : p === '/v2/users/uZ/card' ? null : p === '/v2/users/uBad/card' ? 'x' : ERR('unavailable', 0, 'NETWORK'));
     const { fb, log } = mkFb();
     M.createApiPublicReads({ api, readCell: async (c) => { cells.push(c); return 'data:image/png;base64,AAA'; } }).wrap(fb);
     const c = await fb.fetchPlaylistCard('uA');
     chk(c.name === '라온' && c.level === 12 && c.cyc === 1 && c.clv === 3 && c.starC === 'gold' && c.avatar === 'https://img/av.png' && cells.length === 0 && log.length === 0,
-      '★ 명함 — GET /v1/users/{uid}/card → { name · level · cyc · clv · starC · avatar }(원래 모양) · Firebase 안 읽음');
+      '★ 명함 — GET /v2/users/{uid}/card → { name · level · cyc · clv · starC · avatar }(원래 모양) · Firebase 안 읽음');
     const ci = await fb.fetchPlaylistCard('uI');
     chk(ci.avatar === 'data:image/png;base64,AAA' && cells.join() === 'users/uI/home/avatar', '★ avatarInline 이면 그때만 Firebase users/{uid}/home/avatar 한 칸');
     const cz = await fb.fetchPlaylistCard('uZ');
@@ -77,7 +77,7 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     await fb.fetchPlaylistCard('uBad');
     chk(log.length === 2 && log[1][1] === 'uBad', '  ↳ 모양이 틀려도 원래 함수');
     api.calls.length = 0;
-    chk(JSON.stringify(await fb.fetchUserCardApi('uA')) === JSON.stringify(CARD) && api.calls.join() === '/v1/users/uA/card', '★ 명함 날것(fetchUserCardApi · 친구 포트용) — GET /v1/users/{uid}/card 의 data 그대로');
+    chk(JSON.stringify(await fb.fetchUserCardApi('uA')) === JSON.stringify(CARD) && api.calls.join() === '/v2/users/uA/card', '★ 명함 날것(fetchUserCardApi · 친구 포트용) — GET /v2/users/{uid}/card 의 data 그대로');
     chk((await fb.fetchUserCardApi('uZ')) === null, '  ↳ 없는 사람(data:null) → null');
     let ue = null; try{ await fb.fetchUserCardApi('uDown'); }catch(e){ ue = e; }
     chk(ue && ue.code === 'NETWORK' && log.length === 2, '  ↳ 못 받으면 던진다 · Firebase 대체 길 없음(넘어가기는 친구 포트가 정한다)');
@@ -99,7 +99,7 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
     const { fb } = mkFb(); fb.fetchMyRank = async () => 'FB'; fb.fetchLeaderboardTop = async () => 'FB';
     M.createApiPublicReads({ api }).wrap(fb);
     const r = [await fb.fetchMyRank('u1'), await fb.fetchLeaderboardTop()];
-    chk(r.every((x) => x === 'FB') && !api.calls.some((c) => /leaderboard/.test(c)), '★ 순위 통로를 바꿔 끼우지 않는다 — /v1/leaderboard 를 묻지 않는다');
+    chk(r.every((x) => x === 'FB') && !api.calls.some((c) => /leaderboard/.test(c)), '★ 순위 통로를 바꿔 끼우지 않는다 — /v2/leaderboard 를 묻지 않는다');
     chk(!/leaderboard|fetchMyRank|fetchLeaderboardTop/.test(strip(SRC)), '  ↳ 모듈 글에 랭킹 경로 · 이름이 없다');
     const bare = mkFb(); M.createApiPublicReads({ api: null }).wrap(bare.fb);
     chk(!('fetchMyRank' in bare.fb) && !('fetchLeaderboardTop' in bare.fb), '  ↳ 없던 순위 함수를 새로 달지 않는다');
@@ -107,14 +107,14 @@ const CARD = { name: '라온', level: 12, cyc: 1, clv: 3, starC: 'gold', avatarU
 
   say('── 4. 방 개수 · 랜덤 참여 후보');
   {
-    const api = mkApi((p) => p.startsWith('/v1/rooms/random') ? { rooms: ['WORK-AAAA', 'SCRT-BBBB', 7, 'WORK-CCCC'] } : new Error('?'));
+    const api = mkApi((p) => p.startsWith('/v2/rooms/random') ? { rooms: ['WORK-AAAA', 'SCRT-BBBB', 7, 'WORK-CCCC'] } : new Error('?'));
     const { fb, log } = mkFb();
     M.createApiPublicReads({ api }).wrap(fb);
     const full = await fb.getRoomCounts();
     chk(full.FB === 1 && api.calls.length === 0 && log.length === 1, '★ 방 개수(정원 · 만들기 상한 검사)는 감싸지 않는다 — API 를 묻지 않고 늘 Firebase');
     chk(!('roomCount' in M.API_PATHS), '  방 개수 API 길은 쓰지 않는다(채널 카드 숫자는 방 목록 로비로 바뀌었다)');
     const r = await fb.findRandomRooms(12);
-    chk(api.calls.includes('/v1/rooms/random?channel=workingroom&limit=12') && r.join() === 'WORK-AAAA,WORK-CCCC', '★ 랜덤 참여 후보 — 워킹룸만 · limit · SCRT- · 이상한 값 빼기(들어가기 전 확인은 app.js 그대로)');
+    chk(api.calls.includes('/v2/rooms/random?channel=workingroom&limit=12') && r.join() === 'WORK-AAAA,WORK-CCCC', '★ 랜덤 참여 후보 — 워킹룸만 · limit · SCRT- · 이상한 값 빼기(들어가기 전 확인은 app.js 그대로)');
     const e = mkFb(); M.createApiPublicReads({ api: mkApi(() => ({ rooms: [] })) }).wrap(e.fb);
     chk((await e.fb.findRandomRooms(12)).length === 0 && e.log.length === 0, '  ↳ 빈 배열 = 후보 없음(Firebase 로 다시 가지 않음)');
     const d = mkFb(); M.createApiPublicReads({ api: mkApi(() => ERR('request', 400, 'BAD_CHANNEL')) }).wrap(d.fb);

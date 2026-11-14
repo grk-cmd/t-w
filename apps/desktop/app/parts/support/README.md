@@ -1,7 +1,7 @@
 # app/parts/support — 🐞 버그 제보 · 🚩 신고
 
 ## report-api.js — 🚩 신고 provider(classic script `window.TwReportApi`)
-- 책임: 신고 서버 길(`POST /v1/reports`) · 관리자 신고 목록 길(`GET /v1/admin/reports` · `POST …/dismissals` · `POST …/{target}/take-down`) 한 벌. 경로 · 본문 모양 · 서버 종류 이름(`CHARACTER` · `AWAY_IMAGE` · `NICKNAME` · `ETC`) · 서버 줄 → 화면 줄 바꾸기는 여기만 안다.
+- 책임: 신고 서버 길(`POST /v2/reports`) · 관리자 신고 목록 길(`GET /v2/admin/reports` · `POST …/dismissals` · `POST …/{target}/take-down`) 한 벌. 경로 · 본문 모양 · 서버 종류 이름(`CHARACTER` · `AWAY_IMAGE` · `NICKNAME` · `ETC`) · 서버 줄 → 화면 줄 바꾸기는 여기만 안다.
 - deps: `authed`(로그인 통로 `TwApi.authed` — `post(path, body)`) · `errs`(`TwApiErrors` — `translate` · `COMMON`).
 - 내놓는 것: `createReportApi(deps)` → `{ file(target, kind, note), failOf(err) }` — `target` 은 신고할 사람의 사용자 코드, `kind` 는 신고 창 사유 이름(`char` · `away` · `nick` · `etc`).
   `failOf` 는 실패 하나 → 갈래(`self` · `noAwayImage` · `noteRequired` · `common` · `site`). 서버 거절 code 는 기능 표 `ERRORS` 에만 있다(공통 표보다 먼저 본다).
@@ -34,7 +34,7 @@
 - 검사: `checks/sim-bug-board.js` 2절.
 
 ## bug-api.js — 🐞 버그제보 provider(classic script `window.TwBugApi`)
-- 책임: 게시판 서버 길 한 벌 — 목록(`GET /v1/bugs?filter=&limit=&cursor=` · 공지 `filter=notices`) · 글(`GET /v1/bugs/{number}`) · 새 글(`POST /v1/bugs`) · 답글(`POST …/{number}/replies`) · 관리자 답변(`POST /v1/admin/bugs/{number}/answers`) · 오픈카톡 기본 링크(`GET /v1/admin/config` 의 `bug.report` 줄 · `PUT /v1/admin/config/bug.report`) · 공개 범위(`PATCH …/{number}/visibility`) · 👍(`PUT …/{number}/like`) · 봤음(`PUT /v1/me/bugs/{number}/seen`) · 오늘 남은 수(`GET /v1/me/bugs/quota`) · 새 답변 배지 수(`GET /v1/me/bugs/unseen-count`).
+- 책임: 게시판 서버 길 한 벌 — 목록(`GET /v2/bugs?filter=&limit=&cursor=` · 공지 `filter=notices`) · 글(`GET /v2/bugs/{number}`) · 새 글(`POST /v2/bugs`) · 답글(`POST …/{number}/replies`) · 관리자 답변(`POST /v2/admin/bugs/{number}/answers`) · 오픈카톡 기본 링크(`GET /v2/admin/config` 의 `bug.report` 줄 · `PUT /v2/admin/config/bug.report`) · 공개 범위(`PATCH …/{number}/visibility`) · 👍(`PUT …/{number}/like`) · 봤음(`PUT /v2/me/bugs/{number}/seen`) · 오늘 남은 수(`GET /v2/me/bugs/quota`) · 새 답변 배지 수(`GET /v2/me/bugs/unseen-count`).
   서버 모양(대문자 이름 · ISO 시각 · `author`) → 화면 모양(`vis` 'pub'|'prv' · 소문자 `cat` · `status` · ms · `anon` · `authorReplied`)은 여기 한 곳(`rowOf` · `postOf`).
 - deps: `authed`(`TwApi.authed`) · `errs`(`TwApiErrors` — `translate` · `COMMON`) · `pending`(요청 번호 기억 만들기 — `TwRequestId.createPending`).
 - 내놓는 것: `createBugApi(deps)` → `{ KIND, ERRORS, list, notices, detail, write, reply, answer, reportConfig, saveReportLink, setVis, like, seen, quota, refreshBadge, badgeCount, failOf, reset }`. 순수: `rowOf` · `postOf` · `pageOf` · `quotaOf` · `writeBody` · `failOf(err, errs)` · `PATHS` · `KIND` · `ERRORS` · `LIMIT_MAX`.

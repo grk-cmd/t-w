@@ -1,5 +1,5 @@
 /* ═══ 📖 sim-guestbook-api.js — 방명록 · 웹박수 api provider (0.13 앱 묶음 D2-4) ═══
-   [왜] 방명록이 Firebase(users/{코드}/guestbook · clap) 대신 우리 서버 공개 API(/v1/guestbooks · /v1/me/guestbook)를 쓴다. 서버 모양(authorName · createdAt ·
+   [왜] 방명록이 Firebase(users/{코드}/guestbook · clap) 대신 우리 서버 공개 API(/v2/guestbooks · /v2/me/guestbook)를 쓴다. 서버 모양(authorName · createdAt ·
      clap.imageUrl · canWrite · version)을 화면 모양({name, ts, img, canWrite…})으로 맞추는 곳이 provider 하나라 그 맞춤을 실제로 불러서 판정한다.
    ・1절: 읽기 — 경로 · 모양 맞춤(글 · 박수 · canWrite · 판) · 빈 방명록(entries:[])과 못 읽음(던짐)을 가름 · 모양 틀림은 던짐 · 새 글 수(since)
    ・2절: 쓰기 — 글 쓰기 · 지우기 · 박수 · 겉모습의 경로 · 본문(requestId · 신원은 안 실림) · 읽은 토큰의 주인과 묶음(진짜 api-client 로: 주인이 바뀌면 요청 0 · 'stale') ·
@@ -61,47 +61,47 @@ async function judge(S){
 
   say('── 1. 읽기');
   {
-    const { m, authed } = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf({ clap: { count: 7, imageUrl: 'https://img/x.jpg', emoji: '🎉', todayLeft: 0, dailyMax: 5 } }) });
+    const { m, authed } = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf({ clap: { count: 7, imageUrl: 'https://img/x.jpg', emoji: '🎉', todayLeft: 0, dailyMax: 5 } }) });
     const v = await m.fetchView('ME01', 'uOWN00001');
     const g = authed.log[0];
-    chk(g.path === '/v1/guestbooks/uOWN00001' && g.opts.auth === true, '경로 — 그 주인의 방명록 · 로그인 통로로');
+    chk(g.path === '/v2/guestbooks/uOWN00001' && g.opts.auth === true, '경로 — 그 주인의 방명록 · 로그인 통로로');
     chk(v.entries.length === 2 && v.entries[0].id === 'e1' && v.entries[0].name === '이름e1' && v.entries[0].text === '글e1' && v.entries[0].mine === true && v.entries[1].mine === false, '글 — id · 이름(authorName) · 글 · 내 글(mine) · 서버가 준 순서(최신이 위) 그대로');
     chk(v.entries[0].ts === Date.parse('2026-11-01T01:02:03.456Z'), '시각 — createdAt 을 ms 로');
     chk(v.clap.count === 7 && v.clap.img === 'https://img/x.jpg' && v.clap.emoji === '🎉' && v.clap.todayLeft === 0 && v.clap.dailyMax === 5, '박수 — 수 · 그림 · 폭죽 · 오늘 남은 수 · 하루 상한 (서버가 센 값)');
     chk(v.canWrite === true && v.version === 4, '쓸 수 있나(canWrite) · 판(version)');
-    const none = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf({ entries: [], canWrite: false }) });
+    const none = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf({ entries: [], canWrite: false }) });
     const e = await none.m.fetchView('ME01', 'uOWN00001');
     chk(Array.isArray(e.entries) && e.entries.length === 0 && e.canWrite === false && e.clap.img === null && e.clap.emoji === '', '글이 없으면 빈 목록 — «없음» 이지 실패가 아니다(그림 · 폭죽은 null · 빈 글)');
     for(const [name, bad] of [['null', null], ['entries 없음', { clap: {}, canWrite: true, version: 1 }], ['canWrite 글자', bookOf({ canWrite: 'yes' })],
       ['version 없음', bookOf({ version: undefined })], ['clap.count 음수', bookOf({ clap: { count: -1, todayLeft: 1, dailyMax: 5 } })], ['clap 없음', bookOf({ clap: null })]]){
-      const b = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bad });
+      const b = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bad });
       let t = null; try{ await b.m.fetchView('ME01', 'uOWN00001'); }catch(x){ t = x; }
       chk(t && t.code === 'SHAPE', '모양이 틀리면(' + name + ') 던진다 — 빈 방명록으로 숨기지 않는다');
     }
-    const odd = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf({ entries: [ent('ok'), { text: 'id 없음' }, null, ent('x', { text: 3 })] }) });
+    const odd = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf({ entries: [ent('ok'), { text: 'id 없음' }, null, ent('x', { text: 3 })] }) });
     chk((await odd.m.fetchView('ME01', 'uOWN00001')).entries.length === 1, '모양이 틀린 글 한 줄은 거르고 나머지는 보인다');
-    const down = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': apiErr(503, 'X') });
+    const down = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': apiErr(503, 'X') });
     let thrown = null; try{ await down.m.fetchView('ME01', 'uOWN00001'); }catch(x){ thrown = x; }
     chk(thrown && thrown.status === 503, '못 읽으면 던진다(빈 목록으로 숨기지 않는다)');
     let t2 = null; try{ await m.fetchView('', 'uOWN00001'); }catch(x){ t2 = x; }
     let t3 = null; try{ await m.fetchView('ME01', ''); }catch(x){ t3 = x; }
     chk(t2 && t2.code === 'NO_USER' && t3 && t3.code === 'NO_OWNER', '내 코드 · 주인 코드가 없으면 요청 없이 던진다');
-    const sum = mk(LIB, { 'GET /v1/me/guestbook/summary': { newCount: 3 } });
-    chk(await sum.m.fetchNewCount('ME01', 1730000000000) === 3 && sum.authed.log[0].path === '/v1/me/guestbook/summary?since=1730000000000', '새 글 수 — since(ms) 뒤 글 수(서버가 센 숫자) · 경로에 내 코드를 싣지 않는다');
+    const sum = mk(LIB, { 'GET /v2/me/guestbook/summary': { newCount: 3 } });
+    chk(await sum.m.fetchNewCount('ME01', 1730000000000) === 3 && sum.authed.log[0].path === '/v2/me/guestbook/summary?since=1730000000000', '새 글 수 — since(ms) 뒤 글 수(서버가 센 숫자) · 경로에 내 코드를 싣지 않는다');
     sum.authed.log.length = 0; await sum.m.fetchNewCount('ME01', 0);
     chk(sum.authed.log[0].path.endsWith('since=0'), '  한 번도 안 열었으면(0) 전부');
-    let t4 = null; try{ await mk(LIB, { 'GET /v1/me/guestbook/summary': { newCount: 'x' } }).m.fetchNewCount('ME01', 1); }catch(x){ t4 = x; }
+    let t4 = null; try{ await mk(LIB, { 'GET /v2/me/guestbook/summary': { newCount: 'x' } }).m.fetchNewCount('ME01', 1); }catch(x){ t4 = x; }
     chk(t4 && t4.code === 'SHAPE', '  숫자가 아니면 던진다');
   }
 
   say('── 2. 쓰기');
   {
     const routes = {
-      'GET /v1/guestbooks/uOWN00001': bookOf(), 'GET /v1/me/guestbook/summary': { newCount: 0 },
-      'POST /v1/guestbooks/uOWN00001/entries': (b) => ent('new1', { text: b.text, mine: true }),
-      'DELETE /v1/guestbooks/uOWN00001/entries/e1': null,
-      'POST /v1/guestbooks/uOWN00001/claps': { count: 8, todayLeft: 2, dailyMax: 5 },
-      'PATCH /v1/me/guestbook': null,
+      'GET /v2/guestbooks/uOWN00001': bookOf(), 'GET /v2/me/guestbook/summary': { newCount: 0 },
+      'POST /v2/guestbooks/uOWN00001/entries': (b) => ent('new1', { text: b.text, mine: true }),
+      'DELETE /v2/guestbooks/uOWN00001/entries/e1': null,
+      'POST /v2/guestbooks/uOWN00001/claps': { count: 8, todayLeft: 2, dailyMax: 5 },
+      'PATCH /v2/me/guestbook': null,
     };
     const { m, authed } = mk(LIB, routes);
     const before = await m.write('ME01', 'uOWN00001', 'hi', 'rid-12345678');
@@ -111,17 +111,17 @@ async function judge(S){
     const w = await m.write('ME01', 'uOWN00001', 'hi', 'rid-12345678');
     const g = authed.log[0];
     chk(w.status === 'ok' && w.entry.id === 'new1' && w.entry.text === 'hi' && w.entry.mine === true, '글 쓰기 — 답의 글을 화면 모양으로');
-    chk(g.method === 'POST' && g.path === '/v1/guestbooks/uOWN00001/entries' && JSON.stringify(g.body) === JSON.stringify({ requestId: 'rid-12345678', text: 'hi' }), '  경로 · 본문은 requestId 와 글뿐 — 글쓴이 · 이름 · 시각은 안 싣는다(서버가 토큰으로 정한다)');
+    chk(g.method === 'POST' && g.path === '/v2/guestbooks/uOWN00001/entries' && JSON.stringify(g.body) === JSON.stringify({ requestId: 'rid-12345678', text: 'hi' }), '  경로 · 본문은 requestId 와 글뿐 — 글쓴이 · 이름 · 시각은 안 싣는다(서버가 토큰으로 정한다)');
     chk(g.opts.expectOwner === 'ME01', '  읽은 토큰의 주인에 묶는다(expectOwner)');
     authed.log.length = 0;
     const d = await m.remove('ME01', 'uOWN00001', 'e1');
-    chk(d.status === 'ok' && authed.log[0].method === 'DELETE' && authed.log[0].path === '/v1/guestbooks/uOWN00001/entries/e1' && authed.log[0].opts.expectOwner === 'ME01', '글 지우기 — DELETE …/entries/{id} · 주인 묶음');
+    chk(d.status === 'ok' && authed.log[0].method === 'DELETE' && authed.log[0].path === '/v2/guestbooks/uOWN00001/entries/e1' && authed.log[0].opts.expectOwner === 'ME01', '글 지우기 — DELETE …/entries/{id} · 주인 묶음');
     authed.log.length = 0;
     const c = await m.clap('ME01', 'uOWN00001', 'rid-87654321');
-    chk(c.status === 'ok' && c.count === 8 && c.todayLeft === 2 && c.dailyMax === 5 && JSON.stringify(authed.log[0].body) === JSON.stringify({ requestId: 'rid-87654321' }) && authed.log[0].path === '/v1/guestbooks/uOWN00001/claps', '박수 — POST …/claps { requestId } · 서버가 센 수 · 남은 수 · 상한');
+    chk(c.status === 'ok' && c.count === 8 && c.todayLeft === 2 && c.dailyMax === 5 && JSON.stringify(authed.log[0].body) === JSON.stringify({ requestId: 'rid-87654321' }) && authed.log[0].path === '/v2/guestbooks/uOWN00001/claps', '박수 — POST …/claps { requestId } · 서버가 센 수 · 남은 수 · 상한');
     authed.log.length = 0;
     await m.changeLook('ME01', 4, { clapEmoji: '🎉' });
-    chk(authed.log[0].method === 'PATCH' && authed.log[0].path === '/v1/me/guestbook' && JSON.stringify(authed.log[0].body) === JSON.stringify({ version: 4, clapEmoji: '🎉' }), '폭죽 바꾸기 — PATCH /v1/me/guestbook { version, clapEmoji } (내 것이라 경로에 코드 없음)');
+    chk(authed.log[0].method === 'PATCH' && authed.log[0].path === '/v2/me/guestbook' && JSON.stringify(authed.log[0].body) === JSON.stringify({ version: 4, clapEmoji: '🎉' }), '폭죽 바꾸기 — PATCH /v2/me/guestbook { version, clapEmoji } (내 것이라 경로에 코드 없음)');
     authed.log.length = 0;
     await m.changeLook('ME01', 4, { clapEmoji: null });
     chk('clapEmoji' in authed.log[0].body && authed.log[0].body.clapEmoji === null && !('clapImageUrl' in authed.log[0].body), '  null 은 «지움» 으로 보낸다 · 안 고치는 칸(그림)은 아예 안 싣는다');
@@ -134,8 +134,8 @@ async function judge(S){
     const st2 = await other.m.write('ME01', 'uOWN00001', 'hi', 'rid-12345678');
     chk(st2.status === 'stale' && other.authed.log.filter((x) => x.p).length === 1, '  그 계정의 읽은 기억을 버려 다시 읽기 전엔 더 보내지 않는다');
 
-    const denied = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf(), 'POST /v1/guestbooks/uOWN00001/entries': apiErr(403, 'GUESTBOOK_NOT_FRIEND'),
-      'POST /v1/guestbooks/uOWN00001/claps': apiErr(429, 'GUESTBOOK_CLAP_DAILY_LIMIT'), 'DELETE /v1/guestbooks/uOWN00001/entries/e2': apiErr(503, 'X') });
+    const denied = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/guestbooks/uOWN00001/entries': apiErr(403, 'GUESTBOOK_NOT_FRIEND'),
+      'POST /v2/guestbooks/uOWN00001/claps': apiErr(429, 'GUESTBOOK_CLAP_DAILY_LIMIT'), 'DELETE /v2/guestbooks/uOWN00001/entries/e2': apiErr(503, 'X') });
     await denied.m.fetchView('ME01', 'uOWN00001');
     const f = await denied.m.write('ME01', 'uOWN00001', 'hi', 'rid-12345678');
     chk(f.status === 'failed' && f.err.code === 'GUESTBOOK_NOT_FRIEND', '서버 거절은 던지지 않고 failed + err(부르는 쪽이 이름으로 번호를 고른다)');
@@ -145,11 +145,11 @@ async function judge(S){
     chk(rm.status === 'failed' && rm.err.status === 503 && denied.warns.length === 3, '  닿지 못해도 failed · 진단 기록을 남긴다');
     /* 박수 그림 — 요청 둘 중 첫째 */
     const PNG = 'data:image/png;base64,' + Buffer.from([137, 80, 78, 71, 1, 2, 3]).toString('base64');
-    const im = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf(), 'POST /v1/me/images': { url: 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2FME01%2Fclap_1.png' } });
+    const im = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/me/images': { url: 'https://firebasestorage.googleapis.com/v0/b/x/o/users%2FME01%2Fclap_1.png' } });
     chk((await im.m.uploadImage('ME01', PNG)).status === 'stale' && im.authed.log.length === 0, '박수 그림 — 읽은 적 없는 계정은 보내지 않는다');
     await im.m.fetchView('ME01', 'uOWN00001'); im.authed.log.length = 0;
     const up = await im.m.uploadImage('ME01', PNG); const ur = im.authed.log[0];
-    chk(up.status === 'ok' && /^https:\/\/firebasestorage/.test(up.url) && ur.method === 'POST' && ur.path === '/v1/me/images?purpose=clap' && ur.opts.rawType === 'image/png' && ur.opts.expectOwner === 'ME01', '  POST /v1/me/images?purpose=clap · 형식 그대로(rawType) · 주인 묶음 → url');
+    chk(up.status === 'ok' && /^https:\/\/firebasestorage/.test(up.url) && ur.method === 'POST' && ur.path === '/v2/me/images?purpose=clap' && ur.opts.rawType === 'image/png' && ur.opts.expectOwner === 'ME01', '  POST /v2/me/images?purpose=clap · 형식 그대로(rawType) · 주인 묶음 → url');
     chk(ur.body instanceof Uint8Array && ur.body.length === 7 && ur.body[0] === 137, '  본문은 파일 바이트 그대로(JSON·base64 아님)');
     im.authed.log.length = 0;
     const big = 'data:image/png;base64,' + Buffer.alloc(512 * 1024 + 1).toString('base64');
@@ -163,17 +163,17 @@ async function judge(S){
       chk(b.status === 'failed' && b.err.code === 'IMAGE_INVALID' && im.authed.log.length === 0, '  형식이 아니면(' + (bad.slice(0, 22) || '빈 값') + ') 요청 없이 IMAGE_INVALID');
     }
     for(const [st, code, kind] of [[400, 'IMAGE_INVALID'], [413, 'PAYLOAD_TOO_LARGE'], [415, 'UNSUPPORTED_MEDIA_TYPE'], [503, 'X']]){
-      const f = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf(), 'POST /v1/me/images': apiErr(st, code) });
+      const f = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/me/images': apiErr(st, code) });
       await f.m.fetchView('ME01', 'uOWN00001');
       const r = await f.m.uploadImage('ME01', PNG);
       chk(r.status === 'failed' && r.err.status === st && r.err.code === code, '  서버 ' + st + ' 는 failed + err 그대로(부르는 쪽이 구분)');
     }
-    const nu = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf(), 'POST /v1/me/images': { nope: 1 } });
+    const nu = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/me/images': { nope: 1 } });
     await nu.m.fetchView('ME01', 'uOWN00001');
     chk((await nu.m.uploadImage('ME01', PNG)).err.code === 'SHAPE', '  답에 url 이 없으면 ok 로 치지 않는다');
     await im.m.changeLook('ME01', 4, { clapImageUrl: 'https://x/y' }); const lk = im.authed.log[im.authed.log.length - 1];
-    chk(JSON.stringify(lk.body) === JSON.stringify({ version: 4, clapImageUrl: 'https://x/y' }), '  둘째 — PATCH /v1/me/guestbook { version, clapImageUrl }');
-    const bad = mk(LIB, { 'GET /v1/guestbooks/uOWN00001': bookOf(), 'POST /v1/guestbooks/uOWN00001/entries': { nope: 1 }, 'POST /v1/guestbooks/uOWN00001/claps': { count: 'x' } });
+    chk(JSON.stringify(lk.body) === JSON.stringify({ version: 4, clapImageUrl: 'https://x/y' }), '  둘째 — PATCH /v2/me/guestbook { version, clapImageUrl }');
+    const bad = mk(LIB, { 'GET /v2/guestbooks/uOWN00001': bookOf(), 'POST /v2/guestbooks/uOWN00001/entries': { nope: 1 }, 'POST /v2/guestbooks/uOWN00001/claps': { count: 'x' } });
     await bad.m.fetchView('ME01', 'uOWN00001');
     const bw = await bad.m.write('ME01', 'uOWN00001', 'hi', 'rid-12345678'), bc = await bad.m.clap('ME01', 'uOWN00001', 'rid-87654321');
     chk(bw.status === 'failed' && bw.err.code === 'SHAPE' && bc.status === 'failed' && bc.err.code === 'SHAPE', '  답 모양이 틀리면 ok 로 치지 않는다(failed · SHAPE)');
@@ -230,8 +230,8 @@ async function runAll(){
     ['박수 경로 틀림', S.API.replace("'/claps'", "'/clap'"), '박수'],
     ['그림 용량 상한을 안 봄', S.IMG.replace('img.bytes.length > o.maxBytes', 'false'), '512KB', 'IMG'],
     ['그림을 base64 글자로 보냄', S.API.replace('authed.post(PATHS.image, img.bytes,', 'authed.post(PATHS.image, dataUrl,'), '바이트 그대로'],
-    ['그림 쓰임이 틀림', S.API.replace("image: '/v1/me/images?purpose=clap'", "image: '/v1/me/images?purpose=dday'"), 'purpose=clap'],
-    ['새 글 수 since 를 안 보냄', S.API.replace("'/v1/me/guestbook/summary?since=' + enc(String(since))", "'/v1/me/guestbook/summary'"), 'since'],
+    ['그림 쓰임이 틀림', S.API.replace("image: '/v2/me/images?purpose=clap'", "image: '/v2/me/images?purpose=dday'"), 'purpose=clap'],
+    ['새 글 수 since 를 안 보냄', S.API.replace("'/v2/me/guestbook/summary?since=' + enc(String(since))", "'/v2/me/guestbook/summary'"), 'since'],
   ];
   for(const [name, src, what, key = 'API'] of breaks){
     if(src === S[key]){ chk(false, name + ' — 바꿀 글을 못 찾음'); continue; }
