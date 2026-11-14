@@ -932,7 +932,7 @@ function createMallang(deps){
 
   const giftFull = (p) => !!(p.theirs && p.theirs.visibleCount >= p.theirs.recipientCap);
   const giftRemain = (p) => (p.sent ? Math.max(0, p.sent.dailyMax - p.sent.count) : null);
-  /* «지금 보낼 수 있나» 는 여기 하나 — 못 보내면 그 까닭 문구, 보낼 수 있으면 null. 격자 흐림 · 누름 · 안내 줄이 모두 이것을 본다 */
+  /* «지금 보낼 수 있나» 는 여기 하나 — 못 보내면 그 까닭 문구, 보낼 수 있으면 null. 격자 흐림 · 누름이 이것을 본다(안내 줄은 같은 giftFull · giftRemain 으로 문구만 따로 만든다) */
   function giftBlock(p){
     if(giftFull(p)) return '🎁 상대 마이홈이 가득 찼어요 ('+p.theirs.recipientCap+'마리)';
     if(giftRemain(p) === 0) return '오늘은 더 보낼 수 없어요 (하루 '+p.sent.dailyMax+'번)';

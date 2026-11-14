@@ -11,7 +11,7 @@
          giftLib — TwGiftApi(failOf · KIND · ERRORS · LIMITS) · errs — TwApiErrors(failOf 의 공통 code 표)
          apiErrors — TwApiErrors.store(공통 code 번호 알림 — notify(err, 표)) · notifyError — TwErrorCodes.notify · toast(msg)
    내보냄: createMallangStore(deps) → {
-     mine() → { load, slots:[{ slot?, imageUrl, enabled }], version, saving, uploading } (복사본) · view() → { owner, mine(내 집인가), load, slots }
+     mine() → { load, slots:[{ slot, imageUrl, enabled }], version, saving, uploading } (복사본) · view() → { owner, mine(내 집인가), load, slots }
      onChange(fn) → 해제 함수 · pullMine({ site }?) → Promise<boolean>(지금 내 칸이 ready 인가 — 실패 번호 자리 site: 'load'(E-GIFT-01 · 기본) | 'sendOpen'(E-GIFT-07))
      openView(code, isMine) → Promise<boolean>(답이 왔을 때 아직 그 집인가) · closeView()
      add(dataUrl) · toggle(i) · remove(i) → Promise<'ok'|'failed'|'conflict'|'stale'|'locked'|'busy'|'full'|'uploadFailed'>

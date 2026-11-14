@@ -4,7 +4,7 @@
      그 집에 나온 선물(GET /v1/gifts/{userCode}) · 보내기(POST /v1/gifts/{userCode}).
      서버 모양(sentAt ISO)을 화면 모양(sentAt ms)으로 맞추는 곳은 여기뿐이다.
      칸 번호: 받은 칸은 서버 slot 을 그대로 들고 있지만 보내기는 번호를 쓰지 않는다 — 칸 저장(PUT)이 배열 차례로 0부터 다시 매기므로 번호는 낡을 수 있다. 보내기는 누른 그림의 imageUrl 을 보내고 서버가 내 칸에서 찾는다.
-   신원: 보낸 사람 · 내 칸은 서버가 토큰에서 정한다 — 본문에 내 코드 · 이름 · 날짜 · 그림 주소(보내기)를 싣지 않는다. 경로의 코드는 받는 사람 · 방문한 집(데이터 주소).
+   신원: 보낸 사람 · 내 칸은 서버가 토큰에서 정한다 — 본문에 내 코드 · 이름 · 날짜를 싣지 않는다(보내기는 누른 그림의 주소만 싣는다). 경로의 코드는 받는 사람 · 방문한 집(데이터 주소).
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · put · patch · del(…, { expectOwner }) → Promise<data>)
          imageBytes — TwImageBytes(shared/image-bytes.js — inspect(dataUrl, { types, maxBytes }) → 올릴 바이트 판정)
          warn(...a)(진단 로그)
