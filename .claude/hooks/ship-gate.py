@@ -33,9 +33,20 @@ sys.dont_write_bytecode = True   # import risk 가 .claude/hooks/__pycache__ 를
 REPO = 'grk-cmd/t-w'
 GATED_REPOS = ('mihioon/t-w-server',)   # 그 저장소 머리 커밋의 tw/confirm · tw/verify 를 보고 머지(승인 · 판 규칙은 앱 저장소 몫)
 UNGATED_REPOS = ('mihioon/tw-docs',)    # 문서 — 가드 밖
-PROTECTED = re.compile(r'^(main|admin|release/.+)$')   # admin — 웹 관리자 정본(risk.ADMIN_BRANCH)
 FROM_MAIN = ('hotfix/', 'harness/')
 HERE = os.path.dirname(os.path.abspath(__file__))
+
+
+def _risk():
+    if HERE not in sys.path:
+        sys.path.append(HERE)   # 뒤에 — 표준 모듈이 먼저(이 폴더에 같은 이름 파일을 둬도 가려지지 않게)
+    import risk
+    return risk
+
+
+def protected(branch):
+    """직접 push 를 막는 브랜치 — main · 웹 관리자 정본(risk.ADMIN_BRANCH) · release/*."""
+    return branch in ('main', _risk().ADMIN_BRANCH) or branch.startswith('release/') and len(branch) > len('release/')
 GATES = ('tw/confirm', 'tw/verify')
 
 
@@ -117,7 +128,7 @@ def check_merge(toks):
         pr = m and m.group(1)
     if not pr:
         deny('머지할 PR 번호를 알 수 없다 — `/ship` 으로 머지한다.')
-    sys.path.append(HERE)   # 뒤에 — 표준 모듈이 먼저(이 폴더에 같은 이름 파일을 둬도 가려지지 않게)
+    _risk()
     try:   # 이어 받기를 읽다 API 가 실패하면 판정 없음으로 — 맨 아래 «가드 오류면 통과» 로 새지 않게
         ok, missing = gate_ok(pr)
     except Exception as e:
@@ -290,7 +301,7 @@ def check_push(cwd, sub):
     for rs in args[1:] or [cur]:
         dst = (rs.split(':')[-1] if ':' in rs else rs).replace('refs/heads/', '')
         dst = cur if dst in ('', 'HEAD') else dst
-        if not PROTECTED.match(dst):
+        if not protected(dst):
             continue
         deny(f'{dst} 에 직접 push 하지 않는다. 작업 브랜치에 push 하고 `/ship` 으로 PR · 컨펌 · 검증 · 머지까지.')
 
@@ -298,10 +309,7 @@ def check_push(cwd, sub):
 def check_new_branch(cwd, name, start):
     base = (start or run('git', 'branch', '--show-current', cwd=cwd) or 'HEAD')
     base = re.sub(r'^(refs/remotes/|refs/heads/)?(origin/)?', '', base)
-    if HERE not in sys.path:
-        sys.path.append(HERE)   # 뒤에 — 표준 모듈이 먼저
-    import risk
-    if base.startswith('release/') or base == risk.ADMIN_BRANCH or (name.startswith(FROM_MAIN) and base == 'main'):
+    if base.startswith('release/') or base == _risk().ADMIN_BRANCH or (name.startswith(FROM_MAIN) and base == 'main'):
         return
     deny(f'새 브랜치 «{name}» 의 시작점이 판 브랜치가 아니다({base}). 먼저 사용자에게 «이 작업은 어느 버전에 릴리스될 작업인가요?» 를 묻고 '
          f'답한 판의 `origin/release/X.Y.Z` 에서 딴다. 그 판 브랜치가 없으면 만들지 말고 사용자에게 알린다. 긴급 수정 `hotfix/*` · 하네스 `harness/*` 는 main 에서 · 웹 관리자만 바꾸는 작업은 `origin/admin` 에서(이름은 `feat/…` 처럼 보통대로).')

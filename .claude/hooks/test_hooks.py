@@ -429,6 +429,15 @@ for name, ref, base, fl, want in (('admin 으로 · 높음', 'feat/x', 'admin', 
     else:
         bad += 1
         print(f'  ✗ 승인 필요 {name}: {got}')
+# 직접 push 막기는 risk.ADMIN_BRANCH 를 따른다 — 이름을 바꾸면 새 이름이 막히고 옛 이름은 풀린다
+real_admin = risk.ADMIN_BRANCH
+risk.ADMIN_BRANCH = 'admin2'
+if gate.protected('admin2') and not gate.protected('admin') and gate.protected('main') and gate.protected('release/1.0.0') and not gate.protected('release/'):
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 보호 브랜치가 risk.ADMIN_BRANCH 를 따르지 않음')
+risk.ADMIN_BRANCH = real_admin
 # 브랜치 따기 — 웹 관리자 작업은 이름과 상관없이 admin 에서 · main 에서는 hotfix/ · harness/ 만 · 다른 이름은 판 브랜치에서
 for name, br, start, want_deny in (('웹 관리자 작업 · admin 에서', 'feat/x', 'origin/admin', False), ('refs 로 admin 에서', 'fix/y', 'refs/remotes/origin/admin', False),
                                     ('옛 admin/* · main 에서', 'admin/x', 'origin/main', True), ('fix/* · main 에서', 'fix/x', 'origin/main', True),
