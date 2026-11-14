@@ -1437,54 +1437,7 @@
     advWatchCoords(){ return ()=>{}; },
     async advFindLeaderParty(){ return null; },
 
-    /* ═══════════ 📷 스티커사진 어댑터 (parts/purikura-net.js 전용) ═══════════
-       purikura-net.js 는 THREE 도 DOM 도 firebase SDK 도 안 본다 — **아래 일곱 개만** 쓴다.
-       그 덕에 node 에서 그대로 굴러가고 sim-purikura-net.js 가 가짜 서버로 검사할 수 있다.
-       ⚠️ 경로는 부르는 쪽이 통째로 준다(예: 'rooms/ABCD/_photo/p/2'). 여기서 조립하지 않는다 —
-         조립을 두 군데서 하면 언젠가 한쪽만 고쳐진다.
-       ⚠️ 이름 앞의 pk 는 일부러다. 위 메서드들과 섞이면 '어디까지가 그 계층인가'가 흐려지고,
-         이 계층만 따로 떼어 검사하는 구조가 무너진다. */
-    pkGet(path){ return get(ref(db, path)).then(s => s.val()); },
-    pkSet(path, value){ return set(ref(db, path), value); },
-    pkUpdate(path, obj){ return update(ref(db, path), obj); },
-    pkRemove(path){ return remove(ref(db, path)); },
-
-    /* 🚨 여기가 이 어댑터 일곱 개 중 **유일하게 위험한 자리**다.
-       purikura-net.js 의 계산 함수는 "쓰지 않는다"를 `null` 로 돌려준다(quotaNext:
-       오늘치 소진 · 내 시계가 뒤에 있음). SDK 독립적인 계층이라 그 약속이 맞다.
-       그런데 firebase 의 runTransaction 은 **null 을 '그 노드를 지워라'로 읽고 커밋한다.**
-       중단은 `undefined` 다. 그대로 넘기면 200번째 다음 사람이 photoQuota 를 **지우고**,
-       카운터가 0 부터 다시 시작해 하루 정원이 통째로 무너진다.
-       ⚠️ 게다가 규칙도 못 막는다 — .validate 는 삭제에는 안 돌기 때문이다.
-       ⚠️ 화면에는 아무 표시가 안 난다. 오히려 "잘 찍힌다".
-       → 그래서 «SDK 의 말투로 옮기는 일»을 이 경계에서 한다. 계층 쪽을 고치지 말 것 —
-         null 로 두는 편이 가짜 서버에서 읽기 쉽다(sim-purikura-net.js 가 그 약속에 기대 있다).
-       ⚠️ 이 계층에는 '노드를 지우는 트랜잭션'이 없다. 생기면 그때 이 매핑을 다시 볼 것. */
-    pkTransaction(path, fn){
-      return runTransaction(ref(db, path), cur => {
-        const v = fn(cur);
-        return (v === null) ? undefined : v;      // null = 중단(≠ 삭제)
-      }).then(r => ({
-        committed: !!(r && r.committed),
-        value: (r && r.snapshot) ? r.snapshot.val() : null
-      }));
-    },
-
-    /* 구독. ⚠️ 반드시 «해제 함수»를 돌려줘야 한다 — 부르는 쪽(watchQuota·subscribe)이
-       그걸 그대로 들고 있다가 창을 닫을 때 부른다. 삼키면 구독이 영영 안 끊긴다. */
-    pkOnValue(path, cb){
-      const r = ref(db, path);
-      const un = onValue(r, s => {
-        try{ cb(s.val()); }catch(e){ console.warn('[스티커사진] 구독 콜백 오류', path, e); }
-      });
-      return () => { try{ un(); }catch(_){ try{ off(r); }catch(__){} } };
-    },
-    pkOnDisconnectRemove(path){ return onDisconnect(ref(db, path)).remove(); },
-    /* ⚠️ onDisconnect 는 **경로에 걸린다 — 값이 아니라.** 자리를 놓고 나서도 예약이 살아 있으면,
-       그 사이 그 칸을 물려받은 **다른 사람의 자리**를 내 브라우저가 꺼질 때 지운다.
-       방 멤버 쪽(joinRoom 의 수동 퇴장)은 이미 같은 이유로 cancel 을 부른다 — 여기만 빠져 있었다. */
-    pkOnDisconnectCancel(path){ return onDisconnect(ref(db, path)).cancel(); },
-
+    /* 📷 스티커사진 — 세션 · 정원은 세션 포트(purikura/purikura-rt.js). 여기는 프레임 그림 올리기만 남았다. */
     /* 🖼 올린 프레임을 Storage 에 올리고 **URL 만** 돌려준다.
        ★ 왜 _uploadDataUrlIfNeeded 를 안 쓰나 — 그쪽은 업로드가 실패하면 **dataURL 을 그대로
          돌려준다.** 프로필 사진에는 맞는 처리다(이미지가 통째로 날아가느니 DB 에 두는 게 낫다).

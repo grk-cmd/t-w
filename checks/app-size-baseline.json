@@ -3,7 +3,7 @@
   "files": {
     "app.js": {
       "cap": 9011,
-      "lines": 8873,
+      "lines": 8865,
       "sections": [
         "SETUP",
         "DRACO",
@@ -133,8 +133,8 @@
       ]
     },
     "firebase-init.js": {
-      "cap": 1639,
-      "lines": 1539,
+      "cap": 1592,
+      "lines": 1492,
       "sections": [
         "🚧 로그인 복원 대기선 (auth barrier)",
         "마이홈 친구 시스템",
@@ -151,8 +151,7 @@
         "📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업)",
         "📩 수령함 (구 DM 자리)",
         "🔑 로그인(Firebase Auth) 원시 — 토큰 받기만",
-        "🧟 좀비 어드벤처 파티 시스템 — 은퇴(stub)",
-        "📷 스티커사진 어댑터 (parts/purikura-net.js 전용)"
+        "🧟 좀비 어드벤처 파티 시스템 — 은퇴(stub)"
       ]
     }
   }

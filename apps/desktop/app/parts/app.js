@@ -3254,28 +3254,21 @@ const diceMod = TwDiceGames.createDiceGames({
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
 });
-/* 📷 스티커사진 계층(parts/purikura/purikura-net.js)으로 가는 유일한 입구.
-   ★ 왜 한 곳으로 모으나 — 이 계층은 THREE 도 DOM 도 안 보는 «요금을 정하는 층»이라
-     app.js 여기저기서 직접 makeSession 을 부르기 시작하면 세션이 여러 개가 되고,
-     구독도 정원 읽기도 사람 수만큼 늘어난다. 입구가 하나면 그 일이 구조적으로 안 생긴다.
-   ⚠️ firebase-init.js 는 type="module" 이라 이 파일보다 **늦게** 돈다 —
-     부팅 직후에는 firebaseAPI.pkGet 이 아직 없을 수 있다. 그래서 «부를 때마다» 확인하고,
-     성공한 뒤에만 기억한다(못 만든 것을 기억해 두면 영영 안 붙는다).
-   ⚠️ 구버전 HTML 에는 parts/purikura/purikura-net.js 가 없다 — 그때는 null 이고 부르는 쪽이 안내한다. */
+/* 📷 스티커사진 세션 포트(parts/purikura/purikura-rt.js)로 가는 유일한 입구 — 세션은 하나(콜백도 한 벌).
+   ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다 — 각 핸들러가 PK.open · PK.listening 을 먼저 본다. */
 let _pkSession = null;
 function _purikura(){
   if(_pkSession) return _pkSession;
-  if(typeof Purikura === 'undefined' || !Purikura || !Purikura.makeSession) return null;
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI || !firebaseAPI.pkGet) return null;
-  /* 콜백은 여기서 한 번만 물린다 — 세션이 하나뿐이므로 구독도 하나뿐이다.
-     ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다. 그래서 각 핸들러가 PK.open 을 먼저 본다. */
-  try{ _pkSession = Purikura.makeSession(firebaseAPI, {
-        onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
-        onMeta : m => { purikuraUi.onMeta(m); },
-        onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
-        onShot : s => { purikuraUi.onShot(s); }
-      }); }
-  catch(e){ console.warn('[스티커사진] 세션 생성 실패', e); return null; }
+  _pkSession = TwPurikuraRt.createPhotoSession({
+    hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
+    serverNow: ()=>{ const p = Presence.serverProvider(); return p ? p.serverNow() : Date.now(); },
+    onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
+    onMeta : m => { purikuraUi.onMeta(m); },
+    onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
+    onShot : s => { purikuraUi.onShot(s); },
+    onSlots: o => { purikuraUi.onSlots(o); },
+    onFrames: o => { purikuraUi.onFrames(o); },
+  });
   return _pkSession;
 }
 
@@ -3288,8 +3281,7 @@ function _purikura(){
 const purikuraUi = TwPurikuraUi.createPurikuraUi({
   purikura: ()=>_purikura(),
   toast: (...a)=>toast(...a),
-  getMyUserId: ()=>getMyUserId(),
-  getDisplayName: ()=>getDisplayName(),
+  myCode: ()=>TwRoomRt.store.myCode(),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   plRender: (...a)=>plMod.render(...a),

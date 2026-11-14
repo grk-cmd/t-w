@@ -3,10 +3,10 @@
    parts/purikura-ui.js 로 옮겼다. 동작은 그대로여야 한다. 화면 규약(렌더러 · 캡처 · 꾸미기 · 필터)은 sim-purikura-stage ·
    -deco · -fish · sim-pk-fit · sim-fix-0923 이 이 파일을 읽어 보고, 여기서는 «옮긴 것» 자체를 굴려 본다.
    ・1절: 만들 때 — _pkWire 가 버튼 · ⎋ 사다리(escRegisterWindow) · 창 크기 감시를 건다 · DOM 이 없으면 조용히
-   ・2절: 문 — 회사원 모드 · 세션 없음 · 방 밖 · 정원 닫힘 · 촬영 중이면 자리를 안 잡고 안내만 (officeMode · Presence 는 읽는 함수)
-   ・3절: 열고 닫기 — 가짜 THREE · DOM 위에서 실제로 연다 · 정원 · slots · frames 구독 · 방장 설정 전송 · 키 · 무대 루프 ·
+   ・2절: 문 — 회사원 모드 · 세션 없음 · 방 밖 · 정원 닫힘 · 자리 잡기 거절(촬영 중 · 자리 참 · 연결 전)이면 안내만 (officeMode · Presence 는 읽는 함수)
+   ・3절: 열고 닫기 — 가짜 THREE · DOM 위에서 실제로 연다 · 정원 구독 · 자리 · 프레임 듣기(세션 포트) · 방장 설정 전송 · 키 · 무대 루프 ·
           BGM(듣던 플레이리스트 재우기 → 닫으면 되살리기 — _plPlaying 은 읽는 함수 + setPlPlaying) · 닫으면 구독 해제 · 세는 중엔 못 닫음
-   ・4절: 세션 콜백 — onPeers · onMeta · onPeerEvent · onShot 이 창이 닫혀 있어도 안 터진다
+   ・4절: 세션 콜백 — onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames 가 창이 닫혀 있어도 안 터진다
    ・5절: app.js 배선 — 정의는 모듈에만 · createPurikuraUi 는 원래 자리(세션 입구 _purikura 뒤 · 🎟️ 하루 횟수 앞) ·
           부르는 곳은 purikuraUi.이름 · 빈 껍데기 · deps 모양 · html 순서 · 전역 이름
    [실행] purikura-ui.js · purikura-net.js · ps1-dither.js · app.js · chat-window.js · desk-companion-prototype.html 이 있는 폴더에서. */
@@ -68,17 +68,18 @@ function mkEl(tag, id){
 function mkEnv(opt){
   opt = opt || {};
   const env = { toasts: [], warns: [], esc: [], winL: {}, raf: [], subs: [], unsubs: 0, watch: 0, unwatch: 0,
-    closed: 0, configs: [], pause: 0, resume: 0, plPlaying: !!opt.plPlaying, plRender: 0, office: !!opt.office,
+    closed: 0, configs: [], frameSets: [], pause: 0, resume: 0, plPlaying: !!opt.plPlaying, plRender: 0, office: !!opt.office,
     room: opt.room === undefined ? 'ROOM1' : opt.room, audio: [], fbWrites: [], ls: Object.assign({}, opt.ls || {}), lsSets: [] };
   const els = {};
   const getEl = id => (opt.noDom ? null : (els[id] || (els[id] = mkEl('div', id))));
   const sess = opt.noSession ? null : Object.assign(new Proxy({}, { get: (t, k) => (k in t ? t[k] : (typeof k === 'symbol' || k === 'then') ? undefined : (() => Promise.resolve(true))) }), {
     checkQuota: async () => (opt.quota || { ok: true, label: '3 / 400', message: '' }),
-    peek: async () => ({ busy: !!opt.busy }),
     open: async (room, me) => { env.opened = { room, me }; return opt.openRes || { ok: true, slot: 0, host: true }; },
     watchQuota: cb => { env.watch++; env.quotaCb = cb; return () => { env.unwatch++; }; },
     setConfig: cfg => { env.configs.push(cfg); return Promise.resolve(true); },
-    hostSlot: () => 0, adoptSlots(){}, close(){ env.closed++; },
+    setFrameUrl: (i, u) => { env.frameSets.push([i, u]); return Promise.resolve(true); },
+    slotsNow: () => (opt.slots || { 0: { uid: 'uA', name: '나', fx: 1 } }), framesNow: () => ({}), serverNow: () => 1000,
+    hostSlot: () => 0, close(){ env.closed++; },
   });
   class FakeAudio { constructor(src){ this.src = src; this.paused = true; env.audio.push(this); }
     addEventListener(){} load(){} play(){ this.paused = false; return Promise.resolve(); } pause(){ this.paused = true; } }
@@ -93,11 +94,7 @@ function mkEnv(opt){
     confirm: () => true, THREE: U(),
     localStorage: { getItem: (k) => (k in env.ls ? env.ls[k] : null) },
     companion: { pauseBgm(){ env.pause++; }, resumeBgm(){ env.resume++; } },
-    firebaseAPI: {
-      pkOnValue: (path, cb) => { env.subs.push(path); return () => { env.unsubs++; }; },
-      pkUpdate: (path, v) => { env.fbWrites.push(path); return Promise.resolve(); },
-      pkUploadFrame: async () => 'https://x', serverNow: () => 1000,
-    },
+    firebaseAPI: { pkUploadFrame: async () => 'https://x' },   // 프레임 그림 올리기(Storage)만 — 세션은 세션 포트
   };
   ctx.window = ctx;
   ctx.addEventListener = (t, fn) => { (env.winL[t] = env.winL[t] || []).push(fn); };
@@ -114,8 +111,7 @@ function mkEnv(opt){
   env.mk = () => ctx.TwPurikuraUi.createPurikuraUi({
     purikura: () => sess,
     toast: (m) => env.toasts.push(m),
-    getMyUserId: () => 'uA',
-    getDisplayName: () => '나',
+    myCode: () => 'uA',
     bringWinToFront: (id) => { env.front = id; },
     escRegisterWindow: (o) => env.esc.push(o),
     plRender: () => { env.plRender++; },
@@ -139,7 +135,7 @@ await sec('── 1. 만들 때 — 배선 _pkWire', () => {
   const e = mkEnv(); const ui = e.mk();
   chk(typeof ui.open === 'function' && typeof ui.close === 'function' && typeof ui.isOpen === 'function' && typeof ui.phase === 'function',
     '내놓는 이름 — open · close · isOpen · phase');
-  chk(['onPeers', 'onMeta', 'onPeerEvent', 'onShot'].every(n => typeof ui[n] === 'function'), '세션 콜백 넷 — onPeers · onMeta · onPeerEvent · onShot');
+  chk(['onPeers', 'onMeta', 'onPeerEvent', 'onShot', 'onSlots', 'onFrames'].every(n => typeof ui[n] === 'function'), '세션 콜백 여섯 — onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames');
   chk(e.esc.length === 1 && e.esc[0].key === 'purikura' && e.esc[0].el === e.els.pkOverlay, '⎋ 사다리에 한 번 태운다(key purikura · #pkOverlay)');
   chk(e.esc[0].isOpen() === false, '  isOpen 은 DOM(.on)을 읽는다 — 처음엔 닫힘');
   chk(typeof e.els.pkCloseBtn.onclick === 'function' && typeof e.els.pkStartBtn.onclick === 'function' && typeof e.els.pkSaveBtn.onclick === 'function',
@@ -161,8 +157,12 @@ await sec('── 2. 문 — 자리를 잡기 전에 막는다', async () => {
   chk(e.toasts[0] === '방에 들어간 뒤에 쓸 수 있어요' && !e.opened, '방 밖이면 안내 (Presence 는 읽는 함수)');
   e = mkEnv({ quota: { ok: false, label: '0 / 400', message: '오늘은 닫혔어요' } }); ui = e.mk(); await ui.open();
   chk(e.toasts[0] === '오늘은 닫혔어요' && !e.opened, '정원이 닫혔으면 그 문구');
-  e = mkEnv({ busy: true }); ui = e.mk(); await ui.open();
-  chk(e.toasts[0] === '📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요' && !e.opened, '촬영 중이면 자리를 잡기 전에 막는다');
+  e = mkEnv({ openRes: { ok: false, reason: 'busy' } }); ui = e.mk(); await ui.open();
+  chk(e.toasts[0] === '📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요' && !ui.isOpen(), '촬영 중이면(서버 거절 busy) 안내만');
+  e = mkEnv({ openRes: { ok: false, reason: 'notReady' } }); ui = e.mk(); await ui.open();
+  chk(e.toasts[0] === '서버에 연결된 뒤 쓸 수 있어요' && !ui.isOpen(), '연결 전이면 «서버에 연결된 뒤»');
+  e = mkEnv({ openRes: { ok: false, reason: 'timeout' } }); ui = e.mk(); await ui.open();
+  chk(e.toasts[0] === '지금은 들어갈 수 없어요' && !ui.isOpen(), '그 밖의 거절 · 답 없음은 «지금은 들어갈 수 없어요»');
   e = mkEnv({ openRes: { ok: false, reason: 'full' } }); ui = e.mk(); await ui.open();
   chk(e.toasts[0] === '자리가 다 찼어요 (4명까지)' && !ui.isOpen(), '자리가 다 찼으면 안내');
 });
@@ -172,11 +172,11 @@ await sec('── 3. 열고 닫기 — 가짜 THREE · DOM 위에서', async () 
   await ui.open();
   const PK = ui.state();
   chk(ui.isOpen() && PK.room === 'ROOM1' && PK.slot === 0 && PK.host === true, '열렸다 — 방 · 자리 · 방장');
-  chk(e.opened && e.opened.me.userId === 'uA' && e.opened.me.name === '나', '자리 잡기에 내 아이디 · 이름');
+  chk(e.opened && e.opened.me.userCode === 'uA' && !('name' in e.opened.me), '자리 잡기에 내 코드(userCode) — 이름은 서버가 채운다');
   chk(e.els.pkOverlay.classList.contains('on') && e.front === 'pkOverlay' && e.esc[0].isOpen(), '#pkOverlay.on · 맨 앞으로 · ⎋ 사다리도 열림으로 본다');
-  chk(e.watch === 1 && e.subs.join() === 'rooms/ROOM1/_photo/slots,rooms/ROOM1/_photo/frames', '정원 구독 하나 · slots · frames 구독(창이 열려 있는 동안만)');
+  chk(e.watch === 1 && PK.listening === true && PK.members[0] && PK.members[0].uid === 'uA', '정원 구독 하나 · 자리 · 프레임은 세션 포트에서 듣는다(환영에 실린 첫 값을 바로 그린다)');
   chk(e.configs.length === 1 && e.configs[0].orient === 'p' && e.configs[0].cuts === 4, '방장이면 지금 설정을 방에 알린다');
-  chk(e.fbWrites.join() === 'rooms/ROOM1/_photo/frames', '방장으로 로비를 잡으면 남은 프레임 노드를 비운다');
+  chk(e.frameSets.length === 4 && e.frameSets.every(([i, u], k) => i === k && u === null), '방장으로 로비를 잡으면 남은 프레임 칸 넷을 비운다(setFrameUrl(i, null))');
   chk((e.winL.keydown || []).length === 1 && (e.winL.keyup || []).length === 1 && e.raf.length === 1, '키 둘 · 무대 루프를 건다');
   chk(!!PK.renderer && !!PK.scene && !!PK.cam, '전용 렌더러 · 씬 · 카메라');
   chk(e.pause === 1 && e.plPlaying === false && e.plRender === 1 && PK.hushed && PK.hushed.pl === true, '듣던 플레이리스트를 재우고 ▶ 표시도 내린다 (setPlPlaying(false))');
@@ -190,7 +190,7 @@ await sec('── 3. 열고 닫기 — 가짜 THREE · DOM 위에서', async () 
   chk(ui.phase() === 'shooting', 'phase 는 PK.state 를 그대로 (회사원 모드가 이걸 본다)');
   PK.state = 'lobby'; PK.cutIdx = -1;
   chk(ui.close(false) === true && !ui.isOpen(), '로비에서는 닫힌다');
-  chk(e.unwatch === 1 && e.unsubs === 2 && e.closed === 1, '닫으면 정원 · slots · frames 구독을 풀고 자리를 내놓는다');
+  chk(e.unwatch === 1 && PK.listening === false && e.closed === 1, '닫으면 정원 구독을 풀고 · 자리 · 프레임 듣기를 끊고 · 자리를 내놓는다');
   chk((e.winL.keydown || []).length === 0 && (e.winL.keyup || []).length === 0, '키를 돌려준다');
   chk(!e.els.pkOverlay.classList.contains('on') && !PK.renderer && PK.room === null && PK.slot === -1, '창을 숨기고 무대를 치운다');
   chk(e.audio[0].paused === true && e.resume === 1 && e.plPlaying === true && e.plRender === 2, 'BGM 을 끄고 재웠던 플레이리스트만 되살린다 (setPlPlaying(true))');
@@ -231,6 +231,9 @@ await sec('── 4. 세션 콜백 — 창이 닫혀 있어도 안 터진다', (
   let ok = true;
   try{ ui.onMeta({ state: 'lobby' }); ui.onPeerEvent(1, { k: 'j', at: 1 }); ui.onShot({ i: 0, at: 1 }); }catch(err){ ok = false; say('    ' + err.message); }
   chk(ok && !ui.isOpen(), 'onMeta · onPeerEvent · onShot — 닫혀 있으면 조용히 흘린다');
+  let ok2 = true;
+  try{ ui.onSlots({ 0: { uid: 'x', name: '남' } }); ui.onFrames({ 0: 'https://x/0.webp' }); }catch(err){ ok2 = false; say('    ' + err.message); }
+  chk(ok2 && Object.keys(ui.state().members || {}).length === 0, '★ onSlots · onFrames — 듣는 중이 아니면(닫힘 · 꾸미기) 남의 세션 자리를 그리지 않는다');
 });
 
 await sec('── 5. app.js 배선', () => {
@@ -244,7 +247,7 @@ await sec('── 5. app.js 배선', () => {
   chk(iEntry > 0 && iMk > iEntry && iNext > iMk, '원래 자리 — 세션 입구(_purikura) 뒤 · 🔫 러시안룰렛 앞');
   chk(/onPeers: p => \{ purikuraUi\.onPeers\(p\); \}/.test(APP) && /onMeta : m => \{ purikuraUi\.onMeta\(m\); \}/.test(APP)
     && /onEvent: \(slot, ev\) => \{ purikuraUi\.onPeerEvent\(slot, ev\); \}/.test(APP) && /onShot : s => \{ purikuraUi\.onShot\(s\); \}/.test(APP),
-    '세션 콜백 넷이 모듈로 들어간다');
+    '세션 콜백이 모듈로 들어간다');
   chk(/try\{ if\(purikuraUi\.isOpen\(\)\) return; \}catch\(_\)\{\}/.test(code) && /try\{ await purikuraUi\.open\(\); \}/.test(strip(CW))
     && /if\(purikuraUi\.isOpen\(\)\)\{\s*if\(purikuraUi\.phase\(\) === 'shooting'\)[^\n]*\n\s*else if\(purikuraUi\.close\(true\)\)/.test(code),
     '부르는 곳 — 때리기 조준 키 · 📷 버튼(chat-window.js) · 회사원 모드 켜기');
@@ -253,8 +256,8 @@ await sec('── 5. app.js 배선', () => {
   chk(!/\bPURIKURA_UI_OFF\b/.test(APP), '빈 껍데기 PURIKURA_UI_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
   const call = (APP.match(/TwPurikuraUi\.createPurikuraUi\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 28 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
-    'deps 28개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
+  chk(deps.length === 27 && deps.every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>|v=>\{ (_\w+|plMod\.st\.\w+) = v; \},$|[A-Z_]+,$)|^seats,$/.test(l)),
+    'deps 27개 — 함수는 화살표로 감싼다(부를 때 찾게) · 값은 상수만 (' + deps.length + ')');
   chk(/plPlaying: \(\)=>plMod\.st\.playing,/.test(call) && /setPlPlaying: v=>\{ plMod\.st\.playing = v; \},/.test(call) && /officeMode: \(\)=>officeMode,/.test(call),
     '다시 대입되는 let(officeMode · _plPlaying — playlist.js 상태 묶음 plMod.st.playing)은 읽는 함수로 · 쓰기는 setPlPlaying');
   chk(['presence: ()=>Presence', 'spineAxis: ()=>SPINE_AXIS', 'headAxis: ()=>HEAD_AXIS', 'handRest: ()=>HAND_REST', 'shakeArmDroop: ()=>SHAKE_ARM_DROOP'].every(s => call.indexOf(s) >= 0)

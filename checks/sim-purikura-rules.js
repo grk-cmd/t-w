@@ -219,31 +219,15 @@ say('· §5 기존 앱이 쓰던 길이 안 막혔는가 (잠그는 사고가 �
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
-say('· §6 어댑터 경계 — null 을 삭제로 읽지 않는가');
+say('· §6 앱은 이 규칙 자리를 직접 쓰지 않는다 — 세션 · 정원은 세션 포트(purikura-rt.js)');
 {
-  /* purikura-net.js 는 "쓰지 않는다"를 null 로 돌려준다. firebase 의 runTransaction 은
-     null 을 **삭제**로 읽고 커밋한다(중단은 undefined). 그대로 넘기면 200번째 다음 사람이
-     photoQuota 를 지우고 카운터가 0 부터 다시 시작한다 — 규칙도 못 막는다(.validate 는
-     삭제에 안 돈다). 화면에는 아무 표시가 안 나고 오히려 "잘 찍힌다".
-     firebase-init.js 는 ESM 이라 node 에서 못 굴리므로, 아래 둘을 각각 확인한다. */
-  const day = Purikura.kstDay(Date.now());
-  chk(Purikura.quotaNext({ day, n: Purikura.CAP_PER_DAY }, day) === null,
-      '★ 정원이 다 찼을 때 계층이 null 을 돌려준다 (= 위험이 살아 있다)');
-
+  /* 0.13 은 스티커사진 세션 · 하루 정원을 서버가 가진다. 앱에 Firebase 쓰기 길이 남으면 정원을 두 곳이 세게 된다. */
   const src = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : '';
-  const i = src.indexOf('pkTransaction(');
-  const body = i >= 0 ? src.slice(i, i + 900) : '';
-  chk(i >= 0, 'firebase-init.js 에 pkTransaction 어댑터가 있다');
-  chk(/===\s*null\s*\)\s*\?\s*undefined/.test(body),
-      '★ 어댑터가 null 을 undefined(중단)로 바꿔서 넘긴다 — 이 한 줄이 하루 정원을 지킨다');
-  chk(/committed/.test(body) && /snapshot/.test(body),
-      '  ↳ {committed, value} 모양으로 돌려준다 (계층이 그 모양만 본다)');
-
-  const need = ['pkGet', 'pkSet', 'pkUpdate', 'pkRemove', 'pkTransaction', 'pkOnValue', 'pkOnDisconnectRemove'];
-  const miss = need.filter(n => src.indexOf(n + '(') < 0);
-  chk(miss.length === 0, '어댑터 7개가 전부 있다' + (miss.length ? ' — 빠짐: ' + miss.join(', ') : ''));
-  chk(/return \(\) => \{ try\{ un\(\); \}/.test(src),
-      '★ pkOnValue 가 해제 함수를 돌려준다 (삼키면 구독이 영영 안 끊긴다)');
+  const gone = ['pkGet', 'pkSet', 'pkUpdate', 'pkRemove', 'pkTransaction', 'pkOnValue', 'pkOnDisconnectRemove', 'pkOnDisconnectCancel'];
+  const left = gone.filter(n => src.indexOf(n + '(') >= 0);
+  chk(src.length > 0 && left.length === 0, '★ firebase-init.js 에 스티커사진 세션 어댑터가 없다' + (left.length ? ' — 남음: ' + left.join(', ') : ''));
+  chk(!/photoQuota|_photo/.test(src.replace(/\/\*[\s\S]*?\*\//g, '')), '  photoQuota · _photo 경로를 읽거나 쓰지 않는다(주석 빼고)');
+  chk(/async pkUploadFrame\(path, dataUrl\)\{/.test(src), '  프레임 그림 올리기(Storage)만 남았다');
 }
 
 console.log(fail ? '\n✗ ' + fail + '곳 실패' : '\n전부 통과 ✅ — 병합된 규칙이 요금과 앱 둘 다 지키고 있다');
