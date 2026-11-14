@@ -1,7 +1,7 @@
 /* gift-api.js — 🧸 말랑이 · 🎁 선물 api provider (검사 sim-gift-api.js)
-   책임: 내 말랑이 칸 읽기 · 통째 저장(GET · PUT /v1/me/mallangs) · 그림 올리기(POST /v1/me/images?purpose=mallang) · 남의 집 칸(GET /v1/mallangs/{userCode}) ·
-     내 선물함(GET /v1/me/gifts) · 봤음(POST …/seen) · ⭐ · 치움(PATCH …/{id}) · 지우기(DELETE …/{id}) · 오늘 보낸 수(GET …/sent-today) ·
-     그 집에 나온 선물(GET /v1/gifts/{userCode}) · 보내기(POST /v1/gifts/{userCode}).
+   책임: 내 말랑이 칸 읽기 · 통째 저장(GET · PUT /v2/me/mallangs) · 그림 올리기(POST /v2/me/images?purpose=mallang) · 남의 집 칸(GET /v2/mallangs/{userCode}) ·
+     내 선물함(GET /v2/me/gifts) · 봤음(POST …/seen) · ⭐ · 치움(PATCH …/{id}) · 지우기(DELETE …/{id}) · 오늘 보낸 수(GET …/sent-today) ·
+     그 집에 나온 선물(GET /v2/gifts/{userCode}) · 보내기(POST /v2/gifts/{userCode}).
      서버 모양(sentAt ISO)을 화면 모양(sentAt ms)으로 맞추는 곳은 여기뿐이다.
      칸 번호: 받은 칸은 서버 slot 을 그대로 들고 있지만 보내기는 번호를 쓰지 않는다 — 칸 저장(PUT)이 배열 차례로 0부터 다시 매기므로 번호는 낡을 수 있다. 보내기는 누른 그림의 imageUrl 을 보내고 서버가 내 칸에서 찾는다.
    신원: 보낸 사람 · 내 칸은 서버가 토큰에서 정한다 — 본문에 내 코드 · 이름 · 날짜를 싣지 않는다(보내기는 누른 그림의 주소만 싣는다). 경로의 코드는 받는 사람 · 방문한 집(데이터 주소).
@@ -30,15 +30,15 @@
 'use strict';
 
 const PATHS = Object.freeze({
-  mine: '/v1/me/mallangs',
-  of: (userCode) => '/v1/mallangs/' + encodeURIComponent(userCode),
-  image: '/v1/me/images?purpose=mallang',
-  box: '/v1/me/gifts',
-  seen: '/v1/me/gifts/seen',
-  one: (id) => '/v1/me/gifts/' + encodeURIComponent(id),
-  sentToday: '/v1/me/gifts/sent-today',
-  visible: (userCode) => '/v1/gifts/' + encodeURIComponent(userCode),
-  send: (userCode) => '/v1/gifts/' + encodeURIComponent(userCode),
+  mine: '/v2/me/mallangs',
+  of: (userCode) => '/v2/mallangs/' + encodeURIComponent(userCode),
+  image: '/v2/me/images?purpose=mallang',
+  box: '/v2/me/gifts',
+  seen: '/v2/me/gifts/seen',
+  one: (id) => '/v2/me/gifts/' + encodeURIComponent(id),
+  sentToday: '/v2/me/gifts/sent-today',
+  visible: (userCode) => '/v2/gifts/' + encodeURIComponent(userCode),
+  send: (userCode) => '/v2/gifts/' + encodeURIComponent(userCode),
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 거절한다 */
 const LIMITS = Object.freeze({ SLOTS: 4, MESSAGE: 50, IMAGE_BYTES: 1024 * 1024 });
@@ -107,14 +107,14 @@ function giftOf(raw){
     || typeof raw.starred !== 'boolean' || typeof raw.hidden !== 'boolean') return undefined;
   return { id: raw.id, senderName: raw.senderName, imageUrl: raw.imageUrl, message: str(raw.message), starred: raw.starred, hidden: raw.hidden, sentAt: msOf(raw.sentAt) };
 }
-/* GET /v1/me/gifts → 선물함. 한 줄이 깨져 있으면 그 줄만 뺀다 · 숫자 칸이 틀리면 undefined */
+/* GET /v2/me/gifts → 선물함. 한 줄이 깨져 있으면 그 줄만 뺀다 · 숫자 칸이 틀리면 undefined */
 function boxOf(d){
   if(!isObj(d) || !Array.isArray(d.items) || !cnt(d.unseenCount) || !cnt(d.starCount) || !cnt(d.boxKeep) || !cnt(d.starMax)) return undefined;
   const items = [];
   for(const raw of d.items){ const g = giftOf(raw); if(g) items.push(g); }
   return { items, unseenCount: d.unseenCount, starCount: d.starCount, boxKeep: d.boxKeep, starMax: d.starMax };
 }
-/* GET /v1/gifts/{code} → 그 집에 나온 선물. 모양이 틀리면 undefined */
+/* GET /v2/gifts/{code} → 그 집에 나온 선물. 모양이 틀리면 undefined */
 function visibleOf(d){
   if(!isObj(d) || !Array.isArray(d.items) || !cnt(d.visibleCount) || !cnt(d.recipientCap)) return undefined;
   const items = [];

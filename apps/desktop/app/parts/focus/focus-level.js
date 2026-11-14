@@ -2,7 +2,7 @@
    책임: 집중한 초를 오늘치 · 이번 실행 시간에 더하고 서버에 올릴 몫으로 넘긴다(addFocusSeconds) · 서버가 준 레벨 · 별 색을 읽는 이름을 한 곳에 모은다
      (getFocusLevel · myFocusShow · myStarOut · getStarColor · setStarColor — 값의 주인은 focus-progress.js) · 남의 별 모양 받기(starFromRemote) · 별 문자열(lvStarStr) · 📱 태블릿·폰 포커싱 연결.
    레벨 · 회차를 앱이 누적에서 세지 않는다 · 해금 안내 우편은 서버 알림이 한다 · 프로필(Firebase)에 레벨 · 별을 쓰지 않는다.
-   ★ 📱 폰 연결은 서버 길이다 — 폰 상태는 realtime `mobileFocus`(on · app · at) 그대로, 키 만들기 · 끊기는 focus-api.js(POST · DELETE /v1/me/focus/mobile-link).
+   ★ 📱 폰 연결은 서버 길이다 — 폰 상태는 realtime `mobileFocus`(on · app · at) 그대로, 키 만들기 · 끊기는 focus-api.js(POST · DELETE /v2/me/focus/mobile-link).
      키 원문은 만들 때 한 번만 오므로 계정 칸 tw.mobileKey 에 둔다(QR 다시 보기). 키 만들기 · 끊기는 «읽은 진척의 주인» 과 묶이므로(expectOwner) 먼저 진척을 받은 뒤에 부른다.
    ★ 밖에서 부르는 이름: STAR_PALETTE · _mobileBubbleText · _mobileCleanApp · _mobileOn · _mobileRoomLabel · startMobile · _seatMobileApp · addFocusSeconds · focusCycleOf · formatHMS · getFocusLevel · getStarColor · lvStarStr · myFocusShow · myStarOut · setStarColor · starFromRemote — app.js 는 focusLevelMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).

@@ -1,5 +1,5 @@
 /* maintenance-gate.js — 🛠 서버 점검: 점검이 켜진 동안 서버를 쓰는 기능을 누르면 «서버 점검 중» 창 (검사 sim-maintenance-gate.js)
-   [어디서 읽나 — 0.13 · 사용자 결정 2026-11-14] 서버 GET /v1/config 의 maintenance { on, endsAt(ISO), message } 를 먼저 읽는다(ADMIN_ONLY 중에도 이 길만 열려 있다).
+   [어디서 읽나 — 0.13 · 사용자 결정 2026-11-14] 서버 GET /v2/config 의 maintenance { on, endsAt(ISO), message } 를 먼저 읽는다(ADMIN_ONLY 중에도 이 길만 열려 있다).
      서버에 닿지 못할 때만(네트워크 · 5xx · 시간 초과 — 4xx 는 아님) Firebase config/maintenance 한 칸을 한 번 읽는다(readFlag). 점검 상태의 주인은 이 모듈 하나(cur).
      읽는 때(P3): 앱 켤 때 · realtime 알림 config · realtime 이 점검(4006)으로 닫을 때 · [다시 시도] 를 누를 때. 혼자 주기로 묻지 않고 칸을 계속 듣지도 않는다.
    [왜] 점검 동안은 규칙이 이 한 칸 말고 Firebase 를 다 막고 API 도 멈춘다. 이 PC 에서만 도는 기능(책상 · 꾸미기 · 뽀모도로)은 그대로 두고,
@@ -25,7 +25,7 @@
 
 const MAINTENANCE_PATH = 'config/maintenance';
 const GATE_ID = 'maintGateOverlay';          // desktop-run.js UI_HIT_SEL 에도 있어야 클릭을 받는다
-const CONFIG_PATH = '/v1/config';
+const CONFIG_PATH = '/v2/config';
 const SIGNAL_GAP_MS = 3000;                  // 서버 신호(4006)로 다시 읽을 때 최소 간격 — 서버가 «점검 아님» 인데 realtime 이 4006 이면 돌고 돌지 않게
 const MESSAGE_MAX = 200;                     // 규칙 config/maintenance/message 와 같은 값
 const ACTIVE_MS = 1000;                      // 누른 뒤 이 안에 나간 요청만 «그 동작이 낸 것» 으로 본다
@@ -41,7 +41,7 @@ function maintenanceOf(raw){
   return { endsAt, message };
 }
 
-/* 서버 /v1/config 의 maintenance → 점검이면 { endsAt(ms), message }, 아니면 null. on 이 정확히 true 일 때만. endsAt 은 ISO 시각 글자(UTC). */
+/* 서버 /v2/config 의 maintenance → 점검이면 { endsAt(ms), message }, 아니면 null. on 이 정확히 true 일 때만. endsAt 은 ISO 시각 글자(UTC). */
 function maintenanceOfServer(raw){
   if(!raw || typeof raw !== 'object' || raw.on !== true) return null;
   const t = (typeof raw.endsAt === 'string') ? Date.parse(raw.endsAt) : NaN;
@@ -94,7 +94,7 @@ function createMaintenance(deps){
   let rtRetry = null;         // realtime 서버가 점검(4006)으로 닫았다 — [다시 시도] · 점검 해제 때 한 번 부를 함수(다시 붙기)
   let rtDismiss = null;       // 그 창을 «확인» 으로 닫을 때 retry 를 넘겨받는 곳
   let rtShown = false;        // 그 창이 떠 있다 — 이 동안만 on() 이 참(닫은 뒤엔 오류 알림을 다시 켠다)
-  let readServer = deps.readServer || null;   // 서버 GET /v1/config 읽기 — start 가 잇는다(api-client.js 를 직접 부르면 서로 부르는 순환이 된다)
+  let readServer = deps.readServer || null;   // 서버 GET /v2/config 읽기 — start 가 잇는다(api-client.js 를 직접 부르면 서로 부르는 순환이 된다)
   let readFlag = deps.readFlag || null;      // 서버에 닿지 못할 때만 쓰는 Firebase 한 칸 읽기 — start 가 잇는다
   let checking = null;        // 읽는 중인 약속 — 같은 때 둘이 읽지 않는다
   let lastDone = -Infinity;
@@ -130,7 +130,7 @@ function createMaintenance(deps){
     ui.show(viewOf(cur || { endsAt: null, message: '' }, now(), true), press);
   }
 
-  /* 점검 값을 한 번 읽는다 — 서버(/v1/config)가 먼저 · 닿지 못하면(unreachable) Firebase 한 칸 · 4xx 나 모르는 답은 지금 값 그대로.
+  /* 점검 값을 한 번 읽는다 — 서버(/v2/config)가 먼저 · 닿지 못하면(unreachable) Firebase 한 칸 · 4xx 나 모르는 답은 지금 값 그대로.
      한 번에 하나만 읽는다(읽는 중에 또 부르면 같은 약속을 돌려준다). */
   function check(){
     if(checking) return checking;
@@ -153,7 +153,7 @@ function createMaintenance(deps){
     })();
     return checking;
   }
-  /* 앱 켤 때 한 번 부른다 — deps: { readServer(GET /v1/config), readFlag(Firebase 한 칸 읽기), rt(TwRtHub.store — on('config', fn)) }. 서버가 바꿨다는 알림이 오면 다시 읽는다. */
+  /* 앱 켤 때 한 번 부른다 — deps: { readServer(GET /v2/config), readFlag(Firebase 한 칸 읽기), rt(TwRtHub.store — on('config', fn)) }. 서버가 바꿨다는 알림이 오면 다시 읽는다. */
   function start(o){
     if(o && o.readServer) readServer = o.readServer;
     if(o && o.readFlag) readFlag = o.readFlag;

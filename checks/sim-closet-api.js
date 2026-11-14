@@ -64,7 +64,7 @@ await sec('── 1. 순수', () => {
 await sec('── 2. load', async () => {
   const a = mkAuthed(() => CLOSET);
   const c = await mk(a).load();
-  chk(a.calls.length === 1 && a.calls[0].path === '/v1/me/avatars' && a.calls[0].opts.auth === true && a.calls[0].opts.timeoutMs === M.LOAD_TIMEOUT_MS && typeof a.calls[0].opts.onOwner === 'function' && c.slots[0] === 'a',
+  chk(a.calls.length === 1 && a.calls[0].path === '/v2/me/avatars' && a.calls[0].opts.auth === true && a.calls[0].opts.timeoutMs === M.LOAD_TIMEOUT_MS && typeof a.calls[0].opts.onOwner === 'function' && c.slots[0] === 'a',
       '로그인 통로로 GET 한 번 · 시간 제한 · 주인 알림');
   let threw = null;
   try{ await mk(mkAuthed(() => ({ slots: 1 }))).load(); }catch(e){ threw = e; }
@@ -83,41 +83,41 @@ await sec('── 3. 쓰기', async () => {
   }
   chk(a0.calls.length === 0, '  요청이 하나도 안 나갔다');
   const { a, c } = await ready((q) => {
-    if(q.kind === 'get' && q.path === '/v1/me/avatars') return CLOSET;
-    if(q.kind === 'post' && q.path === '/v1/me/avatars') return { avatarId: 'n1', version: 1 };
+    if(q.kind === 'get' && q.path === '/v2/me/avatars') return CLOSET;
+    if(q.kind === 'post' && q.path === '/v2/me/avatars') return { avatarId: 'n1', version: 1 };
     if(q.kind === 'put') return { version: 4 };
     if(q.path.endsWith('/move')) return CLOSET;
-    if(q.path === '/v1/me/avatars/trash' && q.kind === 'post') return [{ id: 'a', ok: true }, { id: 'zz', ok: false, code: 'AVATAR_NOT_FOUND' }];
+    if(q.path === '/v2/me/avatars/trash' && q.kind === 'post') return [{ id: 'a', ok: true }, { id: 'zz', ok: false, code: 'AVATAR_NOT_FOUND' }];
     if(q.path.endsWith('/restore')) return { avatarId: 'r1' };
-    if(q.kind === 'get' && q.path.startsWith('/v1/me/avatars/trash')) return { items: [{ trashId: 't1', avatarId: 'a', reason: 'DELETED', thumbUrl: null, faceUrl: null, trashedAt: '2026-11-01T00:00:00Z', expiresAt: '2026-11-04T00:00:00Z' }, { bad: 1 }], nextCursor: 'cur' };
+    if(q.kind === 'get' && q.path.startsWith('/v2/me/avatars/trash')) return { items: [{ trashId: 't1', avatarId: 'a', reason: 'DELETED', thumbUrl: null, faceUrl: null, trashedAt: '2026-11-01T00:00:00Z', expiresAt: '2026-11-04T00:00:00Z' }, { bad: 1 }], nextCursor: 'cur' };
     if(q.kind === 'get') return { def: { skin: 9 }, version: 3, place: 'BOX' };
     return CLOSET;
   });
   let r = await c.create(1, { skin: 1 });
-  chk(a.calls[0].kind === 'post' && a.calls[0].path === '/v1/me/avatars' && a.calls[0].body.slot === 1 && a.calls[0].body.def.skin === 1 && a.calls[0].body.requestId === 'rid-1' && a.calls[0].opts.expectOwner === 'uA' && r.avatarId === 'n1',
+  chk(a.calls[0].kind === 'post' && a.calls[0].path === '/v2/me/avatars' && a.calls[0].body.slot === 1 && a.calls[0].body.def.skin === 1 && a.calls[0].body.requestId === 'rid-1' && a.calls[0].opts.expectOwner === 'uA' && r.avatarId === 'n1',
       'create — POST · 칸 · def · 새 요청 이름 · 읽은 주인과 묶음');
   await c.create(2, {});
   chk(a.calls[1].body.requestId === 'rid-2', '  누를 때마다 새 요청 이름');
   r = await c.update('a b', 3, { skin: 2 });
-  chk(a.calls[2].kind === 'put' && a.calls[2].path === '/v1/me/avatars/a%20b' && a.calls[2].body.baseVersion === 3 && a.calls[2].body.def.skin === 2 && a.calls[2].opts.expectOwner === 'uA' && r.version === 4, 'update — PUT · 마지막으로 받은 판 · 주소 글자 막기');
+  chk(a.calls[2].kind === 'put' && a.calls[2].path === '/v2/me/avatars/a%20b' && a.calls[2].body.baseVersion === 3 && a.calls[2].body.def.skin === 2 && a.calls[2].opts.expectOwner === 'uA' && r.version === 4, 'update — PUT · 마지막으로 받은 판 · 주소 글자 막기');
   r = await c.move('a', 'SLOT');
-  chk(a.calls[3].path === '/v1/me/avatars/a/move' && a.calls[3].body.to === 'SLOT' && r.slots[0] === 'a', 'move — 옷장을 돌려받는다');
+  chk(a.calls[3].path === '/v2/me/avatars/a/move' && a.calls[3].body.to === 'SLOT' && r.slots[0] === 'a', 'move — 옷장을 돌려받는다');
   await c.move('a', '아무거나');
   chk(a.calls[4].body.to === 'BOX', '  모르는 자리는 BOX 로(슬롯으로 잘못 가지 않게)');
   r = await c.trash(['a', 'zz']);
-  chk(a.calls[5].path === '/v1/me/avatars/trash' && a.calls[5].body.avatarIds.join() === 'a,zz' && r.length === 2 && r[0].ok && !r[1].ok && r[1].code === 'AVATAR_NOT_FOUND', 'trash — 줄마다 결과(없는 것은 ok:false)');
+  chk(a.calls[5].path === '/v2/me/avatars/trash' && a.calls[5].body.avatarIds.join() === 'a,zz' && r.length === 2 && r[0].ok && !r[1].ok && r[1].code === 'AVATAR_NOT_FOUND', 'trash — 줄마다 결과(없는 것은 ok:false)');
   const many = []; for(let i = 0; i < 40; i++) many.push('x' + i);
   await c.trash(many);
   chk(a.calls[6].body.avatarIds.length === 25, '  한 번에 25개까지(서버 상한)');
   a.calls.length = 0; r = await c.trash([]);
   chk(r.length === 0 && a.calls.length === 0, '  빈 목록은 요청 0');
   r = await c.restore('t1');
-  chk(a.calls[0].path === '/v1/me/avatars/trash/t1/restore' && a.calls[0].body.requestId === 'rid-3' && r.avatarId === 'r1' && r.closet === null, 'restore — 새 요청 이름 · avatarId 만 오면 closet 은 null(판 · 시각을 지어내지 않는다)');
+  chk(a.calls[0].path === '/v2/me/avatars/trash/t1/restore' && a.calls[0].body.requestId === 'rid-3' && r.avatarId === 'r1' && r.closet === null, 'restore — 새 요청 이름 · avatarId 만 오면 closet 은 null(판 · 시각을 지어내지 않는다)');
   const q2 = await ready((x) => x.kind === 'post' ? Object.assign({ avatarId: 'r2' }, CLOSET) : CLOSET);
   const r2 = await q2.c.restore('t2');
   chk(r2.avatarId === 'r2' && r2.closet && r2.closet.avatars.length === 3, '  서버가 move 처럼 옷장을 같이 주면 씻어서 돌려준다')
   r = await c.fetchOne('c');
-  chk(a.calls[1].path === '/v1/me/avatars/c' && r.def.skin === 9 && r.version === 3 && r.place === 'BOX', 'fetchOne');
+  chk(a.calls[1].path === '/v2/me/avatars/c' && r.def.skin === 9 && r.version === 3 && r.place === 'BOX', 'fetchOne');
   /* 실패는 그대로 던지고 한 번만 */
   for(const err of [apiErr('request', 'AVATAR_BOX_FULL', 409), apiErr('request', 'AVATAR_ITEM_NOT_USABLE', 409, [{ id: 'p' }]), apiErr('unavailable', 'TIMEOUT'), apiErr('auth', 'OWNER_CHANGED')]){
     const q = await ready((x) => { if(x.kind === 'get') return CLOSET; throw err; });
@@ -129,14 +129,14 @@ await sec('── 3. 쓰기', async () => {
 });
 
 await sec('── 4. 휴지통 · 첫 실행 올리기', async () => {
-  const { a, c } = await ready((q) => (q.kind === 'get' && q.path !== '/v1/me/avatars') ? { items: [], nextCursor: null } : CLOSET);
+  const { a, c } = await ready((q) => (q.kind === 'get' && q.path !== '/v2/me/avatars') ? { items: [], nextCursor: null } : CLOSET);
   const p = await c.trashPage({ cursor: 'a=b', limit: 999 });
-  chk(a.calls[0].path === '/v1/me/avatars/trash?cursor=a%3Db&limit=50' && p.items.length === 0 && p.nextCursor === null, 'trashPage — 커서는 글자 막아서 · 쪽 크기 상한 50 · 빈 휴지통은 성공');
+  chk(a.calls[0].path === '/v2/me/avatars/trash?cursor=a%3Db&limit=50' && p.items.length === 0 && p.nextCursor === null, 'trashPage — 커서는 글자 막아서 · 쪽 크기 상한 50 · 빈 휴지통은 성공');
   await c.trashPage({});
-  chk(a.calls[1].path === '/v1/me/avatars/trash?limit=50', '  첫 쪽은 커서 없이');
+  chk(a.calls[1].path === '/v2/me/avatars/trash?limit=50', '  첫 쪽은 커서 없이');
   await c.legacySync([{ legacyCid: 'cabc123456', def: { skin: 1 }, editedAt: Date.UTC(2026, 9, 1), slot: 2 }, { def: {}, editedAt: 0, slot: null }]);
   const b = a.calls[2].body;
-  chk(a.calls[2].path === '/v1/me/avatars/legacy-sync' && b.requestId && b.items.length === 2 && b.items[0].legacyCid === 'cabc123456' && b.items[0].editedAt === '2026-10-01T00:00:00.000Z' && b.items[0].slot === 2
+  chk(a.calls[2].path === '/v2/me/avatars/legacy-sync' && b.requestId && b.items.length === 2 && b.items[0].legacyCid === 'cabc123456' && b.items[0].editedAt === '2026-10-01T00:00:00.000Z' && b.items[0].slot === 2
       && b.items[1].legacyCid === null && b.items[1].slot === null && b.items[1].editedAt === '1970-01-01T00:00:00.000Z', 'legacySync — 옛 cid · 시각은 ISO · 칸');
   const many = []; for(let i = 0; i < 30; i++) many.push({ def: {}, editedAt: 1, slot: null });
   await c.legacySync(many);

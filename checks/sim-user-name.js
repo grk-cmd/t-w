@@ -60,7 +60,7 @@ const R = judge(MOD, HTML, APP);
 
 say('── 1. 저장');
 chk(!R.err && R.max && R.cut, '앞뒤 빈칸을 지우고 12자로 자른다' + (R.err ? ' — ' + R.err : ''));
-chk(R.side, '저장 뒤 서버 계정 이름(PATCH /v1/me) · 방 이름표 · 마이홈 표시를 같은 값으로 갱신');
+chk(R.side, '저장 뒤 서버 계정 이름(PATCH /v2/me) · 방 이름표 · 마이홈 표시를 같은 값으로 갱신');
 chk(R.empty, '비우면 «나»');
 chk(R.staff && R.admin && R.same, '운영진처럼 보이는 이름은 막는다 — 관리자 · 이미 그 이름인 사람은 예외(name-guard.js)');
 chk(R.noRoom, '방에 없으면 이름표는 안 건드린다');

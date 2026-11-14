@@ -97,8 +97,8 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 
 ## `notice-api.js` · `notice-feed.js` — 📢 공지 한 판(소식 · 업데이트 공지 · 런처 배너)
 
-**책임** — 공지의 원본은 서버다. `GET /v1/notices`(공개 · ETag — 같으면 304) 한 번에 소식(고정 + 최신 30) · 업데이트 공지 · 런처 배너를 받는다.
-`notice-api.js` 는 서버 모양(대문자 `tag` · `publishedAt` · `imageUrl` · `linkUrl`)을 화면 모양(소문자 tag · `ts` ms · `img` · `link`)으로 맞추는 provider 한 곳이고, 관리자 소식 쓰기(올리기 `POST /v1/admin/notices/broadcasts` · 📌 `PATCH` · 내리기 `DELETE`)도 여기다.
+**책임** — 공지의 원본은 서버다. `GET /v2/notices`(공개 · ETag — 같으면 304) 한 번에 소식(고정 + 최신 30) · 업데이트 공지 · 런처 배너를 받는다.
+`notice-api.js` 는 서버 모양(대문자 `tag` · `publishedAt` · `imageUrl` · `linkUrl`)을 화면 모양(소문자 tag · `ts` ms · `img` · `link`)으로 맞추는 provider 한 곳이고, 관리자 소식 쓰기(올리기 `POST /v2/admin/notices/broadcasts` · 📌 `PATCH` · 내리기 `DELETE`)도 여기다.
 `notice-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음, realtime `notices` 알림이 오면(오래 끊겼다 붙을 때 포함) 다시 받기, 받는 쪽마다 `onChange`.
 옛 장치는 걷었다: 버전 확인 + 이 PC 캐시(`broadcast-cache.js`) · 배너를 `localStorage('tw.adBanner')` 에 옮겨 적기 · 확성기의 `ts + duration` 계산.
 

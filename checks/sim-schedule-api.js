@@ -1,12 +1,12 @@
 /* ═══ 📅 sim-schedule-api.js — 일정 · 디데이 · 일정 알림 api provider (0.13 앱 묶음 D6) ═══
-   [왜] 일정 · 디데이 보드 · 친구 태그 알림이 Firebase 대신 우리 서버 공개 API(/v1/me/schedules · /v1/me/ddays · /v1/me/notifications)를 쓴다.
+   [왜] 일정 · 디데이 보드 · 친구 태그 알림이 Firebase 대신 우리 서버 공개 API(/v2/me/schedules · /v2/me/ddays · /v2/me/notifications)를 쓴다.
      서버 모양(visibility · countFromOne · bgImage · cards / banners 두 목록 · 판 version)을 화면 모양(public · base1 · bgImg · kind · order)으로 맞추는 곳이
      provider 하나라 그 맞춤을 가짜 authed 위에서 실제로 불러 판정한다.
    ・1절: 일정 읽기 — 경로 · 모양 맞춤 · 다른 달 줄은 버림 · 빈 달({}) ≠ 못 읽음(던짐) · 모양 틀림은 던짐 · 남의 일정 경로
    ・2절: 일정 쓰기 — 본문(requestId · visibility · 태그하면 공개) · 읽은 토큰 주인 묶기(expectOwner) · 받기 전엔 요청 0 · 지우기 경로(판) · 글자 상한
    ・3절: 디데이 보드 읽기 — 두 목록 → 한 맵(order = 목록 순서 · kind · base1 · 그림) · 빈 보드 ≠ 못 읽음 · 남의 보드 · 순서 정렬(order → 만든 순)
    ・4절: 디데이 보드 저장 — 본문(판 · 두 목록 순서 · 새 장은 ddayId 없음 · 배너는 셈법 · 그림 없음) · 태그 위치 · 판 갱신 · 409 뒤엔 다시 받기 전 쓰기 막힘 · 계정 바뀜
-   ・5절: 카드 그림 — data: 만 서버(POST /v1/me/images?purpose=dday · 바이트 그대로)에 올려 주소로 바꿈 · 1MB 넘음 · 형식 아님 · 400 / 413 / 415 → IMAGE_UPLOAD · 올리기 실패면 보드를 보내지 않음 · 계정 바뀜
+   ・5절: 카드 그림 — data: 만 서버(POST /v2/me/images?purpose=dday · 바이트 그대로)에 올려 주소로 바꿈 · 1MB 넘음 · 형식 아님 · 400 / 413 / 415 → IMAGE_UPLOAD · 올리기 실패면 보드를 보내지 않음 · 계정 바뀜
    ・6절: 🔔 알림 — 일정 태그만 · 모양 · 지우기
    ・7절: 배선 — 부르는 곳이 firebaseAPI 로 일정을 안 부름 · firebase-init 에 옛 메서드가 없음 · html · smoke 순서
    ・8절: 일부러 깨 보기
@@ -46,7 +46,7 @@ function fake(routes, who){
     if(method !== 'GET' && opts && opts.expectOwner && opts.expectOwner !== state.who) throw Object.assign(new Error('owner'), { code: 'OWNER_CHANGED', kind: 'auth' });   // 요청이 나가기 전에 끝난다(요청 0)
     log.push({ method, path, body, opts });
     if(method === 'GET' && opts && opts.onOwner) opts.onOwner(state.who);
-    const key = method + ' ' + path.split('?')[0].replace(/\/v1\/me\/schedules\/[^/]+$/, '/v1/me/schedules/:id').replace(/\/v1\/me\/notifications\/[^/]+$/, '/v1/me/notifications/:id');
+    const key = method + ' ' + path.split('?')[0].replace(/\/v2\/me\/schedules\/[^/]+$/, '/v2/me/schedules/:id').replace(/\/v2\/me\/notifications\/[^/]+$/, '/v2/me/notifications/:id');
     if(!(key in routes)) throw apiErr(404, 'NOT_FOUND');
     const r = routes[key];
     const v = typeof r === 'function' ? r(body, path) : r;
@@ -58,7 +58,7 @@ function fake(routes, who){
 }
 function mk(src, routes, extra){
   const ups = [];   // 그림 올리기로 나간 본문(바이트)
-  const authed = fake(Object.assign({ 'POST /v1/me/images': (b) => { ups.push(b); return { url: 'https://storage.example/users/me/dday_x.jpg' }; } }, routes), extra && extra.who), warns = [];
+  const authed = fake(Object.assign({ 'POST /v2/me/images': (b) => { ups.push(b); return { url: 'https://storage.example/users/me/dday_x.jpg' }; } }, routes), extra && extra.who), warns = [];
   let n = 0;
   const m = load(src).createScheduleApi({
     authed, newId: () => 'req-' + (++n) + '-abcdefgh', imageBytes: imgMod(),
@@ -79,38 +79,38 @@ const SRC = SRC0.API;
 say('── 1. 일정 읽기');
 {
   const list = [it('a', '2026-11-03', '회의', 'PUBLIC', 4, '2026-10-30T01:00:00Z'), it('b', '2026-11-03', '점심', 'PRIVATE', 1, '2026-10-30T02:00:00.500Z'), it('c', '2026-12-01', '다른 달', 'PRIVATE', 1)];
-  const { m, authed } = mk(SRC, { 'GET /v1/me/schedules': list });
+  const { m, authed } = mk(SRC, { 'GET /v2/me/schedules': list });
   const d = await m.fetchMonth('me1', '2026-11');
-  chk(authed.log[0].path === '/v1/me/schedules?month=2026-11' && authed.log[0].opts.auth === true, '내 달력 — GET /v1/me/schedules?month=YYYY-MM · 로그인 통로');
+  chk(authed.log[0].path === '/v2/me/schedules?month=2026-11' && authed.log[0].opts.auth === true, '내 달력 — GET /v2/me/schedules?month=YYYY-MM · 로그인 통로');
   chk(eq(Object.keys(d), ['03']) && d['03'].a.text === '회의' && d['03'].a.public === true && d['03'].a.version === 4 && d['03'].b.public === false, '  날짜(DD)별 · public ← visibility · 판 version 을 들고 있다');
   chk(d['03'].a.ts === Date.parse('2026-10-30T01:00:00Z') && d['03'].b.ts === Date.parse('2026-10-30T02:00:00.500Z'), '  ts 는 서버가 준 createdAt 을 ms 로 옮긴 만든 시각');
-  const tsOf = async (at) => (await mk(SRC, { 'GET /v1/me/schedules': [it('z', '2026-11-03', 'z', 'PRIVATE', 1, at)] }).m.fetchMonth('me1', '2026-11'))['03'].z.ts;
+  const tsOf = async (at) => (await mk(SRC, { 'GET /v2/me/schedules': [it('z', '2026-11-03', 'z', 'PRIVATE', 1, at)] }).m.fetchMonth('me1', '2026-11'))['03'].z.ts;
   chk(await tsOf(undefined) === 0 && await tsOf('깨진 값') === 0 && await tsOf(null) === 0 && await tsOf('') === 0, '  createdAt 이 없거나 깨지면 0(오래된 것)');
   chk(!('02' in d) && Object.keys(d).length === 1, '  다른 달 줄은 버린다');
-  const e = mk(SRC, { 'GET /v1/me/schedules': [] });
+  const e = mk(SRC, { 'GET /v2/me/schedules': [] });
   chk(eq(await e.m.fetchMonth('me1', '2026-11'), {}), '일정이 없는 달은 빈 객체({}) — 못 읽음이 아니다');
-  const bad = mk(SRC, { 'GET /v1/me/schedules': [{ id: 'x' }] });
+  const bad = mk(SRC, { 'GET /v2/me/schedules': [{ id: 'x' }] });
   chk((await rej(bad.m.fetchMonth('me1', '2026-11'))).code === 'SHAPE', '모양이 틀리면 던진다(SHAPE)');
-  const nonArr = mk(SRC, { 'GET /v1/me/schedules': { items: [] } });
+  const nonArr = mk(SRC, { 'GET /v2/me/schedules': { items: [] } });
   chk((await rej(nonArr.m.fetchMonth('me1', '2026-11'))).code === 'SHAPE', '  배열이 아니어도 던진다');
-  const down = mk(SRC, { 'GET /v1/me/schedules': apiErr(503, 'X') });
+  const down = mk(SRC, { 'GET /v2/me/schedules': apiErr(503, 'X') });
   chk((await rej(down.m.fetchMonth('me1', '2026-11'))).status === 503, '못 읽으면 던진다(빈 달로 바꾸지 않는다)');
   chk((await rej(e.m.fetchMonth('', '2026-11'))).code === 'NO_USER', '내 코드가 없으면 요청 0 · 던진다');
-  const o2 = mk(SRC, { 'GET /v1/schedules/f1': list });
+  const o2 = mk(SRC, { 'GET /v2/schedules/f1': list });
   const od = await o2.m.fetchMonthOf('f1', '2026-11');
-  chk(o2.authed.log[0].path === '/v1/schedules/f1?month=2026-11' && Object.keys(od['03']).length === 2, '남의 달력 — GET /v1/schedules/{userCode}?month=');
+  chk(o2.authed.log[0].path === '/v2/schedules/f1?month=2026-11' && Object.keys(od['03']).length === 2, '남의 달력 — GET /v2/schedules/{userCode}?month=');
 }
 
 say('── 2. 일정 쓰기');
 {
   const created = it('n1', '2026-11-05', '병원', 'PUBLIC', 1);
-  const { m, authed } = mk(SRC, { 'GET /v1/me/schedules': [], 'POST /v1/me/schedules': created, 'DELETE /v1/me/schedules/:id': null });
+  const { m, authed } = mk(SRC, { 'GET /v2/me/schedules': [], 'POST /v2/me/schedules': created, 'DELETE /v2/me/schedules/:id': null });
   const e0 = await rej(m.createItem('me1', { date: '2026-11-05', text: '병원' }));
   chk(e0 && e0.code === 'NOT_RECEIVED' && authed.log.length === 0, '받기 전(읽은 적 없음)에는 요청 0 · 던진다');
   await m.fetchMonth('me1', '2026-11');
   const r = await m.createItem('me1', { date: '2026-11-05', text: '병원', public: false, tagFriends: ['f1', 'f2'] });
   const p = authed.log.find((x) => x.method === 'POST');
-  chk(p.path === '/v1/me/schedules' && p.body.requestId === 'req-1-abcdefgh' && p.body.date === '2026-11-05' && eq(p.body.tagFriends, ['f1', 'f2']), '일정 쓰기 — POST /v1/me/schedules { requestId · date · text · tagFriends }');
+  chk(p.path === '/v2/me/schedules' && p.body.requestId === 'req-1-abcdefgh' && p.body.date === '2026-11-05' && eq(p.body.tagFriends, ['f1', 'f2']), '일정 쓰기 — POST /v2/me/schedules { requestId · date · text · tagFriends }');
   chk(p.body.visibility === 'PRIVATE', '  화면 값(비공개) 그대로 보낸다 — 앱이 혼자 공개로 바꾸지 않는다(태그하면 서버가 공개로 바꾼다 · 화면은 «공개» 를 켜서 잠근다)');
   chk(p.opts.expectOwner === 'tokenA', '  ★ 읽은 토큰의 주인과 묶는다(expectOwner)');
   chk(r.id === 'n1' && r.public === true && r.version === 1 && r.date === '2026-11-05', '  돌려주는 값 — 서버가 만든 일정');
@@ -127,7 +127,7 @@ say('── 2. 일정 쓰기');
   authed.state.who = 'tokenA';
   await m.deleteItem('me1', 'n1', 4);
   const d = authed.log.find((x) => x.method === 'DELETE');
-  chk(d.path === '/v1/me/schedules/n1?version=4' && d.opts.expectOwner === 'tokenA', '지우기 — DELETE /v1/me/schedules/{id}?version= · expectOwner');
+  chk(d.path === '/v2/me/schedules/n1?version=4' && d.opts.expectOwner === 'tokenA', '지우기 — DELETE /v2/me/schedules/{id}?version= · expectOwner');
   chk((await rej(m.deleteItem('me1', 'n1', undefined))).code === 'BAD_ITEM', '  판 없이는 보내지 않는다');
   m.reset();
   chk((await rej(m.deleteItem('me1', 'n1', 4))).code === 'NOT_RECEIVED', 'reset 뒤에는 다시 받기 전까지 쓰지 않는다');
@@ -135,23 +135,23 @@ say('── 2. 일정 쓰기');
 
 say('── 3. 디데이 보드 읽기');
 {
-  const { m, authed } = mk(SRC, { 'GET /v1/me/ddays': BOARD() });
+  const { m, authed } = mk(SRC, { 'GET /v2/me/ddays': BOARD() });
   const b = await m.fetchBoard('me1');
-  chk(authed.log[0].path === '/v1/me/ddays', '내 보드 — GET /v1/me/ddays');
+  chk(authed.log[0].path === '/v2/me/ddays', '내 보드 — GET /v2/me/ddays');
   chk(b[U1].kind === 'anniv' && b[U3].kind === 'dday' && b[U1].order === 0 && b[U2].order === 1 && b[U3].order === 0, '두 목록이 한 맵 — cards → anniv · banners → dday · order = 목록 순서');
   chk(b[U1].base1 === true && b[U2].base1 === false && b[U1].notify === true && b[U1].bgColor === '#ffcc00' && b[U3].public === true, '  countFromOne → base1 · notify · bgColor · visibility → public');
   chk(b[U1].bgImg === null && b[U1].ts === Date.parse('2026-10-01T00:00:00Z'), '  그림 없음 → null · createdAt → ts(ms)');
-  const withImg = mk(SRC, { 'GET /v1/me/ddays': BOARD({ cards: [card(U1, 'a', '2026-01-01', { bgImage: 'https://s/x.jpg' })], banners: [] }) });
+  const withImg = mk(SRC, { 'GET /v2/me/ddays': BOARD({ cards: [card(U1, 'a', '2026-01-01', { bgImage: 'https://s/x.jpg' })], banners: [] }) });
   chk((await withImg.m.fetchBoard('me1'))[U1].bgImg === 'https://s/x.jpg', '  bgImage → bgImg');
-  const empty = mk(SRC, { 'GET /v1/me/ddays': { version: 0, cards: [], banners: [] } });
+  const empty = mk(SRC, { 'GET /v2/me/ddays': { version: 0, cards: [], banners: [] } });
   chk(eq(await empty.m.fetchBoard('me1'), {}), '저장한 적 없는 보드(판 0 · 빈 목록)는 {} — 못 읽음이 아니다');
-  const bad = mk(SRC, { 'GET /v1/me/ddays': { version: 1, cards: [{ ddayId: U1 }], banners: [] } });
+  const bad = mk(SRC, { 'GET /v2/me/ddays': { version: 1, cards: [{ ddayId: U1 }], banners: [] } });
   chk((await rej(bad.m.fetchBoard('me1'))).code === 'SHAPE', '장 모양이 틀리면 던진다');
-  const noVer = mk(SRC, { 'GET /v1/me/ddays': { cards: [], banners: [] } });
+  const noVer = mk(SRC, { 'GET /v2/me/ddays': { cards: [], banners: [] } });
   chk((await rej(noVer.m.fetchBoard('me1'))).code === 'SHAPE', '판이 없으면 던진다');
-  const o = mk(SRC, { 'GET /v1/ddays/f1': { cards: BOARD().cards, banners: [] } });
+  const o = mk(SRC, { 'GET /v2/ddays/f1': { cards: BOARD().cards, banners: [] } });
   const od = await o.m.fetchBoardOf('f1');
-  chk(o.authed.log[0].path === '/v1/ddays/f1' && Object.keys(od).length === 2, '남의 보드 — GET /v1/ddays/{userCode} (판 없음)');
+  chk(o.authed.log[0].path === '/v2/ddays/f1' && Object.keys(od).length === 2, '남의 보드 — GET /v2/ddays/{userCode} (판 없음)');
   const ids = m.orderedIds({ a: { kind: 'anniv', order: 2, ts: 1 }, b: { kind: 'anniv', order: 0, ts: 9 }, c: { kind: 'anniv', ts: 1 }, d: { kind: 'anniv', ts: 0 }, e: { kind: 'dday', order: 0 }, f: { order: 1, ts: 5 } }, 'anniv');
   chk(eq(ids, ['b', 'f', 'a', 'd', 'c']), '순서 정렬 — order 작은 쪽 먼저 · order 없으면 맨 뒤 · 같으면 만든 순 · kind 없는 옛 값은 기념일');
 }
@@ -159,14 +159,14 @@ say('── 3. 디데이 보드 읽기');
 say('── 4. 디데이 보드 저장');
 {
   const saved = BOARD({ version: 6 });
-  const { m, authed } = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': () => saved });
+  const { m, authed } = mk(SRC, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': () => saved });
   const board = await m.fetchBoard('me1');
   const next = JSON.parse(JSON.stringify(board));
   next['new-1'] = { kind: 'anniv', text: '새 기념일', date: '2027-01-01', public: false, notify: true, base1: true, bgColor: '#ff0000', bgImg: null, order: 2, ts: 5 };
   next['new-2'] = { kind: 'dday', text: '새 배너', date: '2027-02-02', public: true, notify: false, base1: true, bgColor: '#00ff00', bgImg: 'https://s/b.jpg', order: 1, ts: 6 };
   const out = await m.saveBoard('me1', next, { id: 'new-1', userCodes: ['f1'] });
   const put = authed.log.find((x) => x.method === 'PUT');
-  chk(put.path === '/v1/me/ddays' && put.body.version === 5 && put.opts.expectOwner === 'tokenA', '보드 통째 저장 — PUT /v1/me/ddays · 마지막으로 읽은 판 · expectOwner');
+  chk(put.path === '/v2/me/ddays' && put.body.version === 5 && put.opts.expectOwner === 'tokenA', '보드 통째 저장 — PUT /v2/me/ddays · 마지막으로 읽은 판 · expectOwner');
   chk(put.body.cards.length === 3 && put.body.banners.length === 2 && put.body.cards[0].ddayId === U1 && put.body.cards[1].ddayId === U2, '  두 목록 — 카드 3 · 배너 2 · order 순');
   const nc = put.body.cards[2];
   chk(!('ddayId' in nc) && nc.text === '새 기념일' && nc.visibility === 'PRIVATE' && nc.notify === true && nc.countFromOne === true && nc.bgColor === '#ff0000', '  새 장은 ddayId 를 싣지 않는다(서버가 정한다) · 카드는 countFromOne · bgColor');
@@ -187,7 +187,7 @@ say('── 4. 디데이 보드 저장');
 }
 { /* 409 · 계정 바뀜 */
   let calls = 0;
-  const { m, authed } = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': () => { calls++; return calls === 1 ? apiErr(409, 'CONCURRENT_UPDATE') : BOARD({ version: 9 }); } });
+  const { m, authed } = mk(SRC, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': () => { calls++; return calls === 1 ? apiErr(409, 'CONCURRENT_UPDATE') : BOARD({ version: 9 }); } });
   const board = await m.fetchBoard('me1');
   const e1 = await rej(m.saveBoard('me1', board, null));
   chk(e1 && e1.status === 409 && e1.code === 'CONCURRENT_UPDATE', '409 는 그대로 던진다(덮어쓰지 않는다)');
@@ -201,11 +201,11 @@ say('── 4. 디데이 보드 저장');
   chk(e3 && e3.code === 'OWNER_CHANGED' && authed.log.filter((x) => x.method === 'PUT').length === 2, '읽은 뒤 로그인한 사람이 바뀌면 보내지 않는다(OWNER_CHANGED) · 요청 0');
   const e4 = await rej(m.saveBoard('me1', board, null));
   chk(e4 && e4.code === 'NOT_RECEIVED', '  그 뒤에도 다시 받기 전까지 막힌다');
-  const fresh = mk(SRC, { 'PUT /v1/me/ddays': BOARD() });
+  const fresh = mk(SRC, { 'PUT /v2/me/ddays': BOARD() });
   const e5 = await rej(fresh.m.saveBoard('me1', {}, null));
   chk(e5 && e5.code === 'NOT_RECEIVED' && fresh.authed.log.length === 0, '받기 전에는 요청 0');
   { /* 읽은 토큰 주인이 다르면 앞 주인의 판을 잇지 않는다 */
-    const x = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'GET /v1/me/schedules': [], 'PUT /v1/me/ddays': BOARD() });
+    const x = mk(SRC, { 'GET /v2/me/ddays': BOARD(), 'GET /v2/me/schedules': [], 'PUT /v2/me/ddays': BOARD() });
     const xb = await x.m.fetchBoard('me1');
     x.authed.state.who = 'tokenB';
     await x.m.fetchMonth('me1', '2026-11');
@@ -215,42 +215,42 @@ say('── 4. 디데이 보드 저장');
   { /* reset 전에 시작한 읽기가 늦게 끝나도 기억을 되살리지 않는다 */
     let release;
     const gate = new Promise((r) => { release = r; });
-    const y = mk(SRC, { 'GET /v1/me/schedules': () => gate.then(() => []), 'POST /v1/me/schedules': it('n1', '2026-11-05', 'a') });
+    const y = mk(SRC, { 'GET /v2/me/schedules': () => gate.then(() => []), 'POST /v2/me/schedules': it('n1', '2026-11-05', 'a') });
     const pending = y.m.fetchMonth('me1', '2026-11');
     y.m.reset(); release(); await pending;
     const e = await rej(y.m.createItem('me1', { date: '2026-11-05', text: 'a' }));
     chk(e && e.code === 'NOT_RECEIVED' && y.authed.log.filter((z) => z.method === 'POST').length === 0, '★ reset 전에 시작한 읽기가 늦게 끝나도 «받음» 기억을 되살리지 않는다 — 쓰기 요청 0');
   }
-  const month = mk(SRC, { 'GET /v1/me/schedules': [], 'PUT /v1/me/ddays': BOARD() });
+  const month = mk(SRC, { 'GET /v2/me/schedules': [], 'PUT /v2/me/ddays': BOARD() });
   await month.m.fetchMonth('me1', '2026-11');
   chk((await rej(month.m.saveBoard('me1', {}, null))).code === 'NOT_RECEIVED', '달력만 읽고 보드를 안 읽었으면 보드는 쓰지 않는다(판이 없다)');
-  const full = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': apiErr(409, 'SCHEDULE_DDAY_FULL') });
+  const full = mk(SRC, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': apiErr(409, 'SCHEDULE_DDAY_FULL') });
   const fb = await full.m.fetchBoard('me1');
   await rej(full.m.saveBoard('me1', fb, null));
   await rej(full.m.saveBoard('me1', fb, null));
   chk(full.authed.log.filter((x) => x.method === 'PUT').length === 2, '409 라도 상한(SCHEDULE_DDAY_FULL)이면 판은 그대로 — 다시 쓸 수 있다(CONCURRENT_UPDATE 만 잠근다)');
-  const bad = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': { ok: 1 } });
+  const bad = mk(SRC, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': { ok: 1 } });
   await bad.m.fetchBoard('me1');
   chk((await rej(bad.m.saveBoard('me1', {}, null))).code === 'SHAPE', '저장 답의 모양이 틀리면 던진다');
 }
 
 say('── 5. 카드 그림');
 {
-  const { m, authed, ups } = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD({ version: 6 }) });
+  const { m, authed, ups } = mk(SRC, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD({ version: 6 }) });
   const board = await m.fetchBoard('me1');
   board[U1].bgImg = 'data:image/jpeg;base64,AAAA';
   board[U2].bgImg = 'https://storage.example/old.jpg';
   board[U3].bgImg = 'data:image/jpeg;base64,BBBB';   // 배너에는 그림이 없다 — 올리지도 보내지도 않는다
   await m.saveBoard('me1', board, null);
   const put = authed.log.find((x) => x.method === 'PUT');
-  const imgPost = authed.log.find((x) => x.method === 'POST' && x.path.startsWith('/v1/me/images'));
-  chk(ups.length === 1 && imgPost && imgPost.path === '/v1/me/images?purpose=dday' && ups[0] instanceof Uint8Array && ups[0].length === 3 && imgPost.opts.rawType === 'image/jpeg' && imgPost.opts.expectOwner === 'tokenA',
-    '새로 고른 그림(data:)만 올린다 — POST /v1/me/images?purpose=dday · 바이트 그대로 · Content-Type(rawType) · expectOwner · 이미 주소인 것 · 배너 것은 올리지 않는다');
+  const imgPost = authed.log.find((x) => x.method === 'POST' && x.path.startsWith('/v2/me/images'));
+  chk(ups.length === 1 && imgPost && imgPost.path === '/v2/me/images?purpose=dday' && ups[0] instanceof Uint8Array && ups[0].length === 3 && imgPost.opts.rawType === 'image/jpeg' && imgPost.opts.expectOwner === 'tokenA',
+    '새로 고른 그림(data:)만 올린다 — POST /v2/me/images?purpose=dday · 바이트 그대로 · Content-Type(rawType) · expectOwner · 이미 주소인 것 · 배너 것은 올리지 않는다');
   chk(put.body.cards[0].bgImage === 'https://storage.example/users/me/dday_x.jpg' && put.body.cards[1].bgImage === 'https://storage.example/old.jpg' && !('bgImage' in put.body.banners[0]), '  저장 본문엔 data: 대신 서버가 돌려준 주소 · 있던 주소는 그대로');
   chk(board[U1].bgImg.startsWith('data:'), '  부른 쪽 값은 건드리지 않는다');
-  chk(!authed.log.some((x) => /firebase|storage\.googleapis/.test(x.path)), '  Firebase 저장소로는 가지 않는다 — 요청은 모두 /v1');
+  chk(!authed.log.some((x) => /firebase|storage\.googleapis/.test(x.path)), '  Firebase 저장소로는 가지 않는다 — 요청은 모두 /v2');
   const fail = async (name, dataUrl, routes, check) => {
-    const f = mk(SRC, Object.assign({ 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() }, routes || {}));
+    const f = mk(SRC, Object.assign({ 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() }, routes || {}));
     const b2 = await f.m.fetchBoard('me1'); b2[U1].bgImg = dataUrl;
     const e = await rej(f.m.saveBoard('me1', b2, null));
     chk(check(e, f), name);
@@ -263,12 +263,12 @@ say('── 5. 카드 그림');
   await fail('  형식이 아닌 그림(gif · 깨진 data:) → 요청 0 · IMAGE_UPLOAD', 'data:image/gif;base64,AAAA', {}, (e, f) => e && e.code === 'IMAGE_UPLOAD' && f.ups.length === 0 && noPut(f));
   await fail('  깨진 data: 도 같다', 'data:image/png;base64,@@@', {}, (e, f) => e && e.code === 'IMAGE_UPLOAD' && f.ups.length === 0);
   for(const [st, code] of [[413, 'PAYLOAD_TOO_LARGE'], [415, 'UNSUPPORTED_MEDIA_TYPE'], [400, 'SCHEDULE_INVALID']]){
-    await fail('서버가 ' + st + ' ' + code + ' 로 거절 → IMAGE_UPLOAD · 보드를 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': apiErr(st, code) }, (e, f) => e && e.code === 'IMAGE_UPLOAD' && noPut(f));
+    await fail('서버가 ' + st + ' ' + code + ' 로 거절 → IMAGE_UPLOAD · 보드를 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v2/me/images': apiErr(st, code) }, (e, f) => e && e.code === 'IMAGE_UPLOAD' && noPut(f));
   }
-  await fail('서버 쉬는 중(503 STORAGE_UNAVAILABLE)은 그대로 던진다 — 보드는 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': apiErr(503, 'STORAGE_UNAVAILABLE') }, (e, f) => e && e.status === 503 && noPut(f));
-  await fail('답에 주소가 없으면 SHAPE · 보드를 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': { url: '' } }, (e, f) => e && e.code === 'SHAPE' && noPut(f));
+  await fail('서버 쉬는 중(503 STORAGE_UNAVAILABLE)은 그대로 던진다 — 보드는 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v2/me/images': apiErr(503, 'STORAGE_UNAVAILABLE') }, (e, f) => e && e.status === 503 && noPut(f));
+  await fail('답에 주소가 없으면 SHAPE · 보드를 보내지 않는다', 'data:image/jpeg;base64,AAAA', { 'POST /v2/me/images': { url: '' } }, (e, f) => e && e.code === 'SHAPE' && noPut(f));
   {
-    const f = mk(SRC, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });
+    const f = mk(SRC, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() });
     const b3 = await f.m.fetchBoard('me1'); b3[U1].bgImg = 'data:image/jpeg;base64,AAAA';
     f.authed.state.who = 'tokenB';
     const e = await rej(f.m.saveBoard('me1', b3, null));
@@ -283,16 +283,16 @@ say('── 6. 🔔 알림');
     { id: 'n2', kind: 'LEVEL_UNLOCK', section: 'MAIL', title: 'x', body: 'y', payload: {}, createdAt: '2026-11-01T01:00:00Z' },
     { id: 'n3', kind: 'SCHEDULE_TAG', section: 'BELL', title: 't', body: 'b', payload: { from: 'u' }, createdAt: '2026-11-01T01:00:00Z' },
   ];
-  const { m, authed } = mk(SRC, { 'GET /v1/me/notifications': { items, nextCursor: null }, 'DELETE /v1/me/notifications/:id': null });
+  const { m, authed } = mk(SRC, { 'GET /v2/me/notifications': { items, nextCursor: null }, 'DELETE /v2/me/notifications/:id': null });
   const b = await m.fetchBell('me1');
-  chk(authed.log[0].path === '/v1/me/notifications?section=BELL&limit=50', '🔔 칸 — GET /v1/me/notifications?section=BELL');
+  chk(authed.log[0].path === '/v2/me/notifications?section=BELL&limit=50', '🔔 칸 — GET /v2/me/notifications?section=BELL');
   chk(eq(Object.keys(b), ['n1']) && b.n1.fromName === '친구A' && b.n1.fromId === 'ucodeA' && b.n1.text === '같이 점심' && b.n1.date === '2026-11-03' && b.n1.ts === Date.parse('2026-11-01T01:00:00Z'), '  일정 태그만 · 보낸 사람 · 내용 · 날짜 · 시각을 화면 모양으로 · 날짜 없는 줄은 버림');
-  const empty = mk(SRC, { 'GET /v1/me/notifications': { items: [], nextCursor: null } });
+  const empty = mk(SRC, { 'GET /v2/me/notifications': { items: [], nextCursor: null } });
   chk(eq(await empty.m.fetchBell('me1'), {}), '알림이 없으면 {} — 못 읽음이 아니다');
-  chk((await rej(mk(SRC, { 'GET /v1/me/notifications': [] }).m.fetchBell('me1'))).code === 'SHAPE', '모양이 틀리면 던진다');
+  chk((await rej(mk(SRC, { 'GET /v2/me/notifications': [] }).m.fetchBell('me1'))).code === 'SHAPE', '모양이 틀리면 던진다');
   await m.deleteBell('me1', 'n1');
   const d = authed.log.find((x) => x.method === 'DELETE');
-  chk(d.path === '/v1/me/notifications/n1' && d.opts.expectOwner === 'tokenA', '지우기 — DELETE /v1/me/notifications/{id} · expectOwner');
+  chk(d.path === '/v2/me/notifications/n1' && d.opts.expectOwner === 'tokenA', '지우기 — DELETE /v2/me/notifications/{id} · expectOwner');
 }
 
 say('── 7. 배선');
@@ -320,7 +320,7 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
     chk(qfail > 0, '깨 보기 — ' + label + ' → 빨강');
   };
   const oneSave = async (src) => {
-    const { m, authed } = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD({ version: 6 }) });
+    const { m, authed } = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD({ version: 6 }) });
     const board = await m.fetchBoard('me1');
     authed.state.who = 'tokenB';
     chk(!!(await rej(m.saveBoard('me1', board, null))) && authed.log.filter((x) => x.method === 'PUT').length === 0, 'x');
@@ -328,14 +328,14 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
   await broken('expectOwner 를 빼면 로그인이 바뀐 뒤에도 보낸다', (x) => x.replace('{ expectOwner: read.owner });\n      if(!out) throw shapeError();\n      reads.set', '{});\n      if(!out) throw shapeError();\n      reads.set').replace(/\{ expectOwner: read\.owner \}\)\)/g, '{}))'), oneSave);
   await broken('409 뒤에도 판을 남기면 같은 판으로 다시 보낸다', (x) => x.replace('e.code === OWNER_CHANGED_CODE || (e.status === CONFLICT_STATUS && e.code === CONCURRENT_CODE)', 'e.code === OWNER_CHANGED_CODE'), async (src) => {
     let n = 0;
-    const { m, authed } = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': () => (++n === 1 ? apiErr(409, 'CONCURRENT_UPDATE') : BOARD()) });
+    const { m, authed } = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': () => (++n === 1 ? apiErr(409, 'CONCURRENT_UPDATE') : BOARD()) });
     const board = await m.fetchBoard('me1');
     await rej(m.saveBoard('me1', board, null));
     const e = await rej(m.saveBoard('me1', board, null));
     chk(e && e.code === 'NOT_RECEIVED', 'x');
   });
   await broken('다른 토큰 주인의 읽기에도 앞 판을 잇는다', (x) => x.replace('prev && prev.owner === owner ? prev.v : undefined', 'prev ? prev.v : undefined'), async (src) => {
-    const x = mk(src, { 'GET /v1/me/ddays': BOARD(), 'GET /v1/me/schedules': [], 'PUT /v1/me/ddays': BOARD() });
+    const x = mk(src, { 'GET /v2/me/ddays': BOARD(), 'GET /v2/me/schedules': [], 'PUT /v2/me/ddays': BOARD() });
     const xb = await x.m.fetchBoard('me1');
     x.authed.state.who = 'tokenB';
     await x.m.fetchMonth('me1', '2026-11');
@@ -343,31 +343,31 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
   });
   await broken('reset 뒤 늦게 끝난 읽기가 기억을 되살린다', (x) => x.replace('if(at !== epoch) return d;', ''), async (src) => {
     let release; const gate = new Promise((r) => { release = r; });
-    const y = mk(src, { 'GET /v1/me/schedules': () => gate.then(() => []), 'POST /v1/me/schedules': it('n1', '2026-11-05', 'a') });
+    const y = mk(src, { 'GET /v2/me/schedules': () => gate.then(() => []), 'POST /v2/me/schedules': it('n1', '2026-11-05', 'a') });
     const pending = y.m.fetchMonth('me1', '2026-11'); y.m.reset(); release(); await pending;
     chk(!!(await rej(y.m.createItem('me1', { date: '2026-11-05', text: 'a' }))), 'x');
   });
   await broken('새 장에도 ddayId 를 싣는다', (x) => x.replace('if(UUID_RE.test(id)) o.ddayId = id;', 'o.ddayId = id;'), async (src) => {
-    const { m, authed } = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });
+    const { m, authed } = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() });
     const board = await m.fetchBoard('me1'); board['new-1'] = { kind: 'anniv', text: 'n', date: '2027-01-01', order: 5, ts: 1 };
     await m.saveBoard('me1', board, null);
     chk(!('ddayId' in authed.log.find((y) => y.method === 'PUT').body.cards[2]), 'x');
   });
   await broken('배너에도 셈법을 싣는다', (x) => x.replace("if(d.kind !== KIND.BANNER){\n    o.countFromOne", "if(true){\n    o.countFromOne"), async (src) => {
-    const { m, authed } = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });
+    const { m, authed } = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() });
     const board = await m.fetchBoard('me1');
     await m.saveBoard('me1', board, null);
     chk(!('countFromOne' in authed.log.find((y) => y.method === 'PUT').body.banners[0]), 'x');
   });
   await broken('그림 올리기가 실패해도 보드를 보낸다', (x) => x.replace("catch(e){ warn('[일정] 카드 그림 올리기 실패', (e && (e.code || e.message)) || e); throw e; }", "catch(e){ warn('x'); }"), async (src) => {
-    const f = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD(), 'POST /v1/me/images': apiErr(503, 'X') });
+    const f = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD(), 'POST /v2/me/images': apiErr(503, 'X') });
     const b = await f.m.fetchBoard('me1'); b[U1].bgImg = 'data:image/jpeg;base64,AAAA';
     await rej(f.m.saveBoard('me1', b, null));
     chk(f.authed.log.filter((y) => y.method === 'PUT').length === 0, 'x');
   });
   const bigUrl = 'data:image/jpeg;base64,' + Buffer.alloc(1024 * 1024 + 1, 1).toString('base64');
   const upOne = async (src, dataUrl, routes) => {
-    const f = mk(src, Object.assign({ 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() }, routes || {}));
+    const f = mk(src, Object.assign({ 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() }, routes || {}));
     const b = await f.m.fetchBoard('me1'); b[U1].bgImg = dataUrl;
     const e = await rej(f.m.saveBoard('me1', b, null));
     return { f, e };
@@ -385,52 +385,52 @@ say('── 8. 일부러 깨 보기 (빨강이 나야 한다)');
     chk(f.ups.length === 0, 'x');
   });
   await broken('서버가 413 으로 거절해도 번호 없는 오류로 던진다', (x) => x.replace('[400, 413, 415]', '[400, 415]'), async (src) => {
-    const { e } = await upOne(src, 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': apiErr(413, 'PAYLOAD_TOO_LARGE') });
+    const { e } = await upOne(src, 'data:image/jpeg;base64,AAAA', { 'POST /v2/me/images': apiErr(413, 'PAYLOAD_TOO_LARGE') });
     chk(e && e.code === 'IMAGE_UPLOAD', 'x');
   });
   await broken('그림을 JSON 이 아니라 rawType 없이 보낸다', (x) => x.replace(', rawType: img.type', ''), async (src) => {
     const { f } = await upOne(src, 'data:image/jpeg;base64,AAAA');
-    chk(f.authed.log.find((y) => y.path.startsWith('/v1/me/images')).opts.rawType === 'image/jpeg', 'x');
+    chk(f.authed.log.find((y) => y.path.startsWith('/v2/me/images')).opts.rawType === 'image/jpeg', 'x');
   });
   await broken('그림 올릴 때 토큰 주인을 묶지 않는다', (x) => x.replace('{ expectOwner: owner, rawType: img.type }', '{ rawType: img.type }'), async (src) => {
-    const f = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });
+    const f = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() });
     const b = await f.m.fetchBoard('me1'); b[U1].bgImg = 'data:image/jpeg;base64,AAAA'; f.authed.state.who = 'tokenB';
     await rej(f.m.saveBoard('me1', b, null));
     chk(f.ups.length === 0, 'x');
   });
   await broken('올리기 답에 주소가 없어도 통과시킨다', (x) => x.replace("if(!isObj(d) || typeof d.url !== 'string' || !d.url) throw shapeError();", ''), async (src) => {
-    const { f } = await upOne(src, 'data:image/jpeg;base64,AAAA', { 'POST /v1/me/images': { url: '' } });
+    const { f } = await upOne(src, 'data:image/jpeg;base64,AAAA', { 'POST /v2/me/images': { url: '' } });
     chk(f.authed.log.filter((y) => y.method === 'PUT').length === 0, 'x');
   });
   await broken('받기 전에도 일정을 쓴다', (x) => x.replace("if(!r) throw codeError(NOT_RECEIVED_CODE, '받기 전에는 쓰지 않아요');", 'if(!r) return {};'), async (src) => {
-    const { m, authed } = mk(src, { 'POST /v1/me/schedules': it('n1', '2026-11-05', 'a') });
+    const { m, authed } = mk(src, { 'POST /v2/me/schedules': it('n1', '2026-11-05', 'a') });
     await rej(m.createItem('me1', { date: '2026-11-05', text: 'a' }));
     chk(authed.log.length === 0, 'x');
   });
   await broken('태그하면 앱이 혼자 PUBLIC 으로 바꿔 보낸다', (x) => x.replace("visibility: o.public ? 'PUBLIC' : 'PRIVATE' };", "visibility: (o.public || tags.length) ? 'PUBLIC' : 'PRIVATE' };"), async (src) => {
-    const { m, authed } = mk(src, { 'GET /v1/me/schedules': [], 'POST /v1/me/schedules': it('n1', '2026-11-05', 'a') });
+    const { m, authed } = mk(src, { 'GET /v2/me/schedules': [], 'POST /v2/me/schedules': it('n1', '2026-11-05', 'a') });
     await m.fetchMonth('me1', '2026-11');
     await m.createItem('me1', { date: '2026-11-05', text: 'a', public: false, tagFriends: ['f1'] });
     chk(authed.log.find((y) => y.method === 'POST').body.visibility === 'PRIVATE', 'x');
   });
   await broken('다른 달 줄을 안 버린다', (x) => x.replace("if(it.date.slice(0, 7) !== ym) continue;", ''), async (src) => {
-    const { m } = mk(src, { 'GET /v1/me/schedules': [it('a', '2026-11-03', 'a'), it('c', '2026-12-01', 'c')] });
+    const { m } = mk(src, { 'GET /v2/me/schedules': [it('a', '2026-11-03', 'a'), it('c', '2026-12-01', 'c')] });
     chk(Object.keys(await m.fetchMonth('me1', '2026-11')).length === 1, 'x');
   });
   await broken('모양이 틀려도 빈 달로 읽는다', (x) => x.replace("if(!out) throw shapeError();\n    return out;\n  }\n  async function fetchMonthOf", "return out || {};\n  }\n  async function fetchMonthOf"), async (src) => {
-    const { m } = mk(src, { 'GET /v1/me/schedules': { not: 'array' } });
+    const { m } = mk(src, { 'GET /v2/me/schedules': { not: 'array' } });
     chk(!!(await rej(m.fetchMonth('me1', '2026-11'))), 'x');
   });
   await broken('배너 목록도 카드 목록으로 읽는다', (x) => x.replace('[data.banners, KIND.BANNER]', '[data.banners, KIND.CARD]'), async (src) => {
-    const { m } = mk(src, { 'GET /v1/me/ddays': BOARD() });
+    const { m } = mk(src, { 'GET /v2/me/ddays': BOARD() });
     chk((await m.fetchBoard('me1'))[U3].kind === 'dday', 'x');
   });
   await broken('태그가 아닌 알림도 🔔 에 올린다', (x) => x.replace("raw.kind !== BELL_KIND || ", ''), async (src) => {
-    const { m } = mk(src, { 'GET /v1/me/notifications': { items: [{ id: 'm1', kind: 'LEVEL_UNLOCK', body: 'b', payload: { date: '2026-11-03' }, createdAt: '2026-11-01T00:00:00Z' }], nextCursor: null } });
+    const { m } = mk(src, { 'GET /v2/me/notifications': { items: [{ id: 'm1', kind: 'LEVEL_UNLOCK', body: 'b', payload: { date: '2026-11-03' }, createdAt: '2026-11-01T00:00:00Z' }], nextCursor: null } });
     chk(Object.keys(await m.fetchBell('me1')).length === 0, 'x');
   });
   await broken('글자 상한을 안 깎는다', (x) => x.replace('str(d.text).slice(0, LIMITS.DDAY_TEXT)', 'str(d.text)'), async (src) => {
-    const { m, authed } = mk(src, { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() });
+    const { m, authed } = mk(src, { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() });
     const b = await m.fetchBoard('me1'); b[U1].text = 'ㄱ'.repeat(30);
     await m.saveBoard('me1', b, null);
     chk(authed.log.find((y) => y.method === 'PUT').body.cards[0].text.length === 20, 'x');

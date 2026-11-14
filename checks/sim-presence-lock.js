@@ -62,7 +62,7 @@ function world(src, o){
 const isOff = (w) => /mh-fdot off/.test(w.tog.innerHTML) && /오프라인/.test(w.tog.innerHTML);
 const isOn = (w) => /mh-fdot on/.test(w.tog.innerHTML) && /> 온라인/.test(w.tog.innerHTML);
 
-/* 계정 확인(GET /v1/me)의 답 중 접속 고정 칸 */
+/* 계정 확인(GET /v2/me)의 답 중 접속 고정 칸 */
 const meOf = (locked, online) => ({ presencePref: { locked, online } });
 async function behave(src){
   const r = {};

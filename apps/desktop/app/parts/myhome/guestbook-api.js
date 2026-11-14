@@ -1,6 +1,6 @@
 /* guestbook-api.js — 📖 방명록 · 웹박수 api provider (검사 sim-guestbook-api.js)
-   책임: 방명록 보기(GET /v1/guestbooks/{userCode}) · 새 글 수(GET /v1/me/guestbook/summary) · 글 쓰기 · 지우기 · 박수(POST · DELETE …/entries · …/claps) ·
-     내 폭죽 · 박수 그림 바꾸기(PATCH /v1/me/guestbook). 서버 모양(authorName · createdAt · clap.imageUrl)을 화면이 쓰던 모양(name · ts · img)으로 맞추는 곳은 여기뿐이다.
+   책임: 방명록 보기(GET /v2/guestbooks/{userCode}) · 새 글 수(GET /v2/me/guestbook/summary) · 글 쓰기 · 지우기 · 박수(POST · DELETE …/entries · …/claps) ·
+     내 폭죽 · 박수 그림 바꾸기(PATCH /v2/me/guestbook). 서버 모양(authorName · createdAt · clap.imageUrl)을 화면이 쓰던 모양(name · ts · img)으로 맞추는 곳은 여기뿐이다.
    신원: 늘 토큰의 «나» — 글쓴이 · 박수 누른 사람은 본문에 싣지 않는다. 경로의 코드는 «어느 방명록인가» 하는 데이터 주소일 뿐이다.
      내 코드(uid)는 «읽은 토큰의 주인 기억 열쇠» 로만 받는다.
    deps: authed — 로그인 API 통로(TwApi.authed — get(path, { auth, onOwner }) · post · patch · del(…, { expectOwner }) → Promise<data>)
@@ -20,20 +20,20 @@
      순수: entryOf · viewOf · PATHS (TwGuestbookApi 위)
    ⚠️ 쓰기는 «읽은 토큰의 주인» 과 묶는다(expectOwner) — 로그인이 바뀌는 틈에 앞 계정의 화면에서 누른 것이 새 계정 토큰으로 나가지 않게.
    ⚠️ 글 쓰기 · 박수는 requestId 를 실어 보낸다(같은 일을 다시 보내도 한 번만 — 번호를 만드는 쪽은 feed).
-   ⚠️ 박수 그림은 먼저 uploadImage(POST /v1/me/images?purpose=clap → { url }) 한 뒤 그 url 을 changeLook 의 clapImageUrl 로 보낸다(두 요청 · 서버가 우리 Storage 주소만 받는다).
+   ⚠️ 박수 그림은 먼저 uploadImage(POST /v2/me/images?purpose=clap → { url }) 한 뒤 그 url 을 changeLook 의 clapImageUrl 로 보낸다(두 요청 · 서버가 우리 Storage 주소만 받는다).
    검사: checks/sim-guestbook-api.js */
 (function(){
 'use strict';
 
 const enc = encodeURIComponent;
 const PATHS = Object.freeze({
-  view: (owner) => '/v1/guestbooks/' + enc(owner),
-  entries: (owner) => '/v1/guestbooks/' + enc(owner) + '/entries',
-  entry: (owner, id) => '/v1/guestbooks/' + enc(owner) + '/entries/' + enc(id),
-  claps: (owner) => '/v1/guestbooks/' + enc(owner) + '/claps',
-  summary: (since) => '/v1/me/guestbook/summary?since=' + enc(String(since)),
-  look: '/v1/me/guestbook',
-  image: '/v1/me/images?purpose=clap',
+  view: (owner) => '/v2/guestbooks/' + enc(owner),
+  entries: (owner) => '/v2/guestbooks/' + enc(owner) + '/entries',
+  entry: (owner, id) => '/v2/guestbooks/' + enc(owner) + '/entries/' + enc(id),
+  claps: (owner) => '/v2/guestbooks/' + enc(owner) + '/claps',
+  summary: (since) => '/v2/me/guestbook/summary?since=' + enc(String(since)),
+  look: '/v2/me/guestbook',
+  image: '/v2/me/images?purpose=clap',
 });
 /* 서버 상한과 같은 값 — 넘기면 서버가 413 으로 거절한다 */
 const LIMITS = Object.freeze({ IMAGE_BYTES: 512 * 1024 });
@@ -128,7 +128,7 @@ function createGuestbookApi(deps){
       if(n === undefined || left === undefined || max === undefined) return { status: 'failed', err: shapeError() };
       return { status: 'ok', count: n, todayLeft: left, dailyMax: max };
     },
-    /* 박수 그림 올리기 — data: 그림 → POST /v1/me/images?purpose=clap(바이트 그대로) → { status, url?, err? }.
+    /* 박수 그림 올리기 — data: 그림 → POST /v2/me/images?purpose=clap(바이트 그대로) → { status, url?, err? }.
        형식 · 512KB 를 넘으면 요청 없이 failed(IMAGE_INVALID · PAYLOAD_TOO_LARGE). 서버 거절(400 IMAGE_INVALID · 413 · 415)·503 은 err 그대로 */
     async uploadImage(uid, dataUrl){
       const img = imageBytes.inspect(dataUrl, { types: IMAGE_TYPES, maxBytes: LIMITS.IMAGE_BYTES });

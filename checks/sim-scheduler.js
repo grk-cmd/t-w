@@ -1,5 +1,5 @@
 /* ═══ 📅 sim-scheduler.js — 스케줄러 · 🔔 일정 알림 모듈 (앱 FSD 1번 · 0.13 앱 묶음 D6 — 원본은 서버) ═══════════════════
-   일정 · 디데이 보드 · 친구 태그 알림은 서버가 원본이다(schedule-api.js 가 /v1 로 읽고 쓴다). 진짜 provider 를 가짜 authed 위에 얹고
+   일정 · 디데이 보드 · 친구 태그 알림은 서버가 원본이다(schedule-api.js 가 /v2 로 읽고 쓴다). 진짜 provider 를 가짜 authed 위에 얹고
    scheduler.js 를 가짜 DOM 에서 실제로 돌려, 받는 상태 · 잠금 · 저장 줄 세우기 · 409 · 계정 바뀜을 입력 → 출력으로 판정한다.
    ・1절: 셈 — 날짜 차이 · «그날이 1일» · 카드 글자(D-3 · D-day · 100일) · 이정표(당일 · 50 · 100 단위)
    ・2절: 만들 때 — 오늘 일정 · 태그 알림 받기 · 서버 알림 두 종류 걸기 · 1분 타이머 · ESC 창 등록 · window._closeBellWin
@@ -74,7 +74,7 @@ function fakeAuthed(routes, st){
     if(method !== 'GET' && opts && opts.expectOwner && opts.expectOwner !== st.who) throw Object.assign(new Error('owner'), { code: 'OWNER_CHANGED', kind: 'auth' });   // 요청이 나가기 전에 끝난다(요청 0)
     log.push({ method, path, body, opts });
     if(method === 'GET' && opts && opts.onOwner) opts.onOwner(st.who);
-    const key = method + ' ' + path.split('?')[0].replace(/\/v1\/me\/schedules\/[^/]+$/, '/v1/me/schedules/:id').replace(/\/v1\/me\/notifications\/[^/]+$/, '/v1/me/notifications/:id');
+    const key = method + ' ' + path.split('?')[0].replace(/\/v2\/me\/schedules\/[^/]+$/, '/v2/me/schedules/:id').replace(/\/v2\/me\/notifications\/[^/]+$/, '/v2/me/notifications/:id');
     if(!(key in routes)) throw apiErr(404, 'NOT_FOUND');
     const r = routes[key];
     const v = typeof r === 'function' ? r(body, path) : r;
@@ -91,8 +91,8 @@ function mkEnv(opt){
   const st = { who: 'tokenA' };
   /* 기본 길 — 이번 달에 일정 없음 · 보드 비어 있음 · 알림 없음. 판정마다 덮는다 */
   const routes = Object.assign({
-    'GET /v1/me/schedules': [], 'GET /v1/me/ddays': { version: 0, cards: [], banners: [] },
-    'GET /v1/me/notifications': { items: [], nextCursor: null },
+    'GET /v2/me/schedules': [], 'GET /v2/me/ddays': { version: 0, cards: [], banners: [] },
+    'GET /v2/me/notifications': { items: [], nextCursor: null },
   }, opt.routes || {});
   const authed = fakeAuthed(routes, st);
   const els = {};
@@ -152,7 +152,7 @@ const pickAll = (E, list) => { list.querySelectorAll = () => list.children.map(l
 /* 계정이 바뀌는 사이 늦게 온 🔔 · 오늘 일정 답 — reset 뒤에 풀어 줘도 화면에 안 앉는다. asserts=true 면 chk 로 판정 */
 async function staleBell(src, asserts){
   const dN = deferred(), dM = deferred();
-  const E = mkEnv({ src, routes: { 'GET /v1/me/notifications': () => dN.p, 'GET /v1/me/schedules': () => dM.p, 'DELETE /v1/me/notifications/:id': null, 'POST /v1/me/schedules': item('n1', TODAY, 'x') } });
+  const E = mkEnv({ src, routes: { 'GET /v2/me/notifications': () => dN.p, 'GET /v2/me/schedules': () => dM.p, 'DELETE /v2/me/notifications/:id': null, 'POST /v2/me/schedules': item('n1', TODAY, 'x') } });
   await tick();
   E.S.reset();
   dN.res({ items: [bell('n1', '앞 계정 친구', '앞 계정 점심', TODAY, Date.now() + 5000)], nextCursor: null });
@@ -186,9 +186,9 @@ await sec('── 1. 셈', async () => {
 });
 
 await sec('── 2. 만들 때', async () => {
-  const E = mkEnv({ routes: { 'GET /v1/me/schedules': [item('t1', TODAY, '병원')], 'GET /v1/me/notifications': { items: [bell('n1', '친구A', '점심', TODAY, Date.now() + 1000)], nextCursor: null } } });
+  const E = mkEnv({ routes: { 'GET /v2/me/schedules': [item('t1', TODAY, '병원')], 'GET /v2/me/notifications': { items: [bell('n1', '친구A', '점심', TODAY, Date.now() + 1000)], nextCursor: null } } });
   await tick();
-  chk(E.calls('GET', /^\/v1\/me\/notifications\?section=BELL/).length === 1 && E.calls('GET', new RegExp('^/v1/me/schedules\\?month=' + YM + '$')).length === 1,
+  chk(E.calls('GET', /^\/v2\/me\/notifications\?section=BELL/).length === 1 && E.calls('GET', new RegExp('^/v2/me/schedules\\?month=' + YM + '$')).length === 1,
       '네트워크가 준비돼 있으면 바로 — 🔔 태그 알림(BELL 칸)과 이번 달 일정을 한 번씩 받는다(스케줄러 탭을 안 열어도)');
   chk(E.calls('GET', /ddays/).length === 0, '  디데이 보드는 로그인 뒤 받는다(loadBoard) — 만들 때는 안 받는다');
   chk((E.rt.schedule || []).length === 1 && (E.rt.notification || []).length === 1, '서버 알림 두 종류를 한 번씩 건다 — schedule(내 일정 · 보드) · notification(알림함)');
@@ -229,10 +229,10 @@ await sec('── 2-2. 내 코드 없음 — 요청 0', async () => {
 await sec('── 3. 🔔 뱃지 · 알림 목록', async () => {
   const now = Date.now();
   const E = mkEnv({ inbox: 1, routes: {
-    'GET /v1/me/schedules': [item('t1', TODAY, '병원')],
-    'GET /v1/me/notifications': { items: [bell('n1', '친구A', '같이 점심', TODAY, now + 5000), bell('n0', '친구B', '지난 일정', '2020-01-01', now + 5000)], nextCursor: null },
-    'GET /v1/me/ddays': BOARD({ cards: [card(U1, '만난 날', daysAgo(99), { notify: true }), card(U2, '조용', daysAgo(99), { notify: false })], banners: [] }),
-    'DELETE /v1/me/notifications/:id': null,
+    'GET /v2/me/schedules': [item('t1', TODAY, '병원')],
+    'GET /v2/me/notifications': { items: [bell('n1', '친구A', '같이 점심', TODAY, now + 5000), bell('n0', '친구B', '지난 일정', '2020-01-01', now + 5000)], nextCursor: null },
+    'GET /v2/me/ddays': BOARD({ cards: [card(U1, '만난 날', daysAgo(99), { notify: true }), card(U2, '조용', daysAgo(99), { notify: false })], banners: [] }),
+    'DELETE /v2/me/notifications/:id': null,
   } });
   await E.S.loadBoard(); await tick();
   const badge = E.el('myBellBadge'), list = E.el('bellList');
@@ -253,7 +253,7 @@ await sec('── 3. 🔔 뱃지 · 알림 목록', async () => {
   x.click(); await tick();
   const del = E.calls('DELETE', /notifications\/n1$/);
   chk(del.length === 1 && del[0].opts.expectOwner === 'tokenA' && !E.el('bellList').textContent.includes('같이 점심'), '× → 서버에서 지우고(expectOwner) 목록에서도 뺀다');
-  E.routes['GET /v1/me/notifications'] = { items: [bell('n2', '친구C', '저녁', TODAY, now + 9000)], nextCursor: null };
+  E.routes['GET /v2/me/notifications'] = { items: [bell('n2', '친구C', '저녁', TODAY, now + 9000)], nextCursor: null };
   const before = E.calls('GET', /notifications/).length;
   E.rt.notification[0]({ kind: 'notification', section: 'MAIL' });
   await tick();
@@ -279,14 +279,14 @@ await sec('── 3. 🔔 뱃지 · 알림 목록', async () => {
   const E2 = mkEnv(); await tick();
   E2.S.renderBellList();
   chk(E2.el('bellList').textContent.includes('오늘 예정된 일정이 없어요'), '아무것도 없으면 «오늘 예정된 일정이 없어요»');
-  const F = mkEnv({ routes: { 'GET /v1/me/schedules': apiErr(503, 'X'), 'GET /v1/me/notifications': apiErr(503, 'X') } }); await tick();
+  const F = mkEnv({ routes: { 'GET /v2/me/schedules': apiErr(503, 'X'), 'GET /v2/me/notifications': apiErr(503, 'X') } }); await tick();
   chk(F.errs.filter(c => c === 'E-MH-04').length === 1 && F.errs.length === 1, '오늘 일정 · 알림을 못 받으면 오류 번호 E-MH-04 — 두 가지가 같이 실패해도 한 번만');
 });
 
 await sec('── 4. 달력', async () => {
   const d = deferred();
   let hold = false;
-  const E = mkEnv({ routes: { 'GET /v1/me/schedules': (b, p) => (hold ? d.p : [item('a', YM + '-' + DD, '회의', 'PUBLIC', 3)]) } });
+  const E = mkEnv({ routes: { 'GET /v2/me/schedules': (b, p) => (hold ? d.p : [item('a', YM + '-' + DD, '회의', 'PUBLIC', 3)]) } });
   await tick();
   hold = true;
   E.S.renderSchedCalendar();
@@ -299,21 +299,21 @@ await sec('── 4. 달력', async () => {
   const cells = dayCells(E);
   chk(cells[Number(DD) - 1].classList.contains('today') && cells[Number(DD) - 1].classList.contains('sel') && cells[Number(DD) - 1].children.length === 2, '  오늘 칸 — today · 선택 · 일정 점');
   chk(E.el('mhSchedTitle').textContent === NOW.getFullYear() + '년 ' + (NOW.getMonth() + 1) + '월', '  제목 «YYYY년 M월»');
-  E.routes['GET /v1/me/schedules'] = [];
+  E.routes['GET /v2/me/schedules'] = [];
   E.el('mhSchedToday').fire('click'); await tick();
   chk(day.textContent.includes('등록된 일정이 없어요') && !day.textContent.includes('불러오지'), '일정이 없는 달은 «등록된 일정이 없어요» — 못 받음 문구가 아니다');
-  E.routes['GET /v1/me/schedules'] = apiErr(503, 'X');
+  E.routes['GET /v2/me/schedules'] = apiErr(503, 'X');
   E.el('mhSchedToday').fire('click'); await tick();
   chk(day.textContent.includes('불러오지 못했어요') && E.errs.includes('E-MH-04'), '못 받음 — «불러오지 못했어요 — 눌러서 다시 시도» · E-MH-04');
   const n0 = E.calls('GET', /schedules\?month/).length;
-  E.routes['GET /v1/me/schedules'] = [item('b', YM + '-' + DD, '복구', 'PRIVATE', 1)];
+  E.routes['GET /v2/me/schedules'] = [item('b', YM + '-' + DD, '복구', 'PRIVATE', 1)];
   day.children[0].onclick(); await tick();
   chk(E.calls('GET', /schedules\?month/).length === n0 + 1 && day.textContent.includes('복구'), '  그 글자를 누르면 다시 받는다');
   let nid = 0;
-  E.routes['POST /v1/me/schedules'] = (b) => item('n' + (++nid), b.date, b.text, b.visibility, 1);
+  E.routes['POST /v2/me/schedules'] = (b) => item('n' + (++nid), b.date, b.text, b.visibility, 1);
   E.el('mhSchedInput').value = '치과'; E.el('mhSchedAddBtn').fire('click'); await tick();
   const p = E.calls('POST', /./)[0];
-  chk(p.path === '/v1/me/schedules' && p.body.date === YM + '-' + DD && p.body.text === '치과' && p.body.visibility === 'PRIVATE' && p.opts.expectOwner === 'tokenA', '일정 쓰기 — POST { date · text · visibility } · expectOwner');
+  chk(p.path === '/v2/me/schedules' && p.body.date === YM + '-' + DD && p.body.text === '치과' && p.body.visibility === 'PRIVATE' && p.opts.expectOwner === 'tokenA', '일정 쓰기 — POST { date · text · visibility } · expectOwner');
   chk(day.textContent.includes('치과') && E.el('mhSchedInput').value === '' && E.toasts.includes('일정을 추가했어요'), '  서버가 돌려준 일정이 목록에 얹히고 입력칸이 비워진다 · 토스트');
   chk(E.calls('GET', /schedules\?month/).length === n0 + 1, '  쓰고 나서 달 전체를 다시 받지 않는다(돌려받은 일정을 얹는다)');
   E.g.friends = { f1: { name: '친구A' }, f2: { name: '친구B' } };
@@ -335,32 +335,32 @@ await sec('── 4. 달력', async () => {
   const p2 = E.calls('POST', /./)[1];
   chk(eq(p2.body.tagFriends, ['f1', 'f2']) && p2.body.visibility === 'PUBLIC' && E.toasts.includes('일정을 추가하고 친구 2명에게 알렸어요'), '  같은 요청에 tagFriends(알림까지) — 화면이 켠 공개 그대로 PUBLIC · 토스트 «친구 2명에게 알렸어요»');
   chk(pub.checked === false && pub.disabled === false && hint.textContent === '', '  쓰고 나면 태그가 비워지며 공개 체크는 태그 전 값으로 돌아오고 잠금이 풀린다');
-  E.routes['POST /v1/me/schedules'] = apiErr(403, 'SCHEDULE_TAG_NOT_FRIEND');
+  E.routes['POST /v2/me/schedules'] = apiErr(403, 'SCHEDULE_TAG_NOT_FRIEND');
   E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
   E.el('mhSchedInput').value = '실패할 일정'; const errs0 = E.errs.length, toasts0 = E.toasts.length; E.el('mhSchedAddBtn').fire('click'); await tick();
   chk(E.errs.length === errs0 && E.toasts.slice(toasts0).filter(m => m === '친구가 아닌 사람은 태그할 수 없어요').length === 1 && E.el('mhSchedInput').value === '실패할 일정' && !day.textContent.includes('실패할 일정'),
       '친구가 아닌 사람을 태그 → 오류 번호 0 · 안내 토스트 1 · 일정은 만들어지지 않는다 · 입력칸은 그대로(다시 누르면 됨)');
-  E.routes['POST /v1/me/schedules'] = apiErr(403, 'SCHEDULE_TAG_SELF');
+  E.routes['POST /v2/me/schedules'] = apiErr(403, 'SCHEDULE_TAG_SELF');
   const toasts1 = E.toasts.length; E.el('mhSchedAddBtn').fire('click'); await tick();
   chk(E.errs.includes('E-MH-06') && !E.toasts.slice(toasts1).includes('친구가 아닌 사람은 태그할 수 없어요'), '자기 자신을 태그 → 그대로 E-MH-06 (친구 아님 안내 토스트는 안 뜬다)');
   const slow = deferred();
-  E.routes['POST /v1/me/schedules'] = () => slow.p;
+  E.routes['POST /v2/me/schedules'] = () => slow.p;
   const before = E.calls('POST', /./).length;
   E.el('mhSchedInput').value = '두 번 누름';
   E.el('mhSchedAddBtn').fire('click'); E.el('mhSchedAddBtn').fire('click'); await tick();
   chk(E.calls('POST', /./).length === before + 1, '보내는 중에 또 눌러도 요청은 하나');
   slow.res(item('n10', YM + '-' + DD, '두 번 누름', 'PRIVATE', 1)); await tick();
-  E.routes['DELETE /v1/me/schedules/:id'] = null;
+  E.routes['DELETE /v2/me/schedules/:id'] = null;
   day.children.find(r => r.textContent.includes('복구')).children.find(c => c.className === 'x').onclick(); await tick();
   const dl = E.calls('DELETE', /schedules\/b/)[0];
-  chk(dl && dl.path === '/v1/me/schedules/b?version=1' && !day.textContent.includes('복구'), '× → DELETE /v1/me/schedules/{id}?version= 후 목록에서 뺀다');
-  E.routes['DELETE /v1/me/schedules/:id'] = apiErr(409, 'CONCURRENT_UPDATE');
+  chk(dl && dl.path === '/v2/me/schedules/b?version=1' && !day.textContent.includes('복구'), '× → DELETE /v2/me/schedules/{id}?version= 후 목록에서 뺀다');
+  E.routes['DELETE /v2/me/schedules/:id'] = apiErr(409, 'CONCURRENT_UPDATE');
   const g0 = E.calls('GET', /schedules\?month/).length;
   day.children.find(r => r.textContent.includes('치과')).children.find(c => c.className === 'x').onclick(); await tick();
   chk(E.errs.includes('E-NET-05') && E.calls('GET', /schedules\?month/).length === g0 + 1, '지울 때 409 → 지우지 않고 알린 뒤 달을 다시 받는다');
   /* 늦게 온 앞 달 답 */
   const dA = deferred();
-  E.routes['GET /v1/me/schedules'] = (b, p) => (monthOfPath(p) === YM ? dA.p : [item('z', nextYM + '-05', '다음 달 일정', 'PRIVATE', 1)]);
+  E.routes['GET /v2/me/schedules'] = (b, p) => (monthOfPath(p) === YM ? dA.p : [item('z', nextYM + '-05', '다음 달 일정', 'PRIVATE', 1)]);
   E.el('mhSchedToday').fire('click');          // 이번 달 — 느린 답
   E.el('mhSchedNext').fire('click');           // 다음 달 — 빠른 답
   await tick();
@@ -369,7 +369,7 @@ await sec('── 4. 달력', async () => {
   dayCells(E)[4].click(); await tick();
   chk(E.el('mhSchedDayList').textContent.includes('다음 달 일정') && !E.el('mhSchedDayList').textContent.includes('늦게 온'), '  늦게 온 앞 달 답은 버린다 — 다음 달 5일에는 다음 달 일정만');
   const k0 = E.calls('GET', /schedules\?month=/).length;
-  E.routes['GET /v1/me/schedules'] = () => [item('z', nextYM + '-05', '다른 기기에서 고침', 'PRIVATE', 2)];
+  E.routes['GET /v2/me/schedules'] = () => [item('z', nextYM + '-05', '다른 기기에서 고침', 'PRIVATE', 2)];
   E.rt.schedule[0]({ kind: 'schedule' }); await tick();
   chk(E.calls('GET', /schedules\?month=/).length >= k0 + 1 && E.el('mhSchedDayList').textContent.includes('다른 기기에서 고침'), '서버 알림(schedule) → 보는 달을 조용히 다시 받아 그린다');
 });
@@ -377,7 +377,7 @@ await sec('── 4. 달력', async () => {
 await sec('── 5. 기념일 · D-day', async () => {
   const d = deferred();
   let hold = true;
-  const E = mkEnv({ routes: { 'GET /v1/me/ddays': () => (hold ? d.p : BOARD()) } });
+  const E = mkEnv({ routes: { 'GET /v2/me/ddays': () => (hold ? d.p : BOARD()) } });
   E.S.renderSchedCalendar();
   const grid = E.el('mhDdayGrid'), banners = E.el('mhDdayBanners');
   E.S.renderDdays();
@@ -389,31 +389,31 @@ await sec('── 5. 기념일 · D-day', async () => {
   chk(gridCards(E)[0].textContent.includes('만난 날') && gridCards(E)[0].textContent.includes('11일') && gridCards(E)[1].textContent.includes('20일'), '  서버 순서대로 · 셈법 반영(10일 전 «그날이 1일» = 11일 · 끄면 20일)');
   const Z = mkEnv(); Z.S.renderSchedCalendar(); await tick(20);
   chk(gridCards(Z).length === 0 && Z.el('mhDdayGrid').children.some(c => c.classList.contains('add')) && Z.el('mhDdayBanners').textContent.includes('날짜를 우클릭'), '빈 보드는 [+] 카드와 안내 — «못 불러옴» 이 아니다');
-  const Fl = mkEnv({ routes: { 'GET /v1/me/ddays': apiErr(503, 'X') } });
+  const Fl = mkEnv({ routes: { 'GET /v2/me/ddays': apiErr(503, 'X') } });
   Fl.S.renderSchedCalendar(); await tick(20);
   chk(Fl.el('mhDdayGrid').textContent.includes('불러오지 못했어요') && Fl.el('mhDdayBanners').textContent.includes('불러오지 못했어요') && Fl.errs.includes('E-MH-04'), '못 받음 — 두 자리 모두 «불러오지 못했어요 — 눌러서 다시 시도» · E-MH-04');
   chk(Fl.errs.filter(c => c === 'E-MH-04').length === 1, '  이어지는 실패는 오류 번호를 한 번만');
   const nGet = Fl.calls('GET', /ddays/).length;
-  Fl.routes['GET /v1/me/ddays'] = BOARD();
+  Fl.routes['GET /v2/me/ddays'] = BOARD();
   Fl.el('mhDdayBanners').children[0].onclick(); await tick(20);
   chk(Fl.calls('GET', /ddays/).length === nGet + 1 && gridCards(Fl).length === 2, '  눌러서 다시 받으면 보인다');
-  const Fl2 = mkEnv({ routes: { 'GET /v1/me/ddays': apiErr(503, 'X') } });
+  const Fl2 = mkEnv({ routes: { 'GET /v2/me/ddays': apiErr(503, 'X') } });
   Fl2.S.renderSchedCalendar(); await tick(20);
-  Fl2.routes['GET /v1/me/ddays'] = BOARD();
+  Fl2.routes['GET /v2/me/ddays'] = BOARD();
   Fl2.S.renderSchedCalendar(); await tick(20);
   chk(gridCards(Fl2).length === 2, '  탭을 다시 열어도 못 받았던 것을 다시 받는다');
 
   /* 새 기념일 저장(통째) */
-  const P = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const P = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   P.S.renderSchedCalendar(); await tick(20);
-  P.routes['PUT /v1/me/ddays'] = (b) => BOARD({ version: 6, cards: b.cards.map((c) => card(c.ddayId || U4, c.text, c.date, { visibility: c.visibility, notify: c.notify, countFromOne: c.countFromOne, bgColor: c.bgColor || null, bgImage: c.bgImage || null })), banners: BOARD().banners });
+  P.routes['PUT /v2/me/ddays'] = (b) => BOARD({ version: 6, cards: b.cards.map((c) => card(c.ddayId || U4, c.text, c.date, { visibility: c.visibility, notify: c.notify, countFromOne: c.countFromOne, bgColor: c.bgColor || null, bgImage: c.bgImage || null })), banners: BOARD().banners });
   P.el('mhDdayGrid').children.find(c => c.classList.contains('add')).onclick();
   chk(P.el('mhDdayEdit').style.display === 'block' && P.el('mhDdayEditTitle').textContent === '📌 기념일 추가' && P.el('mhDdayBase1').checked === true, '[+] → «📌 기념일 추가» · «그날이 1일» 은 켜진 채로 연다');
   P.el('mhDdayText').value = '100일'; P.el('mhDdayY').value = '2027'; P.el('mhDdayM').value = '03'; P.el('mhDdayD').value = '04';
   P.el('mhDdayNotify').checked = true; P.el('mhDdayColor').value = '#ff0000';
   P.el('mhDdaySaveBtn').fire('click'); await tick(30);
   const put = P.calls('PUT', /ddays/)[0];
-  chk(put && put.body.version === 5 && put.body.cards.length === 3 && put.opts.expectOwner === 'tokenA', '저장 — 보드 통째 PUT /v1/me/ddays (읽은 판 5 · 카드 3) · expectOwner');
+  chk(put && put.body.version === 5 && put.body.cards.length === 3 && put.opts.expectOwner === 'tokenA', '저장 — 보드 통째 PUT /v2/me/ddays (읽은 판 5 · 카드 3) · expectOwner');
   const nc = put.body.cards[2];
   chk(!('ddayId' in nc) && nc.text === '100일' && nc.date === '2027-03-04' && nc.notify === true && nc.countFromOne === true && nc.bgColor === '#ff0000' && nc.visibility === 'PRIVATE', '  새 장 — ddayId 없음 · 글 · 날짜 · 알림 · 셈법 · 배경색 · 비공개');
   chk(P.el('mhDdayEdit').style.display === 'none' && P.toasts.includes('기념일을 추가했어요'), '  끝나면 편집창이 닫히고 토스트');
@@ -424,16 +424,16 @@ await sec('── 5. 기념일 · D-day', async () => {
   P.el('mhDdaySaveBtn').fire('click'); await tick(30);
   const put2 = P.calls('PUT', /ddays/)[1];
   chk(put2.body.version === 6 && put2.body.cards[1].ddayId === U2 && put2.body.cards[1].text === '졸업식' && put2.body.cards[1].countFromOne === false, '수정 — 같은 id · 같은 자리 · 새 판(6)');
-  P.routes['PUT /v1/me/ddays'] = (b) => BOARD({ version: 7, cards: BOARD().cards.filter(c => b.cards.some(x => x.ddayId === c.ddayId)), banners: BOARD().banners.filter(c => b.banners.some(x => x.ddayId === c.ddayId)) });
+  P.routes['PUT /v2/me/ddays'] = (b) => BOARD({ version: 7, cards: BOARD().cards.filter(c => b.cards.some(x => x.ddayId === c.ddayId)), banners: BOARD().banners.filter(c => b.banners.some(x => x.ddayId === c.ddayId)) });
   P.el('mhDdayBanners').children[0].children.find(c => c.className === 'db-x').onclick({ stopPropagation(){} }); await tick(30);
   const put3 = P.calls('PUT', /ddays/)[2];
   chk(put3.body.banners.length === 0 && P.toasts.includes('D-day를 삭제했어요') && P.el('mhDdayBanners').textContent.includes('날짜를 우클릭'), '배너 × → 그 장을 뺀 보드를 저장 · 토스트 · 화면에서 빠짐');
 
   /* 409 — 덮어쓰지 않고 다시 받는다 */
-  const C = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const C = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   C.S.renderSchedCalendar(); await tick(20);
-  C.routes['PUT /v1/me/ddays'] = apiErr(409, 'CONCURRENT_UPDATE');
-  C.routes['GET /v1/me/ddays'] = BOARD({ version: 8, cards: [card(U1, '다른 기기에서 바뀜', daysAgo(1))], banners: [] });
+  C.routes['PUT /v2/me/ddays'] = apiErr(409, 'CONCURRENT_UPDATE');
+  C.routes['GET /v2/me/ddays'] = BOARD({ version: 8, cards: [card(U1, '다른 기기에서 바뀜', daysAgo(1))], banners: [] });
   gridCards(C)[0].fire('contextmenu');
   C.el('mhDdayText').value = '내가 고친 이름';
   C.el('mhDdaySaveBtn').fire('click'); await tick(30);
@@ -444,18 +444,18 @@ await sec('── 5. 기념일 · D-day', async () => {
   chk(C.calls('PUT', /ddays/)[1] && C.calls('PUT', /ddays/)[1].body.version === 8, '  다시 받은 뒤의 저장은 새 판(8)으로');
 
   /* 이미 지운 것을 고치려 함 */
-  const G = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const G = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   G.S.renderSchedCalendar(); await tick(20);
   gridCards(G)[0].fire('contextmenu');
-  G.routes['GET /v1/me/ddays'] = BOARD({ cards: [], banners: [] });
+  G.routes['GET /v2/me/ddays'] = BOARD({ cards: [], banners: [] });
   G.rt.schedule[0]({ kind: 'schedule' }); await tick(30);
   G.el('mhDdaySaveBtn').fire('click'); await tick(30);
   chk(G.calls('PUT', /ddays/).length === 0 && G.el('mhDdayEditMsg').textContent.includes('이미 지워진'), '다른 기기에서 이미 지운 기념일을 고치려 하면 보내지 않는다 — 안내');
 
   /* 태그 · 상한 */
-  const T = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const T = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   T.S.renderSchedCalendar(); await tick(20);
-  T.routes['PUT /v1/me/ddays'] = () => BOARD({ version: 6 });
+  T.routes['PUT /v2/me/ddays'] = () => BOARD({ version: 6 });
   T.g.friends = { f1: { name: 'A' } };
   dayCells(T)[4].fire('contextmenu');
   T.el('mhDdayText').value = '친구와'; T.el('mhDdayTagBtn').fire('click');
@@ -465,7 +465,7 @@ await sec('── 5. 기념일 · D-day', async () => {
   const tp = T.calls('PUT', /ddays/)[0];
   chk(tp.body.tagFriends && tp.body.tagFriends.kind === 'BANNER' && tp.body.tagFriends.index === 1 && eq(tp.body.tagFriends.userCodes, ['f1']) && T.toasts.includes('D-day를 저장하고 친구 1명에게 알렸어요'), '친구 태그 — 같은 PUT 에 tagFriends(저장한 배너가 두 번째) · 토스트');
   chk(T.el('mhDdayPublic').checked === true && T.el('mhDdayPublic').disabled === true && T.el('mhDdayPublicHint').textContent === '태그한 친구가 볼 수 있게 공개돼요' && tp.body.banners[1].visibility === 'PUBLIC', '  태그하면 «공개» 를 켜고 잠그고 까닭을 보인다 — 보내는 값도 PUBLIC');
-  T.routes['PUT /v1/me/ddays'] = apiErr(409, 'SCHEDULE_DDAY_FULL');
+  T.routes['PUT /v2/me/ddays'] = apiErr(409, 'SCHEDULE_DDAY_FULL');
   dayCells(T)[4].fire('contextmenu');
   chk(T.el('mhDdayPublic').disabled === false && T.el('mhDdayPublic').checked === false && T.el('mhDdayPublicHint').textContent === '', '  편집창을 새로 열면 앞의 태그 잠금이 풀려 있다');
   T.el('mhDdayText').value = '또'; T.el('mhDdaySaveBtn').fire('click'); await tick(30);
@@ -473,10 +473,10 @@ await sec('── 5. 기념일 · D-day', async () => {
 
   /* 저장 줄 세우기 */
   const S1 = deferred();
-  const Q = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const Q = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   Q.S.renderSchedCalendar(); await tick(20);
   let n = 0;
-  Q.routes['PUT /v1/me/ddays'] = () => { n++; return n === 1 ? S1.p : BOARD({ version: 7 }); };
+  Q.routes['PUT /v2/me/ddays'] = () => { n++; return n === 1 ? S1.p : BOARD({ version: 7 }); };
   gridCards(Q)[0].fire('contextmenu'); Q.el('mhDdayText').value = '첫째'; Q.el('mhDdaySaveBtn').fire('click'); await tick();
   Q.el('mhDdayBanners').children[0].children.find(c => c.className === 'db-x').onclick({ stopPropagation(){} }); await tick();
   chk(Q.calls('PUT', /ddays/).length === 1, '저장을 보내는 동안 또 고쳐도 둘째는 기다린다 — 요청은 하나씩');
@@ -485,82 +485,82 @@ await sec('── 5. 기념일 · D-day', async () => {
   chk(q2 && q2.body.version === 6 && q2.body.cards[0].text === '첫째' && q2.body.banners.length === 0, '  끝나면 최신 값(첫째 저장의 결과 · 새 판 6)에서 이어 보낸다');
 
   /* 순서 바꾸기 */
-  const R = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const R = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   R.S.renderSchedCalendar(); await tick(20);
-  R.routes['PUT /v1/me/ddays'] = () => BOARD({ version: 6, cards: [card(U2, '졸업', daysAgo(20)), card(U1, '만난 날', daysAgo(10))], banners: BOARD().banners });
+  R.routes['PUT /v2/me/ddays'] = () => BOARD({ version: 6, cards: [card(U2, '졸업', daysAgo(20)), card(U1, '만난 날', daysAgo(10))], banners: BOARD().banners });
   const cs = gridCards(R);
   cs[1].fire('dragstart', { dataTransfer: { setData(){} } });
   cs[0].fire('dragover'); cs[0].fire('drop'); await tick(30);
   const rp = R.calls('PUT', /ddays/)[0];
   chk(rp && eq(rp.body.cards.map(c => c.ddayId), [U2, U1]), '끌어 순서 바꾸기 → 바뀐 순서로 통째 저장(목록 순서가 곧 순서)');
   chk(gridCards(R)[0].textContent.includes('졸업'), '  화면도 그 순서');
-  R.routes['PUT /v1/me/ddays'] = apiErr(503, 'X');
+  R.routes['PUT /v2/me/ddays'] = apiErr(503, 'X');
   const g0 = R.calls('GET', /ddays/).length;
   const cs2 = gridCards(R);
   cs2[0].fire('dragstart', { dataTransfer: { setData(){} } }); cs2[1].fire('dragover'); cs2[1].fire('drop'); await tick(30);
   chk(R.calls('GET', /ddays/).length === g0 + 1 && R.errs.length > 0, '순서 저장이 실패하면 먼저 그린 순서를 서버 것으로 되돌린다 · 알림');
 
   { /* 저장도 다시 받기도 못 하면 받아 둔 사본으로 되돌린다 */
-    const R2 = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+    const R2 = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
     R2.S.renderSchedCalendar(); await tick(20);
-    R2.routes['PUT /v1/me/ddays'] = apiErr(503, 'X');
-    R2.routes['GET /v1/me/ddays'] = apiErr(503, 'X');
+    R2.routes['PUT /v2/me/ddays'] = apiErr(503, 'X');
+    R2.routes['GET /v2/me/ddays'] = apiErr(503, 'X');
     const c2 = gridCards(R2);
     c2[1].fire('dragstart', { dataTransfer: { setData(){} } }); c2[0].fire('dragover'); c2[0].fire('drop'); await tick(30);
     chk(gridCards(R2)[0].textContent.includes('만난 날') && gridCards(R2)[1].textContent.includes('졸업'), '순서 저장도 다시 받기도 못 하면 먼저 바꾼 순서를 받아 둔 사본(원래 순서)으로 되돌린다');
   }
   { /* 편집창이 열린 채 받기 상태가 아니면 말없이 끝나지 않는다 */
-    const K = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+    const K = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
     K.S.renderSchedCalendar(); await tick(20);
     gridCards(K)[0].fire('contextmenu');
-    K.routes['GET /v1/me/ddays'] = () => new Promise(() => {});
+    K.routes['GET /v2/me/ddays'] = () => new Promise(() => {});
     K.S.reset(); K.S.loadBoard();
     K.el('mhDdaySaveBtn').fire('click'); await tick(20);
     chk(K.el('mhDdayEditMsg').textContent.includes('불러오는 중이에요') && K.calls('PUT', /./).length === 0, '편집창이 열린 채 reset 돼 다시 받는 중이면 «불러오는 중이에요» 를 편집창에 보이고 보내지 않는다');
     for(const [label, getRoute, want] of [['받는 중', () => new Promise(() => {}), '불러오는 중이에요']]){
-      const K3 = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+      const K3 = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
       K3.S.renderSchedCalendar(); await tick(20);
       const hold = deferred();
-      K3.routes['PUT /v1/me/ddays'] = () => hold.p;
+      K3.routes['PUT /v2/me/ddays'] = () => hold.p;
       gridCards(K3)[0].fire('contextmenu');
       K3.el('mhDdaySaveBtn').fire('click'); await tick();
-      K3.routes['GET /v1/me/ddays'] = getRoute;
+      K3.routes['GET /v2/me/ddays'] = getRoute;
       K3.S.reset(); K3.S.loadBoard(); await tick(20);
       hold.res(BOARD({ version: 6 })); await tick(30);
       chk(K3.el('mhDdayEditMsg').textContent.includes(want), '  보내는 중에 reset 돼 보낸 저장이 버려지면 «' + want + '» 를 보인다(' + label + ')');
     }
-    const K2 = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+    const K2 = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
     K2.S.renderSchedCalendar(); await tick(20);
     gridCards(K2)[0].fire('contextmenu');
-    K2.routes['GET /v1/me/ddays'] = apiErr(503, 'X');
+    K2.routes['GET /v2/me/ddays'] = apiErr(503, 'X');
     K2.S.reset(); K2.S.loadBoard(); await tick(20);
     K2.el('mhDdaySaveBtn').fire('click'); await tick(20);
     chk(K2.el('mhDdayEditMsg').textContent.includes('불러오지 못했어요') && K2.calls('PUT', /./).length === 0, '  못 받은 상태면 «불러오지 못했어요» 를 보인다');
   }
 
   /* 못 받은 보드 */
-  const Lk = mkEnv({ routes: { 'GET /v1/me/ddays': apiErr(503, 'X') } });
+  const Lk = mkEnv({ routes: { 'GET /v2/me/ddays': apiErr(503, 'X') } });
   Lk.S.renderSchedCalendar(); await tick(20);
   dayCells(Lk)[3].fire('contextmenu');
   chk(Lk.calls('PUT', /./).length === 0 && gridCards(Lk).length === 0 && Lk.el('mhDdayEdit').style.display !== 'block', '못 받은 보드는 카드도 없고 편집창도 안 열린다(요청 0)');
 
   /* 계정 바뀜 */
-  const O = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() } });
+  const O = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() } });
   O.S.renderSchedCalendar(); await tick(20);
   O.st.who = 'tokenB';
   gridCards(O)[0].fire('contextmenu'); O.el('mhDdayText').value = '남의 토큰'; O.el('mhDdaySaveBtn').fire('click'); await tick(30);
   chk(O.calls('PUT', /ddays/).length === 0 && O.errs.length === 0, '읽은 뒤 로그인한 사람이 바뀌면 보내지 않고 조용히 — 오류 번호도 없다');
 
   /* 서버 알림 */
-  const W = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const W = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   W.S.renderSchedCalendar(); await tick(20);
   const dq = deferred();
-  W.routes['GET /v1/me/ddays'] = () => dq.p;
+  W.routes['GET /v2/me/ddays'] = () => dq.p;
   W.rt.schedule[0]({ kind: 'schedule' }); await tick();
   chk(gridCards(W).length === 2 && !W.el('mhDdayGrid').textContent.includes('불러오는 중'), '서버 알림(schedule) → 조용히 다시 받는 동안 화면을 비우지 않는다');
   dq.res(BOARD({ version: 9, cards: [card(U1, '다른 기기', daysAgo(5))], banners: [] })); await tick(30);
   chk(gridCards(W).length === 1 && gridCards(W)[0].textContent.includes('다른 기기'), '  받으면 바뀐다');
-  W.routes['GET /v1/me/ddays'] = apiErr(503, 'X');
+  W.routes['GET /v2/me/ddays'] = apiErr(503, 'X');
   W.rt.schedule[0]({ kind: 'schedule', resync: true }); await tick(30);
   chk(gridCards(W).length === 1 && W.errs.length === 0, '  조용히 다시 받다 못 받으면 있던 값을 두고 알리지 않는다');
 });
@@ -571,8 +571,8 @@ await sec('── 5-2. 📌 기념일 보기 — 타일형 · 목록형(이 PC �
       '저장값 읽기 — list 만 목록형 · 빈 값 · 모르는 값은 타일형(고른 적 없으면 예전 그대로)');
   const LONG = '대학교 졸업식 드디어 끝난 날';
   const run = async (src) => {
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD({ cards: [card(U1, LONG, daysAgo(10), { visibility: 'PUBLIC' })], banners: [] }),
-      'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [card(U4, '친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] } } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD({ cards: [card(U1, LONG, daysAgo(10), { visibility: 'PUBLIC' })], banners: [] }),
+      'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [card(U4, '친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] } } });
     E.S.renderSchedCalendar(); await tick(20);
     const grid = E.el('mhDdayGrid');
     const r = { tileFirst: grid.className.startsWith('cols') && gridCards(E).length === 1 };
@@ -611,7 +611,7 @@ await sec('── 5-2. 📌 기념일 보기 — 타일형 · 목록형(이 PC �
   chk(R.drag, '  단추 밖을 누르면 구분선 끌기는 예전처럼');
   chk(R.visit, '👀 관람 — 보는 사람이 고른 보기 그대로 · [+] 줄 없음');
   {
-    const L = mkEnv({ routes: { 'GET /v1/me/ddays': () => new Promise(() => {}) } });
+    const L = mkEnv({ routes: { 'GET /v2/me/ddays': () => new Promise(() => {}) } });
     L.ls.set('tw.annivView', 'list'); L.S.renderSchedCalendar(); L.S.renderDdays(); await tick();
     chk(L.el('mhDdayGrid').textContent.includes('불러오는 중이에요') && !L.el('mhDdayGrid').children.some(c => c.classList.contains('add')), '목록형도 받는 중엔 «불러오는 중이에요» · [+] 줄 없음(잠금)');
   }
@@ -624,13 +624,13 @@ await sec('── 5-2. 📌 기념일 보기 — 타일형 · 목록형(이 PC �
 });
 
 await sec('── 6. 👀 관람', async () => {
-  const E = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD(),
-    'GET /v1/schedules/f1': [item('p', YM + '-' + DD, '공개 일정', 'PUBLIC', 1)],
-    'GET /v1/ddays/f1': { cards: [card(U4, '친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] } } });
+  const E = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD(),
+    'GET /v2/schedules/f1': [item('p', YM + '-' + DD, '공개 일정', 'PUBLIC', 1)],
+    'GET /v2/ddays/f1': { cards: [card(U4, '친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] } } });
   E.S.renderSchedCalendar(); await tick(20);
   E.g.viewing = 'f1';
   E.S.startVisit('f1'); await tick(30);
-  chk(E.calls('GET', /^\/v1\/schedules\/f1\?month=/).length === 1 && E.calls('GET', /^\/v1\/ddays\/f1$/).length === 1, '구경 시작 — 친구의 달력(GET /v1/schedules/{코드}) · 보드(GET /v1/ddays/{코드})를 받는다');
+  chk(E.calls('GET', /^\/v2\/schedules\/f1\?month=/).length === 1 && E.calls('GET', /^\/v2\/ddays\/f1$/).length === 1, '구경 시작 — 친구의 달력(GET /v2/schedules/{코드}) · 보드(GET /v2/ddays/{코드})를 받는다');
   const grid = E.el('mhDdayGrid');
   chk(grid.children.length === 1 && grid.children[0].textContent.includes('친구 기념') && E.el('mhSchedDayList').textContent.includes('공개 일정'), '  친구 기념일만 · [+] 카드 없음 · 친구의 공개 일정');
   E.el('mhDdayEdit').style.display = 'none';
@@ -638,27 +638,27 @@ await sec('── 6. 👀 관람', async () => {
   chk(E.el('mhDdayEdit').style.display === 'none' && E.calls('PUT', /./).length === 0, '  우클릭해도 편집창이 안 열린다 · 쓰기 요청 0');
   E.g.viewing = null; E.S.endVisit(); await tick(30);
   chk(grid.children.length === 3 && grid.children[0].textContent.includes('만난 날'), '구경 끝 — 내 기념일로 돌아온다');
-  chk(E.calls('GET', /^\/v1\/me\/ddays$/).length === 1, '  내 보드는 다시 받지 않는다');
+  chk(E.calls('GET', /^\/v2\/me\/ddays$/).length === 1, '  내 보드는 다시 받지 않는다');
   grid.children[0].fire('contextmenu');
   chk(E.el('mhDdayEdit').style.display === 'block' && E.el('mhDdayEditTitle').textContent === '📌 기념일 수정', '  내 것은 우클릭 → «📌 기념일 수정»');
   const dl = deferred();
-  E.routes['GET /v1/ddays/f1'] = () => dl.p;
+  E.routes['GET /v2/ddays/f1'] = () => dl.p;
   E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick();
   chk(grid.textContent.includes('불러오는 중이에요'), '친구 보드를 받는 중 — «불러오는 중이에요»');
   E.g.viewing = null; E.S.endVisit(); await tick();
   dl.res({ cards: [card(U4, '늦게 온 친구', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] }); await tick(30);
   chk(!grid.textContent.includes('늦게 온 친구') && gridCards(E).length === 2, '구경을 끝낸 뒤 늦게 온 친구 답은 버린다');
-  E.routes['GET /v1/ddays/f1'] = apiErr(404, 'USER_NOT_FOUND');
+  E.routes['GET /v2/ddays/f1'] = apiErr(404, 'USER_NOT_FOUND');
   E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
   chk(grid.textContent.includes('불러오지 못했어요') && E.errs.includes('E-MH-04'), '친구 것을 못 받으면 «불러오지 못했어요» · E-MH-04 (빈 보드가 아니다)');
 });
 
 await sec('── 6-2. 👀 구경 중 친구 일정 알림 — friendSchedule', async () => {
-  const mk = (src) => mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(),
-    'GET /v1/schedules/f1': [item('p', YM + '-' + DD, '공개 일정', 'PUBLIC', 1)],
-    'GET /v1/ddays/f1': { cards: [card(U4, '친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] } } });
+  const mk = (src) => mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(),
+    'GET /v2/schedules/f1': [item('p', YM + '-' + DD, '공개 일정', 'PUBLIC', 1)],
+    'GET /v2/ddays/f1': { cards: [card(U4, '친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] } } });
   const sig = (E, subject) => (E.rt.friendSchedule || []).forEach(fn => fn({ kind: 'friendSchedule', subject, section: null, resync: false }));
-  const cnt = (E, f) => E.calls('GET', new RegExp('^/v1/(schedules|ddays)/' + f + '(\\?|$)')).length;
+  const cnt = (E, f) => E.calls('GET', new RegExp('^/v2/(schedules|ddays)/' + f + '(\\?|$)')).length;
   const E = mk();
   E.S.renderSchedCalendar(); await tick(20);
   chk((E.rt.friendSchedule || []).length === 1, '알림 종류 friendSchedule 을 한 번 건다');
@@ -668,8 +668,8 @@ await sec('── 6-2. 👀 구경 중 친구 일정 알림 — friendSchedule',
   const base = cnt(E, 'f1');
   sig(E, 'f2'); await tick(20);
   chk(cnt(E, 'f1') === base && cnt(E, 'f2') === 0, '다른 친구 알림은 요청 0');
-  E.routes['GET /v1/ddays/f1'] = { cards: [card(U4, '바뀐 친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
-  E.routes['GET /v1/schedules/f1'] = [item('p2', YM + '-' + DD, '새 공개 일정', 'PUBLIC', 2)];
+  E.routes['GET /v2/ddays/f1'] = { cards: [card(U4, '바뀐 친구 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
+  E.routes['GET /v2/schedules/f1'] = [item('p2', YM + '-' + DD, '새 공개 일정', 'PUBLIC', 2)];
   sig(E, 'f1'); await tick(30);
   chk(cnt(E, 'f1') === base + 2, '같은 친구 알림 — 보는 달 · 보드를 한 번씩 다시 받는다(GET 2)');
   chk(E.el('mhDdayGrid').textContent.includes('바뀐 친구 기념') && E.el('mhSchedDayList').textContent.includes('새 공개 일정'), '  화면이 새 값으로');
@@ -687,53 +687,53 @@ await sec('── 6-2. 👀 구경 중 친구 일정 알림 — friendSchedule',
   }
   /* 겹친 신호 — 받는 중 여러 번 와도 끝난 뒤 한 바퀴만 더 */
   const dl = deferred(); let n = 0;
-  E.routes['GET /v1/ddays/f1'] = () => { n++; return n === 1 ? dl.p : { cards: [], banners: [] }; };
-  const b0 = E.calls('GET', /^\/v1\/ddays\/f1$/).length;
+  E.routes['GET /v2/ddays/f1'] = () => { n++; return n === 1 ? dl.p : { cards: [], banners: [] }; };
+  const b0 = E.calls('GET', /^\/v2\/ddays\/f1$/).length;
   sig(E, 'f1'); sig(E, 'f1'); sig(E, 'f1'); await tick(20);
-  chk(E.calls('GET', /^\/v1\/ddays\/f1$/).length === b0 + 1, '받는 중 겹친 신호는 새 요청을 만들지 않는다');
+  chk(E.calls('GET', /^\/v2\/ddays\/f1$/).length === b0 + 1, '받는 중 겹친 신호는 새 요청을 만들지 않는다');
   dl.res({ cards: [], banners: [] }); await tick(40);
-  chk(E.calls('GET', /^\/v1\/ddays\/f1$/).length === b0 + 2, '  끝난 뒤 한 번만 더(세 신호 → 두 바퀴)');
+  chk(E.calls('GET', /^\/v2\/ddays\/f1$/).length === b0 + 2, '  끝난 뒤 한 번만 더(세 신호 → 두 바퀴)');
   /* 실패 — 번호 없이 지금 화면 유지 */
-  E.routes['GET /v1/ddays/f1'] = { cards: [card(U4, '남을 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
+  E.routes['GET /v2/ddays/f1'] = { cards: [card(U4, '남을 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
   E.g.viewing = null; E.S.endVisit(); await tick(20);
   E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
-  E.routes['GET /v1/ddays/f1'] = apiErr(503, 'X'); E.routes['GET /v1/schedules/f1'] = apiErr(503, 'X');
+  E.routes['GET /v2/ddays/f1'] = apiErr(503, 'X'); E.routes['GET /v2/schedules/f1'] = apiErr(503, 'X');
   sig(E, 'f1'); await tick(30);
   chk(E.errs.length === 0 && E.el('mhDdayGrid').textContent.includes('남을 기념') && E.el('mhSchedDayList').textContent.includes('새 공개 일정'), '다시 받기가 실패하면 오류 번호 0 · 지금 화면 그대로');
   /* 늦은 응답 — 구경을 끝낸 뒤 */
   const dl2 = deferred();
-  E.routes['GET /v1/ddays/f1'] = () => dl2.p; E.routes['GET /v1/schedules/f1'] = [];
-  E.routes['GET /v1/schedules/f2'] = []; E.routes['GET /v1/ddays/f2'] = { cards: [card(U4, 'f2 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
+  E.routes['GET /v2/ddays/f1'] = () => dl2.p; E.routes['GET /v2/schedules/f1'] = [];
+  E.routes['GET /v2/schedules/f2'] = []; E.routes['GET /v2/ddays/f2'] = { cards: [card(U4, 'f2 기념', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] };
   sig(E, 'f1'); await tick(10);
   E.g.viewing = 'f2'; E.S.startVisit('f2'); await tick(30);
   dl2.res({ cards: [card(U4, '늦게 온 갱신', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] }); await tick(30);
   chk(!E.el('mhDdayGrid').textContent.includes('늦게 온 갱신') && E.el('mhDdayGrid').textContent.includes('f2 기념'), '다른 친구로 옮긴 뒤 늦게 온 갱신 답은 버린다');
-  E.g.viewing = 'f1'; E.routes['GET /v1/ddays/f1'] = () => dl2.p; E.S.startVisit('f1'); await tick(10);
+  E.g.viewing = 'f1'; E.routes['GET /v2/ddays/f1'] = () => dl2.p; E.S.startVisit('f1'); await tick(10);
   sig(E, 'f2'); await tick(10);
   chk(cnt(E, 'f2') === 2, '  옮긴 뒤엔 새 친구(f2) 알림만 받는다(옛 친구 신호는 요청 0)');
   E.g.viewing = null; E.S.endVisit(); await tick(20);
   /* 계정 바뀜(reset) 뒤에도 요청 0 */
-  E.g.viewing = 'f1'; E.routes['GET /v1/ddays/f1'] = { cards: [], banners: [] }; E.S.startVisit('f1'); await tick(30);
+  E.g.viewing = 'f1'; E.routes['GET /v2/ddays/f1'] = { cards: [], banners: [] }; E.S.startVisit('f1'); await tick(30);
   E.S.reset(); const c1 = cnt(E, 'f1'); sig(E, 'f1'); await tick(20);
   chk(cnt(E, 'f1') === c1, 'reset 뒤 알림은 요청 0');
 });
 
 await sec('── 7. reset — 계정을 놓을 때', async () => {
   const dOld = deferred();
-  const E = mkEnv({ routes: { 'GET /v1/me/ddays': BOARD() } });
+  const E = mkEnv({ routes: { 'GET /v2/me/ddays': BOARD() } });
   E.S.renderSchedCalendar(); await tick(20);
-  E.routes['GET /v1/me/ddays'] = () => dOld.p;
+  E.routes['GET /v2/me/ddays'] = () => dOld.p;
   E.S.loadBoard(); await tick();
   E.S.reset();
   chk(gridCards(E).length === 0 && E.el('mhDdayGrid').textContent.includes('불러오는 중'), 'reset — 앞 계정 기념일을 비우고 받기 전으로');
   dOld.res(BOARD({ cards: [card(U1, '앞 계정 것', daysAgo(1))], banners: [] })); await tick(30);
   chk(!E.el('mhDdayGrid').textContent.includes('앞 계정 것') && gridCards(E).length === 0, '  늦게 온 앞 계정 답은 버린다');
-  E.routes['GET /v1/me/ddays'] = BOARD({ cards: [card(U4, '새 계정', daysAgo(1))], banners: [] });
+  E.routes['GET /v2/me/ddays'] = BOARD({ cards: [card(U4, '새 계정', daysAgo(1))], banners: [] });
   const n0 = E.calls('GET', /./).length;
   E.S.loadMine(); await tick(30);
   chk(E.calls('GET', /./).length > n0 && gridCards(E).length === 1 && gridCards(E)[0].textContent.includes('새 계정'), 'loadMine — 새 계정 것을 서버에서 받아 앉힌다(보드 · 오늘 일정 · 태그 알림)');
   await staleBell(MOD, true);
-  const M = mkEnv({ routes: { 'GET /v1/me/schedules': [item('a', YM + '-' + DD, '앞 계정 일정', 'PRIVATE', 1)] } });
+  const M = mkEnv({ routes: { 'GET /v2/me/schedules': [item('a', YM + '-' + DD, '앞 계정 일정', 'PRIVATE', 1)] } });
   M.S.renderSchedCalendar(); await tick(20);
   M.S.reset();
   chk(!M.el('mhSchedDayList').textContent.includes('앞 계정 일정') && M.el('mhSchedGrid').children.length === 0, '달력도 비운다 — 탭을 다시 열면 이번 달부터 새로 받는다');
@@ -773,7 +773,7 @@ await sec('── 8. app.js 배선 · html', async () => {
 
 await sec('── 3-2. 🔔 오늘 내 일정 — 만든 시각이 읽음 시각 뒤인 것만', async () => {
   const SEEN = Date.now() - 3600 * 1000;
-  const mk = (list) => { const E = mkEnv({ routes: { 'GET /v1/me/schedules': list } }); E.ls.set('tw.bellSeenTs', String(SEEN)); return E; };
+  const mk = (list) => { const E = mkEnv({ routes: { 'GET /v2/me/schedules': list } }); E.ls.set('tw.bellSeenTs', String(SEEN)); return E; };
   const rows = (...ats) => ats.map((at, i) => item('t' + i, TODAY, '일정' + i, 'PRIVATE', 1, at));
   const badgeOf = async (list) => { const E = mk(list); await tick(); return E.el('myBellBadge').textContent; };
   chk(await badgeOf(rows(SEEN + 1)) === '1', '읽음 시각보다 1ms 뒤에 만든 일정은 센다');
@@ -786,7 +786,7 @@ await sec('── 3-2. 🔔 오늘 내 일정 — 만든 시각이 읽음 시각
   const E = mk(rows(SEEN + 1)); await tick();
   E.el('myBellBtn').fire('click');
   chk(E.el('myBellBadge').textContent === '0', '  알림창을 열어 읽음 시각이 갱신되면 그 일정은 더 안 센다');
-  E.routes['POST /v1/me/schedules'] = item('n9', TODAY, '방금 만듦', 'PRIVATE', 1, Date.now() + 10);
+  E.routes['POST /v2/me/schedules'] = item('n9', TODAY, '방금 만듦', 'PRIVATE', 1, Date.now() + 10);
   E.el('mhSchedInput').value = '방금 만듦'; E.S.renderSchedCalendar(); await tick();
   E.el('mhSchedAddBtn').fire('click'); await tick();
   chk(E.el('myBellBadge').textContent === '1', '  열어 본 뒤 오늘 날짜로 새로 만든 일정은 다시 센다');
@@ -802,13 +802,13 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     chk(qfail > 0, '깨 보기 — ' + label + ' → 빨강');
   };
   await broken('다른 친구 알림도 다시 받는다', (x) => x.replace("if(friendId !== _visitFriend || viewingUserId() !== friendId) return;", ""), async (src) => {
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] }, 'GET /v1/ddays/f2': { cards: [], banners: [] } } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [], banners: [] }, 'GET /v2/ddays/f2': { cards: [], banners: [] } } });
     E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
     E.rt.friendSchedule.forEach(fn => fn({ subject: 'f2' })); await tick(20);
     chk(E.calls('GET', /f2/).length === 0, 'x');
   });
   await broken('resync 에 구경 중인 친구를 안 받는다', (x) => x.replace("const friend = n.resync ? _visitFriend : n.subject;", "const friend = n.subject;"), async (src) => {
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] } } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [], banners: [] } } });
     E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
     const c0 = E.calls('GET', /f1/).length;
     E.rt.friendSchedule.forEach(fn => fn({ kind: 'friendSchedule', subject: null, resync: true })); await tick(30);
@@ -816,37 +816,37 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   });
   await broken('받는 중 겹친 신호를 그대로 또 요청한다', (x) => x.replace("if(_visitRefreshing){ _visitAgain = true; return; }", ""), async (src) => {
     const dl = deferred();
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] } } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [], banners: [] } } });
     E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
-    E.routes['GET /v1/ddays/f1'] = () => dl.p;
+    E.routes['GET /v2/ddays/f1'] = () => dl.p;
     E.rt.friendSchedule.forEach(fn => { fn({ subject: 'f1' }); fn({ subject: 'f1' }); }); await tick(20);
-    chk(E.calls('GET', /^\/v1\/ddays\/f1$/).length === 2, 'x');
+    chk(E.calls('GET', /^\/v2\/ddays\/f1$/).length === 2, 'x');
   });
   await broken('늦은 갱신 답을 버리지 않는다', (x) => x.replace("const dd = await scheduleApi.fetchBoardOf(friendId);\n        if(seq !== _visitSeq || gen !== _gen) return;\n        _schedDdaysVisit = dd; renderDdays();", "const dd = await scheduleApi.fetchBoardOf(friendId);\n        _schedDdaysVisit = dd; renderDdays();"), async (src) => {
     const dl = deferred();
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] }, 'GET /v1/schedules/f2': [], 'GET /v1/ddays/f2': { cards: [], banners: [] } } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [], banners: [] }, 'GET /v2/schedules/f2': [], 'GET /v2/ddays/f2': { cards: [], banners: [] } } });
     E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
-    E.routes['GET /v1/ddays/f1'] = () => dl.p;
+    E.routes['GET /v2/ddays/f1'] = () => dl.p;
     E.rt.friendSchedule.forEach(fn => fn({ subject: 'f1' })); await tick(10);
     E.g.viewing = 'f2'; E.S.startVisit('f2'); await tick(30);
     dl.res({ cards: [card(U4, '늦게 온 갱신', daysAgo(3), { visibility: 'PUBLIC' })], banners: [] }); await tick(30);
     chk(!E.el('mhDdayGrid').textContent.includes('늦게 온 갱신'), 'x');
   });
   await broken('다시 받기 실패에 오류 번호를 띄운다', (x) => x.replace("}catch(_){ if(seq !== _visitSeq || gen !== _gen) return; }", "}catch(e){ if(seq !== _visitSeq || gen !== _gen) return; _loadFail(e); }"), async (src) => {
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [], banners: [] } } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [], banners: [] } } });
     E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
-    E.routes['GET /v1/ddays/f1'] = apiErr(503, 'X');
+    E.routes['GET /v2/ddays/f1'] = apiErr(503, 'X');
     E.rt.friendSchedule.forEach(fn => fn({ subject: 'f1' })); await tick(30);
     chk(E.errs.length === 0, 'x');
   });
   await broken('뱃지가 만든 시각 없이 오늘 일정 개수를 센다', (x) => x.replace("_bellTodayItems.filter(it => (it.ts||0) > seen).length", "_bellTodayItems.length"), async (src) => {
     const SEEN = Date.now() - 3600 * 1000;
-    const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': [item('a', TODAY, 'a', 'PRIVATE', 1, SEEN - 1)] } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/schedules': [item('a', TODAY, 'a', 'PRIVATE', 1, SEEN - 1)] } });
     E.ls.set('tw.bellSeenTs', String(SEEN)); await tick();
     chk(E.el('myBellBadge').textContent === '0', 'x');
   });
   await broken('친구 아님도 E-MH-06 번호를 띄운다', (x) => x.replace("notice: () => toast(TAG_NOT_FRIEND_TEXT)", "notice: (notifyError, e) => notifyError('E-MH-06', e)"), async (src) => {
-    const E = mkEnv({ src, routes: { 'POST /v1/me/schedules': apiErr(403, 'SCHEDULE_TAG_NOT_FRIEND') } });
+    const E = mkEnv({ src, routes: { 'POST /v2/me/schedules': apiErr(403, 'SCHEDULE_TAG_NOT_FRIEND') } });
     await tick(); E.S.renderSchedCalendar();
     E.el('mhSchedTagBtn').fire('click'); pickAll(E, E.el('mhSchedTagList')); E.el('mhSchedTagOk').fire('click');
     E.el('mhSchedInput').value = 'x'; E.el('mhSchedAddBtn').fire('click'); await tick();
@@ -855,40 +855,40 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   await broken('받기 전 잠금을 빼면 일정을 쓴다', (x) => x.replace("if(_monthState !== LOAD.READY){ toast(LOCK_TEXT); return; }   // 받기 전에는 고치지 못하게 잠근다\n    const isPublic", 'const isPublic'), async (src) => {
     const d = deferred();
     let hold = false;
-    const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': () => (hold ? d.p : []), 'POST /v1/me/schedules': item('n', YM + '-' + DD, 'x') } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/schedules': () => (hold ? d.p : []), 'POST /v2/me/schedules': item('n', YM + '-' + DD, 'x') } });
     await tick(); hold = true;   // 만들 때 오늘 일정을 한 번 받아 둔다 — 서버 길의 «받은 적 있나» 잠금은 풀려 있고, 모듈의 «이 달을 받았나» 잠금만 본다
     E.S.renderSchedCalendar(); E.el('mhSchedInput').value = 'x'; E.el('mhSchedAddBtn').fire('click'); await tick();
     chk(E.calls('POST', /./).length === 0, 'x');
   });
   await broken('보드 받기 전 잠금을 빼면 편집창이 열린다', (x) => x.replace("  if(_boardState !== LOAD.READY){ toast(LOCK_TEXT); return; }   // 받기 전에는 고치지 못하게 잠근다\n\n  _ddayEditId = id;", '\n  _ddayEditId = id;'), async (src) => {
     const d = deferred();
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': () => d.p } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': () => d.p } });
     E.S.renderSchedCalendar(); await tick();
     dayCells(E)[3].fire('contextmenu');
     chk(E.el('mhDdayEdit').style.display !== 'block', 'x');
   });
   await broken('저장을 줄 세우지 않고 바로 보낸다', (x) => x.replace("const run = _boardChain.then(fn);", "const run = Promise.resolve().then(fn);"), async (src) => {
     const S1 = deferred();
-    const Q = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD() } });
+    const Q = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD() } });
     Q.S.renderSchedCalendar(); await tick(20);
     let n = 0;
-    Q.routes['PUT /v1/me/ddays'] = () => { n++; return n === 1 ? S1.p : BOARD({ version: 7 }); };
+    Q.routes['PUT /v2/me/ddays'] = () => { n++; return n === 1 ? S1.p : BOARD({ version: 7 }); };
     gridCards(Q)[0].fire('contextmenu'); Q.el('mhDdaySaveBtn').fire('click'); await tick();
     Q.el('mhDdayBanners').children[0].children.find(c => c.className === 'db-x').onclick({ stopPropagation(){} }); await tick();
     chk(Q.calls('PUT', /ddays/).length === 1, 'x');
   });
   await broken('409 에도 다시 받지 않는다', (x) => x.replace("if(_writeFail(e)) await _boardFetchNow(false);", "_writeFail(e);"), async (src) => {
-    const C = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD() } });
+    const C = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD() } });
     C.S.renderSchedCalendar(); await tick(20);
-    C.routes['PUT /v1/me/ddays'] = apiErr(409, 'CONCURRENT_UPDATE');
-    C.routes['GET /v1/me/ddays'] = BOARD({ version: 8, cards: [card(U1, '서버 값', daysAgo(1))], banners: [] });
+    C.routes['PUT /v2/me/ddays'] = apiErr(409, 'CONCURRENT_UPDATE');
+    C.routes['GET /v2/me/ddays'] = BOARD({ version: 8, cards: [card(U1, '서버 값', daysAgo(1))], banners: [] });
     gridCards(C)[0].fire('contextmenu'); C.el('mhDdaySaveBtn').fire('click'); await tick(30);
     chk(gridCards(C).length === 1 && gridCards(C)[0].textContent.includes('서버 값'), 'x');
   });
   await broken('늦게 온 앞 달 답을 버리지 않는다', (x) => x.replace("if(seq !== _monthSeq || gen !== _gen) return;\n    _schedMonthData = data;", "_schedMonthData = data;"), async (src) => {
     const dA = deferred();
     let hold = false;
-    const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': (b, p) => (monthOfPath(p) === YM && hold ? dA.p : []) } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/schedules': (b, p) => (monthOfPath(p) === YM && hold ? dA.p : []) } });
     await tick(); hold = true;
     E.S.renderSchedCalendar();
     E.el('mhSchedNext').fire('click'); await tick();
@@ -898,7 +898,7 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   });
   await broken('늦게 온 앞 계정 답을 버리지 않는다', (x) => x.replace("    if(gen !== _gen) return true;\n    _schedDdays = dd; _boardState = LOAD.READY;", "    _schedDdays = dd; _boardState = LOAD.READY;"), async (src) => {
     const dOld = deferred();
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': () => dOld.p } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': () => dOld.p } });
     E.S.renderSchedCalendar(); await tick(); E.S.reset();
     dOld.res(BOARD()); await tick(30);
     chk(gridCards(E).length === 0, 'x');
@@ -908,17 +908,17 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     chk(Z.el('mhDdayGrid').children.some(c => c.classList.contains('add')), 'x');
   });
   await broken('못 받음 오류 번호를 매번 낸다', (x) => x.replace("if(_loadFailing) return;", ""), async (src) => {
-    const F = mkEnv({ src, routes: { 'GET /v1/me/schedules': apiErr(503, 'X'), 'GET /v1/me/notifications': apiErr(503, 'X') } }); await tick();
+    const F = mkEnv({ src, routes: { 'GET /v2/me/schedules': apiErr(503, 'X'), 'GET /v2/me/notifications': apiErr(503, 'X') } }); await tick();
     chk(F.errs.length === 1, 'x');
   });
   await broken('관람 중에도 편집창을 연다', (x) => x.replace("function _ddayOpenEdit(id, kind, prefillDate){\n  if(viewingUserId()) return;", "function _ddayOpenEdit(id, kind, prefillDate){\n  if(false) return;"), async (src) => {
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': { cards: [card(U4, 'f', daysAgo(3))], banners: [] } } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': { cards: [card(U4, 'f', daysAgo(3))], banners: [] } } });
     E.S.renderSchedCalendar(); await tick(20); E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(30);
     E.el('mhDdayGrid').children[0].fire('contextmenu');
     chk(E.el('mhDdayEdit').style.display !== 'block', 'x');
   });
   await broken('계정이 바뀌어도 조용히 하지 않는다', (x) => x.replace("OWNER_CHANGED: { action: 'quiet', notice: null },", "OWNER_CHANGED: { action: 'notice', notice: (notifyError, e) => notifyError('E-MH-05', e) },"), async (src) => {
-    const O = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'PUT /v1/me/ddays': BOARD() } });
+    const O = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'PUT /v2/me/ddays': BOARD() } });
     O.S.renderSchedCalendar(); await tick(20); O.st.who = 'tokenB';
     gridCards(O)[0].fire('contextmenu'); O.el('mhDdaySaveBtn').fire('click'); await tick(30);
     chk(O.errs.length === 0, 'x');
@@ -940,7 +940,7 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   await broken('reset 이 서버 길의 «받음» 기억을 안 비운다', (x) => x.replace("  scheduleApi.reset();\n", ""), async (src) => { await staleBell(src); });
   await broken('구경을 끝내도 늦게 온 친구 답을 받아 둔다', (x) => x.replace("function _visitStop(){ _visitSeq++; ", "function _visitStop(){ "), async (src) => {
     const dl = deferred();
-    const E = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD(), 'GET /v1/schedules/f1': [], 'GET /v1/ddays/f1': () => dl.p } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD(), 'GET /v2/schedules/f1': [], 'GET /v2/ddays/f1': () => dl.p } });
     E.S.renderSchedCalendar(); await tick(20);
     E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick();
     E.g.viewing = null; E.S.endVisit(); await tick();
@@ -950,7 +950,7 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
   });
   await broken('쓰는 사이 구경을 시작해도 내 일정을 친구 달력에 얹는다', (x) => x.replace("if(item.date.slice(0, 7) === _schedYM && !viewingUserId()){", "if(item.date.slice(0, 7) === _schedYM){"), async (src) => {
     const slow = deferred();
-    const E = mkEnv({ src, routes: { 'GET /v1/me/schedules': [], 'GET /v1/schedules/f1': [], 'GET /v1/me/ddays': BOARD(), 'GET /v1/ddays/f1': { cards: [], banners: [] }, 'POST /v1/me/schedules': () => slow.p } });
+    const E = mkEnv({ src, routes: { 'GET /v2/me/schedules': [], 'GET /v2/schedules/f1': [], 'GET /v2/me/ddays': BOARD(), 'GET /v2/ddays/f1': { cards: [], banners: [] }, 'POST /v2/me/schedules': () => slow.p } });
     E.S.renderSchedCalendar(); await tick(20);
     E.el('mhSchedInput').value = '내 일정'; E.el('mhSchedAddBtn').fire('click'); await tick();
     E.g.viewing = 'f1'; E.S.startVisit('f1'); await tick(20);
@@ -958,21 +958,21 @@ await sec('── 9. 일부러 깨 보기 (빨강이 나야 한다)', async () =
     chk(!E.el('mhSchedDayList').textContent.includes('내 일정'), 'x');
   });
   await broken('순서 저장도 다시 받기도 못 해도 먼저 바꾼 순서를 둔다', (x) => x.replace("if(!fresh && gen === _gen && _boardState === LOAD.READY){ _schedDdays = before; renderDdays(); }", ""), async (src) => {
-    const R2 = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD() } });
+    const R2 = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD() } });
     R2.S.renderSchedCalendar(); await tick(20);
-    R2.routes['PUT /v1/me/ddays'] = apiErr(503, 'X'); R2.routes['GET /v1/me/ddays'] = apiErr(503, 'X');
+    R2.routes['PUT /v2/me/ddays'] = apiErr(503, 'X'); R2.routes['GET /v2/me/ddays'] = apiErr(503, 'X');
     const c2 = gridCards(R2);
     c2[1].fire('dragstart', { dataTransfer: { setData(){} } }); c2[0].fire('dragover'); c2[0].fire('drop'); await tick(30);
     chk(gridCards(R2)[0].textContent.includes('만난 날'), 'x');
   });
   await broken('편집창이 말없이 끝난다(받기 상태 문구를 안 보인다)', (x) => x.replace("const waiting = _boardState !== LOAD.READY;", "const waiting = false;"), async (src) => {
-    const K3 = mkEnv({ src, routes: { 'GET /v1/me/ddays': BOARD() } });
+    const K3 = mkEnv({ src, routes: { 'GET /v2/me/ddays': BOARD() } });
     K3.S.renderSchedCalendar(); await tick(20);
     const hold = deferred();
-    K3.routes['PUT /v1/me/ddays'] = () => hold.p;
+    K3.routes['PUT /v2/me/ddays'] = () => hold.p;
     gridCards(K3)[0].fire('contextmenu');
     K3.el('mhDdaySaveBtn').fire('click'); await tick();
-    K3.routes['GET /v1/me/ddays'] = () => new Promise(() => {});
+    K3.routes['GET /v2/me/ddays'] = () => new Promise(() => {});
     K3.S.reset(); K3.S.loadBoard(); await tick(20);
     hold.res(BOARD({ version: 6 })); await tick(30);
     chk(K3.el('mhDdayEditMsg').textContent.includes('불러오는 중이에요'), 'x');

@@ -2059,7 +2059,7 @@ const demojiPalMod = TwDemojiPalette.createDemojiPalette({
      _plHasSavedPos · _plApplyPos · _plSyncBgmBounds 는 모듈이 window 고리로도 건다.
    함수 deps 는 화살표로 감싼다(부를 때 찾게). _myHomeLoaded · _myHomeData · _myHomeFriends 는 이 줄보다 뒤에 선언되고 다시 대입되는 let 이라 읽는 함수로.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v1/me/playlist · /v1/playlists/…)
+const playlistApiMod = TwPlaylistApi.createPlaylistApi({ authed: TwApi.authed, random: ()=>Math.random(), warn: (...a)=>console.warn(...a) });   // 🌐 플레이리스트 서버 길(/v2/me/playlist · /v2/playlists/…)
 const plMod = TwPlaylist.createPlaylist({
   playlistApi: playlistApiMod,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -2489,7 +2489,7 @@ const DS_IMG_QUALITY   = 0.82;   // JPEG 품질 — 이 정도면 눈에 띄는 
    함수 deps 도 화살표로 감싼다(부를 때 찾게). ⚠️ 이름을 Scheduler · scheduler 로 짓지 말 것 — 크로미움(Electron) 내장 전역(작업 예약 API)과
      겹쳐 typeof 가드가 늘 통과하고, 모듈이 안 실렸을 때 내장 생성자에 createScheduler 를 부르다 app.js 가 선다. */
 const BELL_SEEN_KEY = 'tw.bellSeenTs';   // 🔔 마지막으로 알림창을 연 시각 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)도 쓴다
-const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 길(/v1/me/schedules · /v1/me/ddays · /v1/me/notifications) — 원본은 서버
+const scheduleApiMod = TwScheduleApi.createScheduleApi({   // 🌐 일정 · 디데이 · 일정 알림 서버 길(/v2/me/schedules · /v2/me/ddays · /v2/me/notifications) — 원본은 서버
   authed: TwApi.authed,
   newId: ()=>TwRequestId.newId(),
   imageBytes: TwImageBytes,
@@ -2640,13 +2640,13 @@ const presenceLockMod = TwPresenceLock.createPresenceLock({
 /* 📩 우편 · 📢 공지 — 원본은 서버. 서버 길(inbox-api.js · notice-api.js)과 받아 들고 있는 한 벌(mail-feed.js · notice-feed.js).
    받은 뒤 화면 · 토스트는 마이홈 처음 준비 모듈(onMailChanged · onNewsChanged)이 맡는다 — 만드는 줄보다 뒤에 도는 arrow 라 TDZ 없음. */
 const mailFeed = TwMailFeed.createMailFeed({
-  api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v1/me/notifications
+  api: TwInboxApi.createInboxApi({ authed: TwApi.authed, warn: (...a)=>console.warn(...a) }),   // 🌐 /v2/me/notifications
   rt: TwRtHub.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 mailFeed.onChange((e)=>mhInitMod.onMailChanged(e));
-const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v1/notices
-/* 🛠️ 앱 관리자 창의 서버 길(/v1/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
+const noticeApi = TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) });   // 🌐 /v2/notices
+/* 🛠️ 앱 관리자 창의 서버 길(/v2/admin/...) — 관리자 모드 · 확성기 · 업데이트 공지 · 배너 · 방 종료가 쓴다. 지금 업데이트 공지의 id 는 공지 한 판에서 받는다 */
 const adminApi = TwAdminApi.createAdminApi({ authed: TwApi.authed, pending: TwRequestId.createPending(), fetchBoard: ()=>noticeApi.fetchBoard() });
 const noticeFeed = TwNoticeFeed.createNoticeFeed({
   api: noticeApi,
@@ -2723,7 +2723,7 @@ const richTextMod = TwRichText.createRichText({
   DOMPurify: () => window.DOMPurify,
 });
 
-/* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v1/me/mallangs · /v1/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
+/* 🧸 말랑이 칸 상태 주인(myhome/mallang-store.js) — 원본은 서버(/v2/me/mallangs · /v2/mallangs/{code}). 말랑이 화면 · 로그아웃 올리기가 받는다. */
 const giftApiMod = TwGiftApi.createGiftApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 말랑이 · 선물 서버 길
 const mallangStoreMod = TwMallangStore.createMallangStore({
   api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
@@ -2731,7 +2731,7 @@ const mallangStoreMod = TwMallangStore.createMallangStore({
   toast: (...a)=>toast(...a),
 });
 window.addEventListener('beforeunload', ()=>{ mallangStoreMod.flush(); });   // 앱을 끌 때 못 올린 칸 고침 한 번(결과를 기다리지 않음)
-/* 🎁 선물 상태 주인(myhome/gift-box.js) — 원본은 서버(/v1/me/gifts). 말랑이 화면 · 수령함(선물함 격자) · 마이홈 창이 받는다. 만들 때 도는 일 없음(받기는 마이홈을 열 때 · 서브탭 · 서버 신호는 app-boot gift). */
+/* 🎁 선물 상태 주인(myhome/gift-box.js) — 원본은 서버(/v2/me/gifts). 말랑이 화면 · 수령함(선물함 격자) · 마이홈 창이 받는다. 만들 때 도는 일 없음(받기는 마이홈을 열 때 · 서브탭 · 서버 신호는 app-boot gift). */
 const giftBoxMod = TwGiftBox.createGiftBox({
   api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
@@ -2739,7 +2739,7 @@ const giftBoxMod = TwGiftBox.createGiftBox({
   rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
   requestIds: TwRequestId.createPending(),   // 보내기 요청 번호 — 받는 사람마다 하나(닿지 못했으면 같은 번호)
 });
-/* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v1/me/myhome/bookshelf · /v1/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
+/* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v2/me/myhome/bookshelf · /v2/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
 const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(책장 몫)
 const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
   api: bookshelfApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
@@ -2747,7 +2747,7 @@ const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
   toast: (...a)=>toast(...a),
 });
 window.addEventListener('beforeunload', ()=>{ bookshelfStoreMod.flush(); });   // 앱을 끌 때 못 올린 책장 고침 한 번(결과를 기다리지 않음)
-/* 🏠 마이홈 상태 주인(myhome/myhome-store.js) — 원본은 서버(/v1/me/myhome · /v1/myhomes/{code}). 마이홈 화면 · 채팅 · 내 정보 · 플레이리스트가 내 사진 · 페이지를 여기서 읽고, 로그아웃 올리기 · 앱 끄기가 flush 한다. 만들 때 도는 일 없음(받기는 마이홈을 열 때). */
+/* 🏠 마이홈 상태 주인(myhome/myhome-store.js) — 원본은 서버(/v2/me/myhome · /v2/myhomes/{code}). 마이홈 화면 · 채팅 · 내 정보 · 플레이리스트가 내 사진 · 페이지를 여기서 읽고, 로그아웃 올리기 · 앱 끄기가 flush 한다. 만들 때 도는 일 없음(받기는 마이홈을 열 때). */
 const myhomeApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(페이지 · 디자인 몫)
 const myhomeStoreMod = TwMyHomeStore.createMyHomeStore({
   api: myhomeApiMod, lib: TwMyHomeApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
@@ -3122,7 +3122,7 @@ const myHomeEdit = TwMyHomeEdit.createMyHomeEdit({
    부르는 곳은 예전처럼 window 고리(_mhGbStartWatch · _mhGbStopWatch · _mhGbRefreshBadge · _mhReSubscribeGuestbook · openMyGuestbook)를 typeof 로 보고 부른다 — 모듈이 없으면 고리가 없어 조용히 넘어간다.
    💬 showChatBubble(머리 위 말풍선)은 방명록이 아니라 바로 아래에 남겼다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
-const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 길(/v1/guestbooks · /v1/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
+const guestbookFeed = TwGuestbookFeed.createGuestbookFeed({   // 🌐 방명록 · 웹박수 서버 길(/v2/guestbooks · /v2/me/guestbook) — 원본은 서버. 받기 · 쓰기 · 알림은 feed 가 한다
   api: TwGuestbookApi.createGuestbookApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) }),
   rt: TwRtHub.store,
   rtState: TwRtHub.STATE,
@@ -5732,7 +5732,7 @@ const acctStateMod = TwAccountState.createAccountState({
   isAdmin: ()=>isAdmin,
   setIsPremium: (v)=>{ isPremium = v; },
 });
-/* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v1/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
+/* 🔑 로그인 흐름(account/login-flow.js) — 로그인 → 서버 가입 확인(GET /v2/me) → realtime 켜기 · 서버에 닿지 못했을 때 기다리기. Auth 원시 · 서버 통로 · realtime 은 부를 때 찾는다. */
 const userApiMod = TwUserApi.store;   // 🪪 계정 provider(account/user-api.js) — 서버 user · invite 길 · 화면 문구
 TwVisitPing.createVisitPing({ callPing: ()=>userApiMod.visit(), win: window }).start();   // 📈 방문 기록 — 켤 때 한 번(로그인과 상관없이 · 실패는 삼킴)
 const loginFlowMod = TwLoginFlow.createLoginFlow({
@@ -5823,7 +5823,7 @@ const adminUsers = TwAdminUsers.createAdminUsers({
   toast: (...a)=>toast(...a),
   inviteGrantMax: licenseGateMod.INVITE_GRANT_MAX,
 });
-/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v1/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
+/* 🔑 프리미엄 판정(account/license-premium.js) — 서버 확인(GET /v2/me 의 premium)만 isPremium 에 반영한다. 시작은 켜는 차례(app-boot 의 licensePremium) 한 곳.
    키 등록 · 이 기기 해제 버튼(license-key.js)도 여기를 부른다. */
 const licensePremiumMod = TwLicensePremium.createLicensePremium({
   userApi: userApiMod,
@@ -6978,7 +6978,7 @@ const progSettingsMod = TwProgramSettings.createProgramSettings({
 TwOssLicenses.createOssLicenses({ document, window, links: [document.getElementById('progOssLink'), document.getElementById('miOssLink')], openUrl: (u)=>companion.openBrowser(u), escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a) });
 
 /* ═══════════════════ 🔑 계정 — 로그인 · 로그아웃 · 이 PC 맞추기 ═══════════════════
-   0.13 — 로그인(토큰 받기)만 Firebase Auth, «이 로그인이 누구인가» 는 서버(GET /v1/me)가 정한다(login-flow.js).
+   0.13 — 로그인(토큰 받기)만 Firebase Auth, «이 로그인이 누구인가» 는 서버(GET /v2/me)가 정한다(login-flow.js).
    다른 PC 이어받기는 같은 계정 로그인으로 끝난다 — 서버가 원본이라 옮길 사본이 없다(계정 이전 · accountSnap 은 걷었다).
    창은 main.js 가 연다(companion.signInWithGoogle — file:// 이라 팝업이 막힌다).
 ──────────────────────────────────────────────────────────────────── */
@@ -7264,7 +7264,7 @@ slotSaveMod.onSlotsReplaced(()=>settingsMod.renderCharSlots());
    고치면 3초 묶음으로 서버에 쓰고, 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 이 PC 에 캐릭터 저장본 · 보관함 사본 ·
    고친 시각 · 백업 · 충돌 판정은 없다(0.12 의 slot-sync.js · chars.js 맞추기 장치는 걷었다).
    · slot-codec.js — 화면의 캐릭터 한 칸(그림은 dataURL) ↔ 서버 def(그림은 Storage 주소) 바꾸기 + 올리기 캐시
-   · closet-api.js — /v1/me/avatars… 서버 길(provider) · closet.js — 받기 · 쓰기 · 동작 · 0.13 첫 실행 올리기(legacy-sync)
+   · closet-api.js — /v2/me/avatars… 서버 길(provider) · closet.js — 받기 · 쓰기 · 동작 · 0.13 첫 실행 올리기(legacy-sync)
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const slotCodecMod = TwSlotCodec.createSlotCodec({
   glbUploadCache: uploadCacheMod,
@@ -8442,7 +8442,7 @@ const awayPicMod = TwAwayPic.createAwayPic({
 
 /* ═══ 🚩 신고하기 ═══════════════════════════════════════════════════════════
    좌석 · 책상 · 이름표 우클릭 «🚩 신고하기…» → 사유 라디오(캐릭터 · 자리비움 그림 · 닉네임 · 기타 40자) → [신고].
-   ★ 신고는 서버 길(support/report-api.js — POST /v1/reports) — 신고한 사람은 서버가 토큰에서 정한다.
+   ★ 신고는 서버 길(support/report-api.js — POST /v2/reports) — 신고한 사람은 서버가 토큰에서 정한다.
    ★ 신고하면 내 화면에서 그 사람을 숨긴다(_reportHiddenUids · 계정 기준 · 모든 방).
    신고 창 · 공용 도우미는 report.js, 관리자 신고 목록은 admin/admin-report.js. 팝업 칸은 report.js 가 가진다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — typeof 가드가 늘 통과해 모듈이 없을 때 app.js 가 선다. */
@@ -8453,7 +8453,7 @@ const reportMod = TwReport.createReport({
   awayUrlOk: (...a)=>awayPicMod._awayUrlOk(...a),
   reportHiddenSave: (...a)=>hiddenSeatsMod._reportHiddenSave(...a),
   reportHiddenUids: hiddenSeatsMod._reportHiddenUids,
-  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 POST /v1/reports — 원본은 서버
+  reportApi: TwReportApi.createReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 POST /v2/reports — 원본은 서버
   apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
@@ -8469,11 +8469,11 @@ const adminReport = TwAdminReport.createAdminReport({
   setReportOv: (...a)=>reportMod.setOv(...a),
   reportEsc: (...a)=>reportMod.esc(...a),
   setReportEsc: (...a)=>reportMod.setEsc(...a),
-  adminApi: TwReportApi.createAdminReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 /v1/admin/reports* — 원본은 서버
+  adminApi: TwReportApi.createAdminReportApi({ authed: TwApi.authed, errs: TwApiErrors }),   // 🌐 /v2/admin/reports* — 원본은 서버
   apiErrors: TwApiErrors.store,
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
-/* 🐞 버그제보 게시판 — 원본은 서버(support/bug-api.js — /v1/bugs*). 만들 때는 버튼만 잇고, 배지 받기는 app-boot STEPS 의 bugBadge(start) · 계정을 놓을 때 reset. */
+/* 🐞 버그제보 게시판 — 원본은 서버(support/bug-api.js — /v2/bugs*). 만들 때는 버튼만 잇고, 배지 받기는 app-boot STEPS 의 bugBadge(start) · 계정을 놓을 때 reset. */
 const bugBoardUi = TwBugBoardUi.createBugBoardUi({
   bugApi: TwBugApi.createBugApi({ authed: TwApi.authed, errs: TwApiErrors, pending: ()=>TwRequestId.createPending() }),
   lib: TwBugBoard,

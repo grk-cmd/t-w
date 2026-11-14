@@ -2,7 +2,7 @@
    app.js «🎟️ 초대장 (앱 접근 제한)» 구역 본문을 옮긴 모듈이다(앱 FSD 31번 — docs/APP_FSD_MAP.md). 관리자 📊 통계 · 🎟️ 초대권 지급은 app.js 가 이 모듈 바로 뒤에서 만든다.
    ★ awayPicMod · creatorOpen · FRIEND_CODE_LOGIN_RE 는 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값).
    ★ 프리미엄 깃발 바꾸기(_setPremium)는 계정 핵심 상태(account-state.js)에 있고 부르는 곳은 서버 확인을 반영하는 license-premium.js 뿐이다 — 이 모듈은 프리미엄이 바뀌면 다시 그리기를 onPremiumChanged 로 건다.
-   ★ 0.13 — 켤 때 로그인 · 서버 가입 확인은 login-flow.js(GET /v1/me), 초대 코드 확인 · 가입 · 내 초대는 서버(user-api.js)가 한다.
+   ★ 0.13 — 켤 때 로그인 · 서버 가입 확인은 login-flow.js(GET /v2/me), 초대 코드 확인 · 가입 · 내 초대는 서버(user-api.js)가 한다.
      옛 갈래(기기 토큰으로 초대 소진 · 앱이 uid · 친구 코드를 만들어 묶기 · 기존 사용자 가입 I · 로그인 필요 K · grandfather 초대권 · 계정 사본)는 걷었다.
    ★ 밖에서 부르는 이름: INVITE_GRANT_MAX · _genLicenseKey · checkInviteGate · refreshInviteBtn — app.js 는 licenseGateMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
@@ -303,7 +303,7 @@ function _showInviteGate(){
   });
 }
 
-/* 런처의 🎟️ 초대장 버튼 — 남은 장수 표시, 클릭 시 발급(서버 /v1/me/invites — 남은 장수 · 관리자 무제한은 서버가 정한다) */
+/* 런처의 🎟️ 초대장 버튼 — 남은 장수 표시, 클릭 시 발급(서버 /v2/me/invites — 남은 장수 · 관리자 무제한은 서버가 정한다) */
 /* 초대장 버튼 한 벌 — 남은 장수를 읽어 1장 이상일 때만 켠다. 못 읽었으면(서버 준비 전 · 내 코드 없음 · 읽기 실패) 끈다 */
 function _setInviteBtn(btn, text, on, title){
   btn.textContent = text;

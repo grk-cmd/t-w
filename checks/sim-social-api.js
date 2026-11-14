@@ -1,5 +1,5 @@
 /* ═══ 👥 sim-social-api.js — 친구 · 친구 요청 · 명함 api provider (0.13 앱 묶음 D3 친구 목록 1) ═══
-   [왜] 친구 목록 · 요청 · 명함을 Firebase 대신 우리 서버 공개 API(/v1/me/friends · /v1/me/friend-requests · /v1/myhomes/cards)로 받는다.
+   [왜] 친구 목록 · 요청 · 명함을 Firebase 대신 우리 서버 공개 API(/v2/me/friends · /v2/me/friend-requests · /v2/myhomes/cards)로 받는다.
      서버 모양(userCode · ISO 시각 · displayName · cycle …)을 화면 모양으로 맞추는 곳 · 쓰기를 토큰 주인과 묶는 곳이 provider 하나라 실제로 불러서 판정한다.
    ・1절: 친구 목록 — 객체 배열 → 같은 차례 · 시각 ms · 마지막 접속 없음 = null · 빈 목록 ≠ 못 읽음 · 깨진 줄 · 겹친 코드 뺌 · 모양 틀림 던짐
    ・2절: 친구 한 명 · 끊기 — 친구가 아니면 null(실패와 다름) · 그 밖 실패는 던짐 · 끊기 경로
@@ -33,7 +33,7 @@ const apiErr = (status, code, message) => Object.assign(new Error(message || cod
 const T1 = '2026-11-01T00:00:00Z', T2 = '2026-11-10T09:30:00Z';
 const fr = (code, o) => Object.assign({ userCode: code, addedAt: T1, lastSeenAt: T2 }, o || {});
 const card = (code, o) => Object.assign({ userCode: code, displayName: '이름' + code, avatarUrl: 'https://img/' + code + '.png', bio: '소개' + code, level: 3, cycle: 1, cycleLevel: 2, starColor: '#ffcc00' }, o || {});
-const ME_ROUTES = () => ({ 'GET /v1/me/friends': [], 'GET /v1/me/friend-requests': { received: [], sent: [] } });
+const ME_ROUTES = () => ({ 'GET /v2/me/friends': [], 'GET /v2/me/friend-requests': { received: [], sent: [] } });
 
 /* 가짜 authed — 부른 것을 적고, 길마다 정한 답을 낸다 */
 function fake(routes){
@@ -64,62 +64,62 @@ async function judge(S){
 
   say('── 1. 친구 목록');
   {
-    const { m, authed } = mk(LIB, { 'GET /v1/me/friends': [fr('B'), fr('A', { lastSeenAt: null })] });
+    const { m, authed } = mk(LIB, { 'GET /v2/me/friends': [fr('B'), fr('A', { lastSeenAt: null })] });
     const r = await m.fetchFriends();
     const g = authed.log[0];
-    chk(g.method === 'GET' && g.path === '/v1/me/friends' && g.opts.auth === true && typeof g.opts.onOwner === 'function', 'GET /v1/me/friends · 로그인 통로 · 토큰 주인을 듣는다');
+    chk(g.method === 'GET' && g.path === '/v2/me/friends' && g.opts.auth === true && typeof g.opts.onOwner === 'function', 'GET /v2/me/friends · 로그인 통로 · 토큰 주인을 듣는다');
     chk(r.length === 2 && r[0].userCode === 'B' && r[1].userCode === 'A', '서버 차례(오래 사귄 순) 그대로');
     chk(r[0].addedAt === Date.parse(T1) && r[0].lastSeenAt === Date.parse(T2), '  시각은 ISO → ms');
     chk(r[1].lastSeenAt === null, '  마지막 접속 기록 없음 = null(0 으로 꾸미지 않는다)');
     chk(Object.keys(r[0]).sort().join() === 'addedAt,lastSeenAt,userCode', '  줄 모양 = { userCode, addedAt, lastSeenAt }');
     const empty = await mk(LIB).m.fetchFriends();
     chk(Array.isArray(empty) && empty.length === 0, '친구 없음 → 빈 배열 — «없음» 이지 실패가 아니다');
-    const down = await throws(() => mk(LIB, { 'GET /v1/me/friends': apiErr(503, '') }).m.fetchFriends());
+    const down = await throws(() => mk(LIB, { 'GET /v2/me/friends': apiErr(503, '') }).m.fetchFriends());
     chk(down && down.status === 503, '못 읽으면 던진다(빈 목록으로 숨기지 않는다)');
     for(const bad of [null, {}, { friends: [] }, 'x']){
-      const e = await throws(() => mk(LIB, { 'GET /v1/me/friends': bad }).m.fetchFriends());
+      const e = await throws(() => mk(LIB, { 'GET /v2/me/friends': bad }).m.fetchFriends());
       chk(e && e.code === 'SHAPE', '배열이 아닌 응답(' + JSON.stringify(bad) + ')은 던진다 — 옛 모양 { friends:[…] } 도');
     }
-    const messy = await mk(LIB, { 'GET /v1/me/friends': [fr('A'), null, { userCode: '' , addedAt: T1 }, fr('C', { addedAt: 'x' }), fr('A'), fr('D', { lastSeenAt: '모름' })] }).m.fetchFriends();
+    const messy = await mk(LIB, { 'GET /v2/me/friends': [fr('A'), null, { userCode: '' , addedAt: T1 }, fr('C', { addedAt: 'x' }), fr('A'), fr('D', { lastSeenAt: '모름' })] }).m.fetchFriends();
     chk(messy.map((f) => f.userCode).join() === 'A,D', '깨진 줄(코드 없음 · 친구가 된 시각 못 읽음) · 겹친 코드는 뺀다');
     chk(messy[1].lastSeenAt === null, '  못 읽는 마지막 접속은 null');
   }
 
   say('── 2. 친구 한 명 · 끊기');
   {
-    const one = mk(LIB, { 'GET /v1/me/friends/F%2F1': fr('F/1') });
+    const one = mk(LIB, { 'GET /v2/me/friends/F%2F1': fr('F/1') });
     const r = await one.m.fetchFriend('F/1');
-    chk(r && r.userCode === 'F/1' && one.authed.log[0].path === '/v1/me/friends/F%2F1' && one.authed.log[0].opts.auth === true, 'GET /v1/me/friends/{code}(경로에 인코딩)');
-    const nf = mk(LIB, { 'GET /v1/me/friends/X': apiErr(404, 'SOCIAL_NOT_FRIEND') });
+    chk(r && r.userCode === 'F/1' && one.authed.log[0].path === '/v2/me/friends/F%2F1' && one.authed.log[0].opts.auth === true, 'GET /v2/me/friends/{code}(경로에 인코딩)');
+    const nf = mk(LIB, { 'GET /v2/me/friends/X': apiErr(404, 'SOCIAL_NOT_FRIEND') });
     chk((await nf.m.fetchFriend('X')) === null, '친구가 아니면 null(요청 중 · 나 · 없는 사람)');
-    const down = await throws(() => mk(LIB, { 'GET /v1/me/friends/X': apiErr(503, '') }).m.fetchFriend('X'));
+    const down = await throws(() => mk(LIB, { 'GET /v2/me/friends/X': apiErr(503, '') }).m.fetchFriend('X'));
     chk(down && down.status === 503, '  그 밖 실패는 던진다(null 과 다름)');
-    const sh = await throws(() => mk(LIB, { 'GET /v1/me/friends/X': { userCode: 'X' } }).m.fetchFriend('X'));
+    const sh = await throws(() => mk(LIB, { 'GET /v2/me/friends/X': { userCode: 'X' } }).m.fetchFriend('X'));
     chk(sh && sh.code === 'SHAPE', '  모양이 틀리면 던진다');
     const nc = mk(LIB);
     chk((await throws(() => nc.m.fetchFriend(''))).code === 'NO_USER' && nc.authed.log.length === 0, '  코드가 없으면 요청 0 으로 던진다');
 
-    const rm = mk(LIB, { 'DELETE /v1/me/friends/F%2F1': null });
+    const rm = mk(LIB, { 'DELETE /v2/me/friends/F%2F1': null });
     await rm.m.fetchFriends();
     await rm.m.removeFriend('F/1');
     const d = rm.authed.log.find((x) => x.method === 'DELETE');
-    chk(d && d.path === '/v1/me/friends/F%2F1' && d.opts && 'expectOwner' in d.opts, '끊기 — DELETE /v1/me/friends/{code} · 읽은 주인과 묶음');
+    chk(d && d.path === '/v2/me/friends/F%2F1' && d.opts && 'expectOwner' in d.opts, '끊기 — DELETE /v2/me/friends/{code} · 읽은 주인과 묶음');
   }
 
   say('── 3. 친구 요청');
   {
-    const { m, authed } = mk(LIB, { 'GET /v1/me/friend-requests': { received: [{ userCode: 'A', requestedAt: '2026-11-01T00:00:00Z' }, { userCode: 'B', requestedAt: '2026-11-02T00:00:00Z' }, { userCode: 'A', requestedAt: '2026-11-03T00:00:00Z' }, 'x', { userCode: '', requestedAt: '2026-11-01T00:00:00Z' }, { userCode: 'D' }], sent: [{ userCode: 'C', requestedAt: '2026-11-04T00:00:00Z' }] } });
+    const { m, authed } = mk(LIB, { 'GET /v2/me/friend-requests': { received: [{ userCode: 'A', requestedAt: '2026-11-01T00:00:00Z' }, { userCode: 'B', requestedAt: '2026-11-02T00:00:00Z' }, { userCode: 'A', requestedAt: '2026-11-03T00:00:00Z' }, 'x', { userCode: '', requestedAt: '2026-11-01T00:00:00Z' }, { userCode: 'D' }], sent: [{ userCode: 'C', requestedAt: '2026-11-04T00:00:00Z' }] } });
     const r = await m.fetchRequests();
-    chk(authed.log[0].path === '/v1/me/friend-requests' && typeof authed.log[0].opts.onOwner === 'function', 'GET /v1/me/friend-requests · 토큰 주인을 듣는다');
+    chk(authed.log[0].path === '/v2/me/friend-requests' && typeof authed.log[0].opts.onOwner === 'function', 'GET /v2/me/friend-requests · 토큰 주인을 듣는다');
     chk(r.received.map((x) => x.userCode).join() === 'A,B' && r.received[0].requestedAt === Date.parse('2026-11-01T00:00:00Z') && r.sent[0].userCode === 'C', '{ received, sent } — 차례 그대로 · 시각 ms · 겹침 · 깨진 줄(코드 · 시각 없음) 뺌');
     for(const bad of [null, { received: [] }, { received: 'A', sent: [] }]){
-      const e = await throws(() => mk(LIB, { 'GET /v1/me/friend-requests': bad }).m.fetchRequests());
+      const e = await throws(() => mk(LIB, { 'GET /v2/me/friend-requests': bad }).m.fetchRequests());
       chk(e && e.code === 'SHAPE', '모양이 틀린 응답(' + JSON.stringify(bad) + ')은 던진다');
     }
-    const down = await throws(() => mk(LIB, { 'GET /v1/me/friend-requests': apiErr(503, '') }).m.fetchRequests());
+    const down = await throws(() => mk(LIB, { 'GET /v2/me/friend-requests': apiErr(503, '') }).m.fetchRequests());
     chk(down && down.status === 503, '못 읽으면 던진다');
 
-    const w = mk(LIB, { 'POST /v1/me/friend-requests': null, 'POST /v1/me/friend-requests/A%20B/accept': null, 'POST /v1/me/friend-requests/A%20B/reject': null, 'DELETE /v1/me/friend-requests/C': null });
+    const w = mk(LIB, { 'POST /v2/me/friend-requests': null, 'POST /v2/me/friend-requests/A%20B/accept': null, 'POST /v2/me/friend-requests/A%20B/reject': null, 'DELETE /v2/me/friend-requests/C': null });
     await w.m.fetchRequests();
     await w.m.sendRequest('A B');
     await w.m.acceptRequest('A B');
@@ -127,16 +127,16 @@ async function judge(S){
     await w.m.cancelRequest('C');
     const writes = w.authed.log.filter((x) => x.method !== 'GET');
     chk(writes.length === 4 && writes.every((x) => x.opts && 'expectOwner' in x.opts), '쓰기 넷 모두 읽은 주인과 묶음');
-    chk(writes[0].path === '/v1/me/friend-requests' && JSON.stringify(writes[0].body) === '{"to":"A B"}', '보내기 — POST /v1/me/friend-requests { to } 만(내 코드 · 이름을 싣지 않는다)');
-    chk(writes[1].path === '/v1/me/friend-requests/A%20B/accept' && writes[2].path === '/v1/me/friend-requests/A%20B/reject', '수락 · 거절 — POST …/{from}/accept · reject(경로에 인코딩)');
-    chk(writes[3].method === 'DELETE' && writes[3].path === '/v1/me/friend-requests/C', '취소 — DELETE …/{to}');
+    chk(writes[0].path === '/v2/me/friend-requests' && JSON.stringify(writes[0].body) === '{"to":"A B"}', '보내기 — POST /v2/me/friend-requests { to } 만(내 코드 · 이름을 싣지 않는다)');
+    chk(writes[1].path === '/v2/me/friend-requests/A%20B/accept' && writes[2].path === '/v2/me/friend-requests/A%20B/reject', '수락 · 거절 — POST …/{from}/accept · reject(경로에 인코딩)');
+    chk(writes[3].method === 'DELETE' && writes[3].path === '/v2/me/friend-requests/C', '취소 — DELETE …/{to}');
     const nc = mk(LIB);
     await nc.m.fetchRequests();
     for(const f of ['sendRequest', 'acceptRequest', 'rejectRequest', 'cancelRequest', 'removeFriend']){
       chk((await throws(() => nc.m[f](''))).code === 'NO_USER', '  ' + f + ' — 코드가 없으면 던진다');
     }
     chk(nc.authed.log.length === 1, '  그때 요청 0');
-    const full = mk(LIB, { 'POST /v1/me/friend-requests/A/accept': apiErr(409, 'SOCIAL_FRIEND_FULL', '100명') });
+    const full = mk(LIB, { 'POST /v2/me/friend-requests/A/accept': apiErr(409, 'SOCIAL_FRIEND_FULL', '100명') });
     await full.m.fetchRequests();
     const fe = await throws(() => full.m.acceptRequest('A'));
     chk(fe && fe.code === 'SOCIAL_FRIEND_FULL' && full.authed.log.filter((x) => x.method === 'POST').length === 1, '실패는 한 번에 던진다 — 다시 보내지 않는다');
@@ -144,35 +144,35 @@ async function judge(S){
 
   say('── 4. 명함');
   {
-    const { m, authed } = mk(LIB, { 'GET /v1/myhomes/cards': { cards: [card('A'), card('B', { displayName: '', avatarUrl: null, bio: null, level: 0 })] } });
+    const { m, authed } = mk(LIB, { 'GET /v2/myhomes/cards': { cards: [card('A'), card('B', { displayName: '', avatarUrl: null, bio: null, level: 0 })] } });
     const r = await m.fetchCards(['A', 'B']);
     const g = authed.log[0];
-    chk(g.path === '/v1/myhomes/cards?codes=A,B' && g.opts.auth === true, 'GET /v1/myhomes/cards?codes=a,b · 로그인 통로');
+    chk(g.path === '/v2/myhomes/cards?codes=A,B' && g.opts.auth === true, 'GET /v2/myhomes/cards?codes=a,b · 로그인 통로');
     chk(typeof g.opts.onOwner !== 'function', '  명함 읽기는 토큰 주인을 남기지 않는다(내 것이 아님)');
     chk(JSON.stringify(r.A) === JSON.stringify({ name: '이름A', avatar: 'https://img/A.png', bio: '소개A', level: 3, cyc: 1, clv: 2, starC: '#ffcc00' }),
       '명함 → 친구 칸 이름 { name, avatar, bio, level, cyc, clv, starC }');
     chk(r.B.name === '' && r.B.avatar === null && r.B.bio === '' && r.B.level === null, '  이름 없음은 \'\' 그대로(자리표시는 화면 몫) · 사진 없음 null · 레벨 0 → null(배지 숨김)');
     const none = mk(LIB);
     chk(JSON.stringify(await none.m.fetchCards([])) === '{}' && JSON.stringify(await none.m.fetchCards(['', null])) === '{}' && none.authed.log.length === 0, '빈 목록 · 빈 코드만 → 요청 0 · {}');
-    const dup = mk(LIB, { 'GET /v1/myhomes/cards': (b, p) => ({ cards: codesIn(p).map((c) => card(c)) }) });
+    const dup = mk(LIB, { 'GET /v2/myhomes/cards': (b, p) => ({ cards: codesIn(p).map((c) => card(c)) }) });
     await dup.m.fetchCards(['A', 'A', 'B']);
     chk(dup.authed.log.length === 1 && codesIn(dup.authed.log[0].path).join() === 'A,B', '겹친 코드는 하나로');
-    chk(codesIn(G.PATHS.cards(['a,b', 'c d'])).length === 2 && G.PATHS.cards(['a,b']) === '/v1/myhomes/cards?codes=a%2Cb', '  코드 안의 쉼표 · 공백은 인코딩(나누는 쉼표와 섞이지 않게)');
+    chk(codesIn(G.PATHS.cards(['a,b', 'c d'])).length === 2 && G.PATHS.cards(['a,b']) === '/v2/myhomes/cards?codes=a%2Cb', '  코드 안의 쉼표 · 공백은 인코딩(나누는 쉼표와 섞이지 않게)');
     for(const n of [100, 101, 250]){
       const codes = Array.from({ length: n }, (_, i) => 'U' + i);
-      const t = mk(LIB, { 'GET /v1/myhomes/cards': (b, p) => ({ cards: codesIn(p).map((c) => card(c)) }) });
+      const t = mk(LIB, { 'GET /v2/myhomes/cards': (b, p) => ({ cards: codesIn(p).map((c) => card(c)) }) });
       const out = await t.m.fetchCards(codes);
       const sizes = t.authed.log.map((x) => codesIn(x.path).length);
       chk(sizes.length === Math.ceil(n / 100) && sizes.every((s) => s <= 100) && Object.keys(out).length === n, n + '명 → ' + Math.ceil(n / 100) + '번(한 번에 100개 이하) · 다 합침');
     }
     let k = 0;
-    const half = mk(LIB, { 'GET /v1/myhomes/cards': (b, p) => (k++ === 1 ? apiErr(503, '') : { cards: codesIn(p).map((c) => card(c)) }) });
+    const half = mk(LIB, { 'GET /v2/myhomes/cards': (b, p) => (k++ === 1 ? apiErr(503, '') : { cards: codesIn(p).map((c) => card(c)) }) });
     const he = await throws(() => half.m.fetchCards(Array.from({ length: 150 }, (_, i) => 'U' + i)));
     chk(he && he.status === 503, '한 조각이라도 못 받으면 던진다(반쪽 명함을 «다 받음» 으로 안 줌)');
-    const miss = await mk(LIB, { 'GET /v1/myhomes/cards': { cards: [card('A'), { displayName: 'x' }, null] } }).m.fetchCards(['A', 'Z']);
+    const miss = await mk(LIB, { 'GET /v2/myhomes/cards': { cards: [card('A'), { displayName: 'x' }, null] } }).m.fetchCards(['A', 'Z']);
     chk(Object.keys(miss).join() === 'A', '없는 코드 · 깨진 장은 빠진다(«모름»)');
     for(const bad of [null, [], { cards: 'x' }]){
-      const e = await throws(() => mk(LIB, { 'GET /v1/myhomes/cards': bad }).m.fetchCards(['A']));
+      const e = await throws(() => mk(LIB, { 'GET /v2/myhomes/cards': bad }).m.fetchCards(['A']));
       chk(e && e.code === 'SHAPE', '모양이 틀린 응답(' + JSON.stringify(bad) + ')은 던진다');
     }
   }
@@ -184,7 +184,7 @@ async function judge(S){
     const reply = (status, data) => ({ ok: status < 300, status, headers: { get: () => null }, json: async () => ({ success: true, data }) });
     const calls = [], tk = { v: jwt('A') };
     const client = AC.createApiClient({ baseUrl: 'https://api.test', getToken: async () => tk.v,
-      fetch: async (url, init) => { calls.push(init.method + ' ' + url); return reply(200, url.endsWith('/v1/me/friends') ? [] : url.indexOf('/v1/myhomes/cards') >= 0 ? { cards: [] } : url.indexOf('/v1/me/friends/') >= 0 ? fr('F') : null); } });
+      fetch: async (url, init) => { calls.push(init.method + ' ' + url); return reply(200, url.endsWith('/v2/me/friends') ? [] : url.indexOf('/v2/myhomes/cards') >= 0 ? { cards: [] } : url.indexOf('/v2/me/friends/') >= 0 ? fr('F') : null); } });
     const m = load(S.API).createSocialApi({ authed: client, warn: () => {} });
     await m.fetchCards(['F']);
     await m.fetchFriend('F');
@@ -202,7 +202,7 @@ async function judge(S){
     m.reset();
     chk((await throws(() => m.sendRequest('F'))).code === 'NOT_RECEIVED' && calls.length === 6, 'reset 뒤엔 다시 읽기 전까지 요청 0');
     let release;
-    const slow = fake(Object.assign(ME_ROUTES(), { 'GET /v1/me/friend-requests': (b, p, o) => new Promise((res) => { release = () => { o.onOwner('A'); res({ received: [], sent: [] }); }; }), 'POST /v1/me/friend-requests': null }));
+    const slow = fake(Object.assign(ME_ROUTES(), { 'GET /v2/me/friend-requests': (b, p, o) => new Promise((res) => { release = () => { o.onOwner('A'); res({ received: [], sent: [] }); }; }), 'POST /v2/me/friend-requests': null }));
     const sm = load(S.API).createSocialApi({ authed: slow, warn: () => {} });
     const pending = sm.fetchRequests();
     sm.reset();

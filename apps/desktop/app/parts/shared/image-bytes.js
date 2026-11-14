@@ -1,5 +1,5 @@
 /* image-bytes.js — 🖼 data: 그림 → 올릴 바이트 한 곳 (검사 sim-image-bytes.js)
-   [왜] 화면이 줄여 만든 그림은 data:image/…;base64,… 글이다. 서버 올리기(POST /v1/me/images?purpose=…)는 바이트 그대로 받는다.
+   [왜] 화면이 줄여 만든 그림은 data:image/…;base64,… 글이다. 서버 올리기(POST /v2/me/images?purpose=…)는 바이트 그대로 받는다.
      이 풀기 · 형식 · 크기 판정이 말랑이(gift-api) · 일정 카드(schedule-api) · 박수 그림(guestbook-api)에 세 벌 있던 것을 한 곳으로 모았다.
    [내보냄] window.TwImageBytes
      parseDataUrl(u) → { type, bytes: Uint8Array } | null — data:<종류>/<세부>;base64,<글> 모양이 아니거나 base64 가 깨졌으면 null

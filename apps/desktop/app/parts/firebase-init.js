@@ -387,7 +387,7 @@
       rt: window.TwRtHub.store,   // realtime 알림 config — 서버가 바꿨을 때 · 오래 끊겼다 붙었을 때 다시 묻는다
     });
   }
-  /* 🛠 점검 표시 — 서버 /v1/config 가 먼저, 서버에 닿지 못할 때만 이 Firebase 칸을 한 번 읽는다(점검 중에도 규칙이 이 칸 읽기는 연다). 읽는 때 · 주인은 maintenance-gate.js 한 곳 */
+  /* 🛠 점검 표시 — 서버 /v2/config 가 먼저, 서버에 닿지 못할 때만 이 Firebase 칸을 한 번 읽는다(점검 중에도 규칙이 이 칸 읽기는 연다). 읽는 때 · 주인은 maintenance-gate.js 한 곳 */
   _mt.start({ readServer: () => window.TwApi.client.get(window.TwMaintenance.CONFIG_PATH),   // 앱 공통 API 통로 — 원격 설정과 같은 길이면 하나로 합치고 같은 값이면 304
     readFlag: () => _sdkGet(ref(db, window.TwMaintenance.MAINTENANCE_PATH)).then((s) => s.val()), rt: window.TwRtHub.store });
   /* 🛰 옛 방 서버(웹소켓 pv 1) — 문지기(room-server-gate.js)가 0.13 에선 늘 Firebase 를 돌려줘 _rsUrl 은 null 그대로(서버 안 씀). */
@@ -432,7 +432,7 @@
     catalogRef: (kind) => ref(db, 'catalog/' + kind),
     onValue, get,
     scope: (firebaseConfig && (firebaseConfig.databaseURL || firebaseConfig.projectId)) || '',
-    /* 본문은 API 읽기 사본(GET /v1/catalog/{종류}?v=) 먼저 — 못 받으면 아래 Firebase get. 버전 알림은 위 metaRef 그대로. */
+    /* 본문은 API 읽기 사본(GET /v2/catalog/{종류}?v=) 먼저 — 못 받으면 아래 Firebase get. 버전 알림은 위 metaRef 그대로. */
     fetch: createApiCatalogFetch({
       api: (window.TwApi && window.TwApi.client) || null,
       shouldFallback: window.TwApi && window.TwApi.shouldFallback,
@@ -585,7 +585,7 @@
     },
     /* 🔗 (걷음 · 개정 56) `setFriendCodeOwner` — 친추코드 소유자 강제 지정. 부르던 두 곳(_claimFriendCodeAfterTransfer ·
        _healFriendCodeOwner 되찾기 갈래)이 걷혔다. 남의 계정 코드를 가져가는 통로라 남기지 않는다(선점은 registerFriendCode 뿐). */
-    /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v1/me/avatars). 여기는 Storage 올리기만 남았다 =====
+    /* ===== 🧬 캐릭터 슬롯 · 보관함은 서버 원본(character/closet-api.js — /v2/me/avatars). 여기는 Storage 올리기만 남았다 =====
        🧍 슬롯에 딸린 GLB(커미션 베이스·커스텀 책상·커스텀 아이템)를 Storage 에.
        key 는 app.js 가 '종류_내용해시' 로 만든다 — 같은 파일은 같은 경로라 두 번 올라가지 않고,
        다른 파일은 다른 경로라 서로 덮지 않는다(roomface_* 와 같은 규칙).
@@ -1700,7 +1700,7 @@
       try{ const s = await get(ref(db, `secretRooms/${code}/pub`)); return s.val() || null; }
       catch(_){ return null; }
     },
-    /* 발급 · 만료 처리는 서버(POST /v1/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
+    /* 발급 · 만료 처리는 서버(POST /v2/admin/secret-rooms · 앱 admin/admin-license-bulk.js)가 한다 — Firebase 로 쓰던 issueSecretRoom · expireSecretRoom 은 D8-5 에서 걷었다. */
     // 후원자 본인 코드 조회 — 참여 화면이 "내 시크릿룸"을 자동으로 펼치고 채워넣는 데 쓴다.
     async getMySecretRoom(userId){
       try{ const s = await get(ref(db, `users/${userId}/secretRoom`)); return s.val() || null; }
@@ -2365,7 +2365,7 @@
     },
 
     /* ═══════════ 🔑 로그인(Firebase Auth) 원시 — 토큰 받기만 ═══════════
-       0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v1/me — account/login-flow.js).
+       0.13 은 로그인만 앱 ↔ Firebase Auth 가 하고 «이 로그인이 누구인가» 는 서버가 정한다(GET /v2/me — account/login-flow.js).
        여기는 Auth SDK 를 부르는 얇은 자리다 — 유저 코드 묶기 · 가입 · 비밀번호 붙이기 · 바꾸기는 서버(account/user-api.js)가 한다.
        ⚠️ 로그인 창은 여기서 열지 않는다(file:// + frame-src 'none') — main.js 가 연 창에서 받은 ID 토큰만 받는다. */
     /* 🚧 저장된 로그인 세션이 복원될 때까지 기다린다(최대 8초, 실패해도 반드시 풀린다). */

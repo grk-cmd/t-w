@@ -1,7 +1,7 @@
 /* sim-bug-board.js — 🐞 버그제보 게시판 검사(규칙 · 화면)
    실행:  node sim-bug-board.js   (firebase-database-rules.json · bug-board.js · bug-api.js · bug-board-ui.js · app.js 와 같은 폴더에서)
 
-   ★ 왜 이 검사가 있는가 — 0.13 에서 게시판의 원본은 서버(/v1/bugs*)다. 화면은 provider(bug-api.js — 검사 sim-bug-api.js)가 준 칸만 보고,
+   ★ 왜 이 검사가 있는가 — 0.13 에서 게시판의 원본은 서버(/v2/bugs*)다. 화면은 provider(bug-api.js — 검사 sim-bug-api.js)가 준 칸만 보고,
      실패는 갈래 · 번호로, 늦게 온 답은 버리고, 같은 쓰기를 두 번 보내지 않아야 한다. 화면을 몇 개 눌러 봐서는 «늦은 답 덮어씀» · «연타 두 번 올라감» 이 안 잡힌다.
      컷오버 전까지 Firebase 규칙(bugBoard/*)은 그대로 배포돼 있어 §1 이 그 규칙을 계속 본다.
 
@@ -102,7 +102,7 @@ chk(M.checkPost({ vis: 'pub', cat: 'bug', title: '', body: 'x' }) === '제목을
 chk(M.canChangeVis({ mine: true, notice: false, comments: [] }) && !M.canChangeVis({ mine: true, notice: false, comments: [{}] })
   && !M.canChangeVis({ mine: false, notice: false, comments: [] }) && !M.canChangeVis({ mine: true, notice: true, comments: [] }) && !M.canChangeVis(null),
   '공개 범위 버튼 — 내 글 · 공지 아님 · 운영자 답변 · 내 답글이 하나도 없을 때만(서버와 같은 조건)');
-/* 서버 분류 · 상태 이름(GET /v1/bugs 응답 값)의 소문자가 화면 열쇠다 — 하나라도 어긋나면 그 분류 · 상태 글이 «기타» · «접수» 로 보인다 */
+/* 서버 분류 · 상태 이름(GET /v2/bugs 응답 값)의 소문자가 화면 열쇠다 — 하나라도 어긋나면 그 분류 · 상태 글이 «기타» · «접수» 로 보인다 */
 const SERVER_CATS = ['BUG', 'UI', 'ROOM', 'CHAT', 'MYHOME', 'SUGGEST', 'ETC'], SERVER_ST = ['NEW', 'CHECKING', 'REVIEW', 'FIXED', 'NOREPRO', 'UNFIXED'];
 chk(M.BUG_CATS.map(c => c[0].toUpperCase()).join() === SERVER_CATS.join() && M.BUG_CATS.find(c => c[0] === 'suggest')[1] === '건의', '분류 일곱 — 서버 이름과 같다 · «건의» 그대로');
 chk(Object.keys(M.BUG_STATUS).map(k => k.toUpperCase()).sort().join() === SERVER_ST.slice().sort().join() && M.BUG_STATUS.review === '검토중', '상태 여섯 — 서버 이름과 같다 · «검토중» 그대로');

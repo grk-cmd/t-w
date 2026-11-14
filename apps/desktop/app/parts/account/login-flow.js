@@ -1,5 +1,5 @@
 /* login-flow.js — 🔑 로그인 흐름 — 로그인 → 서버 가입 확인 → realtime 켜기 · 로컬 모드 · 내 계정 사본 (검사 sim-login-flow.js)
-   [왜] 로그인(토큰 받기)만 Firebase Auth 가 하고, «이 로그인이 누구인가» 는 서버(GET /v1/me)가 정한다(설계 03-auth 3-1).
+   [왜] 로그인(토큰 받기)만 Firebase Auth 가 하고, «이 로그인이 누구인가» 는 서버(GET /v2/me)가 정한다(설계 03-auth 3-1).
      게이트 · 계정 탭 · 밀려난 기기 화면이 같은 판정을 따로 하지 않게 한 곳에 둔다. 화면(DOM)은 모른다.
    [판정] confirm() → { state, me }
      'in'     — 서버가 계정을 돌려줌. me 사본을 이 PC 에 적는다(tw.me — 로그인 계정과 묶음).
@@ -7,14 +7,14 @@
      'login'  — 로그인이 없음(익명 세션 포함) · 토큰이 끝남. 로그인 화면.
      'local'  — 서버에 닿지 못함 · 점검(me 는 늘 null — 0.13 은 로컬 모드를 두지 않는다). 부르는 쪽이 «서버에 연결할 수 없어요» 화면을 띄우고 waitForServer 로 기다린다.
                 429 면 limited:true. 다시 묻기는 «다시 시도» 누름(retryNow) · realtime ready 신호 — 타이머로 되풀이하지 않는다.
-   [가입] 비밀번호: POST /v1/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
-     (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v1/users { inviteCode }.
+   [가입] 비밀번호: POST /v2/users(토큰 없음) → 받은 친구코드 + 비밀번호로 Auth 로그인 → confirm. 답을 못 받아 다시 누르면 **같은 요청 번호**
+     (서버가 처음 계정을 돌려준다 — 두 계정이 생기지 않게). 구글: 구글 로그인 → confirm 이 'signup' 이면 POST /v2/users { inviteCode }.
    [realtime] goOnline() — 서버가 계정을 돌려준 뒤 켠다(hello claim:true · 이 기기가 지금 기기). 예외: 서버에 닿지 못한 화면 동안은 waitForServer 가 claim:true 로 켜 두고 ready 를 다시 묻는 계기로 쓴다(계정이 정해지면 같은 연결을 그대로). 밀려나면(4004) onSessionLost 로 밀려난 기기 화면을 띄운다.
    classic script — user-api.js · api-errors.js · rt-hub.js 다음 · app.js 보다 먼저 싣는다(window.TwLoginFlow). Firebase 를 모른다 — Auth 원시는 deps.auth. */
 (function(){
 'use strict';
 
-const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 마지막 /v1/me 답(patchMe 가 version 을 읽는다). 프리미엄은 여기서 읽지 않는다 — 서버 확인(license-premium.js)만 따른다
+const ME_CACHE_KEY = 'tw.me';   // { authUid, me, at } — 마지막 /v2/me 답(patchMe 가 version 을 읽는다). 프리미엄은 여기서 읽지 않는다 — 서버 확인(license-premium.js)만 따른다
 const STATE = Object.freeze({ IN: 'in', SIGNUP: 'signup', LOGIN: 'login', LOCAL: 'local' });
 const CANCELED_TEXT = '로그인이 취소됐어요';   // 옛 main 은 canceled 표시 없이 이 글만 보낸다 — 그냥 닫음으로 본다
 const RT_READY = 'ready', RT_SESSION_LOST = 'sessionLost';   // rt-hub.js 상태 이름
@@ -73,7 +73,7 @@ function createLoginFlow(deps){
   function clearCache(){ try{ storage.removeItem(ME_CACHE_KEY); }catch(_){} }
 
   /* 이 로그인은 누구인가 — 위 [판정]. 던지지 않는다.
-     확인(GET /v1/me)의 me 는 «들어감» 알림(launcher/app-boot.js)으로 기능 시작에 전해진다 — 따로 또 묻지 않는다. */
+     확인(GET /v2/me)의 me 는 «들어감» 알림(launcher/app-boot.js)으로 기능 시작에 전해진다 — 따로 또 묻지 않는다. */
   async function confirm(){
     try{ await auth.ready(); }catch(_){}
     const u = auth.user();
@@ -133,7 +133,7 @@ function createLoginFlow(deps){
 
   /* 구글 로그인 → confirm. 창을 그냥 닫으면 canceled(조용히 끝낼 일). 서버에 계정이 없으면(signup) 로그인을 놓는다 —
      «로그인은 됐는데 계정은 없는» 채로 껐다 켜면 켤 때 signup 으로 이 PC 계정 몫이 지워져 0.12 캐릭터가 올리기 전에 사라진다.
-     가입으로 이어 가는 joinGoogle 만 keepOnSignup 으로 로그인을 둔다(바로 POST /v1/users 에 그 로그인이 필요하다). */
+     가입으로 이어 가는 joinGoogle 만 keepOnSignup 으로 로그인을 둔다(바로 POST /v2/users 에 그 로그인이 필요하다). */
   async function loginGoogle(){ return googleSignInConfirm(false); }
   async function googleSignInConfirm(keepOnSignup){
     let g = null;
@@ -171,7 +171,7 @@ function createLoginFlow(deps){
     deps.pending.settle(key);
     return { ok: true, me: c.me };
   }
-  /* 구글 가입 — 구글 로그인 → 이미 계정이면 그 계정(existing) · 없으면 POST /v1/users { inviteCode }. */
+  /* 구글 가입 — 구글 로그인 → 이미 계정이면 그 계정(existing) · 없으면 POST /v2/users { inviteCode }. */
   async function joinGoogle(o){
     const l = await googleSignInConfirm(true);
     if(l.ok) return { ok: true, existing: true, me: l.me };

@@ -182,7 +182,7 @@ async function judge(S){
     await bad.st.openView('Y', false);
     chk(bad.st.view().load === 'failed' && bad.log.includes('error E-GIFT-01'), '그 집 칸 못 받음 → failed · E-GIFT-01');
     const me = mk(S);
-    chk(await me.st.openView('ME', true) && me.st.view().mine && me.st.view().slots.length === 2 && count(me.log, /^GET mine$/) === 1 && count(me.log, /^GET of/) === 0, '내 집은 내 칸을 가리킨다(GET /v1/me/mallangs)');
+    chk(await me.st.openView('ME', true) && me.st.view().mine && me.st.view().slots.length === 2 && count(me.log, /^GET mine$/) === 1 && count(me.log, /^GET of/) === 0, '내 집은 내 칸을 가리킨다(GET /v2/me/mallangs)');
 
     const r = mk(S, { auto: false });
     const rp = r.st.pullMine(); await r.release(); await rp;

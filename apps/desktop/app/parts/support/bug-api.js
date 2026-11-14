@@ -1,4 +1,4 @@
-/* bug-api.js — 🐞 버그제보 게시판 provider — 서버 길(/v1/bugs* · /v1/me/bugs*) 한 벌 · 새 답변 배지 수 (검사 sim-bug-api.js)
+/* bug-api.js — 🐞 버그제보 게시판 provider — 서버 길(/v2/bugs* · /v2/me/bugs*) 한 벌 · 새 답변 배지 수 (검사 sim-bug-api.js)
    [왜] 게시판의 원본은 서버다. 글쓴이 · 공감한 사람 · 읽은 사람은 서버가 로그인 토큰에서 정한다 — 앱은 내 이름 · 코드를 싣지 않는다.
      화면(bug-board-ui.js)은 경로 · 본문 모양 · 서버 이름(PUBLIC · BUG · NEW …)을 모르고 이 파일의 함수만 부른다.
      서버 모양(ISO 시각 · 대문자 이름) → 화면 모양(ms · 소문자 열쇠 'pub' · 'bug' · 'new')은 여기 한 곳(rowOf · postOf).
@@ -20,17 +20,17 @@
 
 const enc = encodeURIComponent;
 const PATHS = Object.freeze({
-  list: '/v1/bugs',
-  one: (n) => '/v1/bugs/' + enc(n),
-  replies: (n) => '/v1/bugs/' + enc(n) + '/replies',
-  visibility: (n) => '/v1/bugs/' + enc(n) + '/visibility',
-  like: (n) => '/v1/bugs/' + enc(n) + '/like',
-  seen: (n) => '/v1/me/bugs/' + enc(n) + '/seen',
-  unseenCount: '/v1/me/bugs/unseen-count',
-  quota: '/v1/me/bugs/quota',
-  answers: (n) => '/v1/admin/bugs/' + enc(n) + '/answers',
-  adminConfig: '/v1/admin/config',
-  reportConfig: '/v1/admin/config/bug.report',
+  list: '/v2/bugs',
+  one: (n) => '/v2/bugs/' + enc(n),
+  replies: (n) => '/v2/bugs/' + enc(n) + '/replies',
+  visibility: (n) => '/v2/bugs/' + enc(n) + '/visibility',
+  like: (n) => '/v2/bugs/' + enc(n) + '/like',
+  seen: (n) => '/v2/me/bugs/' + enc(n) + '/seen',
+  unseenCount: '/v2/me/bugs/unseen-count',
+  quota: '/v2/me/bugs/quota',
+  answers: (n) => '/v2/admin/bugs/' + enc(n) + '/answers',
+  adminConfig: '/v2/admin/config',
+  reportConfig: '/v2/admin/config/bug.report',
 });
 const REPORT_KEY = 'bug.report';
 const FILTERS = Object.freeze(['all', 'open', 'mine']);

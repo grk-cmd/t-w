@@ -2,7 +2,7 @@
    app.js 의 관리자 모드(비밀번호 창 · 켜기 · Ctrl+E 끄기 · 관리자 버튼 보이기 · Ctrl·⌘+클릭 진입)와 비밀번호 창 버튼 연결을
    parts/admin/admin-mode.js 로 옮겼다. 동작은 그대로여야 한다 — 가짜 DOM · 진짜 SHA-256(node webcrypto) 위에서 굴린다.
    ・1절: 만들 때 — 비밀번호 창 버튼 셋 · Ctrl+E · 진입 클릭(캡처) · 내놓는 이름 refreshAdminVisibility · isAdmin 을 안 바꿈
-   ・2절: 켜기 — 틀린 비밀번호 · 맞아도 구글 로그인 없으면 안 켬 · 맞고 로그인 있어도 서버(/v1/admin/admins/me)가 관리자로 모르면(403) 안 켬 · 서버에 닿지 못해도 안 켬 ·
+   ・2절: 켜기 — 틀린 비밀번호 · 맞아도 구글 로그인 없으면 안 켬 · 맞고 로그인 있어도 서버(/v2/admin/admins/me)가 관리자로 모르면(403) 안 켬 · 서버에 닿지 못해도 안 켬 ·
         확인 중 또 눌러도 한 번 · 다 맞으면 setIsAdmin(true) · body.admin · 버튼 보이기
    ・3절: 끄기 · 진입 — Ctrl+E 는 켜져 있을 때만 끈다 · Ctrl+클릭은 비밀번호 창을 열고 원래 동작을 막는다 · Mac 아닌 곳의 Meta(Win 키)는 무시 · 켜져 있으면 무시
    ・4절: app.js 연결 — 본문이 안 남음 · isAdmin 선언은 app.js · 빈 껍데기 · deps · 부팅 때 adminMode.refreshAdminVisibility · html(key-input.js 뒤 · app.js 앞)

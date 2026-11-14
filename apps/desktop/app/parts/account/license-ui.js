@@ -88,7 +88,7 @@ function refreshLicenseUI(){
   if(submit){ submit.disabled = !v.canAct; submit.textContent = v.busy ? '확인 중...' : '확인'; }
   const input = licUiEl('licenseKeyInput'); if(input) input.disabled = !v.canAct;
 }
-/* 설정 라이선스 구획을 열 때 — 받기(GET /v1/me/license)를 시작하고 지금 상태를 그린다(받는 동안은 «불러오는 중»). 받기가 끝나면 screen 이 다시 그리게 한다 */
+/* 설정 라이선스 구획을 열 때 — 받기(GET /v2/me/license)를 시작하고 지금 상태를 그린다(받는 동안은 «불러오는 중»). 받기가 끝나면 screen 이 다시 그리게 한다 */
 function openLicenseUI(opts){
   const p = licenseScreenMod.open(opts);
   refreshLicenseUI();

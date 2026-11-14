@@ -845,7 +845,7 @@ function createMallang(deps){
 
   /* ── 🎁 받은 선물 말랑이 띄우기 ──
      내 집: 어느 선물이 나와야 하는지는 선물함(gift-box onScreen)이 정한다 — 여기는 그 목록을 그리기만 하고 선물 id 를 들지 않는다(enterHome → 받기 성공 → emit → syncGifts).
-     남의 집: 그 집에 나온 선물(GET /v1/gifts/{code})을 한 번 띄운다. 못 받으면 아무것도 띄우지 않는다(번호는 그쪽) */
+     남의 집: 그 집에 나온 선물(GET /v2/gifts/{code})을 한 번 띄운다. 못 받으면 아무것도 띄우지 않는다(번호는 그쪽) */
   async function loadGifts(ownerId, seq){
     if(!ownerId) return;                // 내 코드가 없으면 선물을 안 읽는다
     if(visiting){

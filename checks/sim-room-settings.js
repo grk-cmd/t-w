@@ -246,7 +246,7 @@ say('── 7. remote-config — 금칙어 원문');
   st.set('bannedWords', ['나쁜말', '', 3, '가'.repeat(21), '욕']);
   chk(JSON.stringify(st.bannedWords()) === '["나쁜말","욕"]', '  글자 칸만 · 20자까지(규칙과 같다)');
   st.apply({ room: { bannedWords: ['가', '나'] } }, false);
-  chk(JSON.stringify(st.bannedWords()) === '["가","나"]' && RCM.KEYS.includes('bannedWords'), '  서버 /v1/config 의 room.bannedWords 를 받는다');
+  chk(JSON.stringify(st.bannedWords()) === '["가","나"]' && RCM.KEYS.includes('bannedWords'), '  서버 /v2/config 의 room.bannedWords 를 받는다');
   chk(RCM.BANNED_WORD_LEN_MAX === 20 && RULES.config.bannedWords.$i['.validate'].includes('<= 20'), '  길이 상한이 규칙과 같다');
   chk(RCM.BANNED_WORDS_MAX === BW.BANNED_MAX, '★ 줄 수 상한이 판정(BANNED_MAX)과 같다 — 넘는 낱말을 받아 놓고 판정에서 버리지 않게');
 }

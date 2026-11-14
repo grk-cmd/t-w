@@ -1,5 +1,5 @@
 /* ═══ 🚩 sim-report.js — 신고 서버 길 · 신고하기 모듈 둘 ═══════════════
-   report-api.js(신고 provider — POST /v1/reports · 관리자 /v1/admin/reports*) · report.js(신고 창 · 공용 도우미 · 팝업 칸) · admin/admin-report.js(관리자 신고 목록).
+   report-api.js(신고 provider — POST /v2/reports · 관리자 /v2/admin/reports*) · report.js(신고 창 · 공용 도우미 · 팝업 칸) · admin/admin-report.js(관리자 신고 목록).
    신고 규칙 · 문구는 sim-report-away.js 가 본다. 여기서는 provider 본문 · 신고 창의 성공 / 실패 · 팝업 칸 나눠 쓰기 · app.js 연결을 본다 — 가짜 DOM · 가짜 통로 위에서 굴린다.
    ・0절: report-api.js — 사유 이름 → 서버 종류 이름 표 · 본문 = { target, kind, note? }(내 이름 · 코드 없음) · 틀린 값은 요청 0 · 실패는 그대로 던짐 ·
           failOf — 기능 표 갈래 · 공통 code · 닿지 못함 → common · 그 밖 → site(진짜 api-errors.js 로)
@@ -124,8 +124,8 @@ async function judgeAll(rep, adm, app, html, rapi){
     let e0 = null; try{ await api0.file('u9', 'spam', ''); }catch(e){ e0 = e; }
     await api0.file('u9', 'nick', '');
     s0.fail = errOf('REPORT_SELF'); let e1 = null; try{ await api0.file('u9', 'char', ''); }catch(e){ e1 = e; }
-    t(e0 && e0.code === 'INVALID' && c0.length === 2 && c0[0][1] === '/v1/reports' && same(c0[0][2], { target: 'u9', kind: 'NICKNAME' }) && e1 === s0.fail,
-      'report-api — file: 틀린 값은 요청 0 · POST /v1/reports 한 번 · 실패는 받은 오류 그대로 던짐(다시 보내지 않음)');
+    t(e0 && e0.code === 'INVALID' && c0.length === 2 && c0[0][1] === '/v2/reports' && same(c0[0][2], { target: 'u9', kind: 'NICKNAME' }) && e1 === s0.fail,
+      'report-api — file: 틀린 값은 요청 0 · POST /v2/reports 한 번 · 실패는 받은 오류 그대로 던짐(다시 보내지 않음)');
   }
   {
     const f = (e) => RA.failOf(e, ERRS);
@@ -175,8 +175,8 @@ async function judgeAll(rep, adm, app, html, rapi){
   const pend = go.onclick();
   const busy = go.disabled; st.release(); st.hold = false; await pend;
   const sent = posts(B.calls);
-  t(busy && sent.length === 1 && sent[0][1] === '/v1/reports' && same(sent[0][2], { target: 'u9', kind: 'ETC', note: '욕설' }),
-    '신고 = POST /v1/reports { target, kind, note } 한 번(내 이름 · 코드 없음) · 보내는 동안 [신고] 꺼짐');
+  t(busy && sent.length === 1 && sent[0][1] === '/v2/reports' && same(sent[0][2], { target: 'u9', kind: 'ETC', note: '욕설' }),
+    '신고 = POST /v2/reports { target, kind, note } 한 번(내 이름 · 코드 없음) · 보내는 동안 [신고] 꺼짐');
   t(B.hidden.has('u9') && B.calls.some(c => c[0] === 'hiddenSave') && ov1.removed && !R.ov() && !errs(B.calls).length, '신고하면 내 화면에서 숨기고 창을 닫는다(같은 Set · 팝업 칸 비움)');
   /* 나 신고로 거절 — 조용히 닫기만 */
   B.calls.length = 0; st.fail = errOf('REPORT_SELF');
@@ -208,21 +208,21 @@ async function judgeAll(rep, adm, app, html, rapi){
     const c1 = [], s1 = { pages: { '': { items: [srvTarget('u1')], nextCursor: 'c/2' }, 'c/2': { items: [], nextCursor: null } } };
     const ad = RA.createAdminReportApi({ authed: fakeAuthed(s1, c1), errs: ERRS });
     const pa = await ad.page(null), pb = await ad.page('c/2');
-    t(pa.items.length === 1 && pa.next === 'c/2' && pb.items.length === 0 && c1[0][1] === '/v1/admin/reports' && c1[1][1] === '/v1/admin/reports?cursor=c%2F2'
+    t(pa.items.length === 1 && pa.next === 'c/2' && pb.items.length === 0 && c1[0][1] === '/v2/admin/reports' && c1[1][1] === '/v2/admin/reports?cursor=c%2F2'
       && c1.every(c => c[2] && c[2].auth === true && !/minReporters/.test(c[1])),
-      'report-api — 목록 = GET /v1/admin/reports(로그인 · minReporters 안 보냄) · 다음 쪽은 ?cursor= (감싸서)');
+      'report-api — 목록 = GET /v2/admin/reports(로그인 · minReporters 안 보냄) · 다음 쪽은 ?cursor= (감싸서)');
     c1.length = 0; s1.postData = (path, body) => body.targets.map(id => ({ id, ok: true, code: null }));
     await ad.dismiss('u1');
     s1.postData = (path, body) => [{ id: 'u1', ok: false, code: 'INVALID_REQUEST' }];
     let ed = null; try{ await ad.dismiss('u1'); }catch(e){ ed = e; }
     s1.postData = () => [];
     let es = null; try{ await ad.dismiss('u1'); }catch(e){ es = e; }
-    t(c1[0][1] === '/v1/admin/reports/dismissals' && same(c1[0][2], { targets: ['u1'] }) && ed && ed.code === 'INVALID_REQUEST' && es && es.code === 'SHAPE',
+    t(c1[0][1] === '/v2/admin/reports/dismissals' && same(c1[0][2], { targets: ['u1'] }) && ed && ed.code === 'INVALID_REQUEST' && es && es.code === 'SHAPE',
       'report-api — 문제없음 = POST …/dismissals { targets:[그 한 명] } · 그 사람 줄이 ok 아니면 그 code 로 · 줄이 없으면 SHAPE 로 던짐');
     c1.length = 0; s1.postData = null;
     await ad.takeDown('u1', OK_IMG + 'a.webp');
     let et = null; try{ await ad.takeDown('u1', ''); }catch(e){ et = e; }
-    t(c1.length === 1 && c1[0][1] === '/v1/admin/reports/u1/take-down' && same(c1[0][2], { awayImageUrl: OK_IMG + 'a.webp' }) && et && et.code === 'INVALID',
+    t(c1.length === 1 && c1[0][1] === '/v2/admin/reports/u1/take-down' && same(c1[0][2], { awayImageUrl: OK_IMG + 'a.webp' }) && et && et.code === 'INVALID',
       'report-api — 그림 내리기 = POST …/{target}/take-down { awayImageUrl: 본 그림 } · 그림 없으면 요청 0');
     const f = (e) => RA.adminFailOf(e, ERRS);
     t(f(errOf('REPORT_IMAGE_CHANGED')) === 'imageChanged' && f(errOf('ACCESS_DENIED')) === 'common' && f(errOf('AUTH_REQUIRED')) === 'common'

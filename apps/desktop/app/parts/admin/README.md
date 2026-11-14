@@ -22,19 +22,19 @@
 
 ## admin-api.js — 🛠️ 앱 관리자 서버 길 provider
 
-- **책임**: 앱 관리자 창이 쓰는 서버 관리자 API(`/v1/admin/...`) 요청 모양 한 곳. 지금: 관리자 확인(`me`) · 📣 확성기 · 📰 업데이트 공지 · 📢 런처 배너 · 🛑 전체 방 종료. 화면 · 알림은 모른다 — 실패는 `ApiError` 를 던진다.
+- **책임**: 앱 관리자 창이 쓰는 서버 관리자 API(`/v2/admin/...`) 요청 모양 한 곳. 지금: 관리자 확인(`me`) · 📣 확성기 · 📰 업데이트 공지 · 📢 런처 배너 · 🛑 전체 방 종료. 화면 · 알림은 모른다 — 실패는 `ApiError` 를 던진다.
 - **만드는 법**: app.js `noticeApi` 바로 뒤에서 `const adminApi = TwAdminApi.createAdminApi({ authed, pending, fetchBoard })`
   - `authed` = `TwApi.authed` · `pending` = `TwRequestId.createPending()` · `fetchBoard` = `()=>noticeApi.fetchBoard()`(지금 업데이트 공지의 id 를 공지 한 판에서 받는다)
 - **내보내는 것**: `me` · `announce` · `clearAnnouncement` · `currentUpdateNotice` · `publishUpdateNotice` · `withdrawUpdateNotice` · `fetchBanner` · `replaceBanner` · `closeAllRooms` · `ERRORS`(서버 code → 오류 번호 `E-ADM-*` 기능 표 — `TwApiErrors.store.notify(err, adminApi.ERRORS)`)
 - **함정**
   - 관리자 판정은 서버가 한다(`ACCESS_DENIED` → `E-ADM-05`). 앱은 «누가 했는지» 를 보내지 않는다.
   - 배너 저장은 읽은 판(`version`)을 싣는다 — 409 면 덮어쓰지 않고 다시 받는다. 링크 칸은 비워도 된다(서버가 «링크 없는 장» 으로 받고 런처는 누르면 아무 일 없게 그린다) · 채운 주소가 틀리면 `E-ADM-01` · 409 는 번호 없이 «다른 곳에서 바꾼 내용을 받아왔어요».
-  - 멈춘 것: ⚙️ 게임 설정(동물 해금 레벨 — 서버 길은 카탈로그 해금 `PUT /v1/admin/catalog/unlocks/…` 이지만 사용자 앱이 아직 Firebase 에서 읽어, 올려도 닿지 않는다. 읽는 쪽이 옮겨 가면 D11-2) · 🧹 유령 방 청소(D11-2 에서 걷음) — 여기서 메우지 않는다.
+  - 멈춘 것: ⚙️ 게임 설정(동물 해금 레벨 — 서버 길은 카탈로그 해금 `PUT /v2/admin/catalog/unlocks/…` 이지만 사용자 앱이 아직 Firebase 에서 읽어, 올려도 닿지 않는다. 읽는 쪽이 옮겨 가면 D11-2) · 🧹 유령 방 청소(D11-2 에서 걷음) — 여기서 메우지 않는다.
   - 검사: `checks/sim-admin-api.js`(요청 모양 · 요청 번호 · 오류 표 · 배선 · 깨 보기).
 
 ## admin-report.js — 🚩 신고 목록(관리자)
 
-- **책임**: 관리자 줄 [🚩 신고 목록](`#lcReportList`) 창 — 목록 받기 · [더 보기] · [문제없음] · [그림 내리기] 화면. 서버 길은 `support/report-api.js` 의 `createAdminReportApi` 하나(`/v1/admin/reports*`) — 거르기(서로 다른 3명 이상) · 이름 · 그림 붙이기 · 그림 칸과 파일 지우기는 서버가 한다.
+- **책임**: 관리자 줄 [🚩 신고 목록](`#lcReportList`) 창 — 목록 받기 · [더 보기] · [문제없음] · [그림 내리기] 화면. 서버 길은 `support/report-api.js` 의 `createAdminReportApi` 하나(`/v2/admin/reports*`) — 거르기(서로 다른 3명 이상) · 이름 · 그림 붙이기 · 그림 칸과 파일 지우기는 서버가 한다.
 - **만드는 법**: app.js «🚩 신고하기» 자리, `reportMod` 바로 뒤에서 `const adminReport = TwAdminReport.createAdminReport({ … });`
   - `toast` · `awayUrlOk` · `isAdmin`(읽는 함수) · report.js 의 `reportClose` · `reportBox` · `kinds` · `adminMin` · 팝업 칸 `reportOv` · `setReportOv` · `reportEsc` · `setReportEsc` · `adminApi`(`TwReportApi.createAdminReportApi`) · `apiErrors`(`TwApiErrors.store`) · `notifyError`(`TwErrorCodes.notify`)
 - **내보내는 것**: 없음 — 버튼은 만들 때 건다.

@@ -1,5 +1,5 @@
 /* ═══ 🎵 sim-playlist-api.js — 플레이리스트 api provider (0.13 앱 묶음 D10) ═══
-   [왜] 플레이리스트가 Firebase 대신 우리 서버 공개 API(/v1/me/playlist · /v1/playlists/…)를 쓴다. 서버 모양(tracks[{videoId,title}] ·
+   [왜] 플레이리스트가 Firebase 대신 우리 서버 공개 API(/v2/me/playlist · /v2/playlists/…)를 쓴다. 서버 모양(tracks[{videoId,title}] ·
      늘 3칸 · listed · 판 version)을 화면 모양(items[{id,title}] · private)으로 맞추는 곳이 provider 하나라 그 맞춤을 실제로 불러서 판정한다.
    ・1절: 읽기 — 내 목록 모양 맞춤 · 빈 목록(객체)과 못 읽음(던짐)을 가름 · 무작위(경로 · exclude) · 들을 것 없음(null) ≠ 실패 · 모양 틀림은 던짐
    ・2절: 남의 목록 — 경로 · 곡 있는 벌만 무작위(경계: 0 · 1 미만) · 곡 없으면 null · 열어 주지 않음(PLAYLIST_FRIENDS_ONLY) · 없는 사용자(USER_NOT_FOUND)는 null · 그 밖 실패는 던짐
@@ -64,28 +64,28 @@ async function judge(S){
 
   say('── 1. 읽기');
   {
-    const { m, authed } = mkApi(LIB, { 'GET /v1/me/playlist': MINE() });
+    const { m, authed } = mkApi(LIB, { 'GET /v2/me/playlist': MINE() });
     const r = await m.fetchMine('ME01');
-    chk(authed.log[0].path === '/v1/me/playlist' && authed.log[0].opts && authed.log[0].opts.auth === true, '내 목록 — 내 길(/v1/me/playlist) · 로그인 통로로 부른다(내 코드는 경로에 안 실린다)');
+    chk(authed.log[0].path === '/v2/me/playlist' && authed.log[0].opts && authed.log[0].opts.auth === true, '내 목록 — 내 길(/v2/me/playlist) · 로그인 통로로 부른다(내 코드는 경로에 안 실린다)');
     chk(r.sets.length === 3 && r.sets[0].name === 'A' && r.sets[0].items.length === 2 && r.sets[0].items[0].id === 'aaaaaaaaaaa' && r.sets[0].items[0].title === '가', '  tracks[{videoId,title}] → items[{id,title}]');
     chk(r.sets[1].items.length === 0 && r.sets[2].items[0].title === '다' && r.bio === '안녕' && r.homePublic === true, '  빈 벌 · 한마디 · 마이홈 공개');
     chk(r.private === false && !('editTs' in r), '  listed → private 는 반대 · 고친 시각 칸은 없다(서버 원본)');
-    const p = mkApi(LIB, { 'GET /v1/me/playlist': MINE({ listed: false }) });
+    const p = mkApi(LIB, { 'GET /v2/me/playlist': MINE({ listed: false }) });
     chk((await p.m.fetchMine('ME01')).private === true, '  목록에 올리지 않음(listed:false) → private:true');
   }
   {
     const empty = MINE({ sets: [serverSet('', ), serverSet('', ), serverSet('', )], bio: '', homePublic: false, version: 0 });
-    const { m } = mkApi(LIB, { 'GET /v1/me/playlist': empty });
+    const { m } = mkApi(LIB, { 'GET /v2/me/playlist': empty });
     const r = await m.fetchMine('ME01');
     chk(r && r.sets.length === 3 && r.sets.every((s) => s.items.length === 0), '★ 비어 있음 — 객체로 돌려준다(못 읽음 null 과 다르다)');
     let thrown = null;
-    try{ await mkApi(LIB, { 'GET /v1/me/playlist': apiErr(503, 'RTDB_UNAVAILABLE') }).m.fetchMine('ME01'); }catch(e){ thrown = e; }
+    try{ await mkApi(LIB, { 'GET /v2/me/playlist': apiErr(503, 'RTDB_UNAVAILABLE') }).m.fetchMine('ME01'); }catch(e){ thrown = e; }
     chk(thrown && thrown.status === 503, '★ 못 읽음 — 던진다(빈 목록으로 오해하지 않게)');
     thrown = null;
-    try{ await mkApi(LIB, { 'GET /v1/me/playlist': { sets: 'x', listed: true, version: 1 } }).m.fetchMine('ME01'); }catch(e){ thrown = e; }
+    try{ await mkApi(LIB, { 'GET /v2/me/playlist': { sets: 'x', listed: true, version: 1 } }).m.fetchMine('ME01'); }catch(e){ thrown = e; }
     chk(thrown && thrown.code === 'SHAPE', '  모양이 틀린 응답 — 던진다(SHAPE)');
     thrown = null;
-    try{ await mkApi(LIB, { 'GET /v1/me/playlist': { sets: [], listed: true } }).m.fetchMine('ME01'); }catch(e){ thrown = e; }
+    try{ await mkApi(LIB, { 'GET /v2/me/playlist': { sets: [], listed: true } }).m.fetchMine('ME01'); }catch(e){ thrown = e; }
     chk(thrown && thrown.code === 'SHAPE', '  판(version)이 없는 응답 — 던진다');
     thrown = null;
     try{ await mkApi(LIB, {}).m.fetchMine(''); }catch(e){ thrown = e; }
@@ -93,47 +93,47 @@ async function judge(S){
   }
   {
     const pickData = { userCode: 'uFRIEND', displayName: '민서', setNo: 2, set: serverSet('좋아', tr('ddddddddddd', '곡')), bio: '한마디', homePublic: false };
-    const { m, authed } = mkApi(LIB, { 'GET /v1/playlists/random': pickData });
+    const { m, authed } = mkApi(LIB, { 'GET /v2/playlists/random': pickData });
     const r = await m.fetchRandom('uOLD');
-    chk(authed.log[0].path === '/v1/playlists/random?exclude=uOLD' && authed.log[0].opts.auth === true, '무작위 — 방금 본 사람은 exclude 로(내 코드는 안 싣는다 · 서버가 토큰으로 뺀다)');
+    chk(authed.log[0].path === '/v2/playlists/random?exclude=uOLD' && authed.log[0].opts.auth === true, '무작위 — 방금 본 사람은 exclude 로(내 코드는 안 싣는다 · 서버가 토큰으로 뺀다)');
     chk(r.uid === 'uFRIEND' && r.name === '민서' && r.setName === '좋아' && r.setIdx === 2 && r.items[0].id === 'ddddddddddd' && r.bio === '한마디' && r.homePublic === false, '  Pick → 화면 모양(uid · name · items · setName · setIdx)');
     await m.fetchRandom(null);
-    chk(authed.log[1].path === '/v1/playlists/random', '  제외할 사람이 없으면 물음표 없이');
-    const n = mkApi(LIB, { 'GET /v1/playlists/random': null });
+    chk(authed.log[1].path === '/v2/playlists/random', '  제외할 사람이 없으면 물음표 없이');
+    const n = mkApi(LIB, { 'GET /v2/playlists/random': null });
     chk((await n.m.fetchRandom(null)) === null, '★ 들을 것 없음(data:null) — null(실패 아님)');
-    const noName = mkApi(LIB, { 'GET /v1/playlists/random': Object.assign({}, pickData, { displayName: '' }) });
+    const noName = mkApi(LIB, { 'GET /v2/playlists/random': Object.assign({}, pickData, { displayName: '' }) });
     chk((await noName.m.fetchRandom(null)).name === '(이름 없음)', '  이름이 비면 «(이름 없음)»');
     let thrown = null;
-    try{ await mkApi(LIB, { 'GET /v1/playlists/random': apiErr(503, 'PLAYLIST_NOT_READY') }).m.fetchRandom(null); }catch(e){ thrown = e; }
+    try{ await mkApi(LIB, { 'GET /v2/playlists/random': apiErr(503, 'PLAYLIST_NOT_READY') }).m.fetchRandom(null); }catch(e){ thrown = e; }
     chk(thrown && thrown.status === 503, '★ 실패 — 던진다(null 과 다르다)');
     thrown = null;
-    try{ await mkApi(LIB, { 'GET /v1/playlists/random': Object.assign({}, pickData, { set: serverSet('x') }) }).m.fetchRandom(null); }catch(e){ thrown = e; }
+    try{ await mkApi(LIB, { 'GET /v2/playlists/random': Object.assign({}, pickData, { set: serverSet('x') }) }).m.fetchRandom(null); }catch(e){ thrown = e; }
     chk(thrown && thrown.code === 'SHAPE', '  곡 없는 Pick(서버 규칙 위반) — 던진다');
   }
 
   say('── 2. 남의 목록');
   {
     const pub = { userCode: 'uF/1', sets: [serverSet('a', tr('aaaaaaaaaaa', 'x')), serverSet('b'), serverSet('c', tr('ccccccccccc', 'z'))], bio: 'b', homePublic: true };
-    const lo = mkApi(LIB, { 'GET /v1/playlists/uF%2F1': pub }, 0);
+    const lo = mkApi(LIB, { 'GET /v2/playlists/uF%2F1': pub }, 0);
     const r0 = await lo.m.fetchOf('uF/1');
-    chk(lo.authed.log[0].path === '/v1/playlists/uF%2F1' && lo.authed.log[0].opts.auth === true, '경로의 코드는 주소로만 쓴다(인코딩) · 로그인 통로');
+    chk(lo.authed.log[0].path === '/v2/playlists/uF%2F1' && lo.authed.log[0].opts.auth === true, '경로의 코드는 주소로만 쓴다(인코딩) · 로그인 통로');
     chk(r0.uid === 'uF/1' && r0.setIdx === 0 && r0.setName === 'a' && r0.items[0].id === 'aaaaaaaaaaa' && r0.bio === 'b' && r0.homePublic === true && !('name' in r0), '  random=0 → 곡 있는 첫 벌 · 이름은 안 싣는다(부르는 쪽이 친구 이름을 가짐)');
-    const hi = mkApi(LIB, { 'GET /v1/playlists/uF%2F1': pub }, 0.999999);
+    const hi = mkApi(LIB, { 'GET /v2/playlists/uF%2F1': pub }, 0.999999);
     const r1 = await hi.m.fetchOf('uF/1');
     chk(r1.setIdx === 2 && r1.setName === 'c', '  random→1 미만 끝 → 곡 있는 마지막 벌(빈 벌 건너뜀 · 범위 밖 없음)');
-    const mid = mkApi(LIB, { 'GET /v1/playlists/uF%2F1': pub }, 0.5);
+    const mid = mkApi(LIB, { 'GET /v2/playlists/uF%2F1': pub }, 0.5);
     chk((await mid.m.fetchOf('uF/1')).setIdx === 2, '  0.5 → 곡 있는 두 벌 중 두 번째(번호는 서버 칸 번호 그대로)');
-    const none = mkApi(LIB, { 'GET /v1/playlists/uF': { userCode: 'uF', sets: [serverSet('a'), serverSet('b'), serverSet('c')], bio: '', homePublic: false } });
+    const none = mkApi(LIB, { 'GET /v2/playlists/uF': { userCode: 'uF', sets: [serverSet('a'), serverSet('b'), serverSet('c')], bio: '', homePublic: false } });
     chk((await none.m.fetchOf('uF')) === null, '★ 곡 있는 벌이 없다 — null(실패 아님)');
-    const fo = mkApi(LIB, { 'GET /v1/playlists/uF': apiErr(403, 'PLAYLIST_FRIENDS_ONLY') });
+    const fo = mkApi(LIB, { 'GET /v2/playlists/uF': apiErr(403, 'PLAYLIST_FRIENDS_ONLY') });
     chk((await fo.m.fetchOf('uF')) === null, '★ 열어 주지 않음(PLAYLIST_FRIENDS_ONLY) — null');
-    const nf = mkApi(LIB, { 'GET /v1/playlists/uF': apiErr(404, 'USER_NOT_FOUND') });
+    const nf = mkApi(LIB, { 'GET /v2/playlists/uF': apiErr(404, 'USER_NOT_FOUND') });
     chk((await nf.m.fetchOf('uF')) === null, '★ 없는 사용자(404 USER_NOT_FOUND) — null(«공개한 목록 없음» 갈래 · 연결 문제가 아니다)');
     let thrown = null;
-    try{ await mkApi(LIB, { 'GET /v1/playlists/uF': apiErr(500, 'INTERNAL') }).m.fetchOf('uF'); }catch(e){ thrown = e; }
+    try{ await mkApi(LIB, { 'GET /v2/playlists/uF': apiErr(500, 'INTERNAL') }).m.fetchOf('uF'); }catch(e){ thrown = e; }
     chk(thrown && thrown.status === 500, '★ 그 밖의 실패 — 던진다');
     thrown = null;
-    try{ await mkApi(LIB, { 'GET /v1/playlists/uF': { userCode: 'uF', sets: 5 } }).m.fetchOf('uF'); }catch(e){ thrown = e; }
+    try{ await mkApi(LIB, { 'GET /v2/playlists/uF': { userCode: 'uF', sets: 5 } }).m.fetchOf('uF'); }catch(e){ thrown = e; }
     chk(thrown && thrown.code === 'SHAPE', '  모양 틀림 — 던진다');
     thrown = null;
     try{ await mkApi(LIB, {}).m.fetchOf(''); }catch(e){ thrown = e; }
@@ -144,11 +144,11 @@ async function judge(S){
   const readyApi = async (routes, uid) => { const x = mkApi(LIB, routes); await x.m.fetchMine(uid || 'ME01'); x.authed.log.length = 0; return x; };
   {
     const sets = [{ name: 'A', items: [{ id: 'aaaaaaaaaaa', title: '가' }] }, { name: '', items: [] }, { name: 'C', items: [] }];
-    const { m, authed } = await readyApi({ 'GET /v1/me/playlist': MINE({ version: 7 }), 'PUT /v1/me/playlist': (b) => MINE({ version: b.version + 1 }) });
+    const { m, authed } = await readyApi({ 'GET /v2/me/playlist': MINE({ version: 7 }), 'PUT /v2/me/playlist': (b) => MINE({ version: b.version + 1 }) });
     const ok = await m.saveMine('ME01', sets, { bio: '소개', homePublic: true, private: false });
     const put = authed.log.find((x) => x.method === 'PUT');
     chk(ok === 'ok' && authed.log.length === 1 && put, '읽은 판으로 바로 PUT(저장 전에 몰래 읽지 않는다)');
-    chk(put.path === '/v1/me/playlist' && put.body.version === 7 && put.body.listed === true && put.body.homePublic === true && put.body.bio === '소개', '  본문 — version · listed(=private 의 반대) · homePublic · bio');
+    chk(put.path === '/v2/me/playlist' && put.body.version === 7 && put.body.listed === true && put.body.homePublic === true && put.body.bio === '소개', '  본문 — version · listed(=private 의 반대) · homePublic · bio');
     chk(put.body.sets.length === 3 && put.body.sets[0].tracks[0].videoId === 'aaaaaaaaaaa' && put.body.sets[0].tracks[0].title === '가' && put.body.sets[0].name === 'A' && put.body.sets[1].tracks.length === 0, '  items{id,title} → tracks{videoId,title} · 빈 벌도 보낸다');
     await m.saveMine('ME01', sets, { bio: '', homePublic: false, private: true });
     const puts = authed.log.filter((x) => x.method === 'PUT');
@@ -159,7 +159,7 @@ async function judge(S){
   }
   {
     const big = { name: '가'.repeat(30), items: Array.from({ length: 25 }, (_, i) => ({ id: 'v' + String(i).padStart(10, '0'), title: '가'.repeat(80) })) };
-    const { m, authed } = await readyApi({ 'GET /v1/me/playlist': MINE(), 'PUT /v1/me/playlist': MINE() });
+    const { m, authed } = await readyApi({ 'GET /v2/me/playlist': MINE(), 'PUT /v2/me/playlist': MINE() });
     await m.saveMine('ME01', [big, big, big, big], { bio: '나'.repeat(200) });
     const b = authed.log.find((x) => x.method === 'PUT').body;
     chk(b.sets.length === 3 && b.sets[0].tracks.length === 20 && b.sets[0].name.length === 16 && b.sets[0].tracks[0].title.length === 60 && b.bio.length === 140, '경계 — 4벌→3벌 · 곡 25→20 · 이름 16자 · 제목 60자 · 한마디 140자(서버 상한)');
@@ -169,22 +169,22 @@ async function judge(S){
   }
   {
     const empty = [{ name: '', items: [] }, { name: '', items: [] }, { name: '', items: [] }];
-    const { m, authed } = await readyApi({ 'GET /v1/me/playlist': MINE(), 'PUT /v1/me/playlist': MINE() });
+    const { m, authed } = await readyApi({ 'GET /v2/me/playlist': MINE(), 'PUT /v2/me/playlist': MINE() });
     await m.saveMine('ME01', empty, { bio: '남김', homePublic: true });
     const b = authed.log.find((x) => x.method === 'PUT').body;
     chk(b.sets.length === 3 && b.sets.every((s) => s.tracks.length === 0) && b.bio === '남김', '비움 — 노드를 지우지 않고 빈 세 벌 + 한마디를 저장(지우는 길이 없다)');
   }
   {
     const one = [{ name: '', items: [] }];
-    const c = await readyApi({ 'GET /v1/me/playlist': MINE({ version: 3 }), 'PUT /v1/me/playlist': apiErr(409, 'CONCURRENT_UPDATE') });
+    const c = await readyApi({ 'GET /v2/me/playlist': MINE({ version: 3 }), 'PUT /v2/me/playlist': apiErr(409, 'CONCURRENT_UPDATE') });
     const r = await c.m.saveMine('ME01', one, {});
     chk(r === 'conflict' && c.authed.log.length === 1 && c.warns.length === 0, '★ 409(다른 기기가 먼저) — \'conflict\' 를 돌려주고 다시 보내지 않는다(남의 고침을 덮지 않는다)');
     chk((await c.m.saveMine('ME01', one, {})) === 'failed' && c.authed.log.length === 1, '  충돌 뒤 서버 것을 다시 읽기 전에는 판이 없어 보내지 않는다');
     await c.m.fetchMine('ME01');
     chk((await c.m.saveMine('ME01', one, {})) === 'conflict' && c.authed.log.filter((x) => x.method === 'PUT').length === 2, '  다시 읽으면(fetchMine) 새 판으로 다시 보낼 수 있다');
-    const bad = await readyApi({ 'GET /v1/me/playlist': MINE(), 'PUT /v1/me/playlist': apiErr(400, 'PLAYLIST_INVALID') });
+    const bad = await readyApi({ 'GET /v2/me/playlist': MINE(), 'PUT /v2/me/playlist': apiErr(400, 'PLAYLIST_INVALID') });
     chk((await bad.m.saveMine('ME01', one, {})) === 'failed' && bad.authed.log.length === 1 && bad.warns.length === 1, '  409 가 아닌 실패(400)는 다시 안 보내고 failed + 진단 한 줄');
-    const noV = await readyApi({ 'GET /v1/me/playlist': MINE(), 'PUT /v1/me/playlist': { ok: 1 } });
+    const noV = await readyApi({ 'GET /v2/me/playlist': MINE(), 'PUT /v2/me/playlist': { ok: 1 } });
     chk((await noV.m.saveMine('ME01', one, {})) === 'failed', '  저장 답에 판이 없으면(모양 틀림) failed');
   }
 
@@ -225,9 +225,9 @@ async function judge(S){
     const pub = lib.publicOf({ userCode: 'U1', sets: [Object.assign(serverSet('A', tr('aaaaaaaaaaa', '가')), { locked: true }), serverSet('B', tr('bbbbbbbbbbb', '나'))] }, () => 0);
     const pubAll = lib.publicOf({ userCode: 'U1', sets: [Object.assign(serverSet('A', tr('aaaaaaaaaaa', '가')), { locked: true })] }, () => 0);
     chk(pub.setIdx === 1 && pub.setName === 'B' && pubAll === null, '★ 남의 목록에 잠긴 벌이 실려 와도 고르지 않는다 · 전부 잠기면 null(들을 것 없음)');
-    const x0 = await readyApi({ 'GET /v1/me/playlist': MINE(), 'PUT /v1/me/playlist': MINE({ version: 8 }) });
+    const x0 = await readyApi({ 'GET /v2/me/playlist': MINE(), 'PUT /v2/me/playlist': MINE({ version: 8 }) });
     await x0.m.saveMine('ME01', lockSets, {});
-    const x1 = await readyApi({ 'GET /v1/me/playlist': L([{ locked: false }, { locked: false }, { locked: false }]), 'PUT /v1/me/playlist': L([{ locked: true }, { locked: false }, { locked: false }]) });
+    const x1 = await readyApi({ 'GET /v2/me/playlist': L([{ locked: false }, { locked: false }, { locked: false }]), 'PUT /v2/me/playlist': L([{ locked: true }, { locked: false }, { locked: false }]) });
     await x1.m.saveMine('ME01', lockSets, {}); await x1.m.saveMine('ME01', lockSets, {});
     const p1 = x1.authed.log.filter((x) => x.method === 'PUT');
     chk(x0.authed.log[0].body.sets.every((s) => !('locked' in s)) && p1[0].body.sets[0].locked === true && p1[1].body.sets[0].locked === true,
@@ -278,7 +278,7 @@ async function judge(S){
     ['API', "  return { uid: d.userCode, name: str(d.displayName) || '(이름 없음)'", "  return { uid: d.userCode, name: str(d.displayName)", '이름이 비면 빈 칸'],
     ['API', "    if(!uid){ const e = new Error('내 코드 없음'); e.code = 'NO_USER'; throw e; }\n    return readMine(uid);", "    return readMine(uid);", '내 코드 없이도 읽음'],
     ['API', "    const path = PATHS.random + (excludeUid ? '?exclude=' + encodeURIComponent(excludeUid) : '');", "    const path = PATHS.random;", '방금 본 사람을 제외하지 않음'],
-    ['API', "  of: (userCode) => '/v1/playlists/' + encodeURIComponent(userCode),", "  of: (userCode) => '/v1/playlists/' + userCode,", '남의 코드를 인코딩 없이 경로에'],
+    ['API', "  of: (userCode) => '/v2/playlists/' + encodeURIComponent(userCode),", "  of: (userCode) => '/v2/playlists/' + userCode,", '남의 코드를 인코딩 없이 경로에'],
     ['API', "    versions.set(uid, { v, owner, lockable: out.lockable });\n    return out;", "    return out;", '읽은 판을 기억하지 않음'],
     ['API', "{ expectOwner: read.owner }", "{}", '쓰기를 읽은 토큰 주인과 안 묶음'],
     ['API', "      if(e && e.code === OWNER_CHANGED_CODE){ versions.delete(uid); return 'stale'; }", "", '주인이 바뀌어 막힌 것을 실패로 알림'],
