@@ -5,19 +5,24 @@ const canvas=document.getElementById('scene');
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
 const _renderAA = FrameBudget.antialiasFor(_renderQuality);
-const renderer=new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+/* 🧯 3D 를 못 쓸 때 «다시 켜기» 안내(shared/gl-fail-notice.js) — 렌더러를 못 만들면 안내를 띄우고 멈춘다(B-1114-5) */
+const glFail = TwGlFailNotice.createGlFailNotice({
+  doc: document, notifyError: (...a) => TwErrorCodes.notify(...a),
+  note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },
+  relaunch: () => companion.relaunchApp(), quit: () => companion.quitApp(),
+});
+const renderer=glFail.guard(() => new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true}));renderer.setPixelRatio(Math.min(devicePixelRatio,2));
 renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
-/* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 화면을 한 번 다시 불러온다(parts/gl-recover.js · 제보 #11).
-   three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다. */
+/* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 앱을 다시 켠다 · 10분 안에 또면 안내(parts/gl-recover.js · B-1114-5).
+   three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다.
+   ⚠️ 마지막으로 다시 켠 시각은 localStorage — 앱을 다시 켜도 남아야 무한 재시작을 막는다. */
 try{
-  if(typeof GlRecover !== 'undefined'){
-    GlRecover.createGlRecover({
-      log: (m) => { console.warn('[WebGL]', m); try{ if(window.companion && companion.diagNote) companion.diagNote('[WebGL] ' + m); }catch(_){} },
-      reload: () => location.reload(),
-      setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
-      store: { get: (k) => sessionStorage.getItem(k), set: (k, v) => sessionStorage.setItem(k, v) },
-    }).attach(canvas);
-  }
+  GlRecover.createGlRecover({
+    log: (m) => { console.warn('[WebGL]', m); try{ if(window.companion && companion.diagNote) companion.diagNote('[WebGL] ' + m); }catch(_){} },
+    relaunch: () => companion.relaunchApp(), notice: () => glFail.show('lost'),
+    setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
+    store: { get: (k) => localStorage.getItem(k), set: (k, v) => localStorage.setItem(k, v) },
+  }).attach(canvas);
 }catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
 /* 🩺 한글 조합 중 입력칸이 포커스를 잃으면 진단 기록에 한 줄(shared/input-diag.js) — 맥 한글 씹힘 제보를 제보자 PC 기록으로 가른다 */
 TwInputDiag.createImeWatch({
