@@ -272,3 +272,14 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
   - `removeSeat` 는 한 칸만 남으면 아무것도 안 한다. 고른 좌석을 지우면 바로 앞(`max(0, i-1)`) 좌석을 고른다.
   - 상판 재질은 좌석마다 복제한다(책상 색을 좌석별로 바꾸려고).
   - 검사: `checks/sim-seats.js`(진짜 three · desk-build 로 좌석 만들기 · 지우기 · 간격 읽기 쓰기 · 깨 보기).
+
+## char-place.js — 🧍 캐릭터 높이 · 깊이 · 자리 · 크기 저장 · 끌기 한계 · 책상 반폭
+
+- **책임**: 캐릭터 기본 앞뒤 자리 `CHAR_Z` · 높이 상한 `CHAR_Y_MAX` · `clampCharY` · `seatCharZ` / 프로그램 이동 위치(`deskPanX` · `deskPanY` — localStorage `tw.deskPan`)의 저장 · 복원 · 안전 범위 `clampDeskPan`(실측 여백 `_myPanHalfFrac` · 없으면 폴백 0.02) / 실행 화면 캐릭터 크기 `focusCharScale` 의 모니터별 저장 · 복원(`tw.focusCharScale` — 디스플레이 id → 해상도 지문 → default 세 겹) · `refreshCharScaleForCurrentDisplay` / 책상 반폭 실측 `seatDeskHalfWidth` / 동물 실행 크기 `ANIMAL_RUN_SCALE`. 앱 FSD 분리 M7 — app.js 에서 글 그대로 옮겼다.
+- **만드는 법**: `TwCharPlace.createCharPlace({ camera, bodyMeasureMod, seats })` 뒤 `charPlaceMod.attachLayout({ layoutSeats })` — `seats` 는 더 아래에서 만들어져 읽는 함수. 줄 배치는 위층(`seat-layout`)이라 deps 로 부르면 모듈 순환이 되므로 app.js 가 알림만 건다(`layoutSeats` 는 뒤에서 다시 대입돼 부를 때 찾는다). app.js 는 옛 이름 열하나를 const 로 받고, `window.ANIMAL_RUN_SCALE`(animal.js 가 읽는 고리)도 app.js 가 건다.
+- **내보내는 것**: `CHAR_Z` · `CHAR_Y_MAX` · `clampCharY` · `seatCharZ` · `BASE_PXW` · `ANIMAL_RUN_SCALE` · `saveCharPos` · `saveCharScale` · `refreshCharScaleForCurrentDisplay` · `clampDeskPan` · `seatDeskHalfWidth` · `attachLayout` + 다시 대입되는 여섯(`sizeFactor` · `deskPanX` · `deskPanY` · `focusCharScale` · `_cachedRowCenter` · `_cachedRowSpan`)의 읽는 · 쓰는 함수(`이름()` / `set이름(v)`) — app.js 는 `charPlaceMod.deskPanX()` 로 읽는다.
+- **함정**
+  - 크기는 id · 지문 · default 세 곳에 같이 쓴다 — id 하나만 쓰면 재부팅 · 드라이버 갱신으로 id 가 바뀌는 순간 저장값이 미아가 된다.
+  - `ANIMAL_RUN_SCALE` 은 `_animalPanExtra` 가 부를 때 읽는다(값을 미리 굳히면 TDZ 로 앱이 죽었던 자리).
+  - `seatDeskHalfWidth` 는 `updateWorldMatrix(true, true)` 로 조상부터 세운다(`fitModel` 직후 `matrixWorld` 캐시가 옛 값이라 간격이 부풀던 자리). 책상 위 아이템(`deskAnchor`)과 숨은 자식은 뺀다.
+  - 검사: `checks/sim-char-place.js`(저장 · 복원 · 모니터 바뀜 · 끌기 한계 표 · 책상 반폭 · 깨 보기).
