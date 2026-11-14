@@ -361,7 +361,7 @@
 - **만드는 법**: `const glowMod = TwGlow.createGlow({});` — 받는 deps 없음(THREE 는 전역).
 - **내보내는 것**: `getGlowSpriteTexture()` · `addGlowSprite(obj)` · `applyGlowToMesh(mesh)` · `applyGlowEffect(obj)` · `GLOW_SIZE_MUL` · `GLOW_COLOR` · `GLOW_EMISSIVE_BOOST`
 - **함정**
-  - 지금 **부르는 곳이 없다** — 아이템 발광(`equipDeskItem` 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄만.
+  - 지금 **부르는 곳이 없다** — 아이템 발광(`equipDeskItem` 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄을 `glowMod.applyGlowEffect(obj)` 로 바꿔 부른다(app.js 에 옛 이름이 없다).
   - 스프라이트 텍스처는 첫 부름에 한 번만 만든다(캔버스 128×128 방사형 그라디언트).
   - 검사: `checks/sim-glow.js`(진짜 three 오브젝트로 크기 · 자리 · 재질 · 실패 길 · 깨 보기).
 
