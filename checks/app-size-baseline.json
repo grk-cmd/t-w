@@ -2,12 +2,10 @@
   "note": "sim-app-size.js 기준선 — 상한(cap)은 내려가기만 한다. 코드를 모듈로 옮겨 줄었으면 같은 PR 에서 --write-baseline 으로 내린다. 지도: docs/APP_FSD_MAP.md",
   "files": {
     "app.js": {
-      "cap": 9011,
-      "lines": 8865,
+      "cap": 8581,
+      "lines": 8381,
       "sections": [
         "SETUP",
-        "DRACO",
-        "🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.",
         "기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅",
         "BUILDERS",
         "SEATS",
@@ -133,8 +131,8 @@
       ]
     },
     "firebase-init.js": {
-      "cap": 2832,
-      "lines": 2732,
+      "cap": 2703,
+      "lines": 2603,
       "sections": [
         "🚧 로그인 복원 대기선 (auth barrier)",
         "마이홈 친구 시스템",
@@ -148,8 +146,6 @@
         "🎟️ 초대장 (앱 접근 제한)",
         "Phase 3: 커스텀 서브카테고리 (관리자가 파츠 종류 추가)",
         "기본(내장) 카테고리 이름/아이콘 덮어쓰기",
-        "📣 확성기 공지 (관리자 → 전체 유저 브로드캐스트, 1분간 유효) — 런처5",
-        "📰 업데이트 공지 (관리자가 발행 → 유저 앱 시작 시 팝업)",
         "📩 수령함 (구 DM 자리)",
         "🔑 로그인(Firebase Auth) 원시 — 토큰 받기만",
         "🧟 좀비 어드벤처 파티 시스템 — 은퇴(stub)",

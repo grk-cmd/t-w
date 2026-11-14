@@ -84,6 +84,13 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
   섞인 구역에 **머리만 새로 다는** PR 은 머리 줄만큼 줄 수가 늘어 둘 다 쓴다(`--write-baseline --allow-new-section --allow-increase` — 상한이 머리 줄 수만큼만 오른다).
 - 기준선 파일 `checks/app-size-baseline.json` 은 검사 파일이 아니라 `CHECKS.md` §3 해시 대상이 아니다(`ui-tokens-baseline.json` 과 같은 방식). 바뀌면 PR diff 로 본다.
 
+### 줄 수 말고 «조립만» — `checks/sim-app-wiring.js`
+
+줄 상한은 줄 수만 본다. app.js 의 끝 모양(모듈을 만들고 deps 를 잇는 글만 — 설계 tw-docs `docs/design/app/app-js-split.md` 2-1 · 2-3)은 로직 표지 다섯으로 본다:
+맨 위 함수 선언 · 맨 위 `let` 이름 · `addEventListener` 부름 · `localStorage` 이름 · `try` 문(typescript 파서로 센다 — 주석 · 문자열 안은 안 센다).
+기준선 `checks/app-wiring-baseline.json` 보다 **늘면 빨강**, 줄면 같은 PR 에서 내린다(`node checks/sim-app-wiring.js --write-baseline` — 늘었으면 쓰기를 거절한다).
+처음 값(0.12.4 · P3 뒤): 함수 209 · let 77 · 듣기 71 · 저장 47 · try 139. 다섯이 모두 0 이 되면 기준선을 걷고 «0 이 아니면 빨강» 으로 바꾼다.
+
 ## 옮기는 순서 (제안)
 
 한 줄 = 앞으로의 PR 하나. 고른 기준: 다른 구역이 덜 쓰고(쓰임 · 밖으로 나가는 이름이 적음) 줄 수가 큰 것부터.
@@ -270,6 +277,30 @@ app.js 앞에 싣는 작은 파일로 옮기면 전역 이름이 그대로라 �
 줄 범위로 찾는 아래 표가 낡은 뒤로는 쓸모가 없었다. 머리 주석의 «왜 · ⚠️» 는 옮긴 모듈의 그 함수 옆에 1~3줄로 옮겼다.
 app.js 9,087 → 8,823줄(264줄) · 구역 163 → 126개. 남긴 빈 머리 둘(📦 방으로 보내는 def · 🛰 서버 모듈 감시견)은
 C(방 · 대화 realtime)가 같은 자리를 고치고 있어 그 뒤에 걷는다. 아래 구역 표의 «(머리만)» 줄은 옛 값이다.
+
+## 0.12.4 에서 합친 것(release/0.12.4 → release/0.13.0)
+
+**0.12.4 — 🩺 렌더러 생존 신호 #34 일부 옮김**: 0.1초 하트비트(창 보임 구독 · `setCharBounds`) → `launcher/heartbeat.js` · 1분 진단 줄(`[비용]` · `[프레임]`) → `launcher/run-diag-minute.js`. `_twMoveSeenAt` · `runCost` · 프레임 반복 안의 재기 줄은 app.js. app.js 9,729 → 9,711줄.
+
+**0.12.4 — 빈 머리 걷기**(0.13 #818 과 같은 모양): 본문을 모듈로 옮긴 뒤 머리 주석(과 «옮긴 곳» 안내)만 남았던 구역 머리 37개를 걷었다 —
+구역 번호를 지키려고 남겼던 것이라 줄 범위로 찾는 아래 표가 낡은 뒤로는 쓸모가 없었다. 머리 주석의 «왜 · ⚠️» 는 옮긴 모듈의 그 함수 옆에 1~3줄로 옮겼다.
+app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 넷 — 📦 방으로 보내는 def · 🛰 서버 모듈 감시견(0.13 이 같은 자리를 고침) ·
+☁️ 연동 UI · 🧬 slots → chars 이관(0.13 이 둘레까지 걷음). 아래 구역 표의 «(머리만)» 줄은 옛 값이다.
+
+**0.12.4 — 실행 화면 조명 한 벌**(0.13 #822 · #826 과 같은 모양): 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 여섯 자리에 같던 앰비언트 · 키 · 뒤쪽 바운스 · 정면 필 글과
+생성기 미리보기 · 동물 생성기의 빛 만들기를 `shared/light-tone.js` 의 `addRunLights` · `runLightInts` 로 묶었다(화면 그대로). `_mkFrontFill` 은 걷었고 `lightToneMod` 만드는 줄은 조명 상수 바로 뒤로 올렸다.
+종족 선택의 동물 카드는 옛 손 빛(0.95 · 1.0)이 실행 화면 몫과 달라 처음엔 남겼다가, 사용자 확인 뒤 사람 카드와 같은 `addRunLights` 로 옮겼다(카드가 사람 카드 밝기로 어두워짐 — 보이는 변화 · 0.13 #826 과 같은 줄).
+
+**0.12.4 — app.js 분리 M1**(설계 tw-docs `app-js-split.md` 4-2): SETUP 의 무대 만들기(렌더러 · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더)를 `shared/stage.js` 로, 발광 조각을 `character/glow.js` 로 옮겼다(동작 그대로 · 글 그대로).
+조명 상수 · `_fixGlbMatLighting`(T0 몫) · 화질 읽기(`_renderQuality` — 프레임 상한 몫) · 한글 진단 걸기 · 몸 재기 모듈 만들기는 app.js 에 남았다. `glow.js` 는 지금 부르는 곳이 없다. app.js 9,454 → 9,370줄.
+
+**0.12.4 — app.js 분리 M2**: 사람 귀 붙이기(귀 재질 · 귀 그림 · 까닥임 등록 · def 에 맞게 붙이기)를 `character/human-ear-attach.js` 로 옮겼다(동작 그대로 · 글 그대로 — 늦게 생기는 `seats` · `partPaintMod` · `wardrobeMod` · `rideBenchMod` 만 읽는 함수로 받는다). app.js 9,370 → 9,328줄.
+
+**0.12.4 — app.js 분리 M3**: 기본 책상 · 화분 · 컵 · 책 · 대신 몸 만들기와 재질(`M` · `matWood` …)을 `room/desk-build.js` 로 옮겼다(동작 그대로 · 글 그대로 · deps 없음). app.js 9,328 → 9,290줄.
+
+**0.12.4 — app.js 분리 M4**: 파츠 · 책상 아이템 애니메이션 재생(클립 고르기 · 믹서 · 활동 중에만 재생 · 아이템 idle · 손 따라가기 · 눌러 재생)을 `character/part-anim.js` 로 옮겼다(글 그대로 — `isAdmin` · `userStatus` · `seats` 만 읽는 함수로 받고 옛 `typeof` 가드 둘을 걷었다). app.js 9,290 → 9,104줄.
+
+**0.12.4 — app.js 분리 M5**: 책상 아이템 장착(장착 · 해제 · 위치 · 색 · 모으기 · 바로 저장 · 저장 반영)을 `character/desk-item-equip.js` 로 옮겼다(글 그대로 — 더 아래에서 만들어지거나 다시 대입되는 열 가지를 읽는 함수로 받는다). app.js 9,104 → 8,902줄.
 
 ## 구역 표 — `apps/desktop/app/parts/app.js`
 
