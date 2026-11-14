@@ -382,6 +382,7 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
         "const INVITE_TOKEN_KEY = 'tw.inviteToken'; const INVITE_PASS_KEY = 'tw.invitePassed'; const SIGNUP_PENDING_KEY = 'tw.signupPending';",
         "function _markInvitePassed(){ localStorage.setItem(INVITE_PASS_KEY, '1'); }",
         "async function _applyTransferSnapshot(s){ log.push('apply:' + (s && s.userCode)); }",
+        "const googleConfirmMod = { ask: async () => 'yes' };   // 🔑 묻는 창(google-confirm.js) — 늘 [이 계정에 연결]",
         ...need.map(h => takeFn(APP, h)),
         'return { _signupDoPassword, _signupDoGoogle, _signupPendingEnsure, _signupPendingLoad };',
       ].join('\n');
@@ -738,7 +739,9 @@ chk(G.sref('ST', 'users/null/avatar.jpg').path.startsWith('_noUid/'), 'sref(Stor
     }
     const runSD = (opts, win) => {
       const D = fakeDom();
-      const f = (new Function('document', 'window', 'setTimeout', sdF + '\nreturn _showSignupDone;'))(D.doc, win || {}, () => {});
+      /* 🔑 구글을 붙이기 전에 묻는 창(google-confirm.js) — 여기서는 늘 [이 계정에 연결]. 창 자체는 sim-google-confirm.js 가 본다 */
+      const gcm = { pickForLink: async () => { const g = await (win || {}).companion.signInWithGoogle(); return g && g.ok ? { ok:true, idToken:g.idToken } : { ok:false, reason:(g && g.reason) || '' }; } };
+      const f = (new Function('document', 'window', 'setTimeout', 'googleConfirmMod', sdF + '\nreturn _showSignupDone;'))(D.doc, win || {}, () => {}, gcm);
       Object.defineProperty(globalThis, 'companion', { get: () => (win || {}).companion, configurable: true });
       Object.defineProperty(globalThis, 'firebaseAPI', { get: () => (win || {}).firebaseAPI, configurable: true });
       const p = f(opts);

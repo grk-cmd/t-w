@@ -52,6 +52,7 @@ const FRIEND_CODE_LOGIN_RE = deps.FRIEND_CODE_LOGIN_RE;
 const plMod = deps.plMod;
 const slotSyncMod = deps.slotSyncMod;   // 읽는 함수
 const toast = deps.toast;
+const googleConfirmMod = deps.googleConfirmMod;   // 🔑 구글을 계정에 처음 붙이기 전에 묻기(google-confirm.js)
 const tricksMod = deps.tricksMod;
 const weeklyChal = deps.weeklyChal;   // 읽는 함수
 const setFocusTodaySec = deps.setFocusTodaySec;   // 쓰는 함수
@@ -174,7 +175,10 @@ async function _loginDoGoogle(){
   let before = null; try{ before = localStorage.getItem(MY_USER_ID_KEY); }catch(_){}
   // 묶어도 되는 코드일 때만 서버에 건넨다. null 을 주면 서버는 조회만 하고 결속은 거절한다.
   const offer = _loginMayBind() ? before : null;
-  const r = await firebaseAPI.authSignInWithGoogle(g.idToken, offer);
+  /* 🔑 처음 보는 구글이면 이 PC 계정에 묶기 전에 묻는다 — [다른 계정으로 로그인]이면 묶지 않고 구글 창부터 다시 */
+  const r = await firebaseAPI.authSignInWithGoogle(g.idToken, offer, (email)=>googleConfirmMod.ask(email, 'bind'));
+  if(r && r.declined === 'other') return _loginDoGoogle();
+  if(r && r.declined) return { ok:false, reason:'로그인을 취소했어요', canceled:true };
   if(!r || !r.ok) return { ok:false, reason:(r && r.reason) || '로그인에 실패했어요', needCode:!!(r && r.needCode) };
 
   try{
@@ -663,8 +667,8 @@ function refreshAccountTab(){
     if(gl) gl.onclick = async ()=>{
       if(!(window.companion && companion.signInWithGoogle) || !(window.firebaseAPI && firebaseAPI.authLinkGoogle)){ sayG('이 버전에서는 구글을 연결할 수 없어요', 'err'); return; }
       gl.disabled = true; say('구글 창을 여는 중…', 'info');
-      let g = null; try{ g = await companion.signInWithGoogle(); }catch(_){}
-      if(!g || !g.ok){ sayG((g && g.reason) || '구글 로그인 창에서 결과를 받지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }
+      const g = await googleConfirmMod.pickForLink();
+      if(!g.ok){ if(g.canceled) say('', 'info'); else sayG(g.reason || '구글 로그인 창에서 결과를 받지 못했어요 — 다시 시도해 주세요', 'err'); gl.disabled = false; return; }
       let r = null; try{ r = await firebaseAPI.authLinkGoogle(g.idToken); }catch(_){ r = { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' }; }
       if(!r || !r.ok){ sayG((r && r.reason) || '구글을 연결하지 못했어요', 'err'); gl.disabled = false; return; }
       try{ await _acctMethodsRender(true); }catch(_){}

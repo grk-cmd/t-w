@@ -311,6 +311,31 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
   chk(ls.getItem(L.MY_USER_ID_KEY) === before, '⑦ 취소는 유저 코드를 건드리지 않는다');
   chk(order.length === 0, '⑦ 취소는 서버를 부르지 않는다');
 
+  /* 🔑 처음 보는 구글을 묻는 창에서 [다른 계정으로 로그인] → 구글 창부터 다시 · ✕ → 취소(유저 코드 그대로) */
+  {
+    let opened = 0; const answers = [];
+    globalThis.window.companion.signInWithGoogle = async () => { opened++; return { ok:true, idToken:'ID.TOKEN' }; };
+    const fa0 = globalThis.window.firebaseAPI.authSignInWithGoogle;
+    globalThis.window.firebaseAPI.authSignInWithGoogle = async (tok, code, ask) => {
+      const a = answers.shift();
+      if(a) return { ok:false, declined:a };
+      return { ok:true, uid:'AUTHUID', email:'hoya@gmail.com', userCode:before, bound:true, askType: typeof ask };
+    };
+    answers.push('other');
+    const rO = await L.login();
+    chk(!!rO && rO.ok && opened === 2, '★ [다른 계정으로 로그인] → 묶지 않고 구글 창을 한 번 더 연다');
+    opened = 0; answers.push('cancel');
+    const rC = await L.login();
+    chk(!!rC && !rC.ok && rC.canceled === true && opened === 1 && ls.getItem(L.MY_USER_ID_KEY) === before, '★ 묻는 창을 닫으면 취소 · 유저 코드 그대로 · 창을 다시 안 연다');
+    let gotAsk = null;
+    globalThis.window.firebaseAPI.authSignInWithGoogle = async (tok, code, ask) => { gotAsk = ask; return { ok:true, uid:'AUTHUID', email:'hoya@gmail.com', userCode:before, bound:false }; };
+    await L.login();
+    chk(typeof gotAsk === 'function', '  로그인은 묻는 함수를 서버 쪽에 넘긴다(처음 보는 구글일 때만 부른다 — §3-3)');
+    globalThis.window.firebaseAPI.authSignInWithGoogle = fa0;
+    globalThis.window.companion.signInWithGoogle = async () => ({ ok:false, reason:'로그인이 취소됐어요' });
+    order.length = 0;
+  }
+
   /* ① 기록을 못 하면 — 서버가 준 userCode 가 형식에 안 맞는 경우로 흉내 낸다(_setMyUserId 가 거절) */
   globalThis.window.companion.signInWithGoogle = async () => ({ ok:true, idToken:'ID.TOKEN' });
   const fa = globalThis.window.firebaseAPI.authSignInWithGoogle;
@@ -611,7 +636,7 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
     if (i0 > 0 && i1 > i0 && d0 > 0 && d1 > d0){
       const method = FB.slice(i0, i1 + '\n    }'.length);
       const drop = FB.slice(d0, d1 + '\n  };'.length);
-      const run = async (o) => {
+      const run = async (o, src) => {
         const log = [];
         const user = { uid: 'G1', email: 'me@gmail.com' };
         const rows = Object.assign({}, o.rows || {});
@@ -629,8 +654,11 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
           runTransaction: async (r, fn) => { const nv = fn(rows[r.path] === undefined ? null : rows[r.path]); if (nv !== undefined) rows[r.path] = nv; return { snapshot: { val: () => rows[r.path] } }; },
         };
         const names = Object.keys(env);
-        const api = (new Function(...names, drop + '\nreturn ({\n' + method + '\n});'))(...names.map(n => env[n]));
-        const r = await api.authSignInWithGoogle('TOKEN', o.code);
+        const api = (new Function(...names, drop + '\nreturn ({\n' + (src || method) + '\n});'))(...names.map(n => env[n]));
+        const asked = [];
+        const confirm = o.ask ? async (email) => { asked.push(email); return o.ask; } : undefined;
+        const r = await api.authSignInWithGoogle('TOKEN', o.code, confirm);
+        o.asked = asked;
         return { r, log, rows };
       };
       let X = await run({ isNew: true, code: null });
@@ -650,6 +678,33 @@ globalThis._switchPrepare = async (b, t) => { order.push('prep:' + b + ':' + t);
       X = await run({ isNew: false, code: null, rows: { 'authUsers/G1': { userCode: 'uOLD' } } });
       chk(X.r.ok && X.r.userCode === 'uOLD' && !X.log.some(l => l.startsWith('delete') || l === 'out'),
           '이미 가입된 구글 → 로그인 (지우거나 로그아웃하지 않는다)');
+
+      say('· §3-3 처음 보는 구글은 묶기 전에 묻는다(google-confirm.js) — 아니라면 묶지 않고 막 생긴 계정도 지운다');
+      const judgeAsk = async (src) => {
+        const r = [];
+        const t = (ok, m) => r.push([!!ok, m]);
+        let o = { isNew: true, code: 'uMINE', ask: 'other' }; let Y = await run(o, src);
+        t(Y.r.declined === 'other' && o.asked[0] === 'me@gmail.com' && Y.log.includes('delete:G1') && !Y.rows['userAuth/uMINE'] && !Y.rows['authUsers/G1'],
+          '★ [다른 계정으로 로그인] → 묶지 않음(userAuth · authUsers 그대로 빈칸) · 막 생긴 구글 계정은 지움 · 묻는 창에 그 구글 주소');
+        o = { isNew: true, code: 'uMINE', ask: 'cancel' }; Y = await run(o, src);
+        t(Y.r.declined === 'cancel' && !Y.r.ok && !Y.rows['userAuth/uMINE'], '  ✕ · ESC → 취소 · 묶지 않음');
+        o = { isNew: true, code: 'uMINE', ask: 'yes' }; Y = await run(o, src);
+        t(Y.r.ok && Y.r.bound && Y.rows['userAuth/uMINE'] === 'G1' && o.asked.length === 1, '★ [이 계정에 연결] → 지금처럼 묶는다');
+        o = { isNew: false, code: 'uMINE', ask: 'other', rows: { 'authUsers/G1': { userCode: 'uOLD' } } }; Y = await run(o, src);
+        t(Y.r.ok && Y.r.userCode === 'uOLD' && o.asked.length === 0, '  이미 연결된 구글 → 묻지 않고 그 계정으로');
+        o = { isNew: true, code: null, ask: 'yes' }; Y = await run(o, src);
+        t(Y.r.needCode && o.asked.length === 0, '  묶을 코드가 없을 때(초대 전) → 묻지 않고 지금처럼 물린다');
+        return r;
+      };
+      (await judgeAsk()).forEach(([ok, m]) => chk(ok, m));
+      for (const [name, a, b] of [
+        ['묻기를 뺌', "        const ans = confirmBind ? await confirmBind(email) : 'yes';", "        const ans = 'yes';"],
+        ['아니라는데도 묶음', "        if(ans !== 'yes'){ await _dropGoogleSession(cred);", "        if(ans === 'never'){ await _dropGoogleSession(cred);"],
+      ]){
+        const m2 = method.replace(a, b);
+        let rows2; try{ rows2 = await judgeAsk(m2); }catch(_){ rows2 = [[false, '던짐']]; }
+        chk(m2 !== method && rows2.some(([ok]) => !ok), '깨 보기 — ' + name + (m2 !== method ? '' : ' — 바꿀 글을 못 찾음'));
+      }
     }
   }
 
