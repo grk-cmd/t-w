@@ -78,7 +78,7 @@ const IDS = ['myPlBtn', 'myPlaylistBox', 'myPlHead', 'myPlTitle', 'myPlClose', '
   'myPlNick', 'myPlLv', 'myPlAva', 'myPlHeadAva', 'myPlPubWrap', 'myPlPub', 'myPlHint', 'myPlBioView', 'myPlBioEdit', 'myPlNow'];
 function mkEnv(o){
   o = o || {};
-  const env = { refreshed: [], onRefresh: null, t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
+  const env = { likes: [], refreshed: [], onRefresh: null, t: 1000000, timers: [], tid: 0, calls: [], toasts: [], store: new Map(Object.entries(o.store || {})), esc: [], prompts: (o.prompts || []).slice(),
     titles: o.titles || {}, cards: {}, rand: 0.5, front: [], chipClosed: [], reposition: 0, home: [], friends: o.friends || {}, cb: {}, warns: [] };
   const byId = {};
   const doc = {
@@ -157,6 +157,7 @@ function mkEnv(o){
       closeChipPopups: (id) => env.chipClosed.push(id), repositionOpenChipPopups: () => { env.reposition++; },
       bringWinToFront: (id) => env.front.push(id), escRegisterWindow: (w) => env.esc.push(w), escEditable: (t) => !!(t && t.tagName === 'INPUT'),
       playlistSync: PLSYNC,
+      playlistLikeUi: { render: (c) => env.likes.push(c ? JSON.stringify(c) : 'null'), close: () => {} },   // 👍 반응 칸 — 무엇을 넘기는지만 적는다(화면은 sim-playlist-like)
     }, extra || {}));
     return env.m;
   };
@@ -346,13 +347,14 @@ async function behave(src){
     const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) }, friends: { F1: { name: '민서', online: true }, F2: { name: '가람' } } }); const m = e.mk();
     e.byId.myPlBtn.fire('click');
     m.playFrom(1);
-    e.randomPl = { uid: 'U9', name: '하늘', items: songs(4, 'h'), bio: '안녕하세요', homePublic: true, setName: '밤 노래' };
+    e.randomPl = { uid: 'U9', name: '하늘', items: songs(4, 'h'), bio: '안녕하세요', homePublic: true, setName: '밤 노래', setIdx: 2 };
     e.cards.U9 = { level: 12, avatar: 'https://x/a.png' };
     e.byId.myPlPeek.fire('click'); await flush(); await flush();
     chk(e.last('random') === 'random ME01 null' && m.state().view.uid === 'U9' && m.state().sel === -1 && m.state().now === 1, '🌊 [파도타기] — 남의 목록 · 고른 곡 초기화 · 듣던 곡은 계속');
     chk(e.byId.myPlTitle.textContent === '🎵 [하늘]의 「밤 노래」' && e.byId.myPlCount.textContent === '4곡' && e.byId.myPlAdd.style.display === 'none' && e.byId.myPlBack.style.display === '', '  창 제목 · 곡 수 · ＋ 숨김 · ← 내 목록');
     chk(e.byId.myPlList.children[0].querySelector('.plRowGrab') && e.byId.myPlSetBar.style.display === 'none', '  곡 행마다 📥 담기 · 프리셋 줄은 숨김');
     chk(e.byId.myPlNick.textContent === '하늘' && e.byId.myPlAva.classList.contains('go'), '  명함 — 이름 · 공개 홈이면 사진을 누를 수 있다');
+    chk(e.likes.slice(-1)[0] === JSON.stringify({ ro: true, ownerId: 'U9', setIdx: 2 }), '👍 반응 칸 — 남의 목록이면 그 사람 · 그 프리셋 자리를 넘긴다');
     e.byId.myPlAva.fire('click');
     chk(e.home[0] === 'U9 하늘', '  사진 → 그 사람 마이홈 구경');
     e.doc.fire('keydown', { key: 'Delete', target: e.doc.body });
@@ -366,6 +368,7 @@ async function behave(src){
     chk(m.state().nowView && m.state().nowView.uid === 'U9' && e.last('open').indexOf('[하늘]의 「밤 노래」') > 0, '  남의 곡을 틀면 트는 출처도 그쪽');
     e.byId.myPlBack.fire('click');
     chk(m.state().view === null && m.state().nowView.uid === 'U9' && m.state().now === 0, '← 내 목록 — 보기만 되돌린다(남의 곡은 계속)');
+    chk(e.likes.slice(-1)[0] === JSON.stringify({ ro: false, ownerId: 'ME01', setIdx: m.state().cur }), '  👍 반응 칸 — 내 목록이면 나 · 지금 고른 프리셋(수만 보인다)');
     m.st.sel = 0; m.grabTo(1);
     chk(m.state().sets[1].items.length === 0, '  내 목록에서는 담기가 아무것도 안 한다(읽기 전용일 때만)');
     e.onRefresh = () => { e.friends.F2.online = true; e.friends.F1.online = false; };
@@ -380,6 +383,11 @@ async function behave(src){
     e.plOf = {};
     fr.find(r => r.textContent.indexOf('가람') >= 0).fire('click'); await flush();
     chk(e.toasts.slice(-1)[0] === '가람 님은 아직 공개한 목록이 없어요', '  목록이 없는 친구는 그렇다고 말한다');
+    e.plOf = { F1: { uid: 'F1', items: songs(1, 'f'), setName: '', setIdx: 1 } };
+    e.byId.myPlPeek.fire('contextmenu'); e.byId.myPlFriendPick.children.find(r => r.textContent.indexOf('민서') >= 0).fire('click'); await flush();
+    chk(e.likes.slice(-1)[0] === JSON.stringify({ ro: true, ownerId: 'F1', setIdx: 1 }), '  👍 친구 파도타기도 프리셋 자리를 넘긴다(setIdx)');
+    e.byId.myPlClose.fire('click');
+    chk(e.likes.slice(-1)[0] === 'null', '  창을 닫으면 반응 칸을 비운다(읽지 않는다)');
   }
   {
     const e = E({ store: { 'tw.playlistSets': setsOf(songs(2)) } }); const m = e.mk();
@@ -661,9 +669,9 @@ function wiring(PL, APP, HTML){
     ['myFocusShow', 'myFocusShow'], ['starFromRemote', 'starFromRemote'], ['lvBadgeClass', 'lvBadgeClass'], ['lvStarBadgeClass', 'lvStarBadgeClass'], ['lvStarStr', 'lvStarStr'],
     ['starPaint', '_starPaint'], ['openFriendHomeView', 'openFriendHomeView'], ['closeChipPopups', '_closeChipPopups'], ['repositionOpenChipPopups', '_repositionOpenChipPopups'],
     ['bringWinToFront', 'bringWinToFront'], ['escRegisterWindow', 'escRegisterWindow'], ['escEditable', '_escEditable'], ['friendsRefreshPresence', 'friendsSubMod.refreshPresence']];
-  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistSync: TwPlaylistSync,']);
+  const want = fnNames.map(([k, f]) => k + ': (...a)=>' + f + '(...a),').concat(['myHomeLoaded: ()=>_myHomeLoaded,', 'myHomeData: ()=>_myHomeData,', 'myHomeFriends: ()=>_myHomeFriends,', 'playlistSync: TwPlaylistSync,', 'playlistLikeUi: plLikeUi,']);
   const miss = want.filter(w => !deps.includes(w));
-  chk(deps.length === 22 && !miss.length, 'deps 22개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 맞추기 규칙(순수 모듈) (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
+  chk(deps.length === 23 && !miss.length, 'deps 23개 — 함수 18은 화살표 · 다시 대입되는 let 셋은 읽는 함수 · 맞추기 규칙(순수 모듈) · 👍 반응 칸 (' + deps.length + (miss.length ? ' · 없음 ' + miss[0] : '') + ')');
   const decl = (n) => APP.indexOf('\nlet ' + n + ' = ');
   chk(['_myHomeLoaded', '_myHomeData', '_myHomeFriends'].every(n => decl(n) > iMk), '  _myHomeLoaded · _myHomeData · _myHomeFriends 는 만드는 줄보다 뒤에 선언 — 값이면 TDZ');
   const usedIn = (re) => [...new Set((A.match(re) || []).map(s => s.split('.').pop()))];
