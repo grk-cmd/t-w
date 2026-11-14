@@ -6,10 +6,10 @@
    ・2절: _applyPartMatTone — 텍스처 / 색 없음 / null · 3절: _applyItemMatTone — 텍스처 · solid · emissiveIntensity
    ・4절: _setDeskMatColor — 색 · baseFlat 처음 심기 / 지키기 · 색 없는 재질
    ・5절: app.js 연결 · 6절: 일부러 깨 보기
-   ・7절: 실행 화면 조명 addRunLights — 여섯 자리(메인 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일)가 손으로 적던 빛과
+   ・7절: 실행 화면 조명 addRunLights — 일곱 자리(메인 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 동물 카드)가 손으로 적던 빛과
      색 · 세기 · 자리 · 차례가 같은가(옛 글을 그대로 옮긴 기대값과 === 로 견줌) · 그 자리들이 빛을 다시 손으로 적지 않는가
      · 세기를 다시 정하는 생성기 둘(생성기 미리보기 creator-preview.js · 동물 생성기 animal.js)도 addRunLights 로 만들고 runLightInts 로 세기를 읽어
-       슬라이더 · 기본값에서 옛 손 글과 같은 빛인가. 동물 카드(renderAnimalCardThumb)는 옮기면 화면이 바뀌어 손 빛 그대로 둔다 */
+       슬라이더 · 기본값에서 옛 손 글과 같은 빛인가 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
@@ -88,13 +88,15 @@ function behave(src) {
   return r;
 }
 
-/* 7절 — 옛 손 글을 그대로 옮긴 기대값(종류 · 색 · 세기 · 자리 · 차례). M = 주광 · K = 키 배율 · F = 채움 · C = 주광 색 */
+/* 7절 — 옛 손 글을 그대로 옮긴 기대값(종류 · 색 · 세기 · 자리 · 차례). M = 주광 · K = 키 배율 · F = 채움 · C = 주광 색.
+   동물 카드는 옛 글(앰비언트 0.95 · 키 1.0 고정)이 공용 밝기 규칙에서 빠진 자리라 기대값은 옛 글이 아니라 종족 선택(사람 카드)과 같은 빛 */
 const OLD_RIGS = {
   '메인 씬(app.js)': { opt: { keyPos: [0, 5, 0], backBounce: true }, old: (M, K, F, C) => [['amb', C, 0.95 * M, null], ['dir', C, 1.0 * M * K, [0, 5, 0]], ['dir', 0xbcd0ff, 0.12, [-3, 2, -1]], ['dir', C, M * F, [0.5, 1.0, 3]]] },
   '종족 선택(race-picker.js)': { opt: { keyPos: [0, 4, 0] }, old: (M, K, F, C) => [['amb', C, 0.95 * M, null], ['dir', C, 1.0 * M * K, [0, 4, 0]], ['dir', C, M * F, [0.5, 1.0, 3]]] },
   '런처 미리보기(launcher-preview.js)': { opt: { keyPos: [0, 4, 0] }, old: (M, K, F, C) => [['amb', C, 0.95 * M, null], ['dir', C, 1.0 * M * K, [0, 4, 0]], ['dir', C, M * F, [0.5, 1.0, 3]]] },
   '꾸미기(wardrobe.js)': { opt: { keyPos: [0, 5, 0], backBounce: true }, old: (M, K, F, C) => [['amb', C, 0.95 * M, null], ['dir', C, 1.0 * M * K, [0, 5, 0]], ['dir', 0xbcd0ff, 0.12, [-3, 2, -1]], ['dir', C, M * F, [0.5, 1.0, 3]]] },
   '스티커사진(purikura-ui.js)': { opt: { keyPos: [1, 2.5, 2] }, old: (M, K, F, C) => [['amb', C, 0.95 * M, null], ['dir', C, 1.0 * M * K, [1, 2.5, 2]], ['dir', C, M * F, [0.5, 1.0, 3]]] },
+  '동물 카드(animal.js — 사람 카드와 같은 빛)': { opt: { keyPos: [0, 4, 0] }, old: (M, K, F, C) => [['amb', C, 0.95 * M, null], ['dir', C, 1.0 * M * K, [0, 4, 0]], ['dir', C, M * F, [0.5, 1.0, 3]]] },
   '썸네일(part-scene.js · 배율 0.83)': { opt: { keyPos: [1, 2.5, 2], mul: 0.83, frontFill: false }, old: (M, K, F, C) => [['amb', C, 0.95 * M * 0.83, null], ['dir', C, 1.0 * M * K * 0.83, [1, 2.5, 2]]] },
 };
 /* 자리마다 실제 파일에 적힌 addRunLights 옵션 — 기대값의 opt 와 글이 같아야 한다(옵션을 바꾸면 화면이 바뀐다) */
@@ -121,7 +123,7 @@ function runLights(src) {
       const retOk = ret && ret.amb === added[0] && ret.key === added[1] && (rig.opt.backBounce ? ret.back === added[2] : ret.back === null) && (rig.opt.frontFill === false ? ret.front === null : ret.front === added[added.length - 1]);
       if (!same || !retOk) bad.push(name);
     }
-    t(w && !bad.length, '주광 ' + M + ' · 채움 ' + F + ' — 여섯 자리의 빛(종류 · 색 · 세기 · 자리 · 차례)이 옛 글과 같다 · 돌려준 amb/key/back/front 가 그 빛' + (bad.length ? ' — 다름: ' + bad.join(', ') : ''));
+    t(w && !bad.length, '주광 ' + M + ' · 채움 ' + F + ' — 일곱 자리의 빛(종류 · 색 · 세기 · 자리 · 차례)이 옛 글과 같다 · 돌려준 amb/key/back/front 가 그 빛' + (bad.length ? ' — 다름: ' + bad.join(', ') : ''));
     if (w) t(w.out.runLightAt1() === (0.95 * M) + (M * KEY_MUL), '  runLightAt1 = 0.95×주광 + 주광×키(썸네일 배율 계산의 옛 식)');
   }
   const w = make(src);
@@ -179,8 +181,6 @@ function rigWire(app, files) {
 /* 생성기 둘은 빛을 손으로 만들지도 · 몫 숫자(0.95 · 1.0 · 정면 필 자리)를 다시 적지도 않는다 */
 const ANY_HAND = /new THREE\.(AmbientLight|DirectionalLight)\(/;
 const SHARE_NUM = /\.intensity\s*=\s*(0\.95|1(\.0)?)\s*\*|position\.set\(\s*0\.5\s*,\s*1(\.0)?\s*,\s*3\s*\)|AN_(AMB|KEY)_INT/;
-/* 동물 카드(renderAnimalCardThumb)는 이 단계에서 옮기지 않는다 — 옛 손 빛(0.95 · 1.0)이 실행 화면 몫과 달라 옮기면 카드가 어두워진다 */
-const noCard = (n) => n.replace(/function renderAnimalCardThumb\(\)\{[\s\S]*?\nfunction /, 'function ');
 function genWire(cp, ani) {
   const r = [];
   const t = (ok, msg) => r.push([!!ok, msg]);
@@ -188,9 +188,11 @@ function genWire(cp, ani) {
   const upd = (C.match(/function updateCreatorLights\(\)\{[\s\S]*?\n\}/) || [''])[0];
   t(/^const runLightInts = deps\.runLightInts;/m.test(cp || '') && /runLightInts\(\{ int: b\*e \}\)/.test(upd) && /addRunLights\(cScene\(\), \{ keyPos: \[0, 4, 0\] \}\); setCAmb\(lt\.amb\); setCKey\(lt\.key\); setCFill\(lt\.front\);/.test(C) && !ANY_HAND.test(C) && !SHARE_NUM.test(C),
     'creator/creator-preview.js — 빛은 addRunLights 로 만들고 세기는 runLightInts(예산 = 밝기×노출) · 손 빛 · 몫 숫자 없음');
-  const NP = noCard(N);
-  t(NP !== N && /^const addRunLights=lightToneMod\.addRunLights, runLightInts=lightToneMod\.runLightInts;/m.test(ani || '') && /addRunLights\(scene, AN_LIGHT_OPT\)/.test(NP) && /runLightInts\(AN_LIGHT_OPT\)/.test(NP) && !ANY_HAND.test(NP) && !SHARE_NUM.test(NP),
-    'character/animal.js 동물 생성기 — 빛은 addRunLights(AN_LIGHT_OPT) · 세기는 runLightInts(AN_LIGHT_OPT) · 동물 카드 밖에는 손 빛 · 몫 숫자 없음');
+  const card = (N.match(/function renderAnimalCardThumb\(\)\{[\s\S]*?\nfunction initCard\(/) || [''])[0];
+  t(/^const addRunLights=lightToneMod\.addRunLights, runLightInts=lightToneMod\.runLightInts;/m.test(ani || '') && /addRunLights\(scene, AN_LIGHT_OPT\)/.test(N) && /runLightInts\(AN_LIGHT_OPT\)/.test(N) && !ANY_HAND.test(N) && !SHARE_NUM.test(N),
+    'character/animal.js 동물 생성기 — 빛은 addRunLights(AN_LIGHT_OPT) · 세기는 runLightInts(AN_LIGHT_OPT) · 파일 어디에도 손 빛 · 몫 숫자 없음');
+  t(/addRunLights\(_rcS, \{ keyPos: \[0, 4, 0\] \}\);/.test(card) && !/0x[0-9a-f]{6}\s*,\s*[\d.]+\)/i.test(card),
+    'character/animal.js 동물 카드 — 종족 선택(사람 카드)과 같은 addRunLights({ keyPos: [0, 4, 0] }) · 색 · 세기를 손으로 적지 않는다');
   return r;
 }
 
@@ -256,6 +258,8 @@ const breaksGen = [
   ['생성기 미리보기가 예산에 노출을 안 곱함', 'cp', (x) => x.replace('runLightInts({ int: b*e })', 'runLightInts({ int: b })')],
   ['동물 생성기가 키를 손으로 다시 만듦', 'ani', (x) => x.replace('aAmb=lt.amb; aKey=lt.key; }', 'aAmb=lt.amb; aKey=new THREE.DirectionalLight(AN_KEY_COLOR,1.0); }')],
   ['동물 생성기 옵션에서 키 배율 1 을 뺌(키가 밝아짐)', 'ani', (x) => x.replace(' int:1, keyMul:1,', ' int:1,')],
+  ['동물 카드가 앰비언트를 손으로 다시 만듦(옛 0.95)', 'ani', (x) => x.replace("    addRunLights(_rcS, { keyPos: [0, 4, 0] });", "    _rcS.add(new THREE.AmbientLight(0xfdfbf7,0.95));")],
+  ['동물 카드가 사람 카드와 다른 키 자리', 'ani', (x) => x.replace('addRunLights(_rcS, { keyPos: [0, 4, 0] });', 'addRunLights(_rcS, { keyPos: [0, 5, 0] });')],
   ['동물 생성기 옵션에 정면 필이 켜짐', 'ani', (x) => x.replace(', frontFill:false }', ' }')],
 ];
 for (const [name, which, fx] of breaksGen) {
