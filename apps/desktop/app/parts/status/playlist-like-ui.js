@@ -58,8 +58,7 @@ function createPlaylistLikeUi(deps){
       btn.disabled = !!v.disabled;
       btn.classList.toggle('done', !!v.locked);
     }
-    if(dc) dc.textContent = (v.mode === 'react' && v.count != null) ? ('지금까지 👍 ' + v.count)
-                         : (st.loaded && st.failed ? '반응 수를 불러오지 못했어요' : '');
+    if(dc) dc.textContent = (v.mode === 'react' && st.loaded && st.failed) ? '반응을 불러오지 못했어요' : '';   // 수는 주인만 본다 — 여기는 실패 안내만
     if(dr) dr.classList.toggle('on', open);
     if(open) place();
   }
@@ -97,7 +96,7 @@ function createPlaylistLikeUi(deps){
     try{ r = await net().like(c.ownerId, c.setIdx, c.myId); }catch(e){ err = e; }
     if(my !== seq) return;   // 그새 다른 목록으로 넘어갔다
     if(r && (r.ok || r.reason === 'already')){
-      st = { loaded: true, failed: false, count: r.count != null ? r.count : st.count, mine: true, busy: false };
+      st = { loaded: true, failed: false, count: st.count, mine: true, busy: false };
     }else{
       st = Object.assign({}, st, { busy: false });
       notifyError('E-SYS-04', err || (r && r.reason));
