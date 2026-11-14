@@ -711,6 +711,8 @@ PRELOAD.push('seat-opacity.js');
 PRELOAD.push('seat-state.js');
 /* seat-pointer.js — 🖱 캔버스 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 우클릭. app.js 가 원래 자리에서 만든다. */
 PRELOAD.push('seat-pointer.js');
+/* char-apply.js — 🧬 캐릭터 def 를 좌석에 입히기. app.js 가 원래 자리에서 createCharApply 로 만든다. */
+PRELOAD.push('char-apply.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
