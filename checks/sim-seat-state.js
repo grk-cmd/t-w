@@ -27,7 +27,7 @@ function build(src, o){
   const mod = win.TwSeatState.createSeatState({
     desktopMode: () => st.desktop, figureMode: () => st.figure, focusGateSleep: () => st.gate,
     focusLevelMod: () => ({ _mobileOn: () => st.mobile }),
-    seatPanelMod: { manual: () => st.manual }, userStatusMod: { userStatus: () => st.us },
+    userStatusMod: { userStatus: () => st.us },
   });
   return { mod, st, listeners, docListeners, win, doc };
 }
@@ -49,10 +49,15 @@ say('§1 상태 판정 순서');
   chk(m.seatState(seat({ beingShaken: true }), now) === 'shaking', '  흔들기는 자리비움보다 우선');
   b.st.us = null;
   chk(m.seatState(seat({ remote: true, isMe: false, remoteState: 'focus' }), now) === 'focus' && m.seatState(seat({ remote: true, isMe: false }), now) === 'idle', '친구 좌석은 받은 상태 · 없으면 idle');
-  b.st.manual = 'sleep';
-  chk(m.seatState(seat(), now) === 'sleep', '수동 선택 상태');
-  b.st.manual = null;
+  m.setManual('focus'); b.st.desktop = false;
+  chk(m.manual() === 'focus' && m.seatState(seat(), now + 99999) === 'focus', '수동 선택 상태(값은 이 모듈이 갖고 패널 버튼이 setManual 로 쓴다) — 입력이 끊겨도 고른 대로');
+  m.setManual(null);
+  chk(m.manual() === null && m.seatState(seat(), now + 99999) === 'sleep', '  풀면 자동 판정으로 돌아간다');
   b.doc.hidden = false;
+}
+{
+  const m = build(SRC).mod;
+  chk(m.FOCUS_MS === 1500 && m.SLEEP_MS === 8000 && m.PET_MS === 2200 && m.PEN_FOCUS_MS === 4000, '시간 상수 — 집중 1.5초 · 잠 8초 · 쓰다듬기 2.2초 · 펜 앱 4초(자세를 정하는 값)');
 }
 say('§1-2 창 포커스 · 게이트 · 입력 간격');
 {
@@ -142,6 +147,8 @@ say('§5 일부러 깨 보기');
   chk(!!m5 && (() => { const b = build(m5); return b.listeners.blur === undefined; })(), 'blur 듣기를 빼면 빨강');
   const m6 = brk("function anyInput(){ lastAnyInput = performance.now(); }", "function anyInput(){ lastActivity = performance.now(); }");
   chk(!!m6 && (() => { const b = build(m6); b.st.t = 5; b.mod.anyInput(); return b.mod.lastAnyInput() !== 5; })(), 'anyInput 이 다른 시각을 건드리면 빨강');
+  const m8 = brk("if(manual)return manual;", '');
+  chk(!!m8 && (() => { const b = build(m8); b.mod.setManual('focus'); return b.mod.seatState(seat(), 99999) === 'focus'; })() === false, '수동 상태를 안 보면 빨강');
   const m7 = brk("seat.petStart=now;", '');
   chk(!!m7 && (() => { const b = build(m7); const s = seat({ blink: { pulses: [] } }); b.mod.triggerPet(s); return s.petStart !== 4242; })(), '쓰다듬기 시각을 안 적으면 빨강');
 }

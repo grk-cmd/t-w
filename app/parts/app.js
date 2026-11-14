@@ -1055,6 +1055,7 @@ const seatPanelMod = TwSeatPanel.createSeatPanel({
   selected: ()=>seatsMod.selected(),
   triggerPet: (...a)=>triggerPet(...a),
   setSelected: (v)=>{ seatsMod.setSelected(v); },
+  setManualState: (v)=>{ seatStateMod.setManual(v); },
 });
 /* 🪑 좌석 목록이 위층(줄 배치 · 좌석 탭 · 좌석 고르기)을 부르지 않게 알림을 건다 — layoutSeats 는 뒤에서 감싸 다시 대입되므로 부를 때 찾는다. createSeat · removeSeat 보다 먼저. */
 seatsMod.attach({
@@ -2660,7 +2661,6 @@ const seatStateMod = TwSeatState.createSeatState({
   figureMode: ()=>figureMode,
   focusGateSleep: ()=>focusGateSleep,
   focusLevelMod: ()=>focusLevelMod,
-  seatPanelMod: seatPanelMod,
   userStatusMod: userStatusMod,
 });
 const focusWindowMs = seatStateMod.focusWindowMs;   // 옛 전역 이름

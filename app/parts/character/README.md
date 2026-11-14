@@ -288,10 +288,10 @@
 ## seat-panel.js — 🎚️ 좌석 탭 · 상태 버튼
 
 - **책임**: 실행 화면 좌석 패널의 그리기 — 좌석 탭(나 · 친구 이름 + 상태 이모지) · 좌석 고르기(안내 글 · 슬라이더 값 채움) · 상태 자동/수동 버튼(만들 때 버튼 줄에 클릭을 건다). 슬라이더 · 모델 파일 입력의 이벤트 연결은 app.js 에 둔다(모델 싣기 · layoutSeats 를 불러 모듈끼리 순환이 생기므로).
-- **만드는 법**: `TwSeatPanel.createSeatPanel({ seats, activity, triggerPet, selected: ()=>selected, setSelected: (v)=>{ selected = v; } })`.
+- **만드는 법**: `TwSeatPanel.createSeatPanel({ seats, activity, triggerPet, selected: ()=>selected, setSelected: (v)=>{ selected = v; }, setManualState: (v)=>{ … } })`.
 - **내보내는 것**
   - `renderSeatTabs()` · `selectSeat(seat)` · `setInfo(seat, html)`(고른 좌석일 때만 안내 글) · `setManual(state | null)`.
-  - `manual()` — 수동으로 고른 상태(없으면 null). 프레임 루프가 본다.
+  - 수동으로 고른 상태 값은 이 모듈이 아니라 `status/seat-state.js`(`manual()` · `setManual`)가 갖는다 — 버튼을 누르면 `setManualState` 로 거기에 쓴다(앱 FSD 분리 M10).
   - DOM: `dot` · `stateLabel` · `sliders`.
   ```js
   seatPanelMod.selectSeat(seat); seatPanelMod.renderSeatTabs();

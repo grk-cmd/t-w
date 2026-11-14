@@ -21,10 +21,10 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const FN_DEPS = ["activity","triggerPet"];
 const VAL_DEPS = ["seats"];
 const GET_DEPS = ["selected"];
-const SET_DEPS = ["selected"];
-const EXPORTS = ["dot","manual","renderSeatTabs","selectSeat","setInfo","setManual","sliders","stateLabel"];
+const SET_DEPS = ["selected","manualState"];
+const EXPORTS = ["dot","renderSeatTabs","selectSeat","setInfo","setManual","sliders","stateLabel"];
 const MOVED = ["dot","stateLabel","autoTag","btnWrap","modelInfo","sliders","seatsEl","setInfo","renderSeatTabs","selectSeat","manual","setManual"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  activity: (...a)=>activity(...a),","  seats: seats,","  selected: ()=>selected,","  triggerPet: (...a)=>triggerPet(...a),","  setSelected: (v)=>{ selected = v; },"];
+const GLUE = ["  activity: (...a)=>activity(...a),","  seats: seats,","  selected: ()=>selected,","  triggerPet: (...a)=>triggerPet(...a),","  setSelected: (v)=>{ selected = v; },","  setManualState: (v)=>{ manual = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -113,7 +113,7 @@ say('── 4. 동작 — 좌석 탭 · 상태 버튼 · 안내');
     ['auto', 'focus', 'pet'].forEach(s => { const b = el('button'); b.dataset.s = s; btns.appendChild(b); });
     const log = [];
     const V = {
-      CHAR_Y_MAX: 0.5, seats: [], slots: {}, sizeFactor: 1, selected: null,
+      CHAR_Y_MAX: 0.5, seats: [], slots: {}, sizeFactor: 1, selected: null, manualState: null,
       seatModelLoadMod: { handleFiles: (f, s) => log.push('files:' + f + ':' + (s && s.n)), resetSeat: (s) => log.push('reset:' + (s && s.n)) },
       slotSaveMod: { saveSlots: () => log.push('saveSlots') },
       activity: () => log.push('activity'), triggerPet: (s) => log.push('pet:' + s.n), fitModel: (s) => log.push('fit:' + s.n), layoutSeats: () => log.push('layout'),
@@ -128,11 +128,11 @@ say('── 4. 동작 — 좌석 탭 · 상태 버튼 · 안내');
       }
       const win = {}; new Function('window', 'module', 'document', MOD)(win, undefined, doc);
       const m = win.TwSeatPanel.createSeatPanel(deps);
-      api = { setInfo: m.setInfo, renderSeatTabs: m.renderSeatTabs, selectSeat: m.selectSeat, setManual: m.setManual, manual: () => m.manual(), sel: () => V.selected, setSel: (v) => { V.selected = v; }, sf: () => V.sizeFactor };
+      api = { setInfo: m.setInfo, renderSeatTabs: m.renderSeatTabs, selectSeat: m.selectSeat, setManual: m.setManual, manual: () => V.manualState, sel: () => V.selected, setSel: (v) => { V.selected = v; }, sf: () => V.sizeFactor };
     } else {
       const a = SRC.indexOf('const dot=document.getElementById'), b = SRC.indexOf("document.getElementById('glbInput')");   // 파일 입력 · 슬라이더 연결은 app.js 에 남는다
       const names = Object.keys(V).filter(n => n !== 'selected' && n !== 'sizeFactor');
-      api = new Function(...names, 'document', 'let selected = null, sizeFactor = 1;\n' + SRC.slice(a, b) + '\nreturn { setInfo, renderSeatTabs, selectSeat, setManual, manual: () => manual, sel: () => selected, setSel: (v) => { selected = v; }, sf: () => sizeFactor };')(...names.map(n => V[n]), doc);
+      api = new Function(...names, 'document', 'let selected = null, sizeFactor = 1;\n' + SRC.slice(a, b) + '\nreturn { setInfo, renderSeatTabs, selectSeat, setManual, manual: () => null, sel: () => selected, setSel: (v) => { selected = v; }, sf: () => sizeFactor };')(...names.map(n => V[n]), doc);
     }
     return { api, V, ids, log, btns };
   }
