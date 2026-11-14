@@ -704,6 +704,8 @@ PRELOAD.push('seats.js');
 PRELOAD.push('char-place.js');
 /* fit-model.js — 📐 몸 · 책상 맞춤. app.js 가 원래 자리에서 createFitModel 로 만든다. */
 PRELOAD.push('fit-model.js');
+/* user-status.js — 🫧 활동 상태 저장 · 칩 · 메뉴 + 좌석 xf 저장. app.js 가 원래 자리에서 createUserStatus 로 만든다. */
+PRELOAD.push('user-status.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

@@ -55,3 +55,15 @@
   - 맞추기 전(`_plSynced` 거짓)에는 서버에 올리지 않는다 — 3초 뒤 실제로 올리는 순간에 맞춤 상태와 계정(예약 때 uid)을 다시 본다(곡을 고친 직후 계정을 갈아타도 앞 목록이 새 계정에 안 올라가게) · 재생 중이면 받기를 30초 고정 간격으로 미룬다. 계정을 놓을 때(account.js `_wipeAccountLocal`) `plMod.resetSync()` 와 지움 목록(`tw.playlistEditTs` · `tw.playlistBackup`)으로 새 기기처럼 돌린다 — 안 하면 앞 계정 시각이 다음 계정 목록을 비운다.
   - 서버 쪽: 비울 때 노드를 지우지 않고 빈 목록 + 시각을 남긴다(`removeMyPlaylist`) · 읽기는 비어 있음(빈 목록 · editTs 0)과 못 읽음(null)을 가른다.
   - 검사: `checks/sim-playlist-sync.js`(규칙 · firebase-init) · `checks/sim-playlist.js` 5-2절(부팅 맞추기를 실제로 굴림) · `checks/sim-account-switch.js`(계정 놓기 · 연동).
+
+## user-status.js — 🫧 활동 상태 · 내 칩 · 커스텀 상태 · 좌석 xf 저장
+
+- **책임**: 내 상태 `userStatus`(저장 `tw.userStatus` · 불러오기 · `setUserStatus` → 칩 · 메뉴 · 방에 알림) · 좌석 + 상태키 → 화면에 쓸 상태 설정 `statusConfFor`(커스텀 · 상태가 없을 때 내 좌석에만 «오늘 기록 전시») · 커스텀 문구 저장 `saveCustomStatusConf` · 내 칩 · 메뉴 다시 그리기(`refreshMyStatusUI` · `refreshCustomStatusMenuItem` — 프리미엄이 아니면 커스텀 항목 숨김) · `saveSeatXf`(좌석 크기 · 높이 · 방향을 `def.xf` 와 슬롯에 저장). 상태 표(`USER_STATUSES`)는 `user-status-table.js` 가 가진다. 앱 FSD 분리 M9 — app.js USER STATUS 구역을 글 그대로 옮겼다.
+- **만드는 법**: `TwUserStatus.createUserStatus({ clampCharY, findMySeat, isPremium, slots, userStatusTableMod })` 뒤 `userStatusMod.attachStatusHooks({ setCustomStatus, setUserStatus, focusShowMine, hexToRgba, saveSlots })` — 앞은 값 · 함수 · 읽는 함수(`isPremium` 는 다시 대입되는 let, `slots` 는 더 아래 선언). 방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환은 다른 도메인(room · focus · character · status 칩)이라 이 모듈이 그쪽 모듈을 부르면 모듈 순환이 되므로(sim-dep-cycles) app.js 가 알림만 건다 — 상태를 바꾸기 전에 한 번.
+- **내보내는 것**: `attachStatusHooks` · `userStatus()`(읽기만 — 바꾸는 곳은 `setUserStatus` · `loadUserStatusFromStorage` 둘) · `_premiumOn` · `saveCustomStatusConf` · `statusConfFor` · `setUserStatus` · `loadUserStatusFromStorage` · `refreshMyStatusUI` · `refreshCustomStatusMenuItem` · `saveSeatXf` — app.js 는 `userStatus` 를 뺀 여덟을 같은 이름 const 로 받는다.
+- **함정**
+  - `window.setUserStatus` 고리는 **app.js 가** 건다 — `presence.js` · `room-sync.js` 가 `window.` 로 부른다(옛 함수 선언이 자동으로 걸어 주던 전역 · `presence.js` 안쪽 같은 이름이 가려서 꼭 `window.`). `window._premiumOn` 도 마찬가지(마이홈 말랑이가 읽는다).
+  - `_premiumOn` 은 `isPremium`(파일 뒤쪽 let)을 `try` 로 읽는다 — 초기화 때 불려도 TDZ 로 죽지 않게.
+  - 커스텀 상태 항목은 상태 드롭다운 안의 `stItem` 이라 `textContent` 를 통째로 갈아치우면 안 된다(`.csEmo` · `.csLabel` 이 따로 있다).
+  - 상태가 하나라도 있으면 «오늘 기록 전시» 는 안 띄운다(남의 화면과 같은 순서).
+  - 검사: `checks/sim-user-status.js`(가짜 DOM · 표로 상태 바꾸기 · 풀이 · 커스텀 · 칩 · 메뉴 · saveSeatXf · 연결 · 깨 보기).
