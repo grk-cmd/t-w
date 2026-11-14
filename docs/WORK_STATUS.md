@@ -35,9 +35,9 @@ python3 .claude/hooks/role-start.py --board
 - 웹 관리자 📋 할 일(`adminTodos`)에는 버그 제보와 관련된 일만 적는다. 기능 · 계획 · «지금 누가 무엇을 하나» 는 PR · 이슈가 정본이다.
 
 ## 규칙
-- **판은 사용자가 고른다** — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 그 판 `release/X.Y.Z` 에서 딴다. 긴급 수정만 `hotfix/*`, 하네스만 `harness/*`, 웹 관리자(`web-admin/`)만 바꾸는 일은 `admin/*` 를 main 에서(판을 묻지 않음).
-- **main · release/* 에는 직접 push 하지 않는다**(예외 없음 — 가드가 막는다).
-- **머지는 `/ship`** — 컨펌자 · 검증자 통과 → CI → 머지. 승인은 가드 자리를 바꾸는 PR · 웹 관리자 길에서 위험도가 높은 PR 만(`risk.py --owner <PR>`). 로컬에서 검사 전체를 다시 돌리지 않는다(고친 검사만 · 전체는 CI).
+- **판은 사용자가 고른다** — 작업 전에 «어느 버전에 릴리스될 작업인가» 를 묻고 그 판 `release/X.Y.Z` 에서 딴다. 긴급 수정만 `hotfix/*`, 하네스만 `harness/*`, 웹 관리자(`web-admin/`)만 바꾸는 일은 `origin/admin` 에서 따서 `admin` 으로(판을 묻지 않음).
+- **main · admin · release/* 에는 직접 push 하지 않는다**(예외 없음 — 가드가 막는다).
+- **머지는 `/ship`** — 컨펌자 · 검증자 통과 → CI → 머지. 승인은 가드 자리를 바꾸는 PR · 웹 관리자 길(`admin` 으로 가는 PR)에서 위험도가 높은 PR 만(`risk.py --owner <PR>`). 로컬에서 검사 전체를 다시 돌리지 않는다(고친 검사만 · 전체는 CI).
 - `checks/CHECKS.md` 에 개정 번호 · 기록은 적지 않는다(내력은 git). §3 해시만 맞춘다.
 - **클릭 통과(setIgnoreMouseEvents)를 정하는 조건은 `app/parts/launcher/click-through-policy.js` 한 곳에만 쓴다.** 다른 파일에 쓰면 `sim-click-through-policy.js` 가 빨강이다.
 - **담당 이름은 남과 겹치지 않게** 쓴다(예: «검증-도우미1» · «계정 세션» · 사람 이름). 모든 세션이 같은 GitHub 계정이라 PR 작성자로는 누가 누군지 못 가린다.
