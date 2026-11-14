@@ -1860,7 +1860,7 @@
       try{ await remove(ref(db, `sentFriendRequests/${myId}/${toId}`)); }catch(_){}
     },
     /* 📤 보낸 요청 취소 — 진짜 요청과 미러를 한 번에 지운다.
-       ⚠️ friendRequests/{상대}/{나} 는 **남의 노드**지만 보낸 사람 갈래라 지울 수 있고(규칙은 #821 에서 로그인 신원으로 좁힌다),
+       ⚠️ friendRequests/{상대}/{나} 는 **남의 노드**지만 보낸 사람 본인이라 지울 수 있고,
          RTDB 는 지우는 쓰기에 .validate 를 아예 평가하지 않는다(그래서 hasChildren 이 안 막는다). */
     async cancelFriendRequest(myId, toId){
       try{
