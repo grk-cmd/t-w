@@ -698,6 +698,8 @@ PRELOAD.push('desk-build.js');
 PRELOAD.push('part-anim.js');
 /* desk-item-equip.js — 🪑 책상 아이템 장착. app.js 가 원래 자리에서 createDeskItemEquip 로 만든다. */
 PRELOAD.push('desk-item-equip.js');
+/* seats.js — 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격. app.js 가 원래 자리에서 createSeats 로 만든다. */
+PRELOAD.push('seats.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
