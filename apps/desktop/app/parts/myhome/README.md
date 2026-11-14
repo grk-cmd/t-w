@@ -365,7 +365,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 
 ## `mallang.js` — 🧸 말랑이 · 🎁 선물 화면
 
-- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물함 격자가 쓰는 규칙(순서 · 상한 · 치움 · 다시 부르기 · 지우기). 말랑이 칸은 상태 주인(`mallang-store.js`)이 서버 길로 받고 저장한다 — 이 파일은 그리기 · 누름만. 선물은 아직 옛 길(`firebaseAPI`)이다 — 서버 길로는 선물 묶음에서 옮긴다.
+- **책임**: 마이홈 바탕화면의 말랑이 폴더(부르기 · 등록 창) · 떠다니는 말랑이 · 마이홈에 나온 선물 말랑이(치우기) · 선물 보내기 창 · 친구 탭 🎁 배지 · 선물 말랑이를 띄우고 빼는 화면 연출. 말랑이 칸은 상태 주인(`mallang-store.js`) · 받은 선물은 선물 상태 주인(`gift-box.js`)이 서버 길로 받고 고친다 — 이 파일은 그리기 · 누름만. 보내기 창만 아직 옛 길(`firebaseAPI`)이다 — 보내기 묶음에서 옮긴다.
 - **만드는 법**: app.js 가 마이홈 수령함(`createMyHomeInbox`)보다 먼저 만든다 — 수령함 · 마이홈 창 · 친구 홈 구경이 값으로 받는다.
 
 ```js
@@ -375,17 +375,31 @@ const mallangMod = TwMallang.createMallang({
   getDisplayName: (...a)=>getDisplayName(...a),
   premiumOn: (...a)=>_premiumOn(...a),   // 👑 프리미엄 판정 — 전역 window._premiumOn 을 읽지 않는다
   mallangStore: mallangStoreMod,         // 🧸 칸 상태 주인(mallang-store.js) — 이 줄보다 먼저 만든다
+  giftBox: giftBoxMod,                   // 🎁 선물 상태 주인(gift-box.js) — 이 줄보다 먼저 만든다
 });
 ```
 
-- **deps**: `toast` · `getMyUserId` · `getDisplayName` · `premiumOn` · `mallangStore`.
-- **내놓는 것**: `onOpen(ownerId, isVisiting)` · `onClose()`(마이홈 창 `myhome-ui.js`) · `applyVisit(isVisiting, ownerId)`(친구 홈 구경 `myhome-visit.js`) · `seenGifts()`(선물함 서브탭 누름 — `myhome-ui.js`) · `openGift(friendId, name)`(친구 줄 우클릭) · `giftOrder(gifts)` · `giftLimits` · `isGiftHidden(id)` · `respawnGift(id, img, msg)` · `deleteGift(id, gift)`(선물함 격자 — `myhome-inbox.js`). 세 모듈은 deps `mallangMod` 로 받는다.
+- **deps**: `toast` · `getMyUserId` · `getDisplayName` · `premiumOn` · `mallangStore` · `giftBox`.
+- **내놓는 것**: `onOpen(ownerId, isVisiting)` · `onClose()`(마이홈 창 `myhome-ui.js`) · `applyVisit(isVisiting, ownerId)`(친구 홈 구경 `myhome-visit.js`) · `reset()`(계정을 놓을 때 — 말랑이 · 열린 창 · 배지를 걷음) · `openGift(friendId, name)`(친구 줄 우클릭) · `placeGift(선물, own?)` → `'ok' | 'already' | 'full' | 'away'` · `giftOnScreen(id)` · `dropGift(id)`(선물함 격자 — `myhome-inbox.js`). 세 모듈은 deps `mallangMod` 로 받는다.
 - **함정**
   - `onOpen` · `applyVisit` 은 async 다 — 부르는 쪽은 `Promise.resolve(…).catch` 로 받는다(try/catch 로는 못 잡는다 — `sim-myhome-steps.js`).
   - 만드는 줄은 수령함 · 마이홈 창 · 친구 홈 구경을 만드는 줄보다 앞이어야 한다(값으로 넘긴다 — 뒤면 TDZ).
   - 칸 값을 직접 고치지 않는다 — 등록 · 켜고 끄기 · 지우기는 `mallangStore.add(그림)` · `toggle(i)` · `remove(i)`. 등록 창은 칸이 바뀌면(`onChange`) 다시 그리고, 받기 전 · 받는 중 · 못 받음엔 칸 대신 «불러오는 중…» · «못 불러왔어요 [다시 시도]» 를 그린다.
-  - 집을 옮기는 사이 늦게 온 앞 집 칸 답은 `openView` 가 false 로 알려 준다 — 그때는 폴더 · 선물을 다시 그리지 않는다.
-- **검사**: `checks/sim-mallang-module.js`(가짜 DOM · 가짜 서버로 열기 → 치우기 → 다시 부르기 → 지우기 → 봤음 → 남의 집 → 닫기 → 보내기 창을 실제로 불러 부른 순서 · 값을 옮기기 전과 견줌 · `TW_MALLANG_OLD` 로 옛 글과 직접 견주기 · 배선 · 일부러 깨 보기).
+  - 집을 옮기는 사이 늦게 온 앞 집 칸 · 선물 답은 `openView` 가 false · 집 번호(`houseSeq`)가 달라져 알려 준다 — 그때는 폴더 · 선물을 다시 그리지 않는다.
+  - 내 집이 열려 있는 동안 선물함이 바뀌면(서버 신호 `gifts` · 받기) 전에 없던 `hidden=false` 선물을 바로 띄우고 🎁 배지를 맞춘다(`knownGifts`). 선물 치움이 서버에서 실패하면 그 말랑이를 다시 띄운다. 남의 집에선 `GET /v1/gifts/{code}`(`giftBox.fetchVisible`)로 받는다. 이 PC 에 «치움» 을 적지 않는다.
+- **검사**: `checks/sim-mallang-module.js`(가짜 DOM · 가짜 서버로 열기 → 치우기 → 다시 부르기 → 지우기 → 서브탭 → 새 선물 → 남의 집 → 닫기 → 보내기 창 → 계정 놓음을 실제로 불러 부른 순서 · 값을 견줌 · 배선 · 일부러 깨 보기).
+
+## `gift-box.js` — 🎁 선물 상태 주인 (서버가 원본)
+
+- **책임**: 내 선물함(받기 · ⭐ · 치움 · 지우기 · 봤음 · 서버 신호 `gifts`)과 그 집에 나온 선물 받기. 받기 · 쓰기는 **한 줄(lane)** 로 하나씩 — 받는 사이 ⭐ 가 순서를 바꾸거나 쓰는 사이 받은 판이 바뀌는 엇갈림이 없다. 같은 선물에 일이 줄에 있으면 `busy`. 순서(⭐ 먼저 → 최신순)는 `order()` 순수 함수 한 곳.
+- **만드는 법**: app.js 가 말랑이 화면 · 수령함 · 마이홈 창보다 먼저 `TwGiftBox.createGiftBox({ api: giftApiMod, giftLib: TwGiftApi, errs, apiErrors, notifyError, toast, rtOn })`. app-boot STEPS `gift` 가 `session.on(giftBoxMod.listen())`(신호만 · 요청 0) · `session.onReset`. 로그아웃 때 `account.js` 가 `reset()`.
+- **내보내는 것**: `box()` → `{ load, items, unseenCount, starCount, boxKeep, starMax }`(받기 전 숫자는 null) · `get(id)` · `isBusy(id)` · `onChange(fn)` · `order(items)` · `pull(notify?)` · `openTab()`(받기 → 안 본 게 있으면 봤음) · `seen()` · `star(id, on)` · `hide(id, on)` · `remove(id)` → `'ok' | 'busy' | 'gone' | 'full' | 'starred' | 'guide' | 'failed' | 'stale'` · `fetchVisible(code, { notify }?)` · `listen()` · `reset()`.
+- **함정**
+  - 상한(⭐ 20 · 보관 30)은 서버 응답(`starMax` · `boxKeep`)이다 — 앱에 다시 적지 않는다. 앱이 보관 한도를 넘겨 지우는 일도 없다(서버가 받을 때 정리).
+  - 번호: 누른 받기(마이홈 열기 · 서브탭 · [다시 시도])만 `E-GIFT-04` · ⭐ · 치움 `E-GIFT-05` · 지우기 `E-GIFT-06` · 그 집 선물 `E-GIFT-09`. 신호로 받는 것 · 봤음 실패는 번호 없음(배지가 남고 다음 누름에 한 번). 안내 코드(`GIFT_STAR_FULL` · `GIFT_STARRED` · `GIFT_NOT_FOUND`)는 번호 없이 안내(없는 선물이면 받기 한 번).
+  - ⭐ 21번째 · ⭐ 지우기는 요청 없이 막는다. 쓰기가 성공하면 그 줄만 고쳐 그린다(서버 재조회 없음).
+  - 계정을 놓으면(`reset`) gen 이 올라 늦게 온 답은 아무것도 적지 않는다. 이 PC 에 적는 키 없음 — 옛 `tw.mallangGiftHidden` 은 첫 실행 `mallang` 단계가 지운다.
+- **검사**: `checks/sim-gift-box.js`(진짜 모듈을 가짜 서버 길 위에서 — 순서 · 받기 · 한 줄 · busy · 쓰기 · 봤음 · 신호 · reset · 그 집 선물 · 배선 · 옛 길 걷음 · 일부러 깨 보기). 선물함 격자는 `sim-myhome-inbox.js`.
 
 ## `mallang-store.js` — 🧸 말랑이 칸 상태 주인 (서버가 원본)
 

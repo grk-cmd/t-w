@@ -11,9 +11,10 @@
      방문자는 그 집 주인이 등록한 이미지로 자기 화면에 소환(각자 로컬).
    · 모듈 모양: window.TwMallang = { createMallang(deps) } — app.js 가 마이홈 수령함 모듈보다 먼저 만들고,
      마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallangMod` 로 받아 부른다.
-     deps 5 — toast · getMyUserId · getDisplayName · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js).
-     🎁 선물(받은 선물 · 선물함 · 보내기)은 아직 옛 길(firebaseAPI)이다 — 서버 길로는 선물 묶음에서 옮긴다.
-   검사: checks/sim-mallang-module.js · sim-mallang-store.js
+     deps 6 — toast · getMyUserId · getDisplayName · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
+     🎁 받은 선물은 선물 상태 주인(gift-box.js)이 서버에서 받아 오고, 이 파일은 마이홈에 띄우고 치우는 화면 연출 · 🎁 배지만 맡는다(MAX_LIVE 는 화면 동시 상한).
+     🎁 보내기 창만 아직 옛 길(firebaseAPI)이다 — 보내기 묶음에서 옮긴다.
+   검사: checks/sim-mallang-module.js · sim-mallang-store.js · sim-gift-box.js
    ═══════════════════════════════════════════════════════════════════════ */
 (function(){
   'use strict';
@@ -24,11 +25,12 @@ function createMallang(deps){
   const getDisplayName = deps.getDisplayName;
   const premiumOn = deps.premiumOn;   // 👑 프리미엄 판정(app.js _premiumOn) — 전역 window._premiumOn 을 읽지 않는다
   const mallangStore = deps.mallangStore;   // 🧸 칸 상태 주인(mallang-store.js) — mine() · view() · add · toggle · remove · pullMine · openView
+  const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — box() · pull · hide · onChange · fetchVisible
   const LOAD = mallangStore.LOAD;
 
   const MAX_IMGS = mallangStore.SLOTS;   // 등록 칸 수 — 서버 상한 하나(TwGiftApi.LIMITS.SLOTS)
   /* 동시에 떠다닐 수 있는 말랑이 수 (20 → 30).
-     ★ 🎁 선물 상한(GIFT_SEND_CAP=30)과 **같은 수로 맞춘다.** 남의 집에 30마리까지 보낼 수 있는데
+     ★ 🎁 선물 상한(서버 recipientCap=30)과 **같은 수로 맞춘다.** 남의 집에 30마리까지 보낼 수 있는데
        화면이 20에서 끊기면, 받는 사람은 "30마리라는데 20마리밖에 안 보인다"가 된다. */
   const MAX_LIVE = 30;
   /* 🎫 **부르는 순간 자리를 예약한다.**
@@ -39,6 +41,7 @@ function createMallang(deps){
      ★ 그래서 예약분(_pending)을 같이 센다. 실려서 live 로 들어가거나, 로드에 실패하면 반납한다.
      ⚠️ 반납을 빠뜨리면 자리가 영영 줄어든 채로 남는다 — onload·onerror **양쪽**에서 놓을 것. */
   let _pending = 0;
+  const pendingGifts = new Set();   // 아직 그림을 받는 중인 선물 id — 같은 선물을 두 번 띄우지 않고, 받는 사이 지워진 선물은 띄우지 않는다
   function liveCount(){ return live.length + _pending; }
   function liveFull(){ return liveCount() >= MAX_LIVE; }
   const IMG_W = 80;          // 표시 가로폭(px), 세로는 정비율
@@ -107,6 +110,7 @@ function createMallang(deps){
       const pop = document.getElementById('mlManage');
       if(pop && pop.classList.contains('on')) renderSlots(document.getElementById('mlFileInput'));
     });
+    giftBox.onChange(onBoxChange);   // 🎁 선물함이 바뀌면(받기 · 신호 · 봤음) 배지 · 새로 온 선물 띄우기
     built = true;
   }
 
@@ -361,10 +365,13 @@ function createMallang(deps){
     const im = new Image();
     _pending++;                     // 🎫 자리 예약 — 아래 onload/onerror 에서 반드시 놓는다
     let _slotDone = false;
-    const _release = ()=>{ if(_slotDone) return; _slotDone = true; _pending = Math.max(0, _pending - 1); };
+    if(gift) pendingGifts.add(gift.giftId);
+    const _release = ()=>{ if(_slotDone) return; _slotDone = true; _pending = Math.max(0, _pending - 1); if(gift) pendingGifts.delete(gift.giftId); };
     TwImgRetry.retryOnError(im, ()=>{ _release(); try{ guy.remove(); }catch(_){} });   // 한 번 더 받아도 못 받으면 자리를 놓는다
     im.onload = ()=>{
+      const wanted = !gift || pendingGifts.has(gift.giftId);   // 받는 사이 지웠거나 집을 옮긴 선물은 띄우지 않는다
       _release();
+      if(!wanted){ try{ guy.remove(); }catch(_){} return; }
       const ratio = im.naturalHeight / (im.naturalWidth||1);
       const w = IMG_W, hh = Math.round(IMG_W*ratio);
       guy.style.width = w+'px'; guy.style.height = hh+'px';
@@ -376,7 +383,7 @@ function createMallang(deps){
         vy: 0,
         onGround:false, dragging:false, moved:false, onBox:false,
         rest:0,
-        gift: gift || null,          // 선물이면 {giftId, isOwner, ownerId}
+        gift: gift || null,          // 선물이면 {giftId, isOwner, msg, url}
       };
       inst.y = Math.random()*rect.height*0.3;
       place(inst); setFacing(inst);
@@ -654,20 +661,19 @@ function createMallang(deps){
     // 이미 점프 중이 아니면 위로 튕김 → 중력으로 착지
     if(inst.onGround){ inst.onGround=false; inst.vy = -9; }
   }
-  // 우클릭 — 하트 뿜으며 사라짐 (선물이면 집주인만 서버에서 삭제, 방문자는 못 없앰)
+  // 우클릭 — 하트 뿜으며 사라짐 (선물이면 집주인만 «선물함으로 치움», 방문자는 못 없앰)
   function heartsAndRemove(inst){
     spawnHearts(inst);
     if(inst.gift){
       if(!inst.gift.isOwner){ return; }   // 방문자는 선물 못 없앰 (하트만)
-      // ★ 집주인 → 서버 기록은 남기고 '선물함으로 되돌리기'만 한다(치움 표시).
-      //   예전엔 여기서 deleteMallangGift로 영구 삭제해서 다시 부를 방법이 없었다.
-      //   선물함에서 클릭하면 respawnGift 로 다시 나온다.
-      _hideGift(inst.gift.giftId);
-      // ★ 서버에도 기록 — 로컬만이면 방문자 화면·다른 기기에서는 그대로 보인다.
-      if(fbReady() && firebaseAPI.setMallangGiftHidden){
-        firebaseAPI.setMallangGiftHidden(inst.gift.ownerId||myId(), inst.gift.giftId, true);
-      }
-      toast('🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)');
+      // ★ 서버 기록은 남기고 '선물함으로 되돌리기'(hidden)만 한다 — 선물함에서 클릭하면 다시 나온다. 하트 연출은 바로, 결과는 서버 답을 보고:
+      //   성공하면 안내 · 실패하면 그 말랑이를 다시 띄운다(서버는 «나와 있음»). 이미 없는 선물(gone) · 계정이 바뀜(stale)은 다시 띄우지 않는다.
+      const g = inst.gift, seq = houseSeq;
+      giftBox.hide(g.giftId, true).then(r=>{
+        if(seq !== houseSeq) return;
+        if(r === 'ok') toast('🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)');
+        else if(r === 'failed' || r === 'busy') placeGift({ id: g.giftId, imageUrl: g.url, message: g.msg });
+      });
     }
     try{ inst.el.remove(); }catch(_){}
     live = live.filter(x=>x!==inst);
@@ -785,6 +791,8 @@ function createMallang(deps){
     live.forEach(inst=>{ try{ inst.el.remove(); }catch(_){} });
     live = [];
     _pending = 0;   // 🎫 아직 안 실린 예약도 같이 버린다 — 안 그러면 다음에 열 때 자리가 모자라다
+    pendingGifts.clear();
+    knownGifts = null;   // 이 집의 선물을 아직 안 띄웠다 — 다음 받기가 처음부터 띄운다
     if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
     const layer = document.getElementById('mlLayer'); if(layer) layer.innerHTML='';
     hidden = false;   // 집을 옮기거나 닫으면 다시 보인다(«잠깐» 숨기기)
@@ -795,138 +803,94 @@ function createMallang(deps){
      onOpen(ownerId, isVisiting): 마이홈 열릴 때 (내 집이면 ownerId=내ID, isVisiting=false)
      onClose(): 마이홈 닫힐 때 → 전부 제거
      applyVisit(isVisiting, ownerId): 방문 상태 전환 시 */
+  let houseSeq = 0;      // 집을 열 때 · 옮길 때 · 닫을 때마다 오른다 — 늦게 온 앞 집의 답은 아무것도 띄우지 않는다
+  let knownGifts = null; // 내 집에서 이미 띄우기로 본 선물 id — 열려 있는 동안 «전에 없던» 선물만 새로 띄운다(친구가 보낸 선물). 남의 집 · 닫힘 · 받기 전엔 null
+
   /* 그 집 칸을 받고 폴더를 다시 판정한 뒤 선물을 띄운다. 답을 기다리는 사이 집을 옮겼거나 닫았으면(늦은 답) 아무것도 하지 않는다 */
-  async function showHouse(ownerId){
+  async function showHouse(ownerId, seq){
     const owner = ownerId||myId();
     if(!(await mallangStore.openView(owner, !visiting))) return;
+    if(seq !== houseSeq) return;
     refreshFolder();                  // 칸을 받은 뒤 폴더 표시 여부 재판정 (방문 집 말랑이 유무 반영)
-    await loadGifts(owner);           // 🎁 선물받은 말랑이 소환 (내 집·방문 모두)
+    await loadGifts(owner, seq);      // 🎁 선물받은 말랑이 소환 (내 집·방문 모두)
   }
   async function onOpen(ownerId, isVisiting){
     visiting = !!isVisiting;
+    const seq = ++houseSeq;
     build();
     clearAll();                       // 이전 상태 초기화
-    await showHouse(ownerId);
+    await showHouse(ownerId, seq);
   }
-  function onClose(){ clearAll(); mallangStore.closeView(); }   // 닫는 중에 온 칸 답은 아무것도 띄우지 않는다
+  function onClose(){ houseSeq++; clearAll(); mallangStore.closeView(); }   // 닫는 중에 온 칸 · 선물 답은 아무것도 띄우지 않는다
   async function applyVisit(isVisiting, ownerId){
     visiting = !!isVisiting;
+    const seq = ++houseSeq;
     clearAll();                       // 집 바뀌면 내 말랑이 사라짐
-    await showHouse(ownerId);
+    await showHouse(ownerId, seq);
+  }
+  /* 계정을 놓을 때 — 화면에 남은 말랑이 · 열린 창 · 배지를 걷는다(칸 · 선물함 값은 각자의 reset) */
+  function reset(){
+    houseSeq++;
+    clearAll();
+    mallangStore.closeView();
+    const pop = document.getElementById('mlManage'); if(pop) pop.classList.remove('on');
+    const gp = document.getElementById('mlGift'); if(gp) gp.remove();
+    const tab = document.querySelector('.mh-tab[data-tab="friend"]');
+    const badge = tab && tab.querySelector('.ml-giftbadge'); if(badge) badge.remove();
   }
 
-  /* ── 🎁 선물 "치움" 상태 (로컬) ──────────────────────────────────────────
-     우클릭은 이제 '삭제'가 아니라 '선물함으로 되돌리기'다. 서버 기록(mallangGifts)은 그대로 두고,
-     화면에 안 띄울 giftId만 로컬에 기억한다. 선물함에서 클릭하면 이 목록에서 빼고 다시 소환.
-     ★ 로컬 저장이라 DB 규칙을 건드리지 않는다(비용·호환 위험 없음). 기기마다 따로 관리됨. */
-  const GIFT_HIDE_KEY = 'tw.mallangGiftHidden';
-  const GIFT_MAX = 30;   // ★ 선물함 보관 개수. 넘치면 ⭐ 아닌 것 중 가장 오래된 것부터 서버에서 삭제.
-  /* ⭐ 즐겨찾기 — `mallangGifts/{id}/starred` (서버). 로컬에 두면 안 된다: 자동 정리는 그 계정의
-     **어느 기기에서든** 돌아서, 다른 PC 가 ⭐ 를 모른 채 지운다.
-     ⚠️ 알려진 한계 — 업데이트 안 한 기기는 starred 를 몰라 옛 방식(오래된 순)으로 지울 수 있다.
-       여러 기기를 쓰는 사람만 해당되고, 업데이트 공지로 대응한다.
-     ★ 상한(20)이 GIFT_MAX(30)보다 작아야 자동 정리가 늘 지울 칸을 찾는다. */
-  const GIFT_STAR_MAX = 20;
-  const _isStar = (g)=> !!(g && g.starred === true);
-  /* 선물함 격자 순서 — ⭐(최신순) → 나머지(최신순). 한 격자 안에서 순서만 바뀐다. */
-  function giftOrder(gifts){
-    const ids = Object.keys(gifts || {});
-    const byNew = (a,b)=>((gifts[b]&&gifts[b].ts)||0)-((gifts[a]&&gifts[a].ts)||0);
-    return ids.filter(id=>_isStar(gifts[id])).sort(byNew)
-      .concat(ids.filter(id=>!_isStar(gifts[id])).sort(byNew));
+  /* ── 🎁 받은 선물 말랑이 띄우기 ──
+     내 집: 선물함(gift-box)을 받아 치우지 않은 것(hidden=false)을 띄운다 · 남의 집: 그 집에 나온 선물(GET /v1/gifts/{code}). 못 받으면 아무것도 띄우지 않는다(번호는 그쪽) */
+  async function loadGifts(ownerId, seq){
+    if(!ownerId) return;                // 내 코드가 없으면 선물을 안 읽는다
+    if(visiting){
+      const r = await giftBox.fetchVisible(ownerId, { notify: true });
+      if(seq !== houseSeq || !r.ok) return;
+      r.items.forEach(it=>placeGift(it, false));
+      return;
+    }
+    const r = await giftBox.pull(true);
+    if(seq !== houseSeq || r !== 'ready') return;
+    knownGifts = new Set();
+    giftBox.box().items.forEach(it=>{ knownGifts.add(it.id); if(!it.hidden) placeGift(it); });
+    syncBadge();
   }
-  /* 보관 한도를 넘친 만큼 지울 것 — ⭐ 아닌 것 중 오래된 것부터. */
-  function giftOverflow(gifts){
-    const ids = Object.keys(gifts || {});
-    if(ids.length <= GIFT_MAX) return [];
-    const plain = ids.filter(id=>!_isStar(gifts[id]))
-      .sort((a,b)=>((gifts[a]&&gifts[a].ts)||0)-((gifts[b]&&gifts[b].ts)||0));
-    return plain.slice(0, ids.length - GIFT_MAX);
+  /* 선물함이 바뀌었다(받기 · 서버 신호 · 봤음 · ⭐ …) — 배지를 맞추고, 내 집이 열려 있으면 전에 없던 새 선물을 띄운다 */
+  function onBoxChange(){
+    syncBadge();
+    if(!knownGifts || visiting) return;
+    const b = giftBox.box();
+    if(b.load !== giftBox.LOAD.READY) return;
+    b.items.forEach(it=>{ if(knownGifts.has(it.id)) return; knownGifts.add(it.id); if(!it.hidden) placeGift(it); });
   }
-  const giftLimits = { max: GIFT_MAX, starMax: GIFT_STAR_MAX };
-  function _hiddenSet(){
-    try{ const a = JSON.parse(localStorage.getItem(GIFT_HIDE_KEY) || '[]');
-         return new Set(Array.isArray(a) ? a : []); }catch(_){ return new Set(); }
-  }
-  function _saveHidden(set){
-    try{ localStorage.setItem(GIFT_HIDE_KEY, JSON.stringify([...set])); }catch(_){}
-  }
-  function _hideGift(giftId){ const h=_hiddenSet(); h.add(giftId); _saveHidden(h); }
-  function isGiftHidden(giftId){ return _hiddenSet().has(giftId); }
-  /* 선물함에서 클릭 → 다시 마이홈에 소환 (myhome-inbox.js 가 호출) */
-  function respawnGift(giftId, imgUrl, msg){
-    try{
-      const h=_hiddenSet(); h.delete(giftId); _saveHidden(h);
-      if(fbReady() && firebaseAPI.setMallangGiftHidden) firebaseAPI.setMallangGiftHidden(myId(), giftId, false);
-      if(live.some(x=>x.gift && x.gift.giftId===giftId)) return 'already';   // 이미 나와 있음
-      if(liveFull()) return 'full';
-      spawnGift(imgUrl, giftId, true, myId(), msg||'');
-      return 'ok';
-    }catch(_){ return 'error'; }
-  }
-
-  /* 선물함 우클릭 → 영구 삭제 (myhome-inbox.js 가 확인창을 띄운 뒤 호출).
-     서버(+Storage 사본)에서 지우고, 마이홈에 나와 있는 그 말랑이와 로컬 치움 목록에서도 뺀다.
-     ⚠️ ⭐ 는 여기서 한 번 더 막는다 — 확인창을 거치지 않는 호출이 생겨도 즐겨찾기는 안 지워진다. */
-  async function deleteGift(giftId, gift){
-    if(!giftId) return 'error';
-    if(_isStar(gift)) return 'starred';
-    if(!fbReady() || !firebaseAPI.deleteMallangGift) return 'error';
-    const r = await firebaseAPI.deleteMallangGift(myId(), giftId).catch(()=>null);
-    if(!(r && r.ok)) return 'error';
-    live.filter(x=>x.gift && x.gift.giftId===giftId).forEach(inst=>{ try{ inst.el.remove(); }catch(_){} });
-    live = live.filter(x=>!(x.gift && x.gift.giftId===giftId));
-    if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
-    syncHideBtn();
-    const h=_hiddenSet(); if(h.delete(giftId)) _saveHidden(h);
+  function giftOnScreen(id){ return pendingGifts.has(id) || live.some(x=>x.gift && x.gift.giftId===id); }
+  /* 선물 한 마리를 화면에 — own=false 면 남의 집(방문자). @return 'ok' | 'already' | 'full' | 'away'(남의 집을 보는 중 — 내 선물은 띄우지 않는다) */
+  function placeGift(it, own){
+    const isOwner = own !== false;
+    if(isOwner && visiting) return 'away';
+    if(giftOnScreen(it.id)) return 'already';
+    if(liveFull()) return 'full';
+    spawn(it.imageUrl, { giftId: it.id, isOwner, msg: it.message || '', url: it.imageUrl });
     return 'ok';
   }
-
-  /* ── 🎁 받은 선물 말랑이 로드/소환 ── */
-  async function loadGifts(ownerId){
-    if(!ownerId || !fbReady() || !firebaseAPI.getMallangGifts) return;   // 내 코드가 없으면 선물을 안 읽는다
-    const gifts = await firebaseAPI.getMallangGifts(ownerId).catch(()=>({})) || {};
-    const isOwner = (ownerId===myId());
-    let ids = Object.keys(gifts);
-    // ★ 보관 한도 — 내 집일 때만, ⭐ 아닌 것 중 오래된 것부터 서버에서 정리(GIFT_MAX개 유지)
-    if(isOwner && ids.length > GIFT_MAX && firebaseAPI.deleteMallangGift){
-      const drop = giftOverflow(gifts);
-      drop.forEach(id=>{ try{ firebaseAPI.deleteMallangGift(ownerId, id); }catch(_){} delete gifts[id]; });
-      ids = Object.keys(gifts);
-    }
-    // ★ 치워둔 선물은 화면에 안 띄움(선물함에는 그대로 남아 있음). 내 집일 때만 적용 —
-    //   방문자 화면은 집주인이 치운 것과 무관하게 서버 기준으로 보여준다.
-    // ★ 서버 hidden(집주인이 치운 표시)은 방문자에게도 적용된다. 로컬 목록은 내 집일 때만 추가로 반영.
-    const hidden = isOwner ? _hiddenSet() : new Set();
-    ids.forEach(giftId=>{
-      const g = gifts[giftId]; if(!g || !g.imgUrl) return;
-      if(g.hidden) return;
-      if(hidden.has(giftId)) return;
-      spawnGift(g.imgUrl, giftId, isOwner, ownerId, g.msg||'');
-    });
-    // 서버에 없어진 id가 숨김 목록에 남아 쌓이지 않게 정리
-    if(isOwner && hidden.size){
-      let changed=false;
-      hidden.forEach(id=>{ if(!gifts[id]){ hidden.delete(id); changed=true; } });
-      if(changed) _saveHidden(hidden);
-    }
-    if(isOwner) updateGiftBadge(gifts);   // 내 집이면 알림 뱃지 갱신
+  /* 선물을 지웠다 — 화면에 나와 있거나 그림을 받는 중인 그 말랑이도 뺀다 */
+  function dropGift(id){
+    pendingGifts.delete(id);
+    live.filter(x=>x.gift && x.gift.giftId===id).forEach(inst=>{ try{ inst.el.remove(); }catch(_){} });
+    live = live.filter(x=>!(x.gift && x.gift.giftId===id));
+    if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    syncHideBtn();
   }
 
-  // 친구 탭에 안 본 선물 개수 뱃지 표시
-  async function updateGiftBadge(gifts){
+  // 친구 탭에 안 본 선물 개수 배지 — 값은 서버 unseenCount(받기 전 null 이면 그대로 둔다)
+  function syncBadge(){
     const tab = document.querySelector('.mh-tab[data-tab="friend"]'); if(!tab) return;
-    let seen = 0;
-    if(fbReady() && firebaseAPI.getMallangGiftSeen) seen = await firebaseAPI.getMallangGiftSeen(myId()).catch(()=>0);
-    // seen 시각 이후에 온 선물 수
-    const list = gifts || (fbReady() ? await firebaseAPI.getMallangGifts(myId()).catch(()=>({})) : {});
-    let n = 0, latest = 0;
-    Object.keys(list).forEach(k=>{ const t=list[k].ts||0; if(t>seen) n++; if(t>latest) latest=t; });
+    const n = giftBox.box().unseenCount;
+    if(n === null) return;
     let badge = tab.querySelector('.ml-giftbadge');
     if(n>0){
       if(!badge){ badge = document.createElement('span'); badge.className='ml-giftbadge'; tab.appendChild(badge); injectBadgeStyle(); }
       badge.textContent = '🎁'+n;
-      tab._mlLatest = latest;
     } else if(badge){ badge.remove(); }
   }
   function injectBadgeStyle(){
@@ -935,19 +899,6 @@ function createMallang(deps){
     s.textContent = `.mh-tab .ml-giftbadge{margin-left:5px;font-size:9px;background:#e0407a;color:#fff;
       padding:1px 5px;border-radius:8px;vertical-align:middle;font-weight:bold;}`;
     document.head.appendChild(s);
-  }
-  // 선물함 서브탭을 누르면 "봤음" 처리 (뱃지 제거) — myhome-ui.js 가 호출
-  async function seenGifts(){
-    const tab = document.querySelector('.mh-tab[data-tab="friend"]');
-    const badge = tab && tab.querySelector('.ml-giftbadge');
-    if(fbReady() && firebaseAPI.setMallangGiftSeen) await firebaseAPI.setMallangGiftSeen(myId(), (tab&&tab._mlLatest)||Date.now());
-    if(badge) badge.remove();
-  }
-
-  // 선물 말랑이 소환
-  function spawnGift(url, giftId, isOwner, ownerId, msg){
-    if(liveFull()) return;
-    spawn(url, { giftId, isOwner, ownerId, msg: msg||'' });
   }
 
   /* ── 🎁 선물 보내기 (친구 우클릭 → myhome-inbox.js 가 호출) ── */
@@ -1070,10 +1021,9 @@ function createMallang(deps){
   }
 
   return {
-    onOpen, onClose, applyVisit,   // 🏠 마이홈 열기 · 닫기(myhome-ui) · 집 옮기기(myhome-visit)
-    seenGifts,                     // 🎁 봤음 — 선물함 서브탭 누름(myhome-ui)
+    onOpen, onClose, applyVisit, reset,   // 🏠 마이홈 열기 · 닫기(myhome-ui) · 집 옮기기(myhome-visit) · 계정을 놓을 때
     openGift,                      // 🎁 보내기 창 — 친구 줄 우클릭(myhome-inbox)
-    giftOrder, giftLimits, isGiftHidden, respawnGift, deleteGift,   // 💝 선물함 격자(myhome-inbox)
+    placeGift, giftOnScreen, dropGift,   // 💝 선물함 격자(myhome-inbox) — 다시 부르기 · 지우기 때 화면 말랑이를 띄우고 뺀다
   };
 }
 

@@ -16,8 +16,8 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/parts/myhome/' + f, 'app/parts/shared/' + f, 'app/' + f]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = { retry: read('img-retry.js'), safe: read('safe-html.js'), mallang: read('mallang.js'), html: read('desk-companion-prototype.html') };
 if(Object.values(SRC).some(v => !v)){ say('  ? 원본 못 찾음 — img-retry.js · safe-html.js · mallang.js · desk-companion-prototype.html'); process.exit(2); }
-const STORE_SRC = { store: read('mallang-store.js'), gift: read('gift-api.js'), ae: read('api-errors.js') };
-if(!STORE_SRC.store || !STORE_SRC.gift || !STORE_SRC.ae){ say('  ? 원본 못 찾음 — mallang-store.js · gift-api.js · api-errors.js'); process.exit(2); }
+const STORE_SRC = { store: read('mallang-store.js'), gift: read('gift-api.js'), box: read('gift-box.js'), ae: read('api-errors.js') };
+if(!STORE_SRC.store || !STORE_SRC.gift || !STORE_SRC.box || !STORE_SRC.ae){ say('  ? 원본 못 찾음 — mallang-store.js · gift-api.js · api-errors.js'); process.exit(2); }
 
 /* 🧸 말랑이 칸 상태 주인 — 진짜 mallang-store.js 위에 가짜 서버 길(slotsOf: 집 코드 → 칸 · 내 집은 'me') */
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
@@ -62,6 +62,16 @@ function judgeUnit(retrySrc){
 }
 
 /* mallang.js 를 가짜 DOM 에서 — 이 모듈이 쓰는 만큼만 */
+/* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 길(내 선물함 = gifts.home1 · 그 집 선물 = gifts[집 코드]) */
+function mkBox(gifts){
+  const row = (k, g) => ({ id: k, senderName: '친구', imageUrl: g.imgUrl, message: '', starred: false, hidden: false, sentAt: 1 });
+  const api = {
+    fetchBox: async () => ({ items: Object.keys(gifts.home1 || {}).map((k) => row(k, gifts.home1[k])), unseenCount: 0, starCount: 0, boxKeep: 30, starMax: 20 }),
+    fetchVisible: async (u) => ({ items: Object.keys(gifts[u] || {}).map((k) => ({ id: k, imageUrl: gifts[u][k].imgUrl, message: '' })), visibleCount: Object.keys(gifts[u] || {}).length, recipientCap: 30 }),
+    markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {}, reset(){},
+  };
+  return loadMod(STORE_SRC.box).createGiftBox({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){}, rtOn: () => () => {} });
+}
 function mkEnv(mallangSrc, retrySrc){
   const byId = {}, imgs = [];
   const mk = (tag) => {
@@ -113,7 +123,7 @@ function mkEnv(mallangSrc, retrySrc){
   vm.createContext(ctx);
   vm.runInContext(mallangSrc, ctx, { filename: 'mallang.js' });
   /* app.js 가 만드는 줄과 같은 deps 5 — 칸은 상태 주인(mallang-store.js)에서 */
-  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, getDisplayName: ctx.getDisplayName, premiumOn: ctx._premiumOn, mallangStore: mkStore({ me: MINE }) });
+  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, getDisplayName: ctx.getDisplayName, premiumOn: ctx._premiumOn, mallangStore: mkStore({ me: MINE }), giftBox: mkBox(gifts) });
   return { ctx, m, imgs, byId, layer: () => byId.mlLayer };
 }
 const flush = () => new Promise(r => setImmediate(r));

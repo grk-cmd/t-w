@@ -794,36 +794,6 @@
       try{ const s=await get(ref(db, `users/${userId}/mallangGifts`)); return s.val() || {}; }
       catch(e){ return {}; }
     },
-    // 선물 하나 삭제 (보관 한도 초과분 정리 등) — Storage 사본도 같이 지워서 용량이 쌓이지 않게 함
-    async deleteMallangGift(userId, giftId){
-      try{
-        await remove(ref(db, `users/${userId}/mallangGifts/${giftId}`));
-        // 스냅샷 사본 제거. 예전 선물(원본 참조)은 이 경로에 파일이 없으므로 조용히 무시된다.
-        try{ await deleteObject(sref(storage, `users/${userId}/giftimg/${giftId}.png`)); }catch(_){}
-        return { ok:true };
-      }catch(e){ return { ok:false }; }
-    },
-    /* 🎁 선물 '치움' 상태를 서버에 기록 — 방문자 화면에서도 안 보이게 하기 위함.
-       ★ 불리언 하나(수십 바이트)라 서버 비용 영향은 사실상 없다. 구버전 클라이언트는 이 필드를 몰라
-         그냥 전부 표시하므로 안전하게 폴백된다. */
-    async setMallangGiftHidden(userId, giftId, hidden){
-      try{ await set(ref(db, `users/${userId}/mallangGifts/${giftId}/hidden`), !!hidden); return { ok:true }; }
-      catch(e){ return { ok:false }; }
-    },
-    /* ⭐ 선물 즐겨찾기 — 서버에 둔다(로컬이면 다른 기기의 자동 정리가 모르고 지운다).
-       끌 때는 칸을 지워 구버전과 같은 모양으로 되돌린다. */
-    async setMallangGiftStarred(userId, giftId, on){
-      try{ await set(ref(db, `users/${userId}/mallangGifts/${giftId}/starred`), on ? true : null); return { ok:true }; }
-      catch(e){ return { ok:false }; }
-    },
-    // 안 읽은 선물 뱃지용 — 마지막 확인 시각 저장/조회
-    async getMallangGiftSeen(userId){
-      try{ const s=await get(ref(db, `users/${userId}/mallangGiftSeen`)); const v=s.val(); return (typeof v==='number')?v:0; }
-      catch(e){ return 0; }
-    },
-    async setMallangGiftSeen(userId, ts){
-      try{ await set(ref(db, `users/${userId}/mallangGiftSeen`), ts||Date.now()); }catch(e){}
-    },
     /* ═══════════ 👋 친구 요청 (수락/거절) ═══════════
        스키마: friendRequests/{받는사람}/{보낸사람} = { name, ts }
        흐름: 코드 입력 → 상대에게 요청 기록 → 상대가 수락하면 그때 양방향 friends 추가 */

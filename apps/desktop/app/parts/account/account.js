@@ -46,6 +46,7 @@ const plMod = deps.plMod;
 const mhScheduler = deps.mhScheduler;   // 📅 스케줄러 — 계정을 놓을 때 비운다(다음 계정 것은 로그인 뒤 다시 켠 부팅이 받는다)
 const bookshelfStore = deps.bookshelfStore;   // 📚 책장(bookshelf-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
 const myhomeStore = deps.myhomeStore;   // 🏠 마이홈 페이지(myhome-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
+const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — 계정을 놓을 때 비운다(reset)
 const mallangStore = deps.mallangStore;   // 🧸 말랑이 칸(mallang-store.js) — 로그아웃 올리기(flush) · 계정을 놓을 때 비운다(reset)
 const bugBoardReset = deps.bugBoardReset;   // 🐞 버그제보 게시판(bug-board-ui.js) — 계정을 놓을 때 배지 · 목록 · 쓰던 글을 비운다
 const toast = deps.toast;
@@ -238,6 +239,7 @@ function _wipeAccountLocal(){
   try{ mhScheduler.reset(); }catch(_){}   // 📅 scheduler.js — 일정 · 디데이 · 알림을 비우고 받기 전으로
   try{ myhomeStore.reset(); }catch(_){}   // 🏠 myhome-store.js — 내 홈 · 보던 집 · 못 올린 고침을 비우고 늦게 온 답을 버린다
   try{ bookshelfStore.reset(); }catch(_){}   // 📚 bookshelf-store.js — 책 · 판 · 보는 집을 비우고 늦게 온 답을 버린다
+  try{ giftBox.reset(); }catch(_){}   // 🎁 gift-box.js — 선물함 · 서버 신호 구독을 비우고 늦게 온 답을 버린다
   try{ mallangStore.reset(); }catch(_){}   // 🧸 mallang-store.js — 칸 · 판 · 보는 집을 비우고 늦게 온 답을 버린다
   try{ bugBoardReset(); }catch(_){}   // 🐞 bug-board-ui.js — 배지 · 목록 · 연 글 · 쓰던 글을 비우고 늦게 온 답을 버린다
   /* isPremium(메모리)은 안 건드린다 — 700ms 뒤 재시작이고, 그 사이 책상을 다시 그릴 이유가 없다.

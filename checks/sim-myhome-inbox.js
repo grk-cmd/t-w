@@ -24,7 +24,7 @@ let pass = 0, fail = 0, quiet = false, qfail = 0;
 const say = (s) => { if(!quiet) console.log(s); };
 const chk = (ok, msg) => { if(quiet){ if(!ok) qfail++; return; } ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['myhome-inbox.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js', 'inbox-sections.js'];
+const need = ['myhome-inbox.js', 'app.js', 'desk-companion-prototype.html', 'myhome-hooks.js', 'inbox-sections.js', 'gift-box.js', 'gift-api.js', 'api-errors.js'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ console.log('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
@@ -78,10 +78,7 @@ function mkEnv(o){
   };
   env.byId = byId; env.doc = doc;
   env.reg = (id) => { const e = mkEl('div', env); e.id = id; byId[id] = e; return e; };
-  const api = {
-    getMallangGifts: async (u) => { env.calls.push('getMallangGifts ' + u); return env.gifts; },
-    setMallangGiftStarred: async (u, k, on) => { env.calls.push('star ' + k + ' ' + on); return { ok: env.starOk !== false }; },
-  };
+  const api = {};   // 옛 firebaseAPI — 선물함은 서버 길이라 여기서 부르는 것이 없다
   const companion = { openBrowser: (u) => env.opened.push(u) };
   const win = {
     firebaseAPI: api, companion, focus(){ env.focused++; },
@@ -121,13 +118,26 @@ function mkEnv(o){
     togglePin: async (id) => { const next = !(env.bc[id] && env.bc[id].pinned); env.calls.push('pin ' + id + ' ' + next); if(env.pinOk === false) return false; env.bc[id].pinned = next; return true; },   // 서버가 됐다 하면 다시 받아 판이 바뀐다
     sendBroadcast: async (o) => { env.calls.push('send ' + o.tag + ' ' + o.title + ' ' + !!o.pinned); return env.sendOk !== false; },
   };
-  /* 🧸 말랑이(mallang.js createMallang 의 반환값) 가짜 — 선물함 격자 · 보내기 창이 부르는 것만 */
+  /* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 길(env.giftSrv 가 서버 선물함 · 부른 것은 env.calls 에) */
+  env.giftSrv = []; env.giftUnseen = 0; env.giftErr = null;
+  const lm = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
+  const find = (id) => env.giftSrv.find((x) => x.id === id);
+  const boxApi = {
+    fetchBox: async () => { env.calls.push('GET box'); if(env.giftErr) throw env.giftErr;
+      return { items: env.giftSrv.map((x) => Object.assign({}, x)), unseenCount: env.giftUnseen, starCount: env.giftSrv.filter((x) => x.starred).length, boxKeep: 30, starMax: 20 }; },
+    markSeen: async () => { env.calls.push('POST seen'); env.giftUnseen = 0; },
+    star: async (id, on) => { env.calls.push('PATCH ' + id + ' starred=' + on); find(id).starred = on; },
+    hide: async (id, on) => { env.calls.push('PATCH ' + id + ' hidden=' + on); find(id).hidden = on; },
+    remove: async (id) => { env.calls.push('DELETE ' + id); env.giftSrv = env.giftSrv.filter((x) => x.id !== id); },
+    fetchVisible: async () => ({ items: [], visibleCount: 0, recipientCap: 30 }), reset(){},
+  };
+  env.giftBox = lm(SRC['gift-box.js']).createGiftBox({ api: boxApi, giftLib: lm(SRC['gift-api.js']), errs: lm(SRC['api-errors.js']), apiErrors: { notify: (e) => env.calls.push('common ' + (e && e.code)) },
+    notifyError: (c) => env.calls.push('error ' + c), toast: (m) => env.toasts.push(m), rtOn: () => () => {} });
+  /* 🧸 말랑이(mallang.js createMallang 의 반환값) 가짜 — 선물 보내기 창 · 선물 말랑이 띄우기 · 빼기 */
   env.mallangMod = {
-    giftLimits: { max: 30, starMax: 20 },
-    isGiftHidden: (k) => k === 'g-out',
-    giftOrder: (g) => Object.keys(g).sort((a, b) => (g[b].ts || 0) - (g[a].ts || 0)),   // 여기선 ⭐ 없이 최신순만
-    respawnGift: (k, img, msg) => { env.respawn.push(k + '|' + img + '|' + msg); return env.respawnAns || 'ok'; },
-    deleteGift: async (k) => { env.calls.push('deleteGift ' + k); return 'ok'; },
+    giftOnScreen: (k) => !!(env.onScreen && env.onScreen.has(k)),
+    placeGift: (g) => { env.respawn.push(g.id + '|' + g.imageUrl + '|' + g.message); return env.placeAns || 'ok'; },
+    dropGift: (k) => env.calls.push('dropGift ' + k),
     openGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
   };
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({
@@ -139,7 +149,7 @@ function mkEnv(o){
     mhStripHtml: (h) => String(h || '').replace(/<[^>]*>/g, ''),
     starFromRemote: (f) => (f && f.star) ? { color: f.star, cyc: 2, lv: 7 } : null, lvStarBadgeClass: () => 'lv-star lvx', lvStarStr: (n) => '★' + n,
     lvBadgeClass: (n) => 'lv' + n, openFriendHomeView: (fid) => env.homeView.push(fid), renderMhProfileRail: () => { env.profileRail++; },
-    mallangMod: env.mallangMod,
+    mallangMod: env.mallangMod, giftBox: env.giftBox,
     removeFriend: async (u, f) => { env.calls.push('removeFriend ' + u + ' ' + f); },
   }, extra || {}));
   return env;
@@ -410,46 +420,53 @@ async function behave(src){
   {
     const e = E(); const m = e.mk();
     const stat = e.reg('mhGiftStat'); const homeWin = e.reg('myHomeWin');
-    const list = mkEl('div', e);
-    e.gifts = { g1: { ts: 10, fromName: '가<나', msg: '"안녕"', imgUrl: 'https://i/1.png' }, g2: { ts: 30, starred: true, fromName: '다', imgUrl: 'https://i/2.png?alt=media' }, 'g-out': { ts: 20, fromName: '라' } };
+    const list = e.reg('mhFmList');
+    e.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };   // 선물함 서브탭이 눈앞
+    e.giftSrv = [
+      { id: 'g1', senderName: '가<나', imageUrl: 'https://i/1.png', message: '"안녕"', starred: false, hidden: false, sentAt: 10 },
+      { id: 'g2', senderName: '다', imageUrl: 'https://i/2.png?alt=media', message: '', starred: true, hidden: false, sentAt: 30 },
+      { id: 'g-out', senderName: '라', imageUrl: 'https://i/3.png', message: '', starred: false, hidden: true, sentAt: 20 },
+    ];
     /* 칸 그림 — innerHTML 로 만든 <img> 를 querySelectorAll 이 돌려준다고 치고 심어 둔다 */
-    const gImgs = [{ src: 'https://i/1.png' }, { src: 'https://i/2.png?alt=media' }];
+    const gImgs = [{ src: 'https://i/2.png?alt=media' }, { src: 'https://i/1.png' }];
     list._qa = { '.gift-item img': gImgs };
     m.renderGiftBox(list);
-    chk(list.innerHTML === '<div class="mh-ibx-empty">불러오는 중…</div>', '먼저 «불러오는 중…»');
+    chk(list.innerHTML === '<div class="mh-ibx-empty">불러오는 중…</div>', '먼저 «불러오는 중…»(처음 보면 받기가 시작된다)');
     await flush(); await flush();
     gImgs.forEach(im => im.onerror && im.onerror());
-    chk(gImgs[0].src === 'https://i/1.png?twr=1' && gImgs[1].src === 'https://i/2.png?alt=media&twr=1', '★ 칸 그림을 못 받으면 표식 주소(twr=1)로 한 번 더 받는다(img-retry.js retryOnError)');
-    chk(e.calls.join() === 'getMallangGifts ME01', '  받은 선물은 내 코드로 한 번 받는다');
-    const noUid = async (o) => { const u = E(o); const um = u.mk({ getMyUserId: () => null }); u.reg('mhGiftStat'); u.reg('myHomeWin'); u.gifts = e.gifts; const l = mkEl('div', u); um.renderGiftBox(l); await flush(); await flush();
-      return u.calls.length === 0 && /아직 받은 선물이 없어요/.test(l.innerHTML); };
-    chk(await noUid(), '  내 코드 없음 — 선물 요청 0 · «아직 받은 선물이 없어요»(읽기 실패 때와 같은 화면)');
-    if(src === SRC['myhome-inbox.js']){
-      const m2 = src.replace('if(getMyUserId() && window.firebaseAPI && firebaseAPI.getMallangGifts)', 'if(window.firebaseAPI && firebaseAPI.getMallangGifts)');
-      chk(m2 !== src && !(await noUid({ src: m2 })), '    깨 보기 — 내 코드 확인을 빼면 빨강');
-    }
+    chk(gImgs[0].src === 'https://i/2.png?alt=media&twr=1' && gImgs[1].src === 'https://i/1.png?twr=1', '★ 칸 그림을 못 받으면 표식 주소(twr=1)로 한 번 더 받는다(img-retry.js retryOnError)');
+    chk(e.calls.join() === 'GET box', '  선물함은 서버에서 한 번 받는다(받으면 같은 칸을 다시 그린다 — 다시 부른 적 없음)');
     const cells = list.innerHTML.match(/<div class="gift-cell[^"]*"/g) || [];
-    chk(cells.length === 30 && cells.filter(c => /empty/.test(c)).length === 27, '격자 30칸 — 남은 칸은 빈 칸');
-    chk(/data-gid="g2"[\s\S]*data-gid="g-out"[\s\S]*data-gid="g1"/.test(list.innerHTML), '  순서 — 최신순(mallang 정렬이 없으면)');
-    chk(/class="gift-cell gift-item star" data-gid="g2"/.test(list.innerHTML) && /class="gift-cell gift-item out" data-gid="g-out"/.test(list.innerHTML), '  ⭐ · 마이홈에서 치운 것 표시');
-    chk(list.innerHTML.indexOf('title="가&lt;나 님이 선물했어요\n“&quot;안녕&quot;”') > 0 && list.innerHTML.indexOf('data-msg="&quot;안녕&quot;"') > 0, '  보낸 사람 · 메시지는 속성값 안이라 escHtml');
-    chk(stat.textContent === '⭐ 1/20 · 보관 3/30', '「⭐ n/20 · 보관 m/30」 (' + stat.textContent + ')');
-    const item = (k) => ({ dataset: { gid: k, img: 'IMG' + k, msg: 'M' + k } });
+    chk(cells.length === 30 && cells.filter(c => /empty/.test(c)).length === 27, '격자 30칸(서버 boxKeep) — 남은 칸은 빈 칸');
+    chk(/data-gid="g2"[\s\S]*data-gid="g-out"[\s\S]*data-gid="g1"/.test(list.innerHTML), '  순서 — ⭐ 먼저 → 최신순(gift-box order)');
+    chk(/class="gift-cell gift-item star" data-gid="g2"/.test(list.innerHTML) && /class="gift-cell gift-item out" data-gid="g-out"/.test(list.innerHTML), '  ⭐ · 마이홈에서 치운(hidden) 것 표시');
+    chk(list.innerHTML.indexOf('title="가&lt;나 님이 선물했어요\n“&quot;안녕&quot;”') > 0, '  보낸 사람 · 메시지는 속성값 안이라 escHtml');
+    chk(stat.textContent === '⭐ 1/20 · 보관 3/30', '「⭐ n/starMax · 보관 m/boxKeep」 (' + stat.textContent + ')');
+    const item = (k) => ({ dataset: { gid: k } });
     const tg = (k, star) => ({ closest: (s) => s === '.gift-item' ? item(k) : (s === '.gift-star' && star ? {} : null) });
     e.calls = [];
     let ev = { target: tg('g1', true), stopPropagation(){ ev._sp = true; } };
     list.onclick(ev); await flush(); await flush();
-    chk(ev._sp && e.calls.join() === 'star g1 true' && e.gifts.g1.starred === true && e.respawn.length === 0 && stat.textContent === '⭐ 2/20 · 보관 3/30', '⭐ 누르면 저장 · 다시 그림 · 칸 누르기(다시 불러오기)로 번지지 않는다');
-    list.onclick({ target: tg('g1', false), stopPropagation(){} });
-    chk(e.respawn.join() === 'g1|IMGg1|Mg1' && e.toasts.includes('🎁 마이홈에 다시 불러왔어요'), '칸 누르면 마이홈에 다시 불러온다');
-    e.respawnAns = 'already'; list.onclick({ target: tg('g1', false), stopPropagation(){} });
-    chk(e.toasts.includes('이미 마이홈에 나와 있어요'), '  이미 나와 있으면 알림');
+    chk(ev._sp && e.calls.join() === 'PATCH g1 starred=true' && e.respawn.length === 0 && stat.textContent === '⭐ 2/20 · 보관 3/30', '⭐ 누르면 서버에 저장 · 다시 그림(받기 없음) · 칸 누르기(다시 불러오기)로 번지지 않는다');
+    e.calls = [];
+    list.onclick({ target: tg('g1', false), stopPropagation(){} }); await flush(); await flush();
+    chk(e.respawn.join() === 'g1|https://i/1.png|"안녕"' && e.toasts.includes('🎁 마이홈에 다시 불러왔어요') && e.calls.length === 0, '나와 있지 않은 칸(치우지 않음)을 누르면 요청 없이 띄운다');
+    e.respawn.length = 0; e.calls = [];
+    list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush(); await flush();
+    chk(e.calls.join() === 'PATCH g-out hidden=false' && e.respawn.join() === 'g-out|https://i/3.png|' && /data-gid="g-out"/.test(list.innerHTML) && !/gift-item out/.test(list.innerHTML), '치운 칸을 누르면 서버가 «나옴» 으로 바꾼 뒤에 띄운다 · 칸의 «치움» 표시가 풀림');
+    e.onScreen = new Set(['g1']); e.respawn.length = 0; e.calls = [];
+    list.onclick({ target: tg('g1', false), stopPropagation(){} }); await flush();
+    chk(e.toasts.includes('이미 마이홈에 나와 있어요') && e.respawn.length === 0 && e.calls.length === 0, '  이미 나와 있으면 요청 없이 안내');
+    e.onScreen = null; e.placeAns = 'full'; e.giftSrv.find(x => x.id === 'g-out').hidden = true; await e.giftBox.pull(false); await flush(); e.calls = [];
+    list.onclick({ target: tg('g1', false), stopPropagation(){} }); await flush();
+    chk(e.toasts.includes('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요'), '  화면이 가득이면 안내');
+    e.placeAns = null;
     // 상한
-    const e3 = E(); const m3 = e3.mk(); e3.reg('mhGiftStat'); const l3 = mkElSafe(e3);
-    e3.gifts = {}; for(let i = 0; i < 21; i++) e3.gifts['s' + i] = { ts: i, starred: i < 20 };
+    const e3 = E(); const m3 = e3.mk(); e3.reg('mhGiftStat'); const l3 = e3.reg('mhFmList'); e3.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
+    e3.giftSrv = []; for(let i = 0; i < 21; i++) e3.giftSrv.push({ id: 's' + i, senderName: 'x', imageUrl: 'https://i/s.png', message: '', starred: i < 20, hidden: false, sentAt: i });
     m3.renderGiftBox(l3); await flush(); await flush(); e3.calls = [];
     l3.onclick({ target: { closest: (s) => s === '.gift-item' ? { dataset: { gid: 's20' } } : (s === '.gift-star' ? {} : null) }, stopPropagation(){} }); await flush();
-    chk(e3.calls.length === 0 && e3.toasts.includes('즐겨찾기는 20개까지예요'), '⭐ 는 20개까지 — 넘으면 저장하지 않는다');
+    chk(e3.calls.length === 0 && e3.toasts.includes('즐겨찾기는 20개까지예요'), '⭐ 는 20개까지 — 넘으면 요청하지 않고 안내(숫자는 서버 starMax)');
     // 우클릭
     ev = { target: tg('g2', false), preventDefault(){ ev._pd = true; }, stopPropagation(){} };
     list.oncontextmenu(ev);
@@ -460,21 +477,34 @@ async function behave(src){
     ov.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '0' } } : null } }); await flush();
     chk(e.saved.join() === '다|https://i/2.png?alt=media' && ov.removed && e.calls.length === 0, '  [저장] — 선물 그림 저장을 부르고 닫는다(지우지 않음)');
     chk(e.doc.body.children.length === 0, '  확인창은 #myHomeWin 안에 붙는다(body 로 빼지 않는다)');
-    e.calls = []; e.gifts['g-out'].fromName = '라<마';
+    e.calls = []; e.giftSrv.find(x => x.id === 'g-out').senderName = '라<마'; await e.giftBox.pull(false); await flush(); e.calls = [];
     list.oncontextmenu({ target: tg('g-out', false), preventDefault(){}, stopPropagation(){} });
     const ov2 = homeWin.children[0];
     chk(homeWin.children.length === 1 && /라&lt;마 님의 선물을 저장하거나 삭제할 수 있어요/.test(ov2.innerHTML) && btnLabels(ov2) === '저장,삭제,취소' && (ov2.innerHTML.match(/class="danger"/g) || []).length === 1 && /class="danger">삭제</.test(ov2.innerHTML), '저장 · 삭제 창 — [저장] [삭제] [취소] · 이름은 escHtml · 삭제만 위험 단추');
     ov2.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '1' } } : null } }); await flush(); await flush();
-    chk(e.calls.join() === 'deleteGift g-out' && ov2.removed && e.toasts.includes('🗑 선물을 삭제했어요') && !/data-gid="g-out"/.test(list.innerHTML) && /data-gid="g1"/.test(list.innerHTML), '  [삭제] — 지우고 닫고 다시 그림');
+    chk(e.calls.join() === 'DELETE g-out,dropGift g-out' && ov2.removed && e.toasts.includes('🗑 선물을 삭제했어요') && !/data-gid="g-out"/.test(list.innerHTML) && /data-gid="g1"/.test(list.innerHTML), '  [삭제] — 서버에서 지우고 · 나와 있던 말랑이도 빼고 · 닫고 다시 그림');
     const ov3 = (list.oncontextmenu({ target: tg('g2', false), preventDefault(){}, stopPropagation(){} }), homeWin.children[0]);
     ov3.fire('click', { target: ov3 });
-    chk(ov3.removed && e.calls.length === 1, '  바깥(배경) 누르면 그냥 닫힌다');
+    chk(ov3.removed && e.calls.length === 2, '  바깥(배경) 누르면 그냥 닫힌다');
+    e.giftSrv = [{ id: 'z', senderName: 'z', imageUrl: 'https://i/z.png', message: '', starred: false, hidden: false, sentAt: 1 }]; await e.giftBox.pull(false); await flush();
     const noImgs = [{ src: 'https://i/9.png' }];
     list._qa = { '.gift-item img': noImgs };
-    e.gifts = {}; m.renderGiftBox(list); await flush(); await flush();
+    e.giftSrv = []; await e.giftBox.pull(false); await flush(); await flush();
     chk(/아직 받은 선물이 없어요/.test(list.innerHTML) && list.onclick === null && stat.textContent === '', '선물이 없으면 안내 · 누르기 해제 · 표시 비움');
     chk(noImgs[0].onerror === undefined, '  선물이 없으면 다시 받기를 걸지 않는다');
     m.giftStat('x'); chk(stat.textContent === 'x', 'giftStat 은 #mhGiftStat 에 쓴다');
+    // 못 받음 — 빈 선물함과 다른 화면 · [다시 시도]
+    const f = E(); const fm = f.mk(); f.reg('mhGiftStat'); const fl = f.reg('mhFmList'); f.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
+    f.giftErr = Object.assign(new Error('x'), { status: 503, code: 'X', kind: 'unavailable' });
+    fm.renderGiftBox(fl); await flush(); await flush();
+    chk(/못 불러왔어요/.test(fl.innerHTML) && /class="gift-retry"/.test(fl.innerHTML) && !/아직 받은 선물이 없어요/.test(fl.innerHTML), '못 받으면 «못 불러왔어요 [다시 시도]»(빈 선물함 화면이 아님 · 처음 받기는 번호 없음)');
+    f.giftErr = null; f.giftSrv = [{ id: 'q', senderName: 'q', imageUrl: 'https://i/q.png', message: '', starred: false, hidden: false, sentAt: 1 }]; f.giftUnseen = 1; f.calls = [];
+    fl.onclick({ target: { closest: (sel) => sel === '.gift-retry' ? {} : null } }); await flush(); await flush();
+    chk(f.calls.join() === 'GET box,POST seen' && /data-gid="q"/.test(fl.innerHTML), '  [다시 시도] — 받고(서브탭이니) 봤음까지 · 격자로 바뀜');
+    // 다른 서브탭이 눈앞이면 값이 바뀌어도 그 칸을 덮지 않는다
+    const other = E(); const om = other.mk(); other.reg('mhGiftStat'); const ol = other.reg('mhFmList'); other.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'req' } } };
+    ol.innerHTML = '요청 칸'; other.giftSrv = []; await other.giftBox.pull(false); await flush();
+    chk(ol.innerHTML === '요청 칸', '선물함 서브탭이 아니면 선물함이 바뀌어도 같은 칸(#mhFmList)을 덮어쓰지 않는다');
   }
 
   say('── 6. 친구 목록');
@@ -580,10 +610,10 @@ function wiring(MI, APP, HTML){
     /^myHomeFriends: \(\)=>_myHomeFriends,$/, /^friendsNotice: \(\.\.\.a\)=>friendsSubMod\.notice\(\.\.\.a\),$/, /^FRIEND_MAX: FRIEND_MAX,$/, /^friendVisit: friendVisit,$/, /^mhStripHtml: \(\.\.\.a\)=>_mhStripHtml\(\.\.\.a\),$/,
     /^starFromRemote: \(\.\.\.a\)=>starFromRemote\(\.\.\.a\),$/, /^lvStarBadgeClass: \(\.\.\.a\)=>lvStarBadgeClass\(\.\.\.a\),$/, /^lvStarStr: \(\.\.\.a\)=>lvStarStr\(\.\.\.a\),$/,
     /^lvBadgeClass: \(\.\.\.a\)=>lvBadgeClass\(\.\.\.a\),$/, /^openFriendHomeView: \(\.\.\.a\)=>openFriendHomeView\(\.\.\.a\),$/, /^renderMhProfileRail: \(\.\.\.a\)=>renderMhProfileRail\(\.\.\.a\),$/,
-    /^mallangMod: mallangMod,$/, /^removeFriend: \(\.\.\.a\)=>friendsPortMod\.removeFriend\(\.\.\.a\),$/,
+    /^mallangMod: mallangMod,$/, /^giftBox: giftBoxMod,$/, /^removeFriend: \(\.\.\.a\)=>friendsPortMod\.removeFriend\(\.\.\.a\),$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 22개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  chk(deps.length === want.length && !bad.length, 'deps 23개(💾 giftSave 는 만든 것을 값으로) — 함수는 화살표 · let 은 읽는 함수 · const 는 값(우편 한 벌 · 공지 한 판 · 말랑이 포함) (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
   const iAdm = APP.indexOf('\nlet isAdmin = false;');
   chk(iAdm > iMk, '  isAdmin 은 만드는 줄보다 뒤에 선언되는 let — 값이면 TDZ');
   const iSt = APP.indexOf('\nconst mhScheduler = '), iFM = APP.indexOf('\nconst FRIEND_MAX = ');
@@ -643,7 +673,7 @@ async function runAll(MI, APP, HTML){
   const BREAKS = [
     ['MI', '_inboxFilter = inboxSec.normCat(_inboxFilter);', '', "옛 'gift' 필터를 안 되돌림"],
     ['MI', "[saveBtn, { label:'취소' }]);", "[saveBtn, { label:'삭제', danger:true }, { label:'취소' }]);", '⭐ 선물 우클릭에 삭제 단추가 붙음'],
-    ['MI', "const saveBtn = { label:'저장', run: ()=>giftSave.save(g) };", "const saveBtn = { label:'저장' };", '[저장] 이 아무것도 안 함'],
+    ['MI', "const saveBtn = { label:'저장', run: ()=>giftSave.save({ imgUrl: g.imageUrl, fromName: g.senderName, ts: g.sentAt }) };", "const saveBtn = { label:'저장' };", '[저장] 이 아무것도 안 함'],
     ['MI', 'const ids = inboxSec.newsIds(merged, _inboxFilter);', 'const ids = Object.keys(merged);', '소식 칸이 칸 나누기 규칙을 안 부름'],
     ['MI', 'const ids = inboxSec.mailIds(merged);', 'const ids = Object.keys(merged);', '우편 칸에 소식이 섞임'],
     ['MI', "  if(m.read) return;\n  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", "  if(m._src === 'broadcast'){ _inboxBcMarkRead(id); }", '읽은 것도 다시 읽음 표시'],
@@ -679,11 +709,10 @@ async function runAll(MI, APP, HTML){
     ['MI', "const url = a ? TwSafeHtml.safeUrl(a.dataset.url, 'link') : '';", "const url = a ? a.dataset.url : '';", '열기 전에 주소를 다시 안 거름'],
     ['MI', 'root._extLinkBound = true;', '', '링크 위임이 두 번 걸림'],
     ['MI', "badge.textContent = n > 9 ? '9+' : String(n);", 'badge.textContent = String(n);', '배지 9+ 없음'],
-    ['MI', 'if(on && starN >= lim.starMax){', 'if(false){', '⭐ 상한 없음'],
     ['MI', "if(ev.target.closest('.gift-star')){\n      ev.stopPropagation();", "if(ev.target.closest('.gift-star')){", '⭐ 누르기가 칸 누르기로 번짐(stopPropagation 없음)'],
     ['MI', 'win.appendChild(ov);', 'document.body.appendChild(ov);', '확인창이 body 로'],
     ['MI', "  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));", '', '선물함 칸 그림에 다시 받기를 안 걺'],
-    ['MI', "' data-img=\"'+escHtml(g.imgUrl||'')+'\" data-msg=\"'+escHtml(g.msg||'')+'\" title=\"'+escHtml(tip)+'\">'", "' data-img=\"'+escHtml(g.imgUrl||'')+'\" data-msg=\"'+(g.msg||'')+'\" title=\"'+(tip)+'\">'", '선물 글을 속성값에 그대로'],
+    ['MI', "data-gid=\"'+escHtml(g.id)+'\" title=\"'+escHtml(tip)+'\">'", "data-gid=\"'+escHtml(g.id)+'\" title=\"'+(tip)+'\">'", '선물 글을 속성값에 그대로'],
     ['MI', "if(!r || r.indexOf('SCRT-') === 0) return '';", "if(!r) return '';", '시크릿룸 코드가 보임'],
     ['MI', "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/'+FRIEND_MAX+')';", "headCnt.textContent = '('+(_notice ? '-' : ids.length)+'/50)';", '친구 상한을 숫자로 박음'],
     ['MI', "  if(_notice){\n    _mhUpdateFriendHit('', 0);", "  if(false){\n    _mhUpdateFriendHit('', 0);", '못 받은 친구 목록을 «친구 없음» 으로 그림'],

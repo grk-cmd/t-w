@@ -34,7 +34,8 @@ const helpTab = deps.helpTab;   // 📘 도움말 탭(help-tab.js) — 탭에 �
 const inboxMod = deps.inboxMod;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const loadMyHomePage = deps.loadMyHomePage;
-const mallangMod = deps.mallangMod;   // 🧸 말랑이(mallang.js) — 열기 · 닫기 · 선물 봤음
+const mallangMod = deps.mallangMod;   // 🧸 말랑이(mallang.js) — 열기 · 닫기
+const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — 선물함 서브탭 누름의 받기 · 봤음
 const mhScheduler = deps.mhScheduler;
 const myHomeOpen = deps.myHomeOpen;   // 읽는 함수
 const myHomeSticker = deps.myHomeSticker;   // 읽는 함수
@@ -390,7 +391,7 @@ function syncFriendsOpen(){
       friendManage.renderFriendManage();
       /* 🎁 선물 배지 확인 처리는 **바로 이 자리**다. 렌더 안이 아니라 클릭에 건다 —
          친구 탭에 들어오기만 해도(직전에 보던 서브탭이 선물함이라) 본 것으로 처리되면 안 된다. */
-      if(friendManage.tab() === 'gift') mallangMod.seenGifts();
+      if(friendManage.tab() === 'gift') giftBox.openTab();   // 받기 → 안 본 선물이 있으면 봤음 · 실패는 E-GIFT-04
     });
   });
   // 일괄 처리 바
