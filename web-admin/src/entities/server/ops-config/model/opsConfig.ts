@@ -162,3 +162,23 @@ export function parseCorsOrigins(raw: unknown): string[] {
         .map(([, v]) => v);
   return vals.filter(isCorsOrigin);
 }
+
+/** 로그 수준 바뀐 칸만 — null 은 지움(= 서버 기본 info). */
+export function logLevelChanges(
+  before: LogLevels,
+  next: Partial<Record<LogTarget, LogLevel | null>>,
+): Record<string, LogLevel | null> {
+  const updates: Record<string, LogLevel | null> = {};
+  for (const { key } of LOG_TARGETS) {
+    if (!(key in next)) continue;
+    const v = next[key] ?? null;
+    if ((before[key] ?? null) !== v) updates[`${LOG_LEVEL_PATH}/${key}`] = v;
+  }
+  return updates;
+}
+
+export function logLevelDetail(before: LogLevels, updates: Record<string, LogLevel | null>): string {
+  return LOG_TARGETS.filter(({ key }) => `${LOG_LEVEL_PATH}/${key}` in updates)
+    .map(({ key }) => `${key} ${before[key] ?? '기본'} → ${updates[`${LOG_LEVEL_PATH}/${key}`] ?? '기본'}`)
+    .join(' · ');
+}

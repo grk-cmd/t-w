@@ -1,4 +1,4 @@
-import { ROOM_TOTAL_LIMITS, type Channel } from './room';
+import { CHANNEL_LABEL, ROOM_TOTAL_LIMITS, type Channel } from './room';
 
 // 원격 설정 — 앱 · 방 서버가 읽는 방 규칙. 범위는 규칙 .validate 와 같다.
 // config/roomLimits = { workingroom, togetherroom } — 채널별 전체 방 상한(Firebase 방 + 방 서버 방). 없으면 ROOM_TOTAL_LIMITS.
@@ -44,3 +44,13 @@ export const totalLimitOf = (saved: Record<Channel, number | null> | null | unde
   saved?.[ch] ?? ROOM_TOTAL_LIMITS[ch];
 
 export const roomMaxPeopleOf = (saved: number | null | undefined): number => saved ?? ROOM_MAX_PEOPLE_DEFAULT;
+
+/** 바뀐 채널만 «워킹룸 300 → 400» — 전에 칸이 없었으면 기본값으로 보여 준다. */
+export function roomLimitChanges(
+  before: Record<Channel, number | null> | null | undefined,
+  next: Record<Channel, number>,
+): string[] {
+  return ROOM_LIMIT_CHANNELS.filter((ch) => before?.[ch] !== next[ch]).map(
+    (ch) => `${CHANNEL_LABEL[ch]} ${totalLimitOf(before, ch)} → ${next[ch]}`,
+  );
+}

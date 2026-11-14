@@ -1,23 +1,20 @@
 import { describe, expect, it } from 'vitest';
 import { ACTION_LABEL } from '@/entities/admin-log';
 import {
-  getRoomLimits,
-  getRoomMaxPeople,
   parseRoomLimits,
   ROOM_MAX_PEOPLE_DEFAULT,
   ROOM_TOTAL_LIMITS,
   roomMaxPeopleOf,
-  saveRoomLimits,
-  saveRoomMaxPeople,
   totalLimitOf,
 } from '@/entities/room';
 import {
-  flagConfirmText,
-  getSignupFlags,
-  parseFlag,
-  setSignupFlag,
-  SIGNUP_FLAGS,
-} from '@/entities/signup-flag';
+  getRoomLimits,
+  getRoomMaxPeople,
+  saveRoomLimits,
+  saveRoomMaxPeople,
+} from '@/entities/room/api/firebase';
+import { flagConfirmText, parseFlag, SIGNUP_FLAGS } from '@/entities/signup-flag';
+import { getSignupFlags, setSignupFlag } from '@/entities/signup-flag/api/firebase';
 import {
   checkRoomLimits,
   checkRoomMaxPeople,

@@ -1,12 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { setSignupFlag, useRefreshSignupFlags, type SignupFlag } from '@/entities/signup-flag';
-import { useDb } from '@/shared/api';
+import { useRefreshSignupFlags, useSignupFlagPort, type SignupFlag } from '@/entities/signup-flag';
 
 export function useSetSignupFlag() {
-  const db = useDb();
+  const port = useSignupFlagPort();
   const refresh = useRefreshSignupFlags();
   return useMutation({
-    mutationFn: ({ flag, value }: { flag: SignupFlag; value: boolean }) => setSignupFlag(db, flag, value),
+    mutationFn: ({ flag, value }: { flag: SignupFlag; value: boolean }) => port.set(flag, value),
     onSuccess: refresh,
   });
 }

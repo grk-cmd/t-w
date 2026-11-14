@@ -1,9 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { saveAnimalUnlockLevel, useRefreshAnimalUnlockLevel } from '@/entities/game-config';
-import { useDb } from '@/shared/api';
+import { useGameConfigPort, useRefreshAnimalUnlockLevel } from '@/entities/game-config';
 
 export function useSaveUnlockLevel() {
-  const db = useDb();
+  const port = useGameConfigPort();
   const refresh = useRefreshAnimalUnlockLevel();
-  return useMutation({ mutationFn: (level: number) => saveAnimalUnlockLevel(db, level), onSuccess: refresh });
+  return useMutation({
+    mutationFn: (level: number) => port.saveAnimalUnlockLevel(level),
+    onSuccess: refresh,
+  });
 }

@@ -1,22 +1,12 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useDb, withAudit, type Db } from '@/shared/api';
+// Firebase 판 — 지금 코드 그대로: bugReport/current 를 읽고 쓴다.
+import { withAudit, type Db } from '@/shared/api';
 import { BUG_LINK_MAX, BUG_NOTICE_MAX, type BugReport } from '../model/bugReport';
+import type { BugReportPort } from './port';
 
-const BUG_REPORT_KEY = ['bugReport'];
 const PATH = 'bugReport/current';
 
 export function getBugReport(db: Db): Promise<BugReport | null> {
   return db.get<BugReport>(PATH);
-}
-
-export function useBugReport() {
-  const db = useDb();
-  return useQuery({ queryKey: BUG_REPORT_KEY, queryFn: () => getBugReport(db) });
-}
-
-export function useRefreshBugReport() {
-  const client = useQueryClient();
-  return () => client.invalidateQueries({ queryKey: BUG_REPORT_KEY });
 }
 
 // 앱처럼 link 를 늘 함께 쓴다 — 빈 문자열이면 앱의 [제보하기] 버튼이 꺼진다.
@@ -29,4 +19,11 @@ export function saveBugReport(db: Db, notice: string, link: string): Promise<voi
   return db.commit(
     withAudit(db, { [PATH]: value }, 'notice.bugReport', value.notice || '(안내 없음)', value.link),
   );
+}
+
+export function createFirebaseBugReportPort(db: Db): BugReportPort {
+  return {
+    get: () => getBugReport(db),
+    save: (notice, link) => saveBugReport(db, notice, link),
+  };
 }

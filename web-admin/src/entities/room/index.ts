@@ -54,16 +54,8 @@ export {
   type RoomStats,
   type RoomStatsSummary,
 } from './model/room';
-export {
-  getRoomLimits,
-  getRoomMaxPeople,
-  roomLimitChanges,
-  saveRoomLimits,
-  saveRoomMaxPeople,
-  useRefreshRoomConfig,
-  useRoomLimits,
-  useRoomMaxPeople,
-} from './api/roomConfig';
+export { useRefreshRoomConfig, useRoomLimits, useRoomMaxPeople } from './api/roomConfig';
+export { useRoomPort, type RoomPort } from './api/index';
 export {
   isRoomMaxPeople,
   isRoomTotalLimit,
@@ -77,10 +69,11 @@ export {
   ROOM_MAX_PEOPLE_PATH,
   ROOM_TOTAL_LIMIT_MAX,
   ROOM_TOTAL_LIMIT_MIN,
+  roomLimitChanges,
   roomMaxPeopleOf,
   totalLimitOf,
 } from './model/roomConfig';
-export { getChatKeep, saveChatKeep, useChatKeep, useRefreshChatKeep } from './api/chatKeep';
+export { useChatKeep, useRefreshChatKeep } from './api/chatKeep';
 export {
   CHAT_KEEP_DEFAULT,
   CHAT_KEEP_KINDS,

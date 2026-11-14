@@ -1,4 +1,5 @@
-export { getSignupFlags, setSignupFlag, useRefreshSignupFlags, useSignupFlags } from './api/signupFlag';
+export { useRefreshSignupFlags, useSignupFlags } from './api/hooks';
+export { useSignupFlagPort, type SignupFlagPort } from './api/index';
 export {
   flagConfirmText,
   flagPath,

@@ -1,12 +1,11 @@
 import { useMutation } from '@tanstack/react-query';
-import { saveBugReport, useRefreshBugReport } from '@/entities/bug-report';
-import { useDb } from '@/shared/api';
+import { useBugReportPort, useRefreshBugReport } from '@/entities/bug-report';
 
 export function useSaveBugReport() {
-  const db = useDb();
+  const port = useBugReportPort();
   const refresh = useRefreshBugReport();
   return useMutation({
-    mutationFn: ({ notice, link }: { notice: string; link: string }) => saveBugReport(db, notice, link),
+    mutationFn: ({ notice, link }: { notice: string; link: string }) => port.save(notice, link),
     onSuccess: refresh,
   });
 }

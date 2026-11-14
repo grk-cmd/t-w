@@ -1,4 +1,5 @@
-export { getBugReport, saveBugReport, useBugReport, useRefreshBugReport } from './api/bugReport';
+export { useBugReport, useRefreshBugReport } from './api/hooks';
+export { useBugReportPort, type BugReportPort } from './api/index';
 export {
   BUG_DEFAULT_NOTICE,
   BUG_LINK_MAX,
