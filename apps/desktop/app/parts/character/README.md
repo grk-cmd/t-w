@@ -7,8 +7,8 @@
 
 - **책임**: 카탈로그 파츠 레코드(`rec`)의 GLB 를 id 마다 한 번만 파싱해 들고 있고, 그 씬으로 32×32 도트 썸네일을 굽는다. 관리자 콘솔 다시 굽기는 `admin/admin-thumbs.js`.
 - **만드는 법**: app.js «🧊 파츠 GLB 파싱 캐시 · 썸네일» 자리에서 `const partSceneMod = TwPartScene.createPartScene({ … });`
-  - 톤 예산 상수 `TONE_FRONT_TOTAL` · `FLAT_EMISSIVE` · `_MAIN_LIGHT_INT` · `_MAIN_LIGHT_COL` · `_KEY_LIGHT_MUL` (값)
-  - `_applyPartMatTone` · `b64ToBuf` · `resolveCatalogGlb` (함수) · `assetCodeMod` (값)
+  - 톤 예산 상수 `TONE_FRONT_TOTAL` · `FLAT_EMISSIVE` (값)
+  - `_applyPartMatTone` · `addRunLights` · `runLightAt1`(조명 — shared/light-tone.js) · `b64ToBuf` · `resolveCatalogGlb` (함수) · `assetCodeMod` (값)
 - **내보내는 것**
   - `getPartScene(rec)` → `Promise<{ scene, animations }>` — 캐시에 없으면 `rec.glb`(없고 `glbUrl` 만 있으면 먼저 받음)를 파싱. GLB 를 못 찾으면 `파츠 GLB를 찾을 수 없어요: <id>` 로 던진다.
   - `partSceneCache` — `Map(id → { scene, animations })`. 관리자가 GLB 를 바꾸면 `partSceneMod.partSceneCache.delete(id)` 로 비운다.
@@ -367,28 +367,50 @@
   - 옛 규칙을 지키느라 판정이 조금씩 다르다 — 런처는 `'__part'` 접두(`__part_` 도)를 빼고 숨은 것은 센다 · 진단 · 머리 여유 · 검증 로그는 표식 `__twPartWrap` 을 안 본다(`isPartByRigOrName`). 지금은 이름 · 표식이 함께 붙어 결과가 같다. 하나로 맞추려면 동작 변경이라 따로 승인받는다.
   - `skipBranch` · `partTest` 는 순수 함수만 넘긴다(던지면 measureBodyBox 밖으로 나간다 — `_boxExcluding` 은 던지면 빈 박스).
 
-## gacha-tx.js — 🎰 가챠 트랜잭션 한 길
+## gacha-api.js — 🎰 가챠 api provider
 
-- **책임**: 가챠 노드(`users/{uid}/gacha`)를 트랜잭션으로 고치는 단 한 길. 뽑기 · 합치기(`gacha.js`)가 «지금 서버 값 → 새 값» 함수(apply)를 넘긴다. 통째 set 은 없다(다른 PC 의 뽑기를 지운다).
-- **만드는 법**: ESM — `firebase-init.js` 가 `import { createGachaTx } from "./character/gacha-tx.js"` 로 들이고 `createGachaTx({ db, ref, get, runTransaction, waitConnected, whenAuthReady })` 로 만든다. Firebase 를 직접 import 하지 않는다.
-- **내보내는 것**: `updateGacha(uid, apply, opt)` → `{ ok:true, committed, value }` | `{ ok:false, reason:'offline'|'timeout'|'denied'|'error' }`(firebase-init 의 `firebaseAPI.updateGacha` 가 그대로 건넨다) · `gachaFailReason(e)` · 상수 `GACHA_TX_TIMEOUT_MS`(10초) · `GACHA_CONNECT_WAIT_MS`(3초).
+- **책임**: 서버가 원본인 가챠의 읽기 · 뽑기(`GET /v1/me/collection` · `GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수 · 색 해금(다 모았나)은 서버가 정한다. 이 PC 에 보유분 사본을 두지 않는다(0.12 의 `gacha-tx.js` 트랜잭션 · 합치기 · 10분 맞추기는 걷었다).
+- **deps**: `authed`(로그인 API 통로 `TwApi.authed`) · `newRequestId`(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게).
+- **내보내는 것**: `createGachaApi(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason }, reset() }` · 상태 = `{ owned, unlocked, earned, bonus, left, season }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
 - **함정**
-  - 첫 시도의 `cur=null` 은 «빈 노드» 가 아닐 수 있다 — 사전 get 값(pre)으로 센다.
-  - 시간 상한은 사전 get 부터 저장까지 덮는다. 넘긴 뒤 늦게 committed 되면 `opt.onLate(값)` 로만 알린다(부르는 쪽이 사본에 합친다).
-  - apply 는 재시도마다 다시 불린다 — 부작용 없이 값만 돌려줄 것(gacha.js 는 마지막 실행의 결과만 쓴다).
-  - 검사: `checks/sim-gacha-tx.js`(연결 · 가짜 SDK · 깨 보기).
+  - 읽기가 실패하면 던진다(못 읽음 ≠ 빈 보유분). 뽑기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 읽기 전에는 보내지 않는다.
+  - 뽑기가 시간 초과여도 같은 요청을 다시 보내지 않는다. 서버엔 들어갔을 수 있어 사용자가 보관함을 여는 때 다시 받는다.
+  - 서버 신호 `collection`(본인)이 오면 `gacha.js` 가 다시 받는다 — 달성표 보상(`bonus`)도 이 길로 온다.
+  - 검사: `checks/sim-gacha-api.js`(요청 모양 · 응답 씻기 · 실패 · 계정 묶기 · 깨 보기) · `checks/sim-gacha.js`(받기 · 뽑기 · 보관함).
 
-## gacha-server.js — 🎰 가챠 서버 길
+## closet-api.js — 🧬 옷장 api provider
 
-- **책임**: 서버가 뽑고 서버가 저장하는 길(`GET /v1/me/gacha` · `POST /v1/me/gacha/draws`). 확률 · 풀 · 시즌 · 남은 횟수는 서버가 정한다. 이 PC 에만 있는 뽑기는 올리지 않는다(서버 값만 원본).
-- **고르기**: `gacha.js` 가 `deps.gachaSource()`(원격 설정 `sources.gacha` · `shared/source-switch.js`)가 `'server'` 일 때만 이 길을 탄다. 칸이 없으면 옛 길(`gacha-tx.js` 트랜잭션 · 앱이 뽑기).
-- **deps**: `get` · `post`(로그인 API 통로 — `firebaseAPI.apiGetAuthed` · `apiPostAuthed`) · `newRequestId`(뽑기마다 새 이름 — 그물망 재전송이 겹쳐도 서버가 두 번 굴리지 않게 · 앱은 시간 초과면 다시 보내지 않고 상태를 다시 받는다).
-- **내보내는 것**: `createGachaServer(deps)` → `{ load() → 상태 | 던짐, draw(n) → { ok:true, out, state } | { ok:false, reason } }` · 순수 `stateOf` · `resultsOf` · `reasonOf` · `clampCount`.
+- **책임**: 내 캐릭터 옷장(슬롯 5칸 · 보관함 20 · 휴지통)의 서버 길(`/v1/me/avatars…`) — 옷장 받기(슬롯 캐릭터 def 까지 한 번에) · 캐릭터 하나 읽기 · 만들기 · 고치기 · 슬롯 ↔ 보관함 옮기기 · 휴지통 보내기 · 휴지통 목록 · 되살리기 · 첫 실행 올리기(legacy-sync). 칸 수 · 상한 · 휴지통 기한은 서버가 정한다.
+- **deps**: `authed`(`TwApi.authed`) · `newRequestId`.
+- **내보내는 것**: `createClosetApi(deps)` → `{ load, fetchOne, create, update, move, trash, trashPage, restore, legacySync, reset }` · 순수 `headOf` · `closetOf` · `trashOf` · `failOf`.
+- **함정**: 읽은 토큰 주인과 쓰기를 묶는다(읽기 전엔 쓰지 않음) · 고치기는 받은 판(baseVersion)을 싣는다 — 낡은 판이어도 서버가 받고 앞 모습을 휴지통 «연동 교체» 로 남긴다(409 가 아니다) · 실패는 서버 code 그대로 던지고 혼자 다시 보내지 않는다 · 옷장 응답은 슬롯 칸과 def 짝이 맞아야 쓴다(모자라면 «못 읽음»). 검사: `checks/sim-closet-api.js`.
+
+## closet.js — 🧬 옷장 (서버 원본)
+
+- **책임**: 화면의 `slots[]` 를 서버 옷장과 잇는다. 시작할 때(`startCloset` — 계정 확인 뒤 app-boot) 받아 앉히고, 서버 신호 `avatars` 에 다시 받고, 고치면 3초 묶음으로 바뀐 칸만 쓰고(새 칸은 만들기 · 있는 칸은 고치기), 슬롯 ↔ 보관함 · 휴지통 · 되살리기는 동작 하나에 요청 하나로 한다. 0.13 첫 실행의 옛 캐릭터 올리기(`legacyStep`)도 여기.
+- **이 PC 에 없는 것**: 캐릭터 저장본 · 보관함 사본 · 고친 시각 · 백업 · 충돌 판정 · 주기 맞추기 · 부팅 지연 타이머(0.12 의 `slot-sync.js` · `chars.js` 를 걷었다).
+- **deps**: `closetApi` · `codec`(slot-codec) · `roomFaceCache` · `slots` · `slotSave`(applySlotObjs · lastOut · onSaved · pullForward · _relinkSeatsToSlots · slotsReplaced) · `getMyUserId` · `rtOn` · `toast` · `notifyError` · `renderLauncher` · `creatorOpen` · `storage`.
+- **내놓는 것**: `startCloset` · `pullCloset(notify)` · `resetCloset` · `state()`(`idle|loading|ready|failed`) · `boxItems()`(받기 전 null) · `boxCount` · `boxFull` · `moveToBox` · `boxToSlot` · `trashSlot` · `trashBox` · `trashRows` · `restore` · `moveMsg` · `deleteWords` · `unsavedCount` · `flushSlots` · `waitFlush`(줄에 선 일이 다 끝나기를 기다림) · `legacyStep` · `onChange`.
 - **함정**
-  - 실패해도 옛 길로 넘기지 않는다 — 넘기면 서버가 정하는 뜻이 없어진다. 실패하면 `gacha.js` 가 서버 값을 다시 받는다(시간 초과 뒤 서버엔 들어갔을 수 있다).
-  - 서버 길에서 보유분은 **갈아 끼운다**(합치지 않음). 못 받으면 아무것도 안 바꾸고 착용도 안 벗긴다.
-  - 컷오버 전까지 옛 앱이 `users/*/gacha` 를 직접 쓴다 — 조작을 막는 건 규칙을 닫는 날이다.
-  - 검사: `checks/sim-gacha-server.js`(요청 모양 · 응답 씻기 · 실패 · 깨 보기) · `checks/sim-gacha.js` 3-2절(서버 길로 굴리기).
+  - 받기 전(idle · loading · failed)에는 아무것도 쓰지 않는다. 실패 뒤 혼자 되풀이하지 않는다(다시 받는 길 = «다시 시도» · 서버 신호). 오류 번호 E-CHAR-16 은 사용자가 누른 받기에서만, 저장 실패(17~19)는 같은 실패를 한 번만.
+  - 내가 아직 못 올린 고침이 있는 칸은 받기가 덮지 않는다(올릴 때 서버가 앞 모습을 남긴다). 생성기가 열려 있으면 칸 갈아 끼우기를 건너뛴다.
+  - 화면에서 칸이 비었다고 서버 캐릭터를 지우지 않는다 — 지우기는 휴지통 이동(`trashSlot`)뿐. 서버가 된 뒤에만 `pullForward` 로 칸을 당긴다.
+  - 새 캐릭터는 보관함이 가득 차 있어도 슬롯에 만든다(서버가 보관함 문턱을 보지 않는다 — 20 은 보관함으로 옮길 때 · 복원할 때).
+  - 서버 일은 한 줄(lane)로 하나씩 돈다 — 받기 · 쓰기 · 옮기기 · 휴지통 · 되살리기 · 첫 실행 올리기. 받는 사이 칸이 당겨지거나 쓰는 사이 받은 판이 바뀌는 엇갈림을 이 한 줄이 막는다. 새 서버 일도 `inLane` 으로 세우고, 줄 안에서 다른 줄 일을 기다리지 않는다(동작 안의 쓰기는 `flushNow` 를 바로 부른다).
+  - 받은 옷장은 칸 그림을 다 받은 뒤에만 판(known) · 칸 차지 표시 · 머리 목록을 적는다 — 한 칸이라도 못 받으면 아무것도 바꾸지 않는다.
+  - 보관함 → 슬롯 앞에서 못 올린 새 캐릭터를 먼저 올린다(서버는 첫 빈 칸에 넣는데 그 칸이 새 캐릭터 칸일 수 있다). 못 올리면 옮기지 않는다(`why: 'dirty'`).
+  - 계정 바뀜: `resetCloset` 이 세대(gen)를 올리고 줄을 새로 시작한다 — 옛 계정 일은 gen 이 달라 아무것도 적지 않고 끝난다. 첫 실행 올리기는 내 코드까지 같은지 본다(다른 계정 옷장에 넣지 않는다).
+  - 검사: `checks/sim-closet.js` · 화면 쪽 `checks/sim-my-info-box.js` · `checks/sim-launcher-controls.js`.
+
+## slot-codec.js — 🧬 캐릭터 한 칸 ↔ 서버 def
+
+- **책임**: 화면의 저장 모양(그림 dataURL · GLB base64)을 서버 def(그림 · GLB 는 우리 Storage 주소)로, 그 반대로 바꾼다. 올리는 이름은 «종류_내용해시» 라 같은 그림은 한 번만 올라가고 올린 주소는 이 PC 올리기 캐시(`tw.slotGlbUrls`)에 기억한다 — 맞추기 사본이 아니라 중복 올리기 막이다.
+- **내놓는 것**: `_slotToServerObj`(하나라도 못 올리면 null) · `_slotFromServerObj`(얼굴 · 감은눈이 없으면 던짐) · GLB 캐시 읽기 · 쓰기 · `SLOT_JSON_MAX`(150000자). 검사: `checks/sim-slot-codec.js`.
+
+## slot-save.js — 💾 슬롯 저장 · 받아 앉히기
+
+- **책임**: 서버에서 받은 칸을 화면 캐릭터로 앉히고(`applySlotObjs(arr, which)`), `saveSlots` 가 «지금 화면 → 저장 모양» 직렬화 결과(`lastOut`)와 달라졌는지를 알린다(`onSaved`). 이 PC 에 저장하지 않는다. 빈 그림 방어 · 이미지 복원 실패 칸(`_imgBroken`) 저장 제외는 직전 직렬화 결과 기준.
+- **함정**: `which` 로 고른 칸만 앉히면 나머지 칸의 캐릭터 객체는 그대로다(책상 위 좌석이 붙들고 있다). `pullForward(i)` 는 서버가 휴지통 · 보관함 이동 뒤 당기는 것과 같은 규칙. 검사: `checks/sim-slot-save.js`.
 
 ## face-heal.js — 🛡️ 얼굴 · 좌석 그림 자동 복구
 

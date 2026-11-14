@@ -23,10 +23,9 @@ const FOCUS_ARM_LIFT = deps.FOCUS_ARM_LIFT;   // 읽는 함수
 const HAND_REST = deps.HAND_REST;   // 읽는 함수
 const LIGHT_PRESET = deps.LIGHT_PRESET;
 const M = deps.M;
-const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
-const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
 const _setDeskMatColor = deps._setDeskMatColor;
 const _sweepOrphanPartWrappers = deps._sweepOrphanPartWrappers;
+const addRunLights = deps.addRunLights;
 const allDeskItems = deps.allDeskItems;
 const bindPaint = deps.bindPaint;
 const boneSide = deps.boneSide;
@@ -74,6 +73,7 @@ const measureCharBox = deps.measureCharBox;
 const measureUnderfootDepth = deps.measureUnderfootDepth;
 const mkFaceTex = deps.mkFaceTex;
 const normalizeModel = deps.normalizeModel;
+const runLightInts = deps.runLightInts;
 const sizeFloorTo = deps.sizeFloorTo;
 const skinColorFor = deps.skinColorFor;
 const skinIndex = deps.skinIndex;   // 읽는 함수
@@ -103,8 +103,9 @@ const crFlatView = (typeof CreatorFlatView === 'undefined') ? null : CreatorFlat
 if(crFlatView) document.getElementById('cpFlat').addEventListener('click', ()=>crFlatView.toggle());
 function updateCreatorLights(){ if(!cAmb()||!cKey())return;
   const b=LIGHT_PRESET.b, h=LIGHT_PRESET.h, e=LIGHT_PRESET.e;
-  cAmb().intensity=0.95*b*e; cKey().intensity=1.0*b*e*_KEY_LIGHT_MUL;   // 밝기(strength) × 노출(조명 페이드) · 키는 정수리 배율까지
-  if(cFill()) cFill().intensity=1.0*b*e*_FILL_LIGHT_MUL;                // 정면 필 — 실행 화면과 같은 몫
+  const li=runLightInts({ int: b*e });   // 세기 예산 = 밝기(strength) × 노출(조명 페이드) — 몫은 실행 화면과 같다(shared/light-tone.js)
+  cAmb().intensity=li.amb; cKey().intensity=li.key;
+  if(cFill()) cFill().intensity=li.front;
   const col=new THREE.Color().setHSL(h,CREATOR_LIGHT_SL.s,CREATOR_LIGHT_SL.l);   // 색상(color)
   cKey().color.copy(col); cAmb().color.copy(col); if(cFill()) cFill().color.copy(col);
   /* 💡 원색 보기 — 방향광을 끄고 흰빛 앰비언트 + emissive 합을 1 로. 칠한 색이 그대로 보인다(creator-flat-view.js). */
@@ -160,11 +161,10 @@ function ensureCreatorPreview(){
   if(cRenderer())return;
   setCRenderer(new THREE.WebGLRenderer({canvas:document.getElementById('creatorPreview'),antialias:true,alpha:true,preserveDrawingBuffer:true}));
   cRenderer().setPixelRatio(Math.min(devicePixelRatio,2));cRenderer().outputEncoding=THREE.sRGBEncoding;cRenderer().toneMapping=THREE.NoToneMapping;cRenderer().setSize(222,300,false);
-  setCScene(new THREE.Scene());setCAmb(new THREE.AmbientLight(0xfdfbf7,0.95));cScene().add(cAmb());   // 색 왜곡 방지 위해 거의 백색광
-  setCKey(new THREE.DirectionalLight(0xfdfaf5,1.0));cKey().position.set(0,4,0);cScene().add(cKey());
-  /* ★ 정면 필 — 실행 화면과 같은 배치. 없으면 생성기에서는 옷 앞면이 앰비언트만 받아
-     실행 화면보다 어둡게 보인다(두 화면의 톤이 갈라지는 자리다). 세기는 updateCreatorLights 가 정한다. */
-  setCFill(new THREE.DirectionalLight(0xfdfaf5,1.0));cFill().position.set(0.5,1.0,3);cScene().add(cFill());
+  setCScene(new THREE.Scene());
+  /* ★ 실행 화면과 같은 빛 한 벌(앰비언트 · 정수리 키 · 정면 필). 정면 필이 없으면 옷 앞면이 앰비언트만 받아
+     실행 화면보다 어둡게 보인다. 세기 · 색은 아래 updateCreatorLights 가 곧바로 다시 정한다. */
+  { const lt=addRunLights(cScene(), { keyPos: [0, 4, 0] }); setCAmb(lt.amb); setCKey(lt.key); setCFill(lt.front); }
   setCCam(new THREE.PerspectiveCamera(34,222/300,0.1,100));
   const inst=instantiateBase();
   if(inst){ matToneMod.setFaceMap(inst.faceMat, dispTex);

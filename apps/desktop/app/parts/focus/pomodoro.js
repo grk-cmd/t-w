@@ -12,9 +12,9 @@
      _pomoRun 이 아직 undefined 라 '' 였다). createPomodoro 는 같은 함수를 반환값으로도 내놓는다(검사용).
      본문 머리의 «⚠️ 상태 변수는 var» 는 app.js 맨 앞 칸에 있을 때의 이야기다 — 지금은 createPomodoro 안이라 TDZ 가 없지만
      글자 그대로 두었다.
-   ★ createPomodoro 는 app.js 의 원래 자리(👑 달성표 연결 바로 뒤)에서 부른다. 만들 때 바로 도는 것(tw.pomo · tw.pomoRun 읽기 ·
-     🍅 버튼 · 서랍 버튼 연결 · 첫 그리기 · 1초 tick)이 예전과 같은 순서 · 같은 때에 돈다.
-   ⚠️ document · localStorage · window._focusLogClamp 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
+   ★ createPomodoro 는 app.js 의 원래 자리(👑 달성표 연결 바로 뒤)에서 부른다. 만들 때 바로 도는 것은 🍅 버튼 · 서랍 버튼 연결 · 첫 그리기 · 1초 tick 이다.
+     설정(tw.pomo) · 진행(tw.pomoRun)은 계정 칸이라 계정 확인 뒤 startPomodoro 가 읽는다(만들 때는 읽지도 쓰지도 않는다).
+   ⚠️ document · window._focusLogClamp 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwPomodoro — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
    검사: checks/sim-pomodoro-module.js — 만들 때 배선 · 시작 · 일시정지 · 건너뛰기 · 멈춤 · 한 사이클 · 서랍 열고 닫기(👑 달성표와 하나만) ·
          재시작 이어짐 · 머리 위 고리 · app.js 배선 · html 순서. 마크업 · 구간 셈은 sim-pomodoro 가 이 파일을 읽어 본다. */
@@ -25,6 +25,7 @@ const toast = deps.toast;
 const _focusShowPush = deps.focusShowPush;   // 📊 머리 위 «🍅 집중 18분» 즉시 갱신 — app.js(오늘 기록 전시)
 const weeklyChal = deps.weeklyChal;          // 👑 달성표 — 뽀모 서랍을 열면 달성표 서랍을 닫는다(같은 자리 · 하나만)
 const _pomoSnd = deps.pomoSnd;               // 🔔 알림음 풀 — app.js 효과음 공장(자동재생 잠금 해제 등록보다 앞에서 만든다)
+const pomoStore = deps.pomoStore;            // 🗂️ 설정 · 진행은 계정별 칸(shared/account-store.js) — 계정 확인 뒤 startPomodoro 가 읽는다
 
 /* ═══ 🍅 뽀모도로 (2026-10-02 · 시안 A안 확정 · 포커스 기록창 안쪽 서랍) ════════════════════════════════════
    [누적기록][🍅 뽀모][👑 달성표] — 🍅 를 누르면 달성표와 같은 자리에 서랍이 열린다(둘 중 하나만 · _chalOpen 이 이쪽을 닫는다).
@@ -39,11 +40,10 @@ var POMO_KEY = 'tw.pomo', POMO_RUN_KEY = 'tw.pomoRun';
 var POMO_PRESETS = { '25': { f:25, s:5, l:15 }, '50': { f:50, s:10, l:20 } };
 var _pomoCfg = { preset:'25', f:25, s:5, l:15, every:4, auto:true, sound:true };
 var _pomoRun = null;   // { phase:'focus'|'short'|'long', endAt, left(일시정지 중 남은 ms), paused, done(이번 사이클에 끝낸 집중 수), total(이 구간 길이 ms) }
-try{ const c = JSON.parse(localStorage.getItem(POMO_KEY) || 'null'); if(c && typeof c === 'object') Object.assign(_pomoCfg, c); }catch(_){}
-try{ const r = JSON.parse(localStorage.getItem(POMO_RUN_KEY) || 'null'); if(r && r.phase && r.total > 0) _pomoRun = r; }catch(_){}
+let _pomoStarted = false;   // startPomodoro 가 계정 칸을 읽은 뒤 true — 그 전에는 읽지도 쓰지도 않는다
 function _pomoClampMin(v, lo, hi, d){ const n = parseInt(v, 10); return (n >= lo && n <= hi) ? n : d; }
-function _pomoSaveCfg(){ try{ localStorage.setItem(POMO_KEY, JSON.stringify(_pomoCfg)); }catch(_){} }
-function _pomoSaveRun(){ try{ if(_pomoRun) localStorage.setItem(POMO_RUN_KEY, JSON.stringify(_pomoRun)); else localStorage.removeItem(POMO_RUN_KEY); }catch(_){} }
+function _pomoSaveCfg(){ if(!_pomoStarted) return; try{ pomoStore.set(POMO_KEY, JSON.stringify(_pomoCfg)); }catch(_){} }
+function _pomoSaveRun(){ if(!_pomoStarted) return; try{ if(_pomoRun) pomoStore.set(POMO_RUN_KEY, JSON.stringify(_pomoRun)); else pomoStore.remove(POMO_RUN_KEY); }catch(_){} }
 function _pomoPhaseMs(phase){ return 60 * 1000 * (phase === 'focus' ? _pomoCfg.f : phase === 'long' ? _pomoCfg.l : _pomoCfg.s); }
 function _pomoLeftMs(now){
   if(!_pomoRun) return 0;
@@ -203,10 +203,23 @@ function _pomoTick(){
   setInterval(_pomoTick, 1000);
 })();
 
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 계정 칸에서 설정 · 진행을 읽어 그린다. 계정이 바뀌면(reset) 기본값 · 멈춤으로 돌아간다 */
+const _pomoDefaults = JSON.stringify(_pomoCfg);
+function startPomodoro(code, me, session){
+  if(_pomoStarted) return;
+  _pomoStarted = true;
+  session.onReset(() => { _pomoStarted = false; _pomoCfg = JSON.parse(_pomoDefaults); _pomoRun = null; _pomoRender(); try{ _focusShowPush(true); }catch(_){} });
+  try{ const c = JSON.parse(pomoStore.get(POMO_KEY) || 'null'); if(c && typeof c === 'object') Object.assign(_pomoCfg, c); }catch(_){}
+  try{ const r = JSON.parse(pomoStore.get(POMO_RUN_KEY) || 'null'); if(r && r.phase && r.total > 0) _pomoRun = r; }catch(_){}
+  _pomoRender();
+  if(_pomoRun){ try{ _focusShowPush(true); }catch(_){} }   // 📊 오늘 기록 전시가 이 차례보다 먼저 한 번 보냈다 — 돌던 «🍅 집중 N분» 을 바로 싣는다
+}
+
 /* 📊 _focusShowConf(app.js)가 typeof 로 보는 고리 — 위 머리 주석(만드는 줄보다 먼저 불린다). */
 window._pomoShowText = _pomoShowText;
 
 return {
+  startPomodoro,
   showText: _pomoShowText,   // 머리 위 문구(window._pomoShowText 와 같은 함수)
   open: _pomoOpen,           // 서랍 열기 · 닫기(🍅 버튼과 같은 함수)
   render: _pomoRender,       // 검사용

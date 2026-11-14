@@ -1,58 +1,104 @@
-/* license-ui.js — 🔑 라이선스 등록 화면 — 상태 표시(refreshLicenseUI)
-   app.js «🔑 라이선스 등록 화면 — 상태 표시(refreshLicenseUI)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 48번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 9줄 —
-     isPremium · licReqMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
-   ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: refreshLicenseUI — app.js 는 licenseUiMod.이름 으로 부른다.
-   ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
+/* license-ui.js — 🔑 설정 › 라이선스 구획 그리기 — 기기 목록 화면(license-screen.js view())을 DOM 에 옮긴다
+   [왜] 구획의 «무엇을 보이나» 는 license-screen.js view() 가 정한다(상태 여섯 — 불러오는 중 · 못 받음 · 라이선스 없음 · 등록됨 · 이 기기만 없음 · 회수됨).
+     이 파일은 그 한 벌을 칸에 그리기만 한다 — 단추의 동작은 license-key.js 가 건다. 서버가 준 기기 이름은 textContent 로만 넣는다(남이 정한 글).
+   ★ 밖에서 부르는 이름: refreshLicenseUI(그리기) · openLicenseUI(opts)(창 열기 = 받기 + 그리기) — app.js 는 licenseUiMod.이름 으로 부른다.
+   ⚠️ document · window 등 브라우저 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLicenseUi — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
-   검사: checks/sim-license-ui.js */
+   검사: checks/sim-license-ui.js(모듈 모양) · checks/sim-license-screen.js(상태 · 그리기) */
 (function(){
 
 function createLicenseUi(deps){
 const isPremium = deps.isPremium;   // 읽는 함수
-const licReqMod = deps.licReqMod;   // 읽는 함수
-/* --- 라이선스 등록 UI --- */
-function refreshLicenseUI(){
-  const box=document.getElementById('licenseActiveBox');
-  const input=document.getElementById('licenseKeyInput');
-  const submitBtn=document.getElementById('licenseSubmitBtn');
-  const err=document.getElementById('licenseErrorMsg');
-  if(err) err.style.display='none';
-  if(box) box.style.display = isPremium() ? 'block' : 'none';
-  if(input) input.style.display = isPremium() ? 'none' : 'block';
-  if(submitBtn) submitBtn.style.display = isPremium() ? 'none' : 'block';
-  const lbl=document.getElementById('lcLicenseLbl');
-  if(lbl) lbl.textContent = isPremium() ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록';
-  // ★ 요청 섹션(licenseReqSection)은 기본적으로 접혀 숨겨져 있음(대규모 배포 시 아무나 요청 버튼을 누르는 걸 막기 위한 트릭).
-  //   [확인] 버튼을 Ctrl 누른 채 3번 연속 클릭하면 펼쳐짐(licenseReqUnlocked). 이미 보낸 요청이 있으면(reqId 저장돼 있음)
-  //   트릭을 몰라도 자기 요청 상태(대기중/승인됨)는 볼 수 있게 자동으로 펼쳐줌.
-  const reqSection=document.getElementById('licenseReqSection');
-  if(reqSection){
-    let reqId=null; try{ reqId=localStorage.getItem(licReqMod().LICENSE_REQ_ID_KEY); }catch(e){}
-    const shouldOpen = !isPremium() && (!!reqId || licenseReqUnlocked);
-    reqSection.classList.toggle('open', shouldOpen);
+const licenseScreenMod = deps.licenseScreenMod;   // 🔑 license-screen.js — view() · open()
+
+const licUiEl = (id) => document.getElementById(id);
+const licUiShow = (id, on, disp) => { const el = licUiEl(id); if(el) el.style.display = on ? (disp || 'block') : 'none'; };
+const LIC_SEG = 'display:flex;align-items:center;gap:6px;padding:4px 0;border-top:1px solid var(--win-lo-2);font-size:11px;color:var(--ink);';
+const LIC_SMALL = 'font-size:10.5px;color:var(--ink-soft);';
+const LIC_TITLES = {
+  registered: '✅ 라이선스가 등록되어 있어요.',
+  unregistered: '이 계정에는 라이선스가 있어요 — 이 기기는 아직 등록되지 않았어요.',
+  revoked: '⚠️ 사용이 중지된 라이선스예요.',
+};
+
+/* 기기 한 줄 — 이름 · «이 기기» 표시 · 마지막 사용 · 등록일 · 다른 기기만 [빼기] */
+function licDeviceRow(d, canAct){
+  const row = document.createElement('div');
+  row.style.cssText = LIC_SEG;
+  const info = document.createElement('div');
+  info.style.cssText = 'flex:1;min-width:0;';
+  const name = document.createElement('div');
+  name.style.cssText = 'font-weight:bold;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
+  name.textContent = (d.name || '이름 없는 기기') + (d.here ? ' · 이 기기' : '');
+  const meta = document.createElement('div');
+  meta.style.cssText = LIC_SMALL;
+  meta.textContent = '마지막 사용 ' + (d.lastSeen || '-') + ' · 등록 ' + (d.registered || '-');
+  info.appendChild(name); info.appendChild(meta);
+  row.appendChild(info);
+  if(!d.here){
+    const btn = document.createElement('button');
+    btn.type = 'button'; btn.textContent = '빼기'; btn.className = 'licDeviceRemoveBtn';
+    btn.style.cssText = 'background:none;border:none;color:var(--win-error);font-size:11px;cursor:pointer;text-decoration:underline;padding:0;';
+    btn.disabled = !canAct;
+    btn.onclick = () => { licenseScreenMod.removeDevice(d.id); };
+    row.appendChild(btn);
   }
-  if(!isPremium()){
-    let reqId=null; try{ reqId=localStorage.getItem(licReqMod().LICENSE_REQ_ID_KEY); }catch(e){}
-    if(!reqId) licReqMod()._showLicenseReqState('idle');
-    // reqId가 있으면 watchMyLicenseRequest의 콜백이 pending/approved 표시를 갱신함(resumePendingLicenseRequest에서 이미 구독 중)
-  }
+  return row;
 }
-/* --- 라이선스 요청 섹션 비공개 트릭 — [확인] 버튼을 빠르게 3번 연속 클릭하면 펼쳐짐 ---
-   대규모 배포 시 구매하지 않은 사람들이 무분별하게 요청을 보내는 걸 막기 위한 장치. 문서/안내에 노출하지 않고
-   알음알음 전달하는 용도. 요청사항으로 Ctrl 조합은 제거 — 그냥 3번 연속 클릭만. document 캡처 단계에서
-   감지해서, 트릭 발동 시엔 원래의 "빈 키 검증" 로직으로 넘어가지 않게 막아줌(실수로 에러 문구가 같이 뜨는 것 방지). */
-let licenseReqUnlocked = false;
-/* ★ (제거됨) 연타 3번으로 라이선스 '요청 보내기' 섹션을 여는 기능 — 이제 관리자가 친구코드로 직접
-   발급(수령함 전송)하는 방식으로 대체되어, 유저 요청 경로는 비활성화함. 섹션 HTML은 남아 있어도
-   열리지 않으므로 표시되지 않는다. */
-(function bindLicenseReqSecret(){ /* 비활성화 */ })();
+
+/* --- 라이선스 구획 그리기 --- */
+function refreshLicenseUI(){
+  const v = licenseScreenMod.view();
+  const lbl = licUiEl('lcLicenseLbl');
+  if(lbl) lbl.textContent = isPremium() ? '🔓 라이선스 등록됨' : '🔑 라이선스 등록';
+
+  const waiting = v.mode === 'loading' || v.mode === 'failed';
+  licUiShow('licenseStatusBox', waiting);
+  const st = licUiEl('licenseStatusMsg');
+  if(st) st.textContent = v.mode === 'failed' ? '라이선스 정보를 못 불러왔어요' : '라이선스 정보를 불러오는 중이에요';
+  licUiShow('licenseRetryBtn', v.mode === 'failed');
+
+  licUiShow('licenseAdminNote', v.admin && v.mode === 'none');
+
+  const hasLic = v.mode === 'registered' || v.mode === 'unregistered' || v.mode === 'revoked';
+  licUiShow('licenseActiveBox', hasLic);
+  const title = licUiEl('licenseActiveTitle'); if(title) title.textContent = LIC_TITLES[v.mode] || '';
+  const withDevices = v.mode === 'registered' || v.mode === 'unregistered';
+  licUiShow('licenseDeviceHead', withDevices);
+  const head = licUiEl('licenseDeviceHead');
+  if(head && withDevices) head.textContent = '내 기기 ' + v.devices.length + (v.limit ? ' / ' + v.limit : '') + '대';
+  const list = licUiEl('licenseDeviceList');
+  if(list){
+    list.textContent = '';
+    if(withDevices) for(const d of v.devices) list.appendChild(licDeviceRow(d, v.canAct));
+  }
+  const full = v.mode === 'unregistered' && v.full;
+  licUiShow('licenseDeviceNote', full);
+  const note = licUiEl('licenseDeviceNote'); if(note) note.textContent = '기기를 모두 썼어요 — 하나를 빼면 등록할 수 있어요';
+  licUiShow('licenseRegisterThisBtn', v.mode === 'unregistered');
+  const reg = licUiEl('licenseRegisterThisBtn'); if(reg) reg.disabled = !v.canAct || full;
+  licUiShow('licenseDeactivateBtn', v.mode === 'registered');
+  const deact = licUiEl('licenseDeactivateBtn'); if(deact) deact.disabled = !v.canAct;
+
+  const keyOn = v.mode === 'none' || v.mode === 'revoked';
+  licUiShow('licenseKeyBox', keyOn);
+  const err = licUiEl('licenseErrorMsg');
+  if(err){ err.textContent = keyOn ? v.keyMsg : ''; err.style.display = keyOn && v.keyMsg ? 'block' : 'none'; }
+  const submit = licUiEl('licenseSubmitBtn');
+  if(submit){ submit.disabled = !v.canAct; submit.textContent = v.busy ? '확인 중...' : '확인'; }
+  const input = licUiEl('licenseKeyInput'); if(input) input.disabled = !v.canAct;
+}
+/* 설정 라이선스 구획을 열 때 — 받기(GET /v1/me/license)를 시작하고 지금 상태를 그린다(받는 동안은 «불러오는 중»). 받기가 끝나면 screen 이 다시 그리게 한다 */
+function openLicenseUI(opts){
+  const p = licenseScreenMod.open(opts);
+  refreshLicenseUI();
+  return p;
+}
+licenseScreenMod.onChange(refreshLicenseUI);
 
 return {
   refreshLicenseUI,
+  openLicenseUI,
 };
 }
 

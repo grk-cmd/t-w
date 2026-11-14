@@ -2,7 +2,7 @@
    app.js 의 파츠 GLB 파싱 캐시 · 썸네일 본문 을 parts/character/part-scene.js 로 옮겼다(글자 그대로 · 바뀐 줄 0 — 읽는 · 쓰는 함수로 바꾼 자리). 동작 판정은 원래 검사들이 맡는다(4절 — 가짜 GLB 해결 · 파싱으로 캐시 · 받기 실패 · 썸네일 광량 공식 경계 · 프레이밍).
    여기서는 모듈 모양 · app.js 연결을 본다.
    ・1절: 만들 때 — 아무 이름이나 받아 주는 가짜 DOM · deps 위에서 던지지 않고 만들어진다 · 내놓는 이름(_forceOpaqueAlphaOutput · generatePartThumbnail · getPartScene · partSceneCache)
-   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 9줄 그대로 · 부르는 곳은 partSceneMod.이름 · html(app.js 앞)
+   ・2절: app.js 연결 — 옮긴 꼭대기 선언이 app.js 에 안 남음 · 빈 껍데기 · deps 8줄 그대로 · 부르는 곳은 partSceneMod.이름 · html(app.js 앞)
    ・4절: 동작 — 순수 판정 · 가짜 객체로 입력 → 출력 · 경계값(옮기기 전 app.js 글로도 같은 판정이 돈다)
    ・3절: 일부러 깨 보기 — 글을 망가뜨려 위 판정이 빨강이 되는지 스스로 굴려 본다
    [실행] app.js · desk-companion-prototype.html · part-scene.js 가 있는 폴더에서(러너 스테이징이면 깊은 자리에서 끌어올린다). */
@@ -15,16 +15,19 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
 const MOD = ["part-scene.js","parts/character/part-scene.js","app/parts/character/part-scene.js"].map(read).find(Boolean);
+/* 썸네일 조명은 실행 화면 조명 한 벌(shared/light-tone.js addRunLights) — 4절은 진짜 모듈을 가짜 THREE 위에서 만들어 넘긴다 */
+const LT_SRC = ["light-tone.js","parts/shared/light-tone.js","app/parts/shared/light-tone.js"].map(read).find(Boolean);
+const CORE_SRC = ["char-core.iife.js","vendor/char-core/char-core.iife.js","app/vendor/char-core/char-core.iife.js"].map(read).find(Boolean);
 if(!MOD){ say('  ? 원본 못 찾음 — part-scene.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["_applyPartMatTone","b64ToBuf","resolveCatalogGlb"];
-const VAL_DEPS = ["FLAT_EMISSIVE","TONE_FRONT_TOTAL","_KEY_LIGHT_MUL","_MAIN_LIGHT_COL","_MAIN_LIGHT_INT","assetCodeMod"];
+const FN_DEPS = ["_applyPartMatTone","addRunLights","b64ToBuf","resolveCatalogGlb","runLightAt1"];
+const VAL_DEPS = ["FLAT_EMISSIVE","TONE_FRONT_TOTAL","assetCodeMod"];
 const GET_DEPS = [];
 const SET_DEPS = [];
 const EXPORTS = ["_forceOpaqueAlphaOutput","generatePartThumbnail","getPartScene","partSceneCache"];
 const MOVED = ["_forceOpaqueAlphaOutput","partSceneCache","getPartScene","THUMB_SIZE","_thumbRenderer","_thumbScene","_thumbCam","_ensureThumbRig","generatePartThumbnail"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  FLAT_EMISSIVE: FLAT_EMISSIVE,","  TONE_FRONT_TOTAL: TONE_FRONT_TOTAL,","  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,","  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,","  _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,","  _applyPartMatTone: (...a)=>_applyPartMatTone(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),"];
+const GLUE = ["  FLAT_EMISSIVE: FLAT_EMISSIVE,","  TONE_FRONT_TOTAL: TONE_FRONT_TOTAL,","  _applyPartMatTone: (...a)=>_applyPartMatTone(...a),","  addRunLights: (...a)=>lightToneMod.addRunLights(...a),","  assetCodeMod: assetCodeMod,","  b64ToBuf: (...a)=>b64ToBuf(...a),","  resolveCatalogGlb: (...a)=>resolveCatalogGlb(...a),","  runLightAt1: (...a)=>lightToneMod.runLightAt1(...a),"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -139,7 +142,10 @@ say('── 4. 동작 — 파싱 캐시 · 썸네일');
     const doc = { createElement: () => ({ width: 0, height: 0 }) };
     let api;
     if(!PREMOVE){
-      const deps = Object.assign({}, raw, { isAdmin: () => raw.isAdmin, gachaMod: () => raw.gachaMod });
+      const charCore = new Function(CORE_SRC + '\nreturn TwCharCore;')();
+      const lw = {}; new Function('window', 'module', 'THREE', LT_SRC)(lw, undefined, Object.assign({ Color: class {} }, THREE_));
+      const lt = lw.TwLightTone.createLightTone({ _MAIN_LIGHT_COL: raw._MAIN_LIGHT_COL, _MAIN_LIGHT_INT: raw._MAIN_LIGHT_INT, _KEY_LIGHT_MUL: raw._KEY_LIGHT_MUL, _FILL_LIGHT_MUL: 0.3, _fixGlbMatLighting: () => {}, charCore });
+      const deps = Object.assign({}, raw, { isAdmin: () => raw.isAdmin, gachaMod: () => raw.gachaMod, addRunLights: lt.addRunLights, runLightAt1: lt.runLightAt1 });
       const w = {}; new Function('window', 'module', 'THREE', 'document', MOD)(w, undefined, THREE_, doc);
       api = w.TwPartScene.createPartScene(deps);
       w.firebaseAPI = win.firebaseAPI;

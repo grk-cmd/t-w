@@ -25,7 +25,7 @@ for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ console.log('  ? 원
 const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['focus-log.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 
-const IDS = ['focusLogOverlay', 'focusLogWin', 'focusLogTitle', 'focusLogTime', 'focusLogCaption', 'fsFocusLogBtn', 'focusLogClose', 'focusLogOk',
+const IDS = ['focusLogRetryRow', 'focusLogRetry', 'focusLogOverlay', 'focusLogWin', 'focusLogTitle', 'focusLogTime', 'focusLogCaption', 'fsFocusLogBtn', 'focusLogClose', 'focusLogOk',
   'focusLogTitleTxt', 'focusLogMin', 'focusLogMax', 'focusLogCaption2', 'focusLogBody', 'focusLogRow2', 'focusLogTime2', 'focusSettingsPanel', 'focusLogFigureNote'];
 
 function mkEl(id, env){
@@ -48,7 +48,7 @@ function mkEl(id, env){
 function mkEnv(opt){
   opt = opt || {};
   const env = {
-    total: 3600, session: 65, today: 1800, fig: false, rollCalls: 0, fronts: [], escs: [], timers: [], winL: {}, store: {}, sets: [],
+    total: 3600, load: 'ready', session: 65, today: 1800, fig: false, rollCalls: 0, retries: 0, fronts: [], escs: [], timers: [], winL: {}, store: {}, sets: [],
     rect: { left: 300, top: 200 }, winH: 120,
   };
   if(opt.mini) env.store['tw.focusLogMini'] = '1';
@@ -77,6 +77,8 @@ function mkEnv(opt){
     bringWinToFront: (id) => env.fronts.push(id),
     escRegisterWindow: (w) => env.escs.push(w),
     focusTotalSec: () => env.total,
+    retryProgress: () => { env.retries++; },
+    progressLoad: () => env.load,
     focusSessionSec: () => env.session,
     figureMode: () => env.fig,
   }));
@@ -98,6 +100,7 @@ function behave(src){
     e.els.fsFocusLogBtn.onclick();
     chk(e.on() && JSON.stringify(e.fronts) === '["focusLogOverlay"]', '[기록 열기] — 창이 뜨고 맨 앞으로(focusLogOverlay)');
     chk(!e.els.focusSettingsPanel.classList.contains('on'), '  ⚙️ 설정창은 닫는다');
+    chk(e.retries === 1, '  열 때 못 받은 진척을 다시 받으라고 한 번 부탁한다(받았으면 진척 모듈이 아무것도 안 한다)');
     chk(e.els.focusLogCaption.textContent === '현재 기록' && e.els.focusLogTime.textContent === 'T65' && e.els.focusLogOk.textContent === '누적기록', '  현재 기록부터(이번 실행 시간) · 버튼은 «누적기록»');
     chk(e.els.focusLogRow2.style.display === 'none' && !w.classList.contains('total') && e.rollCalls === 0, '  둘째 줄(오늘 기록)은 숨김 · 오늘 기록은 안 읽는다');
     chk(e.els.focusLogTitleTxt.textContent === '포커스 기록' && !w.classList.contains('mini') && !e.sets.length, '  제목 «포커스 기록» · 미니미 아님 · 저장값은 안 쓴다');
@@ -116,6 +119,23 @@ function behave(src){
     chk(e.escs.length === 1 && esc.key === 'focusLog' && esc.el === e.els.focusLogOverlay && esc.isOpen() === true, 'ESC 스택 — key focusLog · el 은 오버레이 · 열림을 DOM 으로 읽음');
     esc.close();
     chk(!e.on() && esc.isOpen() === false, '  ESC 로 닫힘');
+  }
+
+  say('── 2-2. 서버 진척을 못 받았을 때(누적 탭)');
+  {
+    const e = E(); e.mk();
+    e.load = 'ready'; e.total = null;
+    e.els.fsFocusLogBtn.onclick(); e.els.focusLogOk.onclick();
+    chk(e.els.focusLogTime.textContent === '--:--:--' && e.els.focusLogRetryRow.style.display === 'none', '받는 중(누적 null) — 0 이 아니라 «--:--:--» · 다시 시도 줄은 없다');
+    e.load = 'failed'; e.tick();
+    chk(e.els.focusLogRetryRow.style.display === 'flex', '못 불러옴 — «다시 시도» 줄이 보인다');
+    const r0 = e.retries;
+    e.els.focusLogRetry.onclick();
+    chk(e.retries === r0 + 1, '  [다시 시도] — 진척을 다시 받으라고 한 번 부탁한다');
+    e.load = 'ready'; e.total = 3600; e.tick();
+    chk(e.els.focusLogRetryRow.style.display === 'none' && e.els.focusLogTime.textContent === 'T3600', '  받으면 줄이 사라지고 누적이 그려진다');
+    e.load = 'failed'; e.els.focusLogOk.onclick(); e.tick();
+    chk(e.els.focusLogRetryRow.style.display === 'none', '  현재 기록 탭에서는 줄을 숨긴다');
   }
 
   say('── 2-1. 피규어 모드 안내 줄');
@@ -247,15 +267,15 @@ sec('── 6. app.js 배선', () => {
   const want = [
     /^formatHMS: \(\.\.\.a\)=>formatHMS\(\.\.\.a\),$/, /^rolloverFocusToday: \(\.\.\.a\)=>_rolloverFocusToday\(\.\.\.a\),$/,
     /^bringWinToFront: \(\.\.\.a\)=>bringWinToFront\(\.\.\.a\),$/, /^escRegisterWindow: \(\.\.\.a\)=>escRegisterWindow\(\.\.\.a\),$/,
-    /^focusTotalSec: \(\)=>_focusTotalSec,$/, /^focusSessionSec: \(\)=>_focusSessionSec,$/, /^figureMode: \(\)=>figureMode,$/,
+    /^focusTotalSec: \(\)=>focusProgressMod\.shownTotalSec\(\),/, /^retryProgress: \(\.\.\.a\)=>focusProgressMod\.reload\(true\),/, /^progressLoad: \(\)=>focusProgressMod\.progress\(\)\.load,$/, /^focusSessionSec: \(\)=>_focusSessionSec,$/, /^figureMode: \(\)=>figureMode,$/,
   ];
   const bad = want.map((re, i) => re.test(deps[i] || '') ? null : (i + ':' + (deps[i] || '없음'))).filter(Boolean);
-  chk(deps.length === want.length && !bad.length, 'deps 7개 — 함수는 화살표 · let 은 읽는 함수 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
-  const iT = APP.indexOf('let _focusTotalSec='), iS = APP.indexOf('let _focusSessionSec=');
-  chk(iT > iMk && iS > iMk && /[^.\w]_focusTotalSec\s*=[^=]/.test(code.replace(/let _focusTotalSec=/, '')) && /[^.\w]_focusSessionSec\s*[+-]?=[^=]/.test(code.replace(/let _focusSessionSec=/, '')),
-    '  _focusTotalSec · _focusSessionSec 는 만드는 줄보다 뒤에 선언 · 다시 대입되는 let — 그래서 읽는 함수(값이면 TDZ)');
+  chk(deps.length === want.length && !bad.length, 'deps 9개 — 함수는 화살표 · let 은 읽는 함수 (' + deps.length + (bad.length ? ' · 어긋남 ' + bad[0] : '') + ')');
+  const iS = APP.indexOf('let _focusSessionSec=');
+  chk(!/let _focusTotalSec=/.test(APP) && iS > iMk && /[^.\w]_focusSessionSec\s*[+-]?=[^=]/.test(code.replace(/let _focusSessionSec=/, '')),
+    '  누적은 app.js 의 let 이 아니라 서버 진척 모듈의 값(shownTotalSec — 읽는 함수) · _focusSessionSec 는 만드는 줄보다 뒤에 선언 · 다시 대입되는 let — 그래서 읽는 함수(값이면 TDZ)');
   const m = strip(MOD);
-  chk(/formatHMS\(_focusTotalSec\(\)\)/.test(m) && /formatHMS\(_focusSessionSec\(\)\)/.test(m) && !/formatHMS\(_focus(Total|Session)Sec\)/.test(m), '모듈은 누적 · 현재 기록을 그릴 때마다 읽는다');
+  chk(/const total = _focusTotalSec\(\);/.test(m) && /formatHMS\(total\)/.test(m) && /formatHMS\(_focusSessionSec\(\)\)/.test(m) && !/formatHMS\(_focus(Total|Session)Sec\)/.test(m), '모듈은 누적 · 현재 기록을 그릴 때마다 읽는다');
   chk(!/[^.\w]_focus(Total|Session|Today)Sec\s*[+-]?=[^=]/.test(m.replace(/const _focus(Total|Session)Sec = deps\.focus(Total|Session)Sec;/g, '')), '  모듈은 포커스 시간에 쓰지 않는다');
   const off = (APP.match(/const FOCUS_LOG_OFF = (\{[^\n]*?\});/) || [])[1];
   chk(!/\bFOCUS_LOG_OFF\b/.test(APP), '빈 껍데기 FOCUS_LOG_OFF 없음 — 모듈은 늘 싣는다(가드 걷기 3차)');
@@ -269,8 +289,12 @@ sec('── 6. app.js 배선', () => {
 
 sec('── 7. 일부러 깨 보기 — 이 검사가 헛돌지 않는가', () => {
   const CASES = [
-    ['누적 기록을 값으로', s => s.replace('formatHMS(_focusTotalSec())', 'formatHMS(_focusTotalSec)')],
+    ['누적 기록을 값으로', s => s.replace('const total = _focusTotalSec();', 'const total = _focusTotalSec;')],
+    ['못 받았는데 0 으로 그림', s => s.replace("total === null ? '--:--:--' : formatHMS(total)", 'formatHMS(total)')],
+    ['못 불러왔는데 다시 시도 줄을 안 보임', s => s.replace("progressLoad() === 'failed'", 'false')],
+    ['다시 시도 단추가 안 받음', s => s.replace('retryBtn.onclick=()=>{ Promise.resolve(retryProgress())', 'retryBtn.onclick=()=>{ Promise.resolve()')],
     ['현재 기록을 값으로', s => s.replace('formatHMS(_focusSessionSec())', 'formatHMS(_focusSessionSec)')],
+    ['열 때 진척 다시 받기 안 부탁함', s => s.replace('    retryProgress();\n', '')],
     ['열 때 현재 기록부터 안 함', s => s.replace("logMode='session';   // 열 때마다", "// logMode='session';   // 열 때마다")],
     ['맨 앞으로 안 올림', s => s.replace("bringWinToFront('focusLogOverlay');", ';')],
     ['설정창 안 닫음', s => s.replace("if(panel) panel.classList.remove('on');", '')],

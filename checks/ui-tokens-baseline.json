@@ -11,13 +11,14 @@
     "myhome/mallang.js": 1,
     "myhome/myhome-desktop.js": 18,
     "myhome/myhome-edit.js": 8,
+    "realtime/rt-status-ui.js": 1,
     "room/room-invite-ui.js": 1,
-    "shared/app-version-gate.js": 1,
     "shared/mac-tooltip.js": 1,
-    "shared/maintenance-gate.js": 1
+    "shared/maintenance-gate.js": 1,
+    "shared/update-flow.js": 1
   },
   "greys": {
-    "desk-companion-prototype.html": 135,
+    "desk-companion-prototype.html": 133,
     "admin/admin-category.js": 9,
     "admin/admin-license-bulk.js": 6,
     "admin/admin-report.js": 1,
@@ -37,10 +38,11 @@
     "myhome/scheduler.js": 2,
     "purikura/purikura-net.js": 2,
     "purikura/purikura-ui.js": 2,
+    "realtime/rt-status-ui.js": 3,
     "room/dice-games.js": 2,
     "room/room-entry.js": 2,
     "room/room-invite-ui.js": 1,
-    "shared/app-version-gate.js": 4,
-    "shared/maintenance-gate.js": 4
+    "shared/maintenance-gate.js": 4,
+    "shared/update-flow.js": 4
   }
 }

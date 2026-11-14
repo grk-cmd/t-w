@@ -19,7 +19,7 @@
 
    ★ 무엇을 보는가 (두 층)
      §1 소스·마크업 대조 — 전역 `.mh-ibx-tab` 잔재 · 옛 #mhReqSection 잔재 ·
-        선물 배지 확인(_mallangSeenGifts) 호출 자리 · 팝업 호출부가 하나인가
+        선물 배지 확인(giftBox.openTab — 받기 뒤 봤음) 호출 자리 · 팝업 호출부가 하나인가
      §2 런타임 — 자리가 1칸일 때 3건을 일괄 수락하면 정말 1건만 들어가는가,
         그리고 **일부러 옛날 방식으로 망가뜨리면 이 검사가 잡는가**
 
@@ -83,13 +83,13 @@ chk(/id="mhFmList"/.test(HTML), '요청·선물함을 그리는 새 칸 #mhFmLis
 
 // (ㄹ) 🎁 선물 배지 확인 처리는 **선물함 서브탭 클릭**에만 있어야 한다.
 //     탭을 스치기만 해도 본 것으로 처리되면 안 되므로, 렌더 함수 안에 있으면 실패다.
-const seenCalls = [...SRC.matchAll(/^.*_mallangSeenGifts\(\).*$/gm)]
-  .map(m => m[0].trim()).filter(l => !l.startsWith('*') && !l.startsWith('//'));
-chk(seenCalls.length === 1, '_mallangSeenGifts() 호출부가 하나뿐이다 (' + seenCalls.length + '곳)');
+const seenCalls = [...SRC.matchAll(/^.*giftBox\.openTab\(\).*$/gm)]
+  .map(m => m[0].trim()).filter(l => !l.startsWith('*') && !l.startsWith('//') && !/gift-retry/.test(l));   // [다시 시도] 단추(수령함)는 서브탭이 이미 열린 뒤라 따로
+chk(seenCalls.length === 1, 'giftBox.openTab() (받기 → 봤음) 호출부가 하나뿐이다 (' + seenCalls.length + '곳)');
 chk(seenCalls.length === 1 && /(?:_fmTab|friendManage\.tab\(\))\s*===\s*'gift'/.test(seenCalls[0]),
     '그 한 곳이 선물함 서브탭 클릭이다');
-const giftBox = (SRC.match(/function renderGiftBox\([\s\S]*?\n\}/) || [''])[0];
-chk(!!giftBox && !giftBox.includes('_mallangSeenGifts'),
+const giftBoxFn = (SRC.match(/function renderGiftBox\([\s\S]*?\n\}/) || [''])[0];
+chk(!!giftBoxFn && !giftBoxFn.includes('openTab') && !giftBoxFn.includes('markSeen'),
     'renderGiftBox() 안에는 배지 확인 처리가 없다 (렌더만으로 본 것이 되지 않는다)');
 
 /* (ㅁ) 요청 팝업 호출부는 하나 — 관리 화면과 겹치지 않게 '새로 온 것'에만 뜬다.
@@ -166,8 +166,11 @@ for (const fn of ['getSentFriendRequests', 'isFriendRequestAlive', 'pruneSentFri
   chk(HTML.includes('async ' + fn + '('), fn + '() 가 정의돼 있다');
 const sentFn = (SRC.match(/async function renderSentRequests[\s\S]*?\n\}/) || [''])[0];
 chk(!!sentFn, 'renderSentRequests() 를 찾았다');
-chk(sentFn.includes('isFriendRequestAlive'), '목록을 그릴 때 한 건씩 살아 있는지 확인한다');
-chk(sentFn.includes('pruneSentFriendRequest'), '죽은 미러는 서버에서도 치운다 (자가 치유)');
+/* 한 건씩 살아 있는지 확인 · 죽은 미러 치우기는 옛 길 provider(friend-requests-firebase.js)로 옮겼다 — 목록은 포트 listSent 한 곳으로 읽는다 */
+let FRFSRC = null; try{ FRFSRC = fs.readFileSync('friend-requests-firebase.js', 'utf8'); }catch(_){ console.log('  ? 원본 못 찾음 — friend-requests-firebase.js'); process.exit(2); }
+chk(sentFn.includes('requests().listSent('), '보낸 요청 목록은 요청 포트 listSent 한 곳으로 읽는다');
+chk(FRFSRC.includes('deps.isAlive(toId, myId)'), '옛 길 provider 가 목록을 만들 때 한 건씩 살아 있는지 확인한다');
+chk(FRFSRC.includes('deps.prune(myId, toId)'), '죽은 미러는 서버에서도 치운다 (자가 치유)');
 chk(!/onValue|subscribe/.test(sentFn),
     '보낸 요청은 **구독이 아니다** (상시 구독을 늘리면 친구 100명 상한의 근거가 무너진다)');
 // 확인 실패를 '죽음'으로 보면 멀쩡한 요청이 사라진다 — catch 가 true 를 돌려주는지
@@ -229,6 +232,8 @@ const stubApi = {
   rejectFriendRequest: async () => {},
 };
 globalThis.firebaseAPI = stubApi;
+/* 👋 요청 포트는 받는 곳 스위치로 서버 · 옛 길을 고른다 — 이 검사는 옛 길(firebaseAPI 스텁)로 고정한다(자리 계산은 길과 무관) */
+if (globalThis.TwSourceSwitch) globalThis.TwSourceSwitch.store.pick = () => 'firebase';
 if (globalThis.window) globalThis.window.firebaseAPI = stubApi;
 
 // 자리 1칸만 남긴다

@@ -63,8 +63,9 @@ chk(srcCount > 50, '<script src> ' + srcCount + '줄을 읽었다(너무 적으�
 chk(R.missSrc.length === 0, '가리키는 파일이 다 있다' + (R.missSrc.length ? ' — 없음: ' + R.missSrc.join(' · ') : ''));
 
 say('── 2. ES 모듈 상대 import');
+const IMPORT_MIN = 10;   // firebase-init.js 하나에 십수 줄 — 0.13 에서 Firebase 길을 걷을수록 준다
 const impCount = Object.values(FILES).reduce((n, t) => n + (t.match(/\bfrom\s*['"]\.\.?\//g) || []).length, 0);
-chk(impCount >= 18, '상대 import ' + impCount + '줄을 읽었다(firebase-init.js 만 18줄)');
+chk(impCount >= IMPORT_MIN, '상대 import ' + impCount + '줄을 읽었다(너무 적으면 파일을 잘못 읽은 것 — 걷을 때마다 맞추지 않게 넉넉한 문턱)');
 chk(R.missImp.length === 0, '가리키는 파일이 다 있다' + (R.missImp.length ? ' — 없음: ' + R.missImp.join(' · ') : ''));
 
 say('── 3. 일부러 깨 보기 — 없는 경로를 넣으면 잡는다');

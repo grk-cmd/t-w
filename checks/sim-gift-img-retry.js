@@ -16,6 +16,16 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for(const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/parts/myhome/' + f, 'app/parts/shared/' + f, 'app/' + f]) if(fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const SRC = { retry: read('img-retry.js'), safe: read('safe-html.js'), mallang: read('mallang.js'), html: read('desk-companion-prototype.html') };
 if(Object.values(SRC).some(v => !v)){ say('  ? 원본 못 찾음 — img-retry.js · safe-html.js · mallang.js · desk-companion-prototype.html'); process.exit(2); }
+const STORE_SRC = { store: read('mallang-store.js'), gift: read('gift-api.js'), box: read('gift-box.js'), ae: read('api-errors.js') };
+if(!STORE_SRC.store || !STORE_SRC.gift || !STORE_SRC.box || !STORE_SRC.ae){ say('  ? 원본 못 찾음 — mallang-store.js · gift-api.js · api-errors.js'); process.exit(2); }
+
+/* 🧸 말랑이 칸 상태 주인 — 진짜 mallang-store.js 위에 가짜 서버 길(slotsOf: 집 코드 → 칸 · 내 집은 'me') */
+const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
+function mkStore(slotsOf){
+  const copy = (who) => ({ slots: (slotsOf[who] || []).map((x, i) => ({ slot: i, imageUrl: x, enabled: true })), version: 1 });
+  const api = { fetchMine: async () => copy('me'), fetchOf: async (u) => copy(u), uploadImage: async () => 'https://x.example/n.png', saveMallangs: async (v, sl) => ({ slots: sl, version: v + 1 }), reset(){} };
+  return loadMod(STORE_SRC.store).createMallangStore({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){} });
+}
 
 const loadSafe = () => { const m = { exports: {} }; new Function('window', 'module', SRC.safe)(undefined, m); return m.exports; };
 /* img-retry.js 를 싣는다 — TwSafeHtml 은 그 안에서 전역 이름으로 찾는다 */
@@ -52,6 +62,16 @@ function judgeUnit(retrySrc){
 }
 
 /* mallang.js 를 가짜 DOM 에서 — 이 모듈이 쓰는 만큼만 */
+/* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 길(내 선물함 = gifts.home1 · 그 집 선물 = gifts[집 코드]) */
+function mkBox(gifts){
+  const row = (k, g) => ({ id: k, senderName: '친구', imageUrl: g.imgUrl, message: '', starred: false, hidden: false, sentAt: 1 });
+  const api = {
+    fetchBox: async () => ({ items: Object.keys(gifts.home1 || {}).map((k) => row(k, gifts.home1[k])), unseenCount: 0, starCount: 0, boxKeep: 30, starMax: 20 }),
+    fetchVisible: async (u) => ({ items: Object.keys(gifts[u] || {}).map((k) => ({ id: k, imageUrl: gifts[u][k].imgUrl, message: '' })), visibleCount: Object.keys(gifts[u] || {}).length, recipientCap: 30 }),
+    fetchSentToday: async () => ({ count: 0, dailyMax: 10 }), send: async () => ({ giftId: 'x', sentToday: 1, dailyMax: 10 }), markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {}, reset(){},
+  };
+  return loadMod(STORE_SRC.box).createGiftBox({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){}, rtOn: () => () => {}, requestIds: { idFor: (k) => k, settle(){} } });
+}
 function mkEnv(mallangSrc, retrySrc){
   const byId = {}, imgs = [];
   const mk = (tag) => {
@@ -91,19 +111,16 @@ function mkEnv(mallangSrc, retrySrc){
     document: { getElementById: (id) => byId[id] || null, createElement: mk, head: mk('head'), querySelector: () => null, querySelectorAll: () => [] },
     Image: FakeImage, localStorage: { getItem: () => null, setItem(){} },
     requestAnimationFrame: () => 1, cancelAnimationFrame(){}, setTimeout: () => 0, clearTimeout(){},
-    toast(){}, getMyUserId: () => 'me', _premiumOn: () => true, getDisplayName: () => '나',
-    firebaseAPI: {
-      getMallangImgs: async (id) => (id === 'me' ? MINE.map(url => ({ url, on: true })) : []),
-      getMallangGifts: async (id) => gifts[id] || {},
-      getMallangGiftCount: async () => 0,
-    },
+    toast(){}, getMyUserId: () => 'me', _premiumOn: () => true,
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = loadSafe();
   ctx.TwImgRetry = loadRetry(retrySrc);
   vm.createContext(ctx);
   vm.runInContext(mallangSrc, ctx, { filename: 'mallang.js' });
-  return { ctx, imgs, byId, layer: () => byId.mlLayer };
+  /* app.js 가 만드는 줄과 같은 deps 5 — 칸은 상태 주인(mallang-store.js)에서 */
+  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, premiumOn: ctx._premiumOn, mallangStore: mkStore({ me: MINE }), giftBox: mkBox(gifts) });
+  return { ctx, m, imgs, byId, layer: () => byId.mlLayer };
 }
 const flush = () => new Promise(r => setImmediate(r));
 
@@ -112,7 +129,7 @@ async function judgeMallang(mallangSrc, retrySrc){
   const t = (ok, msg) => r.push([!!ok, msg]);
   try{
     const e = mkEnv(mallangSrc, retrySrc);
-    await e.ctx._mallangOnOpen('home1', false); await flush();
+    await e.m.onOpen('home1', false); await flush();
     const im = e.imgs.find(x => String(x.src || '').startsWith(GIFT));
     const guys = () => (e.layer() ? e.layer().children.length : 0);
     t(im && guys() === 1, '선물 말랑이 하나가 뜬다(그림을 받는 중)');
@@ -135,7 +152,7 @@ async function judgeSlots(mallangSrc, retrySrc){
   const t = (ok, msg) => r.push([!!ok, msg]);
   try{
     const e = mkEnv(mallangSrc, retrySrc);
-    await e.ctx._mallangOnOpen('me', false); await flush();
+    await e.m.onOpen('me', false); await flush();
     const folder = e.byId.mlFolder;
     t(!!folder, '내 집 — 말랑이 폴더가 뜬다');
     if(folder){
@@ -143,7 +160,7 @@ async function judgeSlots(mallangSrc, retrySrc){
       const ims = imgsIn(e.byId.mlSlots);
       t(ims.length === 2 && ims.every(retriesOnce), '★ 등록 칸(우클릭 창) 그림 — 못 받으면 표식 주소로 한 번 더');
     }
-    await e.ctx._mallangOpenGift('f1', '친구'); await flush();
+    await e.m.openGift('f1', '친구'); await flush();
     const gims = imgsIn(e.byId.mlGiftGrid);
     t(gims.length === 2 && gims.every(retriesOnce), '★ 선물 고르기 칸 그림 — 못 받으면 표식 주소로 한 번 더');
   }catch(e){ t(false, '돌려 보다 던짐 — ' + String(e.message || e).slice(0, 100)); }

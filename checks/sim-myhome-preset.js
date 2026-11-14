@@ -76,10 +76,7 @@ function judge(mod){
     r.applyColorBg = J(a2.bg) === '{"color":"#333"}' && a2.bg !== preset.bg && J(P.apply({ bg: { color: '#2' } }, { theme: {}, bg: null }, keys)) === '{"theme":{},"bg":null}';
     r.applyPure = J(cur) === curBefore && a1.theme !== cur.theme && J(preset.theme) === '{"tab":"#111","left":"#222","tabImg":"https://i/섞임"}';
     r.applyNull = J(P.apply(null, { theme: null, bg: null }, keys)) === '{"theme":{},"bg":null}';
-    /* 그림 올릴 이름 */
-    r.slot = P.uploadSlot(0, 'bg') === 'p0_bg' && P.uploadSlot(1, 'tabImg') === 'p1_tabImg' && P.uploadSlot('2', 'roomImg') === 'p2_roomImg'
-      && P.uploadSlot(7, 'bg') === 'p0_bg' && P.uploadSlot(null, 'bg') === 'p0_bg' && /^[a-zA-Z0-9_-]+$/.test(P.uploadSlot(2, 'roomImg'));
-    /* 1-2. 제보 순서(B-1013-8): 1번에 그림 배경 저장 → 2번 칸에서 배경을 색으로 바꿔 저장 → 1번 불러오기 */
+        /* 1-2. 제보 순서(B-1013-8): 1번에 그림 배경 저장 → 2번 칸에서 배경을 색으로 바꿔 저장 → 1번 불러오기 */
     const d = { theme: { tab: '#1' }, bg: { img: 'https://st/design_p0_bg.jpg' } };
     const arr = P.normalize(null);
     arr[0] = P.snapshot(d, keys, '');
@@ -115,7 +112,7 @@ function wiring(edit, html){
   r.order = at >= 0 && at < order.indexOf('myhome/myhome-edit.js') && at < order.indexOf('app.js');
   const code = strip(edit);
   r.takes = /const mhPreset = TwMyHomePreset;/.test(code);
-  r.calls = ['normalize', 'cur', 'snapshot', 'apply', 'imgKeys', 'imgKeyOf', 'uploadSlot'].filter(n => !new RegExp('\\bmhPreset\\.' + n + '\\(').test(code));
+  r.calls = ['normalize', 'cur', 'snapshot', 'apply', 'imgKeys', 'imgKeyOf'].filter(n => !new RegExp('\\bmhPreset\\.' + n + '\\(').test(code));
   /* 같은 판단을 편집 묶음에 다시 쓰지 않는다 — 그림 키 걸러내기 · 저장본 배열 만들기 · 그림 키 이름 짓기 · 올릴 이름 */
   r.dup = [/imgKeys\.has\(/, /new Array\(MH_PRESET_MAX\)/, /row\.imgKey \|\|/, /isBg \? 'bg' : String\(imgKey\)/].filter(re => re.test(code)).map(String);
   return r;
@@ -133,7 +130,6 @@ chk(R.snapPure, '  받은 디자인을 고치지 않는다(새 값)');
 chk(R.applyV2, '★ 칸 → 지금 디자인 — 그림까지 담은 칸은 색 · 그림 통째로(칸에 없는 것은 지움 · 새 값)');
 chk(R.apply && R.applyColorBg, '  표시 없는 옛 칸 — 예전처럼 색만 통째로 · 그림 키 · 깔린 바깥 그림은 그대로 · 그림 없으면 칸의 배경색(없으면 비움)');
 chk(R.applyPure && R.applyNull, '  받은 값을 고치지 않는다 · 빈 디자인도 선다');
-chk(R.slot, '그림 올릴 이름 — 고른 칸 번호 + 키(p0_bg · p1_tabImg) · 틀린 번호는 0 · 파일 이름에 쓸 수 있는 글자만');
 say('── 1-2. 제보 순서 · 옛 앱');
 chk(R.report, '★ B-1013-8 — 1번(그림 배경) 저장 → 2번(배경색) 저장 → 1번 불러오면 1번 그림 배경 · 2번은 그 색');
 chk(R.oldReads, '옛 앱이 새 저장본을 읽어도 선다 — 그 칸은 색만 칸으로 보이고 불러오면 옛 규칙(지금 그림 그대로)');
@@ -146,7 +142,6 @@ say('── 3. 일부러 깨 보기');
 chk(!judge(MOD.replace("if(t[k] && (!keys.has(k) || _storable(t[k]))) theme[k] = t[k];", "if(!keys.has(k) && t[k]) theme[k] = t[k];")).snap, '칸에 그림 키를 안 담으면(예전 색만) 빨강');
 chk(!judge(MOD.replace("    bg   : _bgOf(h.bg, true),", "    bg   : _bgOf(h.bg, false),")).report, '칸에 바깥 그림을 안 담으면 제보 순서가 빨강');
 chk(!judge(MOD.replace("if(t[k] && (!keys.has(k) || _storable(t[k]))) theme[k] = t[k];", 'if(t[k]) theme[k] = t[k];')).snap, 'data: 그림까지 칸에 담으면 빨강');
-chk(!judge(MOD.replace("function uploadSlot(slot, key){ return 'p' + cur(slot) + '_' + String(key); }", 'function uploadSlot(slot, key){ return String(key); }')).slot, '그림 올릴 이름에 칸 번호를 빼면 빨강');
 chk(!judge(MOD.replace("  if(preset.img === true){", '  if(true){')).oldWrites, '표시 없는 옛 칸까지 통째로 얹으면(지금 그림을 지움) 빨강');
 chk(!judge(MOD.replace("Object.keys(curTheme).forEach(k=>{ if(keys.has(k)) theme[k] = curTheme[k]; });", '')).apply, '불러올 때 지금 그림을 안 살리면 빨강');
 chk(!judge(MOD.replace("return (n >= 0 && n < MAX) ? n : 0;", 'return n;')).cur, '고른 칸 번호를 안 거르면 빨강');

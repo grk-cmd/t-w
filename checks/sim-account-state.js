@@ -1,8 +1,8 @@
-/* sim-account-state.js — 🪪 계정 핵심 상태(account-state.js — 로그인 이메일 · 저장 키 · 친구코드 모양 · 라이선스 저장 키 · 초대 통과 · 프리미엄 깃발 · 신원 놓음 · 다시 켜기 · 원격 설정 한 벌)
+/* sim-account-state.js — 🪪 계정 핵심 상태(account-state.js — 로그인 이메일 · 저장 키 · 친구코드 모양 · 라이선스 저장 키 · 프리미엄 깃발 · 신원 놓음 · 다시 켜기 · 원격 설정 한 벌)
    실행:  node sim-account-state.js   (러너 스테이징 또는 저장소 루트에서)
    ★ 왜 이 검사가 있는가 — 이 값들이 초대 게이트(license-gate) · 계정(account) · 내 정보(my-info)에 흩어져 있어서
      계정 ↔ 게이트 ↔ 내 정보 ↔ 포커스 레벨이 서로를 불렀다(sim-dep-cycles). 맨 아래 한 파일에 두고, 쓰는 모듈보다 먼저 싣는다.
-   ・1절: 값 · 함수 — 저장 키 · 친구코드 모양 · 로그인 이메일 · 초대 통과 표시 · 프리미엄(같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번) · 신원 놓음 · 원격 설정
+   ・1절: 값 · 함수 — 저장 키 · 친구코드 모양 · 로그인 이메일 · 초대 통과 표시는 없음(0.13 — 서버가 가입을 판정) · 프리미엄(첫 확인은 알림 · 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번) · «모름» · 신원 놓음 · 원격 설정
    ・2절: HTML 순서(쓰는 모듈 · app.js 보다 먼저) · 알림을 거는 곳 · 바꾸는 곳
    ・3절: 일부러 깨 보기 */
 'use strict';
@@ -22,24 +22,26 @@ function build(mod, win) {
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const companion = new Proxy({}, { get: (t, k) => win.companion && win.companion[k] });   // 진짜 앱처럼 전역 companion = window.companion
   const api = new Function('window', 'companion', 'localStorage', 'setTimeout', 'module', mod + '\nreturn window.TwAccountState;')(win, companion, ls, (fn) => fn(), undefined);
-  let prem = false;
-  const st = api.createAccountState({ isPremium: () => prem, setIsPremium: (v) => { prem = v; } });
-  return { st, store, prem: () => prem };
+  let prem = false, adm = false;
+  const st = api.createAccountState({ isPremium: () => prem, isAdmin: () => adm, setIsPremium: (v) => { prem = v; } });
+  return { st, store, prem: () => prem, setAdmin: (v) => { adm = v; } };
 }
 function judge(mod, html, files, app) {
   const r = {};
   try {
     const win = {};
     const { st, store, prem } = build(mod, win);
-    r.keys = st.LICENSE_KEY_STORAGE === 'tw.licenseKey' && st.INVITE_PASS_KEY === 'tw.invitePassed' && st.LICENSE_OPTOUT_KEY === 'tw.licenseOptOut'
+    r.keys = st.LICENSE_KEY_STORAGE === 'tw.licenseKey' && st.LICENSE_OPTOUT_KEY === 'tw.licenseOptOut'
       && st.LOGIN_EMAIL_KEY === 'tw.loginEmail' && st.LOGIN_UID_KEY === 'tw.loginAuthUid';
     r.re = st.FRIEND_CODE_LOGIN_RE.test('MATE-AB12') && !st.FRIEND_CODE_LOGIN_RE.test('mate-ab12') && !st.FRIEND_CODE_LOGIN_RE.test('MATE-AB123');
     r.email = st.getMyLoginEmail() === null && (store['tw.loginEmail'] = 'a@b.c', st.getMyLoginEmail() === 'a@b.c');
-    st._markInvitePassed(); r.pass = store['tw.invitePassed'] === '1';
+    r.pass = !('INVITE_PASS_KEY' in st) && !('_markInvitePassed' in st);
     const got = []; st.onPremiumChanged(() => got.push('a')); st.onPremiumChanged(() => got.push('b'));
-    st._setPremium(false); const quiet = got.length === 0;
-    st._setPremium(1); r.prem = quiet && prem() === true && got.join() === 'a,b';
-    st._setPremium(true); r.premSame = got.length === 2;
+    const unknown0 = st.premiumKnown() === false && prem() === false;   // 서버가 확인해 주기 전 — false 는 «모름»
+    st._setPremium(false); r.first = unknown0 && st.premiumKnown() === true && prem() === false && got.join() === 'a,b';   // 첫 확인은 값이 그대로여도 알린다(모르는 동안 건너뛴 접기가 돈다)
+    st._setPremium(false); r.quiet = got.length === 2;
+    st._setPremium(1); r.prem = prem() === true && got.join() === 'a,b,a,b';
+    st._setPremium(true); r.premSame = got.length === 4;
     r.detach = st._acctDetached() === false && (st.setAcctDetached(true), st._acctDetached() === true);
     r.rcNull = st._rcStore() === null;
     win.TwRemoteConfig = { store: { maxPeople: () => 7 } }; r.rc = st._rcStore() && st._rcStore().maxPeople() === 7;
@@ -57,7 +59,7 @@ function judge(mod, html, files, app) {
   const glue = (name) => { const i = app.indexOf('.' + name + '({'); return i < 0 ? '' : app.slice(i, app.indexOf('\n});', i)); };
   r.detachWriters = [...app.matchAll(/acctStateMod\.setAcctDetached\(/g)].length === 1 && /setAcctDetached: \(v\)=>\{ acctStateMod\.setAcctDetached\(v\); \}/.test(glue('createAccount'))
     && /^\s*setAcctDetached\(true\);/m.test(t('account/account.js'));
-  r.made = /const acctStateMod = TwAccountState\.createAccountState\(\{\n  isPremium: \(\)=>isPremium,\n  setIsPremium: \(v\)=>\{ isPremium = v; \},\n\}\);/.test(app)
+  r.made = /const acctStateMod = TwAccountState\.createAccountState\(\{\n  isPremium: \(\)=>isPremium,\n  isAdmin: \(\)=>isAdmin,\n  setIsPremium: \(v\)=>\{ isPremium = v; \},\n\}\);/.test(app)
     && app.indexOf('const acctStateMod =') > app.search(/^let isPremium = false;/m) && app.indexOf('const acctStateMod =') < app.indexOf('const licenseGateMod =');
   return r;
 }
@@ -67,8 +69,9 @@ const FILES = ORDER.map(f => [f, f === 'app.js' ? APP : read(f)]).filter(([, t])
 const R = judge(MOD, HTML, FILES, APP);
 
 say('── 1. 값 · 함수');
-chk(!R.err && R.keys && R.re, '저장 키 다섯 · 친구코드 모양(MATE-XXXX)이 옮기기 전 값 그대로' + (R.err ? ' — ' + R.err : ''));
-chk(R.email && R.pass, '로그인 이메일은 저장 키에서 읽는다(없으면 null) · 초대 통과 표시를 적는다');
+chk(!R.err && R.keys && R.re, '저장 키 넷 · 친구코드 모양(MATE-XXXX)이 옮기기 전 값 그대로' + (R.err ? ' — ' + R.err : ''));
+chk(R.email && R.pass, '로그인 이메일은 저장 키에서 읽는다(없으면 null) · 초대 통과 표시는 걷었다(0.13)');
+chk(R.first && R.quiet, '프리미엄 «모름» — 확인 전 premiumKnown 은 false · 첫 확인은 같은 값(false)이어도 알림 · 그 뒤 같은 값은 조용');
 chk(R.prem && R.premSame, '프리미엄 — 같은 값이면 알림 없음 · 바뀌면 건 차례대로 한 번 · 값은 쓰는 함수로');
 chk(R.detach, '신원 놓음 — 처음 false · 쓰는 함수로 올린다');
 chk(R.rcNull && R.rc, '원격 설정 한 벌 — 없으면(검사 · 옛 html) null · 있으면 그 store');
@@ -84,7 +87,9 @@ say('── 3. 일부러 깨 보기');
 const line = '<script src="parts/account/account-state.js"></script>';
 const lateHtml = HTML.indexOf(line) < 0 ? HTML : HTML.replace(line, '').replace('<script src="parts/app.js"></script>', '<script src="parts/app.js"></script>\n' + line);
 chk(judge(MOD, lateHtml, FILES, APP).late.length > 0, 'account-state.js 를 app.js 뒤로 옮기면 빨강');
-chk(!judge(MOD.replace('  if(isPremium() === v) return;\n', ''), HTML, FILES, APP).premSame, '같은 값에도 알리면 빨강');
+chk(!judge(MOD.replace('  if(isPremium() === v && wasKnown) return;\n', ''), HTML, FILES, APP).premSame, '같은 값에도 알리면 빨강');
+chk(!judge(MOD.replace('isPremium() === v && wasKnown', 'isPremium() === v'), HTML, FILES, APP).first, '첫 확인이 같은 값이라고 조용하면 빨강(접기가 영영 안 돈다)');
+chk(!judge(MOD.replace('  _premiumKnown = true;\n', ''), HTML, FILES, APP).first, '확인했는데도 «모름» 이면 빨강');
 chk(!judge(MOD.replace("const LOGIN_EMAIL_KEY = 'tw.loginEmail';", "const LOGIN_EMAIL_KEY = 'tw.loginMail';"), HTML, FILES, APP).keys, '저장 키 글자가 바뀌면 빨강');
 const extra = FILES.map(([f, t]) => [f, f === 'myhome/guestbook.js' ? t + '\nonPremiumChanged(()=>{});\n' : t]);
 chk(judge(MOD, HTML, extra, APP).onPrem.includes('myhome/guestbook.js'), '다른 파일이 프리미엄 알림을 걸면 빨강(거는 곳을 여기 적고 이유를 주석에)');

@@ -26,9 +26,9 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
 - **책임**: 런처 카드의 3D 미리보기 — 렌더러 · 씬 · 카메라(도트 느낌 저해상도), 칸 캐릭터 올리기(몸 기준 프레이밍 · 둥둥 · 깜빡임),
   다 그린 뒤 한 장 찍어 슬롯 섬네일(`def.thumb`) 갈아 끼우기.
 - **만드는 법**: `TwLauncherPreview.createLauncherPreview(deps)` — 만들 때는 아무것도 그리지 않는다(`ensureLauncherPreview` 가 렌더러를 처음 한 번 만든다).
-  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · 조명 상수(`_MAIN_LIGHT_*` · `_KEY_LIGHT_MUL` · `_FILL_LIGHT_MUL`) · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
+  - 값: `slots` · `CHAR_Z` · `RIG_TURN` · `scene` · `commSceneCache` · `FrameBudget`(프레임 상한) · `blinkTiming`(= `TwBlinkTiming`, 좌석과 같은 깜빡임 시간표)
   - 읽는 함수: `customItems` · `assetCodeMod` · `slotSaveMod`
-  - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …)
+  - 함수: 책상 · 파츠 · 모델 도우미 20개(`buildDesk` · `defToBase` · `applyEquippedPartsToSeat` · `setFaceMap` …) · `addRunLights`(실행 화면 조명 — shared/light-tone.js)
 - **내놓는 것**: `ensureLauncherPreview()` · `setLauncherChar(def)`(그 캐릭터로 갈아 올림 · null 이면 비움) · `sizeLauncherPreview()`(창 크기가 바뀌면) ·
   `launcherLoop`(부팅 때 `requestAnimationFrame` 에 한 번) · 읽는 함수 `lRenderer()` · `lHolder()`(책상 아이템 크기 로그가 «런처» 인지 가른다).
   ```js
@@ -94,3 +94,69 @@ deps 의 함수는 화살표(`(...a)=>f(...a)`), app.js 가 다시 대입하는 
   - 처음 로드 · 해시 이동(did-navigate-in-page)은 되돌리지 않는다.
   - 한 로드 사이에는 한 번만 되돌린다 — 사망 길이 먼저 되돌리고 이어서 다시 불러와도 두 번 안 한다.
   - 검사: `checks/sim-renderer-gone-reset.js`(죽음 · 다시 불러오기 · 막힐 이동의 시작 차례를 가짜 창에서 실제로 돌림 · 깨 보기).
+
+## `notice-api.js` · `notice-feed.js` — 📢 공지 한 판(소식 · 업데이트 공지 · 런처 배너)
+
+**책임** — 공지의 원본은 서버다. `GET /v1/notices`(공개 · ETag — 같으면 304) 한 번에 소식(고정 + 최신 30) · 업데이트 공지 · 런처 배너를 받는다.
+`notice-api.js` 는 서버 모양(대문자 `tag` · `publishedAt` · `imageUrl` · `linkUrl`)을 화면 모양(소문자 tag · `ts` ms · `img` · `link`)으로 맞추는 provider 한 곳이고, 관리자 소식 쓰기(올리기 `POST /v1/admin/notices/broadcasts` · 📌 `PATCH` · 내리기 `DELETE`)도 여기다.
+`notice-feed.js` 는 받아 들고 있는 한 벌 — 받는 중 · 받음 · 못 받음, realtime `notices` 알림이 오면(오래 끊겼다 붙을 때 포함) 다시 받기, 받는 쪽마다 `onChange`.
+옛 장치는 걷었다: 버전 확인 + 이 PC 캐시(`broadcast-cache.js`) · 배너를 `localStorage('tw.adBanner')` 에 옮겨 적기 · 확성기의 `ts + duration` 계산.
+
+**만드는 법** — app.js 의 마이홈 처음 준비 만드는 줄 앞에서:
+
+```js
+const noticeFeed = TwNoticeFeed.createNoticeFeed({
+  api: TwNoticeApi.createNoticeApi({ get: (path)=>TwApi.authed.get(path), write: TwApi.authed, pending: TwRequestId.createPending(), warn: (...a)=>console.warn(...a) }),
+  rt: TwRtHub.store, notifyError: (...a)=>TwErrorCodes.notify(...a),
+});
+TwNetReady.whenNetReady(()=>noticeFeed.start());   // 켤 때 한 번 — 계정 확인을 기다리지 않는다(공용 데이터)
+```
+
+**내놓는 것** — `notice-feed`: `start()` · `refresh({ manual }?)`(`manual` = «다시 시도») · `onceReady(fn)`(업데이트 공지를 딱 한 번 — 이미 받았으면 바로) · `status()` · `ready()`(보여 줄 소식이 있나 — 서버에서 받았다) · `confirmed()`(서버에서 받았나) · `broadcasts()` · `hasMore()` · `updateNotice()` · `banner()` · `onChange(fn)` · `sendBroadcast(o)` · `togglePin(id)` · `remove(id)`.
+쓰는 곳: 알림함 «소식» 칸(`myhome-inbox.js` · `myhome-init.js` 가 새 소식 토스트) · 런처 배너(`ad-banner.js` · 설정 패널 배너 `settings-panel.js`) · 업데이트 공지 팝업(app.js — 처음 받았을 때 한 번).
+확성기는 이 한 판에 없다 — realtime `announce` 메시지를 `room/overhead.js` 가 받는다(서버가 60초 안에서 보낸다).
+
+**오류 번호** — `E-MH-09`(받기 실패 · **사용자가 연 · 누른 받기(알림함 열기 · «다시 시도»)에서만** · 이어지는 동안 한 번 — 켤 때 · 알림으로 자동 받다 실패하면 번호 없이 못 받음 상태만) · `E-MH-12`(관리자 올리기 · 고정 · 내리기 — 409 는 다시 받고 알린다).
+못 받아도 **혼자 다시 받지 않는다**(타이머 없음) — 다시 받는 길은 공지 바뀜 알림 · «다시 시도» · 알림함이 나타날 때다. 닫힌 동안 실패한 채 알림함이 나타날 때(탭 누르기 · 알림함 탭이 켜진 채 창 열기) `myhome-inbox.js` 의 `retryIfFailed()` 가 manual 로 한 번 다시 받는다(받는 중이면 `busy()` 로 건너뜀).
+
+**함정**
+- **사본 없음**: 공지는 모두에게 같은 공용 데이터라 계정 확인을 기다리지 않고 켤 때 받는다(로그인 화면 위에도 업데이트 공지 · 런처 배너가 뜬다). 서버가 원본이라 이 PC 에 사본을 남기지 않는다.
+- 소식 읽음은 서버에 없다 — 이 PC(`tw.inboxBcRead`)에 남는다. 계정이 바뀌어도 같은 PC 면 같은 읽음이다(계정별 저장은 A2 몫).
+- 업데이트 공지의 «다시 보지 않기» 는 공지 시각(ms)을 기억한다 — 서버 시각으로 바뀌어 Firebase 시절 기억값과는 달라 한 번 더 뜰 수 있다.
+- 관리자 편집 창(`admin/`)은 아직 Firebase 로 쓴다 — 서버 길로 옮기기 전에는 거기서 올린 확성기 · 업데이트 공지 · 배너가 앱에 안 보인다(관리자 묶음 몫).
+검사: `checks/sim-notice-api.js` · `checks/sim-notice-feed.js`(입력 → 출력 · 상태 · 409 · 깨 보기) · `checks/sim-ad-banner.js`(배너 그리기).
+
+## `app-boot.js` — 🚀 켜는 순서 한 곳
+
+**책임** — 0.13 의 켜는 순서를 한 줄로 고정한다. ① 계정 없이 돌아도 되는 것(창 · 테마 · 그리기 · 입력 · 원격 설정 · 점검 · 카탈로그 · 백색소음)은 바로 → ② 계정 확인(`license-gate.js checkInviteGate` → `login-flow.js confirm`) → 서버 계정으로 이 PC 맞추기(`account.js _enterAccount`) → ③ 안 바뀐 계정이면 게이트가 `twNav.go(NAV.ACCOUNT_ENTERED, me)` 로 알리고, 이 모듈이 한 번 — **옛 PC 값 옮기기(`migrateLegacy(그 코드)`) → 로그인 세션 만들기 + 계정 칸 열기(`session.openStore()` → `accountStore.open` — 열기 전엔 읽기 null · 쓰기 거절 + 경고) → realtime 연결(`goOnline`) → 계정 기능 시작**. 로그인 필요 · 가입 필요 · 서버 안 됨이면 ③ 은 안 돈다. 계정이 바뀌었으면(`switched`) 앱을 다시 켜고, 다시 켠 뒤 새로 돈다. 로그아웃 차례(멈추기 → 올리기 → 지우기 → 다시 켜기)는 `account.js` 한 곳에 그대로 있다.
+
+**만드는 법** — app.js 가 계정 기능 모듈을 다 만든 뒤(`roomInviteUi` 다음) `TwAppBoot.createAppBoot({ twNav, migrateLegacy, newSession, goOnline, starts })`(`newSession(me)` 는 `TwSession.createSession` — `shared/session.js`). `starts` 는 `STEPS` 의 이름마다 함수 하나(없거나 남으면 만들 때 던진다 — 한 기능을 빼먹을 수 없다). 각 함수는 `(code, me, session)` 을 받는다 — `session` 은 이번 로그인의 세션(**지금은 받아 쓰는 기능이 없다**).
+
+**차례 표(`STEPS`) — 이 순서가 정본이다**
+| # | 이름 | 시작하는 것 |
+|---|---|---|
+| 1 | focusTotal | 포커스 누적 읽기(계정 칸) — 오늘치(`startFocusTotal`) |
+| 2 | focusShare | 📊 오늘 기록 전시 첫 보내기 · 15초 확인(`startFocusShare` — 오늘치가 읽힌 뒤) |
+| 3 | focusLevel | 포커스 진척 받기 · 못 올린 집중 시간 올리기(`focusProgress.startFocus`) |
+| 4 | weeklyChal | 👑 달성표 오늘 진행을 계정 칸에서 읽고 이번 주 한 벌을 서버에서 받기(`weeklyChal.startChallenge` → `chal-store.startChal` — 세션을 받아 쓴다) |
+| 5 | pomodoro | 🍅 뽀모도로 설정 · 진행을 계정 칸에서 읽기(`pomodoro.startPomodoro`) |
+| 6 | gacha | 🎰 가챠(`startGacha`) |
+| 7 | closet | 🧬 옷장(슬롯 5칸 · 보관함 · 휴지통) 서버에서 받기(`startCloset`) |
+| 8 | mhInit | 🏠 마이홈 시작(`initMyHome(code, me)` — 접속 고정은 me 에서) |
+| 9 | bugBadge | 🐞 버그제보 탭 «새 답변» 배지 한 번 받기 |
+| 10 | scheduler | 📅 일정 알림 받기(`startSchedule`) |
+| 11 | roomInvite | 🙋 방 초대 받기(`startReceive`) |
+| 12 | desktopBg | 🖥️ 바탕화면 배경 맞추기(`MYHOME_DESKTOP.startBgSync`) |
+| 13 | playlist | 🎵 플레이리스트 받기(`plMod.pull`) |
+| 14 | licensePremium | 🔑 프리미엄 판정 반영(서버 확인) · 라이선스 알림 받기 |
+| 15 | firstRun | 0.13 첫 실행(이 PC 의 옛 값 올리고 지우기) |
+
+**내놓는 것** — `begin(me)`(보통은 nav 로 불린다) · `getSession()`(들어가기 전·못 열었으면 null). 두 번 불러도 두 번째는 아무것도 안 하고 `false`(콘솔 경고). 한 칸이 던져도(동기 · 비동기) 다음 칸은 돈다.
+
+**함정**
+- 게이트가 이 모듈을 직접 부르면 순환이다(이 모듈이 모든 계정 기능을 부르는 맨 위층) — 그래서 `nav.js` 로 알린다(`sim-dep-cycles`).
+- 기능 모듈은 `createXxx` 안에서 요청 · 구독 · 타이머 · 계정 칸 읽기를 하지 않는다. 시작은 `startXxx` 로 내놓고 이 표에만 건다. 시작 안의 4~5초 부팅 타이머(`setTimeout`)는 기능끼리 요청을 흩는 간격이라 그대로 있다.
+- 계정 칸은 열기 전까지 닫혀 있고, 계정 칸 주인 모듈(포커스 누적 · 레벨 · 오늘 기록 전시 · 바탕화면)은 시작 전이면 입구에서도 읽기 · 쓰기를 안 한다.
+- 확인을 통과하기 전(보통 1~2초)에는 마이홈 · 일정 · 공지 같은 계정 화면이 비어 있다가 채워진다.
+- 함수 안의 `if(!uid) return` 입구 확인은 다른 길에서 불릴 수 있어 남겨 둔다.
+검사: `checks/sim-app-boot.js`(차례 · 한 번만 · 알림 없으면 0번 · 던져도 계속 · 깨 보기) · `checks/sim-license-gate.js`(게이트가 확인 뒤에만 알림) · `checks/sim-nav.js`.

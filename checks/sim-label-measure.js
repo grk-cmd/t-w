@@ -119,16 +119,15 @@ function build(ovSrc, expSrc, lmSrc){
   const fbRef = {}; win.firebaseAPI = fbRef;
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
-  const fb = Object.assign(fbRef, { subscribeAnnounce: (cb) => { env.ann = cb; } });
   const perf = { now: () => env.t };
   const raf = (f) => { env.raf.push(f); return env.raf.length; };
   const G = ['window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'performance', 'requestAnimationFrame', 'setTimeout', 'clearTimeout', 'innerHeight', 'innerWidth', 'THREE', 'module'];
-  const vals = [win, env.doc, ls, {}, fb, perf, raf, () => 0, () => {}, 800, 1000, { Vector3: V3 }, undefined];
+  const vals = [win, env.doc, ls, {}, fbRef, perf, raf, () => 0, () => {}, 800, 1000, { Vector3: V3 }, undefined];
   new Function(...G, NET + '\n' + lmSrc + '\nvar TwNetReady = window.TwNetReady, TwLabelMeasure = window.TwLabelMeasure;\n' + ovSrc + '\n' + expSrc)(...vals);
   const wp = new V3();
   const ov = win.TwOverhead.createOverhead({
     ANIMAL_RUN_SCALE: 0.4, _chatEsc: (s) => s, _diceSvg: () => '', _starPaint: () => {}, _wpTmp3: wp,
-    camera: {}, chatUiMod: {}, focusLevelMod: () => ({ lvStarStr: () => '' }), getDisplayName: () => '나',
+    camera: {}, chatUiMod: {}, rtHub: { store: { onMessage: (t, fn) => { if(t === 'announce') env.ann = fn; } } }, focusLevelMod: () => ({ lvStarStr: () => '' }), getDisplayName: () => '나',
     officeMode: () => () => false, renderer: { domElement: env.canvas }, seatScale: () => 1, seats: [], tricksMod: { BONK_BUBBLE_MARK: '[bonk]' },
   });
   const exp = win.TwExpBar.createExpBar({ _focusTotalSec: () => 1234, _starPaint: () => {}, lvBarClass: () => 'lv1', lvStarBarClass: () => 'lvs', overheadMod: ov, bindLabelDrag: () => {} });
@@ -184,14 +183,14 @@ let base = null;
   chk(below, '  반전 말풍선은 실제 라벨 사각형보다 아래에 있다');
   /* 공지 — 내 좌석에만 · 마퀴 재기는 글이 바뀔 때만 */
   const b3 = build(OV, EXP, LM);
-  chk(typeof b3.env.ann === 'function', '  공지 구독이 걸렸다(가짜 firebaseAPI)');
-  b3.env.ann({ text: '점검 안내', ts: Date.now(), duration: 600000 });
+  chk(typeof b3.env.ann === 'function', '  확성기 announce 메시지를 받도록 걸렸다(가짜 realtime)');
+  b3.env.ann({ text: '점검 안내', until: Date.now() + 50000 });
   const s3 = mkSeats(2, -2);
   let rafCount = 0; const origPush = b3.env.raf.push.bind(b3.env.raf); b3.env.raf.push = (f) => { rafCount++; return origPush(f); };
   runFrames(b3, s3, 30);
   chk(!!s3[0].announceEl && s3[0].announceEl.style.display === 'block' && !s3[1].announceEl, '  공지 배너는 내 좌석에만 뜬다');
   chk(rafCount === 1, '★ 공지 마퀴 재기는 한 번만(예전엔 매 프레임 requestAnimationFrame) — ' + rafCount + '번');
-  b3.env.ann({ text: '두 번째 공지', ts: Date.now(), duration: 600000 });
+  b3.env.ann({ text: '두 번째 공지', until: Date.now() + 50000 });
   runFrames(b3, s3, 5);
   chk(rafCount === 2, '  글이 바뀌면 다시 잰다');
 }

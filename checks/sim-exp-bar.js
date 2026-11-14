@@ -32,7 +32,7 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
@@ -44,7 +44,7 @@ function build(src){
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
     src + '\nreturn window.TwExpBar;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
-  return api.createExpBar(deps);
+  return api.createExpBar(Object.assign(deps, over || {}));
 }
 
 function judgeAll(mod, app, html){
@@ -54,6 +54,8 @@ function judgeAll(mod, app, html){
   try{ out = build(mod); }catch(e){ err = e; }
   t(!err && out && typeof out === 'object', '만들 때 던지지 않는다' + (err ? ' — ' + String(err.message || err).slice(0, 80) : ''));
   t(out && EXPORTS.every(n => n in out) && Object.keys(out).length === EXPORTS.length, '내놓는 이름 ' + EXPORTS.length + '개' + (EXPORTS.length ? ' — ' + EXPORTS.join(' · ') : ''));
+  { let cells = null; try{ const c = (total) => build(mod, { _focusTotalSec: () => total }).myExpCells(); cells = [c(null), c(0), c(3900), c(3599), c(7200 + 899)]; }catch(_){}
+    t(cells && cells[0] === null && cells[1] === 0 && cells[2] === 1 && cells[3] === 11 && cells[4] === 2, '★ 내 칸 수 — 서버 답 전(누적 null)은 null(바를 그리지 않는다) · 0초 0칸 · 3900초 1칸 · 3599초 11칸 · 레벨을 넘기면 다시 세기'); }
   t(/window\.TwExpBar = api;/.test(mod) && /module\.exports = api;/.test(mod), '전역 이름 TwExpBar(Tw 접두사)');
   const A = strip(app.split('\n').filter(l => !l.includes('// 옛 전역 이름')).join('\n'));   // 옛 전역 이름 잇기 줄은 «남은 선언 · 옛 이름 부름» 이 아니다
   const left = MOVED.filter(n => new RegExp('^(?:async\\s+)?(?:function\\s+' + n.replace(/\$/g, '\\$') + '\\b|(?:const|let|var)\\s+' + n.replace(/\$/g, '\\$') + '\\b)', 'm').test(A));
