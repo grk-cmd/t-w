@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import type { Env } from '@/shared/api';
+import { BACKEND_LABEL, BUILD_COMMIT } from '@/shared/config';
 import styles from './AdminLayout.module.css';
 
 export interface NavItem {
@@ -28,6 +29,9 @@ export function AdminLayout({ env, account, nav, title, children }: Props) {
         <b>Together Working 관리자</b>
         <span className={env.isProd ? `${styles.env} ${styles.prod}` : styles.env}>
           {env.isProd ? '운영' : `dev · ${env.projectId}`}
+        </span>
+        <span className={styles.edition} title={`빌드 ${BUILD_COMMIT}`}>
+          {BACKEND_LABEL} · {BUILD_COMMIT}
         </span>
         {account && (
           <span className={styles.account}>

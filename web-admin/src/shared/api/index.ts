@@ -12,20 +12,25 @@ export {
   type AuditRecord,
 } from './audit';
 export {
+  ADMIN_API_BASE,
+  adminPath,
   API_TIMEOUT_MS,
   ApiError,
   apiBaseUrl,
   createApi,
   isApiAuthError,
+  isApiConflict,
   PROD_API_BASE_URL,
-  REPLICA_LAG_MS,
-  shouldFallback,
-  viaApiOr,
   type Api,
   type ApiErrorKind,
-  type ApiFallback,
   type ApiParams,
+  type ApiSendMethod,
+  type ApiSendOptions,
+  type MissingRoute,
 } from './api';
+export { REPLICA_LAG_MS, shouldFallback, viaApiOr, type ApiFallback } from './legacyFallback';
+export { isPortError, notPorted, pickBackend, PortError, toPortError, type PortErrorKind } from './backend';
+export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT } from './errorText';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';
 export type { Files } from './files';
 export { callErrorMessage, FUNCTIONS_REGION, type Functions } from './functions';

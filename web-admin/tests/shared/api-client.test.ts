@@ -2,10 +2,16 @@ import { describe, expect, it, vi } from 'vitest';
 import {
   ApiError,
   apiBaseUrl,
+  apiErrorText,
+  CONFLICT_TEXT,
   createApi,
   isApiAuthError,
+  isApiConflict,
   PROD_API_BASE_URL,
   shouldFallback,
+  viaApiOr,
+  type Api,
+  type MissingRoute,
 } from '@/shared/api';
 import { errorMessage } from '@/shared/lib';
 
@@ -14,7 +20,11 @@ const BASE = 'https://api.example';
 const json = (status: number, body: unknown) =>
   new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 
-function api(respond: (url: URL, init: RequestInit) => Promise<Response> | Response, token = 'tok') {
+function api(
+  respond: (url: URL, init: RequestInit) => Promise<Response> | Response,
+  token = 'tok',
+  missingRoute: MissingRoute = 'unavailable',
+) {
   const calls: { url: URL; init: RequestInit }[] = [];
   const fetch = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
     const url = new URL(String(input));
@@ -22,7 +32,13 @@ function api(respond: (url: URL, init: RequestInit) => Promise<Response> | Respo
     return respond(url, init ?? {});
   }) as unknown as typeof globalThis.fetch;
   return {
-    client: createApi({ baseUrl: BASE, token: async () => token || null, fetch, timeoutMs: 50 }),
+    client: createApi({
+      baseUrl: BASE,
+      token: async () => token || null,
+      fetch,
+      timeoutMs: 50,
+      missingRoute,
+    }),
     calls,
   };
 }
@@ -93,7 +109,7 @@ describe('API 통로', () => {
     expect(errorMessage(e403, '실패')).toContain('권한이 없어요');
   });
 
-  it('5xx · 404 · 봉투가 아닌 응답은 «닿지 못함» — 폴백한다', async () => {
+  it('5xx · 봉투가 아닌 응답은 «닿지 못함» — 폴백한다', async () => {
     const e500 = await failure(
       api(() => json(500, { success: false, code: 'INTERNAL_ERROR', message: '서버 오류' })).client.get(
         '/v1/x',
@@ -102,15 +118,52 @@ describe('API 통로', () => {
     const e502 = await failure(
       api(() => new Response('<html>Bad Gateway</html>', { status: 502 })).client.get('/v1/x'),
     );
-    const e404 = await failure(
-      api(() => json(404, { success: false, code: 'NOT_FOUND' })).client.get('/v1/x'),
-    );
     const weird = await failure(api(() => new Response('ok', { status: 200 })).client.get('/v1/x'));
-    for (const e of [e500, e502, e404, weird]) {
+    for (const e of [e500, e502, weird]) {
       expect(e.kind).toBe('unavailable');
       expect(shouldFallback(e)).toBe(true);
     }
     expect([e500.status, e500.code]).toEqual([500, 'INTERNAL_ERROR']);
+  });
+
+  it('404 — Firebase 판(missingRoute unavailable)은 «서버가 아직 모르는 길» 이라 옛 길로 넘어간다', async () => {
+    const e = await failure(
+      api(() => json(404, { success: false, code: 'BUG_NOT_FOUND', message: '없는 글' })).client.get('/v1/x'),
+    );
+    expect([e.kind, e.status, e.code]).toEqual(['unavailable', 404, 'BUG_NOT_FOUND']);
+    expect(shouldFallback(e)).toBe(true);
+    expect(
+      shouldFallback(
+        await failure(
+          api(() => json(409, { success: false, code: 'CONCURRENT_UPDATE' })).client.get('/v1/x'),
+        ),
+      ),
+    ).toBe(false);
+  });
+
+  it('404 — API 판(missingRoute notFound)은 그 자원의 «없음» 이다', async () => {
+    const e = await failure(
+      api(
+        () => json(404, { success: false, code: 'BUG_NOT_FOUND', message: '없는 글' }),
+        'tok',
+        'notFound',
+      ).client.get('/v2/admin/x'),
+    );
+    expect([e.kind, e.status, e.code]).toEqual(['notFound', 404, 'BUG_NOT_FOUND']);
+    expect(errorMessage(e, '실패')).toBe('지워진 글이에요');
+  });
+
+  it('501 은 «서버가 아직 안 열었어요»(notReady) — 판과 상관없이', async () => {
+    for (const missingRoute of ['unavailable', 'notFound'] as const) {
+      const e = await failure(
+        api(
+          () => json(501, { success: false, code: 'NOT_IMPLEMENTED', message: 'x' }),
+          'tok',
+          missingRoute,
+        ).client.get('/v2/admin/admins/me'),
+      );
+      expect([e.kind, e.status]).toEqual(['notReady', 501]);
+    }
   });
 
   it('네트워크(CORS 거절 포함) 실패 · 타임아웃도 폴백', async () => {
@@ -147,5 +200,108 @@ describe('API 통로', () => {
     expect([e.kind, e.code]).toEqual(['request', 'INVALID_REQUEST']);
     expect(shouldFallback(e)).toBe(false);
     expect(shouldFallback(new Error('x'))).toBe(false);
+  });
+});
+
+describe('옛 API 읽기 넘어가기 — Firebase 판만', () => {
+  const down = new ApiError('unavailable', 502, '', '');
+  it('API 판(allowed 거짓)은 못 닿아도 · 주소가 없어도 RTDB 로 넘어가지 않고 오류를 던진다', async () => {
+    const fallback = vi.fn(async () => 'rtdb');
+    expect(shouldFallback(down, false)).toBe(false);
+    await expect(
+      viaApiOr(
+        {} as Api,
+        async () => {
+          throw down;
+        },
+        fallback,
+        false,
+      ),
+    ).rejects.toBe(down);
+    await expect(viaApiOr(null, async () => 'x', fallback, false)).rejects.toBeInstanceOf(ApiError);
+    expect(fallback).not.toHaveBeenCalled();
+  });
+
+  it('Firebase 판(allowed 참)은 지금처럼 넘어간다', async () => {
+    const fallback = vi.fn(async () => 'rtdb');
+    await expect(
+      viaApiOr(
+        {} as Api,
+        async () => {
+          throw down;
+        },
+        fallback,
+        true,
+      ),
+    ).resolves.toBe('rtdb');
+    await expect(viaApiOr(null, async () => 'x', fallback, true)).resolves.toBe('rtdb');
+  });
+});
+
+describe('쓰기(send)', () => {
+  it('본문은 JSON 으로, 쿼리는 빈 값 빼고 붙인다 — 봉투의 data 를 돌려준다', async () => {
+    const { client, calls } = api(() => json(200, { success: true, data: { version: 4 } }));
+
+    await expect(
+      client.send('PUT', '/v1/admin/config/x', { body: { version: 3, value: { a: 1 } }, query: { q: '' } }),
+    ).resolves.toEqual({ version: 4 });
+
+    expect(calls[0].init.method).toBe('PUT');
+    expect(calls[0].init.body).toBe(JSON.stringify({ version: 3, value: { a: 1 } }));
+    expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBe('application/json');
+    expect(calls[0].url.search).toBe('');
+  });
+
+  it('DELETE 는 본문 없이 ?version= 만', async () => {
+    const { client, calls } = api(() => json(200, { success: true, data: null }));
+
+    await client.send('DELETE', '/v1/admin/todos/t1', { body: { ignored: true }, query: { version: 7 } });
+
+    expect(calls[0].init.method).toBe('DELETE');
+    expect(calls[0].init.body).toBeUndefined();
+    expect(calls[0].url.searchParams.get('version')).toBe('7');
+    expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBeUndefined();
+  });
+
+  it('upload 는 바이트 그대로 · Content-Type 은 준 것', async () => {
+    const { client, calls } = api(() => json(200, { success: true, data: { id: 'a' } }));
+    const bytes = new Uint8Array([1, 2, 3]);
+
+    await expect(client.upload('/v2/admin/x', bytes, 'image/png')).resolves.toEqual({ id: 'a' });
+
+    expect(calls[0].init.method).toBe('POST');
+    expect(calls[0].init.body).toBe(bytes);
+    expect((calls[0].init.headers as Record<string, string>)['Content-Type']).toBe('image/png');
+  });
+
+  it('204(본문 없음)는 성공', async () => {
+    const { client } = api(() => new Response(null, { status: 204 }));
+    await expect(client.send('DELETE', '/v1/x', { query: { version: 1 } })).resolves.toBeUndefined();
+  });
+
+  it('409 는 덮지 않은 것 — 그대로 던지고 isApiConflict 로 알아본다 · 실패 봉투의 items 를 싣는다', async () => {
+    const e = await failure(
+      api(() =>
+        json(409, { success: false, code: 'CONCURRENT_UPDATE', message: '다른 곳에서 바꿨어요', items: [1] }),
+      ).client.send('PATCH', '/v1/x/1', { body: { version: 1 } }),
+    );
+    expect([e.kind, e.status]).toEqual(['request', 409]);
+    expect(isApiConflict(e)).toBe(true);
+    expect(e.items).toEqual([1]);
+    expect(shouldFallback(e)).toBe(false);
+    expect(errorMessage(e, '실패')).toBe(CONFLICT_TEXT);
+  });
+});
+
+describe('서버 오류 문구 표', () => {
+  it('표에 있는 code 는 그 문구, 없는 서버 오류는 서버 message, 닿지 못함 · 오류 아님은 fallback', () => {
+    const known = new ApiError('request', 400, 'OPS_VERSION_ABOVE_LATEST', '서버 문구');
+    const unknown = new ApiError('request', 400, 'SOMETHING_NEW', '서버가 준 문구');
+    const down = new ApiError('unavailable', 502, '', 'API 오류');
+    expect(apiErrorText(known, '실패')).toBe('공개된 최신 릴리스보다 높아요');
+    expect(apiErrorText(unknown, '실패')).toBe('서버가 준 문구');
+    expect(apiErrorText(down, '못 불러왔어요')).toBe('못 불러왔어요');
+    expect(apiErrorText(new Error('x'), '실패')).toBe('실패');
+    expect(errorMessage(unknown, '실패')).toBe('서버가 준 문구');
   });
 });

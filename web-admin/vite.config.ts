@@ -6,6 +6,33 @@ import { defineConfig, type Plugin } from 'vite';
 
 const DEV_PROJECT = 'together-working-dev';
 
+// 두 판 가운데 하나를 빌드 때 고른다 — 셸 값 VITE_ADMIN_BACKEND 가 먼저, 없으면 모드 이름(build:firebase · build:api 가 넘기는 --mode)으로.
+// 개발 서버(development) · vitest(test)는 Firebase 판이다. 그 밖의 모드(plain vite build 의 production 등)는 값이 없는 것이라 빌드가 멈춘다 — 짐작하지 않는다.
+const MODE_BACKEND: Record<string, string> = {
+  firebase: 'firebase',
+  api: 'api',
+  development: 'firebase',
+  test: 'firebase',
+};
+
+function adminBackend(mode: string) {
+  const raw = process.env.VITE_ADMIN_BACKEND ?? MODE_BACKEND[mode];
+  if (raw !== 'firebase' && raw !== 'api') {
+    throw new Error(
+      `VITE_ADMIN_BACKEND 는 'firebase' 또는 'api' 여야 해요 (지금: ${raw || '없음'}) — npm run build:firebase · build:api 로 빌드해요`,
+    );
+  }
+  return raw;
+}
+
+function buildCommit() {
+  try {
+    return execSync('git rev-parse --short HEAD', { encoding: 'utf8' }).trim();
+  } catch {
+    return 'unknown';
+  }
+}
+
 // 앱은 Firebase 설정을 Hosting 예약 주소(/__/firebase/init.json)에서 받는다 — 설정값을 저장소에 두지 않기 위해서다.
 // 개발 서버에는 그 주소가 없으므로 로그인된 Firebase CLI 로 dev 설정을 받아 대신 돌려준다. 로컬은 항상 dev 에 붙는다.
 function devFirebaseConfig(): Plugin {
@@ -34,18 +61,25 @@ function devFirebaseConfig(): Plugin {
   };
 }
 
-export default defineConfig({
-  base: '/admin/',
-  resolve: {
-    alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
-  },
-  plugins: [react(), devFirebaseConfig()],
-  build: {
-    outDir: '../hosting/admin',
-    emptyOutDir: true,
-  },
-  test: {
-    include: ['tests/**/*.test.ts'], // e2e/ 는 Playwright 가 돌린다
-    environment: 'node',
-  },
+export default defineConfig(({ mode }) => {
+  const backend = adminBackend(mode);
+  return {
+    base: '/admin/',
+    resolve: {
+      alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
+    },
+    define: {
+      __ADMIN_BUILD_COMMIT__: JSON.stringify(buildCommit()),
+      'import.meta.env.VITE_ADMIN_BACKEND': JSON.stringify(backend),
+    },
+    plugins: [react(), devFirebaseConfig()],
+    build: {
+      outDir: '../hosting/admin',
+      emptyOutDir: true,
+    },
+    test: {
+      include: ['tests/**/*.test.ts'], // e2e/ 는 Playwright 가 돌린다
+      environment: 'node',
+    },
+  };
 });

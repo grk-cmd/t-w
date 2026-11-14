@@ -20,6 +20,11 @@
   background: var(--danger);
 }
 
+.edition {
+  font-size: 12px;
+  color: var(--soft, #666);
+}
+
 .account {
   display: flex;
   align-items: center;

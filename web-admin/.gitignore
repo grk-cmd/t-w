@@ -26,5 +26,6 @@ dist-ssr
 # e2e — 실행 때 복사하는 규칙 사본 · 로그인 상태 · 결과
 e2e/.database.rules.json
 e2e/.auth/
+e2e-api/.auth/
 test-results/
 playwright-report/

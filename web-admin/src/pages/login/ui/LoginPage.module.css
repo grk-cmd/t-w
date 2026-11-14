@@ -10,3 +10,7 @@
   padding: 11px;
   font-size: 15px;
 }
+
+.detail {
+  white-space: pre-line;
+}

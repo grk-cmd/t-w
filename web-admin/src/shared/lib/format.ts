@@ -1,4 +1,5 @@
-import { isApiAuthError } from '../api/api';
+import { ApiError, isApiAuthError } from '../api/api';
+import { apiErrorText } from '../api/errorText';
 import { isPermissionDenied } from '../api/db';
 
 export function formatDate(ts: number | undefined): string {
@@ -19,6 +20,9 @@ export function errorMessage(error: unknown, fallback: string): string {
   // API 401 은 토큰이 없거나 만료 — 권한 문제와 달리 다시 로그인하면 풀린다
   if (isApiAuthError(error))
     return error.status === 401 ? '로그인이 풀렸어요 — 다시 로그인해 주세요' : DENIED;
+  // 서버 `code` 문구 표(errorText) — 표에 없는 서버 오류는 서버 message
+  if (error instanceof ApiError && (error.kind === 'request' || error.kind === 'notFound'))
+    return apiErrorText(error, fallback);
   return isPermissionDenied(error) ? DENIED : fallback;
 }
 

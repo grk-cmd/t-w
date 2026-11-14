@@ -13,6 +13,7 @@ import {
 import { ApiError, type Api, type ApiParams } from '@/shared/api';
 import { kstDayStart } from '@/shared/lib';
 import { fakeDb } from '../shared/fakeDb';
+import { unusedWrites } from '../shared/fakeApi';
 
 const DAY = kstDayStart('2026-10-08');
 const row = (ts: number, extra: Record<string, unknown> = {}) => ({
@@ -58,6 +59,7 @@ function fakeApi(respond: (path: string, params?: ApiParams) => unknown) {
       calls.push([path, params]);
       return respond(path, params) as T;
     },
+    ...unusedWrites,
   };
   return { api, calls };
 }
@@ -66,6 +68,7 @@ const failing = (e: ApiError): Api => ({
   get: async () => {
     throw e;
   },
+  ...unusedWrites,
 });
 
 const notReady = new ApiError('unavailable', 503, 'BUG_BOARD_NOT_READY', '사본 아직');
