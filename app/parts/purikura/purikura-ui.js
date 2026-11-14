@@ -32,7 +32,7 @@ const mhHooks = TwMyHomeHooks;                 // 🪝 마이홈 고리판(myhom
 const officeMode = deps.officeMode;            // 🏢 회사원 모드 — app.js 의 officeMode(다시 대입되는 let)
 const _lsSet = deps.lsSet;                     // 설정 저장(실패하면 그쪽이 한 번 알린다) — 음악 끄기 기억
 const Presence = deps.presence;                // 방 접속 — app.js 에서 이 모듈보다 뒤에 선언되는 const
-const _mkFrontFill = deps.mkFrontFill;
+const addRunLights = deps.addRunLights;   // 💡 조명 — 메인 씬과 같은 예산(shared/light-tone.js · 손으로 적지 않는다)
 const findMySeat = deps.findMySeat;
 const setFaceMap = deps.setFaceMap;
 const animateRig = deps.animateRig;
@@ -43,10 +43,6 @@ const _trickArmBase = deps.trickArmBase;
 const _trickArmSpread = deps.trickArmSpread;
 const _trickLegPose = deps.trickLegPose;
 const seats = deps.seats;                      // 좌석 배열(같은 배열 — 다시 대입되지 않는다)
-const _MAIN_LIGHT_COL = deps.mainLightCol;     // 💡 조명 예산 — 메인 씬과 같은 값(손으로 적지 않는다)
-const _MAIN_LIGHT_INT = deps.mainLightInt;
-const _KEY_LIGHT_MUL = deps.keyLightMul;
-const _FILL_LIGHT_MUL = deps.fillLightMul;
 const ANIMAL_HAND_REST = deps.animalHandRest;
 const SPINE_AXIS = deps.spineAxis;             // 🦴 리그 상수 넷 — app.js 에서 이 모듈보다 뒤에 선언되는 const
 const HEAD_AXIS = deps.headAxis;
@@ -61,7 +57,7 @@ const SHAKE_ARM_DROOP = deps.shakeArmDroop;
      ① 캡처는 메인 렌더러로 못 한다.
         renderer 에 preserveDrawingBuffer 가 없어서 toDataURL() 이 빈 그림을 준다.
         그래서 무대는 **전용 씬 + 전용 렌더러**다(_thumbRenderer·cRenderer 와 같은 방식).
-        조명은 메인 씬의 예산(_MAIN_LIGHT_INT · _KEY_LIGHT_MUL · _FILL_LIGHT_MUL)을 그대로 쓴다 —
+        조명은 메인 씬과 같은 실행 화면 조명 한 벌(addRunLights — shared/light-tone.js)을 쓴다 —
         여기에 손으로 적은 숫자를 두면 조명 예산이 바뀔 때 이 화면만 조용히 어두워진다.
 
      ② 무대 비율 = 컷 비율.
@@ -856,10 +852,7 @@ function _pkBuildStage(){
   /* 💡 조명은 메인 씬과 «같은 예산»을 쓴다.
      ⚠️ 여기에 손으로 적은 숫자를 두면 예산이 바뀔 때 이 화면만 어두워진다 —
        썸네일 렌더러가 실제로 겪었던 사고다(_ensureThumbRig 주석 참고). */
-  PK.scene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  const key = new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
-  key.position.set(1, 2.5, 2); PK.scene.add(key);
-  PK.scene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));
+  addRunLights(PK.scene, { keyPos: [1, 2.5, 2] });
   const P = _pkP();
   PK.cam = new THREE.PerspectiveCamera(P.CAM_FOV, 1, 0.05, 100);
   /* 카메라는 «눈높이보다 낮은 정면»에 고정이다. 캐릭터가 -z 로 서고, 다가오면 그것만으로 커진다.

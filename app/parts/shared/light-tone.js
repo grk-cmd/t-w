@@ -1,8 +1,10 @@
 /* light-tone.js — 💡 재질 톤: 화면 밝기 예산(TONE_FRONT_TOTAL)에서 플랫 조명 몫을 계산하고, 파츠 · 아이템 · 책상 재질에 emissive 를 얹는 단 한 곳
    app.js «👻 …» 덩어리 끝의 조명 프리셋 · 재질 톤 조각을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다(바뀐 줄 0 · 주석만 줄임).
    ・책임: 상수 LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE(파생) · PART_TEX_FLAT · ITEM_SOLID_FLAT 와 재질 함수 셋.
-   ・받는 deps 3 — 값 _MAIN_LIGHT_INT · _FILL_LIGHT_MUL(app.js 조명 상수 — FLAT_EMISSIVE 계산) · 함수 _fixGlbMatLighting(metalness 1 재질 눕히기).
-   ・내놓는 것: LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE · _applyPartMatTone(m) · _applyItemMatTone(m) · _setDeskMatColor(m, color) — app.js 는 lightToneMod.이름.
+   ・받는 deps 5 — 값 _MAIN_LIGHT_COL · _MAIN_LIGHT_INT · _KEY_LIGHT_MUL · _FILL_LIGHT_MUL(app.js 조명 상수 — FLAT_EMISSIVE 계산 · 실행 화면 조명) · 함수 _fixGlbMatLighting(metalness 1 재질 눕히기).
+   ・실행 화면 조명 한 벌(addRunLights — 메인 씬 · 런처 · 종족 선택 · 꾸미기 · 스티커사진 · 썸네일 · 생성기 미리보기 · 동물 생성기)도 여기 — 같은 예산을 씬마다 따로 적으면 한 곳만 톤이 달라진다.
+   ・내놓는 것: LIGHT_PRESET · TONE_FRONT_TOTAL · FLAT_EMISSIVE · _applyPartMatTone(m) · _applyItemMatTone(m) · _setDeskMatColor(m, color)
+     · addRunLights(target, opt) · runLightInts(opt) · runLightAt1() — app.js 는 lightToneMod.이름.
      animal.js 가 전역 LIGHT_PRESET 을 읽어 app.js 에 «옛 전역 이름» 한 줄이 있다.
    ⚠️ THREE 는 전역 이름 그대로. 전역 이름은 TwLightTone(Tw 접두사 #103). shared — 도메인을 모른다.
    검사: checks/sim-light-tone.js */
@@ -10,6 +12,8 @@
 
 function createLightTone(deps){
 const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
+const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
+const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
 const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
 const _fixGlbMatLighting = deps._fixGlbMatLighting;
 /* 전역 조명 프리셋 (생성기·메인·기타 미리보기 통일). 더 이상 UI 슬라이더 없음 — 코드 한 곳에서 관리
@@ -91,7 +95,58 @@ function baseFlatOf(mat){
   return (mat && mat.userData && mat.userData.baseFlat!=null) ? mat.userData.baseFlat : FLAT_EMISSIVE;
 }
 
+/* 💡 실행 화면 조명 — 앰비언트 · 키(위) · (뒤쪽 냉색 바운스) · 정면 필. 세기는 모두 같은 예산(_MAIN_LIGHT_INT × 배율)에서 나온다.
+   씬마다 다른 것은 키 자리(keyPos)뿐이고, 썸네일만 광량 배율(mul)을 곱하고 정면 필을 끈다.
+   생성기 미리보기 · 동물 생성기는 여기서 만든 빛의 세기 · 색을 슬라이더 · 원색 보기에 따라 다시 정한다(세기는 runLightInts). */
+const RUN_AMB_SHARE = 0.95;                  // 앰비언트 몫(예산 대비)
+const RUN_KEY_SHARE = 1.0;                   // 키 몫 — 위를 보는 면은 _KEY_LIGHT_MUL 을 더 곱한다
+const BACK_BOUNCE_COL = 0xbcd0ff, BACK_BOUNCE_INT = 0.12, BACK_BOUNCE_POS = [-3, 2, -1];   // 뒤쪽 냉색 바운스(예산 밖 고정값)
+const FRONT_FILL_POS = [0.5, 1.0, 3];        // 정면 필 — 카메라를 보는 면(옷 앞면 · 얼굴)
+/* 세 빛의 세기 — { amb, key, front }. 실행 화면은 기본값 그대로, 생성기는 예산(int)을 슬라이더 값으로 넘긴다.
+   opt: { int = _MAIN_LIGHT_INT(세기 예산), mul = 1(광량 배율), keyMul = _KEY_LIGHT_MUL(키 배율) }.
+   세기를 계속 다시 정하는 곳(생성기 밝기 · 노출 슬라이더)도 이 함수로 읽는다 — 몫 숫자를 곳마다 다시 적지 않게. */
+function runLightInts(opt){
+  const o = opt || {};
+  const int = o.int == null ? _MAIN_LIGHT_INT : o.int;
+  const mul = o.mul == null ? 1 : o.mul;
+  const keyMul = o.keyMul == null ? _KEY_LIGHT_MUL : o.keyMul;
+  return {
+    amb: RUN_AMB_SHARE * int * mul,
+    key: RUN_KEY_SHARE * int * keyMul * mul,
+    front: int * _FILL_LIGHT_MUL * mul,
+  };
+}
+/* opt: { keyPos: [x,y,z](필수), mul · int · keyMul(runLightInts 와 같다), backBounce = false, frontFill = true } → { amb, key, back, front } (없는 빛은 null).
+   키 그림자 같은 씬 몫은 돌려받은 key 에 부르는 쪽이 건다. */
+function addRunLights(target, opt){
+  if(!target || !opt || !opt.keyPos) return null;
+  const s = runLightInts(opt);
+  const amb = new THREE.AmbientLight(_MAIN_LIGHT_COL, s.amb);
+  target.add(amb);
+  const key = new THREE.DirectionalLight(_MAIN_LIGHT_COL, s.key);
+  key.position.set(opt.keyPos[0], opt.keyPos[1], opt.keyPos[2]);
+  target.add(key);
+  let back = null;
+  if(opt.backBounce){
+    back = new THREE.DirectionalLight(BACK_BOUNCE_COL, BACK_BOUNCE_INT);
+    back.position.set(BACK_BOUNCE_POS[0], BACK_BOUNCE_POS[1], BACK_BOUNCE_POS[2]);
+    target.add(back);
+  }
+  let front = null;
+  if(opt.frontFill !== false){
+    front = new THREE.DirectionalLight(_MAIN_LIGHT_COL, s.front);
+    front.position.set(FRONT_FILL_POS[0], FRONT_FILL_POS[1], FRONT_FILL_POS[2]);
+    target.add(front);
+  }
+  return { amb, key, back, front };
+}
+/* 배율 1 일 때 앰비언트 + 키 세기 합 — 썸네일이 «정면 총합 − 플랫 몫» 을 채울 배율을 계산할 때 쓴다 */
+function runLightAt1(){ return (RUN_AMB_SHARE * _MAIN_LIGHT_INT) + (_MAIN_LIGHT_INT * _KEY_LIGHT_MUL); }
+
 return {
+  addRunLights,
+  runLightAt1,
+  runLightInts,
   FLAT_EMISSIVE,
   LIGHT_PRESET,
   TONE_FRONT_TOTAL,
