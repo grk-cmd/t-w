@@ -9,7 +9,7 @@
    ・7절: 실행 화면 조명 addRunLights — 일곱 자리(메인 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 동물 카드)가 손으로 적던 빛과
      색 · 세기 · 자리 · 차례가 같은가(옛 글을 그대로 옮긴 기대값과 === 로 견줌) · 그 자리들이 빛을 다시 손으로 적지 않는가
      · 세기를 다시 정하는 생성기 둘(생성기 미리보기 creator-preview.js · 동물 생성기 animal.js)도 addRunLights 로 만들고 runLightInts 로 세기를 읽어
-       슬라이더 · 기본값에서 옛 손 글과 같은 빛인가. 동물 카드(renderAnimalCardThumb)는 옮기면 화면이 바뀌어 손 빛 그대로 둔다 */
+       슬라이더 · 기본값에서 옛 손 글과 같은 빛인가 */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
