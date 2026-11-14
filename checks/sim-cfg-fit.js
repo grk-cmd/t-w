@@ -242,7 +242,7 @@ const runQuit = (src) => {
   const st = { reads: 0, saved: 0, err: [] };
   const win = { isDestroyed: () => false, isMinimized: () => false, destroy(){}, getBounds(){ st.reads++; return { x: 50, y: 60, width: 380, height: 680 }; } };
   const mocks = { mainWindow: win, savedPos: { launcher: { x: 1, y: 1 }, creator: null }, _isConfigMode: true, _cfgMode: 'launcher',
-    sysinput: { stopGlobalHooks(){} }, _cursorWatchTimer: null, _pollTimer: null, _lagTimer: null, clearInterval(){}, clearTimeout(){},
+    sysinput: { stopGlobalHooks(){} }, _cursorWatchTimer: null, _resTimer: null, _pollTimer: null, _lagTimer: null, clearInterval(){}, clearTimeout(){},
     BrowserWindow: { getAllWindows: () => [win] }, app: { exit(){}, on(ev, fn){ if(ev === 'before-quit') st.bq = fn; } },
     _launcherPosSaveT: null, _launcherPosSaved: { x: 1, y: 1 }, saveSettings(){ st.saved++; return true; }, _diagLog(){}, LAUNCHER_POS_MAX: 100000 };
   const cache = {};

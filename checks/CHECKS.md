@@ -81,7 +81,7 @@
 | **sim-char-foot.js** | 142 | **17f2aa70cc31** |
 | **sim-char-identity.js** | 188 | **9aa1d07d92b1** |
 | **sim-char-z.js** | 225 | **92fb9efdb2c1** |
-| **sim-cfg-fit.js** | 281 | **3cef131e017d** |
+| **sim-cfg-fit.js** | 281 | **48bc1e357f4b** |
 | **sim-chat-fly.js** | 360 | **b52fd913a6d7** |
 | **sim-bug-board.js** | 536 | **72c44e167ddc** |
 | **sim-bug-api.js** | 305 | **89942cf7127a** |
@@ -229,7 +229,7 @@
 | **sim-ops-hot-config.js** | 163 | **6e732dcece07** |
 | **sim-animal-cast.js** | 65 | **0e1031329e06** |
 | **sim-human-ear.js** | 239 | **b2f21075bb26** |
-| **sim-wd-ear.js** | 374 | **734567aca94a** |
+| **sim-wd-ear.js** | 374 | **2e143806d653** |
 | **sim-uv-fill.js** | 106 | **66efa9691c9a** |
 | **sim-paint-tools.js** | 300 | **156a46addf8d** |
 | **sim-human-ear-attach.js** | 129 | **cc7187e89b24** |
@@ -470,7 +470,7 @@
 | **sim-seat-sync-diff.js** | 200 | **fa86e4ff2eb6** |
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-native-peek.js** | 168 | **10af633f27f9** |
-| **sim-seat-regions.js** | 170 | **4664178b0a43** |
+| **sim-seat-regions.js** | 170 | **4d0140706088** |
 | **sim-mallang-gift.js** | 325 | **4f44ae2b91f7** |
 | **sim-room-face-load.js** | 217 | **ea63c4cecbda** |
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |
@@ -492,7 +492,7 @@
 | **sim-user-api.js** | 210 | **4d90ddb87f1c** |
 | **sim-login-flow.js** | 369 | **7751b6ea52e8** |
 | **sim-first-run-013.js** | 344 | **4f41dfa6d935** |
-| **sim-lobby-window.js** | 115 | **4e45590bc75d** |
+| **sim-lobby-window.js** | 116 | **7cfd28c086c8** |
 | **sim-animal-tex.js** | 67 | **022878707d99** |
 | **sim-install-desktop.js** | 116 | **9ea4923a007b** |
 | **sim-gift-save.js** | 137 | **f7be455180d5** |
