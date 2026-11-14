@@ -320,7 +320,7 @@ def gate_case(name, fl, approved_comment, want_deny):
     global ok, bad
     fake(commits=(O, H), files=fl, comments=[{'user': U, 'body': '승인 ' + H[:7]}] if approved_comment else [])
     real_assess = risk.assess
-    risk.assess = lambda pr: {'high': True, 'reasons': ['시험']}
+    risk.assess = lambda pr, files=None: {'high': True, 'reasons': ['시험']}
     gate.gate_ok = lambda pr: (True, '')
     gate.run = lambda *a, **k: H
     buf = io.StringIO()
@@ -412,23 +412,34 @@ admin_case('옛 admin/* 를 main 으로 → 막음', 'admin/x', [{'filename': 'w
 DB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]
 admin_case('admin 으로 · 데이터 접근(높음) · 승인 없음 → 막음', 'feat/x', DB, True, word='웹 관리자 길')
 admin_case('admin 으로 · 데이터 접근(높음) · 승인 → 통과', 'feat/x', DB, False, approved=True)
+MAINMIX = [{'filename': 'firebase-database-rules.json', 'status': 'modified', 'patch': '+x'}, {'filename': 'functions/a.js', 'status': 'modified', 'patch': '+x'},
+           {'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified', 'patch': '+x'}]   # main 을 합쳐 받아 PR 파일엔 규칙 · 함수가 실림
+admin_case('main 합쳐 받기 · 자기 변경은 화면만 → 승인 없이 통과', 'chore/merge-main', MAINMIX, False, own=MAINMIX[2:])
+admin_case('main 합쳐 받기 · 자기 변경에 db.ts → 승인 필요', 'chore/merge-main', MAINMIX, True, word='웹 관리자 길', own=MAINMIX[2:] + DB)
+admin_case('admin 으로 · 견줄 파일 300개(못 봄) → 막음', 'feat/x', WA, True, own=[{'filename': f'web-admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)])
 admin_case('admin 으로 · 화면만(낮음) · 승인 없음 → 통과', 'feat/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
 admin_case('하네스 · 가드 파일 · 승인 없음 → 막음(가드 문구)', 'harness/x', GUARD, True, word='가드 자리(', base='main')
 real_assess3 = risk.assess
-risk.assess = lambda pr: (_ for _ in ()).throw(RuntimeError('assess 실패(시험)'))   # 파일 · PR 은 읽히고 위험도만 못 읽음
+risk.assess = lambda pr, files=None: (_ for _ in ()).throw(RuntimeError('assess 실패(시험)'))   # 파일 · PR 은 읽히고 위험도만 못 읽음
 admin_case('admin 으로 · 위험도를 못 읽음 → 막음', 'feat/x', [{'filename': 'web-admin/src/a.tsx'}], True, word='읽지 못해')
 risk.assess = real_assess3
 for name, ref, base, fl, want in (('admin 으로 · 높음', 'feat/x', 'admin', DB, True), ('admin 으로 · 낮음', 'feat/x', 'admin', [{'filename': 'web-admin/src/a.tsx'}], False),
                                   ('admin → main 합치기 · 높음(이미 내보냄)', 'admin', 'main', DB, False),
                                   ('판으로 가는 PR · 높음(내보내기 전 한 장이 본다)', 'fix/x', 'release/0.12.3', DB, False),
                                   ('하네스 · 가드 파일', 'harness/x', 'main', GUARD, True)):
-    fake(files=fl, head_ref=ref, base=base)
+    fake(files=fl, head_ref=ref, base=base, cmp={H: fl})
     got = risk.must_approve(395)
     if got == want:
         ok += 1
     else:
         bad += 1
         print(f'  ✗ 승인 필요 {name}: {got}')
+fake(files=WA, head_ref='feat/x', base='admin', cmp={H: [{'filename': f'web-admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)]})
+if risk.must_approve(395):
+    ok += 1
+else:
+    bad += 1
+    print('  ✗ 승인 필요: 자기 변경을 못 다 봤는데(300개) 승인 없이')
 # 직접 push 막기는 risk.ADMIN_BRANCH 를 따른다 — 이름을 바꾸면 새 이름이 막히고 옛 이름은 풀린다
 real_admin = risk.ADMIN_BRANCH
 risk.ADMIN_BRANCH = 'admin2'
@@ -516,9 +527,9 @@ waiting('승인이 나중에 달림', 0, '머지할 차례', commits=(O, H), ste
 waiting('승인 없음 — 시간 끝', 1, '끝나지 않음', commits=(O, H))
 waiting('가드 파일을 안 바꾸면 승인 없이 CI 만', 0, '머지할 차례', high=False, commits=(O, H))
 ADB = [{'filename': 'web-admin/src/shared/api/db.ts', 'status': 'modified'}]   # 웹 관리자 길 · 데이터 접근(높음)
-waiting('웹 관리자 길 높음 · 승인 없음 — 시간 끝', 1, '끝나지 않음', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin')
-waiting('웹 관리자 길 높음 · 승인 → 머지할 차례', 0, '머지할 차례', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin', comments=APPR)
-waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='feat/x', base='admin')
+waiting('웹 관리자 길 높음 · 승인 없음 — 시간 끝', 1, '끝나지 않음', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin', cmp={H: ADB})
+waiting('웹 관리자 길 높음 · 승인 → 머지할 차례', 0, '머지할 차례', high=None, commits=(O, H), files=ADB, head_ref='feat/x', base='admin', comments=APPR, cmp={H: ADB})
+waiting('웹 관리자 길 낮음 · 승인 없이 CI 만', 0, '머지할 차례', high=None, commits=(O, H), files=[{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}], head_ref='feat/x', base='admin', cmp={H: [{'filename': 'web-admin/src/a/ui/A.tsx', 'status': 'modified'}]})
 waiting('CI 도는 중 — 끝나면', 0, '머지할 차례', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'in_progress'}],
         steps=[dict(commits=(O, H), comments=APPR)])
 waiting('CI 빨강', 1, 'CI 빨강: npm run check', commits=(O, H), comments=APPR, runs=[{'name': 'npm run check', 'status': 'completed', 'conclusion': 'failure'}])
@@ -535,7 +546,7 @@ def flaky(name, want_code, want_word, fails):
             raise RuntimeError('gh api 순간 실패(시험)')
         return real_get(p)
     risk.get = get
-    risk.assess = lambda pr: {'high': True, 'reasons': []}
+    risk.assess = lambda pr, files=None: {'high': True, 'reasons': []}
     code, msg = risk.wait(395, limit=60, every=15, sleep=lambda _: None)
     global ok, bad
     if code == want_code and want_word in msg:

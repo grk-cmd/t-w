@@ -85,9 +85,11 @@ def get(path):
     return json.loads(p.stdout)
 
 
-def assess(pr):
-    pages = api(f'repos/{REPO}/pulls/{pr}/files?per_page=100')
-    files = [f for page in pages for f in (page if isinstance(page, list) else [page])]
+def assess(pr, files=None):
+    """files 를 주면 그 목록으로(웹 관리자 길의 자기 변경 — admin_own_files), 없으면 PR 파일 목록으로 잰다."""
+    if files is None:
+        pages = api(f'repos/{REPO}/pulls/{pr}/files?per_page=100')
+        files = [f for page in pages for f in (page if isinstance(page, list) else [page])]
     reasons = set()
     for f in files:
         name = f['filename']
@@ -189,22 +191,34 @@ def main_closed(pr):
     return base == 'main' and not (head.startswith(MAIN_OK) or head == ADMIN_BRANCH)
 
 
+def admin_own_files(info):
+    """웹 관리자 길이 main 에 없는 것으로 가져오는 변경 — PR 파일 목록이 아니라 main...머리 를 견준다.
+    main 을 admin 에 합쳐 받는 PR 은 main 에 이미 있는 앱 · 규칙 파일을 실어 와도 그것은 이 길의 변경이 아니다.
+    견줄 파일이 다 안 왔으면(compare 는 300개에서 끊긴다) None — 못 본 것. 읽기 실패는 던진다(가드가 막는다)."""
+    files = get(f'repos/{REPO}/compare/main...{info["head"]["sha"]}').get('files') or []
+    return None if len(files) >= COMPARE_MAX else files
+
+
 def admin_needs_owner(pr):
     """웹 관리자 길(admin 으로 가는 PR)에서 위험도가 높으면 머지 전에 승인 — 이 길은 판을 거치지 않고 admin 에서 바로 내보내서
-    «내보내기 전 risk.py --release 한 장» 에 나오지 않는다. 그 확인을 머지 전 승인으로 당긴다. admin → main 합치기는 이미 내보낸 것이라 묻지 않는다."""
-    return admin_path(get(f'repos/{REPO}/pulls/{pr}')) and assess(pr)['high']
+    «내보내기 전 risk.py --release 한 장» 에 나오지 않는다. 그 확인을 머지 전 승인으로 당긴다. admin → main 합치기는 이미 내보낸 것이라 묻지 않는다.
+    위험도는 자기 변경(admin_own_files)으로 잰다 — 못 다 봤으면 높음."""
+    info = get(f'repos/{REPO}/pulls/{pr}')
+    if not admin_path(info):
+        return False
+    own = admin_own_files(info)
+    return own is None or assess(pr, own)['high']
 
 
 def admin_outside(pr):
-    """웹 관리자 길(admin 으로 가는 PR · admin → main 합치기)이 main 에 없는 것으로 가져오는 변경 중 web-admin/ 밖의 파일(옮긴 옛 이름도).
-    PR 파일 목록이 아니라 main...머리 를 견준다 — main 을 admin 에 합쳐 받는 PR 은 main 에 이미 있는 앱 파일을 실어 와도 되고,
+    """웹 관리자 길(admin 으로 가는 PR · admin → main 합치기)의 자기 변경(admin_own_files) 중 web-admin/ 밖의 파일(옮긴 옛 이름도).
     앱 코드가 판을 건너뛰고 admin(→ main)으로 새는 것만 잡는다. 브랜치 이름이 아니라 base 로 본다.
-    견줄 파일이 다 안 왔으면(compare 는 300개에서 끊긴다) 못 본 것이라 그 사실을 돌려준다. 읽기 실패는 던진다(가드가 막는다)."""
+    못 다 봤으면 그 사실을 돌려준다. 읽기 실패는 던진다(가드가 막는다)."""
     info = get(f'repos/{REPO}/pulls/{pr}')
     if not (admin_path(info) or admin_merge(info)):
         return []
-    files = get(f'repos/{REPO}/compare/main...{info["head"]["sha"]}').get('files') or []
-    if len(files) >= COMPARE_MAX:
+    files = admin_own_files(info)
+    if files is None:
         return ['(파일 목록을 다 못 봄)']
     return [n for f in files for n in (f.get('filename'), f.get('previous_filename')) if n and not n.startswith(ADMIN_DIR)]
 
