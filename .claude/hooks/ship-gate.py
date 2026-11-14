@@ -35,6 +35,7 @@ GATED_REPOS = ('mihioon/t-w-server',)   # 그 저장소 머리 커밋의 tw/conf
 UNGATED_REPOS = ('mihioon/tw-docs',)    # 문서 — 가드 밖
 FROM_MAIN = ('hotfix/', 'harness/')
 HERE = os.path.dirname(os.path.abspath(__file__))
+GATES = ('tw/confirm', 'tw/verify')
 
 
 def _risk():
@@ -47,7 +48,6 @@ def _risk():
 def protected(branch):
     """직접 push 를 막는 브랜치 — main · 웹 관리자 정본(risk.ADMIN_BRANCH) · release/*."""
     return branch in ('main', _risk().ADMIN_BRANCH) or branch.startswith('release/') and len(branch) > len('release/')
-GATES = ('tw/confirm', 'tw/verify')
 
 
 def run(*args, cwd=None):

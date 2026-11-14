@@ -415,7 +415,8 @@ admin_case('admin 으로 · 데이터 접근(높음) · 승인 → 통과', 'fea
 MAINMIX = [{'filename': 'firebase-database-rules.json', 'status': 'modified', 'patch': '+x'}, {'filename': 'functions/a.js', 'status': 'modified', 'patch': '+x'},
            {'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified', 'patch': '+x'}]   # main 을 합쳐 받아 PR 파일엔 규칙 · 함수가 실림
 admin_case('main 합쳐 받기 · 자기 변경은 화면만 → 승인 없이 통과', 'chore/merge-main', MAINMIX, False, own=MAINMIX[2:])
-admin_case('main 합쳐 받기 · 자기 변경에 db.ts → 승인 필요', 'chore/merge-main', MAINMIX, True, word='웹 관리자 길', own=MAINMIX[2:] + DB)
+admin_case('main 합쳐 받기 · 자기 변경에 db.ts → 승인 필요', 'chore/merge-main', MAINMIX + DB, True, word='웹 관리자 길', own=MAINMIX[2:] + DB)
+admin_case('admin 에 앞 PR 의 db.ts 가 있음 · 이 PR 은 화면만 → 승인 없이 통과', 'feat/x', MAINMIX[2:], False, own=MAINMIX[2:] + DB)
 admin_case('admin 으로 · 견줄 파일 300개(못 봄) → 막음', 'feat/x', WA, True, own=[{'filename': f'web-admin/f{i}', 'patch': '+x'} for i in range(risk.COMPARE_MAX)])
 admin_case('admin 으로 · 화면만(낮음) · 승인 없음 → 통과', 'feat/x', [{'filename': 'web-admin/src/widgets/a/ui/A.tsx', 'status': 'modified'}], False)
 admin_case('하네스 · 가드 파일 · 승인 없음 → 막음(가드 문구)', 'harness/x', GUARD, True, word='가드 자리(', base='main')

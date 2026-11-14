@@ -202,12 +202,17 @@ def admin_own_files(info):
 def admin_needs_owner(pr):
     """웹 관리자 길(admin 으로 가는 PR)에서 위험도가 높으면 머지 전에 승인 — 이 길은 판을 거치지 않고 admin 에서 바로 내보내서
     «내보내기 전 risk.py --release 한 장» 에 나오지 않는다. 그 확인을 머지 전 승인으로 당긴다. admin → main 합치기는 이미 내보낸 것이라 묻지 않는다.
-    위험도는 자기 변경(admin_own_files)으로 잰다 — 못 다 봤으면 높음."""
+    위험도는 이 PR 파일 중 main 에 없는 것(admin_own_files 에도 있는 것)으로 잰다 — main 을 합쳐 실어 온 규칙 · 함수도,
+    admin 에 먼저 머지된 앞 PR 의 변경도 이 PR 몫이 아니다. 못 다 봤으면 높음."""
     info = get(f'repos/{REPO}/pulls/{pr}')
     if not admin_path(info):
         return False
     own = admin_own_files(info)
-    return own is None or assess(pr, own)['high']
+    files = [f for page in api(f'repos/{REPO}/pulls/{pr}/files?per_page=100') for f in (page if isinstance(page, list) else [page]) if isinstance(f, dict)]
+    if own is None or len(files) < int(info.get('changed_files') or 0):
+        return True
+    names = {n for f in own for n in (f.get('filename'), f.get('previous_filename')) if n}
+    return assess(pr, [f for f in files if f.get('filename') in names or f.get('previous_filename') in names])['high']
 
 
 def admin_outside(pr):
