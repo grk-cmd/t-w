@@ -932,6 +932,12 @@ function createMallang(deps){
 
   const giftFull = (p) => !!(p.theirs && p.theirs.visibleCount >= p.theirs.recipientCap);
   const giftRemain = (p) => (p.sent ? Math.max(0, p.sent.dailyMax - p.sent.count) : null);
+  /* «지금 보낼 수 있나» 는 여기 하나 — 못 보내면 그 까닭 문구, 보낼 수 있으면 null. 격자 흐림 · 누름 · 안내 줄이 모두 이것을 본다 */
+  function giftBlock(p){
+    if(giftFull(p)) return '🎁 상대 마이홈이 가득 찼어요 ('+p.theirs.recipientCap+'마리)';
+    if(giftRemain(p) === 0) return '오늘은 더 보낼 수 없어요 (하루 '+p.sent.dailyMax+'번)';
+    return null;
+  }
   /* 안내 줄 — 가득 참과 하루 한도를 다른 문구로 가른다(둘을 뭉치면 «오늘 다 썼나? 상대가 꽉 찼나?» 를 알 수 없다) */
   function giftNote(p){
     if(giftFull(p)){
@@ -940,13 +946,12 @@ function createMallang(deps){
     const r = giftRemain(p);
     return '<div class="ml-note">보낼 말랑이를 고르세요. 오늘 남은 횟수: <b>'+(r === null ? '확인하지 못했어요' : esc(r)+'/'+esc(p.sent.dailyMax))+'</b></div>';
   }
-  /* 칸 격자 — 내 칸 전부(꺼진 것 포함). 칸이 저장으로 바뀌면 다시 그린다(옛 번호로 보내면 다른 그림이 간다). 보내는 중이면 격자 전체가 흐리다 */
+  /* 칸 격자 — 내 칸 전부(꺼진 것 포함). 칸이 저장으로 바뀌면 다시 그린다. 보내는 중이면 격자 전체가 흐리다 */
   function renderGiftGrid(p){
     const grid = document.getElementById('mlGiftGrid'); if(!grid) return;
     grid.innerHTML = '';
-    const ms = mallangStore.mine();
-    grid.classList.toggle('off', giftFull(p) || p.busy || ms.saving || ms.load !== LOAD.READY);   // 눌러도 안 되는 것이 눈에 보이게(핸들러도 한 번 더 막는다)
-    ms.slots.forEach(item=>{
+    grid.classList.toggle('off', p.busy || giftBlock(p) !== null);   // 눌러도 안 되는 것이 눈에 보이게(누름도 같은 giftBlock 을 본다)
+    mallangStore.mine().slots.forEach(item=>{
       const cell = document.createElement('div'); cell.className='ml-gcell';
       const gsrc = TwSafeHtml.safeUrl(item.imageUrl, 'image');
       if(gsrc){ const gim = TwImgRetry.retryOnError(document.createElement('img')); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
@@ -957,10 +962,8 @@ function createMallang(deps){
   async function sendGift(p, item){
     if(giftPop !== p || p.busy) return;
     /* 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다. 보내기 직전에 한 번 더 본다(요청 없음) */
-    if(giftFull(p)){ toast('🎁 상대 마이홈이 가득 찼어요 ('+p.theirs.recipientCap+'마리)'); return; }
-    if(giftRemain(p) === 0){ toast('오늘은 더 보낼 수 없어요 (하루 '+p.sent.dailyMax+'번)'); return; }
-    const ms = mallangStore.mine();
-    if(ms.saving || ms.load !== LOAD.READY || typeof item.slot !== 'number'){ toast('말랑이를 저장하는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 방금 등록한 칸은 저장이 끝나야 서버 번호가 생긴다
+    const why = giftBlock(p);
+    if(why){ toast(why); return; }
     p.busy = true; renderGiftGrid(p);
     const inp = document.getElementById('mlGiftMsg');
     const r = await giftBox.send(p.to, { mallang: item, message: inp ? inp.value : '' });
@@ -968,6 +971,7 @@ function createMallang(deps){
     p.busy = false;
     if(r.ok){ toast('🎁 '+(p.name||'친구')+'에게 말랑이를 보냈어요!'); closeGiftPopup(); return; }   // 토스트는 textContent — 씻으면 &lt; 가 글자로 보인다
     if(r.kind === 'guide' && r.message) toast(r.message);   // 서버 문구(숫자가 들어 있다) — 번호 없음
+    if(r.kind === 'changed') mallangStore.pullMine();   // 누른 그림이 서버 칸에 없다(저장 전 새 칸 · 다른 기기에서 바꿈) — 칸을 다시 받으면 구독이 격자를 다시 그린다. 안내는 gift-box 가 E-GIFT-08 로 냈다
     renderGiftGrid(p);   // 격자를 다시 켠다
   }
   function closeGiftPopup(){

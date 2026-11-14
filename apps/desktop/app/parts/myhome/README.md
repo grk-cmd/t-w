@@ -356,7 +356,7 @@ TwMyHomeStickerRules.orderedIds(data)          // app.js renderMyHomeStickers
 - **오류 갈래**: `failOf(err, TwApiErrors)` → `{ kind, code, message }`. `kind` — `guide`(⭐ 가득 · 보내기 거절 같은 안내 — 서버 문구 그대로 · 번호 없음) · `gone`(`GIFT_NOT_FOUND` — 안내 + 받기 한 번) · `missing`(`USER_NOT_FOUND` — «없음») · `site`(그 자리의 `E-GIFT-*` 번호 — 닿지 못함 · 모르는 코드도 여기) · `common`(`PREMIUM_REQUIRED` 같은 공통 코드 — `TwApiErrors.store.notify`) · `conflict`(409 `CONCURRENT_UPDATE` — 다시 받기) · `stale`(계정이 바뀌는 중 · 받기 전 — 조용히). 번호는 표에 두지 않고 부르는 자리가 정한다.
 - **함정**
   - 쓰기는 읽은 토큰의 주인과 묶는다(`expectOwner`) — 내 것(칸 · 선물함 · 오늘 보낸 수)을 읽은 적이 없으면 `NOT_RECEIVED` · 읽은 뒤 로그인한 사람이 바뀌면 `OWNER_CHANGED`, 둘 다 요청 0. 남의 집 읽기는 주인 기억을 남기지 않는다.
-  - 칸 번호: 받은 칸은 서버 `slot` 을 그대로 든다 — 서버는 0~3 안에서 겹치지 않음만 지키고 이어짐은 지키지 않는다(0 · 2 처럼 빌 수 있다). **보내기는 고른 칸(`mallang`)의 서버 번호**를 싣는다(화면 차례로 보내면 빈 번호에 `GIFT_NO_MALLANG`). 칸이 없으면 요청 없이 `BAD_SLOT`.
+  - 칸 번호: 받은 칸은 서버 `slot` 을 그대로 들지만 **보내기는 번호를 쓰지 않는다** — 서버는 칸 저장(PUT)마다 0부터 다시 매기므로 앱의 번호는 낡을 수 있다. 본문은 **누른 그림의 `imageUrl`**(`{ requestId, imageUrl, message? }`)이고 서버가 내 칸에서 그 주소를 찾는다. 주소가 칸에 없으면 409 `GIFT_SLOT_CHANGED`(저장 전 새 칸 · 다른 기기에서 바꿈), 칸이 아예 없으면 `GIFT_NO_MALLANG`. 그림 주소가 없으면 요청 없이 `BAD_IMAGE`.
   - 칸 저장은 **통째**다 — 그때만 배열 차례로 `slot` 을 0부터 다시 매긴다(지우면 뒤 칸이 당겨지는 화면 그대로). 판은 상태 주인이 들고 넘기고, 409 에 여기서 다시 받아 한 번 더 보내지 않는다.
   - 그림은 png · webp 만(말랑이는 JPEG 를 서버가 받지 않는다) · 1MB 이하 — 아니면 요청 없이 `IMAGE_UPLOAD`. 올리기는 칸을 바꾸지 않는다 — 받은 `url` 을 `saveMallangs` 에 넣어야 칸이 된다.
   - 메시지는 UTF-16 50자까지(입력칸 `maxlength` 와 같은 단위) — 끝이 이모지 짝의 앞 반쪽이면 그것도 뺀다.
@@ -381,8 +381,8 @@ const mallangMod = TwMallang.createMallang({
 - **deps**: `toast` · `getMyUserId` · `premiumOn` · `mallangStore` · `giftBox`(보낸 사람 이름은 서버가 토큰에서 정하므로 내 이름을 받지 않는다).
 - **내놓는 것**: `onOpen(ownerId, isVisiting)` · `onClose()`(마이홈 창 `myhome-ui.js`) · `applyVisit(isVisiting, ownerId)`(친구 홈 구경 `myhome-visit.js`) · `reset()`(계정을 놓을 때 — 말랑이 · 열린 창 · 배지를 걷음) · `openGift(friendId, name)`(친구 줄 우클릭). 세 모듈은 deps `mallangMod` 로 받는다.
 - **함정**
-  - 보내기 창: 열 때 내 칸 · 오늘 보낸 수 · 상대 집 선물 수를 나란히 받는다(내 칸 실패 `E-GIFT-07` · 창 안 엶 / 나머지 실패는 «확인하지 못했어요» 만 적고 막지 않음). 보내는 동안 격자 전체가 잠기고, 칸 저장이 끝나면 격자를 다시 그린다(칸 번호는 서버 번호 — 0 · 2 처럼 빌 수 있다). 한도(하루 · 정원 · 메시지 50자)는 서버 값이다.
-  - 보내기: `send(code, { mallang, message })` — 본문은 `requestId · slot · message?` 뿐. 요청 번호는 받는 사람마다 하나(`TwRequestId.createPending`): 닿지 못했으면(네트워크 · 5xx) 같은 번호로 다시, 성공 · 4xx 거절이면 새 번호. 안내 코드(`GIFT_DAILY_LIMIT` · `GIFT_RECIPIENT_FULL` · `GIFT_NOT_FRIEND` · `GIFT_SELF` · `GIFT_NO_MALLANG` · `GIFT_MESSAGE_INVALID`)는 서버 문구 · 번호 0, 그 밖(그림 사본 실패 503 포함)은 `E-GIFT-08`. 한 줄(lane)에 서지 않는다.
+  - 보내기 창: 열 때 내 칸 · 오늘 보낸 수 · 상대 집 선물 수를 나란히 받는다(내 칸 실패 `E-GIFT-07` · 창 안 엶 / 나머지 실패는 «확인하지 못했어요» 만 적고 막지 않음). 보내는 동안 격자 전체가 잠기고, 칸 저장이 끝나면 격자를 다시 그린다. «지금 보낼 수 있나»(상대 가득 · 하루 한도)는 `giftBlock` 한 곳이 정하고 격자 흐림 · 누름이 같이 본다. 한도(하루 · 정원 · 메시지 50자)는 서버 값이다.
+  - 보내기: `send(code, { mallang, message })` — 본문은 `requestId · imageUrl · message?` 뿐(칸 번호는 보내지 않는다). 요청 번호는 받는 사람마다 하나(`TwRequestId.createPending`): 닿지 못했으면(네트워크 · 5xx) 같은 번호로 다시, 성공 · 4xx 거절이면 새 번호. 안내 코드(`GIFT_DAILY_LIMIT` · `GIFT_RECIPIENT_FULL` · `GIFT_NOT_FRIEND` · `GIFT_SELF` · `GIFT_NO_MALLANG` · `GIFT_MESSAGE_INVALID`)는 서버 문구 · 번호 0, 그 밖(그림 사본 실패 503 · 누른 그림이 서버 칸에 없는 409 `GIFT_SLOT_CHANGED` 포함)은 `E-GIFT-08`. `GIFT_SLOT_CHANGED` 면 화면(`mallang.js`)이 내 칸을 다시 받는다(`pullMine` — 격자가 다시 그려진다). 한 줄(lane)에 서지 않는다.
   - `onOpen` · `applyVisit` 은 async 다 — 부르는 쪽은 `Promise.resolve(…).catch` 로 받는다(try/catch 로는 못 잡는다 — `sim-myhome-steps.js`).
   - 만드는 줄은 수령함 · 마이홈 창 · 친구 홈 구경을 만드는 줄보다 앞이어야 한다(값으로 넘긴다 — 뒤면 TDZ).
   - 칸 값을 직접 고치지 않는다 — 등록 · 켜고 끄기 · 지우기는 `mallangStore.add(그림)` · `toggle(i)` · `remove(i)`. 등록 창은 칸이 바뀌면(`onChange`) 다시 그리고, 받기 전 · 받는 중 · 못 받음엔 칸 대신 «불러오는 중…» · «못 불러왔어요 [다시 시도]» 를 그린다.
@@ -405,10 +405,11 @@ const mallangMod = TwMallang.createMallang({
 
 ## `mallang-store.js` — 🧸 말랑이 칸 상태 주인 (서버가 원본)
 
-- **책임**: 내 말랑이 칸(받기 · 등록 · 켜고 끄기 · 지우기 · 통째 저장)과 보고 있는 집 칸(내 집이면 내 칸을 가리킴 · 남의 집이면 그 집 칸). 저장은 한 번에 하나 — 저장 중 고침은 끝난 뒤 최신 칸 · 새 판으로 한 번 더. 저장이 끝나면 서버가 돌려준 칸(번호 0부터)을 그대로 받는다.
+- **책임**: 내 말랑이 칸(받기 · 등록 · 켜고 끄기 · 지우기 · 통째 저장)과 보고 있는 집 칸(내 집이면 내 칸을 가리킴 · 남의 집이면 그 집 칸). 저장은 한 번에 하나 — 저장 중 고침은 끝난 뒤 최신 칸 · 새 판으로 한 번 더. 저장이 끝나면 서버가 돌려준 칸(번호 0부터)을 그대로 받는다. 보내기는 번호가 아니라 그림 주소로 하므로 번호가 낡아도 상관없다(지운 뒤 남은 칸의 번호를 비우거나 저장 중 눌림을 막지 않는다).
 - **만드는 법**: app.js 가 말랑이 화면보다 먼저 `TwMallangStore.createMallangStore({ api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store, notifyError, toast })`. 앱을 끌 때(`beforeunload`) · 로그아웃 올리기(`account.js`)가 `flush()`, 계정을 놓을 때 `reset()`.
 - **내보내는 것**: `mine()` → `{ load, slots, version, saving, uploading }` · `view()` → `{ owner, mine, load, slots }` · `onChange(fn)` · `pullMine({ site }?)` · `openView(code, isMine)` → 아직 그 집인가 · `closeView()` · `add(dataUrl)` · `toggle(i)` · `remove(i)` → `'ok' | 'failed' | 'conflict' | 'stale' | 'locked' | 'busy' | 'full' | 'uploadFailed'` · `flush()` · `reset()` · `LOAD` · `MSG` · `SLOTS`.
 - **함정**
+  - **보내기 계약**: 칸 번호(`slot`)는 서버가 저장 때마다 0부터 다시 매기므로 낡을 수 있다. 앱은 번호를 보내지 않고 누른 그림의 `imageUrl` 만 보낸다(`POST /v1/gifts/{userCode}` `{ requestId, imageUrl, message? }`). 서버가 칸에 없는 주소면 409 `GIFT_SLOT_CHANGED` → `E-GIFT-08` + 내 칸 다시 받기. 그래서 이 모듈은 지운 뒤 번호를 비우지 않고, 보내기 쪽도 저장 중 눌림을 막지 않는다.
   - 받기 전(`load !== 'ready'`)엔 고치지 못한다(`locked` · 요청 0). 저장 중이거나 못 올린 고침이 있으면 내 칸 받기는 요청하지 않는다(받은 판이 고친 칸을 덮지 않게).
   - 409 `CONCURRENT_UPDATE` 는 내 고침을 버리고 서버 것을 받아 «다른 기기에서 바꾼 내용을 받아왔어요». 실패는 화면을 고친 대로 두고 `E-GIFT-03` 한 번 — 혼자 다시 보내지 않는다(타이머 없음). 다음 고침 · `flush()` 가 한 번 보낸다.
   - 올리기(`POST /v1/me/images?purpose=mallang`) 실패는 칸을 그대로 두고 `E-GIFT-02`(PUT 없음). 올리는 중 또 등록은 `busy`. 409 로 다시 받는 사이 올리기가 끝나면 그 그림은 칸에 붙이지 않는다(파일은 남는다 — 탈퇴 때 서버가 지운다).
