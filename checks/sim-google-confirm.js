@@ -73,8 +73,10 @@ async function judgeAll(src){
   t(await within(p) === 'cancel', '3   ✕ → cancel');
   p = mod.ask('x@y.z', 'bind'); await tick(); D.press('Escape');
   t(await within(p) === 'cancel' && D.keys.length === 0, '3   ESC → cancel');
-  p = mod.ask('x@y.z', 'bind', 'MATE-NEW1'); await tick();
+  p = mod.ask('x@y.z', 'signup', 'MATE-NEW1'); await tick();
   t(e.gcCode.textContent === 'MATE-NEW1', '3   넘긴 코드(가입 중 새 아이디)가 이 PC 코드보다 먼저');
+  t(e.gcTitle.textContent === '이 구글 계정으로 가입할까요?' && /예전에 다른 구글 계정/.test(e.gcWarn.textContent) && /처음 시작하는 거라면/.test(e.gcFresh.textContent) && e.gcOther.textContent === '다른 계정으로 로그인',
+    '3 ★ 구글로 가입 — 제목만 «이 구글 계정으로 가입할까요?» · 나머지는 로그인 문구 그대로(A안)');
   const p2 = mod.ask('x@y.z', 'link'); await tick();
   t(await within(p) === 'cancel', '3   겹쳐 열면 앞의 것은 cancel 로 끝난다');
   t(/연결할까요/.test(e.gcTitle.textContent) && e.gcOther.textContent === '다른 구글 고르기' && e.gcFresh.style.display === 'none', '3   연결 문구 — 제목 · [다른 구글 고르기] · 처음 시작 줄 없음');
@@ -133,7 +135,7 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   chk(iMk > 0 && iMk < A.indexOf('const licenseGateMod = TwLicenseGate.createLicenseGate(') && iMk < A.indexOf('const accountMod = TwAccount.createAccount('), 'app.js — 초대 게이트 · 계정보다 먼저 만든다');
   chk(/const licenseGateMod = TwLicenseGate\.createLicenseGate\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC) && /const accountMod = TwAccount\.createAccount\(\{\n  googleConfirmMod: googleConfirmMod,/.test(SRC), 'app.js — 초대 게이트 · 계정에 deps 로 넘긴다');
   chk(/authSignInWithGoogle\(g\.idToken, offer, \(email\)=>googleConfirmMod\.ask\(email, 'bind'\)\)/.test(MOD_ACC) && /r\.declined === 'other'\) return _loginDoGoogle\(\)/.test(MOD_ACC), '★ 로그인(내 정보 · 게이트 H · K) — 묻는 함수를 넘기고 [다른 계정]이면 다시');
-  chk(/authSignInWithGoogle\(g\.idToken, p\.uid, \(email\)=>googleConfirmMod\.ask\(email, 'bind', p\.code\)\)/.test(MOD_LG) && /r\.declined === 'other'\) return _signupDoGoogle\(\)/.test(MOD_LG), '★ 구글로 가입 — 새 아이디를 보이고 묻는다');
+  chk(/authSignInWithGoogle\(g\.idToken, p\.uid, \(email\)=>googleConfirmMod\.ask\(email, 'signup', p\.code\)\)/.test(MOD_LG) && /r\.declined === 'other'\) return _signupDoGoogle\(\)/.test(MOD_LG), '★ 구글로 가입 — 새 아이디를 보이고 묻는다');
   const linkSites = (MOD_ACC.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length + (MOD_LG.match(/googleConfirmMod\.pickForLink\(\)/g) || []).length;
   const rawSites = (strip(MOD_ACC).match(/companion\.signInWithGoogle\(\)/g) || []).length + (strip(MOD_LG).match(/companion\.signInWithGoogle\(\)/g) || []).length;
   chk(linkSites === 2, '★ 구글 [연결하기](내 정보) · [구글도 연결하기](가입 완료) 둘 다 묻는 창을 거친다');

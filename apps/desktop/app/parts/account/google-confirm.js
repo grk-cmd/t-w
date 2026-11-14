@@ -1,7 +1,7 @@
 /* google-confirm.js — 🔑 구글을 계정에 처음 붙이기 전에 묻기
    처음 보는 구글 계정으로 로그인하면 그 구글이 **지금 이 PC 의 계정(친구 코드)** 에 묶인다. 구글을 여러 개 쓰는 사람이
    다른 구글을 고르면 빈 계정에 묶여 «데이터가 사라졌다» 가 된다. 그래서 묶기 · 붙이기 전에 가린 주소와 이 PC 친구 코드를 보이고 묻는다.
-   · ask(email, mode, code?) — 'bind'(로그인 · 구글 가입 — 처음 보는 구글을 이 PC 계정에 묶기) · 'link'(로그인된 계정에 구글 붙이기) → 'yes' | 'other' | 'cancel'
+   · ask(email, mode, code?) — 'bind'(로그인 — 처음 보는 구글을 이 PC 계정에 묶기) · 'signup'(구글로 가입 — 제목만 다르다) · 'link'(로그인된 계정에 구글 붙이기) → 'yes' | 'other' | 'cancel'
      code 를 안 주면 이 PC 친구 코드(가입 중에는 아직 저장 전이라 새 아이디를 넘긴다)
    · pickForLink() — 구글 창 → 묻기 → [다른 구글 고르기]면 창을 다시 연다 → { ok, idToken } | { ok:false, canceled } | { ok:false, reason }
    · maskEmail · tokenEmail — 순수 함수(DOM 없음)
@@ -41,6 +41,7 @@ const TEXT = {
           warn: '⚠ 쓰려던 구글 계정이 맞는지 확인해 주세요. 다른 구글이면 [다른 구글 고르기]를 눌러 주세요.',
           fresh: '', other: '다른 구글 고르기' },
 };
+TEXT.signup = Object.assign({}, TEXT.bind, { title: '이 구글 계정으로 가입할까요?' });
 
 /** @param {{ friendCode: () => (string|null), signInWithGoogle: () => Promise<any> }} deps */
 function createGoogleConfirm(deps){
