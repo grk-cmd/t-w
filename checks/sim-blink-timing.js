@@ -14,7 +14,7 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const pick = (names) => names.map(read).find(Boolean);
 const MOD = pick(['blink-timing.js', 'parts/shared/blink-timing.js', 'app/parts/shared/blink-timing.js']);
-const APP = pick(['app.js', 'parts/app.js', 'app/parts/app.js']);
+const APP = pick(['app.js', 'parts/app.js', 'app/parts/app.js']) + '\n' + pick(['seats.js', 'parts/room/seats.js', 'app/parts/room/seats.js']);   // 좌석 만들기(createBlink)는 seats.js — 프레임 반복(scheduleBlinks)은 app.js
 const HTML = pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html']);
 if(!MOD || !APP || !HTML){ say('  ? 원본 못 찾음 — blink-timing.js · app.js · desk-companion-prototype.html'); process.exit(2); }
 

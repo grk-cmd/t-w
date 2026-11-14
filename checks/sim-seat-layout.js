@@ -14,8 +14,9 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const SRC = read('app.js'), HTML = read('desk-companion-prototype.html');
 if(!SRC || !HTML){ say('  ? 원본 못 찾음 — app.js · desk-companion-prototype.html'); process.exit(2); }
+const SEATS = ["seats.js","parts/room/seats.js","app/parts/room/seats.js"].map(read).find(Boolean);
 const MOD = ["seat-layout.js","parts/room/seat-layout.js","app/parts/room/seat-layout.js"].map(read).find(Boolean);
-if(!MOD){ say('  ? 원본 못 찾음 — seat-layout.js'); process.exit(2); }
+if(!MOD || !SEATS){ say('  ? 원본 못 찾음 — seat-layout.js · seats.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["_rideBottom","clampDeskPan","renderSeatTabs","seatDeskHalfWidth","measureCharBox","syncSeatEqualize"];
@@ -170,9 +171,9 @@ say('── 4. 동작 — 좌석 줄 자리 · 간격 · 올라탄 좌석 · 카
   /* 경계 — 책상 폭 0 · 빈 좌석 목록 */
   r = runLayout([{ isMe: true, hw: 0 }, { hw: 0 }], {});
   chk(J(r.xs) === J([0, -0.4]) && J(r.log[r.log.length - 1]) === J(['cam', -0.2, 1.2]), '경계 — 책상 폭 0 이면 여백만큼 · 폭 하한 1.2');
-  /* 좌석 간격 최소값(app.js GAP_MIN)은 음수 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다. 앱이 쓰는 값으로 그대로 돌린다 */
+  /* 좌석 간격 최소값(seats.js GAP_MIN)은 음수 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다. 앱이 쓰는 값으로 그대로 돌린다 */
   {
-    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SRC);
+    const m = /const GAP_MIN = (-?[\d.]+), GAP_MAX = ([\d.]+), GAP_STEPS = (\d+);/.exec(SEATS);
     const gmin = m ? +m[1] : NaN;
     chk(m && gmin < 0 && gmin > -0.85 && +m[2] > 0, '좌석 간격 최소값 — 음수(겹쳐 붙기)이되 기본 책상 반폭(0.85)보다 덜 겹친다 · 최대는 양수' + (m ? ' (' + m[1] + ' ~ ' + m[2] + ')' : ' — 못 찾음'));
     if(m){
