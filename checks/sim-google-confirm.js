@@ -178,6 +178,49 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   const iC = fl.indexOf('googleConfirmMod.pickCurrent(from)'), iN = fl.indexOf('googleConfirmMod.pickForChange(from)'), iX = fl.indexOf('firebaseAPI.authChangeGoogle(cur.idToken, nw.idToken)');
   chk(iC > 0 && iC < iN && iN < iX, '★ 🔁 구글 바꾸기 — 지금 구글 확인 → 새 구글 고르기 · 묻기 → 바꾸기 차례(account.js _acctChangeGoogle)');
   chk(/if\(m\.mode !== 'c2'\)\{ sayG\('구글을 바꾸려면 먼저 비밀번호를 만들어 주세요'/.test(ACC), '  비밀번호가 없는 계정(C3)은 [바꾸기]에서 막는다(서버 모듈도 한 번 더 막는다 — sim-google-change)');
+  say('── 5-2. 🔁 구글 바꾸기 흐름(account.js _acctChangeGoogle)을 떼어 돌린다');
+  const judgeFlow = async (accSrc) => {
+    const r = [];
+    const t = (ok, m) => r.push([!!ok, m]);
+    const fsrc = (accSrc.match(/async function _acctChangeGoogle\([\s\S]*?\n\}/) || [''])[0];
+    if(!fsrc){ t(false, '_acctChangeGoogle 을 못 찾음'); return r; }
+    const G0 = load(MOD);
+    const run = async (o) => {
+      const calls = [];
+      const st = { 'tw.loginEmail': o.login };
+      const ls = { getItem: k => (k in st ? st[k] : null), setItem: (k, v) => { st[k] = String(v); } };
+      const gcm = { maskEmail: G0.maskEmail, sameEmail: (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase(),
+        pickCurrent: async () => (o.cur || { ok:true, idToken:'OLD' }), pickForChange: async () => (o.nw || { ok:true, idToken:'NEW', email:'new@x.com' }) };
+      const fapi = { authChangeGoogle: async (a, b) => { calls.push(a + '>' + b); if(o.throws) throw new Error('x'); return o.res || { ok:true, email:'new@x.com' }; } };
+      const f = new Function('window', 'firebaseAPI', 'localStorage', 'googleConfirmMod', 'LOGIN_EMAIL_KEY', fsrc + '\nreturn _acctChangeGoogle;')({ firebaseAPI: fapi }, fapi, ls, gcm, 'tw.loginEmail');
+      const res = await f('old@x.com', () => {});
+      return { res, calls, login: st['tw.loginEmail'] };
+    };
+    let X = await run({ login: 'Old@X.com' });
+    t(X.res.ok && X.calls.join() === 'OLD>NEW' && X.login === 'new@x.com', '5-2 ★ 구글로 로그인한 PC(대소문자 달라도) — 바꾸면 표시 이메일도 새 구글로');
+    X = await run({ login: 'mate-ab12@tw.local' });
+    t(X.res.ok && X.login === 'mate-ab12@tw.local', '5-2 ★ 친구 코드로 로그인한 PC — 표시 이메일 그대로');
+    for(const [name, o] of [['실패 · 되돌림', { res: { ok:false, restored:true, err:true, reason:'x' } }], ['실패 · 되돌리기도 실패', { res: { ok:false, restored:false, err:true, reason:'x' } }], ['예외', { throws: true }]]){
+      X = await run(Object.assign({ login: 'old@x.com' }, o));
+      t(!X.res.ok && X.login === 'old@x.com' && (!o.throws || (X.res.err && /네트워크/.test(X.res.reason))), '5-2   ' + name + ' — 표시 이메일 그대로' + (o.throws ? ' · 네트워크 문구(err)' : ''));
+    }
+    for(const [name, o] of [['지금 구글 확인 거절', { cur: { ok:false, reason:'지금 연결된 구글을 골라 주세요' } }], ['지금 구글 창 닫음', { cur: { ok:false, canceled:true } }], ['새 구글 [취소]', { nw: { ok:false, canceled:true } }], ['같은 구글', { nw: { ok:false, same:true, reason:'이미' } }]]){
+      X = await run(Object.assign({ login: 'old@x.com' }, o));
+      t(!X.res.ok && X.calls.length === 0 && X.login === 'old@x.com', '5-2   ' + name + ' — 바꾸기를 부르지 않는다');
+    }
+    return r;
+  };
+  (await judgeFlow(MOD_ACC)).forEach(([ok, m]) => chk(ok, m));
+  for(const [name, a, b] of [
+    ['표시 이메일 조건을 뺌', "    try{ if(googleConfirmMod.sameEmail(localStorage.getItem(LOGIN_EMAIL_KEY), from)) localStorage.setItem(", "    try{ if(true) localStorage.setItem("],
+    ['실패에도 표시 이메일을 씀', "  if(r.ok){\n    /* 이 PC 를 구글로 로그인했다면", "  if(true){\n    /* 이 PC 를 구글로 로그인했다면"],
+    ['지금 구글 확인 거절에도 바꿈', "  if(!cur.ok) return cur;\n", ""],
+  ]){
+    const a2 = MOD_ACC.replace(a, b);
+    let rows; try{ rows = await judgeFlow(a2); }catch(_){ rows = [[false, '던짐']]; }
+    chk(a2 !== MOD_ACC && rows.some(([ok]) => !ok), '깨 보기 — ' + name + (a2 !== MOD_ACC ? '' : ' — 바꿀 글을 못 찾음'));
+  }
+
   say('── 6. 일부러 깨 보기');
   for(const [name, a, b] of [
     ['주소를 안 가림', "  return local.slice(0, keep) + '***@' + domain;", "  return s;"],

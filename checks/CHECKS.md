@@ -172,7 +172,7 @@
 | **sim-broadcast-cache.js** | 282 | **febd97c6e90e** |
 | **sim-friend-code-keep.js** | 218 | **1777c059463e** |
 | **sim-google-login.js** | 718 | **0469f4aace91** |
-| **sim-google-confirm.js** | 202 | **224830de91ef** |
+| **sim-google-confirm.js** | 245 | **e781e8cea2e1** |
 | **sim-google-change.js** | 106 | **9f2f4f1a37bb** |
 | **sim-invite-gate.js** | 136 | **e28cff183251** |
 | **sim-item-rot.js** | 86 | **63a46f67bf8c** |
