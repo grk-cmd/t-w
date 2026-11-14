@@ -5,7 +5,7 @@ import { parseRemoteParts, type RemotePart } from '../model/remote-parts';
 const TIMEOUT_MS = 6000;
 /** 카탈로그에서 상품만 · 기본 몸 모델 것만 묻는다. 면(surface)은 서버가 거르지 않아 파서가 거른다 — 그릴 수 없는 조각도 파서가 건너뛴다.
     토큰은 싣지 않는다(익명 기준 — 잠긴 상품엔 조각이 없다) */
-const PRODUCTS_PATH = '/v1/catalog?only=products&target=baseModel';
+const PRODUCTS_PATH = '/v2/catalog?only=products&target=baseModel';
 
 /** 실패와 «올린 파츠 없음» 을 가른다 — 둘 다 칸이 비지만 고르기 판 안내가 다르다 */
 export type WebPartsResult = { t: 'ok'; parts: RemotePart[] } | { t: 'failed'; why: string };
