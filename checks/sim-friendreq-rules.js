@@ -4,7 +4,7 @@
      지금은 «보낸 사람 = 로그인한 본인» 만 넣고 · 고치고 · 취소하고, 받는 사람은 수락 · 거절로 지우기만 한다.
      신원 판정은 방명록 · 선물함(#771)과 같은 모양 — `userAuth/{코드}` 가 없거나(로그인에 안 묶인 옛 계정) = auth.uid.
    ・1절: 규칙 글의 `.write` 식을 실제로 돌린다(가짜 root · data · newData · auth) — 보내기 · 남의 이름 · 로그인 없음 · 취소 · 수락 · 거절 · 남이 지우기 · 없는 칸 지우기
-   ・2절: 앱이 쓰는 모양이 그대로 통과하는지(보내기 update 한 번 · 수락 · 거절 · 취소 · 죽은 미러 치우기) — firebase-init.js 의 경로와 맞춘다
+   ・2절: 앱이 쓰는 모양이 그대로 통과하는지 — 보내기는 sendFriendRequest 를 실제로 돌려 받은 update 묶음(사유 있을 때 · 없을 때)을 규칙에 건다 · 수락 · 거절 · 취소 · 죽은 미러 치우기는 경로 글자
    ・3절: 일부러 깨 보기
    실제 서버 판정은 에뮬레이터(firebase/scripts/rules-emu-check.js)에서 본다 — CI 에는 없다. */
 'use strict';
@@ -53,6 +53,29 @@ function canWrite(rules, which, from, to, newVal, existing, who){
   return evalWrite(expr, { root: before, after, path, auth: who ? { uid: who } : null, vars: { fromId: from, toId: to } });
 }
 
+/* firebase-init.js 의 sendFriendRequest 를 꺼내 가짜 db 로 돌려 update 묶음을 받는다 */
+function sendWrites(fbi, msg){
+  const m = /    async sendFriendRequest\(([^)]*)\)\{[\s\S]*?\n    \},/.exec(fbi);
+  if (!m) return { ok: false };
+  const body = m[0].trim().replace(/^async sendFriendRequest/, 'async function sendFriendRequest').replace(/\},$/, '}');
+  let writes = null;
+  const run = new Function('get', 'ref', 'update', 'db', 'console', body + '\nreturn sendFriendRequest;')(
+    async () => ({ exists: () => false }), (_db, p) => p || '', async (_r, v) => { writes = v; }, {}, { log(){}, error(){} });
+  return run(A, B, '민수', '지영', 'MATE-AB12', msg).then(res => ({ ok: !!(res && res.ok) && !!writes, writes, req: writes && writes[`friendRequests/${B}/${A}`] }));
+}
+/* 묶음의 칸마다 실제 규칙 판정 + 요청 칸은 규칙이 아는 칸만 */
+function sendOk(r, rules){
+  if (!r || !r.ok) return false;
+  const keys = Object.keys(r.writes);
+  if (keys.length !== 2) return false;
+  const known = Object.keys(rules.friendRequests.$toId.$fromId).filter(k => !k.startsWith('.') && !k.startsWith('$'));
+  if (!Object.keys(r.req || {}).every(k => known.includes(k))) return false;
+  return keys.every(k => { const [top, x, y] = k.split('/');
+    if (top === 'friendRequests') return canWrite(rules, 'fr', y, x, r.writes[k], false, AUTH[A]);   // 보낸 사람(A)으로 로그인한 채
+    if (top === 'sentFriendRequests') return canWrite(rules, 'sfr', x, y, r.writes[k], false, AUTH[A]);
+    return false; });
+}
+
 function judge(rules){
   const r = {};
   try {
@@ -93,10 +116,14 @@ for (const [w, label] of [['fr', 'friendRequests'], ['sfr', 'sentFriendRequests(
   chk(o.legacySend, '  로그인에 안 묶인 옛 계정(userAuth 없음)은 예전처럼 — 방명록 · 선물함(#771)과 같은 판정');
 }
 
+(async () => {
 say('── 2. 앱이 쓰는 모양(firebase-init.js)');
 {
-  chk(/\[`friendRequests\/\$\{toId\}\/\$\{fromId\}`\]: \{ name: fromName \|\| '\(이름 없음\)', ts: now/.test(FBI) && /\[`sentFriendRequests\/\$\{fromId\}\/\$\{toId\}`\]: mirror,/.test(FBI),
-    '보내기 — 요청 + 미러를 update 한 번(보낸 사람 = 내 코드)');
+  /* 보내기는 글자로 보지 않고 실제로 돌린다 — sendFriendRequest 가 만든 update 묶음을 받아 두 칸 모두 규칙에 걸어 본다(사유 있을 때 · 없을 때) */
+  const S = await sendWrites(FBI, '');
+  const M = await sendWrites(FBI, '같이 공부해요');
+  chk(sendOk(S, RULES) && sendOk(M, RULES), '보내기 — 요청 + 미러를 update 한 번 · 보낸 사람(내 코드)이 로그인 본인이면 두 칸 모두 통과');
+  chk(S.ok && !('msg' in (S.req || {})) && M.ok && M.req && M.req.msg === '같이 공부해요', '  사유가 없으면 msg 칸이 없고, 있으면 그대로 실린다(규칙이 아는 칸만)');
   const acc = (FBI.match(/async acceptFriendRequest\(myId, fromId\)\{[\s\S]*?\n    \},/) || [''])[0];
   chk(/\[`friendRequests\/\$\{myId\}\/\$\{fromId\}`\]: null/.test(acc) && /\[`sentFriendRequests\/\$\{fromId\}\/\$\{myId\}`\]: null/.test(acc), '수락 — 받는 사람이 요청 · 상대 미러를 지운다(1절 recvDelete)');
   const rej = (FBI.match(/async rejectFriendRequest\(myId, fromId\)\{[\s\S]*?\n    \},/) || [''])[0];
@@ -117,8 +144,16 @@ say('── 3. 깨 보기');
   chk(!okAll(b3.fr), '받는 사람이 지우기 말고 써도 되게 풀면 빨강');
   const b4 = mut(c => { c.friendRequests.$toId.$fromId['.write'] = c.friendRequests.$toId.$fromId['.write'].replace('(!data.exists() && !newData.exists()) || ', ''); });
   chk(!okAll(b4.fr), '«이미 없는 칸 지우기» 갈래를 빼면 빨강');
+  /* 보내기 쪽 깨 보기 — 앱이 남의 칸에 쓰거나 규칙이 모르는 칸을 실으면 2절이 빨강 */
+  const f1 = FBI.replace('[`friendRequests/${toId}/${fromId}`]: Object.assign(', '[`friendRequests/${toId}/${toId}`]: Object.assign(');
+  chk(f1 !== FBI && !sendOk(await sendWrites(f1, ''), RULES), '보내기가 요청을 받는 사람 이름 칸에 쓰면 빨강');
+  const f2 = FBI.replace("msg ? { msg: String(msg).slice(0,100) } : {}", "msg ? { note: String(msg) } : {}");
+  chk(f2 !== FBI && !sendOk(await sendWrites(f2, 'x'), RULES), '사유를 규칙이 모르는 칸으로 실으면 빨강');
+  const r5 = JSON.parse(JSON.stringify(RULES)); delete r5.friendRequests.$toId.$fromId.msg;
+  chk(!sendOk(await sendWrites(FBI, 'x'), r5), '규칙에서 msg 칸을 빼면(사유가 늘 거절) 빨강');
 }
 
 say('');
 say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);
 process.exit(fail ? 1 : 0);
+})();

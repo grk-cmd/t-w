@@ -158,7 +158,7 @@
 | **sim-focus-auth.js** | 91 | **ef2f4cad0aeb** |
 | **sim-focus-sync.js** | 174 | **084cb3a11f49** |
 | **sim-friend-manage.js** | 275 | **dba7f09993ec** |
-| **sim-friendreq-rules.js** | 124 | **bc07545a7f57** |
+| **sim-friendreq-rules.js** | 159 | **185b5d4d16c6** |
 | **sim-gift-star.js** | 127 | **09dec0581403** |
 | **sim-gacha-prune.js** | 166 | **d9e85bab60ff** |
 | **sim-gacha-race.js** | 124 | **1f0427b99f71** |
