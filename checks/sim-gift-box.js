@@ -230,6 +230,18 @@ async function judge(S){
     lateWrite.box.reset();
     await lateWrite.release();
     chk(await w === 'stale' && lateWrite.box.box().items.length === 0, '  쓰는 중 reset → 늦은 답이 새 계정 칸을 바꾸지 않음');
+    /* reset 때 옛 계정의 받기가 줄에 남아 있어도 새 계정의 «줄에 선 받기» 표시(합치기 · notify)를 지우지 않는다 */
+    const old = mk(S, { auto: false });
+    old.box.pull(false); await flush();                      // 받는 중(J0)
+    old.box.pull(false);                                     // 줄에 선 옛 받기(J1)
+    old.box.reset();
+    old.box.pull(false); await flush();                      // 새 계정의 받기(J2 — 받는 중)
+    const j3 = old.box.pull(true);                           // J2 뒤에 선 notify 받기(J3)
+    old.waits.shift()(); await flush(); await flush();       // 옛 J0 이 끝나 옛 J1 이 시작한다
+    const j4 = old.box.pull(false);
+    chk(j4 === j3, 'reset 때 줄에 남은 옛 받기가 새 계정의 줄에 선 받기 표시를 지우지 않는다(뒤에 부른 받기가 J3 에 합쳐짐)');
+    old.srv.boxErr = apiErr(503, 'X'); await old.release(5);
+    chk(old.log.includes('error E-GIFT-04'), '  합쳐진 받기가 notify 를 지켜 실패하면 번호가 뜬다');
     const owner = mk(S, { starErr: Object.assign(new Error('x'), { code: 'OWNER_CHANGED', kind: 'owner' }) });
     await owner.box.pull(false);
     chk(await owner.box.star('a', true) === 'stale' && !owner.log.some((l) => l.startsWith('error') || l.startsWith('toast')), '주인이 바뀜(OWNER_CHANGED)은 조용히 버림');
@@ -313,6 +325,13 @@ function wiring(S, loud){
       await e.release(3); await Promise.all([p, s]);
       chk(ids(e.box) === 'a★,b★,c(치움)', '⭐ 남음');
     };
+    await run('옛 받기가 새 받기 표시를 지우면', SRC0.BOX.replace("if(g !== gen) return 'stale';   // 옛 계정의 줄에 남은 받기 — 새 계정의 줄에 선 받기 표시(queued)를 건드리지 않는다\n      const n = queuedNotify;\n      queued = null; queuedNotify = false;", "const n = queuedNotify;\n      queued = null; queuedNotify = false;\n      if(g !== gen) return 'stale';"), async (S) => {
+      const old = mk(S, { auto: false });
+      old.box.pull(false); await flush(); old.box.pull(false); old.box.reset();
+      old.box.pull(false); await flush(); const j3 = old.box.pull(true);
+      old.waits.shift()(); await flush(); await flush();
+      chk(old.box.pull(false) === j3, '합쳐짐');
+    });
     await run('줄(lane)을 빼면', SRC0.BOX.replace('const p = laneTail.then(job); laneTail = p.catch(() => {}); return p;', 'return Promise.resolve().then(job);'), body);
     await run('gen 비교(reset 뒤 늦은 답)를 빼면', SRC0.BOX.replace(/if\(g !== gen\) return 'stale';\n    st\.items = got\.items;/, 'st.items = got.items;'), async (S) => {
       const late = mk(S, { auto: false }); const p = late.box.pull(true); await flush(); late.box.reset(); await late.release(); await p;

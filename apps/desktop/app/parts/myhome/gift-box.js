@@ -94,9 +94,9 @@ function createGiftBox(deps){
     if(st.load !== LOAD.READY && st.load !== LOAD.LOADING){ st.load = LOAD.LOADING; emit(); }
     const g = gen;
     queued = inLane(async () => {
+      if(g !== gen) return 'stale';   // 옛 계정의 줄에 남은 받기 — 새 계정의 줄에 선 받기 표시(queued)를 건드리지 않는다
       const n = queuedNotify;
       queued = null; queuedNotify = false;
-      if(g !== gen) return 'stale';
       return runPull(n, g);
     });
     return queued;
