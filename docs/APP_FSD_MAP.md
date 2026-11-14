@@ -275,6 +275,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M8**: FIT 구역의 `fitModel`(몸 키 · 자리 맞춤) · `fitDesk`(책상 맞춤)를 `character/fit-model.js` 로 옮겼다(글 그대로 — `creatorPrevMod` 만 읽는 함수로 받는다). app.js 8,624 → 8,489줄.
 
+**0.12.4 — app.js 분리 M9**: USER STATUS 구역(내 상태 저장 · 칩 · 메뉴 · 커스텀 상태 · `statusConfFor`)과 좌석 xf 저장(`saveSeatXf`)을 `status/user-status.js` 로 옮겼다(글 그대로 — 방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환은 모듈 순환을 막으려고 `attachStatusHooks` 알림으로 건다. `window.setUserStatus` 고리는 app.js 가 건다). app.js 8,488 → 8,424줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |

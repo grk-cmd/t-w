@@ -296,7 +296,7 @@ const partAnimMod = TwPartAnim.createPartAnim({
   seatState: (...a)=>seatState(...a),
   seats: ()=>seats,
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
 });
 const activeItemMixers = partAnimMod.activeItemMixers;   // 옛 전역 이름
 const _idleItemPivots = partAnimMod._idleItemPivots;   // 옛 전역 이름
@@ -1068,10 +1068,6 @@ document.getElementById('deskInput').addEventListener('change',e=>seatModelLoadM
 document.getElementById('texInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));
 document.getElementById('resetBtn').addEventListener('click',()=>seatModelLoadMod.resetSeat(seatsMod.selected()));
 document.getElementById('sZoom').addEventListener('input',e=>{charPlaceMod.setSizeFactor(+e.target.value);layoutSeats();});
-function saveSeatXf(seat){ if(!seat||!seat.charDef)return;
-  seat.charDef.xf={s:seat.userScale,y:clampCharY(seat.userY),z:0,rot:seat.userRot,x:seat.userX||0};   // 🧍 y=높이 · 🚫 z 폐기
-  if(seat.slot!=null) slots[seat.slot]=seat.charDef;
-  slotSaveMod.saveSlots(); }
 document.getElementById('sScale').addEventListener('input',e=>{seatsMod.selected().userScale=+e.target.value;fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());layoutSeats();});
 /* 🧍 높이 — 0 하한·CHAR_Y_MAX 상한. 슬라이더 범위도 여기서 심는다(HTML 의 min 이 음수면 죽은 구간이 된다). */
 (function _sYSliderRange(){ const el=document.getElementById('sY'); if(!el) return;
@@ -1095,97 +1091,36 @@ document.getElementById('sRot').addEventListener('input',e=>{seatsMod.selected()
 const userStatusTableMod = TwUserStatusTable.createUserStatusTable({
 });
 
-/* isPremium은 파일 뒷부분에서 let으로 선언됨 — 초기화 시점(이 위치)에서 참조하면 TDZ ReferenceError가 남.
-   typeof 가드도 let TDZ에는 통하지 않으므로 try/catch로 안전하게 읽는 접근자를 씀.
-   (라이선스가 확정되면 _refreshPremiumGatedUI가 다시 호출되어 UI가 갱신됨) */
-function _premiumOn(){ try{ return !!isPremium; }catch(_){ return false; } }
+/* 🫧 활동 상태(밥 · 게임 · 자리비움 · 빡일 · 커스텀) 저장 · 칩 · 메뉴 + 좌석 xf 저장(status/user-status.js) — 아래 const 는 옛 전역 이름이다. */
+const userStatusMod = TwUserStatus.createUserStatus({
+  clampCharY: clampCharY,
+  findMySeat: (...a)=>findMySeat(...a),
+  isPremium: ()=>isPremium,
+  slots: ()=>slots,
+  userStatusTableMod: userStatusTableMod,
+});
+/* 다른 도메인(방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환)은 모듈이 부르지 않고 알림으로 건다 — 상태를 바꾸기 전에. */
+userStatusMod.attachStatusHooks({
+  focusShowMine: ()=>focusShareMod._focusShowMine(),
+  hexToRgba: (...a)=>statusChipMod.hexToRgba(...a),
+  saveSlots: ()=>slotSaveMod.saveSlots(),
+  setCustomStatus: (c)=>Presence.setCustomStatus(c),
+  setUserStatus: (v)=>Presence.setUserStatus(v),
+});
+const _premiumOn = userStatusMod._premiumOn;   // 옛 전역 이름
+const saveCustomStatusConf = userStatusMod.saveCustomStatusConf;   // 옛 전역 이름
+const statusConfFor = userStatusMod.statusConfFor;   // 옛 전역 이름
+const setUserStatus = userStatusMod.setUserStatus;   // 옛 전역 이름
+const loadUserStatusFromStorage = userStatusMod.loadUserStatusFromStorage;   // 옛 전역 이름
+const refreshMyStatusUI = userStatusMod.refreshMyStatusUI;   // 옛 전역 이름
+const refreshCustomStatusMenuItem = userStatusMod.refreshCustomStatusMenuItem;   // 옛 전역 이름
+const saveSeatXf = userStatusMod.saveSeatXf;   // 옛 전역 이름
 try{ window._premiumOn = _premiumOn; }catch(_){}
-
-/* (구역 떼기 C · w1) 이 자리의 본문도 status/user-status-table.js 로 옮겼다 — 만드는 줄은 첫 자리. */
-function saveCustomStatusConf(emo, text){
-  userStatusTableMod.setCustomStatusConf({
-    emo: (emo || '').slice(0,2),            // 비워두면 이모지 없이 문구만 표시
-    text: (text || '').slice(0, userStatusTableMod.CUSTOM_STATUS_MAXLEN),
-  });
-  try{ localStorage.setItem(userStatusTableMod.CUSTOM_STATUS_KEY, JSON.stringify(userStatusTableMod.customStatusConf())); }catch(e){}
-  // 지금 커스텀 상태를 쓰고 있다면 즉시 반영(말풍선/이모지 갱신) + 친구에게도 전파
-  if(typeof Presence!=='undefined' && Presence.setCustomStatus) Presence.setCustomStatus(userStatusTableMod.customStatusConf());
-  refreshCustomStatusMenuItem();
-}
-/* 좌석 + 상태키 → 실제로 화면에 쓸 상태 설정({emo,label,...}) 해석.
-   custom은 본인이면 내 등록값, 친구면 그 친구가 보낸 값(remoteCustomStatus)을 씀.
-   문구가 비어 있으면(등록 안 함) null 반환 → 상태 없음(온라인)과 동일하게 처리됨. */
-function statusConfFor(seat, us){
-  /* 📊 오늘 기록 전시 — **상태가 없을 때만** 내 머리 위에 방에 보낸 값과 같은 것을 띄운다(내 화면 거울).
-     상태(커스텀 포함)가 하나라도 있으면 그것이 이긴다 — 남의 화면에서도 같은 순서다(Presence._statusOut). */
-  if(!us){
-    /* ⚠️ isMe 만 보면 «자리추가»로 주 캐릭터가 바뀐 판에서 내 좌석이 빠진다 — findMySeat 과 같은 기준으로 본다. */
-    const _mine = findMySeat();
-    if(seat && !seat.remote && (seat.isMe || seat === _mine)){ const f = focusShareMod._focusShowMine(); if(f) return Object.assign({}, userStatusTableMod.USER_STATUSES.custom, { emo: f.emo, label: f.text }); }
-    return null;
-  }
-  const base = userStatusTableMod.USER_STATUSES[us];
-  if(!base) return null;
-  if(us !== 'custom') return base;
-  const cs = (seat && seat.remote) ? seat.remoteCustomStatus : userStatusTableMod.customStatusConf();
-  if(!cs || !cs.text) return null;
-  // 이모지를 비워두면 책상 위 이모지는 안 띄우고 문구만 표시 (emo:'' → setSeatDeskEmoji가 빈 값으로 처리)
-  return Object.assign({}, base, { emo: cs.emo || '', label: cs.text });
-}
-let userStatus=null;
-function setUserStatus(v){
-  if(!v || !userStatusTableMod.USER_STATUSES[v]) v=null;
-  userStatus=v;
-  try{ localStorage.setItem('tw.userStatus', v||''); }catch(e){}
-  refreshMyStatusUI();
-  if(typeof Presence!=='undefined' && Presence.setUserStatus) Presence.setUserStatus(v);
-}
-function loadUserStatusFromStorage(){
-  try{ const v=localStorage.getItem('tw.userStatus'); if(v && userStatusTableMod.USER_STATUSES[v]) userStatus=v; }catch(e){}
-}
-function refreshMyStatusUI(){
-  const btn=document.getElementById('myStatusChipBtn'); if(!btn)return;
-  const dot=document.getElementById('myStatusDot');
-  // ✨ 커스텀 상태는 등록한 문구/이모지로 해석해야 하므로 statusConfFor를 통해 얻음(내 좌석 기준).
-  const c = userStatus ? statusConfFor(null, userStatus) : null;
-  if(c){
-    // 세로 배열 A안: 라벨 요소는 없앴고 대신 title(툴팁)로 현재 상태 표시. dot 색은 그대로 상태 시각화.
-    btn.title = (c.emo ? c.emo+' ' : '') + c.label;
-    if(dot){ dot.style.background = TwSafeHtml.cssColor(c.dot||'#9dba8a'); dot.style.boxShadow='0 0 0 2px '+statusChipMod.hexToRgba(c.dot||'#9dba8a',.18); }
-  } else {
-    btn.title = '상태';
-    if(dot){ dot.style.background = '#9dba8a'; dot.style.boxShadow='0 0 0 2px rgba(157,186,138,.18)'; }
-  }
-  /* ⚠️ data-st 가 있는 항목만 본다. ✨ 커스텀 상태 항목은 data-st 가 없어서 ''===''(온라인)로
-     읽혀 ● 표식이 두 줄에 붙는다 — 그 항목의 표식은 refreshCustomStatusMenuItem 이 따로 단다. */
-  document.querySelectorAll('#myStatusMenu .stItem[data-st]').forEach(b=>{
-    b.classList.toggle('active', (b.dataset.st||'')===(userStatus||''));
-  });
-  refreshCustomStatusMenuItem();
-}
-
-/* ✨ 커스텀 상태 항목(프리미엄 전용) 갱신 — 라이선스가 없으면 항목 자체를 숨김.
-   등록값·프리미엄 여부·현재 상태가 바뀔 때마다 호출.
-   ⚠️ 이 항목은 칩 버튼이 아니라 **상태 드롭다운 안의 stItem** 이다(칩 줄을 줄이려고 옮겼다).
-     그래서 textContent 를 통째로 갈아치우면 안 된다 — 안에 이모지(.csEmo)와 글자(.csLabel)가 따로 있다. */
-function refreshCustomStatusMenuItem(){
-  const btn = document.getElementById('myCustomStatusBtn');
-  if(!btn) return;
-  if(!_premiumOn()){ btn.style.display = 'none'; return; }   // 라이선스 없으면 아예 안 보임
-  btn.style.display = '';
-  const emoEl = btn.querySelector('.csEmo'), lblEl = btn.querySelector('.csLabel');
-  // 등록된 이모지가 있으면 그걸 띄워서 "지금 뭘로 등록해뒀는지" 바로 보이게
-  if(emoEl) emoEl.textContent = userStatusTableMod.customStatusConf().emo || '✨';
-  if(lblEl) lblEl.textContent = userStatusTableMod.customStatusConf().text || '커스텀 상태';
-  btn.title = userStatusTableMod.customStatusConf().text
-    ? `커스텀 상태: ${userStatusTableMod.customStatusConf().text} (클릭해서 수정)`
-    : '커스텀 상태 문구 등록';
-  btn.classList.toggle('on', userStatus === 'custom');   // 지금 이 상태를 쓰는 중이면 ● 표식
-}
+window.setUserStatus = setUserStatus;   // presence.js · room-sync.js 가 window. 로 부른다(옛 함수 선언이 걸어 주던 전역 — 안쪽 같은 이름이 가려서 꼭 window. 로)
 /* 본문은 status/chip-popups.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const chipPopupsMod = TwChipPopups.createChipPopups({
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
 });
 
 /* ═══ 🪟 창 겹침 — 누른 창 맨 앞(bringWinToFront) · ESC 스택(escRegisterWindow) ═══ */
@@ -1227,7 +1162,7 @@ const statusChipMod = TwStatusChip.createStatusChip({
   setUserStatus: (...a)=>setUserStatus(...a),
   startMyDance: (...a)=>iDeskMod.startMyDance(...a),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
   setCharBadWhy: (v)=>{ _charBadWhy = v; },
   setCharBoundsLatest: (v)=>{ _charBoundsLatest = v; },
   setDanceCmdCooldownAt: (v)=>{ iDeskMod.setDanceCmdCooldownAt(v); },
@@ -2812,7 +2747,7 @@ function seatState(seat,now){
   // 💃 춤 — 자리비움/자동 상태보다 우선(단, 흔들기·dizzy·pet보다는 아래). 내 좌석은 danceUntil, 친구 좌석은 remoteState로 전달됨.
   if(seat.danceUntil && now < seat.danceUntil && !seat.remote) return 'dance';
   // 자리비움(본인/친구) → 자동·수동과 무관하게 sleep 모션 강제 (영혼 컨셉)
-  const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);
+  const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatusMod.userStatus() : null);
   if(us==='away') return 'sleep';
   if(seat.remote) return seat.remoteState||'idle';   // 친구 좌석: 공유받은 상태 사용
   if(seatPanelMod.manual())return seatPanelMod.manual();
@@ -2917,7 +2852,7 @@ const seatMenuMod = TwSeatMenu.createSeatMenu({
   setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
 });
 overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 우클릭 → 좌석 메뉴(메뉴가 신고 · 마이홈 · 놀이를 거쳐 이름표로 돌아와 deps 대신 여기서 잇는다)
 canvas.addEventListener('pointerdown',e=>{
@@ -5320,7 +5255,7 @@ const licenseGateMod = TwLicenseGate.createLicenseGate({
   seats: seats,
   setUserStatus: (...a)=>setUserStatus(...a),
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
   INVITE_PASS_KEY: acctStateMod.INVITE_PASS_KEY,
   LICENSE_KEY_STORAGE: acctStateMod.LICENSE_KEY_STORAGE,
   LICENSE_OPTOUT_KEY: acctStateMod.LICENSE_OPTOUT_KEY,
@@ -7217,7 +7152,7 @@ const _hp=new THREE.Vector3(), _hq=new THREE.Quaternion(), _hpq=new THREE.Quater
 function setBone(bone,rest,x,y,z){ if(!bone||!rest)return; _be.set(x,y,z,'XYZ'); _bq.setFromEuler(_be); bone.quaternion.copy(rest).multiply(_bq); }
 function animateRig(seat,now,state){
   const b=seat.bones, r=seat.boneRest, p=seat.pose, t=now/1000;
-  const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);   // 활동 상태(밥먹는중 등) — head bob과 타이핑 속도 계산 둘 다에서 씀
+  const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatusMod.userStatus() : null);   // 활동 상태(밥먹는중 등) — head bob과 타이핑 속도 계산 둘 다에서 씀
   // dizzy 진입 시 1회: head 본의 현재 월드 높이를 읽어 얼굴이 책상에 닿도록 slumpY 보정값 계산
   // (커미션마다 spine/head 본 위치가 달라 고정 slumpY로는 얼굴 도달 위치가 제각각이라 자동 보정)
   // dizzy(어지러움): 추가 슬럼프로 얼굴이 책상에 더 가까이 박히도록 (측정 불안정으로 자동 보정 폐기, 고정값 사용)
@@ -7641,7 +7576,7 @@ function frame(now, manual){
     if(seat.remote && seat._lastTab!==seat.remoteState){ seat._lastTab=seat.remoteState; seatPanelMod.renderSeatTabs(); }  // 탭 상태 이모지 갱신
     const tg=targetFor(state),k=1-Math.pow(seat.smooth,dt);
     /* 활동 상태(userStatus): 본인=userStatus, 친구=remoteUserStatus */
-    const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatus : null);
+    const us = seat.remote ? seat.remoteUserStatus : (seat.isMe ? userStatusMod.userStatus() : null);
     /* 🔥 빡일중: idle뿐 아니라 focus(타이핑) 상태도 더 격렬하게.
        idle은 spine 숙임 유지 + 호흡 진폭 거의 0 (안 흔들림). focus는 타이핑 빠르게. */
     if(us==='grind'){
@@ -8023,7 +7958,7 @@ const focusShareMod = TwFocusShare.createFocusShare({
   _rolloverFocusToday: (...a)=>focusTotalMod._rolloverFocusToday(...a),
   officeMode: ()=>officeMode,
   toast: (...a)=>toast(...a),
-  userStatus: ()=>userStatus,
+  userStatus: ()=>userStatusMod.userStatus(),
 });
 
 /* ═══ 🫧 자리비움 그림 (2026-09-23 · handoff-2026-09-21-features §2 · 시안 A 확정 · 500×500 · 캐릭터 자리) ═══════════

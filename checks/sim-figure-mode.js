@@ -32,6 +32,7 @@ function seatEnv(fnSrc){
     const FOCUS_MS=${SLEEP_M[1]}, SLEEP_MS=${SLEEP_M[2]}, PET_MS=2200;
     let lastActivity = 0, lastAnyInput = 0, figureMode = false, focusGateSleep = false, desktopMode = true, windowFocused = false, userStatus = null, _selfAppActive = false;
     function focusWindowMs(){ return FOCUS_MS; }
+    const userStatusMod = { userStatus: () => userStatus };   // 내 상태는 status/user-status.js 가 갖는다(app.js 분리 M9) — 이 시험은 아래 지역 변수를 읽는 함수로 건다
     const seatPanelMod = { manual: () => null };
     const focusLevelMod = { _mobileOn: () => false };
     const _mobileOn = focusLevelMod._mobileOn;
