@@ -38,7 +38,7 @@ const presenceMod = TwPresence.createPresence({
   roomSyncMod: roomSyncMod,              // 값 — Firebase provider · poke 신선도 · 자동 퇴장 안내
   roomNet: ()=>window.firebaseAPI,       // 읽는 함수 — 데이터 provider 고르기 한 줄(준비 확인 · Firebase 방 고르기)
   focusLevelMod: ()=>focusLevelMod,      // 읽는 함수 — 만드는 줄보다 뒤에 선언되는 모듈
-  lastAnyInput: ()=>lastAnyInput,        // 읽는 함수 — app.js 가 다시 대입하는 let
+  lastAnyInput: ()=>seatStateMod.lastAnyInput(),   // 읽는 함수 — 활동 시각은 status/seat-state.js 가 갖는다
   toast: (...a)=>toast(...a),            // 함수
   // … 20개(함수 3 · 값 7 · 읽는 함수 10)
 });
