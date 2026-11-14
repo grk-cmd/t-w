@@ -1,0 +1,117 @@
+{
+  "human": {
+    "type": "creator",
+    "skin": 2,
+    "face": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "blink": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "top": "#ff8800",
+    "bot": "#224466",
+    "xf": {
+      "hat": {
+        "scale": 1.2,
+        "pos": [
+          0,
+          0.1,
+          0
+        ],
+        "rot": [
+          0,
+          0,
+          0
+        ]
+      }
+    },
+    "decor": {
+      "hat": "p_8f2c"
+    },
+    "earL": "elf",
+    "earR": "elf",
+    "earAdj": {
+      "s": 1.1
+    },
+    "earPicL": "https://x/ear.png"
+  },
+  "desk": {
+    "type": "creator",
+    "skin": 0,
+    "face": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "blink": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "top": "#111111",
+    "bot": "#222222",
+    "deskColor": "#abcdef",
+    "deskItems": [
+      {
+        "id": "mug",
+        "x": 1
+      }
+    ],
+    "deskGlb": "Z2xURg==",
+    "deskCatalogId": "d_01",
+    "deskScale": 1.5,
+    "deskPos": [
+      1,
+      2,
+      3
+    ],
+    "customItems": [
+      {
+        "n": "c"
+      }
+    ]
+  },
+  "commission": {
+    "type": "creator",
+    "skin": 1,
+    "face": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "blink": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "top": "#000000",
+    "bot": "#ffffff",
+    "isCommission": true,
+    "commName": "커미션",
+    "commGlb": "Y29tbQ=="
+  },
+  "animal": {
+    "type": "creator",
+    "skin": 0,
+    "face": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "blink": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "top": "#123456",
+    "bot": "#654321",
+    "animal": true,
+    "animalFace": 3,
+    "animalScl": {
+      "x": 1
+    },
+    "animalEarL": "cat",
+    "animalEarR": "cat",
+    "animalEarAdj": {
+      "r": 2
+    },
+    "animalBody": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "animalEarPaintL": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "animalEarPaintR": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "animalBlink": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "animalEarBlinkL": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "animalEarBlinkR": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=="
+  },
+  "animalOld": {
+    "type": "creator",
+    "skin": 0,
+    "face": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "blink": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "top": "#123456",
+    "bot": "#654321",
+    "animal": true,
+    "animalFace": 0,
+    "animalScl": null,
+    "animalEarL": null,
+    "animalEarR": null,
+    "animalEarAdj": null,
+    "animalBody": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "animalEarPaintL": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "animalEarPaintR": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==",
+    "animalBlink": null,
+    "animalEarBlinkL": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==",
+    "animalEarBlinkR": "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg=="
+  }
+}

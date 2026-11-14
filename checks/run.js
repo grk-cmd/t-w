@@ -46,10 +46,11 @@ const MANIFEST = path.join(CHECKS, 'CHECKS.md');
      검사가 읽는 원본(렌더러·main)이 그 안에 없으니 빼도 판정은 그대로다. */
 /* '.claude' — Claude Code 워크트리(.claude/worktrees/*)가 저장소 사본을 통째로 품고 있어서,
    깊은 원본 찾기(findDeep)가 app.js 를 두 곳에서 찾고 고르지 못해 «원본 없음» 이 된다.
-   'web-admin' — 웹 관리자(Vite)는 자기 테스트(vitest)로 검사한다. node_modules 를 품고 있어 복사만 무겁다. */
+   'web-admin' — 웹 관리자(Vite)는 자기 테스트(vitest)로 검사한다. node_modules 를 품고 있어 복사만 무겁다.
+   'packages' — 캐릭터 코어 원본(TS)은 자기 시험(vitest · CI «캐릭터 코어»)으로 본다. 검사는 앱이 싣는 사본(app/vendor/char-core/)을 읽는다. */
 const SKIP = new Set([
   'node_modules', '.git', '.github', 'dist', 'out', 'release',
-  'checks', 'build', '디자인', '.vscode', '.idea', 'functions', '.claude', 'web-admin',
+  'checks', 'build', '디자인', '.vscode', '.idea', 'functions', '.claude', 'web-admin', 'packages',
 ]);
 
 /* 검사들이 실제로 읽는 원본 — 없으면 그 검사가 통째로 헛돈다.
