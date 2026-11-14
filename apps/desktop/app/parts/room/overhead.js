@@ -34,6 +34,7 @@ const focusLevelMod = deps.focusLevelMod;   // 읽는 함수
 const getDisplayName = deps.getDisplayName;
 const officeMode = deps.officeMode;   // 읽는 함수
 const renderer = deps.renderer;
+const rtHub = deps.rtHub;   // 🛰 realtime 연결 하나(TwRtHub — .store) — 확성기 announce 메시지
 const seatScale = deps.seatScale;
 const seats = deps.seats;
 const tricksMod = deps.tricksMod;
@@ -191,7 +192,8 @@ function setSeatNamePlate(seat, level, name, star, dj){
   if(seat.ridingOn){ el.style.display='none'; return; }
   /* 🌟 회차면 'Lv.' 자리에 색 있는 별(.np-star · 번쩍임)이 선다 — «★342  이름» (개정 70).
      ★ 매 프레임 불리므로 열쇠(_npKey)가 같으면 DOM 을 안 건드린다. 별은 span 이라 textContent 비교로는 못 잰다. */
-  const key = (star ? ('\u2605|' + star.cyc + '|' + star.color + '|' + level + '|' + name) : ('Lv.' + level + '  ' + name)) + (dj ? '|dj' : '');
+  const lvText = level == null ? '' : 'Lv.' + level + '  ';   // level null = 내 진척을 서버에서 아직 못 받음 — 레벨 없이 이름만
+  const key = (star ? ('\u2605|' + star.cyc + '|' + star.color + '|' + level + '|' + name) : (lvText + name)) + (dj ? '|dj' : '');
   if(el._npKey !== key){
     el._npKey = key;
     if(star){
@@ -199,7 +201,7 @@ function setSeatNamePlate(seat, level, name, star, dj){
       const sp = document.createElement('span'); sp.className = 'np-star'; sp.textContent = focusLevelMod().lvStarStr(star.cyc);
       el.appendChild(sp);
       el.appendChild(document.createTextNode(level + '  ' + name));
-    } else el.textContent = 'Lv.' + level + '  ' + name;
+    } else el.textContent = lvText + name;
     if(dj){ const b = document.createElement('span'); b.className = 'np-dj'; b.textContent = '🎧 DJ'; el.appendChild(b); }
     _starPaint(el, star);
   }
@@ -289,34 +291,25 @@ function updateSeatAnnounceEl(seat, headY){
     }
   });
 }
-// 현재 활성 공지 텍스트(null=없음) — subscribeAnnounce가 갱신
+// 현재 활성 공지 텍스트(null=없음) — realtime announce 메시지가 갱신
 let _activeAnnounceText = null;
 let _announceExpireTimer = null;
-function _refreshAnnounceState(rec){
+const ANNOUNCE_MAX_MS = 60000;   // 서버가 보내는 확성기는 길어야 60초 — 이 기기 시계가 틀려도 이보다 오래 보이지 않게
+/* m = { text, until(ms) } — text 가 null 이면 끔. until 은 서버가 정한 끝나는 때 */
+function _refreshAnnounceState(m){
   clearTimeout(_announceExpireTimer);
   _activeAnnounceText = null;
-  if(rec && rec.text){
-    const elapsed = Date.now() - (rec.ts||0);
-    const dur = rec.duration || 60000;
-    const remain = dur - elapsed;
+  if(m && m.text && typeof m.until === 'number'){
+    const remain = Math.min(m.until - Date.now(), ANNOUNCE_MAX_MS);
     if(remain > 0){
-      _activeAnnounceText = rec.text;
+      _activeAnnounceText = m.text;
       _announceExpireTimer = setTimeout(()=>{ _activeAnnounceText = null; _hideAllAnnounceEls(); }, remain);
     }
   }
   if(!_activeAnnounceText) _hideAllAnnounceEls();
 }
 function _hideAllAnnounceEls(){ seats.forEach(s=>{ if(s.announceEl) s.announceEl.style.display='none'; }); }
-// firebase 구독 시작 — 앱 초기화 후 한 번만
-function _initAnnounceSubscription(){
-  if(_initAnnounceSubscription._done) return;
-  _initAnnounceSubscription._done = true;
-  if(window.firebaseAPI && firebaseAPI.subscribeAnnounce){
-    firebaseAPI.subscribeAnnounce(rec=>_refreshAnnounceState(rec));
-  }
-}
-if(document.readyState === 'complete') _initAnnounceSubscription();
-else TwNetReady.onNetReady(_initAnnounceSubscription);
+rtHub.store.onMessage('announce', _refreshAnnounceState);   // 📣 확성기 — 서버가 보낼 때 · 접속 직후 아직 안 끝난 것
 
 /* 🔻 반전 배치(캐릭터가 화면 위쪽에 있어 라벨이 발 밑으로 뒤집힌 경우) 말풍선 여백(px).
    두 값을 나눠 쓴다 — 위에 라벨이 있을 때와 없을 때 필요한 여백이 다르다.

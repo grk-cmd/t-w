@@ -6,7 +6,7 @@
      (2) 저장(saveSlots)이 파츠 GLB 받기(applyEquippedPartsToSeat)를 기다린 뒤에 돌아, 그 사이 앱을 끄면 사라졌다.
      (3) 설정 패널 «런처로» · 생성기 열기 · 앱 종료는 꾸미기 창을 숨기기만 하고 저장하지 않았다.
    ・1절: _relinkSeatsToSlots 실행 — 같은 칸 · 비운 칸 · 남의 좌석 · 다른 객체 · 열린 초안
-   ・2절: 받는 두 곳(_charsSync · 이 기기 첫 채택)이 loadSlots 뒤에 잇는다
+   ・2절: 받는 곳(옷장 closet.js applyCloset)이 칸을 갈아 끼운 뒤에 잇는다
    ・3절: 저장 순서 — 두 커밋 함수 모두 파츠 받기 전에 saveSlots
    ・4절: 창 숨기기 전에 closeWardrobe · 종료 때 저장 */
 'use strict';
@@ -51,17 +51,13 @@ if (relSrc) {
   chk(!threw, '  중간에 던져도 받기 흐름을 끊지 않는다');
 }
 
-say('── 2. 받는 곳이 loadSlots 뒤에 잇는다');
-const relinkCalls = (src) => {
-  const c = noCmt(src);
-  const iCopy = c.indexOf('const _old = slots.slice();'), iNull = c.indexOf('slots[i] = null', iCopy), iLoad = c.indexOf('await loadSlots();', iNull), iRel = c.indexOf('_relinkSeatsToSlots(_old, new Set(p.unseat));', iLoad);
-  return iCopy > 0 && iNull > iCopy && iLoad > iNull && iRel > iLoad;
-};
-chk(relinkCalls(grab('_charsSync', true) || APP.slice(APP.indexOf('async function _charsSync('), APP.indexOf('async function _charsSync(') + 9000)),
-  '★ _charsSync(부팅 5초 · 30분마다) — 갈아 끼우기 전 사본 → loadSlots → 비운 칸 빼고 잇기');
+say('── 2. 받는 곳이 칸을 갈아 끼운 뒤에 잇는다');
 {
-  const i = APP.indexOf('async function _charsLocalAdopt(');
-  chk(i > 0 && relinkCalls(APP.slice(i, i + 8000)), '  이 기기 첫 채택(_charsLocalAdopt)도 같다');
+  /* 서버에서 받아 칸을 갈아 끼우는 곳은 옷장(closet.js) 한 곳 — 갈아 끼우기 전 사본 → applySlotObjs → 비운 칸 빼고 잇기 */
+  const CL = noCmt(read('closet.js') || '');
+  const iApply = CL.indexOf('async function applyCloset('), iCopy = CL.indexOf('const oldSlots = slots.slice();', iApply), iLoad = CL.indexOf('await slotSave.applySlotObjs(objs, which);', iCopy), iRel = CL.indexOf('slotSave._relinkSeatsToSlots(oldSlots, skipRelink);', iLoad);
+  chk(iApply > 0 && iCopy > iApply && iLoad > iCopy && iRel > iLoad, '★ 옷장 받기(서버 신호 · 시작) — 갈아 끼우기 전 사본 → applySlotObjs → 비운 칸 빼고 잇기');
+  chk(/if\(!\(k && k\.avatarId === id\)\) skipRelink\.add\(i\)/.test(CL) && /skipRelink\.add\(i\);\s*\/\/ 다른 기기에서 지웠다|dropped\.push\(i\); skipRelink\.add\(i\)/.test(CL), '  다른 캐릭터가 됐거나 비운 칸은 잇지 않는다(skip)');
 }
 
 say('── 3. 저장 순서 — 파츠 받기 전에 saveSlots');

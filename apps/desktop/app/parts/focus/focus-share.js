@@ -82,11 +82,15 @@ function _focusShowRefreshUI(){
     });
   }
   _focusShowRefreshUI();
+})();
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 오늘 기록 전시를 처음 한 번 보내고 15초마다 본다(오늘치는 계정 칸이라 읽힌 뒤에). */
+function startFocusShare(){
   _focusShowPush(true);
   setInterval(()=>_focusShowPush(false), 15000);   // 15초마다 보고, 실제 전송은 1분에 한 번
-})();
+}
 
 return {
+  startFocusShare,
   _focusShowConf,
   _focusShowMarkSent,
   _focusShowMine,

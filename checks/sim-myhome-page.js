@@ -17,13 +17,13 @@ const MOD = ["myhome-page.js","parts/myhome/myhome-page.js","app/parts/myhome/my
 if(!MOD){ say('  ? 원본 못 찾음 — myhome-page.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["getDisplayName","getMyUserId","renderMyHomeStickers"];
-const VAL_DEPS = ["mhStateMod","myHomeUiMod","richTextMod"];
-const GET_DEPS = [];
+const FN_DEPS = ["getDisplayName","renderMyHomeStickers"];
+const VAL_DEPS = ["mhStateMod","myHomeUiMod","richTextMod","myhomeStore"];
+const GET_DEPS = ["myHomeOpen"];
 const SET_DEPS = [];
-const EXPORTS = ["_mhStickerDragDist","setMhStickerDragDist","loadMyHomePage","renderMyHomePage"];
+const EXPORTS = ["_mhStickerDragDist","setMhStickerDragDist","loadMyHomePage","onStoreChange","renderMyHomePage"];
 const MOVED = ["loadMyHomePage","renderMyHomePage","_mhStickerDragDist"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  mhStateMod: mhStateMod,","  myHomeUiMod: myHomeUiMod,","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  richTextMod: richTextMod,"];
+const GLUE = ["  getDisplayName: (...a)=>getDisplayName(...a),","  mhStateMod: mhStateMod,","  myHomeUiMod: myHomeUiMod,","  renderMyHomeStickers: (...a)=>renderMyHomeStickers(...a),","  richTextMod: richTextMod,","  myhomeStore: myhomeStoreMod,","  myHomeOpen: ()=>myHomeOpen,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -72,37 +72,65 @@ function judgeAll(mod, app, html){
   return r;
 }
 
-/* 내 코드(getMyUserId)가 없는 기기 — loadMyHomePage: 서버 읽기 0 · 읽기 실패 때와 같은 기본값으로 그린다 */
-async function loadWith(src, uid){
-  const any = anything(), calls = [], set = [];
-  const fa = new Proxy({}, { get: (t, k) => (...a) => { calls.push(String(k)); return Promise.reject(new Error('Permission denied')); } });
+/* loadMyHomePage — 내 집이면 상태 주인에게 받기를 한 번 시키고 · 친구 홈 구경 중이면 아무것도 안 한다(받기 0 · 내 값을 덮지 않는다) */
+async function loadWith(src, viewing){
+  const any = anything(), calls = [];
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
-  deps.getMyUserId = () => uid;
-  deps.mhStateMod = new Proxy({}, { get: (t, k) => k === '_mhViewingUserId' || k === '_myHomeData' ? () => null : k === 'setMyHomeData' ? (v) => set.push(v) : () => any });
-  const win = new Proxy({ firebaseAPI: fa }, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
-  const warn = console.warn, warns = []; console.warn = (...a) => warns.push(a.join(' '));
+  deps.myhomeStore = { pullMine: (o) => { calls.push('pull'); return Promise.resolve(true); }, mine: () => ({ load: 'ready' }), LOAD: { READY: 'ready', FAILED: 'failed' } };
+  deps.mhStateMod = new Proxy({}, { get: (t, k) => k === '_mhViewingUserId' ? () => viewing : k === '_myHomeData' ? () => ({ stickers: {} }) : () => any });
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   try{
-    const api = new Function('window', 'document', 'localStorage', 'firebaseAPI', 'module', 'TwMyHomeHooks', src + '\nreturn window.TwMyHomePage;')(win, any, { getItem: () => null, setItem(){} }, fa, undefined, any);
+    const api = new Function('window', 'document', 'localStorage', 'module', 'TwMyHomeHooks', src + '\nreturn window.TwMyHomePage;')(win, any, { getItem: () => null, setItem(){} }, undefined, any);
     await api.createMyHomePage(deps).loadMyHomePage();
-  }catch(_){}finally{ console.warn = warn; }
-  return { calls, set, warns };
+  }catch(_){}
+  return calls;
 }
-const judgeNoUid = async (src) => {
-  const n = await loadWith(src, null), m = await loadWith(src, 'ME');
-  return n.calls.length === 0 && n.set.length === 1 && n.set[0].stickers && !n.warns.some(w => /로드 실패/.test(w)) && m.calls.join() === 'getMyHome' && m.set.length === 1;
-};
+const judgeLoad = async (src) => (await loadWith(src, null)).join() === 'pull' && (await loadWith(src, 'friend1')).length === 0;
+
+/* 다시 그리기 — 쓰는 중인 글 칸(포커스)은 갈아 끼우지 않고 · 같은 글이면 그대로 · 다르면 갈아 끼운다 */
+function renderBoxes(src, active, boxHtml, pageBio){
+  const any = anything();
+  const mkBox = (id, html) => ({ id, innerHTML: html, contains: (n) => n === mkBox._self, setAttribute(){}, style: {}, children: [] });
+  const bio = mkBox('mhBioBox', boxHtml), post = mkBox('mhPostBox', '');
+  const doc = { getElementById: (id) => id === 'mhBioBox' ? bio : id === 'mhPostBox' ? post : null, activeElement: active === 'bio' ? bio : null, querySelectorAll: () => [], createElement: () => ({ style: {}, appendChild(){} }) };
+  const deps = {};
+  FN_DEPS.forEach(n => { deps[n] = () => 'x'; }); VAL_DEPS.forEach(n => { deps[n] = any; });
+  deps.getDisplayName = () => '나';
+  deps.mhStateMod = { _mhViewingUserId: () => null, _myHomeData: () => ({ bio: pageBio, post: '', stickers: {}, postTitle: '' }), _mhViewingDisplayName: () => '' };
+  deps.myhomeStore = { canEdit: () => true, mine: () => ({ load: 'ready' }), page: () => ({}), LOAD: { READY: 'ready', FAILED: 'failed' }, pullMine: () => Promise.resolve(true) };
+  deps.richTextMod = { _mhLoadRT: (v) => 'L:' + v, _mhSaveRT: (el) => String(el.innerHTML).replace(/^L:/, ''), _mhUpdateRTCount(){} };
+  deps.myHomeOpen = () => true;
+  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const g = { TwSafeHtml: { safeUrl: () => '' } };
+  try{
+    const api = new Function('window', 'document', 'localStorage', 'module', 'TwMyHomeHooks', 'TwSafeHtml', src + '\nreturn window.TwMyHomePage;')(win, doc, { getItem: () => null, setItem(){} }, undefined, { call(){}, HOOK: {} }, g.TwSafeHtml);
+    api.createMyHomePage(deps).renderMyHomePage();
+  }catch(_){}
+  return bio.innerHTML;
+}
+/* 같은 글이면 안 건드린다 — 칸 값이 load 결과(L:같음)와 다르게 두어, 갈아 끼우면 바로 드러난다 */
+const judgeBoxes = (src) => renderBoxes(src, 'bio', '쓰는 중', '저장된') === '쓰는 중' && renderBoxes(src, null, '같음', '같음') === '같음' && renderBoxes(src, null, '옛', '새') === 'L:새';
 
 (async () => {
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
-say('── 2-2. 내 코드 없음 — 마이홈 읽기 0');
-chk(await judgeNoUid(MOD), '내 코드 없음 → getMyHome 요청 0 · «로드 실패» 경고 없이 읽기 실패 때와 같은 기본값으로 그린다 · 코드 있으면 읽는다');
+say('── 2-2. 받기 — 내 집이면 상태 주인에게 한 번 · 구경 중이면 0');
+chk(await judgeLoad(MOD), '내 집 → 받기 1 · 친구 홈 구경 중 → 받기 0(내 값을 덮지 않는다)');
+chk(judgeBoxes(MOD), '다시 그리기 — 쓰는 중인 글 칸은 그대로 · 같은 글이면 안 건드림 · 다르면 갈아 끼움');
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 {
-  const m2 = MOD.replace(/\n  if\(!getMyUserId\(\)\)\{   \/\/ 내 코드가 없으면[\s\S]*?\n    return;\n  \}/, '');
-  chk(m2 !== MOD && !(await judgeNoUid(m2)), '내 코드 확인을 빼면 — 내 코드 없음 판정이 빨강');
+  const m2 = MOD.replace("  if(mhStateMod._mhViewingUserId()) return;\n  const pulling", "  const pulling");
+  chk(m2 !== MOD && !(await judgeLoad(m2)), '구경 중 확인을 빼면 — 받기 0 판정이 빨강');
+}
+{
+  const m4 = MOD.replace('if(!same) box.innerHTML', 'box.innerHTML');
+  chk(m4 !== MOD && !judgeBoxes(m4), '같은 글 확인을 빼면 — 글 칸 판정이 빨강');
+}
+{
+  const m3 = MOD.replace('if(ae && (ae === box || (box.contains && box.contains(ae)))) return;', '');
+  chk(m3 !== MOD && !judgeBoxes(m3), '쓰는 중 확인을 빼면 — 글 칸 판정이 빨강');
 }
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/myhome/myhome-page.js"></script>', '')],

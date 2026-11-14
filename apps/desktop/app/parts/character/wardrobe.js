@@ -20,15 +20,11 @@ const PART_DEFAULT_OFFSET = deps.PART_DEFAULT_OFFSET;   // 읽는 함수
 const PART_GROUPS = deps.PART_GROUPS;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const WD_DESK_TAB = deps.WD_DESK_TAB;   // 읽는 함수
-const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
-const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
-const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
-const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
 const _attachHumanEars = deps._attachHumanEars;
 const _disposeWrapperFromSeat = deps._disposeWrapperFromSeat;
 const _hsvToHex = deps._hsvToHex;
 const _invalidatePendingEquip = deps._invalidatePendingEquip;
-const _mkFrontFill = deps._mkFrontFill;
+const addRunLights = deps.addRunLights;
 const _rgbHexToHsv = deps._rgbHexToHsv;
 const _sweepOrphanPartWrappers = deps._sweepOrphanPartWrappers;
 const _wdLicenseDesks = deps._wdLicenseDesks;
@@ -268,12 +264,8 @@ function ensureWdPreview(){
   //   그림자는 요청에 따라 사용하지 않음(그림자 없이 조명 각도만으로 입체감 보완).
   // ★ 조명 세기 보정 이력: 0.75(너무 어두움) → 0.95(실행값 그대로인데 그림자·카메라 차이로 오히려 밝아 보임)
   //   → 0.85(중간값)로 실측 보정. 실행 화면과 체감 밝기가 최대한 비슷하게 맞춘 값.
-  wdScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  // ★ 조명 위치를 실행 화면과 동일하게 (0,5,0) 정수리 위로 — 얼굴 텍스처 조명 방향 통일(요청사항)
-  const wdKey=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
-  wdKey.position.set(0, 5, 0); wdScene.add(wdKey);
-  const wdFill=new THREE.DirectionalLight(0xbcd0ff,0.12); wdFill.position.set(-3,2,-1); wdScene.add(wdFill);
-  wdScene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 실행 화면과 같은 정면 필
+  // ★ 조명 위치를 실행 화면과 동일하게 (0,5,0) 정수리 위로 — 얼굴 텍스처 조명 방향 통일(요청사항) · 뒤쪽 냉색 바운스 · 정면 필도 실행 화면과 같다
+  addRunLights(wdScene, { keyPos: [0, 5, 0], backBounce: true });
 }
 
 // ★ 꾸미기 미리보기 기즈모 — 상세조정 패널이 열려있는 파츠에 이동/회전/크기 핸들을 띄워서

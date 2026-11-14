@@ -3,7 +3,7 @@
    빈 칸 [＋] → 종족 선택창에서 연다. 코드 머리글자로 갈라 DCC1(복제 코드)은 importCloneCode 로, DCK1(책상 · 아이템)은 안내만, DCM1(커미션)은 풀어서 그 칸에 등록한다.
    동작은 옮기기 전과 같다.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 6줄 —
-     charCodeMod · charsMod · commissionMod · curSlot · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
+     charCodeMod · commissionMod · curSlot · slotSaveMod 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setCurSlot(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 5개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: 없음 — 만들 때 건다.
@@ -16,7 +16,6 @@ function createCommissionImport(deps){
 const CANVAS_SZ = deps.CANVAS_SZ;
 const charCodeMod = deps.charCodeMod;   // 읽는 함수
 const charDef = deps.charDef;
-const charsMod = deps.charsMod;   // 읽는 함수
 const commissionMod = deps.commissionMod;   // 읽는 함수
 const creatorSaveMod = deps.creatorSaveMod;
 const curSlot = deps.curSlot;   // 읽는 함수
@@ -76,9 +75,7 @@ document.getElementById('commImpGo').onclick=async()=>{
     const _sz = creatorSaveMod._defSizeFile(_rest, DefSize.jsonBytes(payload.glb) + 12);
     if(!_sz.ok){ toast(_sz.message, null, creatorSaveMod.DEF_SIZE_TOAST_MS); return; }
     // 슬롯에 저장 + 영구 저장
-    if(charsMod()._charsBoxFull()) return;   // 🧬 보관함 20 문턱
     slots[idx]=def;
-    try{ charsMod()._charsOnNew(idx); }catch(_){}
     slotSaveMod().saveSlots();
     setCurSlot(idx);
     saveCurSlot();

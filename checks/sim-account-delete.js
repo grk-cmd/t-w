@@ -2,7 +2,7 @@
  * 계정 삭제(adminDeleteAccount) 검사. functions/account-delete.js 를 그대로 불러 가짜 DB · 가짜 Storage · 가짜 로그인으로 돌린다.
  * 1. 입력 모양  2. 겹치는 경로  3. 미리 보기(지울 것 · 남길 것)  4. 로그인 계정 안전장치  5. 호출 권한  6. 실행 순서 · 작업 기록
  * 7. 다시 실행(이어서 지우기)  8. index.js 연결 · 규칙 · CSP
- * 9. 본인 탈퇴(deleteMyAccount) 서버  10. 앱 모듈(account-delete-net.js)  11. 앱 연결 · 화면(고지 · 확인)
+ * 9. 본인 탈퇴(deleteMyAccount) 서버(옛 Functions — 0.13 앱은 API)  10. 앱 탈퇴(account.js — POST /v1/me/withdrawal · 다시 확인 · 이 PC 지우기)  11. 앱 연결 · 화면(고지 · 확인)
  */
 'use strict';
 const fs = require('fs');
@@ -19,7 +19,7 @@ need('functions/account-delete.js');
 // 러너는 app/ 을 한 층 펼쳐 돌린다 — 저장소 자리 · 펼친 자리 둘 다 본다. web-admin/ 은 러너가 빼므로 있을 때만 본다.
 const needAny = (...fs_) => { for (const f of fs_){ const s = read(f); if (s != null) return s; } return need(fs_[fs_.length - 1]); };
 const inApp = (rel) => needAny('app/' + rel, rel);
-const ADN = inApp('parts/account/account-delete-net.js');
+const UA = inApp('parts/account/user-api.js');
 const FI = inApp('parts/firebase-init.js');
 const HTML = inApp('desk-companion-prototype.html');
 const ACC = inApp('parts/account/account.js');
@@ -409,65 +409,59 @@ const adminReq = (data) => ({ auth: { uid: ADMIN, token: { firebase: { sign_in_p
     chk(!!err && !!w.at('userAuth/' + ME) && !!w.at('authUsers/authMe'), '로그인 계정 단계에서 멈추면 연결 줄이 남아 — 다시 누르면 본인 확인이 되어 이어서 지운다');
   }
 
-  say('── 10. 앱 모듈 (account-delete-net.js)');
+  say('── 10. 앱 탈퇴 (account.js · 0.13 — POST /v1/me/withdrawal)');
   {
-    const mod = new Function(ADN.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createAccountDelete, DELETE_FN, DELETE_CONFIRM_WORD, deleteErrorReason };')();
-    chk(mod.DELETE_FN === 'deleteMyAccount' && mod.DELETE_CONFIRM_WORD === m.SELF_CONFIRM_WORD, '함수 이름 · 확인 글자가 서버와 같다');
-    const mk = (opt) => {
+    const U = new Function('module', 'window', UA + '\nreturn module.exports;')({ exports: {} }, undefined);
+    chk(U.WITHDRAW_CONFIRM === m.SELF_CONFIRM_WORD, '확인 글자가 서버와 같다(user-api.js WITHDRAW_CONFIRM)');
+    const A0 = strip(ACC);
+    const take = (head) => { const i = A0.indexOf(head); if(i < 0) return ''; let k = A0.indexOf('{', i), d = 0; for(; k < A0.length; k++){ if(A0[k] === '{') d++; else if(A0[k] === '}' && --d === 0) return A0.slice(i, k + 1); } return ''; };
+    const fDel = take('async function _loginDoDeleteAccount('), fRe0 = take('async function _withRecentLogin('), fPrev = take('async function _withdrawPreview(');
+    const fRe = A0.slice(A0.indexOf('const REAUTH_NO_METHOD'), A0.indexOf(fRe0) + fRe0.length);   // 다시 확인 상수 · 비밀번호 · 구글 갈래 · 판단 함수 한 벌
+    chk(!!fDel && !!fRe0 && !!fPrev, '탈퇴 · 다시 확인 · 미리보기 함수를 떼어 왔다');
+    const mk = (o) => {
       const log = [];
-      const d = {
-        callFn: async (name, data) => { log.push('call:' + name + ':' + JSON.stringify(data)); if (opt && opt.fail) throw Object.assign(new Error('x'), { code: opt.fail, message: '서버 문구' }); return { data: { ok: true, dbCount: 3, done: { db: 3 } } }; },
-        signedIn: () => (opt && opt.signed) || 'ok',
-        cancelPresence: () => { log.push('cancel'); return (opt && opt.hang) ? new Promise(() => {}) : Promise.resolve(); },
-        goOffline: () => log.push('offline'), goOnline: () => log.push('online'),
-        signOut: async () => log.push('signout'),
+      const userApiMod = {
+        withdraw: async () => { log.push('withdraw'); if(o.fail && !(o.reauthOnce && log.filter((x) => x === 'withdraw').length > 1)) throw Object.assign(new Error('x'), { kind: 'request', code: o.fail }); return true; },
+        withdrawalPreview: async () => { if(o.prevFail) throw new Error('x'); return { items: 12, files: null, byContext: [] }; },
+        reasonOf: (e) => '문구:' + (e && e.code),
       };
-      return { api: mod.createAccountDelete(d), log };
+      const env = {
+        userApiMod, log,
+        loginFlowMod: { logout: async () => log.push('logout') },
+        firebaseAPI: { authProviders: () => ({ google: !!o.google, password: false }), authReauthGoogle: async () => { log.push('reauth'); return { ok: true }; } },
+        companion: { signInWithGoogle: async () => ({ ok: true, idToken: 't' }) },
+      };
+      const f = new Function('env', `const { userApiMod, loginFlowMod, firebaseAPI, companion, log } = env;
+        const asyncPrompt = async () => null; const notifyError = () => {};
+        const WITHDRAW_WORD = '탈퇴';
+        const _wipeAccountLocal = () => log.push('wipe');
+        ${fRe}\n${fDel}\n${fPrev}
+        return { del: _loginDoDeleteAccount, prev: _withdrawPreview };`);
+      return Object.assign(f(env), { log });
     };
-    let t = mk();
-    let r = await t.api.preview();
-    chk(r.ok && r.dbCount === 3 && t.log.join('|') === 'call:deleteMyAccount:{"dryRun":true}', '미리 보기 — dryRun:true 로 부르기만 · 연결을 끊지 않는다');
-    t = mk();
-    r = await t.api.run('  탈퇴 ');
-    chk(r.ok && r.done && r.done.db === 3, '탈퇴 — 성공');
-    chk(t.log.join('|') === 'cancel|offline|call:deleteMyAccount:{"dryRun":false,"confirm":"탈퇴"}|signout', '★ 순서: 접속 표시 예약 거두기 → DB 연결 끊기 → 호출 → 로그아웃');
-    t = mk();
-    r = await t.api.run('탈되');
+    let t = mk({});
+    let r = await t.del('  탈퇴 ');
+    chk(r.ok && t.log.join('|') === 'withdraw|logout|wipe', '★ 탈퇴 — 서버 → 로그인 놓기(realtime 끄기) → 이 PC 지우기 차례');
+    t = mk({}); r = await t.del('탈되');
     chk(!r.ok && t.log.length === 0, '확인 글자가 틀리면 아무것도 안 한다');
-    t = mk({ signed: 'anonymous' });
-    r = await t.api.run('탈퇴');
-    chk(!r.ok && /가입/.test(r.reason) && t.log.length === 0, '익명 세션 — 부르지 않고 안내');
-    t = mk({ signed: 'none' });
-    r = await t.api.preview();
-    chk(!r.ok && /로그인/.test(r.reason) && t.log.length === 0, '세션 없음 — 부르지 않고 안내');
-    t = mk({ fail: 'functions/unavailable' });
-    r = await t.api.run('탈퇴');
-    chk(!r.ok && t.log.join('|').endsWith('|online') && !t.log.includes('signout'), '★ 호출이 실패하면 연결을 다시 잇고 로그아웃하지 않는다');
-    t = mk({ fail: 'functions/failed-precondition' });
-    r = await t.api.run('탈퇴');
-    chk(r.reason === '서버 문구', '서버가 정한 문구(본인 확인 · 관리자 등)는 그대로 보여 준다');
-    chk(/배포 전/.test(mod.deleteErrorReason({ code: 'functions/not-found' })), '함수 배포 전(not-found) 안내');
-    t = mk({ hang: true });
-    const t0 = Date.now();
-    const realST = global.setTimeout;
-    global.setTimeout = (fn, ms) => realST(fn, Math.min(ms, 5));
-    r = await t.api.run('탈퇴');
-    global.setTimeout = realST;
-    chk(r.ok && t.log.includes('offline') && Date.now() - t0 < 2000, '예약 거두기가 서버에 안 닿아도 기다림 한도 뒤 이어 간다');
-    chk(!/from\s+["']https:/.test(strip(ADN)), 'Firebase 를 직접 불러오지 않는다 — deps 로 받는다');
+    t = mk({ fail: 'USER_ADMIN_CANNOT_WITHDRAW' }); r = await t.del('탈퇴');
+    chk(!r.ok && r.reason === '문구:USER_ADMIN_CANNOT_WITHDRAW' && t.log.join('|') === 'withdraw', '★ 서버가 거절하면 이 PC 는 그대로(지우지 않음) · 문구 표');
+    t = mk({ fail: 'USER_REAUTH_REQUIRED', reauthOnce: true, google: true }); r = await t.del('탈퇴');
+    chk(r.ok && t.log.join('|') === 'withdraw|reauth|withdraw|logout|wipe', '오래된 로그인 — 구글로 다시 확인하고 한 번 더');
+    t = mk({ fail: 'USER_REAUTH_REQUIRED', google: false }); r = await t.del('탈퇴');
+    chk(!r.ok && /다시 확인할 로그인 수단이 없어요/.test(r.reason) && !t.log.includes('wipe'), '  ↳ 다시 확인할 수단이 없는 계정은 안내하고 멈춘다(지우지 않음 · 비밀번호 계정의 창 흐름은 sim-account)');
+    const p = await mk({}).prev();
+    const p2 = await mk({ prevFail: true }).prev();
+    chk(p.ok && p.items === 12 && p.files === null && p2.ok === false, '미리보기 — { items · files } · 못 읽으면 ok:false(안내 줄만 숨김)');
+    chk(!/accountDelete:/.test(strip(FI)), 'firebase-init 에 탈퇴 함수 연결(accountDelete)이 없다');
   }
 
   say('── 11. 앱 연결 · 화면');
   {
-    const F = strip(FI);
-    chk(/import \{ createAccountDelete \} from "\.\/account\/account-delete-net\.js";/.test(F), 'firebase-init 이 account-delete-net.js 를 불러온다');
-    const w = F.match(/accountDelete: createAccountDelete\(\{([\s\S]*?)\}\),/);
-    chk(!!w && /await import\(FUNCTIONS_SDK_URL\)/.test(w[1]) && /getFunctions\(fbApp, FUNCTIONS_REGION\)/.test(w[1]), '  ↳ 함수 SDK 는 부를 때 들여온다 · 같은 리전');
-    chk(!!w && /onDisconnect\(_myPresenceRef\)\.cancel\(\)/.test(w[1]) && /goOffline\(db\)/.test(w[1]) && /goOnline\(db\)/.test(w[1]), '  ↳ 접속 표시 예약 거두기 · 연결 끊기 · 다시 잇기를 넘긴다');
-    chk(/goOffline, goOnline\s*\}\s*from "https:\/\/www\.gstatic\.com\/firebasejs\/[\d.]+\/firebase-database\.js"/.test(FI), '  ↳ goOffline · goOnline 은 database SDK 에서');
+    chk(!/account-delete-net/.test(FI), 'firebase-init 이 옛 탈퇴 모듈(account-delete-net.js)을 안 불러온다');
     const A = strip(ACC);
     const fn = A.match(/async function _loginDoDeleteAccount\(word\)\{([\s\S]*?)\n\}/);
-    chk(!!fn && /accountDelete\.run|api\.run\(word\)/.test(fn[1]) && fn[1].indexOf('run(') < fn[1].indexOf('_wipeAccountLocal()'), 'account.js — 서버가 지운 뒤에만 이 PC 기록을 지운다');
+    chk(!!fn && /userApiMod\.withdraw\(\)/.test(fn[1]) && fn[1].indexOf('withdraw()') < fn[1].indexOf('_wipeAccountLocal()'), 'account.js — 서버가 지운 뒤에만 이 PC 기록을 지운다');
     chk(!!fn && !/_acctFlushToServer|_acctPreflight|releaseDeviceSession/.test(fn[1]), '  ↳ 올리기 · 검문 · 기기 세션 놓기를 하지 않는다(지울 계정에 쓰지 않는다)');
     chk(/_loginDoDeleteAccount: \(\.\.\.a\)=>accountMod\._loginDoDeleteAccount\(\.\.\.a\)/.test(APPJS) && /const _loginDoDeleteAccount = deps\._loginDoDeleteAccount;/.test(MI), 'app.js 가 my-info.js 로 넘긴다');
     const box = (HTML.match(/<div id="acctDeleteConfirm"[\s\S]*?<div id="acctDeleteDone"/) || [''])[0];

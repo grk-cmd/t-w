@@ -23,7 +23,7 @@ const GET_DEPS = ["Presence","_blankFaceConfirmed","activeCustomDeskId","cBase",
 const SET_DEPS = ["_blankFaceConfirmed","creatorOpen","curSlot"];
 const EXPORTS = ["DEF_SIZE_TOAST_MS","_creatorBuildDef","_creatorSizeGrow","_defSizeFile"];
 const MOVED = ["_creatorBuildDef","DEF_SIZE_TOAST_MS","_creatorSizeGrow","_defSizeFile"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  NO_DESK_ID: NO_DESK_ID,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  Presence: ()=>Presence,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  activeCustomDeskId: ()=>activeCustomDeskId,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  blinkC: blinkC,","  cBase: ()=>cBase,","  cBotColor: ()=>cBotColor,","  cCam: ()=>cCam,","  cDeskColor: ()=>cDeskColor,","  cDeskGlbB64: ()=>cDeskGlbB64,","  cDeskLenX: ()=>cDeskLenX,","  cDeskPos: ()=>cDeskPos,","  cDeskScale: ()=>cDeskScale,","  cRenderer: ()=>cRenderer,","  cScene: ()=>cScene,","  cTopColor: ()=>cTopColor,","  cXform: ()=>cXform,","  charDef: (...a)=>charDef(...a),","  charsMod: ()=>charsMod,","  clampCharY: (...a)=>clampCharY(...a),","  clearStampState: (...a)=>clearStampState(...a),","  collectDeskItems: (...a)=>collectDeskItems(...a),","  commissionMod: ()=>commissionMod,","  createSeat: (...a)=>createSeat(...a),","  creatorFlowMod: creatorFlowMod,","  creatorMode: ()=>creatorMode,","  creatorOpen: ()=>creatorOpen,","  curSlot: ()=>curSlot,","  currentCreatorDef: ()=>currentCreatorDef,","  customItems: ()=>customItems,","  faceC: faceC,","  layoutSeats: (...a)=>layoutSeats(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  roomSyncMod: roomSyncMod,","  saveCurSlot: (...a)=>saveCurSlot(...a),","  selectSeat: (...a)=>selectSeat(...a),","  skinIndex: ()=>skinIndex,","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  snapCanvas: (...a)=>snapCanvas(...a),","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },","  setCreatorOpen: (v)=>{ creatorOpen = v; },","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  NO_DESK_ID: NO_DESK_ID,","  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  Presence: ()=>Presence,","  _blankFaceConfirmed: ()=>_blankFaceConfirmed,","  _isBlankDraw: (...a)=>_isBlankDraw(...a),","  activeCustomDeskId: ()=>crState.activeCustomDeskId,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  applyDesktopRunClass: (...a)=>applyDesktopRunClass(...a),","  blinkC: blinkC,","  cBase: ()=>crState.cBase,","  cBotColor: ()=>crState.cBotColor,","  cCam: ()=>crState.cCam,","  cDeskColor: ()=>crState.cDeskColor,","  cDeskGlbB64: ()=>crState.cDeskGlbB64,","  cDeskLenX: ()=>crState.cDeskLenX,","  cDeskPos: ()=>crState.cDeskPos,","  cDeskScale: ()=>crState.cDeskScale,","  cRenderer: ()=>crState.cRenderer,","  cScene: ()=>crState.cScene,","  cTopColor: ()=>crState.cTopColor,","  cXform: ()=>crState.cXform,","  charDef: (...a)=>charDef(...a),","  clampCharY: (...a)=>clampCharY(...a),","  clearStampState: (...a)=>crStampMod.clearStampState(...a),","  collectDeskItems: (...a)=>collectDeskItems(...a),","  commissionMod: ()=>commissionMod,","  createSeat: (...a)=>createSeat(...a),","  creatorFlowMod: creatorFlowMod,","  creatorMode: ()=>creatorMode,","  creatorOpen: ()=>creatorOpen,","  curSlot: ()=>curSlot,","  currentCreatorDef: ()=>crState.currentCreatorDef,","  customItems: ()=>customItems,","  faceC: faceC,","  layoutSeats: (...a)=>layoutSeats(...a),","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  roomSyncMod: roomSyncMod,","  saveCurSlot: (...a)=>saveCurSlot(...a),","  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),","  skinIndex: ()=>crState.skinIndex,","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  snapCanvas: (...a)=>snapCanvas(...a),","  toast: (...a)=>toast(...a),","  setBlankFaceConfirmed: (v)=>{ _blankFaceConfirmed = v; },","  setCreatorOpen: (v)=>{ creatorOpen = v; },","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -144,7 +144,7 @@ function rigS(o){
     roomSyncMod: { defWireForSize: (d) => d, _defSizeNames: () => [] },
     _isBlankDraw: (c) => c === 'BLANK' || (c && c.id === 'face' && st.blank), _blankFaceConfirmed: () => st.cfm, setBlankFaceConfirmed: (v) => { st.cfm = v; },
     creatorMode: () => st.mode, creatorOpen: () => st.open, setCreatorOpen: (v) => { st.open = v; }, curSlot: () => st.cur, setCurSlot: (v) => { st.cur = v; },
-    charsMod: () => ({ _charsBoxFull: () => !!o.boxFull, _charsOnNew: log('onNew') }), slotSaveMod: () => ({ saveSlots: log('save') }), saveCurSlot: log('saveCur'),
+    slotSaveMod: () => ({ saveSlots: log('save') }), saveCurSlot: log('saveCur'),
     Presence: () => ({ active: () => !!o.inRoom, updateDef: log('presence') }), applyCharToSeat: log('applySeat'), toast: log('toast'), clearStampState: log('stampClear'),
     renderLauncher: log('renderLauncher'), applyDesktopRunClass: log('runClass'), creatorFlowMod: { closeCreator: log('close') },
     createSeat: () => ({}), selectSeat: log('select'), renderSeatTabs: log('tabs'), layoutSeats: log('layout') };
@@ -193,7 +193,7 @@ function rigS(o){
   chk(r.api.DEF_SIZE_TOAST_MS === 4000, '용량 안내 토스트 4초'); }
 /* [완료] — 저장 칸 */
 { const r = rigS({ mode: { kind: 'slot', edit: false, slot: 2 } }); r.el('crDone').fire('click');
-  chk(r.slots[2] && r.slots[2].skin === 2 && r.st.cur === 2 && r.n('save') === 1 && r.n('saveCur') === 1 && r.n('onNew') === 1, '[＋] 로 정한 칸에 새 캐릭터 · 현재 칸 · 저장 · 보관함 번호');
+  chk(r.slots[2] && r.slots[2].skin === 2 && r.st.cur === 2 && r.n('save') === 1 && r.n('saveCur') === 1, '[＋] 로 정한 칸에 새 캐릭터 · 현재 칸 · 저장(서버에 올리는 것은 옷장이 저장 알림을 받아 한다)');
   chk(r.n('close') === 1 && r.last('toast') === '슬롯에 저장했어요', '닫고 «슬롯에 저장했어요»'); }
 { const r = rigS({ slots: ['a', null, null], cur: 0, mode: { kind: 'slot', edit: false } }); r.el('crDone').fire('click');
   chk(r.slots[1] && r.st.cur === 1, '칸이 안 정해졌으면(옛 길) 지금 칸이 차 있을 때 첫 빈 칸'); }
@@ -201,10 +201,10 @@ function rigS(o){
   chk(r.last('toast') === '빈 슬롯이 없어요' && r.n('save') === 0, '빈 칸이 없으면 «빈 슬롯이 없어요» · 저장 안 함'); }
 { const r = rigS({ slots: [null, 'b', null], mode: { kind: 'slot', edit: false, slot: 1 } }); r.el('crDone').fire('click');
   chk(r.slots[1] === 'b' && /이미 캐릭터/.test(r.last('toast')), '새로 만들기인데 그 칸에 캐릭터가 있으면 덮어쓰지 않는다'); }
-{ const r = rigS({ mode: { kind: 'slot', edit: false, slot: 0 }, boxFull: true }); r.el('crDone').fire('click');
-  chk(r.slots[0] === null && r.n('save') === 0, '보관함 문턱이 차면 저장 안 함'); }
+{ const r = rigS({ mode: { kind: 'slot', edit: false, slot: 0 } }); r.el('crDone').fire('click');
+  chk(r.slots[0] !== null && r.n('save') === 1, '보관함이 가득 차 있어도 새 캐릭터는 슬롯에 저장한다(서버가 보관함 문턱을 보지 않는다 — 옷장 20 은 보관함으로 옮길 때만)'); }
 { const r = rigS({ slots: ['old', null], mode: { kind: 'slot', edit: true, slot: 0 } }); r.el('crDone').fire('click');
-  chk(r.slots[0] !== 'old' && r.n('onNew') === 0, '수정 — 그 칸을 갈고 보관함 새 번호는 안 준다'); }
+  chk(r.slots[0] !== 'old', '수정 — 그 칸을 간다'); }
 { const r = rigS({ mode: { kind: 'slot', edit: false, slot: 0 }, tooBig: true }); r.el('crDone').fire('click');
   chk(r.slots[0] === null && r.last('toast') === '너무 커요' && r.st.open === true, '용량을 넘겨 키웠으면 저장 안 함 · 생성기는 열린 채'); }
 /* 좌석(실행 중 수정) */

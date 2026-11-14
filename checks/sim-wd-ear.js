@@ -286,8 +286,7 @@ say('── 3-e. 저장 · 불러오기 — 껐다 켜도 귀가 남는다 (제�
   }
   chk(/if\(o\.earL\)_d\.earL=o\.earL;if\(o\.earR\)_d\.earR=o\.earR;if\(o\.earAdj\)_d\.earAdj=o\.earAdj;if\(o\.earPicL\)_d\.earPicL=o\.earPicL;if\(o\.earPicR\)_d\.earPicR=o\.earPicR;/.test(APP),
     '★ loadSlots 가 귀 다섯 칸을 되살린다(slotToObj 와 1:1)');
-  chk(/\['earPicL','earPicR'\]\.forEach\(k=>\{ if\(typeof out\[k\]==='string' && out\[k\]\.startsWith\('data:'\)\) delete out\[k\]; \}\);\s*return out;\s*\}/.test(APP),
-    '  서버로 올릴 때 dataURL 귀 그림은 뺀다(칸 상한 150KB · 방 전송과 같은 규칙)');
+  /* 서버로 올릴 때 dataURL 귀 그림을 빼는 것은 character/slot-codec.js 로 옮겼다 — sim-slot-codec 1절이 실제로 돌려 본다. */
   chk(/\['earL','earR','earAdj','earPicL','earPicR'\]\.forEach\(k=>\{ if\(currentCreatorDef\[k\]!=null\) def\[k\]=currentCreatorDef\[k\]; \}\);/.test(APP),
     '  생성기 [완료] 가 귀를 이어받는다(꾸미기 파츠와 같은 이유)');
   /* 캐릭터 코드(DCC1)의 칸 싣기 · 되살리기는 캐릭터 코어로 옮겼다(#433) — 빌드 사본을 돌려 본다. 내보내기 쪽 귀 칸은 코어 시험(clone-code.test.ts)이 본다. */

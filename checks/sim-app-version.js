@@ -1,5 +1,5 @@
 /*
- * 앱 버전(ver)을 presence 와 라이선스 요청에 싣는가 — 웹 관리자가 사용자 · 요청마다 버전을 본다.
+ * 앱 버전(ver)을 presence 에 싣는가 — 웹 관리자가 사용자마다 버전을 본다.
  * 1. app-version.js 를 그대로 불러 돌린다 — 정상 · companion 없음 · 실패 · 이상한 값
  * 2. firebase-init.js — presence 를 통째로 쓰는 자리(set · onDisconnect().set) 전부 ver 를 싣는가 · 늦게 오면 메우는가
  * 3. 규칙 — presence/ver · licenseRequests ver 를 실제로 굴린다(없어도 통과 · 문자열 · 20자)
@@ -72,9 +72,6 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
     chk(/if\(!_myPresenceRef \|\| !_presenceWritten\) return;/.test(ready), '★ 버전이 늦게 오면 — presence 를 이미 썼을 때만 메운다');
     chk(/update\(_myPresenceRef, \{ ver \}\)/.test(ready), '  ↳ ver 만 update(부분 쓰기 — online · room 은 그대로)');
     chk(/onDisconnect\(_myPresenceRef\)\.set\(_appVer\.withVer\(/.test(ready), '  ↳ onDisconnect 도 ver 를 실어 다시 건다');
-    const req = (CODE.match(/async requestLicense\(name\)\{([\s\S]*?)\n    \},/) || [])[1] || '';
-    chk(/await _appVer\.ready;/.test(req) && /set\(ref\(db, `licenseRequests\/\$\{reqId\}`\), _appVer\.withVer\(\{/.test(req),
-      '★ 라이선스 요청에도 ver — 버전을 받은 뒤에 쓴다');
   }
 
   say('── 3. 규칙 — 실제로 굴린다');
@@ -117,35 +114,8 @@ const mod = new Function(AV.replace(/^export (function|const) /mg, '$1 ') + '\nr
 
   say('── 4. accountSnap ver (부팅마다 쓰는 계정 요약)');
   {
-    const grab = (head) => { const i = FI.indexOf(head); if(i < 0) return null; let k = FI.indexOf('{', i), d = 0;
-      for(; k < FI.length; k++){ if(FI[k] === '{') d++; else if(FI[k] === '}' && --d === 0) return FI.slice(i, k + 1); } return null; };
-    const fClean = grab('function _acctSnapClean('), fSet = grab('async setAccountSnapshot(');
-    chk(!!fClean && !!fSet, '_acctSnapClean · setAccountSnapshot 을 찾았다');
-    const mk = (ver, deny) => {
-      const writes = [];
-      const c = { Date: { now: () => 5000 }, Number, db: {}, ref: (d, p) => ({ p: p || '/' }),
-        _appVer: { ready: Promise.resolve(ver), get: () => ver },
-        update: async (r, patch) => { const v = JSON.parse(JSON.stringify(patch)); writes.push(v);
-          if(deny(v)) throw new Error('PERMISSION_DENIED'); } };
-      vm.createContext(c);
-      vm.runInContext(fClean + '\nthis.api = {' + fSet + '};', c);
-      return { api: c.api, writes };
-    };
-    let t = mk('0.10.3', () => false);
-    let w = fClean && fSet ? await t.api.setAccountSnapshot('U1', { license: 'K', name: 'n' }) : {};
-    const s1 = t.writes[0] && t.writes[0]['accountSnap/U1'];
-    chk(w.ok && t.writes.length === 1 && s1 && s1.ver === '0.10.3' && s1.license === 'K', '★ setAccountSnapshot 이 accountSnap 에 ver 를 싣는다');
-    t = mk(null, () => false);
-    await t.api.setAccountSnapshot('U2', { license: 'K' });
-    chk(t.writes.length === 1 && t.writes[0]['accountSnap/U2'].ver === null, '  ↳ 버전을 모르면 ver 없이(null = 안 씀)');
-    // 규칙 배포 전($other:false) — ver 가 있으면 거절되는 서버
-    t = mk('0.10.3', (v) => !!(v['accountSnap/U3'] && v['accountSnap/U3'].ver));
-    w = await t.api.setAccountSnapshot('U3', { license: 'K' });
-    chk(w.ok && t.writes.length === 2 && t.writes[1]['accountSnap/U3'].ver === null && t.writes[1]['accountSnap/U3'].license === 'K',
-      '★ 규칙이 ver 를 모르는 서버면 ver 를 빼고 다시 써서 라이선스는 남긴다');
-    t = mk(null, () => true);
-    w = await t.api.setAccountSnapshot('U4', { license: 'K' });
-    chk(!w.ok && t.writes.length === 1, '  ↳ ver 가 없는데 거절되면 다시 쓰지 않는다(ok:false)');
+    /* 0.13 — 앱은 accountSnap 을 쓰지 않는다(계정 사본을 걷었다 · 서버가 원본). 규칙 칸은 옛 앱 몫으로 남아 있어 아래만 본다. */
+    chk(!/setAccountSnapshot|_acctSnapClean/.test(FI.replace(/\/\*[\s\S]*?\*\//g, '')), '0.13 앱은 accountSnap 에 쓰지 않는다(setAccountSnapshot 걷음)');
 
     const as = (RULES.accountSnap || {}).$userId || {};
     const vv = (as.ver || {})['.validate'];

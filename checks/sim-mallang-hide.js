@@ -15,6 +15,27 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { for (const c of [f, 'parts/' + f, 'app/parts/' + f, 'app/parts/myhome/' + f, 'app/' + f]) if (fs.existsSync(c)) return fs.readFileSync(c, 'utf8'); return null; };
 const MOD = read('mallang.js'), UI = read('myhome-ui.js'), HTML = read('desk-companion-prototype.html');
 if (!MOD || !UI || !HTML) { say('  ? 원본 못 찾음 — mallang.js · myhome-ui.js · desk-companion-prototype.html'); process.exit(2); }
+const STORE_SRC = { store: read('mallang-store.js'), gift: read('gift-api.js'), box: read('gift-box.js'), ae: read('api-errors.js') || read('shared/api-errors.js') };
+if (!STORE_SRC.store || !STORE_SRC.gift || !STORE_SRC.box || !STORE_SRC.ae) { say('  ? 원본 못 찾음 — mallang-store.js · gift-api.js · api-errors.js'); process.exit(2); }
+
+/* 🧸 말랑이 칸 상태 주인 — 진짜 mallang-store.js 위에 가짜 서버 길(slotsOf: 집 코드 → 칸 · 내 집은 'me') */
+const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
+function mkStore(slotsOf){
+  const copy = (who) => ({ slots: (slotsOf[who] || []).map((x, i) => ({ slot: i, imageUrl: x, enabled: true })), version: 1 });
+  const api = { fetchMine: async () => copy('me'), fetchOf: async (u) => copy(u), uploadImage: async () => 'https://x.example/n.png', saveMallangs: async (v, sl) => ({ slots: sl, version: v + 1 }), reset(){} };
+  return loadMod(STORE_SRC.store).createMallangStore({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){} });
+}
+
+/* 🎁 선물 상태 주인 — 진짜 gift-box.js 위에 가짜 서버 길(내 선물함 = gifts.home1 · 그 집 선물 = gifts[집 코드]) */
+function mkBox(gifts){
+  const row = (k, g) => ({ id: k, senderName: '친구', imageUrl: g.imgUrl, message: '', starred: false, hidden: false, sentAt: 1 });
+  const api = {
+    fetchBox: async () => ({ items: Object.keys(gifts.home1 || {}).map((k) => row(k, gifts.home1[k])), unseenCount: 0, starCount: 0, boxKeep: 30, starMax: 20 }),
+    fetchVisible: async (u) => ({ items: Object.keys(gifts[u] || {}).map((k) => ({ id: k, imageUrl: gifts[u][k].imgUrl, message: '' })), visibleCount: Object.keys(gifts[u] || {}).length, recipientCap: 30 }),
+    fetchSentToday: async () => ({ count: 0, dailyMax: 10 }), send: async () => ({ giftId: 'x', sentToday: 1, dailyMax: 10 }), markSeen: async () => {}, star: async () => {}, hide: async () => {}, remove: async () => {}, reset(){},
+  };
+  return loadMod(STORE_SRC.box).createGiftBox({ api, giftLib: loadMod(STORE_SRC.gift), errs: loadMod(STORE_SRC.ae), apiErrors: { notify(){} }, notifyError(){}, toast(){}, rtOn: () => () => {}, requestIds: { idFor: (k) => k, settle(){} } });
+}
 
 /* 가짜 DOM — id 로 찾고 · 붙이고 · class · style · 이벤트만 진짜 */
 function mkEnv(src){
@@ -22,13 +43,14 @@ function mkEnv(src){
   const mk = (tag) => {
     const cls = new Set(), L = {};
     const el = {
-      tagName: String(tag).toUpperCase(), style: {}, children: [], parentElement: null, _id: '', textContent: '', title: '', innerHTML: '',
+      tagName: String(tag).toUpperCase(), style: {}, children: [], parentElement: null, _id: '', textContent: '', title: '', innerHTML: '', dataset: {},
+      get isConnected(){ return !!el.parentElement; },
       get id(){ return this._id; }, set id(v){ this._id = v; byId[v] = el; },
       classList: { add: (...a) => a.forEach(c => cls.add(c)), remove: (...a) => a.forEach(c => cls.delete(c)), contains: c => cls.has(c),
         toggle: (c, on) => { const v = on === undefined ? !cls.has(c) : !!on; v ? cls.add(c) : cls.delete(c); return v; } },
       set className(v){ cls.clear(); String(v).split(/\s+/).filter(Boolean).forEach(c => cls.add(c)); }, get className(){ return [...cls].join(' '); },
       appendChild(c){ c.parentElement = el; el.children.push(c); return c; },
-      remove(){ if (el.parentElement) el.parentElement.children = el.parentElement.children.filter(x => x !== el); },
+      remove(){ if (el.parentElement) el.parentElement.children = el.parentElement.children.filter(x => x !== el); el.parentElement = null; },
       addEventListener(t, fn){ (L[t] = L[t] || []).push(fn); }, fire(t){ (L[t] || []).forEach(fn => fn({ preventDefault(){}, stopPropagation(){} })); },
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 580 }),
       querySelector: () => null,
@@ -40,14 +62,14 @@ function mkEnv(src){
   const btn = mk('span'); btn.id = 'mhMallangHideBtn'; btn.style.display = 'none';
   class FakeImage { constructor(){ this.naturalWidth = 100; this.naturalHeight = 100; imgs.push(this); } set src(v){ this._src = v; } get src(){ return this._src; } }
   const gifts = { home1: { g1: { imgUrl: 'https://x.example/a.png' }, g2: { imgUrl: 'https://x.example/b.png' } }, empty: {} };
+  const giftBox = mkBox(gifts);
   const ctx = {
     console: { log(){}, warn(){} }, Math, JSON, String, Number, Array, Object, Set, Promise, Date, Error,
-    document: { getElementById: (id) => byId[id] || null, createElement: mk, head: mk('head'), querySelectorAll: () => [] },
+    document: { getElementById: (id) => byId[id] || null, createElement: mk, head: mk('head'), querySelector: () => null, querySelectorAll: () => [] },
     Image: FakeImage, localStorage: { getItem: () => null, setItem(){} },
     requestAnimationFrame: (fn) => { rafs.push(fn); return rafs.length; }, cancelAnimationFrame(){},
     setTimeout: () => 0, clearTimeout(){},
     toast(){}, getMyUserId: () => 'me',
-    firebaseAPI: { getMallangImgs: async () => [], getMallangGifts: async (id) => gifts[id] || {} },
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => fs.existsSync(p)));   // 🛡️ 공용 씻기 — 진짜 파일
@@ -55,9 +77,10 @@ function mkEnv(src){
   globalThis.TwSafeHtml = ctx.TwSafeHtml;   // img-retry.js 는 node 쪽 전역에서 TwSafeHtml 을 찾는다
   vm.createContext(ctx);
   vm.runInContext(src, ctx, { filename: 'mallang.js' });
+  const m = ctx.TwMallang.createMallang({ toast: ctx.toast, getMyUserId: ctx.getMyUserId, premiumOn: () => false, mallangStore: mkStore({}), giftBox });
   const loadAll = () => { imgs.splice(0).forEach(im => im.onload && im.onload()); };
   const layer = () => byId.mlLayer;
-  return { ctx, btn, layer, loadAll, rafs };
+  return { ctx, m, btn, layer, loadAll, rafs };
 }
 const flush = () => new Promise(r => setImmediate(r));
 
@@ -67,7 +90,7 @@ async function judge(src){
   const t = (ok, name) => { if (!ok) bad.push(name); };
   try {
     const e = mkEnv(src);
-    await e.ctx._mallangOnOpen('home1', false); await flush(); e.loadAll();
+    await e.m.onOpen('home1', false); await flush(); e.loadAll();
     t(e.btn.style.display === 'inline' && e.btn.textContent === '말랑이 숨기기', '말랑이가 뜨면 버튼이 보인다');
     t(!e.layer().classList.contains('ml-hidden'), '처음엔 보인다');
     const r0 = e.rafs.length;
@@ -79,13 +102,13 @@ async function judge(src){
     e.btn.fire('click');
     t(!e.layer().classList.contains('ml-hidden') && e.btn.textContent === '말랑이 숨기기' && e.rafs.length === r1 + 1, '다시 누르면 보이고 다시 움직인다');
     e.btn.fire('click');
-    e.ctx._mallangOnClose();
+    e.m.onClose();
     t(!e.layer().classList.contains('ml-hidden') && e.btn.style.display === 'none', '숨긴 채 닫으면 다시 보이는 상태 · 말랑이가 없으니 버튼도 없음');
     e.btn.fire('click');
-    await e.ctx._mallangApplyVisit(true, 'home1'); await flush(); e.loadAll();
+    await e.m.applyVisit(true, 'home1'); await flush(); e.loadAll();
     t(!e.layer().classList.contains('ml-hidden') && e.btn.style.display === 'inline', '숨긴 채 다른 집으로 가면 그 집 말랑이는 보인다 · 남의 집에서도 버튼');
     const e2 = mkEnv(src);
-    await e2.ctx._mallangOnOpen('empty', false); await flush(); e2.loadAll();
+    await e2.m.onOpen('empty', true); await flush(); e2.loadAll();
     t(e2.btn.style.display === 'none', '말랑이가 없으면 버튼이 없다');
   } catch (err) { bad.push('던짐 — ' + (err && err.message)); }
   return bad;

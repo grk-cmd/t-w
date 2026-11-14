@@ -14,11 +14,7 @@ const CHAR_Z = deps.CHAR_Z;
 const FrameBudget = deps.FrameBudget;
 const blinkTiming = deps.blinkTiming;
 const RIG_TURN = deps.RIG_TURN;
-const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
-const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
-const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
-const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
-const _mkFrontFill = deps._mkFrontFill;
+const addRunLights = deps.addRunLights;
 const _quickHash = deps._quickHash;
 const _setDeskMatColor = deps._setDeskMatColor;
 const allDeskItems = deps.allDeskItems;
@@ -58,9 +54,8 @@ function ensureLauncherPreview(){
   lRenderer=new THREE.WebGLRenderer({canvas:document.getElementById('lcPreview'),antialias:false,alpha:true});
   lRenderer.setPixelRatio(1);lRenderer.outputEncoding=THREE.sRGBEncoding;
   document.getElementById('lcPreview').style.imageRendering='pixelated';
-  lScene=new THREE.Scene();lScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  const k=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);k.position.set(0,4,0);lScene.add(k);
-  lScene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 실행 화면과 같은 정면 필
+  lScene=new THREE.Scene();
+  addRunLights(lScene, { keyPos: [0, 4, 0] });   // ★ 실행 화면과 같은 조명(shared/light-tone.js)
   lCam=new THREE.PerspectiveCamera(32,1,0.1,100);
   const desk=buildDesk(true);lScene.add(desk);
   desk.visible=false;   // 런처 슬롯 미리보기: 책상(+책상 위 아이템) 숨김 — 캐릭터만 둥둥 뜨게. lHolder 로직은 그대로 유지

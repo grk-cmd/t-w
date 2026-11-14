@@ -21,7 +21,7 @@ const FN_DEPS = ["_lsSet","_rolloverFocusToday","toast"];
 const VAL_DEPS = ["Presence"];
 const GET_DEPS = ["officeMode","userStatus"];
 const SET_DEPS = [];
-const EXPORTS = ["_focusShowConf","_focusShowMarkSent","_focusShowMine","_focusShowPush"];
+const EXPORTS = ["startFocusShare","_focusShowConf","_focusShowMarkSent","_focusShowMine","_focusShowPush"];
 const MOVED = ["FOCUS_SHOW_KEY","FOCUS_SHOW_MS","focusShowOn","_focusShowSentAt","_focusShowSent","_focusShowText","_focusShowConf","_focusShowPush","_focusShowMarkSent","_focusShowMine","_focusShowRefreshUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
 const GLUE = ["  Presence: Presence,","  _lsSet: (...a)=>_lsSet(...a),","  _rolloverFocusToday: (...a)=>_rolloverFocusToday(...a),","  officeMode: ()=>officeMode,","  toast: (...a)=>toast(...a),","  userStatus: ()=>userStatus,"];
 

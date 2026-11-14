@@ -57,7 +57,7 @@ function world(src, o = {}) {
     commissionMod: () => ({ savedDesks: () => desks, savedItems: () => items, setSavedDesks: (a) => { desks = a; }, setSavedItems: (a) => { items = a; }, persistSavedAssets: call('persist'), MAX_CUSTOM_ASSETS: 2, MAX_CUSTOM_ITEMS: 3 }),
     crState: st, creatorOpen: () => o.open !== false, customItems: () => customItems,
     deskItemsMod: () => ({ deskItemDef: (id) => (o.override && o.override[id]) || null }), equipDeskItem: call('equip'),
-    isAdmin: () => !!o.admin, isPremium: () => !!o.premium, lightToneMod: () => ({ _setDeskMatColor: call('matColor') }),
+    isAdmin: () => !!o.admin, licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && !o.premium && !o.admin, lightToneMod: () => ({ _setDeskMatColor: call('matColor') }),
     ndc: { x: 0, y: 0 }, premiumMod: { _wdLicenseDesks: () => o.licDesks || [] }, ray,
     setCreatorDeskScale: call('scale'), swapDeskVisual: call('swap'), toast: (m, a, b) => log.toasts.push([m, a, b]),
   });

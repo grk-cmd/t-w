@@ -353,16 +353,16 @@ else:
 section('검사 8 · firebaseAPI 호출-정의 계약 (파일 버전 어긋남 감지)')
 _callers = {}
 # scheduler.js — app.js 에서 옮긴 📅 스케줄러 · 🔔 일정 알림(앱 FSD 1번). 빼면 일정 · D-day 호출이 이 검사의 시야에서 사라진다.
-# weekly-challenge.js — 👑 달성표(앱 FSD 2번). loadChal · saveChal · addChalBonus · loadChalBonus 를 부른다.
+# weekly-challenge.js — 👑 달성표(앱 FSD 2번). 0.13 에서 서버 길(chal-store.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
 # purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). pkOnValue · pkUpdate · pkUploadFrame · serverNow 를 부른다.
-# guestbook.js — 📖 방명록(앱 FSD 4번). subscribeGuestbook · subscribeClap · addGuestbookEntry · deleteGuestbookEntry · clapOnce · setClapEmoji · setClapImage 를 부른다.
+# guestbook.js — 📖 방명록(앱 FSD 4번). 0.13 에서 서버 길(guestbook-api.js · guestbook-feed.js)로 옮겨 firebaseAPI 를 더는 안 부른다.
 # friend-manage.js — 👥 친구 관리(앱 FSD 5번). acceptFriendRequest · rejectFriendRequest · getSentFriendRequests · isFriendRequestAlive · pruneSentFriendRequest · cancelFriendRequest · getUserNameById 를 부른다.
-# bug-board-ui.js — 🐞 버그 제보 탭(오픈카톡 기본 링크)을 app.js 에서 이 파일 끝으로 옮겼다(앱 FSD 5번). setBugReport · subscribeBugReport 를 부른다.
-# gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). loadGachaOwned · updateGacha 를 부른다.
+# bug-board-ui.js — 🐞 버그 제보 탭. 서버 길(bug-api.js)로 받고 쓰며 firebaseAPI 를 더는 부르지 않는다(오픈카톡 기본 링크 setBugReport · subscribeBugReport 도 서버 설정 bug.report 로 옮겼다).
+# gacha.js — 🎰 파츠 가챠 코어 · 보관함(앱 FSD 8번). 서버 원본이라 firebaseAPI 를 부르지 않는다(gacha-api.js).
 # myhome-edit.js — 🏠 마이홈 페이지 편집 묶음 · 👑 디자인 스튜디오(앱 FSD 7-2). saveMyHome · uploadUserImage 를 부른다.
 # room-invite-ui.js — 🙋 투게더룸 친구 초대 · 🚪 방 초대 받기(앱 FSD 10번). sendRoomInvite · subscribeRoomInvites · clearRoomInvite 를 부른다.
-# myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend · getMallangGifts · setMallangGiftStarred · deleteInboxBroadcast · deleteInboxMessage · setInboxBroadcastPinned · markInboxRead 를 부른다.
-# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). publishMyPlaylist · removeMyPlaylist · fetchPlaylistCard · fetchRandomPlaylist · fetchPlaylistOf 를 부른다.
+# myhome-inbox.js — 📩 수령함 · 💝 선물함 · 👥 마이홈 친구 목록(앱 FSD 15번). removeFriend 를 부른다(선물함은 서버 길 gift-box.js · 우편 · 소식은 서버 길 mail-feed.js · notice-feed.js).
+# playlist.js — 🎵 상태칩 플레이리스트(앱 FSD 16번). fetchPlaylistCard 를 부른다(내 목록 · 파도타기는 서버 길 playlist-api.js).
 # admin/*.js — 🛠️ 관리자 코드는 parts/admin/ 에 모은다(관리자 코드 admin 폴더). 러너 스테이징은 한 층만 펼쳐서 이 폴더가
 #   parts/admin/ 로 남는다 — 이름만으로 못 열면 그 자리도 본다(_open_part). admin-license-bulk.js 는 createLicense · sendInboxMessage ·
 #   lookupFriendCode · listLicenses · getUserNameById · issueSecretRoom · expireSecretRoom · getSecretRoomPub · getMySecretRoom ·
@@ -370,7 +370,7 @@ _callers = {}
 #   cleanupGhostRooms · reclaimInvitesSince · publishPart · publishDesk · publishItem 을 부른다. admin-license.js · admin-notice.js ·
 #   admin-category.js(관리자 3번)는 라이선스 발급 · 요청 · 공지 · 카테고리 쓰기를 부른다. admin-part-register.js(4번)는 publishPart ·
 #   publishDesk · publishItem 등 카탈로그 쓰기를 부른다. admin-users.js · admin-launcher.js(5번)는 통계 · 초대권 지급 · 방 종료 ·
-#   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. report.js · admin-report.js(앱 FSD 11번)는 reportUser · listReports ·
+#   유령 방 · 게임 설정 · 광고 배너 게시를 부른다. admin-report.js(앱 FSD 11번)는 listReports ·
 #   getUserBrief · setAwayImg · deleteStorageUrl · clearReports 를 부른다. my-info.js(앱 FSD 17번 — 🪪 [내 정보] · 🏆 랭킹 · 계정 탭 로그인) · chars.js(18번 — 🧬 캐릭터 보관함) · slot-sync.js(19번 — ☁️ 슬롯 기기 간 동기화) · away-pic.js · myhome-ui.js(22번) · tricks.js(25번 — 💃 깜짝쇼 · 🪄 때리기) · ride-bench.js(30번 — 🗼 올라타기 · 🪑 멀티좌석) · part-paint.js(21번 — 🖍️ 파츠에 직접 그리기) · focus-level.js(26번 — ⭐ 포커스 레벨 · 공유 · 태블릿) · chat-ui.js(24번 — 💬 채팅 날리기 · 탭 · 복사 · 이모티콘) · license-gate.js(31번 — 🎟️ 초대장 · 라이선스) · account.js(23번 — 🔑 계정) · wardrobe.js(29번 — 🎨 꾸미기 창) · settings-panel.js(27번 — ⚙ 설정 패널) · desktop-run.js(32번 — 🖥️ 데스크탑 실행 화면) · room-entry.js(33번 — 🛰 방 서버 · 입장 · 방 개수) · overhead.js(34번 — 💬 머리 위 말풍선 · 🏷️ 이름표)도 본다.
 def _open_part(name):
     for _p in (name, os.path.join('parts', 'admin', name), os.path.join('app', 'parts', 'admin', name)):
@@ -425,10 +425,9 @@ for _n, _c in sorted(_gets.items()):
 #   런처마다 통째로 읽던 한 줄이 운영 다운로드의 27%였다(2026-10-03). 기준선보다 늘면 경보 — 필요한 하위 경로만 읽을 것.
 #   users 1곳 = invite-account.js 의 폴백(shallow 실패 때만). rooms 2곳 = 정원 · 생존 확인의 폴백.
 _BASELINE_GET1 = {'accountSnap': 1, 'authUsers': 2, 'bookmarks': 1, 'bookmarksPub': 1, 'catalog': 1, 'friendCodes': 1,
-                  'groupInvites': 1, 'inbox': 1, 'licenseRequests': 1, 'licenses': 2, 'playlistPriv': 1, 'presencePref': 1, 'rooms': 2, 'roomAlive': 2, 'roomLobby': 1, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
+                  'groupInvites': 1, 'inbox': 1, 'licenseRequests': 1, 'licenses': 2, 'playlistPriv': 1, 'rooms': 2, 'roomAlive': 2, 'roomLobby': 1, 'sentFriendRequests': 1, 'userAuth': 2, 'users': 1}
 #   playlistPriv 1곳 = 🔒 fetchMyPlaylistSets — 잠근 프리셋(나만 보기) 본인 칸. 본인만 읽고 부팅 맞추기 · 계정 이어받기 때 한 번, 잠근 프리셋 이름 · 곡뿐.
 #   groupInvites 1곳 = group-invite.js 의 코드 머리 — 칸 일곱(인원 · 쓴 수 · 마감 · 중지 …)뿐이고 소진 판정에 다 쓴다. 들어온 사람은 다른 노드.
-#   presencePref 1곳 = 🔒 loadPresencePref — 앱을 켤 때 한 번, 세 칸(lock · online · ts)뿐.
 #   roomAlive 2곳 = 💓 checkRoomCapacity · checkSecretRoomEntry — 입장할 때 한 번, 그 방 도장(멤버당 숫자 하나)만.
 #   roomLobby 1곳 = getRoomLobby — 로비가 지금 탭 채널 사본(공개 방 한 줄 ~80바이트) 하나를 모달을 열 때 · 새로 고침 · 60초마다.
 _gets1 = {}

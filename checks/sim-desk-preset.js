@@ -59,7 +59,7 @@ function world(src, o = {}) {
   const T = new Function('window', 'document', 'localStorage', 'setTimeout', 'Event', 'module', src + '\nreturn window.TwDeskPreset;')({}, doc, ls, (f) => timers.push(f), class { constructor(t) { this.type = t; } }, undefined);
   const out = T.createDeskPreset({
     DEFAULT_DESK_OVERRIDE_ID: '__default_desk__', NO_DESK_ID: '__no_desk__', hideDeskBody: call('hide'), crState: st, deskPresetStoreMod: store,
-    premiumMod: { _licenseLockedDeskId: (id) => !!(o.locked && id) },
+    premiumMod: { _licenseLockedDeskId: (id) => !!(o.locked && id) }, licenseAssetBlocked: (r) => !!(r && r.licenseOnly) && !o.premium && !o.admin,
     applyCreatorXform: call('xform'), applyDeskColorToCustom: call('color'), applyDeskItemsTo: call('items'), autoSaveDeskItemsNow: call('autosave'),
     assetCodeMod: () => ({ parseGlbBytes: (b) => { log.parsed.push(b); return o.parseFail || (o.overrideFail && b === 'B:OVGLB') ? Promise.reject(new Error('x')) : Promise.resolve({ scene: b }); } }),
     b64ToBuf: (s) => 'B:' + s,
@@ -69,7 +69,6 @@ function world(src, o = {}) {
     crXformMod: () => ({ updateDeskPosNum: call('posnum') }), customItems: () => customItems,
     deskItemsMod: () => ({ allDeskItems: () => [{ id: 'a' }, { id: 'b' }, { id: 'c' }] }),
     equipDeskItem: call('equip'), fitCreator: call('fit'), frameDeskCam: call('frame'),
-    isAdmin: () => !!o.admin, isPremium: () => !!o.premium,
     setCreatorDeskScale: call('scale'), setDeskPos: call('pos'), swapDeskVisual: call('swap'), toast: (m) => log.toasts.push(m), notifyError: (code) => log.toasts.push(code),
   });
   const calls = (k) => log.calls.filter((c) => c[0] === k);
@@ -213,7 +212,7 @@ function wire(app, html) {
   t(/const deskPresetStoreMod = TwDeskPresetStore\.createDeskPresetStore\(\{\n  jsonStore: TwJsonStore,\n  notifyError: \(\.\.\.a\)=>TwErrorCodes\.notify\(\.\.\.a\),\n  isCatalogDesk: \(id\)=>commissionMod\.catalogBacked\(commissionMod\.savedDesks\(\)\.find\(d=>d\.id===id\)\),\n\}\);/.test(app),
     '저장 만드는 줄(가드 없이) · deps 는 jsonStore · notifyError · isCatalogDesk(카탈로그 판단은 commission.js catalogBacked 한 곳)');
   const mk = (app.match(/const deskPresetMod = TwDeskPreset\.createDeskPreset\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
-  t(mk.split('\n').length === 30 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 27 · 저장 모듈을 먼저 만든다');
+  t(mk.split('\n').length === 29 && /  NO_DESK_ID: NO_DESK_ID,/.test(mk) && /  hideDeskBody: \(\.\.\.a\)=>deskVisualMod\.hideDeskBody\(\.\.\.a\),/.test(mk) && /  crState: crState,/.test(mk) && /  deskPresetStoreMod: deskPresetStoreMod,/.test(mk) && app.indexOf('const deskPresetStoreMod =') < app.indexOf('const deskPresetMod ='), '프리셋 만드는 줄(가드 없이) · deps 28 · 저장 모듈을 먼저 만든다');
   const iS = html.indexOf('<script src="parts/creator/desk-preset-store.js"></script>'), iM = html.indexOf('<script src="parts/creator/desk-preset.js"></script>'), iA = html.indexOf('<script src="parts/app.js"></script>');
   t(iS > 0 && iM > 0 && iA > iS && iA > iM, 'html — 두 파일을 app.js 보다 먼저 싣는다');
   return r;
@@ -234,7 +233,7 @@ function wire(app, html) {
     ['라이선스를 프리셋 값으로', (m) => m.replace('licenseOnly:!!(_rec && _rec.licenseOnly)', 'licenseOnly:false'), null],
     ['책상 크기 clamp 없앰', (m) => m.replace('crState.cDeskScale=clampDeskScale(p.deskScale);', 'crState.cDeskScale=p.deskScale;'), null],
     ['카메라 기억 안 지움', (m) => m.replace('  crState.deskCamSaved = null;\n', ''), null],
-    ['라이선스 잠금 없앰', (m) => m.replace('(!isPremium() && !isAdmin()) && premiumMod._licenseLockedDeskId(p.deskCatalogId)', 'false'), null],
+    ['라이선스 잠금 없앰', (m) => m.replace('licenseAssetBlocked({ licenseOnly: premiumMod._licenseLockedDeskId(p.deskCatalogId) })', 'false'), null],
     ['기본 책상 덮어쓰기 표시 안 함', (m) => m.replace('swapDeskVisual(crState.cDesk, sc, true);', 'swapDeskVisual(crState.cDesk, sc);'), null],
     ['저장이 카탈로그 책상 바이트를 그대로', null, (s) => s.replace('return jsonStore.save(PRESET_KEY, slimPresets(arr.slice(0,PRESET_SLOTS)));', 'return jsonStore.save(PRESET_KEY, arr.slice(0,PRESET_SLOTS));')],
     ['불러올 때 카탈로그에서 안 받음', (m) => m.replace('  if(p.deskGlb) return p.deskGlb;\n', '  return p.deskGlb || null;\n'), null],

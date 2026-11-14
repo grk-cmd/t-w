@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — char-code.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["applyCharToSeat","closeGearMenu","createSeat","decryptCode","encryptCode","layoutSeats","loadCharGLB","renderLauncher","renderSeatTabs","saveCurSlot","saveSlots","selectSeat","toast"];
-const VAL_DEPS = ["CHAR_SLOT_MAX","charsMod","overheadMod","premiumMod","scene","seats","slots"];
-const GET_DEPS = ["curSlot","focusLevelMod","gachaMod","isAdmin","isPremium"];
+const VAL_DEPS = ["CHAR_SLOT_MAX","overheadMod","premiumMod","scene","seats","slots"];
+const GET_DEPS = ["curSlot","focusLevelMod","gachaMod","isAdmin","isPremium","premiumKnown"];
 const SET_DEPS = ["curSlot"];
 const EXPORTS = ["downloadBlob","importCloneCode","loadEncryptedGlbAsSeat","openCodeModal"];
 const MOVED = ["downloadBlob","loadEncryptedGlbAsSeat","openCodeModal","importCloneCode","exportDef"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  charsMod: charsMod,","  closeGearMenu: (...a)=>closeGearMenu(...a),","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  decryptCode: (...a)=>decryptCode(...a),","  encryptCode: (...a)=>encryptCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  layoutSeats: (...a)=>layoutSeats(...a),","  loadCharGLB: (...a)=>loadCharGLB(...a),","  overheadMod: overheadMod,","  premiumMod: premiumMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>renderSeatTabs(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  saveSlots: (...a)=>saveSlots(...a),","  scene: scene,","  seats: seats,","  selectSeat: (...a)=>selectSeat(...a),","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  CHAR_SLOT_MAX: CHAR_SLOT_MAX,","  applyCharToSeat: (...a)=>applyCharToSeat(...a),","  closeGearMenu: (...a)=>launcherCtlMod.closeGearMenu(...a),","  createSeat: (...a)=>createSeat(...a),","  curSlot: ()=>curSlot,","  decryptCode: (...a)=>codeCryptoMod.decryptCode(...a),","  encryptCode: (...a)=>codeCryptoMod.encryptCode(...a),","  focusLevelMod: ()=>focusLevelMod,","  gachaMod: ()=>gachaMod,","  isAdmin: ()=>isAdmin,","  isPremium: ()=>isPremium,","  premiumKnown: ()=>acctStateMod.premiumKnown(),","  layoutSeats: (...a)=>layoutSeats(...a),","  loadCharGLB: (...a)=>seatModelLoadMod.loadCharGLB(...a),","  overheadMod: overheadMod,","  premiumMod: premiumMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  renderSeatTabs: (...a)=>seatPanelMod.renderSeatTabs(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  saveSlots: (...a)=>slotSaveMod.saveSlots(...a),","  scene: scene,","  seats: seats,","  selectSeat: (...a)=>seatPanelMod.selectSeat(...a),","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -72,8 +72,37 @@ function judgeAll(mod, app, html){
   return r;
 }
 
+/* 코드 불러오기 입구 — 서버가 프리미엄을 확인해 주기 전(모름)에는 불러오지 않는다(아래의 «프리미엄 아님 → 파츠 지움 · 저장» 이 되돌릴 수 없어서). 진짜 함수를 불러 본다 */
+async function entryRows(mod){
+  const run = async (known) => {
+    const any = anything();
+    const log = { decrypt: 0, saved: 0, toasts: [] };
+    const deps = {};
+    FN_DEPS.forEach(n => { deps[n] = () => any; });
+    VAL_DEPS.forEach(n => { deps[n] = any; });
+    GET_DEPS.forEach(n => { deps[n] = () => any; });
+    deps.decryptCode = async () => { log.decrypt++; return null; };
+    deps.saveSlots = () => { log.saved++; };
+    deps.toast = (m) => log.toasts.push(m);
+    deps.premiumKnown = () => known;
+    const win = { crypto: { subtle: {} } };   // 가짜 프록시가 아닌 평범한 객체 — 없는 이름을 «then 이 있는 것» 으로 돌려주면 await 가 영영 끝나지 않는다
+    const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module', 'crypto',
+      mod + '\nreturn window.TwCharCode;')(win, any, { getItem: () => null, setItem(){}, removeItem(){} }, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined, { subtle: {} });
+    const r = await api.createCharCode(deps).importCloneCode('DCC1.x', 'pw', null);
+    return { r, log };
+  };
+  const u = await run(false), k = await run(true);
+  return [
+    [u.r === false && u.log.decrypt === 0 && u.log.saved === 0 && u.log.toasts.length === 1 && /라이선스 확인 중/.test(u.log.toasts[0]), '★ 프리미엄 «모름» → 불러오지 않는다(코드 풀기 0 · 저장 0) · «라이선스 확인 중이에요 — 잠시 뒤 다시 눌러 주세요»'],
+    [k.log.decrypt === 1 && !k.log.toasts.some((m) => /라이선스 확인 중/.test(m)), '확인된 뒤 → 기존 동작대로 코드를 푼다(안내 없음)'],
+  ];
+}
+
+(async () => {
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-2. 코드 불러오기 입구 — 확인 전에는 불러오지 않는다');
+(await entryRows(MOD)).forEach(([ok, msg]) => chk(ok, msg));
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/character/char-code.js"></script>', '')],
@@ -83,13 +112,15 @@ const breaks = [
   ['app.js 에 본문이 남음', null, a => a + '\nfunction ' + MOVED.find(n => /^[A-Za-z_$][\w$]*$/.test(n)) + '(){}', null],
   /* «옛 전역 이름» 이음 줄이 아닌 자리에서 하나를 옛 이름으로 되돌린다(이음 줄은 판정에서 빠진다) */
   ['부르는 곳이 옛 이름', null, a => { const ls = a.split('\n'); for(let i = 0; i < ls.length; i++){ if(ls[i].includes('// 옛 전역 이름') || ls[i].startsWith('const charCodeMod =')) continue; const n = EXPORTS.find(x => ls[i].includes('charCodeMod.' + x)); if(n){ ls[i] = ls[i].replace('charCodeMod.' + n, n); return ls.join('\n'); } } return a; }, null],
+  ['모름에도 불러옴', m => m.replace("if(!premiumKnown()){ toast(", "if(false){ toast("), null, null],
   ['만들 때 던짐', m => m.replace('function createCharCode(deps){', 'function createCharCode(deps){ throw new Error("깨 봄");'), null, null],
 ];
 for(const [name, fm, fa, fh] of breaks){
   const m2 = fm ? fm(MOD) : MOD, a2 = fa ? fa(SRC) : SRC, h2 = fh ? fh(HTML) : HTML;
   const changed = m2 !== MOD || a2 !== SRC || h2 !== HTML;
-  let rows2; try{ rows2 = judgeAll(m2, a2, h2); }catch(_){ rows2 = [[false, '던짐']]; }
+  let rows2; try{ rows2 = judgeAll(m2, a2, h2).concat(m2 !== MOD ? await entryRows(m2) : []); }catch(_){ rows2 = [[false, '던짐']]; }
   chk(changed && rows2.some(([ok]) => !ok), name + (changed ? '' : ' — 바꿀 글을 못 찾음'));
 }
 say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
 process.exit(fail ? 1 : 0);
+})().catch((e) => { say('  ✗ 검사가 던졌다: ' + (e && e.stack || e)); process.exit(1); });

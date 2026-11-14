@@ -1,7 +1,7 @@
 /*
  * IP 기준 일일 방문자 검사. functions/visit-ping.js 와 앱 visit-ping.js 를 그대로 불러 돌린다.
  * 1. 접속 IP 고르기  2. 해시(날마다 · 비밀마다 다름)  3. 쓰기 묶음 · 처리기(가짜 DB)  4. index.js 연결 · 규칙
- * 5. 앱 모듈(한 번 · 늦게 · 실패 삼킴 · 버전)  6. firebase-init.js 연결 · CSP
+ * 5. 앱 모듈(한 번 · 늦게 · 실패 삼킴)  6. 앱 연결 — 0.13 은 서버 POST /v1/metrics/visits(user-api.js visit) · 옛 Functions 호출 없음
  */
 'use strict';
 const fs = require('fs');
@@ -18,7 +18,8 @@ const AVP = need('visit-ping.js', 'parts/shared/visit-ping.js', 'app/parts/share
 const FI = need('firebase-init.js', 'parts/firebase-init.js', 'app/parts/firebase-init.js');
 const HTML = need('desk-companion-prototype.html', 'app/desk-companion-prototype.html');
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
-const app = new Function(AVP.replace(/^export (function|const) /mg, '$1 ') + '\nreturn { createVisitPing, VISIT_PING_DELAY_MS, VISIT_PING_FLAG };')();
+const app = new Function('module', 'window', AVP + '\nreturn module.exports;')({ exports: {} }, undefined);
+const APPJS = need('app.js', 'parts/app.js', 'app/parts/app.js');
 
 (async () => {
   const f = require(path.resolve('functions/visit-ping.js'));
@@ -106,28 +107,23 @@ const app = new Function(AVP.replace(/^export (function|const) /mg, '$1 ') + '\n
     chk(VISIT_PING_DELAY_MS >= 5000 && VISIT_PING_DELAY_MS <= 15000, '기본 대기 ' + VISIT_PING_DELAY_MS / 1000 + '초 — 부팅이 붐비는 때를 피한다');
 
     let w = mkWin(), calls = [];
-    const p = createVisitPing({ callPing: async (d) => { calls.push(d); return { data: { ok: true } }; }, getVersion: async () => '0.10.4', win: w });
+    const p = createVisitPing({ callPing: async () => { calls.push(1); }, win: w });
     chk(p.start() === true && calls.length === 0 && w.timers.length === 1 && w.timers[0].ms === VISIT_PING_DELAY_MS, '★ start 즉시 부르지 않고 대기 뒤에');
     w.timers[0].fn(); await flush(); await flush();
-    chk(calls.length === 1 && JSON.stringify(calls[0]) === '{"ver":"0.10.4"}', '  ↳ 대기 뒤 한 번 — 버전만 싣는다');
+    chk(calls.length === 1, '  ↳ 대기 뒤 한 번');
     chk(p.start() === false && w.timers.length === 1, '★ 두 번째 start 는 아무것도 안 한다');
-    const p2 = createVisitPing({ callPing: async (d) => { calls.push(d); }, getVersion: async () => 'x', win: w });
-    chk(p2.start() === false && w.timers.length === 1 && w[VISIT_PING_FLAG] === true, '  ↳ 새로 만든 것도(firebase-init 재시도) 창 표시를 보고 그만둔다');
-
-    w = mkWin(); calls = [];
-    createVisitPing({ callPing: async (d) => { calls.push(d); }, getVersion: async () => null, win: w, delayMs: 5 }).start();
+    const p2 = createVisitPing({ callPing: async () => { calls.push(2); }, win: w });
+    chk(p2.start() === false && w.timers.length === 1 && w[VISIT_PING_FLAG] === true, '  ↳ 새로 만든 것도 창 표시를 보고 그만둔다');
+    w = mkWin();
+    createVisitPing({ callPing: async () => {}, win: w, delayMs: 5 }).start();
     chk(w.timers[0].ms === 5, 'delayMs 를 바꿔 끼울 수 있다');
-    w.timers[0].fn(); await flush(); await flush();
-    chk(calls.length === 1 && JSON.stringify(calls[0]) === '{}', '버전을 모르면 빈 data 로 부른다');
 
     let threw = 0, n = 0;
     const onErr = () => { threw++; };
     process.on('unhandledRejection', onErr);
     for (const bad of [
-      { callPing: async () => { n++; throw new Error('not-found'); }, getVersion: async () => '1' },
-      { callPing: () => { n++; throw new Error('sync'); }, getVersion: async () => '1' },
-      { callPing: async () => { n++; }, getVersion: () => { throw new Error('ipc'); } },
-      { callPing: async () => { n++; }, getVersion: () => Promise.reject(new Error('ipc')) },
+      { callPing: async () => { n++; throw new Error('unavailable'); } },
+      { callPing: () => { n++; throw new Error('sync'); } },
     ]){
       w = mkWin();
       createVisitPing(Object.assign({ win: w }, bad)).start();
@@ -135,27 +131,19 @@ const app = new Function(AVP.replace(/^export (function|const) /mg, '$1 ') + '\n
     }
     await flush(); await flush(); await flush();
     process.removeListener('unhandledRejection', onErr);
-    chk(threw === 0 && n === 4, '★ 함수 실패 · 동기 예외 · 버전 실패 — 전부 삼킨다(앱에 아무 영향 없음) · 버전 실패해도 부른다');
+    chk(threw === 0 && n === 2, '★ 서버 실패 · 동기 예외 — 전부 삼킨다(앱에 아무 영향 없음)');
     chk(!/setInterval|retry|for\s*\(|while\s*\(/.test(strip(AVP)), '다시 시도하지 않는다 — 반복 · 주기 호출 없음');
     chk(!/from\s+["']https:|firebase/i.test(strip(AVP).replace(/firebase-init/g, '')), 'Firebase 를 직접 불러오지 않는다 — 부르는 방법은 deps 로 받는다');
   }
 
-  say('── 6. firebase-init.js 연결 · CSP');
+  say('── 6. 앱 연결 — 서버 방문 기록(0.13)');
   {
-    const CODE = strip(FI);
-    chk(/import \{ createVisitPing \} from "\.\/(?:(?:\.\.\/)?[\w-]+\/)?visit-ping\.js";/.test(CODE), 'visit-ping.js 를 불러온다');
-    const w = CODE.match(/createVisitPing\(\{([\s\S]*?)\n  \}\)\.start\(\);/);
-    chk(!!w, '만들자마자 start — 로그인을 기다리지 않는다');
-    chk(!!w && /await import\(FUNCTIONS_SDK_URL\)/.test(w[1]) && /httpsCallable\(mod\.getFunctions\(fbApp, FUNCTIONS_REGION\), 'visitPing'\)\(data\)/.test(w[1]),
-      '  ↳ 함수 SDK 는 부를 때 들여와 visitPing 을 부른다(changePassword 와 같은 리전 · 같은 판)');
-    chk(!!w && /getVersion: \(\) => _appVer\.ready/.test(w[1]), '  ↳ 버전은 app-version 이 다듬은 값');
-    chk(!!w && !/_whenAuthReady|auth\.currentUser/.test(w[1]), '  ↳ 로그인 상태를 보지 않는다');
-    chk((CODE.match(/createVisitPing\(/g) || []).length === 1, '부르는 자리는 한 곳');
-    chk(!/^\s*import[^\n]*firebase-functions\.js/m.test(FI), '★ 함수 SDK 는 맨 위에서 import 하지 않는다 — 못 받으면 파일 전체가 죽는다');
-    const region = (FI.match(/const FUNCTIONS_REGION = '([^']+)'/) || [])[1];
-    const csp = [...HTML.matchAll(/connect-src ([^;]+);/g)].map(x => x[1]);
-    chk(!!region && csp.length > 0 && csp.every(c => c.includes('https://' + region + '-together-working.cloudfunctions.net')),
-      'CSP connect-src 에 운영 함수 호스트(' + region + ') — 호출형 URL 이 막히지 않는다');
+    chk(!/createVisitPing|visitPing|firebase-functions/.test(strip(FI)), 'firebase-init 은 방문 기록을 모른다(옛 Functions visitPing 호출 걷음)');
+    const ms = APPJS.match(/TwVisitPing\.createVisitPing\(\{([^\n]*)\}\)\.start\(\);/g) || [];
+    chk(ms.length === 1 && /callPing: \(\)=>userApiMod\.visit\(\)/.test(ms[0]), 'app.js 가 한 곳에서 만들고 바로 start — 계정 provider 의 visit(POST /v1/metrics/visits)');
+    chk(APPJS.indexOf('const userApiMod = ') >= 0 && APPJS.indexOf('const userApiMod = ') < APPJS.indexOf('TwVisitPing.createVisitPing('), '  ↳ 계정 provider 를 만든 뒤');
+    const iV = HTML.indexOf('<script src="parts/shared/visit-ping.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
+    chk(iV > 0 && iA > iV, 'html — visit-ping.js 를 app.js 보다 먼저');
   }
 
   say(`\n${pass} · ${fail}`);

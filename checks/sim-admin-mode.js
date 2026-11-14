@@ -2,7 +2,8 @@
    app.js 의 관리자 모드(비밀번호 창 · 켜기 · Ctrl+E 끄기 · 관리자 버튼 보이기 · Ctrl·⌘+클릭 진입)와 비밀번호 창 버튼 연결을
    parts/admin/admin-mode.js 로 옮겼다. 동작은 그대로여야 한다 — 가짜 DOM · 진짜 SHA-256(node webcrypto) 위에서 굴린다.
    ・1절: 만들 때 — 비밀번호 창 버튼 셋 · Ctrl+E · 진입 클릭(캡처) · 내놓는 이름 refreshAdminVisibility · isAdmin 을 안 바꿈
-   ・2절: 켜기 — 틀린 비밀번호 · 맞아도 구글 로그인 없으면 안 켬 · 맞고 로그인 있으면 setIsAdmin(true) · body.admin · 버튼 보이기
+   ・2절: 켜기 — 틀린 비밀번호 · 맞아도 구글 로그인 없으면 안 켬 · 맞고 로그인 있어도 서버(/v1/admin/admins/me)가 관리자로 모르면(403) 안 켬 · 서버에 닿지 못해도 안 켬 ·
+        확인 중 또 눌러도 한 번 · 다 맞으면 setIsAdmin(true) · body.admin · 버튼 보이기
    ・3절: 끄기 · 진입 — Ctrl+E 는 켜져 있을 때만 끈다 · Ctrl+클릭은 비밀번호 창을 열고 원래 동작을 막는다 · Mac 아닌 곳의 Meta(Win 키)는 무시 · 켜져 있으면 무시
    ・4절: app.js 연결 — 본문이 안 남음 · isAdmin 선언은 app.js · 빈 껍데기 · deps · 부팅 때 adminMode.refreshAdminVisibility · html(key-input.js 뒤 · app.js 앞)
    ・5절: 일부러 깨 보기
@@ -32,11 +33,14 @@ function build(src, st){
   const body = mk('body');
   const document = { getElementById: (id) => els[id] || (els[id] = mk(id)), body,
     addEventListener(t, f, cap){ (docOn[t] = docOn[t] || []).push({ f, cap: !!cap }); }, querySelectorAll: (sel) => sel === '.admin-only' ? adminOnly : [] };
+  const meCalls = []; st.meCalls = meCalls;
   const fb = { authCurrentUid: () => st.uid, authCurrentEmail: () => 'a@b.c', migrateGachaCatalog: async () => ({ moved: [] }) };
   const companion = { setAdminMode: (v) => calls.push('setAdminMode:' + v) };
   const win = { firebaseAPI: fb, companion, refreshWardrobe: () => calls.push('refreshWardrobe') };   // 코드는 window.companion 이 있을 때만 창 쪽에 알린다
   const deps = { toast: (m) => calls.push('toast:' + m), refreshInviteBtn: () => calls.push('refreshInviteBtn'), adminPassHash: HASH,
-    isAdmin: () => st.admin, setIsAdmin: (v) => { calls.push('setIsAdmin:' + v); st.admin = v; }, savedParts: () => [] };
+    isAdmin: () => st.admin, setIsAdmin: (v) => { calls.push('setIsAdmin:' + v); st.admin = v; }, savedParts: () => [],
+    adminApi: { ERRORS: { MARK: 1 }, me: async () => { meCalls.push(1); if(st.hold) await st.hold; if(st.meErr) throw st.meErr; return { name: '관리자', version: 1 }; } },
+    apiErrors: { notify: (e, table) => { calls.push('notify:' + (e && e.code) + ':' + (table && table.MARK)); return { code: e && e.code, action: 'notice' }; } } };
   const api = new Function('window', 'document', 'firebaseAPI', 'companion', 'navigator', 'hotkeyLetter', 'setTimeout', 'crypto', 'TextEncoder', 'module',
     src + '\nreturn window.TwAdminMode;')(win, document, fb, companion, { platform: st.platform || 'Win32' }, (e) => String(e.key || '').toLowerCase(), (f) => f(),
     globalThis.crypto, TextEncoder, undefined);
@@ -67,6 +71,16 @@ async function judgeAll(src, app, html, platform){
   t(!st.admin && /틀려요/.test(e.adminPassErr.textContent), '틀린 비밀번호 — 안 켠다');
   e.adminPassInput.value = PW; st.uid = null; await e.adminPassOk.onclick();
   t(!st.admin && /구글 로그인이 필요해요/.test(e.adminPassErr.innerHTML), '맞아도 구글 로그인이 없으면 안 켠다(권한의 근거는 서버 규칙 · 로그인 uid)');
+  st.uid = 'u1'; st.meErr = Object.assign(new Error('d'), { code: 'ACCESS_DENIED', status: 403 }); await e.adminPassOk.onclick();
+  t(!st.admin && !B.body.classList.contains('admin') && B.calls.includes('notify:ACCESS_DENIED:1') && /관리자로 등록돼 있지 않아요/.test(e.adminPassErr.textContent) && e.adminPassErr.style.display === 'block',
+    '맞고 로그인이 있어도 서버가 관리자로 모르면(403) 안 켠다 — 오류 번호(기능 표) + 창 안 안내');
+  st.meErr = Object.assign(new Error('n'), { code: 'NETWORK', kind: 'unavailable' }); await e.adminPassOk.onclick();
+  t(!st.admin && /확인하지 못했어요/.test(e.adminPassErr.textContent), '서버에 닿지 못해 확인을 못 했어도 안 켠다(권한을 모르는 채로 켜지 않는다)');
+  st.meErr = null; let release; st.hold = new Promise((r) => { release = r; }); const n0 = st.meCalls.length;
+  const p1 = e.adminPassOk.onclick(); await new Promise((r) => setTimeout(r, 30)); const p2 = e.adminPassOk.onclick(); await new Promise((r) => setTimeout(r, 30));   // 비밀번호 해시(비동기)를 지나 확인 대기까지 가도록
+  release(); await p1; await p2; st.hold = null;
+  t(st.meCalls.length === n0 + 1 && st.admin, '확인 중에 또 눌러도 서버 확인은 한 번 — 끝나면 켠다');
+  st.admin = false; B.body.classList.remove('admin');
   st.uid = 'u1'; await e.adminPassOk.onclick();
   t(st.admin && B.body.classList.contains('admin') && B.calls.includes('setAdminMode:true') && B.adminOnly.every(x => x.style.display === '')
     && B.calls.includes('refreshInviteBtn') && B.calls.includes('refreshWardrobe'), '맞고 로그인 있으면 켠다 — setIsAdmin(true) · body.admin · 창 쪽 알림 · 관리자 버튼 보이기 · 초대 · 꾸미기 다시');
@@ -93,8 +107,8 @@ async function judgeAll(src, app, html, platform){
   t(!/\bADMIN_MODE_OFF\b/.test(app), '빈 껍데기 없이 만든다(모듈은 늘 싣는다 — 가드 걷기 3차)');
   const mk = (app.match(/const adminMode = TwAdminMode\.createAdminMode\(\{\n([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = mk.split('\n').map(l => l.trim()).filter(Boolean);
-  t(deps.length === 6 && deps.includes('isAdmin: ()=>isAdmin,') && deps.includes('setIsAdmin: (v)=>{ isAdmin = v; },') && deps.includes('savedParts: ()=>savedParts,')
-    && deps.includes('adminPassHash: ADMIN_PASS_HASH,'), 'deps 여섯 — isAdmin 은 읽는 함수 + 쓰는 함수 · savedParts 는 읽는 함수');
+  t(deps.length === 8 && deps.includes('adminApi: adminApi,') && deps.includes('apiErrors: TwApiErrors.store,') && deps.includes('isAdmin: ()=>isAdmin,') && deps.includes('setIsAdmin: (v)=>{ isAdmin = v; },') && deps.includes('savedParts: ()=>savedParts,')
+    && deps.includes('adminPassHash: ADMIN_PASS_HASH,'), 'deps 여덟 — isAdmin 은 읽는 함수 + 쓰는 함수 · savedParts 는 읽는 함수 · adminApi · apiErrors');
   t(/if\(typeof adminMode\.refreshAdminVisibility==='function'\) adminMode\.refreshAdminVisibility\(\);/.test(A) && !/^refreshAdminVisibility\(\);/m.test(A),
     '부팅 때 adminMode.refreshAdminVisibility 로 관리자 전용 UI 를 숨긴다');
   t(/window\.TwAdminMode = api;/.test(src), '전역 이름 TwAdminMode(Tw 접두사)');
@@ -105,7 +119,7 @@ async function judgeAll(src, app, html, platform){
 
 (async () => {
   const rows = await judgeAll(MOD, SRC, HTML, 'Win32');
-  const heads = { 0: '── 1. 만들 때', 2: '── 2. 켜기', 5: '── 3. 끄기 · 진입', 11: '── 4. app.js 연결' };
+  const heads = { 0: '── 1. 만들 때', 2: '── 2. 켜기', 9: '── 3. 끄기 · 진입', 15: '── 4. app.js 연결' };
   rows.forEach(([ok, msg], i) => { if(heads[i]) say(heads[i]); chk(ok, msg); });
   /* Mac 에서는 ⌘+클릭으로 열린다 */
   { const st = { admin: false, uid: 'u1', platform: 'MacIntel' }; const B = build(MOD, st); const c = click(B, 'lcDonateBtn', { metaKey: true });
@@ -113,6 +127,10 @@ async function judgeAll(src, app, html, platform){
   say('── 5. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
   const breaks = [
     ['로그인 확인 빠짐', { mod: s => s.replace("if(!_myAuthUid()){", "if(false){") }],
+    ['서버 확인 빠짐', { mod: s => s.replace("try{ await adminApi.me(); }", "try{}") }],
+    ['확인 못 해도 켬', { mod: s => s.replace("        err.style.display='block';\n        return;\n      }\n      finally", "        err.style.display='block';\n      }\n      finally") }],
+    ['확인 연타 잠금 없음', { mod: s => s.replace("if(checking) return;", "") }],
+    ['기능 표를 안 넘김', { mod: s => s.replace("apiErrors.notify(e, adminApi.ERRORS)", "apiErrors.notify(e)") }],
     ['켜기 전에 isAdmin 을 붙잡음', { mod: s => s.replace('const isAdmin = deps.isAdmin;', 'const isAdmin = ((v)=>()=>v)(deps.isAdmin());') }],
     ['Ctrl+E 가 안 끔', { mod: s => s.replace("e.preventDefault(); exitAdmin(); }", "e.preventDefault(); }") }],
     ['Win 키로도 열림', { mod: s => s.replace('if(!(e.ctrlKey || (isMac && e.metaKey))) return;', 'if(!(e.ctrlKey || e.metaKey)) return;') }],
@@ -121,6 +139,7 @@ async function judgeAll(src, app, html, platform){
     ['html 순서 틀림', { html: s => s.replace('<script src="parts/admin/admin-mode.js"></script>', '').replace('<script src="parts/shared/key-input.js"></script>', '<script src="parts/admin/admin-mode.js"></script>\n<script src="parts/shared/key-input.js"></script>') }],
     ['app.js 에 본문이 남음', { app: s => s + '\nfunction exitAdmin(){}' }],
     ['deps 하나 빠짐', { app: s => s.replace('  setIsAdmin: (v)=>{ isAdmin = v; },\n', '') }],
+    ['서버 길 deps 빠짐', { app: s => s.replace('  adminApi: adminApi,\n  apiErrors: TwApiErrors.store,\n});\n/* ═══ 💡', '});\n/* ═══ 💡') }],
   ];
   for(const [name, f] of breaks){
     const s2 = f.mod ? f.mod(MOD) : MOD, a2 = f.app ? f.app(SRC) : SRC, h2 = f.html ? f.html(HTML) : HTML;
