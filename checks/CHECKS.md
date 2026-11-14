@@ -331,7 +331,7 @@
 | **sim-chat-focus.js** | 199 | **3d2314868c13** |
 | **sim-license-gate.js** | 179 | **78d99428ff7e** |
 | **sim-account.js** | 95 | **e93f07e9716a** |
-| **sim-wardrobe.js** | 184 | **c2d2628a81ba** |
+| **sim-wardrobe.js** | 184 | **7b40b7a136d5** |
 | **sim-settings-panel.js** | 201 | **c040df61e9fc** |
 | **sim-desktop-run.js** | 94 | **7b36e49ed466** |
 | **sim-room-entry.js** | 184 | **01800d7ef910** |
@@ -422,7 +422,7 @@
 | **sim-desk-visual.js** | 214 | **2428c62e17b8** |
 | **sim-desk-place.js** | 187 | **2de2d6fa296b** |
 | **sim-toast.js** | 174 | **25bd36f5c6a5** |
-| **sim-dot-render.js** | 223 | **ed34e53f22dd** |
+| **sim-dot-render.js** | 234 | **b5eb7e473f84** |
 | **sim-ps1-dither.js** | 100 | **061d45e351ad** |
 | **sim-seat-camera.js** | 151 | **779e4e952938** |
 | **sim-ride-chain.js** | 54 | **7c397b3ae322** |
