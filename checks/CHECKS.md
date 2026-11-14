@@ -219,7 +219,7 @@
 | **sim-desk-build.js** | 100 | **0de2a23692c7** |
 | **sim-part-anim.js** | 177 | **c1dc6497cf24** |
 | **sim-desk-item-equip.js** | 212 | **6f7c86609c6d** |
-| **sim-seats.js** | 132 | **214d5bcb542c** |
+| **sim-seats.js** | 135 | **82ad9d0bf277** |
 | **sim-wd-ear.js** | 366 | **8a1e093afa86** |
 | **sim-uv-fill.js** | 102 | **f4cb774248be** |
 | **sim-paint-tools.js** | 296 | **e999a08d5185** |
@@ -400,7 +400,7 @@
 | **sim-desk-items.js** | 166 | **a1f0433d23a0** |
 | **sim-bgm-diag.js** | 297 | **edb0457c9236** |
 | **sim-mobile-diag.js** | 147 | **5fbdf8d713ab** |
-| **sim-blink-timing.js** | 112 | **624e0321ea28** |
+| **sim-blink-timing.js** | 112 | **4358ba9c2a6e** |
 | **sim-desk-visual.js** | 242 | **ad22ac4f318d** |
 | **sim-desk-place.js** | 187 | **2de2d6fa296b** |
 | **sim-toast.js** | 174 | **25bd36f5c6a5** |

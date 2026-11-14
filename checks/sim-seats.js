@@ -34,11 +34,8 @@ function build(src, o){
   const scene = new THREE.Scene();
   const win = {};
   new Function('THREE', 'TwBlinkTiming', 'localStorage', 'performance', 'window', 'module', src)(THREE, TwBlinkTiming, localStorage, performance, win, undefined);
-  const mod = win.TwSeats.createSeats({
-    CHAR_Z: -0.47, buildDesk: DB.buildDesk, buildPlaceholder: DB.buildPlaceholder, scene,
-    layoutSeats: () => { calls.layout++; },
-    seatPanelMod: () => ({ selectSeat: (s) => calls.select.push(s), renderSeatTabs: () => calls.tabs++ }),
-  });
+  const mod = win.TwSeats.createSeats({ CHAR_Z: -0.47, buildDesk: DB.buildDesk, buildPlaceholder: DB.buildPlaceholder, scene });
+  if(!o.noAttach) mod.attach({ layoutSeats: () => { calls.layout++; }, selectSeat: (s) => calls.select.push(s), renderSeatTabs: () => calls.tabs++ });
   return { mod, store, writes, calls, scene };
 }
 
@@ -93,6 +90,11 @@ say('§3 removeSeat');
   const b2 = build(SRC); const x = b2.mod.createSeat(), y = b2.mod.createSeat(); b2.mod.setSelected(x); b2.mod.removeSeat(x);
   chk(b2.calls.select[0] === y, '맨 앞을 지우면 새 맨 앞(max(0, i-1))을 고른다');
 }
+say('§3-b 알림 걸기');
+{
+  const b = build(SRC, { noAttach: true }); let threw = false; try{ b.mod.createSeat(); }catch(_){ threw = true; }
+  chk(threw, 'attach 전에 createSeat 를 부르면 던진다(조용히 줄 배치를 건너뛰지 않는다)');
+}
 say('§4 고른 좌석 · 간격 함수');
 {
   const b = build(SRC); const s = b.mod.createSeat();
@@ -106,7 +108,8 @@ say('§5 연결');
   const iS = HTML.indexOf('<script src="parts/room/seats.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
   chk(iS > 0 && iA > iS, 'html — seats.js 를 app.js 보다 먼저 싣는다');
   const code = APP.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
-  chk(/const seatsMod = TwSeats\.createSeats\(\{[\s\S]*?seatPanelMod: \(\)=>seatPanelMod,[\s\S]*?\}\);/.test(code), 'app.js — 만들고 더 아래에서 만들어지는 seatPanelMod 는 읽는 함수로 넘긴다');
+  chk(/const seatsMod = TwSeats\.createSeats\(\{[\s\S]*?scene: scene,\s*\}\);/.test(code) && !/createSeats\(\{[^}]*seatPanelMod/.test(code), 'app.js — 위층(seatPanelMod · layoutSeats)은 deps 로 넘기지 않는다(순환 막기)');
+  chk(/seatsMod\.attach\(\{[\s\S]*?layoutSeats: \(\)=>layoutSeats\(\),[\s\S]*?renderSeatTabs:[\s\S]*?selectSeat:[\s\S]*?\}\);/.test(code) && code.indexOf('seatsMod.attach') > code.indexOf('const seatPanelMod'), '  알림은 seatPanelMod 를 만든 뒤 attach 로 걸고 layoutSeats 는 부를 때 찾는다(뒤에서 감싸 다시 대입됨)');
   chk(['seats', 'GAP_MIN', 'GAP_MAX', 'GAP_STEPS', 'saveGap', 'createSeat'].every(n => new RegExp('^const ' + n + ' = seatsMod\\.' + n + ';', 'm').test(code)), '  옛 이름 여섯을 const 로 받는다');
   chk(!/\blet (selected|SPACING|MULTIPLAYER_SPACING)\b|function (createSeat|removeSeat|saveGap|_loadGap)\b/.test(code) && !/(?<![\w$.])(selected|SPACING|MULTIPLAYER_SPACING) *=[^=]/.test(code), '  app.js 에 좌석 목록 코드 · 다시 대입되는 let 이 남아 있지 않다');
   chk(!/(?<![\w$.'"])selected(?![\w$'"]) *[.)\]=;,]/.test(code.replace(/seatsMod\.selected\(\)/g, '')), '  고른 좌석은 어디서나 seatsMod.selected() 로 읽는다');
@@ -120,11 +123,11 @@ say('§6 일부러 깨 보기');
   chk(!!m2 && build(m2, { store: { 'tw.gapSolo': '9' } }).mod.SPACING() !== 1.2, '간격을 범위로 안 자르면 빨강');
   const m3 = brk('_dt.material=_dt.material.clone();', '');
   chk(!!m3 && (() => { const b = build(m3); const a = b.mod.createSeat(), c = b.mod.createSeat(); return a.deskMat === c.deskMat; })(), '상판 재질을 복제하지 않으면 빨강');
-  const m4 = brk('scene.add(group); seats.push(seat); layoutSeats(); return seat;', 'seats.push(seat); layoutSeats(); return seat;');
+  const m4 = brk('scene.add(group); seats.push(seat); hooks.layoutSeats(); return seat;', 'seats.push(seat); hooks.layoutSeats(); return seat;');
   chk(!!m4 && (() => { const b = build(m4); const s = b.mod.createSeat(); return s.group.parent === null; })(), '씬에 안 올리면 빨강');
   const m5 = brk("localStorage.setItem(GAP_KEY_MULTI, String(MULTIPLAYER_SPACING));", '');
   chk(!!m5 && (() => { const b = build(m5); b.mod.saveGap(); return b.writes.length === 1; })(), '멀티 간격을 안 쓰면 빨강');
-  const m6 = brk('if(selected===seat) seatPanelMod().selectSeat(', 'if(false) seatPanelMod().selectSeat(');
+  const m6 = brk('if(selected===seat) hooks.selectSeat(', 'if(false) hooks.selectSeat(');
   chk(!!m6 && (() => { const b = build(m6); const a = b.mod.createSeat(), c = b.mod.createSeat(); b.mod.setSelected(c); b.mod.removeSeat(c); return b.calls.select.length === 0; })(), '고른 좌석을 지워도 이웃을 안 고르면 빨강');
 }
 say('');

@@ -361,9 +361,7 @@ const seatsMod = TwSeats.createSeats({
   CHAR_Z: CHAR_Z,
   buildDesk: buildDesk,
   buildPlaceholder: buildPlaceholder,
-  layoutSeats: (...a)=>layoutSeats(...a),
   scene: scene,
-  seatPanelMod: ()=>seatPanelMod,
 });
 const seats = seatsMod.seats;   // 옛 전역 이름
 const GAP_MIN = seatsMod.GAP_MIN;   // 옛 전역 이름
@@ -1443,6 +1441,12 @@ const seatPanelMod = TwSeatPanel.createSeatPanel({
   selected: ()=>seatsMod.selected(),
   triggerPet: (...a)=>triggerPet(...a),
   setSelected: (v)=>{ seatsMod.setSelected(v); },
+});
+/* 🪑 좌석 목록이 위층(줄 배치 · 좌석 탭 · 좌석 고르기)을 부르지 않게 알림을 건다 — layoutSeats 는 뒤에서 감싸 다시 대입되므로 부를 때 찾는다. createSeat · removeSeat 보다 먼저. */
+seatsMod.attach({
+  layoutSeats: ()=>layoutSeats(),
+  renderSeatTabs: ()=>seatPanelMod.renderSeatTabs(),
+  selectSeat: (seat)=>seatPanelMod.selectSeat(seat),
 });
 
 document.getElementById('glbInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));

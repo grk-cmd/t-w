@@ -1,9 +1,10 @@
 /* seats.js — 🪑 좌석 목록의 주인: 좌석 배열 · 만들기 · 지우기 · 고른 좌석 · 좌석 간격 저장(앱 FSD · app.js 분리 M6)
-   app.js SEATS 구역 머리를 글 그대로 옮긴 모듈이다. 동작은 옮기기 전과 같다(deps 를 읽는 함수로 받는 줄만 `이름()` 으로 달라짐).
+   app.js SEATS 구역 머리를 글 그대로 옮긴 모듈이다. 동작은 옮기기 전과 같다(위층을 부르던 세 줄만 attach 로 받은 알림으로 달라짐).
    ・책임: `seats` 배열(좌석 객체의 단 하나의 목록) · createSeat(책상 + 대신 몸 + 앵커로 좌석 하나를 만들어 씬에 올리고 줄 배치) · removeSeat · 고른 좌석(selected) ·
      좌석 간격 솔로 · 멀티(SPACING · MULTIPLAYER_SPACING — 설정 › 캐릭터 슬라이더가 정하고 localStorage 에 저장 · 자리 셈은 room/seat-layout.js).
-   ・받는 deps 6 — 값: CHAR_Z · buildDesk · buildPlaceholder · scene · 함수: layoutSeats · 읽는 함수: seatPanelMod(더 아래에서 만들어진다).
-   ・내놓는 것: seats · createSeat · removeSeat · GAP_MIN · GAP_MAX · GAP_STEPS · saveGap · selected() / setSelected(v) · SPACING() / setSPACING(v) · MULTIPLAYER_SPACING() / setMULTIPLAYER_SPACING(v)
+   ・받는 deps 4 — CHAR_Z · buildDesk · buildPlaceholder · scene. 위층(줄 배치 · 좌석 탭 · 좌석 고르기)은 부르지 않고 attach({ layoutSeats, selectSeat, renderSeatTabs }) 로 app.js 가 걸어 둔 알림만 부른다 —
+     seat-layout · seat-panel 이 이 모듈의 값을 읽어 직접 부르면 순환이 된다(sim-dep-cycles). attach 는 createSeat · removeSeat 를 부르기 전에 한 번.
+   ・내놓는 것: attach · seats · createSeat · removeSeat · GAP_MIN · GAP_MAX · GAP_STEPS · saveGap · selected() / setSelected(v) · SPACING() / setSPACING(v) · MULTIPLAYER_SPACING() / setMULTIPLAYER_SPACING(v)
      — app.js 는 seats · 간격 상수 · saveGap · createSeat 를 같은 이름 const 로 받고, 다시 대입되는 셋은 `seatsMod.이름()` 으로 읽는다.
    ⚠️ 좌석 간격 저장 키 tw.gapSolo · tw.gapMulti 는 바꾸지 말 것(저장된 값이 사라진다). 최소 -0.3 은 책상 GLB 박스가 판보다 넓어서다.
    검사: checks/sim-seats.js */
@@ -14,8 +15,9 @@ const CHAR_Z = deps.CHAR_Z;
 const buildDesk = deps.buildDesk;
 const buildPlaceholder = deps.buildPlaceholder;
 const scene = deps.scene;
-const layoutSeats = deps.layoutSeats;
-const seatPanelMod = deps.seatPanelMod;
+/* 줄 배치 · 좌석 탭 · 좌석 고르기는 위층(seat-layout · seat-panel)이 한다 — 이 모듈은 위층을 부르지 않고 app.js 가 attach 로 걸어 둔 알림만 부른다(모듈 순환 막기) */
+let hooks = null;
+function attach(h){ hooks = h; }
 const seats=[]; let selected=null;
 // ★ 좌석 간격 = 책상 끝끼리 여백(설정 › 캐릭터) — 솔로 · 멀티 따로 저장. 자리 셈은 room/seat-layout.js.
 //   GAP_MIN 이 음수인 까닭: 책상 GLB 는 보이는 판보다 박스가 넓은 것이 많아 «끝끼리 0» 이어도 벌어져 보인다 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다.
@@ -55,17 +57,18 @@ function createSeat(){
   bodyWrap.add(seat.headAnchor); bodyWrap.add(seat.bodyAnchor);
   seat.headAnchor.position.set(0,1.08,0); seat.bodyAnchor.position.set(0,0.46,0);
   seat.equipped={hair:null,accessory:null,clothes:null}; seat.equippedId={hair:null,accessory:null,clothes:null};
-  scene.add(group); seats.push(seat); layoutSeats(); return seat;
+  scene.add(group); seats.push(seat); hooks.layoutSeats(); return seat;
 }
 function removeSeat(seat){
   const i=seats.indexOf(seat); if(i<0||seats.length<=1) return;
   scene.remove(seat.group); seats.splice(i,1);
-  if(selected===seat) seatPanelMod().selectSeat(seats[Math.max(0,i-1)]);
-  layoutSeats(); seatPanelMod().renderSeatTabs();
+  if(selected===seat) hooks.selectSeat(seats[Math.max(0,i-1)]);
+  hooks.layoutSeats(); hooks.renderSeatTabs();
 }
 
 return {
   seats,
+  attach,
   createSeat,
   removeSeat,
   GAP_MIN,
