@@ -4,7 +4,7 @@
    · ask(email, mode, code?) — 'bind'(로그인 — 처음 보는 구글을 이 PC 계정에 묶기) · 'signup'(구글로 가입 — 제목만 다르다) · 'link'(로그인된 계정에 구글 붙이기) → 'yes' | 'other' | 'cancel'
      code 를 안 주면 이 PC 친구 코드(가입 중에는 아직 저장 전이라 새 아이디를 넘긴다)
    · pickForLink() — 구글 창 → 묻기 → [다른 구글 고르기]면 창을 다시 연다 → { ok, idToken } | { ok:false, canceled } | { ok:false, reason }
-   · 🔁 구글 바꾸기(내 정보) — pickCurrent(from): 지금 구글을 한 번 골라 본인 확인 · pickForChange(from): 새 구글 → 'change' 로 묻기(같은 구글이면 same)
+   · 🔁 구글 바꾸기(내 정보) — pickCurrent(from): 지금 구글을 한 번 골라 본인 확인 · pickForChange(from): 새 구글 → 'change' 로 묻기([취소] · [바꾸기] · 같은 구글이면 same)
    · maskEmail · tokenEmail — 순수 함수(DOM 없음)
    ★ 창은 desk-companion-prototype.html 의 #gConfirmOverlay. 기본 버튼은 [다른 계정으로 로그인](잘못 묶는 쪽이 되돌리기 어렵다).
    검사: checks/sim-google-confirm.js */
@@ -47,7 +47,7 @@ TEXT.signup = Object.assign({}, TEXT.bind, { title: '이 구글 계정으로 가
 TEXT.change = { title: '구글 계정을 바꿀까요?', lead: ' — 새로 연결할 구글 계정이에요.',
   card: '지금 구글 {from} 대신 이 구글로 로그인해요. 마이홈 · 친구 · 라이선스는 그대로예요.',
   warn: '⚠ 바꾸면 지금 구글({from})로는 더 이상 로그인되지 않아요.',
-  fresh: '', other: '다른 구글 고르기', yes: '바꾸기' };
+  fresh: '', other: '취소', yes: '바꾸기' };   // 시안대로 [취소] · [바꾸기] — [취소]도 기본 포커스(잘못 바꾸지 않게)
 const sameEmail = (a, b) => !!a && !!b && String(a).trim().toLowerCase() === String(b).trim().toLowerCase();
 
 /** @param {{ friendCode: () => (string|null), signInWithGoogle: () => Promise<any> }} deps */
@@ -118,11 +118,11 @@ function createGoogleConfirm(deps){
       if(sameEmail(email, from)) return { ok:false, same:true, reason:'이미 연결된 구글 계정이에요' };
       const a = await ask(email, 'change', null, from);
       if(a === 'yes') return { ok:true, idToken: g.idToken, email };
-      if(a === 'cancel') return { ok:false, canceled:true, reason:'' };
+      return { ok:false, canceled:true, reason:'' };   // [취소] · ✕ · ESC
     }
   }
 
-  return { ask, pickForLink, pickCurrent, pickForChange, maskEmail };
+  return { ask, pickForLink, pickCurrent, pickForChange, maskEmail, sameEmail };
 }
 
 const api = { createGoogleConfirm, maskEmail, tokenEmail };

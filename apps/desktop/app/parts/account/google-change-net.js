@@ -8,6 +8,7 @@
  *
  * deps: currentUser() → Auth 사용자 | null · credential(idToken) → 구글 자격
  *       reauth(user, cred) · unlink(user, providerId) · link(user, cred) → Promise
+ * 돌려주는 err:true = 사용자 조건(다른 구글 · 이미 쓰임 · 비밀번호 없음)이 아닌 진짜 실패 — 부르는 쪽이 에러코드로 알린다.
  */
 const GOOGLE = 'google.com';
 const code = (e) => String((e && e.code) || e || '');
@@ -29,11 +30,11 @@ export function createGoogleChange(deps){
     catch(e){
       const k = code(e);
       if(k.includes('user-mismatch')) return { ok:false, reason:'지금 연결된 구글 계정으로 골라 주세요' };
-      if(k.includes('network')) return { ok:false, reason:'네트워크 오류 — 연결을 확인해 주세요' };
-      return { ok:false, reason:'구글 확인에 실패했어요 (' + (k || '알 수 없음') + ')' };
+      if(k.includes('network')) return { ok:false, err:true, reason:'네트워크 오류 — 연결을 확인해 주세요' };
+      return { ok:false, err:true, reason:'구글 확인에 실패했어요 (' + (k || '알 수 없음') + ')' };
     }
     try{ await unlink(cu, GOOGLE); }
-    catch(e){ return { ok:false, reason:'구글 연결을 바꾸지 못했어요 (' + (code(e) || '알 수 없음') + ')' }; }
+    catch(e){ return { ok:false, err:true, reason:'구글 연결을 바꾸지 못했어요 (' + (code(e) || '알 수 없음') + ')' }; }
     try{
       const r = await link(cu, credential(newIdToken));
       const g = ((r && r.user && r.user.providerData) || []).find(p => p && p.providerId === GOOGLE);
@@ -42,10 +43,11 @@ export function createGoogleChange(deps){
       const k = code(e);
       let restored = false;
       try{ await link(cu, oldCred); restored = true; }catch(_){}
-      const why = (k.includes('credential-already-in-use') || k.includes('email-already-in-use'))
+      const taken = k.includes('credential-already-in-use') || k.includes('email-already-in-use');
+      const why = taken
         ? '이 구글 계정은 이미 다른 계정에 쓰이고 있어요.'
         : (k.includes('network') ? '네트워크 오류로 새 구글을 연결하지 못했어요.' : '새 구글을 연결하지 못했어요 (' + (k || '알 수 없음') + ').');
-      return { ok:false, restored, reason: why + (restored ? ' 원래 구글 그대로예요.'
+      return { ok:false, restored, err: !taken || !restored, reason: why + (restored ? ' 원래 구글 그대로예요.'
         : ' 구글 연결이 풀렸어요 — 친구 코드 + 비밀번호로 로그인되고, [연결하기]로 다시 붙일 수 있어요.') };
     }
   }

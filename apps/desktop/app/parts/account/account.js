@@ -689,7 +689,13 @@ function refreshAccountTab(){
       const r = await _acctChangeGoogle(m.googleEmail, (t)=>say(t, 'info'));
       gc.disabled = false;
       if(r.canceled){ say('', 'info'); return; }
-      if(!r.ok){ sayG(r.reason || '구글을 바꾸지 못했어요', 'err'); if(r.restored === false){ try{ await _acctMethodsRender(true); }catch(_){} } return; }
+      if(!r.ok){
+        /* 사용자 조건(다른 구글 · 이미 쓰임 · 비밀번호)은 안내만 · 진짜 실패는 에러코드(되돌리기까지 실패하면 05) */
+        if(r.restored === false){ say(r.reason, 'err'); TwErrorCodes.notify('E-ACC-05', r.reason); try{ await _acctMethodsRender(true); }catch(_){} }
+        else if(r.err){ say(r.reason, 'err'); TwErrorCodes.notify('E-ACC-04', r.reason); }
+        else sayG(r.reason || '구글을 바꾸지 못했어요', 'err');
+        return;
+      }
       try{ await _acctMethodsRender(true); }catch(_){}
       sayG('✅ 구글 계정을 바꿨어요 — 다음부터 ' + googleConfirmMod.maskEmail(r.email) + ' 로 로그인해요.', 'ok');
     };
@@ -710,10 +716,10 @@ async function _acctChangeGoogle(from, step){
   if(!nw.ok) return nw;
   step('구글 계정을 바꾸는 중…');
   let r = null; try{ r = await firebaseAPI.authChangeGoogle(cur.idToken, nw.idToken); }catch(_){ r = null; }
-  if(!r) return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' };
+  if(!r) return { ok:false, err:true, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' };
   if(r.ok){
     /* 이 PC 를 구글로 로그인했다면 표시 이메일도 새 구글로 — 친구 코드로 로그인했으면({코드}@tw.local) 그대로 */
-    try{ if(localStorage.getItem(LOGIN_EMAIL_KEY) === from) localStorage.setItem(LOGIN_EMAIL_KEY, r.email || nw.email || ''); }catch(_){}
+    try{ if(googleConfirmMod.sameEmail(localStorage.getItem(LOGIN_EMAIL_KEY), from)) localStorage.setItem(LOGIN_EMAIL_KEY, r.email || nw.email || ''); }catch(_){}
   }
   return r;
 }

@@ -121,11 +121,15 @@ async function judgeAll(src){
   P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }, { ok: true, idToken: jwt({ email: 'mo2@x.com' }) }]);
   let pr = P.m.pickForChange('minty@gmail.com');
   await tick();
-  t(e.gcTitle.textContent === '구글 계정을 바꿀까요?' && e.gcMail.textContent === 'mo***@x.com' && /지금 구글 mi\*\*\*@gmail\.com 대신/.test(e.gcCard.textContent) && /지금 구글\(mi\*\*\*@gmail\.com\)로는 더 이상/.test(e.gcWarn.textContent) && e.gcYes.textContent === '바꾸기' && e.gcOther.textContent === '다른 구글 고르기' && e.gcFresh.style.display === 'none',
-    '5 ★ 묻는 창 — «구글 계정을 바꿀까요?» · 새 주소 · 지금 주소(가림) · [다른 구글 고르기] / [바꾸기]');
-  e.gcOther.onclick(); await tick(); e.gcYes.onclick();
+  t(e.gcTitle.textContent === '구글 계정을 바꿀까요?' && e.gcMail.textContent === 'mo***@x.com' && /지금 구글 mi\*\*\*@gmail\.com 대신/.test(e.gcCard.textContent) && /지금 구글\(mi\*\*\*@gmail\.com\)로는 더 이상/.test(e.gcWarn.textContent) && e.gcYes.textContent === '바꾸기' && e.gcOther.textContent === '취소' && e.gcFresh.style.display === 'none',
+    '5 ★ 묻는 창(시안) — «구글 계정을 바꿀까요?» · 새 주소 · 지금 주소(가림) · [취소] / [바꾸기]');
+  e.gcYes.onclick();
   q = await within(pr);
-  t(q.ok && q.email === 'mo2@x.com' && P.n() === 2, '5 ★ [다른 구글 고르기] → 창 다시 · 두 번째 구글로 [바꾸기]');
+  t(q.ok && q.email === 'mo1@x.com' && P.n() === 1, '5 ★ [바꾸기] → 고른 새 구글 토큰 · 주소');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }]);
+  pr = P.m.pickForChange('minty@gmail.com'); await tick(); e.gcOther.onclick();
+  q = await within(pr);
+  t(!q.ok && q.canceled && P.n() === 1, '5 ★ [취소] → 바꾸지 않음 · 구글 창을 다시 안 연다');
   P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }]);
   pr = P.m.pickForChange('minty@gmail.com'); await tick(); e.gcClose.onclick();
   q = await within(pr);
@@ -182,6 +186,7 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
     ['ESC 를 안 들음', "if(e.key === 'Escape'){ e.stopPropagation(); finish('cancel'); }", "if(e.key === 'Nope'){ finish('cancel'); }"],
     ['다른 구글 고르기에서 안 되돌아감', "      if(a === 'cancel') return { ok:false, canceled:true, reason:'' };\n    }", "      return { ok:false, canceled:true, reason:'' };\n    }"],
     ['지금 구글이 아니어도 통과', "    if(!sameEmail(tokenEmail(g.idToken), from)) return", "    if(false) return"],
+    ['[취소]가 창을 다시 엶', "      return { ok:false, canceled:true, reason:'' };   // [취소] · ✕ · ESC", "      if(a === 'cancel') return { ok:false, canceled:true, reason:'' };"],
     ['같은 구글로 바꾸기를 물음', "      if(sameEmail(email, from)) return { ok:false, same:true, reason:'이미 연결된 구글 계정이에요' };\n", ''],
     ['버튼 글이 남음', "      set('gcYes', t.yes || '이 계정에 연결');\n", "      if(t.yes) set('gcYes', t.yes);\n"],
     ['넘긴 코드를 무시', "set('gcCode', code || friendCode() || '—');", "set('gcCode', friendCode() || '—');"],
