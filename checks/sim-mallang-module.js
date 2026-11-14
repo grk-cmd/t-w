@@ -30,7 +30,7 @@ const SRC = {
 for(const k of Object.keys(SRC)) if(!SRC[k]){ say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const flush = () => new Promise(r => setImmediate(r));
-const EXPORTS = ['onOpen', 'onClose', 'applyVisit', 'reset', 'openGift', 'placeGift', 'giftOnScreen', 'giftFull', 'dropGift'];
+const EXPORTS = ['onOpen', 'onClose', 'applyVisit', 'reset', 'openGift'];
 
 const loadSafe = () => { const m = { exports: {} }; new Function('window', 'module', SRC.SAFE)(undefined, m); return m.exports; };
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
@@ -48,8 +48,9 @@ function mkEnv(src, o){
       classList: { add: (...a) => a.forEach(c => cls.add(c)), remove: (...a) => a.forEach(c => cls.delete(c)), contains: c => cls.has(c),
         toggle: (c, on) => { const v = on === undefined ? !cls.has(c) : !!on; v ? cls.add(c) : cls.delete(c); return v; } },
       set className(v){ cls.clear(); String(v).split(/\s+/).filter(Boolean).forEach(c => cls.add(c)); }, get className(){ return [...cls].join(' '); },
+      get isConnected(){ return !!el.parentElement; },
       get innerHTML(){ return el._html; },
-      set innerHTML(v){ el._html = String(v); el.children = []; for(const m of el._html.matchAll(/id="([^"]+)"/g)){ const c = mk('div'); c.id = m[1]; el.appendChild(c); } },
+      set innerHTML(v){ el._html = String(v); el.children.forEach(c => { c.parentElement = null; }); el.children = []; for(const m of el._html.matchAll(/id="([^"]+)"/g)){ const c = mk('div'); c.id = m[1]; el.appendChild(c); } },
       appendChild(c){ c.parentElement = el; el.children.push(c); return c; },
       remove(){ if(el.parentElement) el.parentElement.children = el.parentElement.children.filter(x => x !== el); el.parentElement = null; if(byId[el._id] === el) delete byId[el._id]; },
       addEventListener(t, fn){ (L[t] = L[t] || []).push(fn); },
@@ -71,7 +72,7 @@ function mkEnv(src, o){
   class FakeImage { constructor(){ this.naturalWidth = 100; this.naturalHeight = 100; imgs.push(this); } set src(v){ this._src = v; } get src(){ return this._src; } }
   /* 가짜 서버 선물함 — 치움 · ⭐ · 지우기 · 봤음이 값을 바꾼다 */
   const srv = {
-    items: [{ id: 'g1', senderName: '철수', imageUrl: 'https://x.example/g1.png', message: '안녕', starred: false, hidden: false, sentAt: 100 },
+    items: o.items || [{ id: 'g1', senderName: '철수', imageUrl: 'https://x.example/g1.png', message: '안녕', starred: false, hidden: false, sentAt: 100 },
       { id: 'g2', senderName: '영희', imageUrl: 'https://x.example/g2.png', message: '', starred: true, hidden: false, sentAt: 300 },
       { id: 'g3', senderName: '민수', imageUrl: 'https://x.example/g3.png', message: '', starred: false, hidden: true, sentAt: 200 }],
     unseen: 2,
@@ -145,14 +146,13 @@ async function drive(src, o){
   const live = e.byId.mlLayer.children.filter(c => c.className === 'ml-guy');
   if(live[0]) live[0].fire('contextmenu');   // 첫 선물(g1) 우클릭 = 선물함으로 치움
   await flush(); e.state('치움');
-  log.push('unhide ' + await giftBox.hide('g1', false));   // 선물함에서 다시 부르기 — 서버에 «나옴» 으로 바꾼 뒤 띄운다
-  log.push('place ' + m.placeGift(giftBox.get('g1'))); e.loadAll();
-  log.push('place ' + m.placeGift(giftBox.get('g1')));
-  log.push('onScreen g1=' + m.giftOnScreen('g1') + ' g3=' + m.giftOnScreen('g3'));
+  log.push('unhide ' + await giftBox.show('g1')); e.loadAll();   // 선물함에서 다시 부르기 — 서버가 «나옴» 으로 받으면 선물함이 목록에 올리고 화면이 띄운다
+  log.push('again ' + await giftBox.show('g1'));
+  log.push('onScreen ' + giftBox.onScreen().map(x => x.id).join());
   await flush(); e.state('다시 부름');
   log.push('remove ' + await giftBox.remove('g2'));
   log.push('star ' + await giftBox.star('g2', false));
-  log.push('remove ' + await giftBox.remove('g2')); m.dropGift('g2');
+  log.push('remove ' + await giftBox.remove('g2'));   // 지우면 목록에서 빠지며 화면의 말랑이도 걷힌다
   e.state('지움');
   await giftBox.openTab(); e.state('봤음');
   e.srv.items.push({ id: 'g4', senderName: '새친구', imageUrl: 'https://x.example/g4.png', message: '', starred: false, hidden: false, sentAt: 400 }); e.srv.unseen = 1;
@@ -176,9 +176,8 @@ const GOLDEN = [
   'state 치움 폴더=O 말랑이=1 배지=🎁2 선물창=X',
   'api hide g1 false',
   'unhide ok',
-  'place ok',
-  'place already',
-  'onScreen g1=true g3=false',
+  'again already',
+  'onScreen g1,g2',
   'state 다시 부름 폴더=O 말랑이=2 배지=🎁2 선물창=X',
   'toast 즐겨찾기한 선물은 지울 수 없어요 — ⭐ 를 먼저 풀어 주세요',
   'remove starred',
@@ -226,10 +225,10 @@ const GOLDEN = [
   chk(has('state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X'), '  폴더 보임 · 치우지 않은 선물 둘이 뜸(g3 는 서버가 치움) · 배지 🎁2 는 서버 unseenCount');
   chk(has('api hide g1 true') && has('toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)') && has('state 치움 폴더=O 말랑이=1 배지=🎁2 선물창=X'),
     '나온 선물 우클릭 — 서버에 치움 · 서버 답 뒤에 안내 · 한 마리 줄어듦(이 PC 에 적지 않음)');
-  chk(has('place ok') && has('place already') && has('onScreen g1=true g3=false') && has('state 다시 부름 폴더=O 말랑이=2 배지=🎁2 선물창=X'),
-    '다시 부르기 — 선물함이 서버에서 풀어 준 뒤 띄움 · 두 번째는 «이미 나와 있음» · 화면 여부를 묻는 함수');
+  chk(has('unhide ok') && has('again already') && has('onScreen g1,g2') && has('state 다시 부름 폴더=O 말랑이=2 배지=🎁2 선물창=X'),
+    '다시 부르기 — 서버가 «나옴» 으로 받으면 선물함 목록에 오르고 화면이 띄움 · 두 번째는 «이미 나와 있음»');
   chk(has('remove starred') && has('api remove g2') && has('remove ok') && has('state 지움 폴더=O 말랑이=1 배지=🎁2 선물창=X'),
-    '지우기 — ⭐ 는 요청 없이 막고 · 아니면 서버에서 지우고 화면에서도 뺌');
+    '지우기 — ⭐ 는 요청 없이 막고 · 아니면 서버에서 지우고 선물함이 목록에서 빼며 화면에서도 걷힘');
   chk(has('api markSeen') && has('state 봤음 폴더=O 말랑이=1 배지=- 선물창=X'), '서브탭 — 받기 뒤 봤음(시각 없이) · 배지 지움');
   chk(has('state 새 선물 폴더=O 말랑이=2 배지=🎁1 선물창=X'), '내 집이 열려 있는 동안 선물함을 다시 받으면 전에 없던 새 선물이 바로 뜸 · 배지가 따라 바뀜(Q1 가)');
   chk(has('api fetchOf f1') && has('api fetchVisible f1') && has('state 남의 집 폴더=O 말랑이=1 배지=🎁1 선물창=X') && has('toast 관람 중에는 이미지를 등록할 수 없어요'),
@@ -261,10 +260,31 @@ const GOLDEN = [
   {
     const brk = async (name, src, o) => { const r = await drive(src, o || { premium: true }); return goldOf(r.log) !== GOLDEN; };
     {
-      const r = await drive(SRC.ML.replace("else if(r === 'failed' || r === 'busy') placeGift(", "else if(false) placeGift("), { premium: true, hideFails: true });
       const c = await drive(SRC.ML, { premium: true, hideFails: true });
-      chk(c.log.includes('state 치움 폴더=O 말랑이=2 배지=🎁2 선물창=X') && c.log.includes('error E-GIFT-05') && !c.log.includes('toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)'), '치움이 서버에서 실패하면 E-GIFT-05 · 안내 없음 · 그 말랑이가 다시 뜬다');
-      chk(r.log.includes('state 치움 폴더=O 말랑이=1 배지=🎁2 선물창=X'), '  깨 보기 — 다시 안 띄우면 한 마리가 비어 보임(빨강)');
+      chk(c.log.includes('state 치움 폴더=O 말랑이=2 배지=🎁2 선물창=X') && c.log.includes('error E-GIFT-05') && !c.log.includes('toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)'), '치움이 서버에서 실패하면 E-GIFT-05 · 안내 없음 · 일을 지우면 그 말랑이가 목록에 돌아와 다시 뜬다(손으로 다시 띄우지 않는다)');
+    }
+    chk(await brk('걷기', SRC.ML.replace("if(c.dataset && c.dataset.own === '1' && !ids.has(c.dataset.gid)){ try{ c.remove(); }catch(_){} }", '')), '목록에서 빠진 선물의 말랑이를 안 걷으면(remove extras) 빨강');
+    {
+      const many = [];
+      for(let i = 0; i < 31; i++) many.push({ id: 'm' + i, senderName: 'x', imageUrl: 'https://x.example/m' + i + '.png', message: '', starred: false, hidden: false, sentAt: 1000 + i });
+      many.push({ id: 'h0', senderName: 'x', imageUrl: 'https://x.example/h0.png', message: '', starred: false, hidden: true, sentAt: 1 });
+      const full = async (src) => {
+        const e = mkEnv(src, { premium: true, items: many.map(x => Object.assign({}, x)) });
+        await e.m.onOpen('me', false); await flush(); e.loadAll();
+        const n0 = e.guys();
+        const n = e.log.length;
+        const r = await e.giftBox.show('h0');
+        const noReq = !e.log.slice(n).some(l => l.startsWith('api hide'));
+        const c0 = e.byId.mlLayer.children[0]; if(c0) c0.fire('contextmenu');
+        await flush(); e.loadAll();
+        const spawned = e.byId.mlLayer.children.some(c => c.dataset.gid === 'm30');
+        return { n0, r, noReq, spawned, n1: e.guys() };
+      };
+      const f = await full(SRC.ML);
+      chk(f.n0 === 30 && f.r === 'full' && f.noReq, '화면이 가득(30)이면 선물이 31개여도 30마리 · 치운 선물을 눌러도 full · 서버 요청 0');
+      chk(f.spawned && f.n1 === 30, '  한 마리를 치우면 자리가 나 «나와야 함» 이던 31번째가 바로 뜬다(늦게 뜸)');
+      const sv = SRC.ML.replace("    for(const it of want){\n      if(liveFull()) break;", "    for(const it of want){\n      if(true) break;");
+      chk(sv !== SRC.ML && !(await full(sv)).spawned, '  깨 보기 — 빠진 것을 띄우지 않으면 빨강');
     }
     {
       const late = async (src) => {
@@ -275,16 +295,16 @@ const GOLDEN = [
         return e.guys();
       };
       chk(await late(SRC.ML) === 0, '선물함 답을 기다리는 중 마이홈을 닫으면 늦게 온 답은 아무것도 안 띄운다');
-      chk(await late(SRC.ML.replace("if(seq !== houseSeq || r !== 'ready') return;", "if(r !== 'ready') return;")) !== 0, '  깨 보기 — 늦은 답 검사를 빼면 닫은 뒤에 뜬다(빨강)');
+      chk(await late(SRC.ML.replace('    giftBox.leaveHome();   // 🎁 마이홈이', '    // 🎁 마이홈이')) !== 0, '  깨 보기 — 닫을 때 마이홈 밖으로 알리지 않으면 늦은 답이 닫은 뒤에 뜬다(빨강)');
     }
-    chk(await brk('새 선물 띄우기', SRC.ML.replace("if(!knownGifts || visiting) return;", "return;")), '내 집이 열려 있어도 새 선물을 안 띄우면 빨강');
+    chk(await brk('새 선물 띄우기', SRC.ML.replace("    syncBadge();\n    syncGifts();", "    syncBadge();")), '선물함이 바뀌어도 화면을 안 맞추면(새 선물 · 치움 · 지우기) 빨강');
     {
       const r = await drive(SRC.ML.replace('function hasLicense(){ try{ return !!premiumOn(); }', 'function hasLicense(){ try{ return !!window._premiumOn(); }'), { premium: false, windowPremium: true });
       chk(!r.log.includes('state 내 집 열기 폴더=X 말랑이=2 배지=🎁2 선물창=X'), '전역 window._premiumOn 을 다시 읽으면 빨강');
     }
     {
       let threw = false;
-      try{ const e = mkEnv(SRC.ML.replace('giftFull: liveFull, dropGift,', 'giftFull: liveFull,'), {}); threw = JSON.stringify(Object.keys(e.m)) !== JSON.stringify(EXPORTS); }catch(_){ threw = true; }
+      try{ const e = mkEnv(SRC.ML.replace('    openGift,                      // 🎁 보내기 창', '    // 🎁 보내기 창'), {}); threw = JSON.stringify(Object.keys(e.m)) !== JSON.stringify(EXPORTS); }catch(_){ threw = true; }
       chk(threw, '내놓는 이름이 빠지면 빨강');
     }
     const w = (patch) => { const s = Object.assign({}, SRC, patch); return !wiring(s, false); };
@@ -326,7 +346,7 @@ function wiring(S, loud){
   t(!/_mallang[A-Z]\w*/.test(strip(S.ML)) && !/window\._premiumOn/.test(strip(S.ML)) && /const premiumOn = deps\.premiumOn;/.test(S.ML), 'mallang.js — window 고리 · 전역 프리미엄 읽기 없음 · premiumOn 은 deps');
   t(![S.APP, S.UI, S.VISIT, S.INBOX].some(x => /_mallang[A-Z]\w*/.test(strip(x))) && !/window\._premiumOn\s*=/.test(A), '  app.js · 세 모듈에 window._mallang* 없음 · window._premiumOn 을 걸지 않음');
   const used = { UI: ['mallangMod.onOpen(', 'mallangMod.onClose()'], VISIT: ['mallangMod.applyVisit('],
-    INBOX: ['mallangMod.openGift(', 'mallangMod.placeGift(', 'mallangMod.giftOnScreen(', 'mallangMod.giftFull(', 'mallangMod.dropGift('] };
+    INBOX: ['mallangMod.openGift('] };
   t(Object.keys(used).every(k => /\nconst mallangMod = deps\.mallangMod;/.test(S[k]) && used[k].every(u => strip(S[k]).includes(u))), '  세 모듈은 deps.mallangMod 를 받아 부른다');
   t(![S.UI, S.VISIT, S.INBOX].some(x => /typeof\s+mallangMod|if\(mallangMod\)|mallangMod\s*&&/.test(strip(x))), '  «있으면 부르기» 가드 없음');
   const H = S.HTML.replace(/<!--[\s\S]*?-->/g, '');

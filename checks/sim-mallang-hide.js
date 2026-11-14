@@ -43,13 +43,14 @@ function mkEnv(src){
   const mk = (tag) => {
     const cls = new Set(), L = {};
     const el = {
-      tagName: String(tag).toUpperCase(), style: {}, children: [], parentElement: null, _id: '', textContent: '', title: '', innerHTML: '',
+      tagName: String(tag).toUpperCase(), style: {}, children: [], parentElement: null, _id: '', textContent: '', title: '', innerHTML: '', dataset: {},
+      get isConnected(){ return !!el.parentElement; },
       get id(){ return this._id; }, set id(v){ this._id = v; byId[v] = el; },
       classList: { add: (...a) => a.forEach(c => cls.add(c)), remove: (...a) => a.forEach(c => cls.delete(c)), contains: c => cls.has(c),
         toggle: (c, on) => { const v = on === undefined ? !cls.has(c) : !!on; v ? cls.add(c) : cls.delete(c); return v; } },
       set className(v){ cls.clear(); String(v).split(/\s+/).filter(Boolean).forEach(c => cls.add(c)); }, get className(){ return [...cls].join(' '); },
       appendChild(c){ c.parentElement = el; el.children.push(c); return c; },
-      remove(){ if (el.parentElement) el.parentElement.children = el.parentElement.children.filter(x => x !== el); },
+      remove(){ if (el.parentElement) el.parentElement.children = el.parentElement.children.filter(x => x !== el); el.parentElement = null; },
       addEventListener(t, fn){ (L[t] = L[t] || []).push(fn); }, fire(t){ (L[t] || []).forEach(fn => fn({ preventDefault(){}, stopPropagation(){} })); },
       getBoundingClientRect: () => ({ left: 0, top: 0, width: 800, height: 580 }),
       querySelector: () => null,

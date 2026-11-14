@@ -12,7 +12,8 @@
    · 모듈 모양: window.TwMallang = { createMallang(deps) } — app.js 가 마이홈 수령함 모듈보다 먼저 만들고,
      마이홈 창(myhome-ui) · 친구 홈 구경(myhome-visit) · 수령함(myhome-inbox)이 deps `mallangMod` 로 받아 부른다.
      deps 6 — toast · getMyUserId · getDisplayName · premiumOn(프리미엄 판정 — app.js _premiumOn) · mallangStore(칸 상태 주인 — mallang-store.js) · giftBox(선물 상태 주인 — gift-box.js).
-     🎁 받은 선물은 선물 상태 주인(gift-box.js)이 서버에서 받아 오고, 이 파일은 마이홈에 띄우고 치우는 화면 연출 · 🎁 배지만 맡는다(MAX_LIVE 는 화면 동시 상한).
+     🎁 받은 선물은 선물 상태 주인(gift-box.js)이 서버에서 받아 오고 «내 선물 중 무엇이 화면에 나와야 하나» 도 정한다(onScreen) — 이 파일은 그 목록을 그리고(syncGifts) 🎁 배지를 맡는다. 선물 id 를 따로 들지 않는다.
+     화면 자리(MAX_LIVE 동시 상한)는 이 파일의 사실이라 attachScreen 으로 선물함에 알린다. 남의 집에 나온 선물(방문자)은 이 파일이 한 번 그린다.
      🎁 보내기 창만 아직 옛 길(firebaseAPI)이다 — 보내기 묶음에서 옮긴다.
    검사: checks/sim-mallang-module.js · sim-mallang-store.js · sim-gift-box.js
    ═══════════════════════════════════════════════════════════════════════ */
@@ -25,7 +26,7 @@ function createMallang(deps){
   const getDisplayName = deps.getDisplayName;
   const premiumOn = deps.premiumOn;   // 👑 프리미엄 판정(app.js _premiumOn) — 전역 window._premiumOn 을 읽지 않는다
   const mallangStore = deps.mallangStore;   // 🧸 칸 상태 주인(mallang-store.js) — mine() · view() · add · toggle · remove · pullMine · openView
-  const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — box() · pull · hide · onChange · fetchVisible
+  const giftBox = deps.giftBox;   // 🎁 선물 상태 주인(gift-box.js) — onScreen() · enterHome · leaveHome · attachScreen · hide · onChange · fetchVisible
   const LOAD = mallangStore.LOAD;
 
   const MAX_IMGS = mallangStore.SLOTS;   // 등록 칸 수 — 서버 상한 하나(TwGiftApi.LIMITS.SLOTS)
@@ -41,7 +42,7 @@ function createMallang(deps){
      ★ 그래서 예약분(_pending)을 같이 센다. 실려서 live 로 들어가거나, 로드에 실패하면 반납한다.
      ⚠️ 반납을 빠뜨리면 자리가 영영 줄어든 채로 남는다 — onload·onerror **양쪽**에서 놓을 것. */
   let _pending = 0;
-  const pendingGifts = new Set();   // 아직 그림을 받는 중인 선물 id — 같은 선물을 두 번 띄우지 않고, 받는 사이 지워진 선물은 띄우지 않는다
+  let _epoch = 0;                    // clearAll 마다 오른다 — 앞 집에서 그림을 받던 말랑이의 늦은 답이 새 집의 예약을 반납하지 않게
   function liveCount(){ return live.length + _pending; }
   function liveFull(){ return liveCount() >= MAX_LIVE; }
   const IMG_W = 80;          // 표시 가로폭(px), 세로는 정비율
@@ -110,7 +111,8 @@ function createMallang(deps){
       const pop = document.getElementById('mlManage');
       if(pop && pop.classList.contains('on')) renderSlots(document.getElementById('mlFileInput'));
     });
-    giftBox.onChange(onBoxChange);   // 🎁 선물함이 바뀌면(받기 · 신호 · 봤음) 배지 · 새로 온 선물 띄우기
+    giftBox.attachScreen({ room: ()=>MAX_LIVE - liveCount(), has: giftHere });   // 🎁 화면 자리 · 이 선물이 화면에 있는가 — 어느 선물이 나와야 하는지는 선물함이 정한다
+    giftBox.onChange(onBoxChange);   // 🎁 선물함이 바뀌면(받기 · 신호 · 봤음 · 치움 …) 배지 · 화면 맞추기
     built = true;
   }
 
@@ -365,13 +367,13 @@ function createMallang(deps){
     const im = new Image();
     _pending++;                     // 🎫 자리 예약 — 아래 onload/onerror 에서 반드시 놓는다
     let _slotDone = false;
-    if(gift) pendingGifts.add(gift.giftId);
-    const _release = ()=>{ if(_slotDone) return; _slotDone = true; _pending = Math.max(0, _pending - 1); if(gift) pendingGifts.delete(gift.giftId); };
+    const _ep = _epoch;
+    const _release = ()=>{ if(_slotDone) return; _slotDone = true; if(_ep === _epoch) _pending = Math.max(0, _pending - 1); };
+    if(gift){ guy.dataset.gid = gift.giftId; if(gift.isOwner) guy.dataset.own = '1'; }   // 🎁 화면에 있는 선물 표시 — giftHere · syncGifts 가 찾는다
     TwImgRetry.retryOnError(im, ()=>{ _release(); try{ guy.remove(); }catch(_){} });   // 한 번 더 받아도 못 받으면 자리를 놓는다
     im.onload = ()=>{
-      const wanted = !gift || pendingGifts.has(gift.giftId);   // 받는 사이 지웠거나 집을 옮긴 선물은 띄우지 않는다
       _release();
-      if(!wanted){ try{ guy.remove(); }catch(_){} return; }
+      if(!guy.isConnected){ return; }   // 받는 사이 치웠거나 집을 옮겨 이미 빠진 말랑이는 띄우지 않는다
       const ratio = im.naturalHeight / (im.naturalWidth||1);
       const w = IMG_W, hh = Math.round(IMG_W*ratio);
       guy.style.width = w+'px'; guy.style.height = hh+'px';
@@ -668,13 +670,18 @@ function createMallang(deps){
       if(!inst.gift.isOwner){ return; }   // 방문자는 선물 못 없앰 (하트만)
       // ★ 서버 기록은 남기고 '선물함으로 되돌리기'(hidden)만 한다 — 선물함에서 클릭하면 다시 나온다. 하트 연출은 바로, 결과는 서버 답을 보고:
       //   성공하면 안내 · 실패하면 그 말랑이를 다시 띄운다(서버는 «나와 있음»). 이미 없는 선물(gone) · 계정이 바뀜(stale)은 다시 띄우지 않는다.
-      const g = inst.gift, seq = houseSeq;
-      giftBox.hide(g.giftId, true).then(r=>{
+      //   치우는 즉시 선물함이 화면 목록에서 빼고(emit → syncGifts 가 이 말랑이를 걷음) · 안 되면 일을 지워 목록이 서버 값으로 돌아가며 다시 뜬다. 여기서 손으로 다시 띄우지 않는다.
+      const seq = houseSeq;
+      giftBox.hide(inst.gift.giftId).then(r=>{
         if(seq !== houseSeq) return;
         if(r === 'ok') toast('🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)');
-        else if(r === 'failed' || r === 'busy') placeGift({ id: g.giftId, imageUrl: g.url, message: g.msg });
       });
+      return;
     }
+    removeGuy(inst);
+    syncGifts();   // 자리가 났다 — 자리가 없어 못 뜬 선물이 있으면 이제 뜬다
+  }
+  function removeGuy(inst){
     try{ inst.el.remove(); }catch(_){}
     live = live.filter(x=>x!==inst);
     if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
@@ -791,8 +798,8 @@ function createMallang(deps){
     live.forEach(inst=>{ try{ inst.el.remove(); }catch(_){} });
     live = [];
     _pending = 0;   // 🎫 아직 안 실린 예약도 같이 버린다 — 안 그러면 다음에 열 때 자리가 모자라다
-    pendingGifts.clear();
-    knownGifts = null;   // 이 집의 선물을 아직 안 띄웠다 — 다음 받기가 처음부터 띄운다
+    _epoch++;
+    giftBox.leaveHome();   // 🎁 마이홈이 눈앞이 아니다 — 내 선물 목록이 빈다
     if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
     const layer = document.getElementById('mlLayer'); if(layer) layer.innerHTML='';
     hidden = false;   // 집을 옮기거나 닫으면 다시 보인다(«잠깐» 숨기기)
@@ -804,7 +811,6 @@ function createMallang(deps){
      onClose(): 마이홈 닫힐 때 → 전부 제거
      applyVisit(isVisiting, ownerId): 방문 상태 전환 시 */
   let houseSeq = 0;      // 집을 열 때 · 옮길 때 · 닫을 때마다 오른다 — 늦게 온 앞 집의 답은 아무것도 띄우지 않는다
-  let knownGifts = null; // 내 집에서 이미 띄우기로 본 선물 id — 열려 있는 동안 «전에 없던» 선물만 새로 띄운다(친구가 보낸 선물). 남의 집 · 닫힘 · 받기 전엔 null
 
   /* 그 집 칸을 받고 폴더를 다시 판정한 뒤 선물을 띄운다. 답을 기다리는 사이 집을 옮겼거나 닫았으면(늦은 답) 아무것도 하지 않는다 */
   async function showHouse(ownerId, seq){
@@ -812,7 +818,7 @@ function createMallang(deps){
     if(!(await mallangStore.openView(owner, !visiting))) return;
     if(seq !== houseSeq) return;
     refreshFolder();                  // 칸을 받은 뒤 폴더 표시 여부 재판정 (방문 집 말랑이 유무 반영)
-    await loadGifts(owner, seq);      // 🎁 선물받은 말랑이 소환 (내 집·방문 모두)
+    await loadGifts(owner, seq);      // 🎁 선물받은 말랑이 소환 (내 집: 선물함이 목록을 정함 · 방문: 그 집에 나온 선물)
   }
   async function onOpen(ownerId, isVisiting){
     visiting = !!isVisiting;
@@ -840,46 +846,50 @@ function createMallang(deps){
   }
 
   /* ── 🎁 받은 선물 말랑이 띄우기 ──
-     내 집: 선물함(gift-box)을 받아 치우지 않은 것(hidden=false)을 띄운다 · 남의 집: 그 집에 나온 선물(GET /v1/gifts/{code}). 못 받으면 아무것도 띄우지 않는다(번호는 그쪽) */
+     내 집: 어느 선물이 나와야 하는지는 선물함(gift-box onScreen)이 정한다 — 여기는 그 목록을 그리기만 하고 선물 id 를 들지 않는다(enterHome → 받기 성공 → emit → syncGifts).
+     남의 집: 그 집에 나온 선물(GET /v1/gifts/{code})을 한 번 띄운다. 못 받으면 아무것도 띄우지 않는다(번호는 그쪽) */
   async function loadGifts(ownerId, seq){
     if(!ownerId) return;                // 내 코드가 없으면 선물을 안 읽는다
     if(visiting){
       const r = await giftBox.fetchVisible(ownerId, { notify: true });
       if(seq !== houseSeq || !r.ok) return;
-      r.items.forEach(it=>placeGift(it, false));
+      r.items.forEach(it=>{
+        if(liveFull() || giftHere(it.id)) return;
+        spawn(it.imageUrl, { giftId: it.id, isOwner: false, msg: it.message || '', url: it.imageUrl });
+      });
       return;
     }
-    const r = await giftBox.pull(true);
-    if(seq !== houseSeq || r !== 'ready') return;
-    knownGifts = new Set();
-    giftBox.box().items.forEach(it=>{ knownGifts.add(it.id); if(!it.hidden) placeGift(it); });
-    syncBadge();
+    await giftBox.enterHome();          // 받기가 성공하면 선물함이 emit → syncGifts 가 띄운다
   }
-  /* 선물함이 바뀌었다(받기 · 서버 신호 · 봤음 · ⭐ …) — 배지를 맞추고, 내 집이 열려 있으면 전에 없던 새 선물을 띄운다 */
+  /* 선물함이 바뀌었다(받기 · 신호 · 봤음 · ⭐ · 치움 …) — 배지 · 화면 */
   function onBoxChange(){
     syncBadge();
-    if(!knownGifts || visiting) return;
-    const b = giftBox.box();
-    if(b.load !== giftBox.LOAD.READY) return;
-    b.items.forEach(it=>{ if(knownGifts.has(it.id)) return; knownGifts.add(it.id); if(!it.hidden) placeGift(it); });
+    syncGifts();
   }
-  function giftOnScreen(id){ return pendingGifts.has(id) || live.some(x=>x.gift && x.gift.giftId===id); }
-  /* 선물 한 마리를 화면에 — own=false 면 남의 집(방문자). @return 'ok' | 'already' | 'full' | 'away'(남의 집을 보는 중 — 내 선물은 띄우지 않는다) */
-  function placeGift(it, own){
-    const isOwner = own !== false;
-    if(isOwner && visiting) return 'away';
-    if(giftOnScreen(it.id)) return 'already';
-    if(liveFull()) return 'full';
-    spawn(it.imageUrl, { giftId: it.id, isOwner, msg: it.message || '', url: it.imageUrl });
-    return 'ok';
+  /* 이 선물이 화면에 있는가(그림을 받는 중인 것 포함) — 말랑이 한 칸이 선물 id 를 달고 있다 */
+  function giftHere(id){
+    const layer = document.getElementById('mlLayer'); if(!layer) return false;
+    return Array.from(layer.children).some(c=>c.dataset && c.dataset.gid === id);
   }
-  /* 선물을 지웠다 — 화면에 나와 있거나 그림을 받는 중인 그 말랑이도 뺀다 */
-  function dropGift(id){
-    pendingGifts.delete(id);
-    live.filter(x=>x.gift && x.gift.giftId===id).forEach(inst=>{ try{ inst.el.remove(); }catch(_){} });
-    live = live.filter(x=>!(x.gift && x.gift.giftId===id));
-    if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
-    syncHideBtn();
+  /* 화면을 선물함의 목록(onScreen)에 맞춘다 — 목록에 없는 내 선물 말랑이는 걷고, 빠진 것은 자리가 있는 만큼 띄운다. 자리가 없어 못 띄운 것은 «나와야 함» 으로 남아 다음에 다시 시도한다 */
+  function syncGifts(){
+    const layer = document.getElementById('mlLayer'); if(!layer) return;
+    const want = giftBox.onScreen();
+    const ids = new Set(want.map(x=>x.id));
+    Array.from(layer.children).forEach(c=>{
+      if(c.dataset && c.dataset.own === '1' && !ids.has(c.dataset.gid)){ try{ c.remove(); }catch(_){} }
+    });
+    const gone = live.filter(x=>x.el.parentElement !== layer);
+    if(gone.length){
+      live = live.filter(x=>x.el.parentElement === layer);
+      if(!live.length && rafId){ cancelAnimationFrame(rafId); rafId=null; }
+      syncHideBtn();
+    }
+    for(const it of want){
+      if(liveFull()) break;
+      if(giftHere(it.id)) continue;
+      spawn(it.imageUrl, { giftId: it.id, isOwner: true, msg: it.message || '', url: it.imageUrl });
+    }
   }
 
   // 친구 탭에 안 본 선물 개수 배지 — 값은 서버 unseenCount(받기 전 null 이면 그대로 둔다)
@@ -1023,7 +1033,6 @@ function createMallang(deps){
   return {
     onOpen, onClose, applyVisit, reset,   // 🏠 마이홈 열기 · 닫기(myhome-ui) · 집 옮기기(myhome-visit) · 계정을 놓을 때
     openGift,                      // 🎁 보내기 창 — 친구 줄 우클릭(myhome-inbox)
-    placeGift, giftOnScreen, giftFull: liveFull, dropGift,   // 💝 선물함 격자(myhome-inbox) — 다시 부르기 · 지우기 때 화면 말랑이를 띄우고 뺀다
   };
 }
 

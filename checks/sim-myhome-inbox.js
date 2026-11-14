@@ -65,7 +65,7 @@ function mkEl(tag, env){
 }
 function mkEnv(o){
   o = o || {};
-  const env = { calls: [], toasts: [], store: new Map(), domCalls: 0, confirmAns: true, focused: 0, opened: [], copied: [], bell: 0, profileRail: 0, homeView: [], bugOpen: [], respawn: [], saved: [] };
+  const env = { calls: [], toasts: [], store: new Map(), domCalls: 0, confirmAns: true, focused: 0, opened: [], copied: [], bell: 0, profileRail: 0, homeView: [], bugOpen: [], saved: [] };
   const byId = {};
   const doc = {
     body: mkEl('body', env),
@@ -127,18 +127,23 @@ function mkEnv(o){
       return { items: env.giftSrv.map((x) => Object.assign({}, x)), unseenCount: env.giftUnseen, starCount: env.giftSrv.filter((x) => x.starred).length, boxKeep: 30, starMax: 20 }; },
     markSeen: async () => { env.calls.push('POST seen'); env.giftUnseen = 0; },
     star: async (id, on) => { env.calls.push('PATCH ' + id + ' starred=' + on); find(id).starred = on; },
-    hide: async (id, on) => { env.calls.push('PATCH ' + id + ' hidden=' + on); find(id).hidden = on; },
+    hide: async (id, on) => { env.calls.push('PATCH ' + id + ' hidden=' + on); find(id).hidden = on; if(env.fillDuring) env.room = 0; },
     remove: async (id) => { env.calls.push('DELETE ' + id); env.giftSrv = env.giftSrv.filter((x) => x.id !== id); },
     fetchVisible: async () => ({ items: [], visibleCount: 0, recipientCap: 30 }), reset(){},
   };
   env.giftBox = lm(SRC['gift-box.js']).createGiftBox({ api: boxApi, giftLib: lm(SRC['gift-api.js']), errs: lm(SRC['api-errors.js']), apiErrors: { notify: (e) => env.calls.push('common ' + (e && e.code)) },
     notifyError: (c) => env.calls.push('error ' + c), toast: (m) => env.toasts.push(m), rtOn: () => () => {} });
-  /* 🧸 말랑이(mallang.js createMallang 의 반환값) 가짜 — 선물 보내기 창 · 선물 말랑이 띄우기 · 빼기 */
+  /* 🖥 가짜 화면 — mallang.js syncGifts 와 같은 일(목록에 있는 것을 자리가 있는 만큼 띄움 · 없는 것은 걷음). 어느 선물이 나오는지는 진짜 gift-box 가 정한다 */
+  env.onScreen = new Set(); env.room = Infinity; env.screenOn = true;
+  env.giftBox.attachScreen({ room: () => env.room - env.onScreen.size, has: (id) => env.onScreen.has(id) });
+  env.giftBox.onChange(() => {
+    if(!env.screenOn) return;
+    const want = env.giftBox.onScreen();
+    for(const id of [...env.onScreen]) if(!want.some((x) => x.id === id)) env.onScreen.delete(id);
+    for(const x of want){ if(env.room - env.onScreen.size <= 0) break; env.onScreen.add(x.id); }
+  });
+  /* 🧸 말랑이(mallang.js createMallang 의 반환값) 가짜 — 선물 보내기 창만 */
   env.mallangMod = {
-    giftFull: () => !!env.liveFull,
-    giftOnScreen: (k) => !!(env.onScreen && env.onScreen.has(k)),
-    placeGift: (g) => { env.respawn.push(g.id + '|' + g.imageUrl + '|' + g.message); return env.placeAns || 'ok'; },
-    dropGift: (k) => env.calls.push('dropGift ' + k),
     openGift: (fid, nm) => env.calls.push('openGift ' + fid + ' ' + nm),
   };
   env.mk = (extra) => win.TwMyHomeInbox.createMyHomeInbox(Object.assign({
@@ -448,23 +453,30 @@ async function behave(src){
     e.calls = [];
     let ev = { target: tg('g1', true), stopPropagation(){ ev._sp = true; } };
     list.onclick(ev); await flush(); await flush();
-    chk(ev._sp && e.calls.join() === 'PATCH g1 starred=true' && e.respawn.length === 0 && stat.textContent === '⭐ 2/20 · 보관 3/30', '⭐ 누르면 서버에 저장 · 다시 그림(받기 없음) · 칸 누르기(다시 불러오기)로 번지지 않는다');
+    chk(ev._sp && e.calls.join() === 'PATCH g1 starred=true' && stat.textContent === '⭐ 2/20 · 보관 3/30', '⭐ 누르면 서버에 저장 · 다시 그림(받기 없음) · 칸 누르기(다시 불러오기)로 번지지 않는다');
+    /* 다시 부르기 — 마이홈 밖(구경 · 아직 안 들어옴)에서는 서버만 바꾼다. 화면에 뜨는 것은 선물함이 정한다 */
     e.calls = [];
     list.onclick({ target: tg('g1', false), stopPropagation(){} }); await flush(); await flush();
-    chk(e.respawn.join() === 'g1|https://i/1.png|"안녕"' && e.toasts.includes('🎁 마이홈에 다시 불러왔어요') && e.calls.length === 0, '나와 있지 않은 칸(치우지 않음)을 누르면 요청 없이 띄운다');
-    e.respawn.length = 0; e.calls = [];
+    chk(e.toasts.includes('이미 마이홈에 나와 있어요') && e.calls.length === 0, '마이홈 밖에서 안 치운 칸을 누르면 요청 없이 «이미 나와 있음»');
+    e.toasts.length = 0; e.calls = [];
     list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush(); await flush();
-    chk(e.calls.join() === 'PATCH g-out hidden=false' && e.respawn.join() === 'g-out|https://i/3.png|' && /data-gid="g-out"/.test(list.innerHTML) && !/gift-item out/.test(list.innerHTML), '치운 칸을 누르면 서버가 «나옴» 으로 바꾼 뒤에 띄운다 · 칸의 «치움» 표시가 풀림');
-    e.onScreen = new Set(['g1']); e.respawn.length = 0; e.calls = [];
+    chk(e.calls.join() === 'PATCH g-out hidden=false' && e.toasts.includes('🎁 마이홈에 다시 불러왔어요') && e.onScreen.size === 0 && /data-gid="g-out"/.test(list.innerHTML) && !/gift-item out/.test(list.innerHTML), '  치운 칸 → 서버가 «나옴» 으로 받으면 안내(마이홈 밖이라 화면엔 안 뜸 · 돌아오면 뜬다) · 칸의 «치움» 표시가 풀림');
+    /* 마이홈 안(들어옴 + 받기 성공) */
+    e.giftSrv.find(x => x.id === 'g-out').hidden = true; await e.giftBox.enterHome(); await flush(); e.calls = []; e.toasts.length = 0;
+    chk([...e.onScreen].sort().join() === 'g1,g2' && e.giftBox.onScreen().length === 2, '마이홈에 들어와 받으면 치우지 않은 선물(g1 · g2)이 화면에 뜬다');
     list.onclick({ target: tg('g1', false), stopPropagation(){} }); await flush();
-    chk(e.toasts.includes('이미 마이홈에 나와 있어요') && e.respawn.length === 0 && e.calls.length === 0, '  이미 나와 있으면 요청 없이 안내');
-    e.onScreen = null; e.liveFull = true; e.giftSrv.find(x => x.id === 'g-out').hidden = true; await e.giftBox.pull(false); await flush(); e.calls = []; e.respawn.length = 0;
-    list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush();
-    chk(e.toasts.includes('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요') && e.calls.length === 0 && e.respawn.length === 0 && e.giftSrv.find(x => x.id === 'g-out').hidden === true, '  화면이 가득이면 치운 선물도 서버에 «나옴» 을 보내지 않고 안내만(서버 · 화면이 어긋나지 않음)');
-    e.liveFull = false; e.placeAns = 'full'; e.calls = [];   // 기다리는 사이 가득 찬 경우 — 서버를 다시 «치움» 으로
+    chk(e.toasts.includes('이미 마이홈에 나와 있어요') && e.calls.length === 0, '  이미 화면에 있으면 요청 없이 안내');
+    e.toasts.length = 0;
     list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush(); await flush();
-    chk(e.calls.join() === 'PATCH g-out hidden=false,PATCH g-out hidden=true' && e.giftSrv.find(x => x.id === 'g-out').hidden === true, '  기다리는 사이 가득 차면 서버를 다시 «치움» 으로 되돌린다');
-    e.placeAns = null;
+    chk(e.calls.join() === 'PATCH g-out hidden=false' && e.onScreen.has('g-out') && e.toasts.includes('🎁 마이홈에 다시 불러왔어요') && !/gift-item out/.test(list.innerHTML), '  치운 칸 → 서버가 받은 뒤 화면에 뜨고 안내 · 칸의 «치움» 표시가 풀림');
+    e.giftSrv.find(x => x.id === 'g-out').hidden = true; await e.giftBox.pull(false); await flush();
+    e.room = e.onScreen.size; e.calls = []; e.toasts.length = 0;
+    list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush();
+    chk(e.toasts.includes('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요') && e.calls.length === 0 && e.giftSrv.find(x => x.id === 'g-out').hidden === true, '  화면이 가득이면 치운 선물도 서버에 «나옴» 을 보내지 않고 안내만(서버 · 화면이 어긋나지 않음)');
+    e.room = Infinity; e.fillDuring = true; e.calls = []; e.toasts.length = 0;   // 요청 사이에 화면이 찬다
+    list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush(); await flush();
+    chk(e.calls.join() === 'PATCH g-out hidden=false' && e.toasts.includes('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요') && e.giftSrv.find(x => x.id === 'g-out').hidden === false, '  요청 사이에 화면이 차면 안내 · 서버는 «나옴» 그대로(되돌리는 요청 없음 — 자리가 나면 뜬다)');
+    e.fillDuring = false; e.room = Infinity;
     // 상한
     const e3 = E(); const m3 = e3.mk(); e3.reg('mhGiftStat'); const l3 = e3.reg('mhFmList'); e3.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
     e3.giftSrv = []; for(let i = 0; i < 21; i++) e3.giftSrv.push({ id: 's' + i, senderName: 'x', imageUrl: 'https://i/s.png', message: '', starred: i < 20, hidden: false, sentAt: i });
@@ -486,10 +498,10 @@ async function behave(src){
     const ov2 = homeWin.children[0];
     chk(homeWin.children.length === 1 && /라&lt;마 님의 선물을 저장하거나 삭제할 수 있어요/.test(ov2.innerHTML) && btnLabels(ov2) === '저장,삭제,취소' && (ov2.innerHTML.match(/class="danger"/g) || []).length === 1 && /class="danger">삭제</.test(ov2.innerHTML), '저장 · 삭제 창 — [저장] [삭제] [취소] · 이름은 escHtml · 삭제만 위험 단추');
     ov2.fire('click', { target: { closest: (s) => s === 'button[data-i]' ? { dataset: { i: '1' } } : null } }); await flush(); await flush();
-    chk(e.calls.join() === 'DELETE g-out,dropGift g-out' && ov2.removed && e.toasts.includes('🗑 선물을 삭제했어요') && !/data-gid="g-out"/.test(list.innerHTML) && /data-gid="g1"/.test(list.innerHTML), '  [삭제] — 서버에서 지우고 · 나와 있던 말랑이도 빼고 · 닫고 다시 그림');
+    chk(e.calls.join() === 'DELETE g-out' && ov2.removed && e.toasts.includes('🗑 선물을 삭제했어요') && !/data-gid="g-out"/.test(list.innerHTML) && /data-gid="g1"/.test(list.innerHTML), '  [삭제] — 서버에서 지우고 · 닫고 다시 그림(화면의 말랑이는 선물함이 목록에서 빼며 걷는다)');
     const ov3 = (list.oncontextmenu({ target: tg('g2', false), preventDefault(){}, stopPropagation(){} }), homeWin.children[0]);
     ov3.fire('click', { target: ov3 });
-    chk(ov3.removed && e.calls.length === 2, '  바깥(배경) 누르면 그냥 닫힌다');
+    chk(ov3.removed && e.calls.length === 1, '  바깥(배경) 누르면 그냥 닫힌다');
     e.giftSrv = [{ id: 'z', senderName: 'z', imageUrl: 'https://i/z.png', message: '', starred: false, hidden: false, sentAt: 1 }]; await e.giftBox.pull(false); await flush();
     const noImgs = [{ src: 'https://i/9.png' }];
     list._qa = { '.gift-item img': noImgs };
@@ -714,7 +726,8 @@ async function runAll(MI, APP, HTML){
     ['MI', 'root._extLinkBound = true;', '', '링크 위임이 두 번 걸림'],
     ['MI', "badge.textContent = n > 9 ? '9+' : String(n);", 'badge.textContent = String(n);', '배지 9+ 없음'],
     ['MI', "if(ev.target.closest('.gift-star')){\n      ev.stopPropagation();", "if(ev.target.closest('.gift-star')){", '⭐ 누르기가 칸 누르기로 번짐(stopPropagation 없음)'],
-    ['MI', "if(mallangMod.giftFull()){ toast(FULL); return; }", '', '가득인데 치운 선물에 요청을 먼저 보냄'],
+    ['MI', "else if(r === 'full') toast('말랑이가 너무 많아요", "else if(r === 'full') (()=>0)('말랑이가 너무 많아요", '가득인데 안내가 없음'],
+    ['MI', "else if(r === 'already') toast('이미 마이홈에 나와 있어요');", "", '이미 나와 있는데 안내가 없음'],
     ['MI', 'win.appendChild(ov);', 'document.body.appendChild(ov);', '확인창이 body 로'],
     ['MI', "  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));", '', '선물함 칸 그림에 다시 받기를 안 걺'],
     ['MI', "data-gid=\"'+escHtml(g.id)+'\" title=\"'+escHtml(tip)+'\">'", "data-gid=\"'+escHtml(g.id)+'\" title=\"'+(tip)+'\">'", '선물 글을 속성값에 그대로'],

@@ -56,7 +56,7 @@ const lvStarStr = deps.lvStarStr;
 const lvBadgeClass = deps.lvBadgeClass;              // 🏅 레벨 배지 구간
 const openFriendHomeView = deps.openFriendHomeView;  // 아바타 클릭 → 친구 마이홈 관람
 const renderMhProfileRail = deps.renderMhProfileRail;   // (제거된 프로필 레일 — 빈 함수)
-const mallangMod = deps.mallangMod;                        // 🧸 말랑이(mallang.js) — 선물 보내기 창 · 선물 말랑이 띄우기 · 빼기
+const mallangMod = deps.mallangMod;                        // 🧸 말랑이(mallang.js) — 선물 보내기 창
 const giftBox = deps.giftBox;                              // 🎁 선물 상태 주인(gift-box.js) — 선물함 값 · ⭐ · 치움 · 지우기
 const removeFriend = deps.removeFriend;                // 👥 친구 끊기(friends-port — 서버면 서버 길 · 아니면 옛 길)
 let _mhSelectedFriend = null;   // (구 DM 자리) 지금은 사용하지 않지만 다른 곳에서 참조할 수 있어 유지
@@ -455,25 +455,17 @@ function _giftBoxPaint(listEl, b){
       [saveBtn,
        { label:'삭제', danger:true, run: async ()=>{
           const r = await giftBox.remove(k);   // 실패 번호 · 안내는 gift-box 가 띄운다
-          if(r === 'ok'){ mallangMod.dropGift(k); toast('🗑 선물을 삭제했어요'); }
+          if(r === 'ok') toast('🗑 선물을 삭제했어요');   // 화면의 말랑이는 선물함이 목록에서 빼며 걷는다
         } },
        { label:'취소' }]);
   };
 }
-/* 칸 클릭 — 치운 선물은 서버에 «나옴» 으로 바꾼 뒤(성공해야) 띄운다. 나와 있지 않은 것만 띄우고, 화면이 가득이면 요청 없이 안내 */
+/* 칸 클릭 — 다시 부르기. 무엇이 화면에 뜨는지는 선물함(gift-box show)이 정한다 — 여기는 답에 맞는 안내만 띄운다(실패 번호 · 안내는 gift-box 가 띄웠다) */
 async function _giftRespawn(k){
-  const g = giftBox.get(k); if(!g) return;
-  if(mallangMod.giftOnScreen(k)){ toast('이미 마이홈에 나와 있어요'); return; }
-  const FULL = '말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요';
-  if(mallangMod.giftFull()){ toast(FULL); return; }   // 화면이 가득이면 요청 없이 안내(서버를 «나옴» 으로 바꿔 놓고 화면엔 안 뜨는 일이 없게)
-  if(g.hidden){
-    const r = await giftBox.hide(k, false);
-    if(r !== 'ok') return;   // busy · 이미 없음 · 실패 — 안내 · 번호는 gift-box 가 띄웠다
-  }
-  const r = mallangMod.placeGift(g);
-  if(r === 'full'){ toast(FULL); if(g.hidden) giftBox.hide(k, true); }   // 기다리는 사이 가득 찼다 — 서버도 «치움» 으로 되돌린다
+  const r = await giftBox.show(k);
+  if(r === 'ok') toast('🎁 마이홈에 다시 불러왔어요');
   else if(r === 'already') toast('이미 마이홈에 나와 있어요');
-  else toast('🎁 마이홈에 다시 불러왔어요');
+  else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
 }
 /* 서브탭 줄 오른쪽의 「⭐ n/20 · 보관 m/30」. 다른 서브탭으로 가면 renderFriendManage 가 비운다. */
 function _giftStat(text){
