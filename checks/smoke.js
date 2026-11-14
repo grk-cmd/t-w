@@ -692,6 +692,8 @@ PRELOAD.push('stage.js');
 PRELOAD.push('glow.js');
 /* human-ear-attach.js — 🐾 사람 귀 붙이기. app.js 가 원래 자리에서 createHumanEarAttach 로 만든다. */
 PRELOAD.push('human-ear-attach.js');
+/* desk-build.js — 🪑 기본 책상 · 소품 · 대신 몸 만들기와 재질. app.js 가 SETUP 에서 createDeskBuild 로 만든다. */
+PRELOAD.push('desk-build.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
