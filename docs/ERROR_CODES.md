@@ -100,7 +100,7 @@
 | `E-CHAR-23` | 다른 기기에서 그 칸에 캐릭터가 먼저 생겨 저장하지 못했어요 — 서버 것을 받았어요 | `character/closet.js` — 새 캐릭터 만들기가 `AVATAR_SLOT_TAKEN` 으로 거절됨 · 서버 캐릭터를 받아 앉힌다 |
 | `E-PL-01` | 플레이리스트를 저장하지 못했어요 — 고치거나 창을 다시 열면 다시 올려요 | `status/playlist.js` — 내 목록 서버 저장 실패(`_plPublishNow` · `saveMine` failed — 이어지는 동안 한 번만 알림 · 혼자 다시 올리지 않음 — 다음 고침 · 창 열기 · 끌 때 · 로그아웃 때 한 번) |
 | `E-PL-02` | 파도타기는 인터넷 연결이 필요해요 | `status/playlist.js` — 🌊 파도타기 무작위 · 친구 지목에서 목록을 못 불러옴(`_plPeek` · `_plPeekFriend` — `fetchRandom` · `fetchOf` 던짐) |
-| `E-ADM-01` | 배너 주소가 올바르지 않아요 — 그림은 https 주소, 링크는 http(s) 주소를 넣어 주세요 | `admin/admin-api.js` — 📢 런처 배너 저장 거절(`NOTICE_INVALID_URL` — 그림 칸이 있으면 링크 칸도 비우면 안 됨) |
+| `E-ADM-01` | 배너 주소가 올바르지 않아요 — 그림은 https 주소, 링크는 http(s) 주소를 넣어 주세요 | `admin/admin-api.js` — 📢 런처 배너 저장 거절(`NOTICE_INVALID_URL` — 링크 칸은 비워도 된다(서버가 «링크 없는 장» 으로 받음). 채웠는데 http(s) 주소가 아닐 때 · 그림이 https 가 아닐 때) |
 | `E-ADM-02` | 배너는 3장까지 올릴 수 있어요 | `admin/admin-api.js` — 📢 런처 배너 저장 거절(`NOTICE_TOO_MANY_SLIDES`) |
 | `E-ADM-03` | 이미 내려갔거나 없는 공지예요 — 창을 닫고 다시 열어 주세요 | `admin/admin-api.js` — 📰 업데이트 공지 내리기 거절(`NOTICE_NOT_FOUND`) |
 | `E-ADM-04` | 실시간 서버에서 방 정보를 받지 못했어요 — 잠시 뒤 다시 눌러 주세요 | `admin/admin-api.js` — 🛑 전체 방 종료 거절(`ROOM_REALTIME_UNAVAILABLE`) |
