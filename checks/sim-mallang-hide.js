@@ -70,7 +70,6 @@ function mkEnv(src){
     requestAnimationFrame: (fn) => { rafs.push(fn); return rafs.length; }, cancelAnimationFrame(){},
     setTimeout: () => 0, clearTimeout(){},
     toast(){}, getMyUserId: () => 'me',
-    firebaseAPI: { getMallangGifts: async (id) => gifts[id] || {} },
   };
   ctx.window = ctx;
   ctx.TwSafeHtml = require([__dirname, process.cwd()].flatMap(d => ['safe-html.js', 'parts/shared/safe-html.js', 'app/parts/shared/safe-html.js'].map(p => require('path').join(d, p))).find(p => fs.existsSync(p)));   // 🛡️ 공용 씻기 — 진짜 파일

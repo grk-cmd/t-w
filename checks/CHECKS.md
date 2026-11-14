@@ -92,7 +92,7 @@
 | **sim-chat-history.js** | 244 | **530050435065** |
 | **sim-gamepad-activity.js** | 254 | **307df716981e** |
 | **sim-chat-last-by-ts.js** | 84 | **175e88989b35** |
-| **sim-mallang-hide.js** | 148 | **18e3921c2ea3** |
+| **sim-mallang-hide.js** | 147 | **a97601090ee3** |
 | **sim-seat-pin.js** | 52 | **049a1089195e** |
 | **sim-seat-label-drag.js** | 91 | **6a4daf86e439** |
 | **sim-friend-requests.js** | 186 | **c1735ca8dcf2** |
@@ -459,7 +459,7 @@
 | **sim-release-notes.js** | 75 | **37e41b730e37** |
 | **sim-native-peek.js** | 168 | **10af633f27f9** |
 | **sim-seat-regions.js** | 170 | **4664178b0a43** |
-| **sim-mallang-gift.js** | 301 | **db7785dd043b** |
+| **sim-mallang-gift.js** | 311 | **022e1efb081c** |
 | **sim-room-face-load.js** | 217 | **ea63c4cecbda** |
 | **sim-part-ao-clean.js** | 128 | **f8bf7bb3709f** |
 | **sim-img-retry.js** | 117 | **144a66e6e8df** |

@@ -944,8 +944,9 @@ function createMallang(deps){
   function renderGiftGrid(p){
     const grid = document.getElementById('mlGiftGrid'); if(!grid) return;
     grid.innerHTML = '';
-    grid.classList.toggle('off', giftFull(p) || p.busy);   // 눌러도 안 되는 것이 눈에 보이게(핸들러도 한 번 더 막는다)
-    mallangStore.mine().slots.forEach(item=>{
+    const ms = mallangStore.mine();
+    grid.classList.toggle('off', giftFull(p) || p.busy || ms.saving || ms.load !== LOAD.READY);   // 눌러도 안 되는 것이 눈에 보이게(핸들러도 한 번 더 막는다)
+    ms.slots.forEach(item=>{
       const cell = document.createElement('div'); cell.className='ml-gcell';
       const gsrc = TwSafeHtml.safeUrl(item.imageUrl, 'image');
       if(gsrc){ const gim = TwImgRetry.retryOnError(document.createElement('img')); gim.src = gsrc; gim.alt = ''; cell.appendChild(gim); }
@@ -958,7 +959,8 @@ function createMallang(deps){
     /* 흐리게 만든 것만으로는 부족하다 — 창을 열어둔 채 시간이 지나면 값이 낡는다. 보내기 직전에 한 번 더 본다(요청 없음) */
     if(giftFull(p)){ toast('🎁 상대 마이홈이 가득 찼어요 ('+p.theirs.recipientCap+'마리)'); return; }
     if(giftRemain(p) === 0){ toast('오늘은 더 보낼 수 없어요 (하루 '+p.sent.dailyMax+'번)'); return; }
-    if(typeof item.slot !== 'number'){ toast('말랑이를 저장하는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 방금 등록한 칸은 저장이 끝나야 서버 번호가 생긴다
+    const ms = mallangStore.mine();
+    if(ms.saving || ms.load !== LOAD.READY || typeof item.slot !== 'number'){ toast('말랑이를 저장하는 중이에요 — 잠시 뒤에 다시 눌러 주세요'); return; }   // 방금 등록한 칸은 저장이 끝나야 서버 번호가 생긴다
     p.busy = true; renderGiftGrid(p);
     const inp = document.getElementById('mlGiftMsg');
     const r = await giftBox.send(p.to, { mallang: item, message: inp ? inp.value : '' });

@@ -6,7 +6,7 @@
    ・3절: 요청 번호 — 닿지 못함 → 같은 번호 · 서버가 거절 → 새 번호 · 성공 → 새 번호
    ・4절: 실패 — 안내 코드는 서버 문구(번호 0) · 503 은 E-GIFT-08 · 격자는 다시 켜짐
    ・5절: 정원 · 한도 — 상대 가득 → 격자 흐림 · 눌러도 요청 0 · 남은 0 → 요청 0
-   ・6절: 칸 저장이 끝나면 격자를 다시 그림 · 저장 중인 새 칸(서버 번호 없음)은 보내지 않음
+   ・6절: 칸 저장이 끝나면 격자를 다시 그림 · 저장 중(칸 번호가 서버와 어긋남)에는 보내지 않음
    ・7절: 옛 길 걷음 · 일부러 깨 보기
    [실행] 러너 스테이징(평면)에서. */
 'use strict';
@@ -57,7 +57,7 @@ function mkEnv(S, o){
   class FakeImage { constructor(){ this.naturalWidth = 100; this.naturalHeight = 100; } set src(v){ this._src = v; } get src(){ return this._src; } }
   const srv = Object.assign({ slots: [{ slot: 0, imageUrl: 'https://x.example/m0.png', enabled: true }, { slot: 2, imageUrl: 'https://x.example/m2.png', enabled: false }],
     count: 3, dailyMax: 10, visible: 4, cap: 30, sendErr: null, sentErr: null, visErr: null, mineErr: null, hold: false }, o.srv || {});
-  const holds = [];
+  const holds = [], saveHolds = [];
   const rec = (name, fn) => async (...a) => { log.push(('api ' + name + ' ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')).trimEnd()); return fn(...a); };
   const GL = loadMod(S.GIFT), AE = loadMod(S.AE);
   const copyMine = () => ({ slots: srv.slots.map(x => Object.assign({}, x)), version: 1 });
@@ -65,7 +65,7 @@ function mkEnv(S, o){
     fetchMine: rec('fetchMine', async () => { if(srv.mineErr) throw srv.mineErr; return copyMine(); }),
     fetchOf: rec('fetchOf', async () => ({ slots: [], version: 1 })),
     uploadImage: rec('uploadImage', async () => 'https://x.example/new.png'),
-    saveMallangs: rec('saveMallangs', async (v, sl) => ({ slots: sl.map((x, i) => ({ slot: i, imageUrl: x.imageUrl, enabled: x.enabled })), version: v + 1 })),
+    saveMallangs: rec('saveMallangs', async (v, sl) => { if(srv.holdSave) await new Promise(r => saveHolds.push(r)); return ({ slots: sl.map((x, i) => ({ slot: i, imageUrl: x.imageUrl, enabled: x.enabled })), version: v + 1 }); }),
     reset(){},
   };
   const sendBodies = [];
@@ -103,7 +103,7 @@ function mkEnv(S, o){
   const m = ctx.TwMallang.createMallang({ toast: (t) => log.push('toast ' + t), getMyUserId: () => 'me', premiumOn: () => o.premium !== false, mallangStore, giftBox });
   const cells = () => (byId.mlGiftGrid ? byId.mlGiftGrid.children : []);
   const note = () => (byId.mlGift ? byId.mlGift.innerHTML : '');
-  return { m, log, byId, srv, sendBodies, holds, mallangStore, giftBox, cells, note, grid: () => byId.mlGiftGrid };
+  return { m, log, byId, srv, sendBodies, holds, saveHolds, mallangStore, giftBox, cells, note, grid: () => byId.mlGiftGrid };
 }
 const count = (log, re) => log.filter((l) => re.test(l)).length;
 const open = async (e) => { await e.m.openGift('F1', '친구'); await flush(); };
@@ -216,6 +216,12 @@ async function judge(S){
     await n.mallangStore.add('data:image/png;base64,AAAA'); await flush();
     await click(n, 1);
     chk(count(n.log, /^api send/) === 1 && n.sendBodies[0].slot === 1, '저장이 끝난 새 칸은 서버 번호로 보낸다');
+    const sv = mkEnv(S, { srv: { holdSave: true } });
+    await open(sv);
+    const rm = sv.mallangStore.remove(0); await flush();   // 지우기 저장이 가 있는 동안 — 화면 칸 번호와 서버 칸 번호가 어긋난다
+    await click(sv, 0);
+    chk(count(sv.log, /^api send/) === 0 && sv.log.includes('toast 말랑이를 저장하는 중이에요 — 잠시 뒤에 다시 눌러 주세요'), '칸 지우기 저장 중에는 눌러도 요청 0(번호가 어긋나 다른 그림이 가지 않게)');
+    sv.saveHolds.shift()(); await rm; await flush();
     const closeFirst = mkEnv(S, { srv: { hold: true } });
     await open(closeFirst); await click(closeFirst, 0);
     closeFirst.byId.mlGift.querySelector('#mlGiftClose').fire('click');
@@ -283,6 +289,10 @@ process.on('unhandledRejection', () => { if(quiet) qfail++; else { fail++; conso
   await run('안내 코드까지 번호로 띄우면', { BOX: SRC0.BOX.replace("if(f.kind === KIND.GUIDE) return { ok: false, kind: 'guide', message: f.message };", "") }, async (S) => {
     const e = mkEnv(S, { srv: { sendErr: apiErr(429, 'GIFT_DAILY_LIMIT', '서버문구') } }); await open(e); await click(e, 0);
     chk(!e.log.some((l) => l.startsWith('error')), '번호 0');
+  });
+  await run('저장 중에도 보내게 두면', { ML: SRC0.ML.replace("if(ms.saving || ms.load !== LOAD.READY || typeof item.slot", "if(typeof item.slot") }, async (S) => {
+    const e = mkEnv(S, { srv: { holdSave: true } }); await open(e); e.mallangStore.remove(0); await flush(); await click(e, 0);
+    chk(e.sendBodies.length === 0, '요청 0');
   });
   await run('칸 저장 뒤 격자를 안 다시 그리면', { ML: SRC0.ML.replace("giftOff = mallangStore.onChange(()=>{ if(giftPop === p) renderGiftGrid(p); });", "giftOff = null;") }, async (S) => {
     const e = mkEnv(S); await open(e); const b = e.cells()[0]; await e.mallangStore.toggle(0); await flush();
