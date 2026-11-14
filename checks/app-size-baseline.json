@@ -2,11 +2,10 @@
   "note": "sim-app-size.js 기준선 — 상한(cap)은 내려가기만 한다. 코드를 모듈로 옮겨 줄었으면 같은 PR 에서 --write-baseline 으로 내린다. 지도: docs/APP_FSD_MAP.md",
   "files": {
     "app.js": {
-      "cap": 9654,
-      "lines": 9454,
+      "cap": 9570,
+      "lines": 9370,
       "sections": [
         "SETUP",
-        "DRACO",
         "🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.",
         "기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅",
         "BUILDERS",

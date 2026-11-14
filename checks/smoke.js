@@ -686,6 +686,10 @@ PRELOAD.push('seat-eq-clamp.js');
 PRELOAD.push('desk-place.js');
 /* body-measure.js — 캐릭터 몸 박스 재기 한 규칙. app.js 가 맨 앞(SETUP)에서 createBodyMeasure 로 만든다. */
 PRELOAD.push('body-measure.js');
+/* stage.js — 🎬 3D 무대 한 벌(렌더러 · 씬 · 카메라 · 바닥 · GLTF 로더). app.js 가 맨 앞(SETUP)에서 createStage 로 만든다 — 가짜 THREE 로 같이 굴린다. */
+PRELOAD.push('stage.js');
+/* glow.js — ✨ 빛나는 스프라이트 · 재질 발광. app.js 가 SETUP 에서 createGlow 로 만든다. */
+PRELOAD.push('glow.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

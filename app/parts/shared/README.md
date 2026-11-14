@@ -445,3 +445,15 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 처음 만들기 실패 안내는 뒤의 반쯤 죽은 런처를 덮고, 실행 중 끊김 안내는 모니터를 덮지 않는다(상자만 눌림). 창 크기는 main 이 정한다(launcher/reload-reset.js).
   - 안내는 렌더러를 못 만든 뒤 다시 던진다 — 뒤 코드는 렌더러 없이 돌 수 없다.
   - 검사: `checks/sim-gl-recover.js`(규칙 · 안내를 실제로 돌림 · 연결 · 깨 보기).
+
+## stage.js — 🎬 3D 무대 한 벌
+
+- **책임**: 메인 캔버스(`#scene`)의 WebGL 렌더러 · 씬 · 원근 카메라 · 그림자 바닥 · GLTF(+DRACO) 로더를 만들어 내놓는다. 만들기만 하고 그리지 않는다(그리기는 app.js `frame()`). 앱 FSD 분리 M1 — app.js SETUP 의 무대 만들기를 글 그대로 옮겼다.
+- **만드는 법**: `const stageMod = TwStage.createStage({ _renderAA });` — `_renderAA` 는 저장된 화질에서 app.js 가 정한 antialias(렌더러를 만들 때만 정해진다). app.js 가 SETUP 맨 앞(화질을 읽은 뒤)에서 만들고, 아래 일곱을 옛 이름 `const` 로 받는다.
+- **내보내는 것**: `canvas` · `renderer` · `scene` · `camera` · `floor` · `sizeFloorTo(mesh, cx, cz, sx, sz)` · `loader`
+- **함정**
+  - 렌더러를 못 만들면 `gl-fail-notice` 안내(다시 켜기 · 앱 끄기)를 띄우고 **같은 오류를 다시 던진다** — 뒤 코드는 렌더러 없이 돌 수 없다(B-1114-5).
+  - 연결 끊김 감시(`gl-recover`)의 «다시 켠 시각» 은 localStorage(`tw.glRelaunchAt`) — 앱을 다시 켜도 남아야 10분 규칙이 선다.
+  - 조명은 여기 없다 — 조명 상수 · 재질 고치기는 app.js(T0 몫), 한 벌 만들기는 `light-tone.js addRunLights`. 메인 씬 빛은 app.js 가 만든 뒤 `key` 를 받는다.
+  - 이 무대는 메인 창 하나다. 미리보기 창의 3D 장치 만들기는 따로(설계 F1 `gl-context.js`).
+  - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · 깨 보기) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.

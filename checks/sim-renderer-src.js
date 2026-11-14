@@ -130,6 +130,8 @@ const MODULES = [
   { file: 'desk-place.js', mod: 'deskPlaceMod', glob: 'TwDeskPlace', sample: 'function setDeskScale(' },   // 구역 떼기 C · w2
   { file: 'heartbeat.js', mod: 'heartbeatMod', glob: 'TwHeartbeat', sample: 'let _hbWinShown = null, _hbFullAt = 0;' },   // 0.12.4 — 0.1초 하트비트
   { file: 'run-diag-minute.js', mod: 'runDiagMinuteMod', glob: 'TwRunDiagMinute', sample: 'const m = _frameBudget.takeMinute(t);' },   // 0.12.4 — 1분 진단 줄
+  { file: 'stage.js', mod: 'stageMod', glob: 'TwStage', sample: "const canvas=document.getElementById('scene');" },   // 0.12.4 app.js 분리 M1
+  { file: 'glow.js', mod: 'glowMod', glob: 'TwGlow', sample: 'function getGlowSpriteTexture(' },   // 0.12.4 app.js 분리 M1
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

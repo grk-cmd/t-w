@@ -1,100 +1,32 @@
 /* ============================================================ SETUP */
-const canvas=document.getElementById('scene');
 /* 🎚️ 실행 화면 화질(프로그램 설정 › 모니터 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
    ⚠️ 도트 렌더 저장값으로 antialias 를 정하지 말 것 — 개발 실행 · 설치본이 저장소를 같이 써서 안 보이게 꺼진 채 굳었다(도트 느낌은 DOT_RENDER_SCALE 로 충분). */
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
 const _renderAA = FrameBudget.antialiasFor(_renderQuality);
-/* 🧯 3D 를 못 쓸 때 «다시 켜기» 안내(shared/gl-fail-notice.js) — 렌더러를 못 만들면 안내를 띄우고 멈춘다(B-1114-5) */
-const glFail = TwGlFailNotice.createGlFailNotice({
-  doc: document, notifyError: (...a) => TwErrorCodes.notify(...a),
-  note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },
-  relaunch: () => companion.relaunchApp(), quit: () => companion.quitApp(),
+/* 🎬 3D 무대 한 벌(shared/stage.js) — 렌더러(못 만들면 안내) · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더. 아래 const 는 옛 전역 이름이다. */
+const stageMod = TwStage.createStage({
+  _renderAA: _renderAA,
 });
-const renderer=glFail.guard(() => new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true}));renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
-/* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 앱을 다시 켠다 · 10분 안에 또면 안내(parts/gl-recover.js · B-1114-5).
-   three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다.
-   ⚠️ 마지막으로 다시 켠 시각은 localStorage — 앱을 다시 켜도 남아야 무한 재시작을 막는다. */
-try{
-  GlRecover.createGlRecover({
-    log: (m) => { console.warn('[WebGL]', m); try{ if(window.companion && companion.diagNote) companion.diagNote('[WebGL] ' + m); }catch(_){} },
-    relaunch: () => companion.relaunchApp(), notice: () => glFail.show('lost'),
-    setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
-    store: { get: (k) => localStorage.getItem(k), set: (k, v) => localStorage.setItem(k, v) },
-  }).attach(canvas);
-}catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
+const canvas = stageMod.canvas;   // 옛 전역 이름 — 다른 모듈 · 이 파일 곳곳이 아직 전역으로 읽는다(도메인 단계에서 deps 로 바꾸고 걷는다)
+const renderer = stageMod.renderer;   // 옛 전역 이름
+const scene = stageMod.scene;   // 옛 전역 이름
+const camera = stageMod.camera;   // 옛 전역 이름
+const floor = stageMod.floor;   // 옛 전역 이름
+const sizeFloorTo = stageMod.sizeFloorTo;   // 옛 전역 이름
+const loader = stageMod.loader;   // 옛 전역 이름
 /* 🩺 한글 조합 중 입력칸이 포커스를 잃으면 진단 기록에 한 줄(shared/input-diag.js) — 맥 한글 씹힘 제보를 제보자 PC 기록으로 가른다 */
 TwInputDiag.createImeWatch({
   note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   now: () => Date.now(),
   defer: (fn) => setTimeout(fn, 0),
 }).attach(document, window);
-renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputEncoding=THREE.sRGBEncoding;
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(34,1,0.1,100);   // 생성기와 동일한 원근 렌즈 (WYSIWYG)
 /* 캐릭터 몸 박스 재기 — 규칙은 character/body-measure.js 한 곳. 키 정규화 · 올라타기 · 바닥 맞춤 · 날기 벽이 부팅 중에도 부를 수 있어 맨 앞에서 만든다. */
 const bodyMeasureMod = TwBodyMeasure.createBodyMeasure({
 });
-
-// ★ Bloom 후처리(UnrealBloomPass)는 시도해봤지만 이 앱(바탕화면이 비치는 투명 배경 오버레이)과 근본적으로
-//   안 맞아서 제거함 — 화면 전체를 대상으로 하는 후처리라 (1)배경 투명도가 깨져서 까맣게 나오고,
-//   (2)발광 설정한 파츠/아이템뿐 아니라 화면에서 밝은 픽셀(얼굴 등)까지 같이 번져버림.
-//   대신 발광 대상 오브젝트 옆에 반투명 원형 스프라이트를 하나 더 깔아두는 방식으로 대체 —
-//   화면 전체에 영향 없이 그 물체 주변에만 은은한 빛이 도는 것처럼 보임.
-let _glowSpriteTex = null;
-function getGlowSpriteTexture(){
-  if(_glowSpriteTex) return _glowSpriteTex;
-  const cv=document.createElement('canvas'); cv.width=cv.height=128;
-  const ctx=cv.getContext('2d');
-  const g=ctx.createRadialGradient(64,64,0,64,64,64);
-  g.addColorStop(0,'rgba(255,255,255,0.85)');
-  g.addColorStop(0.45,'rgba(255,255,255,0.30)');
-  g.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=g; ctx.fillRect(0,0,128,128);
-  _glowSpriteTex=new THREE.CanvasTexture(cv);
-  return _glowSpriteTex;
-}
-// obj: 발광시킬 오브젝트(파츠/아이템의 최상위 그룹), parent: 스프라이트를 붙일 부모(보통 obj 자신)
-// GLOW_SIZE_MUL/GLOW_COLOR: 필요하면 이 두 상수만 조절
-const GLOW_SIZE_MUL = 1.4;      // 오브젝트 크기 대비 빛 스프라이트 배율 — 키우면 더 넓게 번짐
-const GLOW_COLOR = 0xfff3c4;    // 빛 색상 — 따뜻한 노란빛. 흰빛을 원하면 0xffffff로
-function addGlowSprite(obj){
-  try{
-    obj.updateMatrixWorld(true);
-    const box=new THREE.Box3().setFromObject(obj);
-    const size=box.getSize(new THREE.Vector3());
-    const maxDim=Math.max(size.x,size.y,size.z,0.05);
-    const mat=new THREE.SpriteMaterial({ map:getGlowSpriteTexture(), color:GLOW_COLOR, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
-    const sp=new THREE.Sprite(mat);
-    sp.scale.setScalar(maxDim*GLOW_SIZE_MUL);
-    sp.renderOrder=900;
-    const center=box.getCenter(new THREE.Vector3());
-    obj.worldToLocal(center);
-    sp.position.copy(center);
-    obj.add(sp);
-    return sp;
-  }catch(e){ return null; }
-}
-// ★ "파츠/아이템 자체가 통으로 은은하게 빛났으면 좋겠다"는 요청에 따라, 원형 스프라이트뿐 아니라
-//   오브젝트 자신의 재질도 모양 그대로 살짝 밝게(emissive) 만들어서 겹쳐 씀 — 원형 스프라이트는 주변에
-//   은은하게 도는 분위기용, emissive는 그 물체 자체의 표면이 실제로 빛나 보이게 하는 용도.
-//   GLOW_EMISSIVE_BOOST를 키우면 물체 자체가 더 밝게, 줄이면 더 은은하게.
-const GLOW_EMISSIVE_BOOST = 1.5;
-function applyGlowToMesh(o){
-  if(!o.isMesh || !o.material) return;
-  const m=o.material;
-  if(!m.emissive || m.emissive.getHex()===0) m.emissive=(m.color||new THREE.Color(0xffffff)).clone();
-  if(m.map && !m.emissiveMap) m.emissiveMap=m.map;
-  if('emissiveIntensity' in m) m.emissiveIntensity = GLOW_EMISSIVE_BOOST; else m.emissive.multiplyScalar(GLOW_EMISSIVE_BOOST);
-  m.needsUpdate=true;
-}
-// obj 전체(자기 자신 포함)를 순회하며 은은하게 발광시키고, 추가로 원형 빛 스프라이트도 얹음.
-function applyGlowEffect(obj){
-  obj.traverse(o=>applyGlowToMesh(o));
-  return addGlowSprite(obj);
-}
+/* ✨ 빛나는 스프라이트 · 재질 발광(character/glow.js) — 지금 부르는 곳은 없다(아이템 발광 호출은 주석 처리됨) */
+const glowMod = TwGlow.createGlow({
+});
 
 // 생성기 미리보기와 톤 일치 — LIGHT_PRESET(b=0.8, h=0.09, e=0.4) 적용
 // ★ 조명 색 — 예전 채도 0.45(진한 주황빛)는 빨간 파츠가 주황으로 보일 만큼 색을 왜곡했음(요청사항).
@@ -264,23 +196,7 @@ const FLOOR_DEFAULT='#cdb88f';
 const floorMat=M(0xcdb88f,0.95);
 // 바닥은 밝은 조명에서 흰색으로 날아가기 쉬워서, 알베도를 낮춰 "고른 색이 그대로 보이게" 함(클리핑 방지)
 // (사용자가 바닥색 기능을 제거함 — 함수는 더 이상 사용 안 됨)
-// 받침대(바닥)를 콘텐츠 크기에 맞춰 작게 — 네 모서리가 보이도록
-function sizeFloorTo(mesh,cx,cz,sx,sz){ if(!mesh)return; const w=Math.max(sx+0.6, 1.0), d=Math.max(sz+0.5,1.5); mesh.scale.set(w,0.125,d); mesh.position.set(cx,0,cz); }
-const floorGeo = new THREE.BoxGeometry(1, 1, 1);
-floorGeo.translate(0, -0.5, 0); // 윗면 중앙을 피벗으로 설정
-// 바닥의 색상(floorMat)을 지우고, 그림자만 남기는 ShadowMaterial을 사용합니다.
-const shadowMat = new THREE.ShadowMaterial();
-shadowMat.opacity = 0.3; // 여기서 0.3 숫자를 조절해서 그림자 진하기를 바꾸세요.
-const floor = new THREE.Mesh(floorGeo, shadowMat);
-floor.scale.set(2.4, 0.125, 2.2);
-floor.position.set(0, 0, 0.0);
-floor.receiveShadow = true;
-floor.castShadow = false;
-scene.add(floor);
 
-/* ============================================================ DRACO */
-const loader=new THREE.GLTFLoader();
-try{const draco=new THREE.DRACOLoader();draco.setDecoderPath('vendor/draco/');loader.setDRACOLoader(draco);}catch(e){console.warn('DRACO init',e);}
 
 /* ===== 🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.
    animal.js 는 이 파일보다 늦게 로드되므로 파서는 부를 때 찾는다. */
