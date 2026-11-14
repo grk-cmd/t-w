@@ -1,9 +1,9 @@
 /*
- * 방 서버 ↔ Firebase 방 짝 맞추기(정적) — app.js 가 방에 싣는 칸 · provider 모양이 room-server-net.js 와 어긋나지 않는지.
- * 서버는 모르는 칸이 하나라도 있으면 patch 를 통째로 거절하고, room-server-net.js 는 MEMBER_FIELDS 밖의 칸을 조용히 거른다 —
- * app.js 에 칸을 새로 실으면서 MEMBER_FIELDS(와 서버 PROTOCOL.md)를 안 늘리면 서버 방에서만 그 칸이 안 보인다.
- * 1. _basePayload · 입장(provider.join) · setName 이 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, userId, chat, chatTab}
- * 2. makeFirebaseProvider 의 메서드 ⊆ 서버 provider 의 메서드
+ * 방에 싣는 칸 ↔ 방 포트 짝 맞추기 — presence.js 가 방에 싣는 칸 · 부르는 provider 메서드가 room-rt.js 와 어긋나지 않는지.
+ * 서버는 모르는 칸이 하나라도 있으면 patch 를 통째로 거절하고, room-rt.js 는 MEMBER_FIELDS 밖의 칸을 조용히 거른다 —
+ * 칸을 새로 실으면서 MEMBER_FIELDS(와 서버 통신 규약 3장)를 안 늘리면 그 칸이 남에게 안 보인다.
+ * 1. _basePayload · 입장(provider.join) · setName 이 싣는 칸 ⊆ MEMBER_FIELDS ∪ {def, chat, chatTab} — userId · lic 는 걷었다(서버 badRequest)
+ * 2. presence.js 가 부르는 provider 메서드 ⊆ 방 포트 provider 메서드(진짜 room-rt.js 로 만들어 본다)
  */
 'use strict';
 const { joinRenderer: _joinRenderer } = require('./sim-renderer-src.js');   // 앱 FSD 로 옮긴 모듈을 «옮기기 전 app.js 글» 로 되살려 읽는다
@@ -12,8 +12,8 @@ let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const NET = read('room-server-net.js'), APP = _joinRenderer(read('app.js'));
-for(const [n, v] of [['room-server-net.js', NET], ['app.js', APP]]){
+const NET = read('room-rt.js'), APP = _joinRenderer(read('app.js'));
+for(const [n, v] of [['room-rt.js', NET], ['app.js', APP]]){
   if(!v){ say('  ? 원본 못 찾음 — ' + n); process.exit(2); }
 }
 
@@ -72,10 +72,10 @@ function payloadKeys(obj){
 }
 
 say('── 1. 방에 싣는 칸 ⊆ 서버 멤버 칸');
-const mf = NET.match(/export const MEMBER_FIELDS = \[([^\]]*)\]/);
-chk(!!mf, 'room-server-net.js MEMBER_FIELDS 를 찾음');
-const FIELDS = new Set(mf ? [...mf[1].matchAll(/'(\w+)'/g)].map((m) => m[1]) : []);
-const ALLOWED = new Set([...FIELDS, 'def', 'userId', 'chat', 'chatTab']);
+const R = (() => { const m = { exports: {} }; new Function('module', 'window', NET)(m, undefined); return m.exports; })();
+chk(Array.isArray(R.MEMBER_FIELDS) && R.MEMBER_FIELDS.length >= 10, 'room-rt.js MEMBER_FIELDS 를 받음(' + (R.MEMBER_FIELDS || []).length + ')');
+const FIELDS = new Set(R.MEMBER_FIELDS || []);
+const ALLOWED = new Set([...FIELDS, 'def', 'chat', 'chatTab']);
 const bad = (ks) => ks.filter((k) => !ALLOWED.has(k));
 
 const bpAt = APP.indexOf('function _basePayload(');
@@ -87,7 +87,7 @@ chk(['cyc', 'clv', 'starC'].every((k) => bpKeys.includes(k)), '  ↳ 펼치기(.
 const jAt = APP.indexOf('provider.join(room, {');
 const jp = jAt >= 0 ? braceBlock(APP, jAt) : null;
 const jKeys = jp ? payloadKeys(jp) : [];
-chk(jKeys.length >= 10 && jKeys.includes('def') && bad(jKeys).length === 0, '입장(provider.join) 칸 ' + jKeys.length + '개가 다 서버 멤버 칸 ∪ {def, userId}' + (bad(jKeys).length ? ' — 밖: ' + bad(jKeys).join(', ') : ''));
+chk(jKeys.length >= 10 && jKeys.includes('def') && bad(jKeys).length === 0, '입장(provider.join) 칸 ' + jKeys.length + '개가 다 서버 멤버 칸 ∪ {def}' + (bad(jKeys).length ? ' — 밖: ' + bad(jKeys).join(', ') : ''));
 
 const snAt = APP.indexOf('function setName(');
 const sn = snAt >= 0 ? braceBlock(APP, snAt) : '';
@@ -98,15 +98,14 @@ chk(snKeys.length > 0 && bad(snKeys).length === 0, 'setName 이 더 싣는 칸('
 const extra = [...APP.matchAll(/provider\.update\(Object\.assign\(_basePayload\(\), (\{[^{}]*\})\)\)/g)].flatMap((m) => topKeys(m[1]).keys);
 chk(extra.length >= 3 && bad(extra).length === 0, '_basePayload 에 덧붙여 보내는 칸(' + [...new Set(extra)].join(', ') + ')도 허용 안');
 
-say('── 2. Firebase provider 메서드 ⊆ 서버 provider 메서드');
-const fpAt = APP.indexOf('function makeFirebaseProvider(');
-const fp = fpAt >= 0 ? braceBlock(APP, APP.indexOf('return', fpAt)) : null;
-const fbMethods = fp ? topKeys(fp.replace(/(\w+)\s*\([^)]*\)\s*\{/g, '$1: {')).keys : [];
-const spAt = NET.indexOf('function makeProvider(');
-const sp = spAt >= 0 ? braceBlock(NET, NET.indexOf('return {', spAt)) : null;
-const srvMethods = new Set(sp ? topKeys(sp.replace(/(\w+)\s*\([^)]*\)\s*\{/g, '$1: {')).keys : []);
-const missing = fbMethods.filter((k) => !srvMethods.has(k));
-chk(fbMethods.length >= 5 && missing.length === 0, 'makeFirebaseProvider(' + fbMethods.join(' · ') + ') 를 서버 provider 가 다 가진다' + (missing.length ? ' — 없음: ' + missing.join(', ') : ''));
+say('── 2. presence 가 부르는 provider 메서드 ⊆ 방 포트 provider 메서드');
+const PRES = read('presence.js') || '';
+const used = [...new Set([...PRES.matchAll(/\bprovider\.(\w+)\s*\(/g)].map((m) => m[1]))];
+const hub = { onMessage(){}, onState(){}, send: () => false, request: () => Promise.resolve(null), state: () => 'off', isReady: () => false, userCode: () => null };
+const rt = R.createRoomRt({ hub, STATE: { READY: 'ready', OFF: 'off', SESSION_LOST: 'sessionLost', UPDATE: 'update', AUTH_FAILED: 'authFailed' } });
+const prov = rt.makeProvider({}, null);
+const missing = used.filter((k) => typeof prov[k] !== 'function');
+chk(used.length >= 5 && missing.length === 0, 'presence 가 부르는 ' + used.join(' · ') + ' 를 방 포트 provider 가 다 가진다' + (missing.length ? ' — 없음: ' + missing.join(', ') : ''));
 
 say(fail ? `\n✗ 실패 ${fail}건` : `\n전부 통과 ✅ (${pass}건)`);
 process.exit(fail ? 1 : 0);

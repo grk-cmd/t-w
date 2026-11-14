@@ -5,7 +5,7 @@
               loadWithRetry(load, u) — load(u) 가 실패하면 retryUrl(u) 로 한 번 더 load · 다시 받을 주소가 없으면 처음 실패를 그대로 던진다(받기 함수는 부르는 쪽 것)
    ⚠️ 표식은 고정값이다 — 같은 그림이 CORS 없이 먼저 캐시돼 있으면(그냥 <img>) 원래 주소로는 계속 막히는데, 다시 받은 응답이
      이 주소로 캐시돼 다음부터는 요청이 늘지 않는다(Date.now() 를 붙이면 매번 새로 받는다).
-   DOM 은 retryOnError 가 받은 <img> 의 src · onerror 만 만진다(네트워크 없음 · 넣는 주소는 TwSafeHtml.safeUrl 을 지난다 — safe-html.js 뒤에 싣는다). 쓰는 곳: room/room-sync.js(남의 얼굴 · 감은눈) · character/face-heal.js(그래픽 리셋 뒤 남의 얼굴 · 동물 그림 다시 그리기 — loadWithRetry) · character/animal.js(동물 페인트 그림) · room/room-server-net.js(얼굴 못 받은 def 다시 풀기 — room-sync.js 가 hooks 로 넘김) · myhome/mallang.js · myhome/myhome-inbox.js(말랑이 · 선물 그림 — retryOnError).
+   DOM 은 retryOnError 가 받은 <img> 의 src · onerror 만 만진다(네트워크 없음 · 넣는 주소는 TwSafeHtml.safeUrl 을 지난다 — safe-html.js 뒤에 싣는다). 쓰는 곳: room/room-sync.js(남의 얼굴 · 감은눈) · character/face-heal.js(그래픽 리셋 뒤 남의 얼굴 · 동물 그림 다시 그리기 — loadWithRetry) · character/animal.js(동물 페인트 그림) · room/room-rt.js(얼굴 못 받은 def 다시 풀기 — room-sync.js 가 hooks 로 넘김) · myhome/mallang.js · myhome/myhome-inbox.js(말랑이 · 선물 그림 — retryOnError).
    검사: checks/sim-img-retry.js */
 (function(){
 

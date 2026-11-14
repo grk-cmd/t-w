@@ -1,6 +1,6 @@
 # 📷 `purikura/` — 스티커사진 모듈 사용 안내
 
-스티커사진 모듈의 쓰는 법을 모듈마다 한 절씩 적는다. 통신 · 요금은 `purikura-net.js`(`window.Purikura`), 화면은 `purikura-ui.js`(`window.TwPurikuraUi` — app.js 가 원래 자리에서 `createPurikuraUi(deps)`).
+스티커사진 모듈의 쓰는 법을 모듈마다 한 절씩 적는다. 순수 계산은 `purikura-net.js`(`window.Purikura`), 통신은 세션 포트 `purikura-rt.js`(`window.TwPurikuraRt`), 화면은 `purikura-ui.js`(`window.TwPurikuraUi` — app.js 가 원래 자리에서 `createPurikuraUi(deps)`).
 
 ## `purikura-ui.js` — 화면에 넣는 값
 
@@ -10,6 +10,30 @@
 
 **함정** — 판 모양 표(세로형 · 가로형 · 컷 수)와 이 기기 카메라 사진(canvas `data:`)은 검사 예외(`checks/sim-safe-html.js` ALLOW)에 이유와 함께 있다. 새로 남의 값을 그리면 예외에 적지 말고 `TwSafeHtml` 로 감싼다.
 검사: `checks/sim-safe-html.js` · `checks/sim-purikura-ui.js`.
+
+## `purikura-rt.js` — 📷 세션 포트(realtime 연결 하나)
+
+**책임** — 스티커사진 세션(자리 넷 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터)과 하루 정원을 서버와 주고받는다. 판정(촬영 중 · 자리 참 · 정원 · 방장)은 서버가 하고, 이 파일은 `photo*` 메시지를 화면이 쓰는 모양으로 옮긴다. 정원은 `GET /v1/rooms/photo-quota` — 알림 `photoQuota` 가 오면 다시 받는다(주기 요청 없음).
+
+**만드는 법** — app.js `_purikura()` 한 곳(처음 부를 때 한 번 · 세션은 하나):
+
+```js
+TwPurikuraRt.createPhotoSession({
+  hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
+  serverNow: ()=>방 포트 시계,            // 카운트다운 · 정원 다시 여는 시각
+  onPeers, onMeta, onEvent, onShot, onSlots, onFrames,   // 화면(purikuraUi)으로
+});
+```
+
+**내놓는 것** — `checkQuota()`(못 읽으면 던진다) · `watchQuota(cb)` → 끊는 함수 · `open(방, { userCode })` → `{ ok, slot, host }` | `{ ok:false, reason }`(`busy` · `full` · `notInRoom` · `notReady` · `timeout` · `error`) · `close()` / `release()` · `isHost()` · `mySlot()` · `hostSlot()` · 방장 일 `setConfig` · `setFilter` · `setCam` · `setFrameUrl` · `setCut` · `setDone` · `fireShutter` · `start()` → `{ ok, n, left, nth }` | `{ ok:false, reason, message }` · `sendPos` · `sendEvent` · `freezeMs()` · `serverNow()` · `peersNow()` · `metaNow()` · `slotsNow()` · `framesNow()`.
+
+**함정**
+- 자리 칸의 `uid` 는 **userCode** — 내 자리 · 좌석 찾기(`friendUserId`) · 프레임 경로(`purikura/{방}/{userCode}/i.webp`)가 모두 이 값이다. 방 멤버 키와 견주면 무대가 빈다.
+- 방장 = 살아 있는 자리 중 가장 작은 번호. 방장 일은 방장일 때만 보내고(아니면 `false`), 결과는 서버가 `photoMeta` · `photoFrames` 로 모두에게 돌려준다.
+- `open` · `start` 는 답(환영 · 시작됨 · 거절 `error{ ref }`)을 8초 기다린다 — 한 번에 하나씩. 연결 전이면 바로 `notReady`.
+- 좌표는 10Hz 이하 · 데드밴드 안이면 안 보낸다(상수는 `purikura-net.js`). 콜백은 창이 닫혀 있어도 온다 — 화면이 `PK.open` · `PK.listening` 을 먼저 본다.
+
+검사: `checks/sim-purikura-rt.js`.
 
 ## `pk-bgm.js` — 🎵 스티커사진 창 BGM
 

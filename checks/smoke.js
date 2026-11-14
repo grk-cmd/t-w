@@ -359,6 +359,7 @@ PRELOAD.push('weekly-challenge.js');
 /* pk-bgm.js — 🎵 스티커사진 창 BGM. purikura-ui.js 가 만들 때 부르므로 그보다 먼저. */
 PRELOAD.push('pk-bgm.js');
 /* purikura-ui.js — 📷 스티커사진 창(앱 FSD 3번). 같은 까닭 — 만들 때 하는 일(_pkWire: 버튼 · 창 끌기 · ⎋ 사다리 등록)을 같이 굴린다. */
+PRELOAD.push('purikura-rt.js');   // 📷 스티커사진 세션 포트 — app.js _purikura() 가 처음 부를 때 만든다
 PRELOAD.push('purikura-ui.js');
 /* focus-api.js · focus-progress.js — ⏱ 포커스 서버 길 provider · 진척(서버 값 · 못 올린 초). app.js 가 로그인 통로를 넘겨 만든다. */
 PRELOAD.push('focus-api.js');

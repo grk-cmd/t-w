@@ -113,7 +113,7 @@ say('── 3. 좌석 읽기');
 say('── 4. 전파');
 {
   chk(/let myNoise='';/.test(CODE), 'Presence 에 myNoise(빈 문자열 = 끔)');
-  chk(/userId:getMyUserId\(\), noise:myNoise, lic:/.test(CODE), '입장 payload 에 noise(awayImg 줄 판정을 안 흔드는 자리)');
+  chk(/_mobileRoomLabel\(\), noise:myNoise, awayImg:myAwayImg\}/.test(CODE), '입장 payload 에 noise(awayImg 줄 판정을 안 흔드는 자리)');
   chk(/flyCool:_myFlyCool\(\), noise:myNoise\}; \}/.test(CODE), '평소 payload(_basePayload) 끝에 noise');
   chk(/myNoise = \(window\.TW_NOISE && TW_NOISE\.kind\) \? TW_NOISE\.kind\(\) : ''/.test(CODE), '입장 때 noise.js 에서 한 번 읽는다(없으면 빈 값)');
   const i = CODE.indexOf('function setNoise('); const fn = CODE.slice(i, CODE.indexOf('function setFocusShow(', i));

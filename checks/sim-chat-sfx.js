@@ -115,8 +115,8 @@ say('── 3. 울리는 자리');
       '★ 상대 채팅 수신 분기에서, 날리기·말풍선이 **실제로 뜬 경우에만** 부른다');
   /* 채팅 알림음은 투게더룸(채널2)에서만 — 워킹룸은 아래 3-2 의 이모티콘 소리가 따로 맡는다. */
   chk(/if\(_chatShown && window\._activeChannel === 2\) _chatNotifyIncoming/.test(recv), '★ 채팅 알림음은 투게더룸에서만 — 워킹룸은 이모티콘 소리(3-2)');
-  const sub = SRC.indexOf('firebaseAPI.subscribeChatLog(room');
-  chk(sub > 0 && !/_chatNotifyIncoming/.test(SRC.slice(sub, sub + 300)), '  chatLog 구독에는 걸지 않았다 (한 줄에 두 번 울림 방지)');
+  const sub = SRC.indexOf('chatNet.subscribeLog(room');
+  chk(sub > 0 && !/_chatNotifyIncoming/.test(SRC.slice(sub, sub + 300)), '  최근 줄 구독(chatNet.subscribeLog)에는 걸지 않았다 (한 줄에 두 번 울림 방지)');
   const send = grabFn('sendMyChat');
   chk(!!send && !/_chatNotifyIncoming|_chatSfx/.test(send), '  내가 보내는 자리(sendMyChat)에는 없다');
   chk(/_applyChatSfxUI\(\);\s*\/\/ 🔔/.test(SRC), '  대화창 배선 때 저장된 상태를 메뉴에 반영한다');

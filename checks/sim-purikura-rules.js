@@ -155,20 +155,9 @@ say('· §3 좌표가 별도 노드로 가는가 (세션당 1.7원 ↔ 24.4원)'
   const initSrc = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : '';
   chk(!!initSrc, 'firebase-init.js 를 읽었다 (없으면 아래 검사를 못 한다)');
   if (initSrc) {
-    const m = /startAt\(\s*'([^']*)'\s*\)/.exec(initSrc);
-    chk(!!m, '방 프리즌스 리스너의 startAt 값을 찾았다' + (m ? " — '" + m[1] + "'" : ''));
-    if (m) {
-      const cut = m[1];
-      chk('_photo' < cut,
-          "★ '_photo' 가 startAt('" + cut + "') 보다 앞선다 — 방 사람들의 프리즌스 스냅샷에 안 딸려온다");
-      chk(!('photo' < cut),
-          "  ↳ 밑줄을 빼면 'photo' > '" + cut + "' 라 전원에게 딸려간다 (그래서 밑줄이 필수다)");
-      chk('_meta' < cut && 'chatLog' < cut, '  ↳ 같은 기준으로 _meta·chatLog 도 제외된다 (전제가 그대로다)');
-    }
-    /* 멤버를 세는 자리들은 전부 '_ 로 시작하면 멤버가 아니다' 로 짜여 있다.
-       photo 였다면 이 셋을 다 통과해 유령 멤버 한 명으로 세어졌다. */
-    chk((initSrc.match(/charAt\(0\) !== '_'|charAt\(0\) === '_'/g) || []).length >= 3,
-        "★ 멤버 판정이 '_ 로 시작하면 멤버가 아니다' 규약을 쓰고 있다 — _photo 는 인원수에 안 잡힌다");
+    /* 0.13 — 앱은 Firebase 방(rooms/{방} 멤버 노드)에 들어가지 않는다. 방 사람 스냅샷 리스너 · 인원 세기가 firebase-init 에 없으니
+       «_photo 가 스냅샷에 딸려온다 · 유령 멤버로 센다» 는 걱정도 없다. */
+    chk(!/startAt\(\s*'m'\s*\)/.test(initSrc) && !/joinRoom\(/.test(initSrc), '★ firebase-init 에 방 사람 스냅샷 리스너(startAt m · joinRoom)가 없다 — 방은 realtime 서버');
   }
 
   const memberV = v('rooms/$room/$memberId') || '';
@@ -230,31 +219,15 @@ say('· §5 기존 앱이 쓰던 길이 안 막혔는가 (잠그는 사고가 �
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
-say('· §6 어댑터 경계 — null 을 삭제로 읽지 않는가');
+say('· §6 앱은 이 규칙 자리를 직접 쓰지 않는다 — 세션 · 정원은 세션 포트(purikura-rt.js)');
 {
-  /* purikura-net.js 는 "쓰지 않는다"를 null 로 돌려준다. firebase 의 runTransaction 은
-     null 을 **삭제**로 읽고 커밋한다(중단은 undefined). 그대로 넘기면 200번째 다음 사람이
-     photoQuota 를 지우고 카운터가 0 부터 다시 시작한다 — 규칙도 못 막는다(.validate 는
-     삭제에 안 돈다). 화면에는 아무 표시가 안 나고 오히려 "잘 찍힌다".
-     firebase-init.js 는 ESM 이라 node 에서 못 굴리므로, 아래 둘을 각각 확인한다. */
-  const day = Purikura.kstDay(Date.now());
-  chk(Purikura.quotaNext({ day, n: Purikura.CAP_PER_DAY }, day) === null,
-      '★ 정원이 다 찼을 때 계층이 null 을 돌려준다 (= 위험이 살아 있다)');
-
+  /* 0.13 은 스티커사진 세션 · 하루 정원을 서버가 가진다. 앱에 Firebase 쓰기 길이 남으면 정원을 두 곳이 세게 된다. */
   const src = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : '';
-  const i = src.indexOf('pkTransaction(');
-  const body = i >= 0 ? src.slice(i, i + 900) : '';
-  chk(i >= 0, 'firebase-init.js 에 pkTransaction 어댑터가 있다');
-  chk(/===\s*null\s*\)\s*\?\s*undefined/.test(body),
-      '★ 어댑터가 null 을 undefined(중단)로 바꿔서 넘긴다 — 이 한 줄이 하루 정원을 지킨다');
-  chk(/committed/.test(body) && /snapshot/.test(body),
-      '  ↳ {committed, value} 모양으로 돌려준다 (계층이 그 모양만 본다)');
-
-  const need = ['pkGet', 'pkSet', 'pkUpdate', 'pkRemove', 'pkTransaction', 'pkOnValue', 'pkOnDisconnectRemove'];
-  const miss = need.filter(n => src.indexOf(n + '(') < 0);
-  chk(miss.length === 0, '어댑터 7개가 전부 있다' + (miss.length ? ' — 빠짐: ' + miss.join(', ') : ''));
-  chk(/return \(\) => \{ try\{ un\(\); \}/.test(src),
-      '★ pkOnValue 가 해제 함수를 돌려준다 (삼키면 구독이 영영 안 끊긴다)');
+  const gone = ['pkGet', 'pkSet', 'pkUpdate', 'pkRemove', 'pkTransaction', 'pkOnValue', 'pkOnDisconnectRemove', 'pkOnDisconnectCancel'];
+  const left = gone.filter(n => src.indexOf(n + '(') >= 0);
+  chk(src.length > 0 && left.length === 0, '★ firebase-init.js 에 스티커사진 세션 어댑터가 없다' + (left.length ? ' — 남음: ' + left.join(', ') : ''));
+  chk(!/photoQuota|_photo/.test(src.replace(/\/\*[\s\S]*?\*\//g, '')), '  photoQuota · _photo 경로를 읽거나 쓰지 않는다(주석 빼고)');
+  chk(/async pkUploadFrame\(path, dataUrl\)\{/.test(src), '  프레임 그림 올리기(Storage)만 남았다');
 }
 
 console.log(fail ? '\n✗ ' + fail + '곳 실패' : '\n전부 통과 ✅ — 병합된 규칙이 요금과 앱 둘 다 지키고 있다');

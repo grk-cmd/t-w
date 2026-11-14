@@ -155,23 +155,10 @@ function mkUi(o, src){
       && /roomState\.isHost\(window\._roomMetaCache, getMyUserId\(\)\)/.test(CL) && /roomState\.isSecretCode\(_chatRoomCode\(\)\)/.test(CL) && /roomState: TwRoomState,/.test(APP) && !/isSecretCode/.test(RS_SRC),
       '★ 방장 · 시크릿룸 판정은 채팅 잠금과 같은 한 곳(room-state.js)을 부른다 — 다시 쓰지 않음 · 서로 부르지 않아 순환 없음');
   }
-  chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>\(Presence\.serverProvider\(\) \? Presence\.serverProvider\(\)\.setMeta\(info\) : window\.firebaseAPI\.setRoomInfo\(room, info\)\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 방 서버 방이면 서버 meta · 아니면 firebaseAPI.setRoomInfo');
+  chk(iUi > 0 && iRe > iUi && /paintRoomInfo: \(\)=>roomInfoUi\.paint\(\),/.test(APP) && /saveInfo: \(room, info\)=>\(Presence\.serverProvider\(\) \? Presence\.serverProvider\(\)\.setMeta\(info\) : Promise\.resolve\(\{ ok:false, code:'notInRoom' \}\)\),/.test(APP), 'app.js: 방 입장 모듈보다 먼저 만들고 paint 를 넘긴다 · 저장은 방 포트 meta 하나(방 밖이면 { ok:false })');
   const paintCalls = (RE.match(/\b_roomChanged\(\);/g) || []).length;   // «방이 바뀜» 알림이 paintRoomInfo 를 부른다(같이 듣기도 같은 알림)
-  chk(paintCalls === 3 && /function _roomChanged\(\)\{ paintRoomInfo\(\);/.test(RE) && /function refreshInviteUI\(\)\{[\s\S]*?_roomChanged\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · Firebase meta · 방 서버 meta 세 곳에서 다시 그린다 (' + paintCalls + ')');
-  {
-    const fn = takeFn(FI, 'async setRoomInfo(room, info){');
-    const writes = [], touched = [];
-    const set = fn && new Function('update', 'ref', 'db', '_touchRoomIndex', 'return { ' + fn + ' };')((r, v) => { writes.push([r, v]); return Promise.resolve(); }, (d, p) => p, null, (r) => touched.push(r));
-    const a = set && await set.setRoomInfo('COZY-AB12', { title: '새 제목', open: false });
-    const b = set && await set.setRoomInfo('COZY-AB12', { title: '' });
-    const c = set && await set.setRoomInfo('', { title: 'x' });
-    chk(a && a.ok && writes[0][0] === 'rooms/COZY-AB12/_meta' && JSON.stringify(writes[0][1]) === '{"title":"새 제목","open":false}', '★ firebase-init setRoomInfo — _meta 에 update · 제목 · 공개 두 칸만');
-    chk(b && b.ok && JSON.stringify(writes[1][1]) === '{"title":null}' && c && !c.ok && writes.length === 2, '  빈 제목은 칸 지움(null) · open 이 없으면 안 씀 · 방 코드가 없으면 안 씀');
-    chk(touched.join() === 'COZY-AB12,COZY-AB12', '★ 저장하면 방 요약(roomIndex)을 바로 갱신 — 공개를 켜면 로비 · 랜덤 참여가 다음 하트비트를 안 기다린다');
-    const ft = [];
-    const failing = fn && new Function('update', 'ref', 'db', '_touchRoomIndex', 'return { ' + fn + ' };')(() => Promise.reject(new Error('denied')), (d, p) => p, null, (r) => ft.push(r));
-    chk(failing && !(await failing.setRoomInfo('COZY-AB12', { title: 'x' })).ok && ft.length === 0, '  쓰기가 거부되면 { ok:false } · 요약도 안 건드림');
-  }
+  chk(paintCalls === 2 && /function _roomChanged\(\)\{ paintRoomInfo\(\);/.test(RE) && /function refreshInviteUI\(\)\{[\s\S]*?_roomChanged\(\);[\s\S]*?\n\}/.test(RE), 'room-entry: 들어감 · 나감(refreshInviteUI) · 서버 meta 두 곳에서 다시 그린다 (' + paintCalls + ')');
+  chk(!/setRoomInfo/.test(FI), 'firebase-init 에 방 정보(_meta) 쓰기가 없다 — 제목 · 공개는 방 포트 meta(방장만 · 서버가 판정)');
   {
     const M = classic(M_SRC, 'TwRoomLobbyModel', { TwRoomSettings: RS });
     const c = M.cardOf('WORK-AA11', { t: '', n: 1, hn: '도토리' }, 10);

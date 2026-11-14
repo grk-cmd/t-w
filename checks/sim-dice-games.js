@@ -18,12 +18,12 @@ if(!MOD){ say('  ? 원본 못 찾음 — dice-games.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
 const FN_DEPS = ["canFly","findMySeat","flySeed","getDisplayName","getMyUserId","showChatBubble","toast"];
-const VAL_DEPS = ["chatUiMod","tricksMod"];
+const VAL_DEPS = ["chatNet","chatUiMod","tricksMod"];
 const GET_DEPS = ["Presence","ROULETTE_FLY_DELAY_MS","officeMode"];
 const SET_DEPS = [];
 const EXPORTS = ["DAILY_PLAY_MAX","_dailyPlayTake","_diceSvg","_rollDice","_selfFlyAfterDice"];
 const MOVED = ["_DICE_PIPS","_diceSvg","DAILY_PLAY_MAX","_dailyPlayDay","_dailyPlayTake","_rollDice","_selfFlyReady","_selfFlyAfterDice"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  Presence: ()=>Presence,","  ROULETTE_FLY_DELAY_MS: ()=>ROULETTE_FLY_DELAY_MS,","  canFly: (...a)=>canFly(...a),","  chatUiMod: chatUiMod,","  findMySeat: (...a)=>findMySeat(...a),","  flySeed: (...a)=>flySeed(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  officeMode: ()=>officeMode,","  showChatBubble: (...a)=>showChatBubble(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
+const GLUE = ["  Presence: ()=>Presence,","  ROULETTE_FLY_DELAY_MS: ()=>ROULETTE_FLY_DELAY_MS,","  canFly: (...a)=>canFly(...a),","  chatUiMod: chatUiMod,","  findMySeat: (...a)=>findMySeat(...a),","  flySeed: (...a)=>flySeed(...a),","  getDisplayName: (...a)=>getDisplayName(...a),","  getMyUserId: (...a)=>getMyUserId(...a),","  chatNet: TwChatRt.store,","  officeMode: ()=>officeMode,","  showChatBubble: (...a)=>showChatBubble(...a),","  toast: (...a)=>toast(...a),","  tricksMod: tricksMod,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */

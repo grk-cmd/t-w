@@ -1468,6 +1468,7 @@ const tricksMod = TwTricks.createTricks({
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  chatNet: TwChatRt.store,
   measureBodyBox: (...a)=>bodyMeasureMod.measureBodyBox(...a),
   ndc: ()=>ndc,
   officeMode: ()=>officeMode,
@@ -3188,6 +3189,8 @@ const chatUiMod = TwChatUi.createChatUi({
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  chatNet: TwChatRt.store,
+  myCode: ()=>TwRoomRt.store.myCode(),
   isAdmin: ()=>isAdmin,
   isDanceUnlocked: (...a)=>iDeskMod.isDanceUnlocked(...a),
   officeMode: ()=>officeMode,
@@ -3245,33 +3248,27 @@ const diceMod = TwDiceGames.createDiceGames({
   flySeed: (...a)=>flySeed(...a),
   getDisplayName: (...a)=>getDisplayName(...a),
   getMyUserId: (...a)=>getMyUserId(...a),
+  chatNet: TwChatRt.store,
   officeMode: ()=>officeMode,
   showChatBubble: (...a)=>showChatBubble(...a),
   toast: (...a)=>toast(...a),
   tricksMod: tricksMod,
 });
-/* 📷 스티커사진 계층(parts/purikura/purikura-net.js)으로 가는 유일한 입구.
-   ★ 왜 한 곳으로 모으나 — 이 계층은 THREE 도 DOM 도 안 보는 «요금을 정하는 층»이라
-     app.js 여기저기서 직접 makeSession 을 부르기 시작하면 세션이 여러 개가 되고,
-     구독도 정원 읽기도 사람 수만큼 늘어난다. 입구가 하나면 그 일이 구조적으로 안 생긴다.
-   ⚠️ firebase-init.js 는 type="module" 이라 이 파일보다 **늦게** 돈다 —
-     부팅 직후에는 firebaseAPI.pkGet 이 아직 없을 수 있다. 그래서 «부를 때마다» 확인하고,
-     성공한 뒤에만 기억한다(못 만든 것을 기억해 두면 영영 안 붙는다).
-   ⚠️ 구버전 HTML 에는 parts/purikura/purikura-net.js 가 없다 — 그때는 null 이고 부르는 쪽이 안내한다. */
+/* 📷 스티커사진 세션 포트(parts/purikura/purikura-rt.js)로 가는 유일한 입구 — 세션은 하나(콜백도 한 벌).
+   ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다 — 각 핸들러가 PK.open · PK.listening 을 먼저 본다. */
 let _pkSession = null;
 function _purikura(){
   if(_pkSession) return _pkSession;
-  if(typeof Purikura === 'undefined' || !Purikura || !Purikura.makeSession) return null;
-  if(typeof firebaseAPI === 'undefined' || !firebaseAPI || !firebaseAPI.pkGet) return null;
-  /* 콜백은 여기서 한 번만 물린다 — 세션이 하나뿐이므로 구독도 하나뿐이다.
-     ⚠️ 창이 닫혀 있는 동안에도 콜백은 살아 있다. 그래서 각 핸들러가 PK.open 을 먼저 본다. */
-  try{ _pkSession = Purikura.makeSession(firebaseAPI, {
-        onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
-        onMeta : m => { purikuraUi.onMeta(m); },
-        onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
-        onShot : s => { purikuraUi.onShot(s); }
-      }); }
-  catch(e){ console.warn('[스티커사진] 세션 생성 실패', e); return null; }
+  _pkSession = TwPurikuraRt.createPhotoSession({
+    hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
+    serverNow: ()=>{ const p = Presence.serverProvider(); return p ? p.serverNow() : Date.now(); },
+    onPeers: p => { purikuraUi.onPeers(p); },          // 화면 쪽은 parts/purikura/purikura-ui.js
+    onMeta : m => { purikuraUi.onMeta(m); },
+    onEvent: (slot, ev) => { purikuraUi.onPeerEvent(slot, ev); },
+    onShot : s => { purikuraUi.onShot(s); },
+    onSlots: o => { purikuraUi.onSlots(o); },
+    onFrames: o => { purikuraUi.onFrames(o); },
+  });
   return _pkSession;
 }
 
@@ -3284,8 +3281,7 @@ function _purikura(){
 const purikuraUi = TwPurikuraUi.createPurikuraUi({
   purikura: ()=>_purikura(),
   toast: (...a)=>toast(...a),
-  getMyUserId: ()=>getMyUserId(),
-  getDisplayName: ()=>getDisplayName(),
+  myCode: ()=>TwRoomRt.store.myCode(),
   bringWinToFront: (...a)=>winStackMod.bringWinToFront(...a),
   escRegisterWindow: (...a)=>winStackMod.escRegisterWindow(...a),
   plRender: (...a)=>plMod.render(...a),
@@ -6760,13 +6756,9 @@ const presenceMod = TwPresence.createPresence({
   floatersMod: floatersMod,
   focusLevelMod: ()=>focusLevelMod,
   focusShareMod: ()=>focusShareMod,
-  getMyUserId: (...a)=>getMyUserId(...a),
   iDeskMod: iDeskMod,
-  isAdmin: ()=>isAdmin,
-  isPremium: ()=>isPremium,
   lastAnyInput: ()=>lastAnyInput,
   roomEntryMod: ()=>roomEntryMod,
-  roomNet: ()=>window.firebaseAPI,
   roomSyncMod: roomSyncMod,
   seats: seats,
   toast: (...a)=>toast(...a),
@@ -6779,17 +6771,13 @@ const Presence = presenceMod.Presence;   // 옛 전역 이름 — app.js · 다�
 /* (앱 FSD 35번) 이 자리의 본문도 room-sync.js 로 옮겼다 — 만드는 줄은 첫 자리. */
 
 /* ═══ 🛰 방 서버 provider (관리자 스위치 · 기본 꺼짐) ═══════════════════════════════
-   방 통신을 Firebase 대신 웹소켓 방 서버로. 실제 구현은 parts/room-server-net.js 이고 여기는 화면 쪽 연결만 한다.
-   누가 · 어느 서버로 가는지는 parts/room-server-gate.js(원격 설정 roomServer · roomDir). 꺼져 있으면(기본) 전원 Firebase.
-   ★ 서버 방에서는 정원 · 같은 계정 중복 · 호스트 승계 · 해산 · 120초 생존 판정을 서버가 한다.
-     그래서 firebase-init joinRoom 의 그 판정들(자기 퇴장 · _maybeSucceedHost · 💓 roomAlive 하트비트)은 이 길에서 아예 돌지 않는다.
-   ★ 채팅 기록(chatLog) · 스티커사진(_photo) · 친구 목록의 접속 정보는 1단계에서는 Firebase 그대로다. */
+   방 통신은 parts/room/room-rt.js 방 포트 하나(realtime 연결 위 · TwRoomRt.store). 정원 · 중복 접속 · 승계 · 해산 · 채널 · 시크릿룸 입장은 서버가 판정한다. */
 /* 본문은 room-entry.js 로 옮겼다(앱 FSD 33번). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 // 🎧 같이 듣기 — 방 입장 모듈의 «방이 바뀜»(들어감 · 나감 · meta) 알림에 sync 를 건다(room/listen-ui.js · 설계 docs/LISTEN_TOGETHER.md)
 const listenUi = TwListenUi.createListenUi({
   model: TwListenModel,
-  provider: TwListenProvider.createListenProvider({ api: ()=>window.firebaseAPI, server: ()=>Presence.serverProvider(), model: TwListenModel }),
+  provider: TwListenProvider.createListenProvider({ server: ()=>Presence.serverProvider(), model: TwListenModel }),
   companion: ()=>window.companion,
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
@@ -6817,11 +6805,12 @@ const roomInfoUi = TwRoomInfoUi.createRoomInfoUi({
   isSecretRoom: ()=>TwRoomState.isSecretCode(Presence.active() ? Presence.roomCode() : null),
   roomCode: ()=>(Presence.active() ? Presence.roomCode() : null),
   meta: ()=>window._roomMetaCache,
-  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : window.firebaseAPI.setRoomInfo(room, info)),   // 방 서버 방은 서버 meta
+  saveInfo: (room, info)=>(Presence.serverProvider() ? Presence.serverProvider().setMeta(info) : Promise.resolve({ ok:false, code:'notInRoom' })),   // 방 포트 meta(방장만 · 서버가 판정)
   notifyError: (...a)=>TwErrorCodes.notify(...a),
 });
 // 🗂️ 방 목록 로비 · F1 시크릿룸 칸이 같이 읽는 provider — 방 입장 모듈보다 먼저(room/room-lobby-provider.js)
-const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ api: ()=>window.firebaseAPI, apiGet: (p, o)=>window.firebaseAPI.apiGetAuthed(p, o), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
+const roomLobbyProvider = TwRoomLobbyProvider.createRoomLobbyProvider({ apiGet: (p, o)=>TwApi.authed.get(p, o), peek: (code)=>TwRoomRt.store.peek(code),
+  roomCode: ()=>(Presence.active() ? Presence.roomCode() : null), myUserId: ()=>getMyUserId(), now: ()=>Date.now() });
 const roomEntryMod = TwRoomEntry.createRoomEntry({
   EXP_CELLS: ()=>expBarMod.EXP_CELLS,
   FLOATER_BURST: floatersMod.FLOATER_BURST,
@@ -6870,6 +6859,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
+  roomRt: TwRoomRt.store,
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
 // 🕘 최근 들어간 방 — 연결되면 기록하고, 로비 코드 칸을 누르면 펼친다(room/recent-rooms*.js)
@@ -6885,7 +6875,6 @@ const roomCreateUi = TwRoomCreateUi.createRoomCreateUi({
   maxPeople: ()=>maxPeople(),
   isLicensed: ()=>roomEntryMod._myRoomLicensed(),
   onCreate: (ch, settings)=>roomEntryMod.doCreateRoomInChannel(ch, settings),
-  serverRoomLikely: ()=>roomEntryMod.roomServerCheck(),
 });
 // 🗂️ 방 목록 로비 — 목록 사본 · 내 시크릿룸은 provider 로만 읽는다(room/room-lobby-*.js)
 TwRoomLobbyUi.createRoomLobbyUi({
@@ -8809,8 +8798,7 @@ addEventListener('resize',resize); resize();
 const roomInviteUi = TwRoomInviteUi.createRoomInviteUi({
   toast: (...a)=>toast(...a),
   escHtml: (...a)=>escHtml(...a),
-  getMyUserId: (...a)=>getMyUserId(...a),
-  getDisplayName: (...a)=>getDisplayName(...a),
+  invites: TwRoomInviteRt.store,
   startRoom: (...a)=>roomEntryMod.startRoom(...a),
   doLeaveRoom: (...a)=>roomEntryMod.doLeaveRoom(...a),
   friendInRoom: (...a)=>inboxMod.friendInRoom(...a),

@@ -1,7 +1,7 @@
 /* ═══ 🍎 sim-mac-0923.js — 2026-09-23 Mac 제보 여섯 (개정 67 신설) ═══════════════════════════
    ・1절: ⌨️ 한글 조합 중 Enter 무시 — 대화창(#chatInput) · 머리 위 말풍선 입력(#myChatInput) 둘 다
    ・2절: 🖊️ 표정 그리기 — 묶인 점(getCoalescedEvents)은 마지막 점이 이벤트와 2px 안일 때만 쓴다
-   ・3절: 🧪 가짜 방 금지 — firebaseAPI 를 기다리고, 없으면 입장하지 않는다(개발 표식 tw.mockRoom=1 만 예외)
+   ・3절: 🧪 가짜 방 금지 — 방 포트 provider 없이는 입장하지 않는다(개발 표식 tw.mockRoom=1 만 예외)
    ・4절: 🍎 단축키 — mac 은 ⌘1~⌘5 도 F1~F5 로 · 표시도 ⌘ 로
    ・5절: 🐢 성능 — mac 실행 화면 픽셀 비율 상한 · 설정(런처) 화면에서 숨은 3D 를 안 그린다
    ・6절: 🖌️ 펜 앱 — mac 은 표시 이름으로 판정(main.js _isPenApp)
@@ -43,17 +43,9 @@ say('── 2. 🖊️ 묶인 점');
 }
 say('── 3. 🧪 가짜 방');
 {
-  const i = CODE.indexOf('provider = window.firebaseAPI ? makeFirebaseProvider(opts && opts.hooks) : makeMockProvider();'), seg = CODE.slice(i - 700, i);
-  chk(i > 0 && /if\(!window\.firebaseAPI\) await _waitFirebaseApi\(NET_READY_WAIT_MS\);/.test(seg) && /if\(!window\.firebaseAPI && !_mockRoomAllowed\(\)\)\{[\s\S]*return;\s*\}/.test(seg), '기다리고 · 없으면 입장하지 않는다');
-  const W = { firebaseAPI:null, _l:{}, addEventListener(n, f){ this._l[n] = f; } };
-  /* _waitFirebaseApi 는 shared/net-ready.js 의 waitNetReady 로 넘긴다 — 그 파일을 같이 싣고 굴린다(판정은 그대로) */
-  const NET = read('net-ready.js') || '';
-  const WAIT = NET + '\nvar TwNetReady = window.TwNetReady;\n' + grab(SRC, '_waitFirebaseApi') + ' return _waitFirebaseApi;';
-  const mk = new Function('window', 'setTimeout', 'module', WAIT);
-  const wait = mk(W, (f, ms)=>{ W._t = f; });
-  let p = wait(10000); W.firebaseAPI = {}; W._l['firebase-ready'](); chk(await p === true, '준비 신호가 오면 곧바로 풀린다');
-  const W2 = { firebaseAPI:null, addEventListener(){} }; const wait2 = new Function('window', 'setTimeout', 'module', WAIT)(W2, (f)=>f());
-  chk(await wait2(10) === false, '시간이 다 되면 false(가짜 방으로 떨어지지 않음)');
+  /* 0.13 — 방 통신은 방 포트 provider 하나. 안 넘기면 가짜 방(개발 표식)일 때만 · 아니면 들어가지 않는다 */
+  chk(/if\(!_srv && !(?:roomEntryMod\(\)\.)?_mockRoomAllowed\(\)\)\{[\s\S]{0,300}return \{ ok:false, code:'noProvider' \};/.test(CODE)
+    && /provider = _srv \|\| (?:roomEntryMod\(\)\.)?makeMockProvider\(\);/.test(CODE), 'provider 없이 부르면 들어가지 않는다(가짜 방으로 떨어지지 않음)');
   const A = new Function('localStorage', grab(SRC, '_mockRoomAllowed') + ' return _mockRoomAllowed;');
   chk(A({ getItem:()=>null })() === false && A({ getItem:()=>'1' })() === true, '가짜 방은 tw.mockRoom=1 일 때만');
 }

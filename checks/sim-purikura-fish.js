@@ -8,14 +8,14 @@
    ・6절: 규칙 — meta/filter 에 fish · slots/$i 에 fx
    ・7절: app.js · html 배선 — 줄 일곱 칸 · 자리가 바뀌면 안내를 다시
    ⚠️ 실제 무대 · 사진은 2026-10-08 헤드리스 크로미움에서 확인했다.
-   [실행] purikura-net.js · firebase-database-rules.json · app.js · purikura-ui.js · desk-companion-prototype.html 이 있는 폴더에서. */
+   [실행] purikura-net.js · purikura-rt.js · firebase-database-rules.json · app.js · purikura-ui.js · desk-companion-prototype.html 이 있는 폴더에서. */
 'use strict';
 const fs = require('fs');
 let pass = 0, fail = 0;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['purikura-net.js', 'firebase-database-rules.json', 'app.js', 'purikura-ui.js', 'desk-companion-prototype.html'];
+const need = ['purikura-net.js', 'purikura-rt.js', 'firebase-database-rules.json', 'app.js', 'purikura-ui.js', 'desk-companion-prototype.html'];
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
 const P = require(require('path').resolve('purikura-net.js'));
@@ -107,36 +107,14 @@ sec('── 5. 업데이트 안 한 참가자', () => {
   chk(JSON.stringify(P.filterLaggards(slots, 'fish', 'me')) === '["옛판"]', 'fx 가 없는 자리만 «업데이트 필요»');
   chk(P.filterLaggards(slots, 'mono', 'me').length === 0 && P.filterLaggards(slots, 'none', 'me').length === 0, '옛 앱도 아는 필터면 아무도 안 알린다');
   chk(P.filterLaggards(null, 'fish', 'me').length === 0, '자리를 아직 못 받았으면 빈 목록');
-  /* 가짜 서버 — oldRules 면 slots/$i 에 uid · name · at 밖의 칸이 있으면 쓰기를 통째로 거부한다($other 와 같다) */
-  function fakeApi(oldRules){
-    const db = {}, st = { rejects: 0 };
-    const ok = () => Promise.resolve();
-    return { db, st, serverNow: () => Date.now(),
-      pkTransaction(p, fn){
-        const next = fn(db[p] ? JSON.parse(JSON.stringify(db[p])) : null);
-        if(next == null) return Promise.resolve({ committed: false, value: db[p] || null });
-        if(oldRules && Object.keys(next).some(k => next[k] && Object.keys(next[k]).some(f => ['uid', 'name', 'at'].indexOf(f) < 0))){
-          st.rejects++; return Promise.reject(new Error('PERMISSION_DENIED'));
-        }
-        db[p] = next; return Promise.resolve({ committed: true, value: next });
-      },
-      pkOnDisconnectRemove: ok, pkOnDisconnectCancel: ok, pkSet: ok, pkUpdate: ok, pkRemove: ok,
-      pkGet: () => Promise.resolve(null), pkOnValue: () => function(){} };
-  }
-  const SLOTS = 'rooms/R1/_photo/slots';
-  const mine = (db) => Object.values(db[SLOTS] || {}).find(v => v.uid === 'me');
-  later.push((async () => {
-    const a = fakeApi(false), s1 = P.makeSession(a, {});
-    const r1 = await s1.open('R1', { userId: 'me', name: '나' });
-    chk(r1 && r1.ok && mine(a.db) && mine(a.db).fx === P.FILTER_REV, '새 규칙 — 자리를 잡을 때 내 앱의 필터 판(fx)을 적는다');
-    const r1b = await P.makeSession(a, {}).open('R1', { userId: 'me', name: '나' });
-    chk(r1b && r1b.ok && mine(a.db).fx === P.FILTER_REV && Object.keys(a.db[SLOTS]).length === 1, '다시 들어와도 같은 자리 · fx 그대로');
-    const b = fakeApi(true), s2 = P.makeSession(b, {});
-    let r2 = null, threw = false;
-    try{ r2 = await s2.open('R1', { userId: 'me', name: '나' }); }catch(_){ threw = true; }
-    chk(!threw && r2 && r2.ok && r2.host === true, '★ 옛 규칙 — 거부돼도 들어간다(버튼이 반응 없던 제보)');
-    chk(b.st.rejects === 1 && mine(b.db) && !('fx' in mine(b.db)), '거부되면 fx 없이 한 번 더 — 한 번만 다시 시도');
-  })().catch(e => chk(false, '자리 잡기 검사를 못 돌았다 — ' + e.message)));
+  /* 세션 포트 — 자리를 잡을 때 내 앱의 필터 판(fx)을 싣고, 받은 자리에도 fx 가 실려 온다(옛 앱 자리는 fx 없음 → 0) */
+  const RT = (() => { const m = { exports: {} }; new Function('module', 'window', SRC['purikura-rt.js'])(m, undefined); return m.exports; })();
+  const sent = [];
+  const s1 = RT.createPhotoSession({ hub: { onMessage(){}, on(){}, send(m){ sent.push(m); return true; } }, api: { get: () => Promise.resolve({}) }, P, serverNow: () => 0, setTimeout: () => 0, clearTimeout: () => {} });
+  s1.open('R1', { userCode: 'me' });
+  chk(sent.length === 1 && sent[0].t === 'photoOpen' && sent[0].fx === P.FILTER_REV, '자리를 잡을 때 내 앱의 필터 판(fx)을 싣는다');
+  const wire = RT.slotsFromWire([{ userCode: 'me', name: '방장', fx: 1 }, { userCode: 'u1', name: '새판', fx: 1 }, { userCode: 'u2', name: '옛판' }, null]);
+  chk(wire[1].fx === 1 && wire[2].fx === 0 && JSON.stringify(P.filterLaggards(wire, 'fish', 'me')) === '["옛판"]', '★ 서버가 준 자리 — fx 가 없는 자리(옛 앱)만 «업데이트 필요»');
 });
 
 sec('── 6. 규칙', () => {
@@ -155,10 +133,10 @@ sec('── 7. app.js · html', () => {
   const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
   /* 📷 화면 쪽은 parts/purikura-ui.js 로 옮겼다(앱 FSD 3번) — 렌더러 쪽 한 벌 = app.js + 그 파일 */
   const A = strip(SRC['app.js'] + '\n' + SRC['purikura-ui.js']), HTML = SRC['desk-companion-prototype.html'];
-  chk(/P\.filterLaggards\(PK\.members, PK\.filter, getMyUserId\(\)\)/.test(A) && /'님은 업데이트가 필요해서 필터 없이 찍혀요'/.test(A), '방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»');
+  chk(/P\.filterLaggards\(PK\.members, PK\.filter, myCode\(\)\)/.test(A) && /'님은 업데이트가 필요해서 필터 없이 찍혀요'/.test(A), '방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»');
   chk(/const lag = \(PK\.host && /.test(A), '안내는 방장에게만');
   chk(/_pkPaintSlots\(\);\s*_pkPaintFilterNote\(\);/.test(A), '자리가 바뀌면 안내를 다시 쓴다(축소판은 다시 안 그린다)');
-  chk(/let r; try\{ r = await pk\.open\(room, \{ userId:getMyUserId\(\), name:getDisplayName\(\) \}\); \}\s*catch\(e\)\{ console\.warn\('\[스티커사진\] 자리 잡기 실패', e\); r = null; \}/.test(A),
+  chk(/let r; try\{ r = await pk\.open\(room, \{ userCode: myCode\(\) \}\); \}\s*catch\(e\)\{ console\.warn\('\[스티커사진\] 자리 잡기 실패', e\); r = null; \}/.test(A),
     '자리 잡기가 던져도 «지금은 들어갈 수 없어요» 로 알린다(조용히 멈추지 않는다)');
   chk(/<div class="pk-bgrow pk-frow" id="pkFilterRowLobby">/.test(HTML) && /<div class="pk-bgrow pk-frow" id="pkFilterRow">/.test(HTML), '로비와 촬영 중 필터 줄이 같은 모양');
   chk(/\.pk-bgrow\.pk-frow\{grid-template-columns:repeat\(7,1fr\)/.test(HTML), '필터 줄은 일곱 칸 한 줄(뒷배경은 여섯 칸 그대로)');

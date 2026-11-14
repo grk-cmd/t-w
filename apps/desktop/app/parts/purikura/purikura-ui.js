@@ -21,8 +21,7 @@
 function createPurikuraUi(deps){
 const _purikura = deps.purikura;               // 📷 세션 입구(app.js) — 통신은 전부 이 하나를 지난다
 const toast = deps.toast;
-const getMyUserId = deps.getMyUserId;
-const getDisplayName = deps.getDisplayName;
+const myCode = deps.myCode;                     // 연결의 나(userCode) — 사진 자리 · 좌석 찾기 · 프레임 경로는 이 값
 const bringWinToFront = deps.bringWinToFront;
 const escRegisterWindow = deps.escRegisterWindow;
 const _plRender = deps.plRender;
@@ -184,7 +183,7 @@ const PK = {
   bgSel:['white'], seed:0, camH:0, camP:0, camSend:0, camUI:null, waitCut:-1, evSeen:{}, bgTex:null, hushed:null,
   filter:'none', fxOn:false, fLock:false, scratch:{},
   renderer:null, scene:null, cam:null, raf:0, last:0, charTry:0,
-  unwatchQuota:null, unslots:null, unframes:null, quota:null,
+  unwatchQuota:null, listening:false, quota:null,
   keys:{}, timer:0
 };
 
@@ -194,6 +193,22 @@ function _pkHostSlot(){ const pk = _purikura(); return pk ? pk.hostSlot() : -1; 
 function _pkIsOpen(){ return !!PK.open; }
 function _pkEl(id){ return document.getElementById(id); }
 function _pkP(){ return (typeof Purikura !== 'undefined') ? Purikura : null; }
+
+/* 서버 시각(세션 포트 — 방 포트 시계) — 카운트다운 · 필터 잠금이 모두 이 값에서 센다 */
+function _pkNow(){ const pk = _purikura(); return pk ? pk.serverNow() : Date.now(); }
+/* 자리 잡기 거절(세션 포트 reason) → 안내 */
+const PK_OPEN_REFUSED = Object.freeze({
+  busy: '📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요',
+  full: '자리가 다 찼어요 (4명까지)',
+  notReady: '서버에 연결된 뒤 쓸 수 있어요',
+});
+/* 🪑 자리 배치가 바뀌었다(세션 포트) — 방장 판정은 세션 포트가 이미 했다(살아 있는 자리 중 가장 작은 번호) */
+function _pkOnSlots(o){
+  if(!PK.listening) return;
+  PK.members = o || {};
+  _pkPaintSlots();
+  _pkPaintFilterNote();
+}
 
 /* ── 여는 문 ───────────────────────────────────────────────────────────── */
 async function openPurikura(){
@@ -212,19 +227,10 @@ async function openPurikura(){
             toast('📷 지금은 확인할 수 없어요 — 잠시 뒤에 다시 눌러 주세요'); return; }
   if(!q.ok){ toast(q.message); return; }
 
-  /* 📷 이미 촬영 중이면 못 들어간다 — 카운트다운이 도는 중에 사람이 늘면 그 컷만 인원이 다르다.
-     ★ **자리를 잡기 전에** 본다(peek). pk.open 은 트랜잭션으로 먼저 자리를 집으므로, 잡고 나서
-       되돌리면 그 사이에 남이 못 들어온다.
-     ★ 꾸미는 중(서버 state 'done')이면 방이 다시 열린다 — 촬영이 이미 끝난 국면이라 막을 이유가 없다.
-     ★ 방장이 나가면 저절로 풀린다(peek 의 hostAlive). 여기서 되돌리는 쓰기는 하나도 없다.
-     ⚠️ 읽기가 실패하면 peek 이 busy:false 를 준다 — 통신이 흔들렸다고 문을 잠그지 않는다. */
-  let pv; try{ pv = await pk.peek(room, getMyUserId()); }catch(_){ pv = null; }
-  if(pv && pv.busy){ toast('📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요'); return; }
-
-  /* ⚠️ 서버가 자리 쓰기를 거부하면 open 이 던진다 — 받지 않으면 버튼을 눌러도 아무 반응이 없다. */
-  let r; try{ r = await pk.open(room, { userId:getMyUserId(), name:getDisplayName() }); }
+  /* 📷 이미 촬영 중이면 못 들어간다(busy) — 카운트다운이 도는 중에 사람이 늘면 그 컷만 인원이 다르다. 판정은 서버(ROOM_PHOTO_BUSY). */
+  let r; try{ r = await pk.open(room, { userCode: myCode() }); }
   catch(e){ console.warn('[스티커사진] 자리 잡기 실패', e); r = null; }
-  if(!r || !r.ok){ toast(r && r.reason==='full' ? '자리가 다 찼어요 (4명까지)' : '지금은 들어갈 수 없어요'); return; }
+  if(!r || !r.ok){ toast(PK_OPEN_REFUSED[r && r.reason] || '지금은 들어갈 수 없어요'); return; }
 
   PK.open = true; PK.room = room; PK.slot = r.slot; PK.host = !!r.host;
   PK.shots = []; PK.cutIdx = -1; PK.state = 'lobby'; PK.up = []; PK.frameSrc = {}; PK.keys = {};
@@ -241,17 +247,11 @@ async function openPurikura(){
 
   /* 창이 열려 있는 동안만 남은 횟수를 지켜본다(창을 연 사람만 = 월 9원). */
   PK.unwatchQuota = pk.watchQuota(_pkSetQuota);
-  /* 🪑 같은 스냅샷을 계층에도 넘긴다 — 계층은 slots 를 «직접 구독하지 않는다».
-     [왜] 여기서 이미 받고 있는 값이라 넘기기만 하면 추가 읽기가 0건이다. 계층이 따로 구독하면
-       같은 값을 두 번 내려받게 된다(4인 방이면 세션당 그만큼).
-     ⚠️ 이 한 줄이 빠지면 계층의 hostSlot 이 영영 -1 이라 **아무도 방장이 아니게 된다.** */
-  PK.unslots  = firebaseAPI.pkOnValue('rooms/'+room+'/_photo/slots',  o=>{
-    PK.members = o || {};
-    const pk2 = _purikura(); if(pk2) pk2.adoptSlots(PK.members);
-    _pkPaintSlots();
-    _pkPaintFilterNote();
-  });
-  PK.unframes = firebaseAPI.pkOnValue('rooms/'+room+'/_photo/frames', o=>{ _pkOnFrames(o||{}); });
+  /* 🪑 자리 · 프레임은 세션 포트가 보내 준다(_pkOnSlots · _pkOnFrames) — 듣는 동안만(꾸미기로 넘어가면 끊는다).
+     자리를 잡는 답(photoWelcome)에 실려 온 첫 값은 창을 열기 전에 도착했으니 여기서 한 번 그린다. */
+  PK.listening = true;
+  _pkOnSlots(pk.slotsNow());
+  _pkOnFrames(pk.framesNow());
 
   /* 방장이면 지금 설정을 방에 알린다. 아니면 방장이 정해 둔 것을 받는다. */
   /* ⚠️ 창을 여는 길목이라 토스트를 띄우지 않는다 — 유저가 아직 아무것도 안 골랐는데
@@ -310,8 +310,8 @@ function closePurikura(force){
   _pkHoldStop(); clearTimeout(PK.camSend); PK.camSend = 0;   // 누르던 ▲▼ 도 같이 놓는다
   window.removeEventListener('keydown', _pkKey, true);
   window.removeEventListener('keyup',   _pkKeyUp, true);
-  [PK.unwatchQuota, PK.unslots, PK.unframes].forEach(f=>{ if(f) try{ f(); }catch(_){} });
-  PK.unwatchQuota = PK.unslots = PK.unframes = null;
+  if(PK.unwatchQuota) try{ PK.unwatchQuota(); }catch(_){}
+  PK.unwatchQuota = null; PK.listening = false;
   const pk = _purikura(); if(pk) pk.close();
   _pkDisposeStage();
   const ov = _pkEl('pkOverlay'); if(ov){ ov.classList.remove('on'); ov.classList.remove('shooting'); }
@@ -480,7 +480,7 @@ function _pkFilterLocked(){
      ⚠️ 이 줄이 없으면 cutAt:0 때문에 남은 초가 0 으로 계산되어 **처음부터 잠긴 채로** 남는다. */
   if(PK.cutIdx < 0 || !PK.cutAt) return false;
   if(PK.frozen) return true;                    // 셔터가 이미 터졌다 — 이번 컷은 끝났다
-  const now = (firebaseAPI.serverNow ? firebaseAPI.serverNow() : Date.now());
+  const now = _pkNow();
   const left = Math.max(0, PK_COUNT_SEC - Math.floor((now - PK.cutAt)/1000));
   return left <= PK_FILTER_LOCK_SEC;
 }
@@ -514,7 +514,7 @@ function _pkPaintFilter(){
 function _pkPaintFilterNote(){
   const P = _pkP(), locked = _pkFilterLocked();
   /* 🆙 업데이트 안 한 참가자는 이 필터를 몰라서 그 사람 사진만 필터 없이 찍힌다. 막지 않고 방장에게만 알린다. */
-  const lag = (PK.host && P.filterLaggards) ? P.filterLaggards(PK.members, PK.filter, getMyUserId()) : [];
+  const lag = (PK.host && P.filterLaggards) ? P.filterLaggards(PK.members, PK.filter, myCode()) : [];
   const lagMsg = lag.length ? lag.join(' · ') + '님은 업데이트가 필요해서 필터 없이 찍혀요' : '';
   const msg = _pkEl('pkFilterMsg');
   if(msg) msg.textContent = locked ? '곧 찍어요 — 이번 컷은 이대로'
@@ -611,16 +611,13 @@ function _pkClearUp(){ PK.up = []; }
 /* 규격(방향·컷 수)이 바뀌면 **서버 목록도 같이 비운다.**
    ⚠️ 안 비우면 남은 사람들 화면에만 옛 규격 그림이 늘어난 채로 남는다 — 방장은 자기 것을
      지웠는데 노드는 그대로라, 저쪽에는 다시 그릴 계기가 영영 안 온다.
-   ★ 지우는 모양은 setFrameUrl 이 이미 쓰는 것과 같다(키에 null 을 얹는 update 한 번).
-     규칙의 .validate 는 삭제에는 안 돌므로 URL 모양 검사에 걸리지 않는다.
    ⚠️ 실패해도 삼키고 넘어간다 — 통신이 흔들렸다고 규격 변경 자체를 막을 이유는 없다. */
 function _pkWipeFrames(){
   if(!PK.host || !PK.room) return;
-  const o = {}; for(let i=0;i<PK_MAX_CUTS;i++) o[i] = null;
-  try{
-    firebaseAPI.pkUpdate('rooms/'+PK.room+'/_photo/frames', o)
-      .catch(e=>console.warn('[스티커사진] 프레임 목록을 못 비웠어요', e));
-  }catch(e){ console.warn('[스티커사진] 프레임 목록을 못 비웠어요', e); }
+  const pk = _purikura(); if(!pk) return;
+  for(let i=0;i<PK_MAX_CUTS;i++){
+    pk.setFrameUrl(i, null).catch(e=>console.warn('[스티커사진] 프레임 목록을 못 비웠어요', e));
+  }
 }
 
 /* ── 컷마다 프레임 올리기 ── */
@@ -743,7 +740,7 @@ function _pkPickFrame(i){
         _pkPaintUp(); _pkSyncFrame();
         try{
           const dataUrl = cv.toDataURL('image/webp', 0.9);
-          const path = 'purikura/'+PK.room+'/'+getMyUserId()+'/'+i+'.webp';
+          const path = 'purikura/'+PK.room+'/'+myCode()+'/'+i+'.webp';   // 서버는 방장(userCode) 경로만 받는다
           const u = await firebaseAPI.pkUploadFrame(path, dataUrl);
           PK.up[i].url = u;
           const pk = _purikura(); if(pk) await pk.setFrameUrl(i, u);
@@ -801,7 +798,7 @@ function _pkPaintSlots(){
     const m = PK.members[i];
     const d = document.createElement('div');
     d.className = 'pk-slot' + (m ? (i===_pkHostSlot() ? ' host' : '') : ' empty');
-    const mine = m && m.uid === getMyUserId();
+    const mine = m && m.uid === myCode();
     d.innerHTML = '<div class="pk-av"></div>'
       + '<div>' + (m ? (mine ? '나' : TwSafeHtml.text(m.name || '손님')) : '비어 있음') + '</div>'
       + '<div class="pk-rl">' + (m ? (i===_pkHostSlot() ? '👑 시작 권한' : '참가') : '먼저 온 순서') + '</div>';
@@ -1087,16 +1084,10 @@ function _pkSyncFrame(){
    ★ 메인 씬의 좌석을 **복제해서** 무대에 세운다. def 로 다시 만들면 파츠·얼굴·톤을 전부
      다시 붙여야 하고, 그 과정에서 실행 화면과 조금씩 달라진다. 보이는 그대로가 맞다.
    ⚠️ 머티리얼은 반드시 복제할 것 — 원본을 물들이면 실행 화면 캐릭터까지 같이 바뀐다. */
-/* ⚠️ **종류가 다른 두 값을 견주지 말 것.** 좌석에는 키가 둘 들어 있다 —
-     `s.friendId` = 방 멤버 키(랜덤), `s.friendUserId` = 진짜 유저 ID.
-     그런데 slots 에 적히는 uid 는 getMyUserId() 즉 **유저 ID** 다(openPurikura 의 pk.open 인자).
-     friendId 로 견주면 영영 안 맞아서 남의 좌석을 못 찾는다.
-   ★ 이 버그가 오래 안 보였던 이유 — _pkCloneChar(null) 이 null 을 주면 _pkSyncChars 가 조용히
-     넘어간다. 경고도 에러도 없고, 참가자 칸은 slots 만 보고 그리므로 이름은 멀쩡히 뜬다.
-     그래서 「양쪽 다 정상인데 무대만 비었다」 모양이 되어 통신 문제로 오해하게 된다.
-   ⚠️ 옛 좌석(userId 가 없는 구버전 상대)을 위해 friendId 갈래를 뒤에 남겨 둔다. */
+/* 자리 칸의 uid 는 userCode — 좌석의 friendUserId(방 포트가 멤버 userCode 를 넣는다)와 견준다.
+   ⚠️ friendId(방 멤버 키)와 견주면 영영 안 맞아 무대가 빈다 — 오류도 경고도 없이. */
 function _pkSeatOf(uid){
-  if(uid === getMyUserId()) return findMySeat();
+  if(uid === myCode()) return findMySeat();
   return seats.find(s=>s.remote && s.friendUserId && s.friendUserId === uid)
       || seats.find(s=>s.remote && s.friendId === uid)
       || null;
@@ -1913,7 +1904,7 @@ function _pkWaitCut(i){
 function _pkNextCut(i){                       // 방장 전용 — 다음 컷을 «연다»
   if(i >= PK.cuts){ _pkFinish(); return; }
   const pk = _purikura();
-  const at = (firebaseAPI.serverNow ? firebaseAPI.serverNow() : Date.now());
+  const at = _pkNow();
   if(pk) pk.setCut(i, at);
   _pkRunCountdown(i, at);
 }
@@ -1933,7 +1924,7 @@ function _pkRunCountdown(i, at){
   if(lb) lb.textContent = '🔒 세는 중에는 창을 닫을 수 없어요 — 남은 컷 ' + (PK.cuts - i) + '장';
   clearInterval(PK.timer);
   PK.timer = setInterval(()=>{
-    const now = (firebaseAPI.serverNow ? firebaseAPI.serverNow() : Date.now());
+    const now = _pkNow();
     const left = Math.max(0, PK_COUNT_SEC - Math.floor((now - PK.cutAt)/1000));
     const ce = _pkEl('pkCount');
     if(ce){ ce.textContent = String(left); ce.classList.toggle('hot', left <= 3); }
@@ -1992,7 +1983,7 @@ function _pkOnMeta(m){
            그 빈 목록이 곧 도착해서 여기서 되살린 옛 그림을 덮는다 — 스스로 낫는다. */
       /* ⚠️ 구독이 살아 있을 때만. 꾸미기(_pkOpenDeco)는 frames 구독을 떼고 노드를 지우므로,
          거기서 되살리면 완성본 위에 옛 프레임이 다시 얹힌다. */
-      if(PK.unframes) _pkOnFrames(PK.frameSrc);
+      if(PK.listening) _pkOnFrames(PK.frameSrc);
     }else if(inkOnly){
       _pkPaintBasics(); _pkPaintUp(); _pkSyncFrame();
     }
@@ -2190,8 +2181,7 @@ function _pkOpenDeco(){
        PK.up 을 지우고, 참가자 칸에는 다음 팀 사람들이 뜬다. 꾸미기는 통신이 없는 화면이다.
      ⚠️ 시트는 이 위에서 이미 다 구웠다(_pkFinish 가 _pkComposeSheet 를 await 한다).
        프레임도 사진도 전부 손에 있으므로 지금 놓아도 잃을 것이 없다. */
-  [PK.unslots, PK.unframes].forEach(f=>{ if(f) try{ f(); }catch(_){} });
-  PK.unslots = PK.unframes = null;
+  PK.listening = false;
   PK.members = {};
   { const pk0 = _purikura(); if(pk0) try{ pk0.release(); }catch(e){ console.warn('[스티커사진] 자리 반납 실패', e); } }
   _pkClampWin();                         // 600 → 840px 로 넓어졌다 — 오른쪽이 화면 밖으로 나갈 수 있다
@@ -2650,6 +2640,8 @@ return {
   phase: ()=>PK.state,                    // 'lobby' · 'shooting' · … — 회사원 모드는 촬영 중엔 안 닫는다
   /* _purikura() 세션 콜백 — ⚠️ 창이 닫혀 있는 동안에도 불린다(각 핸들러가 PK.open 을 먼저 본다) */
   onPeers(p){ PK.peers = p || {}; },
+  onSlots: _pkOnSlots,
+  onFrames: (o)=>{ if(PK.listening) _pkOnFrames(o || {}); },
   onMeta: _pkOnMeta,
   onPeerEvent: _pkOnPeerEvent,
   onShot: _pkOnShot,
