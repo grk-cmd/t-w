@@ -42,10 +42,10 @@ async function judge(S){
   {
     const P = SW.pickSource;
     chk(P('friends') === 'server' && P('catalog') === 'server' && P('gacha') === 'firebase',
-      '★ 친구 서버 먼저 · 카탈로그 서버 먼저 · 가챠 앱이 뽑기 — 옛 판의 «스위치 칸 없음» 기본값과 같다');
+      '★ 친구 서버 먼저 · 카탈로그 서버 먼저 · 표에서 뺀 가챠는 모르는 기능이라 파이어베이스 — 옛 판의 «스위치 칸 없음» 기본값과 같다');
     chk(P('rooms') === 'firebase', '  ↳ 방은 표에 없다(방은 room-rt.js 방 포트 하나 — 고르지 않는다) — 물어도 파이어베이스');
     chk(P('presence') === 'firebase' && P(undefined) === 'firebase' && P('toString') === 'firebase' && P('__proto__') === 'firebase', '모르는 기능은 파이어베이스(물려받은 이름에도 속지 않음)');
-    chk(JSON.stringify(Object.keys(SW.ONE_WAY)) === JSON.stringify(['friends', 'catalog', 'gacha']) && Object.isFrozen(SW.ONE_WAY), '표 — friends · catalog · gacha · 바꿀 수 없다');
+    chk(JSON.stringify(Object.keys(SW.ONE_WAY)) === JSON.stringify(['friends', 'catalog']) && Object.isFrozen(SW.ONE_WAY), '표 — friends · catalog · 바꿀 수 없다');
     chk(SW.store.pick === SW.pickSource && SW.store.serverFirst === SW.serverFirst, 'store — 같은 두 함수(부르는 쪽 줄은 그대로)');
     chk(!/TwRemoteConfig|sources\(|friendsApi|roomServer/.test(strip(S.SS)), '원격 설정 · 옛 스위치를 읽지 않는다(0.13 설정에 칸이 없다)');
   }
@@ -82,7 +82,7 @@ async function judge(S){
     chk(iS > 0 && iA > iS && /<script type="module" src="parts\/firebase-init\.js">/.test(h), 'html — app.js 보다 먼저(firebase-init.js 는 module 이라 classic 이 다 돈 뒤에 돈다)');
     const a = strip(S.APP), fi = strip(S.FI);
     chk(/  source: \(\)=>TwSourceSwitch\.store\.pick\('friends'\),/.test(a) && /  serverFirst: TwSourceSwitch\.serverFirst,/.test(a), '친구 — app.js 가 포트에 pick(friends) · serverFirst 를 넘긴다');
-    chk(/gachaSource: \(\)=>TwSourceSwitch\.store\.pick\('gacha'\),/.test(a), '가챠 — app.js 가 pick(gacha) 를 넘긴다');
+    chk(!/pick\('gacha'\)/.test(a), '가챠 — 고르지 않는다(서버 원본 하나뿐)');
     chk(!/pick\('rooms'\)/.test(fi) && !/pick\('rooms'\)/.test(a), '방 — 고르지 않는다(방 포트 하나)');
     chk(/source: \(\) => window\.TwSourceSwitch\.store\.pick\('catalog'\),/.test(fi) && /serverFirst: window\.TwSourceSwitch\.serverFirst, SKIP: window\.TwSourceSwitch\.SKIP,/.test(fi),
       '카탈로그 — firebase-init 이 본문 받기에 pick(catalog) · serverFirst · SKIP 을 넘긴다');
@@ -102,7 +102,6 @@ await judge(SRC0);
 
 say('── 4. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const BREAKS = [
-  ['SS', "  gacha: SOURCE.FIREBASE,", "  gacha: SOURCE.SERVER,", '가챠를 서버 뽑기로(서버 응답 모양이 바뀜)'],
   ['SS', "  catalog: SOURCE.SERVER,", "  catalog: SOURCE.FIREBASE,", '카탈로그가 서버를 안 씀'],
   ['SS', "  return Object.prototype.hasOwnProperty.call(ONE_WAY, feature) ? ONE_WAY[feature] : SOURCE.FIREBASE;", "  return ONE_WAY[feature] || SOURCE.SERVER;", '모르는 기능을 서버로'],
   ['SS', "      if(v !== SKIP) return { v, from: SOURCE.SERVER };", "      return { v, from: SOURCE.SERVER };", 'SKIP 을 값으로 씀'],

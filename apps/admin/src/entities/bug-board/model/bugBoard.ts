@@ -8,7 +8,7 @@ import { kstDateKey } from '@/shared/lib';
  *   bugBoard/prv/{authUid}/{id}   비공개 글 — 글쓴이 · 관리자만
  *   bugBoard/ans/{pub|prv}/{id}   운영자 답변
  *   bugBoard/rep/{pub|prv}/{id}   글쓴이 답글(글쓴이만 쓴다 · 글의 공개 범위 갈래에 둔다). userReplyTs = 마지막 글쓴이 답글 시각
- * openTs = 미해결(new · checking · unfixed)일 때만 ts, nts = 공지면 ts — 목록 쿼리가 이 칸으로 미해결 · 공지만 집는다.
+ * openTs = 미해결(new · checking · review · unfixed)일 때만 ts, nts = 공지면 ts — 목록 쿼리가 이 칸으로 미해결 · 공지만 집는다.
  */
 
 export const BUG_ROOT = 'bugBoard';
@@ -24,12 +24,14 @@ export const KAKAO_RE = /^https:\/\/open\.kakao\.com\//;
 export const BUG_NO_RE = /^B-\d{4}-\d{1,4}$/;
 
 export type BugVis = 'pub' | 'prv';
-export type BugStatus = 'new' | 'checking' | 'fixed' | 'norepro' | 'unfixed';
-export type BugFilter = 'open' | 'all' | 'notice';
+export type BugStatus = 'new' | 'checking' | 'review' | 'fixed' | 'norepro' | 'unfixed';
+export type BugFilter = 'open' | 'suggest' | 'all' | 'notice';
 
 export const BUG_STATUS: Record<BugStatus, string> = {
   new: '접수',
   checking: '확인 중',
+  // 관리자가 건의를 «검토중» 으로 둔 글 — 미해결에 낀다
+  review: '검토중',
   fixed: '수정 완료',
   norepro: '재현 안 됨',
   // 글쓴이가 답글로 «해결 안 됨» 을 고른 글 — 미해결에 낀다(앱 BUG_STATUS · 규칙 status 정규식과 짝)
@@ -44,16 +46,24 @@ export const BUG_CATS: Record<string, string> = {
   room: '방 · 접속',
   chat: '채팅',
   myhome: '마이홈',
+  suggest: '건의',
   etc: '기타',
 };
 
 export const BUG_FILTERS: { id: BugFilter; label: string; key: 'openTs' | 'ts' | 'nts' }[] = [
   { id: 'open', label: '미해결', key: 'openTs' },
+  // 미해결 중 «건의» 만 — 규칙이 분류로 거르는 쿼리를 안 받아 미해결 쪽을 받아 거른다(api listSuggestPage)
+  { id: 'suggest', label: '미해결 건의', key: 'openTs' },
   { id: 'all', label: '전체', key: 'ts' },
   { id: 'notice', label: '공지', key: 'nts' },
 ];
 
 export const filterKey = (filter: BugFilter) => BUG_FILTERS.find((f) => f.id === filter)?.key ?? 'ts';
+
+export const BUG_SUGGEST_CAT = 'suggest';
+export const isSuggestion = (it: BugItem) => it.cat === BUG_SUGGEST_CAT;
+/** «미해결 건의» 한 화면에서 거슬러 받을 미해결 쪽 수 상한 — 한 쪽 20줄이라 최대 100줄을 본다. */
+export const SUGGEST_SCAN_PAGES = 5;
 
 export interface BugItem {
   id: string;
@@ -98,7 +108,8 @@ export interface BugAnswer {
   st?: BugStatus;
 }
 
-export const isOpen = (st: BugStatus) => st === 'new' || st === 'checking' || st === 'unfixed';
+export const isOpen = (st: BugStatus) =>
+  st === 'new' || st === 'checking' || st === 'review' || st === 'unfixed';
 
 /** 운영자의 마지막 답변 뒤에 글쓴이 답글이 있다 — 관리자가 볼 차례. */
 export const hasAuthorReply = (item: Pick<BugItem, 'userReplyTs' | 'lastReplyTs'>) =>
@@ -144,6 +155,22 @@ export function toBugItem(id: string, v: unknown): BugItem | null {
 
 /** 🛡 운영진 글 — byAdmin 또는 공지(공지는 관리자만 쓴다). 이름으로 가르지 않는다. */
 export const isStaffPost = (item: Pick<BugItem, 'byAdmin' | 'notice'>) => !!item.byAdmin || !!item.notice;
+
+/** 비공개 글이라 닉네임을 따로 읽어야 하는가 — 목록 칸 이름이 «익명» 이라 관리자는 글쓴이 코드로 지금 닉네임을 읽는다. */
+export const needsAuthorLookup = (item: Pick<BugItem, 'vis' | 'code'>) => item.vis === 'prv' && !!item.code;
+
+/**
+ * 관리자 화면의 글쓴이 이름 — 비공개 글은 «익명 (지금 닉네임)». 닉네임을 아직 못 읽었거나 없으면 목록 칸 이름 그대로.
+ * 닉네임은 글 쓸 때가 아니라 지금 이름이다(목록 칸에는 비공개 글 이름을 남기지 않는다).
+ */
+export function bugAuthorName(
+  item: Pick<BugItem, 'vis' | 'name'>,
+  nickname: string | null | undefined,
+): string {
+  const base = item.name || '이름 없음';
+  const nick = typeof nickname === 'string' ? nickname.trim() : '';
+  return item.vis === 'prv' && nick ? `${base} (${nick})` : base;
+}
 
 // 하루 제보 상한 — 앱이 config/bugDailyMax 를 읽는다(없으면 기본값). 규칙 .validate 와 같은 범위.
 export const BUG_DAILY_MAX_PATH = 'config/bugDailyMax';

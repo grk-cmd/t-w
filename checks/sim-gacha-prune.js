@@ -2,7 +2,7 @@
    실행: node sim-gacha-prune.js  (app.js · gacha.js · smoke.js 와 같은 폴더에서)
    ※ 🎰 가챠 코어는 parts/character/gacha.js 로 옮겼다(앱 FSD 8번) — html 처럼 app.js 앞에 먼저 평가하고, 보유분 · 회수 · 동기화는 gachaMod 로 부른다.
 
-   제보 재현:
+   제보 재현(보유분은 서버가 원본 — 받은 뒤에만 회수한다):
      · A기기에서 뽑아 착용 → B기기 연동 → 보관함은 ❔인데 화면엔 그대로 붙어 있다
      · 패치 전부터 켜져 있던 PC에서 초기화된 욕조가 계속 보인다(보관함에도 없어 해제 불가) */
 'use strict';
@@ -29,17 +29,19 @@ const probe = `
   prune: ()=>gachaMod.pruneUnownedGachaParts(),
   merge: o=>mergeCatalogIntoSavedParts(o),
   stubScene: fn=>{ getPartScene = fn; },
-  sync: (r,m)=>gachaMod.syncGachaToServer(r,m),
+  sync: ()=>gachaMod.pullGacha(false),
+  setApi: o=>Object.assign(gachaApiMod, o),
   catIds: (d,c)=>catEquippedIds(d,c),
   addEntry: (d,c,e)=>addEntryToCat(d,c,e),
   setAdmin: v=>{ isAdmin = v; },
+  closetLoaded: ()=>applySlotObjs([], new Set()),
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};
 /* gacha.js 가 없으면 «못 찾음» 으로 멈춘다 — app.js 만 굴리면 빈 껍데기(GACHA_OFF)라 아무것도 안 지킨 채 초록이 된다. */
 if (!fs.existsSync('gacha.js')) { say('  ? 원본 못 찾음 — gacha.js'); process.exit(2); }
 try { vm.runInThisContext(fs.readFileSync('gacha.js', 'utf8'), { filename: 'gacha.js' }); vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
-catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,5).join('\n')); process.exit(1); }
+catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e).toString().split('\n').slice(0,14).join(' | ')); process.exit(1); }
 console.log = say;
 
 const P = globalThis.__P;
@@ -67,14 +69,9 @@ function freshWorld(){
 }
 const wearing = seat => P.catIds(seat.charDef, CAT).includes(REC.id);
 
-/* 서버 스텁 — owned 를 비운 채 읽기에 성공한다(= B기기 / 초기화된 계정) */
-function serverStub({ readOk = true, owned = {}, ts = 0, delay = 0 } = {}){
-  globalThis.window = globalThis.window || globalThis;
-  window.firebaseAPI = {
-    loadGachaOwned: () => new Promise(res => realST(()=>res(readOk ? { owned, ts } : null), delay)),
-    updateGacha: (uid, apply) => { const v = apply({ owned, ts }); return Promise.resolve({ ok:true, committed: v != null, value: v || { owned, ts } }); },
-  };
-  globalThis.firebaseAPI = window.firebaseAPI;
+/* 서버 스텁 — 가챠 서버 길(gachaApi.load)을 갈아 끼운다. owned 를 비운 채 읽기에 성공한다(= B기기 / 초기화된 계정) */
+function serverStub({ readOk = true, owned = {}, delay = 0 } = {}){
+  P.setApi({ load: () => new Promise((res, rej) => realST(() => readOk ? res({ owned, unlocked: {}, earned: 0, bonus: 0, left: 0, season: 'summer' }) : rej(Object.assign(new Error('x'), { kind: 'unavailable' })), delay)) });
 }
 
 (async ()=>{
@@ -82,8 +79,8 @@ say('\n── 1. 카탈로그가 준비된 상태 (정상 경로)');
 {
   P.setSaved([REC]); P.setOwned({}); P.setAdmin(false);
   const seat = freshWorld();
-  serverStub({ owned:{}, ts: Date.now() });
-  await P.sync('inv-open');
+  serverStub({ owned:{} });
+  await P.sync();
   await new Promise(r=>realST(r, 30));
   chk(!wearing(seat), '보유 0인 가챠 파츠가 착용 목록에서 빠진다');
 }
@@ -93,8 +90,8 @@ say('\n── 2. 부팅 경쟁 — 카탈로그(savedParts)가 아직 안 내려
   P.setSaved([]); P.setOwned({}); P.setAdmin(false);
   P.stubScene(()=>Promise.reject(new Error('GLB 없음')));   // 부착은 이 검증기의 관심사가 아니다
   const seat = freshWorld();
-  serverStub({ owned:{}, ts: Date.now() });
-  await P.sync('boot');
+  serverStub({ owned:{} });
+  await P.sync();
   await new Promise(r=>realST(r, 30));
   say('    (이 시점엔 카탈로그가 없어 회수가 물러난다 — 착용 유지: ' + wearing(seat) + ')');
 
@@ -110,7 +107,7 @@ say('\n── 3. 서버 읽기 실패 (오프라인 부팅) — 설계상 정리
   P.setSaved([REC]); P.setOwned({}); P.setAdmin(false);
   const seat = freshWorld();
   serverStub({ readOk:false });
-  await P.sync('boot');
+  await P.sync();
   await new Promise(r=>realST(r, 30));
   chk(wearing(seat), '보유분을 모르면 벗기지 않는다(의도된 동작)');
 }
@@ -119,14 +116,15 @@ say('\n── 4. 재진입 가드 — 느린 부팅 동기화 중에 보관함�
 {
   P.setSaved([REC]); P.setOwned({}); P.setAdmin(false);
   const seat = freshWorld();
-  serverStub({ owned:{}, ts: Date.now(), delay: 300 });
-  const boot = P.sync('boot');            // 진행 중
+  serverStub({ owned:{}, delay: 300 });
+  const boot = P.sync();            // 진행 중
   await new Promise(r=>realST(r, 50));
-  await P.sync('inv-open');               // 사용자가 T키를 누른 순간 — 삼켜지지만 적어 둔다
+  await P.sync();                         // 사용자가 T키를 누른 순간 — 삼켜지지만 적어 둔다
   await new Promise(r=>realST(r, 20));
   say('    (읽기가 끝나기 전엔 판단하지 않는다 — 착용 유지: ' + wearing(seat) + ')');
   await boot; await new Promise(r=>realST(r, 100));
   chk(!wearing(seat), '읽기가 끝나는 즉시 맞춰진다(삼켜진 요청이 재시도된다)');
+  await new Promise(r=>realST(r, 400));   // 삼켜진 요청이 한 번 더 도는 것까지 끝나야 다음 장면이 «받는 중» 에 걸리지 않는다
 }
 
 say('\n── 5. 카탈로그에서 사라진 파츠 (시즌 종료·이관 중) — 의도된 미지원');
@@ -134,8 +132,8 @@ say('\n── 5. 카탈로그에서 사라진 파츠 (시즌 종료·이관 중)
   P.setSaved([{ id:'other', cat:CAT, gacha:true }]);   // g_bath 레코드가 없다
   P.setOwned({}); P.setAdmin(false);
   const seat = freshWorld();
-  serverStub({ owned:{}, ts: Date.now() });
-  await P.sync('inv-open');
+  serverStub({ owned:{} });
+  await P.sync();
   await new Promise(r=>realST(r, 30));
   say((wearing(seat) ? '  · ' : '  ✓ ') + '카탈로그에 없는 착용 파츠 — 조회 실패를 「가챠 아님」으로 단정하지 않는 관례라 남는다');
 }
@@ -145,21 +143,33 @@ say('\n── 6. gacha 플래그가 지워진 파츠 (migrate 사고 흔적) —
   P.setSaved([{ id:'g_bath', cat:CAT, name:'욕조' }]);  // gacha:false
   P.setOwned({}); P.setAdmin(false);
   const seat = freshWorld();
-  serverStub({ owned:{}, ts: Date.now() });
-  await P.sync('inv-open');
+  serverStub({ owned:{} });
+  await P.sync();
   await new Promise(r=>realST(r, 30));
   say((wearing(seat) ? '  · ' : '  ✓ ') + 'gacha 플래그를 잃은 파츠 — 같은 이유로 남는다(카탈로그 완료 신호가 생기면 열 수 있다)');
 }
 
-say('\n── 7. 서버 ts 가 미래로 오염된 상태 — 내 파츠를 벗기면 안 된다');
+say('\n── 6-2. 옷장 받기가 가챠 받기보다 늦게 끝남 — 받아 앉힌 뒤에도 회수');
 {
-  P.setSaved([REC]); P.setOwned({ [REC.id]: 2 }); P.setAdmin(false);
+  P.setSaved([REC]); P.setOwned({}); P.setAdmin(false);
+  P.seats.length = 0;
+  serverStub({ owned:{} });
+  await P.sync();
+  await new Promise(r=>realST(r, 30));
+  const seat = freshWorld();   // 가챠는 이미 받았고, 이제서야 서버 옷장의 캐릭터가 앉는다
+  await P.closetLoaded();
+  chk(!wearing(seat), '옷장을 받아 앉힌 뒤 미보유 가챠 파츠를 벗긴다(가챠가 먼저 끝나 빈 슬롯을 보고 지나간 경우)');
+}
+
+say('\n── 7. 서버가 «가졌다» 고 하는 파츠 — 내 파츠를 벗기면 안 된다');
+{
+  P.setSaved([REC]); P.setOwned({}); P.setAdmin(false);
   const seat = freshWorld();
-  serverStub({ owned:{}, ts: Date.now() + 60*60*1000 });   // 서버는 비었고 ts 만 1시간 미래
-  await P.sync('boot');
+  serverStub({ owned:{ [REC.id]: 2 } });
+  await P.sync();
   await new Promise(r=>realST(r, 60));
-  chk(wearing(seat), '오염된 서버 값에 속아 착용을 벗기지 않는다');
-  chk((P.getOwned()[REC.id]|0) === 2, '보유분도 그대로 남는다');
+  chk(wearing(seat), '서버 보유분에 있는 파츠는 착용이 그대로다');
+  chk((P.getOwned()[REC.id]|0) === 2, '보유분은 서버 값으로 받는다');
 }
 
 say(fail ? '\n✗ 실패 ' + fail + '건' : '\n✓ 전부 통과');

@@ -1,5 +1,5 @@
 /*
- * 앱 버전을 presence 와 라이선스 요청에 싣는다 — 웹 관리자가 누가 어느 판을 쓰는지 본다.
+ * 앱 버전을 presence 에 싣는다 — 웹 관리자가 누가 어느 판을 쓰는지 본다.
  * 버전은 preload 의 companion.getAppVersion()(비동기 IPC)으로 한 번만 받는다.
  * companion 이 없거나(웹 · 검사) 실패하거나 모양이 이상하면 get() · ready 는 null(최소 버전 게이트 · 방 서버 · 방문 집계는 «모름» 으로 본다).
  * ⚠️ 그래도 쓰는 객체(withVer)에는 ver 를 **늘** 싣는다 — 모르면 APP_VER_UNKNOWN.

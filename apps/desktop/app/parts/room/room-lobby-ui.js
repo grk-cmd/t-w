@@ -49,7 +49,7 @@ const now = deps.now;
 const random = deps.random;
 
 const $ = (id) => document.getElementById(id);
-const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, state: null, loading: false, joining: false, timer: null, seq: 0, secretSeq: 0 };
+const st = { channel: 'workingroom', onlyOpen: false, page: 0, node: undefined, state: null, loading: false, timer: null, seq: 0, secretSeq: 0 };
 
 function el(tag, cls, text){
   const e = document.createElement(tag);
@@ -165,11 +165,8 @@ async function paintSecret(){
   if(my === st.secretSeq && g != null) $('lobbySecretCount').textContent = '손님 ' + g + '/' + Math.max(0, maxPeople() - 1);
 }
 
-async function join(code){
-  if(st.joining) return;
-  st.joining = true;
-  try{ await joinRoom(code); }finally{ st.joining = false; }
-}
+// 연달아 눌러도 한 번 — 막기는 room-entry joinRoom 한 곳(코드 칸 · 최근 방과 같은 깃발)
+function join(code){ return joinRoom(code); }
 
 // 모달이 닫혔으면(닫기 · 바깥 클릭 · ESC · 입장) 스스로 멈춘다 · 만들기 창이 덮었거나 방 안이면 이번 차례만 건너뛴다
 function startTimer(){

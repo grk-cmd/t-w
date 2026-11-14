@@ -27,10 +27,8 @@ const HOOKS = {
   _mhSyncBgmBounds: 'myhome/myhome-ui.js', openMyHome: 'myhome/myhome-ui.js',
   _mhFitWindow: 'myhome/myhome-sticker-layout.js',
   _mhGbStartWatch: 'myhome/guestbook.js', _mhGbStopWatch: 'myhome/guestbook.js', _mhGbRefreshBadge: 'myhome/guestbook.js',
-  _mhGbRefreshWriteUI: 'myhome/guestbook.js', _mhGbMarkAllRead: 'myhome/guestbook.js', _mhReSubscribeGuestbook: 'myhome/guestbook.js',
-  _mallangOnOpen: 'myhome/mallang.js', _mallangOnClose: 'myhome/mallang.js', _mallangSeenGifts: 'myhome/mallang.js',
-  _mallangOpenGift: 'myhome/mallang.js', _mallangGiftOrder: 'myhome/mallang.js', _mallangIsGiftHidden: 'myhome/mallang.js',
-  _mallangDeleteGift: 'myhome/mallang.js',
+  _mhGbMarkAllRead: 'myhome/guestbook.js', _mhReSubscribeGuestbook: 'myhome/guestbook.js',
+  /* 🧸 말랑이(_mallang*) 고리는 걷었다 — mallang.js 는 createMallang(deps) 모양이고 부르는 곳은 deps mallangMod(sim-mallang-module.js) */
   _bugBoardOpen: 'support/bug-board-ui.js', _bugBoardRefreshBadge: 'support/bug-board-ui.js',
   /* 🕒 포커스 · 🎨 꾸미기 · 🚪 방 · 🎵 플레이리스트 · 🛠️ 관리자(4단계 2-2 — app.js 안의 부름은 구역 떼기와 겹치지 않게 그 작업 뒤에) */
   _focusLogClamp: 'focus/focus-log.js', refreshWardrobe: 'character/wardrobe-panel.js',
@@ -70,8 +68,8 @@ const g = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + "\nif(ty
 chk(judge(g).guarded.length > 0, '가드가 다시 생기면 빨강');
 const d = FILES.map(([f, t]) => [f, f === 'myhome/myhome-page.js' ? t + '\nwindow._mhApplyBg = ()=>{};\n' : t]);
 chk(judge(d).badOwner.some(x => x.startsWith('_mhApplyBg')), '다른 파일이 같은 고리를 또 걸면 빨강');
-const gone = FILES.map(([f, t]) => [f, f === 'myhome/mallang.js' ? t.replace(/window\._mallangGiftOrder\s*=/g, 'window._mallangGiftOrderX =') : t]);
-chk(judge(gone).badOwner.some(x => x.startsWith('_mallangGiftOrder(')), '거는 줄이 없어지면 빨강');
+const gone = FILES.map(([f, t]) => [f, f === 'myhome/myhome-edit.js' ? t.replace(/window\._mhApplyBg\s*=/g, 'window._mhApplyBgX =') : t]);
+chk(judge(gone).badOwner.some(x => x.startsWith('_mhApplyBg(')), '거는 줄이 없어지면 빨강');
 
 say((fail ? '✗' : '✓') + ' 통과 ' + pass + ' · 실패 ' + fail);
 process.exit(fail ? 1 : 0);

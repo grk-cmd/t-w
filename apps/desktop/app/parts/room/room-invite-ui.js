@@ -325,10 +325,11 @@ function showRoomInvitePopup(fromName, roomCode, cb){
   box.querySelector('[data-a="ok"]').onclick = ()=>done(true);
   box.querySelector('[data-a="no"]').onclick = ()=>done(false);
 }
-// Firebase 준비되면 수신 구독 시작
-_bindRoomInviteReceiver();   // 받은 초대는 realtime 연결 하나로 온다(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다)
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 받은 초대는 realtime 연결 하나로 온다(로그인 뒤 붙으면 남은 초대를 서버가 다시 보낸다) */
+function startReceive(){ _bindRoomInviteReceiver(); }
 
 return {
+  startReceive,
   showPopup: showRoomInvitePopup,     // 받은 초대 팝업(검사용)
   busy: ()=>_roomInviteBusy,          // 팝업이 떠 있는 동안 true(검사용)
 };

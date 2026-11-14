@@ -78,7 +78,10 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `guestbook.js` · `scheduler.js` | 방명록 · 스케줄러 · 일정 알림 | fb 15 · 24 |
 | `myhome-desktop.js` · `folder-free.js` · `bookmark.js` · `mallang.js` | 마이홈 바탕화면 · 폴더 자유배치 · 북마크 책장 · 말랑이 | fb 98 · 27 |
 | `myhome-links.js` · `myhome-diag.js` | 본문 링크 · 클릭 진단(콘솔) | — |
-| `broadcast-cache.js` (ES) | 공용 공지(inboxBroadcast) 버전 확인 + 로컬 캐시 | (firebase-init 이 연결) |
+| `inbox-api.js` · `mail-feed.js` | 📩 내 우편 — 서버 길(`/v1/me/notifications`) · 받아 들고 있는 한 벌(받는 중 · 못 받음 · 새 우편 알림 · 읽음 · 지우기). 사용법은 `README.md` | 서버 |
+| `gift-api.js` | 🧸 말랑이 · 🎁 선물 서버 길(`/v1/me/mallangs` · `/v1/me/gifts` · `/v1/gifts/{code}`) provider — 만드는 곳은 말랑이 칸(`mallang-store.js`) · 선물 상태 주인(`gift-box.js`). 사용법은 `README.md` | 서버 |
+| `gift-box.js` | 🎁 선물 상태 주인 — 내 선물함(받기 · ⭐ · 치움 · 지우기 · 봤음 · 신호 `gifts`) · 그 집에 나온 선물 받기. 사용법은 `README.md` | 서버 |
+| `launcher/notice-api.js` · `launcher/notice-feed.js` | 📢 공지 한 판(`/v1/notices` — 소식 · 업데이트 공지 · 런처 배너) + 관리자 소식 쓰기. 확성기는 realtime `announce`(`room/overhead.js`). 사용법은 `launcher/README.md` | 서버 |
 
 ### 4-1. 👥 `friends/` — 친구 데이터 포트 · provider (서버 이관 — 사용법은 `apps/desktop/app/parts/friends/README.md`)
 
@@ -86,7 +89,9 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `friends-port.js` | 포트 — 친구 목록 받기 · 목록 듣기 · 접속 상태 듣기. friends-sub.js(마이홈)가 부른다 | — |
 | `friends-firebase.js` | 옛 길 provider — 상시 구독은 목록 하나 · 카드는 열 때 한 번 · 접속 상태는 목록이 열려 있는 동안만(나중에 걷음) | fb 0(deps 로) |
-| `friends-api.js` | api provider — GET /v1/me/friends · 요청 규칙(5초 · 서버 문제면 두 번 더 · 401 · 400 은 바로 옛 길) | api(로그인) |
+| `friends-api.js` | 서버 provider — social-api 위 목록 + 명함 → 친구 칸 · 알림(friends · card)을 받으면 다시 받기 · 끊기 | api(로그인) · realtime 알림 |
+| `social-api.js` | 👥 친구 · 친구 요청 · 명함 서버 길(`/v1/me/friends` · `/v1/me/friend-requests` · `/v1/myhomes/cards`) provider — friends-api.js · friend-requests-api.js 가 부름. 사용법은 `README.md` | 서버 |
+| `friend-requests-port.js` · `friend-requests-api.js` · `friend-requests-firebase.js` | 👋 친구 요청 포트 · 서버 provider(받은 요청 · 이름 · 알림 friendRequests · 수락 · 거절 · 취소 · 보내기 · 친구코드 찾기) · 옛 길 provider(Firebase) | api(로그인) · realtime 알림 · fb 0(deps 로) |
 
 ## 5. 🧍 `character/` — 캐릭터 · 꾸미기 ✅ 옮김(폴더 10번)
 
@@ -134,12 +139,11 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 
 | 파일 | 하는 일 | 서버 |
 |---|---|---|
-| `account.js` · `my-info.js` | 로그인 · 로그아웃 · 신원 지우기 · 내 정보(랭킹 · 보관함 · 휴지통 · 계정 탭) | fb 44 · 16 |
+| `account.js` · `my-info.js` | 로그인 · 로그아웃 · 신원 지우기 · 내 정보(보관함 · 휴지통 · 계정 탭) | fb 44 · 16 |
 | `license-gate.js` | 초대장 — 앱 접근 제한 | fb 60 |
-| `license-ui.js` · `license-key.js` · `license-request.js` | 라이선스 화면 · 키 등록 / 해제 · 요청 | fb 6 |
+| `license-ui.js` · `license-key.js` | 라이선스 화면 · 키 등록 / 해제 | fb 6 |
 | `device-lost.js` · `name-guard.js` | 한 계정 한 기기 · 운영진처럼 보이는 이름 막기 | fb 4 |
-| `invite-account.js` · `invite-revoke.js` (ES) | 초대 게이트용 계정 읽기 · 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
-| `group-invite.js` (ES) | 여러 명이 쓰는 초대 코드(관리자가 웹 관리자에서 만든 코드) 소진 · 가입 마무리 — 한 명짜리 `invites/` 에 없을 때만 | (firebase-init 이 연결) |
+| `invite-revoke.js` (ES) | 초대권 전체 회수(관리자) | (firebase-init 이 연결) |
 
 ## 10. 🖥️ `launcher/` — 런처 · 앱 껍데기 ✅ 옮김(폴더 7번)
 
@@ -147,7 +151,8 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `settings-panel.js` · `program-settings.js` | 설정 패널 · 캐릭터 탭 · 닉네임 · 프로그램 설정(회사원 · 피규어 모드) | fb 2 |
 | `desktop-run.js` | 데스크탑 실행 화면 — 업데이트 배너 · 활성 앱 · 전역 입력 · 클릭 통과 · 하트비트 | — |
-| `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` | 런처 타이틀바 · 함수키 · 광고 배너 · 게임 설정 구독 | fb 5 |
+| `launcher-chrome.js` · `fn-keys.js` · `ad-banner.js` | 런처 타이틀바 · 함수키 · 광고 배너(공지 한 판에서 그림) · 게임 설정 구독 | fb 5 |
+| `app-boot.js` | 🚀 켜는 순서 한 곳 — 계정 확인 뒤 옛 값 옮기기 → 계정 칸 열기 → realtime → 계정 기능 열다섯 시작(차례 표 `STEPS`). 사용법은 `launcher/README.md` | — |
 
 ## 11. 🐞 `support/` — 제보 · 신고 ✅ 옮김(폴더 2번)
 
@@ -155,6 +160,7 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 |---|---|---|
 | `bug-board-ui.js` | 버그 제보 게시판 화면 | fb 8 |
 | `report.js` | 신고하기 · 신고 창 도우미(관리자 목록은 `admin/admin-report.js`) | — |
+| `report-api.js` | 🚩 신고 서버 길(`POST /v1/reports`) provider — 사유 이름 → 서버 종류 이름. 사용법은 `README.md` | 서버 |
 | `bug-board.js` (ES) | 버그 게시판 데이터 | (firebase-init 이 연결) |
 
 ## 12. 📷 `purikura/` — 스티커사진 ✅ 옮김(폴더 1번)
@@ -177,12 +183,12 @@ app.js 안에 남은 구역(남기는 이유는 `docs/APP_FSD_MAP.md` «남기�
 | `rich-text.js` · `sfx.js` · `frame-budget.js` · `gl-recover.js` | 리치 텍스트 sanitize · 효과음 공장 · 프레임 예산 · 3D 연결 끊김 복구 |
 | `theme.js` · `theme-ui.js` | 디자인 테마 · 자식 창 테마 |
 | `api-client.js` · `remote-config.js` · `api-errors.js` · `request-id.js` · `device-id.js` | 서버 API 통로 · 원격 설정(GET /v1/config) · 오류 번역 · 요청 번호 · 기기 id (api) |
-| `api-public-reads.js` · `app-version.js` · `app-version-gate.js` · `visit-ping.js` (ES) | 공개 읽기 API 먼저 · 앱 버전 싣기 · 최소 버전 막기 · 방문 집계 |
+| `api-public-reads.js` · `app-version.js` · `visit-ping.js` (ES) | 공개 읽기 API 먼저 · 앱 버전 싣기 · 방문 집계 (최소 버전 막기 → 업데이트 흐름은 classic `shared/update-flow.js`) |
 
 ## 15. ③ 폴더로 나눌 때 — 같이 고칠 곳과 함정
 
 - **HTML `<script src>`**(`apps/desktop/app/desk-companion-prototype.html`): 경로만 바꾸고 **싣는 순서는 그대로**(classic script 는 순서가 곧 의존).
-- **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`broadcast-cache.js → catalog-cache.js` · `room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
+- **ES 모듈 import**: `firebase-init.js` 머리의 `import … from "./room-index.js"` 등 18줄, 그리고 모듈끼리(`room-index.js → room-channel.js`). 폴더가 달라지면 `"./room/room-index.js"` · `"../room/…"` 로.
 - **⚠️ 검사가 못 잡는 자리**(→ `sim-parts-paths.js` 로 막음 · 폴더 1번): 검사 러너(`checks/run.js`)는 `apps/desktop/app/parts/` 아래를 **평평하게 펴서** 돌린다. 그래서 실제 앱에서 `<script src>` · import 경로가 틀려도 검사는 초록이다. → 첫 폴더 PR 에서 «실제 폴더 기준으로 `<script src>` · 상대 import 가 다 있는 파일을 가리키는가» 를 보는 검사를 먼저 넣는다.
 - **파일 이름은 폴더가 달라도 겹치면 안 된다** — 러너가 이름으로 찾는다(겹치면 `flatDup` 로 알린다).
 - **소리 · 그림 파일**(`parts/click.mp3` 등)은 옮기지 않는다 — 코드 안 경로(`'parts/click.mp3'`)가 그대로 맞게.

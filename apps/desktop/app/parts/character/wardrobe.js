@@ -20,15 +20,11 @@ const PART_DEFAULT_OFFSET = deps.PART_DEFAULT_OFFSET;   // 읽는 함수
 const PART_GROUPS = deps.PART_GROUPS;   // 읽는 함수
 const Presence = deps.Presence;   // 읽는 함수
 const WD_DESK_TAB = deps.WD_DESK_TAB;   // 읽는 함수
-const _FILL_LIGHT_MUL = deps._FILL_LIGHT_MUL;
-const _KEY_LIGHT_MUL = deps._KEY_LIGHT_MUL;
-const _MAIN_LIGHT_COL = deps._MAIN_LIGHT_COL;
-const _MAIN_LIGHT_INT = deps._MAIN_LIGHT_INT;
 const _attachHumanEars = deps._attachHumanEars;
 const _disposeWrapperFromSeat = deps._disposeWrapperFromSeat;
 const _hsvToHex = deps._hsvToHex;
 const _invalidatePendingEquip = deps._invalidatePendingEquip;
-const _mkFrontFill = deps._mkFrontFill;
+const addRunLights = deps.addRunLights;
 const _rgbHexToHsv = deps._rgbHexToHsv;
 const _sweepOrphanPartWrappers = deps._sweepOrphanPartWrappers;
 const _wdLicenseDesks = deps._wdLicenseDesks;
@@ -81,6 +77,8 @@ const slots = deps.slots;   // 읽는 함수
 const toast = deps.toast;
 const unequipStackablePart = deps.unequipStackablePart;
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
+const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id(desk-visual.js 가 그린다)
+const layoutSeats = deps.layoutSeats;   // 책상이 생기거나 없어지면 좌석 줄 자리를 다시 잡는다
 const DESK_LICENSE_HOLD = deps.DESK_LICENSE_HOLD;   // 읽는 함수
 const DESK_SCALE_DEFAULT = deps.DESK_SCALE_DEFAULT;   // 읽는 함수
 const DESK_SCALE_MAX = deps.DESK_SCALE_MAX;   // 읽는 함수
@@ -93,6 +91,7 @@ const applyDeskDotThumb = deps.applyDeskDotThumb;
 const clampDeskScale = deps.clampDeskScale;
 const humanEar = deps.humanEar;
 const resolveCatalogGlb = deps.resolveCatalogGlb;
+const glbFailWhy = deps.glbFailWhy;   // 책상 받기 실패 이유 — E-CHAR-13 진단 줄(catalog-glb.js)
 const setDeskScale = deps.setDeskScale;
 const swThumb = deps.swThumb;
 /* 🎨 꾸미기 미리보기 — 꾸미기 패널 옆에 뜨는 정적 3D 미리보기.
@@ -125,16 +124,20 @@ const wdEar = (typeof WdEar === 'undefined' || !humanEar) ? WD_EAR_OFF : WdEar.c
 /* 🛠 관리자 파츠 등록 · 삭제 — 관리자 모듈(admin-part-register.js)이 자기를 만들 때 건다. 꾸미기는 관리자 모듈을 부르지 않는다 */
 let _adminPartActions = null;
 function setAdminPartActions(a){ _adminPartActions = a; }
-/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다. */
-function _wdApplyDeskChange(mutate){
+/* 책상 값을 내 캐릭터에 쓰고 화면·저장·전파까지 한 번에 — 카드와 슬라이더가 같이 쓴다.
+   relayout: 책상을 바꾸는 카드(기본 · 책상 없음 · 전용)는 책상 폭이 크게 바뀐다 — 책상을 다 그린 **뒤에** 좌석 줄을 다시 잡는다
+   (기본 책상 교체본 · 전용 책상은 GLB 를 풀고서야 noDesk 가 내려가서, 바로 잡으면 좁은 자리가 남는다). */
+function _wdApplyDeskChange(mutate, relayout){
   const seat = findMySeat();
   if(!seat || !seat.charDef) return null;
   const def = seat.charDef;
   mutate(def);
+  let drawn = null;
   try{
-    if(def.deskCatalogId) applyDeskCatalogRefToSeat(seat, def);
-    else applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
+    if(def.deskCatalogId) drawn = applyDeskCatalogRefToSeat(seat, def);
+    else drawn = applyDeskCatalogRefToSeat(seat, {deskCatalogId:DEFAULT_DESK_OVERRIDE_ID, deskScale:def.deskScale, deskLenX:def.deskLenX, deskColor:def.deskColor});
   }catch(_){}
+  if(relayout) Promise.resolve(drawn).catch(()=>{}).then(()=>layoutSeats());
   try{ if(seat.desk){ setDeskScale(seat.desk, def.deskScale||DESK_SCALE_DEFAULT(), def.deskLenX||1); if(def.deskColor) applyDeskColorToCustom(seat.desk, def.deskColor); } }catch(_){}
   // 미리보기는 draft 를 본다 — 같은 값을 적어 주지 않으면 창 안에서만 옛 책상이 남는다
   try{ if(wdDraftDef && wdDraftDef._srcDef === def){ wdDraftDef.deskCatalogId=def.deskCatalogId; wdDraftDef.deskScale=def.deskScale; wdDraftDef.deskLenX=def.deskLenX; wdDraftDef.deskColor=def.deskColor; wdDraftDef[DESK_LICENSE_HOLD()]=def[DESK_LICENSE_HOLD()]; } }catch(_){}
@@ -164,8 +167,13 @@ function renderWdDeskSection(wrap){
   /* «쓰지 않음» — 전용 책상을 벗고 기본으로 돌아가는 길. 이 칸이 없으면 한 번 고른 사람이 갇힌다. */
   const none=swThumb('기본 책상', !def.deskCatalogId, '↺');
   none.classList.add('none-card');
-  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }); renderWardrobe(); };
+  none.onclick=()=>{ _wdApplyDeskChange(d=>{ d.deskCatalogId=null; d.deskGlb=null; }, true); renderWardrobe(); };
   grid.appendChild(none);
+  /* 🚫 책상 없음 — 책상 몸만 숨긴다(책상 위 아이템은 그대로) · 좌석은 캐릭터 몸 폭만큼만 자리를 잡는다(seat-layout.js). */
+  const noDesk=swThumb('책상 없음', def.deskCatalogId===NO_DESK_ID, '🚫');
+  noDesk.classList.add('none-card');
+  noDesk.onclick=()=>{ if(def.deskCatalogId===NO_DESK_ID) return; _wdApplyDeskChange(d=>{ d.deskCatalogId=NO_DESK_ID; d.deskGlb=null; }, true); renderWardrobe(); };
+  grid.appendChild(noDesk);
   list.forEach(rec=>{
     const on=(def.deskCatalogId===rec.id);
     const card=swThumb(rec.name||'책상', on, rec.icon||'🪑');
@@ -176,8 +184,8 @@ function renderWdDeskSection(wrap){
       if(!rec.glb && rec.glbUrl){
         try{ await resolveCatalogGlb(rec); }catch(e){ glbErr = e; }
       }
-      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-13', glbErr || (rec.glbUrl ? 'no-glb' : 'no-url')); return; }
-      _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; });
+      if(!rec.glb){ TwErrorCodes.notify('E-CHAR-13', glbErr || (rec.glbUrl ? (glbFailWhy(rec.glbUrl) || 'no-glb') : 'no-url')); return; }
+      _wdApplyDeskChange(d=>{ d.deskCatalogId=rec.id; d.deskGlb=null; }, true);
       renderWardrobe();
     };
     grid.appendChild(card);
@@ -256,12 +264,8 @@ function ensureWdPreview(){
   //   그림자는 요청에 따라 사용하지 않음(그림자 없이 조명 각도만으로 입체감 보완).
   // ★ 조명 세기 보정 이력: 0.75(너무 어두움) → 0.95(실행값 그대로인데 그림자·카메라 차이로 오히려 밝아 보임)
   //   → 0.85(중간값)로 실측 보정. 실행 화면과 체감 밝기가 최대한 비슷하게 맞춘 값.
-  wdScene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
-  // ★ 조명 위치를 실행 화면과 동일하게 (0,5,0) 정수리 위로 — 얼굴 텍스처 조명 방향 통일(요청사항)
-  const wdKey=new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
-  wdKey.position.set(0, 5, 0); wdScene.add(wdKey);
-  const wdFill=new THREE.DirectionalLight(0xbcd0ff,0.12); wdFill.position.set(-3,2,-1); wdScene.add(wdFill);
-  wdScene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));   // ★ 실행 화면과 같은 정면 필
+  // ★ 조명 위치를 실행 화면과 동일하게 (0,5,0) 정수리 위로 — 얼굴 텍스처 조명 방향 통일(요청사항) · 뒤쪽 냉색 바운스 · 정면 필도 실행 화면과 같다
+  addRunLights(wdScene, { keyPos: [0, 5, 0], backBounce: true });
 }
 
 // ★ 꾸미기 미리보기 기즈모 — 상세조정 패널이 열려있는 파츠에 이동/회전/크기 핸들을 띄워서
@@ -749,7 +753,10 @@ async function refreshWdPreviewChar(){
   //   화면 색이 달라 보이는 부작용이 있었음 — 색상 선택 화면에서는 "입체감"보다 "지정한 색 그대로 보이는 것"이
   //   더 중요하다는 피드백에 따라 이 조정은 제거함(장착 시 설정된 emissive를 그대로 둠).
   // 카메라 기준값만 다시 계산 — yaw/pitch/zoom(사용자가 조절한 값)은 그대로 유지
-  const box=new THREE.Box3().setFromObject(g);
+  /* 카메라는 맨 몸으로 맞춘다(fitModel 과 같은 measureCharBox) — 파츠까지 통째로 재면 리깅 파츠는 원본 박스가 몇 배씩 커서
+     카메라가 멀리 · 높이 잡혀 캐릭터가 안 보였다(B-1109-9). 몸을 못 재면(빈 박스) 예전처럼 통째로 잰다. */
+  let box=measureCharBox(g);
+  if(box.isEmpty()) box=new THREE.Box3().setFromObject(g);
   const size=box.getSize(new THREE.Vector3()), center=box.getCenter(new THREE.Vector3());
   wdCamCenter.copy(center);
   wdCamLookY = center.y+size.y*0.12;

@@ -291,6 +291,18 @@ function readMe(){
   } catch(_){ return null; }
 }
 
+/* gcloud 가 아예 없어서 실패했나. 한국어 Windows 는 셸 오류가 «내부 또는 외부 명령… 이 아닙니다»(지역 인코딩)라
+   글로는 못 가린다 — Windows 에서는 where 로 PATH 에 있는지 다시 본다(언어와 무관하게 없으면 실패).
+   onPath 는 검사가 바꿔 끼우는 자리. */
+function gcloudMissing(e, platform, onPath){
+  if(e && e.code === 'ENOENT') return true;
+  if(/not (recognized|found)/i.test(String((e && e.stderr) || ''))) return true;
+  return platform === 'win32' && !onPath();
+}
+function gcloudOnPath(){
+  try { execFileSync('where', ['gcloud'], { stdio: 'ignore', timeout: 3000 }); return true; } catch(_){ return false; }
+}
+
 function token(timeout){
   if(process.env.TW_TODO_TOKEN) return process.env.TW_TODO_TOKEN;
   try {
@@ -300,7 +312,7 @@ function token(timeout){
       shell: process.platform === 'win32',
     }).trim();
   } catch(e){
-    if(e.code === 'ENOENT' || /not (recognized|found)/i.test(String(e.stderr || ''))) throw new TodoError('gcloud 가 없어요 — Google Cloud CLI 를 설치하고 gcloud auth login 해 주세요 (https://cloud.google.com/sdk/docs/install)');
+    if(gcloudMissing(e, process.platform, gcloudOnPath)) throw new TodoError('gcloud 가 없어요 — Google Cloud CLI 를 설치하고 gcloud auth login 해 주세요 (https://cloud.google.com/sdk/docs/install)');
     throw new TodoError(NOT_ADMIN);
   }
 }
@@ -476,5 +488,5 @@ if(require.main === module) main(process.argv.slice(2));
 module.exports = {
   TODO_ROOT, TITLE_MAX, MEMO_MAX, RELEASE_RE, TYPES, STATUS, SERVER_TIME, TodoError,
   newId, toTodo, toTodos, checkValue, startValue, doneValue, changeText, logEntry,
-  words, findTodos, filterTodos, briefText, line, parseArgs, main,
+  words, findTodos, filterTodos, briefText, line, parseArgs, main, gcloudMissing,
 };

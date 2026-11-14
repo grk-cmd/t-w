@@ -1,37 +1,20 @@
-/* gacha.js — 🎰 파츠 가챠 — 코어(보유분 · 확률 · 뽑기 · 서버 동기화 · 미보유 파츠 회수) + 파츠 보관함(T) · 뽑기 창(캡슐 연출)
-   app.js 의 두 구역(«🎰 파츠 가챠 — 코어» · «🎰 파츠 보관함 (T키) · 가챠 뽑기 창»)을 그대로 옮긴 모듈이다(앱 FSD 8번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
+/* gacha.js — 🎰 파츠 가챠 — 코어(서버 보유분 · 뽑기 · 미보유 파츠 회수) + 파츠 보관함(T) · 뽑기 창(캡슐 연출)
+   ★ 서버가 원본이다(0.13). 보유분 · 뽑기 수 · 시즌 · 색 해금은 서버가 정하고 gacha-api.js 가 받아 온다. 이 PC 에는 사본이 없다 —
+     시작할 때 · 보관함 열 때 · 서버 신호(realtime collection)에 받고, 주기 맞추기 · 부팅 지연 타이머 · 이 PC 와 서버 비교 · 합치기는 걷었다.
    ★ 한 파일이다(👑 달성표 weekly-challenge.js 와 같은 방식 — entities 규칙 + widgets 화면). 보관함 · 뽑기 창이 코어의 이름
-     스무 개 가까이(보유 수 · 풀 · 시즌 · 남은 뽑기 · 보너스 · 동기화 …)를 그대로 쓰고, 코어의 동기화도 보관함을 다시 그린다 —
-     둘로 나누면 그 이름이 전부 deps 로 오가며 글자 그대로 옮기기가 깨진다.
-
-   ★ 아래 본문은 app.js 에 있던 글 그대로다 — 들여쓰기도 바꾸지 않았다(옮기기 전 줄과 견주어 볼 수 있게).
-     바뀐 것은 app.js 의 let 을 읽고 쓰는 방법뿐이다.
-       · isAdmin → isAdmin() · savedParts → savedParts() · PART_CATS → PART_CATS() · wdDraftDef → wdDraftDef() · activeWdAdj → activeWdAdj()
-         app.js 가 다시 대입하는 let 이라(관리자 로그인 · 카탈로그 도착 · 카테고리 구독 · 꾸미기 초안 · 상세조정 선택) 값이 아니라 읽는 함수로 받는다.
-       · activeWdAdj = x → _setActiveWdAdj(x) — 상세조정 선택은 꾸미기 창 · 기즈모 · 색상 영역이 같이 보는 app.js 의 let 이다.
-       · GACHA_OWNED_KEY · GACHA_TS_KEY · GACHA_BONUS_KEY 는 deps 값 — 계정 전환 지움 목록(ACCOUNT_LOCAL_KEYS)이 같은 이름을 쓰므로
-         정의(세 줄)는 app.js 에 남겼다(달성표 CHAL_KEY 와 같은 방식).
-   ★ 두 구역 사이에 끼어 있던 🔑 «서버가 조용히 거부하는 기기» 안내(_warnServerWriteDenied)는 가챠만의 것이 아니라
-     app.js 에 남겼다 — 🧍 캐릭터 슬롯 동기화도 부른다. 여기서는 deps 로 받는다.
-   ★ 다른 구역이 다시 대입하던 상태는 함수로 바꾼다 — gachaOwned · _gachaTs · _gachaBonus(로그아웃 지우기) → resetMemory().
-   ★ 밖으로 내놓는 이름은 반환값이다(isGachaPart · isGachaColorUnlocked · gachaCount · sceneHasColorGroup · DUPES_FOR_COLOR ·
-     syncGachaToServer · pruneUnownedGachaParts · renderGachaInv · toggleGachaInv · isInvOpen · isDrawOpen · selId · owned · bonus ·
-     setBonusLocal · resetMemory). 부르는 곳(꾸미기 창 · 파츠 등록 · 카탈로그 도착 · 런처 복귀 · 로그아웃 · 계정 연동 · 달성표 보상 · T 키)은
-     전부 만드는 줄보다 늦게 돈다(부팅 중에 먼저 불리는 곳 없음 — 헤드리스로 확인) — app.js 에서 gachaMod.이름 으로 부른다.
+     스무 개 가까이(보유 수 · 풀 · 시즌 · 남은 뽑기 · 받기 …)를 그대로 쓰고, 코어의 받기도 보관함을 다시 그린다.
+   ★ app.js 의 let(isAdmin · savedParts · PART_CATS · wdDraftDef · activeWdAdj)은 값이 아니라 읽는 함수로 받는다. activeWdAdj 를 바꾸는 것은 쓰는 함수.
+   ★ 밖으로 내놓는 이름은 반환값이다(isGachaPart · isGachaColorUnlocked · gachaCount · sceneHasColorGroup · DUPES_FOR_COLOR · startGacha · pullGacha ·
+     pruneUnownedGachaParts · renderGachaInv · toggleGachaInv · isInvOpen · isDrawOpen · selId · owned · bonus · resetMemory).
      예전부터 window 에 걸던 고리 셋(openGachaInv · closeGachaInv · _gachaRestorePos)은 그대로 건다.
-   ★ createGacha 는 app.js 의 원래 자리에서 부른다. 만들 때 바로 도는 것(localStorage 읽기 · 시각 부트스트랩 · 부팅 동기화 4.2초 타이머 ·
-     10분 tick · 창 버튼 · 끌기 · ESC · 바깥 클릭 · blur 연결 bindGachaWindows)이 예전과 같은 순서 · 같은 때에 돈다.
-   ⚠️ firebaseAPI · localStorage · document · window · confirm 은 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
-   ⚠️ 전역 이름은 TwGacha — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
-   검사: checks/sim-gacha.js — 만들 때 · 보유 · 색상 해금 · 풀 · 남은 뽑기(보너스) · 뽑기 · 서버 동기화(최신 승 · pull · 미래 ts ·
-         실패) · 보관함(탭 · 카테고리 · 시즌 · 페이지) · 뽑기 창(연출 · 오류) · app.js 배선 · html 순서. */
+   ★ 시작은 `startGacha()` 한 번 — launcher/app-boot.js 가 계정 확인 뒤에 부른다. 만들 때는 요청 · 구독 · 타이머를 하지 않는다(창 버튼 · 끌기 · ESC 연결뿐).
+   ⚠️ document · window · localStorage(창 자리) 는 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
+   ⚠️ 전역 이름은 TwGacha — 크로미움 내장 전역과 겹치는 이름을 쓰면 typeof 가드가 늘 통과한다(#103).
+   검사: checks/sim-gacha.js — 만들 때 · 보유 · 색상 해금 · 풀 · 남은 뽑기 · 뽑기 · 서버 받기(받는 중 · 못 받음 · 뽑기와의 경합) · 보관함 · 뽑기 창 · app.js 배선 · html 순서. */
 (function(){
 
 function createGacha(deps){
 const toast = deps.toast;
-const _srvNow = deps.srvNow;                                   // 🕒 서버 시계 — app.js(_gachaNow 가 한 곳에서 읽는다)
-const _warnServerWriteDenied = deps.warnServerWriteDenied;     // 🔑 쓰기 거부 안내 — app.js(캐릭터 슬롯 동기화도 쓴다)
 const getMyUserId = deps.getMyUserId;
 const getFocusLevel = deps.getFocusLevel;                      // ⭐ 레벨 — 뽑기 수(레벨/5)
 const catEquippedIds = deps.catEquippedIds;                    // 👕 착용 목록 도우미 — app.js(꾸미기)
@@ -44,8 +27,8 @@ const findMySeat = deps.findMySeat;
 const escHtml = deps.escHtml;
 const notifyError = deps.notifyError;                          // ⚠️ 에러코드 알림 — TwErrorCodes.notify
 const isGachaPart = deps.isGachaPart;                          // 가챠 파츠인가(rec.gacha) — 카탈로그(premium-assets.js)가 정의한다
-const gachaSource = deps.gachaSource;                          // 🎚️ 받는 곳 — 'server' | 'firebase'(source-switch.js · 원격 설정 sources.gacha)
-const gachaServer = deps.gachaServer;                          // 🎰 서버 길 — gacha-server.js(서버가 뽑고 저장)
+const gachaApi = deps.gachaApi;                                // 🎰 서버 길 — gacha-api.js(서버가 뽑고 저장 · 원본)
+const rtOn = deps.rtOn;                                        // 🛰 서버가 «바뀌었다» 고 알리는 길(TwRtHub.store.on) → 해제 함수
 /* 🛠 관리자 파츠 등록 · 삭제 — app.js 가 setPartEditor 로 건다(가챠는 관리자 모듈을 부르지 않는다) */
 let openPartRegister = null, syncPartRegGachaLock = null, deletePart = null;
 function setPartEditor(a){ openPartRegister = a.openPartRegister; syncPartRegGachaLock = a.syncPartRegGachaLock; deletePart = a.deletePart; }
@@ -70,24 +53,16 @@ const _setActiveWdAdj = deps.setActiveWdAdj;
 const seats = deps.seats;                                      // 좌석 · 슬롯 · 접속 — app.js 앞쪽에 선언되고 다시 대입되지 않는 const
 const slots = deps.slots;
 const Presence = deps.presence;
-const GACHA_OWNED_KEY = deps.ownedKey;                         // 'tw.gachaOwned' — 정의는 app.js(계정 전환 지움 목록 ACCOUNT_LOCAL_KEYS 가 같이 쓴다)
-const GACHA_TS_KEY = deps.tsKey;                               // 'tw.gachaOwnedTs'
-const GACHA_BONUS_KEY = deps.bonusKey;                         // 'tw.gachaBonus'
 
 /* ═══ 🎰 파츠 가챠 — 코어 ══════════════════════════════════════════════════
    성격은 '집중 보상'이다. 수집 경쟁이 아니므로 등급(rarity)도 꽝도 없고 확률은 균등하다.
-   화면(보관함·뽑기 연출)은 아직 없다 — 여기 있는 것은 상태·계산·뽑기까지다.
 
-   저장은 이 한 노드가 전부다:
-     users/{uid}/gacha/owned/{partId} = 4      // 뽑은 횟수(누적). 4 이상 = 색상 변경 해금
-     users/{uid}/gacha/ts             = 172…   // 마지막으로 바꾼 시각(ms). 어느 기기가 최신인지 가른다
-   꽝이 없으므로 '총 뽑기 횟수 = 소유 개수의 합'이 항상 성립한다 → used를 따로 안 저장한다.
-     남은 뽑기 = floor(레벨/5) − Σowned
+   ★ 서버가 원본이다. 보유분 · 뽑기 수 · 시즌 · 색 해금은 서버가 정하고(GET /v1/me/collection · /v1/me/gacha), 뽑기는 서버가 굴려 저장한다
+     (POST /v1/me/gacha/draws). 이 PC 에는 사본을 두지 않는다 — 열 때(시작 · 보관함 열기) 받고, 서버가 «바뀌었다»(realtime collection)고 알리면 다시 받는다.
+     주기로 맞추지 않고, 실패한 뒤 혼자 되풀이하지 않는다(다시 받는 길은 보관함 열기 · 다시 시도 단추 · 서버 신호).
+   ★ 받기 전(loading) · 못 받음(failed)에는 보유분을 모른다 — 빈 보유분으로 그리지 않고, 뽑기도 막는다. 미보유 파츠 회수는 받은 뒤에만 한다.
+   ★ 뽑기 수는 레벨/5 에 달성표 보상을 더한 값이고 서버가 센다 — 앱은 `left` 를 그린다. */
 
-   ★ 서버가 원본이다 — 뽑기는 서버 트랜잭션이 저장해야 끝나고(gachaDraw), 기기끼리는 파츠마다 큰 쪽으로 합친다
-     (syncGachaToServer). ts 는 옛 판(0.11 이하)이 «최신 기기» 판정에 쓰는 값이라, 이 판은 쓸 때 지금으로 찍기만 한다.
-   ⚠️ 규칙 파일에 users/$userId/gacha 블록을 반드시 같이 넣을 것. audit 검사 7은 최상위 경로만
-     보므로 users 하위 키가 비면 잡히지 않고 **조용히 전부 거부**된다. */
 const GACHA_LEVELS_PER_TICKET = 5;    // 5레벨당 뽑기 1회. ⚠️ 한 번 풀면 회수 불가 — 완화만 가능
 const GACHA_DUPES_FOR_COLOR   = 4;    // 같은 파츠 총 4개(첫 개 + 중복 3) → 그 파츠 색상 변경 해금
 /* 🎨 색을 바꿀 수 없는 파츠(= GLB 안에 _col 메쉬가 하나도 없는 것)는 몇 개가 필요한가.
@@ -116,103 +91,39 @@ function sceneHasColorGroup(scene){
 function gachaDupesFor(rec){
   return (rec && rec.noColor) ? GACHA_DUPES_NO_COLOR : GACHA_DUPES_FOR_COLOR;
 }
-/* 🕒 가챠 ts 는 **서버 시계**로 찍는다.
-   [무엇이 문제였나] 병합이 'ts 가 큰 쪽이 통째로 이긴다'인데 그 ts 를 각 기기가 Date.now() 로
-     스스로 신고했다. 시계가 앞선 기기(수동으로 시각을 맞춘 PC, 시간 동기화가 꺼진 VM)가 한 대만
-     있어도 미래 ts 가 서버에 박히고, 그 시각이 **실제로 올 때까지** 정상 기기는 뽑는 족족
-     `sTs > _gachaTs` 로 걸려 _adopt 만 한다 — 방금 뽑은 파츠가 그 자리에서 사라지고 서버에는
-     아무것도 안 올라간다. 뽑기 횟수는 `earned − Σowned` 라 자동으로 돌아오므로, 유저에게는
-     "뽑았는데 아무것도 안 나오고 횟수만 돌아왔다"로 보인다(sim-gacha-push 5번).
-   ★ firebaseAPI.serverNow() 는 `.info/serverTimeOffset` 으로 보정된 값이다. 없으면(부팅 초반,
-     오프라인, 구버전 firebase-init) 예전 그대로 Date.now() 로 물러난다 — 나빠지는 경우가 없다.
-   ⚠️ ts 를 찍는 자리는 전부 이 함수를 거칠 것. 한 군데라도 Date.now() 로 남으면 그 경로에서만
-     다시 기기 시계가 기준이 되어, 고쳐진 기기와 안 고쳐진 값이 섞인다. */
-function _gachaNow(){
-  return _srvNow();   // ★ 서버 시계는 한 곳에서만 읽는다 — 두 벌이 되면 한쪽만 고쳐진다
-}
-const GACHA_OWNED_MAX = 9999;         // 파츠 하나 보유 상한 — 규칙 users/$userId/gacha/owned/$partId 와 같은 값
-let gachaOwned = {};                  // {partId: 뽑은 횟수}
-let _gachaTs = 0;                     // 서버 ts 사본 — 이 판은 판정에 안 쓴다(옛 판 호환으로 저장만)
-let _gachaSyncing = false;
-/* 진행 중이라 삼켜진 동기화 요청 — 끝난 뒤 한 번 다시 돈다.
-   [왜] 예전엔 `if(_gachaSyncing) return;` 이 끝이었다. 부팅 동기화가 느린 회선에서 몇 초씩
-     걸리는 동안 보관함을 열면(openGachaInv 의 'inv-open') 그 호출이 통째로 사라져, 화면을
-     맞출 기회가 10분 뒤 tick 까지 없었다. */
-let _gachaSyncPending = null;
-/* 이 세션에서 서버 보유분을 **실제로 한 번이라도 읽었는가**.
-   미보유 파츠 회수(pruneUnownedGachaParts)의 유일한 전제다 — 이 값이 서지 않았는데 회수하면
-   '보유분을 모르는 채로' 벗기는 것이 되어, 오프라인 부팅에서 멀쩡한 파츠가 사라진다. */
-let _gachaSrvSeen = false;
-/* 👑 달성표 보상분(추가 뽑기 횟수). 서버에서는 **users/{uid}/chalBonus** 에 따로 산다 —
-   gacha 노드 안에 두면 옛 판(0.11 이하)의 통째 set 이 지운다.
-   여기 값은 서버 합계를 받아 적는 사본이다.
-   ⚠️ 서버를 못 읽었을 때는 절대 손대지 않는다(로컬 값 유지) — 0 으로 내려가면 이미 준 보상이
-     사라진 것처럼 보인다. 그래서 loadChalBonus 는 실패를 null 로 돌려주고 0 과 구분한다. */
-let _gachaBonus = 0;
-try{ _gachaBonus = Math.max(0, parseInt(localStorage.getItem(GACHA_BONUS_KEY) || '0', 10) || 0); }catch(_){}
-/* 서버 길(sources.gacha = 'server')에서 서버가 알려 준 { earned, left, season } — 남은 뽑기 · 시즌을 서버 값으로 그린다.
-   옛 길이거나 아직 못 받았으면 null(이 PC 의 레벨 · 시계로 센다). */
-let _srvState = null;
-/* 서버 길 뽑기가 성공할 때마다 올린다 — 그 전에 나간 상태 받기(GET)가 늦게 와 방금 뽑은 것을 덮지 않게(갈아 끼우기라 옛 길의 합치기처럼 안전하지 않다). */
-let _srvDrawGen = 0;
-const _serverMode = () => gachaSource() === 'server';
-function _setGachaBonusLocal(n){
-  _gachaBonus = Math.max(0, Math.min(9999, Math.floor(Number(n) || 0)));
-  try{ localStorage.setItem(GACHA_BONUS_KEY, String(_gachaBonus)); }catch(_){}
-}
+const GACHA_OWNED_MAX = 9999;         // 보유 표시 상한(서버 규격과 같은 값)
+let gachaOwned = {};                  // {partId: 뽑은 횟수} — 서버 값(받기 전엔 비어 있되 _gachaLoad 로 «모름» 을 가른다)
+let _gachaUnlocked = {};              // {partId: true} — 서버가 «색 변경 열림» 으로 센 파츠(관리자는 서버가 모두 열어 준다)
+let _srvState = null;                 // { earned, bonus, left, season } — 받기 전엔 null
+/* 보유분을 아는 정도 — 'idle'(시작 전) | 'loading' | 'ready' | 'failed'.
+   미보유 파츠 회수(pruneUnownedGachaParts)의 유일한 전제는 'ready' 다 — 모르는 채로 벗기면 멀쩡한 파츠가 사라진다. */
+let _gachaLoad = 'idle';
+let _gachaPulling = false;
+let _gachaPullAgain = false;          // 받는 중에 온 요청 — 끝난 뒤 한 번 더(서버가 그 사이 바뀌었을 수 있다)
+let _gachaPullGen = 0;                // 뽑기 · 비우기가 일어날 때마다 올린다 — 그 전에 나간 받기가 늦게 와 새 값을 덮지 않게
+let _gachaDrawing = false;
+let _gachaStarted = false;
+let _unsubRt = null;   // 서버 신호 구독 해제 함수 — 계정이 바뀌면 풀어 구독이 겹치지 않게
 
-function _loadGachaLocal(){
-  try{ const v = JSON.parse(localStorage.getItem(GACHA_OWNED_KEY) || '{}'); return (v && typeof v === 'object') ? v : {}; }
-  catch(e){ return {}; }
-}
-/* touch=true → "이 기기에서 방금 바뀌었다"고 시각을 새로 찍는다(뽑기).
-   touch=숫자 → 서버에서 받아온 값의 시각을 그대로 물려받는다(내려받기). 새로 찍으면 안 된다 —
-     찍는 순간 이 기기가 최신이 되어, 방금 받아온 것을 도로 올리는 핑퐁이 된다. */
-function _saveGachaLocal(touch){
-  if(touch === true) _gachaTs = _gachaNow();   // ★ 서버 시계(_gachaNow) — 기기 시계로 찍으면 병합 판정이 통째로 어긋난다
-  else if(typeof touch === 'number' && touch > 0) _gachaTs = touch;
-  try{
-    localStorage.setItem(GACHA_OWNED_KEY, JSON.stringify(gachaOwned));
-    localStorage.setItem(GACHA_TS_KEY, String(_gachaTs));
-  }catch(e){}
-}
-gachaOwned = _loadGachaLocal();
-try{
-  const _t = parseInt(localStorage.getItem(GACHA_TS_KEY) || '0', 10);
-  if(_t > 0) _gachaTs = _t;
-}catch(_){}
-
-/* 지금 가챠 중인 시즌. 클라이언트 시계 기준이라 조작하면 다른 시즌을 뽑을 수 있지만,
-   §5와 같은 결로 감수한다 — 조작해도 남에게 피해가 가지 않는다. */
 const GACHA_SEASON_KEYS = Object.freeze({ spring: 'spring', summer: 'summer', autumn: 'autumn', winter: 'winter' });
+/* 지금 가챠 중인 시즌 — 서버가 정한다(서울 시계). 받기 전엔 null(시즌 파츠를 풀에 넣지 않는다). */
 function gachaSeasonNow(){
-  if(_serverMode() && _srvState && GACHA_SEASON_KEYS[_srvState.season]) return GACHA_SEASON_KEYS[_srvState.season];   // 서버 길 — 서버 시계(서울)의 시즌(아는 이름만)
-  const m = new Date().getMonth() + 1;
-  if(m === 12 || m <= 2) return 'winter';
-  if(m <= 5) return 'spring';
-  if(m <= 8) return 'summer';
-  return 'autumn';
+  return (_srvState && GACHA_SEASON_KEYS[_srvState.season]) || null;
 }
 const GACHA_SEASON_LABEL = { '':'상시', spring:'🌸 봄', summer:'🌊 여름', autumn:'🍂 가을', winter:'❄ 겨울' };
 
 function gachaCount(partId){ return gachaOwned[partId] | 0; }
 function isGachaOwnedPart(partId){ return gachaCount(partId) > 0; }
 // 색상 변경 해금 — 🔴 이 게이트는 가챠 파츠에만 건다. 기존 꾸미기 파츠의 색상은 조건 없이 열려 있고,
-//   전체에 걸면 기존 유저가 쓰던 기능을 잃는다.
-/* 🔑 관리자는 게이트를 통과한다 — 파츠를 등록·검수하려면 4개를 모으기 전에 색이 어떻게 먹는지
-     봐야 한다(요청 사양). 게이트가 게임 진행이지 보안 경계가 아니라서 열어도 잃는 게 없다.
-   ⚠️ **여기만 열고 gachaPool() 은 건드리지 않는다.** 풀은 `gachaCount(p.id) < GACHA_DUPES_FOR_COLOR`
-      를 직접 보는데, 그쪽까지 관리자를 통과시키면 풀이 통째로 비어 관리자 계정에서 가챠 자체가
-      안 돌아간다(뽑을 게 없다고 뜬다). 두 조건이 같은 숫자를 볼 뿐 목적이 다르다.
-   ⚠️ isAdmin 은 이 함수보다 뒤에서 선언되므로(let, 14644행) typeof 로 감싼다 —
-      로딩 순서가 바뀌어 이 함수가 먼저 불려도 ReferenceError 로 죽지 않게. */
+//   전체에 걸면 기존 유저가 쓰던 기능을 잃는다. 다 모았는지는 서버가 센 값(관리자 포함)이다.
+/* 🔑 관리자는 게이트를 통과한다 — 파츠를 등록·검수하려면 4개를 모으기 전에 색이 어떻게 먹는지 봐야 한다.
+   ⚠️ **여기만 열고 gachaPool() 은 건드리지 않는다.** 관리자까지 풀에서 빼면 풀이 통째로 비어 가챠 자체가 안 돈다. */
 function isGachaColorUnlocked(partId){
   if(isAdmin()) return true;
-  const rec = savedParts() ? savedParts().find(p=>p.id===partId) : null;
-  return gachaCount(partId) >= gachaDupesFor(rec);
+  return _gachaUnlocked[partId] === true;
 }
 
-/* 이번 시즌 가챠 풀. 4개를 다 모은 파츠는 빠진다 — 그래서 중복 낭비가 0이고 모든 뽑기가 진척이 된다. */
+/* 이번 시즌 가챠 풀(화면에 «n종» 을 보이는 용). 실제로 굴리는 것은 서버다. 다 모은 파츠는 빠진다. */
 function _poolFor(owned){
   const season = gachaSeasonNow();
   return savedParts().filter(p => isGachaPart(p)
@@ -225,64 +136,16 @@ function gachaSeasonParts(){
   const season = gachaSeasonNow();
   return savedParts().filter(p => isGachaPart(p) && (!p.season || p.season === season));
 }
-function _usedIn(owned){ let n = 0; for(const k in owned) n += owned[k] | 0; return n; }
-function gachaUsedTotal(){ return _usedIn(gachaOwned); }
-/* ⚠️ 예전 불변식은 "총 뽑기 = 레벨/5" 하나였다. 👑달성표 주간 보상(_gachaBonus)이 붙으면서
-     항이 하나 늘었다 — 화면에 "5레벨당 1회"만 적으면 거짓말이 되므로 renderGachaInv 표기도 같이 고쳤다. */
-function gachaTicketsEarned(){
-  if(_serverMode() && _srvState) return _srvState.earned;   // 서버 길 — 서버가 센 값(레벨 · 달성표 보상)
-  return Math.floor(getFocusLevel() / GACHA_LEVELS_PER_TICKET) + (_gachaBonus | 0);
-}
-function gachaTicketsLeft(){
-  if(_serverMode() && _srvState) return Math.max(0, Math.floor(Number(_srvState.left)) || 0);   // 서버 길 — 남은 횟수도 서버가 센 값
-  return Math.max(0, gachaTicketsEarned() - gachaUsedTotal());
-}
+function gachaTicketsEarned(){ return _srvState ? _srvState.earned : 0; }
+function gachaTicketsLeft(){ return _srvState ? Number(_srvState.left) : 0; }
+function gachaBonusNow(){ return _srvState ? Number(_srvState.bonus) : 0; }
 
-/* 보유분 씻기 — 0 이하 · 숫자 아님 · 규칙이 거부하는 키는 빼고 상한에서 자른다(규칙 owned/$partId 와 같은 모양).
-   ⚠️ 규칙에 안 맞는 옛 키를 하나라도 다시 쓰면 트랜잭션 전체가 거부된다. */
-const GACHA_BAD_KEY_RE = /^(null|undefined|NaN)$|^ | $/;
-function _cleanOwned(o){
-  const out = {};
-  for(const k in (o || {})){
-    if(GACHA_BAD_KEY_RE.test(k)) continue;
-    const n = Math.max(0, Math.min(GACHA_OWNED_MAX, Math.floor(Number(o[k]) || 0)));
-    if(n > 0) out[k] = n;
-  }
-  return out;
-}
-/* 두 벌을 파츠마다 큰 쪽으로 합친다. 보유 수는 늘기만 한다(줄이는 길이 없다) — 그래서 합쳐도 잃는 것이 없고,
-   서버에 못 올라간 이 PC 의 뽑기(옛 판 · 로그인이 풀린 채 뽑은 것)가 살아남는다. */
-function _mergeOwned(a, b){
-  const out = _cleanOwned(a), add = _cleanOwned(b);
-  for(const k in add) if(add[k] > (out[k] | 0)) out[k] = add[k];
-  return out;
-}
-function _sameOwned(a, b){
-  const ka = Object.keys(a);
-  return ka.length === Object.keys(b).length && ka.every(k => a[k] === b[k]);
-}
-/* 서버에 없는 이 PC 의 뽑기 수 — 로그아웃 전 검문이 «지워질 뽑기» 를 센다. */
-function gachaUnsynced(srvOwned){
-  const srv = _cleanOwned(srvOwned), mine = _cleanOwned(gachaOwned);
-  let n = 0;
-  for(const k in mine) n += Math.max(0, mine[k] - (srv[k] | 0));
-  return n;
-}
-/* 서버 값을 이 PC 사본으로 받는다 — 이 PC 에만 있는 뽑기는 지우지 않는다(합치기). */
-function _adoptServer(v){
-  if(!v) return;
-  gachaOwned = _mergeOwned(v.owned, gachaOwned);
-  _saveGachaLocal(Number(v.ts) || 0);
-  _gachaSrvSeen = true;
-  if(_gachaInvOpen()) renderGachaInv();
-}
-
-/* 서버 길 — 서버 상태를 이 PC 사본으로 **갈아 끼운다**(합치지 않는다 — 서버 값만 원본 · 이 PC 에만 있는 뽑기는 올리지 않는다). */
+/* 서버 상태를 그대로 받는다(갈아 끼움) — 이 PC 에만 있는 뽑기는 없다. */
 function _adoptServerState(st){
   gachaOwned = st.owned;
-  _saveGachaLocal(st.ts || _gachaNow());
-  _srvState = st;
-  _gachaSrvSeen = true;
+  _gachaUnlocked = st.unlocked;
+  _srvState = { earned: st.earned, bonus: st.bonus, left: st.left, season: st.season };
+  _gachaLoad = 'ready';
   if(_gachaInvOpen()) renderGachaInv();
 }
 /* 서버 결과 줄에 카탈로그 항목을 붙인다 — 연출 · 이름 · 그림이 rec 를 읽는다. 카탈로그에 없으면 이름 없는 칸으로. */
@@ -291,75 +154,23 @@ function _withRec(out){
   return out.map(r => Object.assign({ rec: list.find(p => p.id === r.id) || { id: r.id, name: '파츠' } }, r));
 }
 
-/* 뽑기 계산 — owned 에서 n회를 굴려 { owned: 새 보유분, out } 을 돌려준다(받은 owned 는 안 바꾼다).
-   티켓이 모자라거나 풀이 비면 그 자리에서 멈춘다(요청한 n보다 적게 나올 수 있다). */
-function _planDraw(owned, n){
-  const next = Object.assign({}, owned), out = [];
-  const earned = gachaTicketsEarned();
-  for(let i = 0; i < Math.max(1, n | 0); i++){
-    if(earned - _usedIn(next) <= 0) break;
-    const pool = _poolFor(next);
-    if(!pool.length) break;
-    const rec = pool[Math.floor(Math.random() * pool.length)];
-    const after = (next[rec.id] | 0) + 1;
-    next[rec.id] = after;
-    out.push({
-      id: rec.id, rec, count: after,
-      isNew: after === 1,
-      // ★ 색이 없는 파츠는 열릴 색 자체가 없으므로 이 표식이 서면 안 된다("색상 변경이 열렸어요"가 거짓말이 된다)
-      unlockedColor: !rec.noColor && after === GACHA_DUPES_FOR_COLOR   // 이 뽑기로 막 열린 경우만 true
-    });
-  }
-  return { owned: next, out };
-}
-
-/* 뽑기 — 서버가 원본이다. 남은 횟수 확인 · 굴리기 · 저장을 서버 트랜잭션 하나에서 하고, 저장이 끝나야 결과를 돌려준다.
-   ★ 횟수와 풀은 트랜잭션 안에서 **서버 보유분**으로 센다 — 다른 PC 가 동시에 뽑으면 트랜잭션이 새 값으로 다시 돌아,
-     남은 횟수를 넘겨 뽑지 못한다.
-   ★ 실패하면 이 PC 는 아무것도 바꾸지 않는다(횟수 그대로). ⚠️ 이 PC 에 먼저 적지 말 것 — 로그인이 풀린 PC 에서 뽑은 것이 그 PC 에만 남는다.
-   ★ 늦게 붙은 저장(시간 초과 뒤 서버에 들어감)은 onLate 로 사본에 합친다 — 뽑기가 사라지지 않는다.
-   @return { ok:true, out } | { ok:false, reason:'busy'|'nouser'|'offline'|'timeout'|'denied'|'error' } */
-let _gachaDrawing = false;
+/* 뽑기 — 서버가 굴리고 저장한다. 저장이 끝나야 결과를 돌려준다.
+   ★ 실패하면 이 PC 는 아무것도 바꾸지 않는다(횟수 그대로). 시간 초과 뒤 서버엔 들어갔을 수 있으니, 사용자가 보관함을 여는 때 다시 받는다(혼자 다시 보내지 않는다).
+   @return { ok:true, out } | { ok:false, reason:'busy'|'nouser'|'offline'|'timeout'|'error' } */
 async function gachaDraw(n){
   if(_gachaDrawing) return { ok:false, reason:'busy' };
-  const uid = getMyUserId();
-  if(!uid) return { ok:false, reason:'nouser' };
+  if(!getMyUserId() || _gachaLoad !== 'ready') return { ok:false, reason:'nouser' };   // 받기 전엔 보유분을 모른다 — 굴리지 않는다
   _gachaDrawing = true;
-  if(_serverMode()){
-    try{
-      const r = await gachaServer.draw(n);
-      if(!r.ok){
-        try{ syncGachaToServer('draw-fail'); }catch(_){}   // 시간 초과 뒤 서버엔 들어갔을 수 있다 — 서버 값을 다시 받는다
-        return { ok:false, reason: r.reason };
-      }
-      _srvDrawGen++;
-      _adoptServerState(r.state);
-      return { ok:true, out: _withRec(r.out) };
-    }finally{ _gachaDrawing = false; }
-  }
   try{
-    const mine = _cleanOwned(gachaOwned);   // 이 PC 에만 있는 뽑기도 같이 올린다 — syncGachaToServer 와 같은 합치기
-    let out = [];
-    const r = await firebaseAPI.updateGacha(uid, cur => {
-      const plan = _planDraw(_mergeOwned(cur && cur.owned, mine), n);
-      out = plan.out;
-      return plan.out.length ? { owned: plan.owned, ts: _gachaNow() } : null;   // null = 뽑을 것 없음(쓰지 않음)
-    }, { onLate: _adoptServer });
+    const r = await gachaApi.draw(n);
     if(!r.ok) return { ok:false, reason: r.reason };
-    _adoptServer(r.value);
-    return { ok:true, out: r.committed ? out : [] };
+    _gachaPullGen++;
+    _adoptServerState(r.state);
+    return { ok:true, out: _withRec(r.out) };
   }finally{ _gachaDrawing = false; }
 }
 
-/* 서버와 맞추기 — 부팅 직후 1회 · 10분마다 · 보관함 열 때 · 런처 복귀 · 로그아웃 직전 · 계정 연동 직후.
 
-   ★ 서버가 원본이고 이 PC 는 사본이다. 맞출 때는 **파츠마다 큰 쪽으로 합친다**(_mergeOwned) — 덮어쓰지 않는다.
-       · 이 PC 에만 있는 뽑기가 없으면 → 서버 값을 받는다(쓰기 0)
-       · 있으면(옛 판 · 로그인이 풀린 채 뽑은 것) → 서버 트랜잭션 안에서 합쳐 올린다
-     ⚠️ «ts 가 큰 기기가 통째로 이긴다» 로 되돌리지 말 것 — 진 기기의 뽑기가 지워진다.
-
-   mode='pull' — 계정 연동 전용. 이 PC 사본은 다른 계정 것일 수 있어 합치지 않고 **서버 것을 받는다**.
-     서버가 비어 있으면(한 번도 동기화 안 된 계정) 로컬을 지우지 않고 올린다. */
 /* 🎰 보유하지 않은 가챠 파츠를 착용 목록에서 걷어낸다 — **보유분이 바뀔 수 있는 자리마다 부른다.**
 
    [경위] 계정 연동(pull)은 gachaOwned 를 통째로 갈아끼우는데, 착용 정보
@@ -385,7 +196,7 @@ function pruneUnownedGachaParts(){
   /* ★ 전제 검사는 **호출부가 아니라 여기** 있어야 한다. 호출 지점이 넷으로 늘었고(동기화 완료,
      카탈로그 도착, 꾸미기 커밋, 삼켜진 요청 재시도), 그때마다 같은 조건을 복사하면 언젠가 하나를
      빠뜨린다. 그 하나가 곧 "보유분을 모르는 채 벗김" 사고다. */
-  if(!_gachaSrvSeen) return 0;
+  if(_gachaLoad !== 'ready') return 0;
   if(!savedParts() || !savedParts().length) return 0;
   if(isAdmin()) return 0;
   const _unowned = id => {
@@ -436,100 +247,52 @@ function pruneUnownedGachaParts(){
   return n;
 }
 
-async function syncGachaToServer(reason, mode){
-  if(_gachaSyncing){
-    /* 버리지 않고 적어 둔다 — 아래 finally 가 한 번 다시 부른다.
-       ★ 'pull'(계정 연동)은 다른 모드에 덮이면 안 된다. 연동은 "저쪽 계정 것으로 갈아탄다"는
-         뜻이라 ts 비교로 대체할 수 없다. */
-    if(!_gachaSyncPending || mode === 'pull') _gachaSyncPending = { reason, mode };
-    return;
-  }
-  if(_serverMode()) return _syncFromServer(reason, mode);
-  if(!(window.firebaseAPI && firebaseAPI.loadGachaOwned && firebaseAPI.updateGacha)) return;
-  _gachaSyncing = true;
-  /* 서버 보유분을 실제로 읽었는가 — 아래 finally 의 착용 정리가 이 값에만 의지한다.
-     (읽기 실패와 '읽었는데 비어 있다'는 완전히 다른 상태다) */
-  let _srvRead = false;
+/* 🛰 서버에서 받기 — 시작할 때 · 보관함을 열 때 · 서버가 «바뀌었다» 고 알릴 때 · «다시 시도» 를 누를 때. 주기도 대기 타이머도 없다.
+   받는 중에 또 부르면 끝난 뒤 한 번 더(그 사이 서버가 바뀌었을 수 있다). 실패하면 아무것도 안 바꾸고 착용도 벗기지 않는다.
+   notify=true(사용자가 연 · 누른 받기)일 때만 오류 번호를 보인다 — 서버 신호로 도는 받기는 조용히 두고 화면은 «못 불러왔어요» 로 남긴다.
+   @return 'ready' | 'failed' | 'skipped' */
+async function pullGacha(notify){
+  if(!getMyUserId()) return 'skipped';
+  if(_gachaPulling){ _gachaPullAgain = true; return 'skipped'; }
+  _gachaPulling = true;
+  if(_gachaLoad !== 'ready'){ _gachaLoad = 'loading'; if(_gachaInvOpen()) renderGachaInv(); }
+  let res = 'failed';
   try{
-    const uid = getMyUserId();
-    if(!uid) return;   // 🪪 uid 가 정해지기 전 — _srvRead=false 라 finally 의 착용 정리도 안 돈다
-    const srv = await firebaseAPI.loadGachaOwned(uid);   // {owned, ts} | null(읽기 실패)
-    if(srv === null) return;                             // 읽기 실패 — 아무것도 안 한다
-    _srvRead = true;
-    _gachaSrvSeen = true;                                // 이 세션에서 보유분을 알게 됐다 → 회수를 허용
-    const sOwned = _cleanOwned(srv && srv.owned);
-    if(mode === 'pull'){
-      if(Object.keys(sOwned).length){
-        gachaOwned = sOwned;
-        _saveGachaLocal(Number(srv.ts) || _gachaNow());
-        if(_gachaInvOpen()) renderGachaInv();
-        return;
-      }
-      if(!Object.keys(_cleanOwned(gachaOwned)).length) return;
-    }else if(_sameOwned(_mergeOwned(sOwned, gachaOwned), sOwned)){
-      _adoptServer(srv);                                 // 이 PC 에만 있는 뽑기 없음 — 서버 값을 받는다
-      return;
-    }
-    const mine = _cleanOwned(gachaOwned);
-    const r = await firebaseAPI.updateGacha(uid, cur => ({ owned: _mergeOwned(cur && cur.owned, mine), ts: _gachaNow() }), { onLate: _adoptServer });
-    if(r.ok) _adoptServer(r.value);
-    else if(r.reason === 'denied'){ try{ _warnServerWriteDenied('가챠'); }catch(_){} }
-  }catch(e){ console.warn('[가챠] 동기화 실패', e); }
-  finally{
-    _gachaSyncing = false;
-    /* 🎰 보유분과 착용을 맞춘다 — **어느 가지로 빠졌든** 마지막에 한 번 돈다.
-       ★ _adopt 안에서만 부르면 안 된다. 이미 예전 버전에서 보유분을 잃은 채로 저장된 기기는
-         다음 부팅부터 서버와 ts 가 같아 _adopt 가지로 들어가지 않는다 — 그 기기는 영영
-         '보관함엔 없는데 화면엔 붙어 있는' 상태에 갇힌다. 여기서 돌아야 스스로 빠져나온다.
-       ⚠️ **서버를 못 읽은 경우(_srvRead=false)에는 절대 돌지 않는다.** finally 는 위쪽
-         `if(srv === null) return;` 으로 빠져나갈 때도 실행되므로, 플래그 없이 여기 두면
-         네트워크가 끊긴 부팅에서 "보유분을 모르는 채로" 착용을 벗기게 된다. 그건 이 수정이
-         고치려는 사고보다 더 나쁘다.
-       ⚠️ 카탈로그(savedParts)가 아직 없으면 함수가 스스로 물러난다 — 부팅 4.2초 호출이
-         카탈로그보다 빨라도 아무 일도 안 일어나고, 10분 뒤 tick 이 다시 본다. */
-    if(_srvRead){
-      try{ pruneUnownedGachaParts(); }catch(e){ console.warn('[가챠] 미보유 파츠 정리 실패', e); }
-    }
-    /* 이번 왕복 중에 들어와 삼켜진 요청을 여기서 한 번 흘려보낸다.
-       ⚠️ _gachaSyncing 을 false 로 되돌린 **뒤에** 부를 것 — 먼저 부르면 그 호출이 다시
-         pending 에 적히고 아무도 실행하지 않는다. 꼬리물기는 안 생긴다: 이 시점에는 진행 중인
-         동기화가 없으므로 재시도분은 pending 이 아니라 본문으로 들어간다. */
-    const _pend = _gachaSyncPending; _gachaSyncPending = null;
-    if(_pend){ try{ syncGachaToServer(_pend.reason, _pend.mode); }catch(_){} }
-  }
-}
-/* 서버 길의 맞추기 — 받기만 한다(올리지 않음). pull(계정 연동)도 같다: 서버 값이 그 계정의 원본이다.
-   못 받으면 아무것도 바꾸지 않고 착용 정리도 하지 않는다(옛 길과 같은 전제 — 보유분을 모르는 채 벗기지 않는다). */
-async function _syncFromServer(reason, mode){
-  _gachaSyncing = true;
-  let _srvRead = false;
-  try{
-    if(!getMyUserId()) return;
-    const gen = _srvDrawGen;
+    const gen = _gachaPullGen;
     let st = null;
-    try{ st = await gachaServer.load(); }catch(e){ console.warn('[가챠] 서버 상태 받기 실패', e && (e.code || e.kind)); return; }
-    if(gen !== _srvDrawGen) return;   // 받는 사이 뽑기가 끝났다 — 이 답은 뽑기 전 상태(뽑기 답이 이미 더 새 값을 넣었다)
-    _srvRead = true;
-    _adoptServerState(st);
-  }finally{
-    _gachaSyncing = false;
-    if(_srvRead){
-      try{ pruneUnownedGachaParts(); }catch(e){ console.warn('[가챠] 미보유 파츠 정리 실패', e); }
+    try{ st = await gachaApi.load(); }
+    catch(e){
+      console.warn('[가챠] 서버 상태 받기 실패', e && (e.code || e.kind));
+      if(_gachaLoad === 'loading') _gachaLoad = 'failed';
+      if(notify) notifyError('E-CHAR-15', e);
+      return res;
     }
-    const _pend = _gachaSyncPending; _gachaSyncPending = null;
-    if(_pend){ try{ syncGachaToServer(_pend.reason, _pend.mode); }catch(_){} }
+    if(gen !== _gachaPullGen){ res = 'skipped'; return res; }   // 받는 사이 뽑기가 끝났다 — 이 답은 뽑기 전 상태(뽑기 답이 이미 더 새 값을 넣었다)
+    _adoptServerState(st);
+    res = 'ready';
+    return res;
+  }finally{
+    _gachaPulling = false;
+    if(res === 'ready'){
+      try{ pruneUnownedGachaParts(); }catch(e){ console.warn('[가챠] 미보유 파츠 정리 실패', e); }
+    }else if(_gachaInvOpen()) renderGachaInv();
+    const again = _gachaPullAgain; _gachaPullAgain = false;
+    if(again && res !== 'failed') pullGacha(false);   // 실패 뒤에는 되풀이하지 않는다 — 삼켜진 요청도 같이 버린다
   }
 }
-// 부팅 직후 1회 — firebaseAPI와 계정 ID가 준비될 시간을 준다(집중 동기화와 같은 시점).
-setTimeout(()=>{ try{ syncGachaToServer('boot'); }catch(_){} }, 4200);
-/* ⏱️ 그 뒤로 주기적으로 — **이게 없어서 가챠만 사실상 동기화가 안 됐다.**
-   [무엇이 문제였나] 예전 호출 시점은 '부팅 4.2초'와 '뽑을 때' 둘뿐이었다. 이 앱은 켜두고 쓰는
-     앱이라 그 4.2초가 그 세션의 처음이자 마지막 조회였고, 게다가 그 시점에 firebaseAPI 가 아직
-     안 붙어 있으면 조용히 return 해서 **그 세션에는 재시도가 아예 없었다**(집중 누적 쪽은 주기
-     타이머가 다시 시도해 준다 — 그 차이 하나로 증상이 갈렸다).
-   [비용] 읽기 1회/10분/기기. 쓰기는 이 PC 에만 있는 뽑기가 있을 때만이라 평소엔 0회다. */
-const GACHA_SYNC_INTERVAL_MS = 10*60*1000;   // 10분 — 집중 누적(FOCUS_SYNC_INTERVAL_MS)과 같은 박자
-setInterval(()=>{ try{ syncGachaToServer('tick'); }catch(_){} }, GACHA_SYNC_INTERVAL_MS);
+/* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 서버에서 받고, 서버 신호를 듣는다. 두 번 불려도 구독은 한 번. */
+function startGacha(){
+  if(_gachaStarted) return;
+  _gachaStarted = true;
+  _unsubRt = rtOn('collection', ()=>{ pullGacha(false); });
+  pullGacha(false);
+}
+/* 로그아웃 · 계정 바뀜 — 메모리를 비우고 서버 신호 구독을 푼다(이 PC 에 남는 가챠 값은 없다). */
+function resetGacha(){
+  gachaOwned = {}; _gachaUnlocked = {}; _srvState = null; _gachaLoad = 'idle';
+  _gachaPullGen++; _gachaPullAgain = false; _gachaStarted = false;
+  if(_unsubRt){ _unsubRt(); _unsubRt = null; }
+}
 
 /* ═══ 🎰 파츠 보관함 (T키) · 가챠 뽑기 창 ══════════════════════════════════
    ★ 착용은 꾸미기(F2)와 같은 배관을 그대로 탄다 — toggleEquip(cat, id).
@@ -745,11 +508,30 @@ function renderGachaInv(){
   const bar = document.getElementById('gachaInvBar');
   const grid = document.getElementById('gachaInvGrid');
   if(!bar || !grid) return;
+  /* 받기 전(불러오는 중) · 못 받음은 빈 보관함이 아니다 — 보유분을 모르는 채 «아직 없어요» 를 그리지 않는다. */
+  if(_gachaLoad !== 'ready'){
+    grid.innerHTML = '';
+    const d = document.createElement('div');
+    d.style.cssText = 'grid-column:1/-1;font-size:11px;opacity:.8;text-align:center;padding:18px 6px;line-height:1.9;';
+    if(_gachaLoad === 'failed'){
+      bar.textContent = '내 가챠 보관함을 못 불러왔어요';
+      d.textContent = '못 불러왔어요 · ';
+      const rb = document.createElement('button');
+      rb.id = 'gachaRetry'; rb.className = 'btn'; rb.textContent = '다시 시도';
+      rb.onclick = ()=>{ pullGacha(true); };
+      d.appendChild(rb);
+    }else{
+      bar.textContent = '불러오는 중…';
+      d.textContent = '불러오는 중…';
+    }
+    grid.appendChild(d);
+    return;
+  }
   const season = gachaSeasonNow();
   const left = gachaTicketsLeft();
   bar.innerHTML = '레벨 <b>' + Number(getFocusLevel()) + '</b> · 남은 뽑기 <b>' + left + '회</b>'
     + ' <span style="opacity:.6">(' + GACHA_LEVELS_PER_TICKET + '레벨당 1회'
-      + ((_gachaBonus|0) > 0 ? ' + 👑달성표 ' + (_gachaBonus|0) + '회' : '') + ')</span><br>'
+      + (gachaBonusNow() > 0 ? ' + 👑달성표 ' + gachaBonusNow() + '회' : '') + ')</span><br>'
     + '이번 시즌 가챠 — <b>' + (GACHA_SEASON_LABEL[season] || season) + '</b>';
 
   // 보여줄 것: 이번 시즌 가챠분 전부 + 지금은 안 나오지만 내가 가진 비시즌 파츠
@@ -1176,9 +958,9 @@ function renderGachaDraw(results){
 function openGachaInv(){
   const ov = document.getElementById('gachaInvOverlay'); if(!ov) return;
   const dv = document.getElementById('gachaDrawOverlay'); if(dv) dv.style.display='none';
-  /* 🎰 열자마자 서버와 한 번 맞춘다 — 다른 PC 에서 뽑은 것이 보이게.
-     ★ 기다리지 않는다 — 받아오면 _adoptServer 가 renderGachaInv 를 다시 부른다. */
-  try{ syncGachaToServer('inv-open'); }catch(_){}
+  /* 🎰 열 때 서버에서 받는다 — 다른 PC 에서 뽑은 것이 보이게. 못 받은 상태로 열면 이번이 «다시 시도» 라 오류 번호도 보인다.
+     ★ 기다리지 않는다 — 받아오면 _adoptServerState 가 renderGachaInv 를 다시 부른다. */
+  pullGacha(_gachaLoad === 'failed');
   /* 📄 열 때는 지금 보고 있는 파츠(_gachaSelId)가 있는 페이지에서 시작한다.
      [왜] 미리보기 아래 색상 영역이 _gachaSelId 를 따라간다. 그 칸이 3페이지에 있는데 1페이지가
        열리면 "색상은 모자 것인데 화면 어디에도 모자가 없다"가 된다. */
@@ -1370,13 +1152,14 @@ function toggleGachaInv(){
 
 return {
   /* 밖에서 부르는 이름 — app.js 는 gachaMod.이름 */
+  startGacha,
   isGachaPart,                          // 꾸미기 창 · 카탈로그 · 라이선스 접기가 가챠 파츠를 거른다
   setPartEditor,                        // 🛠 관리자 등록 창을 건다(app.js)
   isGachaColorUnlocked,                 // 꾸미기 미리보기 색상 영역 — 🔒 게이트
   gachaCount,
   sceneHasColorGroup,                   // 관리자 파츠 등록 — 색 없는 파츠(rec.noColor) 판정
   DUPES_FOR_COLOR: GACHA_DUPES_FOR_COLOR,
-  syncGachaToServer,                    // 런처 복귀('launcher') · 로그아웃 직전('logout') · 계정 연동('transfer','pull')
+  pullGacha,                            // 런처 복귀('launcher') · 계정 이어받기 — 서버에서 받기(notify=true 면 실패에 오류 번호)
   pruneUnownedGachaParts,               // 꾸미기 커밋 · 카탈로그 도착
   renderGachaInv,                       // 파츠 등록 · 썸네일 재생성 · 계정 연동 · 👑 달성표 보상
   toggleGachaInv,                       // T 키
@@ -1384,16 +1167,14 @@ return {
   isDrawOpen: _gachaDrawOpen,
   selId: ()=>_gachaSelId,               // 보관함에서 지금 보고 있는 파츠 — 꾸미기 미리보기 색상 영역이 따라간다
   owned: ()=>gachaOwned,                // 계정 전환 검문 — «뽑은 파츠 N개»
-  unsynced: (srv)=>_serverMode() ? 0 : gachaUnsynced(srv),   // 로그아웃 전 검문 — 서버에 없는 이 PC 의 뽑기 수(서버 길은 이 PC 몫을 올리지 않으니 0)
-  bonus: ()=>_gachaBonus,               // 👑 달성표 — 보너스 뽑기 수
-  setBonusLocal: _setGachaBonusLocal,
-  resetMemory(){ gachaOwned = {}; _gachaTs = 0; _gachaBonus = 0; _srvState = null; },   // 로그아웃 지우기 — 메모리도 빈 기기 값으로
+  bonus: gachaBonusNow,                 // 👑 달성표 — 서버가 센 보너스 뽑기 수(👑 달성표 묶음이 이 호출을 걷는다)
+  resetMemory: resetGacha,              // 로그아웃 지우기 — 메모리도 빈 기기 값으로
   /* 화면 없이 검사하는 셈 · 상태 — sim-gacha.js · sim-gacha-prune.js · sim-part-color-entry.js */
   draw: gachaDraw, pool: gachaPool, seasonNow: gachaSeasonNow, ticketsLeft: gachaTicketsLeft, ticketsEarned: gachaTicketsEarned,
   openGachaInv, closeGachaInv, runDraw: _gachaRunDraw, renderGachaDraw,
   state: {
-    ts: ()=>_gachaTs, srvSeen: ()=>_gachaSrvSeen, page: ()=>_gachaPage, tab: ()=>_gachaTab, cat: ()=>_gachaCat, season: ()=>_gachaSeason,
-    setOwned(v){ gachaOwned = v; }, setSelId(v){ _gachaSelId = v; },
+    load: ()=>_gachaLoad, page: ()=>_gachaPage, tab: ()=>_gachaTab, cat: ()=>_gachaCat, season: ()=>_gachaSeason,
+    setOwned(v){ gachaOwned = v; }, setUnlocked(v){ _gachaUnlocked = v; }, setSelId(v){ _gachaSelId = v; },
   },
 };
 }

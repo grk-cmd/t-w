@@ -35,7 +35,7 @@ const probe = `
   TURNS: TRICK_TURNS,
   WINDOW: EGG_WINDOW_MS,
   setAdmin: v=>{ isAdmin = v; },
-  setFocus: sec=>{ _focusTotalSec = sec; },
+  setFocus: sec=>{ const lv = Math.min(999, 1 + Math.floor(sec / 3600)); focusProgressMod.getFocusLevel = ()=>lv; },   // 레벨은 서버 값 — 진척 모듈이 «받았다» 고 치고 서버 레벨만 바꿔 끼운다
 };`;
 
 const say = console.log; console.log = ()=>{}; console.warn = ()=>{};

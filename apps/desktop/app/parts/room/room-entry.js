@@ -14,6 +14,7 @@ const EXP_CELLS = deps.EXP_CELLS;   // 읽는 함수
 const FLOATER_BURST = deps.FLOATER_BURST;
 const Presence = deps.Presence;
 const _chatNotifyIncoming = deps._chatNotifyIncoming;
+const _demojiNotifyIncoming = deps._demojiNotifyIncoming;
 const _clearHiddenSeats = deps._clearHiddenSeats;
 const _onDeviceSessionLost = deps._onDeviceSessionLost;
 const _pokeFresh = deps._pokeFresh;
@@ -57,6 +58,10 @@ const paintRoomInfo = deps.paintRoomInfo;   // 방 안 정보 칸 제목 · [방
 const _roomChangedFns = [];
 function onRoomChanged(fn){ _roomChangedFns.push(fn); }
 function _roomChanged(){ paintRoomInfo(); _roomChangedFns.forEach(f => f()); }
+/* 🔔 «방에 연결됨» 알림 — 위층(🕘 최근 방 recent-rooms.js)이 onRoomJoined 로 건다. meta 는 그때 아는 방 meta(없으면 null). */
+const _roomJoinedFns = [];
+function onRoomJoined(fn){ _roomJoinedFns.push(fn); }
+function _roomJoined(code){ const meta = window._roomMetaCache || null; _roomJoinedFns.forEach(f => f(code, meta)); }
 const mySecretRoom = deps.mySecretRoom;   // 내 시크릿룸 판정(room-lobby-provider.js — 로비와 같은 한 곳)
 const roomSettings = deps.roomSettings;   // 방 설정 규칙(room-settings.js — 최대 인원 · 방장 닉네임)
 const roomRt = deps.roomRt;   // 🛰 방 포트(room-rt.js TwRoomRt.store) — 입장 · 랜덤 · 들여다보기 · 연결의 나(myCode)
@@ -403,9 +408,10 @@ function syncFriendSeats(friends){
       }
       else if((window._activeChannel === 2 || _demojiOnly)){ showChatBubble(s, chat.text); _chatShown = true; }
       /* 🔔 알림음 — 상대 채팅이 **화면에 뜬 경우에만** 울린다. 워킹룸에서 걸러진 글자처럼 안 뜬 것은 조용하다.
-         ★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 조용하다 — 일에 집중하는 방이라 소리로 끊지 않는다.
+         ★ 워킹룸(채널1)은 이모티콘 창의 🔔 를 켠 사람에게만 운다(처음엔 꺼짐 — 일에 집중하는 방).
          ⚠ 여기가 유일한 자리다. chatLog 구독(대화창)에도 걸면 한 줄에 두 번 울린다. */
       if(_chatShown && window._activeChannel === 2) _chatNotifyIncoming();
+      else if(_chatShown && window._activeChannel === 1) _demojiNotifyIncoming();
     }
     /* 💬 채팅 탭 말풍선 — **내 탭과 같을 때만** 띄운다(sim-chat-tabs ②). 투게더룸 · 시크릿룸에서만.
        ⚠️ 날리기 · 말풍선 · 알림음 분기는 위 `chat` 과 같은 규칙이다 — 한쪽만 고치지 말 것. */
@@ -442,6 +448,11 @@ const ROOM_PREFIX = { workingroom:'WORK-', togetherroom:'PLAY-' };
 const ROOM_CODE_RE = /^(COZY|WORK|PLAY)-([A-Z0-9]{4})$/;
 /* 코드 본문(접두어 뺀 4자리) — 규칙 rooms/$room 이 XXXX-XXXX 만 받는다. 다른 길이로 들어가면 쓰기가 전부 조용히 거절돼 아무도 없는 방이 된다. */
 const ROOM_CODE_BODY_RE = /^[A-Z0-9]{4}$/;
+/* 들어갈 수 있는 방 코드 모양인가 — 공개 방(ROOM_CODE_RE) · 시크릿룸(SCRT- + 4자리). 최근 방(recent-rooms.js)이 기록 · 저장본을 거를 때 deps 로 받는다. */
+function isRoomCode(code){
+  if(typeof code !== 'string') return false;
+  return ROOM_CODE_RE.test(code) || (code.startsWith('SCRT-') && ROOM_CODE_BODY_RE.test(code.slice(5)));
+}
 function _roomPrefixFor(channel){ return ROOM_PREFIX[channel] || ROOM_PREFIX.workingroom; }
 /* 빈 방을 열 때 내가 갖게 될 채널의 접두어 — 빈 방 승격 규칙(보유자=투게더룸)과 **같은 판정**이어야 한다. */
 function _myRoomPrefix(){
@@ -595,6 +606,7 @@ async function startRoom(code){
   }
   refreshInviteUI(); toast('방에 연결됐어요: '+code);
   _clearPendingCreate();
+  _roomJoined(code);
   settingsMod.applyExtraSeatForMode();   // 멀티모드 진입 — 자리추가 좌석은 자동으로 뺀다
 }
 document.getElementById('lcInvite').onclick=()=>{ refreshInviteUI(); document.getElementById('inviteOverlay').classList.add('on'); };
@@ -620,7 +632,6 @@ function _bindDonate(el){
     else { try{ window.open(url, '_blank', 'noopener'); }catch(_){} }
   });
 }
-_bindDonate(document.getElementById('donateLink'));    // 방 만들기 / 참여하기 모달
 _bindDonate(document.getElementById('lcDonateBtn'));   // 런처 (예전 [공사중] 자리)
 _bindDonate(document.getElementById('progIconCredit')); // 설정 → 시스템 → 프로그램 정보 (아이콘 출처 @Miraclelife_CM)
 _bindDonate(document.getElementById('progPrivacyLink')); // 설정 → 시스템 → 프로그램 정보 (개인정보 처리방침)
@@ -658,20 +669,22 @@ let _pendingExtra = null;
 function _clearPendingCreate(){ window._pendingRoomChannel = null; window._pendingRoomOpen = false; _pendingExtra = null; }
 /* 방 만들기 — 채널 상한 · 프리미엄(투게더룸) · 제목 금칙어는 서버가 본다(channelFull · forbidden · title).
    settings — 방 만들기 창이 고른 { title(확인된 제목), max, open(방 목록 공개 · 랜덤 참여 허용), music(🎧 같이 듣기) }. */
-function doCreateRoomInChannel(channel, settings){
+/* [방 만들기] 를 빨리 두 번 누르면 입장이 두 번 돈다 — 사람이 누른 입장과 같은 한 깃발(_whileJoining)을 입장이 끝날 때까지 쥔다. */
+function doCreateRoomInChannel(channel, settings){ return _whileJoining(() => _createRoomInChannel(channel, settings)); }
+async function _createRoomInChannel(channel, settings){
   channel = channel || 'workingroom';
   window._pendingRoomChannel = channel;
   window._pendingRoomOpen = !!(settings && settings.open);
   _pendingExtra = { max: roomSettings.clampMax(settings && settings.max, maxPeople()),
     title: (settings && settings.title) || null, music: !!(settings && settings.music) };
-  startRoom(genRoomCode(channel));   // 🏷️ 채널대로 WORK-/PLAY-
+  await startRoom(genRoomCode(channel));   // 🏷️ 채널대로 WORK-/PLAY-
 }
 /* 🎲 랜덤 참여 — 코드 없이 '참여'를 누르면 여기로 온다. 후보는 서버가 정원 · 생존을 알고 고른 것이라 따로 확인하지 않는다. */
 async function doJoinRandomRoom(){
   const cands = await _randomRooms(12);
   if(cands === null){ TwErrorCodes.notify('E-ROOM-01'); return; }
   if(!cands.length){ toast('지금은 참여할 수 있는 방이 없어요. 방을 만들어 보세요 🎲'); return; }
-  startRoom(cands[0]);
+  await startRoom(cands[0]);   // 기다린다 — 연결이 끝날 때까지 «입장 중» 깃발이 서 있게(doJoinRoom 의 _whileJoining)
 }
 /* 🎲 방 갈아타기 — 지금 방을 나가고 다른 랜덤 워킹룸으로 옮긴다.
    ★ 후보를 먼저 정한 뒤에 나간다 — 나가고 나서 찾으면 옮길 곳이 없을 때 그냥 혼자 남는다. 지금 방은 후보에서 뺀다.
@@ -707,18 +720,36 @@ async function doHopRandomRoom(){
    같은 4자리를 쓰는 두 방이 공존할 때 한쪽이 가려진다. 별표는 입력에 명시적으로 담기므로
    COZY-1234와 SCRT-1234가 아무 문제 없이 공존한다(추가 조회도 필요 없다).
    허용 문자는 영숫자 + 맨 뒤 별표 하나뿐 — 나머지 특수문자는 _setupRoomCodeInput이 지운다. */
-/* ★ 중복 입장 방지 — 빈 코드일 때 타는 랜덤 참여(doJoinRandomRoom)가 후보를 묻느라 잠깐 걸린다. 그 사이 [참여]를 두 번 누르면 입장이 두 번 돈다. */
+/* ★ 사람이 누른 입장은 한 번에 하나 — 로비 카드 · 최근 방 · 코드 칸 [입장] · F1 칸이 모두 이 깃발 하나를 본다.
+   연결을 기다리는 몇 초 사이 다른 것을 또 누르면 startRoom 이 겹쳐 돈다.
+   ⚠️ startRoom 안에서 다시 부르는 startRoom(빈 방 접두어 옮김)은 이 막기를 거치지 않는다 — 막으면 스스로 막힌다. */
 let _joiningRoom = false;
+const JOINING_MSG = '방에 들어가는 중이에요 — 잠시만 기다려 주세요';
+/* 입장 중이면 안내하고 true — 막힌 누름이 아무 일 없이 넘어가 «눌렀는데 반응이 없다» 로 보이지 않게 */
+function _joinBusy(){
+  if(!_joiningRoom) return false;
+  toast(JOINING_MSG);
+  return true;
+}
+async function _whileJoining(fn){
+  if(_joinBusy()) return;
+  _joiningRoom = true;
+  try{ await fn(); }finally{ _joiningRoom = false; }
+}
+/** 사람이 누른 입장(로비 카드 · 최근 방) — 겹치면 뒤의 것은 그냥 넘긴다. @param {string} code */
+function joinRoom(code){ return _whileJoining(() => startRoom(code)); }
 /* 🏷️ 4자리 + 고른 접두어(WORK-/PLAY-/붙여 넣은 COZY-)로 갈 방을 정한다. WORK-1234 와 PLAY-1234 는 서로 다른 방으로 공존한다 —
    어느 쪽인지는 입력칸 앞 라벨을 눌러 사람이 고른다(_setupRoomCodeInput). 조회해서 추측하지 않는다(추측하면 같은 4자리의 한쪽이 가려진다). */
 function _resolveRoomCode(body, chosen){
   const pre = (chosen === ROOM_PREFIX.togetherroom || chosen === ROOM_PREFIX.workingroom || chosen === 'COZY-') ? chosen : _myRoomPrefix();
   return pre + body;
 }
-async function doJoinRoom(codeInputEl){
-  if(_joiningRoom) return;
+/* opts.randomOnEmpty — 빈 코드면 랜덤 참여(F1 멀티모드 탭). 로비 모달은 false — 랜덤은 [⚡ 빠른시작] 하나로 둔다. */
+async function doJoinRoom(codeInputEl, opts){
+  if(_joinBusy()) return;
   let c=((codeInputEl&&codeInputEl.value)||'').trim().toUpperCase();
-  if(!c){ _joiningRoom = true; try{ await doJoinRandomRoom(); } finally{ _joiningRoom = false; } return; }   // 🎲 빈 코드 = 랜덤 참여
+  if(!c && !(opts && opts.randomOnEmpty === false)){ await _whileJoining(doJoinRandomRoom); return; }   // 🎲 빈 코드 = 랜덤 참여
+  if(!c){ toast('방 코드를 입력하세요'); return; }
   /* 접두어 전체("COZY-XXXX" / "SCRT-XXXX")를 붙여넣어도 정상 처리(하위호환).
      ⚠️ 길이 검사가 **판정과 제거 양쪽에** 필요하다 — genSecretCode 의 알파벳에 S·C·R·T 가 전부
        있어서 코드가 통째로 "SCRT" 로 뽑히는 일이 실제로 가능하다. 예전에는 판정에만 길이 검사가
@@ -756,14 +787,14 @@ async function doJoinRoom(codeInputEl){
      ⚠️ 여기서 SCRT 를 조회하지 않는 것 자체가 규칙이다. 조회로 추측하는 순간 두 코드 공간의
        공존이 깨진다. 입력에 담긴 표시 하나만 보고 가른다.
      🏷️ 공개 방 쪽(WORK/PLAY/COZY)은 _resolveRoomCode 가 고른 접두어로 — SCRT 와 무관하다. */
-  if(secret){ startRoom('SCRT-' + c); return; }
-  startRoom(_resolveRoomCode(c, _explicit || _myRoomPrefix()));
+  if(secret){ await _whileJoining(() => startRoom('SCRT-' + c)); return; }
+  await _whileJoining(() => startRoom(_resolveRoomCode(c, _explicit || _myRoomPrefix())));
 }
 /* 🔒 시크릿룸 입장 — 코드 공간이 분리돼 있어(SCRT-) 일반 방 코드와 섞이지 않는다.
    미발급 · 기간이 끝난 코드는 서버가 막는다(secretClosed).
    ★ 이 칸은 '별표를 아는 사람'이 쓰는 전용 입구다. 일반 코드 칸에서 별표 없이 들어오는 길은
      없다(doJoinRoom 의 사양 주석 참고) — 그쪽에 구제 분기를 만들지 말 것. */
-function doJoinSecretRoom(codeInputEl){
+async function doJoinSecretRoom(codeInputEl){
   /* ★ 별표(*)를 비롯한 특수문자는 여기서 지운다. 이 칸은 이미 SCRT- 프리픽스가 붙어 있어서
      별표가 필요 없는데, "시크릿룸은 뒤에 별표"만 듣고 여기에 치는 사람이 많았다.
      예전엔 maxlength=4 라 다섯 번째 글자가 브라우저에서 막혀 **글자가 아예 안 찍혔고**,
@@ -775,7 +806,7 @@ function doJoinSecretRoom(codeInputEl){
   c = c.replace(/[^A-Z0-9]/g, '');
   if(!c){ toast('시크릿룸 코드를 입력하세요'); return; }
   if(!ROOM_CODE_BODY_RE.test(c)){ toast('시크릿룸 코드는 4자리예요'); return; }
-  startRoom('SCRT-'+c);
+  await _whileJoining(() => startRoom('SCRT-'+c));
 }
 /* ★ 방장 승계 알림 — 서버 meta 의 host 가 나로 바뀌면(_onServerRoomMeta) 부른다. */
 window._onHostSucceeded = function(meta){
@@ -827,7 +858,8 @@ async function doCopyRoomCode(){
   catch(err){ toast('복사에 실패했어요'); }
 }
 // 채널 카드 클릭은 방 만들기 창(room-create-ui.js)이 받는다 — 창의 [방 만들기] 가 doCreateRoomInChannel 로 넘긴다.
-document.getElementById('inviteJoin').onclick=()=>doJoinRoom(document.getElementById('inviteCode'));
+const INVITE_JOIN_OPTS = { randomOnEmpty: false };   // 로비 모달 코드 칸
+document.getElementById('inviteJoin').onclick=()=>doJoinRoom(document.getElementById('inviteCode'), INVITE_JOIN_OPTS);
 document.getElementById('inviteLeave').onclick=()=>doLeaveRoom({ wipeChat: true });
 { const b=document.getElementById('inviteHopRandom'); if(b) b.onclick=doHopRandomRoom; }
 document.getElementById('inviteRoomCopy').addEventListener('click', e=>{ e.preventDefault(); doCopyRoomCode(); });
@@ -851,7 +883,7 @@ const fsInviteRoomCopyBtn=document.getElementById('fsInviteRoomCopy'); if(fsInvi
      그 외 특수문자(하이픈·공백 등)는 전부 제거
    ・별표가 붙으면 라벨도 COZY- → SCRT- 로 바꿔서 어디로 들어가는지 눈에 보이게 한다
    ・Enter로 즉시 참여 */
-function _setupRoomCodeInput(inputEl){
+function _setupRoomCodeInput(inputEl, joinOpts){
   if(!inputEl) return;
   const preEl = inputEl.closest && inputEl.closest('.room-code-group')
     ? inputEl.closest('.room-code-group').querySelector('.room-code-prefix') : null;
@@ -910,10 +942,10 @@ function _setupRoomCodeInput(inputEl){
   });
   _paintPre(false);
   inputEl.addEventListener('keydown', e=>{
-    if(e.key === 'Enter'){ e.preventDefault(); doJoinRoom(inputEl); }
+    if(e.key === 'Enter'){ e.preventDefault(); doJoinRoom(inputEl, joinOpts); }
   });
 }
-_setupRoomCodeInput(document.getElementById('inviteCode'));
+_setupRoomCodeInput(document.getElementById('inviteCode'), INVITE_JOIN_OPTS);
 _setupRoomCodeInput(document.getElementById('fsInviteCode'));
 
 /* 🔒 시크릿룸 전용 칸(SCRT- 프리픽스가 이미 붙어 있는 칸) 정리기.
@@ -953,6 +985,9 @@ return {
   startRoom,
   syncFriendSeats,
   onRoomChanged,   // 🔔 «방이 바뀜» 알림 걸기 — 🎧 같이 듣기
+  onRoomJoined,    // 🔔 «방에 연결됨» 알림 걸기 — 🕘 최근 방
+  isRoomCode,      // 방 코드 모양 판정(공개 방 · 시크릿룸) — 🕘 최근 방
+  joinRoom,        // 사람이 누른 입장(겹치면 안내하고 넘김 · _joiningRoom 한 깃발) — 로비 카드 · 🕘 최근 방
 };
 }
 

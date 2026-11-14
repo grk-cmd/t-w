@@ -50,6 +50,8 @@ function _diceSvg(n, px){
        + dots + `</svg>`;
 }
 
+/* 🎟️ 하루 횟수 — 룰렛 · 주사위를 따로 센다 · 날짜는 이 PC 자정. 실제로 굴릴 때만 깎는다(막힌 누름은 안 깎음).
+   ⚠️ 이 기기 localStorage 에만 센다(지우면 풀린다 — 난수도 클라이언트라 같은 수준). 저장이 안 되면 막지 않는다(못 센 것을 «다 썼다» 로 읽으면 영영 잠긴다). */
 const DAILY_PLAY_MAX = 6;
 function _dailyPlayDay(){ const d = new Date(); return d.getFullYear() + '-' + (d.getMonth()+1) + '-' + d.getDate(); }
 /* kind: 'roulette' | 'dice'. 쓸 수 있으면 한 번 깎고 { ok:true, left } · 다 썼으면 { ok:false, left:0 }. */

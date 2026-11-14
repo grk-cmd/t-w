@@ -475,6 +475,8 @@ function canBonk(seat){
   return { ok:true };
 }
 
+/* ⚠️ 때리기는 seatState 를 바꾸지 않고 스케일 오버레이 하나로 그린다 — 상태로 넣으면 포즈 표 · 눈 감기 판정까지 번진다.
+   ⚠️ setBonkAiming · setFlyAiming 은 서로의 조준 상태를 읽는다 — 두 블록을 다른 파일로 떼지 말 것. */
 /* 때린다 — 카운터·로컬 재생·전파. 두 진입 경로의 **공통 출구**다. */
 function bonkSeat(seat){
   const c = canBonk(seat);

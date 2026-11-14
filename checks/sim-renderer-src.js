@@ -17,14 +17,12 @@ const VALUE_MODULES = [
 ];
 const MODULES = [
   { file: 'my-info.js', mod: 'myInfoMod', glob: 'TwMyInfo', sample: 'function openMyInfo(' },   // 앱 FSD 17번
-  { file: 'chars.js', mod: 'charsMod', glob: 'TwChars', sample: 'function _charsSync(' },       // 앱 FSD 18번
-  { file: 'slot-sync.js', mod: 'slotSyncMod', glob: 'TwSlotSync', sample: 'function _slotsSeenSet(' },   // 앱 FSD 19번
   { file: 'away-pic.js', mod: 'awayPicMod', glob: 'TwAwayPic', sample: 'function _awaySzOk(' },   // 앱 FSD 22번
   { file: 'myhome-ui.js', mod: 'myHomeUiMod', glob: 'TwMyHomeUi', sample: 'function renderMhProfileRail(' },   // 앱 FSD 22번
   { file: 'tricks.js', mod: 'tricksMod', glob: 'TwTricks', sample: 'function _eggCountCmd(' },   // 앱 FSD 25번
   { file: 'ride-bench.js', mod: 'rideBenchMod', glob: 'TwRideBench', sample: 'function _checkCircusBalance(' },   // 앱 FSD 30번
   { file: 'part-paint.js', mod: 'partPaintMod', glob: 'TwPartPaint', sample: 'function _wdPicSection(' },   // 앱 FSD 21번
-  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function _pushLevelIfChanged(' },   // 앱 FSD 26번
+  { file: 'focus-level.js', mod: 'focusLevelMod', glob: 'TwFocusLevel', sample: 'function addFocusSeconds(' },   // 앱 FSD 26번
   { file: 'chat-ui.js', mod: 'chatUiMod', glob: 'TwChatUi', sample: 'function _chatFlySendGate(' },   // 앱 FSD 24번
   { file: 'license-gate.js', mod: 'licenseGateMod', glob: 'TwLicenseGate', sample: 'function _rcStore(' },   // 앱 FSD 31번
   { file: 'account.js', mod: 'accountMod', glob: 'TwAccount', sample: 'function getMyLoginEmail(' },   // 앱 FSD 23번
@@ -48,14 +46,13 @@ const MODULES = [
   { file: 'slot-save.js', mod: 'slotSaveMod', glob: 'TwSlotSave', sample: 'function _slotImgToDataUrl(' },   // 앱 FSD 43번
   { file: 'interaction-desk.js', mod: 'iDeskMod', glob: 'TwInteractionDesk', sample: 'function _trickTurns(' },   // 앱 FSD 43번
   { file: 'ad-banner.js', mod: 'adBannerMod', glob: 'TwAdBanner', sample: 'function refreshAdBanner(' },   // 앱 FSD 43번
-  { file: 'license-request.js', mod: 'licReqMod', glob: 'TwLicenseRequest', sample: 'function _showLicenseReqState(' },   // 앱 FSD 43번
   { file: 'fn-keys.js', mod: 'fnKeysMod', glob: 'TwFnKeys', sample: '(function bindHotkeys(){' },   // 앱 FSD 43번
   { file: 'hidden-seats.js', mod: 'hiddenSeatsMod', glob: 'TwHiddenSeats', sample: 'function _reportHiddenSave(' },   // 앱 FSD 43번
   { file: 'theme-ui.js', mod: 'themeUiMod', glob: 'TwThemeUi', sample: 'function _themeChildCss(' },   // 앱 FSD 44번
   { file: 'myhome-sticker-layout.js', mod: 'mhStLayoutMod', glob: 'TwMyHomeStickerLayout', sample: 'function _mhOpenStickerAnim(' },   // 앱 FSD 44번
   { file: 'myhome-diag.js', mod: 'mhDiagMod', glob: 'TwMyHomeDiag', sample: 'window.__mhClickDiag = function(){' },   // 앱 FSD 44번
   { file: 'account-state.js', mod: 'acctStateMod', glob: 'TwAccountState', sample: 'function _setPremium(' },   // 모듈 순환 끊기 5 — 게이트 · 계정 · 내 정보에서 핵심 상태를
-  { file: 'myhome-state.js', mod: 'mhStateMod', glob: 'TwMyHomeState', sample: 'function _mhHomeFromServer(' },   // 모듈 순환 끊기 4 — visit 에서 공용 상태를
+  { file: 'myhome-state.js', mod: 'mhStateMod', glob: 'TwMyHomeState', sample: 'function _mhViewingDisplayName(' },   // 모듈 순환 끊기 4 — visit 에서 공용 상태를
   { file: 'myhome-visit.js', mod: 'mhVisitMod', glob: 'TwMyHomeVisit', sample: 'async function openFriendHomeView(' },   // 앱 FSD 44번
   { file: 'exp-bar.js', mod: 'expBarMod', glob: 'TwExpBar', sample: 'function expTierClass(' },   // 앱 FSD 45번
   { file: 'focus-share.js', mod: 'focusShareMod', glob: 'TwFocusShare', sample: 'function _focusShowText(' },   // 앱 FSD 45번
@@ -75,7 +72,7 @@ const MODULES = [
   { file: 'myhome-page.js', mod: 'mhPageMod', glob: 'TwMyHomePage', sample: 'function loadMyHomePage(' },   // 앱 FSD 47번
   { file: 'theme.js', mod: 'themeMod', glob: 'TwTheme', sample: 'function getTheme(' },   // 앱 FSD 48번
   { file: 'asset-code.js', mod: 'assetCodeMod', glob: 'TwAssetCode', sample: 'function encryptBytes(' },   // 앱 FSD 48번
-  { file: 'license-key.js', mod: 'licenseKeyMod', glob: 'TwLicenseKey', sample: 'document.getElementById(\'licenseSubmitBt' },   // 앱 FSD 48번
+  { file: 'license-key.js', mod: 'licenseKeyMod', glob: 'TwLicenseKey', sample: 'licKeyEl(\'licenseSubmitBtn\').onclick' },   // 앱 FSD 48번
   { file: 'license-ui.js', mod: 'licenseUiMod', glob: 'TwLicenseUi', sample: 'function refreshLicenseUI(' },   // 앱 FSD 48번
   { file: 'race-picker.js', mod: 'racePickerMod', glob: 'TwRacePicker', sample: 'function initRacePreview(' },   // 앱 FSD 48번
   { file: 'wardrobe-panel.js', mod: 'wdPanelMod', glob: 'TwWardrobePanel', sample: '(function bindWardrobe(){' },   // 앱 FSD 48번
@@ -189,7 +186,7 @@ function joinRenderer(app){
      한 자리에 펼치면 같은 const 가 두 번이 되므로 app.js 차례로 처음 것만 남긴다(뒤 모듈은 부를 때 그 이름을 본다). */
   const aliasSeen = new Set();
   for(const p of parts.slice().sort((a, b) => (a[1] < 0) - (b[1] < 0) || a[1] - b[1])){
-    p[3] = p[3].replace(/^const [\w$]+ = Tw[\w$]+;.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });
+    p[3] = p[3].replace(/^const [\w$]+ = (?:Tw[\w$]+|[\w$]+Mod);.*\n/gm, (l) => { const k = l.split(';')[0]; if(aliasSeen.has(k)) return ''; aliasSeen.add(k); return l; });   // 여러 모듈이 같은 값 deps(상태 주인 등)를 받는 줄도 한 번만
   }
   let all = app, tail = [];
   for(const [m, i, j, body] of parts.slice().sort((a, b) => b[1] - a[1])){

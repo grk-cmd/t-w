@@ -60,18 +60,21 @@
   - 키가 url 그대로라 따로 지우지 않아도 관리자가 다시 올리면 새 url 로 받는다.
   - 검사: `checks/sim-glb-idb-cache.js`(4절 — 가짜 IndexedDB 로 없음 · 열기 실패 · 넣기/꺼내기 · 한 번만 열기 · 치우기 45일 경계 · 한 번만 치우기).
 
-## `light-tone.js` — 💡 재질 톤(조명 예산 · emissive)
+## `light-tone.js` — 💡 재질 톤(조명 예산 · emissive) · 실행 화면 조명 한 벌
 
 **책임** — 화면 밝기의 손잡이 하나(`TONE_FRONT_TOTAL` — 카메라를 보는 흰 면이 받는 빛의 총합)에서 플랫 조명 몫(`FLAT_EMISSIVE`)을 계산하고,
 아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조)은 캐릭터 코어 `tone.ts` 이고,
 여기서 `FLAT_EMISSIVE` 로 코어 톤을 만들어 `toneCore` 로 내놓는다(앱의 다른 곳은 그것을 deps 로 받는다).
 숫자(`LIGHT_PRESET` · `CREATOR_LIGHT_SL` · `TONE_FRONT_TOTAL` · 조명 배율)와 플랫 몫 계산식 · 재질 고치기(`fixMatLighting`)는 캐릭터 코어 `lighting.ts` 한 벌 — 웹 생성기도 같은 것을 쓴다.
+실행 화면 조명(앰비언트 · 키 · 뒤쪽 냉색 바운스 · 정면 필)을 씬에 넣는 것도 여기 한 벌(`addRunLights`) — 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 생성기 미리보기 · 동물 생성기가 모두 부른다. 세기를 슬라이더로 다시 정하는 생성기는 `runLightInts` 로 세기를 읽는다(몫 숫자를 곳마다 다시 적지 않게).
 
-**만드는 법** — app.js «관리자 모드» 머리 바로 앞:
+**만드는 법** — app.js 💡 조명 상수 바로 뒤(메인 씬 조명이 바로 아래에서 쓴다):
 
 ```js
 const lightToneMod = TwLightTone.createLightTone({
   _FILL_LIGHT_MUL: _FILL_LIGHT_MUL,                       // 값 — 채움광 배율(app.js 조명 상수)
+  _KEY_LIGHT_MUL: _KEY_LIGHT_MUL,                         // 값 — 키(위) 배율
+  _MAIN_LIGHT_COL: _MAIN_LIGHT_COL,                       // 값 — 빛 색(거의 백색)
   _MAIN_LIGHT_INT: _MAIN_LIGHT_INT,                       // 값 — 주광 세기(코어 MAIN_LIGHT_INT = LIGHT_PRESET.b × e)
   _fixGlbMatLighting: (...a)=>_fixGlbMatLighting(...a),   // 함수 — metalness 1 재질 눕히기(코어 fixMatLighting + 콘솔 한 줄)
   charCore: TwCharCore,                                   // 캐릭터 코어 — createTone 으로 toneCore 를 만든다
@@ -91,6 +94,9 @@ const LIGHT_PRESET = lightToneMod.LIGHT_PRESET;   // 옛 전역 이름(animal.js
 | `_applyPartMatTone(m)` | 파츠 재질 — 코어 `toneCore.applyPartMatTone`(map 이 있으면 emissiveMap 도 · emissive = 색 × 플랫 · `userData.baseFlat`) |
 | `_applyItemMatTone(m)` | 아이템 · 책상 GLB 재질 — GLB 의 emissive 를 덮어쓴다 · emissiveIntensity 는 1 로 |
 | `_setDeskMatColor(m, color)` | 책상 색 바꾸기 — baseFlat 으로 emissive 다시 계산(없으면 처음 심는다) |
+| `addRunLights(target, opt)` | 실행 화면 조명을 `target` 에 넣는다 — `opt.keyPos`(필수) · `mul`(썸네일 광량 배율, 기본 1) · `int` · `keyMul`(`runLightInts` 와 같다) · `backBounce`(뒤쪽 냉색 바운스) · `frontFill`(기본 켬). `{ amb, key, back, front }` 를 돌려준다(키 그림자는 부르는 쪽이 건다) |
+| `runLightInts(opt)` | 세 빛의 세기 `{ amb, key, front }` — `opt.int`(세기 예산, 기본 주광) · `mul`(광량 배율, 기본 1) · `keyMul`(키 배율, 기본 `_KEY_LIGHT_MUL`). `addRunLights` 도 같은 옵션을 받는다 |
+| `runLightAt1()` | 배율 1 일 때 앰비언트 + 키 세기 합 — 썸네일이 광량 배율을 계산할 때 |
 | `baseFlatOf(mat)` | 코어 `toneCore.baseFlatOf` — 재질에 심은 플랫 배율(baseFlat), 없으면 공용 기준 `FLAT_EMISSIVE` — 색을 다시 칠하는 곳(아이템 · 꾸미기 · 생성기)은 모두 이것으로 읽는다. 0 도 심은 값 |
 
 ```js
@@ -102,9 +108,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 **함정**
 - «baseFlat 이 있으면 그 값, 없으면 …» 판단을 부르는 쪽에 다시 쓰지 않는다 — `baseFlatOf` 를 부른다(곳마다 쓰면 대체값이 갈라진다 · `sim-light-tone` 이 잡는다).
 - 1.16 을 넘기면 측면도 잘려 밝아지지 않고 계조만 사라진다.
+- 실행 화면을 닮은 새 미리보기 씬은 빛을 손으로 만들지 말고 `addRunLights` 를 deps 로 받아 부른다(손으로 적으면 예산이 바뀔 때 그 화면만 톤이 달라진다 · `sim-light-tone` 7절이 잡는다).
 - 재질 색을 바꾸는 새 코드는 `color.set` 만 하지 말고 baseFlat 으로 emissive 를 다시 계산해야 한다(책상은 `_setDeskMatColor`).
 
-검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 깨 보기).
+검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 실행 화면 조명 여섯 자리를 옛 글과 견주기 · 깨 보기).
 
 ## blink-timing.js — 👁 깜빡임 시간표
 
@@ -165,7 +172,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `net-ready.js` — 🛰 네트워크(provider) 준비됨 기다리기
 
-**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 15곳(app.js 넷 · room-entry 둘 · ad-banner · license-request · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
+**책임** — «연결이 있으면 바로, 없으면 준비 신호를 한 번 기다림» 한 곳. 14곳(app.js 넷 · room-entry 둘 · ad-banner · my-info · scheduler · overhead · room-invite-ui · room-sync · bug-board-ui · catalog-source)에 따로 있던 판단을 묶었다. 지금 «준비됨» 은 `firebase-init.js` 가 `window.firebaseAPI` 를 다 만들고 쏘는 `firebase-ready` 이벤트.
 
 **만드는 법** — 만들 필요 없음(deps 0). 쓰는 모듈 · app.js 보다 먼저 싣는 classic script(`window.TwNetReady`)이고, 쓰는 곳은 `TwNetReady.이름` 으로 바로 부른다.
 
@@ -189,10 +196,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `upload-cache.js` — 🗂️ 업로드 캐시 규칙 · 같은 그림 다시 안 올리기
 
-- **책임**: 업로드 캐시(`«종류:내용해시» → URL`)를 다루는 규칙 하나 — 넘칠 때 무엇을 버리나 · 쓴 것 표시 · 저장 때 사본 합치기 · 같은 업로드 한 번 · 올린 자리를 URL 로 바꿔 넣기. 읽기 · 쓰기(localStorage) · 업로드는 쓰는 모듈이 한다.
-- **쓰는 곳**: 얼굴 캐시 `room/room-sync.js`(`tw.roomFaceUrls` · `faceUploadCache`) · 슬롯 GLB 캐시 `character/slot-sync.js`(`tw.slotGlbUrls` · `glbUploadCache`) · 마이홈 저장 뒤 `myhome/myhome-edit.js`(`homeUploadCache.applyUrlSwaps`).
-- **만드는 법**: app.js 가 `const uploadCacheMod = TwUploadCache.createUploadCache();` 로 하나 만들어 위 세 모듈에 deps 로 넘긴다(받는 deps 없음 · 진행 중 업로드 표는 이 하나에 있다).
-- **내놓는 것**: `trim(st, max)` — 넘치면 옛 해시 → 섬네일 `THUMB_CACHE_MAX`(10) → 오래 안 쓴 것부터 버림(통째로 비우지 않는다) · `touch(st, key)` · `merge(stored, mine)` · `once(key, run)` · `applyUrlSwaps(obj, swaps)` · `FACE_CACHE_MAX`(100) · `GLB_CACHE_MAX`(40).
+- **책임**: 업로드 캐시(`«종류:내용해시» → URL`)를 다루는 규칙 하나 — 넘칠 때 무엇을 버리나 · 쓴 것 표시 · 저장 때 사본 합치기 · 같은 업로드 한 번. 읽기 · 쓰기(localStorage) · 업로드는 쓰는 모듈이 한다.
+- **쓰는 곳**: 얼굴 캐시 `room/room-sync.js`(`tw.roomFaceUrls` · `faceUploadCache`) · 슬롯 GLB 캐시 `character/slot-codec.js`(`tw.slotGlbUrls` · `glbUploadCache`).
+- **만드는 법**: app.js 가 `const uploadCacheMod = TwUploadCache.createUploadCache();` 로 하나 만들어 위 모듈에 deps 로 넘긴다(받는 deps 없음 · 진행 중 업로드 표는 이 하나에 있다).
+- **내놓는 것**: `trim(st, max)` — 넘치면 옛 해시 → 섬네일 `THUMB_CACHE_MAX`(10) → 오래 안 쓴 것부터 버림(통째로 비우지 않는다) · `touch(st, key)` · `merge(stored, mine)` · `once(key, run)` · `FACE_CACHE_MAX`(100) · `GLB_CACHE_MAX`(40).
 - **확장**: 새 업로드 캐시가 생기면 상한 상수를 여기에 더하고 같은 함수를 부른다 — 쓰는 모듈에 «넘치면 비우기» · «동시 업로드 막기» 를 다시 쓰지 않는다.
 - **함정**: 키 순서가 «오래 안 쓴 순» 이다 — 조회해서 쓰면 `touch`, 저장은 `merge` 뒤에. 옛 해시(`h2` 로 시작하지 않는) 항목은 조회에 쓰지 않는다(같은 해시가 같은 그림이라는 보장이 없다).
 - **검사**: `checks/sim-upload-cache.js`.
@@ -214,7 +221,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 ## `app-version.js` — 🏷️ 앱 버전(ver) 싣기
 
-**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence · 라이선스 요청에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
+**책임** — 앱 버전을 한 번 받아(`companion.getAppVersion()` · 비동기 IPC) presence 에 싣는다. 웹 관리자가 누가 어느 판을 쓰는지 보고, 규칙은 presence 의 ver 로 옛 앱(≤0.10.2)을 가린다.
 
 **만드는 법** — `firebase-init.js` 가 `createAppVersion({ getVersion, onReady })`. `onReady(ver)` 는 처음 받았을 때 한 번 — presence 를 이미 썼으면 ver 만 update 하고 onDisconnect 를 다시 건다.
 
@@ -238,6 +245,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 **내놓는 것**
 - `store.onValue(값)` · `store.touch()`(점검 중이고 사람이 누른 동작이면 창 · 참) · `store.on()`(지금 점검인가 — 오류 번호 토스트를 조용히 하는 데 쓴다).
+- `store.serverClosed(retry, onDismiss)` — realtime 서버가 점검(4006)으로 닫았다(`realtime/rt-status-ui.js` 가 부름). 점검 창에 [다시 시도] 를 더해 띄우고, 누르거나 `config/maintenance` 가 풀리면 `retry()` 한 번(자동 재시도 없음). 창이 떠 있는 동안 `on()` 도 참. «확인» 으로 닫으면 같은 `retry` 를 `onDismiss` 에도 넘긴다(띠 [다시 연결] · 점검 해제와 띠 중 먼저 온 쪽 한 번만) — ⚠️ 닫은 뒤에도 `on()` 이 참이면 이 실행의 오류 알림이 다 꺼진다.
 - 순수: `maintenanceOf` · `endsAtText` · `viewOf` · `MAINTENANCE_PATH` · `GATE_ID` · `MESSAGE_MAX`(200 · 규칙과 같은 값).
 
 **함정**
@@ -248,7 +256,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 점검 때 Firebase 를 잠그는 규칙도 `config/maintenance` **읽기는 열어 둬야** 한다 — 닫으면 구독이 끊겨 끝난 것을 모른다.
 - 창이 떠 있는 동안 관리자가 끝 시각 · 문구를 바꾸면 바로 다시 그린다.
 
-검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 7).
+검사: `checks/sim-maintenance-gate.js` (1절 순수 · 2절 창을 실제로 돌림 · 2-1절 입력 시각 판정 · 자식 창 · 2-2절 realtime 점검 · 3절 통로 고리 · 오류 토스트 조용히 · 4절 연결 · 규칙 · 5절 깨 보기 11).
 
 ## safe-html.js — 🛡️ 남이 쓸 수 있는 값을 화면에 넣는 단 한 곳
 
@@ -260,6 +268,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - `safeUrl(u, kind)` → 허용 안 되면 `''`. `'image'` = `data:image/(png|jpeg|webp|gif);base64,` · `https:`(호스트는 아직 안 좁힘) / `'link'` = `https:` · `http:`(2048자 상한). `new URL` 로 읽어 `JaVaScRiPt:` · `\tjavascript:` · `//evil` · 상대 주소를 막는다. 돌려주는 값은 정규화한 주소.
   - `cssUrl(u)` → `url("…")` 통째로(`safeUrl(u,'image')` + 따옴표 · 역슬래시 막기), 안 되면 `''`.
   - `cssColor(c)` → 색 · 그라데이션 값 그대로, 주소를 부르는 글(`url(` · `image-set(` …)이나 다른 선언으로 넘어가는 글자(`; { } \ < >` 따옴표)가 있으면 `''`.
+  - `linkify(s)` → 글 속 `http(s)` 주소(`safeUrl(…,'link')` 를 지난 것)만 `<span class="ext-link" data-url="…">` 칸으로, 나머지는 `text`. `<a href>` 가 아니라 눌러도 앱 화면이 안 넘어간다 — 부르는 쪽 클릭 처리가 `data-url` 을 다시 `safeUrl` 로 거른 뒤 `companion.openBrowser`. 문장 끝 `. , ; : ! ? ) ]` 는 주소에서 뺀다. 지금 쓰는 곳: 🐞 버그제보 게시판 본문 · 답변 · 답글.
   ```js
   el.innerHTML = '<b title="' + TwSafeHtml.attr(m.memo) + '">' + TwSafeHtml.text(m.name) + '</b>';
   const src = TwSafeHtml.safeUrl(item.url, 'image'); if(src) img.src = src;
@@ -279,6 +288,21 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **빼는 곳**: `attachDragScroll(el, { skip: '선택자' })` — 거기서 누르면 끌기를 시작하지 않는다(우편함은 펼친 본문 `.mh-ibx-body` · 링크 `a` — 글자를 끌어 골라 복사할 수 있게).
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
+
+## `mac-tooltip.js` — 💬 맥 설명 말풍선
+
+- **책임**: 맥에서 마우스를 올리면 뜨는 설명(`title`)을 앱이 직접 그린다. 실행 화면 창이 «항상 위»(`overlay-mac.js` `TOP_LEVEL`)라 맥 OS 툴팁이 그 뒤로 깔려 안 보이기 때문이다. 윈도우는 OS 툴팁이 맨 위라 걸지 않는다.
+- **쓰는 법**: 메인 창은 없다 — 싣기만 하면 맥에서 스스로 건다(`install(document, window)`). 화면 코드는 예전처럼 `title=` · `.title =` 를 쓴다. 따로 여는 창(방명록 · 디자인 스튜디오)은 `d.write` · `d.close` 뒤에 `installChild(창 문서, 창)` — 메인과 같은 «항상 위» 단계(`TOP_LEVEL`)라 같은 일이 생긴다(맥 창이 아니면 안 건다 · app.js 가 deps `installMacTip` 으로 넘긴다). 내놓는 것 `TwMacTooltip.isMac(navigator)` · `place(…)` · `install(doc, win)` · `installChild(doc, win)`.
+- **어떻게**: 올리면 `title` 을 `data-tw-tip` 으로 잠시 옮기고(OS 툴팁이 안 뜨게) 450ms 뒤 `#twMacTip`(토스트와 같은 «쪽지» 모양 · z-index 10000)에 같은 글을 그린다. 말풍선 css 는 이 모듈 한 곳에 두고 거는 문서마다 `<style id="twMacTipCss">` 로 넣는다(자식 창은 메인 HTML 의 style 을 못 본다). 나가면 `title` 을 되돌린다. 누르기 · 휠 · 키 · 창 떠남은 말풍선만 접는다.
+- **함정**: 올려 둔 동안 그 요소의 `title` 은 비어 있다 — 그 사이 코드가 `title` 을 새로 쓰면 그 값을 살린다(되돌릴 때 덮지 않는다). 빈 `title` 은 건드리지 않는다.
+- 검사: `checks/sim-mac-tooltip.js`.
+## `panel-fit.js` — 📐 아래 기준 창을 화면 안으로
+
+- **책임**: 기준점이 창의 아래 가운데인 창(`transform: translate(-50%,-100%)`)의 기준점을, 창 전체가 화면 안에 들도록 옮긴다. 순수 함수 · DOM 없음.
+- **쓰는 법**: `TwPanelFit.fitBottomCenter(x, y, 창너비, 창높이, 화면너비, 화면높이, 여유)` → `{ x, y }`. 화면보다 큰 창은 위(제목줄)를 살린다 — 아래는 창 안 스크롤로 보지만 제목줄이 잘리면 끌 수도 닫을 수도 없다.
+- **지금 쓰는 곳**: ⚙ 설정창 — 머리 위 자동 배치(`status-chip.js`) · 끌어 옮기기 · 끈 뒤 크기가 바뀔 때(`settings-panel.js` — 탭을 바꾸면 위로 자란다).
+- **함정**: 함수만으로는 화면보다 긴 창을 못 넣는다 — 창 높이 상한(css `max-height: calc(100vh - 16px)`)과 안쪽 스크롤(`.fs-body{overflow-y:auto}`)이 짝이다.
+- 검사: `checks/sim-panel-fit.js`.
 
 ## `img-retry.js` — 🖼 남의 그림을 한 번 더 받을 주소
 
@@ -326,6 +350,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **못 보는 것**: 조합 중 칸을 `display:none` 으로 숨기면 크로미움이 focusout · compositionend 를 둘 다 안 보낸다.
 - 검사: `checks/sim-input-diag.js`(깨 보기 열).
 
+## `image-bytes.js` — 🖼 data: 그림 → 올릴 바이트
+
+- **책임**: 화면이 줄여 만든 `data:image/…;base64,…` 그림을 서버 올리기(`POST /v1/me/images?purpose=…`)가 받는 바이트로 푼다. 풀기 · 종류 · 빈 그림 · 크기 판정이 말랑이 · 일정 카드 · 박수 그림 provider 에 세 벌 있던 것을 한 곳으로 모았다.
+- **쓰는 법**: provider 가 `deps.imageBytes`(app.js 가 `TwImageBytes` 를 넘김)로 받아 `inspect(dataUrl, { types, maxBytes })` → `{ ok: true, type, bytes }` 또는 `{ ok: false, why: 'format' | 'empty' | 'large' }`. 종류 · 상한 값은 부르는 쪽(provider `LIMITS` · `IMAGE_TYPES`)이 정한다 — 여기엔 숫자를 두지 않는다.
+- **내놓는 것**: `parseDataUrl` · `inspect`. 순수 — 아무것도 부르지 않는다.
+- **함정**: 상한과 같은 크기는 통과(초과만 `large`). 서버 상한이 바뀌면 값은 각 provider `LIMITS` 한 곳씩.
+- 검사: `checks/sim-image-bytes.js`.
+
 ## `request-id.js` — 🔁 요청 번호(requestId)
 
 - **책임**: 새것을 만들거나 쌓는 쓰기(뽑기 · 선물 · 지급 · 초대 · 글 쓰기 · 대화 보내기)에 싣는 `requestId` 를 만든다 — 서버 규칙 `^[A-Za-z0-9_-]{8,64}$`(uuid). 서버는 같은 사람 · 같은 번호를 «처음 결과를 다시 돌려주기» 로 받는다(10분).
@@ -344,9 +376,10 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 ## `api-client.js` — 🌐 앱 공통 API 통로(`/v1`)
 
 - **책임**: fetch · 시간 제한 · 봉투 풀기 · 실패 한 모양(`ApiError` kind · code · items · retryAfterMs) · 토큰 · 기기 머리 · ETag(304) 를 한 곳에서. 앱 오류 번호로 바꾸는 표는 `api-errors.js`.
-- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
+- **쓰는 법**: 로그인 없는 읽기는 `TwApi.client.get(path, { cacheMs })`. 로그인 길은 `TwApi.authed` — `get(path, { auth: true, onOwner? })` · `post · put · patch(path, body)` · `del(path)`(쓰기는 로그인이 기본). 도메인 provider 는 app.js 가 만들 때 `api: TwApi.authed` 로 받는다(firebaseAPI 를 거치지 않는다).
 - **ETag**: 응답에 ETag 가 있으면 값과 함께 기억했다가 다음 읽기에 `If-None-Match` — 304 면 기억한 값. 로그인 읽기는 토큰 주인(sub)마다 따로 기억한다. 계정을 놓을 때 `clearCache()`.
-- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
+- **서버 쓰기는 읽은 토큰 주인과 묶는다**: 읽은 값을 고쳐 올리는 provider 는 읽을 때 `get(path, { auth: true, onOwner })` 로 토큰 주인을 기억하고, 쓸 때 `put(path, body, { expectOwner })` 를 싣는다. 보내기 직전 쓸 토큰의 주인이 다르면(그 사이 로그인한 사람이 바뀜) 통로가 보내지 않고 `OWNER_CHANGED`(요청 0)로 끝낸다 — 앞 계정 값이 새 계정 토큰으로 나가 덮어쓰는 길을 막는다. 다른 묶음의 «읽고 고쳐 쓰기» 도 이 규칙을 따른다.
+- **토큰**: `TwApi.authed` 의 토큰은 firebase-init.js 가 `TwApi.bindToken(_getIdToken)` 로 잇는다. 로그인 읽기는 토큰을 요청당 한 번만 받고(시간 제한과 겨룸 — 멈춰도 `TIMEOUT`) 그 토큰으로 보낸다. 401 `AUTH_REQUIRED` 면 새 토큰으로 한 번만 다시 — `USER_CODE_NOT_BOUND`(가입 전)는 다시 안 한다.
 - **함정**: 쓰기는 다시 보내지 않는다(통로가 알아서 재시도하지 않음) — 다시 보낼 일은 부르는 쪽이 같은 `requestId`(request-id.js)로. 읽기 시간 제한(`TIMEOUT_MS`)은 옛 Firebase 길로 빨리 넘어가려고 짧다 — 옛 길이 없는 읽기는 `timeoutMs` 를 넘긴다. `shouldFallback` 은 옛 길을 걷으면 같이 걷는다.
 - 검사: `checks/sim-api-client.js`.
 
@@ -366,3 +399,80 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **얇은 자리**: `existingSignup()` 은 0.13 설정에 칸이 없어 옛 기본값(켜짐)만 돌려준다 — 계정 묶음이 가입 흐름을 서버로 옮기며 걷는다.
 - **함정**: 최소 버전은 저장값을 쓰지 않는다(지난 값으로 막지 않게). 옛 판(평평한 칸)이 남긴 저장값은 판 표시가 없어 읽지 않는다. 칸 이름(`roomMaxPeople` 등)은 앱 안 이름이라 서버 이름과 다르다 — 풀기는 `fieldsOf` 한 곳.
 - 검사: `checks/sim-remote-config.js`.
+
+## `update-flow.js` — 🔄 켤 때 업데이트 흐름(업데이트 창 → 공지 창 → 로그인)
+
+- **책임**: 로그인보다 먼저(계정 없이) 최소 버전(`minVersion.app` — `GET /v1/config`)과 새 판(main.js electron-updater)을 보고 창을 띄운다. 강제(내 버전 < 최소)는 [업데이트] 만 · 닫기 없음 · 로그인으로 넘어가지 않음. 선택(새 판 있음)은 [업데이트] [나중에](버전만 보임). 그 뒤 안 본 업데이트 공지 창, 그 뒤 로그인. 아무것도 없으면 바로 로그인.
+- **만드는 법**: `TwUpdateFlow.createUpdateFlow({ readMin, getMin, onMinChange, getVersion, companion, ui: TwUpdateFlow.createUpdateDom(document), noticeOnce, showNotice })` — app.js 가 초대 게이트(`initInviteGate`) 앞에서 만든다. 오류 번호 없음(못 읽으면 막지 않고 넘어간다).
+- **내놓는 것**: `runBeforeLogin()`(→ `{ proceed, stage }` — 강제면 `proceed:false`) · `press(action)` · `whenStageDone(fn)`(런처 «재시작하면 업데이트» 띠를 단계가 끝난 뒤에 걸기) · `isForced()` · `current()` / 순수 함수 `parseVer` · `isBelow` · `stageOf(my, min, latest)` · `viewOf`.
+- **켜 둔 동안**: 원격 설정이 `minVersion` 이 바뀌었다고 알리면(`onMinChange` — 서버 신호) 바로 강제 창. 새 주기 요청은 없다. realtime 서버가 통신 판이 다르다고 닫으면(4003) `forceProtocol()` — 최소 버전 없이 «서버와 맞지 않아» 강제 창(`realtime/rt-status-ui.js` 가 부름).
+- **함정**: 새 판 확인은 main 이 혼자 3초 뒤 하지 않고 이 모듈이 켤 때 `companion.checkUpdate()` 로 묻는다(구독을 건 뒤라 답을 놓치지 않음). 답이 `UPDATE_WAIT_MS` 안에 없으면 «없음». 실패 뒤 혼자 되풀이하지 않고 강제 창 [다시 시도] 를 누를 때만 다시 묻는다. 맥은 자동 설치가 없어 [업데이트] 가 릴리스 주소를 연다.
+- 검사: `checks/sim-update-flow.js`.
+
+## `account-store.js` — 🗂️ 계정별 로컬 칸(`tw.u.<계정코드>.<이름>`)
+
+- **책임**: 이 PC 에 남기는 값 중 «그 계정의 것» 을 계정별 칸에 둔다. 같은 PC 에서 계정을 바꾸면 다른 칸이 열릴 뿐이라 계정 전환 때 지우기 · 넘기기 판단이 없다(#582). 계정 데이터 자체는 0.13 부터 서버가 원본 — 여기는 PC 에 남는 값(미러 · 오늘치 · 마크 · 취향 · 캐시)만.
+- **만드는 법**: `const accountStoreMod = TwAccountStore.createAccountStore({ storage: localStorage, getAccountCode: getMyUserId, isWriteLocked: ()=>acctStateMod._acctDetached() });` (app.js `getMyUserId` 바로 뒤). 계정 코드는 **부를 때마다** `getAccountCode()` 로 읽는다 — 값으로 받으면 계정이 바뀐 뒤에도 옛 칸을 쓴다. 쓰는 모듈은 deps 로 받는다(`focusTotalStore` · `focusLevelStore`), 마이홈 바탕화면(`myhome-desktop.js`)은 app.js 의 전역 이름 `accountStoreMod` 를 `advStore` 로 받는다.
+- **내놓는 것**: `get(key)`(글자 또는 null) · `set(key, value)`(true / false) · `remove(key)`(true / false) · `open(code)` · `close()` · `migrateLegacy(code)` · 표 상수 `DEVICE_KEYS` · `ACCOUNT_KEYS` · `ACCOUNT_KEY_PREFIXES` · `MOVED_KEYS` · `isAccountKey`.
+- **로그인 전(코드 없음 · 모양 밖)**: 읽기 null · 쓰기 false · 지우기 false. PC 공용 칸으로 돌려 쓰면 그게 섞임의 뿌리다. 쓰는 쪽은 false 를 «저장 안 됨» 으로 본다(로그인 전엔 남길 계정 값이 없다).
+- **계정을 놓은 틈**: 로그아웃(wipe)이 `_acctDetached` 를 세운 뒤 재시작 전까지 `set` · `remove` 는 거절된다(코드가 바뀐 뒤에도 앱이 도는 동안 다른 계정 칸을 덮지 못하게 — 판단은 `isWriteLocked` 한 곳). 읽기는 된다. 틈을 통과하는 쓰기 길은 없다 — 0.13 은 로그인해야 쓰므로 «로그인 전 몫을 계정 칸으로 넘기기» 가 없다(옛 PC 칸의 값은 `migrateLegacy` 가 한 번만 옮긴다).
+- **기기 공용 키 · 모르는 키는 던진다** — 잘못 쓴 코드를 조용히 넘기지 않는다.
+- **`migrateLegacy(code)`**: 이미 깔린 사용자가 0.13 첫 실행 때 PC 칸 값을 그때 로그인한 계정 칸으로 한 번 옮긴다. `MOVED_KEYS` 만 옮기고(아직 옛 칸을 읽는 키를 옮기면 값이 사라진다) · 계정 칸에 값이 있으면 덮지 않고 · 처리한 키는 PC 칸에서 지우며 · `tw.accountStoreMigrated` 에 처리한 이름을 남겨 두 번 돌지 않는다. 쓰기에 실패한 키는 옛 칸을 지우지 않고 다음에 다시. **부르는 곳 둘**: ① `launcher/app-boot.js begin` — 계정 확인을 통과한 뒤 서버가 확인한 코드로, `open` 직전에 한 번(열기 전에는 칸이 닫혀 있어 먼저 쓴 값이 옮기기를 «kept» 로 막지 못한다 · 계정 칸을 읽는 모듈은 이 뒤 시작에서 읽는다). ② account.js `_detachAccountLocal` — 로그아웃 올리기 · 검문 앞(①에서 못 옮긴 것만 일이 있다 · 두 번째부터는 아무 일도 안 함). 로그인 전 몫을 계정으로 합치는 길은 없다.
+- **새 키를 옮길 때**: 그 묶음이 ① 모듈이 `accountStore.get/set` 만 쓰게 ② `MOVED_KEYS` 에 이름 더하기 ③ 아래 표 «옮김» 으로 ④ `account.js` `ACCOUNT_LOCAL_KEYS` 에서 빼기(계정 칸은 지우지 않는다). ⑤ 그 키를 읽고 쓰는 모듈은 시작 전 입구에서 끝낸다(읽기 · 쓰기 · 서버 요청 없이) — 시작 함수는 `launcher/app-boot.js` STEPS 에 칸이 있어야 한다(만들 때 읽지 않는다). deps 이름은 모듈마다 달리(`xxxStore`) — joinRenderer 가 한 범위로 합치므로 `accountStore` 같은 같은 이름이 둘이면 겹친다.
+- **함정**: 계정 코드를 정하는 값(`tw.myUserId` 등)은 여기 못 둔다(닭과 달걀). 계정 칸은 로그아웃해도 지우지 않는다 — 같은 계정으로 돌아오면 이어진다. `tw.accountStoreMigrated` 후에 `MOVED_KEYS` 에 키가 늘면 그 키만 새로 옮긴다(그 사이 다른 계정이 먼저 로그인했다면 그 계정이 받는다).
+- **열림**: 처음엔 닫혀 있다 — `get` 은 null, `set`/`remove` 는 false 를 돌려주고 키마다 한 번 `console.warn('[계정 칸] 계정 확인 전 접근', 키)`. 계정 확인을 통과한 뒤 `launcher/app-boot.js` 가 `migrateLegacy(그 코드)` 직후 `open(code)` 로 연다(열려는 코드가 지금 `getAccountCode()` 와 다르면 열지 않고 경고 — 열린 뒤 계정 코드가 바뀌면 다시 닫힘으로 돌아간다). 닫힘의 결과는 계정을 놓은 틈(`isWriteLocked`)과 같다. 기기 공용 키는 상관없다.
+- 검사: `checks/sim-account-store.js`.
+
+### 키 갈래 표 (localStorage · `tw.` 접두사 — 옛 `deskFriends.*` · `tw_chat_*` 포함)
+
+| 갈래 | 키 | 비고 |
+|---|---|---|
+| (a) 기기 공용 | `tw.deviceId` · `apiBaseUrl` · `realtimeUrl` · `remoteConfig` · `glReloads` · `renderQuality` · `dotRender` · `figureMode` · `officeMode` · `deskPan` · `focusCharScale` · `chipHorz` · `chipCollapsed` · `nameplate` · `nameplateSize` · `theme` · `accent` · `mockRoom` · `updateNoticeDismissedTs` · `chatFontSize` · `chatOpacity` · `chatSfx` · `chatSfxId` · `listenMute` · `listenVol` · `noise.*` · `pkBgmMuted` · `gapSolo` · `gapMulti` · `roomSeatMode` · `focusLogMini` · `annivAreaH` · `adBanner` · `thumbSigs` · `playlistVol/Mini/Loop*/Pos` · `tw_chat_win_pos` · `bellWinPos` · `gachaWinPos` · `wdPreviewPos` · `ideskInvPos` | 이 PC 의 성질(창 자리 · 화질 · 소리 · 모양 취향). 계정을 바꿔도 그대로 |
+| (a') 신원 · 로그인 | `tw.myUserId` · `loginEmail` · `loginAuthUid` · `myFriendCode` · `myFriendCodePrev` · `myPrevUserIds` · `invitePassed` · `inviteToken` · `signupPending` · `licenseKey` · `licenseOptOut` · `licenseReqId` | 계정 코드를 정하는 쪽이라 계정 칸에 둘 수 없다. 0.13 에서 서버 로그인 토큰으로 대체될 것은 계정 묶음(B) 몫 |
+| (b) 계정별 — **옮김(이번 PR)** | `focusTodaySec` · `focusTodayDate` · `pomo` · `pomoRun`(뽀모도로 — `pomodoro.js`) · `mobileKey`(폰 연결 키 — `focus-level.js`) · `advZ.v2`(마이홈 바탕화면) · `advZ.v1`(옛 판 읽기 전용) | #582 에서 섞이던 것. 모듈: `focus-total.js` · `focus-level.js` · `myhome-desktop.js` |
+| (b) 계정별 — 포커스 | `focusPendingSec`(서버에 아직 못 올린 집중 시간 — `focus-progress.js`) · `focusShow` · `pomo` · `pomoRun` · `bonkDay` · `dailyPlay.*` | 포커스 · 뽀모 묶음이 옮김. 옛 `focusTotalSec` · `focusSyncedSec` · `starColor` · `danceNotified` · `danceNotifiedFix` · `ideskNotified` 는 서버가 원본이 되어 표에서 뺐고 첫 실행(`first-run-013.js` 포커스 단계)이 지운다 |
+| (b) 계정별 — 달성표 | `chalToday`(오늘 진행 — 오늘 앱 사용 초 · 체크 · 반복 횟수 · 오늘 달성을 적었는지. 목표 · 지난 날 · 보상은 서버 한 벌 — `focus/chal-store.js`) | 옛 `chal`(한 벌 통째)은 첫 실행(`first-run-013.js` chal 단계)이 오늘 진행만 옮기고 지운다 |
+| (b)+(c) 계정별 · 서버 원본이 될 것 | `gachaOwned` · `gachaOwnedTs` · `gachaBonus`(D 가챠) · `curSlot` · `extraSeatSlots` · `roomFaceUrls` · `slotGlbUrls` · `deskFriends.slots.*`(v1 · ts · seen · loss · lastsync · pushfail · bak · bak.meta) · `deskFriends.chars.*`(v1 · desk · trashPend) · `charsLinked` · `charsMoveFails`(D 캐릭터) · `savedDesks` · `savedItems` · `savedParts` · `decoParts` · `deskPresets` · `animalPresets` · `animalEverUnlocked` · `animalCheatUnlock` · `charColorHistory` · `seatEq` · `activeInteractionDesk` · `emojiReactions` | 서버가 원본이 되면 PC 사본이 필요 없어질 것 — 그 D 묶음이 «지움» 이든 «계정 칸으로 옮김» 이든 정한다 |
+| (b)+(c) 플레이리스트 | `playlist` · `playlistSets` · `playlistCur` · `playlistTitle` · `playlistBio` · `playlistHomePublic` · `playlistPrivate` · `playlistEditTs` · `playlistBackup` · `secretRoomMusic` | D10(playlist) — 서버 원본이면 `playlistEditTs` · `playlistBackup` 은 걷는다 |
+| (b) 프로필 · 마이홈 | `userName` · `customStatus` · `userStatus` · `awayKind` · `awayImg` · `awaySz` · `myAdBannerImg` · `inboxBcRead` · `noticeBoard`(마지막으로 받은 소식 묶음 — `launcher/notice-feed.js`) · `bellSeenTs` · `reportHidden` · `mobileKey` · `mhRecentColors.<종류>` · `mhGbLastRead:<uid>` | 마이홈 · 프로필 · 알림함 묶음이 옮김 |
+| (b) 대화 | `chatTab.<…>` · `tw_chat_read:<방>` · `tw_chat_join:<방>` · IndexedDB 대화 기록(`chat/chat-history.js` — 지금 scope 가 프로젝트라 계정 구분 없음) | 채팅 묶음 — IDB scope 에 계정 코드를 넣거나 서버 3일 보관으로 걷는다 |
+
+- `ACCOUNT_LOCAL_KEYS`(`account/account.js`) 대조: 이번에 옮긴 포커스 오늘치 두 줄, 곧 그 목록의 `focusTodaySec` · `focusTodayDate` 를 빼도 된다(계정 칸은 로그아웃해도 안 지우는 게 맞다 — 같은 계정이 돌아오면 이어진다). `advZ` 는 원래 목록에 없었다(그래서 바탕화면이 섞였다). 지우기 · 넘기기 로직을 걷는 것은 #580.
+
+## `session.js` — 🔐 로그인 세션 하나
+
+- **책임**: 로그인(계정 확인 통과)마다 세션을 새로 만들어, 그 로그인에 딸린 타이머 · 구독 · 비우기 훅 · 계정 칸 열림을 한 곳에 쥔다. 로그아웃 · 계정 바뀜은 `dispose()` 한 번 — 전부 멈추고 비운다. 다음 로그인은 새 세션이라 앞 세션의 것을 하나도 이어받지 않는다(껐다 켜지 않고 «앞 사람 것이 안 남는다» 를 장치로 지킨다).
+- **만드는 법**: `launcher/app-boot.js` 가 계정 확인 뒤 `deps.newSession(me)` 로 만들어 들고 있다(app.js 가 `TwSession.createSession({ me, openAccountStore, closeAccountStore, timers })` 를 넘긴다). 기능 모듈이 직접 만들지 않는다 — 시작 함수가 `(code, me, session)` 의 세 번째 인자로 받는다(**지금은 받아 쓰는 기능이 없다** — 모양만).
+- **내놓는 것**: `id`(세션 번호) · `code` · `me` · `alive()` · `openStore()`(계정 칸 열기 — 한 번만, 못 열면 false) · `setInterval(fn, ms)` / `setTimeout(fn, ms)`(손잡이, 끝난 세션이면 null) · `clearInterval(h)` / `clearTimeout(h)` · `on(unsub)`(구독 해제 함수 맡기기 — 돌려주는 함수로 먼저 풀 수도 있다) · `onReset(fn)`(메모리 비우기 훅) · `ifAlive(fn)`(끝난 뒤엔 안 부르고 undefined 를 돌려주는 래퍼 — 늦게 도착한 답 막이) · `dispose()` · `counts()`(남은 개수 — 검사 · 진단용).
+- **dispose**: 먼저 `alive` 를 내리고 → 타이머 clear → 구독 해제(나중에 등록한 것부터) → 비우기 훅(나중 것부터) → 계정 칸 닫기(열었을 때만). 하나가 던져도 나머지는 돈다(경고만). 두 번째부터는 아무 일 없이 false.
+- **끝난 뒤 등록**: 타이머는 거절(null), 구독 · 비우기 훅은 바로 한 번 풀고, 모두 콘솔 경고 — 늦은 콜백이 끝난 세션에 쌓이지 않는다.
+- **함정**: ① 올릴 것이 남았으면(서버 맞추기 · 검문) `dispose()` 전에 끝낸다 — 이 모듈은 올리지 않는다. ② 타이머 콜백은 `alive` 를 한 번 더 본다(clear 가 먹기 전에 이미 큐에 올라간 콜백도 막기 위해). ③ `await` 뒤에는 `session.alive()` 를 보거나 `ifAlive` 로 감싼다 — 세션 번호(`id`)를 값으로 쥐고 비교해도 된다. ④ 도메인 · 저장소를 모른다(deps 로만) — 계정 칸은 `account-store.js` 가 `open` / `close` 를 내놓는다.
+- 검사: `checks/sim-session.js`.
+## `front-diag.js` — 🩺 앞 창 진단(1분 `[프레임]` 줄 끝에 앞 창 · 전체화면 비율)
+
+- **책임**: «앱을 켜 두면 게임 · 영상이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 렌더러가 1분마다 보내는 `[프레임]` 줄 끝에 그 1분 동안 가장 오래 앞에 있던 실행 파일과 그 창이 모니터를 꽉 채운 비율을 붙인다. main 만 싣는다(`module.exports` — 렌더러는 앞 창을 모른다).
+- **쓰는 법**: `createFrontWatch()` — 활성 창 폴링(500ms)마다 `note(t, exe, coversDisplay(앞창 bounds, 우리 창 모니터 bounds))`, `companion:diagNote` 가 `isFrameLine(줄)` 이면 `줄 + suffix(take(t))`. 예) `… · 앞 창 Discord.exe · 전체화면 85%` · 표본이 없으면 ` · 앞 창 모름`.
+- **함정**
+  - 창 제목은 적지 않는다(영상 제목 · 대화 상대 이름) — 실행 파일 이름만.
+  - 맥은 앞 창 크기를 안 읽는다(`bounds: null` — node-window-manager 맥 `getBounds` 가 창 목록을 통째로 다시 받고 사전을 놓아주지 않아 0.5초 폴링에 못 쓴다). 크기를 못 읽은 표본은 비율 분모에서 빠지고, 그것만 있으면 `전체화면 모름`.
+  - 전체화면은 **크기만** 본다. Windows 의 창 좌표는 그 창 모니터 배율로 나눈 값이라 배율이 다른 모니터가 섞이면 Electron 좌표와 안 맞는다. 최대화 창은 작업표시줄만큼 작아서 안 걸린다.
+  - 실행 화면이 아니면 `[프레임]` 줄이 안 와서 `take` 가 안 불린다 — `STALE_MS`(2분)보다 오래된 표본은 다음 `note` 때 버린다.
+- 검사: `checks/sim-front-diag.js`(깨 보기 열).
+
+## `error-report.js` — 🧯 화면 오류를 오류 기록(tw-error.log)으로
+
+- **책임**: 화면(렌더러)에서 난 잡히지 않은 오류 · 처리 안 된 Promise 거절 · `console.error` / `console.warn` 을 main 의 오류 기록(`apps/desktop/error-log.js` — 파일 `tw-error.log`, 진단 기록과 같은 폴더)으로 보낸다. 줄 모양 · 몰아칠 때 거르기 · 파일 크기는 main 이 정한다.
+- **쓰는 법**: 싣기만 하면 `companion.errorLog` 로 스스로 건다 — html 맨 먼저(뒤 스크립트가 실리다 난 오류도 잡게). 에러코드 알림(`TwErrorCodes.notify`)은 스스로 `CODE` 로 보낸다.
+- **내놓는 것**: `TwErrorReport.install(win, send, now?)` · `format(args)`.
+- **함정**: console 원래 출력은 그대로 둔다 · 에러코드 알림이 찍는 `console.warn('[오류] E-…')` 은 다시 안 보낸다 · 보내다 난 오류가 되돌아 들어오지 않게 막는다 · 같은 줄은 10초 안에 한 번.
+- 검사: `checks/sim-error-log.js`.
+
+## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
+
+- **책임**: 맥 앱스토어 «받기» · 관리자 암호 · Touch ID · 시스템 설정 · 설치 프로그램 같은 확인 창이 맨 앞인지 활성 창 키로 가른다. main 만 싣는다(`module.exports`). main 은 이 값이 참인 동안 실행 화면을 «항상 위» 에서 내린다(`_onSysPromptFront` · `_setRunTop`).
+- **까닭**: 맥은 확인 창을 다른 앱 창이 덮으면 보안 때문에 그 칸(Touch ID · 암호 · «받기»)을 비워 보여 준다. 실행 화면은 모니터 전체를 덮는 투명 창이라 늘 덮는다(B-1104-10).
+- **쓰는 법**: `isSystemPrompt(activeKey)` — 활성 창 폴링(500ms)의 `focusKeyOf` 키(소문자 · `mac:<번들 id>`).
+- **함정**
+  - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
+  - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
+- 검사: `checks/sim-system-prompt.js`(깨 보기 셋).

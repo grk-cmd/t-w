@@ -37,7 +37,7 @@ globalThis.Image = class {
 globalThis.HTMLImageElement = globalThis.Image;
 
 const probe = `
-;globalThis.__P = { Presence, slots, loadSlots, LS_KEY, serializeDefForNetwork,
+;globalThis.__P = { Presence, slots, applySlotObjs, serializeDefForNetwork,
                     setCurSlot: n => { curSlot = n; } };`;
 
 /* app.js 는 [def-diag] 등을 console.log 로 계속 찍는다 — 검사 결과만 보이게 계속 막아 두고,
@@ -45,7 +45,7 @@ const probe = `
 const say = console.log;
 console.log = () => {}; console.warn = () => {};
 try { vm.runInThisContext(_joinRenderer(fs.readFileSync('app.js', 'utf8')) + probe, { filename: 'app.js' }); }
-catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + (e && e.stack || e)); process.exit(1); }
+catch (e) { console.log = say; say('✗ app.js 평가 실패: ' + String(e && e.stack || e).split('\n').slice(0, 12).join(' | ')); process.exit(1); }
 
 const P = globalThis.__P;
 const LS = globalThis.localStorage;
@@ -91,9 +91,8 @@ const ANIMAL = {
 const clearFaceCache = () => { try { LS.removeItem('tw.roomFaceUrls'); } catch (_) {} };
 
 async function seedAndEnter(slotArr, idx){
-  LS.setItem(P.LS_KEY, JSON.stringify(slotArr));
   P.slots.fill(null);   // 🧍 슬롯 개수는 app.js 의 CHAR_SLOT_MAX 를 따른다 — 여기에 숫자를 박지 않는다
-  await P.loadSlots();
+  await P.applySlotObjs(slotArr);   // 서버에서 받은 칸을 앉히는 길(이 PC 저장본에서 읽지 않는다)
   P.setCurSlot(idx);
   sent = null;
   await P.Presence.start('WORK-TEST', P.slots[idx], '나', () => {}, { provider: rt.makeProvider({ serializeDef: P.serializeDefForNetwork }, null) });

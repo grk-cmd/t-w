@@ -1,7 +1,7 @@
 /* myhome-sticker-layout.js — 🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 움직임 효과 창(그리기 renderMyHomeStickers 는 app.js)
-   app.js «🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 움직임 효과 창(그리기 renderMyHomeStickers 는 app.js)» 구역 본문을 그대로 옮긴 모듈이다(앱 FSD 44번 — docs/APP_FSD_MAP.md).
-   동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도). 바뀐 줄은 4줄 —
+   app.js «🎨 마이홈 스티커 배치 — 크기 · 자리 계산 · 움직임 효과 창(그리기 renderMyHomeStickers 는 app.js)» 구역 본문을 옮긴 모듈이다(앱 FSD 44번 — docs/APP_FSD_MAP.md).
+   화면 동작은 옮기기 전과 같다. 움직임 고르기 저장은 상태 주인 editSticker 로 바뀌었고 속도 칸 이름은 animSpeed 다(D2-2b).
+   ★ 본문은 app.js 에 있던 글을 따르되 들여쓰기는 그대로다. 바뀐 곳 —
      _mhViewingUserId · _myHomeData 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 2개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
@@ -16,7 +16,7 @@ const _mhViewingUserId = deps._mhViewingUserId;   // 읽는 함수
 const _myHomeData = deps._myHomeData;   // 읽는 함수
 const applyDesktopRunClass = deps.applyDesktopRunClass;
 const renderMyHomeStickers = deps.renderMyHomeStickers;
-const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) — 자동 저장은 편집 묶음이 건다
+const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 움직임 고르기는 editSticker 로만 고친다
 /* 🎨 스티커 — 마이홈 "창 전체"에 자유 배치.
    · 좌표는 마이홈 창(#myHomeWin) 좌상단 기준 px. 탭을 바꿔도 같은 자리에 있음.
    · 친구 탭에서는 숨김(목록이 빽빽해서 가리면 곤란) + 친구 홈 관람 중엔 그 사람 스티커만 보임.
@@ -33,7 +33,7 @@ const STICKER_ROT_SNAP = 3;       // 회전 스냅 각도(도) — 3도 단위�
      scale → rotate 순서로 쓰고 rotate에만 별도 origin이 필요 없도록
      scale 이후의 좌표계에서 중앙으로 옮겼다가 되돌리는 방식을 씀. */
 /* ✨ 스티커 움직임 고르기 창 — 고르는 즉시 화면에 반영되고 저장된다.
-   저장되는 값은 이름 문자열 두 개(anim/animSpd)뿐이라 용량·통신 부담이 없다. */
+   저장되는 값은 이름 문자열 두 개(anim/animSpeed)뿐이라 용량·통신 부담이 없다. */
 let _mhAnimSid = null;
 function _mhOpenStickerAnim(sid){
   _mhAnimSid = sid;
@@ -51,14 +51,13 @@ function _mhSyncStickerAnimUI(){
     b.classList.toggle('on', (b.dataset.a||'') === (s.anim||''));
   });
   document.querySelectorAll('#stAnimSpd button').forEach(b=>{
-    b.classList.toggle('on', (b.dataset.s||'') === (s.animSpd||''));
+    b.classList.toggle('on', (b.dataset.s||'') === (s.animSpeed||''));
   });
 }
 function _mhApplyStickerAnim(key, val){
-  if(!_mhAnimSid || !_myHomeData() || !_myHomeData().stickers) return;
-  const s=_myHomeData().stickers[_mhAnimSid]; if(!s) return;
-  if(val) s[key]=val; else delete s[key];
-  renderMyHomeStickers(); mhHooks.call(mhHooks.HOOK.COMMIT, true);
+  if(!_mhAnimSid || !_myHomeData() || !_myHomeData().stickers || !_myHomeData().stickers[_mhAnimSid]) return;
+  myhomeStore.editSticker(_mhAnimSid, { [key]: val || '' });   // 빈 값 = 움직임 없음(store 가 칸을 지운다) · 저장은 store 가 한다
+  renderMyHomeStickers();
   _mhSyncStickerAnimUI();
 }
 try{
@@ -66,7 +65,7 @@ try{
     const g = e.target.closest && e.target.closest('#stAnimGrid button');
     if(g){ _mhApplyStickerAnim('anim', g.dataset.a||''); return; }
     const p = e.target.closest && e.target.closest('#stAnimSpd button');
-    if(p){ _mhApplyStickerAnim('animSpd', p.dataset.s||''); return; }
+    if(p){ _mhApplyStickerAnim('animSpeed', p.dataset.s||''); return; }
     if(e.target.id === 'stAnimClose') _mhCloseStickerAnim();
   });
 }catch(_){}

@@ -1,7 +1,7 @@
 /* ═══ 👥 sim-friend-manage-module.js — 친구 관리 모듈 · 버그 제보 탭 자리 옮김 (2026-10-10 신설 · 앱 FSD 5번) ═══════════════
    app.js 의 «🐞 버그 제보 탭» 구역에 섞여 있던 친구 쪽 코드(👋 요청 팝업 · 👥 친구 관리 · 📤 보낸 요청)를 parts/myhome/friend-manage.js 로,
    앞머리의 🐞 버그 제보 탭(오픈카톡 기본 링크)을 parts/support/bug-board-ui.js 끝으로 옮겼다. 동작은 그대로여야 한다.
-   일괄 수락의 자리 계산 · 서브탭 클래스 공유 · 보낸 요청 미러는 sim-friend-manage 가, 선물함 표시 비우기는 sim-gift-star 가 본다.
+   일괄 수락의 자리 계산 · 서브탭 클래스 공유 · 보낸 요청 미러는 sim-friend-manage 가, 선물함 표시 비우기는 sim-gift-box 가 본다.
    여기서는 «옮긴 것» 자체를 굴려 본다.
    ・1절: 만들 때 — 아무것도 안 건드린다 · 반환값 이름 · 빈 껍데기
    ・2절: 받은 요청 — (n) · 친구 탭 배지 · 최신이 위 · 체크 · 사라진 요청은 선택에서도 · 단건 수락(자리 없으면 남김) · 거절 · 빈 목록
@@ -20,10 +20,10 @@ let pass = 0, fail = 0, done = false;
 const say = (s) => console.log(s);
 const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗') + ' ' + msg); };
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
-const need = ['friend-manage.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
+const need = ['friend-manage.js', 'friend-requests-firebase.js', 'bug-board-ui.js', 'app.js', 'desk-companion-prototype.html', 'net-ready.js'];   // net-ready.js — 🛰 네트워크 준비 기다리기(버그 제보 탭이 TwNetReady.whenNetReady 를 부른다)
 const SRC = {};
 for(const f of need){ SRC[f] = read(f); if(SRC[f] == null){ say('  ? 원본 못 찾음 — ' + f); process.exit(2); } }
-const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], BUG = SRC['bug-board-ui.js'];
+const APP = _joinRenderer(SRC['app.js']), HTML = SRC['desk-companion-prototype.html'], MOD = SRC['friend-manage.js'], FRF = SRC['friend-requests-firebase.js'], BUG = SRC['bug-board-ui.js'];
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:])\/\/[^\n]*/g, '$1 ');
 const flush = async (n = 12) => { for(let i = 0; i < n; i++) await new Promise(r => setImmediate(r)); };
 
@@ -90,6 +90,7 @@ function mkEnv(opt){
   ctx.window = ctx;
   vm.createContext(ctx);
   vm.runInContext(MOD, ctx, { filename: 'friend-manage.js' });
+  vm.runInContext(FRF, ctx, { filename: 'friend-requests-firebase.js' });   // 👋 요청 포트 뒤 옛 길 provider — 진짜 모듈에 가짜 firebaseAPI 를 잇는다
   env.ctx = ctx; env.els = els; env.q = q; env.body = body;
   env.mk = () => ctx.TwFriendManage.createFriendManage({
     getMyUserId: () => env.me,
@@ -102,6 +103,14 @@ function mkEnv(opt){
     myHomeFriends: () => env.friends,
     myFriendRequests: () => env.reqs,
     friendMax: opt.max || 5,
+    requests: () => {
+      const f = ctx.firebaseAPI || {};
+      return ctx.TwFriendRequestsFirebase.createFriendRequestsFirebase({
+        getSent: (...a) => f.getSentFriendRequests(...a), isAlive: (...a) => f.isFriendRequestAlive(...a), prune: (...a) => f.pruneSentFriendRequest(...a),
+        accept: (...a) => f.acceptFriendRequest(...a), reject: (...a) => f.rejectFriendRequest(...a), cancel: (...a) => f.cancelFriendRequest(...a),
+        getName: (...a) => f.getUserNameById(...a),
+      });
+    },
     friendsForCheck: () => { env.checks = (env.checks || 0) + 1; return Promise.resolve(env.checkFail ? null : env.friends); },
   });
   return env;
@@ -236,8 +245,8 @@ await sec('── 6. app.js 배선', () => {
   chk(iPrev > 0 && iMk > iPrev && iNext > iMk, '원래 자리 — 📅 스케줄러 연결 뒤 · 마이홈 준비(_myHomeReady) 앞');
   const call = (APP.match(/TwFriendManage\.createFriendManage\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(Boolean);
-  chk(deps.length === 11 && /friendsForCheck: \(\.\.\.a\)=>friendsSubMod\.friendsForCheck\(\.\.\.a\),/.test(call) && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
-    'deps 11개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 (' + deps.length + ')');
+  chk(deps.length === 12 && /friendsForCheck: \(\.\.\.a\)=>friendsSubMod\.friendsForCheck\(\.\.\.a\),/.test(call) && deps.filter(l => !/^friendMax:/.test(l)).every(l => /^\w+: (\(\)=>|\(\.\.\.a\)=>)/.test(l)) && /friendMax: FRIEND_MAX,/.test(call),
+    'deps 12개 — 함수 · 다시 대입되는 let 은 화살표, 상한은 FRIEND_MAX 값 (' + deps.length + ')');
   chk(/myHomeOpen: \(\)=>myHomeOpen,/.test(call) && /myHomeFriends: \(\)=>_myHomeFriends,/.test(call) && /myFriendRequests: \(\)=>_myFriendRequests,/.test(call),
     '다시 대입되는 let(myHomeOpen · _myHomeFriends · _myFriendRequests)은 읽는 함수로');
   const m = strip(MOD).replace(/const (_myFriendRequests|_myHomeFriends|myHomeOpen) = deps\.\w+;/g, '');
@@ -251,52 +260,12 @@ await sec('── 6. app.js 배선', () => {
   chk(/^Tw[A-Z]/.test('TwFriendManage') && !/window\.FriendManage\s*=/.test(MOD), '전역 이름은 Tw 접두사(#103 — 크로미움 내장 전역과 겹치지 않게)');
 });
 
-await sec('── 7. 🐞 버그 제보 탭 — bug-board-ui.js 끝', async () => {
+await sec('── 7. 🐞 버그 제보 탭 — 오픈카톡 링크 폼은 bug-board-ui.js 안으로(서버 설정 bug.report)', async () => {
   const code = strip(APP);
   chk(!/bindBugReport|_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|mhBugEditBtn/.test(code), 'app.js 에 버그 제보 탭 코드가 없다');
-  const iI = BUG.indexOf('})();\n\n/* ↓ app.js 에서 옮긴'), iB = BUG.indexOf('(function bindBugReport(){');
-  chk(iB > 0 && /^let _bugReportConf = null;/m.test(BUG) && /^window\._bugReportLink = /m.test(BUG), 'bug-board-ui.js 맨 앞 칸 — 전역 이름 그대로(_bugReportConf · window._bugReportLink)');
-  chk(iI > 0 && iB > iI, '  게시판 IIFE 뒤(밖)에 있다');
+  chk(!/_bugReportConf|_bugReportLink|subscribeBugReport|setBugReport|firebaseAPI/.test(strip(BUG)), 'bug-board-ui.js 에 옛 전역 이름 · Firebase 길이 없다(굴려 보기는 sim-bug-board.js 관리자 절)');
   const iBU = HTML.indexOf('<script src="parts/support/bug-board-ui.js"></script>'), iA = HTML.indexOf('<script src="parts/app.js"></script>');
-  const iFB = HTML.indexOf('<script type="module" src="parts/firebase-init.js"></script>');
-  chk(iBU > iA && iFB > 0, 'html — bug-board-ui.js 는 app.js 뒤 · firebase-init.js 는 module(classic 스크립트가 다 돈 뒤에 돈다 → firebase-ready 를 놓치지 않는다)');
-  /* 굴려 보기 — 게시판 IIFE 는 DOMContentLoaded 를 기다리게 두고(loading), 끝의 버그 제보 탭만 돈다 */
-  const env = { toasts: [], saved: [], L: {}, admin: false };
-  const els = {};
-  const ctx = {
-    Math, JSON, String, Number, Array, Object, Promise, Map, Set, Date, Boolean, Error, RegExp,
-    console: { warn(){}, log(){} }, setTimeout: () => 0,
-    document: { readyState: 'loading', addEventListener(){}, getElementById: id => (els[id] || (els[id] = mkEl('div', id))) },
-    addEventListener: (t, fn, o) => { env.L[t] = fn; },
-    toast: (m) => env.toasts.push(m),
-    _saveFailMsg: (e, fb) => 'F:' + fb,
-    escHtml: (s) => s,
-  };
-  Object.defineProperty(ctx, 'isAdmin', { get: () => env.admin });
-  ctx.window = ctx;
-  vm.createContext(ctx);
-  vm.runInContext(SRC['net-ready.js'], ctx, { filename: 'net-ready.js' });
-  vm.runInContext(BUG, ctx, { filename: 'bug-board-ui.js' });
-  chk(typeof ctx._bugReportLink === 'function' && ctx._bugReportLink() === '', 'window._bugReportLink — 아직 안 받았으면 빈 문자열');
-  chk(typeof env.L['firebase-ready'] === 'function', 'firebaseAPI 가 아직 없으면 firebase-ready 를 기다린다');
-  let subCb = null;
-  ctx.firebaseAPI = { subscribeBugReport: (cb) => { subCb = cb; }, setBugReport: async (n, l) => { if(env.failSave) throw new Error('denied'); env.saved.push([n, l]); } };
-  env.L['firebase-ready']();
-  subCb({ notice: '공지글', link: 'https://open.kakao.com/o/abc', ts: 1 });
-  chk(ctx._bugReportLink() === 'https://open.kakao.com/o/abc', '구독이 오면 기본 링크를 돌려준다');
-  const form = els.mhBugEditForm; form.style.display = 'none';
-  els.mhBugEditBtn._L.click[0]();
-  chk(form.style.display === 'none', '관리자가 아니면 편집 칸을 안 연다');
-  env.admin = true; els.mhBugEditBtn._L.click[0]();
-  chk(form.style.display === 'block' && els.mhBugLinkInput.value === 'https://open.kakao.com/o/abc', '관리자 — 편집 칸에 지금 링크');
-  els.mhBugLinkInput.value = 'http://evil.example/'; await els.mhBugSaveBtn._L.click[0]();
-  chk(env.saved.length === 0 && /open\.kakao\.com/.test(els.mhBugEditMsg.textContent), '오픈카톡 주소가 아니면 저장 안 함');
-  els.mhBugLinkInput.value = ' https://open.kakao.com/o/new '; await els.mhBugSaveBtn._L.click[0](); await flush();
-  chk(env.saved.length === 1 && env.saved[0][0] === '공지글' && env.saved[0][1] === 'https://open.kakao.com/o/new' && form.style.display === 'none', '저장 — 있던 공지글을 그대로 실어(규칙이 notice 필수) · 칸 닫기');
-  env.failSave = true; els.mhBugEditBtn._L.click[0](); await els.mhBugSaveBtn._L.click[0](); await flush();
-  chk(/^F:저장에 실패했어요/.test(els.mhBugEditMsg.textContent) && els.mhBugSaveBtn.disabled === false, '실패 — _saveFailMsg 안내 · 버튼 다시 풀림');
-  env.admin = false; await els.mhBugSaveBtn._L.click[0]();
-  chk(env.toasts.includes('관리자만 수정할 수 있어요'), '저장 때 관리자를 한 번 더 확인');
+  chk(iBU > 0 && iBU < iA, 'html — bug-board-ui.js 는 app.js 앞(게시판은 app.js 가 만든다)');
 });
 
 say('');

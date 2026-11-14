@@ -20,6 +20,8 @@ const VENDOR = [
     note: '실행 중에 CDN(gstatic)에서 받는다 — 설치 파일에는 없음' },
   { name: 'Electron', url: 'https://www.electronjs.org', version: (lock) => lockVersion(lock, 'electron'), license: 'MIT', file: 'node_modules/electron/LICENSE',
     note: 'Chromium 등 구성 요소의 라이선스는 설치 폴더의 LICENSES.chromium.html' },
+  { name: 'DOMPurify', url: 'https://github.com/cure53/DOMPurify', version: '3.4.17', license: 'Apache-2.0 OR MPL-2.0', file: 'app/vendor/dompurify/LICENSE',
+    note: '마이홈 리치 텍스트 씻기' },
   { name: 'three.js', url: 'https://threejs.org', version: '', note: 'GLTFLoader · DRACOLoader · SkeletonUtils · TransformControls 포함', license: 'MIT', text: MIT('2010-2021 Three.js Authors') },
   { name: 'Draco 3D 디코더', url: 'https://google.github.io/draco/', version: '', license: 'Apache-2.0', copyright: 'Copyright 2016 The Draco Authors.' },
   { name: 'JSZip', url: 'https://stuk.github.io/jszip/', version: '3.10.1', license: 'MIT', text: MIT('2009-2016 Stuart Knightley, David Duponchel, Franz Buchinger, António Afonso'),

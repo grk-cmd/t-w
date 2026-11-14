@@ -22,6 +22,7 @@ const equipDeskItem = deps.equipDeskItem;
 const findMySeat = deps.findMySeat;
 const isAdmin = deps.isAdmin;   // 읽는 함수
 const isPremium = deps.isPremium;   // 읽는 함수
+const licenseAssetBlocked = deps.licenseAssetBlocked;   // 전용 자산을 지금 막아야 하나(account-state.js — 판단 한 곳)
 const saveSlots = deps.saveSlots;
 const savedDesks = deps.savedDesks;   // 읽는 함수
 const savedItems = deps.savedItems;   // 읽는 함수
@@ -56,9 +57,10 @@ function _licenseLockedItemId(id){
 function pruneUnownedLicenseAssets(){
   /* ★ 전제 검사는 **호출부가 아니라 여기** 있어야 한다 — pruneUnownedGachaParts 와 같은 이유다.
      호출 지점이 여럿이고(라이선스 변경 · 카탈로그 도착 · 코드 불러오기 · 슬롯 복원 · 프리셋),
-     그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다. */
-  if(typeof isPremium() !== 'undefined' && isPremium()) return 0;
-  if(typeof isAdmin() !== 'undefined' && isAdmin()) return 0;
+     그때마다 같은 조건을 복사하면 언젠가 하나를 빠뜨린다.
+     ★ «지금 막아야 하나» 는 licenseAssetBlocked 한 곳(account-state.js) — 모름 · 보유자 · 관리자면 접지 않는다.
+       모름에 접으면 프리미엄 사용자의 책상이 켤 때마다 잠깐 기본으로 떨어진다(방으로도 나간다). 확인이 오면 알림이 한 번 돌아 그때 접는다. */
+  if(!licenseAssetBlocked({ licenseOnly: true })) return 0;
   let _desks = null; try{ _desks = savedDesks(); }catch(_){ return 0; }
   let _items = null; try{ _items = savedItems(); }catch(_){ return 0; }
   if(!(_desks && _desks.length) && !(_items && _items.length)) return 0;   // 카탈로그 미도착 = 판정 불가

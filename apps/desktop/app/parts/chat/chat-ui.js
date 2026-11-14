@@ -2,7 +2,7 @@
    app.js 의 채팅 다섯 구역(🌊 날리기 · 🔖 여기까지 읽음 구분선 · 💬 채팅 탭 · 📋 드래그 복사 · 😊 커스텀 이모티콘) 본문을 그대로 옮긴 모듈이다(앱 FSD 24번 — docs/APP_FSD_MAP.md).
    대화창 배선은 chat-window.js. 동작은 옮기기 전과 같다. 기본 이모티콘 목록은 demoji-catalog.js.
    ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 5개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 37줄 —
-     CHAT_WIN_POS_KEY · Presence · _chatLogCache · _chatLogUnsub · _danceCmdCooldownAt · _myHomeData · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setChatLogCache · setChatLogUnsub · setDanceCmdCooldownAt(…).
+     CHAT_WIN_POS_KEY · Presence · _chatLogCache · _chatLogUnsub · _danceCmdCooldownAt · myhomeAvatar · ensureMyHome · focusLevelMod · isAdmin · officeMode 를 이름() 으로 읽는다(모듈을 만드는 줄보다 뒤에 선언되거나 app.js 가 다시 대입하는 값이라 읽는 함수로 받는다). 대입은 setChatLogCache · setChatLogUnsub · setDanceCmdCooldownAt(…).
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 22개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
    ★ 밖에서 부르는 이름: DEMOJI_BY_CMD · DEMOJI_BY_ID · DEMOJI_DIR · DEMOJI_LIST · EMOJI_SLOTS · FLY_COLOR_LEVEL · _bindChatCopy · _bindChatTabs · _chatClearNow · _chatClearUndo · _chatFlyColor · _chatFlyOn · _chatFlyRefreshUI · _chatFlySize · _chatIsMinimized · _chatMyTabId · _chatTabName · _chatTabOut · _chatTabResolve · _chatTabsOnMeta · _chatTabsRender · _chatWindowIsOpen · _deleteEmoji · _emojiCache · _flyLaneFreeAt · _flySizeOk · _onEmojiFilePicked · _onEmojiSlotClick · _renderChatLog · _saveChatLog · _saveChatWinPos · _sendChatWindowMsg · _setChatMinimized · _syncChatBadgeSub · _toggleEmojiPanel · closeChatWindow · openChatWindow · sendMyChat · showFlyText — app.js 는 chatUiMod.이름 으로 부른다.
@@ -19,7 +19,6 @@ const Presence = deps.Presence;   // 읽는 함수
 const _chatDelClose = deps._chatDelClose;
 const _chatEsc = deps._chatEsc;
 const _chatIsHost = deps._chatIsHost;
-const _chatLinkify = deps._chatLinkify;
 const _chatLogCache = deps._chatLogCache;   // 읽는 함수
 const _chatLogUnsub = deps._chatLogUnsub;   // 읽는 함수
 const _chatOffOn = deps._chatOffOn;
@@ -27,7 +26,8 @@ const _chatOffRefreshUI = deps._chatOffRefreshUI;
 const _chatRoomCode = deps._chatRoomCode;
 const _danceCmdCooldownAt = deps._danceCmdCooldownAt;   // 읽는 함수
 const _diceSvg = deps._diceSvg;
-const _myHomeData = deps._myHomeData;   // 읽는 함수
+const myhomeAvatar = deps.myhomeAvatar;   // 읽는 함수 — 내 사진(상태 주인 myhome-store.js · 받기 전엔 null)
+const ensureMyHome = deps.ensureMyHome;   // ({ site:'quiet' }) → Promise — 내 홈을 아직 안 받았으면 한 번 받는다(번호 없음)
 const _officeDemojiHtml = deps._officeDemojiHtml;
 const _parseDanceCmdChain = deps._parseDanceCmdChain;
 const _refreshChatMembers = deps._refreshChatMembers;
@@ -250,6 +250,8 @@ function sendMyChat(text, fly, flyColor, flySize, tab){
   if(typeof Presence()!=='undefined' && Presence().active() && Presence().sendChat) Presence().sendChat(text, false, '', '', tab);
 }
 
+/* 🔖 «여기까지 읽음» 구분선 — 이 PC localStorage 에만 둔다(서버 · 남에게 안 보임).
+   창을 열 때 저장된 키로 구분선을 고정하고, 닫을 때 마지막 메시지를 읽음으로 적는다. */
 const CHAT_READ_KEY_PREFIX = 'tw_chat_read:';
 let _chatReadMarker  = null;    // 이번 세션의 구분선 기준 키 (창을 여는 순간 고정)
 let _chatReadRoom    = null;    // 마커를 저장할 방 코드 (방을 옮겨도 안전하게 열 때 캡처)
@@ -561,16 +563,10 @@ function _saveChatWinPos(){
 async function _refreshChatProfile(){
   const img=document.getElementById('chatProfileImg');
   const ph=document.getElementById('chatProfilePlaceholder');
-  let av = (typeof _myHomeData()!=='undefined' && _myHomeData() && _myHomeData().avatar) ? _myHomeData().avatar : null;
-  // ★ 마이홈(F4)을 한 번도 안 열었으면 _myHomeData가 아직 비어 있음 — 프로필 사진만 직접 가져온다.
-  if(!av && window.firebaseAPI && firebaseAPI.getMyHome){
-    try{
-      const data = (firebaseAPI.fetchAvatar ? { avatar: await firebaseAPI.fetchAvatar(getMyUserId()) } : await firebaseAPI.getMyHome(getMyUserId())) || {};   // 사진 한 칸만(home 통째 아님)
-      if(data.avatar){
-        av = data.avatar;
-        if(typeof _myHomeData()!=='undefined' && _myHomeData()) _myHomeData().avatar = data.avatar;   // 캐시
-      }
-    }catch(_){}
+  let av = myhomeAvatar() || null;
+  // ★ 마이홈(F4)을 한 번도 안 열었으면 내 홈이 아직 비어 있음 — 상태 주인이 한 번 받아 온다(받은 값은 마이홈이 같이 쓴다).
+  if(!av){
+    try{ await ensureMyHome({ site: 'quiet' }); av = myhomeAvatar() || null; }catch(_){}
   }
   const avSrc = TwSafeHtml.safeUrl(av, 'image');   // 서버에서 온 프로필 사진 주소 — 허용된 그림 주소만
   if(avSrc){ if(img){ img.src=avSrc; img.style.display='block'; } if(ph) ph.style.display='none'; }
@@ -802,6 +798,9 @@ function _chatTabMenu(id){
     { label:'취소' },
   ]);
 }
+/* 💬 채팅 탭 — 내가 있는 탭은 마지막으로 누른 탭(방마다 localStorage 에 기억).
+   방 메타(탭 목록)가 아직 안 왔으면 «지워졌다» 로 보지 않고 기다린다.
+   ⚠️ 방장 제한은 **화면 수준**이다(Firebase 방 — `_meta.host` 는 문자열이라 서버가 방장을 검증하지 못한다). 🛰 서버 방은 서버가 방장만 받는다. */
 function _bindChatTabs(){
   const bar = document.getElementById('chatTabs'); if(!bar) return;
   bar.addEventListener('mousedown', e => e.stopPropagation());
@@ -976,6 +975,7 @@ function _chatCtxRun(act){
     rg.selectNodeContents(box); sel.removeAllRanges(); sel.addRange(rg);
   }
 }
+/* 📋 mac 은 창이 frame:false 라 기본 편집 메뉴가 없어 Cmd+C 가 안 먹을 수 있다 — 키를 직접 받는다(두 OS 같게). */
 function _bindChatCopy(){
   const box = document.getElementById('chatMessages'), win = document.getElementById('chatWindow');
   if(!box || !win) return;
@@ -1020,27 +1020,17 @@ function _bindChatCopy(){
   }
 }
 
-// 이스케이프된 텍스트 안의 이모티콘 마커를 <img>로. 마커는 [emoji:URL] 형태(URL은 이스케이프되어 &amp; 등 포함 가능).
-// (구) 이모티콘 마커 렌더 — 지금은 _renderChatText 파이프라인이 대체(URL 링크화 충돌 방지). 참고용 보존.
-function _renderEmojiMarkers(escapedText){
-  return escapedText.replace(/\[emoji:(https?:[^\]]+)\]/g, (m, url)=>{
-    return `<img class="cm-emoji" src="${url}" alt="이모티콘">`;
-  });
-}
-// [dice:N] → SVG 점주사위 (1~6만 허용)
-function _renderDiceMarkers(escapedText){
-  return escapedText.replace(/\[dice:([1-6])\]/g, (m, n)=> _diceSvg(parseInt(n,10), 26));
-}
 // 메시지 텍스트 렌더 파이프라인 — 이모티콘/주사위 마커의 URL이 링크화에 먹히지 않도록
-// 마커를 토큰(\u0000i\u0000)으로 먼저 대피시키고, 남은 텍스트만 링크화한 뒤 토큰을 최종 HTML로 복원한다.
+// 마커를 토큰(\u0000i\u0000)으로 먼저 대피시키고, 남은 글을 공용 linkify(씻기 + 주소 칸)에 넘긴 뒤 토큰을 최종 HTML로 복원한다.
+// ⚠️ 받은 글의 \u0000 은 먼저 지운다 — 남겨 두면 보낸 사람이 토큰을 흉내 내 다른 마커 HTML 을 끼울 수 있다.
 function _renderChatText(rawText){
-  let t=_chatEsc(rawText);
+  let t=String(rawText == null ? '' : rawText).replace(/\u0000/g, '');
   const tokens=[];
-  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${TwSafeHtml.safeUrl(u, 'image')}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
+  t=t.replace(/\[emoji:(https?:[^\]]+)\]/g, (m,u)=>{ tokens.push(`<img class="cm-emoji" src="${TwSafeHtml.attr(TwSafeHtml.safeUrl(u, 'image'))}" alt="이모티콘">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[demoji:(d\d{2})\]/g, (m,id)=>{ const d=DEMOJI_BY_ID[id]; if(!d) return m;
     tokens.push(`<img class="cm-emoji" style="width:${d.w}px;height:${d.h}px" src="${DEMOJI_DIR}${d.file}" alt="${_chatEsc(d.cmd)}">`); return `\u0000${tokens.length-1}\u0000`; });
   t=t.replace(/\[dice:([1-6])\]/g, (m,n)=>{ tokens.push(_diceSvg(parseInt(n,10),26)); return `\u0000${tokens.length-1}\u0000`; });
-  t=_chatLinkify(t);   // 남은 http URL만 링크로
+  t=TwSafeHtml.linkify(t);   // 남은 글 — 씻고 주소만 누를 칸으로(알림함 · 버그 제보와 한 벌)
   t=t.replace(/\u0000(\d+)\u0000/g, (m,i)=> tokens[+i] || '');   // 토큰 복원
   return t;
 }

@@ -380,7 +380,8 @@ const LIMIT_CASES = [
   ['새 계정 ⑧ presence(ver)', 'PUT', `users/${NEW_U}/presence`, { online: true, lastSeen: 1, room: null, inRoom: false, ver: '0.11.3' }, true, 'authN'],
   ['새 계정 ⑨ 프로필', 'PUT', `users/${NEW_U}/profile`, { name: '새사람', updatedAt: 1, level: 1 }, true, 'authN'],
   ['새 계정 ⑩ 기기 세션', 'PUT', `users/${NEW_U}/session`, { id: 'd1', at: 1 }, true, 'authN'],
-  ['새 계정 ⑪ 포커스 · 랭킹 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`leaderboard/${NEW_U}`]: { sec: 5, ts: TS }, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 ⑪ 포커스 · 색인', 'PATCH', '', { [`users/${NEW_U}/focus/totalSec`]: 5, [`playlistIndex/${NEW_U}`]: { name: '새사람', n: 0, ts: 1 } }, true, 'authN'],
+  ['새 계정 — 랭킹 쓰기(걷음)', 'PUT', `leaderboard/${NEW_U}`, { sec: 5, ts: TS }, false, 'authN'],
   /* 🔒 온라인 고정 — 본인만 읽고 쓴다(친구가 «숨긴 오프라인» 을 못 알아보게) · 세 칸 */
   ['온라인 고정 — 켤 때 읽기', 'GET', `presencePref/${NEW_U}`, null, true, 'authN'],
   ['온라인 고정 — 본인 쓰기', 'PUT', `presencePref/${NEW_U}`, { lock: true, online: false, ts: TS }, true, 'authN'],
@@ -390,6 +391,16 @@ const LIMIT_CASES = [
   ['온라인 고정 — 모르는 칸', 'PUT', `presencePref/${NEW_U}`, { lock: true, online: false, ts: TS, x: 1 }, false, 'authN'],
   ['온라인 고정 — 칸 빠짐', 'PUT', `presencePref/${NEW_U}`, { lock: true }, false, 'authN'],
   ['온라인 고정 — 글자 lock', 'PUT', `presencePref/${NEW_U}`, { lock: 'yes', online: false, ts: TS }, false, 'authN'],
+  /* 🔒 플레이리스트 잠근 프리셋(나만 보기) 본인 칸 — 본인만 읽고 쓴다 · 자리 0~2 · 이름 16자 · 곡 칸 모양은 공개 노드와 같다 */
+  ['🔒 잠근 프리셋 — 본인 칸 쓰기', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 1: { name: '비밀', items: { 0: { id: 'abcdefghijk', title: '곡' } } } }, editTs: TS }, true, 'authN'],
+  ['  ↳ 본인은 읽는다', 'GET', `playlistPriv/${NEW_U}`, null, true, 'authN'],
+  ['  ↳ 남은 못 읽는다', 'GET', `playlistPriv/${NEW_U}`, null, false, 'authA'],
+  ['  ↳ 로그인 없이도 못 읽는다', 'GET', `playlistPriv/${NEW_U}`, null, false],
+  ['  ↳ 남은 못 쓴다', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 0: { name: 'x', items: {} } }, editTs: TS }, false, 'authA'],
+  ['  ↳ 자리 0~2 밖은 막힘', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 3: { name: 'x' } }, editTs: TS }, false, 'authN'],
+  ['  ↳ 모르는 칸은 막힘', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 0: { name: 'x' } }, editTs: TS, junk: 1 }, false, 'authN'],
+  ['  ↳ 이름 17자는 막힘', 'PUT', `playlistPriv/${NEW_U}`, { sets: { 0: { name: '가'.repeat(17) } }, editTs: TS }, false, 'authN'],
+  ['  ↳ 비우기(지우기)', 'DELETE', `playlistPriv/${NEW_U}`, null, true, 'authN'],
   ['새 계정 ⑫ 신고(쓰는 사람 = 나)', 'PUT', `reports/${GOOD_U2}/${NEW_U}`, { kind: 'etc', nick: 'a', code4: 'AB12', ts: 1 }, true, 'authN'],
   /* 🚧 ≤0.10.2 읽기 막기 — 읽는 사람의 로그인(auth.uid) → authUsers/{authUid}.userCode → 그 코드의 presence 가 «켜짐 · ver 없음» 이면 거절.
      로그인 안 함(auth null) · 이어진 코드 없음(익명 가입 중 · 봇)은 막지 않는다 — 0.11 의 로그인 없는 REST 읽기 · 가입 중 읽기가 산다. */
@@ -434,7 +445,7 @@ const LIMIT_CASES = [
   ['옛 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, false, 'authOld'],
   ['새 앱 — 파도타기(최근 60 쿼리)', 'GET', 'playlistIndex?orderBy=%22ts%22&limitToLast=5', null, true, 'authNew2'],
   ['옛 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authOld'],
-  ['새 앱 — 랭킹 쿼리', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, true, 'authNew2'],
+  ['새 앱 — 랭킹 쿼리(걷음)', 'GET', 'leaderboard?orderBy=%22sec%22&limitToLast=5', null, false, 'authNew2'],
   ['옛 앱 — 우편함 공용', 'GET', 'inboxBroadcast', null, false, 'authOld'],
   ['옛 앱 — 관리자 칸은 원래 막힘(시험 도구 확인)', 'GET', 'adminTodos', null, false, 'authOld'],
   ['관리자(이음 없음) — 관리자 읽기 그대로', 'GET', 'rooms', null, true, ADMIN_A],
@@ -501,6 +512,80 @@ const BOT_CASES = [
 ];
 
 /* [이름, 방법, 경로(인코딩 전), 본문, 기대(true = 통과), 사용자 토큰?] — 경로 조각은 그대로 넣는다(공백 · null 도) */
+/* 🔁 버그제보 공개 범위 바꾸기 — 글쓴이가 운영자 답변 · 글쓴이 답글 전에만, 본문은 그대로 옮기기만(앱 bug-board.js setVis 와 같은 묶음).
+   한 번에 여러 칸을 쓰는 묶음이라 루트 PATCH 로 보낸다. */
+const VU = 'authVis', VX = 'authVisX';
+const B = 'bugBoard/';
+const VBODY = { title: '제목', body: '본문', env: 'v0.12.2' };
+const toPrv = (uid, extra) => Object.assign({ [B + 'list/v1/vis']: 'prv', [B + 'list/v1/name']: '익명', [B + 'prv/' + uid + '/v1']: VBODY, [B + 'pub/v1']: null }, extra || {});
+const toPub = (extra) => Object.assign({ [B + 'list/v1/vis']: 'pub', [B + 'list/v1/name']: '민수2', [B + 'pub/v1']: VBODY, [B + 'prv/' + VU + '/v1']: null }, extra || {});
+const BUG_VIS_CASES = [
+  ['준비: 로그인 연결(userAuth)', 'PUT', 'userAuth/uvisnew0001', VU, true, OWNER],
+  ['글쓴이 — 새 공개 글(목록 + 본문 한 묶음)은 그대로 된다', 'PATCH', '', { [B + 'list/n1']: { vis: 'pub', status: 'new', cat: 'bug', name: '민수', authUid: VU, code: 'uvisnew0001', ts: TS, openTs: TS, title: '새 글' }, [B + 'pub/n1']: { title: '새 글', body: '내용' } }, true, VU],
+  ['  ↳ 새 비공개 글(이름 익명 · 본문은 prv)', 'PATCH', '', { [B + 'list/n2']: { vis: 'prv', status: 'new', cat: 'bug', name: '익명', authUid: VU, code: 'uvisnew0001', ts: TS, openTs: TS, title: '새 글' }, [B + 'prv/' + VU + '/n2']: { title: '새 글', body: '내용' } }, true, VU],
+  ['준비: 공개 제보 한 줄 · 본문', 'PATCH', '', { [B + 'list/v1']: { vis: 'pub', status: 'new', cat: 'bug', name: '민수', authUid: VU, code: 'UVIS1', ts: 1, openTs: 1, title: '제목' }, [B + 'pub/v1']: VBODY }, true, OWNER],
+  ['남의 글 — 공개 범위 바꾸기는 막힘', 'PATCH', '', toPrv(VX), false, VX],
+  ['글쓴이 — 본문을 고쳐서 옮기기는 막힘(이 길로 글을 못 고친다)', 'PATCH', '', toPrv(VU, { [B + 'prv/' + VU + '/v1']: { title: '제목', body: '고친 본문', env: 'v0.12.2' } }), false, VU],
+  ['글쓴이 — 비공개로 가면서 이름을 남기기는 막힘(«익명» 만)', 'PATCH', '', toPrv(VU, { [B + 'list/v1/name']: '민수' }), false, VU],
+  ['글쓴이 — 본문은 두고 공개 범위만 바꾸기는 막힘', 'PATCH', '', { [B + 'list/v1/vis']: 'prv', [B + 'list/v1/name']: '익명' }, false, VU],
+  ['글쓴이 — 공개 본문만 지우기는 막힘', 'DELETE', B + 'pub/v1', null, false, VU],
+  ['글쓴이 — 이름만 바꾸기는 막힘', 'PUT', B + 'list/v1/name', '다른이름', false, VU],
+  ['글쓴이 — 공개 → 비공개(답변 · 답글 전)', 'PATCH', '', toPrv(VU), true, VU],
+  ['  ↳ 비공개 → 공개(지금 이름)', 'PATCH', '', toPub(), true, VU],
+  ['준비: 운영자 답변 하나', 'PUT', B + 'ans/pub/v1/a1', { text: '확인할게요', ts: 2 }, true, OWNER],
+  ['글쓴이 — 운영자 답변이 있으면 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  ['준비: 답변 지우고 글쓴이 답글 하나', 'PATCH', '', { [B + 'ans/pub/v1']: null, [B + 'rep/pub/v1/r1']: { text: '아직이에요', ts: 3 } }, true, OWNER],
+  ['글쓴이 — 내 답글이 있으면 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  ['준비: 답글 지우고 공지로', 'PATCH', '', { [B + 'rep/pub/v1']: null, [B + 'list/v1/notice']: true }, true, OWNER],
+  ['글쓴이 — 공지는 막힘', 'PATCH', '', toPrv(VU), false, VU],
+  /* 🔎 상태 «검토중»(review) — 관리자가 건의에 다는 상태. 미해결이라 openTs 를 그대로 둔다. 글쓴이 버튼엔 없다. */
+  ['관리자 — 상태를 «검토중»(review)으로', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/openTs']: 1 }, true, ADMIN_A],
+  ['  ↳ 목록에 없는 상태는 막힘', 'PUT', B + 'list/v1/status', 'reviewing', false, ADMIN_A],
+  ['글쓴이 — 상태를 «검토중» 으로 바꾸기는 막힘', 'PATCH', '', { [B + 'list/v1/status']: 'review', [B + 'list/v1/userReplyTs']: { '.sv': 'timestamp' } }, false, VU],
+];
+
+/* 📖 방명록 · 🎁 말랑이 선물함 — 쓰기 · 지우기는 신원(로그인)으로. 방명록 지우기는 주인 · 글쓴이만(옛 앱 손님의 30개 정리도 막힌다 — 새 앱은 주인이 정리) */
+const GB_O = 'uguestown001', GB_F = 'uguestfrd001', GB_X = 'uguestbad001';
+const GB = (id) => `users/${GB_O}/guestbook/${id}`;
+const GBE = (uid, n) => ({ name: '손님' + n, text: '안녕 ' + n, ts: Date.now() - n, uid });
+const MG_S = 'umallsend001', MG_R = 'umallrecv001';
+const MG = (id) => `users/${MG_R}/mallangGifts/${id}`;
+const GIFT = (from) => ({ imgUrl: URL_S, fromName: '보냄', fromId: from, ts: 1 });
+const WEEK_AGO = Date.now() - 8 * 24 * 3600 * 1000;   // 오래된 글 — 옛 앱 손님이 30개 정리로 지우려는 모양(이제 막힌다)
+const GB_CASES = [
+  ['준비: 방명록 · 선물 — 로그인 연결 · 친구', 'PATCH', '', { [`userAuth/${GB_O}`]: 'authGbO', [`userAuth/${GB_F}`]: 'authGbF', [`userAuth/${GB_X}`]: 'authGbX',
+    [`userAuth/${MG_S}`]: 'authMgS', [`userAuth/${MG_R}`]: 'authMgR',
+    [`users/${GB_O}/friends/${GB_F}`]: { addedAt: 1 }, [`users/${GB_O}/friends/${GB_X}`]: { addedAt: 1 },
+    'authUsers/authGbX': { userCode: GB_X, ts: 1 }, 'authUsers/authGbN': { userCode: 'uguestnot001', ts: 1 } }, true, OWNER],
+  ['방명록 — 친구가 자기 이름으로 새 글', 'PUT', GB('g1'), GBE(GB_F, 1), true, 'authGbF'],
+  ['방명록 — 다른 친구 이름(uid)으로 새 글은 막힘', 'PUT', GB('g2'), GBE(GB_F, 2), false, 'authGbX'],
+  ['방명록 — 로그인 없이 묶인 사람 이름으로 새 글은 막힘', 'PUT', GB('g3'), GBE(GB_F, 3), false],
+  ['방명록 — 쓴 글 고치기는 막힘(앱에 고치기 없음)', 'PUT', GB('g1'), GBE(GB_F, 9), false, 'authGbF'],
+  ['방명록 — 다른 친구가 남의 글 지우기는 막힘(30개 이하)', 'DELETE', GB('g1'), null, false, 'authGbX'],
+  ['방명록 — 로그인 없이 지우기는 막힘', 'DELETE', GB('g1'), null, false],
+  ['방명록 — 글쓴이 본인이 지우기', 'DELETE', GB('g1'), null, true, 'authGbF'],
+  ['준비: 방명록 글 하나 더', 'PUT', GB('g4'), GBE(GB_F, 4), true, OWNER],
+  ['방명록 — 주인이 남의 글 지우기', 'DELETE', GB('g4'), null, true, 'authGbO'],
+  ['준비: 방명록 — 오래된 글 둘 · 최근 글 하나', 'PATCH', '', { [GB('old1')]: Object.assign(GBE(GB_F, 11), { ts: WEEK_AGO }), [GB('old2')]: Object.assign(GBE(GB_F, 12), { ts: WEEK_AGO }), [GB('new1')]: Object.assign(GBE(GB_F, 13), { ts: Date.now() }) }, true, OWNER],
+  ['방명록 — 로그인 없이 오래된 글 지우기는 막힘', 'DELETE', GB('old1'), null, false],
+  ['방명록 — 친구가 아닌 사람은 오래된 남의 글을 못 지운다', 'DELETE', GB('old1'), null, false, 'authGbN'],
+  ['방명록 — 로그인 코드를 모르는 사람(authUsers 없음)은 오래된 남의 글을 못 지운다', 'DELETE', GB('old1'), null, false, 'authGbZ'],
+  ['방명록 — 친구 손님도 오래된 남의 글을 못 지운다(옛 앱 30개 정리 포함 — 지우기는 주인 · 글쓴이만)', 'PATCH', '', { [GB('old1')]: null, [GB('old2')]: null }, false, 'authGbX'],
+  ['방명록 — 주인은 오래된 글을 지운다(새 앱 주인 정리)', 'PATCH', '', { [GB('old1')]: null, [GB('old2')]: null }, true, 'authGbO'],
+  ['방명록 — 손님이 최근 남의 글 지우기는 막힘', 'DELETE', GB('new1'), null, false, 'authGbX'],
+  ['선물 — 보낸 사람이 자기 이름으로 보내기', 'PUT', MG('m1'), GIFT(MG_S), true, 'authMgS'],
+  ['선물 — 남의 이름(fromId)으로 보내기는 막힘', 'PUT', MG('m2'), GIFT(MG_S), false, 'authGbX'],
+  ['선물 — 이미 받은 선물을 남이 덮어쓰기는 막힘', 'PUT', MG('m1'), GIFT(MG_S), false, 'authMgS'],
+  ['선물 — 받은 사람이 치움(hidden)', 'PUT', MG('m1') + '/hidden', true, true, 'authMgR'],
+  ['선물 — 받은 사람이 즐겨찾기(starred)', 'PUT', MG('m1') + '/starred', true, true, 'authMgR'],
+  ['선물 — 보낸 사람이 치움 · 즐겨찾기는 막힘', 'PUT', MG('m1') + '/hidden', false, false, 'authMgS'],
+  ['선물 — 남이 지우기는 막힘', 'DELETE', MG('m1'), null, false, 'authGbX'],
+  ['선물 — 로그인 없이 지우기는 막힘', 'DELETE', MG('m1'), null, false],
+  ['선물 — 받은 사람이 지우기(보관 한도 정리 · 우클릭 삭제)', 'DELETE', MG('m1'), null, true, 'authMgR'],
+  ['선물 — 이미 없는 선물 지우기는 아무것도 안 바꾸니 받아 준다(두 번 지움 · 겹친 정리)', 'DELETE', MG('m1'), null, true, 'authMgR'],
+  ['방명록 — 이미 없는 글 지우기도 받아 준다(정리 update 에 이미 지운 id 가 섞여도 통째 거절 안 됨)', 'PATCH', '', { [GB('gone1')]: null, [GB('new1')]: null }, true, 'authGbO'],
+];
+
 const CASES = [
   ['준비: 폰 연결 키', 'PUT', `mobileKeys/${GOOD_U}`, KEY, true],
   ['준비: 신고하는 사람을 로그인에 묶기', 'PUT', `userAuth/${OWNED_U}`, 'authA', true, 'authA'],
@@ -562,6 +647,8 @@ const CASES = [
   ['지우기는 형식과 상관없음(잘못 들어간 것을 치울 수 있게)', 'DELETE', 'users/null/profile', null, true],
   ...LIMIT_CASES,
   ...BOT_CASES,
+  ...BUG_VIS_CASES,
+  ...GB_CASES,
 ];
 
 async function inner(){

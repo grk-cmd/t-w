@@ -113,8 +113,8 @@ say('── 3. 울리는 자리');
   const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
   chk(/_chatShown = true;[\s\S]*_chatShown = true;[\s\S]*if\(_chatShown && window\._activeChannel === 2\) _chatNotifyIncoming\(\);/.test(recv),
       '★ 상대 채팅 수신 분기에서, 날리기·말풍선이 **실제로 뜬 경우에만** 부른다');
-  /* 워킹룸(채널1)에서 이모티콘 말풍선이 떠도 조용하게 — 투게더룸(채널2)에서만 울린다. */
-  chk(/if\(_chatShown && window\._activeChannel === 2\)/.test(recv), '★ 워킹룸(채널1)은 이모티콘 말풍선이 떠도 안 울린다 — 투게더룸에서만');
+  /* 채팅 알림음은 투게더룸(채널2)에서만 — 워킹룸은 아래 3-2 의 이모티콘 소리가 따로 맡는다. */
+  chk(/if\(_chatShown && window\._activeChannel === 2\) _chatNotifyIncoming/.test(recv), '★ 채팅 알림음은 투게더룸에서만 — 워킹룸은 이모티콘 소리(3-2)');
   const sub = SRC.indexOf('chatNet.subscribeLog(room');
   chk(sub > 0 && !/_chatNotifyIncoming/.test(SRC.slice(sub, sub + 300)), '  최근 줄 구독(chatNet.subscribeLog)에는 걸지 않았다 (한 줄에 두 번 울림 방지)');
   const send = grabFn('sendMyChat');
@@ -124,6 +124,74 @@ say('── 3. 울리는 자리');
   chk(/_applyChatSfxUI\(\)/.test(offT), '★ 🏢 회사원 모드를 켜고 끌 때 알림음 표시를 다시 그린다');
   const tgl = (SRC.match(/if\(sfxTg\) sfxTg\.addEventListener\('click'[\s\S]*?\n    \}\);/) || [''])[0];
   chk(/_chatSfxOfficeLock\(\)[\s\S]*return;[\s\S]*_setChatSfxOn/.test(tgl), '  🏢 잠긴 동안 눌러도 저장값을 안 바꾼다');
+}
+
+say('── 3-2. 워킹룸 받은 이모티콘 소리 (실행)');
+{
+  /* 😊 이모티콘 창의 🔔/🔕 — 처음 꺼짐 · 켜면 채팅 알림음도 켬 · 채팅 알림음을 끄면 같이 꺼짐 · 소리는 1 고정 · 회사원 모드 · 간격 */
+  const need = ['_chatSfxOfficeLock','_chatSfxOn','_chatSfxId','_setChatSfxOn','_chatSfxPreview','_demojiSfxOn','_setDemojiSfxOn','_demojiNotifyIncoming'];
+  const mk = (src) => {
+    const g = (n) => { const i = src.indexOf('function ' + n + '('); if(i < 0) return ''; let k = src.indexOf('{', i), d = 0; for(; k < src.length; k++){ if(src[k] === '{') d++; else if(src[k] === '}' && --d === 0) return src.slice(i, k + 1); } return ''; };
+    const fns = need.map(g);
+    const keyM = /const DEMOJI_SFX_ON_KEY = '[^']+';/.exec(src), idM = /const DEMOJI_SFX_ID = \d+;/.exec(src);
+    if(!fns.every(Boolean) || !keyM || !idM) return null;
+    const env = { store:{}, played:[], now:1000, office:false };
+    const A = new Function('env', `
+      const localStorage = { getItem:k => (k in env.store ? env.store[k] : null), setItem:(k,v)=>{ env.store[k]=String(v); } };
+      const Date = { now:()=>env.now };
+      const document = { getElementById:()=>null, querySelectorAll:()=>[] };
+      const _og = { get officeMode(){ return env.office; } };   // 옮기기 전 글은 officeMode 를 값으로 읽는다(1절과 같은 처리)
+      const _applyChatSfxUI = () => {};
+      ${['CHAT_SFX_ON_KEY','CHAT_SFX_ID_KEY','CHAT_SFX_DEFAULT_ON','CHAT_SFX_DEFAULT_ID','CHAT_SFX_GAP_MS'].map(grabConst).join('\n')}
+      const CHAT_SFX_LIST = [{id:1},{id:2},{id:3}];
+      ${keyM[0]} ${idM[0]}
+      let _chatSfxLast = 0;
+      const _chatSfxPools = {}; CHAT_SFX_LIST.forEach(x=>{ _chatSfxPools[x.id] = { play:()=>env.played.push(x.id) }; });
+      ${fns.join('\n').replace(/!!officeMode/, '!!_og.officeMode')}
+      return { _demojiSfxOn, _setDemojiSfxOn, _demojiNotifyIncoming, _chatSfxOn, _setChatSfxOn };`)(env);
+    return { A, env };
+  };
+  const run = (src) => {
+    const m = mk(src); if(!m) return null;
+    const { A, env } = m, r = {};
+    A._demojiNotifyIncoming();
+    r.defOff = !A._demojiSfxOn() && env.played.length === 0;
+    A._setChatSfxOn(false); A._setDemojiSfxOn(true);
+    r.onTurnsChat = A._demojiSfxOn() && A._chatSfxOn() && env.store['tw.chatSfx'] === '1';
+    env.store['tw.chatSfxId'] = '3'; env.now += 1000; A._demojiNotifyIncoming();
+    r.sound1 = env.played.length === 1 && env.played[0] === 1;
+    env.now += 100; A._demojiNotifyIncoming();
+    r.gap = env.played.length === 1;
+    env.office = true; env.now += 1000; A._demojiNotifyIncoming();
+    r.office = env.played.length === 1; env.office = false;
+    A._setDemojiSfxOn(false);
+    r.offKeepsChat = !A._demojiSfxOn() && A._chatSfxOn();
+    A._setDemojiSfxOn(true); A._setChatSfxOn(false);
+    r.chatOffOff = !A._demojiSfxOn() && env.store['tw.demojiSfx'] === '0';
+    A._setChatSfxOn(true);
+    r.chatBackStaysOff = !A._demojiSfxOn();
+    return r;
+  };
+  const R = run(SRC);
+  chk(!!R, '상수 · 함수가 전부 있다(DEMOJI_SFX_ON_KEY · DEMOJI_SFX_ID · _demojiSfxOn · _setDemojiSfxOn · _demojiNotifyIncoming)');
+  if(R){
+    chk(R.defOff, '★ 처음엔 꺼짐 — 이모티콘이 와도 안 울린다');
+    chk(R.onTurnsChat, '★ 켜면 채팅 알림음도 같이 켜진다');
+    chk(R.sound1, '★ 소리는 알림음 1 고정 — 채팅에서 3 을 골라도 1');
+    chk(R.gap && R.office, '  연달아 오면 한 번만 · 회사원 모드면 안 울린다');
+    chk(R.offKeepsChat, '  끄면 이모티콘 소리만 꺼지고 채팅 알림음은 그대로');
+    chk(R.chatOffOff && R.chatBackStaysOff, '★ 채팅 알림음을 끄면 이모티콘 소리도 꺼지고, 채팅을 다시 켜도 저절로 켜지지 않는다');
+    const b1 = run(SRC.replace("  if(on && !_chatSfxOn()) _setChatSfxOn(true);\n", ''));
+    chk(!!b1 && !b1.onTurnsChat, '  깨 보기 — 켤 때 채팅 알림음을 안 켜면 빨강');
+    const b2 = run(SRC.replace("_chatSfxPreview(DEMOJI_SFX_ID);", "_chatSfxPreview(_chatSfxId());"));
+    chk(!!b2 && !b2.sound1, '  깨 보기 — 고른 소리를 따라가면 빨강');
+    const b3 = run(SRC.replace("  if(!on){ try{ localStorage.setItem(DEMOJI_SFX_ON_KEY, '0'); }catch(_){} }", ''));
+    chk(!!b3 && !b3.chatBackStaysOff, '  깨 보기 — 채팅을 끌 때 이모티콘 소리를 안 끄면 빨강');
+  }
+  const recv = (SRC.match(/const chat=friends\[id\]\.chat;[\s\S]*?\n    \}/) || [''])[0];
+  chk(/if\(_chatShown && window\._activeChannel === 2\) _chatNotifyIncoming\(\);\s*else if\(_chatShown && window\._activeChannel === 1\) _demojiNotifyIncoming\(\);/.test(recv),
+      '★ 울리는 자리 — 투게더룸은 채팅 알림음, 워킹룸은 이모티콘 소리(말풍선이 실제로 뜬 경우에만)');
+  chk((SRC.split('_demojiNotifyIncoming()').length - 1) === 2, '  이모티콘 소리 호출은 정의 1 + 부르는 자리 1 뿐');
 }
 
 say('── 4. HTML');

@@ -2,7 +2,7 @@
    app.js «런처3-2 프리셋» 조각(저장 빼고)을 그대로 옮긴 모듈이다(C 구역 떼기 w4). 동작은 옮기기 전과 같다(바뀐 줄은 읽는 함수 자리 11줄 · 옛 이야기형 주석 줄이기).
    ・책임: 담기(captureDeskPreset — 책상 색 · 크기 · 길이 · 위치 · 모델 · 아이템 · 로컬 아이템 · 좌석 — 카탈로그 책상 GLB 는 저장 때 빠진다) · 적용(applyDeskPreset — 좌석 → 아이템 목록 → 책상 → 모델(바이트가 없으면 카탈로그에서) →
      아이템 다시 놓기 → 카메라 다시 맞추기) · 칸 화면(renderDeskPresetSlots — 클릭 불러오기 · 우클릭 저장/비우기 · 팝업 버튼).
-   ・받는 deps 28 — notifyError — 번호 실패 알림(shared/error-codes.js) · 값 crState · deskPresetStoreMod(5칸 읽기 · 쓰기) · premiumMod · DEFAULT_DESK_OVERRIDE_ID · 함수 15 · 읽는 함수 8(뒤에서 만들어지는 모듈 · isAdmin · isPremium).
+   ・받는 deps 27 — notifyError — 번호 실패 알림(shared/error-codes.js) · 값 crState · deskPresetStoreMod(5칸 읽기 · 쓰기) · premiumMod · DEFAULT_DESK_OVERRIDE_ID · 함수 15 · 읽는 함수 6(뒤에서 만들어지는 모듈).
    ・내놓는 것: 없음 — 만들 때 팝업 버튼을 건다(DOM 이 준비 전이면 DOMContentLoaded 에).
    ・입구 전제: 적용 · 저장은 캐릭터(crState.cBase)가 있어야 한다(없으면 «먼저 캐릭터를 선택해 주세요») · 칸 상자(#crPresetSlots) · 버튼이 없으면 그리지 · 걸지 않는다.
    ⚠️ document · localStorage · setTimeout 은 전역 이름 그대로. 전역 이름은 TwDeskPreset(Tw 접두사 #103).
@@ -11,6 +11,8 @@
 
 function createDeskPreset(deps){
 const DEFAULT_DESK_OVERRIDE_ID = deps.DEFAULT_DESK_OVERRIDE_ID;
+const NO_DESK_ID = deps.NO_DESK_ID;   // 🚫 «책상 없음» 예약 id
+const hideDeskBody = deps.hideDeskBody;
 const applyCreatorXform = deps.applyCreatorXform;
 const applyDeskColorToCustom = deps.applyDeskColorToCustom;
 const applyDeskItemsTo = deps.applyDeskItemsTo;
@@ -30,9 +32,8 @@ const deskPresetStoreMod = deps.deskPresetStoreMod;
 const equipDeskItem = deps.equipDeskItem;
 const fitCreator = deps.fitCreator;
 const frameDeskCam = deps.frameDeskCam;
-const isAdmin = deps.isAdmin;   // 읽는 함수
-const isPremium = deps.isPremium;   // 읽는 함수
 const premiumMod = deps.premiumMod;
+const licenseAssetBlocked = deps.licenseAssetBlocked;   // 🔒 전용 자산을 막아야 하나(account-state.js)
 const setCreatorDeskScale = deps.setCreatorDeskScale;
 const setDeskPos = deps.setDeskPos;
 const swapDeskVisual = deps.swapDeskVisual;
@@ -141,8 +142,14 @@ function applyDeskPreset(p){
     }
   };
   /* 프리셋에 남은 라이선스 전용 책상은 라이선스가 없으면 쓰지 않는다(쓰면 완료 때 def 에 굳는다) — 기본 책상으로 열고 프리셋은 그대로 둔다. */
-  const _presetDeskLocked = (!isPremium() && !isAdmin()) && premiumMod._licenseLockedDeskId(p.deskCatalogId);
-  if(p.deskCatalogId && !_presetDeskLocked){
+  const _presetDeskLocked = licenseAssetBlocked({ licenseOnly: premiumMod._licenseLockedDeskId(p.deskCatalogId) });
+  if(p.deskCatalogId===NO_DESK_ID){
+    crState.cDeskTemplate=null; crState.cDeskGlbB64=null; crState.activeCustomDeskId=NO_DESK_ID;
+    if(crState.cDesk){ hideDeskBody(crState.cDesk); setCreatorDeskScale(crState.cDeskScale); }
+    applyDeskModel();
+    _refitPreviewAfterPreset();
+  }
+  else if(p.deskCatalogId && !_presetDeskLocked){
     _presetDeskGlb(p).then(b64=>{
       /* 카탈로그에서 빠졌거나 받지 못했다 — 프리셋은 그대로 두고 기본 책상으로 연다(조용히 바꾸지 않는다) */
       if(!b64){ notifyError('E-CHAR-08'); applyDefaultDesk(); return; }

@@ -8,6 +8,15 @@
   border-radius: 6px;
 }
 
+.states {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  margin: 0 0 8px;
+  padding: 0 10px;
+  font-size: 13px;
+}
+
 .wrap {
   max-height: 60vh;
   overflow: auto;

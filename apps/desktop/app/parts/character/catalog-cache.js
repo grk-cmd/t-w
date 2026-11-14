@@ -30,8 +30,6 @@
  *   API 가 못 주거나(꺼짐 · 사본 아직) 사본 버전이 구독한 버전과 다르면 지금처럼 Firebase get. 쓰기는 그대로 Firebase(원본).
  * 캐시 키에 DB 주소를 넣는다 — 운영과 dev(start:dev)가 같은 PC 에서 돌 수 있다.
  *
- * 공용 공지(inboxBroadcast)도 같은 구독기를 쓴다 — 받는 방법(fetch)만 다르다(broadcast-cache.js).
- *
  * Firebase 를 직접 import 하지 않는다 — 경로 · onValue · get 은 firebase-init.js 가 넘긴다(검사 sim-catalog-cache.js).
  */
 

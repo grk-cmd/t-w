@@ -41,6 +41,8 @@ function _pokeFresh(ts){
 
 
 
+/* 🚪 자리비움 자동 퇴장 — 6시간은 자동 자리비움에 들어간 때부터 잰다(손으로 고른 🫧 자리비움은 안 걸린다).
+   1분은 팝업이 뜬 순간부터 준다(틱이 5초라 남은 시각을 그대로 쓰면 «55초» 로 뜬다). 시크릿룸 방장만 뺀다. */
 const AUTO_EXIT_AFTER_AWAY_MS = 6 * 60 * 60 * 1000;   // 자동 자리비움 진입 후 이만큼 지나면 퇴장
 const AUTO_EXIT_WARN_MS       = 60 * 1000;            // 퇴장 몇 ms 전에 알릴 것인가
 let _autoExitOv = null, _autoExitTimer = null, _autoExitDue = 0, _autoExitDone = false;

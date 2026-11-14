@@ -1,7 +1,7 @@
 /* admin-notice.js — 📣 확성기 공지 · 📰 업데이트 공지 편집 (관리자)
    app.js 의 «🛠️ 라이선스 발급 · 공지 · 업데이트 안내(관리자)» 가운데 관리자가 쓰는 공지 두 가지를 그대로 옮긴 관리자 모듈이다
    (관리자 코드 admin 폴더 3번). 동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다. 사용자가 보는 쪽(앱을 켤 때 업데이트 공지 팝업 _checkUpdateNoticeOnStartup)은 app.js 에 남겼다.
+   ★ 아래 본문은 app.js 에 있던 글 그대로다. 사용자가 보는 쪽(앱을 켤 때 업데이트 공지 팝업 _showUpdateNoticeOnce)은 app.js 에 남겼다.
    ★ 밖에서 부르는 이름은 없다 — 버튼 연결을 만들 때 건다.
    검사: checks/sim-admin-license.js(관리자 3번 셋을 같이 본다)
    ⚠️ document · window · firebaseAPI · confirm · navigator 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).

@@ -1,11 +1,10 @@
 /* ad-banner.js — 📢 런처 광고 배너 · ⚙️ 게임 설정(사용자 쪽 — 그리기 · 구독)
-   app.js «📢 런처 광고 배너 · ⚙️ 게임 설정» 구역의 사용자 쪽(배너 그리기 · 게임 설정 구독 · 서버 배너 구독)을 그대로 옮긴 모듈이다(앱 FSD 43번 — docs/APP_FSD_MAP.md).
-   관리자 쪽 연결(admin-launcher.js 만드는 줄)은 app.js 에서 이 모듈 만드는 줄 바로 뒤. 동작은 옮기기 전과 같다.
-   ★ 아래 본문은 app.js 에 있던 글 그대로다(들여쓰기도 · 덩이 2개를 원래 차례로 · 사이에 빈 줄 하나). 바뀐 줄은 0줄 —
-     바꾼 이름 없음.
-     받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
+   app.js «📢 런처 광고 배너 · ⚙️ 게임 설정» 구역의 사용자 쪽(배너 그리기 · 게임 설정 구독 · 서버 배너 받기)을 옮긴 모듈이다(앱 FSD 43번 — docs/APP_FSD_MAP.md).
+   관리자 쪽 연결(admin-launcher.js 만드는 줄)은 app.js 에서 이 모듈 만드는 줄 바로 뒤.
+   ★ 배너의 원본은 서버다 — 공지 한 판(notice-feed.js)이 받아 들고 있고, 이 모듈은 바뀔 때마다 그것을 그린다(이 PC 에 사본을 남기지 않는다).
+     설정 패널의 배너(settings-panel.js)도 같은 한 벌을 읽는다(slides()).
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: AD_BANNER_KEY · _gameCfg · refreshAdBanner — app.js 는 adBannerMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: AD_BANNER_KEY · _gameCfg · slides · refreshAdBanner — app.js 는 adBannerMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwAdBanner — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-ad-banner.js */
@@ -13,14 +12,17 @@
 
 function createAdBanner(deps){
 const settingsMod = deps.settingsMod;
-/* 광고 배너 — localStorage에 저장된 이미지/링크를 런처 하단에 표시. 관리자만 편집 가능. */
+const noticeFeed = deps.noticeFeed;   // 📢 공지 한 판 — 배너(notice-feed.js)
+/* 광고 배너 — 서버가 준 이미지/링크를 런처 하단에 표시. 관리자만 편집 가능(관리자 편집은 admin/admin-launcher.js). */
 const AD_BANNER_KEY = 'tw.adBanner';
 let _lcAdSlides=[], _lcAdIdx=0, _lcAdTimer=null;
+/* 지금 서버가 준 슬라이드 — 아직 못 받았거나 없으면 빈 배열(배너를 숨긴다) */
+const slides = ()=>noticeFeed.banner();
 function refreshAdBanner(){
   const a=document.getElementById('lcAdBanner'); const img=document.getElementById('lcAdBannerImg');
   if(!a||!img) return;
   if(_lcAdTimer){ clearInterval(_lcAdTimer); _lcAdTimer=null; }
-  _lcAdSlides = settingsMod.loadAdBannerSlides(); _lcAdIdx=0;
+  _lcAdSlides = slides(); _lcAdIdx=0;
   if(!_lcAdSlides.length){ a.style.display='none'; return; }
   const show=()=>{ const s=_lcAdSlides[_lcAdIdx % _lcAdSlides.length]; img.src=TwSafeHtml.safeUrl(s.img, 'image'); a.href=TwSafeHtml.safeUrl(s.link, 'link')||'#'; };   // 서버 배너 — 허용된 그림 · 링크 주소만
   show(); a.style.display='block';
@@ -49,27 +51,20 @@ try{
 }catch(_){}
 
 refreshAdBanner();
-// 🌐 서버 배너 구독 — 관리자가 게시한 배너를 모든 사용자가 받아 localStorage에 반영 후 다시 그림.
-//   (표시 로직은 기존 localStorage 경로를 그대로 재사용 — 서버는 동기화만 담당)
-(function(){
-  const _sub = ()=>{
-    if(!(window.firebaseAPI && firebaseAPI.subscribeAdBanner)){ setTimeout(_sub, 500); return; }
-    firebaseAPI.subscribeAdBanner(slides=>{
-      try{
-        const arr = Array.isArray(slides) ? slides.filter(x=>x&&x.img) : [];
-        if(arr.length) localStorage.setItem(AD_BANNER_KEY, JSON.stringify(arr));
-        else localStorage.removeItem(AD_BANNER_KEY);
-      }catch(_){}
-      refreshAdBanner();
-      if(typeof settingsMod.refreshFsAdBanner==='function') settingsMod.refreshFsAdBanner();
-    });
-  };
-  _sub();
-})();
+// 🌐 서버 배너 — 공지 한 판이 바뀔 때마다(켤 때 · 관리자가 바꿨을 때) 다시 그린다
+let _shownKey = '';
+noticeFeed.onChange(()=>{
+  const key = JSON.stringify(slides());
+  if(key === _shownKey) return;   // 배너가 그대로면 슬라이드 순서를 처음으로 돌리지 않는다
+  _shownKey = key;
+  refreshAdBanner();
+  settingsMod.refreshFsAdBanner();
+});
 
 return {
   AD_BANNER_KEY,
   _gameCfg: ()=>_gameCfg,   // 읽는 함수
+  slides,
   refreshAdBanner,
 };
 }

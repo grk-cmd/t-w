@@ -24,7 +24,7 @@ const GET_DEPS = ["charCodeMod","charsMod","commissionMod","curSlot","slotSaveMo
 const SET_DEPS = ["curSlot"];
 const EXPORTS = [];
 const MOVED = ["commImpOverlay","dataUrlToCanvas"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  charCodeMod: ()=>charCodeMod,","  charDef: (...a)=>charDef(...a),","  charsMod: ()=>charsMod,","  commissionMod: ()=>commissionMod,","  creatorSaveMod: creatorSaveMod,","  curSlot: ()=>curSlot,","  openCreator: (...a)=>openCreator(...a),","  racePickerMod: racePickerMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
+const GLUE = ["  CANVAS_SZ: CANVAS_SZ,","  charCodeMod: ()=>charCodeMod,","  charDef: (...a)=>charDef(...a),","  commissionMod: ()=>commissionMod,","  creatorSaveMod: creatorSaveMod,","  curSlot: ()=>curSlot,","  openCreator: (...a)=>openCreator(...a),","  racePickerMod: racePickerMod,","  renderLauncher: (...a)=>renderLauncher(...a),","  saveCurSlot: (...a)=>saveCurSlot(...a),","  slotSaveMod: ()=>slotSaveMod,","  slots: slots,","  toast: (...a)=>toast(...a),","  setCurSlot: (v)=>{ curSlot = v; },"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다. */
 function anything(){
@@ -138,7 +138,7 @@ function rigI(o){
     charCodeMod: () => ({ importCloneCode: async (c, p, t) => { calls.push(['clone', c, p, t]); return !!o.cloneOk; } }),
     commissionMod: () => ({ decryptCommission: async (c, p) => { if(o.badPass) throw new Error('bad'); return o.payload || { t: 'comm', name: '고양이', glb: 'GLB', face: 'data:image/png;base64,Zg==', blink: 'data:image/png;base64,Yg==' }; } }),
     creatorSaveMod: { _defSizeFile: (rest, bytes) => (calls.push(['size', rest, bytes]), o.tooBig ? { ok: false, message: '너무 커요' } : { ok: true }), DEF_SIZE_TOAST_MS: 4000 },
-    charsMod: () => ({ _charsBoxFull: () => !!o.boxFull, _charsOnNew: log('onNew') }), slotSaveMod: () => ({ saveSlots: log('save') }),
+    slotSaveMod: () => ({ saveSlots: log('save') }),
     curSlot: () => st.cur, setCurSlot: (v) => { st.cur = v; }, saveCurSlot: log('saveCur'), renderLauncher: log('render'),
     toast: log('toast'), openCreator: log('creator'), charDef: (skin, f, b, top, bot) => ({ skin, face: f, blink: b, top, bot }) };
   class Img { set src(v){ this._s = v; setImmediate(() => o.imgFail ? this.onerror() : this.onload()); } }
@@ -168,7 +168,7 @@ function rigI(o){
   { const r = rigI({ target: 1 }); await r.go('DCM1.x', 'pw');
     const d = r.slots[1];
     chk(d && d.isCommission && d.commName === '고양이' && d.commGlb === 'GLB' && JSON.stringify(d.xf) === '{"s":0.7,"y":0,"z":0,"rot":0,"x":0}' && d.top === '#ffffff', 'DCM1 — [＋] 칸에 커미션 캐릭터(이름 · GLB · 기본 xf · 흰 옷)');
-    chk(r.st.cur === 1 && r.n('save') === 1 && r.n('onNew') === 1 && r.n('render') === 1 && /"고양이" 캐릭터를 등록했어요/.test(r.last('toast')), '현재 칸 · 저장 · 보관함 번호 · 런처 다시 그림 · 안내');
+    chk(r.st.cur === 1 && r.n('save') === 1 && r.n('render') === 1 && /"고양이" 캐릭터를 등록했어요/.test(r.last('toast')), '현재 칸 · 저장 · 런처 다시 그림 · 안내');
     chk(JSON.stringify(r.last('creator')) === '{"kind":"slot","edit":true,"slot":1}', '바로 생성기(수정 모드 — 커미션은 책상부터)');
     const sz = r.calls.find(x => x[0] === 'size'); chk(sz && !('commGlb' in sz[1]) && sz[2] === 'GLB'.length + 2 + 12, '용량 — GLB 를 뺀 나머지에 GLB 바이트(+12)를 더해 잰다'); }
   { const r = rigI({ slots: ['a', null, null], target: 0 }); await r.go('DCM1.x', 'pw');
@@ -179,7 +179,7 @@ function rigI(o){
     chk(r.last('toast') === '등록 실패: 비밀번호를 확인해 주세요 (코드 형식은 맞아요)', '암호가 틀리면 «코드 형식은 맞아요» 를 붙여 안내'); }
   { const r = rigI({ tooBig: true }); await r.go('DCM1.x', 'pw');
     chk(r.last('toast') === '너무 커요' && !r.slots.some(Boolean), '디자인 용량을 넘으면 등록 안 함'); }
-  { const r = rigI({ boxFull: true }); await r.go('DCM1.x', 'pw'); chk(!r.slots.some(Boolean) && r.n('save') === 0, '보관함 문턱이 차면 등록 안 함'); }
+  { const r = rigI({}); await r.go('DCM1.x', 'pw'); chk(r.slots.some(Boolean) && r.n('save') === 1, '보관함이 가득 차 있어도 등록한다(새 캐릭터는 슬롯 — 서버가 보관함 문턱을 보지 않는다)'); }
   { const r = rigI({ imgFail: true }); await r.go('DCM1.x', 'pw'); chk(/비밀번호를 확인해 주세요/.test(r.last('toast')) && !r.slots.some(Boolean), '얼굴 그림을 못 읽으면 실패로 끝(칸은 그대로)'); }
   say(`\n${fail ? '✗' : '✓'} 통과 ${pass} · 실패 ${fail}`);
   process.exit(fail ? 1 : 0);

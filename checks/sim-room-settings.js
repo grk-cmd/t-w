@@ -92,7 +92,7 @@ say('── 4. room-create-ui.js — 가짜 DOM');
   }
   let t = mk({ cap: 8 });
   t.ui.open('workingroom');
-  chk(!t.el('roomCreatePanel').hidden && t.el('lobbyMain').hidden && t.el('inviteJoinPanel').hidden, '로비 [방 만들기] → 창이 열리고 로비 · 코드 칸은 숨는다');
+  chk(!t.el('roomCreatePanel').hidden && t.el('lobbyMain').hidden, '로비 [방 만들기] → 창이 열리고 로비(아래 줄 코드 칸 포함)는 숨는다');
   chk(t.el('rcMax').textContent === '8명' && t.el('rcOpen').checked === true && t.el('rcMusic').checked === false && t.el('rcChWorking').classList.contains('on'), '  처음 값: 최대 인원 = 정원 · 공개 켬 · 같이 듣기 끔 · 워킹룸');
   chk(t.el('rcChTogether').disabled === true, '  라이선스가 없으면 투게더룸 버튼은 막혀 있다');
   t.el('rcMaxUp').onclick();
@@ -136,13 +136,13 @@ say('── 4. room-create-ui.js — 가짜 DOM');
 
 say('── 5. room-entry — doCreateRoomInChannel 이 고른 값을 싣는다');
 {
-  const fn = takeFn(RE_SRC, 'function doCreateRoomInChannel(');
+  const fn = takeFn(RE_SRC, 'async function _createRoomInChannel(');   // doCreateRoomInChannel 은 두 번 누름 막기(_whileJoining)로 이 본문을 부른다
   chk(!!fn && /let _pendingExtra = null;/.test(RE_SRC), '만들기 함수 · 고른 값 칸이 있다');
   const run = (o) => {
     const win = {};
     const log = { started: [] };
     const f = new Function('window', 'genRoomCode', 'startRoom', 'roomSettings', 'maxPeople',
-      'let _pendingExtra = null;\n' + fn + '\nreturn { go: doCreateRoomInChannel, extra: () => _pendingExtra };')(
+      'let _pendingExtra = null;\n' + fn + '\nreturn { go: _createRoomInChannel, extra: () => _pendingExtra };')(
       win, (ch) => (ch === 'togetherroom' ? 'PLAY-' : 'WORK-') + 'AB12', (c) => log.started.push(c), RS, () => o.cap || 10);
     f.go(o.ch, o.settings);
     return { win, log, extra: f.extra() };

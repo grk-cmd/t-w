@@ -78,7 +78,7 @@ describe('할 일 — 읽기 · 정렬 · 거르기', () => {
     expect(filterTodos(list, { ...ALL_TODOS, mine: true }, null)).toEqual([]);
   });
 
-  it('제보 → 대표 할 일: 진행 중이 할 일보다 먼저, 완료는 배지 없음', () => {
+  it('제보 → 대표 할 일: 진행 중 > 할 일 > 완료(완료만 걸렸으면 완료)', () => {
     const map = todoByReport([
       todo('t', { reports: [R1, R2] }),
       todo('d', { status: 'doing', reports: [R1] }),
@@ -86,7 +86,8 @@ describe('할 일 — 읽기 · 정렬 · 거르기', () => {
     ]);
     expect(map.get(R1)?.id).toBe('d');
     expect(map.get(R2)?.id).toBe('t');
-    expect(map.has('-OaAAAAAAAAAAAAAAAA3')).toBe(false);
+    // 완료만 걸린 제보도 완료를 보여 준다(끝낸 할 일이 목록에서 사라지지 않게)
+    expect(map.get('-OaAAAAAAAAAAAAAAAA3')?.id).toBe('x');
   });
 });
 

@@ -164,7 +164,7 @@ run().then(() => {
     '[나가기] 버튼 둘 — 지운다');
   chk(/_roomDisbanding = false; \}\);/.test(APP) && /doLeaveRoom\(\{ wipeChat: true \}\)\)\.catch\(\(\)=>\{\}\)\.then\(\(\)=>\{ window\._roomDisbanding/.test(APP), '방 해산 — 지운다');
   chk(/^twNav\.on\(twNav\.NAV\.LEAVE_ROOM, doLeaveRoom\);/m.test(APP), '  창 열기 통로의 방 나가기는 doLeaveRoom 그대로(부탁할 때 인자를 안 넘기면 기록을 안 지운다)');
-  const noWipe = [/function _onDeviceSessionLost\(v\)\{[\s\S]{0,300}?twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)\)/,   /* 창 열기 통로로 나간다 — 걸린 함수가 인자 없는 doLeaveRoom(모듈 순환 끊기 6) */
+  const noWipe = [/function _onDeviceSessionLost\(\)\{[\s\S]{0,300}?twNav\.go\(twNav\.NAV\.LEAVE_ROOM\)\)/,   /* 창 열기 통로로 나간다 — 걸린 함수가 인자 없는 doLeaveRoom(모듈 순환 끊기 6) */
     /toast\(ROOM_LOST_MSG\[code\] \|\| ROOM_LOST_DEFAULT\);\s*Promise\.resolve\(doLeaveRoom\(\)\)/];
   chk(noWipe.every(re => re.test(APP)), '★ 튕김(다른 기기 로그인 · 서버 끊김 · 관리자 종료)은 안 지운다 — 다시 들어오면 이어진다');
   chk(/firebaseAPI\.chatHistory\.open\(room, tab, _onList\)/.test(APP) && /firebaseAPI\.chatHistory\.clear\(room, (?:chatUiMod\(\)\.)?_chatMyTabId\(\)\)/.test(APP) && /chatHistory\.syncTabs\(room, _chatTabMeta\(\)\)/.test(APP) && /chatHistory\.wipeAll\(\)/.test(APP),
