@@ -1,7 +1,6 @@
 /*
  * 관리자 이름 — adminNames/{uid} = { name, at }. 관리자만 읽고, 쓰기는 본인 칸만(규칙).
  * admins 는 규칙상 아무도 못 읽어서, 관리자 목록 · 이름은 여기서만 안다.
- * 웹 관리자에 들어올 때 구글 이름으로 본인 칸을 채운다 — 한 번도 안 들어온 관리자는 목록에 없다.
  */
 export const ADMIN_NAMES_ROOT = 'adminNames';
 export const ADMIN_NAME_MAX = 40; // 규칙 adminNames/$uid/name
@@ -27,18 +26,6 @@ export const adminNameOf = (uid: string, names: ReadonlyMap<string, string>) =>
 export function cleanAdminName(displayName: string | null | undefined): string | null {
   const name = (displayName ?? '').trim().slice(0, ADMIN_NAME_MAX);
   return name || null;
-}
-
-/** 본인 칸 쓰기 — 이름이 없거나 저장된 것과 같으면 null(쓰지 않는다). */
-export function adminNameWrite(
-  uid: string,
-  displayName: string | null | undefined,
-  current: string | null,
-  now: unknown,
-): Record<string, unknown> | null {
-  const name = cleanAdminName(displayName);
-  if (!name || name === current) return null;
-  return { [`${ADMIN_NAMES_ROOT}/${uid}`]: { name, at: now } };
 }
 
 /** 드롭다운 순서 — 이름 가나다순. */

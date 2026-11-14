@@ -17,6 +17,7 @@ export {
   apiBaseUrl,
   createApi,
   isApiAuthError,
+  isApiConflict,
   PROD_API_BASE_URL,
   REPLICA_LAG_MS,
   shouldFallback,
@@ -25,7 +26,10 @@ export {
   type ApiErrorKind,
   type ApiFallback,
   type ApiParams,
+  type ApiSendMethod,
+  type ApiSendOptions,
 } from './api';
+export { API_ERROR_TEXT, apiErrorText, CONFLICT_TEXT } from './errorText';
 export { isIndexMissing, isPermissionDenied, type Db, type LastRange } from './db';
 export type { Files } from './files';
 export { callErrorMessage, FUNCTIONS_REGION, type Functions } from './functions';

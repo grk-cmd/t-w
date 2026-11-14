@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { adminNameOf, adminNameWrite, adminOptions, toAdminNames } from '@/entities/admin/name';
+import { adminNameOf, adminOptions, toAdminNames } from '@/entities/admin/name';
 import {
   ALL_TODOS,
   becomesDone,
@@ -247,17 +247,6 @@ describe('관리자 이름', () => {
     expect(adminNameOf('u1', names)).toBe('가나');
     expect(adminNameOf('abcdefghij', names)).toBe('abcdef…');
     expect(adminOptions(names).map((o) => o.name)).toEqual(['가나', '다라']);
-  });
-
-  it('본인 칸 쓰기 — 같거나 비었으면 쓰지 않는다 · 40자', () => {
-    expect(adminNameWrite('u1', '가나', '가나', 'NOW')).toBeNull();
-    expect(adminNameWrite('u1', '  ', null, 'NOW')).toBeNull();
-    expect(adminNameWrite('u1', null, null, 'NOW')).toBeNull();
-    expect(adminNameWrite('u1', '새 이름', '가나', 'NOW')).toEqual({
-      'adminNames/u1': { name: '새 이름', at: 'NOW' },
-    });
-    const long = adminNameWrite('u1', 'x'.repeat(50), null, 'NOW') as Record<string, { name: string }>;
-    expect(long['adminNames/u1'].name).toHaveLength(40);
   });
 });
 

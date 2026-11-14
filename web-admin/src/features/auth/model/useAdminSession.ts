@@ -1,42 +1,57 @@
 import type { User } from 'firebase/auth';
-import { useEffect, useState } from 'react';
-import { syncMyAdminName } from '@/entities/admin/name';
-import { isAdmin, queryClient, type Firebase } from '@/shared/api';
+import { useCallback, useEffect, useState } from 'react';
+import { queryClient, type Firebase } from '@/shared/api';
+import { checkAdmin } from './checkAdmin';
 
+/**
+ * - `loading` — 로그인 상태 · 관리자 확인을 기다림
+ * - `signedOut` — 로그인 전
+ * - `denied` — 로그인은 됐으나 관리자 계정이 아님(서버 403)
+ * - `unreachable` — 서버에 닿지 못해 관리자인지 모름(관리자 화면을 열지 않는다)
+ */
 export type AdminSession =
-  { state: 'checking' } | { state: 'signedOut'; message?: string } | { state: 'admin'; user: User };
+  | { state: 'loading' }
+  | { state: 'signedOut' }
+  | { state: 'denied'; user: User }
+  | { state: 'unreachable'; user: User; message: string }
+  | { state: 'admin'; user: User; name: string; version: number };
 
-// 로그인 상태가 바뀔 때마다(새로고침 포함) 관리자인지 다시 확인한다. 관리자가 아니면 바로 로그아웃시킨다.
-export function useAdminSession(fb: Firebase): AdminSession {
-  const [session, setSession] = useState<AdminSession>({ state: 'checking' });
+export interface AdminSessionControl {
+  session: AdminSession;
+  /** 닿지 못했을 때 «다시 시도». */
+  retry: () => void;
+}
 
-  useEffect(
-    () =>
-      fb.onAuth(async (user) => {
-        if (!user) {
-          queryClient.clear(); // 다음에 들어오는 계정에게 이전 계정이 받은 목록을 보이지 않는다
-          setSession((s) => (s.state === 'signedOut' ? s : { state: 'signedOut' }));
-          return;
-        }
-        setSession({ state: 'checking' });
-        let message: string;
-        try {
-          if (await isAdmin(fb.db)) {
-            // 할 일 작업자 목록에 보일 이름 — 같으면 쓰지 않는다. 실패해도 로그인은 그대로.
-            void syncMyAdminName(fb.db, user.uid, user.displayName);
-            setSession({ state: 'admin', user });
-            return;
-          }
-          // 등록하려면 콘솔에서 admins/{uid} 를 넣어야 하니 uid 를 바로 복사할 수 있게 보여 준다.
-          message = `${user.email ?? user.uid} 은(는) 관리자로 등록된 계정이 아니에요.\n등록할 uid: ${user.uid}`;
-        } catch {
-          message = '관리자 여부를 확인하지 못했어요 — 네트워크를 확인하고 다시 로그인해 주세요';
-        }
-        setSession({ state: 'signedOut', message });
-        await fb.signOut();
-      }),
-    [fb],
-  );
+// 로그인 상태가 바뀔 때마다(새로고침 포함) 서버에 관리자인지 확인한다.
+export function useAdminSession(fb: Firebase): AdminSessionControl {
+  const [session, setSession] = useState<AdminSession>({ state: 'loading' });
+  const [attempt, setAttempt] = useState(0);
 
-  return session;
+  useEffect(() => {
+    let current = true;
+    const unsubscribe = fb.onAuth(async (user) => {
+      if (!user) {
+        queryClient.clear(); // 다음에 들어오는 계정에게 이전 계정이 받은 목록을 보이지 않는다
+        setSession((s) => (s.state === 'signedOut' ? s : { state: 'signedOut' }));
+        return;
+      }
+      setSession({ state: 'loading' });
+      const check = await checkAdmin(fb.api, user.displayName);
+      if (!current) return;
+      setSession(
+        check.state === 'admin'
+          ? { state: 'admin', user, name: check.name, version: check.version }
+          : check.state === 'denied'
+            ? { state: 'denied', user }
+            : { state: 'unreachable', user, message: check.message },
+      );
+    });
+    return () => {
+      current = false;
+      unsubscribe();
+    };
+  }, [fb, attempt]);
+
+  const retry = useCallback(() => setAttempt((n) => n + 1), []);
+  return { session, retry };
 }

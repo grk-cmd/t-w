@@ -40,6 +40,8 @@ const PROD_PROJECT_ID = 'together-working';
 const E2E = import.meta.env.VITE_E2E === '1';
 // 빌드 때 API 주소를 바꾸고 싶을 때만(예: 로컬에서 dev API 로 붙여 보기). 없으면 프로젝트로 고른다 — apiBaseUrl
 const API_BASE_OVERRIDE: string | undefined = import.meta.env.VITE_API_BASE_URL;
+// e2e 는 서버가 없다 — 시험이 이 주소로 가는 요청에 대신 답한다(e2e/support/api.ts).
+export const E2E_API_BASE_URL = 'http://127.0.0.1:18080';
 const E2E_PROJECT_ID = 'demo-tw';
 const E2E_HOST = '127.0.0.1';
 const E2E_PORTS = { auth: 9099, database: 9000, storage: 9199, functions: 5001 };
@@ -64,7 +66,7 @@ export interface Firebase {
   db: Db;
   files: Files;
   fns: Functions;
-  /** 자체 API 서버. 이 환경에 없으면 null(dev · e2e) — 기능은 예전 방식(RTDB)으로 읽는다. */
+  /** 자체 API 서버. 이 환경에 없으면 null(주소를 안 준 dev) — 관리자 확인이 «서버에 연결하지 못했어요» 로 멈춘다. */
   api: Api | null;
   signIn(): Promise<void>;
   signOut(): Promise<void>;
@@ -167,7 +169,7 @@ export async function connectFirebase(): Promise<Firebase> {
     call: async <T>(name: string, data: unknown) => (await httpsCallable(functions, name)(data)).data as T,
   };
 
-  const baseUrl = E2E ? null : apiBaseUrl(config.projectId, API_BASE_OVERRIDE);
+  const baseUrl = E2E ? E2E_API_BASE_URL : apiBaseUrl(config.projectId, API_BASE_OVERRIDE);
   const api = baseUrl
     ? createApi({ baseUrl, token: async () => (await auth.currentUser?.getIdToken()) ?? null })
     : null;

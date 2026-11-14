@@ -1,5 +1,6 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { readFileSync } from 'node:fs';
+import { ADMIN_ME, fakeApi, NOT_ADMIN, type FakeApi } from './support/api';
 import { ADMIN_UID_FILE } from './support/auth';
 import { resetDb } from './support/emulator';
 
@@ -26,13 +27,28 @@ export async function stayLocal(page: Page) {
   );
 }
 
+const apis = new WeakMap<Page, FakeApi>();
+
 export const adminUid = () => readFileSync(ADMIN_UID_FILE, 'utf8').trim();
 
 // 테스트마다: DB 를 비우고(관리자 등록 + seed) 시작하고, 확인창(confirm)은 «확인» 으로 넘긴다.
-export const test = base.extend<{ seed: (data?: Record<string, unknown>) => Promise<void> }>({
-  page: async ({ page }, provide) => {
+export const test = base.extend<{
+  seed: (data?: Record<string, unknown>) => Promise<void>;
+  /** 서버를 대신하는 가짜 API — 길마다 `api.on(...)` 으로 답을 정하고 `api.requests` 로 받은 요청을 본다. */
+  api: FakeApi;
+  /** `false` 면 관리자 확인이 403 — «관리자 계정이 아니에요» 화면. */
+  asAdmin: boolean;
+}>({
+  asAdmin: [true, { option: true }],
+  api: async ({ page }, provide) => {
+    await provide(apis.get(page)!);
+  },
+  page: async ({ page, asAdmin }, provide) => {
     page.on('dialog', (dialog) => dialog.accept());
     await stayLocal(page);
+    const api = await fakeApi(page);
+    api.on('GET /v1/admin/admins/me', asAdmin ? ADMIN_ME : NOT_ADMIN);
+    apis.set(page, api);
     await provide(page);
   },
   // Playwright 는 픽스처 인자를 구조 분해로 읽어 의존성을 정한다 — 쓰는 픽스처가 없어도 {} 가 있어야 한다.

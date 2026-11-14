@@ -38,3 +38,20 @@ export {
   versionPartsFilled,
   type VersionParts,
 } from './versionParts';
+export {
+  createPendingRequestId,
+  newRequestId,
+  REQUEST_ID_PATTERN,
+  sendWithRequestId,
+  usePendingRequestId,
+  type PendingRequestId,
+} from './requestId';
+export {
+  keysetView,
+  needsMore,
+  resetKeyset,
+  useKeysetPaging,
+  type KeysetPage,
+  type KeysetPaging,
+  type KeysetView,
+} from './keysetPaging';
