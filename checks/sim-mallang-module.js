@@ -30,7 +30,7 @@ const SRC = {
 for(const k of Object.keys(SRC)) if(!SRC[k]){ say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const flush = () => new Promise(r => setImmediate(r));
-const EXPORTS = ['onOpen', 'onClose', 'applyVisit', 'reset', 'openGift', 'placeGift', 'giftOnScreen', 'dropGift'];
+const EXPORTS = ['onOpen', 'onClose', 'applyVisit', 'reset', 'openGift', 'placeGift', 'giftOnScreen', 'giftFull', 'dropGift'];
 
 const loadSafe = () => { const m = { exports: {} }; new Function('window', 'module', SRC.SAFE)(undefined, m); return m.exports; };
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
@@ -215,7 +215,7 @@ const GOLDEN = [
     chk(Object.keys(w).join() === 'TwMallang' && typeof w.TwMallang.createMallang === 'function', '싣기만 하면 window.TwMallang 하나뿐(window._mallang* 고리 없음)');
     const e = mkEnv(SRC.ML, { premium: true });
     chk(e.log.length === 0 && e.store.size === 0 && !e.byId.mlLayer && !e.byId.mlFolder, '만들 때 DOM · 서버 · 저장소 · 토스트를 안 건드린다');
-    chk(JSON.stringify(Object.keys(e.m)) === JSON.stringify(EXPORTS), '내놓는 이름 열 개 — ' + EXPORTS.join(' · '));
+    chk(JSON.stringify(Object.keys(e.m)) === JSON.stringify(EXPORTS), '내놓는 이름 — ' + EXPORTS.join(' · '));
   }
 
   say('── 2. 실제로 돌린다');
@@ -284,7 +284,7 @@ const GOLDEN = [
     }
     {
       let threw = false;
-      try{ const e = mkEnv(SRC.ML.replace('placeGift, giftOnScreen, dropGift,', 'placeGift, giftOnScreen,'), {}); threw = JSON.stringify(Object.keys(e.m)) !== JSON.stringify(EXPORTS); }catch(_){ threw = true; }
+      try{ const e = mkEnv(SRC.ML.replace('giftFull: liveFull, dropGift,', 'giftFull: liveFull,'), {}); threw = JSON.stringify(Object.keys(e.m)) !== JSON.stringify(EXPORTS); }catch(_){ threw = true; }
       chk(threw, '내놓는 이름이 빠지면 빨강');
     }
     const w = (patch) => { const s = Object.assign({}, SRC, patch); return !wiring(s, false); };
@@ -326,7 +326,7 @@ function wiring(S, loud){
   t(!/_mallang[A-Z]\w*/.test(strip(S.ML)) && !/window\._premiumOn/.test(strip(S.ML)) && /const premiumOn = deps\.premiumOn;/.test(S.ML), 'mallang.js — window 고리 · 전역 프리미엄 읽기 없음 · premiumOn 은 deps');
   t(![S.APP, S.UI, S.VISIT, S.INBOX].some(x => /_mallang[A-Z]\w*/.test(strip(x))) && !/window\._premiumOn\s*=/.test(A), '  app.js · 세 모듈에 window._mallang* 없음 · window._premiumOn 을 걸지 않음');
   const used = { UI: ['mallangMod.onOpen(', 'mallangMod.onClose()'], VISIT: ['mallangMod.applyVisit('],
-    INBOX: ['mallangMod.openGift(', 'mallangMod.placeGift(', 'mallangMod.giftOnScreen(', 'mallangMod.dropGift('] };
+    INBOX: ['mallangMod.openGift(', 'mallangMod.placeGift(', 'mallangMod.giftOnScreen(', 'mallangMod.giftFull(', 'mallangMod.dropGift('] };
   t(Object.keys(used).every(k => /\nconst mallangMod = deps\.mallangMod;/.test(S[k]) && used[k].every(u => strip(S[k]).includes(u))), '  세 모듈은 deps.mallangMod 를 받아 부른다');
   t(![S.UI, S.VISIT, S.INBOX].some(x => /typeof\s+mallangMod|if\(mallangMod\)|mallangMod\s*&&/.test(strip(x))), '  «있으면 부르기» 가드 없음');
   const H = S.HTML.replace(/<!--[\s\S]*?-->/g, '');

@@ -464,12 +464,14 @@ function _giftBoxPaint(listEl, b){
 async function _giftRespawn(k){
   const g = giftBox.get(k); if(!g) return;
   if(mallangMod.giftOnScreen(k)){ toast('이미 마이홈에 나와 있어요'); return; }
+  const FULL = '말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요';
+  if(mallangMod.giftFull()){ toast(FULL); return; }   // 화면이 가득이면 요청 없이 안내(서버를 «나옴» 으로 바꿔 놓고 화면엔 안 뜨는 일이 없게)
   if(g.hidden){
     const r = await giftBox.hide(k, false);
     if(r !== 'ok') return;   // busy · 이미 없음 · 실패 — 안내 · 번호는 gift-box 가 띄웠다
   }
   const r = mallangMod.placeGift(g);
-  if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
+  if(r === 'full'){ toast(FULL); if(g.hidden) giftBox.hide(k, true); }   // 기다리는 사이 가득 찼다 — 서버도 «치움» 으로 되돌린다
   else if(r === 'already') toast('이미 마이홈에 나와 있어요');
   else toast('🎁 마이홈에 다시 불러왔어요');
 }

@@ -135,6 +135,7 @@ function mkEnv(o){
     notifyError: (c) => env.calls.push('error ' + c), toast: (m) => env.toasts.push(m), rtOn: () => () => {} });
   /* 🧸 말랑이(mallang.js createMallang 의 반환값) 가짜 — 선물 보내기 창 · 선물 말랑이 띄우기 · 빼기 */
   env.mallangMod = {
+    giftFull: () => !!env.liveFull,
     giftOnScreen: (k) => !!(env.onScreen && env.onScreen.has(k)),
     placeGift: (g) => { env.respawn.push(g.id + '|' + g.imageUrl + '|' + g.message); return env.placeAns || 'ok'; },
     dropGift: (k) => env.calls.push('dropGift ' + k),
@@ -457,9 +458,12 @@ async function behave(src){
     e.onScreen = new Set(['g1']); e.respawn.length = 0; e.calls = [];
     list.onclick({ target: tg('g1', false), stopPropagation(){} }); await flush();
     chk(e.toasts.includes('이미 마이홈에 나와 있어요') && e.respawn.length === 0 && e.calls.length === 0, '  이미 나와 있으면 요청 없이 안내');
-    e.onScreen = null; e.placeAns = 'full'; e.giftSrv.find(x => x.id === 'g-out').hidden = true; await e.giftBox.pull(false); await flush(); e.calls = [];
-    list.onclick({ target: tg('g1', false), stopPropagation(){} }); await flush();
-    chk(e.toasts.includes('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요'), '  화면이 가득이면 안내');
+    e.onScreen = null; e.liveFull = true; e.giftSrv.find(x => x.id === 'g-out').hidden = true; await e.giftBox.pull(false); await flush(); e.calls = []; e.respawn.length = 0;
+    list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush();
+    chk(e.toasts.includes('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요') && e.calls.length === 0 && e.respawn.length === 0 && e.giftSrv.find(x => x.id === 'g-out').hidden === true, '  화면이 가득이면 치운 선물도 서버에 «나옴» 을 보내지 않고 안내만(서버 · 화면이 어긋나지 않음)');
+    e.liveFull = false; e.placeAns = 'full'; e.calls = [];   // 기다리는 사이 가득 찬 경우 — 서버를 다시 «치움» 으로
+    list.onclick({ target: tg('g-out', false), stopPropagation(){} }); await flush(); await flush();
+    chk(e.calls.join() === 'PATCH g-out hidden=false,PATCH g-out hidden=true' && e.giftSrv.find(x => x.id === 'g-out').hidden === true, '  기다리는 사이 가득 차면 서버를 다시 «치움» 으로 되돌린다');
     e.placeAns = null;
     // 상한
     const e3 = E(); const m3 = e3.mk(); e3.reg('mhGiftStat'); const l3 = e3.reg('mhFmList'); e3.q = { '#mhFmTabs .mh-ibx-tab.on': { dataset: { fm: 'gift' } } };
@@ -710,6 +714,7 @@ async function runAll(MI, APP, HTML){
     ['MI', 'root._extLinkBound = true;', '', '링크 위임이 두 번 걸림'],
     ['MI', "badge.textContent = n > 9 ? '9+' : String(n);", 'badge.textContent = String(n);', '배지 9+ 없음'],
     ['MI', "if(ev.target.closest('.gift-star')){\n      ev.stopPropagation();", "if(ev.target.closest('.gift-star')){", '⭐ 누르기가 칸 누르기로 번짐(stopPropagation 없음)'],
+    ['MI', "if(mallangMod.giftFull()){ toast(FULL); return; }", '', '가득인데 치운 선물에 요청을 먼저 보냄'],
     ['MI', 'win.appendChild(ov);', 'document.body.appendChild(ov);', '확인창이 body 로'],
     ['MI', "  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));", '', '선물함 칸 그림에 다시 받기를 안 걺'],
     ['MI', "data-gid=\"'+escHtml(g.id)+'\" title=\"'+escHtml(tip)+'\">'", "data-gid=\"'+escHtml(g.id)+'\" title=\"'+(tip)+'\">'", '선물 글을 속성값에 그대로'],

@@ -1023,7 +1023,7 @@ function createMallang(deps){
   return {
     onOpen, onClose, applyVisit, reset,   // 🏠 마이홈 열기 · 닫기(myhome-ui) · 집 옮기기(myhome-visit) · 계정을 놓을 때
     openGift,                      // 🎁 보내기 창 — 친구 줄 우클릭(myhome-inbox)
-    placeGift, giftOnScreen, dropGift,   // 💝 선물함 격자(myhome-inbox) — 다시 부르기 · 지우기 때 화면 말랑이를 띄우고 뺀다
+    placeGift, giftOnScreen, giftFull: liveFull, dropGift,   // 💝 선물함 격자(myhome-inbox) — 다시 부르기 · 지우기 때 화면 말랑이를 띄우고 뺀다
   };
 }
 
