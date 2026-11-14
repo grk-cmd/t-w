@@ -66,7 +66,7 @@
 아이템 · 책상 재질에 같은 규칙으로 emissive 를 얹는다. 캐릭터 · 파츠 재질 톤(파츠 톤 · baseFlat · 얼굴 맵 · 몸 평탄 조명 · 색조)은 캐릭터 코어 `tone.ts` 이고,
 여기서 `FLAT_EMISSIVE` 로 코어 톤을 만들어 `toneCore` 로 내놓는다(앱의 다른 곳은 그것을 deps 로 받는다).
 숫자(`LIGHT_PRESET` · `CREATOR_LIGHT_SL` · `TONE_FRONT_TOTAL` · 조명 배율)와 플랫 몫 계산식 · 재질 고치기(`fixMatLighting`)는 캐릭터 코어 `lighting.ts` 한 벌 — 웹 생성기도 같은 것을 쓴다.
-실행 화면 조명(앰비언트 · 키 · 뒤쪽 냉색 바운스 · 정면 필)을 씬에 넣는 것도 여기 한 벌(`addRunLights`) — 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 생성기 미리보기 · 동물 생성기가 모두 부른다. 세기를 슬라이더로 다시 정하는 생성기는 `runLightInts` 로 세기를 읽는다(몫 숫자를 곳마다 다시 적지 않게).
+실행 화면 조명(앰비언트 · 키 · 뒤쪽 냉색 바운스 · 정면 필)을 씬에 넣는 것도 여기 한 벌(`addRunLights`) — 메인 씬 · 종족 선택 · 런처 · 꾸미기 · 스티커사진 · 썸네일 · 생성기 미리보기 · 동물 생성기 · 종족 선택의 동물 카드가 모두 부른다. 세기를 슬라이더로 다시 정하는 생성기는 `runLightInts` 로 세기를 읽는다(몫 숫자를 곳마다 다시 적지 않게).
 
 **만드는 법** — app.js 💡 조명 상수 바로 뒤(메인 씬 조명이 바로 아래에서 쓴다):
 
@@ -111,7 +111,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - 실행 화면을 닮은 새 미리보기 씬은 빛을 손으로 만들지 말고 `addRunLights` 를 deps 로 받아 부른다(손으로 적으면 예산이 바뀔 때 그 화면만 톤이 달라진다 · `sim-light-tone` 7절이 잡는다).
 - 재질 색을 바꾸는 새 코드는 `color.set` 만 하지 말고 baseFlat 으로 emissive 를 다시 계산해야 한다(책상은 `_setDeskMatColor`).
 
-검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 실행 화면 조명 여섯 자리를 옛 글과 견주기 · 깨 보기).
+검사: `checks/sim-light-tone.js` (FLAT_EMISSIVE 식 · 경계 · 재질 함수 셋 · 연결 · 실행 화면 조명 여섯 자리 · 생성기 둘을 옛 글과 견주기 · 깨 보기).
 
 ## blink-timing.js — 👁 깜빡임 시간표
 
@@ -290,6 +290,14 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **함정**: `DRAG_PX`(5) 아래로 움직이면 누르기 — 항목 열기 클릭은 그대로. 넘으면 끌기 — 손을 뗄 때 나는 클릭은 막는다(끌다가 엉뚱한 글이 안 열리게). 누를 때마다 끌기 표시를 지운다(목록 밖에서 떼 클릭이 안 난 끌기 뒤에도 다음 클릭이 먹게).
 - 검사: `checks/sim-drag-scroll.js`.
 
+## `idle-gate.js` — 😴 할 일 없는 반복 재우기
+
+- **책임**: 창이 닫혀 있어 결과가 화면 · 저장 · 서버에 닿지 않는 동안 반복(rAF · 짧은 주기 타이머)을 재우고, 다시 열리면 다음 틱에 건다. 판단(돌 때인가)과 할 일은 부르는 쪽이 넘긴다 — 도메인을 모른다.
+- **쓰는 법**: `TwIdleGate.rafWhile({ isOn, frame, sleep, raf })` · `TwIdleGate.intervalWhile({ idle, step, ms, setInterval, clearInterval })` — 둘 다 `{ wake, running }` 을 돌려준다. 깨우기는 `TwIdleGate.onClassChange(el, fn)`(class 변화 — 여는 길이 여럿이어도 한 곳). html 에서 쓰는 모듈보다 먼저 싣는다.
+- **지금 쓰는 곳**: 런처 미리보기(`launcher-preview.js` `startLauncherLoop` — `#launcher.on`) · 꾸미기 미리보기(`wardrobe.js` — `#wdPreviewPanel.on`) · 플레이리스트 재생 창 사각형 폴링(`playlist.js` — `#myPlaylistBox` 가 `.hidden` 이고 off 를 보낸 뒤).
+- **함정**: 재우는 조건에 «마지막 결과를 이미 보냈다» 를 넣는다(플레이리스트는 닫힌 뒤 off 를 한 번 보내고 잔다) — 닫히자마자 자면 마지막 IPC 가 빠진다. 안 보여도 돌아야 하는 것(하트비트 · 자리비움 판정 · 포커스 기록 · rAF 멈춤 감시 · 백색소음)에는 쓰지 않는다.
+- 검사: `checks/sim-idle-gate.js` · 쓰는 곳은 `sim-launcher-preview` 5절 · `sim-wardrobe` 5절 · `sim-playlist` 7-2절.
+
 ## `mac-tooltip.js` — 💬 맥 설명 말풍선
 
 - **책임**: 맥에서 마우스를 올리면 뜨는 설명(`title`)을 앱이 직접 그린다. 실행 화면 창이 «항상 위»(`overlay-mac.js` `TOP_LEVEL`)라 맥 OS 툴팁이 그 뒤로 깔려 안 보이기 때문이다. 윈도우는 OS 툴팁이 맨 위라 걸지 않는다.
@@ -467,6 +475,44 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 - **내놓는 것**: `TwErrorReport.install(win, send, now?)` · `format(args)`.
 - **함정**: console 원래 출력은 그대로 둔다 · 에러코드 알림이 찍는 `console.warn('[오류] E-…')` 은 다시 안 보낸다 · 보내다 난 오류가 되돌아 들어오지 않게 막는다 · 같은 줄은 10초 안에 한 번.
 - 검사: `checks/sim-error-log.js`.
+## `env-diag.js` — 🩺 환경 · 자원 진단(켤 때 `[환경]` · `[GPU 상세]` · 1분 `[자원]`)
+
+- **책임**: «같은 앱이 PC 마다 CPU 가 크게 다르다» 를 진단 기록(`tw-mouse-diag.log`) 두 장으로 가르게, 어떤 PC 인지와 CPU · 메모리를 어느 프로세스가 쓰는지를 남기고, 기록을 돌려 쓸 때 «어떤 PC 인지» 줄을 새 파일에 다시 적는다. main 만 싣는다(`module.exports`). 파일은 받은 io 로만 만진다(검사가 가짜를 넣는다).
+- **쓰는 법**
+  - 켤 때(GPU 줄과 같이) `envLine({ app, electron, chrome, os, osVer, arch, cpuModel, threads, ramBytes, displays })` → `[환경]` 한 줄. 모니터 해상도는 배율을 곱한 물리 값.
+  - 10초 뒤 `gpuDetailLine(getGPUInfo('complete'))` → `[GPU 상세]` 한 줄(실제로 그리는 장치 · directComposition · supportsOverlays · 겹친 그래픽 · 화면 종류 · 그리기 엔진).
+  - 1분마다 `createResourceWatch().take(t, app.getAppMetrics(), 우리 창 pid, { cpu: cpuTimes(os.cpus()), freeBytes, totalBytes })` → `resourceLine(r, 논리 프로세서 수, '실행 화면' | '런처' | '숨김')`. 첫 호출은 기준만 잡고 줄을 안 남긴다.
+- **함정**
+  - CPU 는 `cumulativeCPUUsage`(시작 뒤 쓴 CPU 초)의 차이로 셈한다. `percentCPUUsage` 는 «지난 호출 뒤 평균» 이라 다른 곳이 부르면 구간이 바뀌고, 코어 하나 기준인지 PC 전체 기준인지 문서에 없다.
+  - 적는 % 는 모두 **PC 전체 기준**(작업 관리자와 같음) — 우리 앱 몫은 코어 몫 ÷ 논리 프로세서 수, 끝의 «PC 전체 CPU» 는 그 구간 모든 프로그램 합.
+  - 같은 pid 가 다시 쓰일 수 있어 «pid + 만든 시각» 으로 알아본다. 그사이 새로 뜬 프로세스는 처음부터 쓴 몫을, 지난번에 못 본 오래된 프로세스는 0 으로 센다.
+  - `directComposition` · `supportsOverlays` 는 Windows 에만 온다 — 맥은 «모름».
+  - 1분 사이에 죽은 프로세스(닫힌 자식 창 등)가 쓴 CPU 는 빠진다 — 앱 합이 조금 낮게 나올 수 있다.
+  - 진단 기록은 256KB 에서 돌려 쓰고, `[자원]` 때문에 반나절이면 돈다. 그래서 `_diagLog` 는 `createHeaderKeep` 으로 `[환경]` · `[GPU]` · `[GPU 상세]` 의 마지막 줄을 기억하고, `rotateKeep` 이 새 파일 첫머리에 «(기록을 돌려 써서 다시 적음)» 을 붙여 다시 적는다. 이게 없으면 오래 켜 둔 PC 의 기록에 사양이 없다.
+- 검사: `checks/sim-env-diag.js`(깨 보기 열셋).
+
+## `gpu-timer.js` — 🩺 한 장에 그래픽 칩 · JS 시간(1분 `[프레임]` 줄 꼬리)
+
+- **책임**: «노트북에서 켜 두면 블루스크린» · «다른 프로그램이 버벅인다» 제보를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 실행 화면이 한 장 그리는 데 그래픽 칩 · JS 가 쓴 시간과 그리기 · 그림자 횟수를 1분 `[프레임]` 줄 끝에 붙인다. 렌더러만 싣는다(`window.TwGpuTimer`).
+- **쓰는 법**: app.js 가 프레임 예산 옆에서 `createGpuTimer(renderer.getContext(), renderer.capabilities.isWebGL2)` · `createStats()` 를 만들고, 그리기를 `begin()` · `end()` 로 감싸 매 장 `poll()`. 1분마다 `suffix({ gpu: take(), js, calls: renderer.info.render.calls, casters: countCasters(scene) })`. 예) `… · GPU 평균 3.2ms 최대 11.0ms · JS 평균 1.4ms 최대 2.0ms · 그리기 42 · 그림자 31`.
+- **함정**
+  - 그래픽 칩 시간은 WebGL2 타이머 질의(`EXT_disjoint_timer_query_webgl2`)로 잰다. 답이 몇 장 뒤에 오고, 끊김(절전 · 클럭 변경)이 나면 그 사이 답은 버린다. 확장이 없는 기기는 `GPU 모름` — 0 으로 속이지 않는다.
+  - 기다리는 질의는 `MAX_PENDING` 까지만, `STALE_POLLS` 번 거둬도 안 오면 버린다(WebGL 연결 끊김 뒤 옛 질의는 영영 안 끝난다).
+  - three.js 는 그림자 지도를 그리는 횟수를 `info.render.calls` 에 안 센다(그림자를 그린 뒤 `info.reset`). 그래서 `그림자` 는 그림자를 드리우는 보이는 메시 수를 따로 센다 — 장면을 다 도니 1분에 한 번만.
+  - 재기만 한다 — 그리기 · 상한은 건드리지 않는다.
+- 검사: `checks/sim-gpu-timer.js`(깨 보기 여섯).
+
+## `run-cost-diag.js` — 🩺 그리기 밖 시간(1분 `[비용]` 줄)
+
+- **책임**: «실행 화면 렌더러가 그리기(`frame()`) 밖에서 초당 수백 ms CPU 를 쓴다(창을 내려도)» 를 진단 기록(`tw-mouse-diag.log`) 한 장으로 가르게, 1분 동안 하트비트(100ms `setCharBounds`) · 클릭 통과 판정 · 받은 방 변경 수 · 좌석 맞춤(`syncFriendSeats`) · 한 장 쪼갬(좌석 반복 · 그리기 · 나머지)을 모으고 좌석 수 · 방 종류와 함께 한 줄로 낸다. 렌더러만 싣는다(`window.TwRunCostDiag`).
+- **쓰는 법**: 창 하나에 하나인 `TwRunCostDiag.page` 에 더한다 — app.js(`const runCost = TwRunCostDiag.page` · 하트비트를 `runCost.timed('hb', fn)` 로 감쌈 · 프레임에서 `since('seat'|'render'|'frame', t0)`) · desktop-run.js(deps `runCost` — 기존 `_hitPerf` 자리에서 `add('hit', ms)`) · room-entry.js(deps `runCost` — `presenceChanged` 입구에서 `count('recv')`, 부르는 곳은 `timed('sync', syncFriendSeats)` 를 부른다). 1분마다 `[프레임]` 줄과 같은 자리에서 `take()` → `line(r, countSeats(seats, hiddenSeatsMod._bodyHidden), roomKind(Presence.roomCode(), window._activeChannel, !!Presence.serverProvider()))`.
+  예) `[비용] 하트비트 600회 0.42/3.10ms · 통과 1200회 0.08/1.20ms · 수신 340 · 맞춤 340회 합 120 최대 4.20ms · 밖 초당 3.20ms · 한 장 1800 좌석 0.12 그리기 0.80 나머지 0.30ms · 좌석 8 몸 6 반짝 2 · 워킹룸 ws`
+  - `n회 a/b` = 횟수 · 평균/최대. `밖 초당` = (하트비트 + 통과 + 맞춤 합) ÷ 초. `한 장` = 그린 장 수와 한 장 평균의 쪼갬. `수신` = 받은 방 변경(방 서버 · Firebase 두 길이 함께 지나는 `presenceChanged`) 수, 끝의 `ws` / `fb` 는 받는 길. `몸` = 넘긴 판단 함수(`hiddenSeatsMod._bodyHidden` — 숨김 · 자리비움)가 «보인다» 고 한 좌석(함수가 없으면 0 — shared 는 room 을 부르지 않는다), `반짝` = `.seat-exp.lvx` 바나 `.np-star` 이름표가 보이는 좌석.
+- **함정**
+  - main 은 렌더러 진단 줄을 200자에서 자른다(`companion:diagNote`) — 줄은 `LINE_MAX` 안에서 끝낸다. `[프레임]` 으로 시작하지 않아 앞 창 꼬리(front-diag.js)가 안 붙는다.
+  - 1분 몫은 실행 화면이 아니어도 비운다(take 를 runmode 확인보다 먼저). 창을 내려도 `runmode` 는 그대로라 그때도 남는다.
+  - 재기만 한다 — 함수 본문은 안 고치고 부르는 곳을 감싼다. `timed` 는 던져도 시간을 더하고 그대로 던진다.
+- 검사: `checks/sim-run-cost-diag.js`(깨 보기 열).
 
 ## `system-prompt.js` — 🔐 시스템 확인 창이 맨 앞인가
 
@@ -477,6 +523,18 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 표시 이름(«App Store» · «시스템 설정»)으로 가르지 않는다 — 현지화로 흔들린다. 번들 id 만.
   - 실행 화면 맨 위 설정은 main 의 `_setRunTop` 한 곳 — 창 배치 IPC(수백 번/분) · 표시 설정 변경 · 색 고르기 창 복구도 `_sysPromptFront` 를 봐서 확인 창 위로 되돌리지 않는다. 자식 창(방명록 · 디자인 · 구글 로그인)은 아직 그대로 맨 위다.
 - 검사: `checks/sim-system-prompt.js`(깨 보기 셋).
+
+## `skeleton-share.js` — 🦴 같은 뼈대는 Skeleton 하나
+
+- **책임**: 같은 뼈 객체를 같은 순서로 쓰고 역행렬 값이 모두 같은 스킨 메시들이 Skeleton 객체 하나를 함께 쓰게 한다. three 는 Skeleton 객체마다 한 장에 한 번 뼈 행렬을 셈하고 뼈 텍스처를 올리는데(`skeleton.frame`), `SkeletonUtils.clone` 과 리깅 파츠 다시 묶기가 스킨 메시마다 Skeleton 을 따로 만들어 같은 뼈를 메시 수만큼 셈했다. 순수 모듈(`window.TwSkeletonShare` + `module.exports`) — three 객체 모양만 안다.
+- **내놓는 것**: `sameRig(a, b)` · `shareSkeletons(meshes, anchors)`(anchors 의 Skeleton 은 바꾸지 않고 먼저 맞춰 볼 후보 · 바꾼 메시 수를 돌려줌) · `skinnedMeshesOf(root)`.
+- **부르는 곳**: app.js `instantiateBase`(기본 · 커미션 몸 — 기본 몸 4 → 1) · `equipPartOnSeat`(리깅 파츠는 캐릭터 몸 · 다른 파츠와도 맞춰 봄 · 비리깅 스킨 파츠는 자기끼리 · 다중 파츠 사본) · animal.js `buildAnimalBase`(몸 + 얼굴 넷 5 → 1) · purikura-ui.js 무대 복제.
+- **함정**
+  - `bindMatrix` · `bindMatrixInverse` 는 메시 것이다(셰이더 유니폼 · 광선의 `boneTransform` 모두 메시에서 읽음). 파츠 xf 를 `bindMatrix` 에 구워 메시마다 달라도 함께 쓴다. 뼈 행렬은 «뼈 월드 × 역행렬» 이라 역행렬 값이 하나라도 다르면 따로 둔다(비트가 같은 값만 — `-0` 도 가른다).
+  - 복제 · 묶기 바로 뒤, 그리기 전에만 부른다. 그린 적 있는 메시를 옮기면 옛 Skeleton 의 뼈 텍스처가 그래픽 메모리에 남는다.
+  - 함께 쓰는 Skeleton 의 뼈 · 역행렬을 바꾸지 않는다는 전제다. 다시 묶을 땐 지금처럼 `bind(new THREE.Skeleton(…))`.
+  - r128 광선 판정은 `boneMatrices` 가 아니라 뼈 `matrixWorld` × 역행렬을 바로 셈한다(`boneTransform`) — 함께 써도 판정이 같다.
+- 검사: `checks/sim-skeleton-share.js`(진짜 기본 몸 · 동물 GLB 로 옛/새 뼈 행렬 · 스킨 자리 대조 · 깨 보기 둘).
 
 ## `gl-recover.js` · `gl-fail-notice.js` — 🧯 3D(WebGL) 끊김 뒤 복구
 
@@ -493,3 +551,15 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
   - 처음 만들기 실패 안내는 뒤의 반쯤 죽은 런처를 덮고, 실행 중 끊김 안내는 모니터를 덮지 않는다(상자만 눌림). 창 크기는 main 이 정한다(launcher/reload-reset.js).
   - 안내는 렌더러를 못 만든 뒤 다시 던진다 — 뒤 코드는 렌더러 없이 돌 수 없다.
   - 검사: `checks/sim-gl-recover.js`(규칙 · 안내를 실제로 돌림 · 연결 · 깨 보기).
+
+## stage.js — 🎬 3D 무대 한 벌
+
+- **책임**: 메인 캔버스(`#scene`)의 WebGL 렌더러 · 씬 · 원근 카메라 · 그림자 바닥 · GLTF(+DRACO) 로더를 만들어 내놓는다. 만들기만 하고 그리지 않는다(그리기는 app.js `frame()`). 앱 FSD 분리 M1 — app.js SETUP 의 무대 만들기를 글 그대로 옮겼다.
+- **만드는 법**: `const stageMod = TwStage.createStage({ _renderAA, afterRestore });` — `_renderAA` 는 저장된 화질에서 app.js 가 정한 antialias(렌더러를 만들 때만 정해진다) · `afterRestore` 는 3D 가 돌아온 직후 할 일(`faceHealMod.reportGlReset` — 좌석 그림 점검). app.js 가 SETUP 맨 앞(화질을 읽은 뒤)에서 만들고, 아래 일곱을 옛 이름 `const` 로 받는다.
+- **내보내는 것**: `canvas` · `renderer` · `scene` · `camera` · `floor` · `sizeFloorTo(mesh, cx, cz, sx, sz)` · `loader`
+- **함정**
+  - 렌더러를 못 만들면 `gl-fail-notice` 안내(다시 켜기 · 앱 끄기)를 띄우고 **같은 오류를 다시 던진다** — 뒤 코드는 렌더러 없이 돌 수 없다(B-1114-5).
+  - 연결 끊김 감시(`gl-recover`)의 «다시 켠 시각» 은 localStorage(`tw.glRelaunchAt`) — 앱을 다시 켜도 남아야 10분 규칙이 선다.
+  - 조명은 여기 없다 — 조명 상수 · 재질 고치기는 app.js(T0 몫), 한 벌 만들기는 `light-tone.js addRunLights`. 메인 씬 빛은 app.js 가 만든 뒤 `key` 를 받는다.
+  - 이 무대는 메인 창 하나다. 미리보기 창의 3D 장치 만들기는 따로(설계 F1 `gl-context.js`).
+  - 검사: `checks/sim-stage.js`(옵션 · 배율 · 바닥 · 로더 · 실패 길 · 연결 · 깨 보기) · `sim-gl-recover.js` · `sim-frame-budget.js` 5절이 이 파일 글을 읽는다.

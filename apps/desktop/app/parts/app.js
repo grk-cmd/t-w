@@ -1,101 +1,33 @@
 /* ============================================================ SETUP */
-const canvas=document.getElementById('scene');
 /* 🎚️ 실행 화면 화질(프로그램 설정 › 모니터 — FrameBudget.QUALITY). antialias 는 WebGL 을 만들 때만 정해져서 «가볍게» 는 다시 켜야 적용된다.
    ⚠️ 도트 렌더 저장값으로 antialias 를 정하지 말 것 — 개발 실행 · 설치본이 저장소를 같이 써서 안 보이게 꺼진 채 굳었다(도트 느낌은 DOT_RENDER_SCALE 로 충분). */
 let _renderQuality = FrameBudget.qualityFrom(localStorage.getItem(FrameBudget.QUALITY_KEY));
 let _runLowered = false;   // «자동» 이 이번 실행에서 배율을 낮췄는가
 const _renderAA = FrameBudget.antialiasFor(_renderQuality);
-/* 🧯 3D 를 못 쓸 때 «다시 켜기» 안내(shared/gl-fail-notice.js) — 렌더러를 못 만들면 안내를 띄우고 멈춘다(B-1114-5) */
-const glFail = TwGlFailNotice.createGlFailNotice({
-  doc: document, notifyError: (...a) => TwErrorCodes.notify(...a),
-  note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },
-  relaunch: () => companion.relaunchApp(), quit: () => companion.quitApp(),
+/* 🎬 3D 무대 한 벌(shared/stage.js) — 렌더러(못 만들면 안내) · 연결 끊김 감시 · 씬 · 카메라 · 바닥 · GLTF 로더. 아래 const 는 옛 전역 이름이다. */
+const stageMod = TwStage.createStage({
+  _renderAA: _renderAA,
+  afterRestore: () => faceHealMod.reportGlReset(),   // 좌석 그림 점검 — faceHealMod 는 첫 프레임 전에 아래에서 만들어진다
 });
-const renderer=glFail.guard(() => new THREE.WebGLRenderer({canvas,antialias:_renderAA,alpha:true,premultipliedAlpha:false,logarithmicDepthBuffer:true}));renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-renderer.setClearColor(0x000000, 0);   // 항상 투명 배경으로 클리어 (Electron 투명창 흰 화면 예방)
-/* 🧯 메인 캔버스 WebGL 연결 끊김 — 기록하고, 6초 안에 안 돌아오면 앱을 다시 켠다 · 10분 안에 또면 안내(parts/gl-recover.js · B-1114-5).
-   three.js 자기 리스너가 먼저 붙어 preventDefault 를 하므로 여기는 기록 · 시간 재기만 한다.
-   ⚠️ 마지막으로 다시 켠 시각은 localStorage — 앱을 다시 켜도 남아야 무한 재시작을 막는다. */
-try{
-  GlRecover.createGlRecover({
-    log: (m) => { console.warn('[WebGL]', m); try{ if(window.companion && companion.diagNote) companion.diagNote('[WebGL] ' + m); }catch(_){} },
-    relaunch: () => companion.relaunchApp(), notice: () => glFail.show('lost'),
-    setTimer: (fn, ms) => setTimeout(fn, ms), clearTimer: (id) => clearTimeout(id), now: () => Date.now(),
-    store: { get: (k) => localStorage.getItem(k), set: (k, v) => localStorage.setItem(k, v) },
-    afterRestore: () => faceHealMod.reportGlReset(),   // 좌석 그림 점검 — faceHealMod 는 첫 프레임 전에 아래에서 만들어진다
-  }).attach(canvas);
-}catch(e){ console.warn('[WebGL] 복구 감시를 못 붙였다', e); }
+const canvas = stageMod.canvas;   // 옛 전역 이름 — 다른 모듈 · 이 파일 곳곳이 아직 전역으로 읽는다(도메인 단계에서 deps 로 바꾸고 걷는다)
+const renderer = stageMod.renderer;   // 옛 전역 이름
+const scene = stageMod.scene;   // 옛 전역 이름
+const camera = stageMod.camera;   // 옛 전역 이름
+const floor = stageMod.floor;   // 옛 전역 이름
+const sizeFloorTo = stageMod.sizeFloorTo;   // 옛 전역 이름
+const loader = stageMod.loader;   // 옛 전역 이름
 /* 🩺 한글 조합 중 입력칸이 포커스를 잃으면 진단 기록에 한 줄(shared/input-diag.js) — 맥 한글 씹힘 제보를 제보자 PC 기록으로 가른다 */
 TwInputDiag.createImeWatch({
   note: (m) => { if(window.companion && companion.diagNote) companion.diagNote(m); },   // 브라우저 미리보기 · 검사엔 companion 이 없다
   now: () => Date.now(),
   defer: (fn) => setTimeout(fn, 0),
 }).attach(document, window);
-renderer.shadowMap.enabled=true; renderer.shadowMap.type=THREE.PCFSoftShadowMap;
-renderer.outputEncoding=THREE.sRGBEncoding;
-const scene=new THREE.Scene();
-const camera=new THREE.PerspectiveCamera(34,1,0.1,100);   // 생성기와 동일한 원근 렌즈 (WYSIWYG)
 /* 캐릭터 몸 박스 재기 — 규칙은 character/body-measure.js 한 곳. 키 정규화 · 올라타기 · 바닥 맞춤 · 날기 벽이 부팅 중에도 부를 수 있어 맨 앞에서 만든다. */
 const bodyMeasureMod = TwBodyMeasure.createBodyMeasure({
 });
-
-// ★ Bloom 후처리(UnrealBloomPass)는 시도해봤지만 이 앱(바탕화면이 비치는 투명 배경 오버레이)과 근본적으로
-//   안 맞아서 제거함 — 화면 전체를 대상으로 하는 후처리라 (1)배경 투명도가 깨져서 까맣게 나오고,
-//   (2)발광 설정한 파츠/아이템뿐 아니라 화면에서 밝은 픽셀(얼굴 등)까지 같이 번져버림.
-//   대신 발광 대상 오브젝트 옆에 반투명 원형 스프라이트를 하나 더 깔아두는 방식으로 대체 —
-//   화면 전체에 영향 없이 그 물체 주변에만 은은한 빛이 도는 것처럼 보임.
-let _glowSpriteTex = null;
-function getGlowSpriteTexture(){
-  if(_glowSpriteTex) return _glowSpriteTex;
-  const cv=document.createElement('canvas'); cv.width=cv.height=128;
-  const ctx=cv.getContext('2d');
-  const g=ctx.createRadialGradient(64,64,0,64,64,64);
-  g.addColorStop(0,'rgba(255,255,255,0.85)');
-  g.addColorStop(0.45,'rgba(255,255,255,0.30)');
-  g.addColorStop(1,'rgba(255,255,255,0)');
-  ctx.fillStyle=g; ctx.fillRect(0,0,128,128);
-  _glowSpriteTex=new THREE.CanvasTexture(cv);
-  return _glowSpriteTex;
-}
-// obj: 발광시킬 오브젝트(파츠/아이템의 최상위 그룹), parent: 스프라이트를 붙일 부모(보통 obj 자신)
-// GLOW_SIZE_MUL/GLOW_COLOR: 필요하면 이 두 상수만 조절
-const GLOW_SIZE_MUL = 1.4;      // 오브젝트 크기 대비 빛 스프라이트 배율 — 키우면 더 넓게 번짐
-const GLOW_COLOR = 0xfff3c4;    // 빛 색상 — 따뜻한 노란빛. 흰빛을 원하면 0xffffff로
-function addGlowSprite(obj){
-  try{
-    obj.updateMatrixWorld(true);
-    const box=new THREE.Box3().setFromObject(obj);
-    const size=box.getSize(new THREE.Vector3());
-    const maxDim=Math.max(size.x,size.y,size.z,0.05);
-    const mat=new THREE.SpriteMaterial({ map:getGlowSpriteTexture(), color:GLOW_COLOR, transparent:true, depthWrite:false, blending:THREE.AdditiveBlending });
-    const sp=new THREE.Sprite(mat);
-    sp.scale.setScalar(maxDim*GLOW_SIZE_MUL);
-    sp.renderOrder=900;
-    const center=box.getCenter(new THREE.Vector3());
-    obj.worldToLocal(center);
-    sp.position.copy(center);
-    obj.add(sp);
-    return sp;
-  }catch(e){ return null; }
-}
-// ★ "파츠/아이템 자체가 통으로 은은하게 빛났으면 좋겠다"는 요청에 따라, 원형 스프라이트뿐 아니라
-//   오브젝트 자신의 재질도 모양 그대로 살짝 밝게(emissive) 만들어서 겹쳐 씀 — 원형 스프라이트는 주변에
-//   은은하게 도는 분위기용, emissive는 그 물체 자체의 표면이 실제로 빛나 보이게 하는 용도.
-//   GLOW_EMISSIVE_BOOST를 키우면 물체 자체가 더 밝게, 줄이면 더 은은하게.
-const GLOW_EMISSIVE_BOOST = 1.5;
-function applyGlowToMesh(o){
-  if(!o.isMesh || !o.material) return;
-  const m=o.material;
-  if(!m.emissive || m.emissive.getHex()===0) m.emissive=(m.color||new THREE.Color(0xffffff)).clone();
-  if(m.map && !m.emissiveMap) m.emissiveMap=m.map;
-  if('emissiveIntensity' in m) m.emissiveIntensity = GLOW_EMISSIVE_BOOST; else m.emissive.multiplyScalar(GLOW_EMISSIVE_BOOST);
-  m.needsUpdate=true;
-}
-// obj 전체(자기 자신 포함)를 순회하며 은은하게 발광시키고, 추가로 원형 빛 스프라이트도 얹음.
-function applyGlowEffect(obj){
-  obj.traverse(o=>applyGlowToMesh(o));
-  return addGlowSprite(obj);
-}
+/* ✨ 빛나는 스프라이트 · 재질 발광(character/glow.js) — 지금 부르는 곳은 없다(아이템 발광 호출은 주석 처리됨) */
+const glowMod = TwGlow.createGlow({
+});
 
 /* 💡 조명 — 밝기 예산 숫자 · 재질 고치기는 캐릭터 코어 한 벌(packages/char-core/src/lighting.ts · 웹 생성기와 같이 쓴다).
    화면을 더 밝게 · 어둡게 하려면 코어 TONE_FRONT_TOTAL 하나만 옮긴다. */
@@ -126,9 +58,17 @@ key.shadow.camera.near=1; key.shadow.camera.far=30;
 key.shadow.camera.left=-22; key.shadow.camera.right=22; key.shadow.camera.top=8; key.shadow.camera.bottom=-8;
 key.shadow.bias=-0.0003; key.shadow.normalBias=0.03;
 
-const M=(c,r=0.85,m=0)=>new THREE.MeshStandardMaterial({color:c,roughness:r,metalness:m});
-const matSage=M(0x9dba8a,0.8),matSageD=M(0x84a172,0.8),matInk=M(0x4a3f35,0.6),matWhite=M(0xfdfaf2,0.7),
-      matWood=M(0xc9a57b,0.85),matWoodD=M(0xb08a5e,0.85),matPot=M(0xd98e73,0.8),matLeaf=M(0x88b06f,0.7),matBlush=M(0xe89b9b,0.6);
+/* 🪑 기본 책상 · 소품 · 대신 몸 만들기와 재질(room/desk-build.js) — 아래 const 는 옛 전역 이름이다. */
+const deskBuildMod = TwDeskBuild.createDeskBuild({
+});
+const M = deskBuildMod.M;   // 옛 전역 이름
+const matWood = deskBuildMod.matWood;   // 옛 전역 이름
+const matWoodD = deskBuildMod.matWoodD;   // 옛 전역 이름
+const DESK_ITEMS = deskBuildMod.DESK_ITEMS;   // 옛 전역 이름
+const DEFAULT_DESK_OVERRIDE_ID = deskBuildMod.DEFAULT_DESK_OVERRIDE_ID;   // 옛 전역 이름
+const NO_DESK_ID = deskBuildMod.NO_DESK_ID;   // 옛 전역 이름
+const buildDesk = deskBuildMod.buildDesk;   // 옛 전역 이름
+const buildPlaceholder = deskBuildMod.buildPlaceholder;   // 옛 전역 이름
 
 const CHAR_Z=-0.47;                 // 캐릭터 기본 앞뒤 위치 (책상과의 간격을 살짝 좁힘)
 /* 🧍 캐릭터 높이(y) — 생성기 '좌석 세팅' 의 **앞뒤 슬라이더를 대체한** 값. def.xf.y 로 저장된다.
@@ -177,23 +117,7 @@ const FLOOR_DEFAULT='#cdb88f';
 const floorMat=M(0xcdb88f,0.95);
 // 바닥은 밝은 조명에서 흰색으로 날아가기 쉬워서, 알베도를 낮춰 "고른 색이 그대로 보이게" 함(클리핑 방지)
 // (사용자가 바닥색 기능을 제거함 — 함수는 더 이상 사용 안 됨)
-// 받침대(바닥)를 콘텐츠 크기에 맞춰 작게 — 네 모서리가 보이도록
-function sizeFloorTo(mesh,cx,cz,sx,sz){ if(!mesh)return; const w=Math.max(sx+0.6, 1.0), d=Math.max(sz+0.5,1.5); mesh.scale.set(w,0.125,d); mesh.position.set(cx,0,cz); }
-const floorGeo = new THREE.BoxGeometry(1, 1, 1);
-floorGeo.translate(0, -0.5, 0); // 윗면 중앙을 피벗으로 설정
-// 바닥의 색상(floorMat)을 지우고, 그림자만 남기는 ShadowMaterial을 사용합니다.
-const shadowMat = new THREE.ShadowMaterial();
-shadowMat.opacity = 0.3; // 여기서 0.3 숫자를 조절해서 그림자 진하기를 바꾸세요.
-const floor = new THREE.Mesh(floorGeo, shadowMat);
-floor.scale.set(2.4, 0.125, 2.2);
-floor.position.set(0, 0, 0.0);
-floor.receiveShadow = true;
-floor.castShadow = false;
-scene.add(floor);
 
-/* ============================================================ DRACO */
-const loader=new THREE.GLTFLoader();
-try{const draco=new THREE.DRACOLoader();draco.setDecoderPath('vendor/draco/');loader.setDRACOLoader(draco);}catch(e){console.warn('DRACO init',e);}
 /* 🧍 사람 몸(기본 몸 모델 · 복제 · 크기 · 조립)은 캐릭터 코어(packages/char-core/src/body.ts · #434).
    몸 모델 바이트(window.BASE_GLB_B64) · 재질 톤 · 귀는 앱이 넘긴다. */
 const bodyCore = TwCharCore.createBody({
@@ -204,62 +128,20 @@ const bodyCore = TwCharCore.createBody({
   applyLightPreset: (...a)=>matToneMod.applyLightPresetToInstance(...a),
 });
 
-/* ===== 🐾 사람 귀 (꾸미기 › 머리 › 귀) — human-ear.js. 귀 GLB 파싱은 animal.js 캐시를 같이 쓴다.
-   animal.js 는 이 파일보다 늦게 로드되므로 파서는 부를 때 찾는다. */
-/* ⚠️ 모듈이 없어도(로드 실패 · app.js 만 평가하는 검사) 앱은 켜져야 한다 — 그때는 귀만 꺼진다. */
-const humanEar = (typeof HumanEar === 'undefined') ? null : HumanEar.createHumanEar({
-  THREE,
-  parseEar:(key, cb)=>{
-    const f = window.parseAnimalEar;
-    if(f){ f(key, cb); return; }
-    setTimeout(()=>{ const g = window.parseAnimalEar; if(g) g(key, cb); else cb(null); }, 500);
-  },
-  earTypes:()=>window.ANIMAL_EAR_TYPES || [],
+/* 🐾 사람 귀 붙이기(character/human-ear-attach.js) — 아래 const 는 옛 전역 이름이다(꾸미기 · 파츠 그림 모듈이 deps 로 받는다). */
+const humanEarAttachMod = TwHumanEarAttach.createHumanEarAttach({
+  _registerAnimalEarOn: (...a)=>_registerAnimalEarOn(...a),
+  lightToneMod: lightToneMod,
+  partPaintMod: ()=>partPaintMod,
+  rideBenchMod: ()=>rideBenchMod,
+  seats: ()=>seats,
+  wardrobeMod: ()=>wardrobeMod,
 });
-/* 귀는 흰색으로 시작한다(색은 그리기로만) — 다른 몸 재질과 같은 플랫 조명(applyLightPresetToInstance). */
-function _humanEarMat(){
-  const m = new THREE.MeshStandardMaterial({ color:'#ffffff', metalness:0, roughness:0.9, side:THREE.DoubleSide });
-  m.emissive.setScalar(lightToneMod.FLAT_EMISSIVE);
-  return m;
-}
-/* ⚠️ 바인드 자세일 때(조립 직후 · 애니메이션 전) 불러야 한다 — holder 와 옮길 양을 이때 잰다.
-   귀가 없어도 holder 는 만들어 둔다: 나중에 꾸미기에서 귀를 고를 때는 이미 움직이는 좌석이다. */
-/* 🖍️ 귀 그림(def.earPicL·R)을 붙은 귀에 입힌다 — 파츠 그림과 같은 배관(applyPartPic · 같은 업로드 캐시) */
-function _humanEarPic(wrap, def){
-  try{ partPaintMod.applyPartPic(wrap, (def && def['earPic' + wrap.userData.humanEar]) || null); }catch(e){ console.warn('[사람 귀] 그림', e); }
-}
-/* 귀 까닥임 — 붙어 있는 사람 귀를 좌석의 귀 목록(seat.bones.ear)에 올리고, 떨어진 옛 귀는 걷는다.
-   동물 귀와 같은 등록(_registerAnimalEarOn)을 쓴다 — 사람 기본 모델의 ear 본도 웨이트가 없어서
-   본만 돌리면 아무것도 안 움직인다(부착물 자체를 돌려야 한다). */
-function _syncHumanEarRig(seat){
-  if(!seat || !seat.bones || !seat.bones.ear || !seat.modelRoot) return;
-  if(!seat.boneRest) seat.boneRest = {};
-  if(!seat.boneRest.ear) seat.boneRest.ear = [];
-  const live = [];
-  try{ seat.modelRoot.traverse(o=>{ if(o.userData && o.userData.humanEar) live.push(o); }); }catch(_){}
-  for(let i = seat.bones.ear.length - 1; i >= 0; i--){
-    const o = seat.bones.ear[i];
-    if(o && o.userData && o.userData.humanEar && live.indexOf(o) < 0){
-      seat.bones.ear.splice(i, 1); seat.boneRest.ear.splice(i, 1); seat.earTimers = null;
-    }
-  }
-  live.forEach(w=>_registerAnimalEarOn(seat, w));
-}
-function _attachHumanEars(root, def){
-  if(!humanEar || !root || (def && def.animal)) return;
-  try{
-    humanEar.ensureHolder(root);
-    humanEar.attachFromDef(root, def, { material:_humanEarMat,
-      onAttach:(w)=>{
-        _humanEarPic(w, def);
-        try{ wardrobeMod.wdEar.onEarAttached(root); }catch(_){}
-        /* 귀는 늦게 붙는다 — 이 좌석 머리 위에 이미 누가 타 있으면 그 '머리 꼭대기' 는 귀 없던 값이다 */
-        try{ const _s = seats.find(x=>x.modelRoot === root); if(_s){ _syncHumanEarRig(_s); rideBenchMod._remeasureRideHeadTop(_s); } }catch(_){}
-      } });
-    /* 귀를 뺐거나 파싱 캐시로 바로 붙은 경우 — 콜백만으로는 옛 귀가 목록에 남는다 */
-    try{ const _s = seats.find(x=>x.modelRoot === root); if(_s) _syncHumanEarRig(_s); }catch(_){}
-  }catch(e){ console.warn('[사람 귀] 붙이기 실패', e); }
-}
+const humanEar = humanEarAttachMod.humanEar;   // 옛 전역 이름
+const _humanEarMat = humanEarAttachMod._humanEarMat;   // 옛 전역 이름
+const _humanEarPic = humanEarAttachMod._humanEarPic;   // 옛 전역 이름
+const _syncHumanEarRig = humanEarAttachMod._syncHumanEarRig;   // 옛 전역 이름
+const _attachHumanEars = humanEarAttachMod._attachHumanEars;   // 옛 전역 이름
 
 /* ===== 기본 캐릭터 GLB (임베드) — face/cloth_upper/cloth_lower + 리깅 ===== */
 /* 읽기 · 복제는 bodyCore(캐릭터 코어) — 여기는 몸 모델 자산 공급과 옛 이름 잇기 */
@@ -269,7 +151,13 @@ function loadBaseGLB(){return new Promise(res=>{
   if(!window.BASE_GLB_B64||window.BASE_GLB_B64.indexOf('@@')===0){res(false);return;}
   res(bodyCore.loadBase(b64ToBuf(window.BASE_GLB_B64)));
 });}
-function instantiateBase(customScene){ return bodyCore.instantiateBase(customScene); }
+const skelShare = TwSkeletonShare;
+/* 복제가 메시마다 Skeleton 을 따로 만든다 — 같은 뼈대는 하나로(shared/skeleton-share.js). 코어 assemble 로 짓는 몸은 defToBase 의 onRoot 가 같은 일을 한다. */
+function instantiateBase(customScene){
+  const inst = bodyCore.instantiateBase(customScene);
+  if(inst) skelShare.shareSkeletons(skelShare.skinnedMeshesOf(inst.root));
+  return inst;
+}
 /* 커미션 GLB 파싱 캐시: base64 → THREE.Scene */
 const commSceneCache = new Map();
 async function getCommissionScene(glbB64){
@@ -284,484 +172,49 @@ function mkFaceTex(canvas){const t=new THREE.CanvasTexture(canvas);t.flipY=false
 const COMMISSION_SCALE_CORRECTION = 1;
 function normalizeModel(group,targetH,isComm){ return bodyCore.normalizeModel(group, targetH, isComm ? COMMISSION_SCALE_CORRECTION : 1); }
 /* ============================================================ BUILDERS */
-const TORSO_Y=0.46;
-function buildDeskPlant(){ const g=new THREE.Group();
-  const pot=new THREE.Mesh(new THREE.CylinderGeometry(0.1,0.075,0.13,16),matPot); pot.position.y=0.065; pot.castShadow=true; g.add(pot);
-  for(let i=0;i<3;i++){const lf=new THREE.Mesh(new THREE.SphereGeometry(0.07,12,12),matLeaf);
-    lf.scale.set(0.7,1.4,0.7); lf.position.set(Math.cos(i/3*6.28)*0.04,0.18,Math.sin(i/3*6.28)*0.04);
-    lf.rotation.z=(i-1)*0.3; lf.castShadow=true; g.add(lf);} return g; }
-function buildCup(){ const g=new THREE.Group();
-  const cup=new THREE.Mesh(new THREE.CylinderGeometry(0.06,0.05,0.11,18),matPot); cup.position.y=0.055; cup.castShadow=true; g.add(cup);
-  const h=new THREE.Mesh(new THREE.TorusGeometry(0.035,0.013,8,16),matPot); h.position.set(0.07,0.06,0); h.rotation.y=Math.PI/2; g.add(h); return g; }
-function buildBooks(){ const g=new THREE.Group(); const cols=[matSage,matBlush,matWoodD];
-  for(let i=0;i<3;i++){ const b=new THREE.Mesh(new THREE.BoxGeometry(0.22-i*0.02,0.04,0.16),cols[i%cols.length]);
-    b.position.set(0,0.02+i*0.045,0); b.rotation.y=(i-1)*0.12; b.castShadow=true; g.add(b);} return g; }
-const DESK_ITEMS=[{id:'plant',name:'화분',build:buildDeskPlant},{id:'cup',name:'머그컵',build:buildCup},{id:'books',name:'책',build:buildBooks}];
-const DEFAULT_DESK_OVERRIDE_ID='__default_desk__';   // 관리자가 "기본 책상"을 우클릭해서 등록하면 이 예약 ID로 저장됨
-const NO_DESK_ID='__no_desk__';   // 🚫 «책상 없음» — deskCatalogId 에 넣는다(새 칸이 아니라 옛 앱 · 방 서버가 그대로 받는다)
-function buildDesk(plain){
-  const desk=new THREE.Group(); const deskTopY=0.46,deskZ=0.50;
-  const topM=new THREE.Mesh(new THREE.BoxGeometry(1.7,0.08,0.6),matWood);
-  topM.position.set(0,deskTopY-0.04,deskZ); topM.castShadow=topM.receiveShadow=true; topM.name='deskTop'; desk.add(topM);
-  [[-0.72,0.32],[0.72,0.32],[-0.72,0.88],[0.72,0.88]].forEach(([x,z])=>{
-    const leg=new THREE.Mesh(new THREE.BoxGeometry(0.09,deskTopY-0.04,0.09),matWoodD);
-    leg.position.set(x,(deskTopY-0.04)/2,z); leg.castShadow=true; desk.add(leg);});
-  if(!plain){ const prop=buildDeskPlant(); prop.position.set(0.5,deskTopY,deskZ-0.06); desk.add(prop); }
-  const anchor=new THREE.Group(); anchor.position.set(0,deskTopY,deskZ); anchor.name='deskAnchor'; desk.add(anchor);
-  desk.userData.deskAnchor=anchor; return desk;
-}
-/* 책상 위 소품(아이템) 시스템 — holder = 좌석 또는 생성기 미리보기 */
-function applyDeskAdj(p){ const a=p.userData.adj; p.position.set(a.x||0,a.y||0,a.z||0); p.rotation.set(0,a.rot||0,0); p.scale.setScalar(a.scale||1); }
-/* 🪑 생성기 아이템마다 «이번 편집에서 처음 나타난 자리» — ⟲ 이동·회전 초기화가 돌아갈 곳(desk-item-origin.js) */
-const deskItemOrigin = (typeof DeskItemOrigin === 'undefined') ? null : DeskItemOrigin.createDeskItemOrigin();
-function _rememberCrItemOrigin(holder, p){
-  if(!deskItemOrigin || !p || typeof crState.cBase==='undefined' || holder!==crState.cBase) return;
-  deskItemOrigin.remember(p, p.userData.adj);
-}
-const activeItemMixers = new Set();   // 매 프레임 업데이트해야 할 아이템 애니메이션 믹서들
-// ★ 어플 8: playMode='idle'로 등록된 아이템 pivot들 — 매 프레임 소유 좌석 상태에 따라 재생/정지 전환.
-//   ★ 이름이 헷갈리지만 요청 동작은 이거예요:
-//     유저가 활동 중(마우스/타이핑) = 캐릭터 seatState()가 'focus' → 아이템 애니메이션 재생.
-//     가만히 있음(idle) / 자리비움(sleep) / 어지러움(dizzy) / 기타 → 정지.
-//   (관리자 UI에서 부르는 "idle 애니메이션"은 아이템 자체의 대기·존재감 연출 애니메이션이라는 뜻이고,
-//    이건 유저가 화면을 볼 만한 시점에만 돌아가면 됨.)
-const _idleItemPivots = new Set();
-
-/* ▶ 꾸미기 파츠 애니메이션 ─────────────────────────────────────────────────
-   책상 위 아이템의 playMode='idle'과 같은 동작을 파츠에도 제공한다.
-   animMode==='active'인 파츠는 아래 Set에 등록되고, updateActivePartPlayback()이 매 프레임
-   소유 좌석 상태를 보고 재생/일시정지를 전환한다.
-     재생  : seatState==='focus' (마우스·타이핑이 감지되는 활동 중)
-     일시정지: 그 외 전부 — 자리비움(sleep) · 어지러움(dizzy) · 가만히 있음(idle) 등
-   ★ stop()이 아니라 paused=true를 쓰는 이유: stop은 0프레임으로 되감아 파츠가 툭 튀는데,
-     일시정지는 그 자리에 멈춰 있다가 활동을 재개하면 이어서 움직인다. */
-const _activePartWraps = new Set();
-/* 🎬 파츠 애니메이션 진단을 **화면에도** 띄운다.
-   [경위] 진단은 원래 console.log 뿐이었는데, "안 움직인다"를 보고할 때 F12 를 열어 보는 사람이
-     없다시피 했다. 그래서 같은 내용을 토스트로도 한 번 낸다 — 원인 셋이 화면에서 전부 똑같이
-     '안 움직임'으로 보이는 것이 이 문제의 본질이라, 구분해 주는 것 자체가 답이다.
-   ⚠️ 관리자에게만 낸다. 일반 유저는 남의 파츠를 장착할 때마다 이 안내를 받을 이유가 없다.
-   ⚠️ 같은 파츠에 대해 한 번만 낸다 — 장착·재조립이 반복될 때마다 뜨면 토스트가 화면을 덮는다. */
-/* 🎬 이 클립이 **실제로 움직이는가** — 키프레임 값이 첫 프레임과 전부 같으면 '정지 포즈'다.
-   [경위] 클립이 여러 개 든 GLB 에서, 이름은 idle 인데 값이 전부 같은(포즈만 든) 클립이 실제로 있었다.
-     그러면 앱은 정상적으로 재생하는데 화면은 안 움직여서, '클립이 0개'인 경우와 구분이 안 된다.
-   ⚠️ 첫 프레임과의 차이만 본다 — 아주 느린 클립도 어딘가 한 프레임은 달라지므로 충분하다. */
-function _clipHasMotion(clip){
-  try{
-    if(!clip || !clip.tracks || !clip.tracks.length) return false;
-    for(const t of clip.tracks){
-      const v = t.values; if(!v || v.length < 2) continue;
-      const n = (typeof t.getValueSize === 'function') ? t.getValueSize() : 1;
-      if(!n) continue;
-      for(let i = n; i < v.length; i++){
-        if(Math.abs(v[i] - v[i % n]) > 1e-4) return true;
-      }
-    }
-    return false;
-  }catch(_){ return true; }   // 못 판단하면 '움직인다'로 둔다 — 멀쩡한 클립을 건너뛰는 쪽이 더 나쁘다
-}
-/* 🎬 어떤 클립을 틀지 고른다.
-   ★ 우선순위에 '실제로 움직이는가'가 이름보다 앞선다. 이름이 idle 인 정지 포즈를 골라 두면
-     그 GLB 는 영영 안 움직이는데, 정작 움직이는 클립이 같은 파일 안에 들어 있다.
-   ⚠️ 이름 매칭은 정확히 'idle' 인 것을 먼저 본다. 예전엔 /idle/ 포함으로만 찾아서
-     'dou_idle' 같은 이름이 배열에서 앞에 있으면 정작 'idle' 을 제치고 뽑혔다(실제 사례). */
-function _pickPartClip(animations){
-  if(!animations || !animations.length) return null;
-  const exact   = c => /^idle$/i.test(c.name || '');
-  const partial = c => /idle/i.test(c.name || '');
-  const moving  = animations.filter(_clipHasMotion);
-  return moving.find(exact) || moving.find(partial) || moving[0]
-      || animations.find(exact) || animations.find(partial) || animations[0];
-}
-const _partAnimNoticed = new Set();
-/* 🔇 토스트 알림은 끈다(요청사항).
-   [경위] 관리자 화면에서 파츠를 장착할 때마다 "클립이 0개예요" 같은 안내가 토스트로 떴다.
-     진단으로는 유용했지만, 애니메이션이 없는 파츠가 정상인 경우가 훨씬 많아서 실제로는
-     장착할 때마다 화면을 덮는 잡음이 됐다.
-   ★ console.log 진단은 그대로 남는다 — 호출부에서 이 함수와 짝으로 항상 찍고 있으므로,
-     "이 파츠가 왜 안 움직이지"를 볼 때는 개발자 콘솔에서 [파츠 애니] 로 검색하면 된다.
-   되살리려면 아래 return 한 줄만 지우면 된다. */
-function _partAnimNotice(rec, msg){
-  return;
-  /* eslint-disable no-unreachable */
-  try{
-    if(typeof isAdmin === 'undefined' || !isAdmin) return;
-    const key = (rec && rec.id) || '';
-    if(_partAnimNoticed.has(key)) return;
-    _partAnimNoticed.add(key);
-    toast('[' + ((rec && rec.name) || '파츠') + '] ' + msg);
-  }catch(_){}
-}
-
-/* 🐰 파츠 자체 클립에서 '남이 맡은 본' 트랙을 걷어낸다 ────────────────────────
-   [증상] 귀 파츠 하나가 까닥임과 별개로 혼자 뒤로 갔다 앞으로 오며 회전한다(rabbit 제보).
-   [원인] 그 GLB 는 원본 캐릭터의 아마추어를 통째로 안고 나왔다(spine·head·hand_L/R·leg_L/R·ear_L/R).
-     안에 든 클립 넷 중 셋(dou_idle·flower_idle·flowerAction)이 **키가 2개뿐인 정지 포즈**라,
-     _pickPartClip 이 '실제로 움직이는' 유일한 클립인 ArmatureAction — 원본 캐릭터의 몸통 동작
-     (head 회전 0.23rad + 손 흔들기) — 을 골랐다. 귀 밑동 웨이트가 head 에 39% 걸려 있어서
-     그 head 회전이 귀 전체를 앞뒤로 흔들었다. 이름 판정과는 무관한 별개 원인이다.
-   [원칙] 리지드 파츠에서 **까닥임이 맡은 귀 본과 그 조상**은 파츠 클립의 소관이 아니다.
-     조상(head·spine)이 하는 일은 이미 캐릭터의 진짜 본이 하고 있고(파츠는 거기 매달려 있다),
-     귀 본은 까닥임이 쓴다. 클립이 같은 본을 겹쳐 쓰면 파츠가 캐릭터와 따로 논다.
-   ★ 나머지 트랙은 그대로 둔다 — 클립을 통째로 끄면 진짜 애니메이션 귀 파츠까지 같이 죽는다.
-   ⚠️ GLTFLoader 는 트랙 이름에 노드 이름을 **정제해서** 넣는다('ear.L' → 'earL').
-     그래서 원본 이름과 정제 이름을 둘 다 넣고 비교한다. */
-function _sanitizeNodeName(s){
-  try{ if(THREE.PropertyBinding && THREE.PropertyBinding.sanitizeNodeName)
-         return THREE.PropertyBinding.sanitizeNodeName(String(s)); }catch(_){}
-  return String(s).replace(/\s/g,'_').replace(/[\[\]\.:\/]/g,'');
-}
-function _stripPartClipOwnedTracks(clip, obj, earObjs){
-  if(!clip || !clip.tracks || !earObjs || !earObjs.length) return clip;
-  const owned = new Set();
-  earObjs.forEach(e=>{
-    for(let n=e; n; n=n.parent){
-      if(n.name){ owned.add(n.name); owned.add(_sanitizeNodeName(n.name)); }
-      if(n===obj) break;
-    }
-  });
-  const keep = clip.tracks.filter(t=>{
-    let nm = '';
-    try{ nm = (THREE.PropertyBinding.parseTrackName(t.name)||{}).nodeName || ''; }
-    catch(_){ nm = String(t.name||'').split('.')[0]; }
-    return !owned.has(nm);
-  });
-  const cut = clip.tracks.length - keep.length;
-  if(!cut) return clip;
-  const out = clip.clone(); out.tracks = keep; out._twStrippedTracks = cut;
-  console.log('[파츠 애니] 클립 "'+clip.name+'" — 까닥임·부착이 맡은 본의 트랙 '+cut+'개 제외'
-    + ' (제외 대상: '+Array.from(owned).join(', ')+'). 이 본들은 캐릭터와 귀 까닥임이 담당합니다.');
-  return out;
-}
-function _setupPartIdleAnim(wrapper, obj, idleClip, rec, holder){
-  const mixer = new THREE.AnimationMixer(obj);
-  const action = mixer.clipAction(idleClip);
-  action.setLoop(THREE.LoopRepeat, Infinity);
-  wrapper.userData.itemMixer = mixer;
-  wrapper.userData.idleAction = action;
-  if(rec && rec.animMode === 'active'){
-    wrapper.userData.animHolder = holder;
-    action.play(); action.paused = true;      // 판정은 updateActivePartPlayback이 매 프레임 담당
-    _activePartWraps.add(wrapper);
-  } else {
-    action.play();
-    activeItemMixers.add(mixer);              // 기존 동작 — 계속 반복재생
-  }
-}
-function _teardownPartIdleAnim(wrapper){
-  if(!wrapper || !wrapper.userData) return;
-  if(wrapper.userData.itemMixer) activeItemMixers.delete(wrapper.userData.itemMixer);
-  _activePartWraps.delete(wrapper);
-}
-function updateActivePartPlayback(){
-  if(!_activePartWraps.size) return;
-  const now = performance.now();
-  _activePartWraps.forEach(wrp=>{
-    const ud = wrp.userData || {};
-    const a = ud.idleAction, m = ud.itemMixer, holder = ud.animHolder;
-    if(!a || !m || !holder){ _activePartWraps.delete(wrp); return; }
-    // 꾸미기 미리보기 캐릭터는 좌석이 아니라 상태 개념이 없다 — 확인용으로 계속 재생.
-    const isPreview = (typeof seats === 'undefined') || !seats.includes(holder);
-    const shouldPlay = isPreview || (seatState(holder, now) === 'focus');
-    if(shouldPlay){
-      if(a.paused) a.paused = false;
-      if(!a.isRunning()) a.play();
-      activeItemMixers.add(m);
-    } else if(!a.paused){
-      a.paused = true;                 // 그 자리에 정지 — 되감지 않음
-      activeItemMixers.delete(m);
-    }
-  });
-}
-function updateIdleItemPlayback(){
-  if(!_idleItemPivots.size) return;
-  const now = performance.now();
-  _idleItemPivots.forEach(pivot=>{
-    const a = pivot.userData && pivot.userData.idleAction;
-    const m = pivot.userData && pivot.userData.itemMixer;
-    const holder = pivot.userData && pivot.userData.holder;
-    if(!a || !m || !holder) return;
-    const state = seatState(holder, now);
-    const shouldPlay = (state === 'focus');
-    const isPlaying = a.isRunning();
-    if(shouldPlay && !isPlaying){
-      a.reset(); a.play();
-      activeItemMixers.add(m);
-    } else if(!shouldPlay && isPlaying){
-      a.stop();
-      activeItemMixers.delete(m);
-    }
-    // 🔥 빡일중(grind) 상태일 땐 이 아이템의 재생 속도를 2배로 (요청사항 — 유저가 몰입 중일 때 아이템도 활발히)
-    //   본인 좌석은 userStatus, 친구 좌석은 remoteUserStatus를 참조 (seatState와 동일 규칙)
-    if(shouldPlay){
-      const us = holder.isMe ? userStatus : (holder.remote ? holder.remoteUserStatus : null);
-      a.timeScale = (us === 'grind') ? 2.0 : 1.0;
-    }
-  });
-}
-// ★ 좌석의 활성 책상 아이템 중 handTrackers(hand_L/hand_R 마커)가 있는 것들을, 그 좌석 캐릭터의
-//   실제 손 본 위치에 맞춰 매 프레임 갱신 — frame() 루프에서 좌석별 포즈 갱신 뒤에 호출됨.
-const _handWorldTmp = new THREE.Vector3();
-function updateItemHandTrackers(seat){
-  if(!seat.deskItems) return;
-  for(const id in seat.deskItems){
-    const pivot=seat.deskItems[id]; if(!pivot || !pivot.userData.handTrackers) continue;
-    const tr=pivot.userData.handTrackers;
-    ['L','R'].forEach(side=>{
-      const node=tr[side]; const bone=seat.bones && seat.bones['hand'+side];
-      if(!node || !bone) return;
-      bone.updateWorldMatrix(true,false);   // 이번 프레임 포즈(타이핑 등)가 반영된 최신 위치를 확실히 가져오기 위함
-      bone.getWorldPosition(_handWorldTmp);
-      if(node.parent) node.parent.worldToLocal(_handWorldTmp);
-      node.position.copy(_handWorldTmp);
-    });
-  }
-}
-function equipDeskItem(holder,def,on){
-  // ★ 라이선스 보유자 전용으로 등록된 아이템은 라이선스(isPremium) 또는 관리자가 아니면 장착 자체를 막음.
-  //   ⚠️ 단 **친구 좌석(holder.remote)에는 걸지 않는다.** applyDeskItemsTo가 친구 좌석을 그릴 때도
-  //     이 함수를 타는데, 여기서 '보는 사람'의 라이선스를 보면 라이선스 있는 친구가 올려둔 아이템이
-  //     라이선스 없는 내 화면에서만 사라진다(applyDeskCatalogRefToSeat와 같은 함정).
-  /* ⚠️ def.licenseOnly 만 보면 새는 자리가 있다 — 캐릭터에 딸려온 customItems 는 registerCustomItem 을
-     licenseOnly 인자 없이 부르는 세 곳(슬롯 적용·좌석 적용·프리셋)에서 **licenseOnly:false 로 등록**된다.
-     카탈로그가 먼저 도착했으면 `if(!customItems[id])` 가드에 걸려 무사하지만, 캐릭터가 먼저 닿으면
-     그 세션 내내 전용 아이템이 게이트를 통째로 안 탄다. 원본은 카탈로그 레코드(savedItems)이므로
-     그쪽도 함께 본다 — 카탈로그가 늦게 와도 그때부터는 맞는 답이 된다.
-     savedItems 는 아래에서 let 으로 선언되므로 typeof 가 아니라 try 로 감싼다(TDZ). */
-  let _siCat = null; try{ _siCat = commissionMod.savedItems(); }catch(_){}
-  const _siRec = (_siCat && _siCat.find && def && def.id) ? _siCat.find(s=>s.id===def.id) : null;
-  const _itemLicenseOnly = !!(def && def.licenseOnly) || !!(_siRec && _siRec.licenseOnly);
-  if(on && !(holder && holder.remote) && acctStateMod.licenseAssetBlocked({ licenseOnly: _itemLicenseOnly })){
-    toast('🔒 "'+(def.name||'이 아이템')+'"은(는) 라이선스 보유자만 사용할 수 있어요');
-    return;
-  }
-  if(!holder.deskItems)holder.deskItems={};
-  if(!holder._itemAdjMemory)holder._itemAdjMemory={};   // 해제했다가 다시 장착할 때 이전 위치/크기 조정값을 기억해뒀다가 복원하기 위함
-  const cur=holder.deskItems[def.id];
-  if(cur){
-    holder._itemAdjMemory[def.id]=Object.assign({},cur.userData.adj);   // 해제 직전 값을 기억
-    if(cur.userData.colors) holder._itemAdjMemory[def.id]._colors = Object.assign({}, cur.userData.colors);   // 런처3-1: 색상도 함께 기억
-    if(cur.userData.itemMixer) activeItemMixers.delete(cur.userData.itemMixer);   // 해제 시 믹서 업데이트 목록에서도 제거
-    _idleItemPivots.delete(cur);   // 어플 8: 자리비움 재생 대상에서도 제거
-    if(cur.parent)cur.parent.remove(cur); holder.deskItems[def.id]=null;
-    if(holder.activeDeskItem===cur){
-      holder.activeDeskItem=null;
-      // 런처4-2: 활성 아이템이 방금 해제됐으니 기즈모도 즉시 숨김
-      if(holder===crState.cBase) crXformMod.attachItemGizmoToActive();
-    }
-  }
-  // ★ 아이템의 attachTo가 'handL'/'handR'이고 캐릭터 본이 있으면 책상 앵커 대신 손 본에 부착 —
-  //   기존 꾸미기 파츠(handL/handR 카테고리)와 동일한 seat.bones 조회 방식을 그대로 재사용.
-  const wantBone = (def.attachTo && def.attachTo!=='desk') ? def.attachTo : null;
-  const boneParent = wantBone && holder.bones && holder.bones[wantBone];
-  const attachParent = boneParent || holder.deskAnchor;
-  if(on && attachParent){ const obj=def.build(); const pivot=new THREE.Group(); attachParent.add(pivot); pivot.add(obj);
-    pivot.userData.isDeskItemPivot=true;   // classifyHit에서 "아이템 클릭"으로 구분하는 마커
-    // ★ 런처3-1: 아이템 GLB에도 파츠와 동일한 _col 네이밍(_col, _col1, _col2, ...)이 있으면 색상 그룹으로 인식.
-    //   해당 메쉬들을 pivot.userData.colorGroups에 담아두고, 나중에 상세조정 UI에서 색을 바꿀 수 있게 함.
-    //   저장·복원은 def.itemColors(=holder에 저장, id별) 형태로 하고, 실제 material.color/emissive를 갱신.
-    const itemColorGroups = {};
-    obj.traverse(o=>{
-      if(!o.isMesh) return;
-      const mats = Array.isArray(o.material) ? o.material : [o.material];
-      const m = mats[0];
-      const colMatch = (o.name && o.name.match(/_col(\d*)/i)) || (m && m.name && m.name.match(/_col(\d*)/i));
-      if(colMatch){
-        const key = 'col'+(colMatch[1]||'1');
-        if(m && m.color) o.userData.origColor = m.color.getHexString();
-        (itemColorGroups[key] = itemColorGroups[key]||[]).push(o);
-      }
-    });
-    if(Object.keys(itemColorGroups).length) pivot.userData.colorGroups = itemColorGroups;
-    // ★ 아이템 GLB 안에 이름이 "hand_L"/"handL"/"hand_R"/"handR"인 자식 오브젝트가 있으면, 그 지점만
-    //   캐릭터의 실제 손 본 위치를 매 프레임 따라가도록 등록(예: 반죽 양 끝을 손이 잡고 늘이는 연출).
-    //   아이템 자체는 책상/부착 위치에 그대로 있고, 이 특정 지점들만 손을 따라감(frame()의 updateItemHandTrackers 참고).
-    const handTrackers={};
-    obj.traverse(o=>{
-      if(/^hand[_-]?l$/i.test(o.name)) handTrackers.L=o;
-      else if(/^hand[_-]?r$/i.test(o.name)) handTrackers.R=o;
-    });
-    if(handTrackers.L || handTrackers.R) pivot.userData.handTrackers = handTrackers;
-    // ★ 관리자가 등록 시 "발광 효과"를 켜뒀으면(def.glow) 아이템 옆에 은은한 원형 빛 스프라이트를 추가함.
-    // ★ 발광 효과 비활성화(요청사항: 발광 없는 게 나음) — 기존에 glow로 등록된 아이템도 더 이상 빛나지 않음.
-    // if(def.glow) pivot.userData.glowSprite = applyGlowEffect(obj);
-    // 클립 이름에 "idle"이 포함된 게 있으면 그걸, 없으면 첫 번째 클립을 클릭 시 재생용 idle 애니메이션으로 지정
-    if(def.animations && def.animations.length){
-      const mixer=new THREE.AnimationMixer(obj);
-      const idleClip = def.animations.find(c=>/idle/i.test(c.name)) || def.animations[0];
-      pivot.userData.itemMixer=mixer;
-      pivot.userData.idleAction=mixer.clipAction(idleClip);
-      // ★ 재생 방식: 'click'(기본, 클릭 시 1회), 'auto'(항상 반복재생), 'idle'(유저가 자리 비웠을 때만 반복재생).
-      //   하위호환: 예전 아이템에 def.playMode가 없고 def.autoPlay:true면 'auto'로, 아니면 'click'으로 취급.
-      const playMode = def.playMode || (def.autoPlay ? 'auto' : 'click');
-      pivot.userData.playMode = playMode;
-      if(playMode==='auto'){
-        // ★ 관리자가 "자동 재생"으로 등록한 아이템 — 클릭 없이 바로, 계속 반복 재생됨(팬 돌아가기, 촛불 흔들리기 등 배경 연출용)
-        pivot.userData.idleAction.setLoop(THREE.LoopRepeat, Infinity);
-        pivot.userData.idleAction.play();
-        activeItemMixers.add(mixer);
-      } else if(playMode==='idle'){
-        // ★ 자리비움(idle) 감지 시에만 반복재생 — 매 프레임 체크(updateIdleItemPlayback)에서 켜고 끔.
-        //   장착 시점엔 유저가 활동 중이라고 보고 정지 상태로 시작.
-        pivot.userData.idleAction.setLoop(THREE.LoopRepeat, Infinity);
-        // 자동 등록: 매 프레임 체크에서 이 pivot을 볼 수 있게 컬렉션에 등록
-        _idleItemPivots.add(pivot);
-      } else {
-        pivot.userData.idleAction.setLoop(THREE.LoopOnce,1);
-        pivot.userData.idleAction.clampWhenFinished=true;
-      }
-    }
-    if(def.custom){
-      // 업로드된 커스텀 아이템: 책상처럼(normalizeDeskObj) 원본 GLB의 실제 크기(바운딩박스)를 재서
-      //   목표 크기(가로/세로/높이 중 제일 큰 값 기준)에 자동으로 맞춤 — 원본을 얼마나 크게/작게 export했든
-      //   항상 일정한 크기로 나옴(고정 배율 방식보다 훨씬 안정적).
-      // ITEM_TARGET_SIZE: 관리자가 등록 시 개별 설정 안 했으면 쓰는 기본값(하위호환용). 개별 설정은 def.defaultSize 우선.
-      const ITEM_TARGET_SIZE = (def.defaultSize!=null) ? def.defaultSize : 0.8;
-      // ★ 본(스켈레톤)이 있는 모델은 바운딩박스가 실제 자세보다 낮게 잡히는 경우가 있어서(THREE.js가 rest pose
-      //   기준으로 계산함) 기본 보정값을 둠. 아래 두 숫자만 조절하면 모든 커스텀 아이템의 시작 위치가 한번에 맞춰짐.
-      const ITEM_Y_START_OFFSET = 1.1;   // 높이 보정 — 양수=더 위로, 음수=더 아래로 (고정값)
-      const ITEM_Z_START_OFFSET = 0;      // 앞뒤 보정 — 양수=더 앞으로(카메라 쪽), 음수=더 뒤로
-      obj.updateMatrixWorld(true);
-      const box=new THREE.Box3().setFromObject(obj);
-      const center=box.getCenter(new THREE.Vector3());
-      // ★ 핵심: obj를 피봇 안에서 다시 배치 — 제작자가 원본 GLB에 잡아둔 원점이 어디든 상관없이,
-      //   "메쉬 바닥 중앙"이 피봇의 원점(0,0,0)에 오도록 옮김. 이후 +/-(크기)나 회전은 항상 이 바닥중앙 기준으로
-      //   자연스럽게 동작함(원래는 원본 원점 기준이라 크기 조절할 때마다 위치가 이상하게 튀었음).
-      obj.position.x -= center.x;
-      obj.position.z -= center.z;
-      obj.position.y -= box.min.y;
-      const sz=box.getSize(new THREE.Vector3());
-      const maxDim=Math.max(sz.x,sz.y,sz.z,0.001);
-      const itemScale = isFinite(maxDim) ? ITEM_TARGET_SIZE/maxDim : 1;
-      // 🔎 진단 로그(아이템 크기 컨텍스트 차이) — 문제 원인 파악 후 이 두 줄만 지우면 됨.
-      const _parentSc = (holder && holder.desk) ? holder.desk.scale.x : (holder && holder.deskAnchor ? holder.deskAnchor.getWorldScale(new THREE.Vector3()).x : '?');
-      console.log('[아이템크기]', def.id, '| holder=', holder===crState.cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'), '| desk.scale=', _parentSc, '| maxDim=', maxDim.toFixed(3), '| itemScale=', itemScale.toFixed(3));
-      pivot.userData.autoScale = itemScale;   // ★ "지금 이 컨텍스트에서" 계산된 순수 자동 크기값 — 저장/복원 시 사용자 조정 비율을 재적용하기 위해 별도 보관
-      pivot.userData.adj={x:0,y:ITEM_Y_START_OFFSET,z:ITEM_Z_START_OFFSET,scale:itemScale,rot:0};
-    } else {
-      pivot.userData.adj={x:0,z:0,scale:1,rot:0};   // 기본 내장 아이템(화분/머그컵/책)은 이미 정확히 맞춰져 있어서 그대로
-    }
-    if(holder._itemAdjMemory[def.id]){
-      // ★ y도 유지 — 유저가 기즈모로 조절한 아이템 높이가 다음 로드 시에도 반영되도록.
-      const mem=Object.assign({}, holder._itemAdjMemory[def.id]);
-      // 런처3-1: 색상은 별도로 pivot.userData.colors에 복원 (adj와 분리)
-      if(mem._colors){ pivot.userData.colors = Object.assign({}, mem._colors); delete mem._colors; }
-      Object.assign(pivot.userData.adj, mem);
-    }
-    holder.deskItems[def.id]=pivot; holder.activeDeskItem=pivot; applyDeskAdj(pivot);
-    _rememberCrItemOrigin(holder, pivot);   // 새로 놓인 아이템의 처음 자리(불러온 저장값은 applyDeskItemsTo 가 다시 적는다)
-    if(pivot.userData.colors) _applyItemColor(pivot);
-    pivot.userData.holder = holder;   // 어플 8: idle 재생 판정에 필요 — 소유 좌석 상태를 알아야 함
-    if(typeof crState.cBase!=='undefined' && holder===crState.cBase) deskSetupMod.selectDeskItemForAdjust(pivot);   // 생성기 안에서는 방금 장착한 아이템도 선택 표시
-  }
-}
-// 아이템 pivot을 클릭했을 때 idle 애니메이션을 한 번 재생 (끝나면 마지막 프레임에서 정지)
-function playItemIdle(pivot){
-  const a=pivot && pivot.userData && pivot.userData.idleAction; if(!a) return false;
-  a.reset(); a.play();
-  activeItemMixers.add(pivot.userData.itemMixer);
-  return true;
-}
-function collectDeskItems(holder){ const d={}; let any=false; deskItemsMod.allDeskItems().forEach(def=>{ const p=holder.deskItems&&holder.deskItems[def.id]; if(p){ d[def.id]={adj:Object.assign({},p.userData.adj)}; if(p.userData.autoScale!=null) d[def.id].autoScale=p.userData.autoScale;
-  // ★ 색상은 비어있어도 항상 저장 — "초기화(원본으로 복원)한 상태"를 명시적으로 기록해서
-  //   실행 화면 로드 시 이전에 저장돼 있던 색이 남지 않게 함. 예전엔 빈 객체면 필드가 빠져서 초기화가 안 반영됐음.
-  if(p.userData.colorGroups) d[def.id].colors=Object.assign({},p.userData.colors||{});
-  any=true;} }); return any?d:null; }
-/* ★ 생성기에서 책상 아이템을 켜고 끌 때 "완성 → 저장"을 눌러야만 반영되던 게 혼란을 줬음(꾸미기 파츠는
-   토글 즉시 저장되는 것과 비대칭) — 아이템 켜고/끄는 즉시 여기서 바로 def에 반영 + 저장까지 함.
-   단, 새 캐릭터(아직 한 번도 저장 안 한)일 땐 cBase.charDef가 없어서 조용히 건너뜀(완성 시 정상 저장됨). */
-function autoSaveDeskItemsNow(){
-  if(!crState.cBase || !crState.cBase.charDef) return;
-  const def = crState.cBase.charDef;
-  const di = collectDeskItems(crState.cBase);
-  def.deskItems = di;
-  if(di){
-    const ci={}; Object.keys(di).forEach(id=>{ const c=customItems[id]; const rec=commissionMod.savedItems().find(s=>s.id===id);
-      if(c && !(rec&&rec.fromCatalog)) ci[id]={name:c.name,glb:c.glb}; });
-    if(Object.keys(ci).length) def.customItems=ci;
-  }
-  slotSaveMod.saveSlots();
-}
-function applyDeskItemsTo(holder,data){ if(!data||!holder.deskAnchor)return; Object.keys(data).forEach(id=>{ const def=deskItemsMod.deskItemDef(id); if(!def)return; const e=data[id]; equipDeskItem(holder,def,true); const p=holder.deskItems[id]; if(p&&e.adj){
-    const savedAdj=Object.assign({},e.adj);
-    // ★ 예전엔 y를 자동 계산값(ITEM_Y_START_OFFSET)으로 강제 복원해서 저장값을 무시했음 — 유저가 기즈모로
-    //   조절할 수 있는 UI가 없다고 가정한 옛 로직. 지금은 기즈모로 자유롭게 y 조작 가능하므로 저장값 그대로 씀.
-    //   (y가 저장 안 된 옛 데이터는 그대로 undefined → applyDeskAdj에서 a.y||0으로 처리)
-    // ★ 커스텀 아이템(자동 정규화 대상)이고 저장 당시의 autoScale 정보가 있으면 — "그때 화면에서 사용자가
-    //   자동 크기 대비 얼마나 키우거나 줄였는지" 비율을 구해서, 지금 이 화면(생성기/런처/실행)에서 방금
-    //   새로 계산된 autoScale에 그 비율을 곱해 절대 크기를 다시 환산함. 책상/좌석 스케일이 화면마다 다른
-    //   시점에 적용돼도 아이템 크기가 항상 똑같이(ITEM_TARGET_SIZE 기준으로) 재현됨.
-    //   (autoScale 정보가 없는 예전 저장 캐릭터는 예전처럼 절대값 그대로 사용 — 기존 모습 그대로 유지)
-    if(e.autoScale && p.userData.autoScale){
-      const userMul = (e.adj.scale!=null ? e.adj.scale : e.autoScale) / e.autoScale;
-      savedAdj.scale = p.userData.autoScale * userMul;
-    }
-    // 🔎 진단 로그 2 — 최종 복원 단계. e.autoScale(저장된 자동값), e.adj.scale(저장된 최종값),
-    //   p.userData.autoScale(지금 막 새로 계산된 값), savedAdj.scale(이번에 실제로 적용될 최종값)을 비교.
-    console.log('[아이템크기-복원]', id, '| holder=', holder===crState.cBase?'생성기':(holder===launcherPrevMod.lHolder()?'런처':'실행'),
-      '| 저장된 autoScale=', e.autoScale, '| 저장된 adj.scale=', e.adj.scale,
-      '| 지금 계산된 autoScale=', p.userData.autoScale, '| 최종 적용 scale=', savedAdj.scale,
-      '| rot=', savedAdj.rot);   // 🔄 [제보 4] 회전이 저장까지 왔는지 한눈에
-    Object.assign(p.userData.adj,savedAdj);applyDeskAdj(p);
-    _rememberCrItemOrigin(holder, p);   // 불러온 자리가 이 아이템의 처음 자리
-    // ★ 런처3-1: 저장된 아이템 색상(colors) 복원 — 그룹별로 material.color/emissive를 갱신.
-    //   저장된 colors에 없는 그룹은 원본색(origColor)으로 강제 복원 — 예전에 저장된 색이 남지 않게.
-    if(p.userData.colorGroups){
-      p.userData.colors = Object.assign({}, e.colors||{});
-      Object.keys(p.userData.colorGroups).forEach(key=>{
-        if(p.userData.colors[key]!=null) return;   // 저장된 색은 아래 _applyItemColor가 처리
-        // 원본 색으로 복원
-        (p.userData.colorGroups[key]||[]).forEach(m=>{
-          if(!m.material || !m.userData.origColor) return;
-          const hex='#'+m.userData.origColor;
-          if(m.material.color) m.material.color.set(hex);
-          if(m.material.emissive){
-            const flat=lightToneMod.baseFlatOf(m.material);
-            m.material.emissive.copy(m.material.color).multiplyScalar(flat);
-            m.material.needsUpdate=true;
-          }
-        });
-      });
-      _applyItemColor(p);
-    }
-  } }); }
-// 색상 그룹의 실제 material에 저장된 색을 반영 (파츠의 applyColor와 같은 로직)
-function _applyItemColor(pivot){
-  if(!pivot || !pivot.userData || !pivot.userData.colorGroups || !pivot.userData.colors) return;
-  Object.keys(pivot.userData.colors).forEach(key=>{
-    const val = pivot.userData.colors[key];
-    const meshes = pivot.userData.colorGroups[key] || [];
-    meshes.forEach(o=>{
-      if(!o.material) return;
-      if(o.material.color) o.material.color.set(val);
-      if(o.material.emissive){
-        const flat = lightToneMod.baseFlatOf(o.material);
-        o.material.emissive.copy(o.material.color).multiplyScalar(flat);
-        o.material.needsUpdate = true;
-      }
-    });
-  });
-}
-function buildPlaceholder(){
-  const root=new THREE.Group();
-  const torso=new THREE.Group(); torso.position.y=TORSO_Y; root.add(torso);
-  const body=new THREE.Mesh(new THREE.SphereGeometry(0.42,32,32),matSage); body.scale.set(1,1.1,0.9); body.castShadow=true; torso.add(body);
-  const head=new THREE.Group(); head.position.set(0,0.62,0); torso.add(head);
-  const hm=new THREE.Mesh(new THREE.SphereGeometry(0.4,32,32),matSage); hm.castShadow=true; head.add(hm);
-  function eye(x){const g=new THREE.Group();
-    const w=new THREE.Mesh(new THREE.SphereGeometry(0.085,16,16),matWhite); w.scale.set(1,1.15,0.6);
-    const p=new THREE.Mesh(new THREE.SphereGeometry(0.05,16,16),matInk); p.position.z=0.05; p.scale.set(1,1.1,0.6);
-    g.add(w);g.add(p); g.position.set(x,0.05,0.34); return g;}
-  const eyeL=eye(-0.15),eyeR=eye(0.15); head.add(eyeL);head.add(eyeR);
-  function cheek(x){const c=new THREE.Mesh(new THREE.SphereGeometry(0.055,16,16),matBlush); c.scale.set(1.3,0.8,0.4); c.position.set(x,-0.08,0.33); return c;}
-  head.add(cheek(-0.22));head.add(cheek(0.22));
-  const mouth=new THREE.Mesh(new THREE.SphereGeometry(0.03,12,12),matInk); mouth.scale.set(1.6,0.7,0.5); mouth.position.set(0,-0.12,0.37); head.add(mouth);
-  [[-0.16,-0.4],[0.16,0.4]].forEach(([x,rot])=>{const l=new THREE.Mesh(new THREE.SphereGeometry(0.09,16,16),matSageD);
-    l.scale.set(0.6,1.3,0.5); l.position.set(x,0.4,0); l.rotation.z=rot; l.castShadow=true; head.add(l);});
-  function arm(x){const a=new THREE.Mesh(new THREE.SphereGeometry(0.13,16,16),matSage); a.scale.set(0.7,0.7,1.1); a.position.set(x,0.10,0.22); a.castShadow=true; return a;}
-  const armL=arm(-0.38),armR=arm(0.38); torso.add(armL);torso.add(armR);
-  return {root,torso,head,eyeL,eyeR,armL,armR};
-}
+/* ▶ 파츠 · 아이템 애니메이션 재생(character/part-anim.js) — 아래 const 는 옛 전역 이름이다. */
+const partAnimMod = TwPartAnim.createPartAnim({
+  isAdmin: ()=>isAdmin,
+  seatState: (...a)=>seatState(...a),
+  seats: ()=>seats,
+  toast: (...a)=>toast(...a),
+  userStatus: ()=>userStatus,
+});
+const activeItemMixers = partAnimMod.activeItemMixers;   // 옛 전역 이름
+const _idleItemPivots = partAnimMod._idleItemPivots;   // 옛 전역 이름
+const _clipHasMotion = partAnimMod._clipHasMotion;   // 옛 전역 이름
+const _pickPartClip = partAnimMod._pickPartClip;   // 옛 전역 이름
+const _partAnimNotice = partAnimMod._partAnimNotice;   // 옛 전역 이름
+const _stripPartClipOwnedTracks = partAnimMod._stripPartClipOwnedTracks;   // 옛 전역 이름
+const _setupPartIdleAnim = partAnimMod._setupPartIdleAnim;   // 옛 전역 이름
+const _teardownPartIdleAnim = partAnimMod._teardownPartIdleAnim;   // 옛 전역 이름
+const updateActivePartPlayback = partAnimMod.updateActivePartPlayback;   // 옛 전역 이름
+const updateIdleItemPlayback = partAnimMod.updateIdleItemPlayback;   // 옛 전역 이름
+const updateItemHandTrackers = partAnimMod.updateItemHandTrackers;   // 옛 전역 이름
+const playItemIdle = partAnimMod.playItemIdle;   // 옛 전역 이름
+/* 🪑 책상 아이템 장착(character/desk-item-equip.js) — 아래 const 는 옛 전역 이름이다. */
+const deskItemEquipMod = TwDeskItemEquip.createDeskItemEquip({
+  _idleItemPivots: _idleItemPivots,
+  activeItemMixers: activeItemMixers,
+  commissionMod: ()=>commissionMod,
+  crState: ()=>crState,
+  crXformMod: ()=>crXformMod,
+  customItems: ()=>customItems,
+  deskItemsMod: ()=>deskItemsMod,
+  deskSetupMod: ()=>deskSetupMod,
+  launcherPrevMod: ()=>launcherPrevMod,
+  licenseAssetBlocked: (...a)=>acctStateMod.licenseAssetBlocked(...a),
+  slotSaveMod: ()=>slotSaveMod,
+  lightToneMod: lightToneMod,
+  toast: (...a)=>toast(...a),
+});
+const applyDeskAdj = deskItemEquipMod.applyDeskAdj;   // 옛 전역 이름
+const deskItemOrigin = deskItemEquipMod.deskItemOrigin;   // 옛 전역 이름
+const equipDeskItem = deskItemEquipMod.equipDeskItem;   // 옛 전역 이름
+const collectDeskItems = deskItemEquipMod.collectDeskItems;   // 옛 전역 이름
+const autoSaveDeskItemsNow = deskItemEquipMod.autoSaveDeskItemsNow;   // 옛 전역 이름
+const applyDeskItemsTo = deskItemEquipMod.applyDeskItemsTo;   // 옛 전역 이름
+const _applyItemColor = deskItemEquipMod._applyItemColor;   // 옛 전역 이름
 
 /* ============================================================ SEATS */
 const seats=[]; let selected=null;
@@ -2149,26 +1602,15 @@ function _charProjSane(x, y, h){
      '클릭 받는 중'이면 전체화면 투명 오버레이가 계속 클릭을 가로챈다.
    ⚠️ 아래 _noteChannelAlive() 가 이 값을 갱신한다. 그쪽을 지우면 이 신호도 같이 죽는다. */
 let _twMoveSeenAt = 0;
-try{
-  setInterval(()=>{
-    try{
-      if(!(window.companion && companion.setCharBounds)) return;
-      /* ★ _charBoundsLatest 를 직접 건드리지 않고 매번 새 객체로 보낸다 — 그 값은 다음 주기에도
-         재사용되므로 필드를 덧붙이면 안 된다. moveAge 는 "mousemove 가 마지막으로 온 지 몇 ms 됐나",
-         한 번도 온 적 없으면 -1(=판단 불가, main 은 이때 아무것도 하지 않는다). */
-      const _b = _charBoundsLatest || { x:-99999, y:-99999, r:0 };
-      /* 📐 우리 창들의 사각형도 같이 보낸다 — main 의 회수 판정이 캐릭터 하나만 알아서
-         대화창 위에서 렌더러와 싸우던 문제(핸드오프5 §1-4). __uiRegions 는 클릭통과 블록이
-         정의하는데, 그 블록은 companion 이 없으면 아예 안 돈다 — 그래서 존재 확인이 필요하다. */
-      companion.setCharBounds({ x:_b.x, y:_b.y, r:_b.r,
-        moveAge: _twMoveSeenAt ? (Date.now() - _twMoveSeenAt) : -1,
-        regions: window.__uiRegions ? window.__uiRegions() : undefined, others: statusChipMod.otherSeatCircles(),   // 🖊️ 남의 좌석 원 — main 펜 근접 판단만 본다
-        /* 🧭 좌표를 못 믿는 구간이면 그 이유를 실어 보낸다 — main 이 구간 시작·끝만 기록한다.
-           구버전 main 은 이 필드를 그냥 무시한다(동작 변화 없음). */
-        charBad: _charBadWhy || undefined });
-    }catch(_){}
-  }, 100);
-}catch(_){}
+const runCost = TwRunCostDiag.page;   // 🩺 1분 [비용] 줄 — 그리기 밖 시간(shared/run-cost-diag.js)
+/* 본문(창 보임 구독 · 100ms 타이머)은 launcher/heartbeat.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const heartbeatMod = TwHeartbeat.createHeartbeat({
+  _charBadWhy: ()=>_charBadWhy,
+  _charBoundsLatest: ()=>_charBoundsLatest,
+  _twMoveSeenAt: ()=>_twMoveSeenAt,
+  otherSeatCircles: (...a)=>statusChipMod.otherSeatCircles(...a),
+  runCost: runCost,
+});
 /* ═══ ⚙ 설정 패널 — 포커싱 어플 · 화면 표시 · 캐릭터 크기 · 탭 · 광고 배너 ═══ */
 /* ⚙ 설정 패널 — 포커싱 어플 슬롯 / 캐릭터 크기 / 프로그램 이동 */
 let moveMode=false;   // "프로그램 이동" 진행 중 여부 (true면 캐릭터가 마우스를 따라다니다 클릭으로 확정)
@@ -3532,6 +2974,7 @@ const overheadMod = TwOverhead.createOverhead({
   chatUiMod: chatUiMod,
   focusLevelMod: ()=>focusLevelMod,
   getDisplayName: (...a)=>getDisplayName(...a),
+  npStarFill: (...a)=>lvTierMod.npStarFill(...a),
   officeMode: ()=>officeMode,
   renderer: renderer,
   rtHub: TwRtHub,
@@ -3549,6 +2992,7 @@ function setSeatOpacity(seat, op){
   //   자리비움 진입 시 원래 visible 값을 userData._prevVisible에 기억해두고,
   //   자리비움 해제 시 그 값으로 복원. 정상 상태(op≥0.001)에선 visible을 건드리지 않음.
   const hide = op < 0.001;
+  seat._bodyOff = hide;   // 몸 메쉬를 껐다는 표시 — 동작 계산 건너뛰기(hidden-seats.js _bodyHidden)가 이것만 읽는다(기준을 두 번 쓰지 않게)
   seat.bodyWrap.traverse(o=>{
     if(o.isMesh && o.material){
       if(hide){
@@ -4230,6 +3674,8 @@ async function equipPartOnSeat(seat, cat, rec, opts){
       // 🩺 리깅으로 붙었는데도 파츠가 뜨는 경우의 원인 확정용 — 아래 함수 주석 참고.
       _diagRiggedPartAlignment(cat, skinnedMeshes, charRoot);
     }
+    // 리깅 파츠는 캐릭터 뼈로 다시 묶였으니 몸 · 다른 파츠의 Skeleton 과도 맞춰 본다(뼈 · 역행렬이 같을 때만 함께 씀)
+    skelShare.shareSkeletons(skinnedMeshes, isRigged ? skelShare.skinnedMeshesOf(charRoot) : []);
     // 메시 중심을 피봇으로 만들기 위해 wrapper 그룹에 감싸기 (회전·스케일이 중심 기준)
     //  — 리깅 파츠는 본이 위치를 결정하므로 재중심화하지 않고 원본 좌표 그대로 둠
     const { wrapper, bb, center } = partsCore.wrapPart(obj, cat, isRigged);   // baseCenter 는 applyPartXf 가 쓴다
@@ -4393,6 +3839,7 @@ async function equipPartOnSeat(seat, cat, rec, opts){
         for(let i=1; i<=extraCount; i++){
           // 같은 GLB 복제 · 재질 · 이 인스턴스만의 _col 묶음 · 가운데 맞춘 wrapper — 코어
           const { wrapper:extraWrap, obj:extraObj, colorGroups:extraColorGroups } = partsCore.prepareExtra(scene, cat, i);
+          skelShare.shareSkeletons(skelShare.skinnedMeshesOf(extraObj));
           // 🎩 같은 GLB의 clone이라 extraCenter === center. 메인 wrapper가 계산해둔 상쇄량을 그대로 쓴다
           //    (다시 계산하면 본 자세가 그새 바뀌어 인스턴스끼리 미세하게 어긋날 수 있다).
           extraWrap.userData.authorOff = wrapper.userData.authorOff ? wrapper.userData.authorOff.clone() : null;
@@ -5115,7 +4562,7 @@ function defToBase(def, customScene){
   const fT=mkFaceTex(compositeFace(def.skin,def.face)), bT=mkFaceTex(compositeFace(def.skin,def.blink));
   return bodyCore.assemble({ customScene, faceTex:fT, blinkTex:bT, top:def.top, bot:def.bot,
     recolor:!def.isCommission, scaleMul:def.isCommission ? COMMISSION_SCALE_CORRECTION : 1,
-    skinColor:skinColorFor(def.skin), onRoot:(root)=>_attachHumanEars(root, def) });
+    skinColor:skinColorFor(def.skin), onRoot:(root)=>{ skelShare.shareSkeletons(skelShare.skinnedMeshesOf(root)); _attachHumanEars(root, def); } });
 }
 
 /* --- 캐릭터에 직접 페인팅 (3D) + 단계형 + 양파껍질 + 되돌리기 --- */
@@ -6880,6 +6327,7 @@ const roomEntryMod = TwRoomEntry.createRoomEntry({
   mySecretRoom: ()=>roomLobbyProvider.mySecretRoom(),
   paintRoomInfo: ()=>roomInfoUi.paint(),
   roomSettings: TwRoomSettings,
+  runCost: runCost,   // 🩺 좌석 맞춤 시간(1분 [비용] 줄)
 });
 roomEntryMod.onRoomChanged(()=>listenUi.sync());   // 🎧 같이 듣기가 방 입장 모듈을 몰라도 되게(위층이 건다)
 // 🕘 최근 들어간 방 — 연결되면 기록하고, 로비 코드 칸을 누르면 펼친다(room/recent-rooms*.js)
@@ -7073,6 +6521,7 @@ const myInfoMod = TwMyInfo.createMyInfo({
   getUserName: (...a)=>getUserName(...a),
   lvStarStr: (...a)=>focusLevelMod.lvStarStr(...a),
   myFocusShow: (...a)=>focusLevelMod.myFocusShow(...a),
+  npStarFill: (...a)=>lvTierMod.npStarFill(...a),
   openCodeModal: (...a)=>charCodeMod.openCodeModal(...a),
   plMod: plMod,
   refreshAccountTab: (...a)=>accountMod.refreshAccountTab(...a),
@@ -7916,6 +7365,9 @@ const _FB = FrameBudget;
 const _frameBudget = _FB ? _FB.createFrameBudget({ now: ()=>performance.now() }) : null;
 /* 🐢 «자동» 화질 — 그린 장 수가 상한에 한참 못 미치는 게 이어지면 배율을 1 로(이번 실행만 · 진단 로그에 한 줄) */
 const _runSlowWatch = FrameBudget.createSlowWatch();
+/* 🩺 한 장에 그래픽 칩 · JS 가 쓴 시간 — 1분 [프레임] 줄 꼬리(shared/gpu-timer.js · 노트북 블루스크린 · 버벅임 제보) */
+const _gpuTimer = TwGpuTimer.createGpuTimer(renderer.getContext(), renderer.capabilities.isWebGL2);
+const _frameJsStats = TwGpuTimer.createStats();
 function _lowerRunQuality(){
   _runLowered = true;
   seatCameraMod.updateCameraOnly();
@@ -7997,19 +7449,45 @@ try{
     for(const ev of ['pointerdown', 'keydown', 'wheel']) window.addEventListener(ev, _fbPoke, { capture: true, passive: true });
   }
 }catch(_){}
-/* 🩺 1분마다 진단 한 줄(tw-mouse-diag.log) — 실제로 그린 장 수 · 포커스 비율 · 상한 · 배율 · 캔버스 크기.
-   «앱 켜면 다른 프로그램이 버벅인다» 제보 때 로그만 받아서 우리 몫이 얼마인지 본다. 실행 화면에서만 적는다. */
-try{
-  setInterval(()=>{
-    if(!_frameBudget) return;
-    const t = performance.now();
-    const m = _frameBudget.takeMinute(t);
-    if(!document.body.classList.contains('runmode')) return;
-    if(!(window.companion && companion.diagNote)) return;
-    m.cap = _frameCap(t); m.pr = renderer.getPixelRatio(); m.w = canvas.width; m.h = canvas.height; m.q = _renderQuality; m.lowered = _runLowered;
-    companion.diagNote(_FB.diagLine(m));
-  }, 60000);
-}catch(_){}
+/* 🗺️ 클릭 통과 히트 맵 — 좌석 조각의 경계 구를 화면 사각형으로(room/seat-hit-targets.js · launcher/hit-map.js). 판정이 찾을 때 마지막으로 그린 장의 행렬로 만든다.
+   0.12.4 는 그림자 운행: 통과 판정의 답은 옛 판정 그대로, desktop-run 이 새 판정을 옆에서 돌려 hitShadow 에 센다(1분 [지도] 줄). */
+const hitShadow = TwHitShadow.createHitShadow();
+/* 설정(런처) 화면이 #scene 을 가리는가 — frame() 이 그리기를 건너뛰는 조건 · 히트 맵이 빈 지도를 만드는 조건 한 곳 */
+function _configHidesScene(){ return document.body.classList.contains('desktop') && document.body.classList.contains('config'); }
+const seatHitMod = TwSeatHitTargets.createSeatHitTargets({
+  THREE: THREE,
+  hitMap: TwHitMap,
+  seats: seats,
+  camera: camera,
+  ray: ray,
+  canvasRect: (...a)=>overheadMod.canvasRect(...a),
+  officeHidden: ()=>_officeHidden,
+  configHidden: ()=>_configHidesScene(),
+  isRunmode: ()=>document.body.classList.contains('runmode'),
+  partSkipped: (...a)=>hiddenSeatsMod._partSkipped(...a),
+  skipHits: (...a)=>hiddenSeatsMod._skipUnhittable(...a),
+  now: ()=>performance.now(),
+  noteBuild: (...a)=>hitShadow.build(...a),
+});
+/* 🩺 1분 진단 줄([비용] · [프레임])은 launcher/run-diag-minute.js 로 옮겼다 — 만들 때 한 번 돈다. */
+const runDiagMinuteMod = TwRunDiagMinute.createRunDiagMinute({
+  Presence: Presence,
+  _FB: _FB,
+  _bodyHidden: (...a)=>hiddenSeatsMod._bodyHidden(...a),
+  _frameBudget: _frameBudget,
+  _frameCap: (...a)=>_frameCap(...a),
+  _frameJsStats: _frameJsStats,
+  _gpuTimer: _gpuTimer,
+  _renderQuality: ()=>_renderQuality,
+  _runLowered: ()=>_runLowered,
+  canvas: canvas,
+  hitShadow: hitShadow,
+  key: key,
+  renderer: renderer,
+  runCost: runCost,
+  scene: scene,
+  seats: seats,
+});
 function frame(now, manual){
   if(!manual) _lastRafAt = now;   // 브라우저가 실제로 rAF를 불러준 시각(아래 감시 장치가 씀)
   /* 상한(_frameCapped → FrameBudget) — 최대 60 · 포커스 있어도 손 안 대면 30 · 다른 창을 보는 중이면 20
@@ -8020,6 +7498,8 @@ function frame(now, manual){
     if(!manual) requestAnimationFrame(frame);
     return;
   }
+  const _frameT0 = performance.now();
+  _gpuTimer.poll();
   const dt=Math.min((now-prev)/1000,0.05);prev=now;
   overheadMod.beginLabelFrame();   // 라벨이 쓰는 캔버스 사각형을 이번 프레임에 한 번만 잰다(room/label-measure.js)
   updateIdleItemPlayback();   // 어플 8: 자리비움 감지로 아이템 재생/정지 자동 전환
@@ -8027,6 +7507,7 @@ function frame(now, manual){
   if(activeItemMixers.size) activeItemMixers.forEach(m=>m.update(dt));   // 클릭으로 재생 중인 아이템 idle 애니메이션 업데이트
   seatEqClampMod._clampSeatDeskParts(now);   // 🪑 평준화 중 «책상 위» 파츠를 자기 자리 안으로(띄엄띄엄 — seat-slot.js)
   const _djNow = listenUi.djId();   // 🎧 이름표 «DJ» 딱지 — 프레임에 한 번(좌석마다 방 사람 목록을 다시 만들지 않게)
+  const _tSeat = performance.now();
   seats.forEach(seat=>{
     const state=seatState(seat,now);
     if(seat.isMe && Presence.active()){ Presence.setState(seat.pinned ? 'idle' : state); if(focusProgressMod.isReady()) Presence.setLevel(focusLevelMod.getFocusLevel()); }   // 서버 레벨을 받은 뒤에만 — 받기 전의 1 을 방에 싣지 않는다   // 액자 고정은 상대에겐 평상시로
@@ -8125,12 +7606,12 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      setClip(seat,state); seat.mixer.update(dt);
+      setClip(seat,state); if(!hiddenSeatsMod._bodyHidden(seat)) seat.mixer.update(dt);   // 몸이 안 보이면(자리비움 · 숨김) 뼈대 계산을 건너뛴다
     } else if(rigged){
       seat.rig.rotation.x=lerp(seat.rig.rotation.x,0,k); 
       { const _bs=seatEqMod.seatScale(seat); seat.bodyWrap.scale.set(_bs,_bs,_bs); }   // [수정] 강제 1,1,1 초기화 방지 (🪑 평준화 배율 포함)
       seat.bodyWrap.position.y=0;
-      animateRig(seat,now,state);
+      if(!hiddenSeatsMod._bodyHidden(seat)) animateRig(seat,now,state);
     } else {
       seat.rig.rotation.x=seat.pose.leanX;
       const breathe=1+Math.sin(seat.breathePhase)*seat.pose.breAmp;
@@ -8238,6 +7719,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* selected ring follows selected seat */
 // if(selected){selRing.position.x=lerp(selRing.position.x,selected.group.position.x,1-Math.pow(0.001,dt));selRing.visible=true;}
   /* state bar shows selected seat */
+  runCost.since('seat', _tSeat);
   if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
 
   for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
@@ -8256,9 +7738,14 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
   /* 🍎 설정(런처) 화면에서는 #scene 이 display:none 이다(body.desktop.config) — 안 보이는 화면을 그리지 않는다.
      상태 계산은 위에서 그대로 돈다(돌아왔을 때 튀지 않게). 런처는 자기 루프(launcherLoop)가 따로 그린다. */
   /* 회사원 모드로 화면을 숨긴 동안도 그리지 않는다 — 안 보이는 3D 가 포토샵 등과 그래픽 카드를 나눠 쓰지 않게 */
-  if(!_officeHidden && !(document.body.classList.contains('desktop') && document.body.classList.contains('config'))) renderer.render(scene,camera);
+  const _tDraw = performance.now();
+  if(!_officeHidden && !_configHidesScene()){ _gpuTimer.begin(); renderer.render(scene,camera); _gpuTimer.end(); }
+  runCost.since('render', _tDraw);
+  seatHitMod.markRendered();   // 🗺️ 히트 맵 — 그린 장 표시만(지도는 판정이 찾을 때 만든다)
   statusChipMod.updateMyStatusChipPosition();   // 본인 상태 칩 위치를 자기 좌석 발 밑에 맞춤
   if(_renderQuality === FrameBudget.QUALITY.AUTO && document.body.classList.contains('runmode') && _runSlowWatch.note(now, _frameCap(now))) _lowerRunQuality();
+  _frameJsStats.add(performance.now() - _frameT0);
+  runCost.since('frame', _frameT0);
   if(!manual) requestAnimationFrame(frame);
 }
 
@@ -8748,6 +8235,7 @@ function applyDesktopRunClass(){ if(!desktopMode) return;
   document.body.classList.toggle('runmode', runOverlay);
   document.body.classList.toggle('config', config);   // 런처/생성기 열림 여부 — CSS에서 #scene 숨김에 사용
   if(typeof floor!=='undefined') floor.visible = !runOverlay;        // 투명 오버레이일 땐 바닥 숨김(데스크톱 비침)
+  key.castShadow = FrameBudget.castShadowFor(runOverlay);   // 바닥이 없으니 그림자도 안 만든다(frame-budget.js)
   // 화면 종류에 따라 창 크기가 달라야 함: 생성기는 넓게, 마이홈(런처에서 열렸을 때)도 넓게, 런처는 카드 크기, 실행은 전체화면
   const mode = creatorOpen ? 'creator' : (showMyHomeSized ? 'myhome' : (launcherOn ? 'launcher' : 'run'));
   // 🎨 런처 마이홈 — 창 밖으로 나간 스티커만큼 창을 넓혀 달라고 같이 보낸다(_mhStickerOverhang)
@@ -8773,6 +8261,7 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   desktopMode: desktopMode,
   drag: ()=>drag,
   focusGateSleep: ()=>focusGateSleep,
+  hitShadow: hitShadow,
   lastActivity: ()=>lastActivity,
   lastAnyInput: ()=>lastAnyInput,
   moveMode: ()=>moveMode,
@@ -8783,6 +8272,8 @@ const desktopRunMod = TwDesktopRun.createDesktopRun({
   setTwMoveSeenAt: (v)=>{ _twMoveSeenAt = v; },
   setLastActivity: (v)=>{ lastActivity = v; },
   setLastAnyInput: (v)=>{ lastAnyInput = v; },
+  runCost: runCost,   // 🩺 통과 판정 시간(1분 [비용] 줄)
+  seatHit: seatHitMod,   // 🗺️ 히트 맵 새 판정 — 그림자 운행
 });
 /* 좌석 배치 후 데스크탑 창 크기를 펫에 맞춤 */
 const _layoutSeats=layoutSeats;
@@ -8803,7 +8294,7 @@ if(typeof adminMode.refreshAdminVisibility==='function') adminMode.refreshAdminV
 loadBaseGLB().then(ok=>{ if(!ok) console.warn('기본 GLB 로드 실패 — 스탠드인 사용');
   return loadSkins(); }).then(()=>{ renderLauncher(); }).catch(()=>renderLauncher());   // 캐릭터 슬롯은 계정 확인 뒤 서버에서 받는다(startCloset)
 requestAnimationFrame(frame);
-requestAnimationFrame(launcherPrevMod.launcherLoop);
+launcherPrevMod.startLauncherLoop();
 /* 🛡️ 얼굴 자동 복구 주기 점검 — 위 repairBlankFaces 주석 참고.
    ★ 렌더 루프(frame)에 넣지 않는다. 얼굴이 비는 상황은 대개 무거운 프로그램과 같이 돌 때라,
      그때 프레임마다 도는 점검을 얹는 것은 방향이 반대다. 4초 간격이면 사용자가 «사라졌다»고

@@ -5,7 +5,7 @@
      바꾼 이름 없음.
      받을 이름 · 바꿀 자리는 파서(typescript)로 골랐다 — 주석 · 글자 · 속성 이름은 그대로.
    ★ app.js 함수 0개는 화살표로 받는다(나중에 선언된 함수도 부를 때 찾는다).
-   ★ 밖에서 부르는 이름: _starPaint · lvBadgeClass · lvBarClass · lvStarBadgeClass · lvStarBarClass — app.js 는 lvTierMod.이름 으로 부른다.
+   ★ 밖에서 부르는 이름: _starPaint · npStarFill · lvBadgeClass · lvBarClass · lvStarBadgeClass · lvStarBarClass — app.js 는 lvTierMod.이름 으로 부른다.
    ⚠️ document · window · firebaseAPI · localStorage 등 브라우저 · 다른 모듈 전역은 예전처럼 전역 이름으로 쓴다(app.js 앞에 싣는 classic script).
    ⚠️ 전역 이름은 TwLvTier — 크로미움 내장 전역과 겹치지 않게 Tw 접두사(#103).
    검사: checks/sim-lv-tier.js */
@@ -45,8 +45,24 @@ function _starPaint(el, star){
   else el.style.removeProperty('--pre-c');
 }
 
+/* 이름표 회차 별 칸 채우기 — 좌석 이름표 · [내 정보] 미리보기가 같이 부른다.
+   반짝임을 다시 칠하기 없이 움직이려고 같은 별 글자를 겹으로 그린다(CSS .np-star 머리말). 겹은 data-s(::before 글자)와
+   빈 창 하나(.np-sw)라 글(textContent)은 별 문자열 그대로다. */
+function npStarFill(el, str){
+  if(!el) return;
+  const s = String(str == null ? '' : str);
+  el.textContent = s;
+  el.setAttribute('data-s', s);
+  const sw = document.createElement('span');
+  sw.className = 'np-sw';
+  sw.setAttribute('data-s', s);
+  sw.setAttribute('aria-hidden', 'true');
+  el.appendChild(sw);
+}
+
 return {
   _starPaint,
+  npStarFill,
   lvBadgeClass,
   lvBarClass,
   lvStarBadgeClass,
