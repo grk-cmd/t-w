@@ -1441,11 +1441,10 @@
     /* 🖼 올린 프레임을 Storage 에 올리고 **URL 만** 돌려준다.
        ★ 왜 _uploadDataUrlIfNeeded 를 안 쓰나 — 그쪽은 업로드가 실패하면 **dataURL 을 그대로
          돌려준다.** 프로필 사진에는 맞는 처리다(이미지가 통째로 날아가느니 DB 에 두는 게 낫다).
-         그런데 여기서는 그 값이 곧장 setFrameUrl → rooms/{방}/_photo/frames 로 간다.
-         RTDB 다운로드 단가는 $5/GB, Storage 는 $0.12/GB — **40배**다. 게다가 프레임은 방에 있는
-         전원이 내려받는다. 실패 한 번이 요금 사고가 되는 자리라 여기서는 **실패를 실패로** 알린다.
-       ⚠️ 규칙도 이걸 한 번 더 막는다(frames/$i 가 https:// 로 시작하는 문자열만 받는다).
-         둘 다 있어야 한다 — 규칙은 배포를 잊을 수 있고, 여기는 규칙보다 먼저 잡아 화면에 안내를 띄운다.
+         그런데 여기서는 그 값이 곧장 setFrameUrl(세션 포트) 로 가서 방 전원에게 내려간다 — dataURL 은
+         서버가 거절하고(주소는 우리 버킷의 purikura/{방}/{방장 userCode}/ 경로만), 받은 사람도 큰 값을 내려받게 된다.
+         그래서 여기서는 **실패를 실패로** 알린다.
+       ⚠️ 경로 purikura/{방}/{내 userCode}/{컷}.webp 는 부르는 쪽(purikura-ui.js)이 만든다 — 서버는 방장 경로의 주소만 받는다.
        ⚠️ WebP 로 보낼 것(부르는 쪽 책임). 같은 그림이 PNG 464KB → WebP 65KB 다. */
     async pkUploadFrame(path, dataUrl){
       if(typeof dataUrl !== 'string' || !dataUrl.startsWith('data:'))

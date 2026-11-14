@@ -479,7 +479,7 @@ const BREAKS = [
   ['LINK', "    if(want && !ws) open(waitMs);", "    if(want && !ws) open();", '정한 ready 기다림을 안 씀'],
   ['HUB', "    if(!kindFns.has(kind)) throw new Error('[realtime] 모르는 알림 종류 — ' + kind);", "    if(!kindFns.has(kind)) kindFns.set(kind, []);", '모르는 이름을 조용히 받음'],
   ['HUB', "    if(link) link.close();\n    setState(STATE.OFF);", "    setState(STATE.OFF);", 'stop 이 연결을 안 닫음'],
-  ['LINK', "    const base = (deps.pv >= 2) ? { t: 'hello', pv: deps.pv, token: tk, ver: helloVer } : ", "    const base = (deps.pv >= 2) ? { t: 'hello', pv: deps.pv, token: tk, userId: helloUid, ver: helloVer } : ", 'pv 2 hello 에 userId(서버가 모르는 칸 — badRequest)'],
+  ['LINK', "const base = { t: 'hello', pv: deps.pv, token: tk, ver: helloVer };", "const base = { t: 'hello', pv: deps.pv, token: tk, userId: 'u1', ver: helloVer };", 'pv 2 hello 에 userId(서버가 모르는 칸 — badRequest)'],
   ['HTML', '<script src="parts/realtime/rt-hub.js"></script>', '', 'html 에 안 실음'],
   ['FI', "  window.TwRtHub.store.bind({ createLink: createRealtimeLink, getToken: _getIdToken, getVersion: () => _appVer.ready });", '', 'firebase-init 이 bind 안 함'],
 ];

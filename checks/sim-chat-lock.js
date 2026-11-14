@@ -17,13 +17,13 @@ const MOD = ["chat-lock.js","parts/chat/chat-lock.js","app/parts/chat/chat-lock.
 if(!MOD){ say('  ? 원본 못 찾음 — chat-lock.js'); process.exit(2); }
 const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/\/[^\n]*/g, '$1 ');
 
-const FN_DEPS = ["getMyUserId"];
+const FN_DEPS = ["myCode"];
 const VAL_DEPS = ["chatPrefsMod","chatUiMod","roomState"];
 const GET_DEPS = ["Presence"];
 const SET_DEPS = [];
 const EXPORTS = ["_chatIsHost","_chatIsSecretRoom","_chatOffOn","_chatOffRefreshUI","_chatRoomCode"];
 const MOVED = ["_chatRoomCode","_chatIsSecretRoom","_chatIsHost","_chatOffOn","_chatOffRefreshUI"];          // 옮긴 꼭대기 선언(app.js 에 남으면 두 벌)
-const GLUE = ["  Presence: ()=>Presence,","  chatPrefsMod: chatPrefsMod,","  chatUiMod: chatUiMod,","  getMyUserId: (...a)=>getMyUserId(...a),","  roomState: TwRoomState,"];
+const GLUE = ["  Presence: ()=>Presence,","  chatPrefsMod: chatPrefsMod,","  chatUiMod: chatUiMod,","  myCode: ()=>TwRoomRt.store.myCode(),","  roomState: TwRoomState,"];
 
 /* 아무 이름 · 아무 부름이나 받아 주는 가짜 — 만들 때 하는 일(버튼 연결 · 저장값 읽기)이 던지지 않는지만 본다.
    then 도 받는다 — 만들 때 부르는 서버 요청(.then 잇기)이 던지지 않게(풀리지는 않는다) */
@@ -32,19 +32,20 @@ function anything(){
   const P = new Proxy(f, { get: (t, k) => k === Symbol.toPrimitive ? (() => '') : k === 'then' ? (() => P) : k === 'length' ? 0 : P, apply: () => P, construct: () => P, set: () => true, has: () => true });
   return P;
 }
-function build(src){
+function build(src, over, winOver){
   const any = anything();
   const deps = {};
   FN_DEPS.forEach(n => { deps[n] = () => any; });
   VAL_DEPS.forEach(n => { deps[n] = any; });
   GET_DEPS.forEach(n => { deps[n] = () => any; });
   SET_DEPS.forEach(n => { deps['set' + n.replace(/^_+/, '').replace(/^./, c => c.toUpperCase())] = () => {}; });
-  const win = new Proxy({}, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
+  const win0 = Object.assign({}, winOver || {});
+  const win = new Proxy(win0, { get: (t, k) => k in t ? t[k] : any, set: (t, k, v) => { t[k] = v; return true; } });
   const store = {};
   const ls = { getItem: (k) => (k in store ? store[k] : null), setItem: (k, v) => { store[k] = String(v); }, removeItem: (k) => { delete store[k]; } };
   const api = new Function('window', 'document', 'localStorage', 'navigator', 'firebaseAPI', 'companion', 'setTimeout', 'setInterval', 'clearTimeout', 'clearInterval', 'requestAnimationFrame', 'THREE', 'addEventListener', 'removeEventListener', 'module',
     src + '\nreturn window.TwChatLock;')(win, any, ls, any, any, any, () => 0, () => 0, () => {}, () => {}, () => 0, any, () => {}, () => {}, undefined);
-  return api.createChatLock(deps);
+  return api.createChatLock(Object.assign(deps, over || {}));
 }
 
 function judgeAll(mod, app, html){
@@ -74,6 +75,13 @@ function judgeAll(mod, app, html){
 
 const rows = judgeAll(MOD, SRC, HTML);
 rows.forEach(([ok, msg], i) => { if(i === 0) say('── 1. 만들 때'); if(i === 3) say('── 2. app.js 연결'); chk(ok, msg); });
+say('── 2-1. 방장 판정은 방 서버의 내 코드로');
+{
+  const host = (code, meta) => build(MOD, { myCode: () => code, roomState: { isHost: (m, me) => !!m && !!m.host && m.host === me } }, { _roomMetaCache: meta })._chatIsHost();
+  chk(host('h1', { host: 'h1' }) === true, '내 코드가 방장이면 방장');
+  chk(host('x9', { host: 'h1' }) === false, '내 코드가 다르면 방장이 아니다');
+  chk(host(null, { host: 'h1' }) === false, '내 코드가 아직 없으면(연결 전) 방장이 아니다');
+}
 say('── 3. 일부러 깨 보기 — 하나라도 못 잡으면 빨강');
 const breaks = [
   ['html 줄 빠짐', null, null, h => h.replace('<script src="parts/chat/chat-lock.js"></script>', '')],

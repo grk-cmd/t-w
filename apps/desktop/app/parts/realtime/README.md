@@ -13,9 +13,9 @@
   ```js
   const link = createRealtimeLink({
     WebSocket, enabled: () => true, target: () => url, switchOk: () => true,
-    getToken: (force) => …, getUserId: () => …, getVersion: () => …,
-    pv: 1, helloExtra: { scope: 'presence' },                 // hello 선택 칸(없으면 안 싣는다)
-    requestKinds: ['presenceGet'], answers: { presence: 'presenceGet' }, reflessKind: null, ridless: false,
+    getToken: (force) => …, getVersion: () => …,
+    pv: 2, helloExtra: { scope: 'presence' },                 // hello 선택 칸(없으면 안 싣는다)
+    requestKinds: ['presenceGet'], answers: { presence: 'presenceGet' },
     idleCloseMs: 0, busy: () => false, reconnectWanted: () => true,
     hooks: { onReady(){}, onMessage(m){}, onClosed(wasReady, fatal){} },
   });

@@ -9,10 +9,12 @@
        · Presence → Presence() · SPINE_AXIS · HEAD_AXIS · HAND_REST · SHAKE_ARM_DROOP → 이름()
          app.js 에서 createPurikuraUi 를 부르는 줄보다 **뒤에** 선언되는 const 라 만들 때 값을 읽으면 TDZ 로 선다 — 읽는 함수로 받는다.
    ★ 세션 입구 _purikura() 는 app.js 에 남겼다(🎲 주사위 · 📷 버튼도 쓴다 — 입구가 하나여야 세션 · 구독이 하나다).
-     그 세션 콜백 넷(onPeers · onMeta · onEvent · onShot)은 이 모듈이 내놓는 onPeers · onMeta · onPeerEvent · onShot 으로 들어온다.
+     그 세션 콜백(onPeers · onMeta · onEvent · onShot · onSlots · onFrames · onRefused · onLateStart)은 이 모듈이 내놓는 onPeers · onMeta · onPeerEvent · onShot · onSlots · onFrames · onRefused · onLateStart 로 들어온다.
    ★ createPurikuraUi 는 app.js 의 원래 자리에서 부른다. 만들 때 바로 도는 것(맨 끝 _pkWire — 버튼 · 창 끌기 · ⎋ 사다리 등록)이
      예전과 같은 순서 · 같은 때에 돈다.
-   ⚠️ THREE · Purikura · firebaseAPI · companion · document 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
+   ⚠️ THREE · Purikura · firebaseAPI(프레임 올리기 pkUploadFrame 만) · companion · document 는 예전처럼 전역 이름으로 쓴다(이 파일은 app.js 앞에 싣는 classic script).
+   ★ 0.13 — 세션(자리 · 방장 · 판 · 프레임 · 좌표 · 정원)은 서버가 가진다. 이 파일은 세션 포트(purikura-rt.js)가 알려 주는 대로 그린다:
+     자리 · 프레임 · 판은 onSlots · onFrames · onMeta 로 통째로 오고, 내 자리 · 방장 판정은 세션 포트 한 곳, 서버 시각은 세션 포트의 시계(_pkNow).
    ⚠️ 전역 이름은 TwPurikuraUi — 크로미움 내장 전역과 겹치는 이름(Scheduler 같은)을 쓰면 typeof 가드가 늘 통과한다(#103).
    검사: checks/sim-purikura-ui.js — 만들 때 배선 · 여닫기 · 회사원 모드 문 · BGM 재우기 · 세션 콜백 · app.js 배선 · html 순서.
          화면 규약은 sim-purikura-stage · -deco · -fish · sim-pk-fit · sim-fix-0923 이 이 파일을 읽어 본다. */
@@ -31,7 +33,7 @@ const mhHooks = TwMyHomeHooks;                 // 🪝 마이홈 고리판(myhom
 const officeMode = deps.officeMode;            // 🏢 회사원 모드 — app.js 의 officeMode(다시 대입되는 let)
 const _lsSet = deps.lsSet;                     // 설정 저장(실패하면 그쪽이 한 번 알린다) — 음악 끄기 기억
 const Presence = deps.presence;                // 방 접속 — app.js 에서 이 모듈보다 뒤에 선언되는 const
-const addRunLights = deps.addRunLights;   // 💡 조명 — 메인 씬과 같은 예산(shared/light-tone.js · 손으로 적지 않는다)
+const _mkFrontFill = deps.mkFrontFill;
 const findMySeat = deps.findMySeat;
 const setFaceMap = deps.setFaceMap;
 const animateRig = deps.animateRig;
@@ -42,6 +44,10 @@ const _trickArmBase = deps.trickArmBase;
 const _trickArmSpread = deps.trickArmSpread;
 const _trickLegPose = deps.trickLegPose;
 const seats = deps.seats;                      // 좌석 배열(같은 배열 — 다시 대입되지 않는다)
+const _MAIN_LIGHT_COL = deps.mainLightCol;     // 💡 조명 예산 — 메인 씬과 같은 값(손으로 적지 않는다)
+const _MAIN_LIGHT_INT = deps.mainLightInt;
+const _KEY_LIGHT_MUL = deps.keyLightMul;
+const _FILL_LIGHT_MUL = deps.fillLightMul;
 const ANIMAL_HAND_REST = deps.animalHandRest;
 const SPINE_AXIS = deps.spineAxis;             // 🦴 리그 상수 넷 — app.js 에서 이 모듈보다 뒤에 선언되는 const
 const HEAD_AXIS = deps.headAxis;
@@ -56,7 +62,7 @@ const SHAKE_ARM_DROOP = deps.shakeArmDroop;
      ① 캡처는 메인 렌더러로 못 한다.
         renderer 에 preserveDrawingBuffer 가 없어서 toDataURL() 이 빈 그림을 준다.
         그래서 무대는 **전용 씬 + 전용 렌더러**다(_thumbRenderer·cRenderer 와 같은 방식).
-        조명은 메인 씬과 같은 실행 화면 조명 한 벌(addRunLights — shared/light-tone.js)을 쓴다 —
+        조명은 메인 씬의 예산(_MAIN_LIGHT_INT · _KEY_LIGHT_MUL · _FILL_LIGHT_MUL)을 그대로 쓴다 —
         여기에 손으로 적은 숫자를 두면 조명 예산이 바뀔 때 이 화면만 조용히 어두워진다.
 
      ② 무대 비율 = 컷 비율.
@@ -196,13 +202,13 @@ function _pkP(){ return (typeof Purikura !== 'undefined') ? Purikura : null; }
 
 /* 서버 시각(세션 포트 — 방 포트 시계) — 카운트다운 · 필터 잠금이 모두 이 값에서 센다 */
 function _pkNow(){ const pk = _purikura(); return pk ? pk.serverNow() : Date.now(); }
-/* 자리 잡기 거절(세션 포트 reason) → 안내 */
+/* 자리 잡기가 안 된 까닭(세션 포트 reason) → 안내. 이 셋은 «실패» 가 아니라 지금 상태라 번호 없이 알린다. 그 밖(timeout · notReady · error)은 E-PK-02 */
 const PK_OPEN_REFUSED = Object.freeze({
   busy: '📷 지금 촬영 중이에요 — 끝나면 들어갈 수 있어요',
   full: '자리가 다 찼어요 (4명까지)',
-  notReady: '서버에 연결된 뒤 쓸 수 있어요',
+  notInRoom: '방에 들어간 뒤에 쓸 수 있어요',
 });
-/* 🪑 자리 배치가 바뀌었다(세션 포트) — 방장 판정은 세션 포트가 이미 했다(살아 있는 자리 중 가장 작은 번호) */
+/* 🪑 자리 배치가 바뀌었다(세션 포트가 통째로 보낸다) — 방장은 서버가 정한 meta.host 를 세션 포트가 자리에 맞춰 둔다 */
 function _pkOnSlots(o){
   if(!PK.listening) return;
   PK.members = o || {};
@@ -223,14 +229,18 @@ async function openPurikura(){
   /* 정원은 문 앞에서 한 번 읽는다. 차감은 「촬영 시작」이다 —
      여기서 깎으면 로비만 구경하다 닫는 사람이 하루치를 갉아먹는다. */
   let q; try{ q = await pk.checkQuota(); }
-  catch(e){ console.warn('[스티커사진] 정원 확인 실패', e);
-            toast('📷 지금은 확인할 수 없어요 — 잠시 뒤에 다시 눌러 주세요'); return; }
+  catch(e){ TwErrorCodes.notify('E-PK-01', e); return; }      // 못 읽음 ≠ 0회 남음 — 닫힘 안내와 다르게 알린다
   if(!q.ok){ toast(q.message); return; }
 
-  /* 📷 이미 촬영 중이면 못 들어간다(busy) — 카운트다운이 도는 중에 사람이 늘면 그 컷만 인원이 다르다. 판정은 서버(ROOM_PHOTO_BUSY). */
+  /* 📷 이미 촬영 중이면 못 들어간다(busy) — 카운트다운이 도는 중에 사람이 늘면 그 컷만 인원이 다르다. 판정은 서버(ROOM_PHOTO_BUSY).
+     ★ 꾸미는 중(서버 state 'done')이면 방이 다시 열린다 — 촬영이 이미 끝난 국면이라 막을 이유가 없다. 방장이 나가면 저절로 풀린다. */
   let r; try{ r = await pk.open(room, { userCode: myCode() }); }
-  catch(e){ console.warn('[스티커사진] 자리 잡기 실패', e); r = null; }
-  if(!r || !r.ok){ toast(PK_OPEN_REFUSED[r && r.reason] || '지금은 들어갈 수 없어요'); return; }
+  catch(e){ console.warn('[스티커사진] 자리 잡기 실패', e); r = { ok:false, reason:'error' }; }
+  if(!r || !r.ok){
+    const why = PK_OPEN_REFUSED[r && r.reason];
+    if(why) toast(why); else TwErrorCodes.notify('E-PK-02', r && r.reason);
+    return;
+  }
 
   PK.open = true; PK.room = room; PK.slot = r.slot; PK.host = !!r.host;
   PK.shots = []; PK.cutIdx = -1; PK.state = 'lobby'; PK.up = []; PK.frameSrc = {}; PK.keys = {};
@@ -247,11 +257,8 @@ async function openPurikura(){
 
   /* 창이 열려 있는 동안만 남은 횟수를 지켜본다(창을 연 사람만 = 월 9원). */
   PK.unwatchQuota = pk.watchQuota(_pkSetQuota);
-  /* 🪑 자리 · 프레임은 세션 포트가 보내 준다(_pkOnSlots · _pkOnFrames) — 듣는 동안만(꾸미기로 넘어가면 끊는다).
-     자리를 잡는 답(photoWelcome)에 실려 온 첫 값은 창을 열기 전에 도착했으니 여기서 한 번 그린다. */
+  /* 🪑 자리 · 프레임 · 판은 세션 포트가 보내 준다(onSlots · onFrames · onMeta) — 듣는 동안만(꾸미기로 넘어가면 끊는다). */
   PK.listening = true;
-  _pkOnSlots(pk.slotsNow());
-  _pkOnFrames(pk.framesNow());
 
   /* 방장이면 지금 설정을 방에 알린다. 아니면 방장이 정해 둔 것을 받는다. */
   /* ⚠️ 창을 여는 길목이라 토스트를 띄우지 않는다 — 유저가 아직 아무것도 안 골랐는데
@@ -283,6 +290,10 @@ async function openPurikura(){
      예전에는 루프가 아예 시작되지 않아 «무대가 까맣다»가 됐다(제보 2026-08-29).
      이 순서면 최악이라도 «단추가 덜 그려진다»에서 멈춘다 — 화면이 사라지지는 않는다. */
   _pkPaintAll();
+  /* 자리를 잡는 답(photoWelcome)에 실려 온 첫 값은 창을 열기 전에 도착해 흘렀으니, 무대가 선 뒤 여기서 한 번 그린다. */
+  _pkOnSlots(pk.slotsNow());
+  _pkOnFrames(pk.framesNow());
+  _pkOnMeta(pk.metaNow());
 }
 
 /* ── 닫는 문 ──
@@ -586,14 +597,17 @@ function _pkBgStr(){ return _pkP().bgJoin(PK.bgSel); }
      0번 자리를 가져간다. 그때 옛 방장의 계층은 아직 slot===0 이라 스스로를 방장으로 알지만
      규칙(slots/0/uid === newData.host)은 거부한다.
      ⚠️ 여기는 그 사고를 **막지 않는다. 보이게만 한다.** 뿌리는 at 갱신과 slot 재판정이다.
-   ⚠️ 던지지 않는다 — 여기서 다시 throw 하면 처리 안 된 거부로 남아 결국 같은 일이 된다. */
+   ⚠️ 던지지 않는다 — 여기서 다시 throw 하면 처리 안 된 거부로 남아 결국 같은 일이 된다.
+   ★ 0.13 — 서버가 거절하면(방장이 바뀜 등) 약속이 아니라 세션 포트의 onRefused 로 온다(_pkOnRefused). 여기는 «보내지 않았다(false)» 만 본다. */
 function _pkWriteGuard(p, whenFalse){
   if(!p || typeof p.then !== 'function') return;
-  p.then(ok=>{ if(!ok && whenFalse) toast(whenFalse); })
-   .catch(e=>{
-     console.warn('[스티커사진] 방 설정 쓰기가 거부됐어요', e);
-     toast('지금은 설정을 바꿀 수 없어요 — 방장이 바뀌었을 수 있어요');
-   });
+  p.then(ok=>{ if(!ok && whenFalse) toast(whenFalse); });   // 세션 포트의 보내기는 reject 하지 않는다 — 서버 거절은 onRefused
+}
+/* 서버가 방장 일을 거절했다(세션 포트 onRefused) — 방장이 바뀌었는데 화면이 아직 모르는 때. 프레임은 따로 알린다(나한테만 보이는 상태) */
+function _pkOnRefused(o){
+  if(!PK.open || !o) return;
+  if(o.ref === 'photoFrame') TwErrorCodes.notify('E-PK-05', o.code);
+  else TwErrorCodes.notify('E-PK-04', o.code);
 }
 
 function _pkPushConfig(){
@@ -611,6 +625,8 @@ function _pkClearUp(){ PK.up = []; }
 /* 규격(방향·컷 수)이 바뀌면 **서버 목록도 같이 비운다.**
    ⚠️ 안 비우면 남은 사람들 화면에만 옛 규격 그림이 늘어난 채로 남는다 — 방장은 자기 것을
      지웠는데 노드는 그대로라, 저쪽에는 다시 그릴 계기가 영영 안 온다.
+   ★ 지우는 모양은 setFrameUrl 이 이미 쓰는 것과 같다(키에 null 을 얹는 update 한 번).
+     규칙의 .validate 는 삭제에는 안 돌므로 URL 모양 검사에 걸리지 않는다.
    ⚠️ 실패해도 삼키고 넘어간다 — 통신이 흔들렸다고 규격 변경 자체를 막을 이유는 없다. */
 function _pkWipeFrames(){
   if(!PK.host || !PK.room) return;
@@ -739,11 +755,13 @@ function _pkPickFrame(i){
         PK.up[i] = { cv:cv, kb: b ? Math.round(b.size/1024) : 0, url:null };
         _pkPaintUp(); _pkSyncFrame();
         try{
+          if(!myCode()) throw new Error('내 코드가 없어 프레임 경로를 못 만든다');
           const dataUrl = cv.toDataURL('image/webp', 0.9);
-          const path = 'purikura/'+PK.room+'/'+myCode()+'/'+i+'.webp';   // 서버는 방장(userCode) 경로만 받는다
+          const path = 'purikura/'+PK.room+'/'+myCode()+'/'+i+'.webp';   // 서버는 방장(userCode) 경로의 주소만 받는다
           const u = await firebaseAPI.pkUploadFrame(path, dataUrl);
           PK.up[i].url = u;
-          const pk = _purikura(); if(pk) await pk.setFrameUrl(i, u);
+          const pk = _purikura();
+          if(!(pk && await pk.setFrameUrl(i, u))) throw new Error('프레임 주소를 방에 알리지 못했다');   // 방장이 아니게 됐거나 연결이 없음
         }catch(e){
           /* ⚠️ 여기서 dataURL 로 폴백하지 말 것 — 그 값이 RTDB 로 가면 다운로드 단가가 40배다.
              (firebase-init.js 의 pkUploadFrame 주석 참고) 못 올렸으면 나만 보고 넘어간다. */
@@ -804,7 +822,7 @@ function _pkPaintSlots(){
       + '<div class="pk-rl">' + (m ? (i===_pkHostSlot() ? '👑 시작 권한' : '참가') : '먼저 온 순서') + '</div>';
     el.appendChild(d);
   }
-  /* 👑 방장 판정은 **계층 하나에서만** 나온다(isHost = 살아 있는 자리 중 가장 작은 번호).
+  /* 👑 방장 판정은 **계층 하나에서만** 나온다(isHost = 서버가 보낸 meta.host 가 내 코드).
      [옛 버그] 예전에는 여기서 slots[0].uid 를, 계층에서는 slot===0 을 각각 봤다. 근거가 둘이라
        자리가 재배치되면 갈렸고, 그때 화면은 「방장」이라는데 서버는 거부하는 상태가 됐다.
        그 거부가 조용해서(_pkWriteGuard 이전) 「내가 고른 배경이 남한테 적용이 안 된다」로 나왔다. */
@@ -849,7 +867,10 @@ function _pkBuildStage(){
   /* 💡 조명은 메인 씬과 «같은 예산»을 쓴다.
      ⚠️ 여기에 손으로 적은 숫자를 두면 예산이 바뀔 때 이 화면만 어두워진다 —
        썸네일 렌더러가 실제로 겪었던 사고다(_ensureThumbRig 주석 참고). */
-  addRunLights(PK.scene, { keyPos: [1, 2.5, 2] });
+  PK.scene.add(new THREE.AmbientLight(_MAIN_LIGHT_COL, 0.95 * _MAIN_LIGHT_INT));
+  const key = new THREE.DirectionalLight(_MAIN_LIGHT_COL, 1.0 * _MAIN_LIGHT_INT * _KEY_LIGHT_MUL);
+  key.position.set(1, 2.5, 2); PK.scene.add(key);
+  PK.scene.add(_mkFrontFill(_MAIN_LIGHT_INT * _FILL_LIGHT_MUL));
   const P = _pkP();
   PK.cam = new THREE.PerspectiveCamera(P.CAM_FOV, 1, 0.05, 100);
   /* 카메라는 «눈높이보다 낮은 정면»에 고정이다. 캐릭터가 -z 로 서고, 다가오면 그것만으로 커진다.
@@ -1085,12 +1106,11 @@ function _pkSyncFrame(){
      다시 붙여야 하고, 그 과정에서 실행 화면과 조금씩 달라진다. 보이는 그대로가 맞다.
    ⚠️ 머티리얼은 반드시 복제할 것 — 원본을 물들이면 실행 화면 캐릭터까지 같이 바뀐다. */
 /* 자리 칸의 uid 는 userCode — 좌석의 friendUserId(방 포트가 멤버 userCode 를 넣는다)와 견준다.
-   ⚠️ friendId(방 멤버 키)와 견주면 영영 안 맞아 무대가 빈다 — 오류도 경고도 없이. */
+   ⚠️ friendId(방 멤버 키)와 견주면 영영 안 맞아 남의 좌석을 못 찾는다 — 무대가 비는데 오류도 경고도 없고,
+     참가자 칸은 slots 만 보고 그려 이름은 멀쩡히 뜬다(그래서 통신 문제로 오해하게 된다). */
 function _pkSeatOf(uid){
   if(uid === myCode()) return findMySeat();
-  return seats.find(s=>s.remote && s.friendUserId && s.friendUserId === uid)
-      || seats.find(s=>s.remote && s.friendId === uid)
-      || null;
+  return seats.find(s=>s.remote && s.friendUserId && s.friendUserId === uid) || null;
 }
 /* 무대에 세우기 전에 «가만히 서 있는» 자세로 맞춘다.
    ★ 왜 필요한가 — 복제는 «지금 그 순간의 뼈 각도»를 그대로 가져온다. 그런데 캐릭터는 자리에서
@@ -1330,7 +1350,9 @@ function _pkCloneChar(seat, out){
      실행 화면(measureCharBox)과 같은 규칙. 파츠 없는 캐릭터는 두 상자가 같으므로 한 픽셀도 안 바뀐다. */
   const bb = _pkVisibleBox(g, true);              // ⚠️ setFromObject 를 쓰면 숨은 placeholder 가 섞인다
   const h = Math.max(0.2, bb.max.y - bb.min.y);
-  /* 🐾 동물 배율은 계층(P.ANIMAL_H)이 정한다 — 여기에 숫자를 적으면 무대 크기가 두 곳에서 정해진다. */
+  /* 🐾 동물은 조금 더 크게 세운다 — 귀 끝까지 1.7 에 맞춰지는 바람에 얼굴과 몸이 사람보다
+     작게 남기 때문이다. 배율은 계층(P.ANIMAL_H)이 정한다. 여기에 숫자를 적으면 «무대에서
+     보이는 크기»가 두 곳에서 정해져서, 나중에 한쪽만 고쳐진다. */
   const grow = (seat.charDef && seat.charDef.animal) ? _pkP().ANIMAL_H : 1;
   const s = _pkP().CHAR_H * grow / h;
   g.scale.multiplyScalar(s);
@@ -1866,15 +1888,27 @@ function _pkPaintDots(){
 async function _pkStart(){
   const pk = _purikura(); if(!pk || !PK.host) return;
   const sb = _pkEl('pkStartBtn'); if(sb) sb.disabled = true;
-  const r = await pk.start();                 // takeQuota 가 여기서 돈다 — 정원 차감은 이 순간이다
+  const r = await pk.start();                 // 서버가 정원 한 칸을 쓰는 순간이다(photoStart → photoStarted)
   if(!r || !r.ok){
     if(sb) sb.disabled = false;
-    toast((r && r.message) || '지금은 시작할 수 없어요');
+    /* 정원을 다 쓴 것(closed)은 실패가 아니라 «오늘은 닫음» 안내 — 그 밖(정원을 못 물음 · 방장이 바뀜 · 시간 초과 …)은 번호를 붙여 까닭과 함께 알린다 */
+    if(r && r.reason === 'closed') toast(r.message);
+    else TwErrorCodes.notify('E-PK-03', r && r.reason, r && r.message);
     return;
   }
+  _pkBeginShooting();         // ★ 바로 세지 않는다 — 방장이 구도를 맞추고 📷 를 누를 때 시작한다
+}
+/* 촬영 국면으로 — 찍은 컷을 비우고 첫 컷을 «기다리는 중» 으로(정상 시작 · 늦게 알려 온 시작이 같이 부른다) */
+function _pkBeginShooting(){
   PK.shots = [];
   _pkEnterShooting();
-  _pkWaitCut(0);              // ★ 바로 세지 않는다 — 방장이 구도를 맞추고 📷 를 누를 때 시작한다
+  _pkWaitCut(0);
+}
+/* 시간 초과로 접었던 촬영 시작이 서버에서는 됐다(세션 포트 onLateStart) — 방장 화면이 시작한 것처럼 이어 간다. 서버가 원본이다.
+   ⚠️ 이미 이어 가는 중(기다리는 컷 · 세는 중)이면 건드리지 않는다 — 정상 시작은 이 길을 안 지난다. */
+function _pkOnLateStart(){
+  if(!PK.open || !PK.host || PK.cutIdx >= 0 || PK.waitCut >= 0) return;
+  _pkBeginShooting();
 }
 function _pkEnterShooting(){
   PK.state = 'shooting';
@@ -2176,8 +2210,8 @@ function _pkOpenDeco(){
   /* 📷 여기서 **자리를 놓는다** — 그래야 방이 다시 열린다.
      ★ 방을 여는 것만으로는 모자라다. 방장이 slot 0 을 붙잡은 채 꾸미기를 하면, 새로 들어온
        사람은 방장이 못 되어 「촬영 시작」을 아무도 못 누른다.
-     ★ 마지막 사람이 놓는 순간 pk.release 가 _photo 노드를 통째로 치운다 — 그것이 곧 초기화다.
-     ⚠️ 구독을 **먼저** 뗀다. 안 떼면 노드가 지워지는 순간 _pkOnFrames 가 빈 목록을 받아
+     ★ 마지막 사람이 놓으면 서버가 세션을 지운다 — 그것이 곧 초기화다.
+     ⚠️ 듣기를 **먼저** 끈다. 안 끄면 세션이 비는 순간 _pkOnFrames 가 빈 목록을 받아
        PK.up 을 지우고, 참가자 칸에는 다음 팀 사람들이 뜬다. 꾸미기는 통신이 없는 화면이다.
      ⚠️ 시트는 이 위에서 이미 다 구웠다(_pkFinish 가 _pkComposeSheet 를 await 한다).
        프레임도 사진도 전부 손에 있으므로 지금 놓아도 잃을 것이 없다. */
@@ -2642,6 +2676,8 @@ return {
   onPeers(p){ PK.peers = p || {}; },
   onSlots: _pkOnSlots,
   onFrames: (o)=>{ if(PK.listening) _pkOnFrames(o || {}); },
+  onRefused: _pkOnRefused,
+  onLateStart: _pkOnLateStart,
   onMeta: _pkOnMeta,
   onPeerEvent: _pkOnPeerEvent,
   onShot: _pkOnShot,

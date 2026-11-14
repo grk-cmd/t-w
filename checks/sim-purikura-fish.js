@@ -3,9 +3,8 @@
    ・2절: 좌표표 — 꽉 찬 어안(귀퉁이 = 귀퉁이) · 가운데 약 3.6배 · 비율로만 계산(무대 · 사진이 같은 모양) · (w,h)별 캐시
    ・3절: 다시 놓기 — 이웃 넷 섞기(계단 없음) · 가장자리 살짝 어둡게 · 투명도는 그대로
    ・4절: applyFilter 한 갈래 — 태그 붙은 딴 캔버스 · willReadFrequently · 결과 판 재사용
-   ・5절: 업데이트 안 한 참가자 — 자리에 fx · 방장에게 «○○님은 업데이트가 필요해서 필터 없이 찍혀요» ·
-          서버 규칙이 옛 판(fx 를 모름)이면 fx 없이 다시 잡는다 — 안 그러면 스티커사진 버튼이 반응 없음(2026-10-09 제보)
-   ・6절: 규칙 — meta/filter 에 fish · slots/$i 에 fx
+   ・5절: 업데이트 안 한 참가자 — 자리 잡을 때 내 필터 판(fx)을 서버에 알림(photoOpen) · 방장에게 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»
+   ・6절: (옛 Firebase 규칙 — 앱은 더 안 쓴다. 규칙을 걷는 묶음이 이 절도 걷는다) meta/filter 에 fish · slots/$i 에 fx
    ・7절: app.js · html 배선 — 줄 일곱 칸 · 자리가 바뀌면 안내를 다시
    ⚠️ 실제 무대 · 사진은 2026-10-08 헤드리스 크로미움에서 확인했다.
    [실행] purikura-net.js · purikura-rt.js · firebase-database-rules.json · app.js · purikura-ui.js · desk-companion-prototype.html 이 있는 폴더에서. */
@@ -107,14 +106,13 @@ sec('── 5. 업데이트 안 한 참가자', () => {
   chk(JSON.stringify(P.filterLaggards(slots, 'fish', 'me')) === '["옛판"]', 'fx 가 없는 자리만 «업데이트 필요»');
   chk(P.filterLaggards(slots, 'mono', 'me').length === 0 && P.filterLaggards(slots, 'none', 'me').length === 0, '옛 앱도 아는 필터면 아무도 안 알린다');
   chk(P.filterLaggards(null, 'fish', 'me').length === 0, '자리를 아직 못 받았으면 빈 목록');
-  /* 세션 포트 — 자리를 잡을 때 내 앱의 필터 판(fx)을 싣고, 받은 자리에도 fx 가 실려 온다(옛 앱 자리는 fx 없음 → 0) */
-  const RT = (() => { const m = { exports: {} }; new Function('module', 'window', SRC['purikura-rt.js'])(m, undefined); return m.exports; })();
+  /* 자리를 잡을 때 내 앱의 필터 판(fx)을 서버에 알린다 — 서버가 자리 칸에 적어 모두에게 돌려준다(photoWelcome · photoSlots) */
   const sent = [];
-  const s1 = RT.createPhotoSession({ hub: { onMessage(){}, on(){}, send(m){ sent.push(m); return true; } }, api: { get: () => Promise.resolve({}) }, P, serverNow: () => 0, setTimeout: () => 0, clearTimeout: () => {} });
-  s1.open('R1', { userCode: 'me' });
-  chk(sent.length === 1 && sent[0].t === 'photoOpen' && sent[0].fx === P.FILTER_REV, '자리를 잡을 때 내 앱의 필터 판(fx)을 싣는다');
-  const wire = RT.slotsFromWire([{ userCode: 'me', name: '방장', fx: 1 }, { userCode: 'u1', name: '새판', fx: 1 }, { userCode: 'u2', name: '옛판' }, null]);
-  chk(wire[1].fx === 1 && wire[2].fx === 0 && JSON.stringify(P.filterLaggards(wire, 'fish', 'me')) === '["옛판"]', '★ 서버가 준 자리 — fx 가 없는 자리(옛 앱)만 «업데이트 필요»');
+  const hub = { onMessage(){}, on(){}, onState(){}, isReady: () => true, send(m){ sent.push(m); return true; } };
+  const RT = { exports: {} }; new Function('module', 'window', SRC['purikura-rt.js'])(RT, undefined);
+  const sess = RT.exports.createPhotoSession({ hub, api: { get(){} }, P, serverNow: () => 0 });
+  sess.open('R1', { userCode: 'me' });
+  chk(sent.length === 1 && sent[0].t === 'photoOpen' && sent[0].fx === P.FILTER_REV && P.FILTER_REV >= 1, '★ 자리를 잡을 때 내 필터 판(fx)을 photoOpen 에 싣는다 — 안 실으면 모든 참가자가 «업데이트 필요» 로 보인다');
 });
 
 sec('── 6. 규칙', () => {
@@ -136,8 +134,9 @@ sec('── 7. app.js · html', () => {
   chk(/P\.filterLaggards\(PK\.members, PK\.filter, myCode\(\)\)/.test(A) && /'님은 업데이트가 필요해서 필터 없이 찍혀요'/.test(A), '방장 화면에 «○○님은 업데이트가 필요해서 필터 없이 찍혀요»');
   chk(/const lag = \(PK\.host && /.test(A), '안내는 방장에게만');
   chk(/_pkPaintSlots\(\);\s*_pkPaintFilterNote\(\);/.test(A), '자리가 바뀌면 안내를 다시 쓴다(축소판은 다시 안 그린다)');
-  chk(/let r; try\{ r = await pk\.open\(room, \{ userCode: myCode\(\) \}\); \}\s*catch\(e\)\{ console\.warn\('\[스티커사진\] 자리 잡기 실패', e\); r = null; \}/.test(A),
-    '자리 잡기가 던져도 «지금은 들어갈 수 없어요» 로 알린다(조용히 멈추지 않는다)');
+  chk(/let r; try\{ r = await pk\.open\(room, \{ userCode: myCode\(\) \}\); \}\s*catch\(e\)\{ console\.warn\('\[스티커사진\] 자리 잡기 실패', e\); r = \{ ok:false, reason:'error' \}; \}/.test(A)
+    && /TwErrorCodes\.notify\('E-PK-02'/.test(A),
+    '자리 잡기가 던져도 E-PK-02 로 알린다(조용히 멈추지 않는다)');
   chk(/<div class="pk-bgrow pk-frow" id="pkFilterRowLobby">/.test(HTML) && /<div class="pk-bgrow pk-frow" id="pkFilterRow">/.test(HTML), '로비와 촬영 중 필터 줄이 같은 모양');
   chk(/\.pk-bgrow\.pk-frow\{grid-template-columns:repeat\(7,1fr\)/.test(HTML), '필터 줄은 일곱 칸 한 줄(뒷배경은 여섯 칸 그대로)');
 });

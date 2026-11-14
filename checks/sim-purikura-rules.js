@@ -2,6 +2,10 @@
    실행: node sim-purikura-rules.js
         (firebase-database-rules.json · purikura-net.js 와 같은 폴더에서)
 
+   ⚠️ 0.13 — 앱은 이 규칙 노드(photoQuota · rooms/$room/_photo)를 더 쓰지 않는다. 세션 · 정원은 서버(realtime · API)가 가지고,
+     앱의 pk* 어댑터는 프레임 올리기(pkUploadFrame) 하나만 남았다(§6 이 그걸 지킨다). 규칙 파일에서 두 노드를 걷는 묶음(E)이
+     §1~§5 와 이 파일을 같이 걷는다 — 그때까지는 «옛 앱이 쓰던 규칙이 안 깨졌다» 를 지킨다.
+
    [왜 이 검사가 따로 필요한가]
      sim-purikura-net.js 는 purikura-net.js 만 본다. 가짜 서버를 쓰기 때문에 **규칙은 안 탄다.**
      그래서 그 검사가 전부 통과해도, 규칙이 병합되면서 어긋나면 실제 서버에서는
@@ -109,7 +113,7 @@ say('· §2 하루 정원 규칙을 실제로 굴려본다 (요금을 정하는 
 
   const now = Date.UTC(2026, 7, 29, 3, 0, 0);          // 2026-08-29 12:00 KST
   const day = Purikura.kstDay(now);
-  const CAP = Purikura.CAP_PER_DAY;
+  const CAP = 400;   // 규칙 파일의 상한(서버 정원과 같은 값 — 규칙을 걷으면 이 검사도 걷는다)
 
   chk(run(V, { day, n: 1 }, null, now), '아무도 안 찍었을 때 첫 장이 통과한다');
   chk(run(V, { day, n: 6 }, { day, n: 5 }, now), '정확히 1 증가는 통과한다');
@@ -120,7 +124,7 @@ say('· §2 하루 정원 규칙을 실제로 굴려본다 (요금을 정하는 
   chk(run(V, { day, n: CAP }, { day, n: CAP - 1 }, now),
       '마지막 ' + CAP + '번째 한 장은 통과한다');
   chk(!run(V, { day, n: CAP + 1 }, { day, n: CAP }, now),
-      '★ ' + CAP + '을 넘기는 쓰기는 거부된다 — 규칙의 상한과 purikura-net.js 의 CAP_PER_DAY 가 같다');
+      '★ ' + CAP + '을 넘기는 쓰기는 거부된다 — 규칙의 상한이 서버 정원(400)과 같다');
 
   chk(run(V, { day, n: 1 }, { day: day - 86400000, n: CAP }, now),
       '★ 어제 다 썼어도 오늘은 1 부터 다시 시작한다 (자정에 되살아난다)');
@@ -219,15 +223,16 @@ say('· §5 기존 앱이 쓰던 길이 안 막혔는가 (잠그는 사고가 �
 }
 
 /* ══════════════════════════════════════════════════════════════════ */
-say('· §6 앱은 이 규칙 자리를 직접 쓰지 않는다 — 세션 · 정원은 세션 포트(purikura-rt.js)');
+say('· §6 Firebase 길이 줄었는가 — 프레임 올리기 하나만 남는다');
 {
-  /* 0.13 은 스티커사진 세션 · 하루 정원을 서버가 가진다. 앱에 Firebase 쓰기 길이 남으면 정원을 두 곳이 세게 된다. */
+  /* 세션 · 정원은 realtime · API 로 갔다(purikura-rt.js). firebase-init.js 에 pk* 어댑터가 되살아나면 앱이 다시 옛 길을 부를 수 있다. */
   const src = fs.existsSync('firebase-init.js') ? fs.readFileSync('firebase-init.js', 'utf8') : '';
-  const gone = ['pkGet', 'pkSet', 'pkUpdate', 'pkRemove', 'pkTransaction', 'pkOnValue', 'pkOnDisconnectRemove', 'pkOnDisconnectCancel'];
-  const left = gone.filter(n => src.indexOf(n + '(') >= 0);
-  chk(src.length > 0 && left.length === 0, '★ firebase-init.js 에 스티커사진 세션 어댑터가 없다' + (left.length ? ' — 남음: ' + left.join(', ') : ''));
-  chk(!/photoQuota|_photo/.test(src.replace(/\/\*[\s\S]*?\*\//g, '')), '  photoQuota · _photo 경로를 읽거나 쓰지 않는다(주석 빼고)');
-  chk(/async pkUploadFrame\(path, dataUrl\)\{/.test(src), '  프레임 그림 올리기(Storage)만 남았다');
+  chk(!!src, 'firebase-init.js 를 읽었다');
+  const left = [...src.matchAll(/^\s{4}(?:async\s+)?(pk[A-Z]\w*)\(/gm)].map(m => m[1]);
+  chk(left.length === 1 && left[0] === 'pkUploadFrame', '★ pk* 어댑터는 pkUploadFrame 하나뿐이다' + (left.length === 1 ? '' : ' — 지금: ' + left.join(', ')));
+  const i = src.indexOf('async pkUploadFrame(');
+  const up = i >= 0 ? src.slice(i, i + 600) : '';
+  chk(/startsWith\('data:'\)/.test(up) && /getDownloadURL/.test(up) && !/return dataUrl/.test(up), '  pkUploadFrame 은 dataURL 을 받아 Storage 주소만 돌려준다(실패를 삼켜 dataURL 을 돌려주지 않는다)');
 }
 
 console.log(fail ? '\n✗ ' + fail + '곳 실패' : '\n전부 통과 ✅ — 병합된 규칙이 요금과 앱 둘 다 지키고 있다');

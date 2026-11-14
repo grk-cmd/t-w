@@ -1,6 +1,28 @@
 # 📷 `purikura/` — 스티커사진 모듈 사용 안내
 
-스티커사진 모듈의 쓰는 법을 모듈마다 한 절씩 적는다. 순수 계산은 `purikura-net.js`(`window.Purikura`), 통신은 세션 포트 `purikura-rt.js`(`window.TwPurikuraRt`), 화면은 `purikura-ui.js`(`window.TwPurikuraUi` — app.js 가 원래 자리에서 `createPurikuraUi(deps)`).
+스티커사진 모듈의 쓰는 법을 모듈마다 한 절씩 적는다. 순수 계산(시트 기하 · 필터 · 좌표 인코딩 · 하루 경계 문구)은 `purikura-net.js`(`window.Purikura`), 서버와의 통신(세션 · 정원)은 `purikura-rt.js`(`window.TwPurikuraRt`), 화면은 `purikura-ui.js`(`window.TwPurikuraUi` — app.js 가 원래 자리에서 `createPurikuraUi(deps)`).
+
+## `purikura-rt.js` — 📷 스티커사진 세션 포트(realtime 연결 하나)
+
+**책임** — 세션(자리 넷 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터)과 하루 정원은 서버가 가진다. 이 모듈은 `photo*` 메시지를 보내고 받아 화면이 읽던 모양으로 옮긴다. 방장은 서버가 정한다 — 판(meta)의 `host`(방장 userCode)가 원본이고 바뀌면 서버가 `photoMeta` 를 다시 보낸다(앱이 번호를 다시 계산하지 않는다).
+
+**만드는 법** — app.js `_purikura()` 한 곳(세션 하나 · 콜백 한 벌):
+
+```js
+const session = TwPurikuraRt.createPhotoSession({
+  hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
+  serverNow: ()=>…,                       // 방 포트의 서버 시각 — 카운트다운 · 필터 잠금이 여기서 센다
+  onPeers, onMeta, onEvent, onShot,       // 남의 좌표 · 판 · 사건 · 셔터
+  onSlots, onFrames,                      // 자리 배치 · 프레임 목록 — 서버가 통째로 보내 준다
+  onRefused,                              // 서버가 방장 일을 거절했다({ ref, code })
+  onLateStart,                            // 시간 초과로 접은 촬영 시작이 서버에서는 됐다 — 방장 화면이 이어 간다
+});
+```
+
+**내놓는 것** — `open(방, { userCode })` → `{ ok, slot, host }` | `{ ok:false, reason }`(`busy` 촬영 중 · `full` 넷이 참 · `notInRoom` 방 밖 · `notReady` 연결 없음 · `timeout` · `error`) · `close()` · `release()`(꾸미기로 넘어갈 때 — 같은 일) · `isHost()` · `mySlot()` · `hostSlot()` · `setConfig` · `setFilter` · `setCam` · `setCut(i, 0|시각)` · `setDone` · `setFrameUrl(i, url|null)` · `fireShutter(n)`(방장 일 — 방장이 아니면 `false`) · `start()` → `{ ok, n, left, nth }` | `{ ok:false, reason, message }`(`closed` 정원 다 씀 · `unavailable` 정원을 못 물음 · `not-host` · `notInRoom` · `notReady` · `timeout` · `error`) · `sendPos` · `sendEvent` · `checkQuota()`(`GET /v1/rooms/photo-quota` — 못 읽으면 던짐) · `watchQuota(cb)`(창이 열려 있는 동안만 — 알림 `photoQuota`가 오면 다시 GET) · `slotsNow` · `framesNow` · `metaNow` · `peersNow` · `serverNow`.
+
+**함정** — ⓪ 요청마다 답은 보낸 순서대로 하나다 — 시간 초과된 open · start 는 줄에 stale 로 남겨, 그 늦은 답이 다음 요청의 답으로 읽히지 않게 한다(끊기면 줄을 비운다). ① 자리 칸은 `{ uid, name, fx }` 이고 `uid` 는 userCode(연결의 나 · 방 포트 `myCode`) — 좌석의 `friendUserId` 와 견준다. ② 연결이 끊기거나 서버가 «방 밖» 이라고 답하면 세션을 버리고 `onSlots({})` 로 알린다 — 혼자 다시 들어가지 않는다(창을 닫았다 다시 열면 서버가 같은 자리를 돌려준다). ③ 방 코드는 싣지 않는다 — 서버가 지금 방으로 정한다. ④ `setCut` 의 시각은 서버가 찍는다(앱 시계를 싣지 않는다). ⑤ 프레임 그림은 Storage 에 올리고 주소만 `setFrameUrl` — 경로는 `purikura/{방}/{방장 userCode}/{i}.webp` 여야 서버가 받는다.
+검사: `checks/sim-purikura-rt.js`(가짜 연결 · 서버 규약 대조 · 깨 보기).
 
 ## `purikura-ui.js` — 화면에 넣는 값
 
@@ -10,30 +32,6 @@
 
 **함정** — 판 모양 표(세로형 · 가로형 · 컷 수)와 이 기기 카메라 사진(canvas `data:`)은 검사 예외(`checks/sim-safe-html.js` ALLOW)에 이유와 함께 있다. 새로 남의 값을 그리면 예외에 적지 말고 `TwSafeHtml` 로 감싼다.
 검사: `checks/sim-safe-html.js` · `checks/sim-purikura-ui.js`.
-
-## `purikura-rt.js` — 📷 세션 포트(realtime 연결 하나)
-
-**책임** — 스티커사진 세션(자리 넷 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터)과 하루 정원을 서버와 주고받는다. 판정(촬영 중 · 자리 참 · 정원 · 방장)은 서버가 하고, 이 파일은 `photo*` 메시지를 화면이 쓰는 모양으로 옮긴다. 정원은 `GET /v1/rooms/photo-quota` — 알림 `photoQuota` 가 오면 다시 받는다(주기 요청 없음).
-
-**만드는 법** — app.js `_purikura()` 한 곳(처음 부를 때 한 번 · 세션은 하나):
-
-```js
-TwPurikuraRt.createPhotoSession({
-  hub: TwRtHub.store, api: TwApi.authed, P: Purikura,
-  serverNow: ()=>방 포트 시계,            // 카운트다운 · 정원 다시 여는 시각
-  onPeers, onMeta, onEvent, onShot, onSlots, onFrames,   // 화면(purikuraUi)으로
-});
-```
-
-**내놓는 것** — `checkQuota()`(못 읽으면 던진다) · `watchQuota(cb)` → 끊는 함수 · `open(방, { userCode })` → `{ ok, slot, host }` | `{ ok:false, reason }`(`busy` · `full` · `notInRoom` · `notReady` · `timeout` · `error`) · `close()` / `release()` · `isHost()` · `mySlot()` · `hostSlot()` · 방장 일 `setConfig` · `setFilter` · `setCam` · `setFrameUrl` · `setCut` · `setDone` · `fireShutter` · `start()` → `{ ok, n, left, nth }` | `{ ok:false, reason, message }` · `sendPos` · `sendEvent` · `freezeMs()` · `serverNow()` · `peersNow()` · `metaNow()` · `slotsNow()` · `framesNow()`.
-
-**함정**
-- 자리 칸의 `uid` 는 **userCode** — 내 자리 · 좌석 찾기(`friendUserId`) · 프레임 경로(`purikura/{방}/{userCode}/i.webp`)가 모두 이 값이다. 방 멤버 키와 견주면 무대가 빈다.
-- 방장 = 살아 있는 자리 중 가장 작은 번호. 방장 일은 방장일 때만 보내고(아니면 `false`), 결과는 서버가 `photoMeta` · `photoFrames` 로 모두에게 돌려준다.
-- `open` · `start` 는 답(환영 · 시작됨 · 거절 `error{ ref }`)을 8초 기다린다 — 한 번에 하나씩. 연결 전이면 바로 `notReady`.
-- 좌표는 10Hz 이하 · 데드밴드 안이면 안 보낸다(상수는 `purikura-net.js`). 콜백은 창이 닫혀 있어도 온다 — 화면이 `PK.open` · `PK.listening` 을 먼저 본다.
-
-검사: `checks/sim-purikura-rt.js`.
 
 ## `pk-bgm.js` — 🎵 스티커사진 창 BGM
 

@@ -1,5 +1,5 @@
 /* sim-purikura-deco.js — 🎨 꾸미기 창 검사
-   실행:  node sim-purikura-deco.js   (app.js · purikura-ui.js · chat-window.js · desk-companion-prototype.html 과 같은 폴더에서)
+   실행:  node sim-purikura-deco.js   (app.js · purikura-ui.js · purikura-rt.js · chat-window.js · desk-companion-prototype.html 과 같은 폴더에서)
 
    ★ 왜 이 검사가 있는가
      이 화면의 사고는 **저장하고 나서야 보인다.** 화면(360px)에서는 선이 멀쩡한데
@@ -669,12 +669,12 @@ say('· §10 조작 — WASD 와 마우스 시선');
       '★ 셔터 직전에 지금 값을 한 번 확정해 보낸다 — 사진에 남는 값이 이것이다');
   chk(P.encPos(1, 2, 0, 0, 0) === P.encPos(1, 2),
       '★ 정면을 보고 정면으로 서 있으면 보내는 바이트가 예전과 같다 (계층이 칸을 안 늘린다)');
-  /* 세션 포트가 시선·회전으로는 전송을 «결정»하지 않는지 — 문장으로 확인한다(돌려 보는 판정은 sim-purikura-rt.js 5절). */
-  const NET = fs.readFileSync('purikura-rt.js', 'utf8');
-  const sp = /function sendPos\(wx, d, force, gz, gp, yaw\)\{[\s\S]*?\n  \}/.exec(NET);
-  const decide = sp ? sp[0].slice(sp[0].indexOf('){') + 2).split('lastSent = {')[0] : '';
-  chk(!!sp && /DEAD_X/.test(decide) && !/gz|gp|yaw/.test(decide),
-      '★ 보낼지 말지를 정하는 데 시선·회전이 안 쓰인다 (쓰이면 마우스를 흔드는 동안 10Hz 로 계속 쓴다)');
+  /* 계층이 시선·회전으로는 전송을 «결정»하지 않는지 — 문장으로 확인한다. */
+  const RT = fs.readFileSync('purikura-rt.js', 'utf8');
+  const sp = /function sendPos\(wx, d, force, gz, gp, yaw\)\{[\s\S]*?\n  \}/.exec(RT);
+  const decide = sp ? sp[0].split('){')[1].split("hub.send({ t: 'photoPos'")[0] : '';
+  chk(!!sp && decide.length > 40 && !/gz|gp|yaw/.test(decide),
+      '★ 보낼지 말지를 정하는 데 시선·회전이 안 쓰인다 (쓰이면 마우스를 흔드는 동안 10Hz 로 계속 보낸다)');
 
   /* ④ 남의 시선은 부드럽게 따라온다 — 10Hz 를 그대로 넣으면 고개가 툭툭 꺾인다. */
   chk(/c\.gz \+= \(\(p\.gz\|\|0\) - c\.gz\) \* Math\.min\(1, dt\*12\)/.test(SRC),
@@ -816,9 +816,9 @@ say('· §12 뒷배경 — 고른 것과 찍히는 것이 같은가 · 컷마다
   const bgBranch = /if\(m\.bg && m\.bg !== _pkBgStr\(\)\)\{[\s\S]*?\n    \}/.exec(SRC);
   chk(!!bgBranch && !/changed = true/.test(bgBranch[0]),
       '★ 배경만 바뀌면 changed 를 안 세운다 — 올린 프레임이 안 지워진다 (규격이 그대로다)');
-  const NET = fs.readFileSync('purikura-rt.js', 'utf8');
-  chk(/bgJoin\(String\(cfg\.bg\)/.test(NET),
-      '★ setConfig 가 목록에 없는 배경을 먼저 거른다 (서버 거절에만 맡기면 방향·컷까지 같이 안 바뀐다)');
+  const RT = fs.readFileSync('purikura-rt.js', 'utf8');
+  chk(/bgJoin\(String\(cfg\.bg\)/.test(RT),
+      '★ setConfig 가 목록에 없는 배경을 먼저 거른다 (서버는 잘못된 값이면 방향·컷까지 통째로 거부한다)');
 
   /* ④ ★★ 컷마다 섞는 것 — 이 기능의 진짜 위험은 «각자 주사위를 굴리는 것»이다.
      사진은 넷이 각자 자기 화면에서 뜨므로, 각자 굴리면 같은 촬영인데 사람마다 배경이 다르다.
@@ -897,11 +897,11 @@ say('');
 /* ── §13. 사건 중복 ────────────────────────────────────────────────── */
 say('· §13 사건 — 남의 옛 점프가 다시 배달되지 않는가');
 {
-  /* 같은 사건이 두 번 오면(다시 붙은 뒤 서버가 다시 보냄 등) A 가 한 번 더 뛴다 — 본인 화면에서만 그러니 A 는 모른다.
-     세션 포트는 사건을 그 시각(ts)과 함께 넘기고, 화면이 자리마다 마지막 시각으로 거른다. */
-  const NET = fs.readFileSync('purikura-rt.js', 'utf8');
-  chk(/onEvent\(m\.slot, \{ k: m\.k, v: \(m\.v === undefined \? null : m\.v\), ts: m\.ts \}\)/.test(NET),
-      '세션 포트는 남의 사건을 시각(ts)과 함께 넘긴다 (화면이 그 시각으로 거른다)');
+  /* 옛 Firebase 길은 ev 노드가 바뀔 때마다 남아 있던 남의 옛 사건이 통째로 다시 배달됐다(A 가 점프한 뒤 B 가 포즈만 눌러도 A 가 한 번 더 뜀).
+     지금은 서버가 사건마다 photoEvent 한 통만 보내고 내 것은 되받지 않는다 — 그래도 같은 시각을 한 번 더 받으면 화면이 거르는 안전망은 남긴다. */
+  const RT = fs.readFileSync('purikura-rt.js', 'utf8');
+  chk(/hub\.onMessage\('photoEvent', \(m\) => \{ if\(inSession && m\.slot !== slot\) onEvent\(/.test(RT),
+      '세션 포트는 사건을 한 통씩만 넘기고 내 것은 되받지 않는다');
   const oe = /function _pkOnPeerEvent\(slot, ev\)\{[\s\S]*?\n\}/.exec(SRC);
   chk(!!oe && /PK\.evSeen\[slot\] === ts/.test(oe[0]) && /PK\.evSeen\[slot\] = ts/.test(oe[0]),
       '★ 자리마다 마지막으로 본 시각을 기억하고 같은 것은 흘려보낸다');

@@ -18,7 +18,7 @@ const VOL_RESEND_MS = [120, 300, 600, 1000, 1600, 2400];   // 새 페이지의 <
 /**
  * @param {{
  *   model: typeof window.TwListenModel,
- *   provider: { subscribe(room: string, cb: (m: object|null|undefined) => void, onErr: (e: unknown) => void): () => void,
+ *   provider: { subscribe(room: string, cb: (m: object|null|undefined) => void): () => void,
  *               write(room: string, m: object|null): Promise<{ ok: boolean, err?: unknown }>, now(): number, lastSeq(): number },
  *   companion: () => any,
  *   roomCode: () => string|null,
@@ -57,7 +57,6 @@ const $ = (id) => document.getElementById(id);
 let room = null;          // 구독 중인 방 코드
 let unsub = null;
 let music;                // undefined 불러오는 중 · null 틀 곡 없음 · 곡
-let loadFailed = false;
 let owner = null;         // 재생 창 주인 — 'listen' 이면 내가 연 곡이 나고 있다
 let openedKey = null;     // 내가 연 곡(id|at) — 같은 곡을 다시 열지 않게 · 멈춤을 걸 곡인지 본다
 let playerPaused = false;
@@ -140,7 +139,7 @@ async function advance(dir){
 }
 /* 내가 DJ 일 때 해야 할 일 — 칸이 비었으면 첫 곡 · 옛 DJ 가 멈춘 채 나갔으면 다시 · 곡이 끝났는데 신호를 못 받았으면 다음 */
 function reconcileDj(){
-  if(!room || music === undefined || loadFailed || writing || Date.now() < retryAt || !amDj()) return;
+  if(!room || music === undefined || writing || Date.now() < retryAt || !amDj()) return;
   const me = myId();
   if(music === null){
     const items = djItems(), i = model.playableFrom(items, 0, 1);
@@ -197,12 +196,10 @@ function relisten(){
 /* ── 구독 ── */
 function onMusic(v){
   music = v;
-  if(v !== undefined) loadFailed = false;
   applyPlayer();
   reconcileDj();
   paint();
 }
-function onLoadErr(e){ loadFailed = true; notifyError('E-ROOM-07', e); paint(); }
 /* 재생 창 알림은 처음 방에 들어갈 때 건다 — 앱이 아닌 곳(웹 미리보기 · smoke)엔 companion 이 없고, 같이 듣기 방은 앱에서만 들어간다 */
 let bound = false;
 function bindPlayer(){
@@ -215,9 +212,9 @@ function bindPlayer(){
 }
 function start(code){
   bindPlayer();
-  room = code; music = undefined; loadFailed = false; lost = false; advancedSeq = -1; errNotified = null; retryAt = 0;
+  room = code; music = undefined; lost = false; advancedSeq = -1; errNotified = null; retryAt = 0;
   // 내 플레이리스트는 곡이 오면 재생 창을 넘겨주며 지고, 틀 곡이 없거나 멈춤이면 applyPlayer 가 멈춘다
-  unsub = provider.subscribe(code, onMusic, onLoadErr);
+  unsub = provider.subscribe(code, onMusic);
   tickT = setInterval(() => { reconcileDj(); paint(); }, TICK_MS);   // DJ · 사람 수가 meta 없이 바뀌어도 창 글이 따라가게
 }
 function stop(){
@@ -259,7 +256,6 @@ function paintTime(){
 }
 /** 지금 무엇을 보여 줄지(글) — 순서가 곧 우선순위 */
 function stateText(dj, me){
-  if(loadFailed) return '같이 듣기를 불러오지 못했어요';
   if(music === undefined) return '불러오는 중…';
   if(lost) return '다른 음악을 틀고 있어 같이 듣기가 멈췄어요';
   const ended = !!music && model.isEnded(music, now());

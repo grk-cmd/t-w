@@ -1,20 +1,26 @@
-/* purikura-net.js — 📷 스티커사진 · 순수 계산(시트 기하 · 뒷배경 · 필터 · 꾸미기 · 날짜 · 좌표 부호화)
-   THREE 도 DOM 도 통신도 안 쓴다 — node 에서 그대로 굴린다(sim-purikura-net.js). app.js · purikura-rt.js · purikura-ui.js 보다 먼저 싣는다.
-   세션(자리 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터)과 하루 정원은 서버가 가진다 — 통신은 세션 포트(purikura-rt.js).
+/* purikura-net.js — 📷 스티커사진 · 순수 계산(시트 기하 · 카메라 · 뒷배경 · 필터 · 꾸미기 펜 · 좌표 인코딩 · 하루 경계 문구)
+   ────────────────────────────────────────────────────────────────────────────
+   app.js 와 같은 폴더에 두고 app.js **앞에** 부른다:
+       <script src="purikura-net.js"></script>
+       <script src="app.js"></script>
+
+   ★ 0.13 — 이 파일은 통신을 하지 않는다. 세션(자리 · 방장 · 설정 · 프레임 · 좌표 · 사건 · 셔터)과 하루 정원은 서버가 가지고,
+     그 말을 주고받는 곳은 짝 파일 purikura-rt.js(세션 포트)다. 여기에는 THREE 도 DOM 도 통신도 없는 계산만 남겨
+     그대로 node 에서 굴려 볼 수 있게 한다(sim-purikura-net.js · sim-purikura-rt.js 가 서버 규약과 이 표를 대조한다).
    ⚠️ 먼저 실려 있어야 하는 것: shared/ps1-dither.js(전역 TwPs1Dither) — PS1 필터가 부를 때 읽는다. html 순서는 sim-ps1-dither.js 가 지킨다.
-   ⚠️ 좌표는 안 움직이면 안 보내고(DEAD_X · DEAD_D · SEND_MIN_MS), 점프 · 포즈는 연속 값이 아니라 «눌렀다» 사건 한 번이다 — 세션 포트가 이 상수로 거른다. */
+
+   ★ 좌표 보내기에서 지킬 것 둘 (세션당 메시지 수가 여기서 갈린다 — 보내는 쪽은 purikura-rt.js)
+     ① 안 움직이면 안 보낸다(DEAD_X/DEAD_D), 10Hz 이하(SEND_MIN_MS). 항상 보내면 메시지가 두 배가 된다.
+     ② 점프·포즈는 **연속 값이 아니라 사건**이다. "언제 눌렀다"만 한 번 보내면
+        나머지는 각 클라이언트가 똑같이 계산한다. 초당 10번 점프 높이를 보낼 이유가 없다.
+   ──────────────────────────────────────────────────────────────────────────── */
 'use strict';
 
 var Purikura = (function(){
 
-/* ══ 요금을 정하는 상수 — 바꾸기 전에 handoff 의 표를 볼 것 ══════════════ */
-var CAP_PER_DAY = 400;      // 하루 전체 촬영 횟수. 400 × 1.82원 ≈ 월 22,000원
-/* ⚠️ 이 숫자를 고치면 **firebase-database-rules.json 의 photoQuota 상한도 같이 고쳐야 한다**
-     (`newData.child('n').val() <= 400`). 규칙 쪽이 낮으면 그 숫자에서 쓰기가 거부되는데,
-     화면에는 「닫혔어요」가 아니라 «시작 버튼이 그냥 안 먹는다»로 나온다.
-     sim-purikura-rules.js §2 가 두 값이 같은지 굴려서 확인한다 — 고친 뒤 반드시 돌릴 것. */
+/* ══ 좌표를 보내는 상수 — 바꾸기 전에 서버 통신 규약(좌표 길이 · 초당 상한)을 볼 것 ══════════════ */
 var MAX_SLOTS   = 4;        // 한 세션 인원(선착순)
-var SEND_MIN_MS = 100;      // 좌표 전송 간격 = 10Hz. 6Hz(167) 로 내리면 세션당 1.70→1.07원
+var SEND_MIN_MS = 100;      // 좌표 전송 간격 = 10Hz (서버는 자리마다 초당 20개가 넘으면 버린다)
 var DEAD_X      = 0.012;    // 이보다 덜 움직이면 안 보낸다 (월드 단위, 캐릭터 키=1.7)
 var DEAD_D      = 0.012;
 var POS_Q       = 100;      // 좌표를 정수로 만드는 배율. 소수점을 그대로 보내면 자릿수가 는다
@@ -93,12 +99,19 @@ var CAM_P_MIN = 0,    CAM_P_MAX = 26,   CAM_P_STEP = 2,    CAM_P_BIG = 5;
 function camClampH(v){ return Math.max(CAM_H_MIN, Math.min(CAM_H_MAX, Math.round((+v || 0) * 100) / 100)); }
 function camClampP(v){ return Math.max(CAM_P_MIN, Math.min(CAM_P_MAX, Math.round(+v || 0))); }
 var CHAR_H  = 1.7;      // 캐릭터 키(월드 단위)
-/* 🐾 동물 키 배율 — 무대는 모든 캐릭터의 몸을 CHAR_H 에 맞추고(_pkCloneChar), 동물만 이 값을 더 곱한다.
-   ⚠️ 몸 키는 **귀를 뺀 몸**으로 잰다(_pkBodyBox — 귀는 rigged 표식). 귀까지 재던 때 «얼굴이 작다» 를 메우려던
-     1.30 을 남겨 두면 보정이 두 번 걸려 동물이 사람보다 30% 크게 선다 — 1 을 넘기려면 귀가 아니라 다른 까닭이어야 한다.
-   ⚠️ 키우면 귀가 화면 위로 나가고, 나란히 서는 인원 계산(fitCount — 사람 어깨 폭 기준)의 겹침도 다시 볼 것.
-   실행 화면의 ANIMAL_RUN_SCALE 과는 다른 값이다(그쪽은 책상 옆에 앉은 크기). */
-var ANIMAL_H = 1.0;
+/* 🐾 동물은 이만큼 더 크게 세운다.
+   [왜] 무대는 모든 캐릭터를 «전체 높이»로 1.7 에 맞춘다(_pkCloneChar). 그런데 동물은 귀가 위로
+     솟아 있어서 그 귀 끝까지 1.7 이 되고, 결과적으로 **얼굴과 몸이 사람보다 작게** 남는다.
+     실행 화면의 ANIMAL_RUN_SCALE(40%)과는 다른 이야기다 — 저건 책상 옆에 앉은 크기이고,
+     여기는 «같은 무대에 나란히 섰을 때»의 크기다.
+   ⚠️ 키우면 귀가 화면 위로 나간다. 지금(1.30)은 기본 거리 81px · 가장 멀리 58px 이 잘린다.
+     1.15 면 34/22px, 1.20 이면 50/34px, 1.40 이면 113/82px 이다 —
+     눈으로 보고 고를 값이라 여기 한 곳에만 적는다.
+   ⚠️ 여기서 더 키워도 «작다»가 남으면 배율 문제가 아니다. 그때는 전체 높이가 아니라
+     **귀와 꼬리를 뺀 몸**을 재서 맞춰야 한다 — 그건 이 한 줄이 아니라 _pkCloneChar 를 고치는 일이다.
+   ⚠️ 나란히 서는 인원 계산(fitCount)은 사람 어깨 폭 기준이다. 동물이 커지면 그만큼 더 겹치는데,
+     지금은 넷이 0% 라 여유가 있다. 이 값을 크게 올리면 §2 의 겹침부터 다시 볼 것. */
+var ANIMAL_H = 1.30;
 /* 🐾 동물의 점프 «높이» 배율. 사람의 절반이다(2026-08-29 요청).
    ★ 높이 = v0² ÷ 2g 이므로, 높이를 절반으로 하려면 **초속은 √0.5 배**다.
      화면 쪽이 이 값의 제곱근을 초속에 곱한다 — 여기 적힌 것은 «높이»의 비율이다.
@@ -704,11 +717,8 @@ function penWClamp(w){ return Math.max(PEN_W_MIN, Math.min(PEN_W_MAX, Math.round
 var DAY_MS  = 86400000;
 var KST_OFF = 9 * 3600 * 1000;
 
-/* 오늘이 며칠인가를 하나의 숫자로. 값은 「KST 일 번호 × 하루(ms)」다.
-   ★ 이 모양이어야 서버 규칙이 검증할 수 있다 —
-     하루(ms)의 배수이고, now+9h 보다 작고, now+9h-24h 보다 크다.
-     규칙에는 floor() 가 없어서 "몫"을 직접 못 구한다. 그래서 클라이언트가 계산한 값을
-     이 세 조건으로 **검사만** 한다. 그러면 내일 칸에 미리 써두는 짓을 막을 수 있다. */
+/* 한국 시간 하루의 시작을 하나의 숫자로(「KST 일 번호 × 하루(ms)」). 하루의 경계는 서버가 정한다 —
+   여기는 «다시 여는 시각» 안내 문구(closedMessage)를 만들 때만 쓴다. */
 function kstDay(nowMs){ return Math.floor((nowMs + KST_OFF) / DAY_MS) * DAY_MS; }
 
 /* 다음에 열리는 시각(UTC ms) = 다음 KST 자정 */
@@ -724,14 +734,13 @@ function closedMessage(nowMs){
 
 /* ══ 좌표 인코딩 ═══════════════════════════════════════════════════════
    한 사람의 좌표는 문자열 하나다: "좌우,거리" (둘 다 정수).
-   필드를 둘로 나누면 JSON 키가 하나 더 붙는데, 경로 오버헤드가 지배적인
-   구간이라 필드 수를 줄이는 쪽이 이득이다. */
+   메시지 하나에 문자열 하나로 실어 크기를 줄인다. */
 /* 좌표 + 시선을 한 문자열로.
    ★ 시선(gz·gp)은 **덤으로만 실린다.** 좌표 때문에 나가는 메시지에 얹기만 하고,
      시선이 바뀌었다고 새 메시지를 만들지 않는다(sendPos 의 데드밴드는 좌표만 본다).
-     → 마우스를 아무리 흔들어도 **쓰기 횟수가 안 는다.** 이 화면의 요금은 그대로다.
+     → 마우스를 아무리 흔들어도 **보내는 횟수가 안 는다.**
    ⚠️ 옛 클라이언트가 읽어도 안 깨진다 — parseInt 가 쉼표에서 멈춰서 wx·d 는 그대로 나온다.
-     반대로 옛 클라이언트가 두 칸만 써도 여기서 시선 0 으로 읽힌다. 규칙도 세 번째·네 번째 칸을
+     반대로 옛 클라이언트가 두 칸만 써도 여기서 시선 0 으로 읽힌다. 서버 규약도 세 번째·네 번째 칸을
      «있어도 되고 없어도 되는» 것으로 두었다. */
 function encPos(wx, d, gz, gp, yaw){
   var s = Math.round(wx * POS_Q) + ',' + Math.round(d * POS_Q);
@@ -759,41 +768,16 @@ function decPos(s){
   return { wx: a / POS_Q, d: b / POS_Q, gz: gz / GAZE_Q, gp: gp / GAZE_Q, yaw: yw / YAW_Q };
 }
 
-/* ══ 하루 정원 ═════════════════════════════════════════════════════════
-   전역 노드 하나(photoQuota = {day, n})를 트랜잭션으로 올린다.
-   ⚠️ 클라이언트 카운터로는 못 막는다 — 규칙에서 "정확히 1 증가 · CAP_PER_DAY 이하 · 날짜는 서버 시각"
-     을 검사해야 실제로 막힌다. firebase-rules-purikura.json 참고. */
-function quotaNext(cur, day){
-  if(!cur || typeof cur.day !== 'number' || cur.day < day) return { day: day, n: 1 };  // 새 날 = 초기화
-  if(cur.day > day) return null;                       // 내 시계가 뒤에 있다 — 쓰지 않는다
-  var n = cur.n | 0;
-  if(n >= CAP_PER_DAY) return null;                    // 오늘치 소진
-  return { day: day, n: n + 1 };
-}
-function quotaLeft(cur, day){
-  /* ★ 저장된 날이 오늘이 아니면 아직 아무도 안 찍은 것이다 —
-     자정이 지나면 아무도 쓰기를 안 해도 숫자가 저절로 되살아나야 한다.
-     여기서 day 를 안 보면 새벽에 "0회 남음"이 그대로 떠 있는다. */
-  if(!cur || typeof cur.day !== 'number' || cur.day !== day) return CAP_PER_DAY;
-  return Math.max(0, CAP_PER_DAY - (cur.n | 0));
-}
-function quotaUsed(cur, day){ return CAP_PER_DAY - quotaLeft(cur, day); }
-
-/* 화면에 쓸 문구. 두 가지 모양을 같은 곳에서 만든다 —
-   두 군데서 각자 조립하면 언젠가 한쪽만 고쳐진다. */
-function quotaLabel(cur, day){
-  var left = quotaLeft(cur, day);
-  return left + ' / ' + CAP_PER_DAY;                    // 예: "395 / 400"
-}
-function nthLabel(n){
-  return n + '번째 · ' + Math.max(0, CAP_PER_DAY - n) + '회 남음';   // 예: "5번째 · 195회 남음"
-}
+/* ══ 하루 정원 문구 ═══════════════════════════════════════════════════
+   정원은 서버가 센다(GET /v1/rooms/photo-quota · 촬영 시작 때 서버가 한 칸을 쓴다) — 여기는 서버 답의 숫자를 문구로만 옮긴다.
+   두 가지 모양을 같은 곳에서 만든다 — 두 군데서 각자 조립하면 언젠가 한쪽만 고쳐진다. 상한은 서버 답의 cap · nth + left 에서 온다. */
+function quotaText(left, cap){ return Math.max(0, left | 0) + ' / ' + (cap | 0); }                       // 예: "395 / 400"
+function startedText(nth, left){ return (nth | 0) + '번째 · ' + Math.max(0, left | 0) + '회 남음'; }      // 예: "5번째 · 395회 남음"
 
 return {
   /* 아래는 검사기와 UI 가 같이 쓰는 순수 함수들 */
   kstDay: kstDay, reopenAt: reopenAt, closedMessage: closedMessage,
-  quotaNext: quotaNext, quotaLeft: quotaLeft, quotaUsed: quotaUsed,
-  quotaLabel: quotaLabel, nthLabel: nthLabel,
+  quotaText: quotaText, startedText: startedText,
   encPos: encPos, decPos: decPos,
   /* 시트 기하 — 화면·검사기·규칙이 같은 숫자를 보게 하는 유일한 출처 */
   cutsFor: cutsFor, cutAllowed: cutAllowed, fallbackCut: fallbackCut,
@@ -828,7 +812,7 @@ return {
   camClampH: camClampH, camClampP: camClampP,
   CAM_NEAR: CAM_NEAR, CAM_FAR: CAM_FAR,
   CHAR_H: CHAR_H, BODY_W: BODY_W, ANIMAL_H: ANIMAL_H, ANIMAL_JUMP: ANIMAL_JUMP,
-  CAP_PER_DAY: CAP_PER_DAY, MAX_SLOTS: MAX_SLOTS,
+  MAX_SLOTS: MAX_SLOTS,
   SEND_MIN_MS: SEND_MIN_MS, DEAD_X: DEAD_X, DEAD_D: DEAD_D, FREEZE_MS: FREEZE_MS,
   POS_Q: POS_Q, GAZE_Q: GAZE_Q, YAW_Q: YAW_Q
 };
