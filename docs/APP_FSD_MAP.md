@@ -84,6 +84,13 @@ shared 는 머리를 달기 전 0.7% 였다 — 공용 도구가 따로 구역 �
   섞인 구역에 **머리만 새로 다는** PR 은 머리 줄만큼 줄 수가 늘어 둘 다 쓴다(`--write-baseline --allow-new-section --allow-increase` — 상한이 머리 줄 수만큼만 오른다).
 - 기준선 파일 `checks/app-size-baseline.json` 은 검사 파일이 아니라 `CHECKS.md` §3 해시 대상이 아니다(`ui-tokens-baseline.json` 과 같은 방식). 바뀌면 PR diff 로 본다.
 
+### 줄 수 말고 «조립만» — `checks/sim-app-wiring.js`
+
+줄 상한은 줄 수만 본다. app.js 의 끝 모양(모듈을 만들고 deps 를 잇는 글만 — 설계 tw-docs `docs/design/app/app-js-split.md` 2-1 · 2-3)은 로직 표지 다섯으로 본다:
+맨 위 함수 선언 · 맨 위 `let` 이름 · `addEventListener` 부름 · `localStorage` 이름 · `try` 문(typescript 파서로 센다 — 주석 · 문자열 안은 안 센다).
+기준선 `checks/app-wiring-baseline.json` 보다 **늘면 빨강**, 줄면 같은 PR 에서 내린다(`node checks/sim-app-wiring.js --write-baseline` — 늘었으면 쓰기를 거절한다).
+처음 값(0.12.4 · P3 뒤): 함수 209 · let 77 · 듣기 71 · 저장 47 · try 139. 다섯이 모두 0 이 되면 기준선을 걷고 «0 이 아니면 빨강» 으로 바꾼다.
+
 ## 옮기는 순서 (제안)
 
 한 줄 = 앞으로의 PR 하나. 고른 기준: 다른 구역이 덜 쓰고(쓰임 · 밖으로 나가는 이름이 적음) 줄 수가 큰 것부터.
