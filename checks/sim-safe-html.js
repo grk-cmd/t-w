@@ -36,14 +36,7 @@ if (!fs.existsSync(SAFE_PATH)) { say('  ? 원본 못 찾음 — parts/shared/saf
    ⚠️ «남은 구멍» 은 알고 남긴 자리다 — 고치면 지운다(안 쓰는 줄이 남으면 빨강). */
 const ALLOW = {};
 const allow = (file, reason, exprs) => exprs.forEach(e => { ALLOW[file + '|' + e] = reason; });
-allow('myhome-desktop.js', '🧟 모험 시나리오 · 지도 · 전투 — 이 파일 상수 표(ADV_WORLD · 스토리 비트 · 선택지 · ADV_THEMES)의 고정 마크업을 씨앗으로 이 기기에서 만든 글. 남의 이름 · 수는 넣을 때 esc', [
-  'ADV_COMBAT.log', 'ADV._campLog', 'b.cls', 'b.label', 'b.pool[Math.floor(Math.random()*b.pool.length)]', 'bd.t', 'beat.text', 'beat.text(st)', 'beat.text(stForText)',
-  'branch.txt', 'branch.txt(st)', 'c.fail.txt', 'c.fail()', 'c.label', 'c.noItem()', 'c.ok()', 'c.pre()', 'c.result||[]', 'c.resultNoWeapon||c.result||[]', 'c.run()',
-  'cbg', 'cc', 'cedge', 'ev.intro', 'f.bg', 'f.inner', 'gauge.label', 'gauge.meterCls', 'label', 'sceneIntro(sc)', 'sg.lv', 'sg.txt']);
-allow('myhome-desktop.js', '아이템 설명 — advItemTipHtml 이 상수 표로 만든 마크업을 esc 로 data-tip 에 넣었다가 꺼낸 것', ["el.getAttribute('data-tip')"]);
 allow('myhome-desktop.js', '다른 앱 모듈이 MYHOME_DESKTOP.addFolder 로 넘긴 앱 안 그림 경로(상대 경로 — safeUrl 은 상대 경로를 막는다)', ['a.iconSrc']);
-allow('myhome-desktop.js', '⚠️ 남은 구멍 — 파티 방장이 보낸 진행 비트 마크업(storyHtml)을 받은 그대로 그린다. 마크업 대신 비트 id 를 보내야 고쳐진다(동작 변경 — 따로 결정)', [
-  'lm.storyHtml']);
 allow('weekly-challenge.js', '👑 달성표 주기 표(상수 — 요일 이름 · 주기 이름 · 기준 수) · 팝업 버튼(부르는 곳 글자) · 시간 글(formatHMS 숫자) · 보상 안내(_chalRewardLine 고정 글) · 범위 글(서버 주 이름에서 뽑은 숫자 — chal-store rangeLabel) · 보상 받음 숫자(서버 답)', [
   '_chalPh(v.phase).name', 'v.range', 'e.s', 'e.early', 'e.amount', 'b.a', 'b.t', 'd', 'formatHMS(goal)', 'formatHMS(t.sec || 0)', 'line.t', 'ph.label', 'ph.label[0]', 'ph.label[i]', 'ph.label[idx]', 'ph.name', 'ph.need1']);
 allow('fx-preview.html', '개발용 효과 미리보기 페이지 — 고정 표(FX_KINDS) · 이 페이지 슬라이더 값만', ['k', 'S.anchor', 'S.every', 'S.kind', 'S.mode', 'S.seats', 't.lab']);
