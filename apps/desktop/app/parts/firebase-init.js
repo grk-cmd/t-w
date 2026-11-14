@@ -2413,34 +2413,7 @@
       await remove(ref(db, 'catalog/customCats/'+catId));
       return { ok:true };
     },
-    // ===== 🖥️ 마이홈 바탕화면(좀아칼 데스크톱) 배경 — 방문자에게도 보이도록 서버 공유 =====
-    // users/{uid}/advBg = { color } 또는 { img }
-    /* 🩹 [2026-10-02 제보 #4b·#13] «다른 컴퓨터에서 마이홈을 열면 바탕화면 배경이 초기화되거나 그 기기 것으로 바뀐다»
-       [원인] 켤 때마다 각 기기가 **자기 로컬 배경을 서버에 덮어쓰기만** 하고 서버 값을 읽지 않았다(myhome-desktop.js
-         advSyncBgOnStart). 그래서 서버는 «마지막에 켠 기기의 배경» 이 되고 기기끼리 서로 덮었다.
-       [대응] 값에 ts(고른 시각)를 붙여, 켤 때 서버를 먼저 읽고 **더 최근에 고른 쪽**을 따른다(저쪽 주석).
-         ⚠️ 지우기(배경 초기화)도 기록으로 남긴다 — { cleared:true, ts }. 노드를 지워 버리면 «방금 지웠다» 와
-           «한 번도 안 골랐다» 가 구분이 안 돼서, 옛 배경을 든 다른 기기가 켜지자마자 도로 올려 버린다.
-         ★ 규칙 변경 없음 — advBg 의 .validate 는 img·color 만 검사하고 다른 칸(ts·cleared)을 막지 않는다.
-         ★ 방문자 화면은 img·color 가 없으면 «배경 없음» 으로 그린다 — cleared 기록도 그대로 읽힌다. */
-    async saveAdvBg(userId, bg){
-      try{
-        await _whenAuthReady();   // 소유권 쓰기 — 부팅 직후 토큰 없이 나가면 구글 계정은 거부된다
-        const rec = bg ? bg : { cleared:true, ts: Date.now() };
-        await set(ref(db, `users/${userId}/advBg`), rec);
-        return { ok:true };
-      }catch(e){ return { ok:false }; }
-    },
-    async getAdvBg(userId){
-      try{ const s=await get(ref(db, `users/${userId}/advBg`)); return s.val() || null; }
-      catch(e){ return null; }
-    },
-    /* 내 배경 동기화용 — **읽기 실패와 «없음» 을 가른다.** getAdvBg 는 둘 다 null 이라, 읽기가 한 번 실패한 것만으로
-       옛 로컬 배경을 서버에 덮어쓰는 일이 생긴다(이번 제보와 같은 모양). */
-    async getAdvBgEx(userId){
-      try{ const s=await get(ref(db, `users/${userId}/advBg`)); return { ok:true, bg: s.val() || null }; }
-      catch(e){ return { ok:false, bg:null }; }
-    },
+    // (마이홈 바탕화면 배경 · 폴더 — 읽기 · 쓰기는 서버 API(myhome/myhome-api.js · 상태 주인 myhome-store.js)로 옮겼다. saveAdvBg · getAdvBg · getAdvBgEx 걷음)
     subscribeCustomCats(onChange){
       const r = ref(db, 'catalog/customCats');
       onValue(r, snap => onChange(snap.val() || {}));

@@ -5,7 +5,7 @@
      · 게임은 아래 ADV_GAME_OFF=true 로 꺼져 있고, HTML의 firebaseAPI.adv* 는 전부 빈 껍데기다.
        즉 게임 코드는 남아 있지만 화면에도 안 나오고 서버에도 닿지 않는다(비용 0).
      · 살아있는 것은 '마이홈 바탕화면' 뿐 — 배경 색/이미지, 환경설정, 작업표시줄,
-       배경 서버 공유(users/{uid}/advBg), 방문 모드 훅(_advApplyVisitUI), 그리고 캐릭터세팅 창.
+       배경 서버 공유(상태 주인 myhome-store.js 의 바탕화면 — PUT /v1/me/myhome/desktop), 방문 모드 훅(_advApplyVisitUI), 그리고 캐릭터세팅 창.
      · 잠자는 게임 코드(약 4,000줄) 실제 삭제는 단독 작업으로 분리한다 —
        advBindEvents 하나에 바탕화면·캐릭터세팅·시뮬 이벤트가 전부 얽혀 있어서
        '삭제'가 아니라 재배선이고, 다른 변경과 섞으면 안 되는 규모다(HANDOFF 1-1).
@@ -46,9 +46,8 @@ function createMyHomeDesktop(deps){
      · 게임 BGM 로드 안 함
    그대로 살아있는 것 (마이홈 바탕화면 컨셉):
      · 미니 바탕화면, 배경 색/이미지 변경, 환경설정, 작업표시줄
-     · 배경 서버 동기화(users/{uid}/advBg) — 방문자에게 내 바탕화면이 보이는 기능.
-       이건 fbReady()를 거치지 않고 firebaseAPI.saveAdvBg를 직접 쓰므로 차단 대상이 아니다.
-       배경 바꿀 때만 쓰기 1회라 비용도 사실상 없다.
+     · 배경 서버 동기화 — 방문자에게 내 바탕화면이 보이는 기능. 상태 주인(myhome-store.js)이 서버 API 로 받고 저장한다(fbReady 와 무관).
+       바꿀 때만 PUT 1회라 비용도 사실상 없다.
      · 방문 모드 훅(_advApplyVisitUI)
    ADV_HIDE_CHAR = true 로 하면 '캐릭터세팅' 폴더도 같이 숨길 수 있다(기본은 유지).
    되살리려면 ADV_GAME_OFF 를 false 로.
@@ -64,6 +63,11 @@ const mhHooks = TwMyHomeHooks;   // 🪝 마이홈 고리판(myhome-hooks.js) �
 /* ─────────────────────────── 저장 ─────────────────────────── */
 /* 🗂️ 바탕화면 로컬 저장은 계정별 칸(shared/account-store.js) — 계정을 바꾸면 그 계정의 바탕화면이 열린다. 만드는 쪽(myhome-desktop-boot.js)이 넘긴 한 벌. */
 const advStore = deps.advStore;
+const myhomeStore = deps.myhomeStore;   // 🏠 상태 주인(myhome-store.js) — 바탕화면(배경 · 폴더 숨기기 · 폴더 자리)의 원본은 서버(PUT /v1/me/myhome/desktop)
+/* 내 바탕화면 { bg, hideFolders, folderPos } — 상태 주인 값(고치려면 myhomeStore.setDesktop) */
+const mhdDesk = () => myhomeStore.mine().desktop;
+/* 지금 화면에 그리는 바탕화면 — 친구 집 구경 중이면 그 집 것(openView 가 페이지와 함께 받아 둔 값) · 아니면(방문자 시점 미리보기 포함) 내 것. 판단은 상태 주인 한 곳 */
+const mhdShown = () => myhomeStore.desktop();
 const ADV_KEY = 'tw.advZ.v2';
 const ADV_KEY_V1 = 'tw.advZ.v1';
 
@@ -104,10 +108,6 @@ function advLoad(){
         weapons:Array.isArray(d.weapons)?d.weapons:[],   // 무기 개체 풀 [{id,dur}] (내구도 개별, 미장착분)
         scene:d.scene||'camp',                          // 진행 중인 씬
         homeCamp:d.homeCamp||null,                       // 저장된 캠프 씬 (복귀 지점)
-        bg:d.bg||null,
-        bgTs:(typeof d.bgTs==='number')?d.bgTs:0,   // 🩹 #4b·#13 — 이 기기에서 배경을 고른 시각(서버 ts 와 견준다 · 0 = 옛 판본)
-        hideFolders:!!d.hideFolders,   // 📂 폴더 숨기기(외부 앱 폴더) — 배경과 같이 서버에 올라간다
-        folderPos:(typeof FolderFree!=='undefined') ? FolderFree.cleanPos(d.folderPos) : {},   // 📂 폴더 자유배치 {id:{x,y}}(비율) — 배경과 같이 서버에 올라간다
         map:(d.map&&typeof d.map==='object')?d.map:null,   // 🗺️ {seed,pos:{x,y},stepped:['x,y'],found:[bldgIdx]}
         deeds:Array.isArray(d.deeds)?d.deeds:[],          // 선택 기록(과거 흔적·목격) — 재접속 복원
         runStart:(typeof d.runStart==='number')?d.runStart:null,   // 생존 타이머 시작 — 재접속 복원
@@ -132,7 +132,7 @@ function advLoad(){
       if(o.alloc){ s0.alloc.str=o.alloc.str||0; s0.alloc.agi=o.alloc.agi||0; s0.alloc.int=o.alloc.int||0; s0.alloc.luk=o.alloc.sur||0; }
       return { slots:[s0,blankSlot(),blankSlot()], active:0,
                st:(typeof o.st==='number')?o.st:100, stLevel:null,
-               hp:(typeof o.hp==='number')?o.hp:100, inf:0, inv:{}, weapons:[], scene:'camp', bg:o.bg||null };
+               hp:(typeof o.hp==='number')?o.hp:100, inf:0, inv:{}, weapons:[], scene:'camp' };
     }
   }catch(_){}
   return advDefault();
@@ -140,72 +140,20 @@ function advLoad(){
 /* 계정 칸에 저장본이 없을 때의 기본 — 시작(startBgSync) 전 화면도 이 빈 상태로 그린다 */
 function advDefault(){
   return { slots:[blankSlot(),blankSlot(),blankSlot()], active:0, st:100, stLevel:null, hp:100,
-           inf:0, inv:{}, weapons:[], scene:'camp', bg:null };
+           inf:0, inv:{}, weapons:[], scene:'camp' };
 }
 let advStarted = false;   // 계정 확인을 통과해 계정 칸을 읽은 뒤 true — 그 전에는 저장하지 않는다(빈 기본값이 저장본을 덮지 않게)
 function advSave(){
   if(!advStarted) return;
   try{ advStore.set(ADV_KEY, JSON.stringify(ADV)); }catch(_){}
 }
-// 🖥️ 바탕화면 배경을 서버에도 저장 — 방문자가 집주인 바탕화면을 볼 수 있게 + 🩹 내 다른 기기와 맞추려고.
-//   ★ ts(고른 시각)를 같이 싣는다 — 기기끼리 «누가 더 최근에 골랐나» 를 가르는 유일한 근거다(advPullBg).
-function advSaveBgRemote(){
-  if(!advStarted) return;   // 시작 전의 빈 기본 ADV 를 서버 advBg 에 올리면 {cleared:true} 가 모든 기기를 비운다
-  try{
-    if(!window.firebaseAPI || !firebaseAPI.saveAdvBg) return;
-    const uid = getMyUserId(); if(!uid) return;
-    const ts = ADV.bgTs || Date.now();
-    const rec = ADV.bg ? Object.assign({}, ADV.bg, { ts }) : { cleared:true, ts };
-    /* 📂 폴더 숨기기도 같은 기록에 싣는다 — 방문자 화면이 이 값 하나로 가린다(advApplyFolderHide).
-       ★ 규칙 변경 없음 — advBg 의 .validate 는 img·color 만 본다. 꺼져 있으면 칸을 아예 안 싣는다. */
-    if(ADV.hideFolders) rec.hideFolders = true;
-    /* 📂 폴더 자유배치도 같은 기록에 — 방문자 화면 · 다른 기기가 같은 배치로 놓는다(규칙 변경 없음, 위와 같은 이유). */
-    if(ADV.folderPos && Object.keys(ADV.folderPos).length) rec.folderPos = ADV.folderPos;
-    Promise.resolve(firebaseAPI.saveAdvBg(uid, rec)).then(r=>{
-      if(r && r.ok) console.log('[바탕화면] 서버 저장 완료', ADV.bg||'(없음)');
-      else console.warn('[바탕화면] 서버 저장 실패 — Firebase 규칙(users/{uid}/advBg)이 콘솔에 게시됐는지 확인하세요.');
-    }).catch(()=>console.warn('[바탕화면] 서버 저장 실패(네트워크)'));
-  }catch(_){}
-}
-/* 🩹 사람이 배경을 바꾸는 네 곳(색·이미지·URL·초기화)이 모두 여기로 온다 — 고른 시각을 찍어야 다른 기기를 이긴다. */
+/* 🖥️ 바탕화면(배경 · 폴더 숨기기 · 폴더 자리)의 원본은 서버다 — 상태 주인(myhome-store.js)이 받고 PUT desktop 으로 저장한다(자기 판 · 409 는 받은 값 + 알림 · 실패 E-MH-25).
+   예전 로컬(tw.advZ.v2 의 bg · bgTs · hideFolders · folderPos)과 서버 advBg 를 «고른 시각(ts)» 으로 맞추던 길(advPullBg · advSaveBgRemote)은 걷었다. */
+/* 사람이 배경을 바꾸는 네 곳(색 · 이미지 · URL · 초기화)이 모두 여기로 온다 */
 function advSetBg(bg){
-  ADV.bg = bg || null;
-  ADV.bgTs = Date.now();
-  advSave(); advSaveBgRemote(); advApplyBg();
+  myhomeStore.setDesktop({ bg: bg || null });
+  advApplyBg();
 }
-/* 🩹 [2026-10-02 제보 #4b·#13] 켤 때(그리고 내 집으로 돌아올 때) 서버를 **먼저** 읽고 더 최근에 고른 쪽을 따른다.
-   [예전] 로컬 배경을 서버에 덮어쓰기만 했다 → 서버는 «마지막에 켠 기기의 배경» 이 되고, 기기끼리 서로 덮었다.
-   [판정]  서버 ts > 로컬 ts           → 서버 것을 받아 로컬에 저장(다른 기기에서 더 최근에 골랐다)
-           로컬 ts > 서버 ts           → 로컬 것을 올린다(이 기기에서 고른 게 아직 안 올라갔다)
-           둘 다 0(옛 판본끼리) · 서버 있음 → 서버 것을 따른다 — 한쪽으로 모이게 하는 것이 목적이다
-           서버 없음 · 로컬 있음        → 로컬 것을 올린다
-   ⚠️ 읽기 실패면 아무것도 안 한다 — 실패를 «서버 없음» 으로 보면 옛 배경으로 덮어쓴다(getAdvBgEx 주석). */
-async function advPullBg(uid){
-  if(!(window.firebaseAPI && firebaseAPI.getAdvBgEx)) { if(ADV.bg) advSaveBgRemote(); return; }   // 구버전 API — 예전 동작
-  let r = null;
-  try{ r = await firebaseAPI.getAdvBgEx(uid); }catch(_){ return; }
-  if(!r || !r.ok) return;
-  const srv = r.bg;
-  const srvTs = (srv && typeof srv.ts === 'number') ? srv.ts : 0;
-  const locTs = ADV.bgTs || 0;
-  if(srv && (srvTs > locTs || (srvTs === 0 && locTs === 0))){
-    const next = (srv.img) ? { img: srv.img } : (srv.color ? { color: srv.color } : null);
-    const nextHide = !!srv.hideFolders;
-    const nextPos = (typeof FolderFree!=='undefined') ? FolderFree.cleanPos(srv.folderPos) : (ADV.folderPos || {});
-    if(JSON.stringify(next) !== JSON.stringify(ADV.bg || null) || ADV.bgTs !== srvTs || nextHide !== !!ADV.hideFolders
-       || JSON.stringify(nextPos) !== JSON.stringify(ADV.folderPos || {})){
-      console.log('[바탕화면] 다른 기기에서 고른 배경으로 맞춤', next || '(없음)', nextHide ? '· 폴더 숨김' : '');
-      ADV.bg = next; ADV.bgTs = srvTs; ADV.hideFolders = nextHide; ADV.folderPos = nextPos; advSave();
-      if(!advVisiting) advApplyBg();
-    }
-    return;
-  }
-  if(locTs > srvTs || (!srv && ADV.bg)){
-    if(!ADV.bgTs) ADV.bgTs = Date.now();   // 옛 판본 로컬 값 — 지금 시각으로 찍어 올린다(서버가 비어 있을 때만 여기 온다)
-    advSave(); advSaveBgRemote();
-  }
-}
-let advVisitBg = null;   // 방문 중일 때 표시할 "집주인의" 배경 ({img}|{color}|null)
 let mhdFF = null;        // 📂 폴더 자유배치(folder-free.js) — advApplyFolderHide · mhdMountApp 가 이른 시점에도 보므로 위에 둔다
 const ADV = advDefault();   // 계정 확인 뒤 startBgSync 가 계정 칸에서 채운다(만들 때 읽지 않는다)
 let editSlot = 0;
@@ -3604,7 +3552,7 @@ function mhdMountAllEnv(){ MHD_ENV.forEach(e=>{ try{ mhdMountEnv(e); }catch(err)
 window.MYHOME_DESKTOP = {
   version: 1,
 
-  /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 내 바탕화면 배경을 서버와 맞춘다(서버를 먼저 읽고 더 최근에 고른 쪽을 따른다). */
+  /* 🚀 계정 확인 뒤 한 번(launcher/app-boot.js) — 게임 저장본을 읽고 내 바탕화면(배경 · 폴더)을 상태 주인에게서 받아 그린다. */
   startBgSync(uid){
     if(!uid) return;
     const loaded = advLoad();   // 계정 칸에서 읽어 기본값 자리에 채운다(ADV 는 여러 곳이 잡고 있어 같은 객체를 유지)
@@ -3614,8 +3562,9 @@ window.MYHOME_DESKTOP = {
     advStarted = true;
     try{ if(!advStore.get(ADV_KEY)) advSave(); }catch(_){}
     if(!advVisiting) advApplyBg();
-    advPullBg(uid);   // 🩹 #4b·#13 — 덮어쓰기 전에 서버부터 읽는다
+    mhdWatchStore();   // 바탕화면은 마이홈 창 안에만 보인다 — 받기는 마이홈을 열 때(myhome-page.js pullMine) 한 번이고, 받으면 onChange 가 다시 칠한다(켤 때 서버 읽기는 걷음)
   },
+
 
   /* 폴더 아이콘 등록. advInit 전에 불러도 되고(대기열에 쌓았다가 마운트), 후에 불러도 된다. */
   addFolder(o){
@@ -5564,7 +5513,7 @@ function advRenderSlotTabs(){
 }
 
 /* ─────────────────────────── 이미지 업로드 (Storage) ─────────────────────────── */
-function advUploadImage(slotKey, maxW, maxH, quality, onUrl){
+function advUploadImage(slotKey, maxW, maxH, quality, onUrl, viaStore){
   if(advVisiting) return;
   try{ if(window.companion && companion.dsHold) companion.dsHold(); }catch(_){}
   const hasUploader=!!(window.firebaseAPI && firebaseAPI.uploadUserImage);
@@ -5580,7 +5529,11 @@ function advUploadImage(slotKey, maxW, maxH, quality, onUrl){
         c.width=Math.round(img.width*scale); c.height=Math.round(img.height*scale);
         c.getContext('2d').drawImage(img,0,0,c.width,c.height);
         const dataUrl=c.toDataURL('image/jpeg', quality);
-        if(hasUploader){
+        if(viaStore){   // 🏠 상태 주인으로 올린다(주소만 돌려받음 · 실패 번호 E-MH-24 는 상태 주인이 띄운다)
+          advToast('이미지를 올리는 중…');
+          const r = await myhomeStore.upload(slotKey, dataUrl);
+          if(r.status === 'ok'){ onUrl(r.url); advToast('저장했어요'); }
+        }else if(hasUploader){
           try{
             advToast('이미지를 올리는 중…');
             const res=await firebaseAPI.uploadUserImage(getMyUserId(), slotKey, dataUrl);
@@ -5600,10 +5553,10 @@ function advToast(msg){ try{ toast(msg); return; }catch(_){} }
 /* ─────────────────────────── 배경 ─────────────────────────── */
 function advApplyBg(){
   const d=document.getElementById('advDesktop'); if(!d) return;
-  // 방문 중엔 내 배경이 아니라 "그 집 주인"의 배경을 보여준다(서버에서 받아온 advVisitBg).
-  const bg = advVisiting ? advVisitBg : ADV.bg;
+  // 방문 중엔 내 배경이 아니라 "그 집 주인"의 배경을 보여준다(mhdShown).
+  const bg = mhdShown().bg;
   const bgUrl = bg ? TwSafeHtml.cssUrl(TwMhBgUrl.httpsOf(bg.img)) : '';   // 남의 집 배경일 수 있다 — 허용된 그림 주소 · 색만(http 는 https 로 바꿔 불러 봄)
-  if(bg && !advVisiting) TwMhBgUrl.probeOwnerBg(bg.img);   // 못 받으면 주인에게만 안내
+  if(bg && !advVisiting && !myhomeStore.viewing()) TwMhBgUrl.probeOwnerBg(bg.img);   // 내 배경일 때만(구경 시작 때 openView 알림이 _advApplyVisitUI 보다 먼저라 advVisiting 만으론 남의 배경이 끼어든다)   // 못 받으면 주인에게만 안내
   if(bgUrl) d.style.background=bgUrl+' center/cover no-repeat';
   else if(bg&&bg.color) d.style.background=TwSafeHtml.cssColor(bg.color);
   // 방문 중인데 집주인 배경이 서버에 없으면(상대가 아직 업데이트 전) 청록 단색 대신 투명 처리 —
@@ -5612,20 +5565,20 @@ function advApplyBg(){
   else d.style.background='#3a8a8a';
   advApplyFolderHide();   // 📂 배경과 같은 때(내 집 · 남의 집 전환 · 서버 맞춤)에 같이 맞춘다
 }
-/* 📂 [2026-10-02] 폴더 숨기기 — 내 집이면 내 설정, 남의 집이면 **그 집 주인의** 설정(advVisitBg.hideFolders)을 따른다.
+/* 📂 [2026-10-02] 폴더 숨기기 — 내 집이면 내 설정, 남의 집이면 **그 집 주인의** 설정(mhdShown().hideFolders)을 따른다.
    ★ 주인이 숨겼으면 방문자에게도 안 보인다(요청). 메뉴 줄의 ✔ 는 내 설정만 보여 준다. */
 function advApplyFolderHide(){
   const d=document.getElementById('advDesktop'); if(!d) return;
-  const on = advVisiting ? !!(advVisitBg && advVisitBg.hideFolders) : !!ADV.hideFolders;
+  const on = !!mhdShown().hideFolders;
   d.classList.toggle('mhd-hide-folders', on);
   const room=document.getElementById('mhRoomPreview');   // 📂 말랑이 폴더는 #advDesktop 바깥(형제)이라 바깥 상자에도 같은 표식 — 위 CSS 주석
   if(room) room.classList.toggle('mhd-hide-folders', on);
   const b=document.getElementById('advEnvHideFolders');
-  if(b) b.textContent = (ADV.hideFolders ? '✔ ' : '') + '폴더 숨기기';   // ✔ 는 켜짐 표시라 남긴다(아이콘은 뗐다 · 요청)
+  if(b) b.textContent = (mhdDesk().hideFolders ? '✔ ' : '') + '폴더 숨기기';   // ✔ 는 켜짐 표시라 남긴다(아이콘은 뗐다 · 요청)
   if(typeof mhdFF !== 'undefined' && mhdFF) mhdFF.apply();   // 📂 자유배치도 같은 때에 — 남의 집이면 그 집 주인의 배치(검사가 이 함수만 떼어 돌려도 안전하게 typeof)
 }
 
-/* 📂 폴더 자유배치(folder-free.js) — 내 집은 내 배치(ADV.folderPos), 남의 집은 **그 집 주인의** 배치(advVisitBg.folderPos).
+/* 📂 폴더 자유배치(folder-free.js) — 내 집은 내 배치(mhdDesk().folderPos), 남의 집은 **그 집 주인의** 배치(mhdShown().folderPos).
    ★ 옮길 수 있는 것: 외부 앱 폴더(.mhd-app)와 말랑이 폴더(#mlFolder). 둘 다 #mhRoomPreview 를 기준으로
      놓인다(#advDesktop 은 그 안을 꽉 채운다) — 그래서 한 좌표로 다룬다. 붙박이 아이콘(캐릭터세팅 · 좀아칼)은 그대로.
    ★ 옮기지 않은 폴더는 원래 자리 규칙을 그대로 따른다(격자 칸 · 말랑이 오른쪽 아래). */
@@ -5640,7 +5593,7 @@ function mhdFfItems(){
   if(ml) out.push({ id:'mallang', el:ml, reset:()=>{ ml.style.left = ml.style.top = ml.style.right = ml.style.bottom = ''; } });
   return out;
 }
-function mhdFfPos(){ return advVisiting ? ((advVisitBg && advVisitBg.folderPos) || {}) : (ADV.folderPos || {}); }
+function mhdFfPos(){ return mhdShown().folderPos || {}; }
 function mhdFfInit(){
   if(mhdFF || typeof FolderFree === 'undefined') return;
   const room = document.getElementById('mhRoomPreview'); if(!room) return;
@@ -5650,10 +5603,10 @@ function mhdFfInit(){
   mhdFF = FolderFree.createFolderFree({
     room:()=>document.getElementById('mhRoomPreview'), items:mhdFfItems, getPos:mhdFfPos, band, bottomInset:MHD_FF_TASKBAR,
     canArrange:()=> advVisiting ? '남의 집에서는 폴더를 옮길 수 없어요'
-                  : (ADV.hideFolders ? '폴더 숨기기가 켜져 있어요 — 먼저 꺼 주세요' : ''),
+                  : !myhomeStore.canEdit() ? '지금은 폴더를 옮길 수 없어요(마이홈을 받는 중이거나 미리보기 중이에요)'
+                  : (mhdDesk().hideFolders ? '폴더 숨기기가 켜져 있어요 — 먼저 꺼 주세요' : ''),
     toast:(t)=>{ toast(t); },
-    /* 배경과 같은 기록 — 고른 시각(bgTs)을 찍어야 다른 기기와의 맞춤(advPullBg)에서 이긴다(폴더 숨기기와 같다). */
-    onSave:(pos)=>{ ADV.folderPos = pos; ADV.bgTs = Date.now(); advSave(); advSaveBgRemote(); },
+    onSave:(pos)=>{ myhomeStore.setDesktop({ folderPos: pos }); },   // 바탕화면 한 벌에 실어 서버로(상태 주인)
     onChange:(on)=>{ const b = document.getElementById('advEnvFreeFolders'); if(b) b.textContent = (on ? '✔ ' : '') + '폴더 자유배치'; }
   });
   band.querySelector('#advFfOk').addEventListener('click', e=>{ e.stopPropagation(); mhdFF.finish(); });
@@ -5934,14 +5887,9 @@ function advBindEvents(){
   el('advBgColorInput').addEventListener('input', e=>{ advSetBg({color:e.target.value}); });
   el('advEnvFile').addEventListener('click', ()=>{
     el('advEnvMenu').classList.remove('on');
-    /* 🩹 #4b·#13 — 업로드 경로가 design_adv-bg.jpg 하나로 고정이고 1년 캐시가 걸려 있다. 주소 끝에 버전을 붙여
-       새로 올린 그림을 캐시가 가리지 않게 한다(기기마다 «언제 바뀌어 보이는지» 가 제각각이던 부분). */
-    advUploadImage('adv-bg', 960, 720, 0.82, url=>{
-      const v = (/^https?:/.test(url) && url.length < 470) ? (url + (url.indexOf('?') >= 0 ? '&' : '?') + 'twv=' + Date.now().toString(36)) : url;
-      advSetBg({img:v});
-    });
+    advUploadImage('desktop:bg', 960, 720, 0.82, url=>{ advSetBg({img:url}); }, true);   // 올릴 때마다 새 주소를 받는다 — 캐시를 피하려고 주소 끝에 버전을 붙이던 것은 걷었다
   });
-  el('advEnvImg').addEventListener('click', ()=>{ el('advEnvMenu').classList.remove('on'); el('advUrlInput').value=(ADV.bg&&ADV.bg.img)||''; el('advUrlBox').classList.add('on'); el('advUrlInput').focus(); });
+  el('advEnvImg').addEventListener('click', ()=>{ el('advEnvMenu').classList.remove('on'); el('advUrlInput').value=(mhdDesk().bg&&mhdDesk().bg.img)||''; el('advUrlBox').classList.add('on'); el('advUrlInput').focus(); });
   el('advUrlOk').addEventListener('click', ()=>{ const v=el('advUrlInput').value.trim(); if(v){ advSetBg({img:v}); } el('advUrlBox').classList.remove('on'); });
   el('advUrlCancel').addEventListener('click', ()=>el('advUrlBox').classList.remove('on'));
   el('advEnvReset').addEventListener('click', ()=>{ el('advEnvMenu').classList.remove('on'); advSetBg(null); });
@@ -5958,14 +5906,15 @@ function advBindEvents(){
     }
   }
   /* 📂 [2026-10-02] 폴더 숨기기 — 외부 앱 폴더(책장·말랑이 등)를 내 화면과 **방문자 화면** 모두에서 가린다.
-     ★ 배경과 같은 기록(users/{uid}/advBg)에 실어 올린다 — 고른 시각(bgTs)을 찍어야 다른 기기와의 맞춤(advPullBg)에서 이긴다. */
+     ★ 바탕화면 한 벌(배경 · 숨기기 · 자리)에 실려 서버로 간다(상태 주인 setDesktop). */
   el('advEnvHideFolders').addEventListener('click', ()=>{
     el('advEnvMenu').classList.remove('on');
     if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 숨기기 전에 옮기던 것을 저장해 둔다
-    ADV.hideFolders = !ADV.hideFolders;
-    ADV.bgTs = Date.now();
-    advSave(); advSaveBgRemote(); advApplyFolderHide();
-    toast(ADV.hideFolders ? '폴더를 숨겼어요 — 방문자에게도 안 보여요' : '폴더를 다시 보여요');
+    if(!myhomeStore.canEdit()){ myhomeStore.setDesktop({}); return; }   // 받는 중 · 못 받음 · 구경 · 미리보기엔 안 바뀐다 — 안내는 상태 주인이(거짓 «숨겼어요» 를 안 띄운다)
+    const hide = !mhdDesk().hideFolders;
+    myhomeStore.setDesktop({ hideFolders: hide });
+    advApplyFolderHide();
+    toast(hide ? '폴더를 숨겼어요 — 방문자에게도 안 보여요' : '폴더를 다시 보여요');
   });
 
   /* 📂 폴더 자유배치 — 켜면 끌어서 옮기기, 다시 누르면(또는 띠의 [완료] · Esc) 저장. */
@@ -6078,25 +6027,12 @@ function advBindEvents(){
 }
 
 /* ─────────────────────────── 관람 모드 훅 (app.js가 호출) ─────────────────────────── */
+/* 폴더를 옮기던 중이면 지금 저장하고 끝낸다 — 친구 집 구경 · 방문자 시점 미리보기로 들어가기 «전에» 부른다(들어간 뒤에는 상태 주인이 고치기를 잠가 저장이 안 된다) */
+mhHooks.on(mhHooks.HOOK.FINISH_ARRANGE, ()=>{ if(mhdFF && mhdFF.isArranging()) mhdFF.finish(); });
 window._advApplyVisitUI = function(visiting, ownerId){
-  if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 📂 옮기던 중에 집을 나가면 내 배치로 저장하고 끝낸다
+  if(mhdFF && mhdFF.isArranging()) mhdFF.finish();   // 📂 안전망 — 들어가기 «전에» FINISH_ARRANGE 고리가 저장한다(여기 오면 이미 고치기가 잠겨 있을 수 있다)
   advVisiting=!!visiting;
-  // 🖥️ 방문 시작 → 집주인 바탕화면을 서버에서 받아와 적용 (내 집 복귀 시엔 초기화)
-  if(advVisiting){
-    advVisitBg = null;
-    try{
-      if(ownerId && window.firebaseAPI && firebaseAPI.getAdvBg){
-        firebaseAPI.getAdvBg(ownerId).then(bg=>{
-          console.log('[바탕화면] 방문 대상('+ownerId+') 배경:', bg||'(서버에 없음)');
-          if(advVisiting){ advVisitBg = bg || null; advApplyBg(); }
-        }).catch(()=>console.warn('[바탕화면] 방문 대상 배경 조회 실패'));
-      } else console.warn('[바탕화면] 배경 조회 건너뜀 — ownerId:', ownerId, '/ getAdvBg 사용가능:', !!(window.firebaseAPI&&window.firebaseAPI.getAdvBg));
-    }catch(_){}
-  } else {
-    advVisitBg = null;
-    /* 🩹 #4b·#13 — 내 집으로 돌아올 때도 한 번 맞춘다(앱을 켜 둔 채 다른 기기에서 배경을 바꾼 경우). 읽기 1회. */
-    try{ const _u = getMyUserId(); if(_u) advPullBg(_u); }catch(_){}
-  }
+  // 🖥️ 방문 중 바탕화면은 openView 가 페이지와 함께 이미 받아 뒀다(요청 0 · mhdShown). 내 집으로 돌아오면 «내 홈 한 번 받기»(myhome-visit.js closeFriendHomeView)가 따로 돈다
   const d=document.getElementById('advDesktop');
   if(d) d.classList.toggle('adv-visiting', advVisiting);
   const tb=document.getElementById('advEnvBtn');
@@ -6109,6 +6045,19 @@ window._advApplyVisitUI = function(visiting, ownerId){
   }
   advApplyBg();
 };
+
+/* 상태 주인의 값이 바뀌면(받기 끝 · 409 로 다시 받음 · 계정 바뀜) 내 바탕화면을 다시 그린다 — 같은 값이면 안 그린다 */
+let _mhdSig = null, _mhdWatching = false;
+function mhdWatchStore(){
+  if(_mhdWatching) return;
+  _mhdWatching = true;
+  myhomeStore.onChange(()=>{
+    const sig = JSON.stringify(mhdShown());
+    if(sig === _mhdSig) return;
+    _mhdSig = sig;
+    advApplyBg();   // 받기 끝 · 409 · 계정 바뀜 · (미리보기 중 받기 끝)마다 지금 그리는 바탕화면으로
+  });
+}
 
 /* ─────────────────────────── 초기화 ─────────────────────────── */
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded', advInit);

@@ -171,7 +171,7 @@ async function judge(S){
     chk(!raw(S.LEVEL, ['FOCUS_TOTAL_KEY', 'FOCUS_TODAY_SEC_KEY', 'FOCUS_TODAY_DATE_KEY', 'FOCUS_SYNCED_KEY']).length, 'focus-level.js 는 누적 · 마크를 localStorage 로 직접 안 만진다');
     chk(!raw(S.MHD, ['ADV_KEY', 'ADV_KEY_V1']).length && /advStore\.set\(ADV_KEY/.test(S.MHD) && /advStore\.get\(ADV_KEY\)/.test(S.MHD), 'myhome-desktop.js 는 바탕화면 저장을 계정 칸으로만 한다');
     chk(/const advStore = deps\.advStore;/.test(S.MHD) && !/accountStoreMod/.test(S.MHD.replace(/\/\*[\s\S]*?\*\//g, '')), 'myhome-desktop.js 는 계정 칸을 deps 로 받는다(전역 이름 accountStoreMod 를 읽지 않는다)');
-    chk(/createMyHomeDesktop\(\{ advStore: accountStoreMod \}\)/.test(S.BOOT), '만드는 줄(myhome-desktop-boot.js)이 계정 칸을 넘긴다');
+    chk(/createMyHomeDesktop\(\{ advStore: accountStoreMod, myhomeStore: myhomeStoreMod \}\)/.test(S.BOOT), '만드는 줄(myhome-desktop-boot.js)이 계정 칸을 넘긴다');
     const iD = S.HTML.indexOf('parts/myhome/myhome-desktop.js'), iB = S.HTML.indexOf('parts/myhome/myhome-desktop-boot.js');
     chk(iD > 0 && iB > iD && S.HTML.slice(iD, iB).split('<script').length === 2, 'html — boot 는 myhome-desktop.js 바로 다음');
     chk(!/focusLevelStore/.test(S.LEVEL) && /const focusTotalStore = deps\.focusTotalStore;/.test(S.TOTAL), '누적 모듈은 계정 칸을 deps 로 받는다 · 레벨 모듈은 계정 칸을 안 받는다(오늘 시간은 누적 모듈이 쓴다)');
@@ -270,18 +270,17 @@ async function judge(S){
     let advRun = null;
     try{ advRun = new Function('advStore', 'FolderFree', 'ADV_KEY', 'ADV_KEY_V1', 'localStorage',
       grabF(S.MHD, 'function blankSlot(') + '\n' + grabF(S.MHD, 'function advDefault(') + '\n' + grabF(S.MHD, 'function advLoad(') + '\n' + advLine + '\nreturn ADV;')(advStore, undefined, 'tw.advZ.v2', 'tw.advZ.v1', null); }catch(_){}
-    chk(/advDefault\(\)/.test(advLine) && reads.length === 0 && !!advRun && advRun.bg === null, '★ 바탕화면 — 만들 때 계정 칸을 읽지 않고 빈 기본값(받는 중 상태)으로 선다');
-    /* 시작 전 advSave · 서버 advBg 올리기는 실제로 불러 센다 — 빈 기본 ADV 가 저장본(계정 칸)도 서버 advBg({cleared:true})도 덮지 못한다 */
-    const remote = []; const wrote = [];
-    const advFns = new Function('window', 'firebaseAPI', 'getMyUserId', 'advStore', 'ADV_KEY', 'FolderFree',
-      grabF(S.MHD, 'function blankSlot(') + '\n' + grabF(S.MHD, 'function advDefault(') + '\nlet advStarted = false;\nconst ADV = advDefault();\n' + grabF(S.MHD, 'function advSave(') + '\n' + grabF(S.MHD, 'function advSaveBgRemote(') +
-      '\nreturn { save: advSave, remote: advSaveBgRemote, start(){ advStarted = true; } };');
-    const fbApi = { saveAdvBg: (...a) => { remote.push(a); return Promise.resolve({ ok: true }); } };
-    const advFn = advFns({ firebaseAPI: fbApi }, fbApi, () => A1, { set: (k, v) => { wrote.push(k); return true; } }, 'tw.advZ.v2', undefined);
-    advFn.save(); advFn.remote();
-    chk(wrote.length === 0 && remote.length === 0, '  ↳ 시작 전에는 advSave · 서버 advBg 올리기가 0건(빈 기본값이 저장본도 서버 배경도 덮지 못한다 — 폴더 숨기기 · 배치 · 배경 고르기가 지나는 길)');
-    advFn.start(); advFn.save(); advFn.remote();
-    chk(wrote.length === 1 && remote.length === 1, '  ↳ 시작 뒤에는 둘 다 나간다');
+    chk(/advDefault\(\)/.test(advLine) && reads.length === 0 && !!advRun && Array.isArray(advRun.slots) && !('bg' in advRun), '★ 바탕화면 — 만들 때 계정 칸을 읽지 않고 빈 기본값(받는 중 상태)으로 선다');
+    /* 시작 전 advSave 는 실제로 불러 센다 — 빈 기본 ADV 가 저장본(계정 칸)을 덮지 못한다(바탕화면 배경 · 폴더는 서버가 원본이라 따로 올리지 않는다 — sim-myhome-store) */
+    const wrote = [];
+    const advFns = new Function('advStore', 'ADV_KEY',
+      grabF(S.MHD, 'function blankSlot(') + '\n' + grabF(S.MHD, 'function advDefault(') + '\nlet advStarted = false;\nconst ADV = advDefault();\n' + grabF(S.MHD, 'function advSave(') +
+      '\nreturn { save: advSave, start(){ advStarted = true; } };');
+    const advFn = advFns({ set: (k, v) => { wrote.push(k); return true; } }, 'tw.advZ.v2');
+    advFn.save();
+    chk(wrote.length === 0, '  ↳ 시작 전에는 advSave 가 0건(빈 기본값이 저장본을 덮지 못한다)');
+    advFn.start(); advFn.save();
+    chk(wrote.length === 1, '  ↳ 시작 뒤에는 나간다');
     const sf0 = quietly(() => mkWorld(false));
     chk(sf0.pushes.length === 0 && sf0.intervals === 0, '  ↳ 오늘 기록 전시는 만들 때 보내지도 인터벌을 걸지도 않는다');
     quietly(() => sf0.share.startFocusShare());
@@ -393,13 +392,12 @@ const BREAKS = [
   ['LEVEL', "  if(!_focusTotalStarted()) return;   // 계정 확인 전", "  // ", '쌓기가 확인 전에도 돎'],
   ['MHD', "const ADV = advDefault();", "const ADV = advLoad();", '바탕화면을 만들 때 읽음'],
   ['MHD', "  if(!advStarted) return;\n  try{ advStore", "  try{ advStore", '시작 전에도 advSave'],
-  ['MHD', "  if(!advStarted) return;   // 시작 전의 빈 기본", "  // 시작 전의 빈 기본", '시작 전에도 서버 advBg 에 올림'],
   ['SHARE', "function startFocusShare(){\n  _focusShowPush(true);", "function startFocusShare(){\n  ", '오늘 기록 전시 첫 보내기가 시작에서 빠짐'],
   ['SHARE', "(function bindFocusShow(){", "_focusShowPush(true);\n(function bindFocusShow(){", '오늘 기록 전시 첫 보내기가 만들 때 나감'],
   ['STORE', "    if(opened !== null && opened === getAccountCode()) return false;", "    return false;", '열림 장치를 끔(늘 열림)'],
   ['STORE', "function close(){ opened = null; }", "function close(){}", 'close 가 닫지 않음'],
   ['STORE', "    if(opened !== null && opened === getAccountCode()) return false;", "    if(opened !== null) return false;", '열린 뒤 코드가 바뀌어도 열린 채'],
-  ['BOOT', 'createMyHomeDesktop({ advStore: accountStoreMod })', 'createMyHomeDesktop({})', 'deps 를 안 넘김'],
+  ['BOOT', 'createMyHomeDesktop({ advStore: accountStoreMod, myhomeStore: myhomeStoreMod })', 'createMyHomeDesktop({})', 'deps 를 안 넘김'],
   ['HTML', '<script src="parts/shared/account-store.js"></script>', '', 'html 에 안 실음'],
 ];
 const caught = [];

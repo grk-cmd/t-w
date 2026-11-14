@@ -51,6 +51,8 @@ function mk(srv0, opt){
       return answer(() => { if(srv.patchErr) return srv.patchErr.shift ? (srv.patchErr.length ? srv.patchErr.shift() : srv.version2(f)) : srv.patchErr; return srv.version2(f); }); },
     putDesign: (v, d) => { log.push('PUT design v' + v + ' ' + JSON.stringify(Object.keys(d))); srv.designs = srv.designs || []; srv.designs.push(clone(d));
       return answer(() => (srv.designErr ? srv.designErr : ++srv.pageVersion)); },
+    putDesktop: (v, d) => { log.push('PUT desktop v' + v + ' ' + JSON.stringify(Object.keys(d))); srv.desktops = srv.desktops || []; srv.desktops.push(clone(d));
+      return answer(() => { if(srv.deskErr) return srv.deskErr.shift ? (srv.deskErr.length ? srv.deskErr.shift() : (srv.desktop = clone(d), ++srv.desktopVersion)) : srv.deskErr; srv.desktop = clone(d); return ++srv.desktopVersion; }); },
     uploadImage: (d) => { log.push('POST image'); return answer(() => (srv.upErr ? srv.upErr : 'https://img/up' + log.length + '.png')); },
     reset: () => { log.push('api reset'); },
   };
@@ -469,6 +471,36 @@ async function judge(withBreak){
     chk((await fl.st.addSticker('data:x', { w: 1, h: 1 })).status === 'full' && count(fl.log, /^PATCH/) === 0, '5장이 찬 판에는 올리기 전에 full');
   }
 
+  say('── 5-2. 바탕화면(D2-3)');
+  {
+    const e = await ready(mk());
+    await e.st.setDesktop({ bg: { color: '#123456' } });
+    chk(e.log.includes('PUT desktop v2 ["bg","hideFolders","folderPos"]') && e.st.mine().desktop.bg.color === '#123456' && e.st.mine().desktopVersion === 3 && e.st.desktop().bg.color === '#123456' && count(e.log, /^PATCH/) === 0 && count(e.log, /^PUT design/) === 0, '배경 → PUT desktop 통째 · 자기 판(desktopVersion)을 싣고 응답 판을 받는다 · 페이지 요청 0');
+    await e.st.setDesktop({ bg: { color: '#123456' } });
+    chk(count(e.log, /^PUT desktop/) === 1, '  같은 값이면 요청 0');
+    chk(await e.st.setDesktop({ bg: { img: 'data:image/png;base64,AA' } }) === 'invalid' && count(e.log, /^PUT desktop/) === 1, '  data: 그림은 저장하지 않는다(upload 로 올린 주소만)');
+    await e.st.setDesktop({ hideFolders: true, folderPos: { a: { x: 0.1, y: 0.2 }, bad: { x: 'q' } } });
+    chk(e.srv.desktops[1].hideFolders === true && JSON.stringify(e.srv.desktops[1].folderPos) === '{"a":{"x":0.1,"y":0.2}}' && e.srv.desktops[1].bg.color === '#123456', '  폴더 숨기기 · 자리는 통째 본문에 함께(깨진 자리는 뺌)');
+    const v = await ready(mk());
+    await v.st.openView('F');
+    chk(await v.st.setDesktop({ hideFolders: true }) === 'locked' && count(v.log, /^PUT/) === 0, '구경 중엔 바탕화면도 못 고친다(요청 0)');
+    const c = await ready(mk());
+    c.srv.deskErr = [apiErr(409, 'CONCURRENT_UPDATE')];
+    c.srv.desktop = { bg: { color: '#ffffff' }, hideFolders: false, folderPos: {} }; c.srv.desktopVersion = 7;
+    await c.st.setDesktop({ bg: { color: '#000000' } });
+    chk(c.st.mine().desktop.bg.color === '#ffffff' && c.log.includes('toast ' + c.st.MSG.merged) && count(c.log, /^PUT desktop/) === 1 && count(c.log, /^GET mine/) === 2, '409 → 받은 값으로 + 알림(내 고침은 버림 · 다시 보내지 않는다)');
+    const b = await ready(mk({ patchErr: [apiErr(503, 'X')] }));
+    b.srv.deskErr = apiErr(400, 'INVALID_REQUEST');
+    const d1 = b.st.setDesktop({ hideFolders: true }), d2 = b.st.setField('bio', 'ok');
+    await Promise.all([d1, d2]);
+    chk(b.log.includes('error E-MH-25') && b.st.mine().desktop.hideFolders === false && count(b.log, /^PATCH/) === 1, '거절 → E-MH-25 · 화면은 server 값으로 · 같은 묶음 PATCH 는 따로 시도');
+    const f = await ready(mk({ deskErr: apiErr(503, 'X') }));
+    await f.st.setDesktop({ hideFolders: true }); await f.st.setDesktop({ bg: { color: '#222222' } });
+    chk(count(f.log, /^error E-MH-25$/) === 1 && f.st.mine().desktop.hideFolders === true && f.st.mine().desktop.bg.color === '#222222' && count(f.log, /^PUT desktop/) === 2, '실패(503) → 화면 그대로 · 번호 한 번 · 다음 고침에 한꺼번에 다시');
+    const m = mk(); const desk = await ready(m);
+    chk(desk.st.mine().desktopVersion === 2 && desk.st.canEdit(), '(받은 바탕화면 판)');
+  }
+
   say('── 6. 올리기');
   {
     const e = await ready(mk({ upErr: apiErr(503, 'X') }));
@@ -578,6 +610,7 @@ async function judge(withBreak){
     ['setDesign 이 앞서 고른 배경 색을 안 지우면(나중 것이 이김)', (s) => s.replace('if(hasBg) delete pending.fields.bg;', '')],
     ['setDesign 이 바깥 배경을 안 이어 가면', (s) => s.replace('snap.bg = pending.design.bg;', '')],
     ['안 고친 글 칸까지 넘기면(409 뒤 다른 기기 글을 덮음)', (s) => s.replace('if(!own(pending.fields, k) && J(mineView[k]) === J(v)) continue;', '')],
+    ['바탕화면을 자기 판이 아니라 페이지 판으로 보내면', (s) => s.replace('api.putDesktop(server.desktopVersion, body)', 'api.putDesktop(server.version, body)')],
     ['스티커 w · h 를 정수로 안 만들면', (s) => s.replace('s.w = Math.max(1, Math.min(400, Math.round(Number(s.w) || 1)));', 's.w = Number(s.w);')],
   ];
   const origLoad = S.ST;

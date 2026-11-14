@@ -19,7 +19,7 @@ const strip = (s) => s.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"\\])\/
 const SELF = 'myhome/myhome-hooks.js';
 /* 이름 → 거는 파일(myhome-hooks.js 주석과 같다) */
 const E = 'myhome/myhome-edit.js';
-const OWNER = { COMMIT: E, APPLY_BG: E, APPLY_THEME: E, BGM_REFRESH: E, BGM_PLAYING: E, BGM_SET_PLAYING: E, BGM_DESTROY: E, DS_CLOSE: E, CANCEL_NAME_EDIT: E,
+const OWNER = { COMMIT: E, APPLY_BG: E, APPLY_THEME: E, BGM_REFRESH: E, BGM_PLAYING: E, BGM_SET_PLAYING: E, BGM_DESTROY: E, DS_CLOSE: E, CANCEL_NAME_EDIT: E, FINISH_ARRANGE: 'myhome/myhome-desktop.js',
   SYNC_BGM_BOUNDS: 'myhome/myhome-ui.js' };
 
 function load(mod) { const win = {}; new Function('window', 'module', mod)(win, undefined); return win.TwMyHomeHooks; }
@@ -65,7 +65,7 @@ const FILES = ORDER.map(f => [f, read(f)]).filter(([, t]) => t);
 const R = judge(MOD, HTML, FILES);
 
 say('── 1. 고리판');
-chk(!R.err && R.names, '이름 ' + Object.keys(OWNER).length + '개(저장 · 배경 · 테마 · BGM 넷 · BGM 창 · 스튜디오 · 닉네임 취소 · BGM 창 자리) · 바꿀 수 없는 표' + (R.err ? ' — ' + R.err : ''));
+chk(!R.err && R.names, '이름 ' + Object.keys(OWNER).length + '개(저장 · 배경 · 테마 · BGM 넷 · BGM 창 · 스튜디오 · 닉네임 취소 · 폴더 배치 끝내기 · BGM 창 자리) · 바꿀 수 없는 표' + (R.err ? ' — ' + R.err : ''));
 chk(R.call, '건 함수를 그 인자로 부르고 돌려준 값을 그대로 돌려준다 · has 가 참');
 chk(R.unset, '안 걸린 이름을 부르면 던진다(TypeError — 예전 window.이름() 과 같다 · 부르는 자리의 try 가 받는다)');
 chk(R.clear, 'null 로 걸면 내려간다(닉네임 입력칸이 닫힐 때)');
