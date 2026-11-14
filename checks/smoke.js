@@ -709,6 +709,8 @@ PRELOAD.push('user-status.js');
 /* seat-opacity.js · seat-state.js — 👻 캐릭터 투명도 · 🫧 좌석 활동 판정. app.js 가 원래 자리에서 만든다. */
 PRELOAD.push('seat-opacity.js');
 PRELOAD.push('seat-state.js');
+/* seat-pointer.js — 🖱 캔버스 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 우클릭. app.js 가 원래 자리에서 만든다. */
+PRELOAD.push('seat-pointer.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }

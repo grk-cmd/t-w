@@ -279,6 +279,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M10**: 캐릭터 투명도(`setSeatOpacity`)를 `room/seat-opacity.js` 로, 활동 판정(`seatState` · 활동 시각 · 펜 앱 · `triggerPet`)을 `status/seat-state.js` 로 옮겼다(글 그대로 — 활동 시각 · 펜 앱 깃발은 모듈 안에서 읽는 · 쓰는 함수로 나온다. 옛 `lastZ` 는 선언만 있어 걷음). app.js 8,423 → 8,326줄.
 
+**0.12.4 — app.js 분리 M11**: DRAG / PET 구역(캔버스 우클릭 · 누르기 · 끌기 · 흔들기 · 쓰다듬기 · 안전망 · 전역 마우스 NDC · `drag` 상태)을 `room/seat-pointer.js` 로 옮겼다(글 그대로 — 뒤에서 만들어지거나 다시 대입되는 여섯은 읽는 · 쓰는 함수로 받고, 옛 `typeof seats` 가드 하나는 걷음). app.js 8,326 → 8,084줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
