@@ -415,7 +415,7 @@ lightToneMod._setDeskMatColor(seat.deskMat, def.deskColor || null);   // 책상 
 
 - **책임**
   - `gl-recover.js`(순수 규칙 · `window.GlRecover`): 메인 캔버스 WebGL 이 끊겨 6초 안에 안 돌아오면 **앱을 다시 켠다**. 다시 켠 지 10분 안에 또 안 돌아오면 다시 켜지 않고 안내만(무한 재시작 막기).
-  - `gl-fail-notice.js`(`window.TwGlFailNotice`): WebGL 을 못 만들거나(처음) · 10분 안 재발일 때 «그래픽(3D)을 불러오지 못했어요» 안내 + [다시 켜기] [닫기] · `E-SYS-05`.
+  - `gl-fail-notice.js`(`window.TwGlFailNotice`): WebGL 을 못 만들거나(처음) · 10분 안 재발일 때 «그래픽(3D)을 불러오지 못했어요» 안내 + [다시 켜기] [앱 끄기] · `E-SYS-05`.
 - **만드는 법**: app.js 맨 앞에서 `createGlFailNotice(deps)` → 메인 렌더러를 `glFail.guard(() => new THREE.WebGLRenderer(...))` 로 만든 뒤 `GlRecover.createGlRecover(deps).attach(canvas)`.
 - **deps**
   - gl-recover: `log` · `relaunch`(companion.relaunchApp) · `notice`(glFail.show('lost')) · `setTimer` · `clearTimer` · `now` · `store`(localStorage) · `afterRestore`.

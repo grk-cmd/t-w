@@ -13,7 +13,7 @@ const TEXT = {
   title: '🧯 그래픽(3D) 문제',
   body: '그래픽(3D)을 불러오지 못했어요. 앱을 다시 켜면 대부분 돌아와요.',
   relaunch: '다시 켜기',
-  close: '닫기',
+  close: '앱 끄기',
 };
 
 function createGlFailNotice(deps){

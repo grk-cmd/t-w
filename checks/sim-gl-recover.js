@@ -114,6 +114,7 @@ function judgeGF(src){
       if (again) again.onclick();
       if (close) close.onclick();
       r.buttons = !!again && !!close && L.rel === 1 && L.quit === 1;
+      r.closeText = M.TEXT.close === '앱 끄기';
       r.once = n.show('lost') === false && doc.body.children.length === 1 && L.codes.length === 1; }
     { const { n } = run(); r.pass = n.guard(() => 42) === 42 && !n.isShown(); }
     { const { n, doc } = run(); n.show('lost'); const ov = doc.body.children[0];
@@ -124,7 +125,7 @@ function judgeGF(src){
 const F = judgeGF(GF);
 if (F.err) chk(false, '돌리다 멈춤 — ' + F.err);
 chk(F.create, '★ 렌더러를 못 만들면 안내를 띄우고(덮는 바탕 · 문구) E-SYS-05 · 진단 한 줄 · 같은 오류를 다시 던진다');
-chk(F.buttons, '  [다시 켜기] → 앱 다시 켜기 · [닫기] → 앱 끄기');
+chk(F.buttons && F.closeText, '  [다시 켜기] → 앱 다시 켜기 · [앱 끄기] → 앱 끄기(«닫기» 로 쓰면 안내만 닫는 줄 안다)');
 chk(F.once, '  안내는 한 번만(두 번째 show 는 아무것도 안 함)');
 chk(F.pass, '  만들기가 되면 그대로 돌려주고 안내 없음');
 chk(F.lost, '  실행 중 끊김(lost) 안내는 모니터를 덮지 않는다(바탕 없음 · 상자만 눌림)');
