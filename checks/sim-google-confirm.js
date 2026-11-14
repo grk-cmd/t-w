@@ -105,6 +105,34 @@ async function judgeAll(src){
   t(!x.res.ok && !x.res.canceled && x.res.reason === '구글이 막았어요', '4   구글 창이 실패하면 그 이유');
   x = await runPick([{ ok: false }], []);
   t(!x.res.ok && x.res.canceled, '4   구글 창을 그냥 닫으면 취소');
+  /* 5 🔁 구글 바꾸기 — 지금 구글 확인 · 새 구글 고르기 */
+  const mkPick = (results) => { let n = 0; return { n: () => n, m: G.createGoogleConfirm({ friendCode: () => 'MATE-N2PV', signInWithGoogle: async () => { const g = results[Math.min(n, results.length - 1)]; n++; return g; } }) }; };
+  let P = mkPick([{ ok: true, idToken: jwt({ email: 'Minty@Gmail.com' }) }]);
+  let q = await within(P.m.pickCurrent('minty@gmail.com'));
+  t(q.ok && q.idToken && P.n() === 1, '5 ★ 지금 구글 확인 — 같은 주소(대소문자 무시)면 통과');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'other@gmail.com' }) }]);
+  q = await within(P.m.pickCurrent('minty@gmail.com'));
+  t(!q.ok && !q.canceled && q.reason === '지금 연결된 구글(mi***@gmail.com)을 골라 주세요', '5 ★ 다른 구글을 고르면 — 바꾸지 않고 «지금 연결된 구글(가린 주소)을 골라 주세요»');
+  P = mkPick([{ ok: false }]); q = await within(P.m.pickCurrent('minty@gmail.com'));
+  t(!q.ok && q.canceled, '5   구글 창을 닫으면 취소');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'minty@gmail.com' }) }]);
+  q = await within(P.m.pickForChange('minty@gmail.com'));
+  t(!q.ok && q.same && /이미 연결된 구글/.test(q.reason) && e.gConfirmOverlay.style.display === 'none', '5   새로 고른 게 지금 구글과 같으면 — 묻지 않고 «이미 연결된 구글 계정이에요»');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }, { ok: true, idToken: jwt({ email: 'mo2@x.com' }) }]);
+  let pr = P.m.pickForChange('minty@gmail.com');
+  await tick();
+  t(e.gcTitle.textContent === '구글 계정을 바꿀까요?' && e.gcMail.textContent === 'mo***@x.com' && /지금 구글 mi\*\*\*@gmail\.com 대신/.test(e.gcCard.textContent) && /지금 구글\(mi\*\*\*@gmail\.com\)로는 더 이상/.test(e.gcWarn.textContent) && e.gcYes.textContent === '바꾸기' && e.gcOther.textContent === '다른 구글 고르기' && e.gcFresh.style.display === 'none',
+    '5 ★ 묻는 창 — «구글 계정을 바꿀까요?» · 새 주소 · 지금 주소(가림) · [다른 구글 고르기] / [바꾸기]');
+  e.gcOther.onclick(); await tick(); e.gcYes.onclick();
+  q = await within(pr);
+  t(q.ok && q.email === 'mo2@x.com' && P.n() === 2, '5 ★ [다른 구글 고르기] → 창 다시 · 두 번째 구글로 [바꾸기]');
+  P = mkPick([{ ok: true, idToken: jwt({ email: 'mo1@x.com' }) }]);
+  pr = P.m.pickForChange('minty@gmail.com'); await tick(); e.gcClose.onclick();
+  q = await within(pr);
+  t(!q.ok && q.canceled, '5   묻는 창을 닫으면 취소(바꾸지 않음)');
+  p = mod.ask('x@y.z', 'bind'); await tick();
+  t(e.gcYes.textContent === '이 계정에 연결', '5   바꾸기 창 뒤에 로그인 창을 열면 버튼 글은 다시 [이 계정에 연결]');
+  e.gcClose.onclick(); await within(p);
   delete globalThis.document;
   return r;
 }
@@ -141,6 +169,11 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
   chk(linkSites === 2, '★ 구글 [연결하기](내 정보) · [구글도 연결하기](가입 완료) 둘 다 묻는 창을 거친다');
   chk(rawSites === 3, '  구글 창을 직접 여는 곳은 로그인 · 가입 · 비밀번호 만들기 재확인 셋뿐(연결하기는 pickForLink 안에서) — 지금 ' + rawSites);
 
+  const ACC = strip(MOD_ACC);
+  const fl = (ACC.match(/async function _acctChangeGoogle\([\s\S]*?\n\}/) || [''])[0];
+  const iC = fl.indexOf('googleConfirmMod.pickCurrent(from)'), iN = fl.indexOf('googleConfirmMod.pickForChange(from)'), iX = fl.indexOf('firebaseAPI.authChangeGoogle(cur.idToken, nw.idToken)');
+  chk(iC > 0 && iC < iN && iN < iX, '★ 🔁 구글 바꾸기 — 지금 구글 확인 → 새 구글 고르기 · 묻기 → 바꾸기 차례(account.js _acctChangeGoogle)');
+  chk(/if\(m\.mode !== 'c2'\)\{ sayG\('구글을 바꾸려면 먼저 비밀번호를 만들어 주세요'/.test(ACC), '  비밀번호가 없는 계정(C3)은 [바꾸기]에서 막는다(서버 모듈도 한 번 더 막는다 — sim-google-change)');
   say('── 6. 일부러 깨 보기');
   for(const [name, a, b] of [
     ['주소를 안 가림', "  return local.slice(0, keep) + '***@' + domain;", "  return s;"],
@@ -148,6 +181,9 @@ process.on('exit', () => { if(!finished){ console.log('  ✗ 끝까지 못 돌�
     ['[다른 계정]이 yes', "if(other) other.onclick = () => finish('other');", "if(other) other.onclick = () => finish('yes');"],
     ['ESC 를 안 들음', "if(e.key === 'Escape'){ e.stopPropagation(); finish('cancel'); }", "if(e.key === 'Nope'){ finish('cancel'); }"],
     ['다른 구글 고르기에서 안 되돌아감', "      if(a === 'cancel') return { ok:false, canceled:true, reason:'' };\n    }", "      return { ok:false, canceled:true, reason:'' };\n    }"],
+    ['지금 구글이 아니어도 통과', "    if(!sameEmail(tokenEmail(g.idToken), from)) return", "    if(false) return"],
+    ['같은 구글로 바꾸기를 물음', "      if(sameEmail(email, from)) return { ok:false, same:true, reason:'이미 연결된 구글 계정이에요' };\n", ''],
+    ['버튼 글이 남음', "      set('gcYes', t.yes || '이 계정에 연결');\n", "      if(t.yes) set('gcYes', t.yes);\n"],
     ['넘긴 코드를 무시', "set('gcCode', code || friendCode() || '—');", "set('gcCode', friendCode() || '—');"],
   ]){
     const m2 = MOD.replace(a, b);

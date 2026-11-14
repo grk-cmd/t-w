@@ -504,9 +504,9 @@ function _acctMethodsMode(pv){
   if(pv.anonymous) return { mode:'none' };
   if(pv.password){
     const code = pv.passwordEmail ? String(pv.passwordEmail).split('@')[0].toUpperCase() : null;
-    return { mode:'c2', google:!!pv.google, warn:!pv.google, code };
+    return { mode:'c2', google:!!pv.google, warn:!pv.google, code, googleEmail:pv.googleEmail || null };
   }
-  if(pv.google) return { mode:'c3', google:true, warn:false, code:null };
+  if(pv.google) return { mode:'c3', google:true, warn:false, code:null, googleEmail:pv.googleEmail || null };
   return { mode:'none' };
 }
 function _acctPwCheck(a, b){
@@ -581,6 +581,11 @@ async function _acctMethodsRender(keepMsg){
   const text = (id, t) => { const el = $e(id); if(el) el.textContent = t; };
   show('acctMGoogleOk', m.google, 'inline');
   show('acctMGoogleLink', !m.google, 'inline-block');
+  /* 🔁 지금 구글(가린 주소) · [바꾸기] — 비밀번호가 있어야 바꾼다(google-change-net.js) */
+  show('acctMGoogleRow2', m.google, 'flex');
+  text('acctMGoogleMail', m.google ? '↳ ' + (googleConfirmMod.maskEmail(m.googleEmail) || '(주소 모름)') : '');
+  const gc = $e('acctMGoogleChange'); if(gc) gc.disabled = !(m.google && !c3);
+  show('acctMGoogleChangeNote', m.google && c3);
   const gl = $e('acctMGoogleLink'); if(gl) gl.disabled = false;
   let code = m.code;
   if(!code){ try{ code = localStorage.getItem(MY_FRIEND_CODE_KEY); }catch(_){} }
@@ -674,10 +679,44 @@ function refreshAccountTab(){
       try{ await _acctMethodsRender(true); }catch(_){}
       sayG('✅ 구글이 연결됐어요. 이제 구글로도 로그인할 수 있어요.', 'ok');
     };
+    /* 🔁 [바꾸기] — 지금 구글로 확인 → 새 구글 → 묻기 → 바꾸기(실패하면 지금 구글로 되돌린다) */
+    const gc = $e('acctMGoogleChange');
+    if(gc) gc.onclick = async ()=>{
+      const m = _acctMethodsLast;
+      if(!m || !m.google) return;
+      if(m.mode !== 'c2'){ sayG('구글을 바꾸려면 먼저 비밀번호를 만들어 주세요', 'err'); return; }
+      gc.disabled = true;
+      const r = await _acctChangeGoogle(m.googleEmail, (t)=>say(t, 'info'));
+      gc.disabled = false;
+      if(r.canceled){ say('', 'info'); return; }
+      if(!r.ok){ sayG(r.reason || '구글을 바꾸지 못했어요', 'err'); if(r.restored === false){ try{ await _acctMethodsRender(true); }catch(_){} } return; }
+      try{ await _acctMethodsRender(true); }catch(_){}
+      sayG('✅ 구글 계정을 바꿨어요 — 다음부터 ' + googleConfirmMod.maskEmail(r.email) + ' 로 로그인해요.', 'ok');
+    };
   };
   if(document.readyState === 'loading') document.addEventListener('DOMContentLoaded', bind, { once:true });
   else bind();
 })();
+
+/* 🔁 구글 계정 바꾸기 — 같은 계정(유저 코드 그대로)의 구글 연결만 새 구글로. 순서 · 되돌리기는 google-change-net.js.
+   from = 지금 연결된 구글 주소 · step(글) = 단계 안내. 돌려주는 것: { ok, email } | { ok:false, canceled? , reason, restored? } */
+async function _acctChangeGoogle(from, step){
+  if(!(window.firebaseAPI && firebaseAPI.authChangeGoogle)) return { ok:false, reason:'이 버전에서는 구글을 바꿀 수 없어요' };
+  step('지금 연결된 구글(' + googleConfirmMod.maskEmail(from) + ')을 한 번 골라 확인해 주세요…');
+  const cur = await googleConfirmMod.pickCurrent(from);
+  if(!cur.ok) return cur;
+  step('이제 새로 연결할 구글을 골라 주세요…');
+  const nw = await googleConfirmMod.pickForChange(from);
+  if(!nw.ok) return nw;
+  step('구글 계정을 바꾸는 중…');
+  let r = null; try{ r = await firebaseAPI.authChangeGoogle(cur.idToken, nw.idToken); }catch(_){ r = null; }
+  if(!r) return { ok:false, reason:'네트워크 오류 — 인터넷 연결을 확인해 주세요' };
+  if(r.ok){
+    /* 이 PC 를 구글로 로그인했다면 표시 이메일도 새 구글로 — 친구 코드로 로그인했으면({코드}@tw.local) 그대로 */
+    try{ if(localStorage.getItem(LOGIN_EMAIL_KEY) === from) localStorage.setItem(LOGIN_EMAIL_KEY, r.email || nw.email || ''); }catch(_){}
+  }
+  return r;
+}
 
 /* 🔗 로그인한 계정에 코드 기록이 없을 때 이 기기 코드 — _applyTransferSnapshot 안 주석(개정 56) 참고. 돌려주는 것: 무엇을 했는지. */
 function _adoptAccountFriendCode(r, opts){
