@@ -3,7 +3,7 @@
    ・책임: 오브젝트 옆에 반투명 원형 스프라이트를 깔고(addGlowSprite) · 재질 emissive 를 밝히는(applyGlowToMesh) 규칙. 화면 전체 후처리(Bloom)는 쓰지 않는다.
    ・받는 deps: 없음(THREE 는 전역 — app.js 앞에 싣는 classic script).
    ・내놓는 것: getGlowSpriteTexture() · addGlowSprite(obj) · applyGlowToMesh(mesh) · applyGlowEffect(obj) · GLOW_SIZE_MUL · GLOW_COLOR · GLOW_EMISSIVE_BOOST
-   ⚠️ 지금 부르는 곳이 없다 — 아이템 발광 호출(equipDeskItem 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄만.
+   ⚠️ 지금 부르는 곳이 없다 — 아이템 발광 호출(equipDeskItem 의 `applyGlowEffect`)은 «발광 없는 게 나음» 요청으로 주석 처리돼 있다. 되살리려면 그 줄을 `glowMod.applyGlowEffect(obj)` 로 바꿔 부른다(app.js 에 옛 이름이 없다).
    검사: checks/sim-glow.js */
 (function(){
 

@@ -690,6 +690,8 @@ PRELOAD.push('body-measure.js');
 PRELOAD.push('stage.js');
 /* glow.js — ✨ 빛나는 스프라이트 · 재질 발광. app.js 가 SETUP 에서 createGlow 로 만든다. */
 PRELOAD.push('glow.js');
+/* human-ear-attach.js — 🐾 사람 귀 붙이기. app.js 가 원래 자리에서 createHumanEarAttach 로 만든다. */
+PRELOAD.push('human-ear-attach.js');
 for (const f of PRELOAD) {
   const p = [f, path.join(path.dirname(FILE), f), path.join(path.dirname(FILE), 'admin', f), path.join(path.dirname(FILE), 'parts', 'admin', f)].find(x => fs.existsSync(x));
   if (!p) { say('? 원본 못 찾음 — ' + f); process.exit(2); }
