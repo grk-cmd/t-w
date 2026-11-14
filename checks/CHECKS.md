@@ -381,7 +381,7 @@
 | **sim-myhome-init.js** | 132 | **08675e1a7c4f** |
 | **sim-parts-paths.js** | 84 | **2810fc3f9073** |
 | **sim-global-names.js** | 236 | **4da03342e299** |
-| **sim-dep-cycles.js** | 237 | **6aa063b0b8b1** |
+| **sim-dep-cycles.js** | 268 | **5d63af5d3339** |
 | **sim-domain-calls.js** | 157 | **8b9f85e7d696** |
 | **sim-room-state.js** | 58 | **ddcd7ec6a8ac** |
 | **sim-error-codes.js** | 109 | **c3b25d49f7c4** |
