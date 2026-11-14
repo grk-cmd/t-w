@@ -4,15 +4,28 @@
 export const PROD_API_BASE_URL = 'https://api.together-working.com';
 const PROD_PROJECT_ID = 'together-working';
 
-/** 이 시간 안에 답이 없으면 끊고 «연결 안 됨» 으로 본다 — 예전 방식(RTDB)으로 넘어가는 기준이라 길게 두지 않는다. */
+/** 이 시간 안에 답이 없으면 끊고 «연결 안 됨» 으로 본다. */
 export const API_TIMEOUT_MS = 8000;
 
+/** API 판 서버 길의 기준 경로 — 서버가 새 길을 /v2 로 옮겼다. 바뀌면 이 한 줄만 고친다. */
+export const ADMIN_API_BASE = '/v2/admin';
+
+/** `adminPath('/admins/me')` → `/v2/admin/admins/me` */
+export const adminPath = (path: string): string => `${ADMIN_API_BASE}${path}`;
+
 /**
- * - `unavailable` — 닿지 못함(네트워크 · CORS · 타임아웃 · 5xx · 봉투가 아닌 응답).
- * - `auth` — 401 · 403. 그대로 보여 준다(권한 문제를 RTDB 로 덮으면 모른 채 지나간다).
- * - `request` — 그 밖의 4xx(404 · 409 포함). 404 는 그 자원의 «없음» 이다(서버 `code` 로 가른다).
+ * - `unavailable` — 닿지 못함(네트워크 · CORS · 타임아웃 · 5xx · 봉투가 아닌 응답 · `missingRoute: 'unavailable'` 일 때의 404).
+ * - `notReady` — 501. 서버가 아직 관리자 API 를 열지 않았다(점검 전 Firebase 모드).
+ * - `auth` — 401 · 403. 그대로 보여 준다.
+ * - `notFound` — `missingRoute: 'notFound'` 일 때의 404. 그 자원이 없다(서버 `code` 로 가른다).
+ * - `request` — 그 밖의 4xx(409 포함).
  */
-export type ApiErrorKind = 'unavailable' | 'auth' | 'request';
+export type ApiErrorKind = 'unavailable' | 'notReady' | 'auth' | 'notFound' | 'request';
+
+/**
+ * 404 를 어떻게 볼까 — Firebase 판은 «서버가 아직 모르는 길»(`unavailable`), API 판은 «그 자원 없음»(`notFound`).
+ */
+export type MissingRoute = 'unavailable' | 'notFound';
 
 export class ApiError extends Error {
   readonly kind: ApiErrorKind;
@@ -37,39 +50,6 @@ export function isApiConflict(error: unknown): error is ApiError {
   return error instanceof ApiError && error.status === 409 && error.code === 'CONCURRENT_UPDATE';
 }
 
-/**
- * 예전 방식(RTDB)으로 넘어가도 되는 실패인가 — 닿지 못한 것 · 404(옮기는 동안 서버에 아직 없는 길).
- * 권한 · 그 밖의 요청 오류는 그대로 보여 준다.
- * TODO(D12-9): 화면이 모두 API 로 옮겨지면 이 갈래와 viaApiOr 를 함께 걷는다.
- */
-export function shouldFallback(error: unknown): boolean {
-  return error instanceof ApiError && (error.kind === 'unavailable' || error.status === 404);
-}
-
-/** 예전 방식으로 읽은 까닭 — 이 환경에 API 가 없음(dev · e2e) · API 에 닿지 못함. */
-export type ApiFallback = 'no-api' | 'unavailable';
-
-/**
- * API 읽기 사본은 RTDB 를 몇 초 늦게 따라온다. 쓰기 직후 바로 다시 읽으면 옛 값이 오므로 이만큼 기다렸다 다시 읽는다.
- * (사본은 1초마다 반영 — 넉넉히 잡는다.)
- */
-export const REPLICA_LAG_MS = 3000;
-
-/** API 를 먼저, 닿지 못하면(또는 이 환경에 없으면) 예전 방식으로. 권한 · 요청 오류는 그대로 던진다. */
-export async function viaApiOr<T>(
-  api: Api | null,
-  fromApi: (api: Api) => Promise<T>,
-  fromFallback: (fallback: ApiFallback) => Promise<T>,
-): Promise<T> {
-  if (!api) return fromFallback('no-api');
-  try {
-    return await fromApi(api);
-  } catch (error) {
-    if (shouldFallback(error)) return fromFallback('unavailable');
-    throw error;
-  }
-}
-
 export function isApiAuthError(error: unknown): error is ApiError {
   return error instanceof ApiError && error.kind === 'auth';
 }
@@ -89,10 +69,12 @@ export interface Api {
   get<T>(path: string, params?: ApiParams): Promise<T>;
   /** 쓰기. 고쳐 쓰기는 본문에 `version`, DELETE 는 `query.version`. */
   send<T>(method: ApiSendMethod, path: string, options?: ApiSendOptions): Promise<T>;
+  /** 파일 올리기(POST) — 본문은 바이트 그대로 · Content-Type 은 contentType. 실패 규칙은 send 와 같다. */
+  upload<T>(path: string, bytes: Uint8Array, contentType: string): Promise<T>;
 }
 
 /**
- * 붙은 Firebase 프로젝트에 맞는 API 주소. 운영만 있다 — dev(로컬 · e2e)는 null 이라 예전 방식으로 읽는다.
+ * 붙은 Firebase 프로젝트에 맞는 API 주소. 운영만 있다 — dev(로컬 · e2e)는 null.
  * override(VITE_API_BASE_URL)를 주면 그 값을 쓴다(빈 문자열이면 «없음»).
  */
 export function apiBaseUrl(projectId: string, override?: string): string | null {
@@ -114,6 +96,8 @@ interface Options {
   token: () => Promise<string | null>;
   fetch?: typeof globalThis.fetch;
   timeoutMs?: number;
+  /** 404 를 어떻게 볼까 — 판마다 다르다(`MissingRoute`). */
+  missingRoute: MissingRoute;
 }
 
 const text = (v: unknown) => (typeof v === 'string' ? v : '');
@@ -123,6 +107,7 @@ export function createApi({
   token,
   fetch = globalThis.fetch,
   timeoutMs = API_TIMEOUT_MS,
+  missingRoute,
 }: Options): Api {
   const url = (path: string, params: ApiParams = {}) => {
     const u = new URL(baseUrl + path);
@@ -137,6 +122,7 @@ export function createApi({
     path: string,
     params?: ApiParams,
     body?: unknown,
+    raw?: { bytes: Uint8Array; contentType: string },
   ): Promise<T> {
     const idToken = await token();
     if (!idToken) throw new ApiError('auth', 401, 'AUTH_REQUIRED', '로그인이 필요해요');
@@ -146,6 +132,10 @@ export function createApi({
     if (body !== undefined && method !== 'GET' && method !== 'DELETE') {
       headers['Content-Type'] = 'application/json';
       init.body = JSON.stringify(body);
+    }
+    if (raw) {
+      headers['Content-Type'] = raw.contentType;
+      init.body = raw.bytes as BodyInit;
     }
 
     const abort = new AbortController();
@@ -181,12 +171,19 @@ export function createApi({
         message,
       );
     }
+    if (res.status === 501) {
+      throw new ApiError('notReady', res.status, code, message || '서버가 아직 이 기능을 열지 않았어요');
+    }
+    if (res.status === 404 && missingRoute === 'unavailable') {
+      // 서버가 아직 이 길을 모르는 판(배포 전 · 옛 서버)일 때다 — 닿지 못한 것과 같이 본다
+      throw new ApiError('unavailable', res.status, code, message || `API 오류 (${res.status})`);
+    }
     if (res.status >= 500) {
       throw new ApiError('unavailable', res.status, code, message || `API 오류 (${res.status})`);
     }
     if (!res.ok) {
       throw new ApiError(
-        'request',
+        res.status === 404 ? 'notFound' : 'request',
         res.status,
         code,
         message || `API 요청 오류 (${res.status})`,
@@ -205,5 +202,6 @@ export function createApi({
   return {
     get: (path, params) => request('GET', path, params),
     send: (method, path, options = {}) => request(method, path, options.query, options.body),
+    upload: (path, bytes, contentType) => request('POST', path, undefined, undefined, { bytes, contentType }),
   };
 }

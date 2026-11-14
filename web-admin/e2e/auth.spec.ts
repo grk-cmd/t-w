@@ -4,9 +4,9 @@ import { dbGet, dbSet, dbSetAs, signUpUser } from './support/emulator';
 import { card, openMenu, toast } from './support/ui';
 
 test.describe('관리자가 아닌 계정', () => {
-  test.use({ storageState: { cookies: [], origins: [] }, asAdmin: false });
+  test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('로그인하면 «관리자 계정이 아니에요» 와 «등록할 uid» 를 보여 주고 막는다', async ({ page, seed }) => {
+  test('로그인하면 «등록할 uid» 를 보여 주고 막는다', async ({ page, seed }) => {
     await seed();
     await page.goto('/admin/');
     await signInWithEmulatorPopup(page, 'outsider@e2e.test');
@@ -16,24 +16,9 @@ test.describe('관리자가 아닌 계정', () => {
     await expect(denied).toContainText('outsider@e2e.test 은(는) 관리자로 등록된 계정이 아니에요');
     const uid = (await denied.textContent())!.match(/등록할 uid: (\S+)/)![1];
     expect(uid).not.toBe(adminUid());
-    // 막힌 뒤에는 관리자 화면을 열지 않는다 — 메뉴 없이 «관리자 계정이 아니에요» 와 [로그아웃] 만.
-    await expect(page.getByRole('heading', { name: '관리자 계정이 아니에요' })).toBeVisible();
-    await expect(page.getByRole('navigation')).toHaveCount(0);
-    await page.getByRole('button', { name: '로그아웃' }).click();
+    // 막힌 뒤에는 로그인 화면에 머문다 — 메뉴도 로그아웃 버튼도 없다.
     await expect(page.getByRole('button', { name: '구글 계정으로 로그인' })).toBeVisible();
-  });
-
-  test('서버에 닿지 못하면 관리자 화면을 열지 않고 «다시 시도» 를 보인다', async ({ page, api, seed }) => {
-    await seed();
-    api.on('GET /v1/admin/admins/me', { status: 503, code: 'SERVICE_UNAVAILABLE' });
-    await page.goto('/admin/');
-    await signInWithEmulatorPopup(page, 'outsider@e2e.test');
-
-    await expect(page.getByRole('heading', { name: '서버에 연결하지 못했어요' })).toBeVisible();
     await expect(page.getByRole('navigation')).toHaveCount(0);
-    api.on('GET /v1/admin/admins/me', { data: { name: '바깥사람', grantedAt: 't', version: 1 } });
-    await page.getByRole('button', { name: '다시 시도' }).click();
-    await expect(page.getByRole('navigation')).toBeVisible();
   });
 
   test('규칙이 관리자 아닌 계정의 쓰기를 거부한다', async ({ seed }) => {

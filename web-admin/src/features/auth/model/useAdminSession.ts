@@ -1,30 +1,29 @@
 import type { User } from 'firebase/auth';
 import { useCallback, useEffect, useState } from 'react';
 import { queryClient, type Firebase } from '@/shared/api';
-import { checkAdmin } from './checkAdmin';
+import { useAuthPort, type AdminCheck } from '../api';
 
 /**
- * - `loading` — 로그인 상태 · 관리자 확인을 기다림
- * - `signedOut` — 로그인 전
- * - `denied` — 로그인은 됐으나 관리자 계정이 아님(서버 403)
- * - `unreachable` — 서버에 닿지 못해 관리자인지 모름(관리자 화면을 열지 않는다)
+ * - `checking` — 로그인 상태 · 관리자 확인을 기다림
+ * - `signedOut` — 로그인 전(또는 막혀 로그아웃됨 — 이유는 `message`)
+ * - `blocked` — 로그인은 됐으나 관리자 화면을 열 수 없음(관리자가 아님 · 서버에 닿지 못함). «다시 시도 · 로그아웃» 을 보인다
  */
 export type AdminSession =
-  | { state: 'loading' }
-  | { state: 'signedOut' }
-  | { state: 'denied'; user: User }
-  | { state: 'unreachable'; user: User; message: string }
-  | { state: 'admin'; user: User; name: string; version: number };
+  | { state: 'checking' }
+  | { state: 'signedOut'; message?: string }
+  | { state: 'blocked'; user: User; refusal: Exclude<AdminCheck, { state: 'admin' }> }
+  | { state: 'admin'; user: User };
 
 export interface AdminSessionControl {
   session: AdminSession;
-  /** 닿지 못했을 때 «다시 시도». */
+  /** 막힌 화면의 «다시 시도». */
   retry: () => void;
 }
 
-// 로그인 상태가 바뀔 때마다(새로고침 포함) 서버에 관리자인지 확인한다.
+// 로그인 상태가 바뀔 때마다(새로고침 포함) 관리자인지 다시 확인한다. 관리자가 아니면 판에 따라 로그아웃시키거나 막힌 화면에 둔다.
 export function useAdminSession(fb: Firebase): AdminSessionControl {
-  const [session, setSession] = useState<AdminSession>({ state: 'loading' });
+  const port = useAuthPort();
+  const [session, setSession] = useState<AdminSession>({ state: 'checking' });
   const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
@@ -35,22 +34,23 @@ export function useAdminSession(fb: Firebase): AdminSessionControl {
         setSession((s) => (s.state === 'signedOut' ? s : { state: 'signedOut' }));
         return;
       }
-      setSession({ state: 'loading' });
-      const check = await checkAdmin(fb.api, user.displayName);
+      setSession({ state: 'checking' });
+      const check = await port.checkAdmin(user);
       if (!current) return;
-      setSession(
-        check.state === 'admin'
-          ? { state: 'admin', user, name: check.name, version: check.version }
-          : check.state === 'denied'
-            ? { state: 'denied', user }
-            : { state: 'unreachable', user, message: check.message },
-      );
+      if (check.state === 'admin') {
+        setSession({ state: 'admin', user });
+      } else if (port.signOutOnRefusal) {
+        setSession({ state: 'signedOut', message: check.message });
+        await fb.signOut();
+      } else {
+        setSession({ state: 'blocked', user, refusal: check });
+      }
     });
     return () => {
       current = false;
       unsubscribe();
     };
-  }, [fb, attempt]);
+  }, [fb, port, attempt]);
 
   const retry = useCallback(() => setAttempt((n) => n + 1), []);
   return { session, retry };

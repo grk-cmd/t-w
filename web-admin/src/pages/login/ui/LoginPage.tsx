@@ -4,9 +4,10 @@ import styles from './LoginPage.module.css';
 
 interface Props {
   onSignIn: () => Promise<void>;
+  message?: string;
 }
 
-export function LoginPage({ onSignIn }: Props) {
+export function LoginPage({ onSignIn, message }: Props) {
   const [error, setError] = useState<string | null>(null);
 
   const signIn = async () => {
@@ -19,6 +20,8 @@ export function LoginPage({ onSignIn }: Props) {
     }
   };
 
+  const shown = error ?? message;
+
   return (
     <main className="center">
       <section className={`card ${styles.login}`}>
@@ -26,7 +29,7 @@ export function LoginPage({ onSignIn }: Props) {
         <button type="button" className={`btn primary ${styles.big}`} onClick={signIn}>
           구글 계정으로 로그인
         </button>
-        {error && <p className="msg err">{error}</p>}
+        {shown && <p className="msg err">{shown}</p>}
       </section>
     </main>
   );

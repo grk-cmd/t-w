@@ -21,7 +21,8 @@ export function errorMessage(error: unknown, fallback: string): string {
   if (isApiAuthError(error))
     return error.status === 401 ? '로그인이 풀렸어요 — 다시 로그인해 주세요' : DENIED;
   // 서버 `code` 문구 표(errorText) — 표에 없는 서버 오류는 서버 message
-  if (error instanceof ApiError && error.kind === 'request') return apiErrorText(error, fallback);
+  if (error instanceof ApiError && (error.kind === 'request' || error.kind === 'notFound'))
+    return apiErrorText(error, fallback);
   return isPermissionDenied(error) ? DENIED : fallback;
 }
 

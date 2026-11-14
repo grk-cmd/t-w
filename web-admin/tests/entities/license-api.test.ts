@@ -13,7 +13,7 @@ import {
   type LicenseStatsView,
 } from '@/entities/license';
 import { ApiError, type Api, type ApiParams } from '@/shared/api';
-import { unusedSend } from '../shared/fakeApi';
+import { unusedWrites } from '../shared/fakeApi';
 
 // RTDB 통째 목록(예전 방식) — 같은 것을 API 가 돌려준다고 보고 두 길의 결과를 견준다.
 const ALL: Record<string, License> = {
@@ -69,7 +69,7 @@ function fakeApi(respond: (path: string, params?: ApiParams) => unknown) {
       calls.push([path, params]);
       return respond(path, params) as T;
     },
-    send: unusedSend,
+    ...unusedWrites,
   };
   return { api, calls };
 }
@@ -78,7 +78,7 @@ const failing = (e: ApiError): Api => ({
   get: async () => {
     throw e;
   },
-  send: unusedSend,
+  ...unusedWrites,
 });
 
 const unavailable = new ApiError('unavailable', 0, '', 'API 에 연결하지 못했어요');

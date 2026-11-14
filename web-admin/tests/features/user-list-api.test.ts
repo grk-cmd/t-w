@@ -29,7 +29,7 @@ import {
 import { ApiError, type Api, type ApiParams } from '@/shared/api';
 import { fakeDb } from '../shared/fakeDb';
 import { accounts, friendCodes, licenses } from '../shared/userFixtures';
-import { unusedSend } from '../shared/fakeApi';
+import { unusedWrites } from '../shared/fakeApi';
 
 // 예전 방식(RTDB 통째 → 화면에서 거름)의 줄 — 같은 것을 API(서버 사본)가 돌려준다고 보고 두 길의 결과를 견준다.
 const ROWS = buildUserRows(
@@ -81,7 +81,7 @@ function fakeApi(respond: (path: string, params?: ApiParams) => unknown = (_, p)
       calls.push([path, params]);
       return respond(path, params) as T;
     },
-    send: unusedSend,
+    ...unusedWrites,
   };
   return { api, calls };
 }
@@ -90,7 +90,7 @@ const failing = (e: ApiError): Api => ({
   get: async () => {
     throw e;
   },
-  send: unusedSend,
+  ...unusedWrites,
 });
 
 const loadAllSpy = () => vi.fn(async () => ROWS);
