@@ -135,6 +135,7 @@ const MODULES = [
   { file: 'human-ear-attach.js', mod: 'humanEarAttachMod', glob: 'TwHumanEarAttach', sample: 'function _syncHumanEarRig(' },   // 0.12.4 app.js 분리 M2
   { file: 'desk-build.js', mod: 'deskBuildMod', glob: 'TwDeskBuild', sample: 'function buildPlaceholder(' },   // 0.12.4 app.js 분리 M3
   { file: 'part-anim.js', mod: 'partAnimMod', glob: 'TwPartAnim', sample: 'function _clipHasMotion(' },   // 0.12.4 app.js 분리 M4
+  { file: 'desk-item-equip.js', mod: 'deskItemEquipMod', glob: 'TwDeskItemEquip', sample: 'function equipDeskItem(' },   // 0.12.4 app.js 분리 M5
 ];
 const readPart = (name) => { for(const p of [name, 'parts/' + name, 'app/parts/' + name]){ try{ return fs.readFileSync(p, 'utf8'); }catch(_){} } return null; };
 const esc = (s) => s.replace(/[$]/g, '\\$');

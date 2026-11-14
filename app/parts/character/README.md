@@ -386,3 +386,14 @@
   - 옛 글의 `typeof isAdmin` · `typeof seats` 는 읽는 함수로 바뀌며 걷었다(앱이 돌기 시작한 뒤에만 불리므로 같은 뜻).
   - `_partAnimNotice` 는 첫 줄 `return` 으로 꺼져 있다(장착할 때마다 뜨던 토스트 잡음). 진단은 `console.log` 의 `[파츠 애니]` 로 본다.
   - 검사: `checks/sim-part-anim.js`(진짜 three AnimationMixer · 클립 · 상태 표로 재생 판정 · 깨 보기).
+
+## desk-item-equip.js — 🪑 책상 위 아이템 장착
+
+- **책임**: 아이템 하나를 좌석 · 생성기 미리보기(`holder`)에 올리고 내리기(`equipDeskItem` — 라이선스 전용 막기 · 손 본 부착 · `_col` 색 그룹 · `hand_L/R` 손 따라가는 지점 · 재생 방식 등록 · 커스텀 GLB 크기 맞춤 · 해제 전 위치 · 색 기억) · 저장된 아이템 한 벌 입히기(`applyDeskItemsTo` — 저장 당시 «자동 크기 대비 비율» 환산) · 모으기(`collectDeskItems`) · 켜고 끌 때 바로 저장(`autoSaveDeskItemsNow`) · 색 반영(`_applyItemColor`) · 생성기 «처음 나타난 자리» 기억(`deskItemOrigin`). 앱 FSD 분리 M5 — app.js 에서 글 그대로 옮겼다.
+- **만드는 법**: `TwDeskItemEquip.createDeskItemEquip({ activeItemMixers, _idleItemPivots, lightToneMod, toast, commissionMod, crState, crXformMod, customItems, deskItemsMod, deskSetupMod, isAdmin, isPremium, launcherPrevMod, slotSaveMod })` — 앞 넷은 값(part-anim.js 가 먼저 만든 재생 목록 · 이미 있는 것), 뒤 열은 읽는 함수(`()=>crState` …)다. 더 아래에서 만들어지거나 다시 대입되는 let 이어서다.
+- **내보내는 것**: `applyDeskAdj` · `deskItemOrigin`(처음 자리 모듈이 없으면 `null`) · `equipDeskItem` · `collectDeskItems` · `autoSaveDeskItemsNow` · `applyDeskItemsTo` · `_applyItemColor` — app.js 는 같은 이름 const 로 받는다.
+- **함정**
+  - 라이선스 전용 막기는 **친구 좌석(`holder.remote`)에는 걸지 않는다** — 보는 사람의 라이선스로 친구가 올린 아이템이 내 화면에서만 사라진다. `def.licenseOnly` 만 보면 새므로 카탈로그 기록(`savedItems`)도 같이 본다.
+  - 생성기(`crState.cBase`)일 때만 선택 표시 · 처음 자리 기억 · 기즈모 해제를 한다.
+  - 색 그룹이 있으면 비어 있어도 `colors` 를 항상 저장한다 — «초기화한 상태» 를 기록해야 옛 색이 안 남는다.
+  - 검사: `checks/sim-desk-item-equip.js`(진짜 three 로 장착 · 해제 · 복원 · 재생 방식 · 색 · 저장 · 환산 · 깨 보기).
