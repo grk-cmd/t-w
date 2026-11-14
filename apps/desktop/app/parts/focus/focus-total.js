@@ -43,10 +43,15 @@ function _normDay(v){
   const m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(String(v || ''));
   return m ? m[1] + '-' + m[2].padStart(2, '0') + '-' + m[3].padStart(2, '0') : null;
 }
+/* 활성 앱 상태(0.5초)마다 불린다 — 저장된 글과 같으면 쓰지 않는다(날 글자는 하루 한 번만 바뀐다).
+   메모리 사본이 아니라 칸에 저장된 값과 견준다 — 칸이 비워졌으면 예전처럼 다시 쓴다. */
+function _setIfChanged(k, v){
+  if(focusTotalStore.get(k) !== v) focusTotalStore.set(k, v);
+}
 function _saveToday(){
   try{
-    focusTotalStore.set(FOCUS_TODAY_SEC_KEY, String(_focusTodaySec));
-    focusTotalStore.set(FOCUS_TODAY_DATE_KEY, _day || '');
+    _setIfChanged(FOCUS_TODAY_SEC_KEY, String(_focusTodaySec));
+    _setIfChanged(FOCUS_TODAY_DATE_KEY, _day || '');
   }catch(e){}
 }
 const dayEndFns = [];

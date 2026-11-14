@@ -373,7 +373,7 @@
 | **sim-commission.js** | 103 | **f2dfe500eb47** |
 | **sim-exp-bar.js** | 98 | **cd3f1861cd05** |
 | **sim-chal-store.js** | 478 | **fcbc122da28e** |
-| **sim-focus-day.js** | 119 | **678ae90b3c1d** |
+| **sim-focus-day.js** | 135 | **64502f3520bb** |
 | **sim-focus-total.js** | 103 | **e1291da0034c** |
 | **sim-focus-share.js** | 96 | **65d840be2d83** |
 | **sim-demoji-palette.js** | 95 | **a38ceb5d6ee7** |
@@ -484,7 +484,7 @@
 | **sim-gift-img-retry.js** | 207 | **1053b262fc34** |
 | **sim-request-id.js** | 94 | **34021f461cd5** |
 | **sim-device-id.js** | 103 | **44a934497fba** |
-| **sim-account-store.js** | 417 | **67db50bf3b55** |
+| **sim-account-store.js** | 417 | **e77774a71198** |
 | **sim-api-errors.js** | 126 | **46fbbfebb0fc** |
 | **sim-rt-hub.js** | 499 | **d969dad39c36** |
 | **sim-rt-status-ui.js** | 245 | **a5503f36aa86** |
