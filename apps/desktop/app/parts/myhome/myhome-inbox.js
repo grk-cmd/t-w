@@ -56,7 +56,8 @@ const lvStarStr = deps.lvStarStr;
 const lvBadgeClass = deps.lvBadgeClass;              // 🏅 레벨 배지 구간
 const openFriendHomeView = deps.openFriendHomeView;  // 아바타 클릭 → 친구 마이홈 관람
 const renderMhProfileRail = deps.renderMhProfileRail;   // (제거된 프로필 레일 — 빈 함수)
-const mallangMod = deps.mallangMod;                        // 🧸 말랑이(mallang.js) — 선물 보내기 창 · 선물함 순서 · 상한 · 치움 · 다시 부르기 · 지우기
+const mallangMod = deps.mallangMod;                        // 🧸 말랑이(mallang.js) — 선물 보내기 창
+const giftBox = deps.giftBox;                              // 🎁 선물 상태 주인(gift-box.js) — 선물함 값 · ⭐ · 치움 · 지우기
 const removeFriend = deps.removeFriend;                // 👥 친구 끊기(friends-port — 서버면 서버 길 · 아니면 옛 길)
 let _mhSelectedFriend = null;   // (구 DM 자리) 지금은 사용하지 않지만 다른 곳에서 참조할 수 있어 유지
 function _inboxBcReadSet(){ try{ return new Set(JSON.parse(localStorage.getItem(INBOX_BC_READ_KEY)||'[]')); }catch(e){ return new Set(); } }
@@ -378,63 +379,52 @@ function _bindExtLinks(root){
     try{ if(window.companion && companion.openBrowser) companion.openBrowser(url); }catch(_){}
   });
 }
-/* 💝 선물함 — 받은 말랑이 선물 목록. 마이홈에서 클릭해 없앨 때까지 여기 남아있음.
-   ⚠️ 예전엔 renderInbox() 안의 `_inboxFilter === 'gift'` 분기였다. 선물은 친구에게서 오는
-     것이라 친구 관리로 옮기면서 **그리는 칸을 인자로 받게** 떼어냈다 — #mhInboxList 를
-     이름으로 붙잡고 있으면 다른 칸에서 못 쓴다.
-   ⚠️ 배지 확인 처리(mallangMod.seenGifts)는 여기 없다. **선물함 서브탭을 눌렀을 때**만 부른다 —
-     탭을 스치기만 해도 선물을 본 것으로 처리되면 안 되기 때문이다. */
+/* 💝 선물함 — 받은 말랑이 선물 목록. 원본은 서버(gift-box.js) — 여기는 그 값을 그리고 누름을 동작 함수(star · hide · remove)로 넘긴다.
+   ⚠️ 배지 확인 처리(giftBox.openTab 의 봤음)는 **선물함 서브탭을 눌렀을 때**만 — 탭을 스치기만 해도 선물을 본 것으로 처리되면 안 되기 때문이다(myhome-ui.js).
+   값이 바뀌면(받기 · 신호 · ⭐ · 지우기) giftBox.onChange 가 다시 그린다 — 선물함 서브탭이 눈앞일 때만. */
 function renderGiftBox(listEl){
   if(!listEl) return;
-  listEl.innerHTML = '<div class="mh-ibx-empty">불러오는 중…</div>';
-  (async ()=>{
-    let gifts = {};
-    try{ if(getMyUserId() && window.firebaseAPI && firebaseAPI.getMallangGifts) gifts = await firebaseAPI.getMallangGifts(getMyUserId()) || {}; }catch(_){}
-    _giftBoxPaint(listEl, gifts);
-  })();
+  const b = giftBox.box();
+  if(b.load === giftBox.LOAD.IDLE) giftBox.pull(false);   // 아직 한 번도 못 받았다 — 받는 중으로 바뀌며 다시 그린다(번호 없음)
+  _giftBoxPaint(listEl, b);
 }
-/* 받아 둔 gifts 로 다시 그린다 — ⭐ 토글·삭제·다시 불러오기마다 서버에서 통째로 다시 받지 않으려고
-   renderGiftBox 에서 떼어 냈다. */
-function _giftBoxPaint(listEl, gifts){
-  const lim = mallangMod.giftLimits;
-  const keys = mallangMod.giftOrder(gifts);
-  if(!keys.length){
+function _giftBoxPaint(listEl, b){
+  if(b.load !== giftBox.LOAD.READY){
+    const failedLoad = b.load === giftBox.LOAD.FAILED;
+    listEl.innerHTML = '<div class="mh-ibx-empty">'+(failedLoad ? '못 불러왔어요 <button type="button" class="gift-retry">다시 시도</button>' : '불러오는 중…')+'</div>';
+    listEl.oncontextmenu = null;
+    listEl.onclick = failedLoad ? (ev)=>{ if(ev.target && ev.target.closest && ev.target.closest('.gift-retry')) giftBox.openTab(); } : null;
+    _giftStat('');
+    return;
+  }
+  const items = giftBox.order(b.items);
+  if(!items.length){
     listEl.innerHTML = '<div class="mh-ibx-empty">💝 아직 받은 선물이 없어요<br><small>친구가 보낸 말랑이가 여기에 표시돼요</small></div>';
     listEl.onclick = null; listEl.oncontextmenu = null;
     _giftStat('');
     return;
   }
-  const starN = keys.filter(k=>gifts[k] && gifts[k].starred === true).length;
-  /* 🛡️ 여기 있던 지역 이스케이프(`_e`)는 지웠다 — `'` 가 빠진 네 문자짜리였다.
-     공용 escHtml 을 쓴다. 선물의 `fromName`·`msg`·`imgUrl` 은 **친구가 정한 문자열**이고
-     그 넷 전부 속성값 안으로 들어간다(`data-*`·`title`·`img src`). */
-  /* 🎁 6×5 격자 — 30칸이 보관 한도(GIFT_MAX=30)와 딱 맞는다.
-     칸이 작아 글자를 넣을 자리가 없으므로, 보낸 사람·메시지·시각은 title(마우스를 올리면 뜨는 설명)에 담는다.
-     fromName은 선물을 받을 때 이미 함께 저장돼 오는 값이라 추가로 받아오는 데이터가 없다(사용량 0).
-     ⭐ 순서는 mallang.js giftOrder — ⭐ 아닌 것의 가장 오래된 것이 늘 마지막 칸이라, 꽉 찼을 때
-       그 칸이 곧 자동 정리의 다음 대상이다(마우스를 올리면 설명에 적힌다). */
-  const full = keys.length >= lim.max;
-  const cells = keys.map((k, i)=>{
-    const g = gifts[k];
-    const when = _inboxTimeStr(g.ts);
-    const isHidden = mallangMod.isGiftHidden(k);
+  /* 🛡️ 선물의 senderName · message · imageUrl 은 **친구가 정한 문자열**이고 속성값 안으로 들어간다(`data-*` · `title` · `img src`) — 공용 escHtml · safeUrl 만 쓴다. */
+  /* 🎁 6×5 격자 — 30칸이 서버 보관 한도(boxKeep)와 맞는다. 칸이 작아 글자를 넣을 자리가 없으므로 보낸 사람 · 메시지 · 시각은 title(마우스를 올리면 뜨는 설명)에 담는다.
+     순서는 gift-box order() — ⭐ 아닌 것의 가장 오래된 것이 늘 마지막 칸이라, 꽉 찼을 때 그 칸이 곧 서버 자동 정리의 다음 대상이다(설명에 적는다). */
+  const full = items.length >= b.boxKeep;
+  const cells = items.map((g, i)=>{
+    const when = _inboxTimeStr(g.sentAt);
     const star = g.starred === true;
-    const next = full && !star && i === keys.length - 1;
-    const who = (g.fromName||'친구') + ' 님이 선물했어요';
-    const tip = who + (g.msg ? ('\n“'+g.msg+'”') : '') + (when ? ('\n'+when) : '')
-              + '\n' + (isHidden ? '클릭하면 마이홈에 다시 불러와요' : '마이홈에 나와 있어요')
+    const next = full && !star && i === items.length - 1;
+    const who = (g.senderName||'친구') + ' 님이 선물했어요';
+    const tip = who + (g.message ? ('\n“'+g.message+'”') : '') + (when ? ('\n'+when) : '')
+              + '\n' + (g.hidden ? '클릭하면 마이홈에 다시 불러와요' : '마이홈에 나와 있어요')
               + (next ? '\n새 선물이 오면 이 선물이 먼저 지워져요' : '');
-    return '<div class="gift-cell gift-item'+(isHidden?' out':'')+(star?' star':'')+'" data-gid="'+escHtml(k)+'"'+
-           ' data-img="'+escHtml(g.imgUrl||'')+'" data-msg="'+escHtml(g.msg||'')+'" title="'+escHtml(tip)+'">'+
-           '<img src="'+escHtml(TwSafeHtml.safeUrl(g.imgUrl, 'image'))+'" alt="" draggable="false">'+   // 이름은 title(마우스 올림)에만
+    return '<div class="gift-cell gift-item'+(g.hidden?' out':'')+(star?' star':'')+(giftBox.isBusy(g.id)?' busy':'')+'" data-gid="'+escHtml(g.id)+'" title="'+escHtml(tip)+'">'+
+           '<img src="'+escHtml(TwSafeHtml.safeUrl(g.imageUrl, 'image'))+'" alt="" draggable="false">'+
            '<span class="gift-star" title="'+(star?'즐겨찾기 풀기':'즐겨찾기')+'">'+(star?'⭐':'☆')+'</span></div>';
   });
   // 남은 칸은 빈 칸으로 채워 격자 모양을 유지
-  for(let i=keys.length;i<lim.max;i++) cells.push('<div class="gift-cell empty"></div>');
+  for(let i=items.length;i<b.boxKeep;i++) cells.push('<div class="gift-cell empty"></div>');
   listEl.innerHTML = '<div class="gift-grid">'+cells.join('')+'</div>';
-  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));   // 못 받은 응답이 캐시에 남아 빈칸이 되지 않게(실패 이벤트는 다음 차례에 나서 지금 걸어도 받는다)
-  _giftStat('⭐ '+starN+'/'+lim.starMax+' · 보관 '+keys.length+'/'+lim.max);
-  const repaint = ()=>{ try{ _giftBoxPaint(listEl, gifts); }catch(_){} };
+  listEl.querySelectorAll('.gift-item img').forEach(im=>TwImgRetry.retryOnError(im));   // 못 받은 응답이 캐시에 남아 빈칸이 되지 않게
+  _giftStat('⭐ '+b.starCount+'/'+b.starMax+' · 보관 '+items.length+'/'+b.boxKeep);
   // ★ 선물함 항목 클릭 → 마이홈에 다시 소환. innerHTML로 만든 목록이라 위임 방식으로 한 번만 건다.
   listEl.onclick = (ev)=>{
     const it = ev.target && ev.target.closest ? ev.target.closest('.gift-item') : null;
@@ -443,51 +433,51 @@ function _giftBoxPaint(listEl, gifts){
     /* ⭐ 칸 클릭(다시 불러오기)으로 번지면 안 된다 — 여기서 끊는다. */
     if(ev.target.closest('.gift-star')){
       ev.stopPropagation();
-      _giftToggleStar(k, gifts, starN, lim, repaint);
+      const cur = giftBox.get(k);
+      if(cur) giftBox.star(k, cur.starred !== true);   // 안내 · 번호는 gift-box 가 띄운다
       return;
     }
-    const r = mallangMod.respawnGift(k, it.dataset.img, it.dataset.msg);
-    if(r === 'ok'){ toast('🎁 마이홈에 다시 불러왔어요'); repaint(); }   // 목록의 '치움' 표시 갱신
-    else if(r === 'already') toast('이미 마이홈에 나와 있어요');
-    else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
+    _giftRespawn(k);
   };
   // 우클릭 → [저장] [삭제] [취소]. ⭐ 는 삭제를 막아 [저장] [취소] 만. 확인은 창 안 확인창으로 — confirm() 금지(audit 검사 4).
   listEl.oncontextmenu = (ev)=>{
     const it = ev.target && ev.target.closest ? ev.target.closest('.gift-item') : null;
     if(!it || !it.dataset.gid) return;
     ev.preventDefault(); ev.stopPropagation();
-    const k = it.dataset.gid, g = gifts[k]; if(!g) return;
-    const saveBtn = { label:'저장', run: ()=>giftSave.save(g) };
+    const k = it.dataset.gid, g = giftBox.get(k); if(!g) return;
+    const saveBtn = { label:'저장', run: ()=>giftSave.save({ imgUrl: g.imageUrl, fromName: g.senderName, ts: g.sentAt }) };
     if(g.starred === true){
       _mhAsk('선물 저장', '즐겨찾기한 선물이에요. 내 컴퓨터에 저장할 수 있어요.\n삭제하려면 ⭐를 먼저 풀어 주세요.', [saveBtn, { label:'취소' }]);
       return;
     }
     _mhAsk('선물 저장 · 삭제',
-      (g.fromName||'친구')+' 님의 선물을 저장하거나 삭제할 수 있어요.\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
+      (g.senderName||'친구')+' 님의 선물을 저장하거나 삭제할 수 있어요.\n삭제하면 되돌릴 수 없어요. 마이홈에 나와 있으면 같이 사라져요.',
       [saveBtn,
        { label:'삭제', danger:true, run: async ()=>{
-          const r = await mallangMod.deleteGift(k, g);
-          if(r === 'ok'){ delete gifts[k]; repaint(); toast('🗑 선물을 삭제했어요'); }
-          else toast('삭제하지 못했어요 — 네트워크를 확인해 주세요');
+          const r = await giftBox.remove(k);   // 실패 번호 · 안내는 gift-box 가 띄운다
+          if(r === 'ok') toast('🗑 선물을 삭제했어요');   // 화면의 말랑이는 선물함이 목록에서 빼며 걷는다
         } },
        { label:'취소' }]);
   };
+}
+/* 칸 클릭 — 다시 부르기. 무엇이 화면에 뜨는지는 선물함(gift-box show)이 정한다 — 여기는 답에 맞는 안내만 띄운다(실패 번호 · 안내는 gift-box 가 띄웠다) */
+async function _giftRespawn(k){
+  const r = await giftBox.show(k);
+  if(r === 'ok') toast('🎁 마이홈에 다시 불러왔어요');
+  else if(r === 'already') toast('이미 마이홈에 나와 있어요');
+  else if(r === 'full') toast('말랑이가 너무 많아요 — 몇 마리 치우고 다시 시도해 주세요');
 }
 /* 서브탭 줄 오른쪽의 「⭐ n/20 · 보관 m/30」. 다른 서브탭으로 가면 renderFriendManage 가 비운다. */
 function _giftStat(text){
   const el = document.getElementById('mhGiftStat');
   if(el) el.textContent = text;
 }
-async function _giftToggleStar(k, gifts, starN, lim, repaint){
-  const g = gifts[k]; if(!g) return;
-  const on = g.starred !== true;
-  if(on && starN >= lim.starMax){ toast('즐겨찾기는 '+lim.starMax+'개까지예요'); return; }
-  if(!(window.firebaseAPI && firebaseAPI.setMallangGiftStarred)){ toast('이 기능은 앱을 재시작한 후에 사용할 수 있어요'); return; }
-  const r = await firebaseAPI.setMallangGiftStarred(getMyUserId(), k, on);
-  if(!(r && r.ok)){ toast('저장하지 못했어요 — 네트워크를 확인해 주세요'); return; }
-  if(on) g.starred = true; else delete g.starred;
-  repaint();
-}
+giftBox.onChange(()=>{   // 선물함 서브탭이 눈앞일 때만 다시 그린다(같은 칸 #mhFmList 를 다른 서브탭도 쓴다)
+  const on = document.querySelector('#mhFmTabs .mh-ibx-tab.on');
+  if(!on || on.dataset.fm !== 'gift') return;
+  const el = document.getElementById('mhFmList');
+  if(el) _giftBoxPaint(el, giftBox.box());
+});
 /* 마이홈 창 안 확인창 — btns: [{label, danger?, run?}]. 아무 버튼이나 누르면 닫힌다.
    ⚠️ #myHomeWin 의 자식으로 붙인다. body 로 빼면 run 모드에서 클릭이 뒤로 뚫린다(.mh-color-pop 사고). */
 function _mhAsk(title, text, btns){

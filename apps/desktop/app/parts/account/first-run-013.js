@@ -22,12 +22,13 @@ const LOGIN_LEGACY_KEYS = Object.freeze(['tw.inviteToken', 'tw.signupPending', '
 /* 0.12 가챠가 이 PC 에 남긴 키 — 0.13 은 서버가 원본이라 올릴 것 없이 지우기만 한다(이 PC 에만 있던 뽑기는 올리지 않는다) */
 const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs', 'tw.gachaBonus']);
 function gachaStep(){ return async () => ({ ok: true, wipe: GACHA_LEGACY_KEYS.slice() }); }
-/* 0.12 말랑이가 이 PC 에 남긴 칸 백업(tw.mallang.{코드|anon}) — 0.13 은 서버가 원본이라 올리지 않고 지우기만 한다(서버 칸은 컷오버가 옮긴다).
-   키 뒤에 계정 코드가 붙어 이름을 다 적을 수 없어 이 PC 에 있는 것을 훑는다. ⚠️ 'tw.mallang.' 뒤가 있어야 한다 — 'tw.mallangGiftHidden' 은 이 접두가 아니다 */
+/* 0.12 말랑이 · 선물이 이 PC 에 남긴 것 — 칸 백업(tw.mallang.{코드|anon})과 «치운 선물» 목록(tw.mallangGiftHidden). 0.13 은 서버가 원본(칸 · 선물의 hidden)이라 올리지 않고 지우기만 한다(서버 값은 컷오버가 옮긴다).
+   칸 백업은 키 뒤에 계정 코드가 붙어 이름을 다 적을 수 없어 이 PC 에 있는 것을 훑는다. ⚠️ 'tw.mallang.' 뒤가 있어야 한다 — 'tw.mallangGiftHidden' 은 이 접두가 아니라 이름으로 따로 적는다 */
 const MALLANG_LEGACY_PREFIX = 'tw.mallang.';
+const MALLANG_LEGACY_KEYS = Object.freeze(['tw.mallangGiftHidden']);
 function mallangStep(storage){
   return async () => {
-    const wipe = [];
+    const wipe = MALLANG_LEGACY_KEYS.slice();
     for(let i = 0; i < storage.length; i++){
       const k = storage.key(i);
       if(typeof k === 'string' && k.length > MALLANG_LEGACY_PREFIX.length && k.indexOf(MALLANG_LEGACY_PREFIX) === 0) wipe.push(k);
@@ -188,7 +189,7 @@ function createFirstRun(deps){
   return { run };
 }
 
-const api = { DONE_KEY, STEPS, LOGIN_LEGACY_KEYS, GACHA_LEGACY_KEYS, MALLANG_LEGACY_PREFIX, pendingStep, licenseKeyStep, focusStep, chalStep, CHAL_LEGACY_KEY, FOCUS_LEGACY_KEYS, LICENSE_KEY_STORAGE, LICENSE_OPTOUT_KEY, LICENSE_NOTICE, loginStep, gachaStep, mallangStep, myhomeStep, MYHOME_LEGACY_KEYS, MYHOME_LEGACY_PREFIX, createFirstRun };
+const api = { DONE_KEY, STEPS, LOGIN_LEGACY_KEYS, GACHA_LEGACY_KEYS, MALLANG_LEGACY_PREFIX, MALLANG_LEGACY_KEYS, pendingStep, licenseKeyStep, focusStep, chalStep, CHAL_LEGACY_KEY, FOCUS_LEGACY_KEYS, LICENSE_KEY_STORAGE, LICENSE_OPTOUT_KEY, LICENSE_NOTICE, loginStep, gachaStep, mallangStep, myhomeStep, MYHOME_LEGACY_KEYS, MYHOME_LEGACY_PREFIX, createFirstRun };
 if(typeof window !== 'undefined') window.TwFirstRun013 = api;
 if(typeof module !== 'undefined' && module.exports) module.exports = api;
 })();

@@ -2723,6 +2723,13 @@ const mallangStoreMod = TwMallangStore.createMallangStore({
   toast: (...a)=>toast(...a),
 });
 window.addEventListener('beforeunload', ()=>{ mallangStoreMod.flush(); });   // 앱을 끌 때 못 올린 칸 고침 한 번(결과를 기다리지 않음)
+/* 🎁 선물 상태 주인(myhome/gift-box.js) — 원본은 서버(/v1/me/gifts). 말랑이 화면 · 수령함(선물함 격자) · 마이홈 창이 받는다. 만들 때 도는 일 없음(받기는 마이홈을 열 때 · 서브탭 · 서버 신호는 app-boot gift). */
+const giftBoxMod = TwGiftBox.createGiftBox({
+  api: giftApiMod, giftLib: TwGiftApi, errs: TwApiErrors, apiErrors: TwApiErrors.store,
+  notifyError: (...a)=>TwErrorCodes.notify(...a),
+  toast: (...a)=>toast(...a),
+  rtOn: (kind, fn)=>TwRtHub.store.on(kind, fn),
+});
 /* 📚 책장 상태 주인(myhome/bookshelf-store.js) — 원본은 서버(/v1/me/myhome/bookshelf · /v1/myhomes/{code}/bookshelf). 북마크 서랍 · 로그아웃 올리기가 받는다. 만들 때 도는 일 없음. */
 const bookshelfApiMod = TwMyHomeApi.createMyHomeApi({ authed: TwApi.authed, imageBytes: TwImageBytes, warn: (...a)=>console.warn(...a) });   // 🌐 마이홈 서버 길(책장 몫)
 const bookshelfStoreMod = TwBookshelfStore.createBookshelfStore({
@@ -2756,6 +2763,7 @@ const mallangMod = TwMallang.createMallang({
   getDisplayName: (...a)=>getDisplayName(...a),
   premiumOn: (...a)=>_premiumOn(...a),
   mallangStore: mallangStoreMod,
+  giftBox: giftBoxMod,
 });
 
 /* ═══ 👥 마이홈 친구 목록 · Ctrl+F 검색 ═══ */
@@ -2796,6 +2804,7 @@ const inboxMod = TwMyHomeInbox.createMyHomeInbox({
   openFriendHomeView: (...a)=>mhVisitMod.openFriendHomeView(...a),
   renderMhProfileRail: (...a)=>myHomeUiMod.renderMhProfileRail(...a),
   mallangMod: mallangMod,
+  giftBox: giftBoxMod,
   // 👥 친구 끊기 — 포트가 서버 · 옛 길을 고른다
   removeFriend: (...a)=>friendsPortMod.removeFriend(...a),
 });
@@ -2828,6 +2837,7 @@ const myHomeUiMod = TwMyHomeUi.createMyHomeUi({
   isAdmin: ()=>isAdmin,
   loadMyHomePage: (...a)=>mhPageMod.loadMyHomePage(...a),
   mallangMod: mallangMod,
+  giftBox: giftBoxMod,
   mhScheduler: mhScheduler,
   myHomeOpen: ()=>myHomeOpen,
   myHomeSticker: ()=>myHomeSticker,
@@ -6990,6 +7000,7 @@ const accountMod = TwAccount.createAccount({
   plMod: plMod,
   mhScheduler: mhScheduler,
   mallangStore: mallangStoreMod,
+  giftBox: giftBoxMod,
   myhomeStore: myhomeStoreMod,
   bookshelfStore: bookshelfStoreMod,
   bugBoardReset: (...a)=>bugBoardUi.reset(...a),
@@ -8832,6 +8843,7 @@ const appBoot = TwAppBoot.createAppBoot({
     gacha: ()=>gachaMod.startGacha(),
     closet: ()=>closetMod.startCloset(),
     mhInit: (code, me)=>mhInitMod.initMyHome(code, me),
+    gift: (code, me, session)=>{ session.on(giftBoxMod.listen()); session.onReset(()=>{ giftBoxMod.reset(); mallangStoreMod.reset(); mallangMod.reset(); }); },   // 🎁 서버 신호 `gifts` 만 건다(요청 0 — 받기는 마이홈을 열 때)
     bugBadge: ()=>bugBoardUi.start(),
     scheduler: ()=>mhScheduler.startSchedule(),
     roomInvite: ()=>roomInviteUi.startReceive(),

@@ -21,7 +21,7 @@ const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return 
 const pick = (names) => names.map(read).find(Boolean);
 const P = (f, dir) => [f, 'parts/' + dir + '/' + f, 'app/parts/' + dir + '/' + f, 'apps/desktop/app/parts/' + dir + '/' + f];
 const SRC = {
-  ML: pick(P('mallang.js', 'myhome')), STORE: pick(P('mallang-store.js', 'myhome')), GIFT: pick(P('gift-api.js', 'myhome')), AE: pick(P('api-errors.js', 'shared')), SAFE: pick(P('safe-html.js', 'shared')), RETRY: pick(P('img-retry.js', 'shared')),
+  ML: pick(P('mallang.js', 'myhome')), STORE: pick(P('mallang-store.js', 'myhome')), BOX: pick(P('gift-box.js', 'myhome')), GIFT: pick(P('gift-api.js', 'myhome')), AE: pick(P('api-errors.js', 'shared')), SAFE: pick(P('safe-html.js', 'shared')), RETRY: pick(P('img-retry.js', 'shared')),
   APP: pick(['app.js', 'parts/app.js', 'app/parts/app.js', 'apps/desktop/app/parts/app.js']),
   UI: pick(P('myhome-ui.js', 'myhome')), VISIT: pick(P('myhome-visit.js', 'myhome')), INBOX: pick(P('myhome-inbox.js', 'myhome')),
   HTML: pick(['desk-companion-prototype.html', 'app/desk-companion-prototype.html', 'apps/desktop/app/desk-companion-prototype.html']),
@@ -30,7 +30,7 @@ const SRC = {
 for(const k of Object.keys(SRC)) if(!SRC[k]){ say('  ? 원본 못 찾음 — ' + k); process.exit(2); }
 const strip = (x) => x.replace(/\/\*[\s\S]*?\*\//g, ' ').replace(/(^|[^:'"])\/\/[^\n]*/g, '$1 ');
 const flush = () => new Promise(r => setImmediate(r));
-const EXPORTS = ['onOpen', 'onClose', 'applyVisit', 'seenGifts', 'openGift', 'giftOrder', 'giftLimits', 'isGiftHidden', 'respawnGift', 'deleteGift'];
+const EXPORTS = ['onOpen', 'onClose', 'applyVisit', 'reset', 'openGift'];
 
 const loadSafe = () => { const m = { exports: {} }; new Function('window', 'module', SRC.SAFE)(undefined, m); return m.exports; };
 const loadMod = (src) => { const m = { exports: {} }; new Function('window', 'module', src)(undefined, m); return m.exports; };
@@ -48,8 +48,9 @@ function mkEnv(src, o){
       classList: { add: (...a) => a.forEach(c => cls.add(c)), remove: (...a) => a.forEach(c => cls.delete(c)), contains: c => cls.has(c),
         toggle: (c, on) => { const v = on === undefined ? !cls.has(c) : !!on; v ? cls.add(c) : cls.delete(c); return v; } },
       set className(v){ cls.clear(); String(v).split(/\s+/).filter(Boolean).forEach(c => cls.add(c)); }, get className(){ return [...cls].join(' '); },
+      get isConnected(){ return !!el.parentElement; },
       get innerHTML(){ return el._html; },
-      set innerHTML(v){ el._html = String(v); el.children = []; for(const m of el._html.matchAll(/id="([^"]+)"/g)){ const c = mk('div'); c.id = m[1]; el.appendChild(c); } },
+      set innerHTML(v){ el._html = String(v); el.children.forEach(c => { c.parentElement = null; }); el.children = []; for(const m of el._html.matchAll(/id="([^"]+)"/g)){ const c = mk('div'); c.id = m[1]; el.appendChild(c); } },
       appendChild(c){ c.parentElement = el; el.children.push(c); return c; },
       remove(){ if(el.parentElement) el.parentElement.children = el.parentElement.children.filter(x => x !== el); el.parentElement = null; if(byId[el._id] === el) delete byId[el._id]; },
       addEventListener(t, fn){ (L[t] = L[t] || []).push(fn); },
@@ -69,18 +70,19 @@ function mkEnv(src, o){
   const room = mk('div'); room.id = 'mhRoomPreview';
   const tab = mk('div'); tab.className = 'mh-tab';
   class FakeImage { constructor(){ this.naturalWidth = 100; this.naturalHeight = 100; imgs.push(this); } set src(v){ this._src = v; } get src(){ return this._src; } }
-  const gifts = {
-    me: { g1: { imgUrl: 'https://x.example/g1.png', ts: 100, msg: '안녕' }, g2: { imgUrl: 'https://x.example/g2.png', ts: 300, starred: true }, g3: { imgUrl: 'https://x.example/g3.png', ts: 200, hidden: true } },
-    f1: { h1: { imgUrl: 'https://x.example/h1.png', ts: 50 } },
+  /* 가짜 서버 선물함 — 치움 · ⭐ · 지우기 · 봤음이 값을 바꾼다 */
+  const srv = {
+    items: o.items || [{ id: 'g1', senderName: '철수', imageUrl: 'https://x.example/g1.png', message: '안녕', starred: false, hidden: false, sentAt: 100 },
+      { id: 'g2', senderName: '영희', imageUrl: 'https://x.example/g2.png', message: '', starred: true, hidden: false, sentAt: 300 },
+      { id: 'g3', senderName: '민수', imageUrl: 'https://x.example/g3.png', message: '', starred: false, hidden: true, sentAt: 200 }],
+    unseen: 2,
   };
+  const visibleOf = { f1: [{ id: 'h1', imageUrl: 'https://x.example/h1.png', message: '' }] };
   const slotsOf = { me: [{ slot: 0, imageUrl: 'https://x.example/m1.png', enabled: true }, { slot: 1, imageUrl: 'https://x.example/m2.png', enabled: false }], f1: [{ slot: 0, imageUrl: 'https://x.example/f.png', enabled: true }] };
   const rec = (name, fn) => async (...a) => { log.push(('api ' + name + ' ' + a.map(x => typeof x === 'string' ? x : JSON.stringify(x)).join(' ')).trimEnd()); return fn(...a); };
+  /* 보내기 창은 아직 옛 길(firebaseAPI) */
   const firebaseAPI = {
-    getMallangGifts: rec('getMallangGifts', async (u) => JSON.parse(JSON.stringify(gifts[u] || {}))),
-    getMallangGiftSeen: rec('getMallangGiftSeen', async () => 150),
-    setMallangGiftSeen: rec('setMallangGiftSeen', async () => ({ ok: true })),
-    setMallangGiftHidden: rec('setMallangGiftHidden', async () => ({ ok: true })),
-    deleteMallangGift: rec('deleteMallangGift', async () => ({ ok: true })),
+    getMallangGifts: rec('getMallangGifts', async (u) => (u === 'f1' ? { h1: { imgUrl: 'x', ts: 1 } } : {})),
     getMallangGiftCount: rec('getMallangGiftCount', async () => 3),
   };
   const ctx = {
@@ -106,12 +108,24 @@ function mkEnv(src, o){
   };
   const mallangStore = loadMod(SRC.STORE).createMallangStore({ api: giftApi, giftLib: GL, errs: AE, apiErrors: { notify: (e) => log.push('common ' + (e && e.code)) },
     notifyError: (c) => log.push('error ' + c), toast: (m) => log.push('toast ' + m) });
+  const boxApi = {
+    fetchBox: rec('fetchBox', async () => { if(o.holdBox) await o.holdBox.p; return { items: srv.items.map(x => Object.assign({}, x)), unseenCount: srv.unseen, starCount: srv.items.filter(x => x.starred).length, boxKeep: 30, starMax: 20 }; }),
+    markSeen: rec('markSeen', async () => { srv.unseen = 0; }),
+    star: rec('star', async (id, on) => { srv.items.find(x => x.id === id).starred = on; }),
+    hide: rec('hide', async (id, on) => { if(o.hideFails) throw Object.assign(new Error('x'), { status: 503, code: 'X', kind: 'unavailable' }); srv.items.find(x => x.id === id).hidden = on; }),
+    remove: rec('remove', async (id) => { srv.items = srv.items.filter(x => x.id !== id); }),
+    fetchVisible: rec('fetchVisible', async (u) => ({ items: visibleOf[u] || [], visibleCount: (visibleOf[u] || []).length, recipientCap: 30 })),
+    reset(){},
+  };
+  const giftBox = loadMod(SRC.BOX).createGiftBox({ api: boxApi, giftLib: GL, errs: AE, apiErrors: { notify: (e) => log.push('common ' + (e && e.code)) },
+    notifyError: (c) => log.push('error ' + c), toast: (m) => log.push('toast ' + m), rtOn: () => () => {} });
   const deps = {
     toast: (m) => log.push('toast ' + m),
     getMyUserId: () => 'me',
     getDisplayName: () => '나',
     premiumOn: () => !!o.premium,
     mallangStore,
+    giftBox,
   };
   if(o.windowPremium !== undefined) ctx._premiumOn = () => o.windowPremium;
   vm.createContext(ctx);
@@ -121,74 +135,75 @@ function mkEnv(src, o){
   const guys = () => (byId.mlLayer ? byId.mlLayer.children.filter(c => c.className === 'ml-guy').length : 0);
   const state = (what) => log.push('state ' + what + ' 폴더=' + (byId.mlFolder ? 'O' : 'X') + ' 말랑이=' + guys()
     + ' 배지=' + ((tab.children.find(c => c.className === 'ml-giftbadge') || {}).textContent || '-') + ' 선물창=' + (byId.mlGift ? 'O' : 'X'));
-  return { ctx, m, log, byId, store, loadAll, guys, state };
+  return { ctx, m, log, byId, store, loadAll, guys, state, giftBox, srv };
 }
 
-/* 같은 순서로 불러 본다 — 마이홈 열기 → 선물 치우기 → 다시 부르기 → 지우기 → 봤음 → 남의 집 → 내 집 → 닫기 → 보내기 창 */
+/* 같은 순서로 불러 본다 — 마이홈 열기 → 선물 치우기 → 다시 부르기 → ⭐ 풀고 지우기 → 서브탭(봤음) → 새 선물(신호) → 남의 집 → 내 집 → 닫기 → 보내기 창 → 계정 놓음 */
 async function drive(src, o){
   const e = mkEnv(src, o);
-  const { m, log } = e;
+  const { m, log, giftBox } = e;
   await m.onOpen('me', false); await flush(); e.loadAll(); e.state('내 집 열기');
-  log.push('order ' + m.giftOrder({ a: { ts: 1 }, b: { ts: 3, starred: true }, c: { ts: 2 }, d: { ts: 5, starred: true } }).join(','));
-  log.push('limits ' + JSON.stringify(m.giftLimits));
   const live = e.byId.mlLayer.children.filter(c => c.className === 'ml-guy');
   if(live[0]) live[0].fire('contextmenu');   // 첫 선물(g1) 우클릭 = 선물함으로 치움
   await flush(); e.state('치움');
-  log.push('hidden g1=' + m.isGiftHidden('g1') + ' g2=' + m.isGiftHidden('g2'));
-  log.push('respawn ' + m.respawnGift('g1', 'https://x.example/g1.png', '안녕')); e.loadAll();
-  log.push('respawn ' + m.respawnGift('g1', 'https://x.example/g1.png', '안녕'));
+  log.push('unhide ' + await giftBox.show('g1')); e.loadAll();   // 선물함에서 다시 부르기 — 서버가 «나옴» 으로 받으면 선물함이 목록에 올리고 화면이 띄운다
+  log.push('again ' + await giftBox.show('g1'));
+  log.push('onScreen ' + giftBox.onScreen().map(x => x.id).join());
   await flush(); e.state('다시 부름');
-  log.push('delete ' + await m.deleteGift('g2', { starred: true }));
-  log.push('delete ' + await m.deleteGift('g2', { ts: 300 }));
+  log.push('remove ' + await giftBox.remove('g2'));
+  log.push('star ' + await giftBox.star('g2', false));
+  log.push('remove ' + await giftBox.remove('g2'));   // 지우면 목록에서 빠지며 화면의 말랑이도 걷힌다
   e.state('지움');
-  await m.seenGifts(); e.state('봤음');
+  await giftBox.openTab(); e.state('봤음');
+  e.srv.items.push({ id: 'g4', senderName: '새친구', imageUrl: 'https://x.example/g4.png', message: '', starred: false, hidden: false, sentAt: 400 }); e.srv.unseen = 1;
+  await giftBox.pull(false); await flush(); e.loadAll(); e.state('새 선물');
   await m.applyVisit(true, 'f1'); await flush(); e.loadAll(); e.state('남의 집');
   if(e.byId.mlFolder) e.byId.mlFolder.fire('contextmenu');
   await m.applyVisit(false, 'me'); await flush(); e.loadAll(); e.state('내 집으로');
   m.onClose(); e.state('닫기');
   await m.openGift('f1', '친구'); await flush(); e.state('보내기 창');
+  m.reset(); e.state('계정 놓음');
   return { log, e };
 }
 
-/* 부른 순서 · 값 — D7-2(옮기기 전 글과 같은 줄)에서 말랑이 칸 받기만 서버 길(fetchMine · fetchOf)로 바뀌었다. 동작이 바뀌면 여기가 어긋난다 */
+/* 부른 순서 · 값 — 말랑이 칸(fetchMine · fetchOf)과 선물(fetchBox · hide · star · remove · markSeen · fetchVisible)은 서버 길 · 보내기 창만 아직 옛 길(getMallangGiftCount · getMallangGifts). 동작이 바뀌면 여기가 어긋난다 */
 const GOLDEN = [
   'api fetchMine',
-  'api getMallangGifts me',
-  'api getMallangGiftSeen me',
+  'api fetchBox',
   'state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X',
-  'order d,b,c,a',
-  'limits {"max":30,"starMax":20}',
-  'ls tw.mallangGiftHidden ["g1"]',
-  'api setMallangGiftHidden me g1 true',
+  'api hide g1 true',
   'toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)',
   'state 치움 폴더=O 말랑이=1 배지=🎁2 선물창=X',
-  'hidden g1=true g2=false',
-  'ls tw.mallangGiftHidden []',
-  'api setMallangGiftHidden me g1 false',
-  'respawn ok',
-  'ls tw.mallangGiftHidden []',
-  'api setMallangGiftHidden me g1 false',
-  'respawn already',
+  'api hide g1 false',
+  'unhide ok',
+  'again already',
+  'onScreen g1,g2',
   'state 다시 부름 폴더=O 말랑이=2 배지=🎁2 선물창=X',
-  'delete starred',
-  'api deleteMallangGift me g2',
-  'delete ok',
+  'toast 즐겨찾기한 선물은 지울 수 없어요 — ⭐ 를 먼저 풀어 주세요',
+  'remove starred',
+  'api star g2 false',
+  'star ok',
+  'api remove g2',
+  'remove ok',
   'state 지움 폴더=O 말랑이=1 배지=🎁2 선물창=X',
-  'api setMallangGiftSeen me 300',
+  'api fetchBox',
+  'api markSeen',
   'state 봤음 폴더=O 말랑이=1 배지=- 선물창=X',
+  'api fetchBox',
+  'state 새 선물 폴더=O 말랑이=2 배지=🎁1 선물창=X',
   'api fetchOf f1',
-  'api getMallangGifts f1',
-  'state 남의 집 폴더=O 말랑이=1 배지=- 선물창=X',
+  'api fetchVisible f1',
+  'state 남의 집 폴더=O 말랑이=1 배지=🎁1 선물창=X',
   'toast 관람 중에는 이미지를 등록할 수 없어요',
   'api fetchMine',
-  'api getMallangGifts me',
-  'api getMallangGiftSeen me',
-  'state 내 집으로 폴더=O 말랑이=2 배지=🎁2 선물창=X',
-  'state 닫기 폴더=O 말랑이=0 배지=🎁2 선물창=X',
+  'api fetchBox',
+  'state 내 집으로 폴더=O 말랑이=2 배지=🎁1 선물창=X',
+  'state 닫기 폴더=O 말랑이=0 배지=🎁1 선물창=X',
   'api fetchMine',
   'api getMallangGiftCount me <오늘>',
   'api getMallangGifts f1',
-  'state 보내기 창 폴더=O 말랑이=0 배지=🎁2 선물창=O',
+  'state 보내기 창 폴더=O 말랑이=0 배지=🎁1 선물창=O',
+  'state 계정 놓음 폴더=O 말랑이=0 배지=- 선물창=X',
 ].join('\n');
 
 (async () => {
@@ -199,28 +214,28 @@ const GOLDEN = [
     chk(Object.keys(w).join() === 'TwMallang' && typeof w.TwMallang.createMallang === 'function', '싣기만 하면 window.TwMallang 하나뿐(window._mallang* 고리 없음)');
     const e = mkEnv(SRC.ML, { premium: true });
     chk(e.log.length === 0 && e.store.size === 0 && !e.byId.mlLayer && !e.byId.mlFolder, '만들 때 DOM · 서버 · 저장소 · 토스트를 안 건드린다');
-    chk(JSON.stringify(Object.keys(e.m)) === JSON.stringify(EXPORTS), '내놓는 이름 열 개 — ' + EXPORTS.join(' · '));
+    chk(JSON.stringify(Object.keys(e.m)) === JSON.stringify(EXPORTS), '내놓는 이름 — ' + EXPORTS.join(' · '));
   }
 
   say('── 2. 실제로 돌린다');
   const NEW = await drive(SRC.ML, { premium: true });
   const L = NEW.log;
   const has = (s) => L.includes(s);
-  chk(L[0] === 'api fetchMine' && has('api getMallangGifts me') && has('api getMallangGiftSeen me'), '내 집 열기 — 내 칸(서버 길) · 내 선물 · 봤음 시각을 읽는다');
-  chk(has('state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X'), '  폴더 보임 · 치우지 않은 선물 둘이 뜸(g3 는 서버가 치움) · 배지 🎁2(봤음 150 뒤의 g2 · g3 — 치운 것도 센다)');
-  chk(has('order d,b,c,a') && has('limits {"max":30,"starMax":20}'), '선물함 순서 ⭐ 먼저 → 최신순 · 상한 30 / ⭐ 20');
-  chk(has('api setMallangGiftHidden me g1 true') && has('ls tw.mallangGiftHidden ["g1"]') && has('toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)') && has('state 치움 폴더=O 말랑이=1 배지=🎁2 선물창=X'),
-    '나온 선물 우클릭 — 서버에 치움 · 이 PC 목록 · 안내 · 한 마리 줄어듦');
-  chk(has('hidden g1=true g2=false'), '  치운 것만 «치움»');
-  chk(has('respawn ok') && has('respawn already') && has('api setMallangGiftHidden me g1 false') && has('ls tw.mallangGiftHidden []') && has('state 다시 부름 폴더=O 말랑이=2 배지=🎁2 선물창=X'),
-    '다시 부르기 — 서버 · 이 PC 치움 풂 · 다시 뜸 · 두 번째는 «이미 나와 있음»(풂은 또 보낸다 — 예전 그대로)');
-  chk(has('delete starred') && has('delete ok') && has('api deleteMallangGift me g2') && has('state 지움 폴더=O 말랑이=1 배지=🎁2 선물창=X'),
-    '지우기 — ⭐ 는 막고 · 아니면 서버에서 지우고 화면에서도 뺌');
-  chk(has('api setMallangGiftSeen me 300') && has('state 봤음 폴더=O 말랑이=1 배지=- 선물창=X'), '봤음 — 가장 새 선물 시각을 올리고 배지를 지움');
-  chk(has('api fetchOf f1') && has('api getMallangGifts f1') && has('state 남의 집 폴더=O 말랑이=1 배지=- 선물창=X') && has('toast 관람 중에는 이미지를 등록할 수 없어요'),
-    '남의 집 — 그 집 그림 · 선물 · 폴더(그 집에 그림이 있음) · 등록 창은 막음');
-  chk(has('state 닫기 폴더=O 말랑이=0 배지=🎁2 선물창=X'), '닫기 — 말랑이 전부 치움');
-  chk(L.filter(l => l === 'api fetchMine').length === 3 && has('api getMallangGiftCount me ' + todayStr()) && has('state 보내기 창 폴더=O 말랑이=0 배지=🎁2 선물창=O'), '보내기 창 — 내 그림 · 오늘 보낸 수 · 그 집 선물 수를 읽고 창을 연다');
+  chk(L[0] === 'api fetchMine' && L[1] === 'api fetchBox', '내 집 열기 — 내 칸 · 내 선물함을 서버 길로 읽는다(옛 봤음 시각 읽기 없음)');
+  chk(has('state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X'), '  폴더 보임 · 치우지 않은 선물 둘이 뜸(g3 는 서버가 치움) · 배지 🎁2 는 서버 unseenCount');
+  chk(has('api hide g1 true') && has('toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)') && has('state 치움 폴더=O 말랑이=1 배지=🎁2 선물창=X'),
+    '나온 선물 우클릭 — 서버에 치움 · 서버 답 뒤에 안내 · 한 마리 줄어듦(이 PC 에 적지 않음)');
+  chk(has('unhide ok') && has('again already') && has('onScreen g1,g2') && has('state 다시 부름 폴더=O 말랑이=2 배지=🎁2 선물창=X'),
+    '다시 부르기 — 서버가 «나옴» 으로 받으면 선물함 목록에 오르고 화면이 띄움 · 두 번째는 «이미 나와 있음»');
+  chk(has('remove starred') && has('api remove g2') && has('remove ok') && has('state 지움 폴더=O 말랑이=1 배지=🎁2 선물창=X'),
+    '지우기 — ⭐ 는 요청 없이 막고 · 아니면 서버에서 지우고 선물함이 목록에서 빼며 화면에서도 걷힘');
+  chk(has('api markSeen') && has('state 봤음 폴더=O 말랑이=1 배지=- 선물창=X'), '서브탭 — 받기 뒤 봤음(시각 없이) · 배지 지움');
+  chk(has('state 새 선물 폴더=O 말랑이=2 배지=🎁1 선물창=X'), '내 집이 열려 있는 동안 선물함을 다시 받으면 전에 없던 새 선물이 바로 뜸 · 배지가 따라 바뀜(Q1 가)');
+  chk(has('api fetchOf f1') && has('api fetchVisible f1') && has('state 남의 집 폴더=O 말랑이=1 배지=🎁1 선물창=X') && has('toast 관람 중에는 이미지를 등록할 수 없어요'),
+    '남의 집 — 그 집 그림 · 그 집에 나온 선물 · 폴더(그 집에 그림이 있음) · 등록 창은 막음');
+  chk(has('state 닫기 폴더=O 말랑이=0 배지=🎁1 선물창=X'), '닫기 — 말랑이 전부 치움');
+  chk(L.filter(l => l === 'api fetchMine').length === 3 && has('api getMallangGiftCount me ' + todayStr()) && has('state 보내기 창 폴더=O 말랑이=0 배지=🎁1 선물창=O'), '보내기 창 — 내 그림 · 오늘 보낸 수 · 그 집 선물 수를 읽고 창을 연다(아직 옛 길)');
+  chk(has('state 계정 놓음 폴더=O 말랑이=0 배지=- 선물창=X'), '계정을 놓으면(reset) 말랑이 · 열린 창 · 배지를 걷음');
   const GOLD = goldOf(L);
   chk(GOLD === GOLDEN, '★ 부른 순서 · 값 전체가 옮기기 전과 같은 줄이다(' + L.length + '줄)' + (GOLD === GOLDEN ? '' : ' — 처음 어긋난 줄: ' + firstDiff(GOLD, GOLDEN)));
   chk(!L.some(l => /^ls tw\.mallang\./.test(l)), '말랑이 칸을 이 PC 에 적지 않는다(옛 로컬 백업 걷음)');
@@ -229,7 +244,7 @@ const GOLDEN = [
   {
     const no = await drive(SRC.ML, { premium: false, windowPremium: true });
     chk(no.log.includes('state 내 집 열기 폴더=X 말랑이=2 배지=🎁2 선물창=X'), 'deps premiumOn 이 거짓이면 내 집 폴더 숨김(window._premiumOn 이 참이어도)');
-    chk(no.log.includes('toast 👑 말랑이 선물은 라이선스 보유자 전용이에요') && no.log.includes('state 보내기 창 폴더=X 말랑이=0 배지=🎁2 선물창=X') && !no.log.includes('api getMallangGiftCount me ' + todayStr()),
+    chk(no.log.includes('toast 👑 말랑이 선물은 라이선스 보유자 전용이에요') && no.log.includes('state 보내기 창 폴더=X 말랑이=0 배지=🎁1 선물창=X') && !no.log.includes('api getMallangGiftCount me ' + todayStr()),
       '  보내기 창도 안내만 · 서버 요청 없음');
     const yes = await drive(SRC.ML, { premium: true, windowPremium: false });
     chk(yes.log.includes('state 내 집 열기 폴더=O 말랑이=2 배지=🎁2 선물창=X'), 'deps premiumOn 이 참이면 보임(window._premiumOn 이 거짓이어도)');
@@ -244,16 +259,52 @@ const GOLDEN = [
   say('── 5. 일부러 깨 보기');
   {
     const brk = async (name, src, o) => { const r = await drive(src, o || { premium: true }); return goldOf(r.log) !== GOLDEN; };
-    chk(await brk('상한', SRC.ML.replace('const GIFT_STAR_MAX = 20;', 'const GIFT_STAR_MAX = 21;')), '⭐ 상한을 바꾸면 빨강');
-    chk(await brk('순서', SRC.ML.replace('.concat(ids.filter(id=>!_isStar(gifts[id])).sort(byNew));', '.concat(ids.filter(id=>!_isStar(gifts[id])));')), '선물함 순서를 바꾸면 빨강');
-    chk(await brk('봤음', SRC.ML.replace("(tab&&tab._mlLatest)||Date.now()", 'Date.now()')), '봤음 시각을 바꾸면 빨강');
+    {
+      const c = await drive(SRC.ML, { premium: true, hideFails: true });
+      chk(c.log.includes('state 치움 폴더=O 말랑이=2 배지=🎁2 선물창=X') && c.log.includes('error E-GIFT-05') && !c.log.includes('toast 🎁 선물함으로 돌아갔어요 (선물함에서 다시 부를 수 있어요)'), '치움이 서버에서 실패하면 E-GIFT-05 · 안내 없음 · 일을 지우면 그 말랑이가 목록에 돌아와 다시 뜬다(손으로 다시 띄우지 않는다)');
+    }
+    chk(await brk('걷기', SRC.ML.replace("if(c.dataset && c.dataset.own === '1' && !ids.has(c.dataset.gid)){ try{ c.remove(); }catch(_){} }", '')), '목록에서 빠진 선물의 말랑이를 안 걷으면(remove extras) 빨강');
+    {
+      const many = [];
+      for(let i = 0; i < 31; i++) many.push({ id: 'm' + i, senderName: 'x', imageUrl: 'https://x.example/m' + i + '.png', message: '', starred: false, hidden: false, sentAt: 1000 + i });
+      many.push({ id: 'h0', senderName: 'x', imageUrl: 'https://x.example/h0.png', message: '', starred: false, hidden: true, sentAt: 1 });
+      const full = async (src) => {
+        const e = mkEnv(src, { premium: true, items: many.map(x => Object.assign({}, x)) });
+        await e.m.onOpen('me', false); await flush(); e.loadAll();
+        const n0 = e.guys();
+        const n = e.log.length;
+        const r = await e.giftBox.show('h0');
+        const noReq = !e.log.slice(n).some(l => l.startsWith('api hide'));
+        const c0 = e.byId.mlLayer.children[0]; if(c0) c0.fire('contextmenu');
+        await flush(); e.loadAll();
+        const spawned = e.byId.mlLayer.children.some(c => c.dataset.gid === 'm30');
+        return { n0, r, noReq, spawned, n1: e.guys() };
+      };
+      const f = await full(SRC.ML);
+      chk(f.n0 === 30 && f.r === 'full' && f.noReq, '화면이 가득(30)이면 선물이 31개여도 30마리 · 치운 선물을 눌러도 full · 서버 요청 0');
+      chk(f.spawned && f.n1 === 30, '  한 마리를 치우면 자리가 나 «나와야 함» 이던 31번째가 바로 뜬다(늦게 뜸)');
+      const sv = SRC.ML.replace("    for(const it of want){\n      if(liveFull()) break;", "    for(const it of want){\n      if(true) break;");
+      chk(sv !== SRC.ML && !(await full(sv)).spawned, '  깨 보기 — 빠진 것을 띄우지 않으면 빨강');
+    }
+    {
+      const late = async (src) => {
+        let go; const holdBox = { p: new Promise(r => { go = r; }) };
+        const e = mkEnv(src, { premium: true, holdBox });
+        const open = e.m.onOpen('me', false); await flush();   // 선물함 답을 기다리는 중
+        e.m.onClose(); go(); await open; await flush(); e.loadAll();
+        return e.guys();
+      };
+      chk(await late(SRC.ML) === 0, '선물함 답을 기다리는 중 마이홈을 닫으면 늦게 온 답은 아무것도 안 띄운다');
+      chk(await late(SRC.ML.replace('    giftBox.leaveHome();   // 🎁 마이홈이', '    // 🎁 마이홈이')) !== 0, '  깨 보기 — 닫을 때 마이홈 밖으로 알리지 않으면 늦은 답이 닫은 뒤에 뜬다(빨강)');
+    }
+    chk(await brk('새 선물 띄우기', SRC.ML.replace("    syncBadge();\n    syncGifts();", "    syncBadge();")), '선물함이 바뀌어도 화면을 안 맞추면(새 선물 · 치움 · 지우기) 빨강');
     {
       const r = await drive(SRC.ML.replace('function hasLicense(){ try{ return !!premiumOn(); }', 'function hasLicense(){ try{ return !!window._premiumOn(); }'), { premium: false, windowPremium: true });
       chk(!r.log.includes('state 내 집 열기 폴더=X 말랑이=2 배지=🎁2 선물창=X'), '전역 window._premiumOn 을 다시 읽으면 빨강');
     }
     {
       let threw = false;
-      try{ const e = mkEnv(SRC.ML.replace('respawnGift, deleteGift,   //', 'deleteGift,   //'), {}); threw = JSON.stringify(Object.keys(e.m)) !== JSON.stringify(EXPORTS); }catch(_){ threw = true; }
+      try{ const e = mkEnv(SRC.ML.replace('    openGift,                      // 🎁 보내기 창', '    // 🎁 보내기 창'), {}); threw = JSON.stringify(Object.keys(e.m)) !== JSON.stringify(EXPORTS); }catch(_){ threw = true; }
       chk(threw, '내놓는 이름이 빠지면 빨강');
     }
     const w = (patch) => { const s = Object.assign({}, SRC, patch); return !wiring(s, false); };
@@ -285,8 +336,8 @@ function wiring(S, loud){
   t((A.match(/TwMallang\.createMallang\(/g) || []).length === 1 && iMk > 0, 'app.js 가 만드는 곳은 한 곳(const mallangMod)');
   const call = (S.APP.match(/const mallangMod = TwMallang\.createMallang\(\{([\s\S]*?)\n\}\);/) || [])[1] || '';
   const deps = call.split('\n').map(s => s.trim()).filter(s => s && !s.startsWith('//'));
-  t(JSON.stringify(deps) === JSON.stringify(['toast: (...a)=>toast(...a),', 'getMyUserId: (...a)=>getMyUserId(...a),', 'getDisplayName: (...a)=>getDisplayName(...a),', 'premiumOn: (...a)=>_premiumOn(...a),', 'mallangStore: mallangStoreMod,']),
-    '  deps 5 — toast · getMyUserId · getDisplayName · premiumOn(_premiumOn) · mallangStore(칸 상태 주인) — 함수는 화살표');
+  t(JSON.stringify(deps) === JSON.stringify(['toast: (...a)=>toast(...a),', 'getMyUserId: (...a)=>getMyUserId(...a),', 'getDisplayName: (...a)=>getDisplayName(...a),', 'premiumOn: (...a)=>_premiumOn(...a),', 'mallangStore: mallangStoreMod,', 'giftBox: giftBoxMod,']),
+    '  deps 6 — toast · getMyUserId · getDisplayName · premiumOn(_premiumOn) · mallangStore(칸 상태 주인) · giftBox(선물 상태 주인) — 함수는 화살표');
   const iSt = A.indexOf('const mallangStoreMod = TwMallangStore.createMallangStore(');
   t(iSt > 0 && iSt < iMk, '  칸 상태 주인(mallangStoreMod)을 말랑이 화면보다 먼저 만든다');
   const users = ['TwMyHomeInbox.createMyHomeInbox(', 'TwMyHomeUi.createMyHomeUi(', 'TwMyHomeVisit.createMyHomeVisit('];
@@ -294,8 +345,8 @@ function wiring(S, loud){
     '  수령함 · 마이홈 창 · 친구 홈 구경보다 먼저 만들고 셋 다 값으로 넘긴다(mallangMod: mallangMod)');
   t(!/_mallang[A-Z]\w*/.test(strip(S.ML)) && !/window\._premiumOn/.test(strip(S.ML)) && /const premiumOn = deps\.premiumOn;/.test(S.ML), 'mallang.js — window 고리 · 전역 프리미엄 읽기 없음 · premiumOn 은 deps');
   t(![S.APP, S.UI, S.VISIT, S.INBOX].some(x => /_mallang[A-Z]\w*/.test(strip(x))) && !/window\._premiumOn\s*=/.test(A), '  app.js · 세 모듈에 window._mallang* 없음 · window._premiumOn 을 걸지 않음');
-  const used = { UI: ['mallangMod.onOpen(', 'mallangMod.onClose()', 'mallangMod.seenGifts()'], VISIT: ['mallangMod.applyVisit('],
-    INBOX: ['mallangMod.openGift(', 'mallangMod.giftLimits', 'mallangMod.giftOrder(', 'mallangMod.isGiftHidden(', 'mallangMod.respawnGift(', 'mallangMod.deleteGift('] };
+  const used = { UI: ['mallangMod.onOpen(', 'mallangMod.onClose()'], VISIT: ['mallangMod.applyVisit('],
+    INBOX: ['mallangMod.openGift('] };
   t(Object.keys(used).every(k => /\nconst mallangMod = deps\.mallangMod;/.test(S[k]) && used[k].every(u => strip(S[k]).includes(u))), '  세 모듈은 deps.mallangMod 를 받아 부른다');
   t(![S.UI, S.VISIT, S.INBOX].some(x => /typeof\s+mallangMod|if\(mallangMod\)|mallangMod\s*&&/.test(strip(x))), '  «있으면 부르기» 가드 없음');
   const H = S.HTML.replace(/<!--[\s\S]*?-->/g, '');

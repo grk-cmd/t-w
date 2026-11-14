@@ -109,9 +109,9 @@ async function judge(S){
       const keys = ['tw.mallang.u1234567890', 'tw.mallang.anon', 'tw.mallangGiftHidden', 'tw.mallang.', 'tw.gachaOwned', 'x.tw.mallang.y'];
       const st = { length: keys.length, key: (i) => keys[i] };
       const ms = await F.mallangStep(st)();
-      chk(ms.ok === true && ms.wipe.join() === 'tw.mallang.u1234567890,tw.mallang.anon', 'mallangStep — 이 PC 의 말랑이 옛 칸 백업(tw.mallang.{코드|anon})만 지우라고 한다(올리지 않음 · 선물 치움 키 · 다른 키는 그대로)');
+      chk(ms.ok === true && ms.wipe.join() === 'tw.mallangGiftHidden,tw.mallang.u1234567890,tw.mallang.anon', 'mallangStep — 이 PC 의 말랑이 옛 칸 백업(tw.mallang.{코드|anon})과 선물 치움 목록(tw.mallangGiftHidden)만 지우라고 한다(올리지 않음 · 다른 키는 그대로)');
       const none = await F.mallangStep({ length: 0, key: () => null })();
-      chk(none.ok === true && none.wipe.length === 0, '  ↳ 없으면 지울 것 없이 통과');
+      chk(none.ok === true && none.wipe.join() === 'tw.mallangGiftHidden', '  ↳ 칸 백업이 없어도 선물 치움 목록 키는 지우라고 하고 통과');
       const e3 = mk(S, { login: OK(), mallang: () => F.mallangStep({ length: 2, key: (i) => ['tw.mallang.u1', 'keep'][i] })(), legacySync: OK(), licenseKey: OK() });
       e3.store.set('tw.mallang.u1', '[]');
       const r3 = await e3.fr.run();
@@ -300,6 +300,7 @@ const BREAKS = [
   ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", "const STEPS = Object.freeze(['login', 'gacha', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", '말랑이 단계가 빠짐'],
   ['FR', "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'myhome', 'legacySync', 'licenseKey', 'focus', 'chal']);", "const STEPS = Object.freeze(['login', 'gacha', 'mallang', 'legacySync', 'licenseKey', 'focus', 'chal']);", '마이홈 단계가 빠짐'],
   ['FR', "if(typeof k === 'string' && k.length > MALLANG_LEGACY_PREFIX.length && k.indexOf(MALLANG_LEGACY_PREFIX) === 0) wipe.push(k);", "if(typeof k === 'string' && k.indexOf('tw.mallang') === 0) wipe.push(k);", '말랑이 접두가 선물 치움 키까지 지움'],
+  ['FR', "const MALLANG_LEGACY_KEYS = Object.freeze(['tw.mallangGiftHidden']);", "const MALLANG_LEGACY_KEYS = Object.freeze([]);", '선물 치움 목록을 안 지움'],
   ['FR', "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs', 'tw.gachaBonus']);", "const GACHA_LEGACY_KEYS = Object.freeze(['tw.gachaOwned', 'tw.gachaOwnedTs']);", '가챠 옛 키를 덜 지움'],
   ['FR', "        return { ok: false, at: name, pending: !!(r && r.pending), reason: (r && r.reason) || '' };", "        continue;", '실패해도 이어 감(올리기 전에 지움)'],
   ['FR', "      if(!r || r.ok !== true){", "      if(r && r.ok === false && !r.pending){", '기다림을 통과로 봄'],
