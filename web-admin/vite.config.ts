@@ -2,13 +2,21 @@
 import react from '@vitejs/plugin-react';
 import { execSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { defineConfig, loadEnv, type Plugin } from 'vite';
+import { defineConfig, type Plugin } from 'vite';
 
 const DEV_PROJECT = 'together-working-dev';
 
-// 두 판 가운데 하나를 빌드 때 고른다 — 값이 없거나 다른 글자면 빌드가 멈춘다. 모드 파일(.env.firebase · .env.api · .env.development · .env.test)이나 셸 값으로 준다.
+// 두 판 가운데 하나를 빌드 때 고른다 — 셸 값 VITE_ADMIN_BACKEND 가 먼저, 없으면 모드 이름(build:firebase · build:api 가 넘기는 --mode)으로.
+// 개발 서버(development) · vitest(test)는 Firebase 판이다. 그 밖의 모드(plain vite build 의 production 등)는 값이 없는 것이라 빌드가 멈춘다 — 짐작하지 않는다.
+const MODE_BACKEND: Record<string, string> = {
+  firebase: 'firebase',
+  api: 'api',
+  development: 'firebase',
+  test: 'firebase',
+};
+
 function adminBackend(mode: string) {
-  const raw = loadEnv(mode, process.cwd(), 'VITE_').VITE_ADMIN_BACKEND;
+  const raw = process.env.VITE_ADMIN_BACKEND ?? MODE_BACKEND[mode];
   if (raw !== 'firebase' && raw !== 'api') {
     throw new Error(
       `VITE_ADMIN_BACKEND 는 'firebase' 또는 'api' 여야 해요 (지금: ${raw || '없음'}) — npm run build:firebase · build:api 로 빌드해요`,
@@ -54,13 +62,16 @@ function devFirebaseConfig(): Plugin {
 }
 
 export default defineConfig(({ mode }) => {
-  adminBackend(mode);
+  const backend = adminBackend(mode);
   return {
     base: '/admin/',
     resolve: {
       alias: { '@': fileURLToPath(new URL('./src', import.meta.url)) },
     },
-    define: { __ADMIN_BUILD_COMMIT__: JSON.stringify(buildCommit()) },
+    define: {
+      __ADMIN_BUILD_COMMIT__: JSON.stringify(buildCommit()),
+      'import.meta.env.VITE_ADMIN_BACKEND': JSON.stringify(backend),
+    },
     plugins: [react(), devFirebaseConfig()],
     build: {
       outDir: '../hosting/admin',
