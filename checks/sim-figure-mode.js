@@ -13,7 +13,9 @@ const chk = (ok, msg) => { ok ? pass++ : fail++; say('  ' + (ok ? '✓' : '✗')
 const read = (f) => { try{ return fs.readFileSync(f, 'utf8'); }catch(_){ return null; } };
 const APP = read('app.js');
 if(!APP){ say('  ? 원본 못 찾음 — app.js'); process.exit(2); }
-const SRC = APP;   // 두 함수는 app.js 에 그대로 있다 — 옮기기 전 글(joinRenderer)은 deps 이름을 되돌려 이 판과 안 맞는다
+const SRC = APP;   // _applyActiveAppState 는 app.js 에 그대로 있다 — 옮기기 전 글(joinRenderer)은 deps 이름을 되돌려 이 판과 안 맞는다
+const SSRC = read('seat-state.js') || read('parts/status/seat-state.js') || read('app/parts/status/seat-state.js');   // seatState 는 app.js 분리 M10 에서 status/seat-state.js 로 옮겼다
+if(!SSRC){ say('  ? 원본 못 찾음 — seat-state.js'); process.exit(2); }
 
 function grabFn(name, src){
   const m = new RegExp('function\\s+' + name + '\\s*\\(').exec(src);
@@ -22,7 +24,7 @@ function grabFn(name, src){
   for(let j = i; j < src.length; j++){ if(src[j] === '{') d++; else if(src[j] === '}'){ d--; if(!d) return src.slice(m.index, j + 1); } }
   return null;
 }
-const SLEEP_M = /const FOCUS_MS=(\d+),SLEEP_MS=(\d+)/.exec(SRC);
+const SLEEP_M = /const FOCUS_MS=(\d+),SLEEP_MS=(\d+)/.exec(SSRC);
 
 /* seatState 를 돌릴 판 — 좌석 하나(내 것) · 입력 시각 · 깃발만 바꾼다 */
 function seatEnv(fnSrc){
@@ -30,16 +32,16 @@ function seatEnv(fnSrc){
   vm.createContext(ctx);
   vm.runInContext(`
     const FOCUS_MS=${SLEEP_M[1]}, SLEEP_MS=${SLEEP_M[2]}, PET_MS=2200;
-    let lastActivity = 0, lastAnyInput = 0, figureMode = false, focusGateSleep = false, desktopMode = true, windowFocused = false, userStatus = null, _selfAppActive = false;
+    let lastActivity = 0, lastAnyInput = 0, figureModeV = false, focusGateSleepV = false, desktopModeV = true, windowFocused = false, userStatus = null, _selfAppActive = false;
+    const figureMode = () => figureModeV, focusGateSleep = () => focusGateSleepV, desktopMode = () => desktopModeV;   // 모듈이 읽는 함수로 받는다
     function focusWindowMs(){ return FOCUS_MS; }
     const userStatusMod = { userStatus: () => userStatus };   // 내 상태는 status/user-status.js 가 갖는다(app.js 분리 M9) — 이 시험은 아래 지역 변수를 읽는 함수로 건다
     const seatPanelMod = { manual: () => null };
-    const focusLevelMod = { _mobileOn: () => false };
-    const _mobileOn = focusLevelMod._mobileOn;
+    const focusLevelMod = () => ({ _mobileOn: () => false });
     ${fnSrc}
     this.api = {
       st: (now) => seatState({ isMe: true, petStart: -1e9 }, now),
-      set: (o) => { if('fig' in o) figureMode = o.fig; if('desk' in o) desktopMode = o.desk; if('gate' in o) focusGateSleep = o.gate;
+      set: (o) => { if('fig' in o) figureModeV = o.fig; if('desk' in o) desktopModeV = o.desk; if('gate' in o) focusGateSleepV = o.gate;
                     if('us' in o) userStatus = o.us; if('act' in o) lastActivity = o.act; if('wf' in o) windowFocused = o.wf;
                     if('any' in o) lastAnyInput = o.any; if('self' in o) _selfAppActive = o.self; } };`, ctx);
   return ctx.api;
@@ -53,6 +55,7 @@ function applyEnv(fnSrc){
   vm.runInContext(`
     let lastActivity = 0, figureMode = false, focusGateSleep = true, _penAppFocused = false, _selfAppActive = false;
     function focusWindowMs(){ return 1500; }
+    const seatStateMod = { lastActivity: () => lastActivity, setSelfAppActive: (v) => { _selfAppActive = v; }, setPenAppFocused: (v) => { _penAppFocused = v; } };   // 활동 시각 · 깃발은 status/seat-state.js 가 갖는다
     const focusLevelMod = { _mobileOn: () => env.mob, addFocusSeconds: (d) => { env.added += d; } };
     const _mobileOn = focusLevelMod._mobileOn, addFocusSeconds = focusLevelMod.addFocusSeconds;
     const weeklyChal = { focusTick(s, d){ env.chal += d; }, setKeyPlatform(){} };
@@ -131,22 +134,22 @@ function sec4(ssSrc, apSrc, quiet){
   return r.every(x => x[1]);
 }
 
-const SS = grabFn('seatState', SRC), AP = grabFn('_applyActiveAppState', SRC);
+const SS = grabFn('seatState', SSRC), AP = grabFn('_applyActiveAppState', SRC);
 chk(!!SS && !!AP && !!SLEEP_M, 'seatState · _applyActiveAppState · FOCUS_MS/SLEEP_MS 를 찾았다');
 if(SS && AP && SLEEP_M){
   sec1(SS);
   sec2(AP);
   sec4(SS, AP);
   say('── 3. 깨 보기');
-  const ssOld = SS.replace(/if\(idle>SLEEP_MS && !\(desktopMode && figureMode\)\)return 'sleep';/, "if(idle>SLEEP_MS)return 'sleep';");
+  const ssOld = SS.replace(/if\(idle>SLEEP_MS && !\(desktopMode\(\) && figureMode\(\)\)\)return 'sleep';/, "if(idle>SLEEP_MS)return 'sleep';");
   chk(ssOld !== SS && !sec1(ssOld, true), '피규어 모드 조건을 빼면(옛 모양) 1절이 빨강');
   const apOld = AP.replace(/if\(!figureMode && _focusWasActive/, 'if(_focusWasActive');
   chk(apOld !== AP && !sec2(apOld, true), '쌓기 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
   const apChal = AP.replace(/if\(!figureMode && dt>0 && dt<30 && !pcNotFocusing\) weeklyChal/, 'if(dt>0 && dt<30 && !pcNotFocusing) weeklyChal');
   chk(apChal !== AP && !sec2(apChal, true), '달성표 조건에서 피규어 모드를 빼면(옛 모양) 2절이 빨강');
-  const ssSelf = SS.replace(/\n  if\(desktopMode && focusGateSleep && _selfAppActive\)[^\n]*/, '');
+  const ssSelf = SS.replace(/\n  if\(desktopMode\(\) && focusGateSleep\(\) && _selfAppActive\)[^\n]*/, '');
   chk(ssSelf !== SS && !sec4(ssSelf, AP, true), '투게더워킹 창 줄을 빼면(옛 모양) 4절이 빨강');
-  const apSelf = AP.replace(/_selfAppActive = !!state\.isSelf;/, '');
+  const apSelf = AP.replace(/seatStateMod\.setSelfAppActive\(!!state\.isSelf\);/, '');
   chk(apSelf !== AP && !sec4(SS, apSelf, true), 'isSelf 받는 줄을 빼면 4절이 빨강');
 }
 

@@ -277,6 +277,8 @@ app.js 9,746 → 9,476줄(270줄) · 구역 167 → 130개. 남긴 빈 머리 �
 
 **0.12.4 — app.js 분리 M9**: USER STATUS 구역(내 상태 저장 · 칩 · 메뉴 · 커스텀 상태 · `statusConfFor`)과 좌석 xf 저장(`saveSeatXf`)을 `status/user-status.js` 로 옮겼다(글 그대로 — 방 알림 · 오늘 기록 전시 · 슬롯 저장 · 칩 색 변환은 모듈 순환을 막으려고 `attachStatusHooks` 알림으로 건다. `window.setUserStatus` 고리는 app.js 가 건다). app.js 8,488 → 8,424줄.
 
+**0.12.4 — app.js 분리 M10**: 캐릭터 투명도(`setSeatOpacity`)를 `room/seat-opacity.js` 로, 활동 판정(`seatState` · 활동 시각 · 펜 앱 · `triggerPet`)을 `status/seat-state.js` 로 옮겼다(글 그대로 — 활동 시각 · 펜 앱 깃발은 모듈 안에서 읽는 · 쓰는 함수로 나온다. 옛 `lastZ` 는 선언만 있어 걷음). app.js 8,423 → 8,326줄.
+
 ## 구역 표 — `app/parts/app.js`
 
 | # | 줄 | 크기 | 목적 | 층 | 관련 모듈 | 씀 | 쓰임 | 비고 |
