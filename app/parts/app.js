@@ -356,53 +356,19 @@ const applyDeskItemsTo = deskItemEquipMod.applyDeskItemsTo;   // 옛 전역 이�
 const _applyItemColor = deskItemEquipMod._applyItemColor;   // 옛 전역 이름
 
 /* ============================================================ SEATS */
-const seats=[]; let selected=null;
-// ★ 좌석 간격 = 책상 끝끼리 여백(설정 › 캐릭터) — 솔로 · 멀티 따로 저장. 자리 셈은 room/seat-layout.js.
-//   GAP_MIN 이 음수인 까닭: 책상 GLB 는 보이는 판보다 박스가 넓은 것이 많아 «끝끼리 0» 이어도 벌어져 보인다 — 맨 왼쪽 칸에선 책상끼리 조금 겹치게 붙는다.
-//   책상 없는 좌석은 몸 + 여유(0.15)씩이라 -0.3 이면 몸끼리 맞닿는다(seat-layout.js).
-const GAP_MIN = -0.3, GAP_MAX = 1.2, GAP_STEPS = 15;
-const GAP_KEY_SOLO='tw.gapSolo', GAP_KEY_MULTI='tw.gapMulti';
-function _loadGap(key, def){ try{ const v=parseFloat(localStorage.getItem(key)); if(!isNaN(v)) return Math.max(GAP_MIN,Math.min(GAP_MAX,v)); }catch(e){} return def; }
-let SPACING = _loadGap(GAP_KEY_SOLO, 0.3);
-let MULTIPLAYER_SPACING = _loadGap(GAP_KEY_MULTI, 0.45);
-function saveGap(){ try{ localStorage.setItem(GAP_KEY_SOLO, String(SPACING)); localStorage.setItem(GAP_KEY_MULTI, String(MULTIPLAYER_SPACING)); }catch(e){} }
-function createSeat(){
-  const group=new THREE.Group();
-  const desk=buildDesk(true); group.add(desk);
-  const _dt=desk.getObjectByName('deskTop'); let deskMat=null; if(_dt){ _dt.material=_dt.material.clone(); deskMat=_dt.material; }
-  const rig=new THREE.Group(); rig.position.set(0,0,CHAR_Z);
-  const bodyWrap=new THREE.Group(); rig.add(bodyWrap); group.add(rig);
-  const ph=buildPlaceholder(); bodyWrap.add(ph.root);
-  const seat={
-    group,desk,deskMat,deskGltf:null,rig,bodyWrap,placeholder:ph,contactShadow:null,
-    isPlaceholder:true,gltfRoot:null,mixer:null,actions:{},current:null,
-    faceMat:null,faceMapOrig:null,blinkTex:null,
-    userScale:1,userY:0,userZ:0,userRot:Math.PI,userX:0,
-    petStart:-1e9,targetX:0,
-    pose:{leanX:0,turnY:0,slumpY:0,breSpd:2,breAmp:0.025,eyeOpen:1,arm:0},
-    breathePhase:Math.random()*6.28, swayPhase:Math.random()*6.28, headPhase:Math.random()*6.28,
-    smooth:0.0016+Math.random()*0.0012,
-    bones:{spine:null,head:null,handL:null,handR:null,legL:null,legR:null,ear:[]}, boneRest:{}, hasRig:false,
-    blink:TwBlinkTiming.createBlink(performance.now()),
-    // 귀 까닥임(랜덤, 가끔) — ear 본이 있는 캐릭터에서만 동작. 상태(idle/focus 등)와 무관하게 독립적으로 작동.
-    earNextAt: performance.now()+3000+Math.random()*5000, earFlickStart:null,
-    // 머리 위 레벨/이름 이름표 — group에 직접 붙여서(rig 아님) 드래그/흔들기 중에도 책상처럼 제자리에 고정.
-    // 머리 위 이름표/말풍선은 DOM 요소로 지연 생성됨(seat.namePlateEl / seat.bubbleEl) — 여기서 미리 선언 불필요.
-  };
-  group.userData.seat=seat;
-  seat.deskAnchor=desk.userData.deskAnchor; seat.deskItems={}; seat.activeDeskItem=null;
-  seat.headAnchor=new THREE.Group(); seat.bodyAnchor=new THREE.Group();
-  bodyWrap.add(seat.headAnchor); bodyWrap.add(seat.bodyAnchor);
-  seat.headAnchor.position.set(0,1.08,0); seat.bodyAnchor.position.set(0,0.46,0);
-  seat.equipped={hair:null,accessory:null,clothes:null}; seat.equippedId={hair:null,accessory:null,clothes:null};
-  scene.add(group); seats.push(seat); layoutSeats(); return seat;
-}
-function removeSeat(seat){
-  const i=seats.indexOf(seat); if(i<0||seats.length<=1) return;
-  scene.remove(seat.group); seats.splice(i,1);
-  if(selected===seat) seatPanelMod.selectSeat(seats[Math.max(0,i-1)]);
-  layoutSeats(); seatPanelMod.renderSeatTabs();
-}
+/* 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격(room/seats.js) — 아래 const 는 옛 전역 이름이다. */
+const seatsMod = TwSeats.createSeats({
+  CHAR_Z: CHAR_Z,
+  buildDesk: buildDesk,
+  buildPlaceholder: buildPlaceholder,
+  scene: scene,
+});
+const seats = seatsMod.seats;   // 옛 전역 이름
+const GAP_MIN = seatsMod.GAP_MIN;   // 옛 전역 이름
+const GAP_MAX = seatsMod.GAP_MAX;   // 옛 전역 이름
+const GAP_STEPS = seatsMod.GAP_STEPS;   // 옛 전역 이름
+const saveGap = seatsMod.saveGap;   // 옛 전역 이름
+const createSeat = seatsMod.createSeat;   // 옛 전역 이름
 let sizeFactor=1;
 const BASE_PXW=190;          // 월드 1단위당 픽셀(캐릭터 크기 기준)
 /* ── 캐릭터 위치·크기 영속화 ──
@@ -1234,8 +1200,8 @@ const iDeskMod = TwInteractionDesk.createInteractionDesk({
 /* 본문은 room/seat-layout.js 로 옮겼다(구역 떼기 C · w1). 다시 대입되거나 뒤에서 선언되는 값은 읽는 함수로 넘긴다.
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatLayoutMod = TwSeatLayout.createSeatLayout({
-  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
-  SPACING: ()=>SPACING,
+  MULTIPLAYER_SPACING: ()=>seatsMod.MULTIPLAYER_SPACING(),
+  SPACING: ()=>seatsMod.SPACING(),
   _rideBottom: (...a)=>rideChainMod._rideBottom(...a),
   clampDeskPan: (...a)=>clampDeskPan(...a),
   deskPanX: ()=>deskPanX,
@@ -1461,7 +1427,7 @@ const seatModelLoadMod = TwSeatModelLoad.createSeatModelLoad({
   fitModel: (...a)=>fitModel(...a),
   layoutSeats: (...a)=>layoutSeats(...a),
   loader: loader,
-  selected: ()=>selected,
+  selected: ()=>seatsMod.selected(),
   setInfo: (...a)=>seatPanelMod.setInfo(...a),
   sliders: ()=>seatPanelMod.sliders,
   toast: (...a)=>toast(...a),
@@ -1472,30 +1438,36 @@ const seatModelLoadMod = TwSeatModelLoad.createSeatModelLoad({
 const seatPanelMod = TwSeatPanel.createSeatPanel({
   activity: (...a)=>activity(...a),
   seats: seats,
-  selected: ()=>selected,
+  selected: ()=>seatsMod.selected(),
   triggerPet: (...a)=>triggerPet(...a),
-  setSelected: (v)=>{ selected = v; },
+  setSelected: (v)=>{ seatsMod.setSelected(v); },
+});
+/* 🪑 좌석 목록이 위층(줄 배치 · 좌석 탭 · 좌석 고르기)을 부르지 않게 알림을 건다 — layoutSeats 는 뒤에서 감싸 다시 대입되므로 부를 때 찾는다. createSeat · removeSeat 보다 먼저. */
+seatsMod.attach({
+  layoutSeats: ()=>layoutSeats(),
+  renderSeatTabs: ()=>seatPanelMod.renderSeatTabs(),
+  selectSeat: (seat)=>seatPanelMod.selectSeat(seat),
 });
 
-document.getElementById('glbInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
-document.getElementById('deskInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
-document.getElementById('texInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,selected));
-document.getElementById('resetBtn').addEventListener('click',()=>seatModelLoadMod.resetSeat(selected));
+document.getElementById('glbInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));
+document.getElementById('deskInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));
+document.getElementById('texInput').addEventListener('change',e=>seatModelLoadMod.handleFiles(e.target.files,seatsMod.selected()));
+document.getElementById('resetBtn').addEventListener('click',()=>seatModelLoadMod.resetSeat(seatsMod.selected()));
 document.getElementById('sZoom').addEventListener('input',e=>{sizeFactor=+e.target.value;layoutSeats();});
 function saveSeatXf(seat){ if(!seat||!seat.charDef)return;
   seat.charDef.xf={s:seat.userScale,y:clampCharY(seat.userY),z:0,rot:seat.userRot,x:seat.userX||0};   // 🧍 y=높이 · 🚫 z 폐기
   if(seat.slot!=null) slots[seat.slot]=seat.charDef;
   slotSaveMod.saveSlots(); }
-document.getElementById('sScale').addEventListener('input',e=>{selected.userScale=+e.target.value;fitModel(selected);saveSeatXf(selected);layoutSeats();});
+document.getElementById('sScale').addEventListener('input',e=>{seatsMod.selected().userScale=+e.target.value;fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());layoutSeats();});
 /* 🧍 높이 — 0 하한·CHAR_Y_MAX 상한. 슬라이더 범위도 여기서 심는다(HTML 의 min 이 음수면 죽은 구간이 된다). */
 (function _sYSliderRange(){ const el=document.getElementById('sY'); if(!el) return;
   el.min=0; el.max=CHAR_Y_MAX; el.step=0.01; el.title='캐릭터 높이'; })();
-document.getElementById('sY').addEventListener('input',e=>{selected.userY=clampCharY(e.target.value);fitModel(selected);saveSeatXf(selected);layoutSeats();});
+document.getElementById('sY').addEventListener('input',e=>{seatsMod.selected().userY=clampCharY(e.target.value);fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());layoutSeats();});
 /* 🚫 앞뒤(userZ)는 폐기 — 이 슬라이더를 움직여도 0 을 유지한다. 값을 되살리면 생성기·미리보기에는
    대응하는 조정 수단이 없어서 그 화면들과만 어긋난다(그게 폐기한 이유다). HTML 에서 이 슬라이더를
    지우는 편이 낫지만, 남아 있어도 사고가 나지 않게 여기서 막는다. */
-document.getElementById('sZ').addEventListener('input',e=>{selected.userZ=0;e.target.value=0;fitModel(selected);saveSeatXf(selected);layoutSeats();});
-document.getElementById('sRot').addEventListener('input',e=>{selected.userRot=+e.target.value;fitModel(selected);saveSeatXf(selected);});
+document.getElementById('sZ').addEventListener('input',e=>{seatsMod.selected().userZ=0;e.target.value=0;fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());layoutSeats();});
+document.getElementById('sRot').addEventListener('input',e=>{seatsMod.selected().userRot=+e.target.value;fitModel(seatsMod.selected());saveSeatXf(seatsMod.selected());});
 
 /* ============================================================ USER STATUS (활동 상태)
    A안 — 자동감지(focus/idle/sleep/pet)는 그대로 유지하고, 이 상태는 별도 축으로 동작:
@@ -1793,9 +1765,9 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   GAP_MAX: GAP_MAX,
   GAP_MIN: GAP_MIN,
   GAP_STEPS: GAP_STEPS,
-  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
+  MULTIPLAYER_SPACING: ()=>seatsMod.MULTIPLAYER_SPACING(),
   Presence: ()=>Presence,
-  SPACING: ()=>SPACING,
+  SPACING: ()=>seatsMod.SPACING(),
   _chatEsc: (...a)=>_chatEsc(...a),
   _moveModeJustToggled: ()=>_moveModeJustToggled,
   _updateRoomCountUI: (...a)=>roomEntryMod._updateRoomCountUI(...a),
@@ -1837,8 +1809,8 @@ const settingsMod = TwSettingsPanel.createSettingsPanel({
   toast: (...a)=>toast(...a),
   updateCameraOnly: (...a)=>seatCameraMod.updateCameraOnly(...a),
   wardrobeMod: ()=>wardrobeMod,
-  setMULTIPLAYER_SPACING: (v)=>{ MULTIPLAYER_SPACING = v; },
-  setSPACING: (v)=>{ SPACING = v; },
+  setMULTIPLAYER_SPACING: (v)=>{ seatsMod.setMULTIPLAYER_SPACING(v); },
+  setSPACING: (v)=>{ seatsMod.setSPACING(v); },
   setMoveModeJustToggled: (v)=>{ _moveModeJustToggled = v; },
   setChipHorizontal: (v)=>{ overheadMod.setChipHorizontal(v); },
   setCurSlot: (v)=>{ curSlot = v; },
@@ -6483,7 +6455,7 @@ function applyCharToSeat(seat,def){
     //     같은 charDef를 들고 있고 모델도 살아있을 때만 재계산.
     seatRefitMod.refitSeatAfterParts(seat, { wait: applyEquippedPartsToSeat(seat, def), layout: true, isCurrent: ()=>seat.charDef===def });   // fitModel 내부에서 리깅 파츠 xf도 다시 구움
     
-    if(selected===seat){ 
+    if(seatsMod.selected()===seat){ 
       document.getElementById('sScale').value=seat.userScale; 
       document.getElementById('sY').value=seat.userY;
       document.getElementById('sZ').value=seat.userZ; 
@@ -7537,8 +7509,8 @@ const deskPlaceMod = TwDeskPlace.createDeskPlace({
    ⚠️ 전역 이름을 크로미움 내장 전역과 겹치게 짓지 말 것(#103 Scheduler) — 이름이 겹치면 모듈 대신 내장 전역을 부른다. */
 const seatEqClampMod = TwSeatEqClamp.createSeatEqClamp({
   DESK_PART_ANCHOR_NAME: deskPlaceMod.DESK_PART_ANCHOR_NAME,
-  MULTIPLAYER_SPACING: ()=>MULTIPLAYER_SPACING,
-  SPACING: ()=>SPACING,
+  MULTIPLAYER_SPACING: ()=>seatsMod.MULTIPLAYER_SPACING(),
+  SPACING: ()=>seatsMod.SPACING(),
   seatHalfWidth: (...a)=>seatLayoutMod.seatHalfWidth(...a),
   seatEqMod: seatEqMod,
   seatSlot: ()=>seatSlot,
@@ -8261,7 +8233,7 @@ const clipped=!seat.isPlaceholder&&seat.mixer;
 // if(selected){selRing.position.x=lerp(selRing.position.x,selected.group.position.x,1-Math.pow(0.001,dt));selRing.visible=true;}
   /* state bar shows selected seat */
   runCost.since('seat', _tSeat);
-  if(selected){const st=seatState(selected,now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
+  if(seatsMod.selected()){const st=seatState(seatsMod.selected(),now);const sc=STATES[st]||STATES.idle;seatPanelMod.dot.style.background=sc.color;seatPanelMod.stateLabel.textContent=sc.label;}
 
   for(let i=floatersMod.floaters.length-1;i>=0;i--){const f=floatersMod.floaters[i];f.userData.life+=dt;const p=f.userData.life/f.userData.dur;
     f.position.y+=dt*(f.userData.rise!=null?f.userData.rise:floatersMod.FLOATER_RISE);f.position.x+=f.userData.vx*dt;

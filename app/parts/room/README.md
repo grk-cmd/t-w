@@ -109,7 +109,7 @@ if(Presence.active()) Presence.setNoise('pencil');   // 방에 있을 때만 보
   function layoutSeats(){ seatLayoutMod.layoutSeatRow(); }   // 이름은 app.js 에 남긴다(아래 함정)
   ```
 - **내보내는 것**: `layoutSeatRow()` — 직접 부르지 말고 app.js 의 `layoutSeats()` 를 부른다(좌석이 늘거나 줄 때 · 책상 크기가 바뀔 때 · 창 크기가 바뀔 때).
-- **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 app.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다) · 책상 반폭 재기는 app.js `seatDeskHalfWidth` · 고정 규칙은 `seat-pin.js`.
+- **확장할 때 고칠 자리**: 줄 폭 하한 `ROW_SPAN_MIN` · 간격 값은 seats.js 의 `SPACING` · `MULTIPLAYER_SPACING`(설정 창이 바꾼다) · 책상 반폭 재기는 app.js `seatDeskHalfWidth` · 고정 규칙은 `seat-pin.js`.
 - **함정**
   - app.js 맨 아래 «데스크탑 창 크기» 가 `layoutSeats` 를 감싸 **다시 대입**한다(앱 FSD 32번). 그래서 본문 이름은 `layoutSeatRow` 이고 app.js 에 `layoutSeats` 를 남긴다 — 모듈 안에서 `layoutSeatRow` 를 직접 부르면 창 크기 맞춤이 빠진다.
   - `seats` 배열의 순서 · 내용은 안 바꾼다(좌석 탭 · 슬롯 드래그가 인덱스를 쓴다). 올라탄 좌석은 계산에서만 뺀다.
@@ -261,3 +261,14 @@ overheadMod.setSeatMenu((...a)=>seatMenuMod._seatCtxMenu(...a));   // 이름표 
   - `DEFAULT_DESK_OVERRIDE_ID`(`__default_desk__`) · `NO_DESK_ID`(`__no_desk__`)는 `deskCatalogId` 로 **저장되는 값**이다 — 글자를 바꾸면 옛 앱 · 방 서버가 못 읽는다.
   - 상판 이름 `deskTop` · `deskAnchor` 는 다른 곳(책상 크기 · 소품 장착)이 이름으로 찾는다.
   - 검사: `checks/sim-desk-build.js`(진짜 three 로 상판 · 다리 · 소품 · 대신 몸 · 연결 · 깨 보기).
+
+## seats.js — 🪑 좌석 목록 · 만들기 · 지우기 · 고른 좌석 · 간격
+
+- **책임**: `seats` 배열(좌석 객체의 단 하나의 목록) · `createSeat`(책상 + 대신 몸 + 앵커로 좌석 하나를 만들어 씬에 올리고 줄 배치) · `removeSeat` · 고른 좌석(`selected`) · 좌석 간격 솔로 · 멀티(`SPACING` · `MULTIPLAYER_SPACING` — 설정 › 캐릭터 슬라이더가 정하고 localStorage `tw.gapSolo` · `tw.gapMulti` 에 저장). 자리 셈은 `seat-layout.js`. 앱 FSD 분리 M6 — app.js SEATS 구역 머리를 글 그대로 옮겼다.
+- **만드는 법**: `TwSeats.createSeats({ CHAR_Z, buildDesk, buildPlaceholder, scene })` 뒤 `seatsMod.attach({ layoutSeats, selectSeat, renderSeatTabs })` — 줄 배치 · 좌석 탭 · 좌석 고르기는 위층(seat-layout · seat-panel)이 하는 일이라 deps 로 부르면 모듈 순환이 된다(sim-dep-cycles). app.js 가 seatPanelMod 를 만든 뒤 알림만 걸고, 이 모듈은 그것만 부른다(`createSeat` · `removeSeat` 보다 먼저). app.js 는 `seats` · `GAP_MIN` · `GAP_MAX` · `GAP_STEPS` · `saveGap` · `createSeat` 를 같은 이름 const 로 받는다.
+- **내보내는 것**: 위 여섯 + `removeSeat` + 다시 대입되는 셋의 읽는 · 쓰는 함수(`selected()` / `setSelected(v)` · `SPACING()` / `setSPACING(v)` · `MULTIPLAYER_SPACING()` / `setMULTIPLAYER_SPACING(v)`) — app.js 는 값으로 복사하지 않고 `seatsMod.selected()` 로 읽는다.
+- **함정**
+  - 간격 저장 키는 바꾸지 말 것(저장된 값이 사라진다). 최소 -0.3 은 책상 GLB 박스가 보이는 판보다 넓어서 «끝끼리 0» 이어도 벌어져 보이기 때문이다.
+  - `removeSeat` 는 한 칸만 남으면 아무것도 안 한다. 고른 좌석을 지우면 바로 앞(`max(0, i-1)`) 좌석을 고른다.
+  - 상판 재질은 좌석마다 복제한다(책상 색을 좌석별로 바꾸려고).
+  - 검사: `checks/sim-seats.js`(진짜 three · desk-build 로 좌석 만들기 · 지우기 · 간격 읽기 쓰기 · 깨 보기).
