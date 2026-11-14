@@ -182,6 +182,7 @@ async function judge(S){
         _mhHomeFromServer: (...x) => st._mhHomeFromServer(...x), _mhViewingDisplayName: (...x) => st._mhViewingDisplayName(...x),
         setMyHomeData: (v) => st.setMyHomeData(v), setMhViewingUserId: (v) => st.setMhViewingUserId(v), setMhViewingName: (v) => st.setMhViewingName(v),
         refreshFriendProfile: refresh,
+        friendReqBtn: { refresh(){} },   // 🙋 이름 옆 [친구 신청] — 이 검사는 이름 · 다시 그리기만 본다(단추는 sim-friend-req-btn)
       });
       await mod.openFriendHomeView((opts && opts.fid) || 'f1', opts && opts.hint);
       await flush(); await flush();
